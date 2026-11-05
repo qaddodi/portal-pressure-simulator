@@ -62,7 +62,7 @@ test('label-gl follows a label\'s own animations, hovers, focus and theme change
   assert.match(src, /const hold = \(ev, ms = 700\) => \{ const g = labelOf\(ev\.target\); if \(g\) \{ keepAnims\(g, true\);/);
   assert.doesNotMatch(src, /labeltrack=0\\b/);
   // (Styles are kept by what decides them and read in a task after the frame; the eases are followed meanwhile.)
-  assert.match(src, /try \{ d = given \|\| \(lk != null \? lookStyles\.describe\(g, lk, lookSrc, ringBoxOf\) : describeBlock\(g, styleOf, ringBoxOf\)\); \}/);   // (a label of a kept look: its styles as kept, L3 P3)
+  assert.match(src, /try \{ d = given \|\| \(lk != null \? lookStyles\.describe\(dg, lk, lookSrc, ringBoxOf, geo, g\) : describeBlock\(dg, styleOf, ringBoxOf, geo, g\)\); \}/);   // (a label of a kept look: its styles as kept, L3 P3; one holding only its name read from its look's sample, P10)
   assert.match(src, /describeMark\(el, styleOf\)/);
   assert.match(src, /if \(!fillT\) fillT = setTimeout\(fillStyles, 0\);/);
   const fn = src.slice(src.indexOf('function styleOf('), src.indexOf('function fillStyles('));

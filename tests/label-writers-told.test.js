@@ -86,7 +86,7 @@ test('sel, a slide\'s term tone and its unlit, the words and the explained label
   R.items.A.lines = [[{ t: 'Portal v.', size: 12, weight: 500, cls: 'lb-name' }]];
   R.lay(); await R.frames(16);
   const s4 = R.shot();
-  assert.equal(R.pool.get('n:PV').g.textContent, 'Portal v.');
+  assert.equal(R.pool.get('n:PV').g.querySelector('text').getAttribute('aria-label'), 'Portal v.');   // (drawn by label-gl: the label holds only its name, L3 P10)
   assert.notEqual(s4['n:PV'].pic, s3['n:PV'].pic, 'new words: a new picture');
   assert.equal(s4['n:SMV'].pic, s3['n:SMV'].pic);
 

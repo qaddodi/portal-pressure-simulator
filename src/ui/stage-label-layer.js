@@ -3,6 +3,7 @@
 import { caught } from './caught.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { HOVER_LINK, labelTarget } from './hover-link.js';
+import { createSamples, kidEl, kidSpec, leanKids, leanRest, leanWords, textX } from './label-lean.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { sinceSource } from './since-ref.js';
@@ -211,15 +212,60 @@ export function createLabelLayer(st, live) {
     const unlit = !tone && termsLit() && !/\b(focus|fx-step)\b/.test(it.cls);
     if (unlit !== !!b.unlit) { b.unlit = unlit; if (unlit) unlitKeys.add(it.key); else unlitKeys.delete(it.key); b.g.classList.toggle('unlit', unlit); ch = true; for (const el of gLeaders.querySelectorAll(`[data-k="${it.key}"]`)) { el.classList.toggle('unlit', unlit); look(el); } }
     if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); ch = true; }
-    let i = 0;
-    for (const line of it.lines) for (const r of line) {
-      const sp = b.spans[i++];
-      putText(sp, r.t);
-      if (sp.getAttribute('class') !== (r.cls || '')) { sp.setAttribute('class', r.cls || ''); ch = true; }
-      if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; late('fill', sp, sp._fill); }
+    b.it = it;   // (the newest item it was laid out from: what its pieces are made again from when label-gl asks, svgWant)
+    if (b.lean) {
+      // (Only its name in the page: its words go on its record, which label-gl draws them from; a run's class or colour is in its look id.)
+      if (leanWords(b, it, setA)) ch = true;
+    } else {
+      let i = 0;
+      for (const line of it.lines) for (const r of line) {
+        const sp = b.spans[i++];
+        putText(sp, r.t);
+        if (sp.getAttribute('class') !== (r.cls || '')) { sp.setAttribute('class', r.cls || ''); ch = true; }
+        if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; late('fill', sp, sp._fill); }
+      }
     }
     blockRest(b, it, ch);
   }
+  // ── L3 P10: a label label-gl draws holds only its name (label-lean.js) ──
+  // The full SVG build is the one made while label-gl does not draw the labels (none, its context lost, the labels given back to the SVG),
+  // and for a label it cannot draw (svgWant).
+  const spec = (it) => kidSpec(it, LINE_H, fontPx, live.labelK);
+  const leanNow = (b) => { const lg = live.labelGL; return !!lg && lg.canLean === true && !b.full; };
+  // (The figure moving under the labels: a hand's pan or pinch, a glide, a drift, a card's zoom, a camera move. stage-labels.js reads the same.)
+  const moving = () => !!(live.gestureOn?.() || live.vtGliding || live.drifting || live.zoomBase || live.camMove);
+  const samples = createSamples({ late, lateQueue, pool, told, spec });
+  // (label-gl.js asks: this label needs its full pieces (need), or no longer does; g null, every label. Made again between frames, or in
+  // the asking event when `now`, a lost context: the SVG shows every label at once.)
+  const rebuildSet = new Set();
+  let rebuildAsk = 0;
+  function rebuildRun(now = false) {
+    rebuildAsk = 0;
+    for (const b of rebuildSet) {
+      const it = b.it, seen = b.seen;
+      if (!it || !b.g.isConnected || leanNow(b) === !!b.lean) continue;
+      blockKids(b, it, blockSig(it));
+      renderBlock(it);
+      b.seen = seen;   // (made again, not laid out again: a label fading out keeps fading)
+      // (In the lost context's event its words go in with its pieces, not between frames after them (putText): the SVG shows it whole at once.)
+      if (now && b.spans) { let i = 0; for (const line of it.lines) for (const r of line) { const sp = b.spans[i++], t = r.t == null ? '' : String(r.t); if (sp && sp.textContent !== t) sp.textContent = t; } }
+    }
+    rebuildSet.clear();
+    lateQueue.now();
+    live.labelGlSync?.();
+  }
+  function svgWant(g, need, now) {
+    if (!g) { for (const b of pool.values()) { if (need) b.full = true; if (!!b.lean === need) rebuildSet.add(b); } }
+    else {
+      const b = pool.get(g.getAttribute('data-key') || '');
+      if (!b || b.g !== g) return;
+      b.full = need;
+      if (leanNow(b) !== !!b.lean) rebuildSet.add(b);
+    }
+    if (!rebuildSet.size) return;
+    if (now) rebuildRun(true); else if (!rebuildAsk) rebuildAsk = restPass(rebuildRun);   // (a pass asked before and run after this finds nothing left)
+  }
+  live.labelGL?.onSvg?.(svgWant);
   // Text and pressure colors change far more often than label structure.
   // Retain the text nodes (and keyboard focus) across numeric updates. (A run's class is its colour, as its fill is: a change
   // badge turning from + to − swaps its class on the same tspan rather than building the label again: 16 Oct.)
@@ -229,32 +275,24 @@ export function createLabelLayer(st, live) {
   function blockKids(b, it, sig) {
     {
       b.sig = sig;
-      const kids = [];
-      b.spans = [];
-      b.textLines = [];
-      // (A label's pill has 6 px corners, the cards' tile family; only a numbered marker, a round chip, takes its full height: it.chip.)
+      const ks = spec(it);
       let swEl = null, bgEl = null;
-      if (it.bg) kids.push(bgEl = s('rect', { class: 'lb-bg', x: -it.padX, y: -it.padY, width: it.w + 2 * it.padX, height: it.h + 2 * it.padY, rx: it.chip ? (it.h + 2 * it.padY) / 2 : 6 }));
-      // A clickable caption is a larger target than its small letters.
-      if (it.hit) kids.push(s('rect', { class: 'lb-hit', x: -10, y: -8, width: it.w + 20, height: it.h + 16, rx: 8 }));
-      let y = 0;
-      const tx = it.swatch ? (it.align === 'end' ? it.w - 7 : 7) : 0;
-      for (const line of it.lines) {
-        const lh = LINE_H(line);
-        const t = s('text', { x: it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : tx, y: y + lh * 0.78, 'text-anchor': it.align === 'end' ? 'end' : it.align === 'middle' ? 'middle' : 'start' });
-        b.textLines.push(t);
-        line.forEach((r, i) => {
-          const sp = s('tspan', { class: r.cls || '', 'font-size': +fontPx(r.size).toFixed(2), 'font-weight': r.weight || 500 });
-          if (i) sp.setAttribute('dx', +((r.gap ?? 3) * live.labelK).toFixed(2));
-          if (r.track) sp.setAttribute('letter-spacing', `${r.track}em`);
-          b.spans.push(sp);
-          t.append(sp);
-        });
-        kids.push(t);
-        y += lh;
+      if (leanNow(b)) {
+        // (Drawn by label-gl: its name and a pointer target; its pieces are numbers on its record, L3 P10.)
+        b.lean = true; b.spans = null; b.textLines = null;
+        late('kids', b.g, leanKids(b, ks, it));
+      } else {
+        b.lean = false; b.geo = null; b.pick = null; b.ax = null;
+        const kids = ks.map(kidEl);
+        b.spans = [];
+        b.textLines = [];
+        for (const el of kids) {
+          const c = el.getAttribute('class');
+          if (c === 'lb-bg') bgEl = el; else if (c === 'lb-sw') swEl = el;
+          else if (el.tagName === 'text') { b.textLines.push(el); for (const sp of el.children) b.spans.push(sp); }
+        }
+        late('kids', b.g, kids);
       }
-      if (it.swatch) kids.unshift(swEl = s('rect', { class: 'lb-sw', x: it.align === 'end' ? it.w - 3 : 0, y: 1, width: 3, height: Math.max(8, it.h - 2), rx: 1.5 }));
-      late('kids', b.g, kids);
       // (A slide's mark that stays but takes new words fades the new words in, never swaps them in at once.)
       // (A live callout's words keep their shape as its numbers tick: it.fxw, so only a new slide's words fade in.)
       const words = it.fxw ?? (/^focus/.test(it.key) ? it.lines.map((line) => line.map((r) => r.t).join('')).join('\n') : null);
@@ -285,8 +323,11 @@ export function createLabelLayer(st, live) {
     return (lh1 >>> 0) * 2097152 + ((lh2 >>> 0) & 0x1fffff);
   }
   function blockRest(b, it, ch = false) {
-    for (const text of b.textLines) if (setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0)) ch = true;
-    if (b.bg) { if (setA(b.bg, 'width', it.w + 2 * it.padX)) ch = true; if (setA(b.bg, 'height', it.h + 2 * it.padY)) ch = true; }
+    if (b.lean) { if (leanRest(b, it, setA)) ch = true; }   // (the same numbers the full build writes below, on its record: label-lean.js)
+    else {
+      for (const text of b.textLines) if (setA(text, 'x', textX(it))) ch = true;
+      if (b.bg) { if (setA(b.bg, 'width', it.w + 2 * it.padX)) ch = true; if (setA(b.bg, 'height', it.h + 2 * it.padY)) ch = true; }
+    }
     if (it.label) setA(b.g, 'aria-label', it.label);
     if (b.sw) { if (setA(b.sw, 'fill', it.swatch)) ch = true; if (setA(b.sw, 'x', it.align === 'end' ? it.w - 3 : 0)) ch = true; }
     const gc = b.g.classList;
@@ -294,7 +335,9 @@ export function createLabelLayer(st, live) {
     if (gc.contains('lb-off') !== !!it.hide) { gc.toggle('lb-off', !!it.hide); ch = true; }
     labelStop(b, !!it.hide);
     // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
-    if (it.x !== b.tx || it.y !== b.ty || it.w !== b.tw || !!it.rot !== b.tr) {
+    // (One label-gl draws (lean) shows nothing of its own: its transform places only its pointer target and focus, and is written when a
+    // layout lands at rest, never on each frame of a pan or a pinch, L3 P10.)
+    if ((it.x !== b.tx || it.y !== b.ty || it.w !== b.tw || !!it.rot !== b.tr) && !(b.lean && moving())) {
       b.tx = it.x; b.ty = it.y; b.tw = it.w; b.tr = !!it.rot;
       setA(b.g, 'transform', it.rot ? `translate(${it.x.toFixed(1)} ${(it.y + it.w).toFixed(1)}) rotate(-90)` : `translate(${it.x.toFixed(1)} ${it.y.toFixed(1)})`);
     }
@@ -307,7 +350,17 @@ export function createLabelLayer(st, live) {
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
     // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera, so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (zone titles, lanes, the scan, the stage) and not between views. An organ's name is a region name (leader rule L1): its point is where it is drawn, so it never stands off its own anchor.)
     const gw = it.aGw;
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null, want: leadBits.get(it.key) | 0, look: lookOf(b, it) };
+    const look = lookOf(b, it);
+    // (A lean label's look id changing is a change of its pieces' classes or colours, which its record does not carry: label-gl reads it again.
+    // Its sample, made between frames the first time the look is wanted; till then label-gl keeps the picture it has.)
+    let sample = null;
+    if (b.lean) {
+      if (look !== b.lookWas) ch = true;
+      sample = samples.get(look, it, b);
+    }
+    b.lookWas = look;
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null, want: leadBits.get(it.key) | 0, look,
+      geo: b.lean ? b.geo : null, sample, full: !b.lean };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), bh = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || bh !== b.bch) {

@@ -98,7 +98,7 @@ test('the look is all behind #labels.hovlink, on a hovering pointer, its fades o
   const mine = rules.filter(([sel]) => /hov-link|hovlink/.test(sel));
   assert.ok(mine.length >= 5, 'the lifted name, unit and leader, and their eases');
   for (const [sel] of mine) assert.match(sel, /#labels\.hovlink/, `${sel} sits behind the switch's class`);
-  const lift = rules.find(([sel]) => /\.lb\.hov-link:not\(\.sel\):not\(:hover\) \.lb-name/.test(sel));
+  const lift = rules.find(([sel]) => /\.lb\.hov-link:not\(\.sel\):not\(:hover\)(?::not\(\.ui-hover\))? \.lb-name/.test(sel));
   assert.match(lift[1], /fill: var\(--text\)/, 'the name goes to full ink');
   const unit = rules.find(([sel]) => /\.lb\.hov-link \.lb-unit/.test(sel));
   assert.match(unit[1], /fill: var\(--text-2\)/);

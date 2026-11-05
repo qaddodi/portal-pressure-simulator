@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const stage = stageSource();
+const stage = stageSource() + readFileSync(new URL('../src/ui/label-lean.js', import.meta.url), 'utf8');   // (a label's pieces are listed in label-lean.js kidSpec, L3 P10)
 const rule = (sel) => css.split('\n').find((l) => l.startsWith(sel));
 
 test('the base rule of a label pill has a fill and no stroke', () => {
@@ -19,7 +19,7 @@ test('the base rule of a label pill has a fill and no stroke', () => {
 
 test('every pill that does take an outline gives its own stroke and its own width', () => {
   // The note mark, the selected or focused name (stroke widths stated with them, not borrowed from the base), the liver card.
-  assert.match(css, /\.lb\.node:focus-visible \.lb-bg, \.lb\.node\.sel\.inline \.lb-bg \{ stroke: var\(--accent\); stroke-width: 1\.5; \}/);
+  assert.match(css, /\.lb\.node:is\(:focus-visible, \.ui-fv\) \.lb-bg, \.lb\.node\.sel\.inline \.lb-bg \{ stroke: var\(--accent\); stroke-width: 1\.5; \}/);
   assert.match(css, /\.lb\.focus\.k-note \.lb-bg \{ fill: var\(--surface\); stroke: var\(--text-2\); stroke-width: 1; \}/);
   assert.match(css, /\.lb\.focus\.ring \.lb-bg \{ stroke: var\(--stage-bg\); stroke-width: 4px; paint-order: stroke; \}/);
   assert.match(css, /#labels \.lb\.module \.lb-bg \{ fill: transparent; stroke: var\(--module-line\); \}/);
@@ -33,7 +33,7 @@ test('no rule gives a label pill the hairline back', () => {
 });
 
 test('a pill has 6 px corners; only a numbered marker is a round chip, and the FibroScan callout is a pill like the rest', () => {
-  assert.match(stage, /rx: it\.chip \? \(it\.h \+ 2 \* it\.padY\) \/ 2 : 6 \}\)\);/);
+  assert.match(stage, /rx: it\.chip \? \(it\.h \+ 2 \* it\.padY\) \/ 2 : 6 \} \}\);/);
   assert.doesNotMatch(stage, /\bpill: true\b/, 'nothing asks for a capsule any more');
   const scan = stage.match(/function scanItem\(\) \{[\s\S]*?\n {2}\}/)[0];
   assert.match(scan, /bg: true, padX: 8, padY: 3/);
