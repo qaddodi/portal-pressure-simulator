@@ -4290,8 +4290,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         const capT = roomT > 0 ? (tuck === 'none' ? `${roomT}px` : `min(${tuck}, ${roomT}px)`) : tuck;
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (roomO > 0) dd.style.maxHeight = capT === 'none' ? `${roomO}px` : `min(calc(${capT} + var(--pz-grow, 0px)), ${roomO}px)`;
+        // (A picture's room, --pz-ph: 0.6 of the tucked card's own height cap, worked out from the card's box and its cap here, no content measured.
+        // The stylesheet gives each picture min(its height times the fit, this, never under the picture's own least), so none is taller than the card holds.)
+        const capPx = Math.min(roomT > 0 ? roomT : Infinity, ...[...tuck.matchAll(/([\d.]+)(%|px)/g)].map((m) => (m[2] === '%' ? m[1] / 100 * wr.height / k : +m[1])));
+        if (Number.isFinite(capPx)) dd.style.setProperty('--pz-ph', `${Math.floor(capPx * 0.6)}px`); else dd.style.removeProperty('--pz-ph');
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      } else if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; }
+      } else { dd.style.removeProperty('--pz-ph'); if (room > 0) dd.style.maxHeight = cs.maxHeight === 'none' ? `${room}px` : `min(${cs.maxHeight}, ${room}px)`; } }
     // (A wider screen: a data card at the top right ends 8 px above the colour key standing on the nav pill (a phone held sideways had covered it).)
     if (!p && !below && ui.fk.dataset.empty == null && !ui.bar.hidden) {
       const f = ui.fk, was = f.hidden; f.hidden = false; const q = readBox(f); f.hidden = was;

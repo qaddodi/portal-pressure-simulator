@@ -2858,7 +2858,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-mon { margin-top: 8px; }
 .pz.stack .pz-text:has(.pz-mon) { max-height: 50%; }
 .pz.stack .pz-mon .hvpg-box { height: 136px; }
-.pz.stack .pz-data .pz-mon .hvpg-box { height: calc(clamp(180px, 50cqi, 230px) * var(--pz-fit, 1)); }   /* (the catheter tracing on the data card: a real height at the card's full width; 136 px zoomed by the fit was a strip) */
+.pz.stack .pz-data .pz-mon .hvpg-box { height: min(calc(clamp(180px, 50cqi, 230px) * var(--pz-fit, 1)), max(120px, var(--pz-ph, 9999px))); }   /* (the catheter tracing on the data card: a real height at the card's full width; 136 px zoomed by the fit was a strip) */
 .pz-talk svg { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; transition: opacity var(--d-surface) var(--ease); }
 .pz-talk svg.in { opacity: 0; }
 /* Portal pressure and flow over a time-lapse (flow-time.js): two scales, the lines drawing as it plays. */
@@ -5784,7 +5784,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    are drawn at 12 px or more, and the fit shortens the picture's height.) */
 .pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"]) { --tz: 1; zoom: 1; }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: calc(128px * var(--pz-fit, 1) / var(--tz, 1) + var(--dop-free, 0px)); }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: calc(clamp(200px, 52cqi, 250px) * var(--pz-fit, 1)); }
+.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: min(calc(clamp(200px, 52cqi, 250px) * var(--pz-fit, 1)), max(140px, var(--pz-ph, 9999px))); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(56cqi, 150px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { max-height: min(52cqi, 200px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: calc(168px * var(--pz-fit, 1) / var(--tz, 1)); }
@@ -7021,8 +7021,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* V4 parameter curve (tool-curve.js) and V5 cause bars (tool-causes.js): charts in the data card, drawn in pixels at the
    card's small type (never under 12 px on the screen), a fixed height from the card's fit, so the card never resizes for them. */
 .pz-curve, .pz-cbars { display: grid; font-size: var(--pz-sm, var(--pz-psm, 12px)); min-height: 9em; }
-.pz-curve { height: calc(var(--cv-h, max(56cqi, 15em)) * var(--pz-fit, 1)); }
-.pz-cbars { height: calc(var(--cs-h, max(56cqi, 22em)) * var(--pz-fit, 1)); }
+.pz-curve { height: min(calc(var(--cv-h, max(56cqi, 15em)) * var(--pz-fit, 1)), max(150px, var(--pz-ph, 9999px))); }
+.pz-cbars { height: min(calc(var(--cs-h, max(56cqi, 22em)) * var(--pz-fit, 1)), max(160px, var(--pz-ph, 9999px))); }
 .pz.stack .pz-curve { --cv-h: clamp(190px, 64cqi, 290px); }   /* (a plot at least 0.6 of the card's width tall: 54cqi capped at 190 px left a strip) */   /* (a narrow phone (320 px) had a 152 px chart and a plot of 41 to 66 px, Treatment 10's Carvedilol and Propranolol almost one line: it keeps 175 px (180 put "Response" on "HVPG 10"); from about a 350 px phone up, 54cqi already passes it and nothing changes) */
 .pz.stack .pz-cbars { --cs-h: clamp(214px, 66cqi, 300px); }
 /* (An iPad held upright stacks its cards too, but has room: the charts take more of its height.) */
@@ -7064,10 +7064,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pze-plot { position: relative; width: 100%; height: calc(44 * var(--pzh)); min-height: 240px; font-size: var(--s-cap); }   /* (a summary's plot is an illustration: lower than the 52 it was, so its card stands smaller on every side, Mohammad 29 Oct) */
 .pz.stack .pze-plot { height: auto; aspect-ratio: 1.15; min-height: 0; }
 .pze-plot.pze-incard { height: clamp(200px, calc(30 * var(--pzh)), 360px); min-height: 0; font-size: var(--ch-cap, var(--s-cap)); }
-.pz.stack .pze-plot.pze-incard { height: calc(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1)); aspect-ratio: auto; }
+.pz.stack .pze-plot.pze-incard { height: min(calc(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1)), max(150px, var(--pz-ph, 9999px))); aspect-ratio: auto; }
 .pz.low .pze-plot.pze-incard { height: 132px; }
 .pze-plot.pze-incard.pze-ownwords { height: calc(clamp(200px, calc(30 * var(--pzh)), 360px) + 1.3em + 6px); }   /* (a plane whose zones name themselves has no key under it in the card: the plot takes the key's room) */
-.pz.stack .pze-plot.pze-incard.pze-ownwords { height: calc(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1) + 1.3em + 6px); }
+.pz.stack .pze-plot.pze-incard.pze-ownwords { height: calc(min(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1), max(150px, var(--pz-ph, 9999px))) + 1.3em + 6px); }
 .pz.low .pze-plot.pze-incard.pze-ownwords { height: calc(132px + 1.3em + 6px); }
 .pze-plot :is(svg, .ic) { position: absolute; inset: 0; display: block; overflow: visible; }
 /* (The gray zone, "CSPH unclear", in a stronger amber than the other zones' tints, so it reads as its own band in both themes.) */
@@ -7452,3 +7452,5 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .fps-counter { position: fixed; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 9999; pointer-events: none; display: flex; align-items: baseline; gap: 3px; font: 600 12px/1.2 Inter, system-ui, sans-serif; color: var(--text, white); }
 .fps-counter .fps-num { min-width: 2.2em; text-align: right; }
 .fps-counter .fps-unit { font-size: 12px; font-weight: 500; opacity: .7; }
+
+/* (Card sizing, short phones: --pz-ph, set by presenter.js layout on the stacked data card, is the share of the card's own height cap a picture may take, so a picture is never taller than the card can hold; each picture's height above is min(its own px height times the fit, that room, never under the picture's own minimum).) */
