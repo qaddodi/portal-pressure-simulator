@@ -108,10 +108,10 @@ void main() {
   vec2 px = vec2(gl_FragCoord.x, uView.y * uDpr - gl_FragCoord.y) / uDpr;
   float d = length(px - uC.xy);
   float a = uCol.a * smoothstep(uC.z * 0.8, uC.z * 1.55, d);
-  // (a thin ring at the window's edge and a dot at its centre, in the pen's colour, so the pointer reads as a pointer on any slide)
+  // (a thin ring at the window's edge, in the pen's colour, so the pointer reads as a pointer on any slide)
   float ring = (1.0 - smoothstep(0.75, 1.75, abs(d - uC.z * 0.8))) * 0.85;
-  float dot_ = 1.0 - smoothstep(4.6, 5.2, d);   // (a solid dot, opaque to its edge)
-  float k = max(ring, dot_) * uPen.a;
+  // (no solid dot in the middle (Mohammad, 5 Nov): the glow alone marks the centre)
+  float k = ring * uPen.a;
   // (a soft glow round the dot, additive in the pen's colour: premultiplied with less alpha than colour, so it brightens and never darkens)
   float gr = uC.z * 0.5;
   float glw = exp(-(d * d) / (gr * gr * 0.5)) * 0.75 * uPen.a;
