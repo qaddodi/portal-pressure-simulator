@@ -711,6 +711,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     OFF[0] = s.x - s.pax; OFF[1] = s.y - s.pay;
     return 1;
   }
+  // (Where a pinned label stands this frame, device px, into PD, from PIN and OFF: its point rounded once to a whole device pixel [0, 1], and its
+  // picture's corner [2, 3] at its whole-pixel offset from that same pixel. The label, its dot and its leader's point end all read these, so on
+  // a slow pan they step together and never by half a pixel against each other. 5 Nov 2026 review #15.)
+  const PD = [0, 0, 0, 0];
+  function pinDev(st) {
+    const px = Math.round(PIN[0] * dpr), py = Math.round(PIN[1] * dpr);
+    PD[0] = px; PD[1] = py; PD[2] = px + Math.round(OFF[0] * dpr) + st.ox; PD[3] = py + Math.round(OFF[1] * dpr) + st.oy;
+  }
   // The view change (B2): the labels standing as it begins are kept as ghosts, frozen (their pictures, their pins and offsets, their leaders'
   // and dots' looks), and ride the morphing figure under the pin of their world anchors, drawn at xfOld; the new view's labels, already
   // solved, ride it too at xfNew. Both opacities are the change's own progress (1 - 2t and 2t - 1), never a timer. Once it lands the ghosts'
@@ -1399,9 +1407,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const gh = ghosts[i], q = gh.s, st = gh.st;
         gh.on = false;
         if (!(xfOld * gh.a0 * st.opacity > 0.001) || !st.slot || !pinOf(q) || PIN_HID) continue;
-        pinOff(q);
-        const x = Math.round((PIN[0] + OFF[0]) * dpr) + st.ox, y = Math.round((PIN[1] + OFF[1]) * dpr) + st.oy;
-        gh.on = true; gh.px = PIN[0]; gh.py = PIN[1]; gh.lx = x; gh.ly = y;
+        pinOff(q); pinDev(st);
+        const x = PD[2], y = PD[3];
+        gh.on = true; gh.px = PD[0]; gh.py = PD[1]; gh.lx = x; gh.ly = y;   // (device px)
         if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
         takeItem(st.slot.page, x, y, st.w, st.h, st.slot.x, st.slot.y, Math.min(1, st.opacity) * xfOld * gh.a0, st);
         boxAt(x, y, x + st.w, y + st.h);
@@ -1458,7 +1466,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         st.pox = ox; st.poy = oy; st.pin = true; st.ppx = PIN[0]; st.ppy = PIN[1];
         let pl = pinLast.get(g); if (!pl) pinLast.set(g, pl = new Float64Array(2));   // alloc-rare: one per pinned label
         pl[0] = ox; pl[1] = oy;
-        x = Math.round((PIN[0] + ox) * dpr) + st.ox; y = Math.round((PIN[1] + oy) * dpr) + st.oy;
+        pinDev(st); x = PD[2]; y = PD[3];
       } else if (rideM) {
         // (Riding: its centre carried by the camera's move since it was laid out, on a whole device pixel, and kept inside the stage: a
         // label carried past the edge by the zoom stood half off the screen with its leader coming from beyond it, and glided in from there.)
@@ -1805,9 +1813,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!st || st.mode !== 'gl' || !(st.opacity > 0.001)) continue;
       const want = wantOf(s, key), lk = pinLooks.get(key);
       let a = Math.min(1, st.opacity) * xfNew;
-      const px = PIN[0] * dpr, py = PIN[1] * dpr;
-      pinOff(s, now);
-      const lx = Math.round((PIN[0] + OFF[0]) * dpr) + st.ox, ly = Math.round((PIN[1] + OFF[1]) * dpr) + st.oy;
+      pinOff(s, now); pinDev(st);
+      const px = PD[0], py = PD[1], lx = PD[2], ly = PD[3];   // (the point and the label as drawIn put them: one rounding for the three)
       let rec = pinDrawn.get(key);
       if (!rec) pinDrawn.set(key, rec = { seq: -1, hasLine: false, hasDot: false, line: new Float64Array(4), dot: new Float64Array(2), a: 0 });   // alloc-rare: one record per pinned label key
       rec.seq = frameSeq; rec.hasLine = false; rec.hasDot = false; rec.a = a;
@@ -1829,7 +1836,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!gh.on) continue;
       const a = Math.min(1, st.opacity) * xfOld * gh.a0;
       if (!(a > 0.001)) continue;
-      const px = gh.px * dpr, py = gh.py * dpr, lx = gh.lx, ly = gh.ly;
+      const px = gh.px, py = gh.py, lx = gh.lx, ly = gh.ly;
       if ((gh.want & 4) && leaderGeom(px, py, lx, ly, st.w, st.h, gh.want & 1 ? lk?.dotR ?? 2.4 : 0)) {
         pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a);
       }
