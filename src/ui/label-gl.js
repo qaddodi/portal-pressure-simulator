@@ -735,8 +735,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const pinOf = (s) => {
     PIN_HID = false;
     if (!pinAt || !s || s.pid == null) return null;
-    if (s.pwv != null) return pinWorldAt && pinWorldAt(s.pwx, s.pwy, s.pwv, PIN, s) ? s : null;
-    return pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null;
+    // (A point the figure cannot give this frame (a station of a slide gone by, such as the TIPS stent's on a healthy liver) is no pin: it must
+    // not throw, or the rest of the frame's labels lose their leaders and dots. Slide 51 on the iPhone, 5 Nov 2026: the stent slide's reading,
+    // kept in the pool after it faded, threw here every frame after the slide before it, and no step number got its leader or dot.)
+    try {
+      if (s.pwv != null) return pinWorldAt && pinWorldAt(s.pwx, s.pwy, s.pwv, PIN, s) ? s : null;
+      return pinAt(s.pid, PIN, s.pmid, s.pau) ? s : null;
+    } catch { return null; }
   };
   // (The offset a pinned label is drawn at this frame, CSS px, into OFF: its layout's, or part way there from where it was drawn while its
   // glide runs. Returns the glide's share, 1 once it is over or there is none. The marks and the label read the same.)
@@ -1766,6 +1771,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
               const cls = el.getAttribute('class') || '';
               if (isPath) pk.line = st; else if (cls.includes('halo')) { pk.halo = st; if (mg.ok) pk.haloR = mg.v[2]; } else { pk.dot = st; if (mg.ok) pk.dotR = mg.v[2]; }
               if (pinnedNow(pl0)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
+              // (Drawn at its label's own opacity, as drawPins draws the marks of a label with a picture: at full strength, a slide's step
+              // leaders flashed for a frame while their numbers, waiting for their pictures, were still held at 0 by their fade-in.)
+              const lst = sprites.get(pl0.g);
+              if (!lst || (lst.mode === 'gl' && lst.wait)) folA = 0; else if (lst.mode === 'gl') folA = Math.min(1, Math.max(0, lst.opacity ?? 1));   // (none yet, or waiting for its picture: not shown, so neither are its marks; one the SVG draws: its own look)
             }
             // (Every other mark is drawn from its geometry as of the layout the GPU was last handed (sync: mg.pv), as its label is, never a newer
             // one the page already holds: a layout run mid-ride (a ride key change in a card zoom) wrote its leaders before its labels came, and

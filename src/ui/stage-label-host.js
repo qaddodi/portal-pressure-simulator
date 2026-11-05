@@ -45,7 +45,10 @@ export function createLabelHost(st, live) {
   if (live.labelGL) live.labelGL.pinTo((id, out, mid, au) => {
     if (!live.CTM) refreshCTM();
     if (mid && au != null && au !== 0.5 && pinVesselAt(id, au)) { out[0] = PIN_P[0]; out[1] = PIN_P[1]; camOut(out, DIVEC, live.zoomM); return Number.isFinite(out[0]) && Number.isFinite(out[1]); }
-    const t = easeInOut(live.morph), a = labelAnchor(id, t);
+    // (A station with no point in this figure (NODE_POS has none, and its vessel is not shown: the TIPS stent on a liver without one) is not pinned.)
+    const t = easeInOut(live.morph);
+    let a;
+    try { a = labelAnchor(id, t); } catch { return false; }
     if (mid || !a.mid) { out[0] = a.ax; out[1] = a.ay; } else { const p = nodePos(id, t); worldToLocalInto(PIN_P, p[0], p[1]); out[0] = PIN_P[0]; out[1] = PIN_P[1]; }
     // (The dive's zoom and a card's zoom: the point is carried by the scene's cameras; the label's offset from it is not.)
     camOut(out, DIVEC, live.zoomM);

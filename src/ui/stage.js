@@ -2208,7 +2208,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The list is one of two kept arrays taken in turn: the labels' picture holds the last list it was given until the next, so the one it holds is never the one filled.)
   let labelGlA = [], labelGlB = [];
   // (Only a label laid out for the view shown now is handed to the GPU: a block the new view does not use keeps the place it had in the old one, and was drawn from it.)
-  const labelGlAdd = (b) => { if (b.pos && b.pos.view === morphTarget) labelGlA.push(b.pos); };
+  const labelGlAdd = (b) => { if (b.pos && b.pos.view === morphTarget && b.g.style.display !== 'none') labelGlA.push(b.pos); };   // (a label gone (display none) is not handed on: its point may be gone with its slide)
   const labelGlSync = () => { if (!labelGL || glSuppress) return;
     const t = labelGlA; labelGlA = labelGlB; labelGlB = t; labelGlA.length = 0; pool.forEach(labelGlAdd); labelGL.sync(labelGlA); };
   const { CIRCUIT_LABEL_K, LABEL_MAX, LABEL_MIN, TURN_DIR, deskK, deskMQ, textW } = createLabelText({ updateLabels }, live);
