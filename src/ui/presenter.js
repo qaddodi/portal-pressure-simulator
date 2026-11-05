@@ -3805,10 +3805,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // (A summary table on a wide screen, too wide or too tall for its card, also zooms only as far as its lettering stays 12 px at first,
       // the compact layout's rule, before it may go past that as a last resort rather than scroll: it never scrolls.)
       const tableFloor = !small && !lowFloor && !shortFloor && el === ui.panel && !ui.root.classList.contains('stack') && el.querySelector(':scope > .pz-table') ? textFloor(el) : 0;
-      const ln = small ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(readStyle(ln).fontSize) : 0;
-      const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : 0.5;
+      const ln = small || el === ui.text ? el.querySelector('.pz-line, p') : null, lb = ln ? parseFloat(readStyle(ln).fontSize) : 0;
+      const floor = lb > 12 ? Math.ceil(12 / lb * 1000) / 1000 : (el === ui.text ? 1 : 0.5);   // (the words on every device stop at 12 px on the screen, at the deck size)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      const mins = small ? [...new Set([floor, phone() ? floor : 0.5])] : [lowFloor || floor];
+      const mins = [lowFloor || floor];
       if (shortFloor > mins[0]) mins.unshift(shortFloor);   // (the compact layout's 12 px first; past it only as a last resort)
       else if (tableFloor > mins[0]) mins.unshift(tableFloor);
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
