@@ -72,16 +72,24 @@ void main() {
 
 // The labels' pictures sit in atlas pages and are drawn as one instanced batch: each instance is a box on the canvas (device px) and
 // the texel its picture starts at in the page. Instances blend in their order, which is the labels' painter order.
+// (Render-cost plan 2.2, ledger R11's open limit: a label's words' ink is the instance's, not the picture's. A picture painted for its
+// shape (inkSplit) holds two halves side by side in its slot: the label with its words' fills in black at their own alpha (the outlines,
+// pills and every other colour as the page has them), and at aT.w texels to the right the share each ink takes of each pixel, one ink
+// per colour channel. The pixel is the first half plus each share times its ink (aI0..aI2, straight rgb), which is what painting the
+// words in that ink gives, as source-over is linear in a source's colour. So lit, unlit, dim, a selection's or a term's colour is a
+// number per instance, and nothing is painted again.)
 const AVS = `#version 300 es
 in vec4 aR;           // the picture's box: left, top, width, height (device px, from the top left)
-in vec4 aT;           // its first texel in the page (x, y), its opacity, unused
+in vec4 aT;           // its first texel in the page (x, y), its opacity, its inks' shares' offset (texels to the right; 0: none)
+in vec4 aI0, aI1, aI2; // its words' inks (rgb, straight)
 uniform vec2 uView;
 flat out vec4 vR;
-flat out vec3 vT;
+flat out vec4 vT;
+flat out vec3 vI0, vI1, vI2;
 const vec2 Q[4] = vec2[4](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0), vec2(1.0, 1.0));
 void main() {
   vec2 p = aR.xy + Q[gl_VertexID] * aR.zw;
-  vR = aR; vT = aT.xyz;
+  vR = aR; vT = aT; vI0 = aI0.rgb; vI1 = aI1.rgb; vI2 = aI2.rgb;
   gl_Position = vec4(p.x / uView.x * 2.0 - 1.0, 1.0 - p.y / uView.y * 2.0, 0.0, 1.0);
 }`;
 const AFS = `#version 300 es
@@ -89,13 +97,17 @@ precision highp float;
 uniform sampler2D uT;
 uniform vec2 uView;
 flat in vec4 vR;
-flat in vec3 vT;
+flat in vec4 vT;
+flat in vec3 vI0, vI1, vI2;
 out vec4 o;
 void main() {
   ivec2 q = ivec2(floor(vec2(gl_FragCoord.x, uView.y - gl_FragCoord.y) - vR.xy)) + ivec2(vT.xy);
-  o = texelFetch(uT, q, 0) * vT.z;
+  vec4 c = texelFetch(uT, q, 0);
+  if (vT.w > 0.0) { vec3 m = texelFetch(uT, q + ivec2(int(vT.w), 0), 0).rgb; c.rgb += m.r * vI0 + m.g * vI1 + m.b * vI2; }
+  o = c * vT.z;
 }`;
-
+// (An instance's numbers: aR, aT, aI0, aI1, aI2, four floats each.)
+const IF = 20, IB = IF * 4;
 // The leaders and their dots, drawn as shapes (no picture: a zoom changes their length every frame). One quad over the mark; its
 // coverage worked out per pixel from the distance to the line or the circle, as the browser's own smoothing gives an edge.
 const MVS = `#version 300 es
@@ -465,6 +477,53 @@ export function createLookStyles(max = 500) {
 // (The labels are drawn at the figure's canvas density, which stage.js resizeCanvas caps at 2 device px per CSS px and the pixel budget.)
 const nextFrame = frameFor('labels-gl');
 export const lookKey = (d, rot, dpr) => JSON.stringify([d.filter, d.parts, rot, dpr]);
+/** (Render-cost plan 2.2, ledger R11's open limit) A description split into the shape its picture is painted for and its words' inks,
+ *  which the instance carries: each drawn run's fill becomes an ink token (INK, the ink's number, its alpha) in `shape`, and `ink` holds
+ *  the inks' straight rgb, three numbers each. A label's runs take one ink each while there are three or fewer; more runs share an ink by
+ *  colour. null when its words have no fill, a fill is not a colour read here, or it has more than three colours: that picture is painted
+ *  with its colours, as before (lookKey on the description itself), and its colour changes still paint it again. An ink's alpha stays in
+ *  the shape (a word's share of a pixel depends on it), so only a change of a word's colour, not of how see-through it is, is a number. */
+export const INK = '\u0002';
+export function inkSplit(d) {   // alloc-rare: between frames, as a label's look is read
+  if (!d?.parts) return null;
+  const runs = [], cols = [];
+  for (const p of d.parts) if (p.k === 'text') for (const r of p.runs) if (r.t && r.fill) runs.push(r);
+  if (!runs.length) return null;
+  for (const r of runs) { const c = parseColor(r.fill); if (!c) return null; cols.push(c); }
+  const slot = new Map(), fills = [];
+  if (runs.length <= 3) runs.forEach((r, i) => { slot.set(r, i); fills.push(cols[i]); });
+  else {
+    const by = new Map();
+    for (let i = 0; i < runs.length; i++) {
+      const k = runs[i].fill;
+      if (!by.has(k)) { if (by.size >= 3) return null; by.set(k, by.size); fills.push(cols[i]); }
+      slot.set(runs[i], by.get(k));
+    }
+  }
+  const ink = new Float32Array(9);
+  fills.forEach((c, i) => { ink[i * 3] = c[0]; ink[i * 3 + 1] = c[1]; ink[i * 3 + 2] = c[2]; });
+  // (A run with no words draws nothing: its fill is left out of the shape, so it never asks for a picture.)
+  const tok = (r) => (slot.has(r) ? INK + slot.get(r) + '/' + cols[runs.indexOf(r)][3] : r.t ? r.fill : '');
+  const shape = { ...d, parts: d.parts.map((p) => (p.k === 'text' ? { ...p, runs: p.runs.map((r) => ({ ...r, fill: tok(r) })) } : p)) };
+  return { shape, ink, n: fills.length };
+}
+// (A label's picture as its record keeps it, and put back: mx, where its inks' shares start in its slot, 0 for a picture of its own colours.)
+const picOf = (st) => ({ key: st.key, slot: st.slot, ox: st.ox, oy: st.oy, w: st.w, h: st.h, shadows: st.shadows, frame: st.frame, mx: st.mx | 0 });   // alloc-rare: as a look is kept
+const inkText = (st) => { if (!st.mx || !st.ink) return ''; let o = '#'; for (let i = 0; i < 9; i++) o += Math.round(st.ink[i] * 255) + ','; return o; };   // alloc-rare: the browser check's snapshot only
+function putPic(st, p) { st.key = p.key; st.slot = p.slot; st.ox = p.ox; st.oy = p.oy; st.w = p.w; st.h = p.h; st.shadows = p.shadows; st.frame = p.frame; st.mx = p.mx | 0; }
+// (Its runs' weights and slants: a name set bold is a look of its own, kept beside the plain one, not a reading's figures ticking.)
+const weightsOf = (d) => { let o = '|'; for (const p of d.parts) if (p.k === 'text') for (const r of p.runs) o += r.wt + (r.it ? 'i' : '') + ','; return o; };
+// (A colour of a picture's op: as the page computed it (mode 0), or in a split picture's halves: its first (1), every ink token black at
+// its own alpha; its second (2), ink i's token the i-th channel at its alpha, every other colour black at its own alpha.)
+const CH = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+function opColour(s, mode) {   // alloc-rare: between frames, as a picture is painted
+  if (s.charCodeAt(0) === 2) {
+    const i = +s[1], a = +s.slice(3);
+    return mode === 2 ? [CH[i][0], CH[i][1], CH[i][2], a] : [0, 0, 0, a];
+  }
+  const c = parseColor(s);
+  return mode === 2 && c ? [0, 0, 0, c[3]] : c;
+}
 
 const INTER = /^\s*"?Inter\b/i;
 /** Why the SVG must draw this description itself ('' when the GPU can). Its words are filled from Inter's outlines (text-gl.js), so till
@@ -593,10 +652,10 @@ export function layBlock(d, dpr, rot = false) {
  * outlined, each run's words filled from Inter's outlines (text-gl.js) with their halo (the SVG's stroke, round-joined) under or over
  * them. Drawn into the label's place in the atlas by the shape drawer; nothing is painted on a 2D canvas.
  */
-export function blockOps(d, lay) {
+export function blockOps(d, lay, mode = 0) {
   const ops = [];
   const put = (geom, m, fill, stroke, sw, strokeFirst) => {
-    const f = fill ? parseColor(fill) : null, k = stroke && sw > 0 ? parseColor(stroke) : null;
+    const f = fill ? opColour(fill, mode) : null, k = stroke && sw > 0 ? opColour(stroke, mode) : null;
     const F = () => { if (f && f[3] > 0) ops.push({ geom, m, kind: 'fill', paint: { solid: f }, alpha: 1, clip: null }); };
     const S = () => { if (k && k[3] > 0) ops.push({ geom, m, kind: 'stroke', paint: { solid: k }, alpha: 1, w: sw, cap: 0, clip: null }); };
     if (strokeFirst) { S(); F(); } else { F(); S(); }
@@ -668,7 +727,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // objects survives a loss). All four programs are started before any is read, so the driver compiles them side by side (gl-compile.js).
   let prog, mprog, rprog, aprog, U, MU, RU, AU, vao, avao, abuf;
   function start() {
-    const hp = startProgram(gl, VS, FS), hm = startProgram(gl, MVS, MFS), hr = startProgram(gl, RVS, RFS), ha = startProgram(gl, AVS, AFS, [['aR', 0], ['aT', 1]]);
+    const hp = startProgram(gl, VS, FS), hm = startProgram(gl, MVS, MFS), hr = startProgram(gl, RVS, RFS), ha = startProgram(gl, AVS, AFS, [['aR', 0], ['aT', 1], ['aI0', 2], ['aI1', 3], ['aI2', 4]]);
     return [hp, hm, hr, ha];
   }
   function finish([hp, hm, hr, ha]) {
@@ -681,14 +740,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     AU = Object.fromEntries(['uView', 'uT'].map((k) => [k, gl.getUniformLocation(aprog, k)]));
     avao = gl.createVertexArray(); abuf = gl.createBuffer();
     gl.bindVertexArray(avao); gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
-    for (const [loc, off] of [[0, 0], [1, 16]]) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 32, off); gl.vertexAttribDivisor(loc, 1); }
+    for (let loc = 0; loc < 5; loc++) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, IB, loc * 16); gl.vertexAttribDivisor(loc, 1); }
     gl.bindVertexArray(null);
   }
   try { finish(start()); } catch { return null; }
   const ATLAS = { size: Math.min(2048, glCap(gl, gl.MAX_TEXTURE_SIZE) || 2048), pad: 2, maxPages: 2 };
   let packer = createAtlasPacker(ATLAS);
   let pageTex = [];
-  let inst = new Float32Array(64 * 8), needRepack = false;
+  let inst = new Float32Array(64 * IF), needRepack = false;
   const pageOf = (n) => pageTex[n] || (pageTex[n] = makePage());
   const makePage = () => {
     const t = gl.createTexture();
@@ -1164,48 +1223,54 @@ void main() { o = texture(uT, vUV) * uA; }`;
     // label of full pieces it draws again gives them up: svgAsk.)
     if (s && svgAsk) { if (st.mode === 'svg' && geo) svgAsk(g, true); else if (st.mode === 'gl' && !geo && s.full) svgAsk(g, false); }
     if (st.mode !== 'gl') { st.wait = false; return st; }
-    const key = lookKey(d, rot, dpr);
+    // (Render-cost plan 2.2: the picture is keyed and painted by its shape, its words' inks the instance's (inkSplit); a label of more
+    // than three word colours keeps them in its picture, as before.)
+    const sp = inkSplit(d), sd = sp ? sp.shape : d;
+    const key = lookKey(sd, rot, dpr);
+    if (sp) (st.ink ||= new Float32Array(9)).set(sp.ink);   // alloc-rare: one per label, written in place after
     if (st.key !== key && st.alt && st.alt.key === key && st.alt.slot) {
       // (The picture this label had in the other view, kept when that view's ghost landed: swapped back in, nothing painted. The one it leaves is kept in its place.)
-      const al = st.alt, cur = st.slot ? { key: st.key, slot: st.slot, ox: st.ox, oy: st.oy, w: st.w, h: st.h, shadows: st.shadows, frame: st.frame } : null;
-      Object.assign(st, { slot: al.slot, ox: al.ox, oy: al.oy, w: al.w, h: al.h, shadows: al.shadows, frame: al.frame, key: al.key, wait: false }, { ver: (st.ver | 0) + 1 });
+      const al = st.alt, cur = st.slot ? picOf(st) : null;
+      putPic(st, al); st.wait = false; st.ver = (st.ver | 0) + 1;
       st.alt = cur;
     }
-    // (Per look: a look this label had before (an abbreviated and a full text, a unit shown and dropped) is kept in a picture of its own, up to two, so
-    // a change back builds nothing. Only a change of letters keeps one: a reading ticking through its figures is overwritten as it always was.)
+    // (Per look: a look this label had before (an abbreviated and a full text, a unit shown and dropped, a name set bold as a slide lights it)
+    // is kept in a picture of its own, up to two, so a change back builds nothing. Only a change of letters or of a run's weight keeps one: a
+    // reading ticking through its figures is overwritten as it always was.)
+    const kn = key.replace(/\d/g, '0') + weightsOf(d);
     if (st.key !== key && st.alts) {
       const i = st.alts.findIndex((a) => a.key === key && a.slot);
       if (i >= 0) {
-        const al = st.alts[i], cur = st.slot ? { key: st.key, slot: st.slot, ox: st.ox, oy: st.oy, w: st.w, h: st.h, shadows: st.shadows, frame: st.frame } : null;
-        Object.assign(st, { slot: al.slot, ox: al.ox, oy: al.oy, w: al.w, h: al.h, shadows: al.shadows, frame: al.frame, key: al.key, knorm: key.replace(/\d/g, '0'), wait: false }, { ver: (st.ver | 0) + 1 });
+        const al = st.alts[i], cur = st.slot ? picOf(st) : null;
+        putPic(st, al); st.knorm = kn; st.wait = false; st.ver = (st.ver | 0) + 1;
         if (cur) st.alts[i] = cur; else st.alts.splice(i, 1);
       }
     }
     let stashed = null;
     if (st.key !== key) {
-      const kn = key.replace(/\d/g, '0');
       if (st.slot && st.key && st.knorm !== kn) {
-        stashed = { key: st.key, slot: st.slot, ox: st.ox, oy: st.oy, w: st.w, h: st.h, shadows: st.shadows, frame: st.frame };
+        stashed = picOf(st);
         (st.alts ||= []).push(stashed);
         if (st.alts.length > 2) { const o = st.alts.shift(); if (o.slot) packer.free(o.slot); if (o === stashed) stashed = null; }
         st.slot = null;
       }
       st.knorm = kn;
-      const lay = layBlock(d, dpr, rot);
+      const lay = layBlock(sd, dpr, rot);
       if (!lay) { st.mode = 'none'; return st; }
       // (Its place in the atlas: kept while the picture stays the same size, else a new one found before the old is given back, so a
-      // full atlas leaves it the picture it had, R12.)
+      // full atlas leaves it the picture it had, R12. A split picture takes twice its width: its shape, then its inks' shares.)
+      const sw = sp ? lay.w * 2 : lay.w;
       let slot = st.slot;
-      if (slot && (slot.w !== lay.w || slot.h !== lay.h)) { slot = packer.alloc(lay.w, lay.h); if (slot) { packer.free(st.slot); st.slot = slot; } }
-      else if (!slot) { slot = packer.alloc(lay.w, lay.h); st.slot = slot; }
+      if (slot && (slot.w !== sw || slot.h !== lay.h)) { slot = packer.alloc(sw, lay.h); if (slot) { packer.free(st.slot); st.slot = slot; } }
+      else if (!slot) { slot = packer.alloc(sw, lay.h); st.slot = slot; }
       if (!slot && st.alts?.length) {   // (pressure: the kept looks are given back first)
         for (const o of st.alts) if (o.slot && o !== stashed) packer.free(o.slot);
         st.alts = stashed ? [stashed] : null;
-        slot = packer.alloc(lay.w, lay.h); st.slot = slot;
+        slot = packer.alloc(sw, lay.h); st.slot = slot;
       }
       if (!slot && stashed) {   // (still none: the picture it had stays, as before)
         st.alts.splice(st.alts.indexOf(stashed), 1);
-        Object.assign(st, { slot: stashed.slot, ox: stashed.ox, oy: stashed.oy, w: stashed.w, h: stashed.h, shadows: stashed.shadows, frame: stashed.frame });
+        putPic(st, stashed);
       }
       if (!slot) {
         // (The pages are full: the atlas is packed again beside this one (repackWork), the label keeping the picture it has, or none shown
@@ -1214,9 +1279,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
         return st;
       }
       st.wait = false;
-      paintSlot(st.slot, lay, blockOps(d, lay));
+      if (sp) { paintSlot(st.slot, lay, blockOps(sd, lay, 1), 0); paintSlot(st.slot, lay, blockOps(sd, lay, 2), lay.w); } else paintSlot(st.slot, lay, blockOps(d, lay), 0);
       st.ver = (st.ver | 0) + 1;
-      Object.assign(st, { ox: lay.ox, oy: lay.oy, w: lay.w, h: lay.h, shadows: lay.shadows, frame: lay.frame }, { key });
+      Object.assign(st, { ox: lay.ox, oy: lay.oy, w: lay.w, h: lay.h, shadows: lay.shadows, frame: lay.frame, mx: sp ? lay.w : 0 }, { key });
     }
     st.ring = ringBox(d, dpr, st.frame);
     st.opacity = d.opacity;
@@ -1307,7 +1372,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const st = sprites.get(gh.s.g), slot = gh.st.slot;
       if (!slot) continue;
       if (st && st.mode === 'gl' && st.key !== gh.lkey && !(st.alt?.slot)) {
-        st.alt = { key: gh.lkey, slot, ox: gh.st.ox, oy: gh.st.oy, w: gh.st.w, h: gh.st.h, shadows: gh.st.shadows, frame: gh.st.frame };
+        st.alt = { key: gh.lkey, slot, ox: gh.st.ox, oy: gh.st.oy, w: gh.st.w, h: gh.st.h, shadows: gh.st.shadows, frame: gh.st.frame, mx: gh.st.mx };
       } else packer.free(slot);
       gh.st.slot = null;
     }
@@ -1567,19 +1632,24 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (let i = 0; i < ni; i++) { const it = ITEMS[i], sw = it.st?.shadows; if (sw) for (let j = 0; j < sw.length; j++) shadowBox(it.x + sw[j].cx, it.y + sw[j].cy, sw[j], it.a); }
     }
     if (ni) {
-      if (inst.length < ni * 8) inst = new Float32Array(Math.max(ni * 8, inst.length * 2));   // alloc-rare: only when there are more pictures than ever before (doubling)
-      for (let i = 0; i < ni; i++) { const it = ITEMS[i], o = i * 8; inst[o] = it.x; inst[o + 1] = it.y; inst[o + 2] = it.w; inst[o + 3] = it.h; inst[o + 4] = it.ax; inst[o + 5] = it.ay; inst[o + 6] = it.a * LA; inst[o + 7] = 0; }
+      if (inst.length < ni * IF) inst = new Float32Array(Math.max(ni * IF, inst.length * 2));   // alloc-rare: only when there are more pictures than ever before (doubling)
+      for (let i = 0; i < ni; i++) {
+        const it = ITEMS[i], o = i * IF, q = it.st, mx = q?.mx | 0, ink = q?.ink;
+        inst[o] = it.x; inst[o + 1] = it.y; inst[o + 2] = it.w; inst[o + 3] = it.h; inst[o + 4] = it.ax; inst[o + 5] = it.ay; inst[o + 6] = it.a * LA; inst[o + 7] = mx;
+        // (Its words' inks, the instance's own (render-cost plan 2.2): three rgb, each in a vec4.)
+        for (let j = 0; j < 3; j++) { const b = o + 8 + j * 4; if (mx && ink) { inst[b] = ink[j * 3]; inst[b + 1] = ink[j * 3 + 1]; inst[b + 2] = ink[j * 3 + 2]; } else inst[b] = inst[b + 1] = inst[b + 2] = 0; inst[b + 3] = 0; }
+      }
       gl.useProgram(aprog); gl.bindVertexArray(avao);
       ucOf(gl).f2(AU.uView, W, H); ucOf(gl).i1(AU.uT, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
-      gl.bufferData(gl.ARRAY_BUFFER, inst, gl.DYNAMIC_DRAW, 0, ni * 8);
+      gl.bufferData(gl.ARRAY_BUFFER, inst, gl.DYNAMIC_DRAW, 0, ni * IF);
       // (Consecutive pictures on one page are one draw: a run ends where the page changes.)
       for (let from = 0, to; from < ni; from = to) {
         const page = ITEMS[from].page;
         for (to = from + 1; to < ni && ITEMS[to].page === page; to++);
         gl.bindTexture(gl.TEXTURE_2D, pageOf(page));
         // (WebGL2 has no first-instance argument: the run's start is the attributes' byte offset.)
-        gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 32, from * 32); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, from * 32 + 16);
+        for (let loc = 0; loc < 5; loc++) gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, IB, from * IB + loc * 16);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, to - from);
       }
       gl.bindVertexArray(vao);
@@ -1985,9 +2055,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // A label's picture drawn by the GPU into its place in the atlas: painted by the shape drawer into the corner of a scratch texture (made
   // once, grown only for a larger label), then copied on the GPU into its rectangle of the atlas page, rows as the atlas keeps them (the
   // top first). Nothing crosses to the CPU and nothing is uploaded.
-  let slotTex = null, slotFbo = null, slotW = 0, slotH = 0;
-  function paintSlot(slot, lay, ops) {
-    touched = true;
+  let slotTex = null, slotFbo = null, slotW = 0, slotH = 0, paints = 0;   // (paints: pictures painted into the atlas, for the checks)
+  function paintSlot(slot, lay, ops, dx = 0) {   // (dx: texels into the slot, a split picture's second half)
+    touched = true; paints++;
     picPaint ||= createOrganPaint(gl, createShapeGL(gl));
     if (!slotTex) { slotTex = gl.createTexture(); slotFbo = gl.createFramebuffer(); slotW = slotH = 0; }
     if (slotW < lay.w || slotH < lay.h) {
@@ -2007,7 +2077,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     picPaint.endFrame();
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, slotFbo);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, pageOf(slot.page));
-    gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, slot.x, slot.y, 0, 0, lay.w, lay.h);
+    gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, slot.x + dx, slot.y, 0, 0, lay.w, lay.h);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, W, H);
     gl.bindVertexArray(vao);
@@ -2459,7 +2529,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (s.pid == null || !st || st.mode !== 'gl' || !st.slot || !(st.opacity > 0.001)) continue;
         const key = g.dataset?.key;
         ghosts.push({ s, key, a0: xfNew, want: key ? wantOf(s, key) : 0, lk: key ? pinLooks.get(key) : null, on: false, px: 0, py: 0, lx: 0, ly: 0, lkey: st.key,
-          st: { slot: st.slot, w: st.w, h: st.h, ox: st.ox, oy: st.oy, shadows: st.shadows, frame: st.frame, ring: null, opacity: st.opacity } });
+          st: { slot: st.slot, w: st.w, h: st.h, ox: st.ox, oy: st.oy, shadows: st.shadows, frame: st.frame, ring: null, opacity: st.opacity, mx: st.mx | 0, ink: st.ink ? st.ink.slice() : null } });   // (its inks as they were: the label's own go on with its new look)
         st.slot = null; st.key = ''; dirty.add(g); pending.add(g);
       }
       xfOld = 1; xfNew = 0;
@@ -2482,13 +2552,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (const s of last) { const st = sprites.get(s.g); if (st && st.mode === 'gl' && st.drawn && s.g.dataset?.key) o.push({ key: s.g.dataset.key, x: st.dx / dpr, y: st.dy / dpr, w: st.w / dpr, h: st.h / dpr, a: st.held ?? 0 }); }
       return o;
     },
-    /** What the last frame drew, for the browser checks: { seq (frames drawn), gen (layout and atlas generation), items: [{ key, x, y, w, h, a, clipped, pic }] }
-     *  (pic: its picture's key, which changes exactly when its look or words do) in CSS px from the canvas's corner (stage.js labelSnapshot adds the corner, so they are page px). Only the pictures drawn in that frame. */
+    /** What the last frame drew, for the browser checks: { seq (frames drawn), gen (layout and atlas generation), items: [{ key, x, y, w, h, a, clipped, pic, ink }] }
+     *  (pic: what its picture shows, its shape's key and its words' inks, which changes exactly when its look or words do; ink: the inks
+     *  its instance carries, three rgb, or null for a picture painted in its own colours) in CSS px from the canvas's corner (stage.js
+     *  labelSnapshot adds the corner, so they are page px). Only the pictures drawn in that frame. */
     snapshot() {
       const items = [];   // alloc-rare: asked only by the browser check
       for (const s of last) {
         const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; it.pic = st.key; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } items.push(it); }
+        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; it.pic = st.key + inkText(st); it.ink = st.mx && st.ink ? [...st.ink] : null; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } items.push(it); }
       }
       // (The marks this frame drew: each dot's centre and radius, each leader's two ends, keyed by its label, CSS px from the canvas's corner.)
       const marksOut = [];   // alloc-rare: asked only by the browser check
@@ -2505,6 +2577,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       return { seq: frameSeq, gen, items, marks: marksOut };
     },
+    /** How many times a picture has been painted into the atlas (each half of a split picture counts): a colour change paints none. */
+    get paints() { return paints; },
     /** A leader's or dot's geometry, from its writer (L3 P6): a path's `d` (a0), or a circle's cx, cy and r (a0, a1, a2), as the text its
      *  attributes would take, and its writer's own fade (alpha, optional). Taken with the next sync, as its label is. The SVG's copy is
      *  written here, and only while the layer does not draw the mark (released, lost, a path of more than one piece). */

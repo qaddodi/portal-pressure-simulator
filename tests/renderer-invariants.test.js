@@ -85,7 +85,7 @@ test('the label atlas draws a picture only when its look key changed, and the ke
   const src = read('../src/ui/label-gl.js');
   const ref = src.slice(src.indexOf('function refresh('), src.indexOf('function repackWork('));   // (R12: repack() became repackWork(), which copies on the GPU and paints nothing)
   assert.match(ref, /if \(st\.key !== key\) \{/);
-  assert.equal(ref.match(/paintSlot\(/g).length, 1);   // (one GPU drawing into the atlas, inside the key check)
+  assert.equal(ref.match(/paintSlot\(/g).length, 3);   // (GPU drawings into the atlas, inside the key check: a picture in its own colours, or a split one's two halves, render-cost plan 2.2)
   assert.ok(ref.indexOf('st.key !== key') < ref.indexOf('paintSlot('));
   assert.doesNotMatch(ref, /texSubImage2D|getContext/);
   assert.match(src, /export const lookKey = \(d, rot, dpr\) => JSON\.stringify\(\[d\.filter, d\.parts, rot, dpr\]\);/);   // (look, rotation and ratio; no place)

@@ -193,9 +193,9 @@ test('batches split only where the page changes, keeping painter order', async (
 
 test('labels draw as one instanced batch from the atlas, texel for texel', () => {
   assert.match(LGL, /drawArraysInstanced\(gl\.TRIANGLE_STRIP, 0, 4, to - from\)/);
-  assert.match(LGL, /texelFetch\(uT, q, 0\) \* vT\.z/);
-  assert.match(LGL, /paintSlot\(st\.slot, lay, blockOps\(d, lay\)\);/, 'each picture drawn by the GPU into its atlas place');
-  assert.match(LGL, /gl\.copyTexSubImage2D\(gl\.TEXTURE_2D, 0, slot\.x, slot\.y, 0, 0, lay\.w, lay\.h\);/);
+  assert.match(LGL, /vec4 c = texelFetch\(uT, q, 0\);/);
+  assert.match(LGL, /paintSlot\(st\.slot, lay, blockOps\(d, lay\), 0\);/, 'each picture drawn by the GPU into its atlas place');
+  assert.match(LGL, /gl\.copyTexSubImage2D\(gl\.TEXTURE_2D, 0, slot\.x \+ dx, slot\.y, 0, 0, lay\.w, lay\.h\);/);
   assert.doesNotMatch(LGL, /texSubImage2D\(|getContext\('2d'\)|measureText|fillText|strokeText/, 'no picture painted on a 2D canvas or uploaded');
   assert.match(LGL, /for \(to = from \+ 1; to < ni && ITEMS\[to\]\.page === page; to\+\+\);/, 'one draw per run of pictures on a page (atlas-pack batchRuns, inline)');
   assert.match(LGL, /maxPages: 2/);
