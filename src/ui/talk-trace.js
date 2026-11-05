@@ -25,7 +25,7 @@ const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
  *  xs: each milestone's x, widths: its name's width. → { at: [{ x, row }] (x: the name's middle), rows } */
 export function milePlaces(xs, widths, W, gap = 10) {
   const ends = [], at = xs.map((x, i) => {
-    const w = widths[i], mid = Math.min(Math.max(x, w / 2 + 2), W - w / 2 - 2);
+    const w = widths[i], mid = Math.min(Math.max(x, w / 2 + 4), W - w / 2 - 4);
     let row = ends.findIndex((e) => mid - w / 2 >= e + gap);
     if (row < 0) row = ends.length;
     ends[row] = mid + w / 2;
@@ -119,16 +119,17 @@ export function talkTrace() {
     const W = el.clientWidth || 520, HT = el.clientHeight || 420, fs = hostFs(), L = Math.ceil(3.3 * fs) + 8;
     size = `${W}x${HT}`;
     const pts = chain.filter((c) => c.fp), last = pts.length - 1, vfs = 1.5 * fs;
-    const R = W - Math.ceil(4 * 0.6 * vfs) - 14, n = Math.max(pts.length, 2), X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : i / (n - 1));
+    const vw = Math.ceil(textW(fmt(pts[last]?.fp.hvpg ?? 0, 1), vfs, 700)), R = W - Math.max(Math.ceil(4 * 0.6 * vfs), vw + 4) - 14,   // (the end value's own width, so it stands inside the card with room to spare)
+       n = Math.max(pts.length, 2), X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : i / (n - 1));
     const mi = pts.map((p, i) => (p.mile ? i : -1)).filter((i) => i >= 0);
     const { at, rows } = milePlaces(mi.map(X), mi.map((i) => textW(pts[i].mile, fs)), W);
     // (A band that starts at a milestone of its own name is named once, by the milestone; the rest are named on as many rows
     // as keep them inside the chart and clear of each other and of the HVPG lane's name at the left of the lowest row.)
     const runs = bands.length ? bandRuns(pts.map((p) => p.params), bands) : [], spans = runs.map((r) => bandSpan(r, pts.length, X, L, R));
     const nameK = runs.map((r, k) => k).filter((k) => pts[runs[k].i0]?.mile !== runs[k].name);
-    const bat0 = namePlaces(nameK.map((k) => spans[k]), nameK.map((k) => runs[k].name), (t) => textW(t, fs), { rows: nameK.length > 1 ? 2 : 1, maxX: W - 4, grow: true, ends0: [L + textW('HVPG', fs) + 0.2 * fs] });
+    const bat0 = namePlaces(nameK.map((k) => spans[k]), nameK.map((k) => runs[k].name), (t) => textW(t, fs), { rows: nameK.length > 1 ? 2 : 1, maxX: W - 6, grow: true, ends0: [L + textW('HVPG', fs) + 0.2 * fs] });
     const bRows = nameK.length ? Math.max(...bat0.map((a) => a.row)) + 1 : 0;
-    const rowH = fs + 6, nameY = (r) => 4 + fs + (rows - 1 - r) * rowH, T0 = 4 + rows * rowH, bandY = (r) => T0 + fs + (bRows - 1 - r) * (fs + 4);
+    const rowH = fs + 8, nameY = (r) => 4 + fs + (rows - 1 - r) * rowH, T0 = 4 + rows * rowH, bandY = (r) => T0 + fs + (bRows - 1 - r) * (fs + 4);
     const T = T0 + bRows * (fs + 4) + 0.6 * fs + 6, B = HT - fs - 16;
     const gMax = Math.max(15, Math.ceil(Math.max(0, ...pts.map((p) => p.fp.hvpg || 0)) / 5) * 5), Y = (v) => B - (B - T) * clamp(v, 0, gMax) / gMax;
     const ticks = Array.from({ length: gMax / 5 + 1 }, (_, k) => k * 5).filter((v, k, a) => (B - T) / a.length >= 1.2 * fs || v % 10 === 0 || v === 5);
