@@ -203,8 +203,12 @@ export function createView(st, live) {
     labelTail();
     return true;
   }
-  const preIdle = () => !!live.F && !!live.labelGL && !live.labelGL.lost && !live.viewXf && !live.labelJob && !live.handRide && !live.gestureOn() && !live.camMove && !live.drifting && !live.glSuppress
+  // (preKeep: what the solve ahead may survive. A live solve sliced over frames (labelJob) only pauses it: the dry solve has its own scratch, so it
+  // is left mid-way while the job runs and takes up its next slice once the job lands (labelTail asks again); it never slices between two of the
+  // job's own. preIdle: what it may take a slice in.)
+  const preKeep = () => !!live.F && !!live.labelGL && !live.labelGL.lost && !live.viewXf && !live.handRide && !live.gestureOn() && !live.camMove && !live.drifting && !live.glSuppress
     && live.morph === live.morphTarget && (live.morph === 0 || live.morph === 1) && live.rotU === live.rotTarget && !live.lobuleOn && !live.lz?.isOpen() && !(live.cath.st && !live.cath.st.keep) && !live.vtGliding;
+  const preIdle = () => !live.labelJob && preKeep();
   // (What the kept solution was made for, read at the stage as it stands: a change in any of these, a new patient frame, a selection, a resize, a font, makes it
   // stale, and it is made again at once in idle time. Otherwise a solution that no longer matched at the tap was never replaced, and the tap solved it all.)
   const preNowKey = () => (pre.d ? preKey(preFraming(pre.tgt)) : '');
@@ -216,7 +220,7 @@ export function createView(st, live) {
   }
   function preStep() {
     pre.tasked = false;
-    if (!preIdle()) preAbort(); else if (!preSlice(3)) { pre.tasked = true; mayTask('label presolve', preStep, live.JOB_NOW); }
+    if (!preKeep()) preAbort(); else if (live.labelJob) return false; else if (!preSlice(3)) { pre.tasked = true; mayTask('label presolve', preStep, live.JOB_NOW); }
     return false;
   }
   // (A slice of ms, at the other view's end state; true once landed. What the solve sets on the stage is put back: slots, turn, label scale, lines' index.)
