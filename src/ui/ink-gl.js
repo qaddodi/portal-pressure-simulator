@@ -112,11 +112,12 @@ void main() {
   float ring = (1.0 - smoothstep(0.75, 1.75, abs(d - uC.z * 0.8))) * 0.85;
   // (no solid dot in the middle (Mohammad, 5 Nov): the glow alone marks the centre)
   float k = ring * uPen.a;
-  // (a soft glow round the dot, additive in the pen's colour: premultiplied with less alpha than colour, so it brightens and never darkens)
+  // (a soft glow at the centre, plain white light, not the pen's red (Mohammad, 5 Nov: "no red middle glow, just normal glow"): additive,
+  // premultiplied with less alpha than colour, so it brightens the figure and never darkens or tints it)
   float gr = uC.z * 0.5;
-  float glw = exp(-(d * d) / (gr * gr * 0.5)) * 0.75 * uPen.a;
+  float glw = exp(-(d * d) / (gr * gr * 0.5)) * 0.55 * uPen.a;
   vec4 base = vec4(uCol.rgb * a * (1.0 - k) + uPen.rgb * k, a * (1.0 - k) + k);
-  o = vec4(base.rgb * (1.0 - glw) + uPen.rgb * glw, max(base.a, glw * 0.45));
+  o = vec4(base.rgb * (1.0 - glw) + vec3(glw), max(base.a, glw * 0.35));
 }`;
 
 const VAR = (name, fallback) => {
