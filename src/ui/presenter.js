@@ -3532,6 +3532,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // once at their size and then, on the next layout, shrank. (So a card is judged by where its contents come to rest.)
   const RAIL = '.pz:not(.stack):not(.low) .pz-data.pz-beside';   // (styles/app.css: the tiles stacked beside the instrument)
   function overflowOf(el) {
+    const cvs = [...el.querySelectorAll('canvas.trace-gl, canvas.wgl')].map((c) => [c, c.style.display, (c.style.display = 'none')]); try {   // (read with the GPU's picture canvases out of the layout, put back below: trace-gl is laid wider than its box and cut by clip-path, wgl hangs an 18 px pad, and scrollWidth and scrollHeight counted both, so cards with a slider or chart zoomed their words to the floor, Mac 5 Nov 2026)
     const cs = readStyle(el), z = readMetric(el, 'offsetHeight') ? readBox(el).height / readMetric(el, 'offsetHeight') : 1;
     let used = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0), n = 0;
     // (An instrument with its tiles beside it shares one row with them: the row is counted once, at its taller side.)
@@ -3570,7 +3571,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     used += (parseFloat(cs.rowGap) || 0) * Math.max(0, n - 1);
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     return { v: used - readMetric(el, 'clientHeight'), h: Math.max(readMetric(el, 'scrollWidth') - readMetric(el, 'clientWidth'), sideways) };
-  }
+  } finally { for (const [c, d] of cvs) c.style.display = d; } }
   // What a card's fit depends on: its box, its words (digits alike, so a number that eases fits as before) and which parts show.
   // (The readings' plate being out or tucked is not in it, and neither is the data card's live text, only the slide: the card's box is fixed once fitted.)
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).

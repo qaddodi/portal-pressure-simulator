@@ -293,13 +293,13 @@ export const xCutName = (k, v) => (k === 'hvpg' && Math.abs(v - HVPG_CUTS.red) <
  *  fits there with at least three numbers kept: the most numbers that leave it room, `most` at the most. { xt, nameAt }: nameAt the name's centre
  *  in px, null where it fits nowhere (it then stands on a row of its own under the numbers, centred, with the numbers `most` at the most). */
 export function xAxisRow(x0, x1, L, R, w, f, ax, most) {
-  const nameW = cw(xAxisName(ax), f, 1), at = (v) => L + (R - L) * (v - x0) / ((x1 - x0) || 1);
+  const nameW = cw(xAxisName(ax), f, 1), at = (v) => L + (R - L) * (v - x0) / ((x1 - x0) || 1), gap = Math.max(6, Math.round(0.9 * f));   // (clear of each number by most of a letter's height: 6 px had the name touching the 0 and the 25)
   for (let m = most; m >= 3; m--) {
     const ts = xTicks(x0, x1, m);
     if (ts.length < 3) continue;
     const boxes = ts.map((v) => { const x = at(v), tw = cw(fmtTick(v, ax.d), f); return x <= L + 1 ? [x, x + tw] : x >= R - 1 ? [x - tw, x] : [x - tw / 2, x + tw / 2]; });
     let best = null;
-    for (const [a, b] of [...boxes.map((q, i) => [i ? boxes[i - 1][1] + 6 : 8, q[0] - 6]), [boxes.at(-1)[1] + 6, w - 8]]) {
+    for (const [a, b] of [...boxes.map((q, i) => [i ? boxes[i - 1][1] + gap : 8, q[0] - gap]), [boxes.at(-1)[1] + gap, w - 8]]) {
       if (b - a >= nameW && (!best || b - a > best[1] - best[0])) best = [a, b];
     }
     if (best) return { xt: ts, nameAt: (best[0] + best[1]) / 2 };
