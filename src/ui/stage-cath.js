@@ -117,7 +117,7 @@ export function createCath(st, live) {
         // as wide as the stent will be) into the right portal vein, and the wire on into the portal trunk.
         B.vessel('RHV_IVC', { rev: true, near: geo.TIPS.cur[geo.TIPS.cur.length - 1], name: 'hv' });
         B.vessel('TIPS', { rev: true, name: 'tract', r: cathRadOf('PVH_R', 0.5) * 0.8 });
-        B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
+        B.vessel('PVH_R', { rev: true, name: 'rpv' }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
       } },
     // (BRTO's balloon sits near the renal end of the shunt, 0.2 of the way up it: at 0.3 the tip and balloon lay on the splenic vein,
     // which crosses the shunt from 0.30 to 0.34, and the catheter drew over it. Now the tip stops about 36 px below it.)
@@ -315,6 +315,23 @@ export function createCath(st, live) {
     shaftPart(sh.n * 4, rc, 2, shaft, 1);
     tube(Math.max(0, b - rc * 0.2), tipD, taper, 2, shaft, 1, [0, 0]);
     disc(tp.p, tp.t, tipR, tipR, 4, shaft, 1);
+    // A TIPS's needle and wire (proc-anim.js: their tips as u, 0 while not out), drawn only ahead of the catheter's tip, so the
+    // catheter covers them as it slides over: the needle brushed steel with a hairline edge, narrowing to a bevelled point; the
+    // wire a fine dark line on into the portal trunk. The portal hit: two rings at the needle's tip, the portal vein's colour.
+    const toD = (u) => r.start + (r.free - r.start) * clamp(u, 0, 1);
+    if (st.wire > 0) { const wD = toD(st.wire); if (wD > tipD + rc * 0.6) { tube(tipD + rc * 0.3, wD, () => rc * 0.3, 7, edge, 0.9, [0, 0]); tube(tipD + rc * 0.3, wD, () => rc * 0.14, 3, metal, 0.8, [0, 0]); } }
+    if (st.needle > 0) {
+      const nD = toD(st.needle), bev = rc * 1.4;
+      if (nD > tipD + rc * 0.6) {
+        const nr = (q, d) => rc * 0.42 * lerp(1, 0.18, smoothstep01((d - (nD - bev)) / bev));
+        tube(tipD + rc * 0.3, nD, (q, d) => nr(q, d) + rc * 0.12, 7, edge, 0.75, [0, 0]);
+        tube(tipD + rc * 0.3, nD, nr, 3, metal, 1, [0, 0]);
+      }
+      if (st.flash > 0) {
+        const np = cathAt(r, nD), rgb = toRGB('var(--tr-pv)', cs);
+        for (const k of [st.flash, (st.flash + 0.5) % 1]) disc(np.p, np.t, rc * (1.2 + 5 * k), rc * (1.2 + 5 * k), 6, rgb, (1 - k) * (1 - k) * 0.85);
+      }
+    }
     // The radiopaque marker: a slim platinum band just behind the taper.
     const band = (d0, d1, w = 1.04) => tube(Math.max(0, d0), d1, () => rc * w, 3, metal, 1, [0, 0]);
     band(tipD - rc * 3.1, tipD - rc * 2.4);
@@ -774,6 +791,9 @@ export function createCath(st, live) {
   const FOLLOW_ZOOM = 1.25;
   const PROC_K_MAX = 5;   // (a treatment's close-up: the catheter and its balloon must show; the old 7x work zoom is gone)
   const PROC_K_TIP = 8;   // (BRTO and BATO's balloon close-up)
+  // (The TIPS close-up, his ask, 5 Nov: the tract itself with a short stretch of the hepatic vein before it and of the right portal
+  // vein after it, about twice as close as the hepatic vein to the trunk was; the wire runs on out of the frame into the trunk.)
+  const TIPS_K_MAX = 9, TIPS_BEFORE = 26, TIPS_AFTER = 22;
   // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
   const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   // (steady: a refit to cards that moved, see animateVT.)
@@ -795,11 +815,13 @@ export function createCath(st, live) {
       // balloon alone, up to PROC_K_TIP; 'work', the tip on to the route's end, the varices the sclerosant fills included.
       const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && mode === 'tip';
       const [d0, d1] = close ? [Math.max(procIn(r), r.free - Rf * 14), Math.min(r.total, r.free + Rf * 4)]
-        : mode === 'work' && r.kind !== 'tips' ? [Math.max(procIn(r), r.free - Rf * 4), r.total] : r.focus;
-      const seg = cutLen(r.pts, r.cum, d0, d1), pad = close ? 10 : 24;
+        : mode === 'work' && r.kind !== 'tips' ? [Math.max(procIn(r), r.free - Rf * 4), r.total]
+          : r.kind === 'tips' && r.spans?.tract && r.spans.rpv ? [Math.max(procIn(r), r.spans.tract[0] - TIPS_BEFORE), Math.min(r.total, r.spans.rpv[0] + TIPS_AFTER)] : r.focus;
+      const tips = r.kind === 'tips';
+      const seg = cutLen(r.pts, r.cum, d0, d1), pad = close ? 10 : tips ? 14 : 24;
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
       const fr = cathFree(wr, ins);
-      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * 0.72, 1, close ? PROC_K_TIP : PROC_K_MAX);
+      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (tips ? 0.86 : 0.72), 1, close ? PROC_K_TIP : tips ? TIPS_K_MAX : PROC_K_MAX);
       cath.followPx = fr.px;
       if (mode === 'way' && reduceMotion.matches) {
         // (Reduced motion: no following, so the way in is framed whole, still, as close as it fits.)

@@ -29,11 +29,15 @@ const SHOT_MS = 1500;
 export const PROCS = {
   tips: {
     name: 'TIPS', label: 'TIPS', balloonSpan: 'tract',
-    T: { travel0: 300, travel1: 4000, needle0: 4900, needle1: 6700, wire1: 7600, inflate0: 8100, inflate1: 9300, deflate0: 9900, deflate1: 10700, apply: 10800, back: 11400, end: 14400 },
-    stops: [4600, 7900, 9700, 14400],
+    // (Step 2, his ask, 5 Nov: the catheter parks in the hepatic vein, a needle runs out of it across the liver into the right
+    // portal vein, a flash marks the portal hit, the wire runs on into the trunk, then the catheter slides over them into the
+    // right portal vein. Mock: tips-needle-mock.html; design: the TIPS closer zoom and needle step doc.)
+    T: { travel0: 300, travel1: 4000, needle0: 4900, needle1: 6500, flash0: 6400, flash1: 7200, wire0: 6900, wire1: 7800, over0: 8000, over1: 9400,
+      inflate0: 10100, inflate1: 11300, deflate0: 11900, deflate1: 12700, apply: 12800, back: 13400, end: 16400 },
+    stops: [4600, 9700, 11700, 16400],
     steps: [
       ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
-      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein, and a wire follows it into the portal trunk.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein. A wire goes through it into the portal trunk, and the catheter slides over them.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
       ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
       ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
@@ -71,7 +75,9 @@ export const PROC_KINDS = Object.keys(PROCS);
 const NO_PARAMS = Object.freeze({});
 // (A callout names no stations: one empty list, never written to.)
 const NO_NAMES = [];
-const TRACT = [0.62, 0.86];
+const TRACT = [0.62, 0.86], RPV = [0.86, 0.93];
+// (How far into the right portal vein the TIPS catheter slides over the wire: the wire alone goes on into the trunk.)
+const CATH_RPV = 0.28;
 // Fundal varices large enough to grade (the Fundal varices card's own "none" below 2.4 mm): BRTO and BATO treat them, so
 // without them neither is offered. m: the live frame's metrics (no frame yet: the params alone decide).
 export const GV_MIN_MM = 2.4;
@@ -107,7 +113,8 @@ export const stepMark = (kind, i) => {
 
 /**
  * The procedure at t ms (pure): { u (0..1 of the way in), balloon, column (the sclerosant, 0..1), opacity, step (index into
- * steps, -1 once it has gone), shot ('way' | 'tip', '' once it has gone) }. stops: the route's stretches as u (stage.cathStops),
+ * steps, -1 once it has gone), shot ('way' | 'tip', '' once it has gone), and for the TIPS needle and wire (their tips, as u; 0:
+ * not out) and flash (0..1 of the portal hit's rings, 0: none) }. stops: the route's stretches as u (stage.cathStops),
  * for the TIPS its tract ({ tract: [u0, u1] }); without them the tract sits where it usually does. into: a record to write it in (a
  * playing procedure keeps one for its frames), else a new one.
  */
@@ -116,18 +123,26 @@ export function procFrame(kind, t, stops = null, into = null) {
   const opacity = 1 - k01(t, T.end - 800, T.end);
   const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
   if (kind === 'tips') {
-    const tr = stops?.tract || TRACT, a = tr[0], b = tr[1];
-    const u = (t < T.needle0 ? a * ease(k01(t, T.travel0, T.travel1)) : t < T.needle1 ? a + (b - a) * ease(k01(t, T.needle0, T.needle1)) : b + (1 - b) * ease(k01(t, T.needle1, T.wire1))) * (1 - back);
+    const tr = stops?.tract || TRACT, a = tr[0], b = tr[1], rp = stops?.rpv || RPV, c = Math.max(b, rp[0] + (rp[1] - rp[0]) * CATH_RPV);
+    // The catheter in to where the tract leaves the hepatic vein, then (once the needle and wire are out) over them into the
+    // right portal vein; the needle out along the tract a little past its end, covered again as the catheter reaches it; the
+    // wire on from the needle's tip into the trunk (u 1). Going out, the wire comes back with the catheter.
+    const tip = t < T.over0 ? a * ease(k01(t, T.travel0, T.travel1)) : a + (c - a) * ease(k01(t, T.over0, T.over1));
+    const nd = a + (Math.min(c, b + 0.01) - a) * ease(k01(t, T.needle0, T.needle1));
+    const u = tip * (1 - back);
+    const needle = t >= T.needle0 && t < T.over1 && nd > tip ? nd : 0;
+    const wd = nd + (1 - nd) * ease(k01(t, T.wire0, T.wire1)), wire = t >= T.wire0 ? Math.max(u, wd - (wd - u) * Math.min(1, back * 3)) : 0;
+    const flash = t > T.flash0 && t < T.flash1 ? k01(t, T.flash0, T.flash1) : 0;
     const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate0, T.deflate1)));
     const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
-    f.u = u; f.balloon = balloon; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot;
+    f.u = u; f.balloon = balloon; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = needle; f.wire = wire > u ? wire : 0; f.flash = flash;
     return f;
   }
   const u = ease(k01(t, T.travel0, T.travel1)) * (1 - back);
   const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate, T.back)));
   const column = ease(k01(t, T.fill0, T.fill1)) * (1 - ease(k01(t, T.fillOut, T.deflate)));
   const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
-  f.u = u; f.balloon = balloon; f.column = column; f.opacity = opacity; f.step = step; f.shot = shot;
+  f.u = u; f.balloon = balloon; f.column = column; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0;
   return f;
 }
 
@@ -148,8 +163,8 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = P.stops[at];
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
-  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '' };
-  const cat = { route: kind, u: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: 'var(--tr-scler)', ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0 };
+  const cat = { route: kind, u: 0, needle: 0, wire: 0, flash: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: 'var(--tr-scler)', ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
   let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2, shownMark = -3;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
@@ -162,7 +177,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     const mk = f.step < 0 ? -2 : t >= markAt(kind, f.step) ? f.step : -1;
     if (mk !== shownMark && mk > -2) { shownMark = mk; onMark?.(mk >= 0 ? stepMark(kind, mk) : false, P.steps[f.step][6] || NO_NAMES); }
     // (The view follows the tip in on the first step, once its shot has landed.)
-    cat.u = f.u; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
+    cat.u = f.u; cat.needle = f.needle; cat.wire = f.wire; cat.flash = f.flash; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
     cat.follow = f.shot === 'way' && shot === 'way' && !stage.gliding?.();
     stage.setCatheter(cat);
     stops ||= stage.cathStops?.() || null;

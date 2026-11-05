@@ -38,13 +38,22 @@ test('the steps run in order, the work happens with the catheter in, and the cha
     for (const t of times(T)) { const s = procFrame(k, t).step; if (s >= 0) { assert.ok(s >= last, `${k}: step back at ${t}`); last = s; } }
     assert.equal(last, PROCS[k].steps.length - 1);
     assert.ok(T.apply < T.back, `${k}: applied before the catheter starts out`);
-    assert.equal(procFrame(k, T.apply - 1).u, 1, `${k}: the tip is all the way in while it works`);
+    // (The TIPS catheter stops in the right portal vein; its wire is what goes all the way in.)
+    assert.equal(k === 'tips' ? procFrame(k, T.apply - 1).wire : procFrame(k, T.apply - 1).u, 1, `${k}: the tip is all the way in while it works`);
     assert.ok(procFrame(k, T.apply).step >= PROCS[k].steps.length - 2, `${k}: the change lands in the last steps`);
   }
   // The TIPS's needle crosses the tract between the hepatic vein and the portal vein (the route's stops).
-  const stops = { tract: [0.5, 0.8] };
-  assert.equal(procFrame('tips', PROCS.tips.T.needle0, stops).u, 0.5);
-  assert.equal(procFrame('tips', PROCS.tips.T.needle1, stops).u, 0.8);
+  // The catheter waits where the tract leaves the hepatic vein while the needle crosses it and the wire goes on, then slides over them.
+  const stops = { tract: [0.5, 0.8], rpv: [0.8, 0.9] }, TT = PROCS.tips.T;
+  assert.equal(procFrame('tips', TT.needle0, stops).u, 0.5);
+  assert.equal(procFrame('tips', TT.needle1, stops).u, 0.5);
+  assert.ok(Math.abs(procFrame('tips', TT.needle1, stops).needle - 0.81) < 1e-9, 'the needle reaches the right portal vein');
+  assert.ok(procFrame('tips', TT.flash0 + 300, stops).flash > 0, 'the portal hit flashes');
+  assert.equal(procFrame('tips', TT.wire1, stops).wire, 1, 'the wire reaches the trunk');
+  assert.ok(Math.abs(procFrame('tips', TT.over1, stops).u - 0.828) < 1e-9, 'the catheter slides over into the right portal vein');
+  assert.equal(procFrame('tips', TT.over1, stops).needle, 0, 'the needle is covered once the catheter is over it');
+  assert.ok(TT.needle1 < TT.wire1 && TT.wire1 < TT.over0 && TT.over1 < PROCS.tips.stops[1], 'needle, wire, then catheter, all in step 2');
+  for (let t = TT.needle0 + 20; t < TT.over1; t += 20) { const f = procFrame('tips', t, stops); if (f.needle) assert.ok(f.needle > f.u, `the needle leads the catheter at ${t}`); }
   assert.ok(procFrame('tips', (PROCS.tips.T.inflate0 + PROCS.tips.T.inflate1) / 2, stops).balloon > 0.3);
   assert.equal(procFrame('brto', PROCS.brto.T.fill1).column, 1);
 });
