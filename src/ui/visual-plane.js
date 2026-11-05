@@ -181,7 +181,7 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
     const x = X(v), w = est(String(v), fs, 0.62), left = x - w / 2 < PAD + 2, right = x + w / 2 > W - PAD - 2;
     ticks.push([cut('x', v), String(v), left ? PAD + 3 : right ? W - PAD - 3 : x, foot, left ? 'start' : right ? 'end' : 'middle']);
   }
-  for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), String(v), PAD + 3, Math.max(Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);
+  for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), String(v), PAD + 3, Math.max(cut('y', v) && part === 'all' ? Y(v) - fs * 0.25 - 3 : Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);   // (a cut-off's number in the card stands just over its line, never on it)
   ticks.sort((a, b) => b[0] - a[0]);
   const marks = ticks.filter((t) => t[0]), rest = ticks.filter((t) => !t[0]);
   if (part !== 'names') for (const [, text, x, y, anchor] of marks) put(text, x, y, anchor, 'pze-t on');
