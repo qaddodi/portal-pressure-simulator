@@ -23,7 +23,7 @@ let GLYPHS = null, OPS = null, UPM = 2048, WEIGHTS = [], loading = null;
 /** Fetches the outlines once; resolves when text can be drawn. */
 export function loadGlyphs() {
   // alloc-rare: the outlines are fetched once, the first time text is wanted
-  return (loading ||= Promise.all([import('./glyph-data.js'), import('./glyph-data-opsz.js')]).then(([m, o]) => { OPS = o.GLYPHS_OPSZ; GLYPHS = m.GLYPHS; UPM = m.UPM; WEIGHTS = Object.keys(GLYPHS).map(Number); }));
+  return (loading ||= Promise.all([import('./glyph-data.js'), import('./glyph-data-opsz.js')]).then(([m, o]) => { OPS = o.GLYPHS_OPSZ; GLYPHS = m.GLYPHS; UPM = m.UPM; WEIGHTS = Object.keys(GLYPHS).map(Number); }, (e) => { loading = null; throw e; }));   // (a fetch that failed is forgotten: the next ask fetches again)
 }
 // (The metrics at each optical size, glyph-metrics.js, 140 kB: fetched only where a paragraph is laid out, never with the outlines.)
 let MET = null, STOPS = [14, 32], metLoading = null;

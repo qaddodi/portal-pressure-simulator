@@ -9,6 +9,6 @@ import { stepFrames } from './step-phone-frames.js';
 const { st, page, frame } = await bootGL({ w: 395, h: 859, dpr: 3, coarse: true });
 
 test('on a phone with the GPU drawing the labels, each step number keeps its leader and dot in every frame from its moment on', async () => {
-  const seen = await stepFrames({ st, page, frame, now });
+  const seen = await stepFrames({ st, page, frame, now, gpu: true, chipGpu: true });
   assert.ok(seen.gpuDrawn > 0, `the GPU drew the numbers: ${JSON.stringify(seen)}`);
 });

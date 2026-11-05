@@ -272,10 +272,28 @@ export function readNums(s, i, out) {
   while (n < out.length) { i = numFrom(s || '', i, false); if (i < 0) break; out[n++] = NUM_V; }
   return n;
 }
+// (#rgb, #rgba, #rrggbb or #rrggbbaa from index i of c, as premultiplied RGBA into `out`; none of those: clear. Read by character codes: no string made.)
+const hexDigit = (c) => (c >= 48 && c <= 57 ? c - 48 : c >= 65 && c <= 70 ? c - 55 : c >= 97 && c <= 102 ? c - 87 : -1);
+function hexInto(out, c, i) {
+  let e = c.length;
+  while (e > i && c.charCodeAt(e - 1) <= 32) e--;
+  const n = e - i - 1, k = n > 4 ? 2 : 1;
+  if (!(n === 3 || n === 4 || n === 6 || n === 8)) return out;
+  for (let q = 0; q < n / k; q++) {
+    const h = hexDigit(c.charCodeAt(i + 1 + q * k)), l = k === 2 ? hexDigit(c.charCodeAt(i + 2 + q * k)) : h;
+    if (h < 0 || l < 0) { out[0] = out[1] = out[2] = out[3] = 0; return out; }
+    SC[q] = h * 16 + l;
+  }
+  const a = n === 4 || n === 8 ? SC[3] / 255 : 1;
+  out[0] = SC[0] / 255 * a; out[1] = SC[1] / 255 * a; out[2] = SC[2] / 255 * a; out[3] = a;
+  return out;
+}
 // A computed colour as premultiplied RGBA, 0 … 1, written into `out` (4 numbers).
 export function rgbaInto(out, c) {
   out[0] = out[1] = out[2] = out[3] = 0;
   if (!c) return out;
+  // (A token read as written, as a custom property is (the default dot's ink and ground, drawPins), not computed: its hex digits.)
+  { let i = 0; while (i < c.length && c.charCodeAt(i) <= 32) i++; if (c.charCodeAt(i) === 35) return hexInto(out, c, i); }
   // (A colour-mix() is computed as color(srgb r g b / a), each 0 … 1.)
   let i = c.indexOf('rgb('), div = 255;
   if (i >= 0) i += 4;
@@ -681,7 +699,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return t;
   };
   // (The labels' words are Inter's outlines (text-gl.js), fetched as the layer starts: till they come, the SVG shows every label.)
-  if (!glyphsReady()) loadGlyphs().then(() => { for (const s of last) dirty.add(s.g); ask(); }, () => {});
+  // (The outlines, fetched once; a label that found them not in yet asks again (glyphsWait), so a fetch that failed (a phone's network,
+  // text-gl.js forgets it) is tried again and every label read once more when they come, never left to the SVG for the rest of the visit.)
+  let glyphAsk = false;
+  const glyphsWait = () => {
+    if (glyphAsk) return;
+    glyphAsk = true;
+    loadGlyphs().then(() => { glyphAsk = false; for (const s of last) dirty.add(s.g); ask(); }, () => { setTimeout(() => { glyphAsk = false; }, 2000); });
+  };
+  if (!glyphsReady()) glyphsWait();
   let lost = false, disposed = false, dpr = 1, W = 1, H = 1, last = [];
   // (The loading cover waits for the labels' first picture, inside its own cap (index.html): it lifted on a figure with no labels, and
   // they arrived a beat later. 1.5 s here, so a view that shows none does not hold it.)
@@ -1126,7 +1152,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       return waitStyle(g, st);
     }
     if (lk != null && lookRep.get(lk) === g) { lookRep.delete(lk); lookFlush(); }
-    st.mode = !d ? 'none' : svgOnly(d) ? 'svg' : 'gl';
+    const why = d ? svgOnly(d) : '';
+    st.mode = !d ? 'none' : why ? 'svg' : 'gl';
+    if (why === 'glyphs') glyphsWait();
     // (One this layer cannot draw, a glyph Inter's cut lacks or the glyphs not in yet, asks its writer for its full SVG pieces back, and a
     // label of full pieces it draws again gives them up: svgAsk.)
     if (s && svgAsk) { if (st.mode === 'svg' && geo) svgAsk(g, true); else if (st.mode === 'gl' && !geo && s.full) svgAsk(g, false); }
@@ -1553,15 +1581,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     // (The pinned labels' dots and leaders, after the pictures: each label's opacity and place are this frame's by now.)
     if (pinAt) { gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); moving = drawPins(now) || moving; gl.bindVertexArray(vao); }
-    // (The pinned labels' marks, by their labels' renderer this frame: the GPU's where it drew the label, the SVG's, as laid out, where that did.)
-    for (let i = 0; i < pinEls.length; i++) {
-      const el = pinEls[i], mg = markGeo.get(el), ls = mg && labelByKey.get(mg.k);
-      if (ls?.g?.hasAttribute('data-gl')) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
-      markSvg(el, mg, false);
-      if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl');
-      svgLeft.add(el);
-    }
-    pinEls.length = 0;
     if (anyRing) {
       gl.useProgram(mprog); ucOf(gl).f2(MU.uView, W, H); ucOf(gl).i1(MU.uKind, 9);
       for (let i = 0; i < ni; i++) { const it = ITEMS[i]; if (it.st?.ring) ringDraw(it.x, it.y, it.st.ring, it.a); }
@@ -1706,16 +1725,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     if (fade && mg.own && !mg.svgA) { mg.svgA = true; el.style.opacity = String(mg.ra); }
   }
-  // (5 Nov 2026, iPhone: "1, 2, 3, 4, 5 with no leaders or dots, and they flicker". A pinned label's dot and leader are drawn by drawPins only
-  // while the GPU draws the label itself; a label the SVG draws this frame (no picture yet, its look one the layer cannot draw, the glyphs
-  // not in, a hold's first frame, its atlas place given back) is skipped there. Their SVG copies were hidden all the same, so such a label
-  // stood with neither, and one that went from the SVG to the GPU and back blinked its marks. They follow their label now: hidden where the
-  // GPU draws it, the SVG's, at the layout's geometry, where the SVG does.)
-  const pinEls = [];
+  // (5 Nov 2026, iPhone: "1, 2, 3, 4, 5 with no leaders or dots, and they flicker". A pinned label's dot and leader are drawn from its point
+  // (drawPins) only while the GPU has the label's picture; for a label it has none of this frame (the SVG drawing it: no picture yet, a look
+  // the layer cannot draw, the glyphs not in, a hold's first frame, its atlas place given back), drawPins skips it. Their SVG copies were
+  // hidden all the same, so such a label stood with neither, and one that passed between the two blinked its marks. Those are drawn here
+  // instead, by the GPU, from the geometry the layout gave them, as any other mark: never by neither, and never by the SVG.)
+  const pinnedNow = (ls) => { const st = ls && sprites.get(ls.g); return !!st && st.mode === 'gl' && !!st.slot; };
   function drawMarks(now) {
     let moving = false;
     markDrawn = 0;
-    pinEls.length = 0;
     if (!marks.length) return false;
     gl.useProgram(mprog);
     ucOf(gl).f2(MU.uView, W, H);
@@ -1747,8 +1765,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
               if (!pk) pinLooks.set(mg.k, pk = { line: null, dot: null, halo: null, dotR: 2.4, haloR: 5 });   // alloc-rare: one record per pinned label key
               const cls = el.getAttribute('class') || '';
               if (isPath) pk.line = st; else if (cls.includes('halo')) { pk.halo = st; if (mg.ok) pk.haloR = mg.v[2]; } else { pk.dot = st; if (mg.ok) pk.dotR = mg.v[2]; }
-              pinEls.push(el);   // (whose copy shows is settled once the labels are, drawIn)
-              continue;
+              if (pinnedNow(pl0)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
             }
             // (Every other mark is drawn from its geometry as of the layout the GPU was last handed (sync: mg.pv), as its label is, never a newer
             // one the page already holds: a layout run mid-ride (a ride key change in a card zoom) wrote its leaders before its labels came, and
@@ -1877,7 +1894,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const key = s.g.dataset?.key;
       if (!key || !pinOf(s)) continue;
       const st = sprites.get(s.g);
-      if (!st || st.mode !== 'gl' || !(st.opacity > 0.001)) continue;
+      if (!st || st.mode !== 'gl' || !st.slot || !(st.opacity > 0.001)) continue;   // (one with no picture: its marks are drawn from their geometry, drawMarks)
       const want = wantOf(s, key), lk = pinLooks.get(key);
       let a = Math.min(1, st.opacity) * xfNew;
       pinOff(s, now); pinDev(st);
