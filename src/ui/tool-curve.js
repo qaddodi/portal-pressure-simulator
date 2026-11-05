@@ -324,14 +324,15 @@ export function segHits([x1, y1, x2, y2], [bx0, by0, bx1, by1]) {
  *  line's segment its weight w (2 if unset), on other words boxW (3 unless the caller asks for more), outside the bounds 10. A line with side (the y of the ring
  *  the word names) also costs 20 when the word's middle is across it from that ring: a value over a cut-off it is under
  *  reads as the wrong side of it. */
-export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null, boxW = 3 }) {
+export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null, boxW = 3, segPad = 0 }) {
   let n = 0;
   if (bounds && (b[0] < bounds[0] || b[1] < bounds[1] || b[2] > bounds[2] || b[3] > bounds[3])) n += 10;
   for (const l of lines) {
     if (l.y > b[1] - 3 && l.y < b[3] + 3 && l.x0 < b[2] && b[0] < l.x1) n += l.w ?? 1;   // (and 3 px clear of a line)
     if (l.side != null && ((b[1] + b[3]) / 2 - l.y) * (l.side - l.y) < 0) n += 20;
   }
-  for (const sg of segs) if (segHits(sg, b)) n += sg.w ?? 2;
+  const sb = segPad ? [b[0], b[1] - segPad, b[2], b[3] + segPad] : b;   // (segPad: clear air above and below the word that a data line must keep)
+  for (const sg of segs) if (segHits(sg, sb)) n += sg.w ?? 2;
   for (const o of boxes) if (hitBox(b, o)) n += boxW;   // (boxW: what a word on a word costs; the cut-off names ask 8, so they lose to a spot that crosses a gridline or a data line)
   return n;
 }
@@ -802,7 +803,7 @@ export function createCurve() {
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
-    const obstacles = { segs, cutLabs, xCutLabs, dotPts, zoneLab, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.filter((c) => !held(c)).map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f], inside: [0, 0, G.w, G.h] };
+    const obstacles = { segs, cutLabs, xCutLabs, dotPts, zoneLab, cutBounds: [L, T - 0.1 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.filter((c) => !held(c)).map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f], inside: [0, 0, G.w, G.h] };
     return { svg, lines, at, xk: !!xk, kv, obstacles, alt };
   }
   // The rings at r: each on its line at the case's setting, its value beside it (left of it near the right edge, and the
@@ -946,12 +947,19 @@ export function createCurve() {
     // (The cut-offs' names after the values: a value belongs by its ring, a name can go to either end or onto its line.)
     for (const c of ob.cutLabs) {
       // (If both ends are taken, beside the dashed line: just left of it, or just right.)
+      // (The dashed line's name on its clear side: just above it, at the end of the plot with the fewest data lines near it, and nudged
+      // up in half-line steps until a data line is half a text height off; else the old spots.)
+      const ly = c.cands[0].y + 0.35 * f, endN = (x0, x1) => ob.segs.filter((q) => q.w == null && segHits(q, [x0, ly - 2 * f, x1, ly + 2 * f])).length;
+      const rN = endN(G.R - c.tw - 3, G.R), lN = endN(G.L, G.L + c.tw + 3), ends = lN < rN ? [['start', G.L + 3], ['end', G.R - 3]] : [['end', G.R - 3], ['start', G.L + 3]];
+      const clear = ends.flatMap(([anchor, x]) => [0.4, 0.9, 1.4].map((d) => ({ x, y: ly - d * f, anchor })));
       const near = ok ? c.cands.filter((q) => q.anchor === 'end').flatMap((q) => [{ ...q, x: cx - 0.5 * f, anchor: 'end' }, { ...q, x: cx + 0.5 * f, anchor: 'start' }]) : [];
       const obs = { segs: [...ob.segs, ...leads], boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside, boxW: 8 };
-      let p = placeWord([...c.cands, ...near], c.tw, f, obs), short = false;
+      const cs = [...clear, ...c.cands, ...near];
+      let p = placeWord(cs, c.tw, f, { ...obs, segPad: 0.5 * f }), short = false;
+      if (p.n) { const q = placeWord(cs, c.tw, f, obs); if (q.n < p.n) p = q; }
       // (A name with no clear spot (a word, a line or the edge in its way) stands as its number where that does better; and once a drawing has made it a
       // number it stays one, as the rings glide, so it never flips between the two.)
-      if (c.short && (c.useShort || p.n > 0)) { const q = placeWord([...c.cands, ...near], c.twS, f, obs); if (c.useShort || q.n < p.n) { p = q; short = true; c.useShort = true; } }
+      if (c.short && (c.useShort || p.n > 0)) { const q = placeWord([...clear, ...c.cands, ...near], c.twS, f, obs); if (c.useShort || q.n < p.n) { p = q; short = true; c.useShort = true; } }
       setWords(c.el, short ? c.short : c.txt);
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
