@@ -5,9 +5,10 @@ import { cancelFrame, cancelMay, mayTask } from './frame.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
 import { viewXfMix } from './view-xf.js';
+import { createGlideLabels } from './glide-labels.js';
 
 export function createView(st, live) {
-  const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
+  const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
   const xfVis = [null, null];
   function viewXfP() { const x = live.viewXf, t = live.easeInOut(live.morph); return x.tT === x.t0 ? 1 : clamp((t - x.t0) / (x.tT - x.t0), 0, 1); }
   // (The label layers the GPU does not draw (the SVG's own) come in with the new labels.)
@@ -133,7 +134,10 @@ export function createView(st, live) {
     if (done) live.labelGlSync();
     return done;
   }
+  // (A presenter's glide over one view: its labels solved as it sets off for where it lands, the same way: glide-labels.js.)
+  const { glideXfCut, glideXfEnd, glideXfStart, glideXfStep } = createGlideLabels({ XF_SLICE_MS, handRideEnd, labelJobDrop, labelJobStep, labelSliceRun, labelTail, refreshCTM, sitesPaint, updateLabels, xfLayer }, live);
   function viewXfStart(d) {
+    glideXfCut();   // (a presenter's glide's crossfade cut by the change: its new labels stand, and are frozen below)
     live.xfHold = false;
     live.viewXf = null;   // (a change begun on another: the new one is solved first, with the layers out of the old one's hands)
     labelJobDrop();
@@ -279,5 +283,5 @@ export function createView(st, live) {
     if (live.F && x.sigTap && !live.labelJob) xfMarkCurrent(x.sigTap);
     if (live.F) updateLabels(live.F);
   }
-  return { morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease };
+  return { glideXfEnd, glideXfStart, glideXfStep, morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease };
 }

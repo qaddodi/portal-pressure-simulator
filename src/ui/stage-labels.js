@@ -7,7 +7,7 @@ import { COUNTED, gpuProbe } from './gpu-probe.js';
 import { store } from './store.js';
 
 export function createLabelDriver(st, live) {
-  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
+  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
   const JOB_NOW = { maxWait: 0 };
   const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
@@ -147,8 +147,10 @@ export function createLabelDriver(st, live) {
   function updateLabels(f, force = false) {
     live.labelPainted = false;
     if (live.viewXf) return;   // (the change between the views: the new view's labels were solved at the tap for where it lands, and ride it)
-    // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short.
+    // Laid out once the presenter's camera settles (see camSettle), or at once if its glide was cut short. (Its new labels were solved as it
+    // set off for where it lands and crossed in on its progress (glide-labels.js glideXfStart): at rest that crossfade ends, glideXfEnd.)
     if (live.camMove) { if (!live.vtGliding) camSettle(); return; }
+    glideXfEnd();
     // (Not while the HVPG catheter hides them (cath-on, after its .25 s fade): its view follows the tip every frame, and every frame
     // of it had laid out, drawn and sent to the GPU labels nobody could see. setCatheter lays them out as it goes.)
     if (cathHid()) { live.labelKey = null; return; }

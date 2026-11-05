@@ -11,7 +11,7 @@ import { clamp } from './util.js';
 
 import { stageScope } from './stage-scope.js';
 export function createGlide(st, live) {
-  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack } = st;
+  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack } = st;
   // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
   // (opt.scale: a slide's framing, a fit, a camera set) takes the time its reach on screen needs, 480 to 900 ms, never longer than
   // asked.
@@ -66,7 +66,8 @@ export function createGlide(st, live) {
     // (Not for a drift or a move on an arc: those keep their end time, which a refit that bends them reads from the wall clock.)
     const clock = opt.steady && !drift && !live.arcRun ? glideClock() : null;
     live.vtGliding = true; live.vtUntil = t0 + ms; live.vtMs = ms;
-    if (live.cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !sameView(from, to)) { live.camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; stageScope.timer(camSettleIdle, left + 80); } else camSettle();
+    // (A presenter's glide: the new slide's labels solved now for where it lands and crossed with the old on its progress, glideXfStep; label-system-review #6.)
+    if (live.cath.st?.keep && !sameView(from, to) || store.get().presenting && !drift && !sameView(from, to)) { if (store.get().presenting && !drift) glideXfStart(to); live.camMove = true; dpr.carry = dpr.on && performance.now() < dpr.refitUntil; stageScope.timer(camSettleIdle, left + 80); } else camSettle();
     live.dprLet();   // (a probe waiting for the slide's framing: a move hides it till it lands, a refit shows it now)
     // (0, 4 Nov 2026: a glide moves its camera every frame again while the figure flicker is chased; at 60 on a 120 Hz screen the figure
     // stepped every other frame beside cards and labels that moved every frame.)
@@ -94,6 +95,7 @@ export function createGlide(st, live) {
       if (live.sites.list) { refreshCTM(); sitesPaint(); }
       if (live.scan.on) live.scanPaint();
       live.dprobePaint();
+      glideXfStep(u);
       if (u < 1) live.vtAnim = nextFrame(step); else { live.vtGliding = false; live.arcRun = null; camSettle(); if (drift) driftEnd(); }
     };
     live.vtAnim = nextFrame(step);
