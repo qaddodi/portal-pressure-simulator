@@ -22,14 +22,16 @@ const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
 
 /** Where the milestones' names go, level over their lines: each centred on its x (moved in to stay inside [0, W]), on the
  *  first row from the plot up where it keeps gap px from the name before it; as many rows as that takes, never cut short.
- *  xs: each milestone's x, widths: its name's width. → { at: [{ x, row }] (x: the name's middle), rows } */
+ *  xs: each milestone's x, widths: its name's width. → { at: [{ x, row, anchor, ax }] (x: the name's middle; ax, anchor: where to draw it, the plot's right limit or the left margin for a name near an edge), rows } */
 export function milePlaces(xs, widths, W, gap = 10) {
   const ends = [], at = xs.map((x, i) => {
     const w = widths[i], mid = Math.min(Math.max(x, w / 2 + 4), W - w / 2 - 4);
+    // (A name whose centre is near an edge is aligned to it, not centred over a line it would overhang: ending at W on the right, starting at 4 on the left.)
+    const anchor = x + w / 2 > W ? 'end' : x - w / 2 < 4 ? 'start' : 'middle', ax = anchor === 'end' ? W : anchor === 'start' ? 4 : x;
     let row = ends.findIndex((e) => mid - w / 2 >= e + gap);
     if (row < 0) row = ends.length;
     ends[row] = mid + w / 2;
-    return { x: mid, row };
+    return { x: mid, row, anchor, ax };
   });
   return { at, rows: ends.length };
 }
@@ -122,14 +124,14 @@ export function talkTrace() {
     const vw = Math.ceil(textW(fmt(pts[last]?.fp.hvpg ?? 0, 1), vfs, 700)), R = W - Math.max(Math.ceil(4 * 0.6 * vfs), vw + 4) - 14,   // (the end value's own width, so it stands inside the card with room to spare)
        n = Math.max(pts.length, 2), X = (i) => L + (R - L) * (pts.length < 2 ? 0.5 : i / (n - 1));
     const mi = pts.map((p, i) => (p.mile ? i : -1)).filter((i) => i >= 0);
-    const { at, rows } = milePlaces(mi.map(X), mi.map((i) => textW(pts[i].mile, fs)), W);
+    const { at, rows } = milePlaces(mi.map(X), mi.map((i) => textW(pts[i].mile, fs)), R);
     // (A band that starts at a milestone of its own name is named once, by the milestone; the rest are named on as many rows
     // as keep them inside the chart and clear of each other and of the HVPG lane's name at the left of the lowest row.)
     const runs = bands.length ? bandRuns(pts.map((p) => p.params), bands) : [], spans = runs.map((r) => bandSpan(r, pts.length, X, L, R));
     const nameK = runs.map((r, k) => k).filter((k) => pts[runs[k].i0]?.mile !== runs[k].name);
-    const bat0 = namePlaces(nameK.map((k) => spans[k]), nameK.map((k) => runs[k].name), (t) => textW(t, fs), { rows: nameK.length > 1 ? 2 : 1, maxX: W - 6, grow: true, ends0: [L + textW('HVPG', fs) + 0.2 * fs] });
+    const bat0 = namePlaces(nameK.map((k) => spans[k]), nameK.map((k) => runs[k].name), (t) => textW(t, fs), { rows: nameK.length > 1 ? 2 : 1, maxX: R, grow: true, ends0: [L + textW('HVPG', fs) + 0.2 * fs] });
     const bRows = nameK.length ? Math.max(...bat0.map((a) => a.row)) + 1 : 0;
-    const rowH = fs + 8, nameY = (r) => 4 + fs + (rows - 1 - r) * rowH, T0 = 4 + rows * rowH, bandY = (r) => T0 + fs + (bRows - 1 - r) * (fs + 4);
+    const rowH = fs + 8, nameY = (r) => 4 + fs + (rows - 1 - r) * rowH, T0 = 4 + rows * rowH + Math.ceil(0.6 * fs), bandY = (r) => T0 + fs + (bRows - 1 - r) * (fs + 4);
     const T = T0 + bRows * (fs + 4) + 0.6 * fs + 6, B = HT - fs - 16;
     const gMax = Math.max(15, Math.ceil(Math.max(0, ...pts.map((p) => p.fp.hvpg || 0)) / 5) * 5), Y = (v) => B - (B - T) * clamp(v, 0, gMax) / gMax;
     const ticks = Array.from({ length: gMax / 5 + 1 }, (_, k) => k * 5).filter((v, k, a) => (B - T) / a.length >= 1.2 * fs || v % 10 === 0 || v === 5);
@@ -153,7 +155,7 @@ export function talkTrace() {
       pts.map((p, i) => sv('g', { class: 'ptk-mark' + (i === last ? ' now' : '') }, sv('title', {}, `${p.when || `Slide ${p.n}`}: ${p.title}`),
         p.mile ? sv('line', { 'data-look': 'talk.mark.line', x1: X(i), x2: X(i), y1: T0 - 2, y2: B + 4 }) : null,
         named.has(i) ? sv('text', { 'data-look': 'talk.mark.text', x: X(i), y: B + fs + 6, 'text-anchor': 'middle' }, p.when || String(p.n)) : null)),
-      mi.map((i, k) => sv('text', { class: 'ptk-ms' + (i === last ? ' now' : ''), 'data-look': 'talk.ms', x: at[k].x, y: nameY(at[k].row), 'text-anchor': 'middle' }, pts[i].mile)),
+      mi.map((i, k) => sv('text', { class: 'ptk-ms' + (i === last ? ' now' : ''), 'data-look': 'talk.ms', x: at[k].ax, y: nameY(at[k].row), 'text-anchor': at[k].anchor }, pts[i].mile)),
       nameK.map((k, j) => sv('text', { class: 'ptk-band-n', 'data-look': 'talk.band.name', 'data-p-rx': tokName(runs[k].tone), x: bat0[j].x, y: bandY(bat0[j].row) }, runs[k].name)),
       // (Each stretch of the line in the colour of where it ends, the cut-offs' own.)
       pts.slice(1).map((p, k) => sv('path', { class: 'ptk-line hv', 'data-look': 'talk.line.hv', 'data-rate': sev(p.fp.hvpg), d: `M${X(k).toFixed(1)} ${Y(pts[k].fp.hvpg).toFixed(1)}L${X(k + 1).toFixed(1)} ${Y(p.fp.hvpg).toFixed(1)}` })),

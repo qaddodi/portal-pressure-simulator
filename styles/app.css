@@ -2865,7 +2865,7 @@ button.finding { cursor: pointer; }
 .pz-flowtime { display: grid; }
 .pz:not(.stack) .pz-data.has-tool:has(.pz-tool[data-kind="flowtime"] .pz-flowtime:not(.days)) { width: clamp(340px, 44vw, 480px); }   /* (wide enough for its words on an iPad held upright; a disease time-lapse's short names keep the card's own width) */
 .pz-flowtime svg { grid-area: 1 / 1; width: 100%; height: auto; overflow: visible; transition: opacity var(--d-surface) var(--ease); }
-@media (max-height: 960px) { .pz.stack .pz-flowtime svg { max-height: 160px; } }/* (A phone's after-meal chart keeps one size: .pz.stack.stack .pz-flowtime.) */
+@media (max-height: 960px) { .pz.stack .pz-flowtime svg { max-height: var(--pz-chart-hh, 160px); } }/* (A phone's after-meal chart keeps one size: .pz.stack.stack .pz-flowtime.) */
 .pz-flowtime svg.in { opacity: 0; }
 .pz.stack .pz-data.has-tool { --pz-cap: 50%; max-height: var(--pz-cap); }   /* (--pz-cap: the stacked card's tucked cap, read by presenter.js layout) */
 /* (With its readings out under it, the card's cap grows by their height (--pz-d, presenter.js measureUnder): the instrument card keeps
@@ -5783,11 +5783,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* (A phone's Doppler and FibroScan give way when the card is short, but by their pictures: the instrument is not zoomed, so its words
    are drawn at 12 px or more, and the fit shortens the picture's height.) */
 .pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"]) { --tz: 1; zoom: 1; }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box { min-height: 0; height: calc(128px * var(--pz-fit, 1) / var(--tz, 1) + var(--dop-free, 0px)); }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="beats"] .pt-box { height: min(calc(clamp(200px, 52cqi, 250px) * var(--pz-fit, 1)), max(140px, var(--pz-ph, 9999px))); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { width: min(56cqi, 150px); }
 .pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="abdomen"] .ab-belly { max-height: min(52cqi, 200px); }
-.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: calc(168px * var(--pz-fit, 1) / var(--tz, 1)); }
 /* (An instrument card keeps its title centred like every other card: two spacers share the row's room equally, so a title too
    wide to stay centred gives way at both ends.) */
 .pz:is(.stack, .low) .pz-data.has-tool:not(.tool-only) .pz-dh { position: relative; padding-inline: 0; flex-wrap: nowrap; justify-content: center; text-align: center; }
@@ -7014,7 +7011,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz-talk.has-bands { height: calc((var(--talk-h, 280px) + var(--band-room, 0px)) * var(--pz-fit, 1)); }
 /* (The year chart's milestones style, talk-trace.js drawMiles: level names over the milestones, the HVPG line in its cut-off colours.) */
 .pz-flowtime.has-bands { height: calc(var(--ft-h, max(60cqi, 15em)) + var(--band-room, 0em)); }
-@media (max-height: 960px) { .pz.stack .pz-flowtime.has-bands svg { max-height: calc(160px + var(--band-room, 0em)); } }   /* (a phone's cap, by as much) */
+@media (max-height: 960px) { .pz.stack .pz-flowtime.has-bands svg { max-height: calc(var(--pz-chart-hh, 160px) + var(--band-room, 0em)); } }   /* (a phone's cap, by as much) */
 /* ── Package B: end ── */
 
 /* ── Package C, model charts: start ── */
@@ -7457,3 +7454,10 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .fps-counter .fps-unit { font-size: 12px; font-weight: 500; opacity: .7; }
 
 /* (Card sizing, short phones: --pz-ph, set by presenter.js layout on the stacked data card, is the share of the card's own height cap a picture may take, so a picture is never taller than the card can hold; each picture's height above is min(its own px height times the fit, that room, never under the picture's own minimum).) */
+/* (One height for every chart on a stacked data card: --pz-chart-h is 0.6 of the card's width, 190 to 300 px, capped by the card's own room --pz-ph; a new chart's box joins the list below. The year chart had none: its 280 px default was zoomed by the fit twice, a squat strip.) */
+.app.presenting .pz.stack:not(.low) .pz-data.has-tool > .pz-tool { --pz-chart-h: clamp(190px, 60cqi, 300px); --pz-chart-hh: min(calc(var(--pz-chart-h) * var(--pz-fit, 1)), max(150px, var(--pz-ph, 9999px))); }
+.app.presenting .pz.stack:not(.low) .pz-data.has-tool > .pz-tool[data-kind="talk"] { --tz: 1; zoom: 1; }
+.app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="talk"] .pz-talk { height: calc(var(--pz-chart-hh) + var(--band-room, 0px) * var(--pz-fit, 1)); min-height: 0; }
+.app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="vitals"] .vitals-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool .pz-mon .hvpg-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="beats"] .pt-box { height: var(--pz-chart-hh); }
+.app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="flowtime"] .pz-flowtime { --ft-h: var(--pz-chart-hh); height: calc(var(--ft-h) + var(--band-room, 0em)); }
+.app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="doppler"] .dop-box { height: calc(var(--pz-chart-hh) + var(--dop-free, 0px)); }
