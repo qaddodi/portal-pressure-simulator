@@ -31,8 +31,26 @@ export function setTokenSource(fn) { tokensFor = fn; tokenMaps.clear(); memo.cle
 function tokensOf(ctx) {
   const k = `${ctx.theme}|${ctx.dark}|${ctx.palette}|${ctx.view}`;
   let m = tokenMaps.get(k);
-  if (!m) tokenMaps.set(k, m = tokensFor(ctx) || {});
+  if (!m) tokenMaps.set(k, m = withVarsResolved(tokensFor(ctx) || {}));
   return m;
+}
+// A token written as another token ('vein-portal': 'var(--tour-portal)', a color-mix of var()s) is read through the same map, as the page's
+// cascade would, so the colour parser never sees a var(): it cannot read one, and the piece fell to MAGENTA (the Blood into the liver card's
+// Portal vein bar). A var() with no token takes its fallback, else stays (and reports where it is used).
+const VAR_RE = /var\(\s*--([\w-]+)\s*(?:,\s*([^()]*(?:\([^()]*\)[^()]*)*))?\)/g;
+export function withVarsResolved(src) {
+  const out = { ...src };
+  for (let pass = 0; pass < 8; pass++) {
+    let changed = false;
+    for (const n in out) {
+      const v = out[n];
+      if (typeof v !== 'string' || !v.includes('var(')) continue;
+      const r = v.replace(VAR_RE, (all, name, fb) => (name !== n && typeof out[name] === 'string' ? out[name] : fb != null ? fb.trim() : all));
+      if (r !== v) { out[n] = r; changed = true; }
+    }
+    if (!changed) break;
+  }
+  return out;
 }
 
 // ── The context ──
