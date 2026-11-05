@@ -30,6 +30,12 @@ export function shareFor(map, gl, key) {
 // A plan's key is kept as numbers in kept arrays and compared in place (no key string is made for each picture): the requests' picture keys
 // (v, f; in any order), the grid, and the parts of the copy to blur.
 const newSnap = () => ({ n: 0, v: [], f: [], g: [0, 0, 0, 0, 0], np: -1, p: [], fn: -1, fp: [], full: false });   // alloc-rare: a share's two snapshots are made with the share, once
+// (Boxes x (one, or a list) put at the end of cat; false when x is null: not known.)
+function joinInto(cat, x) {
+  if (!x) return false;
+  if (Array.isArray(x)) { for (let i = 0; i < x.length; i++) cat.push(x[i]); } else cat.push(x);
+  return true;
+}
 const sameNum = (a, b) => a === b || (a !== a && b !== b);
 
 /** An instance's needs for the picture just laid: req { id, boxes (CSS px from the canvas's corner), v, f (the keys of the picture under
@@ -44,7 +50,7 @@ export function sharePrep(S, req) {
 /** What the first draw on this picture blurs: the parts of the copy every request needs (null: all of it), and whether that, the grid and
  *  every request's picture are the same as the last blur kept (shareKeep): { parts, same } (a record kept in the share, read before the
  *  next call). blurInto(out, pool, boxes, ox, oy, t, bw, bh): glass-gl's blurBoxesInto. */
-export function sharePlan(S, grid, t, bw, bh, full, blurInto, dirtyFor = null, dirtyInto = null) {
+export function sharePlan(S, grid, t, bw, bh, full, blurInto, dirtyFor = null, dirtyInto = null, picDirtyFor = null) {
   const boxes = S.boxBuf;
   boxes.length = 0;
   for (const r of S.reqs) for (const b of r.boxes) boxes.push(b);
@@ -62,13 +68,28 @@ export function sharePlan(S, grid, t, bw, bh, full, blurInto, dirtyFor = null, d
   // reach, the rest of the blurred picture being what the last blur left. No squares known, or any of that different: all the parts, as ever.
   // (Render-cost plan 3c: any number of requests, so long as each one's picture is the last blur's and every one of them moved by the same
   // blood frames; until 5 Nov 2026 only a lone request was let through, and a card glass beside another of its look blurred all its parts.)
-  if (dirtyFor && dirtyInto && !full && n >= 1 && S.snapOk) {
+  // (3b: or each one's picture moved on by the same pictures (picDirtyFor: where those drew, when each was a part of the canvas drawn again).)
+  if ((dirtyFor || picDirtyFor) && dirtyInto && !full && n >= 1 && S.snapOk) {
     const P = S.snap;
-    let ok = P.n === n && P.fn === C.fn && typeof P.f[0] === 'number' && typeof C.f[0] === 'number' && C.f[0] > P.f[0];
-    for (let i = 0; ok && i < n; i++) if (P.v[i] !== C.v[i] || P.f[i] !== P.f[0] || C.f[i] !== C.f[0]) ok = false;
+    let ok = P.n === n && P.fn === C.fn && typeof P.f[0] === 'number' && typeof C.f[0] === 'number' && C.f[0] >= P.f[0];
+    const vMoved = ok && C.v[0] !== P.v[0];
+    if (vMoved) ok = !!picDirtyFor && typeof P.v[0] === 'number' && typeof C.v[0] === 'number' && C.v[0] > P.v[0];
+    for (let i = 0; ok && i < n; i++) {
+      if (P.f[i] !== P.f[0] || C.f[i] !== C.f[0]) ok = false;
+      else if (vMoved ? P.v[i] !== P.v[0] || C.v[i] !== C.v[0] : P.v[i] !== C.v[i]) ok = false;
+    }
+    const fMoved = ok && C.f[0] > P.f[0];
+    if (!vMoved && !fMoved) ok = false;
     for (let i = 0; ok && i < 5; i++) if (!sameNum(P.g[i], C.g[i])) ok = false;
     for (let i = 0; ok && i < C.fn * 4; i++) if (P.fp[i] !== C.fp[i]) ok = false;
-    const d = ok ? dirtyFor(P.f[0], C.f[0]) : null;
+    let d = null;
+    if (ok) {
+      const cat = S.dCat || (S.dCat = []);   // alloc-rare: the share's joined list is made at its first use
+      cat.length = 0;
+      if (fMoved && !(dirtyFor && joinInto(cat, dirtyFor(P.f[0], C.f[0])))) ok = false;
+      if (ok && vMoved && !joinInto(cat, picDirtyFor(P.v[0], C.v[0]))) ok = false;
+      if (ok) d = cat;
+    }
     if (d) {
       let rects = parts;
       if (!rects) { const r = S.rFull[0]; r[0] = 0; r[1] = 0; r[2] = bw; r[3] = bh; rects = S.rFull; }

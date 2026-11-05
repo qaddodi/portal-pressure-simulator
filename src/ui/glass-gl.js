@@ -514,7 +514,7 @@ export function dropsOf(v) {
   }
   return out;
 }
-export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, full = false, onHoles = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, full = false, onHoles = null } = {}) {
   if (reblur > 0) fresh = null;
   // (cards.callouts: the figure's callouts, a glass.add region of their own (stage.js): the cards' machinery, with the callouts' own ways kept: no
   // wait for a first draw, no html[data-cardgl], one turn ('all') between the cards' two, one over-list, their shadow and tint strength, the parent's box.)
@@ -1223,6 +1223,20 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const dirtyBox = { x: 0, y: 0, w: 0, h: 0 }, dirtyDev = [0, 0, 0, 0];
   // (Render-cost plan 3a, option dirtyRects: the tiles the blood drew, a short list of boxes, in place of their one union; null when unknown.)
   const dirtyList = [], dirtyListPool = [], dirtyDevList = [], dirtyDevPool = [];
+  // (Render-cost plan 3b, option pictureRects: where the figure's pictures after `from` up to `to` drew, when each was a part drawn again.)
+  const picList = [], picListPool = [], picDevList = [], picDevPool = [];
+  function picDirtyFn(from, to) {
+    const n = pictureRects(from, to, picDevList, picDevPool);
+    if (n < 0) return null;
+    const k = host.canvas.width / cr0.width;
+    for (let i = 0; i < n; i++) {
+      const s = picDevList[i], o = picListPool[i] || (picListPool[i] = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the pool grows to the most boxes a range has had
+      o.x = s.x / k; o.y = s.y / k; o.w = s.w / k; o.h = s.h / k;
+      picList[i] = o;
+    }
+    picList.length = n;
+    return picList;
+  }
   function dirtyFn(from, to) {
     if (dirtyRects) {
       const n = dirtyRects(from, to, dirtyDevList, dirtyDevPool);
@@ -1251,7 +1265,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (!grid) { shareForget(S); return false; }
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
     const nT = tapN(look.blur * grid.k / grid.T);
-    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty || dirtyRects ? dirtyFn : null, keepFor(2 * nT + 3));   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
+    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty || dirtyRects ? dirtyFn : null, keepFor(2 * nT + 3), pictureRects ? picDirtyFn : null);   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
     const sr = S.reg || (S.reg = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the share's region record is made at its first blur
     sr.x = grid.x; sr.y = grid.y; sr.w = grid.w; sr.h = grid.h;
     // (In use in this frame, kept or made again: see the release below.)

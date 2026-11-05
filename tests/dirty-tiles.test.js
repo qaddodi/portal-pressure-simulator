@@ -157,3 +157,36 @@ test('two requests of one look both get the dirty test (3c)', () => {
   sharePrep(S2, { id: 'b', boxes: [card], v: 6, f: 13 });
   assert.equal(sharePlan(S2, grid, t, bw, bh, false, keep(11), () => [], keep(23)).same, false);
 });
+
+// ── 3b: a picture drawn again in part carries where it drew ──
+test('a new picture that drew only far from every glass blurs nothing again (picture rects)', () => {
+  const S = shareFor(new Map(), {}, 'k');
+  prime(S, [{ id: 'a', boxes: [topBar], v: 5, f: 10 }]);
+  sharePrep(S, { id: 'a', boxes: [topBar], v: 6, f: 10 });
+  const p = sharePlan(S, grid, t, bw, bh, false, keep(11), () => [], keep(23), () => [{ x: 900, y: 1000, w: 60, h: 60 }]);
+  assert.equal(p.same, true);
+});
+
+test('a new picture under a card blurs only near that card; blood and picture moves are joined', () => {
+  const S = shareFor(new Map(), {}, 'k');
+  prime(S, [{ id: 'a', boxes: [topBar, card], v: 5, f: 10 }]);
+  sharePrep(S, { id: 'a', boxes: [topBar, card], v: 7, f: 13 });
+  const p = sharePlan(S, grid, t, bw, bh, false, keep(11), () => [{ x: 100, y: 1100, w: 10, h: 10 }], keep(23), () => [{ x: 1700, y: 450, w: 30, h: 30 }]);
+  assert.equal(p.same, false);
+  for (const r of p.parts) assert.ok(r[1] * t >= 100, 'nothing in the top bar is blurred again');
+});
+
+test('a picture whose region is unknown, or no picture rects at all, blurs everything as before', () => {
+  for (const pic of [() => null, null]) {
+    const S = shareFor(new Map(), {}, 'k');
+    prime(S, [{ id: 'a', boxes: [card], v: 5, f: 10 }]);
+    sharePrep(S, { id: 'a', boxes: [card], v: 6, f: 10 });
+    const p = sharePlan(S, grid, t, bw, bh, false, keep(11), () => [], keep(23), pic);
+    assert.equal(p.same, false);
+  }
+  // (A version that is not a number (the lobule's text key) is never taken on trust.)
+  const S = shareFor(new Map(), {}, 'k');
+  prime(S, [{ id: 'a', boxes: [card], v: '5.1', f: 10 }]);
+  sharePrep(S, { id: 'a', boxes: [card], v: '5.2', f: 10 });
+  assert.equal(sharePlan(S, grid, t, bw, bh, false, keep(11), () => [], keep(23), () => []).same, false);
+});

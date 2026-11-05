@@ -2088,6 +2088,49 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // unknown (an empty record of -1). The glass blurs again only the parts of its copy that a blood frame since its last blur reached.)
   const BD_N = 16, bdRect = new Float32Array(BD_N * 4), bdSeq = new Float64Array(BD_N).fill(-1), bdKnown = new Uint8Array(BD_N);
   const bdTiles = createDirtyTiles(BD_N);   // (the same frames as tiles: where the squares lie, not just their union; dirty-tiles.js)
+  // (Render-cost plan 3b: where each of the last BD_N pictures (drawSeq) drew, as tiles, when it was a part of the canvas drawn again at the
+  // same view (a vessel row's cells, a tint, an organ's box, the fluid's cells, the catheter's box, with the blood's squares). Every other
+  // picture (a whole one, a camera, a new view, a reuse, a scene camera, a clear) is unknown, and the glass then blurs all it reads, as before.)
+  const picTiles = createDirtyTiles(BD_N), picM = new Float64Array(6).fill(NaN);
+  let picKnownM = false;
+  // (Marks into `T` (begun) the device boxes of n world cells (origins at cells[q * stride], [q * stride + 1]) of side `size` under m; `mark`, when
+  // given, picks the cells (mark[q] set).)
+  function markCells(T, cells, n, stride, m, size, mark = null) {
+    const a = m[0] * size, b = m[1] * size, c = m[2] * size, d = m[3] * size;
+    for (let q = 0; q < n; q++) {
+      if (mark && !mark[q]) continue;
+      const x = m[0] * cells[q * stride] + m[2] * cells[q * stride + 1] + m[4], y = m[1] * cells[q * stride] + m[3] * cells[q * stride + 1] + m[5];
+      T.add(Math.min(x, x + a, x + c, x + a + c) - 1, Math.min(y, y + b, y + d, y + b + d) - 1, Math.max(x, x + a, x + c, x + a + c) + 1, Math.max(y, y + b, y + d, y + b + d) + 1);
+    }
+  }
+  // (Marks into `T` the device box of the world box x0, y0, x1, y1 under m.)
+  function markWorld(T, x0, y0, x1, y1, m) {
+    let lx = Infinity, ly = Infinity, hx = -Infinity, hy = -Infinity;
+    for (let i = 0; i < 4; i++) {
+      const wx = i & 1 ? x1 : x0, wy = i & 2 ? y1 : y0, x = m[0] * wx + m[2] * wy + m[4], y = m[1] * wx + m[3] * wy + m[5];
+      if (x < lx) lx = x; if (x > hx) hx = x; if (y < ly) ly = y; if (y > hy) hy = y;
+    }
+    T.add(lx - 1, ly - 1, hx + 1, hy + 1);
+  }
+  // (A picture just counted (pictured): where it drew, when that is known, at the view the last known picture was drawn at.)
+  // (whole: drawn whole, at m (known after, unknown itself); odd: drawn in a way that leaves the canvas not the picture at m (one pass, upscaled,
+  // under a camera, with something under or in place of it): unknown, and the next one too.)
+  function picMark(was, m, whole, odd, part, dirt, pool, ripple, cathRect) {
+    const same = was && m[0] === picM[0] && m[1] === picM[1] && m[2] === picM[2] && m[3] === picM[3] && m[4] === picM[4] && m[5] === picM[5];
+    for (let i = 0; i < 6; i++) picM[i] = m[i];
+    picKnownM = !odd;
+    if (whole || odd || !same || !PW() || !PH()) return;   // (unknown, as pictured left it)
+    if (part && !partMark) return;
+    if (ripple && !(fluidW[2] > fluidW[0])) return;
+    const T = picTiles;
+    T.begin(pictureSeq, PW(), PH());
+    if (nBlood) { if (!bloodCPU) { T.unknown(pictureSeq); return; } markCells(T, bloodCPU, nBlood, 6, m, bloodCell); }
+    if (part) { if (!cellsCPU) { T.unknown(pictureSeq); return; } markCells(T, cellsCPU, nCells, 6, m, CELL, partMark); }
+    if (dirt) markWorld(T, dirtW[0], dirtW[1], dirtW[2], dirtW[3], m);
+    if (pool) markWorld(T, poolW[0], poolW[1], poolW[2], poolW[3], m);
+    if (ripple) markWorld(T, fluidW[0], fluidW[1], fluidW[2], fluidW[3], m);
+    if (cathRect) T.add(cathRect[0], cathRect[1], cathRect[2], cathRect[3]);
+  }
   function bloodMark(seq, cells, n, m, size) {
     const i = seq % BD_N, r = i * 4;
     bdSeq[i] = seq;
@@ -2121,7 +2164,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return true;
   }
   const callPicture = (f) => f();
-  const pictured = (blood = false) => { if (blood) { bloodSeq++; return; } pictureSeq++; onPicture.forEach(callPicture); };
+  const pictured = (blood = false) => { if (blood) { bloodSeq++; return; } pictureSeq++; picTiles.unknown(pictureSeq); picKnownM = false; onPicture.forEach(callPicture); };   // (any picture not marked by picMark leaves the next one unknown too)
   let lines = null, linesWas = false, lastPW = -1, lastPH = -1, viewId = 0;
   // (What each layer was last drawn for: its version and the view's number, which turns over when the matrix or the canvas size
   // changes. -1: none. Numbers, where a string of the matrix and the size was built in each frame.)
@@ -2306,7 +2349,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.bindVertexArray(null);
   // (Split as the whole layer's cells are: partBuf holds the general program's, partSBuf the one-vessel build's, partG and partS of each.)
   const partSBuf = gl.createBuffer(), partSVAO = cellVAO(partSBuf);
-  let partG = 0, partS = 0;
+  let partG = 0, partS = 0, partMark = null;   // (partMark: the cells last uploaded, over cellsCPU, for the glass: render-cost plan 3b)
   // The ascites surface band: cells redrawn each frame while its ripple runs.
   const fluidBuf = gl.createBuffer(), fluidVAO = gl.createVertexArray();
   gl.bindVertexArray(fluidVAO);
@@ -2332,6 +2375,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0); gl.vertexAttribDivisor(1, 1);
   gl.bindVertexArray(null);
   let nDirt = 0;
+  const dirtW = new Float64Array(4), poolW = new Float64Array(4), fluidW = new Float64Array(4).fill(NaN);   // (world boxes of the dirt, pool and fluid cells: render-cost plan 3b)
   // (Preallocated cell lists, recs.md item 7, 2 Nov 2026: the cells an ease redraws (the organs' changed box, the ascites pool) are
   // written into one kept Float32Array, grown by doubling only when a list outgrows it, and sent with bufferSubData into a GPU buffer
   // kept at its largest size, so a moving frame makes no array and reallocates no GPU storage.)
@@ -2388,6 +2432,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     cellList.reset();
     for (let y = Math.floor(y0 / CELL) * CELL; y < y1; y += CELL) for (let x = Math.floor(x0 / CELL) * CELL; x < x1; x += CELL) cellList.push(x, y);
     nDirt = cellList.send(dirtBuf);
+    dirtW[0] = Math.floor(x0 / CELL) * CELL; dirtW[1] = Math.floor(y0 / CELL) * CELL; dirtW[2] = Math.ceil(x1 / CELL) * CELL + CELL; dirtW[3] = Math.ceil(y1 / CELL) * CELL + CELL;   // (the cells' world box, for the glass)
   }
   const fluidTex = dataTex(gl);
   let fluidRows = null, fluidTexN = 0;   // (R05: setFluidSpans' kept rows, and the width its texture was made at)
@@ -2811,7 +2856,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function uploadPart(mark) {
     const { gen, one, nGen: g, nOne: o } = splitCells(cellsCPU, nCells, simpleOf, mark, PART_SPLIT);
     keepBuf(partBuf, gen, g * 6); keepBuf(partSBuf, one, o * 6);   // (R05: storage kept, rows rewritten; the kept lists hold more than the cells' floats)
-    partG = g; partS = o;
+    partG = g; partS = o; partMark = mark;
   }
   // Draws the marked cells again over the layer (written whole: a pixel left empty is written empty).
   function cellsPass(m, look, part) {
@@ -3781,6 +3826,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       cellList.reset();
       for (let y = Math.max(y0, top) - CELL; y < y0 + h + CELL; y += CELL) for (let x = x0 - CELL; x < x0 + w + CELL; x += CELL) cellList.push(x, y);
       nPool = cellList.send(poolBuf);
+      poolW[0] = x0 - CELL; poolW[1] = Math.max(y0, top) - CELL; poolW[2] = x0 + w + 2 * CELL; poolW[3] = y0 + h + 2 * CELL;
       return true;
     },
     /** R05: how often a dynamic upload rewrote kept GPU storage (sub) and how often it had to grow it (grow, bytes added). */
@@ -3790,6 +3836,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       figVer++;
       keepBuf(fluidBuf, cells);   // (R05: every step of a fluid ease rewrote it into new storage)
       nFluid = cells.length / 2;
+      { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (let i = 0; i + 1 < cells.length; i += 2) { const x = cells[i], y = cells[i + 1]; if (x < a) a = x; if (y < b) b = y; if (x > c) c = x; if (y > d) d = y; } fluidW[0] = a; fluidW[1] = b; fluidW[2] = c + CELL; fluidW[3] = d + CELL; }
     },
     dropPlate(slot) { texVer++; if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; } stack?.drop(slot); notePlate(); },
     hasPlate: (slot) => !!plates[slot] || !!stack?.has(slot),
@@ -4334,8 +4381,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const figNew = figVer !== figAt;
       figAt = figVer;
       const bloodAlone = !full && !part && !dirt && !pool && !(fl?.ripple && nFluid) && !cath && bare && same && !figNew;
+      const picWas = picKnownM;
       pictured(bloodAlone);
-      if (bloodAlone) bloodMark(bloodSeq, fused || up || camOn() ? null : bloodCPU, nBlood, m, bloodCell);
+      if (bloodAlone) { bloodMark(bloodSeq, fused || up || camOn() ? null : bloodCPU, nBlood, m, bloodCell); if (fused || up || camOn()) picKnownM = false; }
+      else picMark(picWas, m, full, fused || up || camOn() || !!(under && under.on()) || !!(replace && replace.on()), part, dirt, pool, !!(fl?.ripple && nFluid), cathRect);
       if (still) {
         let ch = false;
         for (let r = 0; r < nTubes; r++) if (movedUp[r * 4] !== moved[r]) { movedUp[r * 4] = moved[r]; ch = true; }
@@ -4520,6 +4569,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     bloodDirty,
     /** As bloodDirty, as up to MAX_RECTS boxes { x, y, w, h } (device px) written into out from pool: their count, 0 for nowhere, -1 when unknown. */
     bloodDirtyRects: (from, to, out, pool) => bdTiles.rects(from, to, out, pool),
+    /** As bloodDirtyRects, for the pictures (drawSeq) after `from` up to `to`: -1 unless each was a part of the canvas drawn again at the same view. */
+    pictureDirtyRects: (from, to, out, pool) => picTiles.rects(from, to, out, pool),
     /** The view the picture was last drawn for (the world matrix), as a string that changes whenever a pan, a zoom or a glide moves it (the glass blurs again at once then). */
     get viewKey() { return baseM ? viewKeyStr : ''; },
     /** Calls f each time drawSeq changes; returns the call that stops it. */
