@@ -547,7 +547,10 @@ export function createLabelSolve(st, live) {
       // (Mohammad, 4 Nov: "when there is no room we shouldn't have labels covering like portal vein and structures completely".) A station's label that could only be
       // placed over a vessel does not cover it: it takes its abbreviation first, then drops its unit and change, and where it still has no room it is left out. A label the
       // reader asked for (selected, or named by a slide) is the exception and keeps its spot.)
-      if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !st.presenting && !(it.node === 'HA' && it.abbr)) best = null;   // (the hepatic artery always shows: once it reads "HA" it keeps its spot)
+      // (Named by a slide: an Anatomy slide shows only the stations it names, but a Circuit slide shows every station, so there only those in
+      // presentLabels are. Every reading on a Circuit slide had been let keep a spot over a vessel: slide 4 on a Mac, "Spleen 12.0" on the colon's vein.)
+      const named = st.presenting && (!circuit || (Array.isArray(st.presentLabels) && st.presentLabels.includes(it.node)));
+      if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !named && !(it.node === 'HA' && it.abbr)) best = null;   // (the hepatic artery always shows: once it reads "HA" it keeps its spot)
       if (reslot && (!best || lineHits(best.r, 2) || callouts.some((b) => hits(best.r, b)))) { stale = true; return false; }
       if (!best) {
         // No room with the value: try it without its units and change, then the name alone (up to maxShort), before giving the label up.

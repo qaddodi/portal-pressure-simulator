@@ -71,7 +71,7 @@ test('step 7 (option C): a zone title is set over the visible part of its band a
 });
 
 test('crowded labels: abbreviate first, never cover a vessel (Mohammad, 4 Nov)', () => {
-  assert.ok(/best\.onLine > 0 && it\.key\.startsWith\('n:'\) && !it\.sel && !st\.presenting && !\(it\.node === 'HA' && it\.abbr\)\) best = null/.test(st));
+  assert.ok(/best\.onLine > 0 && it\.key\.startsWith\('n:'\) && !it\.sel && !named && !\(it\.node === 'HA' && it\.abbr\)\) best = null/.test(st));
   const an = readFileSync(new URL('../src/ui/anatomy.js', import.meta.url), 'utf8');
   for (const k of ['HA', 'CONF', 'RPV', 'LPV', 'SV', 'RHV', 'MHV', 'LHV']) assert.ok(new RegExp(`\\b${k}: '`).test(an.slice(an.indexOf('export const ABBR'))));
 });
