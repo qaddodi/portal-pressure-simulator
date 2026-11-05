@@ -247,7 +247,7 @@ test('the leaders and dots stand for the stage\'s ride: their layer\'s kept styl
   assert.match(CSS, /\.stage-view\.lb-ride \.lb-leaders \{ opacity: 0; \}/, 'the page fades the leaders layer for the ride');
   assert.match(LGL, /classList\?\.contains\('lb-leaders'\)\) mixC\(rideLook \? 10 : 11\)/, 'the layer\'s style key follows the ride');
   assert.match(LGL, /const rideSeen = \(\) => \{[\s\S]*?const on = !!svg\.parentElement\?\.closest\?\.\('\.lb-ride'\);[\s\S]*?allMarks\(\); ask\(\);/, 'a ride coming or going reads the marks again');
-  assert.match(LGL, /const outer = new MutationObserver\(\(rs\) => \{\s*rideSeen\(\);/, 'the stage\'s class changes are watched for it');
+  // (The ride's toggle calls each layer's rideSeen: label-theme.js rideChanged, tests/label-theme.test.js.)
   assert.match(LGL, /classList\?\.contains\('lb'\) && rideLook && !e\.hasAttribute\('data-gl'\)\) mixC\(12\)/, 'a label the SVG still draws is faded in the ride: keyed apart');
   // Any other rule a gesture class makes about something inside the labels' SVG would need the same: the leaders' layer and the labels the SVG still draws (keyed by data-gl).
   const inside = [];

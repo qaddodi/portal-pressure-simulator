@@ -5,7 +5,7 @@ import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, VB_ANAT, VB_CIRC } from './anatomy.
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
 import { store, varixGrowth } from './store.js';
-import { clamp, lerp } from './util.js';
+import { clamp, lerp, themeChanged } from './util.js';
 
 export function createFrame(st, live) {
   const { CIRC_C, EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, cbAt, circTurn, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, svg, vbBox, wiggle } = st;
@@ -153,7 +153,7 @@ export function createFrame(st, live) {
     live.svgOver?.classList.toggle('circuit', t > 0.5);
     if (recs.show(t > 0.5 ? 1 : 0, performance.now(), reduceMotion.matches)) live.recKick();   // (the kept shapes of the circuit fade in and out as .circuit-only did: D_SURFACE, the page's ease)
     // The circuit is a dark hemodynamic map; the anatomy an atlas plate on paper.
-    stageWrap.classList.toggle('cmap', t > 0.5);
+    if (stageWrap.classList.contains('cmap') !== t > 0.5) { stageWrap.classList.toggle('cmap', t > 0.5); themeChanged(); }   // (the map's tokens are the labels' too: label-theme.js)
     if (gFxC.firstChild || t === 0 || t === 1) { if (t !== fxcT) { fxcT = t; fxcTxt = String(t); } setG(gFxC, 'style:opacity', fxcTxt); }   // (an empty layer takes no opacity through the change between the views; its value lands with the view)
     // (The map and the dots fade with t on the GPU: at 0 neither is drawn nor read.)
     if (MAP.a !== t) { MAP.a = t; nd.dirty = true; }

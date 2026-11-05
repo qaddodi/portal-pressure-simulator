@@ -8,6 +8,8 @@
 // This file is the one place that knows which look sets which attributes. It has no DOM of its own to build (look-chooser.js draws the
 // Settings control), so it loads anywhere and the tests can run it.
 
+import { themeChanged } from './label-theme.js';
+
 /** The looks in the order Settings shows them. `theme`: the data-theme the page takes. `palette`: the data-palette, if any. */
 export const LOOKS = [
   { id: 'light', name: 'Light', theme: 'light' },
@@ -37,8 +39,9 @@ export const lastDarkLook = () => lastDark;
 /** Put a look on the page: its attributes (an unknown id, or null, is System: neither attribute). Both change in one task, so
  *  every observer of the page sees the pair together. */
 export function applyLookAttrs(root, id) {
-  const look = LOOKS.find((l) => l.id === id);
+  const look = LOOKS.find((l) => l.id === id), was = `${root.getAttribute('data-theme')}|${root.getAttribute('data-palette')}`;
   if (look?.theme) root.setAttribute('data-theme', look.theme); else root.removeAttribute('data-theme');
   if (look?.palette) root.setAttribute('data-palette', look.palette); else root.removeAttribute('data-palette');
   if (look && look.theme === 'dark') lastDark = look.id;
+  if (`${root.getAttribute('data-theme')}|${root.getAttribute('data-palette')}` !== was) themeChanged();   // (the labels drawn on the GPU take the new look: label-theme.js)
 }

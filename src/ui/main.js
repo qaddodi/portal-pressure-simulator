@@ -352,7 +352,7 @@ async function main() {
   });
   store.on('shunting', renderPaintHint);
   store.on('mode', onMode);
-  store.on('layers', () => { app.classList.toggle('chips-off', !store.get().layers.chips); syncBloodBtn(); redraw(); });
+  store.on('layers', () => { const off = !store.get().layers.chips; if (app.classList.contains('chips-off') !== off) { app.classList.toggle('chips-off', off); themeChanged(); } syncBloodBtn(); redraw(); });
   // A phone shows a short form of a long name (styles), wrapped to two lines if needed: "Decomp. cirrhosis", not "Decomp…".
   const shortName = (s) => s.replace(/\s*\(.*\)$/, '').replace(/,.*$/, '').replace(/^Decompensated\b/, 'Decomp.').replace(/^Compensated\b/, 'Comp.').replace(/^Clinically significant PH$/, 'CSPH');
   // The compact form, for the narrowest room (a phone held sideways, 84 px): the short form where two lines of it fit, else a
@@ -1249,8 +1249,10 @@ function openSettings(anchor, withSearch = false) {
     menuSection('Display',
       menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass on cards and labels. Off runs cooler', (on) => {
         toggleStored('pps.noGlass', 'main:1038')(!on);   // (stored inverted: 1 means the blur is off)
+        const was = document.documentElement.hasAttribute('data-noglass');
         document.documentElement.toggleAttribute('data-noglass', !on);
         document.documentElement.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
+        if (was === on) themeChanged();   // (the labels drawn on the GPU take the glass's look: label-theme.js)
       }),
       menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Draw the figure at full resolution during a pan or zoom, even if frames run long', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
     // (What the model shows and how far it goes has its own heading; none of it is in a talk.)
@@ -1826,6 +1828,7 @@ function chromeGlass() {
 import { sheetBehaviour } from './dock-sheet.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
+import { themeChanged } from './label-theme.js';
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
 // (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,

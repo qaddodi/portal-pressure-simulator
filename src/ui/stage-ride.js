@@ -3,11 +3,11 @@
 import { VIEW } from './anatomy.js';
 import { cancelFrame } from './frame.js';
 import { cams } from './scene-cam.js';
-import { clamp } from './util.js';
+import { clamp, rideChanged } from './util.js';
 
 export function createRide(st, live) {
   const { applyVT, dpr, labelSettleSoon, nextFrame, refreshCTM, sameView, sceneSet, sceneStart, sitesPaint, stageBox, updateLabels, vCanvas, vbBox, wrap } = st;
-  const rideLeaders = (on) => wrap.classList.toggle('lb-ride', on);
+  const rideLeaders = (on) => { wrap.classList.toggle('lb-ride', on); rideChanged(); };   // (the leaders' layer fades under it: label-theme.js)
   // (A matrix in stage px, written into a kept six: stagePx is the camera the labels were last laid out under (layCTM keeps it, written in
   // place at each layout); a ride keeps its own copy, and the ride's frame matrix is one more.)
   const stagePxLay = [0, 0, 0, 0, 0, 0], stagePxRide = [0, 0, 0, 0, 0, 0], stagePxNow = [0, 0, 0, 0, 0, 0], rideM6 = [1, 0, 0, 1, 0, 0];

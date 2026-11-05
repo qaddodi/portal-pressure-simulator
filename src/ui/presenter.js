@@ -17,7 +17,7 @@ import { store, replaceParams } from './store.js';
 import { download } from './download.js';
 import { controlOwnsKey } from './key-owner.js';
 import { glWords } from './gl-words.js';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ } from './util.js';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged } from './util.js';
 import { titleParts } from './title-units.js';
 import { liveText, wordsOf } from './live-text.js';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js';
@@ -2632,7 +2632,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     heldNow = !!on;
     ui.data.toggleAttribute('data-held-now', !!instant);
     ui.data.toggleAttribute('data-held', heldNow);
-    app.classList.toggle('pz-held', heldNow);
+    if (app.classList.contains('pz-held') !== heldNow) { app.classList.toggle('pz-held', heldNow); themeChanged(); }   // (.app.pz-held restyles the labels' alerts: label-theme.js)
     ui.tools.holdAnswer(heldNow, instant);
     // alloc-rare: once per instant answer, not per frame
     if (instant) nextFrame(() => nextFrame(() => ui?.data.removeAttribute('data-held-now')));
@@ -6014,7 +6014,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     store.set({ presenting: true, selection: null, details: null, compareSnap: null, colorMode: 'pressure', presentLabels: [], focus: null, stented: [], ...(st0.mode !== 'explore' ? { mode: 'explore' } : {}) });
     if (st0.view !== 'anatomic' && !st0.lobule) store.set({ view: 'anatomic' });
     projectorOn();
-    app.classList.add('presenting');
+    app.classList.add('presenting'); themeChanged();   // (.app.presenting restyles the labels: label-theme.js)
     document.getElementById('stage')?.dispatchEvent(new PointerEvent('pointerleave'));   // a hover lit as the deck starts clears
     getSelection()?.removeAllRanges?.();
     app.classList.toggle('pz-hi', hiCon);
@@ -6087,7 +6087,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     document.documentElement.style.setProperty('--label-k', String(stage.labelEff())); document.documentElement.style.setProperty('--label-scale', String(stage.labelScale()));
     dispatchEvent(new Event('pps:labelscale'));
     if (document.fullscreenElement) document.exitFullscreen?.();
-    app.classList.remove('presenting', 'pz-hi');
+    app.classList.remove('presenting', 'pz-hi'); themeChanged();   // (and pz-held, taken off above)
     stage.setKeyStops?.(true);
     app.style.removeProperty('--pz-wk');
     projectorOff();

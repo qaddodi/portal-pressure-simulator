@@ -14,7 +14,7 @@
 
 import { glGet, glCap } from './gl-state.js';
 import { ucOf } from './uniform-cache.js';
-import { classOnly, GESTURE_LOOK } from './idle-keys.js';
+import { addLabelLayer } from './label-theme.js';
 import { startProgram, checkProgram, publishWhenDone } from './gl-compile.js';
 import { createAtlasPacker } from './atlas-pack.js';
 import { createShapeGL, flattenPath, ellipsePoly } from './shape-gl.js';
@@ -766,7 +766,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const STYLE_PROPS = ['display', 'opacity', 'filter', 'outlineStyle', 'outlineWidth', 'outlineColor', 'outlineOffset', 'fill', 'stroke', 'strokeWidth', 'paintOrder',
     'fontStyle', 'fontWeight', 'fontSize', 'fontFamily', 'letterSpacing', 'fontVariantNumeric', 'strokeLinejoin', 'strokeLinecap', 'strokeDasharray', 'strokeDashoffset'];
   const VOLATILE = new Set(['points', 'x', 'y', 'dx', 'dy', 'width', 'height', 'rx', 'ry', 'cx', 'cy', 'r', 'd', 'transform', 'data-gl', 'aria-label', 'tabindex', 'role']);
-  let epoch = 0, fillT = 0, rideLook = !!svg.parentElement?.closest?.('.lb-ride');   // (rideLook: the stage is in a ride, see outer)
+  let epoch = 0, fillT = 0, rideLook = !!svg.parentElement?.closest?.('.lb-ride');   // (rideLook: the stage is in a ride, see rideSeen)
   const snaps = new Map(), easing = new WeakMap(), unread = new Set(), waiting = new Set();
   // The key of an element's style is a number worked out from the same things the text key was made of (the epoch, each ancestor's tag,
   // its attributes but the volatile ones, its hover and focus), mixed into two 32-bit hashes kept in a 53-bit integer, so a label
@@ -784,7 +784,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (let i = 0; i < at.length; i++) { const a = at[i]; if (!VOLATILE.has(a.name)) { mixC(4); mixS(a.name); mixC(5); mixS(a.value); } }
       if (e.classList?.contains('lb')) { try { mixC(e.matches(':hover') ? 6 : 7); mixC(e.matches(':focus-visible') ? 8 : 9); } catch (err) { caught('label-gl:581', err); /* no state */ } }
       if (e.classList?.contains('lb') && rideLook && !e.hasAttribute('data-gl')) mixC(12);   // (a label the SVG still draws is faded under lb-ride, app.css: read apart from its look at rest)
-      if (e.classList?.contains('lb-leaders')) mixC(rideLook ? 10 : 11);   // (the stage's lb-ride fades this layer on the page: the leaders and dots stand for it, see outer)
+      if (e.classList?.contains('lb-leaders')) mixC(rideLook ? 10 : 11);   // (the stage's lb-ride fades this layer on the page: the leaders and dots stand for it, see rideSeen)
     }
     return (kh1 >>> 0) * 2097152 + ((kh2 >>> 0) & 0x1fffff);
   }
@@ -903,7 +903,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const take = (rs) => { for (const r of rs) { if (!changed(r)) continue; if (r.target === blocks && r.type === 'attributes') { restyle(); for (const s of last) dirty.add(s.g); continue; } const g = labelOf(r.target); if (g) { dirty.add(g); ringKept.delete(g); if (animsKept.get(g)?.ans) animsKept.delete(g); } } };
   const mo = new MutationObserver((rs) => { take(rs); if (dirty.size) ask(); });
   mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'points', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
-  // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label.
+  // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label. Its
+  // writers say so (label-theme.js themeChanged, the public theme()); no observer on the ancestors waits for it (L3 P7).
   const all = () => { restyle(); const t = performance.now() + 700; for (const s of last) { dirty.add(s.g); live.set(s.g, t); if (!TRACK) exact.set(s.g, t); } allMarks(); ask(); };
   // (Not for a gesture's own classes, which change no label's look (idle-keys.js GESTURE_LOOK): each one made every label and mark read
   // again on every frame for 0.7 s as a pan or pinch began and as it ended. 30 Oct, review G3.)
@@ -917,13 +918,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     rideLook = on;
     allMarks(); ask();
   };
-  const outer = new MutationObserver((rs) => {
-    rideSeen();
-    if (rs.some((r) => changed(r) && !classOnly(r, GESTURE_LOOK))) { all(); pReadSoon(); }   // (the Doppler probe's look follows the theme too)
-  });
-  for (let el = svg.parentElement; el; el = el.parentElement) outer.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class', 'data-theme', 'data-palette', 'data-noglass', 'data-mode'] });
-  darkMQ.addEventListener?.('change', () => { all(); pReadSoon(); });
-  addEventListener('pps:labelscale', all);   // (the text size: --label-k on the page)
+  const themeNow = () => { if (disposed) return; all(); pReadSoon(); };   // (the Doppler probe's look follows the theme too)
+  const unlayer = addLabelLayer({ theme: themeNow, ride: () => { if (!disposed) rideSeen(); } });
+  darkMQ.addEventListener?.('change', themeNow);
+  addEventListener('pps:labelscale', themeNow);   // (the text size: --label-k on the page)
   // A CSS fade or colour ease, a hover, a focus: that label's eases are followed till they end (its style read once, off the frame: styleOf).
   const hold = (ev, ms = 700) => { const g = labelOf(ev.target); if (g) { keepAnims(g, true); if (ev.type === 'focusin') keepRing(g); dirty.add(g); const t = performance.now() + ms; live.set(g, t); if (!TRACK) exact.set(g, t); ask(); } };
   for (const t of ['transitionrun', 'transitionend', 'transitioncancel', 'animationstart', 'animationend', 'animationcancel', 'pointerover', 'pointerout', 'focusin', 'focusout']) blocks.addEventListener(t, (ev) => hold(ev), true);
@@ -2277,12 +2275,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
     setProbe,
     setProbeCam(f) { probeCam = f; },
     setScan,
+    /** The page's look above the labels changed (the theme, the palette, the glass, a mode's class, the text size): every label and mark is read again. */
+    theme() { themeNow(); },
     /** Lets the layer go (host mode: its captions' owner took it out): no more drawing, observers and listeners ended, its GPU objects freed. */
     dispose() {
       if (disposed) return;
       disposed = true; lost = true;
       if (againF) { cancelFrame(againF); againF = 0; }
-      mo.disconnect(); mmo.disconnect(); outer.disconnect(); la?.dispose(); ac.abort();
+      mo.disconnect(); mmo.disconnect(); unlayer(); la?.dispose(); ac.abort();
       try {
         for (const t of pageTex) if (t) gl.deleteTexture(t);
         for (const t of rpTex) if (t) gl.deleteTexture(t);

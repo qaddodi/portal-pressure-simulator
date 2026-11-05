@@ -71,9 +71,7 @@ test('G3: a gesture\'s own classes keep no layout watch due and make no label re
     cbs[which]([{ type: 'attributes', attributeName: 'class', oldValue: 'pz-data stage-blocker', target: el('pz-data stage-blocker pz-open') }]);
     assert.equal(w.due(), true, `a card's class: due (${which})`);
   }
-  const lg = src('label-gl.js');
-  // (A gesture's classes read no label again; lb-ride alone reads the leaders and dots again, rideSeen: see label-gl.test.js.)
-  assert.match(lg, /const outer = new MutationObserver\(\(rs\) => \{\s*rideSeen\(\);\s*if \(rs\.some\(\(r\) => changed\(r\) && !classOnly\(r, GESTURE_LOOK\)\)\) \{ all\(\); pReadSoon\(\); \}[^\n]*\n\s*\}\);/);
+  // (A gesture's classes read no label again: no observer watches the ancestors, the look's writers tell the layers, tests/label-theme.test.js.)
 });
 
 test('H3: the glass canvases hold at most 2 device px per CSS px; the labels too (2 Nov: capped at 2x)', async () => {
