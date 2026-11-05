@@ -3101,7 +3101,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       let snap = snapTops();
       for (let i = 0; i < snap.length; i++) { const t = snap[i]; try { t.prep?.(); t.fails = 0; } catch (e) { topFailed(t, e); } }
       snap = snapTops();
-      for (let i = 0; i < snap.length; i++) { const t = snap[i]; try { t.draw(); t.fails = 0; } catch (e) { topFailed(t, e); } }
+      // (Render-cost plan 1, step 3: a pass that stands alone and says it is opaque over the whole canvas (the sinusoid, landed) hides every
+      // pass that stands alone under it (the lobule's): those are not laid. Their prep still runs; any doubt in opaque() says no.)
+      let cover = -1;
+      for (let i = snap.length - 1; i >= 0; i--) { const t = snap[i]; if (t.opaque && soloOn(t)) { let op = false; try { op = !!t.opaque(); } catch { op = false; } if (op) { cover = i; break; } } }
+      for (let i = 0; i < snap.length; i++) { const t = snap[i]; if (i < cover && t.solo) continue; try { t.draw(); t.fails = 0; } catch (e) { topFailed(t, e); } }
     } finally { topDepth--; if (topDepth < TOP_SNAPS.length) TOP_SNAPS[topDepth].length = 0; }
   }
   // The under picture, then the kept picture over it by the overlays' program (each pixel its own, premultiplied over). False when that

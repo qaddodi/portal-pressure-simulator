@@ -222,7 +222,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     // context, hidden and not drawn until the zoom brings it in, its texture back to a texel when it goes (place). Else the view's own canvas and context.)
     const ft = share?.top?.() || null;
     gpu = createSinusoidGL(canvas, { warm: true, onReady: () => { gpuKey = ''; wake(); }, host: ft });
-    if (gpu && ft) { shareTop = ft; shareOff = ft.add({ order: share.order, solo: true, on: () => shown > 0 && !!gpu && !gpu.lost, draw: laySin }); }
+    if (gpu && ft) { shareTop = ft; shareOff = ft.add({ order: share.order, solo: true, on: () => shown > 0 && !!gpu && !gpu.lost, opaque: sinOpaque, draw: laySin }); }
     // The names and their leaders are a pass of the same present (L1, docs/gpu-two-contexts-plan.md), over the view and under every glass; the layer's own fades are followed by layer-alpha.js.
     if (gpu && ft) cap.attach({ top: ft, order: share.capOrder ?? share.order + 1, near: el, active: () => shareTop === ft && !!gpu && !gpu.lost, scale: () => (hostWH ? ft.canvas.width / hostWH[0] : 0) });
     else cap.attach(null);   // (published after a draw found it compiling: drawn now) // alloc-rare: the GPU view is made once, the first time it is needed
@@ -235,6 +235,16 @@ export function createSinusoidView({ host, before = null, share = null }) {
   }
   let gpuTried = false, shareTop = null, shareOff = null;
   // The view's texture laid over the lobule in the stage's present (under the glass), weighed by the view's opacity.
+  // (Render-cost plan 1, step 3: landed, the view's tissue fills the canvas at alpha 1 (sinusoid-gl.js: revealA is at least uAll, which is 1
+  // with no zoom running, and the tissue pass is one full-screen quad), laid whole with no move and no fade: the lobule's pass under it is
+  // then not laid. Any zoom, fade, card camera, resolution swap or missing picture says no, and everything is laid as before.)
+  function sinOpaque() {
+    if (!shareTop || !gpu || gpu.lost || !open || !(shown >= 1) || dive || svFade || drewNow) return false;
+    if (zk !== 1 || ze || zf) return false;
+    const tg = gpu.target;
+    return !!tg && tg.w > 0 && tg.h > 0 && tg.w === opW && tg.h === opH && opAll;   // (the picture in the target was drawn whole, at this size, shown everywhere)
+  }
+  let opW = 0, opH = 0, opAll = false;   // (what the last draw left in the target: its size, and whether it was drawn shown everywhere)
   function laySin() {
     if (!shareTop || !(shown > 0) || !gpu || gpu.lost) return;
     const tg = gpu.target;
@@ -1181,7 +1191,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
       const n = sprites();
       // Paused and settled (nothing eases, no zoom): the same picture as last frame, so the two full-screen passes are skipped.
       const sameAsLast = go === 0 && !dive && !svFade && pictureSame(u, n);
-      if (!sameAsLast) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); } else settled = true;
+      if (!sameAsLast) { gpu.draw(u, pts, n); noteDraw('sinusoid-view'); svYield?.drew(performance.now()); const dt0 = gpu.target; opW = dt0 ? dt0.w : 0; opH = dt0 ? dt0.h : 0; opAll = u.uAll === 1 && u.uFocus === 1; } else settled = true;
       gpuKey = go === 0 && !dive && !svFade;
       if (svFade) svFadeStep();
     }
