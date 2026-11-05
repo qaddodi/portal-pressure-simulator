@@ -1317,7 +1317,18 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   float wall = 1.0 - smoothstep(0.7, 1.0, ay);
   float glowCore = 0.22 * (1.0 - ay * ay) * (1.0 - ay * ay);
   float a = clamp(streak * (0.32 + 0.26 * dens) + glowCore, 0.0, 0.75) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
-  return vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
+  vec4 sOut = vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
+  if (bloodStyle != 1) return sOut;
+  // Style D's tube light (arithmetic only): a soft highlight a third of the way across, a darker rim at the wall and a faint glow along
+  // the axis, laid under the streaks, so the lumen reads as a round tube. Strength follows the streaks' own (ends, stream strength).
+  float lit = f1.z * ends;
+  float hl = exp(-2.4 * (y + 0.38) * (y + 0.38) * 4.0) * (1.0 - smoothstep(0.75, 1.0, ay));
+  float rim = smoothstep(0.62, 1.0, ay);
+  float ha = 0.12 * hl * lit, ra = 0.2 * rim * lit;
+  vec4 under = over(vec4(inkDark * ra, ra), vec4(mix(col, inkLight, 0.7) * ha, ha));
+  vec4 top = vec4(sOut.rgb * sOut.a, sOut.a);
+  vec4 res = over(top, under);
+  return res.a > 0.0 ? vec4(res.rgb / res.a, res.a) : vec4(0.0);
 }
 // Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): SMV,
 // IMV, splenic vein, hepatic artery, then the rest of the body, each as wide as its share of the flow.
