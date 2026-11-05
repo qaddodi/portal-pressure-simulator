@@ -43,6 +43,7 @@ import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { changedRows } from './flow-rows.js';
 import { leftAlone, whenQuiet } from './quiet.js';
 import { uniformCache } from './uniform-cache.js';
+import { createDirtyTiles } from './dirty-tiles.js';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js';
 import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js';
 import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js';
@@ -2086,17 +2087,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (Where each of the last BD_N blood-alone frames drew: the union of its squares' boxes, in device px from the canvas's top left, or
   // unknown (an empty record of -1). The glass blurs again only the parts of its copy that a blood frame since its last blur reached.)
   const BD_N = 16, bdRect = new Float32Array(BD_N * 4), bdSeq = new Float64Array(BD_N).fill(-1), bdKnown = new Uint8Array(BD_N);
+  const bdTiles = createDirtyTiles(BD_N);   // (the same frames as tiles: where the squares lie, not just their union; dirty-tiles.js)
   function bloodMark(seq, cells, n, m, size) {
     const i = seq % BD_N, r = i * 4;
     bdSeq[i] = seq;
-    if (!cells || !m || !PW() || !PH()) { bdKnown[i] = 0; return; }
+    if (!cells || !m || !PW() || !PH()) { bdKnown[i] = 0; bdTiles.unknown(seq); return; }
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     const W = PW(), H = PH(), a = m[0] * size, b = m[1] * size, c = m[2] * size, d = m[3] * size;
+    bdTiles.begin(seq, W, H);
     for (let q = 0; q < n; q++) {
       const x = m[0] * cells[q * 6] + m[2] * cells[q * 6 + 1] + m[4], y = m[1] * cells[q * 6] + m[3] * cells[q * 6 + 1] + m[5];
       const lx = Math.min(x, x + a, x + c, x + a + c), hx = Math.max(x, x + a, x + c, x + a + c);
       const ly = Math.min(y, y + b, y + d, y + b + d), hy = Math.max(y, y + b, y + d, y + b + d);
       if (lx < x0) x0 = lx; if (hx > x1) x1 = hx; if (ly < y0) y0 = ly; if (hy > y1) y1 = hy;
+      bdTiles.add(lx - 1, ly - 1, hx + 1, hy + 1);   // (render-cost plan 3a: each square's own tiles, a pixel wider for the edge)
     }
     bdKnown[i] = 1;
     // (A pixel wider each side for the edge; an empty union, no square on the canvas, is a rect with no area.)
@@ -4510,6 +4514,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get bloodSeq() { return bloodSeq; },
     /** Where the blood frames after number `from`, up to `to`, drew: fills out [x0, y0, x1, y1] (device px, top left origin; x0 > x1 when nowhere) and returns true; false if unknown (the glass then blurs all it reads). */
     bloodDirty,
+    /** As bloodDirty, as up to MAX_RECTS boxes { x, y, w, h } (device px) written into out from pool: their count, 0 for nowhere, -1 when unknown. */
+    bloodDirtyRects: (from, to, out, pool) => bdTiles.rects(from, to, out, pool),
     /** The view the picture was last drawn for (the world matrix), as a string that changes whenever a pan, a zoom or a glide moves it (the glass blurs again at once then). */
     get viewKey() { return baseM ? viewKeyStr : ''; },
     /** Calls f each time drawSeq changes; returns the call that stops it. */

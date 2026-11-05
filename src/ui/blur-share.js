@@ -60,17 +60,22 @@ export function sharePlan(S, grid, t, bw, bh, full, blurInto, dirtyFor = null, d
   // Only the moving blood changed since the last blur (the one request with the same picture, only its blood count moved), the grid and
   // the parts the glasses read the same, and the blood frames' squares known (dirtyFor): the parts to blur are those inside the squares'
   // reach, the rest of the blurred picture being what the last blur left. No squares known, or any of that different: all the parts, as ever.
-  if (dirtyFor && dirtyInto && !full && n === 1 && S.snapOk) {
+  // (Render-cost plan 3c: any number of requests, so long as each one's picture is the last blur's and every one of them moved by the same
+  // blood frames; until 5 Nov 2026 only a lone request was let through, and a card glass beside another of its look blurred all its parts.)
+  if (dirtyFor && dirtyInto && !full && n >= 1 && S.snapOk) {
     const P = S.snap;
-    let ok = P.n === 1 && P.v[0] === C.v[0] && P.fn === C.fn && typeof P.f[0] === 'number' && typeof C.f[0] === 'number' && C.f[0] > P.f[0];
+    let ok = P.n === n && P.fn === C.fn && typeof P.f[0] === 'number' && typeof C.f[0] === 'number' && C.f[0] > P.f[0];
+    for (let i = 0; ok && i < n; i++) if (P.v[i] !== C.v[i] || P.f[i] !== P.f[0] || C.f[i] !== C.f[0]) ok = false;
     for (let i = 0; ok && i < 5; i++) if (!sameNum(P.g[i], C.g[i])) ok = false;
     for (let i = 0; ok && i < C.fn * 4; i++) if (P.fp[i] !== C.fp[i]) ok = false;
     const d = ok ? dirtyFor(P.f[0], C.f[0]) : null;
     if (d) {
       let rects = parts;
       if (!rects) { const r = S.rFull[0]; r[0] = 0; r[1] = 0; r[2] = bw; r[3] = bh; rects = S.rFull; }
-      S.dBox[0] = d;
-      const dp = dirtyInto(S.dOut, S.dPool, S.dBox, grid.x, grid.y, t, bw, bh);
+      // (d: one box, or a list of them (the tiles the blood drew, render-cost plan 3a); an empty list is nowhere.)
+      let dl = d;
+      if (!Array.isArray(d)) { S.dBox[0] = d; dl = S.dBox; }
+      const dp = dl.length ? dirtyInto(S.dOut, S.dPool, dl, grid.x, grid.y, t, bw, bh) : (S.dOut.length = 0, S.dOut);
       let m = 0;
       for (const r of rects) for (let j = 0; j < dp.length; j++) {
         const q = dp[j], x0 = Math.max(r[0], q[0]), y0 = Math.max(r[1], q[1]), x1 = Math.min(r[2], q[2]), y1 = Math.min(r[3], q[3]);
