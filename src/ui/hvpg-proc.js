@@ -20,6 +20,7 @@ import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvp
 import { frameFor, cancelFrame } from './frame.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { traceRoom, TRACE_MIN } from './trace-room.js';
+import { screenMin } from './screen-zoom.js';
 import { rateOf } from './table-marks.js';
 import { drawCallout, dropK, sideFor, calloutCell, calloutText, inkSeg } from './trace-callouts.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js';
@@ -405,9 +406,11 @@ export function createHvpgMonitor() {
 // g: the GPU drawer (trace-gl.js): the whole monitor drawn by the GPU through its 2D context, every word, line and fill, with this
 // canvas left blank; null, or where the GPU cannot draw now, on this canvas as before.
 function drawTrace(cv, st, g = null) {
+  LEAST = screenMin(cv);
   const p = fitPen(cv, g);
   try { traceOn(p, st); } finally { p.ctx.end?.(); }
 }
+let LEAST = 11;   // (the least word size this frame, canvas px: 11 px on the screen where the card zooms the monitor down)
 let FS = 12;   // the monitor's word size this frame (traceRoom's fs: 12 on a small monitor, up to 15 on a wide one)
 function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   if (w < 80 || hh < 60) return;
@@ -417,13 +420,13 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   const narrow = W < 300;
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
   // (Every word on the monitor at 12 px or more; the header takes the longest form that clears the big reading.)
-  const { big, fs } = traceRoom(W, H); FS = fs;
+  const { big, fs, k: HK } = traceRoom(W, H, 10, LEAST); FS = fs;
   ctx.font = FONT(700, big); const room = W - ctx.measureText('88.8').width - 12;
   ctx.fillStyle = C.text; ctx.font = FONT(600, FS);
-  ctx.fillText(fitLine(ctx, HEADS, room), x, y + 13);
+  ctx.fillText(fitLine(ctx, HEADS, room), x, y + 13 * HK);
   let label, num = '', col = C.text;
   if (ph === 'abort') {
-    ctx.font = FONT(600, FS); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32);
+    ctx.font = FONT(600, FS); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32 * HK);
     ctx.textAlign = 'center'; ctx.font = FONT(600, FS); ctx.fillText(narrow ? 'Unable to cannulate hepatic vein' : 'Unable to cannulate hepatic vein: procedure aborted', w / 2, hh / 2 + 8);
     ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
     return;
@@ -435,9 +438,9 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(t < T.callout ? pAt(t, v) : v.whvp, 1); col = C.wedge; }
   else if (running && t < T.sum) { label = 'WHVP'; num = fmt(v.whvp, 1); col = C.wedge; }
   else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
-  ctx.font = FONT(600, FS); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32);
+  ctx.font = FONT(600, FS); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32 * HK);
   if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
-  const { top, bot } = traceRoom(W, H, y), L = x + Math.round(FS * 1.8), R = x + W - (narrow ? 2 : Math.round(FS * 4.2));
+  const { top, bot } = traceRoom(W, H, y, LEAST), L = x + Math.round(FS * 1.8), R = x + W - (narrow ? 2 : Math.round(FS * 4.2));
   if (bot - top < TRACE_MIN) {
     // (Too short for the tracing, a phone held sideways: its note alone, in the longest form that fits, so the box is never
     // blank under "Ready". Sweep batch 03, shot 03.)
@@ -470,8 +473,8 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   seg(ctx, T.inflate, T.back, C.wedge, tNow, v);
   if (t < T.back) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(pAt(tNow, v)), 2.6, 0, Math.PI * 2); ctx.fill(); }
   // (Each level's name and number at the right, centred on its line; the two pairs kept 28 px apart so they never touch.)
-  const both = ph === 'result', sep = both ? Math.max(0, 28 - (Y(v.fhvp) - Y(v.whvp))) / 2 : 0;
-  const yf = Math.min(Y(v.fhvp) + sep, hh - 12), yw = Math.min(Y(v.whvp) - sep, yf - 28);   // (the lower pair kept off the monitor's foot)
+  const both = ph === 'result', sep = both ? Math.max(0, 28 * HK - (Y(v.fhvp) - Y(v.whvp))) / 2 : 0;
+  const yf = Math.min(Y(v.fhvp) + sep, hh - 12), yw = Math.min(Y(v.whvp) - sep, yf - 28 * HK);   // (the lower pair kept off the monitor's foot)
   if (t >= T.inflate) level(ctx, v.fhvp, C.free, 'FHVP', yf, narrow, R, L, cLvF);
   if (ph === 'result') {
     level(ctx, v.whvp, C.wedge, 'WHVP', yw, narrow, R, L, cLvW);
@@ -484,7 +487,7 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
       if (!Object.is(cHT.v, v.hvpg)) { cHT.v = v.hvpg; cHT.s = `HVPG ${fmt(v.hvpg, 1)}`; }   // alloc-rare: only when the HVPG differs from the one this text was built from
       const txt = cHT.s; ctx.font = FONT(700, FS);
       const tw = ctx.measureText(txt).width + 12, lx = xa - tw - 6, ly = (y1 + y2) / 2;
-      ctx.fillStyle = C.bg; rrect(ctx, lx, ly - 9, tw, 18, 9); ctx.fill(); ctx.strokeStyle = col2; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = C.bg; rrect(ctx, lx, ly - FS * 0.75, tw, FS * 1.5, FS * 0.75); ctx.fill(); ctx.strokeStyle = col2; ctx.lineWidth = 1; ctx.stroke();
       ctx.fillStyle = col2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 6, ly + 0.5);
       ctx.restore();
     }

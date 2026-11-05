@@ -4041,7 +4041,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // k: screen px per CSS px of the figure's box (1 unless the page is scaled): rects are screen px, inline sizes are the page's own (screen / k).
     const p = phone(), wr = readBox(wrap), W = wr.width, H = wr.height, k = wr.width / (readMetric(wrap, 'clientWidth') || wr.width) || 1;
     ui.root.classList.toggle('stack', p); ui.shade.classList.toggle('stack', p);
-    ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp());
+    ui.root.classList.toggle('tab', p && tabUp()); ui.shade.classList.toggle('tab', p && tabUp()); ui.text.classList.toggle('pz-tabgap', !!(ui.shade.querySelector('.pz-tabname') || ui.shade.querySelector('.pz-sitetab:not([hidden])')));   // (a tabbed card keeps half a tab's height clear under the strip: styles/app.css .pz-tabgap)
     // (A phone held sideways takes the Mac and iPad landscape layout, 3 Nov 2026, Mohammad: "the cards on the left both of them, tuck and untuck like Mac":
     // the words' card and the data card stacked at the left, its readings' card tucked under, the compact .pz.short sizes. `low`, the old split
     // layout (words left, instruments right behind Show), is never set now; its branches stay for the one-step revert.)

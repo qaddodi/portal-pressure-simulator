@@ -13,6 +13,7 @@ import { elastogramUnder } from './fibroscan-gl.js';
 import { surface } from './gpu-surfaces.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameAnimating } from './frame.js';
 import { createFollow } from './display-state.js';
+import { screenMin } from './screen-zoom.js';
 import { fix1 } from './fix-text.js';
 import { dataSoon } from './class-soon.js';
 const nextFrame = frameFor('fibroscan');
@@ -183,12 +184,12 @@ export function createFibroScan() {
     // edge and the reading inside its top right corner (the clearest part: the wave front starts at the top left).
     // A short, wide panel (a phone's presenter card on its side) differs only in its smaller words.
     const side = !cv.closest('.pz-tool') && hh < 200 && w > hh * 2.2;
-    const FLOOR = TOUCH.matches ? 12 : 10;   // (a finger's screen keeps the 12 px floor; a mouse's panel keeps its small words)
+    const FLOOR = Math.min(24, Math.max(TOUCH.matches ? 12 : 10, screenMin(cv)));   // (a finger's screen keeps the 12 px floor; a mouse's panel keeps its small words)
     // The panel's words are the size of the card's small words (the canvas's own font size, which a slide sets to the tiles'
     // small size), so the labels never look tiny beside the card: one size for the axes and the units.
     // (The box's ratio to its layout width is read with the size, when it changes: read every frame, it laid the page out mid-frame.)
     // (Its font size and layout widths are read by its ResizeObserver, outside the frame, which reports once as it starts: readBox.)
-    sized.cap = clamp(sized.fs * (w / (sized.ow || w)), FLOOR, 20); sized.r = w / (sized.cw || w) || 1;
+    sized.cap = clamp(sized.fs * (w / (sized.ow || w)), FLOOR, Math.max(20, FLOOR)); sized.r = w / (sized.cw || w) || 1;
     const CAP = side ? FLOOR : Math.max(FLOOR, sized.cap), m = Math.round(CAP * 0.7);
     const ex = 0, top = 0, ew = w, ph = hh, bot = hh;
     if (ph < 50 || ew < 60) return;

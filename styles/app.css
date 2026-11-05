@@ -1906,6 +1906,8 @@ button.finding { cursor: pointer; }
 .pz-shade.low { --pz-tabf: min(calc(12px * var(--ts, 1)), max(12px, calc((var(--pz-cw) - 16px) / 18.2))); }
 :root[data-theme="dark"] :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) :is(.pz-shade, .pz-panel) { --pz-tab-bg: rgb(var(--black-rgb) / .26); } }
+/* (A laptop or tablet card with a tab: half a tab's height of air between the tab strip and the title, presenter.js layout toggles pz-tabgap.) */
+.pz.pz-card:not(.stack):not(.low) .pz-text.pz-tabgap { padding-top: calc(var(--pz-cp) * .72 * .5); }
 .pz-tabname { position: absolute; top: 0; right: 0; z-index: 1; height: var(--pz-tabh); display: flex; align-items: center; padding: 0 calc(var(--pz-tabh) * .55 - .05em) 0 calc(var(--pz-tabh) * .55); border-radius: 0 var(--pz-tab-ro, 0px) 0 calc(var(--pz-tabh) * .5); background: var(--pz-tab-bg); font: var(--caps-w) var(--pz-tabf)/1 var(--font-ui); letter-spacing: var(--caps-ls); text-transform: uppercase; white-space: nowrap; color: var(--text-2); pointer-events: none; user-select: none; }
 .pz-panel > .pz-tabname { zoom: 1; }   /* (the panel's corner clips it to its curve; its fit zoom never shrinks the tab under 12 px) */
 .pz-panel.tabbed { padding-top: max(clamp(18px, calc(3.4 * var(--pzh)), 44px), calc(var(--pz-tabh) + 10px)); }
