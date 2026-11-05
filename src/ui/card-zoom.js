@@ -173,18 +173,16 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     /** Up and staying (not on its way back). */
     get up() { return !!st && !st.closing; },
     /** The plan for the card as it stands, or null when it would not grow enough. */
-    plan() { const q = whole(pieces(card, along, scene(), false)); return q && zoomPlan(q, area()); },
+    plan() { const q = whole(pieces(card, along, scene(), true)); return q && zoomPlan(q, area()); },
     open({ card: el = card, along: rides = along, scrim: veil = scrim, part = false, main = null } = {}) {
       if (st) return false;
-      // (Mohammad, 5 Nov 2026: a card zoom moves no figure, lobule or sinusoid; the instrument card and the teaching card come into view together,
-      // tucked or not. So the fit takes in both; where both together would not grow ZOOM_MIN, the card is fitted alone and the teaching card
-      // only rides the same turn.)
+      // (Mohammad, 5 Nov 2026: a card zoom moves no figure, lobule or sinusoid; the teaching card rides the same turn, tucked or not, but the
+      // fit and the centring are the instrument card's alone: it never changes the framing.)
       const a = area(), stacked = rides.some((x) => !x.hidden);
       // (main: the pieces the zoom is fitted and centred on, when it was the teaching card that was tapped: the data card rides along, as the
       // teaching card rides along when the data card is tapped. 5 Nov 2026)
       const focus = (rs) => { if (main) for (const r of rs) r.pass = !main.includes(r.el); return rs; };
-      let riders = focus(pieces(el, rides, part ? [] : scene(), false)), q = whole(riders, el) || (main && unionBox(riders.filter((r) => !r.pass).map((r) => r.rest))), plan = q && zoomPlan(q, a, zoomMargin(a) * (stacked && !main ? STACK_ROOM : 1));
-      if (!plan && !part && !main) { riders = pieces(el, rides, scene(), true); q = whole(riders, el); plan = q && zoomPlan(q, a, zoomMargin(a) * (stacked ? STACK_ROOM : 1)); }
+      let riders = focus(pieces(el, rides, part ? [] : scene(), true)), q = whole(riders, el) || (main && unionBox(riders.filter((r) => !r.pass).map((r) => r.rest))), plan = q && zoomPlan(q, a, zoomMargin(a) * (stacked && !main ? STACK_ROOM : 1));
       if (!plan) return false;
       const k = scale(el) || 1, ms = reduce() ? 0 : ZOOM_MS;
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;

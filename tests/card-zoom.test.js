@@ -647,3 +647,17 @@ test('zoom: a tap on the teaching card frames and centres it, the data card ridi
     assert.ok(!words.classList.contains('pz-zmain'), 'and are given back');
   } finally { back(); }
 });
+
+test('zoom: a tap on the data card fits and centres the data card alone; the teaching card rides but never changes the framing', () => {
+  const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
+  const words = new El({ left: 500, top: 20, width: 400, height: 300 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const z = createCardZoom({ card, along: [lip], scene: () => [words], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }) });
+  const back = stands();
+  try {
+    const want = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ width: 1440, height: 900 }) * STACK_ROOM);
+    assert.equal(z.open(), true);
+    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'the fit is the instrument card and its handle, not the words');
+    z.reset();
+  } finally { back(); }
+});
