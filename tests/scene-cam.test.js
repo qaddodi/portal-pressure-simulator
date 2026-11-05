@@ -76,8 +76,9 @@ test('a card zoom scales the scene about the card with no move, so the stage is 
   }
   sceneCam.off();
 });
-test('card-zoom.js hands the camera no move: the scene only scales about the card (5 Nov)', async () => {
+test('card-zoom.js asks for no figure camera: the cards zoom, the figure holds still (5 Nov)', async () => {
   const src = (await import('node:fs')).readFileSync(new URL('../src/ui/card-zoom.js', import.meta.url), 'utf8');
-  assert.match(src, /camera\.at\(st\.cur\.s, st\.mid\.x, st\.mid\.y, 0, 0\)/);
-  assert.match(src, /sceneCam\.aim = part \? null : \{ s: plan\.s, ox: cx, oy: cy, dx: 0, dy: 0,/);
+  assert.match(src, /cam: false \}/);
+  assert.match(src, /sceneCam\.aim = null;/);
+  assert.doesNotMatch(src, /camera\?\.open\(\)/);
 });

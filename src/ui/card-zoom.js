@@ -123,7 +123,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
   // box that is centred and fitted to the screen is the whole of them, never the card's box alone (Mohammad, 28 Oct: a stacked card sat off the
   // middle and ran off the bottom).
   // (scene: the rest of the page that rides the camera with the card (the teaching card and its glass): each turns about the same middle by the same transform, so the page is one picture that zooms toward the card, and the zoomed card never lies over its words (4 Nov 2026, Mohammad: "zoom the entire camera"). They are not part of the box that is fitted: pass.)
-  const pieces = (el = card, rides = along, extra = []) => [...[el, ...rides].map((x) => [x, false]), ...extra.map((x) => [x, true])].map(([x, pass]) => ({ el: x, pass, rest: x.hidden && x !== el ? null : x.getBoundingClientRect(), own: null, tf0: '' })).filter((r) => r.rest && r.rest.width > 0);
+  const pieces = (el = card, rides = along, extra = [], pass = true) => [...[el, ...rides].map((x) => [x, false]), ...extra.map((x) => [x, pass])].map(([x, pass]) => ({ el: x, pass, rest: x.hidden && x !== el ? null : x.getBoundingClientRect(), own: null, tf0: '' })).filter((r) => r.rest && r.rest.width > 0);
   const whole = (riders, el = card) => (riders.some((r) => r.el === el) ? unionBox(riders.filter((r) => !r.pass).map((r) => r.rest)) : null);
   // The piece's box as it rests, for everyone who asks the element (the figure's labels keep clear of the cards by it): a copy that does
   // not move with the glide. Its own getBoundingClientRect is put back as it was.
@@ -153,7 +153,6 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     const el = r.el;
     raf(() => raf(() => { if (riding.has(el) || !tp0.has(el)) return; el.style.transitionProperty = tp0.get(el); tp0.delete(el); }));   // alloc-rare: once per piece as a zoom ends
   };
-  const boxAt = (b, mid, s, dx, dy) => { const f = (v, m, d) => m + (v - m) * s + d; const l = f(b.left, mid.x, dx), t = f(b.top, mid.y, dy); return { left: l, top: t, right: f(b.left + b.width, mid.x, dx), bottom: f(b.top + b.height, mid.y, dy) }; };
 
   function end() {
     if (!st) return;
@@ -173,17 +172,22 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     /** Up and staying (not on its way back). */
     get up() { return !!st && !st.closing; },
     /** The plan for the card as it stands, or null when it would not grow enough. */
-    plan() { const q = whole(pieces()); return q && zoomPlan(q, area()); },
+    plan() { const q = whole(pieces(card, along, scene(), false)); return q && zoomPlan(q, area()); },
     open({ card: el = card, along: rides = along, scrim: veil = scrim, part = false } = {}) {
       if (st) return false;
-      const a = area(), riders = pieces(el, rides, part ? [] : scene()), q = whole(riders, el), stacked = riders.some((r) => !r.pass && r.el !== el), plan = q && zoomPlan(q, a, zoomMargin(a) * (stacked ? STACK_ROOM : 1));
+      // (Mohammad, 5 Nov 2026: a card zoom moves no figure, lobule or sinusoid; the instrument card and the teaching card come into view together,
+      // tucked or not. So the fit takes in both; where both together would not grow ZOOM_MIN, the card is fitted alone and the teaching card
+      // only rides the same turn.)
+      const a = area(), stacked = rides.some((x) => !x.hidden);
+      let riders = pieces(el, rides, part ? [] : scene(), false), q = whole(riders, el), plan = q && zoomPlan(q, a, zoomMargin(a) * (stacked ? STACK_ROOM : 1));
+      if (!plan && !part) { riders = pieces(el, rides, scene(), true); q = whole(riders, el); plan = q && zoomPlan(q, a, zoomMargin(a) * (stacked ? STACK_ROOM : 1)); }
       if (!plan) return false;
       const k = scale(el) || 1, ms = reduce() ? 0 : ZOOM_MS;
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
-      sceneCam.aim = part ? null : { s: plan.s, ox: cx, oy: cy, dx: 0, dy: 0, box: boxAt(q, { x: cx, y: cy }, plan.s, plan.dx, plan.dy) };
-      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, aff: { s: 1, dx: 0, dy: 0, ox: cx, oy: cy }, mo: null, cam: !part && !!camera?.open() };
+      sceneCam.aim = null;   // (no camera aim: the figure is not zoomed)
+      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, aff: { s: 1, dx: 0, dy: 0, ox: cx, oy: cy }, mo: null, cam: false };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
@@ -197,7 +201,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       // larger on each side in the glide's first frame (a 1440 x 900 canvas to 3168 x 1980, 400 to 800 ms of the main thread in a software-GL
       // profile, none at rest), the zoom's lag: Mohammad, 3 Nov 2026. They are drawn at the card's resting density, grown by the transform, for the
       // glide's half second and sharp the moment it ends. With no glide (Reduce Motion) they are larger at once.)
-      if (!part) { hold(true); if (!ms) boost(plan.s); if (!st.cam) behind(true, ms); }   // (A zoom of the camera moves no card but the zoom's own: the words' card is not eased back, 4 Nov 2026)
+      if (!part) { hold(true); if (!ms) boost(plan.s); }   // (The teaching card rides the zoom where it stands, tucked or not: it is not eased back to a tucked place, 5 Nov 2026)
 
       const me0 = st;
       for (const v of st.veils) v.classList.add('on');
@@ -228,7 +232,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
      * That rise is not scaled by the zoom, so the transform makes up for the difference: the whole lands exactly in the middle.
      */
     follow(rise, lift) {
-      if (!st || st.closing || !st.steady) return false;
+      if (!st || st.closing || !st.steady || st.part) return false;
       const a = area(), { box: b, mid, k } = st, up = rise * k;
       const q = { left: b.left, top: b.top - up, width: b.width, height: b.height + up };
       const sc = Math.min(ZOOM_MAX, Math.max(1, fitScale(q, a, zoomMargin(a) * (st.stacked ? STACK_ROOM : 1))));
@@ -250,12 +254,11 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       clearTimeout(s.sharpT);
       if (s.cam) camera.sharp?.(false);
       for (const v of s.veils) v.classList.remove('on');
-      if (instant || reduce()) { if (!s.part && !s.cam) behind(false, 0); end(); return Promise.resolve(); }
+      if (instant || reduce()) { end(); return Promise.resolve(); }
       globalThis.dispatchEvent?.(new Event('pps:cardzoom'));   // alloc-rare: once per zoom out
       s.card.dataset.zoomed = 'back';   // (on its way back: its shadow eases out, styles/app.css)
       // (A zoom shut part of the way in goes back in the part of SHUT_MS it got, from where it is: V-ZOOM-5.)
       const ms = Math.round(SHUT_MS * Math.max(0.35, Math.min(1, (s.cur.s - 1) / ((s.plan.s - 1) || 1))));
-      if (!s.part && !s.cam) behind(false, ms);
       // (A glide that never reports its end, a tab hidden mid-way, is let go after its time.)
       let res = null;
       const guard = new Promise((r) => { res = r; });
@@ -266,6 +269,6 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     },
     toggle() { return this.up ? this.close() : this.open(); },
     /** Everything put back at once: a slide, a resize or the end of the talk comes first. */
-    reset() { if (st) { for (const v of st.veils) v.classList.remove('on'); if (!st.part && !st.cam) behind(false, 0); end(); } },
+    reset() { if (st) { for (const v of st.veils) v.classList.remove('on'); end(); } },
   };
 }

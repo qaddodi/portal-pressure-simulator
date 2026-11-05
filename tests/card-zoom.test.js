@@ -366,35 +366,23 @@ test('the readings come out and tuck away under a zoomed card, the zoom fitted a
 // The words' card behind a zoomed card (Mohammad, 28 Oct: "when the stacked cards are zoomed in (in focus) and i open untuck the stacked card, the
 // TEACHING card in the background is reacting still by going up; it shouldn't in fact, if the stack is unstacked, and i zoom into it, the teaching
 // card should go back to original location").
-test('zoom: the card tells what stands behind it as it glides in and back, and at once when it is put back at once', async () => {
-  const mk = () => {
-    const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
-    const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
-    const log = [];
-    const z = createCardZoom({ card, along: [lip], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }), reduce: () => z.reduceNow, behind: (up, ms) => log.push([up, ms]) });
-    z.reduceNow = false;
-    return { card, lip, log, z };
-  };
+test('zoom: the teaching card rides the zoom where it stands, tucked or not: nothing is eased back, no figure camera is asked', async () => {
+  const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
+  const words = new El({ left: 500, top: 300, width: 400, height: 380 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const log = [], cam = [];
+  const z = createCardZoom({ card, along: [lip], scene: () => [words], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }),
+    behind: (up, ms) => log.push([up, ms]), camera: { open: () => { cam.push('open'); return true; }, at: () => cam.push('at'), end: () => cam.push('end') } });
   const back = stands();
   try {
-    { const { z, card, lip, log } = mk();
-      z.open(); assert.deepEqual(log, [[true, ZOOM_MS]], 'in: for as long as the glide');
-      fl.run();
-      await new Promise((r) => setTimeout(r, 0)); log.length = 0;
-      const shut = z.close(); assert.deepEqual(log, [[false, SHUT_MS]], 'back: for as long as the glide back');
-      z.close(); assert.equal(log.length, 1, 'closing twice tells once');
-      fl.run();
-      await shut; assert.equal(log.length, 1, 'the card landing has nothing more to tell'); }
-    { const { z, log } = mk();
-      z.reduceNow = true; z.open(); assert.deepEqual(log, [[true, 0]], 'Reduce Motion: at once'); log.length = 0;
-      z.close(); assert.deepEqual(log, [[false, 0]]); }
-    { const { z, log } = mk();
-      z.open(); log.length = 0; z.close({ instant: true }); assert.deepEqual(log, [[false, 0]], 'put back at once'); }
-    { const { z, log } = mk();
-      z.open(); log.length = 0; z.reset(); assert.deepEqual(log, [[false, 0]], 'a slide, a resize or the end of the talk'); z.reset(); assert.equal(log.length, 1, 'nothing up: nothing to tell'); }
-    { const { z, card, log } = mk();
-      card.rect = { left: 0, top: 0, width: 1400, height: 880 };
-      assert.equal(z.open(), false); assert.deepEqual(log, [], 'a card that cannot grow tells no one'); }
+    assert.equal(z.open(), true);
+    fl.run();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.ok(card.style.transform && words.style.transform === card.style.transform, 'both cards turn as one');
+    assert.deepEqual(cam, [], 'no camera: the figure is not zoomed');
+    const shut = z.close(); fl.run(); await shut;
+    assert.deepEqual(log, [], 'the words are not eased back to a tucked place');
+    assert.deepEqual(cam, []);
   } finally { back(); }
 });
 
