@@ -46,6 +46,6 @@ export function installPage() {
   w.SVGSVGElement.prototype.createSVGPoint = () => ({ x: 0, y: 0, matrixTransform() { return { x: 0, y: 0 }; } });
   w.Element.prototype.getBoundingClientRect = () => ({ x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 });
   // (Ready-made tokens for the colour reads: jsdom keeps no stylesheet here.)
-  installed = { dom, document: w.document };
+  installed = { dom, document: w.document, liveStyle: realCS };   // (liveStyle: jsdom's own, each read the page as it is now, for a check that restyles)
   return installed;
 }

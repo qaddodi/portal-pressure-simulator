@@ -236,8 +236,12 @@ async function main() {
     if (stale || !underMenu.isConnected || underMenu.classList.contains('out')) { if (underAgain) { underAgain = false; underStep(); } return; }
     underAgain = false;
     const r = rs[0];
-    for (let i = 1; i < underEls.length; i++) { const b = rs[i]; if (b.width && b.right > r.left - 8 && b.left < r.right + 8 && b.bottom > r.top - 8 && b.top < r.bottom + 8) classSoon(underEls[i], 'under-menu', true); }
+    let any = false;
+    for (let i = 1; i < underEls.length; i++) { const b = rs[i]; if (b.width && b.right > r.left - 8 && b.left < r.right + 8 && b.bottom > r.top - 8 && b.top < r.bottom + 8) { classSoon(underEls[i], 'under-menu', true); any = true; } }
+    // (Their GPU pictures are told once the class has landed, in the same pass after it: no observer of the labels, L3 P5.)
+    if (any) runSoon(underTold);
   };
+  const underTold = () => { for (const g of document.querySelectorAll('#labels .lb.under-menu')) labelWritten(g); };
   const underStep = () => {
     underQueued = 0;
     const m = document.querySelector('.umenu:not(.out)');
@@ -254,7 +258,7 @@ async function main() {
   let underWant = 0;
   function labelsUnderMenu(on) {
     if (!on) underTok++;
-    for (const g of document.querySelectorAll('#labels .lb.under-menu')) g.classList.remove('under-menu');
+    for (const g of document.querySelectorAll('#labels .lb.under-menu')) { g.classList.remove('under-menu'); labelWritten(g); }
     // (The menu's box and the labels' come from the browser's own next layout, rectsSoon: nothing is laid out to read them.)
     if (!on) return;
     underWant = ++underTok;
@@ -1828,7 +1832,7 @@ function chromeGlass() {
 import { sheetBehaviour } from './dock-sheet.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
-import { themeChanged } from './label-theme.js';
+import { labelWritten, themeChanged } from './label-theme.js';
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
 // (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,

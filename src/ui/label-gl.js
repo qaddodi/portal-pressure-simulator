@@ -906,15 +906,21 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // xfLayer, stage-dive.js labelsRide and setDiveHidden, stage.js leaving the lobule), so whether the labels may be drawn over the figure is
   // asked again, at the next picture; and when its fade ends, so they come back onto the GPU once it has settled. No observer of its style.)
   svg.addEventListener('transitionend', (e) => { if (e.target === svg) ask(); });
-  // A label changed (its words, a class, a colour, its place in the list): its look is read again.
+  // A label changed (its words, a class, a colour, its pieces): its look is read again. No observer of the labels (L3 P5): each writer says
+  // so as it writes (told; the public dirty), the stage's (stage-label-layer.js renderBlock and blockRest, stage.js lateRun, the solve's
+  // fades, the hover's and the explained label's classes), the captions' (label-captions.js buildGroup), and the page's words landing in a
+  // label (gl-words.js, util.js putText, through label-theme.js labelWritten). Not its transform: where it stands comes with sync, every
+  // frame of a pan, and asks for no new picture.
   const labelOf = (n) => (n.nodeType === 1 ? n : n.parentElement)?.closest?.('.lb');
-  // (Not its transform: where it stands comes with sync, every frame of a pan, and asks for no new picture. A write that changed
-  // nothing (classList.add of a class it has) is passed over.)
-  const changed = (r) => r.type !== 'attributes' || r.oldValue !== r.target.getAttribute(r.attributeName);
-  // (The layer's own group: its text scale, --lbk, sets the halos' width: every label.)
-  const take = (rs) => { for (const r of rs) { if (!changed(r)) continue; if (r.target === blocks && r.type === 'attributes') { restyle(); for (const s of last) dirty.add(s.g); continue; } const g = labelOf(r.target); if (g) { dirty.add(g); ringKept.delete(g); if (animsKept.get(g)?.ans) animsKept.delete(g); } } };
-  const mo = new MutationObserver((rs) => { take(rs); if (dirty.size) ask(); });
-  mo.observe(blocks, { subtree: true, childList: true, characterData: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style', 'points', 'x', 'y', 'dx', 'width', 'height', 'rx', 'fill', 'font-size', 'font-weight', 'letter-spacing', 'text-anchor'] });
+  // (The layer's own group, or none named: its text scale, --lbk, sets the halos' width: every label.)
+  const told = (el) => {
+    if (disposed) return;
+    if (!el || el === blocks) { restyle(); for (const s of last) dirty.add(s.g); ask(); return; }
+    const g = labelOf(el);
+    if (!g || !blocks.contains(g)) return;   // (another layer's label, or not a label at all: labelWritten asks every layer)
+    dirty.add(g); ringKept.delete(g); if (animsKept.get(g)?.ans) animsKept.delete(g);
+    ask();
+  };
   // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label. Its
   // writers say so (label-theme.js themeChanged, the public theme()); no observer on the ancestors waits for it (L3 P7).
   const all = () => { restyle(); const t = performance.now() + 700; for (const s of last) { dirty.add(s.g); live.set(s.g, t); if (!TRACK) exact.set(s.g, t); } allMarks(); ask(); };
@@ -931,7 +937,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     allMarks(); ask();
   };
   const themeNow = () => { if (disposed) return; all(); pReadSoon(); };   // (the Doppler probe's look follows the theme too)
-  const unlayer = addLabelLayer({ theme: themeNow, ride: () => { if (!disposed) rideSeen(); } });
+  const unlayer = addLabelLayer({ theme: themeNow, ride: () => { if (!disposed) rideSeen(); }, dirty: told });
   darkMQ.addEventListener?.('change', themeNow);
   addEventListener('pps:labelscale', themeNow);   // (the text size: --label-k on the page)
   // A CSS fade or colour ease, a hover, a focus: that label's eases are followed till they end (its style read once, off the frame: styleOf).
@@ -1027,6 +1033,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // the stylesheet selects on only by its family, app.css [data-key^="n:TIPS:"]; its ancestors' as styleKey takes them; the epoch), so a class
   // or colour written outside the record's writer still gives a look of its own. A hovered or focused label, or one whose eases are followed
   // (live), is read as before.
+  // (Kept with no observer (L3 P5): a record's look id is the one its writer means, but some of its writes land on the page later, between
+  // frames (a run's fill, stage.js lateRun; its words, gl-words.js), so a label read in between shows the page as it stands then. The mix of
+  // its elements keys those styles by what they were read from, never by the record's look alone, and the landing says so (dirty).)
   const lookStyles = createLookStyles(), lookRep = new Map(), lookWait = new Map(), recOf = new Map();
   const lookSrc = (el) => { const c = styleOf(el); if (styleEased) lookStyles.spoil(); return c; };
   function lookMixEl(el, depth) {
@@ -2267,7 +2276,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (disposed) return;
       disposed = true; lost = true;
       if (againF) { cancelFrame(againF); againF = 0; }
-      mo.disconnect(); unlayer(); la?.dispose(); ac.abort();
+      unlayer(); la?.dispose(); ac.abort();
       try {
         for (const t of pageTex) if (t) gl.deleteTexture(t);
         for (const t of rpTex) if (t) gl.deleteTexture(t);
@@ -2305,7 +2314,6 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // Compare the density actually used by this canvas. On a 3x screen its 2x cap otherwise looked like a density change on every sync,
       // repeatedly scheduling a resize task and another GPU draw throughout a gesture.
       if (hostK() !== dpr) densityChanged();
-      take(mo.takeRecords());
       // A sliced landing or a value refresh may sync while the camera still carries the old layout. Taking its new positions here
       // would apply that camera move twice. rideEnd hands the drawn positions to the first sync of the landed layout instead.
       if (rideM) { ask(); return; }
@@ -2383,13 +2391,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (const s of last) { const st = sprites.get(s.g); if (st && st.mode === 'gl' && st.drawn && s.g.dataset?.key) o.push({ key: s.g.dataset.key, x: st.dx / dpr, y: st.dy / dpr, w: st.w / dpr, h: st.h / dpr, a: st.held ?? 0 }); }
       return o;
     },
-    /** What the last frame drew, for the browser checks: { seq (frames drawn), gen (layout and atlas generation), items: [{ key, x, y, w, h, a, clipped }] }
-     *  in CSS px from the canvas's corner (stage.js labelSnapshot adds the corner, so they are page px). Only the pictures drawn in that frame. */
+    /** What the last frame drew, for the browser checks: { seq (frames drawn), gen (layout and atlas generation), items: [{ key, x, y, w, h, a, clipped, pic }] }
+     *  (pic: its picture's key, which changes exactly when its look or words do) in CSS px from the canvas's corner (stage.js labelSnapshot adds the corner, so they are page px). Only the pictures drawn in that frame. */
     snapshot() {
       const items = [];   // alloc-rare: asked only by the browser check
       for (const s of last) {
         const st = sprites.get(s.g);
-        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } items.push(it); }
+        if (st && st.mode === 'gl' && st.seq === frameSeq && s.g.dataset?.key) { const it = snapshotItem(s.g.dataset.key, st.dx, st.dy, st.w, st.h, st.held ?? 0, dpr, W, H); it.pin = !!st.pin; it.pic = st.key; if (st.pin) { it.px = st.ppx; it.py = st.ppy; } items.push(it); }
       }
       // (The marks this frame drew: each dot's centre and radius, each leader's two ends, keyed by its label, CSS px from the canvas's corner.)
       const marksOut = [];   // alloc-rare: asked only by the browser check
@@ -2419,6 +2427,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
     },
     /** A mark's own fade alone, its geometry as last given (markAt). */
     markAlpha(el, alpha) { const mg = markGeo.get(el); if (!mg || (mg.own && mg.ra === alpha)) return; mg.ra = alpha; mg.own = true; mg.svgA = false; if (lost || released || disposed) markSvg(el, mg); },
+    /** A label's look or words changed (L3 P5: its writer says so, there is no observer of the labels): `el` is the label or anything in
+     *  it, read again off the frame. With none, or the labels' own group (its text scale, --lbk): every label. */
+    dirty(el) { told(el); },
     /** A mark's (or a marks layer's) class changed: its look is read again, off the frame. */
     markLook(el) { if (!el) return; markDirty.add(el); ask(); },
     /** A label animated by script (the Web Animations API, which sends no events): read each frame for `ms`. */

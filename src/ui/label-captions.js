@@ -310,8 +310,8 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
     return (I.cv = ok);
   }
   // A caption's group: the record label-gl draws from (I.ent: its place, its fade's opacity as `alpha`, its look id as `look`) and the model svg's
-  // group that record names. The group is written only when what it shows changes: a fade writes the record, never the group, so no page
-  // write reaches label-gl's watch of its labels in a frame of a fade (each such write had every frame of the fade read the caption's look again).
+  // group that record names. The group is written only when what it shows changes, and label-gl is told then (dirty): a fade writes the
+  // record, never the group, so no frame of a fade reads the caption's look again (each such write once did).
   // Its shapes (an arrow, a legend's dot) are made again only when they or the scale change; its words keep their elements and change in place.
   let lookSeq = 0;
   const setA = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
@@ -363,6 +363,7 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
     }
     for (let j = k; j < I.gtexts.length; j++) I.gtexts[j].te.remove();
     I.gtexts.length = k;
+    LG?.dirty?.(g);   // (what it shows changed: label-gl reads it again, told here as it has no observer of its labels, L3 P5)
     return g;
   }
   const items = new Map(), leads = new Map(), looks = new Map();

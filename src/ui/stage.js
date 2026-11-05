@@ -786,7 +786,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const unlitKeys = new Set();   // (the stations a lit slide dims, by key: a leader made later is dimmed too, V-LIT-3)
   function late(op, a, b) { lateQueue.push(op, a, b); }
   function lateRun(op, a, b) {
-    if (op === 'kids') a.replaceChildren(...b);   // (a label's pieces)
+    if (op === 'kids') { a.replaceChildren(...b); labelGL?.dirty(a); }   // (a label's pieces: its layer is told, L3 P5; a group that is no label is passed over)
     else if (op === 'label') { if (!a.isConnected) gLabels.append(a); }   // (a new label)
     else if (op === 'lead') { for (let i = a.length - 1, next = null; i >= 0; i--) { if (!a[i].isConnected) { gLeaders.insertBefore(a[i], next); if (unlitKeys.size && unlitKeys.has(a[i].dataset.k)) a[i].classList.add('unlit'); } next = a[i]; } }   // (a new leader goes in just before the next one wanted that is already in)
     else if (op === 'add') { if (a !== b.parentNode) a.append(b); }   // (a node new to its parent)
@@ -794,7 +794,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     else if (op === 'text') a.textContent = b;   // (words a node is made with)
     else if (op === 'defs') defs.append(...a);
     else if (op === 'cathadd') { a.append(b); cath.lblKey = ''; cathLabelsSoon(); }   // (a reading new to the catheter's layer: laid out again once it is in)
-    else if (op === 'fill') a.style.fill = b;   // (a reading's colour)
+    else if (op === 'fill') { a.style.fill = b; labelGL?.dirty(a); }   // (a reading's colour)
     else if (op === 'hover') gHovO.replaceChildren(...a);
     else if (op === 'guide') { if (shunt) for (const el of a) if (el.parentNode !== gGuides) gGuides.append(el); }   // (a drag that has ended since leaves none)
   }
@@ -1009,7 +1009,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // attributes with values that differ only in the third decimal, and each write makes the
   // browser restyle and repaint the figure. Writes go through a per-element cache, pressures
   // used for color are rounded to 0.25 mmHg and widths to 0.25 px (well below what shows).
-  const setA = (el, k, v) => { const c = el._a || (el._a = {}); if (c[k] === v) return; c[k] = v; el.setAttribute(k, v); };
+  const setA = (el, k, v) => { const c = el._a || (el._a = {}); if (c[k] === v) return false; c[k] = v; el.setAttribute(k, v); return true; };   // (true: written)
   // (The same, checked against the element itself, for attributes other code writes too: the organs' each model update, and every
   // frame of a liver's or the fluid's ease, were written again with the values they had, and Safari repainted them each time.)
   const putA = (el, k, v) => { v = String(v); if (el.getAttribute(k) !== v) el.setAttribute(k, v); };

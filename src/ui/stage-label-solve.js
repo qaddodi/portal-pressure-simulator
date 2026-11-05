@@ -146,7 +146,9 @@ export function createLabelSolve(st, live) {
     live.labelK = labelBase() * (circuit ? CIRCUIT_LABEL_K : 1);
     if (live.labelK !== live.lbkNum) { live.lbkNum = live.labelK; live.lbkStr = live.labelK.toFixed(2); }   // (the text made only when the number moved)
     const lbk = live.lbkStr;
-    if (gLabels.dataset.k !== lbk) { gLabels.dataset.k = lbk; gLabels.style.setProperty('--lbk', lbk); }
+    // (The text scale sets every label's halo: label-gl reads them all again (L3 P5). Not for a dry solve, the other view's ahead, whose
+    // write stage-view.js preSlice puts back in the same task: no label is read in between.)
+    if (gLabels.dataset.k !== lbk) { gLabels.dataset.k = lbk; gLabels.style.setProperty('--lbk', lbk); if (!dry) live.labelGL?.dirty(gLabels); }
     const wr = stageBox();
     const W = wr.width, H = wr.height;
     // A solve prefers slots that sit inside the stage as it is now, but never depends on the panels, and a pan
@@ -1423,7 +1425,7 @@ export function createLabelSolve(st, live) {
       const [lp, ld] = gScan.children, lg = live.labelGL, d = `M${sit.ax.toFixed(1)} ${sit.ay.toFixed(1)} L${le.x.toFixed(1)} ${le.y.toFixed(1)}`, cx = sit.ax.toFixed(1), cy = sit.ay.toFixed(1);
       if (lg) { lg.markAt(lp, d); lg.markAt(ld, cx, cy, ld.getAttribute('r') || ''); } else { lp.setAttribute('d', d); ld.setAttribute('cx', cx); ld.setAttribute('cy', cy); }
       if (gScan.classList.contains('off')) { gScan.classList.remove('off'); lg?.markLook(gScan); }
-    } else { if (!gScan.classList.contains('off')) { gScan.classList.add('off'); live.labelGL?.markLook(gScan); } if (sblk && sblk.seen !== live.frameNo) sblk.g.classList.add('lb-off'); }   // no callout this frame (circuit view, covered): it fades, never pops
+    } else { if (!gScan.classList.contains('off')) { gScan.classList.add('off'); live.labelGL?.markLook(gScan); } if (sblk && sblk.seen !== live.frameNo && !sblk.g.classList.contains('lb-off')) { sblk.g.classList.add('lb-off'); live.labelGL?.dirty(sblk.g); } }   // no callout this frame (circuit view, covered): it fades, never pops
     live.labelShown = out.filter((it) => it.src && !it.hide);
     // A label no longer wanted fades out (lb-off), then leaves; one wanted again before then simply fades back (renderBlock).
     for (const [k, b] of pool) {
@@ -1431,10 +1433,11 @@ export function createLabelSolve(st, live) {
       b.at = null; b.gl = null;
       b.box = '';   // (gone from the labels the credit avoids: labelBoxStamp)
       if (b.gone || b.g.style.display === 'none') continue;
-      if (reduceMotion.matches || live.camMove) { b.g.style.display = 'none'; continue; }
-      b.g.classList.add('lb-off'); labelStop(b, true);
+      if (reduceMotion.matches || live.camMove) { b.g.style.display = 'none'; live.labelGL?.dirty(b.g); continue; }
+      if (!b.g.classList.contains('lb-off')) { b.g.classList.add('lb-off'); live.labelGL?.dirty(b.g); }
+      labelStop(b, true);
       const tok = b.gone = {};
-      setTimeout(() => { if (b.gone === tok) { b.gone = null; b.g.style.display = 'none'; } }, 360);
+      setTimeout(() => { if (b.gone === tok) { b.gone = null; b.g.style.display = 'none'; live.labelGL?.dirty(b.g); } }, 360);
     }
     paintLeaders(leaders);
     // Keep the camera of every committed layout, including a carry before a sliced solve. A slice itself commits nothing; labelTail

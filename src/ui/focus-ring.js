@@ -16,6 +16,7 @@
 import { D_SMALL } from './ease.js';
 import { restPass } from './rest-pass.js';
 import { caught } from './caught.js';
+import { labelWritten } from './label-theme.js';
 
 
 /** The ring's copy as a box on the screen: the control's box r grown by the outline's offset and width (all scaled by k, the scale
@@ -71,8 +72,9 @@ export const isTextEntry = (el) => {
 export function holdStyle(el, prop, value) {
   const was = el.style.getPropertyValue(prop), pri = el.style.getPropertyPriority(prop);
   el.style.setProperty(prop, value, 'important');
+  labelWritten(el);   // (a label held so: its GPU picture is told, L3 P5)
   let done = false;
-  return { cancel() { if (done) return; done = true; if (was) el.style.setProperty(prop, was, pri); else el.style.removeProperty(prop); } };
+  return { cancel() { if (done) return; done = true; if (was) el.style.setProperty(prop, was, pri); else el.style.removeProperty(prop); labelWritten(el); } };
 }
 
 export function startFocusRing(root = typeof document !== 'undefined' ? document : null) {

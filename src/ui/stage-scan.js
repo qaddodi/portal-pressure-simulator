@@ -263,8 +263,9 @@ export function createScan(st, live) {
     if (on) { scan.leaving = false; refreshCTM(); scanPaint(); return; }
     // The callout and its leader fade out with the probe, then go.
     scan.leaving = true; scan.k = null;
-    live.pool.get('scan')?.g.classList.add('lb-off'); if (!live.gScan.classList.contains('off')) { live.gScan.classList.add('off'); live.labelGL?.markLook(live.gScan); }
-    stageScope.timer(() => { if (scan.on) return; scan.leaving = false; const b = live.pool.get('scan'); if (b) b.g.style.display = 'none'; }, 700);
+    { const sg = live.pool.get('scan')?.g; if (sg && !sg.classList.contains('lb-off')) { sg.classList.add('lb-off'); live.labelGL?.dirty(sg); } }   // (told to label-gl: no observer of the labels, L3 P5)
+    if (!live.gScan.classList.contains('off')) { live.gScan.classList.add('off'); live.labelGL?.markLook(live.gScan); }
+    stageScope.timer(() => { if (scan.on) return; scan.leaving = false; const b = live.pool.get('scan'); if (b && b.g.style.display !== 'none') { b.g.style.display = 'none'; live.labelGL?.dirty(b.g); } }, 700);
     const el = scan.el; scan.el = null; scan.packs = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
     if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
     if (el) { el.classList.add('cath-pre'); scanOp(); stageScope.timer(() => { dropLabel(el); el.remove(); if (!scan.el) live.labelGL?.setScan(null); }, 500); }

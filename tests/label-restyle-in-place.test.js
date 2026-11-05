@@ -22,9 +22,9 @@ test('a label\'s structure signature leaves out its runs\' text, fill and class'
 
 test('a run\'s class and fill are set on its existing tspan', () => {
   const loop = block.slice(block.indexOf('const sp = b.spans[i++];'));
-  assert.match(loop, /if \(sp\.getAttribute\('class'\) !== \(r\.cls \|\| ''\)\) sp\.setAttribute\('class', r\.cls \|\| ''\);/);
+  assert.match(loop, /if \(sp\.getAttribute\('class'\) !== \(r\.cls \|\| ''\)\) \{ sp\.setAttribute\('class', r\.cls \|\| ''\); ch = true; \}/);
   assert.match(loop, /late\('fill', sp, sp\._fill\)/);   // (written between frames: lateRun)
-  assert.match(stage, /op === 'fill'\) a\.style\.fill = b/);
+  assert.match(stage, /op === 'fill'\) \{ a\.style\.fill = b;/);
 });
 
 test('a vessel\'s width change redraws its own cells only', () => {

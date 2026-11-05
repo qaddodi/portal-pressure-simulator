@@ -23,6 +23,7 @@ import { sheetLayer } from './sheet-layer.js';
 import { layoutTip, covers } from './tip-layout.js';
 import { tipDraw, tipUndrawn } from './tip-gl.js';
 import { darkMQ } from './look.js';
+import { labelWritten } from './label-theme.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
 // (Nodes and strings alone, the usual call, go straight through: the flattened copy is made only for a list that holds an array, null or false.)
@@ -790,6 +791,7 @@ function putFlush() {
     if (w && !w.disposed) { w.now(t); continue; }
     const n = el.firstChild;
     if (n && n.nodeType === 3 && !n.nextSibling) { if (n.data !== t) n.data = t; } else if (el.textContent !== t) el.textContent = t;
+    labelWritten(el);   // (words in a label: its GPU picture is told, label-theme.js; L3 P5)
   }
 }
 const putLater = (el, t) => { putPend.set(el, t); if (!putAsk) putAsk = restPass(putFlush); };
@@ -805,7 +807,7 @@ function dropWords(el) {
   const w = wordsOfEl.get(el);
   wordsOfEl.delete(el);
   if (!w) return 0;
-  if (putPend.has(el)) { const t = putPend.get(el); putPend.delete(el); if (el.textContent !== t) el.textContent = t; }
+  if (putPend.has(el)) { const t = putPend.get(el); putPend.delete(el); if (el.textContent !== t) { el.textContent = t; labelWritten(el); } }
   w.dispose();
   return 1;
 }

@@ -30,6 +30,7 @@ import { readMetric, readStyle } from './layout-snap.js';
 import { cssColor } from './css-color.js';
 import { caught } from './caught.js';
 import { onTheme } from './theme-epoch.js';
+import { labelWritten } from './label-theme.js';
 
 /** How long the words hold still (ms) before the page's own words take them. */
 export const QUIET = 260;
@@ -84,7 +85,7 @@ function sleep(S) {
   S.ro?.disconnect();
   ALL.delete(S.ask); measureQ.delete(S); live.delete(S);
   clearTimeout(S.landT); S.landT = 0;
-  if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
+  if (S.on) { S.on = false; S.el.classList.remove('glw-on'); labelWritten(S.el); }
   S.pend = false; S.handOver = false; clearTimeout(S.handT); S.handT = 0;
   if (S.gl) { try { S.gl.dispose?.(); } catch (e) { caught('gl-words:82', e); /* a lost context: nothing left to free */ } S.gl.cv?.remove(); S.gl = null; S.host.classList.remove('glw'); }
   S.vPath = S.uPath = null; S.vSlots = S.uSlots = null; S.at = null;
@@ -277,14 +278,14 @@ function drawn(S, ok) {
   // reader's: the GPU keeps the number, the page's words stay clear under it (EXT-VIS-1, the external review, 3 Nov 2026).)
   if (S.handOver) { if (ok) handOff(S); else handRetry(S); return; }
   if (ok) {
-    if (S.pend && !S.on) { S.on = true; S.el.classList.add('glw-on'); }
+    if (S.pend && !S.on) { S.on = true; S.el.classList.add('glw-on'); labelWritten(S.el); }
     S.pend = false; S.retries = 0;
     if (S.keep && S.stale) askMeasure(S);   // (a size or a look that changed while the words were being drawn: kept words are drawn again)
     return;
   }
   if (!S.pend && !S.on) return;
   S.pend = false;
-  if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
+  if (S.on) { S.on = false; S.el.classList.remove('glw-on'); labelWritten(S.el); }
   askLand(S);
   if (S.keep && S.retries++ < 3) askMeasure(S);   // (kept words try the GPU again, a few times, then stay the page's own)
 }
@@ -293,7 +294,7 @@ function drawn(S, ok) {
 function handOff(S) {
   S.handOver = false; clearTimeout(S.handT); S.handT = 0;
   S.pend = false;
-  if (S.on) { S.on = false; S.el.classList.remove('glw-on'); }
+  if (S.on) { S.on = false; S.el.classList.remove('glw-on'); labelWritten(S.el); }
 }
 // (Where a frame does not come to clear the picture (its canvas out of the page, the page hidden), the clear is asked again after a moment, a
 // few times, and the words are not handed to the page until a frame has cleared the picture: never two numbers at once. Past the tries the
@@ -333,6 +334,7 @@ function land(S) {
     if (sm) { sm.textContent = want.u; sm.hidden = !want.u; const sp = sm.previousSibling; if (sp?.nodeType === 3 && sp !== S.txt) sp.data = want.u ? ' ' : ''; }
   }
   shown.t = want.t; shown.u = want.u;
+  labelWritten(el);   // (words in a label: its GPU picture is told, label-theme.js; L3 P5)
   S.onLand?.();
   S.pend = false;
   if (S.on && !S.keep) release(S);
@@ -371,7 +373,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
     S.on = false; S.gl = null;
     if (wasOn || gl) restPass(() => { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
       const again = [...live].some((o) => o.el === elx || o.host === host);   // (made over again for the same element since: leave its flags) // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
-      if (wasOn && !again) elx.classList.remove('glw-on');
+      if (wasOn && !again) { elx.classList.remove('glw-on'); labelWritten(elx); }
       if (gl) { try { gl.dispose?.(); } catch (e) { caught('gl-words:274', e); /* a lost context: nothing left to free */ } gl.cv?.remove(); if (!again) host.classList.remove('glw'); }
     });
     S.vPath = S.uPath = null; S.vSlots = S.uSlots = null;

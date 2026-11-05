@@ -115,6 +115,8 @@ export function createLabelLayer(st, live) {
   // (Drawn by the GPU, a leader's or dot's geometry is handed to label-gl as text (markAt), which writes the SVG's copy only while it does not draw
   // them; a class written here is told to it (markLook). The geometry stays in el._a, as setA keeps it, for what reads it (dprDots). L3 P6.)
   const GEO_AT = { d: 1, cx: 1, cy: 1, r: 1 }, look = (el) => live.labelGL?.markLook(el);
+  // (A label's look or words changed: label-gl reads it again, L3 P5.)
+  const told = (g) => live.labelGL?.dirty(g);
   function leadPut(el, w, lg) {
     const at = w.at, c = el._a || (el._a = {}), cls = c.class;
     for (const a in at) if (!GEO_AT[a]) setA(el, a, at[a]); else c[a] = at[a];
@@ -196,23 +198,27 @@ export function createLabelLayer(st, live) {
       return;
     }
     b.seen = live.laidFrame;
-    b.g.classList.toggle('ring', / ring\b/.test(it.cls));   // (a slide's pill that could find no spot off the vessels: see the focus callout)
+    // (Every write here that can change how the label looks is told to label-gl (L3 P5: no observer of the labels): told() once, at the end
+    // of blockRest. A run's words and fill land between frames and are told as they land: lateRun 'fill', label-theme.js labelWritten.)
+    let ch = false;
+    const ring = / ring\b/.test(it.cls);
+    if (b.g.classList.contains('ring') !== ring) { b.g.classList.toggle('ring', ring); ch = true; }   // (a slide's pill that could find no spot off the vessels: see the focus callout)
     // A presenter slide's term (presentTerms): the station's label takes the term's colour, eased (.lb.term).
     const tone = it.node ? termTone(it.node) : it.res ? live.resLit.get(it.res) || null : null;   // (a resistor's reading takes its station tone when the slide's words point at it)
-    if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', toneCol(tone)); }   // (a tone may name its own token, '--tour-sys' for the right atrium: as var(--tr---tour-sys) it was unset and the label fell back to black, dark on dark in the dark theme)
+    if (tone !== (b.tone || null)) { b.tone = tone; b.g.classList.toggle('term', !!tone); if (tone) b.g.style.setProperty('--term', toneCol(tone)); ch = true; }   // (a tone may name its own token, '--tour-sys' for the right atrium: as var(--tr---tour-sys) it was unset and the label fell back to black, dark on dark in the dark theme)
     // A slide that lights terms (presentTerms) dims every station it does not light to 35 %, its leader too, and it keeps its place (V-LIT-3, Mohammad's pick 14.3 B): .unlit, app.css.
     // (A slide's step numbers (fx-step, V10) point at what the card's words number: they keep full strength, as the card's own do.)
     const unlit = !tone && termsLit() && !/\b(focus|fx-step)\b/.test(it.cls);
-    if (unlit !== !!b.unlit) { b.unlit = unlit; if (unlit) unlitKeys.add(it.key); else unlitKeys.delete(it.key); b.g.classList.toggle('unlit', unlit); for (const el of gLeaders.querySelectorAll(`[data-k="${it.key}"]`)) { el.classList.toggle('unlit', unlit); look(el); } }
-    if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); }
+    if (unlit !== !!b.unlit) { b.unlit = unlit; if (unlit) unlitKeys.add(it.key); else unlitKeys.delete(it.key); b.g.classList.toggle('unlit', unlit); ch = true; for (const el of gLeaders.querySelectorAll(`[data-k="${it.key}"]`)) { el.classList.toggle('unlit', unlit); look(el); } }
+    if (!!it.onVessel !== !!b.onVessel) { b.onVessel = !!it.onVessel; b.g.classList.toggle('on-vessel', b.onVessel); ch = true; }
     let i = 0;
     for (const line of it.lines) for (const r of line) {
       const sp = b.spans[i++];
       putText(sp, r.t);
-      if (sp.getAttribute('class') !== (r.cls || '')) sp.setAttribute('class', r.cls || '');
+      if (sp.getAttribute('class') !== (r.cls || '')) { sp.setAttribute('class', r.cls || ''); ch = true; }
       if ((sp._fill || '') !== (r.fill || '')) { sp._fill = r.fill || ''; late('fill', sp, sp._fill); }
     }
-    blockRest(b, it);
+    blockRest(b, it, ch);
   }
   // Text and pressure colors change far more often than label structure.
   // Retain the text nodes (and keyboard focus) across numeric updates. (A run's class is its colour, as its fill is: a change
@@ -278,13 +284,14 @@ export function createLabelLayer(st, live) {
     lmC((it.sel ? 1 : 0) | (b.unlit ? 2 : 0) | (b.onVessel ? 4 : 0) | (it.hide ? 8 : 0) | (g.contains('spot-on') ? 16 : 0) | (g.contains('spot-dim') ? 32 : 0) | (g.contains('ring') ? 64 : 0));
     return (lh1 >>> 0) * 2097152 + ((lh2 >>> 0) & 0x1fffff);
   }
-  function blockRest(b, it) {
-    for (const text of b.textLines) setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0);
-    if (b.bg) { setA(b.bg, 'width', it.w + 2 * it.padX); setA(b.bg, 'height', it.h + 2 * it.padY); }
+  function blockRest(b, it, ch = false) {
+    for (const text of b.textLines) if (setA(text, 'x', it.align === 'end' ? it.w - (it.swatch ? 7 : 0) : it.align === 'middle' ? it.w / 2 : it.swatch ? 7 : 0)) ch = true;
+    if (b.bg) { if (setA(b.bg, 'width', it.w + 2 * it.padX)) ch = true; if (setA(b.bg, 'height', it.h + 2 * it.padY)) ch = true; }
     if (it.label) setA(b.g, 'aria-label', it.label);
-    if (b.sw) { setA(b.sw, 'fill', it.swatch); setA(b.sw, 'x', it.align === 'end' ? it.w - 3 : 0); }
-    b.g.classList.toggle('sel', !!it.sel);
-    b.g.classList.toggle('lb-off', !!it.hide);
+    if (b.sw) { if (setA(b.sw, 'fill', it.swatch)) ch = true; if (setA(b.sw, 'x', it.align === 'end' ? it.w - 3 : 0)) ch = true; }
+    const gc = b.g.classList;
+    if (gc.contains('sel') !== !!it.sel) { gc.toggle('sel', !!it.sel); ch = true; }
+    if (gc.contains('lb-off') !== !!it.hide) { gc.toggle('lb-off', !!it.hide); ch = true; }
     labelStop(b, !!it.hide);
     // A turned caption reads bottom to top: its box's top-left is (x, y), and its text runs up from the bottom.
     if (it.x !== b.tx || it.y !== b.ty || it.w !== b.tw || !!it.rot !== b.tr) {
@@ -302,13 +309,14 @@ export function createLabelLayer(st, live) {
     const gw = it.aGw;
     b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null, want: leadBits.get(it.key) | 0, look: lookOf(b, it) };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
-    const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
-    if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {
-      b.bc0 = c0; b.bc1 = c1; b.bc2 = c2; b.bc3 = c3; b.bch = ch;
-      b.box = `${c0},${c1},${c2},${c3}${ch ? 'h' : ''}`;
+    const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), bh = !!it.hide;
+    if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || bh !== b.bch) {
+      b.bc0 = c0; b.bc1 = c1; b.bc2 = c2; b.bc3 = c3; b.bch = bh;
+      b.box = `${c0},${c1},${c2},${c3}${bh ? 'h' : ''}`;
     }
     b.gone = null;
-    b.g.style.display = '';
+    if (b.g.style.display) { b.g.style.display = ''; ch = true; }
+    if (ch) told(b.g);
   }
   const rectOf = (it) => ({ x0: it.x - it.padX, y0: it.y - it.padY, x1: it.x + it.w + it.padX, y1: it.y + it.h + it.padY });
   // Candidate offset of a block around its anchor.
