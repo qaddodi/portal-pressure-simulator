@@ -9,8 +9,6 @@
 //                            the model state, applied to the slide before's (preset → params → action → days)
 //   view                     'anatomic' (default) or 'circuit'
 //   zoomTiles (deck field)   true: a tiles-only data card zooms on tap too (wide screens; an instrument card always does)
-//   motion (deck or slide field)  true: its own flow or animation is the point, so the page never rests on it; false: it may rest. The slide's setting wins over its deck's;
-//                            unset on both, a slide on the flow, velocity or direction lens, or with a Doppler instrument, keeps moving and any other rests after 8 s (presenter.js keepsMoving)
 //   keepPinch (deck field)   true: a view the learner pinched, dragged or zoomed stays when a card changes size (Next, Back, Fit, a turn frame it again)
 //   cam                      'fit', a region of REGIONS, [x0, y0, x1, y1] (anatomy world units), a list of regions
 //                            (['portal', 'spleen']: their union), or by name { on: ['PV_TRUNK', 'spleen'], near?: region }

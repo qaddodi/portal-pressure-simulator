@@ -78,7 +78,6 @@ import { feedbackDiagnostics } from './feedback-diag.js';
 import { startReport, reportLines } from './report.js';
 import { noteJump } from './display-state.js';
 import { createIdleRest, REST_AFTER_MS } from './idle-rest.js';
-const TALK_REST_MS = 8000;   // (a slide left alone this long with nothing moving rests; the first input or beat wakes it)
 import { pillState, foldPill, stopFold } from './pill-motion.js';
 import { readAnims, readBox, readElAt, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import './scroll-edges.js';   // (soft fades at the ends of lists that scroll, only where there is more; ?edges=0 off)
@@ -134,7 +133,6 @@ const presenter = {
   busy: () => !!presenterL.now()?.busy(),
   readLink: () => (/#script=/.test(location.hash) ? presenterL.get().then((p) => p.readLink()) : false),
   active: () => !!presenterL?.now()?.active(),   // (asked at boot by the idle rest's first timer, before presenterL is made)
-  idle: () => !!presenterL?.now()?.idle?.(),   // (the slide shown is settled and the deck lets it rest: main.js idle rest in a talk)
   settings: () => presenterL.now()?.settings() ?? null,
   probe: () => presenterL.now()?.probe() ?? null,
   // (For the browser checks: the cards' GPU glass (its drawn() record, scripts/gate-motion.mjs) and a slide's degraded readiness, R05.)
@@ -188,10 +186,11 @@ async function main() {
   // Idle rest (idle heat, 1 Nov): left alone 30 s in Explore, the blood eases to a stop, the model holds its numbers (its worker
   // stops stepping, as for a hidden page) and the figure stops drawing; the first input brings it all back from that frame.
   // Never while a talk is open, a time-lapse plays or the patient is still changing.
-  // In a talk it rests after TALK_REST_MS when the slide is idle (presenter.idle: nothing moving, no laser, the deck not declaring motion).
+  // A talk never rests (Mohammad, 5 Nov 2026: "no slide should stop anymore"; slide 12 of the variceal bleed froze about 15 s in, when the
+  // 8 s talk rest of 4 Nov fired once the slide had settled): every slide keeps its blood, its model and its figure moving for as long as it shows.
   idleRest = createIdleRest({
-    after: () => (presenter.active() ? TALK_REST_MS : REST_AFTER_MS),
-    canRest: () => { const st = store.get(), f = st.frame; return (presenter.active() ? presenter.idle() : st.mode === 'explore') && !st.lapse && !!f && !f.lapseDay && !f.morphing && !f.settling && !f.jump; },
+    after: REST_AFTER_MS,
+    canRest: () => { const st = store.get(), f = st.frame; return st.mode === 'explore' && !presenter.active() && !st.lapse && !!f && !f.lapseDay && !f.morphing && !f.settling && !f.jump; },
     onRest: () => { setPageRest(true); stage.rest(true); host.send({ type: 'visibility', visible: false }); },
     onWake: () => { setPageRest(false); host.send({ type: 'visibility', visible: !document.hidden }); stage.rest(false); },
   });

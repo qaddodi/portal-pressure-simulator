@@ -6224,17 +6224,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     scriptNotes: (s) => { const d = fromScript(s); openHandout(d, deckNumbers(d)); }, newScript, importFile, addStep, shareScript, exportScript, remove, current: () => deck?.id ?? null,
     resumeAt: (d) => resumeFor(d.id, (d.mine ? d.slides : withOverview(d).slides).length) });
 
-  // Idle talk (Mohammad, 4 Nov 2026: "if the slide has nothing actively happening, let the decks decide to pause it to preserve battery and
-  // heat"): true when the slide shown is settled and nothing on it moves of its own: no slide change, card move, camera glide, beat,
-  // time-lapse, zoom, laser or stroke under way. The deck decides the rest: `motion: true` on a deck or a slide (decks.js) says
-  // its figure's own flow or animation is the point, and the page never rests there. main.js asks it for the idle rest in a talk.
-  // The slide's own setting wins over its deck's (`motion: true | false`); unset on both, a slide whose point is motion keeps it: the flow,
-  // velocity or direction lens (the blood is the lesson) or a Doppler instrument (its trace is live).
-  const MOVING_LENS = new Set(['flow', 'velocity', 'direction']);
-  const keepsMoving = (s) => s?.motion ?? deck?.motion ?? (MOVING_LENS.has(slideLens(s)) || s?.tool?.kind === 'doppler');
-  const idle = () => !!deck && !!ui && !!shown && shown.i === want && !busy && !playing && !prepT && !leaving && !booting && !reframeT && !lapseOn
-    && !zoomOn() && !stage.gliding() && !ink?.live() && !keepsMoving(slides[shown.i]);
-  return { start, stop, library, readLink, active: () => !!deck, idle, ink: () => ink,
+  return { start, stop, library, readLink, active: () => !!deck, ink: () => ink,
     // Where the show is (for the preview pill's reload): the deck and the slide on screen, or the one it is moving to.
     position: () => (deck ? { id: deck.id, at: shown?.i ?? want } : null),
     // For the browser checks: straight to slide i (0-based) of the deck shown, as the arrow keys move.

@@ -60,15 +60,36 @@ test('idle rest: listens to pointer, key, wheel, touch, scroll and focus', () =>
   for (const k of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 'scroll', 'focusin']) assert.ok(handlers.has(k), k);
 });
 
-test('idle rest is wired: Explore, or a talk whose slide is idle (presenter.idle); never in a time-lapse; the stage eases the blood and the worker holds', () => {
+test('idle rest is wired: Explore only, never in a talk or a time-lapse; the stage eases the blood and the worker holds', () => {
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main, /presenter\.active\(\) \? presenter\.idle\(\) : st\.mode === 'explore'\) && !st\.lapse/);
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /!keepsMoving\(slides\[shown\.i\]\)/);
+  assert.match(main, /st\.mode === 'explore' && !presenter\.active\(\) && !st\.lapse/);
+  assert.match(main, /after: REST_AFTER_MS,/);
+  assert.doesNotMatch(main, /TALK_REST_MS|presenter\.idle/);
   assert.match(main, /onRest: \(\) => \{ setPageRest\(true\); stage\.rest\(true\); host\.send\(\{ type: 'visibility', visible: false \}\); \}/);
   assert.match(main, /onWake: \(\) => \{ setPageRest\(false\); host\.send\(\{ type: 'visibility', visible: !document\.hidden \}\); stage\.rest\(false\); \}/);
   const stage = stageSource();
   assert.match(stage, /const REST_IN_S = 1\.5, REST_OUT_S = 0\.4;/);
   assert.match(stage, /if \(!st\.running \|\| reduceMotion\.matches \|\| (?:live\.)?restStill\(\)\) return false;/);
   assert.match(stage, /(?:live\.)?(?:live\.)?bloodClock = \((?:live\.)?(?:live\.)?bloodClock \+ dt \* (?:live\.)?(?:live\.)?restK\) % 10000;/);
+});
+
+// Mohammad, 5 Nov 2026: slide 12 of the variceal bleed froze about 15 s in (the 8 s talk rest of 4 Nov). No slide stops: main.js's own
+// canRest, run on the fake clock with a talk open on a settled slide, never rests in two minutes, while Explore still rests at 30 s.
+test('a talk never rests: a settled slide keeps animating past 15 s (variceal bleed slide 12)', () => {
+  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
+  const src = main.match(/canRest: (\(\) => \{[^\n]*\}),\n/)?.[1];
+  assert.ok(src, 'main.js canRest found');
+  const frame = { lapseDay: 0, morphing: false, settling: false, jump: false };
+  let talk = true, mode = 'present';
+  const store = { get: () => ({ mode, lapse: 0, frame }) }, presenter = { active: () => talk, idle: () => true };
+  const canRest = new Function('store', 'presenter', `return ${src};`)(store, presenter);
+  const { r, calls, advance } = rig({ canRest });
+  advance(15000);
+  assert.deepEqual(calls, [], 'still moving at 15 s');
+  advance(105000);
+  assert.deepEqual(calls, [], 'still moving at 2 min');
+  assert.equal(r.resting(), false);
+  talk = false; mode = 'explore';
+  advance(5000);
+  assert.deepEqual(calls, ['rest'], 'Explore left alone still rests');
 });
