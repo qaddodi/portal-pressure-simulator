@@ -23,7 +23,7 @@ const nextFrame = frameFor('card-throw');
 // (Out on the rail's curve, which starts at once and fast, gone from sight by 85 % of its way (a few frames), and in on it from
 // the same distance.)
 export const RAIL_MS = 560, RAIL_GAP = 24;
-const easeRail = cubicBezier(0.32, 0.72, 0, 1);
+export const easeRail = cubicBezier(0.32, 0.72, 0, 1);
 
 /** Where a card is at k (0 to 1) of its move, on the rail's curve: out, gone from sight by 85 % of its way; in, with no overshoot,
  *  whole by 40 % of its way. */

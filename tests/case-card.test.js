@@ -139,7 +139,12 @@ test('a tap, Next or a swipe anywhere lifts the case card at once, even while th
   // It fades now (no waiting for the load to end), and Next and swipes go back to changing slides.
   assert.match(gone, /if \(caseLift && caseCard === card\) caseLift = null;/);
   assert.match(gone, /card\.lifted = true;/);
-  assert.match(gone, /card\.c\.classList\.remove\('on'\);\s*caseFade\(card\.c, false, card\.ms\);\s*card\.flown = performance\.now\(\) \+ card\.ms;/);
+  assert.match(gone, /card\.c\.classList\.remove\('on'\);\s*card\.flown = performance\.now\(\) \+ caseThrow\(card\.c, card\.ms\);/);
+  // Thrown out to the left on the slide cards' rail, fading as it goes, so its words never stand over the camera's move (5 Nov 2026).
+  const thr = src.slice(src.indexOf('function caseThrow('), src.indexOf('function caseShut('));
+  assert.match(thr, /glideTranslate\(c, x, y, x - dist, y, RAIL_MS, easeRail\);/);
+  assert.match(thr, /glideOpacity\(c, Number\.isFinite\(o\) \? o : 1, 0, Math\.round\(RAIL_MS \* 0\.5\), easeRail\);/);
+  assert.match(thr, /if \(ms <= 0\) \{ caseFade\(c, false, 0\); return 0; \}/);
   assert.doesNotMatch(gone, /go\(|next\(|camera\(/);
   // A swipe off the card goes through the slide swipe, which calls next() (so caseLift) like any slide.
   assert.match(src, /if \(d > 0\) next\(\); else if \(d < 0\) prev\(\);/);

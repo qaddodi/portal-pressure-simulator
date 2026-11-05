@@ -75,7 +75,7 @@ import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './scrip
 import { signalMove } from './num-move.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
-import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, RAIL_GAP } from './card-throw.js';
+import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, RAIL_GAP, RAIL_MS, easeRail } from './card-throw.js';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { caught } from './caught.js';
 import { createInk } from './ink-gl.js';
@@ -1749,14 +1749,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     await wait(cardUp('Question', h('p', { class: 'pz-case-p' }, nb(s.question))).ms);
     return !cut();
   }
-  // Lifted (tap, Next, a swipe anywhere): the card fades out now, as caseShut would, while the slide carries on behind it.
+  // Lifted (tap, Next, a swipe anywhere): the card leaves now, while the slide carries on behind it.
+  // (Mohammad, 5 Nov 2026: "when i click arrow next in a case card ... the case card text remains in screen while the transition is happening".
+  // It used to fade where it stood, over D_SURFACE, with a 14 px drop, as the camera set off for the slide: its words sat over the moving
+  // figure. It is now thrown out to the left on the slide cards' rail, as the teaching card goes on Next, glass and words as one, fading
+  // as it goes, so its words are gone in the first frames of the camera's move. Reduce Motion: gone at once.)
   function caseGone(card) {
     if (caseLift && caseCard === card) caseLift = null;
     card.lifted = true;
     if (card.flown) return;
     card.c.classList.remove('on');
-    caseFade(card.c, false, card.ms);
-    card.flown = performance.now() + card.ms;
+    card.flown = performance.now() + caseThrow(card.c, card.ms);
+  }
+  function caseThrow(c, ms) {
+    if (ms <= 0) { caseFade(c, false, 0); return 0; }
+    caseFadeTokens.set(c, {});   // (a fade still running in lets go: its ending must not take the throw's inline values off)
+    const gx = glideX(c), gy = glideY(c), x = Number.isFinite(gx) ? gx : 0, y = Number.isFinite(gy) ? gy : 0, o = parseFloat(c.style.opacity);
+    const dist = Math.min(innerWidth, readMetric(c, 'offsetWidth') + RAIL_GAP);
+    glideStop(c); c.style.removeProperty('transition'); c.style.removeProperty('transform');
+    // (The card and its glass read these same frame-clock values, card-throw.js's way: they never part.)
+    glideTranslate(c, x, y, x - dist, y, RAIL_MS, easeRail);
+    glideOpacity(c, Number.isFinite(o) ? o : 1, 0, Math.round(RAIL_MS * 0.5), easeRail);
+    return RAIL_MS;
   }
   // The card leaves: no longer a case card for Next to lift; it fades out and is hidden once it has.
   // A card already flung off waits only for the rest of its flight.
