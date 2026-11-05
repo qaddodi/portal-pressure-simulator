@@ -1265,7 +1265,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (!grid) { shareForget(S); return false; }
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
     const nT = tapN(look.blur * grid.k / grid.T);
-    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty || dirtyRects ? dirtyFn : null, keepFor(2 * nT + 3), pictureRects ? picDirtyFn : null);   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
+    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty || dirtyRects ? dirtyFn : null, keepFor(2 * nT + 3), pictureRects ? picDirtyFn : null, nT + 1);   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
     const sr = S.reg || (S.reg = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the share's region record is made at its first blur
     sr.x = grid.x; sr.y = grid.y; sr.w = grid.w; sr.h = grid.h;
     // (In use in this frame, kept or made again: see the release below.)

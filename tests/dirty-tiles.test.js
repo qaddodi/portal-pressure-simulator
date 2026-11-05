@@ -190,3 +190,45 @@ test('a picture whose region is unknown, or no picture rects at all, blurs every
   sharePrep(S, { id: 'a', boxes: [card], v: '5.2', f: 10 });
   assert.equal(sharePlan(S, grid, t, bw, bh, false, keep(11), () => [], keep(23), () => []).same, false);
 });
+
+// ── 3d: a glass that moves over a figure standing still blurs only what it moved into ──
+test('a card sliding over a still figure blurs only the strip it moved into (minus the kept ring)', () => {
+  const S = shareFor(new Map(), {}, 'k');
+  prime(S, [{ id: 'a', boxes: [card], v: 5, f: 10 }]);
+  const moved = { ...card, x: card.x + 80 };
+  sharePrep(S, { id: 'a', boxes: [moved], v: 5, f: 10 });
+  const ring = 4;
+  const p = sharePlan(S, grid, t, bw, bh, false, keep(11), () => [], keep(23), () => [], ring);
+  assert.equal(p.same, false);
+  const old = S.snap.fp;   // (the parts kept: before the blur is kept, still the old ones)
+  const area = (rs) => rs.reduce((a, r) => a + (r[2] - r[0]) * (r[3] - r[1]), 0);
+  const whole = keep(11)([], [], [moved], 0, 0, t, bw, bh);
+  assert.ok(area(p.parts) < area(whole) / 2, `blurred ${area(p.parts)} of ${area(whole)} texels`);
+  // Every texel the moved card reads is either blurred now or inside the old parts shrunk by the ring.
+  const inKept = (x, y) => { for (let k = 0; k < S.snap.fn; k++) { const x0 = old[k * 4] + ring, y0 = old[k * 4 + 1] + ring, x1 = old[k * 4 + 2] - ring, y1 = old[k * 4 + 3] - ring; if (x >= x0 && x < x1 && y >= y0 && y < y1) return true; } return false; };
+  const inNew = (x, y) => p.parts.some((r) => x >= r[0] && x < r[2] && y >= r[1] && y < r[3]);
+  for (const r of whole) for (let y = r[1]; y < r[3]; y++) for (let x = r[0]; x < r[2]; x++) assert.ok(inKept(x, y) || inNew(x, y), `texel ${x},${y}`);
+});
+
+test('without a ring, or with the pictures changed, a moved card blurs its parts whole', () => {
+  const moved = { ...card, x: card.x + 80 };
+  const S = shareFor(new Map(), {}, 'k');
+  prime(S, [{ id: 'a', boxes: [card], v: 5, f: 10 }]);
+  sharePrep(S, { id: 'a', boxes: [moved], v: 5, f: 10 });
+  const whole = keep(11)([], [], [moved], 0, 0, t, bw, bh);
+  const p = sharePlan(S, grid, t, bw, bh, false, keep(11));
+  assert.deepEqual(p.parts.map((r) => [...r]), whole.map((r) => [...r]));
+  const S2 = shareFor(new Map(), {}, 'k');
+  prime(S2, [{ id: 'a', boxes: [card], v: 5, f: 10 }]);
+  sharePrep(S2, { id: 'a', boxes: [moved], v: 6, f: 10 });
+  const p2 = sharePlan(S2, grid, t, bw, bh, false, keep(11), null, null, null, 4);
+  assert.deepEqual(p2.parts.map((r) => [...r]), whole.map((r) => [...r]));
+});
+
+test('a card that shrinks inside what was kept blurs nothing', () => {
+  const S = shareFor(new Map(), {}, 'k');
+  prime(S, [{ id: 'a', boxes: [card], v: 5, f: 10 }]);
+  const small = { x: card.x + 100, y: card.y + 100, w: 100, h: 80 };
+  sharePrep(S, { id: 'a', boxes: [small], v: 5, f: 10 });
+  assert.equal(sharePlan(S, grid, t, bw, bh, false, keep(11), null, null, null, 4).same, true);
+});
