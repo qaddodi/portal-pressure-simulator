@@ -53,8 +53,15 @@ export function createLabelHost(st, live) {
   }, (wx, wy, view, out, s) => {
     // (A world anchor, any figure label: where the point is under this frame's camera. Only at rest in the view it was laid out for: between the
     // two views the geometry moves, and those labels follow as before.)
-    if (live.viewXf) { if (!live.CTM) refreshCTM(); return morphAnchorAt(wx, wy, view, out, s); }   // (the change between the views: the point rides the vessel it lies on)
-    if (!(live.morph === 0 || live.morph === 1) || live.morph !== view) return false;
+    // (The change between the views, the view switch's or a plain setView's (under the HVPG catheter, the lobule open: no viewXf): the point rides
+    // the vessel it lies on, under the same dive and card cameras as at rest. Never drawn frozen at its old screen spot while the figure morphs.)
+    if (live.viewXf || !(live.morph === 0 || live.morph === 1)) {
+      if (!live.CTM) refreshCTM();
+      if (!morphAnchorAt(wx, wy, view, out, s)) return false;
+      camOut(out, DIVEC, live.zoomM);
+      return Number.isFinite(out[0]) && Number.isFinite(out[1]);
+    }
+    if (live.morph !== view) return false;
     if (!live.CTM) refreshCTM();
     worldToLocalInto(out, wx, wy);
     camOut(out, DIVEC, live.zoomM);   // (the dive's zoom and a card's zoom carry this point, as they do a station's: an organ's name rides a card's zoom with the figure)
