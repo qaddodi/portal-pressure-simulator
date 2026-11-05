@@ -352,12 +352,17 @@ export function lineOf(d) {
 }
 const none = (c) => !c || c === 'none' || c === 'transparent' || /^rgba\([^)]*,\s*0\)$/.test(c);
 
-/** What a label's group draws, read from the page: null when it shows nothing; { svg: why } when this drawing cannot give it. */
-export function describeBlock(g, cs = getComputedStyle, boxOf) {   // (boxOf: a focused label's box, kept outside the frames: ringBoxOf)
-  const gs = cs(g);
-  if (g.style.display === 'none' || gs.display === 'none') return null;
+/** What a label's group draws, read from the page: null when it shows nothing; { svg: why } when this drawing cannot give it.
+ *  (L3 P10) With `geo`, the label's own group (`own`) holds none of its pieces (stage-label-layer.js: one hidden text naming it): their
+ *  styles are read from `g`, the sample of its look (one hidden group per look id), and their places, sizes and words from `geo`, the
+ *  label's record ({ parts: one per piece of the sample, in order, a rect's { x, y, w, h, rx } or a line's { x, y, t: [words], dx: [gaps] };
+ *  box: its box, for a focus ring }). Whether it shows, its opacity, filter and focus are still its own group's. */
+export function describeBlock(g, cs = getComputedStyle, boxOf, geo = null, own = g) {   // (boxOf: a focused label's box, kept outside the frames: ringBoxOf)
+  const gs = cs(own);
+  if (own.style.display === 'none' || gs.display === 'none') return null;
+  if (geo && geo.parts.length !== g.children.length) return { svg: 'part' };
   let focused;
-  try { focused = g.matches(':focus-visible'); } catch { focused = g === document.activeElement; }
+  try { focused = own.matches(':focus-visible'); } catch { focused = own === document.activeElement; }
   const d = { opacity: NUM(gs.opacity), filter: gs.filter === 'none' ? '' : gs.filter, parts: [] };
   // (Focused from the keyboard: its ring, as the page's styles give it (an outline round the label's box, eased in by focus-ring.js), is
   // drawn into its picture; the label's own parts take their focus colours from the page's styles as any other state's. Read each frame
@@ -366,30 +371,34 @@ export function describeBlock(g, cs = getComputedStyle, boxOf) {   // (boxOf: a 
     const w = NUM(gs.outlineWidth);
     if (gs.outlineStyle && gs.outlineStyle !== 'none' && w > 0 && !none(gs.outlineColor)) {
       let b;
-      try { const bb = boxOf(g); b = [bb.x, bb.y, bb.width, bb.height]; } catch (e) { if (e?.message === 'style not read yet') throw e; b = null; }
+      try { const bb = geo ? geo.box : boxOf(own); b = [bb.x, bb.y, bb.width, bb.height]; } catch (e) { if (e?.message === 'style not read yet') throw e; b = null; }
       if (!b) return { svg: 'focus' };
       d.ring = { w, color: gs.outlineColor, off: NUM(gs.outlineOffset), box: b.map((v) => +v.toFixed(2)) };
     }
   }
+  let pi = -1;
   for (const el of g.children) {
-    const c = cs(el);
+    const c = cs(el), q = geo ? geo.parts[++pi] : null;
     if (c.display === 'none') continue;
     if (el.tagName === 'rect') {
-      d.parts.push({ k: 'rect', x: NUM(el.getAttribute('x')), y: NUM(el.getAttribute('y')), w: NUM(el.getAttribute('width')), h: NUM(el.getAttribute('height')),
-        rx: NUM(el.getAttribute('rx')), fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, sw: NUM(c.strokeWidth),
+      d.parts.push({ k: 'rect', x: q ? q.x : NUM(el.getAttribute('x')), y: q ? q.y : NUM(el.getAttribute('y')), w: q ? q.w : NUM(el.getAttribute('width')), h: q ? q.h : NUM(el.getAttribute('height')),
+        rx: q ? q.rx : NUM(el.getAttribute('rx')), fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, sw: NUM(c.strokeWidth),
         strokeFirst: /^stroke/.test(c.paintOrder), filter: c.filter === 'none' ? '' : c.filter });
     } else if (el.tagName === 'polygon') {
+      if (q) return { svg: 'part' };
       // (A filled shape of straight edges: an arrow's triangle, a legend's dot as a many-sided one.)
       const pts = (el.getAttribute('points') || '').trim().split(/[\s,]+/).map(NUM);
       if (pts.length < 6 || pts.length % 2) return { svg: 'part' };
       d.parts.push({ k: 'poly', pts, fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, sw: NUM(c.strokeWidth), strokeFirst: /^stroke/.test(c.paintOrder) });
     } else if (el.tagName === 'text') {
-      const line = { k: 'text', x: NUM(el.getAttribute('x')), y: NUM(el.getAttribute('y')), anchor: el.getAttribute('text-anchor') || 'start', runs: [] };
+      const line = { k: 'text', x: q ? q.x : NUM(el.getAttribute('x')), y: q ? q.y : NUM(el.getAttribute('y')), anchor: el.getAttribute('text-anchor') || 'start', runs: [] };
+      let ri = -1;
       for (const sp of el.children) {
         if (sp.tagName !== 'tspan') return { svg: 'part' };
         const r = cs(sp);
+        ri++;
         if (r.display === 'none') continue;
-        line.runs.push({ t: sp.textContent, dx: NUM(sp.getAttribute('dx')), font: `${r.fontStyle === 'normal' ? '' : r.fontStyle + ' '}${r.fontWeight} ${r.fontSize} ${r.fontFamily}`,
+        line.runs.push({ t: q ? q.t[ri] ?? '' : sp.textContent, dx: q ? q.dx[ri] || 0 : NUM(sp.getAttribute('dx')), font: `${r.fontStyle === 'normal' ? '' : r.fontStyle + ' '}${r.fontWeight} ${r.fontSize} ${r.fontFamily}`,
           size: NUM(r.fontSize), wt: NUM(r.fontWeight) || 400, it: r.fontStyle !== 'normal', fam: r.fontFamily,
           ls: r.letterSpacing === 'normal' ? 0 : NUM(r.letterSpacing), tnum: /tabular-nums/.test(r.fontVariantNumeric),
           fill: none(r.fill) ? '' : r.fill, stroke: none(r.stroke) ? '' : r.stroke, sw: NUM(r.strokeWidth), join: r.strokeLinejoin, strokeFirst: /^stroke/.test(r.paintOrder) });
@@ -415,15 +424,15 @@ export function createLookStyles(max = 500) {
   const play = () => { const c = arr[i++]; if (!c) throw NO; return c; };
   const record = (el) => { const c = src(el); rec.push(c); return c; };
   return {
-    describe(g, id, cs, boxOf) {
+    describe(g, id, cs, boxOf, geo = null, own = g) {
       const t = kept.get(id);
       if (t) {
         arr = t; i = 0;
-        try { return describeBlock(g, play, boxOf); } catch (e) { if (e !== NO) throw e; kept.delete(id); } finally { arr = null; }
+        try { return describeBlock(g, play, boxOf, geo, own); } catch (e) { if (e !== NO) throw e; kept.delete(id); } finally { arr = null; }
       }
       rec = []; src = cs; bad = false;   // alloc-rare: once per look, when its first label is read
       try {
-        const d = describeBlock(g, record, boxOf);
+        const d = describeBlock(g, record, boxOf, geo, own);
         if (!bad) { if (kept.size >= max) kept.clear(); kept.set(id, rec); }
         return d;
       } finally { rec = null; src = null; }
@@ -956,6 +965,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   const ac = new AbortController();   // (listeners on the host's canvas end with dispose())
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault(); lost = true; undisplace();
+    svgAsk?.(null, true, true);   // (L3 P10: every label's full SVG pieces, made in this event)
     for (const s of last) s.g.removeAttribute('data-gl');
     for (const root of marks) for (const el of root.children) { el.removeAttribute('data-gl'); markSvg(el, markGeo.get(el)); }
     scanEl?.removeAttribute('data-gl');
@@ -1026,6 +1036,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     for (const root of marks) for (const el of root.children) { el.removeAttribute('data-gl'); markSvg(el, markGeo.get(el)); }
     scanEl?.removeAttribute('data-gl');
     released = true;
+    svgAsk?.(null, true, false);   // (L3 P10: every label's full SVG pieces, made between frames)
   }
   // (L3 P3) A label whose record names its look (s.look, stage-label-layer.js blockRest) is described from the styles kept for that look:
   // describeBlock reads the page's styles once per look, for its first label, and every other label of it reads none. The id is the record's
@@ -1064,6 +1075,19 @@ void main() { o = texture(uT, vUV) * uA; }`;
     return (kh1 >>> 0) * 2097152 + ((kh2 >>> 0) & 0x1fffff);
   }
   const uiHeld = (g) => { try { if (g.matches(':hover')) return true; } catch { /* no state */ } const a = document.activeElement; return !!a && a !== document.body && g.contains(a); };
+  // (L3 P10) A label's sample takes its group's classes and inline style as they stand now (whoever wrote them), and its hover and keyboard
+  // focus as classes (ui-hover, ui-fv, which app.css reads beside :hover and :focus-visible), so its pieces' styles are the ones the label's
+  // own pieces would have. Written only when they differ, on a hidden group, between frames (the rebuild pass).
+  function mirror(sm, g) {
+    let c = g.getAttribute('class') || '';
+    try { if (g.matches(':hover')) c += ' ui-hover'; if (g.matches(':focus-visible')) c += ' ui-fv'; } catch { /* no state */ }
+    if (sm.getAttribute('class') !== c) sm.setAttribute('class', c);
+    const y = g.getAttribute('style');
+    if (y !== sm.getAttribute('style')) { if (y == null) sm.removeAttribute('style'); else sm.setAttribute('style', y); }
+  }
+  // (Its writer's answer to a label that needs its full SVG pieces (true: this layer cannot draw it, or the SVG draws every label now) or no
+  // longer does (false): onSvg. `now`: the context was lost, the pieces are made in that event, not a frame later.)
+  let svgAsk = null;
   // (Its style not read yet: its last picture stays, or the SVG draws it for this frame; read just after it, then drawn again.)
   function waitStyle(g, st) {
     waiting.add(g);
@@ -1085,6 +1109,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!st) { st = { mode: 'none', key: '', slot: null }; sprites.set(g, st); }
     let d;
     const s = given ? null : recOf.get(g), lk = s && s.look != null && !live.has(g) && !exact.has(g) && !uiHeld(g) ? lookHash(g, s.look) : null;
+    // (L3 P10: a label whose group holds only its name (s.geo) is described from the sample of its look, its pieces from its record. Its
+    // sample not made yet: it keeps the picture it has, its writer telling it when the sample is in.)
+    const geo = s?.geo || null, dg = geo ? s.sample : g;
+    if (geo && !(dg?.isConnected)) { if (st.mode !== 'gl' || !st.slot) { st.mode = 'gl'; st.wait = true; } return st; }
+    if (geo) mirror(dg, g);
     if (lk != null && !lookStyles.has(lk)) {
       // (Its look's first label is being read: this one waits for that read, and reads nothing of its own.)
       const rep = lookRep.get(lk);
@@ -1092,12 +1121,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (lookRep.size > 500) lookRep.clear();
       lookRep.set(lk, g);
     }
-    try { d = given || (lk != null ? lookStyles.describe(g, lk, lookSrc, ringBoxOf) : describeBlock(g, styleOf, ringBoxOf)); } catch (e) {
+    try { d = given || (lk != null ? lookStyles.describe(dg, lk, lookSrc, ringBoxOf, geo, g) : describeBlock(dg, styleOf, ringBoxOf, geo, g)); } catch (e) {
       if (e !== MISS) throw e;
       return waitStyle(g, st);
     }
     if (lk != null && lookRep.get(lk) === g) { lookRep.delete(lk); lookFlush(); }
     st.mode = !d ? 'none' : svgOnly(d) ? 'svg' : 'gl';
+    // (One this layer cannot draw, a glyph Inter's cut lacks or the glyphs not in yet, asks its writer for its full SVG pieces back, and a
+    // label of full pieces it draws again gives them up: svgAsk.)
+    if (s && svgAsk) { if (st.mode === 'svg' && geo) svgAsk(g, true); else if (st.mode === 'gl' && !geo && s.full) svgAsk(g, false); }
     if (st.mode !== 'gl') { st.wait = false; return st; }
     const key = lookKey(d, rot, dpr);
     if (st.key !== key && st.alt && st.alt.key === key && st.alt.slot) {
@@ -1196,7 +1228,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
         return mine.length ? new Proxy(c, { get: (o, k) => easedOf(mine, k, o) }) : c;
       };
       let base;
-      try { base = describeBlock(g, cs, ringBoxOf); } catch (e) { if (e !== MISS) throw e; base = null; }
+      const r0 = recOf.get(g), sm = r0?.geo ? r0.sample : null;   // (one holding only its name: its sample's pieces, as refresh reads it)
+      if (sm?.isConnected) mirror(sm, g);
+      try { base = r0?.geo ? (sm?.isConnected ? describeBlock(sm, cs, ringBoxOf, r0.geo, g) : null) : describeBlock(g, cs, ringBoxOf); } catch (e) { if (e !== MISS) throw e; base = null; }
       if (base && !base.svg && base.parts) {
         m.base = base; m.w = trackAt(m, now).w;
         st = refresh(g, rot, fillLook(m, m.w));
@@ -2308,6 +2342,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
     /** What the last picture drew, as boxes [left, top, right, bottom] (CSS px from the canvas's corner). */
     get boxes() { return boxes; },
     get lost() { return lost; },
+    /** (L3 P10) Whether a label may be built with only its name (its pieces drawn here from its record): this layer draws the labels now. */
+    get canLean() { return !lost && !released && !disposed; },
+    /** (L3 P10) f(g, need, now): a label's writer is asked to give it its full SVG pieces (need) or to take them away; g null: every label. */
+    onSvg(f) { svgAsk = f; },
     /** This frame's labels: drawn now, in the same frame as the SVG's layout. */
     sync(list) {
       if (lost) return;
@@ -2340,6 +2378,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       labelByKey.clear(); recOf.clear();
       for (const s of list) { recOf.set(s.g, s); const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
+      // (L3 P10: a label built in full that this layer draws, as after a lost context comes back, is told it may hold only its name again.)
+      if (svgAsk && !released) for (const s of list) if (s.full && sprites.get(s.g)?.mode === 'gl') svgAsk(s.g, false);
       for (const s of list) WAS.delete(s.g);
       for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); if (st.alts) for (const o of st.alts) if (o.slot) packer.free(o.slot); sprites.delete(g); } live.delete(g); }
       ask();
