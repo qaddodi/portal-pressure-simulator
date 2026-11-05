@@ -3949,7 +3949,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (A card with an instrument zooms; in a talk that opts in (deck zoomTiles: the Circuit talk) a tiles-only card does too, so every slide's card can.)
   const zoomCard = () => ui.data.classList.contains('has-tool') || (!!deck?.zoomTiles && !ui.data.hidden);
   const caseStands = () => !!caseCard && !caseCard.flown;
-  async function zoomOpen() {
+  async function zoomOpen(focus) {
     if (!zoomReady() || ui.zoom.on) return;
     const z = ui.zoom;
     if (ZOOM_OPENS_READINGS && wideSheet(ui.data) && !ui.data.classList.contains('tool-open')) {
@@ -3958,9 +3958,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (!zoomReady()) return;
     }
     zoomU0 = underU(ui.data);
-    if (z.open()) paintZoom();
+    if (z.open(focus === 'text' ? { main: [ui.text, ui.shade] } : undefined)) paintZoom();
   }
-  function zoomToggle() { if (!ui) return; if (ui.zoom.up) ui.zoom.close().then(paintZoom); else zoomOpen(); }
+  // (focus 'text': a tap on the teaching card frames and centres it, the data card riding along; otherwise the data card is the one framed.)
+  function zoomToggle(focus) { if (!ui) return; if (ui.zoom.up) ui.zoom.close().then(paintZoom); else zoomOpen(focus); }
   // ── One of the six ladders zoomed to the middle (Sites 10, Where-resistance 14; Mohammad, 29 Oct: "on this slide i feel we should be allowed to
   // click individual ladder cards and have them zoom in similar to how we do it in the slides") ──
   // The same zoom as the data card's (src/ui/card-zoom.js), taken to one cell of the panel's grid: a tap on a cell glides it to the middle of
@@ -5903,7 +5904,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // (The words' card stays up while the card is zoomed; its words, and its deck tab on the card's edge (the shade holds the tab), are cut away under the card, card-zoom.js, and it rests at slip.base's rise meanwhile.)
       camera: { open: () => !!stage.zoomOpen?.(), at: (s, x, y, dx, dy) => stage.zoomAt?.(s, x, y, dx, dy), end: () => stage.zoomEnd?.(), sharp: (on) => stage.zoomSharp?.(on) }, scene: () => [text, shade], behind: zoomBehind });
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
-    tapTracker(text, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });   // (a tap on the teaching card is the same zoom as on the data card: both come into view together, 5 Nov 2026)
+    tapTracker(text, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle('text') });   // (a tap on the teaching card is the same zoom as on the data card: both come into view together, 5 Nov 2026)
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
     const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
     root.classList.add('pz-page'); shade.classList.add('pz-page');   // (the teaching card as one page: card-page.js)

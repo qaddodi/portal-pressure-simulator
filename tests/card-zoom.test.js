@@ -354,7 +354,7 @@ test('the readings come out and tuck away under a zoomed card, the zoom fitted a
   assert.match(js, /words\.u = f; words\.trav = trav; setWords\(wordsAt\(\)\); zoomFollow\(f, trav\); \};/);
   assert.match(js, /const zoomFolds = \(\) => zoomSteady\(\) && slip\.lift - slip\.base > 0\.5;/);
   assert.match(js, /ui\.zoom\.follow\(\(f - zoomU0\) \* \(trav - LIP\), \(f - zoomU0\) \* trav\);/);
-  assert.match(js, /zoomU0 = underU\(ui\.data\);\n {4}if \(z\.open\(\)\) paintZoom\(\);/);
+  assert.match(js, /zoomU0 = underU\(ui\.data\);\n {4}if \(z\.open\(focus === .text. \? \{ main: \[ui\.text, ui\.shade\] \} : undefined\)\) paintZoom\(\);/);
   // (A pull on a zoomed card follows the finger over the readings' travel as it is seen: the card is larger, so the finger moves less of it.)
   assert.match(js, /g\.zk = zoomOn\(\) \? ui\.zoom\.scale : 1;/);
   assert.match(js, /foldFollow\(g, dy \* g\.dir \/ \(g\.zk \|\| 1\)\);/);
@@ -629,4 +629,19 @@ test('zoom: every frame the card\'s transform and the zoom the glass is drawn fr
 test('the teaching card hears a tap in landscape: .pz lets none through, so the card takes them itself', () => {
   assert.match(css, /\.pz\.pz-wide \.pz-text:not\(\.pz-leave\) \{ pointer-events: auto; \}/);
   assert.match(js, /tapTracker\(text, \{ ok: \(\) => zoomReady\(\) \|\| zoom\.up/);
+});
+
+test('zoom: a tap on the teaching card frames and centres it, the data card riding along', async () => {
+  const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
+  const words = new El({ left: 500, top: 200, width: 400, height: 300 }), shade = new El({ left: 500, top: 200, width: 400, height: 300 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const z = createCardZoom({ card, along: [lip], scene: () => [words, shade], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }) });
+  const back = stands();
+  try {
+    assert.equal(z.open({ main: [words, shade] }), true);
+    const want = zoomPlan({ left: 500, top: 200, width: 400, height: 300 }, { left: 0, top: 0, width: 1440, height: 900 });
+    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'fitted to the teaching card, not the data card');
+    assert.equal(z.follow(10, 10), false, 'the readings do not refit a zoom on the words');
+    z.reset();
+  } finally { back(); }
 });
