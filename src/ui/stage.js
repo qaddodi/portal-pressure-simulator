@@ -1358,7 +1358,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // liver's card, the palette, a presenter step) and cross-fades over the plate.
   let liverBB = null;
   const liverBBox = { x: 0, y: 0, w: 0, h: 0 };   // (liverBB's box, written in place once)
-  const { anatCovered, camShowTo_, diveFrame, prepRise, pushCam, riseReady, setDiveScale, setLobule } = createDive({ applyVT, defaultVT, drawFrame, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap }, live);
+  const { anatCovered, camShowTo_, diveFrame, prepRise, pushCam, riseReady, setDiveScale, setLobule } = createDive({ applyVT, defaultVT, drawFrame, drawVeins, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap }, live);
   let diveZ = 0;   // the dive's zoom so far (log scale), kept for cameraZoom
   let riseLine = false, riseFast = false, zShift = 0;   // (zShift: for cameraZoom, the plate's zoom is reset unseen when the rise begins)
   // The elements' offsets are read once per dive, before any write: read between writes, each would

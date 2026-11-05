@@ -15,7 +15,7 @@ const ready = st.match(/function riseReady\(\) \{[\s\S]*?\n {2}\}\n/)[0];
 
 test('before the way out, the covered anatomy follows the model again and its picture is made for the patient now', () => {
   assert.match(prep, /if \(!(?:live\.)?(?:live\.)?lobuleOn \|\| (?:live\.)?(?:live\.)?diveT < 1 \|\| (?:live\.)?(?:live\.)?morphTarget !== 0 \|\| (?:live\.)?(?:live\.)?risePrep\) return;/, 'only from a landed lobule');
-  assert.match(prep, /const fit = preFit\(\);\n\s+if \(live\.F && !live\.inUpdate\) \{ live\.catchUp = fit; try \{ update\(live\.F\); \} finally \{ live\.catchUp = false; \} if \(fit\) preF = live\.F; \}\n\s+live\.platePoke\(\);/, 'taken to the rise\'s fit unseen and brought up to date there (next-view pre-render)');
+  assert.match(prep, /const fit = preFit\(\);\n\s+if \(live\.F && !live\.inUpdate\) \{ live\.catchUp = fit; try \{ update\(live\.F\); \} finally \{ live\.catchUp = false; \} if \(fit\) preF = live\.F; \}\n\s+if \(preF\) preDraw\(\);\n\s+live\.platePoke\(\);/, 'taken to the rise\'s fit unseen and brought up to date there (next-view pre-render)');
   assert.match(st, /const under = anatCovered\(\) && !(?:live\.)?catchUp && !(?:live\.)?(?:live\.)?risePrep;/, 'model frames reach the organs meanwhile');
   // Done when the picture of the patient now lands; never left on.
   assert.match(st, /if \(!(?:live\.)?(?:live\.)?(?:live\.)?plateOn\(\)\) (?:live\.)?(?:live\.)?(?:live\.)?plateKey = '';[^\n]*\n\s+else if \((?:live\.)?(?:live\.)?(?:live\.)?risePrep\) \{ (?:live\.)?(?:live\.)?(?:live\.)?risePrep = false; stageScope\.clear\((?:live\.)?(?:live\.)?(?:live\.)?risePrepT\); \}/);
@@ -64,4 +64,10 @@ test('next-view pre-render: the rise\'s fit is made ahead at prepRise, so the ta
   const pf = st.match(/function preFit\(\) \{[\s\S]*?\n {2}\}\n/)[0];
   assert.match(pf, /live\.vtGliding \|\| live\.lz\?\.sinBusy\?\.\(\) \|\| document\.getElementById\('app'\)\?\.classList\.contains\('sin-focus'\)\) return false;/, 'never measured with the sinusoid\'s focus still hiding the dock');
   assert.match(pf, /live\.zShift = zOld - Math\.log\(live\.CTM\.sc\);/);
+});
+
+test('next-view pre-render: the vessels are drawn ahead for the rise\'s fit, only while the lobule covers the figure', () => {
+  const pd = st.match(/function preDraw\(\) \{[\s\S]*?\n {2}\}\n/)[0];
+  assert.match(pd, /if \(!live\.veins \|\| live\.veins\.lost \|\| !live\.lz\?\.isOpen\(\) \|\| !live\.lobIn && !live\.diveHid\) return;/);
+  assert.match(pd, /live\.veinsTrimmed = false; live\.hiddenAt = 0;\n\s+drawVeins\(true, 'rise ahead'\);/, 'its targets made again, the warm window started afresh');
 });

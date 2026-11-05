@@ -12,7 +12,7 @@ import { cams, camAbout, camId } from './scene-cam.js';
 
 import { stageScope } from './stage-scope.js';
 export function createDive(st, live) {
-  const { applyVT, defaultVT, drawFrame, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap } = st;
+  const { applyVT, defaultVT, drawFrame, drawVeins, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap } = st;
   const DIVEC = cams.stage.dive;   // (the dive's camera, a scene-cam record in canvas px: setDiveScale is its only writer, pushCam hands it to the figure)
   const diveAtBuf = [0, 0];   // (diveAt's pair, written in place)
   const DIVE_MS = 2200, RISE_MS = 1300;
@@ -266,7 +266,16 @@ export function createDive(st, live) {
     live.risePrep = true; stageScope.clear(live.risePrepT); live.risePrepT = stageScope.timer(() => { live.risePrep = false; }, 6000);   // (never left on in the lobule)
     const fit = preFit();
     if (live.F && !live.inUpdate) { live.catchUp = fit; try { update(live.F); } finally { live.catchUp = false; } if (fit) preF = live.F; }
+    if (preF) preDraw();
     live.platePoke();
+  }
+  // The vessels drawn ahead for that fit, their trimmed targets made again: the lobule's pass covers the canvas (the figure's alpha is 0
+  // under it), so nothing shows, and the rise's first frame finds the layer drawn for its view and only lays it. (The warm window starts
+  // again: a rise that never comes gives them back as before.)
+  function preDraw() {
+    if (!live.veins || live.veins.lost || !live.lz?.isOpen() || !live.lobIn && !live.diveHid) return;
+    live.veinsHold?.drop(); live.veinsHold = null; live.veinsTrimmed = false; live.hiddenAt = 0;
+    drawVeins(true, 'rise ahead');
   }
   // The organs' picture is made for the patient now (prepRise is done: it ends when that picture lands), or there is none to wait for.
   function riseReady() {
