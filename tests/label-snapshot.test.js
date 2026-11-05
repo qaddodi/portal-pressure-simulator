@@ -60,7 +60,7 @@ test('a camera ride holds each label inside the stage, and its leader\'s label e
   assert.match(lg, /function rideAt\(s, st\) \{/);
   assert.match(lg, /rideAt\(s, st\);\n\s+x = RIDE_XY\[0\]; y = RIDE_XY\[1\];/);
   // (EXT-LBL-2: the label end moves by the label's own drawn move, not carried as geometry and scaled off its edge.)
-  assert.match(lg, /geo\[2\] = mg\.v\[2\] \* dpr \+ \(RIDE_XY\[0\] - \(Math\.round\(ls\.x \* dpr\) \+ lst\.ox\)\);/);
+  assert.match(lg, /geo\[2\] = src\[2\] \* dpr \+ \(RIDE_XY\[0\] - \(Math\.round\(ls\.x \* dpr\) \+ lst\.ox\)\);/);
 });
 
 test('a layout solved for another view is never carried onto this one, nor handed to the GPU while its own solve is pending', () => {

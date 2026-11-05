@@ -1638,12 +1638,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
           mgD = mg;
           if (mg) {
             markParse(el, mg, isPath);
-            // (A pinned label's marks are drawn from their geometry as of the layout the GPU was last handed (sync), never a newer one the page
-            // already holds: a layout held back (a ride, a solve for another view) wrote its dots and leaders before its labels came, and a dot
-            // moved by its point's step from another layout's place stood off its vessel.)
-            const pl0 = mg.k ? pinOf(labelByKey.get(mg.k)) : null;
             // (A pinned label's dot and leader are not the page's: drawn below from the point and the label as they are this frame (drawPins),
             // in the look the page gives them, kept here. Its SVG copy stays hidden.)
+            const pl0 = mg.k ? pinOf(labelByKey.get(mg.k)) : null;
             if (pl0) {
               let pk = pinLooks.get(mg.k);
               if (!pk) pinLooks.set(mg.k, pk = { line: null, dot: null, halo: null, dotR: 2.4, haloR: 5 });   // alloc-rare: one record per pinned label key
@@ -1652,27 +1649,18 @@ void main() { o = texture(uT, vUV) * uA; }`;
               if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
               continue;
             }
-            const src = pl0 ? mg.pv : mg.v;
-            if (pl0 ? mg.pok : mg.ok) { geo = MGEO; for (let i = 0; i < 4; i++) geo[i] = src[i] * dpr; }
-            // (A pinned label's dot and leader: moved by its point's step since the layout, in this frame; the leader's label end also by the
-            // offset's glide, so the line always runs from the point to the label as drawn. Nothing below moves them again.)
-            const pl = geo && mg.k ? pinOf(labelByKey.get(mg.k)) : null;
-            if (pl) {
-              const dx = (PIN[0] - pl.pax) * dpr, dy = (PIN[1] - pl.pay) * dpr;
-              geo[0] += dx; geo[1] += dy;
-              if (isPath) {
-                pinOff(pl, now);
-                geo[2] += dx + (OFF[0] - (pl.x - pl.pax)) * dpr; geo[3] += dy + (OFF[1] - (pl.y - pl.pay)) * dpr;
-              }
-            }
-            if (pl) { /* pinned: placed */ } else {
+            // (Every other mark is drawn from its geometry as of the layout the GPU was last handed (sync: mg.pv), as its label is, never a newer
+            // one the page already holds: a layout run mid-ride (a ride key change in a card zoom) wrote its leaders before its labels came, and
+            // the leaders jumped to it and were carried by the ride again, moving twice while their labels stood. 5 Nov 2026 review #5.)
+            const src = mg.pv;
+            if (mg.pok) { geo = MGEO; for (let i = 0; i < 4; i++) geo[i] = src[i] * dpr; }
             // (A camera ride carries the leaders and dots as it carries the labels: each point where the figure's matching point now is, the
             // lines keeping their width and the dots their size. Left where they were laid out, they stretched from their points to the
             // labels that rode on, and spread over the figure, for as long as the ride lasted.)
             if (geo && rideM) {
               const M = rideM, n = isPath ? 2 : 1;
               for (let i = 0; i < n; i++) {
-                const cx = mg.v[i * 2], cy = mg.v[i * 2 + 1];
+                const cx = src[i * 2], cy = src[i * 2 + 1];
                 geo[i * 2] = (M[0] * cx + M[2] * cy + M[4]) * dpr; geo[i * 2 + 1] = (M[1] * cx + M[3] * cy + M[5]) * dpr;
               }
               // (Its label end goes with the label as the label is drawn: the label keeps its size and is carried by its centre, so its end of
@@ -1682,10 +1670,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
                 const ls = labelByKey.get(mg.k), lst = ls && sprites.get(ls.g);
                 if (lst && lst.mode === 'gl') {
                   rideAt(ls, lst);
-                  geo[2] = mg.v[2] * dpr + (RIDE_XY[0] - (Math.round(ls.x * dpr) + lst.ox)); geo[3] = mg.v[3] * dpr + (RIDE_XY[1] - (Math.round(ls.y * dpr) + lst.oy));
+                  geo[2] = src[2] * dpr + (RIDE_XY[0] - (Math.round(ls.x * dpr) + lst.ox)); geo[3] = src[3] * dpr + (RIDE_XY[1] - (Math.round(ls.y * dpr) + lst.oy));
                 }
               }
-            }
             }
           }
         }
