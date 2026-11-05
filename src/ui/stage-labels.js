@@ -180,8 +180,9 @@ export function createLabelDriver(st, live) {
       if (!force && sameView8(live.labelJob.key, key)) { labelTail(); return; }
       labelJobDrop();
     }
-    if (!force && sameKey(key) && (inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
+    if (!force && !live.leadOwed && sameKey(key) && (inMotion() ? holdValues(f) : refreshValues(f))) { stats.skips++; stats.ms += performance.now() - t0; }
     else {
+      live.leadOwed = false;   // (this layout makes the leaders a layout asked for and could not: leadTop)
       const sc = live.CTM.sc, th = Math.atan2(live.CTM.b, live.CTM.a);
       const csig = calloutSig();
       // (A stent called out at its three points is solved again when the presenter's cards move (the monitor folded or opened): carried,

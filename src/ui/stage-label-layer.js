@@ -100,6 +100,9 @@ export function createLabelLayer(st, live) {
   function leadTop() {
     leadFill = 0;
     for (const tag of ['path', 'circle']) { const l = leadSpare.get(tag) || []; while (l.length < LEAD_SPARE) l.push(s(tag, {})); leadSpare.set(tag, l); }
+    // (Owed until a layout runs: one asked for now may be refused (a presenter's glide lays nothing out while it moves) and its landing skips
+    // a layout its labels have not changed for, so the leaders a slide's first layout wanted never came: updateLabels honours leadOwed.)
+    if (leadShort) live.leadOwed = true;
     if (leadShort) { leadShort = false; nextFrame(() => { if (live.F) updateLabels(live.F, true); }); }
   }
   const leadTake = (tag) => { const el = leadSpare.get(tag)?.pop() || null; if (!leadFill && (leadSpare.get(tag)?.length ?? 0) < LEAD_SPARE / 2) leadFill = restPass(leadTop); return el; };

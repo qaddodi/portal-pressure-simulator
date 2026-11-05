@@ -8,14 +8,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { bootGL, now } from './stage-gl-boot.js';
 
-const { st, frame } = await bootGL({ labels: 'none' });   // (no leader or dot laid out before the slide)
+const { st, page, frame } = await bootGL({ labels: 'none' });   // (no leader or dot laid out before the slide)
 const { store } = await import('../src/ui/store.js');
 const { stepPlan } = await import('../src/ui/callout-math.js');
 const { EDGES } = await import('../src/engine/topology.js');
 const EIDS = new Set(EDGES.map((e) => e.id));
 const GLOW = ['V_INT', 'PV_TRUNK', 'SIN_RR', 'RHV_IVC', 'IVCS_RA'];
 
-test("a slide's first leaders and dots, laid out as its glide sets off, are drawn with it", async () => {
+test("a slide's first leaders and dots, laid out as its glide sets off, are drawn with it and made in the page once it lands", async () => {
   store.set({ presenting: true, presentLabels: [], presentTerms: null });
   st.setGlow(GLOW.map((id, i) => ({ id, tone: 'accent', at: i })));   // (lit 1 ms apart: every number at once)
   st.callouts({ live: {}, organs: [], calipers: [], spans: [], zone: -1, steps: stepPlan(GLOW, 1, (id) => EIDS.has(id), () => false) });
@@ -33,4 +33,10 @@ test("a slide's first leaders and dots, laid out as its glide sets off, are draw
     }
   }
   assert.ok(lines > 50, `the leaders are drawn: ${lines}`);
+  // (Landed at 900 ms, nothing changed since: the page's leaders and dots it asked for are in, one of each for every number off its point.)
+  const layer = page.document.querySelector('#labels .lb-leaders');
+  const want = new Set(st.labelSnapshot().marks.filter((m) => m.k.startsWith('fxs:')).map((m) => `${m.k} ${m.kind === 'line' ? 'path' : 'circle'}`));
+  const have = new Set([...layer.children].filter((el) => el.getAttribute('data-k')?.startsWith('fxs:') && !el.classList.contains('ld-gone')).map((el) => `${el.getAttribute('data-k')} ${el.tagName.toLowerCase()}`));
+  assert.ok(want.size >= 4, `marks drawn: ${[...want]} ${JSON.stringify(st.labelSnapshot().items.filter((x) => x.key.startsWith("fxs:")))}`);
+  assert.deepEqual([...have].sort(), [...want].sort(), "the page's leaders and dots are made once the glide lands");
 });

@@ -585,6 +585,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get worldOver() { return worldOver; }, set worldOver(v) { worldOver = v; },
     get wrapRect() { return wrapRect; }, set wrapRect(v) { wrapRect = v; },
     get xfHold() { return xfHold; }, set xfHold(v) { xfHold = v; },
+    get leadOwed() { return leadOwed; }, set leadOwed(v) { leadOwed = v; },
     get xfOp() { return xfOp; }, set xfOp(v) { xfOp = v; },
     get xfSolving() { return xfSolving; }, set xfSolving(v) { xfSolving = v; },
     get zoomBase() { return zoomBase; }, set zoomBase(v) { zoomBase = v; },
@@ -1442,6 +1443,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let xfSolving = false;
   // (The change landed before the new view's labels were solved: they stay at nothing until the solve lands, never the old view's labels on the new figure.)
   let xfHold = false;
+  // (A layout owed to the page's leaders and dots: one asked for found no blank to take, and the next layout makes them, whenever it comes (stage-label-layer.js leadTop).)
+  let leadOwed = false;
   // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
   const viewMoving = () => vtGliding || camMove || wrap.classList.contains('panning');
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
