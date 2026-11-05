@@ -516,6 +516,13 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
   for (const [, t, c] of named) {
     const run = runs[1 + out.length], w = tw(t, 500);
     let got = null, best = null;
+    // (On its own line, unmistakably: a place at the line's right end with no other line within 1.2 em over or under the word; where the lines
+    // crowd there (the earlier line running into the healthy one near the heart), the first such place from the line's left end, as "Healthy" and
+    // "Before TIPS" stand on theirs, Rescue TIPS, 5 Nov. Else the search below, as ever.)
+    const others = runs.filter((_, k) => k !== 1 + out.length), lone = (b) => !others.some((o) => o.some(([ox, oy]) => ox >= b[0] - 4 && ox <= b[1] + 4 && oy >= b[2] - 1.2 * f && oy <= b[3] + 1.2 * f));
+    const lead = (q) => { const [x, y] = run[q], cx = Math.max(G.L + w / 2 + 2, Math.min(G.R - w / 2, x)); for (const base of [y - BR_PAD - 1.5, y + BR_PAD + 1.5 + cap]) { const b = [cx - w / 2, cx + w / 2, base - cap, base + 0.2 * f]; if (place.cost(b) === 0 && lone(b)) return { t, c, x: cx, y: base, b }; } return null; };
+    got = lead(run.length - 1);
+    for (let q = 0; q < run.length - 1 && !got; q++) got = lead(q);
     for (let q = run.length - 1; q >= 0 && !got; q--) {
       const [x, y] = run[q], cx = Math.max(G.L + w / 2 + 2, Math.min(G.R - w / 2, x));
       for (const base of [y - BR_PAD - 1.5, y + BR_PAD + 1.5 + cap]) {
