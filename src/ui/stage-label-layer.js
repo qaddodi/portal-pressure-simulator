@@ -107,10 +107,20 @@ export function createLabelLayer(st, live) {
   // of setTimeout with them, so none is made per call.)
   const leadKeep = new Set(), leadWantEls = [];
   const leadGoneFire = (k, el) => { if (leadEls.get(k) === el && el._gone) { el.remove(); leadEls.delete(k); } };
+  // (Which labels this layout gave a dot (1), a dot's halo (2) or a leader (4), by the label's key: written on its record (pos.want), which
+  // label-gl.js draws its pinned dot and leader from, so they never wait for the SVG's leaders to be put in or taken out (L3 P2).)
+  const leadBits = new Map();
+  // (Only a label this layout laid: one fading out keeps the bits it had, so its dot and leader fade with it, as the SVG's did.)
+  const wantPut = (b, k) => { if (b.pos && b.seen === live.laidFrame) b.pos.want = leadBits.get(k) | 0; };
   function paintLeaders(want) {
     const keep = leadKeep, els = leadWantEls;
-    keep.clear(); els.length = 0;
-    for (let i = 0; i < want.length; i++) keep.add(want[i].k);
+    keep.clear(); els.length = 0; leadBits.clear();
+    for (let i = 0; i < want.length; i++) {
+      const w = want[i], k = w.at['data-k'];
+      keep.add(w.k);
+      if (k) leadBits.set(k, (leadBits.get(k) | 0) | (w.tag === 'path' ? 4 : (w.at.class || '').includes('halo') ? 2 : 1));
+    }
+    pool.forEach(wantPut);
     for (const w of want) {
       let el = leadEls.get(w.k);
       if (el && el.tagName !== w.tag) { el.remove(); leadEls.delete(w.k); el = null; }
@@ -274,7 +284,7 @@ export function createLabelLayer(st, live) {
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
     // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera, so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (zone titles, lanes, the scan, the stage) and not between views. An organ's name is a region name (leader rule L1): its point is where it is drawn, so it never stands off its own anchor.)
     const gw = it.aGw;
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null };
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null, want: leadBits.get(it.key) | 0 };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), ch = !!it.hide;
     if (!b.box || c0 !== b.bc0 || c1 !== b.bc1 || c2 !== b.bc2 || c3 !== b.bc3 || ch !== b.bch) {

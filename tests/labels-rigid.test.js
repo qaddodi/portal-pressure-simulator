@@ -50,7 +50,7 @@ test('view switch: no hide, no rush, no wait for a draw: the old labels ride as 
 
 test('view switch: only labels laid out for the shown view reach the GPU', () => {
   assert.ok(st.includes('b.pos.view === morphTarget'));
-  assert.ok(/view: it\.aView, mA: null \}/.test(st) && /it\.aView = live\.morphTarget/.test(st));
+  assert.ok(/view: it\.aView, mA: null[ ,]/.test(st) && /it\.aView = live\.morphTarget/.test(st));
   assert.ok(!st.includes('NO_LABELS'));
 });
 

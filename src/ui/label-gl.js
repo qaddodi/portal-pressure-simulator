@@ -1647,6 +1647,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // label's picture is drawn this frame, cut at its edge. Rigid: they cannot lag, stretch on their own or point at nothing. A dot is drawn
   // where the layout gave the label one (pinWant, taken at sync), a leader only where the layout asked for one.
   const pinLooks = new Map(), pinWant = new Map(), pinDrawn = new Map();
+  // (A record's own want bits where its writer gave them (pos.want, stage-label-layer.js paintLeaders), else the ones read from the leaders' layer at sync.)
+  const wantOf = (s, key) => (typeof s.want === 'number' ? s.want : pinWant.get(key) | 0);
   const PG = new Float64Array(4);
   let defLine = null, defDot = null, PIN_LINE0 = null;
   function pinMark(st, geo, isPath, a) {
@@ -1698,7 +1700,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!key || !pinOf(s)) continue;
       const st = sprites.get(s.g);
       if (!st || st.mode !== 'gl' || !(st.opacity > 0.001)) continue;
-      const want = pinWant.get(key) | 0, lk = pinLooks.get(key);
+      const want = wantOf(s, key), lk = pinLooks.get(key);
       let a = Math.min(1, st.opacity) * xfNew;
       const px = PIN[0] * dpr, py = PIN[1] * dpr;
       pinOff(s, now);
@@ -2251,7 +2253,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
         markParse(el, mg, el.tagName === 'path');
         mg.pv.set(mg.v); mg.pok = mg.ok; mg.pgen = gen;
       }
-      // (Which pinned labels the layout gave a dot (1) or a leader (4): drawPins draws them so until the next layout.)
+      // (Which pinned labels the layout gave a dot (1) or a leader (4): drawPins draws them so until the next layout. A record that carries
+      // its own bits (s.want) is drawn from those; these, read from the leaders' layer, stand for a record that does not.)
       pinWant.clear();
       for (const root of marks) for (const el of root.children) {
         const k = el.getAttribute('data-k');
@@ -2288,7 +2291,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         const g = s.g, st = sprites.get(g);
         if (s.pid == null || !st || st.mode !== 'gl' || !st.slot || !(st.opacity > 0.001)) continue;
         const key = g.dataset?.key;
-        ghosts.push({ s, key, a0: xfNew, want: key ? pinWant.get(key) | 0 : 0, lk: key ? pinLooks.get(key) : null, on: false, px: 0, py: 0, lx: 0, ly: 0, lkey: st.key,
+        ghosts.push({ s, key, a0: xfNew, want: key ? wantOf(s, key) : 0, lk: key ? pinLooks.get(key) : null, on: false, px: 0, py: 0, lx: 0, ly: 0, lkey: st.key,
           st: { slot: st.slot, w: st.w, h: st.h, ox: st.ox, oy: st.oy, shadows: st.shadows, frame: st.frame, ring: null, opacity: st.opacity } });
         st.slot = null; st.key = ''; dirty.add(g); pending.add(g);
       }
