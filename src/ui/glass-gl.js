@@ -1405,6 +1405,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // was dropped as it finished, and until the read after it the card's glass was drawn at the fade it had been read with, whole, over a
   // card at 0.)
   const ended = new Map();
+  const zoomTr = new WeakMap();   // (a zoomed glass's translate as the zoom took it: measureGeo)
   const chainOf = (g) => { const c = []; for (let e = g; e && e !== stop && e.nodeType !== 9; e = e.parentElement) c.push(e); return c; };
   function addAnim(e, an) {
     let m = anims.get(e);
@@ -1544,13 +1545,27 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       const back = [-mv.x, -mv.y];
       // (A card card-zoom.js moves: its box is the rest box, its motion the zoom's analytic one (zoomRide.of, put back each frame in nowGeo), so what is
       // read now, at the zoom it has, is taken back to where the card rests.)
+      // (5 Nov 2026, Mohammad: "the glass lags after i zoom out from the teaching card". On a wide screen the words' card, its glass and the
+      // data card are raised by a translate (app.css --pz-rise, --pz-lift), which the browser applies outside the zoom's transform, about an
+      // origin card-zoom.js fixed from the box as it stood, translate included. The read took the translate off before the zoom, so a read
+      // made at one scale was right only at that scale: read with the card up and drawn on the way back, the glass ended a fraction of the
+      // rise off, and stayed so after the zoom let go, until the next read eased it over (the outline above the words, the text spilling
+      // below). Now the translate the card had as the zoom took it (tr0, kept per zoom) is part of the zoomed box (rz), any change since is
+      // added outside it, and r0 is the box as it rests with no translate, as for every other glass: right at every scale and the frame
+      // the zoom lets go.)
       const za = zoomRide.of(p.g);
-      const rest = (r) => (za ? unzoom(r, za) : r);
-      const r0 = rest(shift(p.r, back)), er0 = rest(shift(p.er, back));
+      let r0, er0, rz = null, erz = null, tr0 = null;
+      if (za) {
+        tr0 = zoomTr.get(p.g);
+        if (!tr0 || tr0.aff !== za) { tr0 = { aff: za, x: mv.x, y: mv.y }; zoomTr.set(p.g, tr0); }   // alloc-rare: once per glass as a zoom takes it
+        const since = [tr0.x - mv.x, tr0.y - mv.y], off = [-tr0.x, -tr0.y];
+        rz = unzoom(shift(p.r, since), za); erz = unzoom(shift(p.er, since), za);
+        r0 = shift(rz, off); er0 = shift(erz, off);
+      } else { r0 = shift(p.r, back); er0 = shift(p.er, back); }
       // (A card the page asks to change size in view (data-gl-morph: the teaching card's glass kept up through a slide change) eases from
       // where it is drawn now to its new box on the GPU, its edge and shadows with it; read again mid-way, it carries on from there.)
       let morph = null;
-      if (p.rad && !p.d) {
+      if (p.rad && !p.d && !za) {
         const q = prev.find((x) => x.g === p.g && x.rad && !x.d);
         if (q) {
           const cur = morphAt(q, tNow);
@@ -1559,7 +1574,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         }
       }
       if (morph) liveUntil = Math.max(liveUntil, morph.t0 + morph.ms + 34);
-      return { ...p, chain, r0, er0, aS, morph, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };
+      return { ...p, chain, r0, er0, rz, erz, tr0, aS, morph, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };
     });
     for (const p of panes) {
       // (What a frame writes its boxes and fade into: kept with the page read, so nowGeo makes nothing.)
@@ -1623,7 +1638,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (p.morph) { morphInto(L.r, p, performance.now(), mv.x, mv.y); copyRect(L.er, L.r); L.rad = p.rad; panes.push(L); continue; }
       if (p.zoomed) {
         const za = zoomRide.of(p.g);
-        if (za) { zoomInto(L.r, p.r0, za, mv.x, mv.y); zoomInto(L.er, p.er0, za, mv.x, mv.y); }
+        if (za && p.rz) { const tx = mv.x - p.tr0.x, ty = mv.y - p.tr0.y; zoomInto(L.r, p.rz, za, tx, ty); zoomInto(L.er, p.erz, za, tx, ty); }
         else { shiftInto(L.r, p.r0, mv.x, mv.y); shiftInto(L.er, p.er0, mv.x, mv.y); }
         if (za && p.rad0) { const z = p.radZ; for (let i = 0; i < 4; i++) z[i] = p.rad0[i] * za.s; L.rad = z; } else L.rad = p.rad0;
         panes.push(L);
