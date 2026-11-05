@@ -625,3 +625,8 @@ test('zoom: every frame the card\'s transform and the zoom the glass is drawn fr
     assert.equal(Object.hasOwn(card, 'zoomAffine'), false);
   } finally { back(); }
 });
+
+test('the teaching card hears a tap in landscape: .pz lets none through, so the card takes them itself', () => {
+  assert.match(css, /\.pz\.pz-wide \.pz-text:not\(\.pz-leave\) \{ pointer-events: auto; \}/);
+  assert.match(js, /tapTracker\(text, \{ ok: \(\) => textReady\(\) \|\| zoom\.up/);
+});

@@ -5973,6 +5973,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.pz-wide .pz-data.pz-zoomable { cursor: zoom-in; }
 .pz-zoomed .pz.pz-wide .pz-data { cursor: zoom-out; }
 .pz-zoomed .pz.pz-wide .pz-text[data-zoomed] { cursor: zoom-out; }   /* (the teaching card zoomed on its own) */
+.pz.pz-wide .pz-text:not(.pz-leave) { pointer-events: auto; }   /* (.pz lets no pointer through, so the teaching card never heard a tap in landscape: it does now, anywhere on it; 5 Nov 2026) */
 .pz.pz-wide .pz-text:not([data-zoomed]) { cursor: zoom-in; }
 .pz.pz-wide .pz-data.pz-zoomable > .pz-dh { position: relative; padding-inline: calc(28px / var(--pz-z, 1)); }   /* (a long title wraps before the expand button's corner, 8 px short of it, and stays centered) */
 .pz.pz-wide .pz-data.pz-zoomable > .pz-dh > .pz-zbtn { display: grid; place-items: center; position: absolute; right: calc(-4px / var(--pz-z, 1)); top: 50%; translate: 0 -50%; width: calc(24px / var(--pz-z, 1)); height: calc(24px / var(--pz-z, 1)); margin: 0; padding: 0; border: 0; border-radius: calc(8px / var(--pz-z, 1)); background: none; color: var(--text-3); cursor: pointer; -webkit-tap-highlight-color: transparent; transition: scale var(--d-flip) var(--ease); }
