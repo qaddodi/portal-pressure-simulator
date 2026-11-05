@@ -3565,11 +3565,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     return { v: used - readMetric(el, 'clientHeight'), h: Math.max(readMetric(el, 'scrollWidth') - readMetric(el, 'clientWidth'), sideways) };
   }
   // What a card's fit depends on: its box, its words (digits alike, so a number that eases fits as before) and which parts show.
+  // (The readings' plate being out or tucked is not in it, and neither is the data card's live text, only the slide: the card's box is fixed once fitted.)
   // A card whose signature is unchanged keeps its fit without being measured again (measuring forces layouts mid-animation).
   // (A card holding the quick check grows as its answers ease open and shut; it was fitted with every answer open, so its own
   // height is left out (the window's stands in): refitting mid-ease cut the easing short and jolted the words' size.)
   // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-  const fitSig = (el) => `${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${(el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
+  const fitSig = (el) => `${readMetric(el, 'clientWidth')}x${el.querySelector('.pz-check') ? `q${innerWidth}x${innerHeight}` : readMetric(el, 'clientHeight')}|${el.className.replace(/ ?\b(?:tool-open|pz-sliding)\b/g, '')}|${el.style.maxHeight}|${document.documentElement.style.cssText}|${el.style.getPropertyValue('--pz-reach')},${el.style.getPropertyValue('--pz-fkrow')}|${[...el.children].map((c) => (c.hidden ? 0 : c.className + (readStyle(c).maxHeight !== 'none' ? ':' + readMetric(c, 'offsetHeight') : ''))).join()}|${el === ui?.data ? `s${want}` : (el.querySelector('.pzv') ? wordsOf(el) : el.textContent).replace(/\d/g, '0')}`;
   const fitDone = new WeakMap(), smOf = new WeakMap();
   // A narrow summary table's column heads are 12 px, never smaller: a row whose columns are too narrow for the words in one line
   // sets them upright (tr.th-up, turned to read from the bottom), one way for the whole row. (The phone and upright-tablet layouts read it.)
@@ -3733,17 +3734,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
       el.style.removeProperty('--pz-fit'); el.style.removeProperty('--pz-z');
       fitFlowTime(el);
-      // (An upright phone's stacked card is fitted with its readings' card out, and keeps that fit tucked: the instrument holds one
-      // size whether the stack is open or closed, Mohammad, 20 Oct: "This data card is changing its size when I open the stack".)
-      const under = el === ui.data && splitSheet(el) && !el.classList.contains('tool-open') && !el.classList.contains('pz-sliding');
-      if (under) el.classList.add('tool-open');
-      // (Fitted against the cap it has with its readings out, open or tucked: the tucked card's cap with the readings' share on top
-      // (--pz-grow), never past the opened card's room (layout), so the readings coming out never fit it again to another size. The
-      // instrument card alone then fits the tucked cap and, out, the readings fit under it. With the share left out, the instrument and
-      // the readings both had to fit the tucked cap, and where the figure keeps its share the chart was squeezed to its smallest and the
-      // readings' words zoomed under their size: Sites 3 on an iPhone came in at 0.5, Mohammad, 20 Oct.)
-      const stacked = el === ui.data && splitSheet(el);
-      if (stacked) el.style.setProperty('--pz-grow', 'var(--pz-d, 0px)');
+      // (The stacked card is fitted with its readings' card tucked, against the tucked cap, whatever state it is in: the instrument holds
+      // one size open or tucked, and nothing the fit reads comes from the fit before it. Its readings' travel (--pz-d) is measured at each trial
+      // fit, so the tucked card nets its readings out exactly, and once more at the fit it ends with.)
+      const split = el === ui.data && splitSheet(el);
+      const wasOpen = split && el.classList.contains('tool-open'), wasU = split ? el.style.getPropertyValue('--pz-u') : '';
+      if (split) { el.classList.remove('tool-open'); if (wasU) el.style.setProperty('--pz-u', '0'); }
+      const ovOf = (e) => { if (split) measureUnder(e); return overflowOf(e); };
       // (A tablet's narrow data card: its own grid changes, which a container query on the card cannot do.)
       if (el.classList.contains('pz-data')) el.classList.toggle('pz-narrow', readMetric(el, 'offsetWidth') > 0 && readMetric(el, 'offsetWidth') < 420);
       // (A tile's name in full when it fits on one line in its tile, else its short form: Liver flow, Protein ...)
@@ -3816,7 +3813,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       else if (tableFloor > mins[0]) mins.unshift(tableFloor);
       let k = 1, over = 1;   // (over: the largest fit tried that still overflowed)
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-      const fits = () => { const o = overflowOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
+      const fits = () => { const o = ovOf(el); return o.v <= 1 && o.h <= 1 ? null : o; };
       // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
       if (small && fits()) { k = over = Math.max(COMPACT, floor); el.style.setProperty('--pz-fit', String(k)); }   // (Compact; over: no search back up past it)
       for (const kMin of mins) {
@@ -3846,7 +3843,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (was !== k && Math.abs(was - k) < 0.01) {
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (was < 1) el.style.setProperty('--pz-fit', was.toFixed(3)); else el.style.removeProperty('--pz-fit');
-        const o = overflowOf(el);
+        const o = ovOf(el);
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         if (o.v > 1 || o.h > 1) { if (k < 1) el.style.setProperty('--pz-fit', k.toFixed(3)); else el.style.removeProperty('--pz-fit'); }
       }
@@ -3862,7 +3859,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       sm = sm.v;
       const zMin = Math.max(0.5, Math.min(1, 11.5 / sm));
       for (let n = 0, z = 1; n < 8 && z > zMin; n++) {
-        const o = overflowOf(el);
+        const o = ovOf(el);
         if (o.v <= 1 && o.h <= 1) break;
         z = Math.max(zMin, z * Math.min(0.97, (readMetric(el, 'clientHeight') / (readMetric(el, 'clientHeight') + Math.max(o.v, 0))) ** 0.9, (readMetric(el, 'clientWidth') / (readMetric(el, 'clientWidth') + Math.max(o.h, 0))) ** 0.9));
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
@@ -3871,8 +3868,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       fitEquations(el);
       // (Closed again with no transition, so the answers start hidden and the card rests at its closed height.)
       if (all) { all.classList.remove('pzc-all'); void readMetric(all, 'offsetHeight'); all.classList.remove('pzc-still'); }
-      if (under) { el.classList.remove('tool-open'); ui.lipMO?.takeRecords(); }
-      if (stacked) { el.style.removeProperty('--pz-grow'); ui.lipMO?.takeRecords(); }
+      if (split) {
+        measureUnder(el);   // (once, at the fit it ends with)
+        if (wasOpen) el.classList.add('tool-open');
+        if (wasU) el.style.setProperty('--pz-u', wasU);
+        ui.lipMO?.takeRecords();
+      }
       fitDone.set(el, fitSig(el));   // (as it rests once fitted: a folding part's height is part of it)
       if (el === ui.data) refit = true;
     }
@@ -3929,7 +3930,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!zoomFolds()) return;
     ui.zoom.follow((f - zoomU0) * (trav - LIP), (f - zoomU0) * trav);
   };
-  const zoomHeld = () => { if (!ui?.zoom.on) return false; zoomMissed = true; return true; };
+  let zoomWas = '';   // (the window and deck as the card went up: zoomSettled refits only if one of them, or the card's fit key, changed meanwhile)
+  const zoomKey = () => `${innerWidth}x${innerHeight}|${gen}|${want}`;
+  const zoomHeld = () => { if (!ui?.zoom.on) return false; if (!zoomMissed) zoomWas = zoomKey(); zoomMissed = true; return true; };
   // The readings' card comes out as the card zooms (false: it stays tucked, behind the instrument card, and a tap on its handle brings it out).
   const ZOOM_OPENS_READINGS = false;
   // Whether the card may zoom now: it stands whole, on a wide screen, with an instrument, and nothing else is going on.
@@ -3984,7 +3987,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // wordsAt, wordsGlide.)
   const zoomBehind = (up, ms) => { words.held = up; wordsGlide(ms); };
   // (The card is back: a layout asked for while it was up runs now, once.)
-  const zoomSettled = () => restPass(() => { if (!ui || !zoomMissed || ui.zoom.on) return; zoomMissed = false; fitDone.delete(ui.data); onResize(); });
+  const zoomSettled = () => restPass(() => { if (!ui || !zoomMissed || ui.zoom.on) return; zoomMissed = false; if (zoomKey() === zoomWas && fitDone.get(ui.data) === fitSig(ui.data)) return; fitDone.delete(ui.data); onResize(); });   // (nothing changed while it was up: the card keeps its size, no jump after the zoom)
   let shiftLock = null;   // (the stacked pair's centring, keyed as the words' lock: layout)
   let textLock = null, foldHeld = null;   // (foldHeld: the foldKey the data card was last folded for, layout)
   let fitRO = null, fitRaf = 0, clearRO = null, clearT = 0, paneRaf = 0, fitKids = [], clearFor = null;
@@ -4096,11 +4099,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (Mac and iPad landscape too: each slide comes in with its readings tucked, the words whole; they come out on a pull or a tap.)
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (sheet && dd0.classList.contains('tool-open') && dd0.dataset.openFor !== String(want)) { stopUnder(); dd0.classList.remove('tool-open'); }
-    // (2 Nov 2026: an upright phone's card was planned with the last slide's readings travel (--pz-d) still on it, so its tucked height
-    // came out with its readings counted in (Varices 2 to 3: 434 px for a 213 px card), it was shut (autoDock), and the layout the shut
-    // made, measuring it as it is, opened it again: two layout passes more in the first frames of every such change, and a card that
-    // could slide shut and out again. Their travel is read for the new readings first, as placeLip does at rest.)
-    if (p && splitSheet(dd0) && !dd0.classList.contains('pz-sliding') && dock.lvl === dock.to && !dock.drag) measureUnder(dd0);
+    // (The readings' travel (--pz-d) is measured once, by fitCards at the fit it ends with, never here: 2 Nov 2026's stale-travel case is covered because every new slide refits.)
     const phoneCap = p ? phoneTextCap(lockKey, H, k) : null;
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     if (phoneCap != null) ui.text.style.maxHeight = `${phoneCap.toFixed(1)}px`;
@@ -4329,7 +4328,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // (A stacked card counts with its readings tucked and their card's foot under it, whatever share of them is out: the pair is centred
       // for the tucked card, and rises from there only as far as the readings need, slip.lift.)
       const ws = wideSheet(dd);
-      if (ws && !dd.classList.contains('pz-sliding')) measureUnder(dd);   // (their travel as fitted now: the last slide's had been left on the card)
       const dpx = ws ? parseFloat(dd.style.getPropertyValue('--pz-d')) || 0 : 0;
       const tuckH = ws ? readMetric(dd, 'offsetHeight') - underU(dd) * dpx + LIP : readMetric(dd, 'offsetHeight');
       // Centre against the chart's destination too: a chart still growing must not lend its temporary
