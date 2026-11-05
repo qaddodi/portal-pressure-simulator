@@ -22,7 +22,7 @@ test('the lobule frames itself in the held space while a way out is under way', 
   assert.ok(hold, 'holdFrame');
   assert.match(hold, /if \(on\) \{ if \(geo && !heldFree && fade > 0\) heldFree = \{ W: geo\.W, H: geo\.H, f: liveFree\(\) \}; return; \}/, 'taken once, as the way out begins, never retaken from the new cards');
   assert.match(hold, /heldFree = null;\n\s+if \(geo && fade > 0\) refit\(\);/, 'called off with the lobule up: it glides to the space now');
-  assert.match(lz, /if \(fade === 0 && was > 0\) \{ aimed = null; camHeld = false; heldFree = null;/, 'given back once the lobule has gone');
+  assert.match(lz, /if \(fade === 0 && was > 0\) \{ aimed = null; heldFree = null;/, 'given back once the lobule has gone');
   assert.match(st, /lobuleHold: \(on\) => lz\?\.holdFrame\(on\),/);
 });
 

@@ -2036,7 +2036,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!hushed) return;
     // Back only once the camera or the sinusoid has landed (its labels laid out there) and the lit set's own eases
     // (a pill in or out, a label lit or not) have run, unseen.
-    await until(() => cut() || (!document.querySelector('.lz.lz-cam') && (store.get().sinusoid ? !!document.querySelector('.sv.on .sv-region') : !document.querySelector('.lz.lz-sin'))), 2500);
+    await until(() => cut() || (store.get().sinusoid ? !!document.querySelector('.sv.on .sv-region') : !document.querySelector('.lz.lz-sin')), 2500);
     await wait(80);
     await eased(['opacity', 'pill-in', 'sv-fade-in'], 1500, ':is(.lz-lab, .lz-zone, .sv-region)');
     if (cut()) return;

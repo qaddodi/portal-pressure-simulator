@@ -27,7 +27,6 @@ test('lobule labels, zone names and leaders never cut out', () => {
   // registered variable is eased for them any more.
   assert.doesNotMatch(css, /--(lab|lit|off|pill)-o|--sv-in/, 'no label fade runs through a variable');
   assert.match(css, /:is\(\.lz-lab, \.lz-zone, \.sv-region\)::before \{[^}]*opacity: 0; transition: opacity var\(--d-surface\) var\(--ease\);/, 'lit pill fade');
-  assert.match(css, /\.lz\.lz-cam \.lz-labels \{ opacity: 0; transition: opacity var\(--d-small\)/, 'the set fades as one layer');
 });
 
 test('a label\'s colour change does not rebuild it', () => {

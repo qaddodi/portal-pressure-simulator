@@ -1711,9 +1711,6 @@ button.finding { cursor: pointer; }
 .lz-labels .lz-off { opacity: 0; pointer-events: none; }
 .lz-labels :is(.lz-lab, .lz-zone).lz-off.lz-off { transition-duration: var(--d-small), var(--d-surface), var(--d-surface); }   /* (going, it fades on the quicker clock; opacity is first in every list) */
 @media (prefers-reduced-motion: reduce) { .lz-lab, .lz-zone { animation: none; } }
-/* The presenter's camera gliding in the lobule: its labels ease out, and back in at their new places (lobule-zoom.js focusOn). */
-.lz.lz-cam .lz-leaders { opacity: 0; transition: opacity var(--d-small) var(--ease); } .lz.lz-cam .lz-labels { opacity: 0; transition: opacity var(--d-small) var(--ease); }
-.lz.lz-cam-in .lz-leaders { transition: opacity var(--d-surface) var(--ease); } .lz.lz-cam-in .lz-labels { transition: opacity var(--d-surface) var(--ease); }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
 .lz-labels > :is(.lz-lab, .lz-zone, .lz-call) { left: 0; top: 0; }   /* (placed by translate: lobule-zoom.js put) */
@@ -5395,8 +5392,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    still the page's. Specific enough to win over the lit rule above.) */
 .lz .lz-labels :is(.lz-lab, .lz-zone)[data-gl][data-gl][data-gl]::before { background: none; }
 .lz > canvas#pillGl { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-/* The labels leave and return as one: while the camera glides (or the view changes) the labels fade as a whole, so a pill that is added or removed by the slide waits until they are gone, then snaps (unseen), instead of fading ahead of its text. */
-.lz.lz-cam :is(.lz-lab, .lz-zone)::before { transition: opacity .01s linear .2s; }
+/* The labels leave and return as one: while the view changes (on into the sinusoid) the labels fade as a whole, so a pill that is added or removed by the slide waits until they are gone, then snaps (unseen), instead of fading ahead of its text. */
 .lz.lz-sin :is(.lz-lab, .lz-zone)::before { transition: opacity .01s linear .18s; }
 .sv:not(.on) .sv-region::before { transition: opacity .01s linear .6s; }
 /* Presenting, on a slide that lights something in the lobule or sinusoid: the lobule's labels it is not talking about dim to 35 % with their leaders and keep their places (Mohammad's pick 14.3 B, 3 Nov), so the lit ones read first. The sinusoid view keeps every name and arrow (Hepatocyte, Lymph, Portal venule, Central vein, ...): its slide's lit ones take the pill, the rest stay plain, as in Explore. */

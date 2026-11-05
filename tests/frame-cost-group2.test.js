@@ -84,8 +84,8 @@ test("item 31: lobule pan and zoom frames reuse each tube's radii, compare inks 
 test('item 6: a short lobule glide carries the labels with their spots and lays them out once where it lands', () => {
   const src = read('../src/ui/lobule-zoom.js');
   const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('if (bakeFollow())'));
-  // (Not a presenter's camera move, which hides the labels on the way, nor a hand's pan, which carries the whole layer.)
-  assert.match(lay, /if \(sameB && gliding && !camMove && !handOn\(\) && !panOn\) \{ ride\(\); return; \}/);
+  // (A presenter's glide too, and a dive re-aimed on its way in; not a hand's pan, which carries the whole layer.)
+  assert.match(lay, /if \(sameB && gliding && !handOn\(\) && !panOn\) \{ ride\(\); return; \}/);
   assert.match(lay, /sameB && V\.k === follow\.k && handOn\(\) && !rides\)/);
   const rd = src.slice(src.indexOf('function ride()'), src.indexOf('function bakeFollow()'));
   // Each piece moves by its own spot's move at its own size (a translate), and is written into its place at landing.
@@ -111,11 +111,10 @@ test('item 43 (lobule parts): the anatomy-to-sinusoid chain, the zoom-out hand-o
   assert.doesNotMatch(rc, /rimKeep|diveRimMix/);
 });
 
-test('item 18 (lobule side): the sinusoid zoom stops a flick or glide first; a held aim lets go; reduced motion builds no wide copy', () => {
+test('item 18 (lobule side): the sinusoid zoom stops a flick or glide first; reduced motion builds no wide copy', () => {
   const src = read('../src/ui/lobule-zoom.js');
   const dive = src.slice(src.indexOf('function diveSinusoid(on)'), src.indexOf('function diveSinusoid(on)') + 2500);
-  assert.match(dive, /if \(on && sinU === 0\) \{ stopInertia\(\); cancelFrame\(glide\); gliding = false; releaseCam\(\);/);
-  assert.match(src, /store\.on\('presenting', \(\) => \{ if \(!store\.get\(\)\.presenting\) releaseCam\(\); \}\);/);
+  assert.match(dive, /if \(on && sinU === 0\) \{ stopInertia\(\); cancelFrame\(glide\); gliding = false;/);
   assert.match(src, /box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide/);
   assert.match(src, /if \(wide \|\| fade <= 0\.98 \|\| !model \|\| reduce\.matches\) return;/);
 });

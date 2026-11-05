@@ -311,7 +311,7 @@ export default async function register({ DEVICES, TEXT_MAX, TEXT_MIN, check, dev
     if (n < 20) throw new Error(`no chevrons drawn in the lobule with Chevrons on (${n} px differ from off)`);
   });
 
-  await check(device, 'presenter lobule: a label and its pill fade out as one when the camera moves', async (page) => {
+  await check(device, 'presenter lobule: a label and its pill fade out as one when the set leaves (on into the sinusoid)', async (page) => {
     await open(page, '?preset=cirr-decomp');
     await page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click());
     await page.waitForFunction(() => window.pps.stage.lobuleOpen(), null, { timeout: 30000 });
@@ -324,7 +324,7 @@ export default async function register({ DEVICES, TEXT_MAX, TEXT_MIN, check, dev
       document.getAnimations().forEach((a) => { try { a.finish(); } catch { /* (already done) */ } });
       const start = read();
       document.querySelector('#app').dataset.lit = '';
-      document.querySelector('.lz').classList.add('lz-cam');
+      document.querySelector('.lz').classList.add('lz-sin');
       getComputedStyle(lab).opacity; getComputedStyle(lab, '::before').opacity;
       const anims = document.getAnimations().filter((a) => ['--pill-o', '--lab-o', '--lit-o'].includes(a.transitionProperty));
       anims.forEach((a) => a.pause());
@@ -334,7 +334,7 @@ export default async function register({ DEVICES, TEXT_MAX, TEXT_MIN, check, dev
     });
     if (rows[0].pill < 0.99 || rows[0].text < 0.99) throw new Error(`the lit label is not pilled at rest (${JSON.stringify(rows[0])})`);
     for (const r of rows) if (Math.abs(r.pill - r.text) > 0.02) throw new Error(`the pill and its text fade apart (${JSON.stringify(rows)})`);
-    if (!(rows[rows.length - 1].text < 0.5)) throw new Error('the label did not fade with the camera');
+    if (!(rows[rows.length - 1].text < 0.5)) throw new Error('the label did not fade with the set');
   });
 
   await check(device, 'presenter lobule: a label and its pill fade as one when the slide changes (out and in)', async (page) => {

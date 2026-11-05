@@ -319,13 +319,13 @@ export default async function register({ CHART_SLIDES, PHONES, STRIP_SLIDES, TYP
       if (size) await page.setViewportSize(size);
       for (const [deck, n] of [['circulation', 5], ['circulation', 6], ['two-inflows', 3], ['lobule', 5]]) {
         await open(page, `?script=${deck}&slide=${n}`);
-        await page.waitForFunction(() => [...document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) .lz-lab, .sv-region')].filter((e) => !e.hidden && e.offsetParent).length >= 2);
+        await page.waitForFunction(() => [...document.querySelectorAll('.lz.on:not(.lz-sin) .lz-lab, .sv-region')].filter((e) => !e.hidden && e.offsetParent).length >= 2);
         // Settled: the labels hold still across two looks a moment apart.
         const where = () => page.evaluate(() => [...document.querySelectorAll('.lz-lab, .sv-region')].map((e) => e.style.left + e.style.top + e.style.transform).join());
         for (let prev = '', i = 0; i < 6; i++) { await page.waitForTimeout(400); const now = await where(); if (now === prev) break; prev = now; }
         const bad = await page.evaluate(() => {
           const out = [];
-          for (const el of document.querySelectorAll('.lz.on:not(.lz-cam):not(.lz-sin) :is(.lz-lab, .lz-zone, .lz-call.on), .sv-region')) {
+          for (const el of document.querySelectorAll('.lz.on:not(.lz-sin) :is(.lz-lab, .lz-zone, .lz-call.on), .sv-region')) {
             if (el.hidden || !el.offsetParent) continue;
             // (A name that is not lit on a presenter slide is drawn at no opacity: it cannot be seen to touch anything.)
             const lit = (document.querySelector('#app').dataset.lit || '').split(' ');
@@ -339,7 +339,7 @@ export default async function register({ CHART_SLIDES, PHONES, STRIP_SLIDES, TYP
             if (gap < 3) hits.push(`"${a.n}" and "${c.n}" (gap ${gap.toFixed(1)} px)`);
           }
           // Leaders on screen: each runs from the spot it names to the middle of its own label.
-          const segs = [...document.querySelectorAll('.lz.on:not(.lz-cam) .lz-leaders line.leader')].filter((l) => l.style.display !== 'none' && !l.classList.contains('ld-gone')).map((l) => {
+          const segs = [...document.querySelectorAll('.lz.on .lz-leaders line.leader')].filter((l) => l.style.display !== 'none' && !l.classList.contains('ld-gone')).map((l) => {
             const m = l.getScreenCTM(), at = (x, y) => [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
             return { n: l.dataset.target, p: at(+l.getAttribute('x1'), +l.getAttribute('y1')), q: at(+l.getAttribute('x2'), +l.getAttribute('y2')) };
           });
@@ -468,14 +468,14 @@ export default async function register({ CHART_SLIDES, PHONES, STRIP_SLIDES, TYP
     await shot(page, `${device}-veins-gl`);
   });
 
-  await check(device, 'a presenter dive lands on its station in one move, with no other station labelled', async (page) => {
+  await check(device, 'a presenter dive lands on its station in one move; re-aimed on the way, its names ride on and never fade', async (page) => {
     await open(page, '?preset=cirr-decomp');
     // Every frame the lobule's labels show, note the framing: they may show only at the slide's final framing.
     const watch = () => page.evaluate(() => {
       window.__lzSeen = []; window.__lzWatch = true;
       const tick = () => {
         const lz = document.querySelector('.lz'), lab = lz?.querySelector('.lz-labels');
-        if (lz?.classList.contains('on') && !lz.classList.contains('lz-cam') && lab && +getComputedStyle(lab).opacity > 0.05) window.__lzSeen.push(window.pps.stage.lobuleViewKey());
+        if (lz?.classList.contains('on') && lab) window.__lzSeen.push(+getComputedStyle(lab).opacity > 0.05 ? window.pps.stage.lobuleViewKey() : null);
         if (window.__lzWatch) requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -483,7 +483,7 @@ export default async function register({ CHART_SLIDES, PHONES, STRIP_SLIDES, TYP
     const settle = async () => { await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 30000 }); await page.waitForTimeout(2200); };
     const verify = async (what) => {
       const { seen, end } = await page.evaluate(() => { window.__lzWatch = false; return { seen: window.__lzSeen, end: window.pps.stage.lobuleViewKey() }; });
-      const other = [...new Set(seen)].filter((k) => k !== end);
+      const other = [...new Set(seen)].filter((k) => k !== null && k !== end);
       if (other.length) throw new Error(`${what}: labels showed at ${other.length} other framing(s) before the station (${other[0]} vs ${end})`);
     };
     // Straight from the anatomy to a portal tract.
@@ -504,6 +504,11 @@ export default async function register({ CHART_SLIDES, PHONES, STRIP_SLIDES, TYP
     await page.waitForFunction(() => window.pps.stage.lobuleOpen() && window.pps.stage.lobuleSettled(), null, { timeout: 30000 });
     await page.evaluate(() => window.pps.stage.lobuleFocus('central', { zoom: 2.3, ms: 900 }));
     await settle();
-    await verify('a newer station mid-dive');
+    // (The landing stands at the first station, its names laid out there; focusOn's glide on to the newer one carries them: once
+    // shown, the set is never faded out for the move.)
+    const seen = await page.evaluate(() => { window.__lzWatch = false; return window.__lzSeen; });
+    const first = seen.findIndex((k) => k !== null);
+    if (first < 0) throw new Error('a newer station mid-dive: the names never showed');
+    if (seen.slice(first).includes(null)) throw new Error('a newer station mid-dive: the names faded out for the move');
   });
 }

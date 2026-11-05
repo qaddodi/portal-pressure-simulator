@@ -286,6 +286,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const relayout = () => { layoutKey = ''; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); };   // (a size, not the camera: counted as the model's change)
   function readRest() { restT = 0; if (readAll() && fade > 0) relayout(); }
   let restT = 0;
+  function landedRead() { if (!restT) restT = restPass(readRest); }
   const boxWatched = new Set();
   const boxRO = new ResizeObserver(() => { if (readAll() && fade > 0) relayout(); });
   boxRO.observe(el); boxRO.observe(host);
@@ -396,23 +397,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0, gliding = false;
-  // A presenter's glide (focusOn) carries the labels like any glide. camMove is aim's hold only: the labels are out through a dive to an
-  // aimed spot, are not laid out on the way, and come in where focusOn's glide lands.
-  let camMove = false, camInT = 0, camUntil = 0, camHeld = false;   // (camHeld: aim's hold, which only focusOn or leaving lets go)
-  // A second aim's hold let go where no focusOn will come to do it: the presentation ended, or the view went on into the sinusoid
-  // (its labels would otherwise never show again in this lobule).
-  const releaseCam = () => { if (camHeld) { camHeld = false; camSettle(); } };
-  store.on('presenting', () => { if (!store.get().presenting) releaseCam(); });
-  function camSettle() {
-    if (!camMove || camHeld) return;
-    camMove = false; layoutKey = '';
-    if (fade > 0 && geo) layoutLabels();
-    // (Landed: the cards' boxes are read again in a task after this frame, and the labels laid out again should one have moved.)
-    if (!restT) restT = restPass(readRest);
-    nextFrame(camLanded);
-  }
-  const camInEnd = () => classSoon(el, 'lz-cam-in', false);
-  const camLanded = () => { if (camMove) return; classSoon(el, 'lz-cam', false); classSoon(el, 'lz-cam-in', true); clearTimeout(camInT); camInT = setTimeout(camInEnd, 400); };
+  // A presenter's glide (focusOn) carries the labels like any glide, and so does a dive re-aimed on its way in (aim): the names are
+  // laid out for the framing the dive lands on and ride its camera with the figure; focusOn's glide on from there carries them too.
   // (ease 'in': from rest and still at speed where it lands, for a glide another move carries on from: the way out to the rise.)
   // (steady: a refit to cards that moved: timed by glideClock, so a slow frame at its start (the layout the same change set off) holds
   // the glide back a little instead of carrying it part of the way at once.)
@@ -426,11 +412,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
     const from = { ...V }, t0 = performance.now();   // alloc-rare: once as a glide begins (a button, a station, a resize), kept by its frames
     // (Lite mode: the presenter's camera jumps, and the lobule fades in at its new framing.)
-    if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); camSettle(); return; }
+    if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); return; }
     // A presenter's glide carries the labels, leaders and dots with the figure (ride, as every other glide does), and they are placed
-    // again in the frame it lands: no fade out at its start, no fade back in on a timer (Z5). Only labels already held out (aim's hold
-    // through a dive, a presenter glide taken over by another) stay out until it lands.
-    if (cam && camMove && Math.abs(from.k - to.k) + Math.abs(from.x - to.x) + Math.abs(from.y - to.y) > 0.5) { camUntil = t0 + ms + 50; setTimeout(() => { if (camMove && performance.now() >= camUntil) camSettle(); }, ms + 80); } else camSettle();   // alloc-rare: once as a held presenter's glide begins
+    // again in the frame it lands: no fade out at its start, no fade back in on a timer (Z5).
     const clock = steady ? glideClock() : null;
     const c0 = v0 ? carryRate(v0, from, to, Math.max(1, snap.w)) * ms : 0;
     const step = (now) => {   // alloc-rare: once as a glide begins (the frames below allocate nothing)
@@ -439,7 +423,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       lerpInto(from, to, ec, V);   // (the even glide, cam-arc.js: the same record maths the stage's glides use)
       glideTrack.sample(V, now);
       viewChanged();
-      if (u < 1) glide = nextFrame(step); else { gliding = false; camAim = null; camSettle(); viewChanged(); }   // (landed: drawn once more at the sharpness the new zoom wants)
+      if (u < 1) glide = nextFrame(step); else { gliding = false; camAim = null; viewChanged(); if (cam) landedRead(); }   // (a presenter's: the cards' boxes read again in a task after it lands)   // (landed: drawn once more at the sharpness the new zoom wants)
     };
     gliding = true;
     glide = nextFrame(step);
@@ -2449,8 +2433,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   const CALL_ENDS = ['x1', 'y1', 'x2', 'y2'];
   function layoutLabels() {
-    // Laid out where the presenter's glide lands (see camSettle), or once its time is up if the hand cut it short.
-    if (camMove) { if (performance.now() >= camUntil) camSettle(); return; }
     const fr0 = freeRect(), g = geo;
     const sameB = !!follow && sameBase(follow, fr0, g);
     if (layoutKey && sameB && V.k === follow.k && V.x === follow.x && V.y === follow.y) return;
@@ -2468,7 +2450,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // A short glide (+, −, Fit, a space that holds still) carries each label, leader and zone name with the spot it names, at
     // its own size, and lays them out once where the glide lands (they glide there from where they are seen). Solving the
     // layout on every frame of the glide (measuring the cards, trying hundreds of spots and orders) stalled it on a phone.
-    if (sameB && gliding && !camMove && !handOn() && !panOn) { ride(); return; }
+    if (sameB && gliding && !handOn() && !panOn) { ride(); return; }
     // A hand's zoom (a pinch, the wheel, a trackpad's pinch) carries them the same way, each with its own spot at its own size, for as
     // long as that leaves every label clear of the others, of their leaders, of the structures, of the cards and inside the free space
     // (rideHolds); a frame where it would not, they are placed again (gliding there), and once the hand lets go, placed for where it
@@ -2796,7 +2778,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (The governor, frame.js (pure GPU plan C2, C4), which only the anatomy had: a hand, a glide, a caliber or colour easing, the dive or a
     // crossfade draw at once or at the glide's rate; once only the blood has moved for CALM_AFTER, it is drawn at the flow's 30 Hz. On a
     // 120 Hz Mac the zoomed-in lobule drew every other screen frame for the blood alone (4 Nov 2026, Mohammad: 5-10 fps while zoomed).)
-    if (viewVer !== pacedVer || rzMoving || lensFrom || gliding || camMove || handOn() || fade < 0.98 || diveScaled || sinU > 0 || sinTo || tissueFading(now) || inMotion() || !lastPaint) calmAt = now;
+    if (viewVer !== pacedVer || rzMoving || lensFrom || gliding || handOn() || fade < 0.98 || diveScaled || sinU > 0 || sinTo || tissueFading(now) || inMotion() || !lastPaint) calmAt = now;
     const pace = now - calmAt > CALM_AFTER ? Math.max(paceMs(), frameGapFor('flow')) : paceMs(), paced = !soft && pace > 0 && viewVer === pacedVer;
     if (paced && now - lastPaint < pace) { raf = nextFrame(loop); return; }
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
@@ -4811,7 +4793,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (to === sinTo && sinU === to) return;
     sinTo = to;
     // (A flick or a button's glide still moving would carry the lobule off the vessel the zoom is aimed at: stopped first.)
-    if (on && sinU === 0) { stopInertia(); cancelFrame(glide); gliding = false; releaseCam(); sinPick = sinusoidPick(); sv.setModel(model); }
+    if (on && sinU === 0) { stopInertia(); cancelFrame(glide); gliding = false; sinPick = sinusoidPick(); sv.setModel(model); }
     // Back out from the sinusoid after the screen changed size (turned, a window resized): the lobule is built and framed for the new size
     // first, so the zoom lands on it as it will stay (it landed at the old size and then refitted).
     if (!on && sinU === 1) {
@@ -4907,7 +4889,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (fade === 0 && was > 0) cap.hideAll();   // (the names go at once with the view, never left drawn, collapsed by the dive's scale; they fade in again, placed afresh, on the next visit)
       if (fade === 0) { resCoverEnd(); cancelFrame(raf); raf = 0; last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
       // Out of the lobule: a presenter's aim is spent (the next way in frames the whole lobule).
-      if (fade === 0 && was > 0) { aimed = null; camHeld = false; heldFree = null; if (camMove) { camMove = false; classSoon(el, 'lz-cam', false); } }
+      if (fade === 0 && was > 0) { aimed = null; heldFree = null; }
       // Leaving the lobule view from inside a sinusoid: the sinusoid fades out with it.
       if (sinU > 0) { if (fade === 0) resetSinusoid(); else placeSinusoid(); }
     },
@@ -5109,19 +5091,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const F0 = fitV(); kFit = F0.k;
       const to = !part || part === 'fit' ? F0 : framing(part, zoom);
       const moved = Math.abs(V.k - to.k) + Math.abs(V.x - to.x) + Math.abs(V.y - to.y) > 0.5;
-      atFit = !part || part === 'fit'; camHeld = false; glideTo(to, ms, true, atFit ? null : { part, zoom, to }, ease);
+      atFit = !part || part === 'fit'; glideTo(to, ms, true, atFit ? null : { part, zoom, to }, ease);
       return moved;
     },
     /** Before (or during) the dive into the lobule: where a presenter slide will want it, so the dive lands there
-     *  (no stop at the fit on the way). Mid-dive, the labels stay hidden until focusOn has taken it there. */
+     *  (no stop at the fit on the way). The labels are laid out for that framing as the dive comes in, and ride its camera. */
     aim(part, { zoom = 2 } = {}) {
-      const want = { part: part || 'fit', zoom };
-      // Already diving to an aim (a newer slide arrived on the way): that landing stands, unlabelled, and focusOn moves on from it.
-      if (aimed && fade <= 0.98) {
-        if (aimed.part === want.part && aimed.zoom === want.zoom) return;
-        camMove = camHeld = true; classSoon(el, 'lz-cam-in', false); classSoon(el, 'lz-cam', true); return;
-      }
-      aimed = want;
+      // Already diving to an aim (a newer slide arrived on the way): that landing stands, its names laid out for it and riding the
+      // dive with the figure (never faded for the move), and focusOn's glide carries them on from it.
+      if (aimed && fade <= 0.98) return;
+      aimed = { part: part || 'fit', zoom };
     },
     viewKey: () => `${V.k.toFixed(3)},${V.x.toFixed(1)},${V.y.toFixed(1)}|${geoKey}`,
     /** For the checks: the spot at the middle of the free space (lobule radii from its centre) and the zoom against the framing. */
