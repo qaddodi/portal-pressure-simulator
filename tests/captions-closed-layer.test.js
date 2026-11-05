@@ -24,7 +24,7 @@ const tick = () => new Promise((r) => setTimeout(r, 60));
 function rig() {
   const R = { passes: [], synced: [] };
   R.top = { gl: { isContextLost: () => false }, canvas: { width: 2000, height: 1000 }, present() { for (const p of R.passes) p.draw(); }, add(t) { R.passes.push(t); return () => {}; } };
-  const labelGL = (svg, blocks, opts) => ({ lost: false, sync(list) { R.synced = list.map((e) => `${e.g.getAttribute('class')}@${e.g.style.opacity}`); opts.host?.ask(); }, setHoles() {}, drawInto() {}, dispose() {} });
+  const labelGL = (svg, blocks, opts) => ({ lost: false, sync(list) { R.synced = list.map((e) => `${e.g.getAttribute('class')}@${e.alpha}`); opts.host?.ask(); }, setHoles() {}, drawInto() {}, dispose() {} });
   R.near = document.createElement('div'); R.near.className = 'sv';
   R.box = document.createElement('div'); R.box.className = 'lz-labels'; R.near.append(R.box); document.body.append(R.near);
   R.box.getBoundingClientRect = () => ({ width: 1000, height: 500, left: 0, top: 0, right: 1000, bottom: 500 });

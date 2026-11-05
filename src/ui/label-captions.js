@@ -308,38 +308,60 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
     for (let li = 0, n = I.set.n ?? I.set.lines.length; ok && li < n; li++) { const ln = I.set.lines[li]; for (let ri = 0, m = ln.m ?? ln.runs.length; ok && ri < m; ri++) ok = textCovers(ln.runs[ri].t); }
     return (I.cv = ok);
   }
-  // A caption's group, made again only when its words, scale or look changed.
+  // A caption's group: the record label-gl draws from (I.ent: its place, its fade's opacity as `alpha`, its look id as `look`) and the model svg's
+  // group that record names. The group is written only when what it shows changes: a fade writes the record, never the group, so no page
+  // write reaches label-gl's watch of its labels in a frame of a fade (each such write had every frame of the fade read the caption's look again).
+  // Its shapes (an arrow, a legend's dot) are made again only when they or the scale change; its words keep their elements and change in place.
+  let lookSeq = 0;
+  const setA = (el, k, v) => { if (el.getAttribute(k) !== v) el.setAttribute(k, v); };
   function buildGroup(I, s) {
     let g = I.g;
-    if (!g) { g = I.g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'lb'); mblocks.append(g); I.ent = { g, x: 0, y: 0, rot: false }; }
-    if (I.gsv === I.sv && I.gs === s && I.ggr === glyphsReady() && I.garr === I.arrow && I.gdec === I.decor) return g;
-    I.gsv = I.sv; I.gs = s; I.ggr = glyphsReady(); I.garr = I.arrow; I.gdec = I.decor;
-    g.textContent = '';
+    if (!g) { g = I.g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'lb'); mblocks.append(g); I.ent = { g, x: 0, y: 0, rot: false, alpha: 1, look: 0 }; I.gmarks = []; I.gtexts = []; }
+    const gr = glyphsReady();
+    if (I.gsv === I.sv && I.gs === s && I.ggr === gr && I.garr === I.arrow && I.gdec === I.decor) return g;
+    const shapes = I.gs !== s || I.garr !== I.arrow || I.gdec !== I.decor;
+    I.gsv = I.sv; I.gs = s; I.ggr = gr; I.garr = I.arrow; I.gdec = I.decor;
+    I.ent.look = ++lookSeq;   // (its look id: a new one each time what the group shows changes)
     const bw = I.w * s;
-    if (I.arrow) {   // (an owner's arrow: a small triangle about a point of the caption, turned to the way it points)
-      const A = I.arrow, c = Math.cos(A.ang), sn = Math.sin(A.ang), ox = (A.x + c * A.r) * s, oy = (A.y + sn * A.r) * s, tri = document.createElementNS(NS, 'polygon');
-      tri.setAttribute('points', [ox + (-4.5 * c + 5 * sn) * s, oy + (-4.5 * sn - 5 * c) * s, ox + 4.5 * c * s, oy + 4.5 * sn * s, ox + (-4.5 * c - 5 * sn) * s, oy + (-4.5 * sn + 5 * c) * s].map((v) => v.toFixed(2)).join(' '));
-      tri.style.fill = A.colour; g.append(tri);
+    if (shapes) {
+      for (const q of I.gmarks) q.remove();
+      I.gmarks.length = 0;
+      const before = I.gtexts[0]?.te || null;
+      if (I.arrow) {   // (an owner's arrow: a small triangle about a point of the caption, turned to the way it points)
+        const A = I.arrow, c = Math.cos(A.ang), sn = Math.sin(A.ang), ox = (A.x + c * A.r) * s, oy = (A.y + sn * A.r) * s, tri = document.createElementNS(NS, 'polygon');
+        tri.setAttribute('points', [ox + (-4.5 * c + 5 * sn) * s, oy + (-4.5 * sn - 5 * c) * s, ox + 4.5 * c * s, oy + 4.5 * sn * s, ox + (-4.5 * c - 5 * sn) * s, oy + (-4.5 * sn + 5 * c) * s].map((v) => v.toFixed(2)).join(' '));
+        tri.style.fill = A.colour; g.insertBefore(tri, before); I.gmarks.push(tri);
+      }
+      for (const D of I.decor || NONE) {   // (shapes the owner sets with a caption, in its own px from the caption's corner: a legend's dot and its ring)
+        const q = document.createElementNS(NS, 'polygon');
+        q.setAttribute('points', D.pts.map((v) => (v * s).toFixed(2)).join(' '));
+        q.style.fill = D.fill || 'none';
+        if (D.stroke) { q.style.stroke = D.stroke; q.style.strokeWidth = `${D.sw || 1}px`; }
+        g.insertBefore(q, before); I.gmarks.push(q);
+      }
     }
-    for (const D of I.decor || NONE) {   // (shapes the owner sets with a caption, in its own px from the caption's corner: a legend's dot and its ring)
-      const q = document.createElementNS(NS, 'polygon');
-      q.setAttribute('points', D.pts.map((v) => (v * s).toFixed(2)).join(' '));
-      q.style.fill = D.fill || 'none';
-      if (D.stroke) { q.style.stroke = D.stroke; q.style.strokeWidth = `${D.sw || 1}px`; }
-      g.append(q);
-    }
+    let k = 0;
     for (let li = 0, n = I.set.n ?? I.set.lines.length; li < n; li++) {
       const ln = I.set.lines[li], x0 = (bw - ln.w * s) / 2;
       for (let ri = 0, rn = ln.m ?? ln.runs.length; ri < rn; ri++) {
         const { t: txt, r, x } = ln.runs[ri];
-        const te = document.createElementNS(NS, 'text'), sp = document.createElementNS(NS, 'tspan');
-        te.setAttribute('x', (x0 + x * s).toFixed(2)); te.setAttribute('y', (ln.base * s).toFixed(2));
-        sp.setAttribute('font-size', (r.size * s).toFixed(2)); sp.setAttribute('font-weight', r.weight);
-        if (r.ls) sp.setAttribute('letter-spacing', (r.ls * s).toFixed(3));
-        sp.style.fill = r.fill; sp.textContent = txt;
-        te.append(sp); g.append(te);
+        let T = I.gtexts[k];
+        if (!T) {   // (a run's elements, made once and kept while the caption has that many runs)
+          const te = document.createElementNS(NS, 'text'), sp = document.createElementNS(NS, 'tspan');
+          te.append(sp); g.append(te);
+          T = I.gtexts[k] = { te, sp };
+        }
+        k++;
+        const { te, sp } = T;
+        setA(te, 'x', (x0 + x * s).toFixed(2)); setA(te, 'y', (ln.base * s).toFixed(2));
+        setA(sp, 'font-size', (r.size * s).toFixed(2)); setA(sp, 'font-weight', String(r.weight));
+        if (r.ls) setA(sp, 'letter-spacing', (r.ls * s).toFixed(3)); else if (sp.hasAttribute('letter-spacing')) sp.removeAttribute('letter-spacing');
+        if (sp.style.fill !== r.fill) sp.style.fill = r.fill;
+        if (sp.textContent !== txt) sp.textContent = txt;
       }
     }
+    for (let j = k; j < I.gtexts.length; j++) I.gtexts[j].te.remove();
+    I.gtexts.length = k;
     return g;
   }
   const items = new Map(), leads = new Map(), looks = new Map();
@@ -422,10 +444,9 @@ export function createCaptions(box, { labelGL = createLabelGL, deferred = false 
         // a figure's label (owner, 2 Nov: anatomy-style halo text, no pills).
         if (lgOn() && covered(I)) {
           if (I.set.lines.length && (I.set.n ?? 1) > 0) {
-            const g = buildGroup(I, s), e = I.ent;
-            e.x = l; e.y = t;
-            const o = (a * la).toFixed(3);
-            if (g.style.opacity !== o) g.style.opacity = o;
+            buildGroup(I, s);
+            const e = I.ent;
+            e.x = l; e.y = t; e.alpha = a * la;   // (the fade is the record's, drawn by label-gl as the picture's opacity: never a write to the group)
             lgList.push(e);
           }
           continue;

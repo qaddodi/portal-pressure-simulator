@@ -569,7 +569,7 @@ export function ringBox(d, dpr, frame) {
 /**
  * The GPU's label layer: a WebGL2 canvas laid over `svg` (the #labels layer, which it follows: its inline style, the dive's zoom and
  * fades included, is copied over), drawing the label groups under `blocks`. Null without a usable WebGL2.
- *   sync(list): the labels as stage.js laid them out this frame, [{ g, x, y, rot }] (x, y: the group's origin, stage px).
+ *   sync(list): the labels as stage.js laid them out this frame, [{ g, x, y, rot, alpha? }] (x, y: the group's origin, stage px; alpha, 0 to 1: an owner's fade, the captions', times the look's own opacity).
  * With `host` ({ gl, canvas, ask, now, active }: the vessel canvas, veins-gl top), no canvas of its own: the labels are drawn into the
  * host's, over the figure, each time it lays its picture (drawInto); ask() asks it to lay it again, now() lays it at once. While active() is false (the
  * figure's overlays not all on the GPU, the labels' layer fading or hidden), it draws nothing and the SVG shows every label.
@@ -1361,7 +1361,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
       if (!(st.opacity > 0.001)) continue;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
-      let x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, a = Math.min(1, st.opacity);
+      let x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, a = Math.min(1, st.opacity) * (s.alpha ?? 1);   // (s.alpha: an owner's fade carried on the record, the captions')
       const pinned = pinOf(s);
       if (pinned && PIN_HID) continue;
       if (pinned) {
