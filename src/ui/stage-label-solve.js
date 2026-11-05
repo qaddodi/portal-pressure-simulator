@@ -999,7 +999,10 @@ export function createLabelSolve(st, live) {
               if (obstacles.some((o) => !o.zone && hits(r, { x0: o.x0 - 10, y0: o.y0 - 10, x1: o.x1 + 10, y1: o.y1 + 10 }))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
               if (lines.some((sg) => segHitsBox({ x0: sg[0], y0: sg[1], x1: sg[2], y1: sg[3] }, r, 3))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
               const f = faults(it, r, pass + slide, ax, ay, lines);
-              if (f.cost >= now.cost - 1 || (best && f.cost >= best.f.cost)) return;
+              // (Words clear of the vessels now are never moved onto one: the tidy had traded a leader through vessels for words on a vessel,
+              // which the rule for a station's spot forbids outright. Circuit slide 4 on a sideways iPad: the spleen's reading, rescued out on
+              // a leader across four vessels, was tidied onto the colon's vein beside its station.)
+              if ((f.onv && !now.onv) || f.cost >= now.cost - 1 || (best && f.cost >= best.f.cost)) return;
               best = { f, dx, dy, dir, r, ax, ay, au, dot };   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
             };
             for (const gap of TIDY_GAPS) for (const dir of ['N', 'S', 'E', 'W', 'NE', 'NW', 'SE', 'SW']) tryAt(dir, gap + it.vw / 2, (rank++ % 8) * 0.01 + dirs.indexOf(dir) * 2);   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
