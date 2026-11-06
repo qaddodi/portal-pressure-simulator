@@ -3,7 +3,7 @@
 // liver stiffness estimate (metrics.lsm), or, with the Liver/Spleen switch on Spleen (a slide's tool: organ: 'spleen'), its spleen
 // stiffness on the 100 Hz spleen probe (metrics.ssm, ssm-cuts.js). CAP, IQR and the grey M-mode and A-mode strips that go with CAP
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
-// dominant dark shear-wave band, and a slope that drifts gently around the model's value.
+// dark shear-wave band on the fitted line (steeper the stiffer the organ), and a slope that drifts gently around the model's value.
 
 import { h, clamp, cssAlpha, canvasSize } from './util.js';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
@@ -101,8 +101,11 @@ export function elastogramPixels(N, c, t) {
     const w = Math.cos(2 * Math.PI * 0.05 * s + jit);
     const u = clamp((s + 9) / 6, 0, 1), arrive = u * u * (3 - 2 * u); // smooth arrival of the wave: no hard step at the front
     const amp = (0.2 + 0.8 * arrive) * clamp(1 - Math.max(s, 0) / 40, 0.12, 1) * clamp(1.2 - (depth - DEPTH0) / 110, 0.5, 1);
-    const band = Math.exp(-(((s + 3.5) / 3.2) ** 2));
-    const k = clamp(0.76 + w * 0.32 * amp + (noise - 0.5) * 1.25 - band * 0.55, 0, 1) ** 1.5;
+    // The shear wave itself (fibroscan-gl.js, line for line): one dark band on the fitted line, wobbling and ragged-edged.
+    const wob = 0.5 + (F.p1(NB * 0.3 + flowX, along) - 0.5) * c3 + (F.p2(NB * 0.3 + flowX, along) - 0.5) * s3;
+    const hw = 5.0 * (0.75 + 0.5 * wob), dv = Math.abs(s - 1.5 - (wob - 0.5) * 1.4 - (a - 0.5) * 2.4);
+    const e = clamp((dv - hw * 0.5) / (hw * 0.5), 0, 1), vein = (1 - e * e * (3 - 2 * e)) * clamp(1.15 - (depth - DEPTH0) / 120, 0.7, 1);
+    const k = clamp(0.8 + w * 0.18 * amp + (noise - 0.5) * (0.35 + 0.4 * arrive), 0, 1) ** 1.5 * (1 - 0.9 * vein);
     const i = (y * N + x) * 4;
     d[i] = 20 + 220 * k; d[i + 1] = 10 + 126 * k; d[i + 2] = 8 + 64 * k; d[i + 3] = 255;
   }

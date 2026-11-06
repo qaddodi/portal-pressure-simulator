@@ -56,8 +56,12 @@ void main() {
   float w = cos(6.283185307179586 * 0.05 * s + jit);
   float u = clamp((s + 9.0) / 6.0, 0.0, 1.0), arrive = u * u * (3.0 - 2.0 * u);
   float amp = (0.2 + 0.8 * arrive) * clamp(1.0 - max(s, 0.0) / 40.0, 0.12, 1.0) * clamp(1.2 - (depth - 20.0) / 110.0, 0.5, 1.0);
-  float q = (s + 3.5) / 3.2, band = exp(-(q * q));
-  float k = pow(clamp(0.76 + w * 0.32 * amp + (noise - 0.5) * 1.25 - band * 0.55, 0.0, 1.0), 1.5);
+  // The shear wave itself: one dark band along the front, on the fitted line (s = 0), its width and course wobbling slowly down the
+  // depth and its edges ragged with the speckle, so it reads as tissue, not a drawn stripe. Before the wave the tissue is calmer.
+  float wob = 0.5 + (field(uP1, uCell.z, uNB * 0.3 + uOffP.x, along + uOffP.y) - 0.5) * uCos.z + (field(uP2, uCell.z, uNB * 0.3 + uOffP.z, along + uOffP.w) - 0.5) * uSin.z;
+  float hw = 5.0 * (0.75 + 0.5 * wob), dv = abs(s - 1.5 - (wob - 0.5) * 1.4 - (a - 0.5) * 2.4);
+  float vein = (1.0 - smoothstep(hw * 0.5, hw, dv)) * clamp(1.15 - (depth - 20.0) / 120.0, 0.7, 1.0);
+  float k = pow(clamp(0.8 + w * 0.18 * amp + (noise - 0.5) * (0.35 + 0.4 * arrive), 0.0, 1.0), 1.5) * (1.0 - 0.9 * vein);
   o = vec4((uLo + uHi * k) / 255.0, 1.0);
 }`;
 
