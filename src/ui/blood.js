@@ -21,6 +21,9 @@ import { lumenSurface, lumenAt } from './stomach-lumen.js';
 export const SPEED_K = 9.5;
 // (Below 0.25 cm/s it stands; up to 0.6 it rises from 0, so the blood and the chevrons' fade start from rest, never in a jump.)
 export const displaySpeed = (v) => { const a = Math.abs(v); return a < 0.25 ? 0 : Math.sign(v) * SPEED_K * Math.sqrt(a) * smoothstep(0.25, 0.6, a); };
+// The time-averaged mean velocity the blood and the chevrons follow (TAMV): the engine's 1.5 s flow filter, then this one, so the
+// beat is gone and the breath's swing is down to a twelfth; a reversed vessel's sign is the mean's (a hepatofugal one runs backwards).
+export const MEAN_TAU = 3;
 // Parcels per display second per mL/s of flow.
 export const KAPPA = 0.4;
 // Slot spacing along a lane (world units); the shader doubles it (×2, ×4) when zoomed out so
@@ -91,7 +94,7 @@ function advanceKept(st, opts) {
   const ruled = rev != null, sgR = rev ? -1 : 1;
   // Reduced motion (still): nothing moves or eases; the stream stands where it is and points the way the flow goes now.
   if (still) { st.vSlow = vMean; st.vFast = vNow; st.hold = 0; st.settle = 0; st.sgn = ruled ? sgR : Math.sign(vMean) || st.sgn; dt = 0; }
-  st.vSlow += (vMean - st.vSlow) * -Math.expm1(-dt / 1.5);
+  st.vSlow += (vMean - st.vSlow) * -Math.expm1(-dt / MEAN_TAU);
   st.vFast += (vNow - st.vFast) * -Math.expm1(-dt / 0.12);
   // When the mean flow turns round, the blood settles, stands still for REVERSE_HOLD seconds and then eases off the
   // other way (over REVERSE_RAMP), so the stop is seen (blueprint §6.2). The display alone holds: the model and its
