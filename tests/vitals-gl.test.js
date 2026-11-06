@@ -29,7 +29,7 @@ test('no letter is drawn by a canvas: words come from the shared SDF atlas, meas
   const g = gl.replace(/\/\/.*$/gm, ''), m = mon.slice(mon.indexOf('function layout('), mon.indexOf("cv.addEventListener('webglcontextrestored'"));
   assert.ok(!/getContext\('2d'\)|fillText|measureText/.test(g), 'vitals-gl.js draws and measures no text on a canvas');
   assert.ok(!/measureText|getContext|fillText/.test(m), 'the GPU layout measures with textWidth');
-  assert.match(gl, /import \{ sdfAtlas \} from '\.\/text-gl\.js/, 'the atlas through text-gl.js, the one door to GPU text');
+  assert.match(gl, /import \{ sdfAtlas[^}]*\} from '\.\/text-gl\.js/, 'the atlas through text-gl.js, the one door to GPU text');
   assert.match(gl, /drawArraysInstanced\(gl\.TRIANGLES, 0, 6, L\.n - 1\)/, 'one capsule per strip segment');
   assert.ok(/startProgram/.test(gl) && /compileDone/.test(gl), 'programs compiled in parallel at creation, published when done');
   assert.ok(!/getError|readPixels|getParameter\(/.test(gl), 'no synchronous queries');

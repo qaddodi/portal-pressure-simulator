@@ -15,9 +15,31 @@
 import { flattenPath } from './shape-gl.js';
 import { GLYPHS as SDF_GLYPHS, KERN as SDF_KERN, BASELINES as SDF_BASELINES, BASE as SDF_BASE, RADIUS as SDF_RADIUS, CUTOFF as SDF_CUTOFF, ATLAS_W as SDF_W, ATLAS_H as SDF_H } from './glyphs-inter.js';
 import { ATLAS_PNG as SDF_PNG } from './glyphs-inter-png.js';
+import { DISPLAY_GLYPHS, DISPLAY_BASE, DISPLAY_RADIUS, DISPLAY_CUTOFF, DISPLAY_W, DISPLAY_H } from './glyphs-inter-display.js';
+import { DISPLAY_PNG } from './glyphs-inter-display-png.js';
 
-/** The SDF atlas for text that changes every frame: metrics (em), kerning, baselines, its size and its PNG (a data URL). */
-export const sdfAtlas = Object.freeze({ GLYPHS: SDF_GLYPHS, KERN: SDF_KERN, BASELINES: SDF_BASELINES, BASE: SDF_BASE, RADIUS: SDF_RADIUS, CUTOFF: SDF_CUTOFF, ATLAS_W: SDF_W, ATLAS_H: SDF_H, ATLAS_PNG: SDF_PNG });
+// (The big readouts' field, 6 Nov 2026, Mohammad: "Fibroscan number rendered has jagged edges". A number drawn large (FibroScan's 72 px
+// kPa on a 3x phone, 216 device px) magnified the 32 px field almost 7 times, and its edge and dark outline came out stepped. Its digits
+// and signs are also set at DISPLAY_BASE (96) px in a field of their own, laid in the same texture under the main one (rows MAIN_H up), so
+// a large number reads a field magnified about twice: one texture, one draw, the same shader (the field's scale rides with each glyph).)
+if (DISPLAY_W !== SDF_W || DISPLAY_CUTOFF !== SDF_CUTOFF) throw new Error('glyphs-inter-display.js: its width and cutoff must be the main atlas\'s');
+const DISPLAY = Object.freeze({ GLYPHS: DISPLAY_GLYPHS, BASE: DISPLAY_BASE, RADIUS: DISPLAY_RADIUS, Y0: SDF_H, H: DISPLAY_H, PNG: DISPLAY_PNG });
+
+/** The SDF atlas for text that changes every frame: metrics (em), kerning, baselines, its size and its PNG (a data URL); ATLAS_H is the
+ *  texture's whole height, the main field's MAIN_H rows and under them the big readouts' field (DISPLAY: its glyphs' pictures, its BASE and
+ *  RADIUS, and Y0, the row it starts at). */
+export const sdfAtlas = Object.freeze({ GLYPHS: SDF_GLYPHS, KERN: SDF_KERN, BASELINES: SDF_BASELINES, BASE: SDF_BASE, RADIUS: SDF_RADIUS, CUTOFF: SDF_CUTOFF, ATLAS_W: SDF_W, ATLAS_H: SDF_H + DISPLAY_H, MAIN_H: SDF_H, ATLAS_PNG: SDF_PNG, DISPLAY });
+/** Device px per glyph em from which a text is drawn from the display field: below it the main field is magnified 1.75 times at most. */
+export const DISPLAY_FROM = 56;
+/** The display field's picture of ch at weight w ([atlas x, y (from DISPLAY.Y0), w, h, pen x, pen y], at DISPLAY.BASE px), or undefined. */
+export function displayGlyph(w, ch) { const g = DISPLAY_GLYPHS[w]; return g ? g[ch] : undefined; }
+/** Whether every character of str has a picture in the display field at weight w (spaces need none). */
+export function displayCovers(w, str) {
+  const g = DISPLAY_GLYPHS[w];
+  if (!g) return false;
+  for (const ch of str) if (ch !== ' ' && !g[ch]) return false;
+  return true;
+}
 // (The outlines, 200 kB, are fetched when text is first wanted, loadGlyphs: never with the page itself.)
 let GLYPHS = null, OPS = null, UPM = 2048, WEIGHTS = [], loading = null;
 /** Fetches the outlines once; resolves when text can be drawn. */

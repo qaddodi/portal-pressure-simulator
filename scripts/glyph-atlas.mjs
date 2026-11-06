@@ -7,6 +7,12 @@
 // advance, its box, the pairs' kerning and the baselines' offsets are measured by the same browser.
 //
 //   node scripts/glyph-atlas.mjs        writes src/ui/glyphs-inter.js (metrics) and src/ui/glyphs-inter-png.js (the atlas, a data URL)
+//   node scripts/glyph-atlas.mjs --display   writes src/ui/glyphs-inter-display.js and src/ui/glyphs-inter-display-png.js: the big readouts'
+//                                        characters (digits and their signs) set at DISPLAY_BASE px, for a number drawn large (FibroScan's kPa,
+//                                        a monitor's heart rate). At BASE 32 a 72 px number on a 3x phone is the field magnified almost 7 times,
+//                                        and its edge and outline came out stepped (Mohammad, 6 Nov 2026: "Fibroscan number rendered has jagged
+//                                        edges"); from this field it is magnified about twice. Same browser, font, features and optical size as
+//                                        the main atlas, so the shapes are the same glyphs; advances and kerning stay the main atlas's.
 
 import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
@@ -16,11 +22,15 @@ import { deflateSync } from 'node:zlib';
 import { serve } from './serve.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-export const BASE = 32, RADIUS = 8, CUTOFF = 0.25, PAD = 9;
+const DISPLAY = process.argv.includes('--display');
+// (The display field: RADIUS 20 at BASE 96 reaches 15 atlas px outside a glyph, past the widest outline a readout asks for, 0.08 em a side.)
+export const DISPLAY_BASE = 96, DISPLAY_RADIUS = 20, DISPLAY_CHARS = '0123456789.,:/%+-−–×<>≤≥~≈°';
+export const BASE = DISPLAY ? DISPLAY_BASE : 32, RADIUS = DISPLAY ? DISPLAY_RADIUS : 8, CUTOFF = 0.25, PAD = RADIUS + 1;
 const WEIGHTS = [400, 500, 600, 650, 700];
-const CHARS = [...Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)), ...'−·–—≥≤▲▼×°µ±→←’‘“”…≈Δ½²³√•§©¹¼¾éøΣαβγδθκλμπρστφω⁴⁵⁻₂↑↓↔↗↘⇄⇅∘∝∞✓✕'].join('');
+const CHARS = DISPLAY ? DISPLAY_CHARS : [...Array.from({ length: 95 }, (_, i) => String.fromCharCode(32 + i)), ...'−·–—≥≤▲▼×°µ±→←’‘“”…≈Δ½²³√•§©¹¼¾éøΣαβγδθκλμπρστφω⁴⁵⁻₂↑↓↔↗↘⇄⇅∘∝∞✓✕'].join('');
 
-const CELL = 80, PX = 22, PY = 52, COLS = 32;   // (each glyph set in a cell of its own, its pen at (PX, PY) in it)
+// (each glyph set in a cell of its own, its pen at (PX, PY) in it; at BASE 32: 80, 22, 52)
+const CELL = BASE * 2.5, PX = Math.round(BASE * 0.6875), PY = Math.round(BASE * 1.625), COLS = 32;
 const server = await serve(ROOT);
 const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
 const rows = Math.ceil((WEIGHTS.length * [...CHARS].length) / COLS);
@@ -130,7 +140,7 @@ for (const i of order) {
   if (sx + g.gw > W) { sx = 0; sy += sh; sh = 0; }
   g.x = sx; g.y = sy; sx += g.gw; sh = Math.max(sh, g.gh);
 }
-const H = 1 << Math.ceil(Math.log2(sy + sh));
+const H = DISPLAY ? Math.ceil((sy + sh) / 4) * 4 : 1 << Math.ceil(Math.log2(sy + sh));   // (the display field as tall as it needs: WebGL 2 takes any size)
 const atlas = new Uint8Array(W * H);
 for (const g of out.glyphs) for (let yy = 0; yy < g.gh; yy++) for (let xx = 0; xx < g.gw; xx++) atlas[(g.y + yy) * W + g.x + xx] = g.sdf[yy * g.gw + xx];
 
@@ -144,6 +154,17 @@ for (let yy = 0; yy < H; yy++) { raw[yy * (W + 1)] = 0; Buffer.from(atlas.buffer
 const png = Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw, { level: 9 })), chunk('IEND', Buffer.alloc(0))]);
 
 const glyphs = {};
+if (DISPLAY) {
+  // (the pictures only: [atlas x, y, w, h, pen x, pen y] at DISPLAY_BASE px; trace-gl.js lays them out by the main atlas's advances and kerning)
+  for (const g of out.glyphs) if (g.gw > 2 * PAD) (glyphs[g.w] ||= {})[g.ch] = [g.x, g.y, g.gw, g.gh, g.ox, g.oy];
+  const head = `// Made by scripts/glyph-atlas.mjs --display (do not edit): the big readouts' glyphs of Inter, an SDF field at DISPLAY_BASE px (text-gl.js).\n`;
+  writeFileSync(join(ROOT, 'src/ui/glyphs-inter-display.js'), `${head}// glyph: [atlas x, y, w, h, pen x, pen y] (px in this atlas, at DISPLAY_BASE px); its advance and kerning are the main atlas's (glyphs-inter.js).\n`
+    + `export const DISPLAY_BASE = ${BASE}, DISPLAY_RADIUS = ${RADIUS}, DISPLAY_CUTOFF = ${CUTOFF}, DISPLAY_W = ${W}, DISPLAY_H = ${H};\n`
+    + `export const DISPLAY_GLYPHS = ${JSON.stringify(glyphs)};\n`);
+  writeFileSync(join(ROOT, 'src/ui/glyphs-inter-display-png.js'), `${head}export const DISPLAY_PNG = 'data:image/png;base64,${png.toString('base64')}';\n`);
+  console.log(`display glyph atlas: ${out.glyphs.length} glyphs, ${W}×${H}, PNG ${(png.length / 1024).toFixed(0)} KB`);
+  process.exit(0);
+}
 for (const g of out.glyphs) (glyphs[g.w] ||= {})[g.ch] = [Math.round(g.adv * 1e4) / 1e4, g.x, g.y, g.gw, g.gh, g.ox, g.oy, g.ink];
 const head = `// Made by scripts/glyph-atlas.mjs (do not edit): Inter's SDF atlas metrics for the GPU's words (trace-gl.js).\n`;
 writeFileSync(join(ROOT, 'src/ui/glyphs-inter.js'), `${head}// glyph: [advance (em), atlas x, y, w, h, pen x, pen y (px in the atlas, at BASE px), ink (bands 2 px tall: first, last column + 1, B64)]; kern: pair → em; base: baseline → em offset of the alphabetic one.\n`

@@ -100,7 +100,7 @@ const workerUrl = {
 // loader that fetches its hashed .json (preloaded in the head for the ones the first screen needs, so the fetch runs beside the scripts),
 // and the SDF atlas's base64 PNG becomes a real .png the browser decodes off the main thread. The source modules stay as they are: the
 // repository root runs them as is. The build fails if a value does not come back from JSON exactly as it was.
-const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyph-data-opsz|glyphs-inter|glyphs-inter-png)\.js$/;
+const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyph-data-opsz|glyphs-inter|glyphs-inter-png|glyphs-inter-display|glyphs-inter-display-png)\.js$/;
 const dataOut = new Map();   // module name → the file it became
 const dataFiles = {
   name: 'data-files',
@@ -108,11 +108,13 @@ const dataFiles = {
     b.onLoad({ filter: DATA_MODULES }, async (args) => {
       const name = basename(args.path, '.js');
       const m = { ...(await import(pathToFileURL(args.path).href)) };
-      if (name === 'glyphs-inter-png') {
-        const png = Buffer.from(m.ATLAS_PNG.slice(m.ATLAS_PNG.indexOf(',') + 1), 'base64');
+      if (name.endsWith('-png')) {
+        // (an SDF atlas's base64 PNG, its one export: ATLAS_PNG, or DISPLAY_PNG for the big readouts' field)
+        const [key] = Object.keys(m), url = m[key];
+        const png = Buffer.from(url.slice(url.indexOf(',') + 1), 'base64');
         const file = `${name}-${sha(png)}.png`;
         writeFileSync(join(ASSETS, file), png); dataOut.set(name, file);
-        return { contents: `export const ATLAS_PNG = new URL('./${file}', import.meta.url).href;`, loader: 'js' };
+        return { contents: `export const ${key} = new URL('./${file}', import.meta.url).href;`, loader: 'js' };
       }
       const json = JSON.stringify(m);
       if (!isDeepStrictEqual(JSON.parse(json), m)) throw new Error(`${name}.js does not survive JSON: ship it as script`);
@@ -196,8 +198,9 @@ const head = [
   monoLatin ? `<link rel="preload" href="assets/${monoLatin}" as="font" type="font/woff2" crossorigin />` : '',
   `<link rel="stylesheet" href="assets/${cssFile}" />`,
   // (The data the first screen's scripts wait for: fetched beside them, not after them.)
-  ...['organ-art', 'glyphs-inter'].filter((n) => dataOut.has(n)).map((n) => `<link rel="preload" href="assets/${dataOut.get(n)}" as="fetch" crossorigin />`),
+  ...['organ-art', 'glyphs-inter', 'glyphs-inter-display'].filter((n) => dataOut.has(n)).map((n) => `<link rel="preload" href="assets/${dataOut.get(n)}" as="fetch" crossorigin />`),
   dataOut.has('glyphs-inter-png') ? `<link rel="preload" href="assets/${dataOut.get('glyphs-inter-png')}" as="image" />` : '',
+  dataOut.has('glyphs-inter-display-png') ? `<link rel="preload" href="assets/${dataOut.get('glyphs-inter-display-png')}" as="image" />` : '',
   ...staticChunks.map((c) => `<link rel="modulepreload" href="assets/${c}" />`),
   `<script type="module" src="assets/${appFile}"></script>`,
 ].filter(Boolean).map((l) => '  ' + l).join('\n');

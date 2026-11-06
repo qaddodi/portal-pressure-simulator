@@ -9,10 +9,10 @@
 // picture to the monitor's own small canvas. The glyphs come from the pool's atlas texture, not a copy of its own.
 // Its three programs are started when the context is first met (gl-compile.js) and published once the driver says they are done; a frame
 // before that draws nothing new. A context made again, or the chart moved to another pool, builds everything afresh.
-import { sdfAtlas } from './text-gl.js';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
-const { GLYPHS, KERN, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H } = sdfAtlas;
+import { sdfAtlas, displayCovers, DISPLAY_FROM } from './text-gl.js';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+const { GLYPHS, KERN, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, DISPLAY } = sdfAtlas;
 import { startProgram, compileDone, checkProgram, publishWhenDone } from './gl-compile.js';
-import { createTraceGL } from './trace-gl.js';
+import { createTraceGL, displayField } from './trace-gl.js';
 
 /** '#rgb', '#rrggbb', 'rgb()' or 'rgba()' as premultiplied [r, g, b, a] in 0–1. */
 export function colorOf(c) {
@@ -186,14 +186,20 @@ export function createVitalsGL(cv, { redraw = null } = {}) {
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
   }
   // A word's glyphs as instance data: each glyph's box on the canvas from the pen, its box in the atlas, the colour and the field's scale.
+  // (A large number (the heart rate, the pressure) is drawn from the big readouts' field (text-gl.js DISPLAY), as trace-gl.js draws one:
+  // the 32 px field magnified past 1.75 times steps its edges on a phone. Its advances and kerning stay the main field's.)
   function layText(out, n, str, w, px, x, y, col, dpr) {
     const wt = weightOf(w), g = GLYPHS[wt], kw = KERN[wt], k = px / BASE, kd = k * dpr;
+    const s = String(str), dg = px * dpr >= DISPLAY_FROM && displayField() && displayCovers(wt, s) ? DISPLAY.GLYPHS[wt] : null, kD = (px / DISPLAY.BASE) * dpr, rD = DISPLAY.RADIUS / RADIUS;
     let pen = x * dpr, prev = '';
     const by = y * dpr;
-    for (const ch of String(str)) {
-      const e = g[ch] || g['?'];
+    for (const ch of s) {
+      const e = g[ch] || g['?'], d = dg ? dg[ch] : null;
       if (prev) pen += (kw[prev + ch] || 0) * px * dpr;
-      if (e[3] > 0 && e[4] > 0) {
+      if (d) {
+        out.set([pen - d[4] * kD, by - d[5] * kD, d[2] * kD, d[3] * kD, d[0], d[1] + DISPLAY.Y0, d[2], d[3], col[0], col[1], col[2], col[3], kD * rD], n * 13);
+        n++;
+      } else if (e[3] > 0 && e[4] > 0) {
         out.set([pen - e[5] * kd, by - e[6] * kd, e[3] * kd, e[4] * kd, e[1], e[2], e[3], e[4], col[0], col[1], col[2], col[3], kd], n * 13);
         n++;
       }

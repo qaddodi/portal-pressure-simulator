@@ -18,7 +18,7 @@
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js';
 import { canvasSize, fitCanvas, onCanvasSized } from './util.js';
-import { sdfAtlas } from './text-gl.js';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
+import { sdfAtlas, displayCovers, DISPLAY_FROM } from './text-gl.js';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 import { notePass, hold } from './gpu-budget.js';
 import { fontOf, measure } from './glyph-measure.js';
 import { fbComplete } from './gl-state.js';
@@ -27,7 +27,8 @@ import { caught } from './caught.js';
 import { readBox } from './layout-snap.js';
 const WHITE_INK = 'rgb(255 255 255)';   // colour-exempt: an eraser's ink, only its coverage counts
 export { measure };
-const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, ATLAS_PNG } = sdfAtlas;
+const { GLYPHS, KERN, BASELINES, BASE, RADIUS, CUTOFF, ATLAS_W, ATLAS_H, MAIN_H, ATLAS_PNG, DISPLAY } = sdfAtlas;
+const DG = DISPLAY.GLYPHS, DBASE = DISPLAY.BASE, DY0 = DISPLAY.Y0, DK = DISPLAY.RADIUS / RADIUS;   // (the big readouts' field: text-gl.js)
 
 // A chart off the screen for PARK_MS gives back its WebGL context (WEBGL_lose_context), and takes it again as it nears the screen:
 // a browser keeps 16 or so contexts a page and drops the oldest past that, which was the figure's (a FibroScan slide held about 20).
@@ -298,11 +299,20 @@ void main() {
 }`;
 
 // The glyphs' field, decoded once for every chart (an image, no canvas).
-let glyphImage = null;
+let glyphImage = null, dispImage = null;
 // (A chart that drew on its own canvas while the field was still decoding is drawn again on the GPU once it is in.)
 const waiting = new Set();
 const SRC = { seg: [SEG_VS, SEG_FS], comp: [QUAD_VS, COMP_FS], fill: [FILL_VS, FILL_FS], box: [BOX_VS, BOX_FS], text: [TEXT_VS, TEXT_FS], img: [IMG_VS, IMG_FS] };
-if (typeof Image === 'function') { const im = new Image(); im.decoding = 'async'; im.onload = () => { glyphImage = im; for (const f of [...waiting]) f(); waiting.clear(); }; im.src = ATLAS_PNG; }
+// (The big readouts' field (text-gl.js DISPLAY) is decoded beside it, and the glyphs count as in once both are: the two go up together. A
+// display field that fails to decode leaves the main one to draw every size, as before it existed.)
+let dispSettled = typeof Image !== 'function', mainIm = null;
+const glyphsIn = () => { if (!mainIm || !dispSettled || glyphImage) return; glyphImage = mainIm; for (const f of [...waiting]) f(); waiting.clear(); };
+if (typeof Image === 'function') {
+  const im = new Image(); im.decoding = 'async'; im.onload = () => { mainIm = im; glyphsIn(); }; im.src = ATLAS_PNG;
+  const dm = new Image(); dm.decoding = 'async'; dm.onload = () => { dispImage = dm; dispSettled = true; glyphsIn(); }; dm.onerror = () => { dispSettled = true; glyphsIn(); }; dm.src = DISPLAY.PNG;
+}
+/** Whether the big readouts' field is in the glyph texture (once the glyphs are in at all): a large number is drawn from it. */
+export const displayField = () => !!(glyphImage && dispImage);
 
 // A CSS colour as [r, g, b, a] (0–1, not premultiplied), read by hand (no canvas): #rgb, #rgba, #rrggbb, #rrggbbaa, rgb()/rgba() in either
 // syntax, color(srgb …), the few names the app writes, and color-mix(in srgb, a p%, b q%) of any of those. Cached per string.
@@ -438,7 +448,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
       if (shown) { shared.atlasTex = atlasTex; shared.atlasIn = false; }
     }
-    // (The glyphs' field goes up once, from the decoded PNG, when the context is made or made again; 1 MB, never in a frame of motion.)
+    // (The glyphs' field goes up once, from the decoded PNGs, when the context is made or made again; 3 MB, never in a frame of motion.)
     atlasIn = false;
     // alloc-rare: build runs when the chart's context is made or made again (its creation, a context restored), never in a frame
     stopPoll?.(); stopPoll = publishWhenDone(gl, Object.values(started), publish);
@@ -450,7 +460,10 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     if (shown) shared.atlasIn = true;
     gl.bindTexture(gl.TEXTURE_2D, atlasTex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ATLAS_W, ATLAS_H, 0, gl.RED, gl.UNSIGNED_BYTE, glyphImage);
+    // (One texture: the main field in its first MAIN_H rows, the big readouts' field under it, each sent from its own decoded PNG.)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, ATLAS_W, ATLAS_H, 0, gl.RED, gl.UNSIGNED_BYTE, null);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, ATLAS_W, MAIN_H, gl.RED, gl.UNSIGNED_BYTE, glyphImage);
+    if (dispImage) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, DY0, ATLAS_W, DISPLAY.H, gl.RED, gl.UNSIGNED_BYTE, dispImage);
     atlasIn = true;
     return true;
   }
@@ -799,7 +812,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       if (!P || lost || failed || dead || gl.isContextLost() || !glyphImage) return false;
       if (shown && shared.atlasIn) atlasIn = true;
       if (!atlasIn) {
-        // (Review pass 2, item 2: the glyphs' 1 MB field is never sent inside the frame that first asks for it. It goes up as the
+        // (Review pass 2, item 2: the glyphs' 3 MB field is never sent inside the frame that first asks for it. It goes up as the
         // programs are published (publish) or, if the picture was decoded later, at the next idle moment, and the chart is drawn then.)
         sendAtlasSoon(); return false;
       }
@@ -1108,9 +1121,13 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       const tint = TINT;
       if (premulInto(tint, 0, color, alpha) <= 0) return;
       const f = fontOf(font), g = GLYPHS[f.w], kw = KERN[f.w], s = f.px / BASE, sk = s * K;
+      // (A large text whose characters the big readouts' field has (a number and its signs) is drawn from it: the 32 px field magnified
+      // past 1.75 times stepped its edge and outline (FibroScan's kPa on an iPhone, 6 Nov 2026). Its advances and kerning stay the main
+      // field's, so it lays out exactly as before; dg is that field's table at this weight, sD its scale.)
+      const dg = f.px * K >= DISPLAY_FROM && dispImage && displayCovers(f.w, str) ? DG[f.w] : null, sD = f.px / DBASE, skD = sD * K;
       // (An outline never reaches past the atlas's field, which ends (1 - CUTOFF) * RADIUS atlas px from a glyph's edge: wider, the whole
       // glyph's cell read as inside it and the outline drew as a box, FibroScan's "kPa" on a dark block, 2 Nov 2026.)
-      const hwd = sw ? Math.min((sw / 2) * K, (1 - CUTOFF) * RADIUS * sk - 0.75) : 0;
+      const hwd = sw ? Math.min((sw / 2) * K, (1 - CUTOFF) * (dg ? DISPLAY.RADIUS * skD : RADIUS * sk) - 0.75) : 0;
       const ink = sw ? WHITE : tint;
       let qx0 = Infinity, qy0 = Infinity, qx1 = -Infinity, qy1 = -Infinity;
       // (ls: letter spacing (CSS px), added after every character as the 2D canvas's letterSpacing and CSS add it, the last one too.)
@@ -1124,11 +1141,19 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         const e = g[ch] || g['?'];
         if (prev) cx += (kw[prev + ch] || 0) * f.px;
         if (ch !== ' ') {
-          const o = textN * TS;
-          textData[o] = (cx - e[5] * s) * K; textData[o + 1] = (by - e[6] * s) * K; textData[o + 2] = e[3] * sk; textData[o + 3] = e[4] * sk;
-          textData[o + 4] = e[1]; textData[o + 5] = e[2]; textData[o + 6] = e[3]; textData[o + 7] = e[4];
+          const o = textN * TS, d = dg ? dg[ch] : null;
+          if (d) {
+            // (its picture from the display field: the field's scale handed on in the main field's units, as the shader reads RADIUS)
+            textData[o] = (cx - d[4] * sD) * K; textData[o + 1] = (by - d[5] * sD) * K; textData[o + 2] = d[2] * skD; textData[o + 3] = d[3] * skD;
+            textData[o + 4] = d[0]; textData[o + 5] = d[1] + DY0; textData[o + 6] = d[2]; textData[o + 7] = d[3];
+            textData[o + 12] = skD * DK;
+          } else {
+            textData[o] = (cx - e[5] * s) * K; textData[o + 1] = (by - e[6] * s) * K; textData[o + 2] = e[3] * sk; textData[o + 3] = e[4] * sk;
+            textData[o + 4] = e[1]; textData[o + 5] = e[2]; textData[o + 6] = e[3]; textData[o + 7] = e[4];
+            textData[o + 12] = sk;
+          }
           textData.set(ink, o + 8);
-          textData[o + 12] = sk; textData[o + 13] = hwd;
+          textData[o + 13] = hwd;
           if (sw) { qx0 = Math.min(qx0, textData[o]); qy0 = Math.min(qy0, textData[o + 1]); qx1 = Math.max(qx1, textData[o] + textData[o + 2]); qy1 = Math.max(qy1, textData[o + 1] + textData[o + 3]); }
           textData[o + 14] = rx; textData[o + 15] = ry; textData[o + 16] = rc; textData[o + 17] = rs;
           textN++;
