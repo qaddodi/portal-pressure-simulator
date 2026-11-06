@@ -4207,7 +4207,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       compLook = look; compBlood = blood;
       // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, look E's sines.)
       tileNow = null; styleE = blood.style === STYLE_E;   // (look E reads no texture: it needs no bake)
-      if (blood.style === STYLE_D) {
+      if (blood.style === STYLE_D && blood.on) {   // (no streaks drawn, no tile)
         if (!tileTried) { tileTried = true; tileGPU = createBloodTile(gl); }
         if (tileGPU?.bake()) tileNow = tileGPU.tex();
       }

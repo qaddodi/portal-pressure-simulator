@@ -791,6 +791,8 @@ function buildHud() {
   delete blood.origin;   // now the Blood origin lens
   blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
   store.set({ blood });
+  // Streaks off (Chevrons only) is remembered per device too: with the streaks off the blood is the arrowheads alone, the cheapest moving blood.
+  try { if (localStorage.getItem('pps.streaks') === '0') store.set({ layers: { ...store.get().layers, flow: false } }); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
   store.on('blood', (v) => {
     try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame
     sendBeat(); syncBloodBtn();
@@ -995,7 +997,10 @@ function bloodItems() {
   const layer = (key, ic, label, sub) => toggle(st.layers[key] !== false, ic, label, sub, (on) => store.set({ layers: { ...store.get().layers, [key]: on } }));
   return [
     menuSection('Moving blood',
-      toggle(flowOn, 'streaks', 'Streaks', 'Silky streaks carried by the flow', (on) => { store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn(); }),
+      toggle(flowOn, 'streaks', 'Streaks', 'Off, with Chevrons on: arrows only', (on) => {
+        store.set({ layers: { ...store.get().layers, flow: on } }); syncBloodBtn();
+        try { localStorage.setItem('pps.streaks', on ? '1' : '0'); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
+      }),
       toggle(!!b.chevrons, 'chevrons', 'Chevrons', 'Flow arrows, orange where reversed', (on) => setBlood({ chevrons: on })),
       toggle(!!b.keyChevrons, 'chevrons', 'Key chevrons only', 'Just the main routes, not every vessel', (on) => setBlood({ keyChevrons: on }))),
     menuSection('Show on the figure',
