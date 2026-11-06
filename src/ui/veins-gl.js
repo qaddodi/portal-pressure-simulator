@@ -3214,6 +3214,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     stack.painter.cssPx = overCss * PW() / canvas.width;
     if (over.stale(m, PW(), PH())) over.render(m, PW(), PH());
     if (camOn() && camDraw(over.texture, true)) return;
+    // (Only the box the overlays' shapes lie in is laid and blended, and nothing when it is empty: the texture is clear elsewhere.)
+    const ob = over.bounds;
+    if (ob) {
+      const kx = canvas.width / PW(), ky = canvas.height / PH();
+      OB[0] = Math.max(0, Math.floor(ob[0] * kx) - 1); OB[2] = Math.min(canvas.width, Math.ceil(ob[2] * kx) + 1);
+      OB[1] = Math.max(0, canvas.height - Math.ceil(ob[3] * ky) - 1); OB[3] = Math.min(canvas.height, canvas.height - Math.floor(ob[1] * ky) + 1);
+      if (!(OB[2] > OB[0] && OB[3] > OB[1])) return;
+      ovBox = OB;
+    }
+    try {
     if (up && (PW() !== canvas.width || PH() !== canvas.height) && camDraw(over.texture, true, true)) return;
     if (layP === null) {
       // (Started at setup: taken up now if prepare() has not published it yet; waited on only here, as dropping the overlays would blink.)
@@ -3222,7 +3232,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!layP) return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+    if (ovBox) { gl.enable(gl.SCISSOR_TEST); gl.scissor(ovBox[0], ovBox[1], ovBox[2] - ovBox[0], ovBox[3] - ovBox[1]); } else gl.disable(gl.SCISSOR_TEST);
+    gl.disable(gl.STENCIL_TEST);
     gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.useProgram(layP.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, over.texture);
@@ -3231,7 +3242,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
     gl.disable(gl.BLEND);
+    } finally { gl.disable(gl.SCISSOR_TEST); ovBox = null; }
   }
+  const OB = [0, 0, 0, 0];
+  let ovBox = null;   // (the box the overlay lay is cut to this present: device px, y up)
   // The camera (k about (ox, oy), canvas px, y down) and alpha the final present lays the figure with: the dive's zoom and every fade of the
   // figure's canvas (a hide, the first framing), as uniforms of one pass, so the glass drawn over the figure in the same present never moves
   // or fades with it. Set by the stage; none (k 1, a 1) is the plain copy, as before.
@@ -3252,7 +3266,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!camP) return false;
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
+    if (plain && ovBox) { gl.enable(gl.SCISSOR_TEST); gl.scissor(ovBox[0], ovBox[1], ovBox[2] - ovBox[0], ovBox[3] - ovBox[1]); } else gl.disable(gl.SCISSOR_TEST);
+    gl.disable(gl.STENCIL_TEST);
     if (blend) { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); } else { gl.disable(gl.BLEND); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
     if (!(a > 0)) { gl.disable(gl.BLEND); return true; }   // (nothing to lay: the cleared canvas is the picture)
     gl.useProgram(camP.p);

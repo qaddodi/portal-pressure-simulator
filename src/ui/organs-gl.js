@@ -292,6 +292,27 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   // (`fading()`: one is still to be drawn whole; the stage's frames are kept going for it, for no longer than three fades whatever is drawn.)
   const pending = () => { for (const L of live[1].values()) if (L.from != null) return true; return false; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const fading = () => { const t = performance.now(); for (const L of live[1].values()) if (L.from != null && t - L.from < 3 * VIEW_FADE_MS) return true; return false; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  // The device box every live op of the last render lies in (BOUNDS, grown 2 px for an antialiased edge), or none (bounds false) when a layer's
+  // picture or an op with no box is in the stack: a reader (the overlay lay) then draws and blends only that box, nothing at all when it is
+  // empty (render-cost review P3, 5 Nov 2026).
+  const BOUNDS = [0, 0, 0, 0];
+  let bounds = false;
+  const boundsOf = (desc, cw, ch) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+    bounds = false;
+    if (live[0].size || live[1].size || full) return;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const list of desc.values()) for (let i = 0; i < list.length; i++) {
+      const ops = list[i].ops;
+      for (let k = 0; k < ops.length; k++) {
+        const b = ops[k][1];
+        if (!b) return;
+        if (b[0] < x0) x0 = b[0]; if (b[1] < y0) y0 = b[1]; if (b[2] > x1) x1 = b[2]; if (b[3] > y1) y1 = b[3];
+      }
+    }
+    BOUNDS[0] = Math.max(0, Math.floor(x0) - 2); BOUNDS[1] = Math.max(0, Math.floor(y0) - 2); BOUNDS[2] = Math.min(cw, Math.ceil(x1) + 2); BOUNDS[3] = Math.min(ch, Math.ceil(y1) + 2);
+    if (!(x1 >= x0)) { BOUNDS[0] = BOUNDS[1] = BOUNDS[2] = BOUNDS[3] = 0; }
+    bounds = true;
+  };
   const mat = new Float32Array(9);   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const setNames = (names) => { order.length = names.length; for (let i = 0; i < names.length; i++) order[i] = names[i]; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const UC = uniformCache(gl);   // (the stack program's uniforms are set only through it: a value it already holds is not sent again, uniform-cache.js)
@@ -778,6 +799,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
         }
       }
       drawnDesc = desc;
+      boundsOf(desc, cw, ch);
       // The view's pictures fading in: each a step further (smoothstep), drawn over their boxes and the boxes of the views before.
       const now = performance.now();
       ended.length = 0;
@@ -824,6 +846,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
       moveStats.ahead++;
       return true;
     },
+    /** The device box (y down) the last render's live ops lie in, [x0, y0, x1, y1], possibly empty; null when it cannot say (lay it all). */
+    get bounds() { return bounds ? BOUNDS : null; },
     get texture() { return stackTex; },   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
     /** The painter it paints with (or null), for a stack that shares it. */
     get painter() { return painter; },   // alloc-rare: built once when the stack is made (once per GL context), never in a frame

@@ -856,6 +856,9 @@ export function createPaintGL(gl) {
         gl.disable(gl.SCISSOR_TEST);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, r.ms); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, r.rs);
         gl.blitFramebuffer(0, 0, tw, th, 0, 0, tw, th, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+        // (The multisampled colour and depth are cleared by the next tile and read by nothing else: told to the driver, a tile-based GPU (the
+        // iPhone's) does not write the 4x samples, about 32 MB, back to memory after each tile. Render-cost review P4, 5 Nov 2026.)
+        gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER, INVAL);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, r.rs);
         gl.bindTexture(gl.TEXTURE_2D, out);
         gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, tx, ty, 0, 0, tw, th);
@@ -953,6 +956,7 @@ export function createPaintGL(gl) {
     so(gl.ZERO, gl.ZERO, gl.ZERO);
     coverBox(D.r, box);
   };
+  const INVAL = [0x8CE0, 0x84F9];   // (COLOR_ATTACHMENT0, DEPTH_STENCIL_ATTACHMENT)
   function drawTile(rec, r, tx, ty, tw, th) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, r.ms);
     gl.viewport(0, 0, tw, th); gl.scissor(0, 0, tw, th);
