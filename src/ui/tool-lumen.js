@@ -7,11 +7,57 @@
 import { h, clamp } from './util.js';
 import { EDGES } from '../engine/topology.js';
 import { store } from './store.js';
-import { frameFor, cancelFrame } from './frame.js';
-import { createSvgGL, svgModel, snapOp, setWords, setGeo, setPts } from './svg-gl.js';
+import { frameFor, cancelFrame, frameAnimating, easeNow } from './frame.js';
+import { createSvgGL, svgModel, snapOp, setWords, wordsOf, setGeo, setPts } from './svg-gl.js';
 import { restPass } from './rest-pass.js';
 import { reduceMotionMQ } from './motion.js';
+import { easeArrive, D_SURFACE } from './ease.js';
 const nextFrame = frameFor('lumen');
+
+// ── How the picture follows the model (6 Nov 2026, Mohammad on iPhone: "This cross section animation is super laggy") ──
+// The model's clot comes in steps: a time-lapse posts a day at a time, 33 or 66 ms apart (worker-core.js ticks every 33 ms), and a
+// slide's morph posts its params about 4 times a second. The picture used to chase each step with a 0.16 s exponential ease, so it
+// trailed the figure and the tiles by about a sixth of a second, its speed rippled at the model's rate, and its tail ran on for a
+// second after the model stopped. Its frames were also carried over on a busy frame (frame.js priority 2, the "instruments" share)
+// because it never said it was animating, so on a phone, behind the moving figure, it stepped at about 40 Hz.
+// Now: a step that is part of a stream (a time-lapse, a slider, a morph) is followed in a straight line over the stream's own
+// interval, so the picture moves at the model's speed with one step of delay and no ripple or tail; a jump (a compare button, a slide
+// that sets a new clot, a lone change) glides there over D_SURFACE on the arrival curve. While it moves it is marked animating, so
+// the scheduler draws it on every frame at the screen's rate.
+/** A step this big (share of the lumen, either channel) is a jump, glided; one this small after a quiet spell is followed straight. */
+export const FOLLOW_JUMP = 0.12, FOLLOW_LONE = 0.01;
+/** Steps closer together than this (ms) are a stream; the stream's interval is followed, held between the two bounds. */
+export const FOLLOW_STREAM_MS = 320, FOLLOW_MIN_MS = 16, FOLLOW_MAX_MS = 300, FOLLOW_GAP0 = 45;
+export const FOLLOW_GLIDE_MS = D_SURFACE;
+/** The follower of two channels (stenosis, thrombus): goal(a, b, now) takes the model's value, at(now) writes the shown pair into
+ *  f.a and f.b and returns true while it is still moving. One record, written in place: nothing is made per step or per frame. */
+export function createFollow() {
+  const f = { a: 0, b: 0, fa: 0, fb: 0, ta: 0, tb: 0, t0: 0, ms: 0, glide: false, last: -Infinity, gap: FOLLOW_GAP0, moving: false };
+  f.snap = (a, b) => { f.a = f.fa = f.ta = a; f.b = f.fb = f.tb = b; f.moving = false; f.ms = 0; };
+  f.goal = (a, b, now) => {
+    if (a === f.ta && b === f.tb) return f.moving;
+    f.at(now);   // (from where the picture stands now, mid-step or not)
+    const d = Math.max(Math.abs(a - f.a), Math.abs(b - f.b)), since = now - f.last;
+    const stream = since < FOLLOW_STREAM_MS;
+    if (stream) f.gap += (Math.min(FOLLOW_MAX_MS, Math.max(FOLLOW_MIN_MS, since)) - f.gap) * 0.35;
+    else f.gap = FOLLOW_GAP0;
+    f.last = now;
+    f.glide = d >= FOLLOW_JUMP || (!stream && d >= FOLLOW_LONE);
+    f.ms = f.glide ? FOLLOW_GLIDE_MS : f.gap;
+    f.fa = f.a; f.fb = f.b; f.ta = a; f.tb = b; f.t0 = now;
+    f.moving = true;
+    return true;
+  };
+  f.at = (now) => {
+    if (!f.moving) return false;
+    const k = f.ms > 0 ? Math.min(1, Math.max(0, (now - f.t0) / f.ms)) : 1;
+    if (k >= 1) { f.a = f.ta; f.b = f.tb; f.moving = false; return false; }
+    const e = f.glide ? easeArrive(k) : k;
+    f.a = f.fa + (f.ta - f.fa) * e; f.b = f.fb + (f.tb - f.fb) * e;
+    return true;
+  };
+  return f;
+}
 
 const STENTS = new Set(['TIPS', 'DIPS']);
 /** Whether the vessel carries a stent: the TIPS and DIPS always, any other vein when the slide on screen stents it (store.stented). */
@@ -165,10 +211,10 @@ export function createLumen() {
   const gl = createSvgGL(el.firstChild);   // (its looks are read once it is on the page and sized: fit)
   const set = setWords;   // (words kept on the piece, drawn by the picture: no text node made in a frame)
   const reduce = typeof matchMedia === 'function' ? reduceMotionMQ : null;
-  // What the picture shows now, easing to the model's state (a compare button or a new slide jumps the params; the picture eases).
-  // (shown and goal are kept and written in place; hasShown says shown holds the picture's state.)
-  const shown = { stenosis: 0, thrombus: 0 }, goal = { stenosis: 0, thrombus: 0 };
-  let hasShown = false, raf = 0, at = 0;
+  // What the picture shows now, following the model's state (createFollow: a stream followed straight, a jump glided).
+  const fol = createFollow();
+  let hasShown = false, raf = 0, anim = false;
+  const animating = (on) => { if (anim !== on) { anim = on; frameAnimating('lumen', on); } };
   const clotBuf = new Float64Array(CLOT_PTS);
   // (The words a screen reader gets are written between frames, when the whole percents they name have changed: not built in a frame.)
   let ariaOcc = -1, ariaThr = -1, ariaSte = -1, ariaStent = false, ariaAsk = 0;
@@ -178,17 +224,22 @@ export function createLumen() {
   };
   // (Opacity is held on the piece as a number, the picture reads it from there: set once so its look is read as a strength the chart moves.)
   for (const e of [clot, tissue, inNum, inWord]) setGeo(e, 'opacity', e === tissue || e === clot ? 0 : 1);
-  function paint(x) {
-    const sten = x.stenosis, thr = x.thrombus, R0 = LUMEN_R - LUMEN_WALL;
+  let shownStent = null;
+  function paint(sten, thr) {
+    const R0 = LUMEN_R - LUMEN_WALL;
     const ri = R0 * clamp(1 - sten, 0, 1), t = clamp(thr, 0, 1), bot = 50 + ri, top = 50 + ri - 2 * ri * t;
     const stent = hasStent(id, store.get().stented), occlusion = 1 - (1 - sten) * (1 - thr);
     setGeo(lumen, 'r', ri);
     setPts(clot, clotBuf, clotPts(clotBuf, 50, 50, ri, top, bot, t), true);
     // A clot appears and leaves by growing from the wall and fading, never popping in.
     setGeo(clot, 'opacity', Math.min(1, t / 0.06));
-    tissue.style.display = stent ? '' : 'none';
-    // The ring eases in and out as the slide stents the vein or lets it go (a vessel drawn afresh shows it at once: configure).
-    ring.style.opacity = stent ? '1' : '0';
+    // (Written only when the stent comes or goes: the picture reads them as they stand, so a frame writes no style.)
+    if (stent !== shownStent) {
+      shownStent = stent;
+      tissue.style.display = stent ? '' : 'none';
+      // The ring eases in and out as the slide stents the vein or lets it go (a vessel drawn afresh shows it at once: configure).
+      ring.style.opacity = stent ? '1' : '0';
+    }
     setGeo(tissue, 'opacity', Math.min(1, sten / 0.06));
     const occ = pctI(occlusion);
     set(inNum, PCT_WORDS[occ]);
@@ -204,25 +255,32 @@ export function createLumen() {
     }
     gl.paint();   // (the picture draws it in this same frame)
   }
-  function tick(now) {
+  function tick() {
     raf = 0;
-    const dt = at ? Math.min(0.1, (now - at) / 1000) : 0; at = now;
-    const k = 1 - Math.exp(-dt / 0.16);
-    shown.stenosis += (goal.stenosis - shown.stenosis) * k; shown.thrombus += (goal.thrombus - shown.thrombus) * k;
-    const done = Math.abs(goal.stenosis - shown.stenosis) < 0.002 && Math.abs(goal.thrombus - shown.thrombus) < 0.002;
-    if (done) { shown.stenosis = goal.stenosis; shown.thrombus = goal.thrombus; }
-    paint(shown);
-    if (!done) raf = nextFrame(tick); else at = 0;
+    const moving = fol.at(easeNow());
+    paint(fol.a, fol.b);
+    if (moving && el.isConnected) raf = nextFrame(tick);
+    else { if (moving) { fol.snap(fol.ta, fol.tb); paint(fol.a, fol.b); } animating(false); }
   }
   function update() {
     const prm = store.get().params, L = lumenOf(prm, id), site = lumenSite(prm, id, tool?.site);
+    const was = wordsOf(inName);
     set(inName, lumenLabel(id, tool?.name, site));
     // A stent cut away from its narrowed segment shows an open stent there (a clot fills the whole stent).
     if (L.stent && site !== lumenSite(prm, id)) L.stenosis = 0;
-    goal.stenosis = L.stenosis; goal.thrombus = L.thrombus;
-    if (hasShown && !raf && goal.stenosis === shown.stenosis && goal.thrombus === shown.thrombus) paint(shown);
-    if (!hasShown || reduce?.matches || !el.isConnected) { shown.stenosis = goal.stenosis; shown.thrombus = goal.thrombus; hasShown = true; paint(shown); return; }
-    if ((goal.stenosis !== shown.stenosis || goal.thrombus !== shown.thrombus) && !raf) raf = nextFrame(tick);
+    if (!hasShown || reduce?.matches || !el.isConnected) {
+      fol.snap(L.stenosis, L.thrombus); hasShown = true;
+      if (raf) { cancelFrame(raf); raf = 0; }
+      animating(false); paint(fol.a, fol.b); return;
+    }
+    if (fol.goal(L.stenosis, L.thrombus, easeNow())) {
+      animating(true);   // (never carried over while it moves: frame.js)
+      if (!raf) raf = nextFrame(tick);
+      return;
+    }
+    // (Still, and nothing it shows changed: no redraw. Each model frame used to redraw and hand over the same picture, 10 to 30 times a
+    // second at rest. Only a new name or a stent coming or going is drawn.)
+    if (!raf && (wordsOf(inName) !== was || hasStent(id, store.get().stented) !== shownStent)) paint(fol.a, fol.b);
   }
   /** The slide's vessel (tool.vessel), where along a stent it is cut (tool.site: 'proximal', 'mid' or 'distal'; else the
    *  narrowing's segment) and the name written in it (tool.name, else the vessel's own). A new vessel is drawn at once. */
@@ -248,6 +306,6 @@ export function createLumen() {
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
   ro?.observe(stage);
   // (2 Nov 2026, bug sweep: the instrument had no dispose, so each presentation's cross-section kept its GPU drawer and observer.)
-  const dispose = () => { ro?.disconnect(); if (raf) cancelFrame(raf); raf = 0; gl.dispose?.(); };
+  const dispose = () => { ro?.disconnect(); if (raf) cancelFrame(raf); raf = 0; animating(false); gl.dispose?.(); };
   return { el, update, configure, dispose };
 }
