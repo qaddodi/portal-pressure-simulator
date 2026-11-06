@@ -62,6 +62,23 @@ test('Motion at 60 (on by default since 4 Nov 2026): paceMs is 10 ms (every othe
   delete globalThis.localStorage;
 });
 
+test('Lobule rec 6 (6 Nov 2026): a calm lobule draws its blood-only frames at 30 Hz; the flow gap, a hand and a moving lobule stay at the glide rate', async () => {
+  const { f } = await freshFrame();
+  assert.equal(f.frameGapFor('flow'), f.MOTION60_MS, 'the anatomy and the sinusoid keep the flow gap');
+  assert.equal(f.calmFlowGapFor(), f.CALM_FLOW_MS);
+  const rate = (hz, gap) => { let last = -1e9, n = 0; for (let t = 0; t < 1000; t += 1000 / hz) if (t - last >= gap) { last = t; n++; } return n; };
+  for (const hz of [60, 90, 120]) assert.ok(Math.abs(rate(hz, f.calmFlowGapFor()) - 30) <= 1, `${hz} Hz screen: 30 a second`);
+  f.setSaver(true);
+  assert.equal(f.calmFlowGapFor(), f.SAVER_MS, 'Battery saver still wins');
+  f.setSaver(false); f.setFigLab('motion60', false);
+  assert.equal(f.calmFlowGapFor(), 0, 'Motion at 60 off lifts the cap');
+  delete globalThis.localStorage;
+  // The lobule's loop takes it only once calm: anything moving, a hand included, resets calmAt and the gap is the glide's.
+  const lz = src('lobule-zoom.js');
+  assert.match(lz, /const pace = now - calmAt > CALM_AFTER \? Math\.max\(paceMs\(\), calmFlowGapFor\(\)\) : paceMs\(\)/);
+  assert.match(lz, /handOn\(\) \|\| fade < 0\.98[^\n]*\) calmAt = now;/);
+});
+
 test('Motion at 60 in the figure loop: off, the interval and the gate are as before; on, no phase is carried; view moves never wait', () => {
   const stage = stageSource();
   const fn = stage.slice(stage.indexOf('function animate(now)'), stage.indexOf('const dt = Math.min(0.1, (now - lastT) / 1000);', stage.indexOf('function animate(now)')));

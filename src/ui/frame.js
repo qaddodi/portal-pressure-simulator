@@ -734,3 +734,13 @@ export function frameGapFor(reason = frameReason()) {
   if (reason === 'hand' || !figLabs.motion60) return 0;
   return FRAME_GAP_MS[reason] || 0;
 }
+// (Lobule lag rec 6, 6 Nov 2026: the lobule alone draws its blood-only frames at the flow's 30 Hz once it has been calm; its stack is
+// the heaviest in the app (lobule-lag-recs.md) and a halved rate halves every at-rest cost. The anatomy and the sinusoid keep the flow
+// gap above. 28 ms, as the first flow gap was: a 60 Hz screen's frames come 16.7 ms apart so every 2nd is drawn, a 120 Hz screen's
+// 8.3 ms so every 4th, a 90 Hz screen's 11.1 ms so every 3rd; no phase is carried.)
+export const CALM_FLOW_MS = 28;
+/** The least ms between two blood-only frames of a calm lobule: 30 Hz; Battery saver's 15 Hz; every frame where Motion at 60 is off. */
+export function calmFlowGapFor() {
+  if (saverOn) return SAVER_MS;
+  return figLabs.motion60 ? CALM_FLOW_MS : 0;
+}

@@ -47,7 +47,7 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameGapFor, frameCount, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { createResCover, coverFollowInto } from './res-cover-gl.js';
@@ -2806,10 +2806,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // The flow is drawn on every frame the screen offers, like the anatomy's blood. Battery saver alone paces it, to 15 a
     // second; a pan, zoom or any other change draws at once even then.
     // (The governor, frame.js (pure GPU plan C2, C4), which only the anatomy had: a hand, a glide, a caliber or colour easing, the dive or a
-    // crossfade draw at once or at the glide's rate; once only the blood has moved for CALM_AFTER, it is drawn at the flow's 30 Hz. On a
+    // crossfade draw at once or at the glide's rate; once only the blood has moved for CALM_AFTER, it is drawn at the calm lobule's 30 Hz (frame.js calmFlowGapFor). On a
     // 120 Hz Mac the zoomed-in lobule drew every other screen frame for the blood alone (4 Nov 2026, Mohammad: 5-10 fps while zoomed).)
     if (viewVer !== pacedVer || rzMoving || lensFrom || gliding || handOn() || fade < 0.98 || diveScaled || sinU > 0 || sinTo || tissueFading(now) || inMotion() || !lastPaint) calmAt = now;
-    const pace = now - calmAt > CALM_AFTER ? Math.max(paceMs(), frameGapFor('flow')) : paceMs(), paced = !soft && pace > 0 && viewVer === pacedVer;
+    const pace = now - calmAt > CALM_AFTER ? Math.max(paceMs(), calmFlowGapFor()) : paceMs(), paced = !soft && pace > 0 && viewVer === pacedVer;
     if (paced && now - lastPaint < pace) { raf = nextFrame(loop); return; }
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
