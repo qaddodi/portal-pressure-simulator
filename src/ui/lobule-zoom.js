@@ -2944,9 +2944,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (The flow keeps moving under the hand: the blood and the arrowheads are the cheap pass over the vessel layer drawn as it stands, for the view it was drawn for
       // (drawGL finds that view unchanged and only composites), then carried to the hand's view with it. 6 Nov 2026, Mohammad: "the chevrons and blood stop when I pan and zoom".)
       // (At most about 20 times a second, so the hand's own move keeps the screen's rate: the pass is the one a lobule at rest draws on every frame.)
-      const nowF = performance.now();
+      const nowF = performance.now(), laidF = g.top?.presents;
       if (dt > 0 && nowF - flowLiveAt >= 48) { flowLiveAt = nowF; withView(drawnV.k, drawnV.x, drawnV.y, () => drawGL(W, H, dpr, dark, cs, dt)); }
-      shareTop.present();
+      // (A flow pass that laid its picture has had the stage's present already (the vessels' present asks for it, under the hand's carry): laid again here,
+      // the lobule's texture, the labels and the glass were drawn twice in every flow frame under a hand. Lobule lag rec 4, 6 Nov 2026.)
+      if (laidF === undefined || g.top?.presents === laidF) shareTop.present();
       return true;
     }
     // (The overlay first: in the vessels' own context it is laid over them at their present, in drawGL.)
