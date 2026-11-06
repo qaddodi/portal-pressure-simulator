@@ -126,7 +126,7 @@
   --cath-body: #F4F6FA; --cath-tip: #1B2230; --cath-balloon: rgba(226, 233, 244, .78); --cath-shadow: rgba(10, 14, 22, .55);
   --latex: #FCE6B3; --latex-edge: #B08A59;   /* the wedge balloon's latex (veins-gl.js mode 5: col and its rim, col x .7 .6 .5), shared by the tamponade balloons */
   --fibroscan-halo: rgb(22, 12, 9);   /* the FibroScan reading's outline: the map's darkest tone, solid */
-  --fibroscan: #f0924a; --dop-chip-away: var(--dop-away); --dop-chip-toward: var(--dop-toward);
+  --fibroscan: #f0924a; --fibroscan-spleen: #b474f4; --dop-chip-away: var(--dop-away); --dop-chip-toward: var(--dop-toward);
   /* lobule art (canvas): tract, congestion, nutmeg, acinar zone fills, cells, lymph, albumin beads, collagen */
   --lz-shade: #603A5C; --lz-lumen-hidden: var(--sv-lumen-hidden);
   /* the lobule's fibrous bands, tracts and cuffs: a deeper tan in light and Soft so they read on the pale cells (dark: the collagen) */
@@ -369,7 +369,7 @@
   --ramp-violet: #925CDD;
   --ramp-wine: #A4216E;
   --pz-hepatocyte: #C58B5C;
-  --fibroscan: #f0924a;
+  --fibroscan: #f0924a; --fibroscan-spleen: #b474f4;   /* the spleen exam's probe: the violet of its map (fibroscan.js ORGAN.spleen) */
   --pze-black: #000000;
   --pze-ok: color-mix(in srgb, var(--ok) 28%, var(--surface));
   --pze-mid: color-mix(in srgb, var(--caution) 40%, var(--surface));

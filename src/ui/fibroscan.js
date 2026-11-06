@@ -3,7 +3,7 @@
 // liver stiffness estimate (metrics.lsm), or, with the Liver/Spleen switch on Spleen (a slide's tool: organ: 'spleen'), its spleen
 // stiffness on the 100 Hz spleen probe (metrics.ssm, ssm-cuts.js). CAP, IQR and the grey M-mode and A-mode strips that go with CAP
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
-// dark shear-wave band on the fitted line (steeper the stiffer the organ), and a slope that drifts gently around the model's value.
+// dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
 import { h, clamp, cssAlpha, canvasSize } from './util.js';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
@@ -101,11 +101,8 @@ export function elastogramPixels(N, c, t) {
     const w = Math.cos(2 * Math.PI * 0.05 * s + jit);
     const u = clamp((s + 9) / 6, 0, 1), arrive = u * u * (3 - 2 * u); // smooth arrival of the wave: no hard step at the front
     const amp = (0.2 + 0.8 * arrive) * clamp(1 - Math.max(s, 0) / 40, 0.12, 1) * clamp(1.2 - (depth - DEPTH0) / 110, 0.5, 1);
-    // The shear wave itself (fibroscan-gl.js, line for line): one dark band on the fitted line, wobbling and ragged-edged.
-    const wob = 0.5 + (F.p1(NB * 0.3 + flowX, along) - 0.5) * c3 + (F.p2(NB * 0.3 + flowX, along) - 0.5) * s3;
-    const hw = 5.0 * (0.75 + 0.5 * wob), dv = Math.abs(s - 1.5 - (wob - 0.5) * 1.4 - (a - 0.5) * 2.4);
-    const e = clamp((dv - hw * 0.5) / (hw * 0.5), 0, 1), vein = (1 - e * e * (3 - 2 * e)) * clamp(1.15 - (depth - DEPTH0) / 120, 0.7, 1);
-    const k = clamp(0.8 + w * 0.18 * amp + (noise - 0.5) * (0.35 + 0.4 * arrive), 0, 1) ** 1.5 * (1 - 0.9 * vein);
+    const band = Math.exp(-(((s + 3.5) / 3.2) ** 2));
+    const k = clamp(0.76 + w * 0.32 * amp + (noise - 0.5) * 1.25 - band * 0.55, 0, 1) ** 1.5;
     const i = (y * N + x) * 4;
     d[i] = 20 + 220 * k; d[i + 1] = 10 + 126 * k; d[i + 2] = 8 + 64 * k; d[i + 3] = 255;
   }
@@ -149,8 +146,11 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
   let organ = ORGAN[organ0] ? organ0 : 'liver', lastF = null;
   // (The switch, on a tap only: the organ's metric, the words under the map and the canvas's name change; the map's slope and the
   // reading follow at the next frame. The Tests card tells main.js, which takes the liver probe off the figure for the spleen.)
-  const organBtns = switcher ? ORGAN_WORDS.map(([id, label]) => h('button', { 'data-organ': id, 'aria-pressed': String(id === organ), onclick: () => setOrgan(id, true) }, label)) : [];
-  const seg = switcher ? h('div', { class: 'seg pt-range fs-organ', role: 'group', 'aria-label': 'Organ' }, organBtns) : null;
+  // (Built as the Scope view / Wall switch is, the one that already sits above its view in the same kind of pane: .pressure-switch,
+  // a flex row that never shrinks, its own height from its 26 px buttons. As a .seg pt-range pill (bc7805d48) its buttons' lower half
+  // sat under the map on Mohammad's Mac, 6 Nov 2026. It is also lifted over the box, so nothing the map draws can cover it.)
+  const organBtns = switcher ? ORGAN_WORDS.map(([id, label]) => h('button', { type: 'button', class: 'ps-btn', 'data-organ': id, 'aria-pressed': String(id === organ), onclick: () => setOrgan(id, true) }, label)) : [];
+  const seg = switcher ? h('div', { class: 'pressure-switch fs-organ', role: 'group', 'aria-label': 'Organ', style: { position: 'relative', zIndex: '2', flex: 'none', minHeight: '30px' } }, organBtns) : null;
   // (The switch is the pane's own row above this view, as the Scope view / Wall switch is: dock.js puts it there, so the view's rules
   // that give the map the height left never squeeze it under the map.)
   const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, switcher ? key : null);   // (a slide's card has its own words: no key)

@@ -27,8 +27,9 @@ test('the meal chart draws its words at 12 px at least (the card does not zoom i
 test('the FibroScan probe turns steeper beside the left edge, flatter below the top edge, and its card check uses the same angle', () => {
   assert.match(css, /\.scan-probe \.sp-svg \{[^}]*rotate\(var\(--sp-turn, 45deg\)\)/);
   assert.match(stage, /function scanTurn\(tx, y = Infinity\)/);
-  assert.match(stage, /while \(deg > 10 && !scanTopOk\(y, deg\) && scanBodyLeftOk\(tx, deg - 5\)\) deg -= 5;/);
-  assert.match(stage, /const q = scanBody\(tip\.tx, tip\.y, scan\.deg\);/);   // (the head's check takes the body's box at the probe's own angle)
+  assert.match(stage, /while \(deg > 10 && !scanTopOk\(y, deg\) && sideOk\(scanBodyLeftOk, tx, deg - 5\)\) deg -= 5;/);
+  assert.match(stage, /const q = scanBody\(tip\.tx, tip\.y, scanR\(\) \? 180 - scan\.deg : scan\.deg\);/);   // (the head's check takes the body's box at the probe's own angle: the spleen's turned past the upright)
+  assert.match(stage, /const sideOk = \(ok, tx, d\) => \(scanR\(\) \? ok\(stageBox\(\)\.width - tx, d\) : ok\(tx, d\)\);/);   // (the spleen's probe, up to its right, keeps off the right edge the same way)
 });
 
 test('figure labels keep off the teaching card\'s glass', () => {

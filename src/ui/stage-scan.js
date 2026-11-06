@@ -18,9 +18,13 @@ export function createScan(st, live) {
   // line. Screen-space, at the liver's outline. Each tap (three a second) sends one shear wavefront: a soft arc that spreads and fades as
   // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
-  // (organ: 'liver', or 'spleen' for the spleen probe (the FibroScan card's Spleen exam): the tip sits on the spleen's upper pole, and the
-  // waves' speed and the reading follow the spleen stiffness, metrics.ssm.)
-  const scan = { on: false, organ: 'liver', el: null, raf: 0, deg: 45, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, leaving: false, headAt: 0 };   // k: the stiffness the callout shows, eased
+  // (organ: 'liver', or 'spleen' for the spleen probe (the FibroScan card's Spleen exam): the tip sits on the spleen's upper outer edge, the
+  // probe on its right, firing from the upper right down to the lower left (the 45° turned to 135°), in the spleen map's violet; the waves'
+  // speed follows the spleen stiffness, metrics.ssm. Mohammad, 6 Nov 2026. Its body's screen shows no number there: the head is only turned,
+  // never mirrored (label-gl.js), so a reading turned 135° would stand upside down; the card shows the number. Switching organ fades the
+  // probe out where it was and in at the other organ, never a jump.)
+  const scan = { on: false, organ: 'liver', el: null, raf: 0, deg: 45, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, leaving: false, headAt: 0, swap: 0 };
+  const scanR = () => scan.organ === 'spleen';   // (the probe on the organ's right, turned past the upright: the spleen's)   // k: the stiffness the callout shows, eased
   const SCAN_EDGE = 8, SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
   // (The probe's numbers for the GPU layer that draws it, one kept record, eased where its classes and turn are set: scan-ease.js, L3 P9.)
   const scanRec = createScanRec();
@@ -75,7 +79,7 @@ export function createScan(st, live) {
   function scanHead() {
     const tip = scan.el && scanTipLocal();
     if (!tip) return;
-    const q = scanBody(tip.tx, tip.y, scan.deg);   // (the same four corners: 92 px back along the axis, 13 px either side)
+    const q = scanBody(tip.tx, tip.y, scanR() ? 180 - scan.deg : scan.deg);   // (the same four corners: 92 px back along the axis, 13 px either side)
     let hit = false;
     for (const r of scanLook('head')) if (r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0) { hit = true; break; }
     scan.el.classList.toggle('head-off', hit);
@@ -149,8 +153,8 @@ export function createScan(st, live) {
       const p = live.CTM.a * wx + live.CTM.c * wy + live.CTM.e - live.wrapRect.left, q = live.CTM.b * wx + live.CTM.d * wy + live.CTM.f - live.wrapRect.top;
       if (p < l) l = p; if (p > r) r = p; if (q < t) t = q; if (q > b) b = q;
     }
-    // (The spleen's: on its upper pole, a third in from its inner edge, aimed down into the pulp.)
-    if (spl) { SCAN_AT.tx = l + (r - l) * 0.3; SCAN_AT.y = t + (b - t) * 0.1; } else { SCAN_AT.tx = l + (r - l) * 0.13; SCAN_AT.y = t + (b - t) * 0.09; }
+    // (The spleen's: on its upper outer edge, aimed down and in, to the lower left, into the pulp.)
+    if (spl) { SCAN_AT.tx = l + (r - l) * 0.8; SCAN_AT.y = t + (b - t) * 0.16; } else { SCAN_AT.tx = l + (r - l) * 0.13; SCAN_AT.y = t + (b - t) * 0.09; }
     return SCAN_AT;
   }
   // The probe's reading is the FibroScan card's own number (fibroscan.js writes it in its frame, with its rounding) while a card
@@ -191,18 +195,20 @@ export function createScan(st, live) {
   const scanLeftOk = (tx, d) => tx - 92 * Math.cos(d * Math.PI / 180) - 13 * Math.sin(d * Math.PI / 180) >= SCAN_EDGE;
   const scanTopOk = (y, d) => y - 76 * Math.sin(d * Math.PI / 180) - 13.8 * Math.cos(d * Math.PI / 180) >= 4;
   const scanBodyLeftOk = (tx, d) => tx - 76 * Math.cos(d * Math.PI / 180) - 13.8 * Math.sin(d * Math.PI / 180) >= 4;   // (only the body must stay on screen; the cable is a short stub)
+  // (The spleen's probe lies up and to the right of its tip: the same tests against the stage's right edge, by the tip's distance from it.)
+  const sideOk = (ok, tx, d) => (scanR() ? ok(stageBox().width - tx, d) : ok(tx, d));
   function scanClear(cards, tx, y, d) {
     if (!cards.length) return true;
-    const q = scanBody(tx, y, d);
+    const q = scanBody(tx, y, scanR() ? 180 - d : d);
     for (const b of cards) if (b.x0 < q.x1 && b.x1 > q.x0 && b.y0 < q.y1 && b.y1 > q.y0) return false;
     return true;
   }
   const SCAN_DEG = [];   // (the turn's text for each whole degree, made once)
-  for (let i = 0; i <= 90; i++) SCAN_DEG.push(`${i}deg`);
+  for (let i = 0; i <= 180; i++) SCAN_DEG.push(`${i}deg`);
   function scanTurn(tx, y = Infinity) {
     let deg = 45;
-    while (deg < 80 && !scanLeftOk(tx, deg)) deg += 5;
-    if (scanLeftOk(tx, deg)) while (deg > 10 && !scanTopOk(y, deg) && scanBodyLeftOk(tx, deg - 5)) deg -= 5;
+    while (deg < 80 && !sideOk(scanLeftOk, tx, deg)) deg += 5;
+    if (sideOk(scanLeftOk, tx, deg)) while (deg > 10 && !scanTopOk(y, deg) && sideOk(scanBodyLeftOk, tx, deg - 5)) deg -= 5;
     // (Where a slide's card (its glass, the deck tab included) comes within one margin of the probe's body, the probe turns, nearest
     // first, to an angle that keeps its body and reading clear of every card and on screen; with none, it stays and its head fades
     // under the card (scanHead): 17 Oct design review, the probe lay on the teaching card's tab.)
@@ -211,13 +217,14 @@ export function createScan(st, live) {
       // (The nearest angle that is clear, the larger one of two as far away; found by comparing, no list made.)
       let best = -1, bestD = Infinity;
       for (let d = 10; d <= 80; d += 5) {
-        if (d === deg || !scanBodyLeftOk(tx, d) || !scanTopOk(y, d) || !scanClear(cards, tx, y, d)) continue;
+        if (d === deg || !sideOk(scanBodyLeftOk, tx, d) || !scanTopOk(y, d) || !scanClear(cards, tx, y, d)) continue;
         const gap = Math.abs(d - deg);
         if (gap < bestD || (gap === bestD && d > best)) { bestD = gap; best = d; }
       }
       if (best >= 0) deg = best;
     }
-    if (deg !== scan.deg) { scan.deg = deg; scan.el.style.setProperty('--sp-turn', SCAN_DEG[deg]); scanEase('ang', deg * Math.PI / 180, D_SURFACE); }
+    const turn = scanR() ? 180 - deg : deg;   // (the spleen's: the same tilt below the level, from the other side)
+    if (deg !== scan.deg || turn !== scan.turn) { scan.deg = deg; scan.turn = turn; scan.el.style.setProperty('--sp-turn', SCAN_DEG[turn]); scanEase('ang', turn * Math.PI / 180, D_SURFACE); }
     // (The cable stays a short stub behind the body at every angle: laid flatter it used to run on to the screen's edge, a long
     // straight wire across the stage and under the cards, 18 Oct.)
   }
@@ -244,7 +251,11 @@ export function createScan(st, live) {
       // The probe's model: plain elements carrying its shapes' numbers (x, y, width, height, rx, d; the beam's gradient and stops), styled
       // by app.css, from which label-gl.js reads its look and draws it on the GPU over the labels. Nothing of it is drawn by the page: no
       // SVG (1 Nov 2026: nothing off the GPU). The rects and the reading take their boxes too, for what keeps clear of the probe's body.
-      late('add', sites.el, el); scan.el = el; scan.deg = 45; scanRecReset(scanRec, el);
+      if (scanR()) {   // (the spleen's probe: the map's violet (tokens.css --fibroscan-spleen), and no number on its turned screen)
+        el.style.setProperty('--fibroscan', 'var(--fibroscan-spleen)');
+        for (const t of el.querySelectorAll('.sp-val, .sp-unit')) t.style.fill = 'none';
+      }
+      late('add', sites.el, el); scan.el = el; scan.deg = 45; scan.turn = null; scanRecReset(scanRec, el);
       live.labelGL?.setScan(scanRec);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)
       const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx, t0.y);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
       nextFrame(scanShown);   // (its first look at cath-pre is this frame's own style pass: no layout forced for the fade)
@@ -266,7 +277,21 @@ export function createScan(st, live) {
   function setScanProbe(on, organ = 'liver') {
     const o = organ === 'spleen' ? 'spleen' : 'liver';
     if (scan.on === !!on && (!on || scan.organ === o)) return;
-    if (on && scan.on) { scan.organ = o; scan.k = null; scanLvD = ''; scanPaint(); return; }
+    if (on && scan.on) {
+      // (The other organ: this probe fades out where it is, then a new one is made at the other organ and fades in there, so it never
+      // jumps across the figure; its waves hold still while it fades. A switch back inside the fade is the newest that counts.)
+      const el = scan.el, gen = ++scan.swap;
+      scan.organ = o; scan.k = null; scanLvD = '';
+      scan.el = null; scan.packs = null; scan.fronts = []; scan.v = 0; scan.next = 0; scan.nextTap = 0;
+      if (scan.raf) { cancelFrame(scan.raf); scan.raf = 0; }
+      if (el) { el.classList.add('cath-pre'); scanOp(); }
+      stageScope.timer(() => {
+        if (el) { dropLabel(el); el.remove(); }
+        if (scan.swap !== gen) return;
+        if (scan.on && !scan.el) scanPaint(); else if (!scan.el) live.labelGL?.setScan(null);
+      }, D_SURFACE + 40);
+      return;
+    }
     if (on) scan.organ = o;
     scan.on = !!on;
     if (on) { scan.leaving = false; refreshCTM(); scanPaint(); return; }
