@@ -4,7 +4,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { scopeStates, overScope, curveSteps, curveSeries, xKeyOf, axisMeta, xDomain, xCutsOf, yCutsOf, zoneEdge, dotsOf, dotSteps, ringAt, drawnLines, againstsOf, againstOf, ownIsRef, curveAt, patientOf, onCurve, readingName } from '../src/ui/tool-curve.js';
+import { scopeStates, overScope, curveSteps, curveSeries, xKeyOf, axisMeta, xDomain, xCutsOf, yCutsOf, zoneEdge, dotsOf, dotSteps, ringAt, drawnLines, againstsOf, againstOf, ownIsRef, curveAt, patientOf, onCurve, readingName, lineMeta } from '../src/ui/tool-curve.js';
 
 async function seq(steps, base = null) {
   const out = [];
@@ -160,4 +160,12 @@ test('a curve over the scope\'s air: the varix seen and the pressure across its 
   const s = curveSeries(t, st);
   assert.deepEqual([s.xs[0], s.xs.at(-1)], [0, 20]);
   assert.deepEqual(axisMeta(t), { name: 'Air in the esophagus', unit: 'mmHg', d: 0, x: 1 });
+});
+
+test('the HVPG and the platelets are two clearly different colours, and neither is a cut-off line\'s', () => {
+  const h = lineMeta('hvpg', 0), p = lineMeta('plt', 1);
+  assert.equal(h.c, '--s7', 'the HVPG stays violet, as everywhere else');
+  assert.equal(p.c, '--tr-ivc', 'the platelets are cyan: blue beside violet read as one colour (deuteranopia ΔE 4)');
+  assert.notEqual(p.c, '--tr-hv');
+  assert.ok(![p.c, h.c].some((c) => ['--caution', '--danger'].includes(c)), 'the amber and coral cut-off lines keep their colours to themselves');
 });
