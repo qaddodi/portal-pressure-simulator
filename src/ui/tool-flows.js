@@ -78,10 +78,14 @@ export function routeFlows(Q, params = null) {
   return { by, custom, inflow };
 }
 
+// A route the bar names already keeps its name against one that is only a little larger (KEEP_NAMED ×): two routes of about
+// the same flow on either side of the fourth place never trade places with Other as the model wobbles.
+export const KEEP_NAMED = 1.25;
 /** The bar's parts for a fingerprint: [{ id, name, tone, pct }] in whole percents adding up to 100, the liver's part
  *  100 less the Shunted tile; at most MAX_ROUTES routes by name, the rest (and any custom shunt) as Other; a part that
- *  rounds to 0 is left out. of: 'inflow' → the liver's inflow, portal and arterial. null without the flows. */
-export function flowParts(fp, of = 'portal', params = null) {
+ *  rounds to 0 is left out. of: 'inflow' → the liver's inflow, portal and arterial. null without the flows. keep: the
+ *  route ids the bar names now (a Set), which hold their place in the four by KEEP_NAMED. */
+export function flowParts(fp, of = 'portal', params = null, keep = null) {
   const Q = fp?.at?.Q;
   if (!Q) return null;
   if (of === 'inflow') {
@@ -91,7 +95,8 @@ export function flowParts(fp, of = 'portal', params = null) {
   }
   const { liver, shunt } = portalSplit(fp.shunt);
   const { by, custom } = routeFlows(Q, params);
-  const ranked = ROUTES.filter(([k]) => by[k] > 0).sort((a, b) => by[b[0]] - by[a[0]]);
+  const rank = (k) => by[k] * (keep?.has(k) ? KEEP_NAMED : 1);
+  const ranked = ROUTES.filter(([k]) => by[k] > 0).sort((a, b) => rank(b[0]) - rank(a[0]));
   const named = ranked.slice(0, MAX_ROUTES), rest = ranked.slice(MAX_ROUTES).reduce((s, [k]) => s + by[k], 0) + custom;
   const order = ROUTES.filter((r) => named.includes(r));   // (named in one order; barOrder lays them out largest first)
   const pct = wholeShares([...order.map(([k]) => by[k]), rest], shunt);
@@ -120,6 +125,24 @@ export function flowView(parts, of = 'portal') {
   return { bar, bracket: ['Bypassing the liver', 100 - (parts.find((p) => p.id === 'liver')?.pct ?? 0)] };
 }
 
+// The card holds still while the model wobbles (Mohammad, 6 Nov 2026: "this card is glitching because lots of its content is changing"): a
+// live model's readings come every 150 ms for up to a minute after a slide lands or a button is pressed, and each one that moved a share by
+// a whole percent laid the bar out again (a 14↔15 flip, a name on its segment one reading and in a pill under the bar the next). A new split
+// that moves no part by more than HOLD_PP percent is held back: the bar keeps what it shows, and takes the newest split once the readings
+// have rested HOLD_MS, so it always lands on the slide's own numbers. A larger move is taken at once.
+export const HOLD_PP = 1, HOLD_MS = 600;
+/** Whether split b moves no part of split a (by id; a part missing counts 0) by more than pp whole percents. */
+export function smallMove(a, b, pp = HOLD_PP) {
+  if (!a || !b) return false;
+  const m = new Map();
+  for (const p of a) m.set(p.id, p.pct);
+  for (const p of b) { if (Math.abs(p.pct - (m.get(p.id) || 0)) > pp) return false; m.delete(p.id); }
+  for (const v of m.values()) if (v > pp) return false;
+  return true;
+}
+// A part's words keep their place on the bar until it no longer holds them by the label rule; they move onto the bar (out of a pill, or
+// from the percent alone to the name too) only with TIER_BAND × f to spare, so a segment at the edge of fitting never swaps them each reading.
+export const TIER_BAND = 0.35;
 // The label rule: a name never comes nearer than this to another name, a line, a segment's edge or the bar (px).
 export const LABEL_GAP = 4;
 /** Whether two splits read the same: the same parts with the same whole percents, in any order (what the card shows, so a
@@ -160,14 +183,17 @@ export function inflowMarker(hParts, w, f, measure) {
  *  3: one line above the bar (a leader at lead), its box centred on cx; 4: nothing (no clear place). On the segment (tiers 0 to 2)
  *  the words sit g inside its edges and mc from the Healthy line, as near the segment's middle as that allows. → [{ id, tier, cx,
  *  lead, text, tw }] in the spans' order. */
-export function inflowLabels(spans, w, geo, measure, mark = null) {
+export function inflowLabels(spans, w, geo, measure, mark = null, prev = null) {
   const { f, g, mc } = geo, E = 1e-6;
   return spans.map((s) => {
     const full = INFLOW.find(([k]) => k === s.id)[1], short = INFLOW_SHORT[s.id], v = `${s.pct}%`, vw = measure(v, f, 700), mid = (s.a + s.b) / 2;
     const wid = [Math.max(measure(full, f, 500), vw), Math.max(measure(short, f, 500), vw), vw];
     const free = mark && mark.x > s.a + 0.5 && mark.x < s.b - 0.5 ? [[s.a, mark.x - mc], [mark.x + mc, s.b]] : [[s.a, s.b]];
+    const was = prev?.[s.id];
     for (let tier = 0; tier < 3; tier++) {
-      const fit = free.filter(([a, b]) => b - a - 2 * g >= wid[tier] - E)
+      // (prev: the tiers shown now; a wording nearer the bar than the one shown needs TIER_BAND to spare)
+      const band = was != null && tier < was ? TIER_BAND * f : 0;
+      const fit = free.filter(([a, b]) => b - a - 2 * g - band >= wid[tier] - E)
         .map(([a, b]) => ({ cx: Math.min(Math.max(mid, a + g + wid[tier] / 2), b - g - wid[tier] / 2) }));
       if (fit.length) return { id: s.id, tier, cx: fit.sort((p, q) => Math.abs(p.cx - mid) - Math.abs(q.cx - mid))[0].cx };
     }
@@ -228,24 +254,25 @@ export function routeMarker(hParts, w, f, measure) {
  *  each one's tier (0: name and percent on it, 2: its percent alone, 3: a pill under the bar), the pills' places, the rows they take
  *  and whether the card holds them (ok), the Healthy bracket, and the top offset that centres the drawing in the card. measure(text,
  *  f, weight) → px. parts is what the bar then shows (smaller routes joined to Other where the rows were not enough). */
-export function routeLayout(parts, w, hh, f, measure, hParts = null) {
-  let use = parts, lay = routeOnce(use, w, hh, f, measure, hParts);
+export function routeLayout(parts, w, hh, f, measure, hParts = null, prev = null) {
+  let use = parts, lay = routeOnce(use, w, hh, f, measure, hParts, prev);
   while (!lay.ok) {
     const routes = barOrder(use).filter((p) => p.id !== 'liver' && p.id !== 'other');
     if (routes.length < 2) break;
     const small = routes.at(-1), o = use.find((p) => p.id === 'other');
     use = [...use.filter((p) => p !== small && p !== o), { id: OTHER[0], name: OTHER[1], tone: OTHER[2], pct: (o?.pct || 0) + small.pct }];
-    lay = routeOnce(use, w, hh, f, measure, hParts);
+    lay = routeOnce(use, w, hh, f, measure, hParts, prev);
   }
   return { ...lay, parts: use };
 }
-function routeOnce(parts, w, hh, f, measure, hParts) {
+// (prev: { id: tier } the bar shows now, or null for a fresh layout. A wording nearer the bar than the one shown needs TIER_BAND × f to spare.)
+function routeOnce(parts, w, hh, f, measure, hParts, prev = null) {
   const geo = routeGeo(f), g = geo.g;
   let acc = 0;
   const spans = barOrder(parts).map((p) => { const a = (acc / 100) * w; acc += p.pct; return { id: p.id, name: p.name, pct: p.pct, a, b: (acc / 100) * w }; });
   const tiers = spans.map((s) => {
-    const room = s.b - s.a - 2 * g, pw = measure(`${s.pct}%`, f, 700);
-    return Math.max(measure(s.name, f, 500), pw) <= room ? 0 : pw <= room ? 2 : 3;
+    const room = s.b - s.a - 2 * g, pw = measure(`${s.pct}%`, f, 700), was = prev?.[s.id], band = (t) => (was != null && t < was ? TIER_BAND * f : 0);
+    return Math.max(measure(s.name, f, 500), pw) <= room - band(0) ? 0 : pw <= room - band(2) ? 2 : 3;
   });
   // (A segment that carries its percent alone is named in a pill under the bar too, its name only: a bare "14%" on a green segment
   // left the reader to guess the route, Circuit slide 7.)
@@ -278,6 +305,8 @@ export function createFlowsTool() {
   const reduceMQ = reduceMotionMQ;
   const clip = `pfl-clip-${++uid}`;
   let of = 'portal', params = null, goal = null, hGoal = null, ctx0 = null, raf = 0, size = '', memo = null, wait = 0;
+  // (held: a split that moved too little to show yet, taken once the readings rest, HOLD_MS; tiersNow: each part's wording on the bar now)
+  let held = null, holdT = 0, tiersNow = null;
   // What a frame eases and draws, kept (made when the model is built): each part's numbers (x, pct, op, lx, row, hop) in shownP, the bar's
   // (top, hop) in shownM, each part's wording and its strength while it swaps for another in tierP; hasShown: they hold a state.
   let ids = PORTAL_IDS, shownP = {}, shownM = { top: 0, hop: 0 }, tierP = {}, hasShown = false;
@@ -295,7 +324,7 @@ export function createFlowsTool() {
   const resetShown = () => {
     hasShown = false; ids = order(); shownP = {}; tierP = {};
     for (const id of ids) { shownP[id] = { x: 0, pct: 0, lx: 0, row: 0, op: 0, hop: 0 }; tierP[id] = { init: false, drawn: 4, o: 1 }; }
-    shownM.top = 0; shownM.hop = 0;
+    shownM.top = 0; shownM.hop = 0; tiersNow = null;
   };
   resetShown();
   // The layout the shares are heading for (computed once per goal and size, between frames: the name search is not per frame).
@@ -306,8 +335,9 @@ export function createFlowsTool() {
     const pk = (ps) => (ps || []).map((p) => `${p.id}:${p.pct}`).join(',');
     const [w, hh, f] = sizeNow(), key = `portal|${Math.round(w)}|${Math.round(hh)}|${f}|${pk(goal)}|${pk(hGoal)}`;
     if (memo?.key === key) return memo;
-    const lay = routeLayout(goal, w, hh, f, textW, hGoal);
+    const lay = routeLayout(goal, w, hh, f, textW, hGoal, tiersNow);
     const at = Object.fromEntries(lay.spans.map((s, i) => [s.id, [s, lay.tiers[i], lay.pills.find((p) => p.id === s.id)]]));
+    tiersNow = Object.fromEntries(lay.spans.map((s, i) => [s.id, lay.tiers[i]]));
     const want = {};
     for (const id of ids) {
       const [s, t, pill] = at[id] || [], o = hasShown ? shownP[id] : null, first = id === ids[0];
@@ -327,7 +357,8 @@ export function createFlowsTool() {
     const [w, hh, f] = sizeNow(), key = `inflow|${Math.round(w)}|${Math.round(hh)}|${f}|${pk(goal)}|${pk(hGoal)}`;
     if (memo?.key === key) return memo;
     const geo = inflowGeo(f), mark = inflowMarker(hGoal, w, f, textW), spans = inflowSpans(barOrder(goal, 'inflow'), w);
-    const labs = inflowLabels(spans, w, geo, textW, mark), at = Object.fromEntries(spans.map((s, i) => [s.id, [s, labs[i]]]));
+    const labs = inflowLabels(spans, w, geo, textW, mark, tiersNow), at = Object.fromEntries(spans.map((s, i) => [s.id, [s, labs[i]]]));
+    tiersNow = Object.fromEntries(spans.map((s, i) => [s.id, labs[i].tier]));
     const want = {};
     ids.forEach((id, i) => {
       const [s, l] = at[id] || [], o = hasShown ? shownP[id] : null;
@@ -549,8 +580,17 @@ export function createFlowsTool() {
     if (!done) raf = frame(tick, 'tool-flows');
   }
   function aim(fp) {
-    const p = flowParts(fp, of, params);
+    const named = goal && of !== 'inflow' ? new Set(goal.filter((x) => x.id !== 'liver' && x.id !== 'other').map((x) => x.id)) : null;
+    const p = flowParts(fp, of, params, named);
     if (!p) return;
+    // (A split that moves no part by more than HOLD_PP waits, the newest kept, until the readings rest: the bar never flips on a wobble.)
+    clearTimeout(holdT); holdT = 0; held = null;
+    if (goal && hasShown && memo && smallMove(goal, p)) {
+      if (sameShares(goal, p)) return;
+      held = p;
+      holdT = setTimeout(() => { holdT = 0; const h = held; held = null; if (h && el.isConnected !== false) { goal = h; retarget(); if (!raf) raf = frame(tick, 'tool-flows'); } }, HOLD_MS);
+      return;
+    }
     goal = p;
     healthyNow();
     if (!box) { if (!measuring) measuring = restPass(() => { measuring = 0; measureBox(); retarget(); if (goal && !raf) raf = frame(tick, 'tool-flows'); }); return; }
@@ -585,6 +625,6 @@ export function createFlowsTool() {
     },
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     clear() {},
-    dispose() { if (raf) cancelFrame(raf); raf = 0; cancelRest(measuring); measuring = 0; clearTimeout(wait); wait = 0; gl.dispose(); },
+    dispose() { if (raf) cancelFrame(raf); raf = 0; cancelRest(measuring); measuring = 0; clearTimeout(wait); wait = 0; clearTimeout(holdT); holdT = 0; held = null; gl.dispose(); },
   };
 }
