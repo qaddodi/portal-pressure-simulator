@@ -4461,6 +4461,9 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 
 /* The Tests card's pull (dock-sheet.js): every part of the pane is placed by the finger, frame by frame, so none of them eases on its own meanwhile. */
 #app .instrument-workspace.sheet-grow .dock-pane.active * { transition: none; }
+/* (and each chart's GPU picture sits at its box's corner: drawn at the in-between size in a box laid out at Full, a centring margin
+   (the shapes rule below) put it down and in by half the room left, the FibroScan map out of line with its box) */
+#app .instrument-workspace.sheet-grow .dock-pane.active .chart-box > canvas { margin: 0; }
 
 /* Findings: what has been changed, with its value; a tap on × takes it back. */
 .chg-list { display: flex; flex-direction: column; }

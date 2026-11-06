@@ -110,7 +110,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
         continue;
       }
       // (An item: the part, the one it rides in, its two places, its shift at Half, what it is, and what it wore before the pull.)
-      const it = { el: c, par, a, b, dx: lx, dy: ly, kind: 'move', clip: false, rad: 0, cv: null, cx: 0, cy: 0, still: false, was: [c.style.translate, c.style.opacity, c.style.clipPath] };   // alloc-rare: once for each part, for each gesture
+      const it = { el: c, par, a, b, dx: lx, dy: ly, kind: 'move', clip: false, rad: 0, cv: null, cx: 0, cy: 0, still: false, moved: false, was: [c.style.translate, c.style.opacity, c.style.clipPath] };   // alloc-rare: once for each part, for each gesture
       if (!a || !(a.w > 0 || a.h > 0)) { it.kind = 'appear'; items.push(it); continue; }
       it.dx = a.x - b.x; it.dy = a.y - b.y; it.still = Math.abs(it.dx) < 0.01 && Math.abs(it.dy) < 0.01;
       const same = Math.abs(a.w - b.w) < 0.5 && Math.abs(a.h - b.h) < 0.5, i = items.length;
@@ -127,7 +127,15 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
         partsIn(c, i, A, B, items, it.dx, it.dy);   // (the words and buttons over a chart keep their own places in it)
         continue;
       }
-      if (same || typeof SVGElement !== 'undefined' && c instanceof SVGElement || !c.firstElementChild) continue;
+      if (same || typeof SVGElement !== 'undefined' && c instanceof SVGElement) continue;
+      // (A part that keeps its shape and only changes size, a picture made of the page's own boxes (the Ascites belly, its dial): drawn whole at
+      // its in-between size, scaled from its corner, what it holds with it. Placing its insides one by one wrote over the belly's own fill as the
+      // model moved it, and cut its round outline square: it flickered.)
+      if (a.w > 0 && a.h > 0 && b.w > 0 && b.h > 0 && Math.abs(a.w / a.h - b.w / b.h) <= 0.02 * (b.w / b.h)) {
+        it.kind = 'scale'; it.was.push(c.style.scale, c.style.transformOrigin); c.style.transformOrigin = '0 0';
+        continue;
+      }
+      if (!c.firstElementChild) continue;
       // (A part that holds others and is laid out at another size: it moves to its in-between corner and what it holds is placed in it; it is cut
       // to its in-between size only where it shows a box of its own.)
       it.kind = 'box'; const cs = readStyle(c); it.clip = painted(cs); it.rad = parseFloat(cs.borderTopLeftRadius) || 0;
@@ -176,7 +184,13 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
       const it = items[i], up = it.par >= 0 ? items[it.par] : null;
       it.cx = it.dx * q; it.cy = it.dy * q;
       const st = it.el.style;
-      if (!(it.still && (!up || up.still))) { const tx = r2(it.cx - (up ? up.cx : 0)), ty = r2(it.cy - (up ? up.cy : 0)); st.translate = tx || ty ? `${tx}px ${ty}px` : it.was[0]; }
+      // (Written only where the part is held off its place, or was: a part whose own translate the page moves (a fill, a needle) and the pull
+      // does not shift is never written over.)
+      if (!(it.still && (!up || up.still))) {
+        const tx = r2(it.cx - (up ? up.cx : 0)), ty = r2(it.cy - (up ? up.cy : 0));
+        if (tx || ty) { st.translate = `${tx}px ${ty}px`; it.moved = true; } else if (it.moved) { st.translate = it.was[0]; it.moved = false; }
+      }
+      if (it.kind === 'scale') st.scale = p < 1 ? String(r2(lerpAt(it.a.w, it.b.w, p) / it.b.w * 1e4) / 1e4) : it.was[3];
       if (it.kind === 'appear') st.opacity = p < 1 ? String(p) : it.was[1];
       if (it.clip) st.clipPath = p < 1 ? clipAt(it.b.w, it.b.h, lerpAt(it.a.w, it.b.w, p), lerpAt(it.a.h, it.b.h, p), it.rad) : it.was[2];
       if (it.cv) for (const [cv, aw, ah, bw, bh] of it.cv) { holdCanvasSize(cv, r2(lerpAt(aw, bw, p)), r2(lerpAt(ah, bh, p))); redrawSized(cv); }
@@ -197,7 +211,8 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     el.classList.remove('sheet-grow');
     for (const it of g.items) {
       const st = it.el.style;
-      st.translate = it.was[0];
+      if (it.moved) st.translate = it.was[0];
+      if (it.kind === 'scale') { st.scale = it.was[3]; st.transformOrigin = it.was[4]; }
       if (it.kind === 'appear') st.opacity = it.was[1];
       if (it.clip) st.clipPath = it.was[2];
       if (it.cv) for (const [cv, aw, ah, bw, bh] of it.cv) releaseCanvasSize(cv, toHalf ? aw : bw, toHalf ? ah : bh);
