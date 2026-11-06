@@ -199,3 +199,11 @@ test('the case card fades on the frame clock, from where it stands, never on a C
   assert.match(src, /c\.classList\.add\('on'\);\s*caseFade\(c, true, ms\);/);
   assert.match(css, /\.pz-case \{[^}]*translate: 0 14px;/);
 });
+
+test('a press that changes slide (the slide list, a number, Back, Home, End) lifts a standing case card first', () => {
+  const go = src.slice(src.indexOf('function go(i) {'), src.indexOf('const goOn = () => {'));
+  const lift = go.indexOf('if (caseCard && !caseCard.lifted) caseGone(caseCard);');
+  assert.ok(lift > 0, 'go() lifts the card');
+  assert.ok(lift < go.indexOf('turn = '), 'before the move is set up');
+  assert.ok(lift < go.indexOf('if (zoomOn())'), 'and before the zoomed-card branch returns');
+});

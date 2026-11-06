@@ -1931,6 +1931,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     dispatchEvent(new Event('pps:go'));   // (the ?perf readout's slide-change window; nothing listens otherwise)
     ink?.clear();   // (N2: the pen's strokes belong to the slide they were drawn on)
     ui?.scope?.close();   // (the scope view shuts as the slide turns, not when the next one lands; Mohammad 6 Nov 2026)
+    // (A case or question card standing is lifted by the press, as a tap would: a pick from the slide list, a typed number, Back, Home or End
+    // must go to the slide asked for. The new slide's change waits for the card's lift (caseLifted, caseEnd), so with the card left standing it
+    // waited for a swipe that never came. Mohammad, 6 Nov 2026: "i click slide selector and switch to a different slide it doesn't obey".)
+    if (caseCard && !caseCard.lifted) caseGone(caseCard);
     turn = i === want + 1 || firstBeat ? 'next' : i === want - 1 ? 'back' : 'jump';   // (the slide before or after, by whatever key or button: a turn; further: a jump)
     want = clamp(i, 0, slides.length - 1);
     const tx = (txn = txns.begin({ to: want, dir: turn }));
