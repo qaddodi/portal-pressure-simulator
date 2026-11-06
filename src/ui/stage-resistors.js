@@ -86,13 +86,26 @@ export function createResistors(st, live) {
   // So the zigzag keeps one shape at every resistance (6 teeth of 9 world units, at least 8 px on screen); the liver's runs on straight leads
   // from one station's dot to the next, its outline just meeting each ring. The resistance shows twice, with s = log2 R (R the ratio to the
   // healthy liver: s 0 at ×1, 1 at ×2, 2 at ×4):
-  //   stroke 2.5 px at ×1, 6.9 px at ×2, 11.3 px at ×4, 13 px from ×5.3 (Mohammad, 6 Nov: "even thicker with more resistance");
+  //   stroke 2.5 px at ×1, 6.9 px at ×2, 11.3 px at ×4, 13 px from ×5.3 (Mohammad, 6 Nov: "even thicker with more resistance"), scaled
+  //   down in proportion where the zoom would let the teeth merge (resWidthFit);
   //   colour along --ok → --caution → --danger: green at ×1, amber at ×2, red from ×4.
   // A solid black outline (3 px each side) keeps it clear of every vessel in either theme, and the vessel under the liver's is veiled by the
   // stage's background (40%), so the symbol stands over it. A resistor the slide's words point at also takes a soft halo of the term's tone.
   const RES_AMP = 9, RES_TEETH = 6, RES_MIN_AMP_PX = 8, RES_OUTLINE = 3, RES_VEIL = 0.4;
   const resLog = (r) => Math.log2(Math.max(0.25, r || 1));
-  const resWidth = (r) => Math.round(clamp(2.5 + 4.4 * resLog(r), 2.5, 13) * 10) / 10;
+  const RES_W0 = 2.5, RES_W1 = 13, RES_WK = 4.4;
+  const resWidth = (r) => Math.round(clamp(RES_W0 + RES_WK * resLog(r), RES_W0, RES_W1) * 10) / 10;
+  // (Mohammad, 6 Nov: "make sure they don't merge into a band".) The widest a zigzag's line may be on screen and still read as teeth: its
+  // parallel strokes (every other one, 2 tooth spacings apart) keep at least 2 px of black between their outlines, and the inside of each V
+  // fills no deeper than 45% of the teeth's height (a round-joined stroke fills a V's tip to (w/2) / sin(its half angle)). len: the zigzag's
+  // length, amp its amplitude (world units), scQ px per unit. Where that caps the line, the whole range is drawn in proportion below it, so
+  // ×2 is still thinner than ×5 at every zoom.
+  function resWidthFit(r, len, amp, scQ) {
+    const sp = len / RES_TEETH, th = Math.atan2(2 * amp, sp);
+    const capV = 1.8 * amp * scQ * Math.cos(th), capP = 2 * sp * Math.sin(th) * scQ - 2 * RES_OUTLINE - 2;
+    const cap = clamp(Math.min(RES_W1, capV, capP), RES_W0, RES_W1), f = clamp(RES_WK * resLog(r) / (RES_W1 - RES_W0), 0, 1);
+    return Math.round((RES_W0 + (cap - RES_W0) * f) * 10) / 10;
+  }
   const resHeat = (r) => Math.round(clamp(resLog(r) / 2, 0, 1) * 20) / 20;
   const BLACK = [0, 0, 0], ramp = new Float64Array(9);   // (the ramp's three tokens' rgb, read in place)
   // The liver's two resistors: each from its lobe's sinusoid inlet to its central vein (the circuit's places of the two stations).
@@ -107,7 +120,7 @@ export function createResistors(st, live) {
     if (!st) { st = { _segs: null, cur: null, d, ratio, lens: [] }; resMade.set(k, st); }   // alloc-rare: a resistor's record, made when it first shows
     // (Sizes kept in screen px are worked out at the scale now stepped a quarter octave, so a zoom rebuilds the record a few times, not each frame.)
     const sc = live.CTM?.sc > 0 ? live.CTM.sc : 1, scQ = 2 ** (Math.round(Math.log2(sc) * 4) / 4);
-    const amp = Math.max(RES_AMP, RES_MIN_AMP_PX / scQ), w = resWidth(ratio), heat = resHeat(ratio);
+    const amp = Math.max(RES_AMP, RES_MIN_AMP_PX / scQ), w = resWidthFit(ratio, d.res === 'liver' ? live.RES_LIVER[2] - live.RES_LIVER[0] : 68, amp, scQ), heat = resHeat(ratio);
     const lens = st.lens;
     lens.length = 0;
     let n = 0, veil = 0;
