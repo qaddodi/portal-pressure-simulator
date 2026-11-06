@@ -15,95 +15,95 @@
 export const TOKENS = {
   light: {
     // surfaces
-    'bg': '#FBFAF7',   // ground: page and figure share the paper
-    'stage-bg': '#FBFAF7',
-    'surface': '#FFFEFB',
-    'surface-2': '#F7F5F0',
-    'surface-3': '#EEEBE4',
-    'glass': 'rgba(255, 254, 251, .94)', 'frost': 'rgba(255, 254, 251, .38)',
-    'scrim': 'rgba(18, 20, 28, .38)',
+    'bg': '#F1EBE0',   // ground: page and figure share the paper
+    'stage-bg': '#F1EBE0',
+    'surface': '#FCF9F3',
+    'surface-2': '#F5F0E6',
+    'surface-3': '#E9E2D4',
+    'glass': 'rgba(252, 249, 243, .92)', 'frost': 'rgba(252, 249, 243, .42)',
+    'scrim': 'rgba(34, 28, 20, .4)',
 
     // lines
-    'hairline': 'rgba(52, 40, 28, .09)',
-    'border': '#E6E1D8',
-    'border-strong': '#CEC7BB',
+    'hairline': 'rgba(70, 52, 30, .10)',
+    'border': '#DDD3C1',
+    'border-strong': '#C2B49C',
 
     // ink
-    'text': '#1A1917',
-    'text-2': '#4E4B46',
-    'text-3': '#67635D',   // ≥ 4.5:1 on every light surface
+    'text': '#1B1710',
+    'text-2': '#463F34',
+    'text-3': '#5A5347',   // ≥ 4.5:1 on every light surface
     'text-inverse': '#FFFFFF',
 
     // accent
-    'brand-bg': '#1A1917',
-    'accent': '#3155D1',
-    'accent-ink': '#2442AE',
-    'accent-soft': 'rgba(49, 85, 209, .09)',
-    'accent-line': 'rgba(49, 85, 209, .32)',
-    'focus': '#3155D1',   // (the accent itself, not a UI kit's stock blue: DG3)
+    'brand-bg': '#1B1710',
+    'accent': '#2E4BB8',
+    'accent-ink': '#243C96',
+    'accent-soft': 'rgba(46, 75, 184, .10)',
+    'accent-line': 'rgba(46, 75, 184, .34)',
+    'focus': '#2E4BB8',   // (the accent itself, not a UI kit's stock blue: DG3)
 
     // status (always paired with a label or icon)
-    'ok': '#178A63',
-    'caution': '#C98A0E',
-    'danger': '#D2452F',
-    'critical': '#8B1A10',
-    'info': '#3155D1',
+    'ok': '#157A58',
+    'caution': '#B07A0A',
+    'danger': '#C23F2A',
+    'critical': '#85190F',
+    'info': '#2E4BB8',
     'disease': '#8A3FB5',   // a disease name in a teaching card (pz-dz)
 
     // flow semantics
     'flow-normal': '#16988F',
     'flow-reversed': '#EC7424',
     // anatomy plate: tissue tones [light face, shaded face, outline], muted so vessels lead
-    'og-liver-1': '#E9C3B6', 'og-liver-2': '#C98E7E', 'og-liver-3': '#9A5D4F',
-    'og-stomach-1': '#F4D9CF', 'og-stomach-2': '#DDAC9C', 'og-stomach-3': '#A87464',
-    'og-eso-1': '#F0D2C6', 'og-eso-2': '#D9A898', 'og-eso-3': '#A5766A',
-    'og-spleen-1': '#D8BDD0', 'og-spleen-2': '#A9829D', 'og-spleen-3': '#7A566F',
-    'og-panc-1': '#F5E3BA', 'og-panc-2': '#DDBF86', 'og-panc-3': '#A88A52',
-    'og-kidney-1': '#DDB0C6', 'og-kidney-2': '#A86C8E', 'og-kidney-3': '#6E3E5C',
-    'og-gb-1': '#D6E0B4', 'og-gb-2': '#A5B87E', 'og-gb-3': '#6F8450',
-    'og-gut-1': '#F5DDD0', 'og-gut-2': '#E1B8A5', 'og-gut-3': '#AC8470',
-    'og-heart-1': '#EDB8B0', 'og-heart-2': '#CC8479', 'og-heart-3': '#97554D',
-    'og-ra-1': '#E4A69F', 'og-ra-2': '#C27268', 'og-ra-3': '#8C4A43',
-    'og-light': 'rgba(255, 255, 255, .55)', 'og-dark': 'rgba(60, 22, 18, .22)', 'og-ao': 'rgba(70, 40, 30, .09)',
+    'og-liver-1': '#e3b8a7', 'og-liver-2': '#c6826d', 'og-liver-3': '#97513e',
+    'og-stomach-1': '#edcec2', 'og-stomach-2': '#d9a08c', 'og-stomach-3': '#a46854',
+    'og-eso-1': '#eac7b8', 'og-eso-2': '#d59c88', 'og-eso-3': '#a16b5b',
+    'og-spleen-1': '#d2b2c7', 'og-spleen-2': '#a57695', 'og-spleen-3': '#754b67',
+    'og-panc-1': '#edd9a8', 'og-panc-2': '#d6b570', 'og-panc-3': '#a1803a',
+    'og-kidney-1': '#d9a4bc', 'og-kidney-2': '#a55e85', 'og-kidney-3': '#6a3154',
+    'og-gb-1': '#cad8a4', 'og-gb-2': '#98b16d', 'og-gb-3': '#627d40',
+    'og-gut-1': '#eed2c2', 'og-gut-2': '#dcad95', 'og-gut-3': '#a77960',
+    'og-heart-1': '#e9aca1', 'og-heart-2': '#ca7768', 'og-heart-3': '#94483d',
+    'og-ra-1': '#e1998f', 'og-ra-2': '#c06456', 'og-ra-3': '#893c33',
+    'og-light': 'rgba(255, 255, 255, .55)', 'og-dark': 'rgba(60, 22, 18, .26)', 'og-ao': 'rgba(70, 40, 30, .09)',
     // the gut's lit strip (organ picks, 20 Oct): the light tone mixed in by --og-light's own strength (x .4), as a solid colour
     'og-hi': 'rgb(255 255 255)', 'og-hi-k': '22%', 'gut-rim-k': '64%',
     // the gut's see-through strength (colon, small bowel, duodenum)
-    'gut-a': '.55',   // as strong as the other organs (.55): at .28 it was too close to the background (Mohammad, 20 Oct)
+    'gut-a': '.66',   // as strong as the other organs (.55): at .28 it was too close to the background (Mohammad, 20 Oct)
     // the congested liver's nutmeg (organ picks, 20 Oct: "even dusk", faintest islands): an even dusky tone, pale islands
     'lv-cong-base': '#6E1F38', 'lv-cong-base-a': '.44', 'lv-cong-isl': '#E3C0A0', 'lv-cong-isl-a': '.11',
-    'knockout': 'rgba(251, 250, 247, .75)',
-    'organ-body': '#EFE8DF',
-    'organ-body-line': '#D9CEC0',
-    'organ-liver': '#946658',
-    'organ-spleen': '#80697F',
-    'organ-gut': '#AE8F7E',
-    'organ-stomach': '#AB857A',
-    'organ-heart': '#A06469',
-    'organ-kidney': '#8E6A82',
+    'knockout': 'rgba(241, 235, 224, .75)',
+    'organ-body': '#E8DFD0',
+    'organ-body-line': '#CFC1AA',
+    'organ-liver': '#905b49',
+    'organ-spleen': '#7a5f78',
+    'organ-gut': '#a88570',
+    'organ-stomach': '#a67a6c',
+    'organ-heart': '#9d575c',
+    'organ-kidney': '#895f7a',
     'organ-lung': '#AFC0D2',
-    'organ-pancreas': '#B09E78',
-    'organ-gb': '#849077',
-    'organ-aorta': '#B7A7A3',
-    'organ-a': '.3',
+    'organ-pancreas': '#a89567',
+    'organ-gb': '#79886b',
+    'organ-aorta': '#b09d98',
+    'organ-a': '.44',
     'organ-tint': '18%',
-    'diaphragm': '#8E7566',
-    'artery': '#C8414D',
-    'casing-rgb': '30 24 40', 'casing-a': '.56', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))',
-    'ascites': '#E6D28E', 'ascites-a': '.34',   // a faint pale-straw wash, translucent so the organs read through
-    'stage-grid': 'rgba(80, 70, 60, .06)',
-    'leader': 'rgba(40, 42, 52, .42)',
+    'diaphragm': '#886b59',
+    'artery': '#c91f36',
+    'casing-rgb': '30 24 40', 'casing-a': '.64', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))',
+    'ascites': '#E0C677', 'ascites-a': '.4',   // a faint pale-straw wash, translucent so the organs read through
+    'stage-grid': 'rgba(100, 72, 36, .06)',
+    'leader': 'rgba(44, 38, 30, .5)',
     'vein-portal': 'var(--tour-portal)',
     'vein-systemic': 'var(--tour-sys)',
     'arrow-ink': 'rgba(24, 26, 34, .78)',
-    'label-halo': 'rgba(251, 250, 247, .92)',
-    'label-panel': 'rgba(251, 250, 247, .72)',   // a reading's panel on the figure: the paper itself at 72 %, the halo does the separating (looks review F8); dark: the ground
+    'label-halo': 'rgba(241, 235, 224, .92)',
+    'label-panel': 'rgba(241, 235, 224, .74)',   // a reading's panel on the figure: the paper itself at 72 %, the halo does the separating (looks review F8); dark: the ground
     'doppler': '#22C38E',
     'dop-glow': '#1F2433',   // the Doppler's vessel glow, beam and probe light on the figure (white on the dark themes): 19 Oct, the green read as "normal"
     'vel-ink': '45%',   // a stent point's number: how much of its velocity colour, the rest the text's (4.5:1 at least on the light stage)
 
     // rendering: organ lighting, vessel tubes, background plane, circuit map
     'shadow-rgb': '46 22 34', 'shadow-a': '.15', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))',
-    'tube-shade': '.2', 'tube-sheen': '.42',
+    'tube-shade': '.24', 'tube-sheen': '.42',
     'organ-cast': 'rgba(80, 44, 40, .15)',
     'tex-a': '.11', 'lit-hi': '.4', 'lit-lo': '.13',
     'spine': 'rgba(124, 150, 255, .09)', 'map-dot': 'rgba(160, 182, 255, .11)',
@@ -111,11 +111,11 @@ export const TOKENS = {
     'stent-metal': '#667285', 'stent-marker': '#545D6C', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // chart series (validated categorical order, light)
     's1': '#2a78d6', 's2': '#eb6834', 's3': '#1baf7a', 's4': '#eda100', 's5': '#e87ba4', 's6': '#008300', 's7': '#4a3aa7', 's8': '#e34948',
-    'grid': '#E6E4DD',
+    'grid': '#E2DACB',
     // pressure-over-time traces: the plate's own vessel hues (portal magenta, wedged orchid,
     // hepatic blue), then quieter inks for the rest
-    'tr-pv': '#B01E62', 'tr-wedge': '#A52DA9', 'tr-hv': '#2A78D6', 'tr-ra': '#5B6270', 'tr-ivc': '#1F9BB0', 'tr-var': '#E0632E', 'tr-cav': '#6E8F1F', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#7D8AA0',
-    'axis': '#C6C2B8',
+    'tr-pv': '#B01E62', 'tr-wedge': '#A52DA9', 'tr-hv': '#2A78D6', 'tr-ra': '#5B6270', 'tr-ivc': '#059bae', 'tr-var': '#ee5d26', 'tr-cav': '#7a933f', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#9a5505',
+    'axis': '#B9AE98',
     'shadow-menu': 'calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / .1), calc(1px * var(--light-slant)) 1px 3px rgb(var(--shadow-rgb) / .06)',
     'shadow-dialog': 'calc(18px * var(--light-slant)) 18px 48px rgb(var(--shadow-rgb) / .16), calc(4px * var(--light-slant)) 4px 12px rgb(var(--shadow-rgb) / .08)',
     'shadow-1': '0 0 0 1px var(--hairline)',
@@ -182,6 +182,22 @@ export const TOKENS = {
     'label-halo': 'rgba(236, 228, 214, .9)', 'label-panel': 'rgba(236, 228, 214, .72)',
     // data card tiles and the FibroScan panel share one warm cream with a warm edge
     'tile-bg': 'rgba(251, 247, 240, .72)', 'tile-edge': 'rgba(110, 82, 46, .12)', 'inst-panel': '#F8F2E8',
+    // (Light became Linen on 6 Nov; Soft keeps the Light values it was built on until it is redone: 57 tokens pinned)
+    'focus': '#3155D1', 'info': '#3155D1', 'knockout': 'rgba(251, 250, 247, .75)', 'organ-body': '#EFE8DF',
+    'organ-body-line': '#D9CEC0', 'organ-a': '.3', 'casing-a': '.56', 'tube-shade': '.2',
+    'leader': 'rgba(40, 42, 52, .42)', 'grid': '#E6E4DD', 'axis': '#C6C2B8', 'og-dark': 'rgba(60, 22, 18, .22)',
+    'og-liver-1': '#E9C3B6', 'og-liver-2': '#C98E7E', 'og-liver-3': '#9A5D4F', 'og-stomach-1': '#F4D9CF',
+    'og-stomach-2': '#DDAC9C', 'og-stomach-3': '#A87464', 'og-eso-1': '#F0D2C6', 'og-eso-2': '#D9A898',
+    'og-eso-3': '#A5766A', 'og-spleen-1': '#D8BDD0', 'og-spleen-2': '#A9829D', 'og-spleen-3': '#7A566F',
+    'og-panc-1': '#F5E3BA', 'og-panc-2': '#DDBF86', 'og-panc-3': '#A88A52', 'og-kidney-1': '#DDB0C6',
+    'og-kidney-2': '#A86C8E', 'og-kidney-3': '#6E3E5C', 'og-gb-1': '#D6E0B4', 'og-gb-2': '#A5B87E',
+    'og-gb-3': '#6F8450', 'og-gut-1': '#F5DDD0', 'og-gut-2': '#E1B8A5', 'og-gut-3': '#AC8470',
+    'og-heart-1': '#EDB8B0', 'og-heart-2': '#CC8479', 'og-heart-3': '#97554D', 'og-ra-1': '#E4A69F',
+    'og-ra-2': '#C27268', 'og-ra-3': '#8C4A43', 'organ-liver': '#946658', 'organ-spleen': '#80697F',
+    'organ-gut': '#AE8F7E', 'organ-stomach': '#AB857A', 'organ-heart': '#A06469', 'organ-kidney': '#8E6A82',
+    'organ-pancreas': '#B09E78', 'organ-gb': '#849077', 'organ-aorta': '#B7A7A3', 'diaphragm': '#8E7566',
+    'artery': '#C8414D', 'tr-ivc': '#1F9BB0', 'tr-var': '#E0632E', 'tr-cav': '#6E8F1F',
+    'tr-scler': '#7D8AA0',
     'color-scheme': 'light',
   },
   dark: {
@@ -237,6 +253,8 @@ export const TOKENS = {
     'pze-ok-ink': 'var(--text)', 'pze-mid-ink': 'var(--text)', 'pze-hi-ink': 'var(--text)',
     'pze-ppg': 'color-mix(in srgb, var(--tr-hv) 45%, var(--black))', 'pze-hvpg': 'color-mix(in srgb, var(--ramp-violet) 55%, var(--black))', 'pze-both': 'color-mix(in srgb, var(--ramp-wine) 55%, var(--black))',
     'pze-ppg-ink': 'var(--text)', 'pze-hvpg-ink': 'var(--text)', 'pze-both-ink': 'var(--text)',
+    // (Light became Linen on 6 Nov; Dark keeps the Light values it was built on: 1 tokens pinned)
+    'gut-a': '.55',
     'color-scheme': 'dark',
   },
   // Two more dark looks (Settings > Appearance: Navy and Black). A look like this is a variant of Dark, not a theme of its own: the page

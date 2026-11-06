@@ -7,7 +7,7 @@
   <meta name="author" content="Mohammad Almeqdadi, MD" />
   <meta name="copyright" content="&copy; 2026 Mohammad Almeqdadi, MD" />
   <meta name="description" content="An interactive, physics-based simulator of the portal circulation for medical education: collaterals, varices, flow reversal, HVPG, TIPS and more." />
-  <meta name="theme-color" content="#FBFAF7" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#F1EBE0" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#1A1917" media="(prefers-color-scheme: dark)" />
   <link rel="icon" href="brand/mark.svg" type="image/svg+xml" />
   <link rel="icon" href="brand/icon-32.png" sizes="32x32" type="image/png" />
@@ -28,7 +28,7 @@
   <link rel="stylesheet" href="styles/icons.css" />
   <link rel="stylesheet" href="styles/app.css" />
   <style>
-    #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; overflow-y: auto; background: var(--bg, #FBFAF7); transition: opacity var(--d-surface) var(--ease), visibility var(--d-surface); animation: boot-failsafe .01s 20s forwards; }
+    #boot { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; height: 100lvh; z-index: 2147483647; display: grid; place-items: center; overflow-y: auto; background: var(--bg, #F1EBE0); transition: opacity var(--d-surface) var(--ease), visibility var(--d-surface); animation: boot-failsafe .01s 20s forwards; }
     /* The last word, in CSS so it needs no script: if nothing has lifted the cover after 20 s (a script that never ran, a page whose
        scripts are stuck), the cover goes and the figure shows anyway. The script's own fallback lifts it at 15 s; a card that says
        why the app could not start (.failed) stays. */
@@ -83,7 +83,7 @@ w.ppsBootFail=function(){if(ready()||failed)return;show('The simulator couldn’
 if(w.ppsBootErrors&&w.ppsBootErrors.some(function(m){return/SyntaxError/.test(m)}))w.ppsBootFail();
 function oldNote(){if(!w.ppsOldBrowser)return;try{if(sessionStorage.getItem('pps.oldNote'))return;sessionStorage.setItem('pps.oldNote','1')}catch(e){}var n=document.createElement('div');n.className='old-browser-note';n.setAttribute('role','status');n.innerHTML='<span>This browser is older than the simulator expects, so some panels may look off. A current Chrome, Edge or Safari works best.</span><button type="button" aria-label="Dismiss">×</button>';n.lastChild.onclick=function(){n.remove()};document.body.appendChild(n)}
 var lifting=false;function lift(){if(lifting||w.ppsUnsupported)return;failed=false;lifting=true;setTimeout(settle,Math.max(0,MIN-performance.now()))}function settle(){var t0=performance.now(),gone=false;function go(){if(!gone){gone=true;hide()}}setTimeout(go,4000);function calm(){var last=performance.now(),since=last;function f(t){if(gone)return;if(t-last>50)since=t;last=t;if(t-since>=400||t-t0>3500)go();else requestAnimationFrame(f)}requestAnimationFrame(f)}function holds(){var hs=(w.ppsHold||[]).splice(0);if(!hs.length||!w.Promise||performance.now()-t0>2500)return calm();Promise.all(hs.map(function(p){return Promise.resolve(p).then(null,function(){})})).then(function(){setTimeout(holds,0)})}holds()}function wait(){if(ready())lift();else requestAnimationFrame(wait)}addEventListener('load',function(){requestAnimationFrame(wait)});addEventListener('pps:figure-ready',lift);setTimeout(function(){if(failed||lifting||w.ppsRecovering)return;if(ready())lift();else if(w.ppsBootErrors&&w.ppsBootErrors.length)w.ppsBootFail();else hide()},15000);(function(){var named=false;function n(){var b=boot();if(named||!b)return;named=true;b.classList.add('named')}try{document.fonts.load('600 20px "Source Serif 4"').then(n,n)}catch(e){n()}setTimeout(n,900)})()})();</script>
-  <noscript><div style="position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#FBFAF7;font:15px/1.5 system-ui,Arial,sans-serif;padding:16px"><p style="max-width:480px">The Portal Pressure Simulator needs JavaScript, which is turned off in this browser. Please turn it on, or open the simulator in a current Chrome, Edge, Safari or Firefox.</p></div></noscript>
+  <noscript><div style="position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:#F1EBE0;font:15px/1.5 system-ui,Arial,sans-serif;padding:16px"><p style="max-width:480px">The Portal Pressure Simulator needs JavaScript, which is turned off in this browser. Please turn it on, or open the simulator in a current Chrome, Edge, Safari or Firefox.</p></div></noscript>
   <!-- Icon set: 24px grid, 1.6px stroke, round caps (blueprint §5.6). -->
 
   <div class="app" id="app">

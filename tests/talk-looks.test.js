@@ -16,7 +16,7 @@ test('each entry resolves in every look and state with no missing token', () => 
 });
 test('the cascade winners: gridlines, the HVPG lane, the band, the value, the axis name', () => {
   assert.deepEqual([P('plot.grid.line', { cut: true }).dash, P('plot.grid.line', { cut: true }).width], [[4, 5], 1.5]);
-  assert.equal(P('plot.grid.line', { cut: true, rate: 'hi' }).stroke, '#D2452F', 'a rating beats the plain tint');
+  assert.equal(P('plot.grid.line', { cut: true, rate: 'hi' }).stroke, '#C23F2A', 'a rating beats the plain tint');
   assert.match(P('plot.grid.line', { cut: false }).stroke, /^color\(srgb /, 'a plain gridline in the talk is the strong border at 70 %');
   assert.equal(P('plot.grid.line', { cut: true }, ctx({ in: 'cell' })).width, 1, 'in a row card\'s cell the width is max(1 px, .075 em), over the cut-off\'s 1.5');
   assert.equal(P('plot.grid.line', { cut: true }, ctx({ in: 'cell', layout: 'stack' })).width, 1.5, 'a stacked card keeps it');
