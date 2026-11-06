@@ -354,7 +354,7 @@ test('the readings come out and tuck away under a zoomed card, the zoom fitted a
   assert.match(js, /words\.u = f; words\.trav = trav; setWords\(wordsAt\(\)\); zoomFollow\(f, trav\); \};/);
   assert.match(js, /const zoomFolds = \(\) => zoomSteady\(\) && slip\.lift - slip\.base > 0\.5;/);
   assert.match(js, /ui\.zoom\.follow\(\(f - zoomU0\) \* \(trav - LIP\), \(f - zoomU0\) \* trav\);/);
-  assert.match(js, /zoomU0 = underU\(ui\.data\);\n {4}if \(z\.open\(focus === .text. \? \{ main: \[ui\.text, ui\.shade\] \} : undefined\)\) paintZoom\(\);/);
+  assert.match(js, /zoomU0 = underU\(ui\.data\);\n(?: {4}\/\/.*\n)* {4}if \(z\.open\(focus === .text. \? \{ main: \[ui\.text, ui\.shade\], scrim: \[ui\.zscrim, ui\.fscrim\] \} : undefined\)\) paintZoom\(\);/);
   // (A pull on a zoomed card follows the finger over the readings' travel as it is seen: the card is larger, so the finger moves less of it.)
   assert.match(js, /g\.zk = zoomOn\(\) \? ui\.zoom\.scale : 1;/);
   assert.match(js, /foldFollow\(g, dy \* g\.dir \/ \(g\.zk \|\| 1\)\);/);

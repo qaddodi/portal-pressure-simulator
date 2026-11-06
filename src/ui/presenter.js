@@ -3974,7 +3974,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (!zoomReady()) return;
     }
     zoomU0 = underU(ui.data);
-    if (z.open(focus === 'text' ? { main: [ui.text, ui.shade] } : undefined)) paintZoom();
+    // (The teaching card's glass, the shade, stands at the figure's level, under the page's veil: framed, it is veiled by fscrim, laid under the
+    // shade, and the page's veil (zscrim) is clear and only takes the tap back (app.css .pz-fscrim). Its glass is then as bright as the data card's
+    // zoomed: Mohammad, 6 Nov 2026, "the teaching card zoomed in has more darkness and less glass than when we zoom in to the data card".)
+    if (z.open(focus === 'text' ? { main: [ui.text, ui.shade], scrim: [ui.zscrim, ui.fscrim] } : undefined)) paintZoom();
   }
   // (focus 'text': a tap on the teaching card frames and centres it, the data card riding along; otherwise the data card is the one framed.)
   function zoomToggle(focus) { if (!ui) return; if (ui.zoom.up) ui.zoom.close().then(paintZoom); else zoomOpen(focus); }
@@ -5909,6 +5912,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (A cell of the six ladders zoomed to the middle (cellOpen): the page behind the panel is dimmed by this veil, the panel's own by the one in its grid.
     // The scale is read at the element: a cell sits in the panel's fit zoom, which the card does not.)
     const pscrim = h('div', { class: 'pz-pscrim', 'aria-hidden': 'true', onclick: () => zoom.close().then(paintZoom) });
+    // (The veil for the teaching card zoomed as the main card: at the figure's level, just under its glass (the shade), zoomOpen.)
+    const fscrim = h('div', { class: 'pz-fscrim', 'aria-hidden': 'true' });
     const zoom = createCardZoom({ card: data, along: [lip], scrim: zscrim, app, area: () => readBox(wrap),
       scale: (el) => (el && el !== data && readMetric(el, 'offsetWidth') ? readBox(el).width / readMetric(el, 'offsetWidth') : readBox(wrap).width / (readMetric(wrap, 'clientWidth') || 1)) || 1,
       reduce: () => reduce.matches, boost: setCanvasBoost, hold: zoomCredit, settled: zoomSettled,
@@ -5922,6 +5927,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     root.classList.add('pz-throw'); shade.classList.add('pz-throw');   // (Next and Back throw the cards: app.css .pz-throw)
     veil.after(pscrim);   // (above the page's veil, under everything else)
     wrap.insertBefore(shade, wrap.querySelector('.stage-credit'));
+    shade.before(fscrim);
     // The teaching card's glass is the card itself: it leaves and arrives with the words, never resizing in view.
     // (Except while the words turn over on it (pz-turn, glassTurn): then the glass stays and only the words go.)
     const shadeMO = new MutationObserver(() => shade.classList.toggle('pz-leave', text.classList.contains('pz-leave') && !shade.classList.contains('pz-turn')));
@@ -5939,7 +5945,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens.)
     // alloc-rare: a card is built or tapped open: once per tap, not per frame
     const glass = stage.glass?.add(() => [shade, data, vcase, bar, scl, fk], { watch: [root, shade], before: shade, low: (e) => e === shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
-    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, zscrim, fscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
@@ -6102,7 +6108,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (pageHeld) { clearTimeout(pageHeld.t); pageHeld = null; }
     pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui = null; app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     insets.reset();   // (and a room held through the last slide change is never written back after the talk: inset-hold.js)
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)

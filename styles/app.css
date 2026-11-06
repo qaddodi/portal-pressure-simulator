@@ -5971,6 +5971,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz-zscrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 58%, transparent); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-surface) var(--ease); }
 .pz-zscrim.on { opacity: 1; pointer-events: auto; }
 .pz .pz-text.pz-zmain { z-index: 2; }   /* (the teaching card zoomed as the main card stands above the veil, as the data card does; it is dimmed by nothing) */
+/* (Its glass, the shade, stands at the figure's level, under the page's veil: framed, the veil is fscrim, laid just under the shade, and the page's veil is clear,
+   only taking the tap back. The card's glass is then as bright as the data card's: Mohammad, 6 Nov 2026. presenter.js zoomOpen.) */
+.pz-fscrim { position: absolute; inset: 0; z-index: var(--z-figure); background: color-mix(in srgb, var(--stage-bg) 58%, transparent); opacity: 0; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
+.pz-fscrim.on { opacity: 1; }
+.pz .pz-text.pz-zmain ~ .pz-zscrim, .pz-cam .pz-fscrim { background: none; }
 .pz-cam .pz-zscrim { background: none; transition: none; }
 .pz-zbtn { display: none; }
 .pz.pz-wide .pz-data.pz-zoomable { cursor: zoom-in; }
