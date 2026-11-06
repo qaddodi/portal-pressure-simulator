@@ -87,8 +87,8 @@ test('G10: a bleed is a steady stream from the tear to a pool in the stomach, wi
   // A gastric varix: the thread falls straight from the fundus.
   const gt = bleedShapes({ site: 'GV', total: 500 }, 90, SITES)[1];
   assert.ok(Math.abs(gt[2] - gt[0]) < 5 && gt[3] > gt[1], 'straight down');
-  // The scope's own bleed keeps its beat (endo-bleed.js reads bleedPulse).
-  assert.ok(Math.abs(bleedPulse(0.3, 60) - bleedPulse(1.3, 60)) < 1e-9 && Math.abs(bleedPulse(0.15, 120) - bleedPulse(0.65, 120)) < 1e-9);
+  // The scope's bleed is steady too, no beat in it (Mohammad 6 Nov 2026: "it should stop pulsing everywhere").
+  for (const hr of [60, 80, 120]) for (const t of [0, 0.13, 0.3, 0.71, 1.3]) assert.equal(bleedPulse(t, hr), bleedPulse(0, 80));
 });
 
 test('the stomach lumen: rows read off its outline, a pool that fills it from the bottom, the shader reads the same rows', () => {

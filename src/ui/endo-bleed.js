@@ -1,6 +1,6 @@
 // An active variceal bleed as the scope sees it, drawn over the cached endoscopic field each frame (instruments.js).
 // The view is down a horizontal tube, so blood behaves as it does there. The tear sits on the crest of a varix column: a wet red
-// spot that swells with each heartbeat, staining the mucosa round it, and spurts into the lumen (a slow bleed oozes), drops thrown
+// spot (steady: no heartbeat in it, Mohammad 6 Nov 2026), staining the mucosa round it, and spurts into the lumen (a slow bleed oozes), drops thrown
 // off the jet and falling. Blood on the wall runs down it round the tube as a rivulet that widens as it goes, over a soft stain;
 // blood that settles lies flat, so the pool is the wedge between the two lines where its surface meets the wall, running toward
 // the dark centre, its far end fading into the dark, its edges uneven and thin and see-through, widening as it fills, with the
@@ -193,7 +193,7 @@ export function drawScopeBleed(ctx, o) {
     ctx.globalAlpha = a * al * 0.9; ctx.lineWidth = Math.max(1.5, 2 * r * R);
     ctx.beginPath(); ctx.moveTo(X - vx * 0.02 * R, Y - vy * 0.02 * R); ctx.lineTo(X, Y); ctx.stroke();
   }
-  // The tear: the mucosa stained round it, and the wet spot itself, swelling on each beat.
+  // The tear: the mucosa stained round it, and the wet spot itself, at one steady size.
   const sr = R * (0.07 + 0.02 * p);
   ctx.globalAlpha = a * 0.8; stain(ctx, jx, jy, sr);
   ctx.globalAlpha = a;

@@ -640,9 +640,10 @@ export const fadeBleedShapesInto = (out, shapes, a) => {
   return out;
 };
 
-const frac = (x) => ((x % 1) + 1) % 1;
-// The heartbeat's surge at time t: a sharp systolic peak over a quieter flow between beats, periodic and smooth.
-export const bleedPulse = (t, hr = 80) => 0.25 + 0.75 * Math.max(0, Math.cos(2 * Math.PI * (frac((t * Math.min(160, Math.max(45, hr || 80))) / 60) - 0.12))) ** 4;
+// The bleed's strength: one steady level, with no beat in it (Mohammad 6 Nov 2026: "it should stop pulsing everywhere"; the figure's
+// stream is steady, a256916, and the scope's tear, jet and drops now are too). t and hr are kept so callers read the same.
+export const BLEED_STEADY = 0.5;
+export const bleedPulse = (_t, _hr) => BLEED_STEADY;
 // How full the pool is (0..1) for the blood lost so far: a puddle at once, full by 1.5 L (the scope's pool uses it as well).
 export const poolFill = (total) => Math.min(1, Math.max(0.12, Math.sqrt(Math.max(0, total || 0) / 1500)));
 // The share of the stomach's lumen the figure's pool fills at most (the rest is gas and the fundus above the level).

@@ -54,8 +54,8 @@ export function scopePool(fill) {
 export const inScopePool = (x, y, phi) => y > 0 && y >= Math.abs(x) * Math.tan(phi);
 
 // The drops in flight at time t, as [x, y, radius, alpha, vx, vy] in units of R from the tear (y down); `tear` is where the tear is
-// (units of R from the centre). Each is thrown off at its birth into the lumen (toward the axis) as hard as that moment's surge throws
-// it, eases in from nothing and thins to nothing before it is thrown again. `out`: a table to write them into (the rows are kept
+// (units of R from the centre). Each is thrown off at its birth into the lumen (toward the axis) as hard as the steady bleed throws
+// it (no beat: blood.js BLEED_STEADY), eases in from nothing and thins to nothing before it is thrown again. `out`: a table to write them into (the rows are kept
 // and rewritten, so a frame makes none); without one a new table is made (a test's).
 export function scopeDrops(t, rate, hr, tear = scopeTear(), out = null) {
   const k = Math.min(1.6, Math.max(0.6, (rate || 50) / 90)), spurt = smooth(25, 70, rate || 50);
