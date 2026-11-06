@@ -5577,11 +5577,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // lit as the deck started still clears. The bar's wake-on-move listens on the window, so a move over the figure wakes it here.)
   // (A tap on a label no longer explains it: Mohammad, 6 Nov 2026, "remove the feature to click on labels in the deck slides to view more
   // information". A tap on the figure is swallowed like the rest.)
+  let scopeDown = null;
   for (const t of ['pointerdown', 'mousedown', 'mouseup', 'pointerup', 'click', 'dblclick', 'wheel', 'gesturestart',
     'pointermove', 'pointerover', 'pointerout', 'mousemove', 'mouseover', 'mouseout', 'contextmenu', 'selectstart', 'dragstart'])
     wrap.addEventListener(t, (e) => {
       if (!offFig(e)) return;
-      if (t === 'pointermove') wake();
+      if (t === 'pointermove') { wake(); ui?.scope?.hover(e.clientX, e.clientY, e.pointerType); }
+      // The one tap the figure takes in a talk: the scope view's ring (scope-lens.js; Mohammad 6 Nov 2026, "I can't click on the scope
+      // lens icon"). A press that stays put and lifts on the ring opens or shuts its lens; any other press is swallowed as before.
+      else if (t === 'pointerdown') scopeDown = e.isPrimary ? [e.clientX, e.clientY] : null;
+      else if (t === 'pointerup' && scopeDown) { const [x0, y0] = scopeDown; scopeDown = null; if (Math.hypot(e.clientX - x0, e.clientY - y0) < 12) ui?.scope?.tap(e.clientX, e.clientY); }
       if (e.cancelable) e.preventDefault();
       e.stopImmediatePropagation();
     }, { capture: true, passive: false });
@@ -5617,6 +5622,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     else if (lk === 'p') pview.open();   // (N1: the presenter view)
     else if (lk === 'n' || lk === 's') { /* the app's own N and S stay off while presenting */ }
     else if (k === 'F5') { /* a clicker's "start show": never reload the page */ }
+    else if (k === 'Escape' && ui?.scope?.isOpen()) ui.scope.close();   // (an open scope view shuts first)
     else if (k === 'Escape') { if (black) toggleBlack(false); else if (zoomOn()) ui.zoom.close().then(paintZoom); else stop(); }   // (a zoomed card first glides back)
     else used = false;
     if (used) { e.preventDefault(); e.stopImmediatePropagation(); }

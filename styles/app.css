@@ -7492,3 +7492,5 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .pz-lens-x { position: absolute; width: 28px; height: 28px; border-radius: 50%; padding: 0; pointer-events: auto; cursor: pointer; font: 600 17px/1 var(--font-ui, system-ui); color: var(--text); background: var(--surface); border: 1px solid var(--border, currentColor); }
 .pz-lens-x:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: 2px; }
 .pz-lens-cap { position: absolute; transform: translateX(-50%); white-space: nowrap; font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text); text-shadow: 0 0 3px var(--label-halo), 0 0 2px var(--label-halo); pointer-events: none; }
+/* (The pointer over the scope view's ring, in a talk: a hand, scope-lens.js hover.) */
+.pz-lens-hand #stageView, .pz-lens-hand #stageView svg, .pz-lens-hand #stageView path { cursor: pointer; }

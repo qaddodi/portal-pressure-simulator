@@ -47,6 +47,13 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
     if (isOpen) close(); else open();
     return true;
   }
+  // (The pointer over the ring, by a mouse: the figure's cursor turns to a hand, written only when that changes.)
+  let hand = false;
+  function hover(cx, cy, kind) {
+    const ring = kind === 'mouse' && want && has && !dead ? stage.scopeRingAt?.() : null;
+    const on = !!ring && ringHit(cx - ring.ox, cy - ring.oy, ring);
+    if (on !== hand) { hand = on; (root.parentElement || root).classList.toggle('pz-lens-hand', on); }
+  }
   function moved() {
     if (!isOpen || dead) return;
     // (Hidden at once, by its opacity alone: the one write a move may make; it is laid again, or hidden for good, once the figure is still.)
@@ -186,11 +193,16 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
     /** Whether the lens is open (the tests, a keyboard close). */
     isOpen: () => isOpen,
     close,
+    /** A tap (client px) in a talk, where the figure takes no other: true when it was on the ring. */
+    tap,
+    /** The pointer moving over the figure (client px, its kind): a hand over the ring. */
+    hover,
     dispose() {
       if (dead) return;
       close();
       dead = true;
       stage.setScopeRing(false, false);
+      (root.parentElement || root).classList.remove('pz-lens-hand');
       stage.onScopeView?.(null, null);
       offView?.(); offVx?.(); offVx = null;
       words.dispose?.();
