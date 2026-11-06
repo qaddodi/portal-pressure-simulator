@@ -23,20 +23,6 @@ test('a path\'s box is kept by its element: unchanged d is not parsed again, a c
   assert.doesNotMatch(src('shape-gl.js'), /BOX_D\.clear\(\)/);
 });
 
-test('the noise table\'s GPU fill hashes as noiseBlock does: the same octaves, seeds and lattice offsets', async () => {
-  const { NOISE_FS, createNoiseFiller } = await import('../src/ui/noise-gl.js');
-  const { OCTAVES, NOISE_W, NOISE_H, NOISE_PER_ROW } = await import('../src/ui/blood-noise.js');
-  for (const o of OCTAVES) {
-    assert.match(NOISE_FS, new RegExp(`id \\* ${o.mul}u \\+ ${o.add}u`));
-    assert.ok(NOISE_FS.includes(String(o.period)) && NOISE_FS.includes(String(o.rows)));
-  }
-  for (const k of ['0x7feb352du', '0x846ca68bu', '73856093u', '19349663u', '0xffffffu', '16777216.0', '+ 4096', `/ ${NOISE_W}`, `/ ${NOISE_H}`, `* ${NOISE_PER_ROW}`]) assert.ok(NOISE_FS.includes(k), k);
-  // (No float target: no filler, the table is filled in script as before.)
-  assert.equal(createNoiseFiller({ isContextLost: () => false, getExtension: () => null }), null);
-  assert.equal(createNoiseFiller(null), null);
-  assert.match(src('veins-gl.js'), /noiseGPU\.fill\(noiseTex, noiseW, noiseH\)/);
-});
-
 test('start-up jobs: one pass over the joins a task, idle-gated; the lobule\'s binning goes to the worker', () => {
   const st = stageSource();
   assert.match(src('vein-joins.js'), /function nearCourse\(pts, q, lim\)/);

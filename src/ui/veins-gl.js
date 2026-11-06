@@ -49,8 +49,6 @@ import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-g
 import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js';
 import { warmFade } from './res-fade-gl.js';
 import { fusedVS, fusedFS } from './veins-fuse.js';
-import { NOISE_W, NOISE_H, NOISE_PER_ROW, OCTAVES, noiseBlock, blockAt, tableSize } from './blood-noise.js';
-import { createNoiseFiller } from './noise-gl.js';
 import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
@@ -1151,9 +1149,8 @@ uniform int warmOn;
 uniform int bloodOnly;                // 1: a frame where only the blood moved (composite): a pixel with no lumen is left as drawn
 flat in vec4 zoomA;                    // the zoom's numbers for the streaks, worked out per vertex (ZOOM_VS)
 flat in vec3 zoomB;
-uniform highp sampler2D noiseT;        // the streak noise's lattice corners, a block per vessel (blood-noise.js)
-uniform int bloodStyle;                // 2: blood style E (blood-tile.js eNoise): the same streaks from sines, no texture read. 1: blood style D (blood-tile.js): the streaks from the baked tile, which then sits on the noise unit; 0: the lattice
-uniform int noiseOn;                   // 1: the table is there (every row the streaks draw in filled before its flow goes up)
+uniform highp sampler2D noiseT;        // blood style D's baked tile (blood-tile.js)
+uniform int bloodStyle;                // 2: blood style E (blood-tile.js eNoise): the same streaks from sines, no texture read. 1: blood style D (blood-tile.js): the streaks from the baked tile, which then sits on the noise unit; (style D until its tile is baked: style E)
 uniform int stillOn;                   // 1: the uniforms are the last picture's; flow column FLOW_TEXELS says which rows moved since
 out vec4 outColor;
 
@@ -1192,46 +1189,10 @@ vec4 mapAt(vec2 w) {
   }
   return c * mapA;
 }
-// Value noise along a periodic lattice (period cells), smooth across, for the streaks: its cell's four corners read from the vessel's
-// block of noiseT (o: the octave's first texel there; yo, ny: the lattice row of the block's row 0, negated, and the block's rows):
-// the corner hashes to the bit (blood-noise.js builds them with the shader's hash). Outside the block, hashed here.
-float vnoiseT(vec2 q, uint seed, int period, ivec2 o, int yo, int ny) {
-  vec2 i = floor(q), f = fract(q);
-  f = f * f * (3.0 - 2.0 * f);
-  int x0 = int(i.x) % period; if (x0 < 0) x0 += period;
-  int cy = int(i.y) + yo;
-  vec4 k;
-  if (noiseOn == 1 && cy >= 0 && cy < ny) k = texelFetch(noiseT, o + ivec2(x0, cy), 0);
-  else {
-    int x1 = (x0 + 1) % period;
-    uint y0 = uint(int(i.y) + 4096), y1 = y0 + 1u;
-    k = vec4(h01(seed ^ (uint(x0) * 73856093u) ^ (y0 * 19349663u)), h01(seed ^ (uint(x1) * 73856093u) ^ (y0 * 19349663u)),
-      h01(seed ^ (uint(x0) * 73856093u) ^ (y1 * 19349663u)), h01(seed ^ (uint(x1) * 73856093u) ^ (y1 * 19349663u)));
-  }
-  return mix(mix(k.x, k.y, f.x), mix(k.z, k.w, f.x), f.y);
-}
-
 // The octaves' shares of the shimmer's noise (0.62 coarse, 0.38 fine), set per vessel by bloodAt: with the streaks' length following the
 // vessel's speed (lenOn) the fine octave's share falls toward 0 for a fast vessel (its streaks run long) and rises for a slow one (short
 // dashes), and lnS evens the spread (lnS 1: as always). Only the shares change, never a coordinate, so nothing in a streak moves for it.
 float lnWb = 0.62, lnWf = 0.38, lnS = 1.0;
-// The shimmer's noise at one parcel scale sx (its slot): two lane speeds blended by t, the fine octave
-// faded out where it would fall under a pixel and a half (replaced by its mean, so the level holds).
-// (bs: how many times shorter the cells are along this lumen than along the stream they are drawn from: 1 for a vessel's own,
-// |B| for a stream carried on into it (createStreamChain), so the fine octave fades where its cells fall under a pixel here.)
-float shimN(int id, float s, float qy, float D, float k0, float t, float sx, float drift, float fw, float bs) {
-  float period = 256.0 * sx, cellA = 5.12 * sx;   // 50 cells a period: the noise wraps with the stream
-  int per = 50;
-  vec2 qa = vec2((s - mod(D * k0 / 8.0, period)) / cellA + drift, qy);
-  vec2 qb = vec2((s - mod(D * (k0 + 1.0) / 8.0, period)) / cellA + drift, qy);
-  uint sd0 = uint(id) * 31u, sd1 = uint(id) * 57u + 11u;
-  bool fine = fw > 0.0 && lnWf > 0.0;
-  ivec2 o0 = ivec2((id % ${NOISE_PER_ROW}) * ${NOISE_W} + ${OCTAVES[0].x}, (id / ${NOISE_PER_ROW}) * ${NOISE_H}), o1 = o0 + ivec2(${OCTAVES[1].x - OCTAVES[0].x}, 0);
-  float na = t < 1.0 ? lnWb * vnoiseT(qa, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + lnWf * (fine ? mix(0.5, vnoiseT(qa * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
-  float nb = t > 0.0 ? lnWb * vnoiseT(qb, sd0, per, o0, ${OCTAVES[0].yo}, ${OCTAVES[0].rows}) + lnWf * (fine ? mix(0.5, vnoiseT(qb * vec2(2.0, 1.7) + vec2(0.0, 7.3), sd1, per * 2, o1, ${OCTAVES[1].yo}, ${OCTAVES[1].rows}), fw) : 0.5) : 0.0;
-  float nm = mix(na, nb, t);
-  return lnS == 1.0 ? nm : 0.5 + (nm - 0.5) * lnS;
-}
 ${D_GLSL}
 ${E_GLSL}
 // The caliber at arc length s, interpolated between its samples (not the nearest one), so nothing scaled by it steps along the vessel.
@@ -1313,19 +1274,6 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
       float nc = eNoise(rid, se, qy, ch5.x, ay, cellD, ch5.y, pxc * bs);
       nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
     }
-  } else {
-  if (cw < 1.0) {
-    nz = shimN(id, s, qy, D, k0, t, sA, drift, zoomB.x, 1.0);
-    if (lf > 0.0) nz = mix(nz, shimN(id, s, qy, D, k0, t, sB, drift, zoomB.y, 1.0), lf);
-  }
-  if (cw > 0.0) {
-    int rid = int(ch4.x + 0.5) - 1;
-    vec2 ch5 = rootDD(rid, texelFetch(flow, ivec2(5, id), 0).xy);
-    float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
-    float nc = shimN(rid, se, qy, ch5.x, k0, t, sA, ch5.y, smoothstep(1.2 * pxW, 2.0 * pxW, 2.56 * sA / bs), bs);
-    if (lf > 0.0) nc = mix(nc, shimN(rid, se, qy, ch5.x, k0, t, sB, ch5.y, smoothstep(1.2 * pxW, 2.0 * pxW, 2.56 * sB / bs), bs), lf);
-    nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
-  }
   }
   float sx = zoomB.z;
   float p = max(min(1.0, flux * sx / (max(abs(vd), 2.0) * sumK)), 0.45 * stasis);
@@ -2598,66 +2546,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, FLOW_TEXELS + 1, nTubes, 0, gl.RGBA, gl.FLOAT, null);
   gl.bindTexture(gl.TEXTURE_2D, dyeTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R16F, DYE_BINS, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(DYE_BINS * nTubes));
-  // The streak noise's lattice (blood-noise.js), for the composite: allocated empty, and each vessel's block filled the first
-  // time its flow says it draws streaks (setFlow), before that flow goes up, so no pixel ever reads a block not yet filled.
-  // About 67 KB a vessel row, sized to the rows the streaks have drawn in so far (a line of 13 blocks at a time) and made again
-  // larger when a row past it needs its block. A table the GPU cannot hold is given up, and the shader hashes the noise as
-  // before (noiseOn 0).
-  // (Filled on the GPU where the context can (noise-gl.js): the whole table in one draw when it is made, so no row's block is hashed in
-  // script, a frame of up to 70 ms headless as the blood began to stream after a load. In script, row by row, as before, while the fill's
-  // program is still compiling or where the context has no float target.)
-  let noiseTex = dataTex(gl), noiseRows = 0, noiseBuf = null, noiseW = 0, noiseH = 0, noiseAll = false;
-  const noiseGPU = noiseTex ? createNoiseFiller(gl) : null;
   // Blood look D's baked tile (blood-tile.js): made on the first frame a view asks for the look, read on the noise unit in those frames.
   let tileGPU = null, tileTried = false, tileNow = null, styleE = false;
-  const noiseDone = new Uint8Array(nTubes);
-  const growNoise = (rows) => {
-    const [W, H] = tableSize(rows);
-    // (Its errors asked of the driver each time, gl-state.js glOkBefore / glOkAfter.)
-    glOkBefore(gl);
-    if (H <= glCap(gl, gl.MAX_TEXTURE_SIZE)) {
-      gl.bindTexture(gl.TEXTURE_2D, noiseTex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, H, 0, gl.RGBA, gl.FLOAT, null);
-      if (glOkAfter(gl)) {
-        noiseRows = Math.min(nTubes, H / NOISE_H * NOISE_PER_ROW); noiseW = W; noiseH = H;
-        noiseAll = !!noiseGPU?.fill(noiseTex, W, H);
-        noiseDone.fill(noiseAll ? 1 : 0);
-        return true;
-      }
-    }
-    console.warn('Veins renderer: no room for the streak noise table; the shader hashes it instead.');
-    gl.deleteTexture(noiseTex); noiseTex = null;
-    return false;
-  };
-  const streams = (data, stride, r) => data[r * stride + 6] > 0;   // (flow texel 1, z: the streaks' strength)
-  // (A row some streaming row draws its pattern from (flow texel 4, x: that root's row + 1; createStreamChain) needs its block too,
-  // drawn itself or not.)
-  const rootOf = new Uint8Array(nTubes);
-  let noiseData = null, noiseStride = 0;   // (the table fillNoise is reading, for needsNoise)
-  const needsNoise = (r) => streams(noiseData, noiseStride, r) || rootOf[r] === 1;
-  const fillNoise = (data, stride) => {
-    rootOf.fill(0);
-    for (let r = 0; r < nTubes; r++) {
-      const q = Math.round(data[r * stride + 16]) - 1;
-      if (q >= 0 && q < nTubes && data[r * stride + 19] > 0 && streams(data, stride, r)) rootOf[q] = 1;
-    }
-    noiseData = data; noiseStride = stride;
-    // (Made larger once for the last row that needs it, if any: every streaming row then filled again.)
-    let top = -1;
-    for (let r = nTubes - 1; r >= noiseRows && top < 0; r--) if (needsNoise(r)) top = r;
-    if (top >= 0 && !growNoise(top + 1)) return;
-    let tried = false;
-    for (let r = 0; r < noiseRows; r++) {
-      if (noiseDone[r] || !needsNoise(r)) continue;
-      // (A row to fill: the whole table on the GPU, if its program is ready by now.)
-      if (!tried && !noiseAll && noiseGPU) { tried = true; if (noiseGPU.fill(noiseTex, noiseW, noiseH)) { noiseAll = true; noiseDone.fill(1); break; } }
-      noiseBuf = noiseBlock(r, noiseBuf || undefined);
-      gl.bindTexture(gl.TEXTURE_2D, noiseTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, ...blockAt(r), NOISE_W, NOISE_H, gl.RGBA, gl.FLOAT, noiseBuf);
-      if (gpuProbe.on) gpuProbe.note('uploaded: noise', noiseBuf.byteLength / 1024);
-      noiseDone[r] = 1;
-    }
-  };
   // Lumens left alone (review/blood-shading-ideas item 7). A lumen pixel is made from its vessels' rows (flow, attributes, radii,
   // curvature, dye), the vessel layer and the composite's uniforms. In the blood's own pass (bloodOnly) the vessel layer is the
   // last picture's wherever that pass draws (a cell drawn again is composited whole first), so where the uniforms are the last
@@ -3567,11 +3457,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     bindUnit(U, 13, warmLayer.tex, 'warmL'); UC.i1(U.warmOn, warm ? 1 : 0);
     bindUnit(U, 12, bendTex, 'bend');
     bindUnit(U, 14, halfUse || baseTex, 'halfL'); UC.i1(U.stackOn, useStack ? 1 : 0);   // (the organ layers share plate1's unit; see COMP_FS)
-    // (Look D: the baked tile takes the noise unit and the lattice table is not read; the frame's `tileNow` is set by composite.)
+    // (Look D: the baked tile on the noise unit, set by composite. Until it is baked the streaks are look E's sines, which read no texture.)
     if (tileNow) bindUnit(U, 15, tileNow, 'noiseT');
-    else if (noiseTex && noiseRows) bindUnit(U, 15, noiseTex, 'noiseT');
-    UC.i1(U.bloodStyle, styleE ? 2 : tileNow ? 1 : 0);
-    UC.i1(U.noiseOn, noiseTex && noiseRows ? 1 : 0);
+    UC.i1(U.bloodStyle, !styleE && tileNow ? 1 : 2);
   }
 
   // ── The optional builds published when the driver has them ready (addendum §10.1) ──
@@ -4013,7 +3901,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (Only the span of rows that differ from the last upload goes up, and nothing while they all match, as when paused:
       // flow-rows.js changedRows. The first upload of this context sends every row.)
       const stride = FLOW_TEXELS * 4;
-      if (noiseTex) fillNoise(data, stride);
       // (Which rows carry blood now: strength (flow texel 1, z) above 0. A lumen of one is drawn again on a frame the blood's clock moved,
       // so "still lumens left alone" can be on while blood flows; composite.)
       for (let r = 0; r < nTubes; r++) bloodRow[r] = data[r * stride + 6] > 0 || data[r * stride + 8] < 0 ? 1 : 0;
@@ -4293,7 +4180,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     composite(look, blood = NOBLOOD, full = false, part = 0) {
       flushRadii();
       compLook = look; compBlood = blood;
-      // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, today's lattice look.)
+      // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, look E's sines.)
       tileNow = null; styleE = blood.style === STYLE_E;   // (look E reads no texture: it needs no bake)
       if (blood.style === STYLE_D) {
         if (!tileTried) { tileTried = true; tileGPU = createBloodTile(gl); }
@@ -4801,13 +4688,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (!lost) {
         useMorphSet(null);
         for (const S of [...morphSets]) dropSet(S);
-        for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, noiseTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
+        for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, oneVAO, bloodVAO, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
         for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP]) if (x) gl.deleteProgram(x.p);
         if (half.tex) { gl.deleteTexture(half.tex); gl.deleteFramebuffer(half.fbo); }
-        over?.dispose(); stack?.dispose(); noiseGPU?.dispose(); tileGPU?.dispose();
+        over?.dispose(); stack?.dispose(); tileGPU?.dispose();
         gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(tintFbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo); gl.deleteFramebuffer(warmLayer.fbo);
         if (own) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); }
         if (rz.tex) { gl.deleteTexture(rz.tex); gl.deleteFramebuffer(rz.fbo); }
