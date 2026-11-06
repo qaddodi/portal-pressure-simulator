@@ -4,7 +4,6 @@ import { EDGES } from '../engine/topology.js';
 import { ABDOMEN_FLOOR, NEEDS_C3, abdomenOutline, cavityHalfWidths, flankPath } from './anatomy.js';
 import { createReversalHold } from './blood.js';
 import { fluidBase, fluidFloorAt, fluidLevel, poolFade } from './fluid-step.js';
-import { createWeep } from './weep.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { fluidSpring, fluidSpringFor } from './organ-ease.js';
 import { createDiaphragm } from './stage-diaphragm.js';
@@ -103,7 +102,6 @@ export function createTransitions(st, live) {
     return q < -Math.max(0.12, 0.02 * Math.abs(ref));
   }
   const st0Ref = (id) => store.get().healthy?.Q?.[EI[id]] ?? 1;
-  const weep = createWeep();   // (the lymph weeping into the pool: weep.js; its look is in fluidLook, below)
   function updateNodesCircuit(f) {
     if (live.morph < 0.02) return;
     for (const d of nodeDots) {
@@ -118,7 +116,7 @@ export function createTransitions(st, live) {
       r.R = Math.abs(q) > 1e-3 ? dp / (q * 0.06) : Infinity;
     }
   }
-  const { easeLiver, updateOrgans } = createDiaphragm({ EI, NI, abdTo, caud, diaCut, drawAscites, weepFeed: weep.feed, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine }, live);
+  const { easeLiver, updateOrgans } = createDiaphragm({ EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine }, live);
   // Ascites collects in the flanks and the pelvis first (supine patient, frontal view), so its
   // surface is a meniscus: highest at the sides, lowest in the middle. The abdominal wall bulges
   // and the bowel floats up on it. A slow ripple runs along the surface while the model runs. On
@@ -129,9 +127,7 @@ export function createTransitions(st, live) {
   // whose wall and bowel follow the bulge, is rasterized once it settles, not at every step on the way (each about 712 KB of SVG and
   // an 8 MB upload, several times per ease). The slow creep of a running model stays within a step, so it never holds the plate.
   const fluidEasing = () => live.ascTarget !== null && Math.abs(clamp(live.ascTarget / 8500, 0, 1) - clamp(live.ascShown / 8500, 0, 1)) * 34 > 0.5;
-  // (wp, wb, wk: the weeping lymph's segments, box and sheen for the GPU, weep.js.)
-  const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false, wp: [0, 0, 0, 0], wb: [0, 0, 0, 0], wk: [0, 0, 0, 0] };
-  const weepSurf = (x) => fluidBase(x, live.fluidH);
+  const fluidLook = { s: [0, 0, 0, 0], ink: [0, 0, 0, 0], ripple: false };
   const abdomenClipEl = defs.querySelector('#abdomenClip path');
   // (The ripple's phase advances with the running model's frames, so it carries on from where it stood after a pause instead of
   // jumping to the wall clock's; round 2 review, B11.)
@@ -143,23 +139,6 @@ export function createTransitions(st, live) {
   // No pool while the readout grades the belly "None"; past that it fades in as it fills and out as it drains, so it never pops.
   const fluidFade = () => poolFade(live.ascShown);
   const fluidCellsBuf = [];
-  // The cells the rippling surface and the weeping lymph's dashes pass through, redrawn each frame on the GPU, and the lymph's table.
-  function fluidCellsRebuild() {
-    live.fluidBandH = live.fluidH;
-    const cells = fluidCellsBuf;
-    cells.length = 0;
-    for (let x = 288; x < 1136; x += 16) {
-      const a = fluidBase(x, live.fluidH), b = fluidBase(x + 16, live.fluidH);
-      const y0 = Math.min(a, b) - live.fluidAmp - 2, y1 = Math.max(a, b) + live.fluidAmp + 10;
-      for (let y = y0; y < y1; y += 16) cells.push(x, y);
-    }
-    weep.cellsInto(cells);
-    live.veins.setFluidCells(new Float32Array(cells));
-    live.veins.setWeep(weep.out.data, weep.n);
-    weep.out.dirty = false;
-  }
-  // The weeping lymph's geometry for the liver and the pool as they stand: true when it changed (weep.js layout).
-  const weepLayout = () => weep.layout(live.liverFloor, live.liverScale, live.fluidH, FLUID_R, FLUID_COLS, weepSurf);
   function drawAscites() {
     const u = clamp(live.ascShown / 8500, 0, 1);
     // The wall and the bowel move in half-unit steps of the bulge, with some hysteresis: each step re-rasterizes the
@@ -196,9 +175,16 @@ export function createTransitions(st, live) {
       live.ascStale = true;
       if (!wrap.classList.contains('gl-on') || Math.abs(live.fluidH - live.ascWroteH) > 0.25 || live.fluidAmp !== live.ascWroteAmp || performance.now() - live.ascWroteAt > 1000) ascitesSvg();
       // The cells the rippling surface (and its light band) passes through, redrawn each frame on the GPU.
-      if (live.veins && !live.veins.lost) {
-        const wMoved = weepLayout();
-        if (wMoved || Math.abs(live.fluidH - live.fluidBandH) > 0.25) fluidCellsRebuild();
+      if (live.veins && !live.veins.lost && Math.abs(live.fluidH - live.fluidBandH) > 0.25) {
+        live.fluidBandH = live.fluidH;
+        const cells = fluidCellsBuf;
+        cells.length = 0;
+        for (let x = 288; x < 1136; x += 16) {
+          const a = fluidBase(x, live.fluidH), b = fluidBase(x + 16, live.fluidH);
+          const y0 = Math.min(a, b) - live.fluidAmp - 2, y1 = Math.max(a, b) + live.fluidAmp + 10;
+          for (let y = y0; y < y1; y += 16) cells.push(x, y);
+        }
+        live.veins.setFluidCells(new Float32Array(cells));
       }
     }
     syncSelFluid();
@@ -206,13 +192,7 @@ export function createTransitions(st, live) {
   }
   // Per animation frame: ease the shown volume and keep the GPU fluid's look current. True when the level moved.
   const fluidLv = [1, 0];
-  let weepRepaint = false;
-  // True when the figure needs a whole repaint for the fluid: its level moved, or (model paused) the lymph weeping into it changed.
   function stepFluid(dt, st, easeDt = dt) {
-    weepRepaint = false;
-    return stepFluidCore(dt, st, easeDt) || weepRepaint;
-  }
-  function stepFluidCore(dt, st, easeDt) {
     if (live.ascTarget === null) return false;
     let moved = false;
     if (live.ascShown !== live.ascTarget) {
@@ -236,13 +216,6 @@ export function createTransitions(st, live) {
     fi[0] = live.fluidInkRGBA[0]; fi[1] = live.fluidInkRGBA[1]; fi[2] = live.fluidInkRGBA[2]; fi[3] = live.fluidInkRGBA[3] * k * fluidFade();
     fluidLook.ripple = run && fluidFade() > 0 && k > 0;
     fluidLv[0] = live.liverScale; fluidLv[1] = live.liverFluidCut; fluidLook.lv = fluidLv;
-    // The weeping lymph (weep.js): drawn only with the pool it lands in. The liver eases its shape without drawAscites, so its rim is
-    // looked at here too; the dashes run with the model, and a paused figure is painted again when the stream changes.
-    const wOn = fluidFade() > 0 && k > 0 && !!live.veins && !live.veins.lost;
-    if (wOn && weepLayout()) fluidCellsRebuild();
-    const wChanged = weep.step(dt, run, wOn, fluidLook);
-    weepRepaint = wChanged === 2 || (wChanged === 1 && !run);   // (a paused figure, or a stream that came or went, is painted again: stepFluid)
-    if (wChanged && weep.out.dirty && live.veins && !live.veins.lost) { live.veins.setWeep(weep.out.data, weep.n); weep.out.dirty = false; }
     if (live.vLook) live.vLook.fluid = fluidLook;
     // (A level that moves under fluid drawn at no opacity changes no pixel (the shader draws none at ink 0): no whole repaint for it,
     // only for the frame it fades to nothing. External review, 21 Oct.)

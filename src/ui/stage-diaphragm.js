@@ -13,7 +13,7 @@ import { store } from './store.js';
 import { clamp } from './util.js';
 
 export function createDiaphragm(st, live) {
-  const { EI, NI, abdTo, caud, diaCut, drawAscites, weepFeed, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine } = st;
+  const { EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine } = st;
   // The diaphragm is drawn around the organs it covers, the way a plate shows it: one smooth dome a
   // little above the liver, the fundus and the spleen, bridging the dips between them, and down the
   // flanks on both sides (where diaMask fades it out). It runs along the top of their current outlines,
@@ -174,7 +174,6 @@ export function createDiaphragm(st, live) {
     syncSelLine();
     // The shown ascites eases to the model's volume (stepFluid), so a tap or diuretics never pops the level.
     // (In steps of FLUID_STEP from the volume drawn: the model's trickle each update must not count as the fluid moving.)
-    weepFeed(f.metrics?.ascites);   // (the lymph weeping into the pool follows the model's Leaked: weep.js)
     const asc = fluidTarget(live.ascTarget, f.slow.ascites);
     if (live.ascTarget === null) live.ascShown = asc;
     live.ascTarget = asc;
