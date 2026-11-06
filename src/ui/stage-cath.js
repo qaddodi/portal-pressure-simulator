@@ -690,7 +690,10 @@ export function createCath(st, live) {
         const pxy = A[l.rows[j].at], px = pxy[0], py = pxy[1];
         const rx0 = x + R[j][0], ry0 = y + R[j][1], rx1 = rx0 + R[j][2], ry1 = ry0 + R[j][3];
         let d;
-        if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
+        // (Midway between its points, l.mid: the top reading's leader leaves its top edge, the bottom one's its bottom edge, each straight
+        // to its own point, so they never cross: EUS-PPG's HV above, PV below.)
+        if (l.mid) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(j === 0 ? ry0 : ry1).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
+        else if (j === near) d = `M${clamp(px, rx0 + 12, rx1 - 12).toFixed(1)} ${(below ? ry1 : ry0).toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`;
         else { const ex = rx0 - 12, ey = below ? colBot + 14 : colTop - 14; d = `M${rx0.toFixed(1)} ${((ry0 + ry1) / 2).toFixed(1)} H${ex.toFixed(1)} V${ey.toFixed(1)} L${px.toFixed(1)} ${py.toFixed(1)}`; }
         const lead = svg._k[j * 2], dot = svg._k[j * 2 + 1], cls = l.rows[j].cls || '';
         if (lead._cls !== cls) { lead._cls = cls; lead.setAttribute('class', 'lead ' + cls); dot.setAttribute('class', 'lead-dot ' + cls); }

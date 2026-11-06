@@ -77,7 +77,7 @@ test('the readings are the model’s: the left portal vein’s and the left hepa
   assert.deepEqual(L.map((l) => [l.key, l.at, l.kicker]), [['w', 'ahead', 'PV'], ['f', 'tip', 'HV']], 'then the hepatic vein beside it');
   E.labels(markAt('eus', 3) + 10, rd, f, L);
   assert.equal(L.length, 1); assert.equal(L[0].key, 's'); assert.equal(L[0].at, 'sum');
-  assert.deepEqual(L[0].rows.map((x) => [x.kicker, x.text, x.at]), [['PV', '15.3', 'ahead'], ['HV', '4.1', 'tip']], 'the two come together');
+  assert.deepEqual(L[0].rows.map((x) => [x.kicker, x.text, x.at]), [['HV', '4.1', 'tip'], ['PV', '15.3', 'ahead']], 'the two come together, HV above PV as their veins lie');
   assert.equal(L[0].mid, true, 'placed midway between the portal and the hepatic vein, where it was measured');
   assert.equal(L[0].calc.kicker, 'EUS-PPG'); assert.equal(L[0].calc.text, '11.2'); assert.match(L[0].calc.cls, /^result (danger|caution|ok)$/);
   E.labels(T.back + 10, rd, f, L);

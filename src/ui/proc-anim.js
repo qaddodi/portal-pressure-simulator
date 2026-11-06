@@ -94,7 +94,7 @@ const EUS_PV = { key: 'w', at: 'ahead', kicker: 'PV', text: '', unit: 'mmHg', cl
 const EUS_HV = { key: 'f', at: 'tip', kicker: 'HV', text: '', unit: 'mmHg', cls: 'free' };
 const EUS_ROW_PV = { at: 'ahead', kicker: 'PV', text: '', unit: 'mmHg', cls: 'pv' }, EUS_ROW_HV = { at: 'tip', kicker: 'HV', text: '', unit: 'mmHg', cls: 'free' };
 const EUS_CALC = { kicker: 'EUS-PPG', text: '', unit: 'mmHg', cls: '' };
-const EUS_SUM = { key: 's', at: 'sum', mid: true, rows: [EUS_ROW_PV, EUS_ROW_HV], calc: EUS_CALC };   // (mid: placed midway between its two points)
+const EUS_SUM = { key: 's', at: 'sum', mid: true, rows: [EUS_ROW_HV, EUS_ROW_PV], calc: EUS_CALC };   // (mid: placed midway between its two points; HV above PV, as their veins lie, so the leaders never cross: his ask, 6 Nov 2026)
 const EUS_RESULT_CLS = { danger: 'result danger', caution: 'result caution', ok: 'result ok' };
 const NO_MARKS = Object.freeze([]);
 const mmHg = (v) => (Number.isFinite(v) ? v.toFixed(1) : '\u2014');
