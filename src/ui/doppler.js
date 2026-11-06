@@ -13,7 +13,7 @@ import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from '
 import { frameFor, noteDraw, paceMs, cancelFrame, frameAnimating } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js';
-import { drawCallout, dropK, edgeFade, sideFor, calloutCell, calloutText, DROP_MS } from './trace-callouts.js';
+import { calloutCell, calloutText } from './trace-callouts.js';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js';
 import { createDopplerGL } from './doppler-gl.js';
 import { surface } from './gpu-surfaces.js';
@@ -1246,10 +1246,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let calip = false, cal = null;
   // (Each caliper level's easing, kept for the two levels: where it began, where it is going, when; on false = none yet.)
   const calMk = { hi: { on: false, from: 0, to: 0, at: 0 }, lo: { on: false, from: 0, to: 0, at: 0 } };
-  // (N6: the marker on each pick, where its sample is drawn: the sample's time, when it was first picked, its words.)
-  const calPk = { hi: { t: -1, at: 0, c: calloutCell() }, lo: { t: -1, at: 0, c: calloutCell() } };
-  const calReset = () => { calMk.hi.on = false; calMk.lo.on = false; calPk.hi.t = -1; calPk.lo.t = -1; };
-  const CAL_W = 2, CAL_TICK = 4;
+  // (The words of the bracket's two names, kept: rebuilt only when the number moves.)
+  const calPk = { hi: calloutCell(), lo: calloutCell() };
+  const calReset = () => { calMk.hi.on = false; calMk.lo.on = false; };
+  const CAL_W = 2, CAL_TICK = 4, CAL_PX = 11;   // (the bracket's names: 11 px type)
   const DASH_CAL = [4, 3], DASH_NONE = [];
   // (The calipers' two levels and the frame's numbers for placing them, kept.)
   let lvHi = 0, lvLo = 0, cSgn = 0, cK = 0, cPx = 0, cBase = 0, cPadT = 0, cH = 0;
@@ -1291,20 +1291,23 @@ export function createDoppler({ onProbe, pickGate = true }) {
     ctx.strokeStyle = cssAlpha('--black', 0.85); ctx.lineWidth = 3.5; ctx.stroke();
     ctx.strokeStyle = cssAlpha('--doppler', 1); ctx.lineWidth = 1.5; ctx.stroke();
     ctx.restore();
-    // N6, trace callouts: "Peak" and "Trough" with their speeds, on the trace's own samples. A marker drops when its sample is picked,
-    // scrolls with the trace (xAt) and fades as the sample nears the trace's left end. The higher of the two on the page is the peak.
-    const yH = calY(cal.hi[1]), yL = calY(cal.lo[1]), hiTop = yH <= yL;
-    calCallout(ctx, now, calPk.hi, cal.hi, yH, hiTop ? 'Peak' : 'Trough', hiTop ? -1 : 1, padL, W, padT, H);
-    calCallout(ctx, now, calPk.lo, cal.lo, yL, hiTop ? 'Trough' : 'Peak', hiTop ? 1 : -1, padL, W, padT, H);
+    // Peak and Trough named on the upright caliper itself (Mohammad, 6 Nov 2026): the word and its speed sit still at the bracket's
+    // two ends, the higher end of the page the peak, outside the bracket (above its top tick, below its bottom one) in the label
+    // style, outlined text with no box. Nothing drops onto the moving trace; the words follow only their tick's own easing.
+    const hiTop = lvHi <= lvLo;
+    calName(ctx, calPk.hi, cal.hi[1], lvHi, hiTop ? 'Peak' : 'Trough', hiTop ? -1 : 1, xc - CAL_TICK, padT, H);
+    calName(ctx, calPk.lo, cal.lo[1], lvLo, hiTop ? 'Trough' : 'Peak', hiTop ? 1 : -1, xc - CAL_TICK, padT, H);
   }
-  function calCallout(ctx, now, m, pick, y, name, want, padL, W, padT, H) {
-    if (m.t !== pick[0]) { m.t = pick[0]; m.at = now; }
-    const since = now - m.at;
-    if (since < DROP_MS) labBusy = true;
-    const x = xAt(pick[0]), a = edgeFade(x - padL);
-    if (a <= 0.01) return;
-    const txt = calloutText(m.c, name, Math.round(cSgn * pick[1] * cK * cal.gf), 0);
-    drawCallout(ctx, txt, x, y, sideFor(y, want, padT, padT + H), cssAlpha('--doppler', 1), cssAlpha('--black', 0.85), dropK(since), a, padL, padL + W, padT, padT + H);
+  function calName(ctx, c, v, y, name, want, x, padT, H) {
+    const txt = calloutText(c, name, Math.round(cSgn * v * cK * cal.gf), 0);
+    ctx.font = FONT(700, CAL_PX); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    // (beyond its tick away from the other; when the trace area has no room on that side the word goes to the other side of the tick)
+    const room = CAL_PX / 2 + 3, top = padT + CAL_PX / 2, bot = padT + H - CAL_PX / 2;
+    const fits = (s) => (s < 0 ? y - room >= top : y + room <= bot);
+    const side = fits(want) ? want : fits(-want) ? -want : want;
+    const ty = clamp(y + side * room, top, bot);
+    ctx.lineWidth = 3.5; ctx.strokeStyle = cssAlpha('--black', 0.9); ctx.strokeText(txt, x, ty);
+    ctx.fillStyle = cssAlpha('--white', 1); ctx.fillText(txt, x, ty);
   }
   // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.
   // Its words come from a table of the hundredths, the index being at most 2.)
