@@ -159,13 +159,12 @@ test('stage: the links are written into the rows put() filled, by the model\'s m
 test('composite: with nothing chained, the streaks, the heads and the join are drawn as before', () => {
   assert.match(gl, /export const FLOW_TEXELS = 7;/);
   // The own pattern only while the link's weight is below 1, the root's only above 0.
-  assert.match(gl, /if \(cw < 1\.0\) \{\n\s*nz = shimN\(id, s, qy, D, k0, t, sA, drift, zoomB\.x, 1\.0\);/);
+  assert.match(gl, /if \(cw < 1\.0\) \{\n\s*nz = dNoise\(id, s, qy, D, ay, cA, drift, dxA, dyv\);/);
   assert.match(gl, /if \(cw < 1\.0\) c = chevOne\(id, s, y, f0, f1, len, Rs, R, s, 1\.0, f0\.x, R, ch5\.zw\);/);
   // Unchained ends fade as before.
   assert.match(gl, /if \(ends\.x <= 0\.0 && ends\.y <= 0\.0\) \{\n\s*float e = min\(sc, len - sc\);\n\s*if \(e < lo\) return vec2\(0\.0\);\n\s*endF = smoothstep\(lo, lo \+ ramp, e\);/);
   // The join: 0.6 as before with rel and mn both 0; 0.3 for the minor inflow; none where one pattern runs through.
   assert.match(gl, /float dimK = mix\(mix\(0\.6, 0\.3, mn\), 0\.0, rel\);\n\s*float a = A\.a \* \(1\.0 - dimK \* smoothstep\(0\.02, 0\.5, b\)\);/);
   assert.match(gl, /c \*= 1\.0 - smoothstep\(0\.02, 0\.25, b\) \* \(1\.0 - rel\);/);
-  // A root's noise block is built even when the root itself does not stream.
-  assert.match(gl, /const needsNoise = \(r\) => streams\(noiseData, noiseStride, r\) \|\| rootOf\[r\] === 1;/);
+  // (The noise table this once fed is gone with the lattice: the tile is read per pixel.)
 });

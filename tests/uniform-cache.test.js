@@ -73,7 +73,7 @@ test('a frame in which only the clock moved sends one uniform', () => {
 // The cache is only right if nothing else sets what it holds: these names are set through it and nowhere else.
 test('veins-gl.js sets the composite\'s per-frame uniforms through the cache and nowhere else', () => {
   const src = read('../src/ui/veins-gl.js');
-  const names = ['inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv', 'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'origin', 'dyeOn', 'clock', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark', 'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lA', 'lWrap', 'lSize', 'lH', 'lineOn', 'glowOn', 'warmOn', 'stackOn', 'noiseOn'];
+  const names = ['inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv', 'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'origin', 'dyeOn', 'clock', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark', 'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lA', 'lWrap', 'lSize', 'lH', 'lineOn', 'glowOn', 'warmOn', 'stackOn', ];
   for (const n of names) {
     const uses = src.split('\n').filter((l) => new RegExp(`(?<![\\w.])(?:U|u|P\\.u|cathPass\\.u)\\.${n}\\b`).test(l));
     assert.ok(uses.length >= 1, `${n} is set`);

@@ -49,7 +49,7 @@ export const CHOOSE_TREATMENT = {
       // (A recent clot in cirrhosis, found on the 6-monthly scan: the commoner portal vein clot in clinic. The clot is partial, over half the
       // trunk; the start is the preset with the clot, and anticoagulation lyses it over the days, as the model always does.)
       id: 'a3', preset: 'csph', params: { drugs: { carvedilol: true }, thrombus: { PV_TRUNK: 0.6 }, anticoag: true }, days: 180, lapse: { seconds: 8, from: 'Anticoagulation starts', to: '6 months later' }, cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
-      vignette: 'A 62-year-old man with MASH cirrhosis and CSPH, Child–Pugh A 6, takes carvedilol. His 6-monthly ultrasound shows no tumor but a new clot filling over half of the main portal vein. He has no pain.',
+      vignette: 'A 62-year-old man with MASH cirrhosis and CSPH, Child–Pugh A 6, takes carvedilol. His 6-monthly ultrasound shows no tumor but a new clot filling over half the portal vein. He has no pain.',
       caseQ: 'Does this clot need treatment?',
       kicker: 'Clots', site: 'pre', title: 'A recent portal vein clot in cirrhosis: anticoagulate',
       line: 'In cirrhosis, a recent clot filling over half of the main portal vein is anticoagulated. Six months on, the vein is open: portal flow is {pvFlow}, the PPG {ppg}.',

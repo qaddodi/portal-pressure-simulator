@@ -107,6 +107,6 @@ test('the GPU canvas taking over leaves the 2D canvas whole under it for a momen
 test('the zoom into and out of a sinusoid keeps the tissue on the GPU (the only painter since 1 Nov)', () => {
   const lz = src('src/ui/lobule-zoom.js');
   assert.doesNotMatch(lz, /SIN_GPU|singpu|keep2D/);
-  assert.match(lz, /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, g \? tissueGLOn\(\) : null\)\);/);
+  assert.match(lz, /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, g \? tissueGLOn\(\) : null\)\)\);/);
   assert.match(lz, /fxOnGPU\(W, H, dpr, dark, dt, g && !g\.lost\);/);
 });

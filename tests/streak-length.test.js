@@ -1,7 +1,7 @@
 import { stageSource } from './stage-src.js';
 // Blood streaks say speed by their length (1 Nov, sprint brief 6): a fast vessel's streaks run long and a slow one's are short dashes,
 // so a still frame shows speed too. The composite moves the two noise layers' shares by the vessel's display speed (veins-gl.js bloodAt,
-// shimN); nothing in a streak moves for it (no coordinate changes). Source patterns (no GL
+// dNoise); nothing in a streak moves for it (no coordinate changes). Source patterns (no GL
 // in node), checked on the shader text as the GPU sees it, and the arithmetic worked again here from the numbers in that text.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -75,21 +75,19 @@ test('with it off, bloodAt hands the noise today\'s 0.62 / 0.38 and an even spre
     assert.ok(at < b.indexOf('if (lenOn == 1) {'), `${k}: and only the switch changes them`);
     // Nothing outside that branch sets them.
     assert.equal((b.match(/\bln(?:Wb|Wf|S) = /g) || []).length, 3 + 3, `${k}: three set to today's, three inside the switch`);
-    const s = body(src, 'float shimN(');
-    assert.doesNotMatch(s, /0\.62 \*|0\.38 \*/, `${k}: no fixed shares left in shimN`);
-    assert.match(s, /lnWb \* vnoise/);
-    assert.match(s, /lnWf \* \(fine \?/);
-    assert.match(s, /float nm = mix\(na, nb, t\);\n\s*return lnS == 1\.0 \? nm : 0\.5 \+ \(nm - 0\.5\) \* lnS;/);
+    const s = body(src, 'float dNoise(');
+    assert.doesNotMatch(s, /0\.62 \*|0\.38 \*/, `${k}: no fixed shares left in dNoise`);
+    assert.match(s, /float na = lnWb \* a\.x \+ lnWf \* a\.y, nb = lnWb \* b\.x \+ lnWf \* b\.y;/);
     // (An even spread leaves the noise's own value untouched: the same bits as before.)
-    assert.match(s, /bool fine = fw > 0\.0 && lnWf > 0\.0;/);
+    assert.match(s, /return lnS == 1\.0 \? nm : 0\.5 \+ \(nm - 0\.5\) \* lnS;/);
   }
 });
 
 test('nothing in a streak moves for it: the noise coordinates, the speeds and the chevrons are untouched', () => {
   for (const [k, src] of Object.entries(R)) {
-    const s = body(src, 'float shimN(');
-    assert.match(s, /vec2 qa = vec2\(\(s - mod\(D \* k0 \/ 8\.0, period\)\) \/ cellA \+ drift, qy\);/, `${k}: the coordinate`);
-    assert.match(s, /vec2 qb = vec2\(\(s - mod\(D \* \(k0 \+ 1\.0\) \/ 8\.0, period\)\) \/ cellA \+ drift, qy\);/, `${k}: and the next lane's`);
+    const s = body(src, 'float dNoise(');
+    assert.match(s, /vec2 a = tileAt\(lay, \(\(s - g \* f0 \* D_CYCLE\) \/ cellA \+ drift\) \/ 50\.0 \+ uo, qy, gx, gy\);/, `${k}: the coordinate`);
+    assert.match(s, /vec2 b = tileAt\(lay, \(\(s - g \* f1 \* D_CYCLE\) \/ cellA \+ drift\) \/ 50\.0 \+ uo, qy, gx, gy\);/, `${k}: and the other phase's`);
   }
   // No new table, texture or sampler: the speed is the one the streaks already travel at (flow texel 0, y), eased by blood.js.
   const b = body(R.full, 'vec4 bloodAt(');

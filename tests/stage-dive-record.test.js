@@ -32,7 +32,7 @@ test('the dive record keeps its point fixed and is the identity at k 1', () => {
 });
 
 test("veins-gl composes the dive's and the scene's cameras as camThen does, flipped once", () => {
-  assert.match(vgl, /const a = cam\.a, k = cam\.k \* scn\.k, ex = scn\.k \* cam\.ex \+ scn\.ex, eyUp = canvas\.height \* \(1 - k\) - \(scn\.k \* cam\.ey \+ scn\.ey\);/);
+  assert.match(vgl, /const a = plain \? 1 : cam\.a, k = plain \? 1 : cam\.k \* scn\.k, ex = plain \? 0 : scn\.k \* cam\.ex \+ scn\.ex, eyUp = plain \? 0 : canvas\.height \* \(1 - k\) - \(scn\.k \* cam\.ey \+ scn\.ey\);/);
   for (let i = 0; i < 200; i++) {
     const H = 600 + rnd() * 600, d = camAbout(camNew(), 1 + rnd() * 50, rnd() * 1200, rnd() * H), c = camSet(camNew(), 0.5 + rnd() * 3, rnd() * 300 - 150, rnd() * 300 - 150);
     // the formula before (the dive about (ox, oy), then the scene, y up)
