@@ -94,7 +94,7 @@ export const PREHEPATIC = {
       ask: ['What makes it more likely that anticoagulation reopens the portal vein?', 'Starting it early, soon after the clot forms.'],
     },
     {
-      id: 'course', cam: 'fit', tool: { kind: 'trace', range: 'talk', since: 'base', title: 'The course on one chart', bands: ['carvedilol', 'anticoag'] },
+      id: 'course', cam: 'fit', tool: { kind: 'trace', range: 'talk', since: 'base', title: 'The course on one chart', bands: ['carvedilol', 'anticoag'], gap: 'clot' },
       kicker: 'Anticoagulation', site: 'sin', title: 'Portal pressure followed the clot while HVPG stayed flat',
       line: 'The gap between the portal and wedged pressure lines is the clot, and recanalization is checked by imaging about every three months, not by the HVPG.',
       notes: 'The chart plots the portal, wedged and free pressures and the HVPG at each step. The gap that opens between the portal and the wedged lines is the clot. Recanalization is followed by imaging, Doppler or CT about every three months, not by the HVPG.',

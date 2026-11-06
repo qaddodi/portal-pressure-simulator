@@ -52,4 +52,49 @@ export const TALK = {
     base: { font: [600, em(1)], fill: tok('text-2'), halo: { stroke: tok('surface-2'), width: 3, join: 'round' } },
     when: [[{ now: true }, { fill: tok('text') }]],
   },
+  // ── The full chart's "Two gaps" pieces (Mohammad's pick, 6 Nov 2026) ──
+  // The band between PV and WHVP (the gap before the sinusoids) and between WHVP and FHVP (the HVPG), in their lines' colours (data-p-c)
+  'talk.gap': { base: { fill: param('c'), fillOpacity: 0.16, stroke: 'none' }, when: [[{ dark: true }, { fillOpacity: 0.24 }]] },
+  'talk.gap.hv': { base: { fill: param('c'), fillOpacity: 0.09, stroke: 'none' }, when: [[{ dark: true }, { fillOpacity: 0.13 }]] },
+  // a band's name, once, inside it
+  'talk.gap.name': {
+    state: { hv: 'data-hv' },
+    base: { font: [600, em(0.92)], fill: tok('text') },
+    when: [[{ hv: true }, { fill: tok('text-2') }]],
+  },
+  // a series line and its points (a ring of the panel's tone round each), the colour given by the builder (data-p-c)
+  'talk.line': { base: { fill: 'none', stroke: param('c'), width: 2.25, join: 'round', cap: 'round' } },
+  'talk.dot': { base: { fill: param('c'), stroke: tok('surface-2'), width: 2 } },
+  // FHVP: a dashed neutral reference
+  'talk.line.free': { base: { fill: 'none', stroke: tok('text-3'), width: 1.5, dash: [4, 4], join: 'round', cap: 'round' } },
+  // the right column: a swatch, the line's name in the text colour, its last value
+  'talk.swatch': { base: { fill: param('c'), stroke: 'none' } },
+  'talk.swatch.gap': { base: { fill: param('c'), fillOpacity: 0.6, stroke: 'none' } },
+  'talk.lbl.n': { base: { font: [700, em(1)], fill: tok('text') } },
+  'talk.lbl.v': { base: { font: [500, em(1)], fill: tok('text-2') } },
+  // the stage names, level over the plot (the last is "now")
+  'talk.stage': {
+    state: { now: 'class:now' },
+    base: { font: [600, em(1)], fill: tok('text-2') },
+    when: [[{ now: true }, { fill: tok('text') }]],
+  },
+  // the treatments: a thin neutral bar, a dot where it starts, the name over it
+  'talk.rx.bar': { base: { fill: tok('text-3'), opacity: 0.6, stroke: 'none' } },
+  'talk.rx.dot': { base: { fill: tok('text-2'), stroke: 'none' } },
+  'talk.rx.name': { base: { font: [500, em(0.9)], fill: tok('text-2') } },
+  // the time row: a visit's bracket and the breaks between visits, its day, the time between visits
+  'talk.axis.mark': { base: { fill: 'none', stroke: tok('text-3'), width: 1.25, cap: 'round', join: 'round' } },
+  'talk.when': {
+    state: { now: 'class:now' },
+    base: { font: [500, em(0.92)], fill: tok('text-2') },
+    when: [[{ now: true }, { fill: tok('text'), weight: 700 }]],
+  },
+  'talk.span': { base: { font: [500, em(0.85)], fill: tok('text-3') } },
+  // the readings rows under the plot (the HVPG's in its cut-off's colour, data-rate) and their names
+  'talk.read': {
+    state: { rate: 'data-rate', now: 'class:now' },
+    base: { font: [600, em(1)], fill: tok('text') },
+    when: [[{ rate: 'mid' }, { fill: tok('caution') }], [{ rate: 'hi' }, { fill: tok('danger') }], [{ now: true }, { weight: 700 }]],
+  },
+  'talk.read.name': { base: { font: [500, em(0.92)], fill: tok('text-3') } },
 };
