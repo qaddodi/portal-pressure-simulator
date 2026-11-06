@@ -20,8 +20,8 @@ export function createScan(st, live) {
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
   // (organ: 'liver', or 'spleen' for the spleen probe (the FibroScan card's Spleen exam): the tip sits on the spleen's upper outer edge, the
   // probe on its right, firing from the upper right down to the lower left (the 45° turned to 135°), in the spleen map's violet; the waves'
-  // speed follows the spleen stiffness, metrics.ssm. Mohammad, 6 Nov 2026. Its body's screen shows no number there: the head is only turned,
-  // never mirrored (label-gl.js), so a reading turned 135° would stand upside down; the card shows the number. Switching organ fades the
+  // speed follows the spleen stiffness, metrics.ssm. Mohammad, 6 Nov 2026. Its screen's number is marked data-flip, which label-gl.js turns a
+  // half turn about the screen, so it reads upright on the 135° body (Mohammad: "should view the number on the probe"). Switching organ fades the
   // probe out where it was and in at the other organ, never a jump.)
   const scan = { on: false, organ: 'liver', el: null, raf: 0, deg: 45, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, leaving: false, headAt: 0, swap: 0 };
   const scanR = () => scan.organ === 'spleen';   // (the probe on the organ's right, turned past the upright: the spleen's)   // k: the stiffness the callout shows, eased
@@ -251,9 +251,9 @@ export function createScan(st, live) {
       // The probe's model: plain elements carrying its shapes' numbers (x, y, width, height, rx, d; the beam's gradient and stops), styled
       // by app.css, from which label-gl.js reads its look and draws it on the GPU over the labels. Nothing of it is drawn by the page: no
       // SVG (1 Nov 2026: nothing off the GPU). The rects and the reading take their boxes too, for what keeps clear of the probe's body.
-      if (scanR()) {   // (the spleen's probe: the map's violet (tokens.css --fibroscan-spleen), and no number on its turned screen)
+      if (scanR()) {   // (the spleen's probe: the map's violet (tokens.css --fibroscan-spleen), its reading turned a half turn to read upright)
         el.style.setProperty('--fibroscan', 'var(--fibroscan-spleen)');
-        for (const t of el.querySelectorAll('.sp-val, .sp-unit')) t.style.fill = 'none';
+        el.querySelector('.sp-read')?.setAttribute('data-flip', '');
       }
       late('add', sites.el, el); scan.el = el; scan.deg = 45; scan.turn = null; scanRecReset(scanRec, el);
       live.labelGL?.setScan(scanRec);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)

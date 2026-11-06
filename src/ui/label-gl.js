@@ -2253,9 +2253,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
       const ws = L.read.runs.map((r) => textWidth(r.t, look(r)));
       let w = 0; ws.forEach((q, i) => { w += (i ? L.read.runs[i].dx : 0) + q; });
       let x = L.read.anchor === 'middle' ? L.read.x - w / 2 : L.read.anchor === 'end' ? L.read.x - w : L.read.x;
+      // (A probe turned past the upright (the spleen's, 135°: stage-scan.js) marks its reading data-flip: the words are turned a half
+      // turn about the screen's centre, so with the body's turn they read upright, left to right.)
+      const fcx = L.screen.x + L.screen.w / 2, fcy = L.screen.y + L.screen.h / 2;
+      const flipped = (pp) => { if (L.read.flip) for (const p of pp) for (let k = 0; k < p.pts.length; k += 2) { p.pts[k] = 2 * fcx - p.pts[k]; p.pts[k + 1] = 2 * fcy - p.pts[k + 1]; } return pp; };
       L.read.runs.forEach((r, i) => {
         if (i) x += r.dx;
-        if (r.fill) shapeOps(ops, { poly: textPolys(r.t, x, L.read.y, look(r)).polys }, L.hm, r.fill, '', 0);
+        if (r.fill) shapeOps(ops, { poly: flipped(textPolys(r.t, x, L.read.y, look(r)).polys) }, L.hm, r.fill, '', 0);
         x += ws[i];
       });
       L.headOps = ops;
@@ -2307,7 +2311,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       beam: { d: beam.getAttribute('d'), filter: bc.filter && bc.filter !== 'none' ? bc.filter : NUM(bc.getPropertyValue?.('--sp-soft')) > 0 ? `blur(${NUM(bc.getPropertyValue('--sp-soft'))}px)` : '',   // (its softness: app.css --sp-soft, drawn once here, never a CSS blur)
       stops, grad: ['cx', 'cy', 'r'].map((k) => NUM(el.querySelector('#sp-beam').getAttribute(k))) },
       body: rect(body), screen: rect(screen), tip: rect(tip),
-      read: { x: NUM(read.getAttribute('x')), y: NUM(read.getAttribute('y')), anchor: read.getAttribute('text-anchor') || 'start', runs, val: [...read.children].findIndex((sp) => sp.classList.contains('sp-val')) },
+      read: { x: NUM(read.getAttribute('x')), y: NUM(read.getAttribute('y')), anchor: read.getAttribute('text-anchor') || 'start', runs, flip: read.hasAttribute('data-flip'), val: [...read.children].findIndex((sp) => sp.classList.contains('sp-val')) },
       cable: { d: cable.getAttribute('d'), col: none(cc.stroke) ? null : rgba(cc.stroke), w: NUM(cc.strokeWidth), cap: cc.strokeLinecap },
       rip: wave('.sp-rip'), front: wave('.sp-front'),
     };
