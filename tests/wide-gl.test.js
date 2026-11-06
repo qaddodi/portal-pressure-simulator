@@ -50,7 +50,7 @@ test('one context for the lobule: the copy is made and shown in the vessels\' ow
   assert.doesNotMatch(on, /LZ_ONE/);
   assert.match(on, /wideGL = createWideGL\(null, \{ host: gl\.top \}\) \|\| null;/, 'no canvas of its own');
   assert.match(on, /gl\.top\.replace\(\{ on: \(\) => !!wide\?\.host && !!wideView && wideA >= 1, draw: \(\) => wideShow\(1\) \}\)/, 'through the zoom the copy stands in for the whole picture');
-  assert.match(on, /gl\.top\.add\(\{ order: LZ_UNDER_GLASS \+ 1, draw: \(\) => \{ if \(wideView && wideA > 0 && wideA < 1\) wideShow\(wideA\); \} \}\)/, 'fading out, laid over the landed layers and the overlay, under every glass');
+  assert.match(on, /gl\.top\.add\(\{ order: LZ_UNDER_GLASS \+ 1, still: true, draw: \(\) => \{ if \(wideView && wideA > 0 && wideA < 1\) wideShow\(wideA\); \} \}\)/, 'fading out, laid over the landed layers and the overlay, under every glass');
   assert.match(on, /return null; {3}\/\/ \(no copy while/, 'a lost host: no copy rather than a second context');
   const b = fn('function buildWideGL(W, H, box) {');
   assert.match(b, /if \(hosted\) ok = onG && tisIn && \(fxIn \|\| !fxOn\) && \(g\.present\(\), wg\.tile\(t, [^;]*'host'\)\);/, 'every layer laid in the vessels\' canvas, then the tile copied inside the context');

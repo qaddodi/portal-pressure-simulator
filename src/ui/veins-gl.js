@@ -44,6 +44,7 @@ import { changedRows } from './flow-rows.js';
 import { leftAlone, whenQuiet } from './quiet.js';
 import { uniformCache } from './uniform-cache.js';
 import { createDirtyTiles } from './dirty-tiles.js';
+import { createKeep } from './lobule-keep.js';
 import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js';
 import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js';
 import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js';
@@ -1922,7 +1923,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // its own (scr, SCR() where a canvas is bound), which the host lays in its present (target). `canvas` is then only the size carrier
   // (width and height as the owner sets them); its loss events are the host's canvas's.
   const hostCv = share?.canvas || null;
-  const scr = share ? { tex: null, fbo: null, w: 0, h: 0 } : null;
+  const scr = share ? { tex: null, fbo: null, w: 0, h: 0, gen: 0 } : null;   // (gen: how many times the texture was made again, which clears it: the kept picture's, keepNote)
   // The framebuffer a present lays on: null (the canvas) or, shared, the texture's, sized to the canvas as it is now (made and sized here, lazily).
   function SCR() {
     if (!scr) return null;
@@ -1936,7 +1937,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindFramebuffer(gl.FRAMEBUFFER, scr.fbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, scr.tex, 0);
       gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-      scr.w = w; scr.h = h;
+      scr.w = w; scr.h = h; scr.gen++;
     }
     return scr.fbo;
   }
@@ -1984,6 +1985,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // present lays it on the cleared canvas first and the kept picture over it (premultiplied, pixel for pixel), then the tops; null: the
   // kept picture is copied as it is. presents counts the pictures laid, so an owner can tell whether a frame laid one.
   let under = null, presents = 0;
+  // The lobule's kept picture (lobule-keep.js, lobule lag rec 1): its texture (scr) holds the whole picture a present laid, and a frame where
+  // only the blood moved repaints the blood's squares in it (keepBlood) instead of laying the picture whole. keepSrc: the lobule's account of
+  // what else the picture is made of ({ read(ks) } → fills the record below; top.keep); kept: what scr held at the last whole present.
+  const keep = who === 'lobule' && share ? createKeep(gl) : null;
+  let keepSrc = null;
+  const kept = { on: false, pic: -1, gen: -1, v1: -1, v2: -1, v3: -1 };
+  // (ks: tex, w, h: the tissue's picture; v1, v2, v3: the tissue's, the overlay's and the ductules' version numbers; dyn: something else is
+  // drawn into the picture and moves; ducts, view, lum, cell, edge, nuc, width, alpha: the overlay's ductules, as fx-gl.js takes them.)
+  const KS = { tex: null, w: 0, h: 0, v1: 0, v2: 0, v3: 0, dyn: false, ducts: null, view: null, lum: null, cell: null, edge: null, nuc: null, width: 0, alpha: 0 };
   // What stands in for the whole picture while it shows (the lobule's wide copy through a station dive, wide-gl.js host): { on(), draw() }.
   // While on(), each present clears the canvas and draws only it (the canvas's own size need not match the kept picture's then).
   let replace = null;
@@ -3185,8 +3195,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (gpuProbe.on) gpuProbe.note(COUNTED.present, own.w * own.h * 4 / 1024);
     gl.disable(gl.SCISSOR_TEST);
     presents++;
+    let laidUnder = false;
     if (camOn() && camDraw(own.tex, false)) { /* (laid: the kept picture under the camera and alpha) */ }
-    else if (!up && under && under.on() && underLay()) { /* (laid: the under picture, the kept one over it) */ }
+    else if (!up && under && under.on() && underLay()) laidUnder = true;   // (laid: the under picture, the kept one over it)
     else if (!(up && !upLin && upDraw())) {
       // (A picture under the canvas's size with the plain upscale: filtered, as the page's compositor scales a smaller canvas up.)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
@@ -3200,6 +3211,41 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       runTops();
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
+    if (keep) keepNote(laidUnder && top);
+  }
+  // The lobule's kept picture (lobule-keep.js). Whether the picture in scr can be kept and repainted in part: the tissue under it, the
+  // overlay over it and the vessel layer are all the ones this renderer knows (keepSrc), nothing else moves in it (every pass added here is
+  // `still`), and no camera, upscale or stand-in changes how it is laid. Fills KS.
+  function keepRead() {
+    if (!keepSrc || lost || !keep.ready()) return false;
+    for (let i = 0; i < tops.length; i++) if (!tops[i].still) return false;
+    if (up || camOn() || directNow || ownStale || (replace && replace.on()) || (over && overShown) || !under || !under.on()) return false;
+    if (!own || own.w !== canvas.width || own.h !== canvas.height || PW() !== canvas.width || PH() !== canvas.height) return false;
+    if (!keepSrc.read(KS) || KS.dyn || !KS.tex || KS.w !== canvas.width || KS.h !== canvas.height) return false;
+    return true;
+  }
+  // A whole picture was just laid (laid: through the tissue under it, with everything over it): what scr holds now is kept, to be
+  // repainted in part until the picture, the tissue, the overlay or the texture changes.
+  function keepNote(laid) {
+    kept.on = false;
+    if (!laid || !scr || !scr.fbo || !keepRead()) return;
+    kept.on = true; kept.pic = pictureSeq; kept.gen = scr.gen; kept.v1 = KS.v1; kept.v2 = KS.v2; kept.v3 = KS.v3;
+  }
+  // A frame where only the blood moved (composite's bloodAlone), the vessel layer's picture as the last whole present had it: the blood's
+  // squares repainted in scr from the vessel layer, the tissue and the ductules, then the stage asked to lay it. False when the picture
+  // is not kept or anything it is made of has moved: the caller lays the frame whole.
+  function keepBlood(m) {
+    if (!kept.on || !keepRead()) return false;
+    if (kept.pic !== pictureSeq || kept.gen !== scr.gen || kept.v1 !== KS.v1 || kept.v2 !== KS.v2 || kept.v3 !== KS.v3) return false;
+    presents++;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND);
+    if (nBlood) keep.draw(m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]), canvas.width, canvas.height, bloodCell, bloodVAO, nBlood, own.tex, KS.tex, KS);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
+    if (gpuProbe.on) gpuProbe.note(COUNTED.pictureKept);
+    if (share && !lost) share.present?.();
+    return true;
   }
   // What is drawn over the figure in this canvas: each top's prep, then each top's draw, over the list as it stood when the phase began
   // (a top that is added or taken out meanwhile joins the next picture). The lists are kept, one for each depth a draw can lay a picture
@@ -4188,11 +4234,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       /** What is drawn under the figure in this canvas ({ on(), draw() }, one at a time): drawn first at each present while on() says so,
        *  onto the cleared canvas, the kept picture laid over it. Returns the call that takes it out. */
       under(u) { under = u; auxStart('lay'); return () => { if (under === u) under = null; }; },
+      /** The lobule's account of what its picture is made of besides the vessels (lobule-zoom.js; { read(ks) }): with it, and every pass added here
+       *  saying it is `still`, a blood-only frame repaints the blood's squares in the picture kept in this canvas's texture. Returns the call that takes it out. */
+      keep(src) { keepSrc = src; kept.on = false; keep?.start(); return () => { if (keepSrc === src) { keepSrc = null; kept.on = false; } }; },
       /** What stands in for the whole picture while its on() says so ({ on(), draw() }, one at a time): the canvas cleared and only it
        *  drawn at each present. Returns the call that takes it out. */
       replace(r) { replace = r; return () => { if (replace === r) replace = null; }; },
       /** How many pictures have been laid on the canvas (present): an owner that drew under the figure lays one if a frame laid none. */
       get presents() { return presents; },
+      /** Whether the picture is kept in this canvas's texture (keep): a blood-only frame then repaints only the blood's squares in it. */
+      get kept() { return kept.on; },
       /** A warm-up of something drawn over the figure here ({ done(), run() }): run once done() says its programs are compiled, at a free
        *  moment of the renderer (prepare: between pictures, not mid gesture), where its small draw may set any state. */
       warmIn(t) { if (t && !lost) freeTasks.push(t); },
@@ -4623,7 +4674,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (Where it was drawn: what the next frame's box takes in, so no trace of it is left behind.)
       cathAt = cath ? cathBox(m, BOX_AT) : null;
       if (hard && !layer) gpuProbe.time(gl, 'outlines', linesT);
-      if (own) present();
+      if (own && !(bloodAlone && keep && keepBlood(m))) present();
     },
     /** Whether organ outlines can be drawn here (else stage.js keeps its SVG ones). */
     get canLines() { return !!lineP; },

@@ -12,7 +12,7 @@ const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gp
 export const COUNTED = {
   whole: 'vessels: whole draw', wholeWhy: 'vessels: whole draw because ', pan: 'vessels: pan shift', rows: 'vessels: rows redrawn',
   rowsRefused: 'vessels: rows refused because ',
-  picture: 'picture: drawn', pictureWhole: 'picture: whole', pictureSkipped: 'picture: left as it was', organs: 'organ layers: rendered',
+  picture: 'picture: drawn', pictureWhole: 'picture: whole', pictureSkipped: 'picture: left as it was', pictureKept: 'picture: blood squares kept in the lobule\'s texture', organs: 'organ layers: rendered',
   glassDrawn: 'glass: drawn', glassCopy: 'glass: figure copied', glassSkip: 'glass: copy skipped (figure unchanged)',
   // (The liver label's pane is a second glass of its own, counted apart: two glasses drawn in one frame are not one drawn twice.)
   paneDrawn: 'pane glass: drawn', paneCopy: 'pane glass: figure copied', paneSkip: 'pane glass: copy skipped (figure unchanged)',

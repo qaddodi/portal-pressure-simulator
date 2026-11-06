@@ -2946,9 +2946,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (!frozenT) frozenT = setTimeout(frozenEnd, 120);
       // (The flow keeps moving under the hand: the blood and the arrowheads are the cheap pass over the vessel layer drawn as it stands, for the view it was drawn for
       // (drawGL finds that view unchanged and only composites), then carried to the hand's view with it. 6 Nov 2026, Mohammad: "the chevrons and blood stop when I pan and zoom".)
-      // (At most about 20 times a second, so the hand's own move keeps the screen's rate: the pass is the one a lobule at rest draws on every frame.)
+      // (With the lobule's picture kept in its texture (lobule-keep.js: a blood frame repaints the blood's squares and nothing else) the pass is as cheap as
+      // the hand's carry and runs at the screen's rate. Without it, at most about 20 times a second, so the hand's own move keeps the screen's rate: the
+      // pass is then the one a lobule at rest draws on every frame. Lobule lag rec 5, 6 Nov 2026.)
       const nowF = performance.now(), laidF = g.top?.presents;
-      if (dt > 0 && nowF - flowLiveAt >= 48) { flowLiveAt = nowF; withView(drawnV.k, drawnV.x, drawnV.y, () => drawGL(W, H, dpr, dark, cs, dt)); }
+      if (dt > 0 && (g.top?.kept || nowF - flowLiveAt >= 48)) { flowLiveAt = nowF; withView(drawnV.k, drawnV.x, drawnV.y, () => drawGL(W, H, dpr, dark, cs, dt)); }
       // (A flow pass that laid its picture has had the stage's present already (the vessels' present asks for it, under the hand's carry): laid again here,
       // the lobule's texture, the labels and the glass were drawn twice in every flow frame under a hand. Lobule lag rec 4, 6 Nov 2026.)
       if (laidF === undefined || g.top?.presents === laidF) shareTop.present();
@@ -3014,7 +3016,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         wideHostFor = gl; wideGL = createWideGL(null, { host: gl.top }) || null;
         if (wideGL) {
           const offR = gl.top.replace({ on: () => !!wide?.host && !!wideView && wideA >= 1, draw: () => wideShow(1) });
-          const offT = gl.top.add({ order: LZ_UNDER_GLASS + 1, draw: () => { if (wideView && wideA > 0 && wideA < 1) wideShow(wideA); } });   // (the copy fading in: over the overlay, as before, and under every glass)
+          const offT = gl.top.add({ order: LZ_UNDER_GLASS + 1, still: true, draw: () => { if (wideView && wideA > 0 && wideA < 1) wideShow(wideA); } });   // (still: keepRead says dyn while it draws)   // (the copy fading in: over the overlay, as before, and under every glass)
           wideHostOff = () => { offR(); offT(); };
         } else wideHostOff = null;
       }
@@ -4099,6 +4101,23 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (tissueG, out of the page, keeps the showing state: showTissueGL, the dive's copies) and, for a wide copy's tile, while the tile
   // is drawn on the GPU (tisWide). Made again with the vessels' renderer (a new one after a lost context).
   let tisHostFor = null, tisHostOff = null, tisWide = false;
+  // What the lobule's texture is made of besides the vessels, for the kept picture (lobule-keep.js; veins-gl.js keepNote, keepBlood): the tissue's
+  // picture and its version, the overlay's ductules and theirs, and whether something else moves in it (the wide copy fading in, the sinusoids'
+  // lining: laid over its own box from a target of its own, which a blood frame does not lay again in part). Written into the renderer's record, no new object.
+  const keepSrc = {   // alloc-rare: made once with the lobule
+    read(ks) {
+      const tg = tissueGL;
+      if (!tg || tg.lost || gl?.software) return false;
+      const T = tg.keepTarget();
+      if (!T) return false;
+      ks.tex = T.tex; ks.w = T.w; ks.h = T.h; ks.v1 = tg.ver; ks.v2 = fxVerN; ks.v3 = ductVer;
+      const a = fxArgs;
+      ks.dyn = !!(wideView && wideA > 0 && wideA < 1) || !!(a && a.lymph);
+      ks.ducts = a ? a.ducts : null;
+      if (a) { ks.view = a.view; ks.lum = a.duct.lum; ks.cell = a.duct.cell; ks.edge = a.duct.edge; ks.nuc = a.duct.nuc; ks.width = a.duct.width; ks.alpha = a.duct.alpha; }
+      return true;
+    },
+  };
   const tisUnder = () => !!tissueGL && tissueGL.pictured && (wideBuild ? tisWide : tissueOnGL && tissueG.style.visibility !== 'hidden');
   function tissueGLOn() {
     if (!glTried) glNow();
@@ -4106,7 +4125,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (tisHostFor !== gl) {
         tisHostOff?.(); if (tisHostFor) tissueGL?.release?.();
         tisHostFor = gl; tissueGL = createTissueGL(tissueG, { onLive: liveCompiled, host: gl.top }) || null;   // alloc-rare: only when the vessels' renderer is new (the first look, or after a lost context)
-        tisHostOff = tissueGL ? gl.top.under({ on: tisUnder, draw: () => tissueGL.under(gl?.software ? 0.5 : 1) }) : null;   // alloc-rare: same branch, a new renderer
+        const offU = tissueGL ? gl.top.under({ on: tisUnder, draw: () => tissueGL.under(gl?.software ? 0.5 : 1) }) : null, offK = tissueGL && gl.top.keep ? gl.top.keep(keepSrc) : null;   // alloc-rare: same branch, a new renderer
+        tisHostOff = offU ? () => { offU(); offK?.(); } : null;   // alloc-rare: same branch, a new renderer
         tissueGL?.liveReady();
         restRemove(tissueG);
       }
@@ -4440,6 +4460,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const r = rs[j], rm = r * 1.35, hw = Math.PI * rm / NC, rin = rm - hw, rout = rm + hw, x = tr.bd[0], y = tr.bd[1];
       return { disc: [x, y, rout], num: [x, y, rin, rout, rm, hw * 0.34, tr.i, 0] };   // alloc-rare: same branch, the ductules changed
     });
+    ductVer++;
     return (ductP = { G, key: ductKey, duct, nums: Float32Array.from(duct.flatMap((d) => d.num)) });   // alloc-rare: same branch, the ductules changed
   }
   // The lymph's collagen lining (low protein: the space of Disse is sealed) is the one part of the Lymph layer the overlay still draws, and it
@@ -4455,11 +4476,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // with no canvas or context of its own. Made again with the vessels' renderer (a new one after a lost context). A draw the GPU
   // refused there puts the overlay back on the 2D canvas for a moment.
   let fxHostGL = null, fxHostFor = null, fxHostOff = null, fxArgs = null, fxHostBad = 0;
+  // (How many times what the overlay lays changed (its arguments, laid or not), and how many times the ductules' list was made again: the lobule's
+  // kept picture (keepRead, veins-gl.js keepNote) is out of date when either moves.)
+  let fxVerN = 0, ductVer = 0;
   const fxHosted = () => !!gl && !gl.lost && !!gl.top;
   const fxHostPart = () => fxHostGL.draw(fxArgs);
   function fxHostDraw() {
     if (!fxArgs || !fxHostGL) return;   // (a wide copy's tile lays it too: buildWideGL; the 2D tiles leave fxArgs empty)
-    if (!framePart('lz.fxGL', fxHostPart)) { fxHostBad = performance.now() + 250; fxArgs = null; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
+    if (!framePart('lz.fxGL', fxHostPart)) { fxHostBad = performance.now() + 250; fxArgs = null; fxVerN++; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
   }
   function fxGLOn() {
     if (fxHosted()) {
@@ -4468,7 +4492,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         // (Under every glass drawn in this canvas (the cards' low glass is order 1, the liver pane's 0): the overlay is the lobule's own
         // picture, so it is frosted by the cards like the rest of it, never laid over them. At order 1 it tied with the cards' glass and,
         // added after it, drew the portal tracts and the lymph over the cards: Mohammad, 2 Nov 2026, iPhone, HVPG 6.)
-        fxHostOff = fxHostGL ? gl.top.add({ order: LZ_UNDER_GLASS, draw: fxHostDraw }) : null;   // alloc-rare: same branch, a new renderer
+        fxHostOff = fxHostGL ? gl.top.add({ order: LZ_UNDER_GLASS, draw: fxHostDraw, still: true }) : null;   // alloc-rare: same branch, a new renderer   (still: it lays only what keepRead reports, the lobule's kept picture)
         restRemove(fxG);
       }
       return fxHostGL && !fxHostGL.lost && performance.now() >= fxHostBad ? fxHostGL : null;
@@ -4476,7 +4500,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return null;   // (hosted only)
   }
   function fxGLShow(on) {
-    if (!on) fxArgs = null;
+    if (!on) { if (fxArgs) fxVerN++; fxArgs = null; }
     if (on === fxGLShown) return;
     fxGLShown = on;
     if (!on) { fxGLKey = ''; fxHostGL?.release(); if (fxG.width) { fxG.width = 0; fxG.height = 0; } }
@@ -4579,7 +4603,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let ok = true;
     if (!hosted) { fxTg = g; ok = framePart('lz.fxGL', fxDrawPart); }
     if (!ok) { fxGLShow(false); return false; }
-    if (hosted) fxArgs = args;
+    if (hosted) { if (moving || !same || !fxArgs) fxVerN++; fxArgs = args; }
     if (moving) fxGLKey = '';
     else { for (let i = 0; i < fxKNow.length; i++) fxKWas[i] = fxKNow[i]; fxGLKey = 'y'; }
     fxGLShow(true);

@@ -107,6 +107,9 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
   // the framebuffer a frame ends in, null for the canvas.)
   let hostT = null;
   const tgt = { width: 0, height: 0 };   // alloc-rare: made once with the tissue
+  // (Hosted, for the lobule's kept picture (lobule-keep.js): how many times the picture was drawn again or given back, and its texture as a kept record.)
+  let picVer = 0;
+  const keepT = { tex: null, w: 0, h: 0 };   // alloc-rare: made once with the tissue
   const scr = () => (hostT ? hostT.fbo : null);   // alloc-rare: made once with the tissue
   paintGL(gl);   // (the painter of the lobule's picture, paint-gl.js: its programs start compiling now, beside the tissue's)
   // The program is started here and published once the driver has finished it (gl-compile.js); a draw that comes first publishes it.
@@ -378,7 +381,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
     sweep(keep = () => true) {
       for (const [cv, t] of texs) if (!cv.width || !keep(cv)) { if (!lost) gl.deleteTexture(t.tex); texs.delete(cv); }
       copier.sweep();
-      if (!canvas.width) { dropKept(); if (hostT && !lost) { freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; pictured = false; } }   // (the canvas itself given back: the picture kept for it goes too)
+      if (!canvas.width) { dropKept(); if (hostT && !lost) { freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; pictured = false; picVer++; } }   // (the canvas itself given back: the picture kept for it goes too)
       hostDone();
     },
     /** One frame of the tissue. W, H: the canvas's size (device px); qa, qb, mix: the quiet tiles' canvases and the blend; qo, qOld:
@@ -414,7 +417,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
       }
       if (!hostT || tgt.width !== W || tgt.height !== H) {
         if (hostT) freeTarget(hostT);
-        hostT = makeTarget(W, H); tgt.width = W; tgt.height = H; pictured = false;
+        hostT = makeTarget(W, H); tgt.width = W; tgt.height = H; pictured = false; picVer++;
         if (!hostT.ok) { freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; hostDone(); return false; }
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, hostT.fbo); gl.bindVertexArray(vao);
@@ -460,13 +463,21 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
         drawLive(W, H, liveSig(W, H, rim, qa, qb || null, qb ? mix : 0, qo && qOld > 0 ? qo : null, qo ? qOld : 0, w?.width ? w : null, wVer, old ? wo : null, old ? woVer : 0, old ? wMix : 1, rect, rd, fade, mid, bg, grey, live), POS);
       }
       else { dropKept(); gl.drawArrays(gl.TRIANGLES, 0, 3); }
-      pictured = true;
+      pictured = true; picVer++;
       hostDone();
       return true;
     },
     /** Hosted: whether there is a picture to lay (the last frame drawn), and laying it on the host's canvas from its top left, pixel
      *  for pixel (the host's present, under its own picture). */
     get pictured() { return pictured && !!hostT; },   // alloc-rare: the tissue's handle is made once
+    /** Hosted: how many times the picture changed (drawn again, or given back). A kept picture built from it is out of date when this moves. */
+    get ver() { return picVer; },   // alloc-rare: the tissue's handle is made once
+    /** Hosted: the picture's texture and size as a kept record ({ tex, w, h }, rewritten in place), or null with no picture to lay. */
+    keepTarget() {
+      if (!hostT || !pictured || lost || gl.isContextLost()) return null;
+      keepT.tex = hostT.tex; keepT.w = tgt.width; keepT.h = tgt.height;
+      return keepT;
+    },
     under(k = 1) {
       if (!hostT || !pictured || lost || gl.isContextLost()) return;
       // (k: the host canvas's pixels per this picture's, 0.5 where the vessels draw at half density on a software renderer: the picture
@@ -479,7 +490,7 @@ export function createTissueGL(canvas, opts = {}) {   // alloc-rare: the tissue 
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN());
     },
     /** Gives back the picture's own target (hosted), as the canvas's memory would be. */
-    release() { dropKept(); if (hostT && !lost && !gl.isContextLost()) freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; pictured = false; },
+    release() { dropKept(); if (hostT && !lost && !gl.isContextLost()) freeTarget(hostT); hostT = null; tgt.width = tgt.height = 0; pictured = false; picVer++; },
     /** The context it draws in (its own, or the host's). */
     get gl() { return gl; },   // alloc-rare: the tissue's handle is made once
   };
