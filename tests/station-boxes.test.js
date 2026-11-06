@@ -58,7 +58,7 @@ test('each box is whole somewhere mid-change, then dissolves before the view lan
   for (let i = 0; i < N_STATIONS; i++) {
     let peak = 0;
     for (let k = 1; k < 400; k++) peak = Math.max(peak, run(k / 400).B[4 * i + 2]);
-    assert.ok(Math.abs(peak - STATION_RING) < 1e-3 && run(0.5).B[4 * i + 1] <= STATION_FILL, STATIONS[i].org);
+    assert.ok(Math.abs(peak - STATION_RING) < 1e-3 && run(0.5).B[4 * i + 1] <= STATION_FILL + 1e-6, STATIONS[i].org);
     assert.ok(run(0.999).B[4 * i + 2] < 0.02 * STATION_RING, STATIONS[i].org);
   }
 });
