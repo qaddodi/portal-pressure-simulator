@@ -15,11 +15,19 @@ import { frameFor } from './frame.js';
 import { readBox, stageBox, safeSides } from './layout-snap.js';
 import { placeLens, coneLines, ringHit, scopeLensFor } from './scope-lens-rule.js';
 import { varicesPresent } from './store.js';
+import { gastricUp } from '../engine/scenario.js';
+
+// (The ring stands while the patient has varices and no balloon tamponade is in: with a tube's balloon up there is no scope to look
+// through; Mohammad 6 Nov 2026, "remove the scope view button when there is a balloon tamponade".)
+const NO_P = {};
+const scopable = (f, st) => varicesPresent(f) && !gastricUp(st.params || NO_P);
 
 const nextFrame = frameFor('scope-lens');
 const noop = () => {};
 // (How long the figure must hold still before the lens opens again, ms, and how often it is looked at.)
 const STILL_MS = 160;
+// (How long it takes to glide shut, ms: the --d-small its opacity and transform run for, app.css .pz-lens.)
+const SHUT_MS = 240;
 
 /**
  * stage: the figure (setScopeRing, scopeRingAt, onScopeView, layoutKey); store: the app's store (frames); root: the element the lens is laid
@@ -33,11 +41,14 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
   disc.addEventListener('click', () => close());
   root.prepend(el);   // (under the cards)
   const words = wordSetter([cap]);
-  let inst = null, offFrame = null, offVx = null, has = false, want = false, isOpen = false, dead = false, stillT = 0, lastKey = '', capText = '', fp = null, feedAsk = 0;
+  let inst = null, offFrame = null, offVx = null, has = false, want = false, isOpen = false, dead = false, stillT = 0, lastKey = '', capText = '', fp = null, feedAsk = 0, hideT = 0;
 
   // ── The tap on the ring, and the figure moving ──
   function tap(cx, cy) {
-    if (!want || !has || dead) return false;
+    if (dead) return false;
+    // (Open, any tap on the figure shuts it: Mohammad 6 Nov 2026, "i should close the scope by clicking anywhere on the slide".)
+    if (isOpen) { close(); return true; }
+    if (!want || !has) return false;
     const ring = stage.scopeRingAt?.();
     if (!ring || !ringHit(cx - ring.ox, cy - ring.oy, ring)) return false;
     if (isOpen) close(); else open();
@@ -73,7 +84,7 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
   // wants it, the ring shown or taken off only when that answer changes. A lens open when they go closes.)
   const ringNow = () => stage.setScopeRing(want && has, isOpen);
   function vxFrame(f) {
-    const v = varicesPresent(f);
+    const v = scopable(f, store.get());
     if (v === has) return;
     has = v;
     if (!has && isOpen) close(); else ringNow();
@@ -82,15 +93,19 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
   function open() {
     if (dead || !want || !has) return;
     isOpen = true;
+    clearTimeout(hideT); hideT = 0; drop();
     ringNow();
-    if (!inst) {
+    // (A scope of its own for each opening, drawn first from the frame now: the scope eases its varix's size on the model's clock, so one
+    // kept from an earlier opening, or a talk paused on its slide, went on showing the varix it first saw, small and dry beside a large
+    // one bleeding on the figure; Mohammad 6 Nov 2026, "still discrepency between what the scope sees and reality".)
+    {
       inst = createEndoscopy({ onAction: noop });
       if (fp) inst.pin?.(fp);
       inst.el.classList.remove('dock-pane'); inst.el.classList.add('pz-lens-inst');   // (laid as the lens, not as a Tests tab)
       disc.append(inst.el);
     }
     inst.shown?.(true);
-    offFrame ||= store.on('frame', (f) => { if (isOpen && f) { inst.update(f); caption(f); } });
+    offFrame ||= store.on('frame', (f) => { if (isOpen && f && inst) { inst.update(f); caption(f); } });
     place();
   }
   // (The scope drawn from the newest frame once its lens has its size: a frame taken in while the lens had none was dropped by the scope,
@@ -101,13 +116,19 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
     const f = store.get().frame;
     if (isOpen && f && inst) { inst.update(f); caption(f); }
   }
+  // (The scope of an opening, let go once its lens is shut: its GPU context given back with it.)
+  function drop() { if (!inst) return; inst.dispose?.(); inst.el.remove(); inst = null; }
   function close() {
     if (!isOpen) return;
     isOpen = false;
     clearTimeout(stillT); stillT = 0;
-    el.classList.remove('on'); el.hidden = true; el.style.opacity = '';
+    // (It glides shut as it opened, back into the ring, by its own opacity and transform on the compositor; laid hidden once that is over.)
+    const glide = el.classList.contains('on') && !el.hidden && el.style.opacity !== '0';
+    el.classList.remove('on');
+    clearTimeout(hideT);
+    if (glide && !dead) hideT = setTimeout(() => { hideT = 0; if (!isOpen) { el.hidden = true; el.style.opacity = ''; drop(); } }, SHUT_MS);
+    else { el.hidden = true; el.style.opacity = ''; drop(); }
     offFrame?.(); offFrame = null;
-    inst?.shown?.(false);
     if (!dead) ringNow();
   }
   // The caption under the lens: the varices' grade and an active bleed, written only when it changes (drawn on the GPU: gl-words.js).
@@ -161,7 +182,7 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
       want = scopeLensFor(s);
       if (want && !offVx) offVx = store.on('frame', vxFrame);
       else if (!want && offVx) { offVx(); offVx = null; }
-      has = want && varicesPresent(store.get().frame);
+      has = want && scopable(store.get().frame, store.get());
       ringNow();
     },
     /** Whether the lens is open (the tests, a keyboard close). */
@@ -177,12 +198,13 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
       if (dead) return;
       close();
       dead = true;
+      clearTimeout(hideT); hideT = 0;
       stage.setScopeRing(false, false);
       (root.parentElement || root).classList.remove('pz-lens-hand');
       stage.onScopeView?.(null, null);
       offView?.(); offVx?.(); offVx = null;
       words.dispose?.();
-      inst?.dispose?.(); inst = null;
+      drop();
       el.remove();
     },
   };

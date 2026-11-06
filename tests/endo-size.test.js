@@ -16,9 +16,11 @@ test('a varix under 5 mm is drawn exactly as before', () => {
   assert.equal(endoGrow(4.9), old(4.9));
 });
 
-test('a large varix is drawn plainly large, growing to full at 12 mm', () => {
+test('a large varix is drawn plainly large, growing to full at 10 mm', () => {
   assert.equal(LARGE_MM, 5);
-  assert.ok(endoGrow(5) >= 0.5, 'as engorged as a 7 mm varix on the old scale');
+  assert.ok(endoGrow(5) >= 0.7, 'as engorged as a 9 mm varix on the old scale');
+  assert.ok(endoGrow(6) >= 0.75, 'a 6 mm varix bleeding after the loss reads large (Mohammad 6 Nov 2026)');
+  assert.equal(endoGrow(10), 1);
   assert.equal(endoGrow(12), 1);
   assert.equal(endoGrow(20), 1);
   let prev = endoGrow(5);

@@ -1930,6 +1930,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!deck || leaving) return;
     dispatchEvent(new Event('pps:go'));   // (the ?perf readout's slide-change window; nothing listens otherwise)
     ink?.clear();   // (N2: the pen's strokes belong to the slide they were drawn on)
+    ui?.scope?.close();   // (the scope view shuts as the slide turns, not when the next one lands; Mohammad 6 Nov 2026)
     turn = i === want + 1 || firstBeat ? 'next' : i === want - 1 ? 'back' : 'jump';   // (the slide before or after, by whatever key or button: a turn; further: a jump)
     want = clamp(i, 0, slides.length - 1);
     const tx = (txn = txns.begin({ to: want, dir: turn }));

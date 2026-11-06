@@ -90,3 +90,18 @@ test('the cone runs along the two outer tangents', () => {
   }
   assert.equal(coneLines(a, { x: 1, y: 0, r: 40 }), null);
 });
+
+test('the lens sees what the figure shows: a scope of its own for each opening, first drawn from the frame now, and no ring under a balloon', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../src/ui/scope-lens.js', import.meta.url), 'utf8');
+  const open = src.slice(src.indexOf('  function open()'), src.indexOf('  function feed()'));
+  // (Mohammad 6 Nov 2026, "still discrepency between what the scope sees and reality": a scope kept from an earlier opening eased its
+  // varix on the model's clock, frozen while a talk rests, so it went on showing the small dry varix it first saw.)
+  assert.match(open, /drop\(\);[\s\S]*inst = createEndoscopy\(/, 'the last opening\'s scope let go, a new one made');
+  assert.match(open, /if \(fp\) inst\.pin\?\.\(fp\);/, 'with the slide\'s own numbers, as the tiles and the Scope card');
+  assert.match(src, /function feed\(\) \{[\s\S]*const f = store\.get\(\)\.frame;[\s\S]*inst\.update\(f\)/, 'fed the frame the figure has, once it has its size');
+  assert.match(src, /const scopable = \(f, st\) => varicesPresent\(f\) && !gastricUp\(st\.params \|\| NO_P\);/, 'no ring with a tamponade balloon in');
+  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+  assert.equal((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); ui\.scope\?\.pin\(\1\);/g) || []).length, 3, 'pinned wherever the Scope card is');
+  assert.match(pres, /ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/, 'shut as the slide turns');
+});
