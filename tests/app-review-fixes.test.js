@@ -2,7 +2,6 @@
 // the laser's long press is armed by one finger only, and the sinusoid, laser and pen are made again after a lost context.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, dopplerK } from '../src/engine/topology.js';
 import { computeMetrics } from '../src/engine/metrics.js';
@@ -26,16 +25,4 @@ test('a beta-blocker or terlipressin does not regrade varices within seconds', (
     for (let i = 0; i < 40; i++) e.step(0.1);
     assert.equal(computeMetrics(e).varix.grade.label, 'Large', `${drug}: still Large after 4 s`);
   }
-});
-
-test('the laser is armed by one finger, ignores other elements\' blur, and rehosts on a new top', () => {
-  const s = readFileSync(new URL('../src/ui/ink-gl.js', import.meta.url), 'utf8');
-  assert.match(s, /if \(touches\.size > 1\) return;/);
-  assert.match(s, /e\.target !== window\) return;/);
-  assert.match(s, /t !== topOf \|\| t\.gl !== gl/);
-});
-
-test('the sinusoid view is rehosted by the lobule when the figure comes back', () => {
-  assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /sv\.rehost\(\)/);
-  assert.match(readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8'), /if \(share && !ft\) return;/);
 });

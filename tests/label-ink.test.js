@@ -63,13 +63,15 @@ function rig(n) {
   const lay = () => { live.laidFrame = ++live.frameNo; for (const it of items) L.renderBlock(it); live.labelGlSync(); };
   const frames = async (k = 10) => { for (let i = 0; i < k; i++) { await new Promise((res) => setTimeout(res, 15)); lg.drawInto(); } };
   const settle = async () => { lay(); await frames(); lay(); await frames(); };
+  // (A change that waits on the label layer's own between-frames pass: frames are drawn until the picture shows it, so a busy machine's late timers cannot fail the check.)
+  const until = async (ok, k = 200) => { for (let i = 0; i < k && !ok(); i++) await frames(1); };
   // (A slide that lights some stations in tone t: the label layer's classes, and the tone's own class, as a slide's --term would set it.)
   const light = (tones) => {
     store.set({ presenting: !!tones, presentTerms: tones });
     for (const b of pool.values()) for (const k of Object.keys(TONES)) b.g.classList.toggle('t-' + k, !!tones && tones[b.it?.node] === k);
   };
   const shot = () => { const o = {}; for (const it of lg.snapshot().items) o[it.key] = it; return o; };
-  return { lg, pool, items, settle, frames, light, shot };
+  return { lg, pool, items, settle, frames, until, light, shot };
 }
 const close = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-6);
 
@@ -107,10 +109,11 @@ test('lit, unlit and dim on 30 labels paint nothing in the atlas: the drawn ink 
   }
   // (An explained label: the others at 35 %, told as stage-hover.js tells them.)
   for (const b of R.pool.values()) if (b.it.node !== 'V3') { b.g.classList.add('spot-dim'); R.lg.dirty(b.g); }
-  await R.frames();
+  await R.until(() => Math.abs((R.shot()['n:V0']?.a ?? 1) - 0.35) < 1e-6);
   const sd = R.shot();
   assert.ok(Math.abs(sd['n:V0'].a - 0.35) < 1e-6 && sd['n:V3'].a === 1, 'dim: the others at 35 %');
   for (const b of R.pool.values()) { b.g.classList.remove('spot-dim'); R.lg.dirty(b.g); }
+  await R.until(() => Math.abs((R.shot()['n:V0']?.a ?? 0) - 1) < 1e-6);
   await R.frames();
   assert.equal(R.lg.paints, warm, `no atlas paint through ${R.lg.paints - warm} toggles' worth`);
   R.lg.dispose();

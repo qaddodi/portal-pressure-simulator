@@ -3,7 +3,6 @@
 // the composite while the quads draw them, and the quads placing each head as chevOne does.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -94,16 +93,4 @@ test('the quads place each head as chevOne does: the same spacing, fades and run
   }
   assert.match(vs, /float fade = smoothstep\(0\.5, 3\.0, abs\(vd\)\) \* f1\.z \* texelFetch\(flow, ivec2\(3, id\), 0\)\.x \* keep \* endF \* smoothstep\(1\.3 \* pxW, 2\.4 \* pxW, R\);/);
   assert.match(chevOne, /float fade = smoothstep\(0\.5, 3\.0, abs\(vd\)\) \* f1\.z \* texelFetch\(flow, ivec2\(3, id\), 0\)\.x \* keep \* endF \* smoothstep\(1\.3 \* pxW, 2\.4 \* pxW, R\);/);
-});
-
-test('the renderer draws the heads after the picture, again in a catheter box, and keeps still lumens only when that is exact', () => {
-  const src = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  const comp = src.slice(src.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'));
-  // (Never on a one-pass (zoom) frame: it writes no layer for the quads to read, so its heads stay per-pixel.)
-  assert.match(comp, /if \(headP && blood\.chev && !bleeding && !fused && axisN > 0\) \{/);
-  assert.match(comp, /const stillUse = still && !\(quads && \(part \|\| dirt \|\| pool \|\| \(fl\?\.ripple && nFluid\) \|\| cathRect\)\);/);
-  assert.ok(comp.indexOf('if (quads) drawHeads(m, layer, glow, warm, useStack, stillUse);') > comp.indexOf('UC.i1(U.bloodOnly, 1);'));
-  assert.ok(comp.indexOf('if (quads) drawHeads(m, false, glow, warm, useStack, false);') < comp.indexOf("gpuProbe.time(gl, 'catheter', cathT);"));
-  // The lobule is given no axes: its renderer keeps the composite's heads.
-  assert.match(src, /heads: who === 'stage' \?/);
 });

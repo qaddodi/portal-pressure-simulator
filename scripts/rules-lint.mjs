@@ -133,6 +133,66 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if (gone.length) console.warn(`rules-lint: ${gone.length} listed source-regex test(s) no longer read source (${gone.slice(0, 3).join(', ')}${gone.length > 3 ? ', …' : ''}): run node scripts/test-classes.mjs --write`);
 }
 
+// Source shapes moved out of tests (6 Nov 2026, PR-02): app-review-fixes, blood-heads, lymph-dashes and scope-lens read src/ text, which the tests rule
+// forbids. Each rule keeps its one-line reason; a pattern that no longer matches means the code it guarded changed, so look before editing the rule.
+{
+  const text = (f) => readFileSync(join(ROOT, f), 'utf8');
+  const need = (file, rules) => {
+    const src = text(file);
+    for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
+  };
+  const forbid = (file, re, why) => { if (re.test(text(file))) errors.push(`${file}: ${why} (${re})`); };
+  need('src/ui/ink-gl.js', [
+    [/if \(touches\.size > 1\) return;/, 'the laser is armed by one finger'],
+    [/e\.target !== window\) return;/, "the laser ignores other elements' blur"],
+    [/t !== topOf \|\| t\.gl !== gl/, 'the laser rehosts on a new top'],
+  ]);
+  need('src/ui/lobule-zoom.js', [[/sv\.rehost\(\)/, 'the lobule rehosts the sinusoid view when the figure comes back']]);
+  need('src/ui/sinusoid-view.js', [[/if \(share && !ft\) return;/, 'a shared sinusoid view is not rebuilt by the rehost']]);
+
+  const gl = text('src/ui/veins-gl.js');
+  const comp = gl.slice(gl.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'));
+  const compRules = [
+    [/if \(headP && blood\.chev && !bleeding && !fused && axisN > 0\) \{/, 'heads as quads never on a one-pass (zoom) frame: it writes no layer for them to read'],
+    [/const stillUse = still && !\(quads && \(part \|\| dirt \|\| pool \|\| \(fl\?\.ripple && nFluid\) \|\| cathRect\)\);/, 'still lumens kept only when that is exact'],
+  ];
+  for (const [re, why] of compRules) if (!re.test(comp)) errors.push(`src/ui/veins-gl.js composite(): ${why} (${re})`);
+  if (!(comp.indexOf('if (quads) drawHeads(m, layer, glow, warm, useStack, stillUse);') > comp.indexOf('UC.i1(U.bloodOnly, 1);'))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn after the blood-only picture');
+  if (!(comp.indexOf('if (quads) drawHeads(m, false, glow, warm, useStack, false);') < comp.indexOf("gpuProbe.time(gl, 'catheter', cathT);"))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn again, in a catheter box, before the catheter timing');
+  need('src/ui/veins-gl.js', [
+    [/heads: who === 'stage' \?/, 'the lobule is given no axes: its renderer keeps the composite heads'],
+    [/void lymphAt\(float s, float y, vec4 f0, float len, float R, out float cover, out float core\)/, 'the composite has a lymph dash function'],
+    [/bool isLy = f1\.x < -0\.5;/, 'a lymph row is marked in the shader'],
+    [/if \(blood == 1 && blendA\.x > 0\.0 && f1\.z > 0\.0 && !isLy\) \{/, 'blood streaks skip a lymph row'],
+    [/chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy/, 'arrowheads skip a lymph row'],
+    [/if \(blood == 1 && isLy && f1\.z > 0\.0\) \{\n\s*float lc, lk;\n\s*lymphAt\(s1, y1, f0, len1, R1, lc, lk\);/, 'a lymph row draws its dashes'],
+  ]);
+  const lymphFn = gl.slice(gl.indexOf('void lymphAt('), gl.indexOf('// Moving blood in one lumen at arc length s'));
+  if (!/fract\(\(s - f0\.x\) \/ pitch\)/.test(lymphFn)) errors.push('src/ui/veins-gl.js lymphAt: the dash phase runs along the channel in world units, so a pan or pinch cannot slide it');
+  if (!/ya = y \* R/.test(lymphFn)) errors.push('src/ui/veins-gl.js lymphAt: across the channel in world units');
+  if (/gl_FragCoord|\bFC\b/.test(lymphFn)) errors.push('src/ui/veins-gl.js lymphAt: no screen-space coordinate (the dashes would slide off their vessel)');
+  need('src/ui/lobule-zoom.js', [
+    [/const lyOn = lymphOn && !m\.hide;/, 'lymph rows only with the Lymph layer on'],
+    [/blood\.on = \(bloodOn \|\| lyOn\) && flowA > 0\.002;/, 'the composite is on for lymph'],
+    [/if \(t\.kind !== 'ly' && t\.kind !== 'lt'\) continue;\n\s*const mo = motionOf\(t\), o = t\.id \* FLOW_TEXELS \* 4;/, 'one flow row per lymph channel'],
+    [/\(t\.kind === 'ly' \? -1 : 1\) \* dt \* lyVw/, 'out along the space of Disse, in along the terminal lymphatics'],
+    [/flowData\[o \+ 6\] = 1;/, 'the lymph row is marked'],
+  ]);
+  forbid('src/ui/lobule-zoom.js', /lyDrops|fxGLErase|lyRaw|lyNd/, 'nothing is built or drawn per frame for the lymph overlay any more');
+
+  const sl = text('src/ui/scope-lens.js');
+  const open = sl.slice(sl.indexOf('  function open()'), sl.indexOf('  function feed()'));
+  if (!/drop\(\);[\s\S]*inst = createEndoscopy\(/.test(open)) errors.push("src/ui/scope-lens.js open(): the last opening's scope lets go and a new one is made (a kept scope showed a stale varix)");
+  if (!/if \(fp\) inst\.pin\?\.\(fp\);/.test(open)) errors.push("src/ui/scope-lens.js open(): the scope is pinned to the slide's own numbers, as the tiles and the Scope card");
+  need('src/ui/scope-lens.js', [
+    [/function feed\(\) \{[\s\S]*const f = store\.get\(\)\.frame;[\s\S]*inst\.update\(f\)/, 'fed the frame the figure has, once it has its size'],
+    [/const scopable = \(f, st\) => varicesPresent\(f\) && !gastricUp\(st\.params \|\| NO_P\);/, 'no ring with a tamponade balloon in'],
+  ]);
+  const pres = text('src/ui/presenter.js');
+  if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
+  if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
+}
+
 // Code never rides after a line comment in stepBlood (6 Nov 2026): 0eec029 left so.speed, so.still, so.dt and so.bt after the // on so.phasic's
 // line, so every stream stepped with dt 0 and a reversed portal vein kept its hepatopetal chevrons under the reversed orange. The options the
 // streams read are each set in code, on a line no // comes before.
