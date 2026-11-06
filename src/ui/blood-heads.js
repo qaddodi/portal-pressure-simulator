@@ -107,7 +107,9 @@ void main() {
     endF = min(mix(a0, 1.0, clamp(ends.x, 0.0, 1.0)), mix(a1, 1.0, clamp(ends.y, 0.0, 1.0)));
     if (endF <= 0.0) return;
   }
-  float vd = f0.y, dir = vd < 0.0 ? -1.0 : 1.0;
+  float vd = f0.y, vmn = texelFetch(flow, ivec2(6, id), 0).w;   // (chevOne: the mean flow's display speed, not the beat-swung vd)
+  if (vmn != 0.0) vd = vmn;
+  float dir = vd < 0.0 ? -1.0 : 1.0;
   float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * endF * smoothstep(1.3 * pxW, 2.4 * pxW, R);
   // (Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.)
   fade *= smoothstep(0.85 * hw, 1.15 * hw, radAt(id, sc, len)) * wRun;
