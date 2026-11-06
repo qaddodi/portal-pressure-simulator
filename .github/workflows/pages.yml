@@ -7,7 +7,7 @@ name: Pages (live site + preview)
 # On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml.
 # On the preview branch a new push cancels every older run of this workflow, waiting or running: only the newest commit deploys.
 # On main nothing is cancelled. Browser checks are not part of the deploy.
-# A slow Pages backend gets up to 25 min (deploy-pages timeout) inside a 30 min job; a newer preview push still cancels it.
+# deploy-pages waits at most 10 min for Pages (a larger "timeout" is cut to 10 min). A slow Pages backend gets a second attempt (a new deployment) inside the 30 min job; a newer preview push still cancels it.
 
 on:
   push:
@@ -65,12 +65,12 @@ jobs:
     concurrency:
       group: pages
       cancel-in-progress: false
-    # GitHub Pages can sit in "queued" / "updating_pages" for many minutes on its side (5 Nov: 9+ min after a 25 s build).
-    # The job's cap must sit above deploy-pages' own wait (below), or the job is killed before Pages finishes.
+    # GitHub Pages can sit in "queued" / "updating_pages" for many minutes on its side (5 Nov: 9+ min after a 25 s build; 6 Nov: 10+ min).
+    # Two deploy-pages attempts of 10 min each, plus the build, must fit under the job's cap.
     timeout-minutes: 30
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -140,10 +140,17 @@ jobs:
           path: site
           include-hidden-files: true   # (v5 leaves dot files out by default; the site was published with them before)
           retention-days: 1
+      # deploy-pages gives up after 10 min (its maximum) and cancels its deployment; a second attempt makes a new one, which often passes at once.
       - id: deployment
+        continue-on-error: true
         uses: actions/deploy-pages@v5
         with:
-          timeout: 1500000   # 25 min wait for Pages (the default 10 min equalled the old job cap and lost)
+          timeout: 600000
+      - id: deployment-retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        with:
+          timeout: 600000
       # The site artifact (~14 MB) is only needed until Pages has it.
       - name: Delete the site artifact
         if: always()
