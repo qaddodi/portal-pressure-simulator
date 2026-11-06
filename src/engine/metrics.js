@@ -113,10 +113,10 @@ export function computeMetrics(eng, out = null) {
     measured.vein = cath.vein; measured.fhvp = P[ni[HV_NODE[cath.vein]]]; measured.wedged = cath.wedged; measured.whvp = cath.wedged ? P[ni[WEDGE_NODE[cath.vein]]] : null;
   }
   const vx = part(r, 'varix'), gx = noGRS ? spareOf(r).gOff : spareOf(r).gOn;
-  copyInto(vx, varE); vx.d = 2 * varE.r; vx.air = eng.varixAir('VAR', P); vx.grade = varixGrade(2 * varE.r); vx.present = varixPresent(2 * varE.r, eng.bands > 0); vx.redWale = varE.ratio > 0.7; vx.ratioMean = eng.vitM?.[4] ?? varE.ratio;
+  copyInto(vx, varE); vx.d = 2 * varE.r; vx.air = eng.varixAir('VAR', P); vx.grade = varixGrade(eng.varixGraded('VAR', 2 * varE.r)); vx.present = varixPresent(2 * varE.r, eng.bands > 0); vx.redWale = varE.ratio > 0.7; vx.ratioMean = eng.vitM?.[4] ?? varE.ratio;
   copyInto(gx, varG);
   if (noGRS) { gx.d = 0; gx.grade = varixGrade(0); gx.present = false; gx.redWale = false; }
-  else { gx.d = 2 * varG.r; gx.grade = varixGrade(2 * varG.r); gx.present = varixPresent(2 * varG.r, false); gx.redWale = varG.ratio > 0.7; }
+  else { gx.d = 2 * varG.r; gx.grade = varixGrade(eng.varixGraded('GV', 2 * varG.r)); gx.present = varixPresent(2 * varG.r, false); gx.redWale = varG.ratio > 0.7; }
   const ax = part(r, 'ascites');
   ax.volume = eng.slow.ascites; ax.ratePerDay = st.net * 1440; ax.iap = eng.iap ?? 5; ax.grade = asc.grade; ax.label = asc.label;
   ax.highProtein = st.highProtein; ax.totalProtein = st.ascTP; ax.albumin = st.ascAlb; ax.saag = st.saag; ax.lymphProt = st.prot.lymphProt; ax.lymphSigma = st.prot.sigma;

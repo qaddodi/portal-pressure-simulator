@@ -219,7 +219,13 @@ export const SPLANCHNIC_ARTERIES = ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'];
 // time; the model's velocity is flow over area, the mean across the lumen. Mean ≈ 0.57 × peak in the
 // portal vein (Moriyasu 1986), ≈ 0.5 × peak for laminar flow in a smooth stent. The usual Doppler
 // ranges (portal vein 15–40 cm/s, TIPS 90–190 cm/s) are peak velocities.
-export const dopplerK = (e) => (e?.kind === 'shunt' ? 2 : 1 / 0.57);
+// A stent (TIPS, DIPS, a drawn stent) is read higher again (app review H4, 5 Nov 2026: open 8 and 10 mm stents read 60–100 cm/s at K 2,
+// "Low velocity: suggests stenosis"): the scanner takes the spectrum's peak systolic velocity at an angle-corrected gate, in a lumen that the
+// pseudointima, an underdilated covered stent and its curve leave narrower than the stent's nominal diameter, where the model's velocity is the
+// time-mean flow over the nominal lumen. STENT_DOPPLER_K = 3.4 brings patent 8 and 10 mm stents in compensated and decompensated cirrhosis
+// to about 105–180 cm/s, as patent stents read on follow-up scans (Mitchell et al., Abdom Radiol 2025: 141–185 cm/s at 8 mm, 141–149 at 10 mm).
+export const STENT_DOPPLER_K = 3.4;
+export const dopplerK = (e) => (e?.kind !== 'shunt' ? 1 / 0.57 : isStent(e) ? STENT_DOPPLER_K : 2);
 // Stents: the TIPS, the DIPS and the shunts drawn with the stent tool. Each is sampled by Doppler at its portal end
 // (proximal), its middle and its systemic end (distal). A narrowing is a short pinch in one of those three
 // segments (params.stenosisSite, distal by default, where a TIPS usually narrows); the rest of the stent keeps its

@@ -147,10 +147,26 @@ export function createInk({ host, xform, active, onFigure, top }) {
   };
 
   // ── the figure's context: the pass is in it while ink is wanted ──
+  // (A new top is a new renderer: after a lost context the stage makes one in the same context object (stage.js webglcontextrestored), so the
+  // context alone cannot tell. The programs and buffers of the old one are dead, and the pass was in the old one's present: all made again here
+  // (app review H2, 5 Nov 2026: the laser and pen stayed dead after an app switch on iPhone or iPad until a reload).)
+  const rehost = () => {
+    if (offPass) { try { offPass(); } catch (e) { caught('ink-gl:rehost', e); } offPass = null; }
+    gl = null; topOf = null; hs = hv = null; prog = vprog = null; vao = buf = null; bufSegs = 0; last.n = -1;
+  };
+  let watched = null;
+  const onCtxLost = () => rehost();
+  const onCtxBack = () => { if (wanted()) again(); };   // (asked a frame later: the stage's own restore, which makes the new top, runs first)
+  const watch = (cv) => {
+    if (watched === cv) return;
+    if (watched) { watched.removeEventListener('webglcontextlost', onCtxLost); watched.removeEventListener('webglcontextrestored', onCtxBack); }
+    watched = cv || null;
+    if (watched) { watched.addEventListener('webglcontextlost', onCtxLost); watched.addEventListener('webglcontextrestored', onCtxBack); }
+  };
   const hostGL = () => {
     const t = top?.();
     if (!t || !t.gl || t.gl.isContextLost()) return null;
-    if (t.gl !== gl) { gl = t.gl; hs = startProgram(gl, SEG_VS, SEG_FS); hv = startProgram(gl, VEIL_VS, VEIL_FS); prog = vprog = null; vao = buf = null; bufSegs = 0; if (offPass) { offPass(); offPass = null; } }
+    if (t !== topOf || t.gl !== gl) { rehost(); gl = t.gl; hs = startProgram(gl, SEG_VS, SEG_FS); hv = startProgram(gl, VEIL_VS, VEIL_FS); watch(t.canvas); }
     topOf = t;
     return t;
   };
@@ -256,10 +272,23 @@ export function createInk({ host, xform, active, onFigure, top }) {
     if (addPoint(cur, inv.a * lx + inv.c * ly + inv.e, inv.b * lx + inv.d * ly + inv.f, STEP_PX / sc) && strokes.length) again();
   };
   const endStroke = () => { cur = null; penDown = false; };
+  // The fingers down now: the long-press laser is armed only while exactly one is (app review H3, 5 Nov 2026: a second, still finger of a pinch never
+  // moved past the slop, so the hold fired mid-pinch and the laser took the gesture). A primary touch starts a new gesture, so the set is started
+  // afresh with it (a lift the page never heard cannot leave a finger counted for good).
+  const touches = new Set();
+  const noteDown = (e) => {
+    if (e.pointerType !== 'touch') return;
+    if (e.isPrimary) touches.clear();
+    touches.add(e.pointerId);
+    if (touches.size > 1 && holdT) { clearTimeout(holdT); holdT = 0; }
+  };
+  const noteUp = (e) => { if (e.pointerType === 'touch') touches.delete(e.pointerId); };
   const onDown = (e) => {
+    noteDown(e);
     if (!active() || !onFigure(e)) return;
     if (e.pointerType === 'touch' || e.pointerType === 'pen') {
       if (!penOn && e.pointerType === 'touch') {
+        if (touches.size > 1) return;   // (a pinch or a two-finger pan: no laser)
         clearTimeout(holdT); holdId = e.pointerId; holdX = e.clientX; holdY = e.clientY;
         holdT = setTimeout(() => { holdT = 0; touchSpot = true; say(local({ clientX: holdX, clientY: holdY })); spot(true); }, HOLD_MS);
         return;
@@ -278,6 +307,7 @@ export function createInk({ host, xform, active, onFigure, top }) {
     else if (touchSpot) { e.preventDefault(); e.stopImmediatePropagation(); }
   };
   const onUp = (e) => {
+    noteUp(e);
     if (holdT && e.pointerId === holdId) { clearTimeout(holdT); holdT = 0; }
     if (touchSpot && e.pointerId === holdId) { touchSpot = false; spot(false); eatClick = performance.now() + 600; }
     if (cur) { endStroke(); e.stopImmediatePropagation?.(); }
@@ -286,7 +316,9 @@ export function createInk({ host, xform, active, onFigure, top }) {
   let eatClick = 0;
   const onClick = (e) => { if (eatClick && performance.now() < eatClick) { e.preventDefault(); e.stopImmediatePropagation(); } };   // (the click a lifted long press can leave: it must not also explain a label)
   const onMenu = (e) => { if (touchSpot || holdT || cur) e.preventDefault(); };
-  const onBlur = () => { spot(false); clearTimeout(holdT); holdT = 0; touchSpot = false; endStroke(); };
+  // (Only the window's own blur: the listener is a capture one on window, so every element that lost focus reached it, and a button or field
+  // losing focus turned the laser off and ended a pen stroke; app review H6.)
+  const onBlur = (e) => { if (e && e.target !== window) return; touches.clear(); spot(false); clearTimeout(holdT); holdT = 0; touchSpot = false; endStroke(); };
   const L = [['pointerdown', onDown], ['pointermove', onMove], ['pointerup', onUp], ['pointercancel', onUp], ['touchstart', onTouch], ['touchmove', onTouch], ['contextmenu', onMenu], ['click', onClick], ['blur', onBlur]];
   for (const [t, f] of L) addEventListener(t, f, { capture: true, passive: false });
   colours(); stopTheme = onTheme(() => restPass(() => { colours(); if (wanted()) again(); }));   // (the tokens are read again in a rest pass, not in the theme's frame)
@@ -312,7 +344,7 @@ export function createInk({ host, xform, active, onFigure, top }) {
     drawNow: () => sync(),
     dispose() {
       for (const [t, f] of L) removeEventListener(t, f, { capture: true });
-      stopTheme?.(); clearTimeout(holdT); strokes = []; spotOn = false; spotA = 0; host.style.cursor = ''; document.documentElement.style.cursor = ''; release(); dead = true;
+      watch(null); stopTheme?.(); clearTimeout(holdT); strokes = []; spotOn = false; spotA = 0; host.style.cursor = ''; document.documentElement.style.cursor = ''; release(); dead = true;
     },
   };
 }

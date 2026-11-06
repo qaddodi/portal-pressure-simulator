@@ -838,6 +838,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       glTried = false; gl?.dispose?.(); gl = null; binKey = ''; radKey = []; radAll = ''; radCal = ''; attrKey = ''; tissueKey = ''; layoutKey = ''; worldKey = ''; drawKey = '';
       if (fieldGL) { fieldGL = undefined; }
       ensureGL(); if (F) update(F);
+      sv.rehost();   // (the sinusoid's pass, names and drawer were in the old renderer too: made again in this one, app review H1)
     }, 0);
   }
   function ensureGL() {

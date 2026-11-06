@@ -599,7 +599,7 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
   // (Review pass 2, item 2: a draw that comes before the programs are published no longer publishes them itself while the driver is
   // still compiling, where reading their status waits inside the frame. It draws nothing, the compile is started if it was not yet, the
   // poller publishes it the moment the driver is done, and onReady asks the view to draw again. ?shaderready=0: published here, as before.)
-  let ok = null, skipped = false, stopPoll = null;
+  let ok = null, skipped = false, stopPoll = null, gone = false;
   const publish = () => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
     if (ok === null) { ok = init(); if (ok && skipped) { skipped = false; try { onReady?.(); } catch (e) { console.warn('sinusoid redraw:', e); } } }
     return ok;
@@ -621,11 +621,13 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
   // waits for it: on a phone without requestIdleCallback (Safari) it otherwise came 3 to 4 s after the cover lifted, in the first
   // seconds of use, and its status read blocks until the driver is done.
   if (!warm && booting()) holdCover(new Promise((done) => setTimeout(() => { try { publish(); } finally { done(); } }, 0)));   // (under the cover: no frame to keep)   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
-  evCv.addEventListener('webglcontextlost', (e) => { tgt = null; ok = false; pend = null; stopPoll?.(); stopPoll = null; });   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  const onLost1 = () => { tgt = null; ok = false; pend = null; stopPoll?.(); stopPoll = null; };
+  evCv.addEventListener('webglcontextlost', onLost1);   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   // (epoch: counts the restores, so a paused view whose picture is "the same as last frame" knows the context is new and draws it again.)
   let epoch = 0;
   // (Restored: compiled again beside the page and published by the poller, never read back in the restore's own task; onReady draws.)
-  evCv.addEventListener('webglcontextrestored', () => { epoch++; tgt = null; sent.clear(); ok = null; skipped = true; startLater(); });   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  const onBack = () => { if (gone) return; epoch++; tgt = null; sent.clear(); ok = null; skipped = true; startLater(); };
+  evCv.addEventListener('webglcontextrestored', onBack);   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   // A uniform keeps its value in its program, so one is sent only when it changes (most colours never do).
   const sent = new Map();   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   const SIZE = [0, 0];   // alloc-rare: made once with the drawer (the canvas size as a uniform, written in place)
@@ -670,7 +672,8 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
     if (M) { gl.useProgram(M.p); gl.uniform1i(M.U.uOld, 0); }
     return mOk;
   };
-  evCv.addEventListener('webglcontextlost', () => { M = null; mTex = null; mOk = null; });   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  const onLost2 = () => { M = null; mTex = null; mOk = null; };
+  evCv.addEventListener('webglcontextlost', onLost2);   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   // What is drawn over the sinusoid in this canvas (the cards' frosted glass, glass-gl.js setHost; Mohammad, 2 Nov 2026: "No blur at
   // all on top, solid card on bottom"): the same top hook as the figure's canvas (veins-gl top), laid at the end of every draw, so the
   // glass is blurred from the sinusoid's own picture on the GPU. last: the last draw's arguments, so present() lays it again at once.
@@ -770,6 +773,12 @@ export function createSinusoidGL(canvas, { warm = false, onReady = null, host = 
       gl.bindVertexArray(null);
       unbindT();
       host.present?.();
+    },
+    /** This drawer is done for (its view moves to a new renderer after a lost context, sinusoid-view.js rehost): its context listeners and poller go,
+     *  and it never compiles again. Nothing is deleted on the GPU: the context it held was lost, so its objects are gone with it. */
+    dispose() {
+      gone = true; ok = false; pend = null; stopPoll?.(); stopPoll = null; tops.length = 0; pics.clear();
+      evCv.removeEventListener('webglcontextlost', onLost1); evCv.removeEventListener('webglcontextrestored', onBack); evCv.removeEventListener('webglcontextlost', onLost2);
     },
     /** Lets the kept picture go. */
     drop() { if (mTex && !gl.isContextLost()) gl.deleteTexture(mTex); mTex = null; },

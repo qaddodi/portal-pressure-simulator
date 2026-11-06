@@ -13,7 +13,9 @@ const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6],
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3 };
+// The drugs that lower the portal pressure within seconds (holdVarices: they do not regrade a varix until it has remodelled).
+const VASO_DRUGS = ['propranolol', 'carvedilol', 'terlipressin', 'octreotide'];
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60 };   // (tauRegress: days for a held grade size to remodel to the varix now, holdVarices)
 /** Seconds the tube's gastric balloon must press on the tear before the bleed counts as stopped: a little over the 2.4 s it takes the tube to go
  *  in and the balloon to fill and be drawn up on screen (balloon-eso.js BALLOON_MS; tests/tamponade-bleed.test.js holds the two together). */
 export const BALLOON_SEAL_S = 3;
@@ -159,6 +161,7 @@ export class Engine {
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
       r0: { VAR: VARIX.r0Healthy, GV: VARIX.r0Healthy },
+      vHold: { VAR: null, GV: null },   // (the size a varix is graded at while a drug's fall in pressure has not yet remodelled it: varixGraded)
       spleen: 11,
       splTone: 1,
       volExtra: 0,
@@ -205,6 +208,7 @@ export class Engine {
 
   setParams(p) {
     const prev = this.params;
+    if (prev && this.slow && this.refP) this.holdVarices(prev, p);
     this.params = structuredClone(p);
     this._ease = null;
     if (prev.seed !== p.seed) this.rng = makeRng(p.seed);
@@ -924,6 +928,12 @@ export class Engine {
       s.d[e.id] = clamp(d + (target - d) * Math.min(1, days / tau), dMin, e.dMax);
     }
     // Varix size is not slow state: it follows the portosystemic gradient as it changes (see varixTarget).
+    // (Its grade's held size, holdVarices, remodels toward it over about two months of the disease clock, then is let go.)
+    if (s.vHold) for (const site of ['VAR', 'GV']) {
+      const h = s.vHold[site]; if (h == null) continue;
+      const now = 2 * this.varix(site).r, next = h + (now - h) * Math.min(1, days / VARIX.tauRegress);
+      s.vHold[site] = next - now < 0.05 ? null : next;
+    }
     if (this.bands > 0) this.bands = Math.max(0, this.bands - 0.02 * days); // bands slough; columns can recur
     // Spleen
     // Venous back-pressure from the right heart (raised IVC) congests the spleen far less than a portal block:
@@ -1102,6 +1112,7 @@ export class Engine {
 
   band() {
     this.bands = Math.min(4, this.bands + 1);
+    if (this.slow.vHold) this.slow.vHold.VAR = null;   // (banding grades the varix by what the bands left: no held size)
     if (this.bleed.active && this.bleed.site === 'VAR') this.stopBleed('band');
   }
 
@@ -1188,6 +1199,24 @@ export class Engine {
     const mature = this.varixMature(site);
     const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + mature * (VARIX.rMax - VARIX.r0Healthy));
     return site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
+  }
+
+  /** A vasoactive drug that lowers the portal pressure (a beta-blocker, terlipressin, octreotide) drops the varix's distending pressure within
+   *  seconds, but the varix's wall took weeks to build and takes weeks to go (app review H5, 5 Nov 2026: Large regraded Small within about
+   *  2.5 s). When one is started, the size the varix had is held for its grade (varixGraded), and slowStep lets that go on the disease clock.
+   *  The drawn and measured diameter (varix, metrics varix.d) still follows the pressure at once, as the drawing of it is asked to. */
+  holdVarices(prev, p) {
+    const on = (q) => VASO_DRUGS.some((k) => !!q?.drugs?.[k]);
+    const h = this.slow.vHold || (this.slow.vHold = { VAR: null, GV: null });
+    if (!on(p)) { h.VAR = h.GV = null; return; }
+    const started = VASO_DRUGS.some((k) => !!p.drugs?.[k] && !prev.drugs?.[k]);
+    if (!started) return;
+    for (const site of ['VAR', 'GV']) { const d = 2 * this.varix(site, this.Pf || this.P).r; if (h[site] == null || d > h[site]) h[site] = d; }   // (with the params before the drug: its pressures are still those)
+  }
+  /** The diameter (mm) a varix is graded at: its diameter d now, or the size held since a drug was started, whichever is larger (holdVarices). */
+  varixGraded(site, d) {
+    const h = this.slow.vHold?.[site];
+    return h != null && h > d ? h : d;
   }
 
   /** The arterial pressure the baroreflex defends in this patient: 93 mmHg, less the reset of the hyperdynamic circulation. */

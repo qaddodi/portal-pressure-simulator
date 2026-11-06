@@ -44,6 +44,7 @@ import { readBox as boxOf } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
 import { boxGap, needsLeader } from './label-place.js';
+import { caught } from './caught.js';
 const HEP_CELL = { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false };   // alloc-rare: made once (the hepatocyte's cell, written in place by each layout)
 const nextFrame = frameFor('sinusoid-view');
 
@@ -217,10 +218,13 @@ export function createSinusoidView({ host, before = null, share = null }) {
   let gpu = null, svYield = null, svSoft = false;
   function ensureGpu() {
     if (gpu || gpuTried) return;
-    gpuTried = true;
     // (share: { top(), order }: the figure's renderer when the lobule is drawn in it (lobule-zoom.js); the view is then a pass of its present, drawn into a texture of that
     // context, hidden and not drawn until the zoom brings it in, its texture back to a texel when it goes (place). Else the view's own canvas and context.)
     const ft = share?.top?.() || null;
+    // (Tried only once a figure's renderer is there to host it: asked while it was missing (a lost context, the lobule's renderer not made yet), the view
+    // is asked again at the next setModel or place, never left dead until a reload (app review H1, 5 Nov 2026).)
+    if (share && !ft) return;
+    gpuTried = true;
     gpu = createSinusoidGL(canvas, { warm: true, onReady: () => { gpuKey = ''; wake(); }, host: ft });
     if (gpu && ft) { shareTop = ft; shareOff = ft.add({ order: share.order, solo: true, on: () => shown > 0 && !!gpu && !gpu.lost, opaque: sinOpaque, draw: laySin }); }
     // The names and their leaders are a pass of the same present (L1, docs/gpu-two-contexts-plan.md), over the view and under every glass; the layer's own fades are followed by layer-alpha.js.
@@ -234,6 +238,17 @@ export function createSinusoidView({ host, before = null, share = null }) {
     svYield = svSoft ? softwareYield(true, swGL) : null;
   }
   let gpuTried = false, shareTop = null, shareOff = null;
+  // The figure's renderer was made anew (its context lost and given back, lobule-zoom.js onFigureBack): the view's pass, its names' pass and its drawer
+  // were all in the old one. They are let go, and the view is made again in the new renderer, now if it is showing, else the next time it is asked
+  // (app review H1, 5 Nov 2026: after an app switch on iPhone or iPad the sinusoid never drew again until a reload).
+  function rehost() {
+    shareOff?.(); shareOff = null; shareTop = null;
+    cap.detach();
+    try { gpu?.dispose?.(); } catch (e) { caught('sinusoid-view:rehost', e); }
+    gpu = null; gpuTried = false; svYield = null; svSoft = false; svFade = null;
+    gpuKey = ''; lastKey = ''; opW = 0; opH = 0; opAll = false;
+    if (shown > 0 || model) { ensureGpu(); wake(); }
+  }
   // The view's texture laid over the lobule in the stage's present (under the glass), weighed by the view's opacity.
   // (Render-cost plan 1, step 3: landed, the view's tissue fills the canvas at alpha 1 (sinusoid-gl.js: revealA is at least uAll, which is 1
   // with no zoom running, and the tissue pass is one full-screen quad), laid whole with no move and no fade: the lobule's pass under it is
@@ -1370,5 +1385,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     /** Whether its names are gliding to new places this frame (the corner credit's look, credit.js). */
     labelsMoving: () => open && svMoving,
     get available() { return gpuTried ? !!gpu : sinusoidSupported(); },
+    /** The figure's renderer was made anew (lobule-zoom.js onFigureBack, after its own passes are made again): the view moves into it. */
+    rehost,
   };
 }
