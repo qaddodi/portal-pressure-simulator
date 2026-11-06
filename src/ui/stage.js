@@ -3,6 +3,7 @@
 
 import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
+import { peelAt, peelRank } from './flow-peel.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
 import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
@@ -731,7 +732,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     }
     return c[0];
   };
-  const nodeOut = [0, 0], nodePos = (id, t) => { if (WEDGE_BRANCH[id]) { const w = wedgeTip(id); if (w) return w; } const a = NODE_POS[id][0], c = circTurnPt(NODE_POS[id][1], t); nodeOut[0] = lerp(a[0], c[0], t); nodeOut[1] = lerp(a[1], c[1], t); return nodeOut; };   // (nodeOut read at once by every caller; the circuit's end turned mid-change: circTurnPt)
+  const nodeOut = [0, 0], nodePos = (id, t) => { if (WEDGE_BRANCH[id]) { const w = wedgeTip(id); if (w) return w; } const a = NODE_POS[id][0], w = peelAt(t, peelRank(NODE_POS[id][1][0])), c = circTurnPt(NODE_POS[id][1], t); nodeOut[0] = lerp(a[0], c[0], w); nodeOut[1] = lerp(a[1], c[1], w); return nodeOut; };   // (nodeOut read at once by every caller; the circuit's end turned mid-change: circTurnPt; on the station's own share of the change: the flow peel)
 
   // ── SVG scaffolding ───────────────────────────────
   const defs = s('defs');

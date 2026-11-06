@@ -5,6 +5,7 @@ import { CONTEXT_EDGES, FEEDERS, IVC_EDGES, SIN_EDGES, VIEW } from './anatomy.js
 import { cssColor8 } from './css-color.js';
 import { createColourFollow } from './display-state.js';
 import { D_SURFACE, easeMove } from './ease.js';
+import { PEEL_GLOW, peelAt, peelGlow } from './flow-peel.js';
 import { PACED, PINCH_LOW_K, easeNow, figLab, figOpt, inMotion } from './frame.js';
 import { writeGlowTexels } from './glow-texels.js';
 import { gpuProbe } from './gpu-probe.js';
@@ -766,7 +767,8 @@ export function createVessels(st, live) {
       }
       // (A vessel whose direction reverses between the views draws out toward its downstream end over the first half of the change and draws
       // in from its upstream end over the second, never shrinking to a point and flipping: geo flip, vessel-transition-recs v3.4.)
-      if (kind === 'v' && !ra && !x.reveal && T0 > 0 && T0 < 1) { const fl = geo[id].flip; if (fl && fl[live.rotU > 0.5 ? 1 : 0]) { if (T0 < 0.5) lo = 2 * T0; else hi = 2 * T0 - 1; } }
+      // (On the vessel's own share of the change, taken at its middle: the flow peel, flow-peel.js.)
+      if (kind === 'v' && !ra && !x.reveal && T0 > 0 && T0 < 1) { const fl = geo[id].flip; if (fl && fl[live.rotU > 0.5 ? 1 : 0]) { const tv = peelAt(T0, geo[id].rk[N_SAMPLES >> 1]); if (tv < 0.5) lo = 2 * tv; else hi = 2 * tv - 1; } }
       if (kind === 'v' && ligatedAt(id)) lo = Math.max(lo, divideLen(id) / (it.len || geo[id].len || 1));
       tubeData[o + 20] = lo; tubeData[o + 21] = hi; tubeData[o + 22] = kind === 's' ? obj.len : kind === 'f' ? lenOfItem(it) || 1 : it.len || geo[id].len || 1;
       for (let j = 23; j < 28; j++) tubeData[o + j] = 0;
@@ -788,6 +790,9 @@ export function createVessels(st, live) {
         tubeData[o + 36] = t0; tubeData[o + 37] = t1; tubeData[o + 38] = live.cathTint.soft; tubeData[o + 39] = 0;
       }
       writeGlowTexels(tubeData, o, kind, id, ra?.e.id, obj.len, glow.lit, vh.amt, cpRgb, easeInOut);
+      // The moving front of the flow peel: a vessel on its way between the views is lit a little in its own hue (the hover's lift, veins-gl
+      // shov), a bell on its own share of the change, so the blood seems to lead the change (flow-peel.js; 0 at rest and with reduced motion).
+      if (kind === 'v' && !ra && T0 > 0 && T0 < 1 && !reduceMotion.matches) { const gw = PEEL_GLOW * peelGlow(T0, geo[id].rk[N_SAMPLES >> 1]); if (gw > tubeData[o + 39]) tubeData[o + 39] = gw; }
       // The selected vessel's standing out of the dimmed network (its tributaries' too); the cava and the vessels behind the
       // organs take it in their alpha above. Toward an end where another visible vessel joins and none of the selection, it
       // eases back into the network; a free end, or one into the rest of the selection, stays at full.

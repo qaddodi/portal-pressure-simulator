@@ -2,6 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
 import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, VB_ANAT, VB_CIRC } from './anatomy.js';
+import { peelAt } from './flow-peel.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
 import { store, varixGrowth } from './store.js';
@@ -88,15 +89,16 @@ export function createFrame(st, live) {
       g.mixI ^= 1;
       let m = mix[g.mixI];
       if (!m || m.length !== n) { m = mix[g.mixI] = Array.from({ length: n }, () => [0, 0]); }   // alloc-rare: made once for the vessel (and again if its sampling changes)
-      const T = circTurn(t), cx = CIRC_C[0], cy = CIRC_C[1], tc = T.c, ts = T.s;
-      if (T.on) for (let i = 0; i < n; i++) { const q = m[i], dx = C[i][0] - cx, dy = C[i][1] - cy; q[0] = lerp(A[i][0], cx + tc * dx - ts * dy, t); q[1] = lerp(A[i][1], cy + ts * dx + tc * dy, t); }
-      else for (let i = 0; i < n; i++) { const q = m[i]; q[0] = lerp(A[i][0], C[i][0], t); q[1] = lerp(A[i][1], C[i][1], t); }
+      const T = circTurn(t), cx = CIRC_C[0], cy = CIRC_C[1], tc = T.c, ts = T.s, rk = g.rk;
+      // (Each point on its own share of the change, later the further downstream it lies: the flow peel, flow-peel.js.)
+      if (T.on) for (let i = 0; i < n; i++) { const q = m[i], w = peelAt(t, rk[i]), dx = C[i][0] - cx, dy = C[i][1] - cy; q[0] = lerp(A[i][0], cx + tc * dx - ts * dy, w); q[1] = lerp(A[i][1], cy + ts * dx + tc * dy, w); }
+      else for (let i = 0; i < n; i++) { const q = m[i], w = peelAt(t, rk[i]); q[0] = lerp(A[i][0], C[i][0], w); q[1] = lerp(A[i][1], C[i][1], w); }
       pts = m;
     } else {
-      const T = circTurn(t), cx = CIRC_C[0], cy = CIRC_C[1], tc = T.c, ts = T.s;
+      const T = circTurn(t), cx = CIRC_C[0], cy = CIRC_C[1], tc = T.c, ts = T.s, rk = g.rk;
       pts = T.on
-        ? g.A.map((p, i) => { const dx = g.C[i][0] - cx, dy = g.C[i][1] - cy; return [lerp(p[0], cx + tc * dx - ts * dy, t), lerp(p[1], cy + ts * dx + tc * dy, t)]; })
-        : g.A.map((p, i) => [lerp(p[0], g.C[i][0], t), lerp(p[1], g.C[i][1], t)]);
+        ? g.A.map((p, i) => { const w = peelAt(t, rk[i]), dx = g.C[i][0] - cx, dy = g.C[i][1] - cy; return [lerp(p[0], cx + tc * dx - ts * dy, w), lerp(p[1], cy + ts * dx + tc * dy, w)]; })
+        : g.A.map((p, i) => { const w = peelAt(t, rk[i]); return [lerp(p[0], g.C[i][0], w), lerp(p[1], g.C[i][1], w)]; });
     }
     const base = pts;
     const u0 = STRAND_FROM[x.e.id] || 0;

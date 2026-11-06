@@ -1,6 +1,7 @@
 // The change between the Anatomy and the Circuit on one clock: the target view's labels solved ahead, the old labels as ghosts, the camera lerped by the figure's progress, the pre-render of the next view, and the landing.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
+import { peelAt } from './flow-peel.js';
 import { cancelFrame, cancelMay, mayTask } from './frame.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
@@ -46,14 +47,18 @@ export function createView(st, live) {
     if (!r) { r = resolveMorphAnchor(wx, wy, view); if (s) s.mA = r; }
     let x = wx, y = wy;
     if (r.id) {
-      const g = geo[r.id], t = live.easeInOut(live.morph), a0 = g.A[r.i], a1 = g.A[r.i + 1], c0 = g.C[r.i], c1 = g.C[r.i + 1], w = view === 0 ? 1 - t : t;
+      const g = geo[r.id], t = live.easeInOut(live.morph), a0 = g.A[r.i], a1 = g.A[r.i + 1], c0 = g.C[r.i], c1 = g.C[r.i + 1];
+      // (Each of the two points on its own share of the change, as vesselAt moves them: the flow peel, flow-peel.js.)
+      const w0 = peelAt(t, g.rk[r.i]), w1 = peelAt(t, g.rk[r.i + 1]), wf = lerp(w0, w1, r.f), w = view === 0 ? 1 - wf : wf;
       // (Mid-change on an upright circuit the CTM carries no turn: the circuit's side is laid out already turned about CIRC_C (circ-turn.js),
       // so its point, and a circuit label's offset from it, are turned here the same way, or the ghosts would drift off the figure.)
       const T = circTurn(live.morph), tc = T.on ? T.c : 1, ts = T.on ? T.s : 0, cx = CIRC_C[0], cy = CIRC_C[1];
-      const px = c0[0] + (c1[0] - c0[0]) * r.f - cx, py = c0[1] + (c1[1] - c0[1]) * r.f - cy;
+      const p0x = c0[0] - cx, p0y = c0[1] - cy, p1x = c1[0] - cx, p1y = c1[1] - cy;
+      const q0x = lerp(a0[0], cx + tc * p0x - ts * p0y, w0), q0y = lerp(a0[1], cy + ts * p0x + tc * p0y, w0);
+      const q1x = lerp(a1[0], cx + tc * p1x - ts * p1y, w1), q1y = lerp(a1[1], cy + ts * p1x + tc * p1y, w1);
       const ox = view === 0 ? r.dx : tc * r.dx - ts * r.dy, oy = view === 0 ? r.dy : ts * r.dx + tc * r.dy;
-      x = lerp(a0[0] + (a1[0] - a0[0]) * r.f, cx + tc * px - ts * py, t) + ox * w;
-      y = lerp(a0[1] + (a1[1] - a0[1]) * r.f, cy + ts * px + tc * py, t) + oy * w;
+      x = q0x + (q1x - q0x) * r.f + ox * w;
+      y = q0y + (q1y - q0y) * r.f + oy * w;
     }
     worldToLocalInto(out, x, y);
     return Number.isFinite(out[0]) && Number.isFinite(out[1]);
