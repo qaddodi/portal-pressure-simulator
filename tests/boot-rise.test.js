@@ -32,7 +32,7 @@ test('R10 the wait bar waits 1.2 s and has no gradient', () => {
 
 test('the cover never waits on the load event or an animation: the figure being ready lifts it, and the 15 s fallback lifts it even when the figure is ready', () => {
   assert.match(bootJs, /addEventListener\('pps:figure-ready',lift\)/, 'ready lifts the cover even if the page\'s load event never comes');
-  assert.match(bootJs, /setTimeout\(function\(\)\{if\(failed\|\|lifting\)return;if\(ready\(\)\)lift\(\);/, 'the fallback no longer returns early when the figure is ready');
+  assert.match(bootJs, /setTimeout\(function\(\)\{if\(failed\|\|lifting\|\|w\.ppsRecovering\)return;if\(ready\(\)\)lift\(\);/, 'the fallback no longer returns early when the figure is ready');
   assert.doesNotMatch(html.slice(html.indexOf('<div id="boot"'), html.indexOf('</div></div>', html.indexOf('<div id="boot"'))), /pathLength|class="bv/, 'the mark is drawn whole; no main-thread stroke animation');
 });
 

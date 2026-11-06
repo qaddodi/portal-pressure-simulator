@@ -74,3 +74,60 @@ test('a still layer gives its bitmap back; a presenter worker that never said he
   assert.match(p, /let w = null;\n\s+try \{\n\s+w = new Worker\(/);
   assert.match(p, /if \(w\) \{ w\.onmessage = w\.onerror = null; w\.terminate\(\); \}/);
 });
+
+// A page older than the site (a deploy replaced the hashed files its HTML names, 6 Nov 2026: "Could not load main-Q7HLWDMX.js" on the
+// preview) reloads once with a fresh index instead of stopping on "couldn't start" (index.html ppsStale; main.js hands it a failed
+// chunk import too). The boot gate is run for real in a sandbox against a stand-in fetch, location and sessionStorage.
+const gate = read('index.html').match(/<script>(\/\* Can this browser run the app\?[\s\S]*?)<\/script>/)[1];
+const tick = () => new Promise((r) => setImmediate(r));
+
+function staleBoot({ href = 'https://x.test/app/preview/?r=1&slide=3#k', page, asset = 200, stored = null, entry = 'main-OLD.js' } = {}) {
+  const ls = {}, store = new Map(stored ? [['pps.fresh', stored]] : []), timers = [], replaced = [], fetched = [];
+  const location = { href, pathname: new URL(href).pathname, search: new URL(href).search, replace: (u) => replaced.push(u), reload: () => replaced.push('reload') };
+  const w = {
+    addEventListener: (k, f) => (ls[k] ||= []).push(f), ResizeObserver: function () {}, structuredClone: () => {}, CSS: { supports: () => true }, URL, Date, Math, String,
+    fetch: (u) => { fetched.push(u); if (/assets\//.test(u)) return Promise.resolve({ ok: asset === 200 }); return Promise.resolve({ ok: true, text: () => Promise.resolve(page) }); },
+  };
+  const document = { createElement: () => ({ noModule: true }), querySelector: () => ({ src: 'https://x.test/app/preview/assets/' + entry }) };
+  const ctx = vm.createContext({ window: w, document, location, sessionStorage: { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) }, setTimeout: (f, ms) => timers.push([f, ms]), CSS: w.CSS, URL, Date, Math, String, Array, EvalError, SyntaxError, Function, Promise, fetch: w.fetch });
+  vm.runInContext(gate, ctx);
+  const failed = [];
+  w.ppsBootFail = () => failed.push(w.ppsBootErrors.slice());
+  // The entry module as the page names it, out of retries (data-try 3): the script element's error event.
+  const fire = () => { const t = { tagName: 'SCRIPT', type: 'module', src: 'https://x.test/app/preview/assets/' + entry + '?r=9', getAttribute: () => '3' }; for (const f of ls.error) f({ target: t }); };
+  return { w, fire, replaced, failed, timers, fetched, store };
+}
+const page = (name) => `<html><head><script type="module" src="assets/${name}"></script></head></html>`;
+
+test('a stale page whose entry the server no longer has reloads once with a fresh index, keeping the address', async () => {
+  const b = staleBoot({ page: page('main-NEW.js') });
+  b.fire(); await tick(); await tick();
+  assert.equal(b.failed.length, 0, 'no "couldn\'t start" card');
+  assert.equal(b.replaced.length, 1);
+  const u = new URL(b.replaced[0]);
+  assert.notEqual(u.searchParams.get('r'), '1', 'the reload carries a new r= stamp (a new address: no cached HTML)');
+  assert.equal(u.searchParams.get('slide'), '3');
+  assert.equal(u.hash, '#k');
+  assert.ok(b.store.get('pps.fresh'), 'the reload is remembered, so it happens once');
+  assert.ok(/\?r=\d+$/.test(b.fetched[0]), 'the index is asked for at a new address');
+});
+
+test('the same entry that now loads (a deploy that was half way) also reloads; one still missing is asked again, then the card shows', async () => {
+  const ok = staleBoot({ page: page('main-OLD.js'), asset: 200 });
+  ok.fire(); await tick(); await tick(); await tick();
+  assert.equal(ok.replaced.length, 1);
+  const gone = staleBoot({ page: page('main-OLD.js'), asset: 404 });
+  gone.fire();
+  for (let i = 0; i < 8; i++) { await tick(); await tick(); await tick(); const t = gone.timers.shift(); if (t) t[0](); }
+  assert.equal(gone.replaced.length, 0);
+  assert.equal(gone.failed.length, 1, 'after the retries the boot card shows');
+  assert.match(gone.failed[0].join('\n'), /Could not load main-OLD\.js/);
+  assert.equal(gone.w.ppsRecovering, false);
+});
+
+test('no reload loop: a page that was reloaded fresh in the last minute shows the card at once', () => {
+  const b = staleBoot({ page: page('main-NEW.js'), stored: String(Date.now() - 5000) });
+  b.fire();
+  assert.equal(b.replaced.length, 0);
+  assert.equal(b.failed.length, 1);
+});

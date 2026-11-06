@@ -2374,5 +2374,9 @@ function armFeedbackAsk() {
 }
 (/[?&]presenter-view(?:[=&]|$)/.test(location.search) ? import('./presenter-view-page.js').then((m) => m.run()) : main()).catch((err) => {   // (N1: ?presenter-view is the presenter's second window, text only)
   // (Told to the page's own boot card too, so a failed start shows "couldn't start / Reload" at once, not a pulsing logo for 15 s and then an empty shell.)
-  (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.();
-  console.error(err); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 'var(--z-diag)' } }, String(err.stack || err))); });
+  const fail = () => { (window.ppsBootErrors ||= []).push(String(err?.message || err).slice(0, 300)); window.ppsBootFail?.(); };
+  // (A chunk that will not load is most often a page older than the site: a deploy replaced the hashed files it names. The page's
+  // boot script (index.html, ppsStale) then reloads once with a fresh index instead of stopping on "couldn't start".)
+  console.error(err);
+  if (/dynamically imported module|importing a module script failed|error loading dynamically/i.test(String(err?.message || err)) && window.ppsStale?.('', fail)) return;
+  fail(); document.body.append(h('pre', { style: { position: 'fixed', bottom: 0, left: 0, background: 'var(--white)', color: 'var(--critical)', padding: '8px', zIndex: 'var(--z-diag)' } }, String(err.stack || err))); });
