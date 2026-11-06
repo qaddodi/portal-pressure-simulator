@@ -1253,25 +1253,35 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
     // Style D: the baked tile read twice (dNoise), one zoom scale (mips do the rest), the pattern placed by the stream's distance as ever,
     // so a chained child carries its root's pattern on (the flow-time coordinate of the plan, through the existing chain).
     float laneW = max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
-    float cellD = 5.12 * zoomB.z, dxu = pxW / (50.0 * cellD), dyv = pxW / laneW * ${TILE_V_PER_ROW};
-    if (cw < 1.0) nz = dNoise(id, s, qy, D, ay, cellD, drift, dxu, dyv);
+    // (The cell size is world-fixed: two fixed scales cross-faded by lf, as the lattice does, never a size that follows the zoom, so
+    // a pinch cannot slide the streaks along the vessel. "Lobule glitch", 6 Nov: round 3 review B1.)
+    float cA = 5.12 * sA, cB = 5.12 * sB, dxA = pxW / (50.0 * cA), dxB = pxW / (50.0 * cB), dyv = pxW / laneW * ${TILE_V_PER_ROW};
+    if (cw < 1.0) {
+      nz = dNoise(id, s, qy, D, ay, cA, drift, dxA, dyv);
+      if (lf > 0.0) nz = mix(nz, dNoise(id, s, qy, D, ay, cB, drift, dxB, dyv), lf);
+    }
     if (cw > 0.0) {
       int rid = int(ch4.x + 0.5) - 1;
       vec2 ch5 = rootDD(rid, texelFetch(flow, ivec2(5, id), 0).xy);
       float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
-      float nc = dNoise(rid, se, qy, ch5.x, ay, cellD, ch5.y, dxu * bs, dyv);
+      float nc = dNoise(rid, se, qy, ch5.x, ay, cA, ch5.y, dxA * bs, dyv);
+      if (lf > 0.0) nc = mix(nc, dNoise(rid, se, qy, ch5.x, ay, cB, ch5.y, dxB * bs, dyv), lf);
       nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
     }
   } else if (bloodStyle == 2) {
     // Style E: style D's flow-map with sines (eNoise), no texture read; chained children carry the root's pattern on, as in D.
     float laneW = max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
-    float cellD = 5.12 * zoomB.z, pxc = pxW / cellD;
-    if (cw < 1.0) nz = eNoise(id, s, qy, D, ay, cellD, drift, pxc);
+    float cA = 5.12 * sA, cB = 5.12 * sB;
+    if (cw < 1.0) {
+      nz = eNoise(id, s, qy, D, ay, cA, drift, pxW / cA);
+      if (lf > 0.0) nz = mix(nz, eNoise(id, s, qy, D, ay, cB, drift, pxW / cB), lf);
+    }
     if (cw > 0.0) {
       int rid = int(ch4.x + 0.5) - 1;
       vec2 ch5 = rootDD(rid, texelFetch(flow, ivec2(5, id), 0).xy);
       float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3);
-      float nc = eNoise(rid, se, qy, ch5.x, ay, cellD, ch5.y, pxc * bs);
+      float nc = eNoise(rid, se, qy, ch5.x, ay, cA, ch5.y, pxW / cA * bs);
+      if (lf > 0.0) nc = mix(nc, eNoise(rid, se, qy, ch5.x, ay, cB, ch5.y, pxW / cB * bs), lf);
       nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
     }
   }
