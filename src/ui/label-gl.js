@@ -2499,8 +2499,12 @@ void main() { o = texture(uT, vUV) * uA; }`;
       }
       labelByKey.clear(); recOf.clear();
       for (const s of list) { recOf.set(s.g, s); const k = s.g.dataset?.key; if (k) labelByKey.set(k, s); }
-      // (L3 P10: a label built in full that this layer draws, as after a lost context comes back, is told it may hold only its name again.)
-      if (svgAsk && !released) for (const s of list) if (s.full && sprites.get(s.g)?.mode === 'gl') svgAsk(s.g, false);
+      // (L3 P10: a label built in full that this layer draws, as after a lost context comes back, is told it may hold only its name again.
+      // Only once it has a picture of its own: a label waiting for its style read (waitStyle marks it 'gl' to keep the SVG's copy hidden) may
+      // be one this layer cannot draw, a glyph Inter's cut lacks, which had just asked for its full pieces. Told to give them up there, it
+      // went lean, found it could not be drawn, asked for them again, and swapped between the SVG and the GPU every frame or two, its leader
+      // blinking with it: the TIPS and BRTO step callouts' "➊", Mohammad, 6 Nov 2026, iPhone.)
+      if (svgAsk && !released) for (const s of list) { const sp = sprites.get(s.g); if (s.full && sp?.mode === 'gl' && sp.slot && !sp.wait) svgAsk(s.g, false); }
       for (const s of list) WAS.delete(s.g);
       for (const g of WAS) { g.removeAttribute('data-gl'); todo.delete(g); const st = sprites.get(g); if (st) { if (st.slot) packer.free(st.slot); if (st.alt?.slot) packer.free(st.alt.slot); if (st.alts) for (const o of st.alts) if (o.slot) packer.free(o.slot); sprites.delete(g); } live.delete(g); }
       ask();

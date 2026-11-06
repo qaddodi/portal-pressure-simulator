@@ -3278,7 +3278,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       setGlowSrc('flash', ids.filter((id) => E[id]?.vis).map((id) => ({ id, col: 'var(--accent)', amt: 1.3, dur: 380 })));
       stageScope.clear(glow.flashT); glow.flashT = stageScope.timer(() => setGlowSrc('flash', []), 1000);
     },
-    edgeMid: (id) => (geo[id] ? pointAt(geo[id].cur, 0.5) : null),
+    edgeMid: (id, f = 0.5) => (geo[id]?.cur?.length ? pointAt(geo[id].cur, f) : null),   // (f: a point along it, 0..1 of its drawn course)
     /** The drawn network's box on screen (px, in the figure), for placing cards beside it. */
     contentRect() {
       if (netBoxFor !== geometryVersion) { netBox = netBoxNow(); netBoxFor = geometryVersion; }

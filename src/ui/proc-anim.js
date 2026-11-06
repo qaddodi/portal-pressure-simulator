@@ -99,16 +99,18 @@ export const procOffered = (kind, p, m = null) => !!PROCS[kind] && (kind === 'ti
 
 /** The step a time falls in (pure): each runs up to and including its stop, so a procedure held at a stop still shows that step. */
 export const stepAt = (kind, t) => { const S = PROCS[kind].stops; for (let i = 0; i < S.length; i++) if (t <= S[i]) return i; return S.length - 1; };
-// (The step's number on its callout, as a filled circle: the same number as its step in the teaching card.)
-export const STEP_NUM = ['\u278A', '\u278B', '\u278C', '\u278D', '\u278E', '\u278F'];
+// (The step's number on its callout: the same number as its step in the teaching card, a plain bold digit. Not a circled numeral (➊):
+// Inter's cut the GPU draws the labels with has none, so the callout went to the SVG, which never follows the camera, and swapped
+// between the two every frame (Mohammad, 6 Nov 2026, iPhone: the TIPS and BRTO callouts "don't stick to where they should and flicker").)
+export const STEP_NUM = ['1', '2', '3', '4', '5', '6'];
 /** When a step's callout comes (pure, ms): once the step has played, at its stop; the last step's once the stent is in or the
  *  balloon is down, as the catheter starts out. */
 export const markAt = (kind, i) => { const P = PROCS[kind]; return i >= P.stops.length - 1 ? P.T.back : P.stops[i]; };
-/** The callout a step puts on the figure: a slide's own mark (a treatment's), numbered, at its point on the part it works on, kept
+/** The callout a step puts on the figure: a slide's own mark (a treatment's), numbered (num, drawn bold before its word), at its point on the part it works on, kept
  *  on its side and clear of every vessel (pin); ghost: it may name a vessel not drawn yet (the tract, before the stent is in). */
 export const stepMark = (kind, i) => {
   const s = PROCS[kind]?.steps[i];
-  return s ? { edges: [s[5]], label: `${STEP_NUM[i]} ${s[1]}`, kind: 'treat', f: s[7] ?? 0.5, pin: true, ghost: true } : null;   // alloc-rare: only when the step on show changes (four times in a procedure); the mark is a new record the store keeps
+  return s ? { edges: [s[5]], label: `${STEP_NUM[i]} ${s[1]}`, num: STEP_NUM[i], word: s[1], kind: 'treat', f: s[7] ?? 0.5, pin: true, ghost: true } : null;   // alloc-rare: only when the step on show changes (four times in a procedure); the mark is a new record the store keeps
 };
 
 /**

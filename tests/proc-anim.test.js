@@ -163,7 +163,9 @@ test("each step's callout is a treatment mark on a vessel of its own route, and 
   for (const k of PROC_KINDS) PROCS[k].steps.forEach((s, i) => {
     const m = stepMark(k, i);
     // (numbered as its step in the teaching card, at its own point on the part it names, kept clear of the vessels: his asks, 29 Oct)
-    assert.deepEqual(m, { edges: [s[5]], label: `${STEP_NUM[i]} ${s[1]}`, kind: 'treat', f: s[7], pin: true, ghost: true });
+    assert.deepEqual(m, { edges: [s[5]], label: `${STEP_NUM[i]} ${s[1]}`, num: STEP_NUM[i], word: s[1], kind: 'treat', f: s[7], pin: true, ghost: true });
+    // (its number a plain digit the GPU's Inter cut has: a circled numeral sent the callout to the SVG, off its point as the view moved, 6 Nov)
+    assert.equal(m.num, String(i + 1));
     assert.ok(s[7] > 0 && s[7] < 1, `${k} step ${i}: a point along its vessel`);
     assert.ok(routes[k].includes(s[5]), `${k} step ${i}: ${s[5]} is on its route`);
     for (const n of s[6]) assert.ok(LABEL_VESSEL[n], `${k} step ${i}: ${n} is a station label`);
@@ -205,14 +207,14 @@ test('presented, it holds at each step until Next, waits for each shot to land, 
     const P = PROCS.brto;
     assert.deepEqual(R.moves.map((m) => m.mode), ['way'], 'one shot for the way in');
     assert.equal(play.at, 0); assert.ok(R.idle(), 'held at the first stop with no frames running');
-    assert.deepEqual(steps, [0]); assert.deepEqual(marks, [false, '\u278A Catheter in'], 'no callout while it travels in, then the step on its vessel');
+    assert.deepEqual(steps, [0]); assert.deepEqual(marks, [false, '1 Catheter in'], 'no callout while it travels in, then the step on its vessel');
     // (nothing moved while the first shot glided in)
     const during = R.cats.filter((c, i) => i < R.cats.length && c && c.u > 0).length;
     assert.ok(during > 0 && R.cats[0].u === 0 && R.cats[0].keep === true, 'the figure keeps its names');
     assert.ok(play.next());
     R.run(30000);
     assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip']);
-    assert.equal(steps.at(-1), 1); assert.equal(marks.at(-1), '\u278B Balloon up');
+    assert.equal(steps.at(-1), 1); assert.equal(marks.at(-1), '2 Balloon up');
     assert.ok(play.next()); R.run(30000);
     assert.equal(applied, 1, 'the model took the change as the sclerosant filled');
     assert.ok(play.back()); R.run(30000);

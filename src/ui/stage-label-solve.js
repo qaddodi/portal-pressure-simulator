@@ -1091,7 +1091,9 @@ export function createLabelSolve(st, live) {
       const key = i || m.kind ? `focus${i}${m.kind || ''}` : 'focus', cls = 'focus' + (m.kind ? ` k-${m.kind}` : '');
       // (A mark whose words carry live readings, deck visuals V8: its words come from the slide's callouts, filled as the model moves.)
       const lk = `${m.edges[0]}|${m.kind || 'block'}`, lv = live.fx?.live?.[lk];
-      const it = lv ? fxPill(key, lv, cls, m.kind === 'note') : { key, cls, lines: [[{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }]], align: 'start', bg: true, padX: 8, padY: 4 };
+      // (A procedure's step callout: its number in bold, then its word, both in Inter's cut so the GPU draws it pinned: proc-anim.js stepMark.)
+      const words = m.num ? [{ t: m.num, size: 11.5, weight: 800, cls: 'lb-focus' }, { t: m.word, size: 11.5, weight: 650, cls: 'lb-focus', gap: 5 }] : [{ t: m.label || 'Here', size: 11.5, weight: 650, cls: 'lb-focus' }];   // alloc-rare: only as the marks are laid out
+      const it = lv ? fxPill(key, lv, cls, m.kind === 'note') : { key, cls, lines: [words], align: 'start', bg: true, padX: 8, padY: 4 };
       Object.assign(it, { mk: m.kind, ax, ay });
       if (lv) { it.src = ['fx', key]; fxBuild.set(key, () => live.fx?.live?.[lk] && fxPill(key, live.fx.live[lk], cls, m.kind === 'note')); }
       else { it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]); }
