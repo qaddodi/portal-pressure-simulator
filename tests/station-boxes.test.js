@@ -22,13 +22,13 @@ test('on the anatomy no box shows; each sits inside its organ', () => {
   }
 });
 
-test('landed on the circuit, every box is its station, whole, on its nodes', () => {
+test('landed on the circuit, every box has reached its station on its nodes and is gone (no squares under the circuit)', () => {
   const { A, B } = run(1);
   STATIONS.forEach((s, i) => {
     const mx = s.at.reduce((x, id) => x + NODE_POS[id][1][0], 0) / s.at.length, my = s.at.reduce((y, id) => y + NODE_POS[id][1][1], 0) / s.at.length;
     assert.ok(Math.abs(A[4 * i] - (mx + s.off[0])) < 1e-3 && Math.abs(A[4 * i + 1] - (my + s.off[1])) < 1e-3, s.org);
     assert.ok(Math.abs(A[4 * i + 2] - s.a) < 1e-3 && Math.abs(A[4 * i + 3] - s.b) < 1e-3);
-    assert.ok(Math.abs(B[4 * i + 1] - STATION_FILL) < 1e-6 && Math.abs(B[4 * i + 2] - STATION_RING) < 1e-6);
+    assert.equal(B[4 * i + 1], 0); assert.equal(B[4 * i + 2], 0);
     assert.ok(B[4 * i] <= Math.min(s.a, s.b));
   });
 });
@@ -52,4 +52,13 @@ test('mid-change the boxes move with their nodes, gut side first (the flow peel)
   const { B } = run(0.3);
   const sp = STATIONS.findIndex((s) => s.org === 'spleen'), ht = STATIONS.findIndex((s) => s.org === 'heart');
   assert.ok(B[4 * sp + 1] > B[4 * ht + 1]);
+});
+
+test('each box is whole somewhere mid-change, then dissolves before the view lands', () => {
+  for (let i = 0; i < N_STATIONS; i++) {
+    let peak = 0;
+    for (let k = 1; k < 400; k++) peak = Math.max(peak, run(k / 400).B[4 * i + 2]);
+    assert.ok(Math.abs(peak - STATION_RING) < 1e-3 && run(0.5).B[4 * i + 1] <= STATION_FILL, STATIONS[i].org);
+    assert.ok(run(0.999).B[4 * i + 2] < 0.02 * STATION_RING, STATIONS[i].org);
+  }
 });

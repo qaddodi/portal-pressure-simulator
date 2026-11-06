@@ -1,7 +1,8 @@
 // Organs become stations (M4 of the morph mocks; Mohammad, 6 Nov 2026: "Can we do M4 and M5?"): through the change between the views
 // each organ hands over to a box of its own tone that forms inside it, rides the nodes it belongs to and firms into that organ's station
 // on the circuit (the liver's box frames the sinusoid column, the heart's the right atrium, the spleen's, the stomach's, the gut's and the
-// colon's their beds on the left, the kidney's its bed). The boxes stay on the circuit. They are drawn on the GPU with the circuit's map
+// colon's their beds on the left, the kidney's its bed). Each box dissolves as it lands: none stays under the circuit (Mohammad, 6 Nov
+// 2026: "Remove the squares underneath the circuits"), so both landed views are the plain picture. They are drawn on the GPU with the circuit's map
 // (veins-gl mapAt: one rounded-box distance a box), from the numbers worked out here each frame of the change: nothing allocated.
 import { NODE_POS, ORGANS } from './anatomy.js';
 import { peelAt, peelRank } from './flow-peel.js';
@@ -18,7 +19,7 @@ export const STATIONS = [
   { org: 'kidney-l', at: ['KID_L'], off: [0, 0], a: 40, b: 22, r: 10 },
 ];
 export const N_STATIONS = STATIONS.length;   // (veins-gl keeps room for 8: tests/station-boxes.test.js)
-// How strong a box is landed: its fill and its outline (alpha of the organ's tone).
+// How strong a box is at its fullest, mid-change: its fill and its outline (alpha of the organ's tone).
 export const STATION_FILL = 0.1, STATION_RING = 0.5;
 
 // The box each organ starts from: its outline's bounds, drawn in a little (it forms inside the organ as the organ fades), its corners
@@ -67,8 +68,9 @@ export function stationsAt(t, nodePos, rr, A, B) {
     const ox = lerp(s.off[0], s.off[1], rr), oy = lerp(s.off[1], -s.off[0], rr), a = lerp(s.a, s.b, rr), b = lerp(s.b, s.a, rr);
     const o = 4 * i;
     A[o] = lerp(f.x, x + ox, w); A[o + 1] = lerp(f.y, y + oy, w); A[o + 2] = lerp(f.hx, a, w); A[o + 3] = lerp(f.hy, b, w);
-    // (It shows only once the change is on its way, and is whole by the middle of its share; the organ fades over it meanwhile.)
-    const k = t <= 0 ? 0 : smooth(0, 0.5, w);
+    // (It shows only once the change is on its way, is whole a third of the way through its share as the organ fades over it, and
+    // dissolves on the last third, so it is gone as it lands: nothing under the circuit at rest.)
+    const k = t <= 0 || t >= 1 ? 0 : smooth(0, 0.35, w) * (1 - smooth(0.65, 1, w));
     B[o] = Math.min(lerp(f.r, s.r, w), A[o + 2], A[o + 3]); B[o + 1] = STATION_FILL * k; B[o + 2] = STATION_RING * k; B[o + 3] = 0;
   }
 }
