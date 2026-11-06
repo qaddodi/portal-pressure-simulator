@@ -1875,6 +1875,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
         }
         // (A leader with no line yet (the FibroScan callout's, before it has a callout: no `d`) shows nothing in the SVG either: it is the GPU's, drawn as nothing, not a mark left to the SVG.)
         if (st && !geo && el.tagName === 'path' && !el.getAttribute('d')) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
+        // (A mark whose look is not read yet, of a label this layer draws or is about to (not the SVG's): hidden, never the SVG's for those
+        // frames. Given to the SVG, a new step callout's leader showed alone for two or three frames, went, and came back with its label once
+        // its picture was in: Mohammad, 6 Nov 2026, iPhone, the TIPS, BRTO and BATO callouts "still flicker as they appear".)
+        if (st === false) {
+          const ls = labelByKey.get(el.getAttribute('data-k') || ''), lst = ls && sprites.get(ls.g);
+          if (ls && lst?.mode !== 'svg') { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
+        }
         // (A mark this drawing cannot give stays the SVG's; one it draws is hidden there, in the same frame.)
         if (st === false || (st && !geo)) { markSvg(el, markGeo.get(el), false); if (el.hasAttribute('data-gl')) el.removeAttribute('data-gl'); svgLeft.add(el); continue; }
         if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', '');
