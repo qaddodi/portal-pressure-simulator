@@ -149,7 +149,7 @@ test('a fork keeps its trunk through the strands: indexes, trunks and the vessel
 
 // The real anatomy: where the strand-bearing collaterals meet the vein they run on into, the vessels run on, strands or not.
 // (Sampled as the stage does, 64 samples even by arc length, an end's direction taken three samples in.)
-test('the coronary vein runs on into the varices, the varices into the azygos route, and the portal tree keeps its own run-ons beside the collaterals', async () => {
+test('the coronary vein runs on into the varices, the varices into the azygos route, the fundal feeder into its shunt, and the portal tree keeps its own run-ons beside the collaterals', async () => {
   const { EDGE_PATH, STRANDS } = await import('../src/ui/anatomy.js');
   const { EDGES } = await import('../src/engine/topology.js');
   const even = (id, N = 64) => {
@@ -166,6 +166,8 @@ test('the coronary vein runs on into the varices, the varices into the azygos ro
     ['VAR', ['C1a', 'C1b'], 'C1a', 'C1b'],
     ['IMV', ['V_COL', 'V_IMV', 'C4'], 'V_COL', 'V_IMV'],
     ['SV', ['V_IMV', 'SV_MID', 'SV_CONF', 'C2'], 'SV_MID', 'SV_CONF'],
+    // The fundal varices: the short gastric feeder arches over into the gastrorenal shunt as one rounded loop, no hairpin (6 Nov).
+    ['GV', ['C2', 'C5'], 'C2', 'C5'],
   ];
   for (const [node, ids, a, b] of cases) {
     const ends = at(node, ids), strands = ids.reduce((n, id) => n + (STRANDS[id]?.length || 0), 0);

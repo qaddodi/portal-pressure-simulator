@@ -184,14 +184,19 @@ export const EDGE_PATH = {
   // a collateral in the back tier is filled as a solid shape, tried 31 Oct),
   // passing over the top of the arch rather than alongside it.
   C1b: 'M789 66 C 784 38 760 12 726 2 C 690 -8 640 -12 606 -8 C 584 -5 573 8 574 30',
-  C2: 'M880 505 C 890 462 912 420 922 380 C 928 344 912 312 876 302',
+  // The short gastric feeder climbs from the splenic vein in a gentle S (it left as one straight line on with the IMV below it:
+  // Mohammad, 6 Nov, "too straight"), bowing right over the stomach, and arches over into the fundal varices heading left, the
+  // way the gastrorenal shunt (C5) leaves them, so the two read as one rounded loop there, not a hairpin.
+  // (It still leaves the splenic vein at the angle it did, so the IMV below runs on into the splenic vein, not into it.)
+  C2: 'M880 505 C 884 489.6 885.3 476 886 462 C 887 441 905.4 424.8 918 408 C 929.4 392.8 930.9 370.8 928.5 352 C 925 324 908 300 876 302',
   C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
   // Superior rectal veins: down beside the sigmoid to the anorectum, where they break up into
   // submucosal anorectal varices (see STRANDS) and fade out toward the pelvis.
   C4: 'M932 690 C 944 770 922 828 874 856 C 840 872 806 886 786 928',
-  // Leaves the fundus in a gentle curve and runs down clear of the coronary vein, easing into
+  // Leaves the fundus heading left, as its feeder (C2) arrives, and bends down in a wide arc (radius about 30; it turned 72° at
+  // the node and met C2 in a sharp hairpin: Mohammad, 6 Nov), then runs down clear of the coronary vein, easing into
   // the left renal vein.
-  C5: 'M876 302 C 868 314 854 336 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
+  C5: 'M876 302 C 850 303.6 853 336 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
   // The splenorenal shunts leave the splenic vein halfway between the spleen and the IMV junction (SVD)
   // and drop to the renal vein just below, right of the IMV, so they never cross it. They bow left, clear of the
   // descending colon (which had run alongside, touching, and read as a huge outline round the shunt), and ease into
