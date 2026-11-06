@@ -1607,18 +1607,22 @@ function wireFloating() {
     // Off a phone the bar first compacts step by step (data-fit 1-3: shorter patient name, icon-only
     // buttons), so the view and the lens stay on the one row; two rows only if even that fails.
     const tb = $('#topbar'), cs = readStyle(tb);
-    // (Measured with the patient's full name, as always, so the name's form, picked after, never moves the bar's step.)
-    if ($('#scenarioName').dataset.form) $('#scenarioName').dataset.form = 'l';
     const need = () => readMetric($('.tb-id'), 'scrollWidth') + ($('#viewSeg').closest('.topbar') ? readMetric($('#viewSeg'), 'offsetWidth') : 0) + readMetric($('.topbar .sb-right'), 'offsetWidth') + readMetric($('.top-right'), 'scrollWidth') + 6 * 8 + 16;
     const avail = readMetric(tb, 'clientWidth') - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
     const was = +(tb.dataset.fit || 0) + (tb.classList.contains('two-rows') ? 1 : 0);
-    tb.classList.remove('two-rows');
+    // (A bar that is not laid out (hidden through a talk: .app.projector .topbar) has no width to fit, so it keeps the step it had. Fitted
+    // at a width of 0 it went to two rows, and as it came back after the slides its Blood and colour-key pill stood on the second row
+    // and glided up from the bottom right into its place (Mohammad, 6 Nov 2026, the Mac).)
+    const laid = avail > 0;
+    // (Measured with the patient's full name, as always, so the name's form, picked after, never moves the bar's step.)
+    if (laid && $('#scenarioName').dataset.form) $('#scenarioName').dataset.form = 'l';
+    if (laid) tb.classList.remove('two-rows');
     let fit = 0;
     // A phone held sideways has the width for one row too, once the bar compacts.
     const steps = wide || matchMedia('(orientation: landscape)').matches ? 3 : 0;
     // With the thumb dock the bar is two corner chips, the patient and the key: always one row.
     const thumb = app.classList.contains('thumb');
-    if (thumb) tb.dataset.fit = '0';
+    if (!laid) { /* (kept as it was) */ } else if (thumb) tb.dataset.fit = '0';
     else {
       for (; fit <= steps; fit++) {
         tb.dataset.fit = String(fit);
@@ -1626,7 +1630,7 @@ function wireFloating() {
       }
       if (fit > steps) { tb.dataset.fit = String(steps); tb.classList.add('two-rows'); }
     }
-    fitScenarioName();
+    if (laid) fitScenarioName();
     // Every box is read first and the custom properties written after, so the whole pass costs one layout
     // instead of one per write; a value is written only when it changed, and the occupancy is announced
     // (pps:occ: the cards and the credit place themselves again) only when something did change.

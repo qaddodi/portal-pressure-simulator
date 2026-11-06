@@ -15,6 +15,7 @@ const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > but
 // Pills that grow reveal their new width from the old one instead of snapping wide.
 const GROW = '.tb-id, .top-right, #viewSeg';
 const MOVE_MS = D_SMALL, IN_MS = D_SMALL, OUT_MS = D_FLIP, EASE = EASE_ARRIVE;
+const SETTLE_MS = 400;   // (how long a bar that has just come into view takes its layout as it comes, unglided: keep(), below)
 // The lens pill (the Layers and Blood chips and the colour key) glides its plate to a new width on the key's own clock (a new lens
 // takes D_SURFACE on EASE_MOVE, legend-morph.js), anchored at its right edge so the chevron and the key stay put as it grows or
 // shrinks.
@@ -56,14 +57,18 @@ export function initTopbarMotion() {
   };
   const trackedParent = (el, map) => { for (let p = el.parentElement; p && p !== bar; p = p.parentElement) if (map.has(p)) return p; return null; };
 
-  let snap = null, vw = 0, vh = 0, pending = false;
-  const resnap = () => { snap = measure(); vw = innerWidth; vh = innerHeight; };
+  let snap = null, vw = 0, vh = 0, pending = false, shownAt = -Infinity;
+  // (The bar coming back into view (after a talk, which hides it) takes the layout it lands in: the change that settles it in its
+  // first moments, its fit step worked out again for the width it now has, is not a change to glide. Glided, the Blood and colour-key
+  // pill flew in from the bottom right as the bar came back from the slides (Mohammad, 6 Nov 2026, the Mac).)
+  const keep = (m) => { if (m.get(bar).vis && !(snap && snap.get(bar).vis)) shownAt = performance.now(); snap = m; };
+  const resnap = () => { keep(measure()); vw = innerWidth; vh = innerHeight; };
 
   function run() {
     pending = false;
     if (!snap) return;
     const next = measure();
-    if (reduce.matches || document.hidden || innerWidth !== vw || innerHeight !== vh || !snap.get(bar).vis || !next.get(bar).vis) { resnap(); return; }
+    if (reduce.matches || document.hidden || innerWidth !== vw || innerHeight !== vh || !snap.get(bar).vis || !next.get(bar).vis || performance.now() - shownAt < SETTLE_MS) { resnap(); return; }
 
     const own = new Map(), tot = new Map();
     const barNext = next.get(bar);
@@ -116,8 +121,8 @@ export function initTopbarMotion() {
         if (t.dw > 2 && el.matches(GROW)) growPill(el, s, n, next);
       }
     }
-        next.set(bar, barNext);
-    snap = next;
+    next.set(bar, barNext);
+    keep(next);
   }
 
   // The plate's glide: the face spans [x0, x0 + w0] at the start and [0, w1] at the end, in its pill's new box.
