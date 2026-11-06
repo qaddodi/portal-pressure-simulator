@@ -981,7 +981,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       easing.set(el, { key: k, s });
       // (Read mid-ease, this style is that moment's: the label's fades are followed from the next frame instead.)
       { const g = labelOf(el); if (g?.isConnected && !markOf(g)) { keepAnims(g, true); live.set(g, performance.now() + 700); dirty.add(g); } }
-      Promise.allSettled(anims.map((a) => a.finished)).then(() => { if (easing.get(el)?.key === k) easing.delete(el); unread.add(el); if (!fillT) fillT = setTimeout(fillStyles, 0); });
+      Promise.allSettled(anims.map((a) => a.finished)).then(() => { if (easing.get(el)?.key === k) easing.delete(el); unread.add(el); waiting.add(el); if (!fillT) fillT = setTimeout(fillStyles, 0); });
     }
     if (snaps.size > 2000) snaps.clear();
     // (The labels and marks that waited for these are read again at the next picture.)
@@ -1833,11 +1833,28 @@ void main() { o = texture(uT, vUV) * uA; }`;
           if (mg) {
             // (A pinned label's dot and leader are not the page's: drawn below from the point and the label as they are this frame (drawPins),
             // in the look the page gives them, kept here. Its SVG copy stays hidden.)
-            // (A numbered group's fan (class fan, stage-label-solve.js) is not its label's leader: each line is drawn from its own geometry, below.)
-            const pl0 = mg.k && !el.classList.contains('fan') ? pinOf(labelByKey.get(mg.k)) : null;
+            // (A numbered group's fan (class fan, stage-label-solve.js) is not its label's leader. Its number, pinned with the fan's world points
+            // (s.fans), has every line drawn by drawPins from those points as the figure has them this frame to the number as drawn now, in its
+            // look kept here: rigid, and at the number's own opacity, so the lines come in with it. 6 Nov 2026, Mohammad: "slide 3/9 portal
+            // circulation the number 2 on figure still doesn't have leaders". The fan used to be faded in by a Web Animation of its own, the
+            // look read in the fade's delay (opacity 0) was the one kept, and step 2's lines, unlike step 1's (no delay), never showed.)
+            const fan = mg.k && el.classList.contains('fan');
+            if (fan) {
+              const fl = labelByKey.get(mg.k), fp = fl?.fans?.length ? pinOf(fl) : null;
+              if (fp) {
+                let pk = pinLooks.get(mg.k);
+                if (!pk) pinLooks.set(mg.k, pk = { line: null, dot: null, halo: null, dotR: 2.4, haloR: 5, fan: null });   // alloc-rare: one record per pinned label key
+                pk.fan = st;
+                if (pinnedNow(fp)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
+              }
+              // (Its number with no picture yet, or waiting for its turn: neither are its lines. One the SVG draws: the lines' own look.)
+              const lst = fl && sprites.get(fl.g);
+              if (!lst || (lst.mode === 'gl' && lst.wait)) folA = 0; else if (lst.mode === 'gl') folA = Math.min(1, Math.max(0, lst.opacity ?? 1));
+            }
+            const pl0 = mg.k && !fan ? pinOf(labelByKey.get(mg.k)) : null;
             if (pl0) {
               let pk = pinLooks.get(mg.k);
-              if (!pk) pinLooks.set(mg.k, pk = { line: null, dot: null, halo: null, dotR: 2.4, haloR: 5 });   // alloc-rare: one record per pinned label key
+              if (!pk) pinLooks.set(mg.k, pk = { line: null, dot: null, halo: null, dotR: 2.4, haloR: 5, fan: null });   // alloc-rare: one record per pinned label key
               const cls = el.getAttribute('class') || '';
               if (isPath) pk.line = st; else if (cls.includes('halo')) { pk.halo = st; if (mg.ok) pk.haloR = mg.v[2]; } else { pk.dot = st; if (mg.ok) pk.dotR = mg.v[2]; }
               if (pinnedNow(pl0)) { if (!el.hasAttribute('data-gl')) el.setAttribute('data-gl', ''); continue; }
@@ -1965,6 +1982,26 @@ void main() { o = texture(uT, vUV) * uA; }`;
     PG[0] = px + (dx / L) * s0; PG[1] = py + (dy / L) * s0; PG[2] = e.x; PG[3] = e.y;
     return true;
   }
+  // (A numbered group's fan (V10): one line from each of its vessels' points, where the figure has them this frame (pinWorldAt, as a world-anchored
+  // label's own point), to the edge of its number's letters as drawn now (leaderGeom, no dot). Into out (CSS px, four a line) for the snapshot;
+  // returns how many were drawn.)
+  const FAN_MAX = 8, FP = [0, 0];
+  function drawFans(fans, view, lx, ly, st, lk, a, out) {
+    if (!pinWorldAt) return 0;
+    const ls = lk?.fan?.stroke ? lk.fan : lk?.line?.stroke ? lk.line : defLine;
+    let n = 0;
+    for (let j = 0; j < fans.length && n < FAN_MAX; j++) {
+      const f = fans[j];
+      let ok;
+      try { ok = pinWorldAt(f.wx, f.wy, view, FP, f); } catch { ok = false; }
+      if (!ok) continue;
+      if (!leaderGeom(Math.round(FP[0] * dpr), Math.round(FP[1] * dpr), lx, ly, st.w, st.h, 0)) continue;
+      if (!pinMark(ls, PG, true, a * (ls?.op ?? 1))) continue;
+      if (out) for (let i = 0; i < 4; i++) out[n * 4 + i] = PG[i] / dpr;
+      n++;
+    }
+    return n;
+  }
   function drawPins(now) {
     for (const lk of pinLooks.values()) { if (lk.line?.stroke && lk.line.op > 0.5 && !defLine) defLine = lk.line; if (lk.dot && !defDot) defDot = lk.dot; }
     // (No leader seen yet, a Circuit opened with none: the page's leader colour, read once from a leader the page has, else its text's.)
@@ -1986,7 +2023,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       pinOff(s, now); pinDev(st);
       const px = PD[0], py = PD[1], lx = PD[2], ly = PD[3];   // (the point and the label as drawIn put them: one rounding for the three)
       let rec = pinDrawn.get(key);
-      if (!rec) pinDrawn.set(key, rec = { seq: -1, hasLine: false, hasDot: false, line: new Float64Array(4), dot: new Float64Array(2), a: 0 });   // alloc-rare: one record per pinned label key
+      if (!rec) pinDrawn.set(key, rec = { seq: -1, hasLine: false, hasDot: false, line: new Float64Array(4), dot: new Float64Array(2), a: 0, nFan: 0, fan: new Float64Array(4 * FAN_MAX) });   // alloc-rare: one record per pinned label key
       rec.seq = frameSeq; rec.hasLine = false; rec.hasDot = false; rec.a = a;
       // (The leader: exactly where the layout asked for one (want bit 4: the one leader rule, decided at the solve, stage-label-solve.js), from
       // the point to the picture's edge; no test of its own here, only none where the point lies inside the letters (leaderGeom).)
@@ -1999,6 +2036,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         PG[0] = px; PG[1] = py; PG[2] = (lk?.dotR ?? 2.4) * dpr; PG[3] = 0;
         if (pinMark(ds, PG, false, a * (ds?.op ?? 1))) { rec.hasDot = true; rec.dot[0] = px / dpr; rec.dot[1] = py / dpr; }
       }
+      rec.nFan = s.fans ? drawFans(s.fans, s.pwv, lx, ly, st, lk, a, rec.fan) : 0;
     }
     // (The ghosts' leaders and dots, as their labels had them, riding their points and fading with them.)
     for (let i = 0; i < ghosts.length; i++) {
@@ -2010,6 +2048,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if ((gh.want & 4) && leaderGeom(px, py, lx, ly, st.w, st.h, gh.want & 1 ? lk?.dotR ?? 2.4 : 0)) {
         pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a);
       }
+      if (gh.s.fans) drawFans(gh.s.fans, gh.s.pwv, lx, ly, st, lk, a, null);
       if (gh.want & 1) {
         const ds = lk?.dot || defDot;
         if (lk?.halo) { PG[0] = px; PG[1] = py; PG[2] = lk.haloR * dpr; PG[3] = 0; pinMark(lk.halo, PG, false, a * (lk.halo.op ?? 1)); }
@@ -2589,6 +2628,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (r.seq !== frameSeq) continue;
         if (r.hasDot) marksOut.push({ k, kind: 'leader-dot', x0: r.dot[0], y0: r.dot[1], x1: r.dot[0], y1: r.dot[1], r: 2.4, a: r.a });
         if (r.hasLine) marksOut.push({ k, kind: 'line', x0: r.line[0], y0: r.line[1], x1: r.line[2], y1: r.line[3], r: 0, a: r.a });
+        for (let j = 0; j < r.nFan; j++) marksOut.push({ k, kind: 'line', fan: true, x0: r.fan[j * 4], y0: r.fan[j * 4 + 1], x1: r.fan[j * 4 + 2], y1: r.fan[j * 4 + 3], r: 0, a: r.a });
       }
       return { seq: frameSeq, gen, items, marks: marksOut };
     },

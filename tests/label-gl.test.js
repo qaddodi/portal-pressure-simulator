@@ -114,7 +114,9 @@ test('leaders and dots: straight leaders and circles are drawn on the GPU, anyth
 test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the labels, their SVG copies hidden but still fading', () => {
   assert.match(STAGE, /marks: \[gLeaders, (?:live\.)?gScan\], onBoxes: frostWake, host \}\) : null;/);
   assert.match(CSS, /#labels :is\(\.lb-leaders, \.lb-scan\) > \[data-gl\] \{ visibility: hidden; \}/);
-  assert.match(STAGE, /el\.animate\?\.\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' \}\); (?:live\.)?(?:live\.)?labelGL\?\.hold\(el, wait \+ D_SURFACE\); \}/);
+  // (A step group's fan: drawn by the GPU from its number's record at the number's opacity, step-fan-rigid.test.js; only the SVG fades its own copy.)
+  assert.match(STAGE, /if \(!live\.labelGL\) for \(const w of leaders\) \{/);
+  assert.match(LGL, /rec\.nFan = s\.fans \? drawFans\(s\.fans, s\.pwv, lx, ly, st, lk, a, rec\.fan\) : 0;/);
   assert.match(LGL, /float span\(float x, float a, float b\)/);
 });
 

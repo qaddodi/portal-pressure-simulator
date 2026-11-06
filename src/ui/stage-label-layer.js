@@ -192,6 +192,15 @@ export function createLabelLayer(st, live) {
     if (gp) localToWorldInto(ANCHOR_W, it.ax, it.ay);
     it.aGw = gp && Number.isFinite(ANCHOR_W[0]) && Number.isFinite(ANCHOR_W[1]);
     it.aWx = it.aGw ? ANCHOR_W[0] : 0; it.aWy = it.aGw ? ANCHOR_W[1] : 0; it.aWv = live.morph; it.aView = live.morphTarget;
+    // (A numbered step's group (V10): each line of its fan starts on one of its vessels, taken to the world under the same camera, so the GPU
+    // draws every line from that vessel's point now to the number as drawn now, in the same frame: rigid with the figure, as a pinned leader.
+    // mA: label-gl's per-point cache for a view change, as a record's own.)
+    it.aFans = null;
+    if (it.aGw && it.fans?.length) {
+      it.aFans = [];
+      for (const [fx, fy] of it.fans) { localToWorldInto(ANCHOR_W, fx, fy); if (Number.isFinite(ANCHOR_W[0]) && Number.isFinite(ANCHOR_W[1])) it.aFans.push({ wx: ANCHOR_W[0], wy: ANCHOR_W[1], mA: null }); }
+      if (!it.aFans.length) it.aFans = null;
+    }
   }
   function renderBlock(it) {
     stampAnchor(it);
@@ -373,7 +382,7 @@ export function createLabelLayer(st, live) {
       sample = samples.get(look, it, b);
     }
     b.lookWas = look;
-    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null, want: leadBits.get(it.key) | 0, look,
+    b.pos = { g: b.g, x: px0, y: py0, rot: !!it.rot, pid: pin ? it.key.slice(2) : gw ? it.key : null, pax: pin || gw ? it.ax : 0, pay: pin || gw ? it.ay : 0, pmid: pk === 1, pau: it.au ?? 0.5, pwx: it.aWx, pwy: it.aWy, pwv: gw ? it.aWv : null, view: it.aView, mA: null, want: leadBits.get(it.key) | 0, fans: gw ? it.aFans : null, look,
       geo: b.lean ? b.geo : null, sample, full: !b.lean };
     // (Its box on an 8 px grid, for the corner credit's look (labelBoxStamp): a number ticking inside it moves nothing the credit avoids.)
     const c0 = Math.floor((it.x - it.padX) / 8), c1 = Math.floor((it.y - it.padY) / 8), c2 = Math.ceil((it.x + (it.rot ? it.h : it.w) + it.padX) / 8), c3 = Math.ceil((it.y + (it.rot ? it.w : it.h) + it.padY) / 8), bh = !!it.hide;

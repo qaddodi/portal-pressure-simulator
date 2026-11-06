@@ -1474,12 +1474,14 @@ export function createLabelSolve(st, live) {
     // must not stamp an old picture with the current camera merely because its solver has finished or was skipped.
     live.layCTM = stagePx(live.CTM);
     if (HOVER_LINK && (live.linkLit.size || vh.id || live.linkPtr || live.linkKbd)) { live.linkHeld(); live.linkSync(); }   // (a label or leader just built, or one whose class was written again, takes its lift)
-    // (A group's leaders come in with its number, as its vessels light.)
-    for (const w of leaders) {
+    // (A group's leaders come in with its number, as its vessels light: label-gl draws them at the number's own opacity, from its record's fans,
+    // with no fade of their own: one in a Web Animation's delay was read at opacity 0 and kept so, and step 2's fan never showed, 6 Nov 2026.
+    // Only the SVG, drawing the labels when there is no GPU layer, fades its own copy of the lines.)
+    if (!live.labelGL) for (const w of leaders) {
       const el = w.fanOf && leadEls.get(w.k), wait = el && w.fanOf.delay - (performance.now() - live.glowSetAt);
       if (!el || el.fxIn) continue;
       el.fxIn = true;
-      if (wait > 0 && !reduceMotion.matches) { el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' }); live.labelGL?.hold(el, wait + D_SURFACE); }
+      if (wait > 0 && !reduceMotion.matches) el.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SURFACE, delay: wait, easing: EASE_ARRIVE, fill: 'backwards' });
     }
     return true;
   }
