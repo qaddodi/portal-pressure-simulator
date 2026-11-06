@@ -5,7 +5,7 @@ import { pressureColor } from './colormap.js';
 import { diaphragmD, diaphragmLine } from './diaphragm.js';
 import { fluidTarget } from './fluid-step.js';
 import { gpuProbe } from './gpu-probe.js';
-import { liverShrink } from './liver-morph.js';
+import { liverShrink, smooth01 } from './liver-morph.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { easeTo } from './organ-ease.js';
 import { measurePath } from './shape-gl.js';
@@ -117,7 +117,7 @@ export function createDiaphragm(st, live) {
     // pressure (after a TIPS) keeps some of the tint until the dusk is there to take its place.
     // (Not faded with the switch to the circuit: the organs' group fades it there, and a tint stepping down with the switch
     // changed the picture's key, so the organs' picture was drawn again every half second of the fade.)
-    liverTint.style.opacity = (live.lvT * (1 - live.smooth01(live.lvG / 0.5))).toFixed(3);
+    liverTint.style.opacity = (live.lvT * (1 - smooth01(live.lvG / 0.5))).toFixed(3);
     if (live.lvT !== tT) live.widthEasing = live.organsEasing = true;
     const moving = live.lvC !== cT || live.lvG !== gT;
     // While it eases, the live drawing shows (a raster would move in steps); the plate is

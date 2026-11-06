@@ -14,7 +14,6 @@ import { lerpVT } from './cam-arc.js';
 import { easeArrive, createGlideTracker, D_SURFACE } from './ease.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, lineIndexBuf, indexHits } from './seg-hits.js';
-import { smooth01 } from './liver-morph.js';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_B } from './organ-art.js';
 import { gpuProbe } from './gpu-probe.js';
 import { fading } from './res-fade.js';
@@ -524,7 +523,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get sleepTimer() { return sleepTimer; }, set sleepTimer(v) { sleepTimer = v; },
     get sliceEnd() { return sliceEnd; }, set sliceEnd(v) { sliceEnd = v; },
     get slideGlow() { return slideGlow; }, set slideGlow(v) { slideGlow = v; },
-    get smooth01() { return smooth01; },
     get smoothRunOn() { return smoothRunOn; },
     get SOFTWARE() { return SOFTWARE; }, set SOFTWARE(v) { SOFTWARE = v; },
     get solCache() { return solCache; },
@@ -2052,7 +2050,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // follows the camera with the labels; it fades out while the views morph and in the liver's own views. A new vessel or third, or
   // a card making it change sides, fades it out where it stood and back in at its new place (nothing jumps).
   let dprCardsList = [], dprCardsAt = -1e9, lbRects = [], colShown = false, colWaitAt = 0;   // colShown: a stent's three point callouts stand (the probe keeps off them, so it waits for them)
-  const { dprDots, dprHold, dprLet, dprMake, dprobePaint, smooth01 } = createDoppler({ E, EV, arcMid, cath, clampW, dop, dpr, geo, nextFrame, olKey, olRings, organEls, pointAt, readFrame, scanCardsRead, sites, stageBox, unseenCard, viewMoving, watch, worldToLocalInto }, live);
+  const { dprDots, dprHold, dprLet, dprMake, dprobePaint } = createDoppler({ E, EV, arcMid, cath, clampW, dop, dpr, geo, nextFrame, olKey, olRings, organEls, pointAt, readFrame, scanCardsRead, sites, stageBox, unseenCard, viewMoving, watch, worldToLocalInto }, live);
   const { NO_BLK, cathAt, cathFadeOut, cathFocus, cathFollow, cathLabelsNow, cathLabelsSoon, cathPaint, cathRadOf, cathRoom, cathRoute, procIn } = createCath({ E, NO_LIST, animateVT, appEl, applyVT, blockersRead: (...a) => blockersRead(...a), cardSpace, cardSpaceRead, cath, clientToVB, clientToVBFast, drawFrame, easeFrame, easeInOut, geo, glWanted, late, nextFrame, polyD, readBlockersRead: (...a) => readBlockersRead(...a), readFrame, refreshCTM, safeInsets, stageBox, syncVeins, toRGB, worldToLocalInto, wrap, wrapCS }, live);
   let cathVer = 0;
   let cathFade = null;

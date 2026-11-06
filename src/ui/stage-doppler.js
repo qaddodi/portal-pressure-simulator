@@ -346,7 +346,7 @@ export function createDoppler(st, live) {
   // stands (dpr.tgt) in about 0.3 s, one frame at a time; the line of sight always square to its face, the flow axis along the flow.
   const angTo = (a, b) => ((((b - a) % 360) + 540) % 360) - 180;   // b − a, in −180 … 180
   const outEase = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);   // (calm both ends, no overshoot)
-  const smooth01 = (p) => p * p * (3 - 2 * p);
+  const smooth01 = (p) => p * p * (3 - 2 * p);   // (the probe's own, unclamped, for its head's fade: kept here, never handed to the stage, whose live.smooth01 is the liver's clamped one)
   // Writes the probe's record (where it stands, its turn, its swing out, its fades and the marks' numbers) and asks the labels' layer to draw it;
   // while anything is still easing, it carries on in the next frame (dprStep).
   function dprShape() {
@@ -389,5 +389,5 @@ export function createDoppler(st, live) {
       if (hide !== !!el._dprHid) { el._dprHid = hide; el.classList.toggle('dpr-hid', hide); live.labelGL?.markLook(el); }
     }
   }
-  return { dprDots, dprHold, dprLet, dprMake, dprobePaint, smooth01 };
+  return { dprDots, dprHold, dprLet, dprMake, dprobePaint };
 }

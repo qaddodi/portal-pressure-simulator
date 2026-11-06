@@ -19,6 +19,9 @@
 //              organ-paint.js and theme-epoch.js (guarded forms) are the only other readers.
 //   css      (PR-21) the count of lines in styles/*.css with !important, and with a doubled class (.a.a, a specificity hack), may not rise above
 //              scripts/css-allowance.json; --tighten lowers each number to today's count. A new surface wins by order or by the state layer, not by doubling.
+//   shadow   a name bound from a create…() call's result (const { a, b } = createX(…)) that one of the file's own imports already names: the
+//              part's export silently stood in for the import (the Doppler's unclamped smooth01 for the liver's clamped one, so the cirrhotic
+//              liver lost its nodules and got its gloss back above half scarring, 6 Nov 2026).
 //   (The built chunks' 200 KB limit is held by scripts/build.mjs itself: the build fails on a chunk over it.)
 //
 //   node scripts/rules-lint.mjs            check
@@ -199,6 +202,24 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   for (const f of strict) {
     const code = readFileSync(f, 'utf8').split('\n').map((l) => l.replace(/\/\/.*$/, '')).join('\n');
     if (/getComputedStyle|readStyle\(/.test(code)) errors.push(`${relative(ROOT, f)} reads the page's style (getComputedStyle): a chart's looks live in src/ui/chart-looks/ (chart-looks-in-code plan, WP12)`);
+  }
+}
+
+// A create…() part's result never binds a name the file imports (shadow, above).
+{
+  const bound = (p) => (p.type === 'Identifier' ? [p.name] : p.type === 'ObjectPattern' ? p.properties.flatMap((q) => bound(q.value || q.argument))
+    : p.type === 'ArrayPattern' ? p.elements.filter(Boolean).flatMap(bound) : p.type === 'AssignmentPattern' ? bound(p.left) : p.type === 'RestElement' ? bound(p.argument) : []);
+  const visit = (n, fn) => { if (!n || typeof n.type !== 'string') return; fn(n); for (const k in n) { if (k === 'parent') continue; const v = n[k]; if (Array.isArray(v)) for (const x of v) visit(x, fn); else if (v && typeof v.type === 'string') visit(v, fn); } };
+  for (const f of files.filter((x) => x.endsWith('.js'))) {
+    let ast;
+    try { ast = parse(readFileSync(f, 'utf8'), { ecmaVersion: 'latest', sourceType: 'module', loc: true }); } catch { continue; }
+    const imp = new Set();
+    for (const n of ast.body) if (n.type === 'ImportDeclaration') for (const sp of n.specifiers) imp.add(sp.local.name);
+    if (!imp.size) continue;
+    visit(ast, (n) => {
+      if (n.type !== 'VariableDeclarator' || n.id.type !== 'ObjectPattern' || n.init?.type !== 'CallExpression' || !/^create/.test(n.init.callee?.name || '')) return;
+      for (const k of bound(n.id)) if (imp.has(k)) errors.push(`${relative(ROOT, f)}:${n.loc.start.line} binds ${k} from ${n.init.callee.name}(), shadowing its own import of ${k}: rename one`);
+    });
   }
 }
 

@@ -32,6 +32,16 @@ const FIX_MAX = 2000, FIX_NEG_MAX = 300;
 const FIX_POS = Array.from({ length: FIX_MAX * 10 + 1 }, (_, k) => (k / 10).toFixed(1));
 const FIX_NEG = Array.from({ length: FIX_NEG_MAX * 10 + 1 }, (_, k) => '-' + (k / 10).toFixed(1));
 
+/** The cirrhotic liver's surface at scarring c (0 … 1): the capsule's gloss (1 healthy, a quarter left at full scarring) and the strength of
+ * its nodules and septa (0 … 1), both following c one way only, so more scarring never brings the gloss back or fades the nodules. Written
+ * into one kept record: read both at once. */
+const SURFACE = { gloss: 1, nod: 0 };
+export function liverSurface(c) {
+  SURFACE.gloss = 1 - 0.75 * smooth01(c / 0.6);
+  SURFACE.nod = smooth01(c / 0.5) * (0.55 + 0.45 * clamp(c, 0, 1));
+  return SURFACE;
+}
+
 /** The liver's scale about (560, 350): a cirrhotic liver shrinks a little; a congested one swells. */
 export const liverShrink = (c, g) => 1 - 0.035 * c * CIRR.scale + 0.035 * g;
 

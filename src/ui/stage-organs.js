@@ -4,7 +4,7 @@ import { ORGANS, SEAM_D } from './anatomy.js';
 import { gpuProbe } from './gpu-probe.js';
 import { LIVER_GEO } from './liver-geo-data.js';
 import { nodularCells, nodularSites, seeded, strHash } from './liver-geo.js';
-import { CIRR, contourNodules, fix1, liverField, morphOutline, outlineNormals } from './liver-morph.js';
+import { CIRR, contourNodules, fix1, liverField, liverSurface, morphOutline, outlineNormals, smooth01 } from './liver-morph.js';
 import { DUO_A } from './organ-art.js';
 import { bindShape, reshape, shapeSource } from './organ-paint.js';
 import { cmdL, cmdM, cmdQ, cmdZ, cmdsReset, measurePath, newCmds, pathCmds } from './shape-gl.js';
@@ -268,11 +268,12 @@ export function createOrgans(st, live) {
     live.liverDome = c + g > 0 ? dome : null;
     live.liverFloor = lowerEdge(c + g > 0 ? out : live.baseLiver.pts);
     if (live.veins && !live.veins.lost) live.veins.setFluidLiver(live.liverFloor);
-    lv.gloss.style.opacity = (1 - 0.75 * live.smooth01(c / 0.6)).toFixed(3);
+    const surf = liverSurface(c);
+    lv.gloss.style.opacity = surf.gloss.toFixed(3);
     // Regenerative nodules: tawny islands of mixed size parted by a network of pale fibrous
     // septa (the liver shows through the gaps, lightened). Flat, no shading; the septa widen and
     // the contrast firms with severity.
-    const cn = live.smooth01(c / 0.5) * (0.55 + 0.45 * c);
+    const cn = surf.nod;
     // (They follow the cirrhosis alone: while only the congestion eases, they are neither worked out nor written again; recs B6.)
     const nk = cn > 0.01 ? c : -1;
     if (nk !== live.nodKey) {
@@ -281,7 +282,9 @@ export function createOrgans(st, live) {
       const nod = gpuProbe.time(null, 'liver: nodules (maths)', liverNodules, cn, c, nodCmds);
       gpuProbe.time(null, 'liver: writes', nodWrite, nod, nodCmds);
     }
-    lvFade(lv.sep, cn); lvFade(lv.nod, cn);
+    // (The nodules show only while they have a shape (cn > 0.01, as liverNodules): shown with an empty d, the GPU's reading of the liver
+    // took them as nothing and only another change of the liver's look read them again.)
+    lvFade(lv.sep, cn); lvFade(lv.nod, cn > 0.01 ? cn : 0);
     // Nutmeg: the even dusky tone and its pale islands, fading in as congestion deepens.
     // (Written only when they come or go: the same islands throughout.)
     if ((g > 0.01) !== live.islOn) {
@@ -289,10 +292,10 @@ export function createOrgans(st, live) {
       lv.isl.setAttribute('d', live.islOn ? live.baseLiver.isl : '');
       if (live.islOn) bindShape(lv.isl, (live.islSrc ||= shapeSource(live.baseLiver.isl, pathCmds(live.baseLiver.isl))));   // (read once)
     }
-    const gn = live.smooth01(g / 0.5); lvFade(lv.cong, gn); lvFade(lv.isl, gn);
+    const gn = smooth01(g / 0.5); lvFade(lv.cong, gn); lvFade(lv.isl, gn);
     // The ascites is kept off the liver as its congestion shows (over the dusky liver its straw turned the lower lobe into a
     // brown blotch; organ picks, round 26).
-    live.liverFluidCut = live.smooth01(g / 0.5);
+    live.liverFluidCut = smooth01(g / 0.5);
     ascLvCut.setAttribute('fill-opacity', live.liverFluidCut.toFixed(3));
     // (Only while it cuts anything: an unused mask would still be rasterized with the fluid on every frame it eases.)
     for (let i = 0; i < live.ascEls.length; i++) if (live.liverFluidCut > 0.001) live.putA(live.ascEls[i], 'mask', 'url(#ascLv)'); else live.ascEls[i].removeAttribute('mask');
