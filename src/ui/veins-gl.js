@@ -903,7 +903,7 @@ void main() {
   vDir = dir; vUV = uv;
 }`;
 // mode 0: soft shadow · 1: still blood column · 2: catheter shaft · 3: marker band · 4: rounded tip
-// 5: balloon (translucent, lit at its rim) · 6: a reading ripple.
+// 5: balloon (translucent, lit at its rim) · 6: a reading ripple · 7, 8: a tube's, a disc's flat edge · 9: an ultrasound sector.
 const CATH_FS = `#version 300 es
 precision highp float;
 in vec2 vDir;
@@ -972,6 +972,13 @@ void main() {
       c = mix(c, col * vec3(0.42, 0.46, 0.52), edge * 0.85);
       float k = 0.46 + 0.36 * fr + 0.3 * sp2 + edge * 0.5;
       a *= aa * clamp(k, 0.0, 1.0);
+    } else if (mode == 9) {
+      // EUS-PPG's ultrasound sector (eus-scope.js): a fan from the transducer, uv its own frame (x along its middle, the arc at r 1)
+      // and len its half angle; soft at its sides and its far edge, faint near the transducer, a few depth arcs across it.
+      float ang = abs(atan(vUV.y, vUV.x)) / max(len, 1e-3), fw = max(fwidth(r * 6.0), 1e-4);
+      float arcs = 1.0 - 0.35 * (1.0 - smoothstep(0.0, fw * 1.5, 0.5 - abs(fract(r * 6.0) - 0.5)));
+      c = col;
+      a *= aa * (1.0 - smoothstep(0.8, 1.0, ang)) * smoothstep(0.0, 0.14, r) * (0.45 + 0.55 * (1.0 - smoothstep(0.55, 1.0, r))) * arcs;
     } else {
       float d = abs(r - 0.86), fw = max(fwidth(r), 1e-4);
       a *= clamp((0.07 - d) / fw + 0.5, 0.0, 1.0) * 0.9 + exp(-d * d * 160.0) * 0.35;

@@ -14,6 +14,7 @@ import { sinusoidSupported } from './gl-support.js';
 import { createInspector } from './inspector.js';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js';
 import { setHvpgStage } from './hvpg-proc.js';
+import { setEusStage } from './eus-ppg.js';
 import { createWhy } from './why.js';
 import { createTimeline, LAPSES } from './timeline.js';
 import { createCompare } from './compare.js';
@@ -184,6 +185,7 @@ async function main() {
     onViewChange: () => card?.position(),
   });
   setHvpgStage(stage);
+  setEusStage(stage);
   // Idle rest (idle heat, 1 Nov): left alone 30 s in Explore, the blood eases to a stop, the model holds its numbers (its worker
   // stops stepping, as for a hidden page) and the figure stops drawing; the first input brings it all back from that frame.
   // Never while a talk is open, a time-lapse plays or the patient is still changing.

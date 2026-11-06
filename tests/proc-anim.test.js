@@ -267,7 +267,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(el, /class: 'pz-step'/); assert.doesNotMatch(el, /pz-abb/);
   // Going forward, the slide opens on its state before the procedure (the worker's before), its words on the state after.
   assert.match(pz, /own = lap \? \(await stateReady\(stateOf\[to\]\)\)\?\.start \|\| null : pre \? \(await stateReady\(to\)\)\?\.before \|\| null : null;/);
-  assert.match(pz, /before: s\.procedure \? PROCS\[s\.procedure\.kind \|\| s\.procedure\]\?\.before : undefined/);
+  assert.match(pz, /before: s\.procedure \? specOf\(s\.procedure\.kind \|\| s\.procedure\)\?\.before : undefined/);
   const wk = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
   assert.match(wk, /if \(st\.before\) \{\n\s+const b = new Engine\(\); b\.restore\(e\.snapshot\(\)\); b\.setParams\(deepMerge\(b\.params, st\.before\)\); b\.settle\(\);/);
   for (const k of PROC_KINDS) assert.ok(PROCS[k].before && PROCS[k].had(PROCS[k].apply({})) && !PROCS[k].had(structuredClone(PROCS[k].before)), `${k}: before undoes it`);

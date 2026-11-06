@@ -22,7 +22,7 @@ import { createTraceGL, fitPen } from './trace-gl.js';
 import { traceRoom, TRACE_MIN } from './trace-room.js';
 import { rateOf } from './table-marks.js';
 import { drawCallout, dropK, sideFor, calloutCell, calloutText, inkSeg } from './trace-callouts.js';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure } from './proc-anim.js';
+import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure, procRunning } from './proc-anim.js';
 import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('hvpg-proc');
 
@@ -124,7 +124,7 @@ export function createHvpgProcedure() {
   const values = () => result || snap || live();
 
   function start() {
-    if ((t0 != null && t < tEnd()) || proc) return;
+    if ((t0 != null && t < tEnd()) || proc || procRunning()) return;
     const st = store.get();
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
@@ -137,7 +137,7 @@ export function createHvpgProcedure() {
   let proc = null, procKind = '', procStep = -1, playT = 0;
   function play(kind) {
     // (A touch plays it on the lift; the click that follows is ignored.)
-    if (performance.now() - playT < 600 || proc || (t0 != null && t < tEnd()) || !stageRef) return;
+    if (performance.now() - playT < 600 || proc || procRunning() || (t0 != null && t < tEnd()) || !stageRef) return;
     playT = performance.now();
     const st = store.get(), why = procBlocked(kind, st.params, now()?.metrics);
     if (why) { toast(why); return; }

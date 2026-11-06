@@ -13,6 +13,7 @@ import { LIGHT } from './light.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { clamp, lerp, s } from './util.js';
+import { EUS_ROUTE, eusDraw } from './eus-scope.js';
 
 import { stageScope } from './stage-scope.js';
 export function createCath(st, live) {
@@ -135,10 +136,11 @@ export function createCath(st, live) {
         B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true });
         B.vessel('SV_CONF', { rev: true, name: 'splenic' }); B.vessel('C2', { name: 'feeder' });
       } },
+    eus: EUS_ROUTE,   // (EUS-PPG's echoendoscope: down the esophagus to the lesser curve, eus-scope.js)
   };
   // A leg's lumen radius: a vessel's drawn caliber there, or a fixed one ('=r', a tract through the liver).
   const PROC_FIXED = new Map();   // ('=r' → r, each fixed radius a route was built with, set when the leg is laid)
-  const procRadOf = (id, f) => (id[0] === '=' ? PROC_FIXED.get(id) : cathRadOf(id, f));
+  const procRadOf = (id, f) => (id[0] === '=' ? PROC_FIXED.get(id) ?? +id.slice(1) : cathRadOf(id, f));
   function procRoute(kind) {
     const spec = PROC_ROUTES[kind];
     if (!spec || live.morph > 0.01 || spec.ids.some((id) => !geo[id]?.cur?.length || !E[id])) return null;
@@ -147,7 +149,7 @@ export function createCath(st, live) {
     const at = (id, f) => { src.push([id, f]); return procRadOf(id, f); };
     const B = {
       // Loose points (a lead-in from outside the plate), with the lumen radius of vessel id at f; the last one is where the next leg starts.
-      pts(list, id, f) { marks.push(pts.length); parts.push({ id: null, name: 'lead' }); for (const q of list) { pts.push(q); rad.push(at(id, f)); } },
+      pts(list, id, f, name = 'lead') { marks.push(pts.length); parts.push({ id: null, name }); for (const q of list) { pts.push(q); rad.push(at(id, f)); } },
       // A vessel, whole or in part, the way the catheter travels it (rev: against its drawn course): from a to b of the
       // way, or until a point meets until(q), or to the point nearest `near`. r: a fixed lumen radius instead of its caliber.
       vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, name = id, r = 0 } = {}) {
@@ -171,6 +173,7 @@ export function createCath(st, live) {
     const spans = Object.fromEntries(parts.filter((q) => q.name !== 'lead').map((q) => [q.name, [q.d0, q.d1]]));
     const r = { kind, pts: P, raw, rad: Rr.slice(), src, map, refs: null, radOf: procRadOf, cum, total, parts, spans,
       start: parts[1].d0 * spec.start, free, hv0: free, hvEnd: total, focus: [span(spec.focus[0]).d0, span(spec.focus[1]).d1] };
+    spec.after?.(r, geo);
     if (E[spec.ids[spec.ids.length - 1]].glR?.length) cath.route = r;
     return r;
   }
@@ -209,14 +212,14 @@ export function createCath(st, live) {
     cathLive(r);
     if (!live.CTM) refreshCTM();
     // A blocked hepatic vein: the tip only reaches the ostium and probes it (st.probe 0..1 nudges it in).
-    const end = st.ostium ? r.hv0 - 2 : r.free;
+    const end = st.ostium ? r.hv0 - 2 : r.hvD ? lerp(r.free, r.hvD, st.tgt || 0) : r.free;   // (EUS-PPG: between its two stations)
     const Rf = cathAt(r, r.free).r;
     const tipD = r.start + (end - r.start) * clamp(st.u, 0, 1) + (st.probe || 0) * Rf * 1.6;
     // A 5 F catheter in the hepatic vein, held at one width in the world for the whole procedure (never
     // thinner than about 3 px at the start, nor so thick it crowds the vein), so it scales with the anatomy as the camera moves.
     // (A treatment's catheter is a real one in the narrowest vein it goes through: 0.4 of that vein's lumen, so it reads as a tube
     // with a tip and an edge, never a line: his ask, 29 Oct. The HVPG one is as wide for its vein: one catheter look, 1 Nov.)
-    if (!cath.rc) cath.rc = r.parts ? procRc(r, Rf) : clamp(1.6 / (live.CTM.sc || 1), Rf * 0.26, Rf * 0.34);
+    if (!cath.rc) cath.rc = r.parts ? procRc(r, Rf) : r.hvD ? Rf : clamp(1.6 / (live.CTM.sc || 1), Rf * 0.26, Rf * 0.34);
     const rc = cath.rc, ahead = cathAt(r, Math.min(r.total, tipD + Rf * 6.4));
     const tp = cathAt(r, tipD);
     cath.at = { tip: tp.p, ahead: ahead.p, nx: -tp.t[1], ny: tp.t[0] };
@@ -245,7 +248,7 @@ export function createCath(st, live) {
     const tk = !tint ? '' : r.parts ? Object.entries(tint).map(([k, v]) => (Array.isArray(v) ? `${k}:${v.map((x) => x.toFixed(3))}` : k === 'col' ? v : '')).join('|')
       : `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}`;
     if (tk !== cath.tintKey) { cath.tintKey = tk; live.cathTint = tint; if (!live.inUpdate) syncVeins(easeInOut(live.morph)); }
-    if (gpu) cathGL(st, r, tipD, rc);
+    if (gpu) (r.hvD ? eusGL : cathGL)(st, r, tipD, rc);
     else cathSVG(st, r, tipD, rc * 2, Rf * 2);
     live.cathVer++; live.stageWake();
     // In order, once a frame: the catheter (above), the camera following it, its readings for both, then the one render pass
@@ -366,6 +369,13 @@ export function createCath(st, live) {
     live.veins.setCath(cathLast = { base: sh.verts, verts: cathV.subarray(0, V.length), draws, light: LIGHT });
   }
   let cathV = new Float32Array(0), cathLast = null;
+  // EUS-PPG's echoendoscope, its sector and its needle (eus-scope.js), sent as the catheter is.
+  function eusGL(st, r, tipD) {
+    const o = eusDraw(st, r, tipD, cathAt, (c) => toRGB(c, wrapCS()));
+    if (cathV.length < o.V.length) cathV = new Float32Array(o.V.length * 2);
+    cathV.set(o.V); cath.balBox = null; cath.at.tip = o.needle; cath.at.ahead = o.tip;
+    live.veins.setCath(cathLast = { base: null, verts: cathV.subarray(0, o.V.length), draws: o.draws, light: LIGHT });
+  }
   // The catheter's materials: an ivory polymer, a deep neutral hairline at 1.16 of its radius, platinum markers, clear latex.
   const CATH_POLY = [0.94, 0.94, 0.93], CATH_EDGE = 1.16, CATH_EDGE_INK = [0.11, 0.13, 0.17], CATH_METAL = [0.66, 0.68, 0.72], CATH_LATEX = [0.9, 0.93, 0.97];
   const smoothstep01 = (x) => { const u = Math.min(1, Math.max(0, x)); return u * u * (3 - 2 * u); };
@@ -819,14 +829,15 @@ export function createCath(st, live) {
       // (cathFollow) at that scale, panning only, so it never zooms while the catheter moves.
       // BRTO and BATO frame their balloon steps closer (his ask, 29 Oct: "zoom into the balloon catheter tip"): 'tip', the tip and its
       // balloon alone, up to PROC_K_TIP; 'work', the tip on to the route's end, the varices the sclerosant fills included.
-      const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && mode === 'tip', wayIn = r.kind !== 'tips' && mode === 'way';
+      // (EUS-PPG's scope, r.box: its work shots frame its two stations and both targets, and its way in the esophagus and stomach, r.focus.)
+      const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && !r.box && mode === 'tip', wayIn = r.kind !== 'tips' && !r.box && mode === 'way';
       // (The balloon close-up: the tip and its balloon with a short stretch of catheter behind, Rf × 11 back and 3 ahead (14 and 4 before).)
       const [d0, d1] = close ? [Math.max(procIn(r), r.free - Rf * 11), Math.min(r.total, r.free + Rf * 3)]
         : wayIn ? [Math.max(procIn(r), r.free - Rf * WAY_BEHIND), Math.min(r.total, r.free + Rf * WAY_AHEAD)]
         : mode === 'work' && r.kind !== 'tips' ? [Math.max(procIn(r), r.free - Rf * 4), r.total]
           : r.kind === 'tips' && r.spans?.tract && r.spans.rpv ? [Math.max(procIn(r), r.spans.tract[0] - TIPS_BEFORE), Math.min(r.total, r.spans.rpv[0] + TIPS_AFTER)] : r.focus;
       const tips = r.kind === 'tips';
-      const seg = cutLen(r.pts, r.cum, d0, d1), pad = close ? 8 : tips ? 14 : wayIn ? 12 : 16;
+      const seg = r.box && mode !== 'way' ? [r.box.slice(0, 2), r.box.slice(2)] : cutLen(r.pts, r.cum, d0, d1), pad = r.box ? 24 : close ? 8 : tips ? 14 : wayIn ? 12 : 16;
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
       const fr = cathFree(wr, ins);
       // (How much of the free space the stretch fills: BRTO and BATO's close-up and the sclerosant's shot fill more of it than before (0.72),

@@ -28,6 +28,7 @@ import { D_SURFACE, easeArrive } from './ease.js';
 import { inkBox } from './glyph-measure.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
+import { createEusPpg } from './eus-ppg.js';
 // (The endoscope's field: drawn in the late part of a frame, after the model's frame of it has been taken in, so once a frame.)
 const drawFrame = lateFrameFor('instruments');
 
@@ -82,7 +83,9 @@ export function createEndoscopy({ onAction }) {
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
     h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry spots show once the wall stress passes 70% of its tear point.' }, h('dt', {}, 'Stigmata'), red));
-  const side = h('div', { class: 'chart-side' }, stats, bandBtn);
+  // EUS-PPG, played on the anatomy from here (eus-ppg.js): in Tests › Scope, not on a slide's card unless the slide asks (configure).
+  const eus = createEusPpg();
+  const side = h('div', { class: 'chart-side' }, stats, bandBtn, eus.el);
   el.append(stage, side);
   // (The readings change with the model: drawn on the GPU while they change, gl-words.js.)
   const set = wordSetter([gradeLabel, diam, wall, pIn, pLum, pAcross, redWord, redMore, bands]);
@@ -340,6 +343,7 @@ export function createEndoscopy({ onAction }) {
     const air = clamp(+t?.air || 0, 0, 20), red = typeof t?.red === 'boolean' ? t.red : null, readings = !!t?.readings;
     const changed = air !== opt.air || red !== opt.red || readings !== opt.readings;
     Object.assign(opt, { air, red, readings });
+    eus.el.hidden = !t?.eus;
     if (readings) { if (pRows[0].parentNode !== stats) stats.lastElementChild.before(...pRows); } else for (const r of pRows) r.remove();
     el.toggleAttribute('data-readings', readings);   // (a slide's card lays them out in a row of their own, styles/app.css)
     if (changed && last) update(last.f);
@@ -357,7 +361,7 @@ export function createEndoscopy({ onAction }) {
     if (!on) { if (gl) { gl.dispose(); gl = null; glId = 0; glGone = true; } return; }
     if (!gl && !noGl) { needGl(); if (gl && last) { raf ||= drawFrame(redraw); } }
   }
-  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, shown: shown_, setView() {}, dispose() { offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); pen?.dispose(); last = null; offSurface(); } };
+  return { id: 'endoscopy', label: 'Endoscopy', el, update, configure, pin, shown: shown_, setView() {}, dispose() { eus.dispose(); offRun(); cancelFrame(raf); raf = 0; gl?.dispose(); pen?.dispose(); last = null; offSurface(); } };
 }
 
 // ── Varix wall cross-section (L3) ───────────────────

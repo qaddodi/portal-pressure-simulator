@@ -9,6 +9,8 @@
 
 import { frameFor, cancelFrame } from './frame.js';
 import { ease, k01 } from './hvpg-clock.js';
+import { NODES } from '../engine/topology.js';
+const NODE_I = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const nextFrame = frameFor('proc-anim');
 
 // Each step: [id, its word (the callout on the part it works on, and its numbered step in the teaching card), the caption, a
@@ -71,6 +73,55 @@ export const PROCS = {
   },
 };
 export const PROC_KINDS = Object.keys(PROCS);
+// The measurements played the same way, step by step on the anatomy, that change nothing in the model: EUS-PPG (Tests › Scope).
+// They stay out of PROCS (the HVPG card's treatment buttons and their tests), and every player below takes them through specOf.
+// EUS-PPG, the endoscopic ultrasound-guided portal pressure gradient (Huang 2017; the EchoTip Insight technique): a linear
+// echoendoscope in the stomach, and one 25-gauge FNA needle, primed with heparinized saline and joined to a compact manometer by
+// non-compressible tubing, passed through the stomach wall and the left lobe into the left portal vein (its umbilical part), then
+// into a hepatic vein (here the left; the middle, or the IVC, serve as well). Each reading is the mean of three. EUS-PPG = PV − HV.
+// The scope works from the proximal stomach, just below the cardia (eus-scope.js): its tip turned down toward the portal vein, then
+// drawn back a little and turned up toward the hepatic vein, so the needle leaves the scope as a real one does, about 40 degrees forward.
+const EUS_T = { travel0: 300, travel1: 5200, aim0: 5000, aim1: 6300, fan0: 5600, fan1: 6600,
+  pv0: 7000, pv1: 8800, pvFlash0: 8700, pvFlash1: 9500, pvRead0: 9400, pvRead1: 11300, pvOut0: 11700, pvOut1: 12600,
+  move0: 12800, move1: 14400, hv0: 14800, hv1: 16600, hvFlash0: 16500, hvFlash1: 17300, hvRead0: 17200, hvRead1: 19100,
+  hvOut0: 19500, hvOut1: 20400, apply: 20500, fanOut0: 20400, fanOut1: 21200, back: 21300, end: 25600 };
+const r1 = (v) => Math.round(v * 10) / 10;
+const mmHg = (v) => (Number.isFinite(v) ? v.toFixed(1) : '\u2014');
+export const MEASURES = {
+  eus: {
+    name: 'EUS-PPG', label: 'EUS-PPG', measure: true, T: EUS_T,
+    stops: [6800, 11500, 19300, EUS_T.end],
+    // (Each callout once its reading has settled; the result as soon as the needle is back in the scope, so it stands while the
+    // scope comes out.)
+    markT: [6800, 11400, 19200, EUS_T.apply],
+    steps: [
+      ['enter', 'Scope in', 'A linear echoendoscope goes down the esophagus into the stomach. From the proximal stomach it images the left lobe of the liver through the wall; color Doppler finds the left portal vein, the left hepatic vein, and a path to each through the liver with no other vessel in the way.', 'Scope', 'way', null, [], 0.5],
+      ['pv', 'Portal vein', 'A 25-gauge needle, primed with heparinized saline, crosses the stomach wall and the left lobe into the umbilical part of the left portal vein. A compact manometer on its hub reads the pressure once it settles: the mean of three readings.', 'PV', 'tip', 'PVH_L', ['LPV'], 0.9],
+      ['hv', 'Hepatic vein', 'The needle comes back into the scope. The scope draws back a little and turns up, and the needle crosses the left lobe into the left hepatic vein (the middle hepatic vein, or the IVC, serve as well): again the mean of three readings.', 'HV', 'tip', 'LHV_IVC', ['LPV', 'LHV'], 0.7],
+      ['done', 'EUS-PPG', 'EUS-PPG = portal vein \u2212 hepatic vein, both read by one needle in one session. It is read on the HVPG\u2019s cut-offs: 5 mmHg or more is portal hypertension, 10 or more clinically significant. It is still being validated against the HVPG, which stays the reference.', 'PPG', 'tip', 'PVH_L', ['LPV', 'LHV'], 0.9],
+    ],
+    // The readings, taken once each callout comes (read: the model frame; its node pressures P): the portal vein at the left portal
+    // vein's node, the hepatic vein at the left hepatic vein's, and their difference as every screen shows it, at one decimal.
+    capture(i, rd, f) {
+      const P = f?.P;
+      if (i === 1) rd.pv = P ? r1(P[NODE_I.LPV]) : NaN;
+      if (i === 2) { rd.hv = P ? r1(P[NODE_I.LHV]) : NaN; rd.ppg = r1(rd.pv - rd.hv); }
+    },
+    // Its callouts: the portal vein's, then the hepatic vein's beside it, then the result on the portal vein with the hepatic vein's kept.
+    marks(i, rd) {
+      // (Each numbered as its step, number in bold then its words, so the GPU draws it pinned: stepMark. Every glyph is in Inter's cut, "−" and "=" too.)
+      const mk = (edge, f, n, word) => ({ edges: [edge], label: `${n} ${word}`, num: n, word, kind: 'treat', f, pin: true });
+      const pv = mk('PVH_L', 0.9, STEP_NUM[1], `Left portal vein ${mmHg(rd.pv)} mmHg`);
+      const hv = mk('LHV_IVC', 0.7, STEP_NUM[2], `Left hepatic vein ${mmHg(rd.hv)} mmHg`);
+      return i === 1 ? [pv] : i === 2 ? [pv, hv] : i === 3 ? [mk('PVH_L', 0.9, STEP_NUM[3], `EUS-PPG ${mmHg(rd.ppg)} = ${mmHg(rd.pv)} \u2212 ${mmHg(rd.hv)} mmHg`), hv] : [];
+    },
+    can: () => '', apply: (p) => p, had: () => false, undo: (p) => p, before: {},
+  },
+};
+/** A procedure's or a measurement's definition. */
+export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || null;
+// The readings each kind's last run took (its callouts and its card read them): { pv, hv, ppg } for EUS-PPG.
+export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN } };
 // (No params at all: the checks below only read, so one empty record stands in, not a new one each call.)
 const NO_PARAMS = Object.freeze({});
 // (A callout names no stations: one empty list, never written to.)
@@ -92,25 +143,34 @@ function oblitHad(p) { return !!p.occluded?.C5; }
 function oblitUndo(p) { p.occluded = { ...p.occluded, C5: false }; return p; }
 
 /** Why a procedure cannot run on these params ('' when it can). m: the live frame's metrics (BRTO and BATO need fundal varices). */
-export const procBlocked = (kind, p, m = null) => (PROCS[kind] ? PROCS[kind].can(p || NO_PARAMS, m) : 'Unknown procedure.');
+export const procBlocked = (kind, p, m = null) => (specOf(kind) ? specOf(kind).can(p || NO_PARAMS, m) : 'Unknown procedure.');
 /** Whether a procedure is offered at all for this patient: BRTO and BATO only while there are gastric varices (or the
  *  procedure has already closed them, so it can be watched again). TIPS always is (dimmed when it cannot run). */
-export const procOffered = (kind, p, m = null) => !!PROCS[kind] && (kind === 'tips' || PROCS[kind].had(p || NO_PARAMS) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
+export const procOffered = (kind, p, m = null) => !!specOf(kind) && (kind === 'tips' || !!MEASURES[kind] || PROCS[kind].had(p || NO_PARAMS) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
 
 /** The step a time falls in (pure): each runs up to and including its stop, so a procedure held at a stop still shows that step. */
-export const stepAt = (kind, t) => { const S = PROCS[kind].stops; for (let i = 0; i < S.length; i++) if (t <= S[i]) return i; return S.length - 1; };
+export const stepAt = (kind, t) => { const S = specOf(kind).stops; for (let i = 0; i < S.length; i++) if (t <= S[i]) return i; return S.length - 1; };
 // (The step's number on its callout: the same number as its step in the teaching card, a plain bold digit. Not a circled numeral (➊):
 // Inter's cut the GPU draws the labels with has none, so the callout went to the SVG, which never follows the camera, and swapped
 // between the two every frame (Mohammad, 6 Nov 2026, iPhone: the TIPS and BRTO callouts "don't stick to where they should and flicker").)
 export const STEP_NUM = ['1', '2', '3', '4', '5', '6'];
 /** When a step's callout comes (pure, ms): once the step has played, at its stop; the last step's once the stent is in or the
- *  balloon is down, as the catheter starts out. */
-export const markAt = (kind, i) => { const P = PROCS[kind]; return i >= P.stops.length - 1 ? P.T.back : P.stops[i]; };
+ *  balloon is down, as the catheter starts out (a measurement's: its markT, as each reading is taken). */
+export const markAt = (kind, i) => { const P = specOf(kind); return P.markT ? P.markT[i] : i >= P.stops.length - 1 ? P.T.back : P.stops[i]; };
 /** The callout a step puts on the figure: a slide's own mark (a treatment's), numbered (num, drawn bold before its word), at its point on the part it works on, kept
  *  on its side and clear of every vessel (pin); ghost: it may name a vessel not drawn yet (the tract, before the stent is in). */
 export const stepMark = (kind, i) => {
-  const s = PROCS[kind]?.steps[i];
+  const P = specOf(kind), s = P?.steps[i];
+  if (P?.marks) return stepMarks(kind, i)[0] || null;
   return s ? { edges: [s[5]], label: `${STEP_NUM[i]} ${s[1]}`, num: STEP_NUM[i], word: s[1], kind: 'treat', f: s[7] ?? 0.5, pin: true, ghost: true } : null;   // alloc-rare: only when the step on show changes (four times in a procedure); the mark is a new record the store keeps
+};
+
+/** Every callout a step puts on the figure (a measurement's carry their readings, READS, and keep the earlier ones beside them). */
+export const stepMarks = (kind, i) => {
+  const P = specOf(kind);
+  if (P?.marks) return P.marks(i, READS[kind]);   // alloc-rare: only when the step on show changes (four times in a run)
+  const m = stepMark(kind, i);
+  return m ? [m] : NO_NAMES;
 };
 
 /**
@@ -121,9 +181,10 @@ export const stepMark = (kind, i) => {
  * playing procedure keeps one for its frames), else a new one.
  */
 export function procFrame(kind, t, stops = null, into = null) {
-  const P = PROCS[kind], T = P.T, back = ease(k01(t, T.back, T.end - 400));
+  const P = specOf(kind), T = P.T, back = ease(k01(t, T.back, T.end - 400));
   const opacity = 1 - k01(t, T.end - 800, T.end);
   const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
+  if (kind === 'eus') return eusFrame(T, t, back, opacity, step, shot, into || {});   // alloc-rare: only a caller that gives no record
   if (kind === 'tips') {
     const tr = stops?.tract || TRACT, a = tr[0], b = tr[1], rp = stops?.rpv || RPV, c = Math.max(b, rp[0] + (rp[1] - rp[0]) * CATH_RPV);
     // The catheter in to where the tract leaves the hepatic vein, then (once the needle and wire are out) over them into the
@@ -137,16 +198,38 @@ export function procFrame(kind, t, stops = null, into = null) {
     const flash = t > T.flash0 && t < T.flash1 ? k01(t, T.flash0, T.flash1) : 0;
     const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate0, T.deflate1)));
     const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
-    f.u = u; f.balloon = balloon; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = needle; f.wire = wire > u ? wire : 0; f.flash = flash;
+    f.u = u; f.balloon = balloon; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = needle; f.wire = wire > u ? wire : 0; f.flash = flash; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
     return f;
   }
   const u = ease(k01(t, T.travel0, T.travel1)) * (1 - back);
   const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate, T.back)));
   const column = ease(k01(t, T.fill0, T.fill1)) * (1 - ease(k01(t, T.fillOut, T.deflate)));
   const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
-  f.u = u; f.balloon = balloon; f.column = column; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0;
+  f.u = u; f.balloon = balloon; f.column = column; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
   return f;
 }
+
+/**
+ * EUS-PPG at t ms (pure): u, how far in the scope is (0..1 of the way to its low station); tgt, its target (0 the portal vein, 1 the
+ * hepatic vein: the scope's station and its turn go between the two with it); aim, how far its tip has turned toward that target;
+ * needle, how far out the needle is (0..1 of the way from the scope to the target); flash, the hit's rings; read, 1 or 2 while the
+ * manometer reads the portal or the hepatic vein; fan, the ultrasound sector's strength. The scope turns only with the needle in.
+ */
+function eusFrame(T, t, back, opacity, step, shot, f) {
+  const hv = t >= T.move0, tgt = ease(k01(t, T.move0, T.move1));
+  const needle = hv ? ease(k01(t, T.hv0, T.hv1)) * (1 - ease(k01(t, T.hvOut0, T.hvOut1))) : ease(k01(t, T.pv0, T.pv1)) * (1 - ease(k01(t, T.pvOut0, T.pvOut1)));
+  const fl0 = hv ? T.hvFlash0 : T.pvFlash0, fl1 = hv ? T.hvFlash1 : T.pvFlash1;
+  f.u = ease(k01(t, T.travel0, T.travel1)) * (1 - back); f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot;
+  f.tgt = tgt; f.aim = ease(k01(t, T.aim0, T.aim1)) * (1 - ease(k01(t, T.hvOut1, T.back + 600)));
+  f.needle = needle; f.wire = 0; f.flash = t > fl0 && t < fl1 ? k01(t, fl0, fl1) : 0;
+  f.read = t >= T.pvRead0 && t < T.pvRead1 ? 1 : t >= T.hvRead0 && t < T.hvRead1 ? 2 : 0;
+  f.fan = ease(k01(t, T.fan0, T.fan1)) * (1 - ease(k01(t, T.fanOut0, T.fanOut1)));
+  return f;
+}
+
+// How many procedures or measurements are playing (one catheter or scope on the figure at a time: each card asks before it starts one).
+let runs = 0;
+export const procRunning = () => runs > 0;
 
 // Going back through a step runs it backwards (the balloon goes down, the sclerosant drains, the catheter backs out), a little
 // faster than forward. Autoplay (Tests) holds at each stop for AUTO_HOLD ms before the next step.
@@ -156,17 +239,20 @@ const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;
  * Plays a procedure on the figure, step by step. stepped: hold at each step's stop until next(), back() or to(k) (a
  * presentation: Next and Back); otherwise each step follows the last after a short hold (Tests). to: the stop to play to first.
  * apply() / unapply(): the model takes the change as the sequence passes T.apply, and gives it back when going back past it.
- * onStep(i): the step on show changed. onMark(mark, names): the step's callout (a treatment mark) and the station names it shows;
- * false while it has none (the catheter on its way in); null once the procedure has gone. onFrame(frame, t): each frame. onEnd({ done, rewound }): it ended, played through or gone back to
+ * onStep(i): the step on show changed. onMark(mark, names, marks): the step's callout (a treatment mark), the station names it shows
+ * and all its callouts (a measurement's keep the earlier readings beside it); false while it has none (the catheter on its way in);
+ * null once the procedure has gone. read(): the model frame now (a measurement reads its pressures from it as each callout comes). onFrame(frame, t): each frame. onEnd({ done, rewound }): it ended, played through or gone back to
  * before its start. Returns { next, back, to, stop({ home }), running, at, step }.
  */
-export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null } = {}) {
-  const P = PROCS[kind], T = P.T, n = P.stops.length;
+export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null, read = null } = {}) {
+  const P = specOf(kind), T = P.T, n = P.stops.length, rd = READS[kind];
+  if (rd) { rd.pv = NaN; rd.hv = NaN; rd.ppg = NaN; }
+  runs++;
   let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = P.stops[at];
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
-  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0 };
-  const cat = { route: kind, u: 0, needle: 0, wire: 0, flash: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: 'var(--tr-scler)', ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0 };
+  const cat = { route: kind, u: 0, needle: 0, wire: 0, flash: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
   let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2, shownMark = -3;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
@@ -177,9 +263,15 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     // (The callout: a step's word once its step has happened (his ask, 29 Oct: "the callout should show up AFTER the step happens"),
     // none while it plays.)
     const mk = f.step < 0 ? -2 : t >= markAt(kind, f.step) ? f.step : -1;
-    if (mk !== shownMark && mk > -2) { shownMark = mk; onMark?.(mk >= 0 ? stepMark(kind, mk) : false, P.steps[f.step][6] || NO_NAMES); }
+    if (mk !== shownMark && mk > -2) {
+      shownMark = mk;
+      if (mk >= 0 && rd) P.capture(mk, rd, read?.());
+      const ms = mk >= 0 ? stepMarks(kind, mk) : NO_NAMES;
+      onMark?.(ms[0] || false, P.steps[f.step][6] || NO_NAMES, ms);
+    }
     // (The view follows the tip in on the first step, once its shot has landed.)
     cat.u = f.u; cat.needle = f.needle; cat.wire = f.wire; cat.flash = f.flash; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
+    cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? 'var(--tr-hv)' : null;
     cat.follow = f.shot === 'way' && shot === 'way' && !stage.gliding?.();
     stage.setCatheter(cat);
     stops ||= stage.cathStops?.() || null;
@@ -200,7 +292,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     if (still || t !== t0 || t !== goal || !stepped || at < 0) raf = nextFrame(tick);
   }
   function finish(rewound) {
-    over = true; raf = 0;
+    over = true; raf = 0; runs--;
     stage.setCatheter(null);
     if (shot) stage.cathFocus('home', SHOT_MS, { arc: true });   // alloc-rare: once, as the procedure ends
     onMark?.(null, null);
@@ -209,7 +301,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   // alloc-rare: once, as the procedure is stopped (an options record in, the end record out)
   function stop({ home = true } = {}) {
     if (over) return;
-    cancelFrame(raf); raf = 0; over = true;
+    cancelFrame(raf); raf = 0; over = true; runs--;
     stage.setCatheter(null);
     // alloc-rare: once, as the procedure is stopped
     if (home && shot) stage.cathFocus('home', SHOT_MS, { arc: true });

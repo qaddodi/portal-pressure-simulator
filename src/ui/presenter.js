@@ -62,7 +62,7 @@ import { beatCount, beatView } from './slide-beats.js';
 import { clausesOf, revealCount, shownLine } from './reveal.js';
 import { COMPACT, WIDE } from './card-type.js';
 import { flowTimeHeight, trailKeys } from './flow-time.js';
-import { PROCS, procBlocked, procOffered, playProcedure, stepMark } from './proc-anim.js';
+import { specOf, procBlocked, procOffered, playProcedure, stepMarks } from './proc-anim.js';
 import { createInsetHold } from './inset-hold.js';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChangedWhy, cardBack } from './card-keep.js';
 import { gpuProbe } from './gpu-probe.js';
@@ -914,7 +914,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
   // (before: a slide that plays its procedure also gets the state it opens on, the procedure not done yet: see the landing.)
-  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && trailKeys(s.tool), before: s.procedure ? PROCS[s.procedure.kind || s.procedure]?.before : undefined } : {});
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && trailKeys(s.tool), before: s.procedure ? specOf(s.procedure.kind || s.procedure)?.before : undefined } : {});
   // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
   const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   let prepRev = 0;   // (bumped each time a presentation's states are set: the slide preparation's manifests belong to one of these)
@@ -1307,7 +1307,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const slideMarks = (i) => (markBase?.i === i ? markFocus(clotMarks(markBase.marks, store.get().params)) : null);
   async function procPlay(s, i, to = 0) {
     const kind = procKind(s), mine = () => !!deck && shown?.i === i && slides[i] === s;
-    if (!PROCS[kind] || !mine() || cath.on || procWait) return;
+    if (!specOf(kind) || !mine() || cath.on || procWait) return;
     if (procRun) { procRun.to(to); return; }
     if (lapseOn) stopLapse();
     procWait = true; procPaint();
@@ -1319,24 +1319,25 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!mine() || procRun) { procPaint(); return; }
     const before = structuredClone(store.get().params), names = store.get().presentLabels || [];
     // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
-    if (PROCS[kind].had(before)) liveSet(s, i, PROCS[kind].undo(structuredClone(before)));
+    if (specOf(kind).had(before)) liveSet(s, i, specOf(kind).undo(structuredClone(before)));
     const run = procRun = playProcedure(stage, kind, {
       stepped: true, to,
       apply: () => {
         if (procRun !== run || !mine() || procBlocked(kind, store.get().params, store.get().frame?.metrics)) return;
-        liveSet(s, i, PROCS[kind].apply(structuredClone(store.get().params))); procCompare(s);
+        liveSet(s, i, specOf(kind).apply(structuredClone(store.get().params))); procCompare(s);
       },
-      unapply: () => { if (procRun === run && mine()) { liveSet(s, i, PROCS[kind].undo(structuredClone(store.get().params))); procCompare(s); } },
+      unapply: () => { if (procRun === run && mine()) { liveSet(s, i, specOf(kind).undo(structuredClone(store.get().params))); procCompare(s); } },
       onStep: (k) => { if (procRun === run) { procShown = k; procPaint(); } },
       // (The step's callout stands in for the slide's marks while it plays; its names join the slide's. Then the slide's come back:
       // on the BRTO slides the last step's "Shunt closed" is the slide's own mark, so it stays where it is.)
       // (false: no callout while the catheter travels in, the names for its way kept.)
-      onMark: (m, add) => {
+      read: () => store.get().frame,
+      onMark: (m, add, all) => {
         if (procRun !== run || !mine()) return;
         // (Played through, a slide with no mark of its own keeps the last step's callout, which names what the procedure left: "Stent in".)
-        const last = PROCS[kind].stops.length - 1;
-        store.set(m !== null ? { focus: m ? markFocus([m]) : null, presentLabels: [...new Set([...names, ...(add || [])])] }
-          : { focus: slideMarks(i) || (run.at === last ? markFocus([stepMark(kind, last)]) : null), presentLabels: names });
+        const last = specOf(kind).stops.length - 1;
+        store.set(m !== null ? { focus: m ? markFocus(all || [m]) : null, presentLabels: [...new Set([...names, ...(add || [])])] }
+          : { focus: slideMarks(i) || (run.at === last ? markFocus(stepMarks(kind, last)) : null), presentLabels: names });
       },
       onEnd: ({ rewound }) => {
         if (procRun !== run) return;
@@ -1350,7 +1351,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // Whether the slide's procedure can play on the live patient (as its card shows it).
   function procCan(s) {
-    const kind = procKind(s), P = PROCS[kind], p = store.get().params, m = store.get().frame?.metrics;
+    const kind = procKind(s), P = specOf(kind), p = store.get().params, m = store.get().frame?.metrics;
     return !!P && procOffered(kind, p, m) && (P.had(p) || !procBlocked(kind, p, m));
   }
   // Next and Back on a procedure's slide (true: they did a step; false: the slide moves on). Next starts it (the catheter goes
@@ -1367,7 +1368,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   };
   const procBack = () => !!procRun && shown?.i === want && procRun.back();
   function procEl(s, i, st) {
-    const kind = procKind(s), P = PROCS[kind], p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
+    const kind = procKind(s), P = specOf(kind), p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
     // (BRTO and BATO only on a patient with gastric varices, or one who has had it already, so it plays from just before.)
     if (P && !procOffered(kind, p, m)) return null;
     const why = !P ? 'Unknown procedure.' : P.had(p) ? '' : procBlocked(kind, p, m);
