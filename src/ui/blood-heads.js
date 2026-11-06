@@ -70,12 +70,13 @@ void main() {
   float cw = still == 1 ? 0.0 : ch4.w;
   float wRun = root ? cw : 1.0 - cw;
   if (wRun <= 0.0) return;
-  float Dm, Rsp = R, A = 0.0, B = 1.0;
+  float Dm, Rsp = R, A = 0.0, B = 1.0, runDir = 0.0;   // (runDir: the way a root run's heads travel along this vessel)
   if (root) {
     int rid = int(ch4.x + 0.5) - 1;
     Dm = rootDD(rid, ch5.xy).x;
     Rsp = max(texelFetch(rad, ivec2(N_LAST / 2, rid), 0).r, 0.3);
     A = ch4.y; B = ch4.z;
+    runDir = texelFetch(flow, ivec2(0, rid), 0).y * B < 0.0 ? -1.0 : 1.0;   // (the root's speed over B: the stream carries the heads that way)
   } else Dm = flowD(id, f0.x, f0.y);
   if (abs(B) < 1e-4) return;
   // (chevOne's spacing: a power-of-two multiple of 28 world units, 2.5 times as far apart as the zoom and the flow alone set them; every
@@ -107,9 +108,7 @@ void main() {
     endF = min(mix(a0, 1.0, clamp(ends.x, 0.0, 1.0)), mix(a1, 1.0, clamp(ends.y, 0.0, 1.0)));
     if (endF <= 0.0) return;
   }
-  float vd = f0.y, vmn = texelFetch(flow, ivec2(6, id), 0).w;   // (chevOne: the mean flow's display speed, not the beat-swung vd)
-  if (vmn != 0.0) vd = vmn;
-  float dir = vd < 0.0 ? -1.0 : 1.0;
+  float vd = f0.y, dir = root ? runDir : (vd < 0.0 ? -1.0 : 1.0);   // (the heads point the way they travel: this stream's own speed, or the root's over B)
   float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * endF * smoothstep(1.3 * pxW, 2.4 * pxW, R);
   // (Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.)
   fade *= smoothstep(0.85 * hw, 1.15 * hw, radAt(id, sc, len)) * wRun;

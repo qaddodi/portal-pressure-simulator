@@ -1352,11 +1352,8 @@ float bendAt(int id, float s, float len) {
 // ends: the weights of a link at the from and to end (flow texel 5, z and w; above 0: a chained end, through which the heads
 // run instead of fading out).
 vec2 chevOne(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs, float R, float se, float Bm, float Dm, float Rsp, vec2 ends) {
-  // (The heads point and fade by the mean flow's display speed (flow texel 6, w), not by the beat-swung vd, which turns round on a beat in a
-  // vessel whose mean flow is small: the heads flipped. A row with none (the lobule) keeps vd.)
-  float vd = f0.y, vmn = texelFetch(flow, ivec2(6, id), 0).w;
-  if (vmn != 0.0) vd = vmn;
-  float dir = vd < 0.0 ? -1.0 : 1.0;
+  // (The heads point by the speed that moves them: the stream distance D integrates vd, so a head points the way it travels.)
+  float vd = f0.y, dir = vd < 0.0 ? -1.0 : 1.0;
   // Spacing: a power-of-two multiple of 28 world units (it divides the stream's period: no jump on
   // wrap), at least ~60 px on screen. Zooming out, every other head fades away before the spacing
   // doubles (the coarser heads are a subset of the finer ones), so nothing jumps or pops.
