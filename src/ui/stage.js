@@ -1221,6 +1221,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The ONE writer of the camera (S6.6): whoever moves the view drops the transform in the same breath, so the labels and the figure never read
   // a transform made for another view. Every part writes `live.vt = ...`; nothing else assigns vt.
   function writeVT(v) { vt = v; CTM = null; }
+  // How long the change between Anatomy and Circuit takes, seconds (0.6 until 6 Nov 2026; Mohammad: "Make the morph slower its way too fast").
+  // The camera rides the same clock (viewXfP); the fallback camera glide in setView takes the same time.
+  const VIEW_CHANGE_S = 1.3;
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
   // The circuit can be turned a quarter turn counter-clockwise, so its flow runs bottom to top and
   // the map is tall instead of wide: it fills a phone held upright. rotU is the (animated) turn,
@@ -2717,7 +2720,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stepPlateEase();
     stepMap(dt);
     if (morph !== morphTarget) {
-      morph = clamp(morph + Math.sign(morphTarget - morph) * dt / 0.6, 0, 1);
+      morph = clamp(morph + Math.sign(morphTarget - morph) * dt / VIEW_CHANGE_S, 0, 1);
       // (The camera is on the change's clock: its framing is the share of the way the figure has come.)
       if (viewXf && !viewXf.same) { const p = viewXfP(); writeVT(p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p)); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
       if (F) update(F); else updateGeometry(true);
@@ -2873,7 +2876,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       else { markCirc(wasOut ? 'whole' : 'focus', d); fitted = true; }   // the circuit opens fitted: a turn of the device refits it
       // (The change between the views carries the camera, the ghosts of the old labels and the new view's labels on its one clock: viewXfStart.)
       if (F && labelGL && !labelGL.lost && !(cath.st && !cath.st.keep) && !lobuleOn && !lz?.isOpen()) { viewXfStart(d); return; }
-      if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, 600);
+      if (d.k !== vt.k || d.x !== vt.x || d.y !== vt.y) animateVT(d, VIEW_CHANGE_S * 1000);
       // (No morph to ride here: a catheter or a lobule. The labels are laid out afresh for the new view.)
       if (F) { labelKey = null; solveAsked = true; }
     },
