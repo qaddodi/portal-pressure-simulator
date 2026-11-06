@@ -184,9 +184,9 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   // (A non-scaling stroke's px: the canvas's own over its box's, given to the painter before each change check and paint.)
   assert.match(st, /(?:live\.)?veins\.overlay\.cssPx = (?:live\.)?boxW > 0 \? vCanvas\.width \/ (?:live\.)?boxW : 1;/);
   const vg = read('../src/ui/veins-gl.js');
-  assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+return over\.stale\(overView\(\), canvas\.width, canvas\.height\);/);
-  assert.match(vg, /const om = overSnap \? whole\(overM, WO\) : overM;\n\s+const kx = canvas\.width \/ PW\(\), ky = canvas\.height \/ PH\(\);\n\s+OV_M\[0\] = om\[0\] \* kx;/);
-  assert.match(vg, /stack\.painter\.cssPx = overCss;\n\s+if \(over\.stale\(m, canvas\.width, canvas\.height\)\) over\.render/);
+  assert.match(vg, /stack\.painter\.cssPx = overCss \* PW\(\) \/ canvas\.width;\n\s+return over\.stale\(overView\(\), PW\(\), PH\(\)\);/);
+  assert.match(vg, /const om = overSnap \? whole\(overM, WO\) : overM;[\s\S]*?for \(let i = 0; i < 6; i\+\+\) OV_M\[i\] = om\[i\];/);
+  assert.match(vg, /stack\.painter\.cssPx = overCss \* PW\(\) \/ canvas\.width;\n\s+if \(over\.stale\(m, PW\(\), PH\(\)\)\) over\.render/);
   // (Below Full the canvas is moved by the vessels' sub-pixel rest: the overlays go at whole pixels with the vessels, in the check and the paint.)
   assert.match(st, /if \((?:live\.)?(?:live\.)?veins\?\.overlay\) (?:live\.)?(?:live\.)?veins\.overlay\.snap = (?:live\.)?(?:live\.)?vdpr < (?:live\.)?(?:live\.)?vBase - 1e-9;/);
   assert.equal((vg.match(/overSnap \? whole\(overM, WO\) : overM/g) || []).length, 1, 'one view for the check and the paint');

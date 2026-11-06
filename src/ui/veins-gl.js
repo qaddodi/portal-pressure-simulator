@@ -3303,16 +3303,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const OV_M = new Float64Array(6);
   function overView() {
     const om = overSnap ? whole(overM, WO) : overM;
-    const kx = canvas.width / PW(), ky = canvas.height / PH();
-    OV_M[0] = om[0] * kx; OV_M[1] = om[1] * ky; OV_M[2] = om[2] * kx; OV_M[3] = om[3] * ky; OV_M[4] = om[4] * kx; OV_M[5] = om[5] * ky;
+    // (The overlays are painted at the picture's density, PW × PH: under a phone's 3x canvas that is 2.25x fewer pixels to paint and to blend
+    // each present, and they are laid up by a filtered copy as the figure's picture is. The labels and glass stay at the canvas's density.)
+    for (let i = 0; i < 6; i++) OV_M[i] = om[i];
     return OV_M;
   }
   function overLay() {
     if (!over || !overShown || !overM) return;
     const m = overView();
-    stack.painter.cssPx = overCss;
-    if (over.stale(m, canvas.width, canvas.height)) over.render(m, canvas.width, canvas.height);
+    stack.painter.cssPx = overCss * PW() / canvas.width;
+    if (over.stale(m, PW(), PH())) over.render(m, PW(), PH());
     if (camOn() && camDraw(over.texture, true)) return;
+    if (up && (PW() !== canvas.width || PH() !== canvas.height) && camDraw(over.texture, true, true)) return;
     if (layP === null) {
       // (Started at setup: taken up now if prepare() has not published it yet; waited on only here, as dropping the overlays would blink.)
       try { layP = auxTake('lay', true) || finishProgram(gl, startProgram(gl, REUSE_VS, LAY_FS)); } catch (e) { console.warn('Veins renderer: the overlays\' shader could not be made.', e); layP = false; }
@@ -3340,9 +3342,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const camOn = () => cam.k !== 1 || cam.a !== 1 || scn.k !== 1;
   let camSeq = 0;   // (counts the cameras' changes (setCameraRec, setScene): the glass takes a kept blur as current only with no camera on and none changed)
   let camP = null;
-  function camDraw(tex, blend) {
-    // (The scene's camera after the dive's, composed in y down as the scene camera records are, and flipped for the framebuffer once, at the end.)
-    const a = cam.a, k = cam.k * scn.k, ex = scn.k * cam.ex + scn.ex, eyUp = canvas.height * (1 - k) - (scn.k * cam.ey + scn.ey);
+  function camDraw(tex, blend, plain = false) {
+    // (The scene's camera after the dive's, composed in y down as the scene camera records are, and flipped for the framebuffer once, at the end.
+    // plain: no camera, a picture of another size laid up over the whole canvas, filtered.)
+    const a = plain ? 1 : cam.a, k = plain ? 1 : cam.k * scn.k, ex = plain ? 0 : scn.k * cam.ex + scn.ex, eyUp = plain ? 0 : canvas.height * (1 - k) - (scn.k * cam.ey + scn.ey);
     if (camP === null) {
       try { camP = finishProgram(gl, startProgram(gl, REUSE_VS, CAM_FS)); } catch (e) { console.warn('Veins renderer: the camera shader could not be made.', e); camP = false; }
     }
@@ -4239,8 +4242,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       set snap(v) { overSnap = !!v; },
       get stale() {
         if (!overShown || !overM || !own?.w) return false;
-        stack.painter.cssPx = overCss;
-        return over.stale(overView(), canvas.width, canvas.height);
+        stack.painter.cssPx = overCss * PW() / canvas.width;
+        return over.stale(overView(), PW(), PH());
       },
       get shown() { return overShown; },
     } : null,
