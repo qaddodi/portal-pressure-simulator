@@ -18,6 +18,10 @@ import { stageScope } from './stage-scope.js';
 const PSE_A = Math.asin(1.8 / 9);
 // The scope ring's two looks (closed: dashed; open: solid), made once.
 const RING_SHAPES = [ringShapes(false), ringShapes(true)];
+// (The lens's cone, in world units: a faint fill between its two lines, and the lines. Made only when the lens is laid, never in a move.)
+const coneShapes = ({ a, b, lw }) => { const f = (v) => +v.toFixed(2), P = (x, y) => `${f(x)} ${f(y)}`; return [
+  ['path', { d: `M${P(a[0], a[1])} L${P(a[2], a[3])} L${P(b[2], b[3])} L${P(b[0], b[1])} Z`, fill: 'var(--text)', 'fill-opacity': 0.07, stroke: 'none' }],
+  ['path', { d: `M${P(a[0], a[1])} L${P(a[2], a[3])} M${P(b[0], b[1])} L${P(b[2], b[3])}`, fill: 'none', stroke: 'var(--text)', 'stroke-opacity': 0.5, 'stroke-width': f(lw), 'stroke-linecap': 'round' }]]; };
 function pseFillD(x, y) {
   let d = '';
   for (let k = 0; k <= 16; k++) { const a = Math.PI + PSE_A - k * (Math.PI + 2 * PSE_A) / 16; d += `${k ? ' L' : 'M'}${(x + 9 * Math.cos(a)).toFixed(2)} ${(y + 9 * Math.sin(a)).toFixed(2)}`; }
@@ -156,7 +160,7 @@ export function createClamps(st, live) {
     const stented = store.get().stented;
     if (stented) for (let i = 0; i < stented.length; i++) okLesion(o, stented[i]);
     okLesion(o, 'C3');
-    o.push(live.scopeRing.on ? (live.scopeRing.open ? 2 : 1) : 0);   // (the scope view's ring: shown, and its lens open; scope-lens.js says whether there is a varix to show it on)
+    o.push(live.scopeRing.on ? (live.scopeRing.open ? 2 : 1) : 0, live.scopeRing.cv);   // (the scope view's ring: shown, and its lens open; scope-lens.js says whether there is a varix to show it on)
     // (The varices are no longer drawn here, but by the plexus of channels and strands (varix-look.js), so the varix's diameter, radius
     // and wall-stress ratio are not part of what these overlays are built from. They were in this key, held in steps narrower than the
     // beat's own swing, and rebuilt the clamps, clots and plugs, and the vessel marks with them (a style pass and a triangulation of
@@ -297,6 +301,7 @@ export function createClamps(st, live) {
       // The scope view's ring on the varix columns, with its badge (mock C1, 6 Nov 2026): one of the figure's marks, so the GPU draws it in
       // world units with the vessels and it moves with every zoom, pan and view change, never eased. Tapping it opens the lens (scope-lens.js).
       const sr = live.scopeRing;
+      if (sr.on && sr.open && sr.cone) putMark(ov.plugs, 'scope:cone', null, coneShapes(sr.cone).map(([tag, a]) => s(tag, a)), true);   // (under the ring: the lens's cone)
       if (sr.on) putMark(ov.plugs, 'scope:ring', null, RING_SHAPES[sr.open ? 1 : 0].map(([tag, a]) => s(tag, a)), true);
     }
     // The marks that were not wanted this time fade out where they stood (their group drawn again in its host), unless what they sat on

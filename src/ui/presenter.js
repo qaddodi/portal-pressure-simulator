@@ -1623,7 +1623,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   function dataTo(s, f, ref, ms) {
     if (!ui) return;
     if (s.data) ui.tiles.paintTiles(respFp(s, f), tileKeys(s), s.key || [], ref, ms, store.get().params?.tips?.on, true);   // (live: held while the card moves, R19)
-    ui.tools.pin(f);   // (an instrument's reading is the tiles' number)
+    ui.tools.pin(f); ui.scope?.pin(f);   // (an instrument's reading is the tiles' number, the scope view's too)
     // (and the catheter's callouts and its monitor, on a catheter slide whose compare buttons or time-lapse move the model)
     if (s.cath && cath.on && cath.fp) { cath.fp = f; if (s.monitor) mon?.set(s.monitor, f); }
     stage.siteFp?.(f);   // (and a callout's)
@@ -2753,7 +2753,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // work each frame of it, and was over before they came in.)
       const ms = fresh || (bare && ui.root.classList.contains('pz-prep')) ? 0 : undefined;
       if (s.data) ui.tiles.paintTiles(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
-      ui.tools.pin(now.fp);
+      ui.tools.pin(now.fp); ui.scope?.pin(now.fp);
       clearTimeout(dataHideT); dataHideT = 0;   // (a card shown again is not hidden by the timer of its last leaving, while it fades in or waits to)
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void readMetric(data, 'offsetWidth'); }
       if (!ui.root.classList.contains('pz-prep')) cardIn(data, 'pz-hide', THROW_STAGGER);   // (else once fitted: settle)
@@ -2845,7 +2845,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (keepNow.swap) return;
     if (s.tool) showTool(s, i);
     if (s.data) ui.tiles.paintTiles(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), undefined, now.params?.tips?.on);
-    ui.tools.pin(now.fp);
+    ui.tools.pin(now.fp); ui.scope?.pin(now.fp);
   }
   // A kept data card with a new patient: its tiles and instrument ride the live model as it eases to the slide's state,
   // then land on the slide's own numbers.
@@ -3975,6 +3975,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       await until(() => !ui || !('folding' in ui.data.dataset), 1500);
       if (!zoomReady()) return;
     }
+    ui.scope?.close();   // (the scope view shuts as a card zooms: it would stand over the card; Mohammad 6 Nov 2026)
     zoomU0 = underU(ui.data);
     // (The teaching card's glass, the shade, stands at the figure's level, under the page's veil: framed, it is veiled by fscrim, laid under the
     // shade, and the page's veil (zscrim) is clear and only takes the tap back (app.css .pz-fscrim). Its glass is then as bright as the data card's
@@ -3994,6 +3995,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   function cellOpen(cell) {
     if (!cell || !cellReady() || ui.zoom.on) return;
     const own = cell.parentElement?.querySelector(':scope > .pz-gscrim');
+    ui.scope?.close();
     ui.zoom.open({ card: cell, along: [], scrim: [ui.pscrim, own].filter(Boolean), part: true });
   }
   // (A tap on the panel: a zoomed cell goes back, whichever part of the panel it lands on; otherwise the cell under it zooms.)
@@ -5942,7 +5944,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     shadeMO.observe(text, { attributes: true, attributeFilter: ['class'] });
     wrap.append(root);
     // The scope view on the figure (scope-lens.js): the ring on the varices of a slide that shows them, and its lens, kept clear of the cards.
-    const scope = createScopeLens({ stage, store, root, avoid: () => [text, data, lip, panel, vcase, prog, scl, bar, fk] });
+    const scope = createScopeLens({ stage, store, root, avoid: () => [text, shade, data, lip, panel, vcase, prog, scl, bar, fk] });
     // (It comes in with the teaching card, in the card's own fade, once the card is fitted (pz-prep gone), and leaves with it.)
     const figKey = createFigureKey({ el: fk, app, watch: [text, root], ready: () => !text.hidden && !text.classList.contains('pz-leave') && !root.classList.contains('pz-prep') });
     // The cards' frosted glass drawn on the GPU under them while it can be (stage.cardGlass, glass-gl.js); else the browser's.

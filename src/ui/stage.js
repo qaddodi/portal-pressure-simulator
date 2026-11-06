@@ -140,7 +140,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
-    scopeRing: { on: false, open: false }, scopeRingRefresh: null, viewHook: null, tapHook: null,
+    scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null,
     get abdomenEl() { return abdomenEl; },
     get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
     get aimed() { return aimed; }, set aimed(v) { aimed = v; },
@@ -2860,7 +2860,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   return {
     update,
     // The scope view (scope-lens.js, mock C1): the ring on the varices, one of the figure's marks; where it is on screen; the lens's hooks.
-    setScopeRing(on, open = false) { const r = live.scopeRing, o = !!on, op = o && !!open; if (r.on !== o || r.open !== op) { r.on = o; r.open = op; live.scopeRingRefresh?.(); } },
+    setScopeRing(on, open = false) { const r = live.scopeRing, o = !!on, op = o && !!open; if (r.on !== o || r.open !== op) { r.on = o; r.open = op; if (!op) r.cone = null; live.scopeRingRefresh?.(); } },
+    /** The cone from the ring to its lens (scope-lens.js): two lines [x0, y0, x1, y1] in stage px, or null; drawn as figure marks, in world units. */
+    setScopeCone(ls) { const r = live.scopeRing; if (!ls && !r.cone) return; const m = live.CTM || (refreshCTM(), live.CTM), w = (p) => [...localToWorldInto([0, 0], p[0], p[1]), ...localToWorldInto([0, 0], p[2], p[3])]; r.cone = ls && m?.sc > 0 ? { a: w(ls[0]), b: w(ls[1]), lw: 1.5 / m.sc } : null; r.cv++; live.scopeRingRefresh?.(); },
     scopeRingAt() { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && F?.metrics?.varix?.present ? scopeRingOn(worldToLocal, live.CTM || (refreshCTM(), live.CTM), live.wrapRect) : null; },
     onScopeView(view, tap) { live.viewHook = view || null; live.tapHook = tap || null; },
     /** Idle rest: true eases the blood to a stop and lets the figure sleep; false brings the motion back from this frame. */

@@ -7480,7 +7480,6 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    close. Laid once per opening, at rest; it comes in by its own opacity and a scale from the ring, and hides at once when the figure moves. */
 .pz-lens { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity var(--d-small) var(--ease); }
 .pz-lens.on { opacity: 1; }
-.pz-lens-cone { position: absolute; display: block; }
 .pz-lens-disc { position: absolute; border-radius: 50%; overflow: hidden; pointer-events: auto; cursor: pointer; background: var(--endo-mucosa-deep);
   box-shadow: 0 0 0 5px var(--surface), 0 0 0 6px var(--text); transform-origin: var(--lens-ox, 50%) var(--lens-oy, 50%); transform: scale(.12);
   transition: transform var(--d-surface) var(--ease-arrive); }

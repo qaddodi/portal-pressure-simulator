@@ -2,17 +2,16 @@
 // On a slide that shows the varices (scope-lens-rule.js scopeLensFor) a ring sits on the varix columns of the lower esophagus with a
 // small scope badge; it is one of the figure's marks, drawn by the GPU with the vessels (stage-clamps.js), so it moves with every zoom,
 // pan and view change. Tapping it opens a round lens in the nearest empty space (never over the cards, the bar or the bleed), joined to
-// the ring by a faint cone: the live endoscopic view (the scope instrument's own GPU field, instruments.js, with its bleed and bands).
+// the ring by a faint cone (figure marks, stage-clamps.js): the live endoscopic view (the scope instrument's own GPU field, instruments.js, with its bleed and bands).
 //
 // The lens is laid on the screen, so it never rides a move: as the figure starts to move (a pan, a pinch, a slide's camera glide, a
 // resize or the switch to the Circuit) it hides at once, and once the figure has held still it opens again beside the ring where the
-// ring now stands, as the corner credit does (credit.js). Nothing of it eases behind the figure. The cone is drawn by the cards' GPU drawer
-// (trace-gl.js), the field by the scope's shader into the same drawer; the page paints neither.
-import { h, cssAlpha } from './util.js';
+// ring now stands, as the corner credit does (credit.js). Nothing of it eases behind the figure. The cone is drawn by the figure's GPU marks,
+// the field by the scope's shader into the cards' GPU drawer; the page paints neither.
+import { h } from './util.js';
 import { createEndoscopy } from './instruments.js';
-import { createTraceGL, fitPen } from './trace-gl.js';
 import { wordSetter } from './gl-words.js';
-import { frameFor, cancelFrame } from './frame.js';
+import { frameFor } from './frame.js';
 import { readBox, stageBox, safeSides } from './layout-snap.js';
 import { placeLens, coneLines, ringHit, scopeLensFor } from './scope-lens-rule.js';
 import { varicesPresent } from './store.js';
@@ -27,17 +26,14 @@ const STILL_MS = 160;
  * in (the presenter's layer over the figure, the stage's own corner as 0, 0); avoid(): the elements the lens keeps clear of (the cards, the bar).
  */
 export function createScopeLens({ stage, store, root, avoid = () => [] }) {
-  const cone = h('canvas', { class: 'pz-lens-cone', 'aria-hidden': 'true' });
   const shut = h('button', { type: 'button', class: 'pz-lens-x', 'aria-label': 'Close the scope view', onclick: (e) => { e.stopPropagation(); close(); } }, '×');
   const disc = h('div', { class: 'pz-lens-disc', role: 'img', 'aria-label': 'Endoscopic view of the esophagus, live' });
   const cap = h('span', { class: 'pz-lens-cap' });
-  const el = h('div', { class: 'pz-lens', hidden: '' }, cone, disc, shut, cap);
+  const el = h('div', { class: 'pz-lens', hidden: '' }, disc, shut, cap);
   disc.addEventListener('click', () => close());
   root.prepend(el);   // (under the cards)
   const words = wordSetter([cap]);
-  let inst = null, offFrame = null, offVx = null, has = false, want = false, isOpen = false, dead = false, geom = null, coneAsk = 0, stillT = 0, lastKey = '', capText = '';
-  // (The cone's GPU drawer, made at the first opening.)
-  let pen = null;
+  let inst = null, offFrame = null, offVx = null, has = false, want = false, isOpen = false, dead = false, stillT = 0, lastKey = '', capText = '', fp = null, feedAsk = 0;
 
   // ── The tap on the ring, and the figure moving ──
   function tap(cx, cy) {
@@ -58,6 +54,7 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
     if (!isOpen || dead) return;
     // (Hidden at once, by its opacity alone: the one write a move may make; it is laid again, or hidden for good, once the figure is still.)
     if (el.style.opacity !== '0') el.style.opacity = '0';
+    stage.setScopeCone?.(null);   // (the cone goes with it, and is laid again with it)
     lastKey = '';
     if (!stillT) stillT = setTimeout(stillCheck, STILL_MS);
   }
@@ -88,14 +85,21 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
     ringNow();
     if (!inst) {
       inst = createEndoscopy({ onAction: noop });
+      if (fp) inst.pin?.(fp);
       inst.el.classList.remove('dock-pane'); inst.el.classList.add('pz-lens-inst');   // (laid as the lens, not as a Tests tab)
       disc.append(inst.el);
     }
     inst.shown?.(true);
     offFrame ||= store.on('frame', (f) => { if (isOpen && f) { inst.update(f); caption(f); } });
-    const f = store.get().frame;
-    if (f) { inst.update(f); caption(f); }
     place();
+  }
+  // (The scope drawn from the newest frame once its lens has its size: a frame taken in while the lens had none was dropped by the scope,
+  // which then drew the last one it had kept, a slide's old state, until the model moved; Mohammad 6 Nov 2026, "the varix is BLEEDING;
+  // yet the scope view is showing a small varices without bleeding". Two frames on: the size is measured the frame after it is laid.)
+  function feed() {
+    feedAsk = 0;
+    const f = store.get().frame;
+    if (isOpen && f && inst) { inst.update(f); caption(f); }
   }
   function close() {
     if (!isOpen) return;
@@ -104,7 +108,6 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
     el.classList.remove('on'); el.hidden = true; el.style.opacity = '';
     offFrame?.(); offFrame = null;
     inst?.shown?.(false);
-    cancelFrame(coneAsk); coneAsk = 0;
     if (!dead) ringNow();
   }
   // The caption under the lens: the varices' grade and an active bleed, written only when it changes (drawn on the GPU: gl-words.js).
@@ -132,15 +135,9 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
     const L = placeLens(ring, { l: ss.l, t: 0, r: W - ss.r, b: H }, rects, size);
     if (!L) { el.hidden = true; return; }
     const lines = coneLines({ x: ring.x, y: ring.y, r: ring.r }, { x: L.x, y: L.y, r: L.r + 5 });
-    // The cone's own box: the ring and the lens, with a margin for its lines.
-    const bx0 = Math.floor(Math.min(ring.x - ring.r, L.x - L.r) - 4), by0 = Math.floor(Math.min(ring.y - ring.r, L.y - L.r) - 4);
-    const bx1 = Math.ceil(Math.max(ring.x + ring.r, L.x + L.r) + 4), by1 = Math.ceil(Math.max(ring.y + ring.r, L.y + L.r) + 4);
-    geom = { lines, ox: bx0, oy: by0 };
     // (The lens's layer may not start at the figure's own corner: everything is laid from the figure's corner, moved by the difference.)
     const rb = readBox(root), dx = Math.round(sb.left - (rb?.left ?? sb.left)), dy = Math.round(sb.top - (rb?.top ?? sb.top));
     // (Laid once per opening: its place, size and the cone's box; the lens comes in by its own opacity and transform.)
-    // alloc-rare: once per opening, never per frame
-    Object.assign(cone.style, { left: `${bx0 + dx}px`, top: `${by0 + dy}px`, width: `${bx1 - bx0}px`, height: `${by1 - by0}px` });
     // alloc-rare: once per opening, never per frame
     Object.assign(disc.style, { left: `${L.x - L.r + dx}px`, top: `${L.y - L.r + dy}px`, width: `${2 * L.r}px`, height: `${2 * L.r}px` });
     const ang = Math.PI / 4;
@@ -152,32 +149,9 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
     el.style.setProperty('--lens-ox', `${Math.round(ring.x - (L.x - L.r))}px`);
     el.style.setProperty('--lens-oy', `${Math.round(ring.y - (L.y - L.r))}px`);
     el.hidden = false; el.style.opacity = '';
-    paintCone();
-    nextFrame(() => { if (isOpen && !el.hidden) el.classList.add('on'); });
+    stage.setScopeCone?.(lines);
+    nextFrame(() => { if (isOpen && !el.hidden) el.classList.add('on'); feedAsk ||= nextFrame(feed); });
   }
-  // The cone: a faint fill between the two tangents and the two lines, on the cards' GPU drawer.
-  function paintCone() {
-    coneAsk = 0;
-    if (!isOpen || !geom || dead) return;
-    pen ||= createTraceGL(cone, { redraw: () => paintCone() });
-    const p = fitPen(cone, pen), ctx = p.ctx;
-    try {
-      if (p.w < 2 || p.h < 2) { coneAsk = nextFrame(paintCone); return; }   // (its box is measured a frame after it is laid)
-      ctx.clearRect?.(0, 0, p.w, p.h);
-      const ls = geom.lines;
-      if (!ls) return;
-      const [a, b] = ls, ox = geom.ox, oy = geom.oy;
-      ctx.beginPath();
-      ctx.moveTo(a[0] - ox, a[1] - oy); ctx.lineTo(a[2] - ox, a[3] - oy); ctx.lineTo(b[2] - ox, b[3] - oy); ctx.lineTo(b[0] - ox, b[1] - oy); ctx.closePath();
-      ctx.fillStyle = cssAlpha('--text', 0.07); ctx.fill();
-      ctx.strokeStyle = cssAlpha('--text', 0.5); ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(a[0] - ox, a[1] - oy); ctx.lineTo(a[2] - ox, a[3] - oy);
-      ctx.moveTo(b[0] - ox, b[1] - oy); ctx.lineTo(b[2] - ox, b[3] - oy);
-      ctx.stroke();
-    } finally { ctx.end?.(); }
-  }
-
   return {
     el,
     /** The slide now up (null: none). Its ring is shown when the slide shows the varices; a lens left open closes. */
@@ -193,6 +167,8 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
     /** Whether the lens is open (the tests, a keyboard close). */
     isOpen: () => isOpen,
     close,
+    /** The slide's own numbers (presenter-tools pin): the lens's scope shows the size the tiles and the figure show. */
+    pin(f) { fp = f || null; inst?.pin?.(fp); },
     /** A tap (client px) in a talk, where the figure takes no other: true when it was on the ring. */
     tap,
     /** The pointer moving over the figure (client px, its kind): a hand over the ring. */
@@ -207,7 +183,6 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
       offView?.(); offVx?.(); offVx = null;
       words.dispose?.();
       inst?.dispose?.(); inst = null;
-      pen?.dispose?.(); pen = null;
       el.remove();
     },
   };
