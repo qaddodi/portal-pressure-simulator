@@ -191,3 +191,23 @@ test('the figure counts a vessel\'s strands apart at a node (stage.js veinJoins)
   assert.match(src, /e\.strand = it\.kind === 's'/);
   assert.match(stageSource(), /import \{ sideEndScale \} from '\.\/fork-joins\.js/);
 });
+
+// The fundal varices (6 Nov): the feeder arches over into the gastrorenal shunt, and the run-on's smoothing over its usual ten
+// samples cut that bend by 12 units, so the trunk passed under the node and the varices' strands, which end on it, hung off it.
+// Smoothed, both courses still pass through the node.
+test('the smoothed loop at the fundal varices still passes through their node, where the strands end', async () => {
+  const { EDGE_PATH, NODE_POS } = await import('../src/ui/anatomy.js');
+  const { smoothRunOn, newJoinStore, nearCourse } = await import('../src/ui/vein-joins.js');
+  const even = (id, N = 64) => {
+    const P = sample(EDGE_PATH[id]), cum = [0];
+    for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    return Array.from({ length: N }, (_, i) => { const d = (cum[cum.length - 1] * i) / (N - 1); let j = 1; while (j < P.length - 1 && cum[j] < d) j++; const t = cum[j] > cum[j - 1] ? (d - cum[j - 1]) / (cum[j] - cum[j - 1]) : 0; return [P[j - 1][0] + (P[j][0] - P[j - 1][0]) * t, P[j - 1][1] + (P[j][1] - P[j - 1][1]) * t]; });
+  };
+  const items = [{ row: 0, kind: 'v', pts: even('C2') }, { row: 1, kind: 'v', pts: even('C5') }];
+  const co = smoothRunOn(items, [{ a: 0, ia: 1, b: 1, ib: 0 }], newJoinStore());
+  const gv = NODE_POS.GV[0];
+  const P0 = co.get(0), P1 = co.get(1);
+  assert.ok(P0 && P1, 'both courses are smoothed');
+  // (The two meet end to end, on the smoothed curve: the loop drawn through them passes within 2 of the node.)
+  assert.ok(nearCourse([...P0, ...P1], gv, 2), `the loop passes ${distTo([...P0, ...P1], gv).toFixed(1)} from the node`);
+});

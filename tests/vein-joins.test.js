@@ -4,7 +4,7 @@
 // globals it read being arguments.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { veinJoins, smoothRunOn, newJoinStore, joinKeyOf, nearCourse } from '../src/ui/vein-joins.js';
+import { veinJoins, smoothRunOn, newJoinStore, joinKeyOf, nearCourse, runOnMiss, RUN_ON_MISS } from '../src/ui/vein-joins.js';
 import { forkJoins, nodeJoins } from '../src/ui/fork-joins.js';
 
 const N = 64;
@@ -145,13 +145,21 @@ function refSmoothRunOn(items, straight) {
     if (!A || !B) continue;
     const PA = out.get(a) || A.pts.map((q) => q.slice()), PB = out.get(b) || B.pts.map((q) => q.slice());
     if (PA.length < 2 * E + 2 || PB.length < 2 * E + 2) continue;
-    const Ea = refRunOnSamples(A, E), Eb = refRunOnSamples(B, E);
-    const p0 = pt(PA, Ea, ia), p0b = pt(PA, Ea + 1, ia), p3 = pt(PB, Eb, ib), p3b = pt(PB, Eb + 1, ib);
-    const L = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]) / 3;
-    const ta = [p0[0] - p0b[0], p0[1] - p0b[1]], tb = [p3[0] - p3b[0], p3[1] - p3b[1]];
-    const na = Math.hypot(...ta) || 1, nb = Math.hypot(...tb) || 1;
-    const p1 = [p0[0] + (ta[0] / na) * L, p0[1] + (ta[1] / na) * L], p2 = [p3[0] + (tb[0] / nb) * L, p3[1] + (tb[1] / nb) * L];
-    const bez = (t) => { const u = 1 - t; return [u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]; };
+    // (Since 6 Nov the stretch shortens, 10 → 6 → 4 → 2 samples, until the curve passes within RUN_ON_MISS of the join: the
+    // midpoint of the two ends. vein-joins.js smoothRunOn.)
+    const ea = pt(PA, 0, ia), eb = pt(PB, 0, ib), J = [(ea[0] + eb[0]) / 2, (ea[1] + eb[1]) / 2];
+    let e = E, Ea, Eb, bez;
+    for (;;) {
+      Ea = refRunOnSamples(A, e); Eb = refRunOnSamples(B, e);
+      const p0 = pt(PA, Ea, ia), p0b = pt(PA, Ea + 1, ia), p3 = pt(PB, Eb, ib), p3b = pt(PB, Eb + 1, ib);
+      const L = Math.hypot(p3[0] - p0[0], p3[1] - p0[1]) / 3;
+      const ta = [p0[0] - p0b[0], p0[1] - p0b[1]], tb = [p3[0] - p3b[0], p3[1] - p3b[1]];
+      const na = Math.hypot(...ta) || 1, nb = Math.hypot(...tb) || 1;
+      const p1 = [p0[0] + (ta[0] / na) * L, p0[1] + (ta[1] / na) * L], p2 = [p3[0] + (tb[0] / nb) * L, p3[1] + (tb[1] / nb) * L];
+      bez = (t) => { const u = 1 - t; return [u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0], u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1]]; };
+      if (e <= 2 || runOnMiss(...p0, ...p1, ...p2, ...p3, ...J) <= RUN_ON_MISS) break;
+      e = Math.max(2, Math.round(e * 0.6));
+    }
     for (let i = 0; i <= Ea; i++) PA[ia ? PA.length - 1 - i : i] = bez(0.5 * (1 - i / Ea));
     for (let i = 0; i <= Eb; i++) PB[ib ? PB.length - 1 - i : i] = bez(0.5 + 0.5 * (i / Eb));
     out.set(a, PA); out.set(b, PB);

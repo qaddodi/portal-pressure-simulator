@@ -269,6 +269,20 @@ function copyCourse(co, row, src) {
   if (dst.length !== n) dst.length = n;
   return dst;
 }
+// How near (world units) a run-on's smoothed curve must pass to the join it smooths.
+export const RUN_ON_MISS = 2;
+// How near the cubic (p0 … p3) passes to (jx, jy): the least distance over its middle half, where the join lies.
+export function runOnMiss(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, jx, jy) {
+  let m = Infinity;
+  for (let k = 0; k <= 10; k++) {
+    const t = 0.25 + 0.05 * k, u = 1 - t;
+    const x = u * u * u * p0x + 3 * u * u * t * p1x + 3 * u * t * t * p2x + t * t * t * p3x;
+    const y = u * u * u * p0y + 3 * u * u * t * p1y + 3 * u * t * t * p2y + t * t * t * p3y;
+    const d = (x - jx) * (x - jx) + (y - jy) * (y - jy);
+    if (d < m) m = d;
+  }
+  return Math.sqrt(m);
+}
 /** The courses of the pairs in `straight` redrawn smooth (st.courses.get(row)); a vessel not in a pair is not in it. */
 export function smoothRunOn(items, straight, st) {
   const co = st.courses, E = 10;
@@ -282,15 +296,26 @@ export function smoothRunOn(items, straight, st) {
     if (PA.length < 2 * E + 2 || PB.length < 2 * E + 2) continue;
     // From E samples into A, through the join, to E samples into B (fewer into the cava drawn as one,
     // whose samples lie farther apart: about as far along as into its last stretch alone).
-    const Ea = runOnSamples(A, E), Eb = runOnSamples(B, E);
-    const a0 = ia ? PA[PA.length - 1 - Ea] : PA[Ea], a1 = ia ? PA[PA.length - 1 - (Ea + 1)] : PA[Ea + 1];
-    const b0 = ib ? PB[PB.length - 1 - Eb] : PB[Eb], b1 = ib ? PB[PB.length - 1 - (Eb + 1)] : PB[Eb + 1];
-    // (The four points as numbers: the course they lie in is written over below.)
-    const p0x = a0[0], p0y = a0[1], p0bx = a1[0], p0by = a1[1], p3x = b0[0], p3y = b0[1], p3bx = b1[0], p3by = b1[1];
-    const L = Math.hypot(p3x - p0x, p3y - p0y) / 3;
-    const tax = p0x - p0bx, tay = p0y - p0by, tbx = p3x - p3bx, tby = p3y - p3by;
-    const na = Math.hypot(tax, tay) || 1, nb = Math.hypot(tbx, tby) || 1;
-    const p1x = p0x + (tax / na) * L, p1y = p0y + (tay / na) * L, p2x = p3x + (tbx / nb) * L, p2y = p3y + (tby / nb) * L;
+    // Where the two courses bend hard through the join (the short gastric feeder arching over into the gastrorenal shunt at the
+    // fundal varices, 6 Nov) the cubic over E samples cut the bend by 12 units, so the trunk passed under the node and the
+    // varices' strands, which end on the node, hung off it unjoined. The stretch is shortened (10 → 6 → 4 → 2 samples) until
+    // the curve passes within RUN_ON_MISS of the join; every other run-on in the figure already does at 10.
+    const ea = ia ? PA[PA.length - 1] : PA[0], eb = ib ? PB[PB.length - 1] : PB[0];
+    const jx = (ea[0] + eb[0]) / 2, jy = (ea[1] + eb[1]) / 2;
+    let e = E, Ea, Eb, p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y;
+    for (;;) {
+      Ea = runOnSamples(A, e); Eb = runOnSamples(B, e);
+      const a0 = ia ? PA[PA.length - 1 - Ea] : PA[Ea], a1 = ia ? PA[PA.length - 1 - (Ea + 1)] : PA[Ea + 1];
+      const b0 = ib ? PB[PB.length - 1 - Eb] : PB[Eb], b1 = ib ? PB[PB.length - 1 - (Eb + 1)] : PB[Eb + 1];
+      // (The four points as numbers: the course they lie in is written over below.)
+      p0x = a0[0]; p0y = a0[1]; p3x = b0[0]; p3y = b0[1];
+      const L = Math.hypot(p3x - p0x, p3y - p0y) / 3;
+      const tax = p0x - a1[0], tay = p0y - a1[1], tbx = p3x - b1[0], tby = p3y - b1[1];
+      const na = Math.hypot(tax, tay) || 1, nb = Math.hypot(tbx, tby) || 1;
+      p1x = p0x + (tax / na) * L; p1y = p0y + (tay / na) * L; p2x = p3x + (tbx / nb) * L; p2y = p3y + (tby / nb) * L;
+      if (e <= 2 || runOnMiss(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y, jx, jy) <= RUN_ON_MISS) break;
+      e = Math.max(2, Math.round(e * 0.6));
+    }
     // A's samples E … 0 (toward its end) take t 0 … 0.5, B's 0 … E take 0.5 … 1.
     for (let i = 0; i <= Ea; i++) {
       const t = 0.5 * (1 - i / Ea), u = 1 - t, d = PA[ia ? PA.length - 1 - i : i];
