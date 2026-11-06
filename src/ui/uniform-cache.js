@@ -24,7 +24,9 @@ class UniformCache {
   changed(loc, n) {
     if (typeof loc !== 'object') return true;   // (not a real location: send it)
     let s = this.last.get(loc);
-    if (!s) { s = { n: -1, v: new Float64Array(4) }; this.last.set(loc, s); }   // alloc-rare: once per uniform location, the first time it is set
+    // (A location last set from an array (changedArr: a linear gradient's ends, fv4) and now from numbers (a radial one's, f4) gets a record
+    // of numbers: the array's record has none, and reading it threw on every frame, so the scope's bleed, which fills both, never drew.)
+    if (!s || !s.v) { s = { n: -1, v: new Float64Array(4) }; this.last.set(loc, s); }   // alloc-rare: once per uniform location, the first time it is set
     const v = s.v, t = this.t;
     if (s.n === n && v[0] === t[0] && (n < 2 || v[1] === t[1]) && (n < 3 || v[2] === t[2]) && (n < 4 || v[3] === t[3])) return false;
     s.n = n; v[0] = t[0];

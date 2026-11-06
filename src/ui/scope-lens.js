@@ -135,7 +135,7 @@ export function createScopeLens({ stage, store, root, avoid = () => [] }) {
   function caption(f) {
     const vx = f.metrics?.varix, bleed = !!(f.bleed?.active && f.bleed.site === 'VAR'), bands = Math.round(f.bands || 0);
     const t = !vx?.present ? 'No varices' : `${vx.grade?.label || 'Large'} varices${bleed ? ' · bleeding' : bands ? ' · banded' : ''}`;
-    if (t !== capText) { capText = t; words.set(cap, t); }
+    if (t !== capText) { capText = t; words(cap, t); }
   }
 
   // ── Where it opens ──

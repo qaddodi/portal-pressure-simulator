@@ -115,3 +115,14 @@ test('the lobule, dive field, lymph overlay and organ stack draws set their per-
   const organs = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   assert.doesNotMatch(organs, /gl\.uniform[0-9A-Za-z]*\(U\./, 'the stack layer sets nothing around the cache');
 });
+
+test('one location set from an array, then from numbers, and back: sent each time, never thrown (a linear gradient then a radial one)', () => {
+  // (6 Nov 2026: the scope's bleed fills a linear gradient (fv4 of its ends) then a radial one (f4) through the same uniform; the array's
+  // record had no numbers, f4 threw on every frame and the bleed never drew: Mohammad, "varix still not bleeding on scope view".)
+  const gl = fakeGL(), U = uniformCache(gl), pl = loc('pl');
+  U.fv4(pl, new Float32Array([0, 1, 2, 3]));
+  U.f4(pl, 4, 5, 6, 7);
+  U.fv4(pl, new Float32Array([0, 1, 2, 3]));
+  U.f4(pl, 4, 5, 6, 7);
+  assert.deepEqual(gl.calls.map((x) => x[0]), ['uniform4fv', 'uniform4f', 'uniform4fv', 'uniform4f']);
+});
