@@ -69,7 +69,7 @@ test('the heads\' build is the composite\'s text with its own main, and the comp
     assert.equal((s.match(/\bvoid main\(\)/g) || []).length, 1);
     assert.doesNotMatch(s, /flat in vec4 hC;/);
     assert.match(s, /uniform int chevQuad;/);
-    assert.match(s, /if \(chev == 1 && chevQuad == 0 && f1\.z > 0\.0\) \{\n\s*vec2 c = chevAt\(/);
+    assert.match(s, /if \(chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy\) \{\n\s*vec2 c = chevAt\(/);
   }
 });
 

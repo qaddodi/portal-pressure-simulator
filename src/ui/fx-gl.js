@@ -219,24 +219,30 @@ export function createFxGL(canvas, { host = null } = {}) {
       W = canvas.width; H = canvas.height; if (!W || !H) return false;
       else if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
       gl.disable(gl.DEPTH_TEST); gl.disable(gl.SCISSOR_TEST);
+      // (Drops, beads and eraser want the coverage target. With none of them listed (the lymph's dashes are the vessel composite's now) only
+      // the lining is drawn, in its own target, and the coverage target is not kept.)
+      const dropsOn = !!lymph && lymph.drops.length > 0;
       if (lymph) {
-        cov = target(cov, W, H);
-        if (!cov) return false;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, cov.fbo);
-        gl.viewport(0, 0, W, H);
-        gl.colorMask(true, true, true, true); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+        if (dropsOn) { cov = target(cov, W, H); if (!cov) return false; }
+        else if (cov) { gl.deleteFramebuffer(cov.fbo); gl.deleteTexture(cov.tex); cov = null; }
         gl.useProgram(P.cap);
         ucache.f4(P.CU.uView, view[0], view[1], view[2], view[3]); ucache.f2(P.CU.uSize, W, H);
         gl.enable(gl.BLEND); gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
-        layer('drops', lymph.drops, M_R, 0, 0);
-        layer('beads', lymph.beadRings, M_G, 0, lymph.ringHalf);
-        layer('beads', lymph.beadRings, M_B, 0, 0);   // (the same discs, filled)
-        layer('erase', lymph.erase, M_A, lymph.eraseAdd, 0);
+        if (dropsOn) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, cov.fbo);
+          gl.viewport(0, 0, W, H);
+          gl.colorMask(true, true, true, true); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+          layer('drops', lymph.drops, M_R, 0, 0);
+          layer('beads', lymph.beadRings, M_G, 0, lymph.ringHalf);
+          layer('beads', lymph.beadRings, M_B, 0, 0);   // (the same discs, filled)
+          layer('erase', lymph.erase, M_A, lymph.eraseAdd, 0);
+        }
         if (lymph.line) {
           lin = target(lin, W, H);
           if (!lin) { gl.disable(gl.BLEND); gl.colorMask(true, true, true, true); gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN()); return false; }
           gl.bindFramebuffer(gl.FRAMEBUFFER, lin.fbo);
-          gl.colorMask(true, true, true, true); gl.clear(gl.COLOR_BUFFER_BIT);
+          gl.viewport(0, 0, W, H);
+          gl.colorMask(true, true, true, true); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
           layer('line', lymph.line, M_R, 0, 0);
         }
         gl.bindVertexArray(null);
@@ -247,10 +253,10 @@ export function createFxGL(canvas, { host = null } = {}) {
       gl.useProgram(P.comp);
       const U = P.KU;
       ucache.f4(U.uView, view[0], view[1], view[2], view[3]); ucache.f2(U.uSize, W, H);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lymph && cov ? cov.tex : null); ucache.i1(U.uCov, 0);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, dropsOn && cov ? cov.tex : null); ucache.i1(U.uCov, 0);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, lymph?.line && lin ? lin.tex : null); ucache.i1(U.uLin, 1);
       gl.activeTexture(gl.TEXTURE0);
-      ucache.i1(U.uLy, lymph ? 1 : 0); ucache.i1(U.uLine, lymph?.line ? 1 : 0);
+      ucache.i1(U.uLy, dropsOn ? 1 : 0); ucache.i1(U.uLine, lymph?.line ? 1 : 0);
       const C = lymph?.colours;
       if (C) { ucache.fv4(U.uCLy, C.ly); ucache.fv4(U.uCRing, C.ring); ucache.fv4(U.uCBead, C.bead); ucache.fv4(U.uCLine, C.line); }
       const nd = ducts ? Math.min(MAX_DUCTS, ducts.length / 8) : 0;

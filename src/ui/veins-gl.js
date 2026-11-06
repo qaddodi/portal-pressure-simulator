@@ -1205,6 +1205,20 @@ ${E_GLSL}
 // The caliber at arc length s, interpolated between its samples (not the nearest one), so nothing scaled by it steps along the vessel.
 ${ALONG_GLSL}
 ${ROWS_GLSL}
+// Lymph in its channel (a row whose f1.x is -1: lobule-zoom.js lymph rows): soft dashes run along it, each with an amber albumin core
+// that is stronger the richer the protein. The row holds the dashes' phase (f0.x, world units), their pitch (f0.y, world), the protein
+// (f0.z, 0 … 1) and the dark theme (f0.w, 1 or 0). cover: the dash's coverage; core: the albumin core's. The dashes are drawn in
+// the channel's own frame, so they follow the zoom and the pan with it and never lag the vessel they sit in.
+void lymphAt(float s, float y, vec4 f0, float len, float R, out float cover, out float core) {
+  float pitch = max(f0.y, 1.0);
+  float x = (fract((s - f0.x) / pitch) - 0.5) * pitch;
+  float hl = pitch * 0.2, r = R * 0.95, aa = max(pxW, 1e-3) * 0.75, ya = y * R;
+  cover = 1.0 - smoothstep(r - aa, r + aa, length(vec2(max(abs(x) - max(hl - r, 0.0), 0.0), ya)));
+  float rc = r * 0.42;
+  core = (1.0 - smoothstep(rc - aa, rc + aa, length(vec2(max(abs(x) - max(hl * 0.55 - rc, 0.0), 0.0), ya)))) * (0.25 + 0.75 * clamp(f0.z, 0.0, 1.0));
+  float e = smoothstep(0.0, pitch * 1.2, min(s, len - s));
+  cover *= e; core *= e;
+}
 // Moving blood in one lumen at arc length s (world, may run past either end) and across y (−1 … 1):
 // the parcels' color and coverage, to be laid over the lumen color col. Read once in main for it and the arrowheads alike
 // (they were read by each): the vessel's flow texels f0 and f1 (f1.z > 0: main draws neither where it is not), its length,
@@ -1618,7 +1632,8 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
         else rel = 0.0;
       }
     }
-    if (blood == 1 && f1.z > 0.0) {
+    bool isLy = f1.x < -0.5;   // (a lymph row: dashes, never blood streaks or arrowheads)
+    if (blood == 1 && f1.z > 0.0 && !isLy) {
       // One streak field (the dominant lumen's), eased down toward the join, so two patterns never ghost over each other. Where
       // both lumens draw one pattern, the two are mixed by share instead (the same mix from either side of the seam) and nothing
       // dims; the minor inflow into a chained vessel dims half as much.
@@ -1652,6 +1667,16 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
 #if STREAK
     return;
 #endif
+    if (blood == 1 && isLy && f1.z > 0.0) {
+      float lc, lk;
+      lymphAt(s1, y1, f0, len1, R1, lc, lk);
+      // The dash's ink: a deeper green than the channel's own, lighter in the dark theme; the core the albumin's amber.
+      vec3 ink = mix(vc1, f0.w > 0.5 ? vec3(0.78, 0.95, 0.70) : vec3(0.30, 0.56, 0.28), 0.82);
+      vec3 amber = f0.w > 0.5 ? vec3(0.95, 0.71, 0.29) : vec3(0.89, 0.60, 0.12);
+      float aL = clamp(f1.z * vis * flowA * blendA.x, 0.0, 1.0);
+      col = mix(col, ink, lc * aL);
+      col = mix(col, amber, lk * aL);
+    }
     if (dyeOn == 1) {
       float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
       // A rich, slightly glowing column: the dye tints the lumen and lifts it a little.
@@ -1660,7 +1685,7 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
       float inLumen = 1.0 - smoothstep(0.6, 0.85, abs(y1));
       col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * max(smoothstep(0.0, 0.2, vis), inLumen));
     }
-    if (chev == 1 && chevQuad == 0 && f1.z > 0.0) {
+    if (chev == 1 && chevQuad == 0 && f1.z > 0.0 && !isLy) {
       vec2 c = chevAt(id1, s1, y1, f0, f1, len1, R1);
       // None where another vessel joins, except where the two draw one pattern: there the heads run on from one into the other,
       // mixed by share as the streaks are.

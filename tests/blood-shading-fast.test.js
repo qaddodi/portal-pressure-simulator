@@ -78,7 +78,7 @@ test('every build draws the streaks alone, at every zoom: no bead look anywhere,
 
 test('the composite tests the arrowheads\' cut-outs only where a head is', () => {
   const main = body(R.full, 'void main()');
-  const chev = body(main, 'if (chev == 1 && chevQuad == 0 && f1.z > 0.0) {');
+  const chev = body(main, 'if (chev == 1 && chevQuad == 0 && f1.z > 0.0 && !isLy) {');
   const gate = body(chev, 'if (c.x + c.y > 0.0) {');
   assert.ok(gate.includes('noChev[i]') && gate.includes('chevHole[i]'), 'both cut-outs inside the test');
   // ...and the drawing still waits on the head surviving them.
@@ -114,8 +114,8 @@ test('the streaks and the arrowheads share one read of the vessel\'s flow, lengt
     const main = body(R[k], 'void main()');
     assert.equal((main.match(/texelFetch\(flow, ivec2\(0, id1\), 0\)/g) || []).length, 1, `${k}: flow texel 0 once`);
     assert.equal((main.match(/texelFetch\(flow, ivec2\(1, id1\), 0\)/g) || []).length, 1, `${k}: flow texel 1 once`);
-    assert.match(main, /if \(blood == 1 && f1\.z > 0\.0\) \{/);
-    assert.match(main, /if \(chev == 1 && chevQuad == 0 && f1\.z > 0\.0\) \{/);   // (chevQuad: the heads drawn by their own quads, blood-heads.js)
+    assert.match(main, /if \(blood == 1 && f1\.z > 0\.0 && !isLy\) \{/);
+    assert.match(main, /if \(chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy\) \{/);   // (chevQuad: the heads drawn by their own quads, blood-heads.js)
     const bl = body(R[k], 'vec4 bloodAt('), ch = body(R[k], 'vec2 chevAt(');
     for (const f of [bl, ch]) {
       assert.doesNotMatch(f, /texelFetch\(flow, ivec2\([01], id\)/);

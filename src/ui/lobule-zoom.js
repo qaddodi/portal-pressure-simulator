@@ -120,7 +120,7 @@ function distTo(pts, x, y) {
   distU = bu;
   return best;
 }
-const lyAt = [0, 0], diveAt = [0, 0];   // (the scratch points of the lymph's beads and of the sinusoid zoom's geometry)
+const diveAt = [0, 0];   // (the scratch point of the sinusoid zoom's geometry)
 // Any CSS colour → [r, g, b] 0–1, in the canvas's 8-bit steps (css-color.js: read in script, no canvas made).
 const rgbCache = new Map();
 function rgb01(c) {
@@ -3923,6 +3923,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const flowSame = panOnly && g === flowG && flowA === flowAt;
     if (!flowSame) flowData.fill(0);
     if (!flowSame) for (const t of live) if (t.lymph) flowData[t.id * FLOW_TEXELS * 4 + 8] = -1;   // lymph carries no blood origin
+    // Lymph (the Lymph layer): soft dashes with an amber core run along each channel toward the portal tract, drawn by the composite from a
+    // flow row like the blood's (veins-gl.js lymphAt), so they move with the vessels at no cost of their own. The row: D = the dashes' phase
+    // (world units, within one pitch), v = the pitch, flux = the protein (0 … 1: the core's strength), stasis = 1 in the dark theme,
+    // f1.x = -1 (marks a lymph row), strength 1. Faster as more fluid filters, eased as the model's rate is (lyV); a fixed pitch.
+    const lyOn = lymphOn && !m.hide;
+    if (!flowSame && lyOn) {
+      const pitch = G.R * 0.06, lyR = clamp(lymphRate(m), 0.2, 6), lyPr = lyProt(m), lyVw = G.R * 0.035 * Math.sqrt(lyV = lyV == null ? lyR : lyV + (lyR - lyV) * ease), lyStill = reduce.matches;
+      for (const t of live) {
+        if (t.kind !== 'ly' && t.kind !== 'lt') continue;
+        const mo = motionOf(t), o = t.id * FLOW_TEXELS * 4;
+        mo.ld = ((((mo.ld ?? t.id * 0.371 * pitch) + (lyStill ? 0 : (t.kind === 'ly' ? -1 : 1) * dt * lyVw)) % pitch) + pitch) % pitch;   // (the lymph runs out along the space of Disse, in toward the tract along the terminal lymphatics)
+        flowData[o] = mo.ld; flowData[o + 1] = pitch; flowData[o + 2] = lyPr; flowData[o + 3] = dark ? 1 : 0; flowData[o + 4] = -1; flowData[o + 6] = 1;
+      }
+    }
     if (!flowSame && (bloodOn || chev || origin)) for (const t of live) {
       let v, occ, oe, f0 = 0, f1 = 0, strength = 1, rev = 0, stasis = 0;
       const lv = t.kind;
@@ -3957,7 +3971,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (The blood's arguments, one object kept and written in place: veins-gl reads it within the call, and its kept pair for a later repaint holds this
     // same object, whose values are then this frame's, the latest. bleed stays empty; the colours are the shared, cached ones.)
     const bc = bloodColors(), blood = bloodArg;
-    blood.alpha = flowA; blood.on = bloodOn && flowA > 0.002; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in)
+    blood.alpha = flowA; blood.on = (bloodOn || lyOn) && flowA > 0.002; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in)
     blood.originCol = bc.originCol; blood.dyeCol = bc.dyeCol; blood.inkLight = bc.inkLight; blood.inkDark = bc.inkDark; blood.revCol = bc.revCol; blood.chevInk = bc.chevInk; blood.chevLight = bc.chevLight;
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
@@ -4419,54 +4433,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     });
     return (ductP = { G, key: ductKey, duct, nums: Float32Array.from(duct.flatMap((d) => d.num)) });   // alloc-rare: same branch, the ductules changed
   }
-  // What part of the world the effects layer shows, with a few device pixels to spare for antialiasing: [x0, y0, x1, y1].
-  // The lymph's drops this frame, [x, y, r, seed] each, and what drawing them needs. (Each drop's motion steps here, once a frame.)
-  const lyRes = { lw: 0, seal: 0, beads: 0, minR: 0, drops: null, nd: 0 };   // (what lyDrops returns: one object kept, written in place; fxOnGPU takes its fields at once)
-  let lyNd = 0;
-  // One drop's x, y, radius and seed onto the end of the kept array (grown, to twice, only when the count outgrows it).
-  function lyPut(a, b, c, d) {
-    let drops = lyRaw;
-    if (lyNd + 4 > drops.length) { const nx = new Float32Array(Math.max(64, drops.length * 2)); nx.set(drops); drops = lyRaw = nx; }   // alloc-rare: only when the drops outgrow the kept array
-    drops[lyNd++] = a; drops[lyNd++] = b; drops[lyNd++] = c; drops[lyNd++] = d;
-  }
-  function lyDrops(G, m, dt, W, H, dpr) {
-    const p = lyProt(m), still = reduce.matches, lw = 0.9 / V.k, seal = 1 - smooth(0.15, 0.6, p);
-    // Lymph as drops drifting along the space of Disse and the terminal lymphatics to the portal tract:
-    // faster as more fluid filters (the volume); each carries albumin beads, as many as its protein allows
-    // (the concentration). A fixed number of drops per vessel (a count that followed the rate would make
-    // them all jump to new places), and speed eased toward the model's. One path per ink, no blur.
-    const lyR = clamp(lymphRate(m), 0.2, 6), beads = Math.round(1 + 4 * p);
-    const gapW = G.R * 0.06, minR = 2.6 / V.k;
-    lyV = lyV == null ? lyR : lyV + (lyR - lyV) * -Math.expm1(-dt / 0.5);
-    const vW = G.R * 0.035 * Math.sqrt(lyV);
-    // (Every drop is drawn, on the screen or not: the GPU draws them as one instanced pass.)
-    // (R13: written into a kept array that grows only when the count outgrows it, not a new one each frame.)
-    lyNd = 0;
-    for (const t of G.tubes) {
-      if (t.kind !== 'ly' && t.kind !== 'lt') continue;
-      const L = t.len || 1, n = Math.max(1, Math.round(L / gapW)), dir = t.kind === 'ly' ? -1 : 1;   // the space of Disse is drawn from the edge inward
-      const mo = motionOf(t);
-      mo.lu = ((mo.lu ?? (t.id * 0.371) % 1) + (still ? 0 : dir * dt * vW / L) + 1) % 1;
-      const r = Math.max(minR, (radiusAt(t, N >> 1) / (t.kind === 'ly' ? lyTaper(t.rho[N >> 1]) : 1)) * 0.7);
-      for (let i = 0; i < n; i++) {
-        const u = (mo.lu + i / n) % 1, e = Math.min(u, 1 - u) * n;   // fading in and out at the ends
-        if (e < 0.25) continue;
-        atInto(t.pts, u, lyAt);
-        const x = lyAt[0], y = lyAt[1], tp = t.kind === 'ly' ? lyTaper(Math.hypot(x - G.cx, y - G.cy) / G.R) : 1;
-        if (tp < 0.2) continue;   // too far in: the channel has thinned out
-        lyPut(x, y, r * Math.min(1, e) * smooth(0.2, 0.8, tp), t.id + i);
-      }
-    }
-    const R = lyRes;
-    R.lw = lw; R.seal = seal; R.beads = beads; R.minR = minR; R.drops = lyRaw; R.nd = lyNd;
-    return R;
-  }
+  // The lymph's collagen lining (low protein: the space of Disse is sealed) is the one part of the Lymph layer the overlay still draws, and it
+  // does not move; the drops are dashes the vessel composite lays (veins-gl.js lymphAt). 0 where the lining is not drawn.
+  const lySeal = (m) => 1 - smooth(0.15, 0.6, lyProt(m));
   // ── The overlay on the GPU (fx-gl.js) ──
   // The lobule's overlay (with WebGL vessels: the ductules, and with the Lymph layer the drops, beads, eraser and lining), drawn by
   // the GPU in the 2D overlay's place, scaled with the others through the dive and the rise as the tissue's GPU canvas is;
   // not without the vessels' WebGL. Its old 2D canvas stays empty (given back). ?fxgpu=0: no overlay.
   let fxGLKey = '', fxGLShown = false;
-  let lyRaw = new Float32Array(0);   // the lymph's kept array of drops (R13, see lyDrops; their instance arrays are fxDI, fxBI)
   // One context for the lobule (veins-gl.js): the overlay is drawn in the vessels' own canvas, over them, at the end of each
   // picture they lay (their top), from the frame's arguments fxOnGPU leaves here (fxArgs; null: nothing laid, the 2D overlay draws),
   // with no canvas or context of its own. Made again with the vessels' renderer (a new one after a lost context). A draw the GPU
@@ -4507,43 +4481,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!v) { v = cssColor8(str); if (rgbaSeen.size > 256) rgbaSeen.clear(); rgbaSeen.set(str, v); }   // alloc-rare: only the first time a colour string is seen
     return v;
   };
-  // The eraser as capsules (x0, y0, x1, y1, r, 0): a disc for each vessel seen end-on, each other blood vessel's segments as wide as
-  // its lumen at the middle of its third, with its wall (the 0.6 / k the wall grows with the zoom is added in the shader).
-  // (The two lists below are handed to fx-gl, which uploads a list again only when it is a different array from the one it last took: each
-  // is written into one of two kept buffers in turn and handed on as a view of its used part, so a new list is a different array without
+  // (The lining's list is handed to fx-gl, which uploads a list again only when it is a different array from the one it last took: it is
+  // written into one of two kept buffers in turn and handed on as a view of its used part, so a new list is a different array without
   // the buffers being made again.)
-  let gEraseGeo = '', gErase = null, gLineGeo = '', gLine = null;
-  const gEraseV = [], gLineV = [], gEraseB = [new Float32Array(0), new Float32Array(0)], gLineB = [new Float32Array(0), new Float32Array(0)];
-  let gEraseSlot = 0, gLineSlot = 0, capBuf = null, capN = 0;
+  let gLineGeo = '', gLine = null;
+  const gLineV = [], gLineB = [new Float32Array(0), new Float32Array(0)];
+  let gLineSlot = 0, capBuf = null, capN = 0;
   // One capsule (x0, y0, x1, y1, r, 0) onto the end of the buffer being written.
   function capPut(x0, y0, x1, y1, r) {
     if (capN + 6 > capBuf.length) { const nx = new Float32Array(Math.max(256, capBuf.length * 2)); nx.set(capBuf); capBuf = nx; }
     capBuf[capN++] = x0; capBuf[capN++] = y0; capBuf[capN++] = x1; capBuf[capN++] = y1; capBuf[capN++] = r; capBuf[capN++] = 0;
-  }
-  // The kept calibers (rz, to 1/q) compared with a kept copy: true, and the copy updated, when they differ.
-  function rzMoved(kept, rz, q) {
-    let moved = false, i = 0;
-    for (const key in rz) { const v = Math.round(rz[key] * q); if (!Object.is(kept[i], v)) { moved = true; kept[i] = v; } i++; }
-    if (kept.length !== i) { kept.length = i; moved = true; }
-    return moved;
-  }
-  function fxGLErase() {
-    const G = geo;
-    const moved = rzMoved(gEraseV, rzOf(), 1e5) || gEraseGeo !== geoKey || !gErase;
-    if (!moved) return gErase;
-    gEraseGeo = geoKey;
-    gEraseSlot ^= 1; capBuf = gEraseB[gEraseSlot]; capN = 0;
-    for (const t of G.tubes) {
-      if (t.lymph || t.kind === 'ly' || t.kind === 'lt' || t.kind === 'lv') continue;
-      const wall = WALL[t.kind] || 0.8;
-      if (t.kind === 'pv' || t.kind === 'cv' || t.kind === 'ha' || t.kind === 'bd') { const [x0, y0] = t.pts[0]; capPut(x0, y0, x0, y0, radiusAt(t, N >> 1) + wall); continue; }
-      for (let q = 0; q < 3; q++) {
-        const i0 = Math.floor((q * (N - 1)) / 3), i1 = Math.floor(((q + 1) * (N - 1)) / 3), r = radiusAt(t, (i0 + i1) >> 1) + wall;
-        for (let i = i0; i < i1; i++) capPut(t.pts[i][0], t.pts[i][1], t.pts[i + 1][0], t.pts[i + 1][1], r);
-      }
-    }
-    gEraseB[gEraseSlot] = capBuf;
-    return (gErase = capBuf.subarray(0, capN));   // alloc-rare: only when the eraser's key changed (the geometry or the calibers)
   }
   // The sinusoid lining as capsules, a line either side of each sinusoid lw out from its lumen, lw wide.
   function fxGLLine(lw) {
@@ -4570,15 +4517,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     return (gLine = capBuf.subarray(0, capN));   // alloc-rare: only when the lining's key changed (the geometry, the calibers or the zoom)
   }
   // What fxOnGPU keeps between frames, so a frame makes none of it: the effects layer's arguments (written in place; fx-gl reads them within
-  // the draw, and the hosted draw later in the same frame), the lymph's, the colours, the key of a still frame as numbers and the two
-  // lists of drop instances handed to fx-gl (see above: a different array each frame, as it uploads the drops every frame).
+  // the draw, and the hosted draw later in the same frame), the lymph's lining, the colours and the key of a still frame as numbers. (The
+  // lymph's drops are the vessel composite's dashes now, veins-gl.js lymphAt: nothing here moves with them.)
   const fxMovesArg = { lymph: false, flat: false, hide: false, flow: undefined };
   const fxDc = ['', '', '', ''], fxKNow = [], fxKWas = [];
-  const fxLymph = { drops: null, beadRings: null, erase: null, eraseAdd: 0, ringHalf: 0, line: null, colours: { ly: null, ring: null, bead: null, line: [0, 0, 0, 0] } };
-  const fxLineCol = [0, 0, 0, 0], fxNoLine = [0, 0, 0, 0];
+  const fxLymph = { drops: null, beadRings: null, erase: null, eraseAdd: 0, ringHalf: 0, line: null, colours: { ly: [0, 0, 0, 0], ring: [0, 0, 0, 0], bead: [0, 0, 0, 0], line: [0, 0, 0, 0] } }, fxNone = new Float32Array(0);
+  const fxLineCol = [0, 0, 0, 0];
   const fxArgsKept = { W: 0, H: 0, view: [0, 1, 0, 1], lymph: null, ducts: null, duct: { lum: null, cell: null, edge: null, nuc: null, width: 0, alpha: 0.72 } };
-  const fxDI = [new Float32Array(0), new Float32Array(0)], fxBI = [new Float32Array(0), new Float32Array(0)];
-  let fxFlip = 0, fxTg = null;
+  let fxTg = null;
   const fx2D = () => { if (fx.width) { free(fx); } };
   const fxDrawPart = () => fxTg.draw(fxArgsKept);
   function fxOnGPU(W, H, dpr, dark, dt, can) {
@@ -4587,8 +4533,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (Hosted: at the vessels' canvas's density, as drawGL sizes it.)
     const hosted = g === fxHostGL, vk = hosted ? dpr * (gl.software ? 0.5 : 1) : dpr;
     const fw = hosted ? Math.max(1, Math.round(W * vk)) : canvasPx(W, dpr), fh = hosted ? Math.max(1, Math.round(H * vk)) : canvasPx(H, dpr), G = geo, m = model;
-    fxMovesArg.lymph = lymphOn; fxMovesArg.hide = m.hide; fxMovesArg.flow = store.get().layers?.flow;
-    const moving = fxMoves(fxMovesArg);
+    fxMovesArg.hide = m.hide; fxMovesArg.flow = store.get().layers?.flow;
+    const moving = fxMoves(fxMovesArg), seal = lymphOn && !m.hide ? lySeal(m) : 0;
     fxDc[0] = tk('--lz-duct-lumen'); fxDc[1] = tk('--lz-duct-cell'); fxDc[2] = tk('--lz-duct-edge'); fxDc[3] = tk('--lz-duct-nucleus');
     const dc = fxDc;
     // (A still frame's key, the size, the pixel ratio, the theme, the ductules, the view and the colours, kept as numbers and strings in a
@@ -4598,43 +4544,22 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!moving) {
       let ki = 0;
       K[ki++] = fw; K[ki++] = fh; K[ki++] = dpr; K[ki++] = dark; K[ki++] = m.hide; K[ki++] = m.hide ? '' : fxDuct().key; K[ki++] = V.k; K[ki++] = V.x; K[ki++] = V.y;
-      K[ki++] = dc[0]; K[ki++] = dc[1]; K[ki++] = dc[2]; K[ki++] = dc[3];
+      K[ki++] = dc[0]; K[ki++] = dc[1]; K[ki++] = dc[2]; K[ki++] = dc[3]; K[ki++] = seal > 0.02 ? Math.round(seal * 1000) : -1; K[ki++] = seal > 0.02 ? tk('--lz-collagen') : '';
       same = fxGLKey !== '';
       for (let i = 0; same && i < ki; i++) if (!Object.is(K[i], fxKWas[i])) same = false;
     }
     // (The old 2D overlay canvas is kept empty: given back.)
     if (!moving && same && fxGLShown && !hosted) { fx2D(); return true; }
+    // The lymph layer's collagen lining only (low protein); the drops are the vessel composite's dashes, with no instances, eraser or coverage here.
     let lymph = null;
-    if (lymphOn && !m.hide) {
-      const { lw, seal, beads, minR, drops, nd: n4 } = lyDrops(G, m, dt, W, H, dpr);
-      const nd = n4 / 4;
-      // (R13: the drops' and the beads' instance arrays kept, grown only when outgrown, and handed on as views of their used length; two of each in
-      // turn, so the views of two frames in a row are different arrays, which fx-gl takes as new data and uploads.)
-      fxFlip ^= 1;
-      if (fxDI[fxFlip].length < nd * 6) fxDI[fxFlip] = new Float32Array(Math.max(nd * 6, fxDI[fxFlip].length * 2));   // alloc-rare: only when the drops outgrow the kept array
-      if (fxBI[fxFlip].length < nd * beads * 6) fxBI[fxFlip] = new Float32Array(Math.max(nd * beads * 6, fxBI[fxFlip].length * 2));   // alloc-rare: only when the beads outgrow the kept array
-      const dI = fxDI[fxFlip].subarray(0, nd * 6), bI = fxBI[fxFlip].subarray(0, nd * beads * 6);
-      dI.fill(0); bI.fill(0);
-      for (let j = 0, b6 = 0; j < nd; j++) {
-        const x = drops[j * 4], y = drops[j * 4 + 1], rr = drops[j * 4 + 2], br = rr * 0.3, a0 = drops[j * 4 + 3] * 1.7;
-        dI[j * 6] = x; dI[j * 6 + 1] = y; dI[j * 6 + 2] = x; dI[j * 6 + 3] = y; dI[j * 6 + 4] = rr;
-        for (let b = 0; b < beads; b++, b6 += 6) {
-          const a = a0 + (b * TAU) / beads, q = beads === 1 ? 0 : rr * 0.5, bx = x + Math.cos(a) * q, by = y + Math.sin(a) * q;
-          bI[b6] = bx; bI[b6 + 1] = by; bI[b6 + 2] = bx; bI[b6 + 3] = by; bI[b6 + 4] = br;
-        }
-      }
-      const lineOn = seal > 0.02;
+    if (seal > 0.02) {
       lymph = fxLymph;
-      lymph.drops = dI; lymph.beadRings = bI; lymph.erase = fxGLErase(); lymph.eraseAdd = 0.6 / V.k; lymph.ringHalf = Math.max(0.5 / V.k, minR * 0.22) / 2;
-      lymph.line = lineOn ? fxGLLine(lw) : null;
-      const C = lymph.colours;
-      C.ly = rgbaOf(tk('--lz-lymph')); C.ring = rgbaOf(tk('--lz-albumin-ring')); C.bead = rgbaOf(tk('--lz-albumin'));
+      lymph.drops = fxNone; lymph.beadRings = fxNone; lymph.erase = fxNone; lymph.eraseAdd = 0; lymph.ringHalf = 0;
+      lymph.line = fxGLLine(0.9 / V.k);
       // (The lining's colour: the token's, at the seal's alpha to a thousandth and then in 8-bit steps, as the token with that alpha was read.)
-      if (lineOn) {
-        const base = rgbaOf(tk('--lz-collagen'));
-        fxLineCol[0] = base[0]; fxLineCol[1] = base[1]; fxLineCol[2] = base[2]; fxLineCol[3] = Math.round(Math.round((dark ? 0.6 : 0.5) * seal * 1000) / 1000 * 255) / 255;
-        C.line = fxLineCol;
-      } else C.line = fxNoLine;
+      const base = rgbaOf(tk('--lz-collagen'));
+      fxLineCol[0] = base[0]; fxLineCol[1] = base[1]; fxLineCol[2] = base[2]; fxLineCol[3] = Math.round(Math.round((dark ? 0.6 : 0.5) * seal * 1000) / 1000 * 255) / 255;
+      lymph.colours.line = fxLineCol;
     }
     const args = fxArgsKept;
     args.W = fw; args.H = fh; args.view[0] = V.k; args.view[1] = V.x; args.view[2] = V.y; args.view[3] = vk; args.lymph = lymph;

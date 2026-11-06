@@ -95,14 +95,15 @@ test('Credit check in talks: off, Present looks every second as before; on, only
   assert.match(stageSource(), /labelStamp: \(\) => `\$\{stats\.layouts\}\|\$\{vt\.k\},\$\{vt\.x\},\$\{vt\.y\}\|\$\{morph\}\|\$\{rotU\}\|\$\{lz\?\.isOpen\?\.\(\) \? lz\.viewKey\(\) : ''\}\|\$\{lz\?\.sinusoidMoving\?\.\(\) \? performance\.now\(\) : ''\}`,/);
 });
 
-test('Lymph drawn by the GPU each frame it moves: the drops stepped once a frame, their rings as wide as the 2D drawing stroked them', () => {
-  // (1 Nov, the off-GPU gate: the 2D overlay (paintFx) and its partial redraw are gone; the overlay is the GPU's, fx-gl.js.)
+test('Lymph is dashes the vessel composite lays from flow rows: no drops, beads or eraser are built on the CPU or drawn by the overlay', () => {
+  // (6 Nov 2026, "dashes in the channel": the drops, their beads and the eraser that cut them away under the blood were ~16k instanced capsules
+  // and two full-screen passes a frame for a drift of ~10 px/s. The overlay keeps only the collagen lining, which does not move.)
   const lz = src('lobule-zoom.js');
   const fx = lz.slice(lz.indexOf('  function fxOnGPU(W, H, dpr, dark, dt, can) {'), lz.indexOf('\n  }\n', lz.indexOf('  function fxOnGPU(W, H, dpr, dark, dt, can) {')));
-  assert.equal(fx.split('lyDrops(G, m, dt, W, H, dpr)').length - 1, 1, 'the drops stepped once a frame');
-  assert.equal(lz.split('lyDrops(G, m, dt, W, H, dpr)').length - 1, 2, 'and nowhere else (the other is its own definition)');
-  assert.match(fx, /lymph\.ringHalf = Math\.max\(0\.5 \/ V\.k, minR \* 0\.22\) \/ 2;/, 'the ring as the drawing stroked it');
+  assert.doesNotMatch(lz, /lyDrops|lyPut|fxGLErase|fxDI|fxBI/);
+  assert.match(fx, /lymph\.drops = fxNone; lymph\.beadRings = fxNone; lymph\.erase = fxNone;/, 'nothing but the lining goes to the overlay');
   assert.match(fx, /if \(moving\) fxGLKey = '';/, 'a moving overlay is drawn every frame, a still one only when it changes');
+  assert.match(lz, /fxMovesArg = \{ lymph: false,/, 'the lymph no longer keeps the overlay awake');
   assert.doesNotMatch(lz, /function paintFx\(|lyTiles|lyKey|fxBoxes/);
 });
 
@@ -119,10 +120,12 @@ test('H7: the credit looks again in a talk only when the layout may have changed
   delete globalThis.localStorage;
 });
 
-test('the lymph keeps its typed arrays (R13): drops, beads and their GPU buffers grow only when outgrown', () => {
+test('the lymph rows are written in place once a frame, and the overlay buffers still grow only when outgrown', () => {
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   const fx = readFileSync(new URL('../src/ui/fx-gl.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(lz, /LY_KEEP|lykeep/);
-  assert.match(lz, /const dI = fxDI\[fxFlip\]\.subarray\(0, nd \* 6\), bI = fxBI\[fxFlip\]\.subarray\(0, nd \* beads \* 6\);/);
+  assert.match(lz, /mo\.ld = \(\(\(\(mo\.ld \?\? t\.id \* 0\.371 \* pitch\)/, 'the dashes\' phase kept in the tube\'s motion record');
+  assert.match(lz, /flowData\[o\+ 4\] = -1|flowData\[o \+ 4\] = -1/, 'a lymph row is marked f1.x = -1');
   assert.match(fx, /if \(data\.byteLength <= B\.cap\) gl\.bufferSubData\(gl\.ARRAY_BUFFER, 0, data\);/);
+  assert.match(fx, /const dropsOn = !!lymph && lymph\.drops\.length > 0;/, 'no coverage target without drops');
 });
+
