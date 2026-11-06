@@ -227,7 +227,16 @@ export function createBlood(st, live) {
     // (One options object and one key-chevrons answer for the whole loop, not one per vessel per frame: advanceStream reads
     // the options at once and keeps none of them.)
     const so = streamOpts, key = keyOnly();
-    so.phasic = !!b.phasic;   // (steady: no heartbeat or breathing swing in the blood's speed. Look D had forced it on in Anatomy (3b9e9c8), which slid the chevrons back and forth and stopped them short; real reversed flow still runs backwards, by the mean.) so.speed = speed; so.still = still; so.dt = moving ? dt * live.restK : 0; so.bt = bT;
+    // (Steady: no heartbeat or breathing swing in the blood's speed. Look D had forced it on in Anatomy (3b9e9c8), which slid the chevrons
+    // back and forth and stopped them short; real reversed flow still runs backwards, by the mean.)
+    so.phasic = !!b.phasic;
+    // (Each on its own line, never after a comment: 0eec029 left these four inside the comment above, so the streams never stepped (dt 0).
+    // Their mean stayed the flow they were made with, and a vessel that turned reversed stood in its settle for ever, showing its old
+    // hepatopetal speed under the reversed orange; a TIPS kept the no flow it had at boot and showed no chevrons. blood-clock.test.js)
+    so.speed = speed;
+    so.still = still;
+    so.dt = moving ? dt * live.restK : 0;
+    so.bt = bT;
     // (bloodEasing: a reversed colour or a chevron fade still on its way keeps the figure awake, paused too, so it never stops
     // part-way until Play; each lands exactly once within 0.002 of its end. Round 2 review, B10.)
     live.bloodEasing = false;

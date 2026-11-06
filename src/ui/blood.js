@@ -101,10 +101,14 @@ function advanceKept(st, opts) {
   // numbers run on.
   const sg = ruled ? sgR : Math.sign(st.vSlow);
   if (sg && st.sgn && sg !== st.sgn) {
-    st.hold = REVERSE_HOLD + REVERSE_RAMP;
+    // (No time passing (paused, or at idle rest): the slow-down and the stop would wait for Play, the heads still pointing the old way under
+    // the new colour; it turns at once instead, standing, pointing the way the flow goes now.)
+    const now = !(dt > 0);
+    st.hold = now ? 0 : REVERSE_HOLD + REVERSE_RAMP;
     // Ruled by the colour's signal: the shown blood slows from where it is, while the mean starts afresh from the
     // new flow (shown only once the hold is over), instead of easing for seconds back through zero.
-    if (ruled) { st.settle = REVERSE_SETTLE; st.vOld = st.vm > -Infinity ? st.vm : st.vSlow; st.vSlow = vMean; st.vFast = vNow; }
+    if (ruled) { st.settle = now ? 0 : REVERSE_SETTLE; st.vOld = st.vm > -Infinity ? st.vm : st.vSlow; st.vSlow = vMean; st.vFast = vNow; }
+    else if (now) { st.vSlow = vMean; st.vFast = vNow; }
   }
   if (sg) st.sgn = sg;
   if (st.settle > 0) {

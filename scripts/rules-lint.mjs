@@ -130,6 +130,18 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if (gone.length) console.warn(`rules-lint: ${gone.length} listed source-regex test(s) no longer read source (${gone.slice(0, 3).join(', ')}${gone.length > 3 ? ', …' : ''}): run node scripts/test-classes.mjs --write`);
 }
 
+// Code never rides after a line comment in stepBlood (6 Nov 2026): 0eec029 left so.speed, so.still, so.dt and so.bt after the // on so.phasic's
+// line, so every stream stepped with dt 0 and a reversed portal vein kept its hepatopetal chevrons under the reversed orange. The options the
+// streams read are each set in code, on a line no // comes before.
+{
+  const src = readFileSync(join(ROOT, 'src/ui/stage-blood.js'), 'utf8');
+  for (const f of ['phasic', 'speed', 'still', 'dt', 'bt']) {
+    const re = new RegExp(`\\bso\\.${f} = `), lines = src.split('\n').filter((l) => re.test(l));
+    if (!lines.length) errors.push(`src/ui/stage-blood.js no longer sets so.${f} in stepBlood: the streams would step without it`);
+    for (const l of lines) { const cm = l.indexOf('//'); if (cm >= 0 && cm < l.search(re)) errors.push(`src/ui/stage-blood.js sets so.${f} after a // on its line, so it is a comment, not code: ${l.trim().slice(0, 100)}`); }
+  }
+}
+
 // Chrome glass (4 Nov 2026, "the top bar is not all glass"): app.css's [data-gl] / :not([data-gl]) fallback rules for the figure's chrome pills must list
 // exactly the selectors of main.js CHROME; a wider list paints a pill that main.js gives no glass (the patient pill, the Colored-by key) solid.
 {
