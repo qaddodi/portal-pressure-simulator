@@ -47,7 +47,7 @@ export function createSites(st, live) {
   const SITE_TPL = (() => { const e = document.createElement('div'); e.innerHTML = '<small></small><b></b><span></span><i class="res-k"></i>'; return e; })();
   const SPLIT_B = (() => { const e = document.createElement('b'); e.innerHTML = '<span class="sp-h"><em class="sp-n"></em>% bypasses the liver</span><span class="sp-bar"><i class="sp-l"></i><i class="sp-s"></i></span><span class="sp-cap"><em class="sp-lt"></em><em class="sp-st"></em></span>'; return e; })();
   const RES_LIVER = new Float32Array([812, 303, 888, 303, 812, 387, 888, 387]);
-  const resNow = new Float32Array(32), resKey = new Float64Array(8);   // (a record's numbers worked out, and what makes a resistor look as it does: written in place)
+  const resNow = new Float32Array(64), resKey = new Float64Array(12);   // (a record's numbers worked out, and what makes a resistor look as it does: written in place)
   // The token a station's tone names (toneCol's own, var(--x) → --x): its colour is read from the theme's tokens, never from the page.
   const toneTokens = new Map();   // alloc-rare: one text for each tone, made the first time it is lit
   const toneToken = (tone) => { let t = toneTokens.get(tone); if (!t) toneTokens.set(tone, (t = toneCol(tone).slice(4, -1))); return t; };
