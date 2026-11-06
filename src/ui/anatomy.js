@@ -604,6 +604,15 @@ export function cavityHalfWidths(b, y0, h, n, out) {
 }
 export const ABDOMEN_FLOOR = 950;
 export const SPLEEN_CENTER = [1040, 362];
+// Partial splenic embolization (mock A, Mohammad 6 Nov 2026: "let's do A"): the lower ~60% of the spleen (62% by area) is infarcted
+// and fades as the removed spleen does, below a gently waving edge; the live upper pole keeps its colour. In the spleen's own
+// coordinates: the region is clipped by the spleen's outline (its detail group's clip) and sized with it by the group's transform.
+// 60% fits the model, where embolization raises the splenic artery's resistance 2.5x (engine.js SPLENIC_RX_R), so inflow falls ~60%.
+export const SPLEEN_PSE_EDGE = 'M990 352 C 1012 344 1026 358 1046 346 C 1066 334 1086 342 1120 324';
+export const SPLEEN_PSE_AREA = `${SPLEEN_PSE_EDGE} L 1120 480 L 990 480 Z`;
+// The treated spleen's badge (the splenectomy's disc, a part-filled circle in place of its X), at the infarct's middle: offsets from
+// SPLEEN_CENTER at an 11 cm spleen, scaled with its size.
+export const SPLEEN_PSE_BADGE = [18, 50];
 
 // Where the stage draws instruments and findings.
 export const SITES = {

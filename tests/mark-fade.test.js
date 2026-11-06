@@ -103,7 +103,7 @@ test('a step never overshoots, and a mark at rest costs no frames', () => {
 const stage = stageSource();
 test('stage.js: every treatment mark is built through putMark, so none is added to its group bare', () => {
   assert.doesNotMatch(stage, /ov\.(stents|plugs|bands)\.append\(/, 'a mark appended without a fade');
-  for (const key of ['`stent:${id}`', '`suture:${id}`', '`tie:${id}`', '`plug:${id}`', "'spleen:patches'", "'spleen:cross'", '`band:${i}`']) assert.ok(stage.includes(key), `${key} is a mark`);
+  for (const key of ['`stent:${id}`', '`suture:${id}`', '`tie:${id}`', '`plug:${id}`', "'spleen:pse'", "'spleen:cross'", '`band:${i}`']) assert.ok(stage.includes(key), `${key} is a mark`);
 });
 test('stage.js: the GPU draws a mark at its key\'s amount, the loop stays awake while one moves, and a finished one is taken out and read again', () => {
   assert.match(stage, /el\.closest\('\[data-(?:live\.)?mk\]'\)\?\.dataset\.mk/);

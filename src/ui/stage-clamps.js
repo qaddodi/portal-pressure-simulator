@@ -1,7 +1,7 @@
 // The clamp labels and overlays: where each clamp's label sits, the overlay paint and its commit.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { isOccluded } from '../engine/topology.js';
-import { SPLEEN_CENTER } from './anatomy.js';
+import { SPLEEN_CENTER, SPLEEN_PSE_BADGE } from './anatomy.js';
 import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotSpan, hashSeed } from './clot-shape.js';
 import { pressureColor } from './colormap.js';
 import { D_SMALL } from './ease.js';
@@ -12,6 +12,15 @@ import { glyphsReady, loadGlyphs, textBox, textPolys } from './text-gl.js';
 import { s } from './util.js';
 
 import { stageScope } from './stage-scope.js';
+// The embolized spleen badge's fill: the part of a circle of radius 9 below a chord 1.8 above its centre (about 60% of it), as M/L
+// points only (the marks' GPU reader takes M, L, C, Q and Z: an arc would leave the mark on the SVG).
+const PSE_A = Math.asin(1.8 / 9);
+function pseFillD(x, y) {
+  let d = '';
+  for (let k = 0; k <= 16; k++) { const a = Math.PI + PSE_A - k * (Math.PI + 2 * PSE_A) / 16; d += `${k ? ' L' : 'M'}${(x + 9 * Math.cos(a)).toFixed(2)} ${(y + 9 * Math.sin(a)).toFixed(2)}`; }
+  return d + ' Z';
+}
+
 export function createClamps(st, live) {
   const { E, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, qP, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
@@ -149,7 +158,7 @@ export function createClamps(st, live) {
     // beat's own swing, and rebuilt the clamps, clots and plugs, and the vessel marks with them (a style pass and a triangulation of
     // every mark), five to ten times a second in any patient with a varix.)
     o.push(Math.round(f.bands || 0), hold('c3', recruitFrac('C3', f), 0.1),
-      // (The spleen's infarcted patches are drawn at the organ's size, which the organ itself follows each frame while it shrinks or
+      // (The embolized spleen's badge is drawn at the organ's size, which the organ itself follows each frame while it shrinks or
       // grows: held in steps, so the patches ride it in a few small rebuilds, not stay at the size they were first drawn at.)
       p.splenicRx === 1 ? hold('sp', f.slow.spleen / 11, 0.02) : 0, live.lastMorph);
     let same = o.length === okCur.length;
@@ -258,19 +267,18 @@ export function createClamps(st, live) {
         s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
     }
 
-    // Spleen: embolization leaves pale infarcted patches in the organ; after a splenectomy the organ
-    // fades (see the opacity set with its size) and a cross is drawn on it.
+    // Spleen: after a splenectomy the organ fades (see the opacity set with its size) and a badge with a cross is drawn on it; a
+    // partial embolization fades the infarcted lower part the same way (the spleen's own group: stage.js detailFor) and the same
+    // badge carries a circle filled across its lower part in place of the cross (mock A, 6 Nov 2026), at the infarct, with the size.
     const rx = p.splenicRx | 0;
     if (anat && rx) {
       const [cx, cy] = SPLEEN_CENTER, sc = f.slow.spleen / 11;
-      if (rx === 1) {
-        putMark(ov.plugs, 'spleen:patches', null, [[6, -38, 17, 22], [14, 4, 15, 20], [2, 44, 14, 17]].map(([dx, dy, rx_, ry_]) =>
-          s('ellipse', { cx: cx + dx * sc, cy: cy + dy * sc, rx: rx_ * sc, ry: ry_ * sc, fill: 'var(--surface)', 'fill-opacity': 0.55, stroke: 'var(--danger)', 'stroke-width': 1.5, 'stroke-opacity': 0.7 })), true);
-      } else {
-        const x = cx + 12, y = cy + 6;
-        putMark(ov.plugs, 'spleen:cross', null, [s('circle', { cx: x, cy: y, r: 18, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2.5 }),
-          s('path', { d: `M${x - 8} ${y - 8} L ${x + 8} ${y + 8} M${x + 8} ${y - 8} L ${x - 8} ${y + 8}`, stroke: 'var(--danger)', 'stroke-width': 3, 'stroke-linecap': 'round' })], true);
-      }
+      // (One badge for both: the disc and the embolized one's ring through ring(), the glyph by treatment.)
+      const pse = rx === 1, x = pse ? cx + SPLEEN_PSE_BADGE[0] * sc : cx + 12, y = pse ? cy + SPLEEN_PSE_BADGE[1] * sc : cy + 6;
+      const ring = (r, fill, w) => s('circle', { cx: x, cy: y, r, fill, stroke: 'var(--danger)', 'stroke-width': w });
+      const glyph = pse ? [s('path', { d: pseFillD(x, y), fill: 'var(--danger)' }), ring(9, 'none', 2)]
+        : [s('path', { d: `M${x - 8} ${y - 8} L ${x + 8} ${y + 8} M${x + 8} ${y - 8} L ${x - 8} ${y + 8}`, stroke: 'var(--danger)', 'stroke-width': 3, 'stroke-linecap': 'round' })];
+      putMark(ov.plugs, pse ? 'spleen:pse' : 'spleen:cross', null, [ring(18, 'var(--surface)', 2.5), ...glyph], true);
     }
     // The varices themselves are shown by the plexus of channels feeding and draining them (see
     // STRANDS in anatomy.js), which swell as they are recruited; here only the bands, fitted at

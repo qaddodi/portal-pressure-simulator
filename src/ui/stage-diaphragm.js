@@ -98,6 +98,7 @@ export function createDiaphragm(st, live) {
   const lvTargets = [0, 0, 0];   // (read at once by its callers)
   // (What updateOrgans hands the probe's timed calls, kept: the calls are fixed functions that read these, so none is made in a frame.)
   let orgMoving = false, orgPA2 = null, orgShrink = 1;
+  let pseEl = null;   // (the embolized spleen's infarct group, found once: stage.js detailFor)
   const orgMorphLiver = () => morphLiver(live.lvC, live.lvG, orgMoving);
   const orgCaudate = () => caud.sync(pressureColor(qP(orgPA2[NI.IVCS] + 0.5)), live.caudK);
   const orgMasks = () => syncOrganMasks(orgShrink, organG.spleen.getAttribute('transform'));
@@ -165,6 +166,10 @@ export function createDiaphragm(st, live) {
     orgShrink = shrink;
     gpuProbe.time(null, 'organs: masks', orgMasks);
     if (organG.spleen.style.opacity !== (p.splenicRx === 2 ? '0.14' : '')) organG.spleen.style.opacity = p.splenicRx === 2 ? '0.14' : '';
+    // Partial embolization: the infarcted lower part fades as the removed spleen does (anatomy.js SPLEEN_PSE_AREA; stage.js detailFor).
+    // (An attribute the organ reading watches, so the live spleen is read again, and part of the plate's key: plateStateKey.)
+    pseEl ??= organG.spleen.querySelector('.spleen-pse');
+    if (pseEl && (pseEl.getAttribute('display') === 'none') !== (p.splenicRx !== 1)) { if (p.splenicRx === 1) pseEl.removeAttribute('display'); else pseEl.setAttribute('display', 'none'); }
     liftDiaphragm(shrink, sc);
     syncSelLine();
     // The shown ascites eases to the model's volume (stepFluid), so a tap or diuretics never pops the level.

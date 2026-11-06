@@ -342,6 +342,7 @@ export function createPlate(st, live) {
   // the same; drawing it again made every highlight and unhighlight lag (Mohammad, 20 Oct: "even highlighting the liver is laggy").
   let tintQ = 0;
   let bowelHeld = null;
+  let pseEl = null;   // (the embolized spleen's infarct group, found once: stage.js detailFor)
   function plateStateKey() {
     const cs = wrapCS();
     // The tint in coarse steps, with some hysteresis: a pressure that wavers on a step boundary
@@ -355,6 +356,7 @@ export function createPlate(st, live) {
     return [live.liverKey, organG.liver.getAttribute('transform')?.replace(/(\d\.\d\d\d)\d*/g, '$1'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'), live.diaKey,
       tintQ,
       organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), organEls.umbilicus?.getAttribute('opacity'),
+      organG.spleen.style.opacity, (pseEl ??= organG.spleen.querySelector('.spleen-pse'))?.getAttribute('display'),   // (the spleen removed, or its infarct shown)
       cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), flag.imaging].join('|');
   }
   // Hidden (the home page over the app), every organ would rasterize invisible: wait until the figure shows.

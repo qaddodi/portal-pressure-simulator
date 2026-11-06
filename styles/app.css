@@ -3083,6 +3083,9 @@ button.finding { cursor: pointer; }
 .org-detail .od-fine { stroke: var(--o3); stroke-width: .9; stroke-opacity: .55; }
 .org-detail .od-soft { stroke: var(--o3); stroke-width: 6; stroke-opacity: .1; }
 .org-detail .od-sheen { stroke: var(--og-light); stroke-width: 5; stroke-opacity: .75; }
+/* The embolized spleen's infarcted lower part fades toward the stage as the removed spleen does; a hairline marks where the live tissue ends. */
+.org-detail .pse-dead { fill: var(--stage-bg); fill-opacity: .8; stroke: none; }
+.org-detail .pse-edge { stroke: var(--o3); stroke-width: 1; stroke-opacity: .7; }
 .org-detail .org-lobules { stroke: none; opacity: .5; }
 #texLobules { color: var(--og-panc-3); }
 .org-heart-groove { stroke: var(--og-heart-3); stroke-opacity: .45; }
