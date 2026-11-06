@@ -244,7 +244,7 @@ test('the icon is quiet and the app\'s own: the text\'s grey, corner brackets, a
   assert.match(shown, /width: calc\(24px \/ var\(--pz-z, 1\)\)/, 'the header\'s zoom does not change its size');
   assert.doesNotMatch(shown, /gradient|box-shadow|glow/);
   assert.match(css, /@media \(hover: hover\) \{ \.pz-zbtn:hover \{ color: var\(--text\); background: var\(--hairline\); \} \}/);
-  assert.match(rule('.pz-zscrim {'), /background: color-mix\(in srgb, var\(--stage-bg\) 58%, transparent\)/);
+  assert.match(rule('.pz-zscrim {'), /background: color-mix\(in srgb, var\(--stage-bg\) 20%, transparent\)/);
   assert.match(rule('.pz-zscrim.on'), /pointer-events: auto/);
   const art = read('../scripts/icon-art.html');   // (the icon art the atlas is drawn from: scripts/icon-atlas.mjs)
   assert.match(art, /<symbol id="i-shrink" viewBox="0 0 24 24">/);

@@ -5983,13 +5983,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    transform, so the words only get larger; the veil dims the words and the figure under them (the figure itself stays where it is) and takes a
    tap to put the card back. The icon is the corner of the card's header row, quiet like the header's own small
    caps: the text's grey, the app's corner brackets, a soft tint under the finger. Nothing but the icon and the cursor shows before the tap. */
-.pz-zscrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 58%, transparent); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-surface) var(--ease); }
-.pz-zscrim.on { opacity: 1; pointer-events: auto; }
+.pz-zscrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--stage-bg) 20%, transparent); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-zoom-out) var(--ease) /*own pace*/; }
+.pz-zscrim.on { opacity: 1; pointer-events: auto; transition-duration: var(--d-zoom-in) /*own pace*/; }
 .pz .pz-text.pz-zmain { z-index: 2; }   /* (the teaching card zoomed as the main card stands above the veil, as the data card does; it is dimmed by nothing) */
 /* (Its glass, the shade, stands at the figure's level, under the page's veil: framed, the veil is fscrim, laid just under the shade, and the page's veil is clear,
    only taking the tap back. The card's glass is then as bright as the data card's: Mohammad, 6 Nov 2026. presenter.js zoomOpen.) */
-.pz-fscrim { position: absolute; inset: 0; z-index: var(--z-figure); background: color-mix(in srgb, var(--stage-bg) 58%, transparent); opacity: 0; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
-.pz-fscrim.on { opacity: 1; }
+.pz-fscrim { position: absolute; inset: 0; z-index: var(--z-figure); background: color-mix(in srgb, var(--stage-bg) 20%, transparent); opacity: 0; pointer-events: none; transition: opacity var(--d-zoom-out) var(--ease) /*own pace*/; }
+.pz-fscrim.on { opacity: 1; transition-duration: var(--d-zoom-in) /*own pace*/; }
 .pz .pz-text.pz-zmain ~ .pz-zscrim, .pz-cam .pz-fscrim { background: none; }
 .pz-cam .pz-zscrim { background: none; transition: none; }
 .pz-zbtn { display: none; }
@@ -7405,13 +7405,13 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* A card zoomed up keeps its frost and the words' card stays up behind it (Mohammad, 2 Nov 2026: the teaching card must not vanish when the data card is
    maximised, and its words and glass must come and go together). Its words are cut away under the zoomed card by card-zoom.js (a clip-path eased with the
    card), so nothing of them shows sharp through the frost; only the stage's labels step out from under it. */
-.pz-zoomed:not(.pz-cam) #labels { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
+.pz-zoomed:not(.pz-cam) #labels { opacity: 0 !important; transition: opacity var(--d-zoom-labels) var(--ease) !important /*own pace*/; }
 /* (Likewise what the page itself paints over the figure's canvas, above its glass: the circuit's readings and the catheter's callouts (.cath-labels),
    and the overlays still in the SVG (#stageOver: the circuit's node dots and resistor zigzags where the GPU has not taken them). The frost is
    drawn in that canvas, so they showed sharp through a zoomed card and flickered as they slid under it: Mohammad, 2 Nov 2026, the Circuit
    deck's "Pressure, gut to heart" zoomed on his Mac, "no blur, and the labels are flickering passing through".) */
-.pz-zoomed:not(.pz-cam) :is(.lz-labels, .lz-leaders) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }   /* (the lobule's names and leaders: drawn by the GPU in .cap-gl above the card glass) */
-.pz-zoomed:not(.pz-cam) .stage-view :is(#stageOver, .cath-labels) { opacity: 0 !important; transition: opacity var(--d-small) var(--ease) !important; }
+.pz-zoomed:not(.pz-cam) :is(.lz-labels, .lz-leaders) { opacity: 0 !important; transition: opacity var(--d-zoom-labels) var(--ease) !important /*own pace*/; }   /* (the lobule's names and leaders: drawn by the GPU in .cap-gl above the card glass) */
+.pz-zoomed:not(.pz-cam) .stage-view :is(#stageOver, .cath-labels) { opacity: 0 !important; transition: opacity var(--d-zoom-labels) var(--ease) !important /*own pace*/; }
 /* While the cards' glass is drawn in the figure's canvas (html[data-cardgl], glass-gl.js waitFor), a card its glass has not drawn yet (its first
    frame coming in) shows no solid card: the solid card for a frame, then the frost, read as the blur flickering as each card opened (Mohammad,
    2 Nov 2026). Only a card about to be drawn there ([data-gl-wait], for at most 300 ms): one held out of that canvas or not drawn there keeps

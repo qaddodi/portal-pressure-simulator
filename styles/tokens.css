@@ -155,6 +155,8 @@
      A leave takes the step below its entrance (a surface comes in over 420 ms and goes out over 240). A scene that teaches (a column
      filling, a halo) has its own pace and carries an own-pace marker comment; a loop (a spinner, a pulse) is not motion on a scale. */
   --d-flip: 120ms; --d-small: 240ms; --d-surface: 420ms; --d-camera: 480ms;
+  /* A card zoomed: the page's veil comes in over 260 ms and goes out over 200, and the figure's labels leave in 160 (Mohammad, 6 Nov 2026, mock F2), quicker than the card's own glide. */
+  --d-zoom-in: 260ms; --d-zoom-out: 200ms; --d-zoom-labels: 160ms;
   /* Curves (ease.js, combined plan M2): --ease-arrive for what comes in (quick off the mark, settling gently; --ease is it),
      --ease-move for what travels (symmetric: the camera's quintic as a bezier, within 0.9 % of it; also a lens switch or a selection,
      where the organs and vessels ease together, stage.js LENS_FADE), --ease-in for what leaves (it starts gently and gets out of
