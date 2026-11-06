@@ -26,5 +26,17 @@ export const VITALS = [
   { id: 'hr', k: 'HR', title: 'Heart rate', why: 'hr', v: (m) => m.vitals?.hr ?? m.hr, d: 0, u: '/min', cut: 110, hys: 3 },
   { id: 'co', k: 'CO', title: 'Cardiac output', why: 'co', v: (m) => m.vitals?.co ?? m.co, d: 1, u: 'L/min', cut: 8, hys: 0.2 },   // (the data card tile's top of normal: table-marks RATE.co)
   { id: 'ra', k: 'RA', title: 'Right atrial pressure', why: 'ra', hideKey: 'ra', v: (m) => m.vitals?.ra ?? m.ra, d: 1, u: 'mmHg', cut: 10, hys: 0.5 },
-  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
+  // (to: where the reading is heading, the hemoglobin once the plasma has refilled after a bleed or a unit's extra plasma has gone,
+  // engine.js RED: the bar prints it beside the number while the two differ, so a bleed shows on the hemoglobin at once.)
+  { id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb', v: (m) => m.blood.hb, to: (m) => m.blood.hbSettled, d: 1, u: 'g/dL', cut: 7, low: true, hys: 0.2 },
 ];
+
+// Where a vital is heading (its `to`), or null while it is there already: shown from TO_SHOW apart, kept until TO_HIDE, so a reading
+// settling onto it does not flicker the arrow on and off.
+export const TO_SHOW = 0.3, TO_HIDE = 0.15;
+export function vitalHeading(x, m) {
+  const to = x.v.to?.(m), v = x.v.v(m);
+  if (!Number.isFinite(to) || !Number.isFinite(v)) { x.heading = false; return null; }
+  x.heading = Math.abs(to - v) >= (x.heading ? TO_HIDE : TO_SHOW);
+  return x.heading ? to : null;
+}

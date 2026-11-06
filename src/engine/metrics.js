@@ -101,6 +101,7 @@ export function computeMetrics(eng, out = null) {
   const bv = eng.bloodVolume();
   // Share of the patient's own volume lost (ATLS class), counting what was drawn, not what was given back since.
   const b = eng.blood, ref = b.ref || 5000;
+  // (The plasma the tissues refill over the next day does count: by then the circulation is full again, and the shock is over.)
   const lossPct = clamp((ref + b.infused - (b.inf0 || 0) - bv) / ref * 100, -50, 100);
   const shock = eng.blood.lost > 0 ? (lossPct >= 40 ? 4 : lossPct >= 30 ? 3 : lossPct >= 15 ? 2 : 1) : 0;
   const hct = eng.hct();
@@ -126,6 +127,8 @@ export function computeMetrics(eng, out = null) {
   const he = part(r, 'heRisk'); he.index = heIdx; he.label = heIdx < 0.2 ? 'Low' : heIdx < 0.45 ? 'Moderate' : 'High';
   const bl = part(r, 'blood');
   bl.volume = bv + eng.pregnancyPlasma(); bl.lossPct = lossPct; bl.lost = eng.blood.lost; bl.hct = hct; bl.hb = (hct * 100) / 3; bl.shock = shock;
+  // (Where the hemoglobin is heading once the plasma has refilled, or a unit's extra plasma has gone: the reading lags a bleed by a day.)
+  bl.hbSettled = eng.hbSettled();
   let bleeding = null;
   if (eng.bleed.active) { bleeding = spareOf(r).bleed; bleeding.site = eng.bleed.site; bleeding.rate = eng.Qbleed * 60; bleeding.total = eng.bleed.total; }
   const vt = part(r, 'vitals');

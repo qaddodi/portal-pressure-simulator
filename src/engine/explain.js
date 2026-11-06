@@ -85,6 +85,12 @@ function factors(eng, metricId) {
         : drbc > 0 ? ['Transfused red cells', 'the transfused red cells'] : ['Smaller plasma volume', 'the smaller plasma volume'];
       add(label, say, (e) => { e.addVolume(-dv, 0, true); e.blood.rbc = rbc0; }, 'slow');
     }
+    // The anemia of the disease itself (engine.js RED): a marrow that keeps less than a healthy red cell mass, with the spleen holding
+    // and breaking down more of it.
+    if (eng.marrow() < 0.98) {
+      const liver = eng.params.cirrhosis > 0.1;
+      add(liver ? 'Anemia of liver disease' : 'Large spleen', liver ? 'the anemia of liver disease' : 'the large spleen', (e) => { e.slow.marrow = 1; }, 'slow');
+    }
   } else if (Math.abs(dv) > 150) add(dv > 0 ? `Extra blood volume +${Math.round(dv)} mL` : `Blood loss ${Math.round(-dv)} mL`, dv > 0 ? 'the extra blood volume' : 'the blood loss', (e) => { e.addVolume(-dv, 0.42, true); }, 'slow');
   if (eng.bleed.active) add('Active bleeding', 'the active bleeding', (e) => { e.bleed.active = false; }, 'slow');
   return out;

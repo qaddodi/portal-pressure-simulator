@@ -93,6 +93,21 @@ const MAP_SET = 93, MAP_DROP = 14;
 // pregnancy): `stressed` mL raises venous filling, the rest (`plasma`) fills veins that widen to hold it, so the right
 // atrial pressure stays normal, and is mostly plasma (`rbc`: its red cell share), so the hemoglobin falls (the
 // physiological anemia). From 20 weeks the growing uterus raises intra-abdominal pressure, by `iap` mmHg at term.
+// Red cells and plasma over hours and weeks (the hemoglobin's own clocks):
+// - transcapillary refill: whole blood is lost, so the first hemoglobin after a bleed is the old one; plasma then moves in from
+//   the tissues (and the kidneys hold salt and water) until the volume is the patient's own again, diluting the red cells left:
+//   the hemoglobin falls over the next 24 to 72 hours. The same exchange takes the plasma of a unit given on top of a full
+//   circulation back out, so a unit raises the hemoglobin by about 1 g/dL once it has settled, not the 0.4 it adds at once.
+//   `refillTau`: seconds, one time constant (about 90 % back by a day);
+// - the anemia of chronic liver disease (marrow suppression, chronic loss, shortened red cell life, hypersplenism): the
+//   red cell mass the marrow keeps is a share of the healthy one, lower with the cirrhosis and the spleen's size; most
+//   decompensated patients sit near 10 to 11 g/dL, compensated near 13. `marrowDays`: the anemia's own time constant;
+// - after a bleed or a transfusion the red cell mass returns to the patient's own: the marrow makes up a loss over weeks
+//   (`upDays`, slower the sicker the liver), and transfused cells above it are cleared as they age (`downDays`).
+// blood.rbc keeps the red cell mass as a healthy marrow would hold it (mL; the true mass is marrow × rbc, slow.marrow), and blood.own
+// is the mass the marrow restores it to. The chronic anemia is the calibration's own (every preset was tuned at its hematocrit), so
+// the blood's viscosity reads rbc (hctEq): only a change from the patient's own (a bleed refilled, a transfusion) thins or thickens it.
+export const RED = { refillTau: 10 * 3600, cirr: 0.25, spleen: 0.01, spleenFrom: 12, min: 0.6, marrowDays: 60, upDays: 30, downDays: 60 };
 export const PREGNANCY = { spl: 0.25, sys: 0.3, contr: 0.2, hr: 15, stressed: 300, plasma: 1500, rbc: 0.2, iap: 4, tau: 5 };
 /** How far pregnancy has changed the circulation, 0..1: fast in the first trimester, complete by about 30 weeks. */
 export const pregnancyLevel = (weeks) => { const x = clamp((weeks || 0) / 30, 0, 1); return x * (2 - x); };
@@ -165,6 +180,7 @@ export class Engine {
       spleen: 11,
       splTone: 1,
       volExtra: 0,
+      marrow: 1,   // (the share of the healthy red cell mass the marrow keeps, see RED)
       lymphCap: LYMPH.base,
       ascites: 0,
       ascAlb: null, ascGlob: null,   // ascitic albumin and globulin, g/dL (null: no fluid yet)
@@ -172,7 +188,9 @@ export class Engine {
     // ref: the patient's own blood volume (the reflexes measure a loss against it), inf0: infused when it was set,
     // shift: blood the venous reservoir has moved into the circulation (counted out of bloodVolume, which is the
     // whole volume).
-    this.blood = { rbc: BLOOD_BASE * HCT_BASE, lost: 0, infused: 0, ref: BLOOD_BASE, inf0: 0, shift: 0 };
+    // refill: plasma the tissues moved in since (out, below zero), held: volume taken that the tissues do not give back (a
+    // paracentesis's circulatory dysfunction is underfilling, not a loss to refill).
+    this.blood = { rbc: BLOOD_BASE * HCT_BASE, lost: 0, infused: 0, ref: BLOOD_BASE, inf0: 0, shift: 0, refill: 0, held: 0, own: BLOOD_BASE * HCT_BASE };
     this.bleed = { active: false, site: null, G: 0, clot: 0, total: 0 };
     this.infusions = [];
     this.valsalva = { until: -1, start: -1 };
@@ -271,12 +289,15 @@ export class Engine {
     this.params.seed = params.seed;
     this.reset(params.seed);
     this.params = params;
-    if (pr.volume) this.addVolume(pr.volume, 0.35);
+    // (A preset's extra volume, a failing heart's salt and water, is the patient's own: the tissues do not refill it away over its days.)
+    if (pr.volume) this.addVolume(pr.volume, 0.35, true);
     this.settle();
     const n = days ?? pr.days;
     if (n > 0) yield* this.advanceDaySteps(n, { noRupture: true, silent: true });
     // What the patient has now, after the years of disease (a pregnancy): set once the disease clock has run.
     if (pr.now) Object.assign(params, deepMerge(params, pr.now));
+    // (Years of disease: the anemia of liver disease is complete, and the red cell mass sits at the marrow's set point.)
+    this.slow.marrow = this.marrowTarget(); this.blood.own = this.blood.rbc;
     // Day steps relax only roughly; start from a true equilibrium so a before/after comparison
     // (e.g. closing a shunt) shows the intervention, not leftover relaxation.
     this.settle();
@@ -315,9 +336,15 @@ export class Engine {
     return m;
   }
 
-  hct() {
+  /** The hematocrit as a healthy marrow would hold it (RED): what the viscosity and a bleed's red cell account read. */
+  hctEq() {
     const u = this.pregnancyPlasma();
     return clamp((this.blood.rbc + PREGNANCY.rbc * u) / (this.bloodVolume() + u), 0.05, 0.8);
+  }
+  /** The hematocrit the patient has: the anemia of liver disease (slow.marrow) included. */
+  hct() {
+    const u = this.pregnancyPlasma();
+    return clamp(this.marrow() * (this.blood.rbc + PREGNANCY.rbc * u) / (this.bloodVolume() + u), 0.05, 0.8);
   }
   /** Pregnancy's blood held in widened veins (mL): in the circulation but adding no pressure, so it is counted out of
    *  bloodVolume (and so out of what the bleeding reflexes measure) and added back where the volume is shown. */
@@ -327,7 +354,31 @@ export class Engine {
     for (let i = 0; i < this.N; i++) s += this.V[i] - this.Vbase[i];
     return BLOOD_BASE + s - (this.blood.shift || 0);
   }
-  viscosity() { return clamp(1 + 1.6 * (this.hct() - HCT_BASE), 0.5, 1.6); }
+  viscosity() { return clamp(1 + 1.6 * (this.hctEq() - HCT_BASE), 0.5, 1.6); }
+  marrow() { return this.slow.marrow ?? 1; }
+  /** The marrow's set point now (RED): a share of the healthy red cell mass, lower with the cirrhosis and a large spleen. */
+  marrowTarget() {
+    const c = this.params.cirrhosis || 0, sp = this.params.splenicRx === 2 ? RED.spleenFrom : this.slow.spleen;
+    return clamp(1 - RED.cirr * c * c - RED.spleen * Math.max(0, sp - RED.spleenFrom), RED.min, 1);
+  }
+  /** The red cell mass the marrow restores (blood.own, in rbc's units): the healthy one, with the red cells of the body's own volume
+   *  added since (addVolume's silent plasma: the chronic plasma expansion, a pregnancy, a preset's retained volume). */
+  ownRbc() { return this.blood.own ?? BLOOD_BASE * HCT_BASE + ((this.slow.volExtra || 0) + (this.blood.preg || 0)) * HCT_BASE * 0.7; }
+  /** The volume the tissues refill toward (mL, as bloodVolume counts it). */
+  refillTarget() { return (this.blood.ref ?? BLOOD_BASE) - (this.blood.held || 0); }
+  /** Hemoglobin (g/dL) once the plasma has refilled (or the extra left) at the red cells there are now: where the reading is heading. */
+  hbSettled() {
+    const u = this.pregnancyPlasma();
+    return (clamp(this.marrow() * (this.blood.rbc + PREGNANCY.rbc * u) / (Math.max(1000, this.refillTarget()) + u), 0.05, 0.8) * 100) / 3;
+  }
+  /** Transcapillary refill (RED.refillTau) over sec seconds of the patient's own time: plasma, no red cells. */
+  plasmaRefill(sec) {
+    const def = this.refillTarget() - this.bloodVolume();
+    if (!(Math.abs(def) > 0.05) || !(sec > 0)) return;
+    const mv = def * (1 - Math.exp(-sec / RED.refillTau));
+    for (const id of ['UPPV', 'LOWV']) this.shiftVolume(id, mv / 2);
+    this.blood.refill = (this.blood.refill || 0) + mv;
+  }
 
   heartState() {
     const d = this._drug, p = this.params, b = this.baro;
@@ -639,12 +690,13 @@ export class Engine {
     }
 
     // Blood accounting
-    const hct = this.hct();
+    // (In rbc's units, RED: whole blood leaves at the healthy-marrow hematocrit, and a unit's cells count over the marrow's share.)
+    const hct = this.hctEq();
     if (qb > 0) { this.blood.lost += qb * dt; this.blood.rbc -= qb * dt * hct; this.bleed.total += qb * dt; }
     for (const f of this.infusions) {
       const v = Math.min(f.remaining, f.rate * dt);
       f.remaining -= v;
-      this.blood.rbc += v * f.hct;
+      this.blood.rbc += v * f.hct / this.marrow();
       this.blood.infused += v;
     }
     this.infusions = this.infusions.filter((f) => f.remaining > 1e-6);
@@ -740,6 +792,7 @@ export class Engine {
   /** Processes on the hemodynamic clock: bleeding, clotting, rupture hazard, ascites trickle. */
   fastProcesses(dt) {
     const p = this.params;
+    this.plasmaRefill(dt);
     // Ascites (mL/min → per dt)
     const as = this.starling();
     this.ascitesProtein(as, dt / 60);
@@ -832,7 +885,7 @@ export class Engine {
     for (let i = 0; i < this.N; i++) c.dV[i] += h.V[i] - V0[i];
     c.left = CARRY_S;
     // (The venous reservoir and a pregnancy moved blood in the copy: those volumes come across with the rest, their accounts here.)
-    for (const k of ['shift', 'preg', 'ref', 'rbc']) if (h.blood[k] !== undefined) this.blood[k] = h.blood[k];
+    for (const k of ['shift', 'preg', 'ref', 'rbc', 'own']) if (h.blood[k] !== undefined) this.blood[k] = h.blood[k];
     for (const k of ['baro', 'habr', 'MAPf', 'COf', 'pvQm', 'pvVm']) this[k] = h[k];
     if (this.Pf) this.Pf.set(h.Pf);
     if (this.Qf) this.Qf.set(h.Qf);
@@ -947,6 +1000,12 @@ export class Engine {
     const volT = 700 * x;
     const dv = (volT - s.volExtra) * Math.min(1, days / 30);
     if (Math.abs(dv) > 0.01) { s.volExtra += dv; this.addVolume(dv, HCT_BASE * 0.7, true); }
+    // Red cells (RED): the anemia of liver disease follows the disease, and the red cell mass follows the marrow's set point
+    // (a loss made up over weeks, transfused cells cleared as they age); the plasma refills over the day.
+    s.marrow = this.marrow() + (this.marrowTarget() - this.marrow()) * Math.min(1, days / RED.marrowDays);
+    const b = this.blood, own = this.ownRbc();
+    if (b.rbc !== own) b.rbc += (own - b.rbc) * Math.min(1, days / (own > b.rbc ? RED.upDays * (1 + p.cirrhosis) : RED.downDays));
+    this.plasmaRefill(days * 86400);
     // Lymph capacity adapts toward demand
     const st = this.starling();
     const demand = st.hep + st.spl;
@@ -1066,10 +1125,11 @@ export class Engine {
     this.V[i] += mL;
     const [Pk, Ps] = this.nodeK[i];
     this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
-    this.blood.rbc += mL * hct;
-    // Silent plasma is the body's own volume changing (the chronic plasma expansion): the reflexes reset to it.
+    // Silent plasma is the body's own volume changing (the chronic plasma expansion): the reflexes reset to it, and its red cells are the
+    // patient's own (RED: counted as a healthy marrow holds them). Red cells given are counted at the anemic marrow's rate (rbc's units).
+    this.blood.rbc += silentPlasma ? mL * hct : mL * hct / this.marrow();
     if (!silentPlasma) this.blood.infused += mL;
-    else this.blood.ref = (this.blood.ref ?? BLOOD_BASE) + mL;
+    else { this.blood.ref = (this.blood.ref ?? BLOOD_BASE) + mL; if (this.blood.own != null) this.blood.own += mL * hct; }
   }
 
   infuse(kind) {
@@ -1086,7 +1146,7 @@ export class Engine {
 
   hemorrhage(mL) {
     // Instant external blood loss (for tests / scenarios)
-    const hct = this.hct();
+    const hct = this.hctEq();
     const per = mL / 2;
     for (const id of ['UPPV', 'LOWV']) {
       const i = this.ni[id];
@@ -1127,7 +1187,7 @@ export class Engine {
     }
     return removed;
   }
-  hemorrhageSilent(mL) { const l = this.blood.lost; this.hemorrhage(mL); this.blood.lost = l; }
+  hemorrhageSilent(mL) { const l = this.blood.lost; this.hemorrhage(mL); this.blood.lost = l; this.blood.held = (this.blood.held || 0) + mL; }
 
   startValsalva(sec = 10) { this.valsalva = { start: this.t, until: this.t + sec }; }
 
@@ -1313,6 +1373,8 @@ export class Engine {
     this.rng.setState(c.rng);
     // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.
     if (!(this.blood.ref > 0)) Object.assign(this.blood, { ref: this.bloodVolume(), inf0: this.blood.infused || 0, shift: 0 });
+    // (One from before the red cells' clocks (RED): its patient's own red cell mass, worked out as it was then.)
+    if (this.blood.own == null) this.blood.own = this.ownRbc();
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
     this.pvQm = this.pvVm = undefined; this.vitM = null;

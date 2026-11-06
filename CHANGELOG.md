@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **The hemoglobin moves: it falls as the plasma refills after a bleed, rises about 1 g/dL a unit, and sits lower with liver disease; the bar shows where it is heading.** (Mohammad, 6 Nov: "the hemoglobin sucks now and it doesn't change".)
+  A bleed takes whole blood and nothing refilled the plasma, so the hemoglobin never fell, and every patient read 13.5 to 14, decompensated cirrhosis too. Now (engine.js `RED`) the tissues refill the plasma toward the patient's own volume over the next day (time constant 10 h, on the bedside and disease clocks, never in a settle), so the reading lags the bleed as in a patient and falls to where it is heading; a unit over a full circulation settles about 1 g/dL up. The anemia of liver disease and a large spleen lower the red cell mass the marrow keeps (compensated about 13, CSPH 12, decompensated about 10.3), and the marrow makes a loss up over weeks. Viscosity reads the red cells as before (`hctEq`), so every pressure and every preset's numbers are unchanged. The bottom bar prints the hemoglobin to come beside the reading ("→ 8.1", amber after a bleed, green after a unit); the bleed talk's "Shock before anemia" slide has an "Hb to come" tile, its summary a column, and its ward patient, two days after a 1.2 L bleed, reads 8.2. Why? names the anemia of liver disease.
+
 - **About shows which build you are on, and each merge to `main` is tagged.** (Production review PR-04, 4 Nov.)
   `scripts/build.mjs` writes the newest `v2026.11.N` tag and the short commit into the bundle (`RELEASE` in `src/version.js`; `PPS_RELEASE` overrides it; the unbuilt source site says "source") and into `dist/release.txt`. Settings › About reads "Updated November 2026 · v2026.11.3 · 1a2b3c4d". `.github/workflows/tag-release.yml` adds the next tag on every push to `main`, which is also the rollback target. Content date is unchanged. Code only, nothing run.
 

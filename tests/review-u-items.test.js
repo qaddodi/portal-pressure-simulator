@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { explain, METRICS } from '../src/engine/explain.js';
+import { computeMetrics } from '../src/engine/metrics.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const settled = (id) => { const e = new Engine(); e.loadPreset(id); for (let i = 0; i < 4; i++) e.settleQuick(); return e; };
@@ -31,7 +32,13 @@ test('U9: hemoglobin has a Why? of its own, and a bleed explains it', () => {
   assert.equal(METRICS.hb.unit, 'g/dL');
   assert.match(read('../src/ui/vital-read.js'), /\{ id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb',/);
   const e = settled('csph');
+  const hb0 = computeMetrics(e).blood.hb;
   e.hemorrhage(1500);
+  for (let i = 0; i < 8; i++) e.settleQuick();
+  // (Whole blood is lost: the hemoglobin holds at first, and is heading lower; it falls once the plasma has refilled, a day on.)
+  const m1 = computeMetrics(e);
+  assert.ok(Math.abs(m1.blood.hb - hb0) < 0.1 && m1.blood.hbSettled < hb0 - 2, `Hb ${hb0} → ${m1.blood.hb} heading to ${m1.blood.hbSettled}`);
+  e.plasmaRefill(86400);
   for (let i = 0; i < 8; i++) e.settleQuick();
   const r = explain(e, 'hb');
   assert.ok(r.total < -0.1, `Hb change ${r.total}`);

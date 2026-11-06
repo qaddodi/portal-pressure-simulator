@@ -45,9 +45,9 @@ export const BLEED = {
       ask: ['A man on carvedilol vomits blood. His pulse is 88 and his blood pressure 100/60. Is he stable?', 'Not necessarily. Carvedilol blunts the rise in heart rate, and his usual pressure may be low. Judge by the trend, the blood seen, the lactate and a postural drop.'],
     },
     {
-      id: 'minutes', question: 'His pulse is racing. Has the hemoglobin fallen yet?', action: [], cam: 'bleed', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['hb'], delta: 'before',
+      id: 'minutes', question: 'His pulse is racing. Has the hemoglobin fallen yet?', action: [], cam: 'bleed', tool: BEATS, data: 'tiles', tiles: ['map', 'hb', 'hbTo'], key: ['hb', 'hbTo'], delta: 'before',
       kicker: K, site: 'sin', title: 'Shock before anemia',
-      line: 'Minutes later the heart rate is {hr} and the blood pressure has fallen to {map}. The hemoglobin has not moved: it falls only as fluid refills the vessels over hours.',
+      line: 'Minutes later the heart rate is {hr} and the blood pressure has fallen to {map}. The hemoglobin has not moved; it falls to about {hbTo} over hours.',
       notes: 'Whole blood is lost, red cells and plasma together, so the first hemoglobin is close to normal even in shock. It falls over the next 24 to 72 hours as fluid moves in from the tissues and from the infusions. Judge the bleed by the pulse, the blood pressure, the urine output and the lactate. Intubate before the scope when encephalopathy clouds consciousness or large amounts of blood keep coming up.',
       ask: ['A hemoglobin of 13.5 g/dL in a patient vomiting blood with a pulse of 140. Is the bleed small?', 'No: the hemoglobin lags. The pulse says the bleed is large.'],
     },
@@ -62,7 +62,7 @@ export const BLEED = {
     {
       id: 'blood', action: [UNIT], cam: 'bleed', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'before',
       kicker: 'Volume', site: 'sin', title: 'Transfuse to a hemoglobin of 7 to 8',
-      line: 'A second unit lifts the blood pressure to {map}. The hemoglobin lags the bleed and has barely moved. Once stable, transfuse only <7 g/dL, aiming for 7 to 8.',
+      line: 'A second unit lifts the blood pressure to {map}. The hemoglobin lags: {hb} now, near {hbTo} once refilled. Once stable, transfuse only <7 g/dL, aiming for 7 to 8.',
       notes: 'A restrictive transfusion strategy (transfusing below 7 g/dL, to a target of 7 to 9 in the trial, 7 to 8 in Baveno VIII and about 7 in AASLD guidance) lowered rebleeding and death compared with a liberal one (transfusing below 9 g/dL, to a target of 9 to 11). It applies once the patient is stable, and the trial excluded massive bleeding. Volume beyond what the circulation needs pushes the portal pressure back toward its level before the bleed, which makes an early rebleed more likely; it also worsens ascites and can cause pulmonary edema. In cirrhosis saline adds sodium, so a balanced crystalloid, given with care, is a common choice. Patients with heart disease or ongoing massive bleeding may need more. Fresh frozen plasma and platelet transfusion to correct the INR or the count are not advised; they add volume without proven benefit. (Baveno VIII 5.4.)',
       ask: ['What hemoglobin target is used in variceal bleeding, and why not more?', '7 to 8 g/dL, transfusing <7. Extra volume raises the portal pressure and the risk of an early rebleed.'],
     },
@@ -85,10 +85,12 @@ export const BLEED = {
       ask: ['Which patients get a pre-emptive TIPS after a variceal bleed?', 'Child–Pugh C 10 to 13, or Child–Pugh B >7 with active bleeding at endoscopy.'],
     },
     {
-      id: 'controlled', preset: 'cirr-decomp', params: { drugs: { octreotide: true }, respiration: false }, action: [BAND], cam: 'varices', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'],
+      // (Two days on from a bleed of about a quarter of his blood: the plasma has refilled, so the hemoglobin has fallen to where the tiles of the first
+      // case said it was heading.)
+      id: 'controlled', preset: 'cirr-decomp', params: { drugs: { octreotide: true }, respiration: false }, action: [{ kind: 'hemorrhage', mL: 1200 }, BAND], days: 2, cam: 'varices', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'],
       vignette: 'A 54-year-old man with alcohol-associated cirrhosis vomited blood two days ago. Octreotide, ceftriaxone and band ligation stopped the bleeding, and he is on the ward.',
       kicker: 'Failure', site: 'sin', title: 'The first bleed is controlled, for now',
-      line: 'Banding and octreotide stopped the bleed, and the heart rate is {hr}. Until day 5, a new bleed would count as treatment failure, not as a new event.',
+      line: 'Banding stopped the bleed. His heart rate is {hr}; with the plasma refilled, his hemoglobin is {hb}. A new bleed before day 5 counts as treatment failure.',
       notes: 'The first days after a variceal bleed carry the highest risk of a rebleed. Octreotide continues for 2 to 5 days, ceftriaxone for up to 5 days, and a non-selective beta-blocker starts when the drug stops. Banding is repeated every 2 to 4 weeks until the varices are gone. The strip over the pressures is a schematic rhythm timed to the model\'s heartbeat, not a modelled ECG.',
       ask: ['Why is a rebleed on day 3 not counted as a new bleed?', 'Baveno VIII defines treatment failure as uncontrolled bleeding or a rebleed within 5 days of the first bleed.'],
     },
@@ -133,7 +135,7 @@ export const BLEED = {
       ask: ['His blood pressure is back to normal after two units, and his hemoglobin is 7.5 g/dL. Do you give a third?', 'No. He is at target; more volume raises the portal pressure and the risk of rebleeding for little gain in blood pressure.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['hr', 'map', 'hb', 'pv', 'ppg'], asc: false, vs: 'first', rowHead: 'Step',
+      id: 'summary', visual: 'table', cols: ['hr', 'map', 'hb', 'hbTo', 'pv', 'ppg'], asc: false, vs: 'first', rowHead: 'Step',
       of: [{ id: 'before', kicker: 'Baseline', title: 'Before the bleed' }, { id: 'tear', kicker: K, title: 'The tear' }, { id: 'minutes', kicker: K, title: 'Shock, minutes later' }, { id: 'oct', kicker: 'Drug and volume', title: 'Octreotide, first unit' }, { id: 'blood', kicker: 'Volume', title: 'Second unit' }, { id: 'band', kicker: 'Scope', title: 'Banding' }, { id: 'tips', kicker: 'Shunt', title: 'Pre-emptive TIPS' }, { id: 'rebleed', kicker: 'Day 3', title: 'The rebleed' }, { id: 'rescue', kicker: 'The rescue', title: 'Rescue TIPS' }],
       kicker: 'Summary', title: 'Vital signs and portal pressure through the bleed',
       line: 'Heart rate and blood pressure track the volume; the hemoglobin lags. Portal pressure falls with the bleed and again with a TIPS. A rebleed within 5 days is treatment failure.',

@@ -18,7 +18,7 @@ import { glWords } from './gl-words.js';
 import { restPass } from './rest-pass.js';
 import { dropFrontNums } from './drop-front.js';
 import { classSoon, classHas, classNow } from './class-soon.js';
-import { vitalReading, VITALS } from './vital-read.js';
+import { vitalReading, vitalHeading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
 import { tenthGap } from '../engine/gap.js';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js';
@@ -258,9 +258,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   syncLobule();
   const vitEls = VITALS.map((v) => {
     const val = h('b', {}, '—');
-    const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.title} (${v.u})${v.why ? '\nClick for what is driving it.' : ''}` }, h('span', {}, v.k), val);
+    // (A vital with somewhere to head, the hemoglobin after a bleed: an arrow and the number it is heading to, shown while the two differ.)
+    const toNum = v.to ? h('em', {}, '') : null;
+    const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.title} (${v.u})${v.to ? '\nThe arrow: where it is heading once the plasma has refilled (a day or so after a bleed).' : ''}${v.why ? '\nClick for what is driving it.' : ''}` },
+      h('span', {}, v.k), val, toNum ? h('i', { class: 'v-to', 'aria-hidden': 'true' }, '→', toNum) : null);
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
-    return { v, el, val, kBar: 'bar:' + v.id, fkOn: false, fkS: NaN, fkH: false, fkB: false };
+    return { v, el, val, toNum, toV: null, toUp: false, kBar: 'bar:' + v.id, fkOn: false, fkS: NaN, fkH: false, fkB: false };
   });
   row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
@@ -331,6 +334,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     for (const x of vitEls) {
       const r = vitalReading(x, m, st0.running, now);
       x.bad = r.bad;
+      if (x.toNum) { x.toV = vitalHeading(x, m); x.toUp = x.toV != null && x.toV > r.v; }
       x.shown = shownState.set(x.kBar, r.v, followOpts(x.v.d, !st0.running));
     }
     paintStrip(f);
@@ -438,6 +442,11 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (follow) { if (x.fkOn && x.fkS === x.shown && x.fkH === hid && x.fkB === !!x.bad) continue; x.fkOn = true; x.fkS = x.shown; x.fkH = hid; x.fkB = !!x.bad; } else x.fkOn = false;
       COUNT.eased = st0.running; countTo(x.val, hid ? null : x.shown, x.v.d, COUNT);
       classSoon(x.el, 'bad', !hid && x.bad);
+      if (x.toNum) {
+        const on = !hid && x.toV != null;
+        classSoon(x.el, 'heading', on); classSoon(x.el, 'heading-up', on && x.toUp);
+        if (on) countTo(x.toNum, x.toV, x.v.d, COUNT);
+      }
     }
   }
 

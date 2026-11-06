@@ -24,6 +24,7 @@ const TILES_CHANGE = new Set([
   'gastric-varices/tips>brto',                                  // the gastric varix tile replaces the liver tile
   'hyperdynamic/resist>volume',                                 // the vitals monitor, then the volume tiles
   'ten-years/d365>carv', 'ten-years/rebleed>tips', 'ten-years/tips>he', // one patient over ten years: the tiles follow the event
+  'variceal-bleed/tear>minutes',                                // "Shock before anemia": the hemoglobin to come joins, for that slide only
 ]);
 
 test('inside a section, consecutive slides with the same instrument keep the same tiles', () => {
@@ -49,6 +50,7 @@ const THREE_TILES = new Set([
   'sites/healthy', 'ascites/lvp', 'treatment/terli', 'circuit/resist', 'circuit/tips', 'shunts/dsrs', 'ncph/patient',
   'pregnancy/before', 'pregnancy/weeks', 'pregnancy/after', 'cause-treated/before', 'cause-treated/year1',
   'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/svt',
+  'variceal-bleed/minutes',   // (the point is the third: the hemoglobin has not moved, and where it is heading)
 ]);
 
 test('no slide has more than two tiles except the listed ones', () => {
