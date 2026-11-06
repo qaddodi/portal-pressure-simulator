@@ -13,7 +13,7 @@ import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from '
 import { frameFor, noteDraw, paceMs, cancelFrame, frameAnimating } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js';
-import { calloutCell, calloutText } from './trace-callouts.js';
+import { calloutCell } from './trace-callouts.js';
 import { caliperFrame, caliperLevel, caliperX, CAL_FADE, pairOf, pairBand, pairScale, PAIR_GAP } from './doppler-marks.js';
 import { createDopplerGL } from './doppler-gl.js';
 import { surface } from './gpu-surfaces.js';
@@ -1246,7 +1246,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   let calip = false, cal = null;
   // (Each caliper level's easing, kept for the two levels: where it began, where it is going, when; on false = none yet.)
   const calMk = { hi: { on: false, from: 0, to: 0, at: 0 }, lo: { on: false, from: 0, to: 0, at: 0 } };
-  // (The words of the bracket's two names, kept: rebuilt only when the number moves.)
+  // (The words of the bracket's two numbers, kept: rebuilt only when the number moves.)
   const calPk = { hi: calloutCell(), lo: calloutCell() };
   const calReset = () => { calMk.hi.on = false; calMk.lo.on = false; };
   const CAL_W = 2, CAL_TICK = 4, CAL_PX = 11;   // (the bracket's names: 11 px type)
@@ -1291,23 +1291,25 @@ export function createDoppler({ onProbe, pickGate = true }) {
     ctx.strokeStyle = cssAlpha('--black', 0.85); ctx.lineWidth = 3.5; ctx.stroke();
     ctx.strokeStyle = cssAlpha('--doppler', 1); ctx.lineWidth = 1.5; ctx.stroke();
     ctx.restore();
-    // Peak and Trough named on the upright caliper itself (Mohammad, 6 Nov 2026): the word and its speed sit still at the bracket's
-    // two ends, the higher end of the page the peak, outside the bracket (above its top tick, below its bottom one) in the label
-    // style, outlined text with no box. Nothing drops onto the moving trace; the words follow only their tick's own easing.
+    // The two speeds read beside the upright caliper's ends (Mohammad, 6 Nov 2026: numbers only, no names, in the bracket's colour):
+    // the higher one just above the top dashed line, the lower just below the bottom one, right of the end ticks, outlined text with no
+    // box. Nothing drops onto the moving trace; the numbers follow only their tick's own easing.
     const hiTop = lvHi <= lvLo;
-    calName(ctx, calPk.hi, cal.hi[1], lvHi, hiTop ? 'Peak' : 'Trough', hiTop ? -1 : 1, xc - CAL_TICK, padT, H);
-    calName(ctx, calPk.lo, cal.lo[1], lvLo, hiTop ? 'Trough' : 'Peak', hiTop ? 1 : -1, xc - CAL_TICK, padT, H);
+    calNum(ctx, calPk.hi, cal.hi[1], lvHi, hiTop ? -1 : 1, xc + CAL_TICK + 3, padT, H);
+    calNum(ctx, calPk.lo, cal.lo[1], lvLo, hiTop ? 1 : -1, xc + CAL_TICK + 3, padT, H);
   }
-  function calName(ctx, c, v, y, name, want, x, padT, H) {
-    const txt = calloutText(c, name, Math.round(cSgn * v * cK * cal.gf), 0);
+  function calNum(ctx, c, v, y, want, x, padT, H) {
+    const val = Math.round(cSgn * v * cK * cal.gf);
+    if (!Object.is(c.v, val)) { c.v = val; c.s = num(val); }   // (the words kept: rebuilt only when the number moves)
+    const txt = c.s;
     ctx.font = FONT(700, CAL_PX); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
-    // (beyond its tick away from the other; when the trace area has no room on that side the word goes to the other side of the tick)
+    // (on the outer side of its dashed line, clear of it; when the trace area has no room there, on the other side)
     const room = CAL_PX / 2 + 3, top = padT + CAL_PX / 2, bot = padT + H - CAL_PX / 2;
     const fits = (s) => (s < 0 ? y - room >= top : y + room <= bot);
     const side = fits(want) ? want : fits(-want) ? -want : want;
     const ty = clamp(y + side * room, top, bot);
-    ctx.lineWidth = 3.5; ctx.strokeStyle = cssAlpha('--black', 0.9); ctx.strokeText(txt, x, ty);
-    ctx.fillStyle = cssAlpha('--white', 1); ctx.fillText(txt, x, ty);
+    ctx.lineWidth = 3.5; ctx.strokeStyle = cssAlpha('--black', 0.85); ctx.strokeText(txt, x, ty);
+    ctx.fillStyle = cssAlpha('--doppler', 1); ctx.fillText(txt, x, ty);
   }
   // (The index is read in the bottom strip, first after the probe's name, in the marks' colour: off the spectrum, always whole.
   // Its words come from a table of the hundredths, the index being at most 2.)
