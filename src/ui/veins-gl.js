@@ -2162,7 +2162,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // same view (a vessel row's cells, a tint, an organ's box, the fluid's cells, the catheter's box, with the blood's squares). Every other
   // picture (a whole one, a camera, a new view, a reuse, a scene camera, a clear) is unknown, and the glass then blurs all it reads, as before.)
   const picTiles = createDirtyTiles(BD_N), picM = new Float64Array(6).fill(NaN);
-  let picKnownM = false;
+  let picKnownM = false, underAt = NaN;   // (underAt: the under host's picture number (under.ver) at the last counted picture; NaN: none, or a host with no number)
   // (Marks into `T` (begun) the device boxes of n world cells (origins at cells[q * stride], [q * stride + 1]) of side `size` under m; `mark`, when
   // given, picks the cells (mark[q] set).)
   function markCells(T, cells, n, stride, m, size, mark = null) {
@@ -4566,7 +4566,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const picWas = picKnownM;
       pictured(bloodAlone);
       if (bloodAlone) { bloodMark(bloodSeq, fused || up || camOn() ? null : bloodCPU, nBlood, m, bloodCell); if (fused || up || camOn()) picKnownM = false; }
-      else picMark(picWas, m, full, fused || up || camOn() || !!(under && under.on()) || !!(replace && replace.on()), part, dirt, pool, !!(fl?.ripple && nFluid), cathRect);
+      else {
+        // (What lies under the figure in this canvas is the same picture as at the last counted one, when its host says so (under.ver: the lobule's tissue, 6 Nov 2026,
+        // lobule lag rec 8): a part of this picture drawn again then changes the canvas only inside its tiles, which the glass over it blurs again alone. A host
+        // with no ver, or a tissue drawn since, is as it was: a picture of unknown reach.)
+        const underOn = !!(under && under.on()), uv = underOn && under.ver ? under.ver() : NaN, underOdd = underOn && !(uv === underAt);
+        underAt = uv;
+        picMark(picWas, m, full, fused || up || camOn() || underOdd || !!(replace && replace.on()), part, dirt, pool, !!(fl?.ripple && nFluid), cathRect);
+      }
       if (still) {
         let ch = false;
         for (let r = 0; r < nTubes; r++) if (movedUp[r * 4] !== moved[r]) { movedUp[r * 4] = moved[r]; ch = true; }

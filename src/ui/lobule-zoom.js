@@ -837,6 +837,15 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const W = t.canvas.width, H = t.canvas.height, tx = m.tx * r, ty = m.ty * r;
     return tx <= 0.5 && ty <= 0.5 && m.a * W + tx >= W - 0.5 && m.a * H + ty >= H - 0.5;
   }
+  // (Lobule lag rec 8: true while the lobule's texture is laid on the stage canvas as it is, so a box in the texture is the same box on the canvas.)
+  function glassPlain() {
+    const t = shareTop;
+    if (!shared || !t || !gl || gl.lost || fade < 0.999 || el.style.visibility === 'hidden' || fieldOp > 0.002 || diveScaled || sinU !== 0 || sinTo || wide || staging) return false;
+    const tg = gl.target;
+    if (!tg?.w || tg.w !== t.canvas.width || tg.h !== t.canvas.height) return false;
+    const m = shareMap();
+    return m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1 && m.tx === 0 && m.ty === 0;
+  }
   function layShared() {
     const t = shareTop;
     if (!t || !gl || gl.lost) return;
@@ -4125,7 +4134,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (tisHostFor !== gl) {
         tisHostOff?.(); if (tisHostFor) tissueGL?.release?.();
         tisHostFor = gl; tissueGL = createTissueGL(tissueG, { onLive: liveCompiled, host: gl.top }) || null;   // alloc-rare: only when the vessels' renderer is new (the first look, or after a lost context)
-        const offU = tissueGL ? gl.top.under({ on: tisUnder, draw: () => tissueGL.under(gl?.software ? 0.5 : 1) }) : null, offK = tissueGL && gl.top.keep ? gl.top.keep(keepSrc) : null;   // alloc-rare: same branch, a new renderer
+        const offU = tissueGL ? gl.top.under({ on: tisUnder, draw: () => tissueGL.under(gl?.software ? 0.5 : 1), ver: () => tissueGL?.ver ?? NaN }) : null, offK = tissueGL && gl.top.keep ? gl.top.keep(keepSrc) : null;   // alloc-rare: same branch, a new renderer
         tisHostOff = offU ? () => { offU(); offK?.(); } : null;   // alloc-rare: same branch, a new renderer
         tissueGL?.liveReady();
         restRemove(tissueG);
@@ -4923,6 +4932,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     get shared() { return shared; },
     /** Counts the pictures the lobule laid (shared: with the figure's, the glass over both blurs again when it changes). */
     drawSeq: () => gl?.drawSeq ?? 0,
+    /** Whether the lobule's picture lies on the stage's canvas pixel for pixel now: shared, landed, no hand, dive, card zoom, turn or field, the target the
+     *  canvas's size. Only then are `pictureRects` boxes the canvas's own (lobule lag rec 8, 6 Nov 2026). */
+    plain: () => glassPlain(),
+    /** Where the pictures after `from` up to `to` (drawSeq) drew, as boxes { x, y, w, h } in the stage canvas's device px written into out from pool: their count,
+     *  0 for nowhere, -1 when not known (a whole picture, another view, a tissue drawn since, or the lobule not plain now). The glass over the figure blurs only these. */
+    pictureRects: (from, to, out, pool) => (glassPlain() ? gl.pictureDirtyRects(from, to, out, pool) : -1),
     sinusoidOpen: () => sv.isOpen(),
     /** The GPU canvas the cards' frosted glass is drawn into while the liver shows (stage.js frostSrc; Mohammad, 2 Nov 2026: "No blur at all on
      *  top, solid card on bottom"): the open sinusoid's, or the landed lobule's vessel canvas (its tissue is laid in it too), or null while
