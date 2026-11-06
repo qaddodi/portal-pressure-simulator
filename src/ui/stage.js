@@ -59,6 +59,7 @@ const themeKey = () => {
   if (t !== themeKeyTheme || p !== themeKeyPalette) { themeKeyTheme = t; themeKeyPalette = p; themeKeyVal = p ? `${t || ''}/${p}` : (t || ''); }
   return themeKeyVal;
 };
+const lookFrame = frameFor('stage-look');   // (lookWhole's polling: one look at a frame while a new look reaches the organs)
 const easeFrame = frameFor('stage-ease');   // (the scheduler's, named so that no local `frame` can stand in for it: the grid's path helper once did, and every ease asked through it never ran)
 // The figure's render pass (animate) runs after every other callback of its frame: a glide's step, the catheter's state and its
 // camera, the labels are all set first, and the vessel layer is drawn once, as they left it.
@@ -1910,7 +1911,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     wrap.classList.remove('gl-plate'); plateDirty = true; veinsDirty = true; syncPlateLook();
     if (inUpdate) plateRedraw = true; else drawVeins(false, 'plate hidden');
   }
-  const { SEL_DIM, clientToWorldFast, figureHidden, organPathsNow, paintOrganAlpha, plateEasing, platePoke, plateStateKey, readGroup, schedulePlateView, stepPlateEase, syncLiveOrgans, syncOrganDim, syncPlateLook } = createPlate({ EBOX, LAYER_SPENT, LENS_FADE, LIVE_LAYERS, LIVE_ORDER, PLATE_BASE, PLATE_RECT, bakeStep, bowelDy, defs, drawVeins, dropViewKeep, easeInOut, flag, flank, fullOk, gBackdrop, gOrgans, ghost, glWanted, gpuOrgansOn, gutKids, hidePlate, lensNow, liveOn, liverTint, lv, nextFrame, organEls, organG, plateOn, readFluidInk, readFrame, refreshCTM, setG, spleenMoving, spleenMv, spot, spotOn, stageBox, stageWrap, svg, themeKey, vCanvas, wrap, wrapCS, wrapCls }, live);
+  const { SEL_DIM, clientToWorldFast, figureHidden, lookPending, organPathsNow, paintOrganAlpha, plateEasing, platePoke, plateStateKey, readGroup, schedulePlateView, stepPlateEase, syncLiveOrgans, syncOrganDim, syncPlateLook } = createPlate({ EBOX, LAYER_SPENT, LENS_FADE, LIVE_LAYERS, LIVE_ORDER, PLATE_BASE, PLATE_RECT, bakeStep, bowelDy, defs, drawVeins, dropViewKeep, easeInOut, flag, flank, fullOk, gBackdrop, gOrgans, ghost, glWanted, gpuOrgansOn, gutKids, hidePlate, lensNow, liveOn, liverTint, lv, nextFrame, organEls, organG, plateOn, readFluidInk, readFrame, refreshCTM, setG, spleenMoving, spleenMv, spot, spotOn, stageBox, stageWrap, svg, themeKey, vCanvas, wrap, wrapCS, wrapCls }, live);
   let layerStarts = 0, layerStartsEasing = 0;   // (for the tests: organ pictures begun, and those begun while the fluid eased)
   let layerCommits = 0;
   let plateMiss = 0, fluidStillAt = 0, fluidWas = false;   // (pictures given up in a row; when the fluid last stopped)
@@ -3166,6 +3167,21 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** A turn of the device or a new window size: the next framing is the camera's again. */
     handClear() { handed = false; },
     setCamera(to, ms = 900) { if (lobuleOn || !to || sameView(to, vtGliding ? vtTarget : vt)) return; fitted = false; animateVT({ ...to }, ms, { scale: true }); },
+    /** Resolves once the figure has taken the page's new look whole (the organs' specs read and applied, and one frame drawn since), never
+     *  later than `cap` ms: a look change's crossfade (main.js switchTheme) captures its new picture then, not with the background
+     *  changed and the organs still to follow, one by one. */
+    lookWhole(cap = 700) {
+      return new Promise((done) => {
+        const t0 = performance.now(), t = setTimeout(done, cap);
+        let calm = 0;
+        const poll = () => {
+          if (lookPending()) calm = 0; else calm++;
+          if (calm >= 2 || performance.now() - t0 >= cap) { clearTimeout(t); done(); return; }
+          lookFrame(poll);
+        };
+        lookFrame(poll);
+      });
+    },
     cameraKey: () => `${vt.k.toFixed(3)}|${vt.x.toFixed(1)}|${vt.y.toFixed(1)}`,
     zoomLobule, zoomLiver, lobuleOpen: () => !!lz?.isOpen(), organsPictured: () => !!veins?.organs?.pictured?.(0), lobuleViewKey: () => lz?.viewKey(), lobuleCaptions: () => lz?.captions?.() ?? null, sinusoidCaptions: () => lz?.sinusoidCaptions?.() ?? null, lobuleLeaderEnds: () => lz?.leaderEnds?.() ?? [], lobuleGliding: () => !!lz?.labelsGliding?.(), lobuleCapture: () => lz?.capture?.() ?? null,
     /** The figure's own context for what is drawn over it (veins-gl top), or null where there is none (the ink's pass, ink-gl.js). */

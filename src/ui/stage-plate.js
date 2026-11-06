@@ -676,5 +676,8 @@ export function createPlate(st, live) {
     if (u >= 1) plateFrom = null;
     syncPlateLook(); live.veinsDirty = true;
   }
-  return { SEL_DIM, clientToWorldFast, figureHidden, organPathsNow, paintOrganAlpha, plateEasing, platePoke, plateStateKey, readGroup, schedulePlateView, stepPlateEase, syncLiveOrgans, syncOrganDim, syncPlateLook };
+  // A new look is still on its way to the organs: their specs wait to be read (liveAsk) or applied (fullSwap, until liveApply hands the stack
+  // the whole set). lookWhole (stage.js) waits for this to be false, so a look change's crossfade takes its new picture whole.
+  const lookPending = () => !!liveAsk || !!live.fullSwap;
+  return { SEL_DIM, clientToWorldFast, figureHidden, lookPending, organPathsNow, paintOrganAlpha, plateEasing, platePoke, plateStateKey, readGroup, schedulePlateView, stepPlateEase, syncLiveOrgans, syncOrganDim, syncPlateLook };
 }

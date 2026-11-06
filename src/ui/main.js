@@ -1371,13 +1371,16 @@ function setSpeed(v, lapse = false) {
 // A theme chosen in the app crossfades the whole page (.45 s): the old look is held as a still picture at full resolution and
 // fades over the live new one (View Transitions, styles/app.css). Where that is not supported it changes at once, as before
 // (motion review P1). Page load and a change of the device's own theme apply at once.
-// (PR-16: only on the desktop, and never over the memory budget. A crossfade holds the old 8 MP page as a texture beside the new one, two
+// (PR-16: never over the memory budget, and a phone or iPad only with room (roomForFade). A crossfade holds the old 8 MP page as a texture beside the new one, two
 // more full-page surfaces on a phone or iPad already near its envelope; there the change applies at once, as under reduced motion.)
-const canCrossfade = () => !!document.startViewTransition && !document.hidden && deviceClass() === 'desktop' && !overBudget();
+// (A phone or iPad crossfades too while it has room: a quarter of its envelope free, about four times what the two page pictures cost. Without it
+// the look changed at once, the ground first and the organs a beat after, one by one: Mohammad, 6 Nov 2026.)
+const roomForFade = () => { if (deviceClass() === 'desktop') return true; const b = gpuBudget(); return b.mb < b.envelope.mb * 0.75; };
+const canCrossfade = () => !!document.startViewTransition && !document.hidden && !overBudget() && roomForFade();
 function switchTheme(t, clear) {
   if (!canCrossfade()) { applyTheme(t, clear); return; }
   // (The new page is whole before the crossfade captures it: every surface has drawn the look, themeSettled in theme-epoch.js, capped.)
-  crossfade(() => { applyTheme(t, clear); return themeSettled(); });
+  crossfade(() => { applyTheme(t, clear); return themeSettled().then(() => stage?.lookWhole?.(700)); });
 }
 // While a crossfade plays, its pictures cover the page, so a tap would land on <html>: lost, and taken as a tap outside the
 // open Settings, which closed. Such a tap ends the crossfade and goes to whatever is under it once the live page shows again.
