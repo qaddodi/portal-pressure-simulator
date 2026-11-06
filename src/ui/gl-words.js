@@ -27,6 +27,7 @@ import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
 import { textPolys, textWidth, textBox, loadGlyphs, glyphsReady, textCovers, glyphRun } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { readMetric, readStyle } from './layout-snap.js';
+import { noteBox } from './util.js';
 import { cssColor } from './css-color.js';
 import { caught } from './caught.js';
 import { onTheme } from './theme-epoch.js';
@@ -186,6 +187,11 @@ function measureWrite(S, { at, pad, L, U }) {
   // replaced element that insets alone do not stretch. app.css .glw.)
   host.style.setProperty('--glw-l', `${-pad.l}px`); host.style.setProperty('--glw-t', `${-pad.t}px`);
   host.style.setProperty('--glw-w', `${pad.l + pad.r}px`); host.style.setProperty('--glw-h', `${pad.t + pad.b}px`);
+  // (The picture is drawn at the size just set, not at the one its canvas's observer last reported: drawn in this same pass (below), it took the
+  // old size with the new view box, which is stretched to fit (preserveAspectRatio none), so a Tests card opening showed its Doppler 14
+  // squeezed three times as tall and the tiles' values 9 px low for a frame or more, until the observer's report drew them again: the
+  // room to the clipping card, part of this size, is less while the card rises in. Headless iPhone frames, 6 Nov 2026.)
+  noteBox(S.gl.cv, at.w + pad.l + pad.r, at.h + pad.t + pad.b);
   S.vPath = svgModel('path', { fill: L.fill, d: '' });
   S.uPath = svgModel('path', { fill: U.fill, d: '' });
   // (recs-production-120hz §9: capacity reserved now, between frames: a glyph slot each, its path one cached per glyph, placed by a
