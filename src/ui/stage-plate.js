@@ -246,7 +246,8 @@ export function createPlate(st, live) {
     return o;
   };
   const MASK_OF = { gut: '#gutHide', stomach: '#frontM' };
-  const liveKeyNow = ['', '', '', '', '', '', '', '', '', '', ''], liveKeyOld = ['', '', '', '', '', '', '', '', '', '', ''];
+  const liveKeyNow = ['', '', '', '', '', '', '', '', '', '', '', ''], liveKeyOld = ['', '', '', '', '', '', '', '', '', '', '', ''];
+  let pseEl = null;   // (the embolized spleen's infarct group, found once: stage.js detailFor)
   // (What eases, the outlines, the organs' frames and the parts' own opacities, the painter reads from the page at each paint
   // (organ-paint liveOf): the specs are read again only when what is in them changes: a part hidden or shown, the liver's mask,
   // the ghost line, a lens, the theme and its colours. They were read again on every frame of an ease: about fifty computed
@@ -257,6 +258,9 @@ export function createPlate(st, live) {
     const cs = wrapCS(), k = liveKeyNow;
     k[0] = organG.liver.getAttribute('mask') ?? ''; k[1] = ghost.style.display; k[2] = lv.sep.style.visibility; k[3] = lv.nod.style.visibility; k[4] = lv.cong.style.visibility; k[5] = lv.isl.style.visibility;
     k[6] = cs.getPropertyValue('--stage-bg'); k[7] = cs.getPropertyValue('--organ-liver'); k[8] = flag.imaging; k[9] = themeKey(); k[10] = fullWanted();
+    // (The embolized spleen's infarct shown or hidden: without it the live spleen kept the infarct after the treatment was taken off,
+    // Mohammad 6 Nov 2026.)
+    k[11] = (pseEl ??= organG.spleen.querySelector('.spleen-pse'))?.getAttribute('display') ?? '';
     return k;
   }
   function liveKeySame() { for (let i = 0; i < liveKeyNow.length; i++) if (liveKeyNow[i] !== liveKeyOld[i]) return false; return true; }
@@ -342,7 +346,6 @@ export function createPlate(st, live) {
   // the same; drawing it again made every highlight and unhighlight lag (Mohammad, 20 Oct: "even highlighting the liver is laggy").
   let tintQ = 0;
   let bowelHeld = null;
-  let pseEl = null;   // (the embolized spleen's infarct group, found once: stage.js detailFor)
   function plateStateKey() {
     const cs = wrapCS();
     // The tint in coarse steps, with some hysteresis: a pressure that wavers on a step boundary
