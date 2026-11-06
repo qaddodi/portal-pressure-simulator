@@ -474,6 +474,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (viewBumps: the bumps of drawVersion that only moved the camera: the model's own, drawVersion less these, is what the surface pass
   // in drawGL waits for when the model is paused.)
   let viewBumps = 0;
+  // (frameBumps: the bumps that only say "a model frame came" (update, and the pressures' glide between frames, which never quite stops while
+  // the model runs). While the model runs the surface pass is paced by its 80 ms clock, not by these; paused, they are what wakes it.)
+  let frameBumps = 0;
   const viewChanged = () => { drawVersion++; viewBumps++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
   // (A point to the screen and back, one number at a time: sX and sY, wX and wY make no array.)
   const wX = (x) => (x - V.x) / V.k, wY = (y) => (y - V.y) / V.k;
@@ -1189,7 +1192,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let snapNext = false;
   const unseen = () => fade <= 0 || staging || snapNext;
   function update(f) {
-    drawVersion++;
+    drawVersion++; frameBumps++;
     F = f;
     if (fade <= 0 && !staging) return;
     const st = store.get();
@@ -1216,7 +1219,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     glideAt = now;
     const st = store.get(), eased = easeP.step(F.Pf || F.P), since = sinceStep(st);
     const inks = model.inks;
-    drawVersion++;
+    drawVersion++; frameBumps++;
     model = lobuleStateInto(modelBuf, F, st, since.v, eased.v);
     noteLens(model.mode);
     model.inks = inks;
@@ -3812,8 +3815,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // Paused (dt 0), a pass is due only when something it reads changed: the model or the store (drawVersion less the camera's own bumps), the
     // theme or the styles' copy, the canvas's size, or the scale (the radii's tolerance follows it, never where the figure is). A pan alone
     // sends no colour, radius or flow, and the pass looks again every second in case a change came by a path that bumped none of them.
-    // Running, nothing changes: every frame of a moving camera still takes the pass, as before.
-    const ver = drawVersion - viewBumps, kq = Math.round(k * V.k * 1000);   // (the scale to a thousandth)
+    // Running, nothing changes: every frame of a moving camera still takes the pass, as before. The model's own frames do not count while it
+    // runs (frameBumps: two a display frame), or the pass would come every frame; its 80 ms clock and the real changes (a store set, a
+    // caliber still easing) wake it, and inks or radii that moved are sent then.
+    const ver = drawVersion - viewBumps - (dt > 0 ? frameBumps : 0), kq = Math.round(k * V.k * 1000);   // (the scale to a thousandth)
     const surfSame = ver === sVer && dark === sDark && cw === sCw && ch === sCh;
     const panOnly = dt === 0 && !rzMoving && !lensFrom && !!attrKey && !!radAll && bk === binKey && surfSame && kq === sK && cs === surfCs && now - lastSurface < 1000;
     if (panOnly && gpuProbe.on) gpuProbe.note(COUNTED.lobuleSkip);

@@ -9,7 +9,7 @@ const gl = src.slice(src.indexOf('function drawGL('), src.indexOf('const num = (
 
 test('the surface pass waits, paused, for the model, the theme, the canvas size or the scale, and looks again every second', () => {
   // (The key is kept as numbers, not built into a string each frame: the model's version, the theme, the canvas size and the scale to a thousandth.)
-  assert.match(gl, /const ver = drawVersion - viewBumps, kq = Math\.round\(k \* V\.k \* 1000\);/);
+  assert.match(gl, /const ver = drawVersion - viewBumps - \(dt > 0 \? frameBumps : 0\), kq = Math\.round\(k \* V\.k \* 1000\);/);
   assert.match(gl, /const surfSame = ver === sVer && dark === sDark && cw === sCw && ch === sCh;/);
   // (Where the figure is — V.x, V.y — is not in the key: a translation changes none of the radii's tolerance.)
   assert.doesNotMatch(gl.match(/const surfSame = .*/)[0] + gl.match(/const ver = .*/)[0], /V\.x|V\.y/);
@@ -48,4 +48,12 @@ test('the ductules are drawn by the GPU from one number list per lobule, made ag
   assert.doesNotMatch(f, /Path2D/, 'no paths for a 2D canvas');
   assert.match(src, /args\.ducts = m\.hide \? null : fxDuct\(\)\.nums;/);
   assert.doesNotMatch(src, /function paintFx\(|fxBoxes/);
+});
+
+test('running, the model\'s own frame bumps (update, the pressures\' glide) do not wake the surface pass every frame', () => {
+  assert.match(src, /function update\(f\) \{\n\s+drawVersion\+\+; frameBumps\+\+;/);
+  assert.match(src, /const inks = model\.inks;\n\s+drawVersion\+\+; frameBumps\+\+;/);
+  assert.equal([...src.matchAll(/frameBumps\+\+/g)].length, 2);
+  // (the store's '*' listener already skips a frame alone: 'frame' is in UNSEEN)
+  assert.match(src, /const UNSEEN = new Set\(\['frame',/);
 });
