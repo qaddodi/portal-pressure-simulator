@@ -5,7 +5,7 @@
 //                                                   a hepatic vein's a, S, v and D waves on the trace
 //   tool: { kind: 'scope' }                         the esophagus at this slide's varix state (endoscopy)
 //   tool: { kind: 'fibroscan' }                     liver stiffness, kPa (metrics.lsm)
-//   tool: { kind: 'fibroscan', organ: 'spleen' }    spleen stiffness on the 100 Hz spleen probe, kPa (metrics.ssm); no probe on the liver
+//   tool: { kind: 'fibroscan', organ: 'spleen' }    spleen stiffness on the 100 Hz spleen probe, kPa (metrics.ssm); the probe on the spleen
 //   tool: { kind: 'trace', range: 'talk' | 'beats' }
 //                                                   'talk' (default): portal, wedged and free hepatic pressures and the
 //                                                   HVPG at every slide so far, one point per state; 'beats': the live trace
@@ -135,7 +135,7 @@ export function createTools({ host, stage }) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
-      stage?.setScanProbe?.(k === 'fibroscan' && t.organ !== 'spleen');   // (the probe on the skin over the liver, where the reading comes from; none for the spleen's)
+      stage?.setScanProbe?.(k === 'fibroscan', t.organ === 'spleen' ? 'spleen' : 'liver');   // (the probe on the skin over the organ the reading comes from)
       if (k === 'doppler') {
         if (probe0 === undefined) { probe0 = store.get().frame?.probe ?? null; gate0 = store.get().dopGate; }
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });

@@ -474,7 +474,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   ];
   const panes = instruments.map((p) => {
     p.el.classList.remove('dock-pane'); p.el.classList.add('instrument-view');
-    return { ...p, el: h('section', { class: 'dock-pane', 'data-pane': p.id }, p.el) };
+    return { ...p, el: h('section', { class: 'dock-pane', 'data-pane': p.id }, p.head, p.el) };   // (head: an instrument's own switch row above its view, the FibroScan's Liver/Spleen)
   });
   const byId = Object.fromEntries(panes.map((p) => [p.id, p]));
   // ── The Instruments card ──────────────────────────
@@ -733,7 +733,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // Doppler, the scope view and Readouts fit too: on a Mac the card ends under its content instead of running empty to the
   // play bar (the Wall mechanics view keeps the full card). The scope's view is its second child, after the Scope view / Wall switch.
   const FIT = ['abdomen', 'hvpg', 'fibroscan', 'doppler', 'endoscopy', 'readouts'];
-  const fitView = (id) => (id === 'endoscopy' ? endoscopy.el : byId[id].el.firstElementChild);
+  const fitView = (id) => (id === 'endoscopy' ? endoscopy.el : byId[id].el.querySelector(':scope > .instrument-view') || byId[id].el.firstElementChild);   // (the view, after its switch row where it has one)
   let fitTimer = 0, fitKids = [];
   function fitHeight() {
     const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' && !(open[0] === 'endoscopy' && endoSub === 'wall') ? open[0] : null;

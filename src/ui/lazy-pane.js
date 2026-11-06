@@ -24,6 +24,7 @@ export function lazyPane({ id, label, handle, cls = '', history = 0, slim = (f) 
       inst = i;
       i.el.classList.remove('dock-pane'); i.el.classList.add('instrument-view');
       hole.replaceWith(i.el);
+      if (i.head) i.el.before(i.head);   // (its own switch row, above the view in the pane: the FibroScan's Liver/Spleen)
       past.pop();   // (the last frame is given whole, below)
       for (const f of past) i.ingest?.(f);
       if (last) i.ingest?.(last);

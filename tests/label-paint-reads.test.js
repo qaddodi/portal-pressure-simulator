@@ -12,7 +12,7 @@ test('the FibroScan probe never asks the browser for the liver\'s box', () => {
   const fn = body('scanTipLocal');
   assert.doesNotMatch(fn, /getBoundingClientRect|getBBox|getScreenCTM/);
   assert.match(fn, /polyBoxInto\(flattenPathInto\(d, 0\.05, SCAN_FLAT\)/);
-  assert.match(fn, /gMatrix\(organG\.liver\)/);
+  assert.match(fn, /gMatrix\(organG\[spl \? 'spleen' : 'liver'\]\)/);   // (the liver's, or the spleen's for the spleen probe)
   assert.match(fn, /(?:live\.)?CTM\.a \* wx \+ (?:live\.)?CTM\.c \* wy \+ (?:live\.)?CTM\.e - (?:live\.)?wrapRect\.left/);   // (the camera's matrix, as worldToLocal applies it)
 });
 

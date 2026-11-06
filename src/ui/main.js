@@ -520,11 +520,13 @@ let lastDesc = 0;
 // The Doppler's vessel glows on the figure while the Doppler instrument is open.
 function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpen('doppler') ? f.probe : null); syncScanProbe(); }
 // The FibroScan probe and its shear wave show on the figure while the FibroScan card is open in Explore; the Presenter drives its own.
-let scanOwned = false;
+let scanOwned = false, scanOrgan = 'liver';
 function syncScanProbe() {
-  const want = store.get().mode === 'explore' && !!dock?.isOpen('fibroscan') && fibroReading.organ !== 'spleen';   // (the probe sits on the liver: none for the spleen's exam)
+  const want = store.get().mode === 'explore' && !!dock?.isOpen('fibroscan');
   if (store.get().mode !== 'explore') { scanOwned = false; return; }
-  if (want !== scanOwned) { scanOwned = want; stage?.setScanProbe(want); }
+  // (The card's Liver/Spleen switch: the probe sits on the organ it reads.)
+  const organ = fibroReading.organ === 'spleen' ? 'spleen' : 'liver';
+  if (want !== scanOwned || (want && organ !== scanOrgan)) { scanOwned = want; scanOrgan = organ; stage?.setScanProbe(want, organ); }
 }
 // (The Tests card's Liver/Spleen switch, tapped: the probe comes off the liver for the spleen's exam, and back.)
 fibroReading.onOrgan = () => syncScanProbe();

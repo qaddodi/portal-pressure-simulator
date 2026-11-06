@@ -27,6 +27,7 @@ uniform float uN, uNB, uC, uT0;
 uniform vec2 uRes;          // the target's size in device px (the map's N × N, or a chart's whole canvas, stretched as the map was)
 uniform float uRad;         // its corners' radius in device px (0: square)
 uniform vec3 uCos, uSin;   // cos and sin of the three mixing phases
+uniform vec3 uLo, uHi;     // the map's colours, 0-255: the dark end, and what the brightest adds (the liver's orange, the spleen's violet)
 out vec4 o;
 float field(sampler2D g, float cell, float x, float y) {
   ivec2 gs = textureSize(g, 0);
@@ -57,7 +58,7 @@ void main() {
   float amp = (0.2 + 0.8 * arrive) * clamp(1.0 - max(s, 0.0) / 40.0, 0.12, 1.0) * clamp(1.2 - (depth - 20.0) / 110.0, 0.5, 1.0);
   float q = (s + 3.5) / 3.2, band = exp(-(q * q));
   float k = pow(clamp(0.76 + w * 0.32 * amp + (noise - 0.5) * 1.25 - band * 0.55, 0.0, 1.0), 1.5);
-  o = vec4((20.0 + 220.0 * k) / 255.0, (10.0 + 126.0 * k) / 255.0, (8.0 + 64.0 * k) / 255.0, 1.0);
+  o = vec4((uLo + uHi * k) / 255.0, 1.0);
 }`;
 
 // The map's pixels in the small target of elastogramUnder (at most), and the second pass that stretches it over the chart.
@@ -76,7 +77,8 @@ void main() {
   o = vec4(texture(uMap, gl_FragCoord.xy / uRes).rgb, 1.0);
 }`;
 
-const UNIS = ['uA1', 'uA2', 'uB1', 'uB2', 'uP1', 'uP2', 'uCell', 'uOffA', 'uOffB', 'uOffP', 'uN', 'uNB', 'uC', 'uT0', 'uCos', 'uSin', 'uRes', 'uRad'];
+const UNIS = ['uA1', 'uA2', 'uB1', 'uB2', 'uP1', 'uP2', 'uCell', 'uOffA', 'uOffB', 'uOffP', 'uN', 'uNB', 'uC', 'uT0', 'uCos', 'uSin', 'uRes', 'uRad', 'uLo', 'uHi'];
+const LIVER_LO = [20, 10, 8], LIVER_HI = [220, 126, 64];   // (fibroscan.js elastogramPixels: the checks' reference map is the liver's)
 const per = (v, P) => ((v % P) + P) % P;   // (a field's offset reduced by its own period)
 function setMap(gl, U, F, NB, t0, N, c, t) {
   const th1 = t * 1.3, th2 = t * 1.9 + 1, th3 = t * 2.3 + 2, flowY = t * 22, flowX = t * 9;
@@ -94,7 +96,7 @@ function setMap(gl, U, F, NB, t0, N, c, t) {
 /**
  * The map drawn inside another context: a chart drawer's own (trace-gl.js createTraceGL's `under`), so a FibroScan panel needs no
  * WebGL context of its own (a page holds only so many; past that the browser drops the oldest, the figure's). Returns
- * under(gl, W, H, gen): draws the map set by .set({ NB, t0, N, c, t, rad }) over the whole W × H target, its corners cut at rad device
+ * under(gl, W, H, gen): draws the map set by .set({ NB, t0, N, c, t, rad, lo?, hi? }) over the whole W × H target, its corners cut at rad device
  * px; its program and grids made in that context, again whenever gen changes (the context made again), compiled beside the page
  * (nothing drawn until then: .ready()).
  */
@@ -166,6 +168,8 @@ export function elastogramUnder(F) {
     for (let i = 0; i < G.tex.length; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, G.tex[i]); gl.uniform1i(G.U[UNIS[i]], i); }
     gl.uniform2f(G.U.uRes, mw, mh); gl.uniform1f(G.U.uRad, 0);
     setMap(gl, G.U, F, args.NB, args.t0, args.N, args.c, args.t);
+    const lo = args.lo || LIVER_LO, hi = args.hi || LIVER_HI;
+    gl.uniform3f(G.U.uLo, lo[0], lo[1], lo[2]); gl.uniform3f(G.U.uHi, hi[0], hi[1], hi[2]);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     for (let i = 0; i < G.tex.length; i++) { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, null); }
     // Pass 2: stretched over the chart, its corners cut.

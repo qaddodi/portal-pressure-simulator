@@ -18,13 +18,16 @@ export function createScan(st, live) {
   // line. Screen-space, at the liver's outline. Each tap (three a second) sends one shear wavefront: a soft arc that spreads and fades as
   // it crosses the liver. The true speed goes with √kPa (about 2.2× from 5 to 25 kPa); on screen it is exaggerated to
   // roughly linear in kPa (5× from 5 to 25) so the difference reads at a glance, easing to a new speed when the reading changes.
-  const scan = { on: false, el: null, raf: 0, deg: 45, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, leaving: false, headAt: 0 };   // k: the stiffness the callout shows, eased
+  // (organ: 'liver', or 'spleen' for the spleen probe (the FibroScan card's Spleen exam): the tip sits on the spleen's upper pole, and the
+  // waves' speed and the reading follow the spleen stiffness, metrics.ssm.)
+  const scan = { on: false, organ: 'liver', el: null, raf: 0, deg: 45, v: 0, fronts: [], next: 0, nextTap: 0, last: 0, k: null, leaving: false, headAt: 0 };   // k: the stiffness the callout shows, eased
   const SCAN_EDGE = 8, SCAN_TIP = [66, 48], SCAN_SPAN = 150, SCAN_EVERY = 1 / 3, SCAN_N = 12, SCAN_HALF = 0.5, SCAN_GAP = 6;   // three pulses a second, so several fronts are in flight at once
   // (The probe's numbers for the GPU layer that draws it, one kept record, eased where its classes and turn are set: scan-ease.js, L3 P9.)
   const scanRec = createScanRec();
   const scanEase = (k, to, dur) => { if (scanTo(scanRec, k, to, performance.now(), dur)) live.labelGL?.redraw(); };
   const scanOp = () => { const e = scan.el; scanEase('op', e && !e.classList.contains('cath-pre') && !e.classList.contains('off') ? 1 : 0, D_SURFACE); };
-  const scanSpeed = () => 35 * (clamp(live.F?.metrics?.lsm ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
+  const scanKpa = () => live.F?.metrics?.[scan.organ === 'spleen' ? 'ssm' : 'lsm'];
+  const scanSpeed = () => 35 * (clamp(scanKpa() ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
   function scanArc(r) {
     const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
     const p = (t) => `${(cx + r * Math.cos(t)).toFixed(1)} ${(cy + r * Math.sin(t)).toFixed(1)}`;
@@ -96,7 +99,7 @@ export function createScan(st, live) {
     const dt = scan.last && !reduceMotion.matches ? Math.min(0.1, (now - scan.last) / 1000) : 0; scan.last = now;
     const target = scanSpeed();
     scan.v = scan.v ? scan.v + (target - scan.v) * (1 - Math.exp(-dt / 0.6)) : target;   // ease to a new kPa
-    const lsm = live.F?.metrics?.lsm;
+    const lsm = scanKpa();
     if (Number.isFinite(lsm)) scan.k = scan.k == null || reduceMotion.matches ? lsm : scan.k + (lsm - scan.k) * (1 - Math.exp(-dt / 0.6));   // the callout's number eases too
     scanShow();
     if (!(now < scan.headAt)) { scan.headAt = now + 250; scanHead(); }
@@ -131,14 +134,14 @@ export function createScan(st, live) {
   const SCAN_FLAT = newFlat();   // (the liver's outline cut for the scan tip's box: kept, written again when the outline changes)
   const SCAN_AT = { tx: 0, y: 0 };
   function scanTipLocal() {
-    const lv = organEls.liver;
+    const spl = scan.organ === 'spleen', lv = organEls[spl ? 'spleen' : 'liver'];
     if (!scan.on || !lv || live.morph > 0.5) return null;
     const d = lv.getAttribute('d');
     if (!d) return null;
     if (d !== scanLvD) { scanLvD = d; polyBoxInto(flattenPathInto(d, 0.05, SCAN_FLAT), SCAN_BOX); scanLvBox = SCAN_BOX[2] >= SCAN_BOX[0] ? SCAN_BOX : null; }
     if (!scanLvBox) return null;
     // (The box's four corners go through the liver's transform and the camera one by one; the box that holds them is the answer, in one kept record.)
-    const m = gMatrix(organG.liver), bx0 = scanLvBox[0], by0 = scanLvBox[1], bx1 = scanLvBox[2], by1 = scanLvBox[3];
+    const m = gMatrix(organG[spl ? 'spleen' : 'liver']), bx0 = scanLvBox[0], by0 = scanLvBox[1], bx1 = scanLvBox[2], by1 = scanLvBox[3];
     if (!live.CTM) refreshCTM();
     let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
     for (let i = 0; i < 4; i++) {
@@ -146,7 +149,8 @@ export function createScan(st, live) {
       const p = live.CTM.a * wx + live.CTM.c * wy + live.CTM.e - live.wrapRect.left, q = live.CTM.b * wx + live.CTM.d * wy + live.CTM.f - live.wrapRect.top;
       if (p < l) l = p; if (p > r) r = p; if (q < t) t = q; if (q > b) b = q;
     }
-    SCAN_AT.tx = l + (r - l) * 0.13; SCAN_AT.y = t + (b - t) * 0.09;
+    // (The spleen's: on its upper pole, a third in from its inner edge, aimed down into the pulp.)
+    if (spl) { SCAN_AT.tx = l + (r - l) * 0.3; SCAN_AT.y = t + (b - t) * 0.1; } else { SCAN_AT.tx = l + (r - l) * 0.13; SCAN_AT.y = t + (b - t) * 0.09; }
     return SCAN_AT;
   }
   // The probe's reading is the FibroScan card's own number (fibroscan.js writes it in its frame, with its rounding) while a card
@@ -257,8 +261,13 @@ export function createScan(st, live) {
     scan.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
     scanRec.x = Math.round(x * 10) / 10; scanRec.y = Math.round(y * 10) / 10; scanRec.placed = true;   // (the place as written, for the GPU copy)
   }
-  function setScanProbe(on) {
-    if (scan.on === !!on) return;
+  /** on: the probe shows; organ: 'liver' (the default) or 'spleen', where it sits and what it reads. Changing the organ while it shows
+   *  moves it there and its reading eases to the other organ's. */
+  function setScanProbe(on, organ = 'liver') {
+    const o = organ === 'spleen' ? 'spleen' : 'liver';
+    if (scan.on === !!on && (!on || scan.organ === o)) return;
+    if (on && scan.on) { scan.organ = o; scan.k = null; scanLvD = ''; scanPaint(); return; }
+    if (on) scan.organ = o;
     scan.on = !!on;
     if (on) { scan.leaving = false; refreshCTM(); scanPaint(); return; }
     // The callout and its leader fade out with the probe, then go.
