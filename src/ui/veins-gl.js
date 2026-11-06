@@ -4352,7 +4352,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // The arrowheads as their own quads after this picture (blood-heads.js), where the program is ready and the vessels' axes are known;
       // not with a bleed, whose jets lie over the vessels and so over the heads.
       let quads = false;
-      if (headP && blood.chev && !bleeding && axisN > 0) {
+      // (Not on a one-pass frame, the zoom's: its vessel and composite halves are one shader and write no layer for the quads to read, so
+      // the heads there stay per-pixel, in the fused program. Without this the heads vanished while zooming and came back at rest.)
+      if (headP && blood.chev && !bleeding && !fused && axisN > 0) {
         if (headList.update(axisHas, bloodRow, tubeNow, ROW_W, flowSent, FLOW_TEXELS * 4)) {
           gl.bindBuffer(gl.ARRAY_BUFFER, headBuf);
           gl.bufferData(gl.ARRAY_BUFFER, headList.data(), gl.DYNAMIC_DRAW, 0, headList.count() * 3);

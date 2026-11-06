@@ -99,7 +99,8 @@ test('the quads place each head as chevOne does: the same spacing, fades and run
 test('the renderer draws the heads after the picture, again in a catheter box, and keeps still lumens only when that is exact', () => {
   const src = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   const comp = src.slice(src.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'));
-  assert.match(comp, /if \(headP && blood\.chev && !bleeding && axisN > 0\) \{/);
+  // (Never on a one-pass (zoom) frame: it writes no layer for the quads to read, so its heads stay per-pixel.)
+  assert.match(comp, /if \(headP && blood\.chev && !bleeding && !fused && axisN > 0\) \{/);
   assert.match(comp, /const stillUse = still && !\(quads && \(part \|\| dirt \|\| pool \|\| \(fl\?\.ripple && nFluid\) \|\| cathRect\)\);/);
   assert.ok(comp.indexOf('if (quads) drawHeads(m, layer, glow, warm, useStack, stillUse);') > comp.indexOf('UC.i1(U.bloodOnly, 1);'));
   assert.ok(comp.indexOf('if (quads) drawHeads(m, false, glow, warm, useStack, false);') < comp.indexOf("gpuProbe.time(gl, 'catheter', cathT);"));
