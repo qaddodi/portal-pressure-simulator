@@ -3220,7 +3220,7 @@ button.finding { cursor: pointer; }
 .instrument-workspace[data-state="peek"] .dock-head { height: 52px; }
 .instrument-workspace .dock-body { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; overflow: hidden; }
 .instrument-workspace .dock-body.split { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: hidden; }
-.instrument-workspace .dock-pane { position: relative; inset: auto; display: none; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; padding: 16px 20px 20px; container-type: inline-size; }
+.instrument-workspace .dock-pane { position: relative; inset: auto; display: none; min-height: 0; min-width: 0; overflow: hidden auto; touch-action: pan-y; overscroll-behavior: contain; padding: 16px 20px 20px; container-type: inline-size; }
 .instrument-workspace .dock-pane.active { display: flex; flex-direction: column; gap: 12px; animation: none; }
 .instrument-workspace .dock-body.split .dock-pane + .dock-pane { border-top: 0; border-left: 1px solid var(--hairline); }
 .instrument-view { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 20px; min-width: 0; }
@@ -4114,6 +4114,9 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .instrument-workspace .dock-body.stack .dock-pane + .dock-pane { border-left: 0; border-top: 1px solid var(--hairline); }
 .instrument-workspace .dock-pane.active { animation: fade-rise var(--d-flip) var(--ease); }
 .instrument-workspace .dock-pane.active.landed { animation: none; }   /* (swiped in: already in place, dock.js endSwipe) */
+/* (A test's pane scrolls up and down only, never sideways (Mohammad, 6 Nov, iPhone: "the test cards are scrolling right and left within the same card"): a little
+   overflow in the pane made it a sideways scroller, swipe.js ownsSideways then left a sideways swipe to the browser instead of the tab swipe, and the pane slid off
+   to the left. overflow-x hidden and touch-action pan-y keep it to the card's width; a box inside it that scrolls sideways on purpose (a table, the chips) keeps its own.) */
 /* The pane a tapped tab leaves fades out where it stood, over the new pane fading in (dock.js paneOut). */
 .instrument-workspace .dock-pane.pane-out:not(.active) { display: flex; flex-direction: column; gap: 12px; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 @container ws (max-width: 560px) {

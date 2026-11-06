@@ -671,7 +671,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // the live numbers cannot interrupt the scroll; it catches up as soon as the finger has gone.
   let touching = false, holdUntil = 0, catchUp = 0;
   const holding = () => touching || performance.now() < holdUntil;
-  body.addEventListener('scroll', () => { holdUntil = performance.now() + 200; }, { capture: true, passive: true });
+  // (A pane never sits scrolled sideways: overflow-x is hidden, so only the browser's own focus or scroll-into-view could move it, and it goes straight back.)
+  body.addEventListener('scroll', (e) => { holdUntil = performance.now() + 200; const t = e.target; if (t !== document && readMetric(t, 'scrollLeft')) t.scrollLeft = 0; }, { capture: true, passive: true });
   body.addEventListener('touchstart', () => { touching = true; }, { passive: true });
   for (const t of ['touchend', 'touchcancel']) body.addEventListener(t, () => { touching = false; holdUntil = performance.now() + 200; clearTimeout(catchUp); catchUp = setTimeout(refresh, 260); }, { passive: true });
   // Whether the card is displayed (offsetParent: not display: none), kept by an observer: read on every model frame, after
