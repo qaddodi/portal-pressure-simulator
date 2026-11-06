@@ -1825,7 +1825,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!card) return;
     if (!card.lifted) await until(() => cut() || card.lifted, 864e5);
     if (cut()) return;
+    // (The card is out of sight before the camera sets off. Its throw runs on the frame clock, and the camera's first frames, a dive into the
+    // sinusoid or the lobule, are long ones that hold it where it stood while the figure's glass leaves the canvas for the dive: the glass body
+    // gone, its shadow and words left standing over the move. Mohammad, 6 Nov 2026: "on slide 2 of ascites; after i hit keyboard right on the
+    // case card; the card disappears but the shadow and the text remains while the slide transitions to intra sinusoid". Its words are gone in
+    // the throw's first part (a fade over half of RAIL_MS on the rail's curve), a swipe's flight at its end: a few frames for a tap or a key.)
+    await until(() => cut() || !caseShows(card), RAIL_MS);
+    if (cut()) return;
     await until(() => cut() || stage.organsSettled(), CATH_SETTLE_MS);
+  }
+  // Whether a lifted card is still to be seen: its opacity is above a hair (a throw fades it out; a swipe's flight holds it, so it shows to the flight's end).
+  function caseShows(card) {
+    if (!card.flown) return false;
+    if (performance.now() >= card.flown) return false;
+    const o = parseFloat(card.c.style.opacity);
+    return !Number.isFinite(o) || o > 0.02;
   }
   // Once the slide is ready behind the card (patient in, camera landed): waits for the tap, then lifts the card whole before the slide's cards come in.
   async function caseEnd(cut) {

@@ -207,3 +207,13 @@ test('a press that changes slide (the slide list, a number, Back, Home, End) lif
   assert.ok(lift < go.indexOf('turn = '), 'before the move is set up');
   assert.ok(lift < go.indexOf('if (zoomOn())'), 'and before the zoomed-card branch returns');
 });
+
+test('the camera sets off for the slide only once a lifted case card is out of sight (6 Nov 2026: glass gone, shadow and words left over the dive)', () => {
+  const lifted = src.slice(src.indexOf('async function caseLifted('), src.indexOf('// Once the slide is ready behind the card'));
+  // Waits for the lift, then for the card to be gone (a throw's fade, a swipe's flight; at most one rail), then for the organs.
+  assert.match(lifted, /await until\(\(\) => cut\(\) \|\| !caseShows\(card\), RAIL_MS\);/);
+  assert.ok(lifted.indexOf('!caseShows(card)') < lifted.indexOf('stage.organsSettled()'));
+  const shows = src.slice(src.indexOf('function caseShows('), src.indexOf('function caseShows(') + 400);
+  assert.match(shows, /performance\.now\(\) >= card\.flown\) return false/);
+  assert.match(shows, /o > 0\.02/);
+});
