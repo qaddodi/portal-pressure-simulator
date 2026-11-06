@@ -4,7 +4,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PROCS, PROC_KINDS, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
+import { PROCS, PROC_KINDS, specOf, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { defaultParams } from '../src/engine/scenario.js';
 import { isOccluded } from '../src/engine/topology.js';
@@ -82,12 +82,12 @@ test('one the patient cannot have says why', () => {
   assert.ok(procBlocked('nope', p));
 });
 
-test('built-in slides use procedure only where adopted, each naming a known one', () => {
+test('built-in slides use procedure only where adopted, each naming a known one (a procedure, or a measurement such as EUS-PPG)', () => {
   for (const d of DECKS) for (const s of d.slides) {
     if (s.procedure == null) continue;
     assert.ok(adopted(d, s, 'procedure'), `${d.id}/${s.id} uses procedure without being listed in tests/deck-adopted.js`);
     const k = typeof s.procedure === 'string' ? s.procedure : s.procedure.kind;
-    assert.ok(PROCS[k], `${d.id}/${s.id}: unknown procedure ${k}`);
+    assert.ok(specOf(k), `${d.id}/${s.id}: unknown procedure ${k}`);
   }
 });
 

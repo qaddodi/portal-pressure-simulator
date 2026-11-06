@@ -62,6 +62,16 @@ export const HVPG = {
       ask: ['A patient with varices has a normal HVPG and a patent portal vein. Which reading finds the resistance, and where is it taken?', 'The PPG, read in the portal vein itself (at TIPS, transhepatically, or by an EUS-guided needle), upstream of the resistance.'],
     },
     {
+      // (EUS-PPG, played step by step as the TIPS is on the shunts talk: proc-anim.js MEASURES.eus. A measurement, so the model does not
+      // change; the callouts read the live left portal and left hepatic veins.)
+      id: 'eus', preset: 'schisto', procedure: 'eus', cam: 'liver', data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['ppg'],
+      kicker: 'Where HVPG misleads', site: 'presin', title: 'EUS-PPG reads the portal vein directly',
+      vignette: 'A 34-year-old woman who grew up by the Nile has bled from varices. Her liver tests are normal, her spleen is large and her HVPG was normal.',
+      line: 'An EUS-guided needle reads the portal and hepatic veins through the stomach. In schistosomiasis the gradient is high, near the PPG of {ppg}, while the HVPG is {hvpg}.',
+      notes: 'Press Next to step through it: the scope in, the portal vein, the hepatic vein, and the gradient. A linear echoendoscope in the proximal stomach images the left lobe; a 25-gauge needle crosses into the left portal vein, then into the left hepatic vein, each read with a compact manometer, and EUS-PPG is the portal minus the hepatic vein pressure from one needle in one session. Because the portal vein itself is read, it catches the presinusoidal resistance the wedge misses, here schistosomiasis, and porto-sinusoidal vascular disease the same way. It needs no catheter, no radiation and no contrast, and varices can be treated or a liver biopsy taken in the same session. It is read on the HVPG\'s cut-offs. Agreement with the HVPG in cirrhosis is good in early series, but EUS-PPG is not yet a standard of the guidelines, and it is done in expert centers under sedation, which can lower the readings.',
+      ask: ['Why can EUS-PPG find a pressure the HVPG misses?', 'It reads the portal vein itself, upstream of a presinusoidal resistance; the wedge reads only the sinusoids.'],
+    },
+    {
       id: 'heart', lens: 'heat', preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], tool: { kind: 'profile' }, data: 'tiles', tiles: ['whvp', 'fhvp'], key: ['fhvp', 'ra', 'hvpg'],
       kicker: 'Where HVPG misleads', site: 'cardiac', title: 'In heart failure every pressure is high',
       line: '[Wedged](whvp) {whvp} and [free](fhvp) {fhvp} pressures are both high, so HVPG is normal. The raised free pressure points to the heart.',

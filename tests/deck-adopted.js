@@ -28,6 +28,7 @@ export const ADOPTED = {
   'shunts/reasons': ['kind:criteria'],
   'shunts/check': ['kind:criteria'],
   'shunts/play': ['procedure'],
+  'hvpg/eus': ['procedure'],
   'shunts/heart': ['kind:profile', 'tool.from', 'tool.fromLabel'],
   'doppler/probe': ['tool.mode'],
   'doppler/hepatic': ['tool.mode'],
