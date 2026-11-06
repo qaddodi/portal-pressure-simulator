@@ -75,7 +75,9 @@ export const EUS_ROUTE = {
     r.box = [Math.min(...xs) - 16, Math.min(...ys) - 16, Math.max(...xs) + 16, Math.max(...ys) + 16];
     // (Each station's work, which its shot frames and the view follows: the scope's end there and its target, with room round them.)
     const work = (q, t) => [Math.min(q[0], t[0]) - RIGID * 2, Math.min(q[1], t[1]) - RIGID * 2, Math.max(q[0], t[0]) + RIGID * 2, Math.max(q[1], t[1]) + RIGID * 2];
-    r.work = { pv: work(end, r.tg.pv), hv: work(h, r.tg.hv) };
+    // (At the hepatic vein's, the portal vein's reading still shows: its target is framed too, so both readings stay in the free figure.)
+    const hw = work(h, r.tg.hv), pw = work(r.tg.pv, r.tg.pv);
+    r.work = { pv: work(end, r.tg.pv), hv: [Math.min(hw[0], pw[0]), Math.min(hw[1], pw[1]), Math.max(hw[2], pw[2]), Math.max(hw[3], pw[3])] };
   },
 };
 

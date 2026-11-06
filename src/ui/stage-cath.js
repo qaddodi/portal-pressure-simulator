@@ -618,7 +618,11 @@ export function createCath(st, live) {
       if (!side) { side = cathSideDef; side.above = el.dataset.at !== 'ahead'; side.dx = 0; }
       const half = w / 2;
       // Kept inside the stage: the box moves in and its pointer stays on the point.
-      const bx = clamp(x + side.dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2)), by = side.above ? y - PILL_GAP - h : y + PILL_GAP;
+      // (And inside the band the cards leave, top to bottom: a point under a card (a phone's teaching card over the figure's bottom) keeps
+      // its reading above the card, never over it, where it covered the card and its glass fell back to the page's: Mohammad, 6 Nov 2026,
+      // iPhone, EUS-PPG's PV reading.)
+      const bTop = Math.max(0, sp.t) + 6, bBot = Math.max(bTop, lim - 6 - h);
+      const bx = clamp(x + side.dx, Math.min(half + 8, W / 2), Math.max(W - half - 8, W / 2)), by = clamp(side.above ? y - PILL_GAP - h : y + PILL_GAP, bTop, bBot);
       let cx = bx, cy = by;
       if (ready) { const q = cathGlide(el, bx, by, x, y); cx = q[0]; cy = q[1]; } else el._gl = null;
       // Placed: it comes in there, from the frame after (the fade and small rise of cath-pre, never a slide from a first guess).
