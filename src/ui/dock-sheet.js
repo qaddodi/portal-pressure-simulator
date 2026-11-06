@@ -6,16 +6,16 @@
 //   - The release reads one set of numbers for cards and menus (ease.js SHEET_FLICK_MIN/FAR, SHEET_CLOSE_PX/SHARE, D_SMALL): the cards here, the
 //     menu sheets in util.js swipeSheet, and a vessel's or organ's card in card.js, on the same rules and the same 240 ms let-go.
 // Moved out of main.js unchanged but for the frame hold.
-import { $, isPhoneLayout, TABLET_UP_MQ } from './util.js';
+import { $, isPhoneLayout, TABLET_UP_MQ, holdCanvasSize, releaseCanvasSize, redrawSized } from './util.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
-import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL, EASE_ARRIVE } from './ease.js';
+import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
 import { restPass } from './rest-pass.js';
 import { classSoon } from './class-soon.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
 import { sheetDockVars } from './dock-vars.js';
-import { growProgress, itemAt, wordsOpacity, pullOffset } from './sheet-grow-math.js';
+import { growProgress, lerpAt, clipAt, r2, pullOffset } from './sheet-grow-math.js';
 
 const app = $('#app');
 const isPhone = isPhoneLayout;
@@ -66,117 +66,145 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   // rest. `lay`: the height the box is laid out at while it is held taller than it is drawn (0: its own, --sheet-size).
   sheetParts(el);
   let lay = 0;
-  // The chart grows with the finger (Menu system plan W3, option A; `grow`, the Tests card): while the pane is held at the size it is laid
-  // out at, each chart box in it is stretched by the compositor (scale, from its top edge) by what the card has grown since, and what
-  // follows it is moved down by the same. Words in the box are hidden meanwhile (not stretched). On a phone's sheet the chart fills what the
-  // card leaves it (app.css, "Tests in a narrow card": flex 1 1 0), so it grows by the card's own growth, split between the boxes; in the
-  // frame the sheet lands, when the pane is let go, laid out and drawn once at its true size, and these are taken off in the same task.
-  // A pull down from Full shrinks the same way. (Notes that come back at Full take some of that room: they appear at landing.)
-  let gr = null;   // { base: the card's height the pane is laid out at, share: the chart boxes the growth is split between, items: [[element, boxes above it, its height | 0 for a follower]], last }
-  const growArm = (base) => {
-    if (!grow || gr || !isPhone() || !thumb()) return;
-    const pane = el.querySelector('.dock-body .dock-pane.active');
-    if (!pane || readMetric(pane, 'scrollTop') > 0) return;
-    // (Every chart box, the square ones too (the scope's circle, the FibroScan map): a pane with only those grew nothing and popped at the landing.)
-    const boxes = [...pane.querySelectorAll('.chart-box')].filter((b) => readMetric(b, 'offsetHeight') > 0);   // alloc-rare: once for each gesture
-    if (!boxes.length) return;
-    const rects = boxes.map((b) => readBox(b));   // alloc-rare: once for each gesture
-    const items = [], seen = new Set();   // alloc-rare: once for each gesture
-    const above = (top) => rects.reduce((n, r) => n + (r.bottom <= top + 1 ? 1 : 0), 0);
-    // What is under a chart's foot moves down with it. A thing laid over the chart (the phone's Doppler: its readings, gauge and tiles are one grid laid
-    // over the monitor's box) or with no box of its own (display: contents) is not moved whole: what it holds that lies under the chart's foot is, so
-    // the box never grows behind tiles that stay where they were until the landing.
-    const follow = (s, i) => {
-      if (seen.has(s) || boxes.includes(s)) return;
-      const r = readBox(s);
-      if (r.height > 0 || r.width > 0) {
-        if (r.top >= rects[i].bottom - 1) { seen.add(s); items.push([s, above(r.top), 0, 0, 1, 1]); return; }   // alloc-rare: once for each gesture
-        if (r.bottom <= rects[i].bottom + 1) return;
-      }
-      for (const c of s.children) follow(c, i);
-    };
-    // (An item: [element, the boxes above it, its height if it is a chart box (0: it only moves), its move down, its height scale, its width scale].)
-    boxes.forEach((b, i) => {
-      items.push([b, above(rects[i].top), readMetric(b, 'offsetHeight'), 0, 1, 1]); seen.add(b);
-      for (let n = b; n && n !== pane; n = n.parentElement) for (let s = n.nextElementSibling; s; s = s.nextElementSibling) follow(s, i);
-    });
-    for (const it of items) if (it[2]) it[0].style.transformOrigin = '50% 0';
-    // (The words in a chart box (not drawn in its picture) are not stretched with it: they fade out as the pull begins and back in at the landing.)
-    const words = [];   // alloc-rare: once for each gesture
-    for (const b of boxes) for (const c of b.children) if (c.tagName !== 'CANVAS') words.push(c);
-    gr = { base, items, words, share: boxes.filter((b) => !b.classList.contains('square')).length, last: NaN, gt: 0 };
-    gr.gt = probeFinal(pane);
-    if (!gr.gt && !gr.share) { gr = null; return; }   // (nothing measured and no chart to split the growth between: it grows nothing, as before)
-    if (!gr.gt) for (const it of items) if (it[0].classList.contains('square')) it[2] = 0;   // (a square box is not stretched by the old split)
-    el.classList.add('sheet-grow');
-    el.classList.toggle('sheet-hide-words', !gr.gt);
+  // The chart grows with the finger (Menu system plan W3, option A; `grow`, the Tests card on a phone). A pull between Half and Full lays the card
+  // out once, at Full, for the whole gesture (the box is that tall anyway, the content held down by the offset), and where Half and Full each put
+  // every part of the open pane is read once, as the pull begins. Each frame then draws every part where it is between the two, by how far the
+  // card's drawn height has gone from Half's to Full's (sheet-grow-math.js): a chart is drawn by the GPU at its in-between size (its canvas's
+  // size is held, util.js holdCanvasSize, and the chart drawn again, trace-gl.js redrawSized: its words and lines at their own size, never a
+  // stretched picture) and cut to it by a clip; whatever is not a chart is moved by translate, and what only Full shows (the notes) fades in
+  // with the pull. At Half's height the card is the Half card exactly and at Full's the Full card, so the landing changes nothing: no pop.
+  // (6 Nov 2026. It replaces a pane held at its Half size whose chart boxes were scaled by the compositor: the pictures and their words
+  // stretched, the end was guessed by a probe, and the charts were drawn at their true size only some frames after the landing.)
+  let gr = null;   // { pane, half0, A: Half's or the first layout's places, hA, pending, items, hH, hF, last }
+  const growOK = () => grow && isPhone() && thumb();
+  const NOT_PART = 'canvas.trace-gl, canvas.glw-cv, canvas.wgl';   // (a chart's GPU picture and a readout's: they ride their host)
+  // Where every part of the pane is laid out now, from the pane's own corner (so the card's offset counts for nothing).
+  const placesOf = (pane) => {
+    const pr = readBox(pane), m = new Map();   // alloc-rare: twice for each gesture
+    let n = 0;
+    for (const e of pane.querySelectorAll('*')) {
+      if (++n > 900) break;   // (a pane is a few hundred parts at most)
+      if (e.ownerSVGElement) continue;   // (inside a drawing: it moves with the drawing)
+      const r = readBox(e);
+      m.set(e, { x: r.left - pr.left, y: r.top - pr.top, w: r.width, h: r.height });   // alloc-rare: once for each part, twice for each gesture
+    }
+    return m;
   };
-  // The pull's end is laid out once, here, before the first frame of the pull and never painted: the pane is given the room of the stop the pull is
-  // headed for (Full from Half, Half from Full) and the notes that come with it (the Half class off or on, the pane's own height for the container
-  // rules, the card's plot and square sizes), and where each chart and each thing under it lands is read, then everything is put back. The pull then
-  // moves each one from where it is to where it will be by the share of the way the card has grown (growTo), so the content grows with the finger and
-  // the landing has nothing left to jump.
-  // Returns the card's growth to that stop (px; 0: not measured, growTo splits the growth between the charts as before).
-  const probeFinal = (pane) => {
-    const body = pane.closest('.dock-body'), S = stops(), idx = size === S.length - 1 ? half() : S.length - 1;
-    if (!body || idx === size || idx < 0 || !gr) return 0;
-    const r = room(), target = r ? S[idx] * r : S[idx] * readMetric(app, 'clientHeight'), gt = target - gr.base;
-    if (Math.abs(gt) < 8) return 0;
-    const items = gr.items, was = el.classList.contains('sheet-half'), prev = body.style.height, bh = readMetric(body, 'offsetHeight');
-    const pv = el.style.getPropertyValue('--plot-h'), sv = el.style.getPropertyValue('--square-size'), dv = sheetDockVars(target, isPhone());
-    const pt = readBox(pane).top, cur = items.map((it) => readBox(it[0]));   // alloc-rare: once for each gesture
-    body.style.height = `${bh + gt}px`; el.classList.toggle('sheet-half', thumb() && idx === half());
+  const stopPx = (i) => { const S = stops(), r = room(); return r ? Math.round(S[i] * r) : S[i] * readMetric(app, 'clientHeight'); };
+  // The look a stop gives the pane: Half hides the longer words, and the plot and square sizes follow the card's height (as commit writes them).
+  const stopLook = (isHalf, px) => {
+    el.classList.toggle('sheet-half', isHalf);
+    const dv = sheetDockVars(px, true);
     el.style.setProperty('--plot-h', `${dv.plot}px`); el.style.setProperty('--square-size', `${dv.square}px`);
-    const pt1 = readBox(pane).top;
-    let ok = true;
-    items.forEach((it, i) => {
-      const f = readBox(it[0]), c = cur[i];
-      if (!(f.width > 0 || f.height > 0)) { it[3] = 0; it[4] = 1; it[5] = 1; return; }   // (a thing the stop hides keeps its place)
-      it[3] = (f.top - pt1) - (c.top - pt);
-      it[4] = it[2] && c.height > 0 ? f.height / c.height : 1;
-      it[5] = it[2] && c.width > 0 ? f.width / c.width : 1;
-      if (!Number.isFinite(it[3]) || !Number.isFinite(it[4]) || !Number.isFinite(it[5]) || it[4] <= 0 || it[5] <= 0) ok = false;
-    });
-    body.style.height = prev; el.classList.toggle('sheet-half', was);
-    for (const [k, v] of [['--plot-h', pv], ['--square-size', sv]]) { if (v) el.style.setProperty(k, v); else el.style.removeProperty(k); }
-    return ok ? gt : 0;
+  };
+  const painted = (cs) => (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) > 0 || cs.backgroundImage !== 'none' || !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) || cs.boxShadow !== 'none';
+  // The parts of `node` the pull moves, Half's places `A`, Full's `B`, under the part `par` (its index, -1 for the pane), `l0` the shift at Half of
+  // the part before (what a part only Full shows rides with); returns that shift after its last part.
+  const partsIn = (node, par, A, B, items, l0x, l0y) => {
+    let lx = l0x, ly = l0y;
+    for (const c of node.children) {
+      if (c.tagName === 'CANVAS') continue;   // (a chart's canvases are its chart's: drawn at its size, never moved on their own)
+      const a = A.get(c), b = B.get(c);
+      if (!b || !(b.w > 0 || b.h > 0)) {   // (not shown at Full: nothing to draw; a part with no box of its own, display: contents, holds parts that are)
+        if (c.firstElementChild) { const l = partsIn(c, par, A, B, items, lx, ly); lx = l[0]; ly = l[1]; }
+        continue;
+      }
+      // (An item: the part, the one it rides in, its two places, its shift at Half, what it is, and what it wore before the pull.)
+      const it = { el: c, par, a, b, dx: lx, dy: ly, kind: 'move', clip: false, rad: 0, cv: null, cx: 0, cy: 0, still: false, was: [c.style.translate, c.style.opacity, c.style.clipPath] };   // alloc-rare: once for each part, for each gesture
+      if (!a || !(a.w > 0 || a.h > 0)) { it.kind = 'appear'; items.push(it); continue; }
+      it.dx = a.x - b.x; it.dy = a.y - b.y; it.still = Math.abs(it.dx) < 0.01 && Math.abs(it.dy) < 0.01;
+      const same = Math.abs(a.w - b.w) < 0.5 && Math.abs(a.h - b.h) < 0.5, i = items.length;
+      items.push(it);
+      lx = a.x - b.x; ly = a.y + a.h - (b.y + b.h);
+      if (c.classList.contains('chart-box')) {
+        it.kind = 'chart'; it.clip = !same; it.rad = parseFloat(readStyle(c).borderTopLeftRadius) || 0;
+        it.cv = [];   // alloc-rare: once for each chart, for each gesture
+        for (const cv of c.querySelectorAll('canvas')) {
+          if (cv.matches(NOT_PART)) continue;
+          const ca = A.get(cv), cb = B.get(cv);
+          if (ca && cb && ca.w > 0 && ca.h > 0 && cb.w > 0 && cb.h > 0) it.cv.push([cv, ca.w, ca.h, cb.w, cb.h]);   // alloc-rare: once for each chart canvas
+        }
+        partsIn(c, i, A, B, items, it.dx, it.dy);   // (the words and buttons over a chart keep their own places in it)
+        continue;
+      }
+      if (same || typeof SVGElement !== 'undefined' && c instanceof SVGElement || !c.firstElementChild) continue;
+      // (A part that holds others and is laid out at another size: it moves to its in-between corner and what it holds is placed in it; it is cut
+      // to its in-between size only where it shows a box of its own.)
+      it.kind = 'box'; const cs = readStyle(c); it.clip = painted(cs); it.rad = parseFloat(cs.borderTopLeftRadius) || 0;
+      partsIn(c, i, A, B, items, it.dx, it.dy);
+    }
+    return [lx, ly];   // alloc-rare: once for each part that holds others, for each gesture (the shift at Half of the foot of the last part)
+  };
+  // The pull begins: where the parts are laid out now is read before the box is made taller (growLaid reads the rest once it is).
+  const growBegin = () => {
+    if (gr || !growOK()) return false;
+    const pane = el.querySelector('.dock-body .dock-pane.active');
+    if (!pane || readMetric(pane, 'scrollTop') > 0) return false;   // (a pane scrolled down is held at its size, as before)
+    gr = { pane, half0: el.classList.contains('sheet-half'), A: placesOf(pane), hA: readMetric(el, 'offsetHeight'), pending: true, items: null, hH: 0, hF: 0, last: NaN };   // alloc-rare: once for each gesture
+    return true;
+  };
+  // The box is as tall as the gesture needs (Full's height): the pane takes Full's look and is laid out there for the gesture, Half's places are
+  // read (from the start, or laid out once and put back), and the parts are drawn where the card is now.
+  const growLaid = () => {
+    if (!gr || !gr.pending) return;
+    gr.pending = false;
+    const S = stops(), iF = S.length - 1, iH = half(), fullPx = stopPx(iF);
+    stopLook(false, fullPx);
+    gr.hF = readMetric(el, 'offsetHeight');
+    const B = placesOf(gr.pane);
+    let A = gr.A;
+    if (gr.half0) gr.hH = gr.hA;
+    else {
+      const prev = el.style.height, halfPx = stopPx(iH);
+      el.style.height = `${halfPx}px`; stopLook(true, halfPx);
+      gr.hH = readMetric(el, 'offsetHeight');
+      A = placesOf(gr.pane);
+      el.style.height = prev; stopLook(false, fullPx);
+    }
+    gr.A = null;
+    const items = [];   // alloc-rare: once for each gesture
+    partsIn(gr.pane, -1, A, B, items, 0, 0);
+    gr.items = items;
+    el.classList.add('sheet-grow');   // (the pane's own transitions held off: every frame of the pull is set by the finger, app.css)
+    drawAt(gr.half0 ? 0 : 1);
+  };
+  // Every part where it is at p (0 Half, 1 Full).
+  const drawAt = (p) => {
+    gr.last = p;
+    const items = gr.items, q = 1 - p;
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i], up = it.par >= 0 ? items[it.par] : null;
+      it.cx = it.dx * q; it.cy = it.dy * q;
+      const st = it.el.style;
+      if (!(it.still && (!up || up.still))) { const tx = r2(it.cx - (up ? up.cx : 0)), ty = r2(it.cy - (up ? up.cy : 0)); st.translate = tx || ty ? `${tx}px ${ty}px` : it.was[0]; }
+      if (it.kind === 'appear') st.opacity = p < 1 ? String(p) : it.was[1];
+      if (it.clip) st.clipPath = p < 1 ? clipAt(it.b.w, it.b.h, lerpAt(it.a.w, it.b.w, p), lerpAt(it.a.h, it.b.h, p), it.rad) : it.was[2];
+      if (it.cv) for (const [cv, aw, ah, bw, bh] of it.cv) { holdCanvasSize(cv, r2(lerpAt(aw, bw, p)), r2(lerpAt(ah, bh, p))); redrawSized(cv); }
+    }
   };
   const growTo = (off) => {
-    if (!gr) return;
-    const G = (lay || gr.base) - off - gr.base;
-    if (gr.gt) {
-      // (the share of the way to the stop the pull is headed for, 0 where it is now, 1 at the stop: each chart and what is under it is that far
-      // from where it is laid out to where it will be laid out)
-      const p = growProgress(G, gr.gt);
-      if (p === gr.last) return;
-      gr.last = p;
-      for (const [e, , hb, dy, k, kx] of gr.items) {
-        const a = itemAt(dy, kx, k, p);
-        e.style.translate = dy ? `0px ${a.ty}px` : '';
-        if (hb) e.style.scale = `${a.sx} ${a.sy}`;
-      }
-      const o = wordsOpacity(p);
-      for (const w of gr.words) w.style.opacity = o < 1 ? String(o) : '';
-      return;
-    }
-    const ga = Math.round(G / gr.share * 4) / 4;
-    if (ga === gr.last) return;
-    gr.last = ga;
-    for (const [e, n, hb] of gr.items) {
-      e.style.translate = n ? `0px ${n * ga}px` : '';
-      if (hb) e.style.scale = `1 ${Math.max(0.2, (hb + ga) / hb)}`;
-    }
+    if (!gr || !gr.items) return;
+    const p = growProgress((lay || gr.hF) - off, gr.hH, gr.hF);
+    if (p !== gr.last) drawAt(p);
   };
-  const growOff = () => {
-    if (!gr) return;
-    for (const [e, , hb] of gr.items) { e.style.translate = ''; if (hb) { e.style.scale = ''; e.style.transformOrigin = ''; } }
-    // (Words that were faded out come back by a fade, not a pop.)
-    for (const w of gr.words) if (w.style.opacity !== '') { w.style.opacity = ''; w.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+  // The parts given back what they wore, in the task the card lands in; each chart's canvas is told the size the landing lays it out at, so
+  // no frame draws it at another (toHalf: the card lands at Half).
+  const growOff = (toHalf) => {
+    const g = gr;
+    if (!g) return;
     gr = null;
-    el.classList.remove('sheet-grow', 'sheet-hide-words');
+    if (!g.items) return;
+    el.classList.remove('sheet-grow');
+    for (const it of g.items) {
+      const st = it.el.style;
+      st.translate = it.was[0];
+      if (it.kind === 'appear') st.opacity = it.was[1];
+      if (it.clip) st.clipPath = it.was[2];
+      if (it.cv) for (const [cv, aw, ah, bw, bh] of it.cv) releaseCanvasSize(cv, toHalf ? aw : bw, toHalf ? ah : bh);
+    }
   };
-  // Holds the pane at the size it is laid out at (once for a gesture), before the box is made taller.
-  const hold = () => { if (held.has(el)) return; const base = readMetric(el, 'offsetHeight'); holdFrame(el); growArm(base); };
+  // Holds the pane at the size it is laid out at (once for a gesture), before the box is made taller; the Tests card on a phone grows instead.
+  const hold = () => { if (held.has(el) || gr) return; if (growBegin()) return; holdFrame(el); };
   const natural = () => {
     if (!fit || !isPhone() || el.hidden) return Infinity;
     const cs = readStyle(el);
@@ -204,7 +232,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     el.classList.toggle('sheet-half', thumb() && size === half());
     if (thumb() && isPhone()) { const dv = sheetDockVars(pxOf(v), true); el.style.setProperty('--plot-h', `${dv.plot}px`); el.style.setProperty('--square-size', `${dv.square}px`); }   // (what dock.js writes once the card has its height: written with it, so nothing changes after the landing)
     el.style.setProperty('--sheet-size', v);
-    releaseFrame(el); growOff();
+    releaseFrame(el); growOff(thumb() && size === half());
     el.style.height = ''; lay = 0;
     setSheetOffset(el, 0);
   };
@@ -215,7 +243,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     if (!glide || !isPhone() || reduceMotionMQ.matches) { stopSheet(el); commit(v); return; }
     const h1 = pxOf(v), H = Math.max(h0, h1);
     if (Math.abs(h1 - h0) < 1) { stopSheet(el); commit(v); return; }
-    if (lay !== H) { stopSheet(el); hold(); el.style.height = `${H}px`; lay = H; setSheetOffset(el, H - h0); }
+    if (lay !== H) { stopSheet(el); hold(); el.style.height = `${H}px`; lay = H; growLaid(); setSheetOffset(el, H - h0); }
     glideSheet(el, H - h1, { easing, done: () => commit(v), frame: growTo });
   };
   const drawnHeight = () => (lay || readMetric(el, 'offsetHeight')) - sheetOffset(el);
@@ -261,6 +289,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     el.style.height = `${H}px`; lay = H;
     start.box = readMetric(el, 'offsetHeight');   // (as laid out: the stylesheet's cap may hold it lower)
     lay = start.box;
+    growLaid();   // (the Tests card: Full's look and places, read now that the box is Full's height)
     // (Where the finger has taken the card by now, as the moves after it draw it: it was put back to where it began, and the first move after
     // jumped it by what the finger had gone before the capture came.)
     const at = pullOffset(start.box, start.h, start.dy || 0);
@@ -280,7 +309,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
       // (Held where it is drawn: the pull's number (dragSheet, below, this same move) takes over from the ease's end value at once.)
       stopSheet(el); el._sheetOff = start.off0;
       if (!start.phone) start.mv = moverOf(el, 'translate', 'xy', true);   // alloc-rare: once, at the pull's first move
-      if (grow && start.full && start.phone) hold();   // (from Full the pane is held at Full size: a pull down shrinks the chart with the finger)
+      if (grow && start.full && start.phone) { hold(); growLaid(); }   // (from Full the pane is held at Full size: a pull down shrinks the chart with the finger)
       el.setPointerCapture?.(e.pointerId);   // (only once it moves: captured at once, a tap's click would land on the sheet, not the grabber)
     }
     classSoon(el, 'dragging', true);
@@ -355,11 +384,11 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     if (frac < (s0.thumb ? 0.4 : SIZES[0] * 0.7)) { onClose(); return; }
     size = S.reduce((best, v, i) => (Math.abs(v - frac) < Math.abs(S[best] - frac) ? i : best), 0);
     const v = sizeValue(), h1 = pxOf(v);
-    if (h1 > box + 1) { stopSheet(el); hold(); el.style.height = `${h1}px`; lay = h1; setSheetOffset(el, h1 - drawn); }
+    if (h1 > box + 1) { stopSheet(el); hold(); el.style.height = `${h1}px`; lay = h1; growLaid(); setSheetOffset(el, h1 - drawn); }
     const B = lay || box, to = Math.max(0, B - h1);
     glideSheet(el, to, { easing: carryCurve(speed, to - (el._sheetOff || 0), D_SMALL), done: () => commit(v), frame: growTo });
   };
   el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end); el.addEventListener('lostpointercapture', (e) => { if (e.target === el) end(e); });   // (not a child's: a touch is first captured by what is under the finger, and handing the capture to the sheet at 6 px ends that one, which bubbles up here)
   // (Opening sizes the sheet at once: it never comes in at the last size it had and shrinks into place, and the figure frames once.)
-  return { open: () => { if (isPhone()) { size = half(); stopSheet(el); commit(sizeValue()); } }, closed: () => { stopSheet(el); setSheetOffset(el, 0); el.style.translate = ''; cancelMoves(el); releaseFrame(el); growOff(); el.style.height = ''; lay = 0; el.style.clipPath = ''; } };
+  return { open: () => { if (isPhone()) { size = half(); stopSheet(el); commit(sizeValue()); } }, closed: () => { stopSheet(el); setSheetOffset(el, 0); el.style.translate = ''; cancelMoves(el); releaseFrame(el); growOff(true); el.style.height = ''; lay = 0; el.style.clipPath = ''; } };
 }

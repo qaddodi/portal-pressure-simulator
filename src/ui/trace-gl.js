@@ -17,7 +17,7 @@
 // the GPU can (publish). ?tracegl=0 keeps every chart undrawn.
 
 import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling } from './gl-compile.js';
-import { canvasSize, fitCanvas, onCanvasSized } from './util.js';
+import { canvasSize, fitCanvas, onCanvasSized, onCanvasResized, noteDrawer, redrawSized } from './util.js';
 import { sdfAtlas, displayCovers, DISPLAY_FROM } from './text-gl.js';   // (the app's one door to GPU text: its SDF atlas, for text that changes every frame)
 import { notePass, hold } from './gpu-budget.js';
 import { fontOf, measure } from './glyph-measure.js';
@@ -373,7 +373,8 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   let unsized = null;   // (the size subscription's release, called by dispose)
-  if (redraw && host && typeof ResizeObserver !== 'undefined') unsized = onCanvasSized(host, redraw);
+  let unresized = null;   // (and a new size of a box it had: a chart whose own loop is idle (FibroScan while paused) is drawn again at it, between frames)
+  if (redraw && host && typeof ResizeObserver !== 'undefined') { unsized = onCanvasSized(host, redraw); unresized = onCanvasResized(host, () => redrawSized(host)); }
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 1;
@@ -842,7 +843,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         gl.clearStencil(0); gl.stencilMask(0xff);
       }
       if (!shown && (canvas.width !== Wd || canvas.height !== Hd)) { canvas.width = Wd; canvas.height = Hd; }   // (a shared chart's canvas takes the buffer's size from the hand-over)
-      W = Wd; H = Hd; K = Wd / w;
+      W = Wd; H = Hd; K = Wd / w; api.drawnW = w; api.drawnH = h;
       gl.viewport(0, 0, W, H);
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
       if (shown) { gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, W, H); }   // (only the chart's own W x H of the larger buffer is cleared)
@@ -1229,7 +1230,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     dispose() {
       if (dead) return;   // (idempotent: the listeners, the size subscription and the atlas wait are let go once)
       dead = true; stopPoll?.(); clearTimeout(parkT); seen?.disconnect();
-      unsized?.(); unsized = null;
+      unsized?.(); unsized = null; unresized?.(); unresized = null;
       if (redraw) waiting.delete(redraw);
       glCanvas.removeEventListener?.('webglcontextlost', onLost); glCanvas.removeEventListener?.('webglcontextrestored', onRestored);
       freeOwn();
@@ -1247,6 +1248,8 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     },
   };
   const shim = createShim(api);
+  api.drawnW = 0; api.drawnH = 0;   // (the CSS size its last frame began at: redrawSized)
+  if (redraw) noteDrawer(host, api, redraw);
   return api;
 }
 

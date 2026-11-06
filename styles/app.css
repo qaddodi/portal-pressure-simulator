@@ -4458,10 +4458,9 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
   .panel .panel-head { touch-action: none; border-radius: 0; }
 }
 
-/* The Tests chart grows with the finger (dock-sheet.js, W3): while the pane is held, the stretched boxes and what moves down with them may
-   pass the pane's held edge, and the words in a stretched box (not stretched, but hidden) wait for the landing, where it is drawn once. */
-.instrument-workspace.sheet-grow :is(.dock-body, .dock-pane) { overflow: visible; }
-.instrument-workspace.sheet-grow.sheet-hide-words .chart-box:not(.square) > :not(canvas) { opacity: 0; }   /* (only where the pull was not measured: otherwise each fades with the pull, dock-sheet.js growTo) */
+
+/* The Tests card's pull (dock-sheet.js): every part of the pane is placed by the finger, frame by frame, so none of them eases on its own meanwhile. */
+#app .instrument-workspace.sheet-grow .dock-pane.active * { transition: none; }
 
 /* Findings: what has been changed, with its value; a tap on × takes it back. */
 .chg-list { display: flex; flex-direction: column; }
@@ -6698,7 +6697,6 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   #app.thumb [data-pane="hvpg"] .hvpg-bar > .btn { order: 1; margin-left: auto; min-height: 36px; padding-inline: 12px; }
   #app.thumb [data-pane="hvpg"] > .chart-side { order: 3; }
   #app.thumb .instrument-workspace.sheet-half [data-pane="hvpg"] > .chart-side { display: none; }
-  #app.thumb .instrument-workspace:not(.sheet-half) [data-pane="hvpg"] > .chart-side { animation: fade-rise var(--d-flip) var(--ease); }   /* (the steps and words come in at the landing of a pull to Full by a fade, not a pop) */
   /* Doppler: the reading, the flow's direction and the waveform's name in the monitor's top strip, as on a slide's data card
      (doppler.js reads --dop-ov); the gauge and the tiles under the monitor. */
   #app.thumb .instrument-view.dop .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto auto; row-gap: 0; }
@@ -6721,7 +6719,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   #app.thumb .instrument-view.dop .dop-stats { grid-row: 4; grid-column: 1 / -1; margin: 8px -2px 0 -2px; }
   /* The one-line reading of the pattern is under the tiles only at Full (it is dropped at Half to keep the monitor's room). */
   #app.thumb .instrument-view.dop .dop-note { display: none; grid-row: 5; grid-column: 1 / -1; margin: 8px -2px 0; font-size: var(--fs-14); color: var(--text-2); }
-  #app.thumb .instrument-workspace:not(.sheet-half) .instrument-view.dop .dop-report > .dop-note:not(:empty) { display: block; animation: fade-rise var(--d-flip) var(--ease); }   /* (it comes in at the landing of a pull to Full by a fade, not a pop) */
+  #app.thumb .instrument-workspace:not(.sheet-half) .instrument-view.dop .dop-report > .dop-note:not(:empty) { display: block; }   /* (it fades in with a pull to Full, dock-sheet.js) */
 }
 /* (Tests card on a phone) the neighbouring tab's pane, shown beside the open one while a sideways drag pages between them. */
 .dock-pane.swipe-peer { display: flex; flex-direction: column; gap: 16px; animation: none; }

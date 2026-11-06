@@ -1406,9 +1406,38 @@ export function onCanvasSized(canvas, f) {
 // 1 Nov 2026: no layout read in a frame.)
 // (The answer is a record each canvas keeps and writes in place, read by its caller at once, as it is: { w, h, W, H, dpr }.)
 const sizeOf = new WeakMap();
+// (A size held from outside, over what the observer reports: the Tests card's pull draws each chart at the size the finger has reached while the
+// card is laid out once at its Full size (dock-sheet.js). Its record is written in place: { width, height } in CSS px.)
+const heldSizes = new WeakMap();
+/** Draws `canvas` at w × h CSS px, whatever its box is, until releaseCanvasSize. */
+export function holdCanvasSize(canvas, w, h) {
+  let r = heldSizes.get(canvas);
+  if (!r) heldSizes.set(canvas, r = { width: 0, height: 0 });   // alloc-rare: once per canvas, at a pull's start
+  r.width = w; r.height = h;
+}
+/** Lets go of a held size; `w` × `h`, when given, is the box the canvas is about to have (as noteBox), so no frame draws it at a stale size. */
+export function releaseCanvasSize(canvas, w, h) {
+  if (!heldSizes.delete(canvas)) return;
+  if (w > 0 && h > 0) noteBox(canvas, w, h);
+}
+// (A chart's canvas -> its GPU drawer and its redraw (trace-gl.js notes them as it makes a drawer): redrawSized draws again a chart whose last
+// frame was drawn at another size than the one held for it.)
+const drawers = new WeakMap();
+/** trace-gl.js: `api` draws `canvas`'s chart (api.drawnW/H: the CSS size its last frame began at), `redraw` draws it again. */
+export function noteDrawer(canvas, api, redraw) { drawers.set(canvas, { api, redraw }); }   // alloc-rare: once for each chart, as its drawer is made
+/** Draws `canvas`'s chart again now if its last frame was at another size than canvasSize gives it; true when it asked for one. */
+export function redrawSized(canvas) {
+  const d = drawers.get(canvas);
+  if (!d) return false;
+  const z = canvasSize(canvas);
+  if (!(z.w >= 1 && z.h >= 1) || (Math.abs(z.w - d.api.drawnW) < 0.25 && Math.abs(z.h - d.api.drawnH) < 0.25)) return false;
+  try { d.redraw(); } catch (e) { setTimeout(() => { throw e; }); }
+  return true;
+}
 export function canvasSize(canvas) {
   let r = boxes.get(canvas);
   if (!r) { boxes.set(canvas, { width: 0, height: 0 }); boxObserver.observe(canvas); r = boxes.get(canvas); }   // alloc-rare: a canvas met for the first time (an observer may report its box at once, so it is read back)
+  r = heldSizes.get(canvas) || r;
   // The instruments (Doppler, FibroScan, the HVPG tracing, scope, wall, charts) at the screen's own density, up to 3x: a 3x iPhone drew
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
   // (A card zoomed up draws its charts denser, but not past about 3 million pixels: the shared GPU canvas is made again at the new size, and a
