@@ -2673,6 +2673,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       R.nl = nl; R.nc = nc; R.nz = zoneBoxes.length; R.cards = cards; R.ix = 8 + 4 * lk - hx; R.iy = 8 + 4 * lk - hy;
       follow.ride = R;
     }
+    // (A call-out's ring on, the buffer above is not filled, but a hand's zoom still carries the labels by ride(), which moves the call-out too: the flag must stand,
+    // or a pinch laid every label out in full on every frame there, and they jumped between slots. 6 Nov 2026.)
+    if (!follow.ride) follow.ride = follow.rideBuf;
     // (Every label's letters where it lands, for the leaders to keep off.)
     const inks = LC.inks;
     let nInk = 0;
