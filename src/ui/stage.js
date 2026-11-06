@@ -4,7 +4,6 @@
 import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
-import { N_STATIONS, STATIONS, stationsAt } from './station-boxes.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
 import { RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
@@ -839,15 +838,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // tinted zones, --accent at .09 for the lit one); rot: its turn from the vessels' (mapTurn); fx: the lit zone's fade (stepMap).
   const MAP = { a: 0, dot: [0, 0, 0, 0], zone: [0, 0, 0, 0], fx: [0, 0, 0, 0], alt: [0, 0, 0, 0], fxX: [0, 0], rot: [1, 0, 0, 0], fxOn: false, fxU: 0, fxCol: [0, 0, 0] };
   CIRCUIT_ZONES.filter((z, i) => i % 2).forEach(([, x0, x1], j) => { MAP.alt[2 * j] = x0; MAP.alt[2 * j + 1] = x1; });
-  // The organs' stations (station-boxes.js), drawn with the map: each box's centre and half sizes (stA), corner radius and alphas (stB) and
-  // tone (stC), written in place each frame of the change (stationsSync) and with the theme.
-  MAP.stA = new Float32Array(4 * N_STATIONS); MAP.stB = new Float32Array(4 * N_STATIONS); MAP.stC = new Float32Array(4 * N_STATIONS); MAP.stN = N_STATIONS;
-  let stTone = null;   // (orgTone, once the outlines are made below)
-  function stationsSync(t) {
-    const T = circTurn(t);
-    stationsAt(t, nodePos, T.on ? T.rr : 0, MAP.stA, MAP.stB);
-    for (let i = 0; i < N_STATIONS; i++) { const c = (stTone && stTone(STATIONS[i].org)) || MAP.zone; MAP.stC[4 * i] = c[0]; MAP.stC[4 * i + 1] = c[1]; MAP.stC[4 * i + 2] = c[2]; }
-  }
 
   // Each organ is drawn as a medical plate draws it, lit from the upper left:
   //   ambient occlusion where it meets the body wall (a soft dark edge outside it),
@@ -1126,7 +1116,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const tx = toRGB('var(--text)', cs), ac = toRGB('var(--accent)', cs), bg = toRGB('var(--stage-bg)', cs);
     for (let i = 0; i < 3; i++) { MAP.zone[i] = tx[i]; MAP.fx[i] = ac[i]; }
     MAP.zone[3] = 0.028; MAP.fx[3] = 0.09 * easeArrive(MAP.fxU);
-    stationsSync(lastMorph);   // (the stations' tones with the theme)
     for (let i = 0; i < 3; i++) if (nd.fill[i] !== bg[i] || nd.ring[i] !== tx[i]) { nd.fill[i] = bg[i]; nd.ring[i] = tx[i]; nd.dirty = true; }
   }
   // The lit zone's fade (in on the arrive ease, out the same way) and each dot's (the move ease), a surface step each, on the frame's time.
@@ -1677,7 +1666,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The hover link (below): the reading label under the pointer or with keyboard focus, what it lit, and the labels lifted.
   let linkPtr = null, linkKbd = null, linkEdge = null, linkOrgan = null, linkLit = new Set();
 
-  const { collOpen, easeInOut, edgeVisible: edgeVisible$, findingHidden, recruitFrac, setViewBox: setViewBox$, shownFrac, strandAt, updateGeometry, varixHeld, vesselAt: vesselAt$ } = createFrame({ CIRC_C, EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, cbAt, circTurn, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, stationsSync, svg, vbBox, wiggle }, live);
+  const { collOpen, easeInOut, edgeVisible: edgeVisible$, findingHidden, recruitFrac, setViewBox: setViewBox$, shownFrac, strandAt, updateGeometry, varixHeld, vesselAt: vesselAt$ } = createFrame({ CIRC_C, EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, cbAt, circTurn, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, svg, vbBox, wiggle }, live);
   function edgeVisible(...a) { return edgeVisible$(...a); }   // <stage-split stub>
   function setViewBox(...a) { return setViewBox$(...a); }   // <stage-split stub>
   function vesselAt(...a) { return vesselAt$(...a); }   // <stage-split stub>
@@ -1923,7 +1912,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
 
   const { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals: holdReversals$, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit: startExit$, stentMesh, stepFluid, stepReveals: stepReveals$, trackChanges: trackChanges$, updateFocus, updateNodesCircuit: updateNodesCircuit$, updateOrganSel, updateOrgans, venousSync } = createTransitions({ E, EI, EV, FLUID_COLS, FLUID_R, JUMP_MMHG, MAP, ND_PER, ND_SEG, NI, SEL_DIM, abdTo, anyReveal, arcMid, ascitesLine, ascitesPath, ascitesSvg, caud, clampW, clampWOut, collOpen, defs, diaCut, divideLen, drawFrame, easeInOut, edgeVisible, findingHidden, flag, flank, gBackdrop, gFx, gFxC, gOver, geo, haloEls, hidePlate, late, liveOn, liverR, liverTint, lv, morphLiver, nd, nextFrame, nodeDots, nodePos, organEls, organG, ov, plateOn, platePoke, pointAt, putA, qP, readFrame, recruitFrac, refreshCTM, resTheme, routeCustomShunts, setGlowSrc, setReveal, spleenMv, spot, svg, syncOrganMasks, syncVeins, themeKey, toRGB, update, updateGeometry, waist, wrap, wrapCls }, live);
-  stTone = orgTone;
   function trackChanges(...a) { return trackChanges$(...a); }   // <stage-split stub>
   function startExit(...a) { return startExit$(...a); }   // <stage-split stub>
   function stepReveals(...a) { return stepReveals$(...a); }   // <stage-split stub>

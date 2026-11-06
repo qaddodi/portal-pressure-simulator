@@ -1105,11 +1105,6 @@ uniform vec4 mapDot, mapZone, mapFx;   // straight rgb and alpha: the grid's dot
 uniform vec4 mapAlt;                   // the two tinted zones' x spans (world)
 uniform vec2 mapFxX;                   // the lit zone's x span
 uniform vec4 mapRot;                   // cos, sin of the map's turn from the vessels' (it turns upright at once, never with the morph), its centre
-// The organs' stations (station-boxes.js): each a rounded box in the vessels' own world (it rides the figure, not the map's turn), its centre
-// and half sizes (stA), its corner radius, fill alpha and outline alpha (stB.xyz) and its tone (stC.rgb, straight). Drawn over the map's
-// grid and zones with their own alpha, never the map's (mapA): they form inside the organs as the change begins.
-uniform vec4 stA[8], stB[8], stC[8];   // (at most 8: station-boxes.js has 7)
-uniform int stN;
 uniform int blood;                     // 1: draw the blood
 uniform int chev;                      // 1: flow chevrons on top (dark; orange where flow is reversed, cream on an orange vessel)
 uniform int chevQuad;                  // 1: the chevrons are drawn by their own quads after this pass (blood-heads.js), not tested here on every lumen pixel
@@ -1175,25 +1170,7 @@ vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
 // The circuit's map at world point w, premultiplied (see mapA). The grid: a dot of radius 0.9 every 20 units (at 10, 10 in each square),
 // its alpha by the frame it lies in (MAP_STEPS: how far outside the figure's frame, the larger of the two axes); under a pixel's size a dot
 // keeps its area (wider, fainter), as the browser's antialiasing had it. Then the tinted zones and the lit zone over it, edges a pixel soft.
-vec4 stationsAt(vec2 w) {
-  vec4 c = vec4(0.0);
-  for (int i = 0; i < 8; i++) {
-    if (i >= stN) break;
-    vec4 a = stA[i], b = stB[i];
-    if (b.y <= 0.0 && b.z <= 0.0) continue;
-    vec2 q = abs(w - a.xy) - a.zw + b.x;
-    float d = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - b.x;   // (signed distance to the rounded box, world units)
-    if (d > 2.0 * pxW + 2.0) continue;
-    float fill = clamp(0.5 - d / pxW, 0.0, 1.0) * b.y;
-    float rw = max(1.1, pxW);
-    float ring = clamp(0.5 - (abs(d) - 0.5 * rw) / pxW, 0.0, 1.0) * b.z;
-    vec4 f = over(vec4(stC[i].rgb * ring, ring), vec4(stC[i].rgb * fill, fill));
-    c = over(f, c);
-  }
-  return c;
-}
 vec4 mapAt(vec2 w) {
-  vec4 st = stN > 0 ? stationsAt(w) : vec4(0.0);
   w = vec2(mapRot.x * (w.x - mapRot.z) - mapRot.y * (w.y - mapRot.w), mapRot.y * (w.x - mapRot.z) + mapRot.x * (w.y - mapRot.w)) + mapRot.zw;
   float e = max(max(30.0 - w.x, w.x - 1370.0), max(30.0 - w.y, w.y - 730.0));
   float op = e <= 0.0 ? 0.9 : e <= 200.0 ? 0.7 : e <= 450.0 ? 0.5 : e <= 750.0 ? 0.3 : e <= 1100.0 ? 0.15 : e <= 1500.0 ? 0.06 : 0.0;
@@ -1210,7 +1187,7 @@ vec4 mapAt(vec2 w) {
     float f = clamp(min(w.x - mapFxX.x, mapFxX.y - w.x) / pxW + 0.5, 0.0, 1.0) * iy * mapFx.a;
     c = over(vec4(mapFx.rgb * f, f), c);
   }
-  return over(st, c * mapA);
+  return c * mapA;
 }
 // The octaves' shares of the shimmer's noise (0.62 coarse, 0.38 fine), set per vessel by bloodAt: with the streaks' length following the
 // vessel's speed (lenOn) the fine octave's share falls toward 0 for a fast vessel (its streaks run long) and rises for a slow one (short
@@ -2575,7 +2552,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // as drawn, as a pixel with no lumen is. `moved`: the rows changed since the last picture drawn (every setter marks the rows it
   // changes; movedAll: assume all did); stillSig: that picture's uniforms (sigOf).
   const moved = new Uint8Array(nTubes), movedUp = new Float32Array(nTubes * 4).fill(-1);
-  let movedAll = true, stillSig = null, sigNow = new Float64Array(448), texVer = 0, dyeSent = null;
+  let movedAll = true, stillSig = null, sigNow = new Float64Array(320), texVer = 0, dyeSent = null;
   let sn = 0, stillN = 0;
   // (One value at a time, taken in the order they were listed: a rest list made an array for each call.)
   const sg = (v) => {
@@ -4428,7 +4405,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         UC.i1(U.noChevN, ncN);
         UC.fv4(U.chevHole, hb); UC.fv1(U.chevHoleR, hr); UC.i1(U.chevHoleN, hoN);
         UC.f1(U.mapA, map ? map.a : 0);
-        if (map) { UC.f4a(U.mapDot, map.dot); UC.f4a(U.mapZone, map.zone); UC.f4a(U.mapFx, map.fx); UC.f4a(U.mapAlt, map.alt); UC.f2a(U.mapFxX, map.fxX); UC.f4a(U.mapRot, map.rot); if (map.stA) { UC.fv4(U.stA, map.stA); UC.fv4(U.stB, map.stB); UC.fv4(U.stC, map.stC); } UC.i1(U.stN, map.stA ? map.stN : 0); }
+        if (map) { UC.f4a(U.mapDot, map.dot); UC.f4a(U.mapZone, map.zone); UC.f4a(U.mapFx, map.fx); UC.f4a(U.mapAlt, map.alt); UC.f2a(U.mapFxX, map.fxX); UC.f4a(U.mapRot, map.rot); }
       }
       const U = prg.u;
       // The still lumens (see moved): only in the blood's own pass, with no bleed (whose spray and pool move with
@@ -4444,7 +4421,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       sg(blood.inkLight || INK_LIGHT); sg(blood.inkDark || INK_DARK); sg(ncv); sigNow[sn++] = +(ncN) || 0; sg(hb); sg(hr); sigNow[sn++] = +(hoN) || 0; sigNow[sn++] = +(layer) || 0; sigNow[sn++] = +(glow) || 0; sigNow[sn++] = +(warm) || 0; sigNow[sn++] = +(useStack) || 0; sigNow[sn++] = +(bare) || 0; sigNow[sn++] = +(texVer) || 0;
       sigNow[sn++] = halfOn ? 1 : 0;   // (the half-size streaks pass is on or off: a lumen drawn the other way is drawn again)
       sigNow[sn++] = quads ? 1 : 0;   // (the arrowheads drawn by their quads or by the composite: a lumen drawn the other way is drawn again)
-      sigNow[sn++] = map ? map.a : 0; if (map) { sg(map.dot); sg(map.zone); sg(map.fx); sg(map.alt); sg(map.fxX); sg(map.rot); if (map.stA) { sg(map.stA); sg(map.stB); sg(map.stC); sigNow[sn++] = map.stN; } }
+      sigNow[sn++] = map ? map.a : 0; if (map) { sg(map.dot); sg(map.zone); sg(map.fx); sg(map.alt); sg(map.fxX); sg(map.rot); }
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;
       const still = !full && !movedAll && !bl.length && same;
