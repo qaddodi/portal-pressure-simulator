@@ -25,8 +25,9 @@ import { LOOK_SITE, varixHold, varixOpacity, varixSize, varixSpreadK, varixWidth
 import { TUBE_TEXELS } from './veins-gl.js';
 
 import { stageScope } from './stage-scope.js';
-// How much finer an arterioportal shunt is drawn than an artery branch of its caliber (a small communication, not a second branch).
-const AP_FINE = 0.8;
+// How much finer an arterioportal shunt is drawn than an artery branch of its caliber (a small communication, not a second branch;
+// 0.8 still read as a branch, 6 Nov). Its lumen is fainter too (stage-vessels.js colPass).
+const AP_FINE = 0.6;
 export function createTubes(st, live) {
   const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, keptNow, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
   let glAtUpdate = false;   // (whether the GPU drew the figure at the last full update: the steps between take only that state)
@@ -369,7 +370,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
       let w = lerp(wA, wC, t);
       // (Both ends of the change kept, for the stretches' joins: a vessel's width between the views, widthRatio. Under the flow layer the width ignores the view.)
-      // (An arterioportal shunt is a small branch: a fifth finer than the artery branch it leaves, AP_FINE.)
+      // (An arterioportal shunt is a small branch: finer than the artery branch it leaves, AP_FINE.)
       const artK = e.shunt === 'ap' ? AP_FINE : 1;
       x.wAn = x.isArt ? Math.max(1.8, vesselPx(D) * 0.5 * artK) : mode === 'flow' ? 1 : wA; x.wCi = x.isArt ? 3 * artK : mode === 'flow' ? 1 : wC;
       // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.

@@ -3620,9 +3620,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       case 'in': return lerp(R * 0.015, R * 0.009, i / (N - 1)) / (1 + 0.45 * m.fibPre);
       case 'pv': return R * 0.042 / (1 + 0.35 * m.fibPre);
       case 'cv': return R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost);
-      case 'ha': return Math.max(1.6, R * 0.014 * clamp(m.art, 0.6, 2.2) ** 0.3);
+      case 'ha': return Math.max(1.6, R * 0.0115 * clamp(m.art, 0.6, 2.2) ** 0.3);   // (the triad's smallest vessel: 0.014 read as a big red bulb, 6 Nov)
       case 'bd': return Math.max(1.6, R * 0.0145);
-      case 'tw': return Math.max(1.1, R * 0.0055 * clamp(m.art, 0.6, 2.2) ** 0.3);
+      // The arteriole's twig into zone 1 is a fine, faint thread (6 Nov: at 0.0055 it read as a thick red bar; see TW_ALPHA).
+      case 'tw': return Math.max(0.8, R * 0.0026 * clamp(m.art, 0.6, 2.2) ** 0.3);
       // Lymphatics widen as drainage rises (capped, so the tract lymphatic never swamps the triad).
       case 'ly': return Math.max(1.1, g.rs0 * 0.5 * lyWr(m.lr, 0.45)) * lyTaper(t.rho[i]);   // the space of Disse fills and widens; tapers toward the central vein
       case 'lt': return Math.max(1.5, R * 0.0075 * lyWr(m.lr, 0.4));
@@ -3652,10 +3653,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   const LY_TMP = [0, 0, 0];   // (the lymph's colour, written in place for each drawGL pass to read at once)
   // The triad's outlines: dark blue, red and green (the venule, arteriole and ductule), against the common casing.
-  const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], tw: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
+  const EDGE = { pv: [0.12, 0.27, 0.58], in: [0.12, 0.27, 0.58], ha: [0.55, 0.1, 0.16], bd: [0.27, 0.29, 0.12] }, BD_FILL = [0.48, 0.5, 0.24];   // bile: a dark, dull olive
   // Radius (in lobule radii) inside which the sinusoid outlines stop: the central vein's edge.
   const CV_STOP = 0.14;
-  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.9, ly: 0.5, lt: 0.8, lv: 1.1 };
+  const TW_ALPHA = 0.45;   // the arteriole's twig, faint: zone 1's arterial inflow is a hint beside the portal inflow, not a second vessel
+  const WALL = { s0: 0.8, s1: 0.85, s2: 0.9, an: 0.7, in: 1.5, pv: 2, cv: 1.6, sh: 1.1, ha: 1.7, bd: 1.8, tw: 0.5, ly: 0.5, lt: 0.8, lv: 1.1 };
   // Weight of the inlet's value at a radius along the sinusoids (1 at the lobule's edge, 0 at the central vein).
   const sinW = (rho) => clamp((rho - 0.075) / (0.92 - 0.075), 0, 1) ** 0.8;
   const qP = (v) => Math.round(v * 2) / 2;
@@ -3754,7 +3756,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akP = 0, akF = 0, akDark = null, akArt = '';
   const LYD = [0, 0, 0], DISSE_DEEP = [0.79, 0.86, 0.74], DISSE_DEEP_DARK = [0.62, 0.7, 0.58];
   const NO_BLOOD = Object.freeze({});
-  const Z_OF = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.6, ha: 0.7 };
+  const Z_OF = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.2, ha: 0.7 };   // (the twig runs under the inlet venule and the lymphatic it crosses, so it slips into the sinusoid instead of lying over them)
   // The picture is drawn again when its size or transform moved a hundredth of a pixel (the same comparison as the string it replaces).
   const drawSame = (cw, ch, T) => {
     if (drawKey === '' || cw !== dW || ch !== dH) return false;
@@ -3886,7 +3888,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         for (let p = 0; p < live.length; p++) {
           const t = live[p];
           const o = t.id * TUBE_TEXELS * 4, isArt = t.kind === 'ha' || t.kind === 'tw', isBd = t.kind === 'bd';
-          const alpha = (isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
+          const alpha = (t.kind === 'tw' ? TW_ALPHA : isArt ? 0.9 : 1) * (selIdsN.size && !selIdsN.has(t.id) ? 0.55 : 1);
           const big = t.kind === 'pv' || t.kind === 'cv' || t.kind === 'in';
           // The triad's three vessels carry a dark outline of their own colour; the rest the common casing.
           const edge = EDGE[t.kind];

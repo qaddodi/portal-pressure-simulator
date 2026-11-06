@@ -712,7 +712,7 @@ export function createVessels(st, live) {
         // Coloring the blood by origin: the lumen steps back to a quiet grey so the parcels' colors read.
         if (originMode) c0 = c1 = ORIGIN_LUMEN;
       }
-      let alpha = x.isArt ? 0.85 : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
+      let alpha = x.isArt ? (x.e.shunt === 'ap' ? 0.55 : 0.85) : kind === 'c' ? clamp(2 * T0 - 1, 0, 1) : kind === 's' || kind === 'f' ? (obj.live ?? 1) * clamp(1 - 2 * T0, 0, 1) : 1;
       const sinStrand = kind === 's' && SIN_EDGES.has(id);
       const tier = x.lifted && !x.back ? (x.front ? TIER_LIFT_FRONT : TIER_LIFT) : x.isArt ? TIER_ART : levelTier(x);
       // The network recedes to netA with a vessel selected (the lifted tier and the vessels behind the organs are not faded as a
