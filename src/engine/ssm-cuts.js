@@ -13,13 +13,17 @@
 // 70 and over in decompensated disease, and the probe's ceiling of 100. Pre-hepatic and presinusoidal disease (portal or splenic
 // vein thrombosis, schistosomiasis) read high with a soft liver, because the spleen sees the portal pressure the liver does not.
 //
-// FOR SIGN-OFF (the guideline PDFs are not in the project; taken from Baveno VIII summaries, Echosens and WGO, 2025-26):
-// - ruleIn: Baveno VIII, cACLD, 100 Hz probe: SSM ≥55 kPa (Echosens's wording) or >55 kPa (WGO's) rules CSPH in. The decks say >55.
-// - spareScope: SSM <40 kPa spares the screening endoscopy in a patient not on a beta-blocker.
-// - resolved: after the cause is removed, LSM <10 kPa, or LSM <15 kPa with SSM <25 kPa, makes CSPH unlikely.
+// Checked against Baveno VIII (J Hepatol 2026, the statements and Figs. 1 and 2) and AASLD 2024, 6 Nov 2026:
+// - ruleIn: 1.16c, cACLD of any cause: "SSM (100 Hz) >55 kPa" establishes CSPH (Figs. 1 and 2 print it as ≥55; the statement's >55 is used).
+// - spareScope: 1.19, a patient who cannot take a beta-blocker skips the screening EGD at SSM <40 kPa (or LSM <20 kPa with platelets
+//   ≥150). In PSVD/NCPF, SSM >40 kPa is a specific sign of portal hypertension (8.44), and EGD is not needed at SSM <40 kPa with a
+//   bilirubin <1 mg/dL (8.47).
+// - resolved, resolvedLsm: 7.19b, recompensated cirrhosis: LSM <15 kPa plus SSM <25 kPa may rule CSPH out (LoE 4, weak).
 // - Baveno VIII gives no SSM rule-out of its own. Baveno VII's (50 Hz probe, viral hepatitis) were <21 kPa to rule out and
 //   >50 kPa to rule in; kept here as BAVENO7_SSM for the notes, not drawn as zones.
-// - normal: a healthy spleen's reading on the 100 Hz probe, about 15 to 20 kPa in published controls; the model's is 17.
+// - AASLD 2024: above an HVPG of 10 mmHg SSM correlates with the HVPG better than LSM; neither has a role in monitoring the HVPG
+//   (so the model's SSM following a beta-blocker is physiology, not a test of response).
+// - normal: a healthy spleen's reading on the 100 Hz probe, about 15 to 20 kPa in published controls (not a guideline number); the model's is 17.
 export const SSM_CUTS = Object.freeze({ ruleIn: 55, spareScope: 40, resolved: 25, resolvedLsm: 15, normal: 17, max: 100 });
 export const BAVENO7_SSM = Object.freeze({ ruleOut: 21, ruleIn: 50 });
 
