@@ -765,15 +765,20 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const LZ_CARRY_MAX = 3;
   // (The share of the view the hand's whole frames are drawn at, about the screen's middle: 1/0.8 = 25 % more world, 12.5 % of the screen on every side.)
   const LZ_MARGIN_S = 0.8;
+  let flowLiveAt = 0;   // (when the blood and arrowheads were last moved under a hand)
   const realV = { on: false, k: 1, x: 0, y: 0 };
   const marginOK = () => handOn() && fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging;
   // fn run with the lobule's view set to the margin view (and put back after, whatever fn does): what draws reads V, and V stays the hand's everywhere else.
+  function withView(vk, vx, vy, fn) {
+    const k = V.k, x = V.x, y = V.y;
+    realV.on = true; realV.k = k; realV.x = x; realV.y = y;   // (the carry's map, shareMap, is the hand's view, not the one drawn for, should the draw present inside)
+    V.k = vk; V.x = vx; V.y = vy;
+    try { fn(); } finally { V.k = k; V.x = x; V.y = y; realV.on = false; }
+  }
   function withMargin(on, W, H, fn) {
     if (!on) { fn(); return; }
-    const k = V.k, x = V.x, y = V.y, s = LZ_MARGIN_S;
-    realV.on = true; realV.k = k; realV.x = x; realV.y = y;   // (the carry's map, shareMap, is the hand's view, not the margin one, should the draw present inside)
-    V.k = k * s; V.x = W / 2 - s * (W / 2 - x); V.y = H / 2 - s * (H / 2 - y);
-    try { fn(); } finally { V.k = k; V.x = x; V.y = y; realV.on = false; }
+    const s = LZ_MARGIN_S;
+    withView(V.k * s, W / 2 - s * (W / 2 - V.x), H / 2 - s * (H / 2 - V.y), fn);
   }
   const frozenOK = (W, H, dpr, dark) => drawnV.ok && !glDirty && fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && handOn()
     && drawnV.W === W && drawnV.H === H && drawnV.dpr === dpr && drawnV.dark === dark && !!gl && !gl.lost && !!gl.target?.w
@@ -2936,6 +2941,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (frz) {
       frozenDraw = true;
       if (!frozenT) frozenT = setTimeout(frozenEnd, 120);
+      // (The flow keeps moving under the hand: the blood and the arrowheads are the cheap pass over the vessel layer drawn as it stands, for the view it was drawn for
+      // (drawGL finds that view unchanged and only composites), then carried to the hand's view with it. 6 Nov 2026, Mohammad: "the chevrons and blood stop when I pan and zoom".)
+      // (At most about 20 times a second, so the hand's own move keeps the screen's rate: the pass is the one a lobule at rest draws on every frame.)
+      const nowF = performance.now();
+      if (dt > 0 && nowF - flowLiveAt >= 48) { flowLiveAt = nowF; withView(drawnV.k, drawnV.x, drawnV.y, () => drawGL(W, H, dpr, dark, cs, dt)); }
       shareTop.present();
       return true;
     }
