@@ -24,6 +24,45 @@ export const displaySpeed = (v) => { const a = Math.abs(v); return a < 0.25 ? 0 
 // The time-averaged mean velocity the blood and the chevrons follow (TAMV): the engine's 1.5 s flow filter, then this one, so the
 // beat is gone and the breath's swing is down to a twelfth; a reversed vessel's sign is the mean's (a hepatofugal one runs backwards).
 export const MEAN_TAU = 3;
+/**
+ * The flow over the last whole breath (6 Nov 2026): what the chevrons' mean starts from. The model's 1.5 s flow (Qf) still swings with the
+ * 4 s breath, by three times in a slow vein (the left liver's inflow in Budd–Chiari ran 2.5 to 7 display units a breath, even through
+ * MEAN_TAU), so its chevrons slowed, dimmed and their links broke with every breath: an average over exactly one breath takes the breath
+ * out whole (the engine's respiration is a 4 s sine: engine.js computeExt), and the beat with it but for a few per cent.
+ * createBreathMean(n): step(q, t) takes each model frame's flows q (n of them) at model time t and returns `mean`, each flow's average
+ * over the BREATH_S before t (trapezoids between frames). A clock that stood still or went back (a disease-clock day, a new patient, Undo)
+ * or leapt more than a second starts the average afresh from q. Kept in place: nothing allocated after it is made.
+ */
+export const BREATH_S = 4;
+export function createBreathMean(n, span = BREATH_S, slots = 256) {
+  const T = new Float64Array(slots), C = new Float64Array(slots * n), Q = new Float64Array(n), mean = new Float64Array(n);   // alloc-rare: once per stage
+  let head = -1, count = 0;
+  return {   // alloc-rare: once per stage
+    mean,
+    step(q, t) {
+      const tl = count ? T[head] : NaN;
+      if (!(t > tl) || t - tl > 1) {
+        head = 0; count = 1; T[0] = t;
+        for (let k = 0; k < n; k++) { C[k] = 0; Q[k] = mean[k] = q[k]; }
+        return mean;
+      }
+      const h0 = head;
+      head = (head + 1) % slots; count = Math.min(count + 1, slots);
+      T[head] = t;
+      const dt = t - tl, o = head * n, o0 = h0 * n;
+      for (let k = 0; k < n; k++) { C[o + k] = C[o0 + k] + dt * 0.5 * (Q[k] + q[k]); Q[k] = q[k]; }
+      // The oldest kept frame at or before t − span (or the oldest kept), and the one after it: the window's start between them.
+      const t0 = t - span;
+      let a = (head - count + 1 + slots) % slots;
+      for (let i = 1; i < count; i++) { const b = (a + 1) % slots; if (T[b] > t0) break; a = b; }
+      const b = (a + 1) % slots, ta = T[a], tb = T[b];
+      const f = ta >= t0 ? 0 : (t0 - ta) / (tb - ta), ts = ta >= t0 ? ta : t0, w = t - ts;
+      const oa = a * n, ob = b * n;
+      for (let k = 0; k < n; k++) mean[k] = w > 0 ? (C[o + k] - (C[oa + k] + f * (C[ob + k] - C[oa + k]))) / w : q[k];
+      return mean;
+    },
+  };
+}
 // Parcels per display second per mL/s of flow.
 export const KAPPA = 0.4;
 // Slot spacing along a lane (world units); the shader doubles it (×2, ×4) when zoomed out so
@@ -696,6 +735,13 @@ export function bleedShapes(bleed, rate, sites) {
 
 /** Ends this close (world units) count as one junction; speed ratios beyond these do not chain. */
 export const CHAIN_NEAR = 20, CHAIN_RATIO = 2, CHAIN_B_MAX = 3;
+/**
+ * Hysteresis (6 Nov 2026, "the chevrons randomly fade away and new ones appear in new places"): a link that holds lets go only once its
+ * speed ratio and its B are CHAIN_HOLD times beyond the bounds a new link must be inside, and a parent gives way only to an inflow that
+ * carries CHAIN_SWAP times its flow. Without it a hepatic vein whose speed sat near half its liver bed's (cirrhosis) crossed the bound
+ * with every breath: its heads faded out, the bed's ran in at other places, and four seconds later back again (stage-blood chainRows).
+ */
+export const CHAIN_HOLD = 1.5, CHAIN_SWAP = 1.25;
 
 // Items grouped by node, kept from call to call (2 Nov 2026, scripts/frame-alloc.mjs: a Map and an array for each node, made every frame;
 // then an object and an array for each node, kept; now a linked list through the items, nothing made). A group is built under a stamp: a
@@ -727,19 +773,23 @@ function groupHead(node) {
  * m (the model's mean display speed along the vessel's arc, signed; 0: it cannot chain) }. Written into `out` (an Int32Array or
  * array of at least items.length; −1: none), which it returns. Allocates nothing.
  */
-export function chainParentsInto(items, out) {
+export function chainParentsInto(items, out, keep) {
   groupStart(items.length);
   for (let i = 0; i < items.length; i++) if (items[i].m) groupAdd(items[i].down, i);
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     out[i] = -1;
     if (!it.m) continue;
-    let best = -1;
+    // (keep[i]: the key of the parent item i is drawn through now, if any: it counts CHAIN_SWAP times its flow, so two inflows of
+    // about the same flow do not trade the link back and forth.)
+    const kp = keep ? keep[i] : -1;
+    let best = -1, bestQ = 0;
     for (let j = groupHead(it.up); j >= 0; j = G_NEXT[j]) {
       if (j === i) continue;
       const p = items[j];
       if (Math.hypot(p.downPt[0] - it.upPt[0], p.downPt[1] - it.upPt[1]) >= CHAIN_NEAR) continue;
-      if (best < 0 || p.q > items[best].q) best = j;
+      const q = p.key === kp ? p.q * CHAIN_SWAP : p.q;
+      if (best < 0 || q > bestQ) { best = j; bestQ = q; }
     }
     out[i] = best;
   }
@@ -767,7 +817,7 @@ export function createStreamChain() {
   const api = { par: [], root: [], A: [], B: [], w: [], ef: [], et: [], easing: false };
   // (Kept from call to call so a step makes no Map, Set, array or closure: the parent of each item and whether it is done (2: being
   // visited), the index of each key, the stamp that marks a key for this call, and the call's items and easing shares.)
-  const parIx = [], done = [];
+  const parIx = [], done = [], keepK = [];   // (keepK: the parent each item is drawn through now, chainParentsInto's keep)
   const atM = new Map(), mark = new Map();
   let stamp = 0, cur = null, kW = 1, kB = 1;
   const atGet = (key) => { const i = atM.get(key); return i != null && i < cur.length && cur[i].key === key ? i : null; };
@@ -798,7 +848,9 @@ export function createStreamChain() {
       const thru = sR[ps] >= 0 && sW[ps] === 1 && sStable[ps];
       peA = thru ? sA[ps] : 0; peB = thru ? sB[ps] : 1;
       Bw = (peB * pi.m) / it.m;
-      if (ratio <= CHAIN_RATIO && ratio >= 1 / CHAIN_RATIO && Math.abs(Bw) <= CHAIN_B_MAX && Math.abs(Bw) >= 1 / CHAIN_B_MAX) {
+      // (A link already drawn through this parent holds to wider bounds: CHAIN_HOLD.)
+      const held = sW[s] > 0 && sP[s] === pi.key, rM = held ? CHAIN_RATIO * CHAIN_HOLD : CHAIN_RATIO, bM = held ? CHAIN_B_MAX * CHAIN_HOLD : CHAIN_B_MAX;
+      if (ratio <= rM && ratio >= 1 / rM && Math.abs(Bw) <= bM && Math.abs(Bw) >= 1 / bM) {
         want = pi.key; wantR = thru ? sR[ps] : pi.key;
       }
     }
@@ -829,7 +881,8 @@ export function createStreamChain() {
 
   api.step = (items, shareW = 1, shareB = 1) => {
     const n = items.length;
-    chainParentsInto(items, parIx);
+    for (let i = 0; i < n; i++) { const s = SK.get(items[i].key); keepK[i] = s !== undefined && sLive[s] && sW[s] > 0 ? sP[s] : -1; }
+    chainParentsInto(items, parIx, keepK);
     for (let i = 0; i < n; i++) done[i] = 0;
     api.par.length = api.root.length = api.A.length = api.B.length = api.w.length = api.ef.length = api.et.length = n;
     api.easing = false;

@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, NODES } from '../engine/topology.js';
 import { SITES } from './anatomy.js';
-import { DRIFT_PERIOD, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
+import { DRIFT_PERIOD, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, MEAN_TAU, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createBreathMean, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
 import { createDyeRemote } from './dye-remote.js';
 import { flowClose, retireRows } from './flow-rows.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
@@ -135,6 +135,9 @@ export function createBlood(st, live) {
   // frame: each vessel's reversed flag and its two velocities. Key chevrons: 1 for a vessel that always keeps them, 2 for one
   // that keeps them while an open collateral runs in its lane (asked each frame), 0 for none (round 2 review, P8).
   const velQf = new Float64Array(EDGES.length), velQ = new Float64Array(EDGES.length);
+  // (Each vessel's |flow| over a breath (breathQ) and then on the chevrons' own time-averaged mean (MEAN_TAU), for the links through
+  // junctions: chainRows. NaN: not set yet. breathQ: each vessel's flow over the last breath, from which the chevrons' mean starts.)
+  const qSlow = new Float64Array(EDGES.length).fill(NaN), breathQ = createBreathMean(EDGES.length);
   let perF = null, perH = null;
   const KEY_K = EDGES.map((e) => (keyChevron(e) ? 1 : KEY_CHEV_LANES[e.id] ? 2 : 0));
   // Idle rest (idle-rest.js, main.js): left alone 30 s, the blood eases to a stop over REST_IN_S and the figure is drawn no more until
@@ -160,7 +163,6 @@ export function createBlood(st, live) {
   let chainLast = null;
   function chainRows(kW, kB) {
     let n = 0, changed = !chainLast || chainLast.easing;
-    const Qn = live.F.Qf || live.F.Q;
     for (let ix = 0; ix < EV.length; ix++) {
       const x = EV[ix];
       if (!x.vis || x.isArt || x.ghost || NO_CHAIN.has(x.e.id) || !flowNow[x.row]) continue;
@@ -170,7 +172,10 @@ export function createBlood(st, live) {
       let it = chainIt[n];
       if (!it) { it = chainIt[n] = {}; changed = true; }
       const up = fwd ? x.e.from : x.e.to, down = fwd ? x.e.to : x.e.from, upPt = fwd ? P[0] : P[P.length - 1], downPt = fwd ? P[P.length - 1] : P[0];
-      const s0 = fwd ? 0 : len, sj = fwd ? len : 0, q = Math.abs(Qn[k]), m = displaySpeed(sg * Math.max(0, sg * velQf[k]));
+      // (By the time-averaged mean, as the chevrons themselves run (blood.js MEAN_TAU), not the model's 1.5 s flow: that still swings
+      // with the breath and the beat, and a link near its bounds then broke and formed again every breath, the heads fading out and
+      // others coming in at new places (6 Nov 2026). blood-chain.test.js)
+      const s0 = fwd ? 0 : len, sj = fwd ? len : 0, q = qSlow[k], m = displaySpeed(sg * Math.max(0, sg * sm.vSlow));
       if (it.key !== x.row || it.k !== k || it.up !== up || it.down !== down || it.upPt !== upPt || it.downPt !== downPt || it.s0 !== s0 || it.sj !== sj || it.q !== q || it.m !== m) changed = true;
       it.key = x.row; it.k = k; it.up = up; it.down = down; it.upPt = upPt; it.downPt = downPt; it.s0 = s0; it.sj = sj; it.q = q; it.m = m;
       n++;
@@ -227,6 +232,7 @@ export function createBlood(st, live) {
     // (One options object and one key-chevrons answer for the whole loop, not one per vessel per frame: advanceStream reads
     // the options at once and keeps none of them.)
     const so = streamOpts, key = keyOnly();
+    const aQ = moving ? -Math.expm1(-dt * live.restK / MEAN_TAU) : 0;
     // (Steady: no heartbeat or breathing swing in the blood's speed. Look D had forced it on in Anatomy (3b9e9c8), which slid the chevrons
     // back and forth and stopped them short; real reversed flow still runs backwards, by the mean.)
     so.phasic = !!b.phasic;
@@ -241,16 +247,23 @@ export function createBlood(st, live) {
     // part-way until Play; each lands exactly once within 0.002 of its end. Round 2 review, B10.)
     live.bloodEasing = false;
     const H = st.healthy;
+    // (A new model frame joins the breath's average; the mean the chevrons follow starts from it, not from the 1.5 s flow, which still
+    // swings with the breath: blood.js createBreathMean.)
+    const newF = perF !== live.F;
     if (perF !== live.F || perH !== H) {
       perF = live.F; perH = H;
       holdReversals(live.F);
-      for (let k = 0; k < EDGES.length; k++) { velQf[k] = velOf(k, Qf[k]); velQ[k] = velOf(k, live.F.Q[k]); }
+      if (newF) breathQ.step(Qf, live.F.t ?? 0);
+      const Qm = breathQ.mean;
+      for (let k = 0; k < EDGES.length; k++) { velQf[k] = velOf(k, Qm[k]); velQ[k] = velOf(k, live.F.Q[k]); }
     }
     for (let k = 0; k < EDGES.length; k++) {
       // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed, held: B3).
       const rt = revHold[k];
       so.large = LARGE[k]; so.rev = !!rt;
       const sm = advanceStreamAt(streams[k], velQf, velQ, k, so);
+      const qa = Math.abs(breathQ.mean[k]);
+      qSlow[k] = qSlow[k] === qSlow[k] && !still ? qSlow[k] + (qa - qSlow[k]) * aQ : qa;
       anchorStream(sm, so, bReset);
       sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);
       const ct = !key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;

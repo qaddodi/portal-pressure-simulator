@@ -5,7 +5,7 @@ import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { chainParents, createStreamChain, CHAIN_NEAR, CHAIN_RATIO } from '../src/ui/blood.js';
+import { chainParents, createBreathMean, createStreamChain, BREATH_S, CHAIN_HOLD, CHAIN_NEAR, CHAIN_RATIO, CHAIN_SWAP } from '../src/ui/blood.js';
 
 // A trunk T (node a → b), a branch run-on C (b → c) and its own run-on G (c → d); a minor inflow M into b.
 const item = (key, up, down, m, q, len, upPt = [0, 0], downPt = [0, 0], fwd = true) => ({ key, up, down, m, q, upPt, downPt, s0: fwd ? 0 : len, sj: fwd ? len : 0 });
@@ -78,7 +78,7 @@ test('a link changes parent by easing down, switching, easing up: never a jump i
   const it = net();
   c.step(it, 0.2, 0.2);
   assert.equal(c.par[1], 1);
-  it[3].q = 12;   // the other inflow now carries more
+  it[3].q = 14;   // the other inflow now carries more (beyond CHAIN_SWAP times the parent's 10)
   let last = c.w[1], sawZero = false;
   for (let f = 0; f < 200; f++) {
     c.step(it, 0.2, 0.2);
@@ -119,6 +119,58 @@ test('speed ratios beyond CHAIN_RATIO do not chain', () => {
   assert.equal(c.par[1], -1);
 });
 
+test('a link holds through a breath\'s swing: it lets go only well past the bounds a new link needs (CHAIN_HOLD)', () => {
+  // The hepatic vein in decompensated cirrhosis (6 Nov 2026): its speed swung either side of half its liver bed's with every breath,
+  // and the link broke and formed again each time, the heads fading out and others running in at new places.
+  const c = createStreamChain();
+  const mT = 16;
+  let flips = 0, was = null;
+  for (let f = 0; f < 2000; f++) {
+    const mC = mT * CHAIN_RATIO * (1 + 0.25 * Math.sin(f / 40));   // (to and fro across CHAIN_RATIO, well inside CHAIN_RATIO × CHAIN_HOLD)
+    c.step(net(mT, mC, mC), 0.25, 0.05);
+    const on = c.w[1] > 0;
+    if (was !== null && on !== was) flips++;
+    was = on;
+  }
+  assert.equal(flips, 0, 'formed once, never let go');
+  assert.equal(c.w[1], 1);
+  // Beyond the held bounds it does let go.
+  for (let f = 0; f < 100; f++) c.step(net(mT, mT * CHAIN_RATIO * CHAIN_HOLD * 1.05, 25), 0.25, 0.05);
+  assert.equal(c.w[1], 0);
+});
+
+test('a parent gives way only to an inflow carrying CHAIN_SWAP times its flow', () => {
+  const c = createStreamChain();
+  const it = net();
+  c.step(it, 1, 1);
+  assert.equal(c.par[1], 1);
+  it[3].q = 10 * CHAIN_SWAP * 0.95;   // more than the parent's 10, not by enough
+  for (let f = 0; f < 50; f++) c.step(it, 0.2, 0.2);
+  assert.equal(c.par[1], 1); assert.equal(c.w[1], 1);
+  it[3].q = 10 * CHAIN_SWAP * 1.05;
+  for (let f = 0; f < 200; f++) c.step(it, 0.2, 0.2);
+  assert.equal(c.par[1], 4);
+});
+
+test('the breath\'s flow: an average over exactly one breath takes the breath out, and follows a step within one', () => {
+  const b = createBreathMean(2);
+  let m;
+  for (let i = 0; i <= 400; i++) {
+    const t = i * 0.095;   // (the worker's frames come about every 95 ms)
+    m = b.step([5 + 3 * Math.sin((2 * Math.PI * t) / BREATH_S), -2], t);
+    if (t > BREATH_S + 0.2) { assert.ok(Math.abs(m[0] - 5) < 0.02, `breath left in: ${m[0]}`); assert.ok(Math.abs(m[1] + 2) < 1e-9); }
+  }
+  // A step in the flow is followed within one breath.
+  const t0 = 400 * 0.095;
+  for (let i = 1; i <= 50; i++) m = b.step([9, -2], t0 + i * 0.095);
+  assert.ok(Math.abs(m[0] - 9) < 1e-9);
+  // A clock that went back (a new patient, Undo) or stood still (a disease-clock day) starts afresh from the flow it is given.
+  m = b.step([1, 1], 3); assert.deepEqual([...m], [1, 1]);
+  m = b.step([2, 2], 3); assert.deepEqual([...m], [2, 2]);
+  // And a leap of more than a second.
+  m = b.step([4, 4], 10); assert.deepEqual([...m], [4, 4]);
+});
+
 test('the ends: a chained end carries the weight, the minor inflow at that node minus it', () => {
   const c = createStreamChain();
   c.step(net(), 1, 1);
@@ -144,7 +196,11 @@ const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8
 test('stage: the links are written into the rows put() filled, by the model\'s mean speeds', () => {
   assert.match(stage, /if \(on\) \{[\s\S]{0,400}?else chainRows\(/);
   const fn = stage.slice(stage.indexOf('function chainRows('), stage.indexOf('function stepBlood('));
-  assert.match(fn, /m = displaySpeed\(sg \* Math\.max\(0, sg \* velQf\[k\]\)\);/);
+  // (By the chevrons' own time-averaged mean and the breath's flow, never the model's 1.5 s flow, which swings with the breath.)
+  assert.match(fn, /q = qSlow\[k\], m = displaySpeed\(sg \* Math\.max\(0, sg \* sm\.vSlow\)\);/);
+  assert.doesNotMatch(fn, /velQf|Qf\[k\]/);
+  assert.match(stage, /const newF = perF !== live\.F;[\s\S]{0,200}?if \(newF\) breathQ\.step\(Qf, live\.F\.t \?\? 0\);/);
+  assert.match(stage, /velQf\[k\] = velOf\(k, Qm\[k\]\);/);
   assert.match(fn, /it\.q = q; it\.m = m;/);
   // (Rev 2 §2.8: worked out again only when a candidate changed or a link was easing; else the last answer is written again.)
   assert.match(fn, /const c = changed \? \(chainLast = chain\.step\(chainIt, kW, kB\)\) : chainLast;/);
