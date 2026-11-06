@@ -494,6 +494,13 @@ export function createCath(st, live) {
   const CATH_FROM_TIP = { left: 0, top: 0 }, CATH_FROM_AHEAD = { left: 0, top: 0 };
   const cathA = { tip: [0, 0], ahead: [0, 0] }, cathKeep = [], cathKeepRecs = [{ x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }, { x0: 0, y0: 0, x1: 0, y1: 0 }];
   const cathPS = { A: cathA, bw: 0, bh: 0, W: 0, top: 0, lim: 0, gap: 0, blockers: NO_LIST, keep: cathKeep };
+  const CATH_MID = { x: 0, y: 0 };
+  function cathSumMid(ps) {
+    const A = ps.A, yMax = Math.max(ps.top, ps.lim - ps.bh - 12);
+    CATH_MID.x = clamp((A.tip[0] + A.ahead[0]) / 2 - ps.bw / 2, 28, Math.max(28, ps.W - ps.bw - 12));
+    CATH_MID.y = clamp((A.tip[1] + A.ahead[1]) / 2 - ps.bh / 2, ps.top, yMax);
+    return CATH_MID;
+  }
   // (The words and the size of a reading, made from a model: its glass and GPU words built in.)
   function cathPill(l, cls = '') {
     const el = PILL_TPL[l.unit ? 1 : 0].cloneNode(true);
@@ -652,7 +659,9 @@ export function createCath(st, live) {
       }
       const ps = cathPS;
       ps.bw = bw; ps.bh = bh; ps.W = W; ps.top = top; ps.lim = lim; ps.gap = gap; ps.blockers = room.blk;
-      let { x, y } = placeSummary(ps);
+      // (EUS-PPG's, l.mid: midway between the two points it names, on the liver between the needle's two readings, kept inside the stage:
+      // his ask, 6 Nov 2026, "should be in the middle between the HV and PV they're measured".)
+      let { x, y } = l.mid ? cathSumMid(ps) : placeSummary(ps);
       { const q = cathGlide(box, x, y, (A.tip[0] + A.ahead[0]) / 2, (A.tip[1] + A.ahead[1]) / 2); x = q[0]; y = q[1]; }
       // (Written only when the place moved; the same text is no change.)
       if (box._tx !== x || box._ty !== y) { box._tx = x; box._ty = y; box.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`; }

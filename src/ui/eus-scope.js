@@ -189,6 +189,7 @@ export function eusDraw(st, r, tipD, at, rgb) {
   const g = eusPose(r, tipD, at, TGT, st.aim || 0, exitA, S.hand, TIP), d0 = g.d0;
   for (let d = 0; d < d0 - STEP * 0.5; d += STEP) { const q = at(r, d); push(q.p[0], q.p[1]); }
   bendWalk(r, at, d0, d0 + g.bend, g.phi, SPOT, push);
+  const iA = n - 1;   // (the bending section's end, where the rigid tip starts)
   for (let i = 1; i <= 4; i++) push(g.p2[0] + g.a1[0] * RIGID * (i / 4), g.p2[1] + g.a1[1] * RIGID * (i / 4));
   cl[0] = 0;
   for (let i = 0; i < n; i++) {
@@ -196,7 +197,9 @@ export function eusDraw(st, r, tipD, at, rgb) {
     tx[i] = dx / l; ty[i] = dy / l;
     if (i) cl[i] = cl[i - 1] + Math.hypot(cx[i] - cx[i - 1], cy[i] - cy[i - 1]);
   }
-  const total = cl[n - 1], rigid0 = total - RIGID;
+  // (The rigid tip from its own first sample: from total − RIGID, that sample fell in or out by a rounding of the summed lengths, frame to
+  // frame, so the grey tip grew and shrank by a quarter of its length, the flicker at the scope's tip: Mohammad, 6 Nov 2026.)
+  const total = cl[n - 1], rigid0 = cl[iA];
   // The ultrasound sector first, under everything: from the transducer toward the target, a little past it.
   if ((st.fan || 0) > 0.01) {
     const ax = g.end[0] - g.a1[0] * RIGID * 0.45 + g.side[0] * R * 0.85, ay = g.end[1] - g.a1[1] * RIGID * 0.45 + g.side[1] * R * 0.85;

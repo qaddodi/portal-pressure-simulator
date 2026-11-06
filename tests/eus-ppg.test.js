@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MEASURES, READS, PROC_KINDS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
-import { EUS_ROUTE, EUS_TARGETS, EUS_STATIONS, EUS_RHO, EUS_SCOPE_R, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
+import { EUS_ROUTE, EUS_TARGETS, EUS_STATIONS, EUS_RHO, EUS_RIGID, EUS_SCOPE_R, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
 import { EDGE_PATH, ORGANS, SEAM_D } from '../src/ui/anatomy.js';
 import { NODES } from '../src/engine/topology.js';
 
@@ -78,6 +78,7 @@ test('the readings are the model’s: the left portal vein’s and the left hepa
   E.labels(markAt('eus', 3) + 10, rd, f, L);
   assert.equal(L.length, 1); assert.equal(L[0].key, 's'); assert.equal(L[0].at, 'sum');
   assert.deepEqual(L[0].rows.map((x) => [x.kicker, x.text, x.at]), [['PV', '15.3', 'ahead'], ['HV', '4.1', 'tip']], 'the two come together');
+  assert.equal(L[0].mid, true, 'placed midway between the portal and the hepatic vein, where it was measured');
   assert.equal(L[0].calc.kicker, 'EUS-PPG'); assert.equal(L[0].calc.text, '11.2'); assert.match(L[0].calc.cls, /^result (danger|caution|ok)$/);
   E.labels(T.back + 10, rd, f, L);
   assert.equal(L.length, 1, 'the result stands while the scope comes out');
@@ -186,6 +187,22 @@ test('every frame, the whole scope stays inside the esophagus and the stomach, a
   }
   assert.ok(worst >= EUS_SCOPE_R - 1, `the scope reaches the wall: ${worst.toFixed(1)} from it, ${where}`);
   assert.ok(tight >= EUS_RHO * 0.6, `the scope bends to a radius of ${tight.toFixed(1)}, ${tightAt}`);
+});
+
+// His ask, 6 Nov 2026: "The scope is still flickering at its tip". The grey rigid tip took its first sample by the summed lengths, and a
+// rounding put that sample in or out frame to frame, so the tip grew and shrank by a quarter of its length. It keeps its samples now.
+test('the rigid tip is drawn the same every frame: its own five samples, its length the rigid length', () => {
+  const r = route();
+  for (const t of times) {
+    const f = procFrame('eus', t);
+    if (!(f.opacity > 0.01) || !(f.u > 0.01)) continue;
+    const end = r.free + (r.hvD - r.free) * f.tgt, tipD = r.start + (end - r.start) * f.u;
+    const o = eusDraw({ ...f, ring: null, clock: t }, r, tipD, at, () => [0.5, 0.5, 0.5]);
+    const grey = o.draws.filter((d) => d.mode === 2 && !d.fade?.[0] && d.len > 6);   // (not the needle's sheath, 5 long at most)
+    assert.equal(grey.length, 1, `one rigid tip at ${t}`);
+    assert.equal(grey[0].count, 10, `its five samples, two vertices each, at ${t}`);
+    assert.ok(Math.abs(grey[0].len - EUS_RIGID) < 1e-6, `its length at ${t}`);
+  }
 });
 
 test('the scope, its sector and its needle are whole draws for the GPU catheter', () => {
