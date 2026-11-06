@@ -1122,7 +1122,11 @@ export function createLabelSolve(st, live) {
       const tidy = (lv || m.pin) && !dop.all ? [gap, gap + 14, gap + 30, gap + 50, ...(m.pin ? [gap + 80, gap + 120, gap + 170] : [])].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12, avoid: av }))
         .concat(m.pin ? [gap, gap + 30, gap + 80, gap + 140].map((g) => ({ gap: g, leader: true, inView: true, pad: 6, edge: 12, avoid: av })) : []) : null;
       if (tidy) buildLines();
-      let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : (tidy && ((side && !side.drop && placeMulti(it, [side.dir], tidy)) || placeMulti(it, ['E', 'W', 'NE', 'SE', 'N', 'S', 'NW', 'SW'], tidy))) || (side && !side.drop && place(it, [side.dir], [gap, gap + 16, gap + 32], true)) || place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
+      // (Every mark first takes a spot in the free figure, off the cards (a phone's teaching card over the figure's bottom) and the other
+      // callouts, before any that may cover one: his ask, 6 Nov 2026, "The shunt callout is covering the card on phone". A round that
+      // finds none gives up without shortening or dropping it, and the spots it had before are tried as they were.)
+      const free = !dop.all && solve ? [gap, gap + 20, gap + 52, gap + 84, gap + 120, gap + 170].map((g, gi) => ({ gap: g, leader: true, inView: true, bias: gi * 6 })) : null;
+      let marked = dop.all ? placeMulti(it, FAR_DIRS, passes) : (tidy && ((side && !side.drop && placeMulti(it, [side.dir], tidy)) || placeMulti(it, ['E', 'W', 'NE', 'SE', 'N', 'S', 'NW', 'SW'], tidy))) || (free && placeMulti(it, ['E', 'W', 'NE', 'SE', 'N', 'S', 'NW', 'SW'], free, 0, free.length, false)) || (side && !side.drop && place(it, [side.dir], [gap, gap + 16, gap + 32], true)) || place(it, ['E', 'W', 'NE', 'SE', 'N', 'S'], gap, true);
       // (A mark that found no spot off the vessels, where the column's "60 %" blocks its way: the "60 %" tries its next spots off the
       // vessels, nearest first, and keeps the first that lets the mark stand clear; failing all, both stay as they were: Review 16 Oct.)
       if (marked && dop.all && clampAlts.length && clampAlts[0].el._box && placed.includes(clampAlts[0].el._box) && !passes[nextSol.get(it.key)?.pi]?.clear) {

@@ -165,7 +165,15 @@ export function createSitesPaint(st, live) {
       // its point unless the top is covered (decided once, so it never jumps).
       // (A reading wider than the free space, as the portal blood's share is between two wide cards on a phone held sideways, waits
       // hidden too: it would stand half under a card, its words cut off.)
-      el.classList.toggle('off', x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)) || (!d.res && !!el._half && 2 * el._half > x1 - x0 + 1));
+      // (Nor does it stand on a card: one whose box would reach under the teaching card or the top cards turns to the other side of its point
+      // where that is clear, and waits hidden where neither is: his ask, 6 Nov 2026, callouts "covering the card on phone".)
+      if (!d.res && el._kh > 0 && el._kt != null) {
+        const rt = y + el._kt, rb = rt + el._kh;
+        if (rb > y1 + 2 && el._below && y - 18 - el._kh >= y0) { el._below = false; el.dataset.at = ''; el._kt = -18 - el._kh; }
+        else if (rt < y0 - 2 && !el._below && y + 18 + el._kh <= y1) { el._below = true; el.dataset.at = 'ahead'; el._kt = 18; }
+      }
+      const onCard = !d.res && el._kh > 0 && el._kt != null && (y + el._kt + el._kh > y1 + 2 || y + el._kt < y0 - 2);
+      el.classList.toggle('off', onCard || x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)) || (!d.res && !!el._half && 2 * el._half > x1 - x0 + 1));
       if (el._below == null && el._h) { el._below = d.below ? y + 18 + el._h < y1 : y - 18 - el._h < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       // (Its width read again only when its words or classes change: a read after each frame's new number forced a layout.)
       // (Its digits are tabular, every one as wide as a zero (app.css .cath-label b), so a number counting to its next value keeps the
