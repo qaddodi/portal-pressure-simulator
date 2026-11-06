@@ -1106,7 +1106,7 @@ uniform vec4 fluidInk;                 // its straw color (straight) and opacity
 uniform vec2 fluidLv;                  // the liver's scale about 560 350, and how far the fluid is kept off it (its lower edge: fluidMask row 1)
 uniform vec4 weepP;                    // the lymph weeping into the pool (weep.js): segments (0: none), the dashes' phase, pitch and length (world units)
 uniform vec4 weepBox;                  // its world box (x0, y0, x1, y1): no pixel outside it reads the table
-uniform vec4 weepK;                    // the sheen along the liver's lower edge: its strength (x)
+uniform vec4 weepK;                    // the sheen along the liver's lower edge at the tip: its strength (x), centre x (y) and half width (z)
 uniform mat3 inv;                      // device pixels → world
 uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
@@ -1461,18 +1461,21 @@ float dyeAt(int id, float s, float y) {
   return texture(dye, vec2((u * (BINS - 1.0) + 0.5) / BINS, (float(id) + 0.5) / rows)).r;
 }
 
-// Lymph weeping from the liver's surface into the pool (weep.js), premultiplied, over the plate, the vessels and the pool: fine rivulets
-// of amber dashes with a pale core and a thin dark outline join one stream that runs down into the pool, and a thin amber sheen runs
-// along the liver's lower edge. The segments are rows 2 … 13 of fluidMask, one segment a column: A (x0, y0, x1, y1), B (arc at its start,
-// half width at its start and end), C (opacity at its start and end). Each pixel takes the union of the segments' dashes (the largest
-// coverage, so crossings never darken), the dashes run along the arc at the phase weepP.y, and they fade out above the pool's surface.
+// Lymph weeping from the liver's lower tip into the pool (weep.js), premultiplied, over the plate and under the vessels (the blood lies over it,
+// as it lies over the organs): fine rivulets of soft amber streaks join one stream that runs down into the pool, and a faint wet sheen lies
+// along the liver's lower edge at the tip. No outline and no hard edge: each streak is a soft smear that thins at its ends, a little
+// brighter or fainter from one to the next (a hash of the streak's number), a paler heart where it is fullest, as the blood's smoky streaks are.
+// The segments are rows 2 … 13 of fluidMask, one segment a column: A (x0, y0, x1, y1), B (arc at its start, half width at its start and end),
+// C (opacity at its start and end). Each pixel takes the union of the segments' streaks (the largest, so crossings never darken), they run
+// along the arc at the phase weepP.y, and fade out above the pool's surface.
 vec4 weepAt(vec2 w) {
   if (weepP.x < 0.5 || w.x < weepBox.x || w.y < weepBox.y || w.x > weepBox.z || w.y > weepBox.w) return vec4(0.0);
   float aa = max(pxW, 1e-3) * 0.7;
   vec4 res = vec4(0.0);
   float nR = float(textureSize(fluidMask, 0).x);
-  // The sheen along the liver's lower edge (fluidMask row 1, in the liver's own frame).
-  if (weepK.x > 0.0) {
+  // The wet sheen along the liver's lower edge (fluidMask row 1, in the liver's own frame), near the tip only.
+  float tipW = 1.0 - smoothstep(0.3 * weepK.z, weepK.z, abs(w.x - weepK.y));
+  if (weepK.x > 0.0 && tipW > 0.0) {
     vec2 lu = (w - vec2(560.0, 350.0)) / fluidLv.x + vec2(560.0, 350.0);
     float lx = clamp((lu.x - fluidRect.x) / fluidRect.z, 0.0, 1.0) * (nR - 1.0);
     int l0 = int(floor(lx)), l1 = min(l0 + 1, int(nR) - 1);
@@ -1480,9 +1483,9 @@ vec4 weepAt(vec2 w) {
     if (b0 > -1.0e3 && b1 > -1.0e3) {
       float sl = (b1 - b0) * (nR - 1.0) / fluidRect.z;
       float dr = abs(lu.y - mix(b0, b1, lx - float(l0))) * fluidLv.x / sqrt(1.0 + sl * sl);
-      float core = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, dr), halo = 1.0 - smoothstep(0.0, 4.2, dr);
-      float ra = weepK.x;
-      res = over(vec4(1.0, 0.847, 0.573, 1.0) * (0.6 * ra * core), over(vec4(0.925, 0.627, 0.188, 1.0) * (0.2 * ra * halo), res));
+      float core = 1.0 - smoothstep(0.0, 2.6, dr), halo = 1.0 - smoothstep(0.0, 7.0, dr);
+      float ra = weepK.x * tipW;
+      res = over(vec4(1.0, 0.847, 0.573, 1.0) * (0.3 * ra * core), over(vec4(0.925, 0.627, 0.188, 1.0) * (0.14 * ra * halo), res));
     }
   }
   // Fade out above the pool's surface (the same surface fluidAt draws, ripple and all).
@@ -1490,7 +1493,7 @@ vec4 weepAt(vec2 w) {
   float sy = fluidS.x - fluidS.y * (0.8 + 0.2 * cx * cx * clamp(fluidS.y / 485.0, 0.0, 1.0)) + (sin(w.x / 38.0 + fluidS.w) * 0.7 + sin(w.x / 23.0 - fluidS.w * 1.3) * 0.3) * fluidS.z;
   float above = 1.0 - smoothstep(sy - 28.0, sy - 3.0, w.y);
   if (above <= 0.0) return res;
-  float covH = 0.0, covA = 0.0, covC = 0.0;
+  float cov = 0.0, heart = 0.0;
   int n = int(weepP.x + 0.5);
   for (int i = 0; i < 160; i++) {
     if (i >= n) break;
@@ -1500,21 +1503,24 @@ vec4 weepAt(vec2 w) {
     float t = clamp(dot(ap, ab) / L2, 0.0, 1.0);
     float d = length(ap - ab * t);
     float hw = mix(texelFetch(fluidMask, ivec2(i, 7), 0).r, texelFetch(fluidMask, ivec2(i, 8), 0).r, t);
-    if (d > hw + 3.2) continue;
+    if (d > hw * 1.7 + aa) continue;
     float al = mix(texelFetch(fluidMask, ivec2(i, 10), 0).r, texelFetch(fluidMask, ivec2(i, 11), 0).r, t);
     if (al < 0.02) continue;
-    // The dash this pixel is in: its distance along the dashes' pattern from the nearest dash's centre, then the capsule round the dash.
+    // The streak this pixel is in: its distance along the pattern from the nearest streak's centre, and the streak's number (for its own strength).
     float arc = texelFetch(fluidMask, ivec2(i, 6), 0).r + t * sqrt(L2);
-    float cc = mod(arc - weepP.y - 0.5 * weepP.w + 0.5 * weepP.z, weepP.z) - 0.5 * weepP.z;
-    float dd = length(vec2(max(abs(cc) - 0.5 * weepP.w, 0.0), d));
-    covH = max(covH, al * (1.0 - smoothstep(hw + 2.25 - aa, hw + 2.25 + aa, dd)));
-    covA = max(covA, al * (1.0 - smoothstep(hw - aa, hw + aa, dd)));
-    covC = max(covC, al * (1.0 - smoothstep(0.42 * hw - aa, 0.42 * hw + aa, dd)));
+    float u = arc - weepP.y - 0.5 * weepP.w + 0.5 * weepP.z;
+    float id = floor(u / weepP.z);
+    float cc = u - id * weepP.z - 0.5 * weepP.z;
+    float br = 0.55 + 0.45 * fract(sin(id * 12.9898 + 78.233) * 43758.5453);
+    float along = 1.0 - smoothstep(0.12 * weepP.w, 0.5 * weepP.w + hw, abs(cc));
+    float across = 1.0 - smoothstep(0.1 * hw, hw * 1.7 + aa, d);
+    float c = al * br * along * across;
+    cov = max(cov, c);
+    heart = max(heart, c * (1.0 - smoothstep(0.0, 0.7 * hw, d)));
   }
-  covH *= above; covA *= above; covC *= above;
-  vec4 dash = over(vec4(1.0, 0.886, 0.651, 1.0) * covC, over(vec4(0.925, 0.627, 0.173, 1.0) * (0.92 * covA), vec4(0.031, 0.047, 0.094, 1.0) * (0.55 * covH)));
-  res = over(dash, res);
-  return res;
+  cov *= above; heart *= above;
+  vec4 streak = over(vec4(1.0, 0.886, 0.651, 1.0) * (0.3 * heart), vec4(0.925, 0.627, 0.173, 1.0) * (0.5 * cov));
+  return over(streak, res);
 }
 // Ascites at world point w, premultiplied (its own colour whatever the lens; see main): over the plate and the vessels. Also the
 // arrowheads' quads (HEADS), which lay a head under it as main does.
@@ -1556,7 +1562,7 @@ vec4 fluidAt(vec2 w) {
       }
     }
   }
-  return over(weepAt(w), fluidC);
+  return fluidC;
 }
 ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void main() {
 #if STREAK
@@ -1627,6 +1633,8 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
   // Ascites over the plate and the vessels (they show through it), in its own color whatever the lens: a meniscus (highest at the flanks)
   // with a slow two-part ripple, deeper fluid a little denser, a soft brighter band just under the surface.
   vec4 fluidC = fluidAt(w);
+  // The weeping lymph (weep.js) lies on the organs, under the vessels (they go over the plate): laid on it only where the vessel layer lets it show.
+  if (under) pl = over(weepAt(w), pl);
 
 #endif
 #if STREAK

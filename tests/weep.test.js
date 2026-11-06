@@ -1,16 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createWeep, leakedPerDay, WEEP_N, WEEP_ROWS, WEEP_REF, WEEP_LEAVES } from '../src/ui/weep.js';
+import { createWeep, leakedPerDay, WEEP_N, WEEP_ROWS, WEEP_REF, WEEP_LEAVES, WEEP_LEAF_SEGS as S } from '../src/ui/weep.js';
 import { fluidBase } from '../src/ui/fluid-step.js';
 
 // Lymph weeping from the liver into the pool (weep.js): the numbers the figure's GPU renderer draws from. A synthetic liver whose lower
-// edge is a shallow bowl across 300 to 640 (its own frame), at the figure's fluid rectangle and column count.
+// edge slopes up from a low left tip (the right lobe's) across 330 to 650 (its own frame), at the figure's fluid rectangle and column count.
 const R = [284, 430, 856, 650], COLS = 1201;
 const floorOf = () => {
   const f = new Float32Array(COLS).fill(-1e4);
   for (let i = 0; i < COLS; i++) {
     const x = R[0] + (i * R[2]) / (COLS - 1);
-    if (x > 330 && x < 650) f[i] = 520 + 90 * Math.sin(((x - 330) / 320) * Math.PI);
+    if (x > 330 && x < 650) f[i] = 600 - 0.25 * (x - 330) + 20 * Math.sin(((x - 330) / 320) * Math.PI);
   }
   return f;
 };
@@ -43,7 +43,7 @@ test('no leak, no stream; a leak draws the table the renderer reads', () => {
 
 test('more leak wakes more rivulets and widens the stream', () => {
   const lo = made(300), mid = made(WEEP_REF), hi = made(2 * WEEP_REF);
-  const awake = (m) => { let n = 0; for (let i = 0; i < WEEP_LEAVES; i++) if (m.w.out.data[8 * WEEP_N + i * 7 + 6] > 0.5) n++; return n; };
+  const awake = (m) => { let n = 0; for (let i = 0; i < WEEP_LEAVES; i++) if (m.w.out.data[9 * WEEP_N + i * S + S - 1] > 0.5) n++; return n; };
   assert.ok(awake(lo) < awake(mid) && awake(mid) <= awake(hi), `${awake(lo)} ${awake(mid)} ${awake(hi)}`);
   const trunkEnd = (m) => m.w.out.data[6 * WEEP_N + WEEP_N - 1];
   assert.ok(trunkEnd(hi) > trunkEnd(lo));
@@ -55,9 +55,19 @@ test('the stream drops past the pool surface, and the rivulets start at the live
   const lastY = d[3 * N + N - 1], lastX = d[2 * N + N - 1];
   assert.ok(lastY > fluidBase(lastX, 240));
   for (let i = 0; i < WEEP_LEAVES; i++) {
-    const y0 = d[N + i * 7], x0 = d[i * 7];
+    const y0 = d[N + i * S], x0 = d[i * S];
     assert.ok(y0 > 500 && y0 < 640 && x0 > 330 && x0 < 650, `${x0} ${y0}`);
   }
+});
+
+test('the stream leaves the lower left tip of the liver, the lowest point of its left part', () => {
+  const { w, L } = made(WEEP_REF);
+  const d = w.out.data, N = WEEP_N;
+  const sx = d[(N - 24)], sy = d[N + (N - 24)];   // (the stream's first segment)
+  assert.ok(sx < 474, `tip x ${sx}`);
+  assert.ok(sy > 560, `tip y ${sy}`);
+  assert.ok(Math.abs(L.wk[1] - sx) < 40 && L.wk[2] > 0);
+  for (let i = 0; i < WEEP_LEAVES; i++) assert.ok(Math.abs(d[i * S] - sx) < 60);
 });
 
 test('a shrunk liver moves the stream with it, and the same liver asks for nothing again', () => {
