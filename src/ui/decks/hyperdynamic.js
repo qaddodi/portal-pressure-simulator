@@ -82,7 +82,7 @@ export const HYPERDYNAMIC = {
     {
       // (Eight units after the liter lost: the blood volume ends about 400 mL past where he started.)
       id: 'over', action: [UNIT, UNIT, UNIT, UNIT, UNIT, UNIT, UNIT, UNIT],
-      question: 'What will giving back more than he lost do to the portal pressure?', cam: 'route', tool: VITALS, data: 'tiles', tiles: ['pv'], key: ['pv'], delta: 'full',
+      cam: 'route', tool: VITALS, data: 'tiles', tiles: ['pv'], key: ['pv'], delta: 'full',
       kicker: 'Losing blood', site: 'sin', title: 'Too much given back raises the portal pressure',
       line: 'Given past where he started, eight units raise the portal pressure to {pv}, above the {pv@full} before the bleed. Transfusion stops at a hemoglobin of 7 to 8.',
       notes: 'This is why transfusion in a variceal bleed is restrictive: transfuse <7 g/dL and aim for 7 to 8. In cirrhosis the wide splanchnic bed takes the extra volume, so the portal inflow and pressure climb past their level before the bleed, and in the trials a liberal target brought more rebleeding and more deaths. In patients, restoring volume after a bleed raises the portal pressure above its level before the bleed (Kravetz, in portal hypertensive animals). Plasma for the clotting tests adds volume of its own. The heart rate settles below where it began, a sign the circulation is overfilled. Patients with heart disease or ongoing massive bleeding may need more. (Baveno VIII 5.4.)',

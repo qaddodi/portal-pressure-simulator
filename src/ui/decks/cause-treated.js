@@ -1,5 +1,5 @@
-// Presenter talk: what treating the cause does to portal hypertension, in three patients: hepatitis C cured early,
-// hepatitis C cured with a higher HVPG, and MASH cirrhosis with weight loss (the slide fields are described at the top
+// Presenter talk: what treating the cause does to portal hypertension, in four patients: hepatitis C cured early,
+// hepatitis C cured with a higher HVPG, MASH cirrhosis with weight loss, and alcohol-associated cirrhosis after the last drink (the slide fields are described at the top
 // of decks.js). Carvedilol stays out of the params: on a beta-blocker the varix and the stiffness would fall at once
 // (engine.js), so the time-lapses show the cure alone, and a caveat says so.
 
@@ -8,12 +8,12 @@ const SCAN = { kind: 'fibroscan' };
 // slide's own cut-off (under 10 kPa); the plane's zones are the rule for untreated disease, and both agree here. The
 // obese MASLD slide charts its stiffness over the year instead, where the 25 kPa rule does not strictly apply (Baveno VIII 1.16).
 const PLANE = { kind: 'plane', plane: 'csph' };
-const HCV = 'Hepatitis C cured', HIGH = 'A higher start', MASLD = 'MASLD';
+const HCV = 'Hepatitis C cured', HIGH = 'A higher start', MASLD = 'MASLD', ALC = 'Alcohol stopped';
 
 export const CAUSE_TREATED = {
   id: 'cause-treated', level: 'core', title: 'Treating the cause', minutes: 10,
   objectives: [
-    'Explain why treating the cause lowers the portal pressure over months to years',
+    'Explain why curing hepatitis C or B, stopping alcohol or losing weight lowers the portal pressure over months to years',
     'Use stiffness to judge whether CSPH has resolved after cure',
     'Recognize that CSPH can persist after cure when the HVPG starts high',
     'Read stiffness in obese MASLD, and describe what weight loss does to it',
@@ -24,8 +24,8 @@ export const CAUSE_TREATED = {
     ['Why does the 25 kPa rule-in not apply at a BMI ≥30?', 'A high stiffness often overstates the portal pressure in obesity, so ANTICIPATE-NASH, which adds the BMI, is used instead.'],
     ['Two years after hepatitis C cure, his stiffness has fallen from 15 to 9 kPa and his platelets have risen to 180. Has CSPH resolved, and what continues?', 'Yes: by Baveno VIII, a stiffness <10 kPa after cure means CSPH has resolved. Liver cancer surveillance continues every 6 months in anyone who had cirrhosis.'],
   ],
-  sections: [[HCV, [HCV]], [HIGH, [HIGH]], [MASLD, [MASLD]]],
-  summary: 'Three patients whose cause is treated: hepatitis C cured early, hepatitis C cured with CSPH that persists, and MASH cirrhosis with weight loss. Stiffness shows whether CSPH has resolved.',
+  sections: [[HCV, [HCV]], [HIGH, [HIGH]], [MASLD, [MASLD]], [ALC, [ALC]]],
+  summary: 'Four patients whose cause is treated: hepatitis C cured early, hepatitis C cured with CSPH that persists, MASH cirrhosis with weight loss, and alcohol-associated cirrhosis after the last drink. Stiffness shows whether CSPH has resolved.',
   slides: [
     {
       id: 'before', preset: 'csph', cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['lsm', 'plt', 'hvpg'], key: ['hvpg'],
@@ -81,6 +81,16 @@ export const CAUSE_TREATED = {
       ask: ['How much weight loss changes the stiffness meaningfully?', '≥10% of body weight, which goes with a fall in stiffness of ≥30%.'],
     },
     {
+      // (Alcohol stopped: the scar eases back over the year as the inflammation settles. Carvedilol stays out of the params, as for the others.)
+      id: 'alcohol', preset: 'csph', params: { cirrhosis: 0.7 }, days: 365, ramp: { cirrhosis: [0.7, 0.55] }, lapse: { seconds: 8, from: 'Last drink', to: 'One year sober' }, cam: 'liver',
+      tool: SCAN, data: 'tiles', tiles: ['hvpg', 'lsm'], key: ['hvpg'],
+      kicker: ALC, site: 'sin', title: 'A year without alcohol lowers the pressure',
+      vignette: 'A 49-year-old man with alcohol-associated cirrhosis and CSPH, Child–Pugh A 6, stops drinking after his first clinic visit. He has small varices and no ascites.',
+      line: 'A year sober, his HVPG has fallen to {hvpg} and his stiffness to {lsm}. Drinking again would push the pressure back up.',
+      notes: 'Abstinence is the cause treatment in alcohol-associated cirrhosis, and the HVPG falls within months of the last drink, more in those who stop completely than in those who cut down; continued drinking raises it. Much of the early fall in stiffness is inflammation settling, so the stiffness is best read after some months sober. Support to stay abstinent is part of the treatment: counseling, and drugs such as baclofen or acamprosate, which are safe in cirrhosis; disulfiram and naltrexone are avoided in advanced disease. Carvedilol continues while CSPH persists, and liver cancer surveillance every 6 months continues for life. In the model the scar eases back evenly over the year, without the drinking days between.',
+      ask: ['How soon after stopping alcohol does the portal pressure fall?', 'Within months, more with complete abstinence; drinking again raises it.'],
+    },
+    {
       // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, read stiffness
       // against the HVPG and the platelets. The dots are the two hepatitis C patients' visits, one walk each; the ring is the second
       // patient two years on, in the same state as that slide.)
@@ -97,10 +107,11 @@ export const CAUSE_TREATED = {
       id: 'summary', visual: 'table', cols: ['hvpg', 'lsm', 'plt'], asc: false, rowHead: 'Patient',
       of: [{ id: 'before', kicker: 'Hepatitis C', title: 'Before cure' }, { id: 'year1', kicker: 'Hepatitis C', title: 'One year after cure', vs: 'before' }, { id: 'year2', kicker: 'Hepatitis C', title: 'Two years after cure', vs: 'before' },
         { id: 'high', kicker: 'Higher start', title: 'Before cure', ref: true }, { id: 'high2', kicker: 'Higher start', title: 'Two years after cure', vs: 'high' },
-        { preset: 'cirr-comp', params: { cirrhosis: 0.45 }, key: 'masld0', kicker: 'MASLD', title: 'Before weight loss', ref: true }, { id: 'masld', kicker: 'MASLD', title: 'After 12% weight loss', vs: 'masld0' }],
+        { preset: 'cirr-comp', params: { cirrhosis: 0.45 }, key: 'masld0', kicker: 'MASLD', title: 'Before weight loss', ref: true }, { id: 'masld', kicker: 'MASLD', title: 'After 12% weight loss', vs: 'masld0' },
+        { preset: 'csph', params: { cirrhosis: 0.7 }, key: 'alc0', kicker: 'Alcohol', title: 'Still drinking', ref: true }, { id: 'alcohol', kicker: 'Alcohol', title: 'A year sober', vs: 'alc0' }],
       kicker: 'Summary', title: 'How far the pressure falls depends on where it started',
       line: 'Treating the cause lowers the HVPG in most patients, but CSPH persists when it starts high.',
-      notes: 'Curing hepatitis C, stopping alcohol or losing weight is the most effective long-term treatment of portal hypertension, but the pressure falls over years, not weeks. Patients who start with a high HVPG often keep CSPH and keep their beta-blocker. Liver cancer surveillance continues after any cure in a patient who had cirrhosis.',
+      notes: 'Curing hepatitis C, suppressing hepatitis B, stopping alcohol or losing weight is the most effective long-term treatment of portal hypertension, but the pressure falls over years, not weeks. Patients who start with a high HVPG often keep CSPH and keep their beta-blocker. Liver cancer surveillance continues after any cure in a patient who had cirrhosis. Hepatitis B behaves like hepatitis C here: entecavir or tenofovir, taken long term, suppresses the virus, and the stiffness and the HVPG fall over years; the cancer risk falls but does not go.',
       ask: ['After cure, who still needs carvedilol?', 'Anyone in whom CSPH persists, as shown by the HVPG or by stiffness and platelets.'],
     },
   ],
