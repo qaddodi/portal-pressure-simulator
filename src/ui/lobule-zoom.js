@@ -763,6 +763,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // pinch in from the framing paid a whole draw at every 1.6x step, the zoom stalling there (Mohammad, 6 Nov 2026: "still super choppy"). The picture is a little soft
   // mid-pinch and drawn sharp when the hand lets go (frozenEnd).)
   const LZ_CARRY_MAX = 3;
+  // (The share of the view the hand's whole frames are drawn at, about the screen's middle: 1/0.8 = 25 % more world, 12.5 % of the screen on every side.)
+  const LZ_MARGIN_S = 0.8;
+  const realV = { on: false, k: 1, x: 0, y: 0 };
+  const marginOK = () => handOn() && fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging;
+  // fn run with the lobule's view set to the margin view (and put back after, whatever fn does): what draws reads V, and V stays the hand's everywhere else.
+  function withMargin(on, W, H, fn) {
+    if (!on) { fn(); return; }
+    const k = V.k, x = V.x, y = V.y, s = LZ_MARGIN_S;
+    realV.on = true; realV.k = k; realV.x = x; realV.y = y;   // (the carry's map, shareMap, is the hand's view, not the margin one, should the draw present inside)
+    V.k = k * s; V.x = W / 2 - s * (W / 2 - x); V.y = H / 2 - s * (H / 2 - y);
+    try { fn(); } finally { V.k = k; V.x = x; V.y = y; realV.on = false; }
+  }
   const frozenOK = (W, H, dpr, dark) => drawnV.ok && !glDirty && fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && handOn()
     && drawnV.W === W && drawnV.H === H && drawnV.dpr === dpr && drawnV.dark === dark && !!gl && !gl.lost && !!gl.target?.w
     // (Only while the picture still covers the screen carried to the view: else this frame is drawn whole, and the carry goes on from that picture.)
@@ -782,7 +794,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (The glCv's own CSS transform in the dive, then the layer's, the sinusoid zoom's turn and growth about its fixed point.)
     let a = 1, b = 0, c = 0, d = 1, tx = 0, ty = 0;
     // (The picture was drawn for another view: the hand's move since, as a scale and a shift of its own.)
-    if (frozenDraw && drawnV.ok && drawnV.k > 0) { a = d = V.k / drawnV.k; tx = V.x - a * drawnV.x; ty = V.y - a * drawnV.y; }
+    if (frozenDraw && drawnV.ok && drawnV.k > 0) { const vk = realV.on ? realV.k : V.k, vx = realV.on ? realV.x : V.x, vy = realV.on ? realV.y : V.y; a = d = vk / drawnV.k; tx = vx - a * drawnV.x; ty = vy - a * drawnV.y; }
     if (!wh && (DIVE.k !== 1 || DIVE.x || DIVE.y)) { a *= DIVE.k; d *= DIVE.k; tx = tx * DIVE.k + DIVE.x; ty = ty * DIVE.k + DIVE.y; }
     if (elXf.rot || elXf.Z !== 1) {
       const cs = Math.cos(elXf.rot) * elXf.Z, sn = Math.sin(elXf.rot) * elXf.Z, ox = elXf.ox, oy = elXf.oy;
@@ -2913,7 +2925,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // A hand's pinch, wheel or drag, with the lobule in the figure's own context: the last picture is carried to the view by the GPU (layShared), and
     // the vessels, the tissue and the overlay are drawn again once the hand lets go. The labels are laid for the view as it is, every frame.
     const frz = !!(g && shared && frozenOK(W, H, dpr, dark));
-    if (!frz) showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, g ? tissueGLOn() : null));
+    // (While a hand moves the lobule, the whole frames it still needs are drawn for a view zoomed out by LZ_MARGIN_S about the screen's middle: the picture then
+    // holds a margin round the screen, and is carried 1/LZ_MARGIN_S times larger. A pinch out or a pan then keeps being carried by the GPU instead of the lobule
+    // being drawn whole on every frame (a shrunken or shifted picture left a gap at its edges: carryCovers). Drawn sharp for the view itself once the hand lets go
+    // (frozenEnd). Mohammad, 6 Nov 2026.)
+    const mg = !frz && !!g && shared && marginOK() && !!(g && !g.lost);
+    if (!frz) withMargin(mg, W, H, () => showTissueGL(paintTissue(W, H, dpr, dark, cs, !g, g ? tissueGLOn() : null)));
     snapNext = false;
     framePart('lz.layoutLabels', layoutLabels);
     if (frz) {
@@ -2923,9 +2940,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       return true;
     }
     // (The overlay first: in the vessels' own context it is laid over them at their present, in drawGL.)
-    const fxOn = fxOnGPU(W, H, dpr, dark, dt, g && !g.lost);
+    let fxOn = false;
     const laid = g?.top?.presents;
-    if (g && !g.lost) { drawGL(W, H, dpr, dark, cs, dt); frozenDraw = false; drawnV.ok = true; drawnV.k = V.k; drawnV.x = V.x; drawnV.y = V.y; drawnV.W = W; drawnV.H = H; drawnV.dpr = dpr; drawnV.dark = dark; }
+    withMargin(mg, W, H, () => {
+      fxOn = fxOnGPU(W, H, dpr, dark, dt, g && !g.lost);
+      if (g && !g.lost) {
+        // (A margin picture is carried from its first present: the map is set before the draw, whose present lays it.)
+        if (mg) { frozenDraw = true; drawnV.ok = true; drawnV.k = V.k; drawnV.x = V.x; drawnV.y = V.y; drawnV.W = W; drawnV.H = H; drawnV.dpr = dpr; drawnV.dark = dark; }
+        drawGL(W, H, dpr, dark, cs, dt); frozenDraw = mg; drawnV.ok = true; drawnV.k = V.k; drawnV.x = V.x; drawnV.y = V.y; drawnV.W = W; drawnV.H = H; drawnV.dpr = dpr; drawnV.dark = dark;
+      }
+    });
     // (What is drawn in the vessels' canvas besides them, the tissue under and the overlay over: a frame that drew the vessels again
     // laid them all; one that did not lays them now.)
     if (g && !g.lost && laid !== undefined && g.top.presents === laid && (fxOn || (tisHostFor && tissueDrew))) g.present();
