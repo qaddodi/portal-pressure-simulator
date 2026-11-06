@@ -97,12 +97,51 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
       for (let n = b; n && n !== pane; n = n.parentElement) for (let s = n.nextElementSibling; s; s = s.nextElementSibling) follow(s, i);
     });
     for (const it of items) if (it[2]) it[0].style.transformOrigin = '50% 0';
-    gr = { base, items, share: boxes.length, last: NaN };
+    gr = { base, items, share: boxes.length, last: NaN, gt: 0 };
+    gr.gt = probeFinal(pane);
     el.classList.add('sheet-grow');
+  };
+  // The pull's end is laid out once, here, before the first frame of the pull and never painted: the pane is given the room of the stop the pull is
+  // headed for (Full from Half, Half from Full) and the notes that come with it (the Half class off or on, the pane's own height for the container
+  // rules), and where each chart and each thing under it lands is read, then everything is put back. The pull then moves each one from where it is to
+  // where it will be by the share of the way the card has grown (growTo), so the content grows with the finger and the landing has nothing left to jump.
+  // Returns the card's growth to that stop (px; 0: not measured, growTo splits the growth between the charts as before).
+  const probeFinal = (pane) => {
+    const body = pane.closest('.dock-body'), S = stops(), idx = size === S.length - 1 ? half() : S.length - 1;
+    if (!body || idx === size || idx < 0 || !gr) return 0;
+    const r = room(), gt = (r ? S[idx] * r : S[idx] * readMetric(app, 'clientHeight')) - gr.base;
+    if (Math.abs(gt) < 8) return 0;
+    const items = gr.items, was = el.classList.contains('sheet-half'), prev = body.style.height, bh = readMetric(body, 'offsetHeight');
+    const pt = readBox(pane).top, cur = items.map((it) => readBox(it[0]));   // alloc-rare: once for each gesture
+    body.style.height = `${bh + gt}px`; el.classList.toggle('sheet-half', thumb() && idx === half());
+    const pt1 = readBox(pane).top;
+    let ok = true;
+    items.forEach((it, i) => {
+      const f = readBox(it[0]), c = cur[i];
+      if (!(f.width > 0 || f.height > 0)) { it[3] = 0; it[4] = 1; return; }   // (a thing the stop hides keeps its place)
+      it[3] = (f.top - pt1) - (c.top - pt);
+      it[4] = it[2] && c.height > 0 ? f.height / c.height : 1;
+      if (!Number.isFinite(it[3]) || !Number.isFinite(it[4]) || it[4] <= 0) ok = false;
+    });
+    body.style.height = prev; el.classList.toggle('sheet-half', was);
+    return ok ? gt : 0;
   };
   const growTo = (off) => {
     if (!gr) return;
-    const ga = Math.round(((lay || gr.base) - off - gr.base) / gr.share * 4) / 4;
+    const G = (lay || gr.base) - off - gr.base;
+    if (gr.gt) {
+      // (the share of the way to the stop the pull is headed for, 0 where it is now, 1 at the stop: each chart and what is under it is that far
+      // from where it is laid out to where it will be laid out)
+      const p = Math.round(Math.min(1, Math.max(0, G / gr.gt)) * 500) / 500;
+      if (p === gr.last) return;
+      gr.last = p;
+      for (const [e, , hb, dy, k] of gr.items) {
+        e.style.translate = dy ? `0px ${dy * p}px` : '';
+        if (hb) e.style.scale = `1 ${Math.max(0.2, 1 + (k - 1) * p)}`;
+      }
+      return;
+    }
+    const ga = Math.round(G / gr.share * 4) / 4;
     if (ga === gr.last) return;
     gr.last = ga;
     for (const [e, n, hb] of gr.items) {

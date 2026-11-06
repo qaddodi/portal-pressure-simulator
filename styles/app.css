@@ -6698,6 +6698,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   #app.thumb [data-pane="hvpg"] .hvpg-bar > .btn { order: 1; margin-left: auto; min-height: 36px; padding-inline: 12px; }
   #app.thumb [data-pane="hvpg"] > .chart-side { order: 3; }
   #app.thumb .instrument-workspace.sheet-half [data-pane="hvpg"] > .chart-side { display: none; }
+  #app.thumb .instrument-workspace:not(.sheet-half) [data-pane="hvpg"] > .chart-side { animation: fade-rise var(--d-flip) var(--ease); }   /* (the steps and words come in at the landing of a pull to Full by a fade, not a pop) */
   /* Doppler: the reading, the flow's direction and the waveform's name in the monitor's top strip, as on a slide's data card
      (doppler.js reads --dop-ov); the gauge and the tiles under the monitor. */
   #app.thumb .instrument-view.dop .dop-main { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto auto auto; row-gap: 0; }
