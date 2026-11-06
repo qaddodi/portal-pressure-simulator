@@ -2079,6 +2079,8 @@ button.finding { cursor: pointer; }
 /* The number shrinks with its tile (30cqi) and the unit drops under it rather than leave the box. */
 .pzt-vu { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: center; gap: 0 .3em; min-width: 0; }
 .pzt-v { font: 600 min(var(--s-big), 24cqi)/1.05 var(--font-ui); font-variant-numeric: tabular-nums; letter-spacing: -.02em; color: var(--text); transition: none; }
+/* (A tile is built before its number is written: empty, it lost this line and the card was fitted 17 px short, then grew and its glass with it, Mohammad 6 Nov 2026.) */
+.pzt-v:empty::before { content: '\200b'; }
 .pzt-vu small { font: 500 var(--s-cap) var(--font-ui); color: var(--text-3); white-space: nowrap; }
 .pzt-r { display: inline-flex; align-items: center; justify-content: center; gap: .45em; font: 600 var(--s-cap)/1.2 var(--font-ui); color: var(--text-2); }
 .pz-tile[data-rate="hi"] .pzt-v, .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger-ink); }
