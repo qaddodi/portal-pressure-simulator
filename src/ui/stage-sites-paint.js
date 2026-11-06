@@ -172,7 +172,14 @@ export function createSitesPaint(st, live) {
         if (rb > y1 + 2 && el._below && y - 18 - el._kh >= y0) { el._below = false; el.dataset.at = ''; el._kt = -18 - el._kh; }
         else if (rt < y0 - 2 && !el._below && y + 18 + el._kh <= y1) { el._below = true; el.dataset.at = 'ahead'; el._kt = 18; }
       }
-      const onCard = !d.res && el._kh > 0 && el._kt != null && (y + el._kt + el._kh > y1 + 2 || y + el._kt < y0 - 2);
+      // (Neither side clear, where the band has room for it (the portal blood's share on a phone, between the data card and the teaching
+      // card): it slides into the band, its pointer toward its point, rather than hide. Hidden only where the band is too short for it.)
+      let sy = 0;
+      if (!d.res && el._kh > 0 && el._kt != null) {
+        const rt = y + el._kt, rb = rt + el._kh;
+        if ((rb > y1 + 2 || rt < y0 - 2) && y1 - y0 >= el._kh + 4) sy = rt < y0 ? y0 - rt : y1 - rb;
+      }
+      const yy = y + sy, onCard = !d.res && el._kh > 0 && el._kt != null && (yy + el._kt + el._kh > y1 + 2 || yy + el._kt < y0 - 2);
       el.classList.toggle('off', onCard || x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)) || (!d.res && !!el._half && 2 * el._half > x1 - x0 + 1));
       if (el._below == null && el._h) { el._below = d.below ? y + 18 + el._h < y1 : y - 18 - el._h < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       // (Its width read again only when its words or classes change: a read after each frame's new number forced a layout.)
@@ -184,10 +191,10 @@ export function createSitesPaint(st, live) {
       const wk = `${el.className.replace(/(?:^|\s)off(?=\s|$)/, '')}|${el.textContent.replace(/\d/g, '0')}|${W}|${live.labelBase()}|${live.labelFonts}`;
       if (el._wk !== wk || !el._half) siteSize(el, d, wk);
       const half = el._half, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
-      el._box = el.classList.contains('off') ? null : calloutBox(el, d, cx, y, half, el._h || 0);
+      el._box = el.classList.contains('off') ? null : calloutBox(el, d, cx, yy, half, el._h || 0);
       el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
       el._glass?.(x - cx);
-      el.style.transform = `translate(${cx.toFixed(1)}px, ${y.toFixed(1)}px)`; el._y = y;
+      el.style.transform = `translate(${cx.toFixed(1)}px, ${yy.toFixed(1)}px)`; el._y = yy;
       // Over the key or the nav pill: the callout steps left, its pointer still on its point; with no room there, a callout above
       // its point rises just clear of them. (Its height and its top's offset from its point are read with its width.)
       // (A reading's own offset is known from its side of the point, app.css data-at: read off the screen, it was read part way through
@@ -195,14 +202,14 @@ export function createSitesPaint(st, live) {
       if (!d.res) { el._kh = el._h || 0; el._kt = el.dataset.at === 'ahead' && !el.classList.contains('above') ? 18 : -18 - el._kh; }
       else if (el._kw !== wk + el.dataset.at) { el._kw = wk + el.dataset.at; siteSize(el, d, wk); }
       if (ko && !el.classList.contains('off')) {
-        const rl = cx - half, rr = cx + half, rt = y + el._kt, rb = y + el._kt + el._kh;   // (its box: left, right, top, bottom)
+        const rl = cx - half, rr = cx + half, rt = yy + el._kt, rb = yy + el._kt + el._kh;   // (its box: left, right, top, bottom)
         if (rr > ko.l - 8 && rl < ko.r + 8 && rb > ko.t - 8 && rt < ko.b + 8) {
           const dx = rr - (ko.l - 8), dy = rb - (ko.t - 8);
           if (rl - dx >= x0 && Math.abs(x - (cx - dx)) < half - 16) {
             el.style.setProperty('--ax', `${(x - cx + dx).toFixed(1)}px`); el._glass?.(x - cx + dx);
-            el.style.transform = `translate(${(cx - dx).toFixed(1)}px, ${y.toFixed(1)}px)`;
+            el.style.transform = `translate(${(cx - dx).toFixed(1)}px, ${yy.toFixed(1)}px)`;
             if (el._box) { el._box.x0 -= dx; el._box.x1 -= dx; }   // (the box calloutBox just made for this paint: no other holds it yet)
-          } else if (!el._below && rt - dy >= y0 - 8) { el.style.transform = `translate(${cx.toFixed(1)}px, ${(y - dy).toFixed(1)}px)`; if (el._box) { el._box.y0 -= dy; el._box.y1 -= dy; } }
+          } else if (!el._below && rt - dy >= y0 - 8) { el.style.transform = `translate(${cx.toFixed(1)}px, ${(yy - dy).toFixed(1)}px)`; if (el._box) { el._box.y0 -= dy; el._box.y1 -= dy; } }
           // (One below its point, as the portal blood's share is, with no room to the left: it turns to stand above its point when
           // that is clear, once (Shunts 2 on a phone held sideways, its foot on the key).)
           else if (el._below && !el._turned && y - 18 - el._kh >= y0) { el._turned = true; el._below = false; el.dataset.at = ''; }
