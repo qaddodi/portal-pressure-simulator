@@ -1212,10 +1212,10 @@ ${ROWS_GLSL}
 void lymphAt(float s, float y, vec4 f0, float len, float R, out float cover, out float core) {
   float pitch = max(f0.y, 1.0);
   float x = (fract((s - f0.x) / pitch) - 0.5) * pitch;
-  float hl = pitch * 0.2, r = R * 0.95, aa = max(pxW, 1e-3) * 0.75, ya = y * R;
+  float hl = pitch * 0.14, r = R * 0.36, aa = max(pxW, 1e-3) * 0.75, ya = y * R;   // (thin and short: a fine line down the middle of the channel, never filling it)
   cover = 1.0 - smoothstep(r - aa, r + aa, length(vec2(max(abs(x) - max(hl - r, 0.0), 0.0), ya)));
-  float rc = r * 0.42;
-  core = (1.0 - smoothstep(rc - aa, rc + aa, length(vec2(max(abs(x) - max(hl * 0.55 - rc, 0.0), 0.0), ya)))) * (0.25 + 0.75 * clamp(f0.z, 0.0, 1.0));
+  float rc = r * 0.5;
+  core = (1.0 - smoothstep(rc - aa, rc + aa, length(vec2(max(abs(x) - max(hl * 0.55 - rc, 0.0), 0.0), ya)))) * (0.15 + 0.35 * clamp(f0.z, 0.0, 1.0));
   float e = smoothstep(0.0, pitch * 1.2, min(s, len - s));
   cover *= e; core *= e;
 }
@@ -1670,8 +1670,8 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
     if (blood == 1 && isLy && f1.z > 0.0) {
       float lc, lk;
       lymphAt(s1, y1, f0, len1, R1, lc, lk);
-      // The dash's ink: a deeper green than the channel's own, lighter in the dark theme; the core the albumin's amber.
-      vec3 ink = mix(vc1, f0.w > 0.5 ? vec3(0.78, 0.95, 0.70) : vec3(0.30, 0.56, 0.28), 0.82);
+      // The dash's ink: only a little deeper than the channel's own green (lighter in the dark theme); the core a faint albumin amber.
+      vec3 ink = mix(vc1, f0.w > 0.5 ? vec3(0.78, 0.95, 0.70) : vec3(0.30, 0.56, 0.28), 0.4);
       vec3 amber = f0.w > 0.5 ? vec3(0.95, 0.71, 0.29) : vec3(0.89, 0.60, 0.12);
       float aL = clamp(f1.z * vis * flowA * blendA.x, 0.0, 1.0);
       col = mix(col, ink, lc * aL);
