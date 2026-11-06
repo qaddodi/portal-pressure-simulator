@@ -3960,8 +3960,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // Whether the card may zoom now: it stands whole, on a wide screen, with an instrument, and nothing else is going on.
   const zoomReady = () => !!ui && !!deck && !!shown && shown.i === want && shown.gen === gen && (!busy || playing) && !leaving && !black && !caseStands() && ui.jump.hidden && !isModalOpen()
     && ui.root.classList.contains('pz-wide') && zoomCard() && dataStands() && !ui.root.classList.contains('pz-prep');
-  // (A card with an instrument zooms; in a talk that opts in (deck zoomTiles: the Circuit talk) a tiles-only card does too, so every slide's card can.)
-  const zoomCard = () => ui.data.classList.contains('has-tool') || (!!deck?.zoomTiles && !ui.data.hidden);
+  // (A card with an instrument zooms, and so does a tiles-only card, in every talk (Mohammad, 6 Nov 2026: a tap on the teaching card or the tile
+  // card of Left-sided portal hypertension did nothing; only the Circuit talk had opted in). A talk may still opt out with zoomTiles: false.)
+  const zoomCard = () => ui.data.classList.contains('has-tool') || (deck?.zoomTiles !== false && !ui.data.hidden);
   const caseStands = () => !!caseCard && !caseCard.flown;
   async function zoomOpen(focus) {
     if (!zoomReady() || ui.zoom.on) return;
@@ -5568,13 +5569,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // The figure is read-only here: no hover highlight or glow, no vessel popup, no pick, no actions menu, no text selection.
   // (Gated at the input layer, so the figure's own handlers never run. Pointer leaves are left alone, so a hover that was
   // lit as the deck started still clears. The bar's wake-on-move listens on the window, so a move over the figure wakes it here.)
-  // (One exception, N4: a tap on a station's label explains it, or ends the explaining (label-explain.js); the stage judges it against what the GPU drew.
-  // Before the swallowing below, so it sees the click; a drag or a swipe sends no click.)
-  wrap.addEventListener('click', (e) => {
-    if (!offFig(e) || leaving) return;
-    if (stage.explainAt?.(e.clientX, e.clientY)) e.preventDefault();
-    else if (stage.explainKey?.()) stage.explainClear();   // (a tap anywhere else on the figure or the empty stage ends it)
-  }, { capture: true });
+  // (A tap on a label no longer explains it: Mohammad, 6 Nov 2026, "remove the feature to click on labels in the deck slides to view more
+  // information". A tap on the figure is swallowed like the rest.)
   for (const t of ['pointerdown', 'mousedown', 'mouseup', 'pointerup', 'click', 'dblclick', 'wheel', 'gesturestart',
     'pointermove', 'pointerover', 'pointerout', 'mousemove', 'mouseover', 'mouseout', 'contextmenu', 'selectstart', 'dragstart'])
     wrap.addEventListener(t, (e) => {
