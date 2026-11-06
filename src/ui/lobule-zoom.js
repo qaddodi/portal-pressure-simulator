@@ -2945,8 +2945,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     withMargin(mg, W, H, () => {
       fxOn = fxOnGPU(W, H, dpr, dark, dt, g && !g.lost);
       if (g && !g.lost) {
-        // (A margin picture is carried from its first present: the map is set before the draw, whose present lays it.)
-        if (mg) { frozenDraw = true; drawnV.ok = true; drawnV.k = V.k; drawnV.x = V.x; drawnV.y = V.y; drawnV.W = W; drawnV.H = H; drawnV.dpr = dpr; drawnV.dark = dark; }
+        // (The picture this draw makes is laid by the present inside it, so the carry's map is set to the view it is drawn for BEFORE the draw: left as the
+        // last frozen frame had it, the new picture was laid scaled and shifted by that carry for a frame, a zoomed in view popping up at the end of every pan
+        // and zoom, then corrected by the next present. Mohammad, 6 Nov 2026.)
+        { frozenDraw = mg; drawnV.ok = true; drawnV.k = V.k; drawnV.x = V.x; drawnV.y = V.y; drawnV.W = W; drawnV.H = H; drawnV.dpr = dpr; drawnV.dark = dark; }
         drawGL(W, H, dpr, dark, cs, dt); frozenDraw = mg; drawnV.ok = true; drawnV.k = V.k; drawnV.x = V.x; drawnV.y = V.y; drawnV.W = W; drawnV.H = H; drawnV.dpr = dpr; drawnV.dark = dark;
       }
     });
