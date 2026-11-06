@@ -45,6 +45,7 @@ import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatCol
 import { NODES, EDGES } from '../engine/topology.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js';
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js';
+import { STYLE_D } from './blood-tile.js';
 import { createSinusoidView } from './sinusoid-view.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameGapFor, frameCount, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
@@ -3703,7 +3704,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let calN = 0, calW = 0, calH = 0, calLy = false, radAllK = 0, radStamp = 0;
   const radNow = [], radNowAt = [], radKeep = [];   // (per tube id: its radii at the samples, the stamp of the calibers they were worked out for, the radii as last sent)
   const inkNow = new Float64Array(MAXT * 6);   // (each vessel's two end colours this pass, in live order, 3 numbers each)
-  const bloodArg = { alpha: 0, on: false, chev: false, look: '', origin: false, clock: 0, dye: false, bleed: [], vdpr: 1, originCol: null, dyeCol: null, inkLight: null, inkDark: null, revCol: null, chevInk: null, chevLight: null };
+  // (style: the lobule's streaks are blood look D, as the anatomy's: the baked tile read twice a pixel, blood-tile.js; Mohammad, 5 Nov 2026.)
+  const bloodArg = { alpha: 0, on: false, chev: false, look: '', origin: false, clock: 0, style: STYLE_D, dye: false, bleed: [], vdpr: 1, originCol: null, dyeCol: null, inkLight: null, inkDark: null, revCol: null, chevInk: null, chevLight: null };
   const selWas = [];   // (the ids of the selection the attributes were last made for)
   let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akP = 0, akF = 0, akDark = null, akArt = '';
   const LYD = [0, 0, 0], DISSE_DEEP = [0.79, 0.86, 0.74], DISSE_DEEP_DARK = [0.62, 0.7, 0.58];
