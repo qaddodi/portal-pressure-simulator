@@ -508,9 +508,13 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const remember = () => { try { localStorage.setItem('pps.instruments', JSON.stringify({ open, h: heightRatio, w: widthPx })); } catch (e) { caught('dock:434', e); /* storage unavailable */ } };
   // A phone held sideways (667x375 and up) docks on the right too, like a narrow iPad: the figure keeps the full height.
   const sideMQ = matchMedia(`(min-width: 700px) and (orientation: landscape), ${SIDEWAYS_MQ}`);
-  const coarseMQ = matchMedia('(pointer: coarse)');   // (an iPad held sideways: a narrower Tests card leaves a vessel card its strip beside Treat)
   const sidewaysMQ = matchMedia(SIDEWAYS_MQ);
   const isSide = () => sideMQ.matches;
+  // On a Mac and on an iPad held sideways the card on the right has one width, the same on both, and it cannot be dragged wider or narrower
+  // (Mohammad 6 Nov 2026: "a unified fixed width; i don't like we can make it bigger"). 500 px: the FibroScan map 460 px wide, the Scope's
+  // five readings in one row (they need 450 px of pane), every tab's short name under its icon. Only a phone held sideways keeps its divider.
+  const SIDE_W = 500;
+  const fixedSide = () => isSide() && !sidewaysMQ.matches;
 
   const live = h('span', { class: 'workspace-live', 'aria-live': 'off' });
   // The head is the same as Findings' and Treat's: icon, name, a quiet status, close.
@@ -701,6 +705,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     workspace.classList.toggle('side', side);
     workspace.dataset.safe = side ? 'right' : 'bottom';
     divider.setAttribute('aria-orientation', side ? 'vertical' : 'horizontal');
+    divider.hidden = state !== 'open' || fixedSide();
     if (side) putWidth(readMetric(stageWrap, 'clientWidth'));
     // (Over the thumb dock the card's height is the dock sheet's alone (dock-sheet.js, Menu system plan W3): no --instrument-h is written there.)
     else if (!app.classList.contains('thumb')) putHeight(readMetric(stageWrap, 'clientHeight'), sheetMax(readMetric(stageWrap, 'clientHeight')));
@@ -708,7 +713,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   }
   // The card's size from the stage's (W wide, H high): worked out with no read of the page, so a drag can size it from the stage
   // it measured as it began.
-  const sideWidth = (W) => clamp(widthPx ?? (sidewaysMQ.matches ? Math.max(340, W * 0.45) : coarseMQ.matches && W < 1200 ? 380 : Math.max(440, W * 0.38)), sidewaysMQ.matches ? 320 : 360, Math.max(360, W * 0.62));
+  // (The fixed width gives way only in a window too narrow for it, so the card never takes more than 62% of the stage.)
+  const sideWidth = (W) => (sidewaysMQ.matches ? clamp(widthPx ?? Math.max(340, W * 0.45), 320, Math.max(360, W * 0.62)) : Math.min(SIDE_W, Math.max(360, W * 0.62)));
   // The sheet rises from above the vitals dock, at most to just under the top bar.
   const sheetMax = (H) => H - css('--top-safe') - css('--vdock-h') - 40;
   const sheetRatio = () => {
@@ -819,7 +825,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     state = next;
     workspace.dataset.state = state;
     app.classList.toggle('instrument-focus', state === 'focus' && isVisible());
-    divider.hidden = state !== 'open';
+    divider.hidden = state !== 'open' || fixedSide();
     body.hidden = state === 'peek';
     tabsBox.hidden = state === 'peek';
     endPick();
@@ -950,7 +956,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   // (The guide has a compositor layer of its own only while the divider is dragged and while it fades out.)
   let guideLayerT = 0;
   divider.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || fixedSide()) return;
     const side = isSide(), W = readMetric(stageWrap, 'clientWidth'), H = readMetric(stageWrap, 'clientHeight');
     drag = { x: e.clientX, y: e.clientY, w: readMetric(workspace, 'clientWidth'), height: readMetric(workspace, 'clientHeight'), side, W, H, max: side ? 0 : sheetMax(H) };
     const d = readBox(divider), c = readBox(workspace);
@@ -977,7 +983,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   });
   divider.addEventListener('keydown', (e) => {
     const grow = e.key === 'ArrowUp' || e.key === 'ArrowLeft', shrink = e.key === 'ArrowDown' || e.key === 'ArrowRight';
-    if (!grow && !shrink && e.key !== 'Home' && e.key !== 'End') return;
+    if ((!grow && !shrink && e.key !== 'Home' && e.key !== 'End') || fixedSide()) return;
     e.preventDefault();
     if (isSide()) {
       const W = readMetric(stageWrap, 'clientWidth');

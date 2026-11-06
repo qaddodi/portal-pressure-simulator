@@ -1494,7 +1494,7 @@ let panelOpener = null;
 // opening would leave less, the others give way one at a time, Treat or History first, then Tests, then Details, each easing out, until it
 // fits: on a 1024 iPad that is one card at a time. (opening: 'treat', 'dock' or 'panel'.)
 function rightShort(opening) {
-  // (A maximised Tests card fills the screen and the figure is hidden: there is no vessel card to leave a strip for, and the stretched card is not 380 px wide.)
+  // (A maximised Tests card fills the screen and the figure is hidden: there is no vessel card to leave a strip for, and the stretched card is not its fixed 500 px.)
   if (isPhone() || !matchMedia('(pointer: coarse)').matches || app.classList.contains('instrument-focus')) return false;
   const dock = $('#dock'), onPanel = opening === 'panel' || panelShown(), onDock = opening === 'dock' || (app.classList.contains('dock-open') && dock.classList.contains('side')), onTreat = opening === 'treat' || treatOpen() || historyOpen();
   // (The cards' widths as the browser last reported them, geom.js: none is laid out to ask.)
@@ -1502,7 +1502,7 @@ function rightShort(opening) {
   // (The widths of the cards open, counted and summed as they are met.)
   let n = 0, sum = 0;
   if (onPanel) { n++; sum += Math.round(pw || 0) || 380; }
-  if (onDock) { n++; sum += Math.round(dw || 0) || (innerWidth < 1200 ? 380 : Math.max(440, innerWidth * 0.38)); }
+  if (onDock) { n++; sum += Math.round(dw || 0) || Math.min(500, Math.max(360, innerWidth * 0.62)); }
   if (onTreat) { n++; sum += 400; }
   return n > 1 && innerWidth - sum - (n + 1) * 12 < 316;
 }

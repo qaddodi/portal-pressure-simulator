@@ -4082,7 +4082,7 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .instrument-workspace.float-ui { container-name: ws; container-type: inline-size; border-top: 0; }
 .instrument-workspace.side {
   left: auto !important; right: calc(env(safe-area-inset-right) + var(--gap) + var(--panel-occ, 0px)) !important;
-  top: calc(var(--top-safe) + 4px); bottom: calc(var(--vdock-h) + var(--gap) + 8px); width: var(--instrument-w, 480px); height: auto;
+  top: calc(var(--top-safe) + 4px); bottom: calc(var(--vdock-h) + var(--gap) + 8px); width: var(--instrument-w, 500px); height: auto;
 }
 .instrument-workspace.side[data-state="peek"] { bottom: auto; height: auto; }
 .instrument-workspace.float-ui:not(.side)[data-state="peek"] { height: auto; }

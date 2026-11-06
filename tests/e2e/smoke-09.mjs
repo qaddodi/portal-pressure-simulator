@@ -127,8 +127,10 @@ export default async function register({ check, device, leaderFrames, open, pick
     const before = await page.evaluate(() => window.pps.store.get().frame.t);
     await page.waitForTimeout(500);
     if (!((await page.evaluate(() => window.pps.store.get().frame.t)) > before)) throw new Error('opening instruments paused simulation');
-    // A laptop or tablet resizes the card with its divider; a phone's sheet uses its handle instead.
-    if (device !== 'phone') { await page.click('.workspace-divider'); await page.keyboard.press('ArrowUp'); }
+    // A tablet's sheet resizes with its divider; a phone's sheet uses its handle instead. The card on the right (a Mac, an iPad held
+    // sideways) has one fixed width and no divider (6 Nov 2026).
+    if (device !== 'phone' && !g.side) { await page.click('.workspace-divider'); await page.keyboard.press('ArrowUp'); }
+    if (g.side && await page.locator('.workspace-divider:visible').count()) throw new Error('the card on the right has a fixed width: its divider must be hidden');
     await page.evaluate(() => window.pps.timeline.togglePin());
     await page.waitForFunction(() => !!window.pps.store.get().compareSnap);
     await page.waitForSelector('.workspace-comparison:not([hidden])');

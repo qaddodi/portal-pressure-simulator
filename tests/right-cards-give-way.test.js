@@ -23,8 +23,12 @@ test('every way a right-hand card opens asks the others to give way when the ves
   assert.equal((main.match(/giveWay\('treat'\)/g) || []).length, 2, 'Treat and History');
 });
 
-test('Tests is 380 px wide on a touch screen below 1200 wide, which the give-way arithmetic assumes', () => {
-  assert.match(read('src/ui/dock.js'), /coarseMQ\.matches && W < 1200 \? 380 : Math\.max\(440, W \* 0\.38\)/);
+test('Tests has one fixed width on a Mac and an iPad held sideways (500 px, no divider), which the give-way arithmetic assumes', () => {
+  const dock = read('src/ui/dock.js');
+  assert.match(dock, /const SIDE_W = 500;/);
+  assert.match(dock, /: Math\.min\(SIDE_W, Math\.max\(360, W \* 0\.62\)\)\)/, 'no remembered width off a sideways phone');
+  assert.match(dock, /divider\.hidden = state !== 'open' \|\| fixedSide\(\);/);
+  assert.match(read('src/ui/main.js'), /\|\| Math\.min\(500, Math\.max\(360, innerWidth \* 0\.62\)\)/);
 });
 
 test('a card that gives way hands focus on to the opening card\'s button; a dialog is not fitted to a pinched-in page and follows iOS\'s pan', () => {
