@@ -49,6 +49,7 @@ import { PUBLISH_QUIET_MS, SHADER_WARM, exerciseDraw } from './gl-compile.js';
 import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-gl.js';
 import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js';
 import { warmFade } from './res-fade-gl.js';
+import { WEEP_ROWS } from './weep.js';
 import { fusedVS, fusedFS } from './veins-fuse.js';
 import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
@@ -1103,6 +1104,9 @@ uniform vec4 fluidRect;
 uniform vec4 fluidS;                   // ascites: floor, height, ripple amplitude, ripple phase (world units, radians)
 uniform vec4 fluidInk;                 // its straw color (straight) and opacity at depth; a = 0: none
 uniform vec2 fluidLv;                  // the liver's scale about 560 350, and how far the fluid is kept off it (its lower edge: fluidMask row 1)
+uniform vec4 weepP;                    // the lymph weeping into the pool (weep.js): segments (0: none), the dashes' phase, pitch and length (world units)
+uniform vec4 weepBox;                  // its world box (x0, y0, x1, y1): no pixel outside it reads the table
+uniform vec4 weepK;                    // the sheen along the liver's lower edge: its strength (x)
 uniform mat3 inv;                      // device pixels → world
 uniform float H;                       // canvas height, device pixels
 uniform float pxW;                     // world units per device pixel
@@ -1457,6 +1461,61 @@ float dyeAt(int id, float s, float y) {
   return texture(dye, vec2((u * (BINS - 1.0) + 0.5) / BINS, (float(id) + 0.5) / rows)).r;
 }
 
+// Lymph weeping from the liver's surface into the pool (weep.js), premultiplied, over the plate, the vessels and the pool: fine rivulets
+// of amber dashes with a pale core and a thin dark outline join one stream that runs down into the pool, and a thin amber sheen runs
+// along the liver's lower edge. The segments are rows 2 … 13 of fluidMask, one segment a column: A (x0, y0, x1, y1), B (arc at its start,
+// half width at its start and end), C (opacity at its start and end). Each pixel takes the union of the segments' dashes (the largest
+// coverage, so crossings never darken), the dashes run along the arc at the phase weepP.y, and they fade out above the pool's surface.
+vec4 weepAt(vec2 w) {
+  if (weepP.x < 0.5 || w.x < weepBox.x || w.y < weepBox.y || w.x > weepBox.z || w.y > weepBox.w) return vec4(0.0);
+  float aa = max(pxW, 1e-3) * 0.7;
+  vec4 res = vec4(0.0);
+  float nR = float(textureSize(fluidMask, 0).x);
+  // The sheen along the liver's lower edge (fluidMask row 1, in the liver's own frame).
+  if (weepK.x > 0.0) {
+    vec2 lu = (w - vec2(560.0, 350.0)) / fluidLv.x + vec2(560.0, 350.0);
+    float lx = clamp((lu.x - fluidRect.x) / fluidRect.z, 0.0, 1.0) * (nR - 1.0);
+    int l0 = int(floor(lx)), l1 = min(l0 + 1, int(nR) - 1);
+    float b0 = texelFetch(fluidMask, ivec2(l0, 1), 0).r, b1 = texelFetch(fluidMask, ivec2(l1, 1), 0).r;
+    if (b0 > -1.0e3 && b1 > -1.0e3) {
+      float sl = (b1 - b0) * (nR - 1.0) / fluidRect.z;
+      float dr = abs(lu.y - mix(b0, b1, lx - float(l0))) * fluidLv.x / sqrt(1.0 + sl * sl);
+      float core = 1.0 - smoothstep(1.0 - aa, 1.0 + aa, dr), halo = 1.0 - smoothstep(0.0, 4.2, dr);
+      float ra = weepK.x;
+      res = over(vec4(1.0, 0.847, 0.573, 1.0) * (0.6 * ra * core), over(vec4(0.925, 0.627, 0.188, 1.0) * (0.2 * ra * halo), res));
+    }
+  }
+  // Fade out above the pool's surface (the same surface fluidAt draws, ripple and all).
+  float cx = (w.x - 712.0) / 400.0;
+  float sy = fluidS.x - fluidS.y * (0.8 + 0.2 * cx * cx * clamp(fluidS.y / 485.0, 0.0, 1.0)) + (sin(w.x / 38.0 + fluidS.w) * 0.7 + sin(w.x / 23.0 - fluidS.w * 1.3) * 0.3) * fluidS.z;
+  float above = 1.0 - smoothstep(sy - 28.0, sy - 3.0, w.y);
+  if (above <= 0.0) return res;
+  float covH = 0.0, covA = 0.0, covC = 0.0;
+  int n = int(weepP.x + 0.5);
+  for (int i = 0; i < 160; i++) {
+    if (i >= n) break;
+    vec4 A = vec4(texelFetch(fluidMask, ivec2(i, 2), 0).r, texelFetch(fluidMask, ivec2(i, 3), 0).r, texelFetch(fluidMask, ivec2(i, 4), 0).r, texelFetch(fluidMask, ivec2(i, 5), 0).r);
+    vec2 ab = A.zw - A.xy, ap = w - A.xy;
+    float L2 = max(dot(ab, ab), 1e-6);
+    float t = clamp(dot(ap, ab) / L2, 0.0, 1.0);
+    float d = length(ap - ab * t);
+    float hw = mix(texelFetch(fluidMask, ivec2(i, 7), 0).r, texelFetch(fluidMask, ivec2(i, 8), 0).r, t);
+    if (d > hw + 3.2) continue;
+    float al = mix(texelFetch(fluidMask, ivec2(i, 10), 0).r, texelFetch(fluidMask, ivec2(i, 11), 0).r, t);
+    if (al < 0.02) continue;
+    // The dash this pixel is in: its distance along the dashes' pattern from the nearest dash's centre, then the capsule round the dash.
+    float arc = texelFetch(fluidMask, ivec2(i, 6), 0).r + t * sqrt(L2);
+    float cc = mod(arc - weepP.y - 0.5 * weepP.w + 0.5 * weepP.z, weepP.z) - 0.5 * weepP.z;
+    float dd = length(vec2(max(abs(cc) - 0.5 * weepP.w, 0.0), d));
+    covH = max(covH, al * (1.0 - smoothstep(hw + 2.25 - aa, hw + 2.25 + aa, dd)));
+    covA = max(covA, al * (1.0 - smoothstep(hw - aa, hw + aa, dd)));
+    covC = max(covC, al * (1.0 - smoothstep(0.42 * hw - aa, 0.42 * hw + aa, dd)));
+  }
+  covH *= above; covA *= above; covC *= above;
+  vec4 dash = over(vec4(1.0, 0.886, 0.651, 1.0) * covC, over(vec4(0.925, 0.627, 0.173, 1.0) * (0.92 * covA), vec4(0.031, 0.047, 0.094, 1.0) * (0.55 * covH)));
+  res = over(dash, res);
+  return res;
+}
 // Ascites at world point w, premultiplied (its own colour whatever the lens; see main): over the plate and the vessels. Also the
 // arrowheads' quads (HEADS), which lay a head under it as main does.
 vec4 fluidAt(vec2 w) {
@@ -1497,7 +1556,7 @@ vec4 fluidAt(vec2 w) {
       }
     }
   }
-  return fluidC;
+  return over(weepAt(w), fluidC);
 }
 ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void main() {
 #if STREAK
@@ -2507,6 +2566,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const fluidTex = dataTex(gl);
   let fluidRows = null, fluidTexN = 0;   // (R05: setFluidSpans' kept rows, and the width its texture was made at)
   let fluidRect = null, nFluid = 0, fluidN = 0, fluidLiver = null, nPool = 0;
+  let weepRows = null, weepN = 0;   // (the weeping lymph's table, setWeep)
   const compVAO = gl.createVertexArray();
   gl.bindVertexArray(compVAO);
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -3958,8 +4018,25 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (fluidLiver?.length === n) rows.set(fluidLiver, n);
       gl.bindTexture(gl.TEXTURE_2D, fluidTex);
       if (fluidN === n && fluidTexN === n) { gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, n, 2, gl.RED, gl.FLOAT, rows); keptStats.sub++; }
-      else { gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, n, 2, 0, gl.RED, gl.FLOAT, rows); fluidTexN = n; }
+      else {
+        // (Two rows for the cavity and the liver's edge, then the weeping lymph's segments, WEEP_ROWS rows, written by setWeep.)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, n, 2 + WEEP_ROWS, 0, gl.RED, gl.FLOAT, null);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, n, 2, gl.RED, gl.FLOAT, rows);
+        fluidTexN = n;
+        if (weepRows) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 2, weepN, WEEP_ROWS, gl.RED, gl.FLOAT, weepRows);
+      }
       fluidRect = rect; fluidN = n;
+    },
+    /**
+     * The weeping lymph's segments (weep.js: WEEP_ROWS rows of n numbers, row-major), kept by the caller and read as they are now: rows 2 on of
+     * the cavity's texture. The next composite draws them (the look's wp, wb, wk say how many, where, and how strongly).
+     */
+    setWeep(rows, n) {
+      texVer++;
+      weepRows = rows; weepN = n;
+      if (!fluidN || fluidTexN !== fluidN) return;   // (written once the texture exists: setFluidSpans)
+      gl.bindTexture(gl.TEXTURE_2D, fluidTex);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 2, n, WEEP_ROWS, gl.RED, gl.FLOAT, rows);
     },
     /** The liver's lower edge (in its own frame, before its scale) at the same number of columns evenly across the cavity's rectangle. */
     setFluidLiver(bottoms) {
@@ -4502,6 +4579,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         // down for a slow fill and after it lands, where the page's SVG copy had a brighter surface line; Ascites slide 5, 17 Oct.)
         UC.f4a(U.fluidInk, fl ? fl.ink : V4_ZERO);
         UC.f2a(U.fluidLv, fl?.lv || LV_DEF);
+        UC.f4a(U.weepP, fl?.wp || V4_ZERO); UC.f4a(U.weepBox, fl?.wb || V4_ZERO); UC.f4a(U.weepK, fl?.wk || V4_ZERO);
         UC.i1(U.blood, blood.on ? 1 : 0);
         UC.i1(U.chev, blood.chev ? 1 : 0);
         UC.i1(U.chevQuad, quads ? 1 : 0);
@@ -4536,7 +4614,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // the clock, the one uniform left out here), when every uniform above and every texture under a lumen is the last picture's.
       sn = 0;
       sg(m); sigNow[sn++] = +(PW()) || 0; sigNow[sn++] = +(PH()) || 0; sigNow[sn++] = +(pm) || 0; sigNow[sn++] = +(plate?.alpha ?? 0) || 0; sigNow[sn++] = +(plate?.sat ?? 1) || 0; sg(plates[0]?.rect || R_UNIT); sg(plates[1]?.rect || R_UNIT);
-      sg(fluidRect || R_UNIT); sg(fl?.s || V4_ZERO); sg(fl ? fl.ink : V4_ZERO); sg(fl?.lv || LV_DEF);
+      sg(fluidRect || R_UNIT); sg(fl?.s || V4_ZERO); sg(fl ? fl.ink : V4_ZERO); sg(fl?.lv || LV_DEF); sg(fl?.wp || V4_ZERO); sg(fl?.wb || V4_ZERO); sg(fl?.wk || V4_ZERO);
       sigNow[sn++] = +(blood.on) || 0; sigNow[sn++] = +(blood.chev) || 0; sigNow[sn++] = +(blood.still) || 0; sigNow[sn++] = +(blood.alpha ?? 1) || 0; sigNow[sn++] = +(blood.streakA ?? 1) || 0; sigNow[sn++] = +(blood.chevA ?? 1) || 0; sigNow[sn++] = +(blood.originA ?? 1) || 0;
       sg(blood.chevInk || CHEV_INK); sg(blood.chevLight || CHEV_LIGHT); sigNow[sn++] = +(blood.vdpr || 1) || 0; sigNow[sn++] = +(blood.origin) || 0; sigNow[sn++] = +(dyeAny && blood.dye !== false) || 0;
       // (The blood's clock is in the signature again (4 Nov 2026, the figure flicker): still lumens are left alone only while the blood stands still, as before 3c63d68.)
