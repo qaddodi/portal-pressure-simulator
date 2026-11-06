@@ -80,7 +80,9 @@ test('the readings are the model’s: the left portal vein’s and the left hepa
   assert.deepEqual(L[0].rows.map((x) => [x.kicker, x.text, x.at]), [['PV', '15.3', 'ahead'], ['HV', '4.1', 'tip']], 'the two come together');
   assert.equal(L[0].calc.kicker, 'EUS-PPG'); assert.equal(L[0].calc.text, '11.2'); assert.match(L[0].calc.cls, /^result (danger|caution|ok)$/);
   E.labels(T.back + 10, rd, f, L);
-  assert.equal(L.length, 0, 'gone as the scope comes out');
+  assert.equal(L.length, 1, 'the result stands while the scope comes out');
+  E.labels(T.end - 10, rd, f, L);
+  assert.equal(L.length, 0, 'gone with the scope, before the view goes home');
   E.labels(T.pvRead0 - 10, rd, f, L);
   assert.equal(L.length, 0, 'none before the first reading');
 });

@@ -73,6 +73,9 @@ export const EUS_ROUTE = {
     r.tg = { pv: pointOn(geo[EUS_TARGETS.pv[0]].cur, EUS_TARGETS.pv[1]), hv: pointOn(geo[EUS_TARGETS.hv[0]].cur, EUS_TARGETS.hv[1]) };
     const end = EUS_STATIONS.pv.at, xs = [r.tg.pv[0], r.tg.hv[0], end[0] + RIGID * 2], ys = [r.tg.pv[1], r.tg.hv[1], h[1] - RIGID, end[1] + RIGID * 2];
     r.box = [Math.min(...xs) - 16, Math.min(...ys) - 16, Math.max(...xs) + 16, Math.max(...ys) + 16];
+    // (Each station's work, which its shot frames and the view follows: the scope's end there and its target, with room round them.)
+    const work = (q, t) => [Math.min(q[0], t[0]) - RIGID * 2, Math.min(q[1], t[1]) - RIGID * 2, Math.max(q[0], t[0]) + RIGID * 2, Math.max(q[1], t[1]) + RIGID * 2];
+    r.work = { pv: work(end, r.tg.pv), hv: work(h, r.tg.hv) };
   },
 };
 

@@ -830,14 +830,16 @@ export function createCath(st, live) {
       // BRTO and BATO frame their balloon steps closer (his ask, 29 Oct: "zoom into the balloon catheter tip"): 'tip', the tip and its
       // balloon alone, up to PROC_K_TIP; 'work', the tip on to the route's end, the varices the sclerosant fills included.
       // (EUS-PPG's scope, r.box: its work shots frame its two stations and both targets, and its way in the esophagus and stomach, r.focus.)
-      const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && !r.box && mode === 'tip', wayIn = r.kind !== 'tips' && !r.box && mode === 'way';
+      const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && !r.box && mode === 'tip', wayIn = r.kind !== 'tips' && mode === 'way';
       // (The balloon close-up: the tip and its balloon with a short stretch of catheter behind, Rf × 11 back and 3 ahead (14 and 4 before).)
       const [d0, d1] = close ? [Math.max(procIn(r), r.free - Rf * 11), Math.min(r.total, r.free + Rf * 3)]
         : wayIn ? [Math.max(procIn(r), r.free - Rf * WAY_BEHIND), Math.min(r.total, r.free + Rf * WAY_AHEAD)]
         : mode === 'work' && r.kind !== 'tips' ? [Math.max(procIn(r), r.free - Rf * 4), r.total]
           : r.kind === 'tips' && r.spans?.tract && r.spans.rpv ? [Math.max(procIn(r), r.spans.tract[0] - TIPS_BEFORE), Math.min(r.total, r.spans.rpv[0] + TIPS_AFTER)] : r.focus;
       const tips = r.kind === 'tips';
-      const seg = r.box && mode !== 'way' ? [r.box.slice(0, 2), r.box.slice(2)] : cutLen(r.pts, r.cum, d0, d1), pad = r.box ? 24 : close ? 8 : tips ? 14 : wayIn ? 12 : 16;
+      // (EUS-PPG: its 'tip' shot frames the station the scope is at, at the one scale both stations' work needs, and the view follows the
+      // scope from one to the other (cathFollow); its 'work' shot, the result, frames both stations and both targets.)
+      const seg = r.box && mode === 'tip' ? eusWorkSeg(r, clamp(cath.st?.tgt || 0, 0, 1)) : r.box && mode !== 'way' ? [r.box.slice(0, 2), r.box.slice(2)] : cutLen(r.pts, r.cum, d0, d1), pad = r.box ? 16 : close ? 8 : tips ? 14 : wayIn ? 12 : 16;
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
       const fr = cathFree(wr, ins);
       // (How much of the free space the stretch fills: BRTO and BATO's close-up and the sclerosant's shot fill more of it than before (0.72),
@@ -896,20 +898,34 @@ export function createCath(st, live) {
   // While the catheter travels, the view drifts after its tip (eased, never snapping) once the tip has
   // passed the middle of the route view, so the hepatic vein arrives centred before the close-up.
   let followT = 0;
+  // (EUS-PPG's work shot, around the point between its two stations' work at u (0: the portal vein's, 1: the hepatic vein's), as big as
+  // the larger of the two: two corners, world units.)
+  function eusWorkSeg(r, u) {
+    const a = r.work.pv, b = r.work.hv, c = eusWorkAt(r, u, [0, 0]);
+    const w = Math.max(a[2] - a[0], b[2] - b[0]) / 2, h = Math.max(a[3] - a[1], b[3] - b[1]) / 2;
+    return [[c[0] - w, c[1] - h], [c[0] + w, c[1] + h]];
+  }
+  function eusWorkAt(r, u, out) {
+    const a = r.work.pv, b = r.work.hv;
+    out[0] = lerp((a[0] + a[2]) / 2, (b[0] + b[2]) / 2, u); out[1] = lerp((a[1] + a[3]) / 2, (b[1] + b[3]) / 2, u);
+    return out;
+  }
   function cathFollow() {
     const r = cathRoute(), now = performance.now(), dt = Math.min(64, now - (followT || now)); followT = now;
     const st = cath.st;
-    // (EUS-PPG's scope, r.box: its shots frame its whole way and its work, so the view holds still. Creeping after the tip, it moved every
-    // other frame, and the figure swapped between a whole repaint and one of the scope's box alone, which flickered: Mohammad, 6 Nov 2026.)
-    if (!r || !st || !cath.saved || live.vtGliding || reduceMotion.matches || r.box) return;
-    const end = st.ostium ? r.hv0 - 2 : r.free, tipD = r.start + (end - r.start) * clamp(st.u, 0, 1);
+    // (EUS-PPG's scope, r.box, follows as the treatments do: its tip on the way in, and its work from one station to the other (his ask,
+    // 6 Nov 2026: "the camera is not following the EUS scope while it's measuring"). The scope is drawn whole every frame (setCath whole),
+    // so the moving view never swaps between a whole repaint and one of its box alone, which had flickered.)
+    if (!r || !st || !cath.saved || live.vtGliding || reduceMotion.matches) return;
+    const end = st.ostium ? r.hv0 - 2 : r.box ? r.free + (r.hvD - r.free) * clamp(st.tgt || 0, 0, 1) : r.free, tipD = r.start + (end - r.start) * clamp(st.u, 0, 1);
     // (By arithmetic, from the kept stage box and the cards' room read at most four times a second: asking the page for its
     // boxes and the figure's matrix here, after the catheter's step had written to it, laid the page out again every frame.)
     const wr = stageBox(), ins = cathInsets(now);
     // A treatment: the tip held where its shot put it, in the middle of the space the cards leave, the view panning after it both
-    // ways at the shot's one scale, eased (never a snap), from where the route enters the figure.
+    // ways at the shot's one scale, eased (never a snap), from where the route enters the figure. (EUS-PPG at work: the station's work.)
     if (r.parts) {
       const tq = cathAt(r, Math.max(tipD, procIn(r))).p, px = cath.followPx || [(ins.l + ins.W - ins.r) / 2, (ins.t + ins.H - ins.b) / 2];
+      if (r.box && st.follow === 'tip') eusWorkAt(r, clamp(st.tgt || 0, 0, 1), tq);   // (cathAt hands a fresh point: written over in place)
       const [mx, my] = clientToVBFast(wr.left + px[0], wr.top + px[1]), e = 1 - Math.exp(-dt / 320), kk = live.vt.k;
       const nx = live.vt.x + (mx - tq[0] * kk - live.vt.x) * e, ny2 = live.vt.y + (my - tq[1] * kk - live.vt.y) * e;
       if (Math.hypot(nx - live.vt.x, ny2 - live.vt.y) < 0.05) return;

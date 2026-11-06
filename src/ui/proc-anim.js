@@ -87,7 +87,7 @@ const EUS_T = { travel0: 300, travel1: 5200, aim0: 5000, aim1: 6300, fan0: 5600,
   move0: 12800, move1: 14400, hv0: 14800, hv1: 16600, hvFlash0: 16500, hvFlash1: 17300, hvRead0: 17200, hvRead1: 19100,
   hvOut0: 19500, hvOut1: 20400, apply: 20500, fanOut0: 20400, fanOut1: 21200, back: 21300, end: 25600 };
 const r1 = (v) => Math.round(v * 10) / 10;
-const EUS_MARK_T = [6800, 11400, 19200, EUS_T.apply];
+const EUS_MARK_T = [6800, 11400, 19200, EUS_T.apply], EUS_SUM_OFF = 400;
 // (The readings the scope's labels show, kept and written in place: the portal vein's at the PV target (at 'ahead'), the hepatic vein's at
 // the HV target (at 'tip'), and the summary that takes them both in.)
 const EUS_PV = { key: 'w', at: 'ahead', kicker: 'PV', text: '', unit: 'mmHg', cls: 'pv' };
@@ -109,7 +109,7 @@ export const MEASURES = {
       ['enter', 'Scope in', 'A linear echoendoscope goes down the esophagus into the stomach. From the proximal stomach it images the left lobe of the liver through the wall; color Doppler finds the left portal vein, the left hepatic vein, and a path to each through the liver with no other vessel in the way.', 'Scope', 'way', null, [], 0.5],
       ['pv', 'Portal vein', 'A 25-gauge needle, primed with heparinized saline, crosses the stomach wall and the left lobe into the umbilical part of the left portal vein. A compact manometer on its hub reads the pressure once it settles: the mean of three readings.', 'PV', 'tip', 'PVH_L', ['LPV'], 0.9],
       ['hv', 'Hepatic vein', 'The needle comes back into the scope. The scope draws back to the cardia and the elevator raises the needle toward the dome, and it crosses the left lobe into the left hepatic vein (the middle hepatic vein, or the IVC, serve as well): again the mean of three readings.', 'HV', 'tip', 'LHV_IVC', ['LPV', 'LHV'], 0.6],
-      ['done', 'EUS-PPG', 'EUS-PPG = portal vein \u2212 hepatic vein, both read by one needle in one session. It is read on the HVPG\u2019s cut-offs: 5 mmHg or more is portal hypertension, 10 or more clinically significant. It is still being validated against the HVPG, which stays the reference.', 'PPG', 'tip', 'PVH_L', ['LPV', 'LHV'], 0.9],
+      ['done', 'EUS-PPG', 'EUS-PPG = portal vein \u2212 hepatic vein, both read by one needle in one session. It is read on the HVPG\u2019s cut-offs: 5 mmHg or more is portal hypertension, 10 or more clinically significant. It is still being validated against the HVPG, which stays the reference.', 'PPG', 'work', 'PVH_L', ['LPV', 'LHV'], 0.9],
     ],
     // The readings, taken once each callout comes (read: the model frame; its node pressures P): the portal vein at the left portal
     // vein's node, the hepatic vein at the left hepatic vein's, and their difference as every screen shows it, at one decimal.
@@ -126,7 +126,8 @@ export const MEASURES = {
     labels(t, rd, f, out) {
       out.length = 0;
       const T = EUS_T, P = f?.P, live = (i) => (P ? r1(P[i]) : NaN);
-      if (t >= T.back || t < T.pvRead0) return out;
+      // (The result stands while the scope comes out, and goes as the scope does: at the end, before the view goes home.)
+      if (t >= T.end - EUS_SUM_OFF || t < T.pvRead0) return out;
       if (t >= EUS_MARK_T[3] && Number.isFinite(rd.ppg)) {
         EUS_ROW_PV.text = mmHg(rd.pv); EUS_ROW_HV.text = mmHg(rd.hv);
         EUS_CALC.text = mmHg(rd.ppg); EUS_CALC.cls = EUS_RESULT_CLS[hvpgSev(rd.ppg)];
@@ -295,11 +296,12 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
       const ms = mk >= 0 ? stepMarks(kind, mk) : NO_NAMES;
       onMark?.(ms[0] || false, P.steps[f.step][6] || NO_NAMES, ms);
     }
-    // (The view follows the tip in on the first step, once its shot has landed.)
+    // (The view follows the tip in on the first step, once its shot has landed; a measurement's, its work as well.)
     cat.u = f.u; cat.needle = f.needle; cat.wire = f.wire; cat.flash = f.flash; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
     cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? 'var(--tr-hv)' : null;
     if (P.labels) P.labels(t, rd, read?.(), cat.labels);
-    cat.follow = f.shot === 'way' && shot === 'way' && !stage.gliding?.();
+    // (A measurement's scope is followed at its work too, from one station to the next: its shot names which, 'way' or 'tip'.)
+    cat.follow = f.shot === shot && (shot === 'way' || (P.measure && shot === 'tip')) && !stage.gliding?.() ? shot : false;
     stage.setCatheter(cat);
     stops ||= stage.cathStops?.() || null;
     // The step's shot, glided to once (a slide's own glide, arcing on a long move). Until it lands nothing moves: no step starts

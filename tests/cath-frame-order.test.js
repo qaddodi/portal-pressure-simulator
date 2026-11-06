@@ -53,9 +53,10 @@ test('the catheter\'s step moves the camera before its readings are laid out, in
   const hv = read('src/ui/hvpg-proc.js'), pa = read('src/ui/proc-anim.js');
   assert.equal((hv.match(/cath[AB]\.follow = follow;/g) || []).length, 2);   // (both the measurement's catheter and the blocked vein's pass the follow)
   assert.equal((hv.match(/sg\.setCatheter\(cath[AB]\);/g) || []).length, 2);
-  // (a treatment follows its tip in only on its first step, once that shot has landed: proc-anim.js, his ask 29 Oct)
+  // (a treatment follows its tip in only on its first step, once that shot has landed: proc-anim.js, his ask 29 Oct; a measurement,
+  // EUS-PPG, its work from one station to the next as well, his ask 6 Nov 2026)
   assert.match(pa, /ring: null, clock: 0, opacity: 0, labels: \[\], keep: true, follow: false \};/);
-  assert.match(pa, /cat\.follow = f\.shot === 'way' && shot === 'way' && !stage\.gliding\?\.\(\);\n {4}stage\.setCatheter\(cat\);/);
+  assert.match(pa, /cat\.follow = f\.shot === shot && \(shot === 'way' \|\| \(P\.measure && shot === 'tip'\)\) && !stage\.gliding\?\.\(\) \? shot : false;\n {4}stage\.setCatheter\(cat\);/);
   for (const src of [hv, pa, read('src/ui/presenter.js')]) assert.doesNotMatch(src, /cathFollow/);
 });
 
