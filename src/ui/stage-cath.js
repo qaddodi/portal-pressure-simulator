@@ -790,7 +790,13 @@ export function createCath(st, live) {
   // was, so the follow only pans (his pick, 26 Oct: zoom once, then pan; a zoom each frame redrew the whole vessel layer).
   const FOLLOW_ZOOM = 1.25;
   const PROC_K_MAX = 5;   // (a treatment's close-up: the catheter and its balloon must show; the old 7x work zoom is gone)
-  const PROC_K_TIP = 8;   // (BRTO and BATO's balloon close-up)
+  const PROC_K_TIP = 12;   // (BRTO and BATO's balloon close-up; 8 before his ask, 6 Nov: "zoomed in more into the BRTO and BATO catheters")
+  // (BRTO and BATO's way in, his ask, 6 Nov 2026: their whole route (the IVC, the renal vein and the shunt) was framed at once, about 1x on a
+  // phone, the catheter a thread. Now the stretch of route the last WAY_BEHIND lumen radii before the tip's stop, up to PROC_K_WAY: the view
+  // follows the tip in at that one scale (cathFollow, panning only), so the whole route need not fit.)
+  const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;
+  // (Their sclerosant shot, the tip on to the varices: as close as that stretch fits, up to PROC_K_WORK (PROC_K_MAX, 5, before).)
+  const PROC_K_WORK = 8;
   // (The TIPS close-up, his ask, 5 Nov: the tract itself with a short stretch of the hepatic vein before it and of the right portal
   // vein after it, about twice as close as the hepatic vein to the trunk was; the wire runs on out of the frame into the trunk.)
   const TIPS_K_MAX = 9, TIPS_BEFORE = 26, TIPS_AFTER = 22;
@@ -813,15 +819,19 @@ export function createCath(st, live) {
       // (cathFollow) at that scale, panning only, so it never zooms while the catheter moves.
       // BRTO and BATO frame their balloon steps closer (his ask, 29 Oct: "zoom into the balloon catheter tip"): 'tip', the tip and its
       // balloon alone, up to PROC_K_TIP; 'work', the tip on to the route's end, the varices the sclerosant fills included.
-      const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && mode === 'tip';
-      const [d0, d1] = close ? [Math.max(procIn(r), r.free - Rf * 14), Math.min(r.total, r.free + Rf * 4)]
+      const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && mode === 'tip', wayIn = r.kind !== 'tips' && mode === 'way';
+      // (The balloon close-up: the tip and its balloon with a short stretch of catheter behind, Rf × 11 back and 3 ahead (14 and 4 before).)
+      const [d0, d1] = close ? [Math.max(procIn(r), r.free - Rf * 11), Math.min(r.total, r.free + Rf * 3)]
+        : wayIn ? [Math.max(procIn(r), r.free - Rf * WAY_BEHIND), Math.min(r.total, r.free + Rf * WAY_AHEAD)]
         : mode === 'work' && r.kind !== 'tips' ? [Math.max(procIn(r), r.free - Rf * 4), r.total]
           : r.kind === 'tips' && r.spans?.tract && r.spans.rpv ? [Math.max(procIn(r), r.spans.tract[0] - TIPS_BEFORE), Math.min(r.total, r.spans.rpv[0] + TIPS_AFTER)] : r.focus;
       const tips = r.kind === 'tips';
-      const seg = cutLen(r.pts, r.cum, d0, d1), pad = close ? 10 : tips ? 14 : 24;
+      const seg = cutLen(r.pts, r.cum, d0, d1), pad = close ? 8 : tips ? 14 : wayIn ? 12 : 16;
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
       const fr = cathFree(wr, ins);
-      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (tips ? 0.86 : 0.72), 1, close ? PROC_K_TIP : tips ? TIPS_K_MAX : PROC_K_MAX);
+      // (How much of the free space the stretch fills: BRTO and BATO's close-up and the sclerosant's shot fill more of it than before (0.72),
+      // the step's callout still beside it, kept inside the stage by its own placing.)
+      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (tips ? 0.86 : close ? 0.84 : 0.9), 1, close ? PROC_K_TIP : tips ? TIPS_K_MAX : wayIn ? PROC_K_WAY : mode === 'work' ? PROC_K_WORK : PROC_K_MAX);
       cath.followPx = fr.px;
       if (mode === 'way' && reduceMotion.matches) {
         // (Reduced motion: no following, so the way in is framed whole, still, as close as it fits.)

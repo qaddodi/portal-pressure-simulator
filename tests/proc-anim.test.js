@@ -276,7 +276,10 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   // (one caliber for all three, the TIPS one: his ask, 29 Oct, the BRTO catheter was hair thin)
   assert.match(st, /if \(E\.RHV_IVC\) for \(let f = 0\.2; f <= 1\.001; f \+= 0\.1\) t = Math\.min\(t, cathRadOf\('RHV_IVC', f\)\);/);
   assert.match(st, /return Math\.max\(0\.5, Math\.min\(t \* 0\.4, m \* 0\.7\)\);/);
-  assert.match(st, /const PROC_K_TIP = 8;/);
+  assert.match(st, /const PROC_K_TIP = 12;/, 'BRTO and BATO\'s balloon close-up, closer (his ask, 6 Nov)');
+  // (their way in frames the last stretch before the tip's stop, not the whole route, and follows the tip in: his ask, 6 Nov)
+  assert.match(st, /const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;/);
+  assert.match(st, /: wayIn \? \[Math\.max\(procIn\(r\), r\.free - Rf \* WAY_BEHIND\), Math\.min\(r\.total, r\.free \+ Rf \* WAY_AHEAD\)\]/);
   // A step callout keeps clear of every vessel on a short leader, at its own point, on a vessel not drawn yet too (the tract).
   assert.match(st, /const tidy = \(lv \|\| m\.pin\) && !dop\.all \?/);
   assert.match(st, /const segAt = m\.f \?\? /);
