@@ -17,11 +17,13 @@ const OWN_DRAG = 'input, select, textarea, [role="slider"], .pz-jump';   // cont
 
 /** True when a touch that starts on `el` belongs to something else: a slider, the slide list, the card while it docks
  *  sideways, or any sideways-scrolling box (a wide table, the control bar) that actually overflows. */
-export function ownsSideways(el, { stop = null, cardSideways = false } = {}) {
+export function ownsSideways(el, { stop = null, cardSideways = false, scrollers = true } = {}) {
   for (let n = el; n && n !== stop && n.nodeType === 1; n = n.parentElement) {
     if (n.matches?.(OWN_DRAG)) return true;
     if (cardSideways && n.matches?.('.pz-data')) return true;
-    if (n.scrollWidth > n.clientWidth + 1) {
+    // (`scrollers: false`, the Tests card: nothing in it scrolls sideways (Mohammad, 6 Nov), so a sideways drag from a table, a row of chips or
+    // a pane that runs a little wide is always the swipe to the next test, never the browser's scroll.)
+    if (scrollers && n.scrollWidth > n.clientWidth + 1) {
       const ox = n.ownerDocument?.defaultView?.getComputedStyle(n).overflowX;
       if (ox === 'auto' || ox === 'scroll') return true;
     }

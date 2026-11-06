@@ -80,12 +80,21 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     const rects = boxes.map((b) => readBox(b));   // alloc-rare: once for each gesture
     const items = [], seen = new Set();   // alloc-rare: once for each gesture
     const above = (top) => rects.reduce((n, r) => n + (r.bottom <= top + 1 ? 1 : 0), 0);
+    // What is under a chart's foot moves down with it. A thing laid over the chart (the phone's Doppler: its readings, gauge and tiles are one grid laid
+    // over the monitor's box) or with no box of its own (display: contents) is not moved whole: what it holds that lies under the chart's foot is, so
+    // the box never grows behind tiles that stay where they were until the landing.
+    const follow = (s, i) => {
+      if (seen.has(s) || boxes.includes(s)) return;
+      const r = readBox(s);
+      if (r.height > 0 || r.width > 0) {
+        if (r.top >= rects[i].bottom - 1) { seen.add(s); items.push([s, above(r.top), 0]); return; }   // alloc-rare: once for each gesture
+        if (r.bottom <= rects[i].bottom + 1) return;
+      }
+      for (const c of s.children) follow(c, i);
+    };
     boxes.forEach((b, i) => {
       items.push([b, above(rects[i].top), readMetric(b, 'offsetHeight')]); seen.add(b);
-      for (let n = b; n && n !== pane; n = n.parentElement) for (let s = n.nextElementSibling; s; s = s.nextElementSibling) {
-        if (seen.has(s) || boxes.includes(s) || readBox(s).top < rects[i].bottom - 1) continue;
-        seen.add(s); items.push([s, above(readBox(s).top), 0]);
-      }
+      for (let n = b; n && n !== pane; n = n.parentElement) for (let s = n.nextElementSibling; s; s = s.nextElementSibling) follow(s, i);
     });
     for (const it of items) if (it[2]) it[0].style.transformOrigin = '50% 0';
     gr = { base, items, share: boxes.length, last: NaN };

@@ -588,7 +588,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   const clearSwipe = (a, b) => { clearSwipe1(a); clearSwipe1(b); };   // (the class lands in a task of its own before the next frame: class-soon.js)
   body.addEventListener('touchstart', (e) => {
     // A second swipe before the first has settled finishes the first once it moves (review #21), not on the touch: a tap leaves the panes easing.
-    sw = e.touches.length === 1 && app.classList.contains('thumb') && open.length === 1 && !ownsSideways(e.target, { stop: body })
+    sw = e.touches.length === 1 && app.classList.contains('thumb') && open.length === 1 && !ownsSideways(e.target, { stop: body, scrollers: false })
       ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now(), on: false, dx: 0, trail: [], pool: trailPool() } : null;
   }, { passive: true });
   body.addEventListener('touchmove', (e) => {
