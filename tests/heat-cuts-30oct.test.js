@@ -93,7 +93,8 @@ test('H4b: the glass observer asks for the glass\'s frame; it never draws in a m
 test('H6: a still catheter repaints only its box (now and as last drawn), whole there; else, or past half the picture, the whole picture', () => {
   const v = src('veins-gl.js');
   const comp = v.slice(v.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), v.indexOf('    /** Whether organ outlines can be drawn here'));
-  assert.match(comp, /if \(cath && !moving && cathAt\) \{/);
+  // (A catheter that asks to be drawn whole every frame, EUS-PPG's scope, never takes the box: Mohammad, 6 Nov 2026, it flickered.)
+  assert.match(comp, /if \(cath && !moving && cathAt && !cath\.whole\) \{/);
   // (The boxes are kept arrays written in place: the box now, the box last drawn in and their union.)
   assert.match(comp, /u\[0\] = Math\.min\(b\[0\], cathAt\[0\]\); u\[1\] = Math\.min\(b\[1\], cathAt\[1\]\); u\[2\] = Math\.max\(b\[2\], cathAt\[2\]\); u\[3\] = Math\.max\(b\[3\], cathAt\[3\]\);/);
   assert.match(comp, /if \(\(u\[2\] - u\[0\]\) \* \(u\[3\] - u\[1\]\) <= PW\(\) \* PH\(\) \/ 2\) cathRect = u;/);

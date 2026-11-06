@@ -373,8 +373,8 @@ export function createCath(st, live) {
   function eusGL(st, r, tipD) {
     const o = eusDraw(st, r, tipD, cathAt, (c) => toRGB(c, wrapCS()));
     if (cathV.length < o.V.length) cathV = new Float32Array(o.V.length * 2);
-    cathV.set(o.V); cath.balBox = null; cath.at.tip = o.needle; cath.at.ahead = o.tip;
-    live.veins.setCath(cathLast = { base: null, verts: cathV.subarray(0, o.V.length), draws: o.draws, light: LIGHT });
+    cathV.set(o.V); cath.balBox = null; cath.at.tip = r.tg.hv; cath.at.ahead = r.tg.pv;   // (its readings' points: the hepatic vein's target and the portal vein's, cathLabels)
+    live.veins.setCath(cathLast = { base: null, verts: cathV.subarray(0, o.V.length), draws: o.draws, light: LIGHT, whole: true });   // (whole: veins-gl.js, every frame repainted whole, never the scope's box alone)
   }
   // The catheter's materials: an ivory polymer, a deep neutral hairline at 1.16 of its radius, platinum markers, clear latex.
   const CATH_POLY = [0.94, 0.94, 0.93], CATH_EDGE = 1.16, CATH_EDGE_INK = [0.11, 0.13, 0.17], CATH_METAL = [0.66, 0.68, 0.72], CATH_LATEX = [0.9, 0.93, 0.97];
@@ -899,7 +899,9 @@ export function createCath(st, live) {
   function cathFollow() {
     const r = cathRoute(), now = performance.now(), dt = Math.min(64, now - (followT || now)); followT = now;
     const st = cath.st;
-    if (!r || !st || !cath.saved || live.vtGliding || reduceMotion.matches) return;
+    // (EUS-PPG's scope, r.box: its shots frame its whole way and its work, so the view holds still. Creeping after the tip, it moved every
+    // other frame, and the figure swapped between a whole repaint and one of the scope's box alone, which flickered: Mohammad, 6 Nov 2026.)
+    if (!r || !st || !cath.saved || live.vtGliding || reduceMotion.matches || r.box) return;
     const end = st.ostium ? r.hv0 - 2 : r.free, tipD = r.start + (end - r.start) * clamp(st.u, 0, 1);
     // (By arithmetic, from the kept stage box and the cards' room read at most four times a second: asking the page for its
     // boxes and the figure's matrix here, after the catheter's step had written to it, laid the page out again every frame.)

@@ -3279,7 +3279,7 @@ button.finding { cursor: pointer; }
 .cath-label b { font-size: 26px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--c); }
 .cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
 .cath-label.free { --c: var(--tr-hv); }
-.cath-label.wedge { --c: var(--tr-wedge); }
+.cath-label.wedge { --c: var(--tr-wedge); } .cath-label.pv { --c: var(--tr-pv); }   /* (pv: EUS-PPG's portal vein reading) */
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
 .cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease) .35s; } .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
@@ -3385,7 +3385,7 @@ button.finding { cursor: pointer; }
 .cath-leads .lead { fill: none; stroke-width: 1.6; stroke: var(--text-3); stroke-linejoin: round; }
 .cath-leads .lead-dot { stroke: var(--surface); stroke-width: 1.5; fill: var(--text-3); }
 .cath-leads .free { stroke: var(--tr-hv); } .cath-leads .lead-dot.free { fill: var(--tr-hv); stroke: var(--surface); }
-.cath-leads .wedge { stroke: var(--tr-wedge); } .cath-leads .lead-dot.wedge { fill: var(--tr-wedge); stroke: var(--surface); }
+.cath-leads .wedge { stroke: var(--tr-wedge); } .cath-leads .lead-dot.wedge { fill: var(--tr-wedge); stroke: var(--surface); } .cath-leads .pv { stroke: var(--tr-pv); } .cath-leads .lead-dot.pv { fill: var(--tr-pv); stroke: var(--surface); }
 .cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; translate: 0 var(--pre, 0px); transition: translate var(--d-surface) var(--ease); }
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
 .cath-label.in-sum { position: relative; translate: none; transition: none; }

@@ -4246,7 +4246,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // every frame of an HVPG slide a whole repaint). A box over half the picture, or a moving view, takes the whole repaint as before,
       // and so does the frame after it is gone.
       let cathRect = null;
-      if (cath && !moving && cathAt) {
+      // (whole: a catheter that asks for the whole picture every frame, EUS-PPG's scope: its box was tall and wide (the scope, its sector),
+      // and a frame that painted only the box after one that painted everything showed the box's edges as a rectangle that flickered
+      // beside the scope, its tip and its beam: Mohammad, 6 Nov 2026.)
+      if (cath && !moving && cathAt && !cath.whole) {
         const b = cathBox(m, BOX_NOW);
         if (b) {
           const u = BOX_U;
@@ -4605,7 +4608,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get canCath() { return !!cathP; },
     /**
      * The HVPG catheter, or null: { base: Float32Array | null, verts: Float32Array (x, y, dirX, dirY, u, v per vertex),
-     * draws: [{ mode, first, count, col: [r, g, b], alpha, fade: [in, out], len }], light: [x, y] }. base: vertices that stay
+     * draws: [{ mode, first, count, col: [r, g, b], alpha, fade: [in, out], len }], light: [x, y], whole?: true }. base: vertices that stay
      * frame to frame (the shaft along the whole route), first in the buffer and sent only when it is a new array; verts follow
      * it, sent every time; a draw's `first` counts from the start of base.
      */

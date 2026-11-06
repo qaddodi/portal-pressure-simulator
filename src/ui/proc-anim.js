@@ -10,6 +10,7 @@
 import { frameFor, cancelFrame } from './frame.js';
 import { ease, k01 } from './hvpg-clock.js';
 import { NODES } from '../engine/topology.js';
+import { hvpgSev } from '../engine/pressure-cuts.js';
 const NODE_I = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const nextFrame = frameFor('proc-anim');
 
@@ -79,13 +80,23 @@ export const PROC_KINDS = Object.keys(PROCS);
 // echoendoscope in the stomach, and one 25-gauge FNA needle, primed with heparinized saline and joined to a compact manometer by
 // non-compressible tubing, passed through the stomach wall and the left lobe into the left portal vein (its umbilical part), then
 // into a hepatic vein (here the left; the middle, or the IVC, serve as well). Each reading is the mean of three. EUS-PPG = PV − HV.
-// The scope works from the proximal stomach, just below the cardia (eus-scope.js): its tip turned down toward the portal vein, then
-// drawn back a little and turned up toward the hepatic vein, so the needle leaves the scope as a real one does, about 40 degrees forward.
+// The scope works from the proximal stomach, just below the cardia, then from the cardia itself (eus-scope.js): its tip turned a little
+// toward the lesser curvature, the needle raised by the elevator toward each vein in the plane of the image.
 const EUS_T = { travel0: 300, travel1: 5200, aim0: 5000, aim1: 6300, fan0: 5600, fan1: 6600,
   pv0: 7000, pv1: 8800, pvFlash0: 8700, pvFlash1: 9500, pvRead0: 9400, pvRead1: 11300, pvOut0: 11700, pvOut1: 12600,
   move0: 12800, move1: 14400, hv0: 14800, hv1: 16600, hvFlash0: 16500, hvFlash1: 17300, hvRead0: 17200, hvRead1: 19100,
   hvOut0: 19500, hvOut1: 20400, apply: 20500, fanOut0: 20400, fanOut1: 21200, back: 21300, end: 25600 };
 const r1 = (v) => Math.round(v * 10) / 10;
+const EUS_MARK_T = [6800, 11400, 19200, EUS_T.apply];
+// (The readings the scope's labels show, kept and written in place: the portal vein's at the PV target (at 'ahead'), the hepatic vein's at
+// the HV target (at 'tip'), and the summary that takes them both in.)
+const EUS_PV = { key: 'w', at: 'ahead', kicker: 'PV', text: '', unit: 'mmHg', cls: 'pv' };
+const EUS_HV = { key: 'f', at: 'tip', kicker: 'HV', text: '', unit: 'mmHg', cls: 'free' };
+const EUS_ROW_PV = { at: 'ahead', kicker: 'PV', text: '', unit: 'mmHg', cls: 'pv' }, EUS_ROW_HV = { at: 'tip', kicker: 'HV', text: '', unit: 'mmHg', cls: 'free' };
+const EUS_CALC = { kicker: 'EUS-PPG', text: '', unit: 'mmHg', cls: '' };
+const EUS_SUM = { key: 's', at: 'sum', rows: [EUS_ROW_PV, EUS_ROW_HV], calc: EUS_CALC };
+const EUS_RESULT_CLS = { danger: 'result danger', caution: 'result caution', ok: 'result ok' };
+const NO_MARKS = Object.freeze([]);
 const mmHg = (v) => (Number.isFinite(v) ? v.toFixed(1) : '\u2014');
 export const MEASURES = {
   eus: {
@@ -93,11 +104,11 @@ export const MEASURES = {
     stops: [6800, 11500, 19300, EUS_T.end],
     // (Each callout once its reading has settled; the result as soon as the needle is back in the scope, so it stands while the
     // scope comes out.)
-    markT: [6800, 11400, 19200, EUS_T.apply],
+    markT: EUS_MARK_T,
     steps: [
       ['enter', 'Scope in', 'A linear echoendoscope goes down the esophagus into the stomach. From the proximal stomach it images the left lobe of the liver through the wall; color Doppler finds the left portal vein, the left hepatic vein, and a path to each through the liver with no other vessel in the way.', 'Scope', 'way', null, [], 0.5],
       ['pv', 'Portal vein', 'A 25-gauge needle, primed with heparinized saline, crosses the stomach wall and the left lobe into the umbilical part of the left portal vein. A compact manometer on its hub reads the pressure once it settles: the mean of three readings.', 'PV', 'tip', 'PVH_L', ['LPV'], 0.9],
-      ['hv', 'Hepatic vein', 'The needle comes back into the scope. The scope draws back a little and turns up, and the needle crosses the left lobe into the left hepatic vein (the middle hepatic vein, or the IVC, serve as well): again the mean of three readings.', 'HV', 'tip', 'LHV_IVC', ['LPV', 'LHV'], 0.7],
+      ['hv', 'Hepatic vein', 'The needle comes back into the scope. The scope draws back to the cardia and the elevator raises the needle toward the dome, and it crosses the left lobe into the left hepatic vein (the middle hepatic vein, or the IVC, serve as well): again the mean of three readings.', 'HV', 'tip', 'LHV_IVC', ['LPV', 'LHV'], 0.6],
       ['done', 'EUS-PPG', 'EUS-PPG = portal vein \u2212 hepatic vein, both read by one needle in one session. It is read on the HVPG\u2019s cut-offs: 5 mmHg or more is portal hypertension, 10 or more clinically significant. It is still being validated against the HVPG, which stays the reference.', 'PPG', 'tip', 'PVH_L', ['LPV', 'LHV'], 0.9],
     ],
     // The readings, taken once each callout comes (read: the model frame; its node pressures P): the portal vein at the left portal
@@ -107,13 +118,25 @@ export const MEASURES = {
       if (i === 1) rd.pv = P ? r1(P[NODE_I.LPV]) : NaN;
       if (i === 2) { rd.hv = P ? r1(P[NODE_I.LHV]) : NaN; rd.ppg = r1(rd.pv - rd.hv); }
     },
-    // Its callouts: the portal vein's, then the hepatic vein's beside it, then the result on the portal vein with the hepatic vein's kept.
-    marks(i, rd) {
-      // (Each numbered as its step, number in bold then its words, so the GPU draws it pinned: stepMark. Every glyph is in Inter's cut, "−" and "=" too.)
-      const mk = (edge, f, n, word) => ({ edges: [edge], label: `${n} ${word}`, num: n, word, kind: 'treat', f, pin: true });
-      const pv = mk('PVH_L', 0.9, STEP_NUM[1], `Left portal vein ${mmHg(rd.pv)} mmHg`);
-      const hv = mk('LHV_IVC', 0.7, STEP_NUM[2], `Left hepatic vein ${mmHg(rd.hv)} mmHg`);
-      return i === 1 ? [pv] : i === 2 ? [pv, hv] : i === 3 ? [mk('PVH_L', 0.9, STEP_NUM[3], `EUS-PPG ${mmHg(rd.ppg)} = ${mmHg(rd.pv)} \u2212 ${mmHg(rd.hv)} mmHg`), hv] : [];
+    // Its callouts are the HVPG catheter's (his ask, 6 Nov 2026: "the callouts should be similar to the HVPG callouts; PV... then HV...
+    // then they come over each other and the difference is EUS-PPG"): the needle's reading on the portal vein as it reads, then the
+    // hepatic vein's, then the two travel into one summary that gives their difference (stage-cath.js cathLabels: keys w, f and s, as
+    // WHVP, FHVP and HVPG). No step callouts on the vessels besides.
+    marks: () => NO_MARKS,
+    labels(t, rd, f, out) {
+      out.length = 0;
+      const T = EUS_T, P = f?.P, live = (i) => (P ? r1(P[i]) : NaN);
+      if (t >= T.back || t < T.pvRead0) return out;
+      if (t >= EUS_MARK_T[3] && Number.isFinite(rd.ppg)) {
+        EUS_ROW_PV.text = mmHg(rd.pv); EUS_ROW_HV.text = mmHg(rd.hv);
+        EUS_CALC.text = mmHg(rd.ppg); EUS_CALC.cls = EUS_RESULT_CLS[hvpgSev(rd.ppg)];
+        out.push(EUS_SUM);
+        return out;
+      }
+      // (While the needle reads, the manometer's number as it settles; once read, the reading taken.)
+      EUS_PV.text = mmHg(t >= EUS_MARK_T[1] && Number.isFinite(rd.pv) ? rd.pv : live(NODE_I.LPV)); out.push(EUS_PV);
+      if (t >= T.hvRead0) { EUS_HV.text = mmHg(t >= EUS_MARK_T[2] && Number.isFinite(rd.hv) ? rd.hv : live(NODE_I.LHV)); out.push(EUS_HV); }
+      return out;
     },
     can: () => '', apply: (p) => p, had: () => false, undo: (p) => p, before: {},
   },
@@ -220,7 +243,10 @@ function eusFrame(T, t, back, opacity, step, shot, f) {
   const needle = hv ? ease(k01(t, T.hv0, T.hv1)) * (1 - ease(k01(t, T.hvOut0, T.hvOut1))) : ease(k01(t, T.pv0, T.pv1)) * (1 - ease(k01(t, T.pvOut0, T.pvOut1)));
   const fl0 = hv ? T.hvFlash0 : T.pvFlash0, fl1 = hv ? T.hvFlash1 : T.pvFlash1;
   f.u = ease(k01(t, T.travel0, T.travel1)) * (1 - back); f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot;
-  f.tgt = tgt; f.aim = ease(k01(t, T.aim0, T.aim1)) * (1 - ease(k01(t, T.hvOut1, T.back + 600)));
+  // (While the scope moves between its stations its tip straightens and turns again: the transducer's side and the elevator's angle
+  // change only while it is straight.)
+  const mv = k01(t, T.move0, T.move1), dip = mv > 0 && mv < 1 ? Math.sin(Math.PI * mv) : 0;
+  f.tgt = tgt; f.aim = ease(k01(t, T.aim0, T.aim1)) * (1 - ease(k01(t, T.hvOut1, T.back + 600))) * (1 - dip);
   f.needle = needle; f.wire = 0; f.flash = t > fl0 && t < fl1 ? k01(t, fl0, fl1) : 0;
   f.read = t >= T.pvRead0 && t < T.pvRead1 ? 1 : t >= T.hvRead0 && t < T.hvRead1 ? 2 : 0;
   f.fan = ease(k01(t, T.fan0, T.fan1)) * (1 - ease(k01(t, T.fanOut0, T.fanOut1)));
@@ -272,6 +298,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     // (The view follows the tip in on the first step, once its shot has landed.)
     cat.u = f.u; cat.needle = f.needle; cat.wire = f.wire; cat.flash = f.flash; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
     cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? 'var(--tr-hv)' : null;
+    if (P.labels) P.labels(t, rd, read?.(), cat.labels);
     cat.follow = f.shot === 'way' && shot === 'way' && !stage.gliding?.();
     stage.setCatheter(cat);
     stops ||= stage.cathStops?.() || null;
