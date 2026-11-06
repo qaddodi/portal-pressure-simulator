@@ -78,7 +78,7 @@ test('every build draws the streaks alone, at every zoom: no bead look anywhere,
 
 test('the composite tests the arrowheads\' cut-outs only where a head is', () => {
   const main = body(R.full, 'void main()');
-  const chev = body(main, 'if (chev == 1 && f1.z > 0.0) {');
+  const chev = body(main, 'if (chev == 1 && chevQuad == 0 && f1.z > 0.0) {');
   const gate = body(chev, 'if (c.x + c.y > 0.0) {');
   assert.ok(gate.includes('noChev[i]') && gate.includes('chevHole[i]'), 'both cut-outs inside the test');
   // ...and the drawing still waits on the head surviving them.
@@ -119,7 +119,7 @@ test('the streaks and the arrowheads share one read of the vessel\'s flow, lengt
     assert.equal((main.match(/texelFetch\(flow, ivec2\(0, id1\), 0\)/g) || []).length, 1, `${k}: flow texel 0 once`);
     assert.equal((main.match(/texelFetch\(flow, ivec2\(1, id1\), 0\)/g) || []).length, 1, `${k}: flow texel 1 once`);
     assert.match(main, /if \(blood == 1 && f1\.z > 0\.0\) \{/);
-    assert.match(main, /if \(chev == 1 && f1\.z > 0\.0\) \{/);
+    assert.match(main, /if \(chev == 1 && chevQuad == 0 && f1\.z > 0\.0\) \{/);   // (chevQuad: the heads drawn by their own quads, blood-heads.js)
     const bl = body(R[k], 'vec4 bloodAt('), ch = body(R[k], 'vec2 chevAt(');
     for (const f of [bl, ch]) {
       assert.doesNotMatch(f, /texelFetch\(flow, ivec2\([01], id\)/);
@@ -275,10 +275,10 @@ test('the blood pass leaves a lumen alone only when neither of its vessels\' row
   for (const x of ['sg(m)', 'pm', 'plate?.alpha', 'plate?.sat', 'plates[0]?.rect', 'plates[1]?.rect', 'fluidRect', 'fl?.s', 'fl.ink', 'fl?.lv',
     'blood.on', 'blood.chev', 'blood.still', 'blood.alpha', 'blood.streakA', 'blood.chevA', 'blood.originA', 'blood.chevInk', 'blood.chevLight', 'blood.vdpr',
     'blood.origin', 'dyeAny', 'originColOf', 'blood.dyeCol', 'blood.revCol', 'blood.inkLight', 'blood.inkDark', 'ncv', 'ncN', 'hb', 'hr', 'hoN',
-    'blood.streakLen', 'blood.bt', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer', 'halfOn', 'map.a', 'map.dot', 'map.zone', 'map.fx', 'map.alt', 'map.fxX', 'map.rot']) assert.ok(sig.includes(x), x);
+    'blood.streakLen', 'blood.bt', 'layer', 'glow', 'warm', 'useStack', 'bare', 'texVer', 'halfOn', 'quads', 'map.a', 'map.dot', 'map.zone', 'map.fx', 'map.alt', 'map.fxX', 'map.rot']) assert.ok(sig.includes(x), x);
   const uniforms = [...comp.matchAll(/UC\.\w+\(U\.(\w+)/g)].map((m) => m[1]);
   for (const u of uniforms) assert.ok(['world', 'size', 'cell', 'inv', 'H', 'pxW', 'plates', 'plateAlpha', 'plateSat', 'plateRect0', 'plateRect1', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv',
-    'blood', 'chev', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'origin', 'dyeOn', 'clock', 'bT', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
+    'blood', 'chev', 'chevQuad', 'still', 'flowA', 'blendA', 'chevInk', 'chevLight', 'cssPx', 'origin', 'dyeOn', 'clock', 'bT', 'rows', 'originCol', 'dyeCol', 'revCol', 'inkLight', 'inkDark',
     'bleedE', 'bleedB', 'bleedN', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN', 'lenOn', 'bloodOnly', 'stillOn', 'halfOn', 'halfR', 'mapA', 'mapDot', 'mapZone', 'mapFx', 'mapAlt', 'mapFxX', 'mapRot'].includes(u), `uniform ${u} is accounted for`);
   // The rows and this picture's uniforms are taken as the last picture's only once it is drawn.
   assert.ok(comp.indexOf('moved.fill(0); movedAll = false;') > comp.indexOf('UC.i1(U.bloodOnly, 1);'));
