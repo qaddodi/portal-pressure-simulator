@@ -759,10 +759,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const drawnV = { ok: false, k: 1, x: 0, y: 0, W: 0, H: 0, dpr: 0, dark: false };
   let frozenDraw = false, frozenT = 0;
   const carryNow = { a: 1, tx: 0, ty: 0 };   // (the carry for the view now, written in place)
+  // (How far one picture may be stretched while a hand zooms: past it the lobule is drawn whole again, the heaviest thing it does. At the default 1.6 a
+  // pinch in from the framing paid a whole draw at every 1.6x step, the zoom stalling there (Mohammad, 6 Nov 2026: "still super choppy"). The picture is a little soft
+  // mid-pinch and drawn sharp when the hand lets go (frozenEnd).)
+  const LZ_CARRY_MAX = 3;
   const frozenOK = (W, H, dpr, dark) => drawnV.ok && !glDirty && fade > 0.98 && !diveScaled && sinU === 0 && !sinTo && !wide && !staging && handOn()
     && drawnV.W === W && drawnV.H === H && drawnV.dpr === dpr && drawnV.dark === dark && !!gl && !gl.lost && !!gl.target?.w
     // (Only while the picture still covers the screen carried to the view: else this frame is drawn whole, and the carry goes on from that picture.)
-    && drawnV.k > 0 && (carryBetween(drawnV.k, drawnV.x, drawnV.y, V.k, V.x, V.y, carryNow), carryCovers(carryNow.a, carryNow.tx, carryNow.ty, W, H));
+    && drawnV.k > 0 && (carryBetween(drawnV.k, drawnV.x, drawnV.y, V.k, V.x, V.y, carryNow), carryCovers(carryNow.a, carryNow.tx, carryNow.ty, W, H, LZ_CARRY_MAX));
   // The hand let go (or paused): the picture is drawn again for the view where it stands.
   function frozenEnd() {
     frozenT = 0;
