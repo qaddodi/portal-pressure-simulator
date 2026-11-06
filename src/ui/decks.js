@@ -87,6 +87,9 @@
 //   hold                     true (opt-in, tests/deck-adopted.js): a question slide keeps back what would name its answer (the Gut to heart
 //                            chart's red blocks and brackets, the Doppler strip's direction, pattern and note, the tiles' rating words);
 //                            the next slide, its answer, lets them ease in once it has landed (presenter.js holdAnswer)
+//   scopeLens: true | false  the scope ring on the varices (scope-lens-rule.js): on by itself where the slide shows them (cam varices,
+//                            bleed, gej, fundus; labels VAR; calipers varix; a mark on C1a or C1b) unless its tool is the scope; true or false decides.
+//                            A tap on the ring opens the live scope view beside the figure (scope-lens.js).
 //   opt-in visuals (deck visuals packages; a built-in slide uses one only when tests/deck-adopted.js lists it; docs/deck-authoring-guide.md 5.9, 6.4, 7):
 //                            figure: spot, normalOutline, ripple, lens 'system' | 'since' (since, sinceLabel), calipers,
 //                            lapseGlow ['bowel'] (those organs glow from the time-lapse's start, while the slide is up), steps (with glowSeq), span, zone,

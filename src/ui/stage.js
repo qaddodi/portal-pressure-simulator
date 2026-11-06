@@ -135,10 +135,12 @@ import { createRide } from './stage-ride.js';
 import { createGlide } from './stage-glide.js';
 
 import { stageScope } from './stage-scope.js';
+import { ringOnScreen as scopeRingOn } from './scope-lens-rule.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
+    scopeRing: { on: false, open: false }, scopeRingRefresh: null, viewHook: null, tapHook: null,
     get abdomenEl() { return abdomenEl; },
     get adaptK() { return adaptK; }, set adaptK(v) { adaptK = v; },
     get aimed() { return aimed; }, set aimed(v) { aimed = v; },
@@ -2857,6 +2859,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // ── Public API ────────────────────────────────────
   return {
     update,
+    // The scope view (scope-lens.js, mock C1): the ring on the varices, one of the figure's marks; where it is on screen; the lens's hooks.
+    setScopeRing(on, open = false) { const r = live.scopeRing, o = !!on, op = o && !!open; if (r.on !== o || r.open !== op) { r.on = o; r.open = op; live.scopeRingRefresh?.(); } },
+    scopeRingAt() { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && F?.metrics?.varix?.present ? scopeRingOn(worldToLocal, live.CTM || (refreshCTM(), live.CTM), live.wrapRect) : null; },
+    onScopeView(view, tap) { live.viewHook = view || null; live.tapHook = tap || null; },
     /** Idle rest: true eases the blood to a stop and lets the figure sleep; false brings the motion back from this frame. */
     rest(on) {
       on = !!on; if (on === restOn) return; restOn = on; wake(); askAnimate();

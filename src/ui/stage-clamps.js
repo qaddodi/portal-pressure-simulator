@@ -10,11 +10,14 @@ import { restPass } from './rest-pass.js';
 import { store } from './store.js';
 import { glyphsReady, loadGlyphs, textBox, textPolys } from './text-gl.js';
 import { s } from './util.js';
+import { ringShapes } from './scope-lens-rule.js';
 
 import { stageScope } from './stage-scope.js';
 // The embolized spleen badge's fill: the part of a circle of radius 9 below a chord 1.8 above its centre (about 60% of it), as M/L
 // points only (the marks' GPU reader takes M, L, C, Q and Z: an arc would leave the mark on the SVG).
 const PSE_A = Math.asin(1.8 / 9);
+// The scope ring's two looks (closed: dashed; open: solid), made once.
+const RING_SHAPES = [ringShapes(false), ringShapes(true)];
 function pseFillD(x, y) {
   let d = '';
   for (let k = 0; k <= 16; k++) { const a = Math.PI + PSE_A - k * (Math.PI + 2 * PSE_A) / 16; d += `${k ? ' L' : 'M'}${(x + 9 * Math.cos(a)).toFixed(2)} ${(y + 9 * Math.sin(a)).toFixed(2)}`; }
@@ -153,6 +156,7 @@ export function createClamps(st, live) {
     const stented = store.get().stented;
     if (stented) for (let i = 0; i < stented.length; i++) okLesion(o, stented[i]);
     okLesion(o, 'C3');
+    o.push(live.scopeRing.on ? (live.scopeRing.open ? 2 : 1) : 0);   // (the scope view's ring: shown, and its lens open; scope-lens.js says whether there is a varix to show it on)
     // (The varices are no longer drawn here, but by the plexus of channels and strands (varix-look.js), so the varix's diameter, radius
     // and wall-stress ratio are not part of what these overlays are built from. They were in this key, held in steps narrower than the
     // beat's own swing, and rebuilt the clamps, clots and plugs, and the vessel marks with them (a style pass and a triangulation of
@@ -183,6 +187,8 @@ export function createClamps(st, live) {
   // The overlays' structure (clamps, clots, shunt meshes, marks, bands) is rebuilt between frames from what the frame last asked for.
   let ovAsk = null, ovAsked = false;
   const ovAskBuf = { f: null, p: null, t: 0 };
+  // The scope ring shown, or its lens opened or shut: the overlays are built again from what they were last asked for (the ring is in their key).
+  live.scopeRingRefresh = () => { if (ovAskBuf.f) updateOverlays(live.F || ovAskBuf.f, ovAskBuf.p, 1, ovAskBuf.t); };
   function overlayCommit() {
     ovAsked = false;
     if (!ovAsk) return;
@@ -288,6 +294,10 @@ export function createClamps(st, live) {
       const eso = (y) => 789 + (y - 24) * 0.066;
       const nb = Math.round(f.bands || 0);
       for (let i = 0; i < nb; i++) { const y = 272 - i * 16; putMark(ov.bands, `band:${i}`, null, [s('ellipse', { cx: eso(y), cy: y, rx: 11, ry: 3, class: 'band-ring' })], true); }
+      // The scope view's ring on the varix columns, with its badge (mock C1, 6 Nov 2026): one of the figure's marks, so the GPU draws it in
+      // world units with the vessels and it moves with every zoom, pan and view change, never eased. Tapping it opens the lens (scope-lens.js).
+      const sr = live.scopeRing;
+      if (sr.on) putMark(ov.plugs, 'scope:ring', null, RING_SHAPES[sr.open ? 1 : 0].map(([tag, a]) => s(tag, a)), true);
     }
     // The marks that were not wanted this time fade out where they stood (their group drawn again in its host), unless what they sat on
     // has gone, the view is on its way to the other one, or the figure moved under them. (One already fading finishes even when its

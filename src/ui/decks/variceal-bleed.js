@@ -67,10 +67,10 @@ export const BLEED = {
       ask: ['What hemoglobin target is used in variceal bleeding, and why not more?', '7 to 8 g/dL, transfusing <7. Extra volume raises the portal pressure and the risk of an early rebleed.'],
     },
     {
-      id: 'band', question: 'Will banding lower his portal pressure?', terms: ['varix'], action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: { kind: 'scope' }, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: 'blood',
+      id: 'band', question: 'Will banding lower his portal pressure?', terms: ['varix'], action: [BAND, BAND, BAND, BAND], cam: 'varices', mark: { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' }, tool: BEATS, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: 'blood',
       kicker: 'Endoscopy', site: 'sin', title: 'Bands stop the bleeding',
       line: 'Endoscopy within 12 hours, once the blood pressure holds. The bands close the varix and the bleeding stops, but the portal pressure does not fall.',
-      notes: 'Band ligation controls most variceal bleeds. Banding does not lower the portal pressure; over the following days it raises the HVPG slightly as the varix closes. The scope shows the bleed as the slide arrives, and the jet fades as the bands go on. If bleeding cannot be controlled, a covered self-expanding esophageal stent (preferred over a balloon tube where available) buys time as a bridge to a rescue TIPS, which the last section of this talk follows.',
+      notes: 'Band ligation controls most variceal bleeds. Banding does not lower the portal pressure; over the following days it raises the HVPG slightly as the varix closes. The ring on the varices opens the scope: it shows the bleed as the slide arrives, and the jet fades as the bands go on, while the beat-by-beat card shows the portal pressure holding. If bleeding cannot be controlled, a covered self-expanding esophageal stent (preferred over a balloon tube where available) buys time as a bridge to a rescue TIPS, which the last section of this talk follows.',
       ask: ['What bridges a bleed that banding cannot control?', 'A covered esophageal stent (preferred) or a balloon tube, as a bridge to a rescue TIPS.'],
     },
     {

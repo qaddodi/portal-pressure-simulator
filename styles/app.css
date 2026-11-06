@@ -7475,3 +7475,20 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="talk"] .pz-talk { height: calc(var(--pz-chart-hh) + var(--band-room, 0px) * var(--pz-fit, 1)); min-height: 0; }
 .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="vitals"] .vitals-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool .pz-mon .hvpg-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="beats"] .pt-box, .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="doppler"] .dop-box { height: calc(var(--pz-chart-hh) + var(--dop-free, 0px)); }
 .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="flowtime"] .pz-flowtime { --ft-h: var(--pz-chart-hh); height: calc(var(--ft-h) + var(--band-room, 0em)); }
+
+/* The scope view on the figure (scope-lens.js, mock C1 6 Nov 2026): the lens beside the varices' ring, the cone to it, its caption and its
+   close. Laid once per opening, at rest; it comes in by its own opacity and a scale from the ring, and hides at once when the figure moves. */
+.pz-lens { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity var(--d-small) var(--ease); }
+.pz-lens.on { opacity: 1; }
+.pz-lens-cone { position: absolute; display: block; }
+.pz-lens-disc { position: absolute; border-radius: 50%; overflow: hidden; pointer-events: auto; cursor: pointer; background: var(--endo-mucosa-deep);
+  box-shadow: 0 0 0 5px var(--surface), 0 0 0 6px var(--text); transform-origin: var(--lens-ox, 50%) var(--lens-oy, 50%); transform: scale(.12);
+  transition: transform var(--d-surface) var(--ease-arrive); }
+.pz-lens.on .pz-lens-disc { transform: none; }
+.pz-lens .pz-lens-inst { position: absolute; inset: 0; display: block; margin: 0; padding: 0; border: 0; background: none; }
+.pz-lens .pz-lens-inst .chart-side, .pz-lens .pz-lens-inst .endo-pos { display: none; }
+.pz-lens .pz-lens-inst .endo-stage { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; container-type: normal; }
+.pz-lens .pz-lens-inst .chart-box { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; min-height: 0; margin: 0; }
+.pz-lens-x { position: absolute; width: 28px; height: 28px; border-radius: 50%; padding: 0; pointer-events: auto; cursor: pointer; font: 600 17px/1 var(--font-ui, system-ui); color: var(--text); background: var(--surface); border: 1px solid var(--border, currentColor); }
+.pz-lens-x:focus-visible { outline: 2px solid var(--accent, currentColor); outline-offset: 2px; }
+.pz-lens-cap { position: absolute; transform: translateX(-50%); white-space: nowrap; font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text); text-shadow: 0 0 3px var(--label-halo), 0 0 2px var(--label-halo); pointer-events: none; }

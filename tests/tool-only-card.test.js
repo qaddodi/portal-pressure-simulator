@@ -5,16 +5,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS, withOverview } from '../src/ui/decks.js';
 import { tileKeys, toolOnly } from '../src/ui/card-tiles.js';
+import { scopeLensFor } from '../src/ui/scope-lens-rule.js';
 
 const cards = DECKS.flatMap((d) => withOverview(d).slides.map((s, i) => ({ d, s, at: `${d.id}/${s.id} (slide ${i + 1})` }))).filter(({ s }) => !s.visual && s.tool);
 
-test('Varices 3: the endoscopic view stands behind the chart; its tiles are the chart\'s own two lines, so on a laptop or tablet the card is the chart alone, and on a phone it keeps its readings', () => {
+test('Varices 3: the chart\'s tiles are its own two lines, so on a laptop or tablet the card is the chart alone, and on a phone it keeps its readings; the endoscopic view is the scope ring on the figure', () => {
   const s = DECKS.find((d) => d.id === 'varices').slides.find((x) => x.id === 'lapse');
   assert.equal(s.tool.kind, 'flowtime');
-  assert.deepEqual(tileKeys(s, false), ['scope'], 'the chart already shows both numbers; the endoscopic view is what stands behind it');
-  assert.equal(toolOnly(s, false), false, 'the endoscopic view is real content to tuck: the handle opens it');
-  assert.deepEqual(tileKeys(s, true), ['hvpg', 'varix', 'scope']);
+  assert.deepEqual(tileKeys(s, false), [], 'the chart already shows both numbers');
+  assert.equal(toolOnly(s, false), true, 'nothing to tuck: no handle');
+  assert.deepEqual(tileKeys(s, true), ['hvpg', 'varix']);
   assert.equal(toolOnly(s, true), false, 'a phone shows the chart without its numbers, so the readings stay behind it');
+  assert.equal(scopeLensFor(s), true, 'the scope view opens from the ring on the varices (Mohammad, 6 Nov 2026: "use this instead")');
 });
 
 test('a card stacks only when readings stand behind its instrument, on every screen, in every talk', () => {

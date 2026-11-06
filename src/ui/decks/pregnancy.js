@@ -49,7 +49,7 @@ export const PREGNANCY_DECK = {
       ask: ['Why does the same rise in flow raise the portal pressure more in cirrhosis?', 'The scarred liver has a fixed, high resistance, so pressure rises with flow.'],
     },
     {
-      id: 'scope', cam: 'gej', labels: ['VAR', 'LGV'], calipers: ['varix'], tool: { kind: 'scope', open: true },
+      id: 'scope', cam: 'gej', labels: ['VAR', 'LGV'], calipers: ['varix'], tool: { kind: 'wall' },
       data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'],
       kicker: 'Management', site: 'sin', title: 'A second-trimester endoscopy finds large varices',
       line: 'Without a scope in the year before conception, screen in the second trimester. The varix now measures {varix}, with red wale marks.',

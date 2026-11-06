@@ -1,11 +1,14 @@
 // Presenter talk: secondary prophylaxis after a first esophageal variceal bleed. Banding closes the varix but leaves the
 // pressure behind it, so the bands slough and the varix regrows; carvedilol lowers the pressure, the two together are first
-// line, and a TIPS follows when they fail (the slide fields are described at the top of decks.js). One scope card, with the varix and
-// the HVPG as tiles, runs through every slide; the tiles' ring marks where the run began, after the bleed. The TIPS for a rebleed is
+// line, and a TIPS follows when they fail (the slide fields are described at the top of decks.js). The scope ring on the figure opens the varices on
+// every slide, and one card, the pressures since the bleed with the varix and the HVPG as tiles, runs through them; the tiles' ring marks where the run began, after the bleed. The TIPS for a rebleed is
 // the bleed talk's last section and TIPS and shunts.
 
 const BAND = { kind: 'band' };
-const SCOPE = { kind: 'scope' };
+// (The varices themselves are seen through the scope ring on the figure, scope-lens.js; the card follows the pressures since the bleed.)
+const SINCE = { kind: 'trace', range: 'talk', since: 'after' };
+// (A time-lapse slide plots its lapse day by day instead: the varix and the HVPG over the ten months, flow-time.js.)
+const MONTHS = { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over ten months' };
 const NONE = { drugs: { propranolol: false, carvedilol: false } };
 // (nsbbGain: this man is a clear responder, his HVPG falling about a quarter on carvedilol, so the slide shows a response by the
 // after-a-bleed target of 20% or more; the model's usual patient falls about 19%, a near miss, which the notes say is common.)
@@ -30,7 +33,7 @@ export const NEXT_BLEED = {
   summary: 'After a first variceal bleed: why bands alone let the varices return, how carvedilol lowers the pressure behind them, why the two together are first line, and the TIPS that follows when they fail.',
   slides: [
     {
-      id: 'after', terms: ['varix'], preset: 'cirr-decomp', action: BAND, cam: 'varices', labels: ['VAR'], tool: SCOPE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['hvpg'],
+      id: 'after', terms: ['varix'], preset: 'cirr-decomp', action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['hvpg'],
       vignette: 'A 58-year-old man with alcohol-associated cirrhosis and ascites bled from esophageal varices five days ago. Octreotide, ceftriaxone and one band stopped it. He did not qualify for a pre-emptive TIPS.',
       kicker: 'After the bleed', site: 'sin', title: 'The bleed is over, the pressure is not',
       line: 'One band stopped the bleeding, but the varices are still {varix}, the HVPG {hvpg}. Without prevention up to 60% bleed again within a year, most in the first 6 weeks.',
@@ -38,7 +41,7 @@ export const NEXT_BLEED = {
       ask: ['Within how long of a variceal bleed should secondary prophylaxis start, and why?', 'Within 7 days of admission, because the rebleeding risk is highest in the first 6 weeks.'],
     },
     {
-      id: 'bands', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SCOPE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
+      id: 'bands', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'Banding alone', site: 'sin', title: 'Banding shrinks the varices, not the pressure',
       line: 'Banding every 2 to 4 weeks shrinks the varices to {varix}. The pressure behind them does not fall: the HVPG is {hvpg}.',
       notes: 'Each band strangles a column of the varix, which scars and sloughs over the next days. Sessions are repeated every 2 to 4 weeks (AASLD favors 4, to let the banding ulcers heal) until the varices are gone. Closing the collateral takes away an escape route for portal blood, so the portal pressure, if anything, rises a little; the model shows such a rise, though the evidence for it in patients is weak. (AASLD 2024 statement 20.)',
@@ -46,14 +49,14 @@ export const NEXT_BLEED = {
     },
     {
       id: 'slough', days: 300,
-      question: 'Will the varices come back with bands alone?', lapse: { seconds: 8, from: 'Varices banded', to: '10 months later' }, terms: ['varix'], cam: 'varices', labels: ['VAR'], tool: SCOPE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
+      question: 'Will the varices come back with bands alone?', lapse: { seconds: 8, from: 'Varices banded', to: '10 months later' }, terms: ['varix'], cam: 'varices', labels: ['VAR'], tool: MONTHS, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'Banding alone', site: 'sin', title: 'Bands slough and the varices come back',
       line: 'Left unwatched for ten months, the varices regrow to {varix}: the pressure never fell. Hence endoscopy 3 to 6 months after eradication, then every 6 to 12 months.',
       notes: 'Banding is a local treatment. As long as the portal pressure stays high, blood keeps finding the coronary vein and the esophageal collaterals, and new varices grow where the old ones were. Surveillance endoscopy finds them and bands them again, 3 to 6 months after eradication and then every 6 to 12 months (AASLD 2024). The slide shows the course with no scope in between, to make the point. This is the reason banding alone is not enough after a bleed. Banding ulcers form where the bands slough and can bleed a week or two after a session, which is one reason the sessions are spaced 2 to 4 weeks apart. The model loses one banding session\'s effect about every 50 days, a simplification of how varices return. (AASLD 2024 statement 20.)',
       ask: ['Why do varices return after they have been banded away?', 'The portal pressure that made them has not changed, so blood keeps opening the same collaterals.'],
     },
     {
-      id: 'nsbb', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'varices', labels: ['VAR'], tool: SCOPE, data: 'tiles', tiles: ['hvpg', 'hr'], hvpgResp: 'after', key: ['hvpg'], delta: 'after',
+      id: 'nsbb', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['hvpg', 'hr'], hvpgResp: 'after', key: ['hvpg'], delta: 'after',
       compare: [{ label: 'No drug', params: NONE }, { label: 'Propranolol', short: 'Prop.', params: PROP }, { label: 'Carvedilol', short: 'Carv.', own: true, params: CARV }],
       kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the pressure behind the varices',
       line: 'Once titrated, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the pulse to {hr}. After a bleed, a fall of ≥20%, or to {<=12 mmHg}, is a response.',
@@ -61,14 +64,14 @@ export const NEXT_BLEED = {
       ask: ['What fall in HVPG marks a response to a beta-blocker?', 'After a bleed, a fall of ≥20% from baseline, or to ≤12 mmHg.'],
     },
     {
-      id: 'both', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SCOPE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
+      id: 'both', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'Both together', site: 'sin', title: 'Carvedilol and bands together come first',
       line: 'The bands shrink the varices to {varix}, and with carvedilol the HVPG is {hvpg}, against {hvpg@bands} with bands alone.',
       notes: 'Compared with banding alone, adding a beta-blocker lowered rebleeding in every group of patients and improved survival in Child–Pugh B and C. The two work on different things: the bands close the varix, the drug lowers the pressure that refills it. A patient who cannot take either one keeps the one he tolerates. (Baveno VIII 4.8; AASLD 2024 statement 38.)',
       ask: ['Why combine a beta-blocker with banding instead of banding alone?', 'Banding closes the varix; the beta-blocker lowers the pressure that refills it. Together they cut rebleeding further.'],
     },
     {
-      id: 'held', days: 300, lapse: { seconds: 8, from: 'Varices banded', to: '10 months later' }, terms: ['varix'], cam: 'varices', labels: ['VAR'], tool: SCOPE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
+      id: 'held', days: 300, lapse: { seconds: 8, from: 'Varices banded', to: '10 months later' }, terms: ['varix'], cam: 'varices', labels: ['VAR'], tool: MONTHS, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'Both together', site: 'sin', title: 'With carvedilol the varices stay smaller',
       line: 'Ten months on, the varices have grown back only to {varix}, against {varix@slough} with bands alone, because carvedilol keeps the pressure behind them lower. Surveillance endoscopy bands whatever returns.',
       notes: 'The same 10 months as the bands-alone slide, now on carvedilol. The bands still slough, but with a lower portal pressure less blood refills the collaterals. The comparison is against the same time point with bands alone.',

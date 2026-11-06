@@ -76,14 +76,14 @@ export const TEN_YEARS = {
       ask: ['When is carvedilol reduced or stopped in a man with ascites?', 'When the systolic pressure stays <90 mmHg (or the mean <65 mmHg), or hepatorenal acute kidney injury develops.'],
     },
     {
-      id: 'bleed', tick: 'Year 8', milestone: 'Bleed', days: 700, action: [BAND], cam: 'varices', labels: ['VAR'], calipers: ['varix'], tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'diuretics',
+      id: 'bleed', tick: 'Year 8', milestone: 'Bleed', days: 700, action: [BAND], cam: 'varices', labels: ['VAR'], calipers: ['varix'], tool: { kind: 'trace', range: 'talk' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'diuretics',
       kicker: 'Year 8', site: 'sin', title: 'Year 8: a first bleed, on carvedilol',
       line: 'He vomits blood from a {varix} varix. Octreotide or terlipressin, ceftriaxone and a band stop it. He was already taking carvedilol. What prevents the next bleed?',
       notes: 'The bleed itself is managed as in the Variceal bleed talk: vasoactive drugs, antibiotics and endoscopy within 12 hours. The decision here comes after it, once he is stable. He bled despite carvedilol, so the question is whether carvedilol has failed him. He is Child–Pugh B 8 with no active bleeding at endoscopy, so he is not a pre-emptive TIPS candidate.',
       ask: ['A man bleeds from varices while taking carvedilol. Has carvedilol failed?', 'Not on that fact alone. Baveno VIII 4.8 pairs carvedilol with banding whether or not he took carvedilol before.'],
     },
     {
-      id: 'bands', tick: 'Carvedilol and bands', action: [BAND, BAND, BAND], cam: 'varices', labels: ['VAR'], calipers: ['varix'], tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'bleed',
+      id: 'bands', tick: 'Carvedilol and bands', action: [BAND, BAND, BAND], cam: 'varices', labels: ['VAR'], calipers: ['varix'], tool: { kind: 'trace', range: 'talk' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'bleed',
       kicker: 'Year 8', site: 'sin', title: 'Carvedilol with banding, until the varices are gone',
       line: 'Carvedilol holds the HVPG at {hvpg}, and three sessions of banding take the varix down to {varix}.',
       notes: 'Banding closes the varices but leaves the pressure behind them; carvedilol lowers the pressure but leaves the varices. Baveno VIII 4.8 combines them as first-line prevention of recurrent bleeding, with carvedilol preferred, whether or not the man took carvedilol before the bleed. Banding is repeated every 2 to 4 weeks until the varices are gone.',

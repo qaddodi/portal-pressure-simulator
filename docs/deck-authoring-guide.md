@@ -586,12 +586,30 @@ or less. Count from the untreated patient, not from the drug before: on Lowering
 though the slide before is carvedilol. Used on Next bleed 5, Lowering portal pressure 3 to 5 and Ten years 5. (HVPG 5 is left out: it shows the
 catheter and the equation only, with no tiles.)
 
+#### The scope view on the figure: `scopeLens`
+
+Every slide that shows the esophageal varices gets the **scope ring**: a thin dashed ring on the varix columns of the lower esophagus, with a
+small scope badge on its upper-right edge, just above the tear so it never covers a bleed. It is one of the figure's marks, drawn on the GPU in
+the figure's own units, so it moves with every zoom, pan and view change exactly as the bands do. A tap on it opens a round **lens** in the
+nearest empty space beside it (never over the cards, the bar or the bleed), joined to the ring by a faint cone: the live endoscopic view, with
+the varices' size, the bleed and the bands as the scope instrument draws them, and the grade under it. A tap on the ring, the lens or its ×
+closes it. While the figure moves (a pan, a pinch, a slide's camera glide, the switch to the Circuit) the lens hides, and it opens again beside
+the ring once the figure holds still. Each slide starts with it closed. Code: `src/ui/scope-lens-rule.js` (which slides, the ring, where the
+lens opens), `src/ui/scope-lens.js` (the lens).
+
+A slide gets the ring on its own when its `cam` is `'varices'`, `'bleed'`, `'gej'` or `'fundus'` (or a box holding the lower esophagus), its
+`labels` name `'VAR'`, its `calipers` name `'varix'`, or its `mark` marks `C1a` or `C1b`; and only while the patient has varices (2.5 mm or more,
+or banded columns still on the wall). It is left off a slide whose card already shows the scope (`tool: { kind: 'scope' }`, the Endoscopy deck),
+and off visuals. `scopeLens: true` puts it on any other slide; `scopeLens: false` takes it off one. The data card of a slide with the ring is free
+for something else: the decks that used the scope as their card now show the pressures there (the beat-by-beat card, or the talk's trace since
+the bleed).
+
 #### The endoscopic view: `scopeTile`
 
 `scopeTile: true` on a `data: 'tiles'` slide with an instrument adds one tile to the readings card behind it: a round endoscopic view of the
 distal esophagus at the varix's size now, with Small, Large or No varices under it. In a time-lapse the picture swells with the days, each
 step eased from the one before. It counts as a tile, so a slide whose only other tiles are its chart's own two lines still stacks and its
-handle opens the view. Used on Varices 3.
+handle opens the view. (Varices 3 used it; it now has the scope ring instead.)
 
 ## 8. Catalogue
 

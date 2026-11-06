@@ -25,6 +25,7 @@ export function createCamera(st, live) {
     vtDirty = true;
     syncSemantic();
     live.CTM = null; live.viewVersion++; live.stageWake();
+    live.viewHook?.();   // (the scope view's lens hides while the figure moves: scope-lens.js)
     // (While moving: the first step of a move drops the canvas to its moving share, once; it is back at rest when the view settles.)
     // (Not for the lobule's own moves: the unseen refit as a rise begins is no move of the viewer's, and dropping the share there
     // showed the whole rise soft, then faded back up partway through it.)
