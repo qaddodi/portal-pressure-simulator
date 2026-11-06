@@ -30,7 +30,7 @@ test('a label waits a frame to be measured rather than read in the frame', () =>
   assert.doesNotMatch(lay, /offsetWidth|offsetHeight|getComputedStyle|getBoundingClientRect/);
   assert.match(lay, /wantLabels\(ns, fw\);\n\s*if \(!measT\) measT = restPass\(measureRun\);/);
   assert.match(src, /function wantLabels\(ns, fw\) \{[\s\S]*?w\.fw = fw; labWant = w;/);
-  assert.match(lay, /if \(bakeFollow\(\)\) \{ bakedEase = true; relayout\(\); return; \}/, 'a bake is drawn first, the glide starts next frame');
+  assert.match(lay, /if \(bakeFollow\(\)\) \{ relayout\(\); return; \}/, 'a bake is drawn first, the labels land at once next frame (no glide)');
   assert.doesNotMatch(between('function bakeRides()', 'function bakeFollow()'), /offsetWidth/);
 });
 

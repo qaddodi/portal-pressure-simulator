@@ -2155,7 +2155,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Two leaders never cross each other either (a shared end, two labels on one spot, is not a crossing).
   const side = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]));
   const cut = (p, q, r, t) => side(p, q, r) * side(p, q, t) < 0 && side(r, t, p) * side(r, t, q) < 0;
-  let layoutN = 0, bakedEase = false;   // (layoutN, for the checks: how many times the labels have been placed in full)
+  let layoutN = 0;   // (layoutN, for the checks: how many times the labels have been placed in full)
   // ── The layout's kept records ──
   // A layout (and the ride and the leaders' sync around it) makes no array, object or closure of its own: what it works on is kept here
   // and written in place (2 Nov 2026: a pinch whose labels cannot ride is laid out on every frame, and a layout tried hundreds of spots
@@ -2467,13 +2467,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     // Baked where they are seen (bakeFollow): drawn so this frame, and laid out in the next one, gliding from here. The page used to be
     // made to take the baked places in at once (a layout read in the frame) so the glide could start in the same frame.
-    if (bakeFollow()) { bakedEase = true; relayout(); return; }
-    const baked = bakedEase; bakedEase = false;
+    if (bakeFollow()) { relayout(); return; }
+    // (No glide after a hand's pan or zoom lets go: the labels take their final spots at once, never easing there; Mohammad, 6 Nov 2026.)
     layoutN++;
     // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
     // while the view itself pans or zooms, the labels follow it at once.
     const wasFollow = follow;   // (put back should the labels wait to be measured, below)
-    if ((layoutKey && follow.W === g.W && follow.H === g.H && V.k === follow.k && V.x === follow.x && V.y === follow.y) || baked) { classSoon(labels, 'lz-ease', true); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
+    if ((layoutKey && follow.W === g.W && follow.H === g.H && V.k === follow.k && V.x === follow.x && V.y === follow.y)) { classSoon(labels, 'lz-ease', true); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
     const nf = wasFollow === follows[0] ? follows[1] : follows[0];
     layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null; follow = nf;
     pickAnchors(fr0);
