@@ -4464,6 +4464,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 /* (and each chart's GPU picture sits at its box's corner: drawn at the in-between size in a box laid out at Full, a centring margin
    (the shapes rule below) put it down and in by half the room left, the FibroScan map out of line with its box) */
 #app .instrument-workspace.sheet-grow .dock-pane.active .chart-box > canvas { margin: 0; }
+#app .instrument-workspace.sheet-grow .dock-pane.active .chart-box > canvas.trace-gl { left: 0; top: 0; }   /* (and from the corner, not the shape's centring: the pull draws at the in-between size) */
 
 /* Findings: what has been changed, with its value; a tap on × takes it back. */
 .chg-list { display: flex; flex-direction: column; }
@@ -5336,6 +5337,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) { --ar: 1.6; container-type: size; aspect-ratio: var(--ar); height: auto !important; flex: 0 1 auto !important; min-height: 0 !important; max-height: 100%; background: none; }
 .instrument-workspace .fibroscan-box { --ar: 1.25; }   /* the Tests panel's FibroScan map: a fifth shorter than square (the reading and tick spacing are unchanged) */
 .instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) > canvas { inset: 0; margin: auto; width: min(100cqw, 100cqh * var(--ar)); height: min(100cqh, 100cqw / var(--ar)); border-radius: var(--r-card); }
+/* (The GPU's picture canvas beside the words' canvas (trace-gl.js place) is given the shared buffer's whole size inline, larger than the box, and
+   cut by clip-path with a translate that assume its corner is the picture's corner. The centring margin above put that larger canvas down
+   by half the room it overflows, so the map (the spleen exam's, whose longer key leaves the box less height) stood out over its card's edge and
+   off its words. It is placed by the same sum that centres the words' canvas, from its corner, margin 0.) */
+.instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) > canvas.trace-gl { inset: auto; margin: 0; left: calc((100cqw - min(100cqw, 100cqh * var(--ar))) / 2); top: calc((100cqh - min(100cqh, 100cqw / var(--ar))) / 2); }
 .instrument-workspace .dop-box > canvas:first-child { background: var(--scope-bg); }   /* (the lowest canvas: the GPU's trace sits under the 2D one) */
 .instrument-workspace .hvpg-box > canvas { background: var(--mon-bg); }
 /* Phone sheet: Doppler and FibroScan fill the card's width and the height left under their header, so the
@@ -5344,6 +5350,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   .instrument-workspace.float-ui:not(.side) :is(.dop-box, .fibroscan-box) { aspect-ratio: auto; flex: 1 1 0 !important; min-height: 100px !important; max-height: none; }
   .instrument-workspace.float-ui:not(.side) .fibroscan-box { min-height: 180px !important; }
   .instrument-workspace.float-ui:not(.side) :is(.dop-box, .fibroscan-box) > canvas { width: 100%; height: 100%; }
+  .instrument-workspace.float-ui:not(.side) :is(.dop-box, .fibroscan-box) > canvas.trace-gl { left: 0; top: 0; }   /* (the picture fills the box: its corner is the box's) */
 }
 /* Doppler readings on a phone sheet (portrait and on its side): direction and mean are sized as readings, never as headings,
    so the spectrum above them keeps the height. */
