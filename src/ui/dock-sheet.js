@@ -8,12 +8,14 @@
 // Moved out of main.js unchanged but for the frame hold.
 import { $, isPhoneLayout, TABLET_UP_MQ } from './util.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
-import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL } from './ease.js';
+import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, flickAim, carryCurve, D_SMALL, EASE_ARRIVE } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
 import { restPass } from './rest-pass.js';
 import { classSoon } from './class-soon.js';
 import { readBox, readMetric, readStyle } from './layout-snap.js';
 import { reduceMotionMQ } from './motion.js';
+import { sheetDockVars } from './dock-vars.js';
+import { growProgress, itemAt, wordsOpacity, pullOffset } from './sheet-grow-math.js';
 
 const app = $('#app');
 const isPhone = isPhoneLayout;
@@ -75,7 +77,8 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     if (!grow || gr || !isPhone() || !thumb()) return;
     const pane = el.querySelector('.dock-body .dock-pane.active');
     if (!pane || readMetric(pane, 'scrollTop') > 0) return;
-    const boxes = [...pane.querySelectorAll('.chart-box:not(.square)')].filter((b) => readMetric(b, 'offsetHeight') > 0);   // alloc-rare: once for each gesture
+    // (Every chart box, the square ones too (the scope's circle, the FibroScan map): a pane with only those grew nothing and popped at the landing.)
+    const boxes = [...pane.querySelectorAll('.chart-box')].filter((b) => readMetric(b, 'offsetHeight') > 0);   // alloc-rare: once for each gesture
     if (!boxes.length) return;
     const rects = boxes.map((b) => readBox(b));   // alloc-rare: once for each gesture
     const items = [], seen = new Set();   // alloc-rare: once for each gesture
@@ -87,43 +90,55 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
       if (seen.has(s) || boxes.includes(s)) return;
       const r = readBox(s);
       if (r.height > 0 || r.width > 0) {
-        if (r.top >= rects[i].bottom - 1) { seen.add(s); items.push([s, above(r.top), 0]); return; }   // alloc-rare: once for each gesture
+        if (r.top >= rects[i].bottom - 1) { seen.add(s); items.push([s, above(r.top), 0, 0, 1, 1]); return; }   // alloc-rare: once for each gesture
         if (r.bottom <= rects[i].bottom + 1) return;
       }
       for (const c of s.children) follow(c, i);
     };
+    // (An item: [element, the boxes above it, its height if it is a chart box (0: it only moves), its move down, its height scale, its width scale].)
     boxes.forEach((b, i) => {
-      items.push([b, above(rects[i].top), readMetric(b, 'offsetHeight')]); seen.add(b);
+      items.push([b, above(rects[i].top), readMetric(b, 'offsetHeight'), 0, 1, 1]); seen.add(b);
       for (let n = b; n && n !== pane; n = n.parentElement) for (let s = n.nextElementSibling; s; s = s.nextElementSibling) follow(s, i);
     });
     for (const it of items) if (it[2]) it[0].style.transformOrigin = '50% 0';
-    gr = { base, items, share: boxes.length, last: NaN, gt: 0 };
+    // (The words in a chart box (not drawn in its picture) are not stretched with it: they fade out as the pull begins and back in at the landing.)
+    const words = [];   // alloc-rare: once for each gesture
+    for (const b of boxes) for (const c of b.children) if (c.tagName !== 'CANVAS') words.push(c);
+    gr = { base, items, words, share: boxes.filter((b) => !b.classList.contains('square')).length, last: NaN, gt: 0 };
     gr.gt = probeFinal(pane);
+    if (!gr.gt && !gr.share) { gr = null; return; }   // (nothing measured and no chart to split the growth between: it grows nothing, as before)
+    if (!gr.gt) for (const it of items) if (it[0].classList.contains('square')) it[2] = 0;   // (a square box is not stretched by the old split)
     el.classList.add('sheet-grow');
+    el.classList.toggle('sheet-hide-words', !gr.gt);
   };
   // The pull's end is laid out once, here, before the first frame of the pull and never painted: the pane is given the room of the stop the pull is
   // headed for (Full from Half, Half from Full) and the notes that come with it (the Half class off or on, the pane's own height for the container
-  // rules), and where each chart and each thing under it lands is read, then everything is put back. The pull then moves each one from where it is to
-  // where it will be by the share of the way the card has grown (growTo), so the content grows with the finger and the landing has nothing left to jump.
+  // rules, the card's plot and square sizes), and where each chart and each thing under it lands is read, then everything is put back. The pull then
+  // moves each one from where it is to where it will be by the share of the way the card has grown (growTo), so the content grows with the finger and
+  // the landing has nothing left to jump.
   // Returns the card's growth to that stop (px; 0: not measured, growTo splits the growth between the charts as before).
   const probeFinal = (pane) => {
     const body = pane.closest('.dock-body'), S = stops(), idx = size === S.length - 1 ? half() : S.length - 1;
     if (!body || idx === size || idx < 0 || !gr) return 0;
-    const r = room(), gt = (r ? S[idx] * r : S[idx] * readMetric(app, 'clientHeight')) - gr.base;
+    const r = room(), target = r ? S[idx] * r : S[idx] * readMetric(app, 'clientHeight'), gt = target - gr.base;
     if (Math.abs(gt) < 8) return 0;
     const items = gr.items, was = el.classList.contains('sheet-half'), prev = body.style.height, bh = readMetric(body, 'offsetHeight');
+    const pv = el.style.getPropertyValue('--plot-h'), sv = el.style.getPropertyValue('--square-size'), dv = sheetDockVars(target, isPhone());
     const pt = readBox(pane).top, cur = items.map((it) => readBox(it[0]));   // alloc-rare: once for each gesture
     body.style.height = `${bh + gt}px`; el.classList.toggle('sheet-half', thumb() && idx === half());
+    el.style.setProperty('--plot-h', `${dv.plot}px`); el.style.setProperty('--square-size', `${dv.square}px`);
     const pt1 = readBox(pane).top;
     let ok = true;
     items.forEach((it, i) => {
       const f = readBox(it[0]), c = cur[i];
-      if (!(f.width > 0 || f.height > 0)) { it[3] = 0; it[4] = 1; return; }   // (a thing the stop hides keeps its place)
+      if (!(f.width > 0 || f.height > 0)) { it[3] = 0; it[4] = 1; it[5] = 1; return; }   // (a thing the stop hides keeps its place)
       it[3] = (f.top - pt1) - (c.top - pt);
       it[4] = it[2] && c.height > 0 ? f.height / c.height : 1;
-      if (!Number.isFinite(it[3]) || !Number.isFinite(it[4]) || it[4] <= 0) ok = false;
+      it[5] = it[2] && c.width > 0 ? f.width / c.width : 1;
+      if (!Number.isFinite(it[3]) || !Number.isFinite(it[4]) || !Number.isFinite(it[5]) || it[4] <= 0 || it[5] <= 0) ok = false;
     });
     body.style.height = prev; el.classList.toggle('sheet-half', was);
+    for (const [k, v] of [['--plot-h', pv], ['--square-size', sv]]) { if (v) el.style.setProperty(k, v); else el.style.removeProperty(k); }
     return ok ? gt : 0;
   };
   const growTo = (off) => {
@@ -132,13 +147,16 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     if (gr.gt) {
       // (the share of the way to the stop the pull is headed for, 0 where it is now, 1 at the stop: each chart and what is under it is that far
       // from where it is laid out to where it will be laid out)
-      const p = Math.round(Math.min(1, Math.max(0, G / gr.gt)) * 500) / 500;
+      const p = growProgress(G, gr.gt);
       if (p === gr.last) return;
       gr.last = p;
-      for (const [e, , hb, dy, k] of gr.items) {
-        e.style.translate = dy ? `0px ${dy * p}px` : '';
-        if (hb) e.style.scale = `1 ${Math.max(0.2, 1 + (k - 1) * p)}`;
+      for (const [e, , hb, dy, k, kx] of gr.items) {
+        const a = itemAt(dy, kx, k, p);
+        e.style.translate = dy ? `0px ${a.ty}px` : '';
+        if (hb) e.style.scale = `${a.sx} ${a.sy}`;
       }
+      const o = wordsOpacity(p);
+      for (const w of gr.words) w.style.opacity = o < 1 ? String(o) : '';
       return;
     }
     const ga = Math.round(G / gr.share * 4) / 4;
@@ -152,8 +170,10 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   const growOff = () => {
     if (!gr) return;
     for (const [e, , hb] of gr.items) { e.style.translate = ''; if (hb) { e.style.scale = ''; e.style.transformOrigin = ''; } }
+    // (Words that were faded out come back by a fade, not a pop.)
+    for (const w of gr.words) if (w.style.opacity !== '') { w.style.opacity = ''; w.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
     gr = null;
-    el.classList.remove('sheet-grow');
+    el.classList.remove('sheet-grow', 'sheet-hide-words');
   };
   // Holds the pane at the size it is laid out at (once for a gesture), before the box is made taller.
   const hold = () => { if (held.has(el)) return; const base = readMetric(el, 'offsetHeight'); holdFrame(el); growArm(base); };
@@ -179,7 +199,10 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   const pxOf = (v) => (/px$/.test(v) ? parseFloat(v) : (parseFloat(v) / 100) * readMetric(app, 'clientHeight'));
   // Commits the sheet at rest: its own height, the content in place (the same picture: what was drawn lay - off tall now is).
   const commit = (v) => {
-    classSoon(el, 'sheet-half', thumb() && size === half());   // (a phone's Tests card hides its longer words at Half)
+    // (A phone's Tests card hides its longer words at Half. Written now, not by classSoon: that class lands in a task after the frame this lands in,
+    // and the frame in between showed the new height with the old class, the notes missing and the chart too tall, then popped.)
+    el.classList.toggle('sheet-half', thumb() && size === half());
+    if (thumb() && isPhone()) { const dv = sheetDockVars(pxOf(v), true); el.style.setProperty('--plot-h', `${dv.plot}px`); el.style.setProperty('--square-size', `${dv.square}px`); }   // (what dock.js writes once the card has its height: written with it, so nothing changes after the landing)
     el.style.setProperty('--sheet-size', v);
     releaseFrame(el); growOff();
     el.style.height = ''; lay = 0;
@@ -231,14 +254,18 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   // The box is laid out tall enough for a pull up once the pull has begun (the sheet takes the finger's capture), not on every touch.
   el.addEventListener('gotpointercapture', (e) => {
     if (e.target !== el || !start || e.pointerId !== start.id || !start.moved || !start.phone || start.full) return;   // (the sheet's own capture, at the pull's start: a touch's first capture goes to what is under the finger)
-    const off = sheetOffset(el), drawn = start.box - off, H = Math.max(start.box, Math.round(start.top));
+    const H = Math.max(start.box, Math.round(start.top));
     if (H <= start.box + 1) return;
     stopSheet(el);
     hold();   // (the pane that fills the card keeps its size: the chart is not laid out, resized or redrawn by the touch)
     el.style.height = `${H}px`; lay = H;
     start.box = readMetric(el, 'offsetHeight');   // (as laid out: the stylesheet's cap may hold it lower)
     lay = start.box;
-    setSheetOffset(el, start.box - drawn);
+    // (Where the finger has taken the card by now, as the moves after it draw it: it was put back to where it began, and the first move after
+    // jumped it by what the finger had gone before the capture came.)
+    const at = pullOffset(start.box, start.h, start.dy || 0);
+    setSheetOffset(el, at); el._sheetOff = at; start.wOff = at;
+    growTo(at);
   });
   el.addEventListener('pointermove', (e) => {
     if (!start || e.pointerId !== start.id) return;

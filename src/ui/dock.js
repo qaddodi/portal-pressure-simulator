@@ -10,6 +10,7 @@ import { createPressureTime } from './pressure-time.js';
 import { createHvpgProcedure } from './hvpg-proc.js';
 import { lazyPane, holdUntilLoaded } from './lazy-pane.js';
 import { ownsSideways, pageGo } from './swipe.js';
+import { sheetDockVars } from './dock-vars.js';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js';
 import { createReadoutsPane } from './readouts-pane.js';
 import { frameFor } from './frame.js';
@@ -1006,9 +1007,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     updateSize();
     const h0 = readMetric(workspace, 'clientHeight'), side = isSide() && state !== 'focus';
     // As a tall card the plots take a sensible share of the height, so a pair still fits.
-    const plot = side ? clamp((readMetric(body, 'clientHeight') / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : clamp(h0 - (isPhoneLayout() ? 150 : 190), 190, 420);   // a tablet's sheet has a taller header and tab row (an upright one is a phone's)
+    const dv = sheetDockVars(h0, isPhoneLayout());   // (a tablet's sheet has a taller header and tab row (an upright one is a phone's); dock-vars.js, shared with the sheet's pull)
+    const plot = side ? clamp((readMetric(body, 'clientHeight') / (open.length > 1 ? 2 : 1)) - 90, 190, 380) : dv.plot;
     workspace.style.setProperty('--plot-h', `${plot}px`);
-    workspace.style.setProperty('--square-size', `${clamp(side ? readMetric(workspace, 'clientWidth') - 80 : h0 - 160, 220, 380)}px`);
+    workspace.style.setProperty('--square-size', `${side ? clamp(readMetric(workspace, 'clientWidth') - 80, 220, 380) : dv.square}px`);
     layout();
   });
   sizeObserver.observe(stageWrap); sizeObserver.observe(body);

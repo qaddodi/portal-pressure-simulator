@@ -4461,7 +4461,7 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 /* The Tests chart grows with the finger (dock-sheet.js, W3): while the pane is held, the stretched boxes and what moves down with them may
    pass the pane's held edge, and the words in a stretched box (not stretched, but hidden) wait for the landing, where it is drawn once. */
 .instrument-workspace.sheet-grow :is(.dock-body, .dock-pane) { overflow: visible; }
-.instrument-workspace.sheet-grow .chart-box:not(.square) > :not(canvas) { opacity: 0; }
+.instrument-workspace.sheet-grow.sheet-hide-words .chart-box:not(.square) > :not(canvas) { opacity: 0; }   /* (only where the pull was not measured: otherwise each fades with the pull, dock-sheet.js growTo) */
 
 /* Findings: what has been changed, with its value; a tap on × takes it back. */
 .chg-list { display: flex; flex-direction: column; }
