@@ -25,6 +25,8 @@ import { LOOK_SITE, varixHold, varixOpacity, varixSize, varixSpreadK, varixWidth
 import { TUBE_TEXELS } from './veins-gl.js';
 
 import { stageScope } from './stage-scope.js';
+// How much finer an arterioportal shunt is drawn than an artery branch of its caliber (a small communication, not a second branch).
+const AP_FINE = 0.8;
 export function createTubes(st, live) {
   const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, keptNow, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
   let glAtUpdate = false;   // (whether the GPU drew the figure at the last full update: the steps between take only that state)
@@ -367,10 +369,12 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
       let w = lerp(wA, wC, t);
       // (Both ends of the change kept, for the stretches' joins: a vessel's width between the views, widthRatio. Under the flow layer the width ignores the view.)
-      x.wAn = x.isArt ? Math.max(1.8, vesselPx(D) * 0.5) : mode === 'flow' ? 1 : wA; x.wCi = x.isArt ? 3 : mode === 'flow' ? 1 : wC;
+      // (An arterioportal shunt is a small branch: a fifth finer than the artery branch it leaves, AP_FINE.)
+      const artK = e.shunt === 'ap' ? AP_FINE : 1;
+      x.wAn = x.isArt ? Math.max(1.8, vesselPx(D) * 0.5 * artK) : mode === 'flow' ? 1 : wA; x.wCi = x.isArt ? 3 * artK : mode === 'flow' ? 1 : wC;
       // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
       if (mode === 'flow' && !x.isArt) w = clamp(2.2 + 8.5 * Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 2.2, 22);
-      if (x.isArt) w = lerp(Math.max(1.8, vesselPx(D) * 0.5), 3, t);
+      if (x.isArt) w = lerp(Math.max(1.8, vesselPx(D) * 0.5 * artK), 3 * artK, t);
       // Band ligation strangles the esophageal varices: each band thromboses a channel and the
       // rest shrink (the model raises the route's resistance by the same count).
       if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);

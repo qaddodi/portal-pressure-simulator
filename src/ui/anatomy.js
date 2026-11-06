@@ -118,9 +118,14 @@ export const EDGE_PATH = {
   // rides the right portal vein on its upper side. Offsets 11-13 from the vein's own course (the mock's PHA, LHA, RHA).
   A_HEP: 'M688 516 L676 503 L666 493 L659.8 485.3 L656.4 481.3 L652.9 477.4 L649.4 473.4 L645.9 469.5 L642.3 465.6 L638.8 461.7 L635.2 457.8 L631.6 453.9 L628 450.1 L624.4 446.3 L621 443.5',
   A_HR: 'M621 443.5 L592 426 L583.4 422.3 L574.9 418.7 L566.4 415.1 L558 411.4 L549.8 407.7 L541.6 403.9 L533.6 400.1 L525.6 396.2 L517.8 392.3 L510.2 388.3',
-  // The arterioportal shunts hop from each branch into the portal vein beside it (drawn only while open).
-  AP_R: 'M621 443.5 L 592 426 L 583.4 422.3 L 574.9 418.7 L 566.4 415.1 L 562 425.2',
-  AP_L: 'M621 443.5 L 627.2 436.2 L 634.8 430.4 L 642.4 424.7 L 649.9 419.1 L 657.4 413.6 L 664.8 408.2 L 658.3 399.3',
+  // The arterioportal shunts (drawn only while open): each peels off its artery branch a quarter of the way along, leaving along the
+  // artery's own course, and crosses the 11-unit gap in one smooth S into the middle of the portal branch beside it, arriving along
+  // the vein's course (a cubic whose ends are tangent to the two vessels, at most about 33° across them). Its start lies on the
+  // artery's course, so the GPU joins it there as a branch (vein-joins.js: an end on a course); its end lies under the vein, which
+  // is drawn over the artery tier. (They used to copy the artery's run and hook into the vein at a right angle: a parallel stub
+  // with a square elbow, 6 Nov.)
+  AP_R: 'M583.4 422.3 C 573.8 418.2 561.6 425 552 420.8',
+  AP_L: 'M642.4 424.7 C 649.9 419.1 649.2 405.9 656.8 400.4',
   A_HL: 'M621 443.5 L627.2 436.2 L634.8 430.4 L642.4 424.7 L649.9 419.1 L657.4 413.6 L664.8 408.2 L672.2 402.8 L679.6 397.5 L687 392.2 L694.4 387',
 
   V_INT: 'M756 800 C 752 758 700 716 690 660',
@@ -334,8 +339,9 @@ export const CIRCUIT_PATH = {
   A_HR: 'M774 345 L 786 333 L 800 333',
   A_HL: 'M774 345 L 786 357 L 800 357',
   // The arterioportal shunts leave the artery's run and rise (or drop) into the first portal venules, beside the inflow stubs.
-  AP_R: 'M700 345 L 700 321 L 682 303',
-  AP_L: 'M700 345 L 700 369 L 682 387',
+  // (Rounded at their bends as every other line of the map is: route(), not bare square corners.)
+  AP_R: route([[700, 345], [700, 321], [682, 303]], 10),
+  AP_L: route([[700, 345], [700, 369], [682, 387]], 10),
   // TIPS: leaves the right portal vein straight up, crosses the top of the liver in a lane of its
   // own (clear of the right lobe's lane and of the right hepatic vein's last stretch, which it
   // used to run on top of) and drops into the right hepatic vein from above.
