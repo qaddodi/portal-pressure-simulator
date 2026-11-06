@@ -9,7 +9,7 @@ import { store, varixGrowth } from './store.js';
 import { clamp, lerp, themeChanged } from './util.js';
 
 export function createFrame(st, live) {
-  const { CIRC_C, EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, cbAt, circTurn, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, svg, vbBox, wiggle } = st;
+  const { CIRC_C, EI, EV, MAP, VB_CIRC_R, applyVT, arcLen, blendFrom, braid, cbAt, circTurn, gAscites, gFxC, geo, litNormals, nd, nodeVerts, pointAt, recs, rotEase, setG, stageWrap, stationsSync, svg, vbBox, wiggle } = st;
   // A view may keep each finding (varices, collaterals, clots, flow) off the figure until a test shows it.
   const findingHidden = (k) => { const fd = store.get().found; return !!fd && !fd.has(k); };
   const FINDING_OF = { VAR: 'eso', GV: 'gv' };
@@ -148,7 +148,10 @@ export function createFrame(st, live) {
     if (!full) return;
     if (t > 0 && t !== nd.at) nodeVerts(t);   // (the dots show only with the circuit: at 0 they are not drawn, and kept where they were)
     setViewBox(t);
-    live.organMorphA = 1 - t; live.paintOrganAlpha();
+    // (The organs hand over to their stations (station-boxes.js), which form inside them: gone by 0.6 of the change, so no organ lingers in
+    // place behind a box that has left it.)
+    { const u = clamp(t / 0.6, 0, 1); live.organMorphA = 1 - u * u * (3 - 2 * u); }
+    live.paintOrganAlpha();
     if (t !== ascT) { ascT = t; ascTxt = String(1 - t); }
     setG(gAscites, 'style:opacity', ascTxt);
     svg.classList.toggle('circuit', t > 0.5);
@@ -158,7 +161,7 @@ export function createFrame(st, live) {
     if (stageWrap.classList.contains('cmap') !== t > 0.5) { stageWrap.classList.toggle('cmap', t > 0.5); themeChanged(); }   // (the map's tokens are the labels' too: label-theme.js)
     if (gFxC.firstChild || t === 0 || t === 1) { if (t !== fxcT) { fxcT = t; fxcTxt = String(t); } setG(gFxC, 'style:opacity', fxcTxt); }   // (an empty layer takes no opacity through the change between the views; its value lands with the view)
     // (The map and the dots fade with t on the GPU: at 0 neither is drawn nor read.)
-    if (MAP.a !== t) { MAP.a = t; nd.dirty = true; }
+    if (MAP.a !== t) { MAP.a = t; nd.dirty = true; stationsSync(t); }   // (the organs' stations ride the change: station-boxes.js)
     live.CTM = null;
   }
   const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
