@@ -1,6 +1,8 @@
 // The circuit's resistors: the ratio each shows against the healthy liver, its reading as a figure label, and its zigzag record on the overlay painter.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, edgePresent } from '../engine/topology.js';
+import { NODE_POS } from './anatomy.js';
+import { dotRadius } from './circuit-nodes.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
 import { clamp, fmt } from './util.js';
@@ -36,8 +38,7 @@ export function createResistors(st, live) {
       const tx = (b[0] - ax) / L, ty = (b[1] - ay) / L;
       let nx = -ty, ny = tx;
       if (Math.abs(ny) >= Math.abs(nx) ? ny > 0 : nx < 0) { nx = -nx; ny = -ny; }   // (up, else to the right)
-      const sc = live.CTM?.sc || 1, r = it.ratio ?? 1;
-      const off = resAmp(r) * Math.max(sc, RES_FLOOR) + resWidth(r) / 2 + 8 + Math.abs(nx) * it.w / 2 + Math.abs(ny) * it.h / 2;   // (clear of the zigzag, its casing and its glow)
+      const off = Math.max(RES_AMP * (live.CTM?.sc || 1), RES_MIN_AMP_PX) + resWidth(it.ratio ?? 1) / 2 + RES_OUTLINE + 6 + Math.abs(nx) * it.w / 2 + Math.abs(ny) * it.h / 2;   // (clear of the zigzag and its outline)
       cx = ax + nx * off; cy = ay + ny * off;
     }
     it.ax = ax; it.ay = ay; it.x = cx - it.w / 2; it.y = cy - it.h / 2;
@@ -79,63 +80,84 @@ export function createResistors(st, live) {
     return at;
   };
   const r1 = (v) => Math.round(v * 10) / 10;   // (a zigzag's points to a tenth of a world unit, as its path text was written)
-  // (6 Nov 2026, Mohammad: "the resistor icons barely appear ... the difference between too much resistance and too little is not really
-  // that different; need to be bolder".) The resistance is read by the zigzag's own shape, not by its tint alone, so it reads in every
-  // pressure colour and theme: R = the ratio to the healthy liver, s = log2 R (0 at ×1, 1 at ×2, 2 at ×4).
-  //   amplitude 5 world units at ×1, 10 at ×2, 15 at ×4 (a calm low ripple against tall spikes);
-  //   teeth 4 at ×1, 5 at ×1.6, 6 from ×2.5 (tighter as it rises);
-  //   stroke 2.5 px at ×1, 4.3 px at ×2, 6 px at ×4 and over;
-  //   heat t = s / 2 (0 at ×1, 1 at ×4): the line warms toward --danger by up to 55% and a glow of its own colour grows under it.
-  // Every resistor sits on a solid casing of the stage's background (its width + 5 px), so its line never melts into a vessel of the same hue.
+  // (6 Nov 2026, Mohammad, after the first pass grew the zigzag: "the resistor symbol should remain looking the same; the blood vessel under it
+  // should be a bit faded; the resistor should connect exactly between the two points; should not grow in size; however, what we can do is
+  // make it grow in thickness visibly; also give it a more prominent black outline; and change its color the more resistance it gives".)
+  // So the zigzag keeps one shape at every resistance (6 teeth of 9 world units, at least 8 px on screen); the liver's runs on straight leads
+  // from one station's dot to the next, its outline just meeting each ring. The resistance shows twice, with s = log2 R (R the ratio to the
+  // healthy liver: s 0 at ×1, 1 at ×2, 2 at ×4):
+  //   stroke 2.5 px at ×1, 4.3 px at ×2, 6 px at ×4, 7 px from ×5.3;
+  //   colour along --ok → --caution → --danger: green at ×1, amber at ×2, red from ×4.
+  // A solid black outline (3 px each side) keeps it clear of every vessel in either theme, and the vessel under the liver's is veiled by the
+  // stage's background (40%), so the symbol stands over it. A resistor the slide's words point at also takes a soft halo of the term's tone.
+  const RES_AMP = 9, RES_TEETH = 6, RES_MIN_AMP_PX = 8, RES_OUTLINE = 3, RES_VEIL = 0.4;
   const resLog = (r) => Math.log2(Math.max(0.25, r || 1));
-  const resAmp = (r) => clamp(5 + 5 * resLog(r), 4, 16);
-  const resTeeth = (r) => (r >= 2.5 ? 6 : r >= 1.6 ? 5 : 4);
-  const resWidth = (r) => Math.round(clamp(2.5 + 1.8 * resLog(r), 2.5, 6) * 10) / 10;
-  const resHeat = (r) => clamp(resLog(r) / 2, 0, 1);
-  // (A zigzag keeps its shape on screen at any zoom: below RES_FLOOR px a unit, its world amplitude grows so it stays at least RES_FLOOR of its
-  // own amplitude in px, stepped a quarter octave so a zoom rebuilds the record a few times, not each frame.)
-  const RES_FLOOR = 0.9;
-  // A resistor: its glow (as the resistance rises), the casing under its line, and its line, each a zigzag along the segments.
+  const resWidth = (r) => Math.round(clamp(2.5 + 1.75 * resLog(r), 2.5, 7) * 10) / 10;
+  const resHeat = (r) => Math.round(clamp(resLog(r) / 2, 0, 1) * 20) / 20;
+  const BLACK = [0, 0, 0], ramp = new Float64Array(9);   // (the ramp's three tokens' rgb, read in place)
+  // The liver's two resistors: each from its lobe's sinusoid inlet to its central vein (the circuit's places of the two stations).
+  const LIVER_ENDS = [['SIN_R', 'CV_R'], ['SIN_L', 'CV_L']].map(([a, b]) => [NODE_POS[a][1], NODE_POS[b][1], dotRadius('liver')]);
+  const DOT_MIN_PX = 4, DOT_RING_OUT = 0.8;   // (as stage.js draws the stations' dots: at least 4 px, the ring half outside the radius)
+  // A resistor: the veil over the vessel under it (the liver's), a halo when lit, its black outline, and its line, each along the segments.
   function resPaint(k, d, ratio) {
     let st = resMade.get(k);
     const want = live.sites.list?.includes(k) && ratio != null;
     const now = performance.now();
     if (!want) { if (st) { resMade.delete(k); recs.drop(RES_KEYS[k], now, reduceMotion.matches); live.recKick(); } return; }   // (faded out whole first, over D_SURFACE, then gone)
-    if (!st) { st = { _segs: null, cur: null, d, ratio }; resMade.set(k, st); }   // alloc-rare: a resistor's record, made when it first shows
-    // The zigzags' end points: the liver's two are fixed; the gut's and the collaterals' stand on their vessel, level with its course.
-    let n = 0;
+    if (!st) { st = { _segs: null, cur: null, d, ratio, lens: [] }; resMade.set(k, st); }   // alloc-rare: a resistor's record, made when it first shows
+    // (Sizes kept in screen px are worked out at the scale now stepped a quarter octave, so a zoom rebuilds the record a few times, not each frame.)
     const sc = live.CTM?.sc > 0 ? live.CTM.sc : 1, scQ = 2 ** (Math.round(Math.log2(sc) * 4) / 4);
-    const teeth = resTeeth(ratio), amp = resAmp(ratio) * Math.max(1, RES_FLOOR / scQ), stride = (teeth + 2) * 2;
+    const amp = Math.max(RES_AMP, RES_MIN_AMP_PX / scQ), w = resWidth(ratio), heat = resHeat(ratio);
+    const lens = st.lens;
+    lens.length = 0;
+    let n = 0, veil = 0;
     if (d.res === 'liver') {
-      for (let i = 0; i < live.RES_LIVER.length; i += 4) n = zigInto(live.resNow, n, live.RES_LIVER[i], live.RES_LIVER[i + 1], live.RES_LIVER[i + 2], live.RES_LIVER[i + 3], teeth, amp);
+      // Its leads: from each dot's ring (its outline just meeting it) to the zigzag's own ends, which stand where they always have.
+      for (let i = 0, j = 0; i < LIVER_ENDS.length; i++, j += 4) {
+        const [A, B, r0] = LIVER_ENDS[i], edge = Math.max(r0, DOT_MIN_PX / scQ) + DOT_RING_OUT + (w / 2 + RES_OUTLINE) / scQ;
+        const zx0 = live.RES_LIVER[j], zy0 = live.RES_LIVER[j + 1], zx1 = live.RES_LIVER[j + 2], zy1 = live.RES_LIVER[j + 3];
+        const at = n, lx0 = Math.min(A[0] + edge, zx0), lx1 = Math.max(B[0] - edge, zx1);
+        if (lx0 < zx0) { live.resNow[n++] = lx0; live.resNow[n++] = A[1]; }
+        n = zigInto(live.resNow, n, zx0, zy0, zx1, zy1, RES_TEETH, amp);
+        if (lx1 > zx1) { live.resNow[n++] = lx1; live.resNow[n++] = B[1]; }
+        lens.push(n - at);
+      }
+      veil = 8 * clamp(10 / (15 * sc), 1, 1.75) + 2;   // (the liver's lane in the circuit: 8 units, grown as the lanes grow when the map is small (stage-tubes), and a unit each side)
     } else {
       const q = d.res === 'gut' ? geo.A_SMA?.cur && pointAt(geo.A_SMA.cur, 0.5) : geo.C1b?.cur && pointAt(geo.C1b.cur, 0.5);
-      if (q) n = zigInto(live.resNow, n, q[0] - q[2] * 34, q[1] - q[3] * 34, q[0] + q[2] * 34, q[1] + q[3] * 34, teeth, amp);
+      if (q) { n = zigInto(live.resNow, n, q[0] - q[2] * 34, q[1] - q[3] * 34, q[0] + q[2] * 34, q[1] + q[3] * 34, RES_TEETH, amp); lens.push(n); }
     }
     for (let i = 0; i < n; i++) live.resNow[i] = r1(live.resNow[i]);
+    veil = r1(veil);
     const lit = live.resLit.get(k);
-    const w = resWidth(ratio), heat = Math.round(resHeat(ratio) * 20) / 20;
-    // Its look as numbers: lit, the casing's rgb (the stage's background), the line's rgb, its width, the heat, the danger rgb
-    // (the rgb is the theme's tokens', read when the theme last changed).
-    live.resKey[0] = lit ? 1 : 0; live.resKey[7] = w; live.resKey[8] = heat;
+    // Its look as numbers: lit, the stage's background (the veil), the lit tone, the width, the heat, the veil's width, and the line's
+    // colour on the ramp (the rgb is the theme's tokens', read when the theme last changed).
+    live.resKey[0] = lit ? 1 : 0; live.resKey[7] = w; live.resKey[8] = heat; live.resKey[9] = veil;
     live.tokenRGB('--stage-bg', live.resKey, 1);
     live.tokenRGB(lit ? live.toneToken(lit) : '--text', live.resKey, 4);
-    live.tokenRGB('--danger', live.resKey, 9);
+    live.tokenRGB('--ok', ramp, 0); live.tokenRGB('--caution', ramp, 3); live.tokenRGB('--danger', ramp, 6);
+    const seg = heat < 0.5 ? 0 : 3, u = heat < 0.5 ? heat * 2 : (heat - 0.5) * 2;
+    for (let c = 0; c < 3; c++) live.resKey[10 + c] = Math.round((ramp[seg + c] + (ramp[seg + 3 + c] - ramp[seg + c]) * u) * 1000) / 1000;
     let same = !!st.cur && st.cur.n === n;
     if (same) for (let i = 0; i < live.resKey.length; i++) if (st.cur.key[i] !== live.resKey[i]) { same = false; break; }
     if (same) for (let i = 0; i < n; i++) if (st.cur.pts[i] !== live.resNow[i]) { same = false; break; }
     st.d = d; st.ratio = ratio;
     if (!same) {
-      // alloc-rare: a resistor's zigzag, colour or width changed (a slide's change, a theme, a resistance), not a frame that kept them
-      const polys = [];
-      for (let o = 0; o + stride <= n; o += stride) polys.push(live.resNow.slice(o, o + stride));
+      // alloc-rare: a resistor's zigzag, colour or width changed (a slide's change, a theme, a resistance, a zoom's step), not a frame that kept them
+      const polys = [], veils = [];
+      for (let i = 0, o = 0; i < lens.length; o += lens[i], i++) {
+        const p = live.resNow.slice(o, o + lens[i]);
+        polys.push(p);
+        veils.push(Float32Array.of(p[0], p[1], p[p.length - 2], p[p.length - 1]));
+      }
       st.cur = { n, key: Array.from(live.resKey), pts: live.resNow.slice(0, n) };
       st._segs = polys.map((p) => [[p[0], p[1]], [p[p.length - 2], p[p.length - 1]]]);   // (what the figure's labels keep off, buildSegs)
-      const K = live.resKey, mix = 0.55 * heat;
-      const ink = [K[4] + (K[9] - K[4]) * mix, K[5] + (K[10] - K[5]) * mix, K[6] + (K[11] - K[6]) * mix];
-      const parts = [];
-      if (polys.length && heat > 0) parts.push({ polys, kind: 'stroke', nss: true, cap: 1, a: 0.12 + 0.28 * heat, w: w + 7 + 9 * heat, rgb: ink });
-      if (polys.length) parts.push({ polys, kind: 'stroke', nss: true, cap: 1, a: 0.95, w: w + 5, rgb: [K[1], K[2], K[3]] }, { polys, kind: 'stroke', nss: true, cap: 1, a: 1, w: lit ? w + 0.5 : w, rgb: ink });
+      const K = live.resKey, ink = [K[10], K[11], K[12]], parts = [];
+      if (polys.length) {
+        if (veil) parts.push({ polys: veils, kind: 'stroke', cap: 0, a: RES_VEIL, w: veil, rgb: [K[1], K[2], K[3]] });
+        if (lit) parts.push({ polys, kind: 'stroke', nss: true, cap: 1, a: 0.3, w: w + 2 * RES_OUTLINE + 8, rgb: [K[4], K[5], K[6]] });
+        parts.push({ polys, kind: 'stroke', nss: true, cap: 1, a: 1, w: w + 2 * RES_OUTLINE, rgb: BLACK }, { polys, kind: 'stroke', nss: true, cap: 1, a: 1, w, rgb: ink });
+      }
       recs.put(RES_KEYS[k], parts, now, reduceMotion.matches);
       live.recKick();
     }
