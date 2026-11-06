@@ -67,7 +67,10 @@ test('the stream leaves the lower left tip of the liver, the lowest point of its
   assert.ok(sx < 474, `tip x ${sx}`);
   assert.ok(sy > 560, `tip y ${sy}`);
   assert.ok(Math.abs(L.wk[1] - sx) < 40 && L.wk[2] > 0);
-  for (let i = 0; i < WEEP_LEAVES; i++) assert.ok(Math.abs(d[i * S] - sx) < 60);
+  // the rivulets seep from along the whole rim and all run to the tip
+  const starts = []; for (let i = 0; i < WEEP_LEAVES; i++) { starts.push(d[i * S]); assert.ok(Math.abs(d[2 * N + i * S + S - 1] - sx) < 1); }
+  assert.ok(Math.max(...starts) - Math.min(...starts) > 150, `spread ${starts}`);
+  assert.ok(L.wb[0] < 345 && L.wb[2] > 600, 'the box holds the whole edge');
 });
 
 test('a shrunk liver moves the stream with it, and the same liver asks for nothing again', () => {

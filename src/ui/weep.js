@@ -1,9 +1,9 @@
 // Lymph weeping from the liver's surface into the ascites pool on the anatomy figure (6 Nov 2026).
 //
-// Fine rivulets of soft amber streaks leave the liver at the lower tip of its right lobe (the left bottom corner of the figure's liver),
-// join one thin stream that falls from the tip, and land in the pool. The stream widens at every join. How many rivulets run follows
+// Fine rivulets of soft amber streaks seep from the whole lower edge of the liver, run along the rim to the lower tip of its right lobe (the
+// left bottom corner of the figure's liver), join one thin stream that falls from the tip like the varix bleed's, and land in the pool. The stream widens at every join. How many rivulets run follows
 // the model's Leaked mL/day (what the lymphatics cannot carry, the Fluid card's "Leaked"): none while the lymphatics carry it all,
-// all of them at about twice the ordinary 1,060. A soft amber sheen on the liver's edge at the tip shows where it starts.
+// all of them at about twice the ordinary 1,060. A faint wet sheen along the liver's whole lower edge, fullest at the tip, shows where it seeps.
 //
 // This file works out the picture's numbers only: a flat list of segments (each with its arc length along its path, its half width
 // and its opacity at both ends), kept in one array the figure's GPU renderer reads from a texture (veins-gl.js weepAt). The renderer
@@ -14,9 +14,9 @@
 
 /** Leaked mL a day at which the stream shows at its ordinary strength (the Fluid card's typical Leaked). */
 export const WEEP_REF = 1060;
-export const WEEP_LEAVES = 4;
+export const WEEP_LEAVES = 6;
 export const WEEP_PITCH = 44, WEEP_DASH = 26;      // (world units along a path: one streak every pitch)
-export const WEEP_LEAF_SEGS = 6;
+export const WEEP_LEAF_SEGS = 8;
 const TRUNK_SEGS = 24;
 /** The segments the figure draws: the rivulets of WEEP_LEAF_SEGS each, and the stream. */
 export const WEEP_N = WEEP_LEAVES * WEEP_LEAF_SEGS + TRUNK_SEGS;
@@ -26,8 +26,9 @@ const SIZE = 0.8;
 const CELL = 16;                                   // (the figure's cell, veins-gl.js CELL)
 const LIVER_C = [560, 350];                        // (the liver's scale is about this point: stage-diaphragm.js)
 const RIM_W = 290;                                 // (the rim width the sizes below were drawn for)
-const LEAF_DX = [-34, -11, 11, 34];                // where the rivulets leave the rim, either side of the tip
-const LEAF_JOIN = [34, 12, 22, 44];                // and how far down the stream each one joins it
+const LEAF_AT = [-0.55, 0.2, 0.4, 0.6, 0.8, 1];    // where the rivulets start on the rim: a share of the way from the tip to the far end (negative: toward the near end)
+const LEAF_RANK = [0.6, 0, 1, 2, 3, 4];            // which wake first as the leak grows
+const LEAF_JOIN = [2, 6, 10, 14, 18, 22];          // and how far down the stream each one has joined it (they all meet at the tip)
 
 // (Writes v into the table at idx; true when that changed the number the table holds.)
 function put(arr, idx, v) { const f = Math.fround(v); if (arr[idx] === f) return false; arr[idx] = f; return true; }
@@ -73,7 +74,7 @@ export function createWeep() {
   const cells = [];
   const sm = { target: 0, shown: 0 };
   let phase = 0, wasOn = false, lastSig = '';   // (the leak starts at none and eases up: a new patient's stream arrives, it does not pop)
-  const P0 = [0, 0], P1 = [0, 0];
+  const P0 = [0, 0];
   const tx = new Float64Array(TRUNK_SEGS + 1), ty = new Float64Array(TRUNK_SEGS + 1), ts = new Float64Array(TRUNK_SEGS + 1);   // (the stream's points and arc lengths, while layout works)
   const out = { dirty: false, data, n: N, box, cells };
 
@@ -107,8 +108,8 @@ export function createWeep() {
     for (let i = c0 + Math.round(0.08 * (c1 - c0)); i <= c0 + Math.round(0.4 * (c1 - c0)); i++) if (floor[i] > tipLow) { tipLow = floor[i]; tip = i; }
     const tipX = wx(tip), tipY = wy(tipLow);
     // The stream: from just under the tip, down and a little toward the flank, to a hand's breadth under the pool's surface.
-    const xd = tipX - 14 * kw, yT = tipY + 26 * kw;
-    const yEnd = Math.max(yT + 150 * kw, surf(xd) + 60);
+    const xd = tipX - 14 * kw, yT = tipY - 2 * kw;
+    const yEnd = Math.max(yT + 170 * kw, surf(xd) + 60);
     const d3 = yEnd - yT;
     const a = [tipX, yT], b = [tipX + 4 * kw, yT + 0.35 * d3], c = [xd + 6 * kw, yT + 0.7 * d3], e = [xd, yEnd];
     let s = 0;
@@ -118,25 +119,27 @@ export function createWeep() {
       tx[j] = P0[0]; ty[j] = P0[1]; ts[j] = s;
     }
     let n = 0;
-    // The rivulets: from just inside the rim either side of the tip, down, and into the stream from above.
+    // The rivulets: seeping from points all along the rim, each running along the rim (a little above it) to the tip, where they meet the stream.
+    const rx = new Float64Array(WEEP_LEAF_SEGS + 1), ry = new Float64Array(WEEP_LEAF_SEGS + 1);
+    let top = Infinity;
     for (let i = 0; i < WEEP_LEAVES; i++) {
-      const x = clamp(tipX + LEAF_DX[i] * kw, xmin + 3, xmax - 3), y = rimAt(x) - 8 * kw;
-      // (the stream's point at the arc the rivulet joins at)
-      const want = LEAF_JOIN[i] * kw;
-      let best = 0;
-      for (let j = 0; j <= TRUNK_SEGS; j++) if (ts[j] <= want) best = j;
-      join[i] = ts[best];
-      rank[i] = [0.4, 2.2, 1.3, 3.1][i];
-      const jx = tx[best], jy = ty[best];
-      const p0 = [x, y], p1 = [x, y + (jy - y) * 0.45], p2 = [jx + (x - jx) * 0.25, jy - (jy - y) * 0.35], p3 = [jx, jy];
+      const f = LEAF_AT[i];
+      const xs = clamp(f < 0 ? tipX + f * (tipX - xmin) : tipX + f * (xmax - tipX - 6 * kw), xmin + 3, xmax - 3);
+      for (let j = 0; j <= WEEP_LEAF_SEGS; j++) {
+        const x = xs + (tipX - xs) * (j / WEEP_LEAF_SEGS);
+        rx[j] = x; ry[j] = rimAt(x) - (5 + 3 * (1 - j / WEEP_LEAF_SEGS)) * kw;
+        if (ry[j] < top) top = ry[j];
+      }
+      rx[WEEP_LEAF_SEGS] = tipX; ry[WEEP_LEAF_SEGS] = yT;
+      join[i] = LEAF_JOIN[i] * kw;
+      rank[i] = LEAF_RANK[i];
       const off = (i * 13.7) % WEEP_PITCH;
-      let sx = p0[0], sy = p0[1], arc = 0;
-      for (let j = 1; j <= WEEP_LEAF_SEGS; j++) {
-        bez(P1, p0, p1, p2, p3, j / WEEP_LEAF_SEGS);
-        const len = Math.hypot(P1[0] - sx, P1[1] - sy);
-        ax[n] = sx; ay[n] = sy; bx[n] = P1[0]; by[n] = P1[1];
+      let arc = 0;
+      for (let j = 0; j < WEEP_LEAF_SEGS; j++) {
+        const len = Math.hypot(rx[j + 1] - rx[j], ry[j + 1] - ry[j]);
+        ax[n] = rx[j]; ay[n] = ry[j]; bx[n] = rx[j + 1]; by[n] = ry[j + 1];
         sA[n] = arc; sB[n] = arc + len; sOff[n] = off; owner[n] = i;
-        arc += len; sx = P1[0]; sy = P1[1]; n++;
+        arc += len; n++;
       }
     }
     for (let j = 0; j < TRUNK_SEGS; j++) {
@@ -144,9 +147,9 @@ export function createWeep() {
       sA[n] = ts[j]; sB[n] = ts[j + 1]; sOff[n] = 0; owner[n] = -1; n++;
     }
     have = n === N;
-    // The box (the stream's and rivulets' reach, the sheen at the tip) and the cells it passes through, drawn again each frame while it runs.
-    sheen[0] = tipX; sheen[1] = 70 * kw;
-    let x0 = tipX - sheen[1], y0 = tipY - 60 * kw, x1 = tipX + sheen[1], y1 = -Infinity;
+    // The box (the stream's and rivulets' reach, the sheen along the edge) and the cells it passes through, drawn again each frame while it runs.
+    sheen[0] = tipX; sheen[1] = 90 * kw;
+    let x0 = xmin, y0 = Math.min(top, tipY) - 14 * kw, x1 = xmax, y1 = -Infinity;
     cellSet.clear();
     const mark = (px, py, m) => {
       for (let cx = Math.floor((px - m) / CELL); cx <= Math.floor((px + m) / CELL); cx++) for (let cy = Math.floor((py - m) / CELL); cy <= Math.floor((py + m) / CELL); cy++) cellSet.add(cx * 8192 + cy);
@@ -155,7 +158,7 @@ export function createWeep() {
       x0 = Math.min(x0, ax[i], bx[i]); x1 = Math.max(x1, ax[i], bx[i]); y1 = Math.max(y1, ay[i], by[i]);
       mark(ax[i], ay[i], 12); mark((ax[i] + bx[i]) / 2, (ay[i] + by[i]) / 2, 12);
     }
-    for (let x = tipX - sheen[1]; x <= tipX + sheen[1]; x += 8) mark(x, rimAt(x), 8);
+    for (let x = xmin; x <= xmax; x += 8) mark(x, rimAt(x), 8);
     x0 -= 14; x1 += 14; y1 += 14;
     box[0] = x0; box[1] = y0; box[2] = x1; box[3] = y1;
     cells.length = 0;

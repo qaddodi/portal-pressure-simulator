@@ -1473,9 +1473,9 @@ vec4 weepAt(vec2 w) {
   float aa = max(pxW, 1e-3) * 0.7;
   vec4 res = vec4(0.0);
   float nR = float(textureSize(fluidMask, 0).x);
-  // The wet sheen along the liver's lower edge (fluidMask row 1, in the liver's own frame), near the tip only.
-  float tipW = 1.0 - smoothstep(0.3 * weepK.z, weepK.z, abs(w.x - weepK.y));
-  if (weepK.x > 0.0 && tipW > 0.0) {
+  // The wet sheen along the liver's whole lower edge (fluidMask row 1, in the liver's own frame), fullest at the tip.
+  float tipW = 0.4 + 0.6 * (1.0 - smoothstep(0.3 * weepK.z, weepK.z, abs(w.x - weepK.y)));
+  if (weepK.x > 0.0) {
     vec2 lu = (w - vec2(560.0, 350.0)) / fluidLv.x + vec2(560.0, 350.0);
     float lx = clamp((lu.x - fluidRect.x) / fluidRect.z, 0.0, 1.0) * (nR - 1.0);
     int l0 = int(floor(lx)), l1 = min(l0 + 1, int(nR) - 1);
