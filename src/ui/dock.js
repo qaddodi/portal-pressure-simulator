@@ -28,6 +28,7 @@ import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-
 import { attrSoon, dataSoon } from './class-soon.js';
 import { caught } from './caught.js';
 import { reduceMotionMQ } from './motion.js';
+import { fibroReading } from './clock.js';
 const nextFrame = frameFor('dock');
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node: a DOM rebuild per paint).
@@ -488,7 +489,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     doppler: ['doppler', (f) => `${fmt(Math.abs(f.metrics.pvVelMean ?? f.metrics.pvVel), 0)} cm/s`],
     endoscopy: ['endoscope', (f) => { const vx = f.metrics.varix; return !vx.present ? 'No varices' : vx.grade.label === 'None' ? 'Banded varices' : `${vx.grade.label} varices`; }],
     abdomen: ['needle', (f) => `${fmt(f.metrics.ascites.volume / 1000, 1)} L ascites`],
-    fibroscan: ['gauge', (f) => `${fmt(f.metrics.lsm, 1)} kPa`],
+    fibroscan: ['gauge', (f) => { if (fibroReading.organ !== 'spleen') return `${fmt(f.metrics.lsm, 1)} kPa`; return f.metrics.ssm == null ? 'No spleen' : `Spleen ${fmt(f.metrics.ssm, 1)} kPa`; }],
     readouts: ['grid', (f) => readouts.summary(f)],
   };
   const SHORT = { profile: 'Pressure', scope: 'Over time', hvpg: 'HVPG', doppler: 'Doppler', endoscopy: 'Endoscopy', abdomen: 'Ascites', fibroscan: 'FibroScan', readouts: 'Readouts' };

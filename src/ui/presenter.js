@@ -188,7 +188,7 @@ const TERMS = ['CSPH', 'SAAG', 'WHVP', 'FHVP', 'central vein', 'portal tracts?',
   'cavernoma', 'a wave', 'pulsatility', 'reflection coefficient', 'Laplace', 'congestion index', 'gray zone', 'red wale marks'];
 // A tile's words in a line (the slide's key tiles are its key terms).
 const KEYWORDS = { hvpg: 'HVPG', ppg: 'PPG', pv: 'portal pressure', whvp: 'WHVP|wedged pressure', fhvp: 'FHVP|free pressure', ra: 'right atrial pressure|right atrium',
-  ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', spleen: 'spleen',
+  ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', ssm: 'spleen stiffness|SSM', spleen: 'spleen',
   liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', hbTo: 'hemoglobin to come', pvFlow: 'portal flow', pvVel: 'portal vein velocity', clot: 'clot',
   co: 'cardiac output', bv: 'blood volume', he: 'encephalopathy risk|HE risk' };
 // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
@@ -2554,9 +2554,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // The data card: the ladder and tiles, a slide's instrument (tool), or both (the tool above the tiles).
   const hasCard = (s) => !s.visual && (s.data === 'tiles' || !!s.tool);
   // A reading tool can show the earlier reading as a ghost (D3): tool.delta, else the slide's own delta.
-  const GHOST = { fibroscan: ['lsm', 'kPa', 1], doppler: ['pvVel', 'cm/s', 0] };
+  const GHOST = { fibroscan: ['lsm', 'kPa', 1], spleen: ['ssm', 'kPa', 1], doppler: ['pvVel', 'cm/s', 0] };
   function toolGhost(s, i) {
-    const g = GHOST[s.tool.kind];
+    const g = GHOST[s.tool.kind === 'fibroscan' && s.tool.organ === 'spleen' ? 'spleen' : s.tool.kind];
     if (!g || (s.tool.kind === 'doppler' && (s.tool.vessel || 'PV_TRUNK') !== 'PV_TRUNK')) return null;
     if (s.tiles?.includes(g[0])) return null;   // (a tile already gives the change and where it came from)
     const t = s.tool.delta != null ? { ...s, delta: s.tool.delta } : s, d = deltaOf(t, i), r = refOf(t, i);
@@ -3007,7 +3007,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const WORDREL = { 2: 'much higher', 1: 'higher', 0: 'unchanged', '-1': 'lower', '-2': 'much lower' };
   const unitOf = (k) => (k === 'varix' || k === 'gv' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' || k === 'shunt' ? '%' : k === 'hr' ? '/min' : k === 'res' ? ' mmHg per L/min' : PRESS.has(k) ? ' mmHg' : TILE[k]?.u ? ` ${TILE[k].u}` : '');
   const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix in mm', gv: 'fundal varix in mm', asc: 'ascites in liters', liver: 'liver blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10³/µL',
-    lsm: 'stiffness in kPa', hr: 'heart rate in beats/min', pvFlow: 'portal flow in L/min', res: 'liver resistance in mmHg per L/min', spleen: 'spleen in cm', co: 'cardiac output in L/min', bv: 'blood volume in L' };
+    lsm: 'stiffness in kPa', ssm: 'spleen stiffness in kPa', hr: 'heart rate in beats/min', pvFlow: 'portal flow in L/min', res: 'liver resistance in mmHg per L/min', spleen: 'spleen in cm', co: 'cardiac output in L/min', bv: 'blood volume in L' };
   const colExt = (k) => (!COLS[k] && Object.hasOwn(EXT.columns, k) ? EXT.columns[k] : null);
   // How wide a table wants to be, in em of its body text: the row names, each value column, a Doppler trace's column, the ascites pair
   // and each note column. The wide card is this wide (never wider than the reading width), so the columns stand close to their content.

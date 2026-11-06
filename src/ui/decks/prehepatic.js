@@ -55,9 +55,9 @@ export const PREHEPATIC = {
       ask: ['A child bleeds from varices with normal liver tests. What is the likely cause?', 'Chronic portal vein thrombosis with a cavernoma: varices with a normal liver point to resistance before the sinusoids.'],
     },
     {
-      id: 'liver', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: false,
+      id: 'liver', cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'ssm'], key: ['lsm', 'ssm'], delta: false,
       kicker: 'Months later', site: 'pre', title: 'The liver itself is normal',
-      line: 'Stiffness is {lsm} and the HVPG normal: varices with a soft liver point to resistance before the sinusoids.',
+      line: 'Stiffness is {lsm} and the HVPG normal, yet the spleen stiffness is {ssm}: varices with a soft liver point to resistance before the sinusoids.',
       notes: 'The liver tissue is spared, so the stiffness, albumin and clotting are usually normal and the patient rarely decompensates. A soft liver with varices and a large spleen means pre-hepatic or presinusoidal disease: portal vein thrombosis, schistosomiasis or porto-sinusoidal vascular disorder. Doppler or CT tells the first from the others. Spleen stiffness stays high, because it follows the portal vein pressure.',
       ask: ['Varices, platelets of 70 and a stiffness of 5 kPa. What two causes do you consider first?', 'Portal vein thrombosis and presinusoidal resistance such as schistosomiasis.'],
     },

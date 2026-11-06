@@ -1231,7 +1231,7 @@ export const DEMO_ALL = {
       "kicker": "Two readings on one plane",
       "site": "sin",
       "title": "The Indeterminate zone needs a scope",
-      "line": "At a stiffness of {lsm} with platelets of {plt}, CSPH is neither ruled in nor ruled out. In this model, without spleen stiffness, the scope is spared at <20 kPa with platelets ≥150,000, so this patient needs one unless on a beta-blocker."
+      "line": "At a stiffness of {lsm} with platelets of {plt}, CSPH is neither ruled in nor ruled out. The scope is spared at <20 kPa with platelets ≥150,000, or a spleen stiffness <40 kPa; otherwise this patient needs one unless on a beta-blocker."
     },
     {
       "id": "worse",

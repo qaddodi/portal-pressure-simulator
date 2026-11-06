@@ -6,8 +6,8 @@
 const PLANE = { kind: 'plane', plane: 'csph' };
 
 export const STIFFNESS = {
-  id: 'stiffness', level: 'core', title: 'Stiffness, platelets and the first visit', minutes: 14,
-  sections: [['The measurements', ['Liver stiffness', 'The spleen and the platelets']], ['The first visit', ['The rules', 'Case 1', 'Case 2', 'Case 3', 'Case 4', 'Case 5']],
+  id: 'stiffness', level: 'core', title: 'Stiffness, platelets and the first visit', minutes: 15,
+  sections: [['The measurements', ['Liver stiffness', 'The spleen and the platelets', 'Spleen stiffness']], ['The first visit', ['The rules', 'Case 1', 'Case 2', 'Case 3', 'Case 4', 'Case 5']],
     ['Where stiffness misleads', ['Where stiffness misleads']]],
   objectives: [
     'Explain what a FibroScan reading in kPa measures, and why a large spleen and low platelets point to portal hypertension',
@@ -46,6 +46,15 @@ export const STIFFNESS = {
       line: 'The dashed outline is a normal spleen. Hers measures {spleen} and traps platelets, which have fallen to {plt}.',
       notes: 'A falling platelet count is often the first sign in the blood tests. Splenic congestion and hyperplasia enlarge the spleen; a normal spleen already holds about a third of the platelets and an enlarged one up to about 90%, and a lower thrombopoietin from the liver adds to the fall. Spleen length over about 12 to 13 cm and platelets below 150 support portal hypertension. Spleen stiffness, where available, tracks the portal pressure more closely than liver stiffness, including in presinusoidal disease. The tile compares with the compensated patient of "Fibrosis stiffens the liver".',
       ask: ['Give two reasons the platelet count falls in portal hypertension.', 'Splenic pooling in a large congested spleen, and less thrombopoietin from the liver.'],
+    },
+    {
+      // (The same patient as the slide before, her spleen on the 100 Hz probe: the model's spleen stiffness, ssm-cuts.js.)
+      id: 'ssm', terms: ['spleen'], preset: 'csph', cam: 'spleen', glow: ['spleen'], tool: { kind: 'fibroscan', organ: 'spleen' }, data: 'tiles', tiles: ['ssm', 'hvpg'], key: ['ssm'],
+      whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
+      kicker: 'Spleen stiffness', site: 'sin', title: 'Spleen stiffness follows the portal pressure',
+      line: 'Her spleen stiffness is {ssm}, with an HVPG of {hvpg}. On the 100 Hz probe, {>55 kPa} rules CSPH in and {<40 kPa} spares the screening scope.',
+      notes: 'The spleen drains through the splenic vein into the portal vein, so its red pulp is distended by the portal pressure itself, and an encapsulated organ stiffens as it fills. Months of congestion add hyperplasia and fibrosis of the pulp, which keep it stiff after the pressure falls. In the model the spleen stiffness is worked out from these two: the pressure in the spleen less the abdomen\'s, and the spleen\'s size. A healthy spleen reads about 17 kPa; this patient, with an HVPG just over 10, sits in the gray zone between 40 and 55. Above an HVPG of about 10, spleen stiffness follows the gradient more closely than liver stiffness, and it reads high in pre-hepatic and presinusoidal disease, where the liver is soft. Unlike liver stiffness it falls within days of a TIPS. Baveno VIII uses the dedicated 100 Hz spleen probe: >55 kPa rules CSPH in, and <40 kPa spares the screening endoscopy in a patient not taking a beta-blocker; after the cause is removed, a liver stiffness <15 kPa with a spleen stiffness <25 kPa makes CSPH unlikely. Baveno VII\'s cut-offs, <21 and >50 kPa, came from the older 50 Hz probe in viral hepatitis. Other elastography methods have no equivalent cut-offs. Drag Scarring to move her across the cut-offs.',
+      ask: ['Why does spleen stiffness stay high in portal vein thrombosis when the liver stiffness is normal?', 'The spleen is congested by the portal pressure wherever the block lies; the liver stiffness sees only the liver.'],
     },
     {
       id: 'rules', preset: 'healthy', cam: 'liver', glow: ['liver'],

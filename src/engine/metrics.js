@@ -3,6 +3,7 @@
 import { PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES, EDGES } from './topology.js';
 import { clamp } from './physiology.js';
 import { tenthGap } from './gap.js';
+import { ssmOf } from './ssm-cuts.js';
 
 const STENTS = new Set(['TIPS', 'DIPS']);   // the stents from the portal side: their flow is part arterial (see computeMetrics)
 
@@ -144,6 +145,10 @@ export function computeMetrics(eng, out = null) {
   // (heart failure and hepatic outflow block stiffen the liver too). It reads the gradient the liver would have without a
   // beta-blocker (Engine.hvNoBlocker): the drug lowers the HVPG, not the stiffness (AASLD 2024 p. 1189).
   r.lsm = lsmOf(eng.hvNoBlocker ? eng.hvNoBlocker(hv) : hv);
+  // Spleen stiffness (the 100 Hz spleen probe, kPa), an estimate from the model (ssm-cuts.js): the red pulp's transmural pressure
+  // (its pressure less the abdomen's) and the spleen's size. Unlike the liver's, it follows the pressure as it stands, beta-blocker
+  // and TIPS included. No spleen (splenectomy), no reading.
+  r.ssm = eng.params.splenicRx === 2 ? null : ssmOf(P[ni.SPL] - (eng.ext ? eng.ext[ni.SPL] : 0), sp.length);
   r.measured = measured;
   r.ppg = tenthGap(P[ni.CONF], P[ni.IVCS], P[ni.CONF] - P[ni.IVCS]);
   r.pv = P[ni.CONF]; r.pvh = P[ni.PVH]; r.sv = P[ni.SV]; r.ra = ra; r.ivc = P[ni.IVCS];

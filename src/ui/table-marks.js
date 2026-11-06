@@ -4,6 +4,7 @@
 
 import { FLOW_CUTS } from '../engine/flow-cuts.js';
 import { PPG_CUTS, hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
+import { SSM_CUTS } from '../engine/ssm-cuts.js';
 
 export const NO_ASC = 150;   // mL: below it there is no ascites to tap (ultrasound grade 1 starts here)
 // (The ratings are fixed pairs [colour class, word], made once and handed out as the same frozen arrays: a tile's rating is asked for on every
@@ -39,6 +40,7 @@ const T_hi_Low = tup('hi', 'Low');
 const T_hi_CSPH = tup('hi', 'CSPH');
 const T_mid_Borderline = tup('mid', 'Borderline');
 const T_mid_cACLD = tup('mid', 'cACLD');
+const T_mid_Gray = tup('mid', 'Gray zone');
 const T_info_Slow = tup('info', 'Slow');
 const T_hi_Fast = tup('hi', 'Fast');
 const T_hi_Complete = tup('hi', 'Complete');
@@ -81,6 +83,9 @@ export const RATE = {
   // Liver stiffness (Baveno VIII): under 10 kPa normal, 10 to 15 suggests cACLD, 15 to 25 borderline (the gray zone), 25 or more
   // CSPH (all suggestive, not proof: the slides' words say "likely").
   lsm: (v) => (v >= 25 ? T_hi_CSPH : v >= 15 ? T_mid_Borderline : v >= 10 ? T_mid_cACLD : T_ok_Normal),
+  // Spleen stiffness (Baveno VIII, the 100 Hz probe; ssm-cuts.js): over 55 kPa CSPH, under 40 low (the screening scope can be spared
+  // without a beta-blocker), the gray zone between. (A healthy spleen reads about 17; the bar's tick at 25 is the resolution cut-off.)
+  ssm: (v) => (v > SSM_CUTS.ruleIn ? T_hi_CSPH : v >= SSM_CUTS.spareScope ? T_mid_Gray : T_ok_Low),
   ra: (v) => (v > 8 ? T_hi_High : T_ok_Normal),
   salb: (v) => (v < 3.5 ? T_mid_Low : T_ok_Normal),
   // (A slow rate is no warning on its own: beta-blocked patients aim for 55 to 60, so its band is plain gray.)
@@ -129,6 +134,7 @@ export const TILE = {
   map: { t: 'Blood pressure', n: 'MAP', s: 'Mean arterial', u: 'mmHg', d: 0 },
   hr: { t: 'Heart rate', n: 'HR', s: 'Beats a minute', u: '/min', d: 0 },
   lsm: { t: 'Liver stiffness', n: 'Stiffness', s: 'FibroScan', u: 'kPa', better: -1 },
+  ssm: { t: 'Spleen stiffness', n: 'SSM', s: 'FibroScan, 100 Hz probe', u: 'kPa', better: -1 },
   clot: { t: 'Portal vein clot', n: 'Clot', s: 'Share of the lumen', u: '%', x: 100, d: 0, better: -1 },
   ra: { t: 'Right atrial pressure', n: 'RA', s: 'Pressure', u: 'mmHg', better: -1 },
   salb: { t: 'Serum albumin', n: 'Albumin', s: 'Blood', u: 'g/dL', better: 1 },
@@ -167,7 +173,7 @@ export const SCALE = {
   saag: [0, 3, [1.1]], tp: [0, 5, [1.5, 2.5]], asc: [0, 8, [0.15, 1.5, 5]],
   varix: [0, 10, [2.5, 5]], gv: [0, 10, [2.5, 5]], spleen: [8, 22, [13, 16]], plt: [0, 300, [100, 150]],
   pvFlow: [-0.6, 2, [0]], pvVel: [0, 50, [FLOW_CUTS.stasis, 15]], liver: [0, 125, [55, 75]], shunt: [0, 100, [10, 30]], map: [40, 120, [65]],
-  lsm: [0, 35, [10, 15, 25]], clot: [0, 100, [5, 50]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hbTo: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
+  lsm: [0, 35, [10, 15, 25]], ssm: [0, 100, [SSM_CUTS.resolved, SSM_CUTS.spareScope, SSM_CUTS.ruleIn]], clot: [0, 100, [5, 50]], ra: [0, 20, [8]], ivc: [0, 20, [8]], salb: [1.5, 5.5, [3.5]], hb: [4, 18, [7, 12]], hbTo: [4, 18, [7, 12]], hr: [30, 200, [60, 100]],
   // (Volume and output were a plain bar until 22 Oct. The model's patients run from 3.0 to 8.4 L/min, which the output's scale holds. The volume's
   // 4.5 and 5.5 are three characters wide and the tile's bar is 88 px on a phone with three tiles in a row, so its scale is kept tight: just
   // over a third of the bar between them, and the first well clear of the bar's start, or the two numbers would crowd each other out (the bars
@@ -192,11 +198,11 @@ export const portalSplit = (sh) => { const v = Math.min(1, Math.max(0, +sh || 0)
 // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.
 // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA). res: the resistance inside the liver, as the model has it (rih). (PPG ÷ portal flow would also count the collaterals,
 // whose resistance rises as propranolol lowers the pressure, and read as if the drug raised the liver's.)
-export const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', gv: 'Fundal', asc: 'Ascites', liver: 'Liver flow', shunt: 'Shunted', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', spleen: 'Spleen', map: 'MAP', hr: 'HR', hb: 'Hb', hbTo: 'Hb to come', co: 'Output', bv: 'Volume', he: 'HE risk', pvFlow: 'Flow (Q)', res: 'Liver R' };
+export const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', gv: 'Fundal', asc: 'Ascites', liver: 'Liver flow', shunt: 'Shunted', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', ssm: 'SSM', spleen: 'Spleen', map: 'MAP', hr: 'HR', hb: 'Hb', hbTo: 'Hb to come', co: 'Output', bv: 'Volume', he: 'HE risk', pvFlow: 'Flow (Q)', res: 'Liver R' };
 // Each column's cut-offs (the same as the readouts' status colors), shown on its heading (hover, or a tap under the table) so the legend can stay short.
 export const CUT = { pv: '↑ >10, ↑↑ ≥15 mmHg', whvp: '↑ >10, ↑↑ ≥15 mmHg', fhvp: '↑ >8, ↑↑ >16 mmHg', ivc: '↑ >8, ↑↑ >16 mmHg', ra: '↑ >8, ↑↑ >16 mmHg',
   hvpg: '↑ ≥5, ↑↑ ≥10 mmHg', ppg: '↑ ≥6, ↑↑ ≥12 mmHg', sin: '↑ ≥9, ↑↑ ≥12 mmHg', varix: '↑ 2.5 to 5 mm, ↑↑ ≥5 mm', gv: '↑ 2.5 to 5 mm, ↑↑ ≥5 mm (fundal varix)',
-  plt: '↓ <150, ↓↓ <100 × 10³/µL', lsm: '↑ 10 to 25, ↑↑ ≥25 kPa', spleen: '↑ >13, ↑↑ >16 cm', liver: '↓ ≤75%, ↓↓ ≤55%', shunt: '↑ ≥10%, ↑↑ ≥30%', map: '↓↓ <65 mmHg', hr: '↑↑ >100 beats/min (slow, <60, is not flagged)', hb: '↓ <12, ↓↓ <7 g/dL', hbTo: '↓ <12, ↓↓ <7 g/dL, once the plasma refills', co: '↓↓ <4 L/min (high, >8, is not flagged)', bv: '↓↓ <4.5 L (high, >5.5, is not flagged)', he: '↑ 0.2 to 0.45, ↑↑ ≥0.45 (the model\'s index, not a clinical score)',
+  plt: '↓ <150, ↓↓ <100 × 10³/µL', lsm: '↑ 10 to 25, ↑↑ ≥25 kPa', ssm: `↑ ${SSM_CUTS.spareScope} to ${SSM_CUTS.ruleIn}, ↑↑ >${SSM_CUTS.ruleIn} kPa`, spleen: '↑ >13, ↑↑ >16 cm', liver: '↓ ≤75%, ↓↓ ≤55%', shunt: '↑ ≥10%, ↑↑ ≥30%', map: '↓↓ <65 mmHg', hr: '↑↑ >100 beats/min (slow, <60, is not flagged)', hb: '↓ <12, ↓↓ <7 g/dL', hbTo: '↓ <12, ↓↓ <7 g/dL, once the plasma refills', co: '↓↓ <4 L/min (high, >8, is not flagged)', bv: '↓↓ <4.5 L (high, >5.5, is not flagged)', he: '↑ 0.2 to 0.45, ↑↑ ≥0.45 (the model\'s index, not a clinical score)',
   asc: '↑ grade 1, ↑↑ grade 2 or 3', saag: '↑ ≥1.1 g/dL: portal hypertension; ↓ <1.1', tp: '↑ ≥2.5 g/dL, ↓ <2.5 (ascites protein)', pvFlow: '↓ <0.9 L/min, ↓↓ stasis or reversed; ↑ >1.3 L/min (fasting normal)' };
 /** A cut-off as the words write it: a comparison is always a symbol (> < ≥ ≤), never "more than" or "150,000+" (Mohammad, 26 Oct); "{>=10 mmHg}" reads "≥10 mmHg". */
 export const cutText = (c) => String(c).replace(/^>=\s*/, '≥').replace(/^<=\s*/, '≤').replace(/^([<>≥≤])\s+/, '$1');
@@ -227,7 +233,7 @@ export function dirRel(k, f, ref) {
   const d = a - b, r = Math.abs(d) / Math.max(Math.abs(b), 1e-6);
   return Math.abs(d) < (STEP_REL[k] ?? 1) ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
 }
-export const DP = { varix: 1, gv: 1, asc: 1, lsm: 1, spleen: 1, pvFlow: 1, res: 1, liver: 0, shunt: 2, plt: 0, map: 0, hr: 0, he: 2 };
+export const DP = { varix: 1, gv: 1, asc: 1, lsm: 1, ssm: 1, spleen: 1, pvFlow: 1, res: 1, liver: 0, shunt: 2, plt: 0, map: 0, hr: 0, he: 2 };
 export const atShown = (k, v) => { if (v == null) return v; if (k === 'asc') return Math.round(v / 100) * 100; const d = PRESS.has(k) ? 0 : DP[k] ?? 1, m = 10 ** d; return Math.round(v * m) / m; };
 
 // In the comparison table a change is coloured by what it means for the patient: green better, red worse.

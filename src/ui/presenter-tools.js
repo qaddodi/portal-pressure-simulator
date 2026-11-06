@@ -5,6 +5,7 @@
 //                                                   a hepatic vein's a, S, v and D waves on the trace
 //   tool: { kind: 'scope' }                         the esophagus at this slide's varix state (endoscopy)
 //   tool: { kind: 'fibroscan' }                     liver stiffness, kPa (metrics.lsm)
+//   tool: { kind: 'fibroscan', organ: 'spleen' }    spleen stiffness on the 100 Hz spleen probe, kPa (metrics.ssm); no probe on the liver
 //   tool: { kind: 'trace', range: 'talk' | 'beats' }
 //                                                   'talk' (default): portal, wedged and free hepatic pressures and the
 //                                                   HVPG at every slide so far, one point per state; 'beats': the live trace
@@ -60,7 +61,7 @@ const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L
 const TITLE = {
   doppler: (t) => `Doppler, ${VESSEL[t.vessel || 'PV_TRUNK'] || EDGES.find((e) => e.id === t.vessel)?.label?.toLowerCase() || 'portal vein'}`,
   scope: () => 'Endoscopy, the lower esophagus',
-  fibroscan: () => 'Liver stiffness, FibroScan',
+  fibroscan: (t) => (t.organ === 'spleen' ? 'Spleen stiffness, FibroScan' : 'Liver stiffness, FibroScan'),
   trace: (t) => (t.range === 'beats' ? 'Pressure, beat by beat' : 'Pressure over the talk'),
   abdomen: () => 'The abdomen',
   wall: () => 'The varix wall, in cross-section',
@@ -100,7 +101,7 @@ export function createTools({ host, stage }) {
   }
   function make(k) {
     if (made[k]) return made[k];
-    const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
+    const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan({ switcher: false }) : k === 'scope' ? createEndoscopy({ onAction: noop })
       : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'flowtime' ? createFlowTime()
         : k === 'vitals' ? createVitalsMonitor() : k === 'hvpg' ? createHvpgCard()
         : Object.hasOwn(EXT.tools, k) ? guard(safe(() => EXT.tools[k].make({ host, stage, store }), null, `tools.${k}.make`), `tools.${k}`) : null;
@@ -123,7 +124,7 @@ export function createTools({ host, stage }) {
     /** A registered instrument's short title for a phone's card, when the card shows its own title (full); the built-in ones are
      *  in the presenter's SHORT_TITLE. */
     short: (t, full) => (t && !TITLE[t.kind] && Object.hasOwn(EXT.tools, t.kind) && safe(() => (full === EXT.tools[t.kind].title?.(t) ? EXT.tools[t.kind].short?.(t) : null), null, 'tools.short')) || null,
-    sig: (t) => (t ? `${keyOf(t)}:${t.vessel || ''}` : ''),
+    sig: (t) => (t ? `${keyOf(t)}:${t.vessel || t.organ || ''}` : ''),
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
      *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress).
@@ -134,7 +135,7 @@ export function createTools({ host, stage }) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
-      stage?.setScanProbe?.(k === 'fibroscan');   // (the probe on the skin over the liver, where the reading comes from)
+      stage?.setScanProbe?.(k === 'fibroscan' && t.organ !== 'spleen');   // (the probe on the skin over the liver, where the reading comes from; none for the spleen's)
       if (k === 'doppler') {
         if (probe0 === undefined) { probe0 = store.get().frame?.probe ?? null; gate0 = store.get().dopGate; }
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });

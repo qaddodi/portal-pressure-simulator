@@ -6,6 +6,7 @@ import { budget as gpuBudget, deviceClass, overBudget } from './gpu-budget.js'; 
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
 import { whenQuiet, booting, holdCover } from './quiet.js';
@@ -521,10 +522,12 @@ function syncDoppler(f = store.get().frame) { stage?.setDoppler(f && dock?.isOpe
 // The FibroScan probe and its shear wave show on the figure while the FibroScan card is open in Explore; the Presenter drives its own.
 let scanOwned = false;
 function syncScanProbe() {
-  const want = store.get().mode === 'explore' && !!dock?.isOpen('fibroscan');
+  const want = store.get().mode === 'explore' && !!dock?.isOpen('fibroscan') && fibroReading.organ !== 'spleen';   // (the probe sits on the liver: none for the spleen's exam)
   if (store.get().mode !== 'explore') { scanOwned = false; return; }
   if (want !== scanOwned) { scanOwned = want; stage?.setScanProbe(want); }
 }
+// (The Tests card's Liver/Spleen switch, tapped: the probe comes off the liver for the spleen's exam, and back.)
+fibroReading.onOrgan = () => syncScanProbe();
 // Every snapshot is taken in at once (params, events, monitor samples); only the newest waiting one is painted, next frame (paint-gate.js).
 const frameGate = createPaintGate({ ingest: ingestFrame, paint: paintFrame, ask: (cb) => frameFor('frame')(cb), cancel: cancelFrame });
 function onFrame(f) { frameGate.push(f); }

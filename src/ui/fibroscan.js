@@ -1,6 +1,7 @@
 // FibroScan tab (Measure): one simulated transient-elastography panel inspired by an Echosens report:
 // the median stiffness E (kPa) and the shear-wave elastogram, on a dark panel. The kPa is the model's
-// liver stiffness estimate (metrics.lsm). CAP, IQR and the grey M-mode and A-mode strips that go with CAP
+// liver stiffness estimate (metrics.lsm), or, with the Liver/Spleen switch on Spleen (a slide's tool: organ: 'spleen'), its spleen
+// stiffness on the 100 Hz spleen probe (metrics.ssm, ssm-cuts.js). CAP, IQR and the grey M-mode and A-mode strips that go with CAP
 // are left out. The map is a continuously evolving reading: coherent speckle that morphs smoothly, one
 // dominant dark shear-wave band, and a slope that drifts gently around the model's value.
 
@@ -15,6 +16,7 @@ import { frameFor, cancelFrame, noteDraw, saver, paceMs, frameAnimating } from '
 import { createFollow } from './display-state.js';
 import { fix1 } from './fix-text.js';
 import { dataSoon } from './class-soon.js';
+import { SSM_CUTS } from '../engine/ssm-cuts.js';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push
@@ -116,16 +118,42 @@ function rrect(ctx, x, y, w, h2, r) {
   ctx.arcTo(x, y + h2, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
 
-export function createFibroScan() {
+// The two exams: the metric each reads, the canvas's name, the words under it, and the widest reading its number is fitted to (the spleen
+// probe reads up to 100 kPa).
+const NOTE_LIVER = 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; >25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.';
+const NOTE_SPLEEN = `Spleen stiffness on the 100 Hz spleen probe, an estimate from the model: it follows the pressure in the spleen and its size, so it reads the portal pressure the liver may not see (portal or splenic vein clot, schistosomiasis). A healthy spleen reads about ${SSM_CUTS.normal} kPa. Baveno VIII: >${SSM_CUTS.ruleIn} kPa rules CSPH in; <${SSM_CUTS.spareScope} kPa spares the screening scope without a beta-blocker; after the cause is removed, <${SSM_CUTS.resolved} kPa with a liver stiffness <${SSM_CUTS.resolvedLsm} kPa makes CSPH unlikely.`;
+const ORGAN = {
+  liver: { key: 'lsm', aria: 'Simulated FibroScan elastography panel, liver, live', note: NOTE_LIVER, widest: '88.8' },
+  spleen: { key: 'ssm', aria: 'Simulated FibroScan elastography panel, spleen, live', note: NOTE_SPLEEN, widest: '100.0' },
+};
+const ORGAN_WORDS = [['liver', 'Liver'], ['spleen', 'Spleen']];
+
+/** organ: the exam it opens on ('liver' or 'spleen'); switcher: a Liver/Spleen switch above the map (the Tests card's, the default; a
+ *  slide's tool has none and chooses its organ instead, configure). */
+export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {}) {
   if (!theme) readTheme();
   watchTheme();
   const cv = h('canvas', { role: 'img', 'aria-label': 'Simulated FibroScan elastography panel, live' });
   let mapGpu = null;   // (whether the last map was drawn: the ?perf surfaces list)
   const box = h('div', { class: 'chart-box fibroscan-box' }, cv);
-  const note = h('p', { class: 'ctl-sub' }, 'A simulated FibroScan, live: the slope of the shear wave front gives its speed and so the stiffness. It is an estimate from the model, not a measurement. Normal is about 5 kPa; >25 kPa with a low platelet count, clinically significant portal hypertension is near certain. A congested liver (heart, hepatic veins) is stiff too.');
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, box, note);
+  const note = h('p', { class: 'ctl-sub' }, NOTE_LIVER);
+  let organ = ORGAN[organ0] ? organ0 : 'liver', lastF = null;
+  // (The switch, on a tap only: the organ's metric, the words under the map and the canvas's name change; the map's slope and the
+  // reading follow at the next frame. The Tests card tells main.js, which takes the liver probe off the figure for the spleen.)
+  const organBtns = switcher ? ORGAN_WORDS.map(([id, label]) => h('button', { 'data-organ': id, 'aria-pressed': String(id === organ), onclick: () => setOrgan(id, true) }, label)) : [];
+  const seg = switcher ? h('div', { class: 'seg pt-range fs-organ', role: 'group', 'aria-label': 'Organ' }, organBtns) : null;
+  const el = h('div', { class: 'dock-pane', 'data-pane': 'fibroscan' }, seg, box, note);
+  function setOrgan(id, tapped = false) {
+    if (!ORGAN[id] || id === organ) return;
+    organ = id; pinned = pinFp ? pinFp[ORGAN[organ].key] ?? null : null;   // (a slide's pinned state, read again for this organ)
+    for (const b of organBtns) b.setAttribute('aria-pressed', String(b.dataset.organ === organ));
+    note.textContent = ORGAN[organ].note; cv.setAttribute('aria-label', ORGAN[organ].aria);
+    if (switcher) { fibroReading.organ = organ; if (tapped) fibroReading.onOrgan?.(organ); }
+    if (lastF) update(lastF);
+    kShown.snap(model);   // (the other organ's number is shown at once, never eased across from this one's)
+  }
   const cap = 300;
-  let model = 10, running = false, shown = null, last = 0;
+  let model = 10, none = false, running = false, shown = null, last = 0;
   const kShown = createFollow({ small: 0.05, eps: 0.01 });
   const sized = { cap: 11, r: 1, fs: 11, ow: 0, cw: 0 };
   // (The box read when it changes size: never in a frame.)
@@ -175,8 +203,9 @@ export function createFibroScan() {
     if (w < 80 || hh < 80) return;
     const { c } = fr;
     const th = colors();
-    const reading = fix1(shown); dataSoon(cv, 'reading', reading);
-    fibroReading.txt = reading; fibroReading.cv = cv; fibroReading.show?.(reading);
+    const reading = fix1(shown), txt = none ? '–' : reading; dataSoon(cv, 'reading', txt);   // (txt: a dash with no spleen to read)
+    // (The figure's probe sits on the liver: only the liver's reading is written on it.)
+    if (organ === 'liver') { fibroReading.txt = reading; fibroReading.cv = cv; fibroReading.show?.(reading); }
     ctx.clearRect(0, 0, w, hh);
     // The map is the whole instrument: it fills the canvas, the depth labels inside its left edge, the time labels inside its bottom
     // edge and the reading inside its top right corner (the clearest part: the wave front starts at the top left).
@@ -204,18 +233,18 @@ export function createFibroScan() {
     // GPU picture, drawn again only when the size, the words' size or the theme's colours change, not on every frame of the wave; each frame
     // lays that picture and draws the fitted line and the reading. (The kept layer, as the Doppler's scale does; the fit is worked out with it.)
     const ink = cssAlpha('--white', 0.96), halo = cssAlpha('--black', 0.7), dash = cssAlpha('--white', 0.5);
-    if (KS.w !== w || KS.hh !== hh || KS.CAP !== CAP || KS.side !== side || KS.edge !== th.edge || KS.tick !== th.tick || KS.hc !== th.halo || KS.ink !== ink || KS.halo !== halo || KS.dash !== dash) {
-      KS.w = w; KS.hh = hh; KS.CAP = CAP; KS.side = side; KS.edge = th.edge; KS.tick = th.tick; KS.hc = th.halo; KS.ink = ink; KS.halo = halo; KS.dash = dash; KS.ver++;
+    if (KS.widest !== ORGAN[organ].widest || KS.w !== w || KS.hh !== hh || KS.CAP !== CAP || KS.side !== side || KS.edge !== th.edge || KS.tick !== th.tick || KS.hc !== th.halo || KS.ink !== ink || KS.halo !== halo || KS.dash !== dash) {
+      KS.widest = ORGAN[organ].widest; KS.w = w; KS.hh = hh; KS.CAP = CAP; KS.side = side; KS.edge = th.edge; KS.tick = th.tick; KS.hc = th.halo; KS.ink = ink; KS.halo = halo; KS.dash = dash; KS.ver++;
     }
     KS.th = th; KS.m = m; KS.ew = ew; KS.ph = ph; KS.ex = ex; KS.top = top; KS.bot = bot; KS.FLOOR = FLOOR; KS.ctx = ctx;
     keepLayer(ctx, 'fs-still', KS.ver, drawStill);
     const x0 = ex + (WAVE_T0 / 80) * ew, x1 = x0 + clamp((40 / c) / 80, 0, 1) * ew;
     ctx.strokeStyle = cssAlpha('--white', 0.95); ctx.lineWidth = 1.25; ctx.beginPath(); ctx.moveTo(x0, top + ((WIN0 - DEPTH0) / DEPTH_SPAN) * ph); ctx.lineTo(x1, top + ((WIN1 - DEPTH0) / DEPTH_SPAN) * ph); ctx.stroke();
     ctx.fillStyle = ink; ctx.strokeStyle = colors().halo; ctx.lineJoin = 'round'; ctx.textAlign = 'right'; ctx.lineWidth = Math.max(3, KS.big * 0.16);
-    ctx.font = FONT(600, KS.big); ctx.strokeText(reading, KS.ux - KS.uw - 5, KS.RY); ctx.fillText(reading, KS.ux - KS.uw - 5, KS.RY);
+    ctx.font = FONT(600, KS.big); ctx.strokeText(txt, KS.ux - KS.uw - 5, KS.RY); ctx.fillText(txt, KS.ux - KS.uw - 5, KS.RY);
   }
   // (The kept layer's drawing: what the still parts are drawn from is in KS, and the reading's fit is left there for each frame's number.)
-  const KS = { ver: 0, w: 0, hh: 0, CAP: 0, side: false, edge: '', tick: '', hc: '', ink: '', halo: '', dash: '', th: null, m: 0, ew: 0, ph: 0, ex: 0, top: 0, bot: 0, FLOOR: 0, ctx: null, big: 14, RY: 0, uw: 0, ux: 0 };
+  const KS = { ver: 0, widest: '', w: 0, hh: 0, CAP: 0, side: false, edge: '', tick: '', hc: '', ink: '', halo: '', dash: '', th: null, m: 0, ew: 0, ph: 0, ex: 0, top: 0, bot: 0, FLOOR: 0, ctx: null, big: 14, RY: 0, uw: 0, ux: 0 };
   function drawStill() {
     const { ctx, th, m, ew, ph, ex, top, bot, side, w, hh, CAP, FLOOR } = KS;
     ctx.strokeStyle = cssAlpha('--white', 0.5); ctx.setLineDash(DASH); ctx.lineWidth = 1;
@@ -242,7 +271,7 @@ export function createFibroScan() {
     // The reading, inside the top right corner in the same white with a dark halo: the number big (about four times the label size, within the map's room), "kPa" small
     // beside it. Right aligned, so "kPa" never moves while the number eases.
     // (It stays in the top right and keeps clear of the "40" depth label: where the two would meet (a box about 900 px wide),
-    // the number steps smaller until a gap is left. Judged at the widest reading, "88.8", so its size never changes as the number eases.)
+    // the number steps smaller until a gap is left. Judged at the widest reading, "88.8" ("100.0" on the spleen), so its size never changes as the number eases.)
     const ly = top + ph / 6 + TK * 0.35, lr = ex + m + twOf(ctx, '40') + CAP, lt = ly - TK * 0.8;   // (the "40" label's baseline, right edge plus a gap, and top)
     ctx.font = FONT(500, Math.round(CAP * 1.4));
     const uw = ctx.measureText('kPa').width;
@@ -250,7 +279,7 @@ export function createFibroScan() {
     for (;;) {
       RM = Math.max(m * 2, Math.round(big * 0.4)); RY = RM + Math.round(big * 0.74);
       ctx.font = FONT(600, big);
-      const left = ex + ew - RM - uw - 5 - ctx.measureText('88.8').width - big * 0.08, below = RY + big * 0.08 < lt;   // (with the halo's half width)
+      const left = ex + ew - RM - uw - 5 - ctx.measureText(KS.widest).width - big * 0.08, below = RY + big * 0.08 < lt;   // (with the halo's half width)
       if (below || left >= lr || big <= 14) break;
       big -= 2;
     }
@@ -270,15 +299,22 @@ export function createFibroScan() {
     if (hold) { running = false; anim(false); return; }   // paused: hold this frame; resume restarts the loop
     raf = nextFrame(loop);
   }
-  let pinned = null;   // (the slide's settled stiffness, the tiles' and words' number; the live value swings with each beat)
+  let pinned = null, pinFp = null;   // (pinFp: the fingerprint it was pinned to; the slide's settled stiffness, the tiles' and words' number; the live value swings with each beat)
   function update(f) {
-    model = pinned ?? f.metrics.lsm; fed = true;
+    lastF = f;
+    const v = pinned ?? f.metrics[ORGAN[organ].key];
+    none = v == null; if (!none) model = v;   // (no spleen after a splenectomy: the reading is a dash, the map holds its last slope)
+    fed = true;
     if (onScreen()) start();
   }
+  /** A slide's tool: { kind: 'fibroscan', organ: 'spleen' } reads the spleen (presenter-tools.js). */
+  function configure(t) { setOrgan(t?.organ === 'spleen' ? 'spleen' : 'liver'); }
   const offRun = store.on('running', (on) => { if (on && onScreen()) start(); });
   /** The panel is done with (a presentation's own instruments go with it): its frame, observer and store watch are let go. */
   // (The ?perf surfaces list, gpu-surfaces.js: read by the readout only.)
   const offSurface = surface('FibroScan map', () => (!cv.isConnected || mapGpu === null ? null : mapGpu ? ROW_WORDS : ROW_NONE));
   function dispose() { gone = true; running = false; anim(false); cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); }
-  return { id: 'fibroscan', label: 'FibroScan', el, update, pin(fp) { pinned = fp?.lsm ?? null; if (pinned != null) model = pinned; }, dispose() { dispose(); offSurface(); } };
+  if (switcher) fibroReading.organ = organ;
+  return { id: 'fibroscan', label: 'FibroScan', el, update, configure, organ: () => organ,
+    pin(fp) { pinFp = fp || null; pinned = fp?.[ORGAN[organ].key] ?? null; if (pinned != null) { model = pinned; none = false; } }, dispose() { dispose(); offSurface(); } };
 }
