@@ -561,18 +561,16 @@ export function createBolus(edges, nodes) {
 export const HIDDEN_SECONDS = HIDDEN_S;
 
 // ── An active variceal bleed on the figure (veins-gl.js draws it) ──
-// Blood wells at the tear in time with the heartbeat and spurts a short way into the lumen (a slow bleed oozes instead: no
-// jets, a few faint drops), then falls: a thread leaves the wall, curves out and drops straight down through the stomach
-// to the pool, thinning and breaking into drops as it goes. The pool is the stomach's own lumen filled from the bottom, a
+// A steady stream: a thread of blood leaves the tear, curves out and drops straight down through the stomach to the pool,
+// thinning as it goes (a slow bleed breaks into drops lower down). It flows (the shader slides it down on the blood's clock)
+// but never pulses: no beat-timed jets, welling or thrown drops at the tear (owner, 6 Nov 2026: "the stream of blood but no
+// pulse; get rid of the pulsating red circle and splatters"). The pool is the stomach's own lumen filled from the bottom, a
 // flat surface at the level that share of its area makes (stomach-lumen.js), rippling where the thread lands. The figure is
 // the upright plate (ascites pools at the pelvis the same way), so blood settles in the lowest part of the stomach.
-// t: seconds (0 holds every jet and drop at its own stage); hr: the heart rate (beats a minute).
-// Each shape: [x0, y0, x1, y1, r0, r1, alpha, kind]: a jet (kind 1) from its base (x0, y0; radius r0) to its tip
-// (x1, y1; radius r1); the pool (kind 0): x0 its surface's height, y0 its ripple, x1 where the thread lands, y1 the thread's
-// strength (0..1), r0 its inset from the wall; the thread (kind 2): from (x0, y0) to (x1, y1) the pool's surface, r0 its
-// radius, r1 how far it breaks into drops (0..1).
-export const BLEED_JETS = 2;
-// A bleed's jets and pool come and go over BLEED_FADE seconds (never in one frame): the share shown steps toward 1 while
+// Each shape: [x0, y0, x1, y1, r0, r1, alpha, kind]: the pool (kind 0): x0 its surface's height, y0 its ripple, x1 where
+// the thread lands, y1 the thread's strength (0..1), r0 its inset from the wall; the thread (kind 2): from (x0, y0) to
+// (x1, y1) the pool's surface, r0 its radius, r1 how far it breaks into drops (0..1).
+// A bleed's pool and stream come and go over BLEED_FADE seconds (never in one frame): the share shown steps toward 1 while
 // the bleed runs and toward 0 once it stops (Reduce Motion: at once), and every shape's alpha is scaled by its eased value.
 export const BLEED_FADE = 0.5;
 export const stepBleedFade = (a, on, dt, instant = false) => (instant ? (on ? 1 : 0) : on ? Math.min(1, a + dt / BLEED_FADE) : Math.max(0, a - dt / BLEED_FADE));
@@ -598,11 +596,7 @@ export const fadeBleedShapesInto = (out, shapes, a) => {
   return out;
 };
 
-export const BLEED_DROPS = 8;
-const DROP_LIFE = 0.8, GRAV = 150;
 const frac = (x) => ((x % 1) + 1) % 1;
-const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
-const smooth = (e0, e1, x) => { const u = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return u * u * (3 - 2 * u); };
 // The heartbeat's surge at time t: a sharp systolic peak over a quieter flow between beats, periodic and smooth.
 export const bleedPulse = (t, hr = 80) => 0.25 + 0.75 * Math.max(0, Math.cos(2 * Math.PI * (frac((t * Math.min(160, Math.max(45, hr || 80))) / 60) - 0.12))) ** 4;
 // How full the pool is (0..1) for the blood lost so far: a puddle at once, full by 1.5 L (the scope's pool uses it as well).
@@ -611,12 +605,11 @@ export const poolFill = (total) => Math.min(1, Math.max(0.12, Math.sqrt(Math.max
 export const POOL_SHARE = 0.8;
 /** The pool's surface (world y, down the page) for the blood lost so far. */
 export const poolSurface = (total) => lumenSurface(POOL_SHARE * poolFill(total));
-const hash = (i) => frac(Math.sin(i * 127.1 + 311.7) * 43758.5453);
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const smooth = (e0, e1, x) => { const u = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return u * u * (3 - 2 * u); };
 
-const JET_DA = [-0.3, 0.3], JET_W = [1, 0.7];   // (each jet's turn from straight into the lumen, and its share of the size)
-const JET_N = Math.min(BLEED_JETS, JET_DA.length);
-/** How many shapes bleedShapes makes: the pool, the jets, the drops, the thread and the welling. */
-export const BLEED_ROWS = 1 + JET_N + BLEED_DROPS + 2;
+/** How many shapes bleedShapes makes: the pool and the thread. */
+export const BLEED_ROWS = 2;
 /** BLEED_ROWS rows of eight numbers to give bleedShapesInto (and fadeBleedShapesInto) to write over: made once, where the figure is set up. */
 export function makeBleedRows() {
   const rows = [];
@@ -626,45 +619,22 @@ export function makeBleedRows() {
 const setRow = (o, x0, y0, x1, y1, r0, r1, al, kind) => { o[0] = x0; o[1] = y0; o[2] = x1; o[3] = y1; o[4] = r0; o[5] = r1; o[6] = al; o[7] = kind; };
 
 /** bleedShapes written into `out` (BLEED_ROWS rows, makeBleedRows), which it returns: the same numbers, nothing made. */
-export function bleedShapesInto(out, bleed, rate, t, sites, hr = 80) {
+export function bleedShapesInto(out, bleed, rate, sites) {
   const gv = bleed.site === 'GV';
   const tx = gv ? sites.fundus[0] : sites.varix[0] + 8, ty = gv ? sites.fundus[1] - 4 : sites.varix[1] + 12;
   const k = clamp((rate || 50) / 90, 0.7, 1.8);
-  const spurt = smooth(25, 70, rate || 50);   // 0 an ooze, 1 a spurting bleed
-  const p = bleedPulse(t, hr);
+  const spurt = smooth(25, 70, rate || 50);   // 0 an ooze, 1 a fast bleed
   // The pool, and the thread that falls into it: it leaves the tear toward the lumen and lands a little way in.
   const surf = poolSurface(bleed.total), [lo, hi] = lumenAt(surf);
   const land = clamp(gv ? tx + 3 : tx + 62, lo + 14, hi - 14), flow = 0.35 + 0.65 * spurt;
-  let at = 0;
-  setRow(out[at++], surf, 0.5, land, flow, 4, 0, 0.92, 0);
-  // The jets: short and pulsing, into the lumen (to the right from the esophagus, down from the fundus).
-  const into = gv ? Math.PI / 2 : 0.05;
-  for (let j = 0; j < JET_N; j++) {
-    const da = JET_DA[j], w = JET_W[j];
-    const len = (2 + (4 + 16 * p) * spurt) * k * w, a = into + da;
-    setRow(out[at++], tx, ty, tx + Math.cos(a) * len, ty + Math.sin(a) * len, 1.8 * k * w, 0.5 * k, 0.95 * (0.6 + 0.4 * p), 1);
-  }
-  // The drops: each thrown off at its birth, as hard as that moment's surge throws it, and falling; each eases in from
-  // nothing and thins to nothing before it is thrown again, so none pops on or off.
-  for (let i = 0; i < BLEED_DROPS; i++) {
-    const age = frac(t / DROP_LIFE + i / BLEED_DROPS) * DROP_LIFE, pb = bleedPulse(t - age, hr);
-    const a = into - 0.3 + (hash(i) - 0.5) * 1.1, v = (28 + (32 + 50 * pb) * spurt) * Math.sqrt(k);
-    const x = tx + Math.cos(a) * v * age, y = ty + Math.sin(a) * v * age + 0.5 * GRAV * age * age;
-    const r = (0.7 + 0.7 * hash(i + 40)) * Math.sqrt(k);
-    // (Gone where it falls into the pool.)
-    const fall = 1 - smooth(surf - 4, surf, y);
-    const al = 0.9 * smooth(0, 0.12, age) * (1 - age / DROP_LIFE) ** 1.2 * (0.15 + 0.85 * spurt) * fall;
-    const vy = Math.sin(a) * v + GRAV * age, vx = Math.cos(a) * v, sp = Math.hypot(vx, vy) || 1;
-    setRow(out[at++], x, y, x - (vx / sp) * r * 1.4, y - (vy / sp) * r * 1.4, r, r * 0.7, al, 1);
-  }
-  // The thread, and the blood welling at the tear, swelling with each beat.
-  setRow(out[at++], tx, ty + 1, land, surf, 2.9 * Math.sqrt(k) * (0.85 + 0.25 * p), 1 - 0.5 * spurt, 0.95 * (0.8 + 0.2 * p), 2);
-  setRow(out[at], tx, ty, tx, ty, (2.4 + 1.8 * p) * Math.sqrt(k), 0, 0.95, 1);
+  setRow(out[0], surf, 0.5, land, flow, 4, 0, 0.92, 0);
+  // The thread: one steady width and strength, with no beat-timed swell.
+  setRow(out[1], tx, ty + 1, land, surf, 2.9 * Math.sqrt(k) * 0.975, 1 - 0.5 * spurt, 0.95 * 0.9, 2);
   return out;
 }
 /** bleedShapesInto, into new rows (for a caller that keeps what it gets). */
-export function bleedShapes(bleed, rate, t, sites, hr = 80) {
-  return bleedShapesInto(makeBleedRows(), bleed, rate, t, sites, hr);
+export function bleedShapes(bleed, rate, sites) {
+  return bleedShapesInto(makeBleedRows(), bleed, rate, sites);
 }
 
 // ── Parcels carried through junctions (combined plan, B1 and C1) ──

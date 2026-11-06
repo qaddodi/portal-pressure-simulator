@@ -2425,12 +2425,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let bloodEasing = false;
   let restOn = false, restU = 1, restK = 1;
 
-  // Active variceal bleeding: blood spurts from the rupture into the lumen with each heartbeat and runs down into the
-  // stomach, where it pools (blood.js bleedShapes; still, each jet and drop at its own stage, while paused or with reduced
-  // motion). Each: [x0, y0, x1, y1, r0, r1, alpha, kind] (veins-gl.js): a jet (kind 1) from its base (x0, y0; radius r0)
-  // to its tip (x1, y1; r1), or the pool (kind 0), the bowl at (x0, y0) with radii x1, y1 filled up to height r0.
+  // Active variceal bleeding: a steady stream runs from the rupture down into the stomach, where it pools (blood.js
+  // bleedShapes, no pulse). Each: [x0, y0, x1, y1, r0, r1, alpha, kind] (veins-gl.js): the pool (kind 0) or the stream (kind 2).
   // (It fades in on a rupture and out once the bleed stops, or as the circuit view takes over: sprayA, stepped in animate;
-  // while it fades out the jets keep spurting from the last bleed seen.)
+  // while it fades out it keeps the last bleed seen.)
   let sprayA = 0, sprayLast = null;
 
   let lastT = performance.now(), lastDrawF = null, lastDrawCTM = null, lastAnim = true, pinMorph = -1;

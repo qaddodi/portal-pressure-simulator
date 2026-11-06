@@ -140,7 +140,7 @@ test('B8: label keep-out boxes are taken after the glide, and cut the arrowheads
 
 test('B11: bleed jets and the ascites ripple run on clocks that stand still while paused; the dye front reads the caliber between samples', () => {
   const stage = stageSource(), gl = read('src/ui/veins-gl.js');
-  assert.match(stage, /return fadeBleedShapes\(bleedShapes\((?:live\.)?(?:live\.)?sprayLast\.bleed, (?:live\.)?(?:live\.)?sprayLast\.rate, reduceMotion\.matches \? 0 : (?:live\.)?(?:live\.)?bloodClock, SITES, (?:live\.)?(?:live\.)?sprayLast\.hr\), (?:live\.)?(?:live\.)?sprayA\);/);   // (fading in and out: deck-review-bugs)
+  assert.match(stage, /return fadeBleedShapes\(bleedShapes\((?:live\.)?(?:live\.)?sprayLast\.bleed, (?:live\.)?(?:live\.)?sprayLast\.rate, SITES\), (?:live\.)?(?:live\.)?sprayA\);/);   // (fading in and out: deck-review-bugs)
   assert.match(stage, /if \(run\) fluidPh = \(fluidPh \+ dt \/ 1\.1\) % \(20 \* Math\.PI\);/);
   assert.doesNotMatch(stage.replace(/^\s*\/\/.*$/gm, ''), /performance\.now\(\) \/ 1100/);
   const dye = gl.slice(gl.indexOf('float dyeAt('), gl.indexOf('void main()', gl.indexOf('float dyeAt(')));

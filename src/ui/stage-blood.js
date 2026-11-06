@@ -314,15 +314,14 @@ export function createBlood(st, live) {
   const sprayOn = () => !!live.F?.bleed?.active && live.morph < 0.5 && !pressedShut();
   const sprayFading = () => live.sprayA !== (sprayOn() ? 1 : 0);
   function stepSpray(dt) {
-    if (sprayOn()) live.sprayLast = { bleed: live.F.bleed, rate: live.F.metrics.bleeding?.rate, hr: live.F.metrics.vitals?.hr ?? live.F.metrics.hr };
+    if (sprayOn()) live.sprayLast = { bleed: live.F.bleed, rate: live.F.metrics.bleeding?.rate };
     live.sprayA = stepBleedFade(live.sprayA, sprayOn(), dt, reduceMotion.matches);
     if (live.sprayA <= 0) live.sprayLast = null;
   }
   function bleedSpray() {
     if (live.sprayA <= 0 || !live.sprayLast) return NONE;
-    // (On the blood's own clock, which stands still while paused, so the jets hold where they are and carry on from there;
-    // the wall clock made them jump on pause and play. Reduce Motion keeps the still four stages: B11.)
-    return fadeBleedShapes(bleedShapes(live.sprayLast.bleed, live.sprayLast.rate, reduceMotion.matches ? 0 : live.bloodClock, SITES, live.sprayLast.hr), live.sprayA);
+    // (A steady stream and its pool: no beat in them, so no clock here; the shader slides the stream on the blood's own clock.)
+    return fadeBleedShapes(bleedShapes(live.sprayLast.bleed, live.sprayLast.rate, SITES), live.sprayA);
   }
   // (The look handed to the vessel layer is one kept record, written in place on each ask: the layer reads it at once; the colours are
   // the cached set bloodColors gives.)

@@ -1127,8 +1127,8 @@ uniform vec3 originCol[5];
 uniform vec3 dyeCol;
 uniform vec3 revCol;                   // the moving blood's color where flow runs backwards
 uniform vec3 inkLight, inkDark;
-uniform vec4 bleedE[24];               // an active bleed (stage.js bleedSpray, blood.js bleedShapes): a jet's base and tip (world); the pool: its surface's height, ripple, where the stream lands, the stream's strength; the stream: its start, where it lands, the pool's surface
-uniform vec4 bleedB[24];               // a jet's radius at its base and at its tip, alpha, kind (1 jet, 0 pool, 2 stream); the pool: its inset from the wall; the stream: its radius, how far it breaks into drops
+uniform vec4 bleedE[24];               // an active bleed (stage.js bleedSpray, blood.js bleedShapes): the pool: its surface's height, ripple, where the stream lands, the stream's strength; the stream: its start, where it lands, the pool's surface
+uniform vec4 bleedB[24];               // alpha in z, kind in w (0 pool, 2 stream); the pool: its inset from the wall; the stream: its radius, how far it breaks into drops
 #if PLAIN == 0
 uniform int bleedN;
 #else
@@ -1691,8 +1691,7 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
   // An active bleed. Inside the stomach, under the vessels that cross it (so the plate's depth holds): the pool, the stomach's own
   // lumen (STO, row by row) below a flat surface that ripples where the stream lands, lighter and thinner at the surface, darker
   // with depth and toward the wall; and the stream, a thread of blood that leaves the tear, curves out and falls to the pool,
-  // thinning as it goes and breaking into drops when it is slow. Over everything, at the tear: the jets and drops, tapered
-  // streaks with a bright core under a darker skin.
+  // thinning as it goes and breaking into drops when it is slow. It flows, but never pulses: no jets or drops at the tear.
   vec3 bc = vec3(${cssRGB('--bleed-spray').map((v) => v.toFixed(1)).join(', ')}) / 255.0;
   vec3 bf = vec3(${cssRGB('--bleed-fresh').map((v) => v.toFixed(1)).join(', ')}) / 255.0;
   vec3 bd = vec3(${cssRGB('--bleed-deep').map((v) => v.toFixed(1)).join(', ')}) / 255.0;
@@ -1700,7 +1699,6 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
   for (int i = 0; i < 24; i++) {
     if (i >= bleedN || !under) break;
     vec4 bE = bleedE[i], bB = bleedB[i];
-    if (bB.w > 0.5 && bB.w < 1.5) continue;
     float a;
     vec3 bcol;
     if (bB.w > 1.5) {
@@ -1737,17 +1735,6 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
     if (a > 0.0) inner = over(vec4(min(bcol, vec3(1.0)) * a, a), inner);
   }
   vec4 o = over(fluidC, over(v, over(inner, pl)));
-  for (int i = 0; i < 24; i++) {
-    if (i >= bleedN) break;
-    vec4 bE = bleedE[i], bB = bleedB[i];
-    if (bB.w < 0.5 || bB.w > 1.5) continue;
-    vec2 pa = w - bE.xy, ba = bE.zw - bE.xy;
-    float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
-    float r = mix(bB.x, bB.y, h), d = length(pa - ba * h) - r;
-    float a = (1.0 - smoothstep(-0.75 * pxW, 0.75 * pxW, d)) * bB.z * (1.0 - 0.35 * h);
-    vec3 bcol = mix(bc * 0.8, bf, smoothstep(0.15, 0.85, clamp(-d / max(r, 1e-3), 0.0, 1.0)));
-    if (a > 0.0) o = over(vec4(min(bcol, vec3(1.0)) * a, a), o);
-  }
   if (lineOn == 1) o = over(texelFetch(lineL, ip, 0), o);
   outColor = o;
 }${heads ? `\n#endif\n${headMain({ LUMEN2, ROW2_MASK, FLOW_TEXELS })}` : ''}`;
@@ -4350,7 +4337,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (The passes, in the list kept for them: the one-pass builds, the catheter box's among them before the picture's own, so the
       // uniforms set after this loop go to the program bound last.)
       // The arrowheads as their own quads after this picture (blood-heads.js), where the program is ready and the vessels' axes are known;
-      // not with a bleed, whose jets lie over the vessels and so over the heads.
+      // not with a bleed (its frames repaint whole: the per-pixel heads stand).
       let quads = false;
       // (Not on a one-pass frame, the zoom's: its vessel and composite halves are one shader and write no layer for the quads to read, so
       // the heads there stay per-pixel, in the fused program. Without this the heads vanished while zooming and came back at rest.)

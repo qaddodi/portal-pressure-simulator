@@ -39,7 +39,7 @@ test('a bleed\'s jets and pool fade in and out over half a second, never in one 
   assert.equal(a, 0);
   assert.equal(stepBleedFade(1, false, 1 / 60, true), 0, 'Reduce Motion: at once');
   const SITES = { varix: [800, 230], fundus: [830, 300], stomachPool: [850, 320] };
-  const shapes = bleedShapes({ site: 'VAR', total: 200 }, 90, 0.3, SITES);
+  const shapes = bleedShapes({ site: 'VAR', total: 200 }, 90, SITES);
   assert.equal(fadeBleedShapes(shapes, 1), shapes);
   assert.deepEqual(fadeBleedShapes(shapes, 0), []);
   const half = fadeBleedShapes(shapes, 0.5);
