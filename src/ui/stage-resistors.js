@@ -86,13 +86,13 @@ export function createResistors(st, live) {
   // So the zigzag keeps one shape at every resistance (6 teeth of 9 world units, at least 8 px on screen); the liver's runs on straight leads
   // from one station's dot to the next, its outline just meeting each ring. The resistance shows twice, with s = log2 R (R the ratio to the
   // healthy liver: s 0 at ×1, 1 at ×2, 2 at ×4):
-  //   stroke 2.5 px at ×1, 4.3 px at ×2, 6 px at ×4, 7 px from ×5.3;
+  //   stroke 2.5 px at ×1, 6.9 px at ×2, 11.3 px at ×4, 13 px from ×5.3 (Mohammad, 6 Nov: "even thicker with more resistance");
   //   colour along --ok → --caution → --danger: green at ×1, amber at ×2, red from ×4.
   // A solid black outline (3 px each side) keeps it clear of every vessel in either theme, and the vessel under the liver's is veiled by the
   // stage's background (40%), so the symbol stands over it. A resistor the slide's words point at also takes a soft halo of the term's tone.
   const RES_AMP = 9, RES_TEETH = 6, RES_MIN_AMP_PX = 8, RES_OUTLINE = 3, RES_VEIL = 0.4;
   const resLog = (r) => Math.log2(Math.max(0.25, r || 1));
-  const resWidth = (r) => Math.round(clamp(2.5 + 1.75 * resLog(r), 2.5, 7) * 10) / 10;
+  const resWidth = (r) => Math.round(clamp(2.5 + 4.4 * resLog(r), 2.5, 13) * 10) / 10;
   const resHeat = (r) => Math.round(clamp(resLog(r) / 2, 0, 1) * 20) / 20;
   const BLACK = [0, 0, 0], ramp = new Float64Array(9);   // (the ramp's three tokens' rgb, read in place)
   // The liver's two resistors: each from its lobe's sinusoid inlet to its central vein (the circuit's places of the two stations).
