@@ -27,7 +27,7 @@ export const PREGNANCY_DECK = {
       data: 'tiles', tiles: ['hvpg', 'varix', 'plt'], key: ['hvpg'],
       kicker: 'Before pregnancy', site: 'sin', title: 'Compensated cirrhosis before pregnancy',
       line: 'Her HVPG is {hvpg}, which is {>=10 mmHg}, so she has clinically significant portal hypertension, with small varices.',
-      notes: 'Women with compensated cirrhosis can carry a pregnancy, but the risks rise with the severity of the liver disease, and a MELD score of 10 or more predicts a poorer outcome. Counseling before conception includes an endoscopy within the year before she conceives, with large varices treated first. Her medicines are reviewed for safety in pregnancy.',
+      notes: 'Women with compensated cirrhosis can carry a pregnancy, but the risks rise with the severity of the liver disease, and a MELD score of 10 or more predicts a poorer outcome. Counseling before conception includes an endoscopy within the year before she conceives, with large varices treated first. Her medicines are reviewed for safety in pregnancy. For her autoimmune hepatitis, the disease should be in remission for at least a year before she conceives; azathioprine and steroids continue through pregnancy, because a flare is the greater risk, while mycophenolate is stopped, and switched, at least 6 weeks before conception, because it causes malformations.',
       ask: ['What should a woman with cirrhosis have before she conceives?', 'Counseling on her risks and an endoscopy within the year before conception, with large varices treated first.'],
     },
     {
@@ -62,7 +62,7 @@ export const PREGNANCY_DECK = {
       data: 'tiles', tiles: ['hvpg', 'hr'], key: ['hvpg'], delta: true,
       tool: { kind: 'criteria', title: 'Watch for, on propranolol', short: 'Watch for', ticks: false, rule: 'Baveno VIII 8.18', rows: ['Fetal **growth restriction**', 'Neonatal **bradycardia**', 'Neonatal **hypoglycemia**'] },
       kicker: 'Management', site: 'sin', title: 'Propranolol is the beta-blocker in pregnancy',
-      line: 'Propranolol lowers the HVPG to {hvpg} and the heart rate to {hr}. Band ligation is the choice when propranolol cannot be taken.',
+      line: 'At a starting dose, propranolol lowers the HVPG to {hvpg} and the heart rate to {hr}. Band ligation is the choice when propranolol cannot be taken.',
       notes: 'Propranolol has the longest record in pregnancy, and carvedilol much less, so propranolol is used, titrated to a resting heart rate of 55 to 60. Fetal growth is followed on ultrasound, and the newborn is watched for a slow heart rate and low glucose. Band ligation is safe in pregnancy and is used when a beta-blocker is not tolerated or does not suffice. Source: Baveno VIII 8.18; AASLD 2024, portal hypertension in pregnancy',
       ask: ['What is watched in the baby when the mother takes propranolol?', 'Fetal growth before birth, and bradycardia and hypoglycemia after it.'],
     },
@@ -79,8 +79,8 @@ export const PREGNANCY_DECK = {
       id: 'after', params: { gestation: 0 }, cam: 'fit', labels: ['VAR', 'CONF'],
       data: 'tiles', tiles: ['bv', 'co', 'hvpg'], key: ['bv', 'hvpg'], delta: 'weeks',
       kicker: 'Delivery and after', site: 'sin', title: 'The circulation settles after delivery',
-      line: 'The blood volume falls back to {bv} and, on propranolol, the HVPG to {hvpg}.',
-      notes: 'The extra volume and output fade over the weeks after delivery, and the portal pressure follows. Propranolol continues, and it is compatible with breastfeeding. Decompensation can still appear in the months after delivery, so the liver is followed closely, and the varices are checked again. Note: The model returns at once; in patients it takes six to twelve weeks.',
+      line: 'The blood volume falls back to {bv} and, on propranolol, the HVPG to {hvpg}. In patients this takes 6 to 12 weeks.',
+      notes: 'The extra volume and output fade over the weeks after delivery, and the portal pressure follows. Propranolol continues, and it is compatible with breastfeeding. Decompensation can still appear in the months after delivery, so the liver is followed closely, and the varices are checked again. Autoimmune hepatitis often flares in the months after delivery, as the immune tolerance of pregnancy ends, so her liver tests are checked every few weeks and her immunosuppression kept up. Note: The model returns at once; in patients it takes six to twelve weeks.',
       ask: ['Can a mother on propranolol breastfeed?', 'Yes. Little passes into the milk.'],
     },
     {

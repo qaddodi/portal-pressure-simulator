@@ -1,9 +1,9 @@
 // Presenter talk: one man followed for ten years, from the tests that find clinically significant portal hypertension in his first year
 // to a transplant evaluation, with a decision at each step (the slide fields are described at the top of decks.js). The injury is never
 // removed in the model, so every later step can be shown; Baveno VIII 4.2 would treat the cause after the first decompensation.
-// Year 0 to 1 is the one-year follow-up (the plane, FibroScan, the HVPG at one year, carvedilol); a year later the chain runs on
-// by the same disease clock to the first ascites at year 6, the bleeds of years 8 and 9 and the transplant evaluation at year 10.
-// Sources, checked 25 Oct 2026 against the Baveno VIII text in /mnt/project-files/guidelines/: 1.15 and 1.16 (the stiffness and platelet
+// Year 0 to 2 is the follow-up (the plane, FibroScan at year 2, the HVPG that confirms CSPH, carvedilol at once); the chain runs on
+// by the same disease clock to the first ascites at year 6 (the transplant referral), the bleeds of years 8 and 9 and the transplant evaluation at year 10.
+// Sources, checked 25 Oct 2026 and again 6 Nov 2026 against the Baveno VIII text in guidelines/baveno-viii-2026.pdf: 1.15 and 1.16 (the stiffness and platelet
 // rules), 3.15 and 3.16 (carvedilol only with CSPH), 4.1 (further decompensation), 4.3 and 6.1 (transplant evaluation), 4.4 and 4.6
 // (carvedilol with ascites and varices, and when to cut it), 4.8 (carvedilol with banding after a first bleed, even after carvedilol as
 // primary prophylaxis), 4.13 (TIPS when that fails), 6.16 and 6.17 (rifaximin before an elective TIPS; narrowing the stent for
@@ -17,10 +17,10 @@ const ramp = (a, b) => ({ cirrhosis: [a, b] });
 export const TEN_YEARS = {
   id: 'ten-years', level: 'advanced', title: 'One patient, ten years', minutes: 15,
   objectives: [
-    'Follow one man from compensated cirrhosis to a transplant evaluation, and read his HVPG at 10 and 12 along the way',
+    'Follow one man from compensated cirrhosis to a transplant evaluation, and read his HVPG along the way',
     'Pick the treatment at each step: carvedilol, diuretics, banding, TIPS',
     'Name what the model can and cannot show of encephalopathy after a TIPS',
-    'Say when further decompensation calls for a transplant evaluation',
+    'Say when to refer for a transplant, and when further decompensation makes it urgent',
   ],
   checks: [
     ['At what point does Baveno VIII start carvedilol in compensated cirrhosis?', 'At CSPH, an HVPG ≥10 mmHg, to prevent decompensation. Without CSPH it should not be used for that purpose.'],
@@ -28,43 +28,43 @@ export const TEN_YEARS = {
     ['He bleeds again on carvedilol and repeat banding. What next?', 'A TIPS. Baveno VIII 4.13 says to consider one when secondary prophylaxis fails.'],
     ['Two months after the TIPS he is confused, and the PPG is low. Which comes first, narrowing the stent or lactulose?', 'Lactulose, after a search for the trigger. The stent is narrowed only if the confusion persists, because a narrower stent raises the portal pressure again.'],
   ],
-  sections: [['Compensated', ['Year 0', 'Month 3', 'Year 1']], ['Ascites', ['Year 6']], ['Bleeding', ['Year 8', 'Year 9']], ['The end', ['Year 10', 'Summary']]],
-  summary: 'One man with cirrhosis over ten years: the first year\'s tests and carvedilol at CSPH, the first ascites and diuretics, a bleed and banding, a rebleed and a TIPS, encephalopathy, and the transplant evaluation, with a decision at each step.',
+  sections: [['Compensated', ['Year 0', 'Year 2']], ['Ascites', ['Year 6']], ['Bleeding', ['Year 8', 'Year 9']], ['The end', ['Year 10', 'Summary']]],
+  summary: 'One man with cirrhosis over ten years: the tests that find CSPH and carvedilol at once, the first ascites, diuretics and a transplant referral, a bleed and banding, a rebleed and a TIPS, encephalopathy, and the transplant evaluation, with a decision at each step.',
   slides: [
     {
       id: 'd0', tick: 'Year 0', milestone: 'Cirrhosis', preset: 'cirr-comp', params: { cirrhosis: 0.5 }, cam: 'liver', tool: { kind: 'plane', plane: 'csph' }, data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Year 0', site: 'sin', title: 'Year 0: cirrhosis, but not yet CSPH',
       vignette: 'A 56-year-old man with obesity and type 2 diabetes has a nodular liver on an ultrasound done for gallstones. He feels well, and his platelets are 159,000/µL.',
-      line: 'His HVPG is {hvpg}, which does not meet {>=10 mmHg}. He has cirrhosis without CSPH, so a beta-blocker would not help him yet.',
-      notes: 'Compensated cirrhosis without clinically significant portal hypertension needs follow-up and treatment of the cause, not a beta-blocker; Baveno VIII advises against using one to prevent decompensation at this stage (3.16). His stiffness and platelets sit in the gray zone, shown as the ring on the plane in the data card, so the catheter decides. HVPG = WHVP − FHVP. Above 5 mmHg is portal hypertension; 10 or more is clinically significant (CSPH), where varices and decompensation become possible, and the risk rises with the gradient. HVPG is the reference standard, but invasive, so most centers reserve it for trials, uncertain cases and before liver surgery. In this case the injury is never removed, so every later step over the next ten years can be shown in the same man. Fibrosis advances steadily in the model; nothing else changes until carvedilol.',
+      line: 'His HVPG is {hvpg}, which does not meet {>=10 mmHg}: no beta-blocker yet. He starts weight loss, diabetes control and 6-monthly ultrasound for liver cancer.',
+      notes: 'Compensated cirrhosis without clinically significant portal hypertension needs follow-up and treatment of the cause, not a beta-blocker; Baveno VIII advises against using one to prevent decompensation at this stage (3.16). His stiffness and platelets sit in the gray zone, shown as the ring on the plane in the data card, so the catheter decides. HVPG = WHVP − FHVP. Above 5 mmHg is portal hypertension; 10 or more is clinically significant (CSPH), where varices and decompensation become possible, and the risk rises with the gradient. HVPG is the reference standard, but invasive, so most centers reserve it for trials, uncertain cases and before liver surgery. Treat the cause from the start: a weight loss of 7 to 10% or more, control of the diabetes and lipids, and no alcohol. Ultrasound for liver cancer every 6 months, with or without AFP, begins at the diagnosis of cirrhosis and never stops. In this case the injury is never removed, so every later step over the next ten years can be shown in the same man. Fibrosis advances steadily in the model; nothing else changes until carvedilol.',
       ask: ['Does a man with compensated cirrhosis and an HVPG <10 mmHg need carvedilol?', 'No. Baveno VIII advises against a beta-blocker to prevent decompensation without CSPH.'],
     },
     {
-      id: 'd90', tick: 'Month 3', days: 90, ramp: ramp(0.5, 0.54), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
-      kicker: 'Month 3', site: 'sin', title: 'Stiffness and platelets make CSPH likely',
-      line: 'Stiffness is {lsm} with platelets of {plt} (<150). In this part of the gray zone, the pair makes CSPH likely without a catheter.',
-      notes: 'Between 15 and 25 kPa the stiffness alone does not decide. Baveno VIII calls CSPH present when a validated model (ANTICIPATE-NASH in obese MASLD, built on the stiffness, the platelets and the BMI) puts its probability at 75% or more, or when the spleen stiffness on the 100 Hz probe is above 55 kPa. The model agrees: the HVPG has just passed 10 mmHg. Stiffness and platelets are cheap and repeatable, which is why they are used to follow patients between catheter studies. (Baveno VIII 1.15, 1.16.)',
+      id: 'd90', tick: 'Year 2', days: 730, ramp: ramp(0.5, 0.66), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
+      kicker: 'Year 2', site: 'sin', title: 'Year 2: the stiffness rules in CSPH',
+      line: 'Stiffness is {lsm}, which meets the {>=25 kPa} rule, with platelets of {plt}: CSPH is ruled in without a catheter, and carvedilol starts.',
+      notes: 'At 25 kPa or more the stiffness alone rules CSPH in. Between 15 and 25 kPa it does not decide. Baveno VIII calls CSPH present when a validated model (ANTICIPATE-NASH in obese MASLD, built on the stiffness, the platelets and the BMI) puts its probability at 75% or more, or when the spleen stiffness on the 100 Hz probe is above 55 kPa. The model agrees: over two years the HVPG has passed 12 mmHg. Carvedilol starts on this result; it does not wait for a catheter. Stiffness and platelets are cheap and repeatable, which is why they are used to follow patients between catheter studies. (Baveno VIII 1.15, 1.16.)',
       ask: ['Stiffness 21 kPa and platelets 115. How likely is CSPH?', 'Likely: in the gray zone, a stiffness >20 kPa with low platelets gives ANTICIPATE a high probability of CSPH. A spleen stiffness >55 kPa on the 100 Hz probe would settle it.'],
     },
     {
-      id: 'd365', tick: 'Year 1', days: 275, ramp: ramp(0.54, 0.66), cath: 'result', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: 'd0',
-      kicker: 'Year 1', site: 'sin', title: 'Year 1: the HVPG is >12',
-      line: 'The HVPG is {hvpg}, up from {hvpg@d0} at diagnosis and well past the {>=10 mmHg} where CSPH begins. From about 12, the risk of a variceal bleed rises steeply.',
-      notes: 'A year on, the gradient has risen by about 4 mmHg, and small varices would now show on a scope: in compensated cirrhosis they bleed rarely, but they mean the gradient is past 10 mmHg. Above about 12 mmHg a variceal bleed becomes more likely, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise, and a small amount of fluid seen only on ultrasound (grade 1 ascites) may already be there, without being decompensation.',
+      id: 'd365', tick: 'HVPG', days: 14, cath: 'result', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['hvpg'], key: ['hvpg'], delta: 'd0',
+      kicker: 'Year 2', site: 'sin', title: 'Year 2: the catheter confirms CSPH',
+      line: 'The HVPG is {hvpg}, up from {hvpg@d0} at diagnosis and past the {>=10 mmHg} where CSPH begins. Varices and decompensation are now possible.',
+      notes: 'Here the HVPG is measured as well, as a study would, to show what carvedilol does to it; in practice the stiffness and platelets were enough to start carvedilol. Over two years the gradient has risen by about 4 mmHg, to nearly 13. Above about 12 mmHg a variceal bleed becomes more likely, and the risk of ascites and other decompensation rises with each mmHg. Repeat catheter studies are not routine; in practice the stiffness, the platelets and the scope track this rise, and a small amount of fluid seen only on ultrasound (grade 1 ascites) may already be there, without being decompensation.',
       ask: ['His HVPG is 13 mmHg and he feels well. Does he need a drug?', 'Yes. Baveno VIII recommends carvedilol at CSPH, to prevent decompensation.'],
     },
     {
       id: 'carv', tick: 'Carvedilol', milestone: 'Carvedilol', when: 'On carvedilol', params: CARV, cath: 'result', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['map'], key: ['hvpgFall'], delta: 'd365', hvpgResp: 'd365',
-      kicker: 'Year 1', site: 'sin', title: 'Carvedilol at CSPH prevents decompensation',
+      kicker: 'Year 2', site: 'sin', title: 'Carvedilol at CSPH prevents decompensation',
       line: 'Baveno VIII recommends carvedilol in compensated cirrhosis with CSPH, to prevent decompensation and improve survival. It lowers his HVPG from {hvpg@d365} to {hvpg}.',
-      notes: 'Carvedilol acts on both flow and resistance: it lowers the portal inflow and relaxes the liver\'s resistance, so it lowers the HVPG more than propranolol. Baveno VIII prefers it in compensated cirrhosis with CSPH (3.15), as in the PREDESCI trial, and it replaces the screening endoscopy for most patients who take it. The dose is raised slowly (6.25 mg, then 12.5 mg a day), and the systolic pressure has to stay above 90 mmHg. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients; the tile shows the percent fall from the year-1 reading.',
+      notes: 'Carvedilol acts on both flow and resistance: it lowers the portal inflow and relaxes the liver\'s resistance, so it lowers the HVPG more than propranolol. Baveno VIII prefers it in compensated cirrhosis with CSPH (3.15), as in the PREDESCI trial, and it replaces the screening endoscopy for most patients who take it. The dose is raised slowly (6.25 mg, then 12.5 mg a day), and the systolic pressure has to stay above 90 mmHg. A fall in HVPG of 10% or more on drugs predicts benefit in compensated patients; the tile shows the percent fall from the reading before it.',
       ask: ['When does Baveno VIII start carvedilol in compensated cirrhosis?', 'When CSPH is present, to prevent decompensation and improve survival.'],
     },
     {
-      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1825, ramp: { cirrhosis: [0.66, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
+      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1460, ramp: { cirrhosis: [0.66, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
       compare: [{ label: 'Carvedilol alone', short: 'Carv.', own: true, params: { diuretics: false } }, { label: 'Add diuretics', short: 'Diuretics', params: { diuretics: true } }],
       kicker: 'Year 6', site: 'sin', title: 'Year 6: the first ascites',
-      line: 'Five more years of injury: the HVPG is {hvpg}, the albumin has fallen to {salb}, and {asc} of ascites has gathered despite carvedilol.',
+      line: 'Four more years of injury: the HVPG is {hvpg}, the albumin {salb}, and {asc} of ascites has gathered despite carvedilol. Refer him for transplant assessment now.',
       notes: 'Try adding diuretics. The first ascites you can find on examination is the first decompensation, and it changes the outlook. A little fluid seen only on ultrasound (grade 1) comes earlier and is not decompensation; grade 2 shows as a symmetric distension and grade 3 is tense. After the first decompensation, Baveno VIII 4.2 recommends treating the cause, to prevent further decompensation. From this first decompensation he should be considered for a transplant (Baveno VIII 4.3); listing comes later, as the disease advances. In this case the injury goes on, so the later steps can follow. What happens to the carvedilol is the next slide.',
       ask: ['What is the first decompensation in this case?', 'Ascites at year 6.'],
     },
@@ -78,8 +78,8 @@ export const TEN_YEARS = {
     {
       id: 'bleed', tick: 'Year 8', milestone: 'Bleed', days: 700, action: [BAND], cam: 'varices', labels: ['VAR'], calipers: ['varix'], tool: { kind: 'scope' }, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'diuretics',
       kicker: 'Year 8', site: 'sin', title: 'Year 8: a first bleed, on carvedilol',
-      line: 'He vomits blood from a {varix} varix. Octreotide, ceftriaxone and a band stop it. He was already taking carvedilol. What prevents the next bleed?',
-      notes: 'The bleed itself is managed as in the Variceal bleed talk: vasoactive drugs, antibiotics and endoscopy within 12 hours. The decision here comes after it, once he is stable. He bled despite carvedilol, so the question is whether carvedilol has failed him.',
+      line: 'He vomits blood from a {varix} varix. Octreotide or terlipressin, ceftriaxone and a band stop it. He was already taking carvedilol. What prevents the next bleed?',
+      notes: 'The bleed itself is managed as in the Variceal bleed talk: vasoactive drugs, antibiotics and endoscopy within 12 hours. The decision here comes after it, once he is stable. He bled despite carvedilol, so the question is whether carvedilol has failed him. He is Child–Pugh B 8 with no active bleeding at endoscopy, so he is not a pre-emptive TIPS candidate.',
       ask: ['A man bleeds from varices while taking carvedilol. Has carvedilol failed?', 'Not on that fact alone. Baveno VIII 4.8 pairs carvedilol with banding whether or not he took carvedilol before.'],
     },
     {
@@ -93,16 +93,16 @@ export const TEN_YEARS = {
       id: 'rebleed', tick: 'Year 9', milestone: 'Rebleed', days: 270, cam: 'liver', tool: { kind: 'profile', from: 'bands', fromLabel: 'Year 8' }, data: 'tiles', tiles: ['varix', 'liver'], key: ['hvpg'], delta: 'bands',
       compare: [{ label: 'Bands and carvedilol', short: 'Bands', own: true, params: { tips: { on: false, d: 8 } } }, { label: 'TIPS', params: { tips: { on: true, d: 8 } } }],
       kicker: 'Year 9', site: 'sin', title: 'Year 9: a second bleed, on both treatments',
-      line: 'Nine months on, the varices are back to {varix} and he bleeds again, on carvedilol.',
+      line: 'Nine months on he bleeds again, on carvedilol, from varices that have recurred to {varix} since banding cleared them.',
       notes: 'Try a TIPS with the buttons and watch the HVPG and the liver flow. Two bleeds make this further decompensation. Carvedilol and banding have been given properly and have failed, so more of the same is unlikely to help. The question is what lowers the pressure more, and the guideline answers it: consider a TIPS when bleeding continues despite secondary prophylaxis.',
       ask: ['A man bleeds again on carvedilol and repeat banding. Is a TIPS considered?', 'Yes. Baveno VIII 4.13 says to consider a TIPS when bleeding continues despite secondary prophylaxis.'],
     },
     {
       id: 'tips', tick: 'TIPS', milestone: 'TIPS', params: { tips: { on: true, d: 8 } }, procedure: 'tips', cam: 'liver', tool: { kind: 'profile', from: 'rebleed', fromLabel: 'Before TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'rebleed',
       kicker: 'Year 9', site: 'sin', title: 'A TIPS when prevention fails',
-      line: 'A covered TIPS takes the PPG to {ppg}. The price is the liver\'s blood: it keeps {liver} of its normal flow.',
+      line: 'A covered TIPS takes the PPG to {ppg}. The price is its portal blood: sinusoidal flow falls to {liver} of normal, most of it now from the hepatic artery.',
       notes: 'Baveno VIII advises considering a TIPS for bleeding despite secondary prophylaxis with carvedilol and banding (4.13). The stent opens a channel from the portal vein to a hepatic vein, so the gradient falls under the level where varices bleed. The cost is a share of portal blood that no longer passes through the liver, and with it a risk of encephalopathy.',
-      ask: ['What does a TIPS cost the liver?', 'Part of its portal blood supply, because most portal blood now bypasses it through the stent.'],
+      ask: ['What does a TIPS cost the liver?', 'Most of its portal blood, which now bypasses it through the stent. The hepatic artery dilates and makes up part of the loss.'],
     },
     {
       id: 'he', tick: 'Confusion', days: 60, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'], delta: 'tips',
@@ -124,11 +124,11 @@ export const TEN_YEARS = {
     {
       id: 'list', tick: 'Year 10', milestone: 'Transplant', cam: 'liver', data: 'tiles', tiles: ['liver', 'plt'], key: ['liver'],
       tool: { kind: 'criteria', title: 'Further decompensation', short: 'Decompensation', ticks: false, rule: 'Baveno VIII 4.1, 6.1', rows: [{ text: '≥2 events: ascites, bleeding, encephalopathy, jaundice', note: 'Three kinds', met: true, lit: true },
-        'Or a **rebleed**, repeat **encephalopathy**, or **≥3** large taps in a year'], verdict: 'He meets the first: evaluate him for a liver transplant.' },
+        'Or a **rebleed**, repeat **encephalopathy**, or **≥3** large taps in a year'], verdict: 'He meets the first: the listing decision is due now.' },
       kicker: 'Year 10', site: 'sin', title: 'Year 10: three decompensating events',
-      line: 'He has had ascites, two bleeds and encephalopathy: further decompensation, so Baveno VIII says to evaluate him for a liver transplant. The TIPS fixed the pressure, not the liver.',
+      line: 'He has had ascites, two bleeds and encephalopathy: further decompensation. Referred at year 6, he now faces the listing decision. The TIPS fixed the pressure, not the liver.',
       notes: 'Further decompensation means a higher mortality than the first decompensation. Baveno VIII 6.1 says to evaluate these patients for transplant, and 4.3 says to consider it in everyone with decompensated cirrhosis. The TIPS fixed the pressure; it does not fix the liver, which keeps only the share of its blood flow shown in the tile. (Baveno VIII 4.1, 6.1.)',
-      ask: ['When does Baveno VIII call for a transplant evaluation?', 'At further decompensation: ≥2 events, or a rebleed, recurrent encephalopathy or repeated large taps.'],
+      ask: ['When should he have been referred for a transplant?', 'At his first decompensation, the ascites of year 6 (or once the MELD reaches 15). Further decompensation makes it urgent.'],
     },
     {
       id: 'course', cam: 'fit', tool: { kind: 'trace', range: 'talk', title: 'Ten years on one chart', style: 'milestones', bands: ['carvedilol', 'diuretics', 'tips'] },
@@ -143,16 +143,16 @@ export const TEN_YEARS = {
       // HVPG and the varix hardly move between the ascites and the rebleed); the ring is him after the TIPS, the slide before's state.)
       id: 'relation', cam: 'varices', labels: ['VAR'],
       tool: { kind: 'curve', x: 'hvpg', xCuts: [10], cuts: 'ticks', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['varix', 'wall'], walk: true,
-        dots: [{ slide: 'd0', name: 'Year 0', on: [0] }, { slide: 'd365', name: 'Year 1', on: [0] }, { slide: 'carv', name: 'Carvedilol', on: [0] }, { slide: 'ascites', name: 'Years 6 to 9', on: [0] },
+        dots: [{ slide: 'd0', name: 'Year 0', on: [0] }, { slide: 'd365', name: 'Year 2', on: [0] }, { slide: 'carv', name: 'Carvedilol', on: [0] }, { slide: 'ascites', name: 'Years 6 to 9', on: [0] },
           { slide: 'bands', name: 'Bands', on: [0] }, { slide: 'tips', name: 'TIPS', on: [0] }] },
       kicker: 'Summary', site: 'sin', title: 'Ten years on one line: the varix follows the HVPG',
       line: 'Carvedilol took him from {hvpg@d365} to {hvpg@carv}, and the TIPS from {hvpg@rebleed} to {hvpg@tips}, both along the line. Bands took the varix below it, without lowering the HVPG.',
-      notes: 'The line is the model\'s cirrhosis from mild to severe, each point settled for a year, with the varix (left) and its wall stress as a share of the tear point (right) against the HVPG, as on the Varices talk. The dots are this talk\'s visits. Carvedilol at year 1 lowered the HVPG and the varix with it, along the line; the TIPS at year 9 did the same down to the flat part of the line, where the varix stays at its resting 2 mm. Banding closed the varix without changing the pressure behind it, so it sits below the line, and the varix grows back to the line within months (see Preventing the next variceal bleed). The ring is him after the TIPS. The cause was never removed, so each treatment bought time and none ended the climb. Wall stress rises faster than the diameter because it grows with the pressure across the wall and with the radius together (AASLD 2024 p. 1193). Baveno VIII 4.8 pairs carvedilol with banding after a bleed, and 4.13 says to consider a TIPS when bleeding continues. One model patient per point; real patients vary far more.',
+      notes: 'The line is the model\'s cirrhosis from mild to severe, each point settled for a year, with the varix (left) and its wall stress as a share of the tear point (right) against the HVPG, as on the Varices talk. The dots are this talk\'s visits. Carvedilol at year 2 lowered the HVPG and the varix with it, along the line; the TIPS at year 9 did the same down to the flat part of the line, where the varix stays at its resting 2 mm. Banding closed the varix without changing the pressure behind it, so it sits below the line, and the varix grows back to the line within months (see Preventing the next variceal bleed). The ring is him after the TIPS. The cause was never removed, so each treatment bought time and none ended the climb. Wall stress rises faster than the diameter because it grows with the pressure across the wall and with the radius together (AASLD 2024 p. 1193). Baveno VIII 4.8 pairs carvedilol with banding after a bleed, and 4.13 says to consider a TIPS when bleeding continues. One model patient per point; real patients vary far more.',
       ask: ['Which of his treatments moved the varix without moving the HVPG?', 'Banding: it closes the varix but leaves the pressure behind it, so the varix grows back as the bands slough.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['hvpg', 'varix', 'asc', 'shunt'], asc: false, rowHead: 'Step', vs: 'first',
-      of: [{ id: 'd0', kicker: 'Year 0', title: 'Compensated' }, { id: 'carv', kicker: 'Year 1', title: 'CSPH, carvedilol' }, { id: 'diuretics', kicker: 'Year 6', title: 'Ascites, diuretics' },
+      of: [{ id: 'd0', kicker: 'Year 0', title: 'Compensated' }, { id: 'carv', kicker: 'Year 2', title: 'CSPH, carvedilol' }, { id: 'diuretics', kicker: 'Year 6', title: 'Ascites, diuretics' },
         { id: 'bands', kicker: 'Year 8', title: 'First bleed, bands' }, { id: 'tips', kicker: 'Year 9', title: 'Rebleed, TIPS' }, { id: 'he', kicker: 'Year 9', title: 'Encephalopathy' }],
       kicker: 'Summary', site: 'sin', title: 'Each treatment bought time, none removed the cause',
       line: 'The pressure fell at each step. The decision at each step came from a guideline, and the last one is the transplant evaluation.',

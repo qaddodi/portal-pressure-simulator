@@ -11,7 +11,7 @@ const BELLY = { kind: 'abdomen' };
 const COURSE = {
   kind: 'course', reading: 'asc',
   from: { preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] } },
-  event: { params: { albumin: 2.74 }, action: { kind: 'paracentesis', mL: 8000 } },
+  event: { params: { albumin: 2.74 }, action: { kind: 'paracentesis', mL: 5100 } },
   wait: 14, after: 28,
   then: [{ name: 'Diuretics', params: { diuretics: true } }, { name: 'Diuretics + TIPS', params: { diuretics: true, tips: { on: true } } }],
   words: { event: 'Tap', before: 'Tense belly', start: 'Treatment starts', rise: 'Refills', axis: 'Weeks after the tap', label: 'Ascites, liters', title: 'Ascites after the tap', short: 'After the tap' },
@@ -20,7 +20,7 @@ const COURSE = {
 export const ASCITES = {
   id: 'ascites', level: 'advanced', title: 'Ascites: why it forms and how it is treated', minutes: 18,
   summary: 'How ascites forms in the sinusoids, what the tap shows, and what each treatment does: paracentesis with albumin, diuretics and TIPS.',
-  sections: [['Where ascites forms', ['Ascites']], ['Tapping the fluid', ['Tapping the fluid', 'Protein-rich ascites', 'Telling them apart']], ['Treating it', ['Tense ascites', 'Large-volume paracentesis', 'Two weeks later', 'Treatment', 'Refractory ascites', 'Summary']]],
+  sections: [['Where ascites forms', ['Ascites']], ['Tapping the fluid', ['Tapping the fluid', 'Protein-rich ascites', 'Telling them apart']], ['Treating it', ['Tense ascites', 'Large-volume paracentesis', 'Two weeks later', 'Treatment', 'Refractory ascites', 'Complications', 'Summary']]],
   objectives: [
     'Explain how sinusoidal pressure and lymph make ascites',
     'Interpret the SAAG and ascitic protein, and tell cirrhosis from heart failure and Budd–Chiari by the tap',
@@ -30,9 +30,7 @@ export const ASCITES = {
   checks: [
     ['What SAAG points to portal hypertension?', '≥1.1 g/dL.'],
     ['A high SAAG with ascitic protein of ≥2.5 g/dL. Where is the problem?', 'Post-hepatic or cardiac: Budd–Chiari syndrome or heart failure. The sinusoid wall is still open and lets protein through.'],
-    ['The SAAG is 1.8, the ascitic protein 3.1 g/dL and the HVPG normal. Where is the resistance?', 'After the sinusoids, most often a failing right heart: it raises the wedged and free pressures together, so the HVPG stays normal, and the open sinusoids let protein through.'],
     ['How much albumin goes with a large-volume paracentesis?', '6 to 8 g for each liter removed, when >5 liters come out.'],
-    ['Why does ascites come back after a tap alone?', 'Sinusoidal pressure and the kidneys\' sodium retention are unchanged. Diuretics or a TIPS keep it away.'],
     ['When is ascites called refractory?', 'It returns within 4 weeks of a tap despite the highest diuretic doses and a low-salt diet, or diuretics cannot be given because of kidney injury, low sodium or high potassium.'],
     ['Ten days after a 6 L tap with albumin, the belly is full again on full-dose diuretics. What has not changed?', 'The portal pressure: the tap removes the fluid, not its cause. Ascites that returns on full diuretics is refractory, and TIPS is the next step to consider.'],
   ],
@@ -72,7 +70,7 @@ export const ASCITES = {
       id: 'hf', terms: { lymph: 'sinusoid:lymph', sinusoid: 'sinusoid:lumen' }, preset: 'rhf', cam: 'sinusoid', data: 'tiles', tiles: ['saag', 'tp'], key: ['tp'],
       kicker: 'Protein-rich ascites', site: 'cardiac', title: 'High protein in heart failure',
       vignette: 'A 74-year-old man with ischemic cardiomyopathy and severe TR has a swollen abdomen and leg edema. His JVP is raised to the earlobes, and his liver tests are only mildly abnormal.',
-      line: 'The sinusoid wall is still open. Congestion drives protein-rich lymph through it: SAAG {saag}, ≥1.1 g/dL, and protein {tp}, ≥2.5 g/dL.',
+      line: 'The sinusoid wall is still open. Congestion drives protein-rich lymph through it: SAAG {saag}, >1.1, and protein {tp}, >2.5.',
       notes: 'In heart failure and constrictive pericarditis the sinusoids are congested but not scarred: the fenestrae stay open, so the lymph is nearly as rich in protein as plasma. The ascites has a high SAAG (portal hypertension of cardiac origin) and a total protein of 2.5 g/dL or more. A raised jugular venous pressure and a high BNP point to the heart.',
       ask: ['Ascites with a SAAG of 1.5 and protein of 3.8 g/dL. What do you examine next?', 'The heart: the jugular venous pressure, an echocardiogram, BNP.'],
     },
@@ -96,17 +94,17 @@ export const ASCITES = {
       kicker: 'Tense ascites', site: 'sin', title: 'Grade 3 ascites presses on the kidneys',
       vignette: 'A 61-year-old man with alcohol-associated cirrhosis stopped his diuretics 4 months ago. His abdomen is now tense, and he is short of breath lying flat. His albumin is 2.4 g/dL.',
       line: 'Tense ascites raises the pressure inside the abdomen, which presses on the renal veins and the kidneys.',
-      notes: 'Decompensated cirrhosis without diuretics for four months, the serum albumin falling. Tense ascites raises intra-abdominal pressure, which lowers kidney perfusion, splints the diaphragm and adds to the pressure on the varices. Breathlessness, early satiety and an umbilical hernia are common. Grade 3 is treated first with large-volume paracentesis.',
+      notes: 'Decompensated cirrhosis without diuretics for four months, the serum albumin falling; about 5 L of fluid fills the abdomen. Tense ascites raises intra-abdominal pressure, which lowers kidney perfusion, splints the diaphragm and adds to the pressure on the varices. Breathlessness, early satiety and an umbilical hernia are common. Grade 3 is treated first with large-volume paracentesis.',
       ask: ['Name two effects of tense ascites outside the abdomen.', 'Breathlessness from a splinted diaphragm, and lower kidney perfusion.'],
     },
     {
-      id: 'lvp', action: { kind: 'paracentesis', mL: 8000 }, params: { albumin: 2.74 }, cam: 'fit', tool: BELLY,
+      id: 'lvp', action: { kind: 'paracentesis', mL: 5100 }, params: { albumin: 2.74 }, cam: 'fit', tool: BELLY,
       // (A third tile, where the slide's point needs it: the albumin given with the tap.)
       data: 'tiles', tiles: ['asc', 'pv', 'salb'], key: ['salb'], delta: 'tense',
       kicker: 'Large-volume paracentesis', site: 'sin', title: 'A large-volume tap comes with albumin',
-      line: 'The tap leaves {asc} and the portal pressure falls a little. After >5 liters, give {6 to 8 g} of albumin for each liter removed.',
-      notes: 'The model has no kidneys or renin: albumin here raises the serum albumin and the plasma oncotic pressure, and the fluid comes back more slowly on "Ascites returns in two weeks". For a 6 L tap, about 40 g of 20% albumin, given during or after the tap; it prevents post-paracentesis circulatory dysfunction better than saline or synthetic colloids. Under 5 L, albumin is optional. Large-volume paracentesis removes all the fluid in one go, safely, in a few hours. Taking off the intra-abdominal pressure lowers the portal and variceal pressure a little. After more than 5 L, splanchnic vessels dilate further and the effective blood volume falls over the next days: post-paracentesis circulatory dysfunction, with renin rising, hyponatremia, kidney injury and faster return of the ascites.',
-      ask: ['Why give albumin rather than saline after an 8 L tap, and how much?', 'It prevents post-paracentesis circulatory dysfunction better: less kidney injury, less hyponatremia, slower return. About 50 to 65 g, 6 to 8 g for each liter.'],
+      line: 'The tap drains the whole 5 L, and the portal pressure falls a little. After >5 liters, give {6 to 8 g} of albumin for each liter removed.',
+      notes: 'The model has no kidneys or renin: albumin here raises the serum albumin and the plasma oncotic pressure, and the fluid comes back more slowly on "Ascites returns in two weeks". For this tap of just over 5 L, about 30 to 40 g of 20% albumin, given during or after the tap; it prevents post-paracentesis circulatory dysfunction better than saline or synthetic colloids. Under 5 L, albumin is optional. Large-volume paracentesis removes all the fluid in one go, safely, in a few hours. Taking off the intra-abdominal pressure lowers the portal and variceal pressure a little. After more than 5 L, splanchnic vessels dilate further and the effective blood volume falls over the next days: post-paracentesis circulatory dysfunction, with renin rising, hyponatremia, kidney injury and faster return of the ascites.',
+      ask: ['Why give albumin rather than saline after a 5 L tap, and how much?', 'It prevents post-paracentesis circulatory dysfunction better: less kidney injury, less hyponatremia, slower return. About 30 to 40 g, 6 to 8 g for each liter.'],
     },
     {
       id: 'back', days: 14, lapse: { seconds: 7 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense',
@@ -128,14 +126,25 @@ export const ASCITES = {
       tool: { kind: 'criteria', title: 'Refractory ascites', short: 'Refractory', ticks: false, lead: 'Either one makes it refractory.', rows: ['Back **within 4 weeks** on **top diuretic doses** and a **low-salt diet**', 'Or **diuretics cannot be given** (kidney injury, sodium, potassium)'] },
       kicker: 'Refractory ascites', site: 'sin', title: 'Refractory ascites, defined',
       line: 'Refractory ascites returns within 4 weeks of a tap despite the highest diuretic doses, or diuretics cannot be given. Here he settles at {asc}, so he is not refractory.',
-      notes: 'Source: Baveno VIII 6.3 and 6.4. Refractory ascites returns within 4 weeks of a tap despite the highest diuretic doses and a low-salt diet, or diuretics cannot be given. Patients with recurrent or refractory ascites should be considered for a TIPS, and the TIPS and a liver transplant discussed together. Refractory means the highest diuretic doses (spironolactone 400 mg and furosemide 160 mg a day) and about 2 g of sodium a day fail to keep the fluid away, or diuretics have to stop for kidney injury, a sodium below 125, high potassium or encephalopathy. The definition is the one used elsewhere in this talk; the Baveno VIII statements name refractory ascites without defining it.',
+      notes: 'Sources: the International Ascites Club definition of refractory ascites, which EASL and AASLD use; Baveno VIII 6.3 and 6.4 for the TIPS. Refractory ascites returns within 4 weeks of a tap despite the highest diuretic doses and a low-salt diet, or diuretics cannot be given. Patients with recurrent or refractory ascites should be considered for a TIPS, and the TIPS and a liver transplant discussed together. Refractory means the highest diuretic doses (spironolactone 400 mg and furosemide 160 mg a day) and about 2 g of sodium a day fail to keep the fluid away, or diuretics have to stop for kidney injury, a sodium below 125, high potassium or encephalopathy. Baveno VIII names refractory ascites without defining it, so the definition here is the International Ascites Club\'s.',
       ask: ['Fluid back three weeks after a tap, on spironolactone 400 mg and furosemide 160 mg. What is the label, and what do you consider?', 'Refractory ascites. Consider a TIPS and discuss transplantation, if there is no recurrent encephalopathy, heart failure or severe pulmonary hypertension.'],
+    },
+    {
+      // (The complications the model cannot show, because it has no kidneys, no infection and no sodium: one criteria card with the first step of each.)
+      id: 'complications', cam: 'fit', data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'],
+      tool: { kind: 'criteria', title: 'Complications of ascites', short: 'Complications', ticks: false, lead: 'Each has its own first step.',
+        rows: ['**SBP**: ascitic neutrophils **>250/µL**; ceftriaxone with albumin', '**HRS-AKI**: creatinine up **≥0.3 mg/dL**; **terlipressin** with albumin',
+          '**Hyponatremia** <130 mmol/L: hold diuretics, restrict water', '**Hepatic hydrothorax**: treat as ascites; a TIPS if refractory'] },
+      kicker: 'Complications', site: 'sin', title: 'Every patient with ascites is watched for four complications',
+      line: 'Tap every admission for SBP. A rising creatinine is HRS-AKI until shown otherwise. The model has no kidneys, infection or sodium, so this card lists them instead.',
+      notes: 'Spontaneous bacterial peritonitis: a diagnostic tap at every admission and with any deterioration; an ascitic neutrophil count >250/µL.is SBP, treated with a third-generation cephalosporin and albumin (1.5 g/kg on day 1, 1 g/kg on day 3). Hepatorenal syndrome with acute kidney injury: a rise in creatinine of 0.3 mg/dL or more within 48 hours (ICA criteria), no response after two days of diuretic withdrawal and albumin, no shock and no nephrotoxins; terlipressin with albumin is the treatment, norepinephrine an alternative in intensive care, and transplant assessment follows. Hyponatremia below 130 mmol/L: diuretics are held, and water is restricted when it falls below 125. Hepatic hydrothorax, usually right-sided, is treated as ascites, with a TIPS when it is refractory; a chest drain is avoided. Beta-blockers are reduced or stopped when the systolic pressure stays below 90 mmHg or an AKI develops. Any of these is a reason to consider transplant. The model has no kidneys, no infection and no serum sodium, so none of these can be shown on the figure.',
+      ask: ['A man with ascites is admitted with confusion. What is the first test?', 'A diagnostic tap for spontaneous bacterial peritonitis: an ascitic neutrophil count >250/µL.'],
     },
     {
       id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: BELLY, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense',
       kicker: 'Refractory ascites', site: 'sin', title: 'TIPS for refractory ascites',
-      line: 'A TIPS lowers the gradient to {ppg} and the sinusoidal pressure with it, so the fluid falls to {asc}. The price is encephalopathy in about one patient in three.',
-      notes: 'Less lymph forms, and in exchange the liver gets less portal blood. In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients: bilirubin under about 3 mg/dL, no recurrent encephalopathy, no heart failure or severe pulmonary hypertension. The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target.',
+      line: 'A TIPS lowers the gradient to {ppg} and the sinusoidal pressure with it, and the ascites clears over weeks. The price is encephalopathy in about one patient in three.',
+      notes: 'Less lymph forms, and in exchange the liver gets less portal blood. In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients, with a covered 8 mm stent: bilirubin under about 3 mg/dL, platelets over 75,000/µL, no recurrent encephalopathy, no heart failure or severe pulmonary hypertension. The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target.',
       ask: ['Name a reason not to place a TIPS for ascites.', 'Recurrent encephalopathy, heart failure or pulmonary hypertension, or advanced liver failure.'],
     },
     {
@@ -148,7 +157,7 @@ export const ASCITES = {
       tool: COURSE,
       kicker: 'Summary', site: 'sin', title: 'The fluid comes back after the tap unless it is treated',
       line: 'The tap empties the belly, but the fluid is back at {asc@back} by week 2. Diuretics bring it down to {asc@diuretics} by week 6, and adding a TIPS clears it.',
-      notes: 'The chart follows the model\'s own patient day by day. Day 0 is the tap: 8 L out with albumin, from the tense belly he had after four months without diuretics. The gray line is the two weeks with nothing done: the fluid fills again because the pressure that makes it, and the kidneys\' hold on salt and water, are unchanged. From week 2 each treatment starts from that same day: diuretics alone, and diuretics with a TIPS. The zones are the app\'s own grades (its data card uses them too): grade 1 ≥0.15 L, grade 2 ≥1.5 L, grade 3 ≥5 L; at the bedside the grade comes from the examination, not from the volume. The timing is the model\'s, not a patient\'s, so no speed here is a promise; the model has no kidneys, and the chart shows the order of events and the size of each effect. One model patient; real patients vary far more.',
+      notes: 'The chart follows the model\'s own patient day by day. Day 0 is the tap: 5 L out with albumin, from the tense belly he had after four months without diuretics. The gray line is the two weeks with nothing done: the fluid fills again because the pressure that makes it, and the kidneys\' hold on salt and water, are unchanged. From week 2 each treatment starts from that same day: diuretics alone, and diuretics with a TIPS. The zones are the app\'s own grades (its data card uses them too): grade 1 ≥0.15 L, grade 2 ≥1.5 L, grade 3 ≥5 L; at the bedside the grade comes from the examination, not from the volume. The timing is the model\'s, not a patient\'s, so no speed here is a promise; the model has no kidneys, and the chart shows the order of events and the size of each effect. One model patient; real patients vary far more.',
       ask: ['The tap emptied his belly, yet the fluid is back in two weeks. What did the tap leave unchanged?', 'The pressure that makes the fluid. Diuretics clear what has formed; a TIPS lowers the pressure itself, and the fluid stays away.'],
     },
     {

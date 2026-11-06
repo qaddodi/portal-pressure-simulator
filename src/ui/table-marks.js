@@ -129,7 +129,7 @@ export const TILE = {
   plt: { t: 'Platelets', s: 'Thousands per µL', u: '×10³/µL', d: 0, better: 1 },
   pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min' },
   pvVel: { t: 'Portal vein velocity', n: 'PV velocity', s: 'Doppler, main portal vein', u: 'cm/s', d: 0, better: 1 },
-  liver: { t: 'Liver flow, % of normal', n: 'Liver flow', s: 'Through the sinusoids, of normal', u: '%', d: 0, better: 1 },
+  liver: { t: 'Sinusoidal flow, % of normal', n: 'Sinusoid flow', s: 'Portal + arterial, of a healthy liver', u: '%', d: 0, better: 1 },
   shunt: { t: 'Shunted', s: 'Portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1 },
   map: { t: 'Blood pressure', n: 'MAP', s: 'Mean arterial', u: 'mmHg', d: 0 },
   hr: { t: 'Heart rate', n: 'HR', s: 'Beats a minute', u: '/min', d: 0 },
@@ -143,7 +143,7 @@ export const TILE = {
   hbTo: { t: 'Hemoglobin to come', n: 'Hb to come', s: 'Once the plasma refills', u: 'g/dL', better: 1 },
   co: { t: 'Cardiac output', n: 'Output', s: 'Heart', u: 'L/min' },
   bv: { t: 'Blood volume', n: 'Volume', s: 'Whole blood', u: 'L', x: 0.001 },
-  he: { t: 'Encephalopathy risk', n: 'HE risk', s: 'Model index, 0 to 1', u: '', d: 2, better: -1 },
+  he: { t: 'Encephalopathy risk', n: 'HE risk', s: 'Model index from the shunted blood, high ≥0.45', u: '', d: 2, better: -1 },
 };
 // Tiles worked out by the presenter rather than read from the live fingerprint: the HVPG response (slide field hvpgResp), the fall
 // from a named slide's HVPG.

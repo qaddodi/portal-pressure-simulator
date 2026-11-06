@@ -41,7 +41,7 @@ export const TWO_INFLOWS = {
       kicker: 'The buffer', site: 'pre', title: 'A clot stops the portal flow',
       vignette: 'A 47-year-old man with a newly diagnosed JAK2-positive myeloproliferative neoplasm has had 3 days of constant abdominal pain. His liver tests are normal.',
       caseQ: 'What will his hepatic artery do?',
-      line: 'With the portal vein clotted, the [artery](ha) carries about twice its usual flow, so liver blood flow falls only to {liver} of normal.',
+      line: 'With the portal vein clotted, the [artery](ha) carries about twice its usual flow and collaterals bring a little portal blood, so liver blood flow falls only to {liver} of normal.',
       notes: 'The Oxygen button shows the sinusoids brightening. This is the hepatic arterial buffer response. Adenosine is released at a steady rate around the hepatic arterioles and is normally washed away by portal flow; when portal flow falls, adenosine builds up and dilates the artery. The buffer makes up part, not all, of the lost flow. It is why acute portal vein thrombosis rarely infarcts the liver. On the Oxygen button, blood entering the sinusoids rises from about 88% to 95% saturation, because most of it is now arterial.',
       ask: ['Why does acute portal vein thrombosis rarely cause a liver infarct?', 'The hepatic artery dilates (the buffer response) and keeps the liver perfused.'],
     },
@@ -73,7 +73,7 @@ export const TWO_INFLOWS = {
     {
       id: 'tips', question: "After a TIPS, will the artery or the portal vein carry most of the liver's blood?", lens: 'origin', params: { tips: { on: true } }, cam: 'liver', scales: { lobule: {} }, sites: ['split'], mark: { edges: ['TIPS'], label: 'TIPS', kind: 'treat' }, tool: INFLOW, data: 'tiles', tiles: ['liver', 'shunt'], key: ['liver'], delta: 'cirr',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'After TIPS, most liver inflow is arterial',
-      line: 'After a TIPS the portal branches turn toward the stent and the [artery](ha) dilates. Liver flow falls to {liver} of normal.',
+      line: 'After a TIPS the portal branches turn toward the stent and the [artery](ha) dilates. Liver flow falls to {liver} of normal, most of it now arterial.',
       notes: 'After a TIPS, flow in the intrahepatic portal branches usually turns toward the stent, and the hepatic artery velocity rises as the buffer responds. A liver with little reserve may not cope: a rising bilirubin and encephalopathy are the warning signs, and the reason TIPS is avoided in very advanced liver failure. On the figure, colored by origin, the sinusoids carry almost all arterial blood, while portal blood runs through the stent.',
       ask: ['Which way does blood run in the intrahepatic portal branches after a TIPS?', 'Usually toward the stent, away from the liver tissue, because the stent is the path of least resistance.'],
     },

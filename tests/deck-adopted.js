@@ -6,7 +6,7 @@
 export const ADOPTED = {
   'choose-treatment/a1': ['kind:criteria', 'caseQ'],
   'choose-treatment/a2': ['kind:fluid', 'caseQ'],
-  'choose-treatment/a3': ['caseQ'],
+  'choose-treatment/a3': ['kind:lumen', 'caseQ'],
   'choose-treatment/a4': ['kind:lumen', 'caseQ'],
   'choose-treatment/a5': ['caseQ'],
   'variceal-bleed/band': ['question'],
@@ -125,6 +125,9 @@ export const ADOPTED = {
   'cause-treated/high2': ['kind:profile'],
   'next-bleed/slough': ['question'],
   'next-bleed/nsbb': ['hvpgResp'],
+  'varices/predesci': ['hvpgResp'],
+  'ascites/complications': ['kind:criteria'],
+  'encephalopathy/grade': ['kind:criteria'],
   'variceal-bleed/minutes': ['question'],
   'doppler/slow': ['caseQ'],
   'stiffness/spleen': ['calipers', 'normalOutline'],

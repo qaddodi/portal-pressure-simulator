@@ -77,7 +77,7 @@ test('Recompensation: ascites takes him up the line, a year without alcohol brin
 
 test('Ten years: carvedilol and the TIPS move him along the varix line, bands take the varix below it without lowering the HVPG', async () => {
   const c = await chart(TEN_YEARS), d365 = c.dot('d365'), carv = c.dot('carv'), asc = c.dot('ascites'), bands = c.dot('bands'), tips = c.dot('tips'), rebleed = c.at('rebleed');
-  near(d365.f.varix, d365.on[0], 0.3, 'year 1 sits on the line');
+  near(d365.f.varix, d365.on[0], 0.3, 'year 2 sits on the line');
   assert.ok(carv.x < d365.x - 2.5 && carv.f.varix < d365.f.varix - 1.5, 'carvedilol lowers the HVPG and the varix with it');
   assert.ok(carv.f.varix > carv.on[0] - 1, 'and stays near the line');
   assert.ok(bands.f.varix < bands.on[0] - 2, `bands: ${bands.f.varix.toFixed(2)} mm under the line's ${bands.on[0].toFixed(2)}`);

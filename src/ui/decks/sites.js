@@ -4,7 +4,11 @@ const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 const HVPG_EQ = mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>';
 // (The six-case grid's first row holds the site and the cause on one line, 12 px or more: sinusoidal obstruction syndrome is `name`d short there, in full
 // on its own slide, the table and every other line.)
-const SIX = ['pvt', 'presin', 'sin', { id: 'postsin', name: 'Sinusoidal obstr. synd.' }, 'post', 'cardiac'];   // the six levels of portal hypertension, one patient each
+const SIX = [{ id: 'pvt', name: 'Portal vein thrombosis' }, { id: 'presin', name: 'Schistosomiasis' }, { id: 'sin', name: 'Cirrhosis' }, { id: 'postsin', name: 'Sinusoidal obstr. synd.' },
+  { id: 'post', name: 'Budd–Chiari syndrome' }, { id: 'cardiac', name: 'Right heart failure' }];
+// (The slide titles name the finding; the summary table's rows name the disease.)
+const SIX_ROWS = [{ id: 'pvt', title: 'Portal vein thrombosis' }, { id: 'presin', title: 'Schistosomiasis' }, { id: 'sin', title: 'Cirrhosis' }, { id: 'postsin', title: 'Sinusoidal obstruction syndrome', name: 'Sinusoidal obstr. synd.' },
+  { id: 'post', title: 'Budd–Chiari syndrome' }, { id: 'cardiac', title: 'Right heart failure' }];   // the six levels of portal hypertension, one patient each
 const PROFILE = { kind: 'profile' };   // the pressure from gut to heart, in place of the ladders
 
 export const SITES = {
@@ -37,7 +41,7 @@ export const SITES = {
     {
       id: 'pvt', lens: 'drop', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF', 'SV'], terms: { 'portal pressure': 'pv', 'wedged pressure': 'whvp' }, mark: { edges: ['PV_TRUNK'], label: 'Clot' },
       tool: PROFILE, key: ['hvpg', 'ppg'],
-      kicker: 'Pre-hepatic', site: 'pre', title: 'Portal vein thrombosis',
+      kicker: 'Pre-hepatic', site: 'pre', title: 'Portal vein thrombosis: the PPG is high, the HVPG normal',
       vignette: 'A 38-year-old man with a JAK2-positive myeloproliferative neoplasm has splenomegaly and small esophageal varices on EGD. His liver tests are normal, and there is no ascites.',
       line: 'Portal pressure is high, yet the wedged pressure and HVPG are normal: the catheter wedges downstream of the clot.',
       notes: 'Chronic thrombosis turns the portal vein into a cavernoma: a web of small collaterals around the occluded trunk that still carries portal blood to the liver. The liver itself is normal, so its function is preserved and ascites is uncommon, while varices and a large spleen are common. Doppler ultrasound or CT shows the clot or the cavernoma. HVPG is normal because the wedged catheter reads the sinusoids, downstream of the clot; the portal pressure gradient (PPG) is high. On the profile the fall comes between the gut and the portal venules, before the sinusoids the wedge reads. The usual causes are cirrhosis, a myeloproliferative neoplasm or another thrombophilia, pancreatitis or abdominal sepsis, and liver or pancreatic cancer.',
@@ -45,7 +49,7 @@ export const SITES = {
     },
     {
       id: 'presin', lens: 'drop', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', tool: PROFILE, key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Resistance' },
-      kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis',
+      kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis: resistance before the sinusoids spares the wedge',
       vignette: 'A 26-year-old man who grew up in the Nile Delta presents with hematemesis. EGD shows large esophageal varices. His spleen is enlarged, his liver tests are normal, and there is no ascites.',
       line: 'Eggs lodge in the portal venules and cause fibrosis upstream of the sinusoids, so the HVPG stays near normal.',
       notes: 'Schistosoma mansoni and japonicum eggs reach the presinusoidal portal venules, where granulomas form and periportal (Symmers) fibrosis follows. The sinusoids and liver cells are spared: liver function is preserved, ascites is rare and liver stiffness is near normal. The portal vein is open on imaging, which separates it from a portal vein clot. HVPG is normal or mildly raised and underestimates the portal pressure. On the profile the fall comes between the portal venules and the sinusoids, still before the sinusoids the wedge reads. The same picture comes from porto-sinusoidal vascular disorder, early primary biliary cholangitis, sarcoidosis and congenital hepatic fibrosis.',
@@ -53,7 +57,7 @@ export const SITES = {
     },
     {
       id: 'sin', lens: 'drop', terms: { sinusoids: 'lobule:sinusoid' }, preset: 'cirr-decomp', cam: 'lobule:sinusoid', callout: { at: 'sin', label: 'Resistance' }, tool: PROFILE, key: ['whvp', 'hvpg'],
-      kicker: 'Intrahepatic · sinusoidal', site: 'sin', title: 'Cirrhosis',
+      kicker: 'Intrahepatic · sinusoidal', site: 'sin', title: 'Cirrhosis: sinusoidal resistance raises the wedge',
       vignette: 'A 58-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide. His albumin is 2.8 g/dL, his platelets are 57,000/µL, and EGD shows large esophageal varices.',
       line: 'Fibrosis, nodules and stellate cell contraction narrow the sinusoids. The wedged pressure reflects sinusoidal pressure, so HVPG rises with portal pressure.',
       notes: 'In cirrhosis the resistance is in the sinusoids: fibrosis, regenerative nodules, a capillarized endothelium and contracted stellate cells, the dynamic part that drugs can relax. Splanchnic vasodilation then raises portal inflow and sustains the pressure. The wedged pressure closely tracks the portal pressure, so HVPG estimates the portal gradient: 10 mmHg or more is clinically significant portal hypertension, and the risk of bleeding rises from about 12. In MASLD cirrhosis the wedge can read low, so an HVPG under 10 does not rule out CSPH. On the profile the fall now lies between the sinusoids and the hepatic vein, inside the HVPG bracket. The usual causes are alcohol, fatty liver disease (MASLD), hepatitis B and C, and autoimmune, cholestatic and metabolic disease.',
@@ -61,16 +65,16 @@ export const SITES = {
     },
     {
       id: 'postsin', lens: 'drop', terms: { 'central veins': 'lobule:central', sinusoids: 'lobule:sinusoid' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, tool: PROFILE, key: ['whvp', 'hvpg'],
-      kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome',
+      kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome: the HVPG rises after the sinusoids too',
       vignette: 'A 45-year-old woman, 21 days after myeloablative conditioning for allogeneic HSCT, has tender hepatomegaly, a 4% weight gain and new ascites. Her bilirubin is 2.1 mg/dL.',
-      line: 'Damaged endothelium raises resistance in the sinusoids and central veins, upstream of the wedge, so the HVPG rises.',
-      notes: 'Formerly veno-occlusive disease. Toxic injury sheds sinusoidal endothelial cells, which raise resistance in the sinusoids and the terminal hepatic venules. It presents within weeks of myeloablative conditioning with tender hepatomegaly, weight gain, ascites and jaundice. An HVPG of 10 mmHg or more, measured with a transjugular biopsy, strongly supports the diagnosis. The model shows an earlier stage, with an HVPG of about 9 mmHg: raised, but under 10. Causes: conditioning for stem cell transplant, oxaliplatin and pyrrolizidine alkaloids (bush teas).',
+      line: 'Damaged endothelium raises resistance in the sinusoids and central veins, between the wedge and the free reading, so the HVPG rises.',
+      notes: 'Formerly veno-occlusive disease. Toxic injury sheds sinusoidal endothelial cells, which raise resistance in the sinusoids and the terminal hepatic venules. It presents within weeks of myeloablative conditioning with tender hepatomegaly, weight gain, ascites and jaundice. An HVPG of 10 mmHg or more, measured with a transjugular biopsy, strongly supports the diagnosis. The model shows an early stage, with an HVPG of about 11 mmHg, just past the 10 mmHg mark that supports the diagnosis after a stem cell transplant. Causes: conditioning for stem cell transplant, oxaliplatin and pyrrolizidine alkaloids (bush teas).',
       ask: ['Why does HVPG rise here but not in schistosomiasis?', 'Here the resistance is in the sinusoids and central veins the wedge reads; in schistosomiasis it is in the portal tracts, upstream of them.'],
     },
     {
       id: 'post', lens: 'drop', preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true },
       tool: PROFILE, key: ['fhvp', 'ra', 'hvpg'],
-      kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome',
+      kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome: a high PPG, the HVPG near zero',
       vignette: 'A 29-year-old woman taking OCPs has had RUQ pain for 2 months and now has tense ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL.',
       line: 'Where a catheter gets behind the clotted veins, the wedged and free pressures are both high, so the HVPG is near zero while the [right atrium](ra) stays at {ra}.',
       notes: 'Hepatic venous outflow obstruction, anywhere from the small hepatic veins to the IVC at the right atrium. The liver is congested and enlarged; the caudate lobe, which drains straight into the IVC, hypertrophies. Ascites is common, protein-rich (2.5 g/dL or more) and with a SAAG of 1.1 or more. In practice the clotted veins often cannot be catheterized; when one can be entered, both readings lie behind the resistance. The model shows the pressures there. Doppler ultrasound, CT or MR venography make the diagnosis. On the profile the fall comes after the hepatic vein, between it and the IVC, outside the HVPG bracket. Colored by pressure drop, the clotted veins stand out. Causes: a myeloproliferative neoplasm (JAK2), thrombophilia, pregnancy or OCP use, an IVC web, and tumor invading the veins.',
@@ -80,9 +84,9 @@ export const SITES = {
       id: 'cardiac', lens: 'drop', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
       compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }],
       tool: PROFILE, key: ['fhvp', 'hvpg', 'ppg'],
-      kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure',
+      kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure: every pressure rises, neither gradient',
       vignette: 'A 67-year-old man with severe TR from pulmonary hypertension has a raised JVP, leg edema and ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL, and EGD shows no varices.',
-      line: 'Raised [right atrial pressure](ra) passes back through the hepatic veins to the sinusoids, so all stations rise together and HVPG stays normal.',
+      line: 'Raised [right atrial pressure](ra) passes back through the hepatic veins to the sinusoids, so all stations rise together: a high portal pressure, but neither gradient rises.',
       notes: 'Congestive hepatopathy. The jugular venous pressure is raised, the hepatojugular reflux is positive and Doppler shows a pulsatile portal vein. The ascites is protein-rich with a SAAG of 1.1 or more. Varices are rare: they need a gradient between the portal and the systemic veins, and here both are high, so the PPG is normal. Constrictive pericarditis gives the same pattern with a normal-sized heart. No vessel stands out because the resistance is in the heart. Causes: tricuspid regurgitation, pulmonary hypertension, left heart failure and constrictive pericarditis. Tap Normal heart and the whole profile sinks back to the dashed healthy line.',
       ask: ['Why are varices rare in heart failure despite a portal pressure of about 20 mmHg?', 'Varices need a portal-to-systemic gradient; the systemic veins are high too, so the gradient (PPG) is normal.'],
     },
@@ -103,10 +107,10 @@ export const SITES = {
       ask: ['A patient has varices, an HVPG of 3 mmHg and a PPG of 15 mmHg. Which sites fit?', 'Pre-hepatic or presinusoidal (a portal vein clot, schistosomiasis), or Budd–Chiari.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ra', 'hvpg', 'ppg'], asc: true, of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, ...SIX],
+      id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ra', 'hvpg', 'ppg'], asc: true, of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, ...SIX_ROWS],
       kicker: 'Summary', title: 'HVPG rises only with sinusoidal and postsinusoidal resistance',
       line: 'Portal pressure is high at every site. For the other levels, read the PPG, the free hepatic pressure and the right atrium.',
-      notes: 'Portal pressure is high at every level. HVPG is raised only when the resistance lies between the wedge and the free hepatic vein (sinusoidal, postsinusoidal). A SAAG of 1.1 or more confirms portal hypertension as the cause of ascites; the ascites protein then separates cirrhosis (low, under 2.5 g/dL) from hepatic vein and heart disease (high). Pre-hepatic and presinusoidal disease rarely cause ascites, because the sinusoids, where ascites starts, are at normal pressure. The model gives sinusoidal obstruction syndrome a protein-rich ascites; reports in patients vary.',
+      notes: 'Portal pressure is high at every level. HVPG is raised only when the resistance lies between the wedge and the free hepatic vein (sinusoidal, postsinusoidal). A SAAG of 1.1 or more confirms portal hypertension as the cause of ascites; the ascites protein then separates cirrhosis (low, under 2.5 g/dL) from hepatic vein and heart disease (high). Pre-hepatic and presinusoidal disease rarely cause ascites, because the sinusoids, where ascites starts, are at normal pressure. The model gives sinusoidal obstruction syndrome a protein-rich ascites; reports in patients vary. The Where is the resistance? talk gives six unnamed patients to place on these same sites, as practice after this one.',
       ask: ['A patient has ascites with a SAAG of 1.6 and a protein of 4 g/dL before any diuretic. Which levels fit best?', 'Post-hepatic or cardiac (Budd–Chiari, heart failure); sinusoidal obstruction syndrome too.'],
     },
   ],

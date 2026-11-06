@@ -16,7 +16,7 @@ export const BLEED = {
   id: 'variceal-bleed', level: 'core', title: 'Resuscitating an acute variceal bleed', minutes: 12,
   objectives: [
     'Read early shock from heart rate and blood pressure, not hemoglobin, and know what blunts them',
-    'Give octreotide and antibiotics before endoscopy',
+    'Give a vasoactive drug (octreotide or terlipressin) and antibiotics before endoscopy',
     'Transfuse to a hemoglobin of 7 to 8 g/dL and explain why not more',
     'Name who needs a pre-emptive TIPS, and what to do when the bleed will not stop',
   ],
@@ -32,7 +32,7 @@ export const BLEED = {
     {
       id: 'before', terms: ['varix'], preset: 'cirr-decomp', params: { respiration: false }, cam: 'varices', labels: ['VAR', 'AZY'], mark: { edges: ['C1a', 'C1b'], label: 'Large varix', kind: 'note' }, calipers: ['varix'], tool: BEATS, data: 'tiles', tiles: ['pv', 'varix'], key: ['varix'],
       kicker: 'Before', site: 'sin', title: 'Large varices under pressure',
-      vignette: 'A 54-year-old man with alcohol-associated cirrhosis has ascites on spironolactone and furosemide and large esophageal varices. He was prescribed carvedilol but stopped taking it.',
+      vignette: 'A 54-year-old man with alcohol-associated cirrhosis has ascites on diuretics and large esophageal varices, and stopped his carvedilol. Bilirubin 3.2 mg/dL, INR 1.9, albumin 2.8 g/dL: Child–Pugh C 10.',
       line: 'Decompensated cirrhosis with a varix of {varix} and a portal pressure of {pv}. The wall is thin and the stress on it high.',
       notes: 'This case has the features that predict a bleed: large varices, red wale marks on the scope, and Child–Pugh B or C. Prevention would have been a non-selective beta-blocker (carvedilol) or banding. The trace on the right runs live, beat by beat, for the rest of the talk. The strip over the pressures is a schematic rhythm timed to the model\'s heartbeat, not a modelled ECG.',
       ask: ['Name three features that predict a first variceal bleed.', 'Large varices, red signs on the varix and advanced liver disease (Child–Pugh B or C).'],
@@ -40,7 +40,7 @@ export const BLEED = {
     {
       id: 'tear', action: { kind: 'rupture', tear: 0.35 }, cam: 'bleed', mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'before',
       kicker: K, site: 'sin', title: 'The varix tears',
-      line: 'Blood pours into the esophagus. The heart rate usually rises first, unless a beta-blocker blunts it. Blood pressure is still normal at this stage.',
+      line: 'Blood pours into the esophagus. The heart rate usually rises first, unless a beta-blocker blunts it. Blood pressure has fallen only a little so far.',
       notes: 'Hematemesis or melena in a patient with cirrhosis is variceal until proved otherwise. Lost volume is replaced first by a faster heart and tighter arterioles, so the blood pressure falls late. A beta-blocker such as carvedilol blunts the rise in heart rate, and admission heart rate is neither sensitive nor specific for a large bleed, so a normal pulse does not reassure. A heart rate over 100 or a systolic pressure below 100 means a large bleed. Place two large cannulas, send blood for cross-match, and call the endoscopist and the intensive care team. Hold the diuretics and any beta-blocker while the bleed is active.',
       ask: ['A man on carvedilol vomits blood. His pulse is 88 and his blood pressure 100/60. Is he stable?', 'Not necessarily. Carvedilol blunts the rise in heart rate, and his usual pressure may be low. Judge by the trend, the blood seen, the lactate and a postural drop.'],
     },
@@ -55,9 +55,9 @@ export const BLEED = {
       id: 'oct', params: { drugs: { octreotide: true } }, action: [UNIT, SALINE], cam: 'portal', labels: ['SMV', 'CONF'], ripple: true, tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'before',
       compare: [{ label: 'No drug', params: { drugs: { octreotide: false, terlipressin: false } } }, { label: 'Octreotide', own: true, params: { drugs: { octreotide: true, terlipressin: false } } }, { label: 'Terlipressin', params: { drugs: { octreotide: false, terlipressin: true } } }],
       kicker: 'Before the scope', site: 'sin', title: 'Octreotide and volume start together',
-      line: 'Octreotide (50 µg, then 25 to 50 µg an hour) and ceftriaxone 1 g a day start, but the bleed outpaces the fluids: the blood pressure falls to {map}.',
-      notes: 'Start the vasoactive drug, the first unit and the first fluid together, as soon as a variceal bleed is suspected. Octreotide, a somatostatin analogue: a 50 microgram bolus, then 25 to 50 micrograms an hour for 2 to 5 days. Give ceftriaxone 1 g a day as well, for up to 5 days (AASLD stops it at discharge if that comes sooner): antibiotics lower infection, rebleeding and death. Erythromycin 250 mg IV, 30 to 90 minutes before the scope, clears the stomach of blood. Baveno VIII allows stopping the vasoactive drug as early as 24 hours after successful banding once a beta-blocker starts, and a shorter antibiotic course, or none, in Child–Pugh A. Outside the US, terlipressin or somatostatin are used in its place. The portal pressure here falls with the blood loss too; in the model octreotide adds about 1 mmHg of that fall. A unit of blood and a liter of fluid run in.',
-      ask: ['In the US, which drugs start before the endoscopy, and what does each do?', 'Octreotide lowers the portal pressure; ceftriaxone cuts infection, rebleeding and death; erythromycin clears the stomach for the scope.'],
+      line: 'Octreotide (50 µg, then 25 to 50 µg an hour) or terlipressin, and ceftriaxone 1 g a day, start. The bleed outpaces the fluids: the blood pressure falls to {map}.',
+      notes: 'Start the vasoactive drug, the first unit and the first fluid together, as soon as a variceal bleed is suspected. Octreotide, a somatostatin analogue: a 50 microgram bolus, then 25 to 50 micrograms an hour for 2 to 5 days. Give ceftriaxone 1 g a day as well, for up to 7 days (AASLD stops it at discharge if that comes sooner): antibiotics lower infection, rebleeding and death. Erythromycin 250 mg IV, 30 to 90 minutes before the scope, clears the stomach of blood. Baveno VIII allows stopping the vasoactive drug as early as 24 hours after successful banding once a beta-blocker starts, and a shorter antibiotic course, or none, in Child–Pugh A. Terlipressin (2 mg IV every 4 hours, then 1 mg every 4 hours once the bleed is controlled) is the first-line vasoactive drug in Europe and much of the world, and somatostatin is the other choice; both work as octreotide does, by cutting the inflow. The portal pressure here falls with the blood loss too; in the model octreotide adds about 1 mmHg of that fall. A unit of blood and a liter of fluid run in.',
+      ask: ['Which drugs start before the endoscopy, and what does each do?', 'Octreotide or terlipressin lowers the portal pressure; ceftriaxone cuts infection, rebleeding and death; erythromycin clears the stomach for the scope.'],
     },
     {
       id: 'blood', action: [UNIT], cam: 'bleed', tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'before',
@@ -85,19 +85,19 @@ export const BLEED = {
       ask: ['Which patients get a pre-emptive TIPS after a variceal bleed?', 'Child–Pugh C 10 to 13, or Child–Pugh B >7 with active bleeding at endoscopy.'],
     },
     {
-      // (Two days on from a bleed of about a quarter of his blood: the plasma has refilled, so the hemoglobin has fallen to where the tiles of the first
+      // (Two days on from a bleed of about a quarter of her blood: the plasma has refilled, so the hemoglobin has fallen to where the tiles of the first
       // case said it was heading.)
       id: 'controlled', preset: 'cirr-decomp', params: { drugs: { octreotide: true }, respiration: false }, action: [{ kind: 'hemorrhage', mL: 1200 }, BAND], days: 2, cam: 'varices', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'],
-      vignette: 'A 54-year-old man with alcohol-associated cirrhosis vomited blood two days ago. Octreotide, ceftriaxone and band ligation stopped the bleeding, and he is on the ward.',
+      vignette: 'Another patient: a 61-year-old woman with alcohol-associated cirrhosis, Child–Pugh B 8, banded two days ago for a variceal bleed. No active bleeding at the scope, so no pre-emptive TIPS.',
       kicker: 'Failure', site: 'sin', title: 'The first bleed is controlled, for now',
-      line: 'Banding stopped the bleed. His heart rate is {hr}; with the plasma refilled, his hemoglobin is {hb}. A new bleed before day 5 counts as treatment failure.',
-      notes: 'The first days after a variceal bleed carry the highest risk of a rebleed. Octreotide continues for 2 to 5 days, ceftriaxone for up to 5 days, and a non-selective beta-blocker starts when the drug stops. Banding is repeated every 2 to 4 weeks until the varices are gone. The strip over the pressures is a schematic rhythm timed to the model\'s heartbeat, not a modelled ECG.',
+      line: 'Banding stopped the bleed. Her heart rate is {hr}; with the plasma refilled, her hemoglobin is {hb}. A new bleed before day 5 counts as treatment failure.',
+      notes: 'The first days after a variceal bleed carry the highest risk of a rebleed. Octreotide continues for 2 to 5 days, ceftriaxone for up to 7 days, and a non-selective beta-blocker starts when the drug stops. Child–Pugh B 8 with no active bleeding at endoscopy does not meet the pre-emptive TIPS criteria, which is why she has none. Banding is repeated every 2 to 4 weeks until the varices are gone. The strip over the pressures is a schematic rhythm timed to the model\'s heartbeat, not a modelled ECG.',
       ask: ['Why is a rebleed on day 3 not counted as a new bleed?', 'Baveno VIII defines treatment failure as uncontrolled bleeding or a rebleed within 5 days of the first bleed.'],
     },
     {
       id: 'rebleed', action: { kind: 'rupture', tear: 0.6 }, cam: 'bleed', labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Bleeding varix' }, tool: REBEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',
       kicker: 'Failure', site: 'sin', title: 'A rebleed within 5 days counts as treatment failure',
-      line: 'On day 3 he vomits blood again, on octreotide and with the bands in place. Within minutes the heart rate climbs to {hr} and the blood pressure falls to {map}.',
+      line: 'On day 3 she vomits blood again, on octreotide and with the bands in place. Within minutes the heart rate climbs to {hr} and the blood pressure falls to {map}.',
       notes: 'A varix that bleeds again within 5 days of the first bleed means the first treatment did not work. The heart rate climbs and the blood pressure falls as before, but now the room has less reserve. Resuscitation restarts at once, and the endoscopist and the intensive care team are called. (Baveno VIII 5.16.)',
       ask: ['A patient is banded on Monday and vomits blood on Thursday. Is that treatment failure?', 'Yes: a rebleed within 5 days of the first bleed is treatment failure.'],
     },
@@ -118,8 +118,8 @@ export const BLEED = {
     {
       id: 'rescue', params: { balloonGas: false, balloonEso: false, tips: { on: true } }, action: [{ kind: 'stopBleed' }], cam: 'liver', tool: { kind: 'profile', from: 'bridge', fromLabel: 'Before TIPS' }, data: 'tiles', tiles: ['map', 'liver'], key: ['ppg'], delta: true,
       kicker: 'The rescue', site: 'sin', title: 'A rescue TIPS takes the pressure off the varix',
-      line: 'A covered TIPS lowers the PPG to {ppg}, which is {<12 mmHg}, and the bleeding stops. The price is the liver\'s blood supply: it keeps {liver} of its normal flow.',
-      notes: 'Baveno VIII recommends a salvage TIPS when bleeding cannot be controlled despite drugs and endoscopy, and AASLD 2024 calls it a rescue TIPS when the bleed returns despite vasoactive therapy and banding. The covered stent opens a channel from the portal vein to a hepatic vein, so most portal blood bypasses the liver. The gradient across the liver falls below the level where varices bleed, and the balloon can come out. No age, Child–Pugh class or MELD score rules a rescue TIPS out by itself: it is considered case by case, and transplant candidacy is assessed at once, because death rates stay high at a high MELD. Hepatic encephalopathy is the main risk afterward, and many centers give lactulose or rifaximin from the start. (Baveno VIII 5.36, 5.37; AASLD 2024 35.)',
+      line: 'A covered TIPS lowers the PPG to {ppg}, {<12 mmHg}, and the bleeding stops. Sinusoidal flow falls to {liver} of normal, mostly from the hepatic artery now.',
+      notes: 'Baveno VIII recommends a salvage TIPS when bleeding cannot be controlled despite drugs and endoscopy, and AASLD 2024 calls it a rescue TIPS when the bleed returns despite vasoactive therapy and banding. The covered stent opens a channel from the portal vein to a hepatic vein, so most portal blood bypasses the liver. The gradient across the liver falls below the level where varices bleed, and the balloon can come out. A rescue TIPS is likely futile at Child–Pugh 14 or more, or a MELD above 30 with a lactate above 12 mmol/L, unless a transplant is close; below that it is decided case by case, and transplant candidacy is assessed at once, because death rates stay high at a high MELD. Hepatic encephalopathy is the main risk afterward, and many centers give lactulose or rifaximin from the start. (Baveno VIII 5.36, 5.37; AASLD 2024 35.)',
       ask: ['What does a rescue TIPS change that a stent or a balloon does not?', 'It lowers the portal pressure feeding the varix, so the bleeding stops for good.'],
     },
     {
@@ -136,11 +136,11 @@ export const BLEED = {
     },
     {
       id: 'summary', visual: 'table', cols: ['hr', 'map', 'hb', 'hbTo', 'pv', 'ppg'], asc: false, vs: 'first', rowHead: 'Step',
-      of: [{ id: 'before', kicker: 'Baseline', title: 'Before the bleed' }, { id: 'tear', kicker: K, title: 'The tear' }, { id: 'minutes', kicker: K, title: 'Shock, minutes later' }, { id: 'oct', kicker: 'Drug and volume', title: 'Octreotide, first unit' }, { id: 'blood', kicker: 'Volume', title: 'Second unit' }, { id: 'band', kicker: 'Scope', title: 'Banding' }, { id: 'tips', kicker: 'Shunt', title: 'Pre-emptive TIPS' }, { id: 'rebleed', kicker: 'Day 3', title: 'The rebleed' }, { id: 'rescue', kicker: 'The rescue', title: 'Rescue TIPS' }],
+      of: [{ id: 'before', kicker: 'Baseline', title: 'Before the bleed' }, { id: 'tear', kicker: K, title: 'The tear' }, { id: 'minutes', kicker: K, title: 'Shock, minutes later' }, { id: 'oct', kicker: 'Drug and volume', title: 'Octreotide, first unit' }, { id: 'blood', kicker: 'Volume', title: 'Second unit' }, { id: 'band', kicker: 'Scope', title: 'Banding' }, { id: 'tips', kicker: 'Shunt', title: 'Pre-emptive TIPS' }, { id: 'rebleed', kicker: 'Second patient, day 3', title: 'The rebleed' }, { id: 'rescue', kicker: 'Second patient', title: 'Rescue TIPS' }],
       kicker: 'Summary', title: 'Vital signs and portal pressure through the bleed',
-      line: 'Heart rate and blood pressure track the volume; the hemoglobin lags. Portal pressure falls with the bleed and again with a TIPS. A rebleed within 5 days is treatment failure.',
-      notes: 'The order of care: airway, volume with octreotide and an antibiotic, restrictive transfusion, endoscopy with banding within 12 hours, and a pre-emptive TIPS for the highest risk. The portal pressure falls with the blood loss and rises as volume returns, so the aim is a stable circulation, not a full one. A bleed that comes back within 5 days is treatment failure: bridge it with a covered stent or a balloon and place a rescue TIPS without waiting for a score to decide. Assess transplant candidacy at once.',
-      ask: ['Put these in order: banding, octreotide, transfusion to 7 g/dL, ceftriaxone.', 'Octreotide and ceftriaxone at once, transfusion as needed, banding within 12 hours.'],
+      line: 'Heart rate and blood pressure track the volume; the hemoglobin lags. Portal pressure falls with the bleed and again with a TIPS. Her day 3 rebleed is treatment failure.',
+      notes: 'The order of care: airway, volume with octreotide and an antibiotic, restrictive transfusion, endoscopy with banding within 12 hours, and a pre-emptive TIPS for the highest risk. The portal pressure falls with the blood loss and rises as volume returns, so the aim is a stable circulation, not a full one. A bleed that comes back within 5 days is treatment failure: bridge it with a covered stent or a balloon and place a rescue TIPS unless it would be futile (Child–Pugh 14 or more, or MELD above 30 with lactate above 12 mmol/L, with no transplant close). Assess transplant candidacy at once.',
+      ask: ['Put these in order: banding, octreotide, transfusion to 7 g/dL, ceftriaxone.', 'Octreotide (or terlipressin) and ceftriaxone at once, transfusion as needed, banding within 12 hours.'],
     },
   ],
 };

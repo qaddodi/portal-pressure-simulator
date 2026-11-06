@@ -61,6 +61,7 @@ export const CIRCUIT = withPoints({
       id: 'resist', preset: 'csph', view: C, zone: 'liver', kMax: 2.6, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
       whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: K, site: 'sin', title: 'Cirrhosis raises the resistance in the liver',
+      vignette: 'A 58-year-old woman with alcohol-associated cirrhosis, sober for a year, has small varices at her screening endoscopy. She has never had ascites.',
       line: 'Scarring raises the resistance several-fold. Part of the rise is vascular tone, which drugs can relax.',
       notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same.',
       ask: ['What part of the intrahepatic resistance can drugs lower?', 'The dynamic part, stellate cell and vascular tone; scar and nodules do not relax.'],

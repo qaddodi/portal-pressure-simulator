@@ -11,17 +11,17 @@ export const CHOOSE_TREATMENT = {
   objectives: [
     'Apply the pre-emptive TIPS criteria after a variceal bleed',
     'Choose between repeated paracentesis and TIPS for refractory ascites',
-    'Explain why a TIPS does not help bleeding from splenic vein thrombosis',
+    'Anticoagulate a recent portal vein clot in cirrhosis, and know which clots need it',
     'Start anticoagulation in portal vein thrombosis and Budd–Chiari syndrome, and know what follows it',
   ],
   checks: [
     ['Child–Pugh B 8, variceal bleed controlled by bands, no active bleeding at endoscopy. Pre-emptive TIPS?', 'No. Child–Pugh B qualifies only with active bleeding at endoscopy (or an HVPG ≥20 mmHg). She gets carvedilol and repeat banding.'],
-    ['Fundal varices bleed with a normal PPG and a clotted splenic vein. Why not a TIPS?', 'The portal pressure is normal; the high pressure is on the splenic side. Splenectomy, splenic vein stenting or splenic artery embolization treats it.'],
+    ['A screening ultrasound in Child–Pugh A cirrhosis finds a new clot in over half of the main portal vein. Anticoagulate?', 'Yes, once tumor invasion is ruled out (Baveno VIII 9.19). Variceal prophylaxis goes on beside it and must not delay it.'],
     ['How long does anticoagulation continue after a recent portal vein clot without cirrhosis?', '≥6 months, and longer when a lasting prothrombotic cause is found.'],
     ['In Budd–Chiari syndrome, what follows anticoagulation when the ascites does not respond?', 'Angioplasty of a short stenosis if there is one, then a TIPS (often a DIPS straight to the IVC), then transplant.'],
   ],
   sections: [['Bleeding', ['Bleeding']], ['Ascites', ['Ascites']], ['Clots', ['Clots']], ['Outflow', ['Outflow']]],
-  summary: 'Five cases, one slide each: a variceal bleed, refractory ascites, splenic vein thrombosis, a recent portal vein clot and Budd–Chiari syndrome, each with the choice the guidelines make and why.',
+  summary: 'Five cases, one slide each: a variceal bleed, refractory ascites, a portal vein clot in cirrhosis, a recent portal vein clot without it and Budd–Chiari syndrome, each with the choice the guidelines make and why.',
   slides: [
     {
       id: 'a1', preset: 'cirr-decomp', action: BAND, params: CARV, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles',
@@ -41,26 +41,28 @@ export const CHOOSE_TREATMENT = {
       vignette: 'A 57-year-old man with MASH cirrhosis needs a 6 L paracentesis every two weeks despite full-dose diuretics. His bilirubin is 1.8 mg/dL and he has no encephalopathy.',
       caseQ: 'What stops ascites that keeps coming back?',
       kicker: 'Ascites', site: 'sin', title: 'TIPS for recurrent ascites',
-      line: 'He has no encephalopathy and a low bilirubin, so he gets a TIPS. Four weeks on the ascites is {asc}, but the liver gets {liver} of its normal flow.',
+      line: 'He has no encephalopathy and a low bilirubin, so he gets a TIPS. Over the following weeks the ascites clears and diuretics are tapered; sinusoidal flow is {liver} of normal.',
       notes: 'Refractory ascites returns within four weeks despite the highest diuretic doses and a low-salt diet, or the diuretics cannot be given. Large-volume paracentesis with albumin, 6 to 8 g for each liter drained, treats it but must be repeated, because the fluid comes from the sinusoids and only a lower sinusoidal pressure stops it at its source. Baveno VIII: patients with recurrent or refractory ascites should be considered for a TIPS, discussed together with liver transplant. The stent may be dilated to the smallest diameter that controls the ascites, to lower the risk of encephalopathy and heart failure. Past encephalopathy, a high bilirubin, heart failure or pulmonary hypertension weigh against a TIPS. (Baveno VIII 6.3 to 6.5.)',
       ask: ['What lowers the risk of encephalopathy after a TIPS for ascites?', 'The smallest stent diameter that controls the ascites, rifaximin in selected patients, and choosing patients without past encephalopathy.'],
     },
     {
-      id: 'a3', preset: 'svt', params: { splenicRx: 2 }, days: 30, lapse: { seconds: 7, from: 'Before surgery', to: 'A month after splenectomy' }, cam: 'splenic', lens: 'heat', labels: ['SV', 'GV', 'CONF'], data: 'tiles', tiles: ['gv', 'plt'], key: ['gv'],
-      vignette: 'A 49-year-old man had necrotizing pancreatitis last year and now bleeds from fundal varices. His liver tests are normal and his spleen is large.',
-      caseQ: 'What stops his fundal varices?',
-      kicker: 'Clots', site: 'pre', title: 'Splenectomy, not a TIPS',
-      line: 'The clotted splenic vein keeps the high pressure on the spleen\'s side. A month after splenectomy the fundal varices are {gv} and the platelets {plt}.',
-      notes: 'Pancreatitis is the commonest cause of an isolated splenic vein clot. The spleen drains through the short gastric veins into the fundus, so fundal varices form with a normal portal pressure: left-sided, or sinistral, portal hypertension. A TIPS lowers a portal pressure that was never high. AASLD 2024: patients with bleeding gastric varices from isolated splenic vein thrombosis should be evaluated for splenectomy, splenic vein stenting or splenic artery embolization. Each one cuts the splenic outflow into the fundus, and the congestion lens shows it leaving the splenic side. Carvedilol lowers the splenic inflow only partly. (AASLD 2024 statement 47.)',
-      ask: ['Which treatments fit bleeding fundal varices from an isolated splenic vein clot?', 'Splenectomy, splenic vein stenting or splenic artery embolization.'],
+      // (A recent clot in cirrhosis, found on the 6-monthly scan: the commoner portal vein clot in clinic. The clot is partial, over half the
+      // trunk; the start is the preset with the clot, and anticoagulation lyses it over the days, as the model always does.)
+      id: 'a3', preset: 'csph', params: { drugs: { carvedilol: true }, thrombus: { PV_TRUNK: 0.6 }, anticoag: true }, days: 180, lapse: { seconds: 8, from: 'Anticoagulation starts', to: '6 months later' }, cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
+      vignette: 'A 62-year-old man with MASH cirrhosis and CSPH, Child–Pugh A 6, takes carvedilol. His 6-monthly ultrasound shows no tumor but a new clot filling over half of the main portal vein. He has no pain.',
+      caseQ: 'Does this clot need treatment?',
+      kicker: 'Clots', site: 'pre', title: 'A recent portal vein clot in cirrhosis: anticoagulate',
+      line: 'In cirrhosis, a recent clot filling over half of the main portal vein is anticoagulated. Six months on, the vein is open: portal flow is {pvFlow}, the PPG {ppg}.',
+      notes: 'Portal vein thrombosis is far commoner in cirrhosis than without it; Baveno VIII advises looking for it at each 6-monthly liver cancer scan (9.16). Contrast-enhanced imaging first rules out tumor invasion, which enhances in the arterial phase and expands the vein (9.17). Anticoagulation should be considered for a recent clot that is complete or leaves under half of the main portal vein open, for a clot that causes symptoms, and for a non-tumoral clot with liver cancer (9.19); it is recommended in any potential transplant candidate with a clot (9.18). Started early, the vein reopens far more often than without treatment. Low-molecular-weight heparin, a vitamin K antagonist or a direct oral anticoagulant may be used; a direct oral anticoagulant is safe in Child–Pugh A, used with caution in B and not in C (9.23, 9.24). Banding can be done without stopping heparin or a vitamin K antagonist (8.11). It continues until the transplant in a candidate, and otherwise for at least 6 months, with long-term use considered whether or not the vein reopens (9.20). Here the clot raised the PPG well above an HVPG that barely moved, because it lies before the sinusoids. In the model the clot always dissolves; in patients it does not always.',
+      ask: ['Which portal vein clots in cirrhosis are anticoagulated?', 'Any clot in a transplant candidate; otherwise a recent clot that is complete or leaves under half of the main vein open, a symptomatic clot, or a non-tumoral clot with liver cancer.'],
     },
     {
       id: 'a4', preset: 'pvt-acute', params: { anticoag: true }, days: 180, lapse: { seconds: 8, from: 'Anticoagulation starts', to: '6 months later' }, cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
       vignette: 'A 39-year-old woman with factor V Leiden who takes an OCP has had 4 days of constant periumbilical pain. CT shows a fresh clot in the portal vein. Her liver is normal.',
       caseQ: 'What treatment reopens the vein?',
       kicker: 'Clots', site: 'pre', title: 'Anticoagulate at once, for ≥6 months',
-      line: 'Six months on the portal vein has reopened, portal flow is back to {pvFlow} and the PPG is {ppg}.',
-      notes: 'A recent portal vein clot without cirrhosis threatens the bowel, through spreading clot in the mesenteric veins, and the liver\'s portal supply. The OCP is stopped. EASL 2025: anticoagulation starts as soon as possible, because early treatment lowers the risk of bowel ischemia and raises the chance that the vein reopens, and it continues for at least 6 months. Thrombolysis and endovascular treatment are kept, in expert centers, for signs of intestinal ischemia that do not improve early on anticoagulation. Neither thrombolysis nor a TIPS comes first. A lasting prothrombotic cause, such as a myeloproliferative neoplasm, calls for long-term anticoagulation. In the model the clot always dissolves on anticoagulation; in patients the vein reopens in only some. (EASL 2025, recent portal vein thrombosis.)',
+      line: 'With early anticoagulation the vein reopens in about half; here it does: six months on, portal flow is back to {pvFlow} and the PPG is {ppg}.',
+      notes: 'A recent portal vein clot without cirrhosis threatens the bowel, through spreading clot in the mesenteric veins, and the liver\'s portal supply. The OCP is stopped. JAK2 and other myeloproliferative markers are still tested, because several risk factors often coexist. EASL 2025: anticoagulation starts as soon as possible, because early treatment lowers the risk of bowel ischemia and raises the chance that the vein reopens, and it continues for at least 6 months. Thrombolysis and endovascular treatment are kept, in expert centers, for signs of intestinal ischemia that do not improve early on anticoagulation. Neither thrombolysis nor a TIPS comes first. A lasting prothrombotic cause, such as a myeloproliferative neoplasm, calls for long-term anticoagulation. In the model the clot always dissolves on anticoagulation; in patients the vein reopens in only some. (EASL 2025, recent portal vein thrombosis.)',
       ask: ['How long is anticoagulation given after a recent portal vein clot?', '≥6 months, and long term when a lasting prothrombotic cause is found.'],
     },
     {
@@ -74,25 +76,26 @@ export const CHOOSE_TREATMENT = {
     },
     {
       // (The relation chart before the summary: each patient before treatment as a ring, after it as the dot, on the HVPG against
-      // PPG plane. The splenic vein clot is left off: both gradients are normal before and after, its pressure beyond either.)
+      // PPG plane. The portal vein clot in cirrhosis starts from its own ring: the same man with the clot, before anticoagulation.)
       id: 'relation', cam: 'fit', visual: 'plane', plane: 'hvpg-ppg',
       of: [{ id: 'a1', from: { preset: 'cirr-decomp' }, name: 'Carvedilol and bands', short: 'Carvedilol' }, { id: 'a2', from: { preset: 'cirr-decomp' }, name: 'TIPS' },
+        { id: 'a3', from: { preset: 'csph', params: { drugs: { carvedilol: true }, thrombus: { PV_TRUNK: 0.6 } } }, name: 'Anticoagulation, cirrhosis', short: 'Anticoag., cirrhosis' },
         { id: 'a4', from: { preset: 'pvt-acute' }, name: 'Anticoagulation', short: 'Anticoag.' }, { id: 'a5', from: { preset: 'budd-chiari' }, name: 'DIPS' }],
       kicker: 'Summary', title: 'What each treatment does to the two gradients',
       line: 'Each ring is a patient before treatment and its dot after. Carvedilol and a TIPS lower both gradients. Anticoagulation and a DIPS lower the PPG alone.',
-      notes: 'The HVPG runs across and the PPG up, with the app\'s cut-offs (HVPG 5 and 10, PPG 6 and 12 mmHg). The HVPG 10 line marks clinically significant portal hypertension (CSPH: an HVPG of 10 mmHg or more, Baveno VIII and AASLD 2024), and an HVPG to its right is CSPH, whatever the PPG. The PPG 12 line marks the risk of bleeding, and a TIPS aims under it; it is not a CSPH cut-off. The two cirrhosis patients start from the same ring. Carvedilol lowers the inflow, so both gradients fall a little; the TIPS opens a channel beside the sinusoids and takes both down much further. The portal vein clot and Budd–Chiari start high on the PPG with a low HVPG, and their treatments bring the PPG down without moving the HVPG. In Budd–Chiari the hepatic veins cannot be wedged, so its HVPG is a number the model gives and no catheter takes. The splenic vein clot is not on the plane: its pressure sits in the splenic vein, and both gradients stay normal before and after the splenectomy. (AASLD 2024 Table 1; Baveno VIII 6.3, TIPS for recurrent ascites, and 9.19, anticoagulation for portal vein thrombosis.)',
+      notes: 'The HVPG runs across and the PPG up, with the app\'s cut-offs (HVPG 5 and 10, PPG 6 and 12 mmHg). The HVPG 10 line marks clinically significant portal hypertension (CSPH: an HVPG of 10 mmHg or more, Baveno VIII and AASLD 2024), and an HVPG to its right is CSPH, whatever the PPG. The PPG 12 line marks the risk of bleeding, and a TIPS aims under it; it is not a CSPH cut-off. The two cirrhosis patients start from the same ring. Carvedilol lowers the inflow, so both gradients fall a little; the TIPS opens a channel beside the sinusoids and takes both down much further. The two portal vein clots and Budd–Chiari start high on the PPG for their HVPG, and their treatments bring the PPG down with the HVPG barely moving; in cirrhosis the clot sits on top of a sinusoidal HVPG, so the HVPG alone would miss the pressure it adds. In Budd–Chiari the hepatic veins cannot be wedged, so its HVPG is a number the model gives and no catheter takes. (AASLD 2024 Table 1; Baveno VIII 6.3, TIPS for recurrent ascites, and 9.19, anticoagulation for portal vein thrombosis.)',
       ask: ['A patient with a portal vein clot starts anticoagulation. Which gradient shows whether it worked?', 'The PPG. The HVPG is normal before and after, because the clot lies before the sinusoids.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['ppg', 'asc', 'liver'], asc: false, note: 'Choice', rowHead: 'Case',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'None', ref: true },
         { id: 'a1', kicker: 'Bleeding', title: 'Bleed, Child–Pugh B 8', note: 'Carvedilol and bands' }, { id: 'a2', kicker: 'Ascites', title: 'Refractory ascites', note: 'TIPS' },
-        { id: 'a3', kicker: 'Clots', title: 'Splenic vein clot', note: 'Splenectomy' }, { id: 'a4', kicker: 'Clots', title: 'Portal vein clot', note: 'Anticoagulation' },
+        { id: 'a3', kicker: 'Clots', title: 'Portal vein clot, cirrhosis', note: 'Anticoagulation' }, { id: 'a4', kicker: 'Clots', title: 'Portal vein clot, no cirrhosis', note: 'Anticoagulation' },
         { id: 'a5', kicker: 'Outflow', title: 'Budd–Chiari', note: 'DIPS' }],
       kicker: 'Summary', title: 'Match the treatment to where the pressure is',
       line: 'The right choice follows the case: the criteria after a bleed, the source of the fluid, which side of the clot carries the pressure, and where a shunt can drain.',
-      notes: 'Each row shows the case after its treatment. Each choice treats the place where the pressure builds. A TIPS that drains a normal portal vein, or into a clotted hepatic vein, lowers nothing; a splenectomy or a DIPS reaches the right place.',
-      ask: ['Which two cases show a TIPS that would not help, and why?', 'Splenic vein thrombosis, where the portal pressure is normal, and Budd–Chiari syndrome, where the hepatic veins it would drain into are clotted.'],
+      notes: 'Each row shows the case after its treatment. Each choice treats the place where the pressure builds. A TIPS cannot drain into a clotted hepatic vein; a DIPS reaches the IVC instead. A clot before the liver is treated by reopening the vein, with or without cirrhosis.',
+      ask: ['Two patients have a recent portal vein clot, one with cirrhosis. What is the same, and what differs?', 'Both are anticoagulated early. In cirrhosis tumor thrombus is ruled out first, and variceal prophylaxis goes on beside it.'],
     },
   ],
 };

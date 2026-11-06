@@ -48,7 +48,7 @@ export const DOPPLER = {
       ask: ['Why is portal Doppler done fasting?', 'A meal raises portal flow and velocity, which can hide the slow flow of portal hypertension.'],
     },
     {
-      id: 'slow', lens: 'velocity', preset: 'cirr-decomp', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'slow', lens: 'velocity', preset: 'cirr-decomp', params: { cirrhosis: 0.92 }, cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis slows the portal vein',
       vignette: 'A 62-year-old man with alcohol-associated cirrhosis has ascites on spironolactone and furosemide and large esophageal varices. He comes fasting for a Doppler ultrasound.',
@@ -69,7 +69,7 @@ export const DOPPLER = {
       vignette: 'A 63-year-old man with hepatitis C cirrhosis has had two admissions for encephalopathy this year. He comes fasting for an ultrasound before a TIPS is considered.',
       caseQ: 'Which way will his portal blood run?',
       kicker: 'Portal inflow', site: 'sin', title: 'Below the baseline: the portal vein has reversed',
-      line: 'The spectrum sits below the baseline, so portal blood runs away from the liver at {pvFlow}, out through a splenorenal shunt. Hepatofugal flow marks advanced cirrhosis.',
+      line: 'The spectrum sits below the baseline: portal blood runs away from the liver, out through a splenorenal shunt. Hepatofugal flow signals a large shunt and a worse outlook.',
       notes: 'Hepatofugal flow appears in advanced cirrhosis, in about 8% of patients, usually with large spontaneous shunts, when the liver resists more than the collaterals do. The liver then depends on the hepatic artery. It raises the risk of portal vein thrombosis and of encephalopathy, and it is a warning before a TIPS. To-and-fro flow is the step before full reversal. Colored by direction, the portal and splenic veins show the reversed flow draining away through the splenorenal shunt.',
       ask: ['What does hepatofugal portal flow tell you about the liver?', 'Its resistance is higher than the collaterals\', so portal blood leaves through them: advanced cirrhosis.'],
     },
@@ -116,7 +116,7 @@ export const DOPPLER = {
       tool: { kind: 'curve', x: 'hvpg', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['pvVel', 'pvFlow'] },
       kicker: 'Summary', site: 'sin', title: 'A normal portal velocity does not rule out CSPH',
       line: 'CSPH at an HVPG of {hvpg}, and the main portal vein still runs {pvVel}. In this model the velocity falls {<15 cm/s} only at an HVPG of about 16.',
-      notes: 'Each point is the model\'s cirrhosis from mild to severe, settled for a year: the main portal vein\'s velocity and the portal flow, read against the HVPG. The velocity holds near 26 cm/s up to an HVPG of 10 mmHg, is still 24 cm/s at 11.6, and goes <15 cm/s only at about 16. The portal flow first rises with the hyperdynamic circulation, then falls as the collaterals carry more of the inflow. So the Doppler signs are specific but insensitive: a normal portal velocity does not exclude CSPH. The model\'s velocity is the mean along the vein; the published cut-offs use the peak velocity, <16 cm/s together with a wider vein (Iranpour 2016; McNaughton and Abu-Yousef 2011), and the app marks 15 cm/s. The ring is the CSPH patient. (Iranpour 2016; McNaughton and Abu-Yousef 2011; AASLD 2024 Fig. 2.)',
+      notes: 'Each point is the model\'s cirrhosis from mild to severe, settled for a year: the main portal vein\'s velocity and the portal flow, read against the HVPG. The velocity holds near 26 cm/s up to an HVPG of 10 mmHg, is still 24 cm/s at 11.6, and goes <15 cm/s only at about 16. The portal flow first rises with the hyperdynamic circulation, then falls as the collaterals carry more of the inflow. So the Doppler signs are specific but insensitive: a normal portal velocity does not exclude CSPH. The model\'s velocity is the mean along the vein; the published cut-offs use the peak velocity, <16 cm/s together with a wider vein (Iranpour 2016; McNaughton and Abu-Yousef 2011), and the app marks 15 cm/s. The ring is the CSPH patient. (Iranpour 2016; McNaughton and Abu-Yousef 2011; AASLD 2024 Fig. 2.) One model patient per point; real patients vary far more.',
       ask: ['A patient has an HVPG of 12 mmHg and a portal vein velocity of 24 cm/s. Does the normal Doppler rule out CSPH?', 'No. The velocity usually falls <15 cm/s only at a much higher gradient, so a normal Doppler does not exclude CSPH.'],
     },
     {

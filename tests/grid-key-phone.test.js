@@ -131,7 +131,7 @@ test('Sites 10 and Where-resistance 14 name sinusoidal obstruction syndrome shor
     assert.equal(table.of.find((o) => o.id === row)?.name, SHORT, `${d} table rows carry it too (its column shows the title)`);
     assert.doesNotMatch(SHORT, /…|\.\.\./);
   }
-  assert.equal(slide(deck('sites'), 'postsin').title, 'Sinusoidal obstruction syndrome');
+  assert.match(slide(deck('sites'), 'postsin').title, /^Sinusoidal obstruction syndrome: /, 'the slide names it in full, then its finding');
   assert.match(css, /\.pz-cell-k\.under \{ flex-wrap: wrap; \}/);
 });
 

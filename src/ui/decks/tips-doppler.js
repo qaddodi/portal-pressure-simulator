@@ -32,7 +32,7 @@ export const TIPS_DOPPLER = {
   ],
   slides: [
     {
-      id: 'before', preset: 'cirr-decomp', cam: 'portal', lens: 'velocity', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'before', preset: 'cirr-decomp', params: { cirrhosis: 0.92 }, cam: 'portal', lens: 'velocity', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       vignette: 'A 53-year-old woman with cirrhosis from hepatitis C, cured 4 years ago, has bled again from esophageal varices despite banding and a beta-blocker. She has a fasting Doppler before a planned TIPS.',
       kicker: 'Before TIPS', title: 'Before the stent, portal flow is slow',
       line: 'Resistance in the sinusoids slows the main portal vein to {<15 cm/s}, so the portal veins look pale. Every later scan is compared with this one.',

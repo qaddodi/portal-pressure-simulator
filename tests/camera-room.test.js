@@ -89,7 +89,6 @@ test('no slide needs its frame grown past the limit to hold what it points at (n
 // hold it (camBox); the list is for the person reading a push, so a slide's framing never changes without somebody seeing why.
 const ROOMED = {
   'ascites/bc': 'the sinusoids label hangs from the lower liver, at the bottom edge of the hepatic region',
-  'choose-treatment/a3': 'the portal vein label hangs from the trunk, just left of the splenic region',
   'choose-treatment/a5': 'the IVC and right atrium labels sit above the DIPS region',
   'doppler/normal': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',
   'doppler/probe': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',
