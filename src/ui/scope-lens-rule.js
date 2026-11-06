@@ -32,6 +32,11 @@ export function scopeLensFor(s) {
   return marks.some((m) => (m.edges || []).some((e) => e === 'C1a' || e === 'C1b'));
 }
 
+/** Whether slide s is one where the varices grow or change as it plays (a time-lapse, a ramp, days passing): its
+ *  ring stands from the first frame, whether or not they are yet the size the model calls present, so the lens can be opened at any time and shows
+ *  them as they come. (Other slides keep the ring for a patient who has varices.) */
+export const scopeGrows = (s) => !!(s && (s.lapse || s.ramp || s.days));
+
 const f2 = (v) => +v.toFixed(2);
 /** The ring's shapes, [tag, attributes] in world units: a dashed ring while closed (its dashes as separate strokes: the marks' GPU reader
  *  takes no dash pattern), solid while its lens is open, with the badge (a disc with the end face of a scope tip: lens, two light guides,
@@ -70,6 +75,9 @@ export function ringHit(px, py, ring) {
   return Math.hypot(px - ring.bx, py - ring.by) <= Math.max(ring.br + 8, 22);
 }
 
+// (The sizes tried in turn, and the gap between the ring and its lens, screen px. `fixed`: an open lens keeps its size: only its place is looked for.)
+const SHRINK = [1, 0.85, 0.7, 0.6], FULL = [1], GAP = 34;
+export { GAP as LENS_GAP };
 const circleRect = (x, y, r, q) => { const cx = Math.max(q.l, Math.min(x, q.r)), cy = Math.max(q.t, Math.min(y, q.b)); return Math.hypot(x - cx, y - cy) < r; };
 const overlap = (x, y, r, q) => { const w = Math.max(0, Math.min(x + r, q.r) - Math.max(x - r, q.l)), h = Math.max(0, Math.min(y + r, q.b) - Math.max(y - r, q.t)); return w * h; };
 // The directions the lens tries, in turn: up and right first (open black beside the esophagus), then right, up, left, below.
@@ -81,10 +89,10 @@ const DIRS = [-40, 0, -75, -140, 180, 35, 140, 90].map((d) => (d * Math.PI) / 18
  * bleed); size: the lens radius wanted. It tries each direction at the full size, then smaller (down to 60%); with no free spot at all it
  * takes the one that covers least (a phone held upright, where the cards leave a strip).
  */
-export function placeLens(ring, bounds, avoid, size) {
-  const M = 10, gap = 34;
+export function placeLens(ring, bounds, avoid, size, fixed = false) {
+  const M = 10, gap = GAP;
   let best = null, bestCost = Infinity;
-  for (const k of [1, 0.85, 0.7, 0.6]) {
+  for (const k of fixed ? FULL : SHRINK) {
     const R = Math.round(size * k);
     for (const a of DIRS) {
       const D = ring.r + R + gap, x = ring.x + D * Math.cos(a), y = ring.y + D * Math.sin(a);
@@ -102,6 +110,15 @@ export function placeLens(ring, bounds, avoid, size) {
     best.y = Math.min(Math.max(best.y, bounds.t + M + best.r), bounds.b - M - best.r);
   }
   return best;
+}
+
+/** Whether a lens of radius R centred at (x, y) stands inside the bounds and clear of every rectangle (the test placeLens makes of a spot,
+ *  asked of a lens that has moved with its ring: it keeps its place while it fits). */
+export function lensFits(x, y, R, bounds, avoid) {
+  const M = 10;
+  if (!(x - R >= bounds.l + M && x + R <= bounds.r - M && y - R >= bounds.t + M && y + R <= bounds.b - M)) return false;
+  for (let i = 0; i < avoid.length; i++) if (circleRect(x, y, R + 6, avoid[i])) return false;
+  return true;
 }
 
 /** The cone from the ring to the lens: the two outer tangents of the two circles, [x0, y0, x1, y1] each (ring end, lens end), or null when
@@ -122,4 +139,23 @@ export function ringOnScreen(toLocal, ctm, wrap) {
   const c = toLocal(RING.x, RING.y), b = badgeAt(), bp = toLocal(b.x, b.y), q0 = toLocal(BLEED_BOX.l, BLEED_BOX.t), q1 = toLocal(BLEED_BOX.r, BLEED_BOX.b);
   return { x: c[0], y: c[1], r: RING.r * sc, bx: bp[0], by: bp[1], br: BADGE_R * sc, ox: wrap?.left || 0, oy: wrap?.top || 0,
     bleed: { l: Math.min(q0[0], q1[0]), t: Math.min(q0[1], q1[1]), r: Math.max(q0[0], q1[0]), b: Math.max(q0[1], q1[1]) } };
+}
+
+/** The ring's centre and radius on screen, written into `o` (a kept record: asked for on every step of a camera move, so it makes nothing):
+ *  o.x, o.y, o.r in stage px from the stage's corner. toLocalInto(out, x, y): world to stage px; ctm: the figure's matrix. false without a scale. */
+export function ringInto(o, toLocalInto, ctm, tmp) {
+  const sc = ctm?.sc || 0;
+  if (!(sc > 0)) return false;
+  toLocalInto(tmp, RING.x, RING.y);
+  o.x = tmp[0]; o.y = tmp[1]; o.r = RING.r * sc;
+  return true;
+}
+
+/** Where the lens's centre stands for a ring at (ring.x, ring.y) of radius ring.r: the same direction (a.ux, a.uy) from the ring and the same
+ *  gap (a.gap) past its edge, the lens's own radius a.R unchanged, so a ring that is carried, zoomed or pinched takes its lens with it and
+ *  they never overlap. Written into `o`. */
+export function lensCentre(o, ring, a) {
+  const D = ring.r + a.R + a.gap;
+  o.x = ring.x + a.ux * D; o.y = ring.y + a.uy * D;
+  return o;
 }

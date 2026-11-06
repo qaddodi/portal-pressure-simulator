@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS } from '../src/ui/decks.js';
 import { SITES } from '../src/ui/anatomy.js';
-import { RING, BADGE_R, BLEED_BOX, badgeAt, scopeLensFor, ringShapes, ringHit, placeLens, coneLines } from '../src/ui/scope-lens-rule.js';
+import { RING, BADGE_R, BLEED_BOX, badgeAt, scopeLensFor, scopeGrows, ringShapes, ringHit, placeLens, coneLines, lensFits, lensCentre, ringInto, LENS_GAP } from '../src/ui/scope-lens-rule.js';
 
 const slide = (deck, id) => DECKS.find((d) => d.id === deck).slides.find((s) => s.id === id);
 
@@ -89,4 +89,51 @@ test('the cone runs along the two outer tangents', () => {
     assert.ok(Math.abs((ux * (x0 - a.x) + uy * (y0 - a.y)) / l) < 1e-6, 'tangent to the ring');
   }
   assert.equal(coneLines(a, { x: 1, y: 0, r: 40 }), null);
+});
+
+test('the ring stands from a slide\'s first frame where the varices grow while it plays (a time-lapse, a ramp, days passing)', () => {
+  // (Mohammad 6 Nov 2026: "as the slide is playing i can't click on the scope ... we should see the varices growing in the scope".)
+  const lapse = slide('varices', 'lapse');
+  assert.equal(scopeLensFor(lapse), true);
+  assert.equal(scopeGrows(lapse), true, 'Collaterals and varices, the time-lapse');
+  assert.equal(scopeGrows(slide('varices', 'eso')), false, 'a still slide keeps the ring for a patient who has varices');
+  assert.equal(scopeGrows(slide('varices', 'nograd')), false, 'heart failure: no ring on an esophagus without varices');
+  const grow = [];
+  for (const d of DECKS) for (const s of d.slides) if (scopeLensFor(s) && (s.lapse || s.ramp || s.days)) grow.push(`${d.id}/${s.id}`);
+  assert.ok(grow.length >= 4, 'every playing slide with a ring: ' + grow.join(', '));
+  for (const d of DECKS) for (const s of d.slides) if (scopeLensFor(s)) assert.equal(scopeGrows(s), !!(s.lapse || s.ramp || s.days), `${d.id}/${s.id}`);
+});
+
+test('a lens moves with its ring: the same direction, the same gap past its edge, whatever the zoom', () => {
+  const ring0 = { x: 400, y: 300, r: 30 }, L = placeLens(ring0, { l: 0, t: 0, r: 1600, b: 1000 }, [], 120);
+  const d = Math.hypot(L.x - ring0.x, L.y - ring0.y), a = { ux: (L.x - ring0.x) / d, uy: (L.y - ring0.y) / d, R: L.r, gap: d - ring0.r - L.r };
+  assert.ok(Math.abs(a.gap - LENS_GAP) < 1, 'the gap it opened with (to the pixel it was rounded to)');
+  const o = { x: 0, y: 0 };
+  lensCentre(o, ring0, a); assert.ok(Math.abs(o.x - L.x) < 1 && Math.abs(o.y - L.y) < 1, 'at the opening it is where it was put');
+  for (const ring of [{ x: 520, y: 260, r: 30 }, { x: 380, y: 310, r: 75 }, { x: 900, y: 120, r: 12 }]) {
+    lensCentre(o, ring, a);
+    const dist = Math.hypot(o.x - ring.x, o.y - ring.y);
+    assert.ok(Math.abs(dist - (ring.r + a.R + a.gap)) < 1e-6, 'its edge stands the gap from the ring\'s edge');
+    assert.ok(Math.abs((o.x - ring.x) / dist - a.ux) < 1e-9 && Math.abs((o.y - ring.y) / dist - a.uy) < 1e-9, 'in its own direction');
+  }
+});
+
+test('a lens that has moved is kept while it fits, and found a new place (its size kept) when a card has come over it', () => {
+  const bounds = { l: 0, t: 0, r: 1600, b: 1000 }, ring = { x: 500, y: 300, r: 40 };
+  assert.equal(lensFits(700, 200, 100, bounds, []), true);
+  assert.equal(lensFits(700, 200, 100, bounds, [{ l: 650, t: 150, r: 900, b: 400 }]), false, 'under a card');
+  assert.equal(lensFits(20, 200, 100, bounds, []), false, 'off the stage');
+  const L = placeLens(ring, bounds, [{ l: 0, t: 0, r: 800, b: 200 }], 100, true);
+  assert.equal(L.r, 100, 'its size is kept');
+  assert.equal(lensFits(L.x, L.y, L.r, bounds, [{ l: 0, t: 0, r: 800, b: 200 }]), true);
+  const squeezed = placeLens(ring, { l: 0, t: 0, r: 330, b: 330 }, [], 100, true);
+  assert.equal(squeezed.r, 100, 'never shrunk while it is open, even where it cannot fit');
+});
+
+test('the ring\'s place for a camera step is written into a kept record', () => {
+  const o = { x: 0, y: 0, r: 0 }, tmp = [0, 0];
+  const toLocal = (out, x, y) => { out[0] = 2 * x + 5; out[1] = 2 * y - 7; return out; };
+  assert.equal(ringInto(o, toLocal, { sc: 2 }, tmp), true);
+  assert.deepEqual(o, { x: 2 * RING.x + 5, y: 2 * RING.y - 7, r: RING.r * 2 });
+  assert.equal(ringInto(o, toLocal, { sc: 0 }, tmp), false, 'no scale, no ring');
 });

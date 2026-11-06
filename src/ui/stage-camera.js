@@ -71,7 +71,7 @@ export function createCamera(st, live) {
   const boxAgain = () => { if (boxAsk) return; live.box = null; live.CTM = null; boxAsk = readFrame(boxRead); };
   const stageBox = () => { if (!live.box) boxAgain(); return live.box || live.boxKept; };
   measureBox();
-  new ResizeObserver(() => { measureBox(); live.CTM = null; }).observe(wrap);
+  new ResizeObserver(() => { measureBox(); live.CTM = null; live.viewHook?.(); }).observe(wrap);   // (the scope view's lens keeps to its ring through a resize too)
   addEventListener('resize', boxAgain);
   // (Only a scroll that can move the figure: the page's, or a box holding it. A card's own list scrolling (Treat, Tests, a menu) left the
   // box dropped, so the next model frame measured the whole figure again after writing it, on every frame of the scroll.)

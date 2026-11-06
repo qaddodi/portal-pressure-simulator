@@ -7495,9 +7495,10 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="flowtime"] .pz-flowtime { --ft-h: var(--pz-chart-hh); height: calc(var(--ft-h) + var(--band-room, 0em)); }
 
 /* The scope view on the figure (scope-lens.js, mock C1 6 Nov 2026): the lens beside the varices' ring, the cone to it, its caption and its
-   close. Laid once per opening, at rest; it comes in by its own opacity and a scale from the ring, and hides at once when the figure moves. */
+   close. Laid once per opening, at rest; it comes in by its own opacity and a scale from the ring, and follows its ring by a transform of the layer as the figure moves. */
 .pz-lens { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity var(--d-small) var(--ease); }
 .pz-lens.on { opacity: 1; }
+.pz-lens.glide { transition: opacity var(--d-small) var(--ease), transform var(--d-surface) var(--ease); }   /* (the lens moved clear of a card once the camera is still: scope-lens.js settle; while the camera moves it follows its ring by the transform alone) */
 .pz-lens-disc { position: absolute; border-radius: 50%; overflow: hidden; pointer-events: auto; cursor: pointer; background: var(--endo-mucosa-deep);
   box-shadow: 0 0 0 5px var(--surface), 0 0 0 6px var(--text); transform-origin: var(--lens-ox, 50%) var(--lens-oy, 50%); transform: scale(.12);
   transition: transform var(--d-surface) var(--ease-arrive); }

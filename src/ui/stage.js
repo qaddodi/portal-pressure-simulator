@@ -134,7 +134,7 @@ import { createRide } from './stage-ride.js';
 import { createGlide } from './stage-glide.js';
 
 import { stageScope } from './stage-scope.js';
-import { ringOnScreen as scopeRingOn } from './scope-lens-rule.js';
+import { ringOnScreen as scopeRingOn, ringInto as scopeRingInto } from './scope-lens-rule.js';
 import { createLzGlassSeq } from './lobule-glass-seq.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
@@ -2849,13 +2849,18 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   dpr.ready = true; dprobePaint();   // (a Doppler set while the stage was being built shows now)
 
   // ── Public API ────────────────────────────────────
+  const SCOPE_TMP = [0, 0];   // (scopeRingInto's scratch pair)
   return {
     update,
     // The scope view (scope-lens.js, mock C1): the ring on the varices, one of the figure's marks; where it is on screen; the lens's hooks.
     setScopeRing(on, open = false) { const r = live.scopeRing, o = !!on, op = o && !!open; if (r.on !== o || r.open !== op) { r.on = o; r.open = op; if (!op) r.cone = null; live.scopeRingRefresh?.(); } },
     /** The cone from the ring to its lens (scope-lens.js): two lines [x0, y0, x1, y1] in stage px, or null; drawn as figure marks, in world units. */
     setScopeCone(ls) { const r = live.scopeRing; if (!ls && !r.cone) return; const m = live.CTM || (refreshCTM(), live.CTM), w = (p) => [...localToWorldInto([0, 0], p[0], p[1]), ...localToWorldInto([0, 0], p[2], p[3])]; r.cone = ls && m?.sc > 0 ? { a: w(ls[0]), b: w(ls[1]), lw: 1.5 / m.sc } : null; r.cv++; live.scopeRingRefresh?.(); },
-    scopeRingAt() { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && F?.metrics?.varix?.present ? scopeRingOn(worldToLocal, live.CTM || (refreshCTM(), live.CTM), live.wrapRect) : null; },
+    // (Shown while the slide asks for it, whether or not the varices have yet grown to the "present" size: the scope's own lens says "No varices" until they do, and a
+    // time-lapse's varices are seen growing in it; scope-lens.js decides when the ring stands, 6 Nov 2026, "i can't click on the scope" while a slide plays.)
+    scopeRingAt() { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && F?.metrics ? scopeRingOn(worldToLocal, live.CTM || (refreshCTM(), live.CTM), live.wrapRect) : null; },
+    /** The ring's centre and radius now, written into `o` (x, y, r: stage px): asked for on each step of a camera move, so it makes nothing. false: not on this view. */
+    scopeRingInto(o) { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && !!F?.metrics && scopeRingInto(o, worldToLocalInto, live.CTM || (refreshCTM(), live.CTM), SCOPE_TMP); },
     onScopeView(view, tap) { live.viewHook = view || null; live.tapHook = tap || null; },
     /** Idle rest: true eases the blood to a stop and lets the figure sleep; false brings the motion back from this frame. */
     rest(on) {

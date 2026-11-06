@@ -186,7 +186,8 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if (!/if \(fp\) inst\.pin\?\.\(fp\);/.test(open)) errors.push("src/ui/scope-lens.js open(): the scope is pinned to the slide's own numbers, as the tiles and the Scope card");
   need('src/ui/scope-lens.js', [
     [/function feed\(\) \{[\s\S]*const f = store\.get\(\)\.frame;[\s\S]*inst\.update\(f\)/, 'fed the frame the figure has, once it has its size'],
-    [/const scopable = \(f, st\) => varicesPresent\(f\) && !gastricUp\(st\.params \|\| NO_P\);/, 'no ring with a tamponade balloon in'],
+    [/const seen = \(f\) => !gastricUp\(store\.get\(\)\.params \|\| NO_P\) && \(grows \|\| varicesPresent\(f\)\);/, 'no ring with a tamponade balloon in'],
+    [/stage\.scopeRingInto\?\.\(rg\)[\s\S]*follow\(\);/, 'the lens follows its ring on every step of the camera, never hidden by it'],
   ]);
   const pres = text('src/ui/presenter.js');
   if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
