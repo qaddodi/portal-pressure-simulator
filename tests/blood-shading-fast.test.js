@@ -114,7 +114,7 @@ test('the streaks and the arrowheads share one read of the vessel\'s flow, lengt
     const main = body(R[k], 'void main()');
     assert.equal((main.match(/texelFetch\(flow, ivec2\(0, id1\), 0\)/g) || []).length, 1, `${k}: flow texel 0 once`);
     assert.equal((main.match(/texelFetch\(flow, ivec2\(1, id1\), 0\)/g) || []).length, 1, `${k}: flow texel 1 once`);
-    assert.match(main, /if \(blood == 1 && f1\.z > 0\.0 && !isLy\) \{/);
+    assert.match(main, /if \(blood == 1 && blendA\.x > 0\.0 && f1\.z > 0\.0 && !isLy\) \{/);
     assert.match(main, /if \(chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy\) \{/);   // (chevQuad: the heads drawn by their own quads, blood-heads.js)
     const bl = body(R[k], 'vec4 bloodAt('), ch = body(R[k], 'vec2 chevAt(');
     for (const f of [bl, ch]) {

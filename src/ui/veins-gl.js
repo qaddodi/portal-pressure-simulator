@@ -1633,7 +1633,7 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
       }
     }
     bool isLy = f1.x < -0.5;   // (a lymph row: dashes, never blood streaks or arrowheads)
-    if (blood == 1 && f1.z > 0.0 && !isLy) {
+    if (blood == 1 && blendA.x > 0.0 && f1.z > 0.0 && !isLy) {   // (blendA.x: the streaks' own switch; the lobule keeps blood.on for its lymph dashes with the streaks off)
       // One streak field (the dominant lumen's), eased down toward the join, so two patterns never ghost over each other. Where
       // both lumens draw one pattern, the two are mixed by share instead (the same mix from either side of the seam) and nothing
       // dims; the minor inflow into a chained vessel dims half as much.
@@ -1673,7 +1673,7 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
       // The dash's ink: clearly deeper than the channel's own green (lighter in the dark theme); the core a visible but quiet albumin amber.
       vec3 ink = mix(vc1, f0.w > 0.5 ? vec3(0.78, 0.95, 0.70) : vec3(0.30, 0.56, 0.28), 0.62);
       vec3 amber = f0.w > 0.5 ? vec3(0.95, 0.71, 0.29) : vec3(0.89, 0.60, 0.12);
-      float aL = clamp(f1.z * vis * flowA * blendA.x, 0.0, 1.0);
+      float aL = clamp(f1.z * vis * flowA, 0.0, 1.0);   // (not blendA.x: the streaks' switch, which the lymph does not follow)
       col = mix(col, ink, lc * aL);
       col = mix(col, amber, lk * aL);
     }
@@ -2936,7 +2936,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The cells that list any of `rows` (marked), but not those marked in `skip`.
   function cellsOfRows(rows, skip, into) {
     if (!rowCells) {
-      rowCells = new Map();
+      rowCells = new Map();   // alloc-rare: the rows' cells found once per cell list (a new figure or a patch of cells)
       for (let c = 0; c < nCells; c++) {
         const s0 = cellsCPU[c * 6 + 2], n = cellsCPU[c * 6 + 3];
         let prev = -1;
@@ -2945,7 +2945,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
           if (row === prev) continue;   // (a cell's list is grouped by vessel)
           prev = row;
           let a = rowCells.get(row);
-          if (!a) rowCells.set(row, a = []);
+          if (!a) rowCells.set(row, a = []);   // alloc-rare: one list per row, when the rows' cells are found
           if (a[a.length - 1] !== c) a.push(c);
         }
       }
@@ -2957,6 +2957,33 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     for (const r of rows) { const list = rowCells.get(r); if (list) for (let i = 0; i < list.length; i++) { const c = list[i]; if (!mark[c] && !(skip && skip[c])) { mark[c] = 1; k++; } } }
     into.k = k;
     return into;
+  }
+  // The cells of the rows wide enough on screen to read the half-size streaks (halfL): only a lumen at least HALF_R device px in radius
+  // does, so the half-size pass has no use over the cells of the narrow rows (the pass had run over every blood square). The squares are
+  // kept in their own buffer, drawn again only when the set of wide rows (or the cell lists) changes.
+  const halfSet = { changed: false, rows: [], scratch: [], rc: null, cells: null, nc: -1, n: 0, data: null, part: {}, buf: gl.createBuffer(), va: gl.createVertexArray() };   // alloc-rare: made once per renderer
+  bloodVAOOf(halfSet.va, halfSet.buf);
+  /** The squares' count, over the rows whose widest lumen is at least 0.85 × HALF_R device px at this scale (0: none found; draw whole). halfSet.changed: the set is not the last one's. */
+  function halfCellsFor(scale) {
+    halfSet.changed = false;
+    if (!cellsCPU || !nCells || !(scale > 0)) return 0;
+    const lim = 0.85 * HALF_R / scale, now = halfSet.scratch;   // (0.85: under the shader's own 0.9, so no row it reads is left out)
+    now.length = 0;
+    for (let r = 0; r < rowMaxR.length; r++) if (rowMaxR[r] >= lim) now.push(r);
+    const was = halfSet.rows;
+    let same = now.length === was.length && halfSet.cells === cellsCPU && halfSet.nc === nCells && halfSet.rc === rowCells && rowCells !== null;
+    for (let i = 0; same && i < now.length; i++) if (now[i] !== was[i]) same = false;
+    if (same) return halfSet.n;
+    // (A different set: its cells found, their squares uploaded, and the set kept to compare with.)
+    const part = cellsOfRows(now, null, halfSet.part);
+    if (!halfSet.data || halfSet.data.length < part.k * 6) halfSet.data = new Float32Array(part.k * 6 + 600);   // alloc-rare: grows only when the wide rows' cells outgrow the list: a new zoom level or a new figure
+    let k = 0;
+    for (let c = 0; c < nCells; c++) if (part.mark[c]) { halfSet.data[k * 6] = cellsCPU[c * 6]; halfSet.data[k * 6 + 1] = cellsCPU[c * 6 + 1]; k++; }
+    gl.bindBuffer(gl.ARRAY_BUFFER, halfSet.buf);
+    gl.bufferData(gl.ARRAY_BUFFER, halfSet.data, gl.DYNAMIC_DRAW, 0, k * 6);
+    halfSet.rows = now; halfSet.scratch = was; halfSet.cells = cellsCPU; halfSet.nc = nCells; halfSet.rc = rowCells; halfSet.n = k;
+    halfSet.changed = true;
+    return k;
   }
   // The vessel pass into the bound vessel framebuffer (draw() clears it first): `gen`, [vertex array, count] of cells for the
   // general program, and `one`, those for the one-vessel build (simpleCells). Each cell is drawn by exactly one of them.
@@ -4237,7 +4264,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       compLook = look; compBlood = blood;
       // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, look E's sines.)
       tileNow = null; styleE = blood.style === STYLE_E;   // (look E reads no texture: it needs no bake)
-      if (blood.style === STYLE_D && blood.on) {   // (no streaks drawn, no tile)
+      if (blood.style === STYLE_D && blood.on && (blood.streakA ?? 1) > 0) {   // (no streaks drawn, no tile)
         if (!tileTried) { tileTried = true; tileGPU = createBloodTile(gl); }
         if (tileGPU?.bake()) tileNow = tileGPU.tex();
       }
@@ -4364,7 +4391,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // at that size, read the same: one pass over the half-size target before the picture's own, which reads it where its lumen is that
       // wide. Frames with no wide lumen, no streaks or a one-pass frame draw as they always did (halfOn 0).
       const rebind = () => gl.bindFramebuffer(gl.FRAMEBUFFER, own ? (direct ? null : own.fbo) : SCR());
-      const halfOn = !!streakP && !!blood.on && !fused && rMaxAll() * Math.hypot(m[0], m[1]) >= 0.9 * HALF_R && halfReady(rebind);
+      const halfOn = !!streakP && !!blood.on && (blood.streakA ?? 1) > 0 && !fused && rMaxAll() * Math.hypot(m[0], m[1]) >= 0.9 * HALF_R && halfReady(rebind);
       const prg = full ? (bare ? plain : comp) : (bare ? plainCell : compCell);
       // (cathPass: the whole picture's build, for the catheter's box.)
       const cathPass = cathRect ? (bare ? plain : comp) : null;
@@ -4495,23 +4522,29 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (ch) { gl.bindTexture(gl.TEXTURE_2D, flowTex); gl.texSubImage2D(gl.TEXTURE_2D, 0, FLOW_TEXELS, 0, 1, nTubes, gl.RGBA, gl.FLOAT, movedUp); }
       }
       if (halfOn) {
-        // (The streaks' half-size picture: the lumens whose rows did not move come out as they did, and the pixels that read it are only
-        // those that are drawn again. Whole on a whole picture or after a frame without it; else only over the blood's squares, where every
-        // lumen lies (binVeins `blood`), the rest of it as the last frame left it: the pass had drawn the whole half-size target on every
-        // blood frame, a quarter of the canvas, for the lumens alone (review of 5 Nov, part 1).)
+        // (The streaks' half-size picture: only a lumen at least HALF_R px wide reads it, so it is worked out over the squares of the cells
+        // that list a wide row (halfCellsFor), where the pass had run over every blood square, or the whole canvas. The rest of the target is
+        // clear: cleared whenever the set of those cells changes or the picture is whole; else the pixels that read it are those drawn again.)
+        const nWide = streakCellP ? halfCellsFor(Math.hypot(m[0], m[1])) : 0;
         gl.bindFramebuffer(gl.FRAMEBUFFER, half.fbo); gl.viewport(0, 0, half.w, half.h);
-        const sq = !full && halfWas && !!streakCellP && nBlood > 0;
-        const SP = sq ? streakCellP : streakP;
+        const sq = nWide > 0 && !full && halfWas && !halfSet.changed;
+        const SP = nWide > 0 ? streakCellP : streakP;
+        if (nWide > 0 && !sq) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
         gl.useProgram(SP.p);
         halfUse = null;
         compBind(SP.u, layer, glow, warm, useStack);
         UC.i1(SP.u.stillOn, 0); UC.i1(SP.u.bloodOnly, 0);
-        if (sq) { gl.bindVertexArray(bloodVAO); UC.f1(SP.u.cell, bloodCell); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nBlood); UC.f1(SP.u.cell, CELL); }
-        else { gl.bindVertexArray(compVAO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
+        if (nWide > 0) {
+          // (The cell build's own uniforms, set here: a whole picture's passes leave them as the last cell frame had them.)
+          UC.m3(SP.u.world, m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]));
+          UC.f2(SP.u.size, PW(), PH());
+          UC.f1(SP.u.cell, CELL);
+          gl.bindVertexArray(halfSet.va); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nWide);
+        } else { gl.bindVertexArray(compVAO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
         gl.bindVertexArray(null);
         halfUse = half.tex;
         rebind(); gl.viewport(0, 0, PW(), PH()); gl.useProgram(prg.p);
-        if (gpuProbe.on) gpuProbe.gauge('streaks at half size', `${half.w}×${half.h}${sq ? ', blood squares only' : ', whole'}`);
+        if (gpuProbe.on) gpuProbe.gauge('streaks at half size', nWide > 0 ? `${half.w}×${half.h}, ${nWide} cells of wide rows${sq ? '' : ', cleared first'}` : `${half.w}×${half.h}, whole`);
       } else halfUse = null;
       halfWas = halfOn;
       // (With the heads drawn as quads after this pass, still lumens are left alone only on a frame whose one drawing of lumens is the blood's
@@ -4750,7 +4783,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const S of [...morphSets]) dropSet(S);
         for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
-        for (const v of [vao, oneVAO, bloodVAO, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
+        for (const v of [vao, oneVAO, bloodVAO, halfSet.va, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
         for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP]) if (x) gl.deleteProgram(x.p);
         if (half.tex) { gl.deleteTexture(half.tex); gl.deleteFramebuffer(half.fbo); }

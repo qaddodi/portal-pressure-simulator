@@ -3980,7 +3980,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (The blood's arguments, one object kept and written in place: veins-gl reads it within the call, and its kept pair for a later repaint holds this
     // same object, whose values are then this frame's, the latest. bleed stays empty; the colours are the shared, cached ones.)
     const bc = bloodColors(), blood = bloodArg;
-    blood.alpha = flowA; blood.on = (bloodOn || lyOn) && flowA > 0.002; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in)
+    blood.alpha = flowA; blood.on = (bloodOn || lyOn) && flowA > 0.002; blood.streakA = bloodOn ? 1 : 0; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in; streakA: the Blood streaks setting: off, no streak is worked out or drawn, while the lymph dashes (lyOn) and the chevrons go on)
     blood.originCol = bc.originCol; blood.dyeCol = bc.dyeCol; blood.inkLight = bc.inkLight; blood.inkDark = bc.inkDark; blood.revCol = bc.revCol; blood.chevInk = bc.chevInk; blood.chevLight = bc.chevLight;
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.

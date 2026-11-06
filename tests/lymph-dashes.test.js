@@ -10,7 +10,7 @@ const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'u
 test('the composite has a lymph dash function and a lymph row never draws blood streaks or arrowheads', () => {
   assert.match(gl, /void lymphAt\(float s, float y, vec4 f0, float len, float R, out float cover, out float core\)/);
   assert.match(gl, /bool isLy = f1\.x < -0\.5;/);
-  assert.match(gl, /if \(blood == 1 && f1\.z > 0\.0 && !isLy\) \{/, 'blood streaks skip a lymph row');
+  assert.match(gl, /if \(blood == 1 && blendA\.x > 0\.0 && f1\.z > 0\.0 && !isLy\) \{/, 'blood streaks skip a lymph row');
   assert.match(gl, /chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy/, 'arrowheads skip a lymph row');
   assert.match(gl, /if \(blood == 1 && isLy && f1\.z > 0\.0\) \{\n\s*float lc, lk;\n\s*lymphAt\(s1, y1, f0, len1, R1, lc, lk\);/);
 });
