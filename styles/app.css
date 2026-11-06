@@ -6697,6 +6697,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
   #app.thumb [data-pane="hvpg"] .hvpg-kv { order: 0; flex: 1 1 auto; min-width: 0; gap: 12px; }
   #app.thumb [data-pane="hvpg"] > .hvpg-box { order: 1; width: auto; max-width: none; aspect-ratio: auto; flex: 1 1 0 !important; min-height: 130px !important; max-height: none; margin-inline: -10px; }
   #app.thumb [data-pane="hvpg"] > .hvpg-box > canvas { width: 100%; height: 100%; }
+  /* (Over the thumb dock each monitor's canvas fills its box, and the GPU's picture over it is placed from the box's corner, trace-gl.js place:
+     the shapes rule's centring margin set a picture taller than its box (the charts' shared buffer, sized to the largest chart lately drawn)
+     up by half the difference, so the HVPG tracing sat over its readings and Measure HVPG, and a pull moved the FibroScan map off its box.) */
+  #app.thumb .instrument-workspace :is(.dop-box, .hvpg-box, .fibroscan-box) > canvas { margin: 0; }
   #app.thumb [data-pane="hvpg"] .hvpg-bar > .btn { order: 1; margin-left: auto; min-height: 36px; padding-inline: 12px; }
   #app.thumb [data-pane="hvpg"] > .chart-side { order: 3; }
   #app.thumb .instrument-workspace.sheet-half [data-pane="hvpg"] > .chart-side { display: none; }
