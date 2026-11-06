@@ -51,13 +51,15 @@ void main() {
   float across = (s / 80.0) * uNB * 1.6 + uNB * 1.7, along = y * (uNB / uN) * 0.65 + uNB * 0.6;
   float a = 0.5 + (field(uA1, uCell.x, across + uOffA.x, along + uOffA.y) - 0.5) * uCos.x + (field(uA2, uCell.x, across + uOffA.z, along + uOffA.w) - 0.5) * uSin.x;
   float b = 0.5 + (field(uB1, uCell.y, across * 1.4 + uOffB.x, along + uOffB.y) - 0.5) * uCos.y + (field(uB2, uCell.y, across * 1.4 + uOffB.z, along + uOffB.w) - 0.5) * uSin.y;
-  float jit = (0.5 + (field(uP1, uCell.z, across + uOffP.x, along + uOffP.y) - 0.5) * uCos.z + (field(uP2, uCell.z, across + uOffP.z, along + uOffP.w) - 0.5) * uSin.z - 0.5) * 2.2;
   float noise = a * 0.6 + b * 0.4;
-  float w = cos(6.283185307179586 * 0.05 * s + jit);
   float u = clamp((s + 9.0) / 6.0, 0.0, 1.0), arrive = u * u * (3.0 - 2.0 * u);
-  float amp = (0.2 + 0.8 * arrive) * clamp(1.0 - max(s, 0.0) / 40.0, 0.12, 1.0) * clamp(1.2 - (depth - 20.0) / 110.0, 0.5, 1.0);
-  float q = (s + 3.5) / 3.2, band = exp(-(q * q));
-  float k = pow(clamp(0.76 + w * 0.32 * amp + (noise - 0.5) * 1.25 - band * 0.55, 0.0, 1.0), 1.5);
+  // Look G (Mohammad's pick, 6 Nov 2026): one dark, ragged shear-wave band just right of the fitted line (s = 0: the line on its leading
+  // edge), its width and course wobbling slowly down the depth, a faint second band behind it, on calm tissue.
+  float wob = 0.5 + (field(uP1, uCell.z, uNB * 0.3 + uOffP.x, along + uOffP.y) - 0.5) * uCos.z + (field(uP2, uCell.z, uNB * 0.3 + uOffP.z, along + uOffP.w) - 0.5) * uSin.z;
+  float hw = 4.6 * (0.8 + 0.4 * wob), dv = abs(s - (0.3 + hw * 0.8) - (wob - 0.5) * 1.0 - (a - 0.5) * 1.8);
+  float vein = 1.0 - smoothstep(hw * 0.45, hw, dv);
+  float d2 = (s - 19.0 - (a - 0.5) * 3.0) / 4.5, echo = exp(-(d2 * d2)) * 0.4;
+  float k = pow(clamp(0.8 + (noise - 0.5) * (0.45 + 0.45 * arrive), 0.0, 1.0), 1.4) * (1.0 - 0.78 * vein) * (1.0 - 0.55 * echo);
   o = vec4((uLo + uHi * k) / 255.0, 1.0);
 }`;
 

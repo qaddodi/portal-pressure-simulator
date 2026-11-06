@@ -96,13 +96,14 @@ export function elastogramPixels(N, c, t) {
     const across = (s / 80) * NB * 1.6 + NB * 1.7 + flowX, along = y * sc * 0.65 + NB * 0.6 + flowY;
     const a = 0.5 + (F.a1(across, along) - 0.5) * c1 + (F.a2(across, along) - 0.5) * s1;
     const b = 0.5 + (F.b1(across * 1.4, along) - 0.5) * c2 + (F.b2(across * 1.4, along) - 0.5) * s2;
-    const jit = (0.5 + (F.p1(across, along) - 0.5) * c3 + (F.p2(across, along) - 0.5) * s3 - 0.5) * 2.2;
     const noise = a * 0.6 + b * 0.4;
-    const w = Math.cos(2 * Math.PI * 0.05 * s + jit);
     const u = clamp((s + 9) / 6, 0, 1), arrive = u * u * (3 - 2 * u); // smooth arrival of the wave: no hard step at the front
-    const amp = (0.2 + 0.8 * arrive) * clamp(1 - Math.max(s, 0) / 40, 0.12, 1) * clamp(1.2 - (depth - DEPTH0) / 110, 0.5, 1);
-    const band = Math.exp(-(((s + 3.5) / 3.2) ** 2));
-    const k = clamp(0.76 + w * 0.32 * amp + (noise - 0.5) * 1.25 - band * 0.55, 0, 1) ** 1.5;
+    // Look G (fibroscan-gl.js, line for line): one dark ragged band with the fitted line on its leading edge, and a faint echo behind it.
+    const wob = 0.5 + (F.p1(NB * 0.3 + flowX, along) - 0.5) * c3 + (F.p2(NB * 0.3 + flowX, along) - 0.5) * s3;
+    const hw = 4.6 * (0.8 + 0.4 * wob), dv = Math.abs(s - (0.3 + hw * 0.8) - (wob - 0.5) * 1.0 - (a - 0.5) * 1.8);
+    const e = clamp((dv - hw * 0.45) / (hw * 0.55), 0, 1), vein = 1 - e * e * (3 - 2 * e);
+    const d2 = (s - 19 - (a - 0.5) * 3) / 4.5, echo = Math.exp(-(d2 * d2)) * 0.4;
+    const k = clamp(0.8 + (noise - 0.5) * (0.45 + 0.45 * arrive), 0, 1) ** 1.4 * (1 - 0.78 * vein) * (1 - 0.55 * echo);
     const i = (y * N + x) * 4;
     d[i] = 20 + 220 * k; d[i + 1] = 10 + 126 * k; d[i + 2] = 8 + 64 * k; d[i + 3] = 255;
   }
