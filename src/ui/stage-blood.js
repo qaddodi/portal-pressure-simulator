@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, NODES } from '../engine/topology.js';
 import { SITES } from './anatomy.js';
-import { DRIFT_PERIOD, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractions, stepBleedFade } from './blood.js';
+import { DRIFT_PERIOD, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
 import { createDyeRemote } from './dye-remote.js';
 import { flowClose, retireRows } from './flow-rows.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
@@ -28,7 +28,9 @@ export function createBlood(st, live) {
   //   3: chevron visibility (0–1, eased: Key chevrons only fades the rest); the still chevrons' spacing level (reduced motion,
   //      chevFlowLevel); the stagnant blood's drift (shimmer cells, blood.js drift)
   //   6: the blood clock the stream was anchored at (from bEpoch) and its display speed's factor (0: not anchored);
-  //      texels 0 and 3 then hold the distance and drift as they stood at that clock (anchorStream, veins-gl flowD)
+  //      texels 0 and 3 then hold the distance and drift as they stood at that clock (anchorStream, veins-gl flowD);
+  //      w: the origin blend's Péclet number along the vessel, signed by the flow from → to (0: one blood all along; blood.js originEnds)
+  //   7: the downstream junction's blend (as texel 2), which the origin colours mix toward along a vessel whose blood sloshes
   const flowData = new Float32Array(GL_ROWS * FLOW_TEXELS * 4);
   // (The rows written this frame and last: stepBlood clears a row once when its vessel stops drawing.)
   const flowNow = new Uint8Array(GL_ROWS), flowWas = new Uint8Array(GL_ROWS);
@@ -75,6 +77,22 @@ export function createBlood(st, live) {
   const keyOnly = () => !!store.get().presenting || !!store.get().blood?.keyChevrons;
   // The Blood origin lens colors each lumen by where its blood comes from (streams side by side).
   const originOn = () => !!live.F && layerMode() === 'origin';
+  // Its mixing along a vessel (blood.js originEnds): each vessel's flow forward and back, from the model's beat-by-beat flow, averaged
+  // over a few breaths (ORIGIN_TAU s). Their difference is the mean that sets the blends at the junctions; the smaller of the two is the
+  // blood that runs to and fro. One pass over the vessels a frame, a few sums each; the blends themselves are worked out once a model frame.
+  const ORIGIN_TAU = 3;
+  const oFwd = new Float64Array(EDGES.length), oBack = new Float64Array(EDGES.length), oMean = new Float64Array(EDGES.length);
+  const oEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length) };
+  let oSeeded = false;
+  function stepOriginFlow(dt) {
+    const Q = live.F.Q, Qf = live.F.Qf || Q;
+    if (!oSeeded) { oSeeded = true; for (let k = 0; k < EDGES.length; k++) { oFwd[k] = Math.max(0, Qf[k]); oBack[k] = Math.max(0, -Qf[k]); } }
+    else if (dt > 0) {
+      const a = -Math.expm1(-dt / ORIGIN_TAU);
+      for (let k = 0; k < EDGES.length; k++) { const q = Q[k]; oFwd[k] += ((q > 0 ? q : 0) - oFwd[k]) * a; oBack[k] += ((q < 0 ? -q : 0) - oBack[k]) * a; }
+    }
+    for (let k = 0; k < EDGES.length; k++) { oMean[k] = oFwd[k] - oBack[k]; oEnds.slosh[k] = Math.min(oFwd[k], oBack[k]); }
+  }
   // Mean velocity (cm/s) for a flow (mL/s): flow over lumen area; the liver beds are not one tube.
   function velOf(k, q) {
     const D = Math.max(0.5, live.F.D[k]) / 10;
@@ -178,13 +196,15 @@ export function createBlood(st, live) {
   // (One empty list for every vessel with no strands, feeders or branches, and for no spray: none made each frame. Never written.)
   const NONE = Object.freeze([]), NO_OBJ = Object.freeze({});
   // (One flow row written whole; a function made once, not a closure made on each step.)
-  function put(row, k, q, f0, f1, strength) {
+  function put(row, k, q, f0, f1, strength, ends) {
     const o = row * FLOW_TEXELS * 4, sm = streams[k];
     flowData.fill(0, o, o + FLOW_TEXELS * 4); flowNow[row] = 1;
     flowData[o] = sm.aD; flowData[o + 1] = sm.aV; flowData[o + 2] = KAPPA * Math.abs(q); flowData[o + 3] = sm.aT;
     flowData[o + 24] = sm.aB; flowData[o + 25] = sm.aS; flowData[o + 26] = sm.aA;
     flowData[o + 4] = f0 ? 1 : 0; flowData[o + 5] = f1 ? 1 : 0; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
     if (live.origins) for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = live.origins[k * ORIGIN_N + c];
+    // (The origin blend along the vessel: the main row and its strands; a tributary or a liver branch drawn into it keeps one blood.)
+    if (live.origins && ends && oEnds.pe[k] !== 0) { flowData[o + 27] = oEnds.pe[k]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 28 + c] = oEnds.down[k * ORIGIN_N + c]; }
     flowData[o + 12] = sm.chevK ?? 1;
     // Reduced motion: the chevrons stand still, so their spacing carries the flow (veins-gl chevAt): a level of 0 (the
     // finest, 28 units) for 0.8 L/min or more, one level coarser for each halving, at most 3.
@@ -236,7 +256,11 @@ export function createBlood(st, live) {
     blendA.o = blendA.o == null ? tO : eased(blendA.o, tO, kF);
     if (!live.veins) return;
     const on = blendA.s > 0 || blendA.c > 0 || blendA.o > 0;
-    if (blendA.o > 0 && live.originsF !== live.F) { live.origins = originFractions(EDGES, NODES, Qf, live.F.Pf || live.F.P); live.originsF = live.F; }
+    stepOriginFlow(moving ? dt * live.restK : 0);
+    if (blendA.o > 0 && live.originsF !== live.F) {
+      live.origins = originFractionsInto(EDGES, NODES, oMean, live.F.Pf || live.F.P, live.origins?.length === EDGES.length * ORIGIN_N ? live.origins : new Float32Array(EDGES.length * ORIGIN_N), oEnds);
+      live.originsF = live.F;
+    }
     syncEnds();
     // (Each row drawn is written whole and a row no longer drawn is cleared once after the loop (flow-rows.js retireRows): the
     // table ends as a clear of all of it before the writes left it, without clearing and refilling every row each frame.)
@@ -256,8 +280,8 @@ export function createBlood(st, live) {
       const strands = live.morph < 0.5 ? x.strands : null;
       let area = 1;
       if (strands) for (const sd of strands) if ((sd.live ?? 1) > 0) area += sd.k * sd.k * (sd.live ?? 1);
-      put(x.row, k, q / area, x.freeFrom, x.freeTo, rs);
-      if (strands) for (const sd of strands) if ((sd.live ?? 1) > 0) put(sd.row, k, q * sd.k * sd.k / area, true, true, rs * (sd.live ?? 1));
+      put(x.row, k, q / area, x.freeFrom, x.freeTo, rs, true);
+      if (strands) for (const sd of strands) if ((sd.live ?? 1) > 0) put(sd.row, k, q * sd.k * sd.k / area, true, true, rs * (sd.live ?? 1), true);
       // Tributaries drawn into a trunk: a share of its flow by caliber.
       if (live.morph < 0.5) for (const fd of x.feeders || NONE) if ((fd.live ?? 1) > 0 && fd.w) put(fd.row, k, q * 0.5 * (fd.w / Math.max(1, x.width)) ** 2, true, false, rs * (fd.live ?? 1));
       // The liver's branches in the circuit: a share of the vessel's flow by caliber.

@@ -249,7 +249,7 @@ function inflowLists(edges, nn, Q) {
   for (let n = nn; n > 0; n--) IN_AT[n] = IN_AT[n - 1];   // (the fill moved each start to its end: back one)
   IN_AT[0] = 0;
 }
-const O_NODE = [], O_C = [], O_SUM = [];
+const O_NODE = [], O_W = [], O_C = [], O_SUM = [];
 for (let i = 0; i < ORIGIN_N; i++) { O_C.push(0); O_SUM.push(0); }
 /** O_C: the blend of edge k's blood: the named source of a source artery, else its upstream node's. */
 function blendOf(edges, Q, k) {
@@ -265,7 +265,7 @@ function blendOf(edges, Q, k) {
  * visited from high pressure to low, the order blood flows in, so one pass mixes every junction from its already-mixed
  * inflows. Allocates nothing: a caller that reads it every frame keeps its own `out`.
  */
-export function originFractionsInto(edges, nodes, Q, P, out) {
+export function originFractionsInto(edges, nodes, Q, P, out, ends) {
   const N = ORIGIN_N, NI = nodeIndex(nodes), nn = nodes.length, ne = edges.length;
   for (let k = 0; k < ne; k++) { EF[k] = NI.get(edges[k].from); ET[k] = NI.get(edges[k].to); }
   inflowLists(edges, nn, Q);
@@ -277,10 +277,47 @@ export function originFractionsInto(edges, nodes, Q, P, out) {
     let w = 0;
     for (let i = 0; i < N; i++) sum[i] = 0;
     for (let p = IN_AT[n]; p < IN_AT[n + 1]; p++) { const k = IN_LIST[p], q = Math.abs(Q[k]); blendOf(edges, Q, k); w += q; for (let i = 0; i < N; i++) sum[i] += q * c[i]; }
+    O_W[n] = w;
     if (w > 0) for (let i = 0; i < N; i++) node[n * N + i] = Math.fround(sum[i] / w);
   }
   for (let k = 0; k < ne; k++) { blendOf(edges, Q, k); for (let i = 0; i < N; i++) out[k * N + i] = c[i]; }
+  if (ends) originEnds(edges, Q, ends, out);
   return out;
+}
+
+/**
+ * Blood that sloshes to and fro mixes along its vessel (the origin lens, 6 Nov 2026). A vessel whose mean flow is small beside the
+ * blood that runs back and forth in it each beat and breath (the proximal splenic vein after a splenectomy or a Warren shunt, whose
+ * mean crosses zero with the breath) is not one blood end to end: each end's junction pushes its own blood in, and the two mix
+ * along it, as the dye does. Steady advection and dispersion between the two junctions' blends gives the profile
+ *   c(x) = cUp + (cDown − cUp) · (e^(Pe x) − 1) / (e^Pe − 1),   x from the upstream end (0) to the downstream end (1),
+ * with Pe the vessel's mean flow over its to-and-fro flow: near 0 a straight blend from one end to the other, large the upstream
+ * blood all along. A vessel whose flow never runs back (slosh 0) has Pe in the thousands and is drawn as before.
+ * ends = { slosh (per edge: the flow that runs back and forth, L/min, ≥ 0), down (ORIGIN_N × edges, written: the downstream
+ * junction's blend, already eased toward the upstream one as Pe grows), pe (per edge, written: Pe signed by the flow's direction
+ * from→to; 0 for one blood all along) }. The shader (veins-gl originAt) draws the profile from these.
+ */
+// (Pe at which the downstream blend starts to fade out, and is gone: the vessel is one blood. Below 2 more blood runs to and fro than
+// passes; by 6 a vessel is one-way but for a beat's reflux, as the hepatic veins' a wave (Pe 6–9 in cirrhosis), which stays one blood.)
+export const ORIGIN_PE_FADE = [2, 6];
+function originEnds(edges, Q, ends, out) {
+  const N = ORIGIN_N, ne = edges.length, { slosh, down, pe } = ends, [p0, p1] = ORIGIN_PE_FADE;
+  for (let k = 0; k < ne; k++) {
+    pe[k] = 0;
+    for (let i = 0; i < N; i++) down[k * N + i] = out[k * N + i];
+    if (edges[k].kind === 'wedge' || SOURCE[edges[k].id] != null) continue;
+    const fwd = Q[k] >= 0, u = fwd ? EF[k] : ET[k], d = fwd ? ET[k] : EF[k];
+    if (!(u >= 0) || !(d >= 0) || !(O_W[u] > 0) || !(O_W[d] > 0)) continue;
+    const P = Math.abs(Q[k]) / (Math.max(0, slosh[k] || 0) + 1e-3);
+    if (P >= p1) continue;
+    const t = P <= p0 ? 0 : (P - p0) / (p1 - p0), keep = 1 - t * t * (3 - 2 * t);
+    let diff = 0;
+    for (let i = 0; i < N; i++) {
+      const a = out[k * N + i], v = Math.fround(a + (O_NODE[d * N + i] - a) * keep);
+      down[k * N + i] = v; diff += Math.abs(v - a);
+    }
+    if (diff > 1e-4) pe[k] = Math.fround((fwd ? 1 : -1) * Math.max(P, 1e-3));
+  }
 }
 /** originFractionsInto into a new Float32Array. */
 export function originFractions(edges, nodes, Q, P) {

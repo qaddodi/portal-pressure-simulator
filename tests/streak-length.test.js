@@ -93,7 +93,7 @@ test('nothing in a streak moves for it: the noise coordinates, the speeds and th
   const b = body(R.full, 'vec4 bloodAt(');
   assert.match(b, /sqrt\(abs\(vd\) \/ 36\.0\)/);
   assert.doesNotMatch(body(R.full, 'if (lenOn == 1) {'), /texelFetch|texture\(/);
-  assert.match(gl, /export const FLOW_TEXELS = 7;/);
+  assert.match(gl, /export const FLOW_TEXELS = 8;/);
 });
 
 test('the factor is the square root of the display speed over the healthy portal trunk\'s, kept to 0.6 … 1.6, and stagnation lets it go', () => {

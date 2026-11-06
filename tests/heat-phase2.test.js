@@ -107,7 +107,7 @@ test('stepBlood: no whole-table clear and no filtered or reduced copies of the s
   assert.doesNotMatch(blood, /flowData\.fill\(0\);/);
   assert.doesNotMatch(blood, /\.filter\(|\.reduce\(/);
   // (The row writer is a function of its own, made once: not a closure made on each step.)
-  assert.match(fn(stage, '  function put(row, k, q, f0, f1, strength) {'), /flowData\.fill\(0, o, o \+ FLOW_TEXELS \* 4\); flowNow\[row\] = 1;/);
+  assert.match(fn(stage, '  function put(row, k, q, f0, f1, strength, ends) {'), /flowData\.fill\(0, o, o \+ FLOW_TEXELS \* 4\); flowNow\[row\] = 1;/);
   assert.match(blood, /retireRows\(flowData, flowWas, flowNow, FLOW_TEXELS \* 4\)/);
   assert.match(blood, /advanceStreamAt\(streams\[k\], velQf, velQ, k, so\)/);
   const set = fn(gl, '    setFlow(data) {');

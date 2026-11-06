@@ -60,7 +60,7 @@ const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: 
 export { binVeins };
 
 export const N_SAMPLES = 64;
-export const FLOW_TEXELS = 7;          // per-vessel blood: see stage.js (stepBlood, chainRows)
+export const FLOW_TEXELS = 8;          // per-vessel blood: see stage.js (stepBlood, chainRows)
 // Where along a vessel its colour stands at arc fraction u (pressure-along.js): the plain u for a row with no waist (its rad
 // texels' b is −1), else the along curve between its samples. In both the vessel shader and the composite.
 const ALONG_GLSL = `
@@ -1323,8 +1323,18 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
 }
 // Where a lumen's blood comes from, as streams side by side (laminar flow keeps them apart): SMV,
 // IMV, splenic vein, hepatic artery, then the rest of the body, each as wide as its share of the flow.
-vec3 originAt(int id, float y, float R) {
+// A vessel whose blood sloshes to and fro (flow texel 6, w: its Péclet number, signed by the flow from → to; 0 for one blood all
+// along) mixes from its upstream junction's blend (texel 2) into its downstream one's (texel 7) along its length, as the dye mixes:
+// (e^(Pe x) − 1) / (e^Pe − 1) of the way, x from the upstream end (blood.js originEnds). Two reads more, only in such a vessel.
+vec3 originAt(int id, float s, float y, float R) {
   vec4 f2 = texelFetch(flow, ivec2(2, id), 0);
+  float pe = texelFetch(flow, ivec2(6, id), 0).w;
+  if (pe != 0.0) {
+    float x = clamp(s / max(texelFetch(tube, ivec2(5, id), 0).z, 1.0), 0.0, 1.0), P = abs(pe);
+    if (pe < 0.0) x = 1.0 - x;
+    float g = P < 0.05 ? x : (exp(P * x) - 1.0) / (exp(P) - 1.0);
+    f2 = mix(f2, texelFetch(flow, ivec2(7, id), 0), g);
+  }
   float u = clamp((y + 1.0) * 0.5, 0.0, 1.0), e = clamp(0.6 * pxW / max(R, 0.3), 0.01, 0.12);
   float c1 = f2.x, c2 = c1 + f2.y, c3 = c2 + f2.z, c4 = c3 + f2.w;
   vec3 c = originCol[0];
@@ -1566,8 +1576,8 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
       // The lumen is drawn a neutral grey; its light and dark lines are kept as a ratio of that grey.
       float shade = clamp(dot(col, vec3(0.299, 0.587, 0.114)) / ORIGIN_GREY, 0.55, 1.45);
       // A vessel that carries no blood (origin fractions marked −1, e.g. a lymphatic) keeps its own color.
-      vec3 oc = texelFetch(flow, ivec2(2, id1), 0).x < -0.5 ? col : min(originAt(id1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3)) * shade, vec3(1.0));
-      if (b > 0.004) oc = mix(oc, texelFetch(flow, ivec2(2, id2), 0).x < -0.5 ? col : min(originAt(id2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)) * shade, vec3(1.0)), b);
+      vec3 oc = texelFetch(flow, ivec2(2, id1), 0).x < -0.5 ? col : min(originAt(id1, s1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3)) * shade, vec3(1.0));
+      if (b > 0.004) oc = mix(oc, texelFetch(flow, ivec2(2, id2), 0).x < -0.5 ? col : min(originAt(id2, s2, y2, max(texelFetch(rad, ivec2(N_LAST / 2, id2), 0).r, 0.3)) * shade, vec3(1.0)), b);
       col = mix(col, oc, vis * blendA.z);
     }
     // The front lumen's flow, length, caliber here and own colour, read once for the streaks and the arrowheads. Neither is drawn

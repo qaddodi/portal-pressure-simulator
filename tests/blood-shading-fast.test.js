@@ -149,7 +149,7 @@ test('the lumen buffer flags a second lumen in its row\'s top bit, and the fast 
 // ── Item 7: lumens whose vessels did not change are left as drawn in the blood's own pass ──
 test('the blood pass leaves a lumen alone only when neither of its vessels\' rows nor any uniform changed', () => {
   const main = body(R.full, 'void main()');
-  assert.match(main, /if \(bloodOnly == 1 && stillOn == 1 && texelFetch\(flow, ivec2\(7, int\(g\.x\) - 1\), 0\)\.x == 0\.0\n\s*&& \(!two \|\| texelFetch\(flow, ivec2\(7, int\(\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)\.x & 2047u\) - 1\), 0\)\.x == 0\.0\)\) discard;/);
+  assert.match(main, /if \(bloodOnly == 1 && stillOn == 1 && texelFetch\(flow, ivec2\(8, int\(g\.x\) - 1\), 0\)\.x == 0\.0\n\s*&& \(!two \|\| texelFetch\(flow, ivec2\(8, int\(\(inL \? texelFetch\(gbuf2, lp, 0\) : uvec4\(0u\)\)\.x & 2047u\) - 1\), 0\)\.x == 0\.0\)\) discard;/);
   const comp = glSrc.slice(glSrc.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), glSrc.indexOf('    /** Whether organ outlines can be drawn here'));
   // Never in a whole picture, a bleed (the one uniform left out of the comparison, the clock, moves it), or before every row has
   // been seen.

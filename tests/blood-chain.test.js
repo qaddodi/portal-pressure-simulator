@@ -157,7 +157,7 @@ test('stage: the links are written into the rows put() filled, by the model\'s m
 });
 
 test('composite: with nothing chained, the streaks, the heads and the join are drawn as before', () => {
-  assert.match(gl, /export const FLOW_TEXELS = 7;/);
+  assert.match(gl, /export const FLOW_TEXELS = 8;/);
   // The own pattern only while the link's weight is below 1, the root's only above 0.
   assert.match(gl, /if \(cw < 1\.0\) \{\n\s*nz = dNoise\(id, s, qy, D, ay, cA, drift, dxA, dyv\);/);
   assert.match(gl, /if \(cw < 1\.0\) c = chevOne\(id, s, y, f0, f1, len, Rs, R, s, 1\.0, f0\.x, R, ch5\.zw\);/);

@@ -67,7 +67,7 @@ test('B4: the streaks, chevrons and origin colours fade when switched, and a ves
   // Reveals and strands: blood strength follows the stroke and the strand's share; nothing waits for 0.5 or the reveal's end.
   assert.doesNotMatch(blood, /x\.reveal \|\|/);
   assert.doesNotMatch(blood, /live \?\? 1\) >= 0\.5/);
-  assert.match(blood, /put\(x\.row, k, q \/ area, x\.freeFrom, x\.freeTo, rs\);/);
+  assert.match(blood, /put\(x\.row, k, q \/ area, x\.freeFrom, x\.freeTo, rs, true\);/);
   const look = fn(stage, '  function bloodLook() {');
   // (Written in place into one kept record, field for field what the literal held.)
   assert.match(look, /L\.on = sA > 0; L\.still = reduceMotion\.matches; L\.chev = cA > 0; L\.look = b\.look; L\.origin = oA > 0; L\.streakA = sA; L\.chevA = cA; L\.originA = oA;/);
