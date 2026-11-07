@@ -359,7 +359,7 @@ test('the faces and looks resolve in every look, lit or not, in every tone the c
 test('the card draws the new kinds on the GPU, with no page text and no layout read, and the head, rule and foot stay the card\'s', () => {
   const card = read('src/ui/path-cards.js'), path = read('src/ui/tool-path.js');
   for (const src of [card, path]) assert.doesNotMatch(src, /requestAnimationFrame|getBoundingClientRect|getComputedStyle|createElementNS|getContext|clientWidth|offsetWidth|offsetHeight|readMetric|readBox|textContent|innerHTML|innerText/, 'no raw frame, no layout read, no canvas 2D, no SVG DOM, no page words');
-  assert.match(path, /cardLayout\(spec\.algo, W, compact, base, CARD_HELPERS\)/);
+  assert.match(path, /cardLayout\(spec\.algo, Wv, compact, base, CARD_HELPERS\)/);
   assert.match(path, /cardModel\(spec\.algo, lay\.card, patient, CARD_HELPERS, oy\)/);
   assert.match(path, /gl\.show\(/);
   assert.match(path, /the answers lit, the width and layout, the chips, and the reading's words/, 'the paint key holds all that shows');
