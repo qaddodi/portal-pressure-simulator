@@ -86,43 +86,77 @@ test('an under host with no picture number keeps its pictures unknown, as before
 });
 
 // The number the glass keys the lobule on, and its question about the pictures between two of them (src/ui/lobule-glass-seq.js).
-test('the glass is told a new lobule picture at most every 80 ms, as a number, and asked about it by the lobule\'s tiles in one epoch', async () => {
+// (7 Nov 2026: every lobule picture is a new number at once (it was held for 80 ms, and the frost over a lobule that moved stepped), and the
+// open sinusoid's pictures, which no count the glass read took in, turn the epoch over.)
+test('the glass is told every new lobule picture at once, as a number, and asked about it by the lobule\'s tiles in one epoch', async () => {
   const { createLzGlassSeq, LZ_V } = await import('../src/ui/lobule-glass-seq.js');
-  let t = 1000, seq = 5, plain = true, fig = 3, asked = [], timers = [], repaints = 0;
+  let seq = 5, plain = true, fig = 3, asked = [];
   const lz = { drawSeq: () => seq, plain: () => plain, pictureRects: (a, b) => { asked.push([a, b]); return 2; } };
   const veins = { drawSeq: 0, pictureDirtyRects: (a, b) => { asked.push(['fig', a, b]); return 1; } };
   veins.drawSeq = fig;
-  const s = createLzGlassSeq({ lz: () => lz, veins: () => veins, later: (f) => { timers.push(f); return timers.length; }, repaint: () => { repaints++; }, now: () => t });
+  const s = createLzGlassSeq({ lz: () => lz, veins: () => veins });
   const n0 = s.seq();
   assert.ok(Number.isFinite(n0) && n0 >= LZ_V, 'a number in the lobule\'s range');
-  seq = 6; t += 20;
-  assert.equal(s.seq(), n0, 'held back inside 80 ms');
-  assert.equal(timers.length, 1, 'one more present is asked for after the last picture');
-  timers.pop()(); assert.equal(repaints, 1);
-  t += 100;
+  seq = 6;
   const n1 = s.seq();
-  assert.equal(n1, n0 + 1, 'a picture later: the next number');
+  assert.equal(n1, n0 + 1, 'the next picture: the next number, at once');
   assert.equal(s.rects(n0, n1, [], []), 2, 'its tiles asked of the lobule');
   assert.deepEqual(asked.pop(), [n0 - LZ_V, n1 - LZ_V].map((x) => x % 1e9));
   // A hand: the lobule is not plain, and what the glass saw before is not known against what it sees after.
-  plain = false; t += 100; seq = 7;
+  plain = false; seq = 7;
   const n2 = s.seq();
   assert.equal(s.rects(n1, n2, [], []), -1, 'across a turn of the epoch: not known');
-  plain = true; t += 100; seq = 8;
+  plain = true; seq = 8;
   const n3 = s.seq();
   assert.equal(s.rects(n2, n3, [], []), -1, 'and back again');
-  t += 100; seq = 9;
+  seq = 9;
   const n4 = s.seq();
   assert.equal(s.rects(n3, n4, [], []), 2, 'then known again in the new epoch');
   // The figure itself drawn.
-  veins.drawSeq = 4; t += 100; seq = 10;
+  veins.drawSeq = 4; seq = 10;
   const n5 = s.seq();
   assert.equal(s.rects(n4, n5, [], []), -1, 'the figure drawn: not known');
   // Across the two kinds of number: never known; the figure\'s own are asked of the figure.
   assert.equal(s.rects(10, n5, [], []), -1);
   assert.equal(s.rects(10, 12, [], []), 1);
   // The lobule\'s count began again.
-  seq = 1; t += 100;
+  seq = 1;
   const n6 = s.seq();
   assert.ok(n6 > n5 - 1e9 && s.rects(n5, n6, [], []) === -1, 'a smaller count turns the epoch over');
+});
+
+test('the open sinusoid\'s pictures give the glass a new number, every `every` of them, and never a known range', async () => {
+  const { createLzGlassSeq } = await import('../src/ui/lobule-glass-seq.js');
+  let sin = -1;
+  const lz = { drawSeq: () => 4, plain: () => false, sinSeq: () => sin, pictureRects: () => 0 };
+  const veins = { drawSeq: 1 };
+  const s = createLzGlassSeq({ lz: () => lz, veins: () => veins, every: 3 });
+  const a = s.seq();
+  assert.equal(s.seq(), a, 'nothing drawn: the same number, the kept blur stands');
+  sin = 10;
+  const b = s.seq();
+  assert.notEqual(b, a, 'the sinusoid opened: a new number');
+  sin = 11; assert.equal(s.seq(), b, 'one picture on: held, at the anatomy blood\'s cadence');
+  sin = 12; assert.equal(s.seq(), b);
+  sin = 13;
+  const c = s.seq();
+  assert.notEqual(c, b, 'three pictures on: a new number');
+  assert.equal(s.rects(b, c, [], []), -1, 'what it drew is not known: the glass blurs all it reads');
+  sin = -1;
+  assert.notEqual(s.seq(), c, 'the sinusoid closed: a new number');
+});
+
+test('the figure\'s blood under a lobule not laid plain counts; under a plain one it does not', async () => {
+  const { createLzGlassSeq } = await import('../src/ui/lobule-glass-seq.js');
+  let plain = true;
+  const lz = { drawSeq: () => 4, plain: () => plain, pictureRects: () => 0 };
+  const veins = { drawSeq: 1, bloodSeq: 0 };
+  const s = createLzGlassSeq({ lz: () => lz, veins: () => veins, every: 1 });
+  const a = s.seq();
+  veins.bloodSeq = 5;
+  assert.equal(s.seq(), a, 'plain: the lobule covers the figure\'s blood');
+  plain = false;
+  const b = s.seq();
+  veins.bloodSeq = 6;
+  assert.notEqual(s.seq(), b, 'not plain: the figure\'s blood shows through, a new number');
 });

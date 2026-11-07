@@ -1325,6 +1325,9 @@ export function createSinusoidView({ host, before = null, share = null }) {
     get cameraReady() { return !!shareTop && !!gpu && !gpu.lost; },
     /** The glasses over the names (stage.js, glass-gl.js tellHoles): the names under them are left out. */
     setHoles: (list) => cap.holes(list),
+    /** The sinusoid's picture count while its pass shows in the figure's canvas (shown, its GPU drawer up), else -1: the glass over it blurs again
+     *  with each (lobule-glass-seq.js; 7 Nov 2026, the pills over the sinusoid kept the frost of what lay there when it opened). */
+    glassSeq: () => (shareTop && gpu && !gpu.lost && shown > 0 ? gpu.drawSeq : -1),
     /** The canvas the cards' frosted glass is drawn into while the sinusoid is open and still (lobule-zoom.js glassHost), else null. */
     glassHost() {
       if (!gpu || gpu.lost || !open || shown < 1 || dive || !canvas.width || !canvas.height) return null;

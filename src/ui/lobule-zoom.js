@@ -4938,6 +4938,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** Where the pictures after `from` up to `to` (drawSeq) drew, as boxes { x, y, w, h } in the stage canvas's device px written into out from pool: their count,
      *  0 for nowhere, -1 when not known (a whole picture, another view, a tissue drawn since, or the lobule not plain now). The glass over the figure blurs only these. */
     pictureRects: (from, to, out, pool) => (glassPlain() ? gl.pictureDirtyRects(from, to, out, pool) : -1),
+    /** Counts the frames of the lobule's moving blood alone (which drawSeq leaves out): the glass over the lobule follows them (stage.js frostFresh, 7 Nov 2026). */
+    bloodSeq: () => gl?.bloodSeq ?? 0,
+    /** Where the lobule's blood frames after `from` up to `to` (bloodSeq) drew, as pictureRects: -1 unless the lobule is laid plain on the canvas. */
+    bloodRects: (from, to, out, pool) => (glassPlain() && gl?.bloodDirtyRects ? gl.bloodDirtyRects(from, to, out, pool) : -1),
+    /** The open sinusoid's picture count while its pass shows, else -1: its pictures are laid in the figure's present, which counts none of them. */
+    sinSeq: () => sv.glassSeq?.() ?? -1,
     sinusoidOpen: () => sv.isOpen(),
     /** The GPU canvas the cards' frosted glass is drawn into while the liver shows (stage.js frostSrc; Mohammad, 2 Nov 2026: "No blur at all on
      *  top, solid card on bottom"): the open sinusoid's, or the landed lobule's vessel canvas (its tissue is laid in it too), or null while

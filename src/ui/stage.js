@@ -1991,13 +1991,20 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let frostCtx = null, frostLiver = null;
   // (The lobule drawn in the figure's own canvas: the glass is drawn over it there, with no hand-over to the lobule's canvas; its pictures count with the figure's:
   // lobule-glass-seq.js, which also tells the glass which parts of the canvas they reached.)
-  const lzGlass = createLzGlassSeq({ lz: () => lz, veins: () => veins, later: (f) => stageScope.timer(f, 90), repaint: () => { if (veins && !veins.lost) veins.present(true, true); } });
+  // (Every picture the sinusoid lays, and the figure's blood under a lobule not laid plain, at the anatomy blood's cadence (FROST_EVERY): 7 Nov 2026.)
+  const lzGlass = createLzGlassSeq({ lz: () => lz, veins: () => veins, every: 3 });
   const frostSeq = () => (frostLiver ? `l${frostLiver.seq()}` : lzInFigure() ? lzGlass.seq() : veins.drawSeq);
   // (4 Nov 2026, Mohammad: "Keep it glass through and through any zoom". The lobule and the sinusoid are passes of the figure's own context whenever it has one (lobule-zoom.js ensureGL: shared is simply "the figure has a top"), so the glass is never let go through a dive or a zoom, even before the lobule has made its renderer.)
   const lzShares = () => !!lz?.shared || (!!veins?.top && !veins.lost);
   const lzInFigure = () => !!lz?.shared && (lobuleOn || lz.isShown());
   // (Mac heat R2: the frost blurs again only once the blood has moved FROST_EVERY frames on; the count handed over is the real one, so the dirty squares still cover the frames between.)
-  const FROST_EVERY = 3, thirdSeq = () => { let held = -Infinity; return () => { const q = veins.bloodSeq; if (q < held || q - held >= FROST_EVERY) held = q; return held; }; }, frostFresh = (() => { const t = thirdSeq(); return () => (frostLiver ? 0 : t()); })();
+  // (7 Nov 2026, Mohammad: the glass "keeps popping" from Lobule to Sinusoid to Anatomy. In the liver the frost keyed its blood on the anatomy's, which
+  // is covered and still there, and asked the anatomy's blood squares which parts to blur again: the lobule's own blood moved under the pills with the
+  // frost held, then a few squares of it were blurred again, a patchwork of old and new. In the liver it is the lobule's blood now, its own squares.)
+  const FROST_EVERY = 3, thirdSeq = (count = () => veins.bloodSeq) => { let held = -Infinity; return () => { const q = count(); if (q < held || q - held >= FROST_EVERY) held = q; return held; }; };
+  const frostFresh = (() => { const t = thirdSeq(), tl = thirdSeq(() => lz?.bloodSeq?.() ?? 0); return () => (frostLiver ? 0 : lzInFigure() ? tl() : t()); })();
+  const frostBloodRects = (a, b, o, p) => (lzInFigure() ? (lz.bloodRects?.(a, b, o, p) ?? -1) : (veins.bloodDirtyRects?.(a, b, o, p) ?? -1));
+  const frostBloodBox = (a, b, o) => (lzInFigure() ? false : veins.bloodDirty(a, b, o));
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
   // (A region of stage.glass.add (calloutsGlass, below, where the glass hosts are set), made by cardGlass with cards.callouts; set there.)
   let glassGL = null;
@@ -2030,7 +2037,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cards.holesWhile = () => diveT > 0;   // (glass-gl.js: while the dive has the glass off the figure's canvas, the labels still leave the cards' places out)
     const shade = cards.low;
     const key = {};
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzShares() || (!anatCovered() && !(diveT > 0)))), version: frostSeq, fresh: frostFresh, dirty: (a, b, o) => veins.bloodDirty(a, b, o), dirtyRects: (a, b, o, p) => veins.bloodDirtyRects?.(a, b, o, p) ?? -1, pictureRects: lzGlass.rects, camKey: () => veins.camKey ?? -1, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzShares() || (!anatCovered() && !(diveT > 0)))), version: frostSeq, fresh: frostFresh, dirty: frostBloodBox, dirtyRects: frostBloodRects, pictureRects: lzGlass.rects, camKey: () => veins.camKey ?? -1, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
     if (!g) return null;
     hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: noOver, low: (el) => el === shade || !!cards.isLow?.(el) || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);

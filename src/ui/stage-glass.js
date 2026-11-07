@@ -42,11 +42,13 @@ export function createGlass(st, live) {
     // (In the liver the glass is drawn into the lobule's or the open sinusoid's own GPU canvas (lobule-zoom.js glassHost), never let go
     // to a flat card: Mohammad, 2 Nov 2026, Circulation 6 on the iPhone, "No blur at all on top, solid card on bottom".)
     if (wrap.classList.contains('in-lobule')) {
-      const src = live.lz?.glassHost?.() || null;
+      const src = liverHost();
       if (src) {
         if (live.frostCtx !== src.gl) { rehostSoon(); return 'the glass is moving to the liver\'s canvas'; }
         return '';
       }
+      // (The liver drawn in the figure's own context: the glass is the figure's, frosted all the way; one left on the liver's own canvas comes back.)
+      if (live.lz?.glassHost?.()) { if (live.frostLiver || live.frostCtx !== live.veins.top.gl) rehostSoon(); return ''; }
       if (!lzShares()) return 'the lobule is moving';   // (drawn in its own canvas, which has none to give for now; in the figure's context the glass goes on there)
     }
     if (live.frostLiver || live.frostCtx !== live.veins.top.gl) { rehostSoon(); return 'the glass is moving back to the figure\'s canvas'; }
@@ -65,13 +67,18 @@ export function createGlass(st, live) {
   // (Every glass moved together to the canvas the frost is taken from now: the liver's (lobule-zoom.js glassHost) while it shows, else
   // the figure's. Between frames, never inside the glass's own frame, which asked.)
   let rehostT = 0;
+  // (The liver's own canvas, when it has one apart from the figure's. Drawn in the figure's context (shared: every lobule and sinusoid since G3/G4),
+  // the liver is part of the figure's canvas, and the glass stays a figure glass, keyed by stage.js frostSeq on the lobule's and the sinusoid's
+  // pictures; taken as a canvas of its own it was keyed by the lobule's picture count alone, the sinusoid's pictures and every blood frame left out,
+  // until the glass left the liver: 7 Nov 2026.)
+  const liverHost = () => { const src = live.lz?.glassHost?.() || null; return src && src.gl !== live.veins?.top?.gl ? src : null; };
   function rehostSoon() {
     if (rehostT) return;
     rehostT = stageScope.timer(() => {
       rehostT = 0;
       if (!live.veins?.top) return;
-      const src = wrap.classList.contains('in-lobule') ? live.lz?.glassHost?.() || null : null;
-      if (wrap.classList.contains('in-lobule') && !src) return;
+      const src = wrap.classList.contains('in-lobule') ? liverHost() : null;
+      if (wrap.classList.contains('in-lobule') && !src && !live.lz?.glassHost?.()) return;
       if (src ? live.frostCtx === src.gl : live.frostCtx === live.veins.top.gl && !live.frostLiver) return;
       live.frostLiver = src;
       live.frostCtx = src ? src.gl : live.veins.top.gl;
