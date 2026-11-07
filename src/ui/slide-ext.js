@@ -76,6 +76,14 @@ export function guard(inst, tag) {
 }
 
 // ── Helpers the presenter calls ──
+/** The work a slide's tool, or its visual, asks to start once the deck's states are in (a curve over model days, the all-patients chart's runs): a promise,
+ *  or null when it has none. A tool's warm takes (tool, ctx), a visual's (slide, ctx). */
+export function warmOf(s, ctx) {
+  const tw = EXT.tools[s?.tool?.kind]?.warm;
+  if (tw) return tw(s.tool, ctx);
+  const vw = s?.visual && Object.hasOwn(EXT.visuals, s.visual) ? EXT.visuals[s.visual].warm : null;
+  return vw ? vw(s, ctx) : null;
+}
 const setRef = (id) => typeof id === 'string' && id[0] === '@';
 /** A list of ids (a glow, a mark's edges) with each '@name' replaced by the named set's ids; an entry { id: '@name', … }
  *  becomes one entry per id with the same options. A list with no '@' name comes back as the very same array. */

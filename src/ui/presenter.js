@@ -52,7 +52,7 @@ import { prepareShaders, shaderFailures } from './gl-compile.js';
 import { createFigureKey } from './figure-key.js';
 import { traceWhen } from './trace-labels.js';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe, warmOf } from './slide-ext.js';
 import { clotWords } from './callout-math.js';
 import { citeText, focusOf, oneLadder } from './teach-extras.js';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js';
@@ -935,7 +935,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
   // (before: a slide that plays its procedure also gets the state it opens on, the procedure not done yet: see the landing.)
-  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : graphTrail(s), before: s.procedure ? specOf(s.procedure.kind || s.procedure)?.before : undefined } : {});
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : graphTrail(s), before: s.procedure ? specOf(s.procedure.kind || s.procedure)?.before : undefined } : {});
   // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
   const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   let prepRev = 0;   // (bumped each time a presentation's states are set: the slide preparation's manifests belong to one of these)
@@ -952,7 +952,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const hit = key && cache.get(key);
     if (hit) { states = hit.states; waiters = []; return; }
     const mine = []; states = mine; waiters = [];
-    const c = getCalc(), steps = [...slides.map(stepOf), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days }))];
+    const c = getCalc(), steps = [...slides.map(stepOf), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days, relax: o.relax }))];
     const presetAt = []; let pid = store.get().presetId;
     slides.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
     extra.forEach((o, k) => { presetAt[slides.length + k] = o.preset; });
@@ -987,7 +987,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         // its slide: slide-ext.js tools' warm.)
         // (recs-production-120hz §16: only the working set, the slide shown and its neighbours, not every slide of a long deck at once;
         // the rest are warmed by the slide preparation as the talk reaches them, its manifests owning them.)
-        if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) > 2) return; const w = EXT.tools[s.tool?.kind]?.warm; if (w) safe(() => w(s.tool, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); });   // (a rejection here is read by slide-prep's own warm, B16)
+        if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) > 2) return; safe(() => warmOf(s, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); });   // (a rejection here is read by slide-prep's own warm, B16)
         return;
       }
       // The slides could not be computed (most often a page left open across an update): the next try starts a fresh
@@ -1964,7 +1964,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}|${glEpoch()}`, steps: {
     state: (i) => stateReady(i),
     glyphs: () => loadGlyphs(),
-    tool: (i) => { const s = slides[i], w = EXT.tools[s?.tool?.kind]?.warm; return w ? w(s.tool, ctxOf(s, i)) : null; },   // (B16: a throw or rejection reaches slide-prep, which marks the manifest failed; safe() would have turned it into null = ready)
+    tool: (i) => { const s = slides[i]; return s ? warmOf(s, ctxOf(s, i)) : null; },   // (B16: a throw or rejection reaches slide-prep, which marks the manifest failed; safe() would have turned it into null = ready)
     shadersFailed: () => shaderFailures(),
     shaders: (ms = 4) => prepareShaders(ms),
   } });
@@ -2965,7 +2965,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       request: (type, payload = {}) => getCalc().request(type, payload),
       // (steps as stepOf makes them; from: the snapshot the first starts from, the slide's own by default. Resolves with each
       // step's { snap, params, fp, extra? }, or null when the worker failed.)
-      run: (steps, from = st?.snap ?? null) => { const out = []; return getCalc().sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, params: m.params, fp: m.fp, extra: m.extra }; }).then((end) => (end?.type === 'error' ? null : out)); },
+      run: (steps, from = st?.snap ?? null) => { const out = []; return getCalc().sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, params: m.params, fp: m.fp, extra: m.extra, trail: m.trail }; }).then((end) => (end?.type === 'error' ? null : out)); },
     };
   }
   // A visual's rows: the deck's slides by id ('pvt', or { id, name } to name it), or { preset, name } patients that

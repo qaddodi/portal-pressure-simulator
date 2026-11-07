@@ -38,7 +38,7 @@ function edgeTone(rows) {
 }
 
 test('the presenter, its instruments and the worker read the registry', () => {
-  assert.match(PRESENTER, /import \{ EXT, expandIds, stepExtra, markLabel, figureHooks, safe \} from '\.\/slide-ext\.js'/);
+  assert.match(PRESENTER, /import \{ EXT, expandIds, stepExtra, markLabel, figureHooks, safe, warmOf \} from '\.\/slide-ext\.js'/);
   assert.match(TOOLS, /import \{ EXT, guard, safe \} from '\.\/slide-ext\.js'/);
   assert.match(TOOLS, /import \{ talkTrace \} from '\.\/talk-trace\.js'/);
   assert.deepEqual(Object.keys(PACKAGES), ['A', 'B', 'C', 'E', 'F', 'G', 'H']);

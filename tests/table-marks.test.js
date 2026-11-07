@@ -35,7 +35,7 @@ test('every summary-table arrow matches its row\'s model state', async () => {
     const fps = await deckStates(d);
     for (const t of tables) {
       const extra = (t.of || []).filter((o) => typeof o === 'object' && !o.id);
-      const xfps = extra.length ? await run(extra.map((o) => ({ preset: o.preset, presetDays: o.presetDays, params: o.params }))) : [];
+      const xfps = extra.length ? await run(extra.map((o) => ({ preset: o.preset, presetDays: o.presetDays, params: o.params, days: o.days, relax: o.relax }))) : [];
       const rows = (t.of || []).map((o) => {
         const x = typeof o === 'object' ? o : { id: o }, i = x.id ? d.slides.findIndex((s) => s.id === x.id) : -1;
         return { ...x, f: i >= 0 ? fps[i] : xfps[extra.indexOf(o)], title: x.title ?? d.slides[i]?.title };

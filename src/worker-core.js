@@ -545,6 +545,10 @@ export function createCore(post) {
         if (st.preset) yield* e.loadPresetSteps(st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
         for (const a of [st.action || []].flat()) applyAction(e, a);
+        // relax: days the patient lives at the state just set, before any ramp, so the slow organs (the spleen, and so the platelets) have settled to it.
+        // A preset's years of disease settle it at the preset's own cirrhosis; params set after that (a worse or better scar) leave the spleen and the
+        // platelets at the old one, and the first months of a ramp then ran them to the new one, a dip that is no part of the story.
+        if (st.relax > 0) yield* e.advanceDaySteps(st.relax, { noRupture: true, silent: true });
         const ramp = st.ramp ? Object.entries(st.ramp) : null, fine = !!(ramp || st.fine);
         // trail: two readings on each day of the time-lapse, [day, a, b] (the presenter's flow-time chart): the fingerprint
         // keys st.trail names, or (true) the portal pressure and flow.

@@ -7076,6 +7076,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz-curve :is(svg, .ic), .pz-cbars :is(svg, .ic) { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; transition: opacity var(--d-surface) var(--ease); }
 .pz-curve :is(svg, .ic).in { opacity: 0; }
 
+/* The all-patients chart (visual-allpatients.js): a panel drawn on the GPU at the box's width, its height set from its own layout (the chart and its key). */
+.pzap-wrap { width: 100%; }
+.pzap-plot { position: relative; width: 100%; aspect-ratio: 2.05; }   /* (until the layout has set the height: about what it comes to) */
+.pzap-plot :is(svg, .ic) { position: absolute; inset: 0; display: block; overflow: visible; }
+.pz.stack .pzap-plot { aspect-ratio: .7; }
 /* ── Package C: end ── */
 
 /* ── Package D, teaching card and tables: start ── */

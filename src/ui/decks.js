@@ -29,6 +29,8 @@
 //                            the words (site: a level of ladder.js SITES; it colours the kicker). The title stands alone without
 //                            the kicker, and the line is a sentence of its own. In the line, {braces} mark the one value to set
 //                            in a pill (else the first value with a unit; pill: false for none); bold: extra key terms to bold
+//   relax                    days lived at the slide's preset and params before its ramp or days, so the slow organs (the spleen, the platelets) settle to a
+//                            scar that params set worse or better than the preset's; without it the first months of a ramp run them there (a dip in the platelets)
 //   rail                     true: the six levels with this slide's site marked; 'all': every level named
 //   data                     'tiles': the tiles (tiles: which, key: what to highlight, delta: true or a slide id to show each
 //                            tile's change from that state; a slide that changes the same patient (no preset) counts from the

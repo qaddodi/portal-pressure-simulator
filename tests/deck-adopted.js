@@ -204,6 +204,7 @@ export const ADOPTED = {
   'endoscopy/relation': ['kind:curve'],
   'ascites/relation': ['kind:course'],
   'cause-treated/relation': ['kind:curve'],
+  'cause-treated/allpatients': ['visual', 'cohort'],
   'recompensation/relation': ['kind:curve'],
   'ten-years/relation': ['kind:curve'],
   'next-bleed/relation': ['kind:curve'],

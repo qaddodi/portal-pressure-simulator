@@ -14,7 +14,7 @@ export function createVisuals({ sv, glBox, est, fitChart, fsOf }) {
 /** One number on a scale with its thresholds: the reflowing key (scaleKey), on every screen.
  *  sc: { key, max, low, marks: [[value, words, short]] }; rows: [{ name, f, site }]. */
 // A visual's own patient ({ preset } with its params and days, if any), as one key.
-const xKey = (o) => o.preset + (o.params || o.days ? JSON.stringify([o.params, o.days]) : '');
+const xKey = (o) => o.preset + (o.params || o.days || o.relax ? JSON.stringify([o.params, o.days, o.relax]) : '');
 const dig = (k) => TILE[k]?.d ?? 1;
 function scaleVisual(sc, rows) {
   return scaleKey(sc, rows);
