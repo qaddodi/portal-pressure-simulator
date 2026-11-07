@@ -1483,12 +1483,19 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 @media (hover: hover) { .look-tile:hover { color: var(--text); } .look-tile:not([aria-pressed="true"]):hover .look-chip { box-shadow: 0 0 0 1px var(--border-strong), 0 0 0 1px transparent; } }
 .look-tile:active .look-chip { opacity: .82; }
 .look-tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
-/* The wait for a look (look-chooser.js): the app's loading ring (as .pz-load) on a disc of the page's own surface over the tapped tile's picture, so it reads on any
-   look's ground. Shown at once (no fade: the page is held still for the crossfade's first picture) and turning on the GPU (transform); with Reduce Motion pz-spin is
-   the slow dim and brighten. */
+/* The wait for a look (look-chooser.js): the app's loading ring (as .pz-load), small and faint, drawn straight on the tapped tile's picture in the ink of the look
+   it shows, the look being switched to, not the page's own (System: the device's). No disc and no fade (the page is held still for the crossfade's first picture); it
+   turns on the GPU (transform). With Reduce Motion pz-spin is the slow dim and brighten. */
 .look-tile { position: relative; }
-.look-spin { display: none; position: absolute; top: 5px; left: 50%; width: 24px; height: 24px; margin-left: -12px; box-sizing: border-box; border-radius: 50%; pointer-events: none;
-  background: var(--surface); border: 2px solid color-mix(in srgb, var(--text) 12%, var(--surface)); border-top-color: color-mix(in srgb, var(--text) 52%, var(--surface)); box-shadow: 0 0 0 1px var(--border); }
+.look-tile[data-look="light"] { --lk-ink: var(--look-light-ink); }
+.look-tile[data-look="soft"] { --lk-ink: var(--look-soft-ink); }
+.look-tile[data-look="dark"] { --lk-ink: var(--look-dark-ink); }
+.look-tile[data-look="navy"] { --lk-ink: var(--look-navy-ink); }
+.look-tile[data-look="black"] { --lk-ink: var(--look-black-ink); }
+.look-tile[data-look="system"] { --lk-ink: var(--look-light-ink); }
+@media (prefers-color-scheme: dark) { .look-tile[data-look="system"] { --lk-ink: var(--look-dark-ink); } }
+.look-spin { display: none; position: absolute; top: 8px; left: 50%; width: 18px; height: 18px; margin-left: -9px; box-sizing: border-box; border-radius: 50%; pointer-events: none; opacity: .55;
+  border: 1.5px solid color-mix(in srgb, var(--lk-ink) 16%, transparent); border-top-color: var(--lk-ink); }
 .look-tile[data-busy] .look-spin { display: block; animation: pz-spin 1.1s linear infinite; }
 .look-half { position: relative; display: block; flex: 1 1 0; min-width: 0; background: var(--lk-bg); }
 .look-half[data-look="light"] { --lk-bg: var(--look-light-bg); --lk-card: var(--look-light-card); --lk-ink: var(--look-light-ink); --lk-accent: var(--look-light-accent); }
