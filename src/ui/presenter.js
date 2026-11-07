@@ -752,7 +752,10 @@ function bigTiles() {
       setA(p.tile, 'data-rate', cls || (none ? 'none' : 'plain'));
       if (p.hi) {
         const hs = none ? '—' : tileVal(p.k, f[p.k]);
-        if (!p.hw) setT(p.hv, hs); else if (sync) p.hw.now(hs); else p.hw.set(hs);
+        // (Always .set, never .now, even while the tiles glide in: a kept GPU number is redrawn by set alone; now writes only the page's text, which
+        // stays clear under the picture, so a header reading written that way kept showing the number it had before, the slide's start on a
+        // time-lapse's end: 7 Nov 2026, "the slide says 15.1 but the readout says 23.7". Nothing measures the header's words, so nothing needs now.)
+        if (!p.hw) setT(p.hv, hs); else p.hw.set(hs);
         p.hu.hidden = none || !p.T.u;
         if (p.hu.textContent !== p.T.u) p.hu.textContent = p.T.u;
         setA(p.hi, 'data-rate', cls || (none ? 'none' : 'plain'));

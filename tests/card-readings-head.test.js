@@ -52,7 +52,8 @@ test('the tiles build the header readings from the same values, numbers as GPU w
   assert.match(js, /h\('div', \{ class: 'pz-dh' \}, dhT, tiles\.head, fold, zbtn\)/, 'the readings sit in the header row, after the name');
   assert.match(js, /const hw = hi \? glWords\(hv, \{ halo: true, keep: true \}\) : null;/, 'the number is GPU words with the label outline, kept (never handed to the page text)');
   assert.doesNotMatch(js, /class: 'pz-hi'[^\n]*h\('i', \{\}\)/, 'no rating dot in the reading');
-  assert.match(js, /else if \(sync\) p\.hw\.now\(hs\); else p\.hw\.set\(hs\);|if \(!p\.hw\) setT\(p\.hv, hs\); else if \(sync\) p\.hw\.now\(hs\); else p\.hw\.set\(hs\);/);
+  assert.match(js, /if \(!p\.hw\) setT\(p\.hv, hs\); else p\.hw\.set\(hs\);/, 'a header reading is always set, never .now: a kept GPU number is redrawn by set alone, so now left the start state up under a time-lapse\'s end');
+  assert.doesNotMatch(js, /p\.hw\.now\(/);
   assert.match(js, /else ui\.tiles\.paintTiles\(now\.fp, \[\], \[\], null, 0, false\);/, 'a card with no readings clears the last slide\'s');
   assert.doesNotMatch(js, /stackFold/, 'no key or wheel works a readings card');
   assert.doesNotMatch(js, /k === 'ArrowUp' \|\| k === 'ArrowDown'\) \{ if \(!e\.repeat\)/);
