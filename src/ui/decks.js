@@ -59,7 +59,7 @@
 //                            plays the ramp over the seconds on the bedside clock instead, so a Doppler keeps recording, e.g. a meal)
 //   graph                    a time-lapse slide's graph on its teaching card (lapse-graph.js): the first two of its tiles, day by day, over the bar. Names its two lines
 //                            when it has no tiles (['map', 'co']; the keys are flow-time.js LINE); false for none (a slide whose own record is the graph, or a chart tool)
-//                            On a slide that plays a TIPS (procedure) the same field names the two lines its procedure graph draws live after the stent (event-graph.js)
+//                            On a slide that plays a TIPS, BRTO or BATO (procedure) the same field names the two lines its procedure graph draws live after the stent (event-graph.js)
 //   visual                   over the dimmed figure: 'ladders' (each row's Gut to heart profile, six in a grid), 'table' (cols, asc: SAAG and protein columns, note: a text column's heading or several, vs: 'first' to show arrows against the first row,
 //                            foot: one sentence after the legend, which is built from the table; a row's ref: true keeps its numbers, its vs: a slide id
 //                            compares it with that row instead, its note: the text column's words, or an array of them), 'scale' (scale), 'quadrant'

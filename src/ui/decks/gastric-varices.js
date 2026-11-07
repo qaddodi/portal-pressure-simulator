@@ -63,7 +63,7 @@ export const GASTRIC = {
     },
     {
       id: 'brto', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], tool: { kind: 'flows' }, procedure: 'brto',
-      data: 'tiles', tiles: ['gv', 'varix', 'ppg'], key: ['gv'], delta: 'classes',
+      data: 'tiles', tiles: ['gv', 'varix', 'ppg'], graph: ['ppg', 'gv'], key: ['gv'], delta: 'classes',
       kicker: 'After a bleed', site: 'sin', title: 'BRTO closes the shunt from below',
       line: 'Plugging the shunt shrinks the fundal varix to {gv}, but the PPG rises to {ppg}. Esophageal varices can grow, here to {varix}, so surveillance endoscopy follows.',
       notes: 'Source: Baveno VIII 5.41; AASLD 45. A balloon in the left renal vein plugs the shunt and sclerosant fills the fundal varix. In balloon-occluded retrograde transvenous obliteration (BRTO) the shunt and the varices behind it thrombose. Baveno VIII keeps transvenous obliteration for patients in whom a TIPS is contraindicated; AASLD lists it with glue and TIPS as a first-line option and prefers it with encephalopathy, a MELD-Na over 20 or a high FIPS score. Closing the shunt raises the portal pressure, so ascites and esophageal varices can worsen and a surveillance endoscopy follows. In series esophageal varices worsen in about a third, over months to years; the model shows where they end up at once. The buttons compare the shunt open and closed.',
@@ -71,7 +71,7 @@ export const GASTRIC = {
     },
     {
       id: 'bato', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], tool: { kind: 'flows' }, procedure: 'bato',
-      data: 'tiles', tiles: ['gv', 'varix', 'ppg'], key: ['gv'], delta: 'classes',
+      data: 'tiles', tiles: ['gv', 'varix', 'ppg'], graph: ['ppg', 'gv'], key: ['gv'], delta: 'classes',
       kicker: 'After a bleed', site: 'sin', title: 'BATO closes it from above',
       line: 'Closed from the portal side, the fundal varix shrinks to {gv} as after BRTO. The PPG rises to {ppg} and esophageal varices can grow to {varix}.',
       notes: 'Source: AASLD 2024. AASLD names balloon-occluded antegrade transvenous obliteration (BATO) among the variants of BRTO, with CARTO and PARTO, and refers to Abraldes et al. for the techniques. BATO reaches the varices from the portal side. Here the catheter goes through the liver into the right portal vein, along the portal and splenic veins and into the short gastric feeder; a balloon blocks the feeder and sclerosant fills the varices. It is used when the gastrorenal shunt cannot be catheterized from below, because it is too large, tangled or has no usable outflow. The model shows a patient whose shunt is there but is treated as not reachable from below. The result matches BRTO: the shunt and the varices close, the portal blood stays in the portal system, and the PPG rises. Ascites and esophageal varices can worsen, so a surveillance endoscopy follows.',

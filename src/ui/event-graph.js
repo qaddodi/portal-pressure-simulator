@@ -16,6 +16,8 @@
 //    a pressure from zero to the next 5 over its highest value; the other from the tile's own scale start. The tiles' own cut-offs are drawn
 //    as tints on the side that is worse (table-marks SCALE and RATE: the sinusoidal flow's 55% and 75%, red and amber, as its tile's bar), a
 //    pressure with its red cut-off only; after a TIPS the PPG's goal, below 12 mmHg (pressure-cuts.js), is a green band named "Target <12".
+//  • BRTO and BATO (Gastric varices): the fundal varix closes at once as the shunt does, and the PPG creeps up over the seconds after (16.9 to
+//    about 18 mmHg), the price the slide names.
 //  • It draws nothing until the change: before it the line stops at 0 with its value, the word for the event over a dashed line ("Stent
 //    open"), the seconds after it empty. Going back before the step clears what was drawn; coming back to the slide played through shows it
 //    whole again.
@@ -37,7 +39,9 @@ const nextFrame = frameFor('event-graph');
 // (The clock: seconds before the change, seconds after it, the step between the clock's numbers.)
 export const PRE_S = 5, EVENT_S = 20, TICK_S = 5;
 // What the change is called over its line, for each procedure that makes one (a measurement, EUS-PPG, changes nothing and has no graph).
-export const EVENT_WORD = { tips: 'Stent open' };
+// (BRTO and BATO: the word of their last step, the moment the model closes the shunt. Banding and a meal have time charts of their own: the
+// beat or talk trace on a banding slide, the time-lapse graph on a meal slide, so they get no second one here.)
+export const EVENT_WORD = { tips: 'Stent open', brto: 'Shunt closed', bato: 'Varices closed' };
 const kindOf = (s) => (typeof s?.procedure === 'string' ? s.procedure : s?.procedure?.kind) || null;
 const isP = (k) => LINE[k]?.[1] === 'mmHg';
 const NO_F = Object.freeze({});

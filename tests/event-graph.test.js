@@ -45,6 +45,12 @@ test('every slide whose procedure changes the patient and shows two readings car
   // (Every TIPS a slide plays: each graphs its PPG, and the reading its words are about.)
   const tips = Object.fromEntries(procSlides.filter(({ s }) => kindOf(s) === 'tips').map(({ d, s }) => [`${d.id}/${s.id}`, eventLines(s)]));
   assert.deepEqual(tips, { 'shunts/play': ['ppg', 'liver'], 'gastric-varices/tips': ['ppg', 'gv'], 'variceal-bleed/tips': ['ppg', 'varix'], 'ten-years/tips': ['ppg', 'liver'] });
+  // (BRTO and BATO: the fundal varix they close, and the PPG that rises as its outlet goes; no PPG goal, only its red cut-off.)
+  for (const id of ['brto', 'bato']) {
+    const s = unique.find((d) => d.id === 'gastric-varices').slides.find((x) => x.id === id), g = eventGraphOf(s);
+    assert.deepEqual(g.lines, ['ppg', 'gv'], id); assert.equal(g.target, null, `${id}: no goal band`);
+    assert.equal(g.word, specOf(id).steps.at(-1)[1], `${id}: named as its last step`);
+  }
 });
 
 test('the scales are fixed from where the lines start and end, from zero for a pressure, with the tiles’ own cut-offs', () => {
@@ -91,4 +97,26 @@ test('after an 8 mm TIPS the model’s own course falls inside the graph’s sec
     assert.ok(f.ppg >= ps.min && f.ppg <= ps.max, 'every PPG reading inside its fixed scale');
     assert.ok(f.liver >= ls.min && f.liver <= ls.max, 'every flow reading inside its fixed scale');
   }
+});
+
+test('after BRTO the fundal varix closes at once and the PPG rises over the seconds after, inside the fixed scales', async () => {
+  const deck = unique.find((d) => d.id === 'gastric-varices'), idx = deck.slides.findIndex((s) => s.id === 'brto');
+  const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];
+  const steps = deck.slides.slice(0, idx + 1).map((s) => (MODEL.some((k) => s[k]) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse, before: s.procedure ? specOf(kindOf(s)).before : undefined } : {}));
+  const seq = [], core = createCore((m) => { if (m.type === 'seqStep') seq[m.i] = m; });
+  core.handle({ type: 'run', running: false });
+  await core.handle({ type: 'sequence', reqId: 1, steps });
+  core.dispose();
+  const st = seq[idx], fp = (e) => fingerprintOf(computeMetrics(e), { P: e.Pf || e.P, Q: e.Qf || e.Q, params: e.params });
+  const e = new Engine(); e.restore(st.before.snap); e.beat = true;
+  const h = 0.004;
+  for (let t = 0; t < 2; t += h) e.step(h);
+  const b = fp(e);
+  e.easeParams(deepMerge(structuredClone(e.params), { occluded: { C5: true } }));
+  const at = [];
+  for (let t = 0, next = 0; t <= EVENT_S + 1e-9; t += h) { e.step(h); if (t >= next) { at.push(fp(e)); next += 1; } }
+  assert.ok(b.gv > 5 && at[1].gv < 2.5, `the fundal varix closes at once (${b.gv.toFixed(1)} to ${at[1].gv.toFixed(1)} mm)`);
+  assert.ok(at.at(-1).ppg > b.ppg + 0.5, `the PPG rises after it (${b.ppg.toFixed(1)} to ${at.at(-1).ppg.toFixed(1)} mmHg)`);
+  const ps = eventScale('ppg', [st.before.fp.ppg, st.fp.ppg]), gs = eventScale('gv', [st.before.fp.gv, st.fp.gv]);
+  for (const f of at) assert.ok(f.ppg <= ps.max && f.gv <= gs.max, 'every reading inside its fixed scale');
 });
