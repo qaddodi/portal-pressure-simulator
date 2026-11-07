@@ -107,7 +107,7 @@ export const CONTROLS = {
   balloonGas: { type: 'toggle', key: 'balloonGas', label: 'Gastric balloon tamponade (first step)', get: (p) => p.balloonGas, set: (p, v) => { p.balloonGas = v; if (!v) p.balloonEso = false; } },
   brto: { type: 'toggle', key: 'occluded', label: 'BRTO (occlude the gastrorenal shunt)', get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, info: 'Balloon-occluded retrograde transvenous obliteration. Watch what it does to portal pressure.' },
   splenicRx: { type: 'slider', key: 'splenicRx', label: 'Spleen: embolization / splenectomy', min: 0, max: 2, step: 1, get: (p) => p.splenicRx | 0, set: (p, v) => { p.splenicRx = v; }, format: (v) => SPLENIC_RX[v], def: 0, info: 'Cuts splenic artery inflow: partial embolization removes part of the spleen\u2019s blood supply, splenectomy removes all of it. Less inflow means a lower portal pressure and less flow to the varices.' },
-  portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', ...prop('portocaval'), info: 'End-to-side: total diversion; the liver loses all portal perfusion.' },
+  portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', get: (p) => p.portocaval, set: (p, v) => { p.portocaval = v; if (!v) p.portocavalSide = false; }, info: 'End-to-side: total diversion; the liver loses all portal perfusion. Side-to-side (the shunt\u2019s own card) keeps the portal trunk, so the liver drains back out through it.' },
   dsrs: { type: 'toggle', key: 'dsrs', label: 'Distal splenorenal (Warren)', ...prop('dsrs'), info: 'Selective: decompresses gastroesophageal varices while SMV blood still perfuses the liver.' },
   mesocaval: { type: 'toggle', key: 'mesocaval', label: 'Mesocaval shunt', ...prop('mesocaval') },
   rex: { type: 'toggle', key: 'rex', label: 'Meso-Rex bypass', ...prop('rex'), info: 'A vein graft from the superior mesenteric vein to the left portal vein, past a clotted trunk: the gut\u2019s blood goes back into the liver.' },
@@ -407,7 +407,8 @@ const C = {
   embolization: worded('splenicRx', 'Partial splenic embolization', (q) => { q.splenicRx = 0; }),
   tips: numbered('tips', 'TIPS ', ' mm', (q) => { q.tips.on = false; }),
   dips: numbered('dips', 'DIPS ', ' mm', (q) => { q.dips.on = false; }),
-  portocaval: worded('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; }),
+  portocaval: worded('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; q.portocavalSide = false; }),
+  portocavalSide: worded('portocaval', 'Portocaval shunt (side-to-side)', (q) => { q.portocaval = false; q.portocavalSide = false; }),
   dsrs: worded('dsrs', 'Distal splenorenal shunt', (q) => { q.dsrs = false; }),
   mesocaval: worded('mesocaval', 'Mesocaval shunt', (q) => { q.mesocaval = false; }),
   rex: worded('rex', 'Meso-Rex bypass', (q) => { q.rex = false; }),
@@ -443,7 +444,7 @@ export function activeInterventions(p) {
   if (p.splenicRx) changes.push(p.splenicRx === 2 ? C.splenectomy : C.embolization);
   if (p.tips.on) put(C.tips, p.tips.d, 1, -2);
   if (p.dips.on) put(C.dips, p.dips.d, 1, -2);
-  if (p.portocaval) changes.push(C.portocaval);
+  if (p.portocaval) changes.push(p.portocavalSide ? C.portocavalSide : C.portocaval);
   if (p.dsrs) changes.push(C.dsrs);
   if (p.mesocaval) changes.push(C.mesocaval);
   if (p.rex) changes.push(C.rex);

@@ -90,6 +90,8 @@ export function createGeo(st, live) {
   function divideLen(vein) {
     let sh;
     for (let i = 0; i < LIGATED.length; i++) if (LIGATED[i][1] === vein) { sh = LIGATED[i]; break; }
+    // (A side-to-side portocaval shunt keeps the portal trunk whole: nothing is cut away.)
+    if (vein === 'PV_TRUNK' && store.get().params.portocavalSide) return 0;
     const x = sh && live.E[sh[0]], v = live.E[vein];
     if (!x?.vis || !v?.vis) return 0;
     let k = 1;

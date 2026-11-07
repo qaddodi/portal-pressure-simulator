@@ -483,7 +483,7 @@ export function createHover(st, live) {
     if (r.key === 'tips') updateParams({ tips: { on: true, d: store.get().params.tips.d || 8 } }, { label: 'TIPS' });
     else if (r.key === 'dips') updateParams({ dips: { on: true, d: store.get().params.dips.d || 8 } }, { label: 'DIPS' });
     else if (r.key === 'custom') updateParams((p) => { p.customShunts = { ...(p.customShunts || {}), [r.id]: 10 }; return p; }, { label: r.label });
-    else updateParams({ [r.key]: true }, { label: r.label });
+    else updateParams(r.key === 'portocaval' ? { portocaval: true, portocavalSide: false } : { [r.key]: true }, { label: r.label });
     toast(`${r.label} created.`);
     onSelect({ type: 'edge', id: r.key === 'tips' ? 'TIPS' : r.key === 'dips' ? 'DIPS' : r.key === 'custom' ? r.id : { portocaval: 'S_PC', dsrs: 'S_DSR', mesocaval: 'S_MC' }[r.key] });
   }

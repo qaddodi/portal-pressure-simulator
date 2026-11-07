@@ -187,7 +187,12 @@ function buildEdgeCard(e) {
     }
     if (['S_PC', 'S_DSR', 'S_MC', 'REX'].includes(id)) {
       const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval', REX: 'rex' }[id];
-      verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams({ [key]: false }, { label: `Remove ${e.label}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
+      // A portocaval shunt is made end-to-side (the trunk divided at the liver) or side-to-side (the trunk kept): one model edge, the
+      // ligation under it set by portocavalSide (engine.js).
+      if (id === 'S_PC') verbs.push({ type: 'seg', id: 'pcKind', label: 'Made', small: true, options: [['end', 'End-to-side'], ['side', 'Side-to-side']],
+        get: () => (store.get().params.portocavalSide ? 'side' : 'end'),
+        set: (val) => updateParams((p) => { p.portocavalSide = val === 'side'; return p; }, { label: `Portocaval shunt: ${val === 'side' ? 'side-to-side' : 'end-to-side'}` }) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame
+      verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams(id === 'S_PC' ? { portocaval: false, portocavalSide: false } : { [key]: false }, { label: `Remove ${e.label}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     }
     verbs.push(doppler);
   } else if (SIN_EDGES.has(id)) {

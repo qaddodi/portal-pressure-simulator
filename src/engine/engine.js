@@ -548,7 +548,8 @@ export class Engine {
       if (sf === Infinity) { this.G[k] = 0; continue; }
       R *= sf;
       // Surgical ligations implied by shunt procedures
-      if (p.portocaval && e.id === 'PV_TRUNK') { this.G[k] = 0; continue; }
+      // (End-to-side only: a side-to-side portocaval shunt keeps the portal trunk, so the liver can drain back out through it.)
+      if (p.portocaval && e.id === 'PV_TRUNK' && !p.portocavalSide) { this.G[k] = 0; continue; }
       // Warren: the splenic vein is divided between the shunt and the IMV, so the IMV still drains to the portal vein.
       if (p.dsrs && e.id === 'SV_MID') { this.G[k] = 0; continue; }
       // Warren: the coronary (left gastric) vein is tied off where it meets the portal vein, so the high portal pressure no longer feeds the esophageal varices through it.

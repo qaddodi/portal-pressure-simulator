@@ -155,7 +155,7 @@ export function createClamps(st, live) {
     if (t !== okT) { okT = t; okTs = t.toFixed(3); }
     o.push(okTs, live.isImaging(), findingHidden('clot'));
     okFlat(o, p.stenosis); okFlat(o, p.stenosisSite); okFlat(o, p.thrombus); okFlat(o, p.occluded); o.push(p.splenicRx | 0);
-    okFlat(o, p.tips); okFlat(o, p.dips); okFlat(o, p.customShunts); okFlat(o, p.balloonEso); okFlat(o, p.balloonGas);
+    okFlat(o, p.tips); okFlat(o, p.dips); o.push(!!p.portocavalSide); okFlat(o, p.customShunts); okFlat(o, p.balloonEso); okFlat(o, p.balloonGas);
     for (const id in p.stenosis) okLesion(o, id);
     for (const id in p.thrombus) okLesion(o, id);
     for (const id in p.occluded) okLesion(o, id);
@@ -274,7 +274,8 @@ export function createClamps(st, live) {
       if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id, p); else anastomoses(id);
     }
     // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.
-    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis) ligature(vein, shunt);
+    // (A side-to-side portocaval shunt divides nothing: the trunk stays whole and untied.)
+    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis && !(vein === 'PV_TRUNK' && p.portocavalSide)) ligature(vein, shunt);
     // The Warren shunt also ties off the coronary vein (the engine closes it too): two ties and the plug's cross, three quarters of the way to the portal vein.
     if (E.S_DSR.vis && !E.S_DSR.reveal && E.LGV_CONF?.vis) ligature('LGV_CONF', 'S_DSR', CORONARY_TIE);
     for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {
