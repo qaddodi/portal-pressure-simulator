@@ -381,6 +381,8 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);
       // The periportal collaterals (cavernoma) are fine channels, thinner than the caliber their flow alone would draw.
       if (e.id === 'C8') w *= lerp(0.6, 1, t);
+      // The coronary vein is drawn a little finer than its flow alone would make it in the anatomy (0.85, 6 Nov); the flow lens and the circuit keep theirs.
+      if (e.id === 'LGV_CONF' && mode !== 'flow') w *= lerp(0.85, 1, t);
       // The spontaneous splenorenal shunt never reads fatter than the splenic vein it leaves.
       if (e.id === 'C6' && mode !== 'flow' && EI.V_SPL != null) w = Math.min(w, lerp(vesselPx(f.D[EI.V_SPL]), clamp(vesselPx(f.D[EI.V_SPL]) * 0.95, 6, 15) * circBoost, t));
       // The varices' channels are drawn as big as the varix is now, not as the weeks of remodeling left them (varix-look.js), never under
