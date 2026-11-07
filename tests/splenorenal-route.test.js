@@ -102,7 +102,7 @@ test('splenorenal shunts keep clear of the descending colon and ease into the re
 });
 
 // Mohammad, 7 Nov: in a Warren shunt the coronary vein is tied off; it carries no flow, and the figure marks the tie.
-test('Warren shunt ties off the coronary vein: no flow in it, sutures on it, the varices decompressed', async () => {
+test('Warren shunt ties off the coronary vein: no flow in it, sutures, a cross and a grey wash on it, the varices decompressed', async () => {
   const fs = await import('node:fs');
   const run = (p) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle(); return (id) => e.Q[e.ei[id]]; };
   const base = run({}), W = run({ dsrs: true });
@@ -116,9 +116,20 @@ test('Warren shunt ties off the coronary vein: no flow in it, sutures on it, the
   assert.ok(pr({ dsrs: true }) < pr({}) - 5, 'the coronary vein is decompressed, not dammed up behind the tie');
   const engine = fs.readFileSync(new URL('../src/engine/engine.js', import.meta.url), 'utf8');
   assert.match(engine, /p\.dsrs && e\.id === 'LGV_CONF'/);
+  // Cut off from the portal vein, the esophageal varices follow their own vein's pressure and collapse (Mohammad, 7 Nov: "do the varices go away?!").
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const vm = (p) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle(); return computeMetrics(e).varix; };
+  assert.ok(vm({}).present && vm({}).d >= 5, 'large varices before');
+  assert.ok(!vm({ dsrs: true }).present && vm({ dsrs: true }).d < 2.5, 'no varices after a Warren shunt');
+  assert.match(engine, /this\.routeExcess\(\[p\.dsrs \? 'LGV' : 'CONF', 'RA'\], P\)/);
   const stage = stageSource();
   assert.match(stage, /ligature\('LGV_CONF', 'S_DSR', CORONARY_TIE\)/);
-  assert.doesNotMatch(stage, /tieX/, 'the ties are sutures alone, no plug cross');
+  assert.match(stage, /putMark\(ov\.plugs, `tieX:\$\{id\}`/, 'the plug cross is half way along the tied vein');
+  assert.match(stage, /class: 'tied-off'/, 'the tied vein is greyed out');
+  const { tiedOff } = await import('../src/engine/topology.js');
+  assert.ok(tiedOff({ dsrs: true }, 'LGV_CONF') && tiedOff({ dsrs: true }, 'LGV') && !tiedOff({}, 'LGV_CONF') && !tiedOff({ dsrs: true }, 'SV_CONF'), 'only the tied coronary vein and its station read "—"');
+  assert.match(stage, /tiedOff\(f\.viewParams \|\| st\.params, id\)/, 'the station label reads —');
+  assert.match(fs.readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /tiedOff\(store\.get\(\)\.params, info\.id\)\) \{ vals\[0\] = '—'/, 'the tooltip reads —');
   const { SHUNTS } = await import('../src/ui/decks/shunts.js');
   assert.match(SHUNTS.slides.find((x) => x.id === 'dsrs').line, /coronary vein is tied off/);
 });

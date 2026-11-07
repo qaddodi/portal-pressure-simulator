@@ -217,6 +217,9 @@ export const TARGETS = {
   hepaticFlow_Lmin: 1.5, pvFlow_Lmin: 1.1, haFlow_Lmin: 0.4,
 };
 
+/** The coronary vein a Warren shunt ties off, and its station: they read "—", not a pressure (7 Nov: nothing flows in it, and the stomach drains by the short gastric veins). */
+export const tiedOff = (p, id) => !!p?.dsrs && (id === 'LGV_CONF' || id === 'LGV');
+
 export const PORTAL_TERRITORY = new Set(['SMV', 'IMV', 'SV', 'SVD', 'LGV', 'CONF', 'PVH', 'RPV', 'LPV', 'VAR', 'GV']);
 // Edges that carry portal blood into systemic veins (for shunt fraction). Positive sign = toward systemic.
 export const PORTOSYSTEMIC_EDGES = ['C1b', 'C3', 'C4', 'C5', 'C6', 'C7', 'TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC'];

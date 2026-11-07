@@ -27,7 +27,7 @@ import { sharpMoving, setSharpMoving } from './adapt-tier.js';
 import { UPDATED, RELEASE, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js';
-import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js';
+import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
@@ -1078,6 +1078,7 @@ function hoverInfo(info) {
   const liver = e.kind === 'liver', b = liver ? bedStats(e, f) : null;
   const vals = [edgeValue(e, f, 'pressure', null).v, fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06),
     ...(liver ? [fmt(b.dp, 1), b.r == null ? '—' : fmt(b.r, 1)] : [fmt(v, 1), fmt(f.D[k], 1)])].map(String);
+  if (tiedOff(store.get().params, info.id)) { vals[0] = '—'; if (!liver) vals[2] = '—'; }   // (a vein tied off at surgery has no pressure or velocity to read)
   // Built once per vessel; while it stays hovered each frame only changes the numbers, and the tip is measured
   // and placed again only when the pointer moves or a number changes its length.
   const shape = `${info.id}|${info.peek ? 1 : 0}`;

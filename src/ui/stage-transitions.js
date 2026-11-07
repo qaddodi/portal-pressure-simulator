@@ -15,6 +15,9 @@ import { createVenous } from './stage-venous.js';
 import { store } from './store.js';
 import { clamp, s } from './util.js';
 
+// Where the cross sits on a vein the Warren shunt has tied off and greyed out, as a share of its course (Mohammad, 7 Nov: about half way).
+const TIED_X = 0.5;
+
 export function createTransitions(st, live) {
   const { E, EI, EV, FLUID_COLS, FLUID_R, JUMP_MMHG, MAP, ND_PER, ND_SEG, NI, SEL_DIM, abdTo, anyReveal, arcMid, ascitesLine, ascitesPath, ascitesSvg, caud, clampW, clampWOut, collOpen, defs, diaCut, divideLen, drawFrame, easeInOut, edgeVisible, findingHidden, flag, flank, gBackdrop, gFx, gFxC, gOver, geo, haloEls, hidePlate, late, liveOn, liverR, liverTint, lv, morphLiver, nd, nextFrame, nodeDots, nodePos, organEls, organG, ov, plateOn, platePoke, pointAt, putA, qP, readFrame, recruitFrac, refreshCTM, resTheme, routeCustomShunts, setGlowSrc, setReveal, spleenMv, spot, svg, syncOrganMasks, syncVeins, themeKey, toRGB, update, updateGeometry, waist, wrap, wrapCls } = st;
   // ── Model-driven transitions ──────────────────────
@@ -308,17 +311,26 @@ export function createTransitions(st, live) {
   }
   // A vessel divided at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
   // shunt): two suture ties across its tied-off stump, a little apart, just behind the stump's rounded end.
-  // (A vein tied off along its length, not divided: `at`, the tie's place as a share of its course, puts the same two ties there:
-  // the coronary vein in a Warren shunt. No plug's cross on it, 7 Nov: the sutures alone show the tie.)
+  // (A vein tied off along its length, not divided: `at`, the tie's place as a share of its course, puts the same two ties there, greys
+  // the whole vein out as clotted, and puts the plug's cross halfway along it: the coronary vein in a Warren shunt.)
   function ligature(id, shunt, at) {
     const x = E[id], c = at != null ? geo[id].len * at : Math.min(divideLen(id) + 5, geo[id].len * 0.6);
     const R = x.width / 2 + (x.wallPx || 1) + 3;
     let d = '';
+    if (at != null) {
+      let w = '';
+      geo[id].cur.forEach((q, i) => { w += `${i ? 'L' : 'M'}${q[0].toFixed(1)} ${q[1].toFixed(1)} `; });
+      putMark(ov.stents, `tieGrey:${id}`, shunt, [s('path', { class: 'tied-off', d: w, 'stroke-width': (x.width + 2 * (x.wallPx || 1)).toFixed(1) })]);
+    }
     for (const o of [-3.5, 3.5]) {
       const q = frameAt(id, c + o);
       d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
     }
     putMark(ov.stents, `tie:${id}`, shunt, [s('path', { class: 'ligature', d })]);
+    if (at == null) return;
+    const m = frameAt(id, geo[id].len * TIED_X);
+    putMark(ov.plugs, `tieX:${id}`, shunt, [s('circle', { cx: m.x, cy: m.y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
+      s('path', { d: `M${m.x - 4} ${m.y - 4} L ${m.x + 4} ${m.y + 4} M${m.x + 4} ${m.y - 4} L ${m.x - 4} ${m.y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
   }
   return { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit, stentMesh, stepFluid, stepReveals, trackChanges, updateFocus, updateNodesCircuit, updateOrganSel, updateOrgans, venousSync };
 }

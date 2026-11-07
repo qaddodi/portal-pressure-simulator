@@ -1,6 +1,6 @@
 // What a label says and where it attaches: change references, pressure runs, node, velocity and scan items, blockers and the label anchor.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { EDGES, NODES, dopplerK, stentSegments, stentSite } from '../engine/topology.js';
+import { EDGES, NODES, dopplerK, stentSegments, stentSite, tiedOff } from '../engine/topology.js';
 import { ABBR, ATLAS_LABELS, LABEL_VESSEL, SHORT } from './anatomy.js';
 import { oxygenFor } from './blood.js';
 import { flowColor, heatColor, oxygenColor, pressureColor, velColorOf, velocityColor } from './colormap.js';
@@ -190,8 +190,10 @@ export function createLabelItems(st, live) {
     const lines = [[{ t: name, size: 11.5, weight: one ? 600 : 500, cls: 'lb-name' }]];
     const sel = st.selection?.type === 'node' && st.selection.id === id;
     // (The hepatic artery's label is its name only: its pressure sits off the venous scale and says little; its flow is in the selection card.)
-    const lr = isImaging() || id === 'HA' ? null : layerRuns(f, id, compact);
-    const pr = id === 'HA' ? null : lr ? lr.runs : pressureRuns(P, id, compact);
+    // (The coronary vein a Warren shunt has tied off reads "—": the stomach side's own pressure is not the vein's.)
+    const tied = tiedOff(f.viewParams || st.params, id);
+    const lr = isImaging() || id === 'HA' || tied ? null : layerRuns(f, id, compact);
+    const pr = id === 'HA' ? null : tied ? [{ t: '—', size: 14, weight: 650, cls: 'lb-val' }] : lr ? lr.runs : pressureRuns(P, id, compact);
     // A station whose own vessel's flow has reversed carries ⟲ after its value, in the reversed-flow orange (blueprint §6.2).
     const rev = !!pr && revShown.has(STATION_VESSEL[id]);
     if (rev) pr.push({ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 });
@@ -203,7 +205,7 @@ export function createLabelItems(st, live) {
     const w = Math.max(...lines.map(lineW)) + (mode === 'atlas' ? 7 : 0);
     const hh = lines.reduce((a, l) => a + LINE_H(l), 0);
     return { key: 'n:' + id, src: ['node', id, mode, compact], node: id, cls: 'node ' + mode + (one ? ' bare' : ''), lines, w, h: hh, sel, canShort: (!!pr || id === 'HA') && mode !== 'atlas' && !exp,   // (the hepatic artery has no number to drop, but takes its abbreviation, "HA", where it is crowded)
- label: `${NODES[NI[id]].label}${lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
+ label: `${NODES[NI[id]].label}${tied ? ': tied off, no pressure' : lr ? `: ${lr.runs.filter((r) => r.cls !== 'lb-rev').map((r) => r.t).join(' ')}` : pr ? `: ${fmt(P, 1)} millimeters of mercury` : ''}${rev ? ', flow reversed' : ''}`,
       swatch: mode === 'atlas' && pr ? (lr ? lr.color : layerMode() === 'heat' ? heatColor(P - (REF()?.[NI[id]] ?? P)) : pressureColor(P)) : null, bg: mode === 'inline' && !one, padX: mode === 'inline' && !one ? 6 : 3, padY: mode === 'inline' && !one ? 3 : 2 };
   }
   // A number that pulses with each beat, read as its mean over the last few seconds (as a tile or the Doppler shows it).

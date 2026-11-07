@@ -1254,7 +1254,9 @@ export class Engine {
     // grows nothing: in right heart failure or constriction the whole bed is high and the gradient is nil.
     // Portal pressure, not the pressure inside the varix, because the collaterals themselves drop it as they
     // open and the size must not fall away as they do.
-    const ex = site === 'VAR' ? this.routeExcess(['CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
+    // (A Warren shunt ties the coronary vein off the portal vein: nothing of the portal pressure reaches the esophageal varices then, so they follow
+    // the pressure of their own feeding vein, the stomach's, which drains through the short gastric veins to the renal vein.)
+    const ex = site === 'VAR' ? this.routeExcess([p.dsrs ? 'LGV' : 'CONF', 'RA'], P) : this.routeExcess(['SV', 'IVCI'], P);
     // Fundal varices exist only where a gastrorenal shunt can drain them.
     // Isolated fundal varices (IGV1) have no esophageal varices beside them, until BRTO closes their shunt.
     // BRTO plugs that shunt and its short gastric feeder and obliterates the varices with it: they shrink back to a
