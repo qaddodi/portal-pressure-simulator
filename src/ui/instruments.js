@@ -12,6 +12,7 @@ import { acquireEndoGL } from './endo-gl.js';
 import { surface } from './gpu-surfaces.js';
 import { renderEndo } from './endo-render.js';
 import { endoGrow, airRatio, airFlat } from './endo-size.js';
+import { varixMean } from './varix-look.js';
 import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js';
 import { drawScopeBleed } from './endo-bleed.js';
 import { poolFill } from './blood.js';
@@ -140,7 +141,7 @@ export function createEndoscopy({ onAction }) {
   const SURF_GPU = { on: 'gpu', via: 'shaded WebGL2 once per state, laid by the GPU drawer' }, SURF_WAIT = { on: 'gpu', via: 'shaded WebGL2 once per state, laid by the GPU drawer (its first picture not laid yet)' };
   const SURF_LOST = { on: 'fallback', via: 'CPU shading, laid by the GPU drawer', why: 'context lost' }, SURF_NOGL = { on: 'fallback', via: 'CPU shading, laid by the GPU drawer', why: 'no WebGL2, or its shader failed' };
   const offSurface = surface('endoscopy field', () => (!cv.isConnected || away || cv.checkVisibility?.() === false ? null : gl && !gl.lost ? (pen?.presented ? SURF_GPU : SURF_WAIT) : gl ? SURF_LOST : noGl ? SURF_NOGL : null));
-  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, mv = null, held = null, pinned = null;
+  let peak = 0, peakRed = 0, an = null, lastT = 0, last = null, raf = 0, bleedLast = null, poolA = 0, mv = null, mvHeld = {}, held = null, pinned = null;
   // What identifies the field shown, kept as numbers (a frame joins no text): glId, the shader field's (0: none shaded since a reset), cacheId, the CPU renderer's;
   // the numbers they were made from, to tell whether a draw has a new one; and what was last painted over it (pSig, ok: false until painted).
   const gkNow = new Float64Array(24), gkLast = new Float64Array(24), ckNow = new Float64Array(5), ckLast = new Float64Array(5), heldBuf = [0, 0, 0];
@@ -184,15 +185,19 @@ export function createEndoscopy({ onAction }) {
     // Banding deflates the banded columns only. The model's single varix size falls as bands go on,
     // so unbanded columns keep the size seen before the first band.
     last = lastS; lastS.f = f; lastS.vx = vx;
-    const now = simTime() * 1000, dt = Math.min(0.05, Math.max(0, (now - lastT) / 1000)); lastT = now; // sim clock: frozen while paused
+    const now = simTime() * 1000, wall = performance.now();
+    // The field's size, stigmata and presence ease on the display clock (a paused model still finishes them), as the figure's varices do.
+    const dt = Math.min(0.1, Math.max(0, (wall - lastT) / 1000)); lastT = wall;
     // The field shows the varix over the beat, not each beat's swell: the model's size and wall stress rise and fall with every
     // heartbeat, and following them redrew the whole shaded field many times a second (a browser without a GPU spent a second on
-    // each redraw and its page stopped answering), while the comment above promises a steady view. Averaged over about four seconds,
-    // a breath and more: over one second the breath's swell still crossed the field's steps every second or two.
-    const kb = 1 - Math.exp(-dt / 4);
-    if (!mv) mv = { d: vx.d, ratio: vx.ratio, air: vx.air?.slice() };   // alloc-rare: only the first draw (mv is then kept and eased in place)
+    // each redraw and its page stopped answering), while the comment above promises a steady view. It follows the same running mean
+    // the figure's varices do (varix-look.js varixMean, VARIX_MEAN_MS): it was averaged over four seconds, twice as slow, and never took
+    // a paused model's frame or a jump at once, so the varices came up in the scope a good while after they were on the figure.
+    mvHeld.snap = f.running === false || !!f.jump;
+    const dMean = varixMean(mvHeld, vx.d, wall), kb = mvHeld.k;
+    if (!mv) mv = { d: dMean, ratio: vx.ratio, air: vx.air?.slice() };   // alloc-rare: only the first draw (mv is then kept and eased in place)
     else {
-      mv.d += (vx.d - mv.d) * kb; mv.ratio += (vx.ratio - mv.ratio) * kb;
+      mv.d = dMean; mv.ratio += (vx.ratio - mv.ratio) * kb;
       if (mv.air && vx.air) for (let i = 0; i < mv.air.length; i++) mv.air[i] += (vx.air[i] - mv.air[i]) * kb;
     }
     const gNow = endoGrow(mv.d); // (endo-size.js: a large varix, 5 mm or more, is drawn plainly large)
@@ -228,7 +233,7 @@ export function createEndoscopy({ onAction }) {
     // The banded vein starts deflating at once; its band cinches in from a wide loop a beat later (endo-motion.js).
     for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, DEFLATE_MS, 0) || busy;
     for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, BAND_MS, knT[i] ? BAND_DELAY_MS : 0) || busy;
-    if (busy && !raf && !isPaused()) raf = drawFrame(redraw);
+    if (busy && !raf) raf = drawFrame(redraw);   // (on the display clock: a paused model's field finishes its ease too)
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;
     needGl();

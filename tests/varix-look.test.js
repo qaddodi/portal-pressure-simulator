@@ -142,3 +142,21 @@ test('a paused model\'s frame takes the diameter at once: its one frame per chan
   const src = stageSource();
   assert.match(src, /varixHeld\.VAR\.snap = varixHeld\.GV\.snap = f\.running === false \|\| !!f\.jump;/);
 });
+
+// 7 Nov 2026, Mohammad: "there is a real lag between the varices appearing on endoscopy and appearing in anatomy". The figure follows the
+// diameter's running mean (VARIX_MEAN_MS, 2 s) and takes a paused model's frame or a jump at once; the scope's field averaged over four
+// seconds with the sim clock (frozen while paused) and took neither at once. It now follows the figure's own mean.
+test('the scope\'s field follows the same running mean as the figure\'s varices', () => {
+  const held = {}; varixMean(held, 2.0, 0);
+  assert.equal(held.k, 1, 'the first reading is taken as it is');
+  varixMean(held, 6.0, 100);   // a jump of over VARIX_JUMP_MM
+  assert.equal(held.k, 1);
+  varixMean(held, 6.0, 1100); assert.equal(held.k, 1 - Math.exp(-1000 / VARIX_MEAN_MS), 'a drift takes the share the figure takes');
+  held.snap = true; varixMean(held, 6.2, 1200); assert.equal(held.k, 1, 'a paused model\'s frame at once');
+  const src = readFileSync(new URL('../src/ui/instruments.js', import.meta.url), 'utf8');
+  assert.match(src, /import \{ varixMean \} from '\.\/varix-look\.js';/);
+  assert.match(src, /mvHeld\.snap = f\.running === false \|\| !!f\.jump;/);
+  assert.match(src, /const dMean = varixMean\(mvHeld, vx\.d, wall\), kb = mvHeld\.k;/);
+  assert.doesNotMatch(src, /Math\.exp\(-dt \/ 4\)/, 'no slower mean of its own');
+  assert.match(src, /if \(busy && !raf\) raf = drawFrame\(redraw\);/, 'a paused model\'s field finishes its ease');
+});
