@@ -55,7 +55,7 @@ test('a phone keeps the words\' height cap while a what-if slider or compare but
   // (Re-planned on each live reading, the cap stepped as the data card's numbers changed and the teaching card shook under the finger.)
   assert.match(js, /if \(held && \(held\.shut \|\| gone \|\| readingsOnly\(\)\)\) \{ phoneShut = held\.shut; phoneFig = held\.fig; return held\.cap; \}/);
   assert.match(js, /const readingsOnly = \(\) => liveOff \|\| /);
-  assert.match(js, /async function liveSet\(s, i, patch\) \{[^}]*liveOff = true;/);
+  assert.match(js, /async function liveSet\(s, i, patch(?:, ev = null)?\) \{[^}]*liveOff = true;/);
   assert.match(js, /async function livePatient\(s, i, o\) \{[\s\S]{0,250}liveOff = true;/);
 });
 
@@ -110,7 +110,7 @@ test('a what-if slider or compare button never lays the cards out again as the r
   // (Both observers that lay the cards out after a resize hold the words while it does.)
   assert.equal((js.match(/cardsStill\(\)\) (?:\{ )?fitCards\(ui\.data\)/g) || []).length, 3);   // (the two observers, and R14's pass at the cards' landing)
   // (The slider drives the live model through liveSet, which sets liveOff before its first reading.)
-  const live = js.match(/async function liveSet\(s, i, patch\) \{[\s\S]*?\n {2}\}/)[0];
+  const live = js.match(/async function liveSet\(s, i, patch(?:, ev = null)?\) \{[\s\S]*?\n {2}\}/)[0];
   assert.ok(live.indexOf('liveOff = true') < live.indexOf('dataTo('));
   // (Paced to the frames; the model change runs in a task of its own straight after the frame, store setSoon's rule, 2 Nov 2026.)
   assert.match(js, /const sliderLive = \(\) => liveSet\(s, i, patchOf\(\+input\.value\)\);\n\s+const sliderFrame = \(\) => \{ raf = 0; runSoon\(sliderLive\); \};/);

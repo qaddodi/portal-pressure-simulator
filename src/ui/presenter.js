@@ -41,7 +41,7 @@ import { createPresenterLink } from './presenter-view.js';
 import { noteResume, resumeFor } from './resume.js';
 import { parseDeckSource, checkDeck } from './deck-source.js';
 import { cleanEq } from './import-safety.js';
-import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js';
+import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, LIVE_MAX, shownSig, sameHead, headOf, cutDp } from './table-marks.js';
 import { frameFor, cancelFrame, holdMotion, easeNow, PACED } from './frame.js';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
@@ -63,6 +63,7 @@ import { clausesOf, revealCount, shownLine } from './reveal.js';
 import { COMPACT, WIDE } from './card-type.js';
 import { createFlowTime, flowTimeHeight, trailKeys } from './flow-time.js';
 import { lapseGraphOf, graphTrail } from './lapse-graph.js';
+import { createEventGraph, eventGraphOf } from './event-graph.js';
 import { specOf, procBlocked, procOffered, playProcedure, stepMarks } from './proc-anim.js';
 import { createInsetHold } from './inset-hold.js';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChangedWhy, cardBack } from './card-keep.js';
@@ -1345,9 +1346,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       stepped: true, to,
       apply: () => {
         if (procRun !== run || !mine() || procBlocked(kind, store.get().params, store.get().frame?.metrics)) return;
-        liveSet(s, i, specOf(kind).apply(structuredClone(store.get().params))); procCompare(s);
+        liveSet(s, i, specOf(kind).apply(structuredClone(store.get().params)), evRun(s, i)); procCompare(s);
       },
-      unapply: () => { if (procRun === run && mine()) { liveSet(s, i, specOf(kind).undo(structuredClone(store.get().params))); procCompare(s); } },
+      unapply: () => { if (procRun === run && mine()) { evBack(s); liveSet(s, i, specOf(kind).undo(structuredClone(store.get().params))); procCompare(s); } },
       onStep: (k) => { if (procRun === run) { procShown = k; procPaint(); } },
       // (The step's callout stands in for the slide's marks while it plays; its names join the slide's. Then the slide's come back:
       // on the BRTO slides the last step's "Shunt closed" is the slide's own mark, so it stays where it is.)
@@ -1363,7 +1364,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       onEnd: ({ rewound }) => {
         if (procRun !== run) return;
         procRun = null;
-        if (rewound && mine()) { liveSet(s, i, before); procCompare(s); procShown = -1; procDoneAt = -1; }
+        if (rewound && mine()) { evBack(s); liveSet(s, i, before); procCompare(s); procShown = -1; procDoneAt = -1; }
         else if (mine()) procDoneAt = i;   // (played through: the next Next moves on)
         procPaint();
       },
@@ -1528,7 +1529,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (store.get().colorMode !== lens) store.set({ colorMode: lens });
     paintKey(lens, s);
   }
-  const LIVE_SET = { type: 'setParams', params: null, settle: false, ease: 1200 }, LIVE_RUN = { type: 'run', running: true, clock: 'hemo', speed: 1 };
+  const LIVE_EASE = 1200, LIVE_SET = { type: 'setParams', params: null, settle: false, ease: LIVE_EASE }, LIVE_RUN = { type: 'run', running: true, clock: 'hemo', speed: 1 };
   // (The keys a what-if slide watches: the same for the slide until the screen changes shape, so made once for each.)
   const LIVE_KEYS = new WeakMap();
   function liveKeys(s) {
@@ -1540,7 +1541,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     LIVE_KEYS.set(s, { ph, keys });
     return keys;
   }
-  async function liveSet(s, i, patch) {
+  // ev (evRun): a procedure's change, played on the model's own course (ease 0: no settling, so the pressures fall as the model's physics has
+  // them) and read every 100 ms by its graph, model seconds from the change; the readings stop with the graph's last.
+  async function liveSet(s, i, patch, ev = null) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
     liveOff = true;
@@ -1550,20 +1553,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const ms = clotMarks(markBase.marks, store.get().params);
       if (ms.map((m) => m.label).join('|') !== (store.get().focus?.marks || []).map((m) => m.label).join('|')) store.set({ focus: markFocus(ms) });
     }
-    LIVE_SET.params = store.get().params; host.send(LIVE_SET);   // (the host copies a message as it posts it: one kept message)
+    LIVE_SET.params = store.get().params; LIVE_SET.ease = ev ? 0 : LIVE_EASE; host.send(LIVE_SET);   // (the host copies a message as it posts it: one kept message)
     host.send(LIVE_RUN);
-    const keys = liveKeys(s);
+    const keys = liveKeys(s), m0 = store.get().frame?.t;
     let sig = null, still = performance.now();
     for (const t0 = performance.now(); mine();) {
-      await wait(150);
+      await wait(ev ? 100 : 150);
       const fr = store.get().frame, now = performance.now();
       if (fr?.metrics && mine()) {
         const f = liveFp(fr), k = shownSig(f, keys);
         dataTo(s, f, ref, 280);
         if (k !== sig) { sig = k; still = now; }
+        if (ev && Number.isFinite(m0) && ev.sample(fr.t - m0, f)) break;
       }
-      if (liveSettled(now - t0, now - still)) break;
+      if (ev ? now - t0 >= LIVE_MAX : liveSettled(now - t0, now - still)) break;
     }
+    if (ev && mine()) ev.end();
     if (mine()) abSlow();
   }
   // A what-if slider (whatIf: { label, param, min, max, step, ends?, unit? }) drags one parameter of the live model
@@ -1643,6 +1648,46 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     lg.ft.set(st?.trail ?? null, lgK, lg.spec);
   }
   function lgSet(k, trail) { lgLap = false; lgK = k; lg?.ft.set(trail, k, lg.spec); }
+  // ── The procedure's graph on the teaching card (event-graph.js) ──
+  // A slide that plays a TIPS, BRTO, BATO or a Meso-Rex bypass carries a graph of its two tiles over its steps, drawn live from the moment the
+  // procedure changes the patient (Mohammad, 7 Nov 2026: the PPG and the sinusoidal flow "changing in real time after the TIPS gets placed").
+  // Built with the words, its box there from the start so the card keeps its size; it starts where the slide opened, and the procedure's
+  // change (procPlay's apply) hands it to liveSet, which gives it each live reading as it gives the tiles theirs. A run played through is
+  // kept for the slide (evKept), so coming back to it played through shows the graph whole.
+  let evg = null;
+  const evKept = new WeakMap();
+  function evDrop() { if (!evg) return; evg.ft.dispose(); evg = null; }
+  function eventGraph(s, i, st) {
+    const g = eventGraphOf(s);
+    if (!g || !procOffered(g.kind, st?.params || store.get().params, st ? null : store.get().frame?.metrics)) return null;   // (as its steps: none for a patient who cannot have it)
+    const ft = createEventGraph();
+    evg = { ft, spec: g, s, i };
+    return h('div', { class: 'pz-timegraph pz-evtime', role: 'group', 'aria-label': `What the ${specOf(g.kind)?.name || 'procedure'} changes, second by second` }, ft.el);
+  }
+  // (Where its lines start: the state the slide opened on, its before state on a slide whose own patient has had it. Where they end, when the
+  // slide's own state has it done (its scale then holds both); else the scale holds the start, and a fall from it.)
+  function evStart(st) {
+    if (!evg) return;
+    const { spec, s, i } = evg, own = stateOf[i] === i ? states[i] : null, had = !!own?.before;
+    const b = (had ? own.before.fp : st?.fp) || null;
+    if (!b) return;
+    const end = had ? own.fp : null, lines = spec.lines;
+    const kept = procDoneAt === evg.i ? evKept.get(s) || null : null;
+    evg.ft.set(spec, [b[lines[0]], b[lines[1]]], end ? [end[lines[0]], end[lines[1]]] : null, kept);
+  }
+  // What liveSet is handed at the change: it lets the model run its own course (no settling) and gives each reading to the graph, until the
+  // graph's seconds have run; the tiles stop on the same reading the graph ends on.
+  function evRun(s, i) {
+    if (!evg || evg.s !== s || evg.i !== i) return null;
+    const g = evg;
+    g.ft.start();
+    return {
+      secs: g.ft.secs,
+      sample(t, f) { if (evg !== g) return true; g.ft.push(t, f[g.spec.lines[0]], f[g.spec.lines[1]]); return t >= g.ft.secs; },
+      end() { if (evg === g) { const k = g.ft.kept(); if (k) evKept.set(g.s, k); } },
+    };
+  }
+  function evBack(s) { if (evg?.s === s) { evg.ft.reset(); evKept.delete(s); } }
   function paintLapse(s, d, n, done = false) {
     const el = ui?.text.querySelector('.pz-lapse');
     if (!el) return;
@@ -2729,7 +2774,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
   function textIn(s, st, i) {
     const { text, panel } = ui;
-    lgDrop();   // (the last slide's time graph is let go before the words are drawn again)
+    lgDrop(); evDrop();   // (the last slide's time graph is let go before the words are drawn again)
     paintScales(s, i);
     // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
     // colour (17 Oct), not a pill over the title: set with the words, gone on a visual slide.
@@ -2766,6 +2811,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
           line, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
+          s.procedure ? eventGraph(s, i, st) : null,
           s.procedure ? procEl(s, i, st) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
           s.column ? wedgeColumn() : null,
@@ -2774,7 +2820,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
-      lgStart(st);   // (the graph's chart is drawn once its box is in the card: its size is read from it)
+      lgStart(st); evStart(st);   // (the graph's chart is drawn once its box is in the card: its size is read from it)
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.dataset.turn = turnNow || throwDir;   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
@@ -6179,7 +6225,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (pageHeld) { clearTimeout(pageHeld.t); pageHeld = null; }
     pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); evDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     insets.reset();   // (and a room held through the last slide change is never written back after the talk: inset-hold.js)
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)

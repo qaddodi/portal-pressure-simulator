@@ -42,7 +42,7 @@ export const LINE = {
   // (The readings the teaching card's own time graph carries on a time-lapse slide, lapse-graph.js: each is one of the slide's tiles.)
   ssm: ['Spleen stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }], salb: ['Albumin', 'g/dL', 1, '--tr-ivc', 1, { pad: 0.2 }],
   rpp: ['Kidney pressure', 'mmHg', 0, '--tr-cav'], he: ['Encephalopathy risk', 'index', 2, '--tr-var', 1, { pad: 0.2 }],
-  liver: ['Sinusoidal flow', '%', 0, '--tr-hv', 1, { pad: 0.2 }], map: ['Arterial pressure', 'mmHg', 0, '--tr-pv'], co: ['Cardiac output', 'L/min', 1, '--tr-hv', 1, { pad: 0.2 }],
+  gv: ['Fundal varix', 'mm', 1, '--tr-var'], liver: ['Sinusoidal flow', '%', 0, '--tr-hv', 1, { pad: 0.2 }], map: ['Arterial pressure', 'mmHg', 0, '--tr-pv'], co: ['Cardiac output', 'L/min', 1, '--tr-hv', 1, { pad: 0.2 }],
 };
 export const MEAL_LINES = ['pv', 'pvFlow'];
 const opt = (k) => LINE[k]?.[5] || {};
