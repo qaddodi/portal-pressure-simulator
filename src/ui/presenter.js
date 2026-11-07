@@ -3611,9 +3611,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
       // (A line's glyphs or a pinned button reaching a pixel or two past its part is not overflow: counted, it shrank every
       // phone instrument card by the fit loop's full eight steps, its words to 0.86.)
+      // (The tiles' numbers each have a GPU picture that reaches past its tile, and its size follows the number: the tiles' own
+      // scroll height is no overflow either. Counted, a number changing in a drag zoomed the whole card down to half, 7 Nov.)
       // (A card's header grows with its words; only its Show chip's tap area reaches past it, and that is no overflow: counted,
       // it shrank a phone's folded data card to half, its chip to 19 px.)
-      const clip = s.maxHeight !== 'none' || c.classList.contains('pz-dh') ? 0 : Math.max(0, readMetric(c, 'scrollHeight') - readMetric(c, 'clientHeight') - 3);
+      const clip = s.maxHeight !== 'none' || c.classList.contains('pz-dh') || c.classList.contains('pz-tiles') ? 0 : Math.max(0, readMetric(c, 'scrollHeight') - readMetric(c, 'clientHeight') - 3);
       // A protected time chart eases to its allocated height. Fit against its destination, so the old height
       // during that ease cannot shrink the card's words and start another fit/resize cycle.
       const chartH = el.classList.contains('pz-flowfit') && c.matches('.pz-tool[data-kind="flowtime"]') ? parseFloat(el.style.getPropertyValue('--ft-room')) : 0;
@@ -3789,6 +3791,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     let refit = false;
     for (const el of els) {
       if (!el || el.hidden || 'folding' in el.dataset) continue;   // (a part mid-fold: the card keeps the fit it will rest with)
+      // (A readings card of tiles alone, while a what-if slider or a compare button moves its numbers: its size is the one it came in with.
+      // A tile that measured taller for a moment (a number changing its length, a rating's word) was read as overflow, the card zoomed down
+      // to half and the tiles shrank in the middle of a drag, Circuit "Cirrhosis raises the resistance" on a Mac, 7 Nov. A resize, a turn or a new
+      // slide deletes the fit first (fitDone), so they still fit it afresh.)
+      if (el === ui?.data && el.classList.contains('tiles-only') && !el.querySelector(':scope > .pz-tool') && fitDone.has(el) && cardsStill()) continue;
       const sig = fitSig(el);
       if (fitDone.get(el) === sig) continue;
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;

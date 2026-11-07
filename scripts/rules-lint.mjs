@@ -142,6 +142,10 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
   };
   const forbid = (file, re, why) => { if (re.test(text(file))) errors.push(`${file}: ${why} (${re})`); };
+  need('src/ui/presenter.js', [
+    [/c\.classList\.contains\('pz-tiles'\) \? 0 :/, "the tiles' own scroll height is no overflow: their numbers' GPU pictures reach past a tile, and counted it zoomed the readings card down in a what-if drag (7 Nov 2026)"],
+    [/el\.classList\.contains\('tiles-only'\) && !el\.querySelector\(':scope > \.pz-tool'\) && fitDone\.has\(el\) && cardsStill\(\)\) continue;/, "a tiles-only readings card keeps the fit it came in with while a what-if or compare drives its numbers (7 Nov 2026)"],
+  ]);
   need('src/ui/ink-gl.js', [
     [/if \(touches\.size > 1\) return;/, 'the laser is armed by one finger'],
     [/e\.target !== window\) return;/, "the laser ignores other elements' blur"],
