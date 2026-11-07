@@ -58,7 +58,6 @@ export const PREGNANCY_DECK = {
     },
     {
       id: 'propranolol', params: ON, cam: 'gej', labels: ['VAR'],
-      compare: [{ label: 'No beta-blocker', params: OFF }, { label: 'Propranolol', params: ON, own: true }],
       data: 'tiles', tiles: ['hvpg', 'hr'], key: ['hvpg'], delta: true,
       tool: { kind: 'criteria', title: 'Watch for, on propranolol', short: 'Watch for', ticks: false, rule: 'Baveno VIII 8.18', rows: ['Fetal **growth restriction**', 'Neonatal **bradycardia**', 'Neonatal **hypoglycemia**'] },
       kicker: 'Management', site: 'sin', title: 'Propranolol is the beta-blocker in pregnancy',

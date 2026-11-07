@@ -65,17 +65,9 @@ export const TREATMENT = {
     },
     {
       id: 'vs', params: { tips: { on: true }, drugs: { propranolol: false, carvedilol: false, octreotide: false, terlipressin: false } }, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['ppg'], tiles: ['liver'], delta: 'target',
-      // (short: the compact label a phone's one row of buttons takes where the full names would wrap; presenter.js abShort.)
-      compare: [
-        { label: 'TIPS', own: true, params: { tips: { on: true }, drugs: { propranolol: false, carvedilol: false, octreotide: false, terlipressin: false } } },
-        { label: 'Propranolol', short: 'Prop.', params: { tips: { on: false }, drugs: { propranolol: true, carvedilol: false, octreotide: false, terlipressin: false } } },
-        { label: 'Carvedilol', short: 'Carv.', params: { tips: { on: false }, drugs: { propranolol: false, carvedilol: true, octreotide: false, terlipressin: false } } },
-        { label: 'Octreotide', short: 'Octr.', params: { tips: { on: false }, drugs: { propranolol: false, carvedilol: false, octreotide: true, terlipressin: false } } },
-        { label: 'Terlipressin', short: 'Terl.', params: { tips: { on: false }, drugs: { propranolol: false, carvedilol: false, octreotide: false, terlipressin: true } } },
-      ],
       kicker: 'Compared', site: 'sin', title: 'TIPS versus drug therapy',
       line: 'Drugs lower the gradient by a few mmHg. A TIPS lowers it to {ppg}, but diverts the liver\'s portal blood.',
-      notes: 'The same patient, switched between TIPS and each drug alone. In the model propranolol lowers the HVPG by about 13% and carvedilol by about 19%, close to what they do in patients; TIPS brings the PPG below 12 mmHg but halves the blood reaching the sinusoids. The TIPS talks follow the stent, its flow and its cost.',
+      notes: 'The same patient on TIPS; each drug alone is taught on the slides before. In the model propranolol lowers the HVPG by about 13% and carvedilol by about 19%, close to what they do in patients; TIPS brings the PPG below 12 mmHg but halves the blood reaching the sinusoids. The TIPS talks follow the stent, its flow and its cost.',
       ask: ['Why does TIPS lower the gradient so much more than any drug?', 'The drugs trim the inflow or the tone; TIPS gives portal blood a low-resistance path around the sinusoids.'],
     },
     {

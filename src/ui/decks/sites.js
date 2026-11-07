@@ -82,7 +82,6 @@ export const SITES = {
     },
     {
       id: 'cardiac', lens: 'drop', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
-      compare: [{ label: 'Normal heart', preset: 'healthy' }, { label: 'Failing heart', own: true }],
       tool: PROFILE, key: ['fhvp', 'hvpg', 'ppg'],
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure: every pressure rises, neither gradient',
       vignette: 'A 67-year-old man with severe TR from pulmonary hypertension has a raised JVP, leg edema and ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL, and EGD shows no varices.',

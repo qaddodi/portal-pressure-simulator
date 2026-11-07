@@ -66,7 +66,6 @@ export const ENCEPHALOPATHY = {
     },
     {
       id: 'embolize', params: { occluded: { C6: true } }, days: 60, lapse: { seconds: 7, from: 'Shunt closed', to: 'Two months later' }, cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['ppg'], delta: 'srs',
-      compare: [{ label: 'Shunt open', short: 'Open', params: { occluded: { C6: false } } }, { label: 'Shunt embolized', short: 'Embolized', own: true }],
       kicker: 'Spontaneous shunts', site: 'sin', title: 'Closing the shunt brings the portal pressure back',
       line: 'Once the shunt is embolized, portal blood returns to the liver. Ascites or varices can return; here, two months on, the PPG is {ppg} and {asc} of ascites has formed.',
       notes: 'In the model the varices fill as soon as the shunt closes and the ascites gathers within days; in patients the varices grow over weeks to months and the ascites builds more slowly. Embolization closes the shunt from the left renal vein with coils, a plug or a sclerosant. Baveno VIII advises it for recurrent or persistent encephalopathy despite drug treatment, above all when liver function is preserved; results are best with a low MELD and no liver cancer. Closing a large shunt raises the portal pressure. In some patients new or larger varices or ascites follow, and some bleed. An endoscopy and an ultrasound follow the embolization, and varices that grow are treated as in any cirrhosis.',
@@ -84,7 +83,6 @@ export const ENCEPHALOPATHY = {
     },
     {
       id: 'narrow', question: 'Will a narrower stent bring the confusion down?', params: { tips: { on: true, d: 6 } }, cam: 'liver', mark: STENT, tool: FLOWS, data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'], delta: 'tips',
-      compare: [{ label: '8 mm', params: { tips: { on: true, d: 8 } } }, { label: 'Narrowed to 6 mm', short: '6 mm', own: true, params: { tips: { on: true, d: 6 } } }, { label: 'Occluded', params: { tips: { on: false } } }],
       kicker: 'After TIPS', site: 'sin', title: 'When encephalopathy persists, narrow the stent',
       line: 'Narrowing the stent gives the liver back portal blood, and the PPG climbs toward the level the TIPS was placed to treat.',
       notes: 'Encephalopathy that persists after a TIPS despite lactulose and rifaximin can be treated by narrowing the stent, with a smaller stent placed inside it, or by closing it. If a large spontaneous shunt is also found, embolizing it is another option. Either way, some of the portal pressure the TIPS was placed to lower comes back.',

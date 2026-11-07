@@ -36,11 +36,11 @@ export const MASLD = {
       ask: ['Her HVPG is 11 mmHg and the PPG, read in the portal vein, is 14 mmHg. Why do they differ?', 'Part of the resistance lies before the sinusoids, which the wedged catheter does not read. The HVPG then under-reads the portal gradient.'],
     },
     {
-      id: 'still', compare: [{ label: 'As measured', short: 'Measured', own: true }, { label: 'Milder', params: { cirrhosis: 0.5 } }],
+      id: 'still',
       cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: PROFILE, key: ['hvpg', 'ppg'],
       kicker: GAPS, site: 'sin', title: 'An HVPG ≥10 mmHg still carries the risk',
       line: 'An HVPG of {hvpg} is {>=10 mmHg}, which goes with a clearly higher risk of decompensation. A lower HVPG carries a lower risk, but not none.',
-      notes: 'Baveno VIII (2.5) adds that an HVPG of 10 mmHg or more remains associated with a significantly higher risk of decompensation than the lower, though still present, risk seen below 10 mmHg. Because the HVPG can under-read in MASLD, a measured value is the least the portal gradient can be, so a value just under 10 mmHg does not clear a patient. The Milder button lowers the model\'s cirrhosis: the HVPG falls under 10 mmHg while the PPG stays high. (Baveno VIII 2.5.)',
+      notes: 'Baveno VIII (2.5) adds that an HVPG of 10 mmHg or more remains associated with a significantly higher risk of decompensation than the lower, though still present, risk seen below 10 mmHg. Because the HVPG can under-read in MASLD, a measured value is the least the portal gradient can be, so a value just under 10 mmHg does not clear a patient. In a milder cirrhosis the HVPG can fall under 10 mmHg while the PPG stays high. (Baveno VIII 2.5.)',
       ask: ['In obese MASLD cirrhosis the HVPG is 8 mmHg. Does that exclude a raised portal gradient?', 'No. The HVPG can under-read, and the risk at an HVPG <10 mmHg is lower but still present.'],
     },
     {

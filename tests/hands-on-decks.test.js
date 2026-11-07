@@ -49,9 +49,10 @@ test('HVPG: the catheter slide\'s case sits between compensated and decompensate
 
 test('Variceal bleed: no drug, octreotide and terlipressin on the slide that starts the drug', async () => {
   const s = slide('variceal-bleed', 'oct');
-  assert.deepEqual(kinds(s), ['params', 'params', 'params']);
-  assert.equal(s.compare.find((o) => o.own).label, 'Octreotide');
-  const [none, oct, terli] = (await runSteps([{ preset: 'cirr-decomp' }, ...s.compare.map((o) => ({ params: o.params }))])).slice(1).map(pick);
+  assert.equal(s.compare, undefined, 'no drug buttons: the chart shows the before and after');
+  assert.equal(s.params.drugs.octreotide, true);
+  const drugs = (octreotide, terlipressin) => ({ params: { drugs: { octreotide, terlipressin } } });
+  const [none, oct, terli] = (await runSteps([{ preset: 'cirr-decomp' }, drugs(false, false), drugs(true, false), drugs(false, true)])).slice(1).map(pick);
   assert.ok(oct.pv < none.pv && terli.pv < none.pv, `each drug lowers the portal pressure (${none.pv} → ${oct.pv}, ${terli.pv})`);
 });
 
@@ -72,10 +73,10 @@ test('Gastric varices: no treatment, embolization and splenectomy on the splenec
   assert.ok(none.pv > pse.pv && pse.pv > spx.pv, `the portal pressure eases a little more with each (${none.pv}, ${pse.pv}, ${spx.pv})`);
 });
 
-test('Endoscopy and NCPH: the patient buttons go to a preset and back to the slide', async () => {
+test('Endoscopy and NCPH: the patients are presets (Endoscopy keeps its buttons, NCPH none)', async () => {
   const e = slide('endoscopy', 'size'), n = slide('ncph', 'wedge');
   assert.deepEqual(kinds(e), ['state', 'state']);
-  assert.deepEqual(kinds(n), ['state', 'state']);
+  assert.equal(n.compare, undefined, 'the NCPH wedge slide has no patient buttons');
   assert.deepEqual(e.compare.map((o) => o.label), ['Small', 'Large']);
   assert.equal(e.preset, 'cirr-decomp');
   const [csph, decomp, schisto, comp] = (await runSteps(['csph', 'cirr-decomp', 'schisto', 'cirr-comp'].map((preset) => ({ preset })))).map(pick);

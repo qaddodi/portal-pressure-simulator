@@ -110,10 +110,9 @@ export const TEN_YEARS = {
     },
     {
       id: 'rebleed', tick: 'Year 9', milestone: 'Rebleed', days: 270, cam: 'liver', tool: { kind: 'profile', from: 'bands', fromLabel: 'Year 8' }, data: 'tiles', tiles: ['varix', 'liver'], key: ['hvpg'], delta: 'bands',
-      compare: [{ label: 'Bands and carvedilol', short: 'Bands', own: true, params: { tips: { on: false, d: 8 } } }, { label: 'TIPS', params: { tips: { on: true, d: 8 } } }],
       kicker: 'Year 9', site: 'sin', title: 'Year 9: a second bleed, on both treatments',
       line: 'Nine months on he bleeds again, on carvedilol, from varices that have recurred to {varix} since banding cleared them.',
-      notes: 'Try a TIPS with the buttons and watch the HVPG and the liver flow. Two bleeds make this further decompensation. Carvedilol and banding have been given properly and have failed, so more of the same is unlikely to help. The question is what lowers the pressure more, and the guideline answers it: consider a TIPS when bleeding continues despite secondary prophylaxis.',
+      notes: 'A TIPS is the next step: watch the HVPG and the liver flow. Two bleeds make this further decompensation. Carvedilol and banding have been given properly and have failed, so more of the same is unlikely to help. The question is what lowers the pressure more, and the guideline answers it: consider a TIPS when bleeding continues despite secondary prophylaxis.',
       ask: ['A man bleeds again on carvedilol and repeat banding. Is a TIPS considered?', 'Yes. Baveno VIII 4.13 says to consider a TIPS when bleeding continues despite secondary prophylaxis.'],
     },
     {
@@ -125,10 +124,9 @@ export const TEN_YEARS = {
     },
     {
       id: 'he', tick: 'Confusion', days: 60, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'], delta: 'tips',
-      compare: [{ label: '8 mm stent', short: '8 mm', own: true, params: { tips: { d: 8 } } }, { label: 'Narrower stent', short: 'Narrower', params: { tips: { d: 5 } } }],
       kicker: 'Year 9', site: 'sin', title: 'Two months after the TIPS he is confused',
       line: 'He sleeps by day and is slow to answer. {shunt} of the portal blood now bypasses the liver.',
-      notes: 'The stent comes last; the buttons show what narrowing costs the PPG. Overt encephalopathy is a known price of the TIPS: more portal blood reaches the brain without passing through the liver. The first move is not the stent. The narrower stent lowers the shunted share but raises the portal pressure again, which brings the risk of bleeding back. The model has no ammonia or brain; the share of portal blood that skips the liver stands in for the risk.',
+      notes: 'The stent comes last; narrowing the stent costs some PPG. Overt encephalopathy is a known price of the TIPS: more portal blood reaches the brain without passing through the liver. The first move is not the stent. The narrower stent lowers the shunted share but raises the portal pressure again, which brings the risk of bleeding back. The model has no ammonia or brain; the share of portal blood that skips the liver stands in for the risk.',
       ask: ['What is the downside of narrowing the stent?', 'The portal pressure rises again, so varices and bleeding come back.'],
     },
     {
