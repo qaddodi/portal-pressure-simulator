@@ -10,6 +10,15 @@
 export const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 export const awayFromProbe = (id) => AWAY.has(id);
 
+// Where along its drawn course the gate stands on a vessel whose middle is a poor place to sample (a stent has its thirds instead:
+// stage-doppler.js). The hepatic artery's middle is where the paraumbilical vein crosses it (Mohammad, 7 Nov 2026: "the ultrasound of
+// the hepatic artery is happening at the point where the paraumbilical vein crosses it, so it's confusing; move it closer to the
+// bifurcation"), so its gate stands four fifths along, the way the blood runs, short of the fork into the right and left branches.
+// (A_HEP's path runs from the celiac end to the hilum in the anatomy and the circuit alike; the crossing is at 0.475.)
+export const GATE_FRAC = { A_HEP: 0.8 };
+/** How far along the vessel's drawn course the gate stands (0 … 1), or null for the middle (the default). */
+export const gateFrac = (id) => GATE_FRAC[id] ?? null;
+
 // The probe's shape, in CSS px along its axis from its face: drawn at SCALE (1.35: a bit bigger, Mohammad, 20 Oct), the body
 // reaches 48 × 1.35 ≈ 65 px back (no cable: Mohammad, 22 Oct, "remove the wire sticking out"; the room kept for it, 62 × 1.35 ≈ 84, stays, so the probe stands where it did); 11 × 1.35 ≈ 15 px either side (17.5 with the outline).
 // GAP: from the vessel's wall to the probe's face.

@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { STENT_SITES } from '../engine/topology.js';
 import { ORGANS } from './anatomy.js';
-import { NONE_MS, PROBE, PROBE_MODEL, SLACK, awayFromProbe, beamBoxes, createProbeMind, fitPoseInto, gateBoxes, probeFade, probeGeomInto, probeSwing, probeTurn, wedgeBoxes } from './dop-probe.js';
+import { NONE_MS, PROBE, PROBE_MODEL, SLACK, awayFromProbe, beamBoxes, createProbeMind, fitPoseInto, gateBoxes, gateFrac, probeFade, probeGeomInto, probeSwing, probeTurn, wedgeBoxes } from './dop-probe.js';
 import { readBox, readElAt } from './layout-snap.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { store } from './store.js';
@@ -252,7 +252,7 @@ export function createDoppler(st, live) {
       return;
     }
     if (dpr.swap) return;   // (drawing back to move: it comes back at its new place)
-    const u = dop.seg ? STENT_SITES[dop.seg] : null;
+    const u = dop.seg ? STENT_SITES[dop.seg] : gateFrac(id);   // (a stent's sampled third, else the vessel's own gate place, else the middle)
     const [wx, wy, tx, ty] = u == null ? arcMid(pts) : pointAt(pts, u);
     worldToLocalInto(DPR_G, wx, wy); worldToLocalInto(DPR_T, wx + tx, wy + ty);
     const gx = DPR_G[0], gy = DPR_G[1];
