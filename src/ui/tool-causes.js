@@ -46,7 +46,7 @@ const RULES = [
   ['res', /^(Cirrhosis\b|(Presinusoidal|Sinusoidal|Postsinusoidal) fibrosis|Stenosis of |Clot in |Occluded |Ascites\b)/],
   ['inflow', /^(Splanchnic vaso|Chronic splanchnic|Systemic arteriolar|Pregnancy\b|Arterioportal|Extra blood volume|Blood loss|Active bleeding|Splenectomy|Partial splenic|Extra plasma|Fewer red cells|Transfused red cells|Smaller plasma|Serum albumin|Anemia of liver disease|Large spleen)/],
   ['heart', /^(Right-heart contractility|Tricuspid regurgitation|Pericardial constraint)/],
-  ['shunts', /^(Collaterals|TIPS\b|DIPS\b|Portocaval shunt|Distal splenorenal shunt|Mesocaval shunt|Balloon tamponade)/],
+  ['shunts', /^(Collaterals|TIPS\b|DIPS\b|Portocaval shunt|Distal splenorenal shunt|Mesocaval shunt|Meso-Rex bypass|Balloon tamponade)/],
 ];
 /** A cause's mechanism (a GROUPS key), or null for one no rule names. */
 export function groupOf(label) {

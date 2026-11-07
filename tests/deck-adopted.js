@@ -180,6 +180,12 @@ export const ADOPTED = {
   'ten-years/relation': ['kind:curve'],
   'next-bleed/relation': ['kind:curve'],
   'variceal-bleed/relation': ['kind:curve'],
+  // Children with a portal vein clot: the profile on the HVPG slide, the open left portal vein in cross-section, the Meso-Rex graft played step by step, the portal blood split with and without it.
+  'meso-rex/gradients': ['kind:profile'],
+  'meso-rex/recess': ['kind:lumen'],
+  'meso-rex/bypass': ['procedure'],
+  'meso-rex/flows': ['kind:flows'],
+  'meso-rex/alternative': ['kind:flows'],
 };
 
 /** Whether the slide d/s may use the field. */

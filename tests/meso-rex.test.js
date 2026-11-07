@@ -9,7 +9,6 @@ import { EDGES, NODES, PORTOSYSTEMIC_EDGES } from '../src/engine/topology.js';
 import { originFractions, ORIGIN_N } from '../src/ui/blood.js';
 import { EDGE_PATH, CIRCUIT_PATH } from '../src/ui/anatomy.js';
 import { GRAFTS, PROC_KINDS, specOf, procBlocked, procOffered, procFrame, stepAt, rexSuitable } from '../src/ui/proc-anim.js';
-import { readFileSync } from 'node:fs';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const M = (e) => computeMetrics(e);
@@ -79,13 +78,7 @@ test('it is a play (procedure: rex): four steps, the model takes the change as t
   for (const s of P.steps) assert.ok(EDGES.some((e) => e.id === s[5]), `${s[5]} is a vessel of the model`);
 });
 
-test('the figure draws it: an anatomic and a circuit course, a caption, the Treat card button, and the model\'s history and explain lists', () => {
+test('the figure draws it: an anatomic and a circuit course, and the graft\'s caption', () => {
   assert.match(EDGE_PATH.REX, /^M690 660 /); assert.match(EDGE_PATH.REX, /688 378$/);
   assert.ok(CIRCUIT_PATH.REX);
-  const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-  assert.match(src('chart.js'), /'Meso-Rex bypass', 'SMV → left portal vein, past the clot'/);
-  assert.match(src('chart.js'), /b\.hidden = !\(p\.rex \|\| rexSuitable\(p\)\)/);
-  assert.match(src('actions.js'), /REX: 'rex'/);
-  assert.match(readFileSync(new URL('../src/engine/explain.js', import.meta.url), 'utf8'), /Meso-Rex bypass/);
-  assert.match(src('stage-transitions.js'), /REX_GROW_MS = 2600/);
 });

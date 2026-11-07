@@ -7,9 +7,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { beatCount } from '../src/ui/slide-beats.js';
-import { PROCS as PROC_TABLE, MEASURES } from '../src/ui/proc-anim.js';
+import { PROCS as PROC_TABLE, MEASURES, GRAFTS } from '../src/ui/proc-anim.js';
 // (A measuring procedure, the EUS-PPG, steps like the others: its Next plays its steps before the slide moves on.)
-const PROCS = { ...PROC_TABLE, ...MEASURES };
+const PROCS = { ...PROC_TABLE, ...MEASURES, ...GRAFTS };
 import { pageOn, followOf, pageIn, FOLLOW } from '../src/ui/card-page.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
