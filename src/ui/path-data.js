@@ -1,4 +1,4 @@
-// The guideline path card's two algorithms and the patient's place on them (7 Nov 2026, Mohammad's pick: the whole chart on a Mac or
+// The guideline path card's algorithms (the first two; since 7 Nov 2026 every one is a module in path-algos/, this file is their registry) and the patient's place on them (7 Nov 2026, Mohammad's pick: the whole chart on a Mac or
 // an iPad held sideways, the map and a reading on a phone; mocks at artifact QxXCFjXnD8dSki5UWgYWxG and G8n2ujW8wXL8sVxXpmygqx).
 // Plain data and plain functions, no page: tool-path.js draws them, tests/path-card.test.js holds them.
 //
@@ -17,129 +17,47 @@
 // Not in the model, so a slide states them as the case's own facts: the ANTICIPATE probability, a BMI, the Child–Pugh score, active
 // bleeding at endoscopy, whether banding controlled the bleed, and fitness for TIPS.
 
-import { PTIPS_HVPG } from '../engine/pressure-cuts.js';
+import first from './path-algos/first-visit.js';
+import bleed from './path-algos/bleed.js';
+import gastric from './path-algos/gastric.js';
+import ascites from './path-algos/ascites.js';
+import stopcarv from './path-algos/stopcarv.js';
+import holdcarv from './path-algos/holdcarv.js';
+import secprop from './path-algos/secprop.js';
+import psvdscope from './path-algos/psvdscope.js';
+import pvtocc from './path-algos/pvtocc.js';
+import pvtdur from './path-algos/pvtdur.js';
+import aasld from './path-algos/aasld.js';
+import { leavesOf, cpClass } from './path-algos/helpers.js';
 
-const act = (id, t, o = {}) => ({ id, t, act: true, sh: t, ...o });
+/** Every algorithm by the name a slide gives (tool { kind: 'path', of }): its module (path-algos/<id>.js, the contract in each file's shape). */
+export const ALGOS = Object.fromEntries([first, bleed, gastric, ascites, stopcarv, holdcarv, secprop, psvdscope, pvtocc, pvtdur, aasld].map((a) => [a.id, a]));
+export const DEFAULT_OF = 'first-visit';
+/** The algorithm a tool names (an unknown name is the first-visit chart). */
+export const algoOf = (of) => ALGOS[of] || ALGOS[DEFAULT_OF];
+export const knownOf = (of) => (ALGOS[of] ? of : DEFAULT_OF);
 
-/** A node: id, t (its condition), r (its verdict), s (its detail), stmt (the statement), tone ('n' | 'ok' | 'warn' | 'bad', inherited by its
- *  children), sh (a short name), kids. */
-export const FIRST_VISIT = {
-  id: 'root', t: 'cACLD suspected', s: 'Fasting liver stiffness (LSM) and platelet count.', tone: 'n', kids: [
-    { id: 'b1', t: 'LSM <10 kPa', r: 'Rules cACLD out', s: 'Consider PSVD if there are signs of portal hypertension.', stmt: '1.3', tone: 'n', sh: 'LSM <10', kids: [act('a1', 'Repeat NITs by cause')] },
-    { id: 'b2', t: 'LSM ≤15 kPa and platelets ≥150', r: 'Rules CSPH out', stmt: '1.15', tone: 'ok', sh: 'LSM ≤15, PLT ≥150', kids: [act('a2', 'Repeat LSM in 12 months')] },
-    { id: 'b3', t: 'LSM 15–25 kPa, or platelets <150', r: 'Gray zone', stmt: '1.17', tone: 'warn', sh: 'Gray zone', kids: [
-      { id: 'g1', t: 'ANTICIPATE ≥75%', r: 'Rules CSPH in', s: 'ANTICIPATE-NASH if BMI ≥30. Or NICER ≥75%, or SSM >55 kPa.', stmt: '1.14, 1.16', tone: 'bad', sh: 'Model or SSM', kids: [act('a3', 'Start NSBB, carvedilol preferred')] },
-      { id: 'g2', t: 'No test rules it in', r: 'CSPH still open', stmt: '1.17', tone: 'warn', sh: 'Neither', kids: [act('a4', 'Repeat NITs in 12 months, or add SSM', { s: 'No beta-blocker? Scope, unless LSM <20 with PLT ≥150, or SSM <40 kPa.', stmt: '1.19' })] }] },
-    { id: 'b4', t: 'LSM ≥25 kPa', r: 'Rules CSPH in', s: 'Viral, alcohol, or non-obese MASLD.', stmt: '1.16b', tone: 'bad', sh: 'LSM ≥25', kids: [act('a6', 'Start NSBB, carvedilol preferred')] }] };
-
-export const BLEED = {
-  id: 'root', t: 'Suspected variceal bleed', s: 'Vasoactive drug, antibiotics, restrictive transfusion. Endoscopy within 12 h.', stmt: '5.18', tone: 'n', kids: [
-    { id: 'ov', t: 'Oesophageal varix or GOV1', r: 'Band ligation', stmt: 'Fig. 3', tone: 'n', sh: 'OV or GOV1', kids: [
-      { id: 'ctrl', t: 'Bleeding controlled', tone: 'ok', sh: 'Controlled', kids: [
-        { id: 'ptips', t: 'Meets pTIPS criteria', r: 'Pre-emptive TIPS within 72 h', s: 'Child–Pugh C 10–13, B 8–9 with active bleeding, or HVPG ≥20. Age <75, creatinine <3, no heart failure.', stmt: '5.31', tone: 'bad', sh: 'pTIPS' },
-        { id: 'nopt', t: 'Criteria not met', r: 'Carvedilol and banding', s: 'Band every 2–4 weeks.', stmt: 'Fig. 3', tone: 'ok', sh: 'Banding' }] },
-      { id: 'fail', t: 'Not controlled', r: 'Covered stent, then salvage TIPS', s: 'A covered stent, preferred over a balloon, bridges to TIPS or transplant.', stmt: '5.35, 5.36', tone: 'bad', sh: 'Stent' }] },
-    { id: 'gv', t: 'GOV2 or IGV1', r: 'High-risk: two phases in parallel', stmt: '5.39', tone: 'bad', sh: 'GOV2 or IGV1', kids: [
-      { id: 'acute', t: 'Acute phase', r: 'Stop the bleeding', s: 'EUS-guided coil + cyanoacrylate, else cyanoacrylate injection.', stmt: '5.40', tone: 'warn', sh: 'Stop bleeding' },
-      { id: 'tipsg', t: 'Definitive phase', r: 'TIPS ± embolisation', s: 'As soon as possible. Child–Pugh C <14, age <75, creatinine <3, no heart failure.', stmt: '5.41', tone: 'bad', sh: 'TIPS' },
-      { id: 'mdt', t: 'TIPS contraindicated', r: 'Other definitive options', s: 'Transvenous obliteration, endoscopic or surgical, after MDT discussion.', stmt: '5.41', tone: 'warn', sh: 'MDT' }] }] };
-
-/** A node's tone passed down to children that have none of their own (an action takes its branch's). */
-(function inherit(n, t) { n.tone = n.tone || t; (n.kids || []).forEach((k) => inherit(k, n.tone)); })(FIRST_VISIT, 'n');
-(function inherit(n, t) { n.tone = n.tone || t; (n.kids || []).forEach((k) => inherit(k, n.tone)); })(BLEED, 'n');
-
-/** The algorithms by the name a slide gives (tool { kind: 'path', of }). */
-export const PATHS = {
-  'first-visit': { tree: FIRST_VISIT, kick: 'Baveno VIII', foot: 'Fig. 1', label: 'First visit with cACLD' },
-  bleed: { tree: BLEED, kick: 'Baveno VIII', foot: 'Fig. 3', label: 'Acute variceal bleeding' },
-};
-
+export const FIRST_VISIT = first.tree;
+export const BLEED = bleed.tree;
+export { leavesOf, cpClass };
+/** The short name in a slide's tab. */
+const SHORT = { 'first-visit': 'First-visit path', bleed: 'Bleed path', gastric: 'Gastric bleed path', ascites: 'Ascites path', stopcarv: 'Stop carvedilol?', holdcarv: 'Hold carvedilol?', secprop: 'Next-bleed path', psvdscope: 'PSVD scope?', pvtocc: 'Clot occlusion', pvtdur: 'Clot duration', aasld: 'Rule of five' };
+/** What the card needs of an algorithm by name: its tree (or rows), the pill's words, the foot, the screen-reader name. */
+export const PATHS = Object.fromEntries(Object.values(ALGOS).map((a) => [a.id, { tree: a.tree, kick: a.source, foot: a.cite, label: a.label, short: SHORT[a.id] || a.label, kind: a.kind }]));
 /** The words under each node of the phone's map (one or two short lines). */
-export const MAP_WORDS = {
-  b1: ['LSM', '<10'], b2: ['LSM ≤15', 'PLT ≥150'], b3: ['Gray', 'zone'], b4: ['LSM', '≥25'], g1: ['Model or', 'SSM'], g2: ['Neither'],
-  a1: ['Repeat', 'NITs'], a2: ['Repeat LSM', '12 months'], a3: ['Start', 'carvedilol'], a4: ['Repeat or', 'add SSM'], a6: ['Start', 'carvedilol'],
-  ov: ['OV or', 'GOV1'], gv: ['GOV2 or', 'IGV1'], ctrl: ['Controlled'], fail: ['Banding', 'failed'], ptips: ['pTIPS'], nopt: ['Carvedilol,', 'banding'],
-  acute: ['Stop', 'bleeding'], tipsg: ['TIPS'], mdt: ['MDT'],
-};
+export const mapWordsOf = (of, id) => algoOf(of).mapWords?.[id] || null;
 
-export const cpClass = (cp) => (cp <= 6 ? 'A' : cp <= 9 ? 'B' : 'C');
-const crit = (p) => (p.cp >= 10 && p.cp <= 13) || (p.cp >= 8 && p.cp <= 9 && !!p.active) || p.hvpg >= PTIPS_HVPG;
-
-/** The nodes lit for a first-visit patient { lsm, plt, bmi, ant, ssm }: lsm in kPa, plt in ×10⁹/L, ant: ANTICIPATE (or -NASH) ≥75%,
- *  ssm: spleen stiffness >55 kPa, bmi: BMI ≥30. Readings are as the tiles print them. */
-export function litFirst(p) {
-  const L = new Set(['root']);
-  if (!(p.lsm >= 0)) return L;
-  if (p.lsm < 10) { L.add('b1'); L.add('a1'); }
-  else if (p.lsm >= 25 && !p.bmi) { L.add('b4'); L.add('a6'); }
-  else if (p.lsm <= 15 && p.plt >= 150) { L.add('b2'); L.add('a2'); }
-  else { L.add('b3'); if (p.ant || p.ssm) { L.add('g1'); L.add('a3'); } else { L.add('g2'); L.add('a4'); } }
-  return L;
-}
-/** The nodes lit for a bleeding patient { src: 'ov' | 'gv', cp, active, hvpg, ctrl, fit }. */
-export function litBleed(p) {
-  const L = new Set(['root']);
-  if (p.src === 'gv') { L.add('gv'); L.add('acute'); L.add(p.cp <= 13 && p.fit ? 'tipsg' : 'mdt'); return L; }
-  L.add('ov');
-  if (!p.ctrl) { L.add('fail'); return L; }
-  L.add('ctrl'); L.add(crit(p) && p.fit ? 'ptips' : 'nopt');
-  return L;
-}
-export const litOf = (of, p) => (of === 'bleed' ? litBleed(p) : litFirst(p));
-
+export const litOf = (of, p) => algoOf(of).lit(p);
+export const litFirst = first.lit;
+export const litBleed = bleed.lit;
 /** The outcome a lit set ends in: the leaf the phone's reading is written for. */
-export function outcomeOf(of, L) {
-  if (of !== 'bleed') return ['a1', 'a2', 'a3', 'a4', 'a6'].find((k) => L.has(k)) || null;
-  if (L.has('gv')) return L.has('tipsg') ? 'gv-tips' : 'gv-mdt';
-  return ['ptips', 'nopt', 'fail'].find((k) => L.has(k)) || null;
-}
-export const OUTCOMES = { 'first-visit': ['a1', 'a2', 'a3', 'a4', 'a6'], bleed: ['ptips', 'nopt', 'fail', 'gv-tips', 'gv-mdt'] };
-
+export const outcomeOf = (of, L) => algoOf(of).outcomeOf(L);
+export const OUTCOMES = Object.fromEntries(Object.values(ALGOS).map((a) => [a.id, a.outcomes]));
 /** The phone's reading for one outcome: { head, tone, stmt, why, next }, in words, from the patient's own numbers. */
-export function readingFor(of, key, p) {
-  if (of !== 'bleed') {
-    switch (key) {
-      case 'a1': return { head: 'Rules cACLD out', tone: 'n', stmt: '1.3', why: `LSM ${p.lsm} kPa is <10.`, next: 'Repeat NITs by cause. Think of PSVD if there are signs of portal hypertension.' };
-      case 'a2': return { head: 'Rules CSPH out', tone: 'ok', stmt: '1.15', why: `LSM ${p.lsm} kPa is ≤15 and platelets are ${p.plt}, ≥150.`, next: 'Repeat the stiffness in 12 months.' };
-      case 'a3': return { head: 'Rules CSPH in', tone: 'bad', stmt: '1.14, 1.16', why: `LSM ${p.lsm} kPa with platelets ${p.plt} leaves it open, but ${p.ant ? (p.bmi ? 'ANTICIPATE-NASH is ≥75%' : 'ANTICIPATE is ≥75%') : 'spleen stiffness is >55 kPa'}.`, next: 'Start a beta-blocker, carvedilol preferred.' };
-      case 'a4': return { head: 'CSPH still open', tone: 'warn', stmt: '1.17', why: `LSM ${p.lsm} kPa with platelets ${p.plt} falls between the rules, and no model or spleen stiffness settles it.`, next: 'Repeat the tests in 12 months, or add spleen stiffness. Off a beta-blocker, scope for varices unless LSM <20 with platelets ≥150, or SSM <40 kPa.' };
-      default: return { head: 'Rules CSPH in', tone: 'bad', stmt: '1.16b', why: `LSM ${p.lsm} kPa is ≥25.`, next: 'Start a beta-blocker, carvedilol preferred.' };
-    }
-  }
-  const cls = cpClass(p.cp) + p.cp;
-  switch (key) {
-    case 'ptips': {
-      const w = p.cp >= 10 && p.cp <= 13 ? `Child–Pugh ${cls} is C 10–13` : p.cp >= 8 && p.cp <= 9 && p.active ? `Child–Pugh ${cls} with active bleeding at endoscopy` : `HVPG ${p.hvpg} is ≥20`;
-      return { head: 'Pre-emptive TIPS', tone: 'bad', stmt: '5.31', why: `Banding controlled the bleed. ${w}, and the patient is fit for TIPS.`, next: 'Within 72 hours, ideally within 24.' };
-    }
-    case 'nopt': return { head: 'Carvedilol and banding', tone: 'ok', stmt: 'Fig. 3', why: crit(p) ? 'Banding controlled the bleed. The patient meets the clinical criteria but is not fit for TIPS.' : 'Banding controlled the bleed, and no pre-emptive TIPS criterion is met.', next: 'Band every 2–4 weeks.' };
-    case 'fail': return { head: 'Covered stent, then salvage TIPS', tone: 'bad', stmt: '5.35, 5.36', why: 'Banding did not control the bleeding.', next: 'A dedicated covered metal stent is preferred over a balloon, as a bridge to TIPS or liver transplant.' };
-    case 'gv-tips': return { head: 'Two phases, in parallel', tone: 'bad', stmt: '5.39', why: 'A GOV2 or IGV1 bleed is high risk.', next: 'Stop the bleeding now: EUS-guided coil with cyanoacrylate, else cyanoacrylate injection. Then TIPS ± embolisation as soon as possible.' };
-    default: return { head: 'Two phases, in parallel', tone: 'bad', stmt: '5.39', why: 'A GOV2 or IGV1 bleed is high risk.', next: `Stop the bleeding now: EUS-guided coil with cyanoacrylate, else cyanoacrylate injection. TIPS is not an option (${p.cp > 13 ? `Child–Pugh ${cls}` : 'not fit'}): transvenous obliteration, endoscopic or surgical options after MDT discussion.` };
-  }
-}
-
+export const readingFor = (of, key, p) => algoOf(of).reading(key, p);
 /** The patient's numbers as a short list of words ('LSM 31 kPa', 'Child–Pugh C11'), for the card's header. */
-export function chipsOf(of, p) {
-  if (of !== 'bleed') return [`LSM ${p.lsm} kPa`, `Platelets ${p.plt}`, p.bmi && 'BMI ≥30', p.ant && (p.bmi ? 'ANTICIPATE-NASH ≥75%' : 'ANTICIPATE ≥75%'), p.ssm && 'SSM >55 kPa'].filter(Boolean);
-  return [p.src === 'gv' ? 'GOV2 or IGV1' : 'Oesophageal or GOV1', `Child–Pugh ${cpClass(p.cp)}${p.cp}`, p.hvpg != null && `HVPG ${p.hvpg}`, p.active ? 'Active bleeding' : 'No active bleeding', p.src !== 'gv' && (p.ctrl ? 'Controlled' : 'Not controlled'), !p.fit && 'Not fit for TIPS'].filter(Boolean);
-}
-
-/** Leaves under a node (a node with none counts one). */
-export const leavesOf = (n) => (n.kids ? n.kids.reduce((s, k) => s + leavesOf(k), 0) : 1);
-
-/** The patient a slide's tool names: the slide's own facts (tool.patient), over which the live model's readings go where it has them
- *  (fp: lsm, plt, ssm, hvpg), each as the tile prints it (shown(key, v)). A reading the model does not have leaves the slide's own. */
-export function patientFor(t, fp, shown = (k, v) => v) {
-  const base = { ...(t?.patient || {}) };
-  const live = (k, v) => (fp && Number.isFinite(fp[k]) ? shown(k, fp[k]) : v);
-  if (t?.of === 'bleed') return { src: 'ov', cp: 8, active: false, ctrl: true, fit: true, ...base, hvpg: base.hvpg === null ? null : live('hvpg', base.hvpg ?? 16) };
-  const ssm = live('ssm', null);
-  return { lsm: live('lsm', base.lsm ?? 12), plt: live('plt', base.plt ?? 200), bmi: !!base.bmi, ant: !!base.ant, ssm: ssm != null ? ssm > 55 : !!base.ssm };
-}
-
+export const chipsOf = (of, p) => algoOf(of).chips(p);
+/** The patient a slide's tool names: the slide's own facts (tool.patient), over which the live model's readings go where it has them. */
+export const patientFor = (t, fp, shown = (k, v) => v) => algoOf(t?.of).patientFor(t, fp, shown);
 /** The longest patient each algorithm can print (every chip, the widest numbers), so a card reserves room for any patient: it never changes size. */
-export const WORST = {
-  'first-visit': { lsm: 100, plt: 1000, bmi: true, ant: true, ssm: true },
-  bleed: { src: 'ov', cp: 13, active: false, hvpg: 99.9, ctrl: false, fit: false },
-};
+export const WORST = Object.fromEntries(Object.values(ALGOS).map((a) => [a.id, a.worst]));

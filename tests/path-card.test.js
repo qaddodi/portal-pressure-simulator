@@ -4,8 +4,8 @@ import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FIRST_VISIT, BLEED, WORST, PATHS, MAP_WORDS, OUTCOMES, litFirst, litBleed, litOf, outcomeOf, readingFor, chipsOf, patientFor, cpClass } from '../src/ui/path-data.js';
-import { slots, flat, edgesOf, ortho, treeBoxes, treePlace, mapPlace, wideFor, mapFor, mapType, shownOf, flow, nodeParas, readParas, ROLE, COL_MIN, NODE_MAX } from '../src/ui/tool-path.js';
+import { FIRST_VISIT, BLEED, WORST, PATHS, ALGOS, mapWordsOf, OUTCOMES, litFirst, litBleed, litOf, outcomeOf, readingFor, chipsOf, patientFor, cpClass } from '../src/ui/path-data.js';
+import { slots, flat, edgesOf, ortho, treeBoxes, treePlace, mapPlace, wideFor, mapFor, mapType, shownOf, flow, nodeParas, readParas, ROLE, COL_MIN, NODE_MAX, NODE_MAX_E3, E3_LEAVES } from '../src/ui/tool-path.js';
 import { loadMetrics, textCovers } from '../src/ui/text-gl.js';
 import { LOOKS, HOSTS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
@@ -16,7 +16,7 @@ const ids = (t) => flat(t).map((x) => x.n.id);
 test('every node of both trees has an id, a tone and (but the root) a name on the small map or a verdict', () => {
   for (const T of [FIRST_VISIT, BLEED]) {
     assert.equal(new Set(ids(T)).size, ids(T).length, 'ids are unique');
-    for (const { n } of flat(T)) { assert.ok(['n', 'ok', 'warn', 'bad'].includes(n.tone), n.id); if (n.id !== 'root') assert.ok(MAP_WORDS[n.id], `${n.id} has map words`); }
+    for (const { n } of flat(T)) { assert.ok(['n', 'ok', 'warn', 'bad'].includes(n.tone), n.id); if (n.id !== 'root') assert.ok(mapWordsOf(T === FIRST_VISIT ? 'first-visit' : 'bleed', n.id), `${n.id} has map words`); }
   }
   assert.equal(PATHS['first-visit'].tree, FIRST_VISIT);
   assert.equal(PATHS.bleed.tree, BLEED);
@@ -51,10 +51,8 @@ test('bleed: the lit path follows Baveno VIII Fig. 3 and 5.31, 5.35, 5.39 to 5.4
   assert.equal(lit({ cp: 6, hvpg: 19.9 }), 'nopt');
   assert.equal(lit({ cp: 10, fit: false }), 'nopt', 'not fit for TIPS: age ≥75, creatinine ≥3 or heart failure');
   assert.equal(lit({ cp: 10, ctrl: false }), 'fail', 'not controlled: a covered stent, then salvage TIPS');
-  assert.equal(lit({ src: 'gv', cp: 10 }), 'gv-tips');
-  assert.equal(lit({ src: 'gv', cp: 14 }), 'gv-mdt', 'GOV2/IGV1 TIPS needs Child–Pugh C <14');
-  assert.equal(lit({ src: 'gv', cp: 10, fit: false }), 'gv-mdt');
-  assert.deepEqual([...litBleed({ src: 'gv', cp: 10, fit: true })].sort(), ['acute', 'gv', 'root', 'tipsg']);
+  // (the gastric half of Fig. 3 is its own chart since E3: path-algos/gastric.js, tests/path-algos-a.test.js)
+  assert.deepEqual([...ALGOS.gastric.lit({ src: 'gv', cp: 10, fit: true })].sort(), ['acute', 'root', 'tipsg']);
   assert.equal(litOf('bleed', { src: 'ov', cp: 10, ctrl: true, fit: true }).has('ptips'), true);
 });
 
@@ -95,7 +93,7 @@ test('the chart: a column per leaf, no two nodes of a row overlap, every connect
       const boxes = treeBoxes(T, W), byRow = new Map();
       for (const [id, b] of boxes) {
         assert.ok(b.left >= 0 && b.left + b.w <= W + 1e-6, `${id} inside the card at ${W}`);
-        assert.ok(b.w <= (id === 'root' ? 330 : NODE_MAX) + 1e-6);
+        assert.ok(b.w <= (id === 'root' ? 330 : n <= E3_LEAVES ? NODE_MAX_E3 : NODE_MAX) + 1e-6);
         (byRow.get(b.d) || byRow.set(b.d, []).get(b.d)).push(b);
       }
       for (const row of byRow.values()) { row.sort((a, c) => a.left - c.left); for (let i = 1; i < row.length; i++) assert.ok(row[i].left >= row[i - 1].left + row[i - 1].w + 4, `row ${row[0].d} at ${W}`); }
@@ -111,14 +109,14 @@ test('the chart: a column per leaf, no two nodes of a row overlap, every connect
     assert.ok(!wideFor(T, n * COL_MIN - 1), 'a narrower card draws the small map');
   }
   assert.equal(slots(FIRST_VISIT).n, 5);
-  assert.equal(slots(BLEED).n, 6);
+  assert.equal(slots(BLEED).n, 3, 'the oesophageal / GOV1 chart has three leaves (E3)');
   assert.equal(ortho(10, 0, 10, 40), 'M10,0V40');
   assert.match(ortho(10, 0, 50, 40), /^M10,0V12Q10,20 18,20H42Q50,20 50,28V40$/);
 });
 
 test('the small map: every node is on it, words and dots stay inside the card, and the leaves are spaced for their words', () => {
   for (const T of [FIRST_VISIT, BLEED]) for (const W of [300, 346, 390]) {
-    const m = mapPlace(T, W);
+    const m = mapPlace(T, W, 1, 0, (id) => mapWordsOf(T === FIRST_VISIT ? 'first-visit' : 'bleed', id));
     assert.equal(m.nodes.size, flat(T).length);
     assert.equal(m.paths.size, edgesOf(T).length);
     for (const [id, p] of m.nodes) { assert.ok(p.x >= 20 && p.x <= W - 20, `${id} at ${W}`); assert.ok(p.y + (p.words ? 19 + p.words.length * 12.5 : 0) <= m.H, `${id} words inside the height`); }
@@ -131,10 +129,10 @@ test('the small map: every node is on it, words and dots stay inside the card, a
 test('a phone and an iPad held upright draw the small map; a wide card on a Mac or a sideways iPad draws the chart', () => {
   assert.equal(mapFor(FIRST_VISIT, 700, true), true, 'iPad upright: a 700 px card is still the map');
   assert.equal(mapFor(BLEED, 800, false), false, 'sideways iPad / Mac');
-  assert.equal(mapFor(BLEED, 500, false), true, 'a card too narrow for six columns');
+  assert.equal(mapFor(BLEED, 300, false), true, 'a card too narrow for three columns');
   assert.equal(mapType(340), 12);
   assert.equal(mapType(700), 14);
-  const m = mapPlace(BLEED, 700, 14 / 12);
+  const m = mapPlace(BLEED, 700, 14 / 12, 0, (id) => mapWordsOf('bleed', id));
   for (const [id, p] of m.nodes) assert.ok(p.y + (p.words ? (19 + p.words.length * 12.5) * 14 / 12 : 0) <= m.H, id);
   assert.match(read('src/ui/tool-path.js'), /PHONE_MQ/, 'the phone layout query decides');
   assert.match(read('src/ui/util.js'), /PHONE_MQ = `\(max-width: 767px\), \$\{SIDEWAYS_MQ\}, \$\{UPRIGHT_MQ\}`/, 'upright covers portrait iPads up to 1100 px');
@@ -179,7 +177,7 @@ test('every word of the card is drawn from Inter\'s outlines and laid out in col
   await loadMetrics();
   const words = new Set();
   for (const T of [FIRST_VISIT, BLEED]) for (const { n } of flat(T)) for (const s of [n.t, n.r, n.s, n.stmt]) if (s) words.add(s);
-  for (const w of Object.values(MAP_WORDS)) for (const s of w) words.add(s);
+  for (const a of Object.values(ALGOS)) for (const w of Object.values(a.mapWords || {})) for (const s of w) words.add(s);
   for (const p of Object.values(PATHS)) { words.add(p.kick); words.add(p.foot); }
   for (const s of words) assert.ok(textCovers(s), `the outlines have every character of "${s}"`);
   for (const T of [FIRST_VISIT, BLEED]) {
@@ -196,7 +194,7 @@ test('every word of the card is drawn from Inter\'s outlines and laid out in col
   assert.equal(new Set(one.items.map((i) => i.y)).size, 2, 'a condition wider than its column wraps');
   assert.equal(one.h, 32);
   assert.ok(flow(readParas({ head: 'Rules CSPH in', stmt: '1.16b', why: 'LSM 31 kPa is ≥25.', next: 'Start a beta-blocker, carvedilol preferred.' }), 340, { gap: 4 }).h > ROLE.rh.lh);
-  for (const [of, p] of Object.entries(WORST)) assert.ok(litOf(of === 'bleed' ? 'bleed' : 'first-visit', p).size >= 2, `${of}: the widest patient is a patient`);
+  for (const [of, p] of Object.entries(WORST)) assert.ok(litOf(of, p).size >= 2, `${of}: the widest patient is a patient`);
 });
 
 test('the card draws only on the GPU: one model, no page text, no layout read', () => {

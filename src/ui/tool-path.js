@@ -21,9 +21,9 @@ import { TILE } from './table-marks.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { loadMetrics, layoutParagraph, textWidth } from './text-gl.js';
-import { PATHS, MAP_WORDS, OUTCOMES, WORST, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
+import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
 
-export const COL_MIN = 104, NODE_MAX = 140, ROOT_MAX = 330, GAP_Y = 26, MAP_UNIT = 66, GAP = 10;
+export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 26, MAP_UNIT = 66, GAP = 10;
 const PILL_H = 22, PILL_PAD = 10;
 const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger' };
 const svg = svgModel;
@@ -66,7 +66,9 @@ export const mapFor = (tree, W, phone) => !!phone || !wideFor(tree, W);
 export const mapType = (W) => (W >= 560 ? 14 : 12);
 /** The whole chart's boxes at a width: id → { left, w, cx, d } (a node's width is its column's, the root's up to ROOT_MAX). */
 export function treeBoxes(tree, W) {
-  const { at, n } = slots(tree), slot = W / n, nw = Math.min(NODE_MAX, slot - 10), out = new Map();
+  const { at, n } = slots(tree), slot = W / n;
+  const nw = Math.min(n <= E3_LEAVES ? NODE_MAX_E3 : NODE_MAX, slot - 10);   // (a chart of up to three leaves fills the card with wider boxes: E3, Mohammad 7 Nov 2026)
+  const out = new Map();
   for (const { n: node, d } of flat(tree)) {
     const w = node.id === tree.id ? Math.min(W - 8, ROOT_MAX) : nw;
     const left = Math.max(0, Math.min(W - w, at.get(node.id).x * slot - w / 2));
@@ -89,10 +91,10 @@ export function treePlace(tree, boxes, heights, oy = 0) {
   return { tops, paths, H: Math.max(0, y - GAP_Y) };
 }
 /** The small map at a width (k: the words' size over 12): each node's centre, the connectors' paths and the height. A node's words stand under its dot. */
-export function mapPlace(tree, W, k = 1, oy = 0) {
+export function mapPlace(tree, W, k = 1, oy = 0, wordsOf = () => null) {
   const { at, n, maxd } = slots(tree), pad = W < 330 ? 34 : 38, nodes = new Map(), paths = new Map();
   const X = (id) => (n > 1 ? pad + ((at.get(id).x - 0.5) / (n - 1)) * (W - 2 * pad) : W / 2), Y = (id) => oy + 12 + at.get(id).d * MAP_UNIT;
-  for (const { n: node } of flat(tree)) nodes.set(node.id, { x: X(node.id), y: Y(node.id), words: MAP_WORDS[node.id] || null });
+  for (const { n: node } of flat(tree)) nodes.set(node.id, { x: X(node.id), y: Y(node.id), words: wordsOf(node.id) });
   for (const e of edgesOf(tree)) {
     const a = nodes.get(e.from), b = nodes.get(e.to);
     const y0 = a.y + (a.words ? (8 + a.words.length * 12.5) * k : 0);
@@ -164,7 +166,7 @@ export function createPath() {
     L.y.pic = y;
     if (compact) {
       L.k = mapType(W) / 12;
-      L.map = mapPlace(spec.tree, W, L.k, y);
+      L.map = mapPlace(spec.tree, W, L.k, y, (id) => mapWordsOf(of, id));
       y += L.map.H + GAP;
       L.y.rule1 = y; y += 12;
       L.y.read = y;
@@ -228,7 +230,7 @@ export function createPath() {
     }
     rule(lay.y.rule2);
     place(lay.foot.items, 0, lay.y.foot, false, 'text');
-    return svg('svg', { width: W, height: lay.H, viewBox: `0 0 ${W} ${lay.H}`, face: 'img', 'aria-label': `${spec.label}, the patient's path lit. ${said}` }, ...kids);
+    return svg('svg', { width: W, height: lay.H, viewBox: `0 0 ${W} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}, the patient's path lit. ${said}` }, ...kids);
   }
 
   /** The path lit for the patient as it stands: the picture is drawn again only when what shows has changed. */
@@ -258,7 +260,7 @@ export function createPath() {
     el,
     configure(tool, ctx) {
       t = tool || {};
-      of = t.of === 'bleed' ? 'bleed' : 'first-visit';
+      of = knownOf(t.of);
       spec = PATHS[of];
       const fl = flat(spec.tree);
       sl = { ...slots(spec.tree), flat: fl, edges: edgesOf(spec.tree), byId: new Map(fl.map(({ n }) => [n.id, n])) };
