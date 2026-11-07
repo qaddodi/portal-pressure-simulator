@@ -106,8 +106,8 @@ test('origin: a vessel whose flow only runs one way is one blood end to end', ()
   assert.ok(ORIGIN_PE_FADE[0] < ORIGIN_PE_FADE[1]);
 });
 
-test('origin: after a splenectomy or a Warren shunt the to-and-fro proximal splenic vein mixes IMV into SMV blood along it', () => {
-  for (const params of [{ splenicRx: 2 }, { dsrs: true }]) {
+test('origin: after a splenectomy the to-and-fro proximal splenic vein mixes IMV into SMV blood along it', () => {
+  for (const params of [{ splenicRx: 2 }]) {
     const m = originMix('cirr-decomp', params), pe = m.pe('SV_CONF'), up = m.up('SV_CONF'), down = m.down('SV_CONF');
     assert.ok(pe !== 0 && Math.abs(pe) < ORIGIN_PE_FADE[0], `${JSON.stringify(params)}: Pe ${pe}`);
     // (Upstream is the splenic end while the mean runs toward the confluence, the confluence end while it runs back.)
@@ -117,6 +117,14 @@ test('origin: after a splenectomy or a Warren shunt the to-and-fro proximal sple
     // The superior mesenteric vein beside it still runs one way: one blood.
     assert.equal(m.pe('SMV_CONF'), 0);
   }
+});
+
+// (The Warren shunt ties off the coronary vein too, 7 Nov: the portal pressure then drives the proximal splenic vein back toward the
+// gastric collateral steadily, past the mix's fade, so it reads one blood end to end and no longer flips between IMV and SMV.)
+test('origin: after a Warren shunt the proximal splenic vein is one blood end to end, not flipping between IMV and SMV', () => {
+  const m = originMix('cirr-decomp', { dsrs: true });
+  assert.equal(m.pe('SV_CONF'), 0);
+  assert.deepEqual(m.down('SV_CONF'), m.up('SV_CONF'));
 });
 
 test('dye bolus: travels downstream, keeps concentration through a split, dilutes at a merge', () => {

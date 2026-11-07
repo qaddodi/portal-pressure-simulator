@@ -28,6 +28,9 @@ function pseFillD(x, y) {
   return d + ' Z';
 }
 
+// Where the Warren shunt ties the coronary vein, as a share of its course from the stomach to the portal vein (engine.js closes the same vein).
+const CORONARY_TIE = 0.75;
+
 export function createClamps(st, live) {
   const { E, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, qP, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
@@ -156,7 +159,7 @@ export function createClamps(st, live) {
     for (const id in p.stenosis) okLesion(o, id);
     for (const id in p.thrombus) okLesion(o, id);
     for (const id in p.occluded) okLesion(o, id);
-    okLesion(o, 'TIPS'); okLesion(o, 'DIPS'); okLesion(o, 'S_PC'); okLesion(o, 'S_DSR'); okLesion(o, 'S_MC'); okLesion(o, 'REX');
+    okLesion(o, 'LGV_CONF'); okLesion(o, 'TIPS'); okLesion(o, 'DIPS'); okLesion(o, 'S_PC'); okLesion(o, 'S_DSR'); okLesion(o, 'S_MC'); okLesion(o, 'REX');
     for (let i = 0; i < LIGATED.length; i++) okLesion(o, LIGATED[i][1]);
     for (const id in p.customShunts) okLesion(o, id);
     const stented = store.get().stented;
@@ -272,6 +275,8 @@ export function createClamps(st, live) {
     }
     // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.
     for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis) ligature(vein, shunt);
+    // The Warren shunt also ties off the coronary vein (the engine closes it too): two ties and the plug's cross, three quarters of the way to the portal vein.
+    if (E.S_DSR.vis && !E.S_DSR.reveal && E.LGV_CONF?.vis) ligature('LGV_CONF', 'S_DSR', CORONARY_TIE);
     for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {
       if (!isOccluded(p, id) || !E[id] || !E[id].vis) continue;
       const [x, y] = pointAt(geo[id].cur, 0.5);

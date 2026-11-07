@@ -72,7 +72,7 @@ test('the figure ties off the same vessels the engine closes for each surgical s
   // The divided vein is drawn apart: its stretch at the shunt is cut away on the GPU, and the ties sit on the stump past the gap.
   assert.match(stage, /const ligatedAt = \(id\) => \{ for \(let q = 0; q < LIGATED\.length; q\+\+\) if \(LIGATED\[q\]\[1\] === id\) return true; return false; \};/);
   assert.match(stage, /ligatedAt\(id\)\) lo = Math\.max\(lo, divideLen\(id\)/);
-  assert.match(stage, /function ligature\(id, shunt\) \{\s*const x = E\[id\], c = Math\.min\(divideLen\(id\) \+ 5/);
+  assert.match(stage, /function ligature\(id, shunt, at\) \{\s*const x = E\[id\], c = at != null \? geo\[id\]\.len \* at : Math\.min\(divideLen\(id\) \+ 5/);
   assert.match(engine, /p\.dsrs && e\.id === 'SV_MID'/);
   assert.match(engine, /p\.portocaval && e\.id === 'PV_TRUNK'/);
 });
@@ -99,4 +99,21 @@ test('splenorenal shunts keep clear of the descending colon and ease into the re
   const fs = await import('node:fs');
   const stage = stageSource();
   assert.match(stage, /if \(e\.id === 'C6' && mode !== 'flow' && EI\.V_SPL != null\) w = Math\.min\(w, /);
+});
+
+// Mohammad, 7 Nov: in a Warren shunt the coronary vein is tied off; it carries no flow, and the figure marks the tie.
+test('Warren shunt ties off the coronary vein: no flow in it, an X and sutures on it, the varices fed less', async () => {
+  const fs = await import('node:fs');
+  const run = (p) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle(); return (id) => e.Q[e.ei[id]]; };
+  const base = run({}), W = run({ dsrs: true });
+  assert.ok(Math.abs(base('LGV_CONF')) > 0.5, 'the coronary vein carries blood without the shunt');
+  assert.ok(Math.abs(W('LGV_CONF')) < 1e-6, 'no flow beyond the tie');
+  assert.ok(Math.abs(W('C1a')) < Math.abs(base('C1a')), 'the portal pressure feeds the esophageal varices less');
+  const engine = fs.readFileSync(new URL('../src/engine/engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /p\.dsrs && e\.id === 'LGV_CONF'/);
+  const stage = stageSource();
+  assert.match(stage, /ligature\('LGV_CONF', 'S_DSR', CORONARY_TIE\)/);
+  assert.match(stage, /putMark\(ov\.plugs, `tieX:\$\{id\}`/);
+  const { SHUNTS } = await import('../src/ui/decks/shunts.js');
+  assert.match(SHUNTS.slides.find((x) => x.id === 'dsrs').line, /coronary vein is tied off/);
 });

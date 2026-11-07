@@ -551,6 +551,8 @@ export class Engine {
       if (p.portocaval && e.id === 'PV_TRUNK') { this.G[k] = 0; continue; }
       // Warren: the splenic vein is divided between the shunt and the IMV, so the IMV still drains to the portal vein.
       if (p.dsrs && e.id === 'SV_MID') { this.G[k] = 0; continue; }
+      // Warren: the coronary (left gastric) vein is tied off where it meets the portal vein, so the high portal pressure no longer feeds the esophageal varices through it.
+      if (p.dsrs && e.id === 'LGV_CONF') { this.G[k] = 0; continue; }
       this.G[k] = 1 / R;
     }
   }

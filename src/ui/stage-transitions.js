@@ -308,8 +308,10 @@ export function createTransitions(st, live) {
   }
   // A vessel divided at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
   // shunt): two suture ties across its tied-off stump, a little apart, just behind the stump's rounded end.
-  function ligature(id, shunt) {
-    const x = E[id], c = Math.min(divideLen(id) + 5, geo[id].len * 0.6);
+  // (A vein tied off along its length, not divided: `at`, the tie's place as a share of its course, puts the same two ties there and the
+  // plug's cross on them, as BRTO marks the shunt it closes: the coronary vein in a Warren shunt.)
+  function ligature(id, shunt, at) {
+    const x = E[id], c = at != null ? geo[id].len * at : Math.min(divideLen(id) + 5, geo[id].len * 0.6);
     const R = x.width / 2 + (x.wallPx || 1) + 3;
     let d = '';
     for (const o of [-3.5, 3.5]) {
@@ -317,6 +319,10 @@ export function createTransitions(st, live) {
       d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
     }
     putMark(ov.stents, `tie:${id}`, shunt, [s('path', { class: 'ligature', d })]);
+    if (at == null) return;
+    const m = frameAt(id, c);
+    putMark(ov.plugs, `tieX:${id}`, shunt, [s('circle', { cx: m.x, cy: m.y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
+      s('path', { d: `M${m.x - 4} ${m.y - 4} L ${m.x + 4} ${m.y + 4} M${m.x + 4} ${m.y - 4} L ${m.x - 4} ${m.y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
   }
   return { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit, stentMesh, stepFluid, stepReveals, trackChanges, updateFocus, updateNodesCircuit, updateOrganSel, updateOrgans, venousSync };
 }
