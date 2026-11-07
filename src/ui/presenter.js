@@ -255,6 +255,7 @@ const EDGE_TONE = {};
 for (const t of Object.values(TARGETS)) for (const e of t.edges || []) EDGE_TONE[e] ||= t.tone;
 // (Collaterals and spontaneous shunts take the varices' colour: one family on the figure.)
 for (const e of ['C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'S_PC', 'S_DSR', 'S_MC']) EDGE_TONE[e] ||= 'var';
+EDGE_TONE.REX ||= 'pv';   // (the Meso-Rex graft carries portal blood to the liver: the portal colour)
 // A live value's colour ({pv}): the station it is read at; a value with no station (HVPG) is a plain pill.
 // The station label each site reading would repeat (an IVC web's lower reading is its own place, so it has none).
 export const SITE_NODE = { pv: 'CONF', ivc: 'IVCS', ra: 'RA' };

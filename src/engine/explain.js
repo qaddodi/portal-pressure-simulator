@@ -63,6 +63,7 @@ function factors(eng, metricId) {
   if (p.portocaval) add('Portocaval shunt', 'the portocaval shunt', (e) => { e.params.portocaval = false; });
   if (p.dsrs) add('Distal splenorenal shunt', 'the distal splenorenal shunt', (e) => { e.params.dsrs = false; });
   if (p.mesocaval) add('Mesocaval shunt', 'the mesocaval shunt', (e) => { e.params.mesocaval = false; });
+  if (p.rex) add('Meso-Rex bypass', 'the Meso-Rex bypass', (e) => { e.params.rex = false; });
   if (p.balloonEso || p.balloonGas) add('Balloon tamponade', 'the balloon tamponade', (e) => { e.params.balloonEso = false; e.params.balloonGas = false; });
   for (const id of Object.keys(p.occluded)) if (p.occluded[id]) add(`Occluded ${edgeLabel(id)}`, `the occluded ${lc(edgeLabel(id))}`, (e) => { delete e.params.occluded[id]; });
   if (p.albumin !== d.albumin) add(`Serum albumin ${p.albumin.toFixed(1)} g/dL`, `the serum albumin of ${p.albumin.toFixed(1)} g/dL`, (e) => { e.params.albumin = d.albumin; });

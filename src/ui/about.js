@@ -55,6 +55,7 @@ const VESSEL = {
   S_PC: 'A surgical portocaval shunt: the portal vein joined to the IVC. Total diversion.',
   S_DSR: 'The Warren distal splenorenal shunt: decompresses the varices through the splenic vein while keeping some portal flow to the liver.',
   S_MC: 'A surgical mesocaval shunt from the superior mesenteric vein to the IVC.',
+  REX: 'The Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein at the Rex recess, past a clotted portal trunk. It returns the gut\u2019s blood to the liver instead of to the veins of the body.',
 };
 const BY_KIND = {
   artery: 'An artery: oxygen-rich blood at high pressure, unaffected by portal pressure.',

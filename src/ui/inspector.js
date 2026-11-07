@@ -110,6 +110,7 @@ export const CONTROLS = {
   portocaval: { type: 'toggle', key: 'portocaval', label: 'Portocaval shunt', ...prop('portocaval'), info: 'End-to-side: total diversion; the liver loses all portal perfusion.' },
   dsrs: { type: 'toggle', key: 'dsrs', label: 'Distal splenorenal (Warren)', ...prop('dsrs'), info: 'Selective: decompresses gastroesophageal varices while SMV blood still perfuses the liver.' },
   mesocaval: { type: 'toggle', key: 'mesocaval', label: 'Mesocaval shunt', ...prop('mesocaval') },
+  rex: { type: 'toggle', key: 'rex', label: 'Meso-Rex bypass', ...prop('rex'), info: 'A vein graft from the superior mesenteric vein to the left portal vein, past a clotted trunk: the gut\u2019s blood goes back into the liver.' },
   gestation: { type: 'slider', key: 'gestation', label: 'Pregnancy', min: 0, max: 40, step: 1, ...prop('gestation'), format: (v) => (v > 0 ? `${Math.round(v)} weeks` : 'Not pregnant'), def: 0, info: PREGNANCY_INFO },
   albumin: { type: 'slider', key: 'albumin', label: 'Serum albumin', min: 1.5, max: 5, step: 0.1, ...prop('albumin'), format: (v) => `${v.toFixed(1)} g/dL`, def: 4, normal: [3.5, 5], info: 'Plasma oncotic pressure opposes filtration out of capillaries (Starling).' },
   diuretics: { type: 'toggle', key: 'diuretics', label: 'Diuretics', ...prop('diuretics'), info: 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.' },
@@ -409,6 +410,7 @@ const C = {
   portocaval: worded('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; }),
   dsrs: worded('dsrs', 'Distal splenorenal shunt', (q) => { q.dsrs = false; }),
   mesocaval: worded('mesocaval', 'Mesocaval shunt', (q) => { q.mesocaval = false; }),
+  rex: worded('rex', 'Meso-Rex bypass', (q) => { q.rex = false; }),
   balloonGas: worded('balloonGas', 'Gastric balloon', (q) => { q.balloonGas = false; q.balloonEso = false; }),   // (the esophageal balloon goes on a tube whose gastric balloon is up: it comes off with it)
   balloonEso: worded('balloonEso', 'Esophageal balloon', (q) => { q.balloonEso = false; }),
   splTone: numbered('splTone', 'Splanchnic tone ×', '', (q) => { q.splanchnicTone = 1; }),
@@ -444,6 +446,7 @@ export function activeInterventions(p) {
   if (p.portocaval) changes.push(C.portocaval);
   if (p.dsrs) changes.push(C.dsrs);
   if (p.mesocaval) changes.push(C.mesocaval);
+  if (p.rex) changes.push(C.rex);
   const cs = p.customShunts;
   if (cs) for (const id in cs) put(dyn('cs:', id), cs[id], 1, -2);
   if (p.balloonGas) changes.push(C.balloonGas);

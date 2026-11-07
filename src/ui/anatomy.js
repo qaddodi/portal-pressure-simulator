@@ -237,6 +237,11 @@ export const EDGE_PATH = {
   S_PC: 'M700 556 C 682 568 652 582 625 590',
   S_DSR: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 618',
   S_MC: 'M690 660 C 672 650 645 648 620 650',
+  // The Meso-Rex bypass: from the superior mesenteric vein below the confluence, up round the patient's left of the clotted
+  // trunk (crossing the splenic vein and the coronary vein's loop on the way, as the graft lies in front of them), and on
+  // to the left portal vein at its umbilical part (the Rex recess), arriving from below and the right, the way the vein
+  // beyond it (the portal venules, PRE_L) leaves on. A side join on the left portal vein's end.
+  REX: 'M690 660 C 724 646 756 604 758 550 C 760 496 742 436 688 378',
 };
 
 // Collateral plexuses: a collateral is rarely one clean vein. The periportal collateral of a
@@ -375,6 +380,8 @@ export const CIRCUIT_PATH = {
   C8: route([[480, 345], [506, 376], [554, 376], [580, 345]], 12),
   S_PC: route([[480, 345], [480, 446], [1088, 446], [1120, 478]], 24),
   S_MC: route([[320, 394], [350, 424], [350, 478], [1120, 478]], 16),
+  // The Meso-Rex bypass: a bypass round the clotted trunk, from the superior mesenteric station straight to the left portal vein.
+  REX: route([[320, 394], [336, 410], [656, 410], [680, 387]], 14),
   // The splenorenal shunts leave the splenic vein midway (SVD), left of the IMV's junction.
   C6: route([[200, 261], [200, 510], [970, 510], [1000, 540]], 16),
   S_DSR: route([[200, 261], [184, 277], [184, 570], [970, 570], [1000, 540]], 16),
@@ -661,7 +668,7 @@ export const LIVER_EDGES = new Set(['A_HEP', 'A_HR', 'A_HL', 'AP_R', 'AP_L', 'PR
 // Collateral and shunt lanes in the circuit, captioned where they run (edge → caption).
 export const LANE_CAPTIONS = {
   C1b: 'Esophageal route → azygos', C2: 'Short gastric', C3: 'Paraumbilical', C4: 'Rectal', C5: 'Gastrorenal shunt', C6: 'Splenorenal shunt',
-  C7: 'Retroperitoneal', C8: 'Periportal', C9: 'Caval → azygos', TIPS: 'TIPS', DIPS: 'DIPS', S_PC: 'Portocaval shunt', S_DSR: 'Distal splenorenal shunt', S_MC: 'Mesocaval shunt',
+  C7: 'Retroperitoneal', C8: 'Periportal', C9: 'Caval → azygos', TIPS: 'TIPS', DIPS: 'DIPS', S_PC: 'Portocaval shunt', S_DSR: 'Distal splenorenal shunt', S_MC: 'Mesocaval shunt', REX: 'Meso-Rex bypass',
   EPI_SVC: 'Epigastric → SVC',
 };
 

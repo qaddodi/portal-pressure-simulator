@@ -535,6 +535,8 @@ export class Engine {
           else if (e.shunt === 'portocaval' && p.portocaval) g = 1 / (0.03 * visc);
           else if (e.shunt === 'dsrs' && p.dsrs) g = 1 / (0.08 * visc);
           else if (e.shunt === 'mesocaval' && p.mesocaval) g = 1 / (0.08 * visc);
+          // The Meso-Rex graft: a vein of 8 mm (Poiseuille: the Warren shunt's resistance at 9 mm, scaled by (9/8)^4).
+          else if (e.shunt === 'rex' && p.rex) g = 1 / (0.128 * visc);
           else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = customConductance(p.customShunts[e.id], this.Q[k], visc, occ);
           if (g > 0 && !stent) g /= Math.min(1e9, stenosisFactor(occ));
           this.G[k] = g;

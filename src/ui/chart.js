@@ -13,10 +13,11 @@ import { activeInterventions } from './inspector.js';
 import { DRUG_NOTE } from './actions.js';
 import { factTarget } from './fact-target.js';
 import { caught } from './caught.js';
+import { rexSuitable } from './proc-anim.js';
 
 
 // The interventions treatCount counts, besides any drug.
-const TREATMENT_KEYS = ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5', 'splenicRx'];
+const TREATMENT_KEYS = ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'rex', 'occ:C5', 'splenicRx'];
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, reveal = select, timeline, pinned }) {
   let controls = () => [];
   // Changes starts closed in the Treat card so the card does not grow with every order.
@@ -148,6 +149,17 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
         toast(on ? 'The DIPS is already in place.' : 'DIPS placed: right portal vein → IVC, through the caudate lobe.');
       }), (p) => p.dips.on),
       placed(proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', () => { select(null); startShunt('PV_TRUNK'); }), (p) => p.portocaval || p.dsrs || p.mesocaval),
+      // A Meso-Rex bypass is for a clotted portal trunk with an open left portal vein, so it is offered only then (or once it is in).
+      (() => {
+        const b = placed(proc('stent', 'Meso-Rex bypass', 'SMV → left portal vein, past the clot', () => {
+          const on = store.get().params.rex;
+          if (!on) updateParams({ rex: true }, { label: 'Meso-Rex bypass' });
+          select({ type: 'edge', id: 'REX' });
+          toast(on ? 'The Meso-Rex bypass is already in place.' : 'Meso-Rex bypass placed: superior mesenteric vein → left portal vein.');
+        }), (p) => !!p.rex);
+        const offer = () => { const p = store.get().params; b.hidden = !(p.rex || rexSuitable(p)); };
+        offer(); live.push(offer); return b;
+      })(),
       placed(proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
       // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
       (() => {

@@ -35,6 +35,7 @@ function plainChanges(p) {
   if (p.portocaval) add('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; });
   if (p.dsrs) add('dsrs', 'Distal splenorenal shunt', (q) => { q.dsrs = false; });
   if (p.mesocaval) add('mesocaval', 'Mesocaval shunt', (q) => { q.mesocaval = false; });
+  if (p.rex) add('rex', 'Meso-Rex bypass', (q) => { q.rex = false; });
   for (const [id, d] of Object.entries(p.customShunts || {})) add('cs:' + id, `${lab(id)} ${d} mm`, (q) => { const c = { ...(q.customShunts || {}) }; delete c[id]; q.customShunts = c; });
   if (p.balloonGas) add('balloonGas', 'Gastric balloon', (q) => { q.balloonGas = false; q.balloonEso = false; });
   if (p.balloonEso) add('balloonEso', 'Esophageal balloon', (q) => { q.balloonEso = false; });

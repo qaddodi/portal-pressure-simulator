@@ -28,6 +28,8 @@ export function createTransitions(st, live) {
   for (const x of EV) x.rv = { t0: 0, dur: 0, dir: 1, out: false };
   const revealOf = (x, t0, dur, dir, out) => { const r = x.rv; r.t0 = t0; r.dur = dur; r.dir = dir; r.out = out; return r; };
   const appEl = document.getElementById('app');
+  // The Meso-Rex graft is long (the superior mesenteric vein up to the Rex recess): it draws on from the gut end slowly enough to be seen growing.
+  const REX_GROW_MS = 2600;
   const quietFx = () => reduceMotion.matches || live.isImaging();
   function trackChanges(f) {
     const now = live.fxAt ?? performance.now();
@@ -38,7 +40,7 @@ export function createTransitions(st, live) {
       const open = x.vis && !x.ghost && !x.reveal?.out;
       const was = track[e.id];
       track[e.id] = open;
-      if (was === false && open && canFade(x) && !quiet) setReveal(x, revealOf(x, now, e.kind === 'shunt' ? 900 : 1500, q >= 0 ? 1 : -1, false));
+      if (was === false && open && canFade(x) && !quiet) setReveal(x, revealOf(x, now, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : 1500, q >= 0 ? 1 : -1, false));
     }
   }
   // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
@@ -46,7 +48,7 @@ export function createTransitions(st, live) {
   const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id));
   function startExit(x, f) {
     const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
-    setReveal(x, revealOf(x, live.fxAt ?? performance.now(), x.e.kind === 'shunt' ? 700 : 1100, q >= 0 ? 1 : -1, true));
+    setReveal(x, revealOf(x, live.fxAt ?? performance.now(), x.e.shunt === 'rex' ? 1200 : x.e.kind === 'shunt' ? 700 : 1100, q >= 0 ? 1 : -1, true));
   }
   // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
   function finishExit(x) {

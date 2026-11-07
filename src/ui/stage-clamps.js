@@ -154,7 +154,7 @@ export function createClamps(st, live) {
     for (const id in p.stenosis) okLesion(o, id);
     for (const id in p.thrombus) okLesion(o, id);
     for (const id in p.occluded) okLesion(o, id);
-    okLesion(o, 'TIPS'); okLesion(o, 'DIPS'); okLesion(o, 'S_PC'); okLesion(o, 'S_DSR'); okLesion(o, 'S_MC');
+    okLesion(o, 'TIPS'); okLesion(o, 'DIPS'); okLesion(o, 'S_PC'); okLesion(o, 'S_DSR'); okLesion(o, 'S_MC'); okLesion(o, 'REX');
     for (let i = 0; i < LIGATED.length; i++) okLesion(o, LIGATED[i][1]);
     for (const id in p.customShunts) okLesion(o, id);
     const stented = store.get().stented;
@@ -264,7 +264,7 @@ export function createClamps(st, live) {
       const edge = mid.map((q, i) => { const r = rOf(i / (n - 1)) * CLOT_EDGE; return [q[0] - ln[i][0] * side * r, q[1] - ln[i][1] * side * r]; });
       ov.thrombi.append(s('path', { class: 'thrombus-edge', d: polyD(edge) }));
     }
-    for (const id of ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', ...Object.keys(p.customShunts || {})]) {
+    for (const id of ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', 'REX', ...Object.keys(p.customShunts || {})]) {
       if (!E[id].vis || E[id].reveal) continue;
       if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id, p); else anastomoses(id);
     }

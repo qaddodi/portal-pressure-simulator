@@ -35,6 +35,7 @@ export function defaultParams() {
     customShunts: {},   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     dsrs: false,
     mesocaval: false,
+    rex: false,                   // the Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein (past a clotted trunk)
     balloonEso: false,            // the tamponade tube's esophageal balloon: the second step, filled only on a tube whose gastric balloon is up
     balloonGas: false,            // its gastric balloon, filled in the stomach and drawn up against the cardia: the first step
     anticoag: false,

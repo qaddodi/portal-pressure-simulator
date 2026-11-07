@@ -142,8 +142,38 @@ export const MEASURES = {
     can: () => '', apply: (p) => p, had: () => false, undo: (p) => p, before: {},
   },
 };
-/** A procedure's or a measurement's definition. */
-export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || null;
+// A bypass graft is a surgical procedure: no catheter, no route to follow. The graft itself is the thing played (the Meso-Rex bypass:
+// the model takes the change as the sequence passes T.apply, and the stage draws the new vessel on from the gut end, stage-transitions
+// REX_GROW_MS, so it is seen growing along its path, from the superior mesenteric vein up to the left portal vein). The camera stays
+// where the slide or the learner put it (no shot of its own: a step's shot is '' and the figure is not moved).
+// Meso-Rex bypass: a vein graft (the internal jugular vein, or the patient's saphenous vein) from the superior mesenteric vein below a
+// clotted portal trunk to the left portal vein in the Rex recess, the umbilical portion running up into the liver's fissure
+// (Baveno VIII 9.31: it needs an open intrahepatic portal system; the Rex shunt restores physiological flow into the liver).
+const occludedAt = (p, id) => 1 - (1 - (p.stenosis?.[id] || 0)) * (1 - (p.thrombus?.[id] || 0));
+/** Whether the portal trunk is clotted (the case for a Meso-Rex bypass) and the left portal vein is open (the Rex recess it joins). */
+export const rexSuitable = (p) => occludedAt(p || NO_PARAMS, 'PV_TRUNK') >= 0.8 && occludedAt(p || NO_PARAMS, 'PVH_L') < 0.8;
+export const GRAFTS = {
+  rex: {
+    name: 'Meso-Rex bypass', label: 'Meso-Rex bypass', graft: true,
+    T: { apply: 2300, back: 7000, end: 8000 },
+    stops: [2000, 5000, 6500, 8000],
+    steps: [
+      ['expose', 'Expose', 'The surgeon exposes the superior mesenteric vein below the clot, and the left portal vein where it turns up into the liver (the Rex recess).', 'Expose', '', 'SMV_CONF', ['SMV'], 0.25],
+      ['graft', 'Graft', 'A vein graft is sewn to the superior mesenteric vein and runs up, past the clotted trunk, toward the liver.', 'Graft', '', 'REX', ['SMV'], 0.45],
+      ['sew', 'Sewn to the liver', 'Its other end is sewn to the left portal vein in the Rex recess.', 'Sewn', '', 'REX', ['SMV', 'LPV'], 0.9],
+      ['done', 'Flow to the liver', 'The gut\u2019s blood now runs through the graft into the left portal vein and the liver, not into the veins of the body.', 'Flow', '', 'REX', ['LPV'], 0.5],
+    ],
+    can: (p) => (p.rex ? 'A Meso-Rex bypass is already in place.' : occludedAt(p, 'PV_TRUNK') < 0.8 ? 'The portal trunk is open: a Meso-Rex bypass is for a clotted trunk.'
+      : occludedAt(p, 'PVH_L') >= 0.8 ? 'The left portal vein is clotted: there is no open Rex recess to join.' : ''),
+    offered: rexSuitable,
+    apply: (p) => { p.rex = true; return p; },
+    had: (p) => !!p.rex,
+    undo: (p) => { p.rex = false; return p; },
+    before: { rex: false },
+  },
+};
+/** A procedure's, a measurement's or a graft's definition. */
+export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || null;
 // The readings each kind's last run took (its callouts and its card read them): { pv, hv, ppg } for EUS-PPG.
 export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN } };
 // (No params at all: the checks below only read, so one empty record stands in, not a new one each call.)
@@ -170,7 +200,7 @@ function oblitUndo(p) { p.occluded = { ...p.occluded, C5: false }; return p; }
 export const procBlocked = (kind, p, m = null) => (specOf(kind) ? specOf(kind).can(p || NO_PARAMS, m) : 'Unknown procedure.');
 /** Whether a procedure is offered at all for this patient: BRTO and BATO only while there are gastric varices (or the
  *  procedure has already closed them, so it can be watched again). TIPS always is (dimmed when it cannot run). */
-export const procOffered = (kind, p, m = null) => !!specOf(kind) && (kind === 'tips' || !!MEASURES[kind] || PROCS[kind].had(p || NO_PARAMS) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
+export const procOffered = (kind, p, m = null) => !!specOf(kind) && (GRAFTS[kind] ? GRAFTS[kind].had(p || NO_PARAMS) || GRAFTS[kind].offered(p) : kind === 'tips' || !!MEASURES[kind] || PROCS[kind].had(p || NO_PARAMS) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
 
 /** The step a time falls in (pure): each runs up to and including its stop, so a procedure held at a stop still shows that step. */
 export const stepAt = (kind, t) => { const S = specOf(kind).stops; for (let i = 0; i < S.length; i++) if (t <= S[i]) return i; return S.length - 1; };
@@ -208,7 +238,12 @@ export function procFrame(kind, t, stops = null, into = null) {
   const P = specOf(kind), T = P.T, back = ease(k01(t, T.back, T.end - 400));
   const opacity = 1 - k01(t, T.end - 800, T.end);
   const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
-  if (kind === 'eus') return eusFrame(T, t, back, opacity, step, shot, into || {});   // alloc-rare: only a caller that gives no record
+  if (kind === 'eus') return eusFrame(T, t, back, opacity, step, shot, into || {});
+  if (P.graft) {
+    const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
+    f.u = 0; f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
+    return f;
+  }
   if (kind === 'tips') {
     const tr = stops?.tract || TRACT, a = tr[0], b = tr[1], rp = stops?.rpv || RPV, c = Math.max(b, rp[0] + (rp[1] - rp[0]) * CATH_RPV);
     // The catheter in to where the tract leaves the hepatic vein, then (once the needle and wire are out) over them into the
@@ -308,7 +343,8 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     // with the camera on its way. (A switch from the circuit takes a moment: cathFocus says no until the route is drawn.)
     if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, SHOT_MS, { arc: true })) shot = f.shot;   // alloc-rare: only when a new step's shot starts to glide (a few times in a procedure)
     if (!shot || stage.gliding?.()) landT = now;
-    const still = !shot || now - landT < LAND_MS;
+    // (A graft has no shot of its own: the figure stays where it is, so nothing waits for a camera.)
+    const still = P.graft ? false : !shot || now - landT < LAND_MS;
     if (!applied && t >= T.apply) { applied = true; apply?.(); }
     else if (applied && t < T.apply) { applied = false; unapply?.(); }
     onFrame?.(f, t);

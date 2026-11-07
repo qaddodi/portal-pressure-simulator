@@ -171,6 +171,10 @@ export const EDGES = [
   { id: 'S_PC', from: 'CONF', to: 'IVCI', kind: 'shunt', shunt: 'portocaval', d: 14, label: 'Portocaval shunt' },
   { id: 'S_DSR', from: 'SVD', to: 'LRV', kind: 'shunt', shunt: 'dsrs', d: 9, label: 'Distal splenorenal (Warren) shunt' },
   { id: 'S_MC', from: 'SMV', to: 'IVCI', kind: 'shunt', shunt: 'mesocaval', d: 10, label: 'Mesocaval shunt' },
+  // The Meso-Rex bypass: a vein graft from the superior mesenteric vein, upstream of the clotted portal trunk, to the left portal
+  // vein at the Rex recess (its umbilical part). The one shunt that joins two portal vessels: it is not in PORTOSYSTEMIC_EDGES, so
+  // its blood counts as portal blood reaching the liver (the sinusoids), never as shunted. Closed unless params.rex is on.
+  { id: 'REX', from: 'SMV', to: 'LPV', kind: 'shunt', shunt: 'rex', d: 8, label: 'Meso-Rex bypass' },
 ];
 
 // Custom portosystemic shunts: any portal vessel to any systemic vein, created with the stent

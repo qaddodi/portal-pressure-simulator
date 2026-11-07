@@ -138,6 +138,7 @@ export function rippleList(edges, ni, from, to, shown = () => true) {
 /** Which system a vessel belongs to: 'pv' (portal), 'ivc' (systemic) or 'var' (a collateral or shunt between them).
  *  portal: the set of portal-territory node ids (topology.js PORTAL_TERRITORY). */
 export function systemOf(e, portal) {
+  if (e.shunt === 'rex') return 'pv';   // (the Meso-Rex graft joins two portal vessels: it is portal blood, in the portal colour)
   if (e.kind === 'collateral' || e.kind === 'shunt') return 'var';
   return portal.has(e.from) || portal.has(e.to) ? 'pv' : 'ivc';
 }

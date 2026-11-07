@@ -185,8 +185,8 @@ function buildEdgeCard(e) {
         options: [['proximal', 'Proximal'], ['mid', 'Mid'], ['distal', 'Distal']], get: () => stentSite(store.get().params, id),
         set: (val) => updateParams((p) => { p.stenosisSite = { ...(p.stenosisSite || {}), [id]: val }; return p; }, { label: `${e.label} narrowing: ${val}` }) });
     }
-    if (['S_PC', 'S_DSR', 'S_MC'].includes(id)) {
-      const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval' }[id];
+    if (['S_PC', 'S_DSR', 'S_MC', 'REX'].includes(id)) {
+      const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval', REX: 'rex' }[id];
       verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams({ [key]: false }, { label: `Remove ${e.label}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     }
     verbs.push(doppler);
