@@ -29,7 +29,7 @@ export const FIRST_VISIT = {
     { id: 'b2', t: 'LSM ≤15 kPa and platelets ≥150', r: 'Rules CSPH out', stmt: '1.15', tone: 'ok', sh: 'LSM ≤15, PLT ≥150', kids: [act('a2', 'Repeat LSM in 12 months')] },
     { id: 'b3', t: 'LSM 15–25 kPa, or platelets <150', r: 'Gray zone', stmt: '1.17', tone: 'warn', sh: 'Gray zone', kids: [
       { id: 'g1', t: 'ANTICIPATE ≥75%', r: 'Rules CSPH in', s: 'ANTICIPATE-NASH if BMI ≥30. Or NICER ≥75%, or SSM >55 kPa.', stmt: '1.14, 1.16', tone: 'bad', sh: 'Model or SSM', kids: [act('a3', 'Start NSBB, carvedilol preferred')] },
-      { id: 'g2', t: 'No test rules it in', r: 'CSPH still open', stmt: '1.17', tone: 'warn', sh: 'Neither', kids: [act('a4', 'Repeat NITs in 12 months, or add SSM', { s: 'If NSBB is not possible: scope for varices, unless LSM <20 with platelets ≥150, or SSM <40 kPa.', stmt: '1.19' })] }] },
+      { id: 'g2', t: 'No test rules it in', r: 'CSPH still open', stmt: '1.17', tone: 'warn', sh: 'Neither', kids: [act('a4', 'Repeat NITs in 12 months, or add SSM', { s: 'No beta-blocker? Scope, unless LSM <20 with PLT ≥150, or SSM <40 kPa.', stmt: '1.19' })] }] },
     { id: 'b4', t: 'LSM ≥25 kPa', r: 'Rules CSPH in', s: 'Viral, alcohol, or non-obese MASLD.', stmt: '1.16b', tone: 'bad', sh: 'LSM ≥25', kids: [act('a6', 'Start NSBB, carvedilol preferred')] }] };
 
 export const BLEED = {
@@ -38,9 +38,9 @@ export const BLEED = {
       { id: 'ctrl', t: 'Bleeding controlled', tone: 'ok', sh: 'Controlled', kids: [
         { id: 'ptips', t: 'Meets pTIPS criteria', r: 'Pre-emptive TIPS within 72 h', s: 'Child–Pugh C 10–13, B 8–9 with active bleeding, or HVPG ≥20. Age <75, creatinine <3, no heart failure.', stmt: '5.31', tone: 'bad', sh: 'pTIPS' },
         { id: 'nopt', t: 'Criteria not met', r: 'Carvedilol and banding', s: 'Band every 2–4 weeks.', stmt: 'Fig. 3', tone: 'ok', sh: 'Banding' }] },
-      { id: 'fail', t: 'Not controlled', r: 'Covered stent, then salvage TIPS', s: 'A dedicated covered stent is preferred over a balloon, as a bridge to TIPS or liver transplant.', stmt: '5.35, 5.36', tone: 'bad', sh: 'Stent' }] },
+      { id: 'fail', t: 'Not controlled', r: 'Covered stent, then salvage TIPS', s: 'A covered stent, preferred over a balloon, bridges to TIPS or transplant.', stmt: '5.35, 5.36', tone: 'bad', sh: 'Stent' }] },
     { id: 'gv', t: 'GOV2 or IGV1', r: 'High-risk: two phases in parallel', stmt: '5.39', tone: 'bad', sh: 'GOV2 or IGV1', kids: [
-      { id: 'acute', t: 'Acute phase', r: 'Stop the bleeding', s: 'EUS-guided coil + cyanoacrylate in experienced centres, else cyanoacrylate injection.', stmt: '5.40', tone: 'warn', sh: 'Stop bleeding' },
+      { id: 'acute', t: 'Acute phase', r: 'Stop the bleeding', s: 'EUS-guided coil + cyanoacrylate, else cyanoacrylate injection.', stmt: '5.40', tone: 'warn', sh: 'Stop bleeding' },
       { id: 'tipsg', t: 'Definitive phase', r: 'TIPS ± embolisation', s: 'As soon as possible. Child–Pugh C <14, age <75, creatinine <3, no heart failure.', stmt: '5.41', tone: 'bad', sh: 'TIPS' },
       { id: 'mdt', t: 'TIPS contraindicated', r: 'Other definitive options', s: 'Transvenous obliteration, endoscopic or surgical, after MDT discussion.', stmt: '5.41', tone: 'warn', sh: 'MDT' }] }] };
 
@@ -137,3 +137,9 @@ export function patientFor(t, fp, shown = (k, v) => v) {
   const ssm = live('ssm', null);
   return { lsm: live('lsm', base.lsm ?? 12), plt: live('plt', base.plt ?? 200), bmi: !!base.bmi, ant: !!base.ant, ssm: ssm != null ? ssm > 55 : !!base.ssm };
 }
+
+/** The longest patient each algorithm can print (every chip, the widest numbers), so a card reserves room for any patient: it never changes size. */
+export const WORST = {
+  'first-visit': { lsm: 100, plt: 1000, bmi: true, ant: true, ssm: true },
+  bleed: { src: 'ov', cp: 13, active: false, hvpg: 99.9, ctrl: false, fit: false },
+};

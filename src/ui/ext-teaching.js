@@ -6,10 +6,11 @@
 import { createCriteria } from './tool-criteria.js';
 import { createPath } from './tool-path.js';
 import { PATHS } from './path-data.js';
+import { loadMetrics } from './text-gl.js';
 
 export default {
   tools: {
-    path: { make: () => createPath(), title: (t) => t?.title || PATHS[t?.of === 'bleed' ? 'bleed' : 'first-visit'].label, short: (t) => t?.short || (t?.of === 'bleed' ? 'Bleed path' : 'First-visit path') },
+    path: { make: () => createPath(), warm: () => loadMetrics(), title: (t) => t?.title || PATHS[t?.of === 'bleed' ? 'bleed' : 'first-visit'].label, short: (t) => t?.short || (t?.of === 'bleed' ? 'Bleed path' : 'First-visit path') },
     criteria: { make: () => createCriteria(), title: (t) => t?.title || 'Criteria', short: (t) => t?.title || 'Criteria' },
   },
 };

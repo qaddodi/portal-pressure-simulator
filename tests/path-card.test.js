@@ -4,8 +4,9 @@ import './dom-shim.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FIRST_VISIT, BLEED, PATHS, MAP_WORDS, OUTCOMES, litFirst, litBleed, litOf, outcomeOf, readingFor, chipsOf, patientFor, cpClass } from '../src/ui/path-data.js';
-import { slots, flat, edgesOf, ortho, treeBoxes, treePlace, mapPlace, wideFor, mapFor, mapType, shownOf, COL_MIN, NODE_MAX } from '../src/ui/tool-path.js';
+import { FIRST_VISIT, BLEED, WORST, PATHS, MAP_WORDS, OUTCOMES, litFirst, litBleed, litOf, outcomeOf, readingFor, chipsOf, patientFor, cpClass } from '../src/ui/path-data.js';
+import { slots, flat, edgesOf, ortho, treeBoxes, treePlace, mapPlace, wideFor, mapFor, mapType, shownOf, flow, nodeParas, readParas, ROLE, COL_MIN, NODE_MAX } from '../src/ui/tool-path.js';
+import { loadMetrics, textCovers } from '../src/ui/text-gl.js';
 import { LOOKS, HOSTS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 
@@ -141,7 +142,7 @@ test('a phone and an iPad held upright draw the small map; a wide card on a Mac 
 
 test('the connectors\' looks resolve in every look, lit or not, with the node\'s colour on the path', () => {
   const ctx = (o = {}) => withCtx(makeCtx({ host: 'path', layout: 'wide', scale: { sm: 12 }, svk: 1 }), { theme: 'light', dark: false, palette: 'navy', ...o });
-  for (const theme of ['light', 'soft', 'dark']) for (const k of ['path.edge', 'path.dot', 'path.word']) for (const lit of [false, true]) for (const tone of ['text', 'ok', 'caution', 'danger']) {
+  for (const theme of ['light', 'soft', 'dark']) for (const k of Object.keys(LOOKS).filter((x) => x.startsWith('path.'))) for (const lit of [false, true]) for (const tone of ['text', 'ok', 'caution', 'danger']) {
     const p = resolveProps(LOOKS[k], ctx({ theme, dark: theme === 'dark' }), { lit }, { tone });
     for (const v of Object.values(p)) assert.doesNotMatch(String(v), /255, 0, 255/, `${k} ${theme} ${tone}`);
   }
@@ -174,11 +175,37 @@ test('the card is wired: a tool kind, a stylesheet in the page and the build, th
   }
 });
 
-test('the card draws only on the GPU and reads layout only through layout-snap', () => {
+test('every word of the card is drawn from Inter\'s outlines and laid out in columns that hold it', async () => {
+  await loadMetrics();
+  const words = new Set();
+  for (const T of [FIRST_VISIT, BLEED]) for (const { n } of flat(T)) for (const s of [n.t, n.r, n.s, n.stmt]) if (s) words.add(s);
+  for (const w of Object.values(MAP_WORDS)) for (const s of w) words.add(s);
+  for (const p of Object.values(PATHS)) { words.add(p.kick); words.add(p.foot); }
+  for (const s of words) assert.ok(textCovers(s), `the outlines have every character of "${s}"`);
+  for (const T of [FIRST_VISIT, BLEED]) {
+    const boxes = treeBoxes(T, T === BLEED ? 804 - 32 : 716 - 32);
+    for (const { n } of flat(T)) {
+      const b = boxes.get(n.id), f = flow(nodeParas(n, n.id === 'root'), b.w, { align: 'center', gap: 2 });
+      assert.ok(f.h >= 16 && f.h < 160, `${n.id}: ${f.h}`);
+      for (const i of f.items) assert.ok(i.x >= -0.5, `${n.id}: a line starts inside its column`);
+      const ys = [...new Set(f.items.map((i) => Math.round(i.y)))];
+      assert.ok(ys.length >= 1 && Math.max(...ys) <= f.h, `${n.id}: every baseline is inside its box`);
+    }
+  }
+  const one = flow([[{ text: 'LSM 15–25 kPa, or platelets <150', role: 't' }]], 128, { align: 'center' });
+  assert.equal(new Set(one.items.map((i) => i.y)).size, 2, 'a condition wider than its column wraps');
+  assert.equal(one.h, 32);
+  assert.ok(flow(readParas({ head: 'Rules CSPH in', stmt: '1.16b', why: 'LSM 31 kPa is ≥25.', next: 'Start a beta-blocker, carvedilol preferred.' }), 340, { gap: 4 }).h > ROLE.rh.lh);
+  for (const [of, p] of Object.entries(WORST)) assert.ok(litOf(of === 'bleed' ? 'bleed' : 'first-visit', p).size >= 2, `${of}: the widest patient is a patient`);
+});
+
+test('the card draws only on the GPU: one model, no page text, no layout read', () => {
   const src = read('src/ui/tool-path.js'), css = read('styles/path.css');
-  assert.doesNotMatch(src, /requestAnimationFrame|getBoundingClientRect|getComputedStyle|createElementNS|getContext|clientWidth|offsetWidth/, 'no raw frame, no direct layout read, no canvas 2D, no SVG');
-  assert.match(src, /readMetric/);
-  assert.doesNotMatch(css, /backdrop-filter|filter:|@keyframes|animation:/, 'no blur, no repainting animation');
-  assert.doesNotMatch(css, /transition:[^;]*(color|fill|stroke|width|height|left|top)/, 'only opacity eases');
-  assert.doesNotMatch(css, /transition: [^;]*\d+m?s/, 'durations are the --d-* tokens');
+  assert.doesNotMatch(src, /requestAnimationFrame|getBoundingClientRect|getComputedStyle|createElementNS|getContext|clientWidth|offsetWidth|offsetHeight|readMetric|readBox|textContent/, 'no raw frame, no layout read, no canvas 2D, no SVG, no page words');
+  assert.match(src, /layoutParagraph/);
+  assert.match(src, /gl\.show\(/);
+  assert.doesNotMatch(css, /font|color|backdrop-filter|filter:|@keyframes|animation:|transition|text-stroke/, 'the stylesheet places a box and nothing else');
+  assert.match(read('src/ui/ext-teaching.js'), /warm: \(\) => loadMetrics\(\)/, 'the metrics are fetched before the slide shows');
+  for (const k of ['kick', 'chips', 'foot', 't', 'r', 's', 'st', 'rh', 'rs', 'rp']) assert.ok(LOOKS[`path.${k}`], `a look for ${k}`);
+  assert.ok(LOOKS['path.rule']);
 });

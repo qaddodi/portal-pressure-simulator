@@ -1,6 +1,6 @@
 // The guideline path card (7 Nov 2026; Mohammad's pick: A, the whole chart, on a Mac or an iPad held sideways, and P2, a small map with one
-// reading, on a phone; mocks at artifact QxXCFjXnD8dSki5UWgYWxG and G8n2ujW8wXL8sVxXpmygqx): tool { kind: 'path', of: 'first-visit' | 'bleed',
-// patient?, title? } puts a Baveno VIII flowchart in the data card with the patient's own path lit.
+// reading, on a phone and an iPad held upright; mocks at artifact QxXCFjXnD8dSki5UWgYWxG and G8n2ujW8wXL8sVxXpmygqx): tool { kind: 'path',
+// of: 'first-visit' | 'bleed', patient?, title? } puts a Baveno VIII flowchart in the data card with the patient's own path lit.
 //   of: 'first-visit'   Fig. 1, a patient with suspected cACLD at a first visit: lit from the model's liver stiffness, platelets and spleen
 //                       stiffness (the tiles' own readings, so a slider or a button moves the path)
 //   of: 'bleed'         Fig. 3, acute variceal bleeding: lit from the case's source of bleeding, Child–Pugh score, active bleeding, control and
@@ -8,22 +8,30 @@
 //   patient: { lsm, plt, bmi, ant, ssm }  or  { src: 'ov' | 'gv', cp, active, hvpg, ctrl, fit }
 //                       the slide's own facts; the model's readings replace lsm, plt, ssm and hvpg where it has them (path-data.js patientFor).
 //                       ANTICIPATE, the Child–Pugh score, active bleeding and control are not in the model: they are the case's.
-// The whole chart (the card as wide as the leaves need, a column of at least COL_MIN px each) is page words on nodes placed by this file, the
-// connectors a model drawn on the GPU (chart-looks/path.js); a phone, an iPad held upright (Mohammad, 7 Nov 2026: "similar to iPhone") and any
-// card narrower than the leaves need draw a small map, all on the GPU, with the one reading under it. Both hold every state's room (the chart's nodes are the same for every patient; the readings are stacked in one cell),
-// so the card never changes size with the patient.
+// All of it is drawn on the GPU (Mohammad's rule, 7 Nov 2026): the card is ONE model, its connectors, dots and every word (the kicker, the
+// patient's numbers, the nodes' words, the reading, the source) laid out here from Inter's own metrics (text-gl.js layoutParagraph, the widths
+// then taken from the outlines drawn) and painted by the charts' shared context (svg-gl.js, looks in chart-looks/path.js). No page text and no
+// layout read: the page holds the empty box, and the picture's label carries the summary for a screen reader.
+// The whole chart (a column of at least COL_MIN px a leaf) is drawn where the card is that wide and the page is not the phone layout; a phone,
+// an iPad held upright and any narrower card get a small map with the one reading under it. Both reserve room for the widest patient and
+// the longest reading, so the card never changes size with the case.
 
 import { h, PHONE_MQ } from './util.js';
 import { TILE } from './table-marks.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
-import { readMetric } from './layout-snap.js';
-import { PATHS, MAP_WORDS, OUTCOMES, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
+import { loadMetrics, layoutParagraph, textWidth } from './text-gl.js';
+import { PATHS, MAP_WORDS, OUTCOMES, WORST, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
 
-export const COL_MIN = 104, NODE_MAX = 140, ROOT_MAX = 330, GAP_Y = 26, MAP_UNIT = 66;
+export const COL_MIN = 104, NODE_MAX = 140, ROOT_MAX = 330, GAP_Y = 26, MAP_UNIT = 66, GAP = 10;
 const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger' };
-const CSS_TONE = { n: 'var(--text)', ok: 'var(--ok)', warn: 'var(--caution)', bad: 'var(--danger)' };
 const svg = svgModel;
+/** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */
+export const ROLE = {
+  kick: { weight: 500, size: 12, lh: 16 }, chips: { weight: 500, size: 13, lh: 18 }, foot: { weight: 400, size: 12, lh: 16 },
+  t: { weight: 400, size: 12, lh: 16 }, r: { weight: 600, size: 13, lh: 16 }, s: { weight: 400, size: 12, lh: 16 }, st: { weight: 500, size: 12, lh: 16 },
+  rh: { weight: 600, size: 21, lh: 26 }, rs: { weight: 500, size: 12, lh: 26 }, rp: { weight: 400, size: 14, lh: 20 },
+};
 
 /** A reading as its tile prints it (the cut-offs are judged on what the tile shows). */
 export function shownOf(k, v) { const T = TILE[k] || {}; return +(v * (T.x ?? 1)).toFixed(T.d ?? 1); }
@@ -49,8 +57,12 @@ export function ortho(x1, y1, x2, y2) {
   const r = Math.min(8, Math.abs(x2 - x1) / 2, (y2 - y1) / 2), d = x2 > x1 ? 1 : -1;
   return `M${x1},${y1}V${ym - r}Q${x1},${ym} ${x1 + d * r},${ym}H${x2 - d * r}Q${x2},${ym} ${x2},${ym + r}V${y2}`;
 }
-/** Whether a card of this width (px) draws the whole chart: every leaf gets COL_MIN. */
+/** Whether a card of this width (px) has room for the whole chart: every leaf gets COL_MIN. */
 export const wideFor = (tree, W) => W >= slots(tree).n * COL_MIN;
+/** Whether a card this wide in this page draws the small map: a phone, or an iPad held upright (the phone layout: Mohammad, 7 Nov 2026), or a card too narrow for the leaves. */
+export const mapFor = (tree, W, phone) => !!phone || !wideFor(tree, W);
+/** The size of the small map's words in a card this wide: 12 px, larger where the card has room (an iPad held upright). */
+export const mapType = (W) => (W >= 560 ? 14 : 12);
 /** The whole chart's boxes at a width: id → { left, w, cx, d } (a node's width is its column's, the root's up to ROOT_MAX). */
 export function treeBoxes(tree, W) {
   const { at, n } = slots(tree), slot = W / n, nw = Math.min(NODE_MAX, slot - 10), out = new Map();
@@ -61,8 +73,8 @@ export function treeBoxes(tree, W) {
   }
   return out;
 }
-/** The whole chart's rows, given each node's height at its width: id → top, the total height and the connectors' paths (to-id → d). */
-export function treePlace(tree, boxes, heights) {
+/** The whole chart's rows, given each node's height at its width: id → top, the total height and the connectors' paths (to-id → d, y from oy). */
+export function treePlace(tree, boxes, heights, oy = 0) {
   const rows = []; let maxd = 0;
   for (const { n, d } of flat(tree)) { rows[d] = Math.max(rows[d] || 0, heights.get(n.id) || 0); maxd = Math.max(maxd, d); }
   const topOf = []; let y = 0;
@@ -71,18 +83,14 @@ export function treePlace(tree, boxes, heights) {
   for (const { n, d } of flat(tree)) tops.set(n.id, topOf[d]);
   for (const e of edgesOf(tree)) {
     const a = boxes.get(e.from), b = boxes.get(e.to);
-    paths.set(e.to, ortho(a.cx, tops.get(e.from) + (heights.get(e.from) || 0) + 3, b.cx, tops.get(e.to) - 3));
+    paths.set(e.to, ortho(a.cx, oy + tops.get(e.from) + (heights.get(e.from) || 0) + 3, b.cx, oy + tops.get(e.to) - 3));
   }
   return { tops, paths, H: Math.max(0, y - GAP_Y) };
 }
-/** Whether a card this wide in this page draws the small map: a phone, or an iPad held upright (the phone layout: Mohammad, 7 Nov 2026), or a card too narrow for the leaves. */
-export const mapFor = (tree, W, phone) => !!phone || !wideFor(tree, W);
-/** The size of the small map's words in a card this wide: 12 px, larger where the card has room (an iPad held upright). */
-export const mapType = (W) => (W >= 560 ? 14 : 12);
-/** The small map at a width: each node's centre, the connectors' paths and the height. A node's words stand under its dot. */
-export function mapPlace(tree, W, k = 1) {
+/** The small map at a width (k: the words' size over 12): each node's centre, the connectors' paths and the height. A node's words stand under its dot. */
+export function mapPlace(tree, W, k = 1, oy = 0) {
   const { at, n, maxd } = slots(tree), pad = W < 330 ? 34 : 38, nodes = new Map(), paths = new Map();
-  const X = (id) => (n > 1 ? pad + ((at.get(id).x - 0.5) / (n - 1)) * (W - 2 * pad) : W / 2), Y = (id) => 12 + at.get(id).d * MAP_UNIT;
+  const X = (id) => (n > 1 ? pad + ((at.get(id).x - 0.5) / (n - 1)) * (W - 2 * pad) : W / 2), Y = (id) => oy + 12 + at.get(id).d * MAP_UNIT;
   for (const { n: node } of flat(tree)) nodes.set(node.id, { x: X(node.id), y: Y(node.id), words: MAP_WORDS[node.id] || null });
   for (const e of edgesOf(tree)) {
     const a = nodes.get(e.from), b = nodes.get(e.to);
@@ -92,108 +100,149 @@ export function mapPlace(tree, W, k = 1) {
   return { nodes, paths, H: 12 + maxd * MAP_UNIT + 44 * k };
 }
 
+/**
+ * Paragraphs of runs ({ text, role }) laid out in a column: the lines broken as the browser would (Inter's metrics), each part's width then
+ * taken from the outlines that are drawn, so a line is centred (or left) on what shows. → { items: [{ text, role, x, y }], h } with y the
+ * baseline; gap: px after a paragraph (a number, or a function of its index). Needs loadMetrics() to have resolved.
+ */
+export function flow(paras, width, { align = 'left', gap = 0 } = {}) {
+  const items = [], gapOf = typeof gap === 'function' ? gap : () => gap;
+  let y = 0, last = 0;
+  paras.forEach((runs, pi) => {
+    if (!runs.length) return;
+    const { lines } = layoutParagraph(runs.map((r) => ({ text: r.text, weight: ROLE[r.role].weight, size: ROLE[r.role].size })), width);
+    for (const ln of lines) {
+      const parts = ln.runs.map((p) => { const role = runs[p.run].role, R = ROLE[role]; return { text: p.text, role, w: textWidth(p.text, { weight: R.weight, size: R.size }) }; });
+      const total = parts.reduce((s, p) => s + p.w, 0), lh = Math.max(...parts.map((p) => ROLE[p.role].lh));
+      let x = align === 'center' ? Math.max(0, (width - total) / 2) : 0;
+      for (const p of parts) {
+        const R = ROLE[p.role];
+        items.push({ text: p.text, role: p.role, x, y: y + (lh - R.size * 1.21) / 2 + R.size * 0.97 });
+        x += p.w;
+      }
+      y += lh;
+    }
+    last = gapOf(pi);
+    y += last;
+  });
+  return { items, h: items.length ? y - last : 0 };
+}
+/** A node's words as paragraphs: its condition, its verdict with the statement's number, its detail. */
+export function nodeParas(n, isRoot) {
+  const stmt = n.stmt ? [{ text: ` ${n.stmt}`, role: 'st' }] : [];
+  const lead = (isRoot || !n.r) ? [{ text: `${n.act ? '→ ' : ''}${n.t}`, role: 'r' }, ...(n.r ? [] : stmt)] : [{ text: n.t, role: 't' }];
+  const out = [lead];
+  if (n.r) out.push([{ text: n.r, role: 'r' }, ...stmt]);
+  if (n.s) out.push([{ text: n.s, role: 's' }]);
+  return out;
+}
+const nodeGap = (paras) => (pi) => (paras.length > 1 && pi === 0 && paras[0][0].role === 't' ? 1 : 2);
+/** The reading of one outcome as paragraphs: the verdict and its statement, then the why and the next step. */
+export const readParas = (r) => [[{ text: r.head, role: 'rh' }, { text: `  ${r.stmt}`, role: 'rs' }], [{ text: `${r.why} ${r.next}`, role: 'rp' }]];
+
 export function createPath() {
-  const kick = h('p', { class: 'pzp-kick' }), chipsEl = h('p', { class: 'pzp-chips' });
   const pic = h('div', { class: 'pzp-pic' });
   const gl = createSvgGL(pic, { host: 'path' });
-  const reads = h('div', { class: 'pzp-reads' });
-  const sr = h('p', { class: 'sr-only', 'aria-live': 'polite' });
-  const foot = h('p', { class: 'pzp-foot' });
-  const el = h('div', { class: 'pz-path' }, h('div', { class: 'pzp-head' }, kick, chipsEl), pic, reads, sr, foot);
-  let t = null, spec = null, of = 'first-visit', sl = null, W = 0, compact = false, patient = null, geo = null, shownKey = '', readsKey = '';
-  const nodeEls = new Map(), readEls = new Map();
+  const el = h('div', { class: 'pz-path' }, pic);
+  let t = null, spec = null, of = 'first-visit', sl = null, W = 0, patient = null, lay = null, shownKey = '', ready = false, asked = false;
 
   function ctxFor() { try { const cx = chartCtx(pic); delete cx.svk; gl.setCtx(cx); } catch { /* (no card round it yet: the sizes as they stand) */ } }
+  function ask() { if (asked) return; asked = true; loadMetrics().then(() => { ready = true; if (spec && W > 0) layout(); }).catch(() => { asked = false; }); }
 
-  // The nodes' words: a condition, its verdict and the statement's number, and a line of detail. Made once for the slide.
-  function nodeEl(n) {
-    const e = h('div', { class: `pzp-n${n.r ? '' : ' nor'}${n.act ? ' act' : ''}${n.id === spec.tree.id ? ' root' : ''}`, 'data-id': n.id, style: { '--tone': CSS_TONE[n.tone] } },
-      h('span', { class: 'pzp-t' }, n.t, n.r ? null : (n.stmt ? h('span', { class: 'pzp-st' }, n.stmt) : null)),
-      n.r ? h('span', { class: 'pzp-r' }, n.r, n.stmt ? h('span', { class: 'pzp-st' }, n.stmt) : null) : null,
-      n.s ? h('span', { class: 'pzp-s' }, n.s) : null);
-    return e;
-  }
-  function build() {
-    for (const e of nodeEls.values()) e.remove();
-    nodeEls.clear();
-    for (const { n } of sl.flat) { const e = nodeEl(n); nodeEls.set(n.id, e); pic.append(e); }
-    reads.replaceChildren(); readEls.clear();
-    for (const k of OUTCOMES[of]) {
-      const head = h('span', { class: 'pzp-rh' }), st = h('span', { class: 'pzp-rs' }), p = h('p', { class: 'pzp-rp' });
-      const e = h('div', { class: 'pzp-rd', 'data-k': k }, h('p', { class: 'pzp-rt' }, head, st), p);
-      readEls.set(k, { e, head, st, p }); reads.append(e);
-    }
-    readsKey = ''; shownKey = '';
-  }
-
+  /** Everything that does not change with the patient: the columns, the nodes' words and their heights, the rooms reserved, the total height. */
   function layout() {
-    if (!spec || !(W > 0)) return;
-    compact = mapFor(spec.tree, W, typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches);
-    el.classList.toggle('compact', compact);
+    if (!spec || !(W > 0) || !ready) return;
+    const compact = mapFor(spec.tree, W, typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches);
     ctxFor();
+    const L = { compact, y: {} }, worst = WORST[of], base = patient || worst;
+    let y = 0;
+    L.y.kick = y; y += ROLE.kick.lh + 3;
+    // (the patient's numbers: room for the widest patient's, whatever this one has)
+    const chipsH = (p) => flow([[{ text: chipsOf(of, p).join(' · '), role: 'chips' }]], W).h;
+    L.chipsH = Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh);
+    L.y.chips = y; y += L.chipsH + GAP;
+    L.y.pic = y;
     if (compact) {
-      geo = { ...mapPlace(spec.tree, W, mapType(W) / 12), kind: 'map', k: mapType(W) / 12 };
-      pic.style.height = `${Math.ceil(geo.H)}px`;
+      L.k = mapType(W) / 12;
+      L.map = mapPlace(spec.tree, W, L.k, y);
+      y += L.map.H + GAP;
+      L.y.rule1 = y; y += 12;
+      L.y.read = y;
+      L.readH = Math.max(...OUTCOMES[of].flatMap((k) => [base, worst].map((p) => flow(readParas(readingFor(of, k, p)), W, { gap: 4 }).h)));
+      y += L.readH + GAP;
     } else {
-      const boxes = treeBoxes(spec.tree, W);
-      for (const [id, b] of boxes) { const e = nodeEls.get(id); e.style.width = `${b.w}px`; e.style.left = `${b.left}px`; }
-      const heights = new Map();
-      for (const id of boxes.keys()) heights.set(id, readMetric(nodeEls.get(id), 'offsetHeight'));
-      const pl = treePlace(spec.tree, boxes, heights);
-      for (const [id, y] of pl.tops) nodeEls.get(id).style.top = `${y}px`;
-      geo = { ...pl, boxes, kind: 'tree' };
-      pic.style.height = `${Math.ceil(pl.H)}px`;
+      const boxes = treeBoxes(spec.tree, W), heights = new Map(), fl = new Map();
+      for (const [id, b] of boxes) {
+        const paras = nodeParas(sl.byId.get(id), id === spec.tree.id), f = flow(paras, b.w, { align: 'center', gap: nodeGap(paras) });
+        fl.set(id, f); heights.set(id, f.h);
+      }
+      L.tree = { ...treePlace(spec.tree, boxes, heights, y), boxes, flows: fl };
+      y += L.tree.H + GAP;
     }
+    L.y.rule2 = y; y += 7;
+    L.y.foot = y;
+    L.foot = flow([[{ text: spec.foot, role: 'foot' }]], W);
+    y += L.foot.h;
+    L.H = Math.ceil(y);
+    lay = L;
+    pic.style.height = `${L.H}px`;
     shownKey = '';
     paint();
   }
 
-  function modelOf(L) {
-    const lit = [], dim = [];
-    const hh = Math.ceil(geo.H);
+  const piece = (role, x, y, text, on, tone) => svg('text', { x, y, class: on ? 'lit' : '', 'data-look': `path.${role}`, 'data-p-tone': tone, 'text-anchor': 'start', 'font-size': ROLE[role].size }, text);
+
+  function modelOf(Lit, out, said) {
+    const kids = [], lit = [], dim = [], oy = lay.y.pic;
+    const place = (items, ox, ot, on, tone) => { for (const i of items) kids.push(piece(i.role, ox + i.x, ot + i.y, i.text, on, tone)); };
+    const rule = (y) => kids.push(svg('path', { d: `M0,${y + 0.5}H${W}`, 'data-look': 'path.rule' }));
+    // the head: the algorithm's source and the patient's numbers
+    place(flow([[{ text: spec.kick, role: 'kick' }]], W).items, 0, lay.y.kick, false, 'text');
+    place(flow([[{ text: chipsOf(of, patient).join(' · '), role: 'chips' }]], W).items, 0, lay.y.chips, false, 'text');
+    // the chart or the map: connectors first (grey under, the path over), then the nodes
+    const paths = lay.compact ? lay.map.paths : lay.tree.paths;
     for (const e of sl.edges) {
-      const d = geo.paths.get(e.to), on = L.has(e.to);
-      (on ? lit : dim).push(svg('path', { d, class: on ? 'lit' : '', 'data-look': 'path.edge', 'data-p-tone': TOKEN[e.tone] }));
+      const on = Lit.has(e.to);
+      (on ? lit : dim).push(svg('path', { d: paths.get(e.to), class: on ? 'lit' : '', 'data-look': 'path.edge', 'data-p-tone': TOKEN[e.tone] }));
     }
-    const kids = [...dim, ...lit];
-    if (geo.kind === 'map') {
+    kids.push(...dim, ...lit);
+    if (lay.compact) {
       for (const { n } of sl.flat) {
-        const p = geo.nodes.get(n.id), on = L.has(n.id);
+        const p = lay.map.nodes.get(n.id), on = Lit.has(n.id), k = lay.k;
         kids.push(svg('circle', { cx: p.x, cy: p.y, r: on ? 5.5 : 4, class: on ? 'lit' : '', 'data-look': 'path.dot', 'data-p-tone': TOKEN[n.tone] }));
-        if (p.words) p.words.forEach((ln, i) => kids.push(svg('text', { x: p.x, y: p.y + (19 + i * 12.5) * geo.k, class: on ? 'lit' : '', 'data-look': 'path.word', 'data-p-tone': TOKEN[n.tone], 'text-anchor': 'middle', 'font-size': 12 * geo.k }, ln)));
+        if (p.words) p.words.forEach((ln, i) => kids.push(svg('text', { x: p.x, y: p.y + (19 + i * 12.5) * k, class: on ? 'lit' : '', 'data-look': 'path.word', 'data-p-tone': TOKEN[n.tone], 'text-anchor': 'middle', 'font-size': 12 * k }, ln)));
+      }
+      rule(lay.y.rule1);
+      if (out) {
+        const r = readingFor(of, out, patient);
+        for (const i of flow(readParas(r), W, { gap: 4 }).items) kids.push(piece(i.role, i.x, lay.y.read + i.y, i.text, true, TOKEN[r.tone]));
+      }
+    } else {
+      for (const { n } of sl.flat) {
+        const b = lay.tree.boxes.get(n.id), on = Lit.has(n.id) || n.id === spec.tree.id;
+        place(lay.tree.flows.get(n.id).items, b.left, oy + lay.tree.tops.get(n.id), on, TOKEN[n.tone]);
       }
     }
-    return svg('svg', { width: W, height: hh, viewBox: `0 0 ${W} ${hh}`, role: 'img', 'aria-label': `${spec.label}, the patient's path lit` }, ...kids);
+    rule(lay.y.rule2);
+    place(lay.foot.items, 0, lay.y.foot, false, 'text');
+    return svg('svg', { width: W, height: lay.H, viewBox: `0 0 ${W} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}, the patient's path lit. ${said}` }, ...kids);
   }
 
-  /** The path lit for the patient as it stands: the nodes' state, the picture and the reading, each written only when it changed. */
+  /** The path lit for the patient as it stands: the picture is drawn again only when what shows has changed. */
   function paint() {
-    if (!spec || !patient) return;
-    const L = litOf(of, patient), key = `${[...L].sort().join()}|${W}|${compact}`;
+    if (!spec || !patient || !lay) return;
+    const Lit = litOf(of, patient), out = outcomeOf(of, Lit), r = out ? readingFor(of, out, patient) : null;
     const chips = chipsOf(of, patient).join(' · ');
-    if (chipsEl.textContent !== chips) chipsEl.textContent = chips;
-    const out = outcomeOf(of, L);
-    const rk = OUTCOMES[of].map((k) => readingFor(of, k, patient)).map((r) => `${r.head}|${r.why}|${r.next}`).join('¦');
-    if (rk !== readsKey) {
-      readsKey = rk;
-      for (const k of OUTCOMES[of]) {
-        const r = readingFor(of, k, patient), x = readEls.get(k);
-        x.head.textContent = r.head; x.st.textContent = r.stmt; x.p.textContent = `${r.why} ${r.next}`; x.e.style.setProperty('--tone', CSS_TONE[r.tone]);
-      }
-    }
-    for (const [k, x] of readEls) x.e.classList.toggle('on', k === out);
+    const key = `${[...Lit].sort().join()}|${W}|${lay.compact}|${chips}|${lay.compact && r ? `${r.why}${r.next}` : ''}`;
     if (key === shownKey) return;
     shownKey = key;
-    for (const [id, e] of nodeEls) e.classList.toggle('lit', L.has(id) || id === spec.tree.id);
-    if (geo) gl.show(modelOf(L), false);
-    const r = out ? readingFor(of, out, patient) : null;
-    sr.textContent = r ? `${r.head}. ${r.why} ${r.next}` : '';
+    gl.show(modelOf(Lit, lay.compact ? out : null, r ? `${chips}. ${r.head}. ${r.why} ${r.next}` : chips), false);
   }
 
   function pin(fp) {
     if (!spec) return;
     patient = patientFor(t, fp, shownOf);
-    paint();
+    if (lay) paint();
   }
 
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
@@ -208,12 +257,13 @@ export function createPath() {
       t = tool || {};
       of = t.of === 'bleed' ? 'bleed' : 'first-visit';
       spec = PATHS[of];
-      sl = { ...slots(spec.tree), flat: flat(spec.tree), edges: edgesOf(spec.tree) };
+      const fl = flat(spec.tree);
+      sl = { ...slots(spec.tree), flat: fl, edges: edgesOf(spec.tree), byId: new Map(fl.map(({ n }) => [n.id, n])) };
       el.dataset.n = String(sl.n); el.dataset.of = of;
-      kick.textContent = spec.kick; foot.textContent = spec.foot;
       patient = patientFor(t, ctx?.fp, shownOf);
-      build();
-      if (W > 0) layout(); else paint();
+      lay = null; shownKey = '';
+      ask();
+      if (W > 0 && ready) layout();
     },
     pin,
     clear() {},
