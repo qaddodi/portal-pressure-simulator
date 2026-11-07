@@ -7503,3 +7503,26 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .pz-lens-cap { position: absolute; transform: translateX(-50%); white-space: nowrap; font-weight: 600; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--text); text-shadow: 0 0 3px var(--label-halo), 0 0 2px var(--label-halo); pointer-events: none; }
 /* (The pointer over the scope view's ring, in a talk: a hand, scope-lens.js hover.) */
 .pz-lens-hand #stageView, .pz-lens-hand #stageView svg, .pz-lens-hand #stageView path { cursor: pointer; }
+
+/* An instrument card's readings in its header row (T3, Mohammad 7 Nov 2026: "get rid of tucking untucking card, and implement T3"): the card's name at the
+   left, its readings at the right, numbers only: a rating dot, the short name, the number and its unit. No readings card stands behind the instrument,
+   no handle, no scale; the picture keeps its height and the card its one fixed size. The numbers are GPU words (bigTiles); this is only where they sit.
+   Three or more readings drop their units and the name wraps to two lines before it crowds them. */
+.pz-hr { display: none; }
+.pz .pz-data.has-tool > .pz-dh > .pz-hr:not([data-n="0"]) { display: flex; flex: 0 1 auto; align-items: baseline; justify-content: flex-end; gap: 4px 12px; margin-left: auto; white-space: nowrap; letter-spacing: 0; text-transform: none; }
+.pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) { flex-wrap: nowrap; justify-content: space-between; align-items: center; text-align: left; gap: 4px 12px; }
+.pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) > span:first-child { flex: 1 1 auto; min-width: 0; text-wrap: balance; }
+.pz-hi { display: inline-flex; align-items: baseline; gap: .3em; }
+.pz-hi > i { flex: none; align-self: center; width: .5em; height: .5em; border-radius: 50%; background: var(--text-3); }
+.pz-hi[data-rate="ok"] > i, .pz-hi[data-rate="lo"] > i { background: var(--ok); }
+.pz-hi[data-rate="mid"] > i { background: var(--caution); }
+.pz-hi[data-rate="hi"] > i { background: var(--danger); }
+.pz-hk { font-size: .86em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
+.pz-hi > b { font: 600 1.15em/1 var(--font-ui); letter-spacing: 0; color: var(--text); }
+.pz-hi[data-rate="mid"] > b { color: var(--caution-ink); }
+.pz-hi[data-rate="hi"] > b { color: var(--danger-ink); }
+.pz-hi[data-rate="none"] > b { color: var(--text-3); }
+.pz-hi > small { font-size: .86em; font-weight: 500; color: var(--text-3); }
+.pz-hi > small[hidden] { display: none; }
+.pz.stack .pz-hr:is([data-n="3"], [data-n="4"]) .pz-hi > small { display: none; }
+.pz.pz .pz-data.pz-data[data-tool^="criteria:"] > .pz-dh > .pz-hr { font: var(--caps-w) calc(1em / 1.3)/1.25 var(--font-ui); }   /* (the criteria card's name is set larger, in the display face: its readings keep the other cards' size) */

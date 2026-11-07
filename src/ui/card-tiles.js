@@ -7,7 +7,9 @@
 export const ownKeys = (s, onPhone) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !onPhone));
 export const tileKeys = (s, onPhone) => [...ownKeys(s, onPhone), ...(s.scopeTile ? ['scope'] : []), ...(s.hvpgResp && !s.tiles?.includes('hvpgFall') ? ['hvpgFall'] : [])];
 
-// An instrument with no tiles to tuck behind it is a card of the instrument alone: no readings card, no handle, no stacked look.
-// (Varices 3: a time-lapse chart whose tiles were its own two lines had `data: 'tiles'`, so the card stacked on a laptop with an
-// empty readings card behind the chart; the handle opened nothing and only moved down.)
-export const toolOnly = (s, onPhone) => !!s?.tool && !(s.data && tileKeys(s, onPhone).length);
+// An instrument card is one card, one fixed size, whatever readings go with it (Mohammad, 7 Nov 2026: "get rid of tucking untucking card").
+// Its readings are numbers only in the card's header row, beside its name (headKeys, bigTiles' head); no readings card stands behind it,
+// there is no handle, and nothing slides out or away. So every slide with an instrument is an instrument card.
+export const toolOnly = (s) => !!s?.tool;
+/** The readings that stand in an instrument card's header row: its tiles but for the endoscopic view, a picture (the scope ring gives that). */
+export const headKeys = (s, onPhone) => (s?.tool && s.data ? tileKeys(s, onPhone).filter((k) => k !== 'scope') : []);

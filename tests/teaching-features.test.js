@@ -85,7 +85,7 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
     for (const r of rows) assert.ok(r.text.length <= 70, `${d.id}/${s.id}: "${r.text}" fits a row`);
   }
   const src2 = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src2, /s\.tool\?\.kind !== 'criteria'/, 'its tiles sit under it, never beside: the rules are sentences');
+  assert.doesNotMatch(src2, /s\.tool\?\.kind !== 'criteria'/, 'no tiles stand beside any instrument now: they are the header\'s readings');
 });
 
 test('criteria card V3: cut-offs split for the sans signs and units, the bold lead of the verdict, the case column only with a case', () => {

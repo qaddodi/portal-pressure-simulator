@@ -81,7 +81,7 @@ test('B04: tiles and the scope picture are disposed, and stopNow does it', () =>
   const p = strip(src('presenter.js'));
   const k = p.slice(p.indexOf('function bigTiles()'), p.indexOf('// The six levels along the route'));
   assert.match(k, /dispose\(\) \{\s*if \(dead\) return;/);
-  assert.match(k, /p\.vw\?\.dispose\(\); p\.pic\?\.dispose\(\)/);
+  assert.match(k, /p\.vw\?\.dispose\(\); p\.hw\?\.dispose\(\); p\.pic\?\.dispose\(\)/);
   assert.match(k, /tileRO\?\.disconnect\(\)/);
   assert.match(k, /picT\?\.stop\(\)/);
   assert.match(p, /ui\?\.tiles\?\.dispose\(\)/, 'stopNow disposes the tiles');

@@ -9,7 +9,7 @@
 // new values.
 //
 // Keys (clickers send the same): → Page Down Space Enter next (during a time-lapse the first runs it to its end),
-// ← Page Up back, ↑ untucks and ↓ tucks the stacked card's readings (Mac, iPad on its side; they never move a slide), a number then
+// ← Page Up back (↑ and ↓ move no slide), a number then
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
@@ -654,6 +654,7 @@ function railBlock() {
  *  tile also says how far it moved from there, green when it went the better way (and plain within normal). */
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
+  const head = h('span', { class: 'pz-hr', 'data-n': '0' });   // (the same readings, numbers only, for an instrument card's header row)
   let sig = '', parts = [], draw = null, goal = false, tileArgs = null, tileAsk = 0, picT = null, tileRO = null, dead = false;
   // (The newest paintTiles call's seven arguments, kept in one array written in place: a what-if drag calls it every frame. The paint, a task
   // between frames, reads them; one pass is asked for however many calls land before it.)
@@ -704,7 +705,7 @@ function bigTiles() {
   function buildTiles(ks, withRef) {
     if (dead) return;
     picT?.stop(); picT = null;
-    for (const p of parts || []) { p.vw?.dispose(); p.pic?.dispose(); }   // (recs §8: the tiles they wrote are replaced; their GPU words and scope picture go with them)
+    for (const p of parts || []) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); }   // (recs §8: the tiles they wrote are replaced; their GPU words and scope picture go with them)
     parts = ks.map((k) => {
       const T = tileOf(k) || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });
@@ -724,9 +725,15 @@ function bigTiles() {
       // (R19: its number's GPU words, laid over the number and its unit's row: their canvas sits in that row, never inside the number,
       // which a roll's digit columns and the fit rewrite.)
       const vw = !pic ? glWords(v, { host: v.parentNode }) : null;
-      return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic };
+      // (Its reading in the instrument card's header row, numbers only: a rating dot, the short name, the number and its unit. The number is
+      // its own GPU words; the rating is the item's data-rate, written with the tile's.)
+      const hv = h('b', {}), hu = h('small', {}), hi = pic ? null : h('span', { class: 'pz-hi', 'data-rate': 'plain' }, h('i', {}), h('span', { class: 'pz-hk' }, T.n || T.t), hv, hu);
+      const hw = hi ? glWords(hv) : null;
+      return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic, hi, hv, hu, hw };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
+    head.replaceChildren(...parts.filter((p) => p.hi).map((p) => p.hi));
+    head.dataset.n = String(head.childElementCount);
     el.classList.remove('pzb-nonum');   // (new bars keep their numbers' row until the card's fit has seen them: fitCards)
     el.dataset.n = String(parts.length);
     // (The numbers, ratings and marks are written at a value's end, never counted frame by frame (2 Nov 2026, "Move everything to GPU": a
@@ -741,6 +748,13 @@ function bigTiles() {
       p.u.hidden = none || !p.T.u;
       setT(p.r, word);
       setA(p.tile, 'data-rate', cls || (none ? 'none' : 'plain'));
+      if (p.hi) {
+        const hs = none ? '—' : tileVal(p.k, f[p.k]);
+        if (!p.hw) setT(p.hv, hs); else if (sync) p.hw.now(hs); else p.hw.set(hs);
+        p.hu.hidden = none || !p.T.u;
+        if (p.hu.textContent !== p.T.u) p.hu.textContent = p.T.u;
+        setA(p.hi, 'data-rate', cls || (none ? 'none' : 'plain'));
+      }
       // (The response tile's line names the HVPG the fall is counted from.)
       if (p.k === 'hvpgFall') {
         const t = f.respFrom == null ? '' : `from ${fmt(f.respFrom, 1)} mmHg`;
@@ -804,6 +818,7 @@ function bigTiles() {
   }
   const api = {
     el,
+    head,
     // (Painted between frames, never in one: a slide's new tiles are built and their words written in a rest pass, the latest call's
     // values winning, so a frame writes nothing into the tiles (2 Nov 2026, "Move everything to GPU").)
     /** Lets go of everything the tiles own: their GPU words, the scope picture, its glide, the fit and the held frame. Idempotent. */
@@ -813,7 +828,7 @@ function bigTiles() {
       cancelRest(tileAsk); tileAsk = 0; cancelRest(fitRaf); fitRaf = 0; tileArgs = null; held = null;
       tileRO?.disconnect(); tileRO = null; heldObs?.disconnect(); heldObs = null;
       picT?.stop(); picT = null;
-      for (const p of parts) { p.vw?.dispose(); p.pic?.dispose(); }
+      for (const p of parts) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); }
       parts = []; draw = null;
     },
     paintTiles(f, ks, key, ref, ms, tips, live) {
@@ -840,7 +855,7 @@ function bigTiles() {
       const sg = ks.join() + (ref ? '|ref' : '');
       if (sg !== sig || !draw) { sig = sg; buildTiles(ks, !!ref); }   // (no tiles at all is a build too)
       el.dataset.keys = ks.join();
-      parts.forEach((p) => p.tile.classList.toggle('key', key.includes(p.k)));
+      parts.forEach((p) => { p.tile.classList.toggle('key', key.includes(p.k)); p.hi?.classList.toggle('key', key.includes(p.k)); });
       paintBands(f);
       const to = Object.fromEntries([...ks, 'asc'].map((k) => [k, f[k]]));
       if (ks.includes('scope')) to.varix = f.varix;   // (the endoscopic view follows the varix's size)
@@ -2751,17 +2766,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       data.classList.toggle('under', under(s));
       data.toggleAttribute('data-sin-tiles', sinTiles(s));
       data.classList.toggle('has-tool', !!s.tool);
-      data.classList.toggle('tool-only', toolOnly(s, phone()));   // (no tiles to tuck: no readings card behind it, so no handle)
+      data.classList.toggle('tool-only', toolOnly(s));   // (an instrument card is the instrument alone, one fixed size: its readings stand in its header row, no readings card behind it, no handle)
       // (The portal blood bar takes the card's full width, its tiles under it: beside them its column was too narrow for the
       // segments' names, a 320 px card left it about 120 px, tool-flows.js.)
       // (The fluid balance's capacity window too: its rows of numbers need the card's width; tool-fluid.js. And the criteria card: its rules
       // are sentences.)
-      data.classList.toggle('pz-beside', !!s.tool && !!s.data && tileKeys(s).length > 0 && s.tool?.kind !== 'flows' && s.tool?.kind !== 'criteria' && !(s.tool?.kind === 'fluid' && s.tool.window));
-      data.toggleAttribute('data-beside', data.classList.contains('pz-beside'));
+      data.classList.remove('pz-beside'); data.removeAttribute('data-beside');   // (no tiles stand beside an instrument now: they are its header's readings)
       data.toggleAttribute('data-ladder', s.tool?.kind === 'profile');   // (Mac and iPad landscape: the Gut to heart chart is never zoomed by the fit, so a pair too tall for it lifts instead, slip.base; layout)
       data.classList.remove('pz-folds');   // (Mac and iPad landscape: folded behind Show only when the pair would not fit, set in layout)
       data.dataset.tn = tileKeys(s).length;   // (Mac and iPad landscape: every instrument with tiles has them stacked beside it; its own readings fold to a short list under its picture)
-      data.classList.toggle('tool-lead', !!s.tool?.open && !!s.data);   // (a phone keeps this instrument open and folds the tiles instead)
+      data.classList.remove('tool-lead');   // (nothing folds away behind an instrument now)
       data.dataset.tool = ui.tools.sig(s.tool);
       ui.dhT.textContent = cardTitle(s); unitSpans(ui.dhT);
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
@@ -2772,6 +2786,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // work each frame of it, and was over before they came in.)
       const ms = fresh || (bare && ui.root.classList.contains('pz-prep')) ? 0 : undefined;
       if (s.data) ui.tiles.paintTiles(respFp(s, now.fp), tileKeys(s), s.key || [], refOf(s, i), ms, now.params?.tips?.on);
+      else ui.tiles.paintTiles(now.fp, [], [], null, 0, false);   // (an instrument alone: no readings of the last slide stay in its header row)
       ui.tools.pin(now.fp); ui.scope?.pin(now.fp);
       clearTimeout(dataHideT); dataHideT = 0;   // (a card shown again is not hidden by the timer of its last leaving, while it fades in or waits to)
       if (data.hidden) { data.hidden = false; data.classList.add('pz-hide'); void readMetric(data, 'offsetWidth'); }
@@ -5547,18 +5562,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   wrap.addEventListener('touchend', (e) => { if (far && !e.touches.length) farLet('touchend'); }, { passive: true, capture: true });
   wrap.addEventListener('touchcancel', () => { if (far) farLet('touchcancel'); }, { passive: true, capture: true });
 
-  // The stacked card's readings out (open) or tucked away: the wheel's and the arrow keys' way to what a swipe up or down does. Only where the
-  // card stacks (Mac, iPad on its side), with it showing and no case card up; eased by the card's own setFold. True when it applies.
-  function stackFold(open) {
-    const d = ui?.data;
-    if (!d || (caseCard && !caseCard.flown) || !wideSheet(d) || d.hidden || d.classList.contains('pz-hide')) return false;
-    if (zoomOn() && !zoomFolds()) return true;   // (a zoomed card brings its readings out or tucks them once it has glided in; not on its way in or back)
-    if (open !== d.classList.contains('tool-open')) ui.setFold(open);
-    return true;
-  }
-
   // ── A trackpad or wheel on a Mac works the slide as a finger does (Mohammad, 22 Oct): fingers up anywhere bring the stacked card's
-  // readings out (a swipe up), fingers down tuck them away, fingers sideways go on or back, or throw a case card off that way. One action
+  // fingers sideways go on or back, or throw a case card off that way. One action
   // a gesture, and a gesture lasts until the wheel goes quiet, the glide after the fingers lift included (swipe.js, wheelGesture); eased as
   // the finger's are (setFold, caseFly, go); a box that scrolls itself keeps its wheel (ownsWheel), and a pinch (ctrl) stays the
   // figure's. A fresh swipe to the left on the last slide ends the talk, as the touch swipe and Next do. ──
@@ -5587,7 +5592,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (card) caseFly(card, a.dir, 1.2, readMetric(card.c, 'offsetWidth'));   // (fingers right: off to the right)
       else if (a.dir < 0) next();   // (on the last slide a fresh swipe ends the talk, as the touch swipe does; the glide that reached it is spent and never also closes)
       else prev();
-    } else stackFold(a.dir < 0);   // (fingers up: the readings come out, as a swipe up does)
+    }   // (fingers up or down do nothing: no readings card comes out or tucks away now)
   }
 
   // ── Hands off: while presenting, the figure only points (hover glow); taps, drags, pans and zooms that would
@@ -5633,7 +5638,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     else if (k === 'Enter' && digits) { const n = +digits; digits = ''; if (n >= 1) go(n - 1); }
     else if (k === 'ArrowRight' || k === 'PageDown' || k === ' ' || k === 'Enter') { if (!e.repeat) next(); }
     else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace') { if (!e.repeat) prev(); }
-    else if (k === 'ArrowUp' || k === 'ArrowDown') { if (!e.repeat) stackFold(k === 'ArrowUp'); }   // (up untucks the stacked card's readings, down tucks them, as a swipe does; never a slide)
     else if (k === 'Home') go(0);
     else if (k === 'End') go(slides.length - 1);
     else if (lk === 'b' || k === '.' || lk === 'w') toggleBlack();
@@ -5890,7 +5894,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       else setFold(true);
     } });
     const data = h('section', { class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-safe-waits': '', 'data-gone': '', hidden: true, 'aria-label': 'The numbers' },
-      h('div', { class: 'pz-dh' }, dhT, fold, zbtn), tools.el, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
+      h('div', { class: 'pz-dh' }, dhT, tiles.head, fold, zbtn), tools.el, tiles.el, h('span', { class: 'pz-grip', 'aria-hidden': 'true' }));
     const foldHs = foldTouch(data, fold, setFold, partOf, (on) => { if (on) { clearTimeout(foldT); data.dataset.folding = ''; } else foldT = setTimeout(foldStill, reduce.matches ? 0 : 450); }, lip);
     const dockHs = dockTouch(data, lip);
     const cardTouch = [foldHs, dockHs];   // (fold first: it stops the dock drag when it takes a move, as on the card)

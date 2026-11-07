@@ -64,7 +64,7 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   // (All but the portal blood bar, which needs the card's full width for its segments' names, and the fluid balance's capacity
   // window, whose rows of numbers need it too, and the criteria card, whose rules are sentences: their tiles go under them.)
-  assert.match(pres, /data\.classList\.toggle\('pz-beside', !!s\.tool && !!s\.data && tileKeys\(s\)\.length > 0 && s\.tool\?\.kind !== 'flows' && s\.tool\?\.kind !== 'criteria' && !\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)\)/, 'every instrument, the Gut to heart chart among them, not only the FibroScan');
+  assert.match(pres, /data\.classList\.remove\('pz-beside'\); data\.removeAttribute\('data-beside'\);/, 'no instrument has its tiles beside it now (7 Nov 2026): they are its header\'s readings, tests/card-readings-head.test.js');
   assert.match(pres, /if \(c === side\) continue;/);
 });
 

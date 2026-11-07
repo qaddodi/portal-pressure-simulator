@@ -143,11 +143,7 @@ test('presenter: the wheel works the slide, the stack and the case card; a wide 
   assert.match(w, /if \(card\) caseFly\(card, a\.dir, 1\.2, card\.c\.offsetWidth\);/, 'a case card is thrown off the way the fingers go');
   assert.match(w, /else if \(a\.dir < 0\) next\(\);[^\n]*\n\s*else prev\(\);/, 'left goes on, and off the end of the deck it ends the talk, as the touch swipe does');
   assert.doesNotMatch(w, /want < slides\.length - 1/, 'no last-slide guard on the wheel');
-  assert.match(w, /else stackFold\(a\.dir < 0\);/, 'fingers up open');
-  const f = pz.slice(pz.indexOf('function stackFold(open)'), pz.indexOf('let wheelG = null;'));
-  assert.match(f, /!wideSheet\(d\)/);
-  assert.match(f, /\(caseCard && !caseCard\.flown\)/, 'not over a case card');
-  assert.match(f, /if \(open !== d\.classList\.contains\('tool-open'\)\) ui\.setFold\(open\);/, 'eased by the card\'s own setFold');
+  assert.doesNotMatch(pz, /stackFold/, 'fingers up or down work no readings card now: none tucks or comes out (7 Nov 2026)');
   assert.match(w, /\{ passive: false, capture: true \}/);
   // (Before the figure's read-only swallow of the wheel, which stops the event for everything after it.)
   assert.ok(pz.indexOf('let wheelG = null;') < pz.indexOf("for (const t of ['pointerdown', 'mousedown'"), 'ahead of the hands-off listeners');
@@ -156,9 +152,9 @@ test('presenter: the wheel works the slide, the stack and the case card; a wide 
   assert.match(pz, /!\(phone\(\) \|\| wideSheet\(d\)\)/, 'a swipe up or down anywhere on an iPad on its side works the stack as the iPhone\'s does');
 });
 
-test('presenter: the up arrow untucks the stack and the down arrow tucks it, and neither moves a slide', () => {
+test('presenter: the up and down arrows move no slide, and tuck nothing', () => {
   const onKey = pz.slice(pz.indexOf('function onKey('), pz.indexOf("addEventListener('keydown', onKey, true)"));
-  assert.match(onKey, /else if \(k === 'ArrowUp' \|\| k === 'ArrowDown'\) \{ if \(!e\.repeat\) stackFold\(k === 'ArrowUp'\); \}/);
+  assert.doesNotMatch(onKey, /stackFold/);
   // (Left and right, page keys, space, enter and backspace still move slides; the up and down arrows no longer do.)
   assert.match(onKey, /k === 'ArrowRight' \|\| k === 'PageDown' \|\| k === ' ' \|\| k === 'Enter'\) \{ if \(!e\.repeat\) next\(\); \}/);
   assert.match(onKey, /k === 'ArrowLeft' \|\| k === 'PageUp' \|\| k === 'Backspace'\) \{ if \(!e\.repeat\) prev\(\); \}/);
@@ -169,5 +165,5 @@ test('presenter: the up arrow untucks the stack and the down arrow tucks it, and
   assert.match(onKey, /if \(ui && !ui\.jump\.hidden\) \{ jumpKey\(e\); return; \}/);
   // The Guide lists the keys.
   const main = unsnap(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'));
-  assert.match(main.slice(main.indexOf('const PRESENT_KEYS'), main.indexOf('];', main.indexOf('const PRESENT_KEYS'))), /\['↑ · ↓', /);
+  assert.doesNotMatch(main.slice(main.indexOf('const PRESENT_KEYS'), main.indexOf('];', main.indexOf('const PRESENT_KEYS'))), /↑ · ↓/);   // (no readings card to tuck, 7 Nov 2026)
 });

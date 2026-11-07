@@ -110,12 +110,12 @@ test('the forces strip: two arrows meeting at the wall, each as long as its pres
   assert.equal(tugParts(-2, 4, 300).push.w, 0, 'a push below zero draws nothing');
 });
 
-test('only the Testing deck\'s four fluid slides draw the strip, with their tiles under the card', () => {
+test('only the Testing deck\'s four fluid slides draw the strip, with their readings in the card\'s header row', () => {
   const deck = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
   assert.equal((deck.match(/"kind": "fluid",\s*"window": true/g) || []).length, 4);
   assert.equal((deck.match(/"kind": "fluid"/g) || []).length, 4);
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/);
+  assert.doesNotMatch(pres, /!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/, 'no tiles stand beside any instrument now (7 Nov 2026)');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.gs\[hidden\], \.gs-forces\[hidden\] \{ display: none; \}/, 'hidden really hides the flex rows');
   const ext = readFileSync(new URL('../src/ui/ext-instruments.js', import.meta.url), 'utf8');

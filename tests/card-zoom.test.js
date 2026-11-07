@@ -229,7 +229,6 @@ test('the presenter lays nothing out while the card is up, and puts it back befo
   assert.match(js, /pillW = 0; ui\?\.zoom\.reset\(\); ui\?\.tools\.dispose\(\);/);
   // (The readings come out and tuck away under it once its glide in has ended, and not on its way in or back: the handle, a pull, the wheel, the
   // arrow keys, a swipe anywhere; the zoom is fitted to the stack as they go, zoomFollow.)
-  assert.match(js, /if \(zoomOn\(\) && !zoomFolds\(\)\) return true;/);
   assert.match(js, /const setFold = \(open\) => \{\n {6}if \(zoomOn\(\) && !zoomFolds\(\)\) return;/);
   assert.match(js, /dock\.lvl > 0 \|\| btn\.contains\(e\.target\) \|\| \(zoomOn\(\) && !zoomFolds\(\)\)\) return;/);
   assert.match(js, /if \(!deck \|\| !d \|\| \(zoomOn\(\) && !zoomFolds\(\)\) \|\| e\.touches\.length !== 1/);

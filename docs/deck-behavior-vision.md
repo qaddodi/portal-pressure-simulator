@@ -131,6 +131,8 @@ that card alone leaves and the new one comes in.
 
 ## 5. Card gestures: tuck, untuck, hide, show, zoom
 
+> **Tucking was removed on 7 Nov 2026** (Mohammad: "get rid of tucking untucking card, and implement T3"). An instrument card is one fixed size on every device; its readings are numbers in its header row, beside its name (T3), and nothing slides out or away. The V-TUCK items below describe the behaviour that was removed and are kept for the record.
+
 ### What a person sees
 
 The stacked instrument card on a phone tucks its readings under itself and pulls them out with a drag or a tap on the handle. It

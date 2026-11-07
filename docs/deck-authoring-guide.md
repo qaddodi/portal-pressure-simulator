@@ -445,7 +445,7 @@ A slide with `steps: true` (section 5.9) shows a black numbered circle on the fi
 
 ### 7.2 `tool`: an instrument in the card (above the tiles if `data` is also set)
 
-`title?` renames the card on any kind (a slide's `dataTitle` wins over it). When `data` is also set, the instrument sits above the tiles. On a phone the readings sit on a sheet tucked under the instrument's card, with a handle to pull them out (no Show button); on a laptop or a tablet on its side the pair folds behind Show only when it would not fit. `open: true` keeps the instrument open on a phone and folds the tiles instead.
+`title?` renames the card on any kind (a slide's `dataTitle` wins over it). When `data` is also set, the tiles' numbers (the endoscopic view excepted) stand in the instrument card's header row, at the right of its name: a rating dot, the short name, the number and its unit, up to four of them (three or more drop their units on a phone, and the name wraps to two lines). The card is one fixed size on every device: no readings card tucks behind it, no handle, no Show button (Mohammad, 7 Nov 2026).
 
 | `tool` | Shows |
 |---|---|
@@ -959,7 +959,7 @@ export const CLOT_DEMO = {
 5. **No stamps:** imports are plain addresses; the build makes the cache-busting names, so nothing is rewritten when a script file changes (a committed `?v=` fails the unit job).
 6. **Handout figures:** `node scripts/handout-figures.mjs <id>` draws each slide's figure for the printed notes (`brand/handout/<id>/`); run it after the deck exists and again when a slide is renamed, removed or changes its look. (`scripts/deck-stills.mjs` still writes deck-picker stills to `brand/decks/`, but nothing in the app shows them now; skip it.)
 7. **Preview:** follow `AGENTS.md` (the single source of truth for the preview workflow). In short: pushing the integration branch `claude/settings-topbar-icon-flvft1` publishes `/preview/` at https://qaddodi.github.io/portal-pressure-simulator/preview/ . Rebase on the latest preview right before pushing, never force-push, grep for conflict markers, never push to `main` (the owner merges), and check the "Pages (live site + preview)" deploy job succeeded.
-8. **Test on the preview:** Present menu → pick the deck (Present, Resume n / N, Copy link, Print notes). In the talk: → Space Enter Page Down step on, ← Page Up Backspace step back, ↑ ↓ untuck and tuck the stacked card's readings (Mac, iPad on its side), a number then Enter jumps, Home and End, G lists the slides, B, W or . blacks the screen, F full screen, Esc ends; ? opens the Guide with every presenter key. A deep link `?script=<id>&slide=<n>` opens a deck at a slide.
+8. **Test on the preview:** Present menu → pick the deck (Present, Resume n / N, Copy link, Print notes). In the talk: → Space Enter Page Down step on, ← Page Up Backspace step back, a number then Enter jumps, Home and End, G lists the slides, B, W or . blacks the screen, F full screen, Esc ends; ? opens the Guide with every presenter key. A deep link `?script=<id>&slide=<n>` opens a deck at a slide.
 
 **Alternative with no code:** an instructor can capture slides inside the app (stored in the browser as "Yours"); those support only `preset, presetDays, params, action, days, view, cam, kicker, title, line, causes, site, notes, ask, key` and always show the ladder. Full decks need the file route above.
 
