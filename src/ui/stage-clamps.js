@@ -89,7 +89,9 @@ export function createClamps(st, live) {
   const clampLook = { weight: 600, size: 12, tnum: true };
   function clampGlyphs(el) {
     if (el._txt == null || !glyphsReady()) return;
-    const size = parseFloat(el.style.fontSize) || (parseFloat(live.clampFs) || 12), end = el.getAttribute('text-anchor') === 'end';
+    // (Always the size the camera asks for now, live.clampFs, never the font-size written on the element at the last layout: that stood
+    // at the zoom of the last solve, so the "60 %" was drawn at an old zoom's size, huge after a zoom in, between two solves.)
+    const size = parseFloat(live.clampFs) || 12, end = el.getAttribute('text-anchor') === 'end';
     const x = attrNum(el, 'x') + attrNum(el, 'dx'), y = attrNum(el, 'y') + attrNum(el, 'dy');
     if (el._gs === size && el._gx === x && el._gy === y && el._ge === end && el._gp) return;
     el._gs = size; el._gx = x; el._gy = y; el._ge = end;
@@ -102,7 +104,7 @@ export function createClamps(st, live) {
   function clampTextBox(el) {
     if (!glyphsReady()) { if (!clampGlyphAsk) { clampGlyphAsk = true; loadGlyphs().then(clampGlyphsIn); } return null; }
     const cls = el.getAttribute('class') || '';
-    const size = parseFloat(el.style.fontSize) || (/clamp-label/.test(cls) && parseFloat(live.clampFs)) || 12;
+    const size = (/clamp-label/.test(cls) && parseFloat(live.clampFs)) || parseFloat(el.style.fontSize) || 12;   // (a live "60 %" at the camera's size now, as clampGlyphs draws it)
     const o = clampTbOpts;   // (kept, rewritten: textBox reads it and holds nothing)
     o.anchor = el.getAttribute('text-anchor') || 'start'; o.size = size; o.k = live.CTM?.sc > 0 ? live.CTM.sc : 1;
     return textBox(el._txt ?? el.textContent, attrNum(el, 'x') + attrNum(el, 'dx'), attrNum(el, 'y') + attrNum(el, 'dy'), o);   // (tnum: the "60 %" is drawn in tabular figures (#labels text), so its box is one width whatever its digits are)
