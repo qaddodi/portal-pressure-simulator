@@ -9,6 +9,10 @@
 // child's. The graft is the model's REX vessel (topology.js): the superior mesenteric vein to the left portal vein, counted as
 // portal blood that reaches the liver, never as shunted.
 
+// One frame for both shunt-choice slides that holds all three shunts, whichever button is on: the Rex graft (x 688 to 760,
+// y 378 to 660), the Warren shunt (x 948 to 962) and the mesocaval shunt (x 620 to 690), with room round them (Mohammad, 7 Nov).
+const SHUNTS_CAM = [580, 340, 1000, 700];
+
 export const MESO_REX = {
   id: 'meso-rex', level: 'advanced', title: 'Children with a portal vein clot', minutes: 10,
   objectives: [
@@ -70,7 +74,7 @@ export const MESO_REX = {
       ask: ['Where does a Meso-Rex graft run?', 'From the superior mesenteric vein, past the clotted trunk, to the left portal vein in the Rex recess.'],
     },
     {
-      id: 'flows', lens: 'origin', cam: [500, 330, 900, 700], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['liver'], delta: 'child',
+      id: 'flows', lens: 'origin', cam: SHUNTS_CAM, tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['liver'], delta: 'child',
       compare: [{ label: 'Meso-Rex bypass', short: 'Rex', own: true },
         { label: 'Warren shunt', short: 'Warren', params: { rex: false, dsrs: true, mesocaval: false } },
         { label: 'Mesocaval shunt', short: 'Mesocaval', params: { rex: false, dsrs: false, mesocaval: true } }],
@@ -87,7 +91,7 @@ export const MESO_REX = {
       ask: ['Which two signs show a bypass is working in the months after the operation?', 'The spleen shrinks and the platelet count rises, as the portal pressure and the collaterals fall.'],
     },
     {
-      id: 'alternative', lens: 'origin', preset: 'pvt-chronic', params: { dsrs: true }, cam: 'splenic', mark: { edges: ['S_DSR'], label: 'Warren shunt', kind: 'treat' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      id: 'alternative', lens: 'origin', preset: 'pvt-chronic', params: { dsrs: true }, cam: SHUNTS_CAM, mark: { edges: ['S_DSR'], label: 'Warren shunt', kind: 'treat' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
       compare: [{ label: 'Warren shunt', short: 'Warren', own: true }, { label: 'Meso-Rex bypass', short: 'Rex', params: { dsrs: false, rex: true } }],
       kicker: 'When a Rex is not possible', site: 'pre', title: 'Without an open intrahepatic portal system, a Warren shunt is an option',
       line: 'Back in the first child, a Warren shunt drains the varices through the spleen, yet the PPG stays {ppg} and {shunt} of the portal blood bypasses the liver.',
