@@ -10,6 +10,9 @@
 // as a faint line and named "Bleed risk" on the Over time chart, never as a colour change of its own.
 export const HVPG_CUTS = Object.freeze({ amber: 5, red: 10, bleed: 12 });
 export const PPG_CUTS = Object.freeze({ amber: 6, red: 12 });
+// HVPG at which a pre-emptive TIPS is offered after a controlled variceal bleed, whatever the Child–Pugh score (Baveno VIII 5.31): a treatment
+// criterion, not a colour. Read by the guideline path card (path-data.js).
+export const PTIPS_HVPG = 20;
 export const PRESSURE_CUTS = Object.freeze({ hvpg: HVPG_CUTS, ppg: PPG_CUTS });
 
 // A right hepatic vein clotted this far (Budd–Chiari) takes no catheter, so the HVPG cannot be measured: the HVPG procedure aborts

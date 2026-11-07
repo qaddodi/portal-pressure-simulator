@@ -1032,7 +1032,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A chart or gauge that only reads the model as it eases (the pressure profile, a relation curve, the flows, the talk's trace, the criteria,
   // the plane) comes in over the change, riding it: its numbers and curve travel with the vessels, as a kept card's do. An instrument that
   // records the patient's flow (Doppler, beat by beat, vitals), plays on arrival, or is a deck package's own, still waits for the slide's state.
-  const RIDES_MODEL = new Set(['profile', 'curve', 'flows', 'plane', 'criteria', 'trace']);
+  const RIDES_MODEL = new Set(['profile', 'curve', 'flows', 'plane', 'criteria', 'path', 'trace']);
   const underTool = (t) => !t || (RIDES_MODEL.has(t.kind) && !(t.kind === 'trace' && t.range === 'beats'));
   // The same patient over the plate: the slide's labels, glows and marks start once the cards are in sight (their last small step still
   // running, at the arrival curve about 95 percent of the way), not after the title's last frame, which was most of half a second of

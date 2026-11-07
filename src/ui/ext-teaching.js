@@ -2,10 +2,14 @@
 // registered for slide-ext.js (see its header for each part's shape). A deck that sets none of its fields is unchanged.
 //   tool: { kind: 'criteria', title?, rows, ticks? }   C2: a guideline's rule list in the data card, a live tick on rows read from the
 //                                                     model (tool-criteria.js)
+//   tool: { kind: 'path', of: 'first-visit' | 'bleed', patient? }   a Baveno VIII flowchart with the patient's own path lit (tool-path.js)
 import { createCriteria } from './tool-criteria.js';
+import { createPath } from './tool-path.js';
+import { PATHS } from './path-data.js';
 
 export default {
   tools: {
+    path: { make: () => createPath(), title: (t) => t?.title || PATHS[t?.of === 'bleed' ? 'bleed' : 'first-visit'].label, short: (t) => t?.short || (t?.of === 'bleed' ? 'Bleed path' : 'First-visit path') },
     criteria: { make: () => createCriteria(), title: (t) => t?.title || 'Criteria', short: (t) => t?.title || 'Criteria' },
   },
 };

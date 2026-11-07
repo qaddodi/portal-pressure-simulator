@@ -13,6 +13,7 @@ import { LUMEN } from './lumen.js';
 import { TIME } from './time.js';
 import { PROFILE } from './profile.js';
 import { FLOWS } from './flows.js';
+import { PATH } from './path.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -29,6 +30,7 @@ export const LOOKS = {
   ...TIME,
   ...PROFILE,
   ...FLOWS,
+  ...PATH,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */
@@ -47,4 +49,5 @@ export const HOSTS = {
   // the phone grid's strips: 2255 (a case's own strip: the card's label size), 2258 (the names strip over the six: its cap size)
   pstrip: (c) => c.scale.lab ?? 12,
   pstriph: (c) => c.scale.cap ?? 12,
+  path: () => 12,   // (the guideline path card's small map: its words are 12 px, styles/path.css)
 };

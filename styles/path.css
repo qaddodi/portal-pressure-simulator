@@ -1,0 +1,36 @@
+/* The guideline path card (tool-path.js; 7 Nov 2026). A Baveno VIII flowchart in the data card with the patient's path lit. The connectors and
+   the small map are drawn on the GPU (chart-looks/path.js); what is here is the chart's words and the reading under the small map. Nothing
+   here animates but opacity. */
+.pz-path { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; display: grid; gap: 10px; font: 400 12px/1.32 var(--font-ui); color: var(--text-2); }
+.pzp-head { display: grid; gap: 3px; }
+.pzp-kick { margin: 0; font: 500 12px/1.2 var(--font-ui); color: var(--text-3); }
+.pzp-chips { margin: 0; font: 500 13px/1.35 var(--font-ui); color: var(--text); font-variant-numeric: tabular-nums; }
+.pzp-pic { position: relative; width: 100%; }
+.pzp-foot { margin: 0; padding-top: 7px; border-top: 1px solid var(--hairline); font: 400 12px/1.3 var(--font-ui); color: var(--text-3); }
+
+/* the whole chart: a node is outlined words (the label style), quiet until the patient's path reaches it */
+.pzp-n { position: absolute; z-index: 1; box-sizing: border-box; text-align: center; opacity: .4; -webkit-text-stroke: 3px var(--label-halo); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; transition: opacity var(--d-small) var(--ease); }
+.pzp-n.lit { opacity: 1; }
+.pzp-n > span { display: block; }
+.pzp-t { font-size: 12px; color: var(--text-2); }
+.pzp-r { margin-top: 1px; font-size: 13px; font-weight: 600; line-height: 1.25; color: var(--text); }
+.pzp-s { margin-top: 2px; font-size: 12px; color: var(--text-3); }
+.pzp-n.nor > .pzp-t { font-size: 13px; font-weight: 600; color: var(--text); }
+.pzp-n.act > .pzp-t::before { content: "→ "; }
+.pzp-n.lit > .pzp-r, .pzp-n.lit.nor > .pzp-t { color: var(--tone); }
+.pzp-n.root > .pzp-t { font-size: 13px; font-weight: 600; color: var(--text); }
+.pzp-st { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--text-3); white-space: nowrap; }
+
+/* the small map's reading: every outcome's text stacked in one cell, so the card keeps one size, one shown */
+.pzp-reads { display: none; }
+.pz-path.compact .pzp-n { display: none; }
+.pz-path.compact .pzp-reads { display: grid; border-top: 1px solid var(--hairline); padding-top: 12px; }
+.pzp-rd { grid-area: 1 / 1; opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
+.pzp-rd.on { opacity: 1; }
+.pzp-rt { margin: 0 0 4px; font: 650 21px/1.2 var(--font-ui); letter-spacing: -.015em; color: var(--tone); }
+.pzp-rs { margin-left: 10px; font: 500 12px/1 var(--font-ui); letter-spacing: 0; color: var(--text-3); white-space: nowrap; }
+.pzp-rp { margin: 0; font: 400 14.5px/1.45 var(--font-ui); color: var(--text); }
+
+/* the card as wide as its leaves need (Mac, iPad sideways); a narrower card draws the small map and its reading */
+.pz.pz:not(.stack):not(.low) .pz-data:has(.pz-path[data-n="5"]) { width: min(716px, calc(100vw - 32.4vw - 60px)); }
+.pz.pz:not(.stack):not(.low) .pz-data:has(.pz-path[data-n="6"]) { width: min(804px, calc(100vw - 32.4vw - 60px)); }

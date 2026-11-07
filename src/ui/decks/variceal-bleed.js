@@ -74,6 +74,16 @@ export const BLEED = {
       ask: ['What bridges a bleed that banding cannot control?', 'A covered esophageal stent (preferred) or a balloon tube, as a bridge to a rescue TIPS.'],
     },
     {
+      // (The algorithm of Baveno VIII Fig. 3, lit for this patient: banding controlled the bleed and Child–Pugh C 10 meets the pre-emptive TIPS criteria. The
+      // Child–Pugh score, active bleeding, control and fitness are the case's own, not the model's; tool-path.js.)
+      id: 'path', cam: 'varices', labels: ['VAR'],
+      tool: { kind: 'path', of: 'bleed', short: 'Bleed path', patient: { src: 'ov', cp: 10, active: false, ctrl: true, fit: true, hvpg: null } },
+      kicker: 'After the scope', site: 'sin', title: 'The algorithm: band, then decide on a TIPS',
+      line: 'Banding controlled the bleed. Child–Pugh C 10 meets a pre-emptive TIPS criterion, so his path ends in a TIPS within 72 hours.',
+      notes: 'This is the acute variceal bleeding algorithm of Baveno VIII (Fig. 3), lit for the patient on the slide. Every patient gets a vasoactive drug, antibiotics and restrictive transfusion, and an endoscopy within 12 hours (5.18). A bleed from an esophageal varix or a GOV1 is banded. If banding controls it, a pre-emptive TIPS within 72 hours, ideally 24, is for a Child–Pugh C score of 10 to 13, a Child–Pugh B score of 8 or 9 with active bleeding at endoscopy, or an HVPG of 20 mmHg or more, in a patient under 75 with a creatinine under 3 mg/dL and no heart failure (5.31). Everyone else takes carvedilol and has banding every 2 to 4 weeks. If banding does not control the bleed, a dedicated covered stent, preferred over a balloon, bridges to a salvage TIPS (5.35 to 5.37). A GOV2 or an IGV1 bleed is high risk and runs two phases at once (5.39): the acute one, an EUS-guided coil with cyanoacrylate in experienced centers or else cyanoacrylate injection (5.40), and the definitive one, TIPS with or without embolization as soon as possible for Child–Pugh C below 14, or other options after a team discussion (5.41). The Child–Pugh score, active bleeding, control of the bleed and fitness for TIPS are facts of the case, so the chart takes them from the slide; this patient is Child–Pugh C 10.',
+      ask: ['After banding controls the bleed, what decides between a pre-emptive TIPS and carvedilol with banding?', 'The pTIPS criteria: Child–Pugh C 10–13, or B 8–9 with active bleeding at endoscopy, or an HVPG ≥20 mmHg, in a patient aged <75 with a creatinine <3 mg/dL and no heart failure. Otherwise carvedilol and banding every 2–4 weeks.'],
+    },
+    {
       id: 'tips', params: { tips: { on: true } }, procedure: 'tips', cam: 'liver', ripple: true, data: 'tiles',
       tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', short: 'Who gets it', lead: 'Any one of these is enough.', rule: 'Baveno VIII 5.31',
         rows: [{ text: 'Child–Pugh C', cut: 'C 10–13', note: 'C 10', met: true, lit: true },
@@ -107,6 +117,15 @@ export const BLEED = {
       line: 'Failure means bleeding that drugs and endoscopy do not control, or a rebleed within 5 days. Blood and fluid go in: heart rate {hr}, blood pressure {map}.',
       notes: 'Baveno VIII defines treatment failure either as bleeding that stays uncontrolled or as a rebleed within 5 days. Failure, a Child–Pugh class C, and a high MELD score are the main risk factors for death in the next 6 weeks. Keep volume at the level that holds organ perfusion and transfuse to a hemoglobin of 7 to 8 g/dL, because extra volume raises the portal pressure. The model\'s bands always close an esophageal bleed, so this slide leaves the repeat band out to show a bleed that goes on. (Baveno VIII 5.16, 5.17.)',
       ask: ['Name two ways an acute variceal bleed counts as treatment failure.', 'Bleeding that stays uncontrolled despite drugs and endoscopy, or a rebleed within 5 days.'],
+    },
+    {
+      // (The same algorithm for the second patient: her bleed is not controlled, so the path turns to the covered stent and the salvage TIPS.)
+      id: 'path2', cam: 'bleed', labels: ['VAR'],
+      tool: { kind: 'path', of: 'bleed', short: 'Bleed path', patient: { src: 'ov', cp: 8, active: false, ctrl: false, fit: true, hvpg: null } },
+      kicker: 'Failure', site: 'sin', title: 'Her bleed is not controlled, so the path turns',
+      line: 'The bands did not hold the bleed. The chart sends her to a covered stent as a bridge, then a salvage TIPS.',
+      notes: 'The same algorithm, lit for the second patient. When banding and the drugs do not control a bleed from an esophageal varix, the pre-emptive TIPS criteria no longer apply: a dedicated covered self-expanding metal stent is preferred over a balloon tamponade as a bridge to TIPS or liver transplantation (5.35), and a failure to control the bleeding despite drugs and endoscopy is managed by a salvage TIPS (5.36). Salvage TIPS should be considered in every patient with refractory bleeding, whatever the age, Child–Pugh class or MELD score, case by case (5.37). The next slides show the bridge and the rescue.',
+      ask: ['Where does the algorithm send a bleed that banding does not control?', 'To a dedicated covered stent, preferred over a balloon, as a bridge, and then to a salvage TIPS.'],
     },
     {
       id: 'bridge', params: { balloonGas: true }, action: [UNIT], cam: BALLOON_CAM, labels: ['VAR'], mark: { edges: ['C1a', 'C1b'], label: 'Tamponade', kind: 'treat' }, tool: REBEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'], delta: 'controlled',

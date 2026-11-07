@@ -68,6 +68,17 @@ export const STIFFNESS = {
       ask: ['Which two numbers does a first visit use, and what are the three zones?', 'Liver stiffness and the platelet count. CSPH ruled out, CSPH ruled in, or a gray zone in between.'],
     },
     {
+      // (The chart of the rules slide, lit for a patient: the first-visit path of Baveno VIII Fig. 1, from the model's stiffness, platelets and spleen
+      // stiffness. ANTICIPATE is not in the model, so the card takes it as under 75% unless the slide's patient says otherwise. tool-path.js.)
+      id: 'path', preset: 'cirr-comp', params: { cirrhosis: 0.55 }, cam: 'liver', glow: ['liver'],
+      tool: { kind: 'path', of: 'first-visit', short: 'First-visit path' },
+      whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
+      kicker: 'The rules', title: 'Her numbers place her on the chart',
+      line: 'Her stiffness is {lsm} and her platelets {plt}. The lit branches are her path through the Baveno VIII chart; drag Scarring and she moves along it.',
+      notes: 'This is the first-visit chart of Baveno VIII (Fig. 1) for a patient with suspected compensated advanced chronic liver disease, lit for the patient on the slide. A stiffness under 10 kPa rules cACLD out (1.3), and the tests are repeated by cause. A stiffness of 15 kPa or less with platelets of 150,000/µL or more rules CSPH out (1.15): repeat the stiffness in 12 months. A stiffness of 25 kPa or more rules CSPH in (1.16b) in viral and alcohol-related disease and in MASLD with a BMI under 30, and carvedilol is started. Between the two, or with platelets under 150,000/µL, is the gray zone (1.17): an ANTICIPATE probability of 75% or more (ANTICIPATE-NASH at a BMI of 30 or more), a NICER probability of 75% or more, or a spleen stiffness over 55 kPa (1.14, 1.16) rules CSPH in. If none does, repeat the tests in 12 months or add the spleen stiffness, and a patient who cannot take a beta-blocker has the screening scope unless the stiffness is under 20 kPa with platelets of 150,000/µL or more, or the spleen stiffness is under 40 kPa (1.19). On the slide the stiffness is about 21 kPa and the platelets about 160,000/µL, so she is in the gray zone, and her spleen stiffness of about 35 kPa does not rule CSPH in. ANTICIPATE is not in the model, so the chart takes it as under 75%. Drag Scarring to carry her through the chart: her stiffness crosses 10, 15 and 25 kPa. Baveno VIII Fig. 1 prints the spleen stiffness cut-off as 55 kPa or more where its statement 1.16c says over 55; the chart follows the statement.',
+      ask: ['A patient in the gray zone has an ANTICIPATE probability <75% and a spleen stiffness of 48 kPa. Is CSPH ruled in?', 'No. It takes an ANTICIPATE probability ≥75% or a spleen stiffness >55 kPa. Repeat the tests in 12 months, or add the spleen stiffness.'],
+    },
+    {
       id: 'a1', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 47-year-old man had hepatitis C diagnosed ten years ago and was never treated. He feels well, drinks no alcohol and has had no ascites or bleeding.',
       caseQ: 'Is CSPH ruled out, ruled in or still open?',
