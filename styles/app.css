@@ -813,7 +813,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
    with the value) and the input on top keeps a clear track, so the drawing and the thumb line up: the thumb's centre runs
    from half its width to the far end less half its width (--tw), as the browser places it. A normal range is the tiles'
    green band on the track, and that slider draws no fill. */
-.range-wrap { touch-action: none; position: relative; isolation: isolate; height: 20px; display: flex; align-items: center; --tw: 18px; --p: 0; }
+.range-wrap { touch-action: none; position: relative; isolation: isolate; height: 28px; display: flex; align-items: center; --tw: 28px; --dot: 18px; --p: 0; }
 .range-wrap::before, .range-wrap::after { content: ''; position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: 3px; pointer-events: none; z-index: 0; }
 .range-wrap::before { right: 0; background: color-mix(in srgb, var(--text) 10%, transparent); }
 .range-wrap::after { width: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--p)); background: color-mix(in srgb, var(--accent) 60%, transparent); }
@@ -822,19 +822,19 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .range-wrap .sl-start { position: absolute; top: 50%; left: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--s, 0)); width: 12px; height: 12px; margin: -6px 0 0 -6px; z-index: 1; box-sizing: border-box; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 50%, transparent); background: var(--surface); pointer-events: none; }
 /* Dragging a slider never scrolls the card, panel or page under the finger. */
 .range-wrap, input[type=range] { touch-action: none; }
-input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; height: 20px; margin: 0; position: relative; z-index: 2; cursor: pointer; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; height: 28px; margin: 0; position: relative; z-index: 2; cursor: pointer; }
 input[type=range]::-webkit-slider-runnable-track { height: 6px; background: transparent; }
 input[type=range]::-moz-range-track { height: 6px; background: transparent; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; margin-top: calc(3px - var(--tw, 18px) / 2); box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive); }
-input[type=range]::-moz-range-thumb { width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw, 28px); height: var(--tw, 28px); border-radius: 50%; background: radial-gradient(circle, var(--accent) calc(var(--dot, 18px) / 2 - .5px), var(--surface) calc(var(--dot, 18px) / 2 + .5px) calc(var(--dot, 18px) / 2 + 2.5px), transparent calc(var(--dot, 18px) / 2 + 3.5px)); border: 0; margin-top: calc(3px - var(--tw, 28px) / 2); box-shadow: 0 1px 3px 1px rgb(var(--black-rgb) / .14), 0 0 0 0 transparent, inset 0 0 0 2px transparent; transition: transform var(--d-small) var(--ease-arrive); }
+input[type=range]::-moz-range-thumb { width: var(--tw, 28px); height: var(--tw, 28px); border-radius: 50%; background: radial-gradient(circle, var(--accent) calc(var(--dot, 18px) / 2 - .5px), var(--surface) calc(var(--dot, 18px) / 2 + .5px) calc(var(--dot, 18px) / 2 + 2.5px), transparent calc(var(--dot, 18px) / 2 + 3.5px)); border: 0; box-shadow: 0 1px 3px 1px rgb(var(--black-rgb) / .14), 0 0 0 0 transparent, inset 0 0 0 2px transparent; transition: transform var(--d-small) var(--ease-arrive); }
 /* Held (a mouse press, or a finger: .held, set in enhanceRanges since iOS gives a range no :active): the dot grows a little and a
    soft ring of the accent's wash spreads out from under it, so a finger that covers the dot still sees the slider has it. The ring
    eases in and back out (transition above); it never flashes. Hover on a mouse shows a smaller ring. */
-input[type=range]:active::-webkit-slider-thumb, input[type=range].held::-webkit-slider-thumb { transform: scale(1.12); box-shadow: 0 0 0 3px var(--surface), 0 2px 6px 3px rgb(var(--black-rgb) / .16), 0 0 0 8px var(--accent-soft); }
-input[type=range]:active::-moz-range-thumb, input[type=range].held::-moz-range-thumb { transform: scale(1.12); box-shadow: 0 0 0 3px var(--surface), 0 2px 6px 3px rgb(var(--black-rgb) / .16), 0 0 0 8px var(--accent-soft); }
+input[type=range]:active::-webkit-slider-thumb, input[type=range].held::-webkit-slider-thumb { transform: scale(1.12); box-shadow: 0 2px 6px 1px rgb(var(--black-rgb) / .16), 0 0 0 3px var(--accent-soft), inset 0 0 0 2px transparent; }
+input[type=range]:active::-moz-range-thumb, input[type=range].held::-moz-range-thumb { transform: scale(1.12); box-shadow: 0 2px 6px 1px rgb(var(--black-rgb) / .16), 0 0 0 3px var(--accent-soft), inset 0 0 0 2px transparent; }
 @media (hover: hover) {
-  input[type=range]:not(:disabled):not(:active):hover::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 6px var(--accent-soft); }
-  input[type=range]:not(:disabled):not(:active):hover::-moz-range-thumb { box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 6px var(--accent-soft); }
+  input[type=range]:not(:disabled):not(:active):hover::-webkit-slider-thumb { box-shadow: 0 1px 3px 1px rgb(var(--black-rgb) / .14), 0 0 0 1px var(--accent-soft), inset 0 0 0 2px transparent; }
+  input[type=range]:not(:disabled):not(:active):hover::-moz-range-thumb { box-shadow: 0 1px 3px 1px rgb(var(--black-rgb) / .14), 0 0 0 1px var(--accent-soft), inset 0 0 0 2px transparent; }
 }
 @media (prefers-reduced-motion: reduce) {
   input[type=range]::-webkit-slider-thumb { transition: none; }
@@ -842,8 +842,8 @@ input[type=range]:active::-moz-range-thumb, input[type=range].held::-moz-range-t
 }
 input[type=range]:disabled { cursor: not-allowed; opacity: .45; }
 input[type=range]:focus-visible { outline: none; }
-input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus); }
-input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus); }
+input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent, inset 0 0 0 2px var(--focus); }
+input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent, inset 0 0 0 2px var(--focus); }
 /* A slider the GPU draws (slider-gl.js, widget-gl.js): its track, fill, normal band, start ring and dot are the GPU's picture, laid over the wrapper
    and under the input, so the page's own drawing steps aside the moment that picture is up (.wgl-on), never before. The input stays (clear) for
    the pointer, the keys, focus and the value a screen reader reads. */
@@ -1170,14 +1170,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   .p-head { padding: 12px 16px 12px; }
   .p-body { padding: 4px 16px 24px; }
   .changes { padding-left: 16px; padding-right: 16px; }
-  .range-wrap { --tw: 22px; }   /* (a bigger dot to grab on a phone; the drawing follows --tw) */
-  .range-wrap, input[type=range] { height: 28px; }
+  .range-wrap { --tw: 32px; --dot: 22px; }   /* (a bigger dot to grab on a phone; the drawing follows --tw, the box of the dot and its ring, and --dot, the dot itself) */
+  .range-wrap, input[type=range] { height: 32px; }
   .section > summary { padding: 16px 0; min-height: 48px; }
 }
 /* The same bigger dot and bar wherever a finger is the pointer: a phone or an iPad held sideways (844 px and wider) had the 20 px mouse size. (The docked action card keeps its own 24 px.) */
 @media (pointer: coarse) {
-  .range-wrap { --tw: 22px; }
-  .range-wrap, input[type=range] { height: 28px; }
+  .range-wrap { --tw: 32px; --dot: 22px; }
+  .range-wrap, input[type=range] { height: 32px; }
 }
 /* Phone in landscape: the figure fills the screen; the side panel slides over it */
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
@@ -1353,7 +1353,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .action-card.docked .ac-stat { padding: 0 1px; align-items: baseline; }
 /* A slider is one row: name, track, value (a long name takes a line of its own above the track and the value). */
 .action-card.docked .ac-slider { display: grid; align-items: center; column-gap: 10px; row-gap: 0; }
-.action-card.docked .range-wrap, .action-card.docked input[type=range] { height: 24px; }
+.action-card.docked .range-wrap, .action-card.docked input[type=range] { height: 28px; }
 .action-card.docked .ac-slider:not(.long) { grid-template-columns: minmax(92px, max-content) minmax(0, 1fr) auto; }
 .action-card.docked .ac-slider .ac-label { white-space: nowrap; gap: 6px; }
 .action-card.docked .ac-slider .ctl-val { font-variant-numeric: tabular-nums; }

@@ -5,8 +5,13 @@
 // The <input type="range"> stays in the page, as every control does, for what only the page can do: its box, the pointer and the touch,
 // the keys, focus and the value a screen reader reads. Its own track and thumb are drawn clear (app.css .wgl-on) the moment the GPU's picture is
 // up, never before. Nothing here asks the page for a box or a style in a frame: the wrapper's width and height come from the picture's own size
-// (widget-gl.js: the size observer), and the dot's width (--tw: 18 px, 22 px on a phone or under a finger) is what the stylesheet's own two
-// media queries say, asked here: no style is read.
+// (widget-gl.js: the size observer), and the width of the dot's box (--tw: 28 px, 32 px on a phone or under a finger) is what the stylesheet's own
+// two media queries say, asked here: no style is read.
+//
+// The dot's box is wider than the dot (18 px, 22 px under a finger): ROOM px on each side hold its surface ring, grown by the held scale. The page
+// clips a card's contents at the card's own box (.pz-text, .pz-data, .pz-panel: overflow clip), so a dot that sat flush with the track's end
+// (its centre half the dot's width in) lost the outer 3 px of its ring there, and at 0 the knob looked cropped (Mohammad, 7 Nov 2026, What if
+// slider, Esophageal air pressure). The dot's centre now runs from half the box in, so the ring, held or not, is whole at both ends.
 //
 // What moves is a number in the slider's record (the fraction the dot and fill show, and the seven numbers of the dot's rings); a frame that
 // changes one draws the picture again, and a frame where none changes draws nothing and asks for no frame (idle costs nothing). The glide runs
@@ -34,7 +39,11 @@ export const LEVELS = [
 /** Which look the dot has: a mouse over it (not pressed) first, then keyboard focus, then held, as the stylesheet's rules rank. */
 export const levelFor = (hover, held, focus, disabled) => (disabled ? IDLE : hover && !held ? HOVER : focus ? (held ? FOCUS_HELD : FOCUS) : held ? HELD : IDLE);
 
-/** The centre of the dot across a bar `w` wide, the dot `tw` wide, at fraction `f`: the browser's own placement (half a dot in from each end). */
+/** CSS px each side of the dot inside its box (--tw less --dot, halved): the dot's 3 px surface ring grown 1.12 times when held (13.4 px at 18, 15.7 at 22) rounded up to whole px, less the dot's radius. */
+export const ROOM = 5;
+/** The dot's diameter inside a box `tw` wide (app.css --dot: 18 px, 22 px under a finger). */
+export const dotOf = (tw) => tw - 2 * ROOM;
+/** The centre of the dot across a bar `w` wide, its box `tw` wide, at fraction `f`: the browser's own placement (half a box in from each end). */
 export const thumbX = (w, tw, f) => tw / 2 + Math.max(0, w - tw) * f;
 /** The fraction the dot shows `k` of the way (0 to 1, eased) from `a` to `b` of a slider (min, max, step): it sits on a step, the fill follows it. */
 export function glideAt(a, b, k, min, max, step) {
@@ -110,11 +119,11 @@ function readOnce(S) {
   const dot = wrap.querySelector(':scope > .sl-start');
   S.start = dot ? parseFloat(wrap.style.getPropertyValue('--s')) : NaN;
 }
-// The dot's width: app.css gives .range-wrap --tw: 22px under the phone's media query and under a coarse pointer, 18px otherwise. The same two
+// The dot's box: app.css gives .range-wrap --tw: 32px under the phone's media query and under a coarse pointer, 28px otherwise. The same two
 // queries asked here (kept in step with the stylesheet by tests/slider-gl.test.js); a change of either draws the sliders again.
 export const PHONE_MQ = '(max-width: 767px), (max-width: 1100px) and (orientation: portrait)', COARSE_MQ = '(pointer: coarse)';
 const phone = typeof matchMedia === 'function' ? matchMedia(PHONE_MQ) : null, coarse = typeof matchMedia === 'function' ? matchMedia(COARSE_MQ) : null;   // alloc-rare: two queries for the page
-export const dotWidth = () => (phone?.matches || coarse?.matches ? 22 : 18);
+export const dotWidth = () => (phone?.matches || coarse?.matches ? 32 : 28);
 function twAgain() { for (const S of LIVE) { const tw = dotWidth(); if (tw !== S.tw) { S.tw = tw; ask(S); } } }
 phone?.addEventListener('change', twAgain); coarse?.addEventListener('change', twAgain);
 
@@ -206,7 +215,9 @@ function drawSlider(S, ctx, pw, ph, pad) {
     ctx.beginPath(); ctx.arc(sx, cy, 5, 0, TAU); ctx.stroke();
   }
   // The dot.
-  const v = S.cur, x = pad + thumbX(W, tw, f), r = tw / 2, sc = v[5], off = S.input.disabled;
+  const v = S.cur, x = pad + thumbX(W, tw, f), r = dotOf(tw) / 2, sc = v[5], off = S.input.disabled;
+  // (The rings grow past the dot's box toward the bar's ends: they stop at the bar's end, the card clips what goes past it.)
+  const room = Math.min(x - pad, pad + W - x);
   if (off) {
     // (A disabled slider is dimmed to .45 as one piece: the ring as a band round the dot, so the two never lie one over the other.)
     ctx.globalAlpha = 0.45;
@@ -215,8 +226,8 @@ function drawSlider(S, ctx, pw, ph, pad) {
     ctx.globalAlpha = 1;
     return;
   }
-  if (v[6] > 0.002) { ctx.globalAlpha = v[6]; ctx.fillStyle = k.focus; disc(ctx, x, cy, (r + 5) * sc); }
-  if (v[1] > 0.002) { ctx.globalAlpha = v[1]; ctx.fillStyle = k.soft; disc(ctx, x, cy, (r + v[0]) * sc); }
+  if (v[6] > 0.002) { ctx.globalAlpha = v[6]; ctx.fillStyle = k.focus; disc(ctx, x, cy, Math.min((r + 5) * sc, room)); }
+  if (v[1] > 0.002) { ctx.globalAlpha = v[1]; ctx.fillStyle = k.soft; disc(ctx, x, cy, Math.min((r + v[0]) * sc, room)); }
   ctx.globalAlpha = 1;
   if (v[4] > 0.002) {
     const R = (r + 3) * sc;

@@ -1548,7 +1548,7 @@ export function enhanceRanges(root = document) {
     fire(input, INPUT_EV);
     if (commit) fire(input, CHANGE_EV);
   };
-  // (th: the thumb's width, the slider's --tw, 18 px or 22 px on a phone: its centre runs from th / 2 to the far end less th / 2.)
+  // (th: the thumb's box, the slider's --tw, 28 px or 32 px on a phone, the dot and its ring: its centre runs from th / 2 to the far end less th / 2.)
   // (r: the slider's box, read once at the press, never in the drag's moves.)
   const fromX = (input, cx, th, r) => {
     const min = +input.min || 0, max = +(input.max || 100);
