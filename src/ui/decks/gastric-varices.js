@@ -17,7 +17,7 @@ export const GASTRIC = {
     ['After BRTO the fundal varix shrinks, but the PPG rises and esophageal varices grow. Which lever moved?', 'The gastrorenal shunt, an outflow for portal blood, was closed. That blood stays in the portal system, so the pressure rises and the esophageal route opens.'],
     ['Fundal varices, a normal liver and a large spleen: what do you look for, and what treats it?', 'A clotted splenic vein on contrast CT. Splenectomy, a splenic vein stent or splenic artery embolization treats it.'],
   ],
-  summary: 'The Sarin classes, carvedilol before a first bleed, glue and TIPS after one, what BRTO does to the portal pressure, and the clotted splenic vein that a splenectomy cures.',
+  summary: 'The Sarin classes, carvedilol before a first bleed, glue and TIPS after one, what BRTO does to the portal pressure, and the clotted splenic vein: EUS-guided coils and glue for the varix, then a splenectomy cures it.',
   slides: [
     {
       id: 'classes', preset: 'gastric-varix', cam: 'fundus', terms: ['gv'], data: 'tiles',
@@ -86,12 +86,15 @@ export const GASTRIC = {
       ask: ['Fundal varices with a liver stiffness of 5 kPa. What is the likely cause?', 'A clotted splenic vein (left-sided portal hypertension).'],
     },
     {
-      id: 'splenectomy', params: { splenicRx: 0 }, cam: 'splenic', terms: ['gv'],
+      // (EUS-guided coils and glue first, played step by step (proc-anim.js ENDO.eusglue): Next plays each step, the varix closes, then
+      // the buttons treat the spleen. His ask, 7 Nov 2026: "add EUS guided coiling and glue injection ... before embolizing and removing
+      // the spleen as a step".)
+      id: 'splenectomy', params: { splenicRx: 0 }, cam: 'splenic', terms: ['gv'], procedure: 'eusglue',
       compare: [{ label: 'Spleen in place', short: 'None', own: true, params: { splenicRx: 0 } }, { label: 'Partial embolization', short: 'Embolized', params: { splenicRx: 1 } }, { label: 'Splenectomy', short: 'Removed', params: { splenicRx: 2 } }],
       data: 'tiles', tiles: ['gv', 'plt'], key: ['gv'], delta: 'svt',
       kicker: 'A clotted splenic vein', site: 'pre', title: 'Treat the spleen',
-      line: 'Splenectomy, splenic artery embolization or a splenic vein stent shrinks the {gv} fundal varices, and the platelets ({plt}) rise; a TIPS would not help.',
-      notes: 'Leave it, embolize part of it, or remove it: the presenter chooses. Source: AASLD 47. AASLD: bleeding gastric varices from an isolated splenic vein clot should be considered for splenectomy, a splenic vein stent or splenic artery embolization. The pressure comes from the spleen\'s own outflow, so a TIPS, which decompresses the portal vein, does not reach it. The buttons compare the spleen in place, partial embolization and splenectomy. Partial splenic embolization infarcts half to two thirds of the splenic pulp through a catheter in the splenic artery; pain and fever for a few days are common afterwards, and splenic abscess and portal vein thrombosis are rarer. Splenectomy carries real risk and splenic and portal vein thrombosis is common after it, because blood stagnates in the stump of the splenic vein, so look for a clot in the weeks after it.',
+      line: 'EUS coils and glue close the bleeding varix. Treating the spleen (splenectomy, embolization or a splenic vein stent) then shrinks the {gv} fundal varices, and the platelets ({plt}) rise.',
+      notes: 'Next plays the EUS-guided coils and glue step by step; then leave the spleen, embolize part of it, or remove it: the presenter chooses. Source: Baveno VIII 5.40; AASLD 47. Baveno VIII: for a bleed from GOV2 or IGV1, conventional cyanoacrylate injection and EUS-guided therapy stop the bleeding about equally well; in experienced centres EUS-guided coils with cyanoacrylate may close more varices and cut late rebleeding (a weak recommendation). The echoendoscope finds the varix through the stomach wall with color Doppler; a 19-gauge needle enters it, coils are pushed through the needle and curl inside it, and the glue injected over them casts it. Doppler then shows no flow in the varix. In the model the varix closes and the gastrorenal shunt stays open. The glue treats the varix, not its cause: with the splenic vein still clotted the splenic side stays under pressure, so the spleen is treated next. AASLD AASLD: bleeding gastric varices from an isolated splenic vein clot should be considered for splenectomy, a splenic vein stent or splenic artery embolization. The pressure comes from the spleen\'s own outflow, so a TIPS, which decompresses the portal vein, does not reach it. The buttons compare the spleen in place, partial embolization and splenectomy. Partial splenic embolization infarcts half to two thirds of the splenic pulp through a catheter in the splenic artery; pain and fever for a few days are common afterwards, and splenic abscess and portal vein thrombosis are rarer. Splenectomy carries real risk and splenic and portal vein thrombosis is common after it, because blood stagnates in the stump of the splenic vein, so look for a clot in the weeks after it.',
       ask: ['Why does a TIPS not help a fundal bleed caused by a clotted splenic vein?', 'The portal vein pressure is normal; the high pressure is on the splenic side of the clot, which a TIPS does not decompress.'],
     },
     {

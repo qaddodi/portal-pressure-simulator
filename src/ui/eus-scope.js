@@ -58,6 +58,21 @@ export const EUS_RHO = 45, EUS_BEND_MIN = 14, EUS_RIGID = 11;
 const WAY = smoothWay([ESO, CARDIA, PROXIMAL]);
 const RIGID = EUS_RIGID, FAN_HALF = (30 * Math.PI) / 180;
 
+// EUS-guided coils and glue for a fundal varix (proc-anim.js ENDO.eusglue; Baveno VIII 5.40): the same echoendoscope, down the esophagus,
+// through the cardia on one wide turn (radius 40, over three scope widths: never a sharp knee, his ask, 7 Nov 2026) and on under the dome
+// of the fundus, above the arch where the short gastric feeder (C2) meets the gastrorenal shunt, to a station over the varix. Straight
+// there (no turn of its bending section), its transducer faces down onto the varix and the elevator raises the needle square to the scope,
+// so the needle runs straight down into the varix, clear of the shunt (C5) and of the arch where the two meet.
+/** Where on the figure the varix is punctured: a vessel and how far along its drawn course; the glue's X sits there too (stage-clamps). */
+export const EUS_GLUE_TARGET = ['C2', 0.8];
+/** The glue's station: the scope's end, the needle's angle forward of the axis (square to it) and the transducer's side (+1: below). */
+export const EUS_GLUE_STATION = { at: [925, 281], exit: 90 * DEG, hand: 1 };
+const GLUE_TURN = Array.from({ length: 9 }, (_, i) => { const a = ((5 + i * 10.6) * Math.PI) / 180; return [842 - 40 * Math.cos(a), 244 + 40 * Math.sin(a)]; });
+const FUNDUS = [[854, 283.7], [866, 283.2], [878, 282.6], [891, 282], [904, 281.5], [915, 281.2], [925, 281]];
+const GLUE_WAY = smoothWay([ESO, GLUE_TURN, FUNDUS]);
+// (The box a station's work fills on screen: the scope's end and its target, with room round them.)
+const workBox = (q, t, m) => [Math.min(q[0], t[0]) - m, Math.min(q[1], t[1]) - m, Math.max(q[0], t[0]) + m, Math.max(q[1], t[1]) + m];
+
 /** The route for stage-cath.js PROC_ROUTES (its builder lays loose points at the scope's own radius). */
 export const EUS_ROUTE = {
   ids: ['PVH_L', 'LHV_IVC'], start: 0.5, tip: ['sto', 1], focus: ['eso', 'sto'],
@@ -67,6 +82,7 @@ export const EUS_ROUTE = {
   },
   // (After the route is laid: the hepatic vein's station (the route's point nearest it), the targets, and the box the work's close-up frames.)
   after(r, geo) {
+    r.scope = true;
     const h = EUS_STATIONS.hv.at;
     let best = Infinity;
     for (let i = 0; i < r.pts.length; i++) { const d = Math.hypot(r.pts[i][0] - h[0], r.pts[i][1] - h[1]); if (d < best) { best = d; r.hvD = r.cum[i]; } }
@@ -78,6 +94,25 @@ export const EUS_ROUTE = {
     // (At the hepatic vein's, the portal vein's reading still shows: its target is framed too, so both readings stay in the free figure.)
     const hw = work(h, r.tg.hv), pw = work(r.tg.pv, r.tg.pv);
     r.work = { pv: work(end, r.tg.pv), hv: [Math.min(hw[0], pw[0]), Math.min(hw[1], pw[1]), Math.max(hw[2], pw[2]), Math.max(hw[3], pw[3])] };
+  },
+};
+
+/** The coils-and-glue route (stage-cath.js PROC_ROUTES.eusglue): one station, one target, the varix. */
+export const EUS_GLUE_ROUTE = {
+  ids: [EUS_GLUE_TARGET[0]], start: 0.5, tip: ['fundus', 1], focus: ['eso', 'fundus'],
+  build(B) {
+    const R = '=' + EUS_SCOPE_R.toFixed(3), [eso, turn, fundus] = GLUE_WAY;
+    B.pts(LEAD, R, 0); B.pts(eso, R, 0, 'eso'); B.pts(turn, R, 0, 'cardia'); B.pts(fundus, R, 0, 'fundus');
+  },
+  // (The one station, at the route's end, for both of the scope's targets; the varix's point; the glue's vessel and where on it (the
+  // tint it fills, stage-cath cathPaint); the box the needle's close-up frames, and the result's: the whole varix and the scope over it.)
+  after(r, geo) {
+    const [id, f] = EUS_GLUE_TARGET, T = pointOn(geo[id].cur, f), end = EUS_GLUE_STATION.at;
+    r.scope = true; r.stations = { pv: EUS_GLUE_STATION, hv: EUS_GLUE_STATION };
+    r.tg = { pv: T, hv: T }; r.glue = { id, f };
+    r.work = { glue: workBox(end, T, RIGID * 2.2) };
+    const C = geo[id].cur, xs = [end[0] - RIGID * 3, end[0] + RIGID, ...C.map((q) => q[0])], ys = [end[1] - RIGID * 1.5, ...C.map((q) => q[1])];
+    r.result = [Math.min(...xs) - 14, Math.min(...ys) - 14, Math.max(...xs) + 14, Math.max(...ys) + 14];
   },
 };
 
@@ -187,7 +222,7 @@ export function eusDraw(st, r, tipD, at, rgb) {
   TGT[0] = r.tg.pv[0] + (r.tg.hv[0] - r.tg.pv[0]) * tg; TGT[1] = r.tg.pv[1] + (r.tg.hv[1] - r.tg.pv[1]) * tg;
   // The shaft along the route to the start of the bend, then the bend (an arc of one curvature to the turned axis), then the rigid tip.
   // (The elevator's angle and the transducer's side go from one station's to the other's while the scope moves, its tip straight then.)
-  const S = tg < 0.5 ? EUS_STATIONS.pv : EUS_STATIONS.hv, exitA = EUS_STATIONS.pv.exit + (EUS_STATIONS.hv.exit - EUS_STATIONS.pv.exit) * tg;
+  const ST = r.stations || EUS_STATIONS, S = tg < 0.5 ? ST.pv : ST.hv, exitA = ST.pv.exit + (ST.hv.exit - ST.pv.exit) * tg;
   const g = eusPose(r, tipD, at, TGT, st.aim || 0, exitA, S.hand, TIP), d0 = g.d0;
   for (let d = 0; d < d0 - STEP * 0.5; d += STEP) { const q = at(r, d); push(q.p[0], q.p[1]); }
   bendWalk(r, at, d0, d0 + g.bend, g.phi, SPOT, push);
@@ -263,6 +298,31 @@ export function eusDraw(st, r, tipD, at, rgb) {
     line(0, sh, 1.45, 7, INK, 0.7); line(0, sh, 1.25, 2, SHEATH, 1);
     if (nl > sh) { line(sh - 0.2, nl, (l) => nw(l) + 0.16, 7, INK, 0.8); line(sh - 0.2, nl, nw, 3, STEEL, 1); }
   }
+  // The coils (EUS-guided coils and glue): a fine steel coil pushed out of the needle's point curls into loops inside the varix, across
+  // the needle's line (along the vessel), as much of it as is out (st.coil 0..1). They stay in the varix once the needle is back.
+  if ((st.coil || 0) > 0.01) {
+    const k = Math.min(1, st.coil), m = Math.max(3, Math.ceil(COIL_N * k)), ax = g.nd[0], ay = g.nd[1], qx = -ay, qy = ax;
+    const first0 = V.length / 6;
+    let px = 0, py = 0;
+    for (let i = 0; i <= m; i++) {
+      const u = (k * i) / m, th = COIL_TURNS * 2 * Math.PI * u, rho = COIL_R * (1 - 0.3 * u), along = (u - 0.5) * COIL_SPAN;
+      CP[i * 2] = TGT[0] + qx * (along + rho * Math.cos(th)) + ax * rho * Math.sin(th) * 0.8;
+      CP[i * 2 + 1] = TGT[1] + qy * (along + rho * Math.cos(th)) + ay * rho * Math.sin(th) * 0.8;
+    }
+    for (const [w, mode, col, alpha] of COIL_LAYERS) {
+      const first = V.length / 6;
+      let run = 0;
+      for (let i = 0; i <= m; i++) {
+        const j0 = Math.max(0, i - 1), j1 = Math.min(m, i + 1), dx = CP[j1 * 2] - CP[j0 * 2], dy = CP[j1 * 2 + 1] - CP[j0 * 2 + 1], l = Math.hypot(dx, dy) || 1;
+        const x = CP[i * 2], y = CP[i * 2 + 1], nx = -dy / l, ny = dx / l;
+        if (i) run += Math.hypot(x - px, y - py);
+        px = x; py = y;
+        V.push(x - nx * w, y - ny * w, nx, ny, -1, run, x + nx * w, y + ny * w, nx, ny, 1, run);
+      }
+      draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: [0, 0], len: run + 1 });
+    }
+    OUT.coil = first0;
+  } else OUT.coil = -1;
   const tcol = rgb(tg < 0.5 ? 'var(--tr-pv)' : 'var(--tr-hv)');
   if ((st.flash || 0) > 0) for (const k of [st.flash, (st.flash + 0.5) % 1]) disc(TGT[0], TGT[1], 1, 0, 1.4 + 6 * k, 1.4 + 6 * k, 6, tcol, (1 - k) * (1 - k) * 0.85);
   if (st.ring) {
@@ -274,6 +334,10 @@ export function eusDraw(st, r, tipD, at, rgb) {
   return OUT;
 }
 const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+// (The coil: its samples, its turns, its loops' radius and how far it runs along the vessel, world units; drawn as the needle's steel on
+// its dark edge.)
+const COIL_N = 72, COIL_TURNS = 3.2, COIL_R = 3.6, COIL_SPAN = 8, CP = new Float64Array((COIL_N + 1) * 2);
+const COIL_LAYERS = [[0.78, 7, INK, 0.75], [0.56, 3, STEEL, 1]];
 // (The scope's centreline as drawn, for the tests: its samples' count and coordinates, kept.)
 const LINE = { n: 0, x: null, y: null };
-const OUT = { V, draws, tip: null, needle: null, line: null };
+const OUT = { V, draws, tip: null, needle: null, line: null, coil: -1 };

@@ -179,8 +179,47 @@ export const GRAFTS = {
     before: { rex: false },
   },
 };
-/** A procedure's, a measurement's or a graft's definition. */
-export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || null;
+// A treatment through the echoendoscope (EUS-guided coils and glue, Baveno VIII 5.40), played as BRTO and BATO are, step by step with a
+// numbered callout on the varix. It changes the model (the varix is closed), so it is not a measurement; it is not a catheter either, so
+// it stays off the HVPG card's treatment buttons (PROCS). A slide plays it: Gastric varices, Treat the spleen (his ask, 7 Nov 2026: "EUS
+// guided coiling and glue injection ... before embolizing and removing the spleen as a step").
+// The scope goes down the esophagus, through the cardia on one wide turn and on under the fundus to a station over the varix
+// (eus-scope.js EUS_GLUE_ROUTE); straight there, its transducer faces the varix and the needle goes square from it into the varix (no sharp
+// bend: his ask). Coils are pushed through the needle and curl inside the varix, then cyanoacrylate is injected over them and casts it.
+// The model then closes the varix alone (occluded C2: its X sits on the varix, never on the gastrorenal shunt, and the flow in it slows to
+// a stop as the model eases), as step 5 starts, after the glue's stop (as BRTO's shunt closes only at its step 4).
+const GLUE_T = { travel0: 300, travel1: 6000, aim0: 6400, aim1: 7200, fan0: 6500, fan1: 7300, needle0: 7600, needle1: 9000, flash0: 8900, flash1: 9700,
+  coil0: 10300, coil1: 12700, fill0: 13300, fill1: 16000, apply: 16600, needleOut0: 16900, needleOut1: 17800, fanOut0: 17600, fanOut1: 18400,
+  aimOut0: 17800, aimOut1: 18600, back: 18800, end: 22600 };
+const GLUE_STOPS = [6200, 9900, 13000, 16300, 22600];
+const GLUE_SHOT_MS = { way: 1200, tip: 800, work: 1200 };
+// (The callouts on the varix: none while the scope goes in, then each step's number and word where the needle went in. The varix is
+// the short gastric feeder's course, C2, at the glue's point (eus-scope.js EUS_GLUE_TARGET).)
+const GLUE_F = 0.8;
+const GLUE_STEPS = [
+  ['enter', 'Scope in', 'A linear echoendoscope goes down the esophagus, through the cardia and on under the fundus. From there it images the fundal varix through the stomach wall, and color Doppler shows the blood running through it.', 'Scope', 'way', 'C2', [], GLUE_F],
+  ['needle', 'Needle in', 'The transducer faces the varix. A 19-gauge needle, raised square to the scope, crosses the stomach wall into the varix.', 'Needle', 'tip', 'C2', ['GV'], GLUE_F],
+  ['coils', 'Coils', 'Coils are pushed through the needle and curl inside the varix. They hold the glue that follows, so less of it washes away into the shunt.', 'Coils', 'tip', 'C2', ['GV'], GLUE_F],
+  ['glue', 'Glue', 'Cyanoacrylate is injected over the coils. It sets in seconds and casts the varix from inside.', 'Glue', 'tip', 'C2', ['GV'], GLUE_F],
+  ['done', 'Varix closed', 'The varix is closed: the flow in it slows and stops. The gastrorenal shunt stays open, and the clotted splenic vein is still there, so the spleen is treated next.', 'Closed', 'work', 'C2', ['GV'], GLUE_F],
+];
+const GLUE_MARKS = GLUE_STEPS.map((s, i) => (i ? Object.freeze([{ edges: [s[5]], label: `${i + 1} ${s[1]}`, num: String(i + 1), word: s[1], kind: 'treat', f: s[7], pin: true, ghost: true }]) : Object.freeze([])));
+const glueHad = (p) => !!p.occluded?.C2;
+export const ENDO = {
+  eusglue: {
+    name: 'EUS coils and glue', label: 'EUS coils and glue', T: GLUE_T, stops: GLUE_STOPS, shotMs: GLUE_SHOT_MS, holdEnd: true,
+    steps: GLUE_STEPS,
+    marks: (i) => GLUE_MARKS[i] || GLUE_MARKS[0],
+    can: (p, m) => (p.spontaneous?.C5 === false ? 'This patient has no fundal varices.' : p.occluded?.C2 || p.occluded?.C5 ? 'The fundal varices are already closed.'
+      : !hasGastricVarices(m) ? 'This patient has no gastric varices to treat.' : ''),
+    apply: (p) => { p.occluded = { ...p.occluded, C2: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
+    had: glueHad,
+    undo: (p) => { p.occluded = { ...p.occluded, C2: false }; return p; },   // alloc-rare: once, going back past T.apply
+    before: { occluded: { C2: false } },
+  },
+};
+/** A procedure's, a measurement's, a graft's or an endoscopic treatment's definition. */
+export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || ENDO[kind] || null;
 // The readings each kind's last run took (its callouts and its card read them): { pv, hv, ppg } for EUS-PPG.
 export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN } };
 // (No params at all: the checks below only read, so one empty record stands in, not a new one each call.)
@@ -207,7 +246,7 @@ function oblitUndo(p) { p.occluded = { ...p.occluded, C5: false }; return p; }
 export const procBlocked = (kind, p, m = null) => (specOf(kind) ? specOf(kind).can(p || NO_PARAMS, m) : 'Unknown procedure.');
 /** Whether a procedure is offered at all for this patient: BRTO and BATO only while there are gastric varices (or the
  *  procedure has already closed them, so it can be watched again). TIPS always is (dimmed when it cannot run). */
-export const procOffered = (kind, p, m = null) => !!specOf(kind) && (GRAFTS[kind] ? GRAFTS[kind].had(p || NO_PARAMS) || GRAFTS[kind].offered(p) : kind === 'tips' || !!MEASURES[kind] || PROCS[kind].had(p || NO_PARAMS) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
+export const procOffered = (kind, p, m = null) => !!specOf(kind) && (GRAFTS[kind] ? GRAFTS[kind].had(p || NO_PARAMS) || GRAFTS[kind].offered(p) : kind === 'tips' || !!MEASURES[kind] || specOf(kind).had(p || NO_PARAMS) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
 
 /** The step a time falls in (pure): each runs up to and including its stop, so a procedure held at a stop still shows that step. */
 export const stepAt = (kind, t) => { const S = specOf(kind).stops; for (let i = 0; i < S.length; i++) if (t <= S[i]) return i; return S.length - 1; };
@@ -246,6 +285,7 @@ export function procFrame(kind, t, stops = null, into = null) {
   const opacity = 1 - k01(t, T.end - 800, T.end);
   const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
   if (kind === 'eus') return eusFrame(T, t, back, opacity, step, shot, into || {});
+  if (kind === 'eusglue') return glueFrame(T, t, back, opacity, step, shot, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
   if (P.graft) {
     const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
     f.u = 0; f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
@@ -296,6 +336,23 @@ function eusFrame(T, t, back, opacity, step, shot, f) {
   return f;
 }
 
+/**
+ * EUS-guided coils and glue at t ms (pure): u, how far in the scope is; aim, its port open and the elevator up (the scope does not turn:
+ * the needle leaves square to it, eus-scope.js); fan, the ultrasound sector; needle, how far out the needle is (0..1 of the way to the
+ * varix); flash, the hit's rings; coil, how much of the coil is out in the varix (it stays there); column, the glue filling the varix along
+ * its course (stage-cath.js tints it; it stays). tgt 0: one station, one target.
+ */
+function glueFrame(T, t, back, opacity, step, shot, f) {
+  f.u = ease(k01(t, T.travel0, T.travel1)) * (1 - back); f.balloon = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.tgt = 0; f.wire = 0; f.read = 0;
+  f.aim = ease(k01(t, T.aim0, T.aim1)) * (1 - ease(k01(t, T.aimOut0, T.aimOut1)));
+  f.fan = ease(k01(t, T.fan0, T.fan1)) * (1 - ease(k01(t, T.fanOut0, T.fanOut1)));
+  f.needle = ease(k01(t, T.needle0, T.needle1)) * (1 - ease(k01(t, T.needleOut0, T.needleOut1)));
+  f.flash = t > T.flash0 && t < T.flash1 ? k01(t, T.flash0, T.flash1) : 0;
+  f.coil = ease(k01(t, T.coil0, T.coil1));
+  f.column = ease(k01(t, T.fill0, T.fill1));
+  return f;
+}
+
 // How many procedures or measurements are playing (one catheter or scope on the figure at a time: each card asks before it starts one).
 let runs = 0;
 export const procRunning = () => runs > 0;
@@ -320,8 +377,8 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = P.stops[at];
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
-  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0 };
-  const cat = { route: kind, u: 0, needle: 0, wire: 0, flash: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0, coil: 0 };
+  const cat = { route: kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
   let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2, shownMark = -3;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
@@ -340,7 +397,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     }
     // (The view follows the tip in on the first step, once its shot has landed; a measurement's, its work as well.)
     cat.u = f.u; cat.needle = f.needle; cat.wire = f.wire; cat.flash = f.flash; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
-    cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? 'var(--tr-hv)' : null;
+    cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; cat.coil = f.coil || 0; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? 'var(--tr-hv)' : null;
     if (P.labels) P.labels(t, rd, read?.(), cat.labels);
     // (A measurement's scope is followed at its work too, from one station to the next: its shot names which, 'way' or 'tip'.)
     // (BRTO and BATO's 'fill': the view follows the sclerosant's front.)

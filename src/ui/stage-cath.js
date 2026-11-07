@@ -13,12 +13,14 @@ import { LIGHT } from './light.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { clamp, lerp, s } from './util.js';
-import { EUS_ROUTE, eusDraw } from './eus-scope.js';
+import { EUS_GLUE_ROUTE, EUS_ROUTE, eusDraw } from './eus-scope.js';
 
 import { stageScope } from './stage-scope.js';
 export function createCath(st, live) {
   const { E, NO_LIST, animateVT, appEl, applyVT, blockersRead, cardSpace, cardSpaceRead, cath, clientToVB, clientToVBFast, drawFrame, easeFrame, easeInOut, geo, glWanted, late, nextFrame, polyD, readBlockersRead, readFrame, refreshCTM, safeInsets, stageBox, syncVeins, toRGB, worldToLocalInto, wrap, wrapCS } = st;
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
+  // (How far the glue spreads along the varix each way from the needle's point, as a share of the vessel's course, once it has all gone in.)
+  const GLUE_SPREAD = 0.16;
   const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
   /** The part of a polyline from length a to length b (cumulative lengths in cum). */
   function cutLen(pts, cum, a, b) {
@@ -137,6 +139,7 @@ export function createCath(st, live) {
         B.vessel('SV_CONF', { rev: true, name: 'splenic' }); B.vessel('C2', { name: 'feeder' });
       } },
     eus: EUS_ROUTE,   // (EUS-PPG's echoendoscope: down the esophagus to the lesser curve, eus-scope.js)
+    eusglue: EUS_GLUE_ROUTE,   // (EUS-guided coils and glue: the same scope, on under the fundus to a station over the varix)
   };
   // A leg's lumen radius: a vessel's drawn caliber there, or a fixed one ('=r', a tract through the liver).
   const PROC_FIXED = new Map();   // ('=r' → r, each fixed radius a route was built with, set when the leg is laid)
@@ -227,7 +230,12 @@ export function createCath(st, live) {
     // pressure's color in the vessel's own rendering, filling outward as the column settles.
     let tint = null;
     const col = clamp(st.column || 0, 0, 1);
-    if (gpu && col > 0.001 && r.parts) {
+    if (gpu && col > 0.001 && r.glue) {
+      // EUS-guided glue: it fills the varix from the needle's point both ways along its course (r.glue: the vessel and the point), as far
+      // as the coils hold it, the cast's ends soft.
+      const g = r.glue, w = GLUE_SPREAD * col;
+      tint = { col: st.columnColor || 'var(--tr-scler)', soft: Rf * 1.6, [g.id]: [g.f - w, g.f + w * 0.9] };
+    } else if (gpu && col > 0.001 && r.parts) {
       // A treatment's sclerosant: from the tip on to the route's end, each vessel it reaches tinted over the part it covers
       // (an end where it runs on into the next vessel left open, so the joins show no edge).
       const a = tipD, reach = a + (r.total - a) * col;
@@ -248,7 +256,7 @@ export function createCath(st, live) {
     const tk = !tint ? '' : r.parts ? Object.entries(tint).map(([k, v]) => (Array.isArray(v) ? `${k}:${v.map((x) => x.toFixed(3))}` : k === 'col' ? v : '')).join('|')
       : `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}`;
     if (tk !== cath.tintKey) { cath.tintKey = tk; live.cathTint = tint; if (!live.inUpdate) syncVeins(easeInOut(live.morph)); }
-    if (gpu) (r.hvD ? eusGL : cathGL)(st, r, tipD, rc);
+    if (gpu) (r.scope ? eusGL : cathGL)(st, r, tipD, rc);
     else cathSVG(st, r, tipD, rc * 2, Rf * 2);
     live.cathVer++; live.stageWake();
     // In order, once a frame: the catheter (above), the camera following it, its readings for both, then the one render pass
@@ -828,7 +836,10 @@ export function createCath(st, live) {
   const OBLIT_K_WAY = 4, OBLIT_K_TIP = 7, OBLIT_K_WORK = 5, OBLIT_LEAD = 0.18;
   // (The result frame: from a little before the shunt (BATO: the feeder) leaves its vein, OBLIT_BACK, to the varices, with room above them.)
   const OBLIT_BACK = 40, OBLIT_VARIX_PAD = 26;
-  const isOblit = (r) => !!r.parts && !r.box && r.kind !== 'tips';
+  const isOblit = (r) => r.kind === 'brto' || r.kind === 'bato';
+  // EUS-guided coils and glue rides the same way (his ask, 7 Nov 2026: camera B, as BRTO and BATO): the way in at OBLIT_K_WAY, the view riding
+  // with the scope's tip and the way ahead of it; a short push in to the needle and the varix, up to OBLIT_K_TIP, held still while the
+  // needle, the coils and the glue go in; then one pull back to the whole varix with its X and the scope over it, up to OBLIT_K_WORK.
   // (Where the view is held for a point d on the route: lead ahead of it, never past the varices (fill: never so far that they reach the edge).)
   const oblitAim = (r, d, lead, fill) => (fill ? Math.max(d, Math.min(r.total - lead * 1.1, d + lead)) : Math.min(r.total, d + lead));
   // (The TIPS close-up, his ask, 5 Nov: the tract itself with a short stretch of the hepatic vein before it and of the right portal
@@ -846,6 +857,7 @@ export function createCath(st, live) {
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
     if (isOblit(r) && (mode === 'tip' || mode === 'fill' || mode === 'work' || (mode === 'way' && !reduceMotion.matches))) return oblitFocus(r, mode, wr, ins, ms, steady);
+    if (r.glue && (mode === 'tip' || mode === 'work' || mode === 'way')) return glueFocus(r, mode, wr, ins, ms, steady);
     if ((mode === 'tip' || mode === 'way' || mode === 'work') && r.focus) {
       // A treatment's two shots, at one scale, the stretch it works on (the hepatic vein, the tract and the portal vein; the renal
       // vein and the shunt; the splenic vein and the feeder) filling the space the cards leave, up to PROC_K_MAX: close enough to
@@ -929,6 +941,27 @@ export function createCath(st, live) {
     animateVT({ k, x: (fr.x0 + fr.x1) / 2 - c[0] * k, y: (fr.y0 + fr.y1) / 2 - c[1] * k }, ms, { steady });
     return true;
   }
+  // EUS-guided coils and glue's shots: 'way', OBLIT_K_WAY on a point OBLIT_LEAD of the free height ahead of the scope's tip, which the view
+  // follows (cathFollow); 'tip', the scope's end and the varix under it, as close as they fit up to OBLIT_K_TIP; 'work', the result, the
+  // whole varix, its X and the scope over it, up to OBLIT_K_WORK. (Reduced motion: no following, so the way in is framed whole, still.)
+  function glueFocus(r, mode, wr, ins, ms, steady) {
+    const fr = cathFree(wr, ins), fw = fr.x1 - fr.x0, fh = fr.y1 - fr.y0;
+    cath.followPx = fr.px;
+    let k, c;
+    if (mode === 'way' && !reduceMotion.matches) {
+      k = OBLIT_K_WAY;
+      const lead = cath.followLead = OBLIT_LEAD * fh / k, d = Math.max(r.start + (r.free - r.start) * clamp(cath.st?.u || 0, 0, 1), procIn(r));
+      c = cathAt(r, oblitAim(r, d, lead, false)).p;
+    } else {
+      const b = mode === 'tip' ? r.work.glue : mode === 'work' ? r.result : boxOf(cutLen(r.pts, r.cum, procIn(r), r.total), 30);
+      k = clamp(Math.min(fw / (b[2] - b[0]), fh / (b[3] - b[1])) * 0.88, 1, mode === 'tip' ? OBLIT_K_TIP : mode === 'work' ? OBLIT_K_WORK : OBLIT_K_WAY);
+      c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+    }
+    animateVT({ k, x: (fr.x0 + fr.x1) / 2 - c[0] * k, y: (fr.y0 + fr.y1) / 2 - c[1] * k }, ms, { steady });
+    return true;
+  }
+  // (A polyline's box, with room m round it: [x0, y0, x1, y1].)
+  const boxOf = (P, m) => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (const q of P) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); } return [x0 - m, y0 - m, x1 + m, y1 + m]; };
   // The free space for a treatment's close-up, in the figure's viewBox units: the stage less its insets and the cards over it
   // (the Tests card at the side, a slide's words, a phone's sheet), whichever side leaves the most room.
   function cathFree(wr, ins) {
@@ -972,7 +1005,7 @@ export function createCath(st, live) {
     // ways at the shot's one scale, eased (never a snap), from where the route enters the figure. (EUS-PPG at work: the station's work.)
     if (r.parts) {
       // (BRTO and BATO aim ahead of the tip on the way in, and at the sclerosant's front while it fills: oblitFocus.)
-      const ob = isOblit(r), lead = ob ? cath.followLead || 0 : 0, fill = ob && st.follow === 'fill';
+      const ob = isOblit(r) || !!r.glue, lead = ob ? cath.followLead || 0 : 0, fill = ob && st.follow === 'fill';
       const tq = cathAt(r, ob ? oblitAim(r, fill ? r.free + (r.total - r.free) * clamp(st.column || 0, 0, 1) : Math.max(tipD, procIn(r)), lead, fill) : Math.max(tipD, procIn(r))).p, px = cath.followPx || [(ins.l + ins.W - ins.r) / 2, (ins.t + ins.H - ins.b) / 2];
       if (r.box && st.follow === 'tip') eusWorkAt(r, clamp(st.tgt || 0, 0, 1), tq);   // (cathAt hands a fresh point: written over in place)
       const [mx, my] = clientToVBFast(wr.left + px[0], wr.top + px[1]), e = 1 - Math.exp(-dt / 320), kk = live.vt.k;

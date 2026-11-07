@@ -110,6 +110,7 @@ export const ADOPTED = {
   'gastric-varices/tips': ['kind:flows', 'procedure'],
   'gastric-varices/brto': ['kind:flows', 'procedure'],
   'gastric-varices/bato': ['kind:flows', 'procedure'],
+  'gastric-varices/splenectomy': ['procedure'],
   'hyperdynamic/loss': ['question'],
   'variceal-bleed/before': ['calipers'],
   'variceal-bleed/oct': ['ripple'],

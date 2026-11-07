@@ -10,6 +10,7 @@ import { restPass } from './rest-pass.js';
 import { store } from './store.js';
 import { glyphsReady, loadGlyphs, textBox, textPolys } from './text-gl.js';
 import { s } from './util.js';
+import { EUS_GLUE_TARGET } from './eus-scope.js';
 import { ringShapes } from './scope-lens-rule.js';
 
 import { stageScope } from './stage-scope.js';
@@ -280,7 +281,8 @@ export function createClamps(st, live) {
     if (E.S_DSR.vis && !E.S_DSR.reveal && E.LGV_CONF?.vis) ligature('LGV_CONF', 'S_DSR', CORONARY_TIE);
     for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {
       if (!isOccluded(p, id) || !E[id] || !E[id].vis) continue;
-      const [x, y] = pointAt(geo[id].cur, 0.5);
+      // (EUS-guided glue closes the varix alone, C2 with the shunt open: its X sits where the needle went in, on the varix: proc-anim.js ENDO.)
+      const [x, y] = pointAt(geo[id].cur, id === 'C2' && !p.occluded.C5 ? EUS_GLUE_TARGET[1] : 0.5);
       putMark(ov.plugs, `plug:${id}`, id, [s('circle', { cx: x, cy: y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
         s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
     }

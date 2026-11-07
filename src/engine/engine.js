@@ -1258,8 +1258,9 @@ export class Engine {
     // Fundal varices exist only where a gastrorenal shunt can drain them.
     // Isolated fundal varices (IGV1) have no esophageal varices beside them, until BRTO closes their shunt.
     // BRTO plugs that shunt and its short gastric feeder and obliterates the varices with it: they shrink back to a
-    // resting vein even though the splenic-to-caval gradient that sized them climbs once the shunt is closed.
-    const ex0 = (site === 'GV' && (p.spontaneous.C5 === false || p.occluded.C5)) || (site === 'VAR' && p.isolatedGV && !p.occluded.C5) ? -1e9 : ex;
+    // resting vein even though the splenic-to-caval gradient that sized them climbs once the shunt is closed. EUS-guided coils and
+    // glue cast the varix itself (the feeder, C2, closed with the shunt left open): it too is obliterated, whatever the gradient.
+    const ex0 = (site === 'GV' && (p.spontaneous.C5 === false || p.occluded.C5 || p.occluded.C2)) || (site === 'VAR' && p.isolatedGV && !p.occluded.C5) ? -1e9 : ex;
     // Esophageal varices are collaterals too, so they take weeks to form: their size is capped by how far the coronary
     // vein feeding them has remodeled on the disease clock (none at the onset of an acute block). Fundal varices ride
     // on a gastrorenal shunt that is present from birth, so they are not capped.
