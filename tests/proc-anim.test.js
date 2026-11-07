@@ -139,7 +139,7 @@ test('every step plays inside one shot, the camera moving only between steps, tw
     for (let i = 1; i < P.stops.length; i++) assert.ok(P.stops[i] > P.stops[i - 1], `${k}: stops in order`);
     // (shots: the whole way in first, then the close-up for the rest; never back out mid-procedure. BRTO and BATO frame the
     // balloon closer still, then the tip on to the varices for the sclerosant: his ask, 29 Oct, "zoom into the balloon catheter tip")
-    assert.deepEqual(P.steps.map((s) => s[4]), k === 'tips' ? ['way', 'tip', 'tip', 'tip'] : ['way', 'tip', 'work', 'work'], `${k} shots`);
+    assert.deepEqual(P.steps.map((s) => s[4]), k === 'tips' ? ['way', 'tip', 'tip', 'tip'] : ['way', 'tip', 'fill', 'work'], `${k} shots`);
     for (const t of times(T)) {
       const f = procFrame(k, t);
       if (f.step >= 0) { assert.equal(f.step, stepAt(k, t)); assert.equal(f.shot, P.steps[f.step][4], `${k} at ${t}`); }
@@ -222,12 +222,31 @@ test('presented, it holds at each step until Next, waits for each shot to land, 
     assert.equal(applied, 0, 'and nothing is applied going back');
     assert.equal(steps.at(-1), 1);
     assert.ok(play.back()); R.run(30000);
-    assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'work', 'tip', 'way'], 'back through each shot, between steps');
+    assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'fill', 'tip', 'way'], 'back through each shot, between steps');
     assert.ok(play.back()); R.run(30000);
     assert.equal(play.running, false); assert.deepEqual(ends, [{ done: false, rewound: true }]);
     assert.equal(R.moves.at(-1).mode, 'home'); assert.equal(marks.at(-1), null);
     assert.equal(R.cats.at(-1), null, 'the catheter is gone');
     void P;
+  } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
+});
+
+// Mock B, his pick, 7 Nov 2026: played step by step to its end, BRTO keeps its result framed (no glide home while the catheter backs
+// out); the slide's next move takes the camera from there.
+test('presented to its end, BRTO and BATO hold their result: no glide home', () => {
+  const saved = { p: globalThis.performance, r: globalThis.requestAnimationFrame, c: globalThis.cancelAnimationFrame };
+  try {
+    for (const k of ['brto', 'bato']) {
+      const R = rig(), ends = [];
+      let forgot = 0;
+      R.stage.cathForget = () => forgot++;
+      const play = playProcedure(R.stage, k, { stepped: true, onEnd: (e) => ends.push(e) });
+      R.run(12000);
+      for (let i = 0; i < 3; i++) { assert.ok(play.next()); R.run(30000); }
+      assert.deepEqual(ends, [{ done: true, rewound: false }], k);
+      assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'fill', 'work'], `${k}: no glide home`);
+      assert.equal(forgot, 1, `${k}: the kept home view is let go`);
+    }
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });
 
@@ -242,8 +261,9 @@ test('in Tests it plays through by itself, every step in turn, and leaves the ch
       assert.deepEqual(steps, [0, 1, 2, 3], k);
       assert.equal(applied, 1, k);
       assert.deepEqual(ends, [{ done: true, rewound: false }], k);
-      assert.deepEqual(R.moves.map((m) => m.mode), k === 'tips' ? ['way', 'tip', 'home'] : ['way', 'tip', 'work', 'home'], `${k}: a move only between shots`);
-      assert.ok(R.moves.every((m) => m.ms >= 1400), `${k}: every move glides as a slide's camera does`);
+      assert.deepEqual(R.moves.map((m) => m.mode), k === 'tips' ? ['way', 'tip', 'home'] : ['way', 'tip', 'fill', 'work', 'home'], `${k}: a move only between shots`);
+      // (TIPS glides as a slide's camera does; BRTO and BATO each shot as long as its move needs, straight: mock B, his pick, 7 Nov 2026.)
+      assert.ok(R.moves.every((m) => m.ms === (m.mode !== 'home' && PROCS[k].shotMs?.[m.mode] || 1500)), `${k}: every move glides for its shot's time`);
     }
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });
@@ -277,10 +297,13 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   // (one caliber for all three, the TIPS one: his ask, 29 Oct, the BRTO catheter was hair thin)
   assert.match(st, /if \(E\.RHV_IVC\) for \(let f = 0\.2; f <= 1\.001; f \+= 0\.1\) t = Math\.min\(t, cathRadOf\('RHV_IVC', f\)\);/);
   assert.match(st, /return Math\.max\(0\.5, Math\.min\(t \* 0\.4, m \* 0\.7\)\);/);
-  assert.match(st, /const PROC_K_TIP = 12;/, 'BRTO and BATO\'s balloon close-up, closer (his ask, 6 Nov)');
-  // (their way in frames the last stretch before the tip's stop, not the whole route, and follows the tip in: his ask, 6 Nov)
+  // (BRTO and BATO ride along, mock B, his pick, 7 Nov 2026: one scale for the way in with the vessel ahead in view, a short push in on the
+  // balloon, the view panning up with the sclerosant, then one pull back to the result, held.)
+  assert.match(st, /const OBLIT_K_WAY = 4, OBLIT_K_TIP = 7, OBLIT_K_WORK = 5, OBLIT_LEAD = 0\.18;/);
+  assert.match(st, /if \(isOblit\(r\) && \(mode === 'tip' \|\| mode === 'fill' \|\| mode === 'work' \|\| \(mode === 'way' && !reduceMotion\.matches\)\)\) return oblitFocus\(/);
+  // (EUS-PPG's way in frames the last stretch before the scope's stop and follows it in)
   assert.match(st, /const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;/);
-  assert.match(st, /: wayIn \? \[Math\.max\(procIn\(r\), r\.free - Rf \* WAY_BEHIND\), Math\.min\(r\.total, r\.free \+ Rf \* WAY_AHEAD\)\]/);
+  assert.match(st, /wayIn \? \[Math\.max\(procIn\(r\), r\.free - Rf \* WAY_BEHIND\), Math\.min\(r\.total, r\.free \+ Rf \* WAY_AHEAD\)\]/);
   // A step callout keeps clear of every vessel on a short leader, at its own point, on a vessel not drawn yet too (the tract).
   assert.match(st, /const tidy = \(lv \|\| m\.pin\) && !dop\.all \?/);
   assert.match(st, /const segAt = m\.f \?\? /);
@@ -288,7 +311,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(st, /shaftPart\(sh\.n \* 2, rc \* CATH_EDGE, 7, edge, 0\.62\);/, 'every catheter, HVPG and treatments alike, on the one hairline edge');
   assert.match(st, /r\.parts \? Math\.max\(rc \* 1\.35, Rb\) : rc \* 1\.35/);
   assert.match(st, /const PROC_K_MAX = 5;/);
-  assert.match(st, /if \(r\.parts\) \{\n\s+const tq = cathAt\(r, Math\.max\(tipD, procIn\(r\)\)\)\.p/, 'the view follows the tip in');
+  assert.match(st, /if \(r\.parts\) \{[\s\S]{0,300}const tq = cathAt\(r, ob \? oblitAim\(r, fill \? [^\n]*: Math\.max\(tipD, procIn\(r\)\)\)\.p/, 'the view follows the tip in (BRTO and BATO: ahead of it, or the sclerosant\'s front)');
 });
 
 test('a TIPS is placed step by step only where a slide teaches the placement; elsewhere it is simply there', () => {

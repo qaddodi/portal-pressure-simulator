@@ -18,8 +18,9 @@ const nextFrame = frameFor('proc-anim');
 // short word, the shot it plays in, the vessel its callout names, the station names shown with it, where along that vessel the
 // callout points (0..1 of its drawn course: the tract for a TIPS, the balloon on the shunt, the varices the sclerosant fills)].
 // Shots, all close enough to see the catheter and its balloon: 'way', on the tip from where it enters, the view following it
-// in (panning only, at one scale); 'tip', the stretch it works on, held still (for BRTO and BATO the tip and its balloon alone,
-// closer); 'work', BRTO and BATO's tip on to the varices. A new shot glides in only between steps, and
+// in (panning only, at one scale); 'tip', the stretch it works on, held still (for BRTO and BATO the balloon with the vessel ahead,
+// closer); 'fill', BRTO and BATO's sclerosant, the view following its front up to the varices; 'work', their result, the shunt and the
+// varices (stage-cath.js oblitFocus: mock B, his pick, 7 Nov 2026). A new shot glides in only between steps, and
 // playProcedure waits for it to land before anything moves (his asks, 29 Oct: the zoom jumped, the callouts moved, the catheter
 // could not be seen; recs in review/procedure-animation-ideas). The first step's callout comes once the catheter has arrived.
 // T: the sequence in ms from the start (apply: the model takes the change; back: the catheter starts out; end: it has gone).
@@ -31,6 +32,10 @@ const OBLIT_T = { travel0: 300, travel1: 6500, inflate0: 7400, inflate1: 9000, f
 const OBLIT_STOPS = [7100, 9900, 16300, 22000];
 // How long a shot glides (ms), as a slide's own camera does; the procedure waits this long, and a little more, at each new shot.
 const SHOT_MS = 1500;
+// BRTO and BATO glide straight (no arc), each shot as long as its move needs: the way in, the short push in to the balloon, the fill (the
+// same framing: no move), the pull back to the result. Played step by step, their result stays framed when they end, until the slide
+// moves on (holdEnd: the old camera glided home while the catheter was still backing out). Mock B, his pick, 7 Nov 2026.
+const OBLIT_SHOT_MS = { way: 1200, tip: 800, fill: 300, work: 1200 };
 export const PROCS = {
   tips: {
     name: 'TIPS', label: 'TIPS', balloonSpan: 'tract',
@@ -53,22 +58,22 @@ export const PROCS = {
     before: { tips: { on: false } },
   },
   brto: {
-    name: 'BRTO', label: 'BRTO', T: OBLIT_T, stops: OBLIT_STOPS,
+    name: 'BRTO', label: 'BRTO', T: OBLIT_T, stops: OBLIT_STOPS, shotMs: OBLIT_SHOT_MS, holdEnd: true,
     steps: [
       ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'C5', ['IVCI', 'LRV'], 0.8],
       ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C5', ['LRV'], 0.84],
-      ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'work', 'C5', ['LRV'], 0.35],
+      ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'fill', 'C5', ['LRV'], 0.35],
       ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'work', 'C5', ['LRV'], 0.5],
     ],
     can: oblitCan,
     apply: oblitApply, had: oblitHad, undo: oblitUndo, before: { occluded: { C5: false } },
   },
   bato: {
-    name: 'BATO', label: 'BATO', T: OBLIT_T, stops: OBLIT_STOPS,
+    name: 'BATO', label: 'BATO', T: OBLIT_T, stops: OBLIT_STOPS, shotMs: OBLIT_SHOT_MS, holdEnd: true,
     steps: [
       ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.', 'In', 'way', 'C2', ['CONF', 'SV'], 0.35],
       ['balloon', 'Balloon up', 'The balloon blocks the feeding vein, so the inflow to the varices stops.', 'Balloon', 'tip', 'C2', ['SV'], 0.31],
-      ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.', 'Fill', 'work', 'C2', ['SV'], 0.7],
+      ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.', 'Fill', 'fill', 'C2', ['SV'], 0.7],
       ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'work', 'C2', ['SV'], 0.5],
     ],
     can: (p, m) => oblitCan(p, m) || ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so BATO has no route.' : ''),
@@ -338,12 +343,13 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? 'var(--tr-hv)' : null;
     if (P.labels) P.labels(t, rd, read?.(), cat.labels);
     // (A measurement's scope is followed at its work too, from one station to the next: its shot names which, 'way' or 'tip'.)
-    cat.follow = f.shot === shot && (shot === 'way' || (P.measure && shot === 'tip')) && !stage.gliding?.() ? shot : false;
+    // (BRTO and BATO's 'fill': the view follows the sclerosant's front.)
+    cat.follow = f.shot === shot && (shot === 'way' || shot === 'fill' || (P.measure && shot === 'tip')) && !stage.gliding?.() ? shot : false;
     stage.setCatheter(cat);
     stops ||= stage.cathStops?.() || null;
     // The step's shot, glided to once (a slide's own glide, arcing on a long move). Until it lands nothing moves: no step starts
     // with the camera on its way. (A switch from the circuit takes a moment: cathFocus says no until the route is drawn.)
-    if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, SHOT_MS, { arc: true })) shot = f.shot;   // alloc-rare: only when a new step's shot starts to glide (a few times in a procedure)
+    if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, P.shotMs?.[f.shot] ?? SHOT_MS, { arc: !P.shotMs })) shot = f.shot;   // alloc-rare: only when a new step's shot starts to glide (a few times in a procedure)
     if (!shot || stage.gliding?.()) landT = now;
     // (A graft has no shot of its own: the figure stays where it is, so nothing waits for a camera.)
     const still = P.graft ? false : !shot || now - landT < LAND_MS;
@@ -361,7 +367,9 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   function finish(rewound) {
     over = true; raf = 0; runs--;
     stage.setCatheter(null);
-    if (shot) stage.cathFocus('home', SHOT_MS, { arc: true });   // alloc-rare: once, as the procedure ends
+    // (Played through step by step, BRTO and BATO keep their result framed: the slide's next move takes the camera from there.)
+    if (shot && !rewound && stepped && P.holdEnd) stage.cathForget?.();
+    else if (shot) stage.cathFocus('home', SHOT_MS, { arc: true });   // alloc-rare: once, as the procedure ends
     onMark?.(null, null);
     onEnd?.({ done: !rewound, rewound });   // alloc-rare: once, as the procedure ends
   }

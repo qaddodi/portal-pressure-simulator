@@ -816,13 +816,21 @@ export function createCath(st, live) {
   // was, so the follow only pans (his pick, 26 Oct: zoom once, then pan; a zoom each frame redrew the whole vessel layer).
   const FOLLOW_ZOOM = 1.25;
   const PROC_K_MAX = 5;   // (a treatment's close-up: the catheter and its balloon must show; the old 7x work zoom is gone)
-  const PROC_K_TIP = 12;   // (BRTO and BATO's balloon close-up; 8 before his ask, 6 Nov: "zoomed in more into the BRTO and BATO catheters")
-  // (BRTO and BATO's way in, his ask, 6 Nov 2026: their whole route (the IVC, the renal vein and the shunt) was framed at once, about 1x on a
-  // phone, the catheter a thread. Now the stretch of route the last WAY_BEHIND lumen radii before the tip's stop, up to PROC_K_WAY: the view
-  // follows the tip in at that one scale (cathFollow, panning only), so the whole route need not fit.)
+  // (EUS-PPG's way in: the stretch of route the last WAY_BEHIND lumen radii before the scope's stop, up to PROC_K_WAY, the view following
+  // it in at that one scale (cathFollow, panning only); its result shot ('work') as close as its box fits, up to PROC_K_WORK.)
   const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;
-  // (Their sclerosant shot, the tip on to the varices: as close as that stretch fits, up to PROC_K_WORK (PROC_K_MAX, 5, before).)
   const PROC_K_WORK = 8;
+  // BRTO and BATO's camera, "ride along" (mock B, his pick, 7 Nov 2026: the old one swooped four times, 6x, 12x, back out to 8x, then home
+  // while the catheter was still backing out). One scale for the way in, the view riding with the tip and the vessel ahead of it in view
+  // (OBLIT_LEAD of the free height ahead of the tip); a short push in as the tip stops, the shunt (BATO: the feeder) above the balloon; the
+  // view pans up with the sclerosant's front at that scale; then one pull back to the shunt and the varices, held with the closed shunt's X.
+  // Straight glides, no arcs (proc-anim.js shotMs). Mock: claude.ai/artifact/FandbFmXiuwy169Z1pXmCq.
+  const OBLIT_K_WAY = 4, OBLIT_K_TIP = 7, OBLIT_K_WORK = 5, OBLIT_LEAD = 0.18;
+  // (The result frame: from a little before the shunt (BATO: the feeder) leaves its vein, OBLIT_BACK, to the varices, with room above them.)
+  const OBLIT_BACK = 40, OBLIT_VARIX_PAD = 26;
+  const isOblit = (r) => !!r.parts && !r.box && r.kind !== 'tips';
+  // (Where the view is held for a point d on the route: lead ahead of it, never past the varices (fill: never so far that they reach the edge).)
+  const oblitAim = (r, d, lead, fill) => (fill ? Math.max(d, Math.min(r.total - lead * 1.1, d + lead)) : Math.min(r.total, d + lead));
   // (The TIPS close-up, his ask, 5 Nov: the tract itself with a short stretch of the hepatic vein before it and of the right portal
   // vein after it, about twice as close as the hepatic vein to the trunk was; the wire runs on out of the frame into the trunk.)
   const TIPS_K_MAX = 9, TIPS_BEFORE = 26, TIPS_AFTER = 22;
@@ -837,30 +845,27 @@ export function createCath(st, live) {
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
     const [fx0, fy0] = clientToVB(wr.left + ins.l, wr.top + ins.t), [fx1, fy1] = clientToVB(wr.left + ins.W - ins.r, wr.top + ins.H - ins.b);
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
+    if (isOblit(r) && (mode === 'tip' || mode === 'fill' || mode === 'work' || (mode === 'way' && !reduceMotion.matches))) return oblitFocus(r, mode, wr, ins, ms, steady);
     if ((mode === 'tip' || mode === 'way' || mode === 'work') && r.focus) {
       // A treatment's two shots, at one scale, the stretch it works on (the hepatic vein, the tract and the portal vein; the renal
       // vein and the shunt; the splenic vein and the feeder) filling the space the cards leave, up to PROC_K_MAX: close enough to
       // see the catheter and its balloon (his ask, 29 Oct: zoomed too far out to follow it). 'tip' frames that stretch, held
       // still while the work's steps play; 'way' starts on the tip where it enters, and the view then follows the tip in
       // (cathFollow) at that scale, panning only, so it never zooms while the catheter moves.
-      // BRTO and BATO frame their balloon steps closer (his ask, 29 Oct: "zoom into the balloon catheter tip"): 'tip', the tip and its
-      // balloon alone, up to PROC_K_TIP; 'work', the tip on to the route's end, the varices the sclerosant fills included.
+      // (BRTO and BATO have their own camera, oblitFocus, but for a reduced-motion way in, framed whole below.)
       // (EUS-PPG's scope, r.box: its work shots frame its two stations and both targets, and its way in the esophagus and stomach, r.focus.)
-      const Rf = cathAt(r, r.free).r, close = r.kind !== 'tips' && !r.box && mode === 'tip', wayIn = r.kind !== 'tips' && mode === 'way';
-      // (The balloon close-up: the tip and its balloon with a short stretch of catheter behind, Rf × 11 back and 3 ahead (14 and 4 before).)
-      const [d0, d1] = close ? [Math.max(procIn(r), r.free - Rf * 11), Math.min(r.total, r.free + Rf * 3)]
-        : wayIn ? [Math.max(procIn(r), r.free - Rf * WAY_BEHIND), Math.min(r.total, r.free + Rf * WAY_AHEAD)]
+      const Rf = cathAt(r, r.free).r, wayIn = r.kind !== 'tips' && mode === 'way';
+      const [d0, d1] = wayIn ? [Math.max(procIn(r), r.free - Rf * WAY_BEHIND), Math.min(r.total, r.free + Rf * WAY_AHEAD)]
         : mode === 'work' && r.kind !== 'tips' ? [Math.max(procIn(r), r.free - Rf * 4), r.total]
           : r.kind === 'tips' && r.spans?.tract && r.spans.rpv ? [Math.max(procIn(r), r.spans.tract[0] - TIPS_BEFORE), Math.min(r.total, r.spans.rpv[0] + TIPS_AFTER)] : r.focus;
       const tips = r.kind === 'tips';
       // (EUS-PPG: its 'tip' shot frames the station the scope is at, at the one scale both stations' work needs, and the view follows the
       // scope from one to the other (cathFollow); its 'work' shot, the result, frames both stations and both targets.)
-      const seg = r.box && mode === 'tip' ? eusWorkSeg(r, clamp(cath.st?.tgt || 0, 0, 1)) : r.box && mode !== 'way' ? [r.box.slice(0, 2), r.box.slice(2)] : cutLen(r.pts, r.cum, d0, d1), pad = r.box ? 16 : close ? 8 : tips ? 14 : wayIn ? 12 : 16;
+      const seg = r.box && mode === 'tip' ? eusWorkSeg(r, clamp(cath.st?.tgt || 0, 0, 1)) : r.box && mode !== 'way' ? [r.box.slice(0, 2), r.box.slice(2)] : cutLen(r.pts, r.cum, d0, d1), pad = r.box ? 16 : tips ? 14 : wayIn ? 12 : 16;
       const xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]), x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad, y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
       const fr = cathFree(wr, ins);
-      // (How much of the free space the stretch fills: BRTO and BATO's close-up and the sclerosant's shot fill more of it than before (0.72),
-      // the step's callout still beside it, kept inside the stage by its own placing.)
-      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (tips ? 0.86 : close ? 0.84 : 0.9), 1, close ? PROC_K_TIP : tips ? TIPS_K_MAX : wayIn ? PROC_K_WAY : mode === 'work' ? PROC_K_WORK : PROC_K_MAX);
+      // (How much of the free space the stretch fills, the step's callout still beside it, kept inside the stage by its own placing.)
+      k = clamp(Math.min((fr.x1 - fr.x0) / (x1 - x0), (fr.y1 - fr.y0) / (y1 - y0)) * (tips ? 0.86 : 0.9), 1, tips ? TIPS_K_MAX : wayIn ? PROC_K_WAY : mode === 'work' ? PROC_K_WORK : PROC_K_MAX);
       cath.followPx = fr.px;
       if (mode === 'way' && reduceMotion.matches) {
         // (Reduced motion: no following, so the way in is framed whole, still, as close as it fits.)
@@ -896,6 +901,32 @@ export function createCath(st, live) {
       if (near) { const k1 = k * FOLLOW_ZOOM; cy = y0 + (cy - y0) * (k / k1); k = k1; }
     }
     animateVT({ k, x: (fx0 + fx1) / 2 - cx * k, y: cyScreen - cy * k }, ms, { steady });
+    return true;
+  }
+  // BRTO and BATO's shots (mock B): 'way', at OBLIT_K_WAY on a point OBLIT_LEAD of the free height ahead of the tip, which the view then
+  // follows (cathFollow); 'tip', OBLIT_K_TIP on the balloon with the vessel ahead; 'fill', the same, on the sclerosant's front, which the view
+  // follows up the shunt; 'work', the result, the shunt and the varices as close as they fit, up to OBLIT_K_WORK. (Reduced motion: no
+  // following, so 'fill' frames the result at once.) The free middle (cath.followPx) is where the aimed point is held.
+  function oblitFocus(r, mode, wr, ins, ms, steady) {
+    const fr = cathFree(wr, ins), fw = fr.x1 - fr.x0, fh = fr.y1 - fr.y0, st = cath.st;
+    if (mode === 'fill' && reduceMotion.matches) mode = 'work';
+    cath.followPx = fr.px;
+    let k, c;
+    if (mode === 'work') {
+      const leg = r.spans?.[r.kind === 'bato' ? 'splenic' : 'lrv'], d0 = Math.max(procIn(r), (leg ? leg[1] : r.free) - OBLIT_BACK);
+      // (with the feeder's whole course, C2, so both of the closed shunt's X marks are in the frame: the shunt's and the feeder's)
+      const seg = [...cutLen(r.pts, r.cum, d0, r.total), ...(geo.C2?.cur || [])], xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]);
+      const x0 = Math.min(...xs) - 18, x1 = Math.max(...xs) + 18, y0 = Math.min(...ys) - OBLIT_VARIX_PAD, y1 = Math.max(...ys) + 18;
+      k = clamp(Math.min(fw / (x1 - x0), fh / (y1 - y0)) * 0.86, 1, OBLIT_K_WORK);
+      c = [(x0 + x1) / 2, (y0 + y1) / 2];
+    } else {
+      k = mode === 'way' ? OBLIT_K_WAY : OBLIT_K_TIP;
+      const lead = cath.followLead = OBLIT_LEAD * fh / k;
+      const d = mode === 'way' ? Math.max(r.start + (r.free - r.start) * clamp(st?.u || 0, 0, 1), procIn(r))
+        : mode === 'fill' ? r.free + (r.total - r.free) * clamp(st?.column || 0, 0, 1) : r.free;
+      c = cathAt(r, oblitAim(r, d, lead, mode !== 'way')).p;
+    }
+    animateVT({ k, x: (fr.x0 + fr.x1) / 2 - c[0] * k, y: (fr.y0 + fr.y1) / 2 - c[1] * k }, ms, { steady });
     return true;
   }
   // The free space for a treatment's close-up, in the figure's viewBox units: the stage less its insets and the cards over it
@@ -940,7 +971,9 @@ export function createCath(st, live) {
     // A treatment: the tip held where its shot put it, in the middle of the space the cards leave, the view panning after it both
     // ways at the shot's one scale, eased (never a snap), from where the route enters the figure. (EUS-PPG at work: the station's work.)
     if (r.parts) {
-      const tq = cathAt(r, Math.max(tipD, procIn(r))).p, px = cath.followPx || [(ins.l + ins.W - ins.r) / 2, (ins.t + ins.H - ins.b) / 2];
+      // (BRTO and BATO aim ahead of the tip on the way in, and at the sclerosant's front while it fills: oblitFocus.)
+      const ob = isOblit(r), lead = ob ? cath.followLead || 0 : 0, fill = ob && st.follow === 'fill';
+      const tq = cathAt(r, ob ? oblitAim(r, fill ? r.free + (r.total - r.free) * clamp(st.column || 0, 0, 1) : Math.max(tipD, procIn(r)), lead, fill) : Math.max(tipD, procIn(r))).p, px = cath.followPx || [(ins.l + ins.W - ins.r) / 2, (ins.t + ins.H - ins.b) / 2];
       if (r.box && st.follow === 'tip') eusWorkAt(r, clamp(st.tgt || 0, 0, 1), tq);   // (cathAt hands a fresh point: written over in place)
       const [mx, my] = clientToVBFast(wr.left + px[0], wr.top + px[1]), e = 1 - Math.exp(-dt / 320), kk = live.vt.k;
       const nx = live.vt.x + (mx - tq[0] * kk - live.vt.x) * e, ny2 = live.vt.y + (my - tq[1] * kk - live.vt.y) * e;
