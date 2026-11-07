@@ -1354,9 +1354,17 @@ export const bloodColors = () => bloodCols || (bloodCols = {
 const boxes = new WeakMap();
 // The instruments drawn at this many times the screen's density: a zoomed data card (card-zoom.js) shows them larger than they were
 // laid out, so they are drawn for the size they are seen at. 1 otherwise.
-let canvasBoost = 1;
-export const setCanvasBoost = (k) => { canvasBoost = Math.max(1, +k || 1); };
-const BOOST_PIXELS = 3.2e6;
+let canvasBoost = 1, boostAsk = 0;
+// (A new boost redraws the pictures already on the page at the density it gives, between frames: a picture drawn once (a kept readout, a path
+// card) was left at the density it was made at and the zoom only stretched it, soft and jagged. 7 Nov 2026: "zoom in, the readouts are jagged".)
+export const setCanvasBoost = (k) => {
+  const was = canvasBoost;
+  canvasBoost = Math.max(1, +k || 1);
+  if (canvasBoost !== was && !boostAsk) boostAsk = restPass(() => { boostAsk = 0; redrawBoosted(); });
+};
+const BOOST_PIXELS = 4.5e6;   // (a zoomed card's pictures: the whole card at its seen density, 3.4x on a Mac at a 1.7 zoom, is about 5 million pixels)
+/** The densest a picture is drawn: the screen's own, up to 3x; a zoomed card's (canvasBoost) up to 4x, so what is seen at its zoom is not stretched. */
+const DENSITY_MAX = 3, BOOSTED_MAX = 4;
 const sizedSubs = new WeakMap();   // (canvas -> functions run when it first has a box, or has one again after none)
 // (2 Nov 2026, timers and observers during motion: the observer only records the boxes. The redraws that waited for a box (a chart's
 // first GPU draw, seconds of work on a phone) run in a rest pass, between frames and within its shared budget, never inside the
@@ -1424,7 +1432,25 @@ export function releaseCanvasSize(canvas, w, h) {
 // frame was drawn at another size than the one held for it.)
 const drawers = new WeakMap();
 /** trace-gl.js: `api` draws `canvas`'s chart (api.drawnW/H: the CSS size its last frame began at), `redraw` draws it again. */
-export function noteDrawer(canvas, api, redraw) { drawers.set(canvas, { api, redraw }); }   // alloc-rare: once for each chart, as its drawer is made
+export function noteDrawer(canvas, api, redraw) {
+  if (!drawers.has(canvas)) drawerRefs.add(new WeakRef(canvas));   // alloc-rare: once for each chart canvas
+  drawers.set(canvas, { api, redraw });
+}
+const drawerRefs = new Set();   // (WeakRefs of every canvas with a drawer: a new boost looks at each, redrawBoosted)
+/** Draws again, now, each chart on the page whose last frame was at another density than canvasSize gives it now (a zoomed card's boost came or went). Returns how many. */
+export function redrawBoosted() {
+  let n = 0;
+  for (const ref of drawerRefs) {
+    const cv = ref.deref();
+    if (!cv) { drawerRefs.delete(ref); continue; }
+    const d = drawers.get(cv);
+    if (!d || !cv.isConnected) continue;
+    const z = canvasSize(cv);
+    if (!(z.w >= 1 && z.h >= 1) || !(d.api.drawnWd > 0) || d.api.drawnWd === z.W) continue;
+    try { d.redraw(); n++; } catch (e) { setTimeout(() => { throw e; }); }
+  }
+  return n;
+}   // alloc-rare: once for each chart, as its drawer is made
 /** Draws `canvas`'s chart again now if its last frame was at another size than canvasSize gives it; true when it asked for one. */
 export function redrawSized(canvas) {
   const d = drawers.get(canvas);
@@ -1442,7 +1468,7 @@ export function canvasSize(canvas) {
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
   // (A card zoomed up draws its charts denser, but not past about 3 million pixels: the shared GPU canvas is made again at the new size, and a
   // 6 MP one stalled the frame in Safari when the zoom landed and left. The screen's own density is never given up.)
-  const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);
+  const dpr = Math.min(saver() ? 2 : canvasBoost > 1 ? BOOSTED_MAX : DENSITY_MAX, (window.devicePixelRatio || 1) * canvasBoost);
   const dev = window.devicePixelRatio || 1, fit = canvasBoost > 1 && r.width > 0 && r.height > 0 ? Math.max(dev, Math.sqrt(BOOST_PIXELS / (r.width * r.height))) : dpr, d = Math.min(dpr, fit);
   let z = sizeOf.get(canvas);
   if (!z) sizeOf.set(canvas, z = { w: 0, h: 0, W: 1, H: 1, dpr: 1 });   // alloc-rare: a canvas's record, made once with its first size

@@ -843,7 +843,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         gl.clearStencil(0); gl.stencilMask(0xff);
       }
       if (!shown && (canvas.width !== Wd || canvas.height !== Hd)) { canvas.width = Wd; canvas.height = Hd; }   // (a shared chart's canvas takes the buffer's size from the hand-over)
-      W = Wd; H = Hd; K = Wd / w; api.drawnW = w; api.drawnH = h;
+      W = Wd; H = Hd; K = Wd / w; api.drawnW = w; api.drawnH = h; api.drawnWd = Wd;
       gl.viewport(0, 0, W, H);
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
       if (shown) { gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, W, H); }   // (only the chart's own W x H of the larger buffer is cleared)
@@ -1248,7 +1248,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     },
   };
   const shim = createShim(api);
-  api.drawnW = 0; api.drawnH = 0;   // (the CSS size its last frame began at: redrawSized)
+  api.drawnW = 0; api.drawnH = 0; api.drawnWd = 0;   // (its width in device px, redrawBoosted; the CSS size its last frame began at: redrawSized)
   if (redraw) noteDrawer(host, api, redraw);
   return api;
 }
