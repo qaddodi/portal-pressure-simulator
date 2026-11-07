@@ -197,7 +197,7 @@ test('every word of the card is drawn from Inter\'s outlines and laid out in col
   }
   const one = flow([[{ text: 'LSM 15–25 kPa, or platelets <150', face: 't' }]], 128, { align: 'center' });
   assert.equal(new Set(one.items.map((i) => i.y)).size, 2, 'a condition wider than its column wraps');
-  assert.equal(one.h, 32);
+  assert.equal(one.h, 2 * ROLE.t.lh);
   assert.ok(flow(readParas({ head: 'Rules CSPH in', stmt: '1.16b', why: 'LSM 31 kPa is ≥25.', next: 'Start a beta-blocker, carvedilol preferred.' }), 340, { gap: 4 }).h > ROLE.rh.lh);
   for (const [of, p] of Object.entries(WORST)) assert.ok(litOf(of, p).size >= 2, `${of}: the widest patient is a patient`);
 });

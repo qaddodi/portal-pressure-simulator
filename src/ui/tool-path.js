@@ -27,14 +27,14 @@ import { loadMetrics, layoutParagraph, textWidth } from './text-gl.js';
 import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
 import { cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
 
-export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 26, MAP_UNIT = 66, GAP = 10;
+export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 20, MAP_UNIT = 66, GAP = 10;
 const PILL_H = 22, PILL_PAD = 10;
 export const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger', acc: 'accent' };
 const svg = svgModel;
 /** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */
 export const ROLE = {
   kick: { weight: 600, size: 12, lh: 16 }, chips: { weight: 500, size: 13, lh: 18 }, foot: { weight: 400, size: 12, lh: 16 },
-  t: { weight: 400, size: 12, lh: 16 }, r: { weight: 600, size: 13, lh: 16 }, s: { weight: 400, size: 12, lh: 16 }, st: { weight: 500, size: 12, lh: 16 },
+  t: { weight: 400, size: 12, lh: 15 }, r: { weight: 600, size: 13, lh: 16 }, s: { weight: 400, size: 12, lh: 15 }, st: { weight: 500, size: 12, lh: 15 },
   rh: { weight: 600, size: 21, lh: 26 }, rs: { weight: 500, size: 12, lh: 26 }, rp: { weight: 400, size: 14, lh: 20 },
   // the score card, checklist, grid and ladder (path-cards.js): a row's name and definition, an answer and its points, a zone's name
   rn: { weight: 600, size: 13, lh: 17 }, rd: { weight: 400, size: 12, lh: 16 }, op: { weight: 600, size: 12, lh: 16 }, pt: { weight: 600, size: 11, lh: 16 }, zl: { weight: 500, size: 11, lh: 14 },
