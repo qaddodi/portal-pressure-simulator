@@ -60,7 +60,7 @@ export const MASLD = {
     },
     {
       id: 'regress', days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Diet starts', to: 'One year later' }, cam: 'liver',
-      tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 }, title: 'Weight lost and stiffness over the year' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
+      tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 }, title: 'Body weight and stiffness over the year' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
       kicker: STIFF, site: 'sin', title: 'Losing 12% of his weight can lower the stiffness by 30%',
       line: 'A year on, his stiffness has fallen from {lsm@start} to {lsm}. A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.',
       notes: 'In MASLD-related cACLD, a weight loss of 10% or more goes with a fall in stiffness of 30% or more (Baveno VIII 2.13). In patients without CSPH, a confirmed relative fall of 30% or more may indicate fibrosis regression of at least one stage (2.6), and combining it with an improving second test such as the ELF score makes the call more accurate (2.7). Baveno VIII prefers to read these changes as a change in the risk of liver-related events, not as a fibrosis stage (2.8, 2.9). In the model the scar eases evenly over the year; in patients the course is less regular. The 12% is the slide\'s own figure.',

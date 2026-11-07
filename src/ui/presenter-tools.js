@@ -19,8 +19,8 @@
 //                                                   the same chart over a disease time-lapse: two fingerprint keys
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //   tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 } }
-//                                                   a line the model has no number for (weight lost, %) is the slide's own: given is its
-//                                                   end value, reached in step with the time-lapse's ramp from 0; the other line is the model's
+//                                                   a line the model has no number for (body weight, % of start) is the slide's own: given is its
+//                                                   fall in %, from 100 down in step with the time-lapse's ramp; the other line is the model's
 //
 //   tool: { kind: 'vitals', show?: ['hr', 'map', 'hb'] }
 //                                                   a black bedside monitor: the EKG strip over up to three of hr, map, co, hb as large numbers

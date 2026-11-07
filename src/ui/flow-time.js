@@ -7,8 +7,9 @@
 // (straight between days). The lines draw from left to right as the time-lapse plays, easing after its clock.
 // The same chart plots a disease time-lapse (clock 'days'): two of the slide's own readings, one point per model day from
 // day 0 to its last, drawn as it plays (Ascites builds: ascites over sinusoidal pressure; varices: varix over HVPG).
-// A line the model does not compute (weight lost, which the model has no body for) is given by the slide (tool.given: { wt: 12 }):
-// it climbs from 0 to that number in step with the time-lapse's ramp, and every other line is still the model's own.
+// A line the model does not compute (body weight, which the model has no body for) is given by the slide (tool.given: { wt: 12 }, the
+// per cent lost): it runs from its base (100% of her starting weight) down to base minus that number (88%) in step with the
+// time-lapse's ramp, and every other line is still the model's own.
 import { frameFor, cancelFrame } from './frame.js';
 import { classSoon, attrSoon, dataSoon } from './class-soon.js';
 import { restPass } from './rest-pass.js';
@@ -29,14 +30,15 @@ const FT_MIN = 12;   // (px on the screen: the smallest the chart's words are dr
 // Minutes on the teaching clock: fasting from `from` to 0, the rise over `rise`, the state reached held to `end`.
 export const MINUTES = { from: -10, rise: 30, end: 40 };
 // The lines a chart can plot (fingerprint keys): name, unit, decimals, colour, a scale on the model's value and options:
-// given (the slide gives the line's end value, tool.given, in place of the model), parts (a lower line's scale from zero is
+// given (the slide gives the line's change, tool.given, in place of the model: it runs from base down by that number), base,
+// scale (a lower line's fixed scale [min, max, step] in place of one from zero), parts (a lower line's scale from zero is
 // cut in this many steps, two by default) and pad (a share of a tight upper line's range kept clear above and below it).
 // A chart's lines are [lower, upper]: the lower a pressure on a scale from zero, the upper on its own tight scale.
 export const LINE = {
   pv: ['Portal pressure', 'mmHg', 1, '--tr-pv'], ppg: ['PPG', 'mmHg', 1, '--tr-pv'], pvFlow: ['Portal flow', 'L/min', 1, '--tr-hv'],
   sin: ['Sinusoids', 'mmHg', 1, '--tr-wedge'], asc: ['Ascites', 'L', 1, '--tr-hv', 0.001],
   hvpg: ['HVPG', 'mmHg', 1, '--tr-wedge'], varix: ['Varix', 'mm', 1, '--tr-var'],
-  wt: ['Weight lost', '%', 0, '--tr-cav', 1, { given: true, parts: 3 }], lsm: ['Stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }],
+  wt: ['Body weight', '% of start', 0, '--tr-cav', 1, { given: true, base: 100, scale: [84, 100, 4] }], lsm: ['Stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }],
   // (The readings the teaching card's own time graph carries on a time-lapse slide, lapse-graph.js: each is one of the slide's tiles.)
   ssm: ['Spleen stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }], salb: ['Albumin', 'g/dL', 1, '--tr-ivc', 1, { pad: 0.2 }],
   rpp: ['Kidney pressure', 'mmHg', 0, '--tr-cav'], he: ['Encephalopathy risk', 'index', 2, '--tr-var', 1, { pad: 0.2 }],
@@ -48,9 +50,9 @@ const opt = (k) => LINE[k]?.[5] || {};
 export const modelLines = (lines) => lines.filter((k) => !opt(k).given);
 /** What the worker keeps of a slide's time-lapse for its chart: those keys (true: the portal pressure and flow, the meal's). */
 export const trailKeys = (tool) => (tool?.lines ? modelLines(tool.lines) : true);
-/** A value with its unit as the card prints it: "10.2 kPa", but "12%". */
+/** A value with its unit as the card prints it: "10.2 kPa", but "88%" (a unit that starts with % is the number's own sign). */
 // alloc-rare: a printed value's text, made only when the printed number changes (paint) or a chart is built
-export const withUnit = (v, d, unit) => `${fmt(v, d)}${unit === '%' ? '' : ' '}${unit}`;
+export const withUnit = (v, d, unit) => `${fmt(v, d)}${unit[0] === '%' ? '%' : ` ${unit}`}`;
 const NICE = [1, 2, 2.5, 5, 10];
 const niceStep = (raw) => { const p = Math.pow(10, Math.floor(Math.log10(raw))); return NICE.find((s) => s * p >= raw - 1e-9) * p; };
 const ticksOf = (lo, hi, step) => Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, k) => +(lo + k * step).toPrecision(6));
@@ -61,6 +63,8 @@ function flowScale(v, pad = 0) {
   const ticks = ticksOf(lo, hi, step);
   return { min: ticks[0], max: ticks.at(-1), ticks };
 }
+// A line with a scale of its own, [min, max, step] (body weight: 84 to 100% in fours, its 88% on a gridline).
+function fixedScale([lo, hi, step]) { const ticks = ticksOf(lo, hi, step); return { min: lo, max: hi, ticks }; }
 // Pressure: from zero, so its rise keeps its true size.
 function pressureScale(v, parts = 2) {
   const top = Math.max(...v), step = niceStep(top / parts), ticks = ticksOf(0, Math.ceil(top / step - 1e-9) * step, step);
@@ -80,14 +84,14 @@ export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given 
   const x = lines.map((k) => LINE[k]?.[4] ?? 1);
   const at = (j, m) => {
     const p = clamp(m / ax.rise, 0, 1), k = lines[j];
-    if (opt(k).given) return given[k] * p * x[j];
+    if (opt(k).given) return ((opt(k).base || 0) - (opt(k).base ? 1 : -1) * given[k] * p) * x[j];
     const d = d0 + span * p, i = clamp(pts.findIndex((r) => r[0] >= d), 1, pts.length - 1);
     const f = clamp((d - pts[i - 1][0]) / Math.max(1e-9, pts[i][0] - pts[i - 1][0]), 0, 1);
     return (pts[i - 1][col(k)] + (pts[i][col(k)] - pts[i - 1][col(k)]) * f) * x[j];
   };
   const min = Array.from({ length: ax.end - ax.from + 1 }, (_, k) => ax.from + k);
   const pv = min.map((m) => at(0, m)), flow = min.map((m) => at(1, m));
-  return { min, pv, flow, pScale: pressureScale(pv, opt(lines[0]).parts), fScale: flowScale(flow, opt(lines[1]).pad), ax };
+  return { min, pv, flow, pScale: opt(lines[0]).scale ? fixedScale(opt(lines[0]).scale) : pressureScale(pv, opt(lines[0]).parts), fScale: flowScale(flow, opt(lines[1]).pad), ax };
 }
 
 // (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)

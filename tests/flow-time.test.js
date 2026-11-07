@@ -116,10 +116,10 @@ test("a line's value at its head keeps clear of the right margin's numbers", () 
   assert.equal(headLeft(100, 40, 30, f, w, [tick(30)]), false, 'mid-chart, far from the margin');
 });
 
-// The Treating the cause deck's MASLD slide charts weight lost (left, %) against the stiffness (right, kPa) over its year. The
+// The Treating the cause deck's MASLD slide charts body weight (left, % of start) against the stiffness (right, kPa) over its year. The
 // stiffness is the model's; the weight is the slide's own 12%, which the model has no body for. Baveno VIII 2.13 links a weight
 // loss of 10% or more with a fall in stiffness of 30% or more in MASLD-related cACLD, so the model's fall has to be that big.
-test('the MASLD slide charts the weight lost and the model\'s stiffness over the year (Baveno VIII 2.13)', async () => {
+test('the MASLD slide charts the body weight and the model\'s stiffness over the year (Baveno VIII 2.13)', async () => {
   const { CAUSE_TREATED } = await import('../src/ui/decks/cause-treated.js');
   const slide = CAUSE_TREATED.slides.find((x) => x.id === 'masld'), t = slide.tool;
   assert.equal(t.kind, 'flowtime'); assert.equal(t.clock, 'days'); assert.deepEqual(t.lines, ['wt', 'lsm']);
@@ -144,14 +144,14 @@ test('the MASLD slide charts the weight lost and the model\'s stiffness over the
 
   const ser = flowTimeSeries(tr, 'days', t.lines, t.given);
   assert.equal(ser.min.length, slide.days + 1);
-  assert.equal(ser.pv[0], 0); assert.equal(ser.pv.at(-1), t.given.wt);
-  for (let d = 1; d < ser.pv.length; d++) assert.ok(ser.pv[d] > ser.pv[d - 1], `day ${d}: the weight lost only grows`);
-  assert.ok(Math.abs(ser.pv[73] - t.given.wt / 5) < 1e-9, 'steadily: a fifth of the weight a fifth of the way through the year');
+  assert.equal(ser.pv[0], 100); assert.equal(ser.pv.at(-1), 100 - t.given.wt); assert.equal(ser.pv.at(-1), 88);
+  for (let d = 1; d < ser.pv.length; d++) assert.ok(ser.pv[d] < ser.pv[d - 1], `day ${d}: the body weight only falls`);
+  assert.ok(Math.abs(ser.pv[73] - (100 - t.given.wt / 5)) < 1e-9, 'steadily: a fifth of the loss a fifth of the way through the year');
   assert.deepEqual(ser.flow, tr.map((r) => r[1]), 'the stiffness is the model\'s, one value a day');
   const fall = 1 - ser.flow.at(-1) / ser.flow[0];
   assert.ok(fall >= 0.3, `the stiffness falls ${(fall * 100).toFixed(0)}%, the 30% Baveno VIII 2.13 links with a 10% weight loss`);
-  // Scales: the weight from zero in fives, the stiffness tight with room above and below its line.
-  assert.deepEqual(ser.pScale.ticks, [0, 5, 10, 15]);
+  // Scales: the weight from 84 to 100% in fours (its 88% on a gridline), the stiffness tight with room above and below its line.
+  assert.deepEqual(ser.pScale.ticks, [84, 88, 92, 96, 100]);
   assert.ok(ser.fScale.min < Math.min(...ser.flow) && Math.max(...ser.flow) < ser.fScale.max);
   const room = (Math.min(...ser.flow) - ser.fScale.min) / (ser.fScale.max - ser.fScale.min);
   assert.ok(room > 0.1, `the end of the line keeps ${(room * 100).toFixed(0)}% of its band clear of the axis`);
@@ -165,5 +165,5 @@ test('a given line needs its number, and the other charts keep their scales', ()
   const asc = flowTimeSeries([[0, 8, 200], [60, 12, 1200]], 'days', ['sin', 'asc']);   // (the ascites in mL, drawn in litres)
   assert.deepEqual(asc.pScale.ticks, [0, 10, 20]);
   assert.equal(asc.fScale.min, 0); assert.ok(asc.fScale.max >= 1.2);
-  assert.equal(withUnit(12, 0, '%'), '12%'); assert.equal(withUnit(10.23, 1, 'kPa'), '10.2 kPa'); assert.equal(withUnit(5.4, 1, 'mmHg'), '5.4 mmHg');
+  assert.equal(withUnit(88, 0, '% of start'), '88%'); assert.equal(withUnit(10.23, 1, 'kPa'), '10.2 kPa'); assert.equal(withUnit(5.4, 1, 'mmHg'), '5.4 mmHg');
 });
