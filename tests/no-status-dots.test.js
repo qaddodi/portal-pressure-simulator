@@ -15,7 +15,6 @@ const ALLOWED = [
   /\.drug \.dot/, /\.oc-dot/,                                           // check circles (a tick appears inside)
   /\.info-i/,                                                           // the (i) button
   /\.pzb-(now|was)/, /\.pzk-/, /\.tl-dot/, /\.sl-start/,              // a value's place on a scale or timeline (sl-start: a what-if's starting value)
-  /\.pz-hi > i/,                                                       // T3 (Mohammad, 7 Nov 2026, picked from the mocks): a reading in an instrument card's header row wears its rating's dot
   /\.instr-tab\[data-slot/,                                             // the numbered 1 / 2 slot badge
   /\.pz-nm/,                                                            // the table's "none" ring (○)
   /\.ac-leader \.ac-ldot/,                                               // the action card's leader anchor: where its line meets the figure (an SVG circle until 03413346, now a ringed box)

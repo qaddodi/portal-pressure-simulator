@@ -11,6 +11,7 @@
 //   const w = glWords(el);   // el: an element whose words are set only through w from now on
 //   w.set('18.2', 'cm/s');   // the words (and a unit, set small beside them, as <small>)
 //   w.text                   // the words it shows now
+//   glWords(el, { halo: true })  // the label look: the theme's --label-halo laid under the words, 3 px, the fills over every outline
 //   w.dispose()              // (recs-production-120hz §8) lets go of everything it holds: its observer, its place in the theme
 //                            // list and the measure queue, its timers and rest passes, and its GPU picture; idempotent, and a
 //                            // callback captured before it does nothing after. Its words stay in the page as they last landed.
@@ -89,7 +90,7 @@ function sleep(S) {
   if (S.on) { S.on = false; S.el.classList.remove('glw-on'); labelWritten(S.el); }
   S.pend = false; S.handOver = false; clearTimeout(S.handT); S.handT = 0;
   if (S.gl) { try { S.gl.dispose?.(); } catch (e) { caught('gl-words:82', e); /* a lost context: nothing left to free */ } S.gl.cv?.remove(); S.gl = null; S.host.classList.remove('glw'); }
-  S.vPath = S.uPath = null; S.vSlots = S.uSlots = null; S.at = null;
+  S.vPath = S.uPath = S.hPath = null; S.vSlots = S.uSlots = S.hSlots = null; S.at = null;
 }
 function wake(S) {
   if (S.dead || !S.asleep) return;
@@ -151,6 +152,8 @@ function measureReadNow(S) {
   const cs = getComputedStyle(el), L = lookOf(cs, svgT, sc), U = small && !after ? lookOf(getComputedStyle(small), svgT, sc) : L;
   const ta = svgT ? ({ middle: 'center', end: 'end' }[cs.textAnchor] || 'start') : cs.textAlign, rtl = cs.direction === 'rtl';
   const align = ta === 'center' ? 'middle' : /right/.test(ta) || (ta === 'end' && !rtl) || (ta === 'start' && rtl) ? 'end' : 'start';
+  // (halo: the label look's outline, the theme's --label-halo laid under the fill, HALO_W wide: the page's own words wear the same in app.css.)
+  if (S.halo) { L.halo = rgba(cs.getPropertyValue('--label-halo').trim()); L.hw = HALO_W; }
   const k = devicePixelRatio || 1, asc = -textBox('0', 0, 0, { weight: L.weight, size: L.size, k }).y;
   const sAsc = small ? -textBox('0', 0, 0, { weight: U.weight, size: U.size, k }).y : 0;
   const at = { sm: !!small && !small.hidden, L, U, align, w: box.width / sx, h: box.height / sx, y: (tr.top - box.top) / sx + asc, uy: small ? (small.getBoundingClientRect().top - box.top) / sx + sAsc : 0,
@@ -197,7 +200,11 @@ function measureWrite(S, { at, pad, L, U }) {
   // (recs-production-120hz §9: capacity reserved now, between frames: a glyph slot each, its path one cached per glyph, placed by a
   // translation. A change fills the slots it needs; longer words than the slots hold take the one-path way, as before.)
   S.vSlots = slotsOf(V_CAP, L.fill); S.uSlots = slotsOf(U_CAP, U.fill);
-  S.gl.show(svgModel('svg', { viewBox: `${-pad.l} ${-pad.t} ${at.w + pad.l + pad.r} ${at.h + pad.t + pad.b}`, preserveAspectRatio: 'none' }, S.vPath, S.uPath, S.vSlots.map((q) => q.el), S.uSlots.map((q) => q.el)), false);
+  // (A halo: every glyph's outline is laid first, the fills over all of them, so a glyph's outline never cuts into its neighbour's fill.
+  // The outline paths come first in the picture; they are the same glyph paths, stroked alone.)
+  S.hPath = L.halo ? svgModel('path', { fill: 'none', stroke: L.halo, 'stroke-width': L.hw, 'stroke-linejoin': 'round', d: '' }) : null;
+  S.hSlots = L.halo ? slotsOf(V_CAP, 'none', { stroke: L.halo, 'stroke-width': L.hw, 'stroke-linejoin': 'round' }) : null;
+  S.gl.show(svgModel('svg', { viewBox: `${-pad.l} ${-pad.t} ${at.w + pad.l + pad.r} ${at.h + pad.t + pad.b}`, preserveAspectRatio: 'none' }, S.hPath, S.hSlots?.map((q) => q.el), S.vPath, S.uPath, S.vSlots.map((q) => q.el), S.uSlots.map((q) => q.el)), false);
   at.pad = pad; S.at = at; S.stale = false;
   // (Kept words are drawn again here, in the same pass, where they stand: the page's own words stay clear, the picture is never empty
   // between the new place and the words.)
@@ -213,7 +220,8 @@ const askMeasure = (S) => { if (S.dead) return; measureQ.add(S); S.measureAsk = 
 
 // ── A frame: the new words drawn, nothing written into the page ──
 const V_CAP = 24, U_CAP = 12;
-const slotsOf = (n, fill) => Array.from({ length: n }, () => ({ el: svgModel('path', { fill, d: '' }), d: '', tr: '' }));
+const slotsOf = (n, fill, extra) => Array.from({ length: n }, () => ({ el: svgModel('path', { fill, d: '', ...extra }), d: '', tr: '' }));
+const HALO_W = 3;   // (the label look's outline, px: Circuit and Anatomy labels, app.css #labels text)
 const setA = (q, d, tr) => { if (q.d !== d) { q.d = d; setGeo(q.el, 'd', d); } if (tr != null && q.tr !== tr) { q.tr = tr; setGeo(q.el, 'transform', tr); } };
 // (A glyph's transform is a string kept for the place it was set at: a readout's glyphs come back to the same few places, so the string is
 // made once per place and then found again, not built for every glyph of every change. The cache is for one baseline; a new one empties it.)
@@ -238,7 +246,8 @@ function fillSlots(S, slots, run, y) {
   }
 }
 function clearSlots(S) {
-  const v = S.vSlots, u = S.uSlots;
+  const v = S.vSlots, u = S.uSlots, hs = S.hSlots;
+  if (hs) for (let i = 0; i < hs.length; i++) if (hs[i].d) setA(hs[i], '', null);
   if (v) for (let i = 0; i < v.length; i++) if (v[i].d) setA(v[i], '', null);
   if (u) for (let i = 0; i < u.length; i++) if (u[i].d) setA(u[i], '', null);
 }
@@ -259,10 +268,14 @@ function draw(S, t, u) {
   if (S.vSlots && rv.length <= S.vSlots.length && ru.length <= S.uSlots.length) {
     if (geoOf(S.vPath, 'd')) setGeo(S.vPath, 'd', '');
     if (geoOf(S.uPath, 'd')) setGeo(S.uPath, 'd', '');
+    if (S.hPath && geoOf(S.hPath, 'd')) setGeo(S.hPath, 'd', '');
+    if (S.hSlots) fillSlots(S, S.hSlots, rv, at.y);
     fillSlots(S, S.vSlots, rv, at.y); fillSlots(S, S.uSlots, ru, uy);
   } else {
     clearSlots(S);
-    setGeo(S.vPath, 'd', dOf(textPolys(tt, x, at.y, L).polys));
+    const dv = dOf(textPolys(tt, x, at.y, L).polys);
+    setGeo(S.vPath, 'd', dv);
+    if (S.hPath) setGeo(S.hPath, 'd', dv);
     setGeo(S.uPath, 'd', u ? dOf(textPolys(uu, x + wv + sp, uy, U).polys) : '');
   }
   S.pend = true;
@@ -318,7 +331,7 @@ function handRetry(S) {
 }
 // (The words are in the page now, still made clear: the picture is asked to clear, and they show in the frame it does (drawn → handOff).)
 function release(S) {
-  S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); clearSlots(S);
+  S.vPath.setAttribute('d', ''); S.uPath.setAttribute('d', ''); S.hPath?.setAttribute('d', ''); clearSlots(S);
   S.handOver = true; S.handN = 0; clearTimeout(S.handT); S.handT = setTimeout(() => { S.handT = 0; handRetry(S); }, HAND_MAX);   // alloc-rare: once a readout is handed back to the page, between frames
   S.gl.paint();
 }
@@ -352,10 +365,10 @@ const askLand = (S) => { clearTimeout(S.landT); S.landT = 0; if (S.dead) return;
 const textOf = (v) => (typeof v === 'string' ? v : String(v ?? ''));   // alloc-rare: only when a caller hands a number or the like, once per change of the words
 
 /** Words set through the GPU while they change (see above). `el`'s content is taken over: its words, then a <small> unit if any. */
-export function glWords(el, { unitClass = '', after = false, host = el, onLand = null, keep = false } = {}) { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
+export function glWords(el, { unitClass = '', after = false, host = el, onLand = null, keep = false, halo = false } = {}) { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
   // (Its own text node, when it has one alone; otherwise one is made between frames, as the first words land: nothing is written here.)
   const only = el.firstChild?.nodeType === 3 && !el.firstChild.nextSibling ? el.firstChild : null, t0 = el.textContent || '';
-  const S = { el, host, after, unitClass, onLand, keep, retries: 0, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
+  const S = { el, host, after, unitClass, onLand, keep, halo, retries: 0, txt: only, small: null, want: { t: t0, u: '' }, shown: { t: t0, u: '' }, // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     at: null, gl: null, vPath: null, uPath: null, on: false, pend: false, handOver: false, handN: 0, handT: 0, stale: false, landT: 0, measureAsk: 0, landAsk: 0, dead: false, ro: null };
   // (The two functions a change hands to a timer or a rest pass, made once with the readout: asking makes no closure.)
   S.landFn = () => land(S); S.quietFn = () => askLand(S); // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
@@ -382,7 +395,7 @@ export function glWords(el, { unitClass = '', after = false, host = el, onLand =
       if (wasOn && !again) { elx.classList.remove('glw-on'); labelWritten(elx); }
       if (gl) { try { gl.dispose?.(); } catch (e) { caught('gl-words:274', e); /* a lost context: nothing left to free */ } gl.cv?.remove(); if (!again) host.classList.remove('glw'); }
     });
-    S.vPath = S.uPath = null; S.vSlots = S.uSlots = null;
+    S.vPath = S.uPath = S.hPath = null; S.vSlots = S.uSlots = S.hSlots = null;
   };
   return { // alloc-rare: once per readout, when it is made (glWords is called as a view is built, and its result kept); not per frame
     el,

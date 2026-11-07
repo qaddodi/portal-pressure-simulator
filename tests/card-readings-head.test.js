@@ -50,7 +50,8 @@ test('the tiles build the header readings from the same values, numbers as GPU w
   const js = src('presenter.js');
   assert.match(js, /const head = h\('span', \{ class: 'pz-hr', 'data-n': '0' \}\);/);
   assert.match(js, /h\('div', \{ class: 'pz-dh' \}, dhT, tiles\.head, fold, zbtn\)/, 'the readings sit in the header row, after the name');
-  assert.match(js, /const hw = hi \? glWords\(hv\) : null;/, 'the number is GPU words');
+  assert.match(js, /const hw = hi \? glWords\(hv, \{ halo: true \}\) : null;/, 'the number is GPU words, with the label outline');
+  assert.doesNotMatch(js, /class: 'pz-hi'[^\n]*h\('i', \{\}\)/, 'no rating dot in the reading');
   assert.match(js, /else if \(sync\) p\.hw\.now\(hs\); else p\.hw\.set\(hs\);|if \(!p\.hw\) setT\(p\.hv, hs\); else if \(sync\) p\.hw\.now\(hs\); else p\.hw\.set\(hs\);/);
   assert.match(js, /else ui\.tiles\.paintTiles\(now\.fp, \[\], \[\], null, 0, false\);/, 'a card with no readings clears the last slide\'s');
   assert.doesNotMatch(js, /stackFold/, 'no key or wheel works a readings card');
@@ -58,10 +59,12 @@ test('the tiles build the header readings from the same values, numbers as GPU w
   assert.doesNotMatch(src('main.js'), /tuck the readings/, 'the Guide lists no such key');
 });
 
-test('the header\'s readings are laid beside the name by styles alone: a dot rated like the tile, units dropped at three or more on a phone', () => {
+test('the header\'s readings are laid beside the name by styles alone: a number rated like the tile, units dropped at three or more on a phone', () => {
   assert.match(css, /\.pz-hr \{ display: none; \}/);
   assert.match(css, /\.pz \.pz-data\.has-tool > \.pz-dh:has\(> \.pz-hr:not\(\[data-n="0"\]\)\) \{[^}]*justify-content: space-between;/);
-  assert.match(css, /\.pz-hi\[data-rate="hi"\] > i \{ background: var\(--danger\); \}/);
+  assert.doesNotMatch(css, /\.pz-hi[^{]*> i\b/, 'no rating dot (style A, 7 Nov 2026)');
+  assert.match(css, /\.pz-hi\[data-rate="hi"\] > b \{ color: var\(--danger-ink\); \}/, 'the number keeps its rating ink');
+  assert.match(css, /\.pz-hi > b \{ -webkit-text-stroke: 3px var\(--label-halo\); paint-order: stroke fill;/, 'the page\'s own number wears the label outline');
   assert.match(css, /\.pz\.stack \.pz-hr:is\(\[data-n="3"\], \[data-n="4"\]\) \.pz-hi > small \{ display: none; \}/);
   const block = css.slice(css.indexOf('.pz-hr { display: none; }'));
   assert.doesNotMatch(block, /backdrop-filter|filter:|animation|transition/, 'no new glass or painted motion: the card\'s own glass holds them');
