@@ -95,7 +95,7 @@ export const SHUNTS = {
     },
     {
       id: 'heart', lens: 'flow', cam: 'liver', tool: { kind: 'profile', from: 'reasons', fromLabel: 'Before' }, data: 'tiles', tiles: ['co', 'ra'], key: ['co'], delta: 'reasons',
-      compare: [{ label: 'Before the stent', short: 'Before', slide: 'reasons' }, { label: 'With the stent', short: 'With', own: true }],
+      // (No Before/With buttons: the chart's Before trace and the {co@reasons} tile deltas already show the earlier state; the slide shows the stent.)
       kicker: 'The stent', site: 'sin', title: 'The stent gives the heart more to do',
       line: 'The cardiac output rises from {co@reasons} to {co} and the right atrial pressure to {ra}. A healthy heart copes; a failing one may not, so heart failure comes first.',
       notes: 'Blood that used to pass through the liver now reaches the right atrium at once, so the venous return, the right atrial pressure and the cardiac output all rise. Baveno VIII names cardiac failure, with encephalopathy, as a risk of overshunting (6.5). The model shows the rise in a heart that is normal; it does not draw a failing one.',
