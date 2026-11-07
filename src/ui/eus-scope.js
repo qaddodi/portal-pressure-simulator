@@ -109,12 +109,33 @@ export const EUS_GLUE_ROUTE = {
   after(r, geo) {
     const [id, f] = EUS_GLUE_TARGET, T = pointOn(geo[id].cur, f), end = EUS_GLUE_STATION.at;
     r.scope = true; r.stations = { pv: EUS_GLUE_STATION, hv: EUS_GLUE_STATION };
-    r.tg = { pv: T, hv: T }; r.glue = { id, f };
+    r.tg = { pv: T, hv: T }; r.glue = { id, f, rad: 0, path: lumenPath(geo[id].cur, f, GLUE_PATH_HALF) };
     r.work = { glue: workBox(end, T, RIGID * 2.2) };
     const C = geo[id].cur, xs = [end[0] - RIGID * 3, end[0] + RIGID, ...C.map((q) => q[0])], ys = [end[1] - RIGID * 1.5, ...C.map((q) => q[1])];
     r.result = [Math.min(...xs) - 14, Math.min(...ys) - 14, Math.max(...xs) + 14, Math.max(...ys) + 14];
   },
 };
+
+// (The varix's centreline round the needle's point, GLUE_PATH_HALF world units each way, resampled every GLUE_PATH_STEP with its unit
+// tangent: the coil is laid along it, so it follows the vessel's own course and never cuts across a bend.)
+const GLUE_PATH_HALF = 16, GLUE_PATH_STEP = 0.5;
+/** The stretch of polyline P from a length GLUE_PATH_HALF before the point at f to as far after it: { x, y, tx, ty, n, at } (at: the
+ *  index of the point at f). Made once, as the route is laid. */
+export function lumenPath(P, f, half) {
+  const cum = [0];
+  for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  const L = cum.at(-1), d0 = Math.max(0, f * L - half), d1 = Math.min(L, f * L + half), n = Math.max(2, Math.round((d1 - d0) / GLUE_PATH_STEP) + 1);
+  const x = new Float64Array(n), y = new Float64Array(n), tx = new Float64Array(n), ty = new Float64Array(n);
+  let j = 1;
+  for (let i = 0; i < n; i++) {
+    const d = d0 + ((d1 - d0) * i) / (n - 1);
+    while (j < P.length - 1 && cum[j] < d) j++;
+    const l = cum[j] - cum[j - 1] || 1, u = Math.min(1, Math.max(0, (d - cum[j - 1]) / l));
+    x[i] = P[j - 1][0] + (P[j][0] - P[j - 1][0]) * u; y[i] = P[j - 1][1] + (P[j][1] - P[j - 1][1]) * u;
+  }
+  for (let i = 0; i < n; i++) { const a = Math.max(0, i - 2), b = Math.min(n - 1, i + 2), dx = x[b] - x[a], dy = y[b] - y[a], l = Math.hypot(dx, dy) || 1; tx[i] = dx / l; ty[i] = dy / l; }
+  return { x, y, tx, ty, n, at: Math.round(((f * L - d0) / (d1 - d0 || 1)) * (n - 1)), step: (d1 - d0) / (n - 1) };
+}
 
 /** The point at f (0..1 by length) along a polyline. */
 export function pointOn(P, f) {
@@ -298,19 +319,31 @@ export function eusDraw(st, r, tipD, at, rgb) {
     line(0, sh, 1.45, 7, INK, 0.7); line(0, sh, 1.25, 2, SHEATH, 1);
     if (nl > sh) { line(sh - 0.2, nl, (l) => nw(l) + 0.16, 7, INK, 0.8); line(sh - 0.2, nl, nw, 3, STEEL, 1); }
   }
-  // The coils (EUS-guided coils and glue): a fine steel coil pushed out of the needle's point curls into loops inside the varix, across
-  // the needle's line (along the vessel), as much of it as is out (st.coil 0..1). They stay in the varix once the needle is back.
-  if ((st.coil || 0) > 0.01) {
-    const k = Math.min(1, st.coil), m = Math.max(3, Math.ceil(COIL_N * k)), ax = g.nd[0], ay = g.nd[1], qx = -ay, qy = ax;
-    const first0 = V.length / 6;
-    let px = 0, py = 0;
+  // The coils (EUS-guided coils and glue): a fine steel coil pushed out of the needle's point curls into loops inside the varix, as much of
+  // it as is out (st.coil 0..1). It is laid along the varix's own centreline (r.glue.path) as a helix seen from the side: each sample sits
+  // on the centreline's normal at its own point, no further from it than the lumen's radius (r.glue.rad, the vessel's drawn caliber now)
+  // less the wire's width, so the coil is inside the vessel's walls whatever the varix's size and the zoom (his ask, 7 Nov 2026: "should
+  // deploy and be within the varix vessel walls not outside"). They stay in the varix once the needle is back.
+  const gl = r.glue;
+  OUT.coil = -1;
+  if ((st.coil || 0) > 0.01 && gl?.path && gl.rad > COIL_EDGE + COIL_GAP) {
+    const k = Math.min(1, st.coil), m = Math.max(3, Math.ceil(COIL_N * k)), pa = gl.path;
+    // (The loops' radius across the vessel: the lumen less the wire's dark edge and a hair, so the outer edge of the wire stays inside; their
+    // length along it, a few lumen widths, inside the stretch laid round the needle's point.)
+    const rho = Math.max(0, Math.min(COIL_R, gl.rad - COIL_EDGE - COIL_GAP)), span = Math.min(COIL_SPAN_K * gl.rad, (pa.n - 1) * pa.step * 0.8);
     for (let i = 0; i <= m; i++) {
-      const u = (k * i) / m, th = COIL_TURNS * 2 * Math.PI * u, rho = COIL_R * (1 - 0.3 * u), along = (u - 0.5) * COIL_SPAN;
-      CP[i * 2] = TGT[0] + qx * (along + rho * Math.cos(th)) + ax * rho * Math.sin(th) * 0.8;
-      CP[i * 2 + 1] = TGT[1] + qy * (along + rho * Math.cos(th)) + ay * rho * Math.sin(th) * 0.8;
+      const u = (k * i) / m, th = COIL_TURNS * 2 * Math.PI * u, rr = rho * (1 - 0.25 * u);
+      const along = (u - 0.5) * span + rr * 0.9 * Math.sin(th);
+      const q = Math.min(pa.n - 1, Math.max(0, pa.at + along / pa.step)), i0 = Math.min(pa.n - 2, Math.floor(q)), f = q - i0;
+      const cx0 = pa.x[i0] + (pa.x[i0 + 1] - pa.x[i0]) * f, cy0 = pa.y[i0] + (pa.y[i0 + 1] - pa.y[i0]) * f;
+      let tx0 = pa.tx[i0] + (pa.tx[i0 + 1] - pa.tx[i0]) * f, ty0 = pa.ty[i0] + (pa.ty[i0 + 1] - pa.ty[i0]) * f;
+      const tl = Math.hypot(tx0, ty0) || 1; tx0 /= tl; ty0 /= tl;
+      CP[i * 2] = cx0 - ty0 * rr * Math.cos(th); CP[i * 2 + 1] = cy0 + tx0 * rr * Math.cos(th);
     }
-    for (const [w, mode, col, alpha] of COIL_LAYERS) {
-      const first = V.length / 6;
+    let px = 0, py = 0;
+    OUT.coil = V.length / 6;
+    for (const L of COIL_LAYERS) {
+      const w = L[0], first = V.length / 6;
       let run = 0;
       for (let i = 0; i <= m; i++) {
         const j0 = Math.max(0, i - 1), j1 = Math.min(m, i + 1), dx = CP[j1 * 2] - CP[j0 * 2], dy = CP[j1 * 2 + 1] - CP[j0 * 2 + 1], l = Math.hypot(dx, dy) || 1;
@@ -319,10 +352,9 @@ export function eusDraw(st, r, tipD, at, rgb) {
         px = x; py = y;
         V.push(x - nx * w, y - ny * w, nx, ny, -1, run, x + nx * w, y + ny * w, nx, ny, 1, run);
       }
-      draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: [0, 0], len: run + 1 });
+      draws.push({ mode: L[1], first, count: V.length / 6 - first, col: L[2], alpha: L[3] * op, fade: [0, 0], len: run + 1 });
     }
-    OUT.coil = first0;
-  } else OUT.coil = -1;
+  }
   const tcol = rgb(tg < 0.5 ? 'var(--tr-pv)' : 'var(--tr-hv)');
   if ((st.flash || 0) > 0) for (const k of [st.flash, (st.flash + 0.5) % 1]) disc(TGT[0], TGT[1], 1, 0, 1.4 + 6 * k, 1.4 + 6 * k, 6, tcol, (1 - k) * (1 - k) * 0.85);
   if (st.ring) {
@@ -336,8 +368,12 @@ export function eusDraw(st, r, tipD, at, rgb) {
 const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
 // (The coil: its samples, its turns, its loops' radius and how far it runs along the vessel, world units; drawn as the needle's steel on
 // its dark edge.)
-const COIL_N = 72, COIL_TURNS = 3.2, COIL_R = 3.6, COIL_SPAN = 8, CP = new Float64Array((COIL_N + 1) * 2);
-const COIL_LAYERS = [[0.78, 7, INK, 0.75], [0.56, 3, STEEL, 1]];
+// (COIL_R: the loops' largest radius; COIL_SPAN_K: their length along the vessel in lumen radii; COIL_EDGE: the wire's dark edge's half width,
+// the widest layer; COIL_GAP: what is left between it and the wall.)
+const COIL_N = 72, COIL_TURNS = 3.2, COIL_R = 4, COIL_SPAN_K = 3.2, COIL_EDGE = 0.78, COIL_GAP = 0.3, CP = new Float64Array((COIL_N + 1) * 2);
+const COIL_LAYERS = [[COIL_EDGE, 7, INK, 0.75], [0.56, 3, STEEL, 1]];
+/** The coil's widest layer's half width (its dark edge) and what it keeps from the wall: a lumen narrower than both has no coil drawn. */
+export const EUS_COIL_EDGE = COIL_EDGE + COIL_GAP;
 // (The scope's centreline as drawn, for the tests: its samples' count and coordinates, kept.)
 const LINE = { n: 0, x: null, y: null };
 const OUT = { V, draws, tip: null, needle: null, line: null, coil: -1 };

@@ -379,6 +379,7 @@ export function createCath(st, live) {
   let cathV = new Float32Array(0), cathLast = null;
   // EUS-PPG's echoendoscope, its sector and its needle (eus-scope.js), sent as the catheter is.
   function eusGL(st, r, tipD) {
+    if (r.glue) r.glue.rad = cathRadOf(r.glue.id, r.glue.f);   // (the varix's lumen as drawn now: the coil stays inside it, eus-scope.js)
     const o = eusDraw(st, r, tipD, cathAt, (c) => toRGB(c, wrapCS()));
     if (cathV.length < o.V.length) cathV = new Float32Array(o.V.length * 2);
     cathV.set(o.V); cath.balBox = null; cath.at.tip = r.tg.hv; cath.at.ahead = r.tg.pv;   // (its readings' points: the hepatic vein's target and the portal vein's, cathLabels)

@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ENDO, PROCS, PROC_KINDS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
-import { EUS_GLUE_ROUTE, EUS_GLUE_TARGET, EUS_GLUE_STATION, EUS_RHO, EUS_SCOPE_R, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
+import { EUS_GLUE_ROUTE, EUS_GLUE_TARGET, EUS_GLUE_STATION, EUS_RHO, EUS_SCOPE_R, EUS_COIL_EDGE, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
 import { EDGE_PATH, SEAM_D } from '../src/ui/anatomy.js';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
@@ -95,6 +95,7 @@ function route() {
   parts.forEach((q, k) => { if (q.name !== 'lead') spans[q.name] = [cum[q.i], k + 1 < parts.length ? cum[parts[k + 1].i] : cum.at(-1)]; });
   const r = { pts, cum, spans, total: cum.at(-1), free: cum.at(-1), start: spans.eso[0] * EUS_GLUE_ROUTE.start };
   EUS_GLUE_ROUTE.after(r, geo);
+  r.glue.rad = 5;   // (the varix's lumen radius as drawn; the stage reads it live, stage-cath.js eusGL)
   return r;
 }
 const at = (r, d) => {
@@ -171,4 +172,35 @@ test('in the model the glue obliterates the fundal varix and stops its flow, wit
   assert.ok(Q(a) > 1 && Q(b) < Q(a) * 0.05, `flow through the varix ${Q(a).toFixed(2)} → ${Q(b).toFixed(2)}`);
   assert.ok(!b.e.params.occluded.C5, 'the gastrorenal shunt stays open');
   assert.ok(c.m.spleen.platelets > b.m.spleen.platelets, 'the spleen’s treatment still raises the platelets after the glue');
+});
+
+// His ask, 7 Nov 2026: the coils "should deploy and be within the varix vessel walls not outside". Every vertex of the coil as drawn (both of
+// its layers, the wire's dark edge included, so its outer edge and not only its middle) lies inside the varix's lumen: no further from the
+// vessel's centreline than its radius, for a narrow, a middling and a wide varix, at every moment the coil is out. The drawing is in the
+// figure's own units, so this holds at every zoom. A lumen too narrow for the wire gets no coil.
+test('the coil deploys inside the varix’s walls, for any lumen, every frame it is out', () => {
+  const r = route(), C = geo[EUS_GLUE_TARGET[0]].cur;
+  for (const rad of [1.6, 2.5, 4, 6, 9]) {
+    r.glue.rad = rad;
+    let drawn = 0, worst = 0, reach = 0;
+    for (const t of times) {
+      const f = procFrame('eusglue', t);
+      if (!(f.coil > 0.01) || !(f.opacity > 0.01)) continue;
+      const o = eusDraw({ ...f, ring: null, clock: t }, r, r.start + (r.free - r.start) * f.u, at, () => [0.5, 0.5, 0.5]);
+      assert.ok(o.coil >= 0, `the coil drawn at ${t}, lumen ${rad}`);
+      const layers = o.draws.filter((d) => d.first >= o.coil && (d.mode === 3 || d.mode === 7));
+      assert.equal(layers.length, 2, 'its steel on its dark edge');
+      for (const d of layers) for (let i = d.first; i < d.first + d.count; i++) {
+        const p = [o.V[i * 6], o.V[i * 6 + 1]], dd = distTo(C, p);
+        worst = Math.max(worst, dd); reach = Math.max(reach, Math.hypot(p[0] - r.tg.pv[0], p[1] - r.tg.pv[1]));
+      }
+      drawn++;
+    }
+    assert.ok(drawn > 10, `lumen ${rad}: the coil is out`);
+    assert.ok(worst <= rad, `lumen ${rad}: the coil reaches ${worst.toFixed(2)} from the centreline, past the wall`);
+    assert.ok(reach < rad * 3.2 + 2, `lumen ${rad}: the coil stays round the needle's point (${reach.toFixed(1)})`);
+  }
+  r.glue.rad = EUS_COIL_EDGE * 0.9;
+  const f = procFrame('eusglue', T.coil1);
+  assert.equal(eusDraw({ ...f, ring: null, clock: T.coil1 }, r, r.free, at, () => [0.5, 0.5, 0.5]).coil, -1, 'no coil in a lumen narrower than its wire');
 });
