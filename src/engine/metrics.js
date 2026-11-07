@@ -161,6 +161,8 @@ export function computeMetrics(eng, out = null) {
   r.portalIn = portalIn * 0.06; r.arterialIn = arterialIn * 0.06; r.splanchnicIn = splIn * 0.06;
   r.shuntFraction = shuntFraction; r.collateralFlows = collateralFlows;
   r.varix = vx; r.gastricVarix = gx; r.ascites = ax; r.spleen = sp;
+  // (Kidney pressure: the mean arterial pressure less the abdomen's, kidney-cuts.js. A pressure, not a filtration rate: the model has no kidneys.)
+  r.rpp = map - ax.iap;
   r.map = map; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
   r.heRisk = he; r.blood = bl; r.bleeding = bleeding;
   r.habr = eng.habr; r.baro = eng.baro; r.splTone = eng.slow.splTone;

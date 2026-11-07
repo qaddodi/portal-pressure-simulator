@@ -23,6 +23,7 @@ import { vitalReading, vitalHeading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
 import { tenthGap } from '../engine/gap.js';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js';
+import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../engine/kidney-cuts.js';
 import { compareRows } from './idle-keys.js';
 import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js';
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';
@@ -70,6 +71,9 @@ export const TILES = [
   { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤ 10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'High' : 'Severe') },
+  { id: 'rpp', group: 'pressure', hideKey: 'model', k: 'Kidney pressure', ks: 'Kidney P', title: `Kidney pressure: the mean arterial pressure less the pressure inside the abdomen. A pressure the kidneys are perfused at, not kidney function: the model has no GFR or creatinine. Low below ${KIDNEY_CUTS.rpp} mmHg, the MAP line of ${KIDNEY_CUTS.mapBeta} mmHg for a beta-blocker (Baveno VIII 4.6) at the abdomen's resting pressure.`, why: 'rpp', v: (m) => m.rpp, d: 0, u: 'mmHg',
+    scale: [30, 100], ticks: [KIDNEY_CUTS.rpp],
+    st: rppSev, s: (v) => RPP_WORDS[rppSev(v)] },
   // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
   // instantaneous velocity across the 15 cm/s cut-off even in a healthy patient.
   { id: 'pvflow', group: 'flow', k: 'Portal flow', ks: 'PV flow', title: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = away from it). Normal ≥ 0.9 L/min at ≥ 15 cm/s (Doppler).', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow, d: 1, u: 'L/min',
@@ -125,6 +129,7 @@ export const CUTOFFS = [
   ['HVPG (wedged − free)', '<5 mmHg', '5 to 9.9 (subclinical)', '≥10 (CSPH in cirrhosis)', '—'],
   ['PPG: portosystemic gradient (portal vein − IVC)', '<6 mmHg', '6 to 11.9', '≥12', '—'],
   ['Portal vein pressure', '≤10 mmHg', '10.1 to 14.9', '≥15', '—'],
+  ['Kidney pressure (MAP − abdomen; a pressure, not kidney function)', `≥${KIDNEY_CUTS.rpp} mmHg`, '—', `<${KIDNEY_CUTS.rpp}`, '—'],
   ['Portal flow', '≥0.9 L/min and ≥15 cm/s', '<0.9 L/min or <15 cm/s', '<9 cm/s (stasis)', 'Reversed (hepatofugal)'],
   ['Sinusoidal flow', '>75% of normal', '56 to 75%', '≤55%', '—'],
   ['Shunted blood', '<10%', '10 to 29%', '30 to 59%', '≥60%'],

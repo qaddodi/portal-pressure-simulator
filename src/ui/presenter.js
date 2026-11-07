@@ -189,7 +189,7 @@ const TERMS = ['CSPH', 'SAAG', 'WHVP', 'FHVP', 'central vein', 'portal tracts?',
   'cavernoma', 'a wave', 'pulsatility', 'reflection coefficient', 'Laplace', 'congestion index', 'gray zone', 'red wale marks'];
 // A tile's words in a line (the slide's key tiles are its key terms).
 const KEYWORDS = { hvpg: 'HVPG', ppg: 'PPG', pv: 'portal pressure', whvp: 'WHVP|wedged pressure', fhvp: 'FHVP|free pressure', ra: 'right atrial pressure|right atrium',
-  ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', ssm: 'spleen stiffness|SSM', spleen: 'spleen',
+  ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', rpp: 'kidney pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', ssm: 'spleen stiffness|SSM', spleen: 'spleen',
   liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', hbTo: 'hemoglobin to come', pvFlow: 'portal flow', pvVel: 'portal vein velocity', clot: 'clot',
   co: 'cardiac output', bv: 'blood volume', he: 'encephalopathy risk|HE risk' };
 // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame

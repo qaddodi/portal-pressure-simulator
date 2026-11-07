@@ -65,14 +65,14 @@ test('no slide has more than two tiles except the listed ones', () => {
   assert.deepEqual([...THREE_TILES].filter((k) => !found.has(k)), [], 'an allowlisted slide now has two tiles or fewer: remove it');
 });
 
-test('no built-in slide has a cite, and only the TIPS Doppler jet slide and the Meso-Rex child slide have a caveat', () => {
+test('no built-in slide has a cite, and only the TIPS Doppler jet, the kidney pressure and the Meso-Rex child slides have a caveat', () => {
   const cites = [], caveats = [];
   for (const d of DECKS) for (const s of d.slides) {
     if (s.cite) cites.push(`${d.id}/${s.id}`);
     if (s.caveat) caveats.push(`${d.id}/${s.id}`);
   }
   assert.deepEqual(cites, []);
-  assert.deepEqual(caveats, ['tips-doppler/jet', 'meso-rex/child']);   // (meso-rex/child: the model is adult-sized, a child\u2019s case in an adult\u2019s vessels)
+  assert.deepEqual(caveats, ['tips-doppler/jet', 'meso-rex/child', 'kidney/pressure']);   // (meso-rex/child: the model is adult-sized, a child\u2019s case in an adult\u2019s vessels)
 });
 
 test('every slide line is 30 words or fewer', () => {
