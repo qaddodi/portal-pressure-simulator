@@ -627,6 +627,7 @@ handle opens the view. (Varices 3 used it; it now has the scope ring instead.)
 | `csph` | Sinusoidal | Clinically significant PH | 365 | cirrhosis 0.6, HVPG ≥ 10, small varices |
 | `cirr-decomp` | Sinusoidal | Decompensated cirrhosis | 540 | cirrhosis 0.85, albumin 2.8, diuretics; large varices, ascites |
 | `cirr-hepatofugal` | Sinusoidal | End-stage cirrhosis, hepatofugal flow | 540 | cirrhosis 0.95, arterioportal shunting, splenorenal shunt |
+| `masld-csph` | Sinusoidal | MASLD cirrhosis, HVPG under-reads | 365 | cirrhosis 0.6 with the presinusoidal multiplier 4 in both lobes: HVPG about 11, PPG about 14, small varices, no ascites (Baveno VIII 2.5) |
 | `gastric-varix` | Sinusoidal | Cirrhosis with gastrorenal shunt | 450 | isolated fundal varices (IGV1) fed by the short and posterior gastric veins, draining through the `C5` gastrorenal shunt (BRTO target); no esophageal varices until BRTO closes the shunt |
 | `pregnancy` | Sinusoidal | Cirrhosis in pregnancy | 365 | cirrhosis 0.62 (small varices, HVPG about 12), then `gestation: 24` once the disease days have run; `params: { gestation: 0 }` shows her before pregnancy |
 | `sos` | Postsinusoidal (`postsin`) | Sinusoidal obstruction syndrome | 21 | central-vein resistance |

@@ -309,3 +309,13 @@ test('Ascitic protein: cirrhosis low (< 2.5), outflow block high (≥ 2.5), SAAG
   e.paracentesis(2000, true);
   within(M(e).ascites.totalProtein, tp - 0.05, tp + 0.05, 'TP after a tap');
 });
+
+test('T-MASLD part of the resistance is before the sinusoids: the HVPG under-reads the PPG (Baveno VIII 2.5)', () => {
+  const m = M(preset('masld-csph'));
+  assert.ok(m.hvpg >= 10, `HVPG ${m.hvpg}`);
+  assert.ok(m.ppg - m.hvpg >= 2, `PPG ${m.ppg} less HVPG ${m.hvpg}`);
+  assert.ok(m.varix.d >= 2.5 && m.varix.d < 5, `small varices, ${m.varix.d} mm`);
+  assert.ok(m.ascites.volume < 150, `ascites ${m.ascites.volume} mL`);
+  const csph = M(preset('csph'));
+  assert.ok(m.ppg - m.hvpg > csph.ppg - csph.hvpg, 'the gap is wider than in sinusoidal CSPH');
+});

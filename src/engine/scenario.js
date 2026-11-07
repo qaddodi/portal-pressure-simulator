@@ -100,6 +100,12 @@ export const PRESETS = [
     summary: 'Mild sinusoidal portal hypertension (HVPG 6–9). No varices yet.' },
   { id: 'csph', group: 'Sinusoidal', label: 'Clinically significant PH', apply: P({ cirrhosis: 0.6 }), days: 365,
     summary: 'HVPG ≥ 10: collaterals begin to open and small varices form.' },
+  // MASLD cirrhosis with CSPH in an obese patient: part of the intrahepatic resistance sits before the sinusoids (the portal
+  // venules and the perisinusoidal scar), so the wedged pressure under-reads the portal pressure. The cirrhosis setting gives the
+  // sinusoidal block and a presinusoidal multiplier of 4 adds the resistance the catheter cannot see: HVPG about 11 and PPG about
+  // 14 mmHg, small varices, no ascites (Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the true portal gradient).
+  { id: 'masld-csph', group: 'Sinusoidal', label: 'MASLD cirrhosis, HVPG under-reads', apply: P({ cirrhosis: 0.6, fibrosis: { R: { pre: 4 }, L: { pre: 4 } } }), days: 365,
+    summary: 'Obese MASLD cirrhosis with CSPH: part of the resistance sits before the sinusoids, so the HVPG reads a few mmHg below the portal pressure gradient. Small varices, no ascites.' },
   { id: 'cirr-decomp', group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
     summary: 'HVPG ≥ 16, large varices, ascites, splenomegaly, hyperdynamic circulation.' },
   { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'End-stage cirrhosis, hepatofugal flow', apply: P({ cirrhosis: 0.95, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,

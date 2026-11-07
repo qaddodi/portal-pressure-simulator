@@ -180,6 +180,9 @@ export const ADOPTED = {
   'ten-years/relation': ['kind:curve'],
   'next-bleed/relation': ['kind:curve'],
   'variceal-bleed/relation': ['kind:curve'],
+  'masld/under': ['kind:profile', 'caseQ'],
+  'masld/still': ['kind:profile'],
+  'masld/drugs': ['kind:criteria'],
 };
 
 /** Whether the slide d/s may use the field. */
