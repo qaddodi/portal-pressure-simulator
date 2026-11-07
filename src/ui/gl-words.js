@@ -31,7 +31,7 @@ import { readMetric, readStyle } from './layout-snap.js';
 import { noteBox } from './util.js';
 import { cssColor } from './css-color.js';
 import { caught } from './caught.js';
-import { onTheme } from './theme-epoch.js';
+import { onTheme, onThemeBusy } from './theme-epoch.js';
 import { labelWritten } from './label-theme.js';
 
 /** How long the words hold still (ms) before the page's own words take them. */
@@ -60,6 +60,7 @@ const lookOf = (cs, svgT = false, sc = 1) => ({
 // (A new theme or palette: every readout's colour is read again, between frames.)
 const ALL = new Set();
 if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
+  onThemeBusy(() => { for (const S of live) if (S.landAsk || S.measureAsk || S.handOver) return true; return false; });   // (a look is not taken until the readouts have landed)
   onTheme(() => { for (const f of ALL) f(); });   // (the theme epoch, theme-epoch.js: asked in the same frame as every other surface's redraw)
 }
 

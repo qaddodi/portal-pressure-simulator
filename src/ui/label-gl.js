@@ -1035,8 +1035,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
     rideLook = on;
     allMarks(); ask();
   };
-  const themeNow = () => { if (disposed) return; all(); pReadSoon(); };   // (the Doppler probe's look follows the theme too)
-  const unlayer = addLabelLayer({ theme: themeNow, ride: () => { if (!disposed) rideSeen(); }, dirty: told });
+  // (A new look is built whole, not in REBUILD_MS chunks: the crossfade holds the page until the labels have it (busy, label-theme.js labelsBusy), so no
+  // label shows the old colours beside another that has the new, and the leaders' and dots' new colours are never ahead of the words'.)
+  let lookHoldUntil = 0;
+  const themeNow = () => { if (disposed) return; lookHoldUntil = performance.now() + 800; all(); pReadSoon(); };   // (the Doppler probe's look follows the theme too)
+  const unlayer = addLabelLayer({ busy: () => !disposed && host.active() && !!(dirty.size || unread.size || waiting.size || todo.size || pending.size || markDirty.size || mtodo.size || fillT), theme: themeNow, ride: () => { if (!disposed) rideSeen(); }, dirty: told });
   darkMQ.addEventListener?.('change', themeNow);
   addEventListener('pps:labelscale', themeNow);   // (the text size: --label-k on the page)
   // A CSS fade or colour ease, a hover, a focus: that label's eases are followed till they end (its style read once, off the frame: styleOf).
@@ -1387,7 +1390,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (!g.isConnected) { todo.delete(g); pending.delete(g); continue; }
         let st = sprites.get(g);
         if ((pass === 0) !== !st) continue;
-        if (did >= REBUILD_LEAST && performance.now() - now > REBUILD_MS) { over = true; break; }
+        if (did >= REBUILD_LEAST && now >= lookHoldUntil && performance.now() - now > REBUILD_MS) { over = true; break; }
         did++; todo.delete(g); pending.delete(g);
         const rot = (f & 1) !== 0;
         if (f & 8) {

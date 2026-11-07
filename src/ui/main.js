@@ -30,7 +30,7 @@ import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, he
 import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
-import { onTheme, themeSettled } from './theme-epoch.js';
+import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
 import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
@@ -72,7 +72,7 @@ import { ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, setFramePump } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
@@ -1380,7 +1380,12 @@ const canCrossfade = () => !!document.startViewTransition && !document.hidden &&
 function switchTheme(t, clear) {
   if (!canCrossfade()) { applyTheme(t, clear); return; }
   // (The new page is whole before the crossfade captures it: every surface has drawn the look, themeSettled in theme-epoch.js, capped.)
-  crossfade(() => { applyTheme(t, clear); return themeSettled().then(() => stage?.lookWhole?.(700)); });
+  // (The page's rendering is held while the callback is pending, and with it the browser's animation frames: the scheduler's frames come from a
+  // timer meanwhile (setFramePump), so the surfaces draw the new look before the new picture is taken. Once whole, it is.)
+  crossfade(async () => {
+    setFramePump(true);
+    try { applyTheme(t, clear); await themeSettled(); await stage?.lookWhole?.(700); await settledSurfaces(); } finally { setFramePump(false); }
+  });
 }
 // While a crossfade plays, its pictures cover the page, so a tap would land on <html>: lost, and taken as a tap outside the
 // open Settings, which closed. Such a tap ends the crossfade and goes to whatever is under it once the live page shows again.
@@ -1404,8 +1409,15 @@ addEventListener('pointerdown', (e) => {
 function applyTheme(t, clear) {
   applyLookAttrs(document.documentElement, t);   // (data-theme, and data-palette for Navy and Black: looks.js)
   try { if (t) localStorage.setItem('pps.theme', t); else if (clear) localStorage.removeItem('pps.theme'); } catch (e) { caught('main:1168', e); /* storage unavailable */ }
-  const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
+  // (The figure and the instruments take the look in the theme frame, below (onTheme), with the colour tokens and the stage's styles read
+  // again: drawn here, in the task of the attribute write, they read the look before.) A hidden page runs no frame: drawn at once.
+  if (document.hidden) { const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); } }
 }
+onThemeBusy(labelsBusy);   // (the labels' and leaders' pictures are built whole for a new look: the crossfade waits for them)
+onTheme(() => {
+  stage?.lookChanged?.();
+  const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
+});
 // The browser's and the installed app's status bar take the color of whatever sits under it: the
 // figure (the top bar floats over it). The theme can differ from the system's, so the color comes from the page, not from a media query.
 function syncStatusBar() {
@@ -1850,7 +1862,7 @@ function chromeGlass() {
 import { sheetBehaviour } from './dock-sheet.js';
 import { reduceMotionMQ } from './motion.js';
 import { darkMQ } from './look.js';
-import { labelWritten, themeChanged } from './label-theme.js';
+import { labelWritten, themeChanged, labelsBusy } from './label-theme.js';
 // ── The thumb dock (15 Oct) ─────────────────────────
 // A phone, or a tablet held upright, in Patients: the top keeps only the patient (left) and the Colored-by key
 // (right), and Treat, Tests, History, Layers and Settings sit in a tab row at the foot of the dock, under the play bar,

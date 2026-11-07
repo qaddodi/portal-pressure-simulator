@@ -20,3 +20,6 @@ export function rideChanged() { for (const l of layers) l.ride(); }
  *  between frames (gl-words.js, util.js putText), a menu's class, a focus ring's hold. The layer that holds `el` reads that label again; the
  *  others pass it over. (No layer observes its labels, L3 P5: a writer that holds the layer calls its dirty(el) itself.) */
 export function labelWritten(el) { if (el) for (const l of layers) l.dirty?.(el); }
+
+/** Whether any layer still has a label or mark to read or draw again (after a look change: the crossfade waits for it). */
+export function labelsBusy() { for (const l of layers) if (l.busy?.()) return true; return false; }

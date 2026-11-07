@@ -355,7 +355,7 @@ export function createPlate(st, live) {
     // (With the changing organs painted live, the pictures hold none of them: only the rest is the pictures' state.)
     // (The bowel's float only once the fluid has settled: while it eases, the bowel's picture is moved on the GPU, organs-gl.js shift.)
     if (!live.fluidEasing()) bowelHeld = organG.bowel.getAttribute('transform');
-    if (liveOn()) return ['live', bowelHeld, cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), flag.imaging].join('|');
+    if (liveOn()) return ['live', bowelHeld, themeKey(), cs.getPropertyValue('--stage-bg'), cs.getPropertyValue('--organ-liver'), flag.imaging].join('|');
     return [live.liverKey, organG.liver.getAttribute('transform')?.replace(/(\d\.\d\d\d)\d*/g, '$1'), organG.spleen.getAttribute('transform')?.replace(/(\d\.\d\d)\d*/g, '$1'), live.diaKey,
       tintQ,
       organG.bowel.getAttribute('transform'), (flank.getAttribute('d') || '').slice(0, 24), organEls.umbilicus?.getAttribute('opacity'),
@@ -387,7 +387,7 @@ export function createPlate(st, live) {
     // pictures and dark again while it is hidden, and the light picture stayed on the canvas until the next one replaced it, so
     // coming back showed the organs almost white first (Mohammad, 21 Oct: "the flash when I switch to the app ... still happens").
     if (document.hidden && live.veins && !live.veins.lost && live.plateTheme !== null && live.veins.hasPlate(0) && !circuitInk()) {
-      const theme = wrapCS().getPropertyValue('--stage-bg');
+      const theme = `${wrapCS().getPropertyValue('--stage-bg')}|${themeKey()}`;   // (the look as well as the ground: Light and Soft, Dark and Navy, may share one)
       if (theme !== live.plateTheme) { live.plateTheme = theme; hidePlate(); }
     }
     if (!live.veins || live.veins.lost || !glWanted(easeInOut(live.morph)) || figureHidden() || document.hidden || circuitInk()) return;
@@ -406,7 +406,7 @@ export function createPlate(st, live) {
     readFluidInk(wrapCS());
     // A theme switch: the old raster would keep the old background for a beat, so show the live
     // SVG plate (already in the new theme) at once and rasterize again without the throttle.
-    const theme = wrapCS().getPropertyValue('--stage-bg');
+    const theme = `${wrapCS().getPropertyValue('--stage-bg')}|${themeKey()}`;   // (the look as well as the ground: Light and Soft, Dark and Navy, may share one)
     const themed = live.plateTheme !== null && theme !== live.plateTheme;
     live.plateTheme = theme;
     // Shown again after being covered while the patient changed (followHidden): the raster still holds the patient before, so

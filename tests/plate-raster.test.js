@@ -31,7 +31,7 @@ test('an ease that outgrows the plate shows on the live drawing, and the plate i
   // (Unless the changing organs are painted live: then nothing is dropped, and the pictures under them hold none of them.)
   assert.match(poke, /const liveNow = liveOn\(\);/);
   // (The bowel's float only once the fluid settles: its picture is moved on the GPU while it eases.)
-  assert.match(stage, /if \(liveOn\(\)\) return \['live', bowelHeld, cs\.getPropertyValue\('--stage-bg'\)/);
+  assert.match(stage, /if \(liveOn\(\)\) return \['live', bowelHeld, themeKey\(\), cs\.getPropertyValue\('--stage-bg'\)/);
 });
 
 test('highlighting an organ never draws the organ picture again (its look is the same, and the redraw lagged)', () => {

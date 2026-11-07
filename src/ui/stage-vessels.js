@@ -724,7 +724,7 @@ export function createVessels(st, live) {
       const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
-      const k = colFollow.step(it.row, colT, colDt, !!live.lensFrom || reduceMotion.matches);
+      const k = colFollow.step(it.row, colT, colDt, !!live.lensFrom || reduceMotion.matches || live.themeSnap);
       const pair = shownPair(live.shownCol, it.row), s0 = pair[0], s1 = pair[1];
       s0[0] = k[0]; s0[1] = k[1]; s0[2] = k[2]; s1[0] = k[3]; s1[1] = k[4]; s1[2] = k[5];
       colRows.add(it.row);
@@ -913,6 +913,7 @@ export function createVessels(st, live) {
     gpuProbe.time(null, 'vessel sync: colours', colPass);
     cpItems = null; cpCs = null;
     live.colEasing = colFollow.moving;
+    live.themeSnap = false;   // (a new look's colours were taken at once, above)
     colFollow.prune(colRows);
     // (Uploaded only when some vessel's attributes changed: most model frames in a steady state change none.)
     let tubesChanged = !live.tubesShown || live.tubesShown.length !== tubeData.length;

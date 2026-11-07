@@ -80,6 +80,6 @@ test('R12: a full atlas is packed beside the old one on the GPU; no reset, no SV
 test('R11: the pass builds in chunks within a time budget, new labels first, and leaves the rest pending (not the SVG)', () => {
   assert.match(lg, /const REBUILD_MS = 4, REBUILD_LEAST = 12;/);
   assert.match(lg, /if \(\(pass === 0\) !== !st\) continue;/);
-  assert.match(lg, /if \(did >= REBUILD_LEAST && performance\.now\(\) - now > REBUILD_MS\) \{ over = true; break; \}/);
+  assert.match(lg, /if \(did >= REBUILD_LEAST && now >= lookHoldUntil && performance\.now\(\) - now > REBUILD_MS\) \{ over = true; break; \}/);
   assert.match(lg, /if \(over\) for \(const g of todo\.keys\(\)\) pending\.add\(g\);/);
 });

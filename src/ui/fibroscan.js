@@ -17,6 +17,7 @@ import { createFollow } from './display-state.js';
 import { fix1 } from './fix-text.js';
 import { dataSoon } from './class-soon.js';
 import { SSM_CUTS } from '../engine/ssm-cuts.js';
+import { onTheme } from './theme-epoch.js';
 const nextFrame = frameFor('fibroscan');
 
 const WAVE_T0 = 8; // ms: the shear wave reaches the top of the measurement window about 8 ms after the push
@@ -35,7 +36,8 @@ function watchTheme() {
   if (themeWatch) return;
   themeWatch = true;
   const soon = () => { if (!themeSoon) themeSoon = setTimeout(readTheme, 0); };
-  if (typeof MutationObserver === 'function') new MutationObserver(soon).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme', 'style', 'data-palette'] });
+  if (typeof MutationObserver === 'function') new MutationObserver(soon).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
+  onTheme(readTheme);   // (a new look: read in the theme epoch's frame with every other surface, not a timer after it)
   if (typeof matchMedia === 'function') matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', soon);
 }
 const colors = () => theme;

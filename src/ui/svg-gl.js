@@ -23,7 +23,7 @@ import { morphSvg } from './svg-morph.js';
 import { setGeo } from './held-geo.js';
 export { setGeo };
 import { attrSoon } from './class-soon.js';
-import { onTheme } from './theme-epoch.js';
+import { onTheme, onThemeBusy } from './theme-epoch.js';
 import { lookFor, makeCtx, clearLookMemo, hostSizeFor, looksNeedWidth } from './chart-looks/resolve.js';
 
 // (No bleed: a picture reaching past the box counts as overflow, and the card's fit then shrank the whole card to take it in.)
@@ -816,10 +816,9 @@ const finalFrame = finalFrameFor('svg-gl');
 const live = new Set();
 let themeAsk = 0;
 function themeRead() { themeAsk = 0; clearShared(); clearLookMemo(); for (const g of live) { if (!g.box.isConnected) continue; g.relook(); } }
-if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
-  new MutationObserver(() => { clearShared(); if (!themeAsk && live.size) themeAsk = restPass(themeRead); })
-    .observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette'] });
-}
+// (The charts take a new look once, in the theme epoch's frame, below: an observer of their own had them read it a pass before, from the callouts' strokes
+// and the other tokens as they were, and again in the epoch.)
+onThemeBusy(() => { if (themeAsk) return true; for (const g of live) if (g.ask || g.lookAsk) return true; return false; });
 // (The device's own dark mode too, which the attributes above never show: theme-epoch.js sees it, and runs this in the theme's frame.)
 onTheme(() => { clearShared(); clearLookMemo(); if (!themeAsk && live.size) themeAsk = restPass(themeRead); });
 

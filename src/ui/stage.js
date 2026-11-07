@@ -298,6 +298,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get glowMemo() { return glowMemo; }, set glowMemo(v) { glowMemo = v; },
     get glowSetAt() { return glowSetAt; }, set glowSetAt(v) { glowSetAt = v; },
     get glowSync() { return glowSync; }, set glowSync(v) { glowSync = v; },
+    get themeSnap() { return themeSnap; }, set themeSnap(v) { themeSnap = v; },
     get glRadDirty() { return glRadDirty; }, set glRadDirty(v) { glRadDirty = v; },
     get glStore() { return glStore; }, set glStore(v) { glStore = v; },
     get glStraight() { return glStraight; }, set glStraight(v) { glStraight = v; },
@@ -651,7 +652,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const mo = new MutationObserver((recs) => {
       for (const r of recs) {
         if (r.attributeName === 'class') { const c = gestureFree(r.target.getAttribute('class')); if (seen.get(r.target) === c) continue; seen.set(r.target, c); }
-        drop(); return;
+        drop();
+        // (A new look: the snapshot is taken in the next frame's read phase, before the theme frame's callbacks, so the figure's sync in that frame reads the new colours.)
+        if (recs.some((x) => x.attributeName === 'data-theme' || x.attributeName === 'data-palette')) csAsk ||= readFrame(wrapCSTake);
+        return;
       }
     });
     for (let el = wrap; el; el = el.parentElement) { seen.set(el, gestureFree(el.getAttribute('class'))); mo.observe(el, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'data-theme', 'data-palette', 'data-noglass', 'data-mode'] }); }
@@ -1224,7 +1228,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const { SEL_FADE, dop, dopApply, dopGateOf, dpr, glow, noGlows, revShown, selAKey, setGlow, setGlowSrc, spot, spotOn, toneCol, vh } = createGlow({ ALL_EDGES, E, EI, geo, nextFrame }, live);
   // The glow and hover eases step at the display's rate, but the vessels are redrawn at the paced rate (animate): an
   // ease only marks the tubes stale, and the paced frame rebuilds and uploads them once.
-  let glowSync = false;
+  let glowSync = false, themeSnap = false;   // (themeSnap: a new look is on the vessels' colours, which take it at once, not by their ease)
   let slideGlow = [], glowSetAt = 0;   // (the slide's glows as set, and when: a glowSeq slide's step numbers follow them, V10)
 
   // ── View transform (pan / zoom) ───────────────────
@@ -3170,12 +3174,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** Resolves once the figure has taken the page's new look whole (the organs' specs read and applied, and one frame drawn since), never
      *  later than `cap` ms: a look change's crossfade (main.js switchTheme) captures its new picture then, not with the background
      *  changed and the organs still to follow, one by one. */
+    /** The page has a new look (theme-epoch.js, in the theme frame): the vessels take its colours at once, the organs' pictures are made again,
+     *  and the figure is drawn, all in this frame, not by the model's next frame some 100 ms on (or never, while it is paused). */
+    lookChanged() { themeSnap = true; glowSync = true; veinsDirty = true; plateStale = true; stageWake(); },
     lookWhole(cap = 700) {
       return new Promise((done) => {
         const t0 = performance.now(), t = setTimeout(done, cap);
         let calm = 0;
         const poll = () => {
-          if (lookPending()) calm = 0; else calm++;
+          if (lookPending() || !csSnap || csAsk || themeSnap || glowSync || veinsDirty) calm = 0; else calm++;
           if (calm >= 2 || performance.now() - t0 >= cap) { clearTimeout(t); done(); return; }
           lookFrame(poll);
         };

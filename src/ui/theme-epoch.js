@@ -39,3 +39,24 @@ export function themeSettled(cap = 350) {
     changed();   // (resolved even when nothing had been asked yet: the attributes are written before this is called)
   });
 }
+
+// Surfaces that need more than the theme frame and one rest pass to take a look (the labels' pictures rebuilt in bounded chunks, the GPU
+// readouts handed over, the charts drawn again) say so here: fn() is true while one still has work for the look just applied.
+const busies = new Set();   // alloc-rare: the surfaces that can be busy, added once as each is made
+const busyFrame = frameFor('theme-busy');
+/** Registers fn, true while the surface has the look still to draw. Returns an off. */
+export function onThemeBusy(fn) { busies.add(fn); return () => busies.delete(fn); }
+const anyBusy = () => { for (const fn of busies) { try { if (fn()) return true; } catch { /* a surface that cannot say is not waited for */ } } return false; };
+/** A promise that resolves once no registered surface is busy for two frames running (never later than `cap` ms). */
+export function settledSurfaces(cap = 700) {
+  return new Promise((done) => {
+    const t0 = performance.now();
+    let calm = 0;
+    const poll = () => {
+      if (anyBusy()) calm = 0; else calm++;
+      if (calm >= 2 || performance.now() - t0 >= cap) { done(); return; }
+      busyFrame(poll);
+    };
+    busyFrame(poll);
+  });
+}

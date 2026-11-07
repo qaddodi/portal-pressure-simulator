@@ -79,9 +79,26 @@ function rethrow(e) {
   setTimeout(() => { throw e; });   // alloc-rare: only when a callback or a watcher threw
 }
 
+// (A view transition's update callback holds the page's rendering back until it finishes, and the browser then runs no animation frames: a crossfade
+// that waits for the surfaces to draw the new look (main.js crossfade) would wait for frames that never come. While the pump is on, frames are
+// asked of a short timer instead; the GL draws they make land in the canvases, which the transition captures once the callback is done.)
+let pump = false, rafId = 0, pumpT = 0;
+function pumped() { pumpT = 0; flush(performance.now()); }
+function askFrame() { return pump ? (pumpT = setTimeout(pumped, 4)) : (rafId = requestAnimationFrame(flush)); }
+/** Frames come from a timer (true) or from the browser's animation frames (false). Turned on, a frame asked for already is moved to the timer. */
+export function setFramePump(on) {
+  on = !!on;
+  if (on === pump) return;
+  pump = on;
+  if (on && pending && rafId) {
+    cancelAnimationFrame(rafId); rafId = 0; pending = 0;
+    if (queue.size || late.size || fin.size || reads.size) pending = askFrame();
+  }
+}
+
 function flush(now) {
   const taskT0 = performance.now();
-  pending = 0;
+  pending = 0; rafId = 0;
   paceStep();
   frames++; allFrames++;
   if (chained && lastNow && now > lastNow) noteGap(now - lastNow);
@@ -134,7 +151,7 @@ function flush(now) {
   }
   lastTask = performance.now() - taskT0;
   parts = null; lastNow = now;
-  if ((queue.size || late.size || fin.size || reads.size || mayDue() || FPS_FORCE) && !pending && !(FPS_FORCE && document.hidden)) pending = requestAnimationFrame(flush);
+  if ((queue.size || late.size || fin.size || reads.size || mayDue() || FPS_FORCE) && !pending && !(FPS_FORCE && document.hidden)) pending = askFrame();
   else if (!pending) mayTimer();
   chained = !!pending;
 }
@@ -346,7 +363,7 @@ export function mayTask(tag, fn, opts) {
     m.fn = fn; m.waited = 0; m.notBefore = notBefore; m.maxWait = maxWait; m.at = mayPass;
     mays.set(tag, m);
   }
-  if (!notBefore || notBefore <= performance.now()) { if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush); }
+  if (!notBefore || notBefore <= performance.now()) { if (!pending && !current && !readsNow) pending = askFrame(); }
   else if (!pending) mayTimer();
   return m.cancel;
 }
@@ -371,7 +388,7 @@ function mayTimer() {
   clearTimeout(mayT); mayTAt = at;
   mayT = setTimeout(mayFire, Math.max(0, at - performance.now()));
 }
-function mayFire() { mayT = 0; if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush); }
+function mayFire() { mayT = 0; if (!pending && !current && !readsNow) pending = askFrame(); }
 function runMay(now) {
   if (!mays.size) return;
   const limit = MAY_SHARE * frameBudget();
@@ -434,7 +451,7 @@ function roll(now) {
 export function frame(cb, tag = 'other') {
   const id = next++;
   queue.add(id, tag, cb);
-  if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
+  if (!pending && !current && !readsNow) pending = askFrame();
   return id;
 }
 
@@ -442,7 +459,7 @@ export function frame(cb, tag = 'other') {
 export function readFrame(cb, tag = 'other') {
   const id = next++;
   reads.add(id, tag, cb);
-  if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
+  if (!pending && !current && !readsNow) pending = askFrame();
   return id;
 }
 
@@ -450,7 +467,7 @@ export function readFrame(cb, tag = 'other') {
 export function lateFrame(cb, tag = 'other') {
   const id = next++;
   late.add(id, tag, cb);
-  if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
+  if (!pending && !current && !readsNow) pending = askFrame();
   return id;
 }
 
@@ -458,7 +475,7 @@ export function lateFrame(cb, tag = 'other') {
 export function finalFrame(cb, tag = 'other') {
   const id = next++;
   fin.add(id, tag, cb);
-  if (!pending && !current && !readsNow) pending = requestAnimationFrame(flush);
+  if (!pending && !current && !readsNow) pending = askFrame();
   return id;
 }
 
