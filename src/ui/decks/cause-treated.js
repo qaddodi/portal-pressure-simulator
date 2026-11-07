@@ -54,6 +54,16 @@ export const CAUSE_TREATED = {
       ask: ['Does he still need liver cancer surveillance?', 'Yes, every 6 months: cirrhosis was present before the cure, and the cancer risk remains.'],
     },
     {
+      // (The same man, on carvedilol since the cure: his stiffness is under 10 kPa, so the chart for stopping it lights Resolved. Baveno VIII 7.15 to 7.19 are written
+      // for recompensated patients; he was never decompensated, and 3.14b has CSPH reassessed after cure, so the card applies by extension.)
+      id: 'path-stopcarv', cam: 'liver',
+      tool: { kind: 'path', of: 'stopcarv', short: 'Stopping carvedilol', patient: { hv: 'none' } },
+      kicker: HCV, site: 'sin', title: 'With CSPH resolved, carvedilol may stop',
+      line: 'His stiffness is {lsm}, which is {<10 kPa}: CSPH is ruled out without a catheter, so the chart lets carvedilol stop. Surveillance does not.',
+      notes: 'Source: Baveno VIII 3.14, 7.15 to 7.19. After aetiological treatment CSPH can persist and should be reassessed (3.14b). Carvedilol may be stopped only if the resolution is confirmed (7.18, weak): by an HVPG under 10 mmHg measured off carvedilol (7.16), or by stiffness, which is what his chart uses: under 10 kPa, or under 15 kPa with a spleen stiffness under 25 kPa (7.19). A stiffness of 9.1 kPa meets the first. Varices and collaterals may persist after CSPH has resolved, so they are no reason to keep the drug (7.17). Statements 7.15 to 7.19 are written for recompensated patients; he was never decompensated, so the chart applies by extension, as the guideline\'s 3.14b asks for CSPH to be reassessed after cure. His stiffness falls faster than the scar regresses, so many centers repeat it, or measure an HVPG off carvedilol, before stopping. The model shows him off carvedilol throughout.',
+      ask: ['His stiffness is 12 kPa and his spleen stiffness 30 kPa. May carvedilol stop?', 'No: 12 kPa is not <10, and <15 kPa counts only with a spleen stiffness <25 kPa. Measure the HVPG off carvedilol, or repeat the stiffness later.'],
+    },
+    {
       id: 'high', preset: 'csph', params: { cirrhosis: 0.75 }, days: 365, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['varix', 'asc'],
       kicker: HIGH, site: 'sin', title: 'A higher HVPG before cure',
       vignette: 'A 58-year-old woman with hepatitis C cirrhosis from a transfusion in 1987 starts sofosbuvir and velpatasvir. EGD shows large varices, and ultrasound shows a little ascites she has not noticed.',

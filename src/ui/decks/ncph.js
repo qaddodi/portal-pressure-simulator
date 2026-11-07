@@ -49,12 +49,32 @@ export const NCPH = {
       ask: ['Stiffness 6 kPa with large varices. Does that rule out portal hypertension?', 'No: it argues against cirrhosis. Portal hypertension with a normal stiffness points to a non-cirrhotic cause.'],
     },
     {
+      // (The chart of the screening rules in PSVD or NCPF, lit for this patient: Baveno VIII 8.46 to 8.48. The spleen stiffness is the model's; the bilirubin and
+      // what the scope finds are the case's own. tool-path.js.)
+      id: 'path-psvdscope', cam: 'liver', glow: ['liver'],
+      tool: { kind: 'path', of: 'psvdscope', short: 'Scope path', patient: { bili: 0.8, v: 'small' } },
+      kicker: 'Where the resistance sits', site: 'presin', title: 'In PSVD, spleen stiffness decides who needs a scope',
+      line: 'A spleen stiffness of {ssm} calls for a scope at diagnosis. Only {<40 kPa} with a bilirubin {<1 mg/dL} spares it; the cirrhosis stiffness rules do not apply.',
+      notes: 'In porto-sinusoidal vascular disorder (PSVD) and non-cirrhotic portal fibrosis (NCPF) the liver stiffness and platelet rules that spare a screening scope in cirrhosis must not be used (Baveno VIII 8.48). Screening for gastroesophageal varices is advised at diagnosis (8.46). It can be skipped, at diagnosis and in follow-up, only when the spleen stiffness is <40 kPa and the bilirubin is <1 mg/dL (<17 µmol/L), because varices are then unlikely (8.47); a patient at exactly 40 kPa or 1 mg/dL is not spared. When a scope is done, it is repeated every 2 years if it found no varices and every year if it found small ones (8.46). The model\'s patient, with the same picture as the schistosomiasis patient, has a spleen stiffness of about 60 kPa, so the scope is due whatever the bilirubin. The bilirubin of 0.8 mg/dL and the small varices on the lower row are the slide\'s own assumptions, not the model\'s; the lower row only names the follow-up of a scope that found no varices or small ones.',
+      ask: ['A patient with PSVD has a spleen stiffness of 35 kPa and a bilirubin of 1.3 mg/dL. Does he need a screening scope?', 'Yes. Sparing the scope takes both a spleen stiffness <40 kPa and a bilirubin <1 mg/dL.'],
+    },
+    {
       id: 'psvd', cam: 'lobule:triad', terms: { 'portal venules': 'lobule:triad' }, data: 'tiles', tiles: ['hvpg', 'lsm'],
       kicker: 'Where the resistance sits', site: 'presin', title: 'Porto-sinusoidal vascular disorder narrows the portal venules',
       line: 'Without schistosomes, the same picture comes from portal venules that narrow and vanish. A liver biopsy makes the diagnosis.',
       causesHead: 'Linked to', causes: ['Immune disorders', 'Thiopurines, oxaliplatin', 'HIV, didanosine', 'Thrombophilia'],
       notes: 'Porto-sinusoidal vascular disorder replaces older names such as idiopathic non-cirrhotic portal hypertension and hepatoportal sclerosis. It is linked to immune disorders and immunodeficiency, to thiopurines, oxaliplatin and didanosine, to HIV and to thrombophilia. The biopsy shows no cirrhosis, with obliterative portal venopathy, nodular regenerative hyperplasia or incomplete septal fibrosis. As in schistosomiasis, the HVPG and the stiffness are lower than the portal hypertension suggests, and portal vein thrombosis is a common complication.',
       ask: ['How is porto-sinusoidal vascular disorder diagnosed?', 'An adequate liver biopsy without cirrhosis, plus a specific sign of portal hypertension (varices, collaterals), or a specific lesion (obliterative portal venopathy, nodular regenerative hyperplasia, incomplete septal cirrhosis), or one non-specific sign with one non-specific lesion.'],
+    },
+    {
+      // (The diagnostic score of Baveno VIII Fig. 4, lit for this patient: a specific sign of portal hypertension (3) and a minor biopsy lesion (2) make 5, a definite
+      // diagnosis. The biopsy and the associated conditions are the case's own, not the model's. tool-path.js.)
+      id: 'path-psvdscore', cam: 'lobule:triad', glow: ['lobule:triad'],
+      tool: { kind: 'path', of: 'psvdscore', short: 'Diagnostic score', patient: { sg: 0, hi: 1, ac: 1, cc: 1 } },
+      kicker: 'Where the resistance sits', site: 'presin', title: 'A score of 5 makes the diagnosis',
+      line: 'Varices and a spleen stiffness of {ssm} are specific signs, worth 3. A minor lesion on the biopsy adds 2: a total of {>=5 points} is a definite diagnosis.',
+      notes: 'This is the diagnostic score of Baveno VIII (Fig. 4, 8.42 to 8.44). It applies only when cirrhosis has been ruled out on an adequate liver biopsy (a specimen of 15 mm or more with a fragment of 10 mm or more, or one an expert pathologist finds adequate, 8.41) and no exclusion criterion is present. Clinical signs of portal hypertension score 3 if specific (medium or large esophageal varices, gastric varices, spontaneous portosystemic collaterals, or a spleen stiffness >40 kPa without a myeloproliferative neoplasm), 2 if non-specific (clinical ascites, small esophageal varices, platelets <150 × 10⁹/L, splenomegaly) and 0 if there is none. Histology scores 5 for a major lesion (nodular regenerative hyperplasia, muscularized portal venules, or stenosis of the portal venules in 50% or more of the portal tracts), 2 for a minor lesion (an abnormal distribution of the vascular structures, stenosis in 25% to 49% of the tracts, or regenerative changes without clear nodules) and 0 if normal; all three minor criteria together count as a major one (8.43). A condition known to be associated with PSVD adds 1, and a concomitant cause of cirrhosis takes away 1. A total of 5 or more is a definite PSVD or NCPF; 3 or 4 is possible, which calls for further tests such as a new biopsy or a stiffness, referral to an expert center in vascular liver disease and follow-up for new signs. On the slide the model gives the spleen stiffness; the biopsy and the associated conditions are the case\'s own facts.',
+      ask: ['A patient has small varices and platelets of 120 × 10⁹/L, and his biopsy shows a major lesion. Is the diagnosis definite?', 'Yes. Non-specific signs score 2 and a major lesion 5, a total of 7, which is ≥5. A score of 3 or 4 would be only possible.'],
     },
     {
       // (The relation chart before the summary: the model's cirrhosis from none to severe, each point settled for a year, the PPG and the spleen

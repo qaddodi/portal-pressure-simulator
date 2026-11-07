@@ -41,6 +41,16 @@ export const NEXT_BLEED = {
       ask: ['Within how long of a variceal bleed should secondary prophylaxis start, and why?', 'Within 7 days of admission, because the rebleeding risk is highest in the first 6 weeks.'],
     },
     {
+      // (A side card: the bleed of this talk is esophageal, and the gastric half of Fig. 3 shows what a fundal bleed would have changed. The Child-Pugh score
+      // and fitness for TIPS are the case's own, not the model's; path-algos/gastric.js.)
+      id: 'gastric', terms: ['varix'], cam: 'varices', labels: ['VAR'],
+      tool: { kind: 'path', of: 'gastric', short: 'Gastric bleed path', patient: { cp: 8, fit: true } },
+      kicker: 'After the bleed', site: 'sin', title: 'A fundal bleed would take another path',
+      line: 'Had the varix been fundal (GOV2 or IGV1), two phases would run: glue to stop the bleeding, then a TIPS as soon as possible, even at Child–Pugh B 8.',
+      notes: 'His varices are esophageal, so he is banded and then takes carvedilol. A bleed from a GOV2 or an IGV1 varix is another event (Baveno VIII Fig. 3, 5.39 to 5.41): a high-risk bleed with two phases that start in parallel. The acute phase is cyanoacrylate injection or, in experienced centers, EUS-guided coils with cyanoacrylate. The definitive phase is a TIPS, with or without embolization of the varix, as soon as possible, for Child–Pugh C below 14 (so A and B too), age under 75, creatinine under 3 mg/dL and no heart failure. That is wider than the pre-emptive TIPS criteria for an esophageal bleed, which he missed at Child–Pugh B 8 without active bleeding. When a TIPS is contraindicated, transvenous obliteration, endoscopic or surgical options follow after a team discussion. The Gastric varices talk follows this path.',
+      ask: ['Why does a Child–Pugh B 8 patient get a TIPS after a fundal bleed but not after a controlled esophageal bleed without active bleeding?', 'A fundal (GOV2 or IGV1) bleed is high risk, and a TIPS is the preferred definitive treatment up to Child–Pugh C 13. For an esophageal bleed the pre-emptive TIPS needs Child–Pugh C 10 to 13, or B 8 to 9 with active bleeding.'],
+    },
+    {
       id: 'bands', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',
       kicker: 'Banding alone', site: 'sin', title: 'Banding shrinks the varices, not the pressure',
       line: 'Banding every 2 to 4 weeks shrinks the varices to {varix}. The pressure behind them does not fall: the HVPG is {hvpg}.',
@@ -62,6 +72,16 @@ export const NEXT_BLEED = {
       line: 'Once titrated, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the pulse to {hr}. After a bleed, a fall of ≥20%, or to {<=12 mmHg}, is a response.',
       notes: 'Carvedilol starts at 6.25 mg a day and rises to 12.5 mg a day if the blood pressure allows. It cuts the portal inflow, as propranolol does, and also relaxes the resistance inside the liver, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. The 10% fall is the response before any bleed (Baveno VIII Table 3, primary prophylaxis); after a bleed the target is a fall of 20% or more, or to 12 mmHg or less. About half of patients reach that response, so a near miss is common; this man responds clearly, by about a quarter. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops. (Baveno VIII 4.8, Table 3.) The response tile is the third tile on this slide because the fall is the point of it. A beta-blocker does not shrink the varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
       ask: ['What fall in HVPG marks a response to a beta-blocker?', 'After a bleed, a fall of ≥20% from baseline, or to ≤12 mmHg.'],
+    },
+    {
+      // (The chart of Baveno VIII 4.8 to 4.10 for the same man: his ascites is a second decompensating event, so the third branch is lit. Which treatments he can
+      // take is the case's own; path-algos/secprop.js.)
+      id: 'secprop', cam: 'varices', labels: ['VAR'],
+      tool: { kind: 'path', of: 'secprop', short: 'Next-bleed path', patient: { more: true, can: 'both' } },
+      kicker: 'Carvedilol', site: 'sin', title: 'His ascites adds TIPS and transplant to the options',
+      line: 'After a bleed, carvedilol with banding comes first. His ascites is a second decompensating event, so Baveno VIII adds that TIPS and liver transplant may be considered.',
+      notes: 'This is the chart of Baveno VIII 4.8 to 4.10 for a patient recovering from an esophageal variceal bleed who is not eligible for rescue or pre-emptive TIPS, lit for the man on the slide. When the bleed is the only decompensating event, the first-line prevention of another is a non-selective beta-blocker with banding, carvedilol preferred over the other beta-blockers whether or not the patient took one before (4.8, strong). A patient who cannot have either one keeps the one he tolerates, alone (4.9, strong). A patient who also had a non-bleeding decompensating event, such as ascites or encephalopathy, may be considered for TIPS and liver transplant (4.10, a weak recommendation). He has ascites, so his path ends on that branch; the statement adds those options and does not withdraw carvedilol and banding, which the next slides follow. He can take both treatments, which the chart takes from the case.',
+      ask: ['Which patients recovering from a variceal bleed, not eligible for a pre-emptive TIPS, may be considered for TIPS and transplant?', 'Those who also had a non-bleeding decompensating event, such as ascites or encephalopathy (Baveno VIII 4.10, a weak recommendation).'],
     },
     {
       id: 'both', terms: ['varix'], action: [BAND, BAND, BAND], cam: 'varices', mark: BANDED, tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['varix'], delta: 'after',

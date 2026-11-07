@@ -40,6 +40,15 @@ export const TEN_YEARS = {
       ask: ['Does a man with compensated cirrhosis and an HVPG <10 mmHg need carvedilol?', 'No. Baveno VIII advises against a beta-blocker to prevent decompensation without CSPH.'],
     },
     {
+      // (The stages of Baveno VIII Fig. 2 lit for him at year 0: compensated, no CSPH yet. The ladder is the map of the ten years.)
+      id: 'path-ladder', cam: 'liver',
+      tool: { kind: 'path', of: 'ladder', short: 'Stages', patient: { s: 0, rc: false } },
+      kicker: 'Year 0', site: 'sin', title: 'He starts on the first of four steps',
+      line: 'A stiffness of {lsm} indicates advanced disease, and with no decompensation he is compensated. His HVPG of {hvpg} does not meet {>=10 mmHg}, so the second step is still ahead.',
+      notes: 'Source: Baveno VIII Fig. 2, 1.16, 3.1, 3.2, 4.1. Compensated advanced chronic liver disease (cACLD) is a stiffness of 10 kPa or more, which suggests it, and 15 kPa or more, which indicates it, with no current or past decompensation. It becomes cACLD with CSPH when stiffness, a model, varices, collaterals or the HVPG show CSPH, at an HVPG of 10 mmHg or more. Ascites, bleeding or overt encephalopathy is the first decompensation (3.3), and a second event or a rebleed is further decompensation (4.1). This man climbs all four: CSPH at year 2, ascites at year 6, and the bleeds of years 8 and 9. Each step changes what the guideline advises, and the later slides take them in turn.',
+      ask: ['What puts a compensated patient on the second step, with CSPH?', 'Evidence of CSPH: an HVPG ≥10 mmHg, a stiffness ≥25 kPa, varices or collaterals, or a model such as ANTICIPATE ≥75%.'],
+    },
+    {
       id: 'd90', tick: 'Year 2', days: 730, ramp: ramp(0.5, 0.66), cam: 'liver', tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'd0',
       kicker: 'Year 2', site: 'sin', title: 'Year 2: the stiffness rules in CSPH',
       line: 'Stiffness is {lsm}, which meets the {>=25 kPa} rule, with platelets of {plt}: CSPH is ruled in without a catheter, and carvedilol starts.',
@@ -88,6 +97,16 @@ export const TEN_YEARS = {
       line: 'Carvedilol holds the HVPG at {hvpg}, and three sessions of banding take the varix down to {varix}.',
       notes: 'Banding closes the varices but leaves the pressure behind them; carvedilol lowers the pressure but leaves the varices. Baveno VIII 4.8 combines them as first-line prevention of recurrent bleeding, with carvedilol preferred, whether or not the man took carvedilol before the bleed. Banding is repeated every 2 to 4 weeks until the varices are gone.',
       ask: ['What is first-line prevention of a repeat variceal bleed?', 'Carvedilol with banding, whether or not carvedilol was taken before the bleed.'],
+    },
+    {
+      // (The algorithm of Baveno VIII 4.8 to 4.10, lit for him: a bleed on top of the ascites of year 6 is not his only decompensation, so the chart adds TIPS and transplant
+      // to carvedilol and banding. Carvedilol and banding go on, as the slide before says; tool-path.js.)
+      id: 'path-secprop', cam: 'varices', labels: ['VAR'], calipers: ['varix'],
+      tool: { kind: 'path', of: 'secprop', short: 'Next-bleed path', patient: { more: true, can: 'both' } },
+      kicker: 'Year 8', site: 'sin', title: 'His bleed is not the only decompensation',
+      line: 'The chart asks first whether the bleed stands alone. His ascites came at year 6, so TIPS and transplant may be considered beside carvedilol and bands.',
+      notes: 'Source: Baveno VIII 4.8 to 4.10, for a patient recovering from an esophageal variceal bleed who is not a candidate for rescue or pre-emptive TIPS, as he is not. If the bleed is the only decompensation, carvedilol with banding is first-line, and the one that can be given is given alone if he cannot have both (4.8, 4.9). If he has also had a non-bleeding decompensating event, TIPS and liver transplant may be considered (4.10, weak). He had ascites at year 6, so the second branch is lit. Carvedilol and banding go on, as the last slide shows, and the transplant referral of year 6 now matters more. A TIPS comes into view if bleeding returns on both, which is where year 9 goes.',
+      ask: ['Banding and carvedilol after a bleed in a man who also had ascites. What else may be considered?', 'TIPS and liver transplantation (Baveno VIII 4.10, weak), because the bleed is not his only decompensating event.'],
     },
     {
       id: 'rebleed', tick: 'Year 9', milestone: 'Rebleed', days: 270, cam: 'liver', tool: { kind: 'profile', from: 'bands', fromLabel: 'Year 8' }, data: 'tiles', tiles: ['varix', 'liver'], key: ['hvpg'], delta: 'bands',

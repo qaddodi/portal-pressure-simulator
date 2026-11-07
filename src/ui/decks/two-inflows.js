@@ -46,6 +46,16 @@ export const TWO_INFLOWS = {
       ask: ['Why does acute portal vein thrombosis rarely cause a liver infarct?', 'The hepatic artery dilates (the buffer response) and keeps the liver perfused.'],
     },
     {
+      // (Fig. 5 of Baveno VIII for the man of the clot slide: no reversible factor, and a JAK2-positive myeloproliferative neoplasm, a permanent major one. Case facts.
+      // The hepatic artery's buffer keeps the liver alive; this is what the clot itself needs. tool-path.js.)
+      id: 'path-pvtgrid', preset: 'pvt-acute', cam: 'portal', mark: { edges: ['PV_TRUNK'], label: 'Clot' },
+      tool: { kind: 'path', of: 'pvtgrid', short: 'Long-term grid', patient: { r: 'no', c: 'maj' } },
+      kicker: 'The buffer', site: 'pre', title: 'The artery saves the liver; anticoagulation treats the clot',
+      line: 'The buffer covers for the clot but does not remove it. His myeloproliferative neoplasm is a permanent, major risk factor, so the grid says full-dose anticoagulation, long term.',
+      notes: 'The hepatic artery keeps the liver perfused while the portal vein is blocked, but the clot itself needs treating. For a portal vein clot without cirrhosis, Baveno VIII starts anticoagulation at once at a therapeutic dose (9.6) and gives at least 6 months (9.8). Whether to go on depends on the risk factors (9.10, Fig. 5). Two questions place the patient: was the clot provoked by a reversible factor in the last 3 months, and is there a permanent factor, and is it major? A myeloproliferative neoplasm and thrombophilia are the examples of major permanent factors the guideline gives (9.5). A permanent major factor calls for long-term anticoagulation at a therapeutic dose (9.10a, strong); without one, long-term lower-dose DOACs can be considered (9.10b, weak); stopping can be considered after a reversible factor resolves and with no permanent one (9.10c, weak). This man has no reversible factor and a JAK2-positive neoplasm, so he sits in the red cell: full dose, long term.',
+      ask: ['A man with a JAK2-positive myeloproliferative neoplasm has a portal vein clot. Is 6 months of anticoagulation enough?', 'No. A permanent major risk factor calls for long-term anticoagulation at a therapeutic dose (Baveno VIII 9.10a).'],
+    },
+    {
       id: 'switch', pill: false, cam: 'portal', tool: INFLOW, data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
       compare: [{ label: 'Buffer on', own: true, params: { habrStrength: 1 } }, { label: 'Buffer off', params: { habrStrength: 0 } }],
       kicker: 'The buffer', site: 'pre', title: 'Without the buffer the liver loses far more blood',

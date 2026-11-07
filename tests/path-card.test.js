@@ -162,14 +162,19 @@ test('the card is wired: a tool kind, a stylesheet in the page and the build, th
   assert.match(read('src/ui/presenter.js'), /RIDES_MODEL = new Set\(\[[^\]]*'path'/);
   const { STIFFNESS } = await import('../src/ui/decks/stiffness.js');
   const { BLEED: BLEED_DECK } = await import('../src/ui/decks/variceal-bleed.js');
-  const first = STIFFNESS.slides.filter((s) => s.tool?.kind === 'path'), bleed = BLEED_DECK.slides.filter((s) => s.tool?.kind === 'path');
+  const { DECKS } = await import('../src/ui/decks.js');
+  const first = STIFFNESS.slides.filter((s) => s.tool?.kind === 'path' && s.tool.of === 'first-visit'), bleed = BLEED_DECK.slides.filter((s) => s.tool?.kind === 'path');
   assert.deepEqual(first.map((s) => s.tool.of), ['first-visit']);
   assert.deepEqual(bleed.map((s) => s.tool.of), ['bleed', 'bleed']);
   assert.ok(STIFFNESS.slides.indexOf(first[0]) === STIFFNESS.slides.findIndex((s) => s.id === 'rules') + 1, 'right after the rules chart');
   assert.deepEqual(bleed.map((s) => outcomeOf('bleed', litBleed({ src: 'ov', ...s.tool.patient }))), ['ptips', 'fail']);
-  for (const s of [...first, ...bleed]) {
-    assert.ok(s.notes && s.ask && s.line && s.title, s.id);
-    assert.ok(Object.keys(s.tool).every((k) => ['kind', 'of', 'short', 'patient', 'title'].includes(k)), `${s.id}: only the tool's own fields`);
+  // every slide in every deck that carries the card names an algorithm of the registry, and has its words
+  const all = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.kind === 'path').map((s) => ({ d, s })));
+  assert.ok(all.length >= 3);
+  for (const { d, s } of all) {
+    assert.ok(ALGOS[s.tool.of], `${d.id}/${s.id}: an algorithm of the registry`);
+    assert.ok(s.notes && s.ask && s.line && s.title, `${d.id}/${s.id}`);
+    assert.ok(Object.keys(s.tool).every((k) => ['kind', 'of', 'short', 'patient', 'title'].includes(k)), `${d.id}/${s.id}: only the tool's own fields`);
   }
 });
 

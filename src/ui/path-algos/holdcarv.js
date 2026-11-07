@@ -1,6 +1,7 @@
 // Hold or restart carvedilol in decompensation: Baveno VIII 4.6 and 4.7. Reduce the dose or stop it for persistently low pressure
 // (systolic <90 or mean <65 mmHg) and/or HRS-AKI; restart and re-titrate once the HRS-AKI has resolved and/or the pressure has recovered.
 // Patient { held, sbp, hrs, map? }: map (mean arterial pressure, mmHg) is optional; a slide that gives none is judged on the systolic alone.
+import { MAP_BETA_CUT } from '../../engine/kidney-cuts.js';
 import { inheritTone } from './helpers.js';
 
 const tree = inheritTone({
@@ -13,7 +14,7 @@ const tree = inheritTone({
 
 const DEFAULT = { held: false, sbp: 84, hrs: true };
 const lowSbp = (p) => p.sbp < 90;
-const lowMap = (p) => Number.isFinite(p.map) && p.map < 65;
+const lowMap = (p) => Number.isFinite(p.map) && p.map < MAP_BETA_CUT;
 const bad = (p) => lowSbp(p) || lowMap(p) || !!p.hrs;
 
 export default {

@@ -87,6 +87,16 @@ export const KIDNEY = {
       ask: ['What does carvedilol do to the MAP, and why does it matter for the kidneys?', 'It lowers it, because it relaxes the arteries. A lower MAP leaves the kidneys a lower pressure.'],
     },
     {
+      // (The Baveno VIII rule for carvedilol, lit for the man on the slide before. The model has no systolic pressure, so the chart takes 105 mmHg,
+      // a usual value for his MAP of 79; the next slide is the same rule with a bleed.)
+      id: 'path-carv', cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'tap',
+      tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: false, sbp: 105, hrs: false, map: 79 } },
+      kicker: 'Carvedilol', site: 'sin', title: 'At this MAP the chart says carry on with carvedilol',
+      line: 'His MAP is {map}, clear of the {<65 mmHg} line, and he has no HRS-AKI. The chart lights carry on; a low pressure or HRS-AKI would light reduce or stop.',
+      notes: 'The Baveno VIII chart for carvedilol in decompensated cirrhosis (4.6, 4.7), lit for the man on the slide. Carvedilol is dose-reduced or stopped when the blood pressure stays low (systolic below 90 mmHg or mean arterial pressure below 65 mmHg) and/or there is HRS-AKI (4.6). It is restarted and re-titrated once the HRS-AKI has resolved and/or the pressure has recovered (4.7). His MAP is about 79 mmHg, and the model has no systolic pressure and no HRS-AKI, so the chart takes a systolic pressure of 105 mmHg and no HRS-AKI as the facts of the case. Neither problem is present, so he carries on. A patient whose carvedilol is already held and who has recovered on both counts takes the restart branch. The next slide takes the same man through a large bleed.',
+      ask: ['A man on carvedilol has a MAP of 79 mmHg, a systolic pressure of 105 mmHg and no HRS-AKI. What does the chart say?', 'Carry on. Cut back or stop only for a systolic pressure <90 mmHg, a MAP <65 mmHg or HRS-AKI.'],
+    },
+    {
       id: 'hold', action: BLEED, cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'carv',
       tool: { kind: 'criteria', title: 'Carvedilol: cut back, then restart', short: 'Carvedilol', lead: 'Any one of these.', rule: 'Baveno VIII 4.6, 4.7',
         rows: [['**Mean arterial pressure**', 'map', '<', 65], 'Systolic pressure **<90 mmHg**', '**HRS-AKI**'],

@@ -5,6 +5,9 @@
 //                       stiffness (the tiles' own readings, so a slider or a button moves the path)
 //   of: 'bleed'         Fig. 3, acute variceal bleeding: lit from the case's source of bleeding, Child–Pugh score, active bleeding, control and
 //                       fitness for TIPS, and the model's HVPG
+//   of: 'psvdscore' | 'recomp' | 'pvtgrid' | 'ladder'   the kinds that are not trees (path-cards.js): a score card, a checklist, a grid of two
+//                       questions and a ladder of stages, lit from the slide's own answers (patient: { sg, hi, ac, cc } | { ca, ev, lf } |
+//                       { r, c } | { s, rc }); the head (the pill, the answers as chips where they help), the rule and the foot are this card's
 //   patient: { lsm, plt, bmi, ant, ssm }  or  { src: 'ov' | 'gv', cp, active, hvpg, ctrl, fit }
 //                       the slide's own facts; the model's readings replace lsm, plt, ssm and hvpg where it has them (path-data.js patientFor).
 //                       ANTICIPATE, the Child–Pugh score, active bleeding and control are not in the model: they are the case's.
@@ -22,16 +25,23 @@ import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { loadMetrics, layoutParagraph, textWidth } from './text-gl.js';
 import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
+import { cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
 
 export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 26, MAP_UNIT = 66, GAP = 10;
 const PILL_H = 22, PILL_PAD = 10;
-const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger' };
+export const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger', acc: 'accent' };
 const svg = svgModel;
 /** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */
 export const ROLE = {
   kick: { weight: 600, size: 12, lh: 16 }, chips: { weight: 500, size: 13, lh: 18 }, foot: { weight: 400, size: 12, lh: 16 },
   t: { weight: 400, size: 12, lh: 16 }, r: { weight: 600, size: 13, lh: 16 }, s: { weight: 400, size: 12, lh: 16 }, st: { weight: 500, size: 12, lh: 16 },
   rh: { weight: 600, size: 21, lh: 26 }, rs: { weight: 500, size: 12, lh: 26 }, rp: { weight: 400, size: 14, lh: 20 },
+  // the score card, checklist, grid and ladder (path-cards.js): a row's name and definition, an answer and its points, a zone's name
+  rn: { weight: 600, size: 13, lh: 17 }, rd: { weight: 400, size: 12, lh: 16 }, op: { weight: 600, size: 12, lh: 16 }, pt: { weight: 600, size: 11, lh: 16 }, zl: { weight: 500, size: 11, lh: 14 },
+  // the grid's column and row names, a cell's words (the small layout's a little smaller) and its second line
+  gh: { weight: 500, size: 12, lh: 16 }, gr: { weight: 600, size: 12, lh: 16 }, gs: { weight: 400, size: 11, lh: 14 }, ct: { weight: 600, size: 12, lh: 16 }, ctc: { weight: 600, size: 11, lh: 14 }, cs: { weight: 400, size: 11, lh: 14 },
+  // the ladder's stage label, "Patient is here", what the stage means, and the way back (its lead and its words)
+  sn: { weight: 500, size: 11, lh: 14 }, yo: { weight: 600, size: 11, lh: 14 }, sw: { weight: 600, size: 12, lh: 16 }, bk: { weight: 400, size: 12, lh: 16 }, bb: { weight: 600, size: 12, lh: 16 },
 };
 
 /** A reading as its tile prints it (the cut-offs are judged on what the tile shows). */
@@ -142,11 +152,14 @@ const nodeGap = (paras) => (pi) => (paras.length > 1 && pi === 0 && paras[0][0].
 /** The reading of one outcome as paragraphs: the verdict, then the why and the next step. */
 export const readParas = (r) => [[{ text: r.head, face: 'rh' }], [{ text: `${r.why} ${r.next}`, face: 'rp' }]];
 
+/** What path-cards.js lays a score card, grid or ladder out with: the card's own type, lines and shapes. */
+export const CARD_HELPERS = { flow, ROLE, svg, textWidth, readParas, TOKEN };
+
 export function createPath() {
   const pic = h('div', { class: 'pzp-pic' });
   const gl = createSvgGL(pic, { host: 'path' });
   const el = h('div', { class: 'pz-path' }, pic);
-  let t = null, spec = null, of = 'first-visit', sl = null, W = 0, patient = null, lay = null, shownKey = '', ready = false, asked = false;
+  let t = null, spec = null, of = 'first-visit', sl = null, card = false, W = 0, patient = null, lay = null, shownKey = '', ready = false, asked = false;
 
   function ctxFor() { try { const cx = chartCtx(pic); delete cx.svk; gl.setCtx(cx); } catch { /* (no card round it yet: the sizes as they stand) */ } }
   function ask() { if (asked) return; asked = true; loadMetrics().then(() => { ready = true; if (spec && W > 0) layout(); }).catch(() => { asked = false; }); }
@@ -154,17 +167,22 @@ export function createPath() {
   /** Everything that does not change with the patient: the columns, the nodes' words and their heights, the rooms reserved, the total height. */
   function layout() {
     if (!spec || !(W > 0) || !ready) return;
-    const compact = mapFor(spec.tree, W, typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches);
+    const phone = typeof matchMedia === 'function' && matchMedia(PHONE_MQ).matches;
+    const compact = card ? cardCompact(W, phone) : mapFor(spec.tree, W, phone);
     ctxFor();
     const L = { compact, y: {} }, worst = WORST[of], base = patient || worst;
     let y = 0;
     L.y.kick = y; y += PILL_H + 6;
-    // (the patient's numbers: room for the widest patient's, whatever this one has)
-    const chipsH = (p) => flow([[{ text: chipsOf(of, p).join(' · '), face: 'chips' }]], W).h;
-    L.chipsH = Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh);
-    L.y.chips = y; y += L.chipsH + GAP;
+    // (the patient's numbers: room for the widest patient's, whatever this one has; a kind whose patient has none draws no row and leaves no gap)
+    const chipsH = (p) => (chipsOf(of, p).length ? flow([[{ text: chipsOf(of, p).join(' · '), face: 'chips' }]], W).h : 0);
+    L.chipsH = card && !chipsH(base) && !chipsH(worst) ? 0 : Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh);
+    L.y.chips = y; if (L.chipsH) y += L.chipsH + GAP;
     L.y.pic = y;
-    if (compact) {
+    if (card) {
+      // (a score card, a grid or a ladder: path-cards.js lays out the tallest body any patient can have)
+      L.card = cardLayout(spec.algo, W, compact, base, CARD_HELPERS);
+      y += L.card.H + GAP;
+    } else if (compact) {
       L.k = mapType(W) / 12;
       L.map = mapPlace(spec.tree, W, L.k, y, (id) => mapWordsOf(of, id));
       y += L.map.H + GAP;
@@ -203,7 +221,13 @@ export function createPath() {
     const pw = Math.ceil(textWidth(spec.kick, { weight: ROLE.kick.weight, size: ROLE.kick.size })) + 2 * PILL_PAD;
     kids.push(svg('rect', { x: 0, y: lay.y.kick, width: pw, height: PILL_H, rx: PILL_H / 2, 'data-look': 'path.pill' }));
     kids.push(piece('kick', PILL_PAD, lay.y.kick + (PILL_H - ROLE.kick.lh) / 2 + 12.5, spec.kick, false, 'text'));
-    place(flow([[{ text: chipsOf(of, patient).join(' · '), face: 'chips' }]], W).items, 0, lay.y.chips, false, 'text');
+    if (lay.chipsH) place(flow([[{ text: chipsOf(of, patient).join(' · '), face: 'chips' }]], W).items, 0, lay.y.chips, false, 'text');
+    if (card) {
+      kids.push(...cardModel(spec.algo, lay.card, patient, CARD_HELPERS, oy));
+      rule(lay.y.rule2);
+      place(lay.foot.items, 0, lay.y.foot, false, 'text');
+      return svg('svg', { width: W, height: lay.H, viewBox: `0 0 ${W} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}. ${said}` }, ...kids);
+    }
     // the chart or the map: connectors first (grey under, the path over), then the nodes
     const paths = lay.compact ? lay.map.paths : lay.tree.paths;
     for (const e of sl.edges) {
@@ -238,10 +262,11 @@ export function createPath() {
     if (!spec || !patient || !lay) return;
     const Lit = litOf(of, patient), out = outcomeOf(of, Lit), r = out ? readingFor(of, out, patient) : null;
     const chips = chipsOf(of, patient).join(' · ');
-    const key = `${[...Lit].sort().join()}|${W}|${lay.compact}|${chips}|${lay.compact && r ? `${r.why}${r.next}` : ''}`;
+    // (the key holds all that shows: the answers lit, the width and layout, the chips, and the reading's words)
+    const key = `${[...Lit].sort().join()}|${W}|${lay.compact}|${chips}|${(card || lay.compact) && r ? `${card ? `${r.head}|` : ''}${r.why}${r.next}` : ''}`;
     if (key === shownKey) return;
     shownKey = key;
-    gl.show(modelOf(Lit, lay.compact ? out : null, r ? `${chips}. ${r.head}. ${r.why} ${r.next}` : chips), false);
+    gl.show(modelOf(Lit, lay.compact ? out : null, r ? `${chips ? `${chips}. ` : ''}${r.head}. ${r.why} ${r.next}`.trim() : chips), false);
   }
 
   function pin(fp) {
@@ -262,9 +287,13 @@ export function createPath() {
       t = tool || {};
       of = knownOf(t.of);
       spec = PATHS[of];
-      const fl = flat(spec.tree);
-      sl = { ...slots(spec.tree), flat: fl, edges: edgesOf(spec.tree), byId: new Map(fl.map(({ n }) => [n.id, n])) };
-      el.dataset.n = String(sl.n); el.dataset.of = of;
+      card = isCardKind(spec.kind);
+      if (card) { sl = null; el.dataset.n = '0'; } else {
+        const fl = flat(spec.tree);
+        sl = { ...slots(spec.tree), flat: fl, edges: edgesOf(spec.tree), byId: new Map(fl.map(({ n }) => [n.id, n])) };
+        el.dataset.n = String(sl.n);
+      }
+      el.dataset.of = of; el.dataset.kind = spec.kind;
       patient = patientFor(t, ctx?.fp, shownOf);
       lay = null; shownKey = '';
       ask();

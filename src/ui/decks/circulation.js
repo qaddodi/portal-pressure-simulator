@@ -54,6 +54,15 @@ export const CIRCULATION = {
       ask: ['What HVPG defines clinically significant portal hypertension?', '≥10 mmHg: from there varices and decompensation become possible, and the risk rises with the gradient.'],
     },
     {
+      // (The stages of Baveno VIII Fig. 2 lit for this patient: compensated, with CSPH. The definition slide before gave the HVPG; this one puts it on the stages.)
+      id: 'path-ladder', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'],
+      tool: { kind: 'path', of: 'ladder', short: 'Stages', patient: { s: 1, rc: false } },
+      kicker: 'Definition', site: 'sin', title: 'CSPH is the second stage of cirrhosis',
+      line: 'Compensated cirrhosis splits in two by the HVPG. His {hvpg} is {>=10 mmHg}, so he has CSPH. Ascites, bleeding or confusion would move him up a step.',
+      notes: 'Source: Baveno VIII Fig. 2, 3.1 to 3.3. Cirrhosis is compensated while there is no current or past decompensation. Compensated cirrhosis has two stages, without and with clinically significant portal hypertension (CSPH). CSPH is shown by an HVPG of 10 mmHg or more, and by a stiffness of 25 kPa or more, varices or collaterals. The first decompensation is clinically evident ascites, variceal bleeding or overt hepatic encephalopathy; later events are further decompensation, with a higher mortality. This patient has never bled or had ascites, so he is compensated, on the second step. The deck on decompensation and recompensation follows the steps in order.',
+      ask: ['Which three events mark the end of compensated cirrhosis?', 'Clinically evident ascites, variceal bleeding and overt hepatic encephalopathy (Baveno VIII 3.3).'],
+    },
+    {
       // (The relation chart, last in the talk: scarring from none to severe, each point a liver settled for a year, the HVPG and the PPG on
       // one scale with the HVPG's 5 and 10. The ring is the CSPH liver of the slide before.)
       id: 'relation', preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'],

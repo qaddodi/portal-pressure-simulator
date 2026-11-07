@@ -40,6 +40,46 @@ export const PATH = {
   'path.rh': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text'), halo }, when: [[{ lit: true }, { fill: param('tone') }]] },
   'path.rs': { base: { weight: 500, fill: tok('text-3'), halo } },
   'path.rp': { base: { weight: 400, fill: tok('text'), halo } },
+  // ── the other kinds (path-cards.js): the score card and checklist, the grid, the ladder ──
+  // at rest plain ink; on the patient's answers the colour of the verdict (or of the cell); everything else unlit at 40%
+  // a row's name and its definition
+  'path.rn': { base: { weight: 600, fill: tok('text'), halo } },
+  'path.rd': { base: { weight: 400, fill: tok('text-3'), halo } },
+  // an answer to choose from: the box, its words and its points
+  'path.opt': {
+    state: { lit: 'class:lit' },
+    base: { fill: 'none', stroke: tok('border-strong'), width: 1, opacity: 0.4 },
+    when: [[{ lit: true }, { fill: mix('srgb', param('tone'), 14, 'transparent'), stroke: param('tone'), width: 1.5, opacity: 1 }]],
+  },
+  'path.op': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: 0.4, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
+  'path.pt': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-3'), opacity: 0.4, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
+  // the score's bar of zones and the zones' names under it
+  'path.bar': { state: { lit: 'class:lit' }, base: { fill: tok('border-strong'), opacity: 0.4 }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
+  'path.zl': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), opacity: 0.4, halo }, when: [[{ lit: true }, { weight: 500, fill: param('tone'), opacity: 1 }]] },
+  // the grid: the columns' and rows' names, a cell and its words (the cell's colour is its own)
+  'path.gh': { base: { weight: 500, fill: tok('text-3'), halo } },
+  'path.gr': { base: { weight: 600, fill: tok('text-2'), halo } },
+  'path.gs': { base: { weight: 400, fill: tok('text-3'), halo } },
+  'path.cell': {
+    state: { lit: 'class:lit' },
+    base: { fill: mix('srgb', param('tone'), 8, 'transparent'), stroke: tok('border-strong'), width: 1, opacity: 0.4 },
+    when: [[{ lit: true }, { fill: mix('srgb', param('tone'), 18, 'transparent'), stroke: param('tone'), width: 2, opacity: 1 }]],
+  },
+  'path.ct': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: 0.4, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
+  'path.ctc': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: 0.4, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
+  'path.cs': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-3'), opacity: 0.4, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
+  // the ladder: a step's line, "Stage n", "Patient is here", what the stage means, and the way back
+  'path.step': { state: { lit: 'class:lit' }, base: { fill: 'none', stroke: tok('border-strong'), width: 3, cap: 'butt', opacity: 0.4 }, when: [[{ lit: true }, { stroke: param('tone'), opacity: 1 }]] },
+  'path.sn': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), opacity: 0.4, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
+  'path.yo': { base: { weight: 600, fill: param('tone'), halo } },
+  'path.sw': { base: { weight: 600, fill: tok('text'), halo } },
+  'path.back': {
+    state: { lit: 'class:lit' },
+    base: { fill: 'none', stroke: tok('border-strong'), width: 1, dash: [4, 3], opacity: 0.4 },
+    when: [[{ lit: true }, { stroke: param('tone'), opacity: 1 }]],
+  },
+  'path.bk': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-2'), opacity: 0.4, halo }, when: [[{ lit: true }, { fill: tok('text'), opacity: 1 }]] },
+  'path.bb': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text-2'), opacity: 0.4, halo }, when: [[{ lit: true }, { fill: param('tone'), opacity: 1 }]] },
   // a hairline between the card's parts
   'path.rule': { base: { fill: 'none', stroke: tok('hairline'), width: 1 } },
 };

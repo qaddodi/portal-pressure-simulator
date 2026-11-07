@@ -31,6 +31,16 @@ export const PREHEPATIC = {
       ask: ['What does Doppler show in an acute portal vein clot?', 'No flow in the trunk; a fresh clot can be nearly anechoic, so the missing color signal matters more than the gray scale.'],
     },
     {
+      // (The grade of the clot from the lumen left, Baveno VIII 9.3. The acute clot of the model fills the vein, so the remnant lumen is 0%: a case fact the chart
+      // is given, not a model reading. tool-path.js.)
+      id: 'path-pvtocc', preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], glow: ['PV_TRUNK'],
+      tool: { kind: 'path', of: 'pvtocc', short: 'Occlusion grade', patient: { rl: 0 } },
+      kicker: 'Acute thrombosis', site: 'pre', title: 'CT grades the clot by the lumen left',
+      line: 'On CT the clot is graded by the lumen left in the vein. Here none is left, a complete occlusion; a remnant lumen {>=50%} would be minimal.',
+      notes: 'Doppler suggests the clot and multiphase CT confirms it (Baveno VIII 9.2). By the VALDIG portal vein thrombosis criteria the degree of occlusion is then the percentage of remnant portal lumen (RL) against the vein\'s largest diameter, read on CT or MRI in the portal venous phase, in a plane strictly perpendicular to the main portal vein (9.3). Minimal occlusion is an RL of 50% or more, partial occlusion an RL under 50% but not 0%, and complete occlusion an RL of 0%. The acute clot of this patient fills the vein in the model, so no lumen is left and the occlusion is complete; the percentage is the scan\'s reading, which the model does not draw. Drag Clot size on the previous slide to see the Doppler change as the lumen narrows.',
+      ask: ['A CT shows a portal vein with 40% of its lumen left. How is the occlusion graded?', 'Partial: the remnant lumen is <50% but not 0%. Minimal is ≥50%; complete is 0%.'],
+    },
+    {
       id: 'cath', cath: 'result', tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       kicker: 'Acute thrombosis', site: 'pre', title: 'HVPG is normal with a portal vein clot',
       eq: [mi('PPG') + mo('=') + sub(mi('P'), 'portal vein') + mo('−') + sub(mi('P'), 'IVC')],
@@ -46,6 +56,25 @@ export const PREHEPATIC = {
       line: 'Anticoagulation starts at once and continues for ≥6 months; here, as in about 4 in 10 patients, the vein reopens, flow returns and the PPG falls to {ppg}.',
       notes: 'In recent portal vein thrombosis without cirrhosis, EASL 2025 starts anticoagulation as soon as possible, because early treatment lowers the risk of bowel ischemia and makes recanalization more likely, and continues it for at least six months. The workup for a thrombophilia should not delay it. In a European prospective study the portal vein reopened in 39% of treated patients (about 4 in 10), the splenic vein in 80% and the superior mesenteric vein in 73%; ascites and a clotted splenic vein made recanalization less likely. In the model the clot clears completely over six months; with no treatment it stays, and within six months the varices grow, the spleen enlarges and the platelets fall, the cavernoma of the next slide.',
       ask: ['How long is anticoagulation continued for a recent portal vein clot without cirrhosis?', '≥6 months, started as soon as possible; long term when a permanent prothrombotic risk factor remains.'],
+    },
+    {
+      // (Six months on from the anticoagulation slide, the vein open: the chart of how long to treat a recent clot, Baveno VIII 9.6 to 9.10. Her factor V Leiden is a
+      // permanent risk factor and the contraceptive, a reversible one, is stopped: case facts, not the model's. tool-path.js.)
+      id: 'path-pvtdur', lens: 'velocity', cam: 'portal', labels: ['CONF'],
+      tool: { kind: 'path', of: 'pvtdur', short: 'How long', patient: { at: '6', rec: true, rev: true, perm: true, ext: false } },
+      kicker: 'Acute thrombosis', site: 'pre', title: 'After six months, her risk factors decide',
+      line: 'Treatment began at once and ran ≥6 months. With the vein open, whether to go on depends on her risk factors, not on the scan.',
+      notes: 'Baveno VIII advises anticoagulation at once, at a therapeutic dose, for a recent portal vein clot without cirrhosis (9.6), and a search for intestinal ischemia when the clot has reached the superior mesenteric vein (9.7). Treatment lasts at least 6 months (9.8, strong). Stopping may be considered, as a weak recommendation, only when the vein is fully open at 3 months, the reversible risk factor has resolved and there is no permanent one. This patient has factor V Leiden, a permanent factor, so that exit is closed and she is treated for the 6 months. If the clot had reached the superior mesenteric or splenic vein and the vein were still blocked at 6 months, full-dose treatment may continue for 6 more months, because late recanalization can still happen (9.9, weak). Here the vein is open at 6 months, so the next step is the long-term plan, which depends on the type of risk factor (9.10): the grid on the next slide. Recanalization, the permanent factor and the reversible one are the case\'s own facts; the model supplies only the reopened vein.',
+      ask: ['At 3 months the vein is fully open and the oral contraceptive is stopped, but she carries factor V Leiden. Can anticoagulation be stopped?', 'No. Stopping is considered only with no permanent risk factor. She completes ≥6 months, then the long-term plan is set by her risk factors.'],
+    },
+    {
+      // (Fig. 5 of Baveno VIII, lit for the same patient: a reversible factor (the contraceptive) and a permanent major one (factor V Leiden). Case facts. tool-path.js.)
+      id: 'path-pvtgrid', lens: 'velocity', cam: 'portal', labels: ['CONF'],
+      tool: { kind: 'path', of: 'pvtgrid', short: 'Long-term grid', patient: { r: 'yes', c: 'maj' } },
+      kicker: 'Acute thrombosis', site: 'pre', title: 'A permanent major factor means long-term anticoagulation',
+      line: 'Her contraceptive was reversible, but factor V Leiden is a permanent, major risk factor. In that column the answer is full-dose anticoagulation, long term.',
+      notes: 'This is Fig. 5 of Baveno VIII, for a portal vein clot without cirrhosis. Two questions place the patient in one cell: was the clot provoked, by a reversible risk factor in the last 3 months, and is there a permanent risk factor, and if so is it major? Thrombophilia and myeloproliferative neoplasm are the examples of major permanent factors the guideline gives (9.5); the supplement (Table S4) lists the factors. A permanent major factor calls for long-term anticoagulation at a therapeutic dose (9.10a, strong). Without one, long-term DOACs at a lower dose can be considered (9.10b, weak). After complete resolution of a reversible factor and with no permanent factor, stopping can be considered (9.10c, weak). In the figure the cells are blue for a low risk of recurrence, grey for an intermediate or undetermined risk and red for a high risk. This patient\'s oral contraceptive was a reversible factor, but factor V Leiden is permanent, so she sits in the red cell whether or not the clot was provoked.',
+      ask: ['A clot with no reversible factor and no permanent factor found. What does Fig. 5 offer?', 'A lower-dose DOAC can be considered for the long term (weak recommendation). Stopping is considered only after a reversible factor has resolved.'],
     },
     {
       id: 'cavernoma', lens: 'velocity', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Occluded portal vein' }, tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'], delta: 'clot',

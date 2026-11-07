@@ -130,6 +130,15 @@ export const ASCITES = {
       ask: ['Fluid back three weeks after a tap, on spironolactone 400 mg and furosemide 160 mg. What is the label, and what do you consider?', 'Refractory ascites. Consider a TIPS and discuss transplantation, if there is no recurrent encephalopathy, heart failure or severe pulmonary hypertension.'],
     },
     {
+      // (The Baveno VIII chart for recurrent or refractory ascites, lit for the patient who could have a TIPS. The figure stays as on the slide before.)
+      id: 'path-asc', cam: 'fit',
+      tool: { kind: 'path', of: 'ascites', short: 'Ascites path', patient: { tips: true, lt: true } },
+      kicker: 'Refractory ascites', site: 'sin', title: 'If he were refractory, the chart would send him to a TIPS',
+      line: 'For recurrent or refractory ascites the chart starts with a TIPS, and a transplant is discussed alongside. The other branches are for a patient who cannot have one.',
+      notes: 'This is the Baveno VIII approach to recurrent or refractory ascites (statements 6.3 to 6.11), lit for the patient on the slide. Patients with recurrent or refractory ascites should be considered for a TIPS (6.3), and the TIPS and a liver transplant discussed together (6.4). Renal function is assessed and chronic kidney disease staged by eGFR first (6.9). To limit overshunting, with encephalopathy and heart failure, the stent may be dilated only to the smallest diameter that gives an adequate response (6.5), and dilated stepwise if the ascites does not improve (6.6). If a TIPS is not possible, or is not enough, long-term albumin may be considered (6.10). A patient who is a transplant candidate goes on to the transplant discussion; one who is not, and who cannot have a TIPS, may have a home drainage device, a tunneled peritoneal catheter or a low-flow pump, in place of repeated large-volume paracentesis (6.11). Here a TIPS is possible and he is a transplant candidate, so the lit path ends at the TIPS. The model has no transplant list and no drainage device, so only the TIPS is shown on the figure, on a later slide.',
+      ask: ['A patient with refractory ascites cannot have a TIPS and is not a transplant candidate. What does the chart offer?', 'Long-term albumin, and a home drainage device (a tunneled peritoneal catheter or a low-flow pump) instead of repeated large-volume paracentesis.'],
+    },
+    {
       // (The complications the model cannot show, because it has no kidneys, no infection and no sodium: one criteria card with the first step of each.)
       id: 'complications', cam: 'fit', data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'],
       tool: { kind: 'criteria', title: 'Complications of ascites', short: 'Complications', ticks: false, lead: 'Each has its own first step.',
@@ -139,6 +148,15 @@ export const ASCITES = {
       line: 'Tap every admission for SBP. A rising creatinine is HRS-AKI until shown otherwise. The model has no kidneys, infection or sodium, so this card lists them instead.',
       notes: 'Spontaneous bacterial peritonitis: a diagnostic tap at every admission and with any deterioration; an ascitic neutrophil count >250/µL.is SBP, treated with a third-generation cephalosporin and albumin (1.5 g/kg on day 1, 1 g/kg on day 3). Hepatorenal syndrome with acute kidney injury: a rise in creatinine of 0.3 mg/dL or more within 48 hours (ICA criteria), no response after two days of diuretic withdrawal and albumin, no shock and no nephrotoxins; terlipressin with albumin is the treatment, norepinephrine an alternative in intensive care, and transplant assessment follows. Hyponatremia below 130 mmol/L: diuretics are held, and water is restricted when it falls below 125. Hepatic hydrothorax, usually right-sided, is treated as ascites, with a TIPS when it is refractory; a chest drain is avoided. Beta-blockers are reduced or stopped when the systolic pressure stays below 90 mmHg or an AKI develops. Any of these is a reason to consider transplant. The model has no kidneys, no infection and no serum sodium, so none of these can be shown on the figure.',
       ask: ['A man with ascites is admitted with confusion. What is the first test?', 'A diagnostic tap for spontaneous bacterial peritonitis: an ascitic neutrophil count >250/µL.'],
+    },
+    {
+      // (The Baveno VIII rule for carvedilol, from the complications slide: a low pressure or HRS-AKI. The kidney talk has the same chart beside the MAP.)
+      id: 'path-hold', cam: 'fit',
+      tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: false, sbp: 84, hrs: true } },
+      kicker: 'Complications', site: 'sin', title: 'Carvedilol is cut back when the pressure falls or the kidneys fail',
+      line: 'Say he takes carvedilol and develops HRS-AKI, with a systolic pressure of {84 mmHg}. The chart says reduce the dose or stop, and restart once both have recovered.',
+      notes: 'Baveno VIII 4.6: in decompensated cirrhosis carvedilol, or another non-selective beta-blocker, should be dose-reduced or discontinued when the blood pressure stays low (systolic below 90 mmHg or mean arterial pressure below 65 mmHg) and/or there is HRS-AKI. 4.7: it should be restarted and re-titrated once the HRS-AKI has resolved and/or the blood pressure has recovered. The chart is lit for a man on carvedilol with an AKI and a systolic pressure of 84 mmHg, which is under 90, so the path ends at reduce or stop. Either problem is enough. A patient whose carvedilol is already held and who still has either one stays off it. The model has no kidneys and no systolic pressure, so the patient is typed, not read from the figure; the Kidney in cirrhosis talk shows the mean arterial pressure and the kidney pressure that carvedilol and a bleed move.',
+      ask: ['A man with ascites on carvedilol develops HRS-AKI. What do you do with the carvedilol, and when does it restart?', 'Reduce the dose or stop it. Restart and re-titrate once the HRS-AKI has resolved and the pressure has recovered.'],
     },
     {
       id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: BELLY, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense',

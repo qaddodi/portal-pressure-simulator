@@ -44,6 +44,17 @@ export const GASTRIC = {
       ask: ['Why image the abdomen with contrast after a fundal variceal bleed?', 'To map the shunts and look for a clot in the portal or splenic vein; the anatomy decides between TIPS and BRTO.'],
     },
     {
+      // (The gastric half of Baveno VIII Fig. 3, lit for her: an IGV1 bleed runs two phases at once, and Child-Pugh B 9 with no contraindication
+      // takes the TIPS branch. The Child-Pugh score and fitness for TIPS are the case's own, not the model's; path-algos/gastric.js. The TIPS slide
+      // after this one carries it out, so the chart is not shown twice.)
+      id: 'gastric', cam: 'fundus', mark: { edges: ['C2'], label: 'Bleeding fundal varix' },
+      tool: { kind: 'path', of: 'gastric', short: 'Gastric bleed path', patient: { cp: 9, fit: true } },
+      kicker: 'After a bleed', site: 'sin', title: 'A fundal bleed runs two phases at once',
+      line: 'An IGV1 bleed is high risk. Glue stops the bleeding, and with Child–Pugh B 9 and no contraindication her path ends in a TIPS as soon as possible.',
+      notes: 'This is the gastric half of the acute variceal bleeding algorithm of Baveno VIII (Fig. 3), lit for the patient on the slide. A bleed from a GOV2 or an IGV1 is a high-risk event that needs a team (5.39). Treatment has two phases that start in parallel, or as close together as possible: the acute phase stops the bleeding, with conventional cyanoacrylate injection or, in experienced centers, EUS-guided coils with cyanoacrylate (5.40, a weak recommendation), and the definitive phase gives lasting control. TIPS, with or without embolization of the varix, as soon as possible is the preferred definitive treatment (5.41); the figure sets the limits as Child–Pugh C below 14 (so A and B too), age under 75, creatinine under 3 mg/dL and no heart failure. When a TIPS is contraindicated, transvenous obliteration, endoscopic (including EUS-guided) or surgical methods follow after a team discussion that weighs the anatomy and the bleeding site; a Child–Pugh score of 14 or 15, or heart failure, sends a patient there. The Child–Pugh score and fitness for TIPS are facts of the case, so the chart takes them from the slide: she is Child–Pugh B 9, under 75 and fit. The next slide carries out the TIPS. (Baveno VIII 5.39 to 5.41.)',
+      ask: ['A patient bleeds from an IGV1 varix and is Child–Pugh C 14. Does the chart send him to a TIPS?', 'No. A TIPS needs Child–Pugh C <14, age <75, creatinine <3 mg/dL and no heart failure. Transvenous obliteration, endoscopic or surgical options follow after a team discussion.'],
+    },
+    {
       id: 'tips', preset: 'gastric-varix', params: { tips: { on: true } }, procedure: 'tips', cam: 'liver', terms: ['gv'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'gv', 'liver'], key: ['ppg'], delta: 'classes',
       kicker: 'After a bleed', site: 'sin', title: 'Glue stops the bleeding, a TIPS keeps it stopped',
       line: 'Glue, or EUS-guided coils with glue, stops the bleeding. A TIPS placed as soon as possible keeps it stopped: the PPG falls to {ppg} and the fundal varix to {gv}.',

@@ -79,6 +79,16 @@ export const STIFFNESS = {
       ask: ['A patient in the gray zone has an ANTICIPATE probability <75% and a spleen stiffness of 48 kPa. Is CSPH ruled in?', 'No. It takes an ANTICIPATE probability ≥75% or a spleen stiffness >55 kPa. Repeat the tests in 12 months, or add the spleen stiffness.'],
     },
     {
+      // (The same patient on AASLD's chart: the rule of five of Fig. 3, from the model's stiffness and platelets; path-algos/aasld.js. Her platelets
+      // sit above 150, so the two charts agree here and part where they are lower.)
+      id: 'aasld', preset: 'cirr-comp', params: { cirrhosis: 0.55 }, cam: 'liver', glow: ['liver'],
+      tool: { kind: 'path', of: 'aasld', short: 'Rule of five' },
+      kicker: 'The rules', title: 'AASLD\'s rule of five leaves her in the gray zone too',
+      line: 'Her stiffness is {lsm} and her platelets {plt}: neither side of the rule of five, and the gray zone of the Baveno VIII chart. The two part at platelets <150,000/µL.',
+      notes: 'This is the rule of five of AASLD 2024 (Fig. 3, guidance statement 7), lit for the same patient. It uses the stiffness by transient elastography and the platelet count. CSPH is presumed at a stiffness of 25 kPa or more whatever the platelets, at 20 to 24.9 kPa with platelets under 150,000/µL, or at 15 to 19.9 kPa with platelets under 110,000/µL; it is excluded under 15 kPa with platelets of 150,000/µL or more. Everything else is not settled, and spleen stiffness or the HVPG can decide. Baveno VIII draws the first-visit chart differently (1.15 to 1.17): CSPH is ruled out at 15 kPa or less with platelets of 150,000/µL or more and ruled in at 25 kPa or more, and between them is the gray zone until ANTICIPATE, NICER or a spleen stiffness over 55 kPa decides. So the two part in three places: at 20 to 25 kPa with platelets under 150,000/µL, and at 15 to 20 kPa with platelets under 110,000/µL, AASLD presumes CSPH where Baveno VIII stays in the gray zone; and at exactly 15 kPa Baveno VIII rules CSPH out where AASLD does not. On the slide her stiffness is about 21 kPa and her platelets about 160,000/µL, above the 150,000/µL line, so she is in the gray zone on both charts. Case 3 below has the same stiffness with platelets near 100,000/µL: AASLD would presume CSPH, and Baveno VIII leaves him in the gray zone. AASLD advises care with the rule in obesity with MASLD, an ALT over 3 times the upper limit, and primary sclerosing cholangitis with a dominant stricture, where it is less well calibrated.',
+      ask: ['A patient has a stiffness of 22 kPa and platelets of 120,000/µL. What do AASLD 2024 and Baveno VIII each say?', 'AASLD presumes CSPH (20 to 24.9 kPa with platelets <150,000/µL). Baveno VIII leaves him in the gray zone until ANTICIPATE or a spleen stiffness >55 kPa decides.'],
+    },
+    {
       id: 'a1', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
       vignette: 'A 47-year-old man had hepatitis C diagnosed ten years ago and was never treated. He feels well, drinks no alcohol and has had no ascites or bleeding.',
       caseQ: 'Is CSPH ruled out, ruled in or still open?',

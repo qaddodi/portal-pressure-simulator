@@ -62,6 +62,15 @@ export const SHUNTS = {
       ask: ['Name the reasons Baveno VIII gives to consider a TIPS.', 'A bleed that drugs and banding cannot control (rescue), a rebleed despite a beta-blocker and banding, a pre-emptive TIPS after a high-risk bleed, and recurrent or refractory ascites.'],
     },
     {
+      // (The chart of the reasons slide's patient: recurrent ascites, TIPS possible. The figure and the card stay as on the slide before.)
+      id: 'path-asc', lens: 'flow', cam: 'fit',
+      tool: { kind: 'path', of: 'ascites', short: 'Ascites path', patient: { tips: true, lt: true } },
+      kicker: 'Who gets a TIPS', site: 'sin', title: 'For her ascites, the chart starts with a TIPS',
+      line: 'For recurrent or refractory ascites Baveno VIII says to consider a TIPS, with a transplant discussed alongside. The stent is dilated only as far as it needs to be.',
+      notes: 'The Baveno VIII chart for recurrent or refractory ascites (6.3 to 6.11), lit for the woman on the slide. She has needed a tap every 10 days despite full diuretics, her bilirubin is 1.6 mg/dL and she has never been confused, so a TIPS is possible. Patients with recurrent or refractory ascites should be considered for a TIPS (6.3), and the TIPS and a liver transplant discussed together (6.4). Renal function is assessed and chronic kidney disease staged first (6.9). The stent may be dilated only to the smallest diameter that gives an adequate response, to limit overshunting (6.5), and widened stepwise if the ascites does not improve (6.6); the next slides show what the stent needs before it goes in, and the width. For a patient who cannot have a TIPS, the other branches of the chart are long-term albumin (6.10) and, if she is not a transplant candidate, a home drainage device (6.11).',
+      ask: ['What does Baveno VIII advise for recurrent or refractory ascites, and what is discussed with it?', 'Consider a TIPS, and discuss the TIPS and a liver transplant together. Dilate the stent only to the smallest diameter that works.'],
+    },
+    {
       id: 'check', lens: 'flow', cam: 'liver', data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'],
       tool: { kind: 'criteria', title: 'Before the stent', short: 'Before', ticks: false, rows: ['No severe **heart failure** or **pulmonary hypertension**', '**Kidney function** staged (eGFR)', '**Encephalopathy** history and medicines reviewed, **rifaximin** considered', '**Bilirubin >3 mg/dL** or **MELD >18**: early mortality rises sharply'] },
       kicker: 'Who gets a TIPS', site: 'sin', title: 'Check the heart, the kidneys and the brain first',
