@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { bootGL, pump } from './stage-gl-boot.js';
 
 test('EUS coils and glue on the stage: drawn every frame, ride along, one push in, one pull back, the varix closed once', async () => {
-  const { st } = await bootGL({ w: 1200, h: 800 });
+  const { st } = await bootGL({ w: 1200, h: 800, labels: 'none' });   // (no station labels: their solve under the moving camera was most of the time)
   const { store } = await import('../src/ui/store.js');
   const { playProcedure, ENDO } = await import('../src/ui/proc-anim.js');
   const { createCore } = await import('../src/worker-core.js');
@@ -18,9 +18,11 @@ test('EUS coils and glue on the stage: drawn every frame, ride along, one push i
   await core.handle({ type: 'init' });
   await core.handle({ type: 'preset', id: 'svt' });
   await core.handle({ type: 'run', running: true });
-  const step = async () => { pump(16.7); const f = q.at(-1); q = []; if (f) lastF = f; if (lastF) st.update(lastF); await tasks(); await tasks(); };
+  // (Frames 48 ms apart, under the 64 ms a run's clock and the camera's follow take at most from one frame: the same run, a third of the
+  // frames. At 16.7 ms with the station labels on it took about 100 s alone, and longer beside other tests.)
+  const step = async () => { pump(48); const f = q.at(-1); q = []; if (f) lastF = f; if (lastF) st.update(lastF); await tasks(); await tasks(); };
   store.set({ presenting: true, presentLabels: [], params: core.engine().params });
-  for (let i = 0; i < 60; i++) await step();
+  for (let i = 0; i < 20; i++) await step();
   const G = ENDO.eusglue, k0 = st.cameraState().k;
   let applied = 0, at = 0, ended = null, frames = 0;
   const said = [], seen = [];
@@ -33,13 +35,13 @@ test('EUS coils and glue on the stage: drawn every frame, ride along, one push i
   });
   // Next at each stop, as the presenter's Next does (each step played through and held, then the next).
   for (let s = 0; s < G.steps.length && !ended; s++) {
-    for (let i = 0; i < 1500 && !ended; i++) { await step(); if (seen.length && seen.at(-1).t >= G.stops[s]) break; }
-    for (let i = 0; i < 20; i++) await step();
+    for (let i = 0; i < 600 && !ended; i++) { await step(); if (seen.length && seen.at(-1).t >= G.stops[s]) break; }
+    for (let i = 0; i < 8; i++) await step();
     if (s < G.steps.length - 1) assert.equal(run.next(), true, `Next plays step ${s + 2}`);
   }
-  for (let i = 0; i < 600 && !ended; i++) await step();
+  for (let i = 0; i < 250 && !ended; i++) await step();
   assert.ok(ended?.done, 'played through to the end');
-  assert.ok(frames > 300);
+  assert.ok(frames > 150);
   assert.equal(applied, 1, 'the varix closes once'); assert.equal(at, 4, 'as step 5, Varix closed, starts');
   assert.deepEqual(said, ['2 Needle in', '3 Coils', '4 Glue', '5 Varix closed'], 'no callout while the scope goes in; then one per step, numbered');
   // The camera: one scale riding in (it only pans while the tip travels), a push in for the needle's work, held there through the coils and
