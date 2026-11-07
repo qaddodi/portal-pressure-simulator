@@ -1520,12 +1520,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .app.home-open { visibility: hidden; }
 
 /* Command palette */
-.pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
+.pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .pal-back[hidden] { display: none; }
 .pal-back { animation: crossfade var(--d-small) var(--ease); }
 .pal-back.leaving { pointer-events: none; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
 .pal-back.leaving .pal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
-.pal { width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); overflow: hidden; animation: scale-settle var(--d-small) var(--ease); }
+/* (The veil over the figure is the palette's own outer shadow, not a background of .pal-back: the palette's frost is drawn in the figure's canvas, which lies UNDER this layer, so a full-page veil dimmed the palette's glass with the scene
+   (Mohammad, 7 Nov 2026: "when I hit / the menu is dim"). A shadow is never painted under its own box, so the glass is lit and the veil is on everything around it, following the box's rounded corners, size and fade with no script.) */
+.pal { --pal-veil: 0 0 0 100vmax var(--scrim); width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline), var(--pal-veil); overflow: hidden; animation: scale-settle var(--d-small) var(--ease); }
 .pal-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
 .pal-ic { width: var(--ic-m); height: var(--ic-m); stroke: var(--text-3); fill: none; stroke-width: 1.7; }
 .pal-input { flex: 1; border: 0; outline: none; background: transparent; font-size: var(--fs-16); color: var(--text); }
@@ -7487,6 +7489,7 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* The main menu's preview card, the dialogs and the search palette are frosted GPU glass too (menu-glass.js). Their sticky head keeps no fill of its own over it. */
 .um-pv, .modal, .pal { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
 :root:root :is(.um-pv, .modal, .pal)[data-gl] { background: none; box-shadow: none; }
+:root:root .pal[data-gl] { box-shadow: var(--pal-veil); }   /* (the GPU draws the palette's ring and shadow; the veil around it stays the page's) */
 :root:root .modal > header { background: color-mix(in srgb, var(--surface) 92%, transparent); }   /* (sticky: nearly solid, so scrolled rows do not show through it)  */
 /* Before the GPU has drawn a menu's glass (its first frames, and wherever it cannot) the fill is already the glass's own tint, so nothing changes when the frost lands under it:
    no solid-to-glass flash (Mohammad, 4 Nov 2026, "when the menus first appear they still flicker"). Blur effect off keeps the solid fill above. */
