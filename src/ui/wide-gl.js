@@ -101,6 +101,10 @@ export function createWideGL(canvas, { host = null } = {}) {
      *  canvas, every layer laid there for this tile, copied from its top left inside the context. False if the GPU refused. */
     tile(t, pw, ph, dpr, layers) {
       if (this.lost || pw > MAX || ph > MAX || pw < 1 || ph < 1) return false;
+      // (Each tile is judged by its own calls only. Hosted, the layers are drawn for it in the same context between begin() and here, and an
+      // error one of their passes left with the driver (ignored on every other frame) was read as this tile's: the copy was given up and
+      // the dive or the rise showed the screen's rectangle of the lobule, scaled, cut off at its edges (7 Nov 2026, Mohammad).)
+      glOkBefore(gl);
       if (layers === 'host') return fromHost(t, pw, ph, dpr);
       const tex = gl.createTexture(), fbo = gl.createFramebuffer();
       gl.activeTexture(gl.TEXTURE0);

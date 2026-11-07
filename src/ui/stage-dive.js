@@ -225,7 +225,7 @@ export function createDive(st, live) {
       if (live.riseLine) { diveFrom[0] = live.diveLand.x; diveFrom[1] = live.diveLand.y; diveTo[0] = ox; diveTo[1] = oy; const c = riseCentre(diveFrom, diveTo, Math.exp(-lt), Math.exp(z - lt)); px = c[0]; py = c[1]; }
       else { px = lerp(ox, live.diveLand.x, g); py = lerp(oy, live.diveLand.y, g); }
       // The detailed lobule rides on the field's own lobule at that centre, so it grows out of it.
-      live.lz.setDiveZoom(t >= 1 ? 1 : clamp(r / live.diveLand.r, 0.05, 1), live.diveLand.x, live.diveLand.y, px, py);
+      live.lz.setDiveZoom(t >= 1 ? 1 : clamp(r / live.diveLand.r, 0.05, 1), live.diveLand.x, live.diveLand.y, px, py, !!live.diveOut);
       // (The field's state is one kept object written in place: lobule-zoom.js reads it at once and keeps none of it.)
       const df = diveField;
       if (t <= 0 || t >= 1) { live.lz.setDive(null); labelsRide(lab, t, t >= 1 ? 1 : 0); }

@@ -19,7 +19,7 @@ test('a tile the GPU cannot draw drops the copy, never shows a blank lobule', ()
 });
 
 test('landed, the copy goes and the layers show as drawn; a softer copy fades into them; the copy goes on release and on a new framing', () => {
-  assert.match(lz, /if \(wide && !rim\) dropWide\(true\);/);
+  assert.match(lz, /if \(wide && !rim && !out\) dropWide\(true\);/);
   assert.match(lz, /if \(ease && w\.soft && !reduce\.matches\) \{[^\n]*w\.el\.style\.transition = `opacity \$\{D_SMALL\}ms var\(--ease\)`; w\.el\.style\.opacity = '0';/, 'never a snap to the sharp picture');
   assert.match(lz, /diveRim = rim && !wide \?/, 'no second copy of the tissue while the wide copy shows');
   assert.match(lz, /if \(wide\) \{ for \(const e of WIDE_HIDE\) e\.style\.visibility = 'hidden'; wide\.el\.style\.visibility = ''; \}/);
@@ -127,4 +127,29 @@ test('the dive\'s canvases stay under 300 MB on every iPhone and iPad, at their 
       assert.ok(peak + gl <= 340 * MB, `${W0}×${H0}, ${grow}×, with WebGL: ${((peak + gl) / MB).toFixed(0)} MB`);
     }
   }
+});
+
+// 7 Nov 2026, Mohammad (Mac, deck slide 6/16, every slide): "zooming into the lobule during slides is showing the cropped lobule": the lobule
+// as the screen's rectangle, cut off at its top, bottom and right, inside the field's pale lobules. Three ways the whole copy went missing.
+test('the rise keeps its copy from its first frame, which is at full size, until it ends or lands back in the lobule', () => {
+  assert.match(lz, /setDiveZoom\(k, x, y, tx = x, ty = y, out = false\) \{/);
+  const dv = readFileSync(new URL('../src/ui/stage-dive.js', import.meta.url), 'utf8');
+  assert.match(dv, /live\.lz\.setDiveZoom\(t >= 1 \? 1 : clamp\(r \/ live\.diveLand\.r, 0\.05, 1\), live\.diveLand\.x, live\.diveLand\.y, px, py, !!live\.diveOut\);/, 'the dive frames say which way they go');
+  // (The rise's end and a view switch call it at full size with no direction: the copy goes there, or with the lobule's release.)
+  const st = stageSource();
+  assert.match(st, /lz\.setDiveZoom\(1, 0, 0\)/);
+  assert.match(lz, /function release\(\) \{\n\s+dropWide\(\);/);
+});
+
+test('a way out begun mid-glide to the whole lobule is judged by where the lobule reaches, not by the glide\'s aim', () => {
+  const pb = lz.match(/function padBox\(W, H\) \{[\s\S]*?\n {2}\}/)[0];
+  assert.match(pb, /if \(!geo \|\| \(atFit && !gliding\)\) return null;/);
+  const sr = lz.match(/function stageRise\(\) \{[\s\S]*?\n {2}\}/)[0];
+  assert.ok(sr.indexOf('padBox(W, H)') < sr.indexOf('if (gliding) { cancelFrame(glide); gliding = false;'), 'the box is asked for while the glide still counts as one');
+});
+
+test('each tile of the copy is judged by its own GL calls, not by an error another pass left with the driver', () => {
+  const wg = readFileSync(new URL('../src/ui/wide-gl.js', import.meta.url), 'utf8');
+  const t = wg.match(/tile\(t, pw, ph, dpr, layers\) \{[\s\S]*?if \(layers === 'host'\) return fromHost/)[0];
+  assert.match(t, /glOkBefore\(gl\);\n\s+if \(layers === 'host'\) return fromHost/);
 });

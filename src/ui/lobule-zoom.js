@@ -2996,8 +2996,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const sinBusyNow = () => (sinTo === 1 ? sinU < 1 : sinU > 0);
   let wide = null;   // { el, tiles, box, soft }: the copy, its tiles in one box placed at (−l, −t) in the stage
   const WIDE_HIDE = [tissue, tissueG, glCv, fx, fxG];
+  // (atFit says the view is the fit only once a glide to it has landed: it is set as the glide sets off (fitView, focusOn, a refit), so a
+  // way out begun mid-glide, a slide's zoom back to the whole lobule cut short by the rise, still stands zoomed in. Mid-glide the
+  // lobule's own reach decides, as anywhere else: 7 Nov 2026, Mohammad, "zooming into the lobule during slides is showing the cropped lobule".)
   function padBox(W, H) {
-    if (!geo || atFit) return null;
+    if (!geo || (atFit && !gliding)) return null;
     return padRect(sX(geo.cx), sY(geo.cy), geo.R * V.k * 1.35, W, H);
   }
   function buildWide(W, H, box) {
@@ -5003,7 +5006,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
-    setDiveZoom(k, x, y, tx = x, ty = y) {
+    setDiveZoom(k, x, y, tx = x, ty = y, out = false) {
       if (k < 0.9999) resCoverEnd();
       diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
       if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
@@ -5016,7 +5019,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Landed, or back at full size: the wide copy goes, and the layers, drawn for the screen before the zoom, show as they are.)
       // (A GPU copy whose context was lost goes too: the layers, scaled, as before there was a copy.)
       if (wide?.gl?.lost) dropWide();
-      if (wide && !rim) dropWide(true);
+      // (out: the way out of the lobule. Its copy (stageRise) is built at full size and shown from the rise's first frame, which is at full size
+      // too: dropped there, as a landing drops the dive's, the whole rise shrank the screen's rectangle, the lobule cut off at its edges inside
+      // the field (7 Nov 2026, Mohammad, every slide). It goes when the rise ends (stage.js, k 1 with no out) or lands back in the lobule.)
+      if (wide && !rim && !out) dropWide(true);
       diveRim = rim && !wide ? { x: +x.toFixed(1), y: +y.toFixed(1), r: +r.toFixed(1) } : null;
       // (The rim drawn by the tissue's shader, and the GPU canvas scaled as it is: no copy. Drawn once for the rim: each frame of the
       // zoom only scales it. Landed, the picture is drawn again without the rim before the scale goes.)
