@@ -37,6 +37,7 @@ import { LIGHT } from './light.js';
 import { EDGE_GLSL } from './edge.js';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js';
 import { cssRGB } from './util.js';
+import { LIFT_EASE_SHARE, LIFT_EASE_MAX } from './highlight-math.js';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js';
 import { CELL, ENT_W, binVeins, splitRows, simpleCells, splitCells, cellsOfJoinEntries } from './veins-bin.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
@@ -517,7 +518,7 @@ void main() {
     vec4 t12 = T(sid[s], 12);
     ssel[s] = t12.x;
     if (t12.x > 0.0) {
-      float Ls = max(T(sid[s], 5).z, 1.0), fs = min(0.35 * Ls, 60.0);
+      float Ls = max(T(sid[s], 5).z, 1.0), fs = min(${LIFT_EASE_SHARE} * Ls, ${LIFT_EASE_MAX}.0);
       ssel[s] *= (t12.y > 0.5 ? smoothstep(0.0, fs, sv[s] * Ls) : 1.0) * (t12.z > 0.5 ? smoothstep(0.0, fs, (1.0 - sv[s]) * Ls) : 1.0);
     }
     if (tc.w > 0.0) {

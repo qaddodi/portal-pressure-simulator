@@ -9,7 +9,7 @@ import { PEEL_GLOW, peelAt, peelGlow } from './flow-peel.js';
 import { PACED, PINCH_LOW_K, easeNow, figLab, figOpt, inMotion } from './frame.js';
 import { writeGlowTexels } from './glow-texels.js';
 import { gpuProbe } from './gpu-probe.js';
-import { liftEnd } from './highlight-math.js';
+import { liftEnd, nearPath } from './highlight-math.js';
 import { LIGHT } from './light.js';
 import { lookChanged, newLookSig } from './look-sig.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
@@ -423,17 +423,22 @@ export function createVessels(st, live) {
   }
   // Whether a selected or spotlit vessel eases back into the network toward its end at node n (highlight-math.js liftEnd).
   const selJoins = [], SEL_JOIN_POOL = EV.map(() => ({ lit: false, ghost: false }));   // (a list and its entries, kept: at most one per vessel, written in place)
-  function selEnd(id, n) {
+  // (A lit neighbour counts as the vessel carrying on only where it is drawn at this end: nearPath. They share the node in the model, not
+  // always the spot: the TIPS meets the right hepatic vein 40 units in from its end, which then eased back into nothing: a hard cut-off.)
+  function selEnd(id, n, atEnd) {
     const joins = selJoins;
     joins.length = 0;
+    const P = geo[id]?.cur, pe = P && P.length ? P[atEnd ? P.length - 1 : 0] : null, w0 = E[id]?.width || 0;
     for (const y of EV) {
       if (y.e.id === id || !y.vis || (y.e.from !== n && y.e.to !== n)) continue;
       const jn = SEL_JOIN_POOL[joins.length];
-      jn.lit = vh.sel.has(y.e.id) || spot.ids.has(y.e.id); jn.ghost = y.ghost;
+      jn.lit = (vh.sel.has(y.e.id) || spot.ids.has(y.e.id)) && (!pe || nearPath(geo[y.e.id]?.cur, pe[0], pe[1], END_TOUCH + 0.5 * ((y.width || 0) + w0)));
+      jn.ghost = y.ghost;
       joins.push(jn);
     }
     return liftEnd(spot.ids.has(id) && spotOn(), joins);
   }
+  const END_TOUCH = 3;
   let rgbGlowCs = null;
   const rgbGlowOf = (c) => toRGB(c, rgbGlowCs);   // (the glow-only sync's colour reader, kept; rgbGlowCs the style it reads)
   // (A vessel attribute counts as changed once it is a 255th away from what the layer was drawn with: a colour step under that cannot show, and a
@@ -800,7 +805,7 @@ export function createVessels(st, live) {
       if (sa > 0) {
         tubeData[o + 48] = easeInOut(sa);
         // (Its ends' eases for a vessel, none for a tributary or strand; the row's last texel stays 0, cleared with the rest.)
-        if (kind === 'v') { tubeData[o + 49] = selEnd(id, x.e.from); tubeData[o + 50] = selEnd(id, x.e.to); } else { tubeData[o + 49] = 0; tubeData[o + 50] = 0; }
+        if (kind === 'v') { tubeData[o + 49] = selEnd(id, x.e.from, false); tubeData[o + 50] = selEnd(id, x.e.to, true); } else { tubeData[o + 49] = 0; tubeData[o + 50] = 0; }
       }
     }
   }

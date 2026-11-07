@@ -29,5 +29,5 @@ test('the selected vessel eases back into the dimmed network toward its ends, wi
   assert.match(vg, /else if \(grp == 1\) \{ accN = over\(c, accN\); if \(wsel > 0\.0\) accT = over\(c \* wsel, accT\); \}/, 'its own share laid over the dimmed network');
   assert.match(vg, /grp == 1 \? mix\(netAlpha, 1\.0, wsel\)/, 'its blood stands out with it');
   // (Written texel by texel since 2 Nov 2026, colPass: no array per vessel per frame.)
-  assert.match(stage, /tubeData\[o \+ 48\] = easeInOut\(sa\);\s*\/\/[^\n]*\n\s*if \(kind === 'v'\) \{ tubeData\[o \+ 49\] = selEnd\(id, x\.e\.from\); tubeData\[o \+ 50\] = selEnd\(id, x\.e\.to\); \} else \{ tubeData\[o \+ 49\] = 0; tubeData\[o \+ 50\] = 0; \}/);
+  assert.match(stage, /tubeData\[o \+ 48\] = easeInOut\(sa\);\s*\/\/[^\n]*\n\s*if \(kind === 'v'\) \{ tubeData\[o \+ 49\] = selEnd\(id, x\.e\.from, false\); tubeData\[o \+ 50\] = selEnd\(id, x\.e\.to, true\); \} else \{ tubeData\[o \+ 49\] = 0; tubeData\[o \+ 50\] = 0; \}/);
 });
