@@ -50,7 +50,7 @@ test('the tiles build the header readings from the same values, numbers as GPU w
   const js = src('presenter.js');
   assert.match(js, /const head = h\('span', \{ class: 'pz-hr', 'data-n': '0' \}\);/);
   assert.match(js, /h\('div', \{ class: 'pz-dh' \}, dhT, tiles\.head, fold, zbtn\)/, 'the readings sit in the header row, after the name');
-  assert.match(js, /const hw = hi \? glWords\(hv, \{ halo: true \}\) : null;/, 'the number is GPU words, with the label outline');
+  assert.match(js, /const hw = hi \? glWords\(hv, \{ halo: true, keep: true \}\) : null;/, 'the number is GPU words with the label outline, kept (never handed to the page text)');
   assert.doesNotMatch(js, /class: 'pz-hi'[^\n]*h\('i', \{\}\)/, 'no rating dot in the reading');
   assert.match(js, /else if \(sync\) p\.hw\.now\(hs\); else p\.hw\.set\(hs\);|if \(!p\.hw\) setT\(p\.hv, hs\); else if \(sync\) p\.hw\.now\(hs\); else p\.hw\.set\(hs\);/);
   assert.match(js, /else ui\.tiles\.paintTiles\(now\.fp, \[\], \[\], null, 0, false\);/, 'a card with no readings clears the last slide\'s');

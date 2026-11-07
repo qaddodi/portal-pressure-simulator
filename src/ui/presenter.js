@@ -729,7 +729,7 @@ function bigTiles() {
       // (Its reading in the instrument card's header row, numbers only: the short name, the number and its unit, no dot (style A, 7 Nov 2026). The number is
       // its own GPU words, in the rating's ink with the label look's outline (halo); the rating is the item's data-rate, written with the tile's.)
       const hv = h('b', {}), hu = h('small', {}), hi = pic ? null : h('span', { class: 'pz-hi', 'data-rate': 'plain' }, h('span', { class: 'pz-hk' }, T.n || T.t), hv, hu);
-      const hw = hi ? glWords(hv, { halo: true }) : null;
+      const hw = hi ? glWords(hv, { halo: true, keep: true }) : null;   // (kept: the GPU number stays up, no hand-over to the page's text, as the Doppler numbers)
       return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic, hi, hv, hu, hw };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
