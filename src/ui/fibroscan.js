@@ -336,5 +336,5 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
   function dispose() { gone = true; running = false; anim(false); cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); }
   if (switcher) fibroReading.organ = organ;
   return { id: 'fibroscan', label: 'FibroScan', el, head: seg, update, configure, organ: () => organ,
-    pin(fp) { pinFp = fp || null; pinned = fp?.[ORGAN[organ].key] ?? null; if (pinned != null) { model = pinned; none = false; } }, dispose() { dispose(); offSurface(); } };
+    pin(fp) { pinFp = fp || null; pinned = fp?.[ORGAN[organ].key] ?? null; if (pinned != null) { model = pinned; none = false; } fibroReading.pinned = pinned; fibroReading.pinnedOrgan = organ; }, dispose() { dispose(); offSurface(); } };
 }

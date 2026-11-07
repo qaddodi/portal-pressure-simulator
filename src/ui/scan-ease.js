@@ -81,3 +81,9 @@ export function scanStep(rec, now) {
   }
   return on;
 }
+
+/** The stiffness the probe reads: the slide's own settled reading when it has pinned one, else the live value (null when neither is a number). */
+export const scanKpaOf = (pinned, live) => (Number.isFinite(pinned) ? pinned : Number.isFinite(live) ? live : null);
+/** The words on the probe's screen: the card's own number when the card is on screen (cardTxt, as it prints it), else the probe's eased
+ *  stiffness k to one decimal, else two dashes. Never empty, so the screen always shows a number. */
+export const scanReadingText = (given, onCard, k) => (given != null && given !== '' ? given : onCard != null && onCard !== '' ? onCard : Number.isFinite(k) ? k.toFixed(1) : '--');

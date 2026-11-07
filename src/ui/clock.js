@@ -8,7 +8,7 @@ import { store } from './store.js';
 let acc = 0, lastReal = null;
 
 /** The FibroScan card's live reading (kPa, as it shows it) and when it last painted: the probe on the figure shows this same number. */
-export const fibroReading = { txt: null, cv: null, show: null, organ: 'liver', onOrgan: null };   // show(txt): the stage's probe, written in the card's own frame; organ: the Tests card's exam (Liver/Spleen switch), onOrgan(organ) told when it is tapped
+export const fibroReading = { txt: null, cv: null, show: null, organ: 'liver', onOrgan: null, pinned: null, pinnedOrgan: 'liver' };   // show(txt): the stage's probe, written in the card's own frame; organ: the Tests card's exam (Liver/Spleen switch), onOrgan(organ) told when it is tapped; pinned: the slide's settled stiffness (kPa) the Presenter's FibroScan was pinned to, which the probe reads while it shows (null otherwise)
 
 export function simTime(now = performance.now()) {
   if (lastReal !== null && store.get().running) acc += Math.min(Math.max(now - lastReal, 0), 200);

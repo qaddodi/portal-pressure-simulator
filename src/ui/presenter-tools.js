@@ -39,6 +39,7 @@
 // has landed, the model sends the steady state's last seconds (worker-core.js, History) and the instrument takes them in front of what it
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
+import { fibroReading } from './clock.js';
 import { store } from './store.js';
 import { h } from './util.js';
 import { EDGES } from '../engine/topology.js';
@@ -201,7 +202,7 @@ export function createTools({ host, stage }) {
     holdAnswer(on, instant = false) { cur?.hold?.(!!on, instant); },
     /** The catheter's balloon on the figure (0 down … 1 wedged), every frame it moves: the tracing on the card, if it follows the catheter, rides it. */
     balloon(b) { cur?.balloon?.(b); },
-    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur?.park?.(); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },
+    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); fibroReading.pinned = null; cur?.park?.(); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
       if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();

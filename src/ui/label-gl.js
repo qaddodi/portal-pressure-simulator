@@ -2347,7 +2347,8 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (svgs.length !== 2 || !beam || !body || !tip || !screen || !read) return null;
     const bc = scs(beam), stops = [...el.querySelectorAll('#sp-beam .sp-stop')].map((st) => { const c = scs(st); return [NUM(st.getAttribute('offset')), c.stopColor, NUM(c.stopOpacity)]; });
     const rect = (e) => { const c = scs(e); return { x: NUM(e.getAttribute('x')), y: NUM(e.getAttribute('y')), w: NUM(e.getAttribute('width')), h: NUM(e.getAttribute('height')), rx: NUM(e.getAttribute('rx')), fill: none(c.fill) ? '' : c.fill, stroke: none(c.stroke) ? '' : c.stroke, sw: NUM(c.strokeWidth) }; };
-    const runs = [...read.children].map((sp) => { const r = scs(sp); return { t: sp.textContent, dx: NUM(sp.getAttribute('dx')), font: `${r.fontWeight} ${r.fontSize} ${r.fontFamily}`, weight: r.fontWeight, size: NUM(r.fontSize), ls: 0, tnum: /tabular-nums/.test(r.fontVariantNumeric), fill: none(r.fill) ? '' : r.fill }; });
+    const rf = scs(read).fill;   // (the reading's own ink: a run whose fill came out clear takes it, so the number is never left out beside "kPa")
+    const runs = [...read.children].map((sp) => { const r = scs(sp); return { t: sp.textContent, dx: NUM(sp.getAttribute('dx')), font: `${r.fontWeight} ${r.fontSize} ${r.fontFamily}`, weight: r.fontWeight, size: NUM(r.fontSize), ls: 0, tnum: /tabular-nums/.test(r.fontVariantNumeric), fill: none(r.fill) ? (sp.classList.contains('sp-val') && !none(rf) ? rf : '') : r.fill }; });
     const cc = scs(cable), wave = (k) => { const e = q(k); if (!e) return null; const c = scs(e); return { col: rgba(c.stroke), so: NUM(c.strokeOpacity), w: NUM(c.strokeWidth) }; };
     return {
       beam: { d: beam.getAttribute('d'), filter: bc.filter && bc.filter !== 'none' ? bc.filter : NUM(bc.getPropertyValue?.('--sp-soft')) > 0 ? `blur(${NUM(bc.getPropertyValue('--sp-soft'))}px)` : '',   // (its softness: app.css --sp-soft, drawn once here, never a CSS blur)
