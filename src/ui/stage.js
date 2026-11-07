@@ -3182,8 +3182,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         const t0 = performance.now(), t = setTimeout(done, cap);
         let calm = 0;
         const poll = () => {
-          if (lookPending() || !csSnap || csAsk || themeSnap || glowSync || veinsDirty) calm = 0; else calm++;
-          if (calm >= 2 || performance.now() - t0 >= cap) { clearTimeout(t); done(); return; }
+          if (lookPending() || !csSnap || csAsk || themeSnap || glowSync || veinsDirty || veins?.organs?.fading) calm = 0; else calm++;
+          if (calm >= 3 || performance.now() - t0 >= cap) { clearTimeout(t); done(); return; }
           lookFrame(poll);
         };
         lookFrame(poll);
