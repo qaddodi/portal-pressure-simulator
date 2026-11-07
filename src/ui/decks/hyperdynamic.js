@@ -34,7 +34,7 @@ export const HYPERDYNAMIC = {
       ask: ['If the cardiac output rises and the mean arterial pressure falls, what has happened to the systemic resistance?', 'It has fallen, by more than the output rose.'],
     },
     {
-      id: 'dilate', preset: 'cirr-comp', params: {}, days: 365, ramp: { cirrhosis: [0.4, 0.85] }, lapse: { seconds: 10, from: 'Compensated', to: 'Decompensated' }, cam: 'fit', lens: 'flow', tool: VITALS,
+      id: 'dilate', preset: 'cirr-comp', params: {}, days: 365, ramp: { cirrhosis: [0.4, 0.85] }, lapse: { seconds: 10, from: 'Compensated', to: 'Decompensated' }, graph: ['map', 'co'], cam: 'fit', lens: 'flow', tool: VITALS,
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis opens the arteries',
       line: 'Nitric oxide and other vasodilators open the arteries. A year on, the heart beats at {hr} and pumps {co}, yet the mean arterial pressure has fallen to {map}.',
       notes: 'In cirrhosis the gut and the systemic arteries make and meet more vasodilators, nitric oxide first among them, and respond less to vasoconstrictors. The arterial pressure falls, the baroreflex speeds the heart, and the cardiac output rises: the hyperdynamic circulation that AASLD describes once portal hypertension is clinically significant. Colored by flow, the figure shows more blood moving through the wide gut arteries. (AASLD 2024.)',

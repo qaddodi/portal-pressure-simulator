@@ -55,6 +55,8 @@
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
 //                            days at least the seconds, or the live clock runs sub-day and skips the ramp; clock: 'seconds'
 //                            plays the ramp over the seconds on the bedside clock instead, so a Doppler keeps recording, e.g. a meal)
+//   graph                    a time-lapse slide's graph on its teaching card (lapse-graph.js): the first two of its tiles, day by day, over the bar. Names its two lines
+//                            when it has no tiles (['map', 'co']; the keys are flow-time.js LINE); false for none (a slide whose own record is the graph, or a chart tool)
 //   visual                   over the dimmed figure: 'ladders' (each row's Gut to heart profile, six in a grid), 'table' (cols, asc: SAAG and protein columns, note: a text column's heading or several, vs: 'first' to show arrows against the first row,
 //                            foot: one sentence after the legend, which is built from the table; a row's ref: true keeps its numbers, its vs: a slide id
 //                            compares it with that row instead, its note: the text column's words, or an array of them), 'scale' (scale), 'quadrant'

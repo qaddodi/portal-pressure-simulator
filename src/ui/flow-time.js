@@ -37,6 +37,10 @@ export const LINE = {
   sin: ['Sinusoids', 'mmHg', 1, '--tr-wedge'], asc: ['Ascites', 'L', 1, '--tr-hv', 0.001],
   hvpg: ['HVPG', 'mmHg', 1, '--tr-wedge'], varix: ['Varix', 'mm', 1, '--tr-var'],
   wt: ['Weight lost', '%', 0, '--tr-cav', 1, { given: true, parts: 3 }], lsm: ['Stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }],
+  // (The readings the teaching card's own time graph carries on a time-lapse slide, lapse-graph.js: each is one of the slide's tiles.)
+  ssm: ['Spleen stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }], salb: ['Albumin', 'g/dL', 1, '--tr-ivc', 1, { pad: 0.2 }],
+  rpp: ['Kidney pressure', 'mmHg', 0, '--tr-cav'], he: ['Encephalopathy risk', 'index', 2, '--tr-var', 1, { pad: 0.2 }],
+  liver: ['Sinusoidal flow', '%', 0, '--tr-hv', 1, { pad: 0.2 }], map: ['Arterial pressure', 'mmHg', 0, '--tr-pv'], co: ['Cardiac output', 'L/min', 1, '--tr-hv', 1, { pad: 0.2 }],
 };
 export const MEAL_LINES = ['pv', 'pvFlow'];
 const opt = (k) => LINE[k]?.[5] || {};

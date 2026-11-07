@@ -61,7 +61,8 @@ import { anchorsOf, roomFor } from './cam-room.js';
 import { beatCount, beatView } from './slide-beats.js';
 import { clausesOf, revealCount, shownLine } from './reveal.js';
 import { COMPACT, WIDE } from './card-type.js';
-import { flowTimeHeight, trailKeys } from './flow-time.js';
+import { createFlowTime, flowTimeHeight, trailKeys } from './flow-time.js';
+import { lapseGraphOf, graphTrail } from './lapse-graph.js';
 import { specOf, procBlocked, procOffered, playProcedure, stepMarks } from './proc-anim.js';
 import { createInsetHold } from './inset-hold.js';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChangedWhy, cardBack } from './card-keep.js';
@@ -931,7 +932,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
   // (before: a slide that plays its procedure also gets the state it opens on, the procedure not done yet: see the landing.)
-  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && trailKeys(s.tool), before: s.procedure ? specOf(s.procedure.kind || s.procedure)?.before : undefined } : {});
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : graphTrail(s), before: s.procedure ? specOf(s.procedure.kind || s.procedure)?.before : undefined } : {});
   // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
   const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   let prepRev = 0;   // (bumped each time a presentation's states are set: the slide preparation's manifests belong to one of these)
@@ -1619,6 +1620,26 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // as the days run and the words change (live-text.js).
   const lapseRow = (s) => h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')),
     liveText('span', 'pzl-t', [lapseText(s, 0, s.days, false), lapseText(s, s.days, s.days, false), lapseText(s, s.days, s.days, true)], lapseText(s, 0, s.days, false)).el);
+  // ── The time graph on the teaching card (lapse-graph.js) ──
+  // A time-lapse slide with no time chart of its own carries one over its bar: the slide's two tiles drawn day by day by the same flow-time
+  // chart the Varices and Treating the cause slides have on their data card, its lines growing as the days run (Mohammad, 7 Nov 2026, option A).
+  // One at a time, made with the slide's words and let go with them; its lines come from the state's trail (modelStep asks the worker for them).
+  let lg = null, lgK = 1, lgLap = false;   // (lgK: how far along the days it is drawn, so a card built again mid-lapse carries on from there)
+  function lgDrop() { if (!lg) return; lg.ft.dispose(); lg = null; }
+  function lapseGraph(s) {
+    const g = lapseGraphOf(s);
+    if (!g) return null;
+    const ft = createFlowTime();
+    lg = { ft, spec: { clock: g.clock, lines: g.lines } };
+    return h('div', { class: 'pz-timegraph', role: 'group', 'aria-label': 'What changes over the time-lapse' }, ft.el);
+  }
+  // (A time-lapse about to play opens on its start; any other way onto the slide shows where its days ended.)
+  function lgStart(st) {
+    if (!lg) return;
+    lgK = lgLap ? 0 : lapseOn ? lgK : 1;
+    lg.ft.set(st?.trail ?? null, lgK, lg.spec);
+  }
+  function lgSet(k, trail) { lgLap = false; lgK = k; lg?.ft.set(trail, k, lg.spec); }
   function paintLapse(s, d, n, done = false) {
     const el = ui?.text.querySelector('.pz-lapse');
     if (!el) return;
@@ -1651,7 +1672,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const days = s.days, d0 = store.get().frame?.day ?? 0, ref = refOf(s, to);
     lapseOn = true; lapseLeft = days;
     let seen = false;
-    ui?.tools.progress(0, end.trail);
+    ui?.tools.progress(0, end.trail); lgSet(0, end.trail);
     host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null, bedside: bedside(s) });
     pushTo(s, to, (s.lapse.seconds || 8) * 1000);
     paintChrome();
@@ -1665,7 +1686,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const d = clamp(bedside(s) ? fr?.lapseDay ?? (seen ? days : 0) : (fr?.day ?? d0) - d0, 0, days);
       if (lapseLeft) lapseLeft = days - d;
       paintLapse(s, d, days);
-      ui?.tools.progress(d / days);
+      ui?.tools.progress(d / days); lgSet(d / days);
       // (Only once a day has run: before that the live figure is at the bedside, its numbers swinging with each beat, while
       // the card already shows the settled start.)
       if (fr?.metrics && d >= 1) dataTo(s, liveFp(fr), ref, fast ? 120 : 280);
@@ -1675,7 +1696,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     lapseOn = false; paintChrome();
     pushEnd(s, to, reduce.matches ? 0 : 600);
     paintLapse(s, days, days, true);
-    ui?.tools.progress(1);
+    ui?.tools.progress(1); lgSet(1);
     // (The live days land a hair off the computed end: the last step eases there too.)
     shownState = -1;
     if (!await morphTo(end, cut, reduce.matches ? 0 : 600, false)) return;
@@ -2696,6 +2717,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!ui) return;
     keepArgs = { s, st, i, fresh, lap, now };
     ui.scope?.slide(s);   // (the ring on the varices when the slide shows them; a lens left open closes)
+    lgLap = lap;
     if (!keepNow.text) textIn(s, st, i);
     if (keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
     layout();
@@ -2704,6 +2726,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
   function textIn(s, st, i) {
     const { text, panel } = ui;
+    lgDrop();   // (the last slide's time graph is let go before the words are drawn again)
     paintScales(s, i);
     // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
     // colour (17 Oct), not a pill over the title: set with the words, gone on a visual slide.
@@ -2743,10 +2766,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
           s.procedure ? procEl(s, i, st) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
           s.column ? wedgeColumn() : null,
+          s.lapse && i > 0 ? lapseGraph(s) : null,
           s.lapse && i > 0 ? lapseRow(s) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
+      lgStart(st);   // (the graph's chart is drawn once its box is in the card: its size is read from it)
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.dataset.turn = turnNow || throwDir;   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
@@ -6151,7 +6176,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (pageHeld) { clearTimeout(pageHeld.t); pageHeld = null; }
     pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     insets.reset();   // (and a room held through the last slide change is never written back after the talk: inset-hold.js)
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)
