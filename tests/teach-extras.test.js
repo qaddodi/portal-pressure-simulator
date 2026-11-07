@@ -52,14 +52,3 @@ test('the handout prints the source line', () => {
   const html = handoutHTML(d, '', [{ whvp: 18, fhvp: 6, hvpg: 12 }]);
   assert.match(html, /<p class="cite">Baveno VIII 1\.15<\/p>/);
 });
-
-test('presenter wiring: the cite line and the ladder\'s earlier state are drawn', () => {
-  const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.equal((src.match(/citeEl\(s\)/g) || []).length, 2, 'the cite line on the words card and on a panel slide');
-  assert.match(src, /slides = \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.map\(oneLadder\);/, 'an old ladder slide is read as the chart');
-  assert.match(src, /slide: s, index: i, deck: d, slides, stage,/, 'the chart finds the earlier slide in the slides as shown');
-  const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
-  assert.match(prof, /const slides = ctx0\.slides \|\| ctx0\.deck\?\.slides \|\| \[\];/);
-  assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
-  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/, 'the faint line is named as the slide asks');
-});

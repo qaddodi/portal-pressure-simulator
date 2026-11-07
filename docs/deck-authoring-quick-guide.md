@@ -52,7 +52,7 @@ Each slide has a `title` that stands on its own and a `line` of 30 words or fewe
 - **Handout only.** `notes` and `ask` print in the handout and never show on screen.
 - **The closing quick check.** `checks` holds 3 or 4 `[question, answer]` pairs, and the app turns them into the last slide. Make one a reasoning question that gives a change in the numbers and asks what moved: `['The HVPG falls from 16 to 11 mmHg on a beta-blocker. Is the bleeding risk gone?', 'Much lower, not gone: varices can still bleed below 12 mmHg.']`. A card with four questions is full: merge two recall checks to make room for a reasoning one.
 - **Puzzle first.** End the slide before a reveal on the paradox as a plain statement ("A meal is about to raise the portal flow by half."), and let the next slide resolve it.
-- **One coloring a line, and a title that names the finding.** Write a "Colored by …" sentence only when the color is the finding, since the key already says what each coloring shows. Title a slide "A clotted hepatic artery starves the bile ducts", not "Hepatic artery thrombosis".
+- **One coloring a line, and a title that names the finding.** Never write "Colored by …" in a line: the key already names each coloring, so say the finding the color shows. Title a slide "A clotted hepatic artery starves the bile ducts", not "Hepatic artery thrombosis".
 - **Say when the patient changes.** "In another patient with CSPH, …" for a new one, and "Back in the first patient, …" for a return (that slide then carries its own `preset`, `days` and `ramp`).
 - **Name the setting of a source.** Baveno VIII Table 3's HVPG response (a fall of 10% or more, or to 12 mmHg or less) is stated for primary prophylaxis. EASL 2025's recanalization is about 4 in 10 without cirrhosis and 7 in 10 with it. Check a claim against `/mnt/project-files/guidelines/` and leave out what no file supports.
 - **Taking a slide out.** Delete its handout figure and its `tests/deck-adopted.js` entries, fix `sections` and `objectives`, then run `UPDATE=1 node --test tests/deck-terms.test.js` once, after reading the diff.
@@ -82,10 +82,14 @@ Full guide: section 14.
 ## Framing the figure
 
 - **Camera.** `cam: 'portal'` frames a named region such as `liver`, `spleen`, `varices`, `heart` or `gut` (the portal system with the whole small bowel). `cam: 'lobule:central'` dives into the liver lobule.
+- **Camera by name.** `cam: { on: ['PV_TRUNK', 'SV', 'spleen'] }` frames what the names point at (vessel ids, organs, term targets, station ids or `@sets`, the ones `glow` takes) with a little room round it, no closer than `kMax`. `cam: { on: ['@collaterals'], near: 'portal' }` starts from that region and grows it to take them in; `cam: ['portal', 'spleen']` is the union of two regions. Use it instead of a raw `[x0, y0, x1, y1]` box. Guide 5.1.
+- **Camera beats.** `beats: [{ cam: 'rectum', marks: [...] }, { cam: 'fit' }]`: up to two more views of the figure on the same slide, one per Next (figure fields only; the words and card stay). A jump or Back opens the last view, so make it the whole point. Guide 5.1.
+- **Reveal the line clause by clause.** `reveal: true`: each Next adds the next clause of `line` and lights the terms it names (cut after commas, semicolons and full stops, or write `|` between clauses); Back removes the last. Figure only, the card never refits. A jump opens it whole. Guide 5.1.
+- **Push during a time-lapse.** `lapse: { seconds: 10, cam: 'varices' }`: the camera drifts there while the days run, labels riding along. Guide 4.
 - **Circuit view.** `view: 'circuit'` shows the electrical-circuit map instead of the body.
 - **Labels.** `labels: ['CONF', 'RHV', 'RA']` names those stations on the figure. Only the stations you list appear.
 - **Glow.** `glow: ['C3', 'spleen']` lights vessels or organs the words do not name. Add `glowSeq: 550` to light them one after another.
-- **Marks.** `mark: { edges: ['PV_TRUNK'], label: 'Clot' }` rings a vessel and adds a callout. Use `kind: 'treat'` for a stent or bands and `kind: 'note'` to name a collateral.
+- **Marks.** `mark: { edges: ['PV_TRUNK'], label: 'Clot' }` rings a vessel and adds a callout. Use `kind: 'treat'` for a stent or bands and `kind: 'note'` to name a collateral. A mark labelled "Stent" on a hepatic vein or the IVC also needs `stented: ['RHV_IVC']` on the slide, which draws the mesh on the figure and the ring in a cross-section tool (the TIPS and DIPS draw theirs on their own).
 - **Readings on the figure.** `sites: ['pv', 'ra']` writes those pressures beside the vessels.
 - **The HVPG catheter.** `cath: 'wedge'` plays the catheter step instead of a camera move, and `tool: { kind: 'hvpg', catheter: true }` puts its tracing in the data card, which stays up from one step to the next.
 
@@ -93,7 +97,7 @@ Full guide: section 5.1 to 5.8.
 
 ## Colouring the vessels
 
-`lens: 'velocity'` colours every vessel by its speed instead of its pressure, and a small key appears on the figure. Use a lens when the colour is the point of the slide, such as a reversed vein on `direction` or a fast stent on `velocity`. Say in the line what the colours show ("colored by velocity").
+`lens: 'velocity'` colours every vessel by its speed instead of its pressure, and a small key appears on the figure. Use a lens when the colour is the point of the slide, such as a reversed vein on `direction` or a fast stent on `velocity`. Say in the line what the colours show (the fast stent), not the coloring's name: the key names it.
 
 Two lenses are for decks only:
 
@@ -143,6 +147,7 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 |---|---|---|
 | Spectral Doppler in one vessel | `tool: { kind: 'doppler', vessel: 'PV_TRUNK' }` | flow direction, speed or wave shape is the point |
 | The esophagus through a scope | `tool: { kind: 'scope' }` | varix size or banding |
+| The scope ring on the varices (tap: the live scope view beside the figure) | automatic on varix slides; `scopeLens: true` / `false` | any slide that shows the varices, leaving the data card free |
 | A FibroScan reading | `tool: { kind: 'fibroscan' }` | liver stiffness |
 | A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, pressure, output or hemoglobin, with an EKG strip |
 | The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured, free pressure to wedge to result |
@@ -214,7 +219,7 @@ Put buttons and sliders on key slides only. 32 of the 40 built-in decks have at 
 
 ### A catheter treatment
 
-`procedure: 'tips'` (or `'brto'`, `'bato'`) puts a Play button on the teaching card. It plays the procedure on the real vessels: the camera follows the catheter, closes in on the balloon, the sclerosant or the stent, and goes back. When it ends, the live model keeps the change, as a treatment button would. `procedure: { kind: 'tips', auto: true }` plays it as the slide lands, going forward only. The patient must not have had the procedure yet and needs the vessels it uses (a gastrorenal shunt for BRTO and BATO). Otherwise the button is dimmed and says why. Do not put it on a slide with the HVPG catheter. A built-in slide uses it only when `tests/deck-adopted.js` lists it.
+`procedure: 'tips'` (or `'brto'`, `'bato'`) plays the procedure on the real vessels, guided by Next: the first Next puts the catheter in, each Next plays the next step, and the Next after the last moves on; Back runs a step backwards. The teaching card shows the four steps as a line of words with the slides' numbered step circles, the one on show lit (progress, not buttons); each step's callout on the figure carries the same number. The camera comes in close on the tip and follows it in, then holds still for the work. The live model keeps the change, as a treatment button would. For a TIPS, choose: `params: { tips: { on: true } }` alone places it quickly (the stent is just there), and adding `procedure: 'tips'` places it step by step. Use the guided one only on the slide that teaches the placement, never with a time-lapse. `procedure: { kind: 'tips', auto: true }` plays the first step as the slide lands, going forward only. A slide whose `params` give the result opens without it going forward (no stent, the shunt open), and the result appears at its step. The patient needs the vessels it uses (a gastrorenal shunt for BRTO and BATO); otherwise the steps are dimmed, say why, and Next moves on. Do not put it on a slide with the HVPG catheter. A built-in slide uses it only when `tests/deck-adopted.js` lists it.
 
 Full guide: section 7.4.
 
@@ -234,10 +239,6 @@ Full guide: section 7.5.
 
 On a tiles slide, `hvpgResp: 'ohm'` adds an HVPG fall tile: the fall in percent from slide `ohm`'s HVPG, live, with marks at 10% and 20%. Count from the untreated patient. Full guide: section 7.5.
 
-## Where a bleed stands in time
-
-On a tiles slide in a bleed talk, `clock: { at: 10, label: 'Scope by 12 h' }` adds a Since the bleed tile: the hours from the slide's own words on a bar from 0 to 72, marked at 12 (the scope) and 72 (a pre-emptive TIPS). Never let the hours run backward. Full guide: section 7.5.
-
 ## The handout question
 
 Each slide's `ask` prints in the handout, never on a projected talk. Give every content slide a short one with its answer: `ask: ['Where is the resistance?', 'In the sinusoids.']`.
@@ -251,7 +252,7 @@ To make it a built-in deck for everyone:
 1. Save it as `src/ui/decks/<id>.js`.
 2. Import and register it in `src/ui/decks.js`, and list it under one topic in `TOPICS`.
 3. If a built-in slide uses any of the newer options (the highlights, `scales`, `procedure`, charts, `cite`, the deck-only lenses), list that slide in `tests/deck-adopted.js`.
-4. Run `npm run lint && npm test`, then `npm run stamp`.
+4. Run `npm run lint && npm test`.
 5. Draw the handout pictures with `node scripts/handout-figures.mjs <id>`.
 
 Full guide: sections 12 and 13.

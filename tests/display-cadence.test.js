@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -18,17 +19,19 @@ test('no surface paces steady motion to a fixed frame rate of its own', () => {
 
 test('Battery saver alone paces motion', async () => {
   globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
-  const { paceMs, setSaver, SAVER_MS } = await import('../src/ui/frame.js');
+  const { paceMs, setSaver, SAVER_MS, setFigLab } = await import('../src/ui/frame.js');
+  setFigLab('motion60', false);   // (on by default since 4 Nov 2026, Mac heat R1: it paces steady motion to 60 a second on its own)
   setSaver(false);
   assert.equal(paceMs(), 0);
   setSaver(true);
   assert.equal(paceMs(), SAVER_MS);
   assert.ok(SAVER_MS > 60 && SAVER_MS < 67);
   setSaver(false);
+  setFigLab('motion60', true);
 });
 
 test("the anatomy's top quality step draws the blood on every frame", () => {
-  const js = readFileSync(new URL('stage.js', SRC), 'utf8');
+  const js = stageSource();
   const q = js.match(/const QUALITY = \[([^\]]*)\]/);
   assert.ok(q, 'QUALITY table found');
   assert.match(q[1].trim(), /^\{ fps: 0, res: 1 \}/, 'the first (default) step is unpaced at full resolution');
@@ -38,12 +41,15 @@ test("the anatomy's top quality step draws the blood on every frame", () => {
 // anatomy's frame-time governor, its zoom resolution and dynamic resolution, the lobule's resolution governor and the
 // FibroScan's shrinking map size are gone, and a level an older build stored is dropped.
 test('no surface steps its own resolution or frame rate down', () => {
-  const stage = readFileSync(new URL('stage.js', SRC), 'utf8');
+  const stage = stageSource();
   for (const name of ['governQuality', 'governRes', 'dynRes', 'zoomRes']) assert.ok(!new RegExp(`\\b${name}\\b`).test(stage), `stage.js: ${name} is back`);
   assert.ok(!/localStorage\.setItem\('pps\.(quality|q)'/.test(stage), 'stage.js stores a quality level again');
   assert.match(stage, /removeItem\('pps\.quality'\)/, 'an old stored level is dropped');
   assert.match(stage, /removeItem\('pps\.q'\)/, 'an old stored level is dropped');
-  assert.match(stage, /vdpr = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[quality\]\.res;/, 'the vessel canvas follows only the explicit step');
+  // (Besides the step, only Settings › Figure resolution and its options, which the viewer picks (frame.js, all off unless chosen;
+  // Adapt to frame rate is the one that steps down by itself, and only once he switches it on, 30 Oct).
+  assert.match(stage, /const base = Math\.min\(2, devicePixelRatio \|\| 1\) \* QUALITY\[(?:live\.)?quality\]\.res;\n\s*(?:live\.)?vdpr = base \* figShare\(r\.width, r\.height, base\);/, 'the vessel canvas follows only the explicit step and settings');
+  assert.match(stage, /if \(!figOpt\('adapt'\)\) \{ (?:live\.)?adaptK = 1;/, 'Adapt stays at Full unless chosen');
   const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
   assert.ok(!/\blzRes\b/.test(lob), 'lobule-zoom.js: its resolution governor is back');
   const fib = readFileSync(new URL('fibroscan.js', SRC), 'utf8');

@@ -6,24 +6,30 @@
 // screenshot and the code; no GPU ran here.)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
-const src = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
-const FS = src.slice(src.indexOf('const FS = `'), src.indexOf('export function createTissueGL'));
+import { tissueFS } from '../src/ui/tissue-gl.js';
+
+// (The shader exists in two forms: the bitmap over the surround, and the same with the lobule drawn live added; the edge of the
+// bitmap's box is the same in both.)
+const FORMS = [['bitmap only', tissueFS(false)], ['with the live lobule', tissueFS(true)]];
 
 test('the bitmap is looked up with explicit gradients, never with implicit ones inside the box test', () => {
-  assert.doesNotMatch(FS, /\btexture\(uW,|\btexture\(uWO,/, 'no implicit-derivative lookup of either bitmap');
-  assert.match(FS, /vec2 gx = vec2\(1\.0 \/ uRect\.z, 0\.0\), gy = vec2\(0\.0, 1\.0 \/ uRect\.z\);/, 'one device px in the bitmap\'s own coordinates');
-  assert.equal(FS.match(/textureGrad\(uW, w, gx, gy\)/g).length, 1);
-  assert.equal(FS.match(/textureGrad\(uWO, w, gx, gy\)/g).length, 1);
-  // The lookups with implicit derivatives that remain sit in uniform control flow (the surround's tiles; the last state's, behind a uniform).
-  const implicit = FS.match(/\btexture\([^)]*\)/g);
-  assert.deepEqual(implicit, ['texture(uQA, uv)', 'texture(uQB, uv)', 'texture(uQO, uv)']);
+  for (const [, FS] of FORMS) {
+    assert.doesNotMatch(FS, /\btexture\(uW,|\btexture\(uWO,/, 'no implicit-derivative lookup of either bitmap');
+    assert.match(FS, /vec2 gx = vec2\(1\.0 \/ uRect\.z, 0\.0\), gy = vec2\(0\.0, 1\.0 \/ uRect\.z\);/, 'one device px in the bitmap\'s own coordinates');
+    assert.equal(FS.match(/textureGrad\(uW, w, gx, gy\)/g).length, 1);
+    assert.equal(FS.match(/textureGrad\(uWO, w, gx, gy\)/g).length, 1);
+    // The lookups with implicit derivatives that remain sit in uniform control flow (the surround's tiles; the last state's, behind a uniform).
+    const implicit = FS.match(/\btexture\([^)]*\)/g);
+    assert.deepEqual(implicit, ['texture(uQA, uv)', 'texture(uQB, uv)', 'texture(uQO, uv)']);
+  }
 });
 
 test('the outermost two device pixels of the box fade out, so an edge pixel that held anything could not show', () => {
-  assert.match(FS, /float e = clamp\(min\(min\(w\.x, 1\.0 - w\.x\), min\(w\.y, 1\.0 - w\.y\)\) \* uRect\.z \/ 2\.0, 0\.0, 1\.0\);/);
-  assert.match(FS, /l \*= e;\n\s+c = l\.rgb \+ c \* \(1\.0 - l\.a\);/, 'before it is laid over the surround');
+  for (const [, FS] of FORMS) {
+    assert.match(FS, /float e = clamp\(min\(min\(w\.x, 1\.0 - w\.x\), min\(w\.y, 1\.0 - w\.y\)\) \* uRect\.z \/ 2\.0, 0\.0, 1\.0\);/);
+    assert.match(FS, /l \*= e;\n\s+c = l\.rgb \+ c \* \(1\.0 - l\.a\);/, 'before it is laid over the surround');
+  }
   // (the same expression: 0 on the edge, 1 two device px in, whatever the box's size)
   const e = (wx, wy, z) => Math.min(1, Math.max(0, Math.min(Math.min(wx, 1 - wx), Math.min(wy, 1 - wy)) * z / 2));
   for (const z of [800, 2400, 7000]) {
@@ -37,6 +43,8 @@ test('the outermost two device pixels of the box fade out, so an edge pixel that
 });
 
 test('the fade into the page and the grey grade still follow the bitmap, as before', () => {
-  const at = (s) => FS.indexOf(s);
-  assert.ok(at('if (uGrey.x < 1.0') < at('vec4 l = textureGrad(uW') && at('l *= e;') < at('float s = clamp('));
+  for (const [, FS] of FORMS) {
+    const at = (s) => FS.indexOf(s);
+    assert.ok(at('if (uGrey.x < 1.0') < at('vec4 l = textureGrad(uW') && at('l *= e;') < at('float s = clamp('));
+  }
 });

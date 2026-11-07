@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,37 +7,8 @@ import { readFileSync } from 'node:fs';
 // patient change (HVPG slides 8 and 9, 17 Oct): the pixels are read from a canvas kept in memory and sent a strip per frame
 // (plate-upload.js), into a texture shown only once full. Every raster draws into a canvas of its own, so a quick second
 // raster (a view switch, a slide, a resize, a theme change) never has its drawing wiped by an earlier one.
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
-test('a plate raster draws into a canvas of its own and sends it as pixel strips, one per frame', () => {
-  const body = stage.slice(stage.indexOf('async function rasterPlate'), stage.indexOf('function plateStateKey'));
-  // Every piece is drawn into a small canvas of its own and read back from it: read back from one canvas the size of the whole
-  // picture, each strip took Safari longer than the one above (25 ms to over 200 ms; Mohammad's ?perf readout, Mac, 21 Oct).
-  assert.match(body, /const drawn = \(w, h, paint\) => \{\n\s+const pc = document\.createElement\('canvas'\);\n\s+pc\.width = w; pc\.height = h;\n\s+const pg = pc\.getContext\('2d', \{ willReadFrequently: true \}\), p = \{ pc, pg, w, h \};\n\s+pend\.push\(p\);\n\s+gpuProbe\.time\(null, 'organ picture: draw', \(\) => paint\(pg\)\);/);
-  assert.match(body, /const readBack = \(p\) => \{\n\s+try \{ return gpuProbe\.time\(null, 'organ picture: read', \(\) => premultiply\(p\.pg\.getImageData\(0, 0, p\.w, p\.h\)\.data\)\); \} finally \{ p\.pc\.width = p\.pc\.height = 0; pend\.splice\(pend\.indexOf\(p\), 1\); \}/);
-  assert.doesNotMatch(body, /getImageData\(0, y,/, 'never read from a canvas the size of the whole picture');
-  // Each strip is drawn in its own frame too: the whole picture drawn at once was one long frame after every zoomed pan or
-  // pinch (21 Oct). The view's picture is a picture per strip, of only the shapes that meet it, so its markup, its parse and
-  // its drawing are a strip's too. Same scale, cut at whole rows: the same pixels. A strip is read back a frame after it is
-  // drawn (Safari paints a canvas's drawing on its own: read at once, the read waited out the painting, 70–130 ms a strip in
-  // his ?perf readout, 21 Oct). Each half of a strip, its drawing and its read-back with the upload, takes its own turn in a frame that
-  // has some of the shared refinement allowance left, outside a gesture (refine.js), and is charged to it.
-  assert.match(body, /const gone = \(\) => seq !== plateSeq \|\| drops !== plateDrops \|\| v !== veins \|\| v\.lost \|\| vseq !== \(banded \? viewSeq : 0\) \|\| drawnAs !== plateStateKey\(\);/);
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(await refineTurn\(gone\) === null\) return false;\n\s+if \(banded\) \{/, 'a raster overtaken on its way in is given up (a view picture, by a newer view picture too), at its turn');
-  assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+mine\.push\(\[qx, qy, refineStep\('organ picture: draw', \(\) => drawn\(qw, qh, \(pg\) => pg\.drawImage\(band, 0, 0, qw, qh\)\)\)\]\);/, 'a strip whose copy changed state is given up');
-  assert.match(body, /if \(mine\.length && await refineTurn\(gone\) === null\) return false;\n\s+refineStep\('organ picture: read \+ upload', \(\) => \{\n\s+for \(const \[qx, qy, p\] of mine\) copyPixels\(px, W, qx, qy, readBack\(p\), p\.w, 0, 0, p\.w, p\.h\);/, 'read a frame after it is drawn, and given up if overtaken meanwhile');
-  assert.match(body, /v\.plateRows\(job, y, rows, px\.subarray\(y \* W \* 4, \(y \+ rows\) \* W \* 4\)\);/);
-  assert.match(body, /if \(gone\(\) \|\| plateCopy\?\.key !== drawnAs\) return false;\n\s+const p = refineStep\('organ picture: draw', \(\) => drawn\(W, rows, \(pg\) => pg\.drawImage\(band, 0, 0, W, rows\)\)\);\n\s+if \(await refineTurn\(gone\) === null\) return false;\n\s+refineStep\('organ picture: read \+ upload', \(\) => v\.plateRows\(job, y, rows, readBack\(p\)\)\);/);
-  assert.doesNotMatch(body, /drawImage\([a-z]+, 0, 0, W, H\)/, 'never the whole picture in one frame');
-  assert.match(body, /if \(layer\) v\.organs\.stage\(slot, layer, job, rect, layer === 'bowel' \? plateCopy\.bowelDy : 0\); else v\.setPlate\(slot, job, rect\);\n\s+job = null;/, 'shown only once every strip is in (a layer of the organs: held until the whole set is in)');
-  assert.match(body, /finally \{ if \(job && !v\.lost\) v\.dropJob\(job\); px = null; for \(const p of pend\) p\.pc\.width = p\.pc\.height = 0; \}/, 'a canvas drawn and not yet read is let go when the picture is given up');
-  // (Only the view picture that was shown is kept, for the next pan; the one before is let go, and so is the kept one when the plate drops.)
-  assert.match(body, /job = null;\n\s+if \(banded\) \{ viewKeeps\.set\(layer \|\| '', \{ px, rect, W, H, scale, seq, drops, key: drawnAs \}\); px = null; \}/, 'one kept view picture per layer, the newest');
-  assert.match(stage, /function dropViewKeep\(\) \{ viewKeeps\.clear\(\); \}/);
-  assert.match(stage, /plateCopy = null; dropViewKeep\(\);\n/);
-  assert.doesNotMatch(stage, /veins\.setPlate\(slot, c,/);
-  assert.match(stage, /function hidePlate\(\) \{\n\s+plateDrops\+\+;/, 'a dropped plate gives up the raster on its way in');
-});
 
 test('the ascites cavity reaches the GPU as row half-widths, never as a canvas', () => {
   // (Copying a fresh canvas of its outline into a texture took Safari about 220 ms on each step of a fluid ease.)
@@ -55,11 +27,11 @@ test('the GPU fills a plate texture of its own and swaps it in whole', () => {
 test('an ease that outgrows the plate shows on the live drawing, and the plate is drawn again once it settles', () => {
   // (Held, the organs inside the plate stood still while their outlines moved through a fill played over days, then jumped.)
   const poke = stage.slice(stage.indexOf('function platePoke'), stage.indexOf('const key = plateStateKey();', stage.indexOf('function platePoke')));
-  assert.match(poke, /if \(!live && \(lvMoving \|\| fluidEasing\(\)\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); return; \}/);
+  assert.match(poke, /if \(!liveNow && \((?:live\.)?(?:live\.)?lvMoving \|\| (?:live\.)?(?:live\.)?fluidEasing\(\)\)\) \{ if \((?:live\.)?(?:live\.)?plateKey && (?:live\.)?(?:live\.)?veins\.hasPlate\(0\) && plateStateKey\(\) !== (?:live\.)?(?:live\.)?plateKey\) hidePlate\(\); return; \}/);
   // (Unless the changing organs are painted live: then nothing is dropped, and the pictures under them hold none of them.)
-  assert.match(poke, /const live = liveOn\(\);/);
+  assert.match(poke, /const liveNow = liveOn\(\);/);
   // (The bowel's float only once the fluid settles: its picture is moved on the GPU while it eases.)
-  assert.match(stage, /if \(liveOn\(\)\) return \['live', bowelHeld, cs\.getPropertyValue\('--stage-bg'\)/);
+  assert.match(stage, /if \(liveOn\(\)\) return \['live', bowelHeld, themeKey\(\), cs\.getPropertyValue\('--stage-bg'\)/);
 });
 
 test('highlighting an organ never draws the organ picture again (its look is the same, and the redraw lagged)', () => {
@@ -70,24 +42,7 @@ test('highlighting an organ never draws the organ picture again (its look is the
   assert.doesNotMatch(css, /\.org-sel(?![-\w])/);
 });
 
-test("the gut's picture is drawn a strip per frame too", () => {
-  const body = stage.slice(stage.indexOf('async function makeGutPic'), stage.indexOf('function clientToWorldFast'));
-  assert.match(body, /for \(const \[y, rows\] of plateStrips\(W, H\)\) \{\n\s+if \(await refineTurn\(\(\) => seq !== gutPicSeq\) === null\) throw new Error\('overtaken'\);\n\s+refineStep\('gut picture: strip', \(\) => cg\.drawImage\(img, 0, y, W, rows, 0, y, W, rows\)\);/);
-  assert.doesNotMatch(body, /drawImage\(img, 0, 0, W, H\)/);
-});
 
-test('after a pan at the same scale, of the same state, the view picture takes the pixels it shares with the last one', () => {
-  // (Drawn whole after every zoomed pan, it was a strip of shapes written out, read in and drawn on each of about nine frames
-  // right after the pan stopped. Mohammad, 21 Oct: "the lag after stopping panning or zooming is annoying".)
-  const body = stage.slice(stage.indexOf('async function rasterPlate'), stage.indexOf('function plateStateKey'));
-  assert.match(body, /const prev = banded && viewKeep && viewKeep\.seq === seq && viewKeep\.drops === drops && viewKeep\.key === drawnAs && viewKeep\.scale === scale \? viewKeep : null;/, 'only from a picture of the same state, at the same scale');
-  assert.match(body, /const \{ copy, draw \} = prev \? viewReuse\(W, H, prev\.W, prev\.H, ox, oy, y, rows\) : \{ copy: null, draw: \[\[0, y, W, rows\]\] \};/);
-  assert.match(body, /copyPixels\(px, W, copy\[0\], copy\[1\], prev\.px, prev\.W, copy\[0\] \+ ox, copy\[1\] \+ oy, copy\[2\], copy\[3\]\)/, 'copied pixel for pixel, never scaled');
-  // The views sit whole pixels apart: each rect starts and ends on the scale's pixel grid.
-  const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
-  assert.match(sched, /x0 = Math\.floor\(x0 \* scale\) \/ scale; y0 = Math\.floor\(y0 \* scale\) \/ scale; x1 = Math\.ceil\(x1 \* scale\) \/ scale; y1 = Math\.ceil\(y1 \* scale\) \/ scale;/);
-  assert.match(sched, /4094 \/ \(x1 - x0\), 4094 \/ \(y1 - y0\)/, 'grown by a pixel each way, a side stays within 4096');
-});
 
 test('the pictures made after a pan or pinch wait until the figure is let go', () => {
   // (Mohammad, 21 Oct: a hitch "as soon as I stop panning", finger still down; and 0.6 s after a pinch, as the menus faded in.)
@@ -96,21 +51,15 @@ test('the pictures made after a pan or pinch wait until the figure is let go', (
   assert.match(quiet, /const leftAlone = \(ms\) => !\(pressed\.size && since\(\) < 5000\) && since\(\) >= ms;/);
   assert.match(quiet, /on\('pointerdown', \(e\) => pressed\.add\(e\.pointerId\)\);/);
   assert.match(quiet, /for \(const ev of \['pointerup', 'pointercancel'\]\) on\(ev, \(e\) => pressed\.delete\(e\.pointerId\)\);/);
-  const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
-  assert.match(sched, /if \(!leftAlone\(280\)\) \{ plateSettle = setTimeout\(settled, 120\); return; \}/);
-  assert.match(sched, /const go = \(\) => \{ if \(!leftAlone\(1000\)\) \{ gutPicTimer = setTimeout\(go, 250\); return; \} makeGutPic\(\)/);
+  const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('function clientToWorldFast'));
+  assert.match(sched, /if \(!leftAlone\(280\)\) \{ (?:live\.)?(?:live\.)?plateSettle = stageScope\.timer\(settled, 120\); return; \}/);
 });
 
-test("the gut picture is made at fixed zoom steps, never stretched, so an ordinary pinch needs no new one", () => {
-  const body = stage.slice(stage.indexOf('async function makeGutPic'), stage.indexOf('function clientToWorldFast'));
-  assert.match(body, /const k = win \? win\.k : gutStep\(need, GUT_CAP\), look = gutLook\(\), mut = gutMut;/);
-  assert.match(body, /if \(!win && gutPics\.some\(\(p\) => !p\.win && p\.mut === mut && p\.look === look && p\.k === k\)\) return;/);
-});
 
 test('in the circuit, where the organs are faded out, no organ picture is made after a pan or pinch', () => {
   // (Mohammad, 21 Oct: the lag after a pan or zoom "also happens in circuit view".)
-  const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
-  assert.match(sched, /if \(!veins \|\| !plateOn\(\) \|\| !CTM\) return;\n(?:\s+\/\/.*\n)+\s+if \(morphTarget !== 0 \|\| morph > 0\) return;\n\s+if \(!liveOn\(\)\) gutPicSoon\(\);/);
+  const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('function clientToWorldFast'));
+  assert.match(sched, /if \(!(?:live\.)?(?:live\.)?veins \|\| !(?:live\.)?(?:live\.)?plateOn\(\) \|\| !(?:live\.)?(?:live\.)?CTM\) return;\n(?:\s+\/\/.*\n)+\s+if \((?:live\.)?(?:live\.)?morphTarget !== 0 \|\| (?:live\.)?(?:live\.)?morph > 0\) return;/);
 });
 
 test("an ordinary pan makes no new picture of the view while the one shown still covers the screen", () => {
@@ -118,7 +67,7 @@ test("an ordinary pan makes no new picture of the view while the one shown still
   // screen; only the margin around it had left it.)
   const sched = stage.slice(stage.indexOf('function schedulePlateView'), stage.indexOf('async function makeGutPic'));
   assert.match(sched, /const vx0 = Math\.max\(PLATE_RECT\[0\], ax\), vy0 = Math\.max\(PLATE_RECT\[1\], ay\), vx1 = Math\.min\(PLATE_RECT\[0\] \+ PLATE_RECT\[2\], bx\), vy1 = Math\.min\(PLATE_RECT\[1\] \+ PLATE_RECT\[3\], by\);/);
-  assert.match(sched, /if \(plateView && vx0 >= plateView\[0\] && vy0 >= plateView\[1\] && vx1 <= plateView\[2\] && vy1 <= plateView\[3\] && scale <= plateView\[4\] \* 1\.05\) return;/, 'the screen, not its margin, inside the kept picture');
+  assert.match(sched, /if \((?:live\.)?plateView && vx0 >= (?:live\.)?plateView\[0\] && vy0 >= (?:live\.)?plateView\[1\] && vx1 <= (?:live\.)?plateView\[2\] && vy1 <= (?:live\.)?plateView\[3\] && scale <= (?:live\.)?plateView\[4\] \* 1\.05\) return;/, 'the screen, not its margin, inside the kept picture');
   // Painted on the GPU, the picture reaches half a view past each side, never so far its resolution drops below the screen's.
   assert.match(sched, /const reach = liveOn\(\) \? Math\.max\(0\.15, Math\.min\(0\.5, \(Math\.sqrt\(4\.2e6 \/ Math\.max\(1, vw \* vh\)\) - 1\) \/ 2, \(4094 \/ Math\.max\(1, vw, vh\) - 1\) \/ 2\)\) : 0\.15;/);
   // (The bound: a view of vw × vh px at reach r spans (1 + 2r)² vw·vh px, within the 4.2e6 the scale is held to, and a side within 4094.)

@@ -1,0 +1,31 @@
+{
+  "note": "The frame-time and input-latency gate (scripts/frame-gate.mjs; premium-feel recs R2 and R5). target: the recs' bar (a frame's script time p95 under 16.7 ms on the laptop profile and 33 ms on the phone, no frame over 100 ms, an input answered within 100 ms and 150 ms); a measure past it is reported, never blocking. fail: the ceiling that blocks a pull request in ci.yml (checks.yml only warns). CI's runners draw in software and the profiles slow the page 4x and 6x on top, so what they measure is far above the bars; the ceilings are set from what they measured, to catch a regression and not to say a bar is met. A scenario's own ceiling (scenarios) is the largest number the runners have measured for it, x1.5 for a script p95 and an input (no input ceiling under 150), x2 for the longest frame; the generic ceiling covers a scenario nobody has measured (the camera glide, which has too few frames on the laptop). Seen so far: checks run 1105 (31 Oct, the phone, and the laptop's pan with the first, longer gestures) and run 1121 (31 Oct, both, the gestures as they are now). The first set (66 ms p95 on the phone, 250 ms the longest frame, from nothing measured) was below what untouched code measures there, so it would have blocked every merge; the phone's pinch, slide change, lens and warm menu were raised once, when run 1121 showed the one-sample numbers of run 1105 were too close to what the same code measures a run later. From here a ceiling only goes down: lower it to the largest number of the runs seen, with the same margin, and never raise one to get a run through. Times in ms.",
+  "laptop": {
+    "target": { "p95": 16.7, "max": 100, "input": 100 },
+    "fail": { "p95": 280, "max": 2000, "input": 400 },
+    "scenarios": {
+      "pan": { "p95": 180, "max": 490 },
+      "pinch (trackpad)": { "p95": 205, "max": 505 },
+      "idle (Play)": { "p95": 140, "max": 305 },
+      "slide change (hvpg)": { "p95": 330, "max": 3740 },
+      "lens (L key)": { "input": 365 },
+      "menu (warm)": { "input": 150 },
+      "verb (Treat order)": { "input": 150 },
+      "Next": { "input": 360 }
+    }
+  },
+  "phone": {
+    "target": { "p95": 33, "max": 100, "input": 150 },
+    "fail": { "p95": 280, "max": 2000, "input": 450 },
+    "scenarios": {
+      "pan": { "p95": 190, "max": 490 },
+      "pinch (two fingers)": { "p95": 250, "max": 670 },
+      "idle (Play)": { "p95": 415, "max": 550 },
+      "slide change (hvpg)": { "p95": 410, "max": 2110 },
+      "lens (L key)": { "input": 305 },
+      "menu (warm)": { "input": 295 },
+      "verb (Treat order)": { "input": 165 },
+      "Next": { "input": 360 }
+    }
+  }
+}

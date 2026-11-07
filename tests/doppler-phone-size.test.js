@@ -20,12 +20,15 @@ test('Present phone data card: direction and mean step down, the spectrum is tal
   assert.ok(h >= 140, `spectrum is ${h}px`);
 });
 
-test('Present phone: the Doppler and FibroScan zoom stops at .85 and the fit shortens their pictures', () => {
+test('Present phone: the Doppler and FibroScan are not zoomed and the fit shortens their pictures', () => {
   const r = rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"])');
-  assert.match(r, /--tz: max\(var\(--pz-fit, 1\), \.85\)/);
-  assert.match(r, /zoom: var\(--tz\)/);
-  assert.match(rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="doppler"] .dop-box'), /128px \* var\(--pz-fit, 1\) \/ var\(--tz, 1\)/);
-  assert.match(rule('.pz.stack:not(.low) .pz-data.has-tool.has-tool .pz-tool[data-kind="fibroscan"] .fibroscan-box'), /168px \* var\(--pz-fit, 1\) \/ var\(--tz, 1\)/);
+  assert.match(r, /--tz: 1;/);
+  assert.match(r, /zoom: 1/);
+  // (their picture heights come from the one shared chart rule, --pz-chart-hh = --pz-chart-h x the fit, capped by the card's room)
+  const h = rule('.app.presenting .pz.stack:not(.low) .pz-data.has-tool .pz-tool[data-kind="vitals"] .vitals-box');
+  assert.match(h, /\.pz-tool\[data-kind="fibroscan"\] \.fibroscan-box/);
+  assert.match(h, /\.pz-tool\[data-kind="doppler"\] \.dop-box/);
+  assert.match(h, /height: calc\(var\(--pz-chart-hh\)/);
 });
 
 test('a slide\'s Doppler strip reads signed as drawn and as a steady running mean', () => {
@@ -33,5 +36,5 @@ test('a slide\'s Doppler strip reads signed as drawn and as a steady running mea
   assert.match(src, /let mean = ovOn \? steadyMean\(r\.mean\) : r\.mean;/);
   assert.match(src, /const drawn = ovOn \? mean \* pol\(\) : mean;/);
   assert.match(src, /pinnedVel\(\)/);   // (and the slide's own velocity while it agrees)
-  assert.match(src, /shownVel\.set\(probe, \{ v: Math\.abs\(mean\)/);
+  assert.match(src, /sv\.v = Math\.abs\(mean\);[^\n]*\n\s+shownVel\.set\(probe, sv\);/);
 });

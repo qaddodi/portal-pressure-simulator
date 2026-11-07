@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { bandOutline } from '../src/ui/lobule-look.js';
+import { bandOutline, bandOutlineFlat } from '../src/ui/lobule-look.js';
 
 // A context that records the outline as points (arcs sampled finely).
 function recorder() {
@@ -47,16 +47,32 @@ test('a wide pass narrows to kEnd at its ends: no outer halo round the tract, th
 });
 
 test('the lobule view draws its fibrous bands through the round-ended outline, the widest pass tucked in at the ends', () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /const outline = \(k\) => bandOutline\(c, P, N, Wd, k, Math\.min\(k, 1\.45\)\)/);
-  assert.match(lz, /\[\[2\.1, 0\.12\], \[1\.45, 0\.24\], \[1, 0\.5\]\]/);
+  const lp = readFileSync(new URL('../src/ui/lobule-paint.js', import.meta.url), 'utf8');   // (the tissue's painting)
+  assert.match(lp, /bandOutlineFlat\(c, P, N, Wd, k, Math\.min\(k, 1\.45\)\)/);
+  assert.match(lp, /PASS_K = \[2\.1, 1\.45, 1\], PASS_A = \[0\.12, 0\.24, 0\.5\]/);
+});
+
+test('bandOutlineFlat (a band kept as flat numbers, made with no array) draws exactly the points bandOutline does', () => {
+  const n = 26, P = [], N = [], Wd = [], fP = new Float64Array(2 * (n + 1)), fN = new Float64Array(2 * (n + 1));
+  for (let i = 0; i <= n; i++) {
+    const x = 7 * i, y = 12 * Math.sin(i / 4), a = i / 9;
+    P.push([x, y]); N.push([-Math.sin(a), Math.cos(a)]); Wd.push(3 + Math.sin(i));
+    fP[2 * i] = x; fP[2 * i + 1] = y; fN[2 * i] = -Math.sin(a); fN[2 * i + 1] = Math.cos(a);
+  }
+  for (const [k, kEnd] of [[2, 2], [2.1, 1.45], [1, 1]]) {
+    const a = recorder(), b = recorder();
+    bandOutline(a, P, N, Wd, k, kEnd); bandOutlineFlat(b, fP, fN, Float64Array.from(Wd), k, kEnd);
+    assert.deepEqual(b.pts, a.pts);
+  }
 });
 
 // The tissue's cross-fade mixes old and new before laying them on the field: drawn one over the other, the see-through
 // collagen past the lobule's edge grew denser mid-fade and dropped back after, so it pulsed (Mohammad, 16 Oct).
 test('the tissue cross-fade is a true mix, (1 - u) old + u new, so see-through parts never pulse', () => {
-  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /globalCompositeOperation = 'copy'; x\.globalAlpha = 1 - u; x\.drawImage\(worldOld/);
-  assert.match(lz, /globalCompositeOperation = 'lighter'; x\.globalAlpha = u; x\.drawImage\(worldCv/);
-  assert.doesNotMatch(lz, /c\.drawImage\(worldOld, sx \* dpr/);
+  // (On the GPU, the only painter since 1 Nov: the shader mixes the two premultiplied pictures, tissue-gl.js uWMix.)
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), tgl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
+  assert.match(tgl, /vec4 l = textureGrad\(uW, w, gx, gy\) \* uWMix\.x;\n\s+if \(uWMix\.y > 0\.0\) l \+= textureGrad\(uWO, w, gx, gy\) \* uWMix\.y;/);
+  assert.match(tgl, /UC\.f2\(U\.uWMix, old \? wMix : 1, old \? 1 - wMix : 0\);/, 'u new + (1 - u) old');
+  assert.match(lz, /A\.wo = crossfading \? worldOld : null; A\.woVer = worldOld\.ver \|\| 0; A\.wMix = crossfading \? xfU\(xfT0, xfNow\(now\)\) : 1;/);
+  assert.doesNotMatch(lz, /drawImage\(worldOld/);
 });

@@ -1,16 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { inlineStyles } from '../src/ui/svg-inline.js';
 
-// The organs' copy for the GPU is made with the plate groups shown, whatever the page reports for them at that moment: a stale
-// "hidden" read at the top of a group (the stage hides it while the GPU draws it) would hide every organ in the copy, and the
-// figure would show none (Mac, 16 Oct).
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-
-test('the plate copy starts every group visible', () => {
-  assert.match(stage, /if \(inlineStyles\(g, c, 'visible'\) === false\) continue;/);
-});
+// svg-inline.js inlines a group's styles for a copy taken with its groups shown, whatever the page reports for them at that moment
+// (the organ painter's checks draw such copies): a stale "hidden" read at the top of a group would hide all of it (Mac, 16 Oct).
 
 test('a group read back as hidden still copies visible, and a part hidden by its own setting stays hidden', () => {
   const el = (attrs = {}, kids = []) => {

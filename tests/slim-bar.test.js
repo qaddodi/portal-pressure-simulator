@@ -22,7 +22,7 @@ test('tapping the bar\'s HVPG or PPG does nothing: a plain div, no click handler
   assert.match(dock, /if \(inert\) \{ \/\* readout only \*\/ \}\n\s+else if \(t\.pane\)/);
   const css = read('../styles/app.css');
   assert.match(css, /\.metric\.inert \{ cursor: default; \}/);
-  assert.match(css, /\.metric\.inert:hover \{ background: transparent; \}/);
+  assert.match(css, /\.metric\.inert \{ --hv-bg: transparent; \} \.metric\.inert:hover::before \{ opacity: 1 \}/, 'its hover layer is clear');
 });
 
 test('no pill (event, narrator, bleed or passing note) floats above the timeline (History keeps the events)', () => {

@@ -1,0 +1,1 @@
+{ "factory": "createPick", "file": "stage-pick.js", "about": "The pick, the figure's keyboard items and the action-card anchors.", "lines": [[8294, 8353], [8383, 8426]], "stay": ["clientToVBFast", "nearbyEdge", "pick"] }

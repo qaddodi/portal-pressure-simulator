@@ -3,7 +3,7 @@
 // with its window full, not sweeping in from empty, and the live samples follow on. The history only ever goes in front of what the
 // instrument has already recorded, which stays as it is.
 
-import { firstAtOrAbove } from './sorted.js?v=662e543c85';
+import { firstAtOrAbove } from './sorted.js';
 
 /** How many of the history's samples come before time t (the instrument's first own sample): all of them for Infinity, none for no history. */
 export const olderThan = (hs, t) => (hs?.t?.length ? firstAtOrAbove(hs.t, t) : 0);

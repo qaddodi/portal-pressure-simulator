@@ -1,0 +1,1 @@
+{ "factory": "createGlow", "file": "stage-glow.js", "about": "The vessel glow engine: one set of glow sources (hover, slides, focus, Doppler, pressure change) lit by the GPU with the vessels.", "lines": [[1110, 1267]] }

@@ -9,14 +9,14 @@ const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'u
 const vg = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 
 test('a lobule radius change names its vessel instead of dirtying the whole layer', () => {
-  const line = lz.split('\n').find((l) => l.includes('g.setRadii(t.id, r)'));
+  const line = lz.split('\n').find((l) => l.includes('g.setRadii(t.id, sent)'));
   assert.ok(line, 'the lobule sends radii');
   assert.match(line, /glRows\.add\(t\.id\)/);
   assert.doesNotMatch(line, /glDirty = true/);
 });
 
 test('the renderer only stands in for a whole draw when every changed radius row is named', () => {
-  assert.match(vg, /setRadii\(row, r\)[\s\S]*?radRows\.add\(row\)/);
+  assert.match(vg, /setRadii\(row, r, along = null\)[\s\S]*?radRows\.add\(row\)/);
   assert.match(vg, /drawRows\([^)]*\) \{[\s\S]*?if \(!radCovered\(rows\)\) return refuse\('radii not listed'\)/);
   assert.match(vg, /const panAt = fboOK && radCovered\(rows\)/);
 });

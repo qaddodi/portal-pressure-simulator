@@ -180,7 +180,7 @@ test('the presenter decides before the cards leave and falls back if the layout 
   const out = run.indexOf('keepNow = keepFor('), words = run.indexOf('outMs = wordsOut(s)');
   assert.ok(out > 0 && out < words, 'chosen as the change begins, before any card fades');
   // (A time-lapse changes the patient as transitionRun counts it: from the slide before's state, or from a start of its own.)
-  assert.match(run, /const si = lap \|\| holdQ \? stateOf\[to - 1\] : stateOf\[to\];\n\s+keepNow = keepFor\(was && slides\[was\.i\], s, to, si !== shownState \|\| liveOff \|\| \(lap && !!states\[stateOf\[to\]\]\?\.start\), \{ again: !was \|\| was\.i === to \}\)/);
+  assert.match(run, /const si = lap \|\| holdQ \? stateOf\[to - 1\] : stateOf\[to\];\n\s+keepNow = keepFor\(was && slides\[was\.i\], s, to, si !== shownState \|\| liveOff \|\| \(lap && !!states\[stateOf\[to\]\]\?\.start\) \|\| \(pre && !!states\[to\]\?\.before\), \{ again: !was \|\| was\.i === to \}\)/);
   assert.equal(run.split('const si = ').length, 2, 'one count of the patient');
   // (a kept card is not built; its fall back is checked after each layout of the unseen cards, before they come in)
   assert.match(src, /if \(!keepNow\.text\) textIn\(s, st, i\);\n\s+if \(keepNow\.data\) dataKept\(s, i, now\); else dataIn\(s, st, i, fresh, lap, now\);\n\s+layout\(\);\n\s+keepNote\(\);/);
@@ -206,10 +206,12 @@ test('a card that stays does not fade, and the other one still does', () => {
 });
 
 test('a kept data card rides the model through a new patient and lands on the slide\'s numbers; with the same patient it takes them in place', () => {
-  assert.match(run, /if \(later && keepNow\.data && keepNow\.swap\) followData\(s, to, st, cut\);\n\s+if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
+  assert.match(run, /if \(later && !under && keepNow\.data && keepNow\.swap\) followData\(s, to, st, cut\);\n\s+if \(later && !under\) \{ if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
+  // (One move: a change eased under the glide has the kept card ride it from its start: slide-one-move.test.js.)
+  assert.match(run, /if \(under\) \{\n\s+if \(keepNow\.data && keepNow\.swap\) followData\(s, to, st, cut\);/);
   const kept = src.slice(src.indexOf('function dataKept('), src.indexOf('function followData('));
   assert.match(kept, /if \(keepNow\.swap\) return;/, 'with a new patient nothing jumps ahead of the figure');
-  assert.match(kept, /ui\.tiles\.set\(respFp\(s, now\.fp\), tileKeys\(s\), s\.key \|\| \[\], refOf\(s, i\), undefined, now\.params\?\.tips\?\.on\);/, 'the tiles count (an undefined ease is theirs)');
+  assert.match(kept, /ui\.tiles\.paintTiles\(respFp\(s, now\.fp\), tileKeys\(s\), s\.key \|\| \[\], refOf\(s, i\), undefined, now\.params\?\.tips\?\.on\);/, 'the tiles count (an undefined ease is theirs)');
   const follow = src.slice(src.indexOf('function followData('), src.indexOf('// Each row of a table still computing'));
   assert.match(follow, /dataTo\(s, liveFp\(fr\), ref, 280\)/);
   assert.match(follow, /if \(shownState === stateOf\[to\]\) \{ if \(s\.tool\) showTool\(s, to\); dataTo\(s, st\.fp, ref, 280\); return; \}/, 'landed: the slide\'s own numbers, and done');
@@ -218,7 +220,7 @@ test('a kept data card rides the model through a new patient and lands on the sl
 test('nothing is kept after a start or a stop, and each change decides afresh', () => {
   assert.match(src, /ui = build\(\);\n\s+dataOn = textOn = null; keepNow = NO_KEEP;/);
   assert.match(src, /dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = \[\]; keepArgs = null;\n\s+pillW = 0;/);
-  assert.match(src, /try \{ await transitionRun\(to\); \} finally \{\n\s+keepNow = NO_KEEP;/);
+  assert.match(src, /try \{ await transitionRun\(to\); \} finally \{[^]*?if \(mine\) \{ keepNow = NO_KEEP;/);
   // a change cut short, a card on its way in or out, and the states a tile's ring counts from not yet in keep nothing
   assert.match(src, /const dataStands = \(\) => /);
   assert.match(src, /!states\[stateOf\[to\]\] \|\| \(to > 0 && !states\[stateOf\[to - 1\]\]\)\) return NO_KEEP;/);

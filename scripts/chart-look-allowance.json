@@ -1,0 +1,19 @@
+{
+ "note": "Rules in styles/app.css that look a chart model piece, per chart (scripts/chart-looks-inventory.mjs), chart-looks-in-code plan WP0. The numbers only go down: a chart PR deletes its rules and runs node scripts/rules-lint.mjs --tighten. WP12 sets every chart to 0.",
+ "charts": {
+  "talk": 2,
+  "flow-time": 3,
+  "course": 0,
+  "curve": 3,
+  "profile": 0,
+  "flows": 0,
+  "causes": 0,
+  "criteria": 45,
+  "plane": 10,
+  "fluid": 10,
+  "lumen": 0,
+  "card": 4,
+  "instruments": 118,
+  "small": 18
+ }
+}

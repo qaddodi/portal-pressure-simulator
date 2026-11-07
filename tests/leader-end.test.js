@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A leader reaches its label and stops on the edge of what is seen of it: never short of it (the anatomy's stopped 9 px
 // short when zoomed in) and never in under its letters (the lobule's ran to each label's middle, through the text).
 // Both views take the end from leader-end.js; the browser check "leaders reach their labels in every frame" follows it
@@ -49,7 +50,7 @@ test('a label seen run by run: the leader stops on the first run of letters it m
 
 test('the lobule and the anatomy both stop their leaders with leader-end.js', () => {
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   assert.match(lz, /import \{[^}]*\bleaderEnd\b[^}]*\} from '\.\/leader-end\.js/);
   assert.match(st, /import \{[^}]*\bleaderEnd as edgeOf\b[^}]*\bleaderEndRects\b[^}]*\} from '\.\/leader-end\.js/);
   // The lobule's leaders never end at the label's middle again (x2/y2 set straight from the placement's centre).
@@ -61,17 +62,21 @@ test('the lobule and the anatomy both stop their leaders with leader-end.js', ()
 test('an optional lobule label gives way rather than take a leader across the lobule', () => {
   // (Batch 04, a phone: the Lymph label sat at the top right, its leader 420 px long over the whole lobule.)
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  const m = /const LONG_LEAD = (\d+);/.exec(lz);
+  // (LONG_LEAD is the shared leader length from label-place.js since the lobule took its lengths from there, 4 Nov.)
+  const lp = readFileSync(new URL('../src/ui/label-place.js', import.meta.url), 'utf8');
+  const m = /LONG_LEAD = (\d+)/.exec(lp);
   assert.ok(m && +m[1] <= 160, 'LONG_LEAD is missing or too long');
-  assert.match(lz, /!CORE\.includes\(k\) && !named\(k\) && lead > LONG_LEAD \? 1e6/);
-  assert.match(lz, /const drop = \(k\) => \(named\(k\) \? 2e7 : CORE\.includes\(k\) \? 1e7 : 3e4\);/);
+  assert.match(lz, /import \{[^}]*\bLONG_LEAD\b[^}]*\} from '\.\/label-place\.js';/);
+  assert.match(lz, /const nameless = !CORE\.includes\(k\) && !named\(k\);/);
+  assert.match(lz, /\(nameless && lead > LONG_LEAD \? 1e6/);
+  assert.match(lz, /const dropCost = \(k\) => \(named\(k\) \? 2e7 : CORE\.includes\(k\) \? 1e7 : 3e4\);/);
 });
 
 test('a zone name never sits on the slide\'s lesion ring', () => {
   // (CI #32, a phone: lobule slide 7, "Zone 3 centrilobular" 7 px from the ring's centre as the view settled.)
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
   assert.match(lz, /placeZones\(fr0, hx, hy, callRingAt\(fr0\)\)/);
-  assert.match(lz, /tries\.find\(\(p\) => !ringDepth\(lesion, boxAt\(p\)\)\)/);
+  assert.match(lz, /if \(!ringDepth\(lesion, zBox\)\) \{ at = j; break; \}/);
 });
 
 test('a leader towards a pill\'s rounded corner stops on the curve, not the square corner short of it', () => {
@@ -87,4 +92,16 @@ test('a leader towards a pill\'s rounded corner stops on the curve, not the squa
   // Square boxes are unchanged, and a side hit stays on the side.
   assert.deepEqual(leaderEnd({ ...pill, r: 0 }, 150, 20), { x: 100, y: 20 });
   assert.deepEqual(leaderEnd(pill, 150, 20), { x: 100, y: 20 });
+});
+
+test('an anatomy leader coming down on lowercase letters stops at their height, not the capitals\'', () => {
+  // (Desktop, four quick zoom-ins: the Right portal vein leader met "vein" from above and stopped 3.1 px over its x-height,
+  // at the capitals' 0.72 of the size.)
+  const st = stageSource();
+  const m = /const LOW = \/\[([a-z]+)\]\/, X_HEIGHT = ([\d.]+);/.exec(st);
+  assert.ok(m, 'inkRects has no box for the x-height letters');
+  for (const ch of 'aceomnrsuvwxz') assert.ok(m[1].includes(ch), `${ch} is not counted as an x-height letter`);
+  for (const ch of 'bdfhiklt') assert.ok(!m[1].includes(ch), `${ch} reaches above the x-height`);
+  assert.ok(+m[2] >= 0.5 && +m[2] <= 0.57, 'X_HEIGHT is off Inter\'s 0.546');
+  assert.match(st, /base - f \* \(LOW\.test\(r\.t\[from\]\) \? X_HEIGHT : 0\.72\) - halo/);
 });

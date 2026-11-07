@@ -1,0 +1,1 @@
+{ "factory": "createGeo", "file": "stage-geo.js", "about": "The vessel geometry tables: each edge's anatomic and circuit course sampled once, tributary and branch courses, fade and join tables, the custom shunt router, and the divided-vein length.", "lines": [[491, 626]] }

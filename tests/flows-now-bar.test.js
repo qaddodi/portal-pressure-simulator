@@ -3,7 +3,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EDGES } from '../src/engine/topology.js';
-import { sameShares, flowParts } from '../src/ui/tool-flows.js';
+await import('./dom-shim.js');   // (the card draws on the GPU, svg-gl.js, which loads only with a page)
+const { sameShares, flowParts } = await import('../src/ui/tool-flows.js');
 
 const inflow = (pv, ha) => [{ id: 'portal', name: 'Portal vein', tone: '--vein-portal', pct: pv }, { id: 'artery', name: 'Hepatic artery', tone: '--artery', pct: ha }];
 

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Phone text and labels (review 15 Oct, #23, #48-#51): the figure's captions and the catheter callouts' small words are 12 px
 // on a phone too, the meal chart's words never zoom under 12 px with its card, the FibroScan probe stands steeper beside the
 // screen's edge so its reading stays on screen, figure labels keep off the teaching card's glass, and a phone held sideways
@@ -8,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { ROLES } from '../src/ui/type-scale.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), tokens = read('../styles/tokens.css'), stage = read('../src/ui/stage.js'), flow = read('../src/ui/flow-time.js');
+const css = read('../styles/app.css'), tokens = read('../styles/tokens.css'), stage = stageSource(), flow = read('../src/ui/flow-time.js');
 
 test('captions are 12 px on every screen, the SVG labels as the stylesheet', () => {
   assert.match(tokens, /--t-cap: 12px;/);
@@ -17,21 +18,22 @@ test('captions are 12 px on every screen, the SVG labels as the stylesheet', () 
   assert.match(css, /\.scan-probe \.sp-unit \{ font-size: 12px;/);
 });
 
-test('the meal chart sets its words larger by its card\'s zoom, to 12 px at least', () => {
+test('the meal chart draws its words at 12 px at least (the card does not zoom it)', () => {
   assert.match(flow, /const FT_MIN = 12;/);
-  assert.match(flow, /FT_MIN \/ z/);
+  assert.match(flow, /fittedType\(el, gl, FT_MIN\)/);
   assert.match(flow, /font-size: \$\{G\.f\.toFixed\(2\)\}px/);
 });
 
 test('the FibroScan probe turns steeper beside the left edge, flatter below the top edge, and its card check uses the same angle', () => {
-  assert.match(css, /\.scan-probe svg \{[^}]*rotate\(var\(--sp-turn, 45deg\)\)/);
+  assert.match(css, /\.scan-probe \.sp-svg \{[^}]*rotate\(var\(--sp-turn, 45deg\)\)/);
   assert.match(stage, /function scanTurn\(tx, y = Infinity\)/);
-  assert.match(stage, /while \(deg > 10 && !top\(deg\) && bodyLeft\(deg - 5\)\) deg -= 5;/);
-  assert.match(stage, /scan\.deg \* Math\.PI \/ 180/);
+  assert.match(stage, /while \(deg > 10 && !scanTopOk\(y, deg\) && sideOk\(scanBodyLeftOk, tx, deg - 5\)\) deg -= 5;/);
+  assert.match(stage, /const q = scanBody\(tip\.tx, tip\.y, scanR\(\) \? 180 - scan\.deg : scan\.deg\);/);   // (the head's check takes the body's box at the probe's own angle: the spleen's turned past the upright)
+  assert.match(stage, /const sideOk = \(ok, tx, d\) => \(scanR\(\) \? ok\(stageBox\(\)\.width - tx, d\) : ok\(tx, d\)\);/);   // (the spleen's probe, up to its right, keeps off the right edge the same way)
 });
 
 test('figure labels keep off the teaching card\'s glass', () => {
-  assert.match(stage, /querySelectorAll\('\.stage-blocker:not\(\[hidden\]\), \.pz-shade, #nbViews'\)/);
+  assert.match(stage, /const BLOCKER_SEL = '\.stage-blocker:not\(\[hidden\]\), \.pz-shade, #nbViews, \.stage-clock';/);   // (and the phone's clock: a label sat under "Day 30")
 });
 
 test('a phone held sideways shows the short clock in its play row', () => {

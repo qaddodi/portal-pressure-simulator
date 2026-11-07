@@ -44,7 +44,7 @@ test('V5: the status is a coloured word after the reading (card) and under the n
 
 test('V6: a change reads "+10.0" as the callouts do: no arrow, one decimal, in the reading\'s colour', () => {
   assert.ok(!/[▲▼]/.test(actions));
-  assert.match(actions, /signed\(P - r, fmt\(Math\.abs\(P - r\), 1\)\)/);
+  assert.match(actions, /signed\(dd, fmt\(ad, 1\)\)/);
   assert.match(css, /\n\.ac-delta\.up, \.ac-delta\.down \{ color: var\(--text\); \}/);
 });
 
@@ -55,5 +55,6 @@ test('V8: a card slider\'s value stays in ink when changed; the accent is on the
 test('V9: a vessel, compartment or organ is the Details title; no "Live values" heading', () => {
   assert.ok(!/'Live values'/.test(inspector));
   assert.match(main, /\$\('#panelTitle'\)\?\.classList\.toggle\('sr-only', named\)/);
-  assert.match(main, /const named = \['edge', 'node', 'organ'\]\.includes\(d\?\.type\);/);
+  assert.match(main, /const named = NAMED_DETAILS\.includes\(d\?\.type\);/);
+  assert.match(main, /const NAMED_DETAILS = \['edge', 'node', 'organ'\];/);
 });

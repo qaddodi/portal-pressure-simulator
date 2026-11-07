@@ -1,0 +1,1 @@
+{ "factory": "createIdle", "file": "stage-idle.js", "about": "The idle loop and the organ covers: when the figure sleeps and wakes, giving back the vessel buffers while hidden, and the organs' cover widths.", "lines": [[7646, 7712]], "stay": [] }

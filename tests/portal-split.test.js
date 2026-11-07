@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The figure's "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split into the
 // liver's and the shunts' shares, tinted like the shunt tile, easing to a new share and never changing size.
 import { test } from 'node:test';
@@ -5,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { portalSplit, RATE } from '../src/ui/table-marks.js';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('the two shares are whole percents that always add to 100, clamped to 0..1', () => {
@@ -31,8 +32,9 @@ test('the callout is a headline over a split bar, not the old two-stroke fork', 
   assert.doesNotMatch(css, /\.cath-label\.site\.split svg/);
 });
 
-test('a new share eases over 0.8 s, and the callout keeps one size (fixed headline width, stacked on phones)', () => {
-  assert.match(stage, /\(now - t0\) \/ 800\); splitShow\(el, el\._sh = from \+ \(to - from\) \* easeInOut\(k\)\)/);
+test('a new share glides in on the tiles\' own filter, and the callout keeps one size (fixed headline width, stacked on phones)', () => {
+  assert.match(stage, /follow2\(el\._sh, el\._shW, T, dt, SHOWN_TAU, SPLIT_EPS\)/);
+  assert.match(stage, /if \(el\.isConnected\) \{ const r = follow2/);
   assert.match(stage, /prefers-reduced-motion: reduce/);
   assert.match(css, /\.cath-label\.site\.split \.sp-h \{ width: 12\.6em;/);
   assert.match(css, /\.cath-label\.site\.split, \.app\.presenting \.cath-label\.site\.split \{[^}]*flex-direction: column;/);

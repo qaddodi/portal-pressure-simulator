@@ -1,0 +1,8 @@
+/* The guideline path card (tool-path.js; 7 Nov 2026). The card is one model drawn on the GPU (chart-looks/path.js): every connector, dot and
+   word. The page holds only its box, whose height the builder sets (the picture's label carries the words for a screen reader). */
+.pz-path { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; }
+.pzp-pic { position: relative; width: 100%; }
+
+/* the card as wide as its leaves need (Mac, iPad sideways); a narrower card, a phone and an iPad held upright draw the small map */
+.pz.pz:not(.stack):not(.low) .pz-data:has(.pz-path[data-n="5"]) { width: min(716px, calc(100vw - 32.4vw - 60px)); }
+.pz.pz:not(.stack):not(.low) .pz-data:has(.pz-path[data-n="6"]) { width: min(804px, calc(100vw - 32.4vw - 60px)); }

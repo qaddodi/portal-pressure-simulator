@@ -1,0 +1,1 @@
+{ "factory": "createLabelSolve", "file": "stage-label-solve.js", "about": "The label solver: the clamp-label probes and layoutLabels / layoutLabelsGen, which lay every label out against the figure.", "lines": [[5870, 7306]] }

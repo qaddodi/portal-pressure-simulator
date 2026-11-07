@@ -1,87 +1,27 @@
 // The view pill never leaves the screen or blinks into and out of the sinusoid (17 Oct, Mohammad on 7da46e6: "going from lobule
-// to sinusoid the pill flashes off and then on ... going from sinusoid to lobule the pill disappears completely then reappears
-// by folding out and glides up"). Every frame of both moves is stepped through here, in the order main.js sinMotion runs them,
-// at 60 and 120 Hz: the pill is drawn on its own path from where it was to where it rests, in view
-// and whole all the way, and its fold never hides the buttons that stay.
+// to sinusoid the pill flashes off and then on"). Since 2 Nov the sinusoid view keeps the dock (Mohammad: "keep the timeline even in
+// sinusoid view; instead of having the pause button up"), so the pill stays in its home above it and only folds: every frame of the
+// fold is stepped through here, both ways, and nothing hides the pill, its home or the dock on the way.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { easeIO3, glideShift, foldPlan, FOLD_EASE } from '../src/ui/pill-motion.js';
+import { foldPlan, FOLD_EASE } from '../src/ui/pill-motion.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
 const css = read('../styles/app.css');
 const fn = (name) => main.match(new RegExp(`function ${name}\\([^)]*\\) \\{([\\s\\S]*?)\\n\\}`))[1];
 
-// A phone 844 px high: the dock's top rests at 700 (144 px tall with its 12 px gap below); the pill is 42 px tall, 8 px above it.
-const H = 844, DOCK = 700, PILL = 42, GAP = 12, OFF = H - DOCK + 24;
-const PILL_IN = +main.match(/PILL_IN = (\d+)/)[1], PILL_OUT = +main.match(/PILL_OUT = (\d+)/)[1];
-const lobuleRest = (dock) => DOCK + dock - 8 - PILL / 2;            // above the dock, riding on it
-const sinRest = (botOcc) => H - (botOcc + 8) - PILL / 2;            // the sinusoid view's home: bottom: calc(--bot-occ + 8px)
-
-// The frames of one move, as sinMotion draws them: the space is published first (publishNow), the dock placed, then the pill's
-// box read (its resting place, its shift and the dock's slide in it) and its new shift written. Returns each frame's pill centre
-// on screen and the dock's top. (publishFirst false: the order before the fix, for contrast.)
-function play({ into, hz, publishFirst = true }) {
-  const ms = into ? PILL_IN : PILL_OUT, frames = [];
-  const from = into ? lobuleRest(0) : sinRest(GAP);
-  let botOcc = into ? H - DOCK + 8 + PILL + GAP : GAP, pending = into, shift = 0;   // (into: the space with the dock gone is still to publish)
-  for (let n = 0; ; n++) {
-    const u = Math.min(1, (n * 1000 / hz) / ms), e = easeIO3(u);
-    if (pending && n > 0 && publishFirst) { botOcc = GAP; pending = false; }
-    const dock = into ? OFF * e : OFF * (1 - e);                    // (into: sliding away, out: rising from past the foot)
-    const rest = into ? sinRest(botOcc) : lobuleRest(0), slide = into ? 0 : dock;
-    const at = rest + slide + shift;                                 // where its box is drawn now (getBoundingClientRect)
-    shift = u >= 1 ? 0 : glideShift(at, shift, slide, from, 1 - e).shift;
-    if (pending && n > 0 && !publishFirst) { botOcc = GAP; pending = false; }   // (published after the pill's frame, before the paint)
-    const drawn = (into ? sinRest(botOcc) : lobuleRest(0)) + slide + shift;   // (as painted: its box where the space put it)
-    frames.push({ u, e, drawn, dockTop: DOCK + dock, want: from + ((into ? sinRest(GAP) : lobuleRest(0)) - from) * e });
-    if (u >= 1) return frames;
-  }
-}
-
-for (const into of [true, false]) {
-  for (const hz of [60, 120]) {
-    test(`${into ? 'into' : 'out of'} the sinusoid at ${hz} Hz: the pill glides on its own path, in view every frame`, () => {
-      const f = play({ into, hz });
-      for (const [i, fr] of f.entries()) {
-        assert.ok(Math.abs(fr.drawn - fr.want) < 1e-6, `frame ${i}: drawn at ${fr.drawn.toFixed(1)}, its path is at ${fr.want.toFixed(1)}`);
-        assert.ok(fr.drawn - PILL / 2 >= 0 && fr.drawn + PILL / 2 <= H - 8, `frame ${i}: whole on the screen`);
-        if (!into) assert.ok(fr.drawn + PILL / 2 <= fr.dockTop - 8 + 1e-6, `frame ${i}: above the rising dock`);
-        if (i) assert.ok(Math.abs(fr.drawn - f[i - 1].drawn) < 40 * 60 / hz, `frame ${i}: no jump`);
-      }
-      assert.equal(f[0].drawn, into ? lobuleRest(0) : sinRest(GAP), 'it starts where it was');
-      assert.equal(f.at(-1).drawn, into ? sinRest(GAP) : lobuleRest(0), 'and lands where it rests, as the zoom lands');
-    });
-  }
-}
-
-test('the two faults Mohammad saw, reproduced: without them taken off, the pill left the screen or jumped', () => {
-  // Out of the sinusoid, leaving the dock's slide in drew the pill on the dock, past the screen's foot, until the dock rose.
-  const from = sinRest(GAP), rest = lobuleRest(0);
-  const old = (dock, k) => (from - rest) * k;                        // (the shift 7da46e6 wrote: its resting place less only its own shift)
-  assert.ok(rest + OFF + old(OFF, 1) - PILL / 2 > H, 'drawn off the screen at the start');
-  assert.equal(rest + OFF + glideShift(rest + OFF, 0, OFF, from, 1).shift, from, 'now drawn where it was');
-  // Into the sinusoid, the space was published after the pill's frame: one frame drawn against the old space, then a jump.
-  const late = play({ into: true, hz: 60, publishFirst: false });
-  assert.ok(late.some((fr) => Math.abs(fr.drawn - fr.want) > 50), 'the old order drew a frame far off its path');
-});
-
-test('nothing hides or rebuilds the pill on the way: it is moved, whole, in one task, and only moved', () => {
-  const change = fn('pillChange'), m = fn('sinMotion');
-  // Moved to its new home straight after the buttons change, before anything is drawn (never a frame homeless or in a hidden home).
+test('nothing hides or rebuilds the pill on the way: it stays in its home above the dock and only folds, in one task', () => {
+  const change = fn('pillChange');
   assert.match(change, /change\(\);\n {2}syncThumb\(\);/);
-  assert.match(main, /if \(home && seg\.parentElement !== home\) \{ if \(pres\) stopFold\(\); home\.append\(seg\); \}/, 'the same element, moved');
-  for (const body of [change, m]) assert.doesNotMatch(body, /opacity|visibility|\.hidden =|display|innerHTML|cloneNode|replaceWith|remove\(\)/, 'the pill itself is only moved');
-  assert.ok(m.includes('if (now > t0) publishNow();') && m.includes('vd.style.translate = u >= 1'));
-  assert.ok(m.indexOf('if (now > t0) publishNow();') < m.indexOf('vd.style.translate = u >= 1') && m.indexOf('if (now > t0) publishNow();') < m.indexOf('el.getBoundingClientRect()'), 'the space first');
-  assert.match(main, /publishNow = \(\) => \{ if \(pubRaf\) \{ cancelFrame\(pubRaf\); publish\(\); \} \};/);
-  // The sinusoid view's rules hide the dock and the pill's old home, never the pill or its new home: only Anatomy and Circuit.
+  assert.doesNotMatch(change, /opacity|visibility|\.hidden =|display|innerHTML|cloneNode|replaceWith|remove\(\)|transform|translate/, 'the pill itself is only folded');
+  assert.doesNotMatch(main, /function sinMotion|vd-out|sinViews/, 'no slide away of the dock, no second home for the pill');
+  // The sinusoid view's rules hide Anatomy and Circuit, never the pill, its home or the dock.
   for (const rule of css.match(/[^{}]*#app\.sin-focus[^{}]*\{[^{}]*(display: none|opacity: 0|visibility: hidden)[^{}]*\}/g)) {
     const sel = rule.split('{')[0];
-    assert.doesNotMatch(sel.replace(/#viewSeg \[data-view="(anatomic|circuit)"\]/g, ''), /#viewSeg|\.sin-views|#sinViews/, sel.trim());
+    assert.doesNotMatch(sel.replace(/#viewSeg \[data-view="(anatomic|circuit)"\]/g, ''), /#viewSeg|\.nb-views|#nbViews|#vdock|\.vdock|#timeline|#strip|\.readouts/, sel.trim());
   }
-  assert.match(css, /#app\.sin-focus:not\(\.presenting\) \.sin-views \{ display: flex;/);
 });
 
 // cubic-bezier(x1, y1, x2, y2) as a function of time, for the fold's own curve.

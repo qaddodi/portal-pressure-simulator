@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 // The compact layout (22 Oct): an iPad held sideways or a short Mac window. Its cards stand tighter before they zoom, and zoom
 // only as far as their smallest lettering stays 12 px on the screen (they had zoomed to half, text down to 7 px).
@@ -26,6 +26,7 @@ test('the compact data card and full-width slides take the roles\' sizes; tables
   assert.match(css, /\.pz\.short:not\(\.stack\):not\(\.low\) \.pz-lt2 \.pz-table tbody th :is\(\.pz-kick, \.tw, \.tn, \.vs\) \{ display: inline; margin: 0; \}/);
 });
 
-test('CI holds every slide to 12 px at the compact sizes', () => {
-  assert.match(ci, /text-floor:[\s\S]*device: \[ipadSide, macShort\][\s\S]*run: node tests\/e2e\/text-floor\.mjs/);
+test('the compact-size text floor stays a local check: CI runs no browser sweep of the slides (retired 4 Nov 2026)', () => {
+  assert.ok(!/text-floor/.test(ci));
+  assert.ok(existsSync(new URL('./e2e/text-floor.mjs', import.meta.url)), 'tests/e2e/text-floor.mjs is kept for a local run');
 });

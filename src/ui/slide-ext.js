@@ -18,13 +18,13 @@
 // Built-in names win, and a name two packages register is kept from the first only: tests/slide-ext.test.js fails on both.
 // Every call into a package is guarded, so a package that throws loses its own feature and never stops a talk.
 
-import highlights from './ext-highlights.js?v=472ba4d01c';
-import charts from './ext-charts.js?v=328bf3d212';
-import model from './ext-model.js?v=e0bb5fedb7';
-import panels from './ext-panels.js?v=fb920dc460';
-import callouts from './ext-callouts.js?v=41fdb794a9';
-import instruments from './ext-instruments.js?v=b7e6e2d30d';
-import teaching from './ext-teaching.js?v=ad0f63efc8';
+import highlights from './ext-highlights.js';
+import charts from './ext-charts.js';
+import model from './ext-model.js';
+import panels from './ext-panels.js';
+import callouts from './ext-callouts.js';
+import instruments from './ext-instruments.js';
+import teaching from './ext-teaching.js';
 
 export const PACKAGES = { A: highlights, B: charts, C: model, E: panels, F: callouts, G: instruments, H: teaching };
 const NAMED = ['targets', 'lenses', 'sets', 'tools', 'visuals', 'columns'];
@@ -57,10 +57,13 @@ export const EXT = mergeExt(PACKAGES);
 
 // ── Guards ──
 const said = new Set();
+function sayOnce(tag, err) {
+  if (!said.has(tag)) { said.add(tag); console.error(`[slide-ext] ${tag}:`, err); }   // alloc-rare: a hook threw, logged once per tag
+}
 /** fn(), or fallback if it throws (logged once per tag). */
 export function safe(fn, fallback = null, tag = 'slide-ext') {
   try { return fn(); } catch (err) {
-    if (!said.has(tag)) { said.add(tag); console.error(`[slide-ext] ${tag}:`, err); }
+    sayOnce(tag, err);
     return fallback;
   }
 }
@@ -76,15 +79,26 @@ export function guard(inst, tag) {
 const setRef = (id) => typeof id === 'string' && id[0] === '@';
 /** A list of ids (a glow, a mark's edges) with each '@name' replaced by the named set's ids; an entry { id: '@name', … }
  *  becomes one entry per id with the same options. A list with no '@' name comes back as the very same array. */
+const EMPTY_IDS = Object.freeze([]);
+const hasRef = (list) => {
+  for (let i = 0; i < list.length; i++) { const g = list[i]; if (setRef(typeof g === 'string' ? g : g?.id)) return true; }
+  return false;
+};
+// (A list that names a set is expanded once and kept with the sets it was expanded against: a slide's lists are the same arrays every time they are asked.)
+const expanded = new WeakMap();
 export function expandIds(list, sets = EXT.sets) {
-  if (list == null) return [];
-  if (!Array.isArray(list) || !list.some((g) => setRef(typeof g === 'string' ? g : g?.id))) return list;
-  return list.flatMap((g) => {
+  if (list == null) return EMPTY_IDS;
+  if (!Array.isArray(list) || !hasRef(list)) return list;
+  const m = expanded.get(list);
+  if (m && m.sets === sets) return m.out;
+  const out = list.flatMap((g) => {   // alloc-rare: the first time a slide's list is asked, kept after
     const id = typeof g === 'string' ? g : g?.id;
-    if (!setRef(id)) return [g];
-    const ids = sets[id.slice(1)] || [];
-    return typeof g === 'string' ? ids : ids.map((x) => ({ ...g, id: x }));
+    if (!setRef(id)) return [g]; // alloc-rare: the first time a slide's list is expanded, kept in the WeakMap after
+    const ids = sets[id.slice(1)] || []; // alloc-rare: the first time a slide's list is expanded, kept in the WeakMap after
+    return typeof g === 'string' ? ids : ids.map((x) => ({ ...g, id: x })); // alloc-rare: the first time a slide's list is expanded, kept in the WeakMap after
   });
+  expanded.set(list, { sets, out });   // alloc-rare: kept with its list
+  return out;
 }
 /** The extra work the packages ask for on a slide's step ({ explain, wave }), or null. */
 export function stepExtra(s, steps = EXT.steps) {
@@ -102,6 +116,11 @@ export function markLabel(label, mark, ctx, fns = EXT.labels) {
   return l;
 }
 /** Every figure hook's show, update or clear. */
-export function figureHooks(name, ...args) {
-  for (const f of EXT.figure) if (typeof f?.[name] === 'function') safe(() => f[name](...args), null, `figure.${name}`);
+export function figureHooks(name, a, b) {
+  // (Called as it is asked, with the arguments the presenter gives: none, one or two. Each hook is guarded as safe() guards it, with no closure made to do so.)
+  const n = arguments.length;
+  for (const f of EXT.figure) {
+    if (typeof f?.[name] !== 'function') continue;
+    try { if (n > 2) f[name](a, b); else if (n > 1) f[name](a); else f[name](); } catch (err) { sayOnce('figure.' + name, err); }   // alloc-rare: a hook threw
+  }
 }

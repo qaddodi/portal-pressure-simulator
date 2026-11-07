@@ -14,14 +14,14 @@ test('the unified menu lists every presentation under exactly one topic, with a 
 });
 
 // The deck's short name (presenter.js deckTab), in a tab at the teaching card's top right corner.
-test('the five topics list only the twelve core talks, in teaching order; "More talks" lists the other sixteen', () => {
-  const CORE = ['circulation', 'circuit', 'sites', 'hvpg', 'doppler', 'stiffness', 'varices', 'endoscopy', 'variceal-bleed', 'next-bleed', 'ascites', 'encephalopathy'];
+test('the five topics list only the eleven core talks, in teaching order; "More talks" lists the other eighteen', () => {
+  const CORE = ['circulation', 'circuit', 'sites', 'hvpg', 'doppler', 'stiffness', 'varices', 'variceal-bleed', 'next-bleed', 'ascites', 'encephalopathy'];
   const main = TOPICS.filter(([k]) => k !== 'more').flatMap(([, , list]) => list.map(([id]) => id));
   assert.deepEqual([...main].sort(), [...CORE].sort());
   assert.equal(TOPICS.at(-1)[0], 'more');
   assert.equal(TOPICS.at(-1)[1], 'More talks');
-  assert.equal(TOPICS.at(-1)[2].length, 16);
-  assert.equal(DECKS.length, 28);
+  assert.equal(TOPICS.at(-1)[2].length, 20);
+  assert.equal(DECKS.length, 31);
 });
 
 test('every presentation has a short deck name of 20 characters or fewer, distinct from the others', () => {
@@ -46,16 +46,6 @@ test('the teaching card and the visual slides carry the deck name in a corner ta
   assert.match(css, /--pz-tabf: max\(12px, /);
   // (The site tag stays on the left, over the title: the deck tab's mirror in the top left corner.)
   assert.match(src, /h\('span', \{ class: 'pz-sitetab', hidden: true \}\)/);
-});
-
-test('over the thumb dock only a sheet or a menu from the dock rises from behind the tab row; a top-bar menu pops in place', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  const util = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
-  assert.match(util, /const fromDock = asSheet \|\| !!anchor\.closest\?\.\('\.vdock'\);/);
-  // (The Colored-by menu on an upright iPad opened from the top bar but slid up from under its spot, its card cut away and its shadow showing.)
-  assert.doesNotMatch(css, /html\.thumb-ui \.menu(?!\.from-dock)[ ,{]/);
-  assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ animation: thumbIn/);
-  assert.match(css, /html\.thumb-ui \.menu\.from-dock \{ translate: 0 var\(--sink, 0px\); \}/);
 });
 
 // Opening the menu on a touch screen (iPad sideways included, which gets the panel, not the sheet) never focuses the

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -20,18 +21,23 @@ test('no tile sits alone, centred at half width, and no tile grid auto-fits to a
 });
 
 test('live monitors fill the card width and get shorter when tight, never narrower', () => {
-  assert.ok(css.includes('.pz-data > .pz-tool:is([data-kind="doppler"], [data-kind="fibroscan"], [data-kind="beats"]) { width: 100%; }'));
+  assert.ok(css.includes('.pz-data > .pz-tool:not([data-kind="abdomen"]) { width: 100%; margin-inline: auto; }'));   // (every instrument but the dial; none is zoomed or narrowed by the card)
   assert.match(css, /\.pz-tool\[data-kind="fibroscan"\] \.fibroscan-box \{ width: 100%; height: clamp\([^}]*\); \}/);
 });
 
 test('the FibroScan reads the model median, the number in the tile and words', () => {
   const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
-  assert.match(src, /shown = shown === null \|\| Math\.abs\(model - shown\) < 0\.05 \? model/);
+  // (The median, on the shown state's filter, premium-feel R4: a change under 0.05 kPa at rest, a pause or a jump shows at once.)
+  assert.match(src, /const kShown = createFollow\(\{ small: 0\.05, eps: 0\.01 \}\)/);
+  assert.match(src, /shown = kShown\.step\(model, dt, REDUCED_MQ\.matches \|\| isPaused\(\)\)/);
+  assert.match(src, /const reading = fix1\(shown\)/);   // (fix1 is toFixed(1) from a table of tenths: tests/fix-text.test.js)
 });
 
 test('a ladder card shows no HVPG or PPG tiles: its brackets give them, so no number is shown twice, rounded two ways', () => {
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /const ownKeys = \(s\) => \(s\.tiles \|\| \[\]\)\.filter\(\(k\) => !\(s\.tool\?\.kind === 'flowtime' && s\.tool\.lines\?\.includes\(k\) && !phone\(\)\)\);/, 'a chart over the days drops tiles for its own two lines, on a laptop or tablet');
+  const tiles = readFileSync(new URL('../src/ui/card-tiles.js', import.meta.url), 'utf8');
+  assert.match(tiles, /export const ownKeys = \(s, onPhone\) => \(s\.tiles \|\| \[\]\)\.filter\(\(k\) => !\(s\.tool\?\.kind === 'flowtime' && s\.tool\.lines\?\.includes\(k\) && !onPhone\)\);/, 'a chart over the days drops tiles for its own two lines, on a laptop or tablet');
+  assert.match(pres, /const tileKeys = \(s\) => cardKeys\(s, phone\(\)\);/, 'the card reads them for the screen it is on');
   assert.match(pres, /if \(sg !== sig \|\| !draw\)/, 'an empty tile set still builds');
   assert.ok(css.includes('.pz-tiles[data-n="0"] { display: none; }'));
   const decks = ['hvpg', 'ncph', 'outflow', 'prehepatic', 'recompensation', 'treatment']
@@ -58,7 +64,7 @@ test('an instrument with tiles: the instrument on the left, the tiles stacked be
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   // (All but the portal blood bar, which needs the card's full width for its segments' names, and the fluid balance's capacity
   // window, whose rows of numbers need it too, and the criteria card, whose rules are sentences: their tiles go under them.)
-  assert.match(pres, /data\.classList\.toggle\('pz-beside', !!s\.tool && !!s\.data && tileKeys\(s\)\.length > 0 && s\.tool\?\.kind !== 'flows' && s\.tool\?\.kind !== 'criteria' && !\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)\)/, 'every instrument, the Gut to heart chart among them, not only the FibroScan');
+  assert.match(pres, /data\.classList\.remove\('pz-beside'\); data\.removeAttribute\('data-beside'\);/, 'no instrument has its tiles beside it now (7 Nov 2026): they are its header\'s readings, tests/card-readings-head.test.js');
   assert.match(pres, /if \(c === side\) continue;/);
 });
 
@@ -76,11 +82,11 @@ test('every instrument is one screen: a reading top left, its status top right, 
   assert.ok(css.includes('.pz-tool .pt-smooth { display: none; }'));
 });
 
-test('the FibroScan draws its words at the card\'s small size: map fills the card, reading in its top right corner, no LIVE tag, units on the 60 mm and 0 ms ticks', () => {
+test('the FibroScan draws its words at the card\'s small size: map fills the card, reading in its top right corner, no LIVE tag, units on the 45 mm and 0 ms ticks', () => {
   const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
   assert.match(src, /getComputedStyle\(cv\)\.fontSize/);
   assert.doesNotMatch(src, /LIVE\b|LIVE ·/);
-  assert.match(src, /'60 mm'/); assert.match(src, /'0 ms'/);
+  assert.match(src, /'45 mm'/); assert.match(src, /'0 ms'/);
   assert.match(src, /const ex = 0, top = 0, ew = w, ph = hh/, 'the map is the whole instrument');
   assert.match(src, /ctx\.strokeText\('kPa', ux, RY\)/, 'the reading sits inside the map, top right');
   assert.ok(css.includes('.pz-tool .fibroscan-box > canvas { font-size: var(--pz-sm, 14px); }'));
@@ -88,9 +94,9 @@ test('the FibroScan draws its words at the card\'s small size: map fills the car
 
 test('the FibroScan names its depths and times at even gaps, and the probe\'s head gives way to a card over it', () => {
   const src = readFileSync(new URL('../src/ui/fibroscan.js', import.meta.url), 'utf8');
-  assert.match(src, /for \(let d = 40; d <= 80; d \+= 20\)/);
-  assert.match(src, /bx = c0 \+ i \* \(c1 - c0\) \/ \(tks\.length - 1\)/);
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /classList\.toggle\('head-off', hit\)/);
+  assert.match(src, /for \(let d = 30; d <= 60; d \+= 15\)/);   // (the M probe's 20-70 mm map: 30, 45 and 60 mm)
+  assert.match(src, /bx = c0 \+ i \* \(c1 - c0\) \/ \(ntk - 1\)/);   // (ntk: the number of time labels)
+  const stage = stageSource();
+  assert.match(stage, /for \(const r of scanLook\('head'\)\) if \(r\.x0 < q\.x1 && r\.x1 > q\.x0 && r\.y0 < q\.y1 && r\.y1 > q\.y0\) \{ hit = true; break; \}\n\s*scan\.el\.classList\.toggle\('head-off', hit\);/);
   assert.match(css, /\.scan-probe\.head-off :is\(\.sp-head, \.sp-cable\) \{ opacity: 0; \}/);
 });

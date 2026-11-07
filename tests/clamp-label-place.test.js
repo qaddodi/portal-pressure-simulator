@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A narrowing's "60 %" (Mohammad, 22 Oct: "the callout for 60% narrowing does not fit well"): on the TIPS slides it stood between its
 // clamp's arrow and the distal callout, its "%" hidden under "TIPS". A redraw of the marks had put it back on the vessel's own side,
 // undoing the side the label layout chose (the other side from the stent's column of callouts), and its text stayed anchored from the
@@ -6,12 +7,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const body = (from, to) => stage.slice(stage.indexOf(from), stage.indexOf(to, stage.indexOf(from)));
 
 test('every redraw of the marks and every change of zoom places the "60 %" by the one rule the layout also uses', () => {
-  const place = body('function placeClampLabels() {', 'const applyVT');
-  assert.match(place, /for \(const t of ov\.clamps\.querySelectorAll\('\.clamp-label'\)\) clampLabelAt\(t\);/);
+  const place = body('function placeClampLabels() {', 'let zoomBase');
+  // (The labels stand in their own group, clampW, at the top of the overlays since 02be07c7.)
+  assert.match(place, /for \(const t of clampW\.querySelectorAll\('\.clamp-label'\)\) clampLabelAt\(t\);/);
   assert.doesNotMatch(place, /setAttribute\('x'|dataset\.at/, 'no second formula for the spot');
   assert.doesNotMatch(stage, /lab\.setAttribute\('data-at'/);
   // (updateOverlays places each new label, then every label once more after the rebuild.)
@@ -21,8 +23,8 @@ test('every redraw of the marks and every change of zoom places the "60 %" by th
 
 test('the rule keeps the layout\'s side and spot, reads outward from it, and stays level on screen', () => {
   const at = body('function clampLabelAt(el) {', '// A quantized value');
-  assert.match(at, /const away = c\.id === clampFor \? clampAway : null;/);
-  assert.match(at, /kept = c\.id === clampFor \? clampD\.get\(c\.id\) : null, mv = c\.id !== clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);
+  assert.match(at, /const away = c\.id === (?:live\.)?(?:live\.)?clampFor \? (?:live\.)?(?:live\.)?clampAway : null;/);
+  assert.match(at, /kept = c\.id === (?:live\.)?clampFor \? clampD\.get\(c\.id\) : null, mv = c\.id !== (?:live\.)?clampFor \? clampMv\.get\(c\.id\)\?\.cur : null/);
   // The text ends at its spot on the clamp's left on screen and starts there on its right: never back over the arrows.
   assert.match(at, /left = xs\[k\] < xs\[1 - k\] - 0\.5/);
   assert.match(at, /if \(left\) el\.setAttribute\('text-anchor', 'end'\); else el\.removeAttribute\('text-anchor'\);/);
@@ -32,7 +34,7 @@ test('the rule keeps the layout\'s side and spot, reads outward from it, and sta
 
 test('a "60 %" that stands off from its arrows, on the column\'s side or moved off the probe, is joined to the nearer arrow by a leader', () => {
   const lead = body('// (A "60 %" that stands off from its clamp', 'leaders.push(...dots);');
-  assert.match(lead, /own = c && c\.id === clampFor && ptSide && clampD\.get\(c\.id\)/);
+  assert.match(lead, /own = c && c\.id === (?:live\.)?(?:live\.)?clampFor && (?:live\.)?(?:live\.)?ptSide && clampD\.get\(c\.id\)/);
   assert.match(lead, /gap\(tips\[1\]\) < gap\(tips\[0\]\) \? tips\[1\] : tips\[0\]/);
   assert.doesNotMatch(lead, /if \(solve/, 'read from the label as it stands, so a carried layout keeps the line');
   assert.match(lead, /k: 'cl:' \+ c\.id, tag: 'path', at: \{ class: 'leader'/);
@@ -43,9 +45,11 @@ test('a "60 %" that stands off from its arrows, on the column\'s side or moved o
 test('the clamp label search measures once per text direction', () => {
   const at = body('function clampLabelAt(el) {', '// A quantized value');
   assert.match(at, /const q = clampLabelPos\(el\);\n\s+if \(!q\) return;\n\s+const \{ x, y, left, gap, deg \} = q;/);
-  assert.match(at, /return \{ x, y, left, gap, deg \};/);
-  const search = body('const measured = [null, null];', 'clampAlts = clampAlts.filter');
+  assert.match(at, /return q;/);   // (the kept record clampPos, rewritten by each call and read at once, not made each time)
+  const search = body('const measured = CLAMP_MEAS;', 'let kept = 0;');
   assert.match(search, /const qx = \+q\.x\.toFixed\(2\), qy = \+q\.y\.toFixed\(2\), ref = measured\[\+q\.left\];/);
-  assert.match(search, /if \(ref\) bb = \{ x: ref\.bb\.x \+ \(qx - ref\.x\), y: ref\.bb\.y \+ \(qy - ref\.y\), width: ref\.bb\.width, height: ref\.bb\.height \};/);
-  assert.equal((search.match(/getBBox\(\)/g) || []).length, 1, 'one measuring call, taken only without a reference');
+  assert.match(search, /if \(ref\.set\) \{ bb = CLAMP_BB; bb\.x = ref\.bb\.x \+ \(qx - ref\.x\); bb\.y = ref\.bb\.y \+ \(qy - ref\.y\); bb\.width = ref\.bb\.width; bb\.height = ref\.bb\.height; \}/);   // (the kept records CLAMP_MEAS and CLAMP_BB, written in place)
+  // (2 Nov 2026: the measure is worked out in script (clampTextBox, Inter's advances and metrics), not by getBBox.)
+  assert.equal((search.match(/clampTextBox\(el\)/g) || []).length, 1, 'one measuring call, taken only without a reference');
+  assert.equal((search.match(/getBBox\(\)/g) || []).length, 0, 'nothing measured by the browser');
 });

@@ -9,13 +9,21 @@
 // Its numbers are the slide's own (its fingerprint, as the tiles read it: the same on every screen), easing to each new
 // state; a what-if slider or compare button moves it with the tiles. The Patients chart (charts.js) is not changed.
 
-import { frame, cancelFrame } from './frame.js?v=7254a8a850';
-import { PROFILE_PATHS } from './anatomy.js?v=48cc98d415';
-import { NODES } from '../engine/topology.js?v=4044766e96';
-import { RATE } from './table-marks.js?v=8458ad3bf8';
-import { monotoneSegs } from './curve-near.js?v=9ff15157e9';
-import { plotPanel } from './plot-look.js?v=5037697da7';
-import { pressureColor } from './colormap.js?v=05a231b880';
+import { frame, cancelFrame } from './frame.js';
+import { restPass, cancelRest, restAttr } from './rest-pass.js';
+import { PROFILE_PATHS } from './anatomy.js';
+import { follow2, SHOWN_TAU } from './display-state.js';
+import { NODES } from '../engine/topology.js';
+import { RATE } from './table-marks.js';
+import { monotoneSegs } from './curve-near.js';
+import { plotPanel } from './plot-look.js';
+import { pressureColor } from './colormap.js';
+import { measure } from './glyph-measure.js';
+import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
+import { numWords } from './num-words.js';
+import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
+import { fittedType } from './chart-ctx.js';
+import { reduceMotionMQ } from './motion.js';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -46,6 +54,7 @@ export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', '
 export const ZONES = [{ cls: 'ppf-zone ppf-pre', one: 'PRE-HEPATIC', top: 'PRE' }, { cls: 'ppf-zone ppf-liver', one: 'INTRAHEPATIC', top: 'INTRA' },
   { cls: 'ppf-zone ppf-post', one: 'POST-HEPATIC', top: 'POST' }];
 export const ZONE_SECOND = 'HEPATIC';
+const ZONE_LOOK = ['prof.zone.pre', 'prof.zone.liver', 'prof.zone.post'];   // (the look of each zone's tint, in ZONES' order)
 export const ZONE_GAP = 4;
 /** The stations each zone covers: [first, last] indexes (none where the path has no liver). */
 export function zoneSpans() {
@@ -401,25 +410,15 @@ export function braceD(xa, xb, y0, d) {
   return `M${p(xa, y0)}Q${p(xa, y1)} ${p(xa + r, y1)}L${p(m - r, y1)}Q${p(m, y1)} ${p(m, y0 + d)}Q${p(m, y1)} ${p(m + r, y1)}L${p(xb - r, y1)}Q${p(xb, y1)} ${p(xb, y0)}`;
 }
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the chart and the strips are models drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 // The block's hatching: bold diagonal red stripes over a faint red tint (styles/app.css .pz-hb, .pz-hs), as the old ladder's.
 const hatchDef = (id, s) => sv('pattern', { id, width: s, height: s, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' },
-  sv('rect', { class: 'pz-hb', width: s, height: s }), sv('rect', { class: 'pz-hs', width: s / 2, height: s }));
+  sv('rect', { class: 'pz-hb', 'data-look': 'card.hatch.bg', width: s, height: s }), sv('rect', { class: 'pz-hs', 'data-look': 'card.hatch.stripe', width: s / 2, height: s }));
 const one = (v) => (Math.round(v * 10) / 10).toFixed(1);
 const lerp = (a, b, k) => a + (b - a) * k;
-let mctx = null;
-const textW = (t, f, wt = 600) => {
-  if (mctx === null) mctx = (typeof document !== 'undefined' && document.createElement?.('canvas')?.getContext?.('2d')) || false;
-  if (!mctx?.measureText) return t.length * f * 0.58;
-  mctx.font = `${wt} ${f}px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif`;
-  return mctx.measureText(t).width;
-};
+// (a word's width as Inter sets it, from the GPU atlas's own metrics: no canvas)
+const textW = (t, f, wt = 600) => measure(t, `${wt} ${f}px Inter`);
 
 /** (Legacy: the chart writes each value on its dot, numberSides, clear of the zones' names by the strip's own height; this is where the values
  *  would stand beside their dots, kept as the placer's checks use it, with the old LIVER word's box as its one obstacle.)
@@ -496,6 +495,7 @@ export function placePills(G, tw, goal, hl, bf, sides, brk = null) {
 /** The healthy and earlier lines named on the drawing, not in a key (Mohammad, 19 Oct): each name just over or under its own
  *  line, nearest the line's right end, BR_PAD px clear of every line, dot, value, bracket and the liver's name.
  *  → [{ t, c, x, y }] (x the middle, y the baseline), or null where one has no such place (the key then shows). */
+export const NAME_REACH = 3;   // (rows of type a line's name may stand from its line when no place at the line is clear)
 export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before', pills = []) {
   const named = [[hl, 'Healthy', 'hl'], [bf, bfName, 'bf']].filter(([p]) => p);
   if (!named.length) return [];
@@ -509,10 +509,20 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
   for (const r of [0, 1]) place.take(bracketBox(G, r, brk ? brk[r] : G.brY(r)));
   for (const b of zoneBoxes(G, tw)) place.take(b);
   for (const b of pills) place.take(b);
+  // (A snug placer holding the same boxes, 1 px clear of everything, for a plot too crowded for BR_PAD.)
+  const snug = labelPlacer(runs, [], G.T, G.Z - BR_PAD, [], [1, 1], 1);
+  place.boxes.forEach((b) => snug.take(b));
   const out = [];
   for (const [, t, c] of named) {
     const run = runs[1 + out.length], w = tw(t, 500);
     let got = null, best = null;
+    // (On its own line, unmistakably: a place at the line's right end with no other line within 1.2 em over or under the word; where the lines
+    // crowd there (the earlier line running into the healthy one near the heart), the first such place from the line's left end, as "Healthy" and
+    // "Before TIPS" stand on theirs, Rescue TIPS, 5 Nov. Else the search below, as ever.)
+    const others = runs.filter((_, k) => k !== 1 + out.length), lone = (b) => !others.some((o) => o.some(([ox, oy]) => ox >= b[0] - 4 && ox <= b[1] + 4 && oy >= b[2] - 1.2 * f && oy <= b[3] + 1.2 * f));
+    const lead = (q) => { const [x, y] = run[q], cx = Math.max(G.L + w / 2 + 2, Math.min(G.R - w / 2, x)); for (const base of [y - BR_PAD - 1.5, y + BR_PAD + 1.5 + cap]) { const b = [cx - w / 2, cx + w / 2, base - cap, base + 0.2 * f]; if (place.cost(b) === 0 && lone(b)) return { t, c, x: cx, y: base, b }; } return null; };
+    got = lead(run.length - 1);
+    for (let q = 0; q < run.length - 1 && !got; q++) got = lead(q);
     for (let q = run.length - 1; q >= 0 && !got; q--) {
       const [x, y] = run[q], cx = Math.max(G.L + w / 2 + 2, Math.min(G.R - w / 2, x));
       for (const base of [y - BR_PAD - 1.5, y + BR_PAD + 1.5 + cap]) {
@@ -520,13 +530,29 @@ export function placeLineNames(G, tw, goal, hl, bf, sides, brk, bfName = 'Before
         if (place.cost(b) === 0) { got = { t, c, x: cx, y: base, b }; break; }
         // (Never a key instead (Mohammad, 21 Oct: "Put healthy on the dashed line and then no need for a legend"): where no place is
         // clear, the least crowded one beside its own line, inside the plot.)
-        const k = place.crowd(b) + 1e4 * place.lineCost(b);
+        // (A word or a dot under it is worse than any line through it: "Healthy" was written over RA's "3", Sites 3 on a phone, 31 Oct.)
+        const cr = place.crowd(b), k = (cr > 0 ? 1e6 + cr : 0) + 1e4 * place.lineCost(b);
         if (b[2] >= G.T && b[3] <= G.Z && (!best || k < best.k)) best = { t, c, x: cx, y: base, b, k };
+      }
+    }
+    // (No clear place at its own line's side: the nearest one a little further off, over or under the line (up to NAME_REACH rows of type), so the name
+    // is not written over the line or a number (Healthy over the line between the 7 and the 5, Circulation 5 on a Mac and Sites 8 on an iPad, 1 Nov); and
+    // in a plot too crowded even for that, the nearest place that merely stands clear of every line and word by 1 px. The places clear before are still
+    // the ones taken.)
+    for (const pl of [place, snug]) {
+      for (let k = pl === place ? 1 : 0; k <= NAME_REACH * 2 && !got; k++) {
+        for (let q = run.length - 1; q >= 0 && !got; q--) {
+          const [x, y] = run[q], cx = Math.max(G.L + w / 2 + 2, Math.min(G.R - w / 2, x));
+          for (const base of [y - BR_PAD - 1.5 - 0.5 * f * k, y + BR_PAD + 1.5 + cap + 0.5 * f * k]) {
+            const b = [cx - w / 2, cx + w / 2, base - cap, base + 0.2 * f];
+            if (pl.cost(b) === 0) { got = { t, c, x: cx, y: base, b }; break; }
+          }
+        }
       }
     }
     got = got || best;
     if (!got) continue;
-    place.take(got.b);
+    place.take(got.b); snug.take(got.b);
     out.push({ t: got.t, c: got.c, x: got.x, y: got.y });
   }
   return out;
@@ -584,11 +610,65 @@ export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null, pills = [
 }
 
 const FADE_MS = 420;
+
+// ── The chart as a model that stays (2 Nov 2026, zero-allocation pass) ──
+// The chart used to be built afresh, tree and strings, in every frame of a glide. Now its pieces are made once for a size (buildModel,
+// between frames) and a frame of a glide only writes numbers into them: the places of the line, the readings, the gridlines, the blocks,
+// the brackets and the pills (setGeo, setPts), and the words of a reading from a table (numWords). The plan (where the pills, the brackets
+// and the lines' names stand) is settled between frames, as the goal changes (draw); each state of a bracket or pill that changes colour
+// with its rating is a piece of its own (ok, mid, hi), the one showing at full strength and the others at none, so a rating never asks
+// for a look to be read in a frame.
+const TONES = ['ok', 'mid', 'hi'], LINE_NAMES = ['hl', 'bf'];
+const toneOf = (r) => (r === 'hi' ? 2 : r === 'mid' ? 1 : 0);
+const RATES = [hvpgRate, ppgRate];   // (the brackets' and pills' ratings, in SPANS' order)
+const V_MAX = 300;   // (a reading's width is tabled to here, a whole mmHg at a time; past it the last one stands)
+const whole0 = (v) => { const r = Math.round(v); return r > V_MAX ? V_MAX : r > 0 ? r : 0; };
+const SEG_K = 10;   // (steps of a span of the smooth line)
+const NS = STATIONS.length;
+const PT_MAX = (NS - 1) * SEG_K + 1 + 2;
+const mSl = new Float64Array(NS), mTn = new Float64Array(NS), mDx = new Float64Array(NS);
+/** The monotone smooth line through the n points (xs, ys) (curve-near.js monotoneSegs's own control points), as a polyline of SEG_K steps a span
+ *  written into out; the number of points. Nothing is made. */
+function smoothInto(xs, ys, n, out) {
+  for (let i = 0; i < n - 1; i++) { mDx[i] = xs[i + 1] - xs[i] || 1e-6; mSl[i] = (ys[i + 1] - ys[i]) / mDx[i]; }
+  mTn[0] = mSl[0];
+  for (let i = 1; i < n - 1; i++) mTn[i] = mSl[i - 1] * mSl[i] <= 0 ? 0 : (mSl[i - 1] + mSl[i]) / 2;
+  mTn[n - 1] = mSl[n - 2];
+  for (let i = 0; i < n - 1; i++) {
+    if (mSl[i] === 0) { mTn[i] = mTn[i + 1] = 0; continue; }
+    const a = mTn[i] / mSl[i], b = mTn[i + 1] / mSl[i], h2 = a * a + b * b;
+    if (h2 > 9) { const k = 3 / Math.sqrt(h2); mTn[i] = k * a * mSl[i]; mTn[i + 1] = k * b * mSl[i]; }
+  }
+  out[0] = xs[0]; out[1] = ys[0];
+  let q = 1;
+  for (let i = 0; i < n - 1; i++) {
+    const d = mDx[i] / 3, x0 = xs[i], y0 = ys[i], x1 = xs[i + 1], y1 = ys[i + 1], ax = x0 + d, ay = y0 + mTn[i] * d, bx = x1 - d, by = y1 - mTn[i + 1] * d;
+    for (let j = 1; j <= SEG_K; j++) {
+      const t = j / SEG_K, u = 1 - t;
+      out[2 * q] = u * u * u * x0 + 3 * u * u * t * ax + 3 * u * t * t * bx + t * t * t * x1;
+      out[2 * q + 1] = u * u * u * y0 + 3 * u * u * t * ay + 3 * u * t * t * by + t * t * t * y1;
+      q++;
+    }
+  }
+  return q;
+}
+/** The ease of a glide begun at a.t0, 0 to 1 over FADE_MS. */
+const glideE = (a, now) => 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - a.t0) / FADE_MS)));
+const glideX = (a, now) => lerp(a.fx, a.x, glideE(a, now));
+const glideY = (a, now) => lerp(a.fy, a.y, glideE(a, now));
+const fadeK = (row, now) => (row.from == null ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - row.t0) / FADE_MS))));
+const blkOp = (b, now) => b.from + (b.a - b.from) * (0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - b.t0) / FADE_MS))));
+
 export function createProfileTool() {
   const el = document.createElement('div');
   el.className = 'pz-prof';
-  const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
-  let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, plan = null, stale = false, size = '';
+  const gl = createSvgGL(el, { host: 'prof' });
+  const reduceMQ = reduceMotionMQ;
+  let goal = null, shown = null, ref = null, cfg = { from: null }, ctx0 = null, raf = 0, plan = null, stale = false, size = '', wantMin = null;
+  let fSeen = 0;   // (the type size it was drawn at, x100: a zoom the box's own size does not show)
+  let S = null, geoNow = null;   // (the model drawn and the layout it was made for)
+  // (The numbers a glide writes into, kept: the shown state and the first stage of its filter.)
+  const shownO = { v: new Float64Array(NS), hvpg: 0, ppg: 0, top: 15 }, shownWo = { v: new Float64Array(NS), hvpg: 0, ppg: 0, top: 15 };
   // (Each bracket's row as drawn: where it stands, where it stood, and when it began to fade from that one to this one. A bracket that
   // must move fades out where it was as it fades in where it goes, so it never sweeps across the line or the numbers.)
   const rows = [null, null];
@@ -599,12 +679,11 @@ export function createProfileTool() {
   const pillAt = [null, null], pillK = { a: 0, from: 0, t0: 0, boxes: null };
   // (Each block as it fades: its goal, 1 shown or 0 gone, the opacity it fades from, and when it began. A block comes and goes with
   // an ease, never at once.)
-  const blk = new Map();
+  const blkS = STATIONS.map(() => ({ a: 0, from: 0, t0: 0 })), blkLive = new Uint8Array(NS);
   // (A question slide's hold (slide hold: true): the red blocks and the HVPG and PPG brackets stay
-  // out, as the answer would be read off them; heldK eases the brackets out and in as a block fades, and the blocks go and come by blk.)
+  // out, as the answer would be read off them; heldK eases the brackets out and in as a block fades, and the blocks go and come by blkS.)
   let held = false, lastFp = null;
   const heldK = { a: 1, from: 1, t0: 0 };
-  const blkOp = (b, now) => b.from + (b.a - b.from) * (0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - b.t0) / FADE_MS))));
   // (The numbers drawn: the goal's, eased; the healthy and earlier lines as they are.)
   const healthy = () => profileOf(ctx0?.healthy?.());
   function before() {
@@ -619,20 +698,30 @@ export function createProfileTool() {
   }
   // (Drawn at its box's own size, never a size of its own: drawn taller than its box, the picture was scaled down to fit it, its
   // words under 12 px and its values crowded, Sites 4 and 5. Not drawn until the box has a size.)
-  const size0 = () => {
-    const w = el.clientWidth, hh = el.clientHeight, z = w ? el.getBoundingClientRect().width / w : 1;
-    if (!w || !hh) return null;
-    // (Zoomed by the page or an ancestor (the card's own fit leaves the chart unzoomed: styles/app.css): the type is set larger by as
-    // much, never under 12 px on the screen.)
-    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? 12 / z : 0);
-    return [w, hh, f];
+  // (Read between frames, never in a glide's frame: as the box is observed at a new size, as the card fits, for a new slide's card (a
+  // rest pass, rest-pass.js); the frames draw at the size last read. fs: the box's own type size.)
+  let sz0 = null, fs0 = 12, measuring = 0;
+  const measure0 = () => {
+    const w = el.clientWidth, hh = el.clientHeight;
+    // (The box's own type size from the chart's looks table: the card's sizes handed over, never read off the page.)
+    fs0 = fittedType(el, gl) || 12;
+    if (!w || !hh) { sz0 = null; return null; }
+    // (The card leaves the chart unzoomed, styles/app.css: its words are drawn at their size on the screen, never under 12 px.)
+    const f = Math.max(fs0, 12);
+    gl.setCtx({ px: f });   // (the size the chart is drawn at: an em of its pieces' looks)
+    sz0 = [w, hh, f];
+    return sz0;
   };
-  function draw() {
-    if (!shown) { el.replaceChildren(); return; }
+  const size0 = () => sz0;
+  const setMin = () => { el.style.minHeight = wantMin; };   // (a rest pass's, between frames)
+  // Drawn again, between frames: the plan for the goal, the layout, and the model where its size or layout changed; then the numbers.
+  function draw() { layout(); paintNow(performance.now()); gl.paint(); }
+  function layout() {
+    if (!shown) { gl.clear(); S = null; return; }
     const sz = size0();
     if (!sz) return;
     const [w, hh, f] = sz, tw = (t, wt) => textW(t, f, wt);
-    size = `${Math.round(w)}x${Math.round(hh)}`;
+    size = `${Math.round(w)}x${Math.round(hh)}`; fSeen = Math.round(f * 100);
     const hl = healthy(), bf = ref;
     // (Each value's place and the brackets' are settled once per state, from where the lines will end up, so they never flip while
     // the lines glide. The brackets stand inside the plot where they clear everything; else in a band at the plot's foot.)
@@ -655,7 +744,7 @@ export function createProfileTool() {
           const cur = pillAt[k];
           if (!cur || !old || reduceMQ.matches || !had) { pillAt[k] = { x: px0, y: py0, fx: px0, fy: py0, t0: 0 }; return; }
           if (Math.abs(cur.x - px0) < 0.01 && Math.abs(cur.y - py0) < 0.01) return;
-          const [gx, gy] = glideAt(cur, t1);
+          const gx = glideX(cur, t1), gy = glideY(cur, t1);
           pillAt[k] = { x: px0, y: py0, fx: gx, fy: gy, t0: t1 };
         });
         pillK.boxes = pl;
@@ -666,7 +755,7 @@ export function createProfileTool() {
         const cur = nameAt[n.c], t1 = performance.now();
         if (!cur || !old || reduceMQ.matches) { nameAt[n.c] = { x: n.x, y: n.y, fx: n.x, fy: n.y, t0: 0 }; continue; }
         if (Math.abs(cur.x - n.x) < 0.01 && Math.abs(cur.y - n.y) < 0.01) continue;
-        const [px, py] = glideAt(cur, t1);
+        const px = glideX(cur, t1), py = glideY(cur, t1);
         nameAt[n.c] = { x: n.x, y: n.y, fx: px, fy: py, t0: t1 };
       }
       stale = false;
@@ -680,109 +769,264 @@ export function createProfileTool() {
         rows[r] = { y: yy, from, t0: now - FADE_MS * Math.acos(2 * op - 1) / Math.PI };
       });
     }
-    const G = profileGeo(w, hh, f, tw, plan.inside), sides = plan.sides;
+    geoNow = profileGeo(w, hh, f, tw, plan.inside);
     // (A box shorter than the chart at its smallest with the band (a bracket's name over its value takes a taller row) asks for that
     // much: judged from that layout alone, so the box never flips between two heights.)
     const need = profileGeo(w, hh, f, tw).need;
-    const cssMin = 11 * (parseFloat(getComputedStyle(el).fontSize) || 12), want = need > cssMin + 0.5 ? `${Math.ceil(need)}px` : '';
-    if (el.style.minHeight !== want) el.style.minHeight = want;
-    const top = shown.top, y = (v) => G.Z - (G.Z - G.T) * Math.max(0, Math.min(v, top)) / top;
-    const pts = (p) => p.v.map((v, i) => [G.x(i), y(v)]);
-    const now = pts(shown), labels = shown.v.map(whole);
+    const cssMin = 11 * fs0, want = need > cssMin + 0.5 ? `${Math.ceil(need)}px` : '';
+    // (laid out between frames, never in the frame that drew: the next frame draws in the taller box)
+    if (el.style.minHeight !== want && wantMin !== want) { wantMin = want; restPass(setMin); }
+    // (Gridlines for the highest the axis may reach while it glides, in steps of eight.)
+    const cap = Math.max(16, Math.ceil((Math.max(goal.top, shown.top) / 5 + 2) / 8) * 8), key = `${w}|${hh}|${f.toFixed(3)}|${plan.inside}|${cap}`;
+    if (!S || S.key !== key) { S = buildModel(w, hh, f, tw, key, cap); syncPlan(hl, bf, tw); paintNow(performance.now()); gl.show(S.svg); return; }
+    syncPlan(hl, bf, tw);
+  }
+  // What the plan and the profiles hold for the model: the healthy and earlier lines' numbers, the lines' names and the readings' places.
+  function syncPlan(hl, bf, tw) {
+    const m = S;
+    m.hlOn = !!hl; m.bfOn = !!bf;
+    for (let i = 0; i < NS; i++) { m.hlV[i] = hl ? hl.v[i] : 0; m.bfV[i] = bf ? bf.v[i] : 0; m.by[i] = plan.sides?.[i]?.by ?? 0.36 * m.f; }
+    for (const c of ['hl', 'bf']) m.nameOn[c] = false;
+    for (const n of plan.names || []) { m.nameOn[n.c] = true; setWords(m.nameEl[n.c], n.t); }
+    const labels = goal.v.map(whole);
+    restAttr(m.svg, 'aria-label', `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(goal.hvpg)}, PPG ${whole(goal.ppg)}.`);
+    void tw;
+  }
+  // The pieces of the chart at its size, once (never in a frame): the tree a frame writes its numbers into.
+  function buildModel(w, hh, f, tw, key, cap) {
+    const G = geoNow, gid = `pzpg-${Math.random().toString(36).slice(2, 8)}`, M = { key, w, hh, f, G, tw, gid, cap };
+    M.xs = new Float64Array(NS); M.py = new Float64Array(NS); M.hy = new Float64Array(NS); M.by = new Float64Array(NS);
+    M.hlV = new Float64Array(NS); M.bfV = new Float64Array(NS);
+    for (let i = 0; i < NS; i++) M.xs[i] = G.x(i);
+    M.line = new Float64Array(2 * PT_MAX); M.hbuf = new Float64Array(2 * PT_MAX); M.bbuf = new Float64Array(2 * PT_MAX);
+    M.hlOn = false; M.bfOn = false; M.nameOn = { hl: false, bf: false }; M.nameEl = {};
+    // (A reading's half-width, bold, for each whole mmHg: where the line stops short of it.)
+    M.lab = new Float64Array(V_MAX + 1);
+    for (let v = 0; v <= V_MAX; v++) M.lab[v] = tw(String(v), 700) / 2;
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
-    const step = top > 40 ? 10 : 5, every = (G.Z - G.T) / (top / step) < 1.3 * f ? 2 * step : step;
-    const col = (v) => pressureColor(v);
-    const gid = `pzpg-${Math.random().toString(36).slice(2, 8)}`;
-    const valY = (cy, k) => cy + sides[k].by, t = performance.now();
-    // (The blocks showing, each where the shown line falls so it moves with the line as it eases, and how far each has faded in.)
-    const bk = [...blk].map(([i, b]) => ({ op: blkOp(b, t), box: blockBox(G, tw, shown, i) })).filter((q) => q.op >= 0.005);
-    // (The three zones' tints are one rounded shape the chart's full width, his G2 look, plot-look.js: the corners of the whole band, not of
-    // each zone. The first tint reaches the chart's left edge and the last its right, so the axis numbers stand inside the band, in the strip
-    // the lines never enter; the zones' names stay centred over their own stations.)
     const band = plotPanel(sv, 0, G.T - G.hdr, w, G.B - (G.T - G.hdr), { fill: false });
     const blkRect = ([x0, x1, y0, y1], at = {}) => sv('rect', { x: x0, y: y0, width: x1 - x0, height: y1 - y0, rx: Math.min(4, (x1 - x0) / 2), ...at });
-    const svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
-      'aria-label': `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. HVPG ${whole(shown.hvpg)}, PPG ${whole(shown.ppg)}.` },
-      sv('defs', {}, band.clip, hatchDef(`${gid}-h`, 8), bk.length ? sv('clipPath', { id: `${gid}-c` }, bk.map((q) => blkRect(q.box))) : null, sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(STATIONS.length - 1), y1: 0, y2: 0 },
-        shown.v.map((v, i) => sv('stop', { offset: (i / (STATIONS.length - 1)).toFixed(3), 'stop-color': col(v) }))),
+    // (The gradient and the mask of the line: a stop's colour and a hole's place are written each frame.)
+    M.stops = STATIONS.map((_, i) => sv('stop', { offset: (i / (NS - 1)).toFixed(3), 'stop-color': pressureColor(0) }));
+    M.holes = STATIONS.map(() => sv('rect', { x: 0, y: 0, width: 0, height: 0, rx: NUM_PAD, fill: '#000' }));   // colour-exempt: a mask
+    M.bx = []; M.blk = []; M.clip = [];
+    for (let i = 0; i < NS; i++) {
+      const [bx0, bx1] = blockSpan(G.x(i), G.slot, tw);
+      M.bx.push([bx0, bx1]);
+      M.blk.push(blkRect([bx0, bx1, 0, 0], { class: 'ppf-blk', 'data-look': 'prof.blk', fill: `url(#${gid}-h)`, opacity: 0 }));
+      M.clip.push(blkRect([bx0, bx1, 0, 0]));
+    }
+    // (The gridlines: as many as the axis may need, each shown or not by its strength.)
+    M.gl = []; M.gt = [];
+    for (let k = 0; k < cap; k++) {
+      const ln = sv('line', { 'data-look': 'plot.grid.line', x1: G.L, x2: G.R, y1: 0, y2: 0 }), tx = k ? sv('text', { 'data-look': 'plot.grid.text', x: G.L - 6, y: 0, 'text-anchor': 'end' }, '') : null;
+      M.gl.push(ln); M.gt.push(tx);
+    }
+    const grid = M.gl.map((ln, k) => sv('g', { class: 'ptk-grid', opacity: 0 }, ln, M.gt[k]));
+    M.grid = grid;
+    M.hlP = [0, 1].map(() => sv('path', { class: 'ppf-hl', 'data-look': 'prof.hl', d: 'M0 0', mask: `url(#${gid}-m)`, opacity: 0 }));
+    M.bfP = [0, 1].map(() => sv('path', { class: 'ppf-bf', 'data-look': 'prof.bf', d: 'M0 0', mask: `url(#${gid}-m)`, opacity: 0 }));
+    M.fill = sv('path', { class: 'ppf-fill', 'data-look': 'prof.fill', d: 'M0 0', fill: `url(#${gid})` });
+    M.lineP = sv('path', { class: 'ppf-line', 'data-look': 'prof.line', d: 'M0 0', stroke: `url(#${gid})`, mask: `url(#${gid}-m)` });
+    M.vt = STATIONS.map((_, i) => sv('text', { class: 'ppf-v', 'data-look': 'prof.v', x: M.xs[i], y: 0, 'text-anchor': 'middle' }, ''));
+    for (const c of ['hl', 'bf']) M.nameEl[c] = sv('text', { class: `ppf-lname ${c}`, 'data-look': 'prof.name', x: 0, y: 0, 'text-anchor': 'middle', opacity: 0 }, '');
+    // (The brackets: for each of the two, two places (where it stands, where it stood) and in each the three ratings' pieces.)
+    M.br = SPANS.map(([k, name, a, b], r) => {
+      const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), fs = G.brFs[r], z = fs / f, stack = G.brMode[r] === 'stack', mid = (x0 + x1) / 2;
+      const gap = new Float64Array(2 * (V_MAX + 1));   // (where the bar breaks round each whole reading)
+      for (let v = 0; v <= V_MAX; v++) {
+        const s = String(v);
+        if (stack) {
+          const ws = Math.max(tw(name, 600), tw(s, 700));
+          gap[2 * v] = ws + 20 <= x1 - x0 ? mid - ws / 2 - 5 : x0; gap[2 * v + 1] = ws + 20 <= x1 - x0 ? mid + ws / 2 + 5 : x1;
+        } else {
+          const lw = z * tw(`${name} ${s}`, 700);
+          const wide = (x1 - x0 - lw) / 2 - LABEL_PAD >= BAR_MIN;
+          gap[2 * v] = wide ? mid - lw / 2 - LABEL_PAD : x0; gap[2 * v + 1] = wide ? mid + lw / 2 + LABEL_PAD : x1;
+        }
+      }
+      const slots = [0, 1].map(() => {
+        const buf = new Float64Array(24), tones = TONES.map((rate) => {
+          const path = sv('path', { 'data-look': 'prof.br.path', d: 'M0 0' });
+          const val = sv('tspan', stack ? { 'data-look': 'prof.tspan', x: mid, dy: (1.1 * f).toFixed(2) } : { 'data-look': 'prof.tspan' }, '0');
+          // (A bracket set smaller to fit says so on its words: the look leaves the size alone.)
+          const txt = sv('text', { 'data-look': 'prof.br.text', 'font-size': (fs < f - 0.01 ? fs : f).toFixed(2), x: mid, y: 0, 'text-anchor': 'middle' }, sv('tspan', { class: 'k', 'data-look': 'prof.br.k' }, stack ? name : `${name} `), val);
+          const gEl = sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k, 'data-mode': G.brMode[r], opacity: 0 }, path, txt);
+          return { g: gEl, path, txt, val };
+        });
+        return { buf, tones };
+      });
+      return { key: k, x0, x1, fs, stack, mid, gap, slots };
+    });
+    // (The two pills, a piece for each rating.)
+    const ps = pillSize(G, tw);
+    M.pill = SPANS.map(([k, name], q) => ({ key: k, w: ps.w[q], h: ps.h, tones: TONES.map((rate) => {
+      const rect = sv('rect', { 'data-look': 'prof.pill.rect', x: 0, y: 0, width: ps.w[q], height: ps.h, rx: ps.h / 2 }), val = sv('tspan', { 'data-look': 'prof.tspan' }, '0');
+      const txt = sv('text', { 'data-look': 'prof.pill.text', x: 0, y: 0, 'text-anchor': 'middle' }, sv('tspan', { class: 'k', 'data-look': 'prof.pill.k' }, `${name} `), val);
+      return { g: sv('g', { class: 'ppf-pill', 'data-rate': rate, 'data-k': k, opacity: 0 }, rect, txt), rect, txt, val };
+    }) }));
+    M.svg = sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`, 'aria-label': 'Pressure from gut to heart' },
+      sv('defs', {}, band.clip, hatchDef(`${gid}-h`, 8), sv('clipPath', { id: `${gid}-c` }, M.clip), sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: G.x(0), x2: G.x(NS - 1), y1: 0, y2: 0 }, M.stops),
         // (The lines stop NUM_PAD px short of each number written on them.)
         sv('mask', { id: `${gid}-m`, maskUnits: 'userSpaceOnUse', x: 0, y: 0, width: w, height: hh },
           sv('rect', { x: 0, y: 0, width: w, height: hh, fill: '#fff' }),   // colour-exempt: a mask
-          now.map(([cx, cy], i) => { const hw = tw(labels[i], 700) / 2; return sv('rect', { x: cx - hw - NUM_PAD, y: cy - 0.36 * f - NUM_PAD, width: 2 * (hw + NUM_PAD), height: 0.72 * f + 2 * NUM_PAD, rx: NUM_PAD, fill: '#000' }); }))),   // colour-exempt: a mask
+          M.holes)),
       // The route's three zones on soft tints, each named over the plot (every ladder, every deck: Mohammad, 21 Oct, "return the word liver",
       // 22 Oct, PRE / INTRA / POST written out in full): the names stand in one line, or in two where a zone is too narrow for its name.
       zoneSpans().map(([a, b], k, sp) => {
         const m = (G.x(a) + G.x(b)) / 2, y0 = G.T - G.hdr, ls = zoneLines(k, G.zone.lines);
         const zf = zoneSize(f), tx0 = k ? G.x(a) - G.slot / 2 : 0, tx1 = k < sp.length - 1 ? G.x(b) + G.slot / 2 : w;
-        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls, style: zf < f - 0.01 ? `font-size: ${zf.toFixed(2)}px` : null }, sv('rect', { x: tx0, width: tx1 - tx0, y: y0, height: G.B - y0, 'clip-path': band.url }),
-          G.zone.lines ? ls.map((t, j) => sv('text', { x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * zf, 'text-anchor': 'middle' }, t)) : null);
+        // (A zone's name is set at zoneSize and spaced .06 em, 0 when tight: the look gives its weight and ink, these two are the piece's own.)
+        return sv('g', { class: G.zone.tight ? `${ZONES[k].cls} tight` : ZONES[k].cls }, sv('rect', { 'data-look': ZONE_LOOK[k], x: tx0, width: tx1 - tx0, y: y0, height: G.B - y0, 'clip-path': band.url }),
+          G.zone.lines ? ls.map((t, j) => sv('text', { 'data-look': 'prof.zone.text', 'font-size': (zf < f - 0.01 ? zf : f).toFixed(2), 'letter-spacing': G.zone.tight ? '0' : '0.06em', x: m, y: G.T - G.zb - (ls.length - 1 - j) * 1.05 * zf, 'text-anchor': 'middle' }, t)) : null);
       }),
-      Array.from({ length: Math.floor(top / every) + 1 }, (_, k) => sv('g', { class: 'ptk-grid' }, sv('line', { x1: G.L, x2: G.R, y1: y(k * every), y2: y(k * every) }),
-        // (No 0 on the axis, Mohammad, 27 Oct: "0 is kinda implied"; its line stays.)
-        k ? sv('text', { x: G.L - 6, y: y(k * every) + 0.35 * f, 'text-anchor': 'end' }, String(k * every)) : null)),
+      grid,
       // (The unit in the bottom row, at the left, level with the brace's name: Mohammad, 21 Oct, "Remove mmHg from above put it below".)
-      sv('text', { class: 'ptk-unit', x: 0, y: G.braceY + 1.55 * f }, 'mmHg'),
-      hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)), mask: `url(#${gid}-m)` }) : null,
-      bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)), mask: `url(#${gid}-m)` }) : null,
-      sv('path', { class: 'ppf-fill', d: `${smoothD(now)}L${G.x(STATIONS.length - 1).toFixed(1)} ${G.Z}L${G.x(0).toFixed(1)} ${G.Z}Z`, style: `fill: url(#${gid})` }),
+      sv('text', { class: 'ptk-unit', 'data-look': 'plot.unit', x: 0, y: G.braceY + 1.55 * f }, 'mmHg'),
+      M.hlP[0], M.bfP[0], M.fill,
       // The blocks, over the fill and under the line and the readings; the healthy and the earlier lines are drawn again over them, clipped to
       // them, so those show whole too (Mohammad, 22 Oct: the line and the numbers stay visible over the block).
-      bk.map((q) => blkRect(q.box, { class: 'ppf-blk', fill: `url(#${gid}-h)`, opacity: q.op < 1 ? q.op.toFixed(3) : null })),
-      bk.length ? sv('g', { 'clip-path': `url(#${gid}-c)` }, hl ? sv('path', { class: 'ppf-hl', d: smoothD(pts(hl)), mask: `url(#${gid}-m)` }) : null,
-        bf ? sv('path', { class: 'ppf-bf', d: smoothD(pts(bf)), mask: `url(#${gid}-m)` }) : null) : null,
-      sv('line', { class: 'ppf-axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
-      sv('path', { class: 'ppf-line', d: smoothD(now), style: `stroke: url(#${gid})`, mask: `url(#${gid}-m)` }),
-      now.map(([cx, cy], i) => sv('text', { class: 'ppf-v', x: cx, y: valY(cy, i), 'text-anchor': 'middle' }, labels[i])),
-      (plan.names || []).map((n) => { const [nx, ny] = glideAt(nameAt[n.c] || { x: n.x, y: n.y, fx: n.x, fy: n.y, t0: 0 }, t); return sv('text', { class: `ppf-lname ${n.c}`, x: nx, y: ny, 'text-anchor': 'middle' }, n.t); }),
-      STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', x: G.nameX(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
+      M.blk,
+      sv('g', { 'clip-path': `url(#${gid}-c)` }, M.hlP[1], M.bfP[1]),
+      sv('line', { class: 'ppf-axis', 'data-look': 'prof.axis', x1: G.L, x2: G.R, y1: G.B, y2: G.B }),
+      M.lineP,
+      M.vt,
+      M.nameEl.hl, M.nameEl.bf,
+      STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', 'data-look': 'prof.name', x: G.nameX(i), y: G.nameY(i), 'text-anchor': 'middle' }, G.fit.names[i])),
       // (One brace under Pre, Intra and Post, inside the liver's band, named Sinusoidal under its tip.)
-      i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { d: braceD(G.x(i0) - 0.42 * G.slot, G.x(i1) + 0.42 * G.slot, G.braceY, 0.55 * f) }),
-        sv('text', { x: (G.x(i0) + G.x(i1)) / 2, y: G.braceY + 1.55 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
+      i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { 'data-look': 'prof.brace.path', d: braceD(G.x(i0) - 0.42 * G.slot, G.x(i1) + 0.42 * G.slot, G.braceY, 0.55 * f) }),
+        sv('text', { 'data-look': 'prof.brace.text', x: (G.x(i0) + G.x(i1)) / 2, y: G.braceY + 1.55 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
       // The HVPG (sinusoid to hepatic vein) and the PPG (portal vein − IVC) as brackets inside the plot (else in a band at its foot), in
       // their cut-off colours, each label inside its own bracket.
-      SPANS.flatMap(([k, name, a, b], r) => {
-        const v = shown[k], rate = RATE[k](v)[0];
-        const x0 = G.x(STATIONS.indexOf(a)), x1 = G.x(STATIONS.indexOf(b)), val = whole(v);
-        // (Laid out as the geometry planned the row: one line, at its own type size where the chart's would not fit, or the name over
-        // the value. On one line, the gap in the bar follows the label's own width; the bar is left out only where this value leaves
-        // under BAR_MIN px of it each side.)
-        const fs = G.brFs[r], z = fs / f, stack = G.brMode[r] === 'stack';
-        const lb = bracketLabel(x0, x1, z * tw(`${name} ${val}`, 700), [z * tw(name, 600), z * tw(val, 700)]);
-        const gap = stack ? bracketLabel(x0, x1, Infinity, [tw(name, 600), tw(val, 700)]).gap : oneLineGap(x0, x1, z * tw(`${name} ${val}`, 700));
-        const brk1 = (yy, op) => {
-          const bar = gap[1] - gap[0] >= x1 - x0 - 0.5 ? '' : `M${x0} ${yy}H${gap[0]}M${gap[1]} ${yy}H${x1}`;
-          return sv('g', { class: 'ppf-br', 'data-rate': rate, 'data-k': k, 'data-mode': G.brMode[r], opacity: op < 1 ? op.toFixed(3) : null,
-            style: fs < f - 0.01 ? `font-size: ${fs.toFixed(2)}px` : null },
-            sv('path', { d: `M${x0} ${yy - 0.3 * f}V${yy + 0.3 * f}M${x1} ${yy - 0.3 * f}V${yy + 0.3 * f}${bar}` }),
-            stack ? sv('text', { x: lb.x, y: yy - 0.19 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, name), sv('tspan', { x: lb.x, dy: `${(1.1 * f).toFixed(2)}` }, val))
-              : sv('text', { x: lb.x, y: yy + 0.36 * fs, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), val));
-        };
-        const row = rows[r] || { y: plan.inside ? plan.brk[r] : G.brY(r), from: null }, e = fadeK(row, t), hk = blkOp(heldK, t);
-        if (row.from != null && e >= 1) row.from = null;
-        if (hk < 0.005) return [];
-        return row.from == null ? [brk1(row.y, hk)] : [brk1(row.from, (1 - e) * hk), brk1(row.y, e * hk)];
-      }),
+      M.br.flatMap((b) => b.slots.flatMap((s) => s.tones.map((q) => q.g))),
       // The two readings as pills in the plot's top right, tinted as the brackets rate them, over everything else (the plan keeps them clear).
-      !pillK.boxes || blkOp(pillK, t) < 0.005 ? null : pillK.boxes.map(([px0, px1, py0, py1], k) => {
-        const [key, name] = SPANS[k], v = shown[key], rate = RATE[key](v)[0], [gx, gy] = glideAt(pillAt[k] || { x: px0, y: py0, fx: px0, fy: py0, t0: 0 }, t), op = blkOp(pillK, t);
-        return sv('g', { class: 'ppf-pill', 'data-rate': rate, 'data-k': key, opacity: op < 0.995 ? op.toFixed(3) : null }, sv('rect', { x: gx, y: gy, width: px1 - px0, height: py1 - py0, rx: (py1 - py0) / 2 }),
-          sv('text', { x: gx + (px1 - px0) / 2, y: gy + (py1 - py0) / 2 + 0.36 * f, 'text-anchor': 'middle' }, sv('tspan', { class: 'k' }, `${name} `), whole(v)));
-      }));
-    for (const [i, b] of blk) if (!b.a && t - b.t0 >= FADE_MS) blk.delete(i);
-    fading = rows.some((row) => row?.from != null) || Object.values(nameAt).some((a) => t - a.t0 < FADE_MS) || pillAt.some((a) => a && t - a.t0 < FADE_MS) || t - pillK.t0 < FADE_MS || t - heldK.t0 < FADE_MS || [...blk.values()].some((b) => t - b.t0 < FADE_MS);
-    el.replaceChildren(svg);
+      M.pill.flatMap((p) => p.tones.map((q) => q.g)));
+    return M;
   }
-  const glideAt = (a, now) => { const e = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - a.t0) / FADE_MS))); return [lerp(a.fx, a.x, e), lerp(a.fy, a.y, e)]; };
-  const fadeK = (row, now) => (row.from == null ? 1 : 0.5 - 0.5 * Math.cos(Math.PI * Math.min(1, Math.max(0, (now - row.t0) / FADE_MS))));
-  function tick() {
+  // A frame of a glide: the numbers of every piece at the shown state, at time t. Nothing is made: setGeo and setPts keep numbers and
+  // points on the pieces, a reading's words come from a table, and the picture is asked to draw (gl.paint).
+  function paintNow(t) {
+    const m = S;
+    if (!m || !shown) return;
+    const G = m.G, f = m.f, top = shown.top, Z = G.Z, Tp = G.T, xs = m.xs, py = m.py, sh = shown.v;
+    for (let i = 0; i < NS; i++) {
+      const v = sh[i], yv = Z - (Z - Tp) * Math.max(0, Math.min(v, top)) / top;
+      py[i] = yv;
+      setGeo(m.stops[i], 'stop-color', pressureColor(v));
+      // (The reading on its dot, a whole number, and the hole in the line's mask round it.)
+      const hw = m.lab[whole0(v)], hole = m.holes[i];
+      setWords(m.vt[i], numWords(v, 0)); setGeo(m.vt[i], 'y', yv + m.by[i]);
+      setGeo(hole, 'x', xs[i] - hw - NUM_PAD); setGeo(hole, 'y', yv - 0.36 * f - NUM_PAD); setGeo(hole, 'width', 2 * (hw + NUM_PAD)); setGeo(hole, 'height', 0.72 * f + 2 * NUM_PAD);
+    }
+    // (The line, and its fill closed down to the zero line.)
+    const np = smoothInto(xs, py, NS, m.line);
+    setPts(m.lineP, m.line, np, false);
+    m.line[2 * np] = xs[NS - 1]; m.line[2 * np + 1] = Z; m.line[2 * np + 2] = xs[0]; m.line[2 * np + 3] = Z;
+    setPts(m.fill, m.line, np + 2, true);
+    // (The healthy and the earlier lines, each drawn twice: whole, and again clipped to the blocks.)
+    for (let q = 0; q < 2; q++) {
+      const on = q ? m.bfOn : m.hlOn, V = q ? m.bfV : m.hlV, buf = q ? m.bbuf : m.hbuf, els = q ? m.bfP : m.hlP;
+      for (let s = 0; s < 2; s++) setGeo(els[s], 'opacity', on ? 1 : 0);
+      if (!on) continue;
+      for (let i = 0; i < NS; i++) m.hy[i] = Z - (Z - Tp) * Math.max(0, Math.min(V[i], top)) / top;
+      const n2 = smoothInto(xs, m.hy, NS, buf);
+      setPts(els[0], buf, n2, false); setPts(els[1], buf, n2, false);
+    }
+    // (The gridlines: every 5 (10 over 40), every other where they would crowd.)
+    const step = top > 40 ? 10 : 5, every = (Z - Tp) / (top / step) < 1.3 * f ? 2 * step : step, cnt = Math.floor(top / every) + 1;
+    for (let k = 0; k < m.cap; k++) {
+      const on = k < cnt, gEl = m.grid[k];
+      setGeo(gEl, 'opacity', on ? 1 : 0);
+      if (!on) continue;
+      const v = Math.max(0, Math.min(k * every, top)), yy = Z - (Z - Tp) * v / top, ln = m.gl[k];
+      setGeo(ln, 'y1', yy); setGeo(ln, 'y2', yy);
+      // (No 0 on the axis, Mohammad, 27 Oct: "0 is kinda implied"; its line stays.)
+      if (k) { const tx = m.gt[k]; setWords(tx, numWords(k * every, 0)); setGeo(tx, 'y', yy + 0.35 * f); }
+    }
+    // (The blocks showing, each where the shown line falls so it moves with the line as it eases, and how far each has faded in.)
+    for (let i = 0; i < NS; i++) {
+      const b = blkS[i], op = blkLive[i] ? blkOp(b, t) : 0, rect = m.blk[i], clip = m.clip[i];
+      if (op >= 0.005) {
+        const y0 = py[i] - 0.36 * f - NUM_PAD, y1 = i >= NS - 1 ? Math.max(y0 + 4, Z) : Math.max(y0 + 4, py[i + 1] + 0.36 * f), x0 = m.bx[i][0], w0 = m.bx[i][1] - x0;
+        setGeo(rect, 'y', y0); setGeo(rect, 'height', y1 - y0); setGeo(rect, 'x', x0); setGeo(rect, 'width', w0); setGeo(rect, 'opacity', op < 1 ? op : 1);
+        setGeo(clip, 'y', y0); setGeo(clip, 'height', y1 - y0); setGeo(clip, 'x', x0); setGeo(clip, 'width', w0);
+      } else { setGeo(rect, 'opacity', 0); setGeo(clip, 'width', 0); setGeo(clip, 'height', 0); }
+      if (blkLive[i] && !b.a && t - b.t0 >= FADE_MS) blkLive[i] = 0;
+    }
+    // (The lines' names, where the glide has them.)
+    for (let ci = 0; ci < 2; ci++) {
+      const c = LINE_NAMES[ci], e = m.nameEl[c], a = nameAt[c];
+      if (m.nameOn[c] && a) { setGeo(e, 'opacity', 1); setGeo(e, 'x', glideX(a, t)); setGeo(e, 'y', glideY(a, t)); } else setGeo(e, 'opacity', 0);
+    }
+    // (The brackets: a row that moves fades out where it was as it fades in where it goes; held, they ease out.)
+    const hk = blkOp(heldK, t);
+    for (let r = 0; r < 2; r++) {
+      const b = m.br[r], v = shown[b.key], vi = whole0(v), row = rows[r], e = row ? fadeK(row, t) : 1, tone = toneOf(RATES[r](v));
+      if (row && row.from != null && e >= 1) row.from = null;
+      for (let s = 0; s < 2; s++) {
+        const slot = b.slots[s];
+        let on = false, yy = 0, op = 0;
+        if (row && hk >= 0.005) {
+          if (row.from == null) { if (s === 0) { on = true; yy = row.y; op = hk; } }
+          else if (s === 0) { on = true; yy = row.from; op = (1 - e) * hk; } else { on = true; yy = row.y; op = e * hk; }
+        }
+        for (let q = 0; q < 3; q++) setGeo(slot.tones[q].g, 'opacity', on && q === tone ? (op < 1 ? op : 1) : 0);
+        if (!on) continue;
+        const buf = slot.buf, x0 = b.x0, x1 = b.x1, lo = b.gap[2 * vi], hi = b.gap[2 * vi + 1], q = slot.tones[tone];
+        buf[0] = x0; buf[1] = yy - 0.3 * f; buf[2] = x0; buf[3] = yy + 0.3 * f; buf[4] = NaN; buf[5] = 0;
+        buf[6] = x1; buf[7] = yy - 0.3 * f; buf[8] = x1; buf[9] = yy + 0.3 * f;
+        let n = 5;
+        if (!(hi - lo >= x1 - x0 - 0.5)) {   // (the bar, broken round the label)
+          buf[10] = NaN; buf[11] = 0; buf[12] = x0; buf[13] = yy; buf[14] = lo; buf[15] = yy; buf[16] = NaN; buf[17] = 0; buf[18] = hi; buf[19] = yy; buf[20] = x1; buf[21] = yy;
+          n = 11;
+        }
+        setPts(q.path, buf, n, false);
+        setWords(q.val, numWords(v, 0)); setGeo(q.txt, 'y', b.stack ? yy - 0.19 * f : yy + 0.36 * b.fs);
+      }
+    }
+    // (The two readings as pills in the plot's top right, gliding where they must move.)
+    const po = pillK.boxes ? blkOp(pillK, t) : 0;
+    for (let k = 0; k < 2; k++) {
+      const p = m.pill[k], v = shown[p.key], tone = toneOf(RATES[k](v)), box = pillK.boxes?.[k], at = pillAt[k], on = !!box && po >= 0.005;
+      for (let q = 0; q < 3; q++) setGeo(p.tones[q].g, 'opacity', on && q === tone ? (po < 0.995 ? po : 1) : 0);
+      if (!on) continue;
+      const gx = at ? glideX(at, t) : box[0], gy = at ? glideY(at, t) : box[2], q = p.tones[tone];
+      setGeo(q.rect, 'x', gx); setGeo(q.rect, 'y', gy);
+      setGeo(q.txt, 'x', gx + (box[1] - box[0]) / 2); setGeo(q.txt, 'y', gy + (box[3] - box[2]) / 2 + 0.36 * f);
+      setWords(q.val, numWords(v, 0));
+    }
+    // (Frames keep coming while anything still fades or glides.)
+    fading = (rows[0]?.from != null) || (rows[1]?.from != null) || (nameAt.hl ? t - nameAt.hl.t0 < FADE_MS : false) || (nameAt.bf ? t - nameAt.bf.t0 < FADE_MS : false)
+      || (pillAt[0] ? t - pillAt[0].t0 < FADE_MS : false) || (pillAt[1] ? t - pillAt[1].t0 < FADE_MS : false) || t - pillK.t0 < FADE_MS || t - heldK.t0 < FADE_MS;
+    for (let i = 0; i < NS && !fading; i++) if (blkLive[i] && t - blkS[i].t0 < FADE_MS) fading = true;
+  }
+  // (The numbers glide on the shown state's filter, display-state.js follow2, premium-feel R4: the widths', the bar's and the charts' one
+  // clock, the same curve at 60 or 120 Hz. shownWo: its first stage. tickAt: the last step's time, 0 at rest.)
+  let shownW = null, tickAt = 0;
+  const NEAR_V = 0.02, NEAR_TOP = 0.05;
+  const copyGoal = (to, from) => { for (let i = 0; i < NS; i++) to.v[i] = from.v[i]; to.hvpg = from.hvpg; to.ppg = from.ppg; to.top = from.top; };
+  function tick(now = performance.now()) {
     raf = 0;
     if (!goal) return;
-    const k = reduceMQ.matches || !shown ? 1 : 0.2;
-    const mix = (a, b) => lerp(a, b, k);
-    shown = shown ? { v: shown.v.map((x, i) => mix(x, goal.v[i])), hvpg: mix(shown.hvpg, goal.hvpg), ppg: mix(shown.ppg, goal.ppg), top: mix(shown.top, goal.top) } : { ...goal };
-    const done = shown.v.every((x, i) => Math.abs(x - goal.v[i]) < 0.02) && Math.abs(shown.top - goal.top) < 0.05;
-    if (done) shown = { ...goal, v: goal.v.slice() };
-    if (el.isConnected || !done || fading) draw();
+    const dt = tickAt ? Math.min(0.1, Math.max(0, (now - tickAt) / 1000)) : 0;
+    tickAt = now;
+    let done;
+    if (reduceMQ.matches || !shown || !shownW) { if (!shown) shown = shownO; if (!shownW) shownW = shownWo; copyGoal(shown, goal); done = true; }
+    else {
+      done = true;
+      for (let i = 0; i < NS; i++) {
+        const r = follow2(shown.v[i], shownW.v[i], goal.v[i], dt, SHOWN_TAU, 0.005);
+        shown.v[i] = r.v; shownW.v[i] = r.w;
+        if (!(Math.abs(shown.v[i] - goal.v[i]) < NEAR_V && Math.abs(shownW.v[i] - goal.v[i]) < NEAR_V)) done = false;
+      }
+      let r = follow2(shown.hvpg, shownW.hvpg, goal.hvpg, dt, SHOWN_TAU, 0.005); shown.hvpg = r.v; shownW.hvpg = r.w;
+      r = follow2(shown.ppg, shownW.ppg, goal.ppg, dt, SHOWN_TAU, 0.005); shown.ppg = r.v; shownW.ppg = r.w;
+      r = follow2(shown.top, shownW.top, goal.top, dt, SHOWN_TAU, 0.005); shown.top = r.v; shownW.top = r.w;
+      if (!(Math.abs(shown.top - goal.top) < NEAR_TOP && Math.abs(shownW.top - goal.top) < NEAR_TOP)) done = false;
+    }
+    if (done) { copyGoal(shown, goal); copyGoal(shownW, goal); tickAt = 0; }
+    if (el.isConnected || !done || fading) paintNow(performance.now());
+    gl.paint();   // (the picture draws the moved pieces in this same frame)
     if (!done || fading) raf = frame(tick, 'tool-profile');
   }
   function aim(fp) {
@@ -791,19 +1035,30 @@ export function createProfileTool() {
     lastFp = fp;
     ref = before();
     goal = { ...p, top: axisTop(p, healthy(), ref) };
+    // (The first state is shown at once; the goals after it are glided to.)
+    if (!shown) { shown = shownO; shownW = shownWo; copyGoal(shown, goal); copyGoal(shownW, goal); tickAt = 0; }
     const want = new Set(held ? [] : blocksOf(goal, healthy())), t = performance.now();
-    for (const i of new Set([...blk.keys(), ...want])) {
-      const a = want.has(i) ? 1 : 0, b = blk.get(i);
-      if (!b || b.a !== a) blk.set(i, { a, from: reduceMQ.matches ? a : b ? blkOp(b, t) : 0, t0: t });
+    for (let i = 0; i < NS; i++) {
+      const a = want.has(i) ? 1 : 0, b = blkLive[i] ? blkS[i] : null;
+      if (!b || b.a !== a) { blkS[i].from = reduceMQ.matches ? a : b ? blkOp(b, t) : 0; blkS[i].a = a; blkS[i].t0 = t; blkLive[i] = 1; }
     }
     stale = true;
+    if (!sz0) { if (!measuring) measuring = restPass(() => { measuring = 0; if (el.isConnected) measure0(); if (goal && sz0 && el.isConnected) draw(); if (goal && !raf) raf = frame(tick, 'tool-profile'); }); return; }
+    // (Planned and drawn at the new goal between frames, the glide's frames then only move the numbers.)
+    if (el.isConnected) draw();
     if (!raf) raf = frame(tick, 'tool-profile');
   }
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { plan = null; draw(); } }).observe(el);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected) measure0(); if (shown && el.isConnected && size !== `${Math.round(el.clientWidth)}x${Math.round(el.clientHeight)}`) { plan = null; draw(); } }).observe(el);
   return {
     el,
+    /** The card has fitted: drawn again if its zoom, and so the chart's type, is not what it was drawn at (the observer does not see a zoom). */
+    refit() { const sz = shown && el.isConnected ? measure0() : null; if (sz && Math.round(sz[2] * 100) !== fSeen) { plan = null; draw(); } },
     /** The slide's options and context (presenter-tools.js show), before its numbers. */
-    configure(t, ctx) { cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
+    // (A new slide's card, as the slide is set up: read now the first time, else again between frames. Its first drawing is made there too, at
+    // the slide's numbers, and placed with its looks read (svg-gl g.show): the card comes in with the chart already drawn, never empty with it
+    // popping in a moment later (Mohammad, 2 Nov 2026, "this arrived empty then flashed the graph").)
+    configure(t, ctx) { if (!sz0) measure0(); else if (!measuring) measuring = restPass(() => { measuring = 0; if (el.isConnected) measure0(); });
+      cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */
     pin(fp) { if (el.isConnected && fp) aim(fp); },
     /** The answer held back (a question slide): no red blocks and no HVPG or PPG brackets, the line and its numbers as they are. On release
@@ -814,13 +1069,13 @@ export function createProfileTool() {
       if (on === held && heldK.a === a && (!instant || heldK.from === a)) return;
       held = on; Object.assign(heldK, { a, from: now, t0: instant ? 0 : t });
       if (lastFp) aim(lastFp);
-      if (instant) for (const b of blk.values()) { b.from = b.a; b.t0 = 0; }
+      if (instant) for (let i = 0; i < NS; i++) if (blkLive[i]) { blkS[i].from = blkS[i].a; blkS[i].t0 = 0; }
       if (!raf) raf = frame(tick, 'tool-profile');
     },
     /** Drawn again at once for a type size that changed in a box that did not (the six ladders' scaled copies, presenter.js fitChart). */
-    redraw() { if (shown && el.isConnected) { plan = null; draw(); } },
+    redraw() { if (shown && el.isConnected) { measure0(); plan = null; draw(); } },
     clear() {},
-    dispose() { if (raf) cancelFrame(raf); raf = 0; },
+    dispose() { if (raf) cancelFrame(raf); raf = 0; cancelRest(measuring); measuring = 0; gl.dispose(); },
   };
 }
 
@@ -832,12 +1087,14 @@ export function createProfileTool() {
 export function createProfileStrip(namesOnly = false) {
   const el = document.createElement('div');
   el.className = namesOnly ? 'pz-pstrip names' : 'pz-pstrip';
+  const gl = createSvgGL(el, { host: namesOnly ? 'pstriph' : 'pstrip' });
   let fp = null, hlOf = null, size = '';
   const xOf = (w) => { const slot = (w - 10) / STATIONS.length; return { slot, x: (i) => slot * (i + 0.5) }; };
-  function draw() {
+  function drawStrip() {
     const w = el.clientWidth;
     if (!w) return;
-    const f = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 12), tw = (t, wt) => textW(t, f, wt), { slot, x } = xOf(w);
+    // (The strip's type size from the looks table: the card's label size, or its cap size over the six, never read off the page; 12 px at least.)
+    const f = fittedType(el, gl, 12), tw = (t, wt) => textW(t, f, wt), { slot, x } = xOf(w);
     size = String(Math.round(w));
     const i0 = STATIONS.indexOf(PATH.liver[0]), i1 = STATIONS.indexOf(PATH.liver[1]);
     if (namesOnly) {
@@ -845,20 +1102,20 @@ export function createProfileStrip(namesOnly = false) {
       // intra, post should have the curly bracket that says sinusoidal on top of it").)
       const fit = nameFit(slot, tw), ends = 1.85 * f, base = ends + 1.05 * f, hh = Math.ceil(base + (fit.rows - 1) * 1.25 * f + 0.3 * f);
       el.style.height = `${hh}px`;
-      el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, style: `font-size: ${f.toFixed(2)}px` },
-        i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { d: braceD(x(i0) - 0.42 * slot, x(i1) + 0.42 * slot, 0, 0.55 * f), transform: `translate(0 ${ends.toFixed(2)}) scale(1 -1)` }),
-          sv('text', { x: (x(i0) + x(i1)) / 2, y: 0.95 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
-        STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', x: x(i) + fit.dx[i], y: base + (fit.low[i] ? 1.25 * f : 0), 'text-anchor': 'middle' }, fit.names[i]))));
+      gl.swap(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, style: `font-size: ${f.toFixed(2)}px` },
+        i0 >= 0 ? sv('g', { class: 'ppf-brace' }, sv('path', { 'data-look': 'prof.brace.path', d: braceD(x(i0) - 0.42 * slot, x(i1) + 0.42 * slot, 0, 0.55 * f), transform: `translate(0 ${ends.toFixed(2)}) scale(1 -1)` }),
+          sv('text', { 'data-look': 'prof.brace.text', x: (x(i0) + x(i1)) / 2, y: 0.95 * f, 'text-anchor': 'middle' }, BRACE_NAME)) : null,
+        STATIONS.map((n, i) => sv('text', { class: n in LIVER_NAMES ? 'ppf-name liv' : 'ppf-name', 'data-look': 'prof.name', x: x(i) + fit.dx[i], y: base + (fit.low[i] ? 1.25 * f : 0), 'text-anchor': 'middle' }, fit.names[i]))));
       return;
     }
     const p = profileOf(fp);
-    if (!p) { el.replaceChildren(); return; }
+    if (!p) { gl.clear(); return; }
     const hl = profileOf(typeof hlOf === 'function' ? hlOf() : hlOf), n = p.v.length - 1;
     const hh = Math.ceil(1.9 * f), cy = hh / 2, labels = p.v.map(whole), hw = labels.map((t) => tw(t, 700) / 2), pad = NUM_PAD;
     el.style.height = `${hh}px`;
     const gid = `pzps-${Math.random().toString(36).slice(2, 8)}`;
     const box = (i) => blockSpan(x(i), slot, tw);   // (each block on its station's column, as the chart's)
-    el.replaceChildren(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
+    gl.swap(sv('svg', { viewBox: `0 0 ${w} ${hh}`, width: w, height: hh, role: 'img', style: `font-size: ${f.toFixed(2)}px`,
       'aria-label': `Pressure from gut to heart: ${STATIONS.map((s, i) => `${SPOKEN[s]} ${labels[i]}`).join(', ')} mmHg.` },
       sv('defs', {}, hatchDef(`${gid}-h`, 7), sv('linearGradient', { id: gid, gradientUnits: 'userSpaceOnUse', x1: x(0), x2: x(n), y1: 0, y2: 0 },
         p.v.map((v, i) => sv('stop', { offset: (i / n).toFixed(3), 'stop-color': pressureColor(v) })))),
@@ -866,17 +1123,17 @@ export function createProfileStrip(namesOnly = false) {
       // "every graph has a background behind the pre, intra, and post numbers"; 22 Oct, a tint before and after it too. Tint only, no
       // names (the names strip over the six carries the brace). Under the blocks, the line and the numbers, a hair apart.)
       zoneSpans().map(([a, b], k) => sv('g', { class: ZONES[k].cls },
-        sv('rect', { x: x(a) - slot / 2 + 0.5, y: 0, width: slot * (b - a + 1) - 1, height: hh, rx: 4 }))),
+        sv('rect', { 'data-look': ZONE_LOOK[k], x: x(a) - slot / 2 + 0.5, y: 0, width: slot * (b - a + 1) - 1, height: hh, rx: 4 }))),
       // (Each block on its station's column, behind the line and the readings, which keep their outline: Mohammad, 22 Oct.)
-      blocksOf(p, hl).map((i) => { const [x0, x1] = box(i); return sv('rect', { class: 'ppf-blk', x: x0, y: 1, width: x1 - x0, height: hh - 2, rx: Math.min(4, (x1 - x0) / 2), fill: `url(#${gid}-h)` }); }),
+      blocksOf(p, hl).map((i) => { const [x0, x1] = box(i); return sv('rect', { class: 'ppf-blk', 'data-look': 'prof.blk', x: x0, y: 1, width: x1 - x0, height: hh - 2, rx: Math.min(4, (x1 - x0) / 2), fill: `url(#${gid}-h)` }); }),
       // (The line stops NUM_PAD px short of each reading, as on the chart.)
-      sv('path', { class: 'pps-line', style: `stroke: url(#${gid})`, d: p.v.slice(0, n).map((_, i) => `M${(x(i) + hw[i] + pad).toFixed(1)} ${cy}H${(x(i + 1) - hw[i + 1] - pad).toFixed(1)}`).join('') }),
-      labels.map((t, i) => sv('text', { class: 'pps-v', x: x(i), y: cy + 0.36 * f, 'text-anchor': 'middle' }, t))));
+      sv('path', { class: 'pps-line', 'data-look': 'prof.strip.line', stroke: `url(#${gid})`, d: p.v.slice(0, n).map((_, i) => `M${(x(i) + hw[i] + pad).toFixed(1)} ${cy}H${(x(i + 1) - hw[i + 1] - pad).toFixed(1)}`).join('') }),
+      labels.map((t, i) => sv('text', { class: 'pps-v', 'data-look': 'prof.strip.v', x: x(i), y: cy + 0.36 * f, 'text-anchor': 'middle' }, t))));
   }
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected && size !== String(Math.round(el.clientWidth))) draw(); }).observe(el);
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (el.isConnected && size !== String(Math.round(el.clientWidth))) drawStrip(); }).observe(el);
   return {
     el,
-    set(f0, healthy) { fp = f0; hlOf = healthy; draw(); },
-    draw,
+    set(f0, healthy) { fp = f0; hlOf = healthy; drawStrip(); },
+    draw: drawStrip,
   };
 }

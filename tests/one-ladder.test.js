@@ -31,7 +31,7 @@ test('the presenter has no old ladder left: no five-station drawing, strip, lege
   assert.doesNotMatch(css, /pz-ladder|pz-strip|pz-lg|pzl-(base|bg|bk|br|drop|from|grid|k|lead|line|nb|pt|v)\b|lad-swap|lad-fixed/);
   // (The level rail keeps its own hatched block: it names the level, not a station.)
   assert.match(pres, /function railBlock\(\)/);
-  assert.match(css, /\.pzs-drop \{/);
+  assert.match(pres, /class: 'pzs-drop', 'data-look': 'card\.drop'/);   // (its look is the table's card.drop)
 });
 
 test('every slide that had the old ladder shows the Gut to heart chart, or keeps its instrument with the readings as tiles', () => {
@@ -49,12 +49,13 @@ test('every slide that had the old ladder shows the Gut to heart chart, or keeps
 test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' profile slides, the HVPG tracing on the drug slides', () => {
   // (Lowering portal pressure's propranolol and carvedilol slides read the HVPG tracing and the percent fall now, not the line: C3, 25 Oct.)
   for (const id of ['prop', 'carv', 'carv-sin']) assert.deepEqual(at('treatment.js', id).tool, { kind: 'hvpg' }, id);
-  for (const id of ['d365', 'carv']) assert.deepEqual(at('ten-years.js', id).tool, { kind: 'hvpg' }, id);
+  // (Ten years' Year 1 and carvedilol slides play the catheter on the figure and their tracing follows it: Mohammad, 5 Nov 2026, "no hvpg catheter or animations".)
+  for (const id of ['d365', 'carv']) { assert.deepEqual(at('ten-years.js', id).tool, { kind: 'hvpg', catheter: true }, id); assert.equal(at('ten-years.js', id).cath, 'result', id); }
   assert.deepEqual(at('ten-years.js', 'rebleed').tool, { kind: 'profile', from: 'bands', fromLabel: 'Year 8' });
   assert.deepEqual(at('ten-years.js', 'tips').tool, { kind: 'profile', from: 'rebleed', fromLabel: 'Before TIPS' });
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
-  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/);
+  assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/, 'the faint line is named as the slide asks');
   assert.match(prof, /\[bf, bfName, 'bf'\]/);
 });
 
@@ -71,7 +72,6 @@ test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tile
 });
 
 test('an older deck\'s ladder slide, an imported deck or a script, shows the Gut to heart chart too', () => {
-  assert.match(pres, /slides = \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.map\(oneLadder\);/);
   assert.match(pres, /ask: st\.ask, tool: \{ kind: 'profile' \}, key: st\.key \|\| \[\],/, 'an instructor\'s script');
   // (The test decks still written with the old field come out as the built-in slides do.)
   const demo = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
@@ -92,7 +92,7 @@ test('the profile\'s HVPG and PPG brackets round the true values, never the diff
   const src = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src, /wholeGap/);
   assert.doesNotMatch(readFileSync(new URL('../src/engine/gap.js', import.meta.url), 'utf8'), /wholeGap/, 'the whole-number gap is gone');
-  assert.match(src, /const v = shown\[k\], rate = RATE\[k\]\(v\)\[0\];/);
-  assert.match(src, /HVPG \$\{whole\(shown\.hvpg\)\}, PPG \$\{whole\(shown\.ppg\)\}/);
+  assert.match(src, /const b = m\.br\[r\], v = shown\[b\.key\], vi = whole0\(v\)/);
+  assert.match(src, /HVPG \$\{whole\(goal\.hvpg\)\}, PPG \$\{whole\(goal\.ppg\)\}/);
   assert.match(src, /return \{ v, hvpg: fp\.hvpg, ppg: fp\.ppg \};/);
 });

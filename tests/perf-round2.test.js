@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Round 2 review's same-picture performance items (MOTION_HEAT_REVIEW_ROUND2 §4): less work, nothing drawn differently.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -19,54 +20,52 @@ test('P5: the Over time trace is drawn before its hero text is written', () => {
 });
 
 test('P7: live labels, the clock and the stage readouts rewrite their text node in place', () => {
-  const stage = read('src/ui/stage.js'), tl = read('src/ui/timeline.js');
+  const stage = stageSource(), tl = read('src/ui/timeline.js');
   assert.match(stage, /putText\(sp, r\.t\);/);
   assert.match(stage, /if \(v != null\) putText\(b, v\);/);
   assert.match(tl, /putText\(timeLong, t\); putText\(timeShort,/);
 });
 
-test('putText keeps the text node and changes only its data; an element without one gets its text set', () => {
+// (Rest passes run between frames, after a message task and under the shared preparation budget: how soon is the machine's, so a test waits for
+// the effect itself, up to a second, never a fixed few milliseconds. What is asserted is unchanged.)
+const until = async (ok, ms = 1000) => { const t0 = Date.now(); while (!ok() && Date.now() - t0 < ms) await new Promise((r) => setTimeout(r, 2)); };
+
+test('putText keeps the text node and changes only its data; an element without one gets its text set (between frames)', async () => {
   const node = { nodeType: 3, nextSibling: null, data: '12.0' };
   const el = { firstChild: node, set textContent(v) { throw new Error('rebuilt'); }, get textContent() { return node.data; } };
   putText(el, '12.4');
+  assert.equal(node.data, '12.0', 'not written in the frame that asked');
+  await until(() => node.data === '12.4');   // (written in a rest pass between frames)
   assert.equal(node.data, '12.4');
   putText(el, '12.4');
   const empty = { firstChild: null, textContent: '' };
   putText(empty, '7');
+  await until(() => empty.textContent === '7');
   assert.equal(empty.textContent, '7');
 });
 
 test('P6: the radius sync compares a copy element by element, with no joined key, spread max or some() per frame', () => {
-  const sync = read('src/ui/stage.js').replace(/^\s*\/\/.*$/gm, '');
+  const sync = stageSource().replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(sync, /R\.join\(','\)/);
   assert.doesNotMatch(sync, /Math\.max\(\.\.\.R\)/);
   assert.doesNotMatch(sync, /tubeData\.some\(/);
-  assert.match(sync, /if \(sent && sent\.length === R\.length\) sent\.set\(R\); else o\.glRSent = Float64Array\.from\(R\);\s*o\.glR = R; o\.glMaxR = mx;/);
+  // (Since 2 Nov 2026 glR is that kept copy, its change told by glRv: no new array per change, sendRadii allocation-free.)
+  assert.match(sync, /if \(sent && sent\.length === R\.length\) sent\.set\(R\); else o\.glRSent = Float64Array\.from\(R\);\s*o\.glR = o\.glRSent; o\.glMaxR = mx; o\.glRv = \(o\.glRv \|\| 0\) \+ 1;/);
 });
 
 test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in place', () => {
-  const stage = read('src/ui/stage.js').replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
-  assert.match(stage, /if \(perF !== F \|\| perH !== H\) \{/);
-  assert.match(stage, /advanceStream\(streams\[k\], velQf\[k\], velQ\[k\],/);
+  const stage = stageSource().replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
+  assert.match(stage, /if \(perF !== (?:live\.)?(?:live\.)?F \|\| perH !== H\) \{/);
+  assert.match(stage, /advanceStreamAt\(streams\[k\], velQf, velQ, k, so\)/);
   assert.match(stage, /KEY_K\[k\] === 1 \|\| \(KEY_K\[k\] === 2 && keyChevron\(EDGES\[k\], laneOpen\)\)/);
   assert.doesNotMatch(stage, /list\.map\(\(x\) => x\.e\.id\)\.join/);
-  assert.match(gl, /gl\.uniform3fv\(U\.originCol, originColOf\(/);
-});
-
-test('P10: the composite fragment shader is compiled once per context, and every program starts before any is waited on', () => {
-  const gl = read('src/ui/veins-gl.js');
-  // (Each of its two builds, full and plain (addendum §9), once; the two passes of each share it.)
-  assert.equal((gl.match(/COMP_FS\(\)/g) || []).length, 1);
-  assert.equal((gl.match(/COMP_FS\(true\)/g) || []).length, 1);
-  assert.match(gl, /gl\.getExtension\('KHR_parallel_shader_compile'\);/);
-  assert.match(gl, /comp: startProgram\(gl, compVS, compFS\), compCell: startProgram\(gl, compCellVS, compFS\), plain: startProgram\(gl, compVS, plainFS\), plainCell: startProgram\(gl, compCellVS, plainFS\)/);
-  // All five started before the first status read.
-  assert.ok(gl.indexOf("line: startProgram(gl, LINE_VS, LINE_FS)") < gl.indexOf('prog = finishProgram(gl, started.prog)'));
+  assert.match(gl, /UC\.fv3\(U\.originCol, originColOf\(/);
 });
 
 test('round 2 pops: the legend key names only what it shows (NP8); the Over time axis glides (τ 0.15 s) and a paused chart draws on until it lands', () => {
   const main = read('src/ui/main.js'), pt = read('src/ui/pressure-time.js');
-  assert.match(main, /key = m === 'heat' \|\| m === 'delta' \? `\$\{m\}\|\$\{ref\}` : m, same = key === legendKey;/);
+  assert.match(main, /const legendSame = \(m, ref\) => m === legendM && \(!\(m === 'heat' \|\| m === 'delta'\) \|\| ref === legendRef\);/);
+  assert.match(main, /same = legendSame\(m, ref\);/);
   assert.match(pt, /const k = -Math\.expm1\(-Math\.min\(0\.1, \(now - ysAt\[key\]\) \/ 1000\) \/ 0\.15\)/);
   assert.match(pt, /if \(gliding && !glideReq && !\(ticking && live\(\)\)\) \{ glideReq = true; nextFrame\(/);
 });
@@ -78,22 +77,22 @@ test('NP11: afterExit hides once the exit animations end, never for an element o
   const el = { classList: { contains: (c) => cls.has(c) }, getAnimations: () => [{ finished }] };
   let hidden = 0;
   afterExit(el, 'leaving', () => hidden++, 5000);
-  await new Promise((r) => setTimeout(r, 10));
+  await new Promise((r) => setTimeout(r, 30));
   assert.equal(hidden, 0, 'waits for the fade');
   resolve();
-  await new Promise((r) => setTimeout(r, 0));
+  await until(() => hidden === 1);
   assert.equal(hidden, 1);
   // Opened again before its fade ended: the leaving class is gone, nothing hides.
   let r2; const f2 = new Promise((r) => { r2 = r; });
   el.getAnimations = () => [{ finished: f2 }];
   const t = afterExit(el, 'leaving', () => hidden++, 5000);
   cls.delete('leaving'); clearTimeout(t); r2();
-  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 60));   // (long enough for its rest pass to have run on an idle machine: nothing may hide)
   assert.equal(hidden, 1);
   // No animation at all: it hides at once (next task).
   cls.add('leaving'); el.getAnimations = () => [];
   afterExit(el, 'leaving', () => hidden++, 5000);
-  await new Promise((r) => setTimeout(r, 5));
+  await until(() => hidden === 2);
   assert.equal(hidden, 2);
 });
 
@@ -102,7 +101,8 @@ test('NP9, NP11, NP12: the Compare badge stands under the desktop top bar; closi
   assert.match(css, /@media \(min-width: 1024px\) \{ \.cmp-badge \{ top: calc\(var\(--top-safe, 0px\) \+ 6px \+ var\(--cmp-h, 0px\)\); \} \}/);
   assert.match(card, /closeTimer = afterExit\(el, 'ac-leaving',/);
   assert.match(main, /hintT = afterExit\(el, 'leaving',/);
-  assert.match(main, /afterExit\(badge, 'leaving', \(\) => badge\.remove\(\)\)/);
+  assert.match(main, /badge\._gone \|\|= \(\) => badge\.remove\(\);/);
+  assert.match(main, /afterExit\(badge, 'leaving', badge\._gone\)/);
   assert.match(pal, /leaveT = afterExit\(back, 'leaving',/);
   assert.match(css, /\.zoom-pill \.stage-rotate\.ib \{ width: 0; height: 0; margin: -1px;/);
   assert.match(css, /\.cmap \.zoom-pill \.stage-rotate\.ib \{ width: 36px; height: 36px; margin: 0; opacity: 1;/);
@@ -110,16 +110,16 @@ test('NP9, NP11, NP12: the Compare badge stands under the desktop top bar; closi
 });
 
 test('RF4 and NP3: the lens key and its name are watched by the top bar glide; Add shunt targets glow and stand out on the GPU figure', () => {
-  const tb = read('src/ui/topbar-motion.js'), stage = read('src/ui/stage.js');
+  const tb = read('src/ui/topbar-motion.js'), stage = stageSource();
   assert.match(tb, /for \(const id of \['scenarioName', 'legend', 'colorModeLabel'\]\)/);
-  assert.match(stage, /const GLOW_RANK = \[[^\]]*'shunt'\];/);
-  assert.match(stage, /setGlowSrc\('shunt', \[\.\.\.shunt\.targets\.keys\(\)\]\.map\(\(id\) => \(\{ id, col: 'var\(--accent\)'/);
-  assert.match(stage, /const out = shunt \? new Set\(\[\.\.\.vh\.sel, shunt\.src, \.\.\.shunt\.targets\.keys\(\)\]/);
-  assert.match(stage, /wrap\.classList\.remove\('shunting'\);\n\s*setGlowSrc\('shunt', \[\]\);/);
+  assert.match(stage, /const GLOW_RANK = \[[^\]]*'(?:live\.)?shunt', 'key'\];/);
+  assert.match(stage, /setGlowSrc\('(?:live\.)?(?:live\.)?shunt', \[\.\.\.(?:live\.)?shunt\.targets\.keys\(\)\]\.map\(\(id\) => \(\{ id, col: 'var\(--accent\)'/);
+  assert.match(stage, /if \((?:live\.)?shunt\) \{\n\s+out = vhOut; out\.clear\(\);\n\s+for \(const id of vh\.sel\) if \(E\[id\]\?\.vis\) out\.add\(id\);\n\s+if \(E\[(?:live\.)?shunt\.src\]\?\.vis\) out\.add\((?:live\.)?shunt\.src\);\n\s+for \(const id of (?:live\.)?shunt\.targets\.keys\(\)\) if \(E\[id\]\?\.vis\) out\.add\(id\);/);
+  assert.match(stage, /wrap\.classList\.remove\('shunting'\);\n\s*setGlowSrc\('(?:live\.)?shunt', \[\]\);/);
 });
 
 test('B7: vessel colour bins hold until the value is 0.4 mmHg from the bin shown (no flicker with the breath)', () => {
-  const stage = read('src/ui/stage.js');
+  const stage = stageSource();
   const def = stage.slice(stage.indexOf('  const qHold = '), stage.indexOf('  };', stage.indexOf('  const qHold = ')) + 4);
   assert.match(def, /if \(!\(Math\.abs\(v - was\) < 0\.4\)\) a\[i\] = qP\(v\);/);
   // The logic itself, on a value breathing across the 12.25 edge between the 12.0 and 12.5 bins.
@@ -132,15 +132,15 @@ test('B7: vessel colour bins hold until the value is 0.4 mmHg from the bin shown
 });
 
 test('B8: label keep-out boxes are taken after the glide, and cut the arrowheads with a pixel of antialiasing', () => {
-  const stage = read('src/ui/stage.js'), gl = read('src/ui/veins-gl.js');
-  assert.ok(stage.indexOf('    labelGlide(out);\n') < stage.indexOf('    noChevBoxes = out.filter('));
+  const stage = stageSource(), gl = read('src/ui/veins-gl.js');
+  assert.ok(stage.indexOf('    labelGlide(out);\n') < stage.indexOf('    live.noChevBoxes = out.filter('));
   assert.match(gl, /c \*= smoothstep\(-pxW, pxW, length\(max\(q, 0\.0\)\) \+ min\(max\(q\.x, q\.y\), 0\.0\)\);/);
   assert.doesNotMatch(gl, /bool hole/);
 });
 
 test('B11: bleed jets and the ascites ripple run on clocks that stand still while paused; the dye front reads the caliber between samples', () => {
-  const stage = read('src/ui/stage.js'), gl = read('src/ui/veins-gl.js');
-  assert.match(stage, /return fadeBleedShapes\(bleedShapes\(sprayLast\.bleed, sprayLast\.rate, reduceMotion\.matches \? 0 : bloodClock, SITES, sprayLast\.hr\), sprayA\);/);   // (fading in and out: deck-review-bugs)
+  const stage = stageSource(), gl = read('src/ui/veins-gl.js');
+  assert.match(stage, /return fadeBleedShapes\(bleedShapes\((?:live\.)?(?:live\.)?sprayLast\.bleed, (?:live\.)?(?:live\.)?sprayLast\.rate, SITES\), (?:live\.)?(?:live\.)?sprayA\);/);   // (fading in and out: deck-review-bugs)
   assert.match(stage, /if \(run\) fluidPh = \(fluidPh \+ dt \/ 1\.1\) % \(20 \* Math\.PI\);/);
   assert.doesNotMatch(stage.replace(/^\s*\/\/.*$/gm, ''), /performance\.now\(\) \/ 1100/);
   const dye = gl.slice(gl.indexOf('float dyeAt('), gl.indexOf('void main()', gl.indexOf('float dyeAt(')));

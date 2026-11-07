@@ -10,14 +10,14 @@
 // every frame), and the slide's readings are the ones the catheter's callouts print. The same card stays up from one such slide to the
 // next (card-keep.js), and the trace carries on from where the last slide left it.
 
-import { createHvpgMonitor } from './hvpg-proc.js?v=870c2a8be4';
-import { T, ease, k01 } from './hvpg-clock.js?v=553551a92a';
-import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
-import { tenthGap } from '../engine/gap.js?v=3aabfbb29b';
+import { createHvpgMonitor } from './hvpg-proc.js';
+import { T, ease, k01 } from './hvpg-clock.js';
+import { frameFor, cancelFrame } from './frame.js';
+import { tenthGap } from '../engine/gap.js';
+import { follow2, SHOWN_TAU } from './display-state.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('tool-hvpg');
-
-const EASE_S = 0.22;
-const REDUCED = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const REDUCED = () => typeof matchMedia === 'function' && reduceMotionMQ.matches;
 /** The readings a card shows from a fingerprint (or the live metrics): the two pressures, and the HVPG as the difference of them as printed. */
 export const levelsOf = (m) => (m && Number.isFinite(m.fhvp) && Number.isFinite(m.whvp) ? { fhvp: m.fhvp, whvp: m.whvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg) } : null);
 /** How long the free sweep lasts before the balloon starts, and the stretch between the balloon being up and the result taking over (ms on the procedure's clock). */
@@ -26,23 +26,33 @@ export const SWEEP_SETTLE_MS = T.callout - T.wedge;
 /** The catheter steps a card can follow (a slide's cath). */
 export const STEPS = ['free', 'wedge', 'result'];
 
+const KEYS = ['fhvp', 'whvp'];
 export function createHvpgCard() {
   const mon = createHvpgMonitor();
   const el = mon.el;
   let target = null, cur = null, pending = 'result', token = 0, raf = 0, last = 0, done = false;
   let step = null, shown = false;   // (step: the catheter step this card follows, null when it plays on its own clock; shown: the card is on a slide now)
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const gone = (my) => my !== token || !el.isConnected;
+  // (A sweep ends when another starts or the card leaves its slide (park), never because the card is off the page a moment: a card zoomed
+  // open, or moved as its slide settles, is put back, and a sweep that gave up there left the tracing stopped at "balloon up" for good.)
+  const gone = (my) => my !== token || !shown;
   // The levels ease to the target on each frame they move; the monitor reads `cur` in place, so a sweep in progress picks them up too.
+  // (On the shown state's filter, display-state.js follow2, premium-feel R4: the bar's and the figure's one clock. curW: its first stage.)
+  const curW = { fhvp: 0, whvp: 0 };   // (kept: written in place; curWOn says it holds a first stage)
+  let curWOn = false;
   function tween(now) {
     raf = 0;
     if (!cur || !target) return;
-    const k = REDUCED() ? 1 : 1 - Math.exp(-Math.min(0.1, Math.max(0, (now - last) / 1000)) / EASE_S);
+    const dt = Math.min(0.1, Math.max(0, (now - last) / 1000));
     last = now;
     let moving = false;
-    for (const key of ['fhvp', 'whvp']) {
-      const d = target[key] - cur[key];
-      if (Math.abs(d) < 0.02) cur[key] = target[key]; else { cur[key] += d * k; moving = true; }
+    if (!curWOn) { curW.fhvp = cur.fhvp; curW.whvp = cur.whvp; curWOn = true; }
+    for (let i = 0; i < KEYS.length; i++) {
+      const key = KEYS[i];
+      if (REDUCED()) { cur[key] = curW[key] = target[key]; continue; }
+      const r = follow2(cur[key], curW[key], target[key], dt, SHOWN_TAU, 0.02);
+      cur[key] = r.v; curW[key] = r.w;
+      if (r.v !== target[key] || r.w !== target[key]) moving = true;
     }
     cur.hvpg = tenthGap(cur.whvp, cur.fhvp, target.hvpg);
     if (done) mon.set('result', cur, 1);
@@ -72,7 +82,7 @@ export function createHvpgCard() {
   }
   function start(how) {
     token++;
-    cur = { ...target };
+    cur = { ...target }; curWOn = false;
     done = false;
     if (how === 'sweep' && !REDUCED()) sweep(token);
     else { done = true; mon.set('result', cur, 1, true); }

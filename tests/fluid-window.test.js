@@ -7,6 +7,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fluidDay, stripWords, stripParts, tugParts, STRIP_GAP, STRIP_MARK } from '../src/ui/tool-fluid.js';
+import { LOOKS } from '../src/ui/chart-looks/index.js';
+import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 
 const perMin = (d) => ({ hep: d.liver / 1440, spl: d.gut / 1440, cap: d.limit / 1440, back: d.back / 1440 });
 const STATES = {
@@ -108,12 +110,12 @@ test('the forces strip: two arrows meeting at the wall, each as long as its pres
   assert.equal(tugParts(-2, 4, 300).push.w, 0, 'a push below zero draws nothing');
 });
 
-test('only the Testing deck\'s four fluid slides draw the strip, with their tiles under the card', () => {
+test('only the Testing deck\'s four fluid slides draw the strip, with their readings in the card\'s header row', () => {
   const deck = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
   assert.equal((deck.match(/"kind": "fluid",\s*"window": true/g) || []).length, 4);
   assert.equal((deck.match(/"kind": "fluid"/g) || []).length, 4);
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/);
+  assert.doesNotMatch(pres, /!\(s\.tool\?\.kind === 'fluid' && s\.tool\.window\)/, 'no tiles stand beside any instrument now (7 Nov 2026)');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(css, /\.gs\[hidden\], \.gs-forces\[hidden\] \{ display: none; \}/, 'hidden really hides the flex rows');
   const ext = readFileSync(new URL('../src/ui/ext-instruments.js', import.meta.url), 'utf8');
@@ -129,9 +131,10 @@ test('the strip draws each part, keys its swatches, and never sets text under 12
   for (const cls of ['gs-car', 'gs-blue', 'gs-shrink', 'gs-build', 'gs-ghost', 'gs-brk', 'gs-wall', 'gs-push', 'gs-pull', 'gs-sw-car', 'gs-sw-back', 'gs-sw-build']) assert.ok(src.includes(cls), `${cls} is built`);
   assert.match(src, /swBack\.classList\.toggle\('none'/); assert.match(src, /swBuild\.classList\.toggle\('down'/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.gs-ghost \{[^}]*dashed/);
+  // (the room's dashed outline is the table's: chart-looks/fluid.js 'fluid.seg.ghost')
+  assert.deepEqual(resolveProps(LOOKS['fluid.seg.ghost'], withCtx(makeCtx({ host: 'fluid' }), { theme: 'light', dark: false }), {}, {}).dash, [3, 2.5]);
   assert.match(css, /\.gs-sw\.none \{[^}]*dashed/);
-  assert.match(css, /--gs-fs: max\(var\(--fs-12\), calc\(12px \/ \(var\(--pz-fit, 1\) \* var\(--pz-dk, 1\)\)\)\)/, 'the text size holds 12 px on the screen after the card\'s zoom');
+  assert.match(css, /--gs-fs: var\(--fs-12\)/, 'the text size is the card\'s 12 px (the strip is not zoomed)');
   const px = [...css.matchAll(/\.gs[\w-]*[^{}]*\{[^}]*font-size: (\d+(?:\.\d+)?)px/g)].map((m) => +m[1]);
   assert.ok(px.every((n) => n >= 12), 'no text under 12 px in the card');
   assert.match(css, /\[data-kind="fluid"\] \{ width: 100%; \}/, 'the strip fills the card\'s width, as a monitor does');
@@ -157,4 +160,36 @@ test('the data card sets its title and the footer\'s copy of it through the unit
   assert.match(css, /\.pz-unit \{ text-transform: none; letter-spacing: normal; \}/, 'the unit is not upper-cased and takes no caps spacing');
   assert.match(css, /\.pz-dh \{[^}]*text-transform: uppercase/, 'the rest of the header stays in capitals');
   assert.match(css, /\.pz-sub \{[^}]*text-transform: uppercase/, '(and the folded title)');
+});
+
+// 2 Nov 2026 (move instruments and charts to the GPU): the strip's parts are outlines the GPU draws, points written in place (tool-fluid.js partPts),
+// not pieces the page slides; a frame writes no style and makes no string.
+test('a strip part\'s outline: rounded or pointed ends, shortened together under its two ends, nothing when it has no length', async () => {
+  const { partPts } = await import('../src/ui/tool-fluid.js');
+  const b = new Float64Array(64), em = 14;
+  const box = (n) => { let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; for (let i = 0; i < n; i++) { x0 = Math.min(x0, b[2 * i]); x1 = Math.max(x1, b[2 * i]); y0 = Math.min(y0, b[2 * i + 1]); y1 = Math.max(y1, b[2 * i + 1]); } return { x0, x1, y0, y1 }; };
+  // rounded both ends: the outline fills exactly x .. x + w and the bar's height, every number finite
+  let n = partPts(b, 10, 100, 0, 17.5, 0.4 * em, 0.4 * em, 0, 0);
+  assert.equal(n, 28);
+  let r = box(n);
+  assert.ok(Math.abs(r.x0 - 10) < 1e-9 && Math.abs(r.x1 - 110) < 1e-9 && r.y0 === 0 && Math.abs(r.y1 - 17.5) < 1e-9);
+  for (let i = 0; i < 2 * n; i++) assert.ok(Number.isFinite(b[i]));
+  // a point at the right: its apex is the middle of the bar, at x + w, its base 0.7 em back
+  n = partPts(b, 0, 100, 0, 17.5, 0.4 * em, 0.7 * em, 0, 1);
+  const apex = []; for (let i = 0; i < n; i++) if (Math.abs(b[2 * i] - 100) < 1e-9) apex.push(b[2 * i + 1]);
+  assert.ok(apex.some((y) => Math.abs(y - 8.75) < 1e-9), 'the point sits at the middle');
+  assert.ok(Math.abs(Math.max(...Array.from({ length: n }, (_, i) => b[2 * i])) - 100) < 1e-9, 'and goes no further');
+  // shorter than its two ends: both shrink together, the outline still inside its length
+  n = partPts(b, 5, 6, 0, 17.5, 0.4 * em, 0.4 * em, 0, 0);
+  r = box(n);
+  assert.ok(r.x0 >= 5 - 1e-9 && r.x1 <= 11 + 1e-9);
+  assert.equal(partPts(b, 0, 0, 0, 17.5, 5, 5, 0, 0), 0, 'no length, no outline');
+});
+
+test('the strip and the forces strip are drawn by the GPU picture: no style written to a piece in a frame', () => {
+  const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
+  assert.match(src, /const glStrip = createSvgGL\(plate, \{ host: 'fluid' \}\)/); assert.match(src, /const glTug = createSvgGL\(tug, \{ host: 'fluid' \}\)/);
+  const frame = src.slice(src.indexOf('function draw()'), src.indexOf('function tick('));
+  assert.ok(frame.length > 500 && !/\.style\b/.test(frame), 'draw() writes no style');
+  assert.doesNotMatch(src, /num-words/, 'no table of CSS words: the pieces are points');
 });

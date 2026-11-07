@@ -2,21 +2,25 @@
 // the action card beside a selected structure, the Treat section of the patient chart, the command
 // palette and the presenter all call these same verbs, so each change is made one way and lands
 // in the timeline as one entry.
+//
+// The cards are made once, when this module loads (the catalogue at the foot of the file): a card is a fixed description of a
+// structure's verbs, whose readings are functions of the model frame, so choosing a structure looks its card up and a frame reads
+// it, and nothing here is built while the app runs. What a frame reads is written in place (see steady, the stats' cells below).
 
-import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js?v=4044766e96';
-import { dopplerVel, flowReversed } from './velNormal.js?v=97920ddf3f';
-import { store, updateParams, hiddenNow } from './store.js?v=926dabfaef';
-import { fmt, fmtFlow, clamp } from './util.js?v=58b547f8d4';
-import { PREGNANCY_INFO } from '../engine/scenario.js?v=d7d3ea5b70';
-import { aboutVessel, aboutOrgan } from './about.js?v=9634eaf1f7';
-import { lobuleState } from './lobule-model.js?v=4dfd9a9929';
-import { oxygenFor } from './blood.js?v=7fa561f952';
-import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js?v=48cc98d415';
+import { EDGES, NODES, SHUNT_PORTAL, SHUNT_SYSTEMIC, dMinOf, edgePresent, isStent, stentSite } from '../engine/topology.js';
+import { dopplerVel, flowReversed } from './velNormal.js';
+import { store, updateParams, hiddenNow } from './store.js';
+import { fmt, fmtFlow, clamp } from './util.js';
+import { PREGNANCY_INFO } from '../engine/scenario.js';
+import { aboutVessel, aboutOrgan } from './about.js';
+import { lobuleState } from './lobule-model.js';
+import { oxygenFor } from './blood.js';
+import { LABEL_VESSEL, SIN_EDGES } from './anatomy.js';
 
 export const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 export const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 
-const pct = (v) => `${Math.round(v * 100)} %`;
+const pct = (v) => `${Math.round(v * 100)}%`;
 const mult = (v) => `×${v.toFixed(v < 10 ? 1 : 0)}`;
 const weeks = (v) => (v > 0 ? `${Math.round(v)} weeks` : 'Not pregnant');
 const HEP_VEIN = { RHV_IVC: 'R', POST_R_RHV: 'R', MHV_IVC: 'M', POST_R_MHV: 'M', POST_L_MHV: 'M', LHV_IVC: 'L', POST_L_LHV: 'L' };
@@ -31,40 +35,104 @@ const NODE_SEL = {
   SIN_R: ['edge', 'SIN_RR'], SIN_L: ['edge', 'SIN_LL'], CV_R: ['organ', 'liver'], CV_L: ['organ', 'liver'], HA: ['organ', 'liver'],
   RA: ['organ', 'heart'], VAR: ['organ', 'varices'], GV: ['organ', 'gastric'], STO: ['organ', 'gastric'], SPL: ['organ', 'spleen'], EPI: ['organ', 'abdomen'],
 };
+// What a station or a vessel stands for, made once (they are fixed): the selections normalizeSel hands back are these objects, which no
+// caller changes. A vessel that stands for itself is handed back as it came.
+const NORM_NODE = new Map(), NORM_EDGE = new Map();
+for (const id of Object.keys(WEDGE_OF)) NORM_NODE.set(id, { type: 'edge', id: WEDGE_OF[id] });
+for (const id of Object.keys(NODE_SEL)) {
+  if (NORM_NODE.has(id)) continue;
+  const m = NODE_SEL[id];
+  NORM_NODE.set(id, m[0] === 'edge' ? { type: 'edge', id: m[1] } : { type: 'organ', id: m[1] });
+}
+for (const e of EDGES) {
+  // A central vein that runs into a hepatic vein is that hepatic vein to the eye: it opens the vein's card and frames it.
+  if (POST_TO_HV[e.id]) NORM_EDGE.set(e.id, { type: 'edge', id: POST_TO_HV[e.id] });
+  // The drawn sinusoids are a vessel of their own, each side its own target; the liver's other micro-vessels are the liver.
+  else if (e.kind === 'liver' && !SIN_EDGES.has(e.id)) NORM_EDGE.set(e.id, { type: 'organ', id: 'liver', lobe: e.lobe === 'L' ? 'L' : e.lobe === 'R' ? 'R' : null, zone: e.zone });
+}
 /** The structure a selection stands for (liver micro-vessels are the liver; stations their vessel). */
 export function normalizeSel(sel) {
   if (!sel) return null;
-  if (sel.type === 'node') {
-    if (WEDGE_OF[sel.id]) return { type: 'edge', id: WEDGE_OF[sel.id] };
-    const m = NODE_SEL[sel.id];
-    return m ? (m[0] === 'edge' ? { type: 'edge', id: m[1] } : { type: 'organ', id: m[1] }) : null;
-  }
+  if (sel.type === 'node') return NORM_NODE.get(sel.id) || null;
   if (sel.type === 'edge') {
     const e = EDGES[EI[sel.id]];
     if (!e) return null;
-    // A central vein that runs into a hepatic vein is that hepatic vein to the eye: it opens the vein's card and frames it.
-    if (POST_TO_HV[e.id]) return { type: 'edge', id: POST_TO_HV[e.id] };
-    // The drawn sinusoids are a vessel of their own, each side its own target; the liver's other micro-vessels are the liver.
-    if (e.kind === 'liver' && !SIN_EDGES.has(e.id)) return { type: 'organ', id: 'liver', lobe: e.lobe === 'L' ? 'L' : e.lobe === 'R' ? 'R' : null, zone: e.zone };
+    return NORM_EDGE.get(e.id) || sel;
   }
   return sel;
 }
 
-/**
- * Build the action-card model for a selection.
- * ctx: { action, showPane, probe, startShunt, canShunt, select, zoomLobule, paneApi }
- */
-export function cardFor(selIn, ctx) {
-  const sel = normalizeSel(selIn);
-  if (!sel) return null;
-  if (sel.type === 'lobule') return lobuleCard(sel, ctx);
-  if (sel.type === 'organ') {
-    const c = organCard(sel, ctx);
-    c?.verbs.unshift({ type: 'about', text: (f) => aboutOrgan(sel.id, f, store.get()) });
-    return c;
+// ── What a frame reads of a card ───────────────────────────────────────────
+// The card's context (card.js builds it once and passes the same one on every call): the verbs reach it here, when pressed.
+let CTX = null;
+
+// The text of a reading is made again only when what it prints changes, not at every new number: a cell holds the key the text was
+// made from (x, and y where two things make it) and the text. A key that is NaN never matches, so that reading is made afresh.
+// The tenth: what fmt's one decimal prints is the number in tenths, unless it lies within a hair of a tie (where toFixed's exact
+// decimal expansion, not the product, decides), or is too large to say, or is not a number: then NaN.
+function tenth(x) {
+  if (typeof x !== 'number') return NaN;   // (fmt prints a missing number as a dash, not as 0.0)
+  const y = x * 10;
+  if (!(y > -1e9 && y < 1e9)) return NaN;
+  const k = Math.round(y);
+  return Math.abs(y - k) > 0.499999 ? NaN : k;
+}
+const memoKey = (c, k, x, make) => { if (c.x !== k) { c.x = k; c.s = make(x); } return c.s; };
+const memoTenth = (c, x, make) => memoKey(c, tenth(x), x, make);
+const pctOf = (c, x) => memoKey(c, Math.round(x * 100), x, pct);   // (pct prints Math.round(v * 100): the same key)
+function fixedText(c, x, unit) { const k = tenth(x); if (c.x !== k) { c.x = k; c.s = `${fmt(x, 1)} ${unit}`; } return c.s; }
+// fmtFlow prints a small real flow as "< 0.1", so a flow in that band is one key of its own (by sign), as fmtFlow cuts it.
+const TRICKLE = 1e12;
+function flowText(c, x) {
+  const a = Math.abs(x), k = a > 0.0005 && a < 0.05 ? (x < 0 ? -TRICKLE : TRICKLE) : tenth(x);
+  if (c.x !== k) { c.x = k; c.s = `${fmtFlow(x)} L/min`; }
+  return c.s;
+}
+const newCell = () => ({ x: NaN, y: NaN, s: '' });
+/** A readout row of the card: its text is worked out by text(f, cell) from the frame. */
+function stat(label, text) { const c = newCell(); return { type: 'stat', label, value: (f) => text(f, c) }; }
+
+// A reading ({ v, u, d, up }: the number, its unit, its change from the reference and whether that is up) is kept in two objects
+// per card, one the card shows and one spare: card.js holds on to the reading it last drew (to roll the number to the next), so a
+// reading is only ever written into the spare, and only when it is not the one shown. Between changes the same object comes back.
+const newHold = () => ({ cur: { v: null, u: null, d: null, up: false }, spare: { v: null, u: null, d: null, up: false }, pc: newPCell() });
+function steady(h, s) {
+  const c = h.cur, d = s.d ?? null, up = !!s.up;
+  if (c.v === s.v && c.u === s.u && c.d === d && c.up === up) return c;
+  const n = h.spare;
+  n.v = s.v; n.u = s.u; n.d = d; n.up = up;
+  h.spare = c; h.cur = n;
+  return n;
+}
+const S = { v: '', u: '', d: null, up: false };   // (a reading being worked out; the next one overwrites it)
+// A pressure and its change from the reference r (none when r is null or undefined) into S: the texts are made again only when what
+// they print changes (the tenth of P; whether the change reaches 1, its sign and its tenth), and whether P is above r.
+const newPCell = () => ({ kP: NaN, kD: NaN, up: false, v: '', d: null, on: false });
+// (The change shows from 1 and goes below 0.8: a pressure that beats about 1 mmHg from the reference does not make the change come and go
+// with each beat. Its coming and going lays the card's header out again, a line taller or shorter, and every row under it moves.)
+function partsP(c, P, r) {
+  const kP = tenth(P), dd = P - r, ad = Math.abs(dd);
+  const on = r != null && (ad >= 1 || (c.on && ad >= 0.8));
+  const kD = on ? (dd > 0 ? 1 : -1) * (tenth(ad) + 1) : 0;
+  const up = r != null && P > r;
+  if (kP !== c.kP || kD !== c.kD || up !== c.up) {
+    c.v = fmt(P, 1);
+    c.d = on ? signed(dd, fmt(ad, 1)) : null;
+    c.kP = kP; c.kD = kD; c.up = up;
   }
-  const e = EDGES[EI[sel.id]];
-  if (!e || e.kind === 'wedge') return null;
+  c.on = on;
+  S.v = c.v; S.d = c.d; S.up = up;
+}
+// A card's pressure reading at one unit.
+function readP(h, P, r, u) { partsP(h.pc, P, r); S.u = u; return steady(h, S); }
+function plain(h, v, u) { S.v = v; S.u = u; S.d = null; S.up = false; return steady(h, S); }
+
+const ST_STAGNANT = ['warn', 'Stagnant'], ST_REVERSED = ['rev', 'Reversed flow'], ST_OK = ['ok', 'Physiological direction'];
+const ST_BLEEDING = ['bad', 'Bleeding'], ST_WALE = ['warn', 'Red wale signs'], ST_CONGESTED = ['warn', 'Congested'];
+const NONE = [];
+
+const HEP_ART = new Set(['A_HEP', 'A_HR', 'A_HL']);
+function buildEdgeCard(e) {
   const id = e.id, k = EI[id];
   const verbs = [];
   const isColl = e.kind === 'collateral', isShunt = e.kind === 'shunt', isArt = e.kind === 'artery' || e.kind === 'arteriole';
@@ -74,32 +142,41 @@ export function cardFor(selIn, ctx) {
   const clot = { type: 'slider', id: 'clot', key: 'thrombus', label: 'Clot', icon: 'clot', min: 0, max: 1, step: 0.01, format: pct, def: 0,
     get: (p) => p.thrombus[id] || 0, set: (p, v) => { if (v <= 0.004) delete p.thrombus[id]; else p.thrombus[id] = +v.toFixed(2); }, hist: `${e.label}: thrombus`,
     info: 'Occlusive thrombus. With anticoagulation it recanalizes slowly on the disease clock.' };
-  const doppler = { type: 'button', id: 'doppler', label: 'Doppler', icon: 'doppler', run: () => { ctx.probe(id); ctx.showPane('doppler'); ctx.select(null); } };
-  const shunt = ctx.canShunt(id) ? { type: 'button', id: 'shunt', label: 'Add shunt', icon: 'stent', run: () => ctx.startShunt(id) } : null;
+  const doppler = { type: 'button', id: 'doppler', label: 'Doppler', icon: 'doppler', run: () => { CTX.probe(id); CTX.showPane('doppler'); CTX.select(null); } };
+  // (Shown on a portal vessel or a systemic vein that can start a shunt; the context says which.)
+  const shunt = { type: 'button', id: 'shunt', label: 'Add shunt', icon: 'stent', showIf: () => CTX.canShunt(id), run: () => CTX.startShunt(id) };
   let kicker, why = 'pv';
   if (isArt) {
     kicker = 'Artery';
-    verbs.push({ type: 'stat', label: 'Flow', value: (f) => `${fmtFlow(f.Q[k] * 0.06)} L/min` });
+    verbs.push(stat('Flow', (f, c) => flowText(c, f.Q[k] * 0.06)));
+    // The hepatic artery and its two branches are full vessels, as the veins are: narrow it, clot it, stent it open, read its Doppler.
+    if (HEP_ART.has(id)) {
+      const open = (p) => (p.stenosis[id] || 0) > 0 || (p.thrombus[id] || 0) > 0;
+      verbs.push(narrow, clot);
+      verbs.push({ type: 'button', id: 'stent', label: 'Stent open', icon: 'stent', showIf: () => open(store.get().params),
+        run: () => updateParams((p) => { delete p.stenosis[id]; delete p.thrombus[id]; return p; }, { label: `${e.label}: stented open` }) });
+      verbs.push(doppler);
+    }
   } else if (isColl) {
     kicker = `Collateral · ${e.code || id}`; why = 'shunt';
-    verbs.push({ type: 'stat', label: 'Recruitment', value: (f) => `${Math.round(clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1) * 100)} %` });
+    verbs.push(stat('Recruitment', (f, c) => pctOf(c, clamp(((f.slow.dEff?.[id] ?? f.slow.d[id]) - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1))));
     verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: id === 'C5' ? 'Occlude (BRTO)' : 'Occlude (plug)', icon: 'occlude',
       get: (p) => !!p.occluded[id], set: (p, v) => { if (v) p.occluded[id] = true; else delete p.occluded[id]; }, hist: `${e.label}: occlusion` });
     if (e.spontaneous || e.variant) verbs.push({ type: 'toggle', id: 'variant', key: 'spontaneous', label: 'Present in this patient', get: (p) => edgePresent(e, p), set: (p, v) => { p.spontaneous[id] = v; }, hist: `${e.label} present` });
-    if (id === 'C1a' || id === 'C1b') verbs.push(...varixVerbs('eso', ctx));
-    if (id === 'C2' || id === 'C5') verbs.push(...varixVerbs('gas', ctx));
+    if (id === 'C1a' || id === 'C1b') verbs.push(...VARIX_ESO);
+    if (id === 'C2' || id === 'C5') verbs.push(...VARIX_GAS);
     verbs.push(doppler);
   } else if (isShunt) {
     kicker = 'Shunt'; why = 'shunt';
     if (id === 'TIPS' || id === 'DIPS') {
       const k = id.toLowerCase();   // the stent's params key: tips or dips
-      verbs.push({ type: 'slider', id: 'diameter', key: k, label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,
+      verbs.push({ type: 'slider', id: 'diameter', key: k, label: 'Stent diameter', min: 6, max: 12, step: 0.5, def: 8, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work)
         get: (p) => p[k].d, set: (p, v) => { p[k].d = v; }, hist: `${id} diameter`, info: 'Resistance ∝ 1/d⁴: an 8 mm stent has well under half the conductance of a 10 mm one.' });
-      verbs.push({ type: 'button', id: 'remove', key: k, label: `Remove ${id}`, icon: 'close', danger: true, run: () => { updateParams({ [k]: { on: false } }, { label: `Remove ${id}` }); ctx.select(null); } });
+      verbs.push({ type: 'button', id: 'remove', key: k, label: `Remove ${id}`, icon: 'close', danger: true, run: () => { updateParams({ [k]: { on: false } }, { label: `Remove ${id}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     } else if (e.shunt === 'custom') {
-      verbs.push({ type: 'slider', id: 'diameter', key: 'customShunts', label: 'Shunt diameter', min: 4, max: 16, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,
-        get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, hist: `${e.label} diameter` });
-      verbs.push({ type: 'button', id: 'remove', key: 'customShunts', label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams((p) => { const c = { ...(p.customShunts || {}) }; delete c[id]; p.customShunts = c; return p; }, { label: `Remove ${e.label}` }); ctx.select(null); } });
+      verbs.push({ type: 'slider', id: 'diameter', key: 'customShunts', label: 'Shunt diameter', min: 4, max: 16, step: 0.5, def: 10, format: (v) => `${v.toFixed(1)} mm`,   // alloc-rare: the slider's number label, made on the slider's own input event (a drag moves it at pointer rate, not a frame's work)
+        get: (p) => p.customShunts?.[id] || 10, set: (p, v) => { p.customShunts = { ...(p.customShunts || {}), [id]: v }; }, hist: `${e.label} diameter` });   // alloc-rare: the slider's setter, run on the slider's own input event, once per pointer move, never in a frame
+      verbs.push({ type: 'button', id: 'remove', key: 'customShunts', label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams((p) => { const c = { ...(p.customShunts || {}) }; delete c[id]; p.customShunts = c; return p; }, { label: `Remove ${e.label}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     }
     // A stent narrows at a short pinch in one of the segments Doppler samples: proximal (portal end), mid or distal.
     if (isStent(e)) {
@@ -108,44 +185,44 @@ export function cardFor(selIn, ctx) {
         options: [['proximal', 'Proximal'], ['mid', 'Mid'], ['distal', 'Distal']], get: () => stentSite(store.get().params, id),
         set: (val) => updateParams((p) => { p.stenosisSite = { ...(p.stenosisSite || {}), [id]: val }; return p; }, { label: `${e.label} narrowing: ${val}` }) });
     }
-    if (['S_PC', 'S_DSR', 'S_MC'].includes(id)) {
-      const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval' }[id];
-      verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams({ [key]: false }, { label: `Remove ${e.label}` }); ctx.select(null); } });
+    if (['S_PC', 'S_DSR', 'S_MC', 'REX'].includes(id)) {
+      const key = { S_PC: 'portocaval', S_DSR: 'dsrs', S_MC: 'mesocaval', REX: 'rex' }[id];
+      verbs.push({ type: 'button', id: 'remove', key, label: 'Take down shunt', icon: 'close', danger: true, run: () => { updateParams({ [key]: false }, { label: `Remove ${e.label}` }); CTX.select(null); } });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
     }
     verbs.push(doppler);
   } else if (SIN_EDGES.has(id)) {
     // Each side's sinusoids: their own card, read at the station, with the liver's cirrhosis and its lobule.
     kicker = 'Liver microcirculation'; why = 'hvpg';
-    verbs.push({ type: 'stat', label: 'Flow', value: (f) => `${fmtFlow(bedStats(e, f).q)} L/min` });
-    verbs.push({ type: 'stat', label: 'Drop to central vein', value: (f) => `${fmt(bedStats(e, f).dp, 1)} mmHg` });
-    verbs.push({ type: 'stat', label: 'Resistance', value: (f) => { const r = bedStats(e, f).r; return r == null ? '—' : `${fmt(r, 1)} mmHg·min/L`; } });
-    verbs.push(...organCard({ type: 'organ', id: 'liver' }, ctx).verbs);
+    verbs.push(stat('Flow', (f, c) => flowText(c, bedStats(e, f).q)));
+    verbs.push(stat('Drop to central vein', (f, c) => fixedText(c, bedStats(e, f).dp, 'mmHg')));
+    verbs.push(stat('Resistance', (f, c) => { const r = bedStats(e, f).r; return r == null ? '—' : fixedText(c, r, 'mmHg·min/L'); }));
+    verbs.push(...ORGAN_BASE.get('liver').verbs);
   } else {
     kicker = SHUNT_PORTAL.includes(e.from) || SHUNT_PORTAL.includes(e.to) ? 'Vein · portal system' : 'Vein · systemic';
     if (HEP_VEIN[id]) { kicker = 'Hepatic vein'; why = 'hvpg'; }
     if (['PV_TRUNK', 'SMV_CONF', 'SV_CONF', 'PVH_R', 'PVH_L'].includes(id)) why = 'pvFlow';
     verbs.push(narrow, clot);
     verbs.push(doppler);
-    if (shunt) verbs.push(shunt);
-    if (id === 'SV_CONF' || id === 'SV_MID' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => ctx.select({ type: 'organ', id: 'spleen' }) });
+    verbs.push(shunt);
+    if (id === 'SV_CONF' || id === 'SV_MID' || id === 'V_SPL') verbs.push({ type: 'link', label: 'Spleen', run: () => CTX.select({ type: 'organ', id: 'spleen' }) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
   }
   // Dye into this vessel, beside Doppler: a few seconds a press, or as long as it is held.
-  if (ctx.injectDye && !SIN_EDGES.has(id)) {
-    const dye = { type: 'dye', id: 'dye', label: 'Inject dye', icon: 'drop', run: (o) => ctx.injectDye(id, o), release: () => ctx.releaseDye(), busy: () => ctx.dyeInjecting(), showIf: () => ctx.canDye?.() !== false };
+  if (!SIN_EDGES.has(id)) {
+    const dye = { type: 'dye', id: 'dye', label: 'Inject dye', icon: 'drop', run: (o) => CTX.injectDye(id, o), release: () => CTX.releaseDye(), busy: () => CTX.dyeInjecting(), showIf: () => !!CTX.injectDye && CTX.canDye?.() !== false };
     const at = verbs.indexOf(doppler);
     if (at >= 0) verbs.splice(at + 1, 0, dye); else verbs.push(dye);
   }
   verbs.unshift({ type: 'about', text: (f) => aboutVessel(e, f, store.get()) });
   return {
-    key: 'e:' + id, sel, kicker, title: e.label, why, edge: id, verbs,
+    key: 'e:' + id, sel: NORM_EDGE.get(id) || { type: 'edge', id }, kicker, title: e.label, why, edge: id, verbs,
     value: (f, lens, ref) => edgeValue(e, f, lens, ref, true),
     status: (f) => {
       if (isArt) return null;
       const q = f.Qf ? f.Qf[k] : f.Q[k];
       const refQ = store.get().healthy?.Q?.[k] ?? 1;
-      if (Math.abs(q) < 0.05) return ['warn', 'Stagnant'];
-      if (q < -Math.max(0.12, 0.02 * Math.abs(refQ))) return ['rev', 'Reversed flow'];
-      return ['ok', 'Physiological direction'];
+      if (Math.abs(q) < 0.05) return ST_STAGNANT;
+      if (q < -Math.max(0.12, 0.02 * Math.abs(refQ))) return ST_REVERSED;
+      return ST_OK;
     },
   };
 }
@@ -157,70 +234,99 @@ export function cardFor(selIn, ctx) {
 // its ends is a pressure found nowhere in it.
 const STATION_OF = Object.fromEntries(Object.entries(LABEL_VESSEL).map(([n, e]) => [e, n]));
 const signed = (d, txt) => `${d > 0 ? '+' : '−'}${txt}`;
-export function edgeValue(e, f, lens, ref, range = false) {
+const EV = { v: '', u: '', d: null, up: false };   // (the reading edgeValue hands back: written afresh by every call)
+const CARD_HOLD = newHold();   // (the vessel card's reading, kept as steady keeps it)
+const PRESS_CELL = newPCell();   // (the pressure lens's texts, made again only when what they print changes)
+const SAT_TEXT = Array.from({ length: 101 }, (_, i) => String(i));
+const satPct = (s) => { const i = Math.round(s * 100); return SAT_TEXT[i] ?? String(i); };
+function edgeReading(e, f, lens, ref, range) {
   const k = EI[e.id], PF = f.Pf || f.P, st = STATION_OF[e.id];
   const P1 = PF[NI[e.from]], P2 = PF[NI[e.to]], P = st ? PF[NI[st]] : (P1 + P2) / 2;
   const q = (f.Qf ? f.Qf[k] : f.Q[k]) * 0.06;
   if (lens === 'flow') {
     const r = store.get().healthy?.Q?.[k];
     const d = r != null && Math.abs(r) > 0.3 ? ((Math.abs(q) - Math.abs(r * 0.06)) / Math.abs(r * 0.06)) * 100 : null;
-    return { v: fmtFlow(Math.abs(q)), u: 'L/min', d: d != null && Math.abs(d) >= 5 ? signed(d, `${Math.round(Math.abs(d))} %`) : null, up: d > 0 };
+    EV.v = fmtFlow(Math.abs(q)); EV.u = 'L/min'; EV.d = d != null && Math.abs(d) >= 5 ? signed(d, `${Math.round(Math.abs(d))}%`) : null; EV.up = d > 0;
+    return EV;
   }
-  if (lens === 'velocity' && e.kind === 'liver') return { v: '—', u: 'cm/s' };   // a lumped bed has no one velocity
+  if (lens === 'velocity' && e.kind === 'liver') { EV.v = '—'; EV.u = 'cm/s'; EV.d = null; EV.up = false; return EV; }   // a lumped bed has no one velocity
   // Velocity reads as Doppler does (peak, see dopplerK), so it matches the figure callouts and the Doppler monitor.
-  if (lens === 'velocity') return { v: fmt(Math.abs(dopplerVel(f, k)), 0), u: 'cm/s' };
-  if (lens === 'drop') return { v: fmt(P1 - P2, 1), u: 'mmHg drop' };
+  if (lens === 'velocity') { EV.v = fmt(Math.abs(dopplerVel(f, k)), 0); EV.u = 'cm/s'; EV.d = null; EV.up = false; return EV; }
+  if (lens === 'drop') { EV.v = fmt(P1 - P2, 1); EV.u = 'mmHg drop'; EV.d = null; EV.up = false; return EV; }
   // Oxygen saturation of the blood leaving the vessel (an artery's as it enters its bed); the sinusoids read in → out.
   if (lens === 'oxygen') {
     const o = oxygenFor(EDGES, NODES, f).edge, up = q >= 0 ? 2 * k : 2 * k + 1, dn = q >= 0 ? 2 * k + 1 : 2 * k;
-    const pc = (s) => String(Math.round(s * 100));
     const a = o[up], b = e.kind === 'artery' || e.kind === 'arteriole' ? o[up] : o[dn];
-    return { v: Math.abs(a - b) >= 0.005 ? `${pc(a)} → ${pc(b)}` : pc(b), u: '% O₂ saturation' };
+    EV.v = Math.abs(a - b) >= 0.005 ? `${satPct(a)} → ${satPct(b)}` : satPct(b); EV.u = '% O₂ saturation'; EV.d = null; EV.up = false;
+    return EV;
   }
   const p = store.get().params;
   if (range && (p?.thrombus?.[e.id] > 0 || p?.stenosis?.[e.id] > 0)) return { v: `${fmt(P1, 1)} → ${fmt(P2, 1)}`, u: 'mmHg' };
   // The change from the reference reads as the figure's callouts do: signed, one decimal, in the reading's colour.
   const r = ref ? (st ? ref[NI[st]] : (ref[NI[e.from]] + ref[NI[e.to]]) / 2) : null;
-  return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null, up: r != null && P > r };
+  partsP(PRESS_CELL, P, r);
+  EV.v = S.v; EV.u = 'mmHg'; EV.d = S.d; EV.up = S.up;
+  return EV;
+}
+/** A vessel's reading { v, u, d, up }. The object is reused: it is only good until the next call (the hover tip reads .v at once). On the
+ *  vessel card (range) it is the card's own pair of kept readings, steady between changes, as card.js keeps the one it drew. */
+export function edgeValue(e, f, lens, ref, range = false) {
+  const r = edgeReading(e, f, lens, ref, range);
+  return range ? steady(CARD_HOLD, r) : r;
 }
 
 // A capillary bed (each side's sinusoids) is lumped in the model: no one diameter or velocity, so it reads as its
 // flow, the pressure it drops from the portal venules' end to the central vein, and its resistance (ΔP / Q).
+// (The object is reused: good until the next call.)
+const BED = { q: 0, dp: 0, r: null };
 export function bedStats(e, f) {
   const k = EI[e.id], PF = f.Pf || f.P, q = Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06, dp = PF[NI[e.from]] - PF[NI[e.to]];
-  return { q, dp, r: q > 0.005 ? dp / q : null };
+  BED.q = q; BED.dp = dp; BED.r = q > 0.005 ? dp / q : null;
+  return BED;
 }
 
-function varixVerbs(site, ctx) {
+const BANDS_NOTE = (n) => `${Math.round(n)} band${n >= 1.5 ? 's' : ''} placed`;   // (it reads only Math.round(n): n >= 1.5 is Math.round(n) >= 2)
+function buildVarixVerbs(site) {
   const eso = site === 'eso';
   const out = [];
-  if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { ctx.action({ kind: 'band' }); }, note: (f) => (f.bands ? `${Math.round(f.bands)} band${f.bands >= 1.5 ? 's' : ''} placed` : null) });
-  out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { ctx.paneApi('endoscopy')?.setView?.('eso'); ctx.showPane('endoscopy'); } });
-  const key = eso ? 'balloonEso' : 'balloonGas';
-  out.push({ type: 'toggle', id: 'balloon', key, label: eso ? 'Esophageal balloon' : 'Gastric balloon', icon: 'balloon', get: (p) => !!p[key], set: (p, v) => { p[key] = v; }, hist: eso ? 'Esophageal balloon' : 'Gastric balloon' });
+  const bandsCell = newCell();
+  if (eso) out.push({ type: 'button', id: 'band', label: 'Band', icon: 'band', run: () => { CTX.action({ kind: 'band' }); }, note: (f) => (f.bands ? memoKey(bandsCell, Math.round(f.bands), f.bands, BANDS_NOTE) : null) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
+  out.push({ type: 'button', id: 'endoscope', label: 'Endoscope', icon: 'endoscope', run: () => { CTX.paneApi('endoscopy')?.setView?.('eso'); CTX.showPane('endoscopy'); } });
+  // The tamponade tube. Its gastric balloon is the first step: filled in the stomach, the tube drawn up so it seats against the cardia.
+  // The esophageal balloon is the second, filled only if that does not hold, and only on a tube whose gastric balloon is up: switching it on
+  // brings the gastric one with it, and letting the gastric one down lets the esophageal one down first.
+  out.push({ type: 'toggle', id: 'balloon-gas', key: 'balloonGas', label: 'Gastric balloon', icon: 'balloon', get: (p) => !!p.balloonGas, set: (p, v) => { p.balloonGas = v; if (!v) p.balloonEso = false; }, hist: 'Gastric balloon' });
+  if (eso) out.push({ type: 'toggle', id: 'balloon', key: 'balloonEso', label: 'Esophageal balloon', icon: 'balloon', get: (p) => !!p.balloonEso, set: (p, v) => { p.balloonEso = v; if (v) p.balloonGas = true; }, hist: 'Esophageal balloon' });
   return out;
 }
+const VARIX_ESO = buildVarixVerbs('eso'), VARIX_GAS = buildVarixVerbs('gas');
 
-function organCard(sel, ctx) {
-  const id = sel.id;
-  const stat = (label, value) => ({ type: 'stat', label, value });
+const SPLEEN_ABOUT = ['Partial embolization closes branches of the splenic artery and infarcts part of the spleen; splenectomy removes it. Both cut splenic inflow, so portal pressure and flow to the varices fall (splenectomy more than embolization).'];
+const SPLEEN_RX = ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'];
+const REMOVED = { v: 'Removed', u: '' };
+const FMT1 = (x) => fmt(x, 1);
+const PLATELETS = (n) => `${(Math.round(n) * 1000).toLocaleString('en-US')}/µL`;
+function buildOrganCard(id) {
+  const sel = { type: 'organ', id };
   if (id === 'liver') {
+    const h = newHold();
     return {
       key: 'o:liver', sel, kicker: 'Organ', title: 'Liver', why: 'hvpg',
-      value: (f, lens, ref) => { const P = (f.Pf || f.P)[NI.SIN_R]; const r = ref?.[NI.SIN_R]; return { v: fmt(P, 1), u: 'mmHg sinusoids', d: r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null, up: r != null && P > r }; },
+      value: (f, lens, ref) => readP(h, (f.Pf || f.P)[NI.SIN_R], ref?.[NI.SIN_R], 'mmHg sinusoids'),
       verbs: [
         { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
-          sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
-        { type: 'button', id: 'lobule', label: 'Open the lobule view', icon: 'explore', run: () => ctx.zoomLobule(), note: () => 'Fibrosis of the portal tract, sinusoids or central vein is set there, on each part’s card.' },
-        stat('HVPG', (f) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : `${fmt(f.metrics.hvpg, 1)} mmHg`)),
+          sub: '40% compensated · 60% CSPH · 85% decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
+        { type: 'button', id: 'lobule', label: 'Open the lobule view', icon: 'explore', run: () => CTX.zoomLobule(), note: () => 'Fibrosis of the portal tract, sinusoids or central vein is set there, on each part’s card.' },
+        stat('HVPG', (f, c) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : fixedText(c, f.metrics.hvpg, 'mmHg'))),
       ],
     };
   }
   if (id === 'heart') {
+    const h = newHold();
     const sl = (vid, key, label, min, max, def, info) => ({ type: 'slider', id: vid, key, label, min, max, step: 0.01, def, format: pct, get: (p) => p[key], set: (p, v) => { p[key] = v; }, hist: label, info });
     return {
       key: 'o:heart', sel, kicker: 'Organ', title: 'Right heart', why: 'ra',
-      value: (f, lens, ref) => { const P = (f.Pf || f.P)[NI.RA]; const r = ref?.[NI.RA]; return { v: fmt(P, 1), u: 'mmHg RA', d: r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null, up: r != null && P > r }; },
+      value: (f, lens, ref) => readP(h, (f.Pf || f.P)[NI.RA], ref?.[NI.RA], 'mmHg RA'),
       verbs: [
         sl('contractility', 'contractility', 'Contractility', 0.15, 1.6, 1, 'Right-ventricular pump strength (Frank–Starling).'),
         sl('tr', 'tr', 'Tricuspid regurgitation', 0, 1, 0, 'Systolic backflow into the right atrium: large v-waves reach the liver.'),
@@ -228,35 +334,44 @@ function organCard(sel, ctx) {
         // On every patient's heart card; it starts at Not pregnant (0 weeks), so no patient changes until it is moved.
         { type: 'slider', id: 'gestation', key: 'gestation', label: 'Pregnancy', min: 0, max: 40, step: 1, def: 0, format: weeks, get: (p) => p.gestation || 0, set: (p, v) => { p.gestation = v; }, hist: 'Pregnancy',
           info: PREGNANCY_INFO },
-        stat('Cardiac output', (f) => `${fmt(f.metrics.co, 1)} L/min`),
+        stat('Cardiac output', (f, c) => fixedText(c, f.metrics.co, 'L/min')),
       ],
     };
   }
   if (id === 'varices' || id === 'gastric') {
+    const h = newHold();
     const eso = id === 'varices';
     const vx = (f) => (eso ? f.metrics.varix : f.metrics.gastricVarix);
-    const verbs = varixVerbs(eso ? 'eso' : 'gas', ctx);
+    const verbs = [...(eso ? VARIX_ESO : VARIX_GAS)];
     if (!eso) verbs.push({ type: 'toggle', id: 'occlude', key: 'occluded', label: 'Occlude the gastrorenal shunt (BRTO)', icon: 'occlude', showIf: (p) => p.spontaneous.C5 !== false, get: (p) => !!p.occluded.C5, set: (p, v) => { if (v) p.occluded.C5 = true; else delete p.occluded.C5; }, hist: 'BRTO' });
-    verbs.push(stat('Grade', (f) => { const v = vx(f); return !v.present ? 'none' : `${v.grade.label} · ${fmt(v.d, 1)} mm`; }));
-    if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => ctx.select({ type: 'edge', id: 'LGV_CONF' }) });
-    else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => ctx.select({ type: 'edge', id: 'C2' }) });
+    verbs.push(stat('Grade', (f, c) => {
+      const v = vx(f);
+      if (!v.present) return 'none';
+      const k = tenth(v.d);
+      if (c.x !== k || c.y !== v.grade.label) { c.x = k; c.y = v.grade.label; c.s = `${v.grade.label} · ${fmt(v.d, 1)} mm`; }
+      return c.s;
+    }));
+    if (eso) verbs.push({ type: 'link', label: 'Coronary vein', run: () => CTX.select({ type: 'edge', id: 'LGV_CONF' }) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
+    else verbs.push({ type: 'link', label: 'Short gastric veins', run: () => CTX.select({ type: 'edge', id: 'C2' }) });   // alloc-rare: a click handler (a verb of the open card): runs once per tap, never in a frame; the scan reaches it only through the conservative callback dispatch of the halo step
+    const n = NI[eso ? 'VAR' : 'GV'];
     return {
       key: 'o:' + id, sel, kicker: 'Collateral bed', title: eso ? 'Esophageal varices' : 'Fundal varices', why: 'varix', verbs,
-      value: (f, lens, ref) => { const n = NI[eso ? 'VAR' : 'GV']; const P = (f.Pf || f.P)[n]; const r = ref?.[n]; return { v: fmt(P, 1), u: 'mmHg', d: r != null && Math.abs(P - r) >= 1 ? signed(P - r, fmt(Math.abs(P - r), 1)) : null, up: r != null && P > r }; },
-      status: (f) => (f.metrics.bleeding && (f.metrics.bleeding.site === 'GV') === !eso ? ['bad', 'Bleeding'] : vx(f).redWale ? ['warn', 'Red wale signs'] : null),
+      value: (f, lens, ref) => readP(h, (f.Pf || f.P)[n], ref?.[n], 'mmHg'),
+      status: (f) => (f.metrics.bleeding && (f.metrics.bleeding.site === 'GV') === !eso ? ST_BLEEDING : vx(f).redWale ? ST_WALE : null),
     };
   }
   if (id === 'spleen') {
+    const h = newHold(), lenCell = newCell();
     return {
       key: 'o:spleen', sel, kicker: 'Organ', title: 'Spleen', why: 'spleen',
-      value: (f) => (f.metrics.spleen.length > 0 ? { v: fmt(f.metrics.spleen.length, 1), u: 'cm long' } : { v: 'Removed', u: '' }),
+      value: (f) => (f.metrics.spleen.length > 0 ? plain(h, memoTenth(lenCell, f.metrics.spleen.length, FMT1), 'cm long') : REMOVED),
       verbs: [
-        stat('Platelets (illustrative)', (f) => `${(Math.round(f.metrics.spleen.platelets) * 1000).toLocaleString('en-US')}/µL`),
-        { type: 'seg', label: 'Treat the spleen', options: [[0, 'None'], [1, 'Embolize'], [2, 'Splenectomy']], get: () => store.get().params.splenicRx | 0, set: (val) => updateParams((p) => { p.splenicRx = val; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][val] }) },
-        { type: 'about', text: () => ['Partial embolization closes branches of the splenic artery and infarcts part of the spleen; splenectomy removes it. Both cut splenic inflow, so portal pressure and flow to the varices fall (splenectomy more than embolization).'] },
+        stat('Platelets (illustrative)', (f, c) => memoKey(c, Math.round(f.metrics.spleen.platelets), f.metrics.spleen.platelets, PLATELETS)),
+        { type: 'seg', label: 'Treat the spleen', options: [[0, 'None'], [1, 'Embolize'], [2, 'Splenectomy']], get: () => store.get().params.splenicRx | 0, set: (val) => updateParams((p) => { p.splenicRx = val; return p; }, { label: SPLEEN_RX[val] }) },
+        { type: 'about', text: () => SPLEEN_ABOUT },
         { type: 'slider', id: 'clot', key: 'thrombus', label: 'Clot the splenic vein', icon: 'clot', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.thrombus.SV_CONF || 0,
           set: (p, v) => { if (v <= 0.004) delete p.thrombus.SV_CONF; else p.thrombus.SV_CONF = +v.toFixed(2); }, hist: 'Splenic vein thrombus', info: 'Sinistral (left-sided) portal hypertension: the spleen drains through the short gastric veins.' },
-        { type: 'link', label: 'Splenic vein', run: () => ctx.select({ type: 'edge', id: 'SV_CONF' }) },
+        { type: 'link', label: 'Splenic vein', run: () => CTX.select({ type: 'edge', id: 'SV_CONF' }) },
       ],
     };
   }
@@ -265,64 +380,158 @@ function organCard(sel, ctx) {
 
 // ── The lobule's parts (the lobule view selects them) ────────────────────
 const CIRRHOSIS = { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
-  sub: '40 % compensated · 60 % CSPH · 85 % decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting.' };
+  sub: '40% compensated · 60% CSPH · 85% decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting.' };
 const ZONE_NAME = { pre: 'portal tract', sin: 'sinusoids', post: 'central vein' };
 /** Fibrosis in one zone of every lobule (both lobes: one lobule stands for the liver). */
 const fibrosisVerb = (z) => ({ type: 'slider', id: 'fibrosis', key: 'fibrosis', label: `Fibrosis · ${ZONE_NAME[z]}`, icon: 'fibrosis', min: 1, max: 80, step: 0.5, def: 1, format: mult,
   get: (p) => Math.max(p.fibrosis.R[z], p.fibrosis.L[z]), set: (p, v) => { p.fibrosis.R[z] = v; p.fibrosis.L[z] = v; }, hist: `Fibrosis · ${ZONE_NAME[z]}`,
   info: { pre: 'Resistance before the sinusoids, as in schistosomiasis: portal pressure rises, the wedged pressure does not.', sin: 'Collagen in the space of Disse and closing fenestrae: resistance in the sinusoids themselves, read by HVPG.', post: 'Resistance at the central veins, as in sinusoidal obstruction syndrome: the sinusoids congest from the outflow side.' }[z] });
+const FIB_PRE = fibrosisVerb('pre'), FIB_SIN = fibrosisVerb('sin'), FIB_POST = fibrosisVerb('post');
 const ZONE_TEXT = ['Zone 1 (periportal) gets blood first, richest in oxygen and nutrients: the first to regenerate, the last to die in ischemia.', 'Zone 2 lies between: intermediate oxygen.', 'Zone 3 (centrilobular) gets blood last, poorest in oxygen: first to suffer in congestion, shock and drug toxicity (acetaminophen).'];
 
 // The lobule's portal flow runs backward (the same dead band as every other reversed-flow sentence: velNormal.js flowReversed).
 const portalBack = (m) => flowReversed(m.portalQ, m.portalRef);
 
-function lobuleCard(sel, ctx) {
-  const L = (f) => lobuleState(f, store.get());
-  const mm = (v) => `${fmt(v, 1)} mmHg`, pc = (v) => `${Math.round(v * 100)} %`;
-  const stat = (label, value) => ({ type: 'stat', label, value: (f) => value(L(f), f) });
-  const pv = (v) => (f, lens, ref) => { const m = L(f); const x = v(m); const r = ref ? v({ P1: ref[NI.RPV], P2: ref[NI.SIN_R], P3: ref[NI.CV_R] }) : null; return { v: fmt(x, 1), u: 'mmHg', d: r != null && Math.abs(x - r) >= 1 ? signed(x - r, fmt(Math.abs(x - r), 1)) : null, up: r != null && x > r }; };
-  const about = (fn) => ({ type: 'about', text: (f) => (f ? fn(L(f)) : []) });
-  // The lobule's parts have no page of their own in the side panel: no Details link.
-  const base = { key: 'l:' + sel.part + ':' + (sel.tube ?? sel.tri ?? sel.zone ?? ''), sel, kicker: 'Lobule', why: 'hvpg', noDetails: true };
-  switch (sel.part) {
-    case 'triad': return { ...base, title: 'Portal triad', value: pv((m) => m.P1),
-      verbs: [about((m) => ['Blood enters the lobule here: portal venous blood (about three quarters) and hepatic arterial blood, with a bile ductule carrying bile the other way. Inlet venules run along the lobule’s edge and feed the sinusoids.',
-        m.fibPre > 0.1 ? `Portal fibrosis (resistance ×${fmt(m.zone.pre, 1)}) narrows the venules before the sinusoids: pre-sinusoidal portal hypertension, with a near-normal wedged pressure.` : '',
-        portalBack(m) ? 'Portal flow is reversed: blood leaves the liver through the portal venules (hepatofugal flow).' : ''].filter(Boolean)),
-      fibrosisVerb('pre'), stat('Portal inflow', (m) => (portalBack(m) ? 'reversed' : pc(Math.max(0, m.portal)))), stat('Arterial inflow', (m) => pc(m.art))] };
-    case 'in': return { ...base, title: 'Inlet venule', value: pv((m) => m.P1),
-      verbs: [about((m) => ['A branch of the portal venule running along the lobule’s border, feeding the sinusoids it passes.', portalBack(m) ? 'Flow here runs backwards (orange): arterial blood that entered the sinusoids drains out through the portal venules.' : ''].filter(Boolean)),
-        fibrosisVerb('pre'), stat('Portal inflow', (m) => (portalBack(m) ? 'reversed' : pc(Math.max(0, m.portal))))] };
-    case 'sin': case 'an': return { ...base, title: sel.part === 'an' ? 'Sinusoidal anastomosis' : 'Sinusoid', value: pv((m) => m.P2),
-      verbs: [about((m) => [sel.part === 'an' ? 'A cross-link between sinusoids: blood can go around a local block, so one blocked sinusoid does not starve the cells beyond it.'
-        : 'A leaky capillary lined by fenestrated endothelium, between plates of hepatocytes one cell thick. Sinusoids merge toward the central vein, so blood speeds up as it goes; the highlighted path runs to the central vein.',
-      m.fibSin > 0.1 ? 'Capillarization: the fenestrae close and collagen fills the space of Disse (pale sleeve), raising sinusoidal resistance: this is what raises HVPG in cirrhosis.' : '',
-      m.congU > 0.1 ? 'Zone 3 sinusoids are dilated and packed with blood: the outflow is backing up.' : ''].filter(Boolean)),
-      { type: 'button', id: 'sinusoid', label: 'Zoom into the sinusoid', icon: 'explore', run: () => store.set({ sinusoid: true }), note: () => 'Its wall up close: fenestrae, the space of Disse, a stellate cell and the hepatocytes.' },
-      fibrosisVerb('sin'), CIRRHOSIS, stat('Into the central vein', (m) => mm(m.P3)), stat('Sinusoidal flow', (m) => pc(m.flow))] };
-    case 'cv': return { ...base, title: 'Central vein', value: pv((m) => m.P3),
-      status: (f) => (L(f).congU > 0.1 ? ['warn', 'Congested'] : null),
-      verbs: [about((m) => ['Collects the sinusoids and drains into the hepatic veins. Zone 3 around it gets the least oxygen.',
-        m.fibPost > 0.1 ? `Fibrosis around the central vein (×${fmt(m.zone.post, 1)}) makes the block post-sinusoidal.` : '',
-        m.congU > 0.1 ? 'Raised outflow pressure congests zone 3 first: dilated sinusoids and dying cells give the “nutmeg” liver.' : ''].filter(Boolean)),
-      fibrosisVerb('post'), stat('Hepatic vein', (m) => mm(m.P4)), stat('Above normal', (m) => (m.congU > 0.05 ? `+${fmt(m.cong, 1)} mmHg` : 'none'))] };
-    case 'ha': return { ...base, title: 'Hepatic arteriole', value: (f) => ({ v: pc(L(f).art), u: 'of normal flow' }),
-      verbs: [about((m) => ['Oxygen-rich blood that empties into the first stretch of the sinusoids (zone 1).', m.art > 1.15 ? `Hepatic arterial buffer response: with less portal flow, less adenosine is washed out and the arteriole dilates (arterial flow ×${fmt(m.art, 1)}).` : ''].filter(Boolean))] };
-    case 'bd': return { ...base, title: 'Bile ductule', value: () => ({ v: 'Bile', u: 'flows out to the triad' }),
-      verbs: [about(() => ['Bile made by hepatocytes flows in canaliculi between them, toward the triad: against the blood. Not part of the circulation, but it marks the portal tract.'])] };
-    case 'lv': return { ...base, title: 'Lymphatic', value: (f) => { const m = L(f), d = m.lymph - m.lymphRef; return { v: fmt(m.lymph, 1), u: 'mL/min (whole liver)', d: m.lymphRef > 0 && Math.abs(d) / m.lymphRef >= 0.1 ? signed(d, `${Math.round(Math.abs(d) / m.lymphRef * 100)}%`) : null, up: d > 0 }; },
-      verbs: [about((m) => ['Lymph is plasma that leaks from the sinusoids into the space of Disse, drains out through the tissue to the portal tract and leaves the liver in its lymphatics. It carries the protein that escapes the sinusoids, and returns the fluid to the blood through the thoracic duct.',
-        m.lymph > m.lymphRef * 1.25 ? 'Higher sinusoidal pressure forces more fluid out: lymph flow rises to compensate. Past the lymphatics’ capacity the rest weeps off the liver surface as ascites.' : '',
-        m.lymph < m.lymphRef * 0.75 ? 'Less filtration than the comparison: lymph flow has fallen.' : ''].filter(Boolean)),
-        stat('Hepatic lymph', (m) => `${fmt(m.lymph, 1)} mL/min`), stat('Healthy', (m) => `${fmt(m.lymph0, 1)} mL/min`)] };
-    case 'septum': return { ...base, title: 'Fibrous septum', value: (f) => ({ v: pc(L(f).s), u: 'cirrhosis' }),
-      verbs: [about(() => ['Bands of collagen laid down by activated stellate cells bridge triad to triad and triad to central vein, cutting the lobules into regenerative nodules and distorting the vessels.']), CIRRHOSIS] };
-    case 'hep': default: {
-      const z = sel.zone || 1;
-      return { ...base, title: `Hepatocytes · zone ${z}`, value: () => ({ v: `Zone ${z}`, u: ['periportal', 'midzonal', 'centrilobular'][z - 1] }),
-        verbs: [about((m) => [ZONE_TEXT[z - 1], z === 3 && m.congU > 0.1 ? 'Here the outflow is backing up: congestion and cell dropout around the central vein.' : ''].filter(Boolean)), CIRRHOSIS] };
-    }
+const L = (f) => lobuleState(f, store.get());
+const REFM = { P1: 0, P2: 0, P3: 0 };   // (the reference's pressures along the lobule, in the shape of the lobule's own)
+const getP1 = (m) => m.P1, getP2 = (m) => m.P2, getP3 = (m) => m.P3;
+/** The lobule stat row: text(m, cell) works out its text from the lobule's state. */
+function lstat(label, text) { const c = newCell(); return { type: 'stat', label, value: (f) => text(L(f), c) }; }
+/** The reading of a pressure along the lobule, against the reference. */
+function lpressure(get) {
+  const h = newHold();
+  return (f, lens, ref) => {
+    const x = get(L(f));
+    let r = null;
+    if (ref) { REFM.P1 = ref[NI.RPV]; REFM.P2 = ref[NI.SIN_R]; REFM.P3 = ref[NI.CV_R]; r = get(REFM); }
+    return readP(h, x, r, 'mmHg');
+  };
+}
+/** A part's "what is this and what is happening to it", in plain words: fill(m, out) pushes the sentences that apply, in order (into a
+ *  list kept for the card, which reads it at once). */
+function lobuleAbout(fill) { const out = []; return { type: 'about', text: (f) => { if (!f) return NONE; out.length = 0; fill(L(f), out); return out; } }; }
+/** The same sentence(s) whatever the state. */
+function lobuleSaid(...lines) { return { type: 'about', text: (f) => (f ? lines : NONE) }; }
+
+const TRIAD_A = 'Blood enters the lobule here: portal venous blood (about three quarters) and hepatic arterial blood, with a bile ductule carrying bile the other way. Inlet venules run along the lobule’s edge and feed the sinusoids.';
+const TRIAD_FIB = (x) => `Portal fibrosis (resistance ×${fmt(x, 1)}) narrows the venules before the sinusoids: pre-sinusoidal portal hypertension, with a near-normal wedged pressure.`;
+const TRIAD_BACK = 'Portal flow is reversed: blood leaves the liver through the portal venules (hepatofugal flow).';
+const IN_A = 'A branch of the portal venule running along the lobule’s border, feeding the sinusoids it passes.';
+const IN_BACK = 'Flow here runs backwards (orange): arterial blood that entered the sinusoids drains out through the portal venules.';
+const AN_A = 'A cross-link between sinusoids: blood can go around a local resistance, so one narrowed sinusoid does not starve the cells beyond it.';
+const SIN_A = 'A leaky capillary lined by fenestrated endothelium, between plates of hepatocytes one cell thick. Sinusoids merge toward the central vein, so blood speeds up as it goes; the highlighted path runs to the central vein.';
+const SIN_FIB = 'Capillarization: the fenestrae close and collagen fills the space of Disse (pale sleeve), raising sinusoidal resistance: this is what raises HVPG in cirrhosis.';
+const SIN_CONG = 'Zone 3 sinusoids are dilated and packed with blood: the outflow is backing up.';
+const CV_A = 'Collects the sinusoids and drains into the hepatic veins. Zone 3 around it gets the least oxygen.';
+const CV_FIB = (x) => `Fibrosis around the central vein (×${fmt(x, 1)}) makes the resistance post-sinusoidal.`;
+const CV_CONG = 'Raised outflow pressure congests zone 3 first: dilated sinusoids and dying cells give the “nutmeg” liver.';
+const HA_A = 'Oxygen-rich blood that empties into the first stretch of the sinusoids (zone 1).';
+const HA_BUFFER = (x) => `Hepatic arterial buffer response: with less portal flow, less adenosine is washed out and the arteriole dilates (arterial flow ×${fmt(x, 1)}).`;
+const BD_A = 'Bile made by hepatocytes flows in canaliculi between them, toward the triad: against the blood. Not part of the circulation, but it marks the portal tract.';
+const LV_A = 'Lymph is plasma that leaks from the sinusoids into the space of Disse, drains out through the tissue to the portal tract and leaves the liver in its lymphatics. It carries the protein that escapes the sinusoids, and returns the fluid to the blood through the thoracic duct.';
+const LV_UP = 'Higher sinusoidal pressure forces more fluid out: lymph flow rises to compensate. Past the lymphatics’ capacity the rest weeps off the liver surface as ascites.';
+const LV_DOWN = 'Less filtration than the comparison: lymph flow has fallen.';
+const SEPTUM_A = 'Bands of collagen laid down by activated stellate cells bridge triad to triad and triad to central vein, cutting the lobules into regenerative nodules and distorting the vessels.';
+const HEP_CONG = 'Here the outflow is backing up: congestion and cell dropout around the central vein.';
+const BILE = { v: 'Bile', u: 'flows out to the triad' };
+const PLUS_MM = (x) => `+${fmt(x, 1)} mmHg`;
+const SINUSOID_NOTE = 'Its wall up close: fenestrae, the space of Disse, a stellate cell and the hepatocytes.';
+
+// The lobule's cards depend on the part (and, for a hepatocyte, its zone) alone, so the same card serves every tube and triad of it.
+// (They carry no key or selection of their own: nothing reads them.)
+const LOBULE_BASE = { kicker: 'Lobule', why: 'hvpg', noDetails: true };
+function buildLobuleCards() {
+  const cards = new Map();
+  const portalPct = (m, c) => (portalBack(m) ? 'reversed' : pctOf(c, Math.max(0, m.portal)));
+  const artPct = (m, c) => pctOf(c, m.art);
+  const centralMm = (m, c) => fixedText(c, m.P3, 'mmHg');
+  {
+    const c = newCell();
+    cards.set('triad', { ...LOBULE_BASE, title: 'Portal triad', value: lpressure(getP1),
+      verbs: [lobuleAbout((m, o) => { o.push(TRIAD_A); if (m.fibPre > 0.1) o.push(memoTenth(c, m.zone.pre, TRIAD_FIB)); if (portalBack(m)) o.push(TRIAD_BACK); }),
+        FIB_PRE, lstat('Portal inflow', portalPct), lstat('Arterial inflow', artPct)] });
   }
+  cards.set('in', { ...LOBULE_BASE, title: 'Inlet venule', value: lpressure(getP1),
+    verbs: [lobuleAbout((m, o) => { o.push(IN_A); if (portalBack(m)) o.push(IN_BACK); }),
+      FIB_PRE, lstat('Portal inflow', portalPct)] });
+  // (A sinusoid and a cross-link between sinusoids read alike but for the first sentence.)
+  for (const part of ['sin', 'an']) {
+    const first = part === 'an' ? AN_A : SIN_A;
+    cards.set(part, { ...LOBULE_BASE, title: part === 'an' ? 'Sinusoidal anastomosis' : 'Sinusoid', value: lpressure(getP2),
+      verbs: [lobuleAbout((m, o) => { o.push(first); if (m.fibSin > 0.1) o.push(SIN_FIB); if (m.congU > 0.1) o.push(SIN_CONG); }),
+        { type: 'button', id: 'sinusoid', label: 'Zoom into the sinusoid', icon: 'explore', run: () => store.set({ sinusoid: true }), note: () => SINUSOID_NOTE },
+        FIB_SIN, CIRRHOSIS, lstat('Into the central vein', centralMm), lstat('Sinusoidal flow', (m, c) => pctOf(c, m.flow))] });
+  }
+  {
+    const c = newCell();
+    cards.set('cv', { ...LOBULE_BASE, title: 'Central vein', value: lpressure(getP3),
+      status: (f) => (L(f).congU > 0.1 ? ST_CONGESTED : null),
+      verbs: [lobuleAbout((m, o) => { o.push(CV_A); if (m.fibPost > 0.1) o.push(memoTenth(c, m.zone.post, CV_FIB)); if (m.congU > 0.1) o.push(CV_CONG); }),
+        FIB_POST, lstat('Hepatic vein', (m, cc) => fixedText(cc, m.P4, 'mmHg')),
+        lstat('Above normal', (m, cc) => (m.congU > 0.05 ? memoTenth(cc, m.cong, PLUS_MM) : 'none'))] });
+  }
+  {
+    const c = newCell(), h = newHold(), vc = newCell();
+    cards.set('ha', { ...LOBULE_BASE, title: 'Hepatic arteriole', value: (f) => plain(h, pctOf(vc, L(f).art), 'of normal flow'),
+      verbs: [lobuleAbout((m, o) => { o.push(HA_A); if (m.art > 1.15) o.push(memoTenth(c, m.art, HA_BUFFER)); })] });
+  }
+  cards.set('bd', { ...LOBULE_BASE, title: 'Bile ductule', value: () => BILE, verbs: [lobuleSaid(BD_A)] });
+  {
+    const h = newHold();
+    cards.set('lv', { ...LOBULE_BASE, title: 'Lymphatic',
+      value: (f) => {
+        // (Its texts are made again only when what they print changes: the tenth of the lymph; the change's sign and whole percent, when it shows.)
+        const m = L(f), c = h.pc, d = m.lymph - m.lymphRef, shown = m.lymphRef > 0 && Math.abs(d) / m.lymphRef >= 0.1;
+        const kP = tenth(m.lymph), kD = shown ? (d > 0 ? 1 : -1) * (Math.round(Math.abs(d) / m.lymphRef * 100) + 1) : 0, up = d > 0;
+        if (kP !== c.kP || kD !== c.kD || up !== c.up) {
+          c.v = fmt(m.lymph, 1);
+          c.d = shown ? signed(d, `${Math.round(Math.abs(d) / m.lymphRef * 100)}%`) : null;
+          c.kP = kP; c.kD = kD; c.up = up;
+        }
+        S.v = c.v; S.u = 'mL/min (whole liver)'; S.d = c.d; S.up = up;
+        return steady(h, S);
+      },
+      verbs: [lobuleAbout((m, o) => { o.push(LV_A); if (m.lymph > m.lymphRef * 1.25) o.push(LV_UP); if (m.lymph < m.lymphRef * 0.75) o.push(LV_DOWN); }),
+        lstat('Hepatic lymph', (m, c) => fixedText(c, m.lymph, 'mL/min')), lstat('Healthy', (m, c) => fixedText(c, m.lymph0, 'mL/min'))] });
+  }
+  {
+    const h = newHold(), vc = newCell();
+    cards.set('septum', { ...LOBULE_BASE, title: 'Fibrous septum', value: (f) => plain(h, pctOf(vc, L(f).s), 'cirrhosis'),
+      verbs: [lobuleSaid(SEPTUM_A), CIRRHOSIS] });
+  }
+  return cards;
+}
+// A hepatocyte's card, by zone 1 to 3 (the lobule picks only those).
+function buildHepCards() {
+  const cards = [null];
+  for (let z = 1; z <= 3; z++) {
+    cards.push({ ...LOBULE_BASE, title: `Hepatocytes · zone ${z}`, value: () => HEP_VALUE[z],
+      verbs: [lobuleAbout((m, o) => { o.push(ZONE_TEXT[z - 1]); if (z === 3 && m.congU > 0.1) o.push(HEP_CONG); }), CIRRHOSIS] });
+  }
+  return cards;
+}
+const HEP_VALUE = [null, { v: 'Zone 1', u: 'periportal' }, { v: 'Zone 2', u: 'midzonal' }, { v: 'Zone 3', u: 'centrilobular' }];
+
+// ── The catalogue ──────────────────────────────────────────────────────────
+// Every card, made once here and looked up by cardFor.
+const ORGAN_BASE = new Map(), ORGAN_CARD = new Map(), EDGE_CARD = new Map();
+for (const id of ['liver', 'heart', 'varices', 'gastric', 'spleen']) ORGAN_BASE.set(id, buildOrganCard(id));
+for (const [id, c] of ORGAN_BASE) ORGAN_CARD.set(id, { ...c, verbs: [{ type: 'about', text: (f) => aboutOrgan(id, f, store.get()) }, ...c.verbs] });
+for (const e of EDGES) if (e.kind !== 'wedge') EDGE_CARD.set(e.id, buildEdgeCard(e));
+const LOBULE_CARD = buildLobuleCards(), HEP_CARD = buildHepCards();
+
+/**
+ * The action-card model for a selection.
+ * ctx: { action, showPane, probe, startShunt, canShunt, select, zoomLobule, paneApi }
+ * (The model is kept and handed back each time; card.js only reads it.)
+ */
+export function cardFor(selIn, ctx) {
+  CTX = ctx;
+  const sel = normalizeSel(selIn);
+  if (!sel) return null;
+  if (sel.type === 'lobule') return LOBULE_CARD.get(sel.part) || HEP_CARD[sel.zone || 1] || HEP_CARD[1];
+  if (sel.type === 'organ') return ORGAN_CARD.get(sel.id) || null;
+  return EDGE_CARD.get(sel.id) || null;
 }
 
 /** Can a shunt start from this vessel (a portal vessel or a systemic vein)? */
@@ -333,4 +542,4 @@ export function shuntable(id) {
 }
 
 // ── Clinical orders (the Treat section and the command palette) ────────────
-export const DRUG_NOTE = { propranolol: 'Non-selective β-blocker', carvedilol: 'β-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
+export const DRUG_NOTE = { propranolol: 'Non-selective beta-blocker', carvedilol: 'Beta-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };

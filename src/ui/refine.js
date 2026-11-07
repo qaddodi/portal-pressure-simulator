@@ -14,34 +14,38 @@
 //
 // Work waits for a frame in which a gesture is not under way (a gesture's frames are for the figure), then goes on a little each frame:
 // once the figure is let go the jobs that were waiting trickle through the allowance, not all at once.
-// The allowance is REFINE_MS a frame (?refinems=3 in the address tries another).
+// The allowance is REFINE_MS a frame.
 
-import { gpuProbe, COUNTED } from './gpu-probe.js?v=dd12fc216c';
+import { gpuProbe, COUNTED } from './gpu-probe.js';
+import { createHistogram } from './frame-stats.js';
 
 export const REFINE_MS = 1;
+// A cooperative bound, not a hard one (recs_cgpt R18; recs-production-120hz §15, 2 Nov 2026): a step that ran past its allowance leaves the
+// whole overrun as debt, paid back by the frames after it (each gives its allowance to the debt, not to a step), so refinement averages
+// at most REFINE_MS a frame over time however long one indivisible piece takes. The debt is no longer capped (a cap of 30 frames let a
+// recurring 100 ms step average 3.2 ms a frame). It cannot undo the frame the overrun was in: pieces are kept small for that (organ-paint
+// counts composites and group setups as units). Every overrun is counted (count, total ms, worst) next to a histogram of step times,
+// for ?perf and the gate.
 
-/** The allowance in ms: ?refinems=, between a quarter of a millisecond and 16, or REFINE_MS. */
-export function refineMsFrom(search, fallback = REFINE_MS) {
-  const v = parseFloat(/[?&]refinems=([0-9.]+)/.exec(search || '')?.[1]);
-  return Number.isFinite(v) ? Math.min(16, Math.max(0.25, v)) : fallback;
-}
-
+const NEVER = () => false;   // (the default of the checks a caller may leave out)
 export function createRefine({ ms = REFINE_MS, probe = gpuProbe } = {}) {
-  let stamp = NaN, given = false;
+  let stamp = NaN, given = false, debt = 0;
   const longest = { ms: 0, name: '' };
-  const stats = { held: 0, steps: 0 };
+  const stats = { held: 0, steps: 0, overruns: 0, overrunMs: 0, paid: 0, hist: createHistogram() };
   return {
     ms,
     stats,
+    debt: () => debt,
     longest,
     left(at, held = false) {
       if (at !== stamp) { stamp = at; given = false; }
       if (held) { stats.held++; probe.note(COUNTED.refineHeld); return 0; }
       if (given) return 0;
       given = true;
+      if (debt > 0) { debt = Math.max(0, debt - ms); stats.paid++; return 0; }
       return ms;
     },
-    async turn(wait, held = () => false, gone = () => false) {
+    async turn(wait, held = NEVER, gone = NEVER) {
       for (;;) {
         const at = await wait();
         if (gone()) return null;
@@ -52,11 +56,16 @@ export function createRefine({ ms = REFINE_MS, probe = gpuProbe } = {}) {
     spent(took, name = '') {
       stats.steps++;
       probe.note(COUNTED.refineStep);
+      stats.hist.add(took);
+      if (took > ms) {
+        stats.overruns++; stats.overrunMs += took - ms;
+        debt += took - ms;
+      }
       // (The longest one a step took: the work that did not fit its allowance, and which piece of the picture it was.)
       if (took > longest.ms) { longest.ms = took; longest.name = name; }
-      if (took > ms && probe.on) probe.gauge('refinement: longest step', `${name || '?'} ${took.toFixed(1)} ms (allowance ${ms} ms)`);
+      if (took > ms && probe.on) probe.gauge('refinement: longest step', `${name || '?'} ${took.toFixed(1)} ms (allowance ${ms} ms)`);   // alloc-rare: only a step that overran its allowance while the ?perf probe is on (the readout's gauge text)
     },
   };
 }
 
-export const refine = createRefine({ ms: typeof location !== 'undefined' ? refineMsFrom(location.search) : REFINE_MS });
+export const refine = createRefine({ ms: REFINE_MS });

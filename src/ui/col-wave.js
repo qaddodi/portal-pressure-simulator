@@ -7,7 +7,10 @@
 // occlusive clot) is a flat line on the baseline. Every row shares one scale (waveMax, 50 cm/s unless the slide sets it), so a slow
 // vein stays low and a stent's jet runs to the edge.
 
-import { h, fmt } from './util.js?v=58b547f8d4';
+import { h, fmt, cssVar } from './util.js';
+import { createTraceGL, fitPen } from './trace-gl.js';
+import { cssColor } from './css-color.js';
+import { onTheme } from './theme-epoch.js';
 
 const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 const NAME = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SMV_CONF: 'superior mesenteric vein', SV_CONF: 'splenic vein',
@@ -51,25 +54,76 @@ function traceOf(snap, vessel, ctx) {
   }
   return m.get(vessel);
 }
-let uid = 0;
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => { const el = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v); el.append(...kids); return el; };
+// (2 Nov 2026: drawn on the GPU, in the charts' one shared context (trace-gl.js), not as an SVG the browser paints: the line in the
+// Doppler's colours, toward above the baseline and away below it, 2 px with round joins, the baseline 1 px, as the SVG drew them.
+// It is drawn again when the cell has its size, when the theme changes and when the GPU can draw again.)
+/** The trace's points in the cell's px, from its samples (as wavePath, at w x h). */
+export function wavePts(w, vessel, max, cw, ch) {
+  const sign = AWAY.has(vessel) ? -1 : 1, t1 = w.t[w.t.length - 1] || 1, top = MID - 1, k = (MID - PAD) / max;
+  return w.v.map((v, i) => [(w.t[i] / t1) * cw, ((MID - Math.max(-top, Math.min(top, sign * v * k))) / H) * ch]);
+}
+const live = new Set();   // (the cells drawn now: drawn again on a theme change, let go once off the page)
+const rgba = (c) => { const [r, g, b, a] = cssColor(c); return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`; };   // alloc-rare: a pen colour, made only when the tokens it comes from read differently (a theme change; the guards in paintWave), not on a repaint
+const mixChan = (x, y, p, q, al, i) => (al > 0 ? (x[i] * x[3] * p + y[i] * y[3] * q) / al : 0);
+function mixed(a, b, p) {   // (color-mix in srgb: p of a, the rest b)
+  const x = cssColor(a), y = cssColor(b), q = 1 - p, al = x[3] * p + y[3] * q;
+  return `rgba(${Math.round(mixChan(x, y, p, q, al, 0) * 255)}, ${Math.round(mixChan(x, y, p, q, al, 1) * 255)}, ${Math.round(mixChan(x, y, p, q, al, 2) * 255)}, ${al})`;   // alloc-rare: a pen colour, made only when the tokens it comes from read differently (a theme change; the guards in paintWave), not on a repaint
+}
+// The pen colours, each made again only when the tokens it comes from read differently (a theme change), not on every repaint.
+let tokBase = null, tokToward = null, tokAway = null, tokText = null;   // (null: not made yet, even for a token still reading '')
+let penBase = '', penToward = '', penAway = '';
+// The trace in one colour over the half of the cell from y0 to y1: the points as wavePts gives them, drawn without making the list.
+function strokeHalf(ctx, c, y0, y1, w, hh, col) {
+  const sign = AWAY.has(c.vessel) ? -1 : 1, tv = c.w.t, vv = c.w.v, t1 = tv[tv.length - 1] || 1, top = MID - 1, k = (MID - PAD) / c.max;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, y0, w, y1 - y0); ctx.clip(); ctx.strokeStyle = col;
+  ctx.beginPath();
+  for (let i = 0; i < vv.length; i++) {
+    const x = (tv[i] / t1) * w, y = ((MID - Math.max(-top, Math.min(top, sign * vv[i] * k))) / H) * hh;
+    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+  }
+  ctx.stroke(); ctx.restore();
+}
+function paintWave(c) {
+  if (!c.cv.isConnected) return;
+  const pen = fitPen(c.cv, c.gpu), { ctx, w, h: hh } = pen;
+  try {
+    ctx.clearRect(0, 0, w, hh);
+    if (!(w > 0 && hh > 0)) return;
+    const mid = (MID / H) * hh;
+    const base = cssVar('--text-3'), toward = cssVar('--dop-toward'), away = cssVar('--dop-away'), text = cssVar('--text');
+    if (base !== tokBase) { tokBase = base; penBase = rgba(base); }
+    if (toward !== tokToward) { tokToward = toward; penToward = rgba(toward); }
+    if (away !== tokAway || text !== tokText) { tokAway = away; tokText = text; penAway = mixed(away, text, 0.6); }   // (the away blue lifted toward the text colour, 60 %, so it reads on a dark card too)
+    ctx.lineWidth = 1; ctx.strokeStyle = penBase;
+    ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
+    ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    strokeHalf(ctx, c, 0, mid, w, hh, penToward);
+    strokeHalf(ctx, c, mid, hh, w, hh, penAway);
+  } finally { ctx.end?.(); }
+}
+function repaintAll() { for (const c of live) { if (c.cv.isConnected) paintWave(c); else { c.gpu?.dispose(); live.delete(c); } } }
+if (typeof MutationObserver === 'function' && typeof document !== 'undefined') {
+  onTheme(() => { if (live.size) repaintAll(); });   // (the theme epoch, theme-epoch.js: the same frame as every other surface)
+}
 function draw(box, w, vessel, max) {
-  const p = wavePath(w, vessel, max), id = 'pzeW' + ++uid;
+  const p = wavePath(w, vessel, max);
   if (!p) { box.replaceChildren(h('span', { class: 'pze-wn' }, '—')); return; }
-  const svg = sv('svg', { class: 'pze-wave', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none', 'aria-hidden': 'true' },
-    sv('defs', {}, sv('clipPath', { id: id + 'u' }, sv('rect', { x: 0, y: 0, width: W, height: MID })), sv('clipPath', { id: id + 'd' }, sv('rect', { x: 0, y: MID, width: W, height: MID }))),
-    sv('line', { class: 'pze-wb', x1: 0, x2: W, y1: MID, y2: MID }),
-    sv('path', { class: 'pze-wt', d: p.d, 'clip-path': `url(#${id}u)` }),
-    sv('path', { class: 'pze-wa', d: p.d, 'clip-path': `url(#${id}d)` }));
+  for (const c of live) if (!c.cv.isConnected) { c.gpu?.dispose(); live.delete(c); }   // (cells of a table no longer shown)
+  const cv = h('canvas', { class: 'pze-wave', 'aria-hidden': 'true' });
   const none = Math.max(Math.abs(p.min), Math.abs(p.max)) < 1;
-  box.replaceChildren(svg, h('span', { class: 'sr-only' }, none ? `No flow in the ${NAME[vessel] || vessel}` : `Doppler of the ${NAME[vessel] || vessel}: ${fmt(p.min, 0)} to ${fmt(p.max, 0)} cm/s, toward the probe positive`));
+  box.replaceChildren(cv, h('span', { class: 'sr-only' }, none ? `No flow in the ${NAME[vessel] || vessel}` : `Doppler of the ${NAME[vessel] || vessel}: ${fmt(p.min, 0)} to ${fmt(p.max, 0)} cm/s, toward the probe positive`));
+  const c = { cv, w, vessel, max, gpu: null };
+  c.gpu = createTraceGL(cv, { redraw: () => paintWave(c) });
+  live.add(c);
+  paintWave(c);
   box.title = none ? 'No flow' : `${fmt(p.min, 0)} to ${fmt(p.max, 0)} cm/s` + (p.over ? `, past the ${max} cm/s scale` : '');
   box.classList.add('pze-in');
 }
 
 export const waveColumn = {
   heading: 'Doppler',
+  // A row whose patient is not computed yet: the cell as tall as the trace will be, so the table does not grow when it is drawn.
+  pend: () => h('td', { class: 'num pend pze-wcell', 'aria-busy': 'true' }, h('span', { class: 'pze-wbox' }), h('span', { class: 'sr-only' }, 'calculating')),
   cut: 'About two beats of each row\'s own trace: flow toward the probe above the line, away below it; every row on one scale, 50 cm/s from the line to the edge unless the slide says otherwise',
   cell(r, ctx) {
     const s = ctx?.slide, vessel = waveVessel(entryOf(r, s, ctx), s), box = h('span', { class: 'pze-wbox' }), max = s?.waveMax > 0 ? s.waveMax : WAVE_MAX;
@@ -77,7 +131,7 @@ export const waveColumn = {
     if (own) { draw(box, own, vessel, max); return h('td', { class: 'pze-wcell' }, box); }
     const snap = r.state?.snap;
     if (!snap || !ctx?.run) return h('td', { class: 'num' }, '—');
-    box.append(h('span', { class: 'pze-wn' }, '…'));
+    box.append(h('span', { class: 'sr-only' }, 'drawing the trace'));   // (empty until it is drawn, never "…": the trace fades in)
     // (A run that failed is tried again a few times; the cell may still be waiting to go up, so it is drawn either way.)
     let n = 0;
     const get = () => traceOf(snap, vessel, ctx).then((w) => {

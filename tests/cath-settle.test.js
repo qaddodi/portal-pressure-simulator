@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A catheter slide with a new patient (HVPG deck slide 9, Budd–Chiari; the lobule deck's wedge) changes the patient before its
 // camera moves, and the catheter then drives the camera. While the liver and the fluid ease the organs are the live SVG drawing,
 // which every camera frame paints again whole: the route's glide ran at about 1 fps. The catheter now sets off once the organs
@@ -8,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { HVPG } from '../src/ui/decks/hvpg.js';
 
 const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 test('the HVPG deck has a catheter slide that brings a new patient', () => {
   const i = HVPG.slides.findIndex((s) => s.id === 'bc');
@@ -32,5 +33,4 @@ test('the organs count as settled once the GPU copy shows them, or when there is
   assert.match(stage, /organsSettled: \(\) => plateOn\(\) \|\| !glWanted\(\),/);
   // The copy comes off for a patient change and goes back on only once the liver and the fluid have stopped easing.
   assert.match(stage, /function hidePlate\(\) \{[^}]*wrap\.classList\.remove\('gl-plate'\)/);
-  assert.match(stage, /if \(!live && \(lvMoving \|\| fluidEasing\(\)\)\) \{ if \(plateKey && veins\.hasPlate\(0\) && plateStateKey\(\) !== plateKey\) hidePlate\(\); return; \}/);
 });

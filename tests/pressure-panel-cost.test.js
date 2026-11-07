@@ -117,7 +117,7 @@ test('HVPG cut-off labels never sit on each other', () => {
   assert.equal(limitLabelX({ x1: 118, y: 100.5 }, 70.5, 40), 40);
   const src = read('../src/ui/pressure-time.js');
   assert.match(src, /limitLabelX as labelX/);
-  assert.match(src, /labs\.push\(\[label, yy\]\)/, 'the labels are drawn after every dashed line');
+  assert.match(src, /labsTxt\[nl\] = label; labsY\[nl\] = yy;/, 'the labels are drawn after every dashed line');
 });
 
 test('the panel does no layout work it does not need on each frame', () => {

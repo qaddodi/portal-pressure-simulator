@@ -1,18 +1,102 @@
 // The ?perf readout: what blocks frames in the 2 s after a pan, pinch or scroll-zoom of the figure ends, measured on the
 // device itself (Mohammad, 21 Oct: "still lag after panning/zooming"). Loaded only when the address has ?perf (main.js);
 // without it this file is never fetched and nothing changes. On, the app's own steps are timed as script time only
-// (gpu-probe.js cpuOnly: no waiting for the GPU), every frame gap over 20 ms in the window is listed with the steps that ran
-// in it, and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
+// (gpu-probe.js cpuOnly: no waiting for the GPU), every frame that missed the screen's refresh in the window is listed with the
+// steps that ran in it (and every interval counted in a histogram at that refresh, with p50/p95/p99), and so is each long task the browser reports (Chrome; Safari reports none, its frame gaps still show). The panel is
 // written only when a window closes, never during a gesture, and the last five gestures stay listed with a Copy button.
-import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED } from './gpu-probe.js?v=dd12fc216c';
+import { TIERS, sceneTier, tierLog } from './adapt-tier.js';
+import { gpuProbe, COUNTED, TWICE, WHY, ROWS_REFUSED, BY, TISSUE_WHY } from './gpu-probe.js';
+import { restPass } from './rest-pass.js';
+import { textSoon } from './class-soon.js';
+import { perf, watchFrames, finalFrameFor } from './frame.js';
+// (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
+const nextFrame = finalFrameFor('perf readout');
+import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js';
+import { scanBlurs, blurText } from './blur-gauge.js';
+import { budget as gpuBudget, budgetText as gpuBudgetText } from './gpu-budget.js';
+import { surfaceRows, surfacesText } from './gpu-surfaces.js';
+import { motionBudget, budgetText } from './motion-budget.js';
+import { caught } from './caught.js';
+import { contextText } from './gl-contexts.js';
 
-const WINDOW = 2000, GAP = 20, KEEP = 5;
+const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
+// The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
+// over 20 ms could never show a missed frame at 120 Hz, whose frames are 8.3 ms apart, a missed one 16.7 ms). The rates screens run
+// at; the measured one is the nearest to the lower quartile of the last 600 intervals (about 10 s, calm frames among them). Not the
+// shortest ones: in Safari a frame that starts late is followed by a short one (a 26 ms interval, then 7), so the shortest tenth of a
+// 60 Hz page under load had read as 144 Hz (his Mac readouts, 30 Oct). A quarter of the frames on time is enough.
+const RATES = [30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
+/** The refresh rate (Hz) closest to the lower quartile of `dts` (frame intervals, ms), or 0 with too few to tell. */
+const refVals = [];   // (the intervals in range, sorted: one list kept and written over, as nothing keeps what it holds)
+const ascending = (a, b) => a - b;
+export function refreshOf(dts) {
+  refVals.length = 0;
+  for (let i = 0; i < dts.length; i++) { const d = dts[i]; if (d > 2 && d < 100) refVals.push(d); }
+  const v = refVals.sort(ascending);
+  if (v.length < 20) return 0;
+  const hz = 1000 / v[Math.floor(v.length / 4)];
+  let best = RATES[0];
+  for (let i = 1; i < RATES.length; i++) if (Math.abs(RATES[i] - hz) < Math.abs(best - hz)) best = RATES[i];
+  return best;
+}
+/** Frame intervals at a refresh of `hz`: how many came on time, one, two or three and more refreshes late, and p50/p95/p99 (ms). An
+ *  interval is n refreshes long from (n - 0.5) to (n + 0.5) refreshes: at 120 Hz a frame is on time under 12.5 ms. */
+const statVals = [];   // (the intervals sorted, kept and written over)
+const quantile = (v, p) => (v.length ? v[Math.min(v.length - 1, Math.floor(p * v.length))] : 0);
+export function intervalStats(dts, hz) {
+  const per = 1000 / hz, bins = [0, 0, 0, 0];   // alloc-rare: once as a gesture's window closes; the report keeps this record
+  statVals.length = 0;
+  for (let i = 0; i < dts.length; i++) { const d = dts[i]; bins[Math.min(3, Math.max(0, Math.round(d / per) - 1))]++; statVals.push(d); }
+  statVals.sort(ascending);
+  return { hz, per, bins, p50: quantile(statVals, 0.5), p95: quantile(statVals, 0.95), p99: quantile(statVals, 0.99) };   // alloc-rare: once as a gesture's window closes; the report keeps this record
+}
+/** The histogram as one line of the report. */
+export function intervalLine(s) {
+  if (!s) return '  frame intervals: too few to tell the refresh';
+  const [on, one, two, more] = s.bins;
+  return `  frame intervals at ${s.hz} Hz (${s.per.toFixed(1)} ms): on time ${on}, 1 missed ${one}, 2 missed ${two}, 3+ missed ${more}; p50 ${s.p50.toFixed(1)}, p95 ${s.p95.toFixed(1)}, p99 ${s.p99.toFixed(1)} ms`;
+}
+/** Each surface's callbacks and the frames it really drew (frame.js noteDraw) over a window, from two readings of perf().totals. */
+const sKeys = [], sCount = [], sDraw = [];   // (the surfaces that asked, their callbacks and draws, kept and written over)
+export function surfaceLine(a, b) {
+  let n = 0;
+  for (const k of Object.keys(b.asks)) {   // alloc-rare: once as a gesture's window closes
+    const c = b.asks[k] - (a.asks[k] || 0);
+    if (c > 0) { sKeys[n] = k; sCount[n] = c; sDraw[n] = k in b.drawn ? b.drawn[k] - (a.drawn[k] || 0) : null; n++; }
+  }
+  if (!n) return '';
+  // (Most callbacks first; those with as many keep the order they came in.)
+  for (let i = 1; i < n; i++) {
+    const k = sKeys[i], c = sCount[i], d = sDraw[i];
+    let j = i - 1;
+    while (j >= 0 && sCount[j] < c) { sKeys[j + 1] = sKeys[j]; sCount[j + 1] = sCount[j]; sDraw[j + 1] = sDraw[j]; j--; }
+    sKeys[j + 1] = k; sCount[j + 1] = c; sDraw[j + 1] = d;
+  }
+  let text = '  surfaces (callbacks / draws): ';
+  for (let i = 0; i < n; i++) text += (i ? ', ' : '') + sKeys[i] + ' ' + sCount[i] + (sDraw[i] == null ? '' : ' / ' + sDraw[i]);   // alloc-rare: once as a gesture's window closes; the report's text
+  return text;
+}
+/** The long-frame log as text (premium-feel recs P4): every frame whose interval or script time passed LONG_FRAME_MS, the newest
+ *  `n` of them, each with the surfaces that ran in it (surface, phase, ms) and what the scheduler does not account for. Times are
+ *  seconds since the page opened. One line to paste instead of an afternoon of guessing. */
+export function longFramesText(long, n = LONG_LINES) {
+  if (!long.length) return `Long frames (over ${LONG_FRAME_MS} ms): none`;
+  const shown = long.slice(-n);
+  return [`Long frames (over ${LONG_FRAME_MS} ms; the newest ${shown.length} of ${long.length}, seconds since the page opened):`, ...shown.map((f) => longFrameLine(f))].join('\n');
+}
+/** The input-to-first-change measure (frame.js perf().inputToPaint, input-latency.js) as text: counts, p50, p95, the slowest. */
+export function inputsText(api) {
+  const s = api?.summary();
+  if (!s || !s.n) return `Inputs (a tap, press or key to the frame the page first changed): none answered yet${s?.ignored ? `, ${s.ignored} with no change` : ''}`;
+  const slow = api.slowest(4).map((d) => `${d.kind} ${d.target} ${d.ms.toFixed(0)} ms`).join(', ');
+  return [`Inputs (a tap, press or key to the frame the page first changed; the last ${Math.min(s.n, 200)} of ${s.n}${s.ignored ? `, ${s.ignored} with no change` : ''}): p50 ${s.p50.toFixed(0)}, p95 ${s.p95.toFixed(0)}, worst ${s.worst.toFixed(0)} ms`, `  slowest: ${slow}`].join('\n');
+}
 const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'];
 // (What each leaves out, by CSS: the page then neither lays out nor paints it.)
 const HIDE_CSS = {
   'no live organs': '#stageView svg#stage :is(#backdrop, #organs, #ascites, #ghosts) { visibility: hidden !important; }',
   'no figure SVG': '#stageView :is(svg#stage, svg#stageOver) { visibility: hidden !important; }',
-  'no labels': '#stageView svg#labels, #stageView #labelGl { visibility: hidden !important; }',
+  'no labels': '#stageView svg#labels { visibility: hidden !important; }',
 };
 let hideAt = 0;
 // Notes counted frame by frame over a window (veins-gl.js composite): a frame that redrew the whole picture, a frame with the organ
@@ -21,8 +105,9 @@ const TALLY = ['whole picture', 'organ picture down', 'gut live', 'gut picture',
   ...['no picture', 'art changed', 'colours changed', 'zoomed past it', 'moved off its part', 'zoomed out past it', 'moved apart'].map((w) => `gut live: ${w}`)];
 
 // Notes totalled over a window, by name (gpu-probe.js COUNTED): [times, KB, frames in which it came twice].
-const COUNT_NAMES = new Set([...Object.values(COUNTED).filter((k) => !k.endsWith('because ')), ...WHY.map((w) => COUNTED.wholeWhy + w), ...ROWS_REFUSED.map((w) => COUNTED.rowsRefused + w),
-  ...['setGeometry', 'setTubes', 'setFlow', 'setDye', 'setFluidCells', 'setRadii', 'setOrgans', 'plateRows', 'setCath', 'setLines'].map((k) => `uploaded: ${k}`)]);
+const COUNT_NAMES = new Set([...Object.values(COUNTED).filter((k) => !k.endsWith(' ')), ...WHY.map((w) => COUNTED.wholeWhy + w), ...ROWS_REFUSED.map((w) => COUNTED.rowsRefused + w),
+  ...BY.flatMap((b) => [COUNTED.wholeBy + b, COUNTED.fboAllocBy + b]), ...TISSUE_WHY.map((w) => COUNTED.tissueWhy + w),
+  ...['setGeometry', 'patchGeometry', 'setBend', 'noise', 'setTubes', 'setFlow', 'setDye', 'setFluidCells', 'setRadii', 'setOrgans', 'plateRows', 'setCath', 'setLines'].map((k) => `uploaded: ${k}`)]);
 
 /**
  * One frame gap as a line: when after the gesture ended, how long, and the steps in it, largest first. What no step of the
@@ -43,8 +128,13 @@ export function gapLine(g) {
 
 /** A gesture's report as text. */
 export function gestureText(r) {
-  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in ${((r.win || WINDOW) / 1000).toFixed(0)} s, worst ${r.worst.toFixed(0)} ms${r.gpu ? ', GPU timed' : ''}${r.orgs ? ', GPU organs' : ''}${r.hide ? `, TEST: ${r.hide}` : ''}`;
+  const head = `#${r.n} ${r.kind} in ${r.view}, zoom ${r.zoom}, ${r.frames} frames in ${((r.win || WINDOW) / 1000).toFixed(0)} s, worst ${r.worst.toFixed(0)} ms${r.gpu ? ', GPU timed (gl.finish waits for the GPU: frame times slower than shipped)' : ''}${r.orgs ? ', GPU organs' : ''}${r.hide ? `, TEST: ${r.hide}` : ''}`;
   const gauges = Object.entries(r.gauges || {}).filter(([, v]) => v).map(([k, v]) => `  ${k}: ${v}`);
+  // (The frame intervals as a histogram at the screen's own refresh, and each surface's callbacks against its real draws.)
+  if (r.stats !== undefined) gauges.unshift(intervalLine(r.stats));
+  if (r.surfaces) gauges.push(r.surfaces);
+  // (Which surfaces were on a fallback when the gesture let go (gpu-surfaces.js), read once at the window's start.)
+  if (r.paths) { const off = r.paths.filter((p) => p.on !== 'gpu'); gauges.push(`  on a fallback or partly when it let go: ${off.length ? off.map((p) => `${p.name} (${p.via})`).join(', ') : 'none'}`); }
   // (Frames counted by what they drew, over the whole window: the whole picture redrawn, the organ picture down.)
   const tally = Object.entries(r.tally || {}).map(([k, n]) => `${k} in ${n} of ${r.frames} frames`);
   if (tally.length) gauges.push(`  ${tally.join(', ')}`);
@@ -52,15 +142,30 @@ export function gestureText(r) {
   // surface drew twice in a frame, uploads in KB, and the work a moving camera should not need. Totals over the window, not rates.)
   const counted = Object.entries(r.counts || {}).map(([k, [n, kb, two]]) => `${k} ×${n}${kb ? ` (${kb.toFixed(0)} KB)` : ''}${two ? `, ${two} frames with two` : ''}`);
   if (counted.length) gauges.push(`  counted: ${counted.join('; ')}`);
-  const gaps = r.gaps.length ? r.gaps.map(gapLine) : ['  no frame over 20 ms'];
+  // (Every frame that missed a refresh, at most GAP_LINES of them, the slowest kept; in the order they came.)
+  const shown = r.gaps.length > GAP_LINES ? r.gaps.slice().sort((a, b) => b.dt - a.dt).slice(0, GAP_LINES).sort((a, b) => a.at - b.at) : r.gaps;
+  const gaps = r.gaps.length ? [...shown.map(gapLine), ...(r.gaps.length > GAP_LINES ? [`  and ${r.gaps.length - GAP_LINES} shorter missed frames`] : [])] : [`  no frame missed${r.limit ? ` (none over ${r.limit.toFixed(1)} ms)` : ''}`];
   const tasks = r.tasks.map((t) => `  long task +${t.at.toFixed(0)} ms: ${t.dt.toFixed(0)} ms${t.src ? ` (${t.src})` : ''}`);
-  return [head, ...gauges, ...gaps, ...tasks].join('\n');
+  return [head, ...(r.budget ? [budgetText(r.budget)] : []), ...gauges, ...gaps, ...tasks].join('\n');
 }
+
+// The panel's page writes, as top-level functions run between frames (restPass): never a closure inside the sampler, so none
+// is reached from a frame. The elements and texts they need are module state, set once by startPerfReadout.
+let pSurfEl = null, pSurfText = null, pShownSurf = '', pLogEl = null, pLogText = null, pShownLog = '', pBody = null, pReports = null;
+function writeSurf() { const t = pSurfText(); if (t !== pShownSurf) { pShownSurf = t; pSurfEl.textContent = t; } }
+function writeLog() { const t = pLogText(); if (t !== pShownLog) { pShownLog = t; pLogEl.textContent = t; } }
+function writeBody() { pBody.textContent = pReports.map(gestureText).join('\n\n'); }
 
 export function startPerfReadout({ zoom = () => '?' } = {}) {
   gpuProbe.cpuOnly = true; gpuProbe.on = true; gpuProbe.take();
+  // The long-frame log: every frame over LONG_FRAME_MS from now on, gesture or not (the gesture windows below list the frames that
+  // missed the screen's refresh in the 2 s after a pan or pinch; a stall that comes by itself, as on a slide change, shows here).
+  const frameLog = createFrameRecorder({ keepLong: 60 });
+  watchFrames(frameLog.add);
   const reports = [];
-  let n = 0, cur = null, prevT = 0, wheelT = 0;
+  let n = 0, cur = null, prevT = 0, prevTs = 0, wheelT = 0, wheelKind = '', wheelAt = 0;
+  const wheelDone = () => { begin(wheelKind); cur.t0 = wheelAt; };
+  const recent = [];   // (the last 600 frame intervals, for the refresh)
   const down = new Map();
   let maxDown = 0, moved = false;
   const onStage = (e) => !!e.target?.closest?.('#stageView');
@@ -80,8 +185,12 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   };
   const begin = (kind, win = WINDOW) => {
     const was = !!cur;
-    cur = { n: ++n, kind, win, tally: {}, counts: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans };
+    if (cur?.mb) cur.budget = motionBudget.stop(cur.mb);   // (a window cut short by the next keeps what it counted)
+    cur = { n: ++n, kind, win, mb: motionBudget.on() ? motionBudget.start(kind) : null, tally: {}, counts: {}, view: view(), zoom: (+zoom() || 0).toFixed(2), t0: performance.now(), frames: 0, worst: 0, gaps: [], tasks: [], gauges: {}, gpu: !gpuProbe.cpuOnly, hide: HIDES[hideAt], orgs: gpuProbe.gpuOrgans, dts: [], totals: perf().totals };   // alloc-rare: once per gesture window; the report keeps this record
     gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges();
+    cur.paths = surfaceRows();
+    if (recent.length < 30) calUntil = Math.max(calUntil, performance.now() + 1000);
+    kick();
     if (!was && !beatT) { beatAt = performance.now(); busy = 0; beatT = setTimeout(beat, 0); }
   };
   addEventListener('pointerdown', (e) => { if (!onStage(e)) return; down.set(e.pointerId, [e.clientX, e.clientY]); maxDown = Math.max(maxDown, down.size); if (down.size === 1) moved = false; }, { capture: true, passive: true });
@@ -92,13 +201,18 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     maxDown = 0; moved = false;
   };
   addEventListener('pointerup', up, { capture: true, passive: true });
+  // A slide or beat change (presenter go / toBeat, any key, button or swipe) and an Anatomy to Circuit switch each open a window of their
+  // own, with the motion budget's counts (merged GPU plan, item 1): the frames and the main-thread work from the press to the settle.
+  addEventListener('pps:go', () => begin('slide change', 3000));
+  addEventListener('pps:view', () => begin('view switch', 2500));
+  addEventListener('pps:cardzoom', () => begin('card zoom', 2500));   // (a zoom in or out of the data card: it was left out, so the readout kept the last slide change)
   addEventListener('pointercancel', up, { capture: true, passive: true });
   // A scroll or trackpad pinch ends when no wheel event has come for 150 ms (the window then starts at its last event).
   addEventListener('wheel', (e) => {
     if (!onStage(e)) return;
     clearTimeout(wheelT);
-    const kind = e.ctrlKey ? 'trackpad pinch' : 'scroll', at = performance.now();
-    wheelT = setTimeout(() => { begin(kind); cur.t0 = at; }, 150);
+    wheelKind = e.ctrlKey ? 'trackpad pinch' : 'scroll'; wheelAt = performance.now();
+    wheelT = setTimeout(wheelDone, 150);
   }, { capture: true, passive: true });
   try {
     new PerformanceObserver((list) => {
@@ -109,34 +223,58 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
         cur.tasks.push({ at: t.startTime - cur.t0, dt: t.duration, src });
       }
     }).observe({ type: PerformanceObserver.supportedEntryTypes?.includes('long-animation-frame') ? 'long-animation-frame' : 'longtask', buffered: false });
-  } catch { /* not reported by this browser (Safari): the frame gaps still are */ }
+  } catch (e) { caught('perf-readout:198', e); /* not reported by this browser (Safari): the frame gaps still are */ }
 
   // (Timed by the clock when this callback runs, not by the frame's shared timestamp: the steps taken here ran since the last call,
   // so they fall inside the interval they are listed with. With the timestamp, work in other callbacks of a frame was set against
   // the wrong interval: a 24 ms frame with 139 ms of Doppler in it (external review, 21 Oct).)
-  const tick = () => {
+  // (The intervals the refresh and the histogram are told from are the frames' own timestamps (ts): the clock at a callback's run moves
+  // with the work done before it in that frame, so a late callback then an early one had looked 6 ms apart on a 60 Hz screen, and the
+  // refresh was taken as 100 to 165 Hz; his Mac readout, 30 Oct.)
+  const tick = (ts) => {
     const t = performance.now();
     const parts = gpuProbe.take(), notes = gpuProbe.takeNotes(), gauges = gpuProbe.takeGauges(), was = busy;
     if (cur) {
       Object.assign(cur.gauges, gauges); for (const k of TALLY) if (notes[k]) cur.tally[k] = (cur.tally[k] || 0) + 1;
-      for (const k in notes) if (COUNT_NAMES.has(k)) { const c = cur.counts[k] || (cur.counts[k] = [0, 0, 0]); c[0] += notes[k][0]; c[1] += notes[k][1]; if (notes[k][0] > 1 && TWICE.has(k)) c[2]++; }
+      for (const k in notes) if (COUNT_NAMES.has(k)) { const c = cur.counts[k] || (cur.counts[k] = [0, 0, 0]); c[0] += notes[k][0]; c[1] += notes[k][1]; if (notes[k][0] > 1 && TWICE.has(k)) c[2]++; }   // alloc-rare: the first count of a name in a window
     }
     busy = 0; frameAt = t;
+    // (Every interval, gesture or not, goes into the last few seconds the refresh is told from.)
+    const fdt = prevTs && ts > prevTs ? ts - prevTs : 0;
+    if (fdt) { recent.push(fdt); if (recent.length > 600) recent.splice(0, recent.length - 600); }
     if (cur && prevT && t >= cur.t0) {
       const dt = t - prevT, at = prevT - cur.t0;
-      cur.frames++; cur.worst = Math.max(cur.worst, dt);
-      if (dt > GAP) cur.gaps.push({ at: Math.max(0, at), dt, parts, notes, busy: was });
-      if (t - cur.t0 >= cur.win) { reports.unshift(cur); reports.length = Math.min(reports.length, KEEP); cur = null; paint(); }
+      cur.frames++; cur.worst = Math.max(cur.worst, dt); if (fdt) cur.dts.push(fdt);
+      // (A frame missed its refresh past 1.5 of them: 12.5 ms at 120 Hz, 25 ms at 60. Before the refresh is known, 20 ms as before.)
+      const hz = refreshOf(recent), limit = hz ? 1500 / hz : 20;
+      if (dt > limit) cur.gaps.push({ at: Math.max(0, at), dt, parts, notes, busy: was });   // alloc-rare: only a frame that missed its refresh, which the report lists
+      if (t - cur.t0 >= cur.win) {
+        cur.limit = limit;
+        cur.stats = hz ? intervalStats(cur.dts, hz) : null;
+        cur.surfaces = surfaceLine(cur.totals, perf().totals);
+        cur.dts = cur.totals = null;
+        if (cur.mb) cur.budget = motionBudget.stop(cur.mb);
+        reports.unshift(cur); reports.length = Math.min(reports.length, KEEP); cur = null; paint();
+      }
     }
-    prevT = t;
-    requestAnimationFrame(tick);
+    prevT = t; prevTs = ts > 0 ? ts : 0;
+    loop = 0;
+    if (wanted()) loop = nextFrame(tick) || 1;
+    else { prevT = prevTs = 0; gpuProbe.take(); gpuProbe.takeNotes(); gpuProbe.takeGauges(); }   // (the next run starts clean: an idle gap is not a frame)
   };
-  requestAnimationFrame(tick);
+  // The sampler runs only while it is wanted: a window open (a gesture's, At rest, Record) or the first second after the panel opens or a
+  // window begins with too few intervals seen to tell the refresh (a bounded calibration), never in a hidden tab. An endless frame loop of
+  // its own kept the page drawing at rest and changed the idle it was there to measure (GPU motion review, 1 Nov).
+  let loop = 0, calUntil = performance.now() + 1000;
+  const wanted = () => !document.hidden && (!!cur || performance.now() < calUntil);
+  const kick = () => { if (!loop && wanted()) loop = nextFrame(tick) || 1; };
+  addEventListener('visibilitychange', kick);
+  kick();
 
   // The panel: top left under the top bar, small, folded to one line by a tap on its title. It takes taps only on itself.
   const el = document.createElement('div');
   el.id = 'perfReadout';
-  el.style.cssText = 'position:fixed;left:max(8px, env(safe-area-inset-left));top:calc(56px + env(safe-area-inset-top));z-index:2147483000;max-width:min(560px, calc(100vw - 16px));max-height:40vh;overflow:auto;padding:6px 8px;border-radius:8px;background:rgb(0 0 0 / .72);color:#fff;font:600 12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text';   // colour-exempt: a measuring panel
+  el.style.cssText = 'position:fixed;left:max(8px, env(safe-area-inset-left));top:calc(56px + env(safe-area-inset-top));z-index:var(--z-diag);max-width:min(560px, calc(100vw - 16px));max-height:40vh;overflow:auto;padding:6px 8px;border-radius:8px;background:rgb(0 0 0 / .72);color:#fff;font:600 12px/1.4 ui-monospace,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;-webkit-user-select:text;user-select:text';   // colour-exempt: a measuring panel
   const bar = document.createElement('div');
   bar.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;align-items:center';
   const title = document.createElement('button');
@@ -148,7 +286,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   // GPU timing: each timed step then waits for the GPU before and after it (gpu-probe.js), so "picture" (the blood's frame) and
   // "vessels" show their GPU time, not just the moment they were queued. That slows the page a little, so it starts off.
   const gpu = document.createElement('button');
-  const gpuLabel = () => { gpu.textContent = gpuProbe.cpuOnly ? 'GPU timing off' : 'GPU timing on'; };
+  const gpuLabel = () => { gpu.textContent = gpuProbe.cpuOnly ? 'GPU timing off' : 'GPU timing on (slows frames)'; };
   gpu.onclick = () => { gpuProbe.cpuOnly = !gpuProbe.cpuOnly; gpuLabel(); };
   gpuLabel();
   // Record: 6 s from the tap, for a change that runs by itself (a slide stepping healthy to cirrhosis, the fluid filling, a
@@ -165,6 +303,8 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
     hideStyle.textContent = HIDE_CSS[HIDES[hideAt]] || '';
     if (!hideStyle.isConnected) document.head.append(hideStyle);
     gpuProbe.skipGL = HIDES[hideAt] === 'no GPU picture';
+    gpuProbe.skipLabels = HIDES[hideAt] === 'no labels';
+    window.pps?.stage?.labelGL?.pinDraw?.();   // (draw once more, so the switch shows without waiting for a frame)
     hideLabel();
   };
   hideLabel();
@@ -175,18 +315,47 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   orgsLabel();
   const rec = document.createElement('button');
   rec.textContent = 'Record 6 s';
-  rec.onclick = () => { begin('recording', 6000); rec.textContent = 'Recording…'; setTimeout(() => { rec.textContent = 'Record 6 s'; }, 6000); };
-  for (const b of [title, rest, rec, hide, gpu, orgs, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
-  title.textContent = 'Lag after gestures (tap to fold)';
+  rec.onclick = () => { begin('recording', 6000); rec.textContent = 'Recording…'; setTimeout(() => textSoon(rec, 'Record 6 s'), 6000); };
+  // Blurs: the browser's backdrop blurs showing now and why each is not a glass drawn in the figure (blur-gauge.js; laptop-heat recs H2).
+  // Read on the tap (a scan of the page's styles, never while a window measures), shown until the next tap, and in Copy.
+  const blurs = document.createElement('button');
+  const blurEl = document.createElement('div');
+  blurEl.style.cssText = 'margin-top:8px';
+  // Surfaces: which of the page's surfaces draw on the GPU now and which on a fallback (gpu-surfaces.js; reviewer, 1 Nov, section 9),
+  // written twice a second from each surface's own state while no gesture's window is open (a write during one would be measured).
+  const surfEl = document.createElement('div');
+  surfEl.style.cssText = 'margin-top:8px';
+  // (The quality tier now (adapt-tier.js, R07) and its last change, with why.)
+  const tierText = () => { const t = sceneTier(), l = tierLog().at(-1); return `Quality tier: ${t ? `${Math.round(TIERS[t] * 100)}% on moving frames` : 'Full'}${l ? `; last change ${l.from}→${l.to}: ${l.why} (${l.mb} MB)` : ''}`; };
+  if (window.pps) window.pps.tiers = () => tierLog();
+  const surfText = () => `${surfacesText(surfaceRows())}\n${gpuBudgetText()}\n${contextText()}\n${tierText()}`;   // (and the render graph's budget, gpu-budget.js, R06)
+  pSurfEl = surfEl; pSurfText = surfText;
+  setInterval(() => { if (!cur && !folded && !document.hidden) restPass(writeSurf); }, 500);
+  if (window.pps) window.pps.surfaces = () => surfaceRows();   // (for a headless run: pps.surfaces())
+  if (window.pps) window.pps.budget = gpuBudget;   // (the registry and the passes: pps.budget())
+  const scan = () => blurText(scanBlurs(document, (el) => window.pps?.stage?.blurWhy?.(el) ?? null), document.querySelectorAll('[data-gl]').length);
+  blurs.textContent = 'Blurs';
+  blurs.onclick = () => { blurEl.textContent = scan(); };
+  if (window.pps) window.pps.blurs = scan;   // (for a headless run: pps.blurs())
+  for (const b of [title, rest, rec, hide, gpu, orgs, blurs, copy]) b.style.cssText = 'font:inherit;color:#fff;background:rgb(255 255 255 / .16);border:0;border-radius:6px;padding:4px 8px;min-height:28px';   // colour-exempt
+  title.textContent = 'Lag after slides and gestures (tap to fold)';
   copy.textContent = 'Copy';
   rest.textContent = 'At rest';
-  rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => { rest.textContent = 'At rest'; }, 2000); }, 1000); };
+  rest.onclick = () => { rest.textContent = 'Wait 3 s'; setTimeout(() => { begin('at rest'); setTimeout(() => textSoon(rest, 'At rest'), 2000); }, 1000); };   // alloc-rare: a press of the panel's At rest button
   const body = document.createElement('div');
-  body.textContent = 'Pan, pinch or scroll-zoom the figure, then let go and wait 2 s.';
-  bar.append(title, rest, rec, hide, gpu, orgs, copy); el.append(bar, body);
+  body.textContent = 'Change slide, switch view, or pan, pinch or scroll-zoom the figure, then wait 3 s.';
+  // Under the gestures: the long frames and the slowest inputs, written once a second and never while a gesture's window is open
+  // (a write during it would be part of what it measures).
+  const logEl = document.createElement('div');
+  logEl.style.cssText = 'margin-top:8px';
+  const logText = () => [longFramesText(frameLog.long), inputsText(perf().inputToPaint)].join('\n\n');
   let folded = false;
-  title.onclick = () => { folded = !folded; body.style.display = folded ? 'none' : ''; };
-  const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText)].join('\n\n');
+  pLogEl = logEl; pLogText = logText;
+  setInterval(() => { if (!cur && !document.hidden && !folded) restPass(writeLog); }, 1000);   // (not while hidden or folded: nothing to see)
+  restPass(writeLog);
+  bar.append(title, rest, rec, hide, gpu, orgs, blurs, copy); el.append(bar, body, surfEl, blurEl, logEl);
+  title.onclick = () => { folded = !folded; for (const e of [body, surfEl, blurEl, logEl]) e.style.display = folded ? 'none' : ''; };
+  const text = () => [`${navigator.userAgent}`, `screen ${innerWidth}x${innerHeight} @${devicePixelRatio}x, refresh offered to the page ${refreshOf(recent) || '?'} Hz, ${location.pathname}${document.getElementById('preview-badge') ? ` ${document.getElementById('preview-badge').textContent.trim()}` : ''}`, ...reports.map(gestureText), surfText(), ...(blurEl.textContent ? [blurEl.textContent] : []), logText()].join('\n\n');
   copy.onclick = async () => {
     const t = text();
     try { await navigator.clipboard.writeText(t); copy.textContent = 'Copied'; } catch {
@@ -194,8 +363,9 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
       try { document.execCommand('copy'); copy.textContent = 'Copied'; } catch { copy.textContent = 'Select the text'; }
       ta.remove();
     }
-    setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
+    setTimeout(() => textSoon(copy, 'Copy'), 1500);
   };
-  function paint() { body.textContent = reports.map(gestureText).join('\n\n'); }
+  pBody = body; pReports = reports;
+  function paint() { restPass(writeBody); }
   document.body.append(el);
 }

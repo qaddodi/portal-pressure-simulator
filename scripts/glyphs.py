@@ -1,0 +1,86 @@
+# The figure's GPU text: the outlines of Inter's glyphs (fonts/inter-latin.woff2, a variable font), cut at the weights the GPU draws
+# text at and written as src/ui/glyph-data.js, so text drawn on the GPU (text-gl.js) is filled from its outlines by the shape drawer
+# (shape-gl.js) and never painted on a 2D canvas. Run again when the font or the weights change:
+#
+#   pip install fonttools brotli && python3 scripts/glyphs.py
+#
+# Per weight: the advance and outline (SVG path in font units, y up) of each character of printable ASCII and a few signs the app
+# writes (− · × – ° µ ‰ ≥ ≤ →), the tabular figures (tnum) as their own entries, and the kerning between those glyphs (GPOS pair
+# adjustments, both glyph and class pairs), so a word is spaced as the browser spaces it.
+import json, os
+from fontTools.ttLib import TTFont
+from fontTools.varLib.instancer import instantiateVariableFont
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+WEIGHTS = [400, 500, 600, 700]
+CHARS = [chr(c) for c in range(0x20, 0x7F)] + list('−·×–°µ‰≥≤→…—±')
+# Signs Inter has no outline for, taken from Noto Sans Math (scripts/font-sources/noto-sans-math-latin.woff2, SIL OFL; one weight for all four) and the subscript two
+# made from Inter's own two (smaller, set low): the clinical marks (HVPG ≥ 10, → , ≤, √, ↔, τ, and ⟲ the reversed-flow mark) draw on the GPU like every other letter.
+FALLBACK = list('→≤≥√↔τ⟲')
+# ⌘ (the keyboard hint) is in neither Inter nor Noto Sans Math's Latin cut: its outline is DejaVu Sans's (U+2318 only, scripts/font-sources/dejavu-sans-command.woff2;
+# a character DejaVu added, public domain, see dejavu-sans-LICENSE.txt), one weight for all four.
+FALLBACK2 = [('scripts/font-sources/dejavu-sans-command.woff2', '⌘')]
+
+import importlib.util
+_spec = importlib.util.spec_from_file_location('glyph_helpers', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glyph-helpers.py'))
+_h = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_h)
+kerning, tnum_map = _h.kerning, _h.tnum_map
+
+data = {}
+for w in WEIGHTS:
+    f = TTFont(os.path.join(ROOT, 'fonts/inter-latin.woff2'))
+    f = instantiateVariableFont(f, {'wght': w, 'opsz': 14})
+    cmap = f.getBestCmap(); gs = f.getGlyphSet(); hmtx = f['hmtx']
+    tn = tnum_map(f)
+    def glyph(name):
+        pen = SVGPathPen(gs, lambda v: ('%.1f' % v).rstrip('0').rstrip('.'))
+        gs[name].draw(pen)
+        return [hmtx[name][0], pen.getCommands()]
+    chars, names = {}, {}
+    for ch in CHARS:
+        n = cmap.get(ord(ch))
+        if not n: continue
+        chars[ch] = glyph(n); names[ch] = n
+    nf = TTFont(os.path.join(ROOT, 'scripts/font-sources/noto-sans-math-latin.woff2')); ncm = nf.getBestCmap(); ngs = nf.getGlyphSet(); nh = nf['hmtx']; sc = 2048 / nf['head'].unitsPerEm
+    for ch in FALLBACK:
+        n = ncm.get(ord(ch))
+        if not n or ch in chars: continue
+        pen = SVGPathPen(ngs, lambda v: ('%.1f' % v).rstrip('0').rstrip('.')); tp = TransformPen(pen, (sc, 0, 0, sc, 0, 0)); ngs[n].draw(tp)
+        chars[ch] = [round(nh[n][0] * sc), pen.getCommands()]
+    for path, sign in FALLBACK2:
+        xf = TTFont(os.path.join(ROOT, path)); xcm = xf.getBestCmap(); xgs = xf.getGlyphSet(); xh = xf['hmtx']; xsc = 2048 / xf['head'].unitsPerEm
+        for ch in sign:
+            n = xcm.get(ord(ch))
+            if not n or ch in chars: continue
+            pen = SVGPathPen(xgs, lambda v: ('%.1f' % v).rstrip('0').rstrip('.')); tp = TransformPen(pen, (xsc, 0, 0, xsc, 0, 0)); xgs[n].draw(tp)
+            chars[ch] = [round(xh[n][0] * xsc), pen.getCommands()]
+    if '2' in chars:   # (the subscript two: Inter's two at 62 %, lowered)
+        two = cmap.get(ord('2')); pen = SVGPathPen(gs, lambda v: ('%.1f' % v).rstrip('0').rstrip('.')); tp = TransformPen(pen, (0.62, 0, 0, 0.62, 0, -260)); gs[two].draw(tp)
+        chars['₂'] = [round(hmtx[two][0] * 0.62), pen.getCommands()]
+    tab = {}
+    # (Every character the tnum feature swaps, not only the figures: tabular figures also set a full stop, comma, colon, sign, bracket
+    # or space on the figures' pitch (a "." is 0.55 em, not 0.6 em, wide, in Inter), so a number the GPU draws keeps the width the page gives it.)
+    for d in CHARS:
+        n = tn.get(names.get(d))
+        if n: tab[d] = glyph(n); names['tnum:' + d] = n
+    kern_g = kerning(f, list(names.values()))
+    inv = {}
+    for k, n in names.items(): inv.setdefault(n, []).append(k)
+    kern = {}
+    for a, row in kern_g.items():
+        for b, v in row.items():
+            for ka in inv.get(a, []):
+                for kb in inv.get(b, []):
+                    if ka.startswith('tnum:') or kb.startswith('tnum:'): continue
+                    kern[ka + kb] = v
+    os2 = f['OS/2']
+    data[w] = { 'chars': chars, 'tnum': tab, 'kern': kern, 'asc': os2.sTypoAscender, 'desc': os2.sTypoDescender }
+upm = 2048
+out = ['// Generated by scripts/glyphs.py from fonts/inter-latin.woff2: do not edit. Inter\'s glyph outlines (font units, y up) at the',
+       '// weights the GPU draws text at, with their advances, tabular figures and kerning (text-gl.js).',
+       'export const UPM = %d;' % upm,
+       'export const GLYPHS = ' + json.dumps(data, separators=(',', ':'), ensure_ascii=False) + ';', '']
+open(os.path.join(ROOT, 'src/ui/glyph-data.js'), 'w').write('\n'.join(out))
+print('wrote', sum(len(v['chars']) for v in data.values()), 'glyphs', os.path.getsize(os.path.join(ROOT, 'src/ui/glyph-data.js')), 'bytes')

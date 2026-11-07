@@ -3,9 +3,10 @@
 // on exit (presentations and patients are ungraded). Outside an LMS this does nothing.
 // LTI 1.3 needs a server and is not part of this static build.
 
+import { caught } from './caught.js';
 function findAPI(win) {
   for (let i = 0; win && i < 10; i++) {
-    try { if (win.API) return win.API; } catch { /* cross-origin frame */ }
+    try { if (win.API) return win.API; } catch (e) { caught('lms:8', e); /* cross-origin frame */ }
     if (win.parent === win) break;
     win = win.parent;
   }
@@ -20,6 +21,6 @@ export function startLMS() {
     if (api.LMSGetValue('cmi.core.lesson_status') === 'not attempted') api.LMSSetValue('cmi.core.lesson_status', 'incomplete');
     api.LMSCommit('');
   } catch { return null; }
-  addEventListener('pagehide', () => { try { api.LMSFinish(''); } catch { /* already finished */ } });
+  addEventListener('pagehide', () => { try { api.LMSFinish(''); } catch (e) { caught('lms:23', e); /* already finished */ } });
   return api;
 }

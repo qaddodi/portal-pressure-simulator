@@ -10,29 +10,19 @@ const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const GL = readFileSync(new URL('../src/ui/sinusoid-gl.js', import.meta.url), 'utf8');
 const VIEW = readFileSync(new URL('../src/ui/sinusoid-view.js', import.meta.url), 'utf8');
 
-test('a presenter slide that lights something in the liver hides only the lobule\'s unlit names, never the sinusoid view\'s', () => {
-  const rules = CSS.split('\n').filter((l) => l.startsWith('.app.presenting:is([data-lit*="lobule:"], [data-lit*="sinusoid:"])'));
-  assert.equal(rules.length, 2, 'the names rule and the leaders rule');
-  for (const r of rules) {
-    assert.doesNotMatch(r, /\.sv-region|\.sv-lead/, 'the sinusoid view\'s names and leaders are not faded when unlit');
-    assert.match(r, /\.lz-lab|\.lz-leaders/);
-  }
-  assert.match(rules[0], /:is\(\.lz-lab, \.lz-zone\):not\(/, 'the lobule\'s names and zone names still ease out');
-  assert.match(rules[0], /--lit-o: 0/);
-  // No other rule fades an unlit sinusoid name: the end names (Portal venule, Central vein) and the cells are plain captions.
-  assert.doesNotMatch(CSS, /\.sv-region[^{]*:not\(:is\(\.app\[data-lit/, 'no rule fades a sinusoid name by what is lit');
-});
-
 test('a lit sinusoid name still takes the pill and its colour', () => {
-  const pill = CSS.split('\n').find((l) => l.includes(')::before { --pill-o: 1;')) || '';
+  const pill = CSS.split('\n').find((l) => l.includes(')::before { opacity: 1;')) || '';
   for (const k of ['fenestrae', 'disse', 'stellate', 'kupffer', 'hepatocyte', 'lymph', 'lumen']) assert.ok(pill.includes(`.app[data-lit~="sinusoid:${k}"] [data-target="sinusoid:${k}"]`), k);
   assert.match(pill, /^:is\(\.lz-lab, \.lz-zone, \.sv-region\):is\(/);
 });
 
 test('the end arrows follow their names, so the kept names keep their arrows', () => {
   assert.match(VIEW, /const endShown = \(key\) => \{/);
-  assert.match(VIEW, /\(\+getComputedStyle\(e\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \/ 0\.78/);
-  assert.match(VIEW, /\[\['in', 'Portal venule', val\(m\.P1\), 0\], \['out', 'Central vein', val\(m\.P3\), 1\]\]/);
+  assert.match(VIEW, /\(cap\.on \? 1 : \+getComputedStyle\(e\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(e\.firstElementChild\)\.opacity \|\| 0\) \* \(\+getComputedStyle\(labels\)\.opacity \|\| 0\)\);/);
+  // (A name drawn by the GPU fades there, label-captions.js: its arrow takes the GPU's own strength for it.)
+  assert.match(VIEW, /return \(endOp\[key\] \?\? 0\) \* \(cap\.on \? cap\.at\(key, easeNow\(\)\)\?\.a \?\? 0 : 1\);/);   // (the ends' names at full ink since 2 Nov 2026: no 0.78 to divide by)
+  assert.match(VIEW, /END_NAMES = \['Portal venule', 'Central vein'\]/);
+  assert.match(VIEW, /value = pressTxt\(u, u \? m\.P3 : m\.P1\)/);
   assert.match(VIEW, /region\('hep', 'Hepatocyte'/);
   assert.match(VIEW, /region\('lymph', 'Lymph'/);
 });
@@ -83,5 +73,5 @@ test('both layouts take the pore from the one helper', () => {
   assert.match(VIEW, /const fenAt = \(x\) => calloutPore\(geo\.pores\[0\], x, VW\.fr\[0\] \+ 3, VW\.fr\[1\] - 3, SEED\.nucUp\);/);
   assert.equal(VIEW.split('fenAt(').length - 1, 3, 'three calls (across, beside the stellate cell, down)');
   assert.match(VIEW, /leader\('fen', rf, xp, -\(halfW\(xp\) \+ UM\.endo \* 0\.5\)\)/, 'the callout ends on the pore\'s gap in the lining');
-  assert.match(VIEW, /leader\('fen', region\('fen', 'Fenestrae', fenTxt\(\), x, -mid\(x\)\), xp, -\(halfW\(xp\) \+ UM\.endo \* 0\.5\)\)/);
+  assert.match(VIEW, /leader\('fen', region\('fen', 'Fenestrae', fenTxt\(\), x, -midTall\(x\)\), xp, -\(halfW\(xp\) \+ UM\.endo \* 0\.5\)\)/);
 });

@@ -72,6 +72,7 @@ try {
   if (d1 - d0 > 10) fail(`a paused figure kept drawing after a lens switch: ${d1 - d0} frames in 3 s`);
   if (errors.length) fail(`page errors: ${[...new Set(errors)].slice(0, 3).join(' | ')}`);
   await ctx.close();
+
 } finally {
   await browser.close();
   server.close?.();

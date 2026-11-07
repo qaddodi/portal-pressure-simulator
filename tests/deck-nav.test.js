@@ -44,7 +44,7 @@ test('the resume records keep to the newest 40 decks', () => {
 });
 
 test('the presenter notes each slide it goes to, and the menu offers Resume with its slide number', () => {
-  assert.match(presenter, /want = clamp\(i, 0, slides\.length - 1\);\s*noteResume\(deck\.id, want, slides\.length\);/);
+  assert.match(presenter, /want = clamp\(i, 0, slides\.length - 1\);\s*const tx = \(txn = txns\.begin\(\{ to: want, dir: turn \}\)\);\s*slidePrep\.aim\(want, turn, tx \? tx\.live : undefined\);\s*noteResume\(deck\.id, want, slides\.length\);/);
   assert.match(presenter, /resumeAt: \(d\) => resumeFor\(d\.id, \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.length\)/);
   assert.match(menu, /lib\.start\(d\.id, r\?\.at \?\? 0\)/);
   assert.match(menu, /`Resume \$\{r\.at \+ 1\} \/ \$\{r\.n\}`/);

@@ -2,7 +2,8 @@
 // It is docked by the stylesheet, never floated: on a phone at the words' bottom-left corner, opposite the nav pill; on a wider
 // screen (Mac, iPad, a phone held sideways) right on top of the nav pill at the lower right, right-aligned with it (Mohammad,
 // 15 Oct: "put the legend on top of the zoom pill"). It waits for the cards to land and fades in there; it never slides.
-import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
+import { frameFor } from './frame.js';
+import { restPass, cancelRest } from './rest-pass.js';
 const nextFrame = frameFor('figkey');
 
 // el: the key's element (inside the presenter's layer, beside the nav pill); app: the app's root (its pz-moving class marks a slide change).
@@ -11,11 +12,17 @@ const nextFrame = frameFor('figkey');
 export function createFigureKey({ el, app, ready = null, watch = [] }) {
   let on = false, raf = 0, hideT = 0, swapT = 0;
   const empty = () => el.dataset.empty != null;
+  // (The steps of a fade, made once: the timer and the frame callbacks below are these, not new closures each time.)
+  const hideEl = () => { if (!on) el.hidden = true; };
+  const hideRest = () => restPass(hideEl);
+  const showEl = () => { if (on) el.classList.add('on'); };
+  const showRest = () => restPass(showEl);
+  const showFrame = () => nextFrame(showRest);
   // Out of sight (fading), and out of the way once it has faded.
   function off() {
     clearTimeout(hideT);
     el.classList.remove('on'); on = false;
-    hideT = setTimeout(() => { if (!on) el.hidden = true; }, 320);
+    hideT = setTimeout(hideRest, 320);   // (the write lands between frames)
   }
   function check() {
     raf = 0;
@@ -24,10 +31,13 @@ export function createFigureKey({ el, app, ready = null, watch = [] }) {
     // and the camera has settled.)
     if (ready ? !ready() : app.classList.contains('pz-moving')) { if (on) off(); return; }
     if (on) return;
-    clearTimeout(hideT); el.classList.remove('col'); el.hidden = false; void el.offsetWidth; el.classList.add('on'); on = true;
+    // (Shown first and drawn once faded out, then faded in a frame later: the fade starts from nothing with no forced layout read.)
+    clearTimeout(hideT); el.classList.remove('col'); el.hidden = false; on = true;
+    nextFrame(showFrame);
     dispatchEvent(new Event('pps:occ'));   // (the credit and the figure's labels keep clear of it)
   }
-  function soon() { if (!raf) raf = nextFrame(check); }
+  // (A rest pass: whether it is in the page is read between two frames, never inside one.)
+  function soon() { if (!raf) raf = restPass(check); }
   const onEvent = () => { if (!empty()) soon(); };
   addEventListener('resize', onEvent);
   const mo = new MutationObserver(onEvent);
@@ -48,7 +58,7 @@ export function createFigureKey({ el, app, ready = null, watch = [] }) {
     refresh: soon,
     dispose() {
       clearTimeout(hideT); clearTimeout(swapT);
-      cancelFrame(raf); raf = 0; mo.disconnect();
+      cancelRest(raf); raf = 0; mo.disconnect();
       removeEventListener('resize', onEvent);
     },
   };

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -17,7 +18,7 @@ test('every breakpoint constant, written once', () => {
   assert.equal(SHORT_SIDE_MQ, '(orientation: landscape) and (max-height: 500px)');
   assert.equal(PHONE_MQ, `(max-width: 767px), ${SIDEWAYS_MQ}, ${UPRIGHT_MQ}`);
   assert.equal(STACK_MQ, `(max-width: 767px), ${UPRIGHT_MQ}`);
-  assert.equal(TABLET_UP_MQ, '(min-width: 768px) and (max-width: 1100px) and (orientation: portrait)');
+  assert.equal(TABLET_UP_MQ, '(min-width: 700px) and (max-width: 1100px) and (orientation: portrait)');
 });
 
 test("the style sheet's phone blocks use exactly those queries", () => {
@@ -30,13 +31,14 @@ test("the style sheet's phone blocks use exactly those queries", () => {
     '(min-width: 360px) and (max-width: 767px), (min-width: 360px) and (max-width: 1100px) and (orientation: portrait)',
     '(max-width: 767px) and (prefers-reduced-motion: no-preference), (max-width: 1100px) and (orientation: portrait) and (prefers-reduced-motion: no-preference)',
     '(max-width: 720px) and (max-height: 500px) and (orientation: landscape)',
+    '(min-width: 1000px), (orientation: landscape) and (max-height: 500px)',   // the iPad/Mac bottom bar, also on a phone on its side
   ];
   for (const q of qs) assert.ok([STACK_MQ, PHONE_MQ, ...NARROWED].includes(q), `app.css: @media ${q}`);
   for (const q of [...css.matchAll(/@media ([^{]*max-height: 500px[^{]*)\{/g)].map((m) => m[1].trim())) assert.ok([SIDEWAYS_MQ, SHORT_SIDE_MQ, PHONE_MQ, ...NARROWED].includes(q), `app.css: @media ${q}`);
 });
 
 test('the presenter and the stage read the shared queries, not their own pixel rules', () => {
-  const pz = read('../src/ui/presenter.js'), st = read('../src/ui/stage.js'), dock = read('../src/ui/dock.js');
+  const pz = read('../src/ui/presenter.js'), st = stageSource(), dock = read('../src/ui/dock.js');
   assert.match(pz, /const stackMQ = matchMedia\(STACK_MQ\), shortMQ = matchMedia\(SHORT_SIDE_MQ\), tabMQ = matchMedia\(TABLET_UP_MQ\);/);
   assert.match(pz, /const phone = \(\) => stackMQ\.matches && !shortMQ\.matches;/);
   assert.match(pz, /const tabUp = \(\) => tabMQ\.matches;/);

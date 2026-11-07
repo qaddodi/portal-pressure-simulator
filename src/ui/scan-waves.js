@@ -3,7 +3,8 @@
 
 /** The packets under a probe element: [{ g, paths, op, d }] (op and d: the text last written). */
 export function wavePacks(root) {
-  return [...root.querySelectorAll('.sp-waves > g')].map((g) => ({ g, paths: [...g.children], op: null, d: [] }));
+  // alloc-rare: the packets are looked up once for a probe element (stage.js keeps the list in scan.packs)
+  return [...root.querySelectorAll('.sp-waves > .sp-pk')].map((g) => ({ g, paths: [...g.children], op: null, d: [] }));
 }
 /** Sets a packet's opacity (text) and, given arcOf(j) for each of its paths, their `d`. */
 export function paintWave(w, op, arcOf) {

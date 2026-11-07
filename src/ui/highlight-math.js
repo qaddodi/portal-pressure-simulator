@@ -50,45 +50,45 @@ export function spotOf(list, vessel) {
  *  half the tube's width to each side, joined round its two ends, as one closed ring. */
 export function bandRing(line, half) {
   const n = line.length;
-  if (n < 2 || !(half > 0)) return [];
-  const nrm = line.map((p, i) => {
+  if (n < 2 || !(half > 0)) return []; // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
+  const nrm = line.map((p, i) => { // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
     const a = line[Math.max(0, i - 1)], b = line[Math.min(n - 1, i + 1)];
     const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
-    return [-dy / l, dx / l];
+    return [-dy / l, dx / l]; // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
   });
-  const side = (s) => line.map((p, i) => [p[0] + s * half * nrm[i][0], p[1] + s * half * nrm[i][1]]);
+  const side = (s) => line.map((p, i) => [p[0] + s * half * nrm[i][0], p[1] + s * half * nrm[i][1]]); // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
   // A cap: a half circle from one side to the other about the end point, on the outer side.
-  const cap = (p, from, steps = 8) => {
-    const a0 = Math.atan2(from[1] - p[1], from[0] - p[0]), out = [];
-    for (let k = 1; k < steps; k++) { const a = a0 - (Math.PI * k) / steps; out.push([p[0] + half * Math.cos(a), p[1] + half * Math.sin(a)]); }
+  const cap = (p, from, steps = 8) => { // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
+    const a0 = Math.atan2(from[1] - p[1], from[0] - p[0]), out = []; // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
+    for (let k = 1; k < steps; k++) { const a = a0 - (Math.PI * k) / steps; out.push([p[0] + half * Math.cos(a), p[1] + half * Math.sin(a)]); } // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
     return out;
   };
   const L = side(1), R = side(-1).reverse();
   // (The left side runs forward, its end cap turns over to the right side, which runs back, and the start cap closes it.)
-  const ring = [...L, ...cap(line[n - 1], L[n - 1]), ...R, ...cap(line[0], R[n - 1])];
-  ring.push([...ring[0]]);
+  const ring = [...L, ...cap(line[n - 1], L[n - 1]), ...R, ...cap(line[0], R[n - 1])]; // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
+  ring.push([...ring[0]]); // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
   return ring;
 }
 /** Rings drawn as a dashed line: runs of on units with gaps of off between them, measured along each ring (the normal spleen's
  *  outline, V18, so it reads as a reference and not as a second organ). */
 export function dashRings(rings, on, off) {
-  const out = [];
+  const out = []; // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
   if (!(on > 0) || !(off >= 0)) return out;
   for (const r of rings) {
     let cur = null, at = 0;   // at: how far along the current dash or gap this point is
     let inDash = true;
     for (let i = 0; i < r.length; i++) {
       const p = r[i];
-      if (i === 0) { cur = [[...p]]; continue; }
+      if (i === 0) { cur = [[...p]]; continue; } // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
       const a = r[i - 1];
       let len = Math.hypot(p[0] - a[0], p[1] - a[1]), done = 0;
       while (len - done > 1e-9) {
         const left = (inDash ? on : off) - at, step = Math.min(left, len - done);
         done += step; at += step;
-        const t = done / len, q = [a[0] + (p[0] - a[0]) * t, a[1] + (p[1] - a[1]) * t];
+        const t = done / len, q = [a[0] + (p[0] - a[0]) * t, a[1] + (p[1] - a[1]) * t]; // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
         if (inDash) cur.push(q);
         if (at >= (inDash ? on : off) - 1e-9) {
-          if (inDash) { if (cur.length > 1) out.push(cur); cur = null; } else cur = [q];
+          if (inDash) { if (cur.length > 1) out.push(cur); cur = null; } else cur = [q]; // alloc-rare: an outline is built only when its key changes (stage.js olList entries, dprOrgPts and anchorRings are each kept under a key), not per frame
           inDash = !inDash; at = 0;
         }
       }
@@ -109,8 +109,10 @@ export const normalShown = (scale, was) => scale >= NORMAL_ON || (was && scale >
  *  only where a vessel carries on, and a spotlit one at every end, free ends too, so it fades out along its course instead of
  *  stopping in a blunt, hard-capped end (Mohammad, 19 Oct: the shunts on the spotlight slide). */
 export function liftEnd(spotted, joins) {
-  if (joins.some((j) => j.lit)) return 0;
-  return spotted || joins.some((j) => !j.ghost) ? 1 : 0;
+  for (let i = 0; i < joins.length; i++) if (joins[i].lit) return 0;
+  if (spotted) return 1;
+  for (let i = 0; i < joins.length; i++) if (!joins[i].ghost) return 1;
+  return 0;
 }
 
 // ── The change ripple (V6) ──
@@ -136,6 +138,7 @@ export function rippleList(edges, ni, from, to, shown = () => true) {
 /** Which system a vessel belongs to: 'pv' (portal), 'ivc' (systemic) or 'var' (a collateral or shunt between them).
  *  portal: the set of portal-territory node ids (topology.js PORTAL_TERRITORY). */
 export function systemOf(e, portal) {
+  if (e.shunt === 'rex') return 'pv';   // (the Meso-Rex graft joins two portal vessels: it is portal blood, in the portal colour)
   if (e.kind === 'collateral' || e.kind === 'shunt') return 'var';
   return portal.has(e.from) || portal.has(e.to) ? 'pv' : 'ivc';
 }

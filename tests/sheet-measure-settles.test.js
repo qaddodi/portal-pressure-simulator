@@ -9,9 +9,8 @@ import { readFileSync } from 'node:fs';
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
 
-test('the bleed clock row is a second readings part in the data card', () => {
-  assert.match(js, /h\('div', \{ class: 'pz-tiles pz-clockrow'/);
-  assert.match(js, /tools\.el, tiles\.el, clock\.el,/);
+test('the bleed clock row, the second readings part that froze it, is gone (his 30 Oct)', () => {
+  assert.doesNotMatch(js, /pz-clockrow/);
 });
 
 test('only the first readings part carries the travel in its margin, phone and wide sheets alike', () => {

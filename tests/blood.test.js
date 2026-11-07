@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/engine.js';
 import { EDGES, NODES } from '../src/engine/topology.js';
-import { displaySpeed, lanes, occupancy, advanceStream, originFractions, ORIGIN_N, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD, DRIFT_PERIOD, createReversalHold } from '../src/ui/blood.js';
+import { displaySpeed, lanes, occupancy, advanceStream, originFractions, originFractionsInto, ORIGIN_PE_FADE, ORIGIN_N, createBolus, KAPPA, PERIOD, DYE_BINS, DYE_SECONDS, DYE_MAX_HOLD, DRIFT_PERIOD, createReversalHold } from '../src/ui/blood.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 
@@ -81,6 +81,42 @@ test('origin: with hepatofugal flow, gut blood reaches the systemic veins', () =
   const f = originFractions(EDGES, NODES, e.Q, e.P);
   const azy = EI.AZY_SVC;
   assert.ok(f[azy * ORIGIN_N] + f[azy * ORIGIN_N + 1] + f[azy * ORIGIN_N + 2] > 0.05, 'portal blood in the azygos');
+});
+
+// The origin lens's mix along a vessel (stage-blood stepOriginFlow → originFractionsInto ends): the flow forward and back, each
+// averaged over a few breaths from the beat-by-beat flow, as the stage keeps them.
+function originMix(preset, params) {
+  const e = new Engine(); e.loadPreset(preset); e.setParams({ ...e.params, ...params }); e.settle(3);
+  for (let i = 0; i < 300; i++) e.step(0.02);
+  const n = EDGES.length, fwd = new Float64Array(n), back = new Float64Array(n), a = -Math.expm1(-0.02 / 3);
+  for (let k = 0; k < n; k++) { fwd[k] = Math.max(0, e.Qf[k]); back[k] = Math.max(0, -e.Qf[k]); }
+  for (let t = 0; t < 900; t++) { e.step(0.02); for (let k = 0; k < n; k++) { fwd[k] += (Math.max(0, e.Q[k]) - fwd[k]) * a; back[k] += (Math.max(0, -e.Q[k]) - back[k]) * a; } }
+  const mean = fwd.map((f, k) => f - back[k]), ends = { slosh: fwd.map((f, k) => Math.min(f, back[k])), down: new Float32Array(n * ORIGIN_N), pe: new Float32Array(n) };
+  const up = originFractionsInto(EDGES, NODES, mean, e.Pf || e.P, new Float32Array(n * ORIGIN_N), ends);
+  const at = (arr, id) => Array.from(arr.slice(EI[id] * ORIGIN_N, EI[id] * ORIGIN_N + ORIGIN_N));
+  return { up: (id) => at(up, id), down: (id) => at(ends.down, id), pe: (id) => ends.pe[EI[id]] };
+}
+
+test('origin: a vessel whose flow only runs one way is one blood end to end', () => {
+  const m = originMix('healthy', {});
+  for (const id of ['SV_CONF', 'SMV_CONF', 'PV_TRUNK', 'V_IMV', 'V_SPL', 'RHV_IVC']) {
+    assert.equal(m.pe(id), 0, `${id}: no mix along it`);
+    assert.deepEqual(m.down(id), m.up(id));
+  }
+  assert.ok(ORIGIN_PE_FADE[0] < ORIGIN_PE_FADE[1]);
+});
+
+test('origin: after a splenectomy or a Warren shunt the to-and-fro proximal splenic vein mixes IMV into SMV blood along it', () => {
+  for (const params of [{ splenicRx: 2 }, { dsrs: true }]) {
+    const m = originMix('cirr-decomp', params), pe = m.pe('SV_CONF'), up = m.up('SV_CONF'), down = m.down('SV_CONF');
+    assert.ok(pe !== 0 && Math.abs(pe) < ORIGIN_PE_FADE[0], `${JSON.stringify(params)}: Pe ${pe}`);
+    // (Upstream is the splenic end while the mean runs toward the confluence, the confluence end while it runs back.)
+    const [imvEnd, smvEnd] = pe > 0 ? [up, down] : [down, up];
+    assert.ok(imvEnd[1] > imvEnd[0], `splenic end carries IMV blood ${imvEnd}`);
+    assert.ok(smvEnd[0] > 0.6, `confluence end carries SMV blood ${smvEnd}`);
+    // The superior mesenteric vein beside it still runs one way: one blood.
+    assert.equal(m.pe('SMV_CONF'), 0);
+  }
 });
 
 test('dye bolus: travels downstream, keeps concentration through a split, dilutes at a merge', () => {

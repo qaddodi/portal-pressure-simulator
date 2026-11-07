@@ -21,11 +21,11 @@
 // treatments from its last state) and kept; until they are there the zones, numbers and axes show and the lines then fade in.
 // These are the model's own speeds, not a patient's: a deck line that quotes them needs a source, or none.
 
-import { TILE, RATE } from './table-marks.js?v=8458ad3bf8';
-import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js?v=799a802d0e';
-import { plotPanel } from './plot-look.js?v=5037697da7';
-import { frameFor } from './frame.js?v=7254a8a850';
-const nextFrame = frameFor('tool-course');
+import { TILE, RATE } from './table-marks.js';
+import { lineMeta, cutsOf, fmtTick, placeWord } from './tool-curve.js';
+import { plotPanel } from './plot-look.js';
+import { createSvgGL, svgModel } from './svg-gl.js';
+import { fittedType, tokName } from './chart-ctx.js';
 
 const CO_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
 const BRANCH_C = ['--tr-pv', '--tr-hv'];
@@ -127,6 +127,11 @@ export function layout(w, h, f, c, ser, keyRow = false) {
   const lead = Math.max(2, 0.075 * total), x0 = -lead * 1.6, x1 = total * 1.025, X = (d) => L + (R - L) * (d - x0) / (x1 - x0);
   const step = xStep(total), xt = [];
   for (let d = 0; d <= total + 1e-9; d += step) xt.push({ d, text: d ? fmtTick(d / 7, 1) : c.words.event });
+  // (Numbers that would stand closer than 12 px to the one before it, or on its words, are dropped: the year chart's 10, 5, 0 crowded.)
+  for (let i = 1, kept = 0; i < xt.length; i++) {
+    const a = xt[kept], b = xt[i], ax = X(a.d), bx = X(b.d), need = Math.max(12, (cw(a.text, f) + cw(b.text, f)) / 2 + 6);
+    if (bx - ax < need) xt.splice(i--, 1); else kept = i;
+  }
   // (With keyRow the lines' names stand in a row of their own under the caption, a swatch of the line's colour before each: for a card too short or too
   // narrow to put them by the lines' ends, where they would land on the lines.)
   let kx = 0;
@@ -194,13 +199,8 @@ export function compose(w, h, f, c, ser) {
   return { G, labels, zoneNames };
 }
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat(2).filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 
 // Each deck's courses, kept once worked out (by deck, then slide and tool).
 const kept = new WeakMap();
@@ -217,20 +217,25 @@ function courseWork(t, c, myKey = courseKey(t, c)) {
     return snap ? c.run(tailSteps(t), snap).then((tail) => courseSeries(t, head, tail)) : null;
   });
   store.set(myKey, p);
-  p.then((s) => { if (!s) store.delete(myKey); }, () => store.delete(myKey));
+  p.then((s) => { if (!s) store.delete(myKey); else ready.set(p, s); }, () => store.delete(myKey));
   return p;
 }
+// A course already worked out, as its value (a promise's value cannot be read at once): a slide that comes up after the deck's states are in draws
+// its lines in the first drawing, so the chart on the card glides straight from the last slide's lines to these, not through an empty one.
+const ready = new WeakMap();
+const haveOf = (tool, cx) => { const p = cx?.snap ? keepOf(cx.deck).get(courseKey(tool, cx)) : null; return p ? ready.get(p) ?? null : null; };
 /** Starts a slide's course once the deck's states are in, so it is ready when its slide comes up (presenter.js, after the deck's states). */
-export function warmCourse(t, c) { if (t && c) courseWork(t, c)?.catch(() => null); }
+export function warmCourse(t, c) { return t && c ? courseWork(t, c)?.catch(() => null) ?? null : null; }
 
 export function createCourse() {
   const el = document.createElement('div');
   el.className = 'pz-curve pz-course';   // (the curve's card: its height, type and number styles)
+  const gl = createSvgGL(el, { host: 'curve' });
   let t = null, c = null, ctx = null, ser = null, parts = null, G = null, labels = null, zoneNames = [], key = '', lastSz = '';
 
   const size = () => {
-    const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? CO_MIN / z : 0);
+    const w = el.clientWidth;
+    const f = fittedType(el, gl, CO_MIN);   // (the card's small type from the chart's looks table, never under the least: the chart is drawn at the size it has on the screen)
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 240), f];
   };
   const fmt = (v) => `${v < 0.05 ? '0' : v.toFixed(1)} ${ser.unit === 'L' ? 'liters' : ser.unit}`;
@@ -238,33 +243,34 @@ export function createCourse() {
     const { f, L, R, B, X, Y } = G, r = Math.max(3.5, 0.3 * f);
     const panel = plotPanel(sv, 0, G.py, G.w, B + G.foot - G.py);
     // (The zones from the top of the scale to the baseline, the panel's corners on them, each named where the lines leave room; the numbers on the cut-offs in the strip at the left.)
-    const zones = sv('g', { 'clip-path': panel.url }, G.zones.map((z) => sv('rect', { class: 'pco-z', 'data-rate': z.rate, 'data-deep': z.deep ? '1' : null, x: 0, width: G.w, y: Y(z.to).toFixed(1), height: (Y(z.from) - Y(z.to)).toFixed(1) })));
-    const names = sv('g', { class: 'ptk-grid' }, zoneNames.filter((q) => q.p).map(({ zone: z, p }) => sv('text', { class: 'pcv-tc', 'data-tc': z.rate, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor }, z.name)));
+    const zones = sv('g', { 'clip-path': panel.url }, G.zones.map((z) => sv('rect', { class: 'pco-z', 'data-look': 'co.z', 'data-rate': z.rate, 'data-deep': z.deep ? '1' : null, x: 0, width: G.w, y: Y(z.to).toFixed(1), height: (Y(z.from) - Y(z.to)).toFixed(1) })));
+    const names = sv('g', { class: 'ptk-grid' }, zoneNames.filter((q) => q.p).map(({ zone: z, p }) => sv('text', { class: 'pcv-tc', 'data-look': 'cv.tc', 'data-tc': z.rate, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor }, z.name)));
     const grid = G.ticks.map((q) => sv('g', { class: 'ptk-grid' },
-      q.v ? sv('line', { x1: L, x2: R, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
-      q.v ? sv('line', { class: 'pcv-stub', 'data-tc': q.rate, x1: L, x2: L + 0.9 * f, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
-      sv('text', { class: q.v ? 'pcv-tc' : null, 'data-tc': q.rate, x: G.tickX, y: (Y(q.v) + 0.35 * f).toFixed(1), 'text-anchor': 'end' }, q.text)));
-    const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
-      G.xt.map((q) => sv('text', { class: 'pft-tk', x: X(q.d).toFixed(1), y: (B + 1.25 * f).toFixed(1), 'text-anchor': 'middle' }, q.text)),
-      sv('text', { class: 'pcv-ax', x: ((L + R) / 2).toFixed(1), y: (B + 2.6 * f).toFixed(1), 'text-anchor': 'middle' }, c.words.axis)];
+      q.v ? sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
+      q.v ? sv('line', { class: 'pcv-stub', 'data-look': 'cv.stub', 'data-tc': q.rate, x1: L, x2: L + 0.9 * f, y1: Y(q.v).toFixed(1), y2: Y(q.v).toFixed(1) }) : null,
+      sv('text', q.v ? { class: 'pcv-tc', 'data-look': 'cv.tc', 'data-tc': q.rate, x: G.tickX, y: (Y(q.v) + 0.35 * f).toFixed(1), 'text-anchor': 'end' }
+        : { 'data-look': 'time.grid.text', 'data-p-c': 'text-3', x: G.tickX, y: (Y(q.v) + 0.35 * f).toFixed(1), 'text-anchor': 'end' }, q.text)));
+    const axis = [sv('line', { class: 'pft-x', 'data-look': 'time.axis.line', x1: L, x2: R, y1: B, y2: B }),
+      G.xt.map((q) => sv('text', { class: 'pft-tk', 'data-look': 'time.tk', x: X(q.d).toFixed(1), y: (B + 1.25 * f).toFixed(1), 'text-anchor': 'middle' }, q.text)),
+      sv('text', { class: 'pcv-ax', 'data-look': 'cv.ax', x: ((L + R) / 2).toFixed(1), y: (B + 2.6 * f).toFixed(1), 'text-anchor': 'middle' }, c.words.axis)];
     const caption = sv('g', { class: 'pft-key', transform: `translate(0 ${0.75 * f})` },
-      sv('text', { x: 0, y: 0.36 * f, style: 'fill: var(--text-2)' }, sv('tspan', {}, c.words.label.split(',')[0]), c.words.label.includes(',') ? sv('tspan', { class: 'pft-u' }, `,${c.words.label.split(',').slice(1).join(',')}`) : null));
+      sv('text', { 'data-look': 'time.key.text', 'data-p-c': 'text-2', x: 0, y: 0.36 * f }, sv('tspan', { 'data-look': 'time.span' }, c.words.label.split(',')[0]), c.words.label.includes(',') ? sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, `,${c.words.label.split(',').slice(1).join(',')}`) : null));
     // (The key row, when the lines' names would not stand clear at their ends: a swatch and the name, each in its line's colour.)
     const keys = G.keyRow ? sv('g', { class: 'pft-key', transform: `translate(0 ${2.25 * f})` }, G.keys.map((k) => sv('g', { transform: `translate(${k.x.toFixed(1)} 0)` },
-      sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, style: `stroke: var(${k.c})` }), sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${k.c})` }, k.name)))) : null;
-    const word = (cls, text, p, style) => (p ? sv('text', { class: cls, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor, style }, text) : null);
+      sv('line', { 'data-look': 'time.key.line', 'data-p-c': tokName(k.c), x1: 0, x2: 16, y1: 0, y2: 0 }), sv('text', { 'data-look': 'time.key.text', 'data-p-c': tokName(k.c), x: 22, y: 0.36 * f }, k.name)))) : null;
+    const word = (cls, look, text, p, c) => (p ? sv('text', { class: cls, 'data-look': look, 'data-p-c': c ? tokName(c) : null, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor }, text) : null);
     let data = null, label = `${c.words.label}: being worked out`;
     if (ser) {
       const xd = X(-G.lead), yd = Y(ser.before), headPx = ser.head.map(([d, v]) => [X(d), Y(v)]);
-      const dot = (x, y, col) => sv('circle', { class: 'pcv-dot', cx: x.toFixed(1), cy: y.toFixed(1), r, style: `fill: var(${col})` });
-      const line = (d, col) => sv('path', { class: 'ptk-line pcv-line', d, style: `stroke: var(${col})` });
+      const dot = (x, y, col) => sv('circle', { class: 'pcv-dot', 'data-look': 'cv.dot', 'data-p-c': tokName(col), cx: x.toFixed(1), cy: y.toFixed(1), r });
+      const line = (d, col) => sv('path', { class: 'ptk-line pcv-line', 'data-look': 'cv.line', 'data-p-c': tokName(col), d });
       const tailPx = ser.tails.map((q) => q.pts.map(([d, v]) => [X(d), Y(v)]));
-      data = [labels.start ? sv('line', { class: 'pcv-at', x1: X(ser.wait).toFixed(1), x2: X(ser.wait).toFixed(1), y1: labels.vTop.toFixed(1), y2: B }) : null,
-        word('pcv-dname', c.words.start, labels.start), word('pcv-dname', c.words.before, labels.before), word('pcv-dname', c.words.rise, labels.rise),
+      data = [labels.start ? sv('line', { class: 'pcv-at', 'data-look': 'cv.at', x1: X(ser.wait).toFixed(1), x2: X(ser.wait).toFixed(1), y1: labels.vTop.toFixed(1), y2: B }) : null,
+        word('pcv-dname', 'cv.dname', c.words.start, labels.start), word('pcv-dname', 'cv.dname', c.words.before, labels.before), word('pcv-dname', 'cv.dname', c.words.rise, labels.rise),
         line(`M${xd.toFixed(1)} ${yd.toFixed(1)}L${headPx[0][0].toFixed(1)} ${yd.toFixed(1)}L${headPx[0][0].toFixed(1)} ${headPx[0][1].toFixed(1)}${smoothPath(headPx, true).replace(/^L[^C]*/, '')}`, HEAD_C),
         ...ser.tails.map((q, j) => line(smoothPath(tailPx[j]), q.c)),
         dot(xd, yd, HEAD_C), ...ser.tails.map((q, j) => dot(...tailPx[j].at(-1), q.c)),
-        ...ser.tails.map((q, j) => word('pcv-name', q.name, labels.tails[j], `fill: var(${q.c})`))];
+        ...ser.tails.map((q, j) => word('pcv-name', 'cv.name', q.name, labels.tails[j], q.c))];
       label = `${c.words.label}: ${c.words.before ? `${c.words.before.toLowerCase()}, ` : ''}${fmt(ser.before)}; after the ${c.words.event.toLowerCase()} ${fmt(ser.head[0][1])}, `
         + `${fmt(ser.head.at(-1)[1])} at ${ser.wait} days; ${ser.tails.map((q) => `${q.name} ${fmt(q.pts.at(-1)[1])} at ${ser.days} days`).join('; ')}`;
     }
@@ -279,11 +285,9 @@ export function createCourse() {
     const old = parts?.svg;
     ({ G, labels, zoneNames } = compose(w, hh, f, c, ser));
     parts = build();
-    if (fade && old) {
-      parts.svg.classList.add('in'); el.append(parts.svg);
-      nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
-      setTimeout(() => old.remove(), 480);
-    } else el.replaceChildren(parts.svg);
+    // (The new course takes over the old chart's zones, numbers and lines, each gliding to its new place; the lines of a course that has just
+    // arrived fade in over the axes already there (svg-morph.js). Where that cannot be, the new chart fades in over the old one.)
+    gl.show(parts.svg, !!(fade && old));
   }
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
     if (!t || !parts || !el.isConnected) return;
@@ -306,12 +310,12 @@ export function createCourse() {
       const k2 = courseKey(tool, cx);
       t = tool; ctx = cx || null; c = courseOf(tool);
       if (k2 !== key) {
-        key = k2; ser = null;
+        key = k2; ser = haveOf(tool, ctx);
         redraw(!!parts);
-        if (ctx) fetchCourse(key, ctx);
+        if (ctx && !ser) fetchCourse(key, ctx);
       } else if (!ser && ctx) fetchCourse(key, ctx);
     },
     pin() {}, update() {}, clear() {},
-    dispose() { t = null; ctx = null; parts = null; el.replaceChildren(); },
+    dispose() { t = null; ctx = null; parts = null; gl.dispose(); el.replaceChildren(); },
   };
 }

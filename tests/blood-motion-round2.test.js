@@ -1,24 +1,25 @@
+import { stageSource } from './stage-src.js';
 // The moving blood in the round 2 motion review (MOTION_HEAT_REVIEW_ROUND2 B9, B10, B4, B6): what eases must keep easing.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = read('src/ui/stage.js');
+const stage = stageSource();
 const fn = (src, head) => { const i = src.indexOf(head); assert.ok(i >= 0, head); return src.slice(i, src.indexOf('\n  }\n', i) + 4); };
 
 test('B10: a reversed colour or chevron fade still on its way keeps the figure awake, so it never stops part-way while paused', () => {
   const blood = fn(stage, '  function stepBlood(dt) {');
-  assert.match(blood, /bloodEasing = false;/);
+  assert.match(blood, /(?:live\.)?bloodEasing = false;/);
   assert.match(blood, /sm\.rev = sm\.rev == null \? rt : eased\(sm\.rev, rt, ease\);/);
   assert.match(blood, /sm\.chevK = sm\.chevK == null \? ct : eased\(sm\.chevK, ct, ease\);/);
-  assert.match(stage, /const eased = \(v, to, k\) => \{ if \(Math\.abs\(to - v\) <= 0\.002\) return to; bloodEasing = true; return v \+ \(to - v\) \* k; \};/);
+  assert.match(stage, /const eased = \(v, to, k\) => \{ if \(Math\.abs\(to - v\) <= 0\.002\) return to; (?:live\.)?(?:live\.)?bloodEasing = true; return v \+ \(to - v\) \* k; \};/);
   // The loop sleeps only once they have landed (exactly on their ends).
-  assert.match(stage, /!widthEasing && !bloodEasing && !plateEasing\(\)/);
+  assert.match(stage, /!widthEasing && !(?:live\.)?bloodEasing && !plateEasing\(\)/);
 });
 
 test('B9: while the anatomy still shows during the lobule dive, its blood keeps moving (the plate itself holds still)', () => {
-  const i = stage.indexOf('if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw) {');
+  const i = stage.indexOf('if (diveT > 0 && diveT < 1 && !drawOnce && !forceDraw && !anatEasing()) {');
   assert.ok(i > 0);
   const block = stage.slice(i, stage.indexOf('lastT = flowGate = now; askAnimate(); return;', i));
   assert.match(block, /!diveHid && diveFadeO !== 0 && store\.get\(\)\.running/);
@@ -31,15 +32,17 @@ test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer 
   // A1: 4–8 CSS px half-width, never over 0.8 of the lumen; the stage and the lobule both say how many canvas px a CSS px is.
   assert.match(gl, /float hw = min\(0\.8 \* R, clamp\(0\.5 \* R, 4\.0 \* cssPx \* pxW, 8\.0 \* cssPx \* pxW\)\)/);
   assert.match(gl, /vec3 ink = mix\(chevInk, vc \* 0\.3, 0\.2\);/);
-  assert.match(stage, /holes: chevHoles, vdpr, \.\.\.bloodColors\(\)/);
-  assert.match(read('src/ui/lobule-zoom.js'), /bleed: \[\], vdpr: k, \.\.\.bloodColors\(\)/);
+  assert.match(stage, /L\.holes = (?:live\.)?(?:live\.)?chevHoles; L\.vdpr = (?:live\.)?(?:live\.)?vdpr;\n\s+L\.originCol = bc\.originCol; L\.dyeCol = bc\.dyeCol;/);
+  assert.match(read('src/ui/lobule-zoom.js'), /bleed: \[\], (?:live\.)?vdpr: 1, originCol: null/);
+  assert.match(read('src/ui/lobule-zoom.js'), /const bc = bloodColors\(\), blood = bloodArg;/);
   // AL3: the chevrons read the radius between its samples.
   assert.match(gl, /float radAt\(int id, float s, float len\)/);
   // A6: softer streak ink.
   assert.match(gl, /vec3 core = mix\(mix\(col, inkLight, 0\.62\), mix\(col, inkDark, 0\.45\), pale\);/);
   // Not taken: the lit cylinder (flat vessels) and the offset organ shadow (the organ art stays).
   assert.doesNotMatch(gl, /vec3 n3 = vec3\(g \* rho/);
-  assert.match(gl, /float aDark = \(1\.0 - smoothstep\(0\.1, 0\.1 \+ soft, abs\(side \+ 0\.62\)\)\) \* thin;/);
+  // (The flat dark line, eased off on the darkest lumens by their own lightness; looks review, 31 Oct.)
+  assert.match(gl, /float aDark = \(1\.0 - smoothstep\(0\.1, 0\.1 \+ soft, abs\(side \+ 0\.62\)\)\) \* thin \* \(0\.45 \+ 0\.55 \* smoothstep\(0\.1, 0\.32, lumY\)\);/);
   assert.doesNotMatch(stage, /class: 'org-ao', transform/);
   assert.doesNotMatch(stage, /band-ao', transform/);
 });
@@ -55,7 +58,7 @@ test('B4: the streaks, chevrons and origin colours fade when switched, and a ves
   assert.match(gl, /col = mix\(col, oc, vis \* blendA\.z\);/);
   assert.match(gl, /clamp\(a \* vis \* flowA \* blendA\.x, 0\.0, 1\.0\)/);
   assert.equal((gl.match(/vis \* flowA \* blendA\.y\)/g) || []).length, 2, 'the chevron head and its rim');
-  assert.match(gl, /gl\.uniform3f\(U\.blendA, blood\.streakA \?\? 1, blood\.chevA \?\? 1, blood\.originA \?\? 1\);/);
+  assert.match(gl, /UC\.f3\(U\.blendA, blood\.streakA \?\? 1, blood\.chevA \?\? 1, blood\.originA \?\? 1\);/);
   const blood = fn(stage, '  function stepBlood(dt) {');
   // Eased from their switches (the catheter hides the chevrons), kept awake while on the way (bloodEasing); Reduce Motion fades too.
   assert.match(blood, /const kF = -Math\.expm1\(-dt \/ 0\.15\), tS = bloodOn\(\) \? 1 : 0, tC = chevOn\(\) && !cath\.st \? 1 : 0, tO = originOn\(\) \? 1 : 0;/);
@@ -64,9 +67,10 @@ test('B4: the streaks, chevrons and origin colours fade when switched, and a ves
   // Reveals and strands: blood strength follows the stroke and the strand's share; nothing waits for 0.5 or the reveal's end.
   assert.doesNotMatch(blood, /x\.reveal \|\|/);
   assert.doesNotMatch(blood, /live \?\? 1\) >= 0\.5/);
-  assert.match(blood, /put\(x\.row, k, q \/ area, x\.freeFrom, x\.freeTo, rs\);/);
+  assert.match(blood, /put\(x\.row, k, q \/ area, x\.freeFrom, x\.freeTo, rs, true\);/);
   const look = fn(stage, '  function bloodLook() {');
-  assert.match(look, /on: sA > 0, still: reduceMotion\.matches, chev: cA > 0, look: b\.look, origin: oA > 0, streakA: sA, chevA: cA, originA: oA,/);
+  // (Written in place into one kept record, field for field what the literal held.)
+  assert.match(look, /L\.on = sA > 0; L\.still = reduceMotion\.matches; L\.chev = cA > 0; L\.look = b\.look; L\.origin = oA > 0; L\.streakA = sA; L\.chevA = cA; L\.originA = oA;/);
 });
 
 test('B6: a jump in the model recolours the vessels through the lens crossfade, not in one frame', () => {
@@ -74,6 +78,6 @@ test('B6: a jump in the model recolours the vessels through the lens crossfade, 
   const mj = fn(stage, '  function modelJumped(f) {');
   assert.match(mj, /if \(!f \|\| f === jumpF\) return false;/);
   assert.match(mj, /Math\.abs\(P\[i\] - jumpP\[i\]\) > JUMP_MMHG/);
-  assert.match(mj, /return big && shownCol\.size > 0;/);
-  assert.match(stage, /const jumped = modelJumped\(F\), flipped = revFlip && mode === 'direction';\n\s*revFlip = false;\n\s*if \(\(\(lensMode && mode !== lensMode\) \|\| jumped \|\| flipped\) && !reduceMotion\.matches\) \{ lensFrom = shownCol; lensT0 = performance\.now\(\); \}/);
+  assert.match(mj, /return big && (?:live\.)?(?:live\.)?shownCol\.size > 0;/);
+  assert.match(stage, /const jumped = modelJumped\((?:live\.)?F\), flipped = (?:live\.)?revFlip && mode === 'direction';\n\s*(?:live\.)?revFlip = false;\n\s*if \(\(\((?:live\.)?lensMode && mode !== (?:live\.)?lensMode\) \|\| jumped \|\| flipped\) && !reduceMotion\.matches\) \{ (?:live\.)?lensFrom = (?:live\.)?shownCol; (?:live\.)?lensT0 = lensNow\(\); \}/);
 });

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The view pill folds rather than snapping to a new width (17 Oct, Mohammad): into the lobule the Sinusoid button "should slide
 // out not just appear snap", and into the sinusoid view Anatomy and Circuit "fold inside the pill" (and come back out of it). The
 // face grows or shrinks about the pill's centre, the buttons that stay slide to their places, and a button that comes or goes
@@ -5,11 +6,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { foldPlan, faceClip, easeIO3, FOLD_MS, FOLD_EASE } from '../src/ui/pill-motion.js';
+import { foldPlan, faceClip, coverFade, easeIO3, FOLD_MS, FOLD_EASE } from '../src/ui/pill-motion.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const main = read('../src/ui/main.js');
-const stage = read('../src/ui/stage.js');
+const stage = stageSource();
 const motion = read('../src/ui/pill-motion.js');
 const css = read('../styles/app.css');
 
@@ -94,19 +95,57 @@ test('the row is cut to the face, which at rest is the pill itself', () => {
 test('the fold is wired to every change of the pill\'s buttons, on the zoom\'s clock', () => {
   // (17 Oct, Mohammad: the folding "should be faster and eased".) Quicker than the zoom out (950 ms) and the dive, on the app's ease.
   assert.ok(FOLD_MS >= 300 && FOLD_MS <= 500, `${FOLD_MS} ms`);
-  assert.ok(FOLD_MS < +main.match(/PILL_OUT = (\d+)/)[1] / 2 && FOLD_MS < +stage.match(/RISE_MS = (\d+)/)[1] / 2);
-  assert.equal(FOLD_EASE, read('../styles/tokens.css').match(/--ease: (cubic-bezier\([^)]*\))/)[1]);
+  assert.ok(FOLD_MS < +read('../src/ui/lobule-zoom.js').match(/ms = \(reduce\.matches \? 280 : on \? \d+ : (\d+)\)/)[1] / 2 && FOLD_MS < +stage.match(/RISE_MS = (\d+)/)[1] / 2);
+  assert.equal(FOLD_EASE, read('../styles/tokens.css').match(/--ease-arrive: (cubic-bezier\([^)]*\))/)[1]);
+  assert.match(read('../styles/tokens.css'), /--ease: var\(--ease-arrive\);/);
   assert.match(motion, /const opt = \{ duration: ms, easing: FOLD_EASE \}/);
   assert.match(main, /if \(before && box1\) foldPill\(seg, box1, before\);/);
-  assert.match(main, /sinWas !== inSin \? \(inSin \? 'in' : 'out'\) : sinHide \? 'up' : 'down'/);
+  assert.match(main, /const viewChange = \(\) => \{ viewSinBtn\.hidden = viewSinHide; app\.classList\.toggle\('sin-focus', viewInSin\); \};/);
+  assert.match(main, /pillChange\(viewChange\);/);
   // Only compositor work on the buttons: transform, opacity and the row's clip; the face is a box with nothing in it.
   assert.doesNotMatch(motion.match(/export function foldPill[\s\S]*$/)[0], /\b(left|width|margin|padding)\b[^\n]*animate|animate\(\[\{ (left|margin|padding)/);
-  assert.match(css, /:is\(\.nb-views, \.sin-views\) > \.vp-face \{ position: absolute; z-index: -1;[^}]*background: var\(--glass\);/);
+  assert.match(css, /\.nb-views > \.vp-face \{ position: absolute; z-index: -1;[^}]*background: var\(--glass\);/);
   assert.match(main, /h\('span', \{ class: 'vp-face', 'aria-hidden': 'true' \}\)/);
   // A going button's ghost is nothing the page finds (no data-view, so neither the sinusoid view's rule nor any lookup sees it).
   assert.match(motion, /for \(const at of \['data-view', 'title', 'hidden'\]\) g\.removeAttribute\(at\);/);
   assert.match(motion, /g\.inert = true;/);
-  assert.match(main, /\$\$\('#viewSeg button\[data-view\]'\)\.forEach\(\(b\) => b\.setAttribute\('aria-pressed'/);
+  assert.match(main, /viewBtns \|\|= \$\$\('#viewSeg button\[data-view\]'\);/);
+  assert.match(main, /viewBtns\[i\]\.setAttribute\('aria-pressed'/);
   // In the top bar (presenting) the bar's own motion plays it (topbar-motion.js): the fold stops there.
-  assert.match(main, /if \(home && seg\.parentElement !== home\) \{ if \(pres\) stopFold\(\); home\.append\(seg\); \}/);
+  assert.match(main, /if \(home && seg\.parentElement !== home\) \{ if \(pres\) stopFold\(\); home\.append\(seg\); \}/, 'the same element, moved');
+});
+
+test('a coming button shows only as the face covers it, by opacity (no clip-path on the row)', () => {
+  // A button 40 px wide at 60..100 from the centre, the face's half width growing 50 → 110: hidden at first, whole at the end.
+  const k = coverFade({ l: 60, r: 100, dx0: -40, dx1: 0, o0: 0, o1: 1, e0: 50, e1: 110 });
+  assert.equal(k[0].opacity, 0); assert.equal(k.at(-1).opacity, 1);
+  for (let i = 1; i < k.length; i++) assert.ok(k[i].opacity >= k[i - 1].opacity - 1e-9, 'it only grows');
+  // A going button (face shrinking over it) is gone by the end.
+  const g = coverFade({ l: 60, r: 100, dx0: 0, dx1: -40, o0: 1, o1: 0, e0: 110, e1: 50 });
+  assert.equal(g[0].opacity, 1); assert.equal(g.at(-1).opacity, 0);
+  assert.doesNotMatch(motion.match(/export function foldPill[\s\S]*$/)[0], /clipPath/);
+});
+
+test('a coming or going word is never drawn past the face: wherever its keyframes give it any opacity, all of its word is inside', () => {
+  // (The fold's opacity between two keyframes is linear in the eased progress; the word's edges and the face's are too.)
+  const cases = [
+    // (Sinusoid to Lobule: the two-button pill, half width 87, grows to four, 170; Lobule moves 81 px right, and Circuit and Anatomy with it.)
+    { l: -164, r: -76, pl: 14, pr: 14, dx0: -81, dx1: 0, o0: 0, o1: 1, e0: 87, e1: 170, inset: 1.2 },   // (Circuit coming)
+    { l: -74, r: 2, pl: 14, pr: 14, dx0: -81, dx1: 0, o0: 0, o1: 1, e0: 87, e1: 170, inset: 1.2 },      // (Anatomy coming)
+    { l: -164, r: -76, pl: 14, pr: 14, dx0: 0, dx1: -81, o0: 1, o1: 0, e0: 170, e1: 87, inset: 1.2 },   // (Circuit going, Lobule to Sinusoid)
+    // (Anatomy to Lobule: three buttons, half width 127, to four; Lobule moves 40 px left and Sinusoid comes out with it.)
+    { l: 78, r: 164, pl: 14, pr: 14, dx0: 40, dx1: 0, o0: 0, o1: 1, e0: 127, e1: 170, inset: 1.2 },
+  ];
+  for (const c of cases) {
+    const k = coverFade(c);
+    const opAt = (p) => { let i = 1; while (i < k.length - 1 && k[i].offset < p) i++; const a = k[i - 1], b = k[i]; return a.opacity + (b.opacity - a.opacity) * ((p - a.offset) / Math.max(1e-9, b.offset - a.offset)); };
+    for (let n = 0; n <= 2000; n++) {
+      const p = n / 2000, dx = c.dx0 + (c.dx1 - c.dx0) * p, e = c.e0 + (c.e1 - c.e0) * p - c.inset;
+      const inside = c.l + c.pl + dx >= -e - 1e-6 && c.r - c.pr + dx <= e + 1e-6;
+      if (!inside) assert.ok(opAt(p) < 1e-4, `drawn at ${opAt(p).toFixed(3)} past the face at ${p}`);
+    }
+    // At rest it is the word itself: the coming word ends at its full strength, the going one starts at it.
+    if (c.o1 > c.o0) assert.equal(k.at(-1).opacity, 1); else assert.equal(k[0].opacity, 1);
+    for (let i = 1; i < k.length; i++) assert.ok(k[i].offset > k[i - 1].offset, 'offsets in order');
+  }
 });

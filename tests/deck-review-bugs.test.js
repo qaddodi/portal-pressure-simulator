@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -10,7 +11,7 @@ import { EXT } from '../src/ui/slide-ext.js';
 // Three bugs from the external deck review (18 Oct): what-if tiles froze 7 s after a tap, a bleed's jets vanished in one
 // frame, and the variceal bleed summary headed a column with the raw key "hb".
 const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 
 test('a what-if follows the model until its readings hold still, not for a fixed 7 s', () => {
   assert.equal(liveSettled(LIVE_MIN - 1, LIVE_MIN), false, 'never before the minimum');
@@ -38,7 +39,7 @@ test('a bleed\'s jets and pool fade in and out over half a second, never in one 
   assert.equal(a, 0);
   assert.equal(stepBleedFade(1, false, 1 / 60, true), 0, 'Reduce Motion: at once');
   const SITES = { varix: [800, 230], fundus: [830, 300], stomachPool: [850, 320] };
-  const shapes = bleedShapes({ site: 'VAR', total: 200 }, 90, 0.3, SITES);
+  const shapes = bleedShapes({ site: 'VAR', total: 200 }, 90, SITES);
   assert.equal(fadeBleedShapes(shapes, 1), shapes);
   assert.deepEqual(fadeBleedShapes(shapes, 0), []);
   const half = fadeBleedShapes(shapes, 0.5);
@@ -46,7 +47,7 @@ test('a bleed\'s jets and pool fade in and out over half a second, never in one 
   // The stage steps the fade every frame, keeps the figure awake while it runs, and draws the last bleed while it fades out.
   assert.match(stage, /stepSpray\(dt\);/);
   assert.match(stage, /!plateEasing\(\) && !sprayFading\(\)/);
-  assert.match(stage, /fadeBleedShapes\(bleedShapes\(sprayLast\.bleed/);
+  assert.match(stage, /fadeBleedShapes\(bleedShapes\((?:live\.)?(?:live\.)?sprayLast\.bleed/);
   assert.ok(!/if \(!F\?\.bleed\?\.active \|\| morph >= 0\.5\) return \[\];/.test(stage), 'no one-frame cut');
 });
 

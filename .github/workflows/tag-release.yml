@@ -1,0 +1,23 @@
+# Tags each merge to main as v<year>.<month>.<n> (PR-04). The build reads the newest tag, so About shows it and a bad merge has a rollback
+# target: git checkout v2026.11.3 && push. Nothing here touches the preview branch.
+name: Tag release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency: tag-release
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Create the next tag for this month
+        run: |
+          P="v$(date -u +%Y.%m)"
+          N=$(git tag -l "$P.*" | sed "s/^$P\.//" | sort -n | tail -1)
+          T="$P.$(( ${N:-0} + 1 ))"
+          git tag "$T" "$GITHUB_SHA"
+          git push origin "$T"
+          echo "Tagged $T" >> "$GITHUB_STEP_SUMMARY"

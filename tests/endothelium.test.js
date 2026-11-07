@@ -15,7 +15,7 @@ const block = (sel) => {
   return tokens.slice(open + 1, tokens.indexOf('}', open));
 };
 const vars = (src) => Object.fromEntries([...src.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-const light = vars(block(':root'));
+const light = Object.assign({}, ...[...tokens.matchAll(/\n:root \{([^}]*)\}/g)].map((m) => vars(m[1])));   // (the hand-written :root, then the printed one: the tokens that change with the look)
 const THEMES = { light, dark: { ...light, ...vars(block(':root[data-theme="dark"]')) }, soft: { ...light, ...vars(block(':root[data-theme="soft"]')) } };
 const hex = (s) => { assert.match(s, /^#[0-9a-f]{6}$/i, `a solid colour, got ${s}`); return [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16)); };
 const lum = (c) => { const l = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * l[0] + 0.7152 * l[1] + 0.0722 * l[2]; };
@@ -37,7 +37,7 @@ test('the system dark theme carries the same endothelium as the chosen dark them
 });
 
 test('an open fenestra is a real gap in the sheet, and the whole cell has a border', () => {
-  assert.match(view, /cEndoS: t\('--sv-gl-endo-sheet'\), cEndoE: t\('--sv-gl-endo-edge'\)/);
+  assert.match(view, /U\.cEndoS = rgb\(cssv\('--sv-gl-endo-sheet'\)\); U\.cEndoE = rgb\(cssv\('--sv-gl-endo-edge'\)\)/);
   assert.match(gl, /uniform vec3 [^;]*\bcEndoS, cEndoE\b/);
   assert.ok(!/cFen|--sv-gl-fenestra/.test(gl + view + tokens), 'no window fill left');
   assert.ok(gl.includes('if (w > 0.02) d = smax(d, -(abs(x - px) - 0.5 * w), th);'), 'each open pore cuts through the sheet');

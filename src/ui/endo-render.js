@@ -9,7 +9,7 @@
 // of strangulated tissue with the band as a tight ring at its base. The result is drawn once per
 // state into an offscreen bitmap and cached, so it never flickers.
 
-import { cssRGB } from './util.js?v=58b547f8d4';
+import { cssRGB } from './util.js';
 const TAU = Math.PI * 2;
 const T = 1.55;          // tan(half field of view)
 const NCOL = 4;
@@ -31,31 +31,33 @@ const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a)
 const wrapPi = (a) => { a %= TAU; return a > Math.PI ? a - TAU : a < -Math.PI ? a + TAU : a; };
 const mix = (a, b, t) => a + (b - a) * t;
 
-function seeded(seed) { let x = seed >>> 0; return () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; }; }
+// The seeded generator, one state kept here (makeColumns restarts it at 7 each call, as a new generator was).
+let seedX = 7;
+function rnd() { seedX = (seedX * 1664525 + 1013904223) >>> 0; return seedX / 4294967296; }
 
-// Columns for a given engorgement (grow 0..1) and band count.
+// Columns for a given engorgement (grow 0..1) and band count. The four column records are kept and written again each time (renderEndo
+// reads them within its call and keeps none).
+const COLS = [];
+for (let c = 0; c < NCOL; c++) COLS.push({ a0: 0, ph: 0, ph2: 0, ph3: 0, A1: 0, A2: 0, f1: 0, f2: 0, w0: 0, amp: 0, zb: [], ampK: 0, vk: 0 });
 function makeColumns(grow, bands) {
-  const r = seeded(7);
-  const cols = [];
+  seedX = 7 >>> 0;
   const A1 = 0.025 + 0.3 * grow;
   for (let c = 0; c < NCOL; c++) {
-    const nb = Math.floor(bands / NCOL) + (c < bands % NCOL ? 1 : 0);
-    const col = {
-      a0: (c / NCOL) * TAU + 0.5 + (r() - 0.5) * 0.5,
-      ph: r() * 6.28, ph2: r() * 6.28, ph3: r() * 6.28,
-      A1, A2: A1 * 0.45,
-      f1: 1.15 + r() * 0.5, f2: 2.6 + r() * 0.8,
-      w0: 0.055 + 0.27 * grow + (r() - 0.5) * 0.015,
-      amp: 0.03 + 0.28 * grow,
-      zb: [],
-    };
+    const nb = Math.floor(bands / NCOL) + (c < bands % NCOL ? 1 : 0), col = COLS[c];
+    col.a0 = (c / NCOL) * TAU + 0.5 + (rnd() - 0.5) * 0.5;
+    col.ph = rnd() * 6.28; col.ph2 = rnd() * 6.28; col.ph3 = rnd() * 6.28;
+    col.A1 = A1; col.A2 = A1 * 0.45;
+    col.f1 = 1.15 + rnd() * 0.5; col.f2 = 2.6 + rnd() * 0.8;
+    col.w0 = 0.055 + 0.27 * grow + (rnd() - 0.5) * 0.015;
+    col.amp = 0.03 + 0.28 * grow;
+    col.zb.length = 0;
     for (let k = 0; k < Math.min(nb, 4); k++) col.zb.push(2.8 * Math.pow(1.4, k));
     // A banded column is strangulated: its own vein deflates (the knuckle stands where it was).
     col.ampK = col.amp;
+    col.vk = 0;
     if (nb > 0) { col.amp *= 0.3; col.w0 *= 0.8; col.vk = 0.45; }
-    cols.push(col);
   }
-  return cols;
+  return COLS;
 }
 
 function centre(col, z) { return col.a0 + col.A1 * Math.sin(col.f1 * z + col.ph) + col.A2 * Math.sin(col.f2 * z + col.ph2); }
@@ -93,7 +95,8 @@ function field(th, z, cols, grow, beaded, o) {
   return hh;
 }
 
-// Renders the view to an offscreen canvas of res x res. p: { grow, bands, vis, red (0..1) }.
+const SEEN = { vein: 0, u: 0, c: -1, dom: 0, q: 9, qc: -1, halo: 0, dd: 0, dz: 0 };   // (what field() reports for the pixel: rewritten for each one)
+// Renders the view into pixels, res x res (an ImageData: the GPU's drawer takes it up as a texture; no canvas). p: { grow, bands, vis, red (0..1) }.
 export function renderEndo(res, p) {
   const grow = Math.min(1, Math.max(0, p.grow));
   const bands = Math.max(0, Math.round(p.bands || 0));
@@ -103,9 +106,8 @@ export function renderEndo(res, p) {
   const vis = Math.min(1, Math.max(0, p.vis ?? (present ? 1 : 0))); // 0 = no varix, grows smoothly into view
   for (const c of cols) c.amp *= vis;
   const red = Math.min(1, Math.max(0, +p.red || 0));
-  const cv = document.createElement('canvas'); cv.width = cv.height = res;
-  const ctx = cv.getContext('2d'), img = ctx.createImageData(res, res), D = img.data;
-  const half = res / 2, o = {};
+  const img = new ImageData(res, res), D = img.data;
+  const half = res / 2, o = SEEN;
   const ALB = cssRGB('--endo-mucosa'), DEEP = cssRGB('--endo-mucosa-deep');
   const eth = 0.008;
   for (let py = 0; py < res; py++) {
@@ -219,6 +221,5 @@ export function renderEndo(res, p) {
       D[i + 3] = 255;
     }
   }
-  ctx.putImageData(img, 0, 0);
-  return cv;
+  return img;
 }

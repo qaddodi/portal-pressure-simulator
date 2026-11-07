@@ -20,9 +20,10 @@ function rig(over = {}) {
 test('snapshots that pile up before a frame paint only the newest, and every one is ingested', () => {
   const r = rig();
   for (const id of [1, 2, 3]) r.gate.push({ id, changed: true });
-  assert.deepEqual(r.log.ingested, [1, 2, 3]);
+  assert.deepEqual(r.log.ingested, [], 'taken in inside the frame, not in the message event (rev 2 step 3)');
   assert.deepEqual(r.log.painted, []);
   r.frame();
+  assert.deepEqual(r.log.ingested, [1, 2, 3]);
   assert.deepEqual(r.log.painted, [3]);
   assert.equal(r.pending(), false, 'the fallback timer is gone with the frame');
 });
@@ -33,6 +34,7 @@ test('events and parameters of a dropped snapshot are in the ingest, not lost wi
   r.gate.push({ id: 1, events: ['bleed'], params: {} });
   r.gate.push({ id: 2, changed: true });
   r.gate.push({ id: 3, events: ['stop'] });
+  r.frame();
   assert.deepEqual(seen, ['bleed', 'params', 'stop']);
 });
 
@@ -41,6 +43,9 @@ test('a quiet snapshot inside the gap of the last paint is ingested but never pa
   r.gate.push({ id: 1, changed: true }); r.frame();
   r.clock.t += 40;
   assert.equal(r.gate.push({ id: 2 }), false);
+  r.frame();
+  assert.deepEqual(r.log.ingested, [1, 2], 'taken in at the next frame');
+  assert.deepEqual(r.log.painted, [1]);
   assert.equal(r.pending(), false);
   r.clock.t += 60;
   assert.equal(r.gate.push({ id: 3 }), true);
@@ -72,9 +77,19 @@ test('main.js ingests every snapshot and paints through the gate; nothing is ble
   assert.match(m, /createPaintGate\(\{ ingest: ingestFrame, paint: paintFrame,/);
   assert.match(m, /function onFrame\(f\) \{ frameGate\.push\(f\); \}/);
   const ing = m.slice(m.indexOf('function ingestFrame'), m.indexOf('function paintFrame'));
+  // (rev 2 step 3: the worker's ack is sent as a frame is taken in, never from the paint)
+  assert.match(ing, /host\?\.send\(\{ type: 'painted' \}\)/);
+  assert.doesNotMatch(m.slice(m.indexOf('function paintFrame'), m.indexOf('function paintFrame') + 400), /type: 'painted'/);
   assert.match(ing, /replaceParams\(f\.params\)/);
   assert.match(ing, /timeline\.addEvents\(ev\)/);
   assert.match(ing, /dock\?\.ingest\(f\)/);
   const gate = readFileSync(new URL('../src/ui/paint-gate.js', import.meta.url), 'utf8');
   assert.doesNotMatch(gate, /lerp|mix\(|interpolat\w+\(/);
+});
+
+test('a frame\'s samples go out as one transferred Float64Array, each channel a view of it (rev 2 step 3)', () => {
+  const w = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
+  assert.match(w, /samples: packSamples\(samples\),/);
+  assert.match(w, /if \(f\.samples\) xfer\.push\(f\.samples\.t\.buffer\);/);
+  assert.match(w, /buf\.subarray\(j \* n, \(j \+ 1\) \* n\)/);
 });

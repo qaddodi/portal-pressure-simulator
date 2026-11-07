@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Small layout rules from the overnight screenshot sweeps (review/random-sweep, batches 01 to 03). Each was seen broken
 // on a device; these checks keep the rule that fixed it in place.
 import { test } from 'node:test';
@@ -45,12 +46,13 @@ test('the sideways bar reads evenly spaced to the eye (the glyphs sit inside the
 
 test('a scrolling menu fades right to its own bottom edge, and Settings above the bar casts no shadow on it', () => {
   assert.match(css, /\.menu\.more::after \{ content: ''; position: sticky; bottom: calc\(-1 \* var\(--fade-pb, 8px\)\);/);
-  assert.match(util, /el\.style\.setProperty\('--fade-pb', getComputedStyle\(el\)\.paddingBottom\)/);
-  assert.match(util, /el\.style\.clipPath = barAt == null \? '' : `inset\(-64px -64px \$\{\(-Math\.max\(0, gap\)\)\.toFixed\(2\)\}px -64px\)`/);
+  assert.match(util, /pb = getComputedStyle\(el\)\.paddingBottom;\s*el\.classList\.toggle\('more', more\); el\.style\.setProperty\('--fade-pb', pb\)/);   // (read, then written)
+  assert.match(util, /el\.style\.setProperty\('--bar-clip', barAt == null \? '' : `\$\{\(-Math\.max\(0, gap\)\)\.toFixed\(2\)\}px`\)/);
+  assert.match(css, /\.menu\.app-menu \{ clip-path: inset\(-64px -64px var\(--bar-clip, -64px\) -64px\); \}/);
 });
 
 test('the credit keeps off a steady vessel glow', () => {
-  const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'), stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'), stage = stageSource();
   assert.match(stage, /steadyGlows: \(\) => \['sel', 'dop', 'slide', 'focus'\]/);
   assert.match(credit, /\+ 2 \* 12 \* Math\.min\(1\.3, Math\.max\(0\.5, wide\)\)/);
 });

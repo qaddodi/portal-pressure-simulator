@@ -24,7 +24,8 @@ test('DG4: each slide choice is its own outlined button; the chosen one is ink w
   const on = rule('.pz-abb[aria-pressed="true"] {');
   assert.ok(!/background/.test(on), 'no fill');
   assert.match(on, /border-color: var\(--accent\)/);
-  assert.match(rule('.pz-abb {'), /border: 1px solid [^;]+;[^}]*transition:[^}]*border-color/, 'every option has its own edge, and the chosen edge eases in');
+  assert.match(rule('.pz-abb {'), /border: 1px solid [^;]+;/, 'every option has its own edge');
+  assert.doesNotMatch(rule('.pz-abb {'), /transition:[^;]*border-color/, 'the chosen edge is taken at once (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(rule('.pz-text .pz-ab {'), /background: none; border-color: transparent;/);
 });
 
@@ -35,7 +36,7 @@ test('DG5: Treat and History are text-only headers, Treat tabs have no icons, dr
   const tabs = chart.slice(chart.indexOf("const panes = [['drugs'"), chart.indexOf('show(treatTab);'));
   assert.ok(!/svgIcon/.test(tabs), 'Treat tabs');
   assert.match(chart, /section\('changes', 'Changes', null,/);
-  assert.match(chart, /h\('span', \{ class: 'oc-t' \}, label\), h\('span', \{ class: 'oc-dot' \}, icon\('check'\)\)/, 'name first, check after');
+  assert.match(chart, /h\('span', \{ class: 'oc-t', 'data-t': label \}, label\), h\('span', \{ class: 'oc-dot' \}, icon\('check'\)\)/, 'name first, check after');
   const chip = rule('.order-chip {');
   assert.match(chip, /border: 0; border-bottom: 1px solid var\(--hairline\); border-radius: 0; background: none;/);
   assert.ok(!/background/.test(rule('.order-chip[aria-pressed="true"] {')), 'a running drug is not a filled chip');

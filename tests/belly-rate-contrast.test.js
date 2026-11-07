@@ -11,7 +11,7 @@ const tokens = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'u
 
 const block = (re) => { const m = tokens.match(re); assert.ok(m, `token block ${re}`); return m[1]; };
 const vars = (src) => Object.fromEntries([...src.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]));
-const base = vars(block(/\n:root \{([^}]*)\}/));
+const base = Object.assign({}, ...[...tokens.matchAll(/\n:root \{([^}]*)\}/g)].map((m) => vars(m[1])));   // (the hand-written :root, then the printed one: the tokens that change with the look)
 const THEMES = {
   light: base,
   dark: { ...base, ...vars(block(/\n:root\[data-theme="dark"\] \{([^}]*)\}/)) },
@@ -77,6 +77,6 @@ test('the belly daily balance is readable against its outline in every theme', (
 test('the balance keeps its meaning colours: amber rising, teal falling', () => {
   assert.match(decl(`${RATE}[data-dir="up"]`, 'color'), /--caution/);
   assert.match(decl(`${RATE}[data-dir="down"]`, 'color'), /--vel-normal/);
-  assert.match(css, /\.ab-rate\[data-dir="up"\] \.ab-rate-a \{ color: var\(--caution\); \}/);
+  assert.match(css, /\.ab-rate\[data-dir="up"\] \.ab-rate-a \{ color: var\(--caution-ink\); \}/);
   assert.match(css, /\.ab-rate\[data-dir="down"\] \.ab-rate-a \{ color: var\(--vel-normal\); \}/);
 });

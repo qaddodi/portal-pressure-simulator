@@ -42,9 +42,10 @@ test('a phone never squeezes the top-bar colour key: it keeps a scale of 48 px o
   assert.doesNotMatch(block, /\.topbar \.lg-title, \.topbar \.lg-num \{ display: none; \}/, 'sideways the numbers were hidden');
 });
 
-// The sinusoid view's four buttons (history, play, settings, search) were forced onto the key's row on a phone: the key pill
-// overlapped the name and search hung 23 px off a 390 px screen. They take their own row again, under the key.
-test('the sinusoid view keeps its buttons on a row of their own on a phone', () => {
-  assert.match(css, /#app\.thumb\.sin-focus \.topbar \{ flex-wrap: wrap; \}/);
-  assert.match(css, /#app\.thumb\.sin-focus \.topbar \.stage-bar\.top \{ flex: 0 1 auto; min-width: min-content; \}/, 'the key keeps its whole width');
+// The sinusoid view used to bring history, play, settings and search up to a phone's top bar, on a row of their own, as it hid the
+// dock. Since 2 Nov it keeps the dock (its tabs hold history and settings, its timeline the play), so a phone's top bar there is
+// the lobule's, and none of those rules is left to squeeze the key.
+test('the sinusoid view leaves a phone\'s top bar as the lobule has it', () => {
+  assert.doesNotMatch(css, /#app\.thumb\.sin-focus \.topbar/);
+  assert.doesNotMatch(css, /#app\.thumb\.sin-focus \.top-right/);
 });

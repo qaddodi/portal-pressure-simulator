@@ -9,13 +9,15 @@ import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { createCore } from '../src/worker-core.js';
-import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, lumenBlock, LUMEN_NAME_Y, LUMEN_NUM_Y, LUMEN_WORD_Y, clotPath, LUMEN_R, LUMEN_WALL } from '../src/ui/tool-lumen.js';
+import { lumenOf, lumenShape, lumenWords, lumenFacts, lumenLabel, lumenSite, lumenBlock, LUMEN_NAME_Y, LUMEN_NUM_Y, LUMEN_WORD_Y, clotPath, LUMEN_R, LUMEN_WALL, wordSize } from '../src/ui/tool-lumen.js';
 import { fluidOf, fluidBars, fluidWords, sinusoidForces, pinnedForces } from '../src/ui/tool-fluid.js';
 import { pulsatility, caliperPick, caliperFrame, caliperEase, caliperLevel, caliperX, CAL_FADE, CAL_SECS, pairOf, pairBand, pairScale, PAIR_GAP } from '../src/ui/doppler-marks.js';
 import ext from '../src/ui/ext-instruments.js';
 import { EXT } from '../src/ui/slide-ext.js';
 import { DECKS } from '../src/ui/decks.js';
 import { adopted } from './deck-adopted.js';
+import { LOOKS } from '../src/ui/chart-looks/index.js';
+import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 
 const DOP = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
 const near = (a, b, tol, msg) => assert.ok(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
@@ -63,7 +65,7 @@ test('V19: the open lumen is 1 minus the engine\'s occlusion, and the picture\'s
   // One reading: a single cause is not repeated beside the open share; both causes, or a stent's size, are.
   assert.equal(lumenFacts(lumenOf({ thrombus: { PV_TRUNK: 0.6 } }, 'PV_TRUNK')), '');
   assert.equal(lumenFacts(lumenOf({ stenosis: { TIPS: 0.6 } }, 'TIPS'), 9), '9 mm stent');
-  assert.equal(lumenFacts(lumenOf({ thrombus: { PV_TRUNK: 0.5 }, stenosis: { PV_TRUNK: 0.2 } }, 'PV_TRUNK')), 'Clot 50 % · narrowing 20 %');
+  assert.equal(lumenFacts(lumenOf({ thrombus: { PV_TRUNK: 0.5 }, stenosis: { PV_TRUNK: 0.2 } }, 'PV_TRUNK')), 'Clot 50% · narrowing 20%');
 });
 
 test('V27: made minus drained is the ascites made, from the fingerprint and from a live frame alike', async () => {
@@ -154,7 +156,7 @@ test('V21: the calipers read the window\'s extremes, on their own samples, with 
   assert.match(CAL, /x1 = padL \+ W/);
   // Always visible over the trace and the baseline: drawn after both, each line on a dark edge wider than itself.
   assert.ok(DOP.indexOf('drawCalipers(ctx,') > DOP.indexOf('// Baseline') && DOP.indexOf('drawCalipers(ctx,') > DOP.indexOf('ring(ctx, off, dx, dy)'), 'drawn over the trace');
-  assert.equal((CAL.match(/'--black', 0\.85\); ctx\.lineWidth = 3\.5; ctx\.stroke\(\)/g) || []).length, 2, 'levels and upright on a dark edge'); assert.match(CAL, /ctx\.moveTo\(xc, y\); ctx\.lineTo\(x1, y\)/);
+  assert.equal((CAL.match(/'--black', 0\.85\); ctx\.lineWidth = 3\.5; ctx\.stroke\(\)/g) || []).length, 2, 'levels and upright on a dark edge'); assert.match(CAL, /ctx\.moveTo\(xc, lvHi\); ctx\.lineTo\(x1, lvHi\); ctx\.moveTo\(xc, lvLo\); ctx\.lineTo\(x1, lvLo\)/);
   // The reading's own formula (doppler.js interpret), read from its source.
   assert.match(DOP, /const pi = big > 0\.5 \? swing \/ big : 0;/);
 });
@@ -194,9 +196,9 @@ test('fluid balance flow: every band arrives, labels keep apart, and it fits the
 });
 
 test('V19: the % in the cross-section is large, and "100 %" still clears the inner wall with room on both sides', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  const rule = css.match(/^\.gl-in \{([^}]*)\}/m)[1];
-  const size = +rule.match(/font:\s*\d+\s+(\d+(?:\.\d+)?)px/)[1], edge = +rule.match(/stroke-width:\s*([\d.]+)/)[1];
+  // (the number's look is the table's now: chart-looks/lumen.js, 'lumen.in': a 22-unit font and a halo 1.9 wide)
+  const num = resolveProps(LOOKS['lumen.in'], withCtx(makeCtx({}), { theme: 'light', dark: false }), {}, {});
+  const size = num.size, edge = num.width;
   // Inter at weight 650: "100 %" is about 3.02 em wide (measured from fonts/inter-latin.woff2); the outline adds its width.
   const width = 3.02 * size + edge, room = (2 * (LUMEN_R - LUMEN_WALL) - width) / 2;
   assert.ok(size >= 20, `the number is at least 20 units in the 100-unit picture (was 16): ${size}`);
@@ -206,7 +208,7 @@ test('V19: the % in the cross-section is large, and "100 %" still clears the inn
 
 test('V19: the % in the cross-section fades with the share filled, so nothing shows at 0 %', () => {
   const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
-  assert.match(src, /inWord\.style\.opacity = inNum\.style\.opacity = b\.numOpacity/);
+  assert.match(src, /setGeo\(inWord, 'opacity', numOp\); setGeo\(inNum, 'opacity', numOp\)/);
   assert.equal(lumenBlock(0).numOpacity, 0, 'nothing filled: no number');
   assert.equal(lumenBlock(0.06).numOpacity, 1, 'shown in full by 6 %');
   for (let o = 0; o < 0.06; o += 0.001) assert.ok(lumenBlock(o + 0.001).numOpacity >= lumenBlock(o).numOpacity, 'it fades in steadily');
@@ -214,18 +216,18 @@ test('V19: the % in the cross-section fades with the share filled, so nothing sh
 
 test('V19: "occluded" sits under the % as one block, fades with it, and is never under 12 px on screen', () => {
   const src = readFileSync(new URL('../src/ui/tool-lumen.js', import.meta.url), 'utf8');
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(src, /inWord\.textContent = 'occluded'/);
-  assert.match(src, /inWord\.style\.opacity = inNum\.style\.opacity/);
+  assert.match(src, /setGeo\(inWord, 'opacity', numOp\); setGeo\(inNum, 'opacity', numOp\)/);
   assert.match(src, /inNum = sv\('text'[^)]*y: LUMEN_NUM_Y/);
   assert.match(src, /inWord = sv\('text'[^)]*y: LUMEN_WORD_Y/);
   const yn = LUMEN_NUM_Y, yw = LUMEN_WORD_Y;
   assert.ok(yw > yn + 12, 'the word is under the number');
   // The word's font: 12 px on screen (12 / px-per-unit units), held between 9 and 12 units; the number is 22 units.
-  const rule = css.match(/^\.gl-word \{([^}]*)\}/m)[1];
-  assert.match(rule, /font-size: max\(9px, min\(12px, calc\(12px \/ var\(--gl-u/);
+  // (the size is the picture's font-size attribute, set in fit(); the look leaves it alone: tool-lumen.js wordSize)
+  assert.equal(resolveProps(LOOKS['lumen.word'], withCtx(makeCtx({}), { theme: 'light', dark: false }), {}, {}).size, undefined, 'the table leaves the words\' size to the builder');
   for (const u of [1.2, 1.5, 2.5, 4]) {
-    const fs = Math.max(9, Math.min(12, 12 / u));
+    const fs = wordSize(u);
+    assert.equal(fs, Math.max(9, Math.min(12, 12 / u)));
     assert.ok(fs * u >= 12 - 1e-9 || fs === 9, `${u} px per unit: the word is 12 px on screen unless the picture is large`);
     assert.ok(fs * 4.7 + 2 <= 2 * Math.sqrt((LUMEN_R - LUMEN_WALL) ** 2 - (yw + 4.5 - 50) ** 2) - 6, `the word clears the wall at ${u} px per unit`);
   }
@@ -238,7 +240,7 @@ test('V19: the vessel\'s name sits above the % in the circle, stays at 0 %, fits
   assert.ok(Math.abs((ya + yw) / 2 - 50) <= 2, 'name, number and word are one block centred on the vessel');
   assert.match(src, /inName = sv\('text', \{ class: 'gl-in gl-word gl-name'/, 'the name is the size of "occluded", so it keeps the 12 px floor');
   assert.doesNotMatch(src, /inName\.style\.opacity/, 'the name never fades: the circle always says what it is');
-  assert.match(src, /inName\.setAttribute\('y', b\.nameY/);
+  assert.match(src, /setGeo\(inName, 'y', lumenNameY\(occlusion\)\)/);
   assert.equal(lumenBlock(0).nameY, 50, 'alone, the name sits at the vessel\'s centre');
   assert.equal(lumenBlock(0.06).nameY, ya, 'with a clot it sits above the %');
   assert.equal(lumenLabel('PV_TRUNK'), 'Portal vein');

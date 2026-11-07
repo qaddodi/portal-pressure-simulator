@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The live SVG organs dim and grey exactly as the GPU copy of them does (a lens other than pressure, a selected vessel), through
 // an SVG filter that Safari draws: its CSS filter functions on SVG elements did nothing, so the organs flashed back to full colour
 // whenever the live drawing showed (a patient change in the Sites deck).
@@ -8,7 +9,7 @@ import { organDimMatrix, LUMA } from '../src/ui/organ-dim.js';
 import { parseColor, greyOf, paintRef } from '../src/ui/organ-grey.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const stage = read('../src/ui/stage.js');
+const stage = stageSource();
 const app = read('../styles/app.css');
 const gl = read('../src/ui/veins-gl.js');
 
@@ -32,19 +33,16 @@ test('the live organs grey through their own colours and dim through the groups\
   assert.match(stage, /<filter id="organDim" filterUnits="userSpaceOnUse" x="200" y="-200" width="1020" height="1320" color-interpolation-filters="sRGB"><feColorMatrix type="matrix"\/><\/filter>/, 'kept for a colour the grey cannot read');
   assert.match(stage, /const PLATE_RECT = \[200, -200, 1020, 1320\];/, 'the same rectangle as the GPU copy');
   const sync = stage.slice(stage.indexOf('function syncOrganDim'), stage.indexOf('const plateEasing'));
-  assert.match(sync, /organDimA = on \? plateDim : 1; paintOrganAlpha\(\);\n\s+if \(grey\) greyOn\(plateSat\); else greyOff\(\);/);
-  assert.match(stage, /for \(const g of greyList\) g\.el\.style\.setProperty\(g\.p, greyOf\(g\.c, sat\), 'important'\);/);
-  assert.match(stage, /if \(!greyList\) \{ greyFilter = true; for \(const g of \[gOrgans, gBackdrop\]\) g\.setAttribute\('filter', 'url\(#organDim\)'\); \}/, 'only when a colour cannot be read');
-  assert.match(stage, /const a = String\(organMorphA \* organDimA\), tr = organDimA !== 1 \? 'none' : '';\n\s+for \(const g of \[gOrgans, gBackdrop\]\) \{\n\s+if \(g\.style\.transition !== tr\) g\.style\.transition = tr;\n\s+if \(g\.style\.opacity !== a\) g\.style\.opacity = a;/, 'the dim times the morph\'s fade, set at once: the groups\' .5 s opacity transition would flash the undimmed organs');
-  assert.match(app, /#organs \{ transition: opacity \.5s var\(--ease\); \}/, 'the transition the dim turns off');
-  assert.match(stage, /organMorphA = 1 - t; paintOrganAlpha\(\);/);
+  assert.match(sync, /(?:live\.)?(?:live\.)?(?:live\.)?organDimA = on \? (?:live\.)?(?:live\.)?(?:live\.)?plateDim : 1; (?:live\.)?paintOrganAlpha\(\);\n\s+if \(grey\) greyOn\((?:live\.)?(?:live\.)?(?:live\.)?plateSat\); else greyOff\(\);/);
+  assert.match(stage, /for \(const g of greyList\) g\.el\.style\.setProperty\(g\.p, greyOf\(g\.c, q\), 'important'\);/);
+  assert.match(stage, /if \(!greyList\) \{ greyFilter = true; for \(let i = 0; i < organGs\.length; i\+\+\) organGs\[i\]\.setAttribute\('filter', 'url\(#organDim\)'\); \}/, 'only when a colour cannot be read');
+  assert.match(stage, /const a = String\((?:live\.)?(?:live\.)?organMorphA \* (?:live\.)?(?:live\.)?organDimA\), tr = (?:live\.)?(?:live\.)?organDimA !== 1 \? 'none' : '';\n\s+for \(let i = 0; i < organGs\.length; i\+\+\) \{\n\s+const g = organGs\[i\];\n\s+if \(\(getLive\(g, 'transition'\) \?\? g\.style\.transition\) !== tr\) setG\(g, 'style:transition', tr\);\n\s+if \(\(getLive\(g, 'opacity'\) \?\? g\.style\.opacity\) !== a\) setG\(g, 'style:opacity', a\);/, 'the dim times the morph\'s fade, set at once: the groups\' .5 s opacity transition would flash the undimmed organs');
+  assert.match(app, /#organs \{ transition: opacity var\(--d-surface\) var\(--ease\); \}/, 'the transition the dim turns off');
+  assert.match(stage, /(?:live\.)?(?:live\.)?(?:live\.)?organMorphA = 1 - t; (?:live\.)?(?:live\.)?paintOrganAlpha\(\);/);
   assert.doesNotMatch(app, /#organs[^{]*\{[^}]*filter:/, 'no CSS filter on the organs (it would override the attribute in Chrome)');
   assert.doesNotMatch(app, /#backdrop[^{,]*\{[^}]*filter:/);
-  assert.match(stage, /c\.removeAttribute\('filter'\);/, 'the GPU copy is cloned without it (dimmed there instead)');
-  assert.match(stage, /const greyed = !!greyList;\n\s+if \(greyed\) \{ greyClear\(\); organDimKey = ''; \}/, 'the GPU copy takes the organs\' own colours');
+  assert.match(stage, /const greyed = !!greyList;\n\s+if \(greyed\) \{ greyClear\(\); organDimKey = ''; \}/, 'the GPU pictures take the organs\' own colours');
   assert.match(stage, /\} finally \{ if \(greyed\) syncOrganDim\(\); \}/);
-  const build = stage.slice(stage.indexOf('function plateBuild('), stage.indexOf('function plateBoxes('));
-  assert.doesNotMatch(build, /classList\.(remove|add|toggle)\('gl-plate'/, 'the copy is made with the plate class left as it is (a flip restyles the whole figure)');
 });
 
 test('greying each colour, then the group\'s opacity, is the same picture as the filter on the whole group', () => {
@@ -76,8 +74,8 @@ test('computed colours are read in every form the browsers give them', () => {
 });
 
 test('the filter is on only while the live drawing shows, and follows every plate switch', () => {
-  assert.match(stage, /wrap\.classList\.toggle\('gl-plate', on && veins\.hasPlate\(0\)\);\n {4}syncOrganDim\(\);/);
-  assert.match(stage, /wrap\.classList\.remove\('gl-plate'\); veinsDirty = true; syncPlateLook\(\);/, 'hidePlate');
-  assert.match(stage, /wrap\.classList\.add\('gl-plate'\); syncPlateLook\(\);/, 'a raster landing');
-  assert.match(stage, /if \(!plateEasing\(\)\) \{ plateFrom = null; return; \}/, 'eases without the GPU too');
+  assert.match(stage, /if \((?:live\.)?plateDirty\) \{ (?:live\.)?plateDirty = false; wrap\.classList\.toggle\('gl-plate', (?:live\.)?veins\.hasPlate\(0\)\); \}\n {4}(?:live\.)?syncOrganDim\(\);/, 'what the GPU holds, looked at when it said it changed');
+  assert.match(stage, /wrap\.classList\.remove\('gl-plate'\); (?:live\.)?plateDirty = true; (?:live\.)?veinsDirty = true; (?:live\.)?syncPlateLook\(\);/, 'hidePlate');
+  assert.match(stage, /wrap\.classList\.add\('gl-plate'\); (?:live\.)?syncPlateLook\(\);/, 'a raster landing');
+  assert.match(stage, /if \(!(?:live\.)?plateEasing\(\)\) \{ plateFrom = null; return; \}/, 'eases without the GPU too');
 });

@@ -1,7 +1,8 @@
+import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createRefine, refineMsFrom, REFINE_MS } from '../src/ui/refine.js';
+import { createRefine, REFINE_MS } from '../src/ui/refine.js';
 
 // Optional refinement (the organ pictures made sharper, the gut's) shares one small CPU allowance per display frame, and waits out a
 // gesture. A fake frame clock and a fake probe stand in for the browser.
@@ -23,10 +24,9 @@ test('a frame gives its allowance to one job, the first to ask: the others wait 
   assert.equal(r.left(116.7), 1, 'the next frame has its own');
 });
 
-test('a step that ran over its allowance is noted by name, and the next frame starts clean', () => {
+test('a step that ran over its allowance is noted by name', () => {
   const r = createRefine({ ms: 1, probe: probe() });
   r.left(1); r.spent(13, 'organ layer gut');
-  assert.equal(r.left(2), 1, 'not carried as debt: the one indivisible op is noted, the frames after it are not starved');
   assert.deepEqual({ ms: r.longest.ms, name: r.longest.name }, { ms: 13, name: 'organ layer gut' });
   r.spent(5, 'smaller'); assert.equal(r.longest.name, 'organ layer gut', 'the longest is kept');
 });
@@ -89,26 +89,33 @@ test('work that is no longer wanted is dropped while it waits, not after the ges
   assert.equal(got, null);
 });
 
-test('the allowance is 1 ms, or what ?refinems= says within a quarter ms and 16', () => {
+test('the allowance is 1 ms', () => {
   assert.equal(REFINE_MS, 1);
-  assert.equal(refineMsFrom(''), 1);
-  assert.equal(refineMsFrom('?perf&refinems=3'), 3);
-  assert.equal(refineMsFrom('?refinems=0'), 0.25);
-  assert.equal(refineMsFrom('?refinems=900'), 16);
-  assert.equal(refineMsFrom('?refinems=abc'), 1);
 });
 
-test('the stage gives every refinement a turn: the layer bake, the strip pictures and the gut picture, none a fixed 6 ms of its own', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(stage, /const refineHeld = \(\) => gestureOn\(\) \|\| !leftAlone\(120\);/, 'a gesture, or an input in the last 120 ms or a finger down');
-  assert.match(stage, /const refineTurn = \(gone\) => refine\.turn\(\(\) => new Promise\(\(res\) => nextFrame\(res\)\), refineHeld, gone\);/);
+test('the stage gives every refinement a turn: the layer bake and the shapes read, none a fixed 6 ms of its own', () => {
+  const stage = stageSource();
+  assert.match(stage, /const refineHeld = \(\) => (?:live\.)?gestureOn\(\) \|\| !leftAlone\(120\);/, 'a gesture, or an input in the last 120 ms or a finger down');
+  assert.match(stage, /const refineWaitFrame = \(\) => new Promise\(refineWaitExec\), refineWaitExec = \(res\) => nextFrame\(res\);/);   // (kept, no closure per turn)
+  assert.match(stage, /const refineTurn = \(gone\) => refine\.turn\(refineWaitFrame, refineHeld, gone\);/);
   assert.doesNotMatch(stage, /performance\.now\(\) \+ 6\)/);
   const bake = stage.slice(stage.indexOf('async function bakeLayer'), stage.indexOf('const matOfEl'));
   assert.match(bake, /await refineTurn\(gone\)/);
-  assert.match(bake, /refine\.spent\(performance\.now\(\) - t0, `organ layer \$\{L\}`\)/, 'the longest step is named by layer');
+  assert.match(bake, /refine\.spent\(performance\.now\(\) - t0, LAYER_SPENT\[L\]\)/, 'the longest step is named by layer');
+  assert.match(stage, /LAYER_SPENT\[L\] = `organ layer \$\{L\}`/);
   const layers = stage.slice(stage.indexOf('async function rasterLayers'), stage.indexOf('function bakeAll'));
-  assert.match(layers, /if \(await refineTurn\(\(\) => seq0 !== plateSeq \|\| drops0 !== plateDrops \|\| v !== veins \|\| !v \|\| v\.lost\) === null\) return false;/, 'reading every organ\'s shapes waits its turn too');
+  assert.match(layers, /if \(await refineTurn\(\(\) => seq0 !== (?:live\.)?plateSeq \|\| drops0 !== (?:live\.)?plateDrops \|\| v !== (?:live\.)?veins \|\| !v \|\| v\.lost\) === null\) return false;/, 'reading every organ\'s shapes waits its turn too');
   assert.match(layers, /refineStep\('organ layers: shapes read', bakeAll\)/);
-  const gut = stage.slice(stage.indexOf('async function makeGutPic'), stage.indexOf('function clientToWorldFast'));
-  assert.match(gut, /await refineTurn\(\(\) => seq !== gutPicSeq\)/);
+});
+
+test('R18: a step past its allowance leaves debt the next frames pay back, and the overrun is counted', async () => {
+  const { createRefine } = await import('../src/ui/refine.js');
+  const r = createRefine({ ms: 1, probe: { note() {}, gauge() {}, on: false } });
+  assert.equal(r.left(1), 1);
+  r.spent(4, 'big');
+  assert.equal(r.stats.overruns, 1);
+  assert.equal(r.left(2), 0, 'paying back');
+  assert.equal(r.left(3), 0);
+  assert.equal(r.left(4), 0);
+  assert.equal(r.left(5), 1, 'paid');
 });

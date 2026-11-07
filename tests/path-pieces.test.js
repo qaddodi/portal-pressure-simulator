@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The organs' outlines read piece by piece (path-pieces.js): getPointAtLength along a whole path walks it from its start on every
 // call, and the Doppler probe's first look at the organs (every 2 units along the colon's 608 pieces, the bowel's, the liver's)
 // held the page for a second or two as a monitor first opened (Mohammad, 22 Oct). The points must be the ones the whole path gave.
@@ -69,10 +70,25 @@ test('a jump to a new subpath holds no point of its own', () => {
 });
 
 test('stage.js reads the outlines through the pieces, kept by path, and the Doppler drawer builds its pipeline ahead', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   assert.match(stage, /const loc = olLocal\(d \|\| RING_OF\[id\] \|\| organEls\[id\]\.getAttribute\('d'\), stride\);/);
-  assert.match(stage, /const pieces = pathPieces\(src\);/);
-  assert.match(stage, /if \(olLocalMemo\.size >= 48\) olLocalMemo\.delete/);
+  assert.match(stage, /const mp = measurePath\(src\);/, 'measured in script, no element (2 Nov 2026)');
+  const ol = stage.slice(stage.indexOf('  function olLocal(src, stride) {'), stage.indexOf('  function olRingsRaw('));
+  assert.doesNotMatch(ol, /getTotalLength\(|getPointAtLength\(/, 'no outline measured by the page');
+  assert.match(stage, /if \(memo\.size >= 48\) memo\.delete/);
   const gl = readFileSync(new URL('../src/ui/doppler-gl.js', import.meta.url), 'utf8');
   assert.match(gl, /exerciseDraw\(gl, \(\) => \{\n\s+gl\.useProgram\(prog\);/);   // (one draw into a throwaway target once the program is published)
+});
+
+test('measurePath gives the browser\'s length and points with no element: lines, a jump, a close and a curve', async () => {
+  const { measurePath } = await import('../src/ui/shape-gl.js');
+  const a = measurePath('M0 0 L 10 0 M 100 0 L 110 0');
+  assert.equal(a.L, 20);
+  assert.deepEqual([0, 5, 10, 15, 20].map((u) => a.at(u).map((v) => +v.toFixed(6))), [[0, 0], [5, 0], [10, 0], [105, 0], [110, 0]]);
+  const b = measurePath('M0 0 L 10 0 L 10 10 Z');
+  assert.ok(Math.abs(b.L - (20 + Math.SQRT2 * 10)) < 1e-9, 'the close adds its edge');
+  const c = measurePath('M0 0 A 10 10 0 0 1 20 0');   // (half a circle of radius 10)
+  assert.ok(Math.abs(c.L - Math.PI * 10) < 0.01, `arc length ${c.L}`);
+  const mid = c.at(c.L / 2);
+  assert.ok(Math.hypot(mid[0] - 10, mid[1] + 10) < 0.02, `half-way point ${mid}`);
 });

@@ -39,7 +39,7 @@ export const ENDOSCOPY = {
       kicker: 'Size and signs',
       title: 'Red wale marks are a separate finding, not another size',
       line: 'Red wale marks raise the risk of bleeding on a varix of any size, and switching them off leaves the size as it was.',
-      notes: 'Red wale marks are thin spots in the varix wall; cherry-red spots are another red sign. AASLD 2024 counts a varix of any size with red wale marks as high risk, and the risk of a first bleed rises with the size, the red signs and the Child–Pugh class. In the model the marks appear as the wall stress nears the tear point (70 % of it); the switch overrides that rule only to show that a red sign and a size are two findings.',
+      notes: 'Red wale marks are thin spots in the varix wall; cherry-red spots are another red sign. AASLD 2024 counts a varix of any size with red wale marks as high risk, and the risk of a first bleed rises with the size, the red signs and the Child–Pugh class. In the model the marks appear as the wall stress nears the tear point (70% of it); the switch overrides that rule only to show that a red sign and a size are two findings.',
       ask: ['A small varix has red wale marks. Does that make it large?', 'No. Size and red signs are separate findings, and a small varix with red signs is already high risk (AASLD 2024).'],
     },
     {
@@ -54,7 +54,7 @@ export const ENDOSCOPY = {
       id: 'across', ...SAME, tool: PRESSURES,
       kicker: 'Insufflation',
       title: 'Air lowers the pressure across the varix wall',
-      line: 'Air outside the varix lowers the pressure across its wall, though the pressure inside the varix does not change.',
+      line: 'The pressure inside the varix does not change; only the push from outside does.',
       notes: 'AASLD 2024 ties the tension in the varix wall to the pressure across it (the transluminal pressure), the diameter and the wall thickness. In this teaching model the pressure in the lumen is taken off the pressure inside the varix, so the wall is stretched less and the varix looks narrower. Around 9 mmHg was reported in one diagnostic study (Ushimaru et al., Sci Rep 2020, PMID 33097772); the spread was wide. That is context, not a dose, and the slider range of 0 to 20 mmHg is a teaching range.',
       ask: ['A varix holds 18 mmHg inside, and the air outside it is 10 mmHg. What pressure stretches the wall?', '8 mmHg: the pressure inside less the pressure outside.'],
     },

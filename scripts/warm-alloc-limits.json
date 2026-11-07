@@ -1,0 +1,12 @@
+{
+  "blood.advanceStream, 40 streams": 2800,
+  "pressure-time ingest (real engine frames)": 5500,
+  "flow-rows changedRows + retireRows + flowClose": 100,
+  "uniform-cache, a frame of fifty uniforms": 100,
+  "veins-bin splitCells into a kept record": 100,
+  "stage frame with the vessels (stage.js + veins-gl.js, 60 Hz display, 30 Hz model)": 105000,
+  "pressure-time chart drawn by the GPU pen (pressure-time.js + trace-gl.js, update and redraw)": 21000,
+  "display-state: colour follows, scalar follows and the shown state, a frame of each": 1400,
+  "label-gl: reading 30 labels (describeBlock, svgOnly, lookKey), as a sync reads those that changed": 44000,
+  "glass-gl: the blur plan of eight glasses (blurBoxesInto), a picture": 100
+}

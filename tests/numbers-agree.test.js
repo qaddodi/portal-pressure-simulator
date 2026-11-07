@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Patients numbers agree with each other (review 15 Oct, #6, #7, #8): a gradient equals its two readings as shown, a
 // vessel reads one velocity everywhere, an event fires once rather than with every breath, the vitals hold steady
 // through a breath, and the bottom bar repaints a paused model. (dock.js and readouts-pane.js need a DOM, so they
@@ -42,13 +43,13 @@ test('a vessel reads one velocity: Details, the tip, the labels and colours read
   }
   // (the jejunal veins are drawn at 6 mm but probed at 9.5: they read about 23 cm/s, not 54)
   for (const p of ['inspector.js', 'main.js', 'actions.js']) assert.doesNotMatch(src(p), /Math\.PI \* D \* D/, `${p} works out a velocity from the drawn width`);
-  assert.match(src('stage.js'), /const edgeVel = meanVel;/);
+  assert.match(stageSource(), /const edgeVel = meanVel;/);
 });
 
 test('Details reads the smoothed pressures and flows, as the vessel card does', () => {
   const ins = src('inspector.js');
   assert.doesNotMatch(ins, /fp\(f\.P\[/);
-  assert.match(ins, /const P = \(f\) => f\.Pf \|\| f\.P, Q = \(f\) => f\.Qf \|\| f\.Q;/);
+  assert.match(ins, /const Pof = \(f\) => f\.Pf \|\| f\.P, Qof = \(f\) => f\.Qf \|\| f\.Q;/);
 });
 
 test('an event fires once as it starts, not again with every breath', () => {
@@ -97,7 +98,7 @@ test('a vital holds steady through a breath, and its red flag does not flicker',
 
 test('paused, the bar repaints on a measurement or a new patient and takes a new band at once', () => {
   const dock = src('dock.js'), pane = src('readouts-pane.js');
-  const keys = dock.match(/for \(const k of \[([^\]]*)\]\) store\.on\(k, \(\) => \{ if \(frame\) update\(frame\); \}\)/);
+  const keys = dock.match(/for \(const k of \[([^\]]*)\]\) store\.on\(k, \(\) => \{ if \(frame\) updateDock\(frame\); \}\)/);
   assert.ok(keys, 'the bar listens for the HVPG measurement');
   for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) assert.match(keys[1], new RegExp(`'${k}'`));
   for (const s of [dock, pane]) assert.match(s, /if \(!x\.sev \|\| sev === 'none' \|\| !st0\.running \|\| now - x\.sevSince > 1500\)/);
@@ -126,7 +127,7 @@ test('the right atrium is read over two breaths everywhere it is shown, and that
   }
   assert.ok(hi - lo > 0.4, `the beat-by-beat RA swings (${lo.toFixed(2)}–${hi.toFixed(2)}), which is why it is not shown`);
   assert.ok(vhi - vlo < 0.3, `RA over two breaths holds within 0.3 mmHg (${vlo.toFixed(2)}–${vhi.toFixed(2)})`);
-  assert.match(src('stage.js'), /mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'the figure reads RA over two breaths');
+  assert.match(stageSource(), /mk === 'ra' \? f\.metrics\?\.vitals\?\.ra/, 'the figure reads RA over two breaths');
   // (The slide data card: the presenter's live fingerprint and the worker's slide states are one function, engine/fingerprint.js.)
   assert.match(src('../engine/fingerprint.js'), /ra: m\.vitals\?\.ra \?\? m\.ra/, 'the slide data card reads RA over two breaths');
   assert.match(src('presenter.js'), /const liveFp = \(fr\) => fingerprintOf\(/, 'the live slide data is that fingerprint');
@@ -138,6 +139,7 @@ test('the right atrium is read over two breaths everywhere it is shown, and that
 // now always holds the peak the reading reports, and the words are set in the same frame as the picture.
 test('the Doppler scale holds the reported peak and the report is drawn with the picture', () => {
   const d = src('doppler.js');
-  assert.match(d, /const rd = reading\(\);\s*\n\s*if \(rd\) for \(const v of \[rd\.vmax \* gf \* sgn, rd\.vmin \* gf \* sgn\]\)/);
-  assert.match(d, /if \(reportDue\) \{ reportDue = false; updateReport\(\); \}\s*\n\s*draw\(now\);/);
+  assert.match(d, /const rd = reading\(\);\s*\n\s*if \(rd\) \{\s*\n\s*const hi = rd\.vmax \* gf \* sgn, lo = rd\.vmin \* gf \* sgn;/);
+  // (Also while the reading still glides on the shown state, premium-feel R4: the words follow it in the picture's own frame.)
+  assert.match(d, /if \(reportDue \|\| velShown\.moving\) \{ reportDue = false; updateReport\(\); \}\s*\n\s*draw\(now\);/);
 });

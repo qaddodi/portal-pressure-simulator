@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The HVPG catheter's frame (review of 3b099a80, 26 Oct): the shaft is sampled once along the whole route and sent to the GPU
 // once, a frame adding only the piece to the tip, the band, the balloon and the ripples; the readings' sizes and the cards' room
 // are kept until they change; and each frame runs in order: the catheter's step, the camera following it, the readings, then the
@@ -7,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const stage = read('src/ui/stage.js'), gl = read('src/ui/veins-gl.js');
+const stage = stageSource(), gl = read('src/ui/veins-gl.js');
 const fn = (src, name) => src.match(new RegExp(`function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n {2}\\}`))[0];
 
 test('a late callback runs after every other callback of its frame, once; asked for in it, the next frame', async () => {
@@ -34,12 +35,12 @@ test('the figure renders as the frame\'s last callback, and the camera paths no 
   assert.match(stage, /^import \{ frameFor, lateFrameFor, cancelFrame,/m);
   assert.match(stage, /const drawFrame = lateFrameFor\('stage'\);/);
   assert.doesNotMatch(stage, /nextFrame\(animate\)/);
-  assert.match(stage, /function animate\(now\) \{\n {4}animRaf = 0;\n {4}cathLabelsNow\(\);/);
+  assert.match(stage, /function animate\(now\) \{\n {4}animRaf = 0;\n(?: {4}\/\/[^\n]*\n)+ {4}if \((?:live\.)?viewRaf\) \{ cancelFrame\((?:live\.)?viewRaf\); syncView\(\); \}\n {4}cathLabelsNow\(\);/);
   const follow = fn(stage, 'cathFollow');
   assert.doesNotMatch(follow, /drawVeins|getBoundingClientRect|clientToVB\(|safeInsets\(|cutLen/);
   assert.match(follow, /const wr = stageBox\(\), ins = cathInsets\(now\);/);
   const glide = fn(stage, 'animateVT');
-  assert.match(glide, /if \(cath\.st\) \{ refreshCTM\(\); cathLabelsSoon\(\); \}/);
+  assert.match(glide, /if \((?:live\.)?(?:live\.)?cath\.st\) \{ refreshCTM\(\); (?:live\.)?(?:live\.)?cathLabelsSoon\(\); \}/);
   assert.doesNotMatch(glide, /drawVeins/);
 });
 
@@ -48,10 +49,14 @@ test('the catheter\'s step moves the camera before its readings are laid out, in
   assert.ok(paint.indexOf('if (st.follow) cathFollow();') > paint.indexOf('cathGL(st, r, tipD, rc)'));
   assert.ok(paint.indexOf('cathLabelsSoon();') > paint.indexOf('if (st.follow) cathFollow();'));
   assert.doesNotMatch(paint, /cathLabels\(\)/);
-  assert.match(read('src/ui/presenter.js'), /follow: cath\.follow \}\);/);
+  assert.match(read('src/ui/presenter.js'), /st\.follow = cath\.follow;\n\s*stage\.setCatheter\(st\);/);
   const hv = read('src/ui/hvpg-proc.js'), pa = read('src/ui/proc-anim.js');
-  assert.equal((hv.match(/labels, follow,/g) || []).length, 2);
-  assert.match(pa, /ring: null, clock: t, opacity: f\.opacity, labels, follow \}\);/);
+  assert.equal((hv.match(/cath[AB]\.follow = follow;/g) || []).length, 2);   // (both the measurement's catheter and the blocked vein's pass the follow)
+  assert.equal((hv.match(/sg\.setCatheter\(cath[AB]\);/g) || []).length, 2);
+  // (a treatment follows its tip in only on its first step, once that shot has landed: proc-anim.js, his ask 29 Oct; a measurement,
+  // EUS-PPG, its work from one station to the next as well, his ask 6 Nov 2026)
+  assert.match(pa, /ring: null, clock: 0, opacity: 0, labels: \[\], keep: true, follow: false \};/);
+  assert.match(pa, /cat\.follow = f\.shot === shot && \(shot === 'way' \|\| \(P\.measure && shot === 'tip'\)\) && !stage\.gliding\?\.\(\) \? shot : false;\n {4}stage\.setCatheter\(cat\);/);
   for (const src of [hv, pa, read('src/ui/presenter.js')]) assert.doesNotMatch(src, /cathFollow/);
 });
 
@@ -74,21 +79,22 @@ test('the readings\' sizes and the cards\' room are kept until they change', () 
   const L = fn(stage, 'cathLabels');
   assert.doesNotMatch(L, /wrap\.clientWidth|cardSpace\(\)|readBlockers\(\)|\[el\.offsetWidth, el\.offsetHeight\]\]\)/);
   assert.match(L, /const room = cathRoomNow\(\)/);
-  assert.match(L, /blockers: room\.blk/);
-  assert.match(fn(stage, 'cathSize'), /text\.replace\(\/\\d\/g, '0'\)/);
+  assert.match(L, /blockers = room\.blk/);
+  assert.match(fn(stage, 'cathSize'), /sameShape\(el\._szT, text\)/);   // (digits count as one, compared in place: no copy of the text made)
+  assert.match(fn(stage, 'sameShape'), /x >= 48 && x <= 57 && y >= 48 && y <= 57/);
   assert.match(stage, /addEventListener\('pps:occ', \(\) => \{ panFit = null; cath\.lblKey = ''; cathRoom\(\); \}\);/);
   assert.match(stage, /addEventListener\('resize', \(\) => \{ panFit = null; cath\.lblKey = ''; cathRoom\(\); \}\);/);
 });
 
 test("his pick (26 Oct): the route's framing zooms in once and the follow only pans, at one scale", () => {
   const follow = fn(stage, 'cathFollow');
-  assert.match(follow, /const k = vt\.k,/);
-  assert.match(follow, /vt = \{ k, x: vt\.x, y: ny \};/);
+  assert.match(follow, /const k = (?:live\.)?(?:live\.)?vt\.k,/);
+  assert.match(follow, /(?:live\.)?vt = \{ k, x: (?:live\.)?vt\.x, y: ny \};/);
   assert.doesNotMatch(follow, /k0|0\.25/);
   assert.match(stage, /const FOLLOW_ZOOM = 1\.25;/);
   assert.match(stage, /if \(near\) \{ const k1 = k \* FOLLOW_ZOOM; cy = y0 \+ \(cy - y0\) \* \(k \/ k1\); k = k1; \}/);
   // every catheter whose view follows it asks for that framing
   assert.match(read('src/ui/presenter.js'), /stage\.cathFocus\('route', ms\(1200\), \{ near: true \}\)/);
-  assert.equal((read('src/ui/hvpg-proc.js').match(/\{ near: want === 'route' \}/g) || []).length, 2);
-  assert.match(read('src/ui/proc-anim.js'), /\{ near: f\.cam === 'route' && !!P\.follow \}/);
+  assert.equal((read('src/ui/hvpg-proc.js').match(/want === 'route' \? SHOT_NEAR : SHOT_FAR/g) || []).length, 2);
+  assert.match(read('src/ui/hvpg-proc.js'), /SHOT_NEAR = \{ near: true \}, SHOT_FAR = \{ near: false \}/);
 });

@@ -1,10 +1,11 @@
-// The colour system: every colour lives once, as a named token in styles/tokens.css. These checks
-// keep it that way.
+// The colour system: every colour lives once, as a named token: the look-dependent ones in src/ui/theme-tokens.js (styles/tokens.css is
+// printed from it), the rest in styles/tokens.css. These checks keep it that way.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { TOKENS } from '../src/ui/theme-tokens.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
@@ -12,8 +13,9 @@ const walk = (d) => readdirSync(join(ROOT, d)).flatMap((f) => (statSync(join(ROO
 const tokens = read('styles/tokens.css');
 const LITERAL = /#[0-9a-f]{3,8}\b|rgba?\(\s*[\d.]+[\s,]+[\d.]+[\s,]+[\d.]+|hsla?\(/i;
 
-test('no colour is written outside styles/tokens.css', () => {
-  const files = [...walk('src').filter((f) => f.endsWith('.js')), 'styles/app.css'];
+test('no colour is written outside styles/tokens.css and src/ui/theme-tokens.js', () => {
+  // (theme-tokens.js is where the look-dependent colours are written; tokens.css carries its printed copy.)
+  const files = [...walk('src').filter((f) => f.endsWith('.js') && !f.endsWith('src/ui/theme-tokens.js')), 'styles/app.css'];
   const stray = [];
   for (const f of files) {
     read(f).split('\n').forEach((line, i) => {
@@ -42,9 +44,11 @@ test('every token the scripts read is defined', () => {
 
 test('the page colours painted before the styles load match the tokens', () => {
   const html = read('index.html');
-  const light = tokens.match(/:root \{[^}]*?--bg: (#[0-9A-F]{6})/i)[1];
-  const dark = tokens.match(/\n:root\[data-theme="dark"\] \{[^}]*?--bg: (#[0-9A-F]{6})/i)[1];
+  const light = TOKENS.light.bg, dark = TOKENS.dark.bg;
+  assert.match(light, /^#[0-9A-F]{6}$/i);
+  assert.match(dark, /^#[0-9A-F]{6}$/i);
+  assert.match(tokens, new RegExp(`:root \\{[^}]*?--bg: ${light};`, 'i'), 'the printed stylesheet carries Light\'s ground');
   assert.match(html, new RegExp(`theme-color" content="${light}" media="\\(prefers-color-scheme: light\\)`, 'i'));
   assert.match(html, new RegExp(`theme-color" content="${dark}" media="\\(prefers-color-scheme: dark\\)`, 'i'));
-  assert.match(html, new RegExp(`style\\.background='${dark}'`, 'i'));
+  assert.match(html, new RegExp(`style\\.background=pb\\|\\|'${dark}'`, 'i'));   // (Dark's; each palette's is tested in tests/appearance.test.js)
 });

@@ -4,7 +4,7 @@
 // The dock goes on feeding it meanwhile, and what it is fed is kept, so it starts with what it would have had: the Doppler's trace holds the
 // frames it was sent (`history` of them, each cut down by `slim`), the FibroScan the last it was given.
 // An instrument that was loaded ahead (the handle already has it) is returned as it is.
-import { h } from './util.js?v=58b547f8d4';
+import { h } from './util.js';
 
 /**
  * handle: lazy()'s { get, now }. cls: the classes the real pane has on its own element (so the empty one lays out as it will).
@@ -24,6 +24,7 @@ export function lazyPane({ id, label, handle, cls = '', history = 0, slim = (f) 
       inst = i;
       i.el.classList.remove('dock-pane'); i.el.classList.add('instrument-view');
       hole.replaceWith(i.el);
+      if (i.head) i.el.before(i.head);   // (its own switch row, above the view in the pane: the FibroScan's Liver/Spleen)
       past.pop();   // (the last frame is given whole, below)
       for (const f of past) i.ingest?.(f);
       if (last) i.ingest?.(last);

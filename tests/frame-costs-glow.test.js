@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,7 +7,7 @@ import { wavePacks, paintWave } from '../src/ui/scan-waves.js';
 
 // Review P6, P9 and P12 (16 Oct): cheaper glow eases, FibroScan ripples, hidden tubes, label caches and font caching,
 // each with the same picture as before.
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const sw = readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
 
 const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
@@ -54,19 +55,19 @@ test('the glow texels are written exactly as the whole vessel sync wrote them, o
 });
 
 test('a glow ease runs the glow-only sync, which falls back to the whole sync unless nothing else changed', () => {
-  assert.match(stage, /if \(glowSync && !syncGlowOnly\(easeInOut\(morph\)\)\) syncVeins\(easeInOut\(morph\)\);/);
-  assert.match(stage, /writeGlowTexels\(tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, rgbCs, easeInOut\);/, 'the whole sync writes them with the same helper');
-  assert.match(stage, /glowMemo = \{ items, t, netA, cs, mode, origin: originMode, cath: cathTint, F, geo: geometryVersion, plate: veins\.hasPlate\(0\), cls: gestureFree\(wrap\.className\), bits: glowBits\(items\), reach: vLook\.reach \};/);
+  assert.match(stage, /if \((?:live\.)?glowSync && !syncGlowOnly\((?:live\.)?easeInOut\((?:live\.)?morph\)\)\) syncVeins\((?:live\.)?easeInOut\((?:live\.)?morph\)\);/);
+  assert.match(stage, /writeGlowTexels\((?:live\.)?tubeData, o, kind, id, ra\?\.e\.id, obj\.len, glow\.lit, vh\.amt, cpRgb, (?:live\.)?easeInOut\);/, 'the whole sync writes them with the same helper');
+  assert.match(stage, /gm\.items = items; gm\.t = t; gm\.netA = (?:live\.)?(?:live\.)?netA; gm\.cs = cs; gm\.mode = mode; gm\.origin = cpOrigin; gm\.cath = (?:live\.)?(?:live\.)?cathTint; gm\.F = (?:live\.)?(?:live\.)?F; gm\.geo = (?:live\.)?(?:live\.)?geometryVersion;\n\s+gm\.plate = (?:live\.)?(?:live\.)?veins\.hasPlate\(0\); gm\.cls = wrapCls\(\); gm\.bits = glowBits\(items, 0\); gm\.reach = (?:live\.)?(?:live\.)?vLook\.reach;/);   // (the memo is one kept object written in place)
   const ok = stage.slice(stage.indexOf('function glowOnlyOk'), stage.indexOf('function syncGlowOnly'));
-  for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== F', 'm.geo !== geometryVersion', 'm.netA !== netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== originOn()', 'm.cath !== cathTint', 'm.plate !== veins.hasPlate(0)', 'm.cls !== gestureFree(wrap.className)', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
-  for (const c of ["'is-sel'", "'hl'", "'coll-ghost'", 'it.x.lifted', 'it.x.reveal']) assert.ok(stage.slice(stage.indexOf('function glowBits'), stage.indexOf('function glowOnlyOk')).includes(c), `bits hold ${c}`);
+  for (const c of ['tubesNew', 'lensFrom', 'm.t !== t', 'm.F !== live.F', 'm.geo !== live.geometryVersion', 'm.netA !== live.netA', 'm.cs !== wrapCS()', 'm.mode !== layerMode()', 'm.origin !== live.originOn()', 'm.cath !== live.cathTint', 'm.plate !== live.veins.hasPlate(0)', 'm.cls !== wrapCls()', 'm.reach !==', 'b[i] !== m.bits[i]', 'b[i] & 64']) assert.ok(ok.includes(c), `checks ${c}`);
+  for (const c of ['it.x.sel', 'it.x.ghost', 'it.ra?.sel', 'it.x.lifted', 'it.x.reveal']) assert.ok(stage.slice(stage.indexOf('function glowBits'), stage.indexOf('function glowOnlyOk(t)')).includes(c), `bits hold ${c}`);
 });
 
 test('the FibroScan packets write an opacity or a path only when its text changed', () => {
   const writes = [];
   const el = (n) => ({ n, style: { set opacity(v) { writes.push([n, 'op', v]); } }, setAttribute: (k, v) => writes.push([n, k, v]) });
   const groups = [0, 1].map((i) => ({ ...el('g' + i), children: [el(`p${i}0`), el(`p${i}1`), el(`p${i}2`)] }));
-  const packs = wavePacks({ querySelectorAll: (q) => (assert.equal(q, '.sp-waves > g'), groups) });
+  const packs = wavePacks({ querySelectorAll: (q) => (assert.equal(q, '.sp-waves > .sp-pk'), groups) });
   assert.equal(packs.length, 2);
   paintWave(packs[0], '0'); paintWave(packs[0], '0');
   assert.deepEqual(writes, [['g0', 'op', '0']]);
@@ -74,21 +75,28 @@ test('the FibroScan packets write an opacity or a path only when its text change
   paintWave(packs[1], '0.500', (j) => `M${j}`);
   paintWave(packs[1], '0.500', (j) => (j === 1 ? 'M9' : `M${j}`));
   assert.deepEqual(writes, [['g1', 'op', '0.500'], ['p10', 'd', 'M0'], ['p11', 'd', 'M1'], ['p12', 'd', 'M2'], ['p11', 'd', 'M9']]);
-  assert.match(stage, /paintWave\(w, fade\.toFixed\(3\), \(j\) => scanArc\(Math\.max\(1, r \+ \(j - 1\) \* gap\)\)\)/, 'the same arcs as before');
+  assert.match(stage, /const scanArcAt = \(j\) => scanArc\(Math\.max\(1, scanWaveR \+ \(j - 1\) \* scanWaveGap\)\);/, 'the same arcs as before');
+  assert.match(stage, /scanWaveR = r; scanWaveGap = gap;\n\s+paintWave\(w, fade\.toFixed\(3\), scanArcAt\);/);
   assert.match(stage, /scan\.el = null; scan\.packs = null;/, 'a new probe looks its packets up again');
 });
 
-test('under the GPU the hidden SVG tubes are written when they show again; lumens always', () => {
-  assert.match(stage, /if \(!on\) \{ tubesHidden = false; if \(tubesHeld\.size\) flushTubes\(\); \}/);
-  assert.doesNotMatch(stage, /setT\(x\.lumen/, 'credit.js reads a lit lumen\'s width');
-  assert.match(stage, /setA\(x\.lumen, 'stroke-width', w\.toFixed\(1\)\)/);
+test('the vessels are records the GPU draws: no SVG tube, gradient, mask or hit stroke is made for them; the credit takes their courses from the stage', () => {
+  const build = stage.slice(stage.indexOf('  // Edge groups: each vessel is a record'), stage.indexOf('  ALL_EDGES.forEach((e, i) => { E[e.id].row = i; });'));
+  assert.ok(build.length > 0, 'the vessel builder is found');
+  for (const c of ['v-wall', 'v-lumen', 'v-shadow', 'v-sheen', 'v-shade', 'v-select', 'v-halo', 'v-strand', 'v-artery', 'v-hit', 'linearGradient', 'mask']) assert.ok(!build.includes(c), `no ${c} built for a vessel`);
+  assert.doesNotMatch(stage, /tubesHidden|tubesHeld|flushTubes|setPaint|svgTaper|updateJoins|REVEAL_PARTS/, 'nothing left that wrote the SVG tubes');
+  assert.doesNotMatch(stage, /flushHeld|class: 'v-hit'|ghost-hit/, 'no hit stroke or ghost copy, and nothing held for one');
+  const credit = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
+  assert.match(credit, /const vesselsNow = \(\) => window\.pps\?\.stage\?\.vesselShapes\?\.\(\)/, 'the credit takes the vessels\' courses from the stage');
+  assert.doesNotMatch(credit, /v-hit/, 'and reads no hit stroke');
+  assert.match(credit, /window\.pps\?\.stage\?\.lumenWidth\?\.\(v\.id\) \?\? v\.w/, 'a lit vein\'s width is the stage\'s number');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  const hidden = css.match(/\.stage-view\.gl-on #world :is\(([^)]*)\) \{ display: none; \}/)[1];
-  for (const c of ['.v-wall', '.v-artery', '.v-strand', '.v-strand-wall', '.v-select']) assert.ok(hidden.includes(c), `${c} is hidden under gl-on`);
+  for (const c of ['.v-wall', '.v-lumen', '.v-artery', '.v-strand', '.v-select', '.v-shadow', '.tier-casing']) assert.ok(!css.includes(c + ' ') && !css.includes(c + ','), `no style left for ${c}`);
 });
 
 test('label widths are kept by their digit-normalised text, and the narrowings\' text by object', () => {
-  assert.match(stage, /const z = t\.replace\(\/\\d\/g, '0'\), k = `\$\{weight\}\|\$\{size\}\|\$\{track\}\|\$\{z\}`;/);
+  assert.match(stage, /z = t\.replace\(\/\\d\/g, '0'\); if \(widthZ\.size > 3000\) widthZ\.clear\(\); widthZ\.set\(t, z\);/);   // (a text and its digits-as-zeros form, made once for each text seen)
+  assert.match(stage, /let e = widths\.get\(z\);\n\s+if \(e\) for \(let i = 0; i < e\.length; i \+= 4\) if \(e\[i\] === weight && e\[i \+ 1\] === size && e\[i \+ 2\] === track\) return e\[i \+ 3\];/);
   assert.match(stage, /paramJSON\(\(f\.viewParams \|\| st\.params\)\.stenosis\), paramJSON\(\(f\.viewParams \|\| st\.params\)\.stenosisSite\)/);
 });
 
@@ -116,15 +124,14 @@ test("a pan or pinch's own classes never count as a change of the stage's look",
   // (panning, stage-busy and figure-focus come on as a gesture starts and off as it ends, and stage-busy 0.6 s later, as the menus
   // fade back in. Each dropped the stage's style snapshot and the glow-only, marks and gut-look memos: a style pass and a whole
   // vessel sync, the marks read again from the SVG, at every one (Mohammad, 21 Oct: "still lag after i pan or zoom").)
-  assert.match(stage, /const gestureFree = \(c\) => \(c \|\| ''\)\.replace\(\/\(\?:\^\|\\s\)\(\?:panning\|stage-busy\|figure-focus\)\(\?=\\s\|\$\)\/g, ''\);/);
+  assert.match(stage, /const gestureFree = \(c\) => \(c \|\| ''\)\.replace\(\/\(\?:\^\|\\s\)\(\?:panning\|stage-busy\|figure-focus\|lb-ride\|pinch-hide\|off-home\)\(\?=\\s\|\$\)\/g, ''\);/);
   const obs = stage.slice(stage.indexOf('const drop = () => { csSnap = null; };'), stage.indexOf("addEventListener('resize', drop)"));
-  assert.match(obs, /if \(r\.attributeName === 'class'\) \{ const c = gestureFree\(r\.target\.getAttribute\('class'\)\); if \(seen\.get\(r\.target\) === c\) continue; seen\.set\(r\.target, c\); \}\n\s+drop\(\); return;/);
-  assert.match(stage, /const marksKey = \(\) => `\$\{mk\.ver\}\|\$\{gestureFree\(wrap\.className\)\}\|/);
-  assert.match(stage, /const greyDeps = \(\) => \{ const r = document\.documentElement; return `\$\{gestureFree\(wrap\.className\)\}\|/);
-  assert.match(stage, /at = `\$\{gestureFree\(wrap\.className\)\.replace\(\/\\bgl-plate\\b\/, ''\)\}\|/);
+  assert.match(obs, /if \(r\.attributeName === 'class'\) \{ const c = gestureFree\(r\.target\.getAttribute\('class'\)\); if \(seen\.get\(r\.target\) === c\) continue; seen\.set\(r\.target, c\); \}\n\s+drop\(\);\n[^\n]*\n\s+if \(recs\.some\(\(x\) => x\.attributeName === 'data-theme' \|\| x\.attributeName === 'data-palette'\)\) csAsk \|\|= readFrame\(wrapCSTake\);\n\s+return;/);
+  assert.match(stage, /const marksKey = \(\) => `\$\{mk\.ver\}\|\$\{wrapCls\(\)\}\|/);
+  assert.match(stage, /const greyDeps = \(\) => \{ const r = document\.documentElement; return `\$\{wrapCls\(\)\}\|/);
   // Safe only while those classes set no custom property and nothing the figure draws: the cursor, and the floating pieces.
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  for (const m of css.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus)\b[^{}]*)\{([^{}]*)\}/g)) {
+  for (const m of css.matchAll(/([^{}]*\.(?:panning|stage-busy|figure-focus|lb-ride)\b[^{}]*)\{([^{}]*)\}/g)) {
     assert.doesNotMatch(m[2], /--[\w-]+\s*:/, `${m[1].trim()} sets no custom property`);
     assert.doesNotMatch(m[1], /#organs|#veins|#stage\s+\S|\.organ|\.v-/, `${m[1].trim()} styles nothing in the figure`);
   }

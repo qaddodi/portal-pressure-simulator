@@ -76,10 +76,10 @@ test('the vitals read the slide\'s own numbers, decimals as its tiles print them
   // (the helper and the bar share one flag: this is the same function)
   assert.equal(vitalReading({ v: VITALS[0] }, { map: 60 }, false, 0).bad, true);
   const src = read('../src/ui/vitals-monitor.js');
-  assert.match(src, /import \{ createBeatClock, ekgSeries(?:, \w+)* \} from '\.\/ekg\.js(\?v=\w+)?'/, 'the strip is the pressure trace\'s');
-  assert.match(src, /ctx\.fillStyle = c\.bad \? alarm : bright;/);
+  assert.match(src, /import \{ createBeatClock, ekgSeries(?:, \w+)* \} from '\.\/ekg\.js'/, 'the strip is the pressure trace\'s');
+  assert.match(src, /if \(c\.bad\) rectAt\(nr\+\+, x - 5, by - big \* 0\.78 - 4, rw \+ 10, big \* 0\.78 \+ 10, 5, alarm\);\n\s+textAt\(nt\+\+, val, 700, big, x \+ rw - nw, by, c\.bad \? bg : ink\);/);   // (the readings go to the GPU's list; a reading past its limit is reverse video on the alarm patch, a box of the widest number so it never resizes)
   assert.doesNotMatch(src, /shadowBlur|createLinearGradient|arc\(/, 'no glow, gradient or status dot');
-  assert.doesNotMatch(src, /FONT\(\d+, (?:[0-9]|1[01])\)/, 'no word under 12 px');
+  assert.doesNotMatch(src, /textAt\([^;]*, (?:[0-9]|1[01]), [^;]*\);/, 'no word under 12 px');
   assert.match(read('../src/ui/dock.js'), /export \{ VITALS \};/, 'the bottom bar keeps its list, now in vital-read.js');
 });
 
@@ -88,8 +88,10 @@ test('the vitals monitor is a recording kind: a new patient starts its strip ove
   assert.equal(eases({ kind: 'hvpg' }), true);
   assert.notEqual(dataPlan({ tool: { kind: 'vitals' }, data: 'tiles' }, {}), dataPlan({ tool: { kind: 'vitals', show: ['co'] }, data: 'tiles' }, {}), 'its options are part of the card\'s plan');
   assert.match(tools, /const RECORDS = \['doppler', 'beats', 'vitals'\];/, 'the vitals monitor is one of the recording kinds');
-  assert.match(tools, /const startOver = RECORDS\.includes\(k\) && \(stateKey !== lastSt \|\| cur !== inst\);\s+if \(startOver\) \{ inst\.clear\?\.\(\); primeTok\+\+; \}/, 'a new state clears its strip');
-  assert.match(tools, /for \(const k of RECORDS\) made\[k\]\?\.restart\?\.\(\) \?\? made\[k\]\?\.clear\?\.\(\);/, 'and a held state restarts it');
+  assert.match(tools, /const SWEEPS = \['beats', 'vitals'\];/, 'the two EKG strips keep one continuous sweep');
+  assert.match(tools, /const startOver = RECORDS\.includes\(k\) && \(cur !== inst \|\| \(stateKey !== lastSt && !SWEEPS\.includes\(k\)\)\);\s+if \(startOver\) \{ inst\.clear\?\.\(\); primeTok\+\+; \}/, 'a card that comes up starts empty; a new state does not clear a strip that is sweeping');
+  assert.match(tools, /for \(const k of RECORDS\) if \(!SWEEPS\.includes\(k\)\) made\[k\]\?\.restart\?\.\(\) \?\? made\[k\]\?\.clear\?\.\(\);/, 'and a held state restarts the Doppler only');
+  assert.match(tools, /if \(held && \(kind === 'doppler' \|\| primeWait\)\) return;/, 'the strips take their frames through a change of state');
 });
 
 // ── The HVPG monitor on the card ──
@@ -107,7 +109,7 @@ test('the HVPG card: the HVPG is the difference of the two readings as shown, an
   assert.match(src, /pending = forward && !again \? 'sweep' : 'result'/, 'it plays going forward onto the slide, once');
   assert.match(src, /cur\.hvpg = tenthGap\(cur\.whvp, cur\.fhvp, target\.hvpg\)/, 'the levels ease and the HVPG follows them');
   assert.match(read('../src/ui/hvpg-proc.js'), /function set\(m, f = null, b = bal, instant = false\)/);
-  assert.match(read('../src/ui/hvpg-proc.js'), /if \(\(instant \|\| matchMedia\('\(prefers-reduced-motion: reduce\)'\)\.matches\) && !falling\(\)\) t = t1;/);
+  assert.match(read('../src/ui/hvpg-proc.js'), /if \(\(instant \|\| reduceMotionMQ\.matches\) && !falling\(\)\) t = t1;/);
   // The presenter tells the tools when a slide is stepped onto, and not when its card is only kept or rebuilt in place.
   assert.match(presenter, /const showTool = \(s, i, lap = false, forward = false\) => ui\.tools\.show\(s\.tool, \{ slide: i, stateKey: stateOf\[i\], forward,/);
   assert.match(presenter, /showTool\(s, i, lap, i === lastAt \+ 1\)/);

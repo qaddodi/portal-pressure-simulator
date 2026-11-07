@@ -83,12 +83,13 @@ test('Endoscopy and NCPH: the patient buttons go to a preset and back to the sli
   assert.ok(schisto.hvpg < 5 && comp.hvpg > schisto.hvpg && schisto.pv > comp.pv, `the wedge misses schistosomiasis (HVPG ${schisto.hvpg}, PV ${schisto.pv}) and reads cirrhosis (HVPG ${comp.hvpg}, PV ${comp.pv})`);
 });
 
-test('Ten years: the HVPG rises visit by visit through the first year, and carvedilol brings it down', async () => {
+test('Ten years: the HVPG rises over the first two years, the catheter two weeks after the stiffness reads it, and carvedilol brings it down', async () => {
   const d = DECKS.find((x) => x.id === 'ten-years');
   const at = (id) => d.slides.findIndex((x) => x.id === id);
   const fps = (await deckStates(d)).map(pick);
   const hv = ['d0', 'd90', 'd365'].map((id) => fps[at(id)].hvpg);
-  hv.slice(1).forEach((v, k) => assert.ok(v > hv[k], `HVPG rises visit by visit (${hv.join(', ')})`));
+  assert.ok(hv[1] > hv[0] + 2, `the HVPG rises by year 2 (${hv.join(', ')})`);
+  assert.ok(Math.abs(hv[2] - hv[1]) < 0.3, `the catheter reads the year-2 pressure (${hv.join(', ')})`);
   assert.ok(fps[at('carv')].hvpg < fps[at('d365')].hvpg, 'carvedilol lowers it');
 });
 

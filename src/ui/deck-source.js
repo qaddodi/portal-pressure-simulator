@@ -9,13 +9,14 @@
 //   parseDeckSource(text) → the deck object (plain data), or throws an Error whose message says
 //                           what was wrong and on which line.
 
+import { caught } from './caught.js';
 const BUILTINS = {
   mi: (x) => `<mi>${x}</mi>`, mo: (x) => `<mo>${x}</mo>`, mn: (x) => `<mn>${x}</mn>`,
   sub: (b, i) => `<msub>${b}<mtext>${i}</mtext></msub>`,
   frac: (n, d) => `<mfrac><mrow>${n}</mrow><mrow>${d}</mrow></mfrac>`,
 };
 const ARRAY_METHODS = new Set(['map', 'filter', 'flatMap', 'concat', 'slice', 'join', 'includes', 'some', 'every', 'find']);
-const BAD_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+import { BAD_KEYS, cleanEq, unsafeIn } from './import-safety.js';
 const MAX_STEPS = 2e6, MAX_DEPTH = 200, MAX_LEN = 1e6;
 
 class DeckError extends Error {}
@@ -387,7 +388,7 @@ export function parseDeckSource(src) {
   let deck;
   const t = src.trim();
   if (t[0] === '{') {
-    try { deck = JSON.parse(t); } catch { /* not JSON: read it as an object literal below */ }
+    try { deck = JSON.parse(t); } catch (e) { caught('deck-source:390', e); /* not JSON: read it as an object literal below */ }
     if (!deck) deck = plain(evaluator().ev((() => { const p = parser(tokenize(t)); const e = p.expr(); p.end(); return e; })(), { vars: Object.create(null), parent: null }));
   } else {
     const body = parser(tokenize(src)).program();
@@ -420,6 +421,9 @@ export function checkDeck(d) {
   d.slides.forEach((s, i) => {
     if (!s || typeof s !== 'object' || Array.isArray(s)) fail(`Slide ${i + 1} is not an object.`);
     if (typeof s.title !== 'string' || !s.title.trim()) fail(`Slide ${i + 1} needs a title.`);
+    if (s.eq != null && !cleanEq(s.eq)) fail(`Slide ${i + 1}: the equation (eq) may hold only MathML (mi, mo, mn, mtext, mrow, mfrac, msub, msup …), with no HTML, scripts, event attributes or links.`);
   });
+  const bad = unsafeIn(d);
+  if (bad) fail(`The deck uses “${bad}”, which an imported deck may not.`);
   return d;
 }

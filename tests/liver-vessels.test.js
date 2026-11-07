@@ -53,7 +53,10 @@ function depth(R, x, y) {
 // The hepatic veins' trunks to the cava are drawn in the liver too (they leave its top at the cava).
 const drawn = [...LIVER_EDGES, 'RHV_IVC', 'MHV_IVC', 'LHV_IVC'].filter((id) => EDGE_PATH[id] && !HIDDEN_EDGES.has(id) && !ANAT_HIDDEN.has(id));
 // The portal venules come in at the hilum, and the hepatic veins leave the liver's top for the cava: those ends sit on the edge.
-const AT_EDGE = { POST_R_RHV: 0.6, POST_R_MHV: 0.6, POST_L_LHV: 0.6, CAUD: 0.6, RHV_IVC: 0.75, MHV_IVC: 0.75, LHV_IVC: 0.75 };
+// (The left hepatic vein turns up to meet the cava above the right one, so a longer share of it runs at the liver's top: 0.6.)
+const AT_EDGE = { POST_R_RHV: 0.6, POST_R_MHV: 0.6, POST_L_LHV: 0.6, CAUD: 0.6, RHV_IVC: 0.75, MHV_IVC: 0.75, LHV_IVC: 0.6 };
+// The hepatic artery comes in from outside the liver at the hilum (the companion artery, 4 Nov 2026): the share of it that runs outside before it enters.
+const ENTERS = { A_HEP: 0.85 };
 const STATES = [[0, 0], [0.4, 0], [0.6, 0], [0.85, 0], [0.95, 0], [1, 0], [0, 0.5], [0, 1], [0.6, 0.5], [1, 1]];
 
 test('every vessel drawn in the liver keeps KEEP.vessel inside its edge at every cirrhosis and congestion', () => {
@@ -63,6 +66,7 @@ test('every vessel drawn in the liver keeps KEEP.vessel inside its edge at every
     for (const id of drawn) {
       let P = sample(EDGE_PATH[id]);
       if (AT_EDGE[id]) P = P.slice(0, Math.round(P.length * AT_EDGE[id]));
+      if (ENTERS[id]) P = P.slice(Math.round(P.length * ENTERS[id]));
       for (const [x, y] of P) { const d = depth(R, x, y); if (d < KEEP.vessel) low.push(`${id} ${d.toFixed(1)} at (${x.toFixed(0)}, ${y.toFixed(0)}), cirrhosis ${c} congestion ${g}`); }
     }
   }

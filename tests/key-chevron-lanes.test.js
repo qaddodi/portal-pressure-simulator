@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -23,7 +24,7 @@ test('every lane rule names a real vein and a real collateral', () => {
 });
 
 test('the stage asks keyChevron, with the collaterals drawn open, for each vessel\'s chevrons', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const src = stageSource();
   assert.match(src, /keyChevron\(EDGES\[k\], laneOpen\)/);
   assert.doesNotMatch(src, /KEY_IDS/);
 });

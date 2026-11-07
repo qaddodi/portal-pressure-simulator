@@ -1,26 +1,22 @@
 name: Pages (live site + preview)
 
-# Publishes two copies of the site to GitHub Pages, each as its production build (npm run build):
+# Publishes two production builds (npm run build) to GitHub Pages:
 #   /          the tip of main (the live site)
-#   /preview/  the branch that triggered the run (a claude/** branch), or main again after a merge
-# Every run rebuilds both from scratch, so the newest run always wins: the deploy job shares one
-# concurrency group across branches. Lint and unit run for every push and gate the deploy.
-# This workflow only checks lint and unit, then deploys: two jobs, about two minutes. On the integration
-# branch a newer push cancels the older push's waiting lint. A preview deploy that is already publishing
-# is never cancelled (main included): the newest waiting one queues behind it and older waiting ones are
-# dropped, so a burst of pushes always ends with the newest commit deployed. Every deploy rebuilds /
-# from main's current tip, so a preview deploy never publishes a stale root.
-# The browser, visual and WebKit checks are in checks.yml, a separate workflow on the same pushes. At most
-# one checks run per branch holds runners (a newer push replaces only the waiting one), and it uses at
-# most 17 of the account's ~20 runners, so this workflow's lint and deploy always find one. Before (15 Oct), the checks lived here: an older push's checks held every
-# runner, the newer push's lint could not start, and so it could neither deploy nor cancel them.
-# Only main and the integration branch run this workflow; thread branches get everything in ci.yml on a
-# pull request.
+#   /preview/  the commit that triggered the run (the preview branch, or main after a merge)
+# On main, lint and unit tests (validate) gate the deploy and the build is strict (BUILD_STRICT: a chunk over the size limit fails it).
+# On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml.
+# On the preview branch a new push cancels every older run of this workflow, waiting or running: only the newest commit deploys.
+# On main nothing is cancelled. Browser checks are not part of the deploy.
+# deploy-pages waits at most 10 min for Pages (a larger "timeout" is cut to 10 min). A slow Pages backend gets a second attempt (a new deployment) inside the 30 min job; a newer preview push still cancels it.
 
 on:
   push:
     branches: [main, claude/settings-topbar-icon-flvft1]
   workflow_dispatch:
+
+concurrency:
+  group: pages-run-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_name != 'main' }}
 
 permissions:
   contents: read
@@ -29,25 +25,24 @@ permissions:
   actions: write   # (the deploy deletes its site artifact once Pages has it)
 
 jobs:
-  # Quick checks gate the deploy (about a minute end to end), so a preview is never held up by
-  # the browser tests.
+  # Gates main's deploy only.
   validate:
+    if: github.ref_name == 'main'
     runs-on: ubuntu-24.04
     concurrency:
       group: validate-${{ github.ref }}
-      cancel-in-progress: ${{ github.ref_name != 'main' }}
-    timeout-minutes: 15   # (lint and tests take about 2 minutes; the rest is headroom for a slow or stalled runner)
+      cancel-in-progress: false
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js), keyed by a hash of the engine, the worker and the decks (tests/deck-states.js STATE_SOURCES);
-      # restored after npm ci, which empties node_modules. A miss or a failed restore only warns and the tests compute afresh.
+      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js); a miss only warns.
       - name: Restore saved deck states
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         continue-on-error: true
         timeout-minutes: 1
         env:
@@ -59,31 +54,46 @@ jobs:
       - name: Lint and unit tests
         run: npm run lint && npm test
 
-  # Only main and the one integration branch publish. Other claude/** branches are still checked,
-  # but their pushes no longer replace /preview/.
   deploy:
     needs: validate
-    if: github.ref_name == 'main' || github.ref_name == 'claude/settings-topbar-icon-flvft1'
+    # On main validate must pass; on the preview branch it is skipped and the deploy goes at once.
+    if: >-
+      !cancelled() &&
+      ((github.ref_name == 'main' && needs.validate.result == 'success') ||
+       (github.ref_name == 'claude/settings-topbar-icon-flvft1' && needs.validate.result == 'skipped'))
     runs-on: ubuntu-24.04
     concurrency:
       group: pages
-      # Queue, never cancel: a deploy that is publishing finishes, and only the newest waiting one runs next.
       cancel-in-progress: false
-    timeout-minutes: 10
+    # GitHub Pages can sit in "queued" / "updating_pages" for many minutes on its side (5 Nov: 9+ min after a 25 s build; 6 Nov: 10+ min).
+    # Two deploy-pages attempts of 10 min each, plus the build, must fit under the job's cap.
+    timeout-minutes: 30
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: main
           path: live
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
           path: preview
 
-      - uses: actions/setup-node@v4
+      # Main's build is kept per main commit, so a preview deploy rebuilds only the preview.
+      - name: Main's commit
+        id: live
+        run: echo "sha=$(git -C live rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Main's build from an earlier deploy
+        id: live-dist
+        uses: actions/cache@v5
+        continue-on-error: true
+        with:
+          path: live/dist
+          key: live-dist-${{ steps.live.outputs.sha }}
+
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -91,17 +101,16 @@ jobs:
             live/package-lock.json
             preview/package-lock.json
 
-      # Each copy is served as its production build (scripts/build.mjs: bundled, minified, hashed), which
-      # loads far faster than ~60 source files on a slow or filtered network. A copy whose build script is
-      # not ready for Pages yet (no "pages-build" marker, e.g. main before this change is merged) is
-      # served as the source, as before.
+      # A copy whose build script has no "pages-build" marker is served as its source.
       - name: Build
+        env:
+          LIVE_KEPT: ${{ steps.live-dist.outputs.cache-hit }}
+          STRICT: ${{ github.ref_name == 'main' && '1' || '' }}
         run: |
-          for d in live preview; do
-            if grep -q 'pages-build' "$d/scripts/build.mjs" 2>/dev/null; then
-              (cd "$d" && npm ci --no-audit --no-fund && npm run build)
-            fi
-          done
+          ready() { grep -q 'pages-build' "$1/scripts/build.mjs" 2>/dev/null; }
+          build() { (cd "$1" && npm ci --no-audit --no-fund && npm run build); }
+          if [ "$LIVE_KEPT" != 'true' ] && ready live; then build live; fi
+          if ready preview; then BUILD_STRICT="$STRICT" build preview; fi
 
       - name: Assemble the site
         env:
@@ -116,8 +125,7 @@ jobs:
           # Keep the preview out of search engines and record what it was built from.
           sed -i 's|<head>|<head>\n  <meta name="robots" content="noindex" />|' site/preview/index.html
           printf 'branch: %s\ncommit: %s\nbuilt:  %s\n' "$BRANCH" "$SHA" "$(date -u +%FT%TZ)" > site/preview/preview-info.txt
-          # /preview/ always wears the PREVIEW badge so it is never mistaken for the live site; after a
-          # merge it is main's build and the badge says so ("PREVIEW · main abc12345").
+          # /preview/ always wears the PREVIEW badge; after a merge it says "PREVIEW · main abc12345".
           LABEL="${SHA:0:8}"
           if [ "$BRANCH" = "main" ]; then LABEL="main $LABEL"; fi
           node preview/scripts/preview-badge.mjs site/preview "$LABEL"
@@ -126,17 +134,27 @@ jobs:
           if [ -f preview/scripts/share-pages.mjs ]; then node preview/scripts/share-pages.mjs site/preview; fi
           touch site/.nojekyll
 
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: site
+          include-hidden-files: true   # (v5 leaves dot files out by default; the site was published with them before)
           retention-days: 1
+      # deploy-pages gives up after 10 min (its maximum) and cancels its deployment; a second attempt makes a new one, which often passes at once.
       - id: deployment
-        uses: actions/deploy-pages@v4
-      # The site artifact (~14 MB) is only needed until Pages has it; drop it so Actions storage stays near zero.
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+        with:
+          timeout: 600000
+      - id: deployment-retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v5
+        with:
+          timeout: 600000
+      # The site artifact (~14 MB) is only needed until Pages has it.
       - name: Delete the site artifact
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { data } = await github.rest.actions.listWorkflowRunArtifacts({ ...context.repo, run_id: context.runId });

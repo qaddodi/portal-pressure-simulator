@@ -1,13 +1,17 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, SHUT_MS } from '../src/ui/card-zoom.js';
+import { unsnap } from './unsnap.js';
+import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, SHUT_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
+import { EASE_ARRIVE, easeArrive } from '../src/ui/ease.js';
+import { zoomRide } from '../src/ui/scene-cam.js';
 
 // The data card zoomed to the middle of the screen (Mohammad, 28 Oct): "can we add a feature on large screens and ipad landscape for data card
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
 // on the card to display it centered large in middle of the screen". Code only: the controller is run against stand-in elements.
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css'), util = read('../src/ui/util.js'), stage = read('../src/ui/stage.js'), html = read('../index.html');
+const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
+const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css'), util = read('../src/ui/util.js'), stage = stageSource();
 
 test('the card grows to the screen\'s room and goes to its middle, never past the most, and not at all when it is large already', () => {
   const area = { left: 0, top: 0, width: 1440, height: 900 };
@@ -74,6 +78,8 @@ test('a tap is a quick touch that stays put: a drag, a long press, a second poin
   } finally { globalThis.getComputedStyle = old; }
 });
 
+// The frame loop the glide runs in (card-zoom.js tick): frames of 16 ms, each callback given the frame's time.
+const fl = { q: [], t: 0, raf(cb) { fl.q.push(cb); return fl.q.length; }, run(ms = 3000) { for (let end = fl.t + ms; fl.q.length && fl.t < end;) { fl.t += 16; const cbs = fl.q.splice(0); for (const cb of cbs) cb(fl.t); } } };
 // Stand-ins for the card, its handle, the figure's holder, the veil and the app.
 const classes = () => { const s = new Set(); return { add: (c) => s.add(c), remove: (c) => s.delete(c), contains: (c) => s.has(c), has: (c) => s.has(c) }; };
 class El {
@@ -81,7 +87,7 @@ class El {
   getBoundingClientRect() { return { ...this.rect, right: this.rect.left + this.rect.width, bottom: this.rect.top + this.rect.height }; }
   animate(frames, o) {
     const [prop] = Object.keys(frames[1]);
-    const a = { el: this, prop, frames, o, cancelled: false, done: null, cancel() { this.cancelled = true; }, finished: null };
+    const a = { el: this, prop, frames, o, cancelled: false, done: null, currentTime: null, paused: false, over: false, cancel() { this.cancelled = true; }, pause() { this.paused = true; }, finish() { this.over = true; this.done(); }, finished: null };
     a.finished = new Promise((r) => { a.done = r; });
     this.anims.push(a);
     return a;
@@ -91,7 +97,7 @@ const world = () => {
   const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
   const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
   const log = [];
-  const z = createCardZoom({ card, along: [lip], scrim, app, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }), scale: () => 1, reduce: () => z.reduceNow,
+  const z = createCardZoom({ card, along: [lip], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }), scale: () => 1, reduce: () => z.reduceNow,
     boost: (k) => log.push(['boost', +k.toFixed(2)]), hold: (on) => log.push(['hold', on]), settled: () => log.push(['settled']) });
   z.reduceNow = false;
   return { card, lip, scrim, app, log, z };
@@ -103,21 +109,24 @@ test('zoom: the card and its handle glide together about their common middle, th
   try {
     assert.equal(z.open(), true);
     assert.equal(z.on, true); assert.equal(z.up, true);
+    // (No Web Animation: the frame loop writes each piece's transform, card-zoom-plan.md step 1.)
+    assert.equal(card.anims.length + lip.anims.length, 0); assert.equal(/\.animate\?*\.?\(/.test(zoomSrc), false); assert.equal(/currentTime/.test(zoomSrc), false);
+    assert.equal(card.style.transform, 'none', 'nothing moves before the first frame');
+    assert.ok(card.style.transitionProperty === 'opacity' && lip.style.transitionProperty === 'opacity', 'their own CSS eases no transform while they ride');
+    assert.ok(scrim.classList.contains('on')); assert.ok(app.classList.contains('pz-zoomed')); assert.equal('zoomed' in card.dataset, true);
+    // (The pictures are made larger once the glide has ended, never in its first frame: the shared chart canvas's resize was the lag.)
+    assert.deepEqual(log, [['hold', true]]);
+    fl.run();
     // (One transform on each piece, the same: about the card's middle, so the handle stays on the card's edge.)
-    const t = card.anims[0], tl = lip.anims[0];
-    assert.equal(t.prop, 'transform'); assert.equal(tl.prop, 'transform');
-    assert.equal(t.frames[1].transform, tl.frames[1].transform);
+    assert.equal(card.style.transform, lip.style.transform);
     // (The handle stands 24 px over the card's top edge: the plan is for the two together, 404 px tall from the handle's top.)
-    const p = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 });
-    assert.equal(t.frames[1].transform, `translate(${p.dx.toFixed(2)}px, ${p.dy.toFixed(2)}px) scale(${p.s.toFixed(4)})`);
+    const p = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ left: 0, top: 0, width: 1440, height: 900 }) * STACK_ROOM);
+    assert.equal(card.style.transform, `translate(${p.dx.toFixed(2)}px, ${p.dy.toFixed(2)}px) scale(${p.s.toFixed(4)})`);
     assert.equal(card.style.transformOrigin, '210.00px 178.00px');
     assert.equal(lip.style.transformOrigin, '210.00px 202.00px', 'their middle, seen from the handle');
-    assert.equal(t.o.fill, 'forwards'); assert.equal(t.o.easing, 'cubic-bezier(.2, .8, .2, 1)');
-    // (The figure behind does not move, Mohammad's "don't move anything": the controller is not given it, and the only thing it glides is a transform.)
-    assert.equal(zoomSrc.includes('PUSH'), false); assert.equal(/glide\([^)]*'scale'/.test(zoomSrc), false); assert.equal(/\bview\b/.test(zoomSrc.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')), false);
-    assert.deepEqual([...zoomSrc.matchAll(/glide\(\w+(?:\.\w+)?, '(\w+)'/g)].map((m) => m[1]), ['transform', 'transform']);
-    assert.ok(scrim.classList.contains('on')); assert.ok(app.classList.contains('pz-zoomed')); assert.equal('zoomed' in card.dataset, true);
-    assert.deepEqual(log, [['hold', true], ['boost', +p.s.toFixed(2)]]);
+    // (The figure behind does not move, Mohammad's "don't move anything": the controller is not given it, and the only thing it writes is a transform.)
+    assert.equal(zoomSrc.includes('PUSH'), false); assert.equal(/\bview\b/.test(zoomSrc.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '')), false);
+    assert.deepEqual([...zoomSrc.matchAll(/r\.el\.style\.(\w+) = /g)].map((m) => m[1]).sort(), ['transform', 'transform', 'transformOrigin', 'transformOrigin', 'transitionProperty'].sort());
     // (Everyone who asks the card or its handle where they are hears where they rest, however far the glide has come.)
     assert.deepEqual([card.getBoundingClientRect().left, card.getBoundingClientRect().width, card.getBoundingClientRect().bottom], [40, 420, 680]);
     assert.equal(lip.getBoundingClientRect().top, 276);
@@ -155,25 +164,27 @@ test('zoom: closing glides back from where it stands, then puts everything as it
   const { card, lip, scrim, app, log, z } = world(); const back = stands();
   try {
     z.open(); log.length = 0;
-    card.style.transform = 'matrix(1.9, 0, 0, 1.9, 300, 80)';   // (caught half way)
+    fl.run(160);   // (caught part way)
+    const half = card.style.transform;
+    assert.notEqual(half, 'none');
     const shut = z.close();
     assert.equal(z.up, false, 'on its way back');
     assert.equal(z.on, true, 'but still held: nothing is laid out yet');
     assert.ok(!scrim.classList.contains('on'));
-    const [a0, a1] = [card.anims[0], card.anims[1]];
-    assert.equal(a0.cancelled, true, 'the open glide is let go');
-    assert.deepEqual([a1.frames[0].transform, a1.frames[1].transform], ['matrix(1.9, 0, 0, 1.9, 300, 80)', 'none'], 'from where it stands to where it rests');
+    assert.equal(card.style.transform, half, 'it goes back from where it stands');
     assert.equal(z.close(), shut, 'closing twice is one close');
     assert.equal(z.open(), false, 'and it cannot open meanwhile');
-    for (const x of [...card.anims, ...lip.anims]) x.done();
+    fl.run();
     await shut;
     assert.equal(z.on, false);
     assert.equal(Object.hasOwn(card, 'getBoundingClientRect'), false, 'the card answers for itself again');
     assert.equal(card.getBoundingClientRect().width, 420);
     assert.equal(card.style.transformOrigin, ''); assert.equal(lip.style.transformOrigin, '');
     assert.equal('zoomed' in card.dataset, false); assert.ok(!app.classList.contains('pz-zoomed'));
-    assert.ok(a1.cancelled, 'the glide\'s last frame is no longer held');
+    assert.equal(card.style.transform, 'none', 'its own transform as it was'); assert.equal(zoomRide.of(card), null);
     assert.deepEqual(log, [['boost', 1], ['hold', false], ['settled']]);
+    assert.equal(card.style.transitionProperty, 'opacity', 'held one more frame or two, so the step to rest is not eased');
+    fl.run(); assert.ok(card.style.transitionProperty === '' && lip.style.transitionProperty === '', 'its own CSS back, two frames after it rests');
   } finally { back(); }
 });
 
@@ -182,7 +193,7 @@ test('zoom: Reduce Motion moves it at once', () => {
     try {
       z.reduceNow = true;
       z.open();
-      assert.equal(card.anims[0].o.duration, 0);
+      assert.match(card.style.transform, /^translate\(/, 'there at once, with no frame');
       assert.ok(scrim.classList.contains('on'), 'the veil still fades');
       log.length = 0;
       return z.close().then(() => { assert.equal(z.on, false); assert.deepEqual(log, [['boost', 1], ['hold', false], ['settled']]); });
@@ -203,47 +214,25 @@ test('zoom: reset and a card that is large already', () => {
 
 test('the presenter lays nothing out while the card is up, and puts it back before a slide, a resize, Esc or the end of the talk', () => {
   // (Held: the card's watchers, its layout and its refits wait; one pass runs once it is back.)
-  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\)\);/);
-  assert.match(js, /const zoomHeld = \(\) => \{ if \(!ui\?\.zoom\.on\) return false; zoomMissed = true; return true; \};/);
+  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\) \|\| throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)\);/);
+  assert.match(js, /const zoomHeld = \(\) => \{ if \(!ui\?\.zoom\.on\) return false; if \(!zoomMissed\) zoomWas = zoomKey\(\); zoomMissed = true; return true; \};/);
   assert.match(js, /function layout\(\) \{\n {4}if \(!ui\) return;\n {4}if \(zoomHeld\(\)\) return;/);
   assert.match(js, /const reFit = \(\) => \{ if \(zoomHeld\(\)\) return; fitted\.forEach\(fitNow\); \};/);
-  assert.match(js, /const zoomSettled = \(\) => nextFrame\(\(\) => \{ if \(!ui \|\| !zoomMissed \|\| ui\.zoom\.on\) return; zoomMissed = false; fitDone\.delete\(ui\.data\); onResize\(\); \}\);/);
+  assert.match(js, /const zoomSettled = \(\) => restPass\(\(\) => \{ if \(!ui \|\| !zoomMissed \|\| ui\.zoom\.on\) return; zoomMissed = false; if \(zoomKey\(\) === zoomWas && fitDone\.get\(ui\.data\) === fitSig\(ui\.data\)\) return; fitDone\.delete\(ui\.data\); onResize\(\); \}\);/);
   // (A slide: the card glides back, and only then does the slide run.)
-  assert.match(js, /if \(zoomOn\(\)\) \{ ui\.zoom\.close\(\)\.then\(\(\) => \{ paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}[^\n]*\n {4}if \(!busy\) run\(\);/);
+  assert.match(js, /if \(zoomOn\(\)\) \{ (?:const d0 = deck(?:, t0 = txn)?; )?ui\.zoom\.close\(\)\.then\(\(\) => \{ (?:if \(deck !== d0[^}]*?return; )?paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}[^\n]*\n {4}if \(!busy\) run\(\);/);
   // (Any move that did not come by go, a slide asked for while a time-lapse plays, a new text size: the card glides back first, it never snaps.)
-  assert.match(js, /async function transition\(to\) \{\n(?: {4}\/\/[^\n]*\n)+ {4}if \(zoomOn\(\)\) \{ await ui\.zoom\.close\(\); paintZoom\(\); zoomMissed = false; if \(!deck \|\| !ui\) return; \}/);
+  assert.match(js, /async function transition\(to\) \{\n(?: {4}\/\/[^\n]*\n)+(?: {4}const deck0[^\n]*\n)? {4}if \(zoomOn\(\)\) \{ await ui\.zoom\.close\(\); (?:if \(deck !== deck0[^;]*; )?paintZoom\(\); zoomMissed = false; if \(!deck \|\| !ui\) return; \}/);
   // (Esc first glides the card back; the talk ends on the next one.)
   assert.match(js, /else if \(k === 'Escape'\) \{ if \(black\) toggleBlack\(false\); else if \(zoomOn\(\)\) ui\.zoom\.close\(\)\.then\(paintZoom\); else stop\(\); \}/);
   assert.match(js, /if \(e\?\.type === 'resize' && zoomOn\(\)\) \{ ui\.zoom\.reset\(\); paintZoom\(\); \}/);
   assert.match(js, /pillW = 0; ui\?\.zoom\.reset\(\); ui\?\.tools\.dispose\(\);/);
   // (The readings come out and tuck away under it once its glide in has ended, and not on its way in or back: the handle, a pull, the wheel, the
   // arrow keys, a swipe anywhere; the zoom is fitted to the stack as they go, zoomFollow.)
-  assert.match(js, /if \(zoomOn\(\) && !zoomFolds\(\)\) return true;/);
   assert.match(js, /const setFold = \(open\) => \{\n {6}if \(zoomOn\(\) && !zoomFolds\(\)\) return;/);
   assert.match(js, /dock\.lvl > 0 \|\| btn\.contains\(e\.target\) \|\| \(zoomOn\(\) && !zoomFolds\(\)\)\) return;/);
   assert.match(js, /if \(!deck \|\| !d \|\| \(zoomOn\(\) && !zoomFolds\(\)\) \|\| e\.touches\.length !== 1/);
   assert.match(js, /if \(zoomOn\(\)\) \{ if \(zoomFolds\(\) && wideSheet\(data\)\) setFold\(!data\.classList\.contains\('tool-open'\)\); return; \}/);
-});
-
-test('the card zooms on a wide screen for an instrument that stands whole, by a tap on an empty part, the corner icon or nothing else', () => {
-  assert.match(js, /const zoomReady = \(\) => !!ui && !!deck && !!shown && shown\.i === want && shown\.gen === gen && \(!busy \|\| playing\) && !leaving && !black && !caseStands\(\) && ui\.jump\.hidden && !isModalOpen\(\)\n\s+&& ui\.root\.classList\.contains\('pz-wide'\) && ui\.data\.classList\.contains\('has-tool'\) && dataStands\(\)/);
-  assert.match(js, /tapTracker\(data, \{ ok: \(\) => zoomReady\(\) \|\| zoom\.up, onTap: \(\) => zoomToggle\(\) \}\);/);
-  assert.match(js, /h\('div', \{ class: 'pz-dh' \}, dhT, fold, zbtn\)/);
-  assert.match(js, /ui\.data\.classList\.toggle\('pz-zoomable', wide && !ui\.data\.hidden && ui\.data\.classList\.contains\('has-tool'\) && !!ui\.zoom\.plan\(\)\);/);
-  // (The readings come out as it zooms only if this is turned on: Mohammad may ask for it.)
-  assert.match(js, /const ZOOM_OPENS_READINGS = false;/);
-  // (The veil sits over the words and the figure and under the card, its handle and the controls; a tap on it puts the card back.)
-  assert.match(js, /fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar,/);
-  assert.match(js, /onclick: \(\) => zoom\.close\(\)\.then\(paintZoom\) \}\);/);
-  // (The corner credit sits out the glide as it does a slide change.)
-  assert.match(js, /hold: zoomCredit, settled: zoomSettled/);
-  // (Pictures drawn on canvases are drawn for the size they are seen at.)
-  assert.match(js, /boost: setCanvasBoost/);
-  assert.match(util, /let canvasBoost = 1;\nexport const setCanvasBoost = \(k\) => \{ canvasBoost = Math\.max\(1, \+k \|\| 1\); \};/);
-  assert.match(util, /const dpr = Math\.min\(saver\(\) \? 2 : 3, \(window\.devicePixelRatio \|\| 1\) \* canvasBoost\);/);
-  // (The camera and the labels read the card where it rests: no entrance to take off, and the stage's box holds while the figure is pushed in.)
-  assert.match(util, /if \(el\.dataset\?\.zoomed != null\) return q;/);
-  assert.match(stage, /if \(boxKept && document\.getElementById\('app'\)\?\.classList\.contains\('pz-zoomed'\)\) \{ box = boxKept; return; \}/);
 });
 
 test('the icon is quiet and the app\'s own: the text\'s grey, corner brackets, a soft tint under the pointer, shown only where the card can grow; no stripe, glow or gradient', () => {
@@ -254,23 +243,26 @@ test('the icon is quiet and the app\'s own: the text\'s grey, corner brackets, a
   assert.match(shown, /width: calc\(24px \/ var\(--pz-z, 1\)\)/, 'the header\'s zoom does not change its size');
   assert.doesNotMatch(shown, /gradient|box-shadow|glow/);
   assert.match(css, /@media \(hover: hover\) \{ \.pz-zbtn:hover \{ color: var\(--text\); background: var\(--hairline\); \} \}/);
-  assert.match(rule('.pz-zscrim {'), /background: color-mix\(in srgb, var\(--stage-bg\) 58%, transparent\)/);
+  assert.match(rule('.pz-zscrim {'), /background: color-mix\(in srgb, var\(--stage-bg\) 20%, transparent\)/);
   assert.match(rule('.pz-zscrim.on'), /pointer-events: auto/);
-  assert.match(html, /<symbol id="i-shrink" viewBox="0 0 24 24">/);
-  assert.match(html, /<symbol id="i-fullscreen" viewBox="0 0 24 24">/);
+  const art = read('../scripts/icon-art.html');   // (the icon art the atlas is drawn from: scripts/icon-atlas.mjs)
+  assert.match(art, /<symbol id="i-shrink" viewBox="0 0 24 24">/);
+  assert.match(art, /<symbol id="i-fullscreen" viewBox="0 0 24 24">/);
+  assert.match(read('../styles/icons.css'), /\.ic-shrink \{ --ix: \d+; --iy: \d+; \}/);
 });
 
 test('a stacked card zoomed is never measured: the card answers for where it rests, so the readings\' travel would read none and their room open above the header', () => {
   // (measureUnder reads the card's height with the readings in and out; a zoomed card reports one height for both, --pz-d came out 0, the tucked
   // readings' room stood empty above the header and the card ran off the bottom. Mohammad, 28 Oct, a stacked Doppler card.)
-  assert.match(js, /function measureUnder\(d\) \{\n(?: {4}\/\/[^\n]*\n)+ {4}if \(zoomOn\(\)\) return;\n {4}const parts = /);
+  assert.match(js, /function measureUnder\(d\) \{\n(?: {4}\/\/[^\n]*\n)+ {4}if \(zoomOn\(\)\) return;\n(?: {4}\/\/[^\n]*\n)* {4}const parts = /);
   // (The card's own style change as it zooms, the transform origin, told its watcher, which placed the handle and measured: the guard is what stops it.)
   assert.match(js, /lipMO\.observe\(data, \{ attributes: true, attributeFilter: \['class', 'hidden', 'style'\] \}\);/);
   assert.match(js, /if \(split && !sliding && dock\.lvl === dock\.to\) measureUnder\(d\);/);
   assert.match(zoomSrc, /r\.el\.style\.transformOrigin = /);
-  assert.match(zoomSrc, /r\.el\.getBoundingClientRect = \(\) => \(\{ x: left, y: top, left, top, width, height,/);
+  assert.match(zoomSrc, /const rect = \{ x: left, y: top, left, top, width, height,[^\n]*\n\s*r\.el\.getBoundingClientRect = \(\) => rect;/);
   // (Nothing else reads the readings' travel from a box while the card is up: layout is held, and the fold does nothing.)
-  assert.deepEqual([...js.matchAll(/measureUnder\(/g)].length, 4, 'its definition and three callers: the handle, the layout, the fold');
+  // (2 Nov 2026: and the upright phone's plan, before its cap, so the card is planned with the new readings' travel: layout too.)
+  assert.deepEqual([...js.matchAll(/measureUnder\(/g)].length, 5, 'its definition and four callers: the handle, the layout (twice: the phone plan and the pair), the fold');
 });
 
 test('the card zooms while a time-lapse plays or its answer eases in: the slide has landed, only the figure is moving', () => {
@@ -283,43 +275,42 @@ test('the card zooms while a time-lapse plays or its answer eases in: the slide 
   assert.equal([...js.matchAll(/playing = true/g)].length, 1);
   // (Skipping the days forward, Next, keeps the card where it is; the next slide puts it back first.)
   assert.match(js, /if \(lapseOn && lapseLeft > 0 && shown\?\.i === want\) skipLapse\(\);/);
-  assert.match(js, /if \(zoomOn\(\)\) \{ ui\.zoom\.close\(\)\.then\(\(\) => \{ paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}/);
+  assert.match(js, /if \(zoomOn\(\)\) \{ (?:const d0 = deck(?:, t0 = txn)?; )?ui\.zoom\.close\(\)\.then\(\(\) => \{ (?:if \(deck !== d0[^}]*?return; )?paintZoom\(\); zoomMissed = false; if \(deck && !busy\) run\(\); \}\); return; \}/);
 });
 
 // (The zoom's transform as written: translate(x, y) scale(s), in the card's own px.)
 const parseT = (t) => { const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\) scale\(([\d.]+)\)/.exec(t); return { dx: +m[1], dy: +m[2], s: +m[3] }; };
 const last = (el) => el.anims.at(-1);
-const settle = async (w) => { for (const x of [...w.card.anims, ...w.lip.anims]) x.done(); await new Promise((r) => setTimeout(r, 0)); };
+const settle = async (w) => { fl.run(); await new Promise((r) => setTimeout(r, 0)); };
 
 test('zoom: the readings come out above the zoomed card and the zoom is fitted again to the whole stack, in the middle and inside the margin', async () => {
   const w = world(), { z, card, lip, log } = w; const back = stands();
   try {
-    const area = { left: 0, top: 0, width: 1440, height: 900 }, m = zoomMargin(area);
+    const area = { left: 0, top: 0, width: 1440, height: 900 }, m = zoomMargin(area) * STACK_ROOM;
     assert.equal(z.follow(126, 150), false, 'not on its way in');
     z.open();
     assert.equal(z.steady, false);
     await settle(w);
     assert.equal(z.steady, true, 'once the glide in has ended');
-    const open = parseT(card.anims[0].frames[1].transform);
+    const open = parseT(card.style.transform);
     // (Out: the handle's edge stands 150 px over the card, the top of the whole 126 px higher than with them tucked; their rise, 150 px, is not scaled by the zoom.)
     assert.equal(z.follow(126, 150), true);
-    const t = parseT(last(card).frames[1].transform), tl = parseT(last(lip).frames[1].transform);
+    const t = parseT(card.style.transform), tl = parseT(lip.style.transform);
     assert.deepEqual(t, tl, 'the card and its handle move as one');
     assert.ok(Math.abs(t.s - (900 - 2 * m) / 530) < 1e-3, 'smaller: the stack is taller (fitted by its height)');
     assert.ok(t.s < open.s);
     // (Where the stack's top and foot land: the zoom, then the rise on top as the page lays it, which is not scaled.)
     const lift = 150, where = (y) => 478 - lift + t.s * (y + lift - 478) + t.dy;
-    assert.ok(Math.abs(where(150) - m) < 0.01, 'its top is one margin from the screen\'s');
-    assert.ok(Math.abs(where(680) - (900 - m)) < 0.01, 'its foot one margin from the foot');
+    assert.ok(Math.abs(where(150) - m) < 0.05, 'its top is one margin from the screen\'s');
+    assert.ok(Math.abs(where(680) - (900 - m)) < 0.05, 'its foot one margin from the foot');
     assert.ok(Math.abs(t.dx - (720 - 250)) < 0.01, 'and in the middle across');
-    assert.equal(last(card).o.fill, 'forwards'); assert.equal(card.anims.at(-2).cancelled, true, 'each frame replaces the last');
     // (Tucked again: back to the plan it came in with.)
     z.follow(0, 0);
-    const back0 = parseT(last(card).frames[1].transform);
+    const back0 = parseT(card.style.transform);
     assert.ok(Math.abs(back0.s - open.s) < 1e-3 && Math.abs(back0.dx - open.dx) < 0.01 && Math.abs(back0.dy - open.dy) < 0.01);
     // (Halfway out the zoom is halfway between, in size and place: one frame never jumps from the last.)
     z.follow(63, 75);
-    const mid = parseT(last(card).frames[1].transform);
+    const mid = parseT(card.style.transform);
     assert.ok(mid.s < open.s && mid.s > t.s);
     // (Never larger than the most, never smaller than the card's own size.)
     assert.ok(mid.s <= ZOOM_MAX && t.s >= 1);
@@ -333,11 +324,11 @@ test('zoom: the stack that is out as the card zooms is fitted as it tucks, large
   try {
     const { z, card, lip, log } = w;
     // (Out at the start: the whole is 150 px over the card's top edge, 530 px tall.)
-    lip.rect = { left: 40, top: 150, width: 420, height: 24 }; card.rect = { left: 40, top: 150, width: 420, height: 530 };
+    lip.rect = { left: 40, top: 150, width: 420, height: 24 }; card.rect = { left: 40, top: 150, width: 420, height: 400 };   // (a stacked card's margin is wider: STACK_ROOM, so a taller whole would not zoom at all)
     z.open(); await settle(w); log.length = 0;
-    const out = parseT(card.anims[0].frames[1].transform);
+    const out = parseT(card.style.transform);
     z.follow(-126, -150);   // (tucked: the top of the whole 126 px lower, the readings' rise 150 px less)
-    const t = parseT(last(card).frames[1].transform);
+    const t = parseT(card.style.transform);
     assert.ok(t.s > out.s, 'larger as it shortens');
     assert.deepEqual(log, [['boost', +t.s.toFixed(2)]]);
   } finally { back(); }
@@ -350,7 +341,7 @@ test('zoom: the readings move only once the glide in has ended, and not on its w
     await settle(w); assert.equal(z.follow(10, 10), true);
     const shut = z.close();
     assert.equal(z.steady, false); assert.equal(z.follow(10, 10), false, 'not while it glides back');
-    for (const x of [...card.anims, ...w.lip.anims]) x.done();
+    fl.run();
     await shut;
   } finally { back(); }
   // (Reduce Motion: it is up at once.)
@@ -362,10 +353,10 @@ test('the readings come out and tuck away under a zoomed card, the zoom fitted a
   assert.match(js, /words\.u = f; words\.trav = trav; setWords\(wordsAt\(\)\); zoomFollow\(f, trav\); \};/);
   assert.match(js, /const zoomFolds = \(\) => zoomSteady\(\) && slip\.lift - slip\.base > 0\.5;/);
   assert.match(js, /ui\.zoom\.follow\(\(f - zoomU0\) \* \(trav - LIP\), \(f - zoomU0\) \* trav\);/);
-  assert.match(js, /zoomU0 = underU\(ui\.data\);\n {4}if \(z\.open\(\)\) paintZoom\(\);/);
+  assert.match(js, /zoomU0 = underU\(ui\.data\);\n(?: {4}\/\/.*\n)* {4}if \(z\.open\(focus === .text. \? \{ main: \[ui\.text, ui\.shade\], scrim: \[ui\.zscrim, ui\.fscrim\] \} : undefined\)\) paintZoom\(\);/);
   // (A pull on a zoomed card follows the finger over the readings' travel as it is seen: the card is larger, so the finger moves less of it.)
   assert.match(js, /g\.zk = zoomOn\(\) \? ui\.zoom\.scale : 1;/);
-  assert.match(js, /follow\(g, dy \* g\.dir \/ \(g\.zk \|\| 1\)\);/);
+  assert.match(js, /foldFollow\(g, dy \* g\.dir \/ \(g\.zk \|\| 1\)\);/);
   // (The rise is the cards' own CSS translate, which a zoom's transform does not scale: card-zoom.js makes up for it.)
   assert.match(css, /\.pz\.pz-wide \.pz-data\.col, \.pz\.pz-wide \.pz-lip \{ translate: 0 calc\(-1 \* var\(--pz-lift, 0px\)\); \}/);
   assert.match(zoomSrc, /lift \* k \* \(1 - sc\)/);
@@ -374,35 +365,23 @@ test('the readings come out and tuck away under a zoomed card, the zoom fitted a
 // The words' card behind a zoomed card (Mohammad, 28 Oct: "when the stacked cards are zoomed in (in focus) and i open untuck the stacked card, the
 // TEACHING card in the background is reacting still by going up; it shouldn't in fact, if the stack is unstacked, and i zoom into it, the teaching
 // card should go back to original location").
-test('zoom: the card tells what stands behind it as it glides in and back, and at once when it is put back at once', async () => {
-  const mk = () => {
-    const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
-    const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
-    const log = [];
-    const z = createCardZoom({ card, along: [lip], scrim, app, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }), reduce: () => z.reduceNow, behind: (up, ms) => log.push([up, ms]) });
-    z.reduceNow = false;
-    return { card, lip, log, z };
-  };
+test('zoom: the teaching card rides the zoom where it stands, tucked or not: nothing is eased back, no figure camera is asked', async () => {
+  const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
+  const words = new El({ left: 500, top: 300, width: 400, height: 380 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const log = [], cam = [];
+  const z = createCardZoom({ card, along: [lip], scene: () => [words], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }),
+    behind: (up, ms) => log.push([up, ms]), camera: { open: () => { cam.push('open'); return true; }, at: () => cam.push('at'), end: () => cam.push('end') } });
   const back = stands();
   try {
-    { const { z, card, lip, log } = mk();
-      z.open(); assert.deepEqual(log, [[true, ZOOM_MS]], 'in: for as long as the glide');
-      for (const x of [...card.anims, ...lip.anims]) x.done();
-      await new Promise((r) => setTimeout(r, 0)); log.length = 0;
-      const shut = z.close(); assert.deepEqual(log, [[false, SHUT_MS]], 'back: for as long as the glide back');
-      z.close(); assert.equal(log.length, 1, 'closing twice tells once');
-      for (const x of [...card.anims, ...lip.anims]) x.done();
-      await shut; assert.equal(log.length, 1, 'the card landing has nothing more to tell'); }
-    { const { z, log } = mk();
-      z.reduceNow = true; z.open(); assert.deepEqual(log, [[true, 0]], 'Reduce Motion: at once'); log.length = 0;
-      z.close(); assert.deepEqual(log, [[false, 0]]); }
-    { const { z, log } = mk();
-      z.open(); log.length = 0; z.close({ instant: true }); assert.deepEqual(log, [[false, 0]], 'put back at once'); }
-    { const { z, log } = mk();
-      z.open(); log.length = 0; z.reset(); assert.deepEqual(log, [[false, 0]], 'a slide, a resize or the end of the talk'); z.reset(); assert.equal(log.length, 1, 'nothing up: nothing to tell'); }
-    { const { z, card, log } = mk();
-      card.rect = { left: 0, top: 0, width: 1400, height: 880 };
-      assert.equal(z.open(), false); assert.deepEqual(log, [], 'a card that cannot grow tells no one'); }
+    assert.equal(z.open(), true);
+    fl.run();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.ok(card.style.transform && words.style.transform === card.style.transform, 'both cards turn as one');
+    assert.deepEqual(cam, [], 'no camera: the figure is not zoomed');
+    const shut = z.close(); fl.run(); await shut;
+    assert.deepEqual(log, [], 'the words are not eased back to a tucked place');
+    assert.deepEqual(cam, []);
   } finally { back(); }
 });
 
@@ -420,8 +399,8 @@ const wordsWorld = ({ base = 0, d = 126 } = {}) => {
   };
   const ui = { data: card(), lip: card(), text: card(), shade: card() };
   const gcs = (el) => ({ translate: el.shown() });
-  const api = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', 'getComputedStyle', 'dispatchEvent', 'Event', `${src}; return { liftTo, words, wordsGlide, wordsAt };`)(
-    ui, slip, LIP, () => {}, () => ticks.push('slide'), gcs, (e) => events.push(e.type), class { constructor(t) { this.type = t; } });
+  const api = new Function('ui', 'slip', 'LIP', 'zoomFollow', 'slideTell', 'getComputedStyle', 'dispatchEvent', 'Event', 'EASE_ARRIVE', `${src}; return { liftTo, words, wordsGlide, wordsAt };`)(
+    ui, slip, LIP, () => {}, () => ticks.push('slide'), gcs, (e) => events.push(e.type), class { constructor(t) { this.type = t; } }, EASE_ARRIVE);
   return { ...api, ui, slip, events, ticks, rise: () => parseFloat(ui.text.props.get('--pz-rise')) || 0, lift: () => parseFloat(ui.data.props.get('--pz-lift')) || 0, LIP };
 };
 
@@ -509,4 +488,175 @@ test('the presenter hands the card\'s cue to the words\' card and lets the slide
   assert.match(js, /words\.now = to; setRise\('--pz-rise', to\);/);
   // (The words' card is not under the zoom's transform: only its own translate moves, never the stage or its figure.)
   assert.equal(/el\.animate\?\.\(\[\{ translate: from\[i\] \}, \{ translate: getComputedStyle\(el\)\.translate \}\]/.test(js), true);
+});
+
+// One of the six ladders zoomed to the middle (Mohammad, 29 Oct, Sites 10: "i feel we should be allowed to click individual ladder cards and
+// have them zoom in similar to how we do it in the slides"). The card's own controller, taken to a cell. Code only: run against stand-ins.
+test('a ladder cell grows to the screen\'s room and goes to the middle, a Mac and an iPad on its side alike', () => {
+  // (A cell as the grid lays it out: a Mac's 1769 x 1007 stage has three across, 470 x 310; an iPad on its side's 1180 x 820 has them 330 x 230.)
+  const mac = zoomPlan({ left: 120, top: 150, width: 470, height: 310 }, { left: 0, top: 0, width: 1769, height: 1007 });
+  assert.equal(mac.s, ZOOM_MAX, 'a small cell stops at the most');
+  assert.ok(Math.abs(mac.dx - (884.5 - 355)) < 1e-9 && Math.abs(mac.dy - (503.5 - 305)) < 1e-9, 'to the middle');
+  const ipad = zoomPlan({ left: 60, top: 100, width: 330, height: 230 }, { left: 0, top: 0, width: 1180, height: 820 });
+  assert.ok(ipad.s >= ZOOM_MIN && ipad.s <= ZOOM_MAX);
+  assert.ok(ipad.s * 230 <= 820 - 2 * zoomMargin({ width: 1180, height: 820 }) + 1e-9, 'inside the margin down the screen');
+});
+
+test('zoom: a part glides and grows alone, dims the page and the panel, never takes the readings, the credit or the words, and goes back whole', async () => {
+  const { card: data, scrim: page, app, log, z } = world(); const back = stands();
+  try {
+    const cell = new El({ left: 120, top: 150, width: 470, height: 310 }), panelVeil = new El({ left: 0, top: 0, width: 1440, height: 900 });
+    assert.equal(z.open({ card: cell, along: [], scrim: [page, panelVeil], part: true }), true);
+    const p = zoomPlan({ left: 120, top: 150, width: 470, height: 310 }, { left: 0, top: 0, width: 1440, height: 900 });
+    // (One transform on the cell alone, about its middle; the data card and its handle are not touched.)
+    fl.run();
+    assert.equal(data.style.transform, 'none');
+    assert.equal(cell.style.transform, `translate(${p.dx.toFixed(2)}px, ${p.dy.toFixed(2)}px) scale(${p.s.toFixed(4)})`);
+    assert.equal(cell.style.transformOrigin, '235.00px 155.00px');
+    assert.equal('zoomed' in cell.dataset, true); assert.equal(cell.dataset.zoomed, '', 'up: the shadow of the card');
+    assert.equal('zoomed' in data.dataset, false);
+    assert.ok(page.classList.contains('on') && panelVeil.classList.contains('on'), 'both veils come up');
+    assert.ok(app.classList.contains('pz-zoomed'));
+    assert.deepEqual(log, [], 'no boost, no credit sitting out: those are the instrument\'s');
+    // (The cell answers for where it rests while it is up, as the card does.)
+    assert.deepEqual([cell.getBoundingClientRect().left, cell.getBoundingClientRect().width], [120, 470]);
+    // (Nothing to bring out under it: it never counts as steady, so follow does nothing and the readings' handlers stay shut.)
+    assert.equal(z.steady, false); assert.equal(z.follow(10, 10), false);
+    assert.equal(z.up, true); assert.equal(z.on, true);
+    assert.equal(z.open({ card: data }), false, 'a second open while it is up does nothing');
+    // (Back: both veils fade at once, the cell's shadow eases out, it glides home, and only then is it laid out as before.)
+    const shut = z.close();
+    assert.equal(z.up, false); assert.equal(z.on, true);
+    assert.ok(!page.classList.contains('on') && !panelVeil.classList.contains('on'));
+    assert.equal(cell.dataset.zoomed, 'back');
+    assert.deepEqual(log, [], 'the words\' card is not asked to move');
+    fl.run();
+    await shut;
+    assert.equal(z.on, false);
+    assert.equal('zoomed' in cell.dataset, false); assert.equal(cell.style.transformOrigin, '');
+    assert.equal(Object.hasOwn(cell, 'getBoundingClientRect'), false);
+    assert.ok(!app.classList.contains('pz-zoomed'));
+    assert.deepEqual(log, [['settled']], 'only the layout that waited runs');
+  } finally { back(); }
+});
+
+test('zoom: a part put back at once (a slide, a resize, Reduce Motion) leaves the card\'s own session as it was', async () => {
+  const { z, app, log, scrim } = world(); const back = stands();
+  try {
+    const cell = new El({ left: 120, top: 150, width: 470, height: 310 }), veil = new El({ left: 0, top: 0, width: 1440, height: 900 });
+    z.open({ card: cell, scrim: [scrim, veil], part: true }); z.reset();
+    assert.equal(z.on, false); assert.ok(!scrim.classList.contains('on') && !veil.classList.contains('on')); assert.ok(!app.classList.contains('pz-zoomed'));
+    assert.equal('zoomed' in cell.dataset, false);
+    assert.deepEqual(log, [['settled']]);
+    // (Reduce Motion: at once, the veils still fade.)
+    z.reduceNow = true; log.length = 0;
+    z.open({ card: cell, scrim: [scrim, veil], part: true });
+    assert.match(cell.style.transform, /^translate\(/); assert.ok(veil.classList.contains('on'));
+    await z.close();
+    assert.equal(z.on, false); assert.ok(!veil.classList.contains('on')); assert.deepEqual(log, [['settled']]);
+    // (And the data card still zooms as before, with everything it takes.)
+    assert.equal(z.open(), true); assert.deepEqual(log.slice(1).map((x) => x[0]), ['hold', 'boost']);
+  } finally { back(); }
+});
+
+test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a slide or a resize puts it back, and only where each cell draws a chart', () => {
+  const rule = (sel) => css.split('\n').find((l) => l.startsWith(sel)) || '';
+  // (Gated as the card is, except for the card: the panel stands, on a layout that draws a chart in each cell: not a phone, upright or sideways, nor an upright iPad.)
+  assert.match(js, /const cellReady = \(\) => !!ui && !!deck && !!shown && shown\.i === want && shown\.gen === gen && \(!busy \|\| playing\) && !leaving && !black && !caseStands\(\) && ui\.jump\.hidden && !isModalOpen\(\)\n\s+&& !ui\.panel\.hidden && !ui\.panel\.classList\.contains\('pz-leave'\) && !ui\.root\.classList\.contains\('pz-prep'\) && !ui\.root\.classList\.contains\('stack'\) && !ui\.root\.classList\.contains\('low'\);/);
+  assert.match(js, /tapTracker\(panel, \{ ok: \(\) => cellReady\(\) \|\| zoom\.up, onTap: cellTap \}\);/);
+  // (The cell under the tap opens; while one is up any tap on the panel puts it back.)
+  assert.match(js, /function cellTap\(e\) \{\n\s+if \(!ui\) return;\n\s+if \(ui\.zoom\.up\) \{ ui\.zoom\.close\(\)\.then\(paintZoom\); return; \}\n\s+cellOpen\(e\.target\?\.closest\?\.\('\.pz-cell'\)\);/);
+  assert.match(js, /ui\.zoom\.open\(\{ card: cell, along: \[\], scrim: \[ui\.pscrim, own\]\.filter\(Boolean\), part: true \}\);/);
+  // (The same controller: its holds, Esc, a slide and a resize cover it with no new path.)
+  assert.match(js, /const zoomOn = \(\) => !!ui\?\.zoom\.on;/);
+  assert.match(js, /const zoomHeld = \(\) => \{ if \(!ui\?\.zoom\.on\) return false;/);
+  // (Two veils: the page's under the panel, the panel's in its grid; a tap on either puts the cell back.)
+  assert.match(js, /const pscrim = h\('div', \{ class: 'pz-pscrim', 'aria-hidden': 'true', onclick: \(\) => zoom\.close\(\)\.then\(paintZoom\) \}\);/);
+  assert.match(js, /veil\.after\(pscrim\);/);
+  assert.match(js, /grid\.append\(h\('div', \{ class: 'pz-gscrim', 'aria-hidden': 'true', onclick: \(\) => ui\?\.zoom\.close\(\)\.then\(paintZoom\) \}\)\);\n\s+return grid;/);
+  // (The cell is scaled as it sits in the panel's fit zoom, which the card is not.)
+  assert.match(js, /scale: \(el\) => \(el && el !== data && el\.offsetWidth \? el\.getBoundingClientRect\(\)\.width \/ el\.offsetWidth : wrap\.getBoundingClientRect\(\)\.width \/ \(wrap\.clientWidth \|\| 1\)\) \|\| 1,/);
+  // (The app's own scrim, never snapping: both veils fade, the shadow eases, the cell shows the pointer that says what a tap does.)
+  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity var\(--d-surface\) var\(--ease\)/);
+  assert.match(rule('.pz-pscrim.on'), /pointer-events: auto/);
+  assert.match(rule('.pz-gscrim {'), /z-index: 1/);
+  assert.match(css, /^\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ cursor: zoom-in; transition: none; \}$/m, '(1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
+  assert.match(rule('.pz:not(.stack):not(.low) .pz-cell[data-zoomed] {'), /z-index: 2/, 'over its veil');
+  assert.match(rule('.pz:not(.stack):not(.low) .pz-cell[data-zoomed=""]'), /box-shadow: var\(--shadow-3\)/);
+  for (const sel of ['.pz-pscrim, .pz-gscrim {', '.pz:not(.stack):not(.low) .pz-cell[data-zoomed=""]']) assert.doesNotMatch(rule(sel), /gradient|glow/);
+  // (Only the six-ladders grid draws cells: nothing else needs it.)
+  assert.equal([...js.matchAll(/class: 'pz-cell'/g)].length, 1);
+});
+
+// The words' card stays up while the data card is zoomed (Mohammad, 2 Nov 2026: it vanished): its words are cut away under the zoomed card.
+// The glide runs in the frame loop, so the glass and the card are drawn from one zoom in each frame (Mohammad, 2 Nov 2026: "the instrument card
+// has a trailing card behind it"): each frame writes the card's transform and the record the glass reads (zoomRide), from the same numbers.
+test('zoom: every frame the card\'s transform and the zoom the glass is drawn from are at the same time and the same place, in and back', async () => {
+  const { z, card, lip } = world(); const back = stands();
+  try {
+    fl.q.length = 0; fl.t = 1000;
+    z.open();
+    const p = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ left: 0, top: 0, width: 1440, height: 900 }) * STACK_ROOM);
+    const ease = (t) => easeArrive(Math.min(1, t / ZOOM_MS));
+    assert.equal(zoomRide.of(card).s, 1, 'at rest before the first frame');
+    assert.equal(card.anims.length, 0, 'the page\'s clock runs nothing');
+    let t0 = null;
+    for (let i = 0; i < 40 && fl.q.length; i++) {
+      fl.t += 16; const cbs = fl.q.splice(0); for (const cb of cbs) cb(fl.t);
+      t0 ??= fl.t;
+      const t = fl.t - t0, a = zoomRide.of(card), e = ease(t);
+      assert.ok(Math.abs(a.s - (1 + (p.s - 1) * e)) < 1e-9 && Math.abs(a.dx - p.dx * e) < 1e-9 && Math.abs(a.dy - p.dy * e) < 1e-9, `frame ${i}: the glass's zoom is the glide's at ${t} ms`);
+      assert.equal(card.style.transform, a.s === 1 && a.dx === 0 && a.dy === 0 ? 'none' : `translate(${a.dx.toFixed(2)}px, ${a.dy.toFixed(2)}px) scale(${a.s.toFixed(4)})`, `frame ${i}: the card is drawn at the same place`);
+      assert.equal(zoomRide.of(lip), a, 'the handle rides the same zoom');
+    }
+    assert.equal(z.steady, false); await new Promise((r) => setTimeout(r, 0)); assert.equal(z.steady, true);
+    assert.ok(Math.abs(zoomRide.of(card).s - p.s) < 1e-9, 'it ends on the plan');
+    const shut = z.close(); fl.t += 1000; let n = 0, last = zoomRide.of(card).s;
+    t0 = null;
+    for (; fl.q.length && n < 60; n++) {
+      fl.t += 16; const cbs = fl.q.splice(0); for (const cb of cbs) cb(fl.t);
+      t0 ??= fl.t;
+      const s = zoomRide.of(card)?.s ?? 1;
+      assert.ok(s <= last + 1e-9, 'it only comes back'); last = s;
+    }
+    await shut;
+    assert.equal(zoomRide.of(card), null, 'and once back the card is nobody\'s zoom');
+    assert.equal(Object.hasOwn(card, 'zoomAffine'), false);
+  } finally { back(); }
+});
+
+test('the teaching card hears a tap in landscape: .pz lets none through, so the card takes them itself', () => {
+  assert.match(css, /\.pz\.pz-wide \.pz-text:not\(\.pz-leave\) \{ pointer-events: auto; \}/);
+  assert.match(js, /tapTracker\(text, \{ ok: \(\) => zoomReady\(\) \|\| zoom\.up/);
+});
+
+test('zoom: a tap on the teaching card frames and centres it, the data card riding along', async () => {
+  const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
+  const words = new El({ left: 500, top: 200, width: 400, height: 300 }), shade = new El({ left: 500, top: 200, width: 400, height: 300 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const z = createCardZoom({ card, along: [lip], scene: () => [words, shade], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }) });
+  const back = stands();
+  try {
+    assert.equal(z.open({ main: [words, shade] }), true);
+    const want = zoomPlan({ left: 500, top: 200, width: 400, height: 300 }, { left: 0, top: 0, width: 1440, height: 900 });
+    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'fitted to the teaching card, not the data card');
+    assert.equal(z.follow(10, 10), false, 'the readings do not refit a zoom on the words');
+    assert.ok(words.classList.contains('pz-zmain'), 'the words stand above the veil, not dimmed');
+    z.reset();
+    assert.ok(!words.classList.contains('pz-zmain'), 'and are given back');
+  } finally { back(); }
+});
+
+test('zoom: a tap on the data card fits and centres the data card alone; the teaching card rides but never changes the framing', () => {
+  const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
+  const words = new El({ left: 500, top: 20, width: 400, height: 300 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const z = createCardZoom({ card, along: [lip], scene: () => [words], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }) });
+  const back = stands();
+  try {
+    const want = zoomPlan({ left: 40, top: 276, width: 420, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ width: 1440, height: 900 }) * STACK_ROOM);
+    assert.equal(z.open(), true);
+    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'the fit is the instrument card and its handle, not the words');
+    z.reset();
+  } finally { back(); }
 });

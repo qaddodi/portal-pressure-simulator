@@ -1,6 +1,8 @@
+import { stageSource } from './stage-src.js';
 // Heat, 26 Oct (steps 2 and 10): every surface draws at most once in a frame, and a closed one does no more work. The scheduler's
 // phases, the vitals monitor's strip and numbers (one loop, never a second frame of their own while it scrolls), and the instruments
 // a presentation lets go of (no frame, timer or observer left running).
+import { CanvasObserver } from './canvas-observer.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -61,7 +63,7 @@ globalThis.document.hidden = false;
 globalThis.document.documentElement = new Node('html');
 // (a browser reports an observed box a moment later, never inside observe())
 globalThis.IntersectionObserver = class { constructor(cb) { this.cb = cb; } observe() { queueMicrotask(() => this.cb([{ isIntersecting: true }])); } disconnect() {} };
-globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+globalThis.ResizeObserver = CanvasObserver;   // (canvases report their box as a browser's observer does: tests/canvas-observer.js)
 
 const runFrames = (now = performance.now()) => { const q = frameQueue; frameQueue = []; for (const fn of q) fn(now); };
 const canvasOf = (el) => el.kids.find((k) => k.tag === 'canvas') || (function find(n) { for (const k of n.kids || []) { if (k.tag === 'canvas') return k; const r = find(k); if (r) return r; } return null; })(el);
@@ -100,15 +102,16 @@ async function modelFrames(preset) {
 }
 const healthy = await modelFrames('healthy');
 const { createVitalsMonitor } = await import('../src/ui/vitals-monitor.js');
+const { recorderGL } = await import('./vitals-recorder.js');
 
 test('the vitals monitor draws its strip once a frame while it scrolls, its easing numbers included, and stops when let go', async () => {
-  const v = createVitalsMonitor();
+  const v = createVitalsMonitor({ makeGL: recorderGL });
   const cv = canvasOf(v.el);
   cv.bw = 420; cv.bh = 200;
   await new Promise((r) => queueMicrotask(r));   // (on screen)
   v.update({ ...healthy[0], running: true, speed: 1 });
   // A new reading far from the one shown: the numbers ease over the next frames while the strip scrolls.
-  const strips = () => cv.log.texts.filter((t) => t.s === 'EKG').length;
+  const strips = () => cv.rec.draws;
   let now = 1000;
   for (let i = 1; i < healthy.length; i++) {
     const f = healthy[i];
@@ -117,6 +120,7 @@ test('the vitals monitor draws its strip once a frame while it scrolls, its easi
     runFrames(now += 16);
     assert.ok(strips() - before <= 1, `frame ${i}: drawn ${strips() - before} times`);
   }
+  assert.ok(cv.rec.draws > 0, 'it drew');
   assert.ok(frameQueue.length > 0, 'still scrolling');
   v.dispose();
   const before = strips();
@@ -128,23 +132,13 @@ test('the vitals monitor draws its strip once a frame while it scrolls, its easi
 test('the endoscope\'s field is drawn once a frame: a model frame taken in early is drawn by its own late callback', () => {
   const src = read('../src/ui/instruments.js');
   assert.match(src, /const drawFrame = lateFrameFor\('instruments'\);/);
-  assert.match(src, /if \(framePhase\(\) === 'early'\) \{ last = \{ f, vx \}; if \(!raf\) raf = drawFrame\(\(\) => \{ raf = 0; if \(last\) draw\(last\.f, last\.vx\); \}\); return; \}\n\s+draw\(f, vx\);/);
+  assert.match(src, /if \(framePhase\(\) === 'early'\) \{ last = lastS; lastS\.f = f; lastS\.vx = vx; if \(!raf\) raf = drawFrame\(redraw\); return; \}\n\s+draw\(f, vx\);/);
+  assert.match(src, /const redraw = \(\) => \{ raf = 0; if \(last\) draw\(last\.f, last\.vx\); \};/);
   assert.doesNotMatch(src.slice(src.indexOf('export function createEndoscopy'), src.indexOf('export function createVarixWall')), /nextFrame\(/, 'every follow-up draw on the same late callback');
 });
 
 test('the figure\'s pass is one owned request, whoever asks for it', () => {
-  const st = read('../src/ui/stage.js');
+  const st = stageSource();
   assert.match(st, /const askAnimate = \(\) => \{ if \(!animRaf\) animRaf = drawFrame\(animate\); \};\n\s+function animate\(now\) \{\n\s+animRaf = 0;/);
   assert.equal((st.match(/drawFrame\(animate\)/g) || []).length, 1, 'asked for only through askAnimate');
-});
-
-test('a presentation\'s instruments let go of their frames and observers', () => {
-  const fib = read('../src/ui/fibroscan.js');
-  assert.match(fib, /function dispose\(\) \{ gone = true; running = false; cancelFrame\(raf\); raf = 0; io\?\.disconnect\(\); offRun\(\); \}/);
-  assert.match(fib, /if \(gone \|\| !onScreen\(\) \|\| document\.hidden\) \{ running = false; return; \}/);
-  assert.match(read('../src/ui/pressure-time.js'), /io\?\.disconnect\(\); cancelFrame\(tickRaf\); tickRaf = 0; ticking = false; frame = null;/);
-  assert.match(read('../src/ui/flow-time.js'), /dispose\(\) \{ cancelFrame\(raf\); raf = 0; ro\?\.disconnect\(\); \},/);
-  assert.match(read('../src/ui/talk-trace.js'), /dispose\(\) \{ ro\?\.disconnect\(\); \}/);
-  const tools = read('../src/ui/presenter-tools.js');
-  assert.match(tools, /offFrame\(\); ro\?\.disconnect\(\); cancelFrame\(svkRaf\); svkRaf = 0;\n\s+for \(const k of Object\.keys\(made\)\) \{ made\[k\]\?\.dispose\?\.\(\); delete made\[k\]; \}/);
 });

@@ -15,7 +15,15 @@ const node = (tag) => ({
   classList: { toggle() {}, add() {}, remove() {}, contains: () => false },
   setAttribute(k, v) { this.attrs[k] = v; },
   append(...k) { this.kids.push(...k); },
+  prepend(...k) { this.kids.unshift(...k); },
+  insertBefore(n, r) { const i = this.kids.indexOf(r); this.kids.splice(i < 0 ? this.kids.length : i, 0, n); },
   replaceChildren(...k) { this.kids = k; },
+  // (what the GPU picture of a model reads of its pieces, svg-gl.js)
+  get children() { return this.kids.filter((c) => c && c.nodeType === 1); },
+  get localName() { return this.tag; },
+  get attributes() { return Object.entries(this.attrs).map(([name, value]) => ({ name, value: String(value) })); },
+  getAttribute(k) { return k in this.attrs ? String(this.attrs[k]) : null; },
+  hasAttribute(k) { return k in this.attrs; },
   addEventListener() {},
   remove() {},
 });
@@ -40,7 +48,8 @@ const place = (f) => { const fr = frame(SIZE[0], SIZE[1]), { X, Y } = scaler(csp
 function card() {
   const tool = createPlaneTool();
   tool.configure({ kind: 'plane', plane: 'csph' });
-  const plot = tool.el.kids[0], ring = plot.kids[0].kids[2], read = tool.el.kids.at(-1);
+  const plot = tool.el.kids[0], ring = plot.kids.find((k) => k.tag === 'svg').kids[2],   // (the plot's model, beside its GPU picture)
+    read = tool.el.kids.at(-1);
   const size = (w, h) => { plot.clientWidth = w; plot.clientHeight = h; };
   return { tool, plot, ring, read, size };
 }

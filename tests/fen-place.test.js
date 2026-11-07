@@ -19,7 +19,7 @@ for (let j = -3; j <= 2; j++) { const b = cellEdge(j, SEED.plateUp); if (Math.ab
 const view = ({ k, fw, hsPx, fenPx, dPx }) => {
   const fp = 16 / k, lo = (-fw / 2 + 6) / k, hi = (fw / 2 - 6) / k;
   const hs = [xs - hsPx / 2 / k, xs + hsPx / 2 / k], fh = fenPx / 2 / k, dh = dPx / 2 / k;
-  return { k, fp, lo, hi, hs, fh, dh, r: placeFenDisse({ pores, nsd: SEED.nucUp, lo, hi, hs, fh, dh, fp, xs }) };
+  return { k, fp, lo, hi, hs, fh, dh, far: 120 / k, r: placeFenDisse({ pores, nsd: SEED.nucUp, lo, hi, hs, fh, dh, fp, xs, far: 120 / k }) };
 };
 const apart = (a, b, gap) => a[1] + gap <= b[0] || b[1] + gap <= a[0];
 
@@ -48,7 +48,7 @@ test('the old placement put the pill over the stellate cell\'s name on a big scr
 test('the pill sits clear of the stellate name, its pore an open one the nuclei leave showing, in every size and name length', () => {
   for (const s of SIZES) for (const act of [1, 0]) {
     const v = view({ ...s, hsPx: act ? s.hsPx : s.hsPx * 0.72 });
-    const { r, fh, fp, lo, hi, hs } = v;
+    const { r, fh, fp, lo, hi, hs, far } = v;
     assert.ok(r, `${s.name}: placed`);
     const pill = [r.xc - fh, r.xc + fh];
     assert.ok(pill[0] >= lo - 1e-9 && pill[1] <= hi + 1e-9, `${s.name}: the pill is inside the free stretch`);
@@ -57,8 +57,11 @@ test('the pill sits clear of the stellate name, its pore an open one the nuclei 
     assert.ok(!underNucleus(r.xp, SEED.nucUp), `${s.name}: the pore is not under a nucleus's swell`);
     const p = pores.find((q) => q.x === r.xp);
     assert.ok(p, `${s.name}: a pore of the lining`);
-    // (the pill's near edge keeps its distance from the pore, so the leader is drawn: leader() shows one only when the pore is 6 px past the pill)
-    assert.ok(Math.abs(r.xc - r.xp) - fh > 0.5 * fp, `${s.name}: the pore is clear of the pill's edge`);
+    // (Mohammad, 2 Nov 2026, label mocks: the callout stands right over its pore, its leader a short straight line down to it, and
+    // keeps 120 px from the stellate cell's name, so the two read one at a time.)
+    assert.ok(Math.abs(r.xc - r.xp) <= Math.max(0, fh - 0.5 * fp) + 1e-9, `${s.name}: the pill stands over its pore, so its leader drops straight down`);
+    // (Where the free stretch is wide, as on a Mac; a narrower one keeps the 2 fp gap above when no open pore leaves 120 px.)
+    if (s.fw >= 1100) assert.ok(apart(pill, hs, far - 1e-9), `${s.name}: 120 px or more from the stellate name (${((Math.min(Math.abs(pill[0] - hs[1]), Math.abs(hs[0] - pill[1]))) * s.k).toFixed(0)} px)`);
     assert.ok(!(r.xp > hs[0] - fp && r.xp < hs[1] + fp), `${s.name}: the leader's end is not under the stellate name`);
     // Open when the wall is: and still a pore that stays open in a cirrhotic one (15 % open).
     assert.ok(p.th < 0.3, `${s.name}: a plate's middle pore (th ${p.th.toFixed(2)})`);
@@ -105,7 +108,7 @@ test('a view too narrow for the three still places the pill clear of the stellat
 test('the pick is by place only: the same whatever the wall\'s open share', () => {
   // (nothing in it reads the open share; the pill's width reserved is its own, a digit more or less never moves it)
   assert.equal(placeFenDisse.length, 1);
-  const a = view(SIZES[0]).r, b = view({ ...SIZES[0], fenPx: 140 }).r;
+  const a = { ...view(SIZES[0]).r }, b = { ...view({ ...SIZES[0], fenPx: 140 }).r };   // (copies: placeFenDisse hands back one record it writes again on the next call)
   assert.equal(a.xp, b.xp, 'a wider reading (100 % open) keeps the same pore');
   const src = readFileSync(new URL('../src/ui/fen-place.js', import.meta.url), 'utf8');
   assert.doesNotMatch(src.replace(/\/\/.*$/gm, ''), /\bpor\b/, 'it never reads S.por');
@@ -119,14 +122,12 @@ test('the Disse name takes the stretch nearest its old place, 40 µm from the st
 });
 
 test('the view lays the three out from its resting frame and scale, so a glide never moves a name in the figure', () => {
-  assert.match(VIEW, /import \{ placeFenDisse \} from '\.\/fen-place\.js\?v=[0-9a-f]+';/);
-  const i = VIEW.indexOf('const spot = placeFenDisse({');
-  assert.ok(i > 0);
-  const call = VIEW.slice(i, VIEW.indexOf('});', i));
-  assert.match(call, /lo: \(VW\.f\.l - VW\.tC\[0\] \+ 6\) \/ tk, hi: \(VW\.f\.r - VW\.tC\[0\] - 6\) \/ tk/, 'the resting frame (tC), not the eased one');
-  assert.match(call, /fp: 16 \/ tk/, 'in the resting scale');
-  assert.match(VIEW, /const tk = VW\.tk, hsHalf = hs\.w \/ 2 \/ tk;/);
+  assert.match(VIEW, /import \{ placeFenDisse \} from '\.\/fen-place\.js';/);
+  assert.ok(VIEW.includes('const spot = placeFenDisse(PFD);'));
+  assert.match(VIEW, /PFD\.lo = \(VW\.f\.l - VW\.tC\[0\] \+ 6\) \/ tk; PFD\.hi = \(VW\.f\.r - VW\.tC\[0\] - 6\) \/ tk;/, 'the resting frame (tC), not the eased one');
+  assert.match(VIEW, /PFD\.fp = 16 \/ tk;/, 'in the resting scale');
+  assert.match(VIEW, /const tk = VW\.tk, hsHalf = hs\.w \/ 2 \/ tk, hsx = hs\.x, hshalf = hs\.half;/);
   // The leader still ends at the pore the callout picked (a fenestra, not a cell body), and the old step is kept for a view too narrow.
   assert.match(VIEW, /leader\('fen', rf, xp, -\(halfW\(xp\) \+ UM\.endo \* 0\.5\)\);/);
-  assert.match(VIEW, /xp = fenAt\(pick\(0\.6\)\); rf = fen\(xp, 0\);/);
+  assert.match(VIEW, /xp = fenAt\(pickTags\(0\.6\)\); rf = fenR\(xp, 0\);/);
 });

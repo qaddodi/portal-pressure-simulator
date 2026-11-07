@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -5,7 +6,7 @@ import { SIN_PERFUSION, sinStrandRadius } from '../src/ui/sin-perfusion.js';
 
 // Review G15 (16 Oct): the sinusoids' strands are drawn 60 % fainter and taper to a quarter of the sinusoid's width, so the
 // lobe tips read as tissue, not netting bulbs. No glow behind them (Mohammad, 16 Oct: he did not like the constant glow).
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const vg = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 
 test('the numbers the review asked for', () => {

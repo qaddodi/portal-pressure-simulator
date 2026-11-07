@@ -199,7 +199,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Systems",
       "title": "Collaterals carry gut blood around a scarred liver",
-      "line": "The rest of the figure steps back so the collaterals and the spleen stand out. The buttons switch the colours and the spotlight stays. {shunt} of the portal blood bypasses the liver."
+      "line": "The rest of the figure steps back so the collaterals and the spleen stand out. The buttons switch the colors and the spotlight stays. {shunt} of the portal blood bypasses the liver."
     },
     {
       "id": "system",
@@ -502,7 +502,7 @@ export const DEMO_ALL = {
       "kicker": "Treatment bands",
       "site": "sin",
       "title": "Each treatment is shaded while it was on",
-      "line": "Only the HVPG is drawn, in its cut-off colour. The milestones are named above it and the bands mark carvedilol and anticoagulation, so each change lines up with what caused it.",
+      "line": "Only the HVPG is drawn, in its cut-off color. The milestones are named above it and the bands mark carvedilol and anticoagulation, so each change lines up with what caused it.",
       "notes": "since: 'start' on a trace tool starts the chart at that slide (Dx), so only this patient's year is drawn. style: 'milestones' on a trace tool: the HVPG line alone, the slides marked milestone (Dx, Carvedilol, Clot) named over it, the bands beneath."
     },
     {
@@ -1055,7 +1055,7 @@ export const DEMO_ALL = {
       "site": "sin",
       "title": "A beta blocker lowers the wedged pressure",
       "line": "Here the HVPG is {hvpg}. Switch between the two drugs and the ladder moves.",
-      "notes": "ladderFrom: 'start' (a slide id; true means the slide before) draws that slide's readings as a grey solid line behind the patient's; ladderFromLabel names it in the legend (default \"Before\"). The healthy line stays dashed. Mac and iPad: a phone shows the compact strip, which draws no lines."
+      "notes": "ladderFrom: 'start' (a slide id; true means the slide before) draws that slide's readings as a gray solid line behind the patient's; ladderFromLabel names it in the legend (default \"Before\"). The healthy line stays dashed. Mac and iPad: a phone shows the compact strip, which draws no lines."
     },
     {
       "id": "d-tips",
@@ -1231,7 +1231,7 @@ export const DEMO_ALL = {
       "kicker": "Two readings on one plane",
       "site": "sin",
       "title": "The Indeterminate zone needs a scope",
-      "line": "At a stiffness of {lsm} with platelets of {plt}, CSPH is neither ruled in nor ruled out. In this model, without spleen stiffness, the scope is spared at <20 kPa with platelets ≥150,000, so this patient needs one unless on a beta-blocker."
+      "line": "At a stiffness of {lsm} with platelets of {plt}, CSPH is neither ruled in nor ruled out. The scope is spared at <20 kPa with platelets ≥150,000, or a spleen stiffness <40 kPa; otherwise this patient needs one unless on a beta-blocker."
     },
     {
       "id": "worse",
@@ -1471,7 +1471,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Marks",
       "title": "The marks read the model as it changes",
-      "line": "Each mark names its reading in its rating colour. Move the slider and the varix mark follows the scarring as the model changes."
+      "line": "Each mark names its reading in its rating color. Move the slider and the varix mark follows the scarring as the model changes."
     },
     {
       "id": "belly",
@@ -1899,7 +1899,7 @@ export const DEMO_ALL = {
       },
       "kicker": "Doppler display",
       "title": "A slide that names no option shows the plain spectrum",
-      "line": "Without a mode, calipers or a pair, the Doppler is the plain grey spectrum, as on every slide before these options existed."
+      "line": "Without a mode, calipers or a pair, the Doppler is the plain gray spectrum, as on every slide before these options existed."
     },
     {
       "id": "healthy",

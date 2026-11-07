@@ -1,0 +1,1 @@
+{ "factory": "createMorph", "file": "stage-morph.js", "about": "The change between the views on the GPU: the morph pieces, their binning ahead in a worker, and the frames of the change.", "lines": [[2487, 2715]] }

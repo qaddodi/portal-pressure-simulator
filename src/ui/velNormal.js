@@ -3,8 +3,8 @@
 // DIPS in, the main portal vein's floor is 30 cm/s, the follow-up scan's cut-off, and it has no ceiling: fast flow is what a working stent does. Every other vein is compared with its
 // own healthy velocity, normal from two-thirds to one and a half times it, as no published range covers it. Collaterals
 // and the other shunts have no normal and stay neutral.
-import { EDGES, dopplerK } from '../engine/topology.js?v=4044766e96';
-import { FLOW_CUTS } from '../engine/flow-cuts.js?v=1c97536e9e';
+import { EDGES, dopplerK } from '../engine/topology.js';
+import { FLOW_CUTS } from '../engine/flow-cuts.js';
 
 export { FLOW_CUTS };
 
@@ -27,11 +27,14 @@ export const meanVel = (f, k) => (f.Qf ? f.Qf[k] : f.Q[k]) / area(k, f.D[k]);
 // The Doppler's reading (peak, see dopplerK).
 export const dopplerVel = (f, k) => meanVel(f, k) * dopplerK(EDGES[k]);
 
-let refOf = null, ref = null;
+// (The healthy velocities and each vessel's usual range, kept and written in place when the healthy frame changes: a colour per vessel per
+// frame allocates nothing. A range returned by velNormal is valid until the healthy frame changes, which is when its caller asks again.)
+let refOf = null;
+const HEALTHY = new Float64Array(EDGES.length), NORM = Array.from(EDGES, () => [0, 0]);
 function healthyVel(healthy, k) {
   if (!healthy?.Q || !healthy?.D) return 0;
-  if (refOf !== healthy) { refOf = healthy; ref = EDGES.map((e, i) => Math.abs(dopplerVel(healthy, i))); }
-  return ref[k];
+  if (refOf !== healthy) { refOf = healthy; for (let i = 0; i < HEALTHY.length; i++) HEALTHY[i] = Math.abs(dopplerVel(healthy, i)); }
+  return HEALTHY[k];
 }
 export function velNormal(k, f, healthy) {
   const e = EDGES[k];
@@ -40,7 +43,9 @@ export function velNormal(k, f, healthy) {
   if (DOPPLER_NORMAL[e.id]) return DOPPLER_NORMAL[e.id];
   if (e.kind !== 'vein' && e.kind !== 'diode') return null;
   const h = healthyVel(healthy, k);
-  return h > 1 ? [h / 1.5, h * 1.5] : null;
+  if (!(h > 1)) return null;
+  const r = NORM[k]; r[0] = h / 1.5; r[1] = h * 1.5;
+  return r;
 }
 // Where a velocity sits on the colour scale, 0 to 1: the lower third below normal (paler the slower), the middle third
 // within it, the top third above it (deepest at twice the top of the range). A range with no ceiling spans the middle
@@ -59,7 +64,13 @@ export const flowReversed = (q, ref = 0) => q < -Math.max(FLOW_CUTS.reversedQ, F
 // reads a stent, which is occluded under 2 cm/s and has no stasis; `swings` is a waveform that crosses zero, which is never stasis.
 // The flags are independent, so a caller that cares about direction first (the Details sentence, the screen-reader summary) can say so;
 // `word` is the one name when a single word is wanted: none, then stasis, then reversed, then slow, fast or normal.
-export function judgeFlow(v, q, normal, { ref = 0, stent = false, swings = false } = {}) {
+// (The answer is one of a ring of kept objects, written in place: a caller holds it for the length of its own call, as the Doppler holds two
+// at once; the ring is deeper than any caller's use of it.)
+const NO_OPTS = Object.freeze({});
+const JUDGED = Array.from({ length: 8 }, () => ({ word: '', none: false, stasis: false, reversed: false, still: false, slow: false, fast: false }));
+let judgedAt = 0;
+export function judgeFlow(v, q, normal, opts = NO_OPTS) {
+  const ref = opts.ref ?? 0, stent = opts.stent ?? false, swings = opts.swings ?? false;
   const has = Number.isFinite(v), a = has ? Math.abs(v) : 0;
   const none = has && a < (stent ? FLOW_CUTS.stentNone : FLOW_CUTS.none);
   const stasis = has && !stent && !none && !swings && a < FLOW_CUTS.stasis;
@@ -68,5 +79,7 @@ export function judgeFlow(v, q, normal, { ref = 0, stent = false, swings = false
   const slow = has && !!normal && a < normal[0];
   const fast = has && !!normal && a > normal[1];
   const word = none ? 'none' : stasis ? 'stasis' : reversed ? 'reversed' : slow ? 'slow' : fast ? 'fast' : 'normal';
-  return { word, none, stasis, reversed, still, slow, fast };
+  const o = JUDGED[judgedAt]; judgedAt = (judgedAt + 1) & 7;
+  o.word = word; o.none = none; o.stasis = stasis; o.reversed = reversed; o.still = still; o.slow = slow; o.fast = fast;
+  return o;
 }

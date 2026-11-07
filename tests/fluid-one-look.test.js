@@ -9,7 +9,7 @@ const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 
 test('the GPU draws the fluid with the plate off too', () => {
-  assert.match(gl, /gl\.uniform4f\(U\.fluidInk, \.\.\.\(fl \? fl\.ink : \[0, 0, 0, 0\]\)\);/);
+  assert.match(gl, /UC\.f4a\(U\.fluidInk, fl \? fl\.ink : V4_ZERO\);/);
   assert.ok(!/fluidInk[^\n]*\bpm\b/.test(gl), 'the fluid does not wait for a plate');
 });
 

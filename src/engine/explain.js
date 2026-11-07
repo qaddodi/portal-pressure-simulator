@@ -2,11 +2,11 @@
 // Each factor that differs from the healthy state is reverted in isolation on a scratch engine;
 // its contribution is (current − reverted). Contributions are approximate: they need not sum exactly.
 
-import { Engine } from './engine.js?v=7b05bd5e84';
-import { computeMetrics } from './metrics.js?v=703f122bba';
-import { defaultParams, DRUGS } from './scenario.js?v=d7d3ea5b70';
-import { EDGES, dMinOf } from './topology.js?v=4044766e96';
-import { wallRead } from './wall-read.js?v=09449acd01';
+import { Engine } from './engine.js';
+import { computeMetrics } from './metrics.js';
+import { defaultParams, DRUGS } from './scenario.js';
+import { EDGES, dMinOf } from './topology.js';
+import { wallRead } from './wall-read.js';
 
 export const METRICS = {
   pv: { label: 'Portal pressure', unit: 'mmHg', get: (m) => m.pv, digits: 1 },
@@ -25,6 +25,7 @@ export const METRICS = {
   ascites: { label: 'Ascites formation', unit: 'mL/day', get: (m) => m.ascites.ratePerDay, digits: 0 },
   ra: { label: 'Right atrial pressure', unit: 'mmHg', get: (m) => m.ra, digits: 1 },
   map: { label: 'Mean arterial pressure', unit: 'mmHg', get: (m) => m.map, digits: 0 },
+  rpp: { label: 'Kidney pressure (MAP − abdomen)', unit: 'mmHg', get: (m) => m.rpp, digits: 0 },
   co: { label: 'Cardiac output', unit: 'L/min', get: (m) => m.co, digits: 2 },
   spleen: { label: 'Spleen length', unit: 'cm', get: (m) => m.spleen.length, digits: 1 },
 };
@@ -32,21 +33,21 @@ export const METRICS = {
 const edgeLabel = (id) => EDGES.find((e) => e.id === id)?.label || id;
 
 /** Enumerate factors that differ from the healthy default, each with a revert function. Each has a short `label` for its
- * bar ("Cirrhosis 85 %") and a `say` for the sentence, which reads aloud without nested brackets ("the cirrhosis"). */
+ * bar ("Cirrhosis 85%") and a `say` for the sentence, which reads aloud without nested brackets ("the cirrhosis"). */
 function factors(eng, metricId) {
   const p = eng.params, d = defaultParams(), s = eng.slow;
   const out = [];
   const add = (label, say, revert, kind = 'param') => out.push({ label, say, revert, kind });
   const lc = (l) => l.charAt(0).toLowerCase() + l.slice(1);
-  if (p.cirrhosis > 0) add(`Cirrhosis ${Math.round(p.cirrhosis * 100)} %`, 'the cirrhosis', (e) => { e.params.cirrhosis = 0; });
+  if (p.cirrhosis > 0) add(`Cirrhosis ${Math.round(p.cirrhosis * 100)}%`, 'the cirrhosis', (e) => { e.params.cirrhosis = 0; });
   for (const lobe of ['R', 'L']) for (const z of ['pre', 'sin', 'post']) {
     if ((p.fibrosis[lobe][z] ?? 1) !== 1) {
       const zone = { pre: 'Presinusoidal', sin: 'Sinusoidal', post: 'Postsinusoidal' }[z], side = lobe === 'R' ? 'right' : 'left';
       add(`${zone} fibrosis, ${side} lobe ×${p.fibrosis[lobe][z].toFixed(0)}`, `${lc(zone)} fibrosis in the ${side} lobe`, (e) => { e.params.fibrosis[lobe][z] = 1; });
     }
   }
-  for (const [id, v] of Object.entries(p.stenosis)) if (v > 0) add(`Stenosis of ${edgeLabel(id)} ${Math.round(v * 100)} %`, `the narrowed ${lc(edgeLabel(id))}`, (e) => { delete e.params.stenosis[id]; });
-  for (const [id, v] of Object.entries(p.thrombus)) if (v > 0) add(`Clot in ${edgeLabel(id)} ${Math.round(v * 100)} %`, `the clot in the ${lc(edgeLabel(id))}`, (e) => { delete e.params.thrombus[id]; });
+  for (const [id, v] of Object.entries(p.stenosis)) if (v > 0) add(`Stenosis of ${edgeLabel(id)} ${Math.round(v * 100)}%`, `the narrowed ${lc(edgeLabel(id))}`, (e) => { delete e.params.stenosis[id]; });
+  for (const [id, v] of Object.entries(p.thrombus)) if (v > 0) add(`Clot in ${edgeLabel(id)} ${Math.round(v * 100)}%`, `the clot in the ${lc(edgeLabel(id))}`, (e) => { delete e.params.thrombus[id]; });
   if (p.splenicRx) add(p.splenicRx === 2 ? 'Splenectomy' : 'Partial splenic embolization', p.splenicRx === 2 ? 'the splenectomy' : 'the partial splenic embolization', (e) => { e.params.splenicRx = 0; });
   if (p.splanchnicTone !== 1) add(p.splanchnicTone < 1 ? 'Splanchnic vasodilation, set' : 'Splanchnic vasoconstriction, set', p.splanchnicTone < 1 ? 'the splanchnic vasodilation you set' : 'the splanchnic vasoconstriction you set', (e) => { e.params.splanchnicTone = 1; });
   if (p.meal > 0) add('Splanchnic vasodilation after a meal', 'the meal', (e) => { e.params.meal = 0; });
@@ -63,6 +64,7 @@ function factors(eng, metricId) {
   if (p.portocaval) add('Portocaval shunt', 'the portocaval shunt', (e) => { e.params.portocaval = false; });
   if (p.dsrs) add('Distal splenorenal shunt', 'the distal splenorenal shunt', (e) => { e.params.dsrs = false; });
   if (p.mesocaval) add('Mesocaval shunt', 'the mesocaval shunt', (e) => { e.params.mesocaval = false; });
+  if (p.rex) add('Meso-Rex bypass', 'the Meso-Rex bypass', (e) => { e.params.rex = false; });
   if (p.balloonEso || p.balloonGas) add('Balloon tamponade', 'the balloon tamponade', (e) => { e.params.balloonEso = false; e.params.balloonGas = false; });
   for (const id of Object.keys(p.occluded)) if (p.occluded[id]) add(`Occluded ${edgeLabel(id)}`, `the occluded ${lc(edgeLabel(id))}`, (e) => { delete e.params.occluded[id]; });
   if (p.albumin !== d.albumin) add(`Serum albumin ${p.albumin.toFixed(1)} g/dL`, `the serum albumin of ${p.albumin.toFixed(1)} g/dL`, (e) => { e.params.albumin = d.albumin; });
@@ -84,6 +86,12 @@ function factors(eng, metricId) {
       const [label, say] = eng.blood.lost > 50 ? ['Blood loss', 'the blood loss'] : thinner ? (dv > 0 ? ['Extra plasma volume', 'the extra plasma volume'] : ['Fewer red cells', 'fewer red cells'])
         : drbc > 0 ? ['Transfused red cells', 'the transfused red cells'] : ['Smaller plasma volume', 'the smaller plasma volume'];
       add(label, say, (e) => { e.addVolume(-dv, 0, true); e.blood.rbc = rbc0; }, 'slow');
+    }
+    // The anemia of the disease itself (engine.js RED): a marrow that keeps less than a healthy red cell mass, with the spleen holding
+    // and breaking down more of it.
+    if (eng.marrow() < 0.98) {
+      const liver = eng.params.cirrhosis > 0.1;
+      add(liver ? 'Anemia of liver disease' : 'Large spleen', liver ? 'the anemia of liver disease' : 'the large spleen', (e) => { e.slow.marrow = 1; }, 'slow');
     }
   } else if (Math.abs(dv) > 150) add(dv > 0 ? `Extra blood volume +${Math.round(dv)} mL` : `Blood loss ${Math.round(-dv)} mL`, dv > 0 ? 'the extra blood volume' : 'the blood loss', (e) => { e.addVolume(-dv, 0.42, true); }, 'slow');
   if (eng.bleed.active) add('Active bleeding', 'the active bleeding', (e) => { e.bleed.active = false; }, 'slow');
@@ -134,8 +142,12 @@ const list = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', '
 function buildSentence(def, cur, base, cs) {
   const d = def.digits;
   const diff = cur - base;
-  let s = `${def.label} is ${cur.toFixed(d)} ${def.unit}`;
-  if (Math.abs(diff) >= Math.pow(10, -d)) s += `, ${num(diff, d)} ${diff > 0 ? 'above' : 'below'} healthy`;
+  // (A percent hugs its number, as everywhere else: "Shunt fraction is 69%", "Varix wall stress is 41% of rupture".)
+  // (A reading below zero takes the real minus, as the tiles do (reversed portal flow); one that rounds to zero is a plain 0, never "-0".)
+  const here = cur < 0 && Number(num(cur, d)) !== 0 ? `−${num(cur, d)}` : num(cur, d);
+  let s = `${def.label} is ${here}${def.unit.startsWith('%') ? '' : ' '}${def.unit}`;
+  // (Where healthy is zero, "69%, 69 above healthy" says the same thing twice: the clause is left out.)
+  if (Math.abs(diff) >= Math.pow(10, -d) && Math.abs(base) >= Math.pow(10, -d)) s += `, ${num(diff, d)} ${diff > 0 ? 'above' : 'below'} healthy`;
   const sig = cs.filter((c) => Math.abs(c.delta) >= Math.max(Math.pow(10, -d), Math.abs(diff) * 0.05));
   if (!sig.length) return s + '. Nothing meaningful is pushing it away from normal.';
   const dir = Math.sign(diff || 1);
@@ -173,7 +185,7 @@ export function formula(eng, id, m = null) {
     const f = eng.flows;
     return `Ascites = filtration (liver ${f.hep.toFixed(1)} + gut ${f.spl.toFixed(1)} mL/min) − lymph capacity ${eng.slow.lymphCap.toFixed(1)} − reabsorption ${f.reabs.toFixed(2)} mL/min`;
   }
-  if (id === 'map') return `MAP = CO × SVR + RA = ${(eng.COf * 0.06).toFixed(2)} L/min × ${((eng.MAPf - P[ni.RA]) / (eng.COf * 0.06)).toFixed(1)} WU + ${P[ni.RA].toFixed(1)}`;
+  if (id === 'map') return `MAP = CO × SVR + RA = ${(eng.COf * 0.06).toFixed(2)} L/min × ${((eng.MAPf - P[ni.RA]) / (eng.COf * 0.06)).toFixed(1)} WU + ${P[ni.RA].toFixed(1)} mmHg = ${eng.MAPf.toFixed(0)} mmHg`;
   if (id === 'shunt' || id === 'pvFlow' || id === 'liverPerf' || id === 'sinFlow' || id === 'portalIn') return 'Parallel paths: flow divides in inverse proportion to resistance (liver vs. collaterals/shunts).';
   return '';
 }

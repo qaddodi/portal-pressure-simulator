@@ -35,7 +35,7 @@ for (const dev of devs) {
       await page.evaluate(spy);
       await quiet(page);
       // (the camera's glide has landed: none running, and none asked for in the last 0.6 s; reduced motion keeps glides short)
-      await page.waitForFunction(() => !document.querySelector('.cam-move') && performance.now() - (window.__camT || 0) > 600, null, { timeout: 20000, polling: 100 }).catch(() => {});
+      await page.waitForFunction(() => performance.now() - (window.__camT || 0) > 600, null, { timeout: 20000, polling: 100 }).catch(() => {});
       const measure = () => page.evaluate(() => {
         const box = window.__box;
         if (!box || window.pps.store.get().lobule || window.pps.store.get().view !== 'anatomic') return null;

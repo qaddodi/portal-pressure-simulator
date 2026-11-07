@@ -10,11 +10,20 @@ const idx = Object.fromEntries(EDGES.map((e, k) => [e.id, k]));
 const node = (tag) => ({
   tag, attrs: {}, kids: [], style: {}, dataset: {}, isConnected: true, clientWidth: 420, clientHeight: 160,
   setAttribute(k, v) { this.attrs[k] = v; },
-  append(...k) { this.kids.push(...k); },
+  append(...k) { for (const c of k) { if (c && typeof c === 'object') c.parent = this; this.kids.push(c); } },
   replaceChildren(...k) { this.kids = k; },
   getBoundingClientRect() { return { width: 420, height: 160 }; },
+  // (what the GPU picture of a model reads of its pieces, svg-gl.js)
+  prepend(...k) { this.kids.unshift(...k); },
+  remove() { const p = this.parent; if (p) p.kids = p.kids.filter((c) => c !== this); },
+  classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+  get children() { return this.kids.filter((c) => c && typeof c === 'object'); },
+  get localName() { return this.tag; },
+  get attributes() { return Object.entries(this.attrs).map(([name, value]) => ({ name, value: String(value) })); },
+  getAttribute(k) { return k in this.attrs ? String(this.attrs[k]) : null; },
+  hasAttribute(k) { return k in this.attrs; },
 });
-globalThis.document.createElement = (tag) => (tag === 'canvas' ? { getContext: () => null } : node(tag));
+globalThis.document.createElement = (tag) => (tag === 'canvas' ? { getContext: () => null, setAttribute() {}, style: {} } : node(tag));
 globalThis.document.createElementNS = (ns, tag) => node(tag);
 globalThis.getComputedStyle = () => ({ fontSize: '14px', getPropertyValue: () => '' });
 let frames = [];
@@ -27,7 +36,7 @@ const fp = (pv, ha, shunt = 0, c3 = 0) => {
   Q[idx.PRE_R] = pv / 2; Q[idx.PRE_L] = pv / 2; Q[idx.A_HR] = ha / 2; Q[idx.A_HL] = ha / 2; Q[idx.C3] = c3; Q[idx.PV_TRUNK] = pv + c3;
   return { at: { Q }, shunt };
 };
-const drawn = (card) => { while (frames.length) frames.shift()(); return card.el.kids[0]; };
+const drawn = (card) => { while (frames.length) frames.shift()(); return card.el.kids.find((k) => k.tag === 'svg') || card.el._svgGL?.pending; };   // (the card's model, beside its GPU picture; one swapped in during a frame waits off the page until a rest pass)
 
 for (const of of ['portal', 'inflow']) {
   test(`the ${of} card draws its Healthy bar, Now bar equal or not, without throwing`, () => {

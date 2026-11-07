@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -7,7 +8,7 @@ import { easeTo, fluidSpring, fluidSpringFor } from '../src/ui/organ-ease.js';
 // shape and congestion, the ascites) run on the same clock, so zooming out shows the state reached by then, not an ease that
 // only starts from the patient before.
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const fnBody = (name) => {
   const i = stage.indexOf(`function ${name}(`);
   assert.ok(i >= 0, `${name} not found`);
@@ -20,8 +21,8 @@ test('covered by the lobule, the figure still follows the patient, and draws not
   const inner = fnBody('updateInner');
   assert.match(inner, /if \(under\) \{ followHidden\(f\); return; \}/);
   const follow = fnBody('followHidden');
-  assert.match(follow, /easeLiver\(f, p, dt\)/);
-  assert.match(follow, /fluidTarget\(ascTarget, f\.slow\.ascites\)/);
+  assert.match(follow, /(?:live\.)?easeLiver\(f, p, dt\)/);
+  assert.match(follow, /fluidTarget\((?:live\.)?(?:live\.)?ascTarget, f\.slow\.ascites\)/);
   assert.match(follow, /fluidSpringFor\(/);
   // (no painting while hidden: no DOM writes, no drawing, no raster)
   for (const w of ['setAttribute', 'style', 'putA', 'setA', 'setT', 'draw', 'platePoke', 'hidePlate', 'morphLiver', 'classList']) assert.ok(!follow.includes(w), `followHidden writes ${w}`);
@@ -32,10 +33,11 @@ test('covered by the lobule, the figure still follows the patient, and draws not
 test('shown again, the figure takes up where its eases have got to, and its stale raster is not shown', () => {
   const inner = fnBody('updateInner');
   assert.match(inner, /if \(hid\.at\) \{ followHidden\(f\);/);
-  assert.match(inner, /plateStale = true/);
-  assert.match(fnBody('platePoke'), /\(themed \|\| stale\) && veins\.hasPlate\(0\)/);
+  assert.match(inner, /(?:live\.)?(?:live\.)?plateStale = true/);
+  // (Dropped for the live SVG unless the changing organs are painted live on the GPU, whose pictures hold none of them.)
+  assert.match(fnBody('platePoke'), /const drop = themed \|\| \(stale && !liveNow\);\n\s+if \(drop && (?:live\.)?(?:live\.)?(?:live\.)?veins\.hasPlate\(0\)\)/);
   // The drawn liver reads the hidden ease's own values (one shared state, one clock).
-  assert.match(fnBody('updateOrgans'), /easeLiver\(f, p, Math\.min\(0\.1, \(performance\.now\(\) - lvAt\) \/ 1000\)\)/);
+  assert.match(fnBody('updateOrgans'), /easeLiver\(f, p, Math\.min\(0\.1, \(performance\.now\(\) - (?:live\.)?(?:live\.)?lvAt\) \/ 1000\)\)/);
 });
 
 // The model's frames while covered (at most every 80 ms when nothing else changed, main.js onFrame).

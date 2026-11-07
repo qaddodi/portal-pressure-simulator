@@ -40,6 +40,8 @@ try {
   await page.goto(server.url + '?preset=cirr-decomp');
   await page.waitForFunction(() => document.querySelector('#scenarioName')?.textContent.includes('Decompensated') && window.pps?.store.get().frame, null, { timeout: 60000 });
   await page.evaluate(() => window.pps.host.send({ type: 'run', running: true }));
+  // (Frames watched, so every callback is timed: unwatched, frame.js times one frame in 30 and counts it 30 times over.)
+  await page.evaluate(() => window.pps.perf.frames.start());
   await page.waitForTimeout(2500);
 
   await moment('Anatomy, Tests dock open', async () => {
@@ -52,14 +54,13 @@ try {
   await moment('Anatomy, hovering a vessel', async () => {
     await page.evaluate(() => window.pps.dock.close?.());
     at = await page.evaluate(() => {
-      for (const p of document.querySelectorAll('.v-hit[role="button"][data-id]')) {
-        const len = p.getTotalLength?.();
-        if (!len) continue;
-        const q = p.getPointAtLength(len / 2), m = p.getScreenCTM();
+      // (A vessel is the stage's numbers, no element: half way along it, where the stage picks it and nothing of the page covers the figure.)
+      for (const id of window.pps.stage.shownVessels()) {
+        const m = window.pps.stage.vesselMid(id);
         if (!m) continue;
-        const x = m.a * q.x + m.c * q.y + m.e, y = m.b * q.x + m.d * q.y + m.f;
+        const { x, y } = m;
         if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
-        if (document.elementFromPoint(x, y)?.closest('.v-hit')?.dataset.id === p.dataset.id) return { x, y, id: p.dataset.id };
+        if (window.pps.stage.vesselUnder(x, y, 0) === id && document.elementFromPoint(x, y)?.closest('#stage')) return { x, y, id };
       }
       return null;
     });

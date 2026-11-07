@@ -17,7 +17,7 @@ test('the strip is sized by width, type sizes and vessel kind, not by the words 
   assert.match(fit, /for \(i = stripBase; i < STEPS\.length - 1; i\+\+\)/);
   // (and the step is remembered by the words' shape, the reading's digits all one width: a new number measures nothing)
   assert.match(fit, /stripSteps\.get\(shape\)/);
-  assert.match(fit, /velB\.textContent\.replace\(\/\\d\/g, '0'\)/);
+  assert.match(fit, /wText\(velB\)\.replace\(\/\\d\/g, '0'\)/);   // (the words it shows, which the GPU draws while they change: gl-words.js)
   // (the number keeps a slot as wide as its widest reading)
   assert.match(fit, /velB\.style\.minWidth = `\$\{[^`]+\}em`/);
 });
@@ -42,6 +42,7 @@ test('every direction and pattern interpret() can write is among the words the s
     for (const p of patLits) assert.ok(pats.includes(p), `${kind}: pattern "${p}" missing`);
   }
   // (the hepatic artery's pattern carries a number: sized for two decimals)
-  assert.match(it, /pattern = `Resistive index \$\{fmt\(ri, 2\)\}`/);
+  assert.match(it, /pattern = RI_TEXT\[Math\.max\(0, Math\.min\(100, Math\.round\(ri \* 100\)\)\)\];/);   // (the words for each hundredth, made once: RI_TEXT)
+  assert.match(readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8'), /RI_TEXT\.push\(`Resistive index \$\{fmt\(i \/ 100, 2\)\}`\)/);
   assert.ok(kinds.artery[1].includes('Resistive index 0.00'));
 });

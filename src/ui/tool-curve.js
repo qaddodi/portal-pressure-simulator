@@ -58,17 +58,26 @@
 //                     With of: 'varix' that sweep draws another reading (the fundal varix with the shunt open, the esophageal
 //                     varix with it closed), on the same scale as the first, so the two share a unit; reading: 'Varix' then
 //                     names the card, the key row and the cut-offs, which would otherwise carry the first reading's name.
+//                     dash: true on a sweep draws it dashed (in the own line's colour for the same reading): the state after a change.
+//   styles: ['GRS open', 'GRS closed']
+//                     with against, the solid and the dashed lines named once in the key row, so each line's name is one word.
 //   param: 'scope.air' (from 0, to 20), lines: ['seen', 'across']
 //                     a curve over the scope's air in the esophagus, an instrument option, not a model setting: worked out from
 //                     the slide's own varix as the scope works it (the size seen, the pressure across the wall), nothing run.
 //   zone: { fall: 10, under: 12, label: 'Response' }
 //                     a soft band in the ok colour under y = max(under, x less fall %), dashed along its top and named in it.
 
-import { TILE, SCALE, RATE } from './table-marks.js?v=8458ad3bf8';
-import { frameFor } from './frame.js?v=7254a8a850';
-import { plotPanel } from './plot-look.js?v=5037697da7';
-import { airRatio } from './endo-size.js?v=e0a58bf20e';
-import { NODES } from '../engine/topology.js?v=4044766e96';
+import { TILE, SCALE, RATE } from './table-marks.js';
+import { HVPG_CUTS } from '../engine/pressure-cuts.js';
+import { frameFor } from './frame.js';
+import { restPass, restClass } from './rest-pass.js';
+import { fittedType, tokName } from './chart-ctx.js';
+import { plotPanel } from './plot-look.js';
+import { createSvgGL, svgModel, setWords, wordsOf, setGeo } from './svg-gl.js';
+import { airRatio } from './endo-size.js';
+import { NODES } from '../engine/topology.js';
+import { safeParamPath, pathOf, getAt, patchOf, mergeOf } from './import-safety.js';
+import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('tool-curve');
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -88,26 +97,17 @@ export const PARAM = {
 // over the scope's air (param 'scope.air'), the varix's diameter as the scope sees it and the pressure across its wall.
 const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of tear', x: 100, d: 0 }, seen: { t: 'Varix seen', u: 'mm', d: 1 }, across: { t: 'Across the wall', u: 'mmHg', d: 1 } };
 // A line's colour by reading (the app's trace colours); any other reading takes its place's.
-const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--tr-wedge', whvp: '--tr-wedge', sin: '--tr-wedge', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', seen: '--tr-var', wall: '--tr-cav', across: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
+// (Platelets are cyan, --tr-ivc, not the place's blue: beside the HVPG's violet the blue read as one colour (normal-vision ΔE 28, deuteranopia 4); cyan keeps ΔE 29 or more in every vision and stays clear of the amber and coral cut-off lines.)
+const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--s7', whvp: '--s7', plt: '--tr-ivc', sin: '--tr-wedge', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', seen: '--tr-var', wall: '--tr-cav', across: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
 const PLACE = ['--tr-pv', '--tr-hv'];
 
-export const pathOf = (p) => String(p || '').split('.').filter(Boolean);
-/** The value at a dotted path of a params object. */
-export const getAt = (o, path) => pathOf(path).reduce((x, k) => x?.[k], o);
-/** The params patch that sets path to v (a TIPS or DIPS diameter switches its shunt on), merged over also. */
-export function patchOf(path, v, also = null) {
-  const keys = pathOf(path), out = also ? structuredClone(also) : {};
-  let at = out;
-  keys.slice(0, -1).forEach((k) => { at = at[k] = at[k] && typeof at[k] === 'object' ? at[k] : {}; });
-  at[keys.at(-1)] = v;
-  if (keys.length === 2 && (keys[0] === 'tips' || keys[0] === 'dips') && keys[1] === 'd') at.on = true;
-  return out;
-}
+export { pathOf, getAt, patchOf };
+const ownKey = (o, k) => o !== null && typeof o === 'object' && Object.hasOwn(o, k);
 /** The setting's values along the axis, from `from` to `to` (both kept), at most 41 of them. */
 export function curveXs(t) {
   const a = +t.from, b = +t.to;
   if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return [];
-  const step = Math.max(Math.abs(+t.step || (b - a) / 10), Math.abs(b - a) / (MAX_PTS - 1)), n = Math.round(Math.abs(b - a) / step);
+  const step = Math.max(Math.abs(+t.step || (b - a) / 10), Math.abs(b - a) / (MAX_PTS - 1)), n = Math.max(1, Math.round(Math.abs(b - a) / step));
   return Array.from({ length: n + 1 }, (_, k) => +(a + (b - a) * (k / n)).toPrecision(10));
 }
 /** The x reading's key (x: a fingerprint key with a tile), or null for a curve across its setting. */
@@ -143,7 +143,7 @@ export const curveSteps = (t) => {
 /** The second sweeps: [{ label, params, pair }] (one or two, each with a label and a params object). */
 export function againstsOf(t) {
   return [].concat(t?.against || []).filter((a) => a && typeof a.label === 'string' && a.label && a.params && typeof a.params === 'object' && !Array.isArray(a.params))
-    .slice(0, 2).map((a) => ({ label: a.label, params: a.params, pair: !!a.pair, of: typeof a.of === 'string' && (TILE[a.of] || LINE_ONLY[a.of]) ? a.of : null }));
+    .slice(0, 2).map((a) => ({ label: a.label, params: a.params, pair: !!a.pair, of: typeof a.of === 'string' && (TILE[a.of] || LINE_ONLY[a.of]) ? a.of : null, dash: !!a.dash }));
 }
 /** The second sweep's { label, params, own }, or null: needs a label and a params object. */
 export function againstOf(t) {
@@ -152,12 +152,7 @@ export function againstOf(t) {
   const own = [].concat(t.against).find((x) => typeof x?.own === 'string' && x.own)?.own;
   return { label: a.label, params: a.params, own: own || 'This case' };
 }
-/** b merged over a (objects key by key, anything else replaced), a fresh copy. */
-export function mergeOf(a, b) {
-  const out = a && typeof a === 'object' ? structuredClone(a) : {};
-  for (const [k, v] of Object.entries(b || {})) out[k] = v && typeof v === 'object' && !Array.isArray(v) && out[k] && typeof out[k] === 'object' ? mergeOf(out[k], v) : structuredClone(v);
-  return out;
-}
+export { mergeOf };
 /** The readings plotted (one or two fingerprint keys; one, drawn once per sweep, with against). */
 export const curveLines = (t) => [].concat(t.lines || 'ppg').filter((k) => typeof k === 'string').slice(0, againstOf(t) ? 1 : 2);
 /** Whether the own line is the x reading itself (the diagonal where nothing changed). */
@@ -169,9 +164,14 @@ export function drawnLines(t) {
   if (!ag) return ls;
   const l = ls[0], ags = againstsOf(t), of = (a) => (a.of ? lineMeta(a.of) : l);   // (a sweep may draw another reading, of)
   if (ownIsRef(t)) return [{ ...l, name: ag.own, c: '--text-3', ref: true }, ...ags.map((a, j) => ({ ...of(a), name: a.label, c: AG_C[j] }))];
-  if (ags.length > 1) return [{ ...l, name: ag.own }, ...ags.map((a, j) => ({ ...of(a), name: a.label, c: [l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv', '--tr-cav'][j] }))];
-  return [{ ...l, name: ag.own }, { ...of(ags[0]), name: ag.label, c: l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv' }];
+  // (A dashed sweep (dash: true, the state after a change, named in the key row by styles) of the same reading keeps the own line's colour:
+  // the colour says which reading, the dashes which state.)
+  const cOf = (a, c) => (a.dash && !a.of ? l.c : c);
+  if (ags.length > 1) return [{ ...l, name: ag.own }, ...ags.map((a, j) => ({ ...of(a), name: a.label, dash: a.dash, c: cOf(a, [l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv', '--tr-cav'][j]) }))];
+  return [{ ...l, name: ag.own }, { ...of(ags[0]), name: ag.label, dash: ags[0].dash, c: cOf(ags[0], l.c === '--tr-hv' ? '--tr-pv' : '--tr-hv') }];
 }
+/** With against, the key row's names for the solid and the dashed lines (styles: ['GRS open', 'GRS closed']), or null. */
+export const stylesOf = (t) => (againstOf(t) && Array.isArray(t.styles) && t.styles.length === 2 && t.styles.every((x) => typeof x === 'string' && x) ? t.styles : null);
 /** The name the key row and the cut-offs carry when sweeps draw different readings: the slide's `reading`, else the first's own. */
 export const readingName = (t) => (typeof t?.reading === 'string' && t.reading ? t.reading : lineMeta(curveLines(t)[0]).name);
 /** A reading's name, unit, decimals, scale and colour (from its tile). */
@@ -288,19 +288,19 @@ export const xAxisName = (ax) => (ax.unit && ax.unit !== '×' && !ax.name.toLowe
 const X_SPELT = { hvpg: 'HVPG (wedged − free)', ppg: 'PPG (portal − IVC)' };
 export const spellAxis = (ax) => (X_SPELT[ax.k] ? { ...ax, name: X_SPELT[ax.k] } : ax);
 /** The name a cut-off on the x reading goes by on the chart, or '': the HVPG 10 line is the CSPH line ("CSPH ≥10"). */
-export const xCutName = (k, v) => (k === 'hvpg' && Math.abs(v - 10) < 1e-6 ? 'CSPH' : '');
+export const xCutName = (k, v) => (k === 'hvpg' && Math.abs(v - HVPG_CUTS.red) < 1e-6 ? 'CSPH' : '');
 /** The x axis's numbers and where its name stands (his G2 look, 27 Oct: the name on the numbers' row, as the planes' x name is, so the plot gains
  *  the row it had of its own). The name takes the widest stretch between the numbers (each 6 px clear, and 8 px in from the panel's edges) when it
  *  fits there with at least three numbers kept: the most numbers that leave it room, `most` at the most. { xt, nameAt }: nameAt the name's centre
  *  in px, null where it fits nowhere (it then stands on a row of its own under the numbers, centred, with the numbers `most` at the most). */
 export function xAxisRow(x0, x1, L, R, w, f, ax, most) {
-  const nameW = cw(xAxisName(ax), f, 1), at = (v) => L + (R - L) * (v - x0) / ((x1 - x0) || 1);
+  const nameW = cw(xAxisName(ax), f, 1), at = (v) => L + (R - L) * (v - x0) / ((x1 - x0) || 1), gap = Math.max(6, Math.round(0.9 * f));   // (clear of each number by most of a letter's height: 6 px had the name touching the 0 and the 25)
   for (let m = most; m >= 3; m--) {
     const ts = xTicks(x0, x1, m);
     if (ts.length < 3) continue;
     const boxes = ts.map((v) => { const x = at(v), tw = cw(fmtTick(v, ax.d), f); return x <= L + 1 ? [x, x + tw] : x >= R - 1 ? [x - tw, x] : [x - tw / 2, x + tw / 2]; });
     let best = null;
-    for (const [a, b] of [...boxes.map((q, i) => [i ? boxes[i - 1][1] + 6 : 8, q[0] - 6]), [boxes.at(-1)[1] + 6, w - 8]]) {
+    for (const [a, b] of [...boxes.map((q, i) => [i ? boxes[i - 1][1] + gap : 8, q[0] - gap]), [boxes.at(-1)[1] + gap, w - 8]]) {
       if (b - a >= nameW && (!best || b - a > best[1] - best[0])) best = [a, b];
     }
     if (best) return { xt: ts, nameAt: (best[0] + best[1]) / 2 };
@@ -322,18 +322,19 @@ export function segHits([x1, y1, x2, y2], [bx0, by0, bx1, by1]) {
   return true;
 }
 /** How badly a box [x0, y0, x1, y1] lands: on a horizontal line ({ y, x0, x1, w }) its weight w (1 if unset), on a data
- *  line's segment its weight w (2 if unset), on other words 3, outside the bounds 10. A line with side (the y of the ring
+ *  line's segment its weight w (2 if unset), on other words boxW (3 unless the caller asks for more), outside the bounds 10. A line with side (the y of the ring
  *  the word names) also costs 20 when the word's middle is across it from that ring: a value over a cut-off it is under
  *  reads as the wrong side of it. */
-export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null }) {
+export function boxScore(b, { lines = [], segs = [], boxes = [], bounds = null, boxW = 3, segPad = 0 }) {
   let n = 0;
   if (bounds && (b[0] < bounds[0] || b[1] < bounds[1] || b[2] > bounds[2] || b[3] > bounds[3])) n += 10;
   for (const l of lines) {
     if (l.y > b[1] - 3 && l.y < b[3] + 3 && l.x0 < b[2] && b[0] < l.x1) n += l.w ?? 1;   // (and 3 px clear of a line)
     if (l.side != null && ((b[1] + b[3]) / 2 - l.y) * (l.side - l.y) < 0) n += 20;
   }
-  for (const sg of segs) if (segHits(sg, b)) n += sg.w ?? 2;
-  for (const o of boxes) if (hitBox(b, o)) n += 3;
+  const sb = segPad ? [b[0], b[1] - segPad, b[2], b[3] + segPad] : b;   // (segPad: clear air above and below the word that a data line must keep)
+  for (const sg of segs) if (segHits(sg, sb)) n += sg.w ?? 2;
+  for (const o of boxes) if (hitBox(b, o)) n += boxW;   // (boxW: what a word on a word costs; the cut-off names ask 8, so they lose to a spot that crosses a gridline or a data line)
   return n;
 }
 /** A word's place: of the candidates ({ x, y, anchor }, in order of liking), the first that lands on the fewest things.
@@ -449,9 +450,10 @@ export function ringAt(t, params, fp) {
 /** Whether params are the slide's own (base) with only the curve's setting moved: then the case sits on the curve. */
 export function onCurve(t, params, base) {
   if (!params || !base || !t.param || Array.isArray(t.points) || +t.days > 0 || patientOf(t) || overScope(t)) return false;
+  if (!safeParamPath(t.param)) return false;
   const a = structuredClone(params), keys = pathOf(t.param);
   let at = a;
-  for (const k of keys.slice(0, -1)) { if (!at[k] || typeof at[k] !== 'object') return false; at = at[k]; }
+  for (const k of keys.slice(0, -1)) { if (!ownKey(at, k) || !at[k] || typeof at[k] !== 'object') return false; at = at[k]; }
   at[keys.at(-1)] = getAt(base, t.param);
   if (keys.length === 2 && (keys[0] === 'tips' || keys[0] === 'dips') && keys[1] === 'd') at.on = getAt(base, `${keys[0]}.on`);
   return JSON.stringify(a) === JSON.stringify(base);
@@ -519,13 +521,8 @@ export function walksOf(t) {
 /** The steps that work out the dots made from a preset, each from a fresh model. */
 export const dotSteps = (t) => dotsOf(t).filter((d) => !d.slide).map((d) => ({ preset: d.preset, params: d.params, presetDays: d.presetDays, days: d.days, restart: true }));
 
-const SVGNS = 'http://www.w3.org/2000/svg';
-const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
-  el.append(...kids.flat(2).filter((k) => k != null));
-  return el;
-};
+// (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const sv = svgModel;
 
 // Each deck's curves, kept once worked out (by deck, then slide and tool).
 const kept = new WeakMap();
@@ -543,8 +540,10 @@ function curveWork(t, c, myKey = curveKey(t, c)) {
     // (Nothing to run: the slide's own reading holds it all.)
     const st = scopeStates(t, c.fp);
     if (!st) return null;
-    p = Promise.resolve({ s: curveSeries(t, st), dd: [] });
+    const v = { s: curveSeries(t, st), dd: [] };
+    p = Promise.resolve(v);
     store.set(myKey, p);
+    ready.set(p, v);
     return p;
   }
   const ds = dotsOf(t), dSteps = dotSteps(t);
@@ -556,23 +555,29 @@ function curveWork(t, c, myKey = curveKey(t, c)) {
     return { s, dd };
   });
   store.set(myKey, p);
-  p.then((s) => { if (!s) store.delete(myKey); }, () => store.delete(myKey));
+  p.then((s) => { if (!s) store.delete(myKey); else ready.set(p, s); }, () => store.delete(myKey));
   return p;
 }
+// A curve already worked out, as its value (a promise's value cannot be read at once): a slide that comes up after the deck's states are in draws
+// its lines in the first drawing, so the chart on the card glides straight from the last slide's lines to these, not through an empty one.
+const ready = new WeakMap();
+const haveOf = (tool, c) => { const p = c?.snap && !overScope(tool) ? keepOf(c.deck).get(curveKey(tool, c)) : null; return p ? ready.get(p) ?? null : null; };
 /** Starts a slide's curve once the deck's states are in, so a curve that runs model days (seconds of work) is ready when its
  *  slide comes up (presenter.js, after the deck's states). */
-export function warmCurve(t, c) { if (t && c) curveWork(t, c)?.catch(() => null); }
+export function warmCurve(t, c) { return t && c ? curveWork(t, c) ?? null : null; }   // (B16: a rejection is returned, not turned into null: slide-prep marks the manifest failed)
 
 export function createCurve() {
-  const reduceMQ = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduceMQ = reduceMotionMQ;
   const el = document.createElement('div');
   el.className = 'pz-curve';
+  const gl = createSvgGL(el, { host: 'curve' });
   let t = null, ctx = null, ser = null, dots = [], parts = null, G = null, key = '', lastSz = '', raf = 0;
-  let ring = null, goal = null;   // ({ x, ys } in shown units: where the rings are drawn, and where they glide to)
+  let ring = null, goal = null, settleId = 0;   // ({ x, ys } in shown units: where the rings are drawn, and where they glide to)
+  let altNow = false;   // (with against: the lines' key stands in, with rows of its own, because their names did not fit on the drawing)
 
   const size = () => {
-    const w = el.clientWidth, z = w ? el.getBoundingClientRect().width / w : 1;
-    const f = Math.max(parseFloat(getComputedStyle(el).fontSize) || 12, z > 0.2 && z < 1 ? CV_MIN / z : 0);
+    const w = el.clientWidth;
+    const f = fittedType(el, gl, CV_MIN);   // (the card's small type from the chart's looks table, never under the least: the chart is drawn at the size it has on the screen)
     return [Math.max(160, w || 420), Math.max(8 * f, el.clientHeight || 240), f];
   };
   // A dot's place on line j (shown units), or null: with against every line is the one reading, so a dot sits once, on the first.
@@ -595,7 +600,7 @@ export function createCurve() {
     });
     return { items, rows: items.length ? row + 1 : 0 };
   }
-  function geo(w, h, f, steps = false) {
+  function geo(w, h, f, steps = false, alt = false) {
     const ls = drawnLines(t), ax = spellAxis(axisMeta(t)), ag = !!againstOf(t), xk = xKeyOf(t);
     const vals0 = ls.map((l, j) => [...(ser ? ser.ys[j] : [(ring || goal)?.ys[j]]), ...dots.map((d) => dotXY(d, j, ls)?.[1])].filter(Number.isFinite));
     // (With against all lines are one reading on one scale, named on the lines; the key is only the reading and its unit. With
@@ -608,29 +613,43 @@ export function createCurve() {
       [x0, x1] = xDomain(xv, t.xFrom, t.xTo);
     } else { const xs = curveXs(t).map((x) => x * ax.x); x0 = xs[0]; x1 = xs.at(-1); }
     // (A reading on x and two lines: the case's values stand in the key row, a value's room in each key.)
-    const keyRead = t.readout !== 'ring' && t.ring !== false && !!xk && ls.length === 2 && !one, kvW = keyRead ? cw('888.8', f, 1) + 6 : 0;
+    const keyRead = false, kvW = 0;   // (no current-state readings in the key row: his 29 Oct, no more circles)
     const keys0 = keyLs.length < 2 || keyLs.reduce((a, l) => a + 22 + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW, 0) + 2 * f <= w;
-    // (With against, the lines' key that stands in when their names don't fit on the drawing takes a row of its own when
-    // it would run into the reading's name and unit at the left.)
-    const altW = ag ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
-    const altBelow = ag && cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) + altW + 2 * f > w;
+    // (With against the lines are named on the drawing and the key holds only the reading and its unit. When the names don't fit there,
+    // alt: a key of the lines stands in, taking a row of its own when it would run into the reading's name and unit at the left.)
+    // (styles: the solid and the dashed lines named at the right of the key row, or on a row of their own under the reading when they don't fit beside it.)
+    const sty = stylesOf(t), styW = sty ? sty.reduce((a, s) => a + 22 + 1.05 * cw(s, f, 1), 0) + f : 0, readW = ag ? cw(keyLs[0].name, f, 1) + 6 + cw(keyLs[0].unit, f) : 0;
+    const styBelow = !!sty && readW + styW + 2 * f > w, styRows = styBelow ? 1 : 0;
+    const altW = ag && alt ? ls.reduce((a, l) => a + 22 + 1.05 * cw(l.name, f, 1), 0) + f * (ls.length - 1) : 0;
+    const altBelow = ag && alt && (styBelow || readW + (sty ? styW + f : 0) + altW + 2 * f > w);
+    // (Below, the names wrap onto as many rows as the width asks, none run off the card's edge: altRows, each row's list of line numbers.)
+    // (The first names run on from the reading's end, on its own row, as far as they fit before the styles' key at the right edge: altFirst. A key
+    // of three lines on a phone took a row for the reading and two more for the names, and left the plot a strip; now one row less.)
+    const altRows = [], altFirst = [], altX = readW + 1.5 * f;
+    if (altBelow) {
+      let used = 0, k = 0;
+      if (!styBelow) for (; k < ls.length; k++) { const kw = 22 + 1.05 * cw(ls[k].name, f, 1); if (altX + used + kw > w - (sty ? styW + f : 0)) break; altFirst.push(k); used += kw + f; }
+      used = 0;
+      ls.forEach((l, j) => { if (j < k) return; const kw = 22 + 1.05 * cw(l.name, f, 1); if (!altRows.length || used + kw > w) { altRows.push([]); used = 0; } altRows.at(-1).push(j); used += kw + f; });
+    }
     // (No more numbers up the side than fit a line and a half of type apart.)
     const stepKey = steps ? stepKeyOf(w, f) : null, stepH = stepKey?.rows ? stepKey.rows * 1.5 * f + 0.3 * f : 0;
-    const plotH = h - 3.3 * f - stepH - ((keys0 && !altBelow ? 1 : 2) * 1.5 * f + 2 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
+    const plotH = h - 3.3 * f - stepH - ((keys0 && !altBelow ? 1 : keys0 ? 1 + altRows.length : 2) * 1.5 * f + styRows * 1.5 * f + 2 * f), most = clamp(Math.floor(plotH / (1.6 * f)) + 1, 3, 7);
     // (cuts: 'ticks': the first line's cut-offs ask the scale to hold them, to stand as coloured numbers on the axis.)
     // (cutTicks: with a list of cut-offs, as 'ticks' does for the tile's own; and the numbers are the cut-offs themselves where no even scale holds them.)
-    const ticksOn = (t.cuts === 'ticks' || !!t.cutTicks) && !ag, sL = leftScale(ls[0].k, vals[0], most, ticksOn ? yCutsOf(t, ls[0].k).map((c) => c.v) : [], !!t.cutTicks), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
+    const ticksOn = t.cuts === 'ticks' || !!t.cutTicks, sL = leftScale(ls[0].k, vals[0], most, ticksOn ? yCutsOf(t, ls[0].k).map((c) => c.v) : [], !!t.cutTicks), sR = ls[1] && !one ? rightScale(vals[1], sL.ticks.length) : null;
     const tickCuts = ticksOn ? yCutsOf(t, ls[0].k).filter((c) => sL.ticks.some((v) => Math.abs(v - c.v) < 1e-6)) : [];
     const keys = keyLs.map((l) => ({ ...l, w: (l.bare ? 0 : 22) + cw(l.name, f, 1) + 6 + cw(l.unit, f) + kvW }));
-    const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow && !altBelow ? 1 : 2) * rowH;
+    const oneRow = keys.length < 2 || keys[0].w + keys[1].w + 2 * f <= w, rowH = 1.5 * f, legH = ((oneRow && !altBelow ? 1 : oneRow ? 1 + altRows.length : 2) + styRows) * rowH;
     const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmtTick(v, dec(sc)), f)));
     const most0 = Math.max(2, Math.min(7, Math.floor((w - 4 * f) / (3.2 * f))));
     // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js: its numbers stand in the strips inside its edge, 8 px in from it, where no line runs.)
     const L = Math.ceil(tw(sL) + 14), R = Math.floor(w - (sR ? tw(sR) + 14 : 10));
     const { xt, nameAt } = xAxisRow(x0, x1, L, R, w, f, ax, most0);
     // (The panel's foot: 1.7 em under the axis when the x axis's name stands on the numbers' row, else 3.1 em with the name on a row of its own.)
-    const foot = (nameAt == null ? 3.1 : 1.7) * f, T = legH + 2 * f, B = h - foot - 0.2 * f - stepH;
-    return { w, h, f, ls, ag, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, rowH, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
+    // (Over the plot, room for the x cut-offs' names, 2 em; a plot with none keeps only what its top number and a name beside a line's end need.)
+    const foot = (nameAt == null ? 3.1 : 1.7) * f, T = legH + (xCutsOf(t).length ? 2 : 1.4) * f, B = h - foot - 0.2 * f - stepH;
+    return { w, h, f, ls, ag, alt, sty, styBelow, one, ax, x0, x1, xt, nameAt, foot, sL, sR, tickCuts, keyRead, stepKey, keys, oneRow, altBelow, altRows, rowH, altFirst, altX, keyH: legH, L, R, T, B: Math.max(T + 3 * f, B) };
   }
   const X = (x) => G.L + (G.R - G.L) * (x - G.x0) / ((G.x1 - G.x0) || 1);
   const Yof = (sc) => (v) => G.B - (G.B - G.T) * clamp((v - sc.min) / ((sc.max - sc.min) || 1), 0, 1);
@@ -649,19 +668,20 @@ export function createCurve() {
     // the gridline stays the plain one.)
     const grid = sL.ticks.map((v, j) => { const tc = G.tickCuts.find((c) => Math.abs(c.v - v) < 1e-6);
       return sv('g', { class: 'ptk-grid' },
-        sv('line', { x1: L, x2: R, y1: YL(v), y2: YL(v) }),
-        tc ? sv('line', { class: 'pcv-stub', 'data-tc': tc.rate, x1: L, x2: L + 0.9 * f, y1: YL(v), y2: YL(v) }) : null,
-        sv('text', { class: tc ? 'pcv-tc' : null, 'data-tc': tc?.rate, x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end', style: tc ? null : `fill: var(${G.ag ? '--text-2' : tickC})` }, fmtTick(v, dec(sL))),
-        sR ? sv('text', { x: R + 6, y: YL(v) + 0.35 * f, 'text-anchor': 'start', style: `fill: var(${ls[1].c})` }, fmtTick(sR.ticks[j], dec(sR))) : null); });
+        sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: YL(v), y2: YL(v) }),
+        tc ? sv('line', { class: 'pcv-stub', 'data-look': 'cv.stub', 'data-tc': tc.rate, x1: L, x2: L + 0.9 * f, y1: YL(v), y2: YL(v) }) : null,
+        sv('text', tc ? { class: 'pcv-tc', 'data-look': 'cv.tc', 'data-tc': tc.rate, x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end' }
+          : { 'data-look': 'time.grid.text', 'data-p-c': tokName(G.ag ? '--text-2' : tickC), x: L - 6, y: YL(v) + 0.35 * f, 'text-anchor': 'end' }, fmtTick(v, dec(sL))),
+        sR ? sv('text', { 'data-look': 'time.grid.text', 'data-p-c': tokName(ls[1].c), x: R + 6, y: YL(v) + 0.35 * f, 'text-anchor': 'start' }, fmtTick(sR.ticks[j], dec(sR))) : null); });
     // (A zone: the band under its edge in the ok colour, dashed along the top, its name placed on every paint.)
     let zone = null, zoneLab = null;
     const edge = zoneEdge(t.zone, G.x0, G.x1);
     if (edge) {
       const pts = edge.map(([x, y]) => [X(x), YL(clamp(y, sL.min, sL.max))]);
       const top = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('');
-      zoneLab = typeof t.zone.label === 'string' && t.zone.label ? sv('text', { class: 'pcv-zone-t' }, t.zone.label) : null;
-      zone = sv('g', { class: 'pcv-zone' }, sv('path', { class: 'pcv-zone-fill', d: `${top}L${pts.at(-1)[0].toFixed(1)} ${B}L${pts[0][0].toFixed(1)} ${B}Z` }),
-        sv('path', { class: 'pcv-zone-edge', d: top }), zoneLab);
+      zoneLab = typeof t.zone.label === 'string' && t.zone.label ? sv('text', { class: 'pcv-zone-t', 'data-look': 'cv.zone.t', 'data-nomorph': '' }, t.zone.label) : null;
+      zone = sv('g', { class: 'pcv-zone' }, sv('path', { class: 'pcv-zone-fill', 'data-look': 'cv.zone.fill', d: `${top}L${pts.at(-1)[0].toFixed(1)} ${B}L${pts[0][0].toFixed(1)} ${B}Z` }),
+        sv('path', { class: 'pcv-zone-edge', 'data-look': 'cv.zone.edge', d: top }), zoneLab);
     }
     // (The first line's cut-offs, dashed in their rating's colour, where they fall inside its scale.)
     // (A cut-off held as a tick draws no dashed line, but a named one still writes its name, "Grade 2", over its gridline.)
@@ -676,94 +696,115 @@ export function createCurve() {
       const nm = t.cutNames?.[c.v], vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), isHeld = held(c);
       // (A named cut-off reads "Grade 2 ≥1.5 L", or just "Grade 2" where its number already stands on the axis; an unnamed one "Ascites 1.5".)
       const y = YL(c.v), txt = nm ? (isHeld ? nm : `${nm} ≥${vtxt} ${ls[0].unit}`.trim()) : `${G.ag ? readingName(t) : ls[0].name} ${vtxt}`;
-      const el = sv('text', { class: 'pcv-cut' }, txt);
-      cutLabs.push({ el, tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c && !held(o)).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
+      const el = sv('text', { class: 'pcv-cut', 'data-look': 'cv.cut', 'data-nomorph': '' }, txt);
+      // (short: where the whole name has no clear spot, just its number, in the rating's colour, beside its line: two cut-offs a line's width apart, "Liver flow 55" over "Liver flow 75".)
+      cutLabs.push({ el, txt, short: nm ? null : vtxt, twS: 1.12 * cw(vtxt, f, true), tw: 1.12 * cw(txt, f, true), lines: cutVs.filter((o) => o !== c && !held(o)).map((o) => ({ y: YL(o.v), x0: L, x1: R })),
         // (Over the line; else on it, the dashes stopping round the words (a short chart's cut-offs stand close); else under.)
         cands: [{ x: R - 3, y: y - 0.35 * f, anchor: 'end' }, { x: L + 3, y: y - 0.35 * f, anchor: 'start' },
           { x: R - 3, y: y + 0.35 * f, anchor: 'end', on: true }, { x: L + 3, y: y + 0.35 * f, anchor: 'start', on: true },
           { x: R - 3, y: y + 1.05 * f, anchor: 'end' }, { x: L + 3, y: y + 1.05 * f, anchor: 'start' },
           // (A grade's name, which stands over a gridline with no dashes of its own, may also stand part of the way along when both ends are taken.)
           ...(isHeld ? [{ x: L + 0.3 * (R - L), y: y - 0.35 * f, anchor: 'start' }, { x: L + 0.55 * (R - L), y: y - 0.35 * f, anchor: 'start' }, { x: L + 0.3 * (R - L), y: y + 1.05 * f, anchor: 'start' }] : [])] });
-      return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, isHeld ? null : sv('line', { x1: L, x2: R, y1: y, y2: y }), el);
+      return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, isHeld ? null : sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: y, y2: y }), el);
     });
     // (The x reading's cut-offs, upright and dashed the same way, each named over the plot, "15 kPa".)
     const xCutLabs = [];
     const xCuts = xCutsOf(t).filter((c) => c.v > G.x0 && c.v < G.x1).map((c) => {
       // (The HVPG 10 line is named for what it marks, "CSPH ≥10"; any other reads as its number and unit.)
-      const x = X(c.v), vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), nm = xCutName(G.ax.k, c.v), txt = nm ? `${nm} ≥${vtxt}` : `${vtxt} ${ax.unit}`.trim(), el = sv('text', { class: 'pcv-cut' }, txt);
+      const x = X(c.v), vtxt = fmt(c.v, Number.isInteger(c.v) ? 0 : 1), nm = xCutName(G.ax.k, c.v), txt = nm ? `${nm} ≥${vtxt}` : `${vtxt} ${ax.unit}`.trim(), el = sv('text', { class: 'pcv-cut', 'data-look': 'cv.cut', 'data-nomorph': '' }, txt);
       xCutLabs.push({ el, x, tw: 1.12 * cw(txt, f, true) });
       segs.push(Object.assign([x, T, x, B], { w: 5 }));
-      return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, sv('line', { x1: x, x2: x, y1: T - 0.2 * f, y2: B }), el);
+      return sv('g', { class: 'ptk-grid cut', 'data-rate': c.rate }, sv('line', { 'data-look': 'plot.grid.line', x1: x, x2: x, y1: T - 0.2 * f, y2: B }), el);
     });
     // (With the values in the key row each key reads "Varix 5.3 mm": its name, the case's value in bold, its unit, the same order on both sides.)
     const kv = [];
     const legend = G.keys.map((k, j) => { const right = j && G.oneRow, y = (j && !G.oneRow ? G.rowH : 0) + 0.75 * f, x0 = right ? G.w : 0;
-      const val = G.keyRead ? sv('tspan', { class: 'pcv-kv' }, ' ') : null;
+      const val = G.keyRead ? sv('tspan', { class: 'pcv-kv', 'data-look': 'cv.kv' }, ' ') : null;
       if (val) kv[j] = val;
       return sv('g', { class: 'pft-key', transform: `translate(${x0} ${y})` },
-        k.bare ? null : sv('line', { x1: right ? -16 : 0, x2: right ? 0 : 16, y1: 0, y2: 0, style: `stroke: var(${k.c})` }),
-        sv('text', { x: k.bare ? 0 : right ? -22 : 22, y: 0.36 * f, 'text-anchor': right ? 'end' : 'start', style: `fill: var(${k.c})` },
-          val ? [sv('tspan', {}, k.name), val, sv('tspan', { class: 'pft-u' }, k.unit)]
-            : right ? [sv('tspan', { class: 'pft-u' }, `${k.unit} `), sv('tspan', {}, k.name)] : [sv('tspan', {}, k.name), sv('tspan', { class: 'pft-u' }, ` ${k.unit}`)])); });
+        k.bare ? null : sv('line', { 'data-look': 'time.key.line', 'data-p-c': tokName(k.c), x1: right ? -16 : 0, x2: right ? 0 : 16, y1: 0, y2: 0 }),
+        sv('text', { 'data-look': 'time.key.text', 'data-p-c': tokName(k.c), x: k.bare ? 0 : right ? -22 : 22, y: 0.36 * f, 'text-anchor': right ? 'end' : 'start' },
+          val ? [sv('tspan', { 'data-look': 'time.span' }, k.name), val, sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, k.unit)]
+            : right ? [sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, `${k.unit} `), sv('tspan', { 'data-look': 'time.span' }, k.name)] : [sv('tspan', { 'data-look': 'time.span' }, k.name), sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, ` ${k.unit}`)])); });
     // (With against, a key of the lines kept hidden at the right of the key row: shown only when a chart is too cramped
     // for the lines' names on the drawing, a phone held sideways.)
     let alt = null;
     if (G.ag) {
-      let x = 0;
-      const ks = [...ls].reverse().map((l) => { const kw = 22 + 1.05 * cw(l.name, f, 1); x -= kw; const at = x; x -= f;
-        return sv('g', { transform: `translate(${at.toFixed(1)} 0)` }, sv('line', { x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : null, style: `stroke: var(${l.c})` }),
-          sv('text', { x: 22, y: 0.36 * f, style: `fill: var(${l.c})` }, l.name)); });
-      alt = sv('g', { class: 'pft-key pcv-alt off', transform: `translate(${G.w} ${(G.altBelow ? G.rowH : 0) + 0.75 * f})` }, ks);
+      // (Beside the reading, run in from the card's right edge in the lines' order; below it, in rows from the left edge, the way the reading above stands.)
+      const kw = (l) => 22 + 1.05 * cw(l.name, f, 1), at = ls.map(() => null);
+      if (G.altBelow) {
+        let x = G.altX - G.w; G.altFirst.forEach((j) => { at[j] = [x, -G.rowH]; x += kw(ls[j]) + f; });   // (on the reading's own row, a row up from the group)
+        G.altRows.forEach((row, r) => { let x = -G.w; row.forEach((j) => { at[j] = [x, r * G.rowH]; x += kw(ls[j]) + f; }); });
+      }
+      else { let x = 0; for (let j = ls.length - 1; j >= 0; j--) { x -= kw(ls[j]); at[j] = [x, 0]; x -= f; } }
+      // (Beside the reading the key of the lines stands left of the styles' key, which keeps the right end.)
+      const shift = G.sty && !G.styBelow && !G.altBelow ? G.sty.reduce((a, s) => a + 22 + 1.05 * cw(s, f, 1), 0) + 2 * f : 0;
+      const ks = ls.map((l, i) => sv('g', { transform: `translate(${(at[i][0] - shift).toFixed(1)} ${at[i][1].toFixed(1)})` }, sv('line', { 'data-look': 'time.key.line', 'data-p-c': tokName(l.c), x1: 0, x2: 16, y1: 0, y2: 0, class: l.ref ? 'pcv-ref' : l.dash ? 'pcv-dash' : null }),
+        sv('text', { 'data-look': 'time.key.text', 'data-p-c': tokName(l.c), x: 22, y: 0.36 * f }, l.name)));
+      alt = sv('g', { class: 'pft-key pcv-alt off', 'data-look': 'cv.alt', transform: `translate(${G.w} ${(G.altBelow ? G.rowH * (G.styBelow ? 2 : 1) : 0) + 0.75 * f})` }, ks);
     }
-    const axis = [sv('line', { class: 'pft-x', x1: L, x2: R, y1: B, y2: B }),
+    // (styles: a solid and a dashed swatch in the plain text colour, each with its name ("GRS open", "GRS closed"), at the right of the key row
+    // or on the row under the reading, from the left edge.)
+    let styKey = null;
+    if (G.sty) {
+      let x = 0;
+      const ks = G.sty.map((s, i) => { const g = sv('g', { transform: `translate(${x.toFixed(1)} 0)` }, sv('line', { 'data-look': 'time.key.line', 'data-p-c': 'text-2', x1: 0, x2: 16, y1: 0, y2: 0, class: i ? 'pcv-dash' : null }),
+        sv('text', { class: 'pcv-sty', 'data-look': 'time.key.text', 'data-p-c': 'text-2', x: 22, y: 0.36 * f }, s)); x += 22 + 1.05 * cw(s, f, 1) + f; return g; });
+      const wAll = x - f;
+      styKey = sv('g', { class: 'pft-key pcv-styles', transform: `translate(${(G.styBelow ? 0 : G.w - wAll).toFixed(1)} ${((G.styBelow ? G.rowH : 0) + 0.75 * f).toFixed(1)})` }, ks);
+    }
+    const axis = [sv('line', { class: 'pft-x', 'data-look': 'time.axis.line', x1: L, x2: R, y1: B, y2: B }),
       // (The two end numbers stand inside the plot's ends, clear of the corner numbers of the y axes.)
-      xt.map((x) => sv('text', { class: 'pft-tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmtTick(x, ax.d))),
+      xt.map((x) => sv('text', { class: 'pft-tk', 'data-look': 'time.tk', x: X(x), y: B + 1.25 * f, 'text-anchor': X(x) <= L + 1 ? 'start' : X(x) >= R - 1 ? 'end' : 'middle' }, fmtTick(x, ax.d))),
       // (The name on the numbers' row where it fits between them, else on a row of its own under them, xAxisRow.)
-      sv('text', { class: 'pcv-ax', x: G.nameAt ?? (L + R) / 2, y: B + (G.nameAt == null ? 2.6 : 1.25) * f, 'text-anchor': 'middle' }, xAxisName(ax))];
+      sv('text', { class: 'pcv-ax', 'data-look': 'cv.ax', x: G.nameAt ?? Math.max(8 + cw(xAxisName(ax), f, 1) / 2, Math.min(G.w - 8 - cw(xAxisName(ax), f, 1) / 2, (L + R) / 2)), y: B + (G.nameAt == null ? 2.6 : 1.25) * f, 'text-anchor': 'middle' }, xAxisName(ax))];
     const lines = ls.map((l, j) => {
       const Y = j && !G.one ? YR || YL : YL, ys = ser?.ys[j], xs = lineX(j);
       const d = ys ? ys.map((y, i) => (Number.isFinite(y) ? [X(xs[i]), Y(y)] : null)).filter(Boolean).map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') : '';
-      return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : ''}`, d, style: `stroke: var(${l.c})` }),
-        ring: sv('circle', { class: 'pcv-ring', r: Math.max(5, f * 0.45), style: `stroke: var(${l.c})` }),
-        val: sv('text', { class: 'pcv-v', style: `fill: var(${l.c})` }),
+      return { l, Y, path: sv('path', { class: `ptk-line pcv-line${l.ref ? ' pcv-ref' : l.dash ? ' pcv-dash' : ''}`, 'data-look': 'cv.line', 'data-p-c': tokName(l.c), d }),
+        ring: sv('circle', { class: 'pcv-ring off', 'data-look': 'cv.ring', 'data-p-c': tokName(l.c), r: Math.max(5, f * 0.45), 'data-nomorph': '' }),
+        // (Its pieces for a merged readout, "5.3 mm · 72 %": a separator and a value in each line's colour, built with the drawing, so a
+        // frame only gives them words, never builds them.)
+        val: sv('text', { class: 'pcv-v', 'data-look': 'cv.v', 'data-p-c': tokName(l.c), 'data-nomorph': '' },
+          ls.flatMap((q, i) => [i ? sv('tspan', { class: 'pcv-sep', 'data-look': 'cv.sep' }, '') : null, sv('tspan', { 'data-look': 'cv.vpart', 'data-p-c': tokName(q.c) }, '')]).filter(Boolean)),
         // (With against each line is named on the drawing, placed on every paint clear of the rings and the values.)
-        name: G.ag ? sv('text', { class: 'pcv-name', style: `fill: var(${l.c})` }, l.name) : null };
+        name: G.ag ? sv('text', { class: 'pcv-name', 'data-look': 'cv.name', 'data-p-c': tokName(l.c), 'data-nomorph': '' }, l.name) : null };
     });
     // (The other states as small filled points in their line's colour, named beside the first; a walk joins them in order.)
     const dr = Math.max(3.5, 0.3 * f), dotEls = [], walks = [];
     let nth = 0;
     const dotPts = dots.map((d) => {
       const at = ls.map((l, j) => { const p = dotXY(d, j, ls); return p ? [X(p[0]), (j && !G.one ? YR || YL : YL)(p[1])] : null; });
-      at.forEach((p, j) => { if (p) dotEls.push(sv('circle', { class: 'pcv-dot', cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: dr, style: `fill: var(${ls[j].c})` })); });
+      at.forEach((p, j) => { if (p) dotEls.push(sv('circle', { class: 'pcv-dot', 'data-look': 'cv.dot', 'data-p-c': tokName(ls[j].c), cx: p[0].toFixed(1), cy: p[1].toFixed(1), r: dr })); });
       const first = at.find(Boolean), num = d.name && first ? String(++nth) : '';
       // (With a key of steps the dot carries its number, and the name stands in the key.)
       const txt = G.stepKey && num ? num : d.name || '';
-      return { name: d.name ? sv('text', { class: `pcv-dname off${G.stepKey ? ' pcv-dnum' : ''}` }, txt) : null, lead: d.name ? sv('line', { class: 'pcv-lead off' }) : null, txt, full: d.name || '', at, first };
+      return { name: d.name ? sv('text', { class: `pcv-dname off${G.stepKey ? ' pcv-dnum' : ''}`, 'data-look': 'cv.dname', 'data-nomorph': '' }, txt) : null, lead: d.name ? sv('line', { class: 'pcv-lead off', 'data-look': 'cv.lead', 'data-nomorph': '' }) : null, txt, full: d.name || '', at, first };
     });
-    const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', x: it.x, y: B + G.foot + 1.3 * f + it.row * 1.5 * f },
-      sv('tspan', { class: 'pcv-sn' }, String(it.n)), ` ${it.name}`))) : null;
+    const stepsKey = G.stepKey?.rows ? sv('g', { class: 'pcv-steps' }, G.stepKey.items.map((it) => sv('text', { class: 'pcv-sk', 'data-look': 'cv.sk', x: it.x, y: B + G.foot + 1.3 * f + it.row * 1.5 * f },
+      sv('tspan', { class: 'pcv-sn', 'data-look': 'cv.sn' }, String(it.n)), ` ${it.name}`))) : null;
     const walkSets = walksOf(t), arrows = [];
     ls.forEach((l, j) => walkSets.forEach((g) => {
       const pts = g.map((i) => dotPts[i]?.at[j]).filter(Boolean);
-      if (pts.length > 1) walks.push(sv('path', { class: 'pcv-walk', d: pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join(''), style: `stroke: var(${l.c})` }));
+      if (pts.length > 1) walks.push(sv('path', { class: 'pcv-walk', 'data-look': 'cv.walk', 'data-p-c': tokName(l.c), d: pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`).join('') }));
       for (let i = 1; i < pts.length; i++) {
         // (The words keep off a walk's dotted line too, and off the arrowhead that shows which way it runs.)
         segs.push(Object.assign([pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]], { w: 2 }));
         const ar = walkArrow(pts[i - 1], pts[i], dr, f);
-        if (ar) { arrows.push(sv('path', { class: 'pcv-arrow', d: ar.d, style: `fill: var(${l.c})` })); segs.push(Object.assign(ar.seg, { w: 3 })); }
+        if (ar) { arrows.push(sv('path', { class: 'pcv-arrow', 'data-look': 'cv.arrow', 'data-p-c': tokName(l.c), d: ar.d })); segs.push(Object.assign(ar.seg, { w: 3 })); }
       }
     }));
     for (const d of dotPts) for (const p of d.at) if (p) segs.push(Object.assign([p[0] - dr, p[1], p[0] + dr, p[1]], { w: 3 }));
     // (With a reading on x the case stands out by its rings: its mark is only a short tick on the x axis, not a second upright dashed line.)
-    const xk = xKeyOf(t), at = sv('line', { class: xk ? 'pcv-at pcv-atx' : 'pcv-at', y1: xk ? B - 0.8 * f : T - 0.4 * f, y2: B });
+    const xk = xKeyOf(t), at = sv('line', { class: xk ? 'pcv-at pcv-atx' : 'pcv-at', 'data-look': 'cv.at', y1: xk ? B - 0.8 * f : T - 0.4 * f, y2: B, 'data-nomorph': '' });
     // (The panel under everything: from just under the key row to under the axis's name, the chart's full width.)
     const panel = plotPanel(sv, 0, G.keyH + 0.2 * f, G.w, B + G.foot - (G.keyH + 0.2 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${f.toFixed(2)}px` },
-      sv('defs', {}, panel.clip), panel.back, zone, grid, cuts, xCuts, legend, alt, axis, stepsKey, at, walks, arrows, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
+      sv('defs', {}, panel.clip), panel.back, zone, grid, cuts, xCuts, legend, alt, styKey, axis, stepsKey, at, walks, arrows, lines.map((x) => x.path), dotPts.map((d) => d.lead), dotEls, dotPts.map((d) => d.name), lines.map((x) => [x.ring, x.val, x.name]));
     svg.dataset.points = ser ? String(ser.xs.length) : '0';   // (the browser checks read it: 0 until the curve is ready)
     // (What a ring's value keeps clear of: the cut-offs and their names, the x axis, the data lines. A value on a cut-off
     // line reads as that line's name, so it would sooner cross a data line or another word.)
-    const obstacles = { segs, cutLabs, xCutLabs, dotPts, zoneLab, cutBounds: [L, T - 1.2 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.filter((c) => !held(c)).map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f], inside: [0, 0, G.w, G.h] };
+    const obstacles = { segs, cutLabs, xCutLabs, dotPts, zoneLab, cutBounds: [L, T - 0.1 * f, R, B - 0.1 * f], boxes: [], lines: [...cutVs.filter((c) => !held(c)).map((c) => ({ y: YL(c.v), x0: L, x1: R, w: 5 })), { y: B, x0: L, x1: R }], bounds: [L + 1, T - 1.3 * f, R - 1, B - 0.15 * f], inside: [0, 0, G.w, G.h] };
     return { svg, lines, at, xk: !!xk, kv, obstacles, alt };
   }
   // The rings at r: each on its line at the case's setting, its value beside it (left of it near the right edge, and the
@@ -771,15 +812,16 @@ export function createCurve() {
   function paint(r) {
     if (!parts || !r) return;
     const ok = Number.isFinite(r.x), cx = ok ? X(clamp(r.x, Math.min(G.x0, G.x1), Math.max(G.x0, G.x1))) : 0, f = G.f;
-    parts.at.setAttribute('x1', cx.toFixed(1)); parts.at.setAttribute('x2', cx.toFixed(1));
-    parts.at.classList.toggle('off', !ok);
+    setGeo(parts.at, 'x1', cx); setGeo(parts.at, 'x2', cx);
+    restClass(parts.at, 'off', !ok);
     parts.svg.dataset.ring = ok ? [r.x, ...r.ys.map((v) => (Number.isFinite(v) ? v.toFixed(2) : ''))].join(' ') + (goal?.on ? ' curve' : ' live') : '';   // (the browser checks read it)
     const left = cx > (G.L + G.R) / 2, fs = 1.1 * f, rr = Math.max(5, f * 0.45) + 2;
-    const cys = parts.lines.map((p, j) => (ok && Number.isFinite(r.ys[j]) ? p.Y(r.ys[j]) : null));
+    const cys = parts.lines.map(() => null);   // (no ring or value for the current state on any chart: his 29 Oct; the case is still read into data-ring)
     // (Each value takes the first spot beside its ring that lands on nothing: the data lines, the cut-off lines, the x axis,
     // the dashed line through the rings, both rings and the other value; the side away from the nearer edge first.)
     const ob = parts.obstacles, dr = Math.max(3.5, 0.3 * f) + 2;
-    const boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok && !parts.xk ? [[cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : []),
+    // (With a reading on x the case's mark is the short tick on the x axis: no word stands on it.)
+    const boxes = [...cys.filter((y) => y != null).map((y) => [cx - rr, y - rr, cx + rr, y + rr]), ...(ok ? [parts.xk ? [cx - 1.5, G.B - 0.8 * f, cx + 1.5, G.B] : [cx - 1.5, G.T - 0.4 * f, cx + 1.5, G.B]] : []),
       ...ob.dotPts.flatMap((d) => d.at.filter(Boolean).map(([x, y]) => [x - dr, y - dr, x + dr, y + dr]))];
     // (With against the upper ring's value is placed first, level with its ring or over it, and the lower one's under the
     // first value, so the two read in the same order as their rings.)
@@ -796,15 +838,25 @@ export function createCurve() {
       const lead = merge && j === ringed[0], gone = merge && on && !lead;   // (the first line's value carries both)
       const cyP = lead ? (cys[ringed[0]] + cys[ringed[1]]) / 2 : cy;
       p.ring.setAttribute('cx', cx.toFixed(1)); p.ring.setAttribute('cy', cy.toFixed(1));
-      p.ring.classList.toggle('off', !on); p.val.classList.toggle('off', !on || gone || G.keyRead);
+      restClass(p.ring, 'off', !on); restClass(p.val, 'off', !on || gone || G.keyRead);
       // (The value goes into its key, the ring alone on the chart.)
-      if (G.keyRead) { const kt = on ? ` ${fmt(v, p.l.d)} ` : ' '; if (parts.kv[j] && parts.kv[j].textContent !== kt) parts.kv[j].textContent = kt; return; }
+      if (G.keyRead) { const kt = on ? ` ${fmt(v, p.l.d)} ` : ' '; if (parts.kv[j]) setWords(parts.kv[j], kt); return; }
       const pieces = lead ? ringed.map((jj) => ({ c: parts.lines[jj].l.c, t: `${fmt(r.ys[jj], parts.lines[jj].l.d)} ${shortUnit(parts.lines[jj].l.unit)}` })) : null;
       const txt = lead ? pieces.map((q) => q.t).join(' · ') : on && !gone ? (G.ag ? fmt(v, p.l.d) : `${fmt(v, p.l.d)} ${p.l.unit}`) : '';   // (with against the key carries the unit)
       if (p.val.dataset.k !== txt) {
         p.val.dataset.k = txt;
-        if (pieces) p.val.replaceChildren(...pieces.flatMap((q, i) => [i ? sv('tspan', { class: 'pcv-sep' }, ' · ') : null, sv('tspan', { style: `fill: var(${q.c})` }, q.t)]).filter(Boolean));
-        else p.val.textContent = txt;
+        if (pieces) {
+          // (The merged lines' own pieces take their words, every other piece none: the order is the lines', as ringed is.)
+          p.val._t = null;
+          const ts = [...p.val.children], on2 = new Set(ringed);
+          let first = true;
+          parts.lines.forEach((q, jj) => {
+            const vEl = ts[jj ? 2 * jj : 0], sEl = jj ? ts[2 * jj - 1] : null, has = on2.has(jj);
+            setWords(vEl, has ? `${fmt(r.ys[jj], q.l.d)} ${shortUnit(q.l.unit)}` : '');
+            if (sEl) setWords(sEl, has && !first ? ' · ' : '');
+            if (has) first = false;
+          });
+        } else setWords(p.val, txt);
       }
       if (!on || gone) return;
       const cands = [];
@@ -827,7 +879,7 @@ export function createCurve() {
       boxes.push(pl.box);
       if (G.ag) { boxes.push(pl.box); if (n === 0) upperY = pl.y; }   // (two values side by side read as one: landing on the other costs double)
       p.val.setAttribute('x', pl.x.toFixed(1)); p.val.setAttribute('y', pl.y.toFixed(1)); p.val.setAttribute('text-anchor', pl.anchor);
-      p.val.classList.toggle('on', pl.n > 0);   // (no clear spot on a cramped chart: the lines stop round the words)
+      restClass(p.val, 'on', pl.n > 0);   // (no clear spot on a cramped chart: the lines stop round the words)
     });
     // (With against, each line's name on the drawing beside its own line, after the values: the first clear spot along it,
     // over the line, then under it.)
@@ -837,8 +889,8 @@ export function createCurve() {
       const ys = ser.ys[j], xs = lineX(j), tw = 1.12 * cw(p.l.name, f, true), cands = [];
       // (Over a rising line the words sit up and to the left of a point, under it down and to the right, where the line is
       // away from them; over a falling line the other way round.)
-      // (Every point of the line, nearest the middle first.)
-      const mid = 0.45 * (xs.length - 1), at = xs.map((_, i) => i).sort((a, b) => Math.abs(a - mid) - Math.abs(b - mid));
+      // (Every point of the line, from its right end back: a name stands at the end of its line when it can.)
+      const at = xs.map((_, i) => xs.length - 1 - i);
       for (const i of at) {
         const y = ys[i], x = X(xs[i]);
         if (!Number.isFinite(y)) continue;
@@ -860,8 +912,9 @@ export function createCurve() {
     // (Every name clear of everything, or none on the drawing: then the key at the top names the lines.)
     if (parts.alt) {
       const fits = !ser || (named.length > 0 && named.every(Boolean));
-      parts.lines.forEach((p) => p.name?.classList.toggle('off', !ser || !fits));
-      parts.alt.classList.toggle('off', fits);
+      parts.lines.forEach((p) => { if (p.name) restClass(p.name, 'off', !ser || !fits); });
+      restClass(parts.alt, 'off', fits);
+      parts.fits = fits;
     }
     // (The x cut-offs' names over the plot, on their line's top: centred, else to its right or left, clear of each other and of
     // the dashed line through the rings. Before the dots' names, which have sixteen ways round their dots to keep clear of one.)
@@ -879,14 +932,14 @@ export function createCurve() {
     nd.forEach((d, i) => {
       const pl = spots[i];
       d.name.setAttribute('x', pl.x.toFixed(1)); d.name.setAttribute('y', pl.y.toFixed(1)); d.name.setAttribute('text-anchor', pl.anchor);
-      d.name.classList.toggle('off', !pl.ok);
+      restClass(d.name, 'off', !pl.ok);
       if (pl.lead && d.lead) for (const [k, v] of [['x1', pl.lead[0]], ['y1', pl.lead[1]], ['x2', pl.lead[2]], ['y2', pl.lead[3]]]) d.lead.setAttribute(k, v.toFixed(1));
-      d.lead?.classList.toggle('off', !pl.lead);
+      if (d.lead) restClass(d.lead, 'off', !pl.lead);
       if (pl.ok) { boxes.push(pl.box); if (pl.lead) leads.push(Object.assign([...pl.lead], { w: 2 })); }
     });
     // (The zone's name inside it, low and away from the lines: the right corner, else the left.)
     if (ob.zoneLab) {
-      const tw = 1.1 * cw(ob.zoneLab.textContent, f, true), cands = [];
+      const tw = 1.1 * cw(wordsOf(ob.zoneLab), f, true), cands = [];
       for (const dy of [0.7, 1.9, 3.1]) cands.push({ x: G.R - 0.6 * f, y: G.B - dy * f, anchor: 'end' }, { x: G.L + 0.6 * f, y: G.B - dy * f, anchor: 'start' }, { x: (G.L + G.R) / 2, y: G.B - dy * f, anchor: 'middle' });
       const pl = placeWord(cands, tw, f, { ...ob, boxes });
       boxes.push(pl.box);
@@ -895,11 +948,23 @@ export function createCurve() {
     // (The cut-offs' names after the values: a value belongs by its ring, a name can go to either end or onto its line.)
     for (const c of ob.cutLabs) {
       // (If both ends are taken, beside the dashed line: just left of it, or just right.)
+      // (The dashed line's name on its clear side: just above it, at the end of the plot with the fewest data lines near it, and nudged
+      // up in half-line steps until a data line is half a text height off; else the old spots.)
+      const ly = c.cands[0].y + 0.35 * f, endN = (x0, x1) => ob.segs.filter((q) => q.w == null && segHits(q, [x0, ly - 2 * f, x1, ly + 2 * f])).length;
+      const rN = endN(G.R - c.tw - 3, G.R), lN = endN(G.L, G.L + c.tw + 3), ends = lN < rN ? [['start', G.L + 3], ['end', G.R - 3]] : [['end', G.R - 3], ['start', G.L + 3]];
+      const clear = ends.flatMap(([anchor, x]) => [0.4, 0.9, 1.4].map((d) => ({ x, y: ly - d * f, anchor })));
       const near = ok ? c.cands.filter((q) => q.anchor === 'end').flatMap((q) => [{ ...q, x: cx - 0.5 * f, anchor: 'end' }, { ...q, x: cx + 0.5 * f, anchor: 'start' }]) : [];
-      const p = placeWord([...c.cands, ...near], c.tw, f, { segs: [...ob.segs, ...leads], boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside });
+      const obs = { segs: [...ob.segs, ...leads], boxes, bounds: ob.cutBounds, lines: c.lines, inside: ob.inside, boxW: 8 };
+      const cs = [...clear, ...c.cands, ...near];
+      let p = placeWord(cs, c.tw, f, { ...obs, segPad: 0.5 * f }), short = false;
+      if (p.n) { const q = placeWord(cs, c.tw, f, obs); if (q.n < p.n) p = q; }
+      // (A name with no clear spot (a word, a line or the edge in its way) stands as its number where that does better; and once a drawing has made it a
+      // number it stays one, as the rings glide, so it never flips between the two.)
+      if (c.short && (c.useShort || p.n > 0)) { const q = placeWord([...clear, ...c.cands, ...near], c.twS, f, obs); if (c.useShort || q.n < p.n) { p = q; short = true; c.useShort = true; } }
+      setWords(c.el, short ? c.short : c.txt);
       boxes.push(p.box);
       c.el.setAttribute('x', p.x.toFixed(1)); c.el.setAttribute('y', p.y.toFixed(1)); c.el.setAttribute('text-anchor', p.anchor);
-      c.el.classList.toggle('on', !!p.on);
+      restClass(c.el, 'on', !!p.on);
     }
     const ax = G.ax;
     parts.svg.setAttribute('aria-label', `${parts.lines.map((p) => p.l.name).join(' and ')} against ${ax.name.toLowerCase()}, ${fmt(G.x0, ax.d)} to ${fmt(G.x1, ax.d)} ${ax.unit}`
@@ -919,39 +984,73 @@ export function createCurve() {
     const sp = placeDotNames(nd.map((d) => ({ x: d.first[0], y: d.first[1], w: 1.08 * cw(d.full, f, true) })), f, half, { ...ob, boxes, lines: ob.lines.map((l) => ({ ...l, w: 3 })) });
     return namesCrowded(sp, f);
   }
-  // The rings glide after their goal (never a jump).
+  // The rings glide after their goal (never a jump). A frame of the glide moves the dashed line through the rings and nothing else, with no
+  // object or string made (2 Nov 2026, zero-allocation pass): the words round it (the values, the cut-offs' and the dots' names, the key)
+  // are placed once at the goal, in a rest pass between frames (settle), so they stand still and the line glides across the plot.
+  const ringBuf = { x: NaN, ys: [] };   // (the glide's own place, kept and written in place; `ring` is this, or the goal once it has arrived)
+  function moveAt(r) {
+    if (!parts || !G || !r) return;
+    const x = Number.isFinite(r.x) ? X(clamp(r.x, Math.min(G.x0, G.x1), Math.max(G.x0, G.x1))) : 0;
+    setGeo(parts.at, 'x1', x); setGeo(parts.at, 'x2', x);
+  }
   function tick() {
     raf = 0;
     if (!goal) return;
-    const k = reduceMQ.matches || !ring ? 1 : 0.18, mix = (a, b) => (Number.isFinite(a) && Number.isFinite(b) ? a + (b - a) * k : b);
-    ring = { x: mix(ring?.x, goal.x), ys: goal.ys.map((y, j) => mix(ring?.ys[j], y)) };
-    const near = Math.abs((ring.x ?? 0) - (goal.x ?? 0)) < 1e-3 * Math.abs((G?.x1 ?? 1) - (G?.x0 ?? 0)) && ring.ys.every((y, j) => !Number.isFinite(y) || Math.abs(y - goal.ys[j]) < 0.005);
-    if (near) ring = goal;
-    paint(ring);
+    const from = ring, k = reduceMQ.matches || !from ? 1 : 0.18, rb = ringBuf, n = goal.ys.length;
+    if (rb.ys.length !== n) rb.ys.length = n;
+    // (A reading that is not a number is taken straight to the goal's, as before.)
+    const fx = from ? from.x : NaN;
+    rb.x = Number.isFinite(fx) && Number.isFinite(goal.x) ? fx + (goal.x - fx) * k : goal.x;
+    let near = Math.abs((rb.x ?? 0) - (goal.x ?? 0)) < 1e-3 * Math.abs((G?.x1 ?? 1) - (G?.x0 ?? 0));
+    for (let j = 0; j < n; j++) {
+      const a = from ? from.ys[j] : NaN, b = goal.ys[j];
+      const y = Number.isFinite(a) && Number.isFinite(b) ? a + (b - a) * k : b;
+      rb.ys[j] = y;
+      if (Number.isFinite(y) && !(Math.abs(y - b) < 0.005)) near = false;
+    }
+    ring = near ? goal : rb;
+    moveAt(ring);
+    gl.paint();   // (the picture draws the moved line in this same frame)
     if (ring !== goal) raf = nextFrame(tick);
+  }
+  // The words placed at the goal, between frames: asked for once however many aims came before it runs.
+  function settle() {
+    settleId = 0;
+    if (!parts || !goal || !t) return;
+    paint(goal);
+    // (With against, a chart whose lines' names found no clear spot is drawn again with the key of the lines above the plot.)
+    if (G?.ag && !altNow && parts.fits === false) { altNow = true; redraw(false); }
+    if (ring && ring !== goal) moveAt(ring);   // (a glide still on its way: its line is where it has got to)
+    gl.paint();
   }
   // A new chart (a new curve, or its points arriving) fades in over the old one.
   function redraw(fade) {
     if (!t) return;
     const [w, hh, f] = size(); lastSz = [w, hh, f].map(Math.round).join('x');
-    G = geo(w, hh, f);
+    G = geo(w, hh, f, false, altNow);
     const old = parts?.svg;
     parts = build();
     // (A crowd of names: numbers on the dots and a key under the chart, if the plot keeps its height; on a card too short for that the
     // names stay, and any with no clear spot is left out.)
-    if (needSteps()) { const g2 = geo(w, hh, f, true); if (g2.B - g2.T >= 5 * f) { G = g2; parts = build(); } }
-    if (fade && old) {
-      parts.svg.classList.add('in'); el.append(parts.svg);
-      nextFrame(() => nextFrame(() => parts?.svg.classList.remove('in')));
-      setTimeout(() => old.remove(), 480);
-    } else { el.replaceChildren(parts.svg); }
-    paint(ring || goal);
+    if (needSteps()) { const g2 = geo(w, hh, f, true, altNow); if (g2.B - g2.T >= 5 * f) { G = g2; parts = build(); } }
+    // (The lines' names are placed on every paint: if one finds no clear spot on the drawing, the chart is drawn again with the lines' key
+    // above the plot and rows for it, the plot a little shorter.)
+    paint(goal || ring);
+    if (G.ag && !altNow && parts.fits === false) { altNow = true; G = geo(w, hh, f, !!G.stepKey, true); parts = build(); }
+    // (A new chart takes over the old one's lines, gridlines and numbers, each gliding to its new place (svg-morph.js; the words the chart places on every
+    // paint and its rings are data-nomorph and fade); where that cannot be, it fades in over the old one.)
+    gl.show(parts.svg, !!(fade && old));
+    paint(goal || ring);
+    if (ring && ring !== goal) moveAt(ring);   // (a glide on its way: the line is where it has got to, the words stand at the goal)
+    gl.place(parts.svg);   // (its looks as this paint left them, as the page would first style it: nothing eased in)
   }
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => {
+  const remake = () => {
     if (!t || !parts || !el.isConnected) return;
     const sz = size().map(Math.round).join('x'); if (sz === lastSz) return;
+    altNow = false;
     redraw(false);
-  }).observe(el);
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(remake).observe(el);
 
   let aimed = null;
   function aim(params, fp) {
@@ -965,6 +1064,7 @@ export function createCurve() {
     // (With against, the other lines' rings are read from their curves at the case's x.)
     else if (ser && againstOf(t)) { const at = curveAt(ser, goal.x); goal = { x: goal.x, ys: goal.ys.map((y, j) => (j ? at?.[j] ?? null : y)) }; }
     if (!raf) raf = nextFrame(tick);
+    if (!settleId) settleId = restPass(settle);
   }
   async function fetchCurve(myKey, c) {
     const p = curveWork(t, c, myKey);
@@ -983,10 +1083,11 @@ export function createCurve() {
       const k2 = curveKey(tool, c);
       t = tool; ctx = c || null;
       if (k2 !== key) {
-        key = k2; ser = null; dots = []; ring = null; aimed = null;
+        const have = haveOf(tool, c);
+        key = k2; ser = have?.s ?? null; dots = have?.dd ?? []; ring = null; aimed = null; altNow = false;
         goal = ringAt(t, ctx?.params, ctx?.fp);
         redraw(!!parts);
-        if (ctx) fetchCurve(key, ctx);
+        if (have) { if (againstOf(t)) aim(ctx.params, ctx.fp); } else if (ctx) fetchCurve(key, ctx);
       } else {
         aim(ctx?.params, ctx?.fp);
         if (!ser && ctx) fetchCurve(key, ctx);
@@ -999,6 +1100,8 @@ export function createCurve() {
       aim(fp === ctx.fp ? ctx.params : ctx.liveParams?.() || ctx.params, fp);
     },
     update() {}, clear() {},
-    dispose() { t = null; ctx = null; parts = null; el.replaceChildren(); },
+    /** The card has fitted: drawn again if its zoom, and so the chart's type, is not what it was drawn at (the observer does not see a zoom). */
+    refit: remake,
+    dispose() { t = null; ctx = null; parts = null; gl.dispose(); el.replaceChildren(); },
   };
 }

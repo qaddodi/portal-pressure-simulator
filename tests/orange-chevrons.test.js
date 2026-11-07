@@ -24,7 +24,7 @@ test('every theme’s reversed orange, and the heat ramp’s orange, count as or
 });
 
 test('teal, wine, red, yellow, blue and grey vessels keep their chevrons', () => {
-  for (const c of [...tok('--flow-normal'), '#661030', '#9B2B6A', '#D7263D', '#C8414D', '#F4D35E', '#718EDF', '#96989F', '#3FA092'])
+  for (const c of [...tok('--flow-normal'), '#661030', '#9B2B6A', '#680C2F', '#A4216E', '#925CDD', '#6787E8', '#D7263D', '#C8414D', '#F4D35E', '#718EDF', '#96989F', '#3FA092'])
     assert.ok(chevOrange(hex(c)) < 0.05, `${c}: ${chevOrange(hex(c))}`);
 });
 
@@ -32,7 +32,7 @@ test('the cream head and deep rim are by the eased reversed flag and the vessel 
   assert.match(GL, /float warm = rv \* chevOrange\(vc\);/);
   assert.match(GL, /col = mix\(col, mix\(inkLight, vc \* 0\.45, warm\), c\.y/);
   assert.match(GL, /col = mix\(col, mix\(mix\(ink, revCol, rv\), chevLight, warm\), c\.x/);
-  assert.match(GL, /gl\.uniform3f\(U\.chevLight, /);
+  assert.match(GL, /UC\.f3a\(U\.chevLight, /);
   assert.match(UTIL, /chevLight: cssRGB01\('--blood-chevron-light'\)/);
   const cream = hex(tok('--blood-chevron-light')[0]);
   assert.ok(0.299 * cream.r + 0.587 * cream.g + 0.114 * cream.b > 0.9, 'near white');

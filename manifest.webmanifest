@@ -5,7 +5,7 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#FBFAF7",
+  "background_color": "#F1EBE0",
   "theme_color": "#16181D",
   "lang": "en",
   "categories": ["education", "medical"],

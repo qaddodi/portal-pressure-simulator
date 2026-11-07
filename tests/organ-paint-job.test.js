@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createOrganPaint } from '../src/ui/organ-paint.js';
@@ -43,9 +44,10 @@ test("a picture's job paints one op a step, through nested groups, and lays each
   const spec = { ops: [square(0, 0), square(20, 0), group([square(0, 20), group([square(10, 30)], 0.4), square(20, 20)]), square(40, 40)], opacity: 1, mask: null, root: null };
   const job = p.bakeJob(spec, ID, 100, 100, { fb: 1 });
   const results = withClock(() => { const r = []; for (let i = 0; i < 20 && r.at(-1) !== 'done'; i++) r.push(job.step(performance.now() + 5)); return r; });
-  // Seven ops (four shapes at the top, the group, three inside it with the inner group, one inside that): one a step.
-  assert.equal(results.length, 8, results.join());
-  assert.deepEqual(results.slice(0, -1), Array(7).fill('more'));
+  // Seven ops (four shapes at the top, the group, three inside it with the inner group, one inside that) and the two nested layers'
+  // composites, each a unit of its own (recs-production-120hz §15): one a step.
+  assert.equal(results.length, 10, results.join());
+  assert.deepEqual(results.slice(0, -1), Array(9).fill('more'));
   assert.equal(results.at(-1), 'done');
   assert.equal(shape.log.filter((l) => l[0] === 'fill').length, 6, 'every shape painted once');
   assert.equal(count(calls, 'drawArrays'), 6 + 2, 'six shapes painted over their targets, two nested layers laid');
@@ -77,8 +79,9 @@ test('a picture group with an opacity of its own is painted in a layer, a few op
   const { gl, calls } = fakeGL(), shape = fakeShape(), p = createOrganPaint(gl, shape);
   const spec = { ops: [square(0, 0), square(10, 0), square(20, 0)], opacity: 0.6, mask: null, root: null };
   const job = p.bakeJob(spec, ID, 100, 100, {});
-  const r = withClock(() => [job.step(performance.now() + 5), job.step(performance.now() + 5), job.step(performance.now() + 5)]);
-  assert.deepEqual(r, ['more', 'more', 'done']);
+  // (Three shapes and the layer's composite, each a unit of its own: recs-production-120hz §15.)
+  const r = withClock(() => { const out = []; for (let i = 0; i < 8 && out.at(-1) !== 'done'; i++) out.push(job.step(performance.now() + 5)); return out; });
+  assert.deepEqual(r, ['more', 'more', 'more', 'done']);
   const lays = calls.filter((c) => c[0] === 'uniform1f').map((c) => c[2]).filter((v) => v === 0.6);
   assert.equal(lays.length, 1, 'laid once, with its opacity');
 });
@@ -148,7 +151,25 @@ test("the painter's targets stay within the room the canvas gives them, however 
 
 test("the view's sharp picture keeps its sides within the painter's room beside the canvas", async () => {
   const { readFileSync } = await import('node:fs');
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  assert.match(src, /const room = targetRoom\(vCanvas\.width, vCanvas\.height\);/);
-  assert.match(src, /room \/ \(Math\.max\(1, vCanvas\.height\) \* \(x1 - x0\)\), room \/ \(Math\.max\(1, vCanvas\.width\) \* \(y1 - y0\)\)\);/);
+  const src = stageSource();
+  // (The picture's size: the canvas's, or under Sharper upscaling the smaller picture drawn under it.)
+  assert.match(src, /const roomW = (?:live\.)?(?:live\.)?picNow \? (?:live\.)?(?:live\.)?picNow\[0\] : vCanvas\.width, roomH = (?:live\.)?(?:live\.)?picNow \? (?:live\.)?(?:live\.)?picNow\[1\] : vCanvas\.height;[^\n]*\n\s+const room = targetRoom\(roomW, roomH\);/);
+  assert.match(src, /room \/ \(Math\.max\(1, roomH\) \* \(x1 - x0\)\), room \/ \(Math\.max\(1, roomW\) \* \(y1 - y0\)\)\);/);
+});
+
+test('a non-scaling stroke is painted at its width in the page\'s px, whatever its frame; any other stroke at its own', () => {
+  const { gl } = fakeGL(), log = [];
+  const shape = { ...fakeShape(), stroke: (mesh, m, sz, mask, w) => log.push(w) };
+  const p = createOrganPaint(gl, shape);
+  const line = (nss) => ({ geom: { poly: [{ pts: new Float32Array([0, 0, 10, 0]), closed: false }] }, m: ID, kind: 'stroke', paint: { solid: [0, 0, 0, 1] }, alpha: 1, w: 1.6, cap: 1, clip: null, ...(nss ? { nss: true } : {}) });
+  const spec = { ops: [line(true), line(false)], opacity: 1, mask: null, root: null };
+  // The world at 4 device px a unit, on a 3x screen: 1.6 page px = 4.8 device px = 1.2 units; the plain stroke stays 1.6 units.
+  p.cssPx = 3;
+  p.paintGroup(spec, [4, 0, 0, 4, 0, 0], 200, 200, null);
+  assert.deepEqual(log, [1.2000000000000002, 1.6]);
+  log.length = 0;
+  p.cssPx = 0;   // (none given: 1)
+  assert.equal(p.cssPx, 1);
+  p.paintGroup(spec, [2, 0, 0, 2, 0, 0], 200, 200, null);
+  assert.deepEqual(log, [0.8, 1.6]);
 });

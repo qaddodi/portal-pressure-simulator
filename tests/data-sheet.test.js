@@ -1,14 +1,15 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
 // A phone's data card has three states and no Show or Hide (Mohammad, 17 Oct, round 2 A): partly open with its second part on a
 // sheet whose edge shows under the card, fully open with the sheet flush, and closed to its edges at the top.
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-const js = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const js = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 
 test('a phone instrument card shows the instrument first, its readings on a sheet whose edge carries the handle', () => {
-  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright, and stacked under the words on a wide screen: on its side the card shows everything');
   assert.match(js, /const wide = cardOn && !low;/, 'never a phone on its side');
   assert.match(js, /dd0\.classList\.toggle\('pz-sheet', sheet\);/);
   assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/, 'each slide arrives partly open');
@@ -71,7 +72,7 @@ test('a sideways phone shows the compact instrument and its tiles together, no s
 // test all deck's clot slide on an iPhone, 19 Oct). Only that card: the closed Tests sheet and Details panel are hidden by
 // visibility too, and counted, the app opened on every screen size framed small, as if a sheet stood over the figure (19 Oct).)
 test('a sheet card waiting unseen for its entry still counts where it rests; a closed sheet or panel never does', () => {
-  const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const stage = stageSource();
   const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-hide \{ opacity: 1; visibility: hidden;/, 'the case this guards');
   assert.match(js, /class: 'pz-data stage-blocker pz-hide', 'data-safe': 'right', 'data-safe-rest': '', 'data-safe-waits': ''/);
@@ -92,7 +93,7 @@ test('a sheet card waiting unseen for its entry still counts where it rests; a c
     assert.equal(unseenCard(piece('hidden', { safe: 'top', safeRest: '', safeWaits: '' }, cv)), false, 'the slide data card waiting: counted');
     assert.equal(unseenCard(piece('visible', { safe: 'top' }, cv)), false);
   }
-  assert.equal((stage.match(/if \(unseenCard\(el\)\) continue;/g) || []).length, 2, 'both the camera (safeInsets) and the card space (cardSpace)');
+  assert.equal((stage.match(/if \(unseenCard\(el\)\) continue;/g) || []).length, 1, 'once, in the cards\' snapshot both the camera (safeInsets) and the card space (cardSpace) are worked out from');
   assert.doesNotMatch(stage, /^\s*if \(el\.checkVisibility \? !el\.checkVisibility\(\{ visibilityProperty: true \}\)/m);
 });
 
@@ -105,9 +106,9 @@ test('pulling the readings out of a stacked card never closes the card', () => {
 });
 
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 9): the stacked card's monitor was taller with its readings tucked than out.
-test('a stacked card keeps one size with its readings tucked or out: it is fitted with them out', () => {
-  assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);\n\s*if \(under\) el\.classList\.add\('tool-open'\);/);
-  assert.match(js, /if \(under\) \{ el\.classList\.remove\('tool-open'\); ui\.lipMO\?\.takeRecords\(\); \}\n\s*if \(stacked\) \{ el\.style\.removeProperty\('--pz-grow'\); ui\.lipMO\?\.takeRecords\(\); \}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
+test('a stacked card keeps one size with its readings tucked or out: it is fitted with them tucked', () => {
+  assert.match(js, /const split = el === ui\.data && splitSheet\(el\);\n\s*const wasOpen = split && el\.classList\.contains\('tool-open'\), wasU = split \? el\.style\.getPropertyValue\('--pz-u'\) : '';\n\s*if \(split\) \{ el\.classList\.remove\('tool-open'\);/);
+  assert.match(js, /if \(split\) \{\n\s*measureUnder\(el\);[^\n]*\n\s*if \(wasOpen\) el\.classList\.add\('tool-open'\);\n\s*if \(wasU\) el\.style\.setProperty\('--pz-u', wasU\);\n\s*ui\.lipMO\?\.takeRecords\(\);\n\s*\}\n\s*fitDone\.set\(el, fitSig\(el\)\);/);
 });
 
 // Mohammad, 20 Oct (iPhone, TIPS Doppler 3, "With TIPS"): tucking the readings away, the instrument card's glass cut through the
@@ -116,10 +117,11 @@ test('a stacked card keeps one size with its readings tucked or out: it is fitte
 test('a stacked card\'s cap grows with its readings while they slide, so its glass never cuts the instrument', () => {
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.pz-sliding:not\(\.tool-open\) \{ --pz-grow: calc\(var\(--pz-u\) \* var\(--pz-d, 0px\)\); \}/, 'mid-slide the cap grows by the share of the readings that is out');
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.pz-sheet\.tool-open \{ --pz-grow: var\(--pz-d, 0px\); \}/, 'out, by all of them');
-  assert.match(js, /const capT = roomT > 0 \? \(tuck === 'none' \? `\$\{roomT\}px` : `min\(\$\{tuck\}, \$\{roomT\}px\)`\) : tuck;\n\s*if \(roomO > 0\) dd\.style\.maxHeight = capT === 'none' \? `\$\{roomO\}px` : `min\(calc\(\$\{capT\} \+ var\(--pz-grow, 0px\)\), \$\{roomO\}px\)`;/, 'the phone\'s cap takes it, never past the opened card\'s room, even with no tucked room left');
+  assert.match(js, /const capT = roomT > 0 \? \(tuck === 'none' \? `\$\{roomT\}px` : `min\(\$\{tuck\}, \$\{roomT\}px\)`\) : tuck;\n(?:\s*\/\/ alloc-rare[^\n]*\n)*\s*if \(roomO > 0\) dd\.style\.maxHeight = capT === 'none' \? `\$\{roomO\}px` : `min\(calc\(\$\{capT\} \+ var\(--pz-grow, 0px\)\), \$\{roomO\}px\)`;/, 'the phone\'s cap takes it, never past the opened card\'s room, even with no tucked room left');
   assert.doesNotMatch(js, /if \(roomT > 0\) dd\.style\.maxHeight/, 'an opened card is capped at its room whatever room the tucked card has');
   // (Fitted at rest, never mid-slide: fitCards' stacked fit runs only without .pz-sliding.)
-  assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
+  assert.match(js, /const split = el === ui\.data && splitSheet\(el\);/);
+  assert.match(js, /const ovOf = \(e\) => \{ if \(split\) measureUnder\(e\); return overflowOf\(e\); \};/, 'its travel is measured at each trial fit, never before the plan');
 });
 
 // Mohammad, 20 Oct (iPhone, Sites 3): opening the stacked cards, the upper card grew and its chart snapped to the new size. Open, the
@@ -130,7 +132,8 @@ test('a stacked card is fitted against its tucked cap whether its readings are o
   assert.match(css, /\.pz\.stack\.stack \.pz-data\.pz-sheet\.has-tool\.tool-open \{ max-height: calc\(var\(--pz-cap\) \+ var\(--pz-d, 0px\)\); \}/);
   assert.match(js, /const tuck = cs\.getPropertyValue\('--pz-cap'\)\.trim\(\) \|\| 'none';/);
   assert.match(js, /const roomT = Math\.floor\(base - LIP - \(phoneCap != null && !phoneShut \? Math\.max\(0, phoneFig \/ k - LIP - 2\) : 0\)\), roomO = Math\.floor\(base\);/, 'the tucked room whatever state the readings are in');
-  assert.match(js, /const stacked = el === ui\.data && splitSheet\(el\);\n\s*if \(stacked\) el\.style\.setProperty\('--pz-grow', 'var\(--pz-d, 0px\)'\);/, 'fitted against the cap it has with the readings out, in either state');
+  assert.doesNotMatch(js, /style\.setProperty\('--pz-grow'/, 'no pretend open: the fit never feeds the readings back into the cap it is fitted against');
+  assert.doesNotMatch(js, /const under = el === ui\.data/, 'fitted tucked in either state');
 });
 
 // Mohammad, 20 Oct (iPhone, One year 8, the abdomen card): opening the stacked cards slowly, the readings' card flickered over the
@@ -219,9 +222,9 @@ test('a phone\'s ladder keeps its full size, so its brackets stay inside the plo
 test('every ladder shows its card title and its three zones\' names, with no key, mmHg in the bottom row and Healthy named on its line', () => {
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.doesNotMatch(prof, /keyFit|ppf-key/, 'no key');
-  assert.match(prof, /sv\('text', \{ class: 'ptk-unit', x: 0, y: G\.braceY \+ 1\.55 \* f \}, 'mmHg'\)/, 'mmHg level with the brace\'s name');
+  assert.match(prof, /sv\('text', \{ class: 'ptk-unit', 'data-look': 'plot\.unit', x: 0, y: G\.braceY \+ 1\.55 \* f \}, 'mmHg'\)/, 'mmHg level with the brace\'s name');
   assert.doesNotMatch(prof, /liverLabel/, 'no per-slide option: one look on every ladder');
-  assert.match(prof, /G\.zone\.lines \? ls\.map\(\(t, j\) => sv\('text', \{ x: m, y: G\.T - G\.zb - \(ls\.length - 1 - j\) \* 1\.05 \* zf, 'text-anchor': 'middle' \}, t\)\) : null/, 'each zone named over its tint, on every ladder');
+  assert.match(prof, /G\.zone\.lines \? ls\.map\(\(t, j\) => sv\('text', \{ 'data-look': 'prof\.zone\.text', 'font-size': \(zf < f - 0\.01 \? zf : f\)\.toFixed\(2\), 'letter-spacing': G\.zone\.tight \? '0' : '0\.06em', x: m, y: G\.T - G\.zb - \(ls\.length - 1 - j\) \* 1\.05 \* zf, 'text-anchor': 'middle' \}, t\)\) : null/, 'each zone named over its tint, on every ladder');
   assert.match(prof, /export const ZONES = \[\{ cls: 'ppf-zone ppf-pre', one: 'PRE-HEPATIC', top: 'PRE' \}, \{ cls: 'ppf-zone ppf-liver', one: 'INTRAHEPATIC', top: 'INTRA' \},\n\s*\{ cls: 'ppf-zone ppf-post', one: 'POST-HEPATIC', top: 'POST' \}\];/, 'the three zones, named in full');
   assert.match(js, /ui\.dhT\.textContent = cardTitle\(s\);/, 'every card, the ladder\'s too, shows its title');
   assert.doesNotMatch(js, /kind === 'profile' && !s\.tool\.title/, 'the title is never switched off for a profile');
@@ -257,8 +260,8 @@ test('no data-card chart follows the card\'s fit on any layout, so its size can 
 test('the ladder\'s Healthy name eases to a new place, never jumps', () => {
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(prof, /nameAt\[n\.c\] = \{ x: n\.x, y: n\.y, fx: px, fy: py, t0: t1 \};/, 'from where it shows now');
-  assert.match(prof, /const \[nx, ny\] = glideAt\(/, 'drawn where the glide has it');
-  assert.match(prof, /Object\.values\(nameAt\)\.some\(\(a\) => t - a\.t0 < FADE_MS\)/, 'frames keep coming while it glides');
+  assert.match(prof, /setGeo\(e, 'x', glideX\(a, t\)\); setGeo\(e, 'y', glideY\(a, t\)\)/, 'drawn where the glide has it');
+  assert.match(prof, /\(nameAt\.hl \? t - nameAt\.hl\.t0 < FADE_MS : false\)/, 'frames keep coming while it glides');
 });
 
 // Mohammad, 22 Oct (Sites 4 and 5, a Mac and a short wide window): "the card is just not good". Stacked under the words, the card's own width
@@ -285,9 +288,9 @@ test('the ladder and the portal blood bars keep the stacked card\'s full width, 
   };
   const sel = (head) => css.split('\n').map((l) => l.match(/^(.*?)\s*\{/)?.[1]).find((s) => s?.startsWith(head));
   const keep = sel('.pz .pz-data.pz-data'), narrow = sel('.pz-data.col > :is(.pz-quad');
-  assert.ok(keep && narrow, 'both rules are there');
+  assert.ok(keep && !narrow, 'the full-width rule is there and the stacked card\'s narrowing rule is gone (instruments are not zoomed or narrowed by the card)');
   assert.match(keep, /\[data-kind="profile"\], \[data-kind="flows"\]/);
-  assert.ok(spec(keep) > spec(narrow), `the full-width rule (${spec(keep)}) stands over the stacked card's width rule (${spec(narrow)})`);
+  void spec;
   // (And the ladder's height steps with the card's block step, never with its fit, and is at least 28 % of the window's height: a ladder
   // beside its tiles is narrow, and 62 % of its width alone left it at its minimum.)
   assert.match(css, /\.pz:not\(\.stack\) \.pz-tool\[data-kind="profile"\] \.pz-prof \{ --prof-h: calc\(min\(max\(62cqi, calc\(28 \* var\(--pzh\)\)\), calc\(40 \* var\(--pzh\)\)\) \* var\(--pz-dk, 1\) - 1\.6em\); \}/);

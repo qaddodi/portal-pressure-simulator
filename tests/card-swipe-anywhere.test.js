@@ -63,7 +63,7 @@ test('the swipe elsewhere feeds the card\'s own handle handlers, fold first, fro
   assert.equal((pz.match(/const hs = \{\}, on = \(type, fn, opts\) => \{ hs\[type\] = fn;/g) || []).length, 2);
   assert.equal((pz.match(/\n {4}return hs;\n {2}\}\n/g) || []).length, 2);
   assert.match(pz, /const dockHs = dockTouch\(data, lip\);\n\s*const cardTouch = \[foldHs, dockHs\];/);
-  assert.match(pz, /for \(const hs of ui\.cardTouch\) \{ hs\[type\]\?\.\(e\); if \(stopped\) break; \}/);
+  assert.match(pz, /for \(const hs of ui\.cardTouch\) \{ hs\[type\]\?\.\(farE\); if \(farFlags\.stopped\) break; \}/);
   assert.match(pz, /far\.on = true; sw = null;[^\n]*\n\s*farFeed\('touchstart', far\.x, far\.y\);/);
 });
 

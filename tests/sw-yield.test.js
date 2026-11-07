@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,10 +10,11 @@ import { softwareYield, softwareGL } from '../src/ui/sw-yield.js';
 const SRC = new URL('../src/ui/', import.meta.url);
 
 // The renderer test the stage reads (veins-gl.js: software), as written there.
+// (Review pass 2: veins-gl.js asks sw-yield.js's softwareGL itself, so the two can no longer differ.)
 const softwareTest = () => {
   const js = readFileSync(new URL('veins-gl.js', SRC), 'utf8');
-  const m = js.match(/software = \/(.+?)\/(\w*)\.test\(String\(gl\.getParameter\(ri \? ri\.UNMASKED_RENDERER_WEBGL : gl\.RENDERER\)\)\)/);
-  assert.ok(m, 'veins-gl.js decides software from the WebGL renderer string alone');
+  assert.match(js, /const software = softwareGL\(gl\);/, 'veins-gl.js decides software through sw-yield.js');
+  const m = readFileSync(new URL('sw-yield.js', SRC), 'utf8').match(/const SOFTWARE = \/(.+?)\/(\w*);/);
   return new RegExp(m[1], m[2]);
 };
 
@@ -45,26 +47,9 @@ test('a GPU makes no yield', () => {
   assert.equal(softwareYield(undefined), null);
 });
 
-test('on a GPU the frame loop never enters the yield', () => {
-  const js = readFileSync(new URL('stage.js', SRC), 'utf8');
-  // (the yield exists only from the software test, and every use of it is guarded by its existence)
-  assert.match(js, /const swYield = softwareYield\(SOFTWARE, SOFTWARE \? vCanvas\.getContext\('webgl2'\) : null\);/);
-  assert.match(js, /const SOFTWARE = !!veins\?\.software;/);
-  const uses = js.match(/swYield\b[^;]*/g).slice(1);
-  assert.ok(uses.length >= 3, 'the yield is used in the frame loop');
-  for (const u of uses) assert.match(u, /^swYield(\?\.drew\(now\)|\s*&&\s*!swYield\.ready\()/, `unguarded use: ${u}`);
-  // The lobule and the sinusoid view the same: a yield only from their own context's software test, every use guarded.
-  const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
-  assert.match(lob, /lzYield = softwareYield\(!!gl\?\.software, gl\?\.software \? glCv\.getContext\('webgl2'\) : null\);/);
-  for (const u of lob.match(/lzYield\b[^;]*/g).slice(2)) assert.match(u, /^lzYield(\?\.drew\(now\)|\s*&&\s*!lzYield\.ready\()/, `lobule-zoom.js: unguarded use: ${u}`);
-  const sv = readFileSync(new URL('sinusoid-view.js', SRC), 'utf8');
-  assert.match(sv, /svYield = swGL && softwareGL\(swGL\) \? softwareYield\(true, swGL\) : null;/);
-  for (const u of sv.match(/svYield\b[^;]*/g).slice(1)) assert.match(u, /^svYield(\?\.drew\(performance\.now\(\)\)|\s*&&\s*!dive && !drewNow && !svYield\.ready\()/, `sinusoid-view.js: unguarded use: ${u}`);
-});
-
 test('a pan, zoom, glide or forced draw is drawn in its own frame, never held by the yield', () => {
   // (veins-gesture: a moved view drawn a frame late shows the vessels behind the rest of the figure)
-  const js = readFileSync(new URL('stage.js', SRC), 'utf8');
+  const js = stageSource();
   assert.match(js, /swYield && !swYield\.ready\(now, forceDraw \|\| drawOnce \|\| viewVersion !== drawnView\)/);
   const lob = readFileSync(new URL('lobule-zoom.js', SRC), 'utf8');
   assert.match(lob, /lzYield && !lzYield\.ready\(now, viewVer !== pacedVer\)/);

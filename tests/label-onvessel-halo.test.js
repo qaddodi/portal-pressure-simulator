@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // A reading that sits on its vessel (stage.js layoutLabels, onVessel; class .on-vessel) is knocked out of the vessel by a wide
 // text halo in the stage's colour, in the Circuit only. It was an SVG filter (#lb-onv, the glyphs grown 8 px): on Mohammad's
 // iPhone it drew dark boxes behind the readings, over the liver in Anatomy (16 Oct, 541935a and 804275c) and over the zone
@@ -9,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, sel, body]) => ({ sel: sel.trim(), body }));
 
 test('no label carries an SVG filter (url(#…)): it drew boxes on iPhone and redrew every frame', () => {

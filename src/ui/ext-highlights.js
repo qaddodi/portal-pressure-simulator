@@ -11,9 +11,9 @@
 //                                      the gut's amber, --origin-smv); it eases off as the slide leaves
 //   lens: 'since' (since: '<slide id>', sinceLabel: '…')   the Change colours against the slide before, or a named one (V11)
 //   lens: 'system'                     portal veins, systemic veins and the collaterals between them in three colours (V7)
-import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { withOverview } from './decks.js?v=faa951f1ce';
-import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, stateIndex, sinceWords } from './highlight-math.js?v=e2c1816e25';
+import { EDGES } from '../engine/topology.js';
+import { withOverview } from './decks.js';
+import { SETS, ORGAN_TARGETS, NEW_ORGANS, spotOf, stateIndex, sinceWords } from './highlight-math.js';
 
 const VESSEL = new Set(EDGES.map((e) => e.id));
 const expand = (list) => (Array.isArray(list) ? list : [list]).flatMap((g) => (typeof g === 'string' && g[0] === '@' ? SETS[g.slice(1)] || [] : [g]));

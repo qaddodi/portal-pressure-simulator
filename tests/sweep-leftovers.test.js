@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 // screen; these hold the rules in the source.
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const rule = (sel) => { const i = css.indexOf(sel + ' {'); assert.ok(i >= 0, `${sel} has a rule`); return css.slice(i, css.indexOf('}', i)); };
 
 test('the patient name and the menu titles are never cut with an ellipsis', () => {

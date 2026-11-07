@@ -1,19 +1,24 @@
 // Lumped-parameter hemodynamic engine (blueprint §7).
 // Pure JS, no DOM: runs in a Web Worker, on the main thread, or in Node tests.
 
-import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js?v=4044766e96';
+import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
   heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
-} from './physiology.js?v=6fc3ec393a';
-import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT } from './scenario.js?v=d7d3ea5b70';
-import { detectEvents } from './events.js?v=d4c7f93ac2';
+} from './physiology.js';
+import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
+import { detectEvents } from './events.js';
 
 const KNEE = { artery: [1e9, 1], bed: [14, 10], portal: [14, 10], vein: [14, 6], hepvein: [10, 3], heart: [10, 4], liver: [9, 2], wedge: [9, 5], varix: [30, 10] };
 const KD = { vein: 0.03, diode: 0.03, collateral: 0.08 };
 const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3 };
+// The drugs that lower the portal pressure within seconds (holdVarices: they do not regrade a varix until it has remodelled).
+const VASO_DRUGS = ['propranolol', 'carvedilol', 'terlipressin', 'octreotide'];
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60 };   // (tauRegress: days for a held grade size to remodel to the varix now, holdVarices)
+/** Seconds the tube's gastric balloon must press on the tear before the bleed counts as stopped: a little over the 2.4 s it takes the tube to go
+ *  in and the balloon to fill and be drawn up on screen (balloon-eso.js BALLOON_MS; tests/tamponade-bleed.test.js holds the two together). */
+export const BALLOON_SEAL_S = 3;
 /** Rupture hazard per day as a function of T/Tcrit (§7.5). */
 const ruptureHazardPerDay = (x) => (x <= 1 ? 0 : 0.01 * Math.pow((x - 1) / 0.25, 3));
 const COLLATERAL = { open: 7.5, span: 14, tauGrow: 50, tauRegress: 120, acute: 0,
@@ -88,6 +93,21 @@ const MAP_SET = 93, MAP_DROP = 14;
 // pregnancy): `stressed` mL raises venous filling, the rest (`plasma`) fills veins that widen to hold it, so the right
 // atrial pressure stays normal, and is mostly plasma (`rbc`: its red cell share), so the hemoglobin falls (the
 // physiological anemia). From 20 weeks the growing uterus raises intra-abdominal pressure, by `iap` mmHg at term.
+// Red cells and plasma over hours and weeks (the hemoglobin's own clocks):
+// - transcapillary refill: whole blood is lost, so the first hemoglobin after a bleed is the old one; plasma then moves in from
+//   the tissues (and the kidneys hold salt and water) until the volume is the patient's own again, diluting the red cells left:
+//   the hemoglobin falls over the next 24 to 72 hours. The same exchange takes the plasma of a unit given on top of a full
+//   circulation back out, so a unit raises the hemoglobin by about 1 g/dL once it has settled, not the 0.4 it adds at once.
+//   `refillTau`: seconds, one time constant (about 90 % back by a day);
+// - the anemia of chronic liver disease (marrow suppression, chronic loss, shortened red cell life, hypersplenism): the
+//   red cell mass the marrow keeps is a share of the healthy one, lower with the cirrhosis and the spleen's size; most
+//   decompensated patients sit near 10 to 11 g/dL, compensated near 13. `marrowDays`: the anemia's own time constant;
+// - after a bleed or a transfusion the red cell mass returns to the patient's own: the marrow makes up a loss over weeks
+//   (`upDays`, slower the sicker the liver), and transfused cells above it are cleared as they age (`downDays`).
+// blood.rbc keeps the red cell mass as a healthy marrow would hold it (mL; the true mass is marrow × rbc, slow.marrow), and blood.own
+// is the mass the marrow restores it to. The chronic anemia is the calibration's own (every preset was tuned at its hematocrit), so
+// the blood's viscosity reads rbc (hctEq): only a change from the patient's own (a bleed refilled, a transfusion) thins or thickens it.
+export const RED = { refillTau: 10 * 3600, cirr: 0.25, spleen: 0.01, spleenFrom: 12, min: 0.6, marrowDays: 60, upDays: 30, downDays: 60 };
 export const PREGNANCY = { spl: 0.25, sys: 0.3, contr: 0.2, hr: 15, stressed: 300, plasma: 1500, rbc: 0.2, iap: 4, tau: 5 };
 /** How far pregnancy has changed the circulation, 0..1: fast in the first trimester, complete by about 30 weeks. */
 export const pregnancyLevel = (weeks) => { const x = clamp((weeks || 0) / 30, 0, 1); return x * (2 - x); };
@@ -156,9 +176,11 @@ export class Engine {
     this.slow = {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
       r0: { VAR: VARIX.r0Healthy, GV: VARIX.r0Healthy },
+      vHold: { VAR: null, GV: null },   // (the size a varix is graded at while a drug's fall in pressure has not yet remodelled it: varixGraded)
       spleen: 11,
       splTone: 1,
       volExtra: 0,
+      marrow: 1,   // (the share of the healthy red cell mass the marrow keeps, see RED)
       lymphCap: LYMPH.base,
       ascites: 0,
       ascAlb: null, ascGlob: null,   // ascitic albumin and globulin, g/dL (null: no fluid yet)
@@ -166,7 +188,9 @@ export class Engine {
     // ref: the patient's own blood volume (the reflexes measure a loss against it), inf0: infused when it was set,
     // shift: blood the venous reservoir has moved into the circulation (counted out of bloodVolume, which is the
     // whole volume).
-    this.blood = { rbc: BLOOD_BASE * HCT_BASE, lost: 0, infused: 0, ref: BLOOD_BASE, inf0: 0, shift: 0 };
+    // refill: plasma the tissues moved in since (out, below zero), held: volume taken that the tissues do not give back (a
+    // paracentesis's circulatory dysfunction is underfilling, not a loss to refill).
+    this.blood = { rbc: BLOOD_BASE * HCT_BASE, lost: 0, infused: 0, ref: BLOOD_BASE, inf0: 0, shift: 0, refill: 0, held: 0, own: BLOOD_BASE * HCT_BASE };
     this.bleed = { active: false, site: null, G: 0, clot: 0, total: 0 };
     this.infusions = [];
     this.valsalva = { until: -1, start: -1 };
@@ -202,6 +226,7 @@ export class Engine {
 
   setParams(p) {
     const prev = this.params;
+    if (prev && this.slow && this.refP) this.holdVarices(prev, p);
     this.params = structuredClone(p);
     this._ease = null;
     if (prev.seed !== p.seed) this.rng = makeRng(p.seed);
@@ -264,12 +289,15 @@ export class Engine {
     this.params.seed = params.seed;
     this.reset(params.seed);
     this.params = params;
-    if (pr.volume) this.addVolume(pr.volume, 0.35);
+    // (A preset's extra volume, a failing heart's salt and water, is the patient's own: the tissues do not refill it away over its days.)
+    if (pr.volume) this.addVolume(pr.volume, 0.35, true);
     this.settle();
     const n = days ?? pr.days;
     if (n > 0) yield* this.advanceDaySteps(n, { noRupture: true, silent: true });
     // What the patient has now, after the years of disease (a pregnancy): set once the disease clock has run.
     if (pr.now) Object.assign(params, deepMerge(params, pr.now));
+    // (Years of disease: the anemia of liver disease is complete, and the red cell mass sits at the marrow's set point.)
+    this.slow.marrow = this.marrowTarget(); this.blood.own = this.blood.rbc;
     // Day steps relax only roughly; start from a true equilibrium so a before/after comparison
     // (e.g. closing a shunt) shows the intervention, not leftover relaxation.
     this.settle();
@@ -289,7 +317,9 @@ export class Engine {
     const e = { hr: 1, contr: 1, spl: 1, sys: 1, sin: 1, baroHr: 1, baroSlow: 1 };
     for (const [k, on] of Object.entries(this.params.drugs)) {
       if (!on || !DRUGS[k]) continue;
-      const d = DRUGS[k];
+      const d0 = DRUGS[k], g = (k === 'propranolol' || k === 'carvedilol') ? (this.params.nsbbGain ?? 1) : 1;
+      // (nsbbGain: a stronger or weaker responder to a beta-blocker, the portal side of its effect scaled; 1 leaves it as it was)
+      const d = g === 1 ? d0 : { ...d0, spl: 1 + (d0.spl - 1) * g, sin: 1 - (1 - d0.sin) * g };
       e.hr *= d.hr; e.contr *= d.contr; e.spl *= d.spl; e.sys *= d.sys; e.sin *= d.sin; e.baroHr = Math.min(e.baroHr, d.baroHr); e.baroSlow = Math.min(e.baroSlow, d.baroSlow ?? 1);
     }
     return e;
@@ -306,9 +336,15 @@ export class Engine {
     return m;
   }
 
-  hct() {
+  /** The hematocrit as a healthy marrow would hold it (RED): what the viscosity and a bleed's red cell account read. */
+  hctEq() {
     const u = this.pregnancyPlasma();
     return clamp((this.blood.rbc + PREGNANCY.rbc * u) / (this.bloodVolume() + u), 0.05, 0.8);
+  }
+  /** The hematocrit the patient has: the anemia of liver disease (slow.marrow) included. */
+  hct() {
+    const u = this.pregnancyPlasma();
+    return clamp(this.marrow() * (this.blood.rbc + PREGNANCY.rbc * u) / (this.bloodVolume() + u), 0.05, 0.8);
   }
   /** Pregnancy's blood held in widened veins (mL): in the circulation but adding no pressure, so it is counted out of
    *  bloodVolume (and so out of what the bleeding reflexes measure) and added back where the volume is shown. */
@@ -318,7 +354,31 @@ export class Engine {
     for (let i = 0; i < this.N; i++) s += this.V[i] - this.Vbase[i];
     return BLOOD_BASE + s - (this.blood.shift || 0);
   }
-  viscosity() { return clamp(1 + 1.6 * (this.hct() - HCT_BASE), 0.5, 1.6); }
+  viscosity() { return clamp(1 + 1.6 * (this.hctEq() - HCT_BASE), 0.5, 1.6); }
+  marrow() { return this.slow.marrow ?? 1; }
+  /** The marrow's set point now (RED): a share of the healthy red cell mass, lower with the cirrhosis and a large spleen. */
+  marrowTarget() {
+    const c = this.params.cirrhosis || 0, sp = this.params.splenicRx === 2 ? RED.spleenFrom : this.slow.spleen;
+    return clamp(1 - RED.cirr * c * c - RED.spleen * Math.max(0, sp - RED.spleenFrom), RED.min, 1);
+  }
+  /** The red cell mass the marrow restores (blood.own, in rbc's units): the healthy one, with the red cells of the body's own volume
+   *  added since (addVolume's silent plasma: the chronic plasma expansion, a pregnancy, a preset's retained volume). */
+  ownRbc() { return this.blood.own ?? BLOOD_BASE * HCT_BASE + ((this.slow.volExtra || 0) + (this.blood.preg || 0)) * HCT_BASE * 0.7; }
+  /** The volume the tissues refill toward (mL, as bloodVolume counts it). */
+  refillTarget() { return (this.blood.ref ?? BLOOD_BASE) - (this.blood.held || 0); }
+  /** Hemoglobin (g/dL) once the plasma has refilled (or the extra left) at the red cells there are now: where the reading is heading. */
+  hbSettled() {
+    const u = this.pregnancyPlasma();
+    return (clamp(this.marrow() * (this.blood.rbc + PREGNANCY.rbc * u) / (Math.max(1000, this.refillTarget()) + u), 0.05, 0.8) * 100) / 3;
+  }
+  /** Transcapillary refill (RED.refillTau) over sec seconds of the patient's own time: plasma, no red cells. */
+  plasmaRefill(sec) {
+    const def = this.refillTarget() - this.bloodVolume();
+    if (!(Math.abs(def) > 0.05) || !(sec > 0)) return;
+    const mv = def * (1 - Math.exp(-sec / RED.refillTau));
+    for (const id of ['UPPV', 'LOWV']) this.shiftVolume(id, mv / 2);
+    this.blood.refill = (this.blood.refill || 0) + mv;
+  }
 
   heartState() {
     const d = this._drug, p = this.params, b = this.baro;
@@ -366,8 +426,8 @@ export class Engine {
       const ext = NODES[i].ext;
       this.ext[i] = ext === 'abd' ? iapDev
         : ext === 'thor' ? pplDev
-        : ext === 'eso' ? pplDev + (p.balloonEso ? 40 : 0)
-        : ext === 'gas' ? iapDev + (p.balloonGas ? 45 : 0)
+        : ext === 'eso' ? pplDev + (gastricUp(p) ? 40 : 0)   // (the first step: the gastric balloon, drawn up against the cardia, presses on the veins there; the esophageal balloon, the second, presses on the varices themselves)
+        : ext === 'gas' ? iapDev + (gastricUp(p) ? 45 : 0)
         : 0;
     }
     this.ext[this.ni.RA] = raExt;
@@ -475,6 +535,8 @@ export class Engine {
           else if (e.shunt === 'portocaval' && p.portocaval) g = 1 / (0.03 * visc);
           else if (e.shunt === 'dsrs' && p.dsrs) g = 1 / (0.08 * visc);
           else if (e.shunt === 'mesocaval' && p.mesocaval) g = 1 / (0.08 * visc);
+          // The Meso-Rex graft: a vein of 8 mm (Poiseuille: the Warren shunt's resistance at 9 mm, scaled by (9/8)^4).
+          else if (e.shunt === 'rex' && p.rex) g = 1 / (0.128 * visc);
           else if (e.shunt === 'custom' && p.customShunts?.[e.id]) g = customConductance(p.customShunts[e.id], this.Q[k], visc, occ);
           if (g > 0 && !stent) g /= Math.min(1e9, stenosisFactor(occ));
           this.G[k] = g;
@@ -630,12 +692,13 @@ export class Engine {
     }
 
     // Blood accounting
-    const hct = this.hct();
+    // (In rbc's units, RED: whole blood leaves at the healthy-marrow hematocrit, and a unit's cells count over the marrow's share.)
+    const hct = this.hctEq();
     if (qb > 0) { this.blood.lost += qb * dt; this.blood.rbc -= qb * dt * hct; this.bleed.total += qb * dt; }
     for (const f of this.infusions) {
       const v = Math.min(f.remaining, f.rate * dt);
       f.remaining -= v;
-      this.blood.rbc += v * f.hct;
+      this.blood.rbc += v * f.hct / this.marrow();
       this.blood.infused += v;
     }
     this.infusions = this.infusions.filter((f) => f.remaining > 1e-6);
@@ -731,6 +794,7 @@ export class Engine {
   /** Processes on the hemodynamic clock: bleeding, clotting, rupture hazard, ascites trickle. */
   fastProcesses(dt) {
     const p = this.params;
+    this.plasmaRefill(dt);
     // Ascites (mL/min → per dt)
     const as = this.starling();
     this.ascitesProtein(as, dt / 60);
@@ -738,9 +802,17 @@ export class Engine {
     // Bleeding / clot
     if (this.bleed.active) {
       const i = this.ni[this.bleed.site];
-      const ptm = this.P[i] - this.ext[i];
-      if (ptm < 9) this.bleed.clot += dt; else this.bleed.clot = Math.max(0, this.bleed.clot - dt * 0.5);
+      const ptm = this.P[i] - this.ext[i], slack = ptm < 9;
+      if (slack) this.bleed.clot += dt; else this.bleed.clot = Math.max(0, this.bleed.clot - dt * 0.5);
       if (this.bleed.clot > 45) this.stopBleed('clot');
+      // The tube's gastric balloon, up and drawn against the cardia, presses a tear shut (the esophageal balloon, filled only on top of it,
+      // does the same). Its pressure outweighs the varix's at once (the bleed's flow is nil from the first step, see the sink in the solve),
+      // so the tear stays open only for the time the tube needs to go in and the balloon to fill; lifted or outweighed before that (the
+      // varix still taut past the clot's own limit), the count starts over.
+      else if (gastricUp(p) && slack) {
+        this.bleed.press = (this.bleed.press || 0) + dt;
+        if (this.bleed.press >= BALLOON_SEAL_S) this.stopBleed('balloon');
+      } else if (this.bleed.press) this.bleed.press = 0;
     } else if (p.bleeding) {
       for (const site of ['VAR', 'GV']) {
         const x = this.varix(site).ratio;
@@ -815,7 +887,7 @@ export class Engine {
     for (let i = 0; i < this.N; i++) c.dV[i] += h.V[i] - V0[i];
     c.left = CARRY_S;
     // (The venous reservoir and a pregnancy moved blood in the copy: those volumes come across with the rest, their accounts here.)
-    for (const k of ['shift', 'preg', 'ref', 'rbc']) if (h.blood[k] !== undefined) this.blood[k] = h.blood[k];
+    for (const k of ['shift', 'preg', 'ref', 'rbc', 'own']) if (h.blood[k] !== undefined) this.blood[k] = h.blood[k];
     for (const k of ['baro', 'habr', 'MAPf', 'COf', 'pvQm', 'pvVm']) this[k] = h[k];
     if (this.Pf) this.Pf.set(h.Pf);
     if (this.Qf) this.Qf.set(h.Qf);
@@ -911,6 +983,12 @@ export class Engine {
       s.d[e.id] = clamp(d + (target - d) * Math.min(1, days / tau), dMin, e.dMax);
     }
     // Varix size is not slow state: it follows the portosystemic gradient as it changes (see varixTarget).
+    // (Its grade's held size, holdVarices, remodels toward it over about two months of the disease clock, then is let go.)
+    if (s.vHold) for (const site of ['VAR', 'GV']) {
+      const h = s.vHold[site]; if (h == null) continue;
+      const now = 2 * this.varix(site).r, next = h + (now - h) * Math.min(1, days / VARIX.tauRegress);
+      s.vHold[site] = next - now < 0.05 ? null : next;
+    }
     if (this.bands > 0) this.bands = Math.max(0, this.bands - 0.02 * days); // bands slough; columns can recur
     // Spleen
     // Venous back-pressure from the right heart (raised IVC) congests the spleen far less than a portal block:
@@ -924,6 +1002,12 @@ export class Engine {
     const volT = 700 * x;
     const dv = (volT - s.volExtra) * Math.min(1, days / 30);
     if (Math.abs(dv) > 0.01) { s.volExtra += dv; this.addVolume(dv, HCT_BASE * 0.7, true); }
+    // Red cells (RED): the anemia of liver disease follows the disease, and the red cell mass follows the marrow's set point
+    // (a loss made up over weeks, transfused cells cleared as they age); the plasma refills over the day.
+    s.marrow = this.marrow() + (this.marrowTarget() - this.marrow()) * Math.min(1, days / RED.marrowDays);
+    const b = this.blood, own = this.ownRbc();
+    if (b.rbc !== own) b.rbc += (own - b.rbc) * Math.min(1, days / (own > b.rbc ? RED.upDays * (1 + p.cirrhosis) : RED.downDays));
+    this.plasmaRefill(days * 86400);
     // Lymph capacity adapts toward demand
     const st = this.starling();
     const demand = st.hep + st.spl;
@@ -1043,10 +1127,11 @@ export class Engine {
     this.V[i] += mL;
     const [Pk, Ps] = this.nodeK[i];
     this.P[i] = this.ext[i] + ptmOf(this.V[i], this.nodeC[i], Pk, Ps);
-    this.blood.rbc += mL * hct;
-    // Silent plasma is the body's own volume changing (the chronic plasma expansion): the reflexes reset to it.
+    // Silent plasma is the body's own volume changing (the chronic plasma expansion): the reflexes reset to it, and its red cells are the
+    // patient's own (RED: counted as a healthy marrow holds them). Red cells given are counted at the anemic marrow's rate (rbc's units).
+    this.blood.rbc += silentPlasma ? mL * hct : mL * hct / this.marrow();
     if (!silentPlasma) this.blood.infused += mL;
-    else this.blood.ref = (this.blood.ref ?? BLOOD_BASE) + mL;
+    else { this.blood.ref = (this.blood.ref ?? BLOOD_BASE) + mL; if (this.blood.own != null) this.blood.own += mL * hct; }
   }
 
   infuse(kind) {
@@ -1063,7 +1148,7 @@ export class Engine {
 
   hemorrhage(mL) {
     // Instant external blood loss (for tests / scenarios)
-    const hct = this.hct();
+    const hct = this.hctEq();
     const per = mL / 2;
     for (const id of ['UPPV', 'LOWV']) {
       const i = this.ni[id];
@@ -1076,18 +1161,20 @@ export class Engine {
   }
 
   rupture(site, tear = 0.6) {
-    this.bleed = { active: true, site, G: 0.25 * tear, clot: 0, total: 0, tear, t0: this.t, day: this.day };
+    this.bleed = { active: true, site, G: 0.25 * tear, clot: 0, press: 0, total: 0, tear, t0: this.t, day: this.day };
     this.pushEvent({ id: 'VARIX_RUPTURE', severity: 'critical', title: site === 'VAR' ? 'Esophageal varix ruptured' : 'Gastric varix ruptured', anchor: site });
   }
 
   stopBleed(reason) {
     if (!this.bleed.active) return;
+    const site = this.bleed.site;
     this.bleed = { active: false, site: null, G: 0, clot: 0, total: this.bleed.total };
-    this.pushEvent({ id: 'BLEED_STOPPED', severity: 'ok', title: reason === 'band' ? 'Bleeding controlled by banding' : 'Bleeding stopped (clot formed)', anchor: 'VAR' });
+    this.pushEvent({ id: 'BLEED_STOPPED', severity: 'ok', title: reason === 'band' ? 'Bleeding controlled by banding' : reason === 'balloon' ? 'Bleeding controlled by balloon tamponade' : 'Bleeding stopped (clot formed)', anchor: reason === 'balloon' ? site : 'VAR' });
   }
 
   band() {
     this.bands = Math.min(4, this.bands + 1);
+    if (this.slow.vHold) this.slow.vHold.VAR = null;   // (banding grades the varix by what the bands left: no held size)
     if (this.bleed.active && this.bleed.site === 'VAR') this.stopBleed('band');
   }
 
@@ -1102,7 +1189,7 @@ export class Engine {
     }
     return removed;
   }
-  hemorrhageSilent(mL) { const l = this.blood.lost; this.hemorrhage(mL); this.blood.lost = l; }
+  hemorrhageSilent(mL) { const l = this.blood.lost; this.hemorrhage(mL); this.blood.lost = l; this.blood.held = (this.blood.held || 0) + mL; }
 
   startValsalva(sec = 10) { this.valsalva = { start: this.t, until: this.t + sec }; }
 
@@ -1176,6 +1263,24 @@ export class Engine {
     return site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
   }
 
+  /** A vasoactive drug that lowers the portal pressure (a beta-blocker, terlipressin, octreotide) drops the varix's distending pressure within
+   *  seconds, but the varix's wall took weeks to build and takes weeks to go (app review H5, 5 Nov 2026: Large regraded Small within about
+   *  2.5 s). When one is started, the size the varix had is held for its grade (varixGraded), and slowStep lets that go on the disease clock.
+   *  The drawn and measured diameter (varix, metrics varix.d) still follows the pressure at once, as the drawing of it is asked to. */
+  holdVarices(prev, p) {
+    const on = (q) => VASO_DRUGS.some((k) => !!q?.drugs?.[k]);
+    const h = this.slow.vHold || (this.slow.vHold = { VAR: null, GV: null });
+    if (!on(p)) { h.VAR = h.GV = null; return; }
+    const started = VASO_DRUGS.some((k) => !!p.drugs?.[k] && !prev.drugs?.[k]);
+    if (!started) return;
+    for (const site of ['VAR', 'GV']) { const d = 2 * this.varix(site, this.Pf || this.P).r; if (h[site] == null || d > h[site]) h[site] = d; }   // (with the params before the drug: its pressures are still those)
+  }
+  /** The diameter (mm) a varix is graded at: its diameter d now, or the size held since a drug was started, whichever is larger (holdVarices). */
+  varixGraded(site, d) {
+    const h = this.slow.vHold?.[site];
+    return h != null && h > d ? h : d;
+  }
+
   /** The arterial pressure the baroreflex defends in this patient: 93 mmHg, less the reset of the hyperdynamic circulation. */
   mapSetOf() { return MAP_SET - MAP_DROP * clamp((1 - this.slow.splTone) / 0.45, 0, 1); }
 
@@ -1204,7 +1309,7 @@ export class Engine {
     const w = Math.max(0.12, VARIX.w0 / r0) * (site === 'GV' ? 1.4 : 1);
     const T = Math.max(0, ptm) * r / w;
     // (ratioShown: the stress index as the tiles show it (wall-read.js), over the tear point, so every percentage printed agrees with the index beside it.)
-    return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit, ratioShown: +wallRead({ ptm, r, w }).index / VARIX.Tcrit };
+    return { ptm, r, r0, w, T, ratio: T / VARIX.Tcrit, ratioShown: wallIndex(ptm, r, w) / VARIX.Tcrit };
   }
 
   /** The diameter (mm) a varix is seen at with 0, 1, … n − 1 mmHg of air in the lumen round it (varix above). The pressures are held. */
@@ -1252,6 +1357,7 @@ export class Engine {
     return structuredClone({
       params: this.paramsTarget(), V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
       baro: this.baro, MAPf: this.MAPf, habr: this.habr, hr: this.hr, slow: this.slow, blood: this.blood,
+      cyc: this.cyc || 0, COf: this.COf,   // (EXT-ENG-1: the beat's phase and the cardiac-output filter belong to the moment too)
       bleed: this.bleed, infusions: this.infusions, bands: this.bands, rng: this.rng.state(), iap: this.iap,
       valsalva: this.valsalva, evState: this.evState,
     });
@@ -1262,10 +1368,15 @@ export class Engine {
     this.V.set(c.V); this.P.set(c.P); if (c.Q) this.Q.set(c.Q);
     Object.assign(this, { t: c.t, day: c.day, baro: c.baro, MAPf: c.MAPf, habr: c.habr, hr: c.hr, slow: c.slow, blood: c.blood,
       bleed: c.bleed, infusions: c.infusions, bands: c.bands, iap: c.iap, valsalva: c.valsalva || { until: -1, start: -1 }, evState: c.evState || {} });
+    // EXT-ENG-1: the moment's own beat phase and cardiac-output filter. A snapshot made before they were kept has neither: the beat then starts
+    // at phase 0 and the filter at the first step's output, not the later moment's values this engine happened to hold.
+    this.cyc = Number.isFinite(c.cyc) ? c.cyc : 0; this.COf = Number.isFinite(c.COf) ? c.COf : undefined;
     this.evAvg = null;   // (the events' breath average, events.js, starts over from the restored state)
     this.rng.setState(c.rng);
     // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.
     if (!(this.blood.ref > 0)) Object.assign(this.blood, { ref: this.bloodVolume(), inf0: this.blood.infused || 0, shift: 0 });
+    // (One from before the red cells' clocks (RED): its patient's own red cell mass, worked out as it was then.)
+    if (this.blood.own == null) this.blood.own = this.ownRbc();
     this.Pf = Float64Array.from(this.P);
     this.Qf = Float64Array.from(this.Q);
     this.pvQm = this.pvVm = undefined; this.vitM = null;
@@ -1280,7 +1391,7 @@ function solve(A, b, n) {
   // inline import to keep hot path monomorphic
   return solveInPlace(A, b, n);
 }
-import { solveInPlace } from './linalg.js?v=4f20e14f7c';
-import { wallRead } from './wall-read.js?v=09449acd01';
+import { solveInPlace } from './linalg.js';
+import { wallIndex } from './wall-read.js';
 
 export { SPLANCHNIC_ARTERIES, PORTOSYSTEMIC_EDGES };

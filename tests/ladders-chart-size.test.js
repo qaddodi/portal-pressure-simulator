@@ -42,12 +42,11 @@ test('a cell\'s chart is the instrument at its own size: its width, type and hei
   // (The instrument's own: the card's width less its padding (--pz-cw, --pz-cp), the data card's chart size (--pz-sm), 62 % of the width with a floor of 28 % and
   // a ceiling of 40 % of the window's height, less the 1.6 em the chart gave back: the same numbers in the cell's tokens.)
   assert.match(css, /\.pz:not\(\.stack\) \.pz-data \{ --pz-sm: max\(12px, calc\(var\(--s-cap\) \* \.74\)\);/);
-  assert.match(css, /\.pz:not\(\.stack\) \.pz-tool\[data-kind="profile"\] \.pz-prof \{ --prof-h: calc\(min\(max\(62cqi, calc\(28 \* var\(--pzh\)\)\), calc\(40 \* var\(--pzh\)\)\) \* var\(--pz-dk, 1\) - 1\.6em\); \}/);
   assert.match(rule(CELL), /--ch-cap: max\(12px, calc\(var\(--s-cap\) \* \.74\)\);/);
   assert.match(rule(CELL), /--lad-w: calc\(var\(--pz-cw\) - 2 \* var\(--pz-cp\)\); --lad-f: var\(--ch-cap\); --lad-h: calc\(min\(max\(\.62 \* var\(--lad-w\), 28 \* var\(--pzh\)\), 40 \* var\(--pzh\)\) - 1\.6 \* var\(--lad-f\)\);/);
   // (The picture at that size inside its holder, scaled from the corner; the holder is as tall as the scaled picture less half a type size.)
   assert.match(css, /\.pz-cc > \.pz-prof \{ position: absolute; left: 0; top: 0; width: var\(--lad-w\); height: calc\(var\(--lad-h\) \* var\(--lad-s, 1\)\); min-height: 0; font-size: calc\(var\(--lad-f\) \* var\(--lad-s, 1\)\); transform: scale\(var\(--lad-k, 1\)\); transform-origin: 0 0; \}/);
-  assert.match(css, /\.pz:not\(\.stack\) \.pz-cc \{ height: calc\(\(var\(--lad-h\) - \.5 \* var\(--lad-f\)\) \* var\(--lad-s, 1\) \* var\(--lad-k, 1\)\); \}/);
+  assert.match(css, /\.pz:not\(\.stack\) \.pz-cc \{ height: calc\(\(var\(--lad-h\) - \.5 \* var\(--lad-f\)\) \* var\(--lad-s, 1\) \* var\(--lad-k, 1\)\); \}/, 'half a type size, overflow visible: the chart\'s picture has that much blank under the brace\'s name');
   assert.match(css, /\.pz-cc \{ position: relative; width: 100%; flex: none; \}/);
   // (Not laid out afresh at the cell's size: no cell rule gives the chart a height of its own, and no container query unit reads the cell.)
   assert.doesNotMatch(css, /\.pz-cell > \.pz-prof|--prof-h: max\(calc\(62cqi/);
@@ -58,7 +57,7 @@ test('a cell\'s chart is the instrument at its own size: its width, type and hei
   assert.match(presenter, /const \{ k, s \} = chartScale\(W, w0, f0\)/);
   assert.match(presenter, /cc\.style\.setProperty\('--lad-s', ss\); P\.redraw\(\);/);
   assert.match(presenter, /chartOf\.set\(cc, \{ cc, P \}\); chartOf\.set\(P\.el, \{ cc, P \}\);/);
-  assert.match(profSrc, /redraw\(\) \{ if \(shown && el\.isConnected\) \{ plan = null; draw\(\); \} \},/);
+  assert.match(profSrc, /redraw\(\) \{ if \(shown && el\.isConnected\) \{ measure0\(\); plan = null; draw\(\); \} \},/);
 });
 
 test('chartScale: the instrument scaled down whole, never up, its words 12 px at least on the screen', () => {
@@ -76,19 +75,7 @@ test('chartScale: the instrument scaled down whole, never up, its words 12 px at
   }
 });
 
-test('its lines grow with its type and are never thinner than they were at 12 px', () => {
-  for (const [sel, w] of [['.ppf-line', 'max\\(3px, \\.2em\\)'], [':is(.ppf-hl, .ppf-bf)', 'max\\(1\\.75px, \\.14em\\)'], [':is(.ppf-br path, .ppf-brace path)', 'max\\(1\\.5px, \\.11em\\)'], [':is(.ppf-axis, .ptk-grid line)', 'max\\(1px, \\.075em\\)']]) {
-    assert.match(rule(`${CELL} ${sel}`), new RegExp(`stroke-width: ${w};`), sel);
-  }
-  assert.match(rule(`${CELL} .ppf-hl`), /stroke-dasharray: max\(4px, \.33em\) max\(5px, \.42em\);/);
-  assert.match(rule(`${CELL} .ppf-bf`), /stroke-dasharray: max\(1\.5px, \.125em\) max\(4\.5px, \.375em\);/);
-  // (The halos behind the numbers stay 4 px: the chart's label placing counts 2 px of halo.)
-  assert.match(css, /\.ppf-v \{[^}]*stroke-width: 4px;/);
-  assert.doesNotMatch(css, /\.pz-cell[^{]*\.ppf-v[^{]*\{/);
-  // (The data card's own chart is untouched.)
-  assert.match(css, /\.ppf-line \{ fill: none; stroke-width: 3; /);
-  assert.match(css, /\.ppf-axis \{ stroke: var\(--axis\); stroke-width: 1; \}/);
-});
+// (Its lines grow with its type and are never thinner than they were at 12 px: the table's cell rows, tests/profile-looks.test.js.)
 
 // (The chart's box in px from the same clamps as the CSS: pzh = 1vh, B = clamp(17, 2.311 pzh, 28), the card's margin cm and padding cp, its width cw (the
 // instrument's chart is that less two paddings), the title, the gaps and each cell's first row, the card's vertical padding as trimmed; the instrument's

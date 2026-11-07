@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -74,7 +75,7 @@ test('the vessel shader marks the pixels a lumen colour reaches, and a colour-on
 function fakeGL() {
   const calls = [], enums = new Map();
   let nextObj = 1;
-  const UNIFORMS = ['tint', 'redraw', 'depL', 'world'];
+  const UNIFORMS = ['tint', 'redraw', 'depL', 'world', 'lWrap'];
   const gl = new Proxy({}, {
     get(_, k) {
       if (typeof k !== 'string') return undefined;
@@ -94,8 +95,8 @@ function fakeGL() {
   return { gl, calls };
 }
 
-async function scene() {
-  const { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, MAX_TIERS } = await import('../src/ui/veins-gl.js');
+async function scene(url = '../src/ui/veins-gl.js') {
+  const { createVeinsGL, binVeins, N_SAMPLES, TUBE_TEXELS, MAX_TIERS } = await import(url);
   const { gl, calls } = fakeGL();
   const canvas = { width: 960, height: 640, getContext: () => gl, addEventListener() {}, removeEventListener() {} };
   const ROWS = 6;
@@ -195,21 +196,27 @@ test('any other change, or new radii, still draws the cells again whole', async 
 });
 
 test('a pan while colours change moves the layer and recolours, and the mark moves with it', async () => {
+  // (The pan's whole picture goes straight onto the canvas: no copy of the kept picture either.)
   const { g, gl, calls, data, put, look } = await scene();
   put(0, [0.9, 0.9, 0.2]);
   g.setTubes(data);
   const t0 = g.tintCells, n0 = calls.length;
   g.draw([1, 0, 0, 1, 12, -7], look, { on: false }, [0]);
   const c = calls.slice(n0);
-  assert.equal(c.filter((x) => x[0] === 'blitFramebuffer').length, 4, 'colour, flow, joined flow and the mark are moved');
+  // (The layer wraps, 31 Oct: colour, flow, joined flow and the mark stay in their texels, and the wrap moves by the pan, 12 px right
+  // and 7 up on a 960 × 640 layer (the figure takes the whole picture, so the layer is the picture's): a screen pixel s is held at
+  // s + (948, 7), y down.)
+  assert.deepEqual(g.layerLayout, { size: [960, 640], at: [0, 0], wrap: [948, 7], follows: [false, false] });
+  assert.equal(c.filter((x) => x[0] === 'blitFramebuffer').length, 0, 'nothing copied');
+  assert.ok(c.some((x) => x[0] === 'uniform2i' && x[1]?.uniform === 'lWrap' && x[2] === 948 && x[3] === 7), 'the composite reads through the moved wrap');
   assert.ok(g.tintCells - t0 > 0, 'the moved layer is recoloured');
   assert.ok(passes(calls, gl, n0).some((p) => p.tint === 1));
 });
 
 test('the renderer allocates, moves, trims and frees the mark with the layer', () => {
   assert.match(vg, /gl\.framebufferTexture2D\(gl\.FRAMEBUFFER, gl\.COLOR_ATTACHMENT3, gl\.TEXTURE_2D, depTex, 0\);/);
-  assert.match(vg, /gl\.framebufferTexture2D\(gl\.FRAMEBUFFER, gl\.COLOR_ATTACHMENT3, gl\.TEXTURE_2D, spare\.dep, 0\);/);
-  assert.match(vg, /\[depTex, spare\.dep\] = \[spare\.dep, depTex\];/);
+  // (A pan moves no target, the mark among them: they all stay in their texels and the wrap moves, so they stay in step.)
+  assert.doesNotMatch(vg, /\bspare\b/);
   assert.match(vg, /for \(const t of \[baseTex, gTex, gTex2, depTex\]\)/);
   assert.match(vg, /gl\.deleteFramebuffer\(tintFbo\)/);
   // The full passes read a texel no framebuffer holds, never the mark they write (a feedback loop).
@@ -235,12 +242,12 @@ test('a refused partial draw names its reason, and a drawn one says so', async (
 });
 
 test('the stage keeps its changed rows through a refused partial draw and lets them go only once drawn', () => {
-  const st = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+  const st = stageSource();
   const fn = st.slice(st.indexOf('function drawVeins('), st.indexOf('function clearJoins('));
-  assert.match(fn, /const pending = veinsRows\.size \? \[\.\.\.veinsRows\] : null;/);
-  assert.doesNotMatch(fn, /veinsRows\.clear\(\)/, 'never cleared before a draw has shown them');
-  assert.match(fn, /if \(veins\.drawRows\(T, vLook, bloodLook\(\), pending, fullComposite\)\) \{ shown\(\); return true; \}/);
-  assert.match(fn, /const rows = veinsDirty \? null : pending \|\| \[\];/);
+  assert.match(fn, /pendRows\.length = 0;\n\s+if \((?:live\.)?veinsRows\.size\) (?:live\.)?veinsRows\.forEach\(pendPush\);\n\s+const pending = pendRows\.length \? pendRows : null;/);   // (a kept list, written in place)
+  assert.doesNotMatch(fn, /(?:live\.)?veinsRows\.clear\(\)/, 'never cleared before a draw has shown them');
+  assert.match(fn, /if \((?:live\.)?(?:live\.)?veins\.drawRows\(T, (?:live\.)?(?:live\.)?vLook, (?:live\.)?(?:live\.)?bloodLook\(\), pending, fullComposite\)\) \{ rowsShown\(\); return true; \}/);
+  assert.match(fn, /const rows = (?:live\.)?veinsDirty \? null : pending \|\| NO_ROWS;/);
   const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(lz, /if \(!g\.drawRows\(T, look, blood, rows\)\) g\.draw\(T, look, blood, rows\)/);
+  assert.match(lz, /if \(!g\.drawRows\(T, look, blood, rows\)\) \{ g\.draw\(T, look, blood, rows\); tLast \^= 1; \}/);
 });

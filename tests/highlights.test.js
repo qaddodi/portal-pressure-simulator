@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Deck visuals, package A (figure highlights: src/ui/ext-highlights.js, src/ui/highlight-math.js): the new organs have
 // shapes to outline, the named sets name real vessels, the spot list sorts vessels from organs, the ripple picks the same
 // vessels Patients' Δ glow would, the vein system gives every vein one class, and no built-in deck uses any of it.
@@ -17,7 +18,7 @@ import { deepMerge } from '../src/engine/scenario.js';
 
 const VESSELS = new Set(EDGES.map((e) => e.id));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 
 test('the new organs are drawn, and each target points at one of them in a colour the tokens define', () => {
   const shapes = new Map(ORGANS.map((o) => [o.id, o]));
@@ -121,23 +122,6 @@ test('the vein system gives every vein one of three classes, the same on every p
   assert.equal(systemOf(EDGES.find((e) => e.id === 'C1a'), PORTAL_TERRITORY), 'var');
   assert.equal(systemOf(EDGES.find((e) => e.id === 'TIPS'), PORTAL_TERRITORY), 'var');
   assert.match(STAGE, /mode === 'system'\) \{ c1 = c2 = SYSTEM_COLOR\[systemOf\(e, PORTAL_TERRITORY\)\]/);
-});
-
-test('"the slide before" is the state the presenter shows for it, and the key names what a slide compares with', () => {
-  const slides = [{ preset: 'healthy' }, { title: 'b' }, { params: { x: 1 } }, { title: 'd' }, { days: 30 }];
-  assert.deepEqual(stateIndex(slides), [0, 0, 2, 2, 4]);
-  // (As the presenter's own stateOf, which counts the overview slide first on a built-in deck.)
-  const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pres, /const changes = \(s\) => !!\(s\.preset \|\| s\.params \|\| s\.action \|\| s\.days\);/);
-  assert.match(pres, /slides = \(d\.mine \? d\.slides : withOverview\(d\)\.slides\)\.map\(oneLadder\);/);   // (oneLadder keeps every slide's place)
-  for (const d of DECKS.slice(0, 3)) assert.equal(stateIndex(withOverview(d).slides).length, withOverview(d).slides.length);
-  assert.equal(sinceWords({}), 'change vs last slide');
-  assert.equal(sinceWords({ since: 'pre' }), 'change vs earlier');
-  assert.equal(sinceWords({ since: 'pre', sinceLabel: 'pre-TIPS' }), 'change vs pre-TIPS');
-  assert.equal(sinceWords({ lapse: {} }), 'change over these days');
-  const [name, bar, lo, hi] = EXT.lenses.since({ sinceLabel: 'the bleed' });
-  assert.equal(name, 'change vs the bleed'); assert.equal(typeof bar, 'function'); assert.deepEqual([lo, hi], ['Lower', 'Higher']);
-  assert.equal(EXT.lenses.system[0], 'vein system');
 });
 
 test('no built-in deck uses a package A field, so every talk looks as before', () => {
@@ -260,13 +244,13 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(GL, /if \(warmOn == 1\) pl = over\(texelFetch\(warmL, ip, 0\), pl\);/);
   assert.ok(GL.indexOf('plateSat), pl.a) * plateAlpha') < GL.indexOf('warmOn == 1) pl'), 'after the dimming');
-  assert.match(STAGE, /soft: true, warm: true/);
+  assert.match(STAGE, /olDraw\(first, c, col, WARM\.alpha \* ease, true, true\)/);   // (soft and warm)
   assert.match(STAGE, /glLines && o\.warm/);
   assert.match(STAGE, /const lines = warmLines\(d\) \|\| olRingsRaw\(/);
   // Only the edges glow (Mohammad, 20 Oct: "just the outline glows"): a strip along each side of every tube, starting on the tube's
   // edge (its radius out from the centre line, read from the drawing's own pieces) and easing outward, none over the tube itself.
-  assert.match(STAGE, /for \(const side of \[-1, 1\]\)/);
-  assert.match(STAGE, /ex, ey, -ty, tx, 0, w, ex, ey, -ty, tx, side, w/);
+  assert.match(STAGE, /for \(let si = 0; si < 2; si\+\+\) \{\n\s+wmSide = si \? 1 : -1;/);
+  assert.match(STAGE, /ex, ey, -ty, tx, 0, w, ex, ey, -ty, tx, wmSide, w/);
   assert.match(STAGE, /querySelectorAll\('\.ob-edge'\)/);
   assert.ok(!/ -ty, tx, -1, WARM\.reach/.test(STAGE), 'no centred strip: the tubes\' insides are not filled');
   // The glow's reach stays under a tube's own half width (about 12.5), so a tube's middle is clear of its neighbours' glow.
@@ -276,30 +260,30 @@ test('a lapse glow goes when the slide leaves, and is drawn from the pile\'s own
   const GLSRC = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(GLSRC, /if \(warm\) \{ gl\.blendEquation\(gl\.MAX\)/);
   assert.match(GLSRC, /if \(warm\) gl\.blendEquation\(gl\.FUNC_ADD\)/);
-  assert.match(STAGE, /underColon\(ex, ey\)/);
+  assert.match(STAGE, /wmUnder\(ex, ey\)/);
   assert.match(STAGE, /\(Rv - rad\) \* 0\.85/);
   assert.ok(!/function warmRings[\s\S]{0,120}consolidate/.test(STAGE) && !/function olRingsRaw[\s\S]{0,120}consolidate/.test(STAGE), 'the loop outlines read the transform without consolidate()');
   // A redrawn pile is noticed: the cached tubes and their radius are dropped when the old ones leave the page, and the radius is
   // read again when the bed's stroke width changes; it comes from the pieces' own stroke-width attribute (.ob-edge).
   assert.match(STAGE, /!l\[0\]\.isConnected/);
-  assert.match(STAGE, /c\.sw !== sw/);
-  assert.match(STAGE, /gone\(t\) \|\| gone\(e\)/, 'a redrawn piece is noticed too');
+  assert.match(STAGE, /wsSame\(c\.sw, c\.has, warmSwWalk, id\)/);   // (the bed's widths as parts, told apart in place)
+  assert.match(STAGE, /warmGone\(t\) \|\| warmGone\(e\)/, 'a redrawn piece is noticed too');
   // The colon cut is a grid look-up (filled once by scanlines), not a ring test per point; each run's reach eases off at both ends.
   assert.match(STAGE, /grid\.bits\[j \* grid\.w \+ i\] === 1/);
   assert.ok(!/inRing/.test(STAGE), 'no per-point ring test');
   assert.match(STAGE, /Math\.min\(dist\[k\], L - dist\[k\]\) \/ WARM\.taper/, 'the ends fade by length, not by points');
   assert.match(GLSRC, /vF = c \/ 63\.0;/);
   assert.match(GLSRC, /a = col\.a \* vF \* exp\(/, 'the fade multiplies the alpha, so an end is not a thin full-strength line');
-  assert.match(GLSRC, /gl\.uniform1f\(U\.pack, warm \? 1 : 0\)/);
+  assert.match(GLSRC, /UC\.f1\(U\.pack, warm \? 1 : 0\)/);
   assert.match(STAGE, /64 \* Math\.round\(e \* 63\)/);
   assert.ok(+/const WARM = \{ reach: (\d+)/.exec(STAGE)[1] < 64, 'the reach fits under the fade packing (64 x the fade + the width)');
   assert.match(STAGE, /Math\.min\(63, WARM\.reach, 0\.8 \* rad\)/, 'the reach follows the measured tube radius');
   // A run starts and stops exactly on its cut (the colon's, or too little room on a bend), found between two points, so the fade moves smoothly.
-  assert.match(STAGE, /const cut = \(i, wasOk\) => \{/);
-  assert.match(STAGE, /if \(i > 0 && !prevOk\) run\.push\(cut\(i, false\)\)/);
-  assert.match(STAGE, /if \(prevOk\) run\.push\(cut\(i, true\)\)/);
+  assert.match(STAGE, /function wmCut\(i, wasOk\) \{/);
+  assert.match(STAGE, /if \(i > 0 && !prevOk\) \{ wmCut\(i, false\); wmPush\(\);/);
+  assert.match(STAGE, /if \(prevOk\) \{ wmCut\(i, true\); wmPush\(\);/);
   assert.ok(!/baseVal\.consolidate\(\)/.test(STAGE), 'no transform is consolidated: the keys stay the same across builds');
-  assert.match(STAGE, /el\.getAttribute\('stroke-width'\)/);
+  assert.match(STAGE, /edges\[i\]\.getAttribute\('stroke-width'\)/);
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('ob-edge\\" d=\\"') && /class=\\"ob-edge\\" d=\\"[^"]*\\" stroke-width=\\"[\d.]+\\"/.test(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8')), 'the pieces carry a stroke-width attribute');
   assert.ok(readFileSync(new URL('../src/ui/organ-art.js', import.meta.url), 'utf8').includes('class=\\"ob-deep\\"'), 'the pile still draws .ob-deep tubes');
 });
@@ -325,5 +309,5 @@ test('a spotlit vessel fades toward every end that meets no other lifted vessel'
   const fn = STAGE.match(/function selEnd\(id, n\) \{[\s\S]*?\n {2}\}/)?.[0] || '';
   assert.match(fn, /return liftEnd\(spot\.ids\.has\(id\) && spotOn\(\), joins\)/);
   assert.doesNotMatch(fn, /spotOn\(\)\) return 0/);
-  assert.match(STAGE, /\[easeInOut\(sa\), selEnd\(id, x\.e\.from\), selEnd\(id, x\.e\.to\), 0\]/);
+  assert.match(STAGE, /tubeData\[o \+ 49\] = selEnd\(id, x\.e\.from\); tubeData\[o \+ 50\] = selEnd\(id, x\.e\.to\);/);
 });

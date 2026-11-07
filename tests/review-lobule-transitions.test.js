@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Fable review (16 Oct), graphics G18, G20, G21 and G22: one clock for organ and vessel transitions, the organ selection in its
 // own tone, hepatocyte cords that read as cords, and the quieter (softened) neighbouring lobules.
 import { test } from 'node:test';
@@ -6,21 +7,24 @@ import { readFileSync } from 'node:fs';
 import { SIN_NARROW, cordTone, dullSinusoid, NEIGHBOUR_FLAT, neighbourBlur, blurWrapped } from '../src/ui/lobule-look.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const stage = read('../src/ui/stage.js');
+const stage = stageSource();
 const lz = read('../src/ui/lobule-zoom.js');
+const lp = read('../src/ui/lobule-paint.js');   // (the tissue's painting: lobule-paint.js paintLobule)
 const app = read('../styles/app.css');
 const tokens = read('../styles/tokens.css');
 
 test('G18: organs and vessels ease on one clock and one curve', () => {
-  const lens = Number(stage.match(/const LENS_FADE = (\d+);/)[1]);
+  // (One surface step of the motion scale, ease.js D_SURFACE, 420 ms.)
+  assert.match(stage, /const LENS_FADE = D_SURFACE;/);
   assert.match(stage, /const PLATE_FADE = LENS_FADE;/, 'the GPU plate eases over the vessels\' own lens crossfade');
-  assert.match(stage, /plateT0 = lensFrom && now - lensT0 < 60 \? lensT0 : now;/, 'from the moment the lens switch started');
-  assert.equal(Number(lz.match(/const LENS_FADE = (\d+),/)[1]), lens, 'the lobule\'s lens crossfade takes the same time');
-  const fade = tokens.match(/--view-fade: \.(\d+)s;/);
-  assert.ok(fade && Number('0.' + fade[1]) * 1000 === lens, 'the SVG organs\' CSS fade takes the same time');
-  // easeInOut (quadratic) as a CSS curve.
-  assert.match(tokens, /--ease-io: cubic-bezier\(\.455, \.03, \.515, \.955\);/);
-  for (const rule of ['#net { transition: opacity var(--view-fade) var(--ease-io); }', '#backEdges .vg { transition: filter var(--view-fade) var(--ease-io); }']) assert.ok(app.includes(rule), rule);
+  assert.match(stage, /plateT0 = (?:live\.)?lensFrom && now - (?:live\.)?lensT0 < 60 \? (?:live\.)?lensT0 : now;/, 'from the moment the lens switch started');
+  assert.match(lz, /const LENS_FADE = D_SURFACE,/, 'the lobule\'s lens crossfade takes the same time');
+  assert.match(tokens, /--d-surface: 420ms;/, 'the SVG organs\' CSS fade takes the same time');
+  // The quintic (easeMove) on every clock, and as a CSS curve.
+  assert.match(stage, /u = easeMove\(clamp\(\(\(PACED \? easeNow\(\) : now\) - (?:live\.)?lensT0\) \/ LENS_FADE, 0, 1\)\)/);
+  assert.match(stage, /const u = easeMove\(clamp\(\(now - plateT0\) \/ PLATE_FADE, 0, 1\)\);/);
+  assert.match(read('../src/ui/organs-gl.js'), /L\.k = easeMove\(\(now - L\.from\) \/ VIEW_FADE_MS\);/);
+  assert.doesNotMatch(app, /#net \{ transition|#backEdges \.vg/, 'the vessels have no CSS fade left (the GPU draws them)');
   // The live SVG organs take the plate's own eased values (stepPlateEase → syncPlateLook → syncOrganDim), so they share its clock.
   assert.match(stage, /function syncPlateLook\(\) \{\n {4}syncOrganDim\(\);/);
   assert.doesNotMatch(app, /#heatGlow[^}]*\.28s|#backEdges \.vg \{ transition: filter \.28s/, 'no lens or selection fade left on the old .28 s clock');
@@ -29,11 +33,11 @@ test('G18: organs and vessels ease on one clock and one curve', () => {
 test('G20: a selected organ is outlined in its own deep tone with a soft glow; the others dim to .6', () => {
   assert.match(stage, /const OL_LOOK = \{ sel: \[2\.6, /, 'the selection line is 2.6 units');
   assert.match(stage, /getComputedStyle\(g\)\.getPropertyValue\('--o3'\)/, 'its colour is the organ\'s own --og-<tone>-3');
-  assert.match(stage, /o\.kind === 'sel' \? \[\[true, SEL_GLOW\.reach, SEL_GLOW\.alpha\]\]/, 'a soft glow under the line');
-  assert.match(stage, /const col = o\.col \|\| \(o\.kind === 'pin' \? olCol : orgTone\(o\.id\)\);/, 'slide pins keep their station colour');
+  assert.match(stage, /PASS_SEL = \[\[true, SEL_GLOW\.reach, SEL_GLOW\.alpha\]/, 'a soft glow under the line');
+  assert.match(stage, /const col = o\.col \|\| \(o\.kind === 'pin' \? (?:live\.)?(?:live\.)?olCol : orgTone\(o\.id\)\);/, 'slide pins keep their station colour');
   assert.match(stage, /const SEL_DIM = 0\.6;/);
   assert.match(stage, /\(sel \? SEL_DIM : 1\) \* \(dataLayer \? 0\.72 : 1\)/, 'the GPU plate dims to SEL_DIM');
-  assert.match(stage, /const on = !plateOn\(\) && \(plateDim < 1 \|\| plateSat < 1\);/, 'the SVG organs dim with the same values (syncOrganDim)');
+  assert.match(stage, /const on = !(?:live\.)?plateOn\(\) && \((?:live\.)?plateDim < 1 \|\| (?:live\.)?plateSat < 1\);/, 'the SVG organs dim with the same values (syncOrganDim)');
   // Every selectable organ has a tone class that sets --o3.
   for (const t of ['liver', 'spleen', 'heart']) assert.match(app, new RegExp(`\\.tone-${t} \\{[^}]*--o3: var\\(--og-${t}-3\\)`));
 });
@@ -46,9 +50,9 @@ test('G21: zone 3 cells are deeper and warmer; zone 1 keeps its tone', () => {
   const drop = z3.map((x, i) => 1 - x / cell[i]);
   assert.ok(drop[2] > drop[1] && drop[1] > drop[0], 'warmer: blue drops most, red least');
   assert.ok(cordTone(cell, 0, true)[2] > z3[2], 'gentler in dark mode');
-  assert.match(lz, /cordTone\(base\.map\(/);
-  assert.match(lz, /if \(!dead\) c\.stroke\(\);/, 'a thin membrane between neighbouring cells');
-  assert.match(lz, /c\.lineWidth = Math\.max\(0\.6, 0\.6 \/ \(c\.getTransform\(\)\.a \|\| 1\)\)/);
+  assert.match(lp, /CT\[i\] = base\[i\] \* t \+ \(1 - t\) \* \(dark \? 0\.15 : 1\) \* 0\.3; fill = cordToneInto\(TONE, CT, k\.q, dark\)/);
+  assert.match(lp, /if \(!dead\) c\.stroke\(\);/, 'a thin membrane between neighbouring cells');
+  assert.match(lp, /c\.lineWidth = Math\.max\(0\.6, 0\.6 \/ \(c\.getTransform\(\)\.a \|\| 1\)\)/);
 });
 
 test('G21: the sinusoids are a quarter narrower and the cords fill the room', () => {
@@ -76,13 +80,12 @@ test('G22: the neighbouring lobules are blurred once per tile, seamlessly, with 
   assert.equal(NEIGHBOUR_FLAT, 0.3);
   assert.equal(neighbourBlur(12), 0);
   assert.ok(neighbourBlur(192) > 3 && neighbourBlur(192) < 5);
-  // Built into the cached quiet tile (the lobule view's surround and the dive's quieting), never per frame.
-  assert.match(lz, /blurTile\(c, t\.cv, t\.tw, t\.th, neighbourBlur\(t\.R\)\);\n\s+fieldQuiet\(c, bg, 1, t\.tw, t\.th\);\n\s+c\.fillStyle = css\(bg, NEIGHBOUR_FLAT\);/);
-  assert.match(lz, /img\.data\.set\(blurWrapped\(img\.data, w, h, r\)\);/, 'the same smooth blur on every browser');
-  assert.doesNotMatch(lz, /c\.filter = `blur/, 'no canvas filter (some Safaris lack it)');
-  assert.doesNotMatch(lz, /\.filter = `blur[^\n]*\n[^\n]*requestAnimationFrame/);
-  // The quieting's saturation fill runs (it had slipped into a comment).
-  assert.match(lz, /c\.globalCompositeOperation = 'saturation'; c\.fillStyle = `rgba\(128,128,128,\$\{\(0\.45 \* q\)\.toFixed\(3\)\}\)`; c\.fillRect\(0, 0, w, h\);/);
+  // Built into the cached quiet copy (the lobule view's surround and the dive's quieting), never per frame: made once on the GPU
+  // (tile-gl.js, a wrapped Gaussian, the same on every browser) since 1 Nov, with no blur in script and no canvas filter.
+  assert.match(lz, /const quietCopy = \(t, bg\) => \{[\s\S]*?gpuCopy\(t, 'quietG', bg\.join\(','\), \{ blur: neighbourBlur\(t\.R\), sat: 0\.45, tone: bg, toneA: 0\.42, flat: NEIGHBOUR_FLAT \}\);/);
+  assert.match(lz, /if \(q && q\.k === k && q\.cv\.src === t\.cv && q\.cv\.width\) return q;/, 'kept while the tile and the tone are the same');
+  assert.doesNotMatch(lz, /blurWrapped|getImageData/, 'no blur in script');
+  assert.doesNotMatch(lz, /\.filter = `blur/, 'no canvas filter (some Safaris lack it)');
 });
 
 // A w × h RGBA tile from a function of (x, y) giving a grey level.
@@ -117,17 +120,18 @@ test('G22: the blurred edge is smooth (no steps), even for a wide blur on a larg
 test('a new patient eases into the lobule: the tissue crossfades instead of snapping', () => {
   // The tissue bitmap is redrawn in one step when its state changes; the picture it replaces is kept and faded out under it.
   assert.match(lz, /const XF_MS = 900;/);
-  assert.match(lz, /if \(worldState && ws !== worldState && !unseen\(\) && worldGeo === G && worldCv\.width && !\(xfT0 && now - xfT0 < XF_MS\)\) \{ \[worldOld, worldCv\] = \[worldCv, worldOld\];/,
-    'swapped, not copied, and a change mid-fade does not restart it');
-  assert.match(lz, /const worldStateOf = \(m, G, dark, cs\) => \[G\.W, G\.H, dark,/);
-  assert.match(lz, /const ws = worldStateOf\(m, G, dark, cs\);[\s\S]*?const wk = sc\.toFixed\(3\) \+ '\|' \+ ws;/, 'only a new state fades, never a new drawing scale');
-  // (Mixed (1 − u)·old + u·new at the bitmap's own size, then placed: see tests/fibrous-band-ends.test.js for why not one over the other.)
-  assert.match(lz, /const u = xfU\(xfT0, now\)[^\n]*\n[^\n]*\n[^\n]*x\.globalAlpha = 1 - u; x\.drawImage\(worldOld, 0, 0, n, xfCv\.height\);\n[^\n]*x\.globalAlpha = u; x\.drawImage\(worldCv, 0, 0\);[^\n]*\n\s+c\.drawImage\(xfCv, sx \* dpr, sy \* dpr, side, side\);/, 'the old picture under the new one, both sharp');
-  assert.match(lz, /if \(xfT0\) \{ xfT0 = 0; free\(worldOld\); free\(xfCv\); \}/, 'the old picture is given back once faded');
+  // (Not on the GPU while the shader has the whole picture, liveShare 1: the bitmap is then not seen. tests/lobule-live.test.js.)
+  assert.match(lz, /if \(worldState && ws !== worldState && !unseen\(\) && !\(liveShare >= 1\) && worldGeo === G && worldCv\.width && !\(xfT0 && xfNow\(now\) - xfT0 < XF_MS\)\) \{ free\(worldOld\); worldOld = worldCv;/,
+    'kept, not copied, and a change mid-fade does not restart it');
+  assert.match(lz, /const worldStateOf = \(m, G, dark, cs\) => \{/);
+  assert.match(lz, /const ws = worldStateOf\(m, G, dark, cs\);[\s\S]*?const wk = wkOf\(sc, ws\);/, 'only a new state fades, never a new drawing scale');
+  // (Mixed (1 − u)·old + u·new by the shader, both sharp: see tests/fibrous-band-ends.test.js for why not one over the other.)
+  assert.match(lz, /A\.wo = crossfading \? worldOld : null; A\.woVer = worldOld\.ver \|\| 0; A\.wMix = crossfading \? xfU\(xfT0, xfNow\(now\)\) : 1;/, 'the old picture under the new one');
+  assert.match(lz, /if \(!crossfading && xfT0\) \{ xfT0 = 0; free\(worldOld\); tg\.sweep\(\); \}/, 'the old picture is given back once faded, and its GPU copy');
   // The surround's tiles too, and the frame loop keeps drawing while either fades.
-  assert.match(lz, /if \(surNow && t\.set !== surNow\.set && surNow\.q\.cv\?\.width && !unseen\(\)\) \{ surOld = surNow\.q; surT0 = now; \}/);
+  assert.match(lz, /if \(surNow && ta\.set !== surNow\.set && surNow\.q\.cv\?\.width && !unseen\(\)\) \{ surOld = surNow\.q; surT0 = xfNow\(now\); \}/);
   assert.match(lz, /if \(rzMoving \|\| lensFrom \|\| tissueFading\(now\)\) drawVersion\+\+;/);
-  assert.match(lz, /\[W, H, dpr, wk, gpu, fading \?/, 'each fading frame draws the tissue again');
+  assert.match(lz, /K\[ki\+\+\] = fading \? Math\.round\(xfU\(xfT0, xfNow\(now\)\) \* 1000\) : -1;/, 'each fading frame draws the tissue again');
   // The sinusoids' dulling follows the eased resistance, as their calibers do.
   assert.match(lz, /const sinFib = \(\) => clamp\(Math\.log\(rzOf\(\)\.sin\) \/ 3\.2, 0, 1\);/);
 });
@@ -141,38 +145,46 @@ test('a patient changed while the lobule is closed dives into that patient\'s lo
   assert.match(lz, /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, [^\n]*\)\);\n\s+snapNext = false;/, 'one frame only');
   // Every way the lobule is drawn out of sight starts from the patient's state: the dive's staging, the idle preparation, a reopen.
   assert.match(lz, /staging = true; snapState\(\);\n\s+try \{ update\(F\); \}/);
-  assert.match(lz, /snapState\(\);\n\s+model = lobuleState\(\{ \.\.\.F, P: F\.Pf \|\| F\.P \}, st\);/);
+  assert.match(lz, /snapState\(\);\n\s+model = lobuleStateInto\(modelBuf, F, st, undefined, F\.Pf \|\| F\.P\);/);
   assert.match(lz, /diveDrawn = false; snapState\(\); if \(F\) update\(F\);/);
   // Out of sight, the surround's tiles are drawn for the new state at once, not left on the last state's.
-  assert.match(lz, /const t = fieldTile\(cs, dark, want, !unseen\(\)\)/);
+  assert.match(lz, /const ta = fieldTile\(cs, dark, FIELD_RS\[a\], !unseen\(\)\)/);
   // And the dive's field follows the latest frame, not the model left from the last visit.
-  assert.match(lz, /const fieldState = \(\) => \{ const m = !unseen\(\) && model \? model : F \? closedModel\(\) : model;/);
-  assert.match(lz, /fsM = lobuleState\(\{ \.\.\.F, P: F\.Pf \|\| F\.P \}, st\);/);
+  assert.match(lz, /const fieldState = \(\) => \{\s+const m = !unseen\(\) && model \? model : F \? closedModel\(\) : model;/);
+  assert.match(lz, /fsM = lobuleStateInto\(fsBuf, F, st, undefined, F\.Pf \|\| F\.P\);/);
 });
 
-test('the lobule\'s tissue fills each pixel only with the passes that change it, so a slide\'s camera glide stays smooth (Mohammad, 17 Oct)', () => {
-  const s = lz.indexOf('function paintTissue('), e = lz.indexOf('function diveCopy(');
-  const pt = lz.slice(s, e);
-  // No whole-screen fill of the page's colour: only past the focus fade's outer edge, where the fade would lay it at full strength anyway.
-  assert.doesNotMatch(pt, /c\.fillStyle = bg; c\.fillRect\(0, 0, W, H\);/);
-  assert.match(pt, /if \(reach > fOut \+ 1\) \{ c\.beginPath\(\); c\.rect\(0, 0, tw, th\); c\.moveTo\(ox \+ fOut \+ 1, oy\); c\.arc\(ox, oy, fOut \+ 1, 0, TAU\); c\.fill\('evenodd'\); \}/);
-  // The surround: inside the fade's outer edge, and not under the lobule's opaque middle unless two pictures are crossfading.
-  assert.match(pt, /c\.beginPath\(\); c\.arc\(ox, oy, fOut \+ 2, 0, TAU\);\n\s+if \(!crossfading\) \{/);
-  assert.match(pt, /const mg = 2 \+ 3 \* Math\.max\(1, \(dpr \* V\.k\) \/ worldSc\);/);
-  assert.match(pt, /c\.clip\('evenodd'\);/);
-  assert.ok(pt.indexOf('if (wk !== worldKey) {') < pt.indexOf('const crossfading'), 'the bitmap (and any crossfade it starts) is settled before the surround leaves a hole for it');
-  // The fade: the annulus from its inner edge to past the surround's clip, so the clip's soft edge is covered at full strength.
-  assert.match(pt, /fieldFade\(c, shadeOf\(rgb01\(bg\), dark\), ox, oy, rdv, 1, W \* dpr, H \* dpr, fIn, fOut, \[fIn - 1, fOut \+ 4\]\)/);
-  assert.match(lz, /const vg = c\.createRadialGradient\(x, y, r0, x, y, r1\);\n\s+vg\.addColorStop\(0, css\(bg, 0\)\);/, 'clear at the inner edge, the page colour at full strength past its outer edge');
-  assert.match(pt, /fIn = rdv \* 1\.1;/); assert.match(pt, /const fOut = fadeOuter\(fIn, reach\);/);
+test('the lobule\'s tissue is one shader pass a frame, so a slide\'s camera glide stays smooth (Mohammad, 17 Oct)', async () => {
+  // (1 Nov, the off-GPU gate: the 2D passes (the page fill, the surround's clip, the fade) are gone; the tissue's shader lays the
+  // surround, the picture over it and the fade into the page in one pass: tissue-gl.js.)
+  const pt = lz.slice(lz.indexOf('function paintTissue('), lz.indexOf('\n  }\n', lz.indexOf('function paintTissue(')));
+  assert.doesNotMatch(pt, /fillRect|c\.fill\(|c\.clip\(|fieldFade\(/);
+  assert.match(pt, /if \(gpu && tissueOnGPU\(tg, tw, th, dpr, dark, cs, bg, now\)\) \{ keyGPU = true;/);
+  const on = lz.slice(lz.indexOf('function tissueOnGPU('), lz.indexOf('\n  }\n', lz.indexOf('function tissueOnGPU(')));
+  assert.equal(on.split("framePart('lz.tissueGL', tisDraw)").length - 1, 1, 'one draw');
+  assert.match(on, /fIn = rd \* 1\.1;/); assert.match(on, /const fOut = fadeOuter\(fIn, reach\)/);
   // The lobule's bitmap is opaque inside its own outline (filled first, at 1.015 of the hexagon, full strength).
-  assert.match(lz, /const px = l\.x \+ \(x - l\.x\) \* 1\.015, py = l\.y \+ \(y - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
+  assert.match(lp, /fillRGB\(c, MIXC, 1\);[^\n]*\(l\.corners\[i\]\[0\] - l\.x\) \* 1\.015, py = l\.y \+ \(l\.corners\[i\]\[1\] - l\.y\) \* 1\.015;[^\n]*c\.fill\(\); \}/);
 });
 
-test('holding only the ductules, the lobule\'s effects layer clears only where they were, not the whole screen each camera frame', () => {
-  assert.match(lz, /if \(fxBoxes\) \{ c\.setTransform\(1, 0, 0, 1, 0, 0\); for \(const \[x0, y0, x1, y1\] of fxBoxes\) c\.clearRect\(x0, y0, x1 - x0, y1 - y0\);[^\n]*\n\s+else c\.clearRect\(0, 0, W, H\);\n\s+fxBoxes = moving \? null : \[\];/);
-  assert.match(lz, /fx\.width = fw; fx\.height = fh; fxDrawn = ''; fxBoxes = null;/, 'a resized layer starts from a full clear');
-  // Each ductule's box: its outer ring plus the stroke, on screen, and 3 px more.
-  assert.match(lz, /e = \(r \+ c\.lineWidth\) \* V\.k \* dpr \+ 3/);
-  assert.match(lz, /return \{ lumen, cells, nuc, disc: \[x, y, rout\] \};/);
+test('holding only the ductules, the lobule\'s overlay is not drawn again while nothing in it changes', () => {
+  // (The overlay is the GPU's since 1 Nov: fx-gl.js. A still one keyed on what it shows; a moving one drawn each frame.)
+  const f = lz.slice(lz.indexOf('function fxOnGPU('), lz.indexOf('\n  }\n', lz.indexOf('function fxOnGPU(')));
+  assert.match(f, /K\[ki\+\+\] = fw; K\[ki\+\+\] = fh; K\[ki\+\+\] = dpr; K\[ki\+\+\] = dark; K\[ki\+\+\] = m\.hide; K\[ki\+\+\] = m\.hide \? '' : fxDuct\(\)\.key; K\[ki\+\+\] = V\.k; K\[ki\+\+\] = V\.x; K\[ki\+\+\] = V\.y;/);
+  assert.match(f, /if \(!moving && same && fxGLShown && !hosted\) \{ fx2D\(\); return true; \}/);
+  assert.match(lz, /return \{ disc: \[x, y, rout\], num: \[x, y, rin, rout, rm, hw \* 0\.34, tr\.i, 0\] \};/);
+});
+
+// (31 Oct, his iPhone readout on e52a280e: every frame of a pan in the lobule painted its tissue again, "state changed", 10.9 MB
+// each. The state carried the portal venule's ink, which the tissue bitmap never draws: the vessels are the GPU's, or the flat
+// strokes on the tissue canvas, keyed apart. A pressure gliding with the model moved it at each step.)
+test("the lobule's tissue bitmap is keyed only on what it paints: no vessel ink", () => {
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const ws = lz.match(/const worldStateOf = [^\n]+/)[0];
+  assert.doesNotMatch(ws, /ink/i);
+  const i = lp.indexOf('export function paintLobule('), body = lp.slice(i, lp.indexOf('\n}\n', i));
+  assert.ok(i >= 0 && body.length > 1000, 'the painting itself');
+  assert.doesNotMatch(lz.match(/function worldInput\([\s\S]*?\n {2}\}\n/)[0], /\binkOf\(|\bink\(|tubeInk\(|m\.mode/, 'nor does what it is given');
+  assert.doesNotMatch(body, /\binkOf\(|\bink\(|tubeInk\(|m\.mode/, 'the bitmap draws no vessel ink and no lens');
+  assert.doesNotMatch(lz, /const qi = /);
 });

@@ -4,7 +4,7 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
-import { scopeStates, overScope, curveSteps, curveSeries, xKeyOf, axisMeta, xDomain, xCutsOf, yCutsOf, zoneEdge, dotsOf, dotSteps, ringAt, drawnLines, againstsOf, againstOf, ownIsRef, curveAt, patientOf, onCurve, readingName } from '../src/ui/tool-curve.js';
+import { scopeStates, overScope, curveSteps, curveSeries, xKeyOf, axisMeta, xDomain, xCutsOf, yCutsOf, zoneEdge, dotsOf, dotSteps, ringAt, drawnLines, againstsOf, againstOf, ownIsRef, curveAt, patientOf, onCurve, readingName, lineMeta } from '../src/ui/tool-curve.js';
 
 async function seq(steps, base = null) {
   const out = [];
@@ -109,7 +109,7 @@ test('a plane row with from: the ring where the patient started, its line, and t
   const pl = planeOf('hvpg-ppg'), { X, Y } = scaler(pl, { L: 0, R: 300, T: 0, B: 300 });
   assert.equal(wasAt(pl, null, X, Y), null);
   const w = wasAt(pl, { hvpg: 16.5, ppg: 17.4 }, X, Y);
-  assert.deepEqual([w.x, w.y].map((v) => +v.toFixed(1)), [165, 126]);
+  assert.deepEqual([w.x, w.y].map((v) => +v.toFixed(1)), [+(300 * 16.5 / pl.x.max).toFixed(1), +(300 * (1 - 17.4 / pl.y.max)).toFixed(1)], 'the ring at the start\'s own numbers on the plane\'s scale');
   assert.deepEqual(wasBoxes({ x: 10, y: 10 }), [], 'no from, nothing to keep clear of');
   const bx = wasBoxes({ x: 0, y: 0, was: { x: 30, y: 0 } });
   assert.deepEqual(bx[0], [20, -10, 40, 10], 'the ring');
@@ -133,10 +133,10 @@ test('the before-and-after and site planes sit just before their summaries, ever
 
 test('a second sweep may draw another reading (of): the fundal varix open, then closed, and the esophageal varix closed, on one scale', () => {
   const t = { x: 'hvpg', param: 'cirrhosis', from: 0.5, to: 0.6, step: 0.1, lines: ['gv'], reading: 'Varix',
-    against: [{ label: 'Fundal, shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, shunt open' }, { label: 'Esophageal, shunt closed', of: 'varix', params: { occluded: { C5: true } } }] };
+    against: [{ label: 'Fundal, shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, shunt open' }, { label: 'Esophageal', of: 'varix', params: { occluded: { C5: true } } }] };
   assert.deepEqual(againstsOf(t).map((a) => a.of), [null, 'varix']);
   assert.deepEqual(againstsOf({ ...t, against: [{ label: 'x', params: {}, of: 'nonsense' }] }).map((a) => a.of), [null], 'a reading the card does not know is ignored');
-  assert.deepEqual(drawnLines(t).map((l) => [l.k, l.name, l.c]), [['gv', 'Fundal, shunt open', '--tr-pv'], ['gv', 'Fundal, shunt closed', '--tr-hv'], ['varix', 'Esophageal, shunt closed', '--tr-cav']]);
+  assert.deepEqual(drawnLines(t).map((l) => [l.k, l.name, l.c]), [['gv', 'Fundal, shunt open', '--tr-pv'], ['gv', 'Fundal, shunt closed', '--tr-hv'], ['varix', 'Esophageal', '--tr-cav']]);
   assert.equal(readingName(t), 'Varix');
   assert.equal(readingName({ ...t, reading: undefined }), 'Gastric varix', 'without a reading of its own the key keeps the first reading\'s name');
   assert.equal(curveSteps(t).length, 6);
@@ -160,4 +160,12 @@ test('a curve over the scope\'s air: the varix seen and the pressure across its 
   const s = curveSeries(t, st);
   assert.deepEqual([s.xs[0], s.xs.at(-1)], [0, 20]);
   assert.deepEqual(axisMeta(t), { name: 'Air in the esophagus', unit: 'mmHg', d: 0, x: 1 });
+});
+
+test('the HVPG and the platelets are two clearly different colours, and neither is a cut-off line\'s', () => {
+  const h = lineMeta('hvpg', 0), p = lineMeta('plt', 1);
+  assert.equal(h.c, '--s7', 'the HVPG stays violet, as everywhere else');
+  assert.equal(p.c, '--tr-ivc', 'the platelets are cyan: blue beside violet read as one colour (deuteranopia ΔE 4)');
+  assert.notEqual(p.c, '--tr-hv');
+  assert.ok(![p.c, h.c].some((c) => ['--caution', '--danger'].includes(c)), 'the amber and coral cut-off lines keep their colours to themselves');
 });

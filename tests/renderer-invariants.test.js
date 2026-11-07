@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -80,16 +81,18 @@ test('a catheter update sends the shaft once and only the moving vertices after'
   assert.ok(subs.every((c) => c[3].byteLength === 48));
 });
 
-test('the label atlas sends a picture only when its look key changed, and the key holds no position', () => {
+test('the label atlas draws a picture only when its look key changed, and the key holds no position', () => {
   const src = read('../src/ui/label-gl.js');
-  const ref = src.slice(src.indexOf('function refresh('), src.indexOf('function repack('));
+  const ref = src.slice(src.indexOf('function refresh('), src.indexOf('function repackWork('));   // (R12: repack() became repackWork(), which copies on the GPU and paints nothing)
   assert.match(ref, /if \(st\.key !== key\) \{/);
-  assert.equal(ref.match(/texSubImage2D/g).length, 1);
+  assert.equal(ref.match(/paintSlot\(/g).length, 3);   // (GPU drawings into the atlas, inside the key check: a picture in its own colours, or a split one's two halves, render-cost plan 2.2)
+  assert.ok(ref.indexOf('st.key !== key') < ref.indexOf('paintSlot('));
+  assert.doesNotMatch(ref, /texSubImage2D|getContext/);
   assert.match(src, /export const lookKey = \(d, rot, dpr\) => JSON\.stringify\(\[d\.filter, d\.parts, rot, dpr\]\);/);   // (look, rotation and ratio; no place)
 });
 
 test('the stage resizes its drawing buffer from the wrap size and ratio, never from the zoom', () => {
-  const src = read('../src/ui/stage.js');
+  const src = stageSource();
   const fn = src.slice(src.indexOf('function resizeCanvas()'), src.indexOf('new ResizeObserver(resizeCanvas)'));
   assert.doesNotMatch(fn, /CTM\.sc|\bvt\b|zoom/);
   assert.match(fn, /vCanvas\.width = /);
@@ -97,12 +100,12 @@ test('the stage resizes its drawing buffer from the wrap size and ratio, never f
 });
 
 test('a resize notice that leaves the backing size and ratio as they were neither clears the canvas nor draws in the same task', () => {
-  const src = read('../src/ui/stage.js');
+  const src = stageSource().replace(/\blive\./g, '');   // (read by names: the part reads the shared lets as live.x)
   const fn = src.slice(src.indexOf('function resizeCanvas()'), src.indexOf('new ResizeObserver(resizeCanvas)'));
   const guard = fn.indexOf('bw === vCanvas.width && bh === vCanvas.height && vdpr === was');
   assert.ok(guard > 0, 'the unchanged size is checked');
   assert.ok(guard < fn.indexOf('vCanvas.width = bw'), 'before the width is assigned');
-  assert.ok(fn.indexOf('return;', guard) < fn.indexOf('drawVeins()'), 'and returns before the same-task draw');
+  assert.ok(fn.indexOf('return;', guard) < fn.indexOf("drawVeins(false, 'resize')"), 'and returns before the same-task draw');
 });
 
 test('the shared clock runs each surface once per frame and the late ones last, from one browser frame', async () => {
@@ -123,27 +126,33 @@ test('the shared clock runs each surface once per frame and the late ones last, 
   assert.equal(frames.length, 0, 'nothing asked, no frame requested');
 });
 
-test('capture() hands exports the canvas with the whole current picture; the glass asks for it before each copy', async () => {
+test('capture() hands exports the canvas with the whole current picture', async () => {
   const { g, f, canvas, look } = await renderer();
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
   const n = f.calls.length;
   assert.equal(g.capture(), canvas);
-  assert.equal(f.calls.slice(n).filter((c) => c[0] === 'blitFramebuffer').length, 0, 'the canvas keeps its own picture: nothing to copy');
-  const glass = read('../src/ui/glass-gl.js');
-  assert.ok(glass.indexOf('capture?.()') > 0 && glass.indexOf('capture?.()') < glass.indexOf('p = createImageBitmap('));
-  const stage = read('../src/ui/stage.js');
-  assert.equal((stage.match(/capture: \(\) => veins\?\.capture\(\)/g) || []).length, 2, 'the callouts\' glass and the liver pane');
+  assert.equal(f.calls.slice(n).filter((c) => c[0] === 'blitFramebuffer').length, 1, 'the canvas keeps no picture of its own: the kept one is copied onto it');
 });
 
-test('the vessel layer\'s second-lumen target is bounded: given back to a texel while the picture is not shown, and the pan copy after 1.5 s', async () => {
+test('the vessel layer\'s second-lumen target is bounded: given back to a texel while the picture is not shown, and a pan makes no copy of it', async () => {
   const { g, f, look } = await renderer();
   g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-  const big = f.calls.filter((c) => c[0] === 'texImage2D' && c[2] === 0 && c[3] === f.gl.RGBA16UI && c[4] === 800 && c[5] === 600);
-  assert.ok(big.length >= 2, 'the integer layers were allocated at the canvas size');
+  // (At the layer's size: the canvas's, or less on an axis where the figure takes less, 31 Oct.)
+  const [LW, LH] = g.layerLayout.size;
+  assert.ok(LW <= 800 && LH <= 600);
+  const big = (fmt) => f.calls.filter((c) => c[0] === 'texImage2D' && c[2] === 0 && c[3] === fmt && c[4] === LW && c[5] === LH);
+  assert.ok(big(f.gl.RGBA16UI).length >= 1, 'the first lumen\'s layer allocated at the layer\'s size');
+  // (The second lumen packed in two channels: ROW2_BITS.)
+  assert.ok(big(f.gl.RG16UI).length >= 1, 'the second lumen\'s layer allocated at the layer\'s size, in two channels');
   const n = f.calls.length;
   g.trim();
-  const small = f.calls.slice(n).filter((c) => c[0] === 'texImage2D' && c[3] === f.gl.RGBA16UI && c[4] === 1 && c[5] === 1);
-  assert.equal(small.length, 2, 'both integer layers (first and second lumen) back to a texel');
-  const src = read('../src/ui/veins-gl.js');
-  assert.match(src, /spare\.timer = setTimeout\(dropSpare, 1500\)/);
+  const small = (fmt) => f.calls.slice(n).filter((c) => c[0] === 'texImage2D' && c[3] === fmt && c[4] === 1 && c[5] === 1);
+  assert.equal(small(f.gl.RGBA16UI).length, 1, 'the first lumen\'s layer back to a texel');
+  assert.equal(small(f.gl.RG16UI).length, 1, 'the second lumen\'s layer back to a texel');
+  // A pan sizes no second set of targets (the layer wraps instead: wrapPieces).
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  const n2 = f.calls.length;
+  g.draw([1, 0, 0, 1, 9, 4], look, { on: false });
+  assert.equal(f.calls.slice(n2).filter((c) => c[0] === 'texImage2D' && c[4] > 1 && c[5] > 1).length, 0, 'nothing allocated for a pan');
+  assert.doesNotMatch(read('../src/ui/veins-gl.js'), /\bspare\b/);
 });

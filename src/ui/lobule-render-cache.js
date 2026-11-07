@@ -1,7 +1,9 @@
 // Keep the vessel bitmap until a caliber change is visible at the current zoom.
 // Compare with the last uploaded radii, so small changes still accumulate.
 export function radiiChanged(previous, next, tolerance) {
-  return !previous || previous.length !== next.length || next.some((r, i) => Math.abs(r - previous[i]) >= tolerance);
+  if (!previous || previous.length !== next.length) return true;
+  for (let i = 0; i < next.length; i++) if (Math.abs(next[i] - previous[i]) >= tolerance) return true;
+  return false;
 }
 
 // A canvas size in whole pixels: a canvas truncates a fractional width, so comparing it with an unrounded

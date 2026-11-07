@@ -1,18 +1,19 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
 // Mac and iPad landscape get the phone's stacked data card (Mohammad, 22 Oct: "is there a way to build something similar for mac and
 // ipad, stacked card to show the main card and the stacked card behind it"; "make so I open the stacked card untuck it to the TOP not to the
 // bottom. Cuz that's easier to pull up and the teaching card goes up"): the instrument's card in front, the readings' card behind it.
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const css = read('../styles/app.css');
 const js = read('../src/ui/presenter.js');
 
 test('a wide screen stacks every instrument card with readings under the words as two cards, the Gut to heart chart too', () => {
   assert.match(js, /const wide = cardOn && !low;\n\s*ui\.root\.classList\.toggle\('pz-wide', wide\);/);
   // (Mohammad, 22 Oct: "every stacked should be stacked": the Gut to heart chart stacks too, its tiles on the readings' card.)
-  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/);
+  assert.match(js, /const dd0 = ui\.data, sheet = \(p \|\| wide\) && dd0\.classList\.contains\('has-tool'\) && !dd0\.classList\.contains\('tool-only'\);/, 'upright, and stacked under the words on a wide screen: on its side the card shows everything');
   assert.doesNotMatch(js, /stackShort/, 'no chart folds behind Show or keeps its tiles beside it any more');
   assert.doesNotMatch(css, /data-ladder/);
   assert.match(js, /const wideSheet = \(d\) => !!ui\?\.root\.classList\.contains\('pz-wide'\) && d\.classList\.contains\('pz-sheet'\);/);
@@ -21,7 +22,6 @@ test('a wide screen stacks every instrument card with readings under the words a
 });
 
 test('each slide comes in with the readings tucked; the card starts in its place and never closes to the side', () => {
-  assert.match(js, /if \(sheet && dd0\.classList\.contains\('tool-open'\) && dd0\.dataset\.openFor !== String\(want\)\) \{ stopUnder\(\); dd0\.classList\.remove\('tool-open'\); \}/);
   assert.doesNotMatch(js, /wideOpen/);
   // (Never folded behind Show: tucking the readings is its smaller state.)
   assert.match(js, /const canFold = [^\n]*&& !dd\.classList\.contains\('pz-sheet'\);/);
@@ -31,7 +31,7 @@ test('each slide comes in with the readings tucked; the card starts in its place
   assert.match(js, /if \(e\.touches\.length !== 1 \|\| !deck \|\| ui\?\.root\.classList\.contains\('pz-wide'\)\) \{ reset\(\); return; \}/);
   // (A pull up brings the readings out, a push down tucks them.)
   assert.match(js, /g\.dir = wideSheet\(el\) \? -1 : 1;/);
-  assert.match(js, /follow\(g, dy \* g\.dir( \/ \(g\.zk \|\| 1\))?\);/);   // (a zoomed card follows the finger over what it shows: card-zoom.test.js)
+  assert.match(js, /foldFollow\(g, dy \* g\.dir( \/ \(g\.zk \|\| 1\))?\);/);   // (a zoomed card follows the finger over what it shows: card-zoom.test.js)
 });
 
 test('the instrument is fitted to the tucked room; readings that need more room lift the pair, frame by frame, and it comes back down', () => {
@@ -42,14 +42,13 @@ test('the instrument is fitted to the tucked room; readings that need more room 
   assert.match(col, /d\.classList\.add\('col'\); if \(dk < 1\) ds\.setProperty\('--pz-dk', dk\);/, 'measured at the step asked');
   // (The cap: the tucked room, grown by what is out of the readings; fitted, as an upright phone's, with them out against it.)
   assert.match(js, /const capOf = \(d, room\) => \(wideSheet\(d\) \? `calc\(\$\{\(room \+ slip\.base\)\.toFixed\(1\)\}px \+ var\(--pz-grow, 0px\)\)` : `\$\{room\.toFixed\(1\)\}px`\);/);
-  assert.match(js, /const under = el === ui\.data && splitSheet\(el\) && !el\.classList\.contains\('tool-open'\) && !el\.classList\.contains\('pz-sliding'\);/);
   // (Centred for the tucked card, its handle above it; the readings come out upward, the pair rising by their whole travel.)
   assert.match(js, /const tuckH = ws \? dd\.offsetHeight - underU\(dd\) \* dpx \+ LIP : dd\.offsetHeight;/);
   assert.match(js, /if \(ws\) slip\.lift = dpx \+ slip\.base;/);
   // (Moved with the readings' card every frame, by the finger or the ease, and put back when it rests.)
-  assert.match(js, /d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); slip\.raf = nextFrame\(step\);/);
-  assert.match(js, /ui\.data\.classList\.remove\('pz-sliding'\); liftTo\(underU\(ui\.data\)\);/);
-  assert.match(js, /el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); return;/);
+  assert.match(js, /d\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); slip\.raf = nextFrame\(step\);/);
+  assert.match(js, /ui\.data\.classList\.remove\('pz-sliding'\); liftTo\(underU\(ui\.data\)\); camAt\(underU\(ui\.data\)\);/);
+  assert.match(js, /el\.style\.setProperty\('--pz-u', u\.toFixed\(4\)\); liftTo\(u\); camAt\(u\); return;/);
   // (The card and its handle rise by the readings' travel, --pz-lift; the words and their glass by LIP less, --pz-rise: see the next test.)
   assert.ok(css.includes('.pz.pz-wide .pz-data.col, .pz.pz-wide .pz-lip { translate: 0 calc(-1 * var(--pz-lift, 0px)); }'), 'the card and its handle rise by the readings\' travel');
   assert.ok(css.includes('.pz.pz-wide .pz-text, .pz-shade.pz-card:not(.stack):not(.low) { translate: 0 calc(-1 * var(--pz-rise, 0px)); }'), 'the words and their glass rise together, by LIP less');
@@ -90,7 +89,7 @@ test('the handle only brings the readings out or tucks them away, eased; it neve
 
 test('the wide stack draws the phone\'s two pieces of glass upside down, the readings\' card behind the instrument card\'s top', () => {
   const W = '.pz.pz-wide.pz-wide .pz-data.pz-sheet';
-  assert.ok(css.includes(`${W}.pz-sheet { --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh)), 28px); --pz-in: 8px; padding-top: 10px; background: none;`), 'its corners are the wide card\'s');
+  assert.ok(css.includes(`${W}.pz-sheet { --gl-glass: 0; --pz-u: 0; --pz-sr: clamp(16px, calc(2.2 * var(--pzh)), 28px); --pz-in: 8px; padding-top: 10px; background: none;`), 'its corners are the wide card\'s');
   assert.ok(css.includes(`${W}.pz-sheet.tool-open { --pz-u: 1; }`));
   assert.ok(css.includes(`${W}::before { top: calc(var(--pz-u) * var(--pz-d, 0px) - 1px); bottom: -1px; }`), 'the instrument\'s card, below what is out');
   assert.ok(css.includes(`${W}::after { z-index: -2; left: calc(var(--pz-in) - 1px); right: calc(var(--pz-in) - 1px); top: calc(-1px - 24px * (1 - var(--pz-u)));`), 'the readings\' card, above it, behind it and narrower');
@@ -99,8 +98,8 @@ test('the wide stack draws the phone\'s two pieces of glass upside down, the rea
   assert.ok(css.includes('.pz.pz-wide .pz-lip:not([hidden]) { display: block;'), 'the handle shows');
   assert.ok(css.includes('.pz.pz-wide .pz-data > .pz-grip { display: none; }'), 'no edge handle: it never docks to the side');
   // (It comes and goes whole, its glass opaque while its parts fade, the old card's top glide kept.)
-  assert.ok(css.includes(`${W}.pz-hide { opacity: 1; visibility: hidden; transition: transform .32s var(--ease), visibility 0s linear .32s; }`));
-  assert.ok(css.includes(`${W}:not(.pz-hide) { visibility: visible; transition: transform .5s var(--ease) .12s, top .45s var(--ease), visibility 0s linear 0s; }`));
+  assert.ok(css.includes(`${W}.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease), visibility 0s linear var(--d-small); }`));
+  assert.ok(css.includes(`${W}:not(.pz-hide) { visibility: visible; transition: transform var(--d-surface) var(--ease) .12s, visibility 0s linear 0s; }`));
 });
 
 // The Gut to heart chart is drawn at its own size and never zoomed by the fit (styles/app.css), so where the pair is too tall for it even at the
@@ -118,14 +117,14 @@ test('a Gut to heart chart too tall for the room under the words lifts the pair 
 // (Mohammad, 25 Oct: "moving the cards up sliding tucking untucking is very very laggy. Like 10fps maybe".)
 test('a slide of the readings\' card never restyles the figure or lays the cards out again on every frame', () => {
   // (The rise is written on the four cards it moves, never on the stage's box, whose style the stage watches and every vessel inherits.)
-  assert.match(js, /const riseOn = \(name\) => \(name === '--pz-lift' \? \[ui\?\.data, ui\?\.lip\] : \[ui\?\.text, ui\?\.shade\]\);/);
+  assert.match(js, /const riseOn = \(\(\) => \{[\s\S]*?if \(name === '--pz-lift'\) \{ lift\[0\] = ui\?\.data; lift\[1\] = ui\?\.lip; return lift; \} words\[0\] = ui\?\.text; words\[1\] = ui\?\.shade; return words;/);
   const rise = js.match(/const setRise = [^\n]*/)?.[0] || '';
   assert.ok(rise && !/wrap\./.test(rise), 'the rise is not written on the stage\'s box');
   // (The data card's box changes size on every frame of a slide: its watchers wait until it rests, and foldStill lays it out once then.)
   // (And a zoomed card, card-zoom.js: laid out once it is back.)
-  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\)\);/);
+  assert.match(js, /const cardMoving = \(\) => !!ui && \(ui\.data\.classList\.contains\('pz-sliding'\) \|\| 'folding' in ui\.data\.dataset \|\| zoomHeld\(\) \|\| throwCards\(\)\.some\(\(el\) => el && throwing\(el\)\)\);/);
   assert.ok(js.indexOf('const cardMoving') < js.indexOf('const fitWatch'));
-  assert.match(js, /if \(data\.classList\.contains\('pz-sliding'\) \|\| partOf\(\)\.getAnimations\?\.\(\)\.some\(\(a\) => a\.playState === 'running'\)\) \{ foldT = setTimeout\(foldStill, 100\); return; \}/);
+  assert.match(js, /if \(data\.classList\.contains\('pz-sliding'\) \|\| partOf\(\)\.getAnimations(?:\?\.)?\(\)\.some\(\(a\) => a\.playState === 'running'\)\) \{ foldT = setTimeout\(foldStill, 100\); return; \}/);
   assert.match(js, /delete data\.dataset\.folding; fitDone\.delete\(data\); onResize\(\);/, 'laid out once it rests');
   assert.match(js, /new ResizeObserver\(\(\) => \{ if \(!data\.classList\.contains\('pz-sliding'\)\) placeLip\(\); \}\)/, 'the handle is placed by the slide itself while it slides');
 });

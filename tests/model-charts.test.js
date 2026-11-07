@@ -27,7 +27,7 @@ test('package C registers the curve and the causes, and asks for the Why? work o
   assert.equal(EXT.owner.tools.curve, 'C');
   assert.equal(EXT.owner.tools.causes, 'C');
   const { tools } = PACKAGES.C;
-  assert.equal(tools.curve.title({ param: 'tips.d', lines: ['ppg', 'liver'] }), 'PPG and liver flow by TIPS diameter');
+  assert.equal(tools.curve.title({ param: 'tips.d', lines: ['ppg', 'liver'] }), 'PPG and sinusoid flow by TIPS diameter');
   assert.equal(tools.causes.title({ metric: 'hvpg' }), 'What raises the HVPG');
   assert.ok(tools.causes.title({ metric: 'ppg' }).length <= 20 && tools.causes.short().length <= 20);
   assert.deepEqual(stepExtra({ tool: { kind: 'causes', metric: 'hvpg' } }), { explain: 'hvpg' });

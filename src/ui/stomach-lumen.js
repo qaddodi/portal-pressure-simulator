@@ -1,7 +1,7 @@
 // The stomach's lumen as rows of the figure's own outline, for blood that collects in it (blood.js bleedShapes, veins-gl.js).
 // One span (left x, right x) at each of STO_N heights from STO_Y0 down in steps of STO_DY, read off the stomach drawn with the
 // esophagus (anatomy.js SEAM_D); a row below the stomach's lowest point is empty. Pure geometry, no DOM.
-import { SEAM_D } from './anatomy.js?v=48cc98d415';
+import { SEAM_D } from './anatomy.js';
 
 export const STO_Y0 = 258, STO_DY = 4, STO_N = 80;
 
@@ -65,7 +65,9 @@ export function lumenSurface(share) {
 }
 
 /** The lumen's left and right x at height y (rows interpolated), [x, x] where there is none. */
+const LUMEN_X = [0, 0];   // alloc-rare: made once; the caller takes both numbers out at once
 export function lumenAt(y) {
   const f = Math.min(STO_N - 1, Math.max(0, (y - STO_Y0) / STO_DY)), i = Math.floor(f), j = Math.min(STO_N - 1, i + 1), u = f - i;
-  return [LUMEN[i][0] + (LUMEN[j][0] - LUMEN[i][0]) * u, LUMEN[i][1] + (LUMEN[j][1] - LUMEN[i][1]) * u];
+  LUMEN_X[0] = LUMEN[i][0] + (LUMEN[j][0] - LUMEN[i][0]) * u; LUMEN_X[1] = LUMEN[i][1] + (LUMEN[j][1] - LUMEN[i][1]) * u;
+  return LUMEN_X;
 }

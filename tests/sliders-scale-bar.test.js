@@ -32,7 +32,8 @@ test('a normal range is the tiles\' green band on the track, and that slider dra
 });
 
 test('every slider paints its fill through paintRange, on its wrapper', () => {
-  assert.match(util, /export function paintRange\(input, f\) \{\s*input\.parentElement\?\.style\.setProperty\('--p', String\(Math\.min\(1, Math\.max\(0, f\)\)\)\);/);
+  assert.match(util, /export function paintRange\(input, f\) \{\s*const wrap = input\.parentElement;\s*if \(!wrap\) return;\s*f = Math\.min\(1, Math\.max\(0, f\)\);\s*glideFill\(sliderOf\(input, wrap\), f\);/);
+  assert.match(read('src/ui/slider-gl.js'), /if \(!S\.w\?\.live\) S\.wrap\.style\.setProperty\('--p', String\(f\)\);/, 'the page\'s own fill carries it until the GPU has drawn it');
   for (const f of ['src/ui/card.js', 'src/ui/inspector.js', 'src/ui/presenter.js']) {
     const src = read(f);
     const made = (src.match(/type: 'range'/g) || []).length, painted = (src.match(/paintRange\(/g) || []).length;
@@ -44,7 +45,7 @@ test('every slider paints its fill through paintRange, on its wrapper', () => {
 });
 
 test('a finger on the track lands the thumb\'s centre there, whatever the thumb\'s size', () => {
-  assert.match(util, /const th = parseFloat\(getComputedStyle\(input\)\.getPropertyValue\('--tw'\)\) \|\| 18;/);
+  assert.match(util, /const th = dotWidth\(\);/, 'the dot\'s width: the stylesheet\'s own two media queries (slider-gl.js), no style read');
   assert.ok(!/th = 22;/.test(util));
 });
 

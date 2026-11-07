@@ -3,11 +3,12 @@ import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 import { SITES } from '../src/ui/decks/sites.js';
 import { withOverview } from '../src/ui/decks.js';
 import { createCore } from '../src/worker-core.js';
 
-const src = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const src = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('Sites and causes gives each site slide (and only those) a case', () => {
@@ -56,22 +57,25 @@ test('behind the case card the camera eases out to the whole patient, then the p
   assert.match(lifted, /await until\(\(\) => cut\(\) \|\| card\.lifted, 864e5\);/);
   assert.match(lifted, /stage\.organsSettled\(\), CATH_SETTLE_MS\)/);
   const wait = src.indexOf('if (caseCard) { await caseLifted(cut); if (cut()) return; }');
-  assert.ok(wait > 0 && wait < src.indexOf('else if (cam) await camera(cam, s, cut);'));
+  assert.ok(wait > 0 && wait < src.indexOf('else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);'));
   // The words are fitted unseen before that; a catheter slide's cards still wait for the lift before they come in.
   assert.match(src, /await settleRun\(\);\s*if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
   // (Between the patient's change and the lift, only the waits for a quiet figure, so the cards' fade is seen: slide-fade.test.js.)
-  assert.match(src, /if \(later\) \{ if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}\s*(?:\/\/[^\n]*\n\s*)*if \(swap\) \{ await until\(\(\) => cut\(\) \|\| stage\.organsSettled\(\), 1500\); if \(cut\(\)\) return; \}\s*await unseen\(cut\); if \(cut\(\)\) return;\s*await ui\.tools\.ready\(900\); if \(cut\(\)\) return;[^\n]*\n\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
+  assert.match(src, /if \(later && !under\) \{ if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}\s*(?:\/\/[^\n]*\n\s*)*if \(swap\) \{ await until\(\(\) => cut\(\) \|\| stage\.organsSettled\(\), 1500\); if \(cut\(\)\) return; \}\s*if \(prep\) \{ if \(await prep\) await smooth\(cut, QUICK_SMOOTH\); \} else await unseen\(cut\);\s*if \(cut\(\)\) return;\s*const filled = await ui\.tools\.ready\(900\); if \(cut\(\)\) return;\s*if \(!filled\) degrade\('window'\);[^\n]*\n\s*await caseEnd\(cut\); if \(cut\(\)\) return;\s*bare = false; cardsIn\(\{ i: to, gen: g \}\);/);
   const gl = src.indexOf("await until(() => cut() || !stage.gliding(), 1500)");
   assert.ok(gl > 0 && gl < src.indexOf('await caseEnd(cut); if (cut()) return;\n      bare = false'));
   // A move cut short, or one that ends otherwise, never leaves the card up.
-  assert.match(src, /stage\.holdHome\(false\); caseShut\(\);/);
+  assert.match(src, /homeOff\(\);[^]*?caseShut\(\);/);
 });
 
 test('the case card is cards glass, enters and leaves whole, never resizing', () => {
   const rule = css.match(/\.pz-case \{[^}]*\}/)[0];
-  assert.match(rule, /backdrop-filter: blur\(16px\) saturate\(1\.15\)/);
+  assert.match(rule, /--gl-glass: 1;/);   // (its frost the cards' GPU glass; no CSS blur since 1 Nov 2026)
   assert.match(rule, /height: fit-content/);
-  assert.match(rule, /transition: opacity \.45s var\(--ease\), transform \.45s var\(--ease\);/);
+  // (No CSS transition: its compositor run parted from the GPU glass by a frame. presenter.js caseFade writes the fade on the frame clock.)
+  assert.doesNotMatch(rule, /transition/);
+  assert.match(rule, /opacity: 0;/);
+  assert.match(css, /\.pz-case\.on \{ opacity: 1; translate: none; \}/);
   assert.doesNotMatch(rule, /scale/);
 });
 
@@ -127,13 +131,6 @@ test('the case card follows a finger and a fling lifts it like a tap, also durin
   // The slide swipe leaves touches on the card alone; the card's own drag is touch-only and swallows the click after it.
   assert.match(src, /sw = deck && e\.touches\.length === 1 && !caseOn\(e\)/);
   assert.match(src, /onclick: \(\) => \{ if \(performance\.now\(\) - caseDragAt > 400\) caseLift\?\.\(\); \}/);
-  const fly = src.slice(src.indexOf('function caseFly('), src.indexOf('function caseBack('));
-  // Flying off only marks the card lifted: no camera move, no slide change; caseEnd still waits for the glide to land.
-  assert.match(fly, /caseGone\(card\)/);
-  assert.doesNotMatch(fly, /camera\(|go\(|next\(/);
-  // Once flown, Next/caseShut wait only for the rest of the flight, and the next case card comes back whole.
-  assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;/);
-  assert.match(src, /for \(const k of \['transform', 'transition', 'opacity'\]\) c\.style\.removeProperty\(k\);/);
 });
 
 test('a tap, Next or a swipe anywhere lifts the case card at once, even while the patient loads; the next one moves on', () => {
@@ -142,7 +139,12 @@ test('a tap, Next or a swipe anywhere lifts the case card at once, even while th
   // It fades now (no waiting for the load to end), and Next and swipes go back to changing slides.
   assert.match(gone, /if \(caseLift && caseCard === card\) caseLift = null;/);
   assert.match(gone, /card\.lifted = true;/);
-  assert.match(gone, /card\.c\.classList\.remove\('on'\);\s*card\.flown = performance\.now\(\) \+ card\.ms;/);
+  assert.match(gone, /card\.c\.classList\.remove\('on'\);\s*card\.flown = performance\.now\(\) \+ caseThrow\(card\.c, card\.ms\);/);
+  // Thrown out to the left on the slide cards' rail, fading as it goes, so its words never stand over the camera's move (5 Nov 2026).
+  const thr = src.slice(src.indexOf('function caseThrow('), src.indexOf('function caseShut('));
+  assert.match(thr, /glideTranslate\(c, x, y, x - dist, y, RAIL_MS, easeRail\);/);
+  assert.match(thr, /glideOpacity\(c, Number\.isFinite\(o\) \? o : 1, 0, Math\.round\(RAIL_MS \* 0\.5\), easeRail\);/);
+  assert.match(thr, /if \(ms <= 0\) \{ caseFade\(c, false, 0\); return 0; \}/);
   assert.doesNotMatch(gone, /go\(|next\(|camera\(/);
   // A swipe off the card goes through the slide swipe, which calls next() (so caseLift) like any slide.
   assert.match(src, /if \(d > 0\) next\(\); else if \(d < 0\) prev\(\);/);
@@ -157,25 +159,17 @@ test('a flung case card glides off and fades over a visible time, and is hidden 
   assert.ok(caseFlight(373, 0) >= FLIGHT_MIN);
   assert.ok(caseFlight(200, 5) >= FLIGHT_MIN);   // a hard flick too
   assert.ok(caseFlight(NaN, NaN) >= FLIGHT_MIN);
-  const fly = src.slice(src.indexOf('function caseFly('), src.indexOf('function caseBack('));
-  // Both the move and the fade are transitions of the flight's length (never 'none'), ending at nothing; reduced motion still fades.
-  assert.match(fly, /transform \$\{ms\}ms cubic-bezier\([^`]*opacity \$\{ms\}ms/);
-  assert.match(fly, /reduce\.matches \? `opacity \$\{ms\}ms linear`/);
-  assert.match(fly, /c\.style\.opacity = '0'/);
-  assert.doesNotMatch(fly, /'none'|hidden|caseShut/);
-  // The card is hidden only once the flight has run (caseShut waits for card.flown).
-  assert.match(src, /const ms = card\.flown \? Math\.max\(0, Math\.ceil\(card\.flown - performance\.now\(\)\)\) : card\.ms;\s*setTimeout\(\(\) => \{ if \(!card\.c\.classList\.contains\('on'\)\) card\.c\.hidden = true; \}, ms\);/);
 });
 
 test('no slide card shows while a case card is up, a catheter slide included; they come in once it is lifted', () => {
   // The words keep their leave state behind a case card (wordsIn never lets it go then), and every slide, bare or not
   // (HVPG slide 2 is a catheter slide, whose words used to come in at once under the case), sets it while a case is up.
-  assert.match(src, /if \(!caseCard\) text\.classList\.remove\('pz-leave'\);/);
+  assert.match(src, /if \(!caseCard && !bare && !\(throwDir && !s\.visual\)\) text\.classList\.remove\('pz-leave'\);/, 'and never while thrown in later (card-throw.js)');
   assert.doesNotMatch(src.slice(src.indexOf('function wordsIn('), src.indexOf('function wordsIn(') + 400), /^\s*text\.classList\.remove\('pz-leave'\);/m);
   assert.match(src, /if \(bare \|\| caseCard\) \{ ui\.text\.classList\.add\('pz-leave'\); ui\.root\.dataset\.bare = ''; \}/);
   // A non-bare slide brings its cards in only after caseEnd (the lift), and cardsIn is what lets the words go.
   assert.match(src, /if \(!bare\) \{ await caseEnd\(cut\); if \(cut\(\)\) return; cardsIn\(\{ i: to, gen: g \}\); \}/);
-  assert.match(src, /function cardsIn\(at\) \{ if \(ui\) \{ if \(at\) \{ entering = at; layout\(\); \} reFit\(\); if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\);/);
+  assert.match(src, /function cardsIn\(at\) \{ if \(ui\) \{ if \(!reduce\.matches\) holdMotion\(D_SURFACE \+ 220\); if \(at\) \{ entering = at; layout\(\); \} reFit\(\); if \(!bare\) \{ ui\.text\.classList\.remove\('pz-leave'\);/);
 });
 
 test('a case card may open a time-lapse: it covers the patient as it loads at the time-lapse\'s own start, and the days play after the lift', async () => {
@@ -196,4 +190,30 @@ test('a case card may open a time-lapse: it covers the patient as it loads at th
   assert.ok(out[1].start?.snap && out[1].start.fp, 'with params the lapse has its own start');
   assert.ok(out[1].start.fp.hvpg > out[1].fp.hvpg, 'the start is the patient before the days run (the cure has not yet lowered it), not where they end');
   assert.equal(out[2].start, null, 'without params there is no start to cover');
+});
+
+test('the case card fades on the frame clock, from where it stands, never on a CSS transition', () => {
+  const fade = src.slice(src.indexOf('function caseFade('), src.indexOf('let caseLift = null'));
+  assert.match(fade, /glideTranslate\(c, 0, on \? RISE_CASE : 0, 0, on \? 0 : RISE_CASE, ms, easeArrive\)/);
+  assert.match(fade, /glideOpacity\(c, on \? 0 : 1, on \? 1 : 0, ms, easeArrive\)/);
+  assert.match(src, /c\.classList\.add\('on'\);\s*caseFade\(c, true, ms\);/);
+  assert.match(css, /\.pz-case \{[^}]*translate: 0 14px;/);
+});
+
+test('a press that changes slide (the slide list, a number, Back, Home, End) lifts a standing case card first', () => {
+  const go = src.slice(src.indexOf('function go(i) {'), src.indexOf('const goOn = () => {'));
+  const lift = go.indexOf('if (caseCard && !caseCard.lifted) caseGone(caseCard);');
+  assert.ok(lift > 0, 'go() lifts the card');
+  assert.ok(lift < go.indexOf('turn = '), 'before the move is set up');
+  assert.ok(lift < go.indexOf('if (zoomOn())'), 'and before the zoomed-card branch returns');
+});
+
+test('the camera sets off for the slide only once a lifted case card is out of sight (6 Nov 2026: glass gone, shadow and words left over the dive)', () => {
+  const lifted = src.slice(src.indexOf('async function caseLifted('), src.indexOf('// Once the slide is ready behind the card'));
+  // Waits for the lift, then for the card to be gone (a throw's fade, a swipe's flight; at most one rail), then for the organs.
+  assert.match(lifted, /await until\(\(\) => cut\(\) \|\| !caseShows\(card\), RAIL_MS\);/);
+  assert.ok(lifted.indexOf('!caseShows(card)') < lifted.indexOf('stage.organsSettled()'));
+  const shows = src.slice(src.indexOf('function caseShows('), src.indexOf('function caseShows(') + 400);
+  assert.match(shows, /performance\.now\(\) >= card\.flown\) return false/);
+  assert.match(shows, /o > 0\.02/);
 });

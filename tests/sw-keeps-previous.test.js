@@ -11,12 +11,13 @@ const line = src.split('\n').find((l) => l.startsWith("self.addEventListener('ac
 test('an update keeps the previous cache and drops the older ones', async () => {
   assert.ok(line, 'the activate handler is on one line in scripts/build.mjs');
   const SCOPE = 'pps@/preview/@', CACHE = SCOPE + 'v3';
-  let keys = ['pps-v3', 'pps@/@live1', SCOPE + 'v1', SCOPE + 'v2', CACHE];
+  let keys = ['pps-v3', 'pps@/@live1', 'other-tool-v2', 'workbox-precache-v2-https://qaddodi.github.io/tools/', SCOPE + 'v1', SCOPE + 'v2', CACHE];
   let onActivate = null, done = null;
   const self = { addEventListener: (t, fn) => { if (t === 'activate') onActivate = fn; }, clients: { claim: () => Promise.resolve() } };
   const caches = { keys: async () => [...keys], delete: async (k) => { keys = keys.filter((x) => x !== k); return true; } };
   new Function('self', 'caches', 'SCOPE', 'CACHE', line)(self, caches, SCOPE, CACHE);
   onActivate({ waitUntil: (p) => { done = p; } });
   await done;
-  assert.deepEqual(keys, ['pps@/@live1', SCOPE + 'v2', CACHE]);
+  // (Another app's caches on this origin are left alone: only this one's own and the source site's legacy pps-v3 go.)
+  assert.deepEqual(keys, ['pps@/@live1', 'other-tool-v2', 'workbox-precache-v2-https://qaddodi.github.io/tools/', SCOPE + 'v2', CACHE]);
 });

@@ -1,6 +1,6 @@
 // The lobule's look (G21): pure helpers the lobule view draws with, kept here so they can be tested without a canvas.
 
-import { LENS_GREY } from './organ-dim.js?v=9e19f2fc30';
+import { LENS_GREY } from './organ-dim.js';
 
 /** The sinusoids' lumen against the hepatocyte cords: a quarter narrower than it was, so the cords read as cords. */
 export const SIN_NARROW = 0.75;
@@ -12,20 +12,29 @@ const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a
  * Zone 3, around the central vein, is deeper and warmer (blue drops most, red least); zone 1 keeps the cell's own tone.
  */
 export function cordTone(rgb, q, dark = false) {
+  return cordToneInto([0, 0, 0], rgb, q, dark);
+}
+/** cordTone written into `out` (the lobule's painter keeps one, so a cell's tone makes no array); returns out. */
+export function cordToneInto(out, rgb, q, dark = false) {
   const k = (dark ? 0.12 : 0.16) * (1 - smooth(0.3, 0.75, q));
-  return [rgb[0] * (1 - 0.35 * k), rgb[1] * (1 - 0.8 * k), rgb[2] * (1 - k)];
+  out[0] = rgb[0] * (1 - 0.35 * k); out[1] = rgb[1] * (1 - 0.8 * k); out[2] = rgb[2] * (1 - k);
+  return out;
 }
 
 /**
  * A sinusoid's colour as it capillarizes (fibSin 0–1): drained toward a grey of its own lightness, tinted with the lobule's
  * shade (--lz-shade), so choked sinusoids look duller, never brighter. Healthy (fibSin 0) it is unchanged.
  */
-export function dullSinusoid(rgb, shade, fibSin) {
+export function dullSinusoidInto(out, rgb, shade, fibSin) {
   const f = 0.4 * Math.min(1, Math.max(0, fibSin || 0));
   if (!(f > 0)) return rgb;
   const l = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
-  return rgb.map((x, i) => x + (l + (shade[i] - l) * 0.35 - x) * f);
+  // (The colour is written into `out`, an array the caller keeps, and that is returned; `out` may be `rgb` itself. Healthy, `rgb` is returned as it is.)
+  for (let i = 0; i < 3; i++) out[i] = rgb[i] + (l + (shade[i] - l) * 0.35 - rgb[i]) * f;
+  return out;
 }
+/** dullSinusoidInto into a new array (tests, and a caller that needs one it can keep). */
+export function dullSinusoid(rgb, shade, fibSin) { return dullSinusoidInto([0, 0, 0], rgb, shade, fibSin); }
 
 /** The neighbouring lobules' contrast, cut by this much (an overlay of the page's own colour) in the lobule view (G22). */
 export const NEIGHBOUR_FLAT = 0.3;
@@ -35,8 +44,11 @@ export const NEIGHBOUR_FLAT = 0.3;
  *  neighbouring lobules match the liver they are zoomed into or out of; in between, the same straight line the organs ease along. */
 export function surroundGrade(k) {
   const x = Math.min(1, Math.max(0, k || 0));
-  return [1 + (LENS_GREY.sat - 1) * x, 1 + (LENS_GREY.dim - 1) * x];
+  GRADE[0] = 1 + (LENS_GREY.sat - 1) * x; GRADE[1] = 1 + (LENS_GREY.dim - 1) * x;
+  return GRADE;
 }
+// (The grade is one kept pair, written anew by each call: the GPU draws read it at once, none keeps it. Copy it to keep it.)
+const GRADE = [1, 1];
 /** One surround colour (rgb 0–1) graded as the shaders and the 2D passes do, against the page's colour bg: toward its luma by the
  *  saturation (as the organs' grey, organ-dim.js), then toward the page by the opacity. Grade [1, 1] leaves it as it is. */
 export function gradeSurround(rgb, bg, [sat, dim]) {
@@ -84,12 +96,16 @@ export const FIELD_RS = [6, 12, 24, 48, 96, 192, 384];
  *  whole just as the first would have given way to it. Both are at or above the size wanted (never shown blurrier), and the
  *  detail a larger tile draws arrives gradually, never in a step. */
 export function fieldBlend(want, Rs = FIELD_RS) {
-  let a = Rs.findIndex((R) => R >= want);
+  let a = -1;
+  for (let i = 0; i < Rs.length; i++) if (Rs[i] >= want) { a = i; break; }
   if (a < 0) a = Rs.length - 1;
   const b = Math.min(a + 1, Rs.length - 1);
   const mix = b === a ? 0 : Math.min(1, Math.max(0, Math.log2(want / (Rs[a] / 2))));
-  return { a, b, mix };
+  BLEND.a = a; BLEND.b = b; BLEND.mix = mix;
+  return BLEND;
 }
+// (The blend is one kept object, written anew by each call: every caller reads { a, b, mix } at once.)
+const BLEND = { a: 0, b: 0, mix: 0 };
 
 /** The GPU field's softness, as mip-level biases: [the whole field's (the focus pull as it comes in), where the depth of field
  *  starts (device px from the landing lobule's centre), where it is full, its bias there]. d: the dive's frame (blur, dof: 0 … 1),
@@ -189,16 +205,30 @@ function areaDown(px, w, h, W, H) {
  * spreading a halo round the tract.
  */
 export function bandOutline(c, P, N, Wd, k, kEnd = k) {
-  const n = P.length - 1, ang = (i) => Math.atan2(N[i][1], N[i][0]);
-  const h = (i) => { const t = Math.min(1, Math.min(i, n - i) / n * 4), e = t * t * (3 - 2 * t); return Wd[i] * (kEnd + (k - kEnd) * e) / 2; };
+  const n = P.length - 1;
   c.beginPath();
-  for (let i = 0; i <= n; i++) c[i ? 'lineTo' : 'moveTo'](P[i][0] + N[i][0] * h(i), P[i][1] + N[i][1] * h(i));
+  for (let i = 0; i <= n; i++) { const h = bandHalf(Wd, i, n, k, kEnd); c[i ? 'lineTo' : 'moveTo'](P[i][0] + N[i][0] * h, P[i][1] + N[i][1] * h); }
   // (From +N round to −N through the tangent's direction: the cap bulges past the end, never back over the band.)
-  c.arc(P[n][0], P[n][1], h(n), ang(n), ang(n) - Math.PI, true);
-  for (let i = n; i >= 0; i--) c.lineTo(P[i][0] - N[i][0] * h(i), P[i][1] - N[i][1] * h(i));
-  c.arc(P[0][0], P[0][1], h(0), ang(0) + Math.PI, ang(0), true);
+  c.arc(P[n][0], P[n][1], bandHalf(Wd, n, n, k, kEnd), bandAng(N, n), bandAng(N, n) - Math.PI, true);
+  for (let i = n; i >= 0; i--) { const h = bandHalf(Wd, i, n, k, kEnd); c.lineTo(P[i][0] - N[i][0] * h, P[i][1] - N[i][1] * h); }
+  c.arc(P[0][0], P[0][1], bandHalf(Wd, 0, n, k, kEnd), bandAng(N, 0) + Math.PI, bandAng(N, 0), true);
   c.closePath();
 }
+/** Half the band's width at point i of n: the pass's factor k in the middle, narrowing to kEnd over the last quarter at each end. */
+function bandHalf(Wd, i, n, k, kEnd) { const t = Math.min(1, Math.min(i, n - i) / n * 4), e = t * t * (3 - 2 * t); return Wd[i] * (kEnd + (k - kEnd) * e) / 2; }
+function bandAng(N, i) { return Math.atan2(N[i][1], N[i][0]); }
+/** bandOutline for a band made by bandGeomInto: P and N are flat (x, y pairs), Wd its widths (one a point). */
+export function bandOutlineFlat(c, P, N, Wd, k, kEnd = k) {
+  const n = Wd.length - 1;
+  c.beginPath();
+  for (let i = 0; i <= n; i++) { const h = bandHalf(Wd, i, n, k, kEnd); c[i ? 'lineTo' : 'moveTo'](P[2 * i] + N[2 * i] * h, P[2 * i + 1] + N[2 * i + 1] * h); }
+  // (From +N round to -N through the tangent's direction: the cap bulges past the end, never back over the band.)
+  c.arc(P[2 * n], P[2 * n + 1], bandHalf(Wd, n, n, k, kEnd), bandAngFlat(N, n), bandAngFlat(N, n) - Math.PI, true);
+  for (let i = n; i >= 0; i--) { const h = bandHalf(Wd, i, n, k, kEnd); c.lineTo(P[2 * i] - N[2 * i] * h, P[2 * i + 1] - N[2 * i + 1] * h); }
+  c.arc(P[0], P[1], bandHalf(Wd, 0, n, k, kEnd), bandAngFlat(N, 0) + Math.PI, bandAngFlat(N, 0), true);
+  c.closePath();
+}
+function bandAngFlat(N, i) { return Math.atan2(N[2 * i + 1], N[2 * i]); }
 
 // A dive aimed at a station draws the lobule's layers over its whole box (lobule-zoom.js, padBox): the box around the lobule's
 // centre (x, y) out to r, past the screen W × H wherever it reaches beyond it, or null when the lobule is on screen already.

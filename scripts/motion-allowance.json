@@ -1,0 +1,4 @@
+{
+ "note": "Lines in styles/*.css that set a transition or animation without a --d-* duration token (PR-22). The number only goes down: node scripts/rules-lint.mjs --tighten lowers it to today's count. Convert a line to var(--d-flip|small|surface|camera) and var(--ease-*), or mark a teaching scene with an own-pace comment and a --dur token.",
+ "bareDurations": 17
+}

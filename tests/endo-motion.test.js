@@ -31,11 +31,12 @@ test('banding eases: the band follows the deflating vein, nothing snaps', () => 
   assert.match(src, /if \(balA > 0\)/);
   assert.match(src, /if \(jetA > 0 && bleedLast\)/);
   // The bleed runs on the model's clock (still while paused) and its pool's level eases.
-  assert.match(src, /t: still\.matches \? 0\.3 : simTime\(\)/);
+  assert.match(src, /bleedOpt\.t = still\.matches \? 0\.3 : simTime\(\)/);
   assert.match(src, /poolA = poolA \? glide\(poolA, poolT, du, 600\) : poolT;/);
   assert.doesNotMatch(src, /if \(f\.params\?\.balloonEso\) \{/);
   // Each new field bitmap keeps the one shown before it to fade from.
-  assert.match(src, /if \(glKey\) keep\(glOut, res\)/);
+  assert.match(src, /if \(glId\) keep\(\); else fadeT0 = -1;/);
+  assert.match(src, /G\.image\(null, cx - R, cy - R, 2 \* R, 2 \* R, 1, 'old'\);/, 'the old field drawn under the new one while it fades in');
 });
 
 test('scope bleed: drops thrown on each beat ease in and out, the tear lies on a varix column, the pool is a wedge that widens with the blood lost', async () => {

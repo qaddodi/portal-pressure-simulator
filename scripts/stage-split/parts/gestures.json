@@ -1,0 +1,1 @@
+{ "factory": "createGestures", "file": "stage-gestures.js", "about": "Gestures: wheel, trackpad, mouse and touch: zoom about the pointer, pan with its soft edges and spring back, fling, pinch, tap, long press and the pointer-up pick.", "lines": [[11520, 11841]], "stay": ["clientToVBFast"] }

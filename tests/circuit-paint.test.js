@@ -1,36 +1,40 @@
+import { stageSource } from './stage-src.js';
 // The circuit's pan and zoom frames (Mohammad, 26 Oct: "Circuit view in particular is slow when zoomed"): what the circuit paints
 // on every camera frame and the anatomy does not, cut without changing a pixel. Source patterns (no browser or GL in node).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
-test('the map grid fades by its dots, not by layers: no frame of it has an opacity of its own', () => {
-  const grid = stage.slice(stage.indexOf('const GRID_STEPS'), stage.indexOf('CIRCUIT_ZONES.forEach'));
-  assert.match(grid, /'fill-opacity': op/, 'each step sets its own pattern dots\' alpha');
-  assert.match(grid, /fill: `url\(#mapGrid\$\{i\}\)`/, 'each frame uses its own pattern');
-  assert.doesNotMatch(grid, /opacity:\$\{op\}/, 'no opacity on a frame (a screen-sized layer each)');
-  assert.doesNotMatch(css, /\.map-grid\s*\{[^}]*opacity/, 'no opacity on the frames from the style sheet');
-  // The steps' alphas as before: the inner frame 0.9 (the old .map-grid rule), then fading out.
-  const steps = JSON.parse(grid.match(/GRID_STEPS = (\[\[.*?\]\]);/)[1]);
-  assert.deepEqual(steps.map(([, op]) => op), [0.9, 0.7, 0.5, 0.3, 0.15, 0.06]);
+test('the map grid is drawn by the GPU, fading by its frames\' dot alpha, with no element, pattern or layer', () => {
+  assert.doesNotMatch(stage, /mapGrid|'map-grid'|class: 'zone|fx-zone|id: 'grid'|id: 'nodes'/, 'no SVG grid, zones, lit zone or dots');
+  const fs = veins.slice(veins.indexOf('vec4 mapAt(vec2 w)'), veins.indexOf('return c * mapA;'));
+  // The steps' alphas as before: the inner frame 0.9 (the old .map-grid rule), then fading out, by how far outside the figure's frame.
+  const steps = [...fs.match(/float op = ([^;]*);/)[1].matchAll(/e <= ([\d.]+) \? ([\d.]+)/g)].map((m) => [+m[1], +m[2]]);
+  assert.deepEqual(steps, [[0, 0.9], [200, 0.7], [450, 0.5], [750, 0.3], [1100, 0.15], [1500, 0.06]]);
+  assert.match(fs, /floor\(w \/ 20\.0\) \* 20\.0 \+ 10\.0/, 'a dot at 10, 10 in each 20-unit square');
+  assert.match(veins, /if \(mapA > 0\.0\) pl = over\(pl, mapAt\(w\)\);/, 'under the organs, and not read at all while it is faded out');
+  assert.match(veins, /const map = look\.map && look\.map\.a > 0 \? look\.map : null;/);
 });
 
-test('a zone band with no tint, and the lit zone when off, are not painted', () => {
-  assert.match(css, /\n\.zone \{ fill: none; \}/);
-  assert.match(css, /\n\.zone\.alt \{ fill: var\(--text\); fill-opacity: \.028; \}/);
-  const off = css.match(/\n\.fx-zone \{([^}]*)\}/)[1], on = css.match(/\n\.fx-zone\.on \{([^}]*)\}/)[1];
-  assert.match(off, /visibility: hidden/);
-  assert.match(off, /visibility 0s \.5s/, 'hidden only after its fade out has run');
-  assert.match(on, /visibility: visible/);
-  assert.doesNotMatch(on, /visibility 0s/, 'shown at once when lit, so the fade in shows');
+test('the map\'s colours are the theme\'s: dots --map-dot, two zones --text at .028, the lit zone --accent at .09 eased', () => {
+  assert.match(stage, /cssColor8\(cs\.getPropertyValue\('--map-dot'\)/);
+  assert.match(stage, /MAP\.zone\[3\] = 0\.028; MAP\.fx\[3\] = 0\.09 \* easeArrive\(MAP\.fxU\);/);
+  assert.match(stage, /CIRCUIT_ZONES\.filter\(\(z, i\) => i % 2\)/, 'every other band tinted, as before');
+  assert.doesNotMatch(css, /map-accent/, 'no token that is defined nowhere (the dots had gone black, 1 Nov)');
+});
+
+test('the map turns upright with the turn alone, never with the morph', () => {
+  assert.match(stage, /const a = \(\(deg \+ 90 \* rotEase\(rotU\)\) \* Math\.PI\) \/ 180, R = MAP\.rot;/);
+  assert.match(stage, /mapTurn\(deg\);\s*world\.setAttribute\('transform', tr\);/);
+  assert.match(veins, /w = vec2\(mapRot\.x \* \(w\.x - mapRot\.z\) - mapRot\.y \* \(w\.y - mapRot\.w\)/);
 });
 
 test('a plate faded out whole (the circuit) is neither drawn nor read', () => {
-  const comp = veins.slice(veins.indexOf('composite(look, blood = {}, full = false, part = 0) {'));
+  const comp = veins.slice(veins.indexOf('composite(look, blood = NOBLOOD, full = false, part = 0) {'));
   assert.match(comp, /const plate = look\.plate && look\.plate\.alpha > 0 \? look\.plate : null;/);
   assert.match(comp, /const useStack = !!\(plate\?\.stack && stack\?\.has\(0\)\);/, 'no organ layers drawn for a plate at alpha 0');
   assert.match(comp, /const pm = \(plate && !useStack/, 'no plate texture read');

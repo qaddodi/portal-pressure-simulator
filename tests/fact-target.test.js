@@ -10,10 +10,10 @@ import { PRESETS } from '../src/engine/scenario.js';
 
 const ORGANS = new Set(['liver', 'spleen', 'varices', 'gastric', 'heart']);
 const ELSEWHERE = /^(drug:|albumin$|diuretics$|anticoag$|splTone$|sysTone$|habr$|apShunt$)/;
-// activeInterventions lives in inspector.js (needs a DOM to import): its keys are read from the source.
+// The changes activeInterventions lists live in inspector.js (needs a DOM to import): their keys are read from the source.
 const src = readFileSync(new URL('../src/ui/inspector.js', import.meta.url), 'utf8');
-const body = src.slice(src.indexOf('export function activeInterventions'), src.indexOf('\n}\n', src.indexOf('export function activeInterventions')));
-const keys = [...body.matchAll(/add\('([\w:]+)'/g)].map((m) => m[1]);
+const body = src.slice(src.indexOf('// ── What differs from a healthy default patient'));
+const keys = [...body.matchAll(/(?:numbered|worded)\('([\w:]+)'/g)].map((m) => m[1]);   // (a key ending in a colon is a prefix: the vessel's or drug's id follows)
 
 test('each fact key opens a vessel or organ that exists, or is known to live elsewhere', () => {
   assert.ok(keys.length >= 25, `found ${keys.length} keys`);

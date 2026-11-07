@@ -1,0 +1,1 @@
+{"factory": "createPaths", "file": "stage-paths.js", "about": "Path builders (sample on the scratch path, meander, then the pure ones): polyline text, arc length, point and tangent at a fraction, wiggle, braid, tube outline and arc midpoint.", "lines": [[489, 520], [677, 808], [842, 859]]}

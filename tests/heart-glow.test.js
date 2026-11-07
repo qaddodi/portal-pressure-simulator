@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The right atrium's slides light the whole heart with a soft glow (not an outline of the atrium alone), and where the
 // GPU glow is not drawn the heart gets a flat tint instead.
 import { test } from 'node:test';
@@ -6,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 
 const presenter = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-const stage = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const stage = stageSource();
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('the right atrium and the heart targets both light the heart, and no deck outlines the atrium alone', () => {

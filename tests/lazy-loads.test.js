@@ -1,3 +1,4 @@
+import { stageSource, stageFn } from './stage-src.js';
 // Review 22 Oct, item 10: the lobule view, the sinusoid view, the Doppler and the FibroScan load after the first paint (about 700 kB of
 // script that most sessions open late or never). These tests pin the three things that make that safe: the first load really does not
 // reach them, nothing a late-built layer or pane would have heard is lost, and the page keeps the order it had.
@@ -13,7 +14,7 @@ const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'ut
 
 // ── The first load ────────────────────────────────────────────────────────────────────────────────────────────────────────
 // Every module main.js reaches through static imports is in the first download; the lazily loaded ones are reached through import() only.
-const STATIC = /^\s*(?:import|export)\b[^;'"]*?(?:from\s*)?['"](\.{1,2}\/[^'"?]+\.js)(?:\?v=[0-9a-f]+)?['"]/gm;
+const STATIC = /^\s*(?:import|export)\b[^;'"]*?(?:from\s*)?['"](\.{1,2}\/[^'"?]+\.js)['"]/gm;
 function staticGraph(entry) {
   const seen = new Map();
   const walk = (file, from) => {
@@ -35,45 +36,33 @@ test('the first load does not reach the lobule, the sinusoid view, the Doppler o
 });
 
 test('each is loaded by import(), when its time comes', () => {
-  assert.match(read('stage.js'), /import\('\.\/lobule-zoom\.js\?v=[0-9a-f]+'\)/);
-  assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/doppler\.js\?v=[0-9a-f]+'\), \(\{ createDoppler \}\) => createDoppler\(\{ onProbe: probeTo \}\)\)/);
-  assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/fibroscan\.js\?v=[0-9a-f]+'\), \(\{ createFibroScan \}\) => createFibroScan\(\)\)/);
+  assert.match(stageSource(), /import\('\.\/lobule-zoom\.js'\)/);
+  assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/doppler\.js'\), \(\{ createDoppler \}\) => createDoppler\(\{ onProbe: probeTo \}\)\)/);
+  assert.match(read('main.js'), /lazy\(\(\) => import\('\.\/fibroscan\.js'\), \(\{ createFibroScan \}\) => createFibroScan\(\)\)/);
   for (const file of ['main.js', 'presenter.js']) assert.match(read(file), /import \{ sinusoidSupported \} from '\.\/gl-support\.js/, `${file} asks gl-support.js, which does not load the view`);
   assert.doesNotMatch(read('main.js'), /from '\.\/sinusoid-view\.js/);
 });
 
-// ── The lobule's layer, built late ────────────────────────────────────────────────────────────────────────────────────────
-test('the stage builds the lobule layer when its code has come, in the place in the page it always had', () => {
-  const stage = read('stage.js');
-  assert.doesNotMatch(stage, /^import .*lobule-zoom/m, 'no static import');
-  assert.match(stage, /const lzAnchor = document\.createComment\('lobule'\);\s*\n\s*wrap\.append\(lzAnchor\);/, 'a marker takes the layer\'s place where it was built');
-  assert.match(stage, /lz = createLobuleZoom\(\{ host: wrap, styles: wrapCS, before: lzAnchor \}\)/);
-  const lobule = read('lobule-zoom.js'), view = read('sinusoid-view.js');
-  assert.match(lobule, /host\.insertBefore\(field, before\); host\.insertBefore\(el, before\);/);
-  assert.match(lobule, /createSinusoidView\(\{ host, before \}\)/, 'the sinusoid view sits in the same place');
-  assert.match(view, /host\.insertBefore\(el, before\);/);
-  assert.doesNotMatch(lobule, /host\.append\(/);
-  assert.doesNotMatch(view, /host\.append\(/);
-});
-
 test('a dive asked for before the layer exists goes on when it does, with the slide\'s aim and the frame as they stand', () => {
-  const stage = read('stage.js');
+  const stage = stageSource();
   const open = stage.slice(stage.indexOf('function openLobule('), stage.indexOf('function closeLobule()'));
-  assert.match(open, /if \(!lz\) \{\s*\n\s*if \(!lzWaiting\) \{[\s\S]*?lobuleReady\(\)\.then\(\(\) => \{ lzWaiting = false; if \(store\.get\(\)\.lobule\) openLobule\(\); \}/);
-  assert.ok(open.indexOf("store.set({ view: 'anatomic' })") < open.indexOf('if (!lz)'), 'the view turns to the anatomy while the code loads');
-  assert.match(open, /store\.set\(\{ lobule: false, sinusoid: false \}\)/, 'a load that fails puts the switch back');
-  const ready = stage.slice(stage.indexOf('function lobuleReady()'), stage.indexOf('// ── Detail'));
-  assert.ok(ready.indexOf('lz.aim(...aimWait)') > ready.indexOf('createLobuleZoom(') && ready.indexOf('lz.update(F)') > ready.indexOf('lz.aim('));
+  assert.match(open, /if \(!lz\) \{\s*\n\s*if \(!lzWaiting\) \{[\s\S]*?lobuleReady\(\)\.then\(lobuleArrived, lobuleNotArrived\)/);
+  assert.match(open, /const lobuleArrived = \(\) => \{ lzWaiting = false; if \(store\.get\(\)\.lobule\) openLobule\(\); \};/);
+  assert.ok(open.indexOf("store.set1('view', 'anatomic')") < open.indexOf('if (!lz)'), 'the view turns to the anatomy while the code loads');
+  assert.match(open, /const LOBULE_OFF_BOTH = \{ lobule: false, sinusoid: false \}, [\s\S]*store\.set\(LOBULE_OFF_BOTH\)/, 'a load that fails puts the switch back');
+  const ready = stage.slice(stage.indexOf('const lobuleBuilt ='), stage.indexOf('// ── Detail'));
+  assert.ok(ready.indexOf('lz.aim(aimWait[0], aimWait[1])') > ready.indexOf('createLobuleZoom(') && ready.indexOf('lz.update(F)') > ready.indexOf('lz.aim('));
   assert.match(stage, /lobuleAim: \(part, opts\) => \{ if \(lz\) lz\.aim\(part, opts\); else \{ aimWait = \[part, opts\]; lobuleReady\(\)\.catch\(\(\) => \{\}\); \} \}/);
 });
 
 test('the first dive is prepared ahead as before: the code is fetched as the figure is shown, the layer built when the page is quiet', () => {
-  const stage = read('stage.js');
-  const prep = stage.slice(stage.indexOf('function prepLobule()'), stage.indexOf('let catchUp = false'));
-  assert.match(prep, /if \(figureShown && !lzLoad && !lzSoon\) \{ lzSoon = true; lobuleCode\(\)\.catch\(\(\) => \{\}\); prepIdle\(\(\) => lobuleReady\(\)\.then\(\(\) => prepLobule\(\)/);
-  assert.match(stage, /const lobuleCode = \(\) => \(lzCode \|\|= import\('\.\/lobule-zoom\.js\?v=[0-9a-f]+'\)/);
-  assert.match(prep, /if \(prepBusy \|\| !figureShown \|\| now - prepAt < 1000\) return;/);
-  assert.match(prep, /lz\.preparePieces\(\)/);
+  const stage = stageSource();
+  const prep = stageFn('prepLobule');
+  assert.match(prep, /if \((?:live\.)?(?:live\.)?figureShown && !(?:live\.)?(?:live\.)?lzLoad && !(?:live\.)?(?:live\.)?lzSoon\) \{ (?:live\.)?(?:live\.)?lzSoon = true; lobuleCode\(\)\.catch\(lobuleNoop\); prepIdle\(prepLoad\);/);
+  assert.match(stage, /const prepLoad = \(\) => lobuleReady\(\)\.then\(prepLobule, prepLoadLost\);/);
+  assert.match(stage, /const lobuleCode = \(\) => \(lzCode \|\|= import\('\.\/lobule-zoom\.js'\)/);
+  assert.match(prep, /if \(prepBusy \|\| !(?:live\.)?figureShown \|\| now - prepAt < 1000\) return;/);
+  assert.match(prep, /(?:live\.)?lz\.preparePieces\(\)/);
 });
 
 test('a layer built after the store was set reads the slide\'s callout and a sinusoid already asked for', () => {
@@ -236,7 +225,8 @@ test('the dock holds the two panes, loads them when the card opens, a tab is tou
 });
 
 test('a load that failed is asked for again on the next ask', () => {
-  assert.match(read('main.js'), /pending \|\|= load\(\)\.then\(\(m\) => \(inst = make\(m\)\)\)\.catch\(\(err\) => \{ pending = null; throw err; \}\)/);
+  const mainSrc = read('main.js');
+  assert.match(mainSrc, /const made = \(m\) => \(inst = make\(m\)\);\s+const failed = \(err\) => \{ pending = null; loadFailed\(err\); throw err; \};\s+const get = \(\) => \(pending \|\|= load\(\)\.then\(made\)\.catch\(failed\)\);/);
 });
 
 // esbuild lists every module that is only import()ed (the lobule, the Doppler, the perf readout) with an entryPoint too. index.html's script

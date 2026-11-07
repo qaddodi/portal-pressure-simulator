@@ -63,11 +63,10 @@ test('how much art a box covers is on the old grid scale whatever the cell size'
 });
 
 // ---- the placer's use of it, on a fake page ----
-// Shapes are world rectangles; the fake canvas fills the pixels a rectangle's transformed box covers.
+// Shapes are world rectangles, as path outlines; the grid (cell-grid.js) is worked out from them, no canvas.
 const counts = { shape: 0, readback: 0, style: 0 };
 let cam = { a: 1, b: 0, c: 0, d: 1, e: 50, f: 30 };
-const rectD = (r) => `R ${r.join(' ')}`;
-globalThis.Path2D = class { constructor(d = '') { const m = /^R (\S+) (\S+) (\S+) (\S+)$/.exec(d); this.rect = m ? m.slice(1).map(Number) : null; } };
+const rectD = (r) => `M${r[0]} ${r[1]}H${r[0] + r[2]}V${r[1] + r[3]}H${r[0]}Z`;
 globalThis.CSS = { escape: String };
 globalThis.getComputedStyle = (el) => { counts.style++; return el.cs; };
 const shape = (cls, rect, { w = 0, fill = 'rgb(1, 1, 1)', stroke = 'none', tf = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }, id = null, parent = null } = {}) => ({
@@ -78,24 +77,20 @@ const shape = (cls, rect, { w = 0, fill = 'rgb(1, 1, 1)', stroke = 'none', tf = 
   getBoundingClientRect() { counts.shape++; const r = this.rect, b = boxThrough(multiply(cam, this.tf), r[0], r[1], r[0] + r[2], r[1] + r[3]); return { left: b.l, top: b.t, right: b.r, bottom: b.b, width: b.r - b.l, height: b.b - b.t }; },
   cs: { display: 'inline', strokeWidth: String(w), fill, stroke, strokeLinecap: 'butt', strokeLinejoin: 'miter' },
 });
-const lumen = { cs: { strokeWidth: '40' }, classList: { contains: () => false } };
 const organA = shape('organ', [100, 100, 200, 150]);
 const fluid = shape('ascites-fill', [500, 100, 100, 100], { fill: 'rgb(1, 1, 1)' });
-const vessel = shape('v-hit', [400, 300, 10, 300], { w: 12, fill: 'none', stroke: 'rgba(0,0,0,0)', id: 'V1', parent: { querySelector: () => lumen } });
-const scene = { organs: [organA], fluid: [fluid], hits: [vessel] };
-const bySelector = (sel) => (sel.startsWith('#world .v-hit[data-id=') ? scene.hits.filter((h) => sel.includes(`"${h.getAttribute('data-id')}"`)) : sel.includes('g.organ') ? scene.organs : sel.includes('#ascites') ? scene.fluid : sel.includes('.v-lumen') ? scene.hits : []);
-class FakeCtx {
-  constructor() { this.t = [1, 0, 0, 1, 0, 0]; this.px = new Uint8ClampedArray(4); this.lineWidth = 1; }
-  setTransform(...t) { this.t = t; }
-  clearRect(x, y, w, h) { this.w = w; this.h = h; this.px = new Uint8ClampedArray(w * h * 4); }
-  mark(r) {
-    const [a, b, c, d, e, f] = this.t, m = { a, b, c, d, e, f }, q = boxThrough(m, r[0], r[1], r[0] + r[2], r[1] + r[3]);
-    for (let j = Math.max(0, Math.floor(q.t)); j <= Math.min(this.h - 1, Math.ceil(q.b) - 1); j++) for (let i = Math.max(0, Math.floor(q.l)); i <= Math.min(this.w - 1, Math.ceil(q.r) - 1); i++) this.px[(j * this.w + i) * 4 + 3] = 255;
-  }
-  fill(p) { if (p.rect) this.mark(p.rect); }
-  stroke(p) { if (p.rect) { const k = this.lineWidth / 2; this.mark([p.rect[0] - k, p.rect[1] - k, p.rect[2] + 2 * k, p.rect[3] + 2 * k]); } }
-  getImageData() { counts.readback++; return { data: this.px }; }
-}
+// The vessel is the stage's numbers, not a page shape (stage.vesselShapes): a course down x = 405 from y 300 to 600, hit width 26,
+// counted at 0.7 of it with round caps. Its truth: the band without its caps (rect, all of it art) and with them (outer).
+const VES_LW = 26 * 0.7;
+const vessel = { rect: [405 - VES_LW / 2, 300, VES_LW, 300], outer: [405 - VES_LW / 2, 300 - VES_LW / 2, VES_LW, 300 + VES_LW], cs: { strokeWidth: 0 } };
+const vesShape = { id: 'V1', w: 26, main: true, path: { polys: [{ pts: Float32Array.of(405, 300, 405, 600), closed: false }] }, box: [405, 300, 405, 600] };
+const scene = { organs: [organA], fluid: [fluid] };
+const bySelector = (sel) => (sel.includes('g.organ') ? scene.organs : sel.includes('#ascites') ? scene.fluid : sel === '#world .v-hit' ? scene.hits : []);
+// (The grid class credit.js imports, at its stamped URL: the same module, so counting its reads counts the credit's.)
+const gridUrl = /from '\.\/(cell-grid\.js[^']*)'/.exec(readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8'))[1];
+const { CellGrid } = await import(`../src/ui/${gridUrl}`);
+const gridRead0 = CellGrid.prototype.readInto;
+CellGrid.prototype.readInto = function (g) { counts.readback++; return gridRead0.call(this, g); };
 const canvases = [];
 const observers = [];
 globalThis.MutationObserver = class { constructor(cb) { this.cb = cb; this.targets = []; observers.push(this); } observe(t) { this.targets.push(t); } disconnect() { this.targets = []; } };
@@ -106,10 +101,11 @@ globalThis.document = {
   documentElement: { dataset: {}, style: { setProperty() {} } }, addEventListener() {},
   getElementById: (id) => (id === 'world' ? world : null),
   querySelectorAll: bySelector,
-  createElement: () => { const cv = { width: 1, height: 1, getContext: () => (cv.ctx ||= new FakeCtx()) }; canvases.push(cv); return cv; },
+  createElement: () => { const cv = { width: 1, height: 1, getContext: () => { throw new Error('the credit draws on no canvas'); } }; canvases.push(cv); return cv; },
 };
 let glows = [];
-window.pps = { stage: { steadyGlows: () => glows } };
+window.pps = { stage: { steadyGlows: () => glows, lumenWidth: (id) => (id === 'V1' ? 40 : null), vesselShapes: () => ({ ver: 'v1', list: [vesShape] }) } };   // (the vein's drawn width and its courses: the stage's numbers)
+globalThis.MessageChannel = undefined;   // (rest passes on a zero timer, which this test's fake setTimeout takes)
 const { organTest } = await import('../src/ui/credit.js');
 
 const wr = { left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 };
@@ -120,7 +116,7 @@ const reset = () => { counts.shape = counts.readback = counts.style = 0; };
 test('the first look reads each shape once and the grid back twice (organs, vessels); the art is found where it is', () => {
   reset();
   const art = organTest(wr);
-  assert.equal(counts.shape, 2 * 3, 'matrix and box of each of the organ, the fluid and the vessel');
+  assert.equal(counts.shape, 2 * 2, 'matrix and box of each of the organ and the fluid (the vessel is the stage\'s numbers)');
   assert.equal(counts.readback, 2, 'one read-back for the organs and the fluid, one for the vessels');
   const a = screenOf(organA.rect);
   assert.equal(art({ l: a.l + 20, t: a.t + 20, r: a.l + 120, b: a.t + 40 }, { pad: 0 }), true, 'on the organ');
@@ -162,11 +158,11 @@ test('the answer is the same wherever the camera is: conservative to the pixel g
   for (const c of [{ a: 1, b: 0, c: 0, d: 1, e: 50, f: 30 }, { a: 0.6, b: 0, c: 0, d: 0.6, e: 90, f: 20 }, { a: 2.2, b: 0, c: 0, d: 2.2, e: -300, f: -120 }, { a: 0, b: 1.1, c: -1.1, d: 0, e: 700, f: 20 }, { a: 0, b: 0.8, c: -0.8, d: 0, e: 600, f: 100 }]) {
     cam = c; organTest(wr);
     const art = organTest(wr);
-    const truth = rects.map((s) => { const b = screenOf(s.rect), g = s.cs.strokeWidth * 0.7 / 2 * Math.hypot(c.a, c.b); return s === vessel ? { l: b.l - g, t: b.t - g, r: b.r + g, b: b.b + g } : b; });
+    const truth = rects.map((s) => screenOf(s.rect)), outer = rects.map((s) => screenOf(s.outer || s.rect));
     for (let n = 0; n < 600; n++) {
       const l = rnd() * 760, t = rnd() * 560, box = { l, t, r: l + 20 + rnd() * 160, b: t + 6 + rnd() * 30 }, pad = [0, 4, 8, 18][n % 4];
       const near = truth.some((b) => overlap({ l: box.l - pad, t: box.t - pad, r: box.r + pad, b: box.b + pad }, b));
-      const far = truth.some((b) => overlap({ l: box.l - pad, t: box.t - pad, r: box.r + pad, b: box.b + pad }, b, 2 * CELL + 1));
+      const far = outer.some((b) => overlap({ l: box.l - pad, t: box.t - pad, r: box.r + pad, b: box.b + pad }, b, 2 * CELL + 1));
       const got = art(box, { pad });
       touching += near ? 1 : 0; bare += far ? 0 : 1;
       if (near) assert.equal(got, true, `touching art, missed: ${JSON.stringify(box)} pad ${pad} camera ${JSON.stringify(c)}`);
@@ -187,7 +183,7 @@ test('a change to a shape reads the page again; an overlay group changing does n
   assert.deepEqual(watching.targets, [], 'the watch stops at the first change: a morph writes thousands of attributes');
   organA.rect = [100, 100, 40, 40];
   const art = organTest(wr);
-  assert.equal(counts.shape, 2 * 3, 'every shape read again');
+  assert.equal(counts.shape, 2, 'only the shape that changed is read again (creditcache)');
   const a = screenOf(organA.rect);
   assert.equal(art({ l: a.l + 5, t: a.t + 5, r: a.l + 30, b: a.t + 30 }, { pad: 0 }), true);
   assert.equal(art({ l: a.l + 120, t: a.t + 80, r: a.l + 150, b: a.t + 100 }, { pad: 0 }), false, 'the organ that was there is gone');
@@ -196,7 +192,7 @@ test('a change to a shape reads the page again; an overlay group changing does n
   assert.equal(counts.shape, 0, 'read again once, not at every look');
   const now = performance.now;
   try { performance.now = () => now.call(performance) + 16000; organTest(wr); } finally { performance.now = now; }
-  assert.equal(counts.shape, 2 * 3, 'a safety net for any change no watch saw');
+  assert.equal(counts.shape, 2 * 2, 'a safety net for any change no watch saw');
 });
 
 test("a lit vessel's glow counts as the vessel, and a changed glow draws the grid again without reading the page", () => {
@@ -209,14 +205,67 @@ test("a lit vessel's glow counts as the vessel, and a changed glow draws the gri
   assert.equal(art(inside, { pad: 0 }), true, 'inside the glow');
   assert.equal(art(beyond, { pad: 0 }), false, 'beyond it');
   assert.equal(counts.readback, 2, 'the grid drawn again for the new glow');
-  assert.equal(counts.shape, 1, 'only the glowing vessel was read, for its hit stroke (its matrix)');
+  assert.equal(counts.shape, 0, 'no shape read for it: the glowing vessel\'s course is the stage\'s');
   glows = [];
   assert.equal(organTest(wr)(inside, { pad: 0 }), false, 'the glow gone');
 });
 
 test('the credit falls back to the screen grid in the lobule, with Lite graphics, and where a grid would be over the cap', () => {
   const src = readFileSync(new URL('../src/ui/credit.js', import.meta.url), 'utf8');
-  assert.match(src, /export function organTest\(wr, ring = null\) \{\n\s+return \(!ring && worldTest\(wr\)\) \|\| screenTest\(wr, ring\);/);
-  assert.match(src, /if \(!world\.closest\('\.stage-view'\)\?\.classList\.contains\('gl-on'\)\) \{ artDirty = true; return null; \}/);
+  assert.match(src, /export function organTest\(wr, ring = null, spread = null\) \{\n\s+if \(!ring\) \{ const t = worldTest\(wr, spread\); if \(t\) return t; \}\n\s+return screenTest\(wr, ring\);/);
+  assert.match(src, /if \(!world\.closest\('\.stage-view'\)\?\.classList\.contains\('gl-on'\)\) \{ artDirty = true; artJob = null; return null; \}/);
   assert.match(src, /const reg = regionFor\(view, cellFor\(sc\), pad\);\n\s+if \(!reg\) return null;/);
+});
+
+test('spread over frames, the look answers PENDING, draws a slice a frame, and lands on the same grid one frame draws', async () => {
+  const { PENDING } = await import('../src/ui/credit.js');
+  const rafs = [];
+  const raf0 = globalThis.requestAnimationFrame, st0 = globalThis.setTimeout, tasks = [];
+  globalThis.requestAnimationFrame = (cb) => { rafs.push(cb); return rafs.length; };
+  // (The tasks the job queues for just after a frame: run once the frame's callbacks are done.)
+  globalThis.setTimeout = (cb) => { tasks.push(cb); return tasks.length; };
+  const now0 = performance.now;
+  let clock = now0.call(performance);
+  performance.now = () => (clock += 5);   // (every reading of the clock 5 ms on: a slice holds a shape or two)
+  try {
+    const sync = organTest(wr);
+    const boxes = [screenOf(organA.rect), screenOf(fluid.rect), screenOf(vessel.rect), { l: 700, t: 500, r: 760, b: 560 }];
+    const was = organA.rect; organA.rect = [was[0] + 1, was[1], was[2], was[3]];   // (a shape moved: that one is measured again, the unchanged ones are kept)
+    for (const o of observers) o.cb([]);   // (the art changed: read again)
+    let called = 0;
+    assert.equal(organTest(wr, null, () => called++), PENDING);
+    assert.equal(organTest(wr, null, () => called++), PENDING, 'one job at a time');
+    let frames = 0;
+    // (Each grid is read back in a frame of its own, after the one that drew its last shape: Safari paints a canvas's recorded drawing
+    // when it is read, 116 ms in one frame on his Mac, ee881888.)
+    const drew = CellGrid.prototype.fill, read = CellGrid.prototype.readInto;
+    let drawnNow = false, readAfterDraw = 0, reads = 0, shapesInFrame = 0, shapesAfter = 0;
+    CellGrid.prototype.fill = function (p) { drawnNow = true; return drew.call(this, p); };
+    CellGrid.prototype.readInto = function (g) { reads++; if (drawnNow) readAfterDraw++; return read.call(this, g); };
+    try {
+      while (!called && frames < 50) {
+        drawnNow = false;
+        let n = counts.shape;
+        const q = rafs.splice(0); for (const cb of q) cb(clock);
+        shapesInFrame += counts.shape - n; n = counts.shape;
+        const t = tasks.splice(0); for (const cb of t) cb();
+        shapesAfter += counts.shape - n;
+        frames++;
+      }
+    } finally { CellGrid.prototype.fill = drew; CellGrid.prototype.readInto = read; }
+    assert.equal(reads, 2, 'both grids read back');
+    assert.equal(readAfterDraw, 0, 'never in the frame that drew');
+    // (The shapes' boxes and matrices are read just after a frame, where the layout is the one it drew, never inside one: read there,
+    // after the figure's changes, they made the browser lay the page out mid-frame, 49 to 91 ms on his Mac, 1d32d326.)
+    assert.ok(shapesAfter >= 2, `the shapes read after the frame (${shapesAfter})`);
+    assert.equal(shapesInFrame, 0, 'no shape read inside a frame');
+    assert.equal(called, 1, 'called back once its grid is in');
+    assert.ok(frames > 2, `spread over ${frames} frames`);
+    const art = organTest(wr, null, () => called++);
+    assert.notEqual(art, PENDING);
+    for (const b of boxes) for (const pad of [0, 4, 18]) assert.equal(art(b, { pad }), sync(b, { pad }), JSON.stringify([b, pad]));
+    // (Taken for a while after, even with the art changed again: a breath would otherwise keep every look waiting.)
+    for (const o of observers) o.cb([]);
+    assert.notEqual(organTest(wr, null, () => called++), PENDING);
+  } finally { performance.now = now0; globalThis.requestAnimationFrame = raf0; globalThis.setTimeout = st0; }
 });

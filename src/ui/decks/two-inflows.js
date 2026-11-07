@@ -1,6 +1,6 @@
 // Presenter talk: the liver's two inflows, the portal vein and the hepatic artery, and the arterial buffer
-// between them (the slide fields are described at the top of decks.js). The hepatic artery is modeled but not
-// drawn on the plate, so its Doppler in the data card stands in for it. Where the question is the share, the inflow bars
+// between them (the slide fields are described at the top of decks.js). The hepatic artery is drawn on both views
+// ([artery](ha) lights it and its label), and its Doppler in the data card reads it. Where the question is the share, the inflow bars
 // (tool kind 'flows', of 'inflow') split the liver's blood between the two vessels.
 
 const HA = (delta) => ({ kind: 'doppler', vessel: 'A_HEP', title: 'Hepatic artery', ...(delta ? { delta } : {}) });
@@ -25,15 +25,15 @@ export const TWO_INFLOWS = {
     {
       id: 'dual', lens: 'origin', preset: 'healthy', cam: 'liver', tool: INFLOW, data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['pvFlow'],
       kicker: 'Two inflows', title: 'Two vessels feed the liver',
-      line: 'About three quarters of the liver\'s blood arrives by the [portal vein](pv), {pvFlow} here, and a quarter by the hepatic artery. Colored by origin, the inflows enter separately.',
+      line: 'About three quarters of the liver\'s blood arrives by the [portal vein](pv), {pvFlow} here, and a quarter by the [hepatic artery](ha).',
       notes: 'Each vessel brings about half of the liver\'s oxygen. Portal blood has already passed through the gut and the spleen, so it is partly deoxygenated but rich in absorbed nutrients and gut hormones. Arterial blood is fully saturated, so the artery supplies about half of the oxygen with only a quarter of the flow. The bars show the two inflows against each other: the portal vein carries about three quarters of the flow and the artery the rest. Later slides show the hepatic artery\'s Doppler, a low-resistance waveform with flow throughout diastole.',
       ask: ['What share of the liver\'s oxygen comes from the portal vein?', 'About half, although it carries about three quarters of the flow.'],
     },
     {
       id: 'meet', lens: 'origin', cam: 'lobule:triad', compare: [{ label: 'Origin', lens: 'origin', own: true }, { label: 'Oxygen', lens: 'oxygen' }], terms: { 'portal venule': 'lobule:triad', 'hepatic arteriole': 'lobule:arteriole', sinusoids: 'lobule:sinusoid' },
       kicker: 'Two inflows', title: 'Portal and arterial blood mix in the sinusoids',
-      line: 'A portal venule and a hepatic arteriole empty into the same sinusoids, where the two colors meet. The Oxygen button shows portal blood only a little darker.',
-      notes: 'Portal blood is only a little darker than arterial blood, and it still brings half the oxygen. The portal tract holds a portal venule, a hepatic arteriole and a bile ductule. Arteriolar blood enters the sinusoids near the tract, in zone 1, and mixes with portal blood; part of it first feeds the capillary plexus around the bile ducts. The bile ducts have no portal supply, so they depend on the artery alone.',
+      line: 'A portal venule and a hepatic arteriole empty into the same sinusoids, where the two colors meet.',
+      notes: 'The Oxygen button shows portal blood only a little darker. Portal blood is only a little darker than arterial blood, and it still brings half the oxygen. The portal tract holds a portal venule, a hepatic arteriole and a bile ductule. Arteriolar blood enters the sinusoids near the tract, in zone 1, and mixes with portal blood; part of it first feeds the capillary plexus around the bile ducts. The bile ducts have no portal supply, so they depend on the artery alone.',
       ask: ['Where do portal and arterial blood meet?', 'In the sinusoids, which both enter at the portal tracts.'],
     },
     {
@@ -41,9 +41,19 @@ export const TWO_INFLOWS = {
       kicker: 'The buffer', site: 'pre', title: 'A clot stops the portal flow',
       vignette: 'A 47-year-old man with a newly diagnosed JAK2-positive myeloproliferative neoplasm has had 3 days of constant abdominal pain. His liver tests are normal.',
       caseQ: 'What will his hepatic artery do?',
-      line: 'With the portal vein clotted, the artery carries about twice its usual flow, so liver blood flow falls only to {liver} of normal. The Oxygen button shows the sinusoids brightening.',
-      notes: 'This is the hepatic arterial buffer response. Adenosine is released at a steady rate around the hepatic arterioles and is normally washed away by portal flow; when portal flow falls, adenosine builds up and dilates the artery. The buffer makes up part, not all, of the lost flow. It is why acute portal vein thrombosis rarely infarcts the liver. On the Oxygen button, blood entering the sinusoids rises from about 88% to 95% saturation, because most of it is now arterial.',
+      line: 'With the portal vein clotted, the [artery](ha) carries about twice its usual flow and collaterals bring a little portal blood, so liver blood flow falls only to {liver} of normal.',
+      notes: 'The Oxygen button shows the sinusoids brightening. This is the hepatic arterial buffer response. Adenosine is released at a steady rate around the hepatic arterioles and is normally washed away by portal flow; when portal flow falls, adenosine builds up and dilates the artery. The buffer makes up part, not all, of the lost flow. It is why acute portal vein thrombosis rarely infarcts the liver. On the Oxygen button, blood entering the sinusoids rises from about 88% to 95% saturation, because most of it is now arterial.',
       ask: ['Why does acute portal vein thrombosis rarely cause a liver infarct?', 'The hepatic artery dilates (the buffer response) and keeps the liver perfused.'],
+    },
+    {
+      // (Fig. 5 of Baveno VIII for the man of the clot slide: no reversible factor, and a JAK2-positive myeloproliferative neoplasm, a permanent major one. Case facts.
+      // The hepatic artery's buffer keeps the liver alive; this is what the clot itself needs. tool-path.js.)
+      id: 'path-pvtgrid', preset: 'pvt-acute', cam: 'portal', mark: { edges: ['PV_TRUNK'], label: 'Clot' },
+      tool: { kind: 'path', of: 'pvtgrid', short: 'Long-term grid', patient: { r: 'no', c: 'maj' } },
+      kicker: 'The buffer', site: 'pre', title: 'The artery saves the liver; anticoagulation treats the clot',
+      line: 'The buffer covers for the clot but does not remove it. His myeloproliferative neoplasm is a permanent, major risk factor, so the grid says full-dose anticoagulation, long term.',
+      notes: 'The hepatic artery keeps the liver perfused while the portal vein is blocked, but the clot itself needs treating. For a portal vein clot without cirrhosis, Baveno VIII starts anticoagulation at once at a therapeutic dose (9.6) and gives at least 6 months (9.8). Whether to go on depends on the risk factors (9.10, Fig. 5). Two questions place the patient: was the clot provoked by a reversible factor in the last 3 months, and is there a permanent factor, and is it major? A myeloproliferative neoplasm and thrombophilia are the examples of major permanent factors the guideline gives (9.5). A permanent major factor calls for long-term anticoagulation at a therapeutic dose (9.10a, strong); without one, long-term lower-dose DOACs can be considered (9.10b, weak); stopping can be considered after a reversible factor resolves and with no permanent one (9.10c, weak). This man has no reversible factor and a JAK2-positive neoplasm, so he sits in the red cell: full dose, long term.',
+      ask: ['A man with a JAK2-positive myeloproliferative neoplasm has a portal vein clot. Is 6 months of anticoagulation enough?', 'No. A permanent major risk factor calls for long-term anticoagulation at a therapeutic dose (Baveno VIII 9.10a).'],
     },
     {
       id: 'switch', pill: false, cam: 'portal', tool: INFLOW, data: 'tiles', tiles: ['liver'], key: ['liver'], delta: 'dual',
@@ -54,11 +64,11 @@ export const TWO_INFLOWS = {
       ask: ['Why does the same clot leave the liver far less blood with the buffer off?', 'The artery can no longer dilate, so nothing replaces the portal share, about three quarters of the flow.'],
     },
     {
-      id: 'artery', preset: 'healthy', params: { thrombus: { A_HEP: 1 } }, cam: 'liver', tool: HA('dual'), data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['liver'], delta: 'dual',
+      id: 'artery', preset: 'healthy', params: { thrombus: { A_HEP: 1 } }, cam: 'liver', mark: { edges: ['A_HEP'], label: 'Clot' }, tool: HA('dual'), data: 'tiles', tiles: ['pvFlow', 'liver'], key: ['liver'], delta: 'dual',
       kicker: 'The buffer', title: 'A clotted hepatic artery starves the bile ducts',
       vignette: 'A 52-year-old man had a deceased-donor liver transplant 10 days ago. His AST and ALT have risen sharply overnight.',
       caseQ: 'Which structures have lost their only blood supply?',
-      line: 'If the hepatic artery clots, the portal flow barely changes. Liver blood flow falls to {liver} of normal, and the bile ducts lose their only supply.',
+      line: 'If the [hepatic artery](ha) clots, the portal flow barely changes. Liver blood flow falls to {liver} of normal, and the bile ducts lose their only supply.',
       notes: 'The clinical setting is hepatic artery thrombosis after liver transplantation. In a graft the liver cells may live on portal blood, but often do not; the bile ducts, fed only by the artery, suffer first and become ischemic: bile leaks, strictures and abscesses follow, and early thrombosis often needs revascularization or a new graft. The Doppler shows no arterial signal.',
       ask: ['After a liver transplant the hepatic artery clots. Which structure suffers most?', 'The bile ducts, which have no portal supply.'],
     },
@@ -66,14 +76,14 @@ export const TWO_INFLOWS = {
       id: 'cirr', lens: 'origin', preset: 'cirr-decomp', cam: 'liver', tool: HA('dual'), data: 'tiles', tiles: ['liver', 'shunt'], key: ['shunt'], delta: 'dual',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'In cirrhosis the artery does more',
       vignette: 'A 60-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide, large esophageal varices and platelets of 57,000/µL.',
-      line: 'Collaterals take {shunt} of the portal blood past the liver. The artery dilates and supplies a larger share, but liver blood flow is only {liver} of normal.',
+      line: 'Collaterals take {shunt} of the portal blood past the liver. The [artery](ha) dilates and supplies a larger share, but liver blood flow is only {liver} of normal.',
       notes: 'As cirrhosis advances, more portal blood leaves through collaterals and the hepatic artery supplies a growing share of the liver\'s flow; its Doppler velocity rises. The liver also loses part of its first-pass clearance of gut toxins and drugs. The fall in total liver blood flow adds to the loss of function.',
       ask: ['Why does the hepatic artery velocity rise in advanced cirrhosis?', 'Portal inflow to the liver falls, and the buffer response dilates the artery.'],
     },
     {
-      id: 'tips', lens: 'origin', params: { tips: { on: true } }, cam: 'liver', scales: { lobule: {} }, sites: ['split'], mark: { edges: ['TIPS'], label: 'TIPS', kind: 'treat' }, tool: INFLOW, data: 'tiles', tiles: ['liver', 'shunt'], key: ['liver'], delta: 'cirr',
+      id: 'tips', question: "After a TIPS, will the artery or the portal vein carry most of the liver's blood?", lens: 'origin', params: { tips: { on: true } }, cam: 'liver', scales: { lobule: {} }, sites: ['split'], mark: { edges: ['TIPS'], label: 'TIPS', kind: 'treat' }, tool: INFLOW, data: 'tiles', tiles: ['liver', 'shunt'], key: ['liver'], delta: 'cirr',
       kicker: 'Cirrhosis and TIPS', site: 'sin', title: 'After TIPS, most liver inflow is arterial',
-      line: 'After a TIPS the portal branches turn toward the stent and the artery dilates. Liver flow falls to {liver} of normal. Colored by origin, the sinusoids carry mostly arterial blood.',
+      line: 'After a TIPS the portal branches turn toward the stent and the [artery](ha) dilates. Liver flow falls to {liver} of normal, most of it now arterial.',
       notes: 'After a TIPS, flow in the intrahepatic portal branches usually turns toward the stent, and the hepatic artery velocity rises as the buffer responds. A liver with little reserve may not cope: a rising bilirubin and encephalopathy are the warning signs, and the reason TIPS is avoided in very advanced liver failure. On the figure, colored by origin, the sinusoids carry almost all arterial blood, while portal blood runs through the stent.',
       ask: ['Which way does blood run in the intrahepatic portal branches after a TIPS?', 'Usually toward the stent, away from the liver tissue, because the stent is the path of least resistance.'],
     },
@@ -93,7 +103,7 @@ export const TWO_INFLOWS = {
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'clot', kicker: 'Portal vein', title: 'Portal vein clot' }, { id: 'artery', kicker: 'Artery', title: 'Hepatic artery clot' },
         { id: 'cirr', kicker: 'Cirrhosis', title: 'Decompensated' }, { id: 'tips', kicker: 'Cirrhosis', title: 'After TIPS' }],
       kicker: 'Summary', title: 'The artery buffers the portal vein, never the reverse',
-      line: 'The artery buffers every fall in portal flow; nothing buffers a fall in arterial flow.',
+      line: 'The [artery](ha) buffers every fall in portal flow; nothing buffers a fall in arterial flow.',
       notes: 'Portal flow falls with a clot, with collaterals and with a TIPS; each time the artery takes up part of the load, and the more it does, the faster its Doppler. When the artery itself fails, the portal vein cannot help, and the bile ducts suffer first.',
       ask: ['After a TIPS the hepatic artery velocity has doubled. Is that a complication?', 'No: it is the expected buffer response to less portal inflow.'],
     },

@@ -39,35 +39,33 @@ test('the shader fades into the page exactly as the 2D gradient does', () => {
   assert.match(fgl, /m = 1\.0 - clamp\(\(length\(p - uMask\.xy\) - uMask\.z \* 0\.35\) \/ max\(uMask\.z \* 0\.65, 1e-6\), 0\.0, 1\.0\);/);
   // One repeat (two lobules wide, two high) per 6 rd by 2√3 rd, as the 2D pattern's transform.
   assert.match(fgl, /vec2 uv = \(p - uO\) \/ \(uRd \* vec2\(6\.0, 3\.4641016151377544\)\);/);
-  assert.match(lz, /pat\.setTransform\(new DOMMatrix\(\[\(t\.TW \/ t\.R\) \* rd \/ t\.tw, 0, 0, \(t\.TH \/ t\.R\) \* rd \/ t\.th, x, y\]\)\);/);
   assert.match(lz, /const TW = 6 \* R, TH = 2 \* S3 \* R,/);
 });
 
 test('the GPU field takes its numbers from the same places as the 2D field', () => {
-  const gpu = lz.slice(lz.indexOf('function paintFieldGL('), lz.indexOf('function liverTile('));
+  const gpu = lz.slice(lz.indexOf('function paintFieldGL('), lz.indexOf('function liverTone('));
   assert.match(gpu, /fieldBlend\(rd \* 0\.55\)/, 'half the tile\'s resolution, as on the 2D canvas');
   assert.match(gpu, /Math\.log\(Math\.min\(Math\.hypot\(W, H\) \* dpr \* 0\.45, rd \* 1\.1\)\), f\)\)/, 'the same clear circle');
   assert.match(gpu, /rho = Math\.hypot\(W, H\) \* dpr \* \(0\.2 \+ 1\.1 \* d\.a \+ 2 \* smooth\(0\.7, 1, d\.a\)\)/, 'the same emerging mask');
   assert.match(gpu, /fadeOuter\(r0,/, 'the neighbours still reach every edge');
   assert.match(gpu, /mid: FADE_MID, bg: tone,/);
-  // Drawn on the GPU when it can be, the 2D canvas left empty; otherwise the 2D passes as before.
-  assert.match(lz, /if \(g && paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\)\) \{\n\s+fieldHide\(field\);/);
-  assert.match(lz, /fieldHide\(fieldG\);\n\s+if \(field\.width !== Math\.round\(W \* dpr\)/);
+  // Drawn on the GPU, the 2D canvas always left empty (since 1 Nov 2026 there are no 2D passes: gpu-fallback-guards.test.js).
+  assert.match(lz, /const drew = g \? paintFieldGL\(g, d, W, H, dpr, cs, dark, bg\) : false;\n\s+fieldHide\(field\);/);
+  assert.doesNotMatch(lz, /field\.getContext|field\.width !== Math\.round/);
 });
 
 test('nothing is sent to the GPU or compiled during the zoom', () => {
   // Every tile the dive steps through, and the one size above the landing's that it blends in, uploaded ahead.
-  assert.equal((lz.match(/quietTile\(t, shadeOf\(bg, dark\)\); fieldUp\(t\); \}\); if \(r >= top \* 2\) break; \}/g) || []).length, 2, 'idle preparation and prewarm');
+  assert.equal((lz.match(/fieldCopies\(fieldTile\(cs, dark, r\), cs, dark, bg\); \}\); if \(r >= top \* 2\) break; \}/g) || []).length, 2, 'idle preparation and prewarm');
+  assert.match(lz, /const fieldCopies = \(t, cs, dark, bg\) => \{ if \(!fieldGLOn\(\)\) return; liverCopy\(t, cs, dark, bg\); quietCopy\(t, shadeOf\(bg, dark\)\); fieldUp\(t\); \};/, 'each with both its copies, sent');
   assert.match(lz, /\(\) => fieldGLOn\(\), {3}\/\/ \(the field's GPU context, made here once/);
-  assert.match(lz, /warmQ = \[\(\) => ensureGL\(\), \(\) => fieldGLOn\(\)\];/);
+  assert.match(lz, /warmQ = \[\(\) => ensureGL\(\), \(\) => fieldGLOn\(\), \(\) => \{ if \(FX_GPU\) fxGLOn\(\); \}, \(\) => \{ if \(WIDE_GL\) wideGLOn\(\); \}\];/);   // (the ductules' overlay's programs too)
   // Kept when the lobule is left (the next dive's), and their GPU copies given back with them.
   assert.match(lz, /FIELD_RS\[fieldBlend\(geo\.R \* k \* Math\.min\(1, devicePixelRatio \|\| 1\) \* 0\.8 \* 0\.55\)\.b\]/);
   assert.match(lz, /fieldGL\?\.sweep\(\);/);
 });
 
-test('the GPU field falls back to the 2D canvas without WebGL2, on a software renderer, or when its context is lost', () => {
-  assert.match(fgl, /failIfMajorPerformanceCaveat: true/);
-  assert.match(fgl, /canvas\.addEventListener\('webglcontextlost', \(e\) => \{ lost = true;/);
+test('the GPU field is the only field: a software renderer draws it too; without WebGL2, or while its context is lost, none is drawn', () => {
   assert.match(lz, /return fieldGL && !fieldGL\.lost \? fieldGL : null;/);
   assert.match(fgl, /LINEAR_MIPMAP_LINEAR/, 'mipmapped: a size shown below its own never shimmers');
 });

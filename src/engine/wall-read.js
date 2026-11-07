@@ -6,8 +6,23 @@
 const DP = 1, DR = 2, DW = 3;
 const round = (x, d) => Math.round(x * 10 ** d) / 10 ** d;
 
-/** v: the engine's varix() result ({ ptm, r, w }); returns the text of the four tiles. */
+/** The index alone, as a number, worked out from the shown ΔP, r and w (the engine's ratioShown; nothing made). */
+export function wallIndex(ptm, r, w) {
+  const p = round(Math.max(0, ptm), DP), rr = round(r, DR), ww = round(w, DW);
+  return Math.round(ww > 0 ? p * rr / ww : 0) + 0;
+}
+// (The text of a number is made once for each value it takes: the tiles show a few hundred different values at most, and a string is
+// what the page wants, so a value seen before gives back the string it had. The table is emptied if it ever grows past a few thousand.)
+const TXT_P = new Map(), TXT_R = new Map(), TXT_W = new Map(), TXT_I = new Map();
+const shown = (tab, v, d) => {
+  let t = tab.get(v);
+  if (t === undefined) { if (tab.size > 4000) tab.clear(); t = v.toFixed(d); tab.set(v, t); }   // alloc-rare: a value's text is made the first time it is shown
+  return t;
+};
+const READ = { ptm: '', r: '', w: '', index: '' };   // (kept: the record wallRead fills and gives back)
+/** v: the engine's varix() result ({ ptm, r, w }); returns the text of the four tiles (a record kept here, good until the next call). */
 export function wallRead(v) {
   const ptm = round(Math.max(0, v.ptm), DP), r = round(v.r, DR), w = round(v.w, DW);
-  return { ptm: ptm.toFixed(DP), r: r.toFixed(DR), w: w.toFixed(DW), index: String(Math.round(w > 0 ? ptm * r / w : 0)) };
+  READ.ptm = shown(TXT_P, ptm, DP); READ.r = shown(TXT_R, r, DR); READ.w = shown(TXT_W, w, DW); READ.index = shown(TXT_I, Math.round(w > 0 ? ptm * r / w : 0), 0);
+  return READ;
 }

@@ -121,7 +121,6 @@ try {
     }, lobuleM);
     // With the lymph on and the patient playing, a pan carries the labels along as one layer: the lymph label's live protein
     // figure ('Protein 48%', which moves with the pulse) must not have them all placed again on every frame (that made the pan lag).
-    // And the lymph layer, which draws its eraser and lining only where they reach the screen, equals one drawn whole.
     {
       await page.evaluate(() => window.pps.store.set({ lobuleLayers: { ...window.pps.store.get().lobuleLayers, lymph: true } }));
       await run(page, true);
@@ -136,13 +135,7 @@ try {
       console.log(`lobule pan with the lymph on, playing: labels placed ${n1 - n0} times in 12 moves`);
       if (n1 - n0 > 2) fail(`lobule pan with the lymph on: the labels were placed again ${n1 - n0} times in 12 moves instead of riding with the picture`);
       await run(page, false);
-      for (const [dx, dy] of [[0, 0], [120, -80], [-160, 60]]) {
-        if (dx || dy) { const q = [lp[0], lp[1]]; await touch('touchStart', [q]); for (let i = 1; i <= 6; i++) { await touch('touchMove', [[q[0] + dx * i / 6, q[1] + dy * i / 6]]); await frames(page, 1); } await touch('touchEnd', []); await steady(page, lobuleM); }
-        const c = await page.evaluate(() => window.pps.stage.lobuleFxCheck());
-        console.log(`lobule lymph layer drawn by what reaches the screen vs whole (${await page.evaluate(() => window.pps.stage.lobuleViewKey())}): ${c ? `${c.differ} of ${c.bytes} bytes differ` : 'not drawn'}`);
-        if (!c || !c.lymph) fail('the lobule lymph layer was not there to check');
-        else if (c.differ) fail(`the lobule lymph layer drawn only where it reaches the screen differs from one drawn whole in ${c.differ} bytes`);
-      }
+      // (The lymph layer is the GPU's since 1 Nov, drawn whole each frame: there is no partial 2D drawing left to compare with one drawn whole.)
     }
     await page.evaluate(() => document.querySelector('#viewSeg [data-view="anatomic"]').click());
     await page.waitForFunction(() => !window.pps.stage.lobuleOpen(), null, { timeout: 60000 });

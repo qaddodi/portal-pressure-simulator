@@ -14,8 +14,8 @@ const presenter = read('../src/ui/presenter.js');
 const css = read('../styles/app.css');
 const asked = DECKS.flatMap((d) => withOverview(d).slides.map((s, i, all) => ({ d, s, i, all }))).filter(({ s }) => s.question !== undefined);
 
-test('question cards: the nine slides that ask first are each adopted, under 100 characters and have no number in them', () => {
-  assert.deepEqual(asked.map(({ d, s }) => `${d.id}/${s.id}`).sort(), ['circuit/both', 'encephalopathy/narrow', 'endoscopy/flat', 'hyperdynamic/loss', 'next-bleed/slough', 'sites/ladders', 'treatment/carv', 'variceal-bleed/band', 'variceal-bleed/minutes']);
+test('question cards: the eleven slides that ask first are each adopted, under 100 characters and have no number in them', () => {
+  assert.deepEqual(asked.map(({ d, s }) => `${d.id}/${s.id}`).sort(), ['circuit/both', 'encephalopathy/narrow', 'endoscopy/flat', 'hyperdynamic/loss', 'next-bleed/slough', 'prehepatic/gradients', 'sites/ladders', 'treatment/carv', 'two-inflows/tips', 'variceal-bleed/band', 'variceal-bleed/minutes']);
   for (const { d, s } of asked) {
     const at = `${d.id}/${s.id}`;
     assert.ok(adopted(d, s, 'question'), `${at}: a question card is opt-in (tests/deck-adopted.js)`);
@@ -60,7 +60,7 @@ test('the presenter asks it only going forward one step, on the case card\'s gla
 test('a slide that changes the model lands holding the state before it and plays its change after the lift', () => {
   assert.match(presenter, /const ask = questionable\(s, to, ct\), holdQ = ask && !s\.visual && \(!!s\.lapse \|\| changes\(s\)\);/);
   assert.match(presenter, /const si = lap \|\| holdQ \? stateOf\[to - 1\] : stateOf\[to\];/, 'it lands on the slide before\'s state');
-  assert.match(presenter, /const said = lap \|\| holdQ \? await stateReady\(stateOf\[to\]\) : st;/);
+  assert.match(presenter, /const said = lap \|\| holdQ \|\| own \? await stateReady\(stateOf\[to\]\) : st;/);
   assert.match(presenter, /if \(lap\) await playLapse\(s, to, cut\);\n\s*else if \(holdQ\) await answerPlay\(s, to, cut\);/, 'its change plays after its cards are in');
   // (the card is lifted before the camera and the cards move: the case card's own waits)
   assert.match(presenter, /if \(caseCard\) \{ await caseLifted\(cut\); if \(cut\(\)\) return; \}/);

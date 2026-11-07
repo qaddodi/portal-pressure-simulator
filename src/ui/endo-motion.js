@@ -1,8 +1,8 @@
 // How the scope's view moves between states (instruments.js): every change eases, nothing cuts.
 // The shaded field is a bitmap redrawn in small steps (a step of size or stigmata, each frame of a band going on); each new
 // bitmap fades in over the one shown, so a step reads as a glide. The balloon and the bleeding jet fade in and out.
-import { bleedPulse } from './blood.js?v=7fa561f952';
-import { columnAngle, depthAt } from './endo-columns.js?v=381d1443b7';
+import { bleedPulse } from './blood.js';
+import { columnAngle, depthAt } from './endo-columns.js';
 export const FADE_MS = 280;
 // The band follows the deflating vein: the vein starts at once, the band cinches in a beat later.
 export const DEFLATE_MS = 500, BAND_MS = 420, BAND_DELAY_MS = 140;
@@ -29,9 +29,12 @@ const hash = (i) => frac(Math.sin(i * 91.7 + 47.3) * 43758.5453);
 // The tear: on the crest of varix column 3 at a depth of half the lumen's radius (units of R from the centre, x right, y down;
 // `th` its angle, clockwise from the right), where the drawn column runs for this engorgement.
 export const SCOPE_TEAR_RHO = 0.52, SCOPE_TEAR_COLUMN = 3;
+// (One kept record, written in place and handed back: valid until the next call; the scope reads it at once and keeps neither it nor its fields.)
+const TEAR = { x: 0, y: 0, th: 0 }, POOL = { h: 0, phi: 0 };
 export function scopeTear(grow = 0.8) {
   const th = columnAngle(SCOPE_TEAR_COLUMN, depthAt(SCOPE_TEAR_RHO), grow);
-  return { x: SCOPE_TEAR_RHO * Math.cos(th), y: SCOPE_TEAR_RHO * Math.sin(th), th };
+  TEAR.x = SCOPE_TEAR_RHO * Math.cos(th); TEAR.y = SCOPE_TEAR_RHO * Math.sin(th); TEAR.th = th;
+  return TEAR;
 }
 
 // The share of the lumen's cross-section lying under a flat surface h radii below the axis (h 1 the bottom, 0 the axis).
@@ -44,23 +47,31 @@ export function scopePool(fill) {
   let lo = 0, hi = 1;
   for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (under(m) > want) lo = m; else hi = m; }
   const h = (lo + hi) / 2;
-  return { h, phi: Math.asin(h) };
+  POOL.h = h; POOL.phi = Math.asin(h);   // (one kept record, valid until the next call)
+  return POOL;
 }
 /** Whether a point (units of R from the centre, y down) lies in the pool of that phi. */
 export const inScopePool = (x, y, phi) => y > 0 && y >= Math.abs(x) * Math.tan(phi);
 
 // The drops in flight at time t, as [x, y, radius, alpha, vx, vy] in units of R from the tear (y down); `tear` is where the tear is
-// (units of R from the centre). Each is thrown off at its birth into the lumen (toward the axis) as hard as that moment's surge throws
-// it, eases in from nothing and thins to nothing before it is thrown again.
-export function scopeDrops(t, rate, hr, tear = scopeTear()) {
-  const k = Math.min(1.6, Math.max(0.6, (rate || 50) / 90)), spurt = smooth(25, 70, rate || 50), out = [];
+// (units of R from the centre). Each is thrown off at its birth into the lumen (toward the axis) as hard as the steady bleed throws
+// it (no beat: blood.js BLEED_STEADY), eases in from nothing and thins to nothing before it is thrown again. `out`: a table to write them into (the rows are kept
+// and rewritten, so a frame makes none); without one a new table is made (a test's).
+export function scopeDrops(t, rate, hr, tear = scopeTear(), out = null) {
+  const k = Math.min(1.6, Math.max(0.6, (rate || 50) / 90)), spurt = smooth(25, 70, rate || 50);
+  // alloc-rare: only when a caller gives no table (the tests); the bleed's drawing passes its kept one
+  const dst = out || [];
   const into = Math.atan2(-tear.y, -tear.x);
   for (let i = 0; i < SCOPE_DROPS; i++) {
     const age = frac(t / LIFE + i / SCOPE_DROPS) * LIFE, pb = bleedPulse(t - age, hr);
     const a = into + (hash(i) - 0.5) * 1.4, v = (0.12 + (0.28 + 0.5 * pb) * spurt) * k * (0.5 + 0.9 * hash(i + 5));
     const vx = Math.cos(a) * v, vy = Math.sin(a) * v + GRAV * age;
     const al = smooth(0, 0.1, age) * (1 - age / LIFE) ** 1.2 * (0.12 + 0.88 * spurt);
-    out.push([vx * age, Math.sin(a) * v * age + 0.5 * GRAV * age * age, (0.005 + 0.007 * hash(i + 17)) * (0.8 + 0.3 * k), al, vx, vy]);
+    // alloc-rare: a row is made the first time a table is used, then rewritten
+    const row = dst[i] || (dst[i] = [0, 0, 0, 0, 0, 0]);
+    row[0] = vx * age; row[1] = Math.sin(a) * v * age + 0.5 * GRAV * age * age; row[2] = (0.005 + 0.007 * hash(i + 17)) * (0.8 + 0.3 * k);
+    row[3] = al; row[4] = vx; row[5] = vy;
   }
-  return out;
+  dst.length = SCOPE_DROPS;
+  return dst;
 }

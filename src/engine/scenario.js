@@ -1,15 +1,17 @@
 // Scenario parameters, presets and drug effects (blueprint §8.4, §10.1, §10.2).
 
+import { EDGES } from './topology.js';
+
 export function defaultParams() {
-  return {
+  return {   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     cirrhosis: 0,                 // macro 0..1 (§8.4)
-    fibrosis: {                   // user fibrosis brush multipliers (≥ 1)
-      R: { pre: 1, sin: 1, post: 1 },
-      L: { pre: 1, sin: 1, post: 1 },
+    fibrosis: {                   // user fibrosis brush multipliers (≥ 1)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+      R: { pre: 1, sin: 1, post: 1 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+      L: { pre: 1, sin: 1, post: 1 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     },
-    stenosis: {},                 // edgeId → 0..1 lumen narrowing
-    stenosisSite: {},             // stent edgeId → 'proximal' | 'mid' | 'distal': the segment a stent's narrowing sits in (distal if unset)
-    thrombus: {},                 // edgeId → 0..1 occlusion
+    stenosis: {},                 // edgeId → 0..1 lumen narrowing   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    stenosisSite: {},             // stent edgeId → 'proximal' | 'mid' | 'distal': the segment a stent's narrowing sits in (distal if unset)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    thrombus: {},                 // edgeId → 0..1 occlusion   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     splenicRx: 0,                 // 0 none · 1 partial splenic artery embolization · 2 splenectomy
     splanchnicTone: 1,            // arteriolar resistance multiplier (<1 = vasodilated)
     meal: 0,                      // how far a meal has taken hold, 0..1 (0 fasting); see MEAL_TONE
@@ -24,31 +26,37 @@ export function defaultParams() {
     respiration: true,
     respDepth: 1,
     pulsatile: true,
-    spontaneous: { C5: false, C6: false },   // C5: gastrorenal shunt, an anatomical variant: absent by default (a preset or the user adds it); fundal varices need it
+    spontaneous: { C5: false, C6: false },   // C5: gastrorenal shunt, an anatomical variant: absent by default (a preset or the user adds it); fundal varices need it   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     isolatedGV: false,            // isolated fundal varices (IGV1): the coronary vein never forms esophageal varices
-    occluded: {},                 // collateral id → true (BRTO / plug)
-    tips: { on: false, d: 8 },
-    dips: { on: false, d: 8 },
+    occluded: {},                 // collateral id → true (BRTO / plug)   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    tips: { on: false, d: 8 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    dips: { on: false, d: 8 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     portocaval: false,
-    customShunts: {},
+    customShunts: {},   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     dsrs: false,
     mesocaval: false,
-    balloonEso: false,
-    balloonGas: false,
+    rex: false,                   // the Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein (past a clotted trunk)
+    balloonEso: false,            // the tamponade tube's esophageal balloon: the second step, filled only on a tube whose gastric balloon is up
+    balloonGas: false,            // its gastric balloon, filled in the stomach and drawn up against the cardia: the first step
     anticoag: false,
     diuretics: false,             // spironolactone + furosemide: renal sodium/water loss offsets ascites
     fenestrae: 0,                 // how far the sinusoid lining's pores are opened past what the disease leaves (0: as the disease has it, 1: all open); see starling()
-    drugs: { propranolol: false, carvedilol: false, terlipressin: false, octreotide: false },
-    catheter: { vein: null, wedged: false },
+    drugs: { propranolol: false, carvedilol: false, terlipressin: false, octreotide: false },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
+    nsbbGain: 1,                  // how strongly this patient's portal pressure answers a beta-blocker: 1 the usual (an HVPG fall near 15 to 20%),
+                                  // more for a good responder; it scales the splanchnic and sinusoidal parts of propranolol and carvedilol only
+    catheter: { vein: null, wedged: false },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     bleeding: false,              // spontaneous variceal rupture (off: varices swell but never tear on their own)
     deterministicRupture: false,
     seed: 1,
   };
 }
 
+/** The tube's gastric balloon is up: filled on its own, or carried by the esophageal balloon, which goes on a tube already anchored in the stomach. */
+export const gastricUp = (p) => !!(p.balloonGas || p.balloonEso);
+
 export const DRUGS = {
   propranolol: { label: 'Propranolol', hr: 0.8, contr: 0.92, spl: 1.3, sys: 1.0, sin: 1.0, baroHr: 0.4,
-    info: 'Non-selective β-blocker. β1 lowers cardiac output; β2 blockade leaves α-constriction unopposed in splanchnic arterioles, so portal inflow falls.' },
+    info: 'Non-selective beta-blocker. β1 lowers cardiac output; β2 blockade leaves α-constriction unopposed in splanchnic arterioles, so portal inflow falls.' },
   carvedilol: { label: 'Carvedilol', hr: 0.82, contr: 0.92, spl: 1.25, sys: 0.9, sin: 0.8, baroHr: 0.4,
     info: 'NSBB with α1 blockade: also lowers intrahepatic (sinusoidal) tone, so HVPG falls more than with propranolol, at the cost of lower MAP.' },
   // (The baroreflex gives back most of a systemic vasoconstrictor's rise, so `sys` is well above the rise it yields: 5 to 10 mmHg
@@ -81,18 +89,24 @@ export const PRESETS = [
     summary: 'Normal adult at rest. HVPG ≈ 3 mmHg, portal flow ≈ 1.1 L/min, no collateral flow.' },
   { id: 'postprandial', group: 'Normal', label: 'Post-prandial', apply: P({ meal: 1 }), days: 0,
     summary: 'Meal-induced splanchnic vasodilation increases portal inflow and pressure slightly.' },
-  { id: 'pvt-acute', group: 'Prehepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0,
+  { id: 'pvt-acute', group: 'Pre-hepatic', label: 'Acute portal vein thrombosis', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 0,
     summary: 'Occlusive clot in the main portal vein. Mesenteric congestion; no collaterals yet (they form over weeks). The hepatic artery buffer keeps the liver perfused. HVPG normal.' },
-  { id: 'pvt-chronic', group: 'Prehepatic', label: 'Chronic PVT (cavernous transformation)', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 240,
+  { id: 'pvt-chronic', group: 'Pre-hepatic', label: 'Chronic PVT (cavernous transformation)', apply: P({ thrombus: { PV_TRUNK: 1 } }), days: 240,
     summary: 'Months after occlusion: periportal collaterals (cavernoma) carry hepatopetal flow around the clot.' },
-  { id: 'svt', group: 'Prehepatic', label: 'Splenic vein thrombosis (sinistral PH)', apply: P({ thrombus: { SV_CONF: 1 }, spontaneous: { C5: true } }), days: 180,
+  { id: 'svt', group: 'Pre-hepatic', label: 'Splenic vein thrombosis (sinistral PH)', apply: P({ thrombus: { SV_CONF: 1 }, spontaneous: { C5: true } }), days: 180,
     summary: 'Left-sided portal hypertension: isolated fundal varices via short gastric veins with a normal portal pressure.' },
   { id: 'schisto', group: 'Presinusoidal', label: 'Schistosomiasis / NCPH', apply: P({ fibrosis: { R: { pre: 70, sin: 2.5 }, L: { pre: 70, sin: 2.5 } } }), days: 365,
-    summary: 'Presinusoidal block: high portal pressure but a near-normal wedged pressure, so HVPG is normal or mildly raised. Varices yes, ascites rare.' },
+    summary: 'Presinusoidal resistance: high portal pressure but a near-normal wedged pressure, so HVPG is normal or mildly raised. Varices yes, ascites rare.' },
   { id: 'cirr-comp', group: 'Sinusoidal', label: 'Compensated cirrhosis', apply: P({ cirrhosis: 0.4 }), days: 365,
     summary: 'Mild sinusoidal portal hypertension (HVPG 6–9). No varices yet.' },
   { id: 'csph', group: 'Sinusoidal', label: 'Clinically significant PH', apply: P({ cirrhosis: 0.6 }), days: 365,
     summary: 'HVPG ≥ 10: collaterals begin to open and small varices form.' },
+  // MASLD cirrhosis with CSPH in an obese patient: part of the intrahepatic resistance sits before the sinusoids (the portal
+  // venules and the perisinusoidal scar), so the wedged pressure under-reads the portal pressure. The cirrhosis setting gives the
+  // sinusoidal block and a presinusoidal multiplier of 4 adds the resistance the catheter cannot see: HVPG about 11 and PPG about
+  // 14 mmHg, small varices, no ascites (Baveno VIII 2.5: in MASLD-related cACLD the HVPG may underestimate the true portal gradient).
+  { id: 'masld-csph', group: 'Sinusoidal', label: 'MASLD cirrhosis, HVPG under-reads', apply: P({ cirrhosis: 0.6, fibrosis: { R: { pre: 4 }, L: { pre: 4 } } }), days: 365,
+    summary: 'Obese MASLD cirrhosis with CSPH: part of the resistance sits before the sinusoids, so the HVPG reads a few mmHg below the portal pressure gradient. Small varices, no ascites.' },
   { id: 'cirr-decomp', group: 'Sinusoidal', label: 'Decompensated cirrhosis', apply: P({ cirrhosis: 0.85, albumin: 2.8, diuretics: true }), days: 540,
     summary: 'HVPG ≥ 16, large varices, ascites, splenomegaly, hyperdynamic circulation.' },
   { id: 'cirr-hepatofugal', group: 'Sinusoidal', label: 'End-stage cirrhosis, hepatofugal flow', apply: P({ cirrhosis: 0.95, apShunt: 1, albumin: 2.6, diuretics: true, spontaneous: { C6: true } }), days: 540,
@@ -105,9 +119,9 @@ export const PRESETS = [
     summary: 'Compensated cirrhosis at 24 weeks of pregnancy. A larger blood volume, a higher cardiac output and splanchnic vasodilation raise portal inflow, so small varices grow large. Move the weeks on the heart card.' },
   { id: 'sos', group: 'Postsinusoidal', label: 'Sinusoidal obstruction syndrome', apply: P({ fibrosis: { R: { post: 32 }, L: { post: 32 } } }), days: 21,
     summary: 'Central-vein resistance: high wedged pressure and HVPG, hepatomegaly, ascites.' },
-  { id: 'budd-chiari', group: 'Posthepatic', label: 'Budd–Chiari (hepatic vein occlusion)', apply: P({ thrombus: { RHV_IVC: 1, MHV_IVC: 1, LHV_IVC: 1 } }), days: 60,
+  { id: 'budd-chiari', group: 'Post-hepatic', label: 'Budd–Chiari (hepatic vein occlusion)', apply: P({ thrombus: { RHV_IVC: 1, MHV_IVC: 1, LHV_IVC: 1 } }), days: 60,
     summary: 'All three hepatic veins occluded: only the caudate veins drain the liver (caudate hypertrophy), massive ascites.' },
-  { id: 'ivc-web', group: 'Posthepatic', label: 'IVC web', apply: P({ stenosis: { IVCS_RA: 0.6 } }), days: 90, volume: 800,
+  { id: 'ivc-web', group: 'Post-hepatic', label: 'IVC web', apply: P({ stenosis: { IVCS_RA: 0.6 } }), days: 90, volume: 800,
     summary: 'Suprahepatic IVC stenosis: Budd–Chiari physiology plus lower-body venous congestion.' },
   { id: 'rhf', group: 'Cardiac', label: 'Right heart failure + TR', apply: P({ contractility: 0.25, tr: 0.9 }), days: 60, volume: 1300,
     summary: 'High RA pressure is transmitted back: FHVP and WHVP both rise so HVPG stays normal; the portal vein becomes pulsatile.' },
@@ -122,31 +136,40 @@ const RANGES = {
   contractility: [0.15, 1.6], tr: [0, 1], pericardial: [0, 1], albumin: [1.5, 5], habrStrength: [0, 2],
   apShunt: [0, 1], respDepth: [0, 3], gestation: [0, 40], fenestrae: [0, 1], meal: [0, 1],
 };
+const RANGE_LIST = Object.entries(RANGES), LOBES = ['R', 'L'], ZONES = ['pre', 'sin', 'post'], CLAMPED = ['stenosis', 'thrombus'], SITES = ['proximal', 'mid', 'distal'], SWITCHED = ['tips', 'dips'];
 const num = (v, lo, hi, def) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
 
 /** A copy of params with every value of the wrong type replaced by its default and every number clamped to its range. */
 export function sanitizeParams(p) {
   const d = defaultParams();
   const out = isObj(p) ? deepMerge(d, p) : d;
-  for (const [k, [lo, hi]] of Object.entries(RANGES)) out[k] = num(out[k], lo, hi, d[k]);
+  for (const k of Object.keys(out)) if (!Object.hasOwn(d, k)) delete out[k];   // B7: a key the model has no parameter for is not carried (a renamed or hand-added one)   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame
+  for (const [k, [lo, hi]] of RANGE_LIST) out[k] = num(out[k], lo, hi, d[k]);
   out.splenicRx = Math.round(out.splenicRx);
-  for (const k of Object.keys(d)) {
+  for (const k of Object.keys(d)) {   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
     if (typeof d[k] === 'boolean') out[k] = !!out[k];
     else if (isObj(d[k]) && !isObj(out[k])) out[k] = d[k];
   }
-  for (const lobe of ['R', 'L']) {
+  for (const lobe of LOBES) {
     if (!isObj(out.fibrosis[lobe])) out.fibrosis[lobe] = d.fibrosis[lobe];
-    for (const z of ['pre', 'sin', 'post']) out.fibrosis[lobe][z] = num(out.fibrosis[lobe][z], 1, 80, 1);
+    for (const z of ZONES) out.fibrosis[lobe][z] = num(out.fibrosis[lobe][z], 1, 80, 1);
   }
-  for (const k of ['stenosis', 'thrombus']) for (const id of Object.keys(out[k])) out[k][id] = num(out[k][id], 0, k === 'stenosis' ? 0.95 : 1, 0);
-  for (const id of Object.keys(out.stenosisSite)) if (!['proximal', 'mid', 'distal'].includes(out.stenosisSite[id])) delete out.stenosisSite[id];
-  for (const k of ['tips', 'dips']) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
-  for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);
-  for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];
+  for (const k of CLAMPED) for (const id of Object.keys(out[k])) out[k][id] = num(out[k][id], 0, k === 'stenosis' ? 0.95 : 1, 0);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  for (const id of Object.keys(out.stenosisSite)) if (!SITES.includes(out.stenosisSite[id])) delete out.stenosisSite[id];   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  for (const k of SWITCHED) { out[k].on = !!out[k].on; out[k].d = num(out[k].d, 6, 12, 8); }
+  for (const id of Object.keys(out.customShunts)) if (out.customShunts[id]) out.customShunts[id] = num(out.customShunts[id], 4, 16, 10);   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  for (const k of Object.keys(out.drugs)) out.drugs[k] = !!out.drugs[k];   // alloc-rare: checked when parameters are set, in the simulation worker (a few tiny key lists), never by a drawn frame
+  keepKnown(out.stenosis, ANY_EDGE); keepKnown(out.thrombus, ANY_EDGE); keepKnown(out.stenosisSite, ANY_EDGE); keepKnown(out.occluded, ANY_EDGE);   // B7
+  keepKnown(out.customShunts, CUSTOM_EDGE); keepKnown(out.spontaneous, SPONTANEOUS_EDGE);
   out.seed = num(out.seed, 0, 2 ** 31, 1);
   return out;
 }
 
+// B7: the ids under stenosis, thrombus, stenosisSite, occluded, customShunts and spontaneous are vessels of the model; a link's other ids are dropped.
+const ANY_EDGE = new Set(EDGES.map((e) => e.id));
+const CUSTOM_EDGE = new Set(EDGES.filter((e) => e.shunt === 'custom').map((e) => e.id));
+const SPONTANEOUS_EDGE = new Set(EDGES.filter((e) => e.variant || e.spontaneous).map((e) => e.id));
+function keepKnown(o, ids) { if (isObj(o)) for (const k of Object.keys(o)) if (!ids.has(k)) delete o[k]; }   // alloc-rare: checked when parameters are set, in the simulation worker, never by a drawn frame
 function isObj(x) { return x && typeof x === 'object' && !Array.isArray(x); }
 // (Keys that would reach an object's prototype are skipped, and only the base's own keys are merged into, so a
 // hand-made share link cannot change Object.prototype.)

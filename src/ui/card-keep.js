@@ -40,7 +40,7 @@ export function dataPlan(s, o = {}) {
 // What a slide's teaching card is made of: the whole slide but what only the data card, the figure, the camera or the model read. A
 // field this leaves out that does change the words would keep stale words; so it names what to leave out, not what to keep.
 const NOT_WORDS = ['id', 'notes', 'tell', 'tool', 'data', 'tiles', 'dataTitle', 'clock', 'hvpgResp', 'delta', 'cam', 'view', 'kMax', 'clear', 'layers',
-  'labels', 'tint', 'mark', 'marks', 'glow', 'sites', 'callout', 'tick', 'when', 'milestone', 'preset', 'presetDays', 'params', 'action', 'days', 'ramp'];
+  'labels', 'tint', 'mark', 'marks', 'glow', 'sites', 'callout', 'tick', 'when', 'milestone', 'preset', 'presetDays', 'params', 'action', 'days', 'ramp', 'beats'];
 /** A slide's teaching card, or null when the slide has none (a visual's panel is another card). */
 export function textPlan(s) {
   if (!s || s.visual) return null;
@@ -87,17 +87,25 @@ const EASED = ['top', 'max-height', 'transition', 'transition-property', 'transi
 /** A card as it stands: its classes, attributes, style and size, to be put back or compared with. */
 export const cardSnap = (el) => ({ el, cls: el.className, attrs: attrsOf(el), style: styleOf(el), css: el.style.cssText, w: el.offsetWidth, h: el.offsetHeight, top: el.offsetTop });
 
-/** Whether the card is other than the snapshot. free: its top and height cap may differ (the data card; the words' card may not move). */
-export function cardChanged(sn, free = false) {
+/** Why the card is other than the snapshot (its class, size, an attribute or a style, named), or '' when it is not. free: its top and height cap may differ (the data card; the words' card may not move). */
+export function cardChangedWhy(sn, free = false) {
   const el = sn.el;
-  if (el.className !== sn.cls || Math.abs(el.offsetWidth - sn.w) > 0.5 || Math.abs(el.offsetHeight - sn.h) > 0.5) return true;
-  if (!free && Math.abs(el.offsetTop - sn.top) > 0.5) return true;
+  if (el.className !== sn.cls) return `class ${sn.cls} > ${el.className}`;
+  const w = el.offsetWidth, h = el.offsetHeight, top = el.offsetTop;
+  if (Math.abs(w - sn.w) > 0.5) return `width ${sn.w} > ${w}`;
+  if (Math.abs(h - sn.h) > 0.5) return `height ${sn.h} > ${h}`;
+  if (!free && Math.abs(top - sn.top) > 0.5) return `top ${sn.top} > ${top}`;
   const attrs = attrsOf(el);
-  if (Object.keys({ ...attrs, ...sn.attrs }).some((k) => attrs[k] !== sn.attrs[k])) return true;
+  const ak = Object.keys({ ...attrs, ...sn.attrs }).find((k) => attrs[k] !== sn.attrs[k]);
+  if (ak) return `attribute ${ak}`;
   const keep = ([p]) => !free || !EASED.includes(p);
   const now = Object.fromEntries(Object.entries(styleOf(el)).filter(keep)), was = Object.fromEntries(Object.entries(sn.style).filter(keep));
-  return Object.keys({ ...now, ...was }).some((k) => now[k] !== was[k]);
+  const sk = Object.keys({ ...now, ...was }).find((k) => now[k] !== was[k]);
+  return sk ? `style ${sk} ${was[sk] ?? ''} > ${now[sk] ?? ''}` : '';
 }
+
+/** Whether the card is other than the snapshot. */
+export const cardChanged = (sn, free = false) => cardChangedWhy(sn, free) !== '';
 
 /** The card put back as the snapshot has it. */
 export function cardBack(sn) {

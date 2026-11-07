@@ -13,13 +13,17 @@ test('variceal bleed: vitals and pressures agree with each slide', async () => {
   const fps = [];
   const core = createCore((m) => { if (m.type === 'seqStep') fps[m.i] = m.fp; });
   core.handle({ type: 'run', running: false });
-  await core.handle({ type: 'sequence', steps: BLEED.slides.map((s) => (changes(s) ? { preset: s.preset, params: s.params, action: s.action } : {})), reqId: 1 });
+  await core.handle({ type: 'sequence', steps: BLEED.slides.map((s) => (changes(s) ? { preset: s.preset, params: s.params, action: s.action, days: s.days } : {})), reqId: 1 });
   core.dispose();
   const f = Object.fromEntries(BLEED.slides.map((s, i) => [s.id, fps[i]]).filter(([, v]) => v));
   assert.ok(f.oct.map < f.minutes.map, `octreotide slide: the bleed still outpaces the first unit (MAP ${f.oct.map.toFixed(0)})`);
   assert.ok(f.blood.map >= 65 && f.blood.map > f.oct.map, `second unit brings the MAP up (${f.blood.map.toFixed(0)})`);
   assert.ok(f.band.map >= 65, `banding once the blood pressure holds (MAP ${f.band.map.toFixed(0)})`);
-  assert.ok(Math.abs(f.blood.hb - f.before.hb) < 0.5, `hemoglobin barely moves (${f.before.hb.toFixed(1)} to ${f.blood.hb.toFixed(1)})`);
+  // (The hemoglobin lags: within a unit's worth of where it started while the blood is lost and given, and heading well below it once the
+  // plasma refills; two days on, the ward patient has fallen to about the restrictive target.)
+  assert.ok(Math.abs(f.blood.hb - f.before.hb) < 1, `hemoglobin barely moves (${f.before.hb.toFixed(1)} to ${f.blood.hb.toFixed(1)})`);
+  assert.ok(f.minutes.hbTo < f.before.hb - 1, `and is heading lower (${f.before.hb.toFixed(1)} to ${f.minutes.hbTo.toFixed(1)})`);
+  assert.ok(f.controlled.hb > 7 && f.controlled.hb < 9, `two days after the bleed (${f.controlled.hb.toFixed(1)})`);
   assert.ok(f.tips.pv < f.band.pv - 3 && f.tips.ppg < 12, `TIPS lowers the portal pressure (${f.band.pv.toFixed(1)} to ${f.tips.pv.toFixed(1)}, PPG ${f.tips.ppg.toFixed(1)})`);
   assert.ok(f.tips.ra < 8, `TIPS does not load the right atrium (RA ${f.tips.ra.toFixed(1)})`);
 });

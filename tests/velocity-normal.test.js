@@ -49,7 +49,7 @@ test('the TIPS talk: slow portal vein before, a normal stent, then a slow stent 
 test('the velocity keys name only the two ends, Slow and Fast, so they fit a phone', async () => {
   const { readFileSync } = await import('node:fs');
   const read = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-  const legend = read('main.js').split('\n').find((l) => l.includes("scale(velocityCss('to right')"));
+  const legend = read('main.js').split('\n').find((l) => l.includes('velocity: lgScaleSpec('));
   assert.match(legend, /\[\[0, 'Slow'\], \[100, 'Fast'\]\]/);
   assert.doesNotMatch(legend, /Normal/);
   const key = read('presenter.js').split('\n').find((l) => l.trim().startsWith("velocity: ['velocity'"));

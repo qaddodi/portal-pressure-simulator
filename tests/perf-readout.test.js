@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -9,14 +10,14 @@ import { gpuProbe } from '../src/ui/gpu-probe.js';
 
 test('the readout is loaded only with ?perf in the address, and nothing else imports it', () => {
   const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main, /if \(new URLSearchParams\(location\.search\)\.has\('perf'\)\) import\('\.\/perf-readout\.js\?v=[0-9a-f]+'\)\.then\(\(\{ startPerfReadout \}\) => startPerfReadout\(/);
+  assert.match(main, /if \(new URLSearchParams\(location\.search\)\.has\('perf'\)\) import\('\.\/perf-readout\.js'\)\.then\(\(\{ startPerfReadout \}\) => startPerfReadout\(/);
   const dir = new URL('../src/ui/', import.meta.url);
   for (const f of readdirSync(dir).filter((f) => f.endsWith('.js'))) {
     const src = readFileSync(new URL(f, dir), 'utf8');
     assert.doesNotMatch(src, /from '\.\/perf-readout\.js/, `${f} imports it statically`);
     if (f !== 'main.js') assert.doesNotMatch(src, /import\(\s*'\.\/perf-readout\.js/, `${f} loads it`);
   }
-  assert.equal((main.match(/perf-readout\.js\?v=/g) || []).length, 1);
+  assert.equal((main.match(/perf-readout\.js'/g) || []).length, 1);
 });
 
 test('without the readout the probe is off and never waits for the GPU; with it, it times script only', () => {
@@ -33,21 +34,21 @@ test('without the readout the probe is off and never waits for the GPU; with it,
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /gpuProbe\.cpuOnly = true; gpuProbe\.on = true;/);
   // The panel is written only when a gesture's window closes, never on each frame.
-  const tick = src.slice(src.indexOf('const tick'), src.indexOf('requestAnimationFrame(tick);\n  };'));
+  const tick = src.slice(src.indexOf('const tick'), src.indexOf('let loop = 0, calUntil'));
   assert.equal((tick.match(/paint\(\)/g) || []).length, 1);
-  assert.match(tick, /if \(t - cur\.t0 >= cur\.win\) \{ reports\.unshift\(cur\); reports\.length = Math\.min\(reports\.length, KEEP\); cur = null; paint\(\); \}/);
+  assert.match(tick, /if \(t - cur\.t0 >= cur\.win\) \{\n[^}]*reports\.unshift\(cur\); reports\.length = Math\.min\(reports\.length, KEEP\); cur = null; paint\(\);\n\s+\}/);
 });
 
 test('a gesture reads as one line per slow frame, with its steps largest first and the rest of the page', () => {
   assert.equal(gapLine({ at: 312.4, dt: 64.2, parts: { 'vessel sync (script)': 11.6, 'organ picture: draw': 30.2, tiny: 0.2 } }),
     '  +312 ms: frame took 64 ms (organ picture: draw 30, vessel sync (script) 12, rest of page 22)');
   const t = gestureText({ n: 3, kind: 'pan', view: 'circuit', zoom: '1.25', frames: 110, worst: 64.2, gaps: [], tasks: [{ at: 300, dt: 70, src: 'syncVeins stage.js 50 ms' }] });
-  assert.equal(t, '#3 pan in circuit, zoom 1.25, 110 frames in 2 s, worst 64 ms\n  no frame over 20 ms\n  long task +300 ms: 70 ms (syncVeins stage.js 50 ms)');
+  assert.equal(t, '#3 pan in circuit, zoom 1.25, 110 frames in 2 s, worst 64 ms\n  no frame missed\n  long task +300 ms: 70 ms (syncVeins stage.js 50 ms)');
 });
 
 test('a window lists what it measured as it stood (the blood squares a frame repaints) and says when it was GPU timed', () => {
   const t = gestureText({ n: 4, kind: 'at rest', view: 'anatomy', zoom: '4.24', frames: 86, worst: 50, gaps: [], tasks: [], gpu: true, gauges: { 'blood squares on screen': '310 of 1031, 5.7 MP of 8.6, 136 px each', empty: '' } });
-  assert.equal(t, '#4 at rest in anatomy, zoom 4.24, 86 frames in 2 s, worst 50 ms, GPU timed\n  blood squares on screen: 310 of 1031, 5.7 MP of 8.6, 136 px each\n  no frame over 20 ms');
+  assert.equal(t, '#4 at rest in anatomy, zoom 4.24, 86 frames in 2 s, worst 50 ms, GPU timed (gl.finish waits for the GPU: frame times slower than shipped)\n  blood squares on screen: 310 of 1031, 5.7 MP of 8.6, 136 px each\n  no frame missed');
   try {
     gpuProbe.on = false; gpuProbe.gauge('x', 1); assert.deepEqual(gpuProbe.takeGauges(), {}, 'off, nothing is kept');
     gpuProbe.on = true; gpuProbe.gauge('x', 1); gpuProbe.gauge('x', 2); assert.deepEqual(gpuProbe.takeGauges(), { x: 2 });
@@ -60,7 +61,7 @@ test('a window lists what it measured as it stood (the blood squares a frame rep
 
 test('a recording runs 6 s and counts the frames that redrew the whole picture or had the organ picture down', () => {
   const t = gestureText({ n: 5, kind: 'recording', view: 'anatomy', zoom: '0.84', win: 6000, frames: 300, worst: 90, gaps: [], tasks: [], tally: { 'whole picture': 120, 'organ picture down': 200 } });
-  assert.equal(t, '#5 recording in anatomy, zoom 0.84, 300 frames in 6 s, worst 90 ms\n  whole picture in 120 of 300 frames, organ picture down in 200 of 300 frames\n  no frame over 20 ms');
+  assert.equal(t, '#5 recording in anatomy, zoom 0.84, 300 frames in 6 s, worst 90 ms\n  whole picture in 120 of 300 frames, organ picture down in 200 of 300 frames\n  no frame missed');
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /rec\.onclick = \(\) => \{ begin\('recording', 6000\);/);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
@@ -68,9 +69,10 @@ test('a recording runs 6 s and counts the frames that redrew the whole picture o
 });
 
 test('a running change names its parts in the readout: the vessel sync and the update are split by job', () => {
-  const src = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
-  for (const name of ['vessel sync: list', 'vessel sync: radii', 'vessel sync: binning', 'vessel sync: colours', 'update: geometry', 'update: tubes', 'update: overlays', 'update: bridges', 'update: labels', 'update: organs', 'update: slide marks', 'update: nodes']) {
-    assert.match(src, new RegExp(`gpuProbe\\.time\\(null, '${name}', \\(\\) => `), name);
+  const src = stageSource();
+  for (const name of ['vessel sync: list', 'vessel sync: radii', 'vessel sync: binning', 'vessel sync: colours', 'update: geometry', 'update: tubes', 'update: overlays', 'update: labels', 'update: organs', 'update: slide marks', 'update: nodes']) {
+    // (A step is a named function with its arguments after it since 2 Nov 2026 (gpuProbe.time(null, name, fn, a, b, c)): no closure made per frame.)
+    assert.match(src, new RegExp(`gpuProbe\\.time\\(null, '${name}', (\\(\\) => |[A-Za-z][\\w.]*[,)])`), name);
   }
 });
 
@@ -78,7 +80,7 @@ test('the ?perf test switch leaves out the live organs or the GPU picture for a 
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   assert.match(src, /const HIDES = \['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'\];/);
   assert.match(src, /hideStyle\.textContent = HIDE_CSS\[HIDES\[hideAt\]\] \|\| '';/);
-  assert.match(src, /hide: HIDES\[hideAt\], orgs: gpuProbe\.gpuOrgans \};/);
+  assert.match(src, /hide: HIDES\[hideAt\], orgs: gpuProbe\.gpuOrgans, dts: \[\], totals: perf\(\)\.totals \};/);
   assert.match(src, /\$\{r\.orgs \? ', GPU organs' : ''\}/, 'a report says when the organs were drawn as GPU layers');
   assert.match(src, /\$\{r\.hide \? `, TEST: \$\{r\.hide\}` : ''\}/);
   assert.match(src, /gpuProbe\.skipGL = HIDES\[hideAt\] === 'no GPU picture';/);
@@ -89,7 +91,7 @@ test('the ?perf test switch leaves out the live organs or the GPU picture for a 
 test('a frame interval is timed by the clock when the readout runs, so the steps listed with it ran inside it', () => {
   const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
   // (External review, 21 Oct: with the frame's shared timestamp a 24 ms frame was listed with 139 ms of Doppler.)
-  assert.match(src, /const tick = \(\) => \{\n\s+const t = performance\.now\(\);\n\s+const parts = gpuProbe\.take\(\)/);
+  assert.match(src, /const tick = \(ts\) => \{\n\s+const t = performance\.now\(\);\n\s+const parts = gpuProbe\.take\(\)/);
 });
 
 // The counters added for the navigation work (26 Oct): what the vessel layer, the glass and the lobule did over a window, by fixed name.
@@ -99,8 +101,50 @@ test('the readout totals the counted notes over a window: whole draws and why, p
     counts: { [COUNTED.pan]: [110, 0, 0], [COUNTED.whole]: [10, 0, 0], [COUNTED.wholeWhy + 'zoom or turn']: [10, 0, 0], [COUNTED.picture]: [130, 0, 10], 'uploaded: setFlow': [120, 4500.4, 0] } });
   assert.match(t, /counted: vessels: pan shift ×110; vessels: whole draw ×10; vessels: whole draw because zoom or turn ×10; picture: drawn ×130, 10 frames with two; uploaded: setFlow ×120 \(4500 KB\)/);
   // Only a surface's own final draw can be "drawn twice in a frame"; the reasons are a closed list, so the totals stay a few dozen numbers.
-  assert.deepEqual([...TWICE].sort(), [COUNTED.glassDrawn, COUNTED.lobulePicture, COUNTED.picture].sort());
+  assert.deepEqual([...TWICE].sort(), [COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.cardDrawn, COUNTED.lobulePicture, COUNTED.picture].sort());
   assert.equal(new Set(WHY).size, WHY.length);
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   for (const why of WHY) assert.ok(gl.includes(`'${why}'`), `veins-gl.js counts a whole draw "${why}"`);
+});
+
+// (30 Oct: who asked for each whole draw and each target sized again, so one readout of the step into the lobule names the path.)
+test('a whole draw and a target sized again name who asked, from a fixed list the readout totals', async () => {
+  const { COUNTED, BY } = await import('../src/ui/gpu-probe.js');
+  const { readFileSync } = await import('node:fs');
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  const st = stageSource();
+  const pr = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
+  assert.equal(new Set(BY).size, BY.length);
+  assert.match(gl, /gpuProbe\.note\(COUNTED\.whole\);\n\s+gpuProbe\.note\(COUNTED\.wholeBy \+ askedBy\(\)\);/);
+  assert.equal((gl.match(/if \(gpuProbe\.on\) noteAlloc\(/g) || []).length, 2, 'every target sized again names its caller (the layer and the kept picture: a pan has no spare set since 31 Oct)');
+  assert.doesNotMatch(gl, /note\(COUNTED\.fboAlloc, [^k]/, 'no sizing counted without its caller');
+  assert.match(pr, /BY\.flatMap\(\(b\) => \[COUNTED\.wholeBy \+ b, COUNTED\.fboAllocBy \+ b\]\)/);
+  // Every caller stage.js names is on the list, and the stage resets it after each draw.
+  const named = [...st.matchAll(/drawVeins\(false, '([^']+)'\)/g)].map((m) => m[1]);
+  assert.ok(named.length >= 6);
+  for (const b of [...named, 'frame', 'tab hidden', 'lobule', 'stage, outside a draw call']) assert.ok(BY.includes(b), b);
+  assert.match(st, /gpuProbe\.by = by;\n\s+try \{ return drawVeinsNow\(fullComposite\); \} finally \{ gpuProbe\.by = byWas; \}/);
+  assert.ok(COUNTED.wholeBy.endsWith(' ') && COUNTED.fboAllocBy.endsWith(' '));
+});
+
+test("the lobule's tissue bitmap counts why it was painted again, from a fixed list the readout totals", async () => {
+  const { COUNTED, TISSUE_WHY } = await import('../src/ui/gpu-probe.js');
+  const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
+  const pr = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
+  for (const w of TISSUE_WHY) assert.ok(lz.includes(`'${w}'`), w);
+  assert.match(lz, /gpuProbe\.note\(COUNTED\.tissueWhy \+ /);
+  assert.match(pr, /\.\.\.TISSUE_WHY\.map\(\(w\) => COUNTED\.tissueWhy \+ w\)/);
+  assert.ok(COUNTED.tissueWhy.endsWith(' '));
+});
+
+test('the readout samples frames only while a window is open (or a bounded calibration), never in a hidden tab', () => {
+  const src = readFileSync(new URL('../src/ui/perf-readout.js', import.meta.url), 'utf8');
+  assert.match(src, /const wanted = \(\) => !document\.hidden && \(!!cur \|\| performance\.now\(\) < calUntil\);/);
+  assert.doesNotMatch(src, /perfloop|ALWAYS/);
+  assert.match(src, /if \(wanted\(\)\) loop = nextFrame\(tick\) \|\| 1;/, 'the loop asks for its next frame only while wanted');
+  assert.match(src, /addEventListener\('visibilitychange', kick\)/);
+  const begin = src.slice(src.indexOf('const begin'), src.indexOf("addEventListener('pointerdown'"));
+  assert.match(begin, /kick\(\);/, 'a window starts the sampler');
+  const dbg = readFileSync(new URL('../src/ui/debug.js', import.meta.url), 'utf8');
+  assert.match(dbg, /raf = document\.hidden \? 0 : nextFrame\(tick\);/, 'the debug overlay stops in a hidden tab');
 });

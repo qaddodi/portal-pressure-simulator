@@ -1,12 +1,14 @@
 // Slide change order: the cards leave, the camera makes one zoom to the framing that fits around the new cards (measured
-// unseen), then the cards come in. While the camera moves (the presenter's bare phase) the teaching card and its glass stay
-// out whole: never an empty card on screen. When they come back, the words are already in, the camera has stopped, and it
-// does not move again until the next slide's cards leave. A catheter slide keeps its teaching card (the live tracing) on
+// unseen), and the cards come in over that zoom's last part (one move, premium-feel R1: never with more than about half of it
+// left). Until then (the presenter's bare phase) the teaching card and its glass stay out whole: never an empty card on screen.
+// When they come back, the words are already in, and the camera only finishes the zoom it was making: it starts no new move until
+// the next slide's cards leave. A catheter slide keeps its teaching card (the live tracing) on
 // screen through the measurement. The catheter's readings (FHVP, WHVP, HVPG) glide to a new spot,
 // never jump there in one frame. The corner credit sits the whole move out: gone from the moment the cards leave, back once (fading
 // in at its final spot, never moving while visible) after the cards are in and the camera has settled.
 // A change of patient eases on the live model after the zoom (lesions grow, pressures travel; .app.pz-morph while it runs) and
-// the data card stays out until it has settled; a newer slide asked for mid-way eases on from there: the portal pressure
+// the data card stays out until it has settled (where the figure can move smoothly while its organs change, it eases under the
+// zoom instead, .app.pz-morph-under, and the cards may come in over its end); a newer slide asked for mid-way eases on from there: the portal pressure
 // never jumps between frames.
 // The data card leaves at the same moment as the teaching card, with the same ease and pace (never left standing, never drifting the other way). Real motion, stepping with Next through a deck, sampled every frame.
 //
@@ -33,7 +35,10 @@ await page.evaluate(() => {
     pv0 = pv ?? pv0;
   });
   const app = document.getElementById('app'), cr = document.querySelector('.stage-credit');
-  let heldAt = 0, last = null, wasBare = false, armed = false, cam = null;
+  let heldAt = 0, last = null, wasBare = false, armed = false, cam = null, ride = null;
+  // (The glide under way, if any: its length and when it lands. The cards may come in over its last part, and it may finish under them.)
+  const glide = () => { const g = window.pps.stage.glideLeft?.(); return g && g.ms ? { ms: g.ms, end: performance.now() + g.left, left: g.left } : null; };
+  const same = (a, b) => !!a && !!b && a.ms === b.ms && Math.abs(a.end - b.end) < 60;
   const world = document.getElementById('world');
   const camOf = () => (world?.getAttribute('transform') || '').match(/-?[\d.]+(e-?\d+)?/g)?.map(Number) || [];
   const moved = (a, b) => a.length !== b.length || a.some((v, i) => Math.abs(v - b[i]) > (i === 2 ? 0.002 : 0.5));
@@ -47,6 +52,7 @@ await page.evaluate(() => {
       if (p && p.vis && vis && still && Math.hypot(r.left - p.x, r.top - p.y) > 30) window.__bad.push('catheter reading jumped to a new spot');
       at.set(el, { x: r.left, y: r.top, vis });
     }
+    if (app.classList.contains('pz-morph-under')) window.__morphSeen++;
     if (app.classList.contains('pz-morph')) {
       window.__morphSeen++;
       const dc = document.querySelector('.pz-data');
@@ -63,8 +69,18 @@ await page.evaluate(() => {
       if (bare) window.__bareSeen++;
       // (The camera: still when the cards come in, and still while they are on screen.)
       const c = camOf();
-      if (wasBare && !bare) { if (cam && moved(c, cam)) window.__bad.push('cards came in before the zoom ended'); armed = true; }
-      else if (armed && cam && moved(c, cam)) window.__bad.push('camera moved after the cards appeared');
+      if (wasBare && !bare) {
+        ride = glide();
+        // (presenter.js CARDS_AT: the cards come in with 0.75 of the glide left, the owner's quick slide of 2 Nov 2026; a small margin for the frame
+        // the check is read in. Earlier than that is a card ahead of its own rule.)
+        if (ride && ride.left > ride.ms * 0.8) window.__bad.push('cards came in before a quarter of the zoom had run (CARDS_AT 0.75)');
+        else if (!ride && cam && moved(c, cam)) window.__bad.push('cards came in before the zoom ended');
+        armed = true;
+      } else if (armed && cam && moved(c, cam)) {
+        // (Finishing the zoom the cards came in over is the one move; any other is a second.)
+        const g = glide();
+        if (!(ride && (same(g, ride) || (!g && performance.now() - ride.end < 120)))) window.__bad.push('camera moved after the cards appeared');
+      }
       if (bare || tx.classList.contains('pz-leave')) armed = false;   // (the next slide's cards are leaving)
       wasBare = bare; cam = c;
       if (bare && !tx.classList.contains('pz-leave')) window.__bad.push('teaching card not held out while the camera moves');
@@ -90,7 +106,7 @@ for (let i = 1; i <= steps; i++) await gotoSlide(page, server.url, deck, i);
 await page.waitForTimeout(8000);
 // Retarget: back to the first slide, and forward again while that change of patient is still easing.
 await page.evaluate(() => window.pps.presenter.go(0));
-const mid = await page.waitForFunction(() => document.getElementById('app').classList.contains('pz-morph'), null, { timeout: 8000 }).then(() => true, () => false);
+const mid = await page.waitForFunction(() => /\bpz-morph(-under)?\b/.test(document.getElementById('app').className), null, { timeout: 8000 }).then(() => true, () => false);
 if (mid) { await page.waitForTimeout(500); await page.evaluate((k) => window.pps.presenter.go(k), steps); }
 await page.waitForFunction(() => !window.pps.presenter.busy(), null, { timeout: 90000 });   // (a runner without a GPU draws the lobule a few frames a second)
 await page.waitForTimeout(1500);

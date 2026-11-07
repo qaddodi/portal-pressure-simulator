@@ -1,0 +1,1 @@
+{ "factory": "createMarks", "file": "stage-marks.js", "about": "The marks on the vessels (bands, clamps, clots, stents, sutures, plugs, balloons) read as the SVG draws them and drawn on the GPU: rings, earcut, strokes, discs.", "lines": [[7424, 7672]] }

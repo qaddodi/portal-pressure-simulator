@@ -47,7 +47,7 @@ test('the history ends on the last sample posted, one 4 ms sample after another,
 });
 
 test('the history is the live beat: the same moment of the same beat at the seam, the same heart rate, and pressures where the live ones are', async (t) => {
-  const { core, msgs, samples, frames } = await runCore('cirr-decomp', 1500);
+  const { core, msgs, samples, frames } = await runCore('cirr-decomp', 3000);
   t.after(() => core.dispose());
   const posted = samples().at(-1).t.at(-1), phase = samples().at(-1).ph.at(-1);
   const m = await askHistory(core, msgs, 10);
@@ -60,7 +60,7 @@ test('the history is the live beat: the same moment of the same beat at the seam
   assert.ok(Math.abs(rate - hr) < hr * 0.06, `the history beats at ${rate.toFixed(1)}/min, the live heart at ${hr.toFixed(1)}`);
   // (The live pressures are in the same range as the history's last seconds: the mean of the last two seconds, portal vein and aorta.)
   const tail = (a, n) => a.slice(-n).reduce((x, y) => x + y, 0) / n;
-  const live = samples().flatMap((s) => s.CONF), liveAO = samples().flatMap((s) => s.AO);
+  const live = samples().flatMap((s) => [...s.CONF]), liveAO = samples().flatMap((s) => [...s.AO]);   // (each channel a Float64Array view: spread to flatten)
   assert.ok(live.length > 400 && Math.abs(tail(h.CONF, 500) - tail(live, 400)) < 2, `portal vein ${tail(h.CONF, 500).toFixed(1)} against the live ${tail(live, 400).toFixed(1)} mmHg`);
   assert.ok(Math.abs(tail(h.AO, 500) - tail(liveAO, 400)) < 8, `aorta ${tail(h.AO, 500).toFixed(1)} against the live ${tail(liveAO, 400).toFixed(1)} mmHg`);
   assert.ok(posted > 0);
@@ -140,14 +140,16 @@ test('every recording instrument takes the history, and the presenter lets its i
   assert.match(pt, /resetBuffers\(\);\s+record\(all\);/, 'the chart makes its bins and beats from the history and its own samples together');
   assert.match(dop, /hs\.probe !== probe/, 'a history for another vessel is let go');
   // Cards that keep recording across slides.
-  assert.match(tools, /const startOver = RECORDS\.includes\(k\) && \(stateKey !== lastSt \|\| cur !== inst\);/);
+  assert.match(tools, /const startOver = RECORDS\.includes\(k\) && \(cur !== inst \|\| \(stateKey !== lastSt && !SWEEPS\.includes\(k\)\)\);/, 'a card that comes up is started over; the EKG strips are not started over by a new state');
   assert.match(tools, /host\.request\('history'/);
   assert.match(tools, /if \(startOver\) \{ if \(held\) primeWait = true; else prime\(inst, k\); \}/, 'a card up while the state lands is filled at the landing');
   assert.match(tools, /ready\(ms\)/);
   // The presenter: released once the state is in (both ways a state lands), and the cards wait for the window, at most 900 ms.
   assert.match(pres, /if \(!later\) ui\?\.tools\.hold\(false\);/);
-  assert.match(pres, /if \(!await morphTo\(st, cut\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
+  assert.match(pres, /if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
+  assert.match(pres, /if \(morphP\) \{ if \(!await morphP\) return; shownState = own \? -1 : si; ui\?\.tools\.hold\(false\); \}/);
   assert.match(pres, /await ui\.tools\.ready\(900\)/);
+  assert.match(pres, /if \(!filled\) degrade\('window'\);/, 'a window that did not fill is said so');
   // Patients: a loaded patient's traces open full.
   assert.match(main, /host\.request\('history', \{ secs: 12 \}\)/);
   assert.match(dock, /function backfillTraces\(hs\) \{ byId\.scope\.backfill\(hs\); byId\.doppler\.backfill\(hs\); \}/);

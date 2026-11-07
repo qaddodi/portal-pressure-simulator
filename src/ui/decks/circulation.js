@@ -1,7 +1,5 @@
 // Presenter talk: the portal circulation (the slide fields are described at the top of decks.js).
 
-const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
-
 export const CIRCULATION = {
   id: 'circulation', level: 'foundation', title: 'The portal circulation', minutes: 8,
   summary: 'The normal portal system, from the gut to the right atrium. Ends with the definition of portal hypertension.',
@@ -50,9 +48,19 @@ export const CIRCULATION = {
     {
       id: 'define', terms: ['varix'], preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], tool: { kind: 'profile' }, key: ['hvpg', 'ppg'],
       kicker: 'Definition', site: 'sin', title: 'Portal hypertension is a gradient >5 mmHg',
-      line: 'In cirrhosis it is the HVPG, here {hvpg}. A gradient of 6 to 9 mmHg is subclinical; from 10, varices and ascites become possible and the risk rises.',
+      vignette: 'A 52-year-old man with hepatitis C cirrhosis comes to his first hepatology visit. He has never bled or had ascites, and his platelets are 98,000/µL.',
+      line: 'In this patient with compensated cirrhosis, the HVPG is {hvpg}. A gradient of 6 to 9 mmHg is subclinical; from 10, varices and ascites become possible and the risk rises.',
       notes: 'Portal hypertension is a portal pressure gradient above 5 mmHg; in cirrhosis it is measured as the HVPG. An HVPG of 6 to 9 mmHg is subclinical. 10 mmHg or more is clinically significant portal hypertension (CSPH): from there varices and decompensation (ascites, variceal bleeding, encephalopathy) become possible, and the risk rises with the gradient; from about 12 mmHg the risk of variceal bleeding rises. In this cirrhotic liver the largest pressure drop is across the sinusoids.',
       ask: ['What HVPG defines clinically significant portal hypertension?', '≥10 mmHg: from there varices and decompensation become possible, and the risk rises with the gradient.'],
+    },
+    {
+      // (The stages of Baveno VIII Fig. 2 lit for this patient: compensated, with CSPH. The definition slide before gave the HVPG; this one puts it on the stages.)
+      id: 'path-ladder', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'],
+      tool: { kind: 'path', of: 'ladder', short: 'Stages', patient: { s: 1, rc: false } },
+      kicker: 'Definition', site: 'sin', title: 'CSPH is the second stage of cirrhosis',
+      line: 'Compensated cirrhosis splits in two by the HVPG. His {hvpg} is {>=10 mmHg}, so he has CSPH. Ascites, bleeding or confusion would move him up a step.',
+      notes: 'Source: Baveno VIII Fig. 2, 3.1 to 3.3. Cirrhosis is compensated while there is no current or past decompensation. Compensated cirrhosis has two stages, without and with clinically significant portal hypertension (CSPH). CSPH is shown by an HVPG of 10 mmHg or more, and by a stiffness of 25 kPa or more, varices or collaterals. The first decompensation is clinically evident ascites, variceal bleeding or overt hepatic encephalopathy; later events are further decompensation, with a higher mortality. This patient has never bled or had ascites, so he is compensated, on the second step. The deck on decompensation and recompensation follows the steps in order.',
+      ask: ['Which three events mark the end of compensated cirrhosis?', 'Clinically evident ascites, variceal bleeding and overt hepatic encephalopathy (Baveno VIII 3.3).'],
     },
     {
       // (The relation chart, last in the talk: scarring from none to severe, each point a liver settled for a year, the HVPG and the PPG on
@@ -61,7 +69,7 @@ export const CIRCULATION = {
       tool: { kind: 'curve', param: 'cirrhosis', label: 'Scarring', unit: '% of severe', from: 0, to: 1, step: 0.1, days: 365, patient: { preset: 'healthy' }, lines: ['hvpg', 'ppg'], oneScale: true },
       kicker: 'Summary', site: 'sin', title: 'The gradient crosses 5, then 10, as scarring builds',
       line: 'As scarring builds, the HVPG climbs through 5 mmHg, where portal hypertension starts, and 10 mmHg, where it becomes clinically significant. Here it is {hvpg}.',
-      notes: 'Each point is a liver with a different amount of scarring, settled for a year, with the HVPG and the PPG on one scale. In health the gradient is 1 to 5 mmHg. Portal hypertension is a gradient >5 mmHg, and from 10 mmHg it is clinically significant (CSPH): varices and decompensation become possible, and the risk rises with the gradient. The scarring axis is the model\'s own scale, from none to severe. The ring is the CSPH liver of the slide before. (AASLD 2024 p. 1181 and statement 4.)',
+      notes: 'Each point is a liver with a different amount of scarring, settled for a year, with the HVPG and the PPG on one scale. In health the gradient is 1 to 5 mmHg. Portal hypertension is a gradient >5 mmHg, and from 10 mmHg it is clinically significant (CSPH): varices and decompensation become possible, and the risk rises with the gradient. The scarring axis is the model\'s own scale, from none to severe. The ring is the CSPH liver of the slide before. (AASLD 2024 p. 1181 and statement 4.) One model patient per point; real patients vary far more.',
       ask: ['A liver has an HVPG of 7 mmHg. Does it have portal hypertension, and is it clinically significant?', 'It has portal hypertension (>5 mmHg), but not yet a clinically significant one (<10 mmHg).'],
     },
   ],

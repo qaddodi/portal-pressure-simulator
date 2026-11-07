@@ -75,20 +75,19 @@ test('given the brackets\' rows, the pills keep clear of those too; given a plot
 
 test('the pills are drawn over the chart, tinted as the brackets rate them, glide where they move and fade where they come and go', () => {
   // (Rated by the table's own cut-offs, as the brackets are.)
-  assert.match(prof, /class: 'ppf-pill', 'data-rate': rate, 'data-k': key/);
-  assert.match(prof, /RATE\[key\]\(v\)\[0\]/);
-  assert.match(prof, /whole\(v\)/);
+  assert.match(prof, /class: 'ppf-pill', 'data-rate': rate, 'data-k': k, opacity: 0/);
+  assert.match(prof, /toneOf\(RATES\[k\]\(v\)\)/);
+  assert.match(prof, /const RATES = \[hvpgRate, ppgRate\]/);
+  assert.match(prof, /setWords\(q\.val, numWords\(v, 0\)\)/);
   // (Over the brackets in the picture's stack, so nothing hides them.)
   const at = (re) => prof.search(re);
   assert.ok(at(/class: 'ppf-br'/) < at(/class: 'ppf-pill'/), 'drawn after the brackets');
   // (Moves ease through glideAt and a pill that comes or goes fades with the blocks' ease; the chart keeps drawing while either runs.)
-  assert.match(prof, /glideAt\(pillAt\[k\]/);
+  assert.match(prof, /const gx = at \? glideX\(at, t\) : box\[0\]/);
   assert.match(prof, /blkOp\(pillK, t\)/);
   assert.match(prof, /t - pillK\.t0 < FADE_MS/);
   // (The brackets keep their place in the plot before the pills do: they stand down, with the plot's height unchanged.)
   assert.match(prof, /if \(!brk && !band\) \{ brk = placeBrackets\(g, tw, goal, hl, bf, s, old\?\.brk, \[\]\); pl = brk \? placePills\(g, tw, goal, hl, bf, s, brk\) : null; \}/);
   // (The look: a soft fill in the rating's own tone, a ring, bold figures; the same three tones as the .pz-val pills.)
-  assert.match(css, /\.ppf-pill \{ --tone: var\(--ok\); \}/);
-  assert.match(css, /\.ppf-pill\[data-rate="mid"\] \{ --tone: var\(--caution\); \} \.ppf-pill\[data-rate="hi"\] \{ --tone: var\(--danger\); \}/);
-  assert.match(css, /\.ppf-pill rect \{ fill: color-mix\(in srgb, var\(--tone\) 15%, var\(--surface\)\); stroke: color-mix\(in srgb, var\(--tone\) 50%, transparent\);/);
+  // (The pill's tones are the table's prof.pill.*: tests/profile-looks.test.js.)
 });

@@ -1,4 +1,4 @@
-// The one-pass zoom drawing (on by default, ?zoompass=two goes back; veins-fuse.js): a frame where the view zoomed or turned runs the
+// The one-pass zoom drawing (veins-fuse.js): a frame where the view zoomed or turned runs the
 // vessel shader and the composite as one shader over the vessel cells. Source patterns (no GL in node), checked on the shader
 // text as the GPU sees it: the one-pass text is the two shaders' own, with only their inputs and outputs rewired.
 import test from 'node:test';
@@ -99,15 +99,19 @@ test('the vessel half is the vessel shader: the same text once its outputs and t
 });
 
 test('the composite half is the plain composite: the same text once the layer reads are put back', () => {
-  const back = compPart(C).replace(/\bfG2\b/g, 'texelFetch(gbuf2, ip, 0)').replace(/\bfG\b/g, 'texelFetch(gbuf, ip, 0)').replace(/\bfV\b/g, 'texelFetch(base, ip, 0)')
+  const back = compPart(C).replace(/\bfG2\b/g, '(inL ? texelFetch(gbuf2, lp, 0) : uvec4(0u))').replace(/\bfG\b/g, '(inL ? texelFetch(gbuf, lp, 0) : uvec4(0u))')
+    .replace(/\bfVL\b/g, 'texture(base, lowUV)').replace(/\bfV\b/g, '(inL ? texelFetch(base, lp, 0) : vec4(0.0))')
     .replace('void compMain()', 'void main()').replace('const int bloodOnly = 0;', '');
   const orig = C.replace(/^#version.*\n/, '').replace(/^precision highp (float|int);\n/gm, '').replace(/^uniform int bloodOnly;.*$/m, '')
-    .replace(/^(uniform sampler2D base;|uniform usampler2D gbuf;|uniform usampler2D gbuf2;|uniform highp sampler2D rad;|uniform highp sampler2D tube;|const float S_OFF = |vec4 over\(vec4 top).*\n/gm, '');
+    .replace(/^(uniform sampler2D base;|uniform usampler2D gbuf;|uniform usampler2D gbuf2;|uniform highp sampler2D rad;|uniform highp sampler2D tube;|const float S_OFF = |vec4 over\(vec4 top).*\n/gm, '')
+    .replace(/^float alongAt\(int id, float u\) \{\n[\s\S]*?\n\}\n/m, '');
   assert.equal(back, orig);
   // (What was left out is declared the same in the vessel half.)
   const V = vesselFS(false);
   for (const d of ['uniform highp sampler2D rad;', 'uniform highp sampler2D tube;', 'vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }']) assert.ok(V.includes(d), d);
   assert.equal(V.match(/const float S_OFF = (.*);/)[1], C.match(/const float S_OFF = (.*);/)[1]);
+  const al = (t) => t.match(/^float alongAt\(int id, float u\) \{\n[\s\S]*?\n\}\n/m)[0];
+  assert.equal(al(V), al(C));
 });
 
 test('the 8-bit colour target as the shader holds it: ties to even, then level / 255 exactly as a texel read returns it', () => {
@@ -128,25 +132,4 @@ test('the one-pass vertex shader is the vessel cells\' with the composite\'s zoo
   assert.ok(vs.includes(VS.slice(VS.indexOf('void main() {'), VS.lastIndexOf('}'))), 'the cell corners are worked out as the vessel pass works them out');
   assert.match(vs, /zoomOut\(\);\n\}$/);
   assert.match(src, /fusedVS\(VS, ZOOM_VS\)/);
-});
-
-test('veins-gl: on by default (?zoompass=two goes back), a zoom or turn only, plain frames only, the old two passes otherwise', () => {
-  assert.match(src, /const ONE_PASS = !\(typeof location !== 'undefined' && \/\[\?&\]zoompass=two\\b\/\.test\(location\.search\)\);/);
-  assert.match(src, /stencil: ONE_PASS,/, 'no stencil with ?zoompass=two');
-  assert.match(src, /if \(ONE_PASS\) \{\s*try \{/, 'the one-pass builds are not made with ?zoompass=two');
-  const draw = body(src, '    draw(m, look, blood, rows = null) {');
-  const fuse = draw.match(/if \(!pan && baseM && m\.slice\(0, 4\)\.some\(\(v, i\) => v !== baseM\[i\]\) && fuseReady\(\) && bareOf\(blood \|\| \{\}\) && !gpuProbe\.skipGL && !lost\) \{([\s\S]*?)\n {6}\}/);
-  assert.ok(fuse, 'one pass only when the scale or turn changed, the builds are ready and the frame is plain');
-  assert.match(fuse[1], /fboOK = false;/, 'the layer is not current after it');
-  assert.match(fuse[1], /clearLayer\(\); stale = true;/, 'the layer is cleared once, for the pixels outside the cells');
-  assert.match(fuse[1], /fusing = true;\s*this\.composite\(look, blood, true\);\s*return;/);
-  assert.match(draw, /fboOK = true; stale = false;/, 'a whole draw makes the layer current again');
-  const comp = body(src, '    composite(look, blood = {}, full = false, part = 0) {');
-  assert.match(comp, /const fused = fusing;\s*fusing = false;\s*if \(stale && !fused\) \{ this\.draw\(baseM, look, blood\); return; \}/, 'any other picture draws the layer whole first');
-  assert.match(comp, /gl\.stencilFunc\(gl\.ALWAYS, 1, 0xff\); gl\.stencilOp\(gl\.KEEP, gl\.KEEP, gl\.REPLACE\);[\s\S]*fuseBind\(P, m, look, layer, glow, warm, useStack\);[\s\S]*gl\.stencilFunc\(gl\.EQUAL, 0, 0xff\);[\s\S]*gl\.drawArrays\(gl\.TRIANGLE_STRIP, 0, 4\);\s*gl\.disable\(gl\.STENCIL_TEST\);/);
-  assert.match(comp, /for \(const P of \[\.\.\.fuseP, prg\]\) \{/, 'the one-pass builds get the picture\'s uniforms, the picture\'s own build last');
-  assert.match(src, /const fuseReady = \(\) => !!fuseGen && !!plain && \(!nSimple \|\| !!fuseOne\)/);
-  // (Torn down with the rest.)
-  assert.match(src, /plain, plainCell, fuseGen, fuseOne, cathP, lineP\]\) if \(x\) gl\.deleteProgram/);
-  assert.match(src, /if \(own\.rb\) gl\.deleteRenderbuffer\(own\.rb\);/);
 });

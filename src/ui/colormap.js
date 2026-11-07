@@ -1,90 +1,141 @@
 // Perceptually uniform pressure colormap interpolated in OKLab (blueprint §5.3).
 // Every ramp's stops are colour tokens (--ramp-* in styles/tokens.css); the tables are built on first use.
 
-import { cssRamp, cssRGB } from './util.js?v=58b547f8d4';
-import { velPos, velNormal, dopplerVel } from './velNormal.js?v=97920ddf3f';
+import { cssRamp, cssRGB } from './util.js';
+import { velPos, velNormal, dopplerVel } from './velNormal.js';
 // The scale shows absolute mean venous pressure at a vessel. Its ticks are plain numbers: no
 // value on it is a clinical threshold (HVPG and other gradients are separate measurements).
 export const PRESSURE_TICKS = [0, 10, 20, 30];
 
-const hex2rgb = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
+// (Every table below is built on first use, and a colour is looked up as a ready string: what a frame does here builds nothing. The
+// working is scalar, in two small scratch lists, so building a table allocates only the colour strings it keeps.)
+const hexDigit = (c) => (c <= 57 ? c - 48 : (c | 32) - 87);
+const hexByte = (h, i) => hexDigit(h.charCodeAt(i)) * 16 + hexDigit(h.charCodeAt(i + 1));
 const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 const delin = (c) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055);
-function rgb2oklab([r, g, b]) {
+const ch255 = (c) => Math.round(Math.min(1, Math.max(0, delin(c))) * 255);
+const rgbStr = (r, g, b) => `rgb(${r},${g},${b})`;   // alloc-rare: a colour's string is made once: a table's on first use, deltaColor's kept by its packed colour (only a channel outside 0-255, which is not kept, is made again)
+const OKL = [0, 0, 0], RGB3 = [0, 0, 0];   // (scratch: an OKLab triple, an sRGB triple in 0–255)
+
+/** sRGB (0–1 each) to OKLab, written into `out` (three slots). */
+export function toOklab(r, g, b, out) {
   r = lin(r); g = lin(g); b = lin(b);
   const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
   const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
   const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-  return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s];
+  out[0] = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
+  out[1] = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
+  out[2] = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return out;
 }
-function oklab2rgb([L, a, b]) {
+/** OKLab to sRGB in whole numbers 0–255, written into `out` (three slots). */
+export function fromOklab(L, a, b, out) {
   const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
   const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
   const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
-  const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-  const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-  const bb = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
-  return [r, g, bb].map((c) => Math.round(Math.min(1, Math.max(0, delin(c))) * 255));
+  out[0] = ch255(4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s);
+  out[1] = ch255(-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s);
+  out[2] = ch255(-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s);
+  return out;
+}
+// (The two above, as they were: a fresh triple per call, for a caller that keeps it.)
+export const rgb2oklab = ([r, g, b]) => toOklab(r, g, b, [0, 0, 0]);   // alloc-rare: once per lens, mode or reference switch (legend-morph.js builds a key's stops and keeps each triple), never per frame
+export const oklab2rgb = ([L, a, b]) => fromOklab(L, a, b, [0, 0, 0]);   // alloc-rare: once per lens, mode or reference switch (legend-morph.js writes a key's gradient), never per frame
+
+// A ramp token's stops: positions and OKLab triples, in these two lists (RAMP_L three to a stop); returns how many stops.
+const RAMP_P = [], RAMP_L = [];
+function loadRamp(token) {
+  const ramp = cssRamp(token);
+  if (ramp.length < 2) throw new TypeError('a colour ramp needs two stops');
+  for (let k = 0; k < ramp.length; k++) {
+    const h = ramp[k][1];
+    toOklab(hexByte(h, 1) / 255, hexByte(h, 3) / 255, hexByte(h, 5) / 255, OKL);
+    RAMP_P[k] = ramp[k][0]; RAMP_L[3 * k] = OKL[0]; RAMP_L[3 * k + 1] = OKL[1]; RAMP_L[3 * k + 2] = OKL[2];
+  }
+  return ramp.length;
+}
+// n colours along the loaded ramp (m stops), from 0 to `top`, as ready strings in lut.
+function fillLut(lut, m, n, top) {
+  for (let i = 0; i < n; i++) {
+    const p = (i / (n - 1)) * top;
+    let k = 0;
+    while (k < m - 2 && p > RAMP_P[k + 1]) k++;
+    const p0 = RAMP_P[k], t = Math.min(1, Math.max(0, (p - p0) / (RAMP_P[k + 1] - p0))), j = 3 * k;
+    const L = RAMP_L[j] + (RAMP_L[j + 3] - RAMP_L[j]) * t, A = RAMP_L[j + 1] + (RAMP_L[j + 4] - RAMP_L[j + 1]) * t, B = RAMP_L[j + 2] + (RAMP_L[j + 5] - RAMP_L[j + 2]) * t;
+    fromOklab(L, A, B, RGB3);
+    lut[i] = rgbStr(RGB3[0], RGB3[1], RGB3[2]);
+  }
 }
 
 const LUT_N = 256, LUT_MAX = 35;
-let LUT = null;
+const LUT = [];
+let lutBuilt = false;
 function pressureLut() {
-  const LAB = cssRamp('--ramp-pressure').map(([p, h]) => [p, rgb2oklab(hex2rgb(h))]);
-  LUT = [];
-  for (let i = 0; i < LUT_N; i++) {
-    const p = (i / (LUT_N - 1)) * LUT_MAX;
-    let k = 0;
-    while (k < LAB.length - 2 && p > LAB[k + 1][0]) k++;
-    const [p0, c0] = LAB[k], [p1, c1] = LAB[k + 1];
-    const t = Math.min(1, Math.max(0, (p - p0) / (p1 - p0)));
-    const [r, g, b] = oklab2rgb(c0.map((v, j) => v + (c1[j] - v) * t));
-    LUT.push(`rgb(${r},${g},${b})`);
-  }
-  return LUT;
+  fillLut(LUT, loadRamp('--ramp-pressure'), LUT_N, LUT_MAX);
+  lutBuilt = true;
 }
 
 export function pressureColor(p) {
-  const i = Math.round((Math.min(LUT_MAX, Math.max(0, p)) / LUT_MAX) * (LUT_N - 1));
-  return (LUT || pressureLut())[i];
+  if (!lutBuilt) pressureLut();
+  return LUT[Math.round((Math.min(LUT_MAX, Math.max(0, p)) / LUT_MAX) * (LUT_N - 1))];
 }
 
+// A gradient is built once for each direction (and top) it is asked for and kept: the table it reads never changes.
+const GRADS = new Map();   // direction -> (top -> css)
 export function gradientCss(dir = 'to top', max = LUT_MAX) {
-  const parts = [];
-  for (let p = 0; p <= max; p += 2.5) parts.push(`${pressureColor(p)} ${(p / max) * 100}%`);
-  return `linear-gradient(${dir}, ${parts.join(', ')})`;
+  let byMax = GRADS.get(dir);
+  if (!byMax) GRADS.set(dir, byMax = new Map());   // alloc-rare: the first ask for a direction
+  const kept = byMax.get(max);
+  if (kept !== undefined) return kept;
+  let css = `linear-gradient(${dir}, `;   // alloc-rare: the first ask for this direction and top, kept after
+  for (let p = 0; p <= max; p += 2.5) css += `${p ? ', ' : ''}${pressureColor(p)} ${(p / max) * 100}%`;   // alloc-rare: the first ask for this direction and top, kept after
+  css = `${css})`;   // alloc-rare: the first ask for this direction and top, kept after
+  byMax.set(max, css);
+  return css;
 }
 
-// Diverging (change vs baseline): blue ← grey → red
-let DELTA = null;
+// Diverging (change vs baseline): blue ← grey → red. The three end colours' channels (low, mid, high) in a list; a colour seen before is
+// handed back as its kept string (the rounded channels pack into one number).
+const DELTA = [0, 0, 0, 0, 0, 0, 0, 0, 0], DELTA_STR = new Map();
+let deltaReady = false;
+function loadDelta() {
+  const lo = cssRGB('--delta-low'), mid = cssRGB('--delta-mid'), hi = cssRGB('--delta-high');
+  for (let i = 0; i < 3; i++) { DELTA[i] = lo[i]; DELTA[3 + i] = mid[i]; DELTA[6 + i] = hi[i]; }
+  deltaReady = true;
+}
 export function deltaColor(d) {
   const t = Math.max(-1, Math.min(1, d / 12));
-  const [a, z, b] = DELTA || (DELTA = ['--delta-low', '--delta-mid', '--delta-high'].map(cssRGB));
-  const c = t < 0 ? a.map((v, i) => z[i] + (v - z[i]) * -t) : b.map((v, i) => z[i] + (v - z[i]) * t);
-  return `rgb(${c.map(Math.round).join(',')})`;
+  if (!deltaReady) loadDelta();
+  const e = t < 0 ? 0 : 6, f = t < 0 ? -t : t;   // (toward the low end below zero, the high end above)
+  const r = Math.round(DELTA[3] + (DELTA[e] - DELTA[3]) * f), g = Math.round(DELTA[4] + (DELTA[e + 1] - DELTA[4]) * f), b = Math.round(DELTA[5] + (DELTA[e + 2] - DELTA[5]) * f);
+  if ((r & 255) !== r || (g & 255) !== g || (b & 255) !== b) return rgbStr(r, g, b);   // (a channel outside 0–255, or not a number: not kept)
+  const key = (r << 16) | (g << 8) | b;
+  let str = DELTA_STR.get(key);
+  if (str === undefined) { str = rgbStr(r, g, b); DELTA_STR.set(key, str); }
+  return str;
 }
 
 
 // ── Data layers (city-builder style views of the same network) ──────────────
 // Each is a sequential scale interpolated in OKLab, like the pressure map.
 function makeScale(token) {
-  let lut = null;
-  const build = () => {
-    const lab = cssRamp(token).map(([t, h]) => [t, rgb2oklab(hex2rgb(h))]);
-    lut = [];
-    for (let i = 0; i < 128; i++) {
-      const u = i / 127;
-      let k = 0;
-      while (k < lab.length - 2 && u > lab[k + 1][0]) k++;
-      const [t0, c0] = lab[k], [t1, c1] = lab[k + 1];
-      const f = Math.min(1, Math.max(0, (u - t0) / (t1 - t0)));
-      const [r, g, b] = oklab2rgb(c0.map((v, j) => v + (c1[j] - v) * f));
-      lut.push(`rgb(${r},${g},${b})`);
-    }
-    return lut;
+  const lut = [];
+  let built = false;
+  const cssKept = new Map();   // direction -> css
+  const at = (u) => {
+    if (!built) { fillLut(lut, loadRamp(token), 128, 1); built = true; }
+    return lut[Math.round(Math.min(1, Math.max(0, u)) * 127)];
   };
-  const at = (u) => (lut || build())[Math.round(Math.min(1, Math.max(0, u)) * 127)];
-  at.css = (dir = 'to right') => `linear-gradient(${dir}, ${Array.from({ length: 11 }, (_, i) => `${at(i / 10)} ${i * 10}%`).join(', ')})`;
+  // (The bar's gradient is built once for each direction asked and kept: the table never changes.)
+  at.css = (dir = 'to right') => {
+    const kept = cssKept.get(dir);
+    if (kept !== undefined) return kept;
+    let css = `linear-gradient(${dir}, `;   // alloc-rare: the first ask for this direction, kept after
+    for (let i = 0; i <= 10; i++) css += `${i ? ', ' : ''}${at(i / 10)} ${i * 10}%`;   // alloc-rare: the first ask for this direction, kept after
+    css = `${css})`;   // alloc-rare: the first ask for this direction, kept after
+    cssKept.set(dir, css);
+    return css;
+  };
   return at;
 }
 

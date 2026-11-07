@@ -24,9 +24,9 @@ npm start            # http://127.0.0.1:8080
 It must be served over HTTP (ES modules and the Web Worker don't load from `file://`). Once
 loaded it works offline and can be installed as an app (PWA).
 
-After editing any file under `src/` or `styles/`, run `npm run stamp`: it updates the
-`?v=<hash>` on every local import and link so a browser never mixes fresh and stale files.
-`npm test` fails if a stamp is out of date.
+Imports and links are plain addresses (`./dock.js`); no `?v=<hash>` is committed. Cache-busting is made
+by `npm run build` (bundled files named by their content hash, a generated service worker), which is what the
+live site and the preview serve. `npm test` fails if a stamp is committed (`npm run stamp` takes one out).
 
 ### Production build (optional)
 
@@ -40,7 +40,7 @@ port 8081.
 
 ```bash
 npm ci               # dev tools only: esbuild, ESLint, Playwright (lint needs them)
-npm test             # unit and physiological acceptance tests, plus the stamp check (Node ≥ 20)
+npm test             # unit and physiological acceptance tests, plus the no-committed-stamps check (Node ≥ 20)
 npm run lint         # ESLint
 npm run smoke        # the app in a real browser (desktop and phone): loads, runs, every surface opens
 npm run smoke:quick  # a fast browser check (DECKS=<id> limits it to one deck)
@@ -55,14 +55,14 @@ GitHub workflows run them:
 
 | Workflow | When | What |
 |----------|------|------|
-| `pages.yml` | pushes to `main` and the preview branch | lint and unit tests, then publishes the live site at `/` and the preview branch at `/preview/` (with an orange PREVIEW badge) |
-| `checks.yml` | the same pushes | browser checks on desktop and phone, the visual comparison (a drift is a warning) and the iPhone WebKit check |
-| `ci.yml` | pull requests and `main` | everything: lint, tests, build, browser checks split over parallel runners, the performance report, gesture and idle checks, and the visual comparison (a drift blocks the merge) |
+| `pages.yml` | pushes to `main` and the preview branch | publishes the live site at `/` and the preview at `/preview/` (with an orange PREVIEW badge); on `main` lint and unit tests gate it first |
+| `quick.yml` | pushes to the preview branch | lint and unit tests beside the deploy, as a warning |
+| `checks.yml` | on request: a tag in the commit message, or the Actions tab | `[checks]` the browser checks of the production build (visual comparison and iPhone WebKit included; a drift only warns), `[gate]` / `[gate-full]` the pre-push gate (`scripts/gate.mjs`), `[deck-sweep]` every deck at several screen sizes, `[glitch-sweep]` every deck and gesture walked for glitches |
+| `ci.yml` | pull requests and `main` | everything: lint, tests, a strict build, browser checks of the source and the build, gesture, idle and text-floor checks; a visual drift or a slow frame blocks the merge |
+| `browser.yml` | called by `checks.yml` and `ci.yml` | the browser, GPU-organ, WebKit and visual jobs, defined once |
 | `visual-refs.yml` | run by hand on a branch | redraws only the drifted visual references on CI's machines and commits them |
 
-`deck-sweep.yml` plays every deck at several screen sizes when run from the Actions tab or a
-commit message contains `[deck-sweep]`. The preview workflow and the merge rules are in
-[AGENTS.md](AGENTS.md).
+The preview workflow and the merge rules are in [AGENTS.md](AGENTS.md).
 
 The acceptance tests are the model's validation targets (healthy ranges, HVPG in presinusoidal
 disease and heart failure, splenic-vein reversal, hepatofugal flow, TIPS outcomes, the rupture
@@ -71,8 +71,8 @@ conservation, determinism, stability). They are listed in the app under *Menu �
 
 ## Using it
 
-The **menu** (top left, named after the current patient) has two tabs: *Present* (the 24
-presentation decks, by topic, and your own scripts and imported decks) and *Patients* (16 patients
+The **menu** (top left, named after the current patient) has two tabs: *Present* (the$
+presentation decks, by topic, and your own scripts and imported decks) and *Patients* (17 patients
 from healthy to constrictive pericarditis, grouped by where the resistance sits: prehepatic,
 presinusoidal, sinusoidal, postsinusoidal, posthepatic and cardiac).
 
@@ -142,9 +142,9 @@ more). See [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
 | `src/ui/` | Stage (GPU figure and moving blood over the SVG scene, labels, anatomy⇄circuit morph, lobule and sinusoid views), action card, timeline and history, Treat, Tests and its instruments (Doppler, FibroScan, HVPG, endoscopy, ascites), presenter, LMS bridge, accessibility |
 | `styles/` | Design tokens (light and dark) and layout |
 | `fonts/`, `brand/` | Self-hosted fonts (SIL OFL); brand mark, lockup and app icons |
-| `scripts/` | Cache stamping, the production build, SCORM packaging, the preview badge, performance measurements |
+| `scripts/` | Stamp removal, the production build, SCORM packaging, the preview badge, performance measurements |
 | `tests/` | Unit and physiological acceptance tests; `tests/e2e/` browser checks; `tests/visual/` visual references |
-| `src/ui/decks/` | The 24 presentation decks, one file each |
+| `src/ui/decks/` | The presentation decks, one file each |
 | `docs/` | All documentation (see below) |
 
 For preparing a class, `window.pps` in the browser console exposes `loadPreset`,

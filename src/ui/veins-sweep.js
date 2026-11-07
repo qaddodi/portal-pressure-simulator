@@ -1,0 +1,220 @@
+// The vessel binning for a stretch of the change between the Anatomy and the Circuit (2 Nov 2026, "Move everything to GPU": the morph
+// on the GPU). binVeins (veins-bin.js) lists, in each square cell, the vessel segments and joins that can draw there, for the vessels
+// where they are now; every frame of the change had binned every vessel again and sent the 4 MB list up (his iPhone, 1 Nov). Here the
+// lists hold every segment and join that can draw in a cell anywhere along a stretch of the change, so one binning serves all of the
+// stretch's frames: the shader reads the vessels' points and the joins as they are in each frame from the same texture (the rows after
+// the lists: posBase, joinBase), sent up each frame in a few rows (veins-gl setMorphFrame).
+//
+// A stretch is given as its samples: each vessel's points at a few moments of it (`path`: P0, P1, … Pm, each the vessel's samples as
+// binned). Between two moments the stage checks that every point lies within `slack` of the straight line between its two samples
+// (stage.js morphFrame); a segment drawn then lies within the four points' hull widened by the slack, and a cell lists it when that
+// region comes within its reach. The lists are a superset of what binVeins gives at any moment of the stretch: a segment out of a
+// pixel's reach is passed over by the shader as before.
+//
+// The entries are binVeins' (the same eight floats, the same heads, runs and joins), with these differences, which the vessel shader
+// reads only with morphOn (veins-gl):
+//   - a segment entry's points are the first sample's; the shader reads the points from the frame's rows instead. Its head's circle
+//     and its runs' radii hold the points of every sample, and the slack, so the passes they let the shader skip stay safe.
+//   - a join entry's first float is the join's index: its centre, reach, blend width and fillet are read from the frame's rows.
+
+import { CELL, ENT_W, RUN } from './veins-bin.js';
+
+const d2 = (x, y) => x * x + y * y;
+function segDist2(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1e-9;
+  const h = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2));
+  const ex = ax + dx * h - px, ey = ay + dy * h - py;
+  return ex * ex + ey * ey;
+}
+const cross = (ax, ay, bx, by, px, py) => (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+function inTri(px, py, ax, ay, bx, by, cx, cy) {
+  const a = cross(ax, ay, bx, by, px, py), b = cross(bx, by, cx, cy, px, py), c = cross(cx, cy, ax, ay, px, py);
+  return !((a < 0 || b < 0 || c < 0) && (a > 0 || b > 0 || c > 0));
+}
+/** Squared distance from (px, py) to the convex hull of four points (0 inside it). */
+export function hull4Dist2(px, py, ax, ay, bx, by, cx, cy, dx, dy) {
+  if (inTri(px, py, ax, ay, bx, by, cx, cy) || inTri(px, py, ax, ay, bx, by, dx, dy) || inTri(px, py, ax, ay, cx, cy, dx, dy) || inTri(px, py, bx, by, cx, cy, dx, dy)) return 0;
+  return Math.min(segDist2(px, py, ax, ay, bx, by), segDist2(px, py, cx, cy, dx, dy), segDist2(px, py, ax, ay, cx, cy),
+    segDist2(px, py, bx, by, dx, dy), segDist2(px, py, ax, ay, dx, dy), segDist2(px, py, bx, by, cx, cy));
+}
+/** Squared distance from (px, py) to segment i of a vessel anywhere between its samples (path: P0 … Pm). */
+function sweptDist2(px, py, path, i) {
+  if (path.length === 1) { const P = path[0]; return segDist2(px, py, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1]); }
+  let best = Infinity;
+  for (let j = 0; j + 1 < path.length && best > 0; j++) {
+    const P = path[j], Q = path[j + 1];
+    best = Math.min(best, hull4Dist2(px, py, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1], Q[i][0], Q[i][1], Q[i + 1][0], Q[i + 1][1]));
+  }
+  return best;
+}
+function polyDist2(px, py, C) {
+  if (C.length === 1) return d2(px - C[0][0], py - C[0][1]);
+  let best = Infinity;
+  for (let j = 0; j + 1 < C.length; j++) best = Math.min(best, segDist2(px, py, C[j][0], C[j][1], C[j + 1][0], C[j + 1][1]));
+  return best;
+}
+const up = (r) => (Math.fround(r) < r ? r * (1 + 1e-6) + 1e-6 : r);
+
+/**
+ * tubes: [{ id (row), path: [P0, … Pm] (each nSamples points [x, y]), reach, core }]; joins: [{ path: [[x, y], …] (its centre at each
+ * sample), reach (the most it reaches anywhere in the stretch), k, fillet, members, trunk, fork }]. opts: { rows (vessel rows the frame's
+ * points cover), samples (points a vessel), slack (world units) }. Returns binVeins' result, with `posBase` and `joinBase` (texel
+ * indices of the frame's points and joins in `ent`, filled with the first sample's) and `nJoins`.
+ */
+export function binSwept(tubes, joins, { rows, samples, slack = 2 }) {
+  const HALF = CELL * Math.SQRT1_2;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const t of tubes) {
+    const r = t.reach + slack;
+    for (const P of t.path) for (const q of P) { x0 = Math.min(x0, q[0] - r); y0 = Math.min(y0, q[1] - r); x1 = Math.max(x1, q[0] + r); y1 = Math.max(y1, q[1] + r); }
+  }
+  const posTexels = rows * samples / 2, posRows = (n) => Math.ceil((posTexels + n) / ENT_W);
+  if (!tubes.length) {
+    const ent = new Float32Array(posRows(joins.length) * ENT_W * 4);
+    return { ent, rows: Math.max(1, posRows(joins.length)), cells: new Float32Array(0), nCells: 0, nEnt: 0, blood: new Float32Array(0), nBlood: 0, bloodQ: new Float32Array(0), nBloodQ: 0, posBase: 0, joinBase: posTexels, nJoins: joins.length };
+  }
+  x0 = Math.floor(x0 / CELL) * CELL; y0 = Math.floor(y0 / CELL) * CELL;
+  const nx = Math.max(1, Math.ceil((x1 - x0) / CELL)), ny = Math.max(1, Math.ceil((y1 - y0) / CELL));
+  // Pass 1: each vessel's (cell, sample) pairs, and the cells (and quarters) its lumen can reach.
+  const per = tubes.map((t) => {
+    const { path, reach, core } = t, n = path[0].length;
+    const R = reach + slack, lim2 = (R + HALF) ** 2, limC2 = core == null ? Infinity : (Math.min(core, reach) + slack + HALF) ** 2;
+    const limQ2 = core == null ? Infinity : (Math.min(core, reach) + slack + HALF / 2) ** 2;
+    const cs = [], ss = [], bc = [], bq = [];
+    for (let i = 0; i < n - 1; i++) {
+      let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity;
+      for (const P of path) for (const q of [P[i], P[i + 1]]) { ax0 = Math.min(ax0, q[0]); ay0 = Math.min(ay0, q[1]); ax1 = Math.max(ax1, q[0]); ay1 = Math.max(ay1, q[1]); }
+      const cx0 = Math.max(0, Math.floor((ax0 - R - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((ax1 + R - x0) / CELL));
+      const cy0 = Math.max(0, Math.floor((ay0 - R - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((ay1 + R - y0) / CELL));
+      for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+        const dd = sweptDist2(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, path, i);
+        if (dd > lim2) continue;
+        cs.push(cy * nx + cx); ss.push(i);
+        if (dd <= limC2) {
+          bc.push(cy * nx + cx);
+          if (core != null) for (let q = 0; q < 4; q++) {
+            if (sweptDist2(x0 + (cx + 0.25 + 0.5 * (q & 1)) * CELL, y0 + (cy + 0.25 + 0.5 * (q >> 1)) * CELL, path, i) <= limQ2) bq.push((cy * nx + cx) * 4 + q);
+          }
+        }
+      }
+    }
+    return { n: cs.length, cs, ss, bc, bq };
+  });
+  const jCell = [];
+  joins.forEach((j, ji) => {
+    let jx0 = Infinity, jy0 = Infinity, jx1 = -Infinity, jy1 = -Infinity;
+    for (const c of j.path) { jx0 = Math.min(jx0, c[0]); jy0 = Math.min(jy0, c[1]); jx1 = Math.max(jx1, c[0]); jy1 = Math.max(jy1, c[1]); }
+    const R = j.reach + slack, lim2 = (R + HALF) ** 2;
+    const cx0 = Math.max(0, Math.floor((jx0 - R - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((jx1 + R - x0) / CELL));
+    const cy0 = Math.max(0, Math.floor((jy0 - R - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((jy1 + R - y0) / CELL));
+    for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
+      if (polyDist2(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, j.path) > lim2) continue;
+      jCell.push(cy * nx + cx, ji);
+    }
+  });
+  // Pass 2: as binVeins, a counting sort by cell, each vessel's stretch of a cell's list headed by its head entry.
+  let nSeg = 0;
+  for (const p of per) nSeg += p.n;
+  const cellOf = new Int32Array(nSeg), segOf = new Int32Array(nSeg), tubeOf = new Int32Array(nSeg);
+  for (let ti = 0, o = 0; ti < tubes.length; ti++) { const { n, cs, ss } = per[ti]; cellOf.set(cs, o); segOf.set(ss, o); tubeOf.fill(ti, o, o + n); o += n; }
+  const NC = nx * ny, segCount = new Int32Array(NC), jCount = new Int32Array(NC), lastId = new Float64Array(NC).fill(-Infinity);
+  for (let k = 0; k < nSeg; k++) {
+    const c = cellOf[k], id = tubes[tubeOf[k]].id;
+    if (lastId[c] !== id) { lastId[c] = id; segCount[c]++; }
+    segCount[c]++;
+  }
+  for (let k = 0; k < jCell.length; k += 2) jCount[jCell[k]]++;
+  const segStart = new Int32Array(NC), jStart = new Int32Array(NC);
+  let o = 0, nCells = 0;
+  for (let c = 0; c < NC; c++) { segStart[c] = o; o += segCount[c]; if (segCount[c]) nCells++; }
+  for (let c = 0; c < NC; c++) { jStart[c] = o; o += segCount[c] ? jCount[c] : 0; }
+  const nEnt = o, entRows = Math.max(1, Math.ceil((nEnt * 2) / ENT_W));
+  const posBase = entRows * ENT_W, joinBase = posBase + posTexels;
+  const total = entRows + posRows(joins.length);
+  const ent = new Float32Array(total * ENT_W * 4);
+  const fill = segStart.slice(), fillJ = jStart.slice(), tubeAt = new Map(tubes.map((t, ti) => [t.id, ti]));
+  lastId.fill(-Infinity);
+  for (let k = 0; k < nSeg; k++) {
+    const c = cellOf[k], t = tubes[tubeOf[k]];
+    if (lastId[c] !== t.id) { lastId[c] = t.id; const h = fill[c]++; ent[h * 8 + 4] = t.id; ent[h * 8 + 5] = -1; }
+    const e = fill[c]++, i = segOf[k], P = t.path[0], q = e * 8;
+    ent[q] = P[i][0]; ent[q + 1] = P[i][1]; ent[q + 2] = P[i + 1][0]; ent[q + 3] = P[i + 1][1];
+    ent[q + 4] = t.id; ent[q + 5] = i;
+  }
+  // Heads and runs: their circles hold the points of every sample, widened by the slack.
+  for (let c = 0; c < NC; c++) {
+    const e1 = segStart[c] + segCount[c];
+    for (let e = segStart[c]; e < e1;) {
+      const id = ent[e * 8 + 4], path = tubes[tubeAt.get(id)].path;
+      let g = e + 1;
+      while (g < e1 && ent[g * 8 + 4] === id && ent[g * 8 + 5] !== -1) g++;
+      ent[e * 8 + 7] = g - e - 1;
+      fitSwept(ent, e, g, path, slack);
+      e = g;
+    }
+  }
+  for (let k = 0; k < jCell.length; k += 2) {
+    const c = jCell[k];
+    if (!segCount[c]) continue;
+    const e = fillJ[c]++, ji = jCell[k + 1], j = joins[ji], q = e * 8;
+    ent[q] = ji; ent[q + 1] = 0; ent[q + 2] = j.reach; ent[q + 3] = Math.round(j.k * 100) + 0.99 * Math.min(1, Math.max(0, j.fillet ?? 1));
+    for (let m = 0; m < 4; m++) ent[q + 4 + m] = j.members[m] == null ? -1 : j.members[m] + (j.trunk === j.members[m] ? (j.fork ? 0.375 : 0.25) : 0);
+  }
+  // The frame's rows, as the first sample has them (the stage sends each frame's own).
+  for (const t of tubes) writePoints(ent, posBase, samples, t.id, t.path[0]);
+  joins.forEach((j, ji) => writeJoinNow(ent, joinBase, ji, j.path[0][0], j.path[0][1], j.reach, j.k, j.fillet));
+  // The cells a lumen can reach, and the cell records, as binVeins makes them.
+  const wet = new Uint8Array(NC), wetQ = new Uint8Array(NC * 4);
+  tubes.forEach((t, ti) => {
+    const { n, cs, bc, bq } = per[ti];
+    if (t.core == null) for (let k = 0; k < n; k++) { wet[cs[k]] = 1; wetQ.fill(1, cs[k] * 4, cs[k] * 4 + 4); }
+    else { for (const c of bc) wet[c] = 1; for (const q of bq) wetQ[q] = 1; }
+  });
+  for (let k = 0; k < jCell.length; k += 2) { wet[jCell[k]] = 1; wetQ.fill(1, jCell[k] * 4, jCell[k] * 4 + 4); }
+  const cells = new Float32Array(nCells * 6), wetAt = [], quarters = [];
+  let ci = 0;
+  for (let c = 0; c < NC; c++) {
+    if (!segCount[c]) continue;
+    cells[ci] = x0 + (c % nx) * CELL; cells[ci + 1] = y0 + Math.floor(c / nx) * CELL;
+    cells[ci + 2] = segStart[c]; cells[ci + 3] = segCount[c]; cells[ci + 4] = jStart[c]; cells[ci + 5] = jCount[c];
+    if (wet[c]) wetAt.push(ci);
+    for (let q = 0; q < 4; q++) if (wetQ[c * 4 + q]) quarters.push(cells[ci] + (q & 1) * (CELL / 2), cells[ci + 1] + (q >> 1) * (CELL / 2));
+    ci += 6;
+  }
+  const nBlood = wetAt.length, blood = new Float32Array(nBlood * 6);
+  wetAt.forEach((at, b) => blood.set(cells.subarray(at, at + 6), b * 6));
+  const nBloodQ = quarters.length / 2, bloodQ = new Float32Array(nBloodQ * 6);
+  for (let k = 0; k < nBloodQ; k++) { bloodQ[k * 6] = quarters[k * 2]; bloodQ[k * 6 + 1] = quarters[k * 2 + 1]; }
+  return { ent, rows: total, cells, nCells, nEnt, blood, nBlood, bloodQ, nBloodQ, posBase, joinBase, nJoins: joins.length, entRows };
+}
+
+// A stretch's head (h, its stretch running to g) and runs, fitted to every sample's points of its segments.
+function fitSwept(ent, h, g, path, slack) {
+  let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+  for (let f = h + 1; f < g; f++) {
+    const i = ent[f * 8 + 5];
+    for (const P of path) for (const q of [P[i], P[i + 1]]) { bx0 = Math.min(bx0, q[0]); bx1 = Math.max(bx1, q[0]); by0 = Math.min(by0, q[1]); by1 = Math.max(by1, q[1]); }
+  }
+  const cx = Math.fround((bx0 + bx1) / 2), cy = Math.fround((by0 + by1) / 2);
+  let R2 = 0;
+  for (let f = h + 1; f < g; f++) { const i = ent[f * 8 + 5]; for (const P of path) R2 = Math.max(R2, d2(P[i][0] - cx, P[i][1] - cy), d2(P[i + 1][0] - cx, P[i + 1][1] - cy)); }
+  ent[h * 8] = cx; ent[h * 8 + 1] = cy; ent[h * 8 + 2] = up(Math.sqrt(R2) + slack);
+  for (let e = h + 1; e < g;) {
+    const q0 = e * 8, ax = ent[q0], ay = ent[q0 + 1], n = Math.min(RUN, g - e);
+    let rho2 = 0;
+    for (let k = 0; k < n; k++) { const i = ent[(e + k) * 8 + 5]; for (const P of path) rho2 = Math.max(rho2, d2(P[i][0] - ax, P[i][1] - ay), d2(P[i + 1][0] - ax, P[i + 1][1] - ay)); }
+    ent[q0 + 6] = up(Math.sqrt(rho2) + slack); ent[q0 + 7] = n;
+    e += n;
+  }
+}
+
+/** A vessel's points (samples of them) into the frame's rows of `ent` (or of a buffer laid out as they are, from posBase). */
+export function writePoints(ent, posBase, samples, row, P) {
+  const o = (posBase + row * samples / 2) * 4;
+  for (let i = 0; i < samples; i++) { ent[o + i * 2] = P[i][0]; ent[o + i * 2 + 1] = P[i][1]; }
+}
+/** A join as it is now into the frame's rows: centre, reach, and the blend width with its fillet (as binVeins writes a join entry). */
+export function writeJoinNow(ent, joinBase, ji, x, y, reach, k, fillet) {
+  const o = (joinBase + ji) * 4;
+  ent[o] = x; ent[o + 1] = y; ent[o + 2] = reach; ent[o + 3] = Math.round(k * 100) + 0.99 * Math.min(1, Math.max(0, fillet ?? 1));
+}

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Review items U2, U4, U8, U9, U10, U11, U12, U13 and U16 (docs/REVIEW_2026-10.md on its branch): undo on touch, a way out of
 // the collapse banner (banner removed 18 Oct), "Why?" sentences that read aloud, Why? for Hb, failures in learner words, the shunt hint,
 // "colored by" instead of "lens", one platelet unit, and the toast policy. The UI modules need a DOM, so they are read as text.
@@ -6,6 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { Engine } from '../src/engine/engine.js';
 import { explain, METRICS } from '../src/engine/explain.js';
+import { computeMetrics } from '../src/engine/metrics.js';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const settled = (id) => { const e = new Engine(); e.loadPreset(id); for (let i = 0; i < 4; i++) e.settleQuick(); return e; };
@@ -30,7 +32,13 @@ test('U9: hemoglobin has a Why? of its own, and a bleed explains it', () => {
   assert.equal(METRICS.hb.unit, 'g/dL');
   assert.match(read('../src/ui/vital-read.js'), /\{ id: 'hb', k: 'Hb', title: 'Hemoglobin', why: 'hb',/);
   const e = settled('csph');
+  const hb0 = computeMetrics(e).blood.hb;
   e.hemorrhage(1500);
+  for (let i = 0; i < 8; i++) e.settleQuick();
+  // (Whole blood is lost: the hemoglobin holds at first, and is heading lower; it falls once the plasma has refilled, a day on.)
+  const m1 = computeMetrics(e);
+  assert.ok(Math.abs(m1.blood.hb - hb0) < 0.1 && m1.blood.hbSettled < hb0 - 2, `Hb ${hb0} → ${m1.blood.hb} heading to ${m1.blood.hbSettled}`);
+  e.plasmaRefill(86400);
   for (let i = 0; i < 8; i++) e.settleQuick();
   const r = explain(e, 'hb');
   assert.ok(r.total < -0.1, `Hb change ${r.total}`);
@@ -48,20 +56,22 @@ test('U2: Undo is reachable on touch, and no collapse banner covers the figure (
 });
 
 test('U10: failures are said in learner words', () => {
-  const main = read('../src/ui/main.js'), stage = read('../src/ui/stage.js');
+  const main = read('../src/ui/main.js'), stage = stageSource();
   assert.doesNotMatch(main, /see the console/);
   assert.match(main, /if \(kind === 'main'\) toast\(/);
   assert.match(main, /cannot draw the sinusoid view \(it needs WebGL2\)/);
-  assert.match(stage, /toast\('This device cannot draw moving blood/);
+  assert.match(stage, /toast\('This device could not start its graphics \(WebGL2\), so the vessels cannot be drawn/);
 });
 
 test('U11: the shunt hint is one target per line, says Tap on touch and shows Esc only with a keyboard', () => {
   const main = read('../src/ui/main.js');
-  assert.match(main, /verb = fine \? 'Click' : 'Tap'/);
-  assert.match(main, /h\('b', \{\}, 'hepatic vein'\), ' makes a TIPS\.'/);
-  assert.match(main, /h\('b', \{\}, 'IVC'\), ' below the hepatic veins makes a DIPS\.'/);
-  assert.match(main, /h\('b', \{\}, 'left renal vein'\), ' makes a Warren shunt\.'/);
-  assert.match(main, /fine \? h\('div', \{\}, 'Esc cancels\.'\) : null/);
+  assert.match(main, /fine \? 'Click a glowing vein to connect it to\.' : 'Tap a glowing vein to connect it to\.'/);
+  assert.match(main, /fine \? 'Click the ' : 'Tap the '/);
+  assert.match(main, /h\('b', NOATTR, 'hepatic vein'\), ' makes a TIPS\.'/);
+  assert.match(main, /h\('b', NOATTR, 'IVC'\), ' below the hepatic veins makes a DIPS\.'/);
+  assert.match(main, /h\('b', NOATTR, 'left renal vein'\), ' makes a Warren shunt\.'/);
+  assert.match(main, /fine \? h\('div', NOATTR, 'Esc cancels\.'\) : null/);
+  assert.match(main, /shuntHint\(only, matchMedia\('\(hover: hover\) and \(pointer: fine\)'\)\.matches\)/);
 });
 
 test('U12 and U13: "colored by", never "lens", in words people see; platelets per µL', () => {
@@ -74,7 +84,7 @@ test('U12 and U13: "colored by", never "lens", in words people see; platelets pe
 
 test('U16: no toast for what the figure already shows, and none but errors while presenting', () => {
   const util = read('../src/ui/util.js'), main = read('../src/ui/main.js');
-  assert.match(util, /if \(kind !== 'bad' && !actions\?\.length && !present && document\.getElementById\('app'\)\?\.classList\.contains\('presenting'\)\) return \(\) => \{\};/);
+  assert.match(util, /if \(kind !== 'bad' && !actions\?\.length && !present && document\.getElementById\('app'\)\?\.classList\.contains\('presenting'\)\) return NOOP_CLOSE;/);
   for (const f of ['../src/ui/main.js', '../src/ui/actions.js', '../src/ui/chart.js']) assert.doesNotMatch(read(f), /Band placed|Hemorrhage: 500 mL lost|Injecting dye/, f);
   assert.match(main, /store\.set\(\{ colorMode: next \}\); toast\(`Colored by /);
 });

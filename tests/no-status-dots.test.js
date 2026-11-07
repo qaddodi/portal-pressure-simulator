@@ -17,6 +17,7 @@ const ALLOWED = [
   /\.pzb-(now|was)/, /\.pzk-/, /\.tl-dot/, /\.sl-start/,              // a value's place on a scale or timeline (sl-start: a what-if's starting value)
   /\.instr-tab\[data-slot/,                                             // the numbered 1 / 2 slot badge
   /\.pz-nm/,                                                            // the table's "none" ring (○)
+  /\.ac-leader \.ac-ldot/,                                               // the action card's leader anchor: where its line meets the figure (an SVG circle until 03413346, now a ringed box)
   /\.pz-crit[^{]*\.pzc-c::before/,                                      // the criteria card's row marks (his pick 26 Oct, "C with D's key words"): a ring per rule, filled on the row that applies to the case; numerals when ordered
 ];
 const small = (v) => !!v && (/px/.test(v) ? parseFloat(v) <= 16 : /em/.test(v) ? parseFloat(v) <= 1 : false);
@@ -61,9 +62,9 @@ test('the Doppler range marker is an upright tick, a deck level is a word, and a
 });
 
 test('the readings carry their state in their own colour instead', () => {
-  assert.match(css, /\.endo-grade\[data-sev="danger"\] \{ --sev-ink: var\(--danger\); \}/);
-  assert.match(css, /\.endo-chip\.endo-red\[data-on="true"\] \.endo-chip-v \{ color: var\(--danger\); \}/);
+  assert.match(css, /\.endo-grade\[data-sev="danger"\] \{ --sev-ink: var\(--danger-ink\); \}/);
+  assert.match(css, /\.endo-chip\.endo-red\[data-on="true"\] \.endo-chip-v \{ color: var\(--danger-ink\); \}/);
   assert.match(css, /\.dop-dir\[data-sev="caution"\] \{ color:/);
-  assert.match(css, /\.cut-h\[data-sev="danger"\] \{ color: var\(--danger\); \}/);
+  assert.match(css, /\.cut-h\[data-sev="danger"\] \{ color: var\(--danger-ink\); \}/);
   assert.match(css, /\.measure-launch\.ping \{ color: var\(--accent-ink\); \}/);
 });

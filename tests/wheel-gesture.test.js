@@ -5,9 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { wheelFinger, wheelGesture, ownsWheel, WHEEL_X, WHEEL_Y, WHEEL_QUIET } from '../src/ui/swipe.js';
+import { unsnap } from './unsnap.js';
+import { wheelFinger, wheelGesture, ownsWheel, wheelScrollers, WHEEL_X, WHEEL_Y, WHEEL_QUIET } from '../src/ui/swipe.js';
 
-const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
+const pz = unsnap(readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8'));
 
 // Feeds a run of finger movements, 16 ms apart, and gives every action it took.
 function run(steps, t0 = 1000, g = null) {
@@ -103,12 +104,32 @@ test('a box that scrolls itself keeps its wheel; the slide list, fields and plai
   const win = { getComputedStyle: (n) => n.style };
   const box = (extra = {}, parent = null) => ({ nodeType: 1, parentElement: parent, ownerDocument: { defaultView: win }, scrollHeight: 100, clientHeight: 100, scrollWidth: 100, clientWidth: 100, style: { overflowX: 'visible', overflowY: 'visible' }, matches: () => false, ...extra });
   const wrap = box();
-  assert.equal(ownsWheel(box({}, wrap), 'y', { stop: wrap }), false);
-  assert.equal(ownsWheel(box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), 'y', { stop: wrap }), true);
-  assert.equal(ownsWheel(box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), 'x', { stop: wrap }), false, 'only the axis it scrolls on');
-  assert.equal(ownsWheel(box({ scrollWidth: 300, style: { overflowX: 'scroll', overflowY: 'visible' } }, wrap), 'x', { stop: wrap }), true);
-  assert.equal(ownsWheel(box({ scrollHeight: 300, style: { overflowY: 'hidden', overflowX: 'visible' } }, wrap), 'y', { stop: wrap }), false, 'overflow hidden is not a scroller');
-  assert.equal(ownsWheel(box({ matches: (sel) => sel.includes('.pz-jump') }, wrap), 'y', { stop: wrap }), true);
+  const owns = (el, axis) => wheelScrollers(el, { stop: wrap })[axis];
+  assert.equal(owns(box({}, wrap), 'y'), false);
+  assert.equal(owns(box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), 'y'), true);
+  assert.equal(owns(box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), 'x'), false, 'only the axis it scrolls on');
+  assert.equal(owns(box({ scrollWidth: 300, style: { overflowX: 'scroll', overflowY: 'visible' } }, wrap), 'x'), true);
+  assert.equal(owns(box({ scrollHeight: 300, style: { overflowY: 'hidden', overflowX: 'visible' } }, wrap), 'y'), false, 'overflow hidden is not a scroller');
+  assert.equal(owns(box({ matches: (sel) => sel.includes('.pz-jump') }, wrap), 'y'), true);
+});
+
+test('the wheel reads no layout: ownsWheel answers from the read made between frames', async () => {
+  let reads = 0;
+  const win = { getComputedStyle: (n) => { reads++; return n.style; } };
+  const box = (extra = {}, parent = null) => ({ nodeType: 1, parentElement: parent, ownerDocument: { defaultView: win }, scrollHeight: 100, clientHeight: 100, scrollWidth: 100, clientWidth: 100, style: { overflowX: 'visible', overflowY: 'visible' }, matches: () => false, ...extra });
+  const wrap = box(), list = box({ scrollHeight: 300, style: { overflowY: 'auto', overflowX: 'visible' } }, wrap), field = box({ matches: (sel) => sel.includes('textarea') }, wrap);
+  assert.equal(ownsWheel(list, 'y', { stop: wrap }), false, 'not read yet: answered by what it is');
+  assert.equal(reads, 0, 'nothing read in the event');
+  assert.equal(ownsWheel(field, 'y', { stop: wrap }), true, 'a field keeps its wheel before any read');
+  await new Promise((r) => setTimeout(r, 5));
+  reads = 0;
+  ownsWheel(list, 'y', { stop: wrap });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(ownsWheel(list, 'y', { stop: wrap }), true, 'read between frames: the list keeps its wheel');
+  assert.equal(ownsWheel(list, 'x', { stop: wrap }), false);
+  const before = reads;
+  for (let i = 0; i < 20; i++) ownsWheel(list, 'y', { stop: wrap });
+  assert.equal(reads, before, 'a glide\'s events read nothing');
 });
 
 test('presenter: the wheel works the slide, the stack and the case card; a wide screen\'s stack takes the swipe anywhere too', () => {
@@ -117,15 +138,12 @@ test('presenter: the wheel works the slide, the stack and the case card; a wide 
   assert.match(w, /const now = e\.timeStamp > 0 \? e\.timeStamp : performance\.now\(\);/, 'timed by the event\'s own stamp, not when a busy frame got to it');
   assert.match(w, /wheelGesture\(wheelG, fx, fy, now\)/);
   assert.match(w, /wheelFinger\(e\.deltaX, e\.deltaY, e\.deltaMode, e\.webkitDirectionInvertedFromDevice, innerHeight\)/);
-  assert.match(w, /if \(ownsWheel\(e\.target, Math\.abs\(fx\) > Math\.abs\(fy\) \? 'x' : 'y', \{ stop: wrap \}\)\) \{ wheelG = wheelG\?\.spent \? \{ \.\.\.wheelG, t: now \} : null; return; \}/, 'a glide that has acted stays spent');
-  assert.match(w, /if \(card\) caseFly\(card, a\.dir, 1\.2\);/, 'a case card is thrown off the way the fingers go');
+  assert.match(w, /const wheelStop = \{ stop: wrap \};/);
+  assert.match(w, /if \(ownsWheel\(e\.target, Math\.abs\(fx\) > Math\.abs\(fy\) \? 'x' : 'y', wheelStop\)\) \{ if \(wheelG\?\.spent\) wheelG\.t = now; else wheelG = null; return; \}/, 'a glide that has acted stays spent');
+  assert.match(w, /if \(card\) caseFly\(card, a\.dir, 1\.2, card\.c\.offsetWidth\);/, 'a case card is thrown off the way the fingers go');
   assert.match(w, /else if \(a\.dir < 0\) next\(\);[^\n]*\n\s*else prev\(\);/, 'left goes on, and off the end of the deck it ends the talk, as the touch swipe does');
   assert.doesNotMatch(w, /want < slides\.length - 1/, 'no last-slide guard on the wheel');
-  assert.match(w, /else stackFold\(a\.dir < 0\);/, 'fingers up open');
-  const f = pz.slice(pz.indexOf('function stackFold(open)'), pz.indexOf('let wheelG = null;'));
-  assert.match(f, /!wideSheet\(d\)/);
-  assert.match(f, /\(caseCard && !caseCard\.flown\)/, 'not over a case card');
-  assert.match(f, /if \(open !== d\.classList\.contains\('tool-open'\)\) ui\.setFold\(open\);/, 'eased by the card\'s own setFold');
+  assert.doesNotMatch(pz, /stackFold/, 'fingers up or down work no readings card now: none tucks or comes out (7 Nov 2026)');
   assert.match(w, /\{ passive: false, capture: true \}/);
   // (Before the figure's read-only swallow of the wheel, which stops the event for everything after it.)
   assert.ok(pz.indexOf('let wheelG = null;') < pz.indexOf("for (const t of ['pointerdown', 'mousedown'"), 'ahead of the hands-off listeners');
@@ -134,9 +152,9 @@ test('presenter: the wheel works the slide, the stack and the case card; a wide 
   assert.match(pz, /!\(phone\(\) \|\| wideSheet\(d\)\)/, 'a swipe up or down anywhere on an iPad on its side works the stack as the iPhone\'s does');
 });
 
-test('presenter: the up arrow untucks the stack and the down arrow tucks it, and neither moves a slide', () => {
+test('presenter: the up and down arrows move no slide, and tuck nothing', () => {
   const onKey = pz.slice(pz.indexOf('function onKey('), pz.indexOf("addEventListener('keydown', onKey, true)"));
-  assert.match(onKey, /else if \(k === 'ArrowUp' \|\| k === 'ArrowDown'\) \{ if \(!e\.repeat\) stackFold\(k === 'ArrowUp'\); \}/);
+  assert.doesNotMatch(onKey, /stackFold/);
   // (Left and right, page keys, space, enter and backspace still move slides; the up and down arrows no longer do.)
   assert.match(onKey, /k === 'ArrowRight' \|\| k === 'PageDown' \|\| k === ' ' \|\| k === 'Enter'\) \{ if \(!e\.repeat\) next\(\); \}/);
   assert.match(onKey, /k === 'ArrowLeft' \|\| k === 'PageUp' \|\| k === 'Backspace'\) \{ if \(!e\.repeat\) prev\(\); \}/);
@@ -146,6 +164,6 @@ test('presenter: the up arrow untucks the stack and the down arrow tucks it, and
   assert.match(onKey, /if \(tag === 'input' \|\| tag === 'textarea' \|\| tag === 'select'\) return;/);
   assert.match(onKey, /if \(ui && !ui\.jump\.hidden\) \{ jumpKey\(e\); return; \}/);
   // The Guide lists the keys.
-  const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-  assert.match(main.slice(main.indexOf('const PRESENT_KEYS'), main.indexOf('];', main.indexOf('const PRESENT_KEYS'))), /\['↑ · ↓', /);
+  const main = unsnap(readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'));
+  assert.doesNotMatch(main.slice(main.indexOf('const PRESENT_KEYS'), main.indexOf('];', main.indexOf('const PRESENT_KEYS'))), /↑ · ↓/);   // (no readings card to tuck, 7 Nov 2026)
 });

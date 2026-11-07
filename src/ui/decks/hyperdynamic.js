@@ -4,7 +4,7 @@
 // The old Blood volume talk is these last two slides, and keeps working by its old id (decks.js DECK_ALIAS).
 // Each slide's volume runs in with the patient settled after it.
 
-const H = { kind: 'hemorrhage', mL: 1000 };
+const H = { kind: 'hemorrhage', mL: 1000 }, UNIT = { kind: 'infuse', fluid: 'prbc' };
 const VITALS = { kind: 'vitals', show: ['hr', 'map', 'co'] };
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
@@ -15,7 +15,7 @@ export const HYPERDYNAMIC = {
     'Describe the hyperdynamic circulation: a higher cardiac output, a faster heart and a lower arterial pressure than in health',
     'Explain how splanchnic vasodilation adds inflow to the portal system',
     'Link arterial underfilling to salt and water retention',
-    'Say what a liter of blood lost does to the arterial and the portal pressure',
+    'Say what a liter of blood lost, and too much given back, does to the arterial and the portal pressure',
   ],
   checks: [
     ['Why does the mean arterial pressure fall in cirrhosis although the cardiac output rises?', 'The systemic resistance falls by more: nitric oxide and other vasodilators open the arteries.'],
@@ -23,7 +23,7 @@ export const HYPERDYNAMIC = {
     ['Why does the blood volume rise in cirrhosis although the arteries seem underfilled?', 'The kidneys keep sodium and water in answer to the low effective arterial volume, but the extra fluid sits in the wide splanchnic bed and the peritoneum.'],
     ['Why does the portal pressure fall during a variceal bleed?', 'Less blood volume means less inflow into the portal system.'],
   ],
-  summary: 'Why cirrhosis raises the cardiac output and the heart rate and lowers the arterial pressure, how the wide gut arteries feed the portal pressure, and what a liter of blood lost does to both.',
+  summary: 'Why cirrhosis raises the cardiac output and the heart rate and lowers the arterial pressure, how the wide gut arteries feed the portal pressure, what a liter of blood lost does to both, and why giving back too much raises the portal pressure.',
   slides: [
     {
       id: 'rest', preset: 'healthy', cam: 'fit', tool: VITALS,
@@ -51,7 +51,7 @@ export const HYPERDYNAMIC = {
     {
       id: 'volume', cam: 'fit', lens: 'flow', tool: VITALS, data: 'tiles', tiles: ['bv', 'pv'], key: ['bv'], delta: 'rest',
       kicker: 'Cirrhosis', site: 'sin', title: 'Underfilled arteries make the kidneys hold salt',
-      line: 'Wide arteries read as underfilled, so the kidneys keep sodium and water. The blood volume reaches {bv}, and fluid collects in the belly as ascites, {asc}.',
+      line: 'Wide arteries read as underfilled, so the kidneys keep sodium and water. The blood volume reaches {bv}, and fluid begins to collect in the belly as ascites.',
       notes: 'The fall in effective arterial blood volume switches on renin, aldosterone, the sympathetic nerves and vasopressin. The kidneys keep sodium and water and the plasma volume grows, yet the arteries stay underfilled, because the extra volume sits in the wide splanchnic bed and leaks into the peritoneum. At the end of this road, the renal arteries clamp down: hepatorenal syndrome (AASLD 2024, Figure 2). The model raises the blood volume with the disease; it does not model the kidneys.',
       ask: ['Why does the blood volume rise in cirrhosis although the arteries seem underfilled?', 'The kidneys keep sodium and water in answer to the low effective arterial volume, but the extra fluid sits in the wide splanchnic bed and the peritoneum.'],
     },
@@ -59,8 +59,8 @@ export const HYPERDYNAMIC = {
       id: 'forward', cam: 'portal', terms: ['pv'], tool: VITALS, data: 'tiles', tiles: ['bv', 'pv'], key: ['pv'], delta: 'rest',
       whatIf: { label: 'Gut arteriole tone', param: 'splanchnicTone', min: 0.6, max: 1.6, step: 0.05, ends: ['Dilated', 'Constricted'] },
       kicker: 'Cirrhosis', site: 'sin', title: 'Wide gut arteries keep the portal pressure up',
-      line: 'Wide gut arteries pour more blood into the [portal vein](pv) and hold its pressure at {pv}. The slider tightens or widens them: tighter lowers the pressure, as beta-blockers do.',
-      notes: 'Portal pressure is portal inflow times the resistance it meets. The resistance rises first, in the scarred liver; once the gradient reaches about 10 mmHg, collaterals and splanchnic vasodilation follow, and the extra inflow pushes the pressure higher still (AASLD 2024, Figure 2). The slider changes the tone of the gut arterioles: dilated adds inflow, constricted takes it away.',
+      line: 'Wide gut arteries pour more blood into the [portal vein](pv) and hold its pressure at {pv}. Tighter arteries lower it, as beta-blockers do.',
+      notes: 'The slider tightens or widens them. Portal pressure is portal inflow times the resistance it meets. The resistance rises first, in the scarred liver; once the gradient reaches about 10 mmHg, collaterals and splanchnic vasodilation follow, and the extra inflow pushes the pressure higher still (AASLD 2024, Figure 2). The slider changes the tone of the gut arterioles: dilated adds inflow, constricted takes it away.',
       ask: ['Two parts make the portal pressure. Name them.', 'The resistance to portal flow (the liver and the collaterals) and the portal inflow from the gut arteries.'],
     },
     {
@@ -80,19 +80,28 @@ export const HYPERDYNAMIC = {
       ask: ['Why does the portal pressure fall during a bleed?', 'Less volume means less inflow into the portal system.'],
     },
     {
+      // (Eight units after the liter lost: the blood volume ends about 400 mL past where he started.)
+      id: 'over', action: [UNIT, UNIT, UNIT, UNIT, UNIT, UNIT, UNIT, UNIT],
+      cam: 'route', tool: VITALS, data: 'tiles', tiles: ['pv'], key: ['pv'], delta: 'full',
+      kicker: 'Losing blood', site: 'sin', title: 'Too much given back raises the portal pressure',
+      line: 'Given past where he started, eight units raise the portal pressure to {pv}, above the {pv@full} before the bleed. Transfusion stops at a hemoglobin of 7 to 8.',
+      notes: 'This is why transfusion in a variceal bleed is restrictive: transfuse <7 g/dL and aim for 7 to 8. In cirrhosis the wide splanchnic bed takes the extra volume, so the portal inflow and pressure climb past their level before the bleed, and in the trials a liberal target brought more rebleeding and more deaths. In patients, restoring volume after a bleed raises the portal pressure above its level before the bleed (Kravetz, in portal hypertensive animals). Plasma for the clotting tests adds volume of its own. The heart rate settles below where it began, a sign the circulation is overfilled. Patients with heart disease or ongoing massive bleeding may need more. (Baveno VIII 5.4.)',
+      ask: ['Why not transfuse a variceal bleed to a hemoglobin of 10?', 'Extra volume raises the portal pressure above its level before the bleed, and a liberal target brought more rebleeding and death.'],
+    },
+    {
       // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, the cardiac output and
       // the mean arterial pressure read against the HVPG. The ring is decompensated cirrhosis.)
       id: 'relation', preset: 'cirr-decomp', cam: 'fit',
       tool: { kind: 'curve', x: 'hvpg', xCuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.3, to: 1, step: 0.05, days: 365, lines: ['co', 'map'] },
       kicker: 'Summary', site: 'sin', title: 'The output climbs and the arterial pressure falls with the HVPG',
       line: 'As the HVPG climbs the heart pumps more, and the arterial pressure falls. At {hvpg}, decompensated cirrhosis pumps {co} at a mean arterial pressure of {map}.',
-      notes: 'Each point is the model\'s cirrhosis from mild to severe, settled for a year: the cardiac output and the mean arterial pressure, read against the HVPG. The output rises from about 5.0 to 7.0 L/min and the mean arterial pressure falls from about 92 to 80 mmHg; the heart rate rises with them, from about 63 to 94 a minute. The arteries dilate by more than the heart pumps harder, which is why the pressure falls while the output rises. AASLD 2024 describes this hyperdynamic state as systemic vasodilation with a higher cardiac output and sodium and water retention, once portal hypertension is clinically significant; the numbers on the chart are the model\'s, not the guideline\'s. The ring is decompensated cirrhosis. (AASLD 2024 Fig. 2.)',
+      notes: 'Each point is the model\'s cirrhosis from mild to severe, settled for a year: the cardiac output and the mean arterial pressure, read against the HVPG. The output rises from about 5.0 to 7.0 L/min and the mean arterial pressure falls from about 92 to 80 mmHg; the heart rate rises with them, from about 63 to 94 a minute. The arteries dilate by more than the heart pumps harder, which is why the pressure falls while the output rises. AASLD 2024 describes this hyperdynamic state as systemic vasodilation with a higher cardiac output and sodium and water retention, once portal hypertension is clinically significant; the numbers on the chart are the model\'s, not the guideline\'s. The ring is decompensated cirrhosis. (AASLD 2024 Fig. 2.) One model patient per point; real patients vary far more.',
       ask: ['The HVPG climbs in a patient with cirrhosis. Which way do the cardiac output and the mean arterial pressure move?', 'The output rises and the pressure falls: the arteries dilate by more than the heart pumps harder.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['co', 'hr', 'map', 'pv'], asc: false, vs: 'first', calm: ['co'], rowHead: 'Patient',
       of: [{ id: 'rest', kicker: 'Reference', title: 'Healthy' }, { preset: 'cirr-comp', kicker: 'Cirrhosis', title: 'Compensated' }, { preset: 'csph', kicker: 'Cirrhosis', title: 'CSPH' }, { id: 'dilate', kicker: 'Cirrhosis', title: 'Decompensated' },
-        { id: 'loss', kicker: 'Bleed', title: 'A liter lost' }],
+        { id: 'loss', kicker: 'Bleed', title: 'A liter lost' }, { id: 'over', kicker: 'Bleed', title: 'Eight units given back' }],
       kicker: 'Summary', title: 'The circulation from health to a bleed',
       line: 'As cirrhosis advances, the output and the heart rate climb while the arterial pressure falls. A liter lost then lowers the arterial and the portal pressure.',
       notes: 'The hyperdynamic circulation grows with the portal pressure: compensated cirrhosis shows little of it, decompensated cirrhosis all of it. It explains the low blood pressure of advanced cirrhosis, the salt and water retention behind ascites, and why a bleed lowers the portal pressure along with the blood pressure. Every drug that lowers the portal pressure also acts on this circulation.',

@@ -10,17 +10,13 @@
 
 import { chromium } from 'playwright';
 import { serve } from './serve.mjs';
+import { PROFILES } from './perf-profiles.mjs';
 
 const args = process.argv.slice(2);
 const dir = args.find((a) => !a.startsWith('--')) || '.';
 const budget = args.includes('--budget');
 // Budgets: median frame time (ms) and the longest main-thread stall once running (ms).
 const BUDGET = { desktop: { p50: 20, stall: 250 }, laptop: { p50: 40, stall: 500 }, phone: { p50: 60, stall: 900 } };
-const PROFILES = {
-  desktop: { cpu: 1, ctx: { viewport: { width: 1440, height: 900 } } },
-  laptop: { cpu: 4, ctx: { viewport: { width: 1366, height: 768 }, deviceScaleFactor: 2 } },
-  phone: { cpu: 6, ctx: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true } },
-};
 
 const server = await serve(dir);
 const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});

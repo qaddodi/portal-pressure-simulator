@@ -23,10 +23,22 @@ export function timeOfBalloon(b) {
   return T.inflate + ((lo + hi) / 2) * (T.wedge - T.inflate);
 }
 
-/** The catheter pressure at time tt: the free level with small cardiac and breathing waves; as the balloon fills it
- *  climbs to the wedged level in step with it, the waves damped by the still column. */
+// The venous pulse the free catheter tip sees, as a fraction of its height over one beat (850 ms, about 70/min): the a wave as the
+// right atrium contracts, the small c wave as the tricuspid valve closes, the x descent, the v wave as the atrium fills against
+// the closed valve, the y descent as it empties. The shape of a hepatic vein's (or central venous) tracing, with its mean taken out
+// so the number the monitor reads stays the level itself.
+const around = (ph, at) => ((ph - at + 1.5) % 1) - 0.5;
+const bump = (ph, at, wide, high) => high * Math.exp(-((around(ph, at) / wide) ** 2));
+const venousRaw = (ph) => bump(ph, 0.0, 0.07, 0.72) + bump(ph, 0.17, 0.045, 0.22) + bump(ph, 0.31, 0.08, -0.5) + bump(ph, 0.56, 0.1, 0.58) + bump(ph, 0.78, 0.07, -0.42);
+const VENOUS_MEAN = (() => { let s = 0; for (let i = 0; i < 400; i++) s += venousRaw(i / 400); return s / 400; })();
+export const venousAt = (ph) => venousRaw(((ph % 1) + 1) % 1) - VENOUS_MEAN;
+const BEAT_MS = 850, BREATH_MS = 3600;
+
+/** The catheter pressure at time tt: the free level with the venous pulse (a, c, v waves) and the swing of breathing (the hepatic
+ *  venous pressure falls with each breath in); as the balloon fills it climbs to the wedged level in step with it, the waves damped
+ *  by the still column, which carries only a softened, delayed trace of the sinusoids' pulse. */
 export function pressureAt(tt, v) {
-  const wave = Math.sin(tt / 850 * 2 * Math.PI) * 0.55 + Math.sin(tt / 850 * 4 * Math.PI + 1) * 0.25 + Math.sin(tt / 3600 * 2 * Math.PI) * 0.45;
+  const wave = venousAt(tt / BEAT_MS) + Math.sin(tt / BREATH_MS * 2 * Math.PI) * 0.45;
   const b = balloonAt(tt);
   return v.fhvp + (v.whvp - v.fhvp) * b + wave * (1 - 0.85 * b);
 }

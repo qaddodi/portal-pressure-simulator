@@ -8,16 +8,20 @@ const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), '
 const gl = src.slice(src.indexOf('function drawGL('), src.indexOf('const num = (cs, n, d)'));
 
 test('the surface pass waits, paused, for the model, the theme, the canvas size or the scale, and looks again every second', () => {
-  assert.match(gl, /const sKey = `\$\{drawVersion - viewBumps\}\|\$\{dark\}\|\$\{cw\}x\$\{ch\}\|\$\{\(k \* V\.k\)\.toFixed\(3\)\}`;/);
+  // (The key is kept as numbers, not built into a string each frame: the model's version, the theme, the canvas size and the scale to a thousandth.)
+  assert.match(gl, /const ver = drawVersion - viewBumps - \(dt > 0 \? frameBumps : 0\), kq = Math\.round\(k \* V\.k \* 1000\);/);
+  assert.match(gl, /const surfSame = ver === sVer && dark === sDark && cw === sCw && ch === sCh;/);
   // (Where the figure is — V.x, V.y — is not in the key: a translation changes none of the radii's tolerance.)
-  assert.doesNotMatch(gl.match(/const sKey = .*/)[0], /V\.x|V\.y/);
-  assert.match(gl, /const panOnly = dt === 0 && !rzMoving && !lensFrom && !!attrKey && !!radAll && bk === binKey && sKey === surfKey && cs === surfCs && now - lastSurface < 1000;/);
-  assert.match(gl, /if \(!panOnly && \(dt === 0 \|\| rzMoving \|\| lensFrom \|\| !attrKey \|\| !radAll \|\| bk !== binKey \|\| dk !== drawKey \|\| now - lastSurface >= 80\)\) \{\n\s+lastSurface = now; surfKey = sKey; surfCs = cs;/);
+  assert.doesNotMatch(gl.match(/const surfSame = .*/)[0] + gl.match(/const ver = .*/)[0], /V\.x|V\.y/);
+  assert.match(gl, /const panOnly = dt === 0 && !rzMoving && !lensFrom && !!attrKey && !!radAll && bk === binKey && surfSame && kq === sK && cs === surfCs && now - lastSurface < 1000;/);
+  assert.match(gl, /if \(!panOnly && \(dt === 0 \|\| rzMoving \|\| lensFrom \|\| !attrKey \|\| !radAll \|\| bk !== binKey \|\| camDue \|\| now - lastSurface >= 80\)\) \{\n\s+lastSurface = now; sVer = ver; sDark = dark; sCw = cw; sCh = ch; sK = kq; surfCs = cs;/);
 });
 
-test('running, nothing is throttled: panOnly needs a paused model, so a moving camera still takes the pass every frame', () => {
+test('running, a camera-only change rebuilds no attribute map (R12): the pass comes with the model, the styles or every 80 ms', () => {
   assert.match(gl, /const panOnly = dt === 0 &&/);
-  assert.match(gl, /\|\| dk !== drawKey \|\| now - lastSurface >= 80\)\)/);
+  assert.match(gl, /const camDue = cs !== surfCs \|\| !surfSame;/);
+  assert.match(gl, /\|\| camDue \|\| now - lastSurface >= 80\)\)/);
+  assert.doesNotMatch(src, /CAM_ATTR|camattr/);
 });
 
 test('only the camera\'s own bumps of the version are left out of the model\'s: a label-size change still counts', () => {
@@ -36,11 +40,20 @@ test('the surface pass is still counted for the ?perf readout', () => {
   assert.match(gl, /if \(gpuProbe\.on\) gpuProbe\.note\(COUNTED\.lobuleSurface\);/);
 });
 
-test('the ductule layer leaves out a ductule that lies wholly off the canvas, and keeps its clear box list to the ones drawn', () => {
-  const fx = src.slice(src.indexOf('function paintFx('), src.indexOf('function paintFx(') + 4500);
-  assert.match(fx, /if \(X \+ e < 0 \|\| Y \+ e < 0 \|\| X - e > fw \|\| Y - e > fh\) continue;/);
-  assert.match(fx, /if \(fxBoxes\) fxBoxes\.push\(\[Math\.floor\(X - e\), Math\.floor\(Y - e\), Math\.ceil\(X \+ e\), Math\.ceil\(Y \+ e\)\]\);/);
-  // (The bound is the ring's outer radius, its stroke and 3 px: the same box the clear list always used for what it drew.)
-  assert.match(fx, /e = \(r \+ c\.lineWidth\) \* V\.k \* dpr \+ 3/);
-  assert.match(src, /disc: \[x, y, rout\]/);
+test('the ductules are drawn by the GPU from one number list per lobule, made again only when their calibers change', () => {
+  // (1 Nov, the off-GPU gate: the 2D overlay that culled and cleared each ductule (paintFx) is gone; fx-gl.js draws them instanced.)
+  const f = src.slice(src.indexOf('function fxDuct() {'), src.indexOf('\n  }\n', src.indexOf('function fxDuct() {')));
+  assert.match(f, /if \(same\) return ductP;/);
+  assert.match(f, /num: \[x, y, rin, rout, rm, hw \* 0\.34, tr\.i, 0\]/);
+  assert.doesNotMatch(f, /Path2D/, 'no paths for a 2D canvas');
+  assert.match(src, /args\.ducts = m\.hide \? null : fxDuct\(\)\.nums;/);
+  assert.doesNotMatch(src, /function paintFx\(|fxBoxes/);
+});
+
+test('running, the model\'s own frame bumps (update, the pressures\' glide) do not wake the surface pass every frame', () => {
+  assert.match(src, /function update\(f\) \{\n\s+drawVersion\+\+; frameBumps\+\+;/);
+  assert.match(src, /const inks = model\.inks;\n\s+drawVersion\+\+; frameBumps\+\+;/);
+  assert.equal([...src.matchAll(/frameBumps\+\+/g)].length, 2);
+  // (the store's '*' listener already skips a frame alone: 'frame' is in UNSEEN)
+  assert.match(src, /const UNSEEN = new Set\(\['frame',/);
 });

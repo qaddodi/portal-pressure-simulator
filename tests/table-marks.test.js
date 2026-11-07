@@ -53,7 +53,7 @@ test('every summary-table arrow matches its row\'s model state', async () => {
           let want;
           if (rel) {
             const a = atShown(k, fpv(k, r.f)), b = atShown(k, fpv(k, r.vs ? fpOf(r.vs) : rows[0].f)), dd = a - b;
-            const step = { asc: 100, varix: .3, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2, he: .05 }[k] ?? (k === 'lsm' || k === 'spleen' || k === 'plt' ? 1 : .5);
+            const step = { asc: 100, varix: .3, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, hr: 2, he: .05, hb: 1, hbTo: 1 }[k] ?? (k === 'lsm' || k === 'spleen' || k === 'plt' ? 1 : .5);
             want = Math.abs(dd) < step ? 0 : Math.sign(dd) * (Math.abs(dd) / Math.max(Math.abs(b), 1e-6) >= 0.4 ? 2 : 1);
           } else {
             if (!SPEC[k]) continue;
@@ -85,7 +85,7 @@ test('tables that cannot be measured or have no organ say so', async () => {
 test('every tile rating is a word or two, short enough for one line in a phone tile', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../src/ui/table-marks.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8').match(/const rated = .*$/m)[0];
-  const words = [...src.matchAll(/\[(?:'\w+'|null), '([^']+)'\]/g)].map((m) => m[1]);
+  const words = [...src.matchAll(/(?:\[|tup\()(?:'\w+'|null), '([^']+)'[\])]/g)].map((m) => m[1]);   // (a rating is [class, word], made once as tup(class, word))
   assert.ok(words.length > 10);
   const long = words.filter((w) => w.length > 12 || w.split(' ').length > 2);
   assert.deepEqual(long, []);

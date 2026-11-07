@@ -1,6 +1,8 @@
 // Presenter swipe: a quick, mostly sideways one-finger move anywhere on the slide goes on (left) or back (right).
 // Pure helpers, so the rule is unit-tested without a browser.
 
+import { restPass, cancelRest } from './rest-pass.js';
+
 export const SWIPE_MIN = 50;      // px of sideways travel
 export const SWIPE_RATIO = 1.5;   // sideways must beat vertical by this much, so vertical scrolls and diagonals do not count
 export const SWIPE_MAX_MS = 800;  // slower than this is a drag, not a swipe
@@ -15,11 +17,13 @@ const OWN_DRAG = 'input, select, textarea, [role="slider"], .pz-jump';   // cont
 
 /** True when a touch that starts on `el` belongs to something else: a slider, the slide list, the card while it docks
  *  sideways, or any sideways-scrolling box (a wide table, the control bar) that actually overflows. */
-export function ownsSideways(el, { stop = null, cardSideways = false } = {}) {
+export function ownsSideways(el, { stop = null, cardSideways = false, scrollers = true } = {}) {
   for (let n = el; n && n !== stop && n.nodeType === 1; n = n.parentElement) {
     if (n.matches?.(OWN_DRAG)) return true;
     if (cardSideways && n.matches?.('.pz-data')) return true;
-    if (n.scrollWidth > n.clientWidth + 1) {
+    // (`scrollers: false`, the Tests card: nothing in it scrolls sideways (Mohammad, 6 Nov), so a sideways drag from a table, a row of chips or
+    // a pane that runs a little wide is always the swipe to the next test, never the browser's scroll.)
+    if (scrollers && n.scrollWidth > n.clientWidth + 1) {
       const ox = n.ownerDocument?.defaultView?.getComputedStyle(n).overflowX;
       if (ox === 'auto' || ox === 'scroll') return true;
     }
@@ -83,12 +87,17 @@ export function caseFlight(left, vx) {
 export const PAGE_FAR = 0.35;     // of the width
 export const PAGE_V = 0.4;        // px/ms over the whole drag
 export const PAGE_MIN = 40;       // px a flick must travel
+export const PAGE_BACK = 0.6;     // px/ms back the way it came, as the finger lifted, that springs it back
 
-/** True when a sideways page drag of `dx` px over `ms` ms across a box `w` px wide goes on to the next tab; false springs back. */
-export function pageGo(dx, ms, w) {
+/** True when a sideways page drag of `dx` px over `ms` ms across a box `w` px wide goes on to the next tab; false springs back.
+ *  v: the finger's speed as it lifted, px per ms, positive to the right (0 if not given): a quick flick at the end of a slow drag goes on
+ *  (the whole drag's average had let it fall short), and one flung back the way it came springs back, however far it was pulled. */
+export function pageGo(dx, ms, w, v = 0) {
   const a = Math.abs(dx);
   if (!Number.isFinite(a) || !(w > 0)) return false;
-  return a > w * PAGE_FAR || (a > PAGE_MIN && a / Math.max(1, ms) > PAGE_V);
+  const along = Number.isFinite(v) ? v * Math.sign(dx) : 0;
+  if (along < -PAGE_BACK) return false;
+  return a > w * PAGE_FAR || (a > PAGE_MIN && (a / Math.max(1, ms) > PAGE_V || along > PAGE_V));
 }
 
 // A trackpad (or a wheel) works the slide as a finger does (Mohammad, 22 Oct: "use the touch pad on the mac to move slides just like on ipad
@@ -103,44 +112,93 @@ export const WHEEL_QUIET = 250;   // ms without a wheel event ends a gesture (a 
 
 /** The fingers' own movement, positive to the right and down, from a wheel event's deltas. A trackpad on Mac reports the page's movement,
  *  the opposite of the fingers' when natural scrolling is on (webkitDirectionInvertedFromDevice; assumed on where a browser does not say). */
+// (Answered in one kept pair, read by its caller as it is returned: a wheel's events come dozens a second.)
+const FINGER = [0, 0];
 export function wheelFinger(dx, dy, mode = 0, inverted = true, page = 800) {
   const m = mode === 1 ? 16 : mode === 2 ? page : 1, sg = inverted === false ? 1 : -1;
-  return [sg * dx * m, sg * dy * m];
+  FINGER[0] = sg * dx * m; FINGER[1] = sg * dy * m;
+  return FINGER;
 }
 
 /** Takes one wheel event's finger movement (fx, fy) at time `now` (the event's own time stamp, so a busy frame does not stretch a gap);
  *  gives the gesture so far and what it did: act is null while undecided or spent, else { axis: 'x' | 'y', dir: +1 | -1 } with dir the
  *  fingers' direction (right / down positive). */
+// (What a gesture does, as four fixed answers: the act handed to a rest pass is never written over by the next wheel event. The result is one kept
+// { g, act }, read by its caller as it is returned; the gesture `g` is written in place event after event, and a new one is made only when a gesture begins.)
+const ACT = { xp: Object.freeze({ axis: 'x', dir: 1 }), xn: Object.freeze({ axis: 'x', dir: -1 }), yp: Object.freeze({ axis: 'y', dir: 1 }), yn: Object.freeze({ axis: 'y', dir: -1 }) };
+const actOf = (axis, dir) => (axis === 'x' ? (dir > 0 ? ACT.xp : ACT.xn) : dir > 0 ? ACT.yp : ACT.yn);
+const WHEEL_OUT = { g: null, act: null };
+const out = (g, act) => { WHEEL_OUT.g = g; WHEEL_OUT.act = act; return WHEEL_OUT; };
 export function wheelGesture(g, fx, fy, now) {
-  const fresh = () => ({ x: 0, y: 0, lock: '', spent: false, dir: 0, back: 0, t: now });
-  let s = g && now - g.t <= WHEEL_QUIET ? { ...g, t: Math.max(g.t, now) } : fresh();   // (a stamp a hair out of order is not a gap)
-  if (!Number.isFinite(fx) || !Number.isFinite(fy)) return { g: s, act: null };
+  let s;
+  if (g && now - g.t <= WHEEL_QUIET) { s = g; s.t = Math.max(g.t, now); }   // (a stamp a hair out of order is not a gap)
+  else s = { x: 0, y: 0, lock: '', spent: false, dir: 0, back: 0, t: now };   // alloc-rare: once per gesture, a run of wheel events, not per event
+  if (!Number.isFinite(fx) || !Number.isFinite(fy)) return out(s, null);
   if (s.spent) {
     // (The glide after an action never acts again, however it jitters: a momentum tail does not turn back, so only an unbroken run of
     // movement the other way, as far as a fresh gesture needs, is the fingers' own.)
     const along = s.lock === 'x' ? fx : fy;
     if (along !== 0) s.back = Math.sign(along) === -s.dir ? s.back + Math.abs(along) : 0;
-    if (s.back < (s.lock === 'x' ? WHEEL_X : WHEEL_Y)) return { g: s, act: null };
+    if (s.back < (s.lock === 'x' ? WHEEL_X : WHEEL_Y)) return out(s, null);
     s.dir = -s.dir; s.back = 0;
-    return { g: s, act: { axis: s.lock, dir: s.dir } };
+    return out(s, actOf(s.lock, s.dir));
   }
   s.x += fx; s.y += fy;
   const ax = Math.abs(s.x), ay = Math.abs(s.y);
   if (!s.lock) {
     if (ax + ay >= 10) s.lock = ax > 1.5 * ay ? 'x' : ay > 1.5 * ax ? 'y' : ax + ay >= 80 ? (ax >= ay ? 'x' : 'y') : '';
   }
-  if (s.lock === 'x' && ax >= WHEEL_X) { s.spent = true; s.dir = Math.sign(s.x); return { g: s, act: { axis: 'x', dir: s.dir } }; }
-  if (s.lock === 'y' && ay >= WHEEL_Y) { s.spent = true; s.dir = Math.sign(s.y); return { g: s, act: { axis: 'y', dir: s.dir } }; }
-  return { g: s, act: null };
+  if (s.lock === 'x' && ax >= WHEEL_X) { s.spent = true; s.dir = Math.sign(s.x); return out(s, actOf('x', s.dir)); }
+  if (s.lock === 'y' && ay >= WHEEL_Y) { s.spent = true; s.dir = Math.sign(s.y); return out(s, actOf('y', s.dir)); }
+  return out(s, null);
 }
 
-/** True when a wheel over `el` belongs to a box that scrolls that way itself: the slide list, a field, or an overflowing box. */
-export function ownsWheel(el, axis, { stop = null } = {}) {
+/** Which ways the boxes under `el` scroll themselves (up to `stop`): { x, y }, true for an axis a box there keeps its wheel on (the slide
+ *  list, a field, or a box overflowing that way). It reads the layout, so it runs as a rest pass, never in a wheel event (ownsWheel). */
+export function wheelScrollers(el, { stop = null } = {}) {
+  const r = { x: false, y: false };
   for (let n = el; n && n !== stop && n.nodeType === 1; n = n.parentElement) {
-    if (n.matches?.('.pz-jump, textarea, select')) return true;
+    if (n.matches?.('.pz-jump, textarea, select')) { r.x = r.y = true; return r; }
     const cs = n.ownerDocument?.defaultView?.getComputedStyle(n);
     if (!cs) continue;
-    if (axis === 'y' ? n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(cs.overflowY) : n.scrollWidth > n.clientWidth + 1 && /auto|scroll/.test(cs.overflowX)) return true;
+    if (!r.y && n.scrollHeight > n.clientHeight + 1 && /auto|scroll/.test(cs.overflowY)) r.y = true;
+    if (!r.x && n.scrollWidth > n.clientWidth + 1 && /auto|scroll/.test(cs.overflowX)) r.x = true;
+    if (r.x && r.y) return r;
   }
+  return r;
+}
+// What is under the pointer, read between frames: as the pointer comes over a box (pointerover), again as a glide goes on (at most every
+// WHEEL_FRESH ms) and when the wheel finds a box not yet read. The wheel's events, dozens a second, read only this.
+const WHEEL_FRESH = 250;
+let owned = null, ownAsk = 0, ownWatch = null;
+let ownEl = null, ownStop = null;
+const OWNED = { el: null, stop: null, at: 0, x: false, y: false };
+// (Read between frames, as a kept function: the wheel's events ask for it with no closure made. The answer is written into one kept object.)
+function ownRun() {
+  ownAsk = 0;
+  const w = wheelScrollers(ownEl, { stop: ownStop });
+  OWNED.el = ownEl; OWNED.stop = ownStop; OWNED.at = performance.now(); OWNED.x = w.x; OWNED.y = w.y;
+  owned = OWNED;
+}
+function readOwners(el, stop) {
+  ownEl = el; ownStop = stop;
+  if (ownAsk) return;
+  ownAsk = restPass(ownRun);
+}
+const onOwnerOver = (e) => { if (e.target?.nodeType === 1) { cancelRest(ownAsk); ownAsk = 0; readOwners(e.target, ownDefaultStop); } };
+let ownDefaultStop = null;
+const OWN_OPTS = { passive: true, capture: true };
+/** True when a wheel over `el` belongs to a box that scrolls that way itself (wheelScrollers, as last read between frames). A box not yet
+ *  read answers by what it is (the slide list or a field) until its read comes in, right after this event. */
+export function ownsWheel(el, axis, opts = null) {
+  const stop = opts ? opts.stop ?? null : null, doc = el?.ownerDocument;
+  if (doc?.addEventListener && ownWatch !== doc) { ownWatch?.removeEventListener('pointerover', onOwnerOver, OWN_OPTS); ownWatch = doc; doc.addEventListener('pointerover', onOwnerOver, OWN_OPTS); }
+  ownDefaultStop = stop;
+  if (owned?.el === el && owned.stop === stop) {
+    if (performance.now() - owned.at > WHEEL_FRESH) readOwners(el, stop);
+    return owned[axis === 'y' ? 'y' : 'x'];
+  }
+  readOwners(el, stop);
+  for (let n = el; n && n !== stop && n.nodeType === 1; n = n.parentElement) if (n.matches?.('.pz-jump, textarea, select')) return true;
   return false;
 }

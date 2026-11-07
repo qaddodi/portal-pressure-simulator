@@ -4,7 +4,7 @@
 //   pair (V29):     a second slim trace under the main one, the vessel the worker always samples beside it (the main portal
 //                   vein and the right hepatic vein, worker-core.js sample), drawn over the same seconds.
 
-import { scaleFor } from './dopplerWindow.js?v=1d34e63b32';
+import { scaleFor } from './dopplerWindow.js';
 
 /** The pulsatility index the reading names the pattern from (doppler.js interpret): the swing over the larger extreme. */
 export const pulsatility = (hi, lo) => { const big = Math.max(Math.abs(hi), Math.abs(lo)); return big > 0.5 ? (hi - lo) / big : 0; };
@@ -15,6 +15,8 @@ export const CAL_SECS = 3;
 /** The caliper marks in a record buf ([[t, v], …], sorted by t) between t0 and t1: the highest and the lowest velocity there,
  *  each on its own sample (the newest, where beats tie), so a mark sits on the trace exactly where the extreme is drawn.
  *  { hi: [t, v], lo: [t, v], pi }, or null with too little record or no flow. */
+// (The result is one kept object, with its two marks, rewritten by each call: the monitor reads it in the frame that asked.)
+const PICK = { hi: [0, 0], lo: [0, 0], pi: 0, t0: 0, t1: 0 };
 export function caliperPick(buf, t0, t1) {
   let hi = null, lo = null, n = 0;
   for (const p of buf) {
@@ -25,21 +27,25 @@ export function caliperPick(buf, t0, t1) {
     if (!lo || p[1] <= lo[1]) lo = p;
   }
   if (n < 8 || Math.max(Math.abs(hi[1]), Math.abs(lo[1])) < 1) return null;
-  return { hi: [hi[0], hi[1]], lo: [lo[0], lo[1]], pi: pulsatility(hi[1], lo[1]) };
+  PICK.hi[0] = hi[0]; PICK.hi[1] = hi[1]; PICK.lo[0] = lo[0]; PICK.lo[1] = lo[1]; PICK.pi = pulsatility(hi[1], lo[1]);
+  return PICK;
 }
 
 /** The seconds the calipers read at tNow: the last 3 s, as the reading does, cut to the part of a sweep (seconds across W px)
  *  where a whole mark (markPx wide, centred on its sample) fits on the trace, so a mark is never pinned to an edge. */
+const WINDOW = [0, 0];   // (kept, rewritten by each call)
 export function caliperWindow(tNow, sweep, W, markPx) {
   const half = (markPx / 2 + 1) * sweep / Math.max(1, W);
-  return [Math.max(tNow - CAL_SECS, tNow - sweep + half), tNow - half];
+  WINDOW[0] = Math.max(tNow - CAL_SECS, tNow - sweep + half); WINDOW[1] = tNow - half;
+  return WINDOW;
 }
 
 /** One frame's calipers: the marks, the index the strip shows beside them and the window they come from, all from one pick. */
 export function caliperFrame(buf, tNow, sweep, W, markPx) {
-  const [t0, t1] = caliperWindow(tNow, sweep, W, markPx);
+  const win = caliperWindow(tNow, sweep, W, markPx), t0 = win[0], t1 = win[1];
   const c = t1 > t0 ? caliperPick(buf, t0, t1) : null;
-  return c && { ...c, t0, t1 };
+  if (c) { c.t0 = t0; c.t1 = t1; }
+  return c;
 }
 
 /** How the calipers change without jumping (Mohammad, 19 Oct): no flat marks; a dashed line at the peak and one at the
@@ -64,7 +70,9 @@ export const pairBand = (hAll) => { const b = Math.min(72, Math.max(30, Math.rou
 
 /** The paired trace's scale (cm/s on its larger side) and baseline (a fraction of its band from the top) for its drawn
  *  extremes above (pos) and below (neg) the baseline, on the scanner's own steps, as the main trace chooses its own. */
+const PAIR = { scale: 0, base: 0 };   // (kept, rewritten by each call: the monitor copies it at once)
 export function pairScale(pos, neg) {
   const base = pos + neg < 1 ? 0.5 : neg < pos * 0.08 ? 0.88 : pos < neg * 0.08 ? 0.12 : Math.min(0.88, Math.max(0.12, 0.1 + 0.8 * (pos / (pos + neg))));
-  return { scale: scaleFor(Math.max(pos, neg)), base: Math.round(base * 10) / 10 };
+  PAIR.scale = scaleFor(Math.max(pos, neg)); PAIR.base = Math.round(base * 10) / 10;
+  return PAIR;
 }

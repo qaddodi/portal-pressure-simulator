@@ -5,19 +5,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fadeAt, FADE_MID } from '../src/ui/lobule-look.js';
+import { tissueFS } from '../src/ui/tissue-gl.js';
 
 const gl = readFileSync(new URL('../src/ui/tissue-gl.js', import.meta.url), 'utf8');
 const lz = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const fn = (head) => { const i = lz.indexOf(head); assert.ok(i >= 0, head); return lz.slice(i, lz.indexOf('\n  }\n', i)); };
 
-test('the shader lays the same picture as the 2D passes: surround, the bitmap over it premultiplied, then the fade into the page', () => {
+test('the shader lays the picture the 2D passes did: surround, the bitmap over it premultiplied, then the fade into the page', () => {
   assert.match(gl, /vec2 uv = \(p - uO\) \/ \(uRd \* vec2\(6\.0, 3\.4641016151377544\)\);/, 'one repeat per 6 rd by 2√3 rd, as fieldFill');
-  assert.match(gl, /vec3 c = mix\(texture\(uQA, uv\)\.rgb, texture\(uQB, uv\)\.rgb, uMix\);/);
-  assert.match(gl, /if \(uQOld > 0\.0\) c = mix\(c, texture\(uQO, uv\)\.rgb, uQOld\);/, 'the last state\'s tile over it as it fades out');
+  // (Each tile laid over the page by its own alpha, the same picture for an opaque tile.)
+  assert.match(tissueFS(false), /vec3 c = mix\(over\(texture\(uQA, uv\)\), over\(texture\(uQB, uv\)\), uMix\);/);
+  assert.match(tissueFS(false), /if \(uQOld > 0\.0\) c = mix\(c, over\(texture\(uQO, uv\)\), uQOld\);/, 'the last state\'s tile over it as it fades out');
+  assert.doesNotMatch(tissueFS(false), /texture\(uQ(A|B|O), uv\)\.rgb/, 'no tile read by its rgb alone');
   assert.match(gl, /vec4 l = textureGrad\(uW, w, gx, gy\) \* uWMix\.x;\n\s+if \(uWMix\.y > 0\.0\) l \+= textureGrad\(uWO, w, gx, gy\) \* uWMix\.y;\n\s+l \*= e;\n\s+c = l\.rgb \+ c \* \(1\.0 - l\.a\);/, '(1 − u)·old + u·new, laid over');
   assert.match(gl, /gl\.pixelStorei\(gl\.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !tile\);/);
   assert.match(gl, /gl\.TEXTURE_MIN_FILTER, gl\.LINEAR_MIPMAP_LINEAR\);\n\s+gl\.generateMipmap\(gl\.TEXTURE_2D\);/, 'mipmapped: a closer bitmap shown smaller stays sharp');
-  assert.match(gl, /failIfMajorPerformanceCaveat: true/, 'never in software: the 2D canvas then');
 });
 
 test("the shader's fade is fieldFade's gradient (fadeAt)", () => {
@@ -27,27 +29,28 @@ test("the shader's fade is fieldFade's gradient (fadeAt)", () => {
   for (const d of [0, 50, 110, 150, 200, 260, 320, 400, 900]) assert.ok(Math.abs(shader(d, 110, 320) - fadeAt(d, 110, 320)) < 1e-12, `d ${d}`);
 });
 
-test('the screen draws on the GPU; the dive, the rise and their copies keep the 2D canvas', () => {
-  assert.match(fn('function draw(dt) {'), /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, !keep2D && !scaled && g \? tissueGLOn\(\) : null\)\);/);
-  assert.match(lz, /if \(gpu && tissueOnGPU\(tg, tw, th, dpr, dark, cs, bg, now\)\) \{ if \(!held\) spareSoon\(\); return true; \}/);
-  assert.match(lz, /if \(rim && !wide\) \{ paint2D\(\); diveCopy\(\); \}/, 'the copy is made from a fresh 2D drawing');
-  assert.match(lz, /tissue\.style\.visibility = tissueG\.style\.visibility = show === tissue \? '' : 'hidden';/);
-  assert.match(lz, /for \(const e of \[tissue, tissueG, diveCv, glCv, fx, leaders, labels\]\) \{/, 'zoomed with the others through the dive');
-  assert.match(lz, /const WIDE_HIDE = \[tissue, tissueG, diveCv, glCv, fx\];/);
-  assert.match(fn('function showTissueGL(on) {'), /tissue\.style\.opacity = on \? '0' : ''; tissueG\.style\.opacity = on \? '' : '0';/);
-  assert.match(lz, /pointerEvents: 'none'/, 'the 2D canvas under it still takes the pointer');
+test('the screen, the dive and the rise all draw on the GPU (no 2D canvas or copy since 1 Nov)', () => {
+  assert.match(fn('function draw(dt) {'), /showTissueGL\(paintTissue\(W, H, dpr, dark, cs, !g, g \? tissueGLOn\(\) : null\)\)\);/);
+  assert.match(lz, /if \(gpu && tissueOnGPU\(tg, tw, th, dpr, dark, cs, bg, now\)\) \{ keyGPU = true; if \(!held\) spareSoon\(\); return true; \}/);
+  assert.match(lz, /const vis = wide \? 'hidden' : '';\n\s+if \(tissueG\.style\.visibility !== vis\) tissue\.style\.visibility = tissueG\.style\.visibility = vis;/);
+  assert.match(lz, /for \(const e of \[tissue, tissueG, glCv, fx, fxG\]\) \{/, 'zoomed with the others through the dive');
+  assert.match(lz, /setDive\(k, tx - k \* x, ty - k \* y\)/, 'the names and leaders: the same scale about the same point, drawn by the GPU (one composed view, R08)');
+  assert.match(lz, /const WIDE_HIDE = \[tissue, tissueG, glCv, fx, fxG\];/);
+  assert.match(fn('function showTissueGL(on) {'), /tissueOnGL = on;\n\s*if \(on\) free\(tissue\); else free\(tissueG\);/);
+  assert.match(lz, /pointerEvents: 'none'/, 'the canvas under it still takes the pointer');
+  assert.doesNotMatch(lz, /diveCv|paint2D/);
 });
 
 test('never softer than the zoom wants: the bitmap is held only while at least as sharp, the sharper one is painted ahead', () => {
   const pt = fn('function paintTissue(W, H, dpr, dark, cs, flatVessels, tg = null) {');
   assert.match(pt, /if \(gpu && kept && sc > worldSc && spare && spare\.G === G && spare\.ws === ws && ws === worldState && spare\.sc >= sc && spareCv\.width\) \{/);
-  assert.match(pt, /if \(held && kept && \(!gpu \|\| sc <= worldSc\)\) \{/);
+  assert.match(pt, /if \(held && kept && \(!gpu \|\| sc <= worldSc \|\| bitmapUnseen\(\)\)\) \{/, 'or while the shader has the whole picture and nothing of the bitmap is seen');
   assert.match(pt, /if \(!held && gpu && kept && ws === worldState && sc <= worldSc && worldSc <= sc \* 2\.01\) sc = worldSc;/, 'no repaint once a gesture ends');
   const sm = fn('function spareMake() {');
-  assert.match(sm, /if \(handOn\(\) \|\| gliding\) \{ spareSoon\(\); return; \}/, 'painted between gestures, never in one');
-  assert.match(sm, /\* 2, cap\);/);
+  assert.match(sm, /if \(handOn\(\) \|\| gliding \|\| inMotion\(\)\) \{ spareSoon\(\); return; \}/, 'painted between gestures, never in one');
+  assert.match(sm, /\* 2, cap, seenCap\(G\)\);/);   // (and never sharper than the bitmap is seen: tests/lobule-seen-cap.test.js)
   assert.match(sm, /g\.upload\(spareCv, spareCv\.ver\);/);
-  assert.match(sm, /g\.upload\(quietTile\(t, tone\)\.cv, 0, true\);/, 'and the surround\'s tiles for that zoom');
+  assert.match(sm, /g\.upload\(quietCopy\(t, tone\)\.cv, 0, true\);/, 'and the surround\'s tiles for that zoom');
 });
 
 test('nothing is ever sampled as black: the empty texture is complete, uploads use a spare unit, a tile given back skips the GPU frame', () => {

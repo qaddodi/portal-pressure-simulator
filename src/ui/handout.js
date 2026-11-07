@@ -5,11 +5,13 @@
 // and white. Opened as its own page to print or keep on a phone. Works for any deck the Presenter lists
 // (decks.js, new ones included: a slide without a figure prints without one) and for the instructor's scripts.
 
-import { download } from './download.js?v=3564e5bf8c';
-import { LEVELS, withOverview } from './decks.js?v=faa951f1ce';
-import { TILE, cutText } from './table-marks.js?v=8458ad3bf8';
-import { plateletText } from './glue.js?v=5a0f63226b';
-import { citeText } from './teach-extras.js?v=5f5248f5a7';
+import { download } from './download.js';
+import { LEVELS, withOverview } from './decks.js';
+import { TILE, cutText } from './table-marks.js';
+import { plateletText } from './glue.js';
+import { citeText } from './teach-extras.js';
+import { cleanEq } from './import-safety.js';
+import { plainLine } from './reveal.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -58,6 +60,7 @@ h2 { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.25; }
 .ask .a b { color: var(--ink); }
 .q { margin: 0 0 6px; }
 .q p { margin: 0; }
+@media screen and (pointer: coarse) { .cap { font-size: 12px; } button { min-height: 44px; } }
 @media (max-width: 680px) {
   body { padding-top: 20px; }
   article { flex-direction: column; gap: 12px; }
@@ -101,7 +104,7 @@ export function lineText(t, fp = null, at = () => null) {
 }
 
 function slideBlock(d, base, s, i, fp, at) {
-  const [ml, legend] = s.eq || [];
+  const [ml, legend] = cleanEq(s.eq) || [];
   const [q, a] = Array.isArray(s.ask) ? s.ask : s.ask ? [s.ask] : [];
   return `<article class="${s.visual ? 'wide' : ''}">
   ${fig(base, d, s)}
@@ -109,7 +112,7 @@ function slideBlock(d, base, s, i, fp, at) {
     <p class="cap"><span class="n">${i + 1}</span>${s.kicker ? ` · ${esc(s.kicker)}` : ''}</p>
     ${typeof s.question === 'string' && s.question.trim() ? `<div class="q"><p class="cap">Question</p><p>${esc(s.question)}</p></div>` : ''}
     <h2>${esc(s.title || 'Slide')}</h2>
-    ${s.line ? `<p class="line">${esc(lineText(s.line, fp, at))}</p>` : ''}
+    ${s.line ? `<p class="line">${esc(lineText(s.reveal ? plainLine(s.line) : s.line, fp, at))}</p>` : ''}
     ${ml ? `<div class="eq"><math display="block">${ml}</math>${legend ? `<small>${esc(legend)}</small>` : ''}</div>` : ''}
     ${citeText(s.cite) ? `<p class="cite">${esc(citeText(s.cite))}</p>` : ''}
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}

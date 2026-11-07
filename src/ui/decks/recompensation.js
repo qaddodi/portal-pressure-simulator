@@ -1,7 +1,6 @@
 // Presenter talk: one patient over two years, from CSPH to the first ascites and back to recompensation once the
 // cause is removed (the slide fields are described at the top of decks.js).
 
-const OFF = { carvedilol: false };
 const BELLY = { kind: 'abdomen' };
 
 export const RECOMPENSATION = {
@@ -27,6 +26,15 @@ export const RECOMPENSATION = {
       line: 'The HVPG is {hvpg}, which is {>=10 mmHg}: CSPH, with no ascites or bleeding. Baveno VIII would start carvedilol now; this case holds it back to show what follows.',
       notes: 'Source: Baveno VIII 3.15. Clinically significant portal hypertension marks the patients at risk of decompensation. Baveno VIII advises treating the cause and starting a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. The patient keeps drinking and takes no treatment, so the disease runs its course.',
       ask: ['What does Baveno VIII advise for compensated cirrhosis with CSPH?', 'Treat the cause, and start a non-selective beta-blocker, preferably carvedilol, to prevent decompensation.'],
+    },
+    {
+      // (The stages of Baveno VIII Fig. 2 lit for him: compensated, with CSPH. The ladder is the map of this talk; the next slides walk the steps.)
+      id: 'path-ladder', cam: 'liver',
+      tool: { kind: 'path', of: 'ladder', short: 'Stages', patient: { s: 1, rc: false } },
+      kicker: 'Compensated', site: 'sin', title: 'He is on the second of four steps',
+      line: 'An HVPG of {hvpg} is {>=10 mmHg}: compensated, with CSPH. Ascites would take him to the third step, and recompensation is the way back.',
+      notes: 'Source: Baveno VIII Fig. 2, 3.1 to 3.3, 4.1, 7.4. Compensated cirrhosis means no decompensation now or before, and it has two stages, without and with CSPH (3.2). An HVPG of 10 mmHg or more is enough for the second; so are a stiffness of 25 kPa or more, varices or portosystemic collaterals. The first decompensation is clinically evident ascites, variceal bleeding or overt hepatic encephalopathy (3.3); further decompensation, the fourth step, is a second event, a rebleed, recurrent ascites needing more than 3 large-volume taps in a year, SBP or HRS-AKI (4.1). Recompensation runs back from the decompensated steps and needs all of Fig. 2 for more than 6 months (7.4). This man is on the second step now. The next slides take him down to the third and back.',
+      ask: ['What separates the two stages of compensated cirrhosis?', 'Whether clinically significant portal hypertension (CSPH) is present: an HVPG ≥10 mmHg, or a stiffness ≥25 kPa, varices or collaterals (Baveno VIII 3.2).'],
     },
     {
       id: 'ascites', tick: 'First ascites', days: 365, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: BELLY, milestone: 'Ascites', data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'csph',
@@ -59,6 +67,26 @@ export const RECOMPENSATION = {
       ask: ['After recompensation, does liver cancer surveillance stop?', 'No: the cirrhosis remains, so surveillance continues.'],
     },
     {
+      // (The recompensation checklist of Fig. 2 lit for him at the end of the off-diuretics slide: the cause is gone and the albumin is up, but 60 days off
+      // diuretics is not the more than 6 months the criteria ask. Child–Pugh A is the case's own, not the model's.)
+      id: 'path-recomp', cam: 'fit',
+      tool: { kind: 'path', of: 'recomp', short: 'Recompensation', patient: { ca: 0, ev: 1, lf: 0 } },
+      kicker: 'Recompensation', site: 'sin', title: 'Two of three criteria are met: he is recompensating',
+      line: 'Alcohol is stopped and the albumin is back to {salb}. He has been off diuretics for 60 days, not 6 months: hold it that long and the card reads Recompensated.',
+      notes: 'Source: Baveno VIII 7.4, Fig. 2. Recompensation needs all three together. First, the cause is removed, controlled or suppressed. Second, no ascites on imaging off diuretics, no overt encephalopathy off lactulose or rifaximin and, after a variceal bleed, no further bleed (carvedilol may continue), for more than 6 consecutive months. Third, liver function back to Child–Pugh A (5 or 6 points). The first and third are met here: a year without alcohol, an albumin of 3.8 g/dL. The second is not yet, because the ascites has stayed away for 60 days only. The model gives the albumin; the Child–Pugh score is the case\'s. The term applies to a patient who has decompensated (7.1), as he has, and it is not cirrhosis regression (7.2).',
+      ask: ['Which criterion is still open for him?', 'The time: no ascites, encephalopathy or rebleed off treatment must last >6 consecutive months, and he is at 60 days.'],
+    },
+    {
+      // (The next question once recompensated: the beta-blocker. His HVPG is the model's, 11.4 mmHg; he has never taken carvedilol, so any HVPG of his is off it.
+      // The stiffness and spleen stiffness are the model's, over the case's HVPG. tool-path.js.)
+      id: 'path-stopcarv', cam: 'fit',
+      tool: { kind: 'path', of: 'stopcarv', short: 'Stopping carvedilol', patient: { hv: 'high' } },
+      kicker: 'Recompensation', site: 'sin', title: 'Recompensated, but CSPH has not resolved',
+      line: 'Stopping carvedilol takes proof that CSPH has gone. His HVPG is {hvpg}, which is {>=10 mmHg}, and his stiffness is {lsm}: CSPH persists, so the drug stays.',
+      notes: 'Source: Baveno VIII 7.15 to 7.19. CSPH may resolve over time in a recompensated patient (7.15), but carvedilol may be stopped only if the resolution is confirmed (7.18, weak). It is confirmed by an HVPG under 10 mmHg measured off carvedilol (7.16). Without a catheter, a stiffness under 10 kPa, or under 15 kPa with a spleen stiffness under 25 kPa, may rule CSPH out, and over 25 kPa may rule it in (7.19). Varices and collaterals may stay after CSPH resolves, so they prove nothing either way (7.17). He has never taken carvedilol, so his HVPG of 11.4 mmHg is already an off-drug reading, and it shows that CSPH persists. His stiffness of 23.5 kPa and spleen stiffness of about 49 kPa do not rule it out. Carvedilol is the drug for him to start, and to keep. The chart that follows shows why the pressure stays up.',
+      ask: ['An HVPG measured off carvedilol is 7 mmHg. May the drug stop?', 'Yes: an HVPG <10 mmHg off carvedilol confirms that CSPH has resolved (7.16, 7.18). Varices that remain do not argue against it.'],
+    },
+    {
       id: 'course', cam: 'fit', tool: { kind: 'trace', range: 'talk', title: 'Two years on one chart', style: 'milestones', bands: ['diuretics'] },
       kicker: 'Recompensation', site: 'sin', title: 'Two years on one chart',
       line: 'The HVPG rose with the injury and fell once the cause was gone.',
@@ -71,17 +99,17 @@ export const RECOMPENSATION = {
       id: 'relation', cam: 'liver',
       tool: { kind: 'curve', x: 'lsm', xCuts: [15, 25], cuts: [10], patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0.4, to: 1, step: 0.05, days: 365, lines: ['hvpg', 'plt'], walk: true,
         dots: [{ slide: 'csph', name: 'Compensated', on: [0] }, { slide: 'ascites', name: 'First ascites', on: [0] }, { slide: 'cure', name: 'Cause removed', on: [0] }] },
-      kicker: 'Summary', site: 'sin', title: 'He recompensates, but his HVPG stays ≥10',
+      kicker: 'Summary', site: 'sin', title: 'He is recompensating, but his HVPG stays ≥10',
       line: 'Ascites took him up the line and a year without alcohol brought him back: {lsm}, platelets of {plt}, HVPG {hvpg}. That is where he began, still {>=10 mmHg}.',
-      notes: 'Stiffness across, the HVPG and the platelets up: the model\'s cirrhosis from mild to severe, each point settled for a year. The dots are his visits. The ascites took him up the line, to an HVPG of 17.0 mmHg, a stiffness of 29.0 kPa and platelets of 56,000/µL; a year without alcohol took him back down the same line, to 11.2 mmHg, almost where he began at 11.6. Recompensation moves the patient back along the line, not off it, and it does not mean CSPH is gone. Baveno VIII defines recompensation by the clinical criteria (7.4), and says CSPH may resolve over time (7.15), confirmed by an HVPG under 10 mmHg measured off carvedilol (7.16); carvedilol stops only once that is confirmed (7.18). In the model he is at 11.4 mmHg off diuretics, so the beta-blocker would continue. Varices may persist after CSPH has resolved, so they are no sign that it has not (7.17). (Baveno VIII 7.4, 7.15 to 7.18, Fig. 2.)',
-      ask: ['He has recompensated, with an HVPG still ≥10 mmHg. What about the beta-blocker?', 'It continues. Baveno VIII 7.18 stops carvedilol only when CSPH resolution is confirmed: an HVPG <10 mmHg measured off the drug.'],
+      notes: 'Stiffness across, the HVPG and the platelets up: the model\'s cirrhosis from mild to severe, each point settled for a year. The dots are his visits. The ascites took him up the line, to an HVPG of 17.0 mmHg, a stiffness of 29.0 kPa and platelets of 56,000/µL; a year without alcohol took him back down the same line, to 11.2 mmHg, almost where he began at 11.6. Recompensation moves the patient back along the line, not off it, and it does not mean CSPH is gone. Baveno VIII defines recompensation by the clinical criteria (7.4), and says CSPH may resolve over time (7.15), confirmed by an HVPG under 10 mmHg measured off carvedilol (7.16); carvedilol stops only once that is confirmed (7.18). In the model he is at 11.4 mmHg off diuretics, so the beta-blocker would continue. Varices may persist after CSPH has resolved, so they are no sign that it has not (7.17). (Baveno VIII 7.4, 7.15 to 7.18, Fig. 2.) One model patient per point; real patients vary far more.',
+      ask: ['He has recompensated, with an HVPG still ≥10 mmHg. What about the beta-blocker?', 'He never started one, so he starts it now: CSPH is still there. Baveno VIII 7.18 stops carvedilol only when CSPH resolution is confirmed: an HVPG <10 mmHg measured off the drug.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['hvpg', 'varix', 'asc', 'plt'], asc: false, rowHead: 'Step', vs: 'first',
       of: [{ id: 'csph', kicker: 'Compensated', title: 'CSPH' }, { id: 'ascites', kicker: 'Decompensated', title: 'First ascites' }, { id: 'diuretics', kicker: 'Decompensated', title: 'Diuretics' },
         { id: 'cure', kicker: 'Recompensation', title: 'Cause removed' }, { id: 'recomp', kicker: 'Recompensation', title: 'Off diuretics' }],
       kicker: 'Summary', title: 'Two years, from decompensation to recompensation',
-      line: 'Removing the cause lowered the portal pressure more than any drug. A beta-blocker continues while CSPH persists, and so does liver cancer surveillance.',
+      line: 'Removing the cause lowered the portal pressure more than any drug. CSPH persists, so he starts a beta-blocker now, and liver cancer surveillance continues.',
       notes: 'The first decompensation is a turning point, but not always a one-way one. Treat the ascites and the portal pressure, and above all the cause: a patient who stops drinking or is cured of a virus can recompensate. Keep the beta-blocker while CSPH lasts, and keep watching for liver cancer.',
       ask: ['Name the three conditions Baveno VIII sets for recompensation.', 'The cause removed, suppressed or cured; no ascites or encephalopathy off treatment and no further variceal bleed for >6 months; and liver function back to Child–Pugh A.'],
     },

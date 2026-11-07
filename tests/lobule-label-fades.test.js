@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs';
 
 const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
+import { LOOKS } from '../src/ui/chart-looks/index.js';
+import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
 
 test('lobule labels, zone names and leaders never cut out', () => {
   assert.doesNotMatch(js, /(L\.line|L\.dotEl)\.style\.display\s*=/, 'a leader or dot is faded (.ld-gone), not display none');
@@ -13,25 +15,30 @@ test('lobule labels, zone names and leaders never cut out', () => {
   assert.doesNotMatch(js, /zoneEls\.pop\(\)\.remove\(\)/, 'zone names fade out before they are removed');
   assert.doesNotMatch(js, /z\.hidden = !at/, 'a zone name with no spot fades out');
   assert.match(js, /function fadeOut\(el, done\)/);
-  assert.match(css, /@property --off-o \{[^}]*inherits: true; initial-value: 1;/);
-  assert.match(css, /\.lz-lab, \.lz-zone \{[^}]*--off-o \.3s[^}]*animation: lz-in \.3s/, 'labels fade in and out');
-  assert.match(css, /@keyframes lz-in \{ from \{ --off-o: 0; \} \}/);
-  assert.match(css, /\.lz-labels \.lz-off \{ --off-o: 0; pointer-events: none; \}/);
-  assert.match(css, /\.lz-leaders \.ld-gone \{ opacity: 0; transition: opacity \.3s/);
-  // Every opacity a label's parts take carries the fade, its lit pill included, so pill and letters fade together.
-  assert.match(css, /\.lz-labels > \* > \* \{ opacity: calc\([^}]*var\(--off-o, 1\)\); \}/);
-  for (const m of css.matchAll(/\.lz-zone span \{[^}]*opacity: calc\(([^}]*)\); \}/g)) assert.match(m[1], /--off-o/, 'zone name fade');
-  assert.match(css, /:is\(\.lz-lab, \.lz-zone, \.sv-region\)::before \{[^}]*opacity: calc\([^;]*var\(--off-o, 1\)\);/, 'lit pill fade');
+  assert.match(css, /\.lz-lab, \.lz-zone \{ transition: opacity var\(--d-surface\) var\(--ease\); animation: lz-in var\(--d-small\)/, 'labels fade in and out');
+  assert.match(css, /@keyframes lz-in \{ from \{ opacity: 0; \} \}/);
+  assert.match(css, /\.lz-labels \.lz-off \{ opacity: 0; pointer-events: none; \}/);
+  assert.match(css, /\.lz-labels :is\(\.lz-lab, \.lz-zone\)\.lz-off\.lz-off \{ transition-duration: var\(--d-small\)/, 'going, on the quicker clock');
+  for (const k of ['small.lead.line', 'small.lead.dot']) {   // (a leader and dot leave with their label: the looks table, chart-looks/small.js)
+    const p = resolveProps(LOOKS[k], withCtx(makeCtx({ host: 'lobule' }), { theme: 'light', dark: false, palette: 'navy', view: 'anatomic' }), { gone: true }, {});
+    assert.equal(p.opacity, 0, k); assert.ok(p.ease.opacity.ms > 0, `${k} fades, it does not cut`);
+  }
+  // The fades are layers' opacities (the compositor's, no repaint), so pill and letters fade together as their label does: no
+  // registered variable is eased for them any more.
+  assert.doesNotMatch(css, /--(lab|lit|off|pill)-o|--sv-in/, 'no label fade runs through a variable');
+  assert.match(css, /:is\(\.lz-lab, \.lz-zone, \.sv-region\)::before \{[^}]*opacity: 0; transition: opacity var\(--d-surface\) var\(--ease\);/, 'lit pill fade');
 });
 
 test('a label\'s colour change does not rebuild it', () => {
-  assert.match(js, /frame = `\$\{name\}\|\$\{short\}\|\$\{uk\}\|\$\{v === ''\}\|\$\{!!d\}`/);
+  // (The label's make-up, part by part: name, short name, unit with numerals as zeros, whether it has a number, whether it has a change.)
+  assert.match(js, /const hasX = !!x, same = L\.fN === name && L\.fS === short && L\.fU === uk && L\.fE === empty && L\.fD === hasD && !!L\.fX === hasX;/);
+  assert.match(js, /L\.lk = `\$\{name\}\|\$\{short\}\|\$\{uk\}\|\$\{empty\}\|\$\{hasD\}\|\$\{hasX\}`;/);
 });
 
 test('the lobule\'s frame keeps its size, theme query and styles', () => {
   const draw = js.slice(js.indexOf('  function draw(dt) {'), js.indexOf('\n  }\n', js.indexOf('  function draw(dt) {')));
   assert.ok(draw.length > 100);
   assert.doesNotMatch(draw, /getBoundingClientRect|matchMedia|getComputedStyle/);
-  assert.match(js, /new ResizeObserver\(\(\) => \{\s*const was = hostWH; hostWH = null;/, 'the size is read again when the host resizes');
+  assert.match(js, /new ResizeObserver\(\(\) => \{\s*const was = snap\.hostWH;\s*if \(readAll\(\) && fade > 0\) relayout\(\);/, 'the size is read again when the host resizes');
   assert.match(js, /if \(said !== tissueSaid\)/, 'the tissue label is written only when its words change');
 });

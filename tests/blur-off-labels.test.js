@@ -11,7 +11,7 @@ test('with the blur off, a lit lobule or sinusoid name keeps its pill: the tint 
   const rule = noglass.find((l) => /\.lz-lab, \.lz-zone, \.sv-region\)::before/.test(l));
   assert.ok(rule, 'a rule for the lobule and sinusoid names\' pill');
   assert.match(rule, /background: color-mix\(in srgb, var\(--term-c, var\(--accent\)\) 18%, var\(--surface\)\) !important;/);
-  // (Only the fill: the ring, the box and the --pill-o ease are the pill's own, as with the blur.)
+  // (Only the fill: the ring, the box and the pill's opacity ease are the pill's own, as with the blur.)
   assert.doesNotMatch(rule, /inset:|border-radius|box-shadow|opacity|transition/);
 });
 

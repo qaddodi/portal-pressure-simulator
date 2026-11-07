@@ -23,7 +23,7 @@ test('the upright tablet rules show the note headings, the note columns and the 
   assert.match(block, /\.pz \.pz-table\.notecols tbody th \.pz-kick \{ display: block; width: auto; background: none; font-size: var\(--s-cap\)/);
   // (comes after the compact rules it overrides: the phone's hidden headings and full-width note line)
   assert.ok(at > css.indexOf('.pz-table thead th:not(.num):not(:first-child):not(.ah) { display: none; }'));
-  assert.ok(at > css.indexOf('.pz-table td.note { padding-left: 31px;'));
+  assert.ok(at > css.indexOf('.pz-table td.note { padding-left: 14px;'));
 });
 
 test('the Doppler findings table is one of them', () => {

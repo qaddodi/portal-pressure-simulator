@@ -1,3 +1,4 @@
+import { dropFrontNums } from './drop-front.js';
 // A schematic EKG for the beat-by-beat pressure trace and the vitals monitor: a P wave, a QRS and a T wave drawn from the model's own
 // cardiac phase, so each QRS lands on the beat that moves the pressures. It is a rhythm timed to the model, not a modelled ECG.
 //
@@ -26,25 +27,31 @@ export const EKG_PHASES = (() => {
 
 /** The moments the cardiac phase wrapped, from a stream of (time, phase) samples. */
 export function createBeatClock() {
-  let prevT = NaN, prevPh = NaN;
+  // (The last sample in a typed array: a number kept in a closure's variable is a heap object made anew at each assignment, a sample at a time.)
+  const prev = new Float64Array([NaN, NaN]);
+  // (The sample being put, for a caller that sets it here and calls `step()`: two numbers passed to a call that is not inlined are two heap
+  // numbers made, for every sample of every frame.)
+  const cur = new Float64Array(2);
   const times = [];
+  function step() {
+    const t = cur[0], ph = cur[1];
+    if (!Number.isFinite(t) || !Number.isFinite(ph)) return;
+    if (Number.isFinite(prev[1]) && ph < prev[1] - 0.5) {
+      const prevT = prev[0], prevPh = prev[1], run = 1 - prevPh + ph;   // (the phase covered between the two samples)
+      const at = prevT + (run > 1e-9 ? (1 - prevPh) / run : 0) * (t - prevT);
+      if (!times.length || at > times[times.length - 1]) times.push(at);   // (the beats stay in order, whatever was laid before)
+    }
+    prev[0] = t; prev[1] = ph;
+  }
   return {
-    times,
+    times, cur, step,
     /** One sample. A drop of more than half a cycle is a wrap (a faster heart still moves less than that between samples). */
-    push(t, ph) {
-      if (!Number.isFinite(t) || !Number.isFinite(ph)) return;
-      if (Number.isFinite(prevPh) && ph < prevPh - 0.5) {
-        const run = 1 - prevPh + ph;   // (the phase covered between the two samples)
-        const at = prevT + (run > 1e-9 ? (1 - prevPh) / run : 0) * (t - prevT);
-        if (!times.length || at > times[times.length - 1]) times.push(at);   // (the beats stay in order, whatever was laid before)
-      }
-      prevT = t; prevPh = ph;
-    },
+    push(t, ph) { cur[0] = t; cur[1] = ph; step(); },
     /** The stream was broken (the strip ran on its own for a while): the next sample starts a new run, so no beat is read across the gap. */
-    restart() { prevT = prevPh = NaN; },
+    restart() { prev[0] = prev[1] = NaN; },
     /** Forget the beats before t (the buffer's tail), keeping the one that straddles it. */
-    trim(t) { let k = 0; while (k + 1 < times.length && times[k + 1] < t) k++; if (k) times.splice(0, k); },
-    reset() { times.length = 0; prevT = prevPh = NaN; },
+    dropBefore(t) { let k = 0; while (k + 1 < times.length && times[k + 1] < t) k++; if (k) dropFrontNums(times, k); },
+    reset() { times.length = 0; prev[0] = prev[1] = NaN; },
   };
 }
 
@@ -57,27 +64,40 @@ export function ekgRate(times, last = 4) {
   return period > 1e-9 ? 60 / period : null;
 }
 
+// The beats' start times with the borrowed first one in front (written into a kept array: the strips ask every frame).
+function fillStarts(buf, times, period) {
+  const n = times.length, lead = n > 1 ? times[1] - times[0] : period;
+  let o = 0;
+  if (Number.isFinite(lead) && lead > 1e-6) buf[o++] = times[0] - lead;
+  for (let i = 0; i < n; i++) buf[o++] = times[i];
+  buf.length = o;
+  return buf;
+}
+const STARTS = [], LENS = [], PEAKS = [];
+// (The strips' points, kept: ekgSeries and leadIISeries each hand back one object that they write in place and the next call writes
+// again. Every caller draws from it at once and keeps neither it nor its arrays.)
+const EKG_OUT = { x: [], v: [] }, LEAD_OUT = { x: [], v: [] };
+
 /** The strip between two times as points { x, v } (v: the fraction of the R wave): every beat of `times` laid over its own period, the
  *  last one over `period` (60 over the heart rate) and only up to `x1`. A beat that began before the first wrap is borrowed from the
- *  first beat's length so the strip starts at the window's left edge. */
+ *  first beat's length so the strip starts at the window's left edge. The result is one kept object, valid until the next call. */
 export function ekgSeries(times, x0, x1, period) {
-  const x = [], v = [];
-  if (!times.length || !(x1 > x0)) return { x, v };
-  const starts = times.slice();
-  const lead = starts.length > 1 ? starts[1] - starts[0] : period;
-  if (Number.isFinite(lead) && lead > 1e-6) starts.unshift(starts[0] - lead);
+  const o = EKG_OUT, x = o.x, v = o.v;
+  x.length = 0; v.length = 0;
+  if (!times.length || !(x1 > x0)) return o;
+  const starts = fillStarts(STARTS, times, period);
   for (let k = 0; k < starts.length; k++) {
     const t0 = starts[k], len = k + 1 < starts.length ? starts[k + 1] - t0 : period;
     if (!(len > 1e-6) || t0 + len < x0 - 1e-9) continue;
     if (t0 > x1) break;
-    for (const ph of EKG_PHASES) {
-      const at = t0 + ph * len;
+    for (let j = 0; j < EKG_PHASES.length; j++) {
+      const ph = EKG_PHASES[j], at = t0 + ph * len;
       if (at < x0 - len * 0.02) continue;
       if (at > x1) break;
       x.push(at); v.push(ekgAt(ph));
     }
   }
-  return { x, v };
+  return o;
 }
 
 // ── A beat on the strip's own clock ──
@@ -119,4 +139,40 @@ export function seedBeats(times, period, edge) {
   for (let t = times[0] - period; back.length < 400; t -= period) { back.push(t); if (t <= edge) break; }
   times.unshift(...back.reverse());
   return back.length;
+}
+
+// ── Lead II for the beat-by-beat slide card ──
+// The waves in seconds about each R peak, so the QRS stays narrow (about 80 ms) whatever the rate and the T wave closes in as the heart
+// speeds up (QT about 0.4 √RR). A beat's R peak sits where ekgAt puts it (phase 0.02), so each QRS still lands on the model's own beat.
+const gauss = (t, at, wide, high) => high * Math.exp(-(((t - at) / wide) ** 2));
+/** The waveform `dt` seconds from an R peak, in a beat `rr` seconds long, as a fraction of the R wave. */
+export const leadIIAt = (dt, rr) => {
+  const tPeak = 0.4 * Math.sqrt(Math.max(0.3, rr)) - 0.11;
+  return gauss(dt, -0.15, 0.03, 0.12)     // P
+    + gauss(dt, -0.022, 0.008, -0.07)      // Q
+    + gauss(dt, 0, 0.011, 1)               // R
+    + gauss(dt, 0.024, 0.009, -0.17)       // S
+    + gauss(dt, tPeak, 0.055, 0.28);       // T
+};
+
+/** The strip between two times as points { x, v }, every 4 ms, from the beats' start times as ekgSeries takes them. Each point sums the
+ *  waves of the beats around it, so a fast heart's T runs into the next P as it does on a monitor. Nothing is laid past the last beat's end.
+ *  The result is one kept object, valid until the next call. */
+export function leadIISeries(times, x0, x1, period, step = 0.004) {
+  const o = LEAD_OUT, x = o.x, v = o.v;
+  x.length = 0; v.length = 0;
+  if (!times.length || !(x1 > x0)) return o;
+  const starts = fillStarts(STARTS, times, period), n = starts.length;
+  for (let k = 0; k < n; k++) { LENS[k] = k + 1 < n ? starts[k + 1] - starts[k] : period; PEAKS[k] = starts[k] + 0.02 * LENS[k]; }
+  LENS.length = PEAKS.length = n;
+  const lens = LENS, peaks = PEAKS;
+  const end = Math.min(x1, starts[n - 1] + period);
+  let k = 0;
+  for (let t = Math.max(x0, starts[0]); t <= end + 1e-9; t += step) {
+    while (k + 1 < peaks.length && peaks[k + 1] <= t) k++;
+    let s = 0;
+    for (let j = Math.max(0, k - 1); j <= Math.min(peaks.length - 1, k + 2); j++) s += leadIIAt(t - peaks[j], lens[j]);
+    x.push(t); v.push(s);
+  }
+  return o;
 }

@@ -5,16 +5,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+// (a word in a chart: what the GPU picture's look reader needs of it, svg-gl.js)
+const Txt = (text) => ({ text, children: [], attributes: [], getAttribute: () => null });
 class El {
   constructor(tag) { this.tag = tag; this.attrs = {}; this.children = []; this.classSet = new Set(); this.dataset = {}; this.style = {}; this.isConnected = true; this.clientWidth = 0; this.clientHeight = 0; }
   setAttribute(k, v) { this.attrs[k] = String(v); if (k === 'class') this.classSet = new Set(String(v).split(/\s+/).filter(Boolean)); }
   getAttribute(k) { return this.attrs[k]; }
-  append(...k) { for (const c of k) this.children.push(typeof c === 'string' ? { text: c } : c); }
+  append(...k) { for (const c of k) this.children.push(typeof c === 'string' ? Txt(c) : c); }
+  prepend(...k) { this.children.unshift(...k); }
+  hasAttribute(k) { return k in this.attrs; }
+  get attributes() { return Object.entries(this.attrs).map(([name, value]) => ({ name, value })); }
+  get localName() { return this.tag; }
   replaceChildren(...k) { this.children = []; this.append(...k); }
   remove() {}
   get classList() { const s = this; return { add: (c) => s.classSet.add(c), remove: (c) => s.classSet.delete(c), toggle: (c, f) => { if (f === undefined) f = !s.classSet.has(c); f ? s.classSet.add(c) : s.classSet.delete(c); }, contains: (c) => s.classSet.has(c) }; }
   set className(v) { this.classSet = new Set(String(v).split(/\s+/).filter(Boolean)); }
-  set textContent(v) { this.children = [{ text: String(v) }]; }
+  set textContent(v) { this.children = [Txt(String(v))]; }
   get textContent() { return this.children.map((c) => c.text ?? c.textContent).join(''); }
   getBoundingClientRect() { return { width: this.clientWidth }; }
 }
@@ -65,7 +71,8 @@ async function draw(W, H, f, over = {}) {
   const { ser } = await model2();
   const cur = createCourse(), el = cur.el;
   el.clientWidth = W; el.clientHeight = H;
-  globalThis.getComputedStyle = () => ({ fontSize: `${f}px` });
+  globalThis.getComputedStyle = () => ({ fontSize: `${f}px` });   // (the svg root and the groups are still read from the page; every piece of the chart names its look)
+  el._svgGL.setCtx({ scale: { sm: f } });   // (the card's small type, handed to the chart's looks: the chart asks no style)
   const calls = [];
   cur.configure({ ...tool, ...over }, { deck: over.deck ?? ASCITES, slide, index: slideIx, snap: true, fp: states[slideIx], params: {}, liveParams: () => ({}),
     run: async (steps, base) => { calls.push(steps.length); return steps.length === headSteps(tool).length ? (await model2()).head : (await model2()).tail; }, fpOf: () => null });
@@ -81,9 +88,9 @@ function read(svg, W, H, f) {
   walk(svg, (n, off) => {
     const a = n.attrs;
     if (n.tag === 'text') out.texts.push({ cls: cls(n), x: +a.x + off[0], y: +a.y + off[1], anchor: a['text-anchor'] || 'start', txt: n.textContent, tc: a['data-tc'], style: a.style });
-    else if (n.tag === 'circle') out.circles.push({ cls: cls(n), cx: +a.cx, cy: +a.cy, r: +a.r, style: a.style });
+    else if (n.tag === 'circle') out.circles.push({ cls: cls(n), cx: +a.cx, cy: +a.cy, r: +a.r, c: a['data-p-c'] });
     else if (n.tag === 'line') out.lines.push({ cls: cls(n), x1: +a.x1 + off[0], y1: +a.y1 + off[1], x2: +a.x2 + off[0], y2: +a.y2 + off[1], style: a.style });
-    else if (n.tag === 'path') out.paths.push({ cls: cls(n), d: a.d, style: a.style });
+    else if (n.tag === 'path') out.paths.push({ cls: cls(n), d: a.d, c: a['data-p-c'] });
     else if (n.tag === 'rect') out.rects.push({ cls: cls(n), rate: a['data-rate'], deep: a['data-deep'], y: +a.y, height: +a.height });
   });
   return out;
@@ -161,10 +168,13 @@ test('before the days are there: the zones, the numbers, the axes and the captio
   const cur = createCourse(), el = cur.el;
   el.clientWidth = 330; el.clientHeight = 178;
   globalThis.getComputedStyle = () => ({ fontSize: '12px' });
+  el._svgGL.setCtx({ scale: { sm: 12 } });   // (the card's small type, handed to the chart's looks: the chart asks no style)
   let go = null;
   cur.configure(tool, { deck: {}, slide, index: slideIx, snap: true, fp: null, params: {}, liveParams: () => ({}), run: () => new Promise((r) => { go = r; }), fpOf: () => null });
-  const r = read(el.children[0], 330, 178, 12);
-  assert.equal(el.children[0].dataset.points, '0');
+  // (the chart's model, beside the GPU's picture of it: svg-gl.js)
+  const svg = el.children.find((c) => c.tag === 'svg');
+  const r = read(svg, 330, 178, 12);
+  assert.equal(svg.dataset.points, '0');
   assert.equal(r.rects.filter((x) => x.cls === 'pco-z').length, 4, 'the four zones');
   assert.equal(r.paths.filter((p) => /ptk-line/.test(p.cls)).length, 0);
   assert.equal(r.circles.length, 0);
@@ -212,8 +222,8 @@ test('the x axis is in weeks, the tap named at 0, and says what it is; the capti
 
 test('the three lines and their dots: the tense belly in grey, diuretics and diuretics with a TIPS in their colours, through the model\'s own days', async () => {
   const r = await draw(440, 250, 14), lines = r.paths.filter((p) => /ptk-line/.test(p.cls));
-  assert.deepEqual(lines.map((p) => p.style), ['stroke: var(--text-2)', 'stroke: var(--tr-pv)', 'stroke: var(--tr-hv)']);
-  assert.deepEqual(r.circles.map((c) => c.style), ['fill: var(--text-2)', 'fill: var(--tr-pv)', 'fill: var(--tr-hv)']);
+  assert.deepEqual(lines.map((p) => p.c), ['text-2', 'tr-pv', 'tr-hv'], 'each line names its colour token (its look is cv.line, chart-looks/time.js)');
+  assert.deepEqual(r.circles.map((c) => c.c), ['text-2', 'tr-pv', 'tr-hv']);
   // (Each line ends on its dot, and the two treatments start where the grey one stops.)
   const end = (p) => pathPts(p.d).at(-1), start = (p) => pathPts(p.d)[0];
   near(end(lines[1])[0], r.circles[1].cx, 0.2, 'diuretics ends on its dot'); near(end(lines[1])[1], r.circles[1].cy, 0.2, 'diuretics ends on its dot');

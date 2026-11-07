@@ -1,0 +1,22 @@
+{
+  "unassigned": "unassigned (coordinator to map)",
+  "byCategory": [
+    { "cats": ["ctx2d", "draw2d", "cpuBlur", "svgRaster", "svgDom", "backdrop", "layoutAnim", "layoutWrite", "layoutRead", "rawRaf", "syncStatus", "paintAnim"], "files": ["src/ui/presenter.js", "src/ui/rest-pass.js"], "thread": "Clear layout reads in presenter (cmsg_018GZjFhtvTeoUFdeosmA9rJ3jVCfyZvFY8se4LGx6kF8g)" },
+    { "cats": ["ctx2d", "draw2d", "cpuBlur", "svgRaster", "svgDom", "backdrop", "layoutAnim", "layoutWrite", "layoutRead", "rawRaf", "syncStatus"], "files": ["src/ui/label-gl.js"], "fns": ["drawProbe", "probeLookRead", "drawScan", "scanLookRead", "createLabelGL › stroke"], "thread": "Move figure overlays to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJ93Ab3d8XiycSay8k2YJckM)" },
+    { "cats": ["ctx2d", "draw2d", "cpuBlur", "svgRaster", "svgDom", "backdrop", "layoutAnim", "layoutWrite", "layoutRead", "rawRaf", "syncStatus"], "files": ["src/ui/label-gl.js", "src/ui/focus-ring.js"], "thread": "Labels and focus rings on the GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJX1BFH7UG5FYfRiLdBq5VJY)" },
+    { "cats": ["syncStatus"], "thread": "Precompile every shader before motion (cmsg_018GZjFhtvTeoUFdeosmA9rJ5CcQx8mx7dTBhUbxJVYjHk)" },
+    { "cats": ["paintAnim"], "thread": "Move repaint animations to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJY4NmQXhSevnFf26ZBc564a)" },
+    { "cats": ["layoutAnim", "layoutWrite"], "thread": "Move layout animations to transforms (cmsg_018GZjFhtvTeoUFdeosmA9rJA7edjasMFamw7EUAk3YuF6)" },
+    { "cats": ["layoutRead"], "files": ["src/ui/credit.js", "src/ui/palette.js", "src/ui/sinusoid-view.js", "src/ui/swipe.js", "src/ui/card.js", "src/ui/figure-key.js", "src/ui/svg-morph.js", "src/ui/presenter-tools.js", "src/ui/visual-plane.js", "src/ui/tool-profile.js", "src/ui/tool-flows.js", "src/ui/tool-curve.js", "src/ui/tool-fluid.js"], "thread": "Layout reads share: credit, palette, sinusoid view, swipe, card, key, tools (cmsg_018GZjFhtvTeoUFdeosmA9rJHcHMCiCpf9K1mqCrhVfrjy)" },
+    { "cats": ["layoutRead"], "thread": "Remove per-frame layout reads in figure (cmsg_018GZjFhtvTeoUFdeosmA9rJG8ZFnc3fuF7dug36kuKaqc)" },
+    { "cats": ["rawRaf"], "thread": "Add GPU fallback guards and debug readout (cmsg_018GZjFhtvTeoUFdeosmA9rJ3kXqLZCtR51b7MPMF4exzZ)" }
+  ],
+  "byFile": [
+    { "files": ["lobule", "tissue", "sinusoid", "field-gl", "fx-gl", "tile-gl", "sin-perfusion"], "thread": "Move lobule zoom tissue to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJ66MaRikCT6cx4AqTWUtYK1)" },
+    { "files": ["chart", "pressure-time", "doppler", "dop-probe", "fibroscan", "endo-", "scope-tile", "trace-", "tool-", "ext-instruments", "instruments", "vitals-monitor", "ekg", "talk-trace", "plot-look", "scan-waves", "hvpg-"], "thread": "Move instruments and charts to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJF1Ck2FttksYb2L7BZiXnZa)" },
+    { "files": ["callout", "label-gl", "organ-names", "wrap-label", "leader-end", "limit-label", "figure-key", "credit", "res-fade", "stage-over", "mark-fade", "highlight", "removed-label", "trace-labels"], "thread": "Move figure overlays to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJ93Ab3d8XiycSay8k2YJckM)" },
+    { "files": ["organ-paint", "organs-gl", "shape-gl", "plate-copy", "plate-upload", "vessel-taper"], "thread": "Move organ raster layers to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJRs65tgkFw47V1LsQF3yHrs)" },
+    { "files": ["card", "glass-gl", "sheet-glass", "lz-pills", "beat-card"], "thread": "Make slide-change motion seamless (cmsg_018GZjFhtvTeoUFdeosmA9rJ5gr79YrKNNx4bqKsJWzr8k)" },
+    { "files": ["index.html", "src/ui/debug.js", "src/ui/presenter.js", "src/ui/stage", "src/ui/still-layer.js", "src/ui/util.js", "src/ui/vitals-gl.js"], "thread": "Move organ raster layers to GPU (cmsg_018GZjFhtvTeoUFdeosmA9rJRs65tgkFw47V1LsQF3yHrs)" }
+  ]
+}

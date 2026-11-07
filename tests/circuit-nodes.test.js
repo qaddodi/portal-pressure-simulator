@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // No stray dots in the circuit: a station's marker (dot, label, Δ ring) shows only while a vessel is drawn at it, and the dot
 // really fades when it must (the stylesheet's "show every circuit dot" rule used to win over the one that hides it). And no reading
 // sits on a dot: every visible dot, with a reading beside it or not, has a box the readings keep out of.
@@ -60,40 +61,23 @@ test('a vessel that draws on or retracts is drawn at its upstream end only; the 
   assert.equal(nodeDrawn(undefined), false);
 });
 
-// The cascade for `<circle class="node-dot circuit-only off">` inside the circuit (svg.circuit): the opacity that wins.
-function circuitDotOpacity(css, classes) {
-  const el = new Set(classes), anc = new Set(['circuit']);
-  let best = null, order = 0;
-  for (const [, sel, body] of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    order++;
-    const m = /(?:^|;)\s*opacity:\s*([\d.]+)/.exec(body);
-    if (!m) continue;
-    for (const one of sel.split(',')) {
-      const parts = one.trim().split(/\s+/);
-      if (!parts.every((p) => /^(\.[\w-]+)+$/.test(p)) || parts.length > 2) continue;
-      const own = parts.at(-1).split('.').filter(Boolean), up = parts.length === 2 ? parts[0].split('.').filter(Boolean) : [];
-      if (!own.every((c) => el.has(c)) || !up.every((c) => anc.has(c))) continue;
-      const spec = own.length + up.length;
-      if (!best || spec > best.spec || (spec === best.spec && order > best.order)) best = { spec, order, v: Number(m[1]) };
-    }
-  }
-  return best?.v;
-}
-
-test('in the circuit a dot marked off is invisible, and one that is not shows (the cascade, not just a rule that exists)', () => {
-  const css = read('styles/app.css');
-  assert.equal(circuitDotOpacity(css, ['node-dot', 'circuit-only', 'off']), 0, 'a hidden dot fades out in the circuit view');
-  assert.equal(circuitDotOpacity(css, ['node-dot', 'circuit-only']), 1, 'a shown one is fully there');
+// A station's dot is drawn by the GPU (2 Nov 2026, no element): off until a vessel is drawn at it, then eased in and out by its own share
+// (stepMap), times the circuit's own fade (MAP.a), so a dot marked off shows nothing and one that is on shows whole.
+test('in the circuit a dot marked off is invisible, and one that is not shows (its alpha on the GPU, not a rule that exists)', () => {
+  const src = stageSource();
+  assert.match(src, /\.map\(\(n\) => \(\{ id: n\.id, r: dotRadius\(n\.kind\), on: false, u: 0 \}\)\)/, 'each dot starts off');
+  assert.match(src, /const a = MAP\.a \* easeMove\(nodeDots\[i\]\.u\), f = n0 \+ i \* ND_PER;\s*if \(a <= 0\) continue;/, 'off (u 0) or no circuit (MAP.a 0): not drawn');
+  assert.match(src, /count: 3 \* ND_SEG, col: null, alpha: 0, tri: true \}, \{ first: 0, count: 2 \* \(ND_SEG \+ 1\), col: null, alpha: 0 \}[\s\S]*sa\.first = f; sa\.col = nd\.fill; sa\.alpha = a; sb\.first = f \+ 3 \* ND_SEG; sb\.col = nd\.ring; sb\.alpha = a;/, 'the disc and its ring, one alpha');
+  assert.match(src, /V\[o\+\+\] = -1; V\[o\+\+\] = 0\.8;/, 'a ring 1.6 wide, as the SVG stroke was');
 });
 
 test('the stage keeps no dot of a station without a drawn vessel: starts off, follows nodeDrawn, no Δ ring over one', () => {
-  const src = read('src/ui/stage.js');
-  assert.match(src, /class: 'node-dot circuit-only off'/);
-  assert.match(src, /nodeEls\[n\.id\] = \{ c, off: true \};/);
+  const src = stageSource();
+  assert.match(src, /const hasDot = new Set\(nodeDots\.map\(\(d\) => d\.id\)\);/);
   assert.match(src, /const NODE_ENDS = nodeEnds\(ALL_EDGES, \(e\) => E\[e\.id\]\);/);
-  assert.match(src, /const nodeVisible = \(id\) => [^;]*nodeDrawn\(NODE_ENDS\[id\]\);/);
-  assert.match(src, /const ne = nodeEls\[n\.id\], off = !nodeVisible\(n\.id\);/);
-  assert.match(src, /\|\| !NODE_POS\[n\.id\] \|\| !nodeVisible\(n\.id\)\) continue;/);
+  assert.match(src, /const (?:live\.)?nodeVisible = \(id\) => [^;]*nodeDrawn\(NODE_ENDS\[id\]\);/);
+  assert.match(src, /const on = (?:live\.)?nodeVisible\(d\.id\);\s*if \(d\.on !== on\) \{ d\.on = on; (?:live\.)?mapWake = true; \}/);
+  assert.match(src, /\|\| !NODE_POS\[n\.id\] \|\| !(?:live\.)?(?:live\.)?nodeVisible\(n\.id\)\) continue;/);
 });
 
 const hits = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
@@ -128,10 +112,10 @@ test('every visible dot without a reading gets a box (the colon bed under the sp
 });
 
 test('the stage gives every dot without a reading its box, and draws each dot at the size the box assumes', () => {
-  const src = read('src/ui/stage.js');
-  assert.match(src, /r: dotRadius\(n\.kind\), class: 'node-dot circuit-only off'/);
+  const src = stageSource();
+  assert.match(src, /\{ id: n\.id, r: dotRadius\(n\.kind\), on: false, u: 0 \}/);
   assert.match(src, /const labelled = new Set\(nodes\.map\(\(it\) => it\.node\)\);/);
-  assert.match(src, /bareDots\(NODES\.filter\(\(n\) => nodeEls\[n\.id\]\), \{ labelled, shown: nodeVisible, at: \(id\) => worldToLocal\(\.\.\.nodePos\(id, t\)\), scale: CTM\.sc, minX: ringRX, minY: ringR \}\)/);
+  assert.match(src, /bareDots\(NODES\.filter\(\(n\) => hasDot\.has\(n\.id\)\), \{ labelled, shown: (?:live\.)?(?:live\.)?nodeVisible, at: \(id\) => worldToLocal\(\.\.\.nodePos\(id, t\)\), scale: (?:live\.)?(?:live\.)?CTM\.sc, minX: ringRX, minY: ringR \}\)/);
   assert.match(src, /placed\.push\(\{ \.\.\.d\.box, dot: true \}\); ringXY\.push\(\[d\.x, d\.y, ringRX\]\);/);
-  assert.match(read('styles/app.css'), /\.node-dot \{[^}]*stroke-width: 1\.6;/, 'the outline width the box allows for');
+  assert.match(src, /V\[o\+\+\] = 1; V\[o\+\+\] = 0\.8;/, 'the outline width the box allows for (half of 1.6 either side of the radius)');
 });

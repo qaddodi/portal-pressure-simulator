@@ -2,10 +2,10 @@
 // is happening to it in this patient right now (reversed flow, a clot, a collateral opening). The
 // first sentence is fixed; the rest is read from the live model.
 
-import { EDGES, NODES, dMinOf } from '../engine/topology.js?v=4044766e96';
-import { fmt, clamp } from './util.js?v=58b547f8d4';
-import { LABEL_VESSEL } from './anatomy.js?v=48cc98d415';
-import { judgeFlow } from './velNormal.js?v=97920ddf3f';
+import { EDGES, NODES, dMinOf } from '../engine/topology.js';
+import { fmt, clamp } from './util.js';
+import { LABEL_VESSEL } from './anatomy.js';
+import { judgeFlow } from './velNormal.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -47,14 +47,15 @@ const VESSEL = {
   C5: 'A spontaneous gastrorenal shunt from fundal varices to the left renal vein; BRTO plugs it.',
   C6: 'A spontaneous splenorenal shunt: decompresses the portal system into the left renal vein, at the cost of encephalopathy.',
   C7: 'Retroperitoneal (Retzius) veins from the mesenteric veins to the IVC.',
-  C9: 'The ascending lumbar veins: a caval collateral to the azygos when the IVC is blocked.',
+  C9: 'The ascending lumbar veins: a caval collateral to the azygos when the IVC is occluded.',
   C8: 'Periportal collaterals that form around a thrombosed portal vein: a cavernoma.',
   AP_R: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.', AP_L: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.',
   TIPS: 'A stent through the liver from a portal branch to a hepatic vein: bypasses the sinusoids and lowers portal pressure at once.',
-  DIPS: 'A stent through the caudate lobe from the right portal vein into the intrahepatic IVC, below the hepatic veins. Used when the hepatic veins are blocked and the cava is open.',
+  DIPS: 'A stent through the caudate lobe from the right portal vein into the intrahepatic IVC, below the hepatic veins. Used when the hepatic veins are occluded and the cava is open.',
   S_PC: 'A surgical portocaval shunt: the portal vein joined to the IVC. Total diversion.',
   S_DSR: 'The Warren distal splenorenal shunt: decompresses the varices through the splenic vein while keeping some portal flow to the liver.',
   S_MC: 'A surgical mesocaval shunt from the superior mesenteric vein to the IVC.',
+  REX: 'The Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein at the Rex recess, past a clotted portal trunk. It returns the gut\u2019s blood to the liver instead of to the veins of the body.',
 };
 const BY_KIND = {
   artery: 'An artery: oxygen-rich blood at high pressure, unaffected by portal pressure.',
@@ -64,52 +65,106 @@ const BY_KIND = {
   vein: 'A vein.', diode: 'A valved vein.',
 };
 
-/** Lines for a vessel's card. */
+// The station a vessel's pressure is read at, by the vessel (the first station named for it).
+const STATION_OF = new Map();
+for (const n of Object.keys(LABEL_VESSEL)) if (!STATION_OF.has(LABEL_VESSEL[n])) STATION_OF.set(LABEL_VESSEL[n], n);
+const JF_OPTS = { ref: 1 };   // (judgeFlow reads it as it is called)
+// A card asks for its words with every frame the model sends. The words are made again only when something they say moved: each vessel keeps the
+// numbers its words were made from (whether it is still, reversed, how far open, how much clot and narrowing, how far above normal) and the
+// words, and the same list comes back until one of the numbers changes.
+const VESSEL_MEMO = new Map();
+const pctOf = (v) => (v > 0.05 ? Math.round(v * 100) : 0);
+
+/** Lines for a vessel's card (the same list comes back until what it says changes: do not write into it). */
 export function aboutVessel(e, f, st) {
   const k = EI[e.id], p = st.params;
-  const out = [VESSEL[e.id] || (e.kind === 'arteriole' && e.id === 'A_HR' ? 'The right hepatic artery: a quarter of the liver’s blood and most of its oxygen.' : BY_KIND[e.kind] || '')];
-  if (!f) return out.filter(Boolean);
-  const q = f.Qf ? f.Qf[k] : f.Q[k], ref = st.healthy?.Q?.[k] ?? 1;
+  let m = VESSEL_MEMO.get(e.id);
+  if (!m) VESSEL_MEMO.set(e.id, m = { has: false, still: false, rev: false, rec: -2, clot: 0, sten: 0, rise: 0, lines: null });
   const isArt = e.kind === 'artery' || e.kind === 'arteriole';
-  if (!isArt) {
-    const jf = judgeFlow(null, q, null, { ref });
-    if (jf.still) out.push('Flow here has almost stopped: stagnant blood can clot.');
-    else if (jf.reversed) out.push(e.kind === 'collateral' ? 'Blood runs the other way from usual in this collateral.' : 'Flow is reversed (hepatofugal for a portal vein): blood leaves the way it normally comes in.');
+  let still = false, rev = false, rec = -2, rise = 0;
+  const clot = pctOf(p.thrombus?.[e.id]), sten = pctOf(p.stenosis?.[e.id]);
+  if (f) {
+    if (!isArt) {
+      const q = f.Qf ? f.Qf[k] : f.Q[k];
+      JF_OPTS.ref = st.healthy?.Q?.[k] ?? 1;
+      const jf = judgeFlow(null, q, null, JF_OPTS);
+      still = !!jf.still; rev = !still && !!jf.reversed;
+    }
+    if (e.kind === 'collateral') {
+      const d = f.slow.dEff?.[e.id] ?? f.slow.d[e.id], r = clamp((d - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1);
+      rec = r > 0.1 ? Math.round(r * 100) : -1;
+    }
+    if (st.healthy?.P && !isArt && !st.imaging) {
+      // The same breath-smoothed pressure, at the same station, as the card's chip (actions.js edgeValue),
+      // and its rounded rise, so the sentence and the card's change (+n) always agree.
+      const stn = STATION_OF.get(e.id);
+      const PP = f.Pf || f.P, H = st.healthy.P;
+      const r = Math.round((stn ? PP[NI[stn]] : (PP[NI[e.from]] + PP[NI[e.to]]) / 2) - (stn ? H[NI[stn]] : (H[NI[e.from]] + H[NI[e.to]]) / 2));
+      rise = r > 4 ? r : 0;
+    }
   }
-  if (e.kind === 'collateral') {
-    const d = f.slow.dEff?.[e.id] ?? f.slow.d[e.id], r = clamp((d - dMinOf(e)) / (e.dMax - dMinOf(e)), 0, 1);
-    if (r > 0.1) out.push(`Recruited to ${Math.round(r * 100)} % of its maximum width by the pressure behind it.`);
-    else out.push('Still closed: portal pressure is not high enough to open it.');
+  if (m.lines && m.has === !!f && m.still === still && m.rev === rev && m.rec === rec && m.clot === clot && m.sten === sten && m.rise === rise) return m.lines;
+  m.has = !!f; m.still = still; m.rev = rev; m.rec = rec; m.clot = clot; m.sten = sten; m.rise = rise;
+  const out = [];
+  const first = VESSEL[e.id] || (e.kind === 'arteriole' && e.id === 'A_HR' ? 'The right hepatic artery: a quarter of the liver’s blood and most of its oxygen.' : BY_KIND[e.kind] || '');
+  if (first) out.push(first);
+  if (f) {
+    if (still) out.push('Flow here has almost stopped: stagnant blood can clot.');
+    else if (rev) out.push(e.kind === 'collateral' ? 'Blood runs the other way from usual in this collateral.' : 'Flow is reversed (hepatofugal for a portal vein): blood leaves the way it normally comes in.');
+    if (rec > 0) out.push(`Recruited to ${rec}% of its maximum width by the pressure behind it.`);
+    else if (rec === -1) out.push('Still closed: portal pressure is not high enough to open it.');
+    if (clot) out.push(`A clot fills ${clot}% of the lumen.`);
+    if (sten) out.push(`Narrowed by ${sten}%: resistance rises with the fourth power of the radius.`);
+    if (rise) out.push(`Pressure is ${rise} mmHg above normal here.`);
   }
-  if (p.thrombus?.[e.id] > 0.05) out.push(`A clot fills ${Math.round(p.thrombus[e.id] * 100)} % of the lumen.`);
-  if (p.stenosis?.[e.id] > 0.05) out.push(`Narrowed by ${Math.round(p.stenosis[e.id] * 100)} %: resistance rises with the fourth power of the radius.`);
-  if (st.healthy?.P && !isArt && !st.imaging) {
-    // The same breath-smoothed pressure, at the same station, as the card's chip (actions.js edgeValue),
-    // and its rounded rise, so the sentence and the card's change (+n) always agree.
-    const stn = Object.keys(LABEL_VESSEL).find((n) => LABEL_VESSEL[n] === e.id);
-    const at = (PP) => (stn ? PP[NI[stn]] : (PP[NI[e.from]] + PP[NI[e.to]]) / 2);
-    const rise = Math.round(at(f.Pf || f.P) - at(st.healthy.P));
-    if (rise > 4) out.push(`Pressure is ${rise} mmHg above normal here.`);
-  }
-  return out.filter(Boolean);
+  m.lines = out;
+  return out;
 }
+
+const ORGAN_TEXT = {
+  heart: Object.freeze(['The right heart receives all venous return; its pressure is the floor every vein drains against. When it rises (failure, tricuspid regurgitation, constriction) the liver congests from behind.']),
+  varices: Object.freeze(['Dilated submucosal veins in the lower esophagus, fed by the coronary vein and draining to the azygos. Modeled wall stress rises with pressure and diameter: past a threshold they rupture.']),
+  gastric: Object.freeze(['Fundal varices, fed by the short and posterior gastric veins and often draining through a gastrorenal shunt. They bleed less often but more heavily than esophageal varices.']),
+  abdomen: Object.freeze(['Ascites forms when sinusoidal pressure pushes more lymph out of the liver than the lymphatics can carry away, with sodium retention and low albumin adding to it.']),
+};
+const NO_TEXT = Object.freeze([]);
+const LIVER_LEAD = 'Receives portal blood (three quarters) and hepatic arterial blood, filters it through the sinusoids and returns it by the hepatic veins. Zoom into a lobule to see where resistance builds.';
+const SPLEEN_LEAD = 'Drains through the splenic vein into the portal system: portal hypertension congests it, it enlarges and traps platelets.';
+const LIVER_STAGE = [
+  [0.4, 'Early fibrosis: resistance is starting to rise in the sinusoids.'],
+  [0.6, 'Compensated cirrhosis: sinusoidal resistance raises portal pressure.'],
+  [0.85, 'Clinically significant portal hypertension: collaterals and varices form.'],
+];
+const LIVER_LAST = 'Decompensated cirrhosis: ascites, bleeding and encephalopathy become likely.';
+// The liver's and the spleen's words say a number: made again only when it moves (the same list comes back until then; do not write into it).
+const LIVER_MEMO = { c: -1, hv: null, lines: null }, SPLEEN_MEMO = { len: null, lines: null };
 
 /** Lines for an organ's card. */
 export function aboutOrgan(id, f, st) {
   const m = f?.metrics;
   switch (id) {
     case 'liver': {
-      const out = ['Receives portal blood (three quarters) and hepatic arterial blood, filters it through the sinusoids and returns it by the hepatic veins. Zoom into a lobule to see where resistance builds.'];
-      const c = st.params.cirrhosis;
-      if (c > 0.05) out.push(c < 0.4 ? 'Early fibrosis: resistance is starting to rise in the sinusoids.' : c < 0.6 ? 'Compensated cirrhosis: sinusoidal resistance raises portal pressure.' : c < 0.85 ? 'Clinically significant portal hypertension: collaterals and varices form.' : 'Decompensated cirrhosis: ascites, bleeding and encephalopathy become likely.');
-      if (m && !st.imaging) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal <5, varices ≥10).`);
+      const c = st.params.cirrhosis, hv = m && !st.imaging ? Math.round(m.hvpg * 10) : null;
+      const M = LIVER_MEMO;
+      if (M.lines && M.c === c && M.hv === hv) return M.lines;
+      const out = [LIVER_LEAD];
+      if (c > 0.05) {
+        let w = LIVER_LAST;
+        for (let i = 0; i < LIVER_STAGE.length; i++) if (c < LIVER_STAGE[i][0]) { w = LIVER_STAGE[i][1]; break; }
+        out.push(w);
+      }
+      if (hv != null) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal <5, varices ≥10).`);
+      M.c = c; M.hv = hv; M.lines = out;
       return out;
     }
-    case 'heart': return ['The right heart receives all venous return; its pressure is the floor every vein drains against. When it rises (failure, tricuspid regurgitation, constriction) the liver congests from behind.'];
-    case 'varices': return ['Dilated submucosal veins in the lower esophagus, fed by the coronary vein and draining to the azygos. Modeled wall stress rises with pressure and diameter: past a threshold they rupture.'];
-    case 'gastric': return ['Fundal varices, fed by the short and posterior gastric veins and often draining through a gastrorenal shunt. They bleed less often but more heavily than esophageal varices.'];
-    case 'spleen': return ['Drains through the splenic vein into the portal system: portal hypertension congests it, it enlarges and traps platelets.', m ? (m.spleen.length > 0 ? `${fmt(m.spleen.length, 1)} cm long (normal up to 13).` : 'Removed (splenectomy).') : ''].filter(Boolean);
-    case 'abdomen': return ['Ascites forms when sinusoidal pressure pushes more lymph out of the liver than the lymphatics can carry away, with sodium retention and low albumin adding to it.'];
-    default: return [];
+    case 'spleen': {
+      const len = m ? (m.spleen.length > 0 ? Math.round(m.spleen.length * 10) : 0) : null, M = SPLEEN_MEMO;
+      if (M.lines && M.len === len) return M.lines;
+      const out = [SPLEEN_LEAD];
+      if (len != null) out.push(len > 0 ? `${fmt(m.spleen.length, 1)} cm long (normal up to 13).` : 'Removed (splenectomy).');
+      M.len = len; M.lines = out;
+      return out;
+    }
+    default: return ORGAN_TEXT[id] || NO_TEXT;
   }
 }

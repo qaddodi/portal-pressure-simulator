@@ -37,10 +37,13 @@ export const FLIP_MS = 600;
 const EASE = bezier(0.2, 0.8, 0.2, 1);   // (app.css --ease, the curve the travel had as a transition)
 
 /** A reading's travel, begun at `t0` (ms) from `dx`, `dy` px away from where it now stands. */
-export const flipFrom = (dx, dy, t0) => ({ dx, dy, t0 });
+export const flipFrom = (dx, dy, t0) => ({ dx, dy, t0 });   // alloc-rare: one small record for each flip, made when a reading starts to flip to a new place (a placement change), kept by the stage while it flips
 
-/** Where the travel stands at `now`: the pixels still to go, `x` and `y`, and `done` once it has landed. */
+/** Where the travel stands at `now`: the pixels still to go, `x` and `y`, and `done` once it has landed. The answer is one kept object,
+ *  rewritten by each call (the stage writes the pill's transform from it at once, a pill after a pill). */
+const AT = { x: 0, y: 0, done: false };
 export function flipAt(f, now, ms = FLIP_MS) {
   const u = Math.min(1, Math.max(0, (now - f.t0) / ms)), left = 1 - EASE(u);
-  return { x: f.dx * left || 0, y: f.dy * left || 0, done: u >= 1 };   // (|| 0: never a minus zero)
+  AT.x = f.dx * left || 0; AT.y = f.dy * left || 0; AT.done = u >= 1;   // (|| 0: never a minus zero)
+  return AT;
 }

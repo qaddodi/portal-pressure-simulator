@@ -3,28 +3,47 @@
 // does not pop. The new button fades and grows in, a removed one fades out as a ghost, and everything
 // next to them glides to its new place (FLIP: first measure, last measure, play the difference).
 //
-// Only transform, opacity and clip-path animate (the compositor does the work, and no layout runs per
-// frame). Positions are read from offsetLeft/offsetTop, which ignore transforms, so a measure taken while
+// Only transform and opacity animate (the compositor does the work: nothing repaints and no layout runs per
+// frame; a pill that grows glides its plate and shows what it gained as the plate covers it, never by a clip-path). Positions are read from offsetLeft/offsetTop, which ignore transforms, so a measure taken while
 // a glide is still playing is the true layout and an interrupted glide continues from where it was.
 // Nothing moves on a window resize or with reduced motion: the bar just takes its new layout.
-import { frameFor } from './frame.js?v=7254a8a850';
-const nextFrame = frameFor('topbar-motion');
+import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js';
+import { removeSoon } from './class-soon.js';
+import { reduceMotionMQ } from './motion.js';
 
-const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > *, .top-right, .top-right > *';
+const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > :not(.tb-face), .top-right, .top-right > *';
 // Pills that grow reveal their new width from the old one instead of snapping wide.
 const GROW = '.tb-id, .top-right, #viewSeg';
-const MOVE_MS = 260, IN_MS = 220, OUT_MS = 130, EASE = 'cubic-bezier(.2,.8,.2,1)';
+const MOVE_MS = D_SMALL, IN_MS = D_SMALL, OUT_MS = D_FLIP, EASE = EASE_ARRIVE;
+const SETTLE_MS = 400;   // (how long a bar that has just come into view takes its layout as it comes, unglided: keep(), below)
+// The lens pill (the Layers and Blood chips and the colour key) glides its plate to a new width on the key's own clock (a new lens
+// takes D_SURFACE on EASE_MOVE, legend-morph.js), anchored at its right edge so the chevron and the key stay put as it grows or
+// shrinks.
+// A plate that changes width glides by transform only: two fixed-size copies of the plate (the narrower of the old and new
+// widths, laid out once before the glide) slide apart or together, their union the pill from its old span to its new, and the
+// real face, already at its new width, shows again as they land. No width animates, so no layout runs per frame and the bar's
+// ResizeObserver never sees a moving size. A change of more than twice the narrower width crossfades the old plate out over the
+// new one instead (the two copies could not cover it).
 
 export function initTopbarMotion() {
   const bar = document.getElementById('topbar'), app = document.getElementById('app');
   if (!bar || !app || !bar.animate) return;
-  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+  const reduce = reduceMotionMQ;
+  // (The pill's glass moves onto a face of its own, as the patient pill's, so the plate can change width while the row inside is already laid out.)
+  const row = bar.querySelector('.sb-right');
+  if (row && !row.querySelector(':scope > .tb-face')) {
+    const f = document.createElement('span');
+    f.className = 'tb-face'; f.setAttribute('aria-hidden', 'true');
+    row.prepend(f); row.classList.add('has-face');
+  }
+  const lens = row && row.querySelector(':scope > .lens-btn');
+  const inRow = (el) => !!row && row.contains(el);
 
   const pageXY = (el) => { let x = 0, y = 0; for (let n = el; n && n !== document.body; n = n.offsetParent) { x += n.offsetLeft; y += n.offsetTop; } return { x, y }; };
   const measure = () => {
     const m = new Map([[bar, { vis: bar.offsetParent !== null, ...pageXY(bar) }]]);
     for (const el of bar.querySelectorAll(ITEMS)) {
-      if (el.closest('[data-ghost]')) continue;
+      if (el.closest('[data-ghost]') || el.classList.contains('tb-face-lent')) continue;
       const vis = el.offsetParent !== null;
       m.set(el, vis ? { vis, ...pageXY(el), w: el.offsetWidth, h: el.offsetHeight, display: getComputedStyle(el).display } : { vis });
     }
@@ -38,14 +57,18 @@ export function initTopbarMotion() {
   };
   const trackedParent = (el, map) => { for (let p = el.parentElement; p && p !== bar; p = p.parentElement) if (map.has(p)) return p; return null; };
 
-  let snap = null, vw = 0, vh = 0, pending = false;
-  const resnap = () => { snap = measure(); vw = innerWidth; vh = innerHeight; };
+  let snap = null, vw = 0, vh = 0, pending = false, shownAt = -Infinity;
+  // (The bar coming back into view (after a talk, which hides it) takes the layout it lands in: the change that settles it in its
+  // first moments, its fit step worked out again for the width it now has, is not a change to glide. Glided, the Blood and colour-key
+  // pill flew in from the bottom right as the bar came back from the slides (Mohammad, 6 Nov 2026, the Mac).)
+  const keep = (m) => { if (m.get(bar).vis && !(snap && snap.get(bar).vis)) shownAt = performance.now(); snap = m; };
+  const resnap = () => { keep(measure()); vw = innerWidth; vh = innerHeight; };
 
   function run() {
     pending = false;
     if (!snap) return;
     const next = measure();
-    if (reduce.matches || document.hidden || innerWidth !== vw || innerHeight !== vh || !snap.get(bar).vis || !next.get(bar).vis) { resnap(); return; }
+    if (reduce.matches || document.hidden || innerWidth !== vw || innerHeight !== vh || !snap.get(bar).vis || !next.get(bar).vis || performance.now() - shownAt < SETTLE_MS) { resnap(); return; }
 
     const own = new Map(), tot = new Map();
     const barNext = next.get(bar);
@@ -58,6 +81,14 @@ export function initTopbarMotion() {
       let cx = 0, cy = 0;
       for (let p = el; p; p = trackedParent(p, next)) { const o = own.get(p); cx += o.x; cy += o.y; }
       tot.set(el, { x: s.x + cx - n.x, y: s.y + cy - n.y, dw: n.w - s.w });
+    }
+    // The lens pill hangs from its right edge (its key grows and shrinks to the left): the pill and its key move by how far their
+    // right edges moved, not their left, so the chevron holds still and the plate (the face, below) is what changes width.
+    const sRow = row && snap.get(row), nRow = row && next.get(row);
+    const hang = !!(sRow?.vis && nRow?.vis && Math.abs(sRow.x + sRow.w - nRow.x - nRow.w) + .5 < Math.abs(sRow.x - nRow.x));
+    if (hang) for (const el of [row, lens]) {
+      const t = tot.get(el), s = snap.get(el), n = next.get(el);
+      if (t && s?.vis && n?.vis) t.x += (s.x + s.w - n.x - n.w) - (s.x - n.x);
     }
     for (const el of next.keys()) for (const a of el.getAnimations()) if (a.id === 'tbm') a.cancel();
 
@@ -75,22 +106,112 @@ export function initTopbarMotion() {
         const dx = t.x - (pt ? pt.x : 0), dy = t.y - (pt ? pt.y : 0);
         const frames = [];
         if (Math.abs(dx) >= 1.5 || Math.abs(dy) >= 1.5) frames.push({ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' });
-        if (frames.length) { const a = el.animate(frames, { duration: MOVE_MS, easing: EASE }); a.id = 'tbm'; }
+        if (frames.length) { const a = el.animate(frames, inRow(el) ? { duration: D_SURFACE, easing: EASE_MOVE } : { duration: MOVE_MS, easing: EASE }); a.id = 'tbm'; }
+        if (el === row && Math.abs(t.dw) > 2) {
+          const face = row.querySelector(':scope > .tb-face');
+          if (face) plateGlide(face, hang ? t.dw : 0, s.w, n.w, { duration: D_SURFACE, easing: EASE_MOVE });
+        }
         if (t.dw < -2 && el.matches(GROW)) {
           // A pill with its own face (the patient pill) glides its face from the old width to the new; others leave the old,
           // wider plate fading behind them.
           const face = el.querySelector(':scope > .tb-face');
-          if (face) face.animate([{ width: `${s.w}px` }, { width: `${n.w}px` }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
-          else ghost(el, s, { own, tot, next }, true);
+          if (face) plateGlide(face, 0, s.w, n.w, { duration: MOVE_MS, easing: EASE });
+          else if (!face) ghost(el, s, { own, tot, next }, true);
         }
-        if (t.dw > 2 && el.matches(GROW)) {
-          const a = el.animate([{ clipPath: `inset(-32px ${t.dw}px -32px -32px)` }, { clipPath: 'inset(-32px -32px -32px -32px)' }], { duration: MOVE_MS, easing: EASE });
-          a.id = 'tbm';
-        }
+        if (t.dw > 2 && el.matches(GROW)) growPill(el, s, n, next);
       }
     }
-        next.set(bar, barNext);
-    snap = next;
+    next.set(bar, barNext);
+    keep(next);
+  }
+
+  // The plate's glide: the face spans [x0, x0 + w0] at the start and [0, w1] at the end, in its pill's new box.
+  // Three copies of the face, each p wide (p = the narrower width, laid out once here, before the glide), each cut by a clip that
+  // never changes: the left cap, the right cap and the flat middle. The caps ride translate; the middle rides translate and a
+  // horizontal scale (its top and bottom hairlines stay 1 px, its rounded ends are cut off), all on the same curve, so together
+  // they are always one pill with both ends round. The face itself sits at its new width under them, hidden by an opacity hold
+  // until they land. A glide caught by the next takes over from the snapshot, as the width did.
+  function plateGlide(face, x0, w0, w1, timing) {
+    // (Read before the ghosts are taken off and the glide is cancelled: a read after a write lays the bar out again. The faces are absolute and only
+    // transform and opacity are cancelled, so nothing read changes.)
+    const anims = face.getAnimations(), p = Math.min(w0, w1), h = face.offsetHeight;
+    const R = Math.min(h / 2, p / 2, parseFloat(getComputedStyle(face).borderTopLeftRadius) || 0);
+    for (const g of face.parentElement.querySelectorAll(':scope > .tb-face[data-ghost]')) g.remove();
+    for (const a of anims) if (a.id === 'tbm') a.cancel();
+    const mid = p - 2 * R;
+    const mk = (clip, width = p) => {
+      const g = face.cloneNode(false);
+      g.dataset.ghost = ''; g.setAttribute('aria-hidden', 'true');
+      Object.assign(g.style, { width: `${width}px`, clipPath: clip, willChange: 'transform' });
+      face.after(g);
+      return g;
+    };
+    const tag = (anim) => { anim.id = 'tbm'; return anim; };
+    const at = (k) => (k ? { x: 0, w: w1 } : { x: x0, w: w0 });
+    if (mid < 4) {
+      // (A plate too short to have a flat middle: the old plate fades out over the new, each at its own fixed size.)
+      const old = mk('none', w0);   // (its width set once, before it is placed)
+      const a = tag(old.animate([{ translate: `${x0}px 0px`, opacity: 1 }, { translate: `${x0}px 0px`, opacity: 0 }], { ...timing, fill: 'forwards' }));
+      a.onfinish = a.oncancel = () => removeSoon(old);
+      return tag(face.animate([{ opacity: 0 }, { opacity: 1 }], timing));
+    }
+    const hold = tag(face.animate([{ opacity: 0 }, { opacity: 0 }], timing));
+    const o = 40;   // (room left for the shadow outside the plate)
+    const left = mk(`inset(-${o}px ${p - R}px -${o}px -${o}px)`);
+    const right = mk(`inset(-${o}px -${o}px -${o}px ${p - R}px)`);
+    const middle = mk(`inset(-${o}px ${R - 1}px -${o}px ${R - 1}px)`);   // (1 px under each cap, so no seam shows between them)
+    middle.style.transformOrigin = `${R}px 50%`;
+    const sx = (k) => Math.max(0, at(k).w - 2 * R) / mid;
+    const parts = [
+      [left, (k) => ({ translate: `${at(k).x}px 0px` })],
+      [right, (k) => ({ translate: `${at(k).x + at(k).w - p}px 0px` })],
+      [middle, (k) => ({ translate: `${at(k).x}px 0px`, scale: `${sx(k)} 1` })],
+    ];
+    for (const [el, f] of parts) tag(el.animate([f(0), f(1)], { ...timing, fill: 'forwards' }));
+    // (The copies go with the hold: at the landing, or when the next glide cancels it, so the face is never hidden without them.)
+    hold.onfinish = hold.oncancel = () => { for (const [g] of parts) g.remove(); };
+    return hold;
+  }
+
+  // A pill that grows (a longer name, a button more): its plate glides from the old width to the new by transform alone (plateGlide,
+  // on its own face, or on a face lent for the glide when the pill paints its own glass), and what lies past the old edge shows
+  // as the plate covers it, by its opacity (coverage of its box by the moving edge, sampled on the glide's curve). No clip-path.
+  const LOOK = ['backgroundColor', 'backgroundImage', 'boxShadow', 'borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius'];
+  function growPill(el, s, n, next) {
+    const timing = { duration: MOVE_MS, easing: EASE };
+    let face = el.querySelector(':scope > .tb-face:not([data-ghost])'), lent = null;
+    if (!face) {
+      const cs = getComputedStyle(el);
+      const paints = !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none';
+      if (paints) {
+        lent = document.createElement('span');
+        lent.className = 'tb-face tb-face-lent'; lent.setAttribute('aria-hidden', 'true');
+        const look = {};
+        for (const k of LOOK) look[k] = cs[k];
+        Object.assign(lent.style, look, { position: 'absolute', zIndex: '-1', left: '0', top: '0', bottom: '0', width: '100%', pointerEvents: 'none', margin: '0', padding: '0' });
+        const keep = { position: el.style.position, isolation: el.style.isolation };
+        // (the pill's own glass steps aside while the lent face is its child: `:has(> .tb-face-lent)` in app.css)
+        if (cs.position === 'static') el.style.position = 'relative';
+        el.style.isolation = 'isolate';
+        el.prepend(lent);
+        lent._restore = () => { lent.remove(); el.style.position = keep.position; el.style.isolation = keep.isolation; };
+        face = lent;
+      }
+    }
+    if (face) {
+      const hold = plateGlide(face, 0, s.w, n.w, timing);
+      if (lent) { const end = () => lent._restore(); if (hold) hold.addEventListener('finish', end), hold.addEventListener('cancel', end); else end(); }
+    }
+    for (const c of el.children) {
+      if (c.classList.contains('tb-face') || c.dataset.ghost != null || c.classList.contains('face-half')) continue;
+      const cn = next.get(c);
+      if (!cn?.vis || !snap.get(c)?.vis) continue;   // (a button coming in has its own fade)
+      const a = cn.x - n.x, b = a + cn.w;
+      if (!(b > s.w + 0.5) || !(b - a > 0)) continue;
+      const frames = [];
+      for (let i = 0; i <= 12; i++) { const k = i / 12, e = s.w + (n.w - s.w) * k; frames.push({ offset: k, opacity: +Math.max(0, Math.min(1, (e - a) / (b - a))).toFixed(4) }); }
+      c.animate(frames, timing).id = 'tbm';
+    }
   }
 
   // A clone of the removed button stays where it was and fades out, so it does not vanish in one frame.
@@ -116,9 +237,23 @@ export function initTopbarMotion() {
     if (pt && (Math.abs(pt.x) >= 1.5 || Math.abs(pt.y) >= 1.5)) {
       g.animate([{ transform: `translate(${-pt.x}px, ${-pt.y}px)` }, { transform: 'none' }], { duration: MOVE_MS, easing: EASE }).id = 'tbm';
     }
-    const a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: OUT_MS, easing: 'ease-out', fill: 'forwards' });
-    a.id = 'tbm'; a.onfinish = a.oncancel = () => g.remove();
+    const a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: OUT_MS, easing: EASE_IN, fill: 'forwards' });
+    a.id = 'tbm'; a.onfinish = a.oncancel = () => removeSoon(g);
   }
+
+  // The bar is measured after the browser's own layout of the change and before its paint: a fresh ResizeObserver's first report
+  // comes at that point of the next frame, so the glide starts on the very frame the change shows (no pop) and nothing here forces a
+  // layout (the mutation callback, a microtask straight after the writes, reads nothing: 2 Nov 2026, "Move everything to GPU").
+  // A bar that is not drawn sends no first resize report, but an intersection observer always makes its first report, in the same
+  // place of the frame (after layout, before paint): whichever comes first measures, once. No timer.
+  // (kind 0: the change's glide; kind 1: the first record.)
+  function afterLayout(kind) {
+    let done = false;
+    const go = () => { if (done) return; done = true; ro1.disconnect(); io1?.disconnect(); if (kind === 0) { if (pending) run(); } else if (!pending) resnap(); };
+    const ro1 = new ResizeObserver(() => go()), io1 = typeof IntersectionObserver === 'function' ? new IntersectionObserver(() => go()) : null;
+    ro1.observe(bar); io1?.observe(bar);
+  }
+  function runAfterLayout() { afterLayout(0); }
 
   // What counts as a change: a button's hidden flag, a class or fit step on the bar, the sinusoid focus
   // class on the app. Repeated writes of the same value (a class re-added while the figure is dragged) do not.
@@ -137,7 +272,7 @@ export function initTopbarMotion() {
       else if (el.getAttribute(key) !== old) hit = true;
     }
     was.clear();
-    if (hit && !pending) { pending = true; run(); }
+    if (hit && !pending) { pending = true; runAfterLayout(); }
   });
   app._sin = app.classList.contains('sin-focus');
   mo.observe(bar, { attributes: true, subtree: true, attributeFilter: ['hidden', 'class', 'data-fit'], attributeOldValue: true });
@@ -147,10 +282,12 @@ export function initTopbarMotion() {
   for (const id of ['scenarioName', 'legend', 'colorModeLabel']) { const e = document.getElementById(id); if (e) mo.observe(e, { childList: true, characterData: true, subtree: true }); }
 
   // Layout that changes with no mutation of ours (fonts, a resize) is only recorded, never animated.
-  const ro = new ResizeObserver(() => { if (snap) resnap(); });
+  // (Not while a change waits for its measure: the layout it would record is the change's own, which the glide starts from.)
+  const ro = new ResizeObserver(() => { if (snap && !pending) resnap(); });
   ro.observe(bar);
   for (const el of bar.querySelectorAll(ITEMS)) ro.observe(el);
 
-  const start = () => nextFrame(() => nextFrame(resnap));
+  // (The first record once the fonts are in and the bar has been laid out: after layout, not in a frame.)
+  const start = () => afterLayout(1);
   (document.fonts?.ready || Promise.resolve()).then(start, start);
 }

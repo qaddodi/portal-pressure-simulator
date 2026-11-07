@@ -31,14 +31,14 @@ test('hold: the presenter sets it out of sight and lets the answer slide ease it
   const p = src('presenter.js');
   assert.match(p, /function holdAnswer\(on, instant = false\)/);
   assert.match(p, /holdAnswer\(!s\.visual && \(!!s\.hold \|\| holdEase/);
-  assert.match(p, /paintOverlays\(s, to, st\);\n\s*if \(holdEase\) \{ holdEase = false; holdAnswer\(false\); \}/);
+  assert.match(p, /paintOverlays\(fv, to, st\);\n\s*if \(holdEase\) \{ holdEase = false; holdAnswer\(false\); \}/);
   assert.match(src('presenter-tools.js'), /holdAnswer\(on, instant = false\) \{ cur\?\.hold\?\.\(!!on, instant\); \}/);
   const prof = src('tool-profile.js');
   assert.match(prof, /new Set\(held \? \[\] : blocksOf\(goal, healthy\(\)\)\)/, 'held, the chart asks for no red blocks (they fade out as any block does)');
-  assert.match(prof, /if \(hk < 0\.005\) return \[\];/, 'held, the brackets ease out');
+  assert.match(prof, /if \(row && hk >= 0\.005\) \{/, 'held, the brackets ease out');
   // (CSS: the rating words, the Doppler's words and the figure's alerts fade, never snap.)
   assert.match(css, /\.pz-data\[data-held\] \.pzt-r, \.pz-data\[data-held\] \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ opacity: 0; \}/);
-  assert.match(css, /\.pz-data \.pzt-r, \.pz-data \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ transition: color \.4s var\(--ease\), opacity \.5s var\(--ease\); \}/);
+  assert.match(css, /\.pz-data \.pzt-r, \.pz-data \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ transition: opacity var\(--d-surface\) var\(--ease\); \}/, 'they ease in by opacity (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(css, /\.app\.pz-held \.lb-alert \{ fill-opacity: 0; \}/);
 });
 
@@ -85,7 +85,7 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
     for (const r of rows) assert.ok(r.text.length <= 70, `${d.id}/${s.id}: "${r.text}" fits a row`);
   }
   const src2 = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(src2, /s\.tool\?\.kind !== 'criteria'/, 'its tiles sit under it, never beside: the rules are sentences');
+  assert.doesNotMatch(src2, /s\.tool\?\.kind !== 'criteria'/, 'no tiles stand beside any instrument now: they are the header\'s readings');
 });
 
 test('criteria card V3: cut-offs split for the sans signs and units, the bold lead of the verdict, the case column only with a case', () => {
@@ -119,7 +119,7 @@ test('criteria card, plain rules (his pick 26 Oct, C with D\'s key words): a mar
   const block = css.slice(css.indexOf('/* Plain rules, no cut-off column'), css.indexOf("/* A case card's own question"));
   assert.ok(block.length > 400);
   assert.doesNotMatch(block, /border-(left|right)|inset \d+px 0 0|box-shadow: inset [^0]/, 'no side stripes: a ring is an outline all round');
-  assert.match(block, /\.pzc-row:not\(\.pzc-hrow\) \.pzc-c::before \{[^}]*border-radius: 50%[^}]*transition: background-color \.4s var\(--ease\), box-shadow \.4s var\(--ease\)/, 'a ring, its fill easing with the reading');
+  assert.match(block, /\.pzc-row:not\(\.pzc-hrow\) \.pzc-c::before \{[^}]*border-radius: 50%[^}]*transition: none/, 'a ring, its fill taken with the reading (1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');
   assert.match(block, /\[data-lit\], \[data-met="yes"\]\) \.pzc-c::before \{ background: var\(--text\)/, 'filled: the row that applies to the case');
   assert.match(block, /counter-increment: pzcn; content: counter\(pzcn\)/, 'numerals when the order matters');
   assert.match(block, /\.pz-crit\.has-lit:not\(\.has-cut\) \.pzc-row:not\(\[data-lit\]\) \.pzc-t > b \{ font-weight: 500/, 'key words go quiet on the rows that do not apply');
@@ -193,28 +193,16 @@ test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a n
     assert.ok(s.hvpgResp === true || d.slides.findIndex((x) => x.id === s.hvpgResp) >= 0 && d.slides.findIndex((x) => x.id === s.hvpgResp) < d.slides.indexOf(s), `${at}: counted from an earlier slide`);
   }
   const p = src('presenter.js');
-  assert.match(p, /const tileKeys = \(s\) => \[\.\.\.ownKeys\(s\), \.\.\.\(s\.hvpgResp && !s\.tiles\?\.includes\('hvpgFall'\) \? \['hvpgFall'\] : \[\]/, 'the tile joins the slide\'s tiles');
+  assert.match(src('card-tiles.js'), /export const tileKeys = \(s, onPhone\) => \[\.\.\.ownKeys\(s, onPhone\), \.\.\.\(s\.scopeTile \? \['scope'\] : \[\]\), \.\.\.\(s\.hvpgResp && !s\.tiles\?\.includes\('hvpgFall'\) \? \['hvpgFall'\] : \[\]/, 'the tile joins the slide\'s tiles');
   assert.match(p, /hvpgFall: \(\(base - f\.hvpg\) \/ base\) \* 100/, 'the fall in percent, live');
-  assert.match(p, /ui\.tiles\.set\(respFp\(s, now\.fp\)/);
-  assert.match(p, /ui\.tiles\.set\(respFp\(s, f\)/);
+  assert.match(p, /ui\.tiles\.paintTiles\(respFp\(s, now\.fp\)/);
+  assert.match(p, /ui\.tiles\.paintTiles\(respFp\(s, f\)/);
 });
 
-test('bleed clock: clock on a tiles slide shows the hours since the bleed on a tile\'s own bar, 0 to 72 with the 12 and 72 hour marks', () => {
-  const used = slidesUsing('clock');
-  assert.ok(used.length >= 8, 'Variceal bleed 3 to 8, Gastric varices 5, Choose the treatment 2');
-  for (const [d, s] of used) {
-    const at = `${d.id}/${s.id}`;
-    assert.ok(adopted(d, s, 'clock'), `${at}: opt-in (tests/deck-adopted.js)`);
-    assert.equal(s.data, 'tiles', `${at}: in the data card, under the tiles`);
-    assert.ok(Number.isFinite(s.clock.at) && s.clock.at >= 0 && s.clock.at <= 72, `${at}: a moment within 72 hours`);
-    assert.ok(s.clock.label.length <= 22 && s.clock.label.split(' ').length <= 5, `${at}: a short word for the tile, "${s.clock.label}"`);
-  }
-  // The clock never runs backward through a deck.
-  for (const d of DECKS) { let t = -1; for (const s of d.slides) if (s.clock) { assert.ok(s.clock.at >= t, `${d.id}/${s.id}: later than the slide before`); t = s.clock.at; } }
-  const p = src('presenter.js');
-  assert.match(p, /export const CLOCK_END = 72, CLOCK_MARKS = \[12, 72\];/);
-  assert.match(p, /ui\.clock\.set\(s\.data \? s\.clock : null\);/);
-  assert.match(css, /\.pz-clock \.pzb-now \{ transition: left \.6s var\(--ease\)/, 'the dot eases to the slide\'s moment');
+test('no Since the bleed tile (his 30 Oct, "I kinda hate the time since bleed tile and it should go"): no slide sets clock, the card has no clock row', () => {
+  assert.deepEqual(slidesUsing('clock').map(([d, s]) => `${d.id}/${s.id}`), []);
+  assert.doesNotMatch(src('presenter.js'), /Since the bleed|pz-clockrow|bleedClock/);
+  assert.doesNotMatch(css, /\.pz-clock/);
 });
 
 test('a slide that cannot land is not rebuilt without end (Variceal bleed 3 to 4 froze the talk, 25 Oct)', () => {

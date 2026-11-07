@@ -19,10 +19,14 @@ export function nodeEnds(edges, record) {
 }
 
 /** Whether any vessel is drawn at a station (its `nodeEnds` list). */
-export const nodeDrawn = (ends) => !!ends && ends.some(({ x, end }) => drawnAt(x, end));
+export function nodeDrawn(ends) {
+  if (!ends) return false;
+  for (let i = 0; i < ends.length; i++) if (drawnAt(ends[i].x, ends[i].end)) return true;
+  return false;
+}
 
 // The dots themselves, and the room readings keep from them. A dot's radius is in the map's units (it scales with the map); its
-// outline is styles/app.css .node-dot (stroke-width 1.6, half of it outside the radius).
+// outline is the ring stage.js draws on the GPU (nodeVerts: 1.6 wide, half of it outside the radius).
 export const dotRadius = (kind) => (kind === 'heart' ? 7 : kind === 'bed' ? 5.5 : 4.5);
 const DOT_HALF_STROKE = 0.8;
 
@@ -32,18 +36,39 @@ const DOT_HALF_STROKE = 0.8;
  * at least 4 px from the dot's edge, whichever side the reading sits on.
  */
 export function dotBox(x, y, kind, scale, minX = 0, minY = 0) {
-  const h = (dotRadius(kind) + DOT_HALF_STROKE) * scale + 2, hx = Math.max(h, minX), hy = Math.max(h, minY);
-  return { x0: x - hx, y0: y - hy, x1: x + hx, y1: y + hy };
+  return dotBoxInto({ x0: 0, y0: 0, x1: 0, y1: 0 }, x, y, kind, scale, minX, minY);
 }
+/** dotBox written into `out` (no object made). */
+export function dotBoxInto(out, x, y, kind, scale, minX = 0, minY = 0) {
+  const h = (dotRadius(kind) + DOT_HALF_STROKE) * scale + 2, hx = Math.max(h, minX), hy = Math.max(h, minY);
+  out.x0 = x - hx; out.y0 = y - hy; out.x1 = x + hx; out.y1 = y + hy;
+  return out;
+}
+
+// bareDots' answer: one kept list of kept { id, x, y, box } records, rewritten by each call (the stage copies each box into its own list
+// as it walks them). The records are made as the list first grows.
+const BARE = [], BARE_POOL = [];
+const newBare = () => ({ id: '', x: 0, y: 0, box: { x0: 0, y0: 0, x1: 0, y1: 0 } });   // (the pool's growth: only while it is still filling)   // alloc-rare: a pool's growth, only while it is still filling
+for (let i = 0; i < 48; i++) BARE_POOL.push(newBare());
 
 /**
  * Every visible dot with no reading placed beside it (its station's reading is left out at this level of detail, or it has none)
  * with the box readings keep out of. The stations with a reading keep their ring, which the stage sets from the reading itself.
  * `nodes`: the model's stations; `labelled`: ids with a reading; `shown(id)`: whether a vessel is drawn there; `at(id)`: [x, y] on the screen.
+ * The list and its records are kept and rewritten by the next call: read them at once.
  */
 export function bareDots(nodes, { labelled, shown, at, scale, minX, minY }) {
-  return nodes.filter((n) => !labelled.has(n.id) && shown(n.id)).map((n) => {
-    const [x, y] = at(n.id);
-    return { id: n.id, x, y, box: dotBox(x, y, n.kind, scale, minX, minY) };
-  });
+  let k = 0;
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    if (labelled.has(n.id) || !shown(n.id)) continue;
+    const p = at(n.id);
+    if (k === BARE_POOL.length) BARE_POOL.push(newBare());
+    const r = BARE_POOL[k];
+    r.id = n.id; r.x = p[0]; r.y = p[1];
+    dotBoxInto(r.box, p[0], p[1], n.kind, scale, minX, minY);
+    BARE[k++] = r;
+  }
+  BARE.length = k;
+  return BARE;
 }

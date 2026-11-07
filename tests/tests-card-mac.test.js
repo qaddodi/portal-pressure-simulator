@@ -4,8 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const dock = read('../src/ui/dock.js'), doppler = read('../src/ui/doppler.js'), instruments = read('../src/ui/instruments.js');
 const readouts = read('../src/ui/readouts-pane.js'), css = read('../styles/app.css');
 

@@ -171,6 +171,10 @@ export const EDGES = [
   { id: 'S_PC', from: 'CONF', to: 'IVCI', kind: 'shunt', shunt: 'portocaval', d: 14, label: 'Portocaval shunt' },
   { id: 'S_DSR', from: 'SVD', to: 'LRV', kind: 'shunt', shunt: 'dsrs', d: 9, label: 'Distal splenorenal (Warren) shunt' },
   { id: 'S_MC', from: 'SMV', to: 'IVCI', kind: 'shunt', shunt: 'mesocaval', d: 10, label: 'Mesocaval shunt' },
+  // The Meso-Rex bypass: a vein graft from the superior mesenteric vein, upstream of the clotted portal trunk, to the left portal
+  // vein at the Rex recess (its umbilical part). The one shunt that joins two portal vessels: it is not in PORTOSYSTEMIC_EDGES, so
+  // its blood counts as portal blood reaching the liver (the sinusoids), never as shunted. Closed unless params.rex is on.
+  { id: 'REX', from: 'SMV', to: 'LPV', kind: 'shunt', shunt: 'rex', d: 8, label: 'Meso-Rex bypass' },
 ];
 
 // Custom portosystemic shunts: any portal vessel to any systemic vein, created with the stent
@@ -183,7 +187,12 @@ const nodeLabel = (id) => { const n = NODES.find((x) => (Array.isArray(x) ? x[0]
 // A node's short name for a stent's course: its id (RPV, RHV), with the hilum portal vein as PV and both IVC levels as IVC.
 const NODE_SHORT = { PVH: 'PV', IVCI: 'IVC', IVCS: 'IVC' };
 // A stent's course from its portal end to its systemic end, read from the model's own connection: "RPV → RHV" for the TIPS.
-export const stentCourse = (e) => `${NODE_SHORT[e.from] || e.from} → ${NODE_SHORT[e.to] || e.to}`;
+const COURSES = new WeakMap();   // alloc-rare: made once; one kept entry per edge
+export const stentCourse = (e) => {
+  let c = COURSES.get(e);
+  if (!c || c.from !== e.from || c.to !== e.to) { c = { from: e.from, to: e.to, text: `${NODE_SHORT[e.from] || e.from} → ${NODE_SHORT[e.to] || e.to}` }; COURSES.set(e, c); }   // alloc-rare: built when an edge is first named, or when its ends change
+  return c.text;
+};
 export const customShuntId = (p, q) => `X_${p}_${q}`;
 for (const p of SHUNT_PORTAL) for (const q of SHUNT_SYSTEMIC) {
   if (NAMED_SHUNTS.has(`${p}>${q}`)) continue;
@@ -214,7 +223,13 @@ export const SPLANCHNIC_ARTERIES = ['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA'];
 // time; the model's velocity is flow over area, the mean across the lumen. Mean ≈ 0.57 × peak in the
 // portal vein (Moriyasu 1986), ≈ 0.5 × peak for laminar flow in a smooth stent. The usual Doppler
 // ranges (portal vein 15–40 cm/s, TIPS 90–190 cm/s) are peak velocities.
-export const dopplerK = (e) => (e?.kind === 'shunt' ? 2 : 1 / 0.57);
+// A stent (TIPS, DIPS, a drawn stent) is read higher again (app review H4, 5 Nov 2026: open 8 and 10 mm stents read 60–100 cm/s at K 2,
+// "Low velocity: suggests stenosis"): the scanner takes the spectrum's peak systolic velocity at an angle-corrected gate, in a lumen that the
+// pseudointima, an underdilated covered stent and its curve leave narrower than the stent's nominal diameter, where the model's velocity is the
+// time-mean flow over the nominal lumen. STENT_DOPPLER_K = 3.4 brings patent 8 and 10 mm stents in compensated and decompensated cirrhosis
+// to about 105–180 cm/s, as patent stents read on follow-up scans (Mitchell et al., Abdom Radiol 2025: 141–185 cm/s at 8 mm, 141–149 at 10 mm).
+export const STENT_DOPPLER_K = 3.4;
+export const dopplerK = (e) => (e?.kind !== 'shunt' ? 1 / 0.57 : isStent(e) ? STENT_DOPPLER_K : 2);
 // Stents: the TIPS, the DIPS and the shunts drawn with the stent tool. Each is sampled by Doppler at its portal end
 // (proximal), its middle and its systemic end (distal). A narrowing is a short pinch in one of those three
 // segments (params.stenosisSite, distal by default, where a TIPS usually narrows); the rest of the stent keeps its
@@ -234,7 +249,11 @@ export const stentGate = (gate, p, id) => (gate === 'site' ? stentSite(p, id) : 
 // proximal 0.9×, mid 1×, distal 0.95×, well under the 50 cm/s change that suggests stenosis.
 // The spread fades out as a narrowing grows (gone by 30 %), so a narrowed stent reads its slow flow and its jet alone.
 export const STENT_GRADIENT = { proximal: 0.9, mid: 1, distal: 0.95 };
-export const stentSegments = (v, s = 0, site = 'distal') => {
+const STENT_KEYS = ['proximal', 'mid', 'distal'];   // alloc-rare: made once
+// `out` (optional): a list of 3 the numbers are written into and returned, so a drawn frame makes no list; without one a fresh list is made.
+export const stentSegments = (v, s = 0, site = 'distal', out = null) => {
   const w = Math.max(0, 1 - Math.max(0, s) / 0.3);
-  return ['proximal', 'mid', 'distal'].map((k) => (k === site && s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v) * (1 + (STENT_GRADIENT[k] - 1) * w));
+  if (!out) out = [0, 0, 0];   // alloc-rare: only a caller that gives no list of its own (a test); the drawn paths pass one
+  for (let i = 0; i < 3; i++) { const k = STENT_KEYS[i]; out[i] = (k === site && s > 0 && s < 0.995 ? v / ((1 - s) * (1 - s)) : v) * (1 + (STENT_GRADIENT[k] - 1) * w); }
+  return out;
 };

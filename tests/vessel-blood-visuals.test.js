@@ -1,14 +1,15 @@
+import { stageSource } from './stage-src.js';
 // The vessel and blood visuals from the October review (docs/REVIEW_2026-10.md §4, G9, G10, G12, G14 and G17):
 // what each draws, checked without a browser.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { advanceStream, REVERSE_HOLD, bleedShapes, BLEED_JETS, BLEED_DROPS, bleedPulse, poolFill, POOL_SHARE, chevFlowLevel, CHEV_Q_FULL } from '../src/ui/blood.js';
+import { advanceStream, REVERSE_HOLD, bleedShapes, BLEED_ROWS, bleedPulse, poolFill, POOL_SHARE, chevFlowLevel, CHEV_Q_FULL } from '../src/ui/blood.js';
 import { LUMEN, LUMEN_AREA, LUMEN_BOTTOM, STO_N, lumenSurface, lumenAt } from '../src/ui/stomach-lumen.js';
 import { varixBead, beadRadius, BEAD_MAX } from '../src/ui/varix-bead.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const STAGE = src('src/ui/stage.js'), GL = src('src/ui/veins-gl.js');
+const STAGE = stageSource(), GL = src('src/ui/veins-gl.js');
 
 test('G9: blood that turns round stands still for 0.6 s at the turn, then sets off the other way', () => {
   const st = { seed: 3 };
@@ -58,53 +59,36 @@ test('G9: a watched vessel that reverses marks its station with ⟲, and no band
 });
 
 const SITES = { varix: [797, 232], fundus: [876, 304] };
-test('G10: a bleed spurts with the heartbeat, falls from the tear and pools in the stomach, nothing popping on or off', () => {
-  const ev = bleedShapes({ site: 'VAR', total: 500 }, 90, 0.3, SITES, 80);
+test('G10: a bleed is a steady stream from the tear to a pool in the stomach, with no pulse, no welling and no splatter', () => {
+  const ev = bleedShapes({ site: 'VAR', total: 500 }, 90, SITES);
+  assert.equal(ev.length, BLEED_ROWS);
   assert.equal(ev[0][7], 0, 'the pool first');
-  assert.ok(ev.length <= 24, 'fits the shader');
   assert.match(GL, /uniform vec4 bleedB\[24\];/);
-  const jets = ev.slice(1, 1 + BLEED_JETS), drops = ev.slice(1 + BLEED_JETS, 1 + BLEED_JETS + BLEED_DROPS), [thread, welling] = ev.slice(1 + BLEED_JETS + BLEED_DROPS);
-  for (const j of jets) {
-    assert.equal(j[7], 1);
-    assert.ok(j[2] > j[0], 'into the lumen, away from the wall');
-    assert.ok(j[4] > j[5], 'tapered toward its tip');
-    assert.ok(Math.hypot(j[2] - j[0], j[3] - j[1]) < 30, 'a short spurt, not a fountain');
-  }
-  for (const j of bleedShapes({ site: 'GV', total: 500 }, 90, 0.3, SITES).slice(1, 1 + BLEED_JETS)) assert.ok(j[3] > j[1], 'down into the fundus');
+  const thread = ev[1];
+  // Only the pool and the stream: no jets, drops or welling (kind 1) at the tear, and the shader draws none.
+  assert.ok(ev.every((s) => s[7] !== 1), 'no jets, drops or welling');
+  assert.doesNotMatch(GL, /bB\.w < 0\.5 \|\| bB\.w > 1\.5/, 'no jet pass in the shader');
   // The thread leaves the tear and falls to the pool's surface, landing inside the stomach's lumen.
   assert.equal(thread[7], 2);
-  assert.equal(welling[7], 1);
   assert.ok(thread[1] < 260 && thread[3] === ev[0][0], 'from the tear to the surface');
   assert.ok(thread[2] > lumenAt(ev[0][0])[0] && thread[2] < lumenAt(ev[0][0])[1], 'lands inside the lumen');
   assert.equal(ev[0][2], thread[2], 'the pool ripples where the thread lands');
   // The pool is the stomach's lumen filled from the bottom: its level rises with the blood lost, stays inside the lumen
   // and never fills it.
-  const level = (total) => bleedShapes({ site: 'VAR', total }, 90, 0, SITES)[0][0];
+  const level = (total) => bleedShapes({ site: 'VAR', total }, 90, SITES)[0][0];
   assert.ok(level(100) > level(400) && level(400) > level(1500), 'rises');
   assert.ok(level(0) < LUMEN_BOTTOM && level(1e6) >= lumenSurface(POOL_SHARE) - 1e-9, 'inside the lumen, never full');
   assert.equal(poolFill(0), 0.12, 'a puddle at once');
-  // The jets lengthen on each beat: longer in systole than between beats, and the beat follows the heart rate.
-  const jl = (t, hr) => { const j = bleedShapes({ site: 'VAR', total: 500 }, 90, t, SITES, hr)[1]; return Math.hypot(j[2] - j[0], j[3] - j[1]); };
-  assert.ok(jl(0.09, 60) > 1.5 * jl(0.6, 60));
-  assert.ok(Math.abs(bleedPulse(0.3, 60) - bleedPulse(1.3, 60)) < 1e-9 && Math.abs(bleedPulse(0.15, 120) - bleedPulse(0.65, 120)) < 1e-9);
-  // A slow bleed oozes: short jets, a thread that breaks into drops, faint drops.
-  const slow = bleedShapes({ site: 'VAR', total: 500 }, 15, 0.09, SITES, 60);
-  assert.ok(Math.hypot(slow[1][2] - slow[1][0], slow[1][3] - slow[1][1]) < 0.4 * jl(0.09, 60));
-  assert.ok(slow.at(-2)[5] > ev.at(-2)[5], 'breaks into drops sooner');
-  // No shape pops on or off: every alpha moves smoothly.
-  for (const site of ['VAR', 'GV']) {
-    let prev = null;
-    for (let t = 0; t < 3; t += 0.002) {
-      const a = bleedShapes({ site, total: 500 }, 90, t, SITES, 80).map((s) => s[6]);
-      if (prev) a.forEach((x, i) => assert.ok(Math.abs(x - prev[i]) < 0.03, `${site} shape ${i} at ${t.toFixed(3)} s`));
-      prev = a;
-    }
-  }
-  // Paused, the drops stand at different stages (a still picture of the spray).
-  assert.equal(new Set(drops.map((d) => d[1].toFixed(2))).size, BLEED_DROPS);
+  // No pulse: nothing in the shapes depends on time or the heart rate (bleedShapes takes neither).
+  assert.equal(bleedShapes.length, 3);
+  // A slow bleed: a thread that breaks into drops sooner.
+  const slow = bleedShapes({ site: 'VAR', total: 500 }, 15, SITES);
+  assert.ok(slow[1][5] > thread[5], 'breaks into drops sooner');
   // A gastric varix: the thread falls straight from the fundus.
-  const gv = bleedShapes({ site: 'GV', total: 500 }, 90, 0.3, SITES, 80), gt = gv.at(-2);
+  const gt = bleedShapes({ site: 'GV', total: 500 }, 90, SITES)[1];
   assert.ok(Math.abs(gt[2] - gt[0]) < 5 && gt[3] > gt[1], 'straight down');
+  // The scope's bleed is steady too, no beat in it (Mohammad 6 Nov 2026: "it should stop pulsing everywhere").
+  for (const hr of [60, 80, 120]) for (const t of [0, 0.13, 0.3, 0.71, 1.3]) assert.equal(bleedPulse(t, hr), bleedPulse(0, 80));
 });
 
 test('the stomach lumen: rows read off its outline, a pool that fills it from the bottom, the shader reads the same rows', () => {
@@ -160,8 +144,24 @@ test('G17: with reduced motion the chevrons stand still, spaced by flow', () => 
   assert.ok(Math.abs(chevFlowLevel(-CHEV_Q_FULL / 4) - 2) < 1e-9, 'either way');
   assert.equal(chevFlowLevel(0.01), 3);
   assert.match(STAGE, /flowData\[o \+ 13\] = chevFlowLevel\(q\);/);
-  assert.match(STAGE, /still: reduceMotion\.matches, chev:/);
+  assert.match(STAGE, /L\.still = reduceMotion\.matches; L\.chev = cA > 0;/);
   assert.match(GL, /if \(still == 1\) lv = max\(lv, texelFetch\(flow, ivec2\(3, id\), 0\)\.y\);/);
+});
+
+test('the flow arrowheads stand 2.5 times as far apart, by one constant on the level, so every zoom still eases between its doublings', () => {
+  // (Mohammad, 31 Oct: "too many chevrons btw, can we make them less".) Added after the reduced-motion level, so that keeps its flow steps.
+  const m = GL.match(/lv = max\(lv, texelFetch\(flow, ivec2\(3, id\), 0\)\.y\);[\s\S]*?float Pc = 28\.0 \* exp2\(lv\);\s*lv \+= ([\d.]+);\s*float n = floor\(lv\), fr = lv - n;/);
+  assert.ok(m, 'the spread sits after the still level and after the end ramp takes its spacing');
+  assert.ok(Math.abs(2 ** +m[1] - 2.5) < 1e-5, `2 ** ${m[1]} is the spacing factor`);
+  // The heads shown per length (every head of the finer level, the odd ones fading as the level climbs) fall to a third to a half at any zoom.
+  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const dens = (lv) => { const n = Math.floor(lv), fr = lv - n; return (1 + (1 - ss(0.15, 0.85, fr))) / (2 * 28 * 2 ** n); };
+  for (let lv = 0; lv < 6; lv += 0.05) {
+    const r = dens(lv + +m[1]) / dens(lv);
+    assert.ok(r > 0.3 && r < 0.52, `at level ${lv.toFixed(2)} the heads fall to ${r.toFixed(3)} of what they were`);
+  }
+  // The head's end ramp still follows the old spacing, so a short vessel's heads are no dimmer for it.
+  assert.match(GL, /ramp = max\(2\.0 \* L, 0\.3 \* Pc\)/);
 });
 
 test('A7: the pressure ramp gets darker at every stop, so 12 and 20 mmHg differ in lightness, not only in hue', () => {

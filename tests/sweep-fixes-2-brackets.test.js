@@ -19,8 +19,10 @@ test('Lobule 8 shows the Gut to heart chart (Recompensation\'s carvedilol slide,
 });
 
 test('a bracket\'s bar breaks round its own label, never running through "HVPG"', () => {
-  assert.match(prof, /const gap = stack \? bracketLabel\(x0, x1, Infinity, \[tw\(name, 600\), tw\(val, 700\)\]\)\.gap : oneLineGap\(x0, x1, z \* tw\(`\$\{name\} \$\{val\}`, 700\)\);/);
-  assert.match(prof, /const bar = gap\[1\] - gap\[0\] >= x1 - x0 - 0\.5 \? '' : `M\$\{x0\} \$\{yy\}H\$\{gap\[0\]\}M\$\{gap\[1\]\} \$\{yy\}H\$\{x1\}`;/);
+  assert.match(prof, /const ws = Math\.max\(tw\(name, 600\), tw\(s, 700\)\);/);
+  assert.match(prof, /const lw = z \* tw\(`\$\{name\} \$\{s\}`, 700\);/);
+  assert.match(prof, /const wide = \(x1 - x0 - lw\) \/ 2 - LABEL_PAD >= BAR_MIN;/);
+  assert.match(prof, /if \(!\(hi - lo >= x1 - x0 - 0\.5\)\) \{ {3}\/\/ \(the bar, broken round the label\)/);
 });
 
 test('the red block marks each fall over 4 mmHg from the portal vein on, or the heart; a healthy chart shows none', async () => {
@@ -70,16 +72,16 @@ test('a block stands on the column of the station the pressure falls from, aroun
 
 test('the block is drawn under the axis line, the line and the readings, which keep their outline', () => {
   const at = (re) => { const m = prof.slice(prof.indexOf('export function createProfileTool')).search(re); assert.ok(m > 0, String(re)); return m; };
-  const blk = at(/class: 'ppf-blk'/), axis = at(/class: 'ppf-axis'/), line = at(/class: 'ppf-line'/), vals = at(/class: 'ppf-v'/);
+  const blk = at(/M\.blk,/), axis = at(/class: 'ppf-axis'/), line = at(/M\.lineP,/), vals = at(/M\.vt,/);
   assert.ok(blk < axis && axis < line && line < vals, 'block, axis, line, readings: back to front');
-  assert.match(css, /\.ppf-v \{[^}]*paint-order: stroke; stroke: var\(--surface\); stroke-width: 4px;/);
+  // (The readings' outline is the table's prof.v: tests/profile-looks.test.js.)
 });
 
 test('every bracket and the healthy line\'s name keep clear of the blocks; a block eases in and out, hatched as the old ladder\'s', () => {
   assert.equal((prof.match(/for \(const i of blocksOf\(goal, hl\)\) place\.take\(blockBox\(G, tw, goal, i\)\);/g) || []).length, 3, 'the brackets, the lines\' names and the pills');
-  assert.match(prof, /if \(!b \|\| b\.a !== a\) blk\.set\(i, \{ a, from: reduceMQ\.matches \? a : b \? blkOp\(b, t\) : 0, t0: t \}\);/);
-  assert.match(prof, /\|\| \[\.\.\.blk\.values\(\)\]\.some\(\(b\) => t - b\.t0 < FADE_MS\);/);
-  assert.match(prof, /sv\('rect', \{ class: 'pz-hb', width: s, height: s \}\), sv\('rect', \{ class: 'pz-hs', width: s \/ 2, height: s \}\)/);
-  assert.match(css, /\.ppf-blk \{ stroke: var\(--danger\); stroke-width: 1\.2; stroke-opacity: \.7; \}/);
-  assert.match(css, /\.pz-hs \{ fill: var\(--danger\); fill-opacity: \.55; \}/);
+  assert.match(prof, /if \(!b \|\| b\.a !== a\) \{ blkS\[i\]\.from = reduceMQ\.matches \? a : b \? blkOp\(b, t\) : 0; blkS\[i\]\.a = a; blkS\[i\]\.t0 = t; blkLive\[i\] = 1; \}/);
+  assert.match(prof, /if \(blkLive\[i\] && t - blkS\[i\]\.t0 < FADE_MS\) fading = true;/);
+  assert.match(prof, /sv\('rect', \{ class: 'pz-hb', 'data-look': 'card\.hatch\.bg', width: s, height: s \}\), sv\('rect', \{ class: 'pz-hs', 'data-look': 'card\.hatch\.stripe', width: s \/ 2, height: s \}\)/);
+  // (The block's ring is the table's prof.blk: tests/profile-looks.test.js.)
+  assert.doesNotMatch(css, /\.pz-hs \{/);   // (the stripes' look is the table's card.hatch.stripe)
 });

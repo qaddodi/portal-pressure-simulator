@@ -1,11 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { unsnap } from './unsnap.js';
 
 // Codebase review 22 Oct, group 2: per-frame work in the lobule, the sinusoid, the data-card plane and the charts that
 // gave the same pixels every time is done once and kept. Each test pins one item.
 
-const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
+const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 
 test('item 38: chart and Doppler strip labels are measured once per font and text, forgotten when the fonts arrive', () => {
   const charts = read('../src/ui/charts.js'), dop = read('../src/ui/doppler.js');
@@ -29,11 +30,14 @@ test('item 36: the data-card plane skips a redraw whose size, font, points, read
 
 test("item 39: a lit lobule label's pill is read once per layout, not on every frame of its leaders' glide", () => {
   const src = read('../src/ui/lobule-zoom.js');
-  const lo = src.slice(src.indexOf('const lettersOf = '), src.indexOf('function leadTo('));
-  assert.match(lo, /let q = pills\.get\(L\);\s*if \(!q\) \{/);
-  assert.equal(lo.match(/getComputedStyle/g).length, 1);
-  const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('function layoutLabels()') + 900);
-  assert.match(lay, /if \(key === layoutKey\) return;\s*pills\.clear\(\);/);
+  const lo = src.slice(src.indexOf('const lettersInto = '), src.indexOf('const dropCost = '));
+  // (Since 1 Nov, evening: never read in a frame at all. The pill's insets are measured with the label's size, in a timer task of
+  // their own (measureRun), and the leaders use them from there.)
+  assert.match(lo, /q = L\.pillQ;/);
+  assert.doesNotMatch(lo, /getComputedStyle/);
+  const run = src.slice(src.indexOf('function measureRun()'), src.indexOf('const labWH = '));
+  assert.match(run, /getComputedStyle\(L\.el, '::before'\)/);
+  assert.match(run, /L\.pillQ = \[px\(p\.left\), px\(p\.top\), px\(p\.right\), px\(p\.bottom\), px\(p\.borderTopLeftRadius\)\];/);
 });
 
 test('item 33: the sinusoid view keeps its size, colours and dark-mode query instead of reading them every frame', () => {
@@ -41,30 +45,25 @@ test('item 33: the sinusoid view keeps its size, colours and dark-mode query ins
   const draw = src.slice(src.indexOf('function draw(dt, run = true'), src.indexOf('function describe()'));
   assert.doesNotMatch(draw, /getBoundingClientRect|getComputedStyle|matchMedia\(/);
   assert.match(draw, /const \[W, H\] = hostSize\(\);/);
-  assert.match(src, /new ResizeObserver\(\(\) => \{ hostWH = null;/);
-  // (The colours are read again when the theme or a setting's class changes, never from the presenter's inline room.)
-  assert.match(src, /if \(cssVer !== lookVer\) \{ cssVer = lookVer; cssVals\.clear\(\); \}/);
+  assert.match(src, /new ResizeObserver\(\(\) => \{ readHost\(\); readGap\(\);/, 'the stage read by its observer, not by a frame');
+  // (The colours are read again when the theme or a setting's class changes, between frames (a rest pass), never from the presenter's inline room.)
+  assert.match(src, /const lookChanged = \(\) => \{ cssStale = true; gapStale = true; askRest\(\); askLooks\(\); \};/);
+  assert.match(src, /restAsk = 0;\n\s+if \(gapStale\) \{ gapStale = false; readGap\(\); \}/, 'the gap read in the rest pass, not in the observer (2 Nov 2026)');
+  assert.match(src, /if \(cssStale \|\| cssMiss\) \{ readCss\(\); cssMiss = false; ch = true; sizedNew = true; \}/);
   assert.match(src, /r\.attributeName !== 'style'/);
   assert.match(src, /if \(el\.style\.getPropertyValue\('--label-k'\) !== lk\)/);
 });
 
-test('item 34: sinusoid uniforms are sent only when they change, and the second tissue pass sends only its pass number', () => {
-  const src = read('../src/ui/sinusoid-gl.js');
-  assert.match(src, /if \(sent\.has\(l\) && same\(v, sent\.get\(l\)\)\) return;/);
-  assert.match(src, /webglcontextrestored', \(\) => \{ sent\.clear\(\);/);
-  const t = src.slice(src.indexOf('const tissue = '), src.indexOf('return {', src.indexOf('const tissue = ')));
-  assert.match(t, /if \(pass === 0\) \{[\s\S]*for \(const k in u\)[\s\S]*\}\s*set\(T\.U, 'uPass', pass\);/);
-});
-
 test("item 32: the lobule's world bitmap and surround keep their scale under a hand too, drawn sharp once it lets go", () => {
   const src = read('../src/ui/lobule-zoom.js');
-  const pt = src.slice(src.indexOf('function paintTissue('), src.indexOf('fieldFill(c, q,'));
-  // (On the 2D canvas a hand is a finger, a flick or a trackpad scroll, as before; on the GPU any wheel too, and there the bitmap is
+  const pt = src.slice(src.indexOf('function paintTissue('), src.indexOf('\n  }\n', src.indexOf('function paintTissue(')));
+  // (Without the GPU a hand is a finger, a flick or a trackpad scroll, as before; on the GPU any wheel too, and there the picture is
   // held only while it is at least as sharp as the zoom wants: tests/tissue-gl.test.js.)
   assert.match(pt, /const hand = !gliding && \(gpu \? handOn\(\) : touches\.size > 0 \|\| !!cancelFlick \|\| \(wheelKind === 'pad' && performance\.now\(\) - wheelAt < 250\)\), held = gliding \|\| hand;/);
   assert.match(pt, /const kept = worldSc && worldCv\.width && worldGeo === G;/);
-  assert.match(pt, /if \(held && kept && \(!gpu \|\| sc <= worldSc\)\) \{ if \(hand && sc !== worldSc\) holdSoon\(\); sc = worldSc; \}/);
-  assert.match(pt, /const want = held && surRd \? surRd : rd \* 0\.55;/);
+  // (bitmapUnseen: where the shader has the whole picture on the GPU the bitmap is held at any gesture step, as nothing of it is seen.)
+  assert.match(pt, /if \(held && kept && \(!gpu \|\| sc <= worldSc \|\| bitmapUnseen\(\)\)\) \{ if \(hand && sc !== worldSc\) holdSoon\(\); sc = worldSc; \}/);
+  // (The surround is the GPU's own tiles, blended at every size (tissueOnGPU fieldBlend), so it has no scale to hold.)
   assert.match(src, /function holdEnd\(\) \{ holdT = 0; if \(handOn\(\)\) \{ holdSoon\(\); return; \} viewChanged\(\); \}/);
 });
 
@@ -72,25 +71,32 @@ test("item 31: lobule pan and zoom frames reuse each tube's radii, compare inks 
   const src = read('../src/ui/lobule-zoom.js');
   const gl = src.slice(src.indexOf('function drawGL('), src.indexOf('const num = (cs, n, d)'));
   // (Radii worked out only when the calibers change; the zoom only re-checks them against what was sent.)
-  assert.match(gl, /if \(rkC !== radCal\) \{ radCal = rkC; radNow = \[\]; \}/);
-  assert.match(gl, /const r = radNow\[t\.id\] \|\| \(radNow\[t\.id\] = Array\.from/);
+  // (Kept as numbers, per vessel, written in place: calibersChanged says when they are worked out again, radiiNow does it.)
+  assert.match(gl, /const calCh = calibersChanged\(rzOf\(\), G\);/);
+  assert.match(gl, /const r = radiiNow\(t\);/);
+  assert.match(src, /if \(radNowAt\[t\.id\] !== radStamp\) \{ for \(let i = 0; i < N; i\+\+\) r\[i\] = radiusAt\(t, i\); radNowAt\[t\.id\] = radStamp; \}/);
   assert.doesNotMatch(gl, /flat\(2\)\.map\(\(x\) => x\.toFixed\(3\)\)/);
-  assert.match(gl, /if \(inkMoved \|\| ak !== attrKey\)/);
+  assert.match(gl, /if \(inkMoved \|\| !akSame\)/);
   assert.match(gl, /if \(cs !== lookCs\) \{ lookCs = cs; lookNow = lookOf\(cs\); lookSig = JSON\.stringify\(lookNow\); \}/);
   assert.doesNotMatch(gl, /const lsig = JSON\.stringify\(look\)/);
 });
 
 test('item 6: a short lobule glide carries the labels with their spots and lays them out once where it lands', () => {
   const src = read('../src/ui/lobule-zoom.js');
-  const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('const baked = bakeFollow();'));
-  // (Not a presenter's camera move, which hides the labels on the way, nor a hand's pan, which carries the whole layer.)
-  assert.match(lay, /if \(follow && bKey === follow\.b && gliding && !camMove && !handOn\(\) && !labels\.style\.transform\) \{ ride\(\); return; \}/);
-  assert.match(lay, /V\.k === follow\.k && handOn\(\) && !rides\)/);
+  const lay = src.slice(src.indexOf('function layoutLabels()'), src.indexOf('if (bakeFollow())'));
+  // (A presenter's glide too, and a dive re-aimed on its way in; not a hand's pan, which carries the whole layer.)
+  assert.match(lay, /if \(sameB && gliding && !handOn\(\) && !panOn\) \{ ride\(\); return; \}/);
+  assert.match(lay, /sameB && V\.k === follow\.k && handOn\(\) && !rides\)/);
   const rd = src.slice(src.indexOf('function ride()'), src.indexOf('function bakeFollow()'));
   // Each piece moves by its own spot's move at its own size (a translate), and is written into its place at landing.
-  assert.match(rd, /e\.style\.translate = t;/);
-  assert.match(rd, /e\.style\.translate = '';/);
-  assert.match(rd, /labels\.classList\.remove\('lz-ease'\);/);
+  assert.match(rd, /if \(p\) tr\(e, p\[0\] \+ d0, p\[1\] \+ d1\);/);
+  assert.doesNotMatch(rd, /style\.translate/, 'a ride writes no style: the GPU draws the leaders from their geometry, the names from their spots');
+  // (Where the GPU draws the names, label-captions.js, tr hands each place to it in the frame and the page's clear model is placed between
+  // frames, domFlush; there is no per-frame translate write when the names are not on the GPU either.)
+  assert.doesNotMatch(src, /const tr = \(e, x, y\) => \{[^}]*e\.style\.translate/);
+  assert.match(src, /function domFlush\(\) \{[\s\S]{0,200}if \(rides\) return;[\s\S]{0,200}e\.style\.translate = /);
+  assert.match(src, /for \(const e of clrQ\) if \(e\.style\.translate\) e\.style\.translate = '';/);
+  assert.match(rd, /classSoon\(labels, 'lz-ease', false\);/);
   assert.match(src, /function bakeFollow\(\) \{\s*if \(bakeRides\(\)\)/);
   // The lit terms are split once per change, not queried for every candidate spot.
   assert.match(src, /const named = \(k\) => litOf\(\)\.has\(/);
@@ -105,11 +111,10 @@ test('item 43 (lobule parts): the anatomy-to-sinusoid chain, the zoom-out hand-o
   assert.doesNotMatch(rc, /rimKeep|diveRimMix/);
 });
 
-test('item 18 (lobule side): the sinusoid zoom stops a flick or glide first; a held aim lets go; reduced motion builds no wide copy', () => {
+test('item 18 (lobule side): the sinusoid zoom stops a flick or glide first; reduced motion builds no wide copy', () => {
   const src = read('../src/ui/lobule-zoom.js');
   const dive = src.slice(src.indexOf('function diveSinusoid(on)'), src.indexOf('function diveSinusoid(on)') + 2500);
-  assert.match(dive, /if \(on && sinU === 0\) \{ stopInertia\(\); cancelFrame\(glide\); gliding = false; releaseCam\(\);/);
-  assert.match(src, /store\.on\('presenting', \(\) => \{ if \(!store\.get\(\)\.presenting\) releaseCam\(\); \}\);/);
+  assert.match(dive, /if \(on && sinU === 0\) \{ stopInertia\(\); cancelFrame\(glide\); gliding = false;/);
   assert.match(src, /box = reduce\.matches \? null : padBox\(W, H\), wd = box \? buildWide/);
   assert.match(src, /if \(wide \|\| fade <= 0\.98 \|\| !model \|\| reduce\.matches\) return;/);
 });
@@ -125,7 +130,7 @@ test('item 51: the presenter announces "Slide N of M: title" once, its cards car
   const pz = read('../src/ui/presenter.js'), fk = read('../src/ui/figure-key.js');
   assert.equal((pz.match(/'aria-live'/g) || []).length, 1, 'one live region');
   assert.match(pz, /const say = h\('p', \{ class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' \}\);/);
-  assert.match(pz, /`Slide \$\{i \+ 1\} of \$\{n\}\$\{slides\[i\]\?\.title \? `: \$\{slides\[i\]\.title\}` : ''\}`/);
+  assert.match(pz, /`Slide \$\{i \+ 1\} of \$\{slides\.length\}\$\{slides\[i\]\?\.title \? `: \$\{slides\[i\]\.title\}` : ''\}`/);   // (written by announce(), once the slide is on screen)
   assert.match(pz, /'data-empty': '', 'aria-hidden': 'true' \}\);/);
   assert.match(fk, /el\.dataset\.empty = ''; el\.setAttribute\('aria-hidden', 'true'\);/);
   assert.match(fk, /delete el\.dataset\.empty; el\.removeAttribute\('aria-hidden'\);/);
@@ -135,10 +140,11 @@ test('item 37: fitCards reads the tiles and scale-bar numbers in one layout, the
   const pz = read('../src/ui/presenter.js');
   const fc = pz.slice(pz.indexOf('function fitCards(...els)'), pz.indexOf('fitHeads(el);', pz.indexOf('function fitCards(...els)')));
   // Short tile names: every class taken off, then every room read, then the short ones set.
-  assert.match(fc, /for \(const k of names\) k\.classList\.remove\('short'\);\s+const shorts = names\.filter/);
+  assert.match(fc, /for \(const k of names\) k\.classList\.remove\('short'\);\s+(?:\/\/ alloc-rare[^\n]*\s+)*const shorts = names\.filter/);
   // Scale-bar numbers: classes off, every rect read, then .lo/.hi placed by half the number's width, not measured again.
   assert.match(fc, /for \(const b of bars\) \{ b\.B = b\.bar\.getBoundingClientRect\(\); b\.rs = b\.ls\.map\(\(l\) => l\.getBoundingClientRect\(\)\); \}/);
   assert.match(fc, /l\.classList\.add\('lo'\); left \+= r\.width \/ 2; right \+= r\.width \/ 2;/);
   assert.equal((fc.match(/getBoundingClientRect/g) || []).length, 2, 'no rect read after a class is written');
-  assert.match(pz, /if \(sm\?\.k !== smKey\) \{ const pr = h\('span'/);
+  assert.match(pz, /const smProbe = h\('span'/);   // (built once with the presenter, never per look)
+  assert.match(pz, /if \(sm\?\.k !== smKey\) \{ const pr = smProbe;/);
 });

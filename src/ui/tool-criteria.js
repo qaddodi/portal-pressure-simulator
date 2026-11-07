@@ -29,9 +29,11 @@
 // the graph, centred ('**Gray:** ...', or { text, swatch: 'hatch' } for the hatched area's line). The plot's height follows its width
 // only, so the card never changes size with the case.
 
-import { h, fmt } from './util.js?v=58b547f8d4';
-import { TILE } from './table-marks.js?v=8458ad3bf8';
-import { plotPanel } from './plot-look.js?v=5037697da7';
+import { h, fmt } from './util.js';
+import { TILE } from './table-marks.js';
+import { plotPanel } from './plot-look.js';
+import { createSvgGL, svgModel } from './svg-gl.js';
+import { chartCtx } from './chart-ctx.js';
 
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */
@@ -50,8 +52,8 @@ export const ZONES = {
     xTicks: [15, 20, 25], xName: 'LSM kPa', yTick: [150, '150K'], yName: 'PLT',
   },
 };
-const SVGNS = 'http://www.w3.org/2000/svg';
-const svg = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.append(...kids.filter(Boolean)); return e; };
+// (2 Nov 2026: the zones graph is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
+const svg = svgModel;
 let zoneN = 0;
 /** A key line as written ('**Gray:** ...' or { text, swatch }), read into its words (bold parts) and swatch; null if it has no words. */
 export function keyLine(k) {
@@ -106,7 +108,7 @@ export function createCriteria() {
   const top = h('div', { class: 'pzc-top' }, lead, rule);
   const list = h('ul', { class: 'pzc-list', role: 'list' });
   const verdict = h('p', { class: 'pzc-verdict' });
-  const plot = h('div', { class: 'pzc-zones' });
+  const plot = h('div', { class: 'pzc-zones' }), gl = createSvgGL(plot, { host: 'crit' });
   const key = h('div', { class: 'pzc-key' });
   const el = h('div', { class: 'pz-crit' }, top, list, plot, key, verdict);
   let rows = [], parts = [], fig = null, drawnW = 0;
@@ -116,30 +118,31 @@ export function createCriteria() {
     const W = Math.round(plot.clientWidth);
     if (!fig || !W || W === drawnW) return;
     drawnW = W;
-    const fs = Math.max(12, Math.min(14, (parseFloat(getComputedStyle(el).fontSize) || 14) * 0.93)), sm = 12;
+    let host = 14;
+    try { const cx = chartCtx(plot); delete cx.svk; gl.setCtx(cx); host = gl.hostSize(); } catch { /* (no card round it yet: the sizes as they stand) */ }
+    const fs = Math.max(12, Math.min(14, host * 0.93)), sm = 12;
     const ph = Math.round(W * (W < 420 ? 0.46 : 0.34));
     const X = (k) => ((k - fig.x[0]) / (fig.x[1] - fig.x[0])) * W, Y = (p) => ((fig.y[1] - p) / (fig.y[1] - fig.y[0])) * ph;
     const box = (a, extra = {}) => svg('rect', { x: X(a.x[0]), y: Y(a.y[1]), width: X(a.x[1]) - X(a.x[0]), height: Y(a.y[0]) - Y(a.y[1]), ...extra });
-    const word = (x, y, t, cls, anchor = 'middle', size = fs) => svg('text', { x, y, class: `pzz-w ${cls || ''}`, 'text-anchor': anchor, 'font-size': size }, t);
+    const word = (x, y, t, cls, anchor = 'middle', size = fs) => svg('text', { x, y, class: `pzz-w ${cls || ''}`, 'data-look': 'crit.word', 'text-anchor': anchor, 'font-size': size }, t);
     const panel = plotPanel(svg, 0, 0, W, ph, { fill: false });   // (the shared rounded plot, plot-look.js)
-    const g = svg('g', { 'clip-path': panel.url }, ...fig.zones.map((z) => box(z, { class: 'pzz-z', 'data-rate': z.rate })), fig.hatch ? box(fig.hatch, { fill: `url(#${id}h)` }) : null);
+    const g = svg('g', { 'clip-path': panel.url }, ...fig.zones.map((z) => box(z, { class: 'pzz-z', 'data-look': 'crit.zone', 'data-rate': z.rate })), fig.hatch ? box(fig.hatch, { fill: `url(#${id}h)` }) : null);
     const by = ph - 8;
-    plot.replaceChildren(svg('svg', { width: W, height: ph, viewBox: `0 0 ${W} ${ph}`, role: 'img', 'aria-label': fig.label || '' },
+    gl.show(svg('svg', { width: W, height: ph, viewBox: `0 0 ${W} ${ph}`, role: 'img', 'aria-label': fig.label || '' },
       svg('defs', {}, panel.clip,
-        svg('pattern', { id: `${id}h`, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, svg('rect', { width: 2, height: 7, class: 'pzz-hl' }))),
+        svg('pattern', { id: `${id}h`, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, svg('rect', { width: 2, height: 7, class: 'pzz-hl', 'data-look': 'crit.hatch' }))),
       g,
       ...fig.zones.filter((z) => z.name).map((z) => word(X(z.at[0]), Y(z.at[1]) + fs * 0.36, z.name, 'n')),
       ...fig.xTicks.map((k) => word(X(k), by, String(k), 'v', 'middle', sm)),
       word(W - 8, by, fig.xName, 'q', 'end', sm),
       word(8, Y(fig.yTick[0]) + 4, fig.yTick[1], 'v', 'start', sm),
-      word(8, 8 + sm, fig.yName, 'q', 'start', sm)));
+      word(8, 8 + sm, fig.yName, 'q', 'start', sm)), false);
+    plot.style.height = `${ph}px`;   // (the picture's box: the model takes no room)
   }
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (fig && el.isConnected) drawZones(); }).observe(plot);
-  function swatch() {
-    return svg('svg', { class: 'pzc-sw', width: 22, height: 14, viewBox: '0 0 22 14', 'aria-hidden': 'true' },
-      svg('defs', {}, svg('clipPath', { id: `${id}s` }, svg('rect', { width: 22, height: 14, rx: 4 }))),
-      svg('g', { 'clip-path': `url(#${id}s)` }, svg('rect', { width: 22, height: 14, class: 'pzz-swb' }), ...[-14, -7, 0, 7, 14, 21, 28].map((x) => svg('line', { x1: x, y1: 14, x2: x + 14, y2: 0, class: 'pzz-swl' }))));
-  }
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (fig && el.isConnected) drawZones(); }) : null;
+  ro?.observe(plot);
+  // (The hatch's swatch in the key: the same grey with its diagonal lines, a plain block the page draws once.)
+  function swatch() { return h('span', { class: 'pzc-sw', 'aria-hidden': 'true' }); }
   function caseCell(r, ticks) {
     if (r.key) {
       const read = h('span', { class: 'pzc-v' }, '—');
@@ -171,7 +174,7 @@ export function createCriteria() {
     fig = ZONES[t?.zones] ? { ...ZONES[t.zones], label: str(t?.title) || '' } : null; drawnW = 0;
     el.classList.toggle('has-zones', !!fig);
     plot.hidden = !fig;
-    if (!fig) plot.replaceChildren(); else drawZones();
+    if (!fig) gl.clear(); else drawZones();
     const keys = (Array.isArray(t?.key) ? t.key : []).map(keyLine).filter(Boolean);
     key.replaceChildren(...keys.map((k) => h('p', { class: 'pzc-kl' }, k.swatch ? swatch() : null, h('span', {}, ...k.parts.map((x, i) => (i % 2 ? h('b', {}, x) : x)).filter((x) => x !== '')))));
     key.hidden = !keys.length;
@@ -203,6 +206,7 @@ export function createCriteria() {
     configure(t, ctx) { build(t); if (ctx?.fp) pin(ctx.fp); },
     pin(fp) { if (fp) pin(fp); },
     clear() {},
-    dispose() {},
+    // (2 Nov 2026, bug sweep: its GPU drawer and observer were kept for the session after each presentation.)
+    dispose() { ro?.disconnect(); gl.dispose?.(); },
   };
 }

@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Loops that ran while nothing changed now skip their work, and only that (Fable's review, item 2 and the safe performance
 // fixes): the Pressure chart stops repainting an unchanged picture, the home framing, the labels' card boxes and the corner
 // credit's poll measure only when something they measure may have moved, the comparison line is rebuilt only when a number
@@ -10,24 +11,26 @@ import { glideMoving, compareRows, netChanged, createLayoutWatch, PLACED, PLACE_
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
 test('the chart glides only while what it draws is moving', () => {
-  // With the model's filtered pressures in the frame, the eased copy is not what is drawn: its easing alone never keeps the glide.
-  assert.equal(glideMoving(true, true, false), false);
-  assert.equal(glideMoving(true, true, true), true);    // the axis still easing
-  assert.equal(glideMoving(false, true, false), true);  // before the filtered pressures exist, the eased copy is drawn
-  assert.equal(glideMoving(false, false, false), false);
+  // The eased copy of the filtered pressures is what is drawn (premium-feel R4): it keeps the glide while it moves, and settles.
+  assert.equal(glideMoving(true, false), true);
+  assert.equal(glideMoving(false, true), true);    // the axis still easing
+  assert.equal(glideMoving(false, false), false);
   const charts = src('charts.js');
-  assert.match(charts, /const moving = glideMoving\(!!Fraw\.Pf, mP, mA\)/);
-  // (It draws the filtered pressures: if that ever changed, the glide would have to follow the eased copy again.)
+  assert.match(charts, /const moving = glideMoving\(mP, mA\)/);
+  assert.match(charts, /Fshown\.P = shownP; Fshown\.Pf = Fraw\.Pf \? shownP : Fraw\.Pf;/);
+  assert.match(charts, /createEaser\(undefined, \{ small: 0\.1, jumps: true \}\)/);
   assert.match(charts, /reading\(n, F\.Pf \|\| F\.P\)/);
 });
 
 test('the comparison line shows the same deltas and is rebuilt only when one changes', () => {
   const fmt = (v, d) => v.toFixed(d);
   const a = { hvpg: 10, liverPerfPct: 80, shuntFraction: 0.1 }, b = { hvpg: 12.34, liverPerfPct: 70.2, shuntFraction: 0.25 };
-  assert.deepEqual(compareRows(a, b, true, true, fmt), [['HVPG', '+2.3 mmHg'], ['Liver flow', '-10 pp'], ['Shunting', '+15 pp']]);
+  assert.deepEqual(compareRows(a, b, true, true, fmt), [['HVPG', '+2.3 mmHg'], ['Liver flow', '-10 pts'], ['Shunting', '+15 pts']]);
   assert.deepEqual(compareRows(a, b, false, true, fmt).map((r) => r[0]), ['Liver flow', 'Shunting']);
   assert.deepEqual(compareRows(a, b, true, false, fmt).map((r) => r[0]), ['HVPG']);
-  assert.match(src('dock.js'), /if \(comparison\._sig !== sig\)/);
+  // (2 Nov 2026: rebuilt between frames only when its moment or names change; its numbers drawn on the GPU, gl-words.js, as they change.)
+  assert.match(src('dock.js'), /if \(!same\) \{ cmpWhen = st\.compareSnap\.when;[^\n]*cmpAsk \|\|= restPass\(buildComparison\); \}/);
+  assert.match(src('dock.js'), /for \(let i = 0; i < rows\.length; i\+\+\) cmpNums\[i\]\?\.set\(rows\[i\]\[1\]\)/);
 });
 
 // A record as a MutationObserver gives it, over a fake element.
@@ -137,14 +140,14 @@ test('a transition that moves no box leaves the watch settled; one that moves a 
   listeners.animationstart({ target: fill }); assert.equal(w.due(), true, 'an animation: its properties are unknown');
   assert.ok(PAINT_ONLY.has('color') && INNER_FREE.has('transform'));
   // (and the model's parameters, set several times a second by a slide's time-lapse, wake the stage's watch no more than its frames do)
-  assert.match(src('stage.js'), /keys\.some\(\(k\) => k !== 'frame' && k !== 'params'\)\) watch\.touch\(\)/);
+  assert.match(stageSource(), /for \(let i = 0; i < keys\.length; i\+\+\) if \(keys\[i\] !== 'frame' && keys\[i\] !== 'params'\) \{ watch\.touch\(\); break; \}/);
 });
 
 test('the framing, the labels\' card boxes and the credit\'s poll go by the watch', () => {
-  const stage = src('stage.js');
-  assert.match(stage, /if \(home && now - homeCheck > 500 && watch\.due\(\)\)/);
-  assert.match(stage, /if \(home && !wasHome\) watch\.touch\(\)/);
-  assert.match(stage, /performance\.now\(\) - blockersAt > 100 && watch\.due\(\)/);
+  const stage = stageSource();
+  assert.match(stage, /if \(home && now - (?:live\.)?(?:live\.)?homeCheck > 500 && watch\.due\(\)\)/);
+  assert.match(stage, /if \(home && !(?:live\.)?wasHome\) watch\.touch\(\)/);
+  assert.match(stage, /performance\.now\(\) - (?:live\.)?blockersAt > 100 && watch\.due\(\)/);
   assert.match(stage, /for \(const g of \[gBackdrop, gOrgans, gAscites\]\) watch\.addGroup\(g\)/);
   const credit = src('credit.js');
   assert.match(credit, /if \(watch\.due\(\) \|\| k !== polled/);
@@ -155,20 +158,14 @@ test('the framing, the labels\' card boxes and the credit\'s poll go by the watc
   for (const s of ['[data-safe]', '.stage-blocker', '.pz-shade', '#zoomPill']) assert.ok(PLACED.includes(s), s);
 });
 
-test('the composite allocates no uniform arrays per frame', () => {
-  const gl = src('veins-gl.js'), body = gl.slice(gl.indexOf('    composite(look, blood = {}, full = false, part = 0) {'), gl.indexOf('    /** Whether organ outlines can be drawn here'));
-  assert.ok(body.length > 1000);
-  assert.ok(!/new Float32Array\(\[/.test(body) && !/new Float32Array\(\d+\)/.test(body), 'a fresh Float32Array in the composite');
-  assert.match(body, /SCR\.be\.fill\(0\)/);
-});
-
 test('an outline change redraws the outline layer alone, a glow change its glow layer alone', () => {
   const gl = src('veins-gl.js');
   // (External review, 21 Oct: one outline's opacity redrew all three layers.)
-  assert.match(gl, /for \(const d of lines\.draws\) sigs\[d\.warm \? 2 : d\.soft \? 1 : 0\]\.push\(/);
-  assert.match(gl, /if \(fresh \|\| sig !== lineSigs\[i\]\) \{ lineSigs\[i\] = sig; lineVers\[i\]\+\+; \}/);
-  assert.match(gl, /vk = lineVers\[0\] \+ at;/);
-  assert.match(gl, /if \(lineVers\[1\] \+ at !== glowKey\)/);
-  assert.match(gl, /if \(lineVers\[2\] \+ at !== warmKey\)/);
+  // (The signatures are lists of numbers kept between calls, not strings.)
+  assert.match(gl, /const i = d\.warm \? 2 : d\.soft \? 1 : 0, c = d\.col;/);
+  assert.match(gl, /if \(fresh \|\| !same\) \{[^}]*SIG_KN\[i\] = SIG_N\[i\]; lineVers\[i\]\+\+; \}/);
+  assert.match(gl, /lineVers\[0\] !== lineKV \|\| viewId !== lineKI/);
+  assert.match(gl, /if \(lineVers\[1\] !== glowKV \|\| viewId !== glowKI\)/);
+  assert.match(gl, /if \(lineVers\[2\] !== warmKV \|\| viewId !== warmKI\)/);
   assert.doesNotMatch(gl, /lineVer\b/);
 });

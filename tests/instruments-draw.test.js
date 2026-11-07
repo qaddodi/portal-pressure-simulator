@@ -1,6 +1,7 @@
 // The new instruments (deck rebuild plan A3, A4) run against a fake DOM: a real model's frames go in, the real drawing code runs, and a 2D
 // context that records what it was asked to write comes out. No browser: this catches a throw or a missing number, not how it looks.
 import { test } from 'node:test';
+import { CanvasObserver } from './canvas-observer.js';
 import assert from 'node:assert/strict';
 import './dom-shim.js';
 import { createCore } from '../src/worker-core.js';
@@ -11,13 +12,13 @@ globalThis.requestAnimationFrame = (fn) => { frameQueue.push(fn); return frameQu
 globalThis.cancelAnimationFrame = () => {};
 globalThis.window.devicePixelRatio = 2;
 globalThis.Path2D = class { moveTo() {} lineTo() {} bezierCurveTo() {} };
-globalThis.getComputedStyle = () => ({
-  fontSize: '14px',
-  getPropertyValue: (n) => ({ '--mon-bg': '#050608', '--mon-text': '#9aa4ad', '--mon-bright': '#7cf08c', '--mon-alarm': '#ff5a4d', '--mon-grid': '#1c232a', '--mon-line': '#2a323a', '--white': '#ffffff', '--black': '#000000', '--text': '#222222', '--bg': '#ffffff', '--muted': '#667788', '--ramp-pressure': '#DCEBF7 0, #99C2ED 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30' }[n] ?? '#808080'),
-});
+const TOKENS = { '--mon-bg': '#050608', '--mon-text': '#9aa4ad', '--mon-bright': '#7cf08c', '--mon-alarm': '#ff5a4d', '--mon-grid': '#1c232a', '--mon-line': '#2a323a', '--white': '#ffffff', '--black': '#000000', '--text': '#222222', '--bg': '#ffffff', '--muted': '#667788', '--ramp-pressure': '#DCEBF7 0, #99C2ED 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30' };
+globalThis.getComputedStyle = () => ({ fontSize: '14px', getPropertyValue: (n) => TOKENS[n] ?? '#808080' });
+// (The page's tokens are the ones its stylesheets declare, read once outside the frames, util.js readVars: this page declares these.)
+globalThis.document.styleSheets = [{ cssRules: [{ style: Object.keys(TOKENS) }] }];
 
 // A context that accepts every call and property and writes down the words and the colours it was given.
-function fakeCtx(log) {
+function fakeCtx(log, node = null) {
   const state = {};
   // (A turn of the page is followed, so a name written turned is placed where it lands: translate, then rotate, inside save and restore.)
   let tr = { x: 0, y: 0, rot: 0 }; const trs = [];
@@ -33,6 +34,10 @@ function fakeCtx(log) {
     strokeText: () => {},
     measureText: (s) => ({ width: String(s).length * 7 }),
     createLinearGradient: () => { log.gradients++; return { addColorStop() {} }; },
+    // (A chart's still picture, still-layer.js: a canvas of its own with no parent. Clearing it starts it again; laying it down on the chart writes what
+    // it holds among the chart's own words and shapes, where a person would see them.)
+    clearRect: () => { if (node && !node.parent) for (const k of ['texts', 'fonts', 'rounds', 'bad']) log[k].length = 0; },
+    drawImage: (img) => { if (img?.log) for (const k of ['texts', 'fonts', 'rounds', 'bad']) log[k].push(...img.log[k]); },
   };
   const num = (a) => a.every((v) => typeof v !== 'number' || Number.isFinite(v));
   return new Proxy(state, {
@@ -63,7 +68,8 @@ class Node {
   querySelector() { return null; }
   closest(sel) { for (let n = this; n; n = n.parent) if (n.slide && sel.includes('.pz-tool')) return n; return null; }
   getBoundingClientRect() { return { width: this.bw ?? 400, height: this.bh ?? 220, left: 0, top: 0 }; }
-  getContext() { return (this.ctx ??= fakeCtx(this.log)); }
+  testPen() { return this.getContext(); }   // (util.js fitCanvas: the recorder stands for the pen the charts draw with)
+  getContext() { return (this.ctx ??= fakeCtx(this.log, this)); }
   remove() {}
 }
 globalThis.document.createElement = (tag) => new Node(tag);
@@ -72,7 +78,7 @@ globalThis.document.hidden = false;
 globalThis.document.documentElement = new Node('html');
 // (a browser reports an observed box a moment later, never inside observe())
 globalThis.IntersectionObserver = class { constructor(cb) { this.cb = cb; } observe() { queueMicrotask(() => this.cb([{ isIntersecting: true }])); } disconnect() {} };
-globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+globalThis.ResizeObserver = CanvasObserver;   // (canvases report their box as a browser's observer does: tests/canvas-observer.js)
 
 const runFrames = (now = performance.now()) => { const q = frameQueue; frameQueue = []; for (const fn of q) fn(now); };
 const texts = (node) => node.log.texts.map((t) => t.s);
@@ -93,6 +99,7 @@ async function modelFrames(preset, secs = 3) {
 const healthy = await modelFrames('healthy');
 const csph = await modelFrames('csph');
 
+const { recorderGL } = await import('./vitals-recorder.js');
 const { createVitalsMonitor } = await import('../src/ui/vitals-monitor.js');
 const { createHvpgCard } = await import('../src/ui/tool-hvpg.js');
 const { createPressureTime } = await import('../src/ui/pressure-time.js');
@@ -105,22 +112,21 @@ test('the model produced frames to draw with', () => {
 
 test('the vitals monitor draws the strip and its readings from a live frame, then from a slide\'s pinned numbers', () => {
   for (const show of [undefined, ['hr', 'map', 'co']]) {
-    const v = createVitalsMonitor();
+    const v = createVitalsMonitor({ makeGL: recorderGL });
     v.configure({ kind: 'vitals', show });
     const cv = canvasOf(v.el);
     cv.bw = 420; cv.bh = 200;
     for (const f of healthy) v.update({ ...f, running: true, speed: 1 });
     runFrames();
-    const ts = texts(cv);
+    const ts = cv.rec.texts;
     assert.ok(ts.includes('EKG'), 'the strip is named');
     assert.ok(ts.includes('HR') && ts.includes('MAP'), `readings named: ${ts}`);
     assert.ok(ts.some((s) => /^\d+$/.test(s)), 'a heart rate is written');
-    assert.deepEqual(cv.log.bad, [], 'every number handed to the canvas is finite');
-    assert.ok(cv.log.fonts.every((f) => parseFloat(/(\d+(\.\d+)?)px/.exec(f)?.[1]) >= 12), 'no lettering under 12 px');
-    fresh(cv);
+    assert.deepEqual(cv.rec.bad, [], 'every number handed to the GPU is finite');
+    assert.ok(cv.rec.sizes.every((px) => px >= 12), 'no lettering under 12 px');
     v.pin({ map: 62, hr: 131, co: 4.1, hb: 9.2, ra: 4 });
     for (let i = 0; i < 60 && frameQueue.length; i++) runFrames(performance.now() + i * 16);
-    assert.ok(texts(cv).includes('131') || texts(cv).some((s) => /^13\d$/.test(s) || /^12\d$/.test(s)), `the pinned heart rate is on the monitor: ${texts(cv)}`);
+    assert.ok(cv.rec.texts.includes('131') || cv.rec.texts.some((s) => /^13\d$/.test(s) || /^12\d$/.test(s)), `the pinned heart rate is on the monitor: ${cv.rec.texts}`);
     v.clear(); v.restart();
     v.dispose();
   }

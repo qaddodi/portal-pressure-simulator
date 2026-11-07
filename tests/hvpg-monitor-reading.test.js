@@ -17,7 +17,9 @@ test('the trace wavers around the mean, so the trace height is not the reading',
 test('the monitor and the callouts print the mean FHVP and WHVP, not the trace height', () => {
   assert.match(src, /ph === 'free'\) \{ label = 'FHVP'; num = fmt\(v\.fhvp, 1\)/, 'monitor FHVP');
   assert.match(src, /num = fmt\(t < T\.callout \? pAt\(t, v\) : v\.whvp, 1\)/, 'monitor WHVP once settled');
-  assert.match(src, /ph === 'free'\) labels\.push\(\{ key: 'f', at: 'tip', kicker: 'FHVP', text: fmt\(v\.fhvp, 1\)/, 'FHVP callout');
-  assert.match(src, /kicker: 'WHVP', text: fmt\(v\.whvp, 1\)/, 'WHVP callout');
-  assert.doesNotMatch(src, /kicker: '(?:FHVP|WHVP)', text: fmt\(pAt/, 'no callout prints the trace height');
+  // (The callouts are kept objects whose text is set in place from the mean, fm1 = fmt cached by the number.)
+  assert.match(src, /ph === 'free'\) \{ lblF\.text = fm1\(cF, v\.fhvp\);/, 'FHVP callout');
+  assert.match(src, /lblW\.text = fm1\(cW, v\.whvp\)/, 'WHVP callout');
+  assert.match(src, /function fm1\(c, v\) \{\s*if \(!Object\.is\(c\.v, v\)\) \{ c\.v = v; c\.s = fmt\(v, 1\); \}/, 'the cached text is fmt of the number');
+  assert.doesNotMatch(src, /fm1\([A-Za-z]+, pAt/, 'no callout prints the trace height');
 });

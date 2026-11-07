@@ -2,7 +2,7 @@
 // step costs one check. On, each timed step waits for the GPU (gl.finish) before and after it, so its time is the GPU's own
 // work rather than the moment the call was queued. That slows the page, so it is only for measuring. A step timed without a
 // context (gl null) is the page's own script time.
-const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gpuorgans=(0|1|force)\b/)?.[1] : null;
+const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gpuorgans=(force)\b/)?.[1] : null;
 /**
  * The notes the ?perf readout totals over a gesture's window (perf-readout.js), by fixed name so the totals stay a few dozen numbers:
  * what the vessel layer did (a whole draw and why, a pan shift, rows redrawn), what each surface submitted, what was uploaded,
@@ -12,10 +12,22 @@ const ORGANS_Q = typeof location !== 'undefined' ? location.search.match(/[?&]gp
 export const COUNTED = {
   whole: 'vessels: whole draw', wholeWhy: 'vessels: whole draw because ', pan: 'vessels: pan shift', rows: 'vessels: rows redrawn',
   rowsRefused: 'vessels: rows refused because ',
-  picture: 'picture: drawn', pictureWhole: 'picture: whole', organs: 'organ layers: rendered',
+  picture: 'picture: drawn', pictureWhole: 'picture: whole', pictureSkipped: 'picture: left as it was', pictureKept: 'picture: blood squares kept in the lobule\'s texture', organs: 'organ layers: rendered',
   glassDrawn: 'glass: drawn', glassCopy: 'glass: figure copied', glassSkip: 'glass: copy skipped (figure unchanged)',
+  // (The liver label's pane is a second glass of its own, counted apart: two glasses drawn in one frame are not one drawn twice.)
+  paneDrawn: 'pane glass: drawn', paneCopy: 'pane glass: figure copied', paneSkip: 'pane glass: copy skipped (figure unchanged)',
+  // (The Present cards' glass (recs A2, 31 Oct): a third glass, counted apart.)
+  cardDrawn: 'card glass: drawn', cardCopy: 'card glass: figure copied', cardSkip: 'card glass: copy skipped (figure unchanged)',
+  // (Every other copy of a picture and every target made again at a new size, 30 Oct (review 6a): the kept picture laid onto the
+  // canvas, a resolution fade's canvas copies, and the layer's and the kept picture's targets sized again. A pan copies nothing
+  // since 31 Oct: the layer wraps, veins-gl wrapPieces.)
+  present: 'copies: kept picture onto the canvas', fadeCopy: 'copies: resolution fade',
+  fboAlloc: 'targets: sized again',
+  // (Who asked for each whole draw and each target sized again, 30 Oct: the step from the catheter slide into the lobule held a frame
+  // for 2.8 s over 8 whole draws and two sizings, and the caller is not in the readout otherwise. One of the fixed list BY.)
+  wholeBy: 'vessels: whole draw, asked by ', fboAllocBy: 'targets: sized again, asked by ',
   lobulePicture: 'lobule: vessels drawn', lobuleSurface: 'lobule: surface pass', lobuleSkip: 'lobule: surface pass skipped (camera only)',
-  tissue: 'tissue: bitmap painted', ductules: 'lobule: ductules drawn',
+  tissue: 'tissue: bitmap painted', tissueWhy: 'tissue: painted because ', ductules: 'lobule: ductules drawn',
   labelSolve: 'labels: solved', labelCarry: 'labels: carried', safe: 'safe area: cards measured',
   // (The blood apart from the vessels' shapes: a frame whose blood rows all matched the last upload sends none; rows cleared
   // once as their vessel stops drawing. And the width step between model frames, by the sync it took: the radii alone, or
@@ -29,37 +41,49 @@ export const COUNTED = {
   creditRead: 'credit art: shapes read', creditGrid: 'credit art: grid drawn', creditKept: 'credit art: grid kept (camera only)',
 };
 /** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
-export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.lobulePicture]);
+export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.cardDrawn, COUNTED.lobulePicture]);
 /** Why a whole draw happened, as counted: the reasons are this fixed list. */
 export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same place', 'moved too far', 'zoom or turn', 'tubes changed'];
 /**
  * Why a partial redraw (veins-gl.js drawRows) was refused, as counted and as its `rowsStatus` says ('drawn' when it was not):
  * a fixed list. Counted apart from the whole draw that follows, whose own reason is that draw's state, not the refusal's.
  */
+/**
+ * Who asked the vessel layer to draw (stage.js drawVeins' callers, gpuProbe.by while one runs), as counted with a whole draw or a
+ * target sized again: a fixed list. The lobule's own renderer counts as the lobule; the stage's outside drawVeins (its blood-only
+ * composite) as 'stage, outside a draw call'.
+ */
+export const BY = ['frame', 'resize', 'plate hidden', 'tab hidden', 'plate shown', 'plate landed', 'check', 'lobule', 'stage, outside a draw call'];
+/** Why the lobule's tissue bitmap was painted again (lobule-zoom.js paintTissue), as counted with its size: a fixed list. */
+export const TISSUE_WHY = ['first', 'state changed', 'zoomed in', 'zoomed out'];
 export const ROWS_REFUSED = ['no kept layer', 'context lost', 'size changed', 'moved', 'radii not listed', 'most cells'];
 export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.
   cpuOnly: false,
+  skipLabels: false,   // (the ?perf test switch: the labels' pass in the figure's present draws nothing)
   skipGL: false,   // (the ?perf test switch: the vessels' screen picture is not drawn)
+  by: '',          // (who asked for the draw under way: stage.js drawVeins sets it, one of BY)
   // The organs drawn as layers on the GPU (organs-gl.js), the changing ones painted live, instead of one picture: on by default
-  // (Mohammad, 22 Oct: "Do the GPU draw for everything"), off with the ?perf switch "GPU organs" or ?gpuorgans=0 in the address;
+  // (Mohammad, 22 Oct: "Do the GPU draw for everything"), off with the ?perf switch "GPU organs";
   // never on a software renderer (stage.js gpuOrgansOn). onOrgans: the stage's call to make its picture again the other way.
   // (?gpuorgans=force: on the software renderer too, for the browser check of it, tests/e2e/plate-layers.mjs.)
-  gpuOrgans: ORGANS_Q === 'force' ? 'force' : ORGANS_Q !== '0',
+  gpuOrgans: ORGANS_Q === 'force' ? 'force' : true,
   onOrgans: null,
   parts: {},
   stack: [],
-  /** Runs f as the step `name` and returns its result; a step inside another counts only toward its own name. */
-  time(gl, name, f) {
-    if (!this.on) return f();
+  part: null,   // (frame.js: each step is also a named piece of its frame while frames are watched, framePart)
+  /** Runs f as the step `name` and returns its result; a step inside another counts only toward its own name.
+   *  f takes up to three arguments (a, b, c) given here, so a call site need not make a closure each frame to pass them. */
+  time(gl, name, f, a, b, c) {
+    if (!this.on) return this.part ? this.part(name, f, a, b, c) : f(a, b, c);
     // Work queued before the step by untimed calls (uploads made on the way) is waited for first, as its own share.
     const ts = performance.now();
     if (this.cpuOnly) gl = null;
     if (gl) { gl.finish(); this.add('other GPU', performance.now() - ts); }
     const t0 = performance.now();
     this.stack.push(0);
-    try { return f(); } finally {
+    try { return f(a, b, c); } finally {
       gl?.finish();
       const t1 = performance.now(), inner = this.stack.pop();
       this.add(name, t1 - t0 - inner);
@@ -68,15 +92,15 @@ export const gpuProbe = {
   },
   add(name, ms) { this.parts[name] = (this.parts[name] || 0) + ms; },
   /** The time per step since the last take. */
-  take() { const p = this.parts; this.parts = {}; return p; },
+  take() { const p = this.parts; this.parts = {}; return p; }, // alloc-rare: only while the ?perf readout or the debug panel measures (gpuProbe.on); note() returns first when off
   // Things that happened, with no time of their own to give (an organ SVG the browser read in, its size): counted and summed.
   notes: {},
-  note(name, v = 0) { if (!this.on) return; const n = this.notes[name] || (this.notes[name] = [0, 0]); n[0]++; n[1] += v; },
+  note(name, v = 0) { if (!this.on) return; const n = this.notes[name] || (this.notes[name] = [0, 0]); n[0]++; n[1] += v; }, // alloc-rare: only while the ?perf readout or the debug panel measures (gpuProbe.on); note() returns first when off
   /** The notes since the last take: name → [count, sum]. */
-  takeNotes() { const n = this.notes; this.notes = {}; return n; },
+  takeNotes() { const n = this.notes; this.notes = {}; return n; }, // alloc-rare: only while the ?perf readout or the debug panel measures (gpuProbe.on); note() returns first when off
   // Things measured as they stand rather than summed (how much of the screen a frame repaints): the latest value of each.
   gauges: {},
   gauge(name, v) { if (this.on) this.gauges[name] = v; },
   /** The gauges since the last take: name → latest value. */
-  takeGauges() { const g = this.gauges; this.gauges = {}; return g; },
+  takeGauges() { const g = this.gauges; this.gauges = {}; return g; }, // alloc-rare: only while the ?perf readout or the debug panel measures (gpuProbe.on); note() returns first when off
 };

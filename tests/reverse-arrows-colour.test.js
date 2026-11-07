@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // The reversed colour and the way the blood and its chevrons run turn on one signal (isReversed), so a
 // vein never shows hepatofugal colour while its arrows still point to the liver.
 import { test } from 'node:test';
@@ -5,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { advanceStream, REVERSE_HOLD, REVERSE_RAMP, REVERSE_SETTLE } from '../src/ui/blood.js';
 
-const STAGE = readFileSync(new URL('../src/ui/stage.js', import.meta.url), 'utf8');
+const STAGE = stageSource();
 
 test('a large forward flow that turns into a small reversed one turns its arrows with the colour', () => {
   const st = { seed: 2 };
@@ -50,9 +51,10 @@ test('the stage passes the colour signal to the stream', () => {
   // (One options object for the whole loop: its rev is set from the same signal just before each vessel's step. The signal
   // is isReversed held for a breath (holdReversals, once per model frame: round 2 review, P8 and B3), and the Direction
   // lens and the watched stations read the same held flags.)
-  assert.match(STAGE, /revHolder\.step\(\(k\) => \(isReversed\(EDGES\[k\], f\) \? 1 : 0\), t, jump\)/);
-  assert.match(STAGE, /if \(perF !== F \|\| perH !== H\) \{\n\s*perF = F; perH = H;\n\s*holdReversals\(F\);/);
-  assert.match(STAGE, /const rt = revHold\[k\];\s*so\.large = LARGE\[k\]; so\.rev = !!rt;\s*const sm = advanceStream\([^;]*, so\);/);
-  assert.match(STAGE, /mode === 'direction'\) \{ const rev = reversedShown\(e\)/);
-  assert.match(STAGE, /x\.rev = REVERSAL_WATCH\.has\(e\.id\) && reversedShown\(e\);/);
+  assert.match(STAGE, /revHolder\.step\(revFlag, t, jump\)/);
+  assert.match(STAGE, /const revFlag = \(k\) => \(isReversed\(EDGES\[k\], (?:live\.)?(?:live\.)?(?:live\.)?revF\) \? 1 : 0\);/);
+  assert.match(STAGE, /if \(perF !== (?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?F \|\| perH !== H\) \{\n\s*perF = (?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?F; perH = H;\n\s*holdReversals\((?:live\.)?(?:live\.)?(?:live\.)?(?:live\.)?F\);/);
+  assert.match(STAGE, /const rt = revHold\[k\];\s*so\.large = LARGE\[k\]; so\.rev = !!rt;\s*const sm = advanceStreamAt\([^;]*, so\);/);
+  assert.match(STAGE, /mode === 'direction'\) \{ const rev = (?:live\.)?(?:live\.)?reversedShown\(e\)/);
+  assert.match(STAGE, /x\.rev = REVERSAL_WATCH\.has\(e\.id\) && (?:live\.)?reversedShown\(e\);/);
 });

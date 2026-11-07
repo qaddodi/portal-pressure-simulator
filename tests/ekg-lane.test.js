@@ -105,18 +105,18 @@ test('a slide\'s card keeps the HVPG lane and shows the portal pressure alone; P
   assert.match(pt, /'data-lane': key/);
   assert.match(pt, /chips\.append\(ekgChip, laneChipBtn\);/, 'the pills sit in the chart\'s pill row');
   assert.match(pt, /ekgChip\.disabled = id !== 'beats'/, 'the strip belongs to the last beats');
-  assert.match(pt, /const wantEkg = range === 'beats' && \(slide \? cfg\.ekg : showEkg\);/);
+  assert.match(pt, /const wantEkg = \(range === 'beats' \|\| stripDays\) && \(slide \? cfg\.ekg : showEkg\);/);   // (a slide's time-lapse keeps its strip over the days' trend)
   // (a slide\'s card hides the pills; its own tool options decide the lanes)
   assert.ok(css.includes('.pz-tool .pt-chips,'), 'the pills are hidden on a slide');
   assert.match(pt, /cfg = \{ ekg: t\?\.ekg !== false, lane: t\?\.hvpgLane !== false \}/);
   // The lane draws faint lines at 5, 10 and 12 on a slide as the talk trace does, named once when the lane is short.
-  assert.match(pt, /\(v === 5 && !roomy && !slide\)\) continue;/);
-  assert.match(pt, /slide \? roomy \|\| v === 12 : roomy \|\| v === 10/);
+  assert.match(pt, /\(v === HVPG_CUTS\.amber && !roomy && !slide\)\) continue;/);
+  assert.match(pt, /slide \? roomy \|\| v === HVPG_CUTS\.bleed : roomy \|\| v === HVPG_CUTS\.red/);
   // The strip is drawn in the text colour with no glow, one reading at its end (the heart rate, a whole number).
   const strip = pt.slice(pt.indexOf('// The EKG strip'), pt.indexOf("ctx.fillText('mmHg'"));
   assert.match(strip, /ctx\.strokeStyle = text;/);
   assert.doesNotMatch(strip, /shadowBlur|createLinearGradient/);
-  assert.match(strip, /dec: 0, label: 'HR'/);
+  assert.match(strip, /pushEnd\(mid, hr, 0, 'HR'/);
   // A phone's card is tall enough for the HVPG lane.
   const phone = +css.match(/\.pz\.stack \.pz-tool\[data-kind="beats"\] \.pt-box \{ height: (\d+)px;/)[1];
   assert.ok(laneRoom(phone - 30 - 22, { gap: 30, two: 0.66 }).hvpg > 0, `a ${phone} px phone card keeps the HVPG lane`);
@@ -124,9 +124,9 @@ test('a slide\'s card keeps the HVPG lane and shows the portal pressure alone; P
 });
 
 test('the phase reaches the chart: its fine buffer, the beat clock and the cleared trace', () => {
-  assert.match(pt, /fine\.t\.push\(t\); fine\.ph\.push\(smp\.ph\?\.\[i\] \?\? NaN\); beatClock\.push\(t, smp\.ph\?\.\[i\]\);/);
+  assert.match(pt, /const p = \+phs\[i\];\s+fine\.t\.push\(t\); fine\.ph\.push\(p\); BC\[0\] = t; BC\[1\] = p; beatClock\.step\(\);/);
   assert.match(pt, /beatClock\.reset\(\);/, 'a new patient starts the strip over');
-  assert.match(pt, /beatClock\.trim\(fine\.t\[0\]\)/);
+  assert.match(pt, /beatClock\.dropBefore\(fine\.t\[0\]\)/);
 });
 
 test('breathing is off on the first beat-trace slide of each run, and the Doppler decks keep it', () => {

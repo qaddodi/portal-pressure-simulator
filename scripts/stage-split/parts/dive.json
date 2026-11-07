@@ -1,0 +1,1 @@
+{ "factory": "createDive", "file": "stage-dive.js", "about": "The lobule dive and rise: one continuous zoom from a spot in the liver (the camera's compositor scale, the field's bloom, the layers hidden and given back), setLobule and its waits.", "lines": [[2118, 2433]], "stay": [], "trust": ["pushCam", "setDiveScale"] }

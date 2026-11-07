@@ -26,7 +26,7 @@ export const PORE_W = 0.6;
 export function poreAt(j, sd) {
   const G = Math.floor(j / 10), k = j - 10 * G;
   if (h1(G, sd) >= 0.8 || k < 3 || k > 7) return null;
-  return { x: SLOT * j + 0.5, w: PORE_W, th: 0.12 + 0.28 * Math.abs(k - 5) + 0.18 * h1(G, sd + 4) };
+  return { x: SLOT * j + 0.5, w: PORE_W, th: 0.12 + 0.28 * Math.abs(k - 5) + 0.18 * h1(G, sd + 4) };   // alloc-rare: the pores are listed when the sinusoid's geometry is built (ensureGeo), not drawn from here
 }
 /** How open a fenestra is (0 to 1) at the lining's open share por: shut or open, with a short ease between. */
 export const poreOpenness = (th, por) => { const t = Math.min(1, Math.max(0, (por - th + 0.06) / 0.12)); return t * t * (3 - 2 * t); };
@@ -34,9 +34,14 @@ export const poreOpenness = (th, por) => { const t = Math.min(1, Math.max(0, (po
 export const cellEdge = (j, sd) => CELL * j + 7 * (h1(j, sd) - 0.5);
 /** The cell of a plate (seed) holding x: its ends and its nucleus (u along, v across, radius, two nuclei). */
 export function cellAt(x, sd) {
+  return cellAtInto(x, sd, { j: 0, x0: 0, x1: 0, nu: 0, nv: 0, nr: 0, bi: false });   // alloc-rare: the answer for a caller that keeps it; the layout each frame writes into its own (cellAtInto)
+}
+/** cellAt, written into `out` (the layout's own record, kept from frame to frame: no object made for each ask). */
+export function cellAtInto(x, sd, out) {
   let j = Math.floor(x / CELL);
   if (x < cellEdge(j, sd)) j--; else if (x >= cellEdge(j + 1, sd)) j++;
-  return { j, x0: cellEdge(j, sd), x1: cellEdge(j + 1, sd), nu: 0.3 + 0.4 * h1(j, sd + 1), nv: 0.4 + 0.2 * h1(j, sd + 2), nr: 2.6 + 0.5 * h1(j, sd + 3), bi: h1(j, sd + 4) < 0.12 };
+  out.j = j; out.x0 = cellEdge(j, sd); out.x1 = cellEdge(j + 1, sd); out.nu = 0.3 + 0.4 * h1(j, sd + 1); out.nv = 0.4 + 0.2 * h1(j, sd + 2); out.nr = 2.6 + 0.5 * h1(j, sd + 3); out.bi = h1(j, sd + 4) < 0.12;
+  return out;
 }
 /** The centre (µm along) of endothelial nucleus n of a lining (seed nsd), as the shader's nucAt. */
 export const nucAt = (n, nsd) => 38 * n + 8 + 22 * h1(n, nsd);
@@ -53,7 +58,8 @@ export function underNucleus(x, nsd) {
  * a cell body is not seen), open the longest (low closing threshold) and near x, on screen between lo and hi when one is (µm).
  * By place only, so the line does not hop as the pores close. x itself when no pore is clear. */
 export function calloutPore(pores, x, lo, hi, nsd) {
-  for (const [a, b] of [[lo, hi], [-Infinity, Infinity]]) {
+  for (let pass = 0; pass < 2; pass++) {
+    const a = pass ? -Infinity : lo, b = pass ? Infinity : hi;   // (on screen first, then anywhere)
     let best = null, bs = Infinity;
     for (const p of pores) {
       const dx = Math.abs(p.x - x);
@@ -510,29 +516,73 @@ void main() {
   o = vec4(c * a, a);
 }`;
 
-import { startProgram, checkProgram, exerciseDraw, publishWhenDone } from './gl-compile.js?v=5c4cd6c14c';
+// (The mix: the kept picture across the whole canvas, premultiplied as the canvas holds it.)
+const MVS = `#version 300 es
+layout(location=0) in vec2 corner;
+out vec2 vT;
+void main() { vT = corner * 0.5 + 0.5; gl_Position = vec4(corner, 0.0, 1.0); }`;
+const MFS = `#version 300 es
+precision mediump float;
+uniform sampler2D uOld;
+in vec2 vT;
+out vec4 o;
+void main() { o = texture(uOld, vT); }`;
+import { startProgram, checkProgram, exerciseDraw, publishWhenDone, stillCompiling, SHADER_READY } from './gl-compile.js';
+import { whenQuiet, booting, holdCover } from './quiet.js';
+import { glOkAfter, glOkBefore } from './gl-state.js';
+import { caught } from './caught.js';
 
-export function createSinusoidGL(canvas) {
+// host (4 Nov 2026, Mohammad: "everything on one GPU context"): the figure's renderer's `top` ({ gl, canvas, screen, present, ... }, veins-gl.js). The view is then drawn
+// in that context into a texture of its own (host mode: `target`), which the stage lays over the figure in its present (sinusoid-view.js); no canvas context
+// of its own, no copy. The canvas stays in the page only as the size of the texture. Without a host the view draws into its own canvas, as before.
+export function createSinusoidGL(canvas, { warm = false, onReady = null, host = null } = {}) {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   let gl = null;
-  try { gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false }); } catch { gl = null; }
+  if (!host) return null;   // (hosted only, the two-contexts plan)
+  gl = host.gl;
   if (!gl) return null;
+  const evCv = host.canvas;   // (whose context events say this drawer's context was lost or given back)
+  // Host mode: the texture the view is drawn into (its size is the canvas's), made at the first draw, back to a texel by free().
+  let tgt = null;
+  const SCRN = () => (host.screen ? host.screen() : null);
+  function bindT() {
+    const w = Math.max(1, canvas.width), h = Math.max(1, canvas.height);
+    if (!tgt) { tgt = { tex: gl.createTexture(), fbo: gl.createFramebuffer(), w: 0, h: 0 }; }
+    if (tgt.w !== w || tgt.h !== h) {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, tgt.tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tgt.tex, 0);
+      tgt.w = w; tgt.h = h;
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, tgt.fbo);
+    gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+  }
+  const unbindT = () => { gl.disable(gl.BLEND); gl.bindVertexArray(null); gl.bindFramebuffer(gl.FRAMEBUFFER, SCRN()); };
   // A program is started (compiled and linked, nothing read) and published later, when the driver has finished it (gl-compile.js).
-  const finish = (h) => {
+  const finish = (h) => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
     try { checkProgram(gl, h); } catch (e) { if (!gl.isContextLost()) { console.error('sinusoid program:', e.message); return null; } }
-    const p = h.p, U = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    const p = h.p, U = {}, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
     for (let i = 0; i < n; i++) { const nm = gl.getActiveUniform(p, i).name; U[nm] = gl.getUniformLocation(p, nm); }
-    return { p, U };
+    return { p, U };   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   };
   let pend = null;
-  const begin = () => { if (!pend) pend = [startProgram(gl, VS, FS), startProgram(gl, PVS, PFS)]; return pend; };
+  const begin = () => { if (!pend) pend = [startProgram(gl, VS, FS), startProgram(gl, PVS, PFS)]; return pend; };   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   let T, P, vao, pvao, pbuf;
+  // The resolution change's mix on the GPU (sinusoid-view.js svSwap): keep() copies the picture just drawn into a
+  // texture of its own (a copy inside the GPU, no read back), and mix(a) lays it over each new picture as old × a + new × (1 − a), the
+  // 2D mix's own sum, at the canvas's new size. Its small program is made the first time it is asked for (a change of the resolution
+  // setting, rare) and kept.
+  let M = null, mTex = null, mOk = null;
   function init() {
     const [ht, hp] = begin();
     T = finish(ht); P = finish(hp); pend = null;
     if (!T || !P) return false;
     vao = gl.createVertexArray(); gl.bindVertexArray(vao);
     const quad = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quad);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     pvao = gl.createVertexArray(); gl.bindVertexArray(pvao);
     pbuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, pbuf);
@@ -540,26 +590,65 @@ export function createSinusoidGL(canvas) {
     gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 20, 16);
     gl.bindVertexArray(null);
     // One small offscreen draw of each, so the first real draw has no driver work left.
-    exerciseDraw(gl, () => { gl.useProgram(T.p); gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.useProgram(P.p); gl.bindVertexArray(pvao); gl.bindBuffer(gl.ARRAY_BUFFER, pbuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(5), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, 1); gl.bindVertexArray(null); });
+    exerciseDraw(gl, () => { gl.useProgram(T.p); gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); gl.useProgram(P.p); gl.bindVertexArray(pvao); gl.bindBuffer(gl.ARRAY_BUFFER, pbuf); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(5), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, 1); gl.bindVertexArray(null); });   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
     return true;
   }
   // The shaders are started at the first idle moment after start-up, not during it (nothing shows the sinusoid that early), and
   // published when the driver has finished them (polled from idle moments, never waited on); or at the first draw if that comes
   // sooner, which waits for them as it always did.
-  let ok = null;
-  const ready = () => (ok === null ? (ok = init()) : ok);
-  const startLater = () => { if (ok === null) publishWhenDone(gl, begin(), ready); };
-  if (window.requestIdleCallback) requestIdleCallback(startLater, { timeout: 8000 }); else setTimeout(startLater, 3000);
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); ok = false; pend = null; });
-  canvas.addEventListener('webglcontextrestored', () => { sent.clear(); ok = init(); });
+  // (Review pass 2, item 2: a draw that comes before the programs are published no longer publishes them itself while the driver is
+  // still compiling, where reading their status waits inside the frame. It draws nothing, the compile is started if it was not yet, the
+  // poller publishes it the moment the driver is done, and onReady asks the view to draw again. ?shaderready=0: published here, as before.)
+  let ok = null, skipped = false, stopPoll = null, gone = false;
+  const publish = () => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    if (ok === null) { ok = init(); if (ok && skipped) { skipped = false; try { onReady?.(); } catch (e) { console.warn('sinusoid redraw:', e); } } }
+    return ok;
+  };
+  const startLater = () => { if (ok === null && !stopPoll) stopPoll = publishWhenDone(gl, begin(), publish); };   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  const ready = () => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    if (ok !== null) return ok;
+    if (SHADER_READY && !gl.isContextLost()) {
+      if (!pend) { startLater(); skipped = true; stopPoll?.want?.(); return false; }
+      if (stillCompiling(gl, pend)) { skipped = true; stopPoll?.want?.(); return false; }
+    }
+    return publish();
+  };
+  // (And only once the page has been left alone: a program started in a pan or a first touch had its compile in that frame, P3.)
+  // (warm: made by the view just as it is about to show (ctxlazy): the compile starts now, not at some later idle moment.)
+  if (warm) startLater();
+  else whenQuiet(() => { if (window.requestIdleCallback) requestIdleCallback(startLater, { timeout: 8000 }); else setTimeout(startLater, 3000); });   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  // While the loading cover is still up nobody can touch the page, so the compile is done there and then, under it, and the cover
+  // waits for it: on a phone without requestIdleCallback (Safari) it otherwise came 3 to 4 s after the cover lifted, in the first
+  // seconds of use, and its status read blocks until the driver is done.
+  if (!warm && booting()) holdCover(new Promise((done) => setTimeout(() => { try { publish(); } finally { done(); } }, 0)));   // (under the cover: no frame to keep)   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  const onLost1 = () => { tgt = null; ok = false; pend = null; stopPoll?.(); stopPoll = null; };
+  evCv.addEventListener('webglcontextlost', onLost1);   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  // (epoch: counts the restores, so a paused view whose picture is "the same as last frame" knows the context is new and draws it again.)
+  let epoch = 0;
+  // (Restored: compiled again beside the page and published by the poller, never read back in the restore's own task; onReady draws.)
+  const onBack = () => { if (gone) return; epoch++; tgt = null; sent.clear(); ok = null; skipped = true; startLater(); };
+  evCv.addEventListener('webglcontextrestored', onBack);   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
   // A uniform keeps its value in its program, so one is sent only when it changes (most colours never do).
-  const sent = new Map();
-  const same = (a, b) => (typeof a === 'number' ? a === b : b != null && typeof b !== 'number' && a.length === b.length && Array.prototype.every.call(a, (x, i) => x === b[i]));
-  const set = (U, k, v) => {
+  const sent = new Map();   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  const SIZE = [0, 0];   // alloc-rare: made once with the drawer (the canvas size as a uniform, written in place)
+  function same(a, b) {
+    if (typeof a === 'number') return a === b;
+    if (b == null || typeof b === 'number' || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+  // (What a location holds is kept as a number or as an array of its own, written in place when the value changes.)
+  function keepSent(l, v) {
+    if (typeof v === 'number') { sent.set(l, v); return; }
+    let h = sent.get(l);
+    if (typeof h === 'number' || h === undefined || h.length !== v.length) { h = new Array(v.length); sent.set(l, h); }   // alloc-rare: the first time a location is set
+    for (let i = 0; i < v.length; i++) h[i] = v[i];
+  }
+  const set = (U, k, v) => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
     const l = U[k];
     if (l == null) return;
     if (sent.has(l) && same(v, sent.get(l))) return;
-    sent.set(l, typeof v === 'number' ? v : Array.from(v));
+    keepSent(l, v);
     if (k === 'uPass') gl.uniform1i(l, v);
     else if (typeof v === 'number') gl.uniform1f(l, v);
     else if (v.length === 2) gl.uniform2fv(l, v);
@@ -567,35 +656,143 @@ export function createSinusoidGL(canvas) {
     else gl.uniform4fv(l, v);
   };
   // (The second pass, the same program straight after the first, needs only its pass number: the rest still holds.)
-  const tissue = (u, pass) => {
+  const tissue = (u, pass) => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
     gl.useProgram(T.p);
     if (pass === 0) {
-      set(T.U, 'size', [canvas.width, canvas.height]);
+      SIZE[0] = canvas.width; SIZE[1] = canvas.height; set(T.U, 'size', SIZE);
       for (const k in u) set(T.U, k, u[k]);
     }
     set(T.U, 'uPass', pass);
     gl.bindVertexArray(vao); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   };
-  return {
-    get ok() { return ready(); },
+  const mixReady = () => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    if (mOk !== null) return mOk;
+    try { M = finish(startProgram(gl, MVS, MFS)); } catch { M = null; }
+    mOk = !!M;
+    if (M) { gl.useProgram(M.p); gl.uniform1i(M.U.uOld, 0); }
+    return mOk;
+  };
+  const onLost2 = () => { M = null; mTex = null; mOk = null; };
+  evCv.addEventListener('webglcontextlost', onLost2);   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  // What is drawn over the sinusoid in this canvas (the cards' frosted glass, glass-gl.js setHost; Mohammad, 2 Nov 2026: "No blur at
+  // all on top, solid card on bottom"): the same top hook as the figure's canvas (veins-gl top), laid at the end of every draw, so the
+  // glass is blurred from the sinusoid's own picture on the GPU. last: the last draw's arguments, so present() lays it again at once.
+  const tops = [], pics = new Set();   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  // (2 Nov 2026, bug sweep: one throw had taken a hook out for good, so a single bad frame of the cards' glass left every card solid
+  // until a reload. A hook that throws is told once and kept; only one failing TOP_FAILS pictures in a row is taken out.)
+  const TOP_FAILS = 30;
+  const topFailed = (t, e) => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    t.fails = (t.fails || 0) + 1;
+    if (t.fails === 1) console.warn('sinusoid: what is drawn over it failed.', e);
+    if (t.fails >= TOP_FAILS) { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); console.warn(`sinusoid: what is drawn over it failed. It failed ${TOP_FAILS} pictures in a row and is taken out.`); }   // alloc-rare: only when what is drawn over the sinusoid has failed repeatedly (a warning, once)
+  };
+  let presents = 0, seq = 0, haveLast = false, lastU = null, lastPts = null, lastN = 0;
+  const runTops = () => {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    if (!tops.length) return;
+    // (Walked in place: one that goes while its turn runs (it failed too often, or took itself off) leaves the next in its slot, and that one is not skipped.)
+    for (let i = 0; i < tops.length; i++) { const t = tops[i]; try { t.prep?.(); t.fails = 0; } catch (e) { topFailed(t, e); } if (tops[i] !== t) i--; }
+    for (let i = 0; i < tops.length; i++) { const t = tops[i]; try { t.draw(); t.fails = 0; } catch (e) { topFailed(t, e); } if (tops[i] !== t) i--; }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  };
+  const top = {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    gl, canvas,
+    add(t) { tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },   // alloc-rare: one hook added when something is first drawn over the sinusoid (the glass); not in a frame
+    // (A warm-up of what is drawn over it: run once its programs say they are compiled, between frames.)
+    warmIn(t) {
+      if (!t) return;
+      const go = () => { if (gl.isContextLost()) return; if (t.done && !t.done()) { setTimeout(go, 50); return; } try { t.run(); } catch (e) { caught('sinusoid-gl:654', e); /* (a warm-up that fails changes nothing drawn) */ } };   // alloc-rare: a warm-up is scheduled once for what is drawn over the sinusoid
+      setTimeout(go, 0);
+    },
+    get presents() { return presents; },   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+  };
+  function drawNow(u, pts, n) {
+    bindT();
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.BLEND);
+    tissue(u, 0);
+    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    if (n > 0) {
+      gl.useProgram(P.p);
+      SIZE[0] = canvas.width; SIZE[1] = canvas.height; set(P.U, 'size', SIZE);
+      for (const k in u) set(P.U, k, u[k]);
+      gl.bindVertexArray(pvao); gl.bindBuffer(gl.ARRAY_BUFFER, pbuf);
+      gl.bufferData(gl.ARRAY_BUFFER, pts.subarray(0, n * 5), gl.STREAM_DRAW);
+      gl.drawArrays(gl.POINTS, 0, n);
+    }
+    tissue(u, 1);
+    gl.bindVertexArray(null);
+    unbindT();
+    presents++;
+  }
+  return {   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    /** The top hook for the cards' glass: { gl, canvas, add, warmIn, presents }. */
+    top,
+    /** Lays the last picture again (with what is drawn over it), at once: the glass changed, the sinusoid did not. */
+    present() {
+      if (!gl.isContextLost()) host.present?.();   // (hosted: the picture stands in its texture; the stage lays it again with what is over it)
+    },
+    /** Hosted: the texture the view is drawn in ({ tex, w, h }, null before its first draw or while given back), for the stage's present to lay. */
+    get target() { return tgt && tgt.w > 1 ? tgt : null; },
+    /** Hosted: the texture back to a texel and the kept picture let go (the view is not shown; the shaders stay, ready for the next dive). */
+    free() {
+      if (mTex && !gl.isContextLost()) gl.deleteTexture(mTex);
+      mTex = null;
+      if (tgt && !gl.isContextLost()) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tgt.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); tgt.w = 1; tgt.h = 1; }
+    },
+    get gl() { return gl; },
+    /** How many new pictures have been drawn (the glass blurs again only when this changes). */
+    get drawSeq() { return seq; },   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    /** Calls f each time a new picture is drawn; returns the call that stops it. */
+    onPicture(f) { pics.add(f); return () => pics.delete(f); },   // alloc-rare: a listener is added once when a view subscribes to new pictures
+    get ok() { return ready(); },   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    /** Copies the picture drawn in this task into the mix's texture; false where it cannot (no context, no program). */
+    keep() {
+      if (!ok || gl.isContextLost() || !canvas.width || !canvas.height || !mixReady()) return false;
+      glOkBefore(gl);
+      mTex ||= gl.createTexture();
+      bindT();
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, mTex);
+      gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, canvas.width, canvas.height, 0);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      unbindT();
+      return glOkAfter(gl);   // (asked of the driver each time: gl-state.js)
+    },
+    /** Lays the kept picture over the one just drawn, at weight a (1: the old picture alone, 0: the new). */
+    mix(a) {
+      if (!mTex || !M || gl.isContextLost() || !(a > 0)) { if (!gl.isContextLost()) { host.present?.(); } return; }
+      bindT();
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.useProgram(M.p); gl.bindVertexArray(vao);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, mTex);
+      gl.enable(gl.BLEND); gl.blendColor(0, 0, 0, Math.min(1, a)); gl.blendFunc(gl.CONSTANT_ALPHA, gl.ONE_MINUS_CONSTANT_ALPHA);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.bindVertexArray(null);
+      unbindT();
+      host.present?.();
+    },
+    /** This drawer is done for (its view moves to a new renderer after a lost context, sinusoid-view.js rehost): its context listeners and poller go,
+     *  and it never compiles again. Nothing is deleted on the GPU: the context it held was lost, so its objects are gone with it. */
+    dispose() {
+      gone = true; ok = false; pend = null; stopPoll?.(); stopPoll = null; tops.length = 0; pics.clear();
+      evCv.removeEventListener('webglcontextlost', onLost1); evCv.removeEventListener('webglcontextrestored', onBack); evCv.removeEventListener('webglcontextlost', onLost2);
+    },
+    /** Lets the kept picture go. */
+    drop() { if (mTex && !gl.isContextLost()) gl.deleteTexture(mTex); mTex = null; },
+    /** The context lost, or its shaders failed (never compiles: for the ?perf surfaces list). */
+    get lost() { return ok === false || gl.isContextLost(); },   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
+    get epoch() { return epoch; },   // alloc-rare: the sinusoid drawer is made once for a view (a context, its programs and handlers)
     /** u: uniforms by name; pts: Float32Array of (x, y, r, alpha, kind) × n. The tissue, the particles, then the cells over them. */
     draw(u, pts, n) {
       if (!ready()) return;
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-      gl.disable(gl.BLEND);
-      tissue(u, 0);
-      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-      if (n > 0) {
-        gl.useProgram(P.p);
-        set(P.U, 'size', [canvas.width, canvas.height]);
-        for (const k in u) set(P.U, k, u[k]);
-        gl.bindVertexArray(pvao); gl.bindBuffer(gl.ARRAY_BUFFER, pbuf);
-        gl.bufferData(gl.ARRAY_BUFFER, pts.subarray(0, n * 5), gl.STREAM_DRAW);
-        gl.drawArrays(gl.POINTS, 0, n);
-      }
-      tissue(u, 1);
-      gl.bindVertexArray(null);
+      haveLast = true; lastU = u; lastPts = pts; lastN = n;
+      drawNow(u, pts, n);
+      seq++;
+      for (const f of pics) f();
+      if (!mTex) { host.present?.(); }   // (a resolution's fade under way lays the old picture over this one first: mix lays the glass after it)
     },
   };
 }

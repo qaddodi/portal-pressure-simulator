@@ -5,14 +5,19 @@
 //   Changes                              Treat card, closed until opened: what has been set, with values
 //   Advanced physiology                  side panel, from Settings
 
-import { store, updateParams } from './store.js?v=926dabfaef';
-import { h, icon, svgIcon, toast, reconcile } from './util.js?v=58b547f8d4';
-import { DRUGS } from '../engine/scenario.js?v=d7d3ea5b70';
-import { activeInterventions } from './inspector.js?v=bc8186fa9d';
-import { DRUG_NOTE } from './actions.js?v=76ca3152d4';
-import { factTarget } from './fact-target.js?v=50935889f6';
+import { store, updateParams } from './store.js';
+import { h, icon, svgIcon, toast, reconcile } from './util.js';
+import { fold } from './fold.js';
+import { DRUGS } from '../engine/scenario.js';
+import { activeInterventions } from './inspector.js';
+import { DRUG_NOTE } from './actions.js';
+import { factTarget } from './fact-target.js';
+import { caught } from './caught.js';
+import { rexSuitable } from './proc-anim.js';
 
 
+// The interventions treatCount counts, besides any drug.
+const TREATMENT_KEYS = ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'rex', 'occ:C5', 'splenicRx'];
 export function createChart({ onWhy, flash, onScenarios, action, startShunt, select, reveal = select, timeline, pinned }) {
   let controls = () => [];
   // Changes starts closed in the Treat card so the card does not grow with every order.
@@ -21,7 +26,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   let live = [];
 
   function safeGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
-  function remember() { try { localStorage.setItem('pps.chartOpen3', JSON.stringify([...open])); } catch { /* storage unavailable */ } }
+  function remember() { try { localStorage.setItem('pps.chartOpen3', JSON.stringify([...open])); } catch (e) { caught('chart:25', e); /* storage unavailable */ } }
 
   function section(id, title, ic, badge, ...kids) {
     const d = h('details', { class: 'section chart-sec', 'data-id': id },
@@ -44,7 +49,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
   }
   function changes() {
     const list = h('div', { class: 'chg-list', role: 'list' });
-    const empty = h('p', { class: 'fd-empty' }, 'Nothing changed yet. Move a slider or treat, and it shows here.');
+    const empty = h('p', { class: 'fd-empty' }, h('b', {}, 'Nothing changed yet.'), ' Move a slider or treat, and it shows here.');
     // Clear all takes back only the learner's own changes: the patient's own picture stays.
     const clear = h('button', { class: 'link chg-clear', onclick: () => updateParams((q) => { const base = presetBase(); if (base) return structuredClone(base); for (const a of activeInterventions(q)) a.remove(q); return q; }, { label: 'Clear all changes' }) }, 'Clear all');
     let key = null, count = null;
@@ -74,8 +79,9 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       reconcile(list, [
         ...(about.length ? [keyed(h('div', { class: 'chg-sub' }, 'About this patient'), 'sub:about'), ...about.map((a) => keyed(row(a, false), `about:${a.label}`)), keyed(h('div', { class: 'chg-sub' }, 'Your changes'), 'sub:mine')] : []),
         ...mine.map((a) => keyed(row(a, true), `mine:${a.label}`))]);
-      empty.hidden = mine.length > 0; clear.hidden = !mine.length;
-      if (count) { count.textContent = mine.length; count.hidden = !mine.length; }
+      // (the hint, the Clear all link and the count ease in and out with the list rows, rather than popping)
+      fold(empty, !mine.length); fold(clear, !!mine.length);
+      if (count) { if (mine.length) count.textContent = mine.length; fold(count, !!mine.length, { flat: true }); }
     };
     live.push(paint);
     const sec = section('changes', 'Changes', null, '0', list, empty, clear);
@@ -91,42 +97,70 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const live = sync;
     const p0 = store.get().params;
     const drugChip = (k, label, note, get, set) => {
-      const b = h('button', { class: 'order-chip', 'aria-pressed': String(!!get(p0)), title: note }, h('span', { class: 'oc-t' }, label), h('span', { class: 'oc-dot' }, icon('check')));
+      const b = h('button', { class: 'order-chip', 'aria-pressed': String(!!get(p0)), title: note }, h('span', { class: 'oc-t', 'data-t': label }, label), h('span', { class: 'oc-dot' }, icon('check')));
       b.addEventListener('click', () => updateParams((pp) => { set(pp, !get(pp)); return pp; }, { label }));
       live.push(() => b.setAttribute('aria-pressed', String(!!get(store.get().params))));
       return b;
     };
     const drugs = h('div', { class: 'order-chips' },
-      Object.keys(DRUGS).map((k) => drugChip(k, DRUGS[k].label, `${DRUG_NOTE[k] || ''}. ${DRUGS[k].info || ''}`, (p) => p.drugs[k], (p, v) => { p.drugs[k] = v; })),
-      drugChip('anticoag', 'Anticoagulation', 'Thrombi slowly recanalize on the disease clock.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
+      Object.keys(DRUGS).map((k) => drugChip(k, DRUGS[k].label, DRUGS[k].info || DRUG_NOTE[k] || '', (p) => p.drugs[k], (p, v) => { p.drugs[k] = v; })),
+      drugChip('anticoag', 'Anticoagulation', 'Thrombi slowly recanalize as time passes.', (p) => p.anticoag, (p, v) => { p.anticoag = v; }),
       drugChip('diuretics', 'Diuretics', 'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites.', (p) => p.diuretics, (p, v) => { p.diuretics = v; }));
     // One line per order; what it does is in its tooltip, so the list stays short.
     const btn = (ic, label, run, sub) => { const b = h('button', { class: 'order-btn', title: sub ? `${label}: ${sub}` : label }, ic ? svgIcon(ic, 'ac-ic') : null, h('span', { class: 'ob-t' }, label)); b.addEventListener('click', run); return b; };
+    // A fluid is given at once: its line under the name says what it does, and the tile answers the press with the
+    // accent tint easing in and back out (data-given), since nothing on it stays on.
+    const fluid = (label, fl, sub) => {
+      const b = h('button', { class: 'order-btn fluid-btn', title: `${label}: ${sub}` }, h('span', { class: 'ob-t' }, label, h('small', {}, sub)));
+      let t = 0;
+      b.addEventListener('click', () => { action({ kind: 'infuse', fluid: fl }); b.dataset.given = ''; clearTimeout(t); t = setTimeout(() => delete b.dataset.given, 1400); });
+      return b;
+    };
     const fluids = h('div', { class: 'order-grid three' },
-      btn(null, '1 L crystalloid', () => action({ kind: 'infuse', fluid: 'crystalloid' }), 'about 25 % stays in the vessels'),
-      btn(null, '1 unit PRBC', () => action({ kind: 'infuse', fluid: 'prbc' }), 'packed red cells'),
-      btn(null, 'Albumin', () => action({ kind: 'infuse', fluid: 'albumin' }), 'raises oncotic pressure'));
+      fluid('1 L crystalloid', 'crystalloid', 'about 25% stays in the vessels'),
+      fluid('1 unit PRBC', 'prbc', 'packed red cells'),
+      fluid('Albumin', 'albumin', 'raises oncotic pressure'));
     const proc = (ic, label, sub, run) => btn(ic, label, run, sub);
+    // A procedure that is in place says so (data-on): the button takes the accent tint and its icon gives way to a tick
+    // that draws itself in, both eased, so TIPS or BRTO reads as done without opening the figure. The tick sits in the
+    // icon's own place, so no name loses room or wraps.
+    const placed = (b, isOn) => {
+      const t = b.querySelector('.ob-t'), tick = h('span', { class: 'ob-on', 'aria-hidden': 'true' }, icon('check'));
+      b.append(tick);
+      const paint = () => { const on = !!isOn(store.get().params); b.toggleAttribute('data-on', on); b.setAttribute('aria-label', on ? `${t.textContent}, in place` : t.textContent); };
+      paint(); live.push(paint); return b;
+    };
     // A procedure that continues on the figure (a card, a shunt to draw) puts the Treat card away.
     const procs = h('div', { class: 'order-grid' },
       proc('band', 'Band ligation', 'on the esophageal varices', () => { select({ type: 'organ', id: 'varices' }); action({ kind: 'band' }); }),
-      proc('balloon', 'Balloon tamponade', 'esophageal or gastric', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the balloon on in the varices card.'); }),
+      placed(proc('balloon', 'Balloon tamponade', 'gastric balloon first, then esophageal', () => { select({ type: 'organ', id: 'varices' }); toast('Switch the gastric balloon on in the varices card; the esophageal balloon is the second step.'); }), (p) => p.balloonGas || p.balloonEso),
       // A TIPS is always right portal vein → right hepatic vein, so it is placed at once.
-      proc('stent', 'TIPS', 'right portal vein → right hepatic vein', () => {
+      placed(proc('stent', 'TIPS', 'right portal vein → right hepatic vein', () => {
         const on = store.get().params.tips.on;
         if (!on) updateParams({ tips: { on: true, d: store.get().params.tips.d || 8 } }, { label: 'TIPS' });
         select({ type: 'edge', id: 'TIPS' });
         toast(on ? 'The TIPS is already in place.' : 'TIPS placed: right portal vein → right hepatic vein.');
-      }),
+      }), (p) => p.tips.on),
       // A DIPS is always right portal vein → the intrahepatic IVC, so it is placed at once too.
-      proc('stent', 'DIPS', 'right portal vein → intrahepatic IVC', () => {
+      placed(proc('stent', 'DIPS', 'right portal vein → intrahepatic IVC', () => {
         const on = store.get().params.dips.on;
         if (!on) updateParams({ dips: { on: true, d: store.get().params.dips.d || 8 } }, { label: 'DIPS' });
         select({ type: 'edge', id: 'DIPS' });
         toast(on ? 'The DIPS is already in place.' : 'DIPS placed: right portal vein → IVC, through the caudate lobe.');
-      }),
-      proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', () => { select(null); startShunt('PV_TRUNK'); }),
-      proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }),
+      }), (p) => p.dips.on),
+      placed(proc('stent', 'Surgical shunt', 'portocaval, Warren, mesocaval', () => { select(null); startShunt('PV_TRUNK'); }), (p) => p.portocaval || p.dsrs || p.mesocaval),
+      // A Meso-Rex bypass is for a clotted portal trunk with an open left portal vein, so it is offered only then (or once it is in).
+      (() => {
+        const b = placed(proc('stent', 'Meso-Rex bypass', 'SMV → left portal vein, past the clot', () => {
+          const on = store.get().params.rex;
+          if (!on) updateParams({ rex: true }, { label: 'Meso-Rex bypass' });
+          select({ type: 'edge', id: 'REX' });
+          toast(on ? 'The Meso-Rex bypass is already in place.' : 'Meso-Rex bypass placed: superior mesenteric vein → left portal vein.');
+        }), (p) => !!p.rex);
+        const offer = () => { const p = store.get().params; b.hidden = !(p.rex || rexSuitable(p)); };
+        offer(); live.push(offer); return b;
+      })(),
+      placed(proc('occlude', 'BRTO', 'occlude the gastrorenal shunt', () => { select({ type: 'organ', id: 'gastric' }); if (store.get().params.spontaneous.C5 === false) toast('This patient has no gastrorenal shunt (see Advanced › anatomical variants).'); }), (p) => !!p.occluded?.C5),
       // One button cycles the spleen: untreated → partial embolization → splenectomy → untreated.
       (() => {
         const NAME = ['Spleen', 'Embolization', 'Splenectomy'], SUB = ['embolization or splenectomy', 'partial splenic artery embolization', 'spleen removed'];
@@ -135,7 +169,8 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
           updateParams((p) => { p.splenicRx = v; return p; }, { label: ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'][v] });
           select({ type: 'organ', id: 'spleen' });
         });
-        const paint = () => { const v = store.get().params.splenicRx | 0; b.querySelector('.ob-t').textContent = NAME[v]; b.title = `${NAME[v]}: ${SUB[v]} (click to change)`; b.setAttribute('aria-pressed', String(v > 0)); };
+        b.append(h('span', { class: 'ob-on', 'aria-hidden': 'true' }, icon('check')));
+        const paint = () => { const v = store.get().params.splenicRx | 0; b.querySelector('.ob-t').textContent = NAME[v]; b.title = `${NAME[v]}: ${SUB[v]} (click to change)`; b.setAttribute('aria-pressed', String(v > 0)); b.toggleAttribute('data-on', v > 0); };
         paint(); live.push(paint); return b;
       })(),
       proc('needle', 'Paracentesis', 'drain ascites', () => select({ type: 'organ', id: 'abdomen' })));
@@ -166,13 +201,24 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(spare) : null;
     for (const x of panes) ro?.observe(x[2]);
     // Words only: the three names always fit, so an icon beside each would only repeat it (design giveaway DG5, 17 Oct).
-    for (const [id, label] of panes) tabs.append(h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, h('span', {}, label)));
+    // A tab with orders running says how many beside its name (none says nothing), so the third of "3 running" is found
+    // without opening every tab. The number hangs past the name's end, so the names never shift.
+    const ran = { drugs: (p) => Object.keys(DRUGS).filter((k) => p.drugs[k]).length + !!p.anticoag + !!p.diuretics, procs: (p) => procs.querySelectorAll('.order-btn[data-on]').length };
+    for (const [id, label] of panes) {
+      const n = ran[id] ? h('span', { class: 'tt-n', 'aria-hidden': 'true' }) : null;
+      const b = h('button', { class: 'instr-tab', role: 'tab', 'data-tab': id, 'aria-selected': 'false', onclick: () => show(id) }, h('span', { class: 'tt-l' }, label, n));
+      if (n) { const paint = () => { const v = ran[id](store.get().params); if (v) n.textContent = v; n.classList.toggle('on', v > 0); b.setAttribute('aria-label', v ? `${label}, ${v} running` : label); }; paint(); live.push(paint); }
+      tabs.append(b);
+    }
     show(treatTab);
     return [tabs, body];
   }
   /** How many treatments are running now (drugs, shunts, balloons, BRTO). */
   function treatCount(p) {
-    return activeInterventions(p).filter((a) => a.key.startsWith('drug:') || ['anticoag', 'diuretics', 'tips', 'dips', 'balloonEso', 'balloonGas', 'portocaval', 'dsrs', 'mesocaval', 'occ:C5', 'splenicRx'].includes(a.key)).length;
+    const list = activeInterventions(p);
+    let n = 0;
+    for (let i = 0; i < list.length; i++) if (list[i].key.startsWith('drug:') || TREATMENT_KEYS.includes(list[i].key)) n++;
+    return n;
   }
 
   // ── Advanced ──────────────────────────────────────

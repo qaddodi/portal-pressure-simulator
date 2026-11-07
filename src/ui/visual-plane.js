@@ -23,9 +23,19 @@
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
-import { h, fmt, clamp } from './util.js?v=58b547f8d4';
-import { TILE, tileShown } from './table-marks.js?v=8458ad3bf8';
-import { plotPanel } from './plot-look.js?v=5037697da7';
+import { h, fmt, clamp } from './util.js';
+import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js';
+import { TILE, tileShown } from './table-marks.js';
+import { plotPanel } from './plot-look.js';
+import { frameFor, easeNow } from './frame.js';
+import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
+import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
+import { chartCtx } from './chart-ctx.js';
+import { propSoon } from './class-soon.js';
+import { reduceMotionMQ } from './motion.js';
+const reduceDot = typeof matchMedia === 'function' ? reduceMotionMQ : { matches: false };
+
+const nextFrame = frameFor('plane');
 
 // ── Conditions: [key, op, value], all of which must hold ──
 const OPS = { '<': (a, b) => a < b, '<=': (a, b) => a <= b, '>': (a, b) => a > b, '>=': (a, b) => a >= b };
@@ -71,17 +81,27 @@ export const PLANES = {
     edges: true,
   },
   'hvpg-ppg': {
-    x: { key: 'hvpg', min: 0, max: 30, ticks: [0, 5, 10, 20, 30], name: 'HVPG, mmHg', short: 'HVPG' },
-    y: { key: 'ppg', min: 0, max: 30, ticks: [0, 6, 12, 20, 30], name: 'PPG, mmHg', short: 'PPG' },
+    // (Mohammad 29 Oct: "don't stretch the x axis all the way to like 40"; PPG runs past the highest point on any slide (26.8); HVPG to 24
+    // (the farthest is 16.5), so that on a narrow phone plot the Sinusoidal obstruction point leaves room right of it for 'Bleed risk ≥12'
+    // on its level line. 29 Oct also took the axes' names off; 2 Nov, slide 11 of Sites: "the axes are not labeled ... tough to know HVPG
+    // PPG", so both axes are named again, with their unit, beside the cut-off numbers.)
+    x: { key: 'hvpg', min: 0, max: 24, ticks: [HVPG_CUTS.amber, HVPG_CUTS.red], name: 'HVPG (wedged − free), mmHg', fullFrom: 700, short: 'HVPG, mmHg', abbr: 'HVPG' },
+    y: { key: 'ppg', min: 0, max: 28, ticks: [PPG_CUTS.amber, PPG_CUTS.red], name: 'PPG (portal − IVC), mmHg', fullFrom: 700, short: 'PPG, mmHg', abbr: 'PPG' },
     zones: [
-      { when: [['hvpg', '<', 5], ['ppg', '<', 6]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: 'HVPG <5, PPG <6 mmHg' },
-      { when: [['hvpg', '<', 5]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'The wedge misses the resistance' },
-      { when: [['ppg', '<', 6]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [20, 3], note: 'HVPG ≥5, PPG <6 mmHg' },
-      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [20, 24], note: 'HVPG ≥5, PPG ≥6 mmHg' },
+      { when: [['hvpg', '<', HVPG_CUTS.amber], ['ppg', '<', PPG_CUTS.amber]], t: 'Both normal', short: 'Both normal', tone: 'ok', note: `HVPG <${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
+      { when: [['hvpg', '<', HVPG_CUTS.amber]], t: 'PPG raised, HVPG normal', short: 'PPG only', tone: 'ppg', note: 'The wedge misses the resistance' },
+      { when: [['ppg', '<', PPG_CUTS.amber]], t: 'HVPG raised, PPG normal', short: 'HVPG only', tone: 'hvpg', at: [14, 3], note: `HVPG ≥${HVPG_CUTS.amber}, PPG <${PPG_CUTS.amber} mmHg` },
+      { t: 'Both raised', short: 'Both raised', tone: 'both', at: [14, 24], note: `HVPG ≥${HVPG_CUTS.amber}, PPG ≥${PPG_CUTS.amber} mmHg` },
     ],
-    cuts: { x: [5, 10], y: [6, 12] },
+    cuts: { x: [HVPG_CUTS.amber, HVPG_CUTS.red], y: [PPG_CUTS.amber, PPG_CUTS.red] },
+    // (HVPG 5 and PPG 6 keep their numbers but draw no line: the zone colours already mark them, Mohammad 29 Oct.)
+    noLine: { x: [HVPG_CUTS.amber], y: [PPG_CUTS.amber] },
+    // (reserveCuts: the cut-offs' numbers are set down before the points' names and the zones' words, so neither the PPG axis's name at the top left nor a name low in the plot (Heart failure) takes the 5, 10, 6 or 12 away: 2 Nov. A name with no room left beside its point then sits a little way off on a thin line.)
+    reserveCuts: true,
+    // (nameGap: no two names, zone words, line names, axis names or numbers sit closer than this many px (as the text widths are estimated, 0.62 em a letter, a little over what Inter takes: the gaps drawn are 6 px or more): Mohammad's crowded-names ask, 3 Nov. The names' own boxes are kept this much larger against the names after them, the zones' words keep this far from every box, and the numbers' and axis names' boxes (3 px padded already) are widened to it.)
+    nameGap: 4,
     // (The two lines that carry a meaning of their own, named on the plot beside the line: { x|y: { value: words } }.)
-    lineNames: { x: { 10: 'CSPH ≥10' }, y: { 12: 'Bleed risk ≥12' } },
+    lineNames: { x: { [HVPG_CUTS.red]: `CSPH ≥${HVPG_CUTS.red}` }, y: { [PPG_CUTS.red]: `Bleed risk ≥${PPG_CUTS.red}` } },
     source: '',
     key: false,
   },
@@ -100,12 +120,19 @@ export function planeOf(p) {
 /** The zone the values in f fall in (the first whose conditions hold), or null. */
 export const zoneOf = (pl, f) => pl.zones.find((z) => holds(z.when, f)) || null;
 /** The keys a plane reads off a reading: its two axes and whatever its zones and boxes test. */
-export const readKeys = (pl) => [...new Set([pl.x.key, pl.y.key, ...[...pl.zones, ...(pl.boxes || [])].flatMap((z) => (Array.isArray(z.when) ? z.when.map((c) => c?.[0]) : []))])];
+const KEYS_OF = new WeakMap();   // (a plane's keys, listed once for the plane: it is asked for on every reading it is given)
+export const readKeys = (pl) => {
+  let ks = KEYS_OF.get(pl);
+  if (!ks) KEYS_OF.set(pl, (ks = [...new Set([pl.x.key, pl.y.key, ...[...pl.zones, ...(pl.boxes || [])].flatMap((z) => (Array.isArray(z.when) ? z.when.map((c) => c?.[0]) : []))])]));   // alloc-rare: once per plane, then kept
+  return ks;
+};
+// One reading's value as the tiles print it (shownReading's rule for one key, with no copy of the reading).
+const shownVal = (f, k) => { const v = f[k]; return Number.isFinite(v) ? tileShown(k, v) : v; };
 /** A reading as the tiles print it (table-marks tileShown: each tile's own decimals): the data card's dot, its zone and the words
  *  under the plot all read these, so the chart never puts the case anywhere but the numbers the tiles show. */
 export function shownReading(pl, f) {
   if (!f) return f;
-  const out = { ...f };
+  const out = { ...f };   // alloc-rare: a reading pinned (150 ms at the most) or a plot drawn, never per frame
   for (const k of readKeys(pl)) if (Number.isFinite(f[k])) out[k] = tileShown(k, f[k]);
   return out;
 }
@@ -123,6 +150,8 @@ export function bleed(seg, fr, W, H) {
   const ex = (v) => (Math.abs(v - fr.L) < 0.5 ? 0 : Math.abs(v - fr.R) < 0.5 ? W : v), ey = (v) => (Math.abs(v - fr.T) < 0.5 ? 0 : Math.abs(v - fr.B) < 0.5 ? H : v);
   return { ...seg, x1: ex(seg.x1), x2: ex(seg.x2), y1: ey(seg.y1), y2: ey(seg.y2) };
 }
+/** A box [x0, y0, x1, y1] grown by g px on every side (g of 0 or less: the same box). */
+export const widen = (b, g) => (g > 0 ? [b[0] - g, b[1] - g, b[2] + g, b[3] + g] : b);
 export const est = (t, px, w = 0.6) => String(t).length * px * w;   // (a run's width: Inter averages about 0.6 em a character)
 export const scaler = (pl, fr) => ({
   X: (v) => fr.L + (fr.R - fr.L) * (clamp(v, pl.x.min ?? 0, pl.x.max) - (pl.x.min ?? 0)) / (pl.x.max - (pl.x.min ?? 0)),
@@ -152,22 +181,80 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
     const x = X(v), w = est(String(v), fs, 0.62), left = x - w / 2 < PAD + 2, right = x + w / 2 > W - PAD - 2;
     ticks.push([cut('x', v), String(v), left ? PAD + 3 : right ? W - PAD - 3 : x, foot, left ? 'start' : right ? 'end' : 'middle']);
   }
-  for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), String(v), PAD + 3, Math.max(Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);
+  for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), String(v), PAD + 3, Math.max(cut('y', v) && part === 'all' ? Y(v) - fs * 0.25 - 3 : Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);   // (a cut-off's number in the card stands just over its line, never on it)
   ticks.sort((a, b) => b[0] - a[0]);
   const marks = ticks.filter((t) => t[0]), rest = ticks.filter((t) => !t[0]);
   if (part !== 'names') for (const [, text, x, y, anchor] of marks) put(text, x, y, anchor, 'pze-t on');
   // (A name in the longest form that touches nothing standing; the shortest where every form does.)
   const name = (a, x, y, anchor, room) => {
-    const forms = [...new Set([a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);
+    const forms = [...new Set([a.fullFrom > W ? null : a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);   // (fullFrom: the full name only on a plot this wide)
     const ok = forms.find((t) => !taken.some((o) => hit(boxOf(t, x, y, anchor), o)));
     put(ok ?? forms.at(-1) ?? a.key, x, y, anchor, 'pze-ax', true);
   };
-  if (part !== 'ticks') {
+  // (axisNames: false leaves the names off a plane drawn only to show the zones' shape.)
+  if (part !== 'ticks' && pl.axisNames !== false) {
     name(pl.x, W - PAD - 3, foot, 'end', W * 0.6);
     name(pl.y, PAD + 3, PAD + 3 + fs * 0.8, 'start', W * 0.6);
   }
   if (part !== 'names') for (const [, text, x, y, anchor] of rest) put(text, x, y, anchor, 'pze-t');
   return out;
+}
+/** The cut-offs' numbers of a plane that sets them down first (pl.reserveCuts): their boxes, for the points' names and the zones' words to keep clear of.
+ *  keepOff: what the numbers keep clear of (the points, the axes' names). [] for any other plane. */
+export function cutNumbers(pl, fr, X, Y, fs, keepOff = []) {
+  return pl.reserveCuts ? plotNumbers(pl, fr, X, Y, fs, keepOff, 'ticks').filter((n) => n.cls.includes('on')).map((n) => n.box) : [];
+}
+/** A plane with no zones is a scatter (the wedge against the portal pressure): it has no coloured shape whose edge could stand for an
+ *  axis, so it draws its own (axesFrame, axesMarks). `axes: true` or `false` on a plane overrides this. A plane with zones keeps the
+ *  G2 look, the shape's edge as its axis and the numbers written on it. */
+export const hasAxes = (pl) => pl.axes ?? !(pl.zones || []).length;
+export const AX_TICK = 5, AX_GAP = 4;   // (a tick's length outward from the axis, and the clear gap between a tick and its number)
+const ticksOf = (a) => a.ticks || [a.min ?? 0, a.max];
+/** The plot area of a plane with axes, in the element's pixels: inside the panel, with a column for the y numbers on its left (the widest
+ *  number, a gap and the tick), a row above for the y axis's name, and under it a row for the x numbers and one for the x axis's name,
+ *  each on its own so no number is ever left out for a name. The last x number is centred on the plot's right edge, so the right
+ *  margin keeps half of it (6 px from the panel's edge: it stands in the foot row, clear of the rounded corner). */
+export function axesFrame(pl, W, H, fs) {
+  const yw = Math.max(...ticksOf(pl.y).map((v) => est(String(v), fs, 0.62))), xw = Math.max(...ticksOf(pl.x).map((v) => est(String(v), fs, 0.62)));
+  const nameBase = H - PAD - 3 - fs * 0.25, numBase = nameBase - fs * 1.3;
+  return {
+    L: PAD + 3 + yw + AX_TICK + AX_GAP + 2, R: W - PAD - xw / 2,
+    T: PAD + 3 + fs * 1.45 + AX_GAP + 3, B: numBase - fs * 0.72 - AX_TICK - AX_GAP,
+    numBase, nameBase,
+  };
+}
+/** What a plane with axes draws round its plot area fr: its hairline gridlines (one at each number but the first, which is the axis), the
+ *  two axis lines, a short tick outside the axis at each number, the numbers (the origin's one 0 shared, left of the x numbers' row
+ *  and under the y numbers' column), and the two names (x centred under the numbers, y at the panel's top left, each in the longest of
+ *  its name, short name and abbreviation that fits the panel). Lines are { x1, y1, x2, y2 }; words are as plotNumbers': { text, x,
+ *  y, anchor, cls, box }, y the baseline. */
+export function axesMarks(pl, fr, X, Y, fs, W) {
+  const x0 = pl.x.min ?? 0, y0 = pl.y.min ?? 0, xt = ticksOf(pl.x), yt = ticksOf(pl.y);
+  const grid = [], ticks = [], nums = [];
+  const boxOf = (text, x, y, anchor) => { const w = est(text, fs, 0.62), l = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2; return [l, y - fs * 0.8, l + w, y + fs * 0.25]; };
+  const put = (text, x, y, anchor, cls) => nums.push({ text, x, y, anchor, cls, box: boxOf(text, x, y, anchor) });
+  const shared = xt.includes(x0) && yt.includes(y0) && String(x0) === String(y0);
+  for (const v of xt) {
+    ticks.push({ x1: X(v), y1: fr.B, x2: X(v), y2: fr.B + AX_TICK });
+    if (v > x0) grid.push({ x1: X(v), y1: fr.T, x2: X(v), y2: fr.B });
+    if (!(shared && v === x0)) put(String(v), X(v), fr.numBase, 'middle', 'pze-t');
+  }
+  for (const v of yt) {
+    ticks.push({ x1: fr.L - AX_TICK, y1: Y(v), x2: fr.L, y2: Y(v) });
+    if (v > y0) { grid.push({ x1: fr.L, y1: Y(v), x2: fr.R, y2: Y(v) }); put(String(v), fr.L - AX_TICK - AX_GAP, Y(v) + fs * 0.35, 'end', 'pze-t'); }
+    else if (!shared) put(String(v), fr.L - AX_TICK - AX_GAP, Y(v) + fs * 0.35, 'end', 'pze-t');
+  }
+  // (One 0 for the origin, outside both axes: left of the x numbers and under the y numbers.)
+  if (shared) put(String(x0), fr.L - AX_TICK - AX_GAP, fr.numBase, 'end', 'pze-t');
+  const room = W - 2 * (PAD + 3), form = (a) => { const forms = [...new Set([a.name, a.short, a.abbr, a.key].filter(Boolean))]; return forms.find((t) => est(t, fs, 0.62) <= room) ?? forms.at(-1); };
+  const xn = form(pl.x), yn = form(pl.y), xw = est(xn, fs, 0.62);
+  const names = [];
+  if (pl.axisNames !== false) {
+    const cx = Math.min(Math.max((fr.L + fr.R) / 2, PAD + 3 + xw / 2), W - PAD - 3 - xw / 2);
+    names.push({ text: xn, x: cx, y: fr.nameBase, anchor: 'middle', cls: 'pze-ax', box: boxOf(xn, cx, fr.nameBase, 'middle') });
+    names.push({ text: yn, x: PAD + 3, y: PAD + 3 + fs * 0.8, anchor: 'start', cls: 'pze-ax', box: boxOf(yn, PAD + 3, PAD + 3 + fs * 0.8, 'start') });
+  }
+  return { grid, axes: [{ x1: fr.L, y1: fr.T, x2: fr.L, y2: fr.B }, { x1: fr.L, y1: fr.B, x2: fr.R, y2: fr.B }], ticks, nums, names };
 }
 /** Words that fit a width at a size: one line, else broken at spaces (or after a dash, as in Budd–Chiari) into as few lines as
  *  fit, else null (never cut short). */
@@ -191,7 +278,9 @@ export function crosses(ax, ay, bx, by, o) {
 }
 /** The cut-off lines in px, { x1, y1, x2, y2 }: across the whole plot, or with edges: true only where two zones meet, so a zone
  *  reads as one shape (the CSPH plane's amber L, Mohammad 19 Oct: one "Indeterminate" zone, its words with room). */
-export function cutSegs(pl, X, Y, fr) {
+export function cutSegs(pl, X, Y, fr, drawn = false) {
+  // (drawn: only the lines the plane shows; words still keep to their own side of the others, the zone colours' edges.)
+  const shown = (a, c) => !drawn || !pl.noLine?.[a]?.includes(c);
   const out = [], x0 = pl.x.min ?? 0, y0 = pl.y.min ?? 0;
   const seg = (along, lo, hi, differ, mk) => {
     // (Sampled at 1/400 of the axis: a run of samples where the zones either side differ is one segment.)
@@ -203,12 +292,12 @@ export function cutSegs(pl, X, Y, fr) {
       if (!d && from != null) { out.push(mk(from, t)); from = null; }
     }
   };
-  for (const v of pl.cuts?.x || []) {
+  for (const v of (pl.cuts?.x || []).filter((c) => shown('x', c))) {
     if (!pl.edges) { out.push({ x1: X(v), x2: X(v), y1: fr.T, y2: fr.B }); continue; }
     const e = (pl.x.max - x0) / 1000;
     seg('y', y0, pl.y.max, (y) => zoneOf(pl, { [pl.x.key]: v - e, [pl.y.key]: y }) !== zoneOf(pl, { [pl.x.key]: v + e, [pl.y.key]: y }), (a, b) => ({ x1: X(v), x2: X(v), y1: Y(a), y2: Y(b) }));
   }
-  for (const v of pl.cuts?.y || []) {
+  for (const v of (pl.cuts?.y || []).filter((c) => shown('y', c))) {
     if (!pl.edges) { out.push({ x1: fr.L, x2: fr.R, y1: Y(v), y2: Y(v) }); continue; }
     const e = (pl.y.max - y0) / 1000;
     seg('x', x0, pl.x.max, (x) => zoneOf(pl, { [pl.x.key]: x, [pl.y.key]: v - e }) !== zoneOf(pl, { [pl.x.key]: x, [pl.y.key]: v + e }), (a, b) => ({ x1: X(a), x2: X(b), y1: Y(v), y2: Y(v) }));
@@ -226,7 +315,8 @@ export function diagOf(pl, X, Y, fs = 13) {
   const text = typeof pl.diag === 'object' && pl.diag.label ? String(pl.diag.label) : '';
   // (Over the line, left of a point near its top: on the side where the wedge would read above the portal pressure, which no patient does.)
   const at = { x: seg.x1 + (seg.x2 - seg.x1) * 0.9, y: seg.y1 + (seg.y2 - seg.y1) * 0.9 }, w = est(text, fs);
-  const label = text ? { text, x: at.x - 6, y: at.y - 6, anchor: 'end', box: [at.x - 6 - w - 2, at.y - 6 - fs, at.x - 4, at.y - 2] } : null;
+  const lift = pl.axes === false || !hasAxes(pl) ? 6 : 9;   // (a scatter's line is drawn over gridlines: its name stands a little higher off it, so a flat line never runs under the words)
+  const label = text ? { text, x: at.x - 6, y: at.y - lift, anchor: 'end', box: [at.x - 6 - w - 2, at.y - lift - fs, at.x - 4, at.y - lift + 4] } : null;
   if (label) boxes.push(label.box);
   return { seg, boxes, label };
 }
@@ -285,27 +375,31 @@ export function gapSegs(segs, boxes, pad = 4) {
  *  boxes [x0, y0, x1, y1] the names keep clear of (the zones' words). cross: the cut-off lines among them a name may sit across
  *  where it has no room beside its point on its own side (the line then breaks behind it, gapSegs), so it stays right by its
  *  point rather than going out on a long line (an iPhone's 0 to 5 mmHg column, some 45 px, holds no name: Mohammad, 19 Oct). */
-export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = []) {
+// A dot's clearance from a zone's words and from the names beside it: the dot's radius, its outline and a breath of room (the Healthy
+// dot sat tight against "Both normal" and "Heart failure" at 12 px, deck inspector 31 Oct).
+export const DOT_CLEAR = 16;
+const WORD_PAD = 4;
+export function placeNames(pts, fr, fs, r = 8, avoid = [], cross = [], pad = 0) {
   // (When a round leaves a name out or sends one out on a line, others are tried: the round that names the most wins, then
   // the one with the fewest lines, then the one whose names sit closest to their points, then the fewest across a cut-off.)
   const score = (res) => [res.filter((o) => !o).length, res.filter((o) => o?.lead).length, res.reduce((s, o, i) => s + (o ? Math.hypot(...near2(o.box, pts[i])) : 0), 0), res.filter((o) => o?.across).length];
   const better = (a, b) => a[0] < b[0] || (a[0] === b[0] && (a[1] < b[1] || (a[1] === b[1] && (a[2] < b[2] - 0.5 || (Math.abs(a[2] - b[2]) <= 0.5 && a[3] < b[3])))));
-  let best = placeOnce(pts, fr, fs, r, avoid, null, cross), bs = score(best), order = null;
+  let best = placeOnce(pts, fr, fs, r, avoid, null, cross, pad), bs = score(best), order = null;
   for (let round = 0; (bs[0] || bs[1] || bs[3]) && round < 4; round++) {
     // (A name left without a place, or on a line, goes first in the next round, then one sitting across a cut-off.)
-    const prev = order || pts.map((_, i) => i), res = round ? placeOnce(pts, fr, fs, r, avoid, prev, cross) : best, rank = (i) => (!res[i] || res[i].lead ? 0 : res[i].across ? 1 : 2);
+    const prev = order || pts.map((_, i) => i), res = round ? placeOnce(pts, fr, fs, r, avoid, prev, cross, pad) : best, rank = (i) => (!res[i] || res[i].lead ? 0 : res[i].across ? 1 : 2);
     order = [0, 1, 2].flatMap((k) => prev.filter((i) => rank(i) === k));
-    const next = placeOnce(pts, fr, fs, r, avoid, order, cross), sc = score(next);
+    const next = placeOnce(pts, fr, fs, r, avoid, order, cross, pad), sc = score(next);
     if (better(sc, bs)) best = next, bs = sc;
   }
   return best;
 }
 /** How far a name's box is from its point, across and down. */
 const near2 = (b, p) => [Math.max(b[0] - p.x, 0, p.x - b[2]), Math.max(b[1] - p.y, 0, p.y - b[3])];
-function placeOnce(pts, fr, fs, r, avoid, first, cross = []) {
-  // (A point keeps every name 4 px clear of its ring: its radius, its 1.5 px outline and the gap.)
-  const boxes = [...pts.map((p) => [p.x - r - 6, p.y - r - 6, p.x + r + 6, p.y + r + 6]), ...avoid];
-  const lh = fs * 1.2, gap = r + 6;
+function placeOnce(pts, fr, fs, r, avoid, first, cross = [], pad = 0) {
+  // (A point keeps every name 6 px clear of its ring: its radius, its 1.5 px outline and the gap.)
+  const boxes = [...pts.map((p) => [p.x - r - 8, p.y - r - 8, p.x + r + 8, p.y + r + 8]), ...avoid];
+  const lh = fs * 1.2, gap = r + 8;
   const meets = (b, o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1];
   const hit = (b) => boxes.some((o) => meets(b, o));
   // (Sitting across: clear of everything but the cut-off lines it may cross.)
@@ -396,10 +490,19 @@ function placeOnce(pts, fr, fs, r, avoid, first, cross = []) {
 
       done = sh && (!far || far.d > fs) ? sh : over || (farOver && (!far || farOver.d + fs < far.d) ? farOver : shFar && (!far || shFar.d + 2 * fs < far.d) ? shFar : far || shFar);
     }
-    if (done) boxes.push(done.box), named.push(done.box);
+    // (pad: a name's box is kept that much larger against the names after it, for the letters' widths the estimate falls short of: "SOS" in capitals.)
+    if (done) boxes.push(pad ? [done.box[0] - pad, done.box[1] - pad, done.box[2] + pad, done.box[3] + pad] : done.box), named.push(done.box);
     out[i] = done;
   }
   return out;
+}
+/** A summary's point radius on a plot with axes: 8 px, or less where two points lie close (an iPhone's: Schistosomiasis and a clot are 1.2 mmHg
+ *  from each other each way, 15 px apart there, and two 8 px dots with their rings would run together): half the distance of the closest pair
+ *  less 1.5 px of clear air, 5 px at the least. at: the points in px, { x, y }. */
+export function pointR(at) {
+  let d = Infinity;
+  for (let i = 0; i < at.length; i++) for (let j = i + 1; j < at.length; j++) d = Math.min(d, Math.hypot(at[i].x - at[j].x, at[i].y - at[j].y));
+  return clamp((d - 3) / 2, 5, 8);
 }
 /** A zone's rectangle on the plot, in data units: [x0, x1, y0, y1] (the rest of the plane: the whole of it). */
 export const zoneRect = (pl, z) => {
@@ -419,7 +522,9 @@ export function placeZoneWords(pl, fr, X, Y, fs, used, dots, card = false, only 
     const forms = [fitWords(z.t, wpx, fs, 2), z.short && z.short !== z.t ? fitWords(z.short, wpx, fs, 2) : null].filter(Boolean);   // (the zone's short name where its full one has no room)
     const zl = Math.max(X(x0), fr.L) + 4, zr = Math.min(X(x1), fr.R) - 4, zt = Math.max(Y(y1), fr.T) + 4, zb = Math.min(Y(y0), fr.B) - 4;
     const inZone = (b) => b[0] >= zl && b[2] <= zr && b[1] >= zt && b[3] <= zb && !over.some((o) => b[0] < o[2] + 4 && b[2] > o[0] - 4 && b[1] < o[3] + 4 && b[3] > o[1] - 4);
-    const clear = (b) => !taken.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]) && !dots.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+    // (A zone's words keep a breath of room, WORD_PAD, from the names and lines already placed: "Both normal" sat flush between Healthy and Heart failure.)
+    const wp = Math.max(WORD_PAD, pl.nameGap || 0);
+    const clear = (b) => !taken.some((o) => b[0] < o[2] + wp && b[2] > o[0] - wp && b[1] < o[3] + wp && b[3] > o[1] - wp) && !dots.some((o) => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
     for (const [k, lines] of forms.entries()) {
       // (The short name only where the full one has no clear place, and with no key only.)
       if (k && !noKey) break;
@@ -484,14 +589,15 @@ export function wasBoxes(p) {
 /** The plot's words: the cut-off lines' boxes (rules), each point's name (names, as placeNames) and the zones' words (words, as
  *  placeZoneWords). at: the points in px; extra: more boxes they keep clear of (the numbers written on the plot, plotNumbers). The names come first; with no key, a zone whose words found no room then takes its
  *  place first and the names are placed again around it, so every zone keeps its words and every point its name. */
-export function layoutPlane(pl, fr, X, Y, fs, at, card = false, extra = []) {
-  const base = [...lineBoxes(pl, X, Y, fr, fs), ...extra, ...at.flatMap((p) => wasBoxes(p))], dots = at.map((p) => [p.x - 12, p.y - 12, p.x + 12, p.y + 12]);
+export function layoutPlane(pl, fr, X, Y, fs, at, card = false, extra = [], r = 8, pad = 0) {
+  const base = [...lineBoxes(pl, X, Y, fr, fs), ...extra, ...at.flatMap((p) => wasBoxes(p))], dots = at.map((p) => [p.x - DOT_CLEAR, p.y - DOT_CLEAR, p.x + DOT_CLEAR, p.y + DOT_CLEAR]);
   // (The lines' own names come first, beside their lines: the points' names and the zones' words then keep clear of them.)
   const lines = lineNames(pl, fr, X, Y, fs, [...base, ...dots]), rules = [...base, ...lines.map((l) => l.box)];
   // (The cut-off lines come first among the rules: a name may sit across one of those, the line broken behind it.)
   const cross = rules.slice(0, cutSegs(pl, X, Y, fr).length);
   const boxesOf = (ns) => ns.filter(Boolean).map((n) => n.box);
-  let names = placeNames(at, fr, fs, 8, rules, cross), words = placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules], dots, card);
+  let names = placeNames(at, fr, fs, r, rules, cross, pad), words = placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules], dots, card);
+  const wd = (b) => widen(b, pl.nameGap || 0);   // (a word's box, kept nameGap px clear of the names placed round it)
   const missing = (pl.key === false || pl.key === 'never') && !card ? pl.zones.filter((z) => !words.some((w) => w.z === z)) : [];
   if (missing.length) {
     // (Each of them where it leaves the names best placed: all of them named, the fewest out on a line, then the nearest.)
@@ -500,12 +606,12 @@ export function layoutPlane(pl, fr, X, Y, fs, at, card = false, extra = []) {
     const chosen = [];
     const judge = (cands) => {
       let bi = 0, bs = null;
-      cands.forEach((b, i) => { const sc = score(placeNames(at, fr, fs, 8, [...rules, ...chosen, b], cross)); if (!bs || better(sc, bs)) bi = i, bs = sc; });
+      cands.forEach((b, i) => { const sc = score(placeNames(at, fr, fs, r, [...rules, ...chosen.map(wd), wd(b)], cross, pad)); if (!bs || better(sc, bs)) bi = i, bs = sc; });
       chosen.push(cands[bi]);
       return bi;
     };
     const first = placeZoneWords(pl, fr, X, Y, fs, rules, dots, card, missing, judge), held = first.map((w) => w.box);
-    const again = placeNames(at, fr, fs, 8, [...rules, ...held], cross);
+    const again = placeNames(at, fr, fs, r, [...rules, ...held.map(wd)], cross, pad);
     if (first.length && boxesOf(again).length >= boxesOf(names).length) {
       names = again;
       words = [...first, ...placeZoneWords(pl, fr, X, Y, fs, [...boxesOf(names), ...rules, ...held], dots, card, [...pl.zones.filter((z) => !missing.includes(z)), ...(pl.boxes || [])])];
@@ -519,15 +625,18 @@ export function dotSize(fr) {
   const m = Math.min(fr.R - fr.L, fr.B - fr.T), r = clamp(m * 0.025, 4, 6.5);
   return { r, g: clamp(r * 0.6, 2.5, 4) };
 }
+const DOT_POOL = [], DOT_BOXES = [];   // (kept: the circles' records, and the list of the last dotBoxes call; the next call writes them again, so a caller uses them before asking again)
+const dotBox = (i, x, y, k) => { const b = DOT_POOL[i] || (DOT_POOL[i] = [0, 0, 0]); b[0] = x; b[1] = y; b[2] = k; DOT_BOXES[i] = b; };   // alloc-rare: a record is made the first time a way needs that many circles
 /** The circles [x, y, radius] the zones' words keep out of for the card's dot: the dot and its gap plus 4 px, where it stands
  *  and, when it moves, all along its way from where it was (at, from: { x, y } in px; R: the dot's radius with its gap). */
 export function dotBoxes(at, from, R) {
-  if (!at) return [];
-  const k = R + 4, box = (x, y) => [x, y, k];
-  if (!from || (Math.abs(from.x - at.x) < 0.5 && Math.abs(from.y - at.y) < 0.5)) return [box(at.x, at.y)];
-  const n = Math.max(1, Math.ceil(Math.hypot(at.x - from.x, at.y - from.y) / 4)), out = [];
-  for (let i = 0; i <= n; i++) out.push(box(from.x + (at.x - from.x) * i / n, from.y + (at.y - from.y) * i / n));
-  return out;
+  DOT_BOXES.length = 0;
+  if (!at) return DOT_BOXES;
+  const k = R + 4;
+  if (!from || (Math.abs(from.x - at.x) < 0.5 && Math.abs(from.y - at.y) < 0.5)) { dotBox(0, at.x, at.y, k); return DOT_BOXES; }
+  const n = Math.max(1, Math.ceil(Math.hypot(at.x - from.x, at.y - from.y) / 4));
+  for (let i = 0; i <= n; i++) dotBox(i, from.x + (at.x - from.x) * i / n, from.y + (at.y - from.y) * i / n, k);
+  return DOT_BOXES;
 }
 /** Every zone's words in the data card, each in its own zone, nearest the zone's point (`at`, else its middle): [{ z, x, y, lines,
  *  fs, box, onLine }], x the words' middle and y the first line's baseline. They keep clear of the dot (avoid: dotBoxes), of
@@ -571,13 +680,54 @@ export function placeCardWords(pl, fr, X, Y, fs, avoid = []) {
   return out;
 }
 
+// ── The patient's trail on the card ──
+// A tool's trail: [{ slide, name }], the slides the patient stood at before this one, in order (Mohammad, 1 Nov, "a line of where the
+// patient was and where he is as the dot moves", mock B). Each is a hollow ring with its short name beside it, joined in order by a thin
+// line that runs on to the dot and is drawn behind it as it glides (the dot's own path, as it went).
+/** The circles [x, y, r] the zones' words and the stops' names keep out of along the trail: each ring, and the straight way from each
+ *  stop to the next and from the last to the dot (every 6 px). stops and now in px. */
+export function trailBoxes(stops, now) {
+  const pts = now ? [...stops, now] : stops, out = stops.map((p) => [p.x, p.y, 10]);
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], n = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6));
+    for (let k = 1; k < n; k++) out.push([a.x + (b.x - a.x) * k / n, a.y + (b.y - a.y) * k / n, 5]);
+  }
+  return out;
+}
+/** Each stop's name beside its ring, at the first spot round it that lands on nothing and stays inside the plot: right, left, above,
+ *  below, then the four corners, then the same a little further off. avoid: boxes [x0, y0, x1, y1] or circles [x, y, r]. A name with
+ *  no clear spot is left out ([] entry null), never drawn over something. Returns [{ x, y, anchor, box } | null], y the baseline. */
+export function placeStopNames(stops, fr, fs, avoid = []) {
+  const hit = (b, o) => (o.length === 3 ? Math.hypot(Math.max(b[0] - o[0], 0, o[0] - b[2]), Math.max(b[1] - o[1], 0, o[1] - b[3])) < o[2] : b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+  const out = [], up = fs * 0.85, dn = fs * 0.25;
+  for (const p of stops) {
+    const w = est(p.name, fs, 0.62);
+    let got = null;
+    for (const d of [9, 14]) {
+      const ways = [[d, 0, 'start'], [-d, 0, 'end'], [0, -d, 'middle'], [0, d, 'middle'], [d * 0.7, -d * 0.7, 'start'], [d * 0.7, d * 0.7, 'start'], [-d * 0.7, -d * 0.7, 'end'], [-d * 0.7, d * 0.7, 'end']];
+      for (const [dx, dy, anchor] of ways) {
+        const x = p.x + dx, x0 = anchor === 'start' ? x : anchor === 'end' ? x - w : x - w / 2;
+        // (Beside the ring the words' middle is level with it; above it their foot, below it their top, is d away.)
+        const y = dy === 0 ? p.y + (up - dn) / 2 : dy < 0 ? p.y + dy - dn : p.y + dy + up;
+        const b = [x0 - 2, y - up - 2, x0 + w + 2, y + dn + 2];
+        if (b[0] < fr.L + 2 || b[2] > fr.R - 2 || b[1] < fr.T + 2 || b[3] > fr.B - 2) continue;
+        if (avoid.some((o) => hit(b, o)) || out.some((o) => o && hit(b, o.box))) continue;
+        got = { x, y, anchor, box: b };
+        break;
+      }
+      if (got) break;
+    }
+    out.push(got);
+  }
+  return out;
+}
+
 // ── Drawing ──
-const SVGNS = 'http://www.w3.org/2000/svg';
+// (2 Nov 2026: the plot is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = (tag, attrs = {}, ...kids) => {
-  const el = document.createElementNS(SVGNS, tag);
-  for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, typeof v === 'number' ? +v.toFixed(1) : v);
-  el.append(...kids.flat().filter((k) => k != null));
-  return el;
+  const a = {};
+  for (const [k, v] of Object.entries(attrs)) if (v != null) a[k] = typeof v === 'number' ? +v.toFixed(1) : v;
+  return svgModel(tag, a, ...kids);
 };
 const valOf = (k, v) => (v == null || !Number.isFinite(v) ? '—' : fmt(v * (TILE[k]?.x ?? 1), TILE[k]?.d ?? 1));
 const unitOf = (k) => TILE[k]?.u || '';
@@ -585,15 +735,30 @@ const unitOf = (k) => TILE[k]?.u || '';
 /** The plot itself: an element whose CSS gives it a size; draw(points, ring) redraws it at that size.
  *  points: [{ f, from?, name, site }] (from: where the patient started, drawn as a ring with a line to the point); ring: the case's fingerprint or null. */
 export function planePlot(pl, { card = false } = {}) {
-  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : ''), role: 'img' });
-  const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true' });
+  // (pze-axes from the start, so the plot has its size, which a scatter's axes need more of, before it is drawn.)
+  const axes = !card && hasAxes(pl);
+  const el = h('div', { class: 'pze-plot' + (card ? ' pze-incard' : '') + (card && pl.key === 'never' ? ' pze-ownwords' : '') + (axes ? ' pze-axes' : ''), role: 'img' });
+  const svg = sv('svg', { class: 'pze-plane', 'aria-hidden': 'true', 'data-axes': axes ? 'on' : null });   // (the scatter's plot gives its halos and fills the panel's own tone: chart-looks/plane.js)
   // (The drawing redraws in base; the card's zone words and its dot stay the same elements, so they ease from where they were.)
-  const halo = sv('circle', { class: 'pze-halo' }), dot = sv('circle', { class: 'pze-dot' });
-  const base = sv('g'), wordsG = sv('g', { class: 'pze-cwords' }), ringG = sv('g', { class: 'pze-ring' }, halo, dot);
+  const halo = sv('circle', { class: 'pze-halo', 'data-look': 'plane.halo' }), dot = sv('circle', { class: 'pze-dot', 'data-look': 'plane.dot' });
+  let dotGo = null;   // (the dot's glide: from fx, fy to tx, ty, started at t0)
+  const DOT_AT = { x: 0, y: 0 };   // (the dot's place now, one kept pair written in place; a caller reads it as it is returned)
+  const dotEased = (t = easeNow()) => {
+    if (!dotGo) return null;
+    const k = reduceDot.matches ? 1 : easeArrive(Math.min(1, Math.max(0, (t - dotGo.t0) / D_SURFACE)));
+    DOT_AT.x = dotGo.fx + (dotGo.tx - dotGo.fx) * k; DOT_AT.y = dotGo.fy + (dotGo.ty - dotGo.fy) * k;
+    return DOT_AT;
+  };
+  const base = sv('g'), wordsG = sv('g', { class: 'pze-cwords' }), ringG = sv('g', { class: 'pze-ring', 'data-look': 'plane.ring' }, halo, dot);
   svg.append(base, wordsG, ringG);
   el.append(svg);
+  const gl = createSvgGL(el, { host: card ? 'planecard' : 'plane' });
   const cardWords = new Map();   // (zone → its text element in the card)
-  let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, drawn = '', lastSize = [0, 0];
+  let pts = [], ring = null, size = '', was = null, sizeWas = '', ptsVer = 0, ptsFaded = 0, drawn = '', lastSize = [0, 0];
+  // The patient's trail (card only, set by trail()): the stops' readings and names, the dot's way since the slide came up (in the
+  // plot's units, so a resize keeps it), the scale it was drawn at, and the group that holds it (made on first use: with no trail
+  // the card is the same elements as before).
+  let stops = [], walk = [], trailG = null, walkPath = null, stopsG = null, stopsKey = '', inv = null, follow = 0, followTill = 0, armed = false;
   // (What the ring's dot and words read: its two values and whatever the zones test. A redraw with all of these, the size,
   // the font, the points and where the dot was the same as the last one draws the same picture, so it is skipped: the live
   // card pins a reading every 150 ms.)
@@ -607,24 +772,29 @@ export function planePlot(pl, { card = false } = {}) {
     if (!W || !H) return;
     lastSize = [W, H];
     size = `${W}x${H}`;
-    const fs = Math.max(12, parseFloat(getComputedStyle(el).fontSize) || 13);
+    let host = 13;
+    try { const cx = chartCtx(el); delete cx.svk; gl.setCtx(cx); host = gl.hostSize(); } catch { /* (no card round it yet: the size as it stands) */ }
+    const fs = Math.max(12, host || 13);
     // (The case is read as its tiles print it.)
     const rg = ring ? shownReading(pl, ring) : null;
-    const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}`;
+    const key = `${size}|${fs}|${ptsVer}|${rg ? ringKeys.map((k) => rg[k]).join(',') : '-'}|${sizeWas}|${was ? `${was.x},${was.y}` : '-'}|${stops.length ? stops.map((s) => `${s.f[pl.x.key]},${s.f[pl.y.key]},${s.name}`).join(';') : ''}`;
     if (key === drawn) return;
     drawn = key;
-    const fr = frame(W, H), { X, Y } = scaler(pl, fr);
+    // (A scatter, a plane with no zones, draws axes of its own on a panel: hasAxes.)
+    const axed = !card && hasAxes(pl), fr = axed ? axesFrame(pl, W, H, fs) : frame(W, H), { X, Y } = scaler(pl, fr);
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
     svg.setAttribute('width', W); svg.setAttribute('height', H);
     const kids = [];
     // Zones, the rest of the plane first, the first listed last (on top), as zoneOf reads them: out to the element's edge where they end at
     // the plot's, the whole of them one rounded shape (plot-look.js, his G2 look).
-    const panel = plotPanel(sv, 0, 0, W, H, { fill: false });
+    const panel = plotPanel(sv, 0, 0, W, H, { fill: axed });
     const fills = [...pl.zones].reverse().map((z) => {
       const [x0, x1, y0, y1] = zoneRect(pl, z), b = bleed({ x1: X(x0), x2: X(x1), y1: Y(y1), y2: Y(y0) }, fr, W, H);
-      return sv('rect', { class: 'pze-zone', 'data-tone': z.tone || 'none', x: b.x1, y: b.y1, width: b.x2 - b.x1, height: b.y2 - b.y1 });
+      return sv('rect', { class: 'pze-zone', 'data-look': 'plane.zone', 'data-tone': z.tone || 'none', x: b.x1, y: b.y1, width: b.x2 - b.x1, height: b.y2 - b.y1 });
     });
-    kids.push(sv('defs', {}, panel.clip), sv('g', { 'clip-path': panel.url }, fills));
+    kids.push(sv('defs', {}, panel.clip), axed ? panel.back : sv('g', { 'clip-path': panel.url }, fills));
+    const ax = axed ? axesMarks(pl, fr, X, Y, fs, W) : null;
+    if (ax) for (const g of ax.grid) kids.push(sv('line', { class: 'pze-grid', 'data-look': 'plane.grid', ...g }));
     // The patients' names first, so every point keeps its name; the zones' words then take what room is left (the key names
     // every zone anyway; with no key, each zone's words search the whole zone for a clear place).
     // (Each at the numbers as printed, as the case's dot is: the zone it stands in is the one its numbers name.)
@@ -633,33 +803,37 @@ export function planePlot(pl, { card = false } = {}) {
     // fit whole.)
     // (The card's numbers and names stand on the plot first, its zones' words keeping clear of them. A summary's points keep their names
     // first: the axes' names, then the points' names, the zones' words and the lines' names round them, then the numbers in what room is left.)
-    const pointBoxes = at.flatMap((p) => [[p.x - 12, p.y - 12, p.x + 12, p.y + 12], ...wasBoxes(p)]);
-    const cardNums = card ? plotNumbers(pl, fr, X, Y, fs) : [], axisNames = card ? [] : plotNumbers(pl, fr, X, Y, fs, pointBoxes, 'names');
+    const pointBoxes = at.flatMap((p) => [[p.x - DOT_CLEAR, p.y - DOT_CLEAR, p.x + DOT_CLEAR, p.y + DOT_CLEAR], ...wasBoxes(p)]);
+    const cardNums = card ? plotNumbers(pl, fr, X, Y, fs) : [], axisNames = card || axed ? [] : plotNumbers(pl, fr, X, Y, fs, pointBoxes, 'names');
     const numBoxes = cardNums.map((n) => n.box);
-    const { names, words, lines } = card ? { names: [], words: [], lines: [] } : layoutPlane(pl, fr, X, Y, fs, at, card, axisNames.map((n) => n.box));
-    const nums = card ? cardNums : [...axisNames, ...plotNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box), ...names.filter(Boolean).map((n) => n.box), ...words.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks')];
+    const pr = axed ? pointR(at) : 8;
+    const { names, words, lines } = card ? { names: [], words: [], lines: [] } : layoutPlane(pl, fr, X, Y, fs, at, card, [...axisNames.map((n) => n.box), ...(card || axed ? [] : cutNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box)]))].map((b) => widen(b, (pl.nameGap || 3) - 3)), pr, axed ? 3 : pl.nameGap || 0);
+    const nums = card ? cardNums : axed ? [...ax.nums, ...ax.names] : [...axisNames, ...plotNumbers(pl, fr, X, Y, fs, [...pointBoxes, ...axisNames.map((n) => n.box), ...names.filter(Boolean).map((n) => n.box), ...words.map((w) => w.box), ...lines.map((l) => l.box)], 'ticks')];
     for (const b of pl.boxes || []) {
       const [x0, x1, y0, y1] = zoneRect(pl, b);
-      kids.push(sv('rect', { class: 'pze-box', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
+      kids.push(sv('rect', { class: 'pze-box', 'data-look': 'plane.box', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
     }
     for (const w of words) {
-      kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, style: `font-size:${fs}px` }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
+      kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-look': 'plane.zt', 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, 'font-size': fs }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
     }
     // The cut-off lines, the axes and their ticks.
-    // (Broken 4 px clear of a name that sits across one.)
-    for (const c of gapSegs(cutSegs(pl, X, Y, fr), names.filter((n) => n?.across).map((n) => n.box))) kids.push(sv('line', { class: 'pze-cut', ...bleed(c, fr, W, H) }));
-    for (const l of lines) kids.push(sv('text', { class: 'pze-ln', x: l.x, y: l.y, 'text-anchor': l.anchor, style: `font-size:${fs}px` }, l.text));
+    // (Broken 4 px clear of a name that sits across one, and of a number a line runs to: the numbers carry no outline to hide it, which
+    // smeared them on a light card.)
+    for (const c of gapSegs(cutSegs(pl, X, Y, fr, true), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', 'data-look': 'plane.cut', ...bleed(c, fr, W, H) }));
+    for (const l of lines) kids.push(sv('text', { class: 'pze-ln', 'data-look': 'plane.ln', x: l.x, y: l.y, 'text-anchor': l.anchor, 'font-size': fs }, l.text));
     const dg = diagOf(pl, X, Y, fs);
-    if (dg) kids.push(sv('line', { class: 'pze-diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, style: `font-size:${fs}px` }, dg.label.text) : null);
-    // The numbers and the axes' names on the plot (no axis lines: the shape's edge is the axis).
-    for (const n of nums) kids.push(sv('text', { class: n.cls, x: n.x, y: n.y, 'text-anchor': n.anchor, style: `font-size:${fs}px` }, n.text));
+    if (dg) kids.push(sv('line', { class: 'pze-diag', 'data-look': 'plane.diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', 'data-look': 'plane.dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, 'font-size': fs }, dg.label.text) : null);
+    // The axes: their lines and ticks over the diagonal's start, the numbers and names beside them.
+    if (ax) for (const l of [...ax.axes, ...ax.ticks]) kids.push(sv('line', { class: 'pze-axis', 'data-look': 'plane.axis', ...l }));
+    // The numbers and the axes' names on the plot (a plane with zones: no axis lines, the shape's edge is the axis).
+    for (const n of nums) kids.push(sv('text', { class: n.cls, 'data-look': n.cls === 'pze-ax' ? 'plane.ax' : 'plane.t', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': fs }, n.text));
     // The patients: a point each, its name beside it.
     at.forEach((p, i) => {
       const n = names[i];
-      kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, p.was ? sv('line', { class: 'pze-path', x1: p.was.x, y1: p.was.y, x2: p.x, y2: p.y }) : null,
-        p.was ? sv('circle', { class: 'pze-was', cx: p.was.x, cy: p.was.y, r: 6 }) : null,
-        n?.lead ? sv('line', { class: 'pze-lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { cx: p.x, cy: p.y, r: 8 }),
-        n ? sv('text', { x: n.x, y: n.y, 'text-anchor': n.anchor, style: `font-size:${fs}px` }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? fs * 1.2 : null }, l))) : null));
+      kids.push(sv('g', { class: 'pze-pt', 'data-site': p.site || 'none', style: `--i:${i}` }, p.was ? sv('line', { class: 'pze-path', 'data-look': 'plane.path', x1: p.was.x, y1: p.was.y, x2: p.x, y2: p.y }) : null,
+        p.was ? sv('circle', { class: 'pze-was', 'data-look': 'plane.was', cx: p.was.x, cy: p.was.y, r: 6 }) : null,
+        n?.lead ? sv('line', { class: 'pze-lead', 'data-look': 'plane.lead', x1: p.x, y1: p.y, x2: n.lead[0], y2: n.lead[1] }) : null, sv('circle', { 'data-look': 'plane.pt.dot', cx: p.x, cy: p.y, r: pr }),
+        n ? sv('text', { 'data-look': 'plane.pt.name', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': fs }, n.lines.map((l, j) => sv('tspan', { x: n.x, dy: j ? fs * 1.2 : null }, l))) : null));
     });
     // The slide's case: a dot in proportion to the plot, a gap in the card's colour around it, that eases from where it was (a
     // transform, so Safari eases it too).
@@ -667,20 +841,24 @@ export function planePlot(pl, { card = false } = {}) {
     const now = has ? { x: X(rg[pl.x.key]), y: Y(rg[pl.y.key]) } : null;
     halo.setAttribute('r', (r + g).toFixed(1)); dot.setAttribute('r', r.toFixed(1));
     if (now) {
-      ringG.style.transform = `translate(${now.x.toFixed(1)}px, ${now.y.toFixed(1)}px)`;
+      const sx = now.x.toFixed(1), sy = now.y.toFixed(1), to = { x: +sx, y: +sy };
+      if (!dotGo || dotGo.tx !== to.x || dotGo.ty !== to.y) { const at = dotEased() || to; dotGo = { fx: at.x, fy: at.y, tx: to.x, ty: to.y, t0: easeNow() }; }
+      ringG.style.transform = `translate(${sx}px, ${sy}px)`;
       ringG.style.opacity = '1';
     } else ringG.style.opacity = '0';
     // The card's zones name themselves, clear of the dot where it stands and all along its way there.
     if (card) {
+      // (The trail's rings and names first, the zones' words then keeping clear of them and of its line.)
+      const tr = stops.length ? drawStops(fr, X, Y, fs, now, [...numBoxes, ...dotBoxes(now, sizeWas === size ? was : null, r + g)]) : [];
       // (Where the dot's whole way leaves a zone no room, its words keep clear of where the dot ends.)
-      let cw = placeCardWords(pl, fr, X, Y, fs, [...numBoxes, ...dotBoxes(now, sizeWas === size ? was : null, r + g)]);
-      if (cw.length < pl.zones.length) { const end = placeCardWords(pl, fr, X, Y, fs, [...numBoxes, ...dotBoxes(now, null, r + g)]); if (end.length > cw.length) cw = end; }
+      let cw = placeCardWords(pl, fr, X, Y, fs, [...numBoxes, ...tr, ...dotBoxes(now, sizeWas === size ? was : null, r + g)]);
+      if (cw.length < pl.zones.length) { const end = placeCardWords(pl, fr, X, Y, fs, [...numBoxes, ...tr, ...dotBoxes(now, null, r + g)]); if (end.length > cw.length) cw = end; }
       for (const [z, t] of cardWords) if (!cw.some((w) => w.z === z)) t.remove(), cardWords.delete(z);
       for (const w of cw) {
         let t = cardWords.get(w.z);
         const pos = `translate(${w.x.toFixed(1)}px, ${w.y.toFixed(1)}px)`, body = w.lines.join('\n') + '|' + w.fs;
         if (!t) {
-          t = sv('text', { class: 'pze-zt pze-zw', 'data-tone': w.z.tone || 'none', 'text-anchor': 'middle' });
+          t = sv('text', { class: 'pze-zt pze-zw', 'data-look': 'plane.zt', 'data-tone': w.z.tone || 'none', 'text-anchor': 'middle' });
           t.style.transform = pos; t.dataset.pos = pos;
           cardWords.set(w.z, t); wordsG.append(t);
         } else if (t.dataset.pos !== pos) {
@@ -688,11 +866,11 @@ export function planePlot(pl, { card = false } = {}) {
           // (Moving out of the dot's way: out quickly before the dot gets there, back in at its new place.)
           t.style.opacity = '0';
           clearTimeout(t._mv);
-          t._mv = setTimeout(() => { t.style.transform = pos; t.style.opacity = ''; }, 150);
+          t._mv = setTimeout(() => { propSoon(t.style, 'transform', pos); propSoon(t.style, 'opacity', ''); }, 150);   // (written between frames)
         }
         if (t.dataset.body !== body) {
           t.dataset.body = body;
-          t.style.fontSize = `${w.fs}px`;
+          t.setAttribute('font-size', +w.fs.toFixed(1));
           t.replaceChildren(...w.lines.map((l, j) => sv('tspan', { x: 0, dy: j ? w.fs * 1.2 : null }, l)));
         }
         t.classList.toggle('pze-onl', w.onLine);
@@ -700,14 +878,114 @@ export function planePlot(pl, { card = false } = {}) {
     }
     was = now; sizeWas = size;
     base.replaceChildren(...kids);
+    gl.adopt(svg);   // (the redrawn pieces take their looks from the ones before them like them: no page read in a frame)
+    // (A summary's points come in one after the other, 140 ms apart, each fading in the picture: a new set of points, not a redraw at another size.)
+    if (!card && ptsFaded !== ptsVer && at.length) {
+      ptsFaded = ptsVer;
+      let k = 0;
+      for (const e of base.children) if (e.classList.contains('pze-pt')) gl.fadeEl(e, reduceDot.matches ? 0 : D_SURFACE, EASE_ARRIVE, reduceDot.matches ? 0 : 200 + 140 * k++);
+    }
     el.setAttribute('aria-label', `${pl.y.name} against ${pl.x.name}` + (at.length ? ': ' + at.map((p) => `${p.name}, ${valOf(pl.x.key, p.f[pl.x.key])} and ${valOf(pl.y.key, p.f[pl.y.key])}, ${zoneOf(pl, p.f)?.t || ''}`).join('; ') : '')
       + (rg ? `; this patient ${valOf(pl.x.key, rg[pl.x.key])} ${unitOf(pl.x.key)} and ${valOf(pl.y.key, rg[pl.y.key])} ${unitOf(pl.y.key)}, ${zoneOf(pl, rg)?.t || ''}` : ''));
   };
-  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) requestAnimationFrame(draw); }).observe(el);
+  // The trail's rings and names, redrawn in place (a persistent group, so they fade in once and stay, not again at every redraw while
+  // the dot moves); returns the boxes the zones' words keep clear of.
+  function drawStops(fr, X, Y, fs, now, avoid) {
+    if (!trailG) {
+      walkPath = sv('path', { class: 'pze-walk', 'data-look': 'plane.walk' }); stopsG = sv('g', { class: 'pze-stops' });
+      trailG = sv('g', { class: 'pze-trail', 'data-look': 'plane.trail' }, walkPath, stopsG);
+      svg.insertBefore(trailG, wordsG);
+    }
+    const lo = (a) => a.min ?? 0;
+    // (The plot's units from px, for the dot's way: X and Y are straight lines between the axis's ends.)
+    inv = { x: (px) => lo(pl.x) + (px - fr.L) / (fr.R - fr.L) * (pl.x.max - lo(pl.x)), y: (py) => lo(pl.y) + (fr.B - py) / (fr.B - fr.T) * (pl.y.max - lo(pl.y)), X, Y };
+    const at = stops.map((s) => { const f = shownReading(pl, s.f); return { x: X(f[pl.x.key]), y: Y(f[pl.y.key]), name: s.name }; });
+    const boxes = trailBoxes(at, now);
+    const names = placeStopNames(at, fr, fs, [...avoid, ...boxes, ...lineBoxes(pl, X, Y, fr, fs)]);
+    const k = JSON.stringify([at.map((p) => [p.x.toFixed(1), p.y.toFixed(1)]), names.map((n) => n && [n.x.toFixed(1), n.y.toFixed(1), n.anchor]), fs]);
+    if (k !== stopsKey) {
+      const first = !stopsKey;
+      stopsKey = k;
+      stopsG.replaceChildren(...at.flatMap((p, i) => [sv('circle', { class: 'pze-stop', 'data-look': 'plane.stop', cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 5 }),
+        names[i] ? sv('text', { class: 'pze-sn', 'data-look': 'plane.sn', x: names[i].x.toFixed(1), y: names[i].y.toFixed(1), 'text-anchor': names[i].anchor, 'font-size': fs }, p.name) : null]));
+      // (They ease in the first time, with the line, never pop.)
+      if (first) gl.fadeEl(trailG, D_SURFACE, EASE_ARRIVE);   // (in the picture, on the trail's old ease, --d-surface on --ease)
+    }
+    paintWalk();
+    return [...boxes, ...names.filter(Boolean).map((n) => n.box)];
+  }
+  // Where the dot is on screen now, mid-glide included, px, or null while it is hidden: its glide worked out here on the curve its CSS
+  // transition runs (.pze-ring: --d-surface, --ease), not read back from the page, so a glide's frame reads no style.
+  const dotNow = () => {   // (the dot as the picture draws it: one record, one clock)
+    if (ringG.style.opacity === '0') return null;
+    const m = moveAt(ringG);
+    if (!m) return dotEased();
+    DOT_AT.x = m[0]; DOT_AT.y = m[1];
+    return DOT_AT;
+  };
+  // The line: through the stops, then the way the dot went since the slide came up, to the dot where it stands now.
+  // (The line is worked out in kept lists: the stops' places in stopXY, the way in `walk` as flat (a, b) pairs of the plane's own units. A frame of the
+  // dot's glide makes no point lists; the path's text is the one thing built, as the painter takes it.)
+  let stopXY = new Float64Array(16), pcXY = new Float64Array(18);   // (pcXY: the stops and the way, and the dot's end after them: the points the line is drawn from)
+  function paintWalk() {
+    if (!walkPath || !inv) return;
+    const cur = dotNow(), ns = stops.length, xk = pl.x.key, yk = pl.y.key;
+    if (stopXY.length < ns * 2) stopXY = new Float64Array(ns * 4);   // alloc-rare: more stops than ever before
+    for (let i = 0; i < ns; i++) { const f = stops[i].f; stopXY[2 * i] = inv.X(shownVal(f, xk)); stopXY[2 * i + 1] = inv.Y(shownVal(f, yk)); }
+    // (The way is kept from the moment the dot stands on the last stop, where this slide's time-lapse starts; before that (gliding
+    // back from where another slide left it) the line runs straight from the last stop to the dot.)
+    if (cur && ns && Math.hypot(stopXY[2 * ns - 2] - cur.x, stopXY[2 * ns - 1] - cur.y) < 3) { armed = true; walk.length = 0; }
+    if (cur && armed) {
+      // (Where the dot goes back over its way (the time-lapse played again or scrubbed back), the way ends there again.)
+      const n = walk.length >> 1;
+      let back = -1;
+      for (let i = 0; i < n - 2; i++) if (Math.hypot(inv.X(walk[2 * i]) - cur.x, inv.Y(walk[2 * i + 1]) - cur.y) < 3) { back = i; break; }
+      if (back >= 0) walk.length = 2 * (back + 1);
+      const m = walk.length >> 1;
+      if (!m || Math.hypot(inv.X(walk[2 * m - 2]) - cur.x, inv.Y(walk[2 * m - 1]) - cur.y) >= 2) {
+        walk.push(inv.x(cur.x), inv.y(cur.y));
+        if (walk.length > 1200) {   // (thinned to every other point and the last)
+          const cnt = walk.length >> 1;
+          let w = 0;
+          for (let i = 0; i < cnt; i++) if (i % 2 === 0 || i === cnt - 1) { walk[2 * w] = walk[2 * i]; walk[2 * w + 1] = walk[2 * i + 1]; w++; }
+          walk.length = 2 * w;
+        }
+      }
+    }
+    const wc = walk.length >> 1, pc = ns + wc, cnt = pc + (cur ? 1 : 0);
+    // (The line is drawn from its points as they stand: the stops, the way and the dot's end, kept in pcXY.)
+    if (pcXY.length < pc * 2 + 2) pcXY = new Float64Array(pc * 4 + 2);   // alloc-rare: more points than ever before
+    for (let i = 0; i < pc; i++) {
+      let x, y;
+      if (i < ns) { x = stopXY[2 * i]; y = stopXY[2 * i + 1]; } else { const j = i - ns; x = inv.X(walk[2 * j]); y = inv.Y(walk[2 * j + 1]); }
+      pcXY[2 * i] = x; pcXY[2 * i + 1] = y;
+    }
+    if (cur) { pcXY[2 * pc] = cur.x; pcXY[2 * pc + 1] = cur.y; }
+    setPts(walkPath, pcXY, cnt > 1 ? cnt : 0);   // (the line is drawn from these points as they are: the frame makes no text and writes no attribute)
+    gl.paint();
+  }
+  // While the dot glides, the line follows it each frame (the dot's ease, so the line is drawn in behind it, never ahead).
+  const followDot = () => {
+    if (!stops.length) return;
+    followTill = performance.now() + 700;
+    if (follow) return;
+    const step = () => { paintWalk(); if (stops.length && performance.now() < followTill) follow = nextFrame(step); else follow = 0; };
+    follow = nextFrame(step);
+  };
+  if (typeof ResizeObserver === 'function') new ResizeObserver(() => { if (`${el.clientWidth}x${el.clientHeight}` !== size) frameFor('plane plot')(draw); }).observe(el);
+  const redraw = () => { if (el.isConnected) draw(); else frameFor('plane plot')(draw); };
   return {
     el,
-    set(points, r = ring) { pts = points || []; ptsVer++; ring = r; if (el.isConnected) draw(); else requestAnimationFrame(draw); },
-    ring(f) { ring = f; if (el.isConnected) draw(); else requestAnimationFrame(draw); },
+    set(points, r = ring) { pts = points || []; ptsVer++; ring = r; redraw(); },
+    ring(f) { ring = f; redraw(); followDot(); },
+    /** The patient's trail: [{ f, name }] the stops before this slide, in order ([] takes it away). The dot's way starts again here. */
+    trail(list) {
+      stops = (list || []).filter((s) => s?.f && Number.isFinite(s.f[pl.x.key]) && Number.isFinite(s.f[pl.y.key]));
+      walk = []; armed = false;
+      if (!stops.length && trailG) { trailG.remove(); trailG = walkPath = stopsG = null; stopsKey = ''; }
+      drawn = '';
+      redraw(); followDot();
+    },
   };
 }
 
@@ -749,21 +1027,35 @@ export const toolPlane = (t) => planeOf(t?.plane ?? (t?.x || t?.y || t?.zones ? 
 /** The data card's instrument: the slide's case as a dot on the plane, its reading under it. */
 export function createPlaneTool() {
   const el = h('div', { class: 'pze-tool' }), read = h('p', { class: 'pze-read', 'aria-live': 'polite' });
-  let pl = null, plot = null, sig = '', last = null;
+  let pl = null, plot = null, sig = '', last = null, want = null, wantCtx = null, had = '';
+  // (The trail's stops are other slides' readings, which may not be worked out yet when the slide comes up: asked again at each pin
+  // until they are all in.)
+  const trailFrom = () => {
+    if (!plot || !want) return;
+    const list = want.map((s) => ({ f: typeof s?.slide === 'string' ? wantCtx?.fpOf?.(s.slide) ?? null : null, name: s?.name || '' }));
+    if (list.some((s) => !s.f)) return;
+    want = null;
+    plot.trail(list);
+  };
   return {
     el,
-    configure(t) {
+    configure(t, ctx) {
       const p = toolPlane(t);
       const k = JSON.stringify(t.plane ?? [t.x, t.y, t.zones, t.base]);
-      if (k === sig && plot) return;
-      sig = k; pl = p;
-      if (!pl) { el.replaceChildren(); plot = null; return; }
-      plot = planePlot(pl, { card: true });
-      el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), read].filter(Boolean));
-      if (last) this.pin(last);
+      // (Each slide sets its own trail, or none: a slide with none after one with a trail takes it away.)
+      const tr = Array.isArray(t.trail) && t.trail.length ? t.trail : null;
+      if (!(k === sig && plot)) {
+        sig = k; pl = p; had = '';
+        if (!pl) { el.replaceChildren(); plot = null; return; }
+        plot = planePlot(pl, { card: true });
+        el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), read].filter(Boolean));
+        if (last) this.pin(last);
+      }
+      if (tr) { want = tr; wantCtx = ctx || null; had = 'y'; trailFrom(); } else if (had) { want = null; had = ''; plot.trail([]); }
     },
     pin(fp) {
       last = fp;
+      if (want) trailFrom();
       if (!plot || !fp) return;
       plot.ring(fp);
       const t = planeReading(pl, fp);

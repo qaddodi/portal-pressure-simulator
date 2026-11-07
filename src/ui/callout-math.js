@@ -1,8 +1,8 @@
 // Deck visuals, package F (figure callouts): the sums behind the slide fields, kept apart from the stage and the presenter so
 // unit tests can load them (review/deck-visuals-recs.md §9). Nothing here touches the page.
-import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js?v=8458ad3bf8';
-import { plateletText } from './glue.js?v=5a0f63226b';
-import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from './anatomy.js?v=48cc98d415';
+import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js';
+import { plateletText } from './glue.js';
+import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from './anatomy.js';
 
 // (util.js fmt, which needs the page to load: a value to d decimals, with a true minus and never "−0".)
 const fmt = (v, d = 1) => { if (v == null || !Number.isFinite(v)) return '—'; const t = v.toFixed(d); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };
@@ -77,11 +77,15 @@ export const ORGAN_ANCHOR = (() => {
 })();
 // (The organs a mark may name: the outlined organs, the kidney under its target's name, and the ascites.)
 export const ORGAN_MARKS = ['liver', 'spleen', 'heart', 'stomach', 'esophagus', 'bowel', 'colon', 'duodenum', 'kidney', 'kidney-l', 'ascites'];
+// (The spleen's scaled anchor is one kept object, rewritten by each call: a caller reads it at once, as the stored ones are read.)
+const SPLEEN_AT = { at: null, half: [0, 0] };
 /** An organ's anchor at the spleen's drawn scale (the spleen grows about its centre; nothing else changes size here). */
 export function organAnchor(id, spleenScale = 1) {
   const a = ORGAN_ANCHOR[id];
   if (!a) return null;
-  return id === 'spleen' ? { at: a.at, half: [a.half[0] * spleenScale, a.half[1] * spleenScale] } : a;
+  if (id !== 'spleen') return a;
+  SPLEEN_AT.at = a.at; SPLEEN_AT.half[0] = a.half[0] * spleenScale; SPLEEN_AT.half[1] = a.half[1] * spleenScale;
+  return SPLEEN_AT;
 }
 
 // ── A clot mark that follows the clot ──
@@ -98,14 +102,20 @@ export function clotWords(v) {
 // The spleen's long axis at its normal size (anatomy.js ORGANS: its top and bottom), measured as the model's spleen length,
 // and scaled about SPLEEN_CENTER as the figure draws the organ.
 export const SPLEEN_AXIS = [[1030, 268], [1040, 460]];
+// (Both calipers' ends are kept arrays, rewritten by each call: the stage reads the two ends at once.)
+const CAL_SPLEEN = [[0, 0], [0, 0]], CAL_ACROSS = [[0, 0], [0, 0]];
 export function spleenCaliper(scale = 1) {
-  const [cx, cy] = SPLEEN_CENTER;
-  return SPLEEN_AXIS.map(([x, y]) => [cx + (x - cx) * scale, cy + (y - cy) * scale]);
+  const cx = SPLEEN_CENTER[0], cy = SPLEEN_CENTER[1];
+  for (let i = 0; i < SPLEEN_AXIS.length; i++) {
+    CAL_SPLEEN[i][0] = cx + (SPLEEN_AXIS[i][0] - cx) * scale; CAL_SPLEEN[i][1] = cy + (SPLEEN_AXIS[i][1] - cy) * scale;
+  }
+  return CAL_SPLEEN;
 }
 /** A caliper across a vessel at the point (x, y) where it runs along (tx, ty): from wall to wall, `half` either side. */
 export function acrossVessel(x, y, tx, ty, half) {
-  const n = Math.hypot(tx, ty) || 1, nx = -ty / n, ny = tx / n;
-  return [[x - nx * half, y - ny * half], [x + nx * half, y + ny * half]];
+  const n = Math.hypot(tx, ty) || 1, nx = -ty / n, ny = tx / n, o = CAL_ACROSS;
+  o[0][0] = x - nx * half; o[0][1] = y - ny * half; o[1][0] = x + nx * half; o[1][1] = y + ny * half;
+  return o;
 }
 // What a caliper measures: 'spleen' its length; 'varix' (or the esophageal varices' own vessels) the varix's diameter, drawn
 // across the varices' vessel; any other vessel its diameter, a stent's as set (whole millimetres, as stents are sold).
@@ -136,17 +146,38 @@ export function stepPlan(glow, seq, isVessel, isOrgan) {
     return { n: i + 1, at: i * seq, ids: vessels, organ: ids.length === 1 && isOrgan(ids[0]) ? ids[0] : null, ...(Array.isArray(g) && vessels?.length > 1 ? { group: true } : {}) };
   });
 }
+// (The groups are one kept array of kept objects, each with its own ids list, rewritten by each call: the stage walks them at once.)
+const NONE = [];
+const GROUP_OUT = [];
+const GROUP_POOL = [];
+const newGroup = () => ({ n: 0, at: 0, ids: [], organ: null, group: false });   // (a pool's growth: only while it is still filling)   // alloc-rare: a pool's growth, only while it is still filling
+for (let i = 0; i < 16; i++) GROUP_POOL.push(newGroup());
+// Does the glow light `id` at `at` ms (an entry's `at` read as +at || 0, and one with no id left out)?
+const litAt = (glow, at, id) => {
+  for (let i = 0; i < glow.length; i++) { const g = glow[i]; if (g?.id && (+g.at || 0) === at && g.id === id) return true; }
+  return false;
+};
 /** Each step's vessels as the figure lit them (glow: [{ id, at }]): its own where it names them, else the ones lit at its moment
  *  (at 0 ms the slide's terms light too, and the glow's first entry is added after them: the last of those). */
 export function stepGroups(glow, plan) {
-  const at = new Map();
-  for (const g of glow || []) if (g?.id) (at.get(+g.at || 0) || at.set(+g.at || 0, []).get(+g.at || 0)).push(g.id);
-  return (plan || []).map((p) => {
-    if (p.organ) return { ...p, ids: [] };
-    const lit = at.get(p.at) || [];
-    const ids = p.ids ? p.ids.filter((id) => lit.includes(id)) : p.at ? lit : lit.slice(-1);
-    return { ...p, ids };
-  }).filter((p) => p.organ || p.ids.length);
+  let n = 0;
+  const gl = glow || NONE, pl = plan || NONE;
+  for (let i = 0; i < pl.length; i++) {
+    const p = pl[i];
+    if (n === GROUP_POOL.length) GROUP_POOL.push(newGroup());
+    const o = GROUP_POOL[n], ids = o.ids;
+    ids.length = 0;
+    if (!p.organ) {
+      if (p.ids) { for (let j = 0; j < p.ids.length; j++) if (litAt(gl, p.at, p.ids[j])) ids.push(p.ids[j]); }
+      else if (p.at) { for (let j = 0; j < gl.length; j++) { const g = gl[j]; if (g?.id && (+g.at || 0) === p.at) ids.push(g.id); } }
+      else { for (let j = 0; j < gl.length; j++) { const g = gl[j]; if (g?.id && (+g.at || 0) === p.at) { ids[0] = g.id; ids.length = 1; } } }   // (the last one lit at its moment)
+      if (!ids.length) continue;
+    }
+    o.n = p.n; o.at = p.at; o.organ = p.organ; o.group = p.group === true;
+    GROUP_OUT[n++] = o;
+  }
+  GROUP_OUT.length = n;
+  return GROUP_OUT;
 }
 
 // ── V25: the circuit's span brackets and lit zone ──
@@ -166,18 +197,37 @@ export const spanY = (k = 1) => Math.max(SPAN_Y, LANE_LOW + SPAN_ROOM / (k > 0 ?
 export function spanOf(from, to, k = 1) {
   const a = NODE_POS[from]?.[1], b = NODE_POS[to]?.[1];
   if (!a || !b || a[0] === b[0]) return null;
-  return { x0: Math.min(a[0], b[0]), x1: Math.max(a[0], b[0]), y: spanY(k) };
+  const o = SPAN;
+  o.x0 = Math.min(a[0], b[0]); o.x1 = Math.max(a[0], b[0]); o.y = spanY(k);
+  return o;
 }
-export const spanPath = (sp) => `M${sp.x0} ${sp.y - SPAN_TICK}V${sp.y}H${sp.x1}V${sp.y - SPAN_TICK}`;
+// (spanOf's result is one kept object, rewritten by each call: read it before the next call.)
+const SPAN = { x0: 0, x1: 0, y: 0 };
+// A bracket's path, kept per (x0, x1, y): the few brackets of a slide ask for it every frame with the same numbers.
+const SP_N = 4, spX0 = new Float64Array(SP_N), spX1 = new Float64Array(SP_N), spY = new Float64Array(SP_N), spD = [];
+let spNext = 0;
+export const spanPath = (sp) => {
+  for (let i = 0; i < SP_N; i++) if (spD[i] !== undefined && spX0[i] === sp.x0 && spX1[i] === sp.x1 && spY[i] === sp.y) return spD[i];
+  const i = spNext; spNext = (spNext + 1) % SP_N;
+  spX0[i] = sp.x0; spX1[i] = sp.x1; spY[i] = sp.y;
+  return (spD[i] = `M${sp.x0} ${sp.y - SPAN_TICK}V${sp.y}H${sp.x1}V${sp.y - SPAN_TICK}`);
+};
 
 // ── Where a reading's pill may stand (stage.js placeMulti: edge, avoid) ──
 /** Is the box r at least `edge` px inside the view V? */
 export const insideBy = (r, V, edge = 0) => r.x0 >= V.x0 + edge && r.y0 >= V.y0 + edge && r.x1 <= V.x1 - edge && r.y1 <= V.y1 - edge;
 /** Does the box r keep `pad` px clear of every box in `boxes` (a drawn organ, a line's boxes)? */
-export const clearOf = (r, boxes, pad = 0) => !(boxes || []).some((o) => r.x0 < o.x1 + pad && r.x1 > o.x0 - pad && r.y0 < o.y1 + pad && r.y1 > o.y0 - pad);
+export function clearOf(r, boxes, pad = 0) {
+  if (!boxes) return true;
+  for (let i = 0; i < boxes.length; i++) { const o = boxes[i]; if (r.x0 < o.x1 + pad && r.x1 > o.x0 - pad && r.y0 < o.y1 + pad && r.y1 > o.y0 - pad) return false; }
+  return true;
+}
 const RING = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
+// (The eight directions are one kept array, rewritten by each call: the stage's placer reads it at once.)
+const BESIDE_STEPS = [0, 4, 1, 5, -1, 3, 2, 6], BESIDE = ['E', 'E', 'E', 'E', 'E', 'E', 'E', 'E'];
 /** A caliper reading's directions from the line's middle (screen px, a → b): square to the line on either side first, then round. */
 export function besideLine(a, b) {
   const o = (Math.round(Math.atan2(b[1] - a[1], b[0] - a[0]) / (Math.PI / 4)) + 2 + 8) % 8;
-  return [0, 4, 1, 5, -1, 3, 2, 6].map((d) => RING[(o + d + 8) % 8]);
+  for (let i = 0; i < 8; i++) BESIDE[i] = RING[(o + BESIDE_STEPS[i] + 8) % 8];
+  return BESIDE;
 }

@@ -1,12 +1,12 @@
 // Simulation host: owns the Engine, runs the clocks, streams frames (blueprint §13.4).
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
-import { Engine } from './engine/engine.js?v=7b05bd5e84';
-import { computeMetrics } from './engine/metrics.js?v=703f122bba';
-import { fingerprintOf } from './engine/fingerprint.js?v=ca81723393';
-import { detectEvents } from './engine/events.js?v=d4c7f93ac2';
-import { explain } from './engine/explain.js?v=dd0234f23f';
-import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js?v=d7d3ea5b70';
+import { Engine } from './engine/engine.js';
+import { computeMetrics } from './engine/metrics.js';
+import { fingerprintOf } from './engine/fingerprint.js';
+import { detectEvents } from './engine/events.js';
+import { explain } from './engine/explain.js';
+import { deepMerge, sanitizeParams, PRESETS } from './engine/scenario.js';
 
 const SAMPLE_NODES = ['RA', 'IVCS', 'RHV', 'CONF', 'SIN_R', 'VAR', 'AO', 'SV', 'SMV'];
 
@@ -16,13 +16,13 @@ const fingerprint = (m, e) => fingerprintOf(m, {
   params: e.params, fluid: e.starling() });
 // A time-lapse's params on day d of n: each ramped key eased linearly from its first value to its last.
 // (A dotted key names a nested param: 'fibrosis.R.post'.)
-const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b]]) => {
-  const path = k.split('.'), last = path.pop();
+const rampAt = (ramp, d, n) => ramp.reduce((o, [k, [a, b]]) => {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
+  const path = k.split('.'), last = path.pop();   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
   let at = o;
-  for (const p of path) at = at[p] ||= {};
+  for (const p of path) at = at[p] ||= {};   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
   at[last] = a + (b - a) * Math.min(1, d / n);
   return o;
-}, {});
+}, {});   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while a time-lapse ramp is under way
 // The presenter's eased change of patient ('morph'): the live state blended from where it is to a slide's state. Numbers ease
 // (a number only one side has, such as a new thrombus or stenosis, grows from 0); a switch flips halfway; everything else
 // (events, bands, the random state) is the slide's from the start.
@@ -31,15 +31,15 @@ function mix(a, b, k) {
   if (typeof a === 'number' || typeof b === 'number') {
     if ((typeof a === 'number' || a === undefined) && (typeof b === 'number' || b === undefined)) return (a ?? 0) + ((b ?? 0) - (a ?? 0)) * k;
   } else if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length === b.length) return a.map((x, i) => mix(x, b[i], k));
+    if (a.length === b.length) return a.map((x, i) => mix(x, b[i], k));   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
   } else if (a && b && typeof a === 'object' && typeof b === 'object') {
-    const o = {};
-    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) o[key] = mix(a[key], b[key], k);
+    const o = {};   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) o[key] = mix(a[key], b[key], k);   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
     return o;
   }
   return k < 0.5 ? a : b;
 }
-const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });
+const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
 const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
 
 // A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:
@@ -98,10 +98,12 @@ export function createCore(post) {
   let lapse = null;
   // The presenter's eased change of patient on the live model: { from, to, t0, ms } (see 'morph').
   let morph = null;
+  let morphParamsAt = 0;
+  const MORPH_PARAMS_MS = 250;
   // Until this time (ms) every tick also relaxes a hidden copy of the model quietly, so a live change settles while the clock runs on.
   let relaxUntil = 0;
   let beat = true; // the heartbeat always runs (the Over time trace is beat to beat from the start)
-  const newSamples = () => ({ t: [], ph: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });
+  const newSamples = () => ({ t: [], ph: [], vel: [], pvVel: [], hvVel: [], whvp: [], hvpg: [], ...Object.fromEntries(SAMPLE_NODES.map((n) => [n, []])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a sample set is begun when a history or a stretch of samples starts
 
   // One sample of model e into s, stamped t (the model's own time unless a history labels it, see history below).
   function takeSample(e, s, vessel, t = e.t) {
@@ -138,10 +140,25 @@ export function createCore(post) {
     clearTimeout(histTimer); histTimer = 0;
     if (!hist) return;
     const { reqId } = hist, h = hist; hist = null;
-    post({ type: 'history', reqId, samples: done ? h.s : null, probe: h.probe, t: h.T });
+    post({ type: 'history', reqId, samples: done ? h.s : null, probe: h.probe, t: h.T });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once when a history ends
   }
   // The model was given another state (a patient, a restore, an action): the history under way is of the old one, and nothing posted is the new one's.
-  function stateChanged() { endHistory(false); postedT = NaN; }
+  // (jumpDirty: the next frame tells the page the model jumped, so nothing it shows is blended across the change: display-state.js noteJump.)
+  let jumpDirty = true, postedClock = null;
+  // (EXT-WRK-1: a patient, a reset, a restore or a morph REPLACES the state: the samples taken from the old one are dropped, with their bookkeeping,
+  // and `gen` counts the replacements so a page can tell a frame's samples are of the state it names. An action goes on from the same state.)
+  let gen = 0;
+  function stateChanged(replaced = true) {
+    endHistory(false); postedT = NaN; jumpDirty = true;
+    if (replaced) { gen++; samples = null; sampT = NaN; sampCyc = 0; }
+  }
+  // EXT-WRK-2: a new patient (a preset, a reset) ends what was acting on the old one: an eased change of patient, a presenter's time-lapse
+  // and its ramp, the easing of a slider. The clock the PAGE chose (its own time-lapse, a speed) stays; only a clock a presenter's lapse owned
+  // goes back to the bedside, as when a lapse ends.
+  function endTransitions() {
+    if (lapse) { clock = 'hemo'; speed = 1; }
+    morph = null; lapse = null; stoppedAt = null; relaxUntil = 0; diseaseAcc = 0;
+  }
   function histSlice() {
     histTimer = 0;
     const j = hist;
@@ -187,11 +204,12 @@ export function createCore(post) {
   }
   function frame() {
     const m = detectEvents(eng);
-    const D = new Float32Array(eng.E);
+    const D = new Float32Array(eng.E);   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a posted frame's buffers are transferred to the page, so each frame needs fresh ones
     for (let k = 0; k < eng.E; k++) D[k] = eng.diameter(eng.edges[k].id);
-    const f = {
+    const f = {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the posted frame message itself
       type: 'frame',
-      changed: frameDirty,
+      changed: frameDirty, gen,
+      jump: jumpDirty || clock !== postedClock,
       t: eng.t, day: eng.day, running, speed, clock, probe,
       parkSecs: parkSecs(),
       lapseDay: lapse?.bedside ? lapse.total - lapse.left : undefined,
@@ -213,14 +231,26 @@ export function createCore(post) {
       bands: eng.bands,
       bleed: eng.bleed,
       events: eng.newEvents.splice(0),
-      samples,
+      samples: packSamples(samples),
       params: paramsDirty ? eng.paramsTarget() : undefined,
     };
     paramsDirty = false;
     frameDirty = false;
+    jumpDirty = false; postedClock = clock;
     if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
-    post(f, [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer]);
+    unpainted = ackOn;
+    const xfer = [f.P.buffer, f.Pf.buffer, f.Q.buffer, f.Qf.buffer, f.ext.buffer, f.D.buffer];   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the transfer list of the posted frame
+    if (f.samples) xfer.push(f.samples.t.buffer);
+    post(f, xfer);
+  }
+  // (Plan "Holding 120 Hz" rev 2 step 3: a frame's samples go out as one Float64Array, transferred, not as a dozen arrays cloned: each channel
+  // is a view of its own stretch of it, so the page reads s.t[i], s.vel[i] and their lengths as before. Every sample is a number.)
+  function packSamples(s) {
+    if (!s) return null;
+    const keys = Object.keys(s), n = s.t.length, buf = new Float64Array(keys.length * n), out = {};   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the samples go out as one transferred buffer
+    for (let j = 0; j < keys.length; j++) { const a = s[keys[j]], v = buf.subarray(j * n, (j + 1) * n); for (let i = 0; i < n; i++) v[i] = a[i]; out[keys[j]] = v; }
+    return out;
   }
 
   // An engine that throws, or whose pressures or flows stop being numbers, stops the clock and says so once
@@ -232,13 +262,35 @@ export function createCore(post) {
   function crash(err) {
     stop();
     crashed = true; morph = null; lapse = null; samples = null;
-    post({ type: 'crash', message: String(err && err.stack || err) });
+    post({ type: 'crash', message: String(err && err.stack || err) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once, if the engine crashes
   }
   function tick() {
     try { tickOnce(); } catch (err) { crash(err); }
   }
 
-  let lastFrame = 0;
+  let stepAcc = 0;   // W1: model seconds owed to the bedside clock, less than one step
+  let lastFrame = 0, ackOn = false, unpainted = false, owed = false;
+  const ACK_MAX_MS = 400;
+  // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
+  // samples taken meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets
+  // frameDirty/paramsDirty and posts at once, so nothing waits on the heartbeat.
+  let still = null;
+  const HEARTBEAT_MS = 1000, EPS_REL = 2e-4, EPS_ABS = 1e-5;
+  const near = (a, b) => { if (!b || a.length !== b.length) return false; for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > EPS_ABS + EPS_REL * Math.abs(b[i])) return false; return true; };
+  // (The figure's colours, widths and readouts follow the eased Pf, Qf and D; the beat-by-beat P, Q and ext ride the heartbeat frame and the samples.)
+  // (The last posted state, kept in buffers made once and written in place: no arrays made a posted frame, rev 2 step 3.)
+  function keepStill() {
+    const pf = eng.Pf || eng.P, qf = eng.Qf || eng.Q;
+    if (!still || still.Pf.length !== pf.length || still.Qf.length !== qf.length || still.D.length !== eng.E) still = { Pf: new Float64Array(pf.length), Qf: new Float64Array(qf.length), D: new Float64Array(eng.E) };   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the kept copy is made once and written in place after (reallocated only if the engine's size changes)
+    still.Pf.set(pf); still.Qf.set(qf);
+    for (let k = 0; k < eng.E; k++) still.D[k] = eng.diameter(eng.edges[k].id);
+  }
+  function movedSincePost() {
+    if (!still) return true;
+    if (!near(eng.Pf || eng.P, still.Pf) || !near(eng.Qf || eng.Q, still.Qf)) return true;
+    for (let k = 0; k < eng.E; k++) { const d = eng.diameter(eng.edges[k].id); if (Math.abs(d - still.D[k]) > EPS_ABS + EPS_REL * Math.abs(still.D[k])) return true; }
+    return false;
+  }
   function tickOnce() {
     const now = performance.now();
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
@@ -246,17 +298,30 @@ export function createCore(post) {
     eng.beat = beat;
     if (morph) {
       const k = Math.min(1, (now - morph.t0) / morph.ms);
+      // W2: the beat runs on through the blend. The snapshots carry no cardiac phase, so it is advanced here at the blended heart
+      // rate (as step() does), so the pulse does not stop for 1.2 s. NO sample is taken: the blend's clock runs from the old moment to the
+      // slide's (here backwards), and a trace fed one sample per frame of it saw a jump every frame and drew no line (3 Nov: the HVPG
+      // catheter tracing and Pressure gut to heart). The traces take their first samples from the landed state.
+      const cyc = eng.cyc || 0, COf = eng.COf;   // (a blend carries neither the phase nor the output filter: the live ones go on)
       eng.restore(k >= 1 ? morph.to : morphAt(morph.from, morph.to, easeInOut(k)));
+      eng.cyc = cyc + realDt * (eng.hr || 60) / 60; eng.COf = COf;
+      // F5 (slide-deck-perf-recs): the params object is NOT posted on every tick of a morph (every post fanned out to every page
+      // store.on('params') listener, 10 to 30 times a second for 1.2 to 2 s). It goes at the start, about 4 times a second, and at the landing.
+      if (k >= 1 || now - morphParamsAt >= MORPH_PARAMS_MS) { paramsDirty = true; morphParamsAt = now; }
       if (k >= 1) morph = null;
-      paramsDirty = true; frameDirty = true;
+      frameDirty = true;
     } else if (running) {
       if (clock === 'hemo') {
         if (lapse?.bedside) bedsideStep(now);
         // (On a hidden copy of the model: the beat runs on, so the Doppler and tracings stay smooth while a slider moves.)
         if (now < relaxUntil) eng.relaxHidden(); else eng.relaxDone();
         const h = hemoStep(eng.params.pulsatile || beat, speed);
-        let simDt = realDt * speed;
-        let n = Math.min(Math.ceil(simDt / h), h < 0.02 ? 700 : 400);
+        // W1: the part of a tick that is not a whole step is kept for the next one (stepAcc), so model time equals real time x speed
+        // (the steps used to be rounded up, which ran the clock about 6% fast at 1x). A tick the page held up past the cap drops the excess.
+        const cap = h < 0.02 ? 700 : 400;
+        stepAcc += realDt * speed;
+        let n = Math.min(Math.floor(stepAcc / h + 1e-9), cap);
+        stepAcc = n >= cap ? 0 : Math.max(0, stepAcc - n * h);
         const every = Math.max(1, Math.floor(n / 24));
         for (let i = 0; i < n; i++) {
           eng.step(h);
@@ -287,7 +352,13 @@ export function createCore(post) {
       }
     }
     if (!finite(eng.P) || !finite(eng.Q)) throw new Error('The model produced a pressure or flow that is not a number.');
-    if (frameDirty || paramsDirty || eng.newEvents.length || (running && now - lastFrame > 95)) { lastFrame = now; frame(); }
+    const due = running && now - lastFrame > 95 && (!ackOn || !unpainted || now - lastFrame > ACK_MAX_MS);
+    // (Held only by the page's paint: owed, and built the moment its 'painted' comes, not on the next 33 ms tick (rev 2 step 3).)
+    owed = running && !due && ackOn && unpainted && now - lastFrame > 95;
+    if (frameDirty || paramsDirty || eng.newEvents.length || (due && (now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
+      lastFrame = now; frame();
+      keepStill();
+    }
   }
 
   // A presenter time-lapse: one day at a time, exactly as the presenter's off-screen chain computed it
@@ -295,7 +366,7 @@ export function createCore(post) {
   function lapseDays(n) {
     for (let k = 0; k < n && lapse; k++) {
       if (lapse.ramp) eng.setParams(deepMerge(eng.paramsTarget(), rampAt(lapse.ramp, lapse.total - lapse.left + 1, lapse.total)));
-      eng.advanceDays(1, { noRupture: true, silent: true });
+      eng.advanceDays(1, { noRupture: true, silent: true });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once for each day of a presenter time-lapse
       if (--lapse.left <= 0) { lapse = null; eng.settle(); clock = 'hemo'; speed = 1; diseaseAcc = 0; }
     }
     paramsDirty = true;
@@ -313,14 +384,20 @@ export function createCore(post) {
     if (k >= 1) lapse = null;
   }
 
+  // (A bedside time-lapse is timed on the wall clock: the time the model stood still (the page hidden, the model paused) is added to its start,
+  // so it carries on from where it was, as the disease clock's lapse does, instead of jumping to its end.)
+  let stoppedAt = null;
   function start() {
     if (timer || crashed || !running || !visible) return;
+    // (EXT-WRK-3: the time the clock stood still, the page hidden or paused, is not the time-lapse's or the morph's own.)
+    if (stoppedAt != null) { const d = performance.now() - stoppedAt; if (lapse?.bedside) lapse.bedside.t0 += d; if (morph) morph.t0 += d; }
+    stoppedAt = null;
     last = null;
     timer = setInterval(tick, 33);
   }
 
   function stop() {
-    if (timer) clearInterval(timer);
+    if (timer) { clearInterval(timer); if ((lapse?.bedside || morph) && stoppedAt == null) stoppedAt = performance.now(); }
     timer = null;
     last = null;
   }
@@ -340,7 +417,7 @@ export function createCore(post) {
   const handlers = {
     init({ params }) {
       if (params) { eng.setParams(sanitizeParams(params)); eng.settle(); }
-      paramsDirty = true;
+      paramsDirty = true; jumpDirty = true;
       start();
     },
     setParams({ params, settle, ease }) {
@@ -354,11 +431,11 @@ export function createCore(post) {
     },
     *preset({ id, days, reqId }) {
       stateChanged();
-      morph = null;
+      endTransitions();
       yield* eng.loadPresetSteps(id, days != null ? { days: days + (PRESETS.find((p) => p.id === id)?.days || 0) } : {});
       post({ type: 'presetLoaded', reqId, id, params: eng.params });
     },
-    reset() { stateChanged(); morph = null; eng = new Engine(); paramsDirty = true; },
+    reset() { stateChanged(); endTransitions(); eng = new Engine(); paramsDirty = true; },
     run({ running: r, speed: s, clock: c }) {
       if (r !== undefined) running = r;
       if (s !== undefined) speed = s;
@@ -369,24 +446,31 @@ export function createCore(post) {
     // bedside: the ramp plays over the slide's seconds on the seconds clock instead (see bedsideStep).
     lapse({ days, speed: s, ramp, bedside }) {
       endHistory(false);   // (a history under way is of the state the days leave)
-      morph = null;
+      morph = null; stoppedAt = null;
       lapse = days > 0 ? { left: days, total: days, ramp: ramp ? Object.entries(ramp) : null, bedside: bedside ? { t0: performance.now(), ms: (days / s) * 1000 } : null } : null;
       running = true; clock = lapse && !bedside ? 'disease' : 'hemo'; speed = lapse && !bedside ? s : 1; diseaseAcc = 0;
+      // (Begun while the model stands still, the page hidden: it has not begun to play, so the time until it starts again is not its own.)
+      stoppedAt = lapse?.bedside && !timer ? lapse.bedside.t0 : null;
     },
     // Next during a bedside time-lapse: what is left of it runs in ms.
     lapseFast({ ms }) {
       if (!lapse?.bedside) return;
-      const now = performance.now(), b = lapse.bedside, k = Math.min(1, (now - b.t0) / b.ms);
-      b.ms = ms / Math.max(1e-6, 1 - k); b.t0 = now - k * b.ms;
+      // (Stood still, its progress is where it stopped: start() adds the time it stood still to t0 afterwards, so judged at the later time it would run backwards.)
+      const at = stoppedAt ?? performance.now(), b = lapse.bedside, k = Math.min(1, (at - b.t0) / b.ms);
+      b.ms = ms / Math.max(1e-6, 1 - k); b.t0 = at - k * b.ms;
     },
     // The presenter's slide that turns breathing off stops it on the live model as the slide begins (only that switch;
     // a morph under way keeps easing to its own state).
     breath({ on }) { eng.params.respiration = !!on; paramsDirty = true; },
     visibility({ visible: v }) { visible = v; },
+    // (Plan "Holding 120 Hz, always" §3.2: a page that says so (ackPaint) tells the worker each model frame it has painted; while one is
+    // unpainted the clock's next frame waits (up to ACK_MAX_MS), so frames the page could not paint are never built, cloned and posted.)
+    ackPaint({ on }) { ackOn = !!on; unpainted = false; },
+    painted() { unpainted = false; if (owed && timer) { owed = false; tick(); } },
     // restartClock: the days are the patient's past (the patient aged before the story starts), so the clock and
     // event log start fresh at day 0 afterwards.
     *advance({ days, untilEvent, restartClock }) {
-      morph = null;
+      morph = null; jumpDirty = true;
       const n0 = eng.eventCount;   // (a count, not the log's length: the log is capped at 200)
       let done = 0;
       const max = untilEvent ? 730 : days;
@@ -401,7 +485,7 @@ export function createCore(post) {
       paramsDirty = true;
     },
     settle() { eng.settle(); },
-    action({ action }) { stateChanged(); morph = null; applyAction(eng, action); paramsDirty = true; },
+    action({ action }) { stateChanged(false); morph = null; applyAction(eng, action); paramsDirty = true; },
     // Run the model forward at bedside time (so the vitals have settled before they are shown).
     *preroll({ seconds, reqId }) {
       for (let t = 0; t < seconds; t += 0.1) { eng.step(0.1); yield; }
@@ -421,6 +505,8 @@ export function createCore(post) {
       lapse = null; clock = 'hemo'; speed = 1; diseaseAcc = 0; relaxUntil = 0;
       if (!(ms > 0)) { morph = null; eng.restore(snap); paramsDirty = true; return; }
       morph = { from: eng.snapshot(), to: snap, t0: performance.now(), ms };
+      morphParamsAt = morph.t0; paramsDirty = true;   // (the start posts the params once; the ticks then post them about 4 times a second)
+      stoppedAt = timer ? null : morph.t0;   // (begun while the model stands still, the page hidden: it has not begun to play)
       running = true; start();
     },
     explain({ metric, reqId }) {
@@ -477,7 +563,14 @@ export function createCore(post) {
         const m = computeMetrics(e);
         if (trail) trail.push(at(st.days, m));
         const extra = yield* stepExtras(e, st);
-        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start, ...(extra ? { extra } : {}) });
+        // before: a slide that plays a procedure opens on its state with the procedure not done yet (st.before undoes it, settled on a
+        // copy, so the chain goes on from the slide's own state).
+        let before = null;
+        if (st.before) {
+          const b = new Engine(); b.restore(e.snapshot()); b.setParams(deepMerge(b.params, st.before)); b.settle();
+          before = { snap: b.snapshot(), params: structuredClone(b.params), fp: fingerprint(computeMetrics(b), b) };
+        }
+        post({ type: 'seqStep', reqId, i, snap: e.snapshot(), params: structuredClone(e.params), fp: fingerprint(m, e), trail, start, before, ...(extra ? { extra } : {}) });
         yield;
       }
       post({ type: 'sequence', reqId });
@@ -510,7 +603,7 @@ export function createCore(post) {
         if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint'].includes(msg.type)) {
           frameDirty = true;
           if (visible) { lastFrame = performance.now(); frame(); }
         }

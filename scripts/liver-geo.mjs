@@ -1,6 +1,6 @@
 // Writes src/ui/liver-geo-data.js: the liver's outline (sampled as the stage samples it) and the sites of its
 // regenerative nodules, so the stage need not compute them on every load (see src/ui/liver-geo.js).
-// Run after changing the liver's outline in anatomy.js (a unit test says when), then `npm run stamp`.
+// Run after changing the liver's outline in anatomy.js (a unit test says when).
 //
 //   node scripts/liver-geo.mjs
 

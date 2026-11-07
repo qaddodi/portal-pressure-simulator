@@ -5,6 +5,7 @@
 //                                                   a hepatic vein's a, S, v and D waves on the trace
 //   tool: { kind: 'scope' }                         the esophagus at this slide's varix state (endoscopy)
 //   tool: { kind: 'fibroscan' }                     liver stiffness, kPa (metrics.lsm)
+//   tool: { kind: 'fibroscan', organ: 'spleen' }    spleen stiffness on the 100 Hz spleen probe, kPa (metrics.ssm); the probe on the spleen
 //   tool: { kind: 'trace', range: 'talk' | 'beats' }
 //                                                   'talk' (default): portal, wedged and free hepatic pressures and the
 //                                                   HVPG at every slide so far, one point per state; 'beats': the live trace
@@ -38,19 +39,20 @@
 // has landed, the model sends the steady state's last seconds (worker-core.js, History) and the instrument takes them in front of what it
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
-import { store } from './store.js?v=926dabfaef';
-import { h } from './util.js?v=58b547f8d4';
-import { EDGES } from '../engine/topology.js?v=4044766e96';
-import { createDoppler } from './doppler.js?v=2da811ff4d';
-import { createFibroScan } from './fibroscan.js?v=b5042eabbc';
-import { createPressureTime } from './pressure-time.js?v=2452a42601';
-import { createVitalsMonitor } from './vitals-monitor.js?v=4742417bbe';
-import { createHvpgCard } from './tool-hvpg.js?v=b5ecfc7d2b';
-import { createFlowTime } from './flow-time.js?v=026ab2f37c';
-import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js?v=6f71415263';
-import { frameFor, cancelFrame } from './frame.js?v=7254a8a850';
-import { talkTrace } from './talk-trace.js?v=c9a1110930';
-import { EXT, guard, safe } from './slide-ext.js?v=abaa5bc948';
+import { store } from './store.js';
+import { h } from './util.js';
+import { EDGES } from '../engine/topology.js';
+import { createDoppler } from './doppler.js';
+import { createFibroScan } from './fibroscan.js';
+import { createPressureTime } from './pressure-time.js';
+import { createVitalsMonitor } from './vitals-monitor.js';
+import { createHvpgCard } from './tool-hvpg.js';
+import { createFlowTime } from './flow-time.js';
+import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js';
+import { frameFor } from './frame.js';
+import { restPass, cancelRest } from './rest-pass.js';
+import { talkTrace } from './talk-trace.js';
+import { EXT, guard, safe } from './slide-ext.js';
 const nextFrame = frameFor('presenter-tools');
 
 const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L: 'left portal vein', SV_CONF: 'splenic vein', SV_MID: 'splenic vein', V_SPL: 'splenic vein, at the hilum',
@@ -59,7 +61,7 @@ const VESSEL = { PV_TRUNK: 'main portal vein', PVH_R: 'right portal vein', PVH_L
 const TITLE = {
   doppler: (t) => `Doppler, ${VESSEL[t.vessel || 'PV_TRUNK'] || EDGES.find((e) => e.id === t.vessel)?.label?.toLowerCase() || 'portal vein'}`,
   scope: () => 'Endoscopy, the lower esophagus',
-  fibroscan: () => 'Liver stiffness, FibroScan',
+  fibroscan: (t) => (t.organ === 'spleen' ? 'Spleen stiffness, FibroScan' : 'Liver stiffness, FibroScan'),
   trace: (t) => (t.range === 'beats' ? 'Pressure, beat by beat' : 'Pressure over the talk'),
   abdomen: () => 'The abdomen',
   wall: () => 'The varix wall, in cross-section',
@@ -69,6 +71,10 @@ const TITLE = {
 };
 const noop = () => {};
 const RECORDS = ['doppler', 'beats', 'vitals'];   // (the instruments that record the patient's flow as it passes)
+// (The two with an EKG strip keep ONE continuous sweep through a change of state, a time-lapse and an easing: they are neither held nor
+// cleared nor refilled when the slide's state changes. Their frames go on being taken, the strip runs on its own clock while the model's stands
+// still (vitals-monitor.js, pressure-time.js freewheel), and the new state's beats come in at the head, so the strip never starts over in place.)
+const SWEEPS = ['beats', 'vitals'];
 
 export function createTools({ host, stage }) {
   const ghostEl = h('div', { class: 'pz-ghost', 'aria-live': 'polite' });
@@ -76,10 +82,10 @@ export function createTools({ host, stage }) {
   // A chart drawn in its own units (a viewBox) shrinks its letters with the card: its smallest words (13 units) are kept
   // 12 px or more on the screen, the chart's letters all grown by the same factor (--svk), up to twice.
   const svk = () => { for (const sv of box.querySelectorAll('svg[viewBox]')) { const w = +sv.getAttribute('viewBox').split(/[\s,]+/)[2], r = sv.getBoundingClientRect().width;
-    if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) sv.style.setProperty('--svk', k.toFixed(2)); } };
-  // (One frame asked for at a time, however many sizes the card goes through in it; the observer is let go with the tools.)
+    if (!w || !r) continue; const k = Math.min(2, Math.max(1, 12 / (13 * r / w))); if (Math.abs(k - (+sv.style.getPropertyValue('--svk') || 1)) > 0.02) { sv.style.setProperty('--svk', k.toFixed(2)); sv.closest('.svg-gl-box')?._svgGL?.setCtx({ svk: +k.toFixed(2) }); } } };   // (the chart's looks written in code take the same factor: WP3)
+  // (One rest pass asked for at a time, between frames, however many sizes the card goes through; the observer is let go with the tools.)
   let svkRaf = 0;
-  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!svkRaf) svkRaf = nextFrame(() => { svkRaf = 0; svk(); }); }) : null;
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (!svkRaf) svkRaf = restPass(() => { svkRaf = 0; svk(); }); }) : null;
   ro?.observe(box);
   const made = {};
   let cur = null, kind = null, probe0, gate0, lastSt = null, lastSlide = null, held = false, lastTool = null, lastCtx = null;
@@ -88,13 +94,14 @@ export function createTools({ host, stage }) {
    *  that has been cleared or held since (a newer ask, a state changing again) is let go. */
   function prime(inst, k) {
     const tok = ++primeTok;
-    primeP = host.request('history', { secs: inst.historySecs?.() ?? 10 })
-      .then((m) => { if (tok === primeTok && !held && made[k] === inst && m?.samples) inst.backfill?.({ ...m.samples, probe: m.probe }); })
-      .catch(noop);   // (an engine that cannot answer: the trace fills as it records)
+    // (The Doppler asks for its longest sweep, 12 s: the window it draws is chosen after this asks, from the card's width (autoWindow), and a 3 s answer left the left half of a 6 s window empty.)
+    primeP = host.request('history', { secs: k === 'doppler' ? Math.max(12, inst.historySecs?.() ?? 0) : inst.historySecs?.() ?? 10 })
+      .then((m) => { const ok = tok === primeTok && !held && made[k] === inst && !!m?.samples; if (ok) inst.backfill?.({ ...m.samples, probe: m.probe }); return ok; })
+      .catch(() => false);   // (an engine that cannot answer: the trace fills as it records)
   }
   function make(k) {
     if (made[k]) return made[k];
-    const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan() : k === 'scope' ? createEndoscopy({ onAction: noop })
+    const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan({ switcher: false }) : k === 'scope' ? createEndoscopy({ onAction: noop })
       : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'flowtime' ? createFlowTime()
         : k === 'vitals' ? createVitalsMonitor() : k === 'hvpg' ? createHvpgCard()
         : Object.hasOwn(EXT.tools, k) ? guard(safe(() => EXT.tools[k].make({ host, stage, store }), null, `tools.${k}.make`), `tools.${k}`) : null;
@@ -106,7 +113,8 @@ export function createTools({ host, stage }) {
   const offFrame = store.on('frame', (f) => {
     if (!cur || !f || !box.isConnected) return;
     // (Held while the slide's own state eases in: a recording trace would catch the leaving state, the old flow before it reverses.)
-    if (held && (kind === 'doppler' || kind === 'beats' || kind === 'vitals')) return;
+    // (A card started over while the state lands, still empty, waits for the landing to be filled: primeWait.)
+    if (held && (kind === 'doppler' || primeWait)) return;
     if (kind === 'doppler' && cur.ingest) { cur.update(f); return; }
     if (kind !== 'talk' && kind !== 'flowtime') cur.update?.(f);
   });
@@ -116,7 +124,7 @@ export function createTools({ host, stage }) {
     /** A registered instrument's short title for a phone's card, when the card shows its own title (full); the built-in ones are
      *  in the presenter's SHORT_TITLE. */
     short: (t, full) => (t && !TITLE[t.kind] && Object.hasOwn(EXT.tools, t.kind) && safe(() => (full === EXT.tools[t.kind].title?.(t) ? EXT.tools[t.kind].short?.(t) : null), null, 'tools.short')) || null,
-    sig: (t) => (t ? `${keyOf(t)}:${t.vessel || ''}` : ''),
+    sig: (t) => (t ? `${keyOf(t)}:${t.vessel || t.organ || ''}` : ''),
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
      *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress).
@@ -127,7 +135,7 @@ export function createTools({ host, stage }) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
-      stage?.setScanProbe?.(k === 'fibroscan');   // (the probe on the skin over the liver, where the reading comes from)
+      stage?.setScanProbe?.(k === 'fibroscan', t.organ === 'spleen' ? 'spleen' : 'liver');   // (the probe on the skin over the organ the reading comes from)
       if (k === 'doppler') {
         if (probe0 === undefined) { probe0 = store.get().frame?.probe ?? null; gate0 = store.get().dopGate; }
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });
@@ -143,7 +151,7 @@ export function createTools({ host, stage }) {
       if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)
       lastSlide = slide;
       // A new patient clears a recording trace; so does an instrument coming back after another one showed (it missed the frames between).
-      const startOver = RECORDS.includes(k) && (stateKey !== lastSt || cur !== inst);
+      const startOver = RECORDS.includes(k) && (cur !== inst || (stateKey !== lastSt && !SWEEPS.includes(k)));
       if (startOver) { inst.clear?.(); primeTok++; }
       lastSt = stateKey;
       if (cur && cur !== inst) cur.park?.();
@@ -160,8 +168,10 @@ export function createTools({ host, stage }) {
      *  the slide's own options with patch over them, or the slide's own alone when patch is null. */
     option(patch) { if (cur && lastTool) cur.configure?.(patch ? { ...lastTool, ...patch } : lastTool, lastCtx); },
     /** The numbers the slide's tiles and words show (a fingerprint): a reading instrument shows the same, not the beat-to-beat live value. */
-    pin(fp) { for (const inst of Object.values(made)) inst?.pin?.(fp); },
+    pin(fp) { for (const k in made) made[k]?.pin?.(fp); },
     progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
+    /** The card has been fitted (its zoom may have changed with the chart's box the same size): a chart redraws at the type its zoom now asks for. */
+    refit() { cur?.refit?.(); },
     /** The earlier reading, faint beside the live one ({ label, value }), or null. Eases in and out. */
     ghost(g) {
       ghostEl.classList.toggle('on', !!g);
@@ -169,13 +179,19 @@ export function createTools({ host, stage }) {
     },
     /** Resolves once the window of the instrument showing has been filled, or after ms at the longest: a card is not brought in
      *  before its trace is there, unless the model is slow to make it. */
-    ready(ms) { const p = primeP; return p ? Promise.race([p, new Promise((r) => setTimeout(r, ms))]) : Promise.resolve(); },
-    /** Hold the recording instruments (Doppler, beat by beat, vitals) while the slide's state changes: they draw nothing new, and on
-     *  release start over with their window filled by the new state's own steady beats (prime), then record on. */
+    ready(ms) {
+      // (R05: true only when the window was filled, false when the ask timed out, failed, answered nothing or was let go: the caller says so, it is no certificate.
+      // A newer ask made meanwhile is the one waited for.)
+      let timer = 0;
+      const filled = (async () => { for (let p = primeP; p;) { const ok = await p; if (p === primeP) return ok; p = primeP; } return true; })();
+      return Promise.race([filled, new Promise((r) => { timer = setTimeout(r, ms, false); })]).finally(() => clearTimeout(timer));
+    },
+    /** Hold the Doppler while the slide's state changes: it draws nothing new, and on release starts over with its window filled by the new
+     *  state's own steady beats (prime), then records on. (The EKG strips, beat by beat and vitals, are not held: SWEEPS.) */
     hold(on) {
       on = !!on; if (on === held) return; held = on;
       primeTok++;
-      for (const k of RECORDS) made[k]?.restart?.() ?? made[k]?.clear?.();
+      for (const k of RECORDS) if (!SWEEPS.includes(k)) made[k]?.restart?.() ?? made[k]?.clear?.();
       // Released: the state has landed. A card already up for it (held meanwhile) has its window filled now.
       if (!on && primeWait && cur && RECORDS.includes(kind)) prime(cur, kind);
       primeWait = false;
@@ -190,7 +206,7 @@ export function createTools({ host, stage }) {
     dispose() {
       if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();
       // Each presentation builds its own tools: let go of this one's instruments (and the endoscopy's GL context).
-      offFrame(); ro?.disconnect(); cancelFrame(svkRaf); svkRaf = 0;
+      offFrame(); ro?.disconnect(); cancelRest(svkRaf); svkRaf = 0;
       for (const k of Object.keys(made)) { made[k]?.dispose?.(); delete made[k]; }
       box.replaceChildren();
     },

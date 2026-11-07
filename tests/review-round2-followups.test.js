@@ -1,3 +1,4 @@
+import { stageSource } from './stage-src.js';
 // Round 2 review follow-ups: the streaks' density reads between whole lane counts (BM9), and a narrowing's clamp and
 // "60 %" fade in and out instead of popping.
 import { test } from 'node:test';
@@ -46,19 +47,20 @@ test('BM9: the shader and the lobule read the same table, with no lane loop left
   assert.match(gl, /const float LANE_K\[7\] = float\[7\]\(\$\{LANE_K/);
   assert.match(gl, /float sumK = mix\(LANE_K\[lk\], LANE_K\[lk \+ 1\], lc - float\(lk\)\);/);
   assert.doesNotMatch(gl, /sumK \+=/);
-  assert.match(lob, /const sumK = \(R\) => laneSum\(R, pxW\);/);
+  assert.match(lob, /\* laneSum\(Rm, pxW\)\) \/ s0;/);
   assert.doesNotMatch(lob, /sk \+= n === 1/);
 });
 
 test("a narrowing's clamp and label fade out from their own group, which the label layout never reads", () => {
-  const stage = read('src/ui/stage.js'), css = read('styles/app.css');
+  const stage = stageSource(), css = read('styles/app.css');
   assert.match(stage, /clamps: s\('g'\), clampsOut: s\('g'\)/);
   assert.match(stage, /el\.classList\.replace\('clamp', 'clamp-out'\); el\.classList\.replace\('clamp-label', 'clamp-label-out'\);/);
   assert.doesNotMatch(stage, /ov\.clampsOut\.querySelectorAll\('\.clamp/);
   // (The GPU draws the arrows: their fade rides on the draw's alpha, never on a baked SVG opacity.)
-  assert.match(stage, /d\.fade \? \{ \.\.\.d, alpha: d\.alpha \* clampEase\(d\.fade\) \}/);
-  assert.match(stage, /if \(el\.tagName === 'text' \|\| !glLines\) el\.style\.opacity = op;/);
-  assert.match(stage, /!clampFading\(\) && !widthEasing/);
+  assert.match(stage, /d\.fade \? olFaded\(d\) : d/);
+  assert.match(stage, /const fadeEase = \(key\) => \(markA\.has\(key\) \? markA\.amount\(key\) : clampEase\(key\)\);/);
+  assert.match(stage, /if \(el\._c || !glLines\) el\.style\.opacity = op;/);
+  assert.match(stage, /!clampFading\(\) && !markA\.moving\(\) && !widthEasing/);
   assert.match(css, /\.clamp, \.clamp-out \{/);
   assert.match(css, /\.clamp-label, \.clamp-label-out \{ font-size/);
 });
