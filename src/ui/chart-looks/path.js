@@ -31,11 +31,13 @@ export const PATH = {
   'path.s': { state: { lit: 'class:lit' }, base: { weight: 400, fill: tok('text-3'), opacity: 0.4, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
   'path.st': { state: { lit: 'class:lit' }, base: { weight: 500, fill: tok('text-3'), opacity: 0.4, halo }, when: [[{ lit: true }, { opacity: 1 }]] },
   // the card's head and foot: the source, the patient's numbers, the guideline's statements
-  'path.kick': { base: { weight: 500, fill: tok('text-3'), halo } },
+  'path.kick': { base: { weight: 600, fill: tok('text-2') } },
+  // the source's pill behind it
+  'path.pill': { base: { fill: tok('surface-2') } },
   'path.chips': { base: { weight: 500, fill: tok('text'), halo } },
   'path.foot': { base: { weight: 400, fill: tok('text-3'), halo } },
   // the small map's reading: the verdict in its colour, the statement, the why and the next step
-  'path.rh': { base: { weight: 600, fill: param('tone'), halo } },
+  'path.rh': { state: { lit: 'class:lit' }, base: { weight: 600, fill: tok('text'), halo }, when: [[{ lit: true }, { fill: param('tone') }]] },
   'path.rs': { base: { weight: 500, fill: tok('text-3'), halo } },
   'path.rp': { base: { weight: 400, fill: tok('text'), halo } },
   // a hairline between the card's parts

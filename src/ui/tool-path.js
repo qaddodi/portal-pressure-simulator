@@ -24,11 +24,12 @@ import { loadMetrics, layoutParagraph, textWidth } from './text-gl.js';
 import { PATHS, MAP_WORDS, OUTCOMES, WORST, litOf, outcomeOf, readingFor, chipsOf, patientFor } from './path-data.js';
 
 export const COL_MIN = 104, NODE_MAX = 140, ROOT_MAX = 330, GAP_Y = 26, MAP_UNIT = 66, GAP = 10;
+const PILL_H = 22, PILL_PAD = 10;
 const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger' };
 const svg = svgModel;
 /** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */
 export const ROLE = {
-  kick: { weight: 500, size: 12, lh: 16 }, chips: { weight: 500, size: 13, lh: 18 }, foot: { weight: 400, size: 12, lh: 16 },
+  kick: { weight: 600, size: 12, lh: 16 }, chips: { weight: 500, size: 13, lh: 18 }, foot: { weight: 400, size: 12, lh: 16 },
   t: { weight: 400, size: 12, lh: 16 }, r: { weight: 600, size: 13, lh: 16 }, s: { weight: 400, size: 12, lh: 16 }, st: { weight: 500, size: 12, lh: 16 },
   rh: { weight: 600, size: 21, lh: 26 }, rs: { weight: 500, size: 12, lh: 26 }, rp: { weight: 400, size: 14, lh: 20 },
 };
@@ -110,14 +111,14 @@ export function flow(paras, width, { align = 'left', gap = 0 } = {}) {
   let y = 0, last = 0;
   paras.forEach((runs, pi) => {
     if (!runs.length) return;
-    const { lines } = layoutParagraph(runs.map((r) => ({ text: r.text, weight: ROLE[r.role].weight, size: ROLE[r.role].size })), width);
+    const { lines } = layoutParagraph(runs.map((r) => ({ text: r.text, weight: ROLE[r.face].weight, size: ROLE[r.face].size })), width * 0.97);   // (3 % room: the lines are broken on the browser's measure and drawn from the outlines, a hair wider)
     for (const ln of lines) {
-      const parts = ln.runs.map((p) => { const role = runs[p.run].role, R = ROLE[role]; return { text: p.text, role, w: textWidth(p.text, { weight: R.weight, size: R.size }) }; });
-      const total = parts.reduce((s, p) => s + p.w, 0), lh = Math.max(...parts.map((p) => ROLE[p.role].lh));
+      const parts = ln.runs.map((p) => { const face = runs[p.run].face, R = ROLE[face]; return { text: p.text, face, w: textWidth(p.text, { weight: R.weight, size: R.size }) }; });
+      const total = parts.reduce((s, p) => s + p.w, 0), lh = Math.max(...parts.map((p) => ROLE[p.face].lh));
       let x = align === 'center' ? Math.max(0, (width - total) / 2) : 0;
       for (const p of parts) {
-        const R = ROLE[p.role];
-        items.push({ text: p.text, role: p.role, x, y: y + (lh - R.size * 1.21) / 2 + R.size * 0.97 });
+        const R = ROLE[p.face];
+        items.push({ text: p.text, face: p.face, x, y: y + (lh - R.size * 1.21) / 2 + R.size * 0.97 });
         x += p.w;
       }
       y += lh;
@@ -127,18 +128,17 @@ export function flow(paras, width, { align = 'left', gap = 0 } = {}) {
   });
   return { items, h: items.length ? y - last : 0 };
 }
-/** A node's words as paragraphs: its condition, its verdict with the statement's number, its detail. */
+/** A node's words as paragraphs: its condition, its verdict, its detail (no statement numbers: the card names its source once, in the pill). */
 export function nodeParas(n, isRoot) {
-  const stmt = n.stmt ? [{ text: ` ${n.stmt}`, role: 'st' }] : [];
-  const lead = (isRoot || !n.r) ? [{ text: `${n.act ? '→ ' : ''}${n.t}`, role: 'r' }, ...(n.r ? [] : stmt)] : [{ text: n.t, role: 't' }];
+  const lead = (isRoot || !n.r) ? [{ text: n.t, face: 'r' }] : [{ text: n.t, face: 't' }];
   const out = [lead];
-  if (n.r) out.push([{ text: n.r, role: 'r' }, ...stmt]);
-  if (n.s) out.push([{ text: n.s, role: 's' }]);
+  if (n.r) out.push([{ text: n.r, face: 'r' }]);
+  if (n.s) out.push([{ text: n.s, face: 's' }]);
   return out;
 }
-const nodeGap = (paras) => (pi) => (paras.length > 1 && pi === 0 && paras[0][0].role === 't' ? 1 : 2);
-/** The reading of one outcome as paragraphs: the verdict and its statement, then the why and the next step. */
-export const readParas = (r) => [[{ text: r.head, role: 'rh' }, { text: `  ${r.stmt}`, role: 'rs' }], [{ text: `${r.why} ${r.next}`, role: 'rp' }]];
+const nodeGap = (paras) => (pi) => (paras.length > 1 && pi === 0 && paras[0][0].face === 't' ? 1 : 2);
+/** The reading of one outcome as paragraphs: the verdict, then the why and the next step. */
+export const readParas = (r) => [[{ text: r.head, face: 'rh' }], [{ text: `${r.why} ${r.next}`, face: 'rp' }]];
 
 export function createPath() {
   const pic = h('div', { class: 'pzp-pic' });
@@ -156,9 +156,9 @@ export function createPath() {
     ctxFor();
     const L = { compact, y: {} }, worst = WORST[of], base = patient || worst;
     let y = 0;
-    L.y.kick = y; y += ROLE.kick.lh + 3;
+    L.y.kick = y; y += PILL_H + 6;
     // (the patient's numbers: room for the widest patient's, whatever this one has)
-    const chipsH = (p) => flow([[{ text: chipsOf(of, p).join(' · '), role: 'chips' }]], W).h;
+    const chipsH = (p) => flow([[{ text: chipsOf(of, p).join(' · '), face: 'chips' }]], W).h;
     L.chipsH = Math.max(chipsH(base), chipsH(worst), ROLE.chips.lh);
     L.y.chips = y; y += L.chipsH + GAP;
     L.y.pic = y;
@@ -181,7 +181,7 @@ export function createPath() {
     }
     L.y.rule2 = y; y += 7;
     L.y.foot = y;
-    L.foot = flow([[{ text: spec.foot, role: 'foot' }]], W);
+    L.foot = flow([[{ text: spec.foot, face: 'foot' }]], W);
     y += L.foot.h;
     L.H = Math.ceil(y);
     lay = L;
@@ -194,11 +194,14 @@ export function createPath() {
 
   function modelOf(Lit, out, said) {
     const kids = [], lit = [], dim = [], oy = lay.y.pic;
-    const place = (items, ox, ot, on, tone) => { for (const i of items) kids.push(piece(i.role, ox + i.x, ot + i.y, i.text, on, tone)); };
+    const place = (items, ox, ot, on, tone) => { for (const i of items) kids.push(piece(i.face, ox + i.x, ot + i.y, i.text, on, tone)); };
     const rule = (y) => kids.push(svg('path', { d: `M0,${y + 0.5}H${W}`, 'data-look': 'path.rule' }));
     // the head: the algorithm's source and the patient's numbers
-    place(flow([[{ text: spec.kick, role: 'kick' }]], W).items, 0, lay.y.kick, false, 'text');
-    place(flow([[{ text: chipsOf(of, patient).join(' · '), role: 'chips' }]], W).items, 0, lay.y.chips, false, 'text');
+    // the source in a pill (as the pills of the app: a quiet fill, the words in the second ink)
+    const pw = Math.ceil(textWidth(spec.kick, { weight: ROLE.kick.weight, size: ROLE.kick.size })) + 2 * PILL_PAD;
+    kids.push(svg('rect', { x: 0, y: lay.y.kick, width: pw, height: PILL_H, rx: PILL_H / 2, 'data-look': 'path.pill' }));
+    kids.push(piece('kick', PILL_PAD, lay.y.kick + (PILL_H - ROLE.kick.lh) / 2 + 12.5, spec.kick, false, 'text'));
+    place(flow([[{ text: chipsOf(of, patient).join(' · '), face: 'chips' }]], W).items, 0, lay.y.chips, false, 'text');
     // the chart or the map: connectors first (grey under, the path over), then the nodes
     const paths = lay.compact ? lay.map.paths : lay.tree.paths;
     for (const e of sl.edges) {
@@ -215,7 +218,7 @@ export function createPath() {
       rule(lay.y.rule1);
       if (out) {
         const r = readingFor(of, out, patient);
-        for (const i of flow(readParas(r), W, { gap: 4 }).items) kids.push(piece(i.role, i.x, lay.y.read + i.y, i.text, true, TOKEN[r.tone]));
+        for (const i of flow(readParas(r), W, { gap: 4 }).items) kids.push(piece(i.face, i.x, lay.y.read + i.y, i.text, true, TOKEN[r.tone]));
       }
     } else {
       for (const { n } of sl.flat) {
@@ -225,7 +228,7 @@ export function createPath() {
     }
     rule(lay.y.rule2);
     place(lay.foot.items, 0, lay.y.foot, false, 'text');
-    return svg('svg', { width: W, height: lay.H, viewBox: `0 0 ${W} ${lay.H}`, role: 'img', 'aria-label': `${spec.label}, the patient's path lit. ${said}` }, ...kids);
+    return svg('svg', { width: W, height: lay.H, viewBox: `0 0 ${W} ${lay.H}`, face: 'img', 'aria-label': `${spec.label}, the patient's path lit. ${said}` }, ...kids);
   }
 
   /** The path lit for the patient as it stands: the picture is drawn again only when what shows has changed. */

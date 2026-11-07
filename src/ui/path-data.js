@@ -50,8 +50,8 @@ export const BLEED = {
 
 /** The algorithms by the name a slide gives (tool { kind: 'path', of }). */
 export const PATHS = {
-  'first-visit': { tree: FIRST_VISIT, kick: 'Baveno VIII Fig. 1', foot: 'Baveno VIII Fig. 1, statements 1.3 and 1.14 to 1.19', label: 'First visit with cACLD' },
-  bleed: { tree: BLEED, kick: 'Baveno VIII Fig. 3', foot: 'Baveno VIII Fig. 3, statements 5.4 and 5.16 to 5.41', label: 'Acute variceal bleeding' },
+  'first-visit': { tree: FIRST_VISIT, kick: 'Baveno VIII', foot: 'Fig. 1', label: 'First visit with cACLD' },
+  bleed: { tree: BLEED, kick: 'Baveno VIII', foot: 'Fig. 3', label: 'Acute variceal bleeding' },
 };
 
 /** The words under each node of the phone's map (one or two short lines). */

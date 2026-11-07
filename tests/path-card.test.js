@@ -192,7 +192,7 @@ test('every word of the card is drawn from Inter\'s outlines and laid out in col
       assert.ok(ys.length >= 1 && Math.max(...ys) <= f.h, `${n.id}: every baseline is inside its box`);
     }
   }
-  const one = flow([[{ text: 'LSM 15–25 kPa, or platelets <150', role: 't' }]], 128, { align: 'center' });
+  const one = flow([[{ text: 'LSM 15–25 kPa, or platelets <150', face: 't' }]], 128, { align: 'center' });
   assert.equal(new Set(one.items.map((i) => i.y)).size, 2, 'a condition wider than its column wraps');
   assert.equal(one.h, 32);
   assert.ok(flow(readParas({ head: 'Rules CSPH in', stmt: '1.16b', why: 'LSM 31 kPa is ≥25.', next: 'Start a beta-blocker, carvedilol preferred.' }), 340, { gap: 4 }).h > ROLE.rh.lh);
@@ -206,6 +206,6 @@ test('the card draws only on the GPU: one model, no page text, no layout read', 
   assert.match(src, /gl\.show\(/);
   assert.doesNotMatch(css, /font|color|backdrop-filter|filter:|@keyframes|animation:|transition|text-stroke/, 'the stylesheet places a box and nothing else');
   assert.match(read('src/ui/ext-teaching.js'), /warm: \(\) => loadMetrics\(\)/, 'the metrics are fetched before the slide shows');
-  for (const k of ['kick', 'chips', 'foot', 't', 'r', 's', 'st', 'rh', 'rs', 'rp']) assert.ok(LOOKS[`path.${k}`], `a look for ${k}`);
+  for (const k of ['kick', 'pill', 'chips', 'foot', 't', 'r', 's', 'st', 'rh', 'rs', 'rp']) assert.ok(LOOKS[`path.${k}`], `a look for ${k}`);
   assert.ok(LOOKS['path.rule']);
 });
