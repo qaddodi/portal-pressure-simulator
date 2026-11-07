@@ -49,7 +49,7 @@ test('inside a section, consecutive slides with the same instrument keep the sam
 const THREE_TILES = new Set([
   'sites/healthy', 'ascites/lvp', 'treatment/terli', 'circuit/resist', 'circuit/tips', 'shunts/dsrs', 'ncph/patient',
   'pregnancy/before', 'pregnancy/weeks', 'pregnancy/after', 'cause-treated/before', 'cause-treated/year1',
-  'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/svt',
+  'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/bato', 'gastric-varices/svt',
   'variceal-bleed/minutes',   // (the point is the third: the hemoglobin has not moved, and where it is heading)
 ]);
 

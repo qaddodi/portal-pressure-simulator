@@ -70,6 +70,14 @@ export const GASTRIC = {
       ask: ['A patient with encephalopathy bleeds from IGV1 that drains through a gastrorenal shunt. Which treatment fits, and what do you watch for afterwards?', 'BRTO; then worsening ascites and growing esophageal varices.'],
     },
     {
+      id: 'bato', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], tool: { kind: 'flows' }, procedure: 'bato',
+      data: 'tiles', tiles: ['gv', 'varix', 'ppg'], key: ['gv'], delta: 'classes',
+      kicker: 'After a bleed', site: 'sin', title: 'BATO closes it from above',
+      line: 'Closed from the portal side, the fundal varix shrinks to {gv} as after BRTO. The PPG rises to {ppg} and esophageal varices can grow to {varix}.',
+      notes: 'Source: AASLD 2024. AASLD names balloon-occluded antegrade transvenous obliteration (BATO) among the variants of BRTO, with CARTO and PARTO, and refers to Abraldes et al. for the techniques. BATO reaches the varices from the portal side. Here the catheter goes through the liver into the right portal vein, along the portal and splenic veins and into the short gastric feeder; a balloon blocks the feeder and sclerosant fills the varices. It is used when the gastrorenal shunt cannot be catheterized from below, because it is too large, tangled or has no usable outflow. The model shows a patient whose shunt is there but is treated as not reachable from below. The result matches BRTO: the shunt and the varices close, the portal blood stays in the portal system, and the PPG rises. Ascites and esophageal varices can worsen, so a surveillance endoscopy follows.',
+      ask: ['Why choose BATO over BRTO, and what does it do to the portal pressure?', 'BATO is for a shunt that cannot be catheterized from below; the catheter reaches the feeder through the liver and the portal vein. Like BRTO it closes an outlet for portal blood, so the PPG rises.'],
+    },
+    {
       id: 'svt', lens: 'origin', preset: 'svt', cam: 'splenic', terms: ['sv', 'gv', 'spleen'], mark: { edges: ['SV_CONF'], label: 'Clot' }, data: 'tiles', tiles: ['gv', 'pv', 'plt'], key: ['gv'],
       vignette: 'A 36-year-old man with a pancreatic pseudocyst after gallstone pancreatitis bleeds from a fundal varix. His liver stiffness is 5 kPa, and CT shows a clotted splenic vein and a large spleen.',
       kicker: 'A clotted splenic vein', site: 'pre', title: 'Left-sided portal hypertension',
