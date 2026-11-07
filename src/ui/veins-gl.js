@@ -676,14 +676,20 @@ void main() {
     }
     if (D > 8.0 + 2.0 * px && Ds > 6.0 + 2.0 * px) continue;
     // Which vessel owns this pixel: the nearest, unless it lies inside the lumen of an unjoined
-    // vessel drawn above it in the tier (a crossing).
+    // vessel drawn above it in the tier (a crossing). A copy from a lower tier lies under every one of this tier's
+    // own vessels, whatever its z: it never crosses over one, and one of them crosses over it. (A cavernoma strand
+    // copied into the portal tier at the coronary vein's join, or at the confluence where the joins outnumber MAXJ,
+    // took the pixels of its lumen from the portal vein it runs under, by its higher z; as a faded strand it then
+    // drew almost nothing there, so dark lines cut through the vein: Portal vein clots, slide 5, 7 Nov 2026.)
     int ow = -1;
     for (int s = 0; s < MAXS; s++) if ((mem & (1 << s)) != 0 && (ow < 0 || sd[s] < sd[ow])) ow = s;
     int conn = 0;
     float kc = 0.0;
     for (int j = 0; j < MAXJ; j++) if (j < jn && jk[j] > 0.0 && (jm[j] & (1 << ow)) != 0) { conn |= jm[j]; kc = max(kc, jk[j]); }
     for (int s = 0; s < MAXS; s++) {
-      if ((mem & (1 << s)) == 0 || s == ow || sd[s] >= 0.0 || (conn & (1 << s)) != 0 || sz[s] <= sz[ow]) continue;
+      if ((mem & (1 << s)) == 0 || s == ow || sd[s] >= 0.0 || (conn & (1 << s)) != 0) continue;
+      bool sOwn = stier[s] == tt, oOwn = stier[ow] == tt;
+      if (sOwn != oOwn ? !sOwn : sz[s] <= sz[ow]) continue;
       ow = s; conn = 0; kc = 0.0;
       for (int j = 0; j < MAXJ; j++) if (j < jn && jk[j] > 0.0 && (jm[j] & (1 << ow)) != 0) { conn |= jm[j]; kc = max(kc, jk[j]); }
     }
