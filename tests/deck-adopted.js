@@ -186,6 +186,9 @@ export const ADOPTED = {
   'meso-rex/bypass': ['procedure'],
   'meso-rex/flows': ['kind:flows'],
   'meso-rex/alternative': ['kind:flows'],
+  'masld/under': ['kind:profile', 'caseQ'],
+  'masld/still': ['kind:profile'],
+  'masld/drugs': ['kind:criteria'],
 };
 
 /** Whether the slide d/s may use the field. */
