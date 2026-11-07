@@ -25,6 +25,7 @@ export const METRICS = {
   ascites: { label: 'Ascites formation', unit: 'mL/day', get: (m) => m.ascites.ratePerDay, digits: 0 },
   ra: { label: 'Right atrial pressure', unit: 'mmHg', get: (m) => m.ra, digits: 1 },
   map: { label: 'Mean arterial pressure', unit: 'mmHg', get: (m) => m.map, digits: 0 },
+  rpp: { label: 'Kidney pressure (MAP − abdomen)', unit: 'mmHg', get: (m) => m.rpp, digits: 0 },
   co: { label: 'Cardiac output', unit: 'L/min', get: (m) => m.co, digits: 2 },
   spleen: { label: 'Spleen length', unit: 'cm', get: (m) => m.spleen.length, digits: 1 },
 };
