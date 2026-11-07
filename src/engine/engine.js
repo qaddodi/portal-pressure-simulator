@@ -553,6 +553,8 @@ export class Engine {
       if (p.dsrs && e.id === 'SV_MID') { this.G[k] = 0; continue; }
       // Warren: the coronary (left gastric) vein is tied off where it meets the portal vein, so the high portal pressure no longer feeds the esophageal varices through it.
       if (p.dsrs && e.id === 'LGV_CONF') { this.G[k] = 0; continue; }
+      // ... and the stomach then drains through the short gastric veins into the splenic vein (the Warren shunt's selective decompression); otherwise they are shut.
+      if (!p.dsrs && e.id === 'V_STO_SG') { this.G[k] = 0; continue; }
       this.G[k] = 1 / R;
     }
   }

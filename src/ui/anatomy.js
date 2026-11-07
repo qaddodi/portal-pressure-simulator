@@ -32,7 +32,7 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   'SIN_RL',
   // The stomach's own drainage into the coronary vein is modeled, not drawn: a branch across the
   // stomach body only cluttered the lesser curvature.
-  'V_STO',
+  'V_STO', 'V_STO_SG',
   // The caudate lobe veins are modeled but set aside in both views for now (the drawing, its
   // tributaries and Budd–Chiari collaterals are kept below for later).
   'CAUD']);

@@ -46,7 +46,7 @@ test('splenorenal shunt flow: blood runs from the splenic vein into the renal ve
   const W = run({ dsrs: true });
   assert.ok(W('S_DSR') > 0, 'Warren shunt drains the spleen');
   assert.ok(Math.abs(W('SV_MID')) < 1e-6, 'splenic vein divided between the shunt and the IMV');
-  assert.ok(Math.abs(W('S_DSR') - W('V_SPL')) < 0.05, 'only splenic blood takes the Warren shunt');
+  assert.ok(Math.abs(W('S_DSR') - W('V_SPL') - W('V_STO_SG')) < 0.05, 'the splenic blood and the stomach\'s short gastric veins take the Warren shunt');
   assert.ok(Math.abs(W('V_IMV') - W('SV_CONF')) < 0.05, 'the IMV drains through the splenic vein to the portal vein');
 });
 
@@ -102,18 +102,23 @@ test('splenorenal shunts keep clear of the descending colon and ease into the re
 });
 
 // Mohammad, 7 Nov: in a Warren shunt the coronary vein is tied off; it carries no flow, and the figure marks the tie.
-test('Warren shunt ties off the coronary vein: no flow in it, an X and sutures on it, the varices fed less', async () => {
+test('Warren shunt ties off the coronary vein: no flow in it, sutures on it, the varices decompressed', async () => {
   const fs = await import('node:fs');
   const run = (p) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle(); return (id) => e.Q[e.ei[id]]; };
   const base = run({}), W = run({ dsrs: true });
   assert.ok(Math.abs(base('LGV_CONF')) > 0.5, 'the coronary vein carries blood without the shunt');
   assert.ok(Math.abs(W('LGV_CONF')) < 1e-6, 'no flow beyond the tie');
   assert.ok(Math.abs(W('C1a')) < Math.abs(base('C1a')), 'the portal pressure feeds the esophageal varices less');
+  // The stomach has no way out through the tied vein, so it drains through the short gastric veins into the splenic vein (not a dead end at 30 mmHg and more).
+  assert.ok(W('V_STO_SG') > 0.3, 'the stomach drains through the short gastric veins');
+  assert.equal(base('V_STO_SG'), 0, 'shut without the Warren shunt');
+  const pr = (p) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle(); return e.P[e.ni.LGV]; };
+  assert.ok(pr({ dsrs: true }) < pr({}) - 5, 'the coronary vein is decompressed, not dammed up behind the tie');
   const engine = fs.readFileSync(new URL('../src/engine/engine.js', import.meta.url), 'utf8');
   assert.match(engine, /p\.dsrs && e\.id === 'LGV_CONF'/);
   const stage = stageSource();
   assert.match(stage, /ligature\('LGV_CONF', 'S_DSR', CORONARY_TIE\)/);
-  assert.match(stage, /putMark\(ov\.plugs, `tieX:\$\{id\}`/);
+  assert.doesNotMatch(stage, /tieX/, 'the ties are sutures alone, no plug cross');
   const { SHUNTS } = await import('../src/ui/decks/shunts.js');
   assert.match(SHUNTS.slides.find((x) => x.id === 'dsrs').line, /coronary vein is tied off/);
 });

@@ -95,6 +95,9 @@ export const EDGES = [
   { id: 'V_SPL', from: 'SPL', to: 'SVD', Q: 5.0, kind: 'vein', d: 8, label: 'Splenic vein (distal)' },
   { id: 'SV_MID', from: 'SVD', to: 'SV', Q: 5.0, kind: 'vein', d: 8, label: 'Splenic vein (mid)' },
   { id: 'V_STO', from: 'STO', to: 'LGV', Q: 1.6, kind: 'vein', d: 3, label: 'Gastric veins' },
+  // The stomach's other drainage, the short gastric veins into the splenic vein: shut (engine.js) until a Warren shunt ties off the coronary vein and
+  // the stomach drains through the spleen to the renal vein instead. Modeled, not drawn (anatomy.js HIDDEN_EDGES).
+  { id: 'V_STO_SG', from: 'STO', to: 'SVD', R: 2, kind: 'vein', d: 3, label: 'Short gastric veins' },
   { id: 'SMV_CONF', from: 'SMV', to: 'CONF', Q: 10.0, kind: 'vein', d: 10, label: 'Superior mesenteric vein' },
   { id: 'SV_CONF', from: 'SV', to: 'CONF', Q: 6.7, kind: 'vein', d: 8, label: 'Splenic vein (proximal)' },
   { id: 'LGV_CONF', from: 'LGV', to: 'CONF', Q: 1.6, kind: 'vein', d: 4, label: 'Left gastric (coronary) vein' },
