@@ -3340,7 +3340,7 @@ button.finding { cursor: pointer; }
 .dop-probe .dpr-gate { fill: none; stroke: var(--dop-mark); stroke-width: 3; stroke-linecap: round; }   /* (a bit thicker than the 2 px axis line (both thickened, Mohammad, 20 Oct); drawn on top of the axis and the line of sight) */
 .dop-probe .dpr-rim { fill: none; stroke: var(--dop-rim); stroke-width: 4; stroke-linejoin: round; }
 .dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-mark); stroke-width: 1.6; stroke-linejoin: round; }
-.dop-probe .dpr-face { fill: none; stroke: var(--dop-mark); stroke-width: 3; }
+.dop-probe .dpr-face { fill: var(--dop-face); stroke: var(--dop-mark); stroke-width: 1.4; stroke-linejoin: round; }   /* (the dark transducer band across the front, the face that touches the skin: dark in every look, white-lined like the rest) */
 .dop-probe .dpr-light { fill: var(--dop-glow); }
 /* Where portal blood goes: the share that bypasses the liver as the headline, over one bar split into the liver's share
    (portal pink) and the shunts' (plain, amber from the shunt tile's moderate cut, red from its large one), each share

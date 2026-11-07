@@ -481,7 +481,7 @@ export function probeFade(oP) {
 }
 
 // (The gate bars are drawn last, on top of the line of sight and the flow axis: Mohammad, 20 Oct.)
-// The probe's head: a convex face, a neck and a handle with a light in the glow's colour. Every mark is white-lined on a black
+// The probe's head: a convex face (a dark transducer band across the front, whatever the look, as a real probe's), a neck and a handle with a light in the glow's colour. Every mark is white-lined on a black
 // rim, so it reads on every vessel colour and theme.
 const BODY = 'M2 -11 Q-3 0 2 11 L10 11 L18 6 L42 6 Q48 6 48 0 Q48 -6 42 -6 L18 -6 L10 -11 Z';
 // (A model only, since 1 Nov 2026: plain elements carrying the shapes' numbers and their look from app.css, drawn on the labels' GPU layer
@@ -492,4 +492,4 @@ export const PROBE_MODEL = '<div class="dpr-svg"><i id="dpr-wedge">'
   + '<i class="dpr-rim-l dpr-beam"></i><i class="dpr-line dpr-beam"></i><i class="dpr-rim-l dpr-axis"></i><i class="dpr-line dpr-axis"></i>'
   + '<i class="dpr-gate-rim dpr-bars"></i><i class="dpr-gate dpr-bars"></i>'
   + `<i class="dpr-head"><i class="dpr-rim" d="${BODY}"></i><i class="dpr-body" d="${BODY}"></i>`
-  + '<i class="dpr-face" d="M2 -11 Q-3 0 2 11"></i><i class="dpr-light" cx="33" cy="0" r="3"></i></i></i></div>';
+  + '<i class="dpr-face" d="M2 -11 Q-3 0 2 11 L8 11 Q3 0 8 -11 Z"></i><i class="dpr-light" cx="33" cy="0" r="3"></i></i></i></div>';
