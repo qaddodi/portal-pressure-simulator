@@ -25,7 +25,9 @@ const nextFrame = frameFor('proc-anim');
 // T: the sequence in ms from the start (apply: the model takes the change; back: the catheter starts out; end: it has gone).
 // stops: where each step ends; presented, one Next plays one step and holds at its stop.
 // before: what a slide that plays it opens on, the procedure not done yet (no TIPS, the shunt open): its words keep the after state.
-const OBLIT_T = { travel0: 300, travel1: 6500, inflate0: 7400, inflate1: 9000, fill0: 10200, fill1: 15200, apply: 15500, fillOut: 16500, deflate: 17700, back: 18900, end: 22000 };
+// (apply comes after step 3's stop, as step 4 starts: the model closes the shunt, and its plug's X shows, only at step 4, "Shunt closed";
+// at 15500 it landed inside step 3, so the X was on the shunt while the sclerosant step was on show. Mohammad, 7 Nov 2026.)
+const OBLIT_T = { travel0: 300, travel1: 6500, inflate0: 7400, inflate1: 9000, fill0: 10200, fill1: 15200, apply: 16500, fillOut: 16500, deflate: 17700, back: 18900, end: 22000 };
 const OBLIT_STOPS = [7100, 9900, 16300, 22000];
 // How long a shot glides (ms), as a slide's own camera does; the procedure waits this long, and a little more, at each new shot.
 const SHOT_MS = 1500;

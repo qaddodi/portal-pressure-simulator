@@ -216,9 +216,10 @@ test('presented, it holds at each step until Next, waits for each shot to land, 
     assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip']);
     assert.equal(steps.at(-1), 1); assert.equal(marks.at(-1), '2 Balloon up');
     assert.ok(play.next()); R.run(30000);
-    assert.equal(applied, 1, 'the model took the change as the sclerosant filled');
+    assert.equal(applied, 0, 'the shunt stays open through the sclerosant step: it closes (and its X shows) only at step 4');
+    assert.ok(PROCS.brto.T.apply > P.stops[2] && PROCS.bato.T.apply > PROCS.bato.stops[2] && PROCS.brto.T.apply < P.stops[3], 'BRTO and BATO close at step 4');
     assert.ok(play.back()); R.run(30000);
-    assert.equal(applied, 0, 'and gave it back going back');
+    assert.equal(applied, 0, 'and nothing is applied going back');
     assert.equal(steps.at(-1), 1);
     assert.ok(play.back()); R.run(30000);
     assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'work', 'tip', 'way'], 'back through each shot, between steps');
