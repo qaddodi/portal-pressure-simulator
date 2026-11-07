@@ -60,3 +60,18 @@ test('the printed stylesheet has Light, the system dark theme, Dark, Soft, both 
   assert.ok(css.includes(`color-scheme: ${TOKENS.dark['color-scheme']};`), 'color-scheme is printed as the property, not a custom property');
   assert.ok(!css.includes('--from'), 'the parent link is not printed');
 });
+
+test('a chart in Dark (no data-palette) takes Dark\'s tokens, not Navy\'s', async () => {
+  const { makeCtx } = await import('../src/ui/chart-looks/resolve.js');
+  const attrs = { 'data-theme': 'dark' };
+  const was = globalThis.document;
+  globalThis.document = { documentElement: { getAttribute: (n) => (n in attrs ? attrs[n] : null) } };
+  try {
+    assert.equal(lookIdOf(makeCtx()), 'dark');
+    assert.equal(tokensFor(makeCtx()).bg, TOKENS.dark.bg ?? tokensOfLook('dark').bg);
+    attrs['data-palette'] = 'navy';
+    assert.equal(lookIdOf(makeCtx()), 'navy');
+    attrs['data-palette'] = 'black';
+    assert.equal(lookIdOf(makeCtx()), 'black');
+  } finally { if (was === undefined) delete globalThis.document; else globalThis.document = was; }
+});

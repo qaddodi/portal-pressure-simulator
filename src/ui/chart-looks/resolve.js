@@ -69,9 +69,9 @@ export function makeCtx(local = null) {
   const attr = ra('data-theme');
   const dark = attr === 'dark' || (attr !== 'light' && attr !== 'soft' && mq('(prefers-color-scheme: dark)'));
   const theme = attr === 'light' || attr === 'soft' || attr === 'dark' ? attr : dark ? 'dark' : 'light';
-  const l = local || {};
+  const l = local || {};   // (palette: none is Dark itself; a default of 'navy' here made every chart wear Navy's colours in Dark)
   const c = {
-    theme, dark, palette: ra('data-palette') || 'navy', view: l.view || viewNow, motion: reduced() ? 'reduce' : 'full',
+    theme, dark, palette: ra('data-palette') || '', view: l.view || viewNow, motion: reduced() ? 'reduce' : 'full',
     host: l.host || '', layout: l.layout || '', in: l.in || '', boxW: l.boxW || 0, scale: l.scale || NO_SCALE, svk: l.svk || 1, fit: l.fit || 1, dk: l.dk || 1, lad: l.lad || 1, hostPx: 12, sig: '',
   };
   c.hostPx = l.px > 0 ? l.px : HOSTS[c.host] ? HOSTS[c.host](c) : 12;   // (px: the size a fitted chart is drawn in, flow-time, curve and course: its host's size, grown to keep the type readable on a zoomed card)
