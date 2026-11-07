@@ -3,7 +3,7 @@ name: Pages (live site + preview)
 # Publishes two production builds (npm run build) to GitHub Pages:
 #   /          the tip of main (the live site)
 #   /preview/  the commit that triggered the run (the preview branch, or main after a merge)
-# On main, lint and unit tests (validate) gate the deploy and the build is strict (BUILD_STRICT: a chunk over the size limit fails it).
+# On main, lint and unit tests (validate) still run and report, but a red result no longer blocks the deploy (7 Nov, Mohammad); the build is strict (BUILD_STRICT: a chunk over the size limit fails it).
 # On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml.
 # On the preview branch a new push cancels every older run of this workflow, waiting or running: only the newest commit deploys.
 # On main nothing is cancelled. Browser checks are not part of the deploy.
@@ -56,10 +56,10 @@ jobs:
 
   deploy:
     needs: validate
-    # On main validate must pass; on the preview branch it is skipped and the deploy goes at once.
+    # On main validate may be red (it reports, it does not gate); on the preview branch it is skipped and the deploy goes at once.
     if: >-
       !cancelled() &&
-      ((github.ref_name == 'main' && needs.validate.result == 'success') ||
+      ((github.ref_name == 'main' && (needs.validate.result == 'success' || needs.validate.result == 'failure')) ||
        (github.ref_name == 'claude/settings-topbar-icon-flvft1' && needs.validate.result == 'skipped'))
     runs-on: ubuntu-24.04
     concurrency:
