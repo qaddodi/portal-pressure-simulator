@@ -1377,12 +1377,14 @@ function setSpeed(v, lapse = false) {
 // at once on the very devices it was meant for, each surface taking it in its own frame: the ground first, then the organs one by one (Mohammad,
 // 7 Nov 2026, three times). Now only a context over its memory envelope goes without: the two page pictures are the cost.)
 const canCrossfade = () => !!document.startViewTransition && !document.hidden && !gpuBudget().overMemory;
+// (Returns a promise for the wait: it resolves when the new page is whole and the crossfade is about to play, at once when the look changes without one.
+// The Appearance tiles show a ring on the tapped tile until then, look-chooser.js.)
 function switchTheme(t, clear) {
-  if (!canCrossfade()) { applyTheme(t, clear); return; }
+  if (!canCrossfade()) { applyTheme(t, clear); return Promise.resolve(); }
   // (The new page is whole before the crossfade captures it: every surface has drawn the look, themeSettled in theme-epoch.js, capped.)
   // (The page's rendering is held while the callback is pending, and with it the browser's animation frames: the scheduler's frames come from a
   // timer meanwhile (setFramePump), so the surfaces draw the new look before the new picture is taken. Once whole, it is.)
-  crossfade(async () => {
+  return crossfade(async () => {
     setFramePump(true);
     try {
       applyTheme(t, clear);
@@ -1400,6 +1402,7 @@ function crossfade(fn) {
   // (A crossfade the next one skips rejects its ready promise, an AbortError nobody awaits, and one whose update threw rejects the others: none of them is news here.)
   vt.ready.catch(() => {}); vt.updateCallbackDone.catch(() => {});
   vt.finished.catch(() => {}).finally(() => { if (pageFade === vt) pageFade = null; });
+  return vt.updateCallbackDone.catch(() => {});   // (the new page is whole: the fade starts now; an update that threw or a crossfade skipped ends the wait too)
 }
 addEventListener('pointerdown', (e) => {
   const vt = pageFade;
