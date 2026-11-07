@@ -2053,7 +2053,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   store.on('presentFp', () => { slideFp = null; });
   const pinned = () => (store.get().presenting ? slideFp || store.get().presentFp : null);
   const breath = (v) => Math.max(0.8, Math.abs(v) * 0.08);   // (how far the live model may breathe from a pinned number and still read it)
-  const { LABEL_GLIDE_MS, siteLeave, sitesPaint: sitesPaint$ } = createSitesPaint({ NI, NO_LIST, RES_BIT, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, beatMean, breath, easeFrame, easeInOut, late, nextFrame, nodePos, pinned, readFrame, refreshCTM, resMade, resPaint, resRatio, sites, stageBox, viewMoving, watch, worldToLocalInto }, live);
+  const { LABEL_GLIDE_MS, siteLeave, sitesPaint: sitesPaint$ } = createSitesPaint({ NI, NO_LIST, RES_BIT, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, beatMean, breath, buildSegs, easeFrame, easeInOut, late, lineHits: (r, m, skip) => lineHits(r, m, skip), nextFrame, nodePos, pinned, readFrame, refreshCTM, resMade, resPaint, resRatio, sites, stageBox, viewMoving, watch, worldToLocalInto }, live);
   function sitesPaint(...a) { return sitesPaint$(...a); }   // <stage-split stub>
   const { scan, scanCardsRead, scanPaint, scanTick, scanTipLocal, setScanProbe } = createScan({ NO_LIST, SCAN_BOX, gMatrix, late, nextFrame, organEls, organG, readFrame, refreshCTM, sites, stageBox, viewMoving, watch }, live);
   // ── The Doppler probe (dop-probe.js) ──

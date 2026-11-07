@@ -4,6 +4,7 @@ import { NODE_POS } from './anatomy.js';
 import { glassCallout } from './callout.js';
 import { SHOWN_TAU, follow2 } from './display-state.js';
 import { dropLabel } from './drop-label.js';
+import { ROOM_BASE, placeCallout } from './callout-room.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
@@ -12,7 +13,7 @@ import { clamp, fmt, putText } from './util.js';
 
 import { stageScope } from './stage-scope.js';
 export function createSitesPaint(st, live) {
-  const { NI, NO_LIST, RES_BIT, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, beatMean, breath, easeFrame, easeInOut, late, nextFrame, nodePos, pinned, readFrame, refreshCTM, resMade, resPaint, resRatio, sites, stageBox, viewMoving, watch, worldToLocalInto } = st;
+  const { NI, NO_LIST, RES_BIT, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, beatMean, breath, buildSegs, easeFrame, easeInOut, late, lineHits, nextFrame, nodePos, pinned, readFrame, refreshCTM, resMade, resPaint, resRatio, sites, stageBox, viewMoving, watch, worldToLocalInto } = st;
   // The "Portal blood" callout: the share that bypasses the liver as its headline, over one bar split into the liver's
   // share (portal pink) and the shunts' (tinted like the shunt tile: plain, amber, red). The bar follows the share it is
   // asked for through the one filter the tiles' bars follow theirs with (display-state.js follow2, SHOWN_TAU): a new share
@@ -80,6 +81,77 @@ export function createSitesPaint(st, live) {
     }
     const ahead = el.dataset.at === 'ahead' && !el.classList.contains('above');
     return ahead ? { x0: bx, y0: y, x1: bx + w, y1: y + 18 + h } : { x0: bx, y0: y - 18 - h, x1: bx + w, y1: y };
+  }
+  // Where the portal blood's share stands (7 Nov 2026, Mohammad: "always in the way of other vessels and is not elegantly placed"). It hung
+  // straight under its point, over the vessels that leave the portal vein. Now it stands in the open: callout-room.js tries the card on
+  // each side of the point, farther out and leaning, with a longer pointer that still reaches it, and takes the nearest spot that covers no
+  // vessel (the index the labels use, a vessel's own width counted; 7 px of air asked for, a touch of it forgiven), no card, the key or another callout. It is chosen
+  // once the figure has come to rest (for each slide and view: a card that is still clear is never moved), it then rides the figure at
+  // the same offset like every reading, and a spot chosen again glides there. While the figure still moves the first time, it waits hidden
+  // (at most ROOM_WAIT_MS), so it never shows in a spot it is then taken from.
+  const ROOM_AIR = 7, ROOM_WAIT_MS = 1200, ROOM_GLIDE_MS = 450, ROOM_PK = 8;
+  const siteAt2 = [0, 0];
+  const roomHit = (a, b, m) => a.x0 < b.x1 + m && a.x1 > b.x0 - m && a.y0 < b.y1 + m && a.y1 > b.y0 - m;
+  // (What a choice was made for: the point and the figure's scale on the stage, the free band, and the key's box.)
+  function roomKey(k, x, y, sc, x0, y0, x1, y1, ko) { k[0] = x; k[1] = y; k[2] = sc; k[3] = x0; k[4] = y0; k[5] = x1; k[6] = y1; k[7] = ko ? ko.l + ko.t * 7 : 0; }
+  function roomSame(k, x, y, sc, x0, y0, x1, y1, ko) {
+    return Math.abs(k[0] - x) < 3 && Math.abs(k[1] - y) < 3 && Math.abs(k[2] - sc) < 0.02 * sc + 0.5 && Math.abs(k[3] - x0) < 2 && Math.abs(k[4] - y0) < 2 && Math.abs(k[5] - x1) < 2 && Math.abs(k[6] - y1) < 2 && Math.abs(k[7] - (ko ? ko.l + ko.t * 7 : 0)) < 3;
+  }
+  function roomPick(el, x, y, x0, y0, x1, y1, ko, now) {   // alloc-rare: a choice is made once for each slide and view the figure rests in, never in a frame of motion
+    buildSegs();   // (the vessels as they stand now, not as the labels last saw them)
+    const w = 2 * el._half, h = el._h, made = sites.made;
+    const cost = (r, tail) => {
+      if (r.x0 < x0 || r.x1 > x1 || r.y0 < y0 || r.y1 > y1) return Infinity;
+      if (ko && roomHit(r, { x0: ko.l, y0: ko.t, x1: ko.r, y1: ko.b }, 8)) return Infinity;
+      for (const e of made.values()) if (e !== el && e._box && roomHit(r, e._box, 8)) return Infinity;
+      let v = 0;
+      // (On a vessel is far worse than within the air of one: where the free space is narrower than the card, as beside the IVC on a phone, the card
+      // takes the spot that touches least, never the one that covers a vessel.)
+      const n = lineHits(r, 0);
+      if (n) v += 120 + 14 * n;
+      else { const m = lineHits(r, ROOM_AIR); if (m) v += 30 + 4 * m; }
+      if (tail) { const m = lineHits(tail, 3); if (m) v += 24 + 4 * m; }
+      return v;
+    };
+    const was = el._pl;
+    return placeCallout({ nx: x, ny: y, w, h, below: el._below ?? true, cost, keep: was ? { below: was.below, gap: ROOM_BASE + was.ex, ax: was.ax } : null });
+  }
+  // The card's side, how much longer than the usual its pointer is, and its lean: null where it keeps the usual place (the figure moves, or
+  // nothing stands clear); el._plHold while it waits, hidden, for the figure to rest.
+  function splitRoom(el, np, x, y, x0, y0, x1, y1, ko) {
+    const now = performance.now();
+    const wl = worldToLocalInto(siteAt2, np[0] + 40, np[1]), sc = Math.hypot(wl[0] - x, wl[1] - y);
+    const moving = viewMoving() || (live.morph > 0 && live.morph < 1);
+    const k = el._pk || (el._pk = new Float64Array(ROOM_PK));
+    el._plHold = false;
+    if (el._plList !== sites.list || !roomSame(k, x, y, sc, x0, y0, x1, y1, ko)) {
+      if (moving && !el._pl && !el._plDone) {
+        el._plWait ||= now;
+        if (now - el._plWait < ROOM_WAIT_MS) { el._plHold = true; sitesAgain(); return null; }
+      }
+      if (!moving || (!el._pl && !el._plDone)) {
+        const to = roomPick(el, x, y, x0, y0, x1, y1, ko, now), at = el._pe;
+        roomKey(k, x, y, sc, x0, y0, x1, y1, ko); el._plList = sites.list; el._plWait = 0;
+        el._plDone = true;
+        if (!to) { el._pl = el._pe = el._pg = null; }
+        else {
+          const goal = { below: to.below, ex: to.gap - ROOM_BASE, ax: to.ax };
+          const shown = at && at.below === goal.below && !el.classList.contains('off') && !el.classList.contains('cath-pre') && !reduceMotion.matches;
+          el._pg = shown && (Math.abs(at.ex - goal.ex) > 0.5 || Math.abs(at.ax - goal.ax) > 0.5) ? { ex: at.ex, ax: at.ax, t0: now } : null;
+          el._pl = goal;
+          if (!el._pg || !at) el._pe = { below: goal.below, ex: goal.ex, ax: goal.ax };
+        }
+      }
+    }
+    const goal = el._pl, pe = el._pe;
+    if (!goal || !pe) return null;
+    const g = el._pg;
+    if (g) {
+      const u = clamp((now - g.t0) / ROOM_GLIDE_MS, 0, 1), e = easeInOut(u);
+      pe.below = goal.below; pe.ex = g.ex + (goal.ex - g.ex) * e; pe.ax = g.ax + (goal.ax - g.ax) * e;
+      if (u < 1) sitesAgain(); else el._pg = null;
+    } else { pe.below = goal.below; pe.ex = goal.ex; pe.ax = goal.ax; }
+    return pe;
   }
   // A site's reading that leaves fades out whole, its glass too (cath-leave), and is removed once faded.
   function siteLeave(k, el) {
@@ -160,14 +232,19 @@ export function createSitesPaint(st, live) {
       const b = el._b, v = d.split ? null : d.res ? (n == null ? '' : '×' + fmt(n, n < 10 ? 1 : 0)) : fmt(n, 1);
       if (v != null) putText(b, v);
       let x, y;
-      { const np = nodePos(d.node, t), wl = worldToLocalInto(siteAt, np[0], np[1]); x = wl[0]; y = wl[1]; }
+      const np = nodePos(d.node, t);
+      { const wl = worldToLocalInto(siteAt, np[0], np[1]); x = wl[0]; y = wl[1]; }
       // Off the free space (or a resistor with nothing to show, or out of the circuit), the reading waits hidden; above
       // its point unless the top is covered (decided once, so it never jumps).
       // (A reading wider than the free space, as the portal blood's share is between two wide cards on a phone held sideways, waits
       // hidden too: it would stand half under a card, its words cut off.)
       // (Nor does it stand on a card: one whose box would reach under the teaching card or the top cards turns to the other side of its point
       // where that is clear, and waits hidden where neither is: his ask, 6 Nov 2026, callouts "covering the card on phone".)
-      if (!d.res && el._kh > 0 && el._kt != null) {
+      // (The portal blood's share stands in the open instead: splitRoom, above. Its card is placed whole there, off the cards and the key, so
+      // the two rules below, which move a card by its side of its point, leave it be.)
+      const pl = d.split && el._half && el._h ? splitRoom(el, np, x, y, x0, y0, x1, y1, ko) : null;
+      if (pl) { const at = pl.below ? 'ahead' : ''; if (el.dataset.at !== at) el.dataset.at = at; el._below = pl.below; }
+      if (!d.res && !pl && el._kh > 0 && el._kt != null) {
         const rt = y + el._kt, rb = rt + el._kh;
         if (rb > y1 + 2 && el._below && y - 18 - el._kh >= y0) { el._below = false; el.dataset.at = ''; el._kt = -18 - el._kh; }
         else if (rt < y0 - 2 && !el._below && y + 18 + el._kh <= y1) { el._below = true; el.dataset.at = 'ahead'; el._kt = 18; }
@@ -175,12 +252,12 @@ export function createSitesPaint(st, live) {
       // (Neither side clear, where the band has room for it (the portal blood's share on a phone, between the data card and the teaching
       // card): it slides into the band, its pointer toward its point, rather than hide. Hidden only where the band is too short for it.)
       let sy = 0;
-      if (!d.res && el._kh > 0 && el._kt != null) {
+      if (!d.res && !pl && el._kh > 0 && el._kt != null) {
         const rt = y + el._kt, rb = rt + el._kh;
         if ((rb > y1 + 2 || rt < y0 - 2) && y1 - y0 >= el._kh + 4) sy = rt < y0 ? y0 - rt : y1 - rb;
       }
-      const yy = y + sy, onCard = !d.res && el._kh > 0 && el._kt != null && (yy + el._kt + el._kh > y1 + 2 || yy + el._kt < y0 - 2);
-      el.classList.toggle('off', onCard || x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)) || (!d.res && !!el._half && 2 * el._half > x1 - x0 + 1));
+      const yy = y + sy + (pl ? (pl.below ? pl.ex : -pl.ex) : 0), onCard = !d.res && el._kh > 0 && el._kt != null && (yy + el._kt + el._kh > y1 + 2 || yy + el._kt < y0 - 2);
+      el.classList.toggle('off', onCard || x < x0 || x > x1 || y < y0 || y > y1 || (!!d.res && (ratio == null || t < 0.5)) || (!d.res && !!el._half && 2 * el._half > x1 - x0 + 1) || !!el._plHold || (!!pl && (x - pl.ax - el._half < x0 - 2 || x - pl.ax + el._half > x1 + 2)));
       if (el._below == null && el._h) { el._below = d.below ? y + 18 + el._h < y1 : y - 18 - el._h < y0; el.dataset.at = el._below ? 'ahead' : ''; }
       // (Its width read again only when its words or classes change: a read after each frame's new number forced a layout.)
       // (Its digits are tabular, every one as wide as a zero (app.css .cath-label b), so a number counting to its next value keeps the
@@ -190,9 +267,10 @@ export function createSitesPaint(st, live) {
       // it, so it is not part of the key.)
       const wk = `${el.className.replace(/(?:^|\s)off(?=\s|$)/, '')}|${el.textContent.replace(/\d/g, '0')}|${W}|${live.labelBase()}|${live.labelFonts}`;
       if (el._wk !== wk || !el._half) siteSize(el, d, wk);
-      const half = el._half, cx = clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
+      const half = el._half, cx = pl ? x - pl.ax : clamp(x, Math.min(x0 + half, (x0 + x1) / 2), Math.max(x1 - half, (x0 + x1) / 2));
       el._box = el.classList.contains('off') ? null : calloutBox(el, d, cx, yy, half, el._h || 0);
       el.style.setProperty('--ax', `${(x - cx).toFixed(1)}px`);
+      if (d.split) { el._tl = pl ? pl.ex : 0; el._lean = !!pl; }   // (a longer pointer, leaning if need be, still on its point: callout.js)
       el._glass?.(x - cx);
       el.style.transform = `translate(${cx.toFixed(1)}px, ${yy.toFixed(1)}px)`; el._y = yy;
       // Over the key or the nav pill: the callout steps left, its pointer still on its point; with no room there, a callout above
@@ -201,7 +279,7 @@ export function createSitesPaint(st, live) {
       // the .45 s glide to that side, and a callout below its point counted as above it, its foot on the key: Shunts 2 sideways.)
       if (!d.res) { el._kh = el._h || 0; el._kt = el.dataset.at === 'ahead' && !el.classList.contains('above') ? 18 : -18 - el._kh; }
       else if (el._kw !== wk + el.dataset.at) { el._kw = wk + el.dataset.at; siteSize(el, d, wk); }
-      if (ko && !el.classList.contains('off')) {
+      if (ko && !pl && !el.classList.contains('off')) {
         const rl = cx - half, rr = cx + half, rt = yy + el._kt, rb = yy + el._kt + el._kh;   // (its box: left, right, top, bottom)
         if (rr > ko.l - 8 && rl < ko.r + 8 && rb > ko.t - 8 && rt < ko.b + 8) {
           const dx = rr - (ko.l - 8), dy = rb - (ko.t - 8);

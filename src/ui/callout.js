@@ -6,9 +6,8 @@
 import { createSvgGL, svgModel, setGeo } from './svg-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { onTheme } from './theme-epoch.js';
+import { KEEP, PTR } from './callout-ptr.js';   // (how far the pointer reaches past the card's edge, and how far it stays from the card's sides)
 
-const PTR = 11;   // how far the pointer reaches past the card's edge, and its half-width at the edge
-const KEEP = 28;  // the pointer stays this far from the card's sides, clear of the rounded corners
 const BORDER = 2; // the card's (transparent) border, which the glass covers
 // The printed-tag outline (1 Nov 2026): a 1 px hairline in the theme's strong border with a fifth of the reading's colour in it, not a
 // 2 px ring of the colour itself (app.css .cl-glass.cl-hair).
@@ -35,16 +34,17 @@ function lineGL(S) {
   S.glass.prepend(S.svg);   // (the model first, before the GPU drawer's canvases: the figure's GPU glass reads the shape there)
 }
 
-// The outline: a rounded rectangle (w × h at y = top) with the pointer on its bottom or top edge at x = px.
-const outline = (w, h, r, top, px, dir) => {
+// The outline: a rounded rectangle (w × h at y = top) with the pointer on its bottom or top edge at x = px, its tip `len` past the edge at
+// x = tx (px unless the pointer leans), everything shifted right by ox (a leaning tip can stand outside the card's width).
+const outline = (w, h, r, top, px, dir, len = PTR, tx = px, ox = 0) => {
   const b = top + h, f = (n) => +n.toFixed(2);
-  const P = (x, y) => `${f(x)} ${f(y)}`;
+  const P = (x, y) => `${f(x + ox)} ${f(y)}`;
   const arc = (x, y) => `A${f(r)} ${f(r)} 0 0 1 ${P(x, y)}`;
   let d = `M${P(r, top)}`;
-  if (dir === 'top') d += `H${f(px - PTR)}L${P(px, top - PTR)}L${P(px + PTR, top)}`;
-  d += `H${f(w - r)}${arc(w, top + r)}V${f(b - r)}${arc(w - r, b)}`;
-  if (dir === 'bottom') d += `H${f(px + PTR)}L${P(px, b + PTR)}L${P(px - PTR, b)}`;
-  return `${d}H${f(r)}${arc(0, b - r)}V${f(top + r)}${arc(r, top)}Z`;
+  if (dir === 'top') d += `H${f(px - PTR + ox)}L${P(tx, top - len)}L${P(px + PTR, top)}`;
+  d += `H${f(w - r + ox)}${arc(w, top + r)}V${f(b - r)}${arc(w - r, b)}`;
+  if (dir === 'bottom') d += `H${f(px + PTR + ox)}L${P(tx, b + len)}L${P(px - PTR, b)}`;
+  return `${d}H${f(r + ox)}${arc(0, b - r)}V${f(top + r)}${arc(r, top)}Z`;
 };
 
 // (Read in the observer's callback, after the browser's own layout: never on a frame.)
@@ -63,22 +63,28 @@ export function glassCallout(el, { pointer = true } = NO_OPTS) {
   // size: the card's exact (fractional) border box, and rad its corner radius, both taken when it is observed (its size changes): the
   // update itself, called on the figure's frames, reads no layout or style (1 Nov 2026, "Move everything to GPU").
   let ax = 0, size = null, rad = 14;
-  let kw = NaN, kh = NaN, kdir = '', kax = NaN;   // (what the shape was last drawn for: the size to 0.01 px, the pointer's offset to 0.1 px, its side)
+  let kw = NaN, kh = NaN, kdir = '', kax = NaN, klen = NaN;   // (what the shape was last drawn for: the size to 0.01 px, the pointer's offset to 0.1 px, its side and length)
   const update = (a) => {   // alloc-rare: made once for each callout, as it is first built (stage.js makes a callout only when it first shows), never per frame
     if (a != null) ax = a;
     if (!size) return;
     const [w, h] = size;
     if (!w) return;
     const dir = !pointer || el.classList.contains('in-sum') ? 'none' : (el.classList.contains('cath-js') || el.dataset.at === 'ahead') && !el.classList.contains('above') ? 'top' : 'bottom';
-    const qw = Math.round(w * 100), qh = Math.round(h * 100), qax = Math.round(ax * 10);
-    if (qw === kw && qh === kh && dir === kdir && qax === kax) return;
-    kw = qw; kh = qh; kdir = dir; kax = qax;
-    const r = rad;
-    const px = Math.max(KEEP, Math.min(w - KEEP, w / 2 + Math.max(-0.4 * w, Math.min(0.4 * w, ax)))), up = dir === 'top' ? PTR : 0;
-    const d = outline(w, h, r, up, px, dir);
-    glass.style.cssText = `left:${-BORDER}px;top:${-BORDER - up}px;width:${+w.toFixed(2)}px;height:${+(h + (dir === 'none' ? 0 : PTR)).toFixed(2)}px;clip-path:path('${d}')`;
+    // (A callout standing clear of its point (el._tl px farther than the usual pointer's reach, set by the stage: the portal blood's share, placed in
+    // the free space) has a longer pointer, which may lean: its tip stays on its point, however far to the side the card stands.)
+    const tl = el._tl > 0 ? el._tl : 0, lean = tl > 0 || el._lean === true;
+    const qw = Math.round(w * 100), qh = Math.round(h * 100), qax = Math.round(ax * 10), qlen = Math.round(tl * 10);
+    if (qw === kw && qh === kh && dir === kdir && qax === kax && qlen === klen) return;
+    kw = qw; kh = qh; kdir = dir; kax = qax; klen = qlen;
+    const r = rad, len = PTR + tl;
+    const want = w / 2 + (lean ? ax : Math.max(-0.4 * w, Math.min(0.4 * w, ax)));
+    const px = Math.max(KEEP, Math.min(w - KEEP, want)), tx = lean ? want : px, up = dir === 'top' ? len : 0;
+    const ox = lean ? Math.max(0, -tx) : 0, gw = lean ? Math.max(w, tx) + ox : w;   // (the glass's own width: the card, and the tip where it stands outside it)
+    const d = outline(w, h, r, up, px, dir, len, tx, ox);
+    const gh = +(h + (dir === 'none' ? 0 : len)).toFixed(2);
+    glass.style.cssText = `left:${-BORDER - ox}px;top:${-BORDER - up}px;width:${+gw.toFixed(2)}px;height:${gh}px;clip-path:path('${d}')`;
     setGeo(path, 'd', d);
-    setGeo(svg, 'viewBox', `0 0 ${+w.toFixed(2)} ${+(h + (dir === 'none' ? 0 : PTR)).toFixed(2)}`);
+    setGeo(svg, 'viewBox', `0 0 ${+gw.toFixed(2)} ${gh}`);
     S.gl?.paint();
   };
   // A live observation keeps the observer and the card alive: it ends with dispose(), or when the card leaves the page.
