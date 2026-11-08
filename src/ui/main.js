@@ -75,6 +75,7 @@ import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
 import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, setFramePump, figOpt, setFigOpt } from './frame.js';
 import { restPass } from './rest-pass.js';
+import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
 import { feedbackDiagnostics } from './feedback-diag.js';
@@ -108,6 +109,7 @@ const LENSES = {
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', oxygen: 'Oxygen', origin: 'Blood origin', firstpass: 'First pass' };
 
+const appScope = createScope();   // (the page's own timers: it lives as long as the page, so none is ever disposed; docs/scheduling.md)
 let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu, idleRest;
 
 // Surfaces most sessions never open (the command palette, the presenter) load
@@ -1431,7 +1433,7 @@ function switchTheme(t, clear) {
     try {
       applyTheme(t, clear);
       // (All of it within 900 ms, whatever each step waits for: the old page stays up until then, so a surface that never answers must not hold it long.)
-      await Promise.race([(async () => { await themeSettled(); await stage?.lookWhole?.(700); await settledSurfaces(); })(), new Promise((r) => setTimeout(r, 900))]);
+      await Promise.race([(async () => { await themeSettled(); await stage?.lookWhole?.(700); await settledSurfaces(); })(), new Promise((r) => appScope.timer(r, 900))]);
     } finally { pumpOff(); }
   });
 }

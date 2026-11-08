@@ -29,7 +29,7 @@
 //   node scripts/rules-lint.mjs --prune    take the switches the source no longer reads out of scripts/switches-left.json
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parse } from 'espree';
 import { sourceRegexTests } from './test-classes.mjs';
 import { inventory as chartInventory, countsOf as chartCounts } from './chart-looks-inventory.mjs';
@@ -407,6 +407,19 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
       if (n.type !== 'VariableDeclarator' || n.id.type !== 'ObjectPattern' || n.init?.type !== 'CallExpression' || !/^create/.test(n.init.callee?.name || '')) return;
       for (const k of bound(n.id)) if (imp.has(k)) errors.push(`${relative(ROOT, f)}:${n.loc.start.line} binds ${k} from ${n.init.callee.name}(), shadowing its own import of ${k}: rename one`);
     });
+  }
+}
+
+// Source shapes moved out of tests (8 Nov 2026, PR-02): each scripts/source-shapes/*.mjs default-exports rules of the form
+//   { file, need: [pattern, why] }  the file's text (file may be an array, and 'src/ui/stage*' is the stage and its parts: their texts joined) must match the pattern (a RegExp, or a string it must contain), or
+//   { file, forbid: [pattern, why] } it must not.
+// A rule is a test's old source assertion, kept with its one-line reason; a pattern that no longer matches means the code it guarded changed.
+for (const name of readdirSync(join(ROOT, 'scripts/source-shapes')).filter((n) => n.endsWith('.mjs')).sort()) {
+  const rules = (await import(pathToFileURL(join(ROOT, 'scripts/source-shapes', name)).href)).default;
+  for (const r of rules) {
+    const src = [].concat(r.file).flatMap((f) => (f.endsWith('*') ? stageFamily() : [f])).map((f) => readFileSync(join(ROOT, f), 'utf8')).join('\n'), [re, why] = r.need || r.forbid, has = typeof re === 'string' ? src.includes(re) : re.test(src);
+    if (r.need && !has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
+    if (r.forbid && has) errors.push(`${r.file}: ${why} (${re}) [source-shapes/${name}]`);
   }
 }
 

@@ -310,7 +310,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(st, /const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;/);
   assert.match(st, /wayIn \? \[Math\.max\(procIn\(r\), r\.free - Rf \* WAY_BEHIND\), Math\.min\(r\.total, r\.free \+ Rf \* WAY_AHEAD\)\]/);
   // A step callout keeps clear of every vessel on a short leader, at its own point, on a vessel not drawn yet too (the tract).
-  assert.match(st, /const tidy = \(lv \|\| m\.pin\) && !dop\.all \?/);
+  assert.match(st, /const tidy = \(lv \|\| pinned\) && !dop\.all \?/);
   assert.match(st, /const segAt = m\.f \?\? /);
   assert.match(st, /m\.ghost && geo\[m\.edges\[0\]\]\?\.cur\?\.length/);
   assert.match(st, /shaftPart\(sh\.n \* 2, ew, 7, edge, 0\.62\);/, 'every catheter, HVPG and treatments alike, on the one hairline edge (never under a device pixel past the shaft)');

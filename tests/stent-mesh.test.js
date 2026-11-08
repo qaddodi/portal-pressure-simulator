@@ -2,7 +2,6 @@
 // where they meet; a plain mesh (DIPS, the stent tool's shunts, the veins') is exactly what it was.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { BARE_CM, bareOf, stentMeshD } from '../src/ui/stent-mesh.js';
 
 // A straight vessel along +x, half-width 4: f(a, side) = [a, 4 * side].
@@ -64,14 +63,4 @@ test('the bare stretch is 2 cm of the shunt, never more than two fifths of it', 
   assert.equal(bareOf(100, 8), 25);
   assert.equal(bareOf(100, 4), 40, 'a short shunt keeps some cover');
   assert.equal(bareOf(100, 0), 25, 'an unknown length is the usual 8 cm');
-});
-
-test('the figure draws it: struts keep a device pixel, the cover and ring are device materials, the TIPS is unrolled with the veins\' stents', () => {
-  const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.stent-cover \{[^}]*var\(--dev-ptfe\)/, 'the PTFE wash');
-  assert.match(css, /\.stent-ring \{[^}]*var\(--dev-platinum\)/, 'the radiopaque ring');
-  assert.match(css, /\.stent-px \{ vector-effect: non-scaling-stroke; \}/, 'a pixel floor for struts and rails');
-  const venous = readFileSync(new URL('../src/ui/stage-venous.js', import.meta.url), 'utf8');
-  assert.match(venous, /meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole covered mesh, built once');
-  assert.match(venous, /d0 = tips \? 2 : /, 'unrolled from the portal end');
 });

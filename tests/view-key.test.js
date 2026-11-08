@@ -1,13 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { store, viewKey, setViewKey, viewIllegal, VIEW_KEYS } from '../src/ui/store.js';
-import { stageSource } from './stage-src.js';
 
 // The view key (implicit-state-machines M6/M7): four legal views over the store's view, lobule and sinusoid fields, one writer that is
 // always legal, and the two bugs the doc found (a sinusoid asked for mid-dive written true, false, true; a circuit turned to during the
 // dive's paint wait leaving lobule: true on the circuit).
-const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 const rest = () => { store.set({ view: 'anatomic', lobule: false, sinusoid: false }); };
 
 test('viewKey names the four views from the three fields', () => {
@@ -66,39 +63,14 @@ test('bug (a): Sinusoid pressed mid-dive is one store change, not true, false, t
     setViewKey('sinusoid');
     assert.deepEqual(heard, [true]);
   } finally { off(); rest(); }
-  const lz = src('lobule-zoom.js'), st = stageSource(), main = src('main.js'), act = src('actions.js');
-  const ask = lz.match(/function askSinusoid\(on\) \{[\s\S]*?\n {2}\}\n/)[0];
-  assert.match(ask, /if \(fade < 0\.98 && sv\.available && store\.get\(\)\.lobule\) \{ sinPending = true; return true; \}/);
-  assert.doesNotMatch(ask, /store\.set/, 'the ask writes no store field');
-  assert.match(st, /if \(!lz\?\.askSinusoid\(true\)\) setViewKey\('sinusoid'\);/);
-  assert.match(main, /store\.get\(\)\.lobule \? stage\.askSinusoid\(\) : stage\.diveToSinusoid\(\)/, 'the view button asks, it does not write sinusoid: true');
-  assert.match(act, /run: \(\) => CTX\.askSinusoid\(\)/);
-  assert.doesNotMatch(main, /store\.set\(\{ sinusoid: true \}\)/);
-});
-
-test('the lobule closing with the sinusoid open is quiet in one write as it was in two', () => {
-  const lz = src('lobule-zoom.js');
-  assert.match(lz, /if \(quietSin \|\| \(!on && !store\.get\(\)\.lobule\)\) \{ sinTo = 0; cancelFrame\(sinRaf\); sinClock\.stop\(\); return; \}/);
+  // the source shapes of the ask (it writes no store field; the stage writes the sinusoid once at the landing) are in scripts/source-shapes/c.mjs
 });
 
 test('bug (b): a turn to the circuit during the dive paint wait ends the wait and the store stops saying lobule', () => {
-  const st = stageSource();
-  assert.match(st, /else if \(diveWait && morphTarget !== 0\) \{ diveWait = 0; diveGen\+\+; if \(store\.get\(\)\.lobule\) store\.setSoon\(LOBULE_OFF\); \}/);
-  // the paint-ahead continuation re-checks diveWait === gen, so the called-off wait never dives
-  assert.match(st, /live\.diveWait === gen && !live\.lobuleOn && live\.diveT === 0/);
   // and the view buttons, the A key and the palette write the circuit through setViewKey, which clears the lobule in the same write
   rest(); setViewKey('lobule');
   setViewKey('circuit');
   assert.equal(store.get().lobule, false);
   assert.equal(viewKey(), 'circuit');
   rest();
-});
-
-test('the view writers go through setViewKey', () => {
-  const main = src('main.js'), pal = src('palette.js');
-  assert.match(main, /setViewKey\(b\.dataset\.view === 'circuit' \? 'circuit' : 'anatomy'\)/);
-  assert.match(main, /setViewKey\(viewKey\(\) === 'circuit' \? 'anatomy' : 'circuit'\)/);
-  assert.match(main, /function zoomLobule\(\) \{ stage\.askSinusoid\(false\); setViewKey\('lobule'\); \}/);
-  assert.match(pal, /setViewKey\('anatomy'\)/);
-  assert.match(pal, /setViewKey\('circuit'\)/);
 });

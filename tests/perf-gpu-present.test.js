@@ -1,7 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { stageSource, stageFn } from './stage-src.js';
 
 // Performance recommendations A2 to A5 and D1 (the figure's GPU present): exact changes to which passes load, which
 // frame presents how often, and what the overlays' lay and a trim touch. The GL context is recorded, not run.
@@ -109,14 +107,6 @@ test('A2: Sharper upscaling\'s whole-canvas draw and the plain upscale copy inva
   }
 });
 
-test('A2: the organ stack\'s camera move and the reuse target say so before they write the whole target', () => {
-  const organs = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
-  assert.match(organs, /gl\.useProgram\(moveP\.p\);\n\s+setM\(U\.toS/);
-  assert.match(organs, /gl\.disable\(gl\.SCISSOR_TEST\); gl\.disable\(gl\.BLEND\);\n\s+INVC\[0\] = gl\.COLOR_ATTACHMENT0; gl\.invalidateFramebuffer\(gl\.FRAMEBUFFER, INVC\);[^\n]*\n\s+gl\.useProgram\(moveP\.p\);/);
-  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(veins, /gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, rz\.fbo\);\n\s+if \(!own \|\| \(own\.w === rz\.w && own\.h === rz\.h\)\) noLoad\(gl\.DRAW_FRAMEBUFFER, false\);[^\n]*\n\s+gl\.blitFramebuffer\(0, 0, rz\.w, rz\.h/);
-});
-
 // ── A3 ──
 test('A3: a frame that draws and has stale overlays lays one picture: the draw\'s own present lays them', () => {
   const { g, f, look } = renderer();
@@ -129,17 +119,6 @@ test('A3: a frame that draws and has stale overlays lays one picture: the draw\'
   assert.equal(g.top.presents, at + 1, 'one picture laid for the frame');
   assert.equal(g.overlay.stale, false, 'with the overlays in it, so the stage lays no second one');
   assert.ok(f.calls.slice(n0).some((c) => c[0] === 'drawArrays'));
-});
-
-test('A3: the stage lays the overlays alone after its draw, and only if the draw laid no picture', () => {
-  const stage = stageSource();
-  assert.doesNotMatch(stage, /if \(OVER_ON && veins\?\.overlay\?\.stale && !veins\.lost\) veins\.present\(\);/, 'no present ahead of the draw');
-  assert.match(stage, /const overAt = OVER_ON && veins\?\.top \? veins\.top\.presents : -1;/);
-  const fn = stageFn('overAlone');
-  assert.match(fn, /veins\?\.overlay\?\.stale && !veins\.lost && veins\.top\.presents === at\) veins\.present\(\)/);
-  // (After the draw and before the still key is copied; and where a still figure goes to sleep.)
-  assert.match(stage, /veins\.composite\(vLook, bloodLook\(\), fluidMoved\) !== false\) \{[^\n]*\n\s+overAlone\(overAt\);\n\s+drawnView = viewVersion;/);
-  assert.match(stage, /!anyReveal\(\)\) \{ overAlone\(overAt\); sleep\(\); return; \}/);
 });
 
 // ── A4 ──
@@ -210,13 +189,6 @@ test('A5: under a camera the overlay lay is cut to its bounds, and nothing is la
   assert.notEqual(sc.at(-1)?.[0], 'enable');
 });
 
-test('A5: camDraw cuts the camera lay with the box it is given', () => {
-  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(veins, /function camDraw\(tex, blend, plain = false, box = null\) \{/);
-  assert.match(veins, /const sb = box \|\| \(plain \? ovBox : null\);\n\s+if \(sb\) \{ gl\.enable\(gl\.SCISSOR_TEST\); gl\.scissor\(sb\[0\], sb\[1\], sb\[2\] - sb\[0\], sb\[3\] - sb\[1\]\); \} else gl\.disable\(gl\.SCISSOR_TEST\);/);
-  assert.match(veins, /if \(ob && !camBox\(ob\)\) return;\n\s+try \{ if \(camDraw\(over\.texture, true, false, ob \? CB : null\)\) return; \} finally \{ gl\.disable\(gl\.SCISSOR_TEST\); \}/);
-});
-
 // ── D1 ──
 test('D1: trim() gives back the quality tiers\' targets, and prepLow makes them again', () => {
   const { g, f } = renderer();
@@ -248,13 +220,4 @@ test('D1: trim() of the lobule\'s shared renderer shrinks its texture of the hos
   assert.ok(sh.length >= 2, 'the vessel layer\'s base and the host\'s texture');
   assert.equal(lob.target.w, 640, 'sized again, cleared, when it is next asked for at the canvas\'s size');
   assert.ok(lob.target.gen > gen, 'a new texture generation: a kept picture of it is out of date');
-});
-
-test('D1: the streaks\' half-size target and the stage\'s warm-up after a trim', () => {
-  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(veins, /lowFree\(\);\n\s+if \(half\.tex\) \{[^\n]*texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA8, 1, 1,[^\n]*half\.w = half\.h = 0; \}/);
-  const stage = stageSource();
-  assert.match(stage, /if \(veinsTrimmed\) \{ veinsTrimmed = false; lowWarm\(\); \}/, 'shown again in the frame loop');
-  assert.match(stage, /set veinsTrimmed\(v\) \{ if \(veinsTrimmed && !v\) lowWarm\(\); veinsTrimmed = v; \}/, 'or by the dive\'s draw ahead');
-  assert.match(stage, /const \{ autoNow, easeRes, lowWarm, moveGaps,/);
 });

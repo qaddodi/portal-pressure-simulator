@@ -1,7 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { stageSource } from './stage-src.js';
 
 // Performance recommendation A1: the four speed features the 4 Nov flicker chase switched off, turned back on one at a time
 // (each its own commit, so any one can come back alone). The GL context is recorded, not run; a fake requestAnimationFrame
@@ -151,17 +149,6 @@ test('A1.1: a reader that takes the canvas in the frame (capture) lays the pendi
   assert.equal(g.top.presents, p0 + 1, 'nothing more at the frame\'s end');
 });
 
-test('A1.1: the stage\'s label and glass hosts ask through top.ask; the other hosts and the figure\'s own present stay immediate', () => {
-  const stage = stageSource();
-  assert.match(stage, /ask: \(\) => veins\?\.top\?\.ask\(\), now: \(\) => veins\?\.top\?\.ask\(\), active:/);
-  const glass = readFileSync(new URL('../src/ui/stage-glass.js', import.meta.url), 'utf8');
-  assert.match(glass, /now: \(\) => \{ if \(live\.veins && !live\.veins\.lost\) live\.veins\.top\.ask\(\); \}/);
-  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(veins, /const PRES_FOLD = true;/);
-  assert.match(veins, /present: \(\) => present\(true, true\),/, 'top.present (the lobule\'s, the sinusoid\'s, the covers\') is laid at once');
-  assert.match(veins, /setCameraRec[\s\S]{0,400}if \(!lost\) present\(true, true\);/, 'the camera\'s own present is the figure\'s');
-});
-
 // ── A1.2: still lumens while blood flows ──
 const STRIDE = mod.FLOW_TEXELS * 4;
 // (A flow table of four rows: the first `n` carry blood, strength above 0 in flow texel 1, z.)
@@ -181,16 +168,6 @@ function flowing(rows) {
   r.g.composite(r.look, { on: true, bt: 1 });   // (the blood's own frame: the rows and uniforms are now the last picture's)
   return r;
 }
-
-test('A1.2: the blood\'s clock is not in the still-lumens signature, and the rows that carry blood are marked moved when it moves', () => {
-  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  const comp = veins.slice(veins.indexOf('    composite(look, blood = NOBLOOD, full = false, part = 0) {'), veins.indexOf('    /** Whether organ outlines can be drawn here'));
-  const sig = comp.slice(comp.indexOf('sn = 0;'), comp.indexOf('const btNow')), mark = comp.slice(comp.indexOf('const btNow'), comp.indexOf('let same'));
-  assert.ok(!/blood\.bt/.test(sig.replace(/\/\/.*$/gm, '')), 'no clock in the signature');
-  assert.match(mark, /const btNow = blood\.bt \|\| 0;\n\s+if \(btNow !== btLast && \(blood\.on \|\| blood\.chev \|\| blood\.origin\)\) for \(let r = 0; r < nTubes; r\+\+\) if \(bloodRow\[r\]\) moved\[r\] = 1;\n\s+btLast = btNow;/);
-  assert.ok(comp.indexOf('btLast = btNow;') < comp.indexOf('let same'), 'marked before the frame is judged still');
-  assert.ok(comp.indexOf('btLast = btNow;') < comp.indexOf('moved.fill(0); movedAll = false;'), 'and before the marks are taken as drawn');
-});
 
 test('A1.2: blood standing still: the blood\'s frame is not drawn at all', () => {
   const { g, look } = flowing(2);
@@ -235,11 +212,4 @@ test('A1.2: blood off or a uniform changed: drawn as before (the signature still
   assert.notEqual(g.composite(look, { on: false, bt: 1 }), false, 'blood switched off');
   assert.notEqual(g.composite(look, { on: true, bt: 1 }), false, 'and on');
   assert.notEqual(g.composite(look, { on: true, bt: 1, alpha: 0.5 }), false, 'faded');
-});
-
-test('A1.3: a whole picture goes straight onto the canvas while blood flows too (the frame after makes the kept picture again)', () => {
-  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.ok(!/bloodOk/.test(veins), 'no blood gate on the direct whole picture');
-  assert.match(veins, /const direct = who !== 'lobule' && !noDirect && !!own && full && !up && !camOn\(\)/);
-  assert.match(veins, /if \(own && ownStale && !full\) full = true;/);
 });
