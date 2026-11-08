@@ -6,7 +6,8 @@
 // What it shows, and why:
 //  • Its two lines are the slide's first two tiles (graph: [..] names others; graph: false turns it off), so the graph and the numbers beside it
 //    are one reading: each point is the live model's own frame, the one the tiles are given in the same poll (presenter.js liveSet). A pressure
-//    takes the lower band on a scale from zero, so a fall keeps its true size; the other line the upper band.
+//    takes the left axis, on a scale from zero so a fall keeps its true size; the other line the right axis (8 Nov 2026: two y-axes, each the
+//    plot's full height, the lines may overlap; the left axis keeps the tints, the right its cut-offs as dashed lines).
 //  • Time is seconds of the model's own clock around the moment the procedure changes the patient (0: the stent opens, the shunt is closed):
 //    PRE_S seconds before it, held flat at the state the slide opened on, then EVENT_S seconds after. Played that way the model is let run
 //    on its own physics (no settling): the portal pressure falls over about ten seconds as the splanchnic blood drains through the stent and
@@ -67,7 +68,7 @@ const NICE = [1, 2, 2.5, 5, 10];
 const niceStep = (raw) => { const p = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1e-9)))); return NICE.find((s) => s * p >= raw - 1e-9) * p; };
 /**
  * A line's scale, fixed before it is drawn: { min, max, cuts: [{ v, rate }], zones: [{ a, b, rate }] } in the units the chart prints. vals:
- * the values it will show (where it starts, where it ends, in the model's units). A pressure runs from zero; the rest from its tile's scale
+ * the values it will show (where it starts, where it ends, in the model's units). Both axes take the plot's full height (8 Nov 2026), the lines may overlap. A pressure runs from zero; the rest from its tile's scale
  * start. The top is the first round number (a fifth of the way steps: 5 mmHg, 20%) over the highest value with room for its head, and over
  * the cut-off it is judged by. Cuts: the tile's own (a pressure's red one only), each named by its worse side; zones: the stretches between
  * them that rate amber or red, tinted. target: a goal below which the line should land (the PPG after a TIPS): one green zone in place of the rest.
@@ -122,14 +123,14 @@ export function createEventGraph() {
     const a = 3 * i, b = a + 3, k = (t - pts[a]) / Math.max(1e-9, pts[b] - pts[a]);
     return pts[a + 1 + j] + (pts[b + 1 + j] - pts[a + 1 + j]) * k;
   }
-  // The geometry for a chart w × h px in type f px: the legend, the upper band, the lower one under it, the clock under both.
+  // The geometry for a chart w × h px in type f px: the legend, the plot (both axes its full height), the clock under it.
   function geo(w, h, f) {
     const keysL = spec.lines.map((key) => { const [name, unit, , c] = LINE[key]; return { c, name, unit, w: 22 + cw(name, f, 1) + 6 + cw(unit, f) }; });
     const oneRow = keysL[0].w + keysL[1].w + 2 * f <= w, rowH = 1.5 * f, keyH = (oneRow ? 1 : 2) * rowH;
     const numW = (sc) => Math.max(cw(fmtN(sc.min), f), cw(fmtN(sc.max), f), ...sc.cuts.map((c) => cw(fmtN(c.v), f, 1)));
     const half = cw(`+${T1}`, f) / 2 + 6, L = Math.ceil(numW(scales[0]) + 14), R = Math.floor(w - Math.max(numW(scales[1]) + 14, half + f * 0.78 + 10));
     const T = keyH + 1.9 * f, B = h - 1.7 * f, ph = Math.max(4 * f, B - T);
-    return { w, h, f, half, keysL, oneRow, rowH, keyH, L, R, T, B, FB: [T, T + 0.36 * ph], PB: [T + 0.62 * ph, T + ph] };
+    return { w, h, f, half, keysL, oneRow, rowH, keyH, L, R, T, B, FB: [T, T + ph], PB: [T, T + ph] };   // (both axes the plot's full height: the lines may overlap)
   }
   function build() {
     const { f, L, R, T, B, FB, PB } = G;
@@ -142,13 +143,14 @@ export function createEventGraph() {
         val: sv('text', { class: 'pft-v', 'data-look': 'ft.v', 'data-p-c': tokName(c) }),
         P: new Float64Array(2 * (CAP + 4)), pk: NaN, txt: '', tw: 0 };
     });
-    // Each band: its tints first (the worse side of each cut-off, or the goal's green), then its two gridlines and its cut-offs' dashed lines,
-    // the numbers on the band's own side (the lower band's on the left, the upper's on the right), a number dropped where it would touch another.
+    // Each axis: the left (the lower line) draws its tints first (the worse side of each cut-off, or the goal's green) and its two gridlines;
+    // the right (the upper line) shares the gridlines and keeps its cut-offs as dashed lines only, no tint (two tints over one plot would
+    // mix). Both draw their cut-offs' lines and numbers on their own side (left, right), a number dropped where it would touch another.
     const marks = [], boxes = [];
     lines.forEach((l) => {
       const sc = scales[l.j], left = l.j === 0, x = left ? L - 6 : R + 6, anchor = left ? 'end' : 'start', taken = [];
       const room = (y) => taken.every((t) => Math.abs(t - y) >= 1.15 * f);
-      for (const z of sc.zones) {
+      for (const z of left ? sc.zones : []) {
         const y0 = l.Y(z.b), y1 = l.Y(z.a);
         marks.push(z.target ? sv('rect', { class: 'pev-zone', 'data-look': 'cv.zone.fill', x: L, y: y0, width: Math.max(1, R - L), height: Math.max(0, y1 - y0) })
           : sv('rect', { class: 'pev-zone', 'data-look': 'co.z', 'data-rate': z.rate, x: L, y: y0, width: Math.max(1, R - L), height: Math.max(0, y1 - y0) }));
@@ -164,7 +166,7 @@ export function createEventGraph() {
       }
       for (const v of [sc.max, sc.min]) {
         const y = l.Y(v);
-        marks.push(sv('g', { class: 'ptk-grid' }, sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: y, y2: y }),
+        marks.push(sv('g', { class: 'ptk-grid' }, left ? sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: y, y2: y }) : null,
           room(y) ? sv('text', { 'data-look': 'time.grid.text', 'data-p-c': tokName(l.c), x, y: y + 0.35 * f, 'text-anchor': anchor }, fmtN(v)) : null));
         if (room(y)) taken.push(y);
         if (!left) boxes.push([R + 6, R + 6 + cw(fmtN(v), f), y - 0.45 * f, y + 0.55 * f]);
