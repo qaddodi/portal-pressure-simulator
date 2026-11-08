@@ -30,7 +30,7 @@ let theme = null, themeWatch = false, themeSoon = 0;
 function readTheme() {
   themeSoon = 0;
   const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
-  theme = { panel: g('--inst-panel') || g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan'), halo: g('--fibroscan-halo') || 'black' };   // (halo: the big reading's, one solid colour, the map's darkest tone: a see-through halo showed the stroke's own overlaps as beads along the edge)
+  theme = { edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan'), halo: g('--fibroscan-halo') || 'black' };   // (halo: the big reading's, one solid colour, the map's darkest tone: a see-through halo showed the stroke's own overlaps as beads along the edge)
 }
 function watchTheme() {
   if (themeWatch) return;

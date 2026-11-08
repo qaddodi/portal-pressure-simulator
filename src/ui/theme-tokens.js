@@ -81,7 +81,6 @@ export const TOKENS = {
     'gut-a': '.66',   // as strong as the other organs (.55): at .28 it was too close to the background (Mohammad, 20 Oct)
     // the congested liver's nutmeg (organ picks, 20 Oct: "even dusk", faintest islands): an even dusky tone, pale islands
     'lv-cong-base': '#6E1F38', 'lv-cong-base-a': '.44', 'lv-cong-isl': '#E3C0A0', 'lv-cong-isl-a': '.11',
-    'knockout': 'rgba(241, 235, 224, .75)',
     'organ-body': '#E8DFD0',
     'organ-body-line': '#CFC1AA',
     'organ-liver': '#905b49',
@@ -121,6 +120,15 @@ export const TOKENS = {
     'spine': 'rgba(124, 150, 255, .09)', 'map-dot': 'rgba(160, 182, 255, .11)',
     'fx-ink': 'rgba(22, 24, 29, .88)',
     'stent-metal': '#667285', 'stent-marker': '#545D6C', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
+    // ── BEGIN device materials (visual-style D1): one table per look, read by the catheter shader (stage-cath.js, eus-scope.js: through toRGB), the tamponade marks (app.css) and the clots ──
+    // poly: the catheter's shaft (a blue-grey body that shows on paper) and its dark hairline; scope*: the EUS echoendoscope (insertion tube, rigid tip, transducer face, port) and its hairline
+    // (dark on the light looks, light on the dark ones); latex: compliant balloons (HVPG wedge, BRTO / BATO occlusion, tamponade; -a: the tamponade fill); nylon: the TIPS dilation balloon; steel: needles, wire;
+    // platinum: marker bands and coils; glue: the cyanoacrylate cast (EUS coils and glue); ptfe: the covered stent's cover (D4)
+    'dev-poly': '#9AA9BC', 'dev-poly-edge': '#2A303B',
+    'dev-scope': '#2B2E33', 'dev-scope-tip': '#5C5E66', 'dev-scope-face': '#C7C9CC', 'dev-scope-edge': '#0B0D12', 'dev-port': '#0D0D0F',
+    'dev-latex': '#DDB262', 'dev-latex-edge': '#8F6A33', 'dev-latex-a': '.45', 'dev-nylon': '#C9D9EE',
+    'dev-steel': '#7C8696', 'dev-platinum': '#8E949E', 'dev-glue': '#3B4E6B', 'dev-ptfe': '#D9DEE5',
+    // ── END device materials ──
     // chart series (validated categorical order, light)
     's1': '#2a78d6', 's2': '#eb6834', 's3': '#1baf7a', 's4': '#eda100', 's5': '#e87ba4', 's6': '#008300', 's7': '#4a3aa7', 's8': '#e34948',
     'grid': '#E2DACB',
@@ -281,7 +289,6 @@ export const TOKENS = {
     'og-light': 'rgba(255, 238, 226, .14)', 'og-dark': 'rgba(24, 10, 6, .35)', 'og-ao': 'rgba(10, 4, 2, .3)',
     'og-hi': 'rgb(255 235 225)', 'og-hi-k': '5.6%', 'gut-rim-k': '50%',
     'lv-cong-base': '#2A0C18', 'lv-cong-base-a': '.3', 'lv-cong-isl': '#C99A8C', 'lv-cong-isl-a': '.065',
-    'knockout': 'rgba(26, 25, 23, .7)',
     'organ-body': '#262421', 'organ-body-line': '#3A3733',
     'organ-liver': '#A88C82', 'organ-spleen': '#93889A', 'organ-gut': '#A8948A', 'organ-stomach': '#A99088', 'organ-heart': '#AE8387',
     'organ-kidney': '#A07E8E', 'organ-lung': '#6E7A8C', 'organ-pancreas': '#AFA286', 'organ-gb': '#8C9A7E', 'organ-aorta': '#6E6470', 'organ-a': '.3', 'organ-tint': '20%', 'diaphragm': '#9C8C84',
@@ -291,6 +298,12 @@ export const TOKENS = {
     'tr-pv': '#F0649E', 'tr-wedge': '#DA7EDD', 'tr-hv': '#5CA4F2', 'tr-ra': '#B7B1A8', 'tr-ivc': '#4CC2D6', 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
     'shadow-1': '0 0 0 1px var(--hairline)', 'shadow-2': 'var(--shadow-menu)', 'shadow-3': 'var(--shadow-dialog)',
     'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
+    // ── BEGIN device materials, dark looks (visual-style D1, D6, D9; Navy and Black take these) ──
+    'dev-poly': '#F0F0ED', 'dev-poly-edge': '#1C212B', 'dev-scope-edge': '#C9CED6',
+    'dev-latex': '#FCE6B3', 'dev-latex-edge': '#B08A59', 'dev-latex-a': '.34', 'dev-nylon': '#E5EDF7',
+    'dev-steel': '#B3B8C2', 'dev-platinum': '#A8ADB8', 'dev-glue': '#C9D6EC', 'dev-ptfe': '#C9D0DA',
+    'thrombus': '#8C3442', 'thrombus-edge': '#D49AA0',   // (a wine clot on a wine lumen needs a lighter body and a pale edge)
+    // ── END device materials, dark looks ──
     'lv-sep': '#E8C4AE', 'lv-nod': '#6E4428',
     'zone-1': 'rgb(246, 140, 120)', 'zone-2': 'rgb(232, 186, 112)', 'zone-3': 'rgb(170, 150, 246)',
     'sv-lumen-hidden': '#58607A', 'sv-fenestra': '#B8C6E2', 'sv-disse': '#B5D3A3', 'sv-hsc': '#D9B092', 'sv-kupffer': '#D6C6F2', 'sv-hepatocyte': '#E3B2A9',
@@ -339,7 +352,6 @@ export const TOKENS = {
     'og-heart-1': '#8E4A52', 'og-heart-2': '#5E2E3C', 'og-heart-3': '#CE8C92',
     'og-ra-1': '#964650', 'og-ra-2': '#632B3A', 'og-ra-3': '#D48F96',
     'og-light': 'rgba(255, 235, 225, .14)', 'og-dark': 'rgba(0, 0, 0, .35)', 'og-ao': 'rgba(0, 0, 0, .3)',
-    'knockout': 'rgba(11, 17, 32, .7)',
     'organ-body': '#1A2238', 'organ-body-line': '#2C3756',
     'organ-lung': '#5A6E90',
     'casing-rgb': '214 222 246', 'casing-a': '.34',
@@ -360,7 +372,6 @@ export const TOKENS = {
     'hairline': 'rgba(255, 255, 255, .1)', 'border': '#26262A', 'border-strong': '#3A3A40',
     'text': '#F4F4F5', 'text-2': '#B6B6BC', 'text-3': '#9C9CA4', 'text-inverse': '#0A0A0B',
     'brand-bg': '#232327',
-    'knockout': 'rgba(0, 0, 0, .7)',
     'organ-body': '#0F0F11', 'organ-body-line': '#2A2A2E',
     'casing-rgb': '0 0 0', 'casing-a': '.7',
     'stage-grid': 'rgba(255, 255, 255, .05)', 'leader': 'rgba(230, 230, 235, .42)', 'arrow-ink': 'rgba(244, 244, 245, .82)', 'label-halo': 'rgba(0, 0, 0, .9)', 'label-panel': 'rgba(0, 0, 0, .72)',

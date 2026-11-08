@@ -791,7 +791,7 @@ export function createVessels(st, live) {
       }
       if (tint) {
         const tc = toRGB(live.cathTint.col, cs);
-        tubeData[o + 32] = tc[0]; tubeData[o + 33] = tc[1]; tubeData[o + 34] = tc[2]; tubeData[o + 35] = 1;
+        tubeData[o + 32] = tc[0]; tubeData[o + 33] = tc[1]; tubeData[o + 34] = tc[2]; tubeData[o + 35] = live.cathTint.cast ? 2 : 1;   // (2: an opaque cast, the EUS glue: the blood stops inside it, veins-gl.js castAt)
         tubeData[o + 36] = t0; tubeData[o + 37] = t1; tubeData[o + 38] = live.cathTint.soft; tubeData[o + 39] = 0;
       } else if (kind === 's' && obj.wale > 0 && !originMode) {
         // The red wale sign on a varix strand (visual-style V3): the figure's --red-wale a share of the way into the lumen over the strand's middle

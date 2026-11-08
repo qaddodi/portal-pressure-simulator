@@ -527,7 +527,7 @@ void main() {
       vec4 tr = T(sid[s], 9);
       float Lv = max(T(sid[s], 5).z, 1.0), uu = su[s] * Lv;
       float k = smoothstep(tr.x * Lv - tr.z, tr.x * Lv + tr.z, uu) * (1.0 - smoothstep(tr.y * Lv - tr.z, tr.y * Lv + tr.z, uu));
-      scol[s] = mix(scol[s], tc.rgb, k * tc.w);
+      scol[s] = mix(scol[s], tc.rgb, k * min(tc.w, 1.0));   // (tc.w 2: an opaque cast, the EUS glue; the blood stops inside it, castAt)
     }
     sedge[s] = (int(t2.z + 0.5) & ${F_EDGE}) != 0 ? T(sid[s], 6).rgb : vec3(0.0);
     float a = t1.w;
@@ -1258,6 +1258,14 @@ void lymphAt(float s, float y, vec4 f0, float len, float R, out float cover, out
   float e = smoothstep(0.0, pitch * 1.2, min(s, len - s));
   cover *= e; core *= e;
 }
+// How much of a lumen is an opaque cast at arc length s (the EUS glue: its tint's w is 2, the same stretch and soft ends as the lumen colour's
+// own tint in the vessel pass): the blood draws nothing inside it.
+float castAt(int id, float s, float len) {
+  vec4 tc = texelFetch(tube, ivec2(8, id), 0);
+  if (tc.w < 1.5) return 0.0;
+  vec4 tr = texelFetch(tube, ivec2(9, id), 0);
+  return smoothstep(tr.x * len - tr.z, tr.x * len + tr.z, s) * (1.0 - smoothstep(tr.y * len - tr.z, tr.y * len + tr.z, s));
+}
 // Moving blood in one lumen at arc length s (world, may run past either end) and across y (−1 … 1):
 // the parcels' color and coverage, to be laid over the lumen color col. Read once in main for it and the arrowheads alike
 // (they were read by each): the vessel's flow texels f0 and f1 (f1.z > 0: main draws neither where it is not), its length,
@@ -1706,7 +1714,7 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
         A = vec4((A.rgb * A.a * (1.0 - bb) + A2.rgb * A2.a * bb) / max(aa, 1e-4), aa);
       }
       float dimK = mix(mix(0.6, 0.3, mn), 0.0, rel);
-      float a = A.a * (1.0 - dimK * smoothstep(0.02, 0.5, b));
+      float a = A.a * (1.0 - dimK * smoothstep(0.02, 0.5, b)) * (1.0 - castAt(id1, s1, len1));
 #if STREAK
       float aS = clamp(a * flowA * blendA.x, 0.0, 1.0);
       outColor = vec4(A.rgb * aS, aS);
@@ -1882,7 +1890,7 @@ void main() {
     a = col.a * vF * exp(-4.5 * t * t) * (1.0 - smoothstep(0.55, 1.0, t)) * fe;
     // A hair of noise, so a long faint ramp does not step in 8-bit colour.
     a = max(a + (fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) / 255.0, 0.0) * step(0.0005, a);
-  } else a = col.a * clamp(max(vW, 0.5) + 0.5 - abs(vD), 0.0, 1.0) * min(1.0, vW * 2.0) * fe;
+  } else a = col.a * clamp(max(vW, 0.5) + 0.5 - abs(vD), 0.0, 1.0) * fe;   // (a stroke is at least one device pixel wide, at full strength: the stent's struts and rails, a balloon's rim, visual-style D3)
   o = vec4(col.rgb * a, a);
 }`;
 

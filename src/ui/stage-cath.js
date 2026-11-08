@@ -15,7 +15,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { procSpecs } from './proc-routes.js';
 import { restPass } from './rest-pass.js';
 import { clamp, lerp, s } from './util.js';
-import { EUS_GLUE_ROUTE, EUS_ROUTE, eusDraw } from './eus-scope.js';
+import { EUS_GLUE_ROUTE, EUS_ROUTE, coilReach, eusDraw } from './eus-scope.js';
 
 import { stageScope } from './stage-scope.js';
 export function createCath(st, live) {
@@ -23,6 +23,9 @@ export function createCath(st, live) {
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
   // (How far the glue spreads along the varix each way from the needle's point, as a share of the vessel's course, once it has all gone in.)
   const GLUE_SPREAD = 0.16;
+  // (World units per device pixel now, for the pixel floors of the finest parts and the edge: the stage's pixels per world unit and the canvas's per CSS pixel. 0 before the view is known.)
+  const COIL_NOW = { dir: 1, rho: 0, span: 0 };
+  const pxNow = () => { const c = live.CTM, k = c ? (live.vdpr || 1) * Math.hypot(c.a, c.b) : 0; return k > 0 ? 1 / k : 0; };
   const lenTo = (pts) => { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; };
   /** The part of a polyline from length a to length b (cumulative lengths in cum). */
   function cutLen(pts, cum, a, b) {
@@ -207,10 +210,18 @@ export function createCath(st, live) {
     let tint = null;
     const col = clamp(st.column || 0, 0, 1);
     if (gpu && col > 0.001 && r.glue) {
-      // EUS-guided glue: it fills the varix from the needle's point both ways along its course (r.glue: the vessel and the point), as far
-      // as the coils hold it, the cast's ends soft.
-      const g = r.glue, w = GLUE_SPREAD * col;
-      tint = { col: st.columnColor || 'var(--tr-scler)', soft: Rf * 1.6, [g.id]: [g.f - w, g.f + w * 0.9] };
+      // EUS-guided glue: an opaque cast (--dev-glue, cast: the blood stops inside it, veins-gl.js castAt) that fills the varix from the needle's
+      // point as far as the coils lie (eus-scope.js coilReach: along the coil's side, with a little behind the point), the cast's ends soft.
+      // (BRTO's sclerosant, a liquid, keeps its translucent wash below.) Before the coil is laid it spreads GLUE_SPREAD each way as it did.
+      const g = r.glue;
+      g.rad = cathRadOf(g.id, g.f);   // (the varix's lumen as drawn now, as eusGL has it)
+      const cr = g.path ? coilReach(g, COIL_NOW) : null, L = g.path?.len || 0;
+      let lo, hi;
+      if (cr && L > 0 && cr.span > 0) {
+        const fwd = (cr.span + cr.rho * 0.6 + 1) / L * col, back = (cr.rho * 0.5 + 1) / L * Math.min(1, col * 2);
+        lo = g.f - (cr.dir > 0 ? back : fwd); hi = g.f + (cr.dir > 0 ? fwd : back);
+      } else { const w = GLUE_SPREAD * col; lo = g.f - w; hi = g.f + w * 0.9; }
+      tint = { col: st.columnColor || 'var(--dev-glue)', soft: Rf * 1.6, cast: true, [g.id]: [lo, hi] };
     } else if (gpu && col > 0.001 && r.parts) {
       // A treatment's sclerosant: from the tip on to the route's end, each vessel it reaches tinted over the part it covers
       // (an end where it runs on into the next vessel left open, so the joins show no edge).
@@ -260,6 +271,7 @@ export function createCath(st, live) {
   function cathGL(st, r, tipD, rc) {
     const V = [], draws = [], op = st.opacity ?? 1, cs = wrapCS();
     const sh = cathShaft(r, rc), begin = () => sh.count + V.length / 6;
+    const px = pxNow(), ew = edgeR(rc, px), [sox, soy] = shadowOff(rc, px);   // (the edge's radius, never under a device pixel past the shaft; the contact shadow's offset, along the light)
     const tube = (a, b, rOf, mode, col, alpha, fade, ox = 0, oy = 0) => {
       const first = begin(), step = Math.max(rc * 0.6, 0.35);
       const n = Math.max(2, Math.ceil((b - a) / step) + 1);
@@ -276,9 +288,10 @@ export function createCath(st, live) {
     };
     // One catheter for every procedure (HVPG, TIPS, BRTO, BATO): a satin polymer shaft with a hairline edge and a soft contact
     // shadow, a tip that tapers to a rounded end, and a slim platinum marker band behind it.
-    const shaft = CATH_POLY, edge = CATH_EDGE_INK, metal = CATH_METAL;
+    // (The materials are the look's, theme-tokens.js --dev-*: the same table the marks and the scope read.)
+    const shaft = toRGB('var(--dev-poly)', cs), edge = toRGB('var(--dev-poly-edge)', cs), metal = toRGB('var(--dev-platinum)', cs), steel = toRGB('var(--dev-steel)', cs), shade = toRGB('var(--cath-shadow)', cs);
     const b = tipD - rc * 1.6, k = Math.min(sh.n, Math.ceil(b / sh.step));
-    const shaftPart = (first, w, mode, col, alpha) => {
+    const shaftPart = (first, w, mode, col, alpha, ox = 0, oy = 0) => {
       if (k < 1) return;
       draws.push({ mode, first, count: k * 2, col, alpha: alpha * op, fade: [60, 0], len: b });
       const a = (k - 1) * sh.step;
@@ -286,7 +299,7 @@ export function createCath(st, live) {
         const f = begin();
         for (const d of [a, b]) {
           const q = cathAt(r, d), nx = -q.t[1], ny = q.t[0];
-          for (const side of [-1, 1]) V.push(q.p[0] + nx * w * side, q.p[1] + ny * w * side, nx, ny, side, d);
+          for (const side of [-1, 1]) V.push(q.p[0] + ox + nx * w * side, q.p[1] + oy + ny * w * side, nx, ny, side, d);
         }
         draws.push({ mode, first: f, count: 4, col, alpha: alpha * op, fade: [60, 0], len: b });
       }
@@ -294,11 +307,11 @@ export function createCath(st, live) {
     // The taper: the last stretch narrows to two thirds, then a rounded end (its edge drawn first, round it).
     const taper = (q, d) => rc * lerp(1, 0.66, smoothstep01((d - b) / (rc * 1.6)));
     const tp = cathAt(r, tipD), tipR = rc * 0.66;
-    shaftPart(0, rc * 2.2, 0, [0.04, 0.05, 0.08], 0.2);
-    tube(b, tipD - rc * 0.3, (q, d) => taper(q, d) * 2.2, 0, [0.04, 0.05, 0.08], 0.12, [0, 0]);
-    shaftPart(sh.n * 2, rc * CATH_EDGE, 7, edge, 0.62);
-    tube(Math.max(0, b - rc * 0.2), tipD, (q, d) => taper(q, d) + (CATH_EDGE - 1) * rc, 7, edge, 0.62, [0, 0]);
-    disc(tp.p, tp.t, tipR + (CATH_EDGE - 1) * rc, tipR + (CATH_EDGE - 1) * rc, 8, edge, 0.62);
+    shaftPart(0, rc * 2.2, 0, shade, 0.2, sox, soy);
+    tube(b, tipD - rc * 0.3, (q, d) => taper(q, d) * 2.2, 0, shade, 0.12, [0, 0], sox, soy);
+    shaftPart(sh.n * 2, ew, 7, edge, 0.62);
+    tube(Math.max(0, b - rc * 0.2), tipD, (q, d) => taper(q, d) + (ew - rc), 7, edge, 0.62, [0, 0]);
+    disc(tp.p, tp.t, tipR + (ew - rc), tipR + (ew - rc), 8, edge, 0.62);
     shaftPart(sh.n * 4, rc, 2, shaft, 1);
     tube(Math.max(0, b - rc * 0.2), tipD, taper, 2, shaft, 1, [0, 0]);
     disc(tp.p, tp.t, tipR, tipR, 4, shaft, 1);
@@ -306,13 +319,14 @@ export function createCath(st, live) {
     // catheter covers them as it slides over: the needle brushed steel with a hairline edge, narrowing to a bevelled point; the
     // wire a fine dark line on into the portal trunk. The portal hit: two rings at the needle's tip, the portal vein's colour.
     const toD = (u) => r.start + (r.free - r.start) * clamp(u, 0, 1);
-    if (st.wire > 0) { const wD = toD(st.wire); if (wD > tipD + rc * 0.6) { tube(tipD + rc * 0.3, wD, () => rc * 0.3, 7, edge, 0.9, [0, 0]); tube(tipD + rc * 0.3, wD, () => rc * 0.14, 3, metal, 0.8, [0, 0]); } }
+    // (Pixel floors, visual-style D3: the wire is never under 1 px across, the needle never under 2.)
+    if (st.wire > 0) { const wD = toD(st.wire); if (wD > tipD + rc * 0.6) { const ww = Math.max(rc * 0.14, px * 0.5); tube(tipD + rc * 0.3, wD, () => Math.max(rc * 0.3, ww + px * 0.5), 7, edge, 0.9, [0, 0]); tube(tipD + rc * 0.3, wD, () => ww, 3, steel, 0.8, [0, 0]); } }
     if (st.needle > 0) {
       const nD = toD(st.needle), bev = rc * 1.4;
       if (nD > tipD + rc * 0.6) {
-        const nr = (q, d) => rc * 0.42 * lerp(1, 0.18, smoothstep01((d - (nD - bev)) / bev));
-        tube(tipD + rc * 0.3, nD, (q, d) => nr(q, d) + rc * 0.12, 7, edge, 0.75, [0, 0]);
-        tube(tipD + rc * 0.3, nD, nr, 3, metal, 1, [0, 0]);
+        const nw0 = Math.max(rc * 0.42, px), nr = (q, d) => nw0 * lerp(1, 0.18, smoothstep01((d - (nD - bev)) / bev)), ne = Math.max(rc * 0.12, px * 0.5);
+        tube(tipD + rc * 0.3, nD, (q, d) => nr(q, d) + ne, 7, edge, 0.75, [0, 0]);
+        tube(tipD + rc * 0.3, nD, nr, 3, steel, 1, [0, 0]);
       }
       if (st.flash > 0) {
         const np = cathAt(r, nD), rgb = toRGB('var(--tr-pv)', cs);
@@ -341,7 +355,7 @@ export function createCath(st, live) {
         const nx = -o.t[1], ny = o.t[0], v = Math.sqrt(Math.max(0, 1 - o.s * o.s));
         for (const side of [-1, 1]) V.push(o.c[0] + nx * o.h * side, o.c[1] + ny * o.h * side, o.t[0], o.t[1], o.s, v * side);
       }
-      draws.push({ mode: 5, first, count: begin() - first, col: CATH_LATEX, alpha: (0.7 + 0.3 * bl) * op });   // latex over dilute contrast
+      draws.push({ mode: 5, first, count: begin() - first, col: toRGB(sp ? 'var(--dev-nylon)' : 'var(--dev-latex)', cs), alpha: (0.7 + 0.3 * bl) * op });   // latex over dilute contrast (a TIPS's dilation balloon, on its span, is clear nylon)
     }
     // The tip reading: two ripples running out from it.
     if (st.ring) {
@@ -356,19 +370,25 @@ export function createCath(st, live) {
   // EUS-PPG's echoendoscope, its sector and its needle (eus-scope.js), sent as the catheter is.
   function eusGL(st, r, tipD) {
     if (r.glue) r.glue.rad = cathRadOf(r.glue.id, r.glue.f);   // (the varix's lumen as drawn now: the coil stays inside it, eus-scope.js)
-    const o = eusDraw(st, r, tipD, cathAt, (c) => toRGB(c, wrapCS()));
+    const o = eusDraw(st, r, tipD, cathAt, (c) => toRGB(c, wrapCS()), pxNow());
     if (cathV.length < o.V.length) cathV = new Float32Array(o.V.length * 2);
     cathV.set(o.V); cath.balBox = null; cath.at.tip = r.tg.hv; cath.at.ahead = r.tg.pv;   // (its readings' points: the hepatic vein's target and the portal vein's, cathLabels)
     live.veins.setCath(cathLast = { base: null, verts: cathV.subarray(0, o.V.length), draws: o.draws, light: LIGHT, whole: true });   // (whole: veins-gl.js, every frame repainted whole, never the scope's box alone)
   }
-  // The catheter's materials: an ivory polymer, a deep neutral hairline at 1.16 of its radius, platinum markers, clear latex.
-  const CATH_POLY = [0.94, 0.94, 0.93], CATH_EDGE = 1.16, CATH_EDGE_INK = [0.11, 0.13, 0.17], CATH_METAL = [0.66, 0.68, 0.72], CATH_LATEX = [0.9, 0.93, 0.97];
+  // The catheter's materials are the look's (--dev-*, theme-tokens.js): a polymer shaft, a dark hairline, platinum markers, steel needle and wire, latex
+  // or nylon balloons. Its edge is 1.16 of the shaft's radius, and never under one device pixel past it (D2); its contact shadow falls the way the
+  // vessels' do, away from the one light (LIGHT), a little over half the shaft's radius, a pixel at least.
+  const EDGE_K = 1.16;
+  const edgeR = (rc, px) => Math.max(rc * EDGE_K, rc + px);
+  const SHADOW = [0, 0];
+  const shadowOff = (rc, px) => { const d = Math.max(rc * 0.6, px); SHADOW[0] = -LIGHT[0] * d; SHADOW[1] = -LIGHT[1] * d; return SHADOW; };
   const smoothstep01 = (x) => { const u = Math.min(1, Math.max(0, x)); return u * u * (3 - 2 * u); };
   // The shaft's tube and its shadow's along the whole route, at the shaft's one width (cath.rc), sampled every `step` from the
   // start: made once per route and width and sent to the GPU once (veins-gl.js setCath's base); a frame draws them in to the tip.
   // (It was every sample of both rebuilt and sent again each frame, the ripples alone changing as a reading showed.)
   function cathShaft(r, rc) {
-    const key = `${r.kind}|${r.pts.length}|${r.total}|${r.pts[0]}|${r.pts.at(-1)}|${rc}`;
+    const px = pxNow(), ew = edgeR(rc, px), so = shadowOff(rc, px), sox = so[0], soy = so[1];
+    const key = `${r.kind}|${r.pts.length}|${r.total}|${r.pts[0]}|${r.pts.at(-1)}|${rc}|${ew.toFixed(2)}|${sox.toFixed(2)},${soy.toFixed(2)}`;
     if (cath.shaft?.key === key) return cath.shaft;
     const step = Math.max(rc * 0.6, 0.35), n = Math.floor(r.total / step) + 1, V = new Float32Array(n * 36);
     const tube = (o, w, ox, oy) => {
@@ -379,8 +399,8 @@ export function createCath(st, live) {
       }
     };
     // the shadow; a treatment's is its dark rim, round the shaft, so the catheter stands out on any vein
-    tube(0, rc * 2.2, 0, 0);                  // a soft contact shadow, straight under it
-    tube(n * 12, rc * CATH_EDGE, 0, 0);       // its hairline edge
+    tube(0, rc * 2.2, sox, soy);              // a soft contact shadow, cast along the light
+    tube(n * 12, ew, 0, 0);                   // its hairline edge
     tube(n * 24, rc, 0, 0);                   // the shaft
     return (cath.shaft = { key, step, n, count: n * 6, verts: V });
   }
@@ -433,7 +453,7 @@ export function createCath(st, live) {
   function cathSVG(st, r, tipD, cw, wHV) {
     const body = cutLen(r.pts, r.cum, 0, tipD), d = polyD(body), tp = body[body.length - 1];
     for (const el of [cath.shadow, cath.body]) el.setAttribute('d', d);
-    cath.shadow.setAttribute('stroke-width', (cw * CATH_EDGE).toFixed(2)); cath.body.setAttribute('stroke-width', cw.toFixed(2));
+    cath.shadow.setAttribute('stroke-width', (cw * EDGE_K).toFixed(2)); cath.body.setAttribute('stroke-width', cw.toFixed(2));
     cath.tip.setAttribute('cx', tp[0].toFixed(2)); cath.tip.setAttribute('cy', tp[1].toFixed(2)); cath.tip.setAttribute('r', (cw * 0.5).toFixed(2));
     cath.ring.setAttribute('cx', tp[0].toFixed(2)); cath.ring.setAttribute('cy', tp[1].toFixed(2));
     cath.ring.setAttribute('r', (cw * (1.8 + 0.8 * (st.pulse || 0))).toFixed(2)); cath.ring.style.display = st.ring ? '' : 'none';

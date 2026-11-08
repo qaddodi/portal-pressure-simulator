@@ -308,7 +308,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(st, /const tidy = \(lv \|\| m\.pin\) && !dop\.all \?/);
   assert.match(st, /const segAt = m\.f \?\? /);
   assert.match(st, /m\.ghost && geo\[m\.edges\[0\]\]\?\.cur\?\.length/);
-  assert.match(st, /shaftPart\(sh\.n \* 2, rc \* CATH_EDGE, 7, edge, 0\.62\);/, 'every catheter, HVPG and treatments alike, on the one hairline edge');
+  assert.match(st, /shaftPart\(sh\.n \* 2, ew, 7, edge, 0\.62\);/, 'every catheter, HVPG and treatments alike, on the one hairline edge (never under a device pixel past the shaft)');
   assert.match(st, /r\.parts \? Math\.max\(rc \* 1\.35, Rb\) : rc \* 1\.35/);
   assert.match(st, /const PROC_K_MAX = 5;/);
   assert.match(st, /if \(r\.parts\) \{[\s\S]{0,300}const tq = cathAt\(r, ob \? oblitAim\(r, fill \? [^\n]*: Math\.max\(tipD, procIn\(r\)\)\)\.p/, 'the view follows the tip in (BRTO and BATO: ahead of it, or the sclerosant\'s front)');

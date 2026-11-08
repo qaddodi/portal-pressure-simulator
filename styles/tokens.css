@@ -87,7 +87,7 @@
   --light-ink: #FFFFFF; --shade-ink: #000000; --tube-shade-ink: #0A0612; --lit-lo-ink: #1A0D14;
   /* pathology and devices on the plate */
   --path-congestion: #6B2432; --path-nutmeg: #5A2230;
-  --red-wale: #D0192E; --balloon: #F2E3A6; --balloon-line: #B69A2C; --laser: #FF2B3A;
+  --red-wale: #D0192E; --laser: #FF2B3A;
   /* instruments drawn as their machines are, dark in both themes */
   --scope-bg: #05070D; --mon-bg: #07090C; --mon-grid: #1C2128; --mon-line: #2A3038; --mon-text: #9AA4B2; --mon-alarm: #FF7A85;
   /* endoscopy and FibroScan screens (both themes): balloon glare, blood pool and jet, the scope's rim */
@@ -112,9 +112,8 @@
   --dye-icon: #7fae16;
   /* timeline time-lapse, and a wrong answer in the exam review */
   --lapse: var(--caution); --exam-no: var(--danger);
-  /* catheter (drawn the same in both themes), FibroScan probe, Doppler mode chips */
-  --cath-body: #F4F6FA; --cath-tip: #1B2230; --cath-balloon: rgba(226, 233, 244, .78); --cath-shadow: rgba(10, 14, 22, .55);
-  --latex: #FCE6B3; --latex-edge: #B08A59;   /* the wedge balloon's latex (veins-gl.js mode 5: col and its rim, col x .7 .6 .5), shared by the tamponade balloons */
+  /* catheter's contact shadow (the device materials, --dev-*, are per look: src/ui/theme-tokens.js), FibroScan probe, Doppler mode chips */
+  --cath-shadow: rgba(10, 14, 22, .55);
   --fibroscan-halo: rgb(22, 12, 9);   /* the FibroScan reading's outline: the map's darkest tone, solid */
   --fibroscan: #f0924a; --fibroscan-spleen: #b474f4; --dop-chip-away: var(--dop-away); --dop-chip-toward: var(--dop-toward);
   /* lobule art (canvas): tract, congestion, nutmeg, acinar zone fills, cells, lymph, albumin beads, collagen */
@@ -232,7 +231,6 @@
   --lv-cong-base-a: .44;
   --lv-cong-isl: #E3C0A0;
   --lv-cong-isl-a: .11;
-  --knockout: rgba(241, 235, 224, .75);
   --organ-body: #E8DFD0;
   --organ-body-line: #CFC1AA;
   --organ-liver: #905b49;
@@ -284,6 +282,21 @@
   --stent-glint: .24;
   --stent-rail-w: 1.15;
   --stent-strut-w: .8;
+  --dev-poly: #9AA9BC;
+  --dev-poly-edge: #2A303B;
+  --dev-scope: #2B2E33;
+  --dev-scope-tip: #5C5E66;
+  --dev-scope-face: #C7C9CC;
+  --dev-scope-edge: #0B0D12;
+  --dev-port: #0D0D0F;
+  --dev-latex: #DDB262;
+  --dev-latex-edge: #8F6A33;
+  --dev-latex-a: .45;
+  --dev-nylon: #C9D9EE;
+  --dev-steel: #7C8696;
+  --dev-platinum: #8E949E;
+  --dev-glue: #3B4E6B;
+  --dev-ptfe: #D9DEE5;
   --s1: #2a78d6;
   --s2: #eb6834;
   --s3: #1baf7a;
@@ -465,7 +478,6 @@
     --lv-cong-base-a: .3;
     --lv-cong-isl: #C99A8C;
     --lv-cong-isl-a: .065;
-    --knockout: rgba(26, 25, 23, .7);
     --organ-body: #262421;
     --organ-body-line: #3A3733;
     --organ-liver: #A88C82;
@@ -539,6 +551,19 @@
     --stent-glint: .24;
     --stent-rail-w: 1.15;
     --stent-strut-w: .8;
+    --dev-poly: #F0F0ED;
+    --dev-poly-edge: #1C212B;
+    --dev-scope-edge: #C9CED6;
+    --dev-latex: #FCE6B3;
+    --dev-latex-edge: #B08A59;
+    --dev-latex-a: .34;
+    --dev-nylon: #E5EDF7;
+    --dev-steel: #B3B8C2;
+    --dev-platinum: #A8ADB8;
+    --dev-glue: #C9D6EC;
+    --dev-ptfe: #C9D0DA;
+    --thrombus: #8C3442;
+    --thrombus-edge: #D49AA0;
     --lv-sep: #E8C4AE;
     --lv-nod: #6E4428;
     --zone-1: rgb(246, 140, 120);
@@ -683,7 +708,6 @@
   --lv-cong-base-a: .3;
   --lv-cong-isl: #C99A8C;
   --lv-cong-isl-a: .065;
-  --knockout: rgba(26, 25, 23, .7);
   --organ-body: #262421;
   --organ-body-line: #3A3733;
   --organ-liver: #A88C82;
@@ -757,6 +781,19 @@
   --stent-glint: .24;
   --stent-rail-w: 1.15;
   --stent-strut-w: .8;
+  --dev-poly: #F0F0ED;
+  --dev-poly-edge: #1C212B;
+  --dev-scope-edge: #C9CED6;
+  --dev-latex: #FCE6B3;
+  --dev-latex-edge: #B08A59;
+  --dev-latex-a: .34;
+  --dev-nylon: #E5EDF7;
+  --dev-steel: #B3B8C2;
+  --dev-platinum: #A8ADB8;
+  --dev-glue: #C9D6EC;
+  --dev-ptfe: #C9D0DA;
+  --thrombus: #8C3442;
+  --thrombus-edge: #D49AA0;
   --lv-sep: #E8C4AE;
   --lv-nod: #6E4428;
   --zone-1: rgb(246, 140, 120);
@@ -1079,7 +1116,6 @@
   --og-light: rgba(255, 235, 225, .14);
   --og-dark: rgba(0, 0, 0, .35);
   --og-ao: rgba(0, 0, 0, .3);
-  --knockout: rgba(11, 17, 32, .7);
   --organ-body: #1A2238;
   --organ-body-line: #2C3756;
   --organ-lung: #5A6E90;
@@ -1133,7 +1169,6 @@
   --text-3: #9C9CA4;
   --text-inverse: #0A0A0B;
   --brand-bg: #232327;
-  --knockout: rgba(0, 0, 0, .7);
   --organ-body: #0F0F11;
   --organ-body-line: #2A2A2E;
   --casing-rgb: 0 0 0;

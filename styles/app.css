@@ -733,14 +733,14 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .circuit-only { opacity: 0; transition: opacity var(--d-surface) var(--ease); }
 .circuit .circuit-only { opacity: 1; }
 .band-ring { fill: none; stroke: var(--dev-platinum, var(--stent-metal)); stroke-width: 2.4; stroke-linejoin: round; }   /* (a device colour, not text ink: the device material --dev-platinum, the stent's metal until that is set) */
-/* The tamponade tube's balloons (the gastric one in the stomach, drawn up against the cardia; the esophageal one on it) look like the HVPG wedge balloon (veins-gl.js mode 5): cream latex, clear in the middle, denser at the rim */
-.balloon-latex { fill: var(--latex); fill-opacity: .34; stroke: none; }
-.balloon-latex-rim { fill: var(--latex); fill-opacity: .2; fill-rule: evenodd; stroke: none; }
-.balloon-edge { fill: none; stroke: var(--latex-edge); stroke-opacity: .85; stroke-width: .7; stroke-linejoin: round; }
+/* The tamponade tube's balloons (the gastric one in the stomach, drawn up against the cardia; the esophageal one on it) look like the HVPG wedge balloon (veins-gl.js mode 5): latex (--dev-latex, a fuller fill on the light looks: --dev-latex-a), clear in the middle, denser at the rim, on a rim in --dev-latex-edge; the tube is the catheter's polymer (--dev-poly) and its marker bands platinum */
+.balloon-latex { fill: var(--dev-latex); fill-opacity: var(--dev-latex-a); stroke: none; }
+.balloon-latex-rim { fill: var(--dev-latex); fill-opacity: calc(var(--dev-latex-a) * .6); fill-rule: evenodd; stroke: none; }
+.balloon-edge { fill: none; stroke: var(--dev-latex-edge); stroke-opacity: .9; stroke-width: 1; stroke-linejoin: round; }
 .balloon-hi ellipse { fill: var(--white); fill-opacity: .28; }
 .balloon-shaft-rim { fill: none; stroke: var(--cath-shadow); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.balloon-shaft { fill: none; stroke: var(--cath-body); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.balloon-marker { fill: var(--cath-tip); }
+.balloon-shaft { fill: none; stroke: var(--dev-poly); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.balloon-marker { fill: var(--dev-platinum); }
 /* The traction: a thin arrow up the esophagus's side as the tube is drawn up, in the treatment colour the slides' marks use */
 .balloon-pull-line { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .balloon-pull-head { fill: var(--accent); stroke: var(--accent); stroke-width: 1; stroke-linejoin: round; }
@@ -3249,10 +3249,10 @@ button.finding { cursor: pointer; }
    column in front of the balloon in the wedged pressure's colour. Labels are screen-sized pills at the tip. */
 .cath { pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 .cath-shadow { fill: none; stroke: var(--cath-shadow); stroke-linecap: round; stroke-linejoin: round; }
-.cath-body { fill: none; stroke: var(--cath-body); stroke-linecap: round; stroke-linejoin: round; }
-.cath-tip { fill: var(--cath-body); stroke: none; }
+.cath-body { fill: none; stroke: var(--dev-poly); stroke-linecap: round; stroke-linejoin: round; }
+.cath-tip { fill: var(--dev-poly); stroke: none; }
 .cath-ring { fill: none; stroke-width: .8; stroke-opacity: .85; stroke-linejoin: round; }
-.cath-balloon { fill: var(--cath-balloon); stroke: var(--cath-shadow); stroke-width: .5; stroke-linejoin: round; }
+.cath-balloon { fill: var(--dev-nylon); fill-opacity: .78; stroke: var(--cath-shadow); stroke-width: .5; stroke-linejoin: round; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
 /* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
 .stage-view #labels { transition: opacity var(--d-surface) var(--ease); }
