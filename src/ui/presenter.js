@@ -1346,11 +1346,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A slide whose own patient has already had it (the BRTO slides show the shunt closed) plays it from just before: the live
   // model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back; going back to
   // before the first step puts the slide as it was. Leaving the slide stops it where it is; the next slide's camera takes over.
-  let procRun = null, procWait = false, procShown = -1, procDoneAt = -1;
+  let procRun = null, procWait = false, procShown = -1, procDoneAt = -1, procThenAt = -1, procQueued = false, procRunKind = '';
+  // (A slide whose procedure is { kind: 'tips', then: 'tipsgrad' } plays a reading after it, as one more step on the same card: the TIPS catheter reads the
+  // gradient across the new stent (proc-anim.js MEASURES.tipsgrad, TIPS step 5). procThenAt: the slide whose main run has played through with its reading
+  // still to come; procQueued: a Next came while the main run was on its last step, so the reading starts as it ends.)
+  const procThen = (s) => { const k = typeof s?.procedure === 'object' ? s.procedure.then : null; return k && specOf(k) ? k : null; };
   const procKind = (s) => procKindOf(s.procedure);   // ('brto' with a target plays that target's spec: proc-anim.js)
   // (home: the slide stays, so the camera glides back and its own marks and names come back through onMark; leaving it, the next
   // slide's camera and marks take over.)
   function procStop(home = false) {
+    procQueued = false;
     if (!procRun) return;
     const r = procRun;
     if (home) r.stop({ home }); else { procRun = null; r.stop({ home }); stage.cathForget(); }
@@ -1368,8 +1373,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // The slide's own callouts and names, as it landed (a clot mark's words as the model now has them).
   const slideMarks = (i) => (markBase?.i === i ? markFocus(clotMarks(markBase.marks, store.get().params)) : null);
-  async function procPlay(s, i, to = 0) {
-    const kind = procKind(s), mine = () => !!deck && shown?.i === i && slides[i] === s;
+  async function procPlay(s, i, to = 0, kind = procKind(s)) {
+    const isThen = kind !== procKind(s), base = isThen ? specOf(procKind(s)).steps.length : 0, mine = () => !!deck && shown?.i === i && slides[i] === s;
     if (!specOf(kind) || !mine() || cath.on || procWait) return;
     if (procRun) { procRun.to(to); return; }
     if (lapseOn) stopLapse();
@@ -1383,6 +1388,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const before = structuredClone(store.get().params), names = store.get().presentLabels || [];
     // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
     if (specOf(kind).had(before)) liveSet(s, i, specOf(kind).undo(structuredClone(before)));
+    procRunKind = kind;
     const run = procRun = playProcedure(stage, kind, {
       stepped: true, to,
       apply: () => {
@@ -1390,7 +1396,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         liveSet(s, i, specOf(kind).apply(structuredClone(store.get().params)), evRun(s, i)); procCompare(s);
       },
       unapply: () => { if (procRun === run && mine()) { evBack(s); liveSet(s, i, specOf(kind).undo(structuredClone(store.get().params))); procCompare(s); } },
-      onStep: (k) => { if (procRun === run) { procShown = k; procPaint(); } },
+      onStep: (k) => { if (procRun === run) { procShown = base + k; procPaint(); } },
       // (The step's callout stands in for the slide's marks while it plays; its names join the slide's. Then the slide's come back:
       // on the BRTO slides the last step's "Shunt closed" is the slide's own mark, so it stays where it is.)
       // (false: no callout while the catheter travels in, the names for its way kept.)
@@ -1402,12 +1408,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         store.set(m !== null ? { focus: m ? markFocus(all || [m]) : null, presentLabels: [...new Set([...names, ...(add || [])])] }
           : { focus: slideMarks(i) || (run.at === last ? markFocus(stepMarks(kind, last)) : null), presentLabels: names });
       },
-      onEnd: ({ rewound }) => {
+      onEnd: ({ done, rewound }) => {
         if (procRun !== run) return;
         procRun = null;
-        if (rewound && mine()) { evBack(s); liveSet(s, i, before); procCompare(s); procShown = -1; procDoneAt = -1; }
+        // (The reading changes nothing in the model: going back from its start only leaves the stent done, its steps lit to the last.)
+        if (rewound && mine() && isThen) { procThenAt = i; procShown = base - 1; }
+        else if (rewound && mine()) { evBack(s); liveSet(s, i, before); procCompare(s); procShown = -1; procDoneAt = -1; }
+        else if (mine() && done && !isThen && procThen(s)) procThenAt = i;   // (the reading comes next)
         else if (mine()) procDoneAt = i;   // (played through: the next Next moves on)
         procPaint();
+        if (procQueued && procThenAt === i && mine()) { procQueued = false; procPlay(s, i, 0, procThen(s)); }
       },
     });
     procPaint();
@@ -1422,14 +1432,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // the first step, a Next waits with it rather than leaving.)
   const procNext = () => {
     if (shown?.i !== want) return false;
-    if (procRun) return procRun.next();
+    if (procRun) return procRun.next() || procQueue();
     if (procWait) return true;
     const s = slides[want];
+    // (The stent is in and its reading is still to come: this Next plays it.)
+    if (procThenAt === want && procThen(s) && !cath.on) {
+      const k = procThen(s);
+      if (procBlocked(k, store.get().params, store.get().frame?.metrics)) { procThenAt = -1; procDoneAt = want; return false; }
+      procPlay(s, want, 0, k);
+      return true;
+    }
     if (!s?.procedure || procDoneAt === want || cath.on || !procCan(s)) return false;
     procPlay(s, want, 0);
     return true;
   };
-  const procBack = () => !!procRun && shown?.i === want && procRun.back();
+  // (A Next on the main run's last step, which goes on to its end by itself: the reading starts as it ends, not a Next lost to the next slide.)
+  const procQueue = () => {
+    const s = slides[want];
+    if (!procRun || !procThen(s) || procRunKind !== procKind(s) || procQueued) return false;
+    procQueued = true;
+    return true;
+  };
+  const procBack = () => { procQueued = false; return !!procRun && shown?.i === want && procRun.back(); };
   function procEl(s, i, st) {
     const kind = procKind(s), P = specOf(kind), p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
     // (BRTO and BATO only on a patient with gastric varices, or one who has had it already, so it plays from just before.)
@@ -1438,7 +1462,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // The steps as a line of words, each after its number in the slides' own step circle ({#n}, as the Circulation slides number
     // theirs), the one on show lit: progress, never buttons (his ask, 29 Oct: Next plays them). The callout on the figure carries the
     // same number. One the patient cannot have shows dimmed with why.
-    const steps = P?.steps || [['play', kind, '', kind]];
+    const steps = [...(P?.steps || [['play', kind, '', kind]]), ...(procThen(s) ? specOf(procThen(s)).steps : [])];   // (its reading, if it has one, is one more step)
     return h('p', { class: 'pz-procs', role: 'list', 'aria-label': `${P?.name || kind}, step by step: Next plays each step`, ...(why ? { 'data-why': why, title: why } : {}) },
       ...steps.flatMap((st0, k) => [k ? ' ' : null, h('span', { class: `pz-proc${procRun && k === procShown ? ' on' : ''}`, role: 'listitem', 'aria-label': `Step ${k + 1}: ${st0[1]}`, title: why || st0[2] },
         h('span', { class: 'pz-step', 'aria-hidden': 'true' }, String(k + 1)), nb(` ${st0[1]}`))]).filter(Boolean));
@@ -2326,7 +2350,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     // (Back onto a procedure's slide from the next lands on it done, so Next moves on.)
-    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1;
+    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1; procThenAt = -1; procQueued = false;
     if (outMs) await waitCut(Math.max(0, outMs - (performance.now() - outAt)), cut);
     if (throwDir) await throwsOut();   // (thrown: until the old cards are out of sight on the eases' clock, never mid-flight: card-throw.js)
     // (Nothing in the liver changes until its labels are gone.)

@@ -177,6 +177,12 @@ It lands in shunts `tips`, variceal-bleed's TIPS slide and ten-years' TIPS slide
 
 **Effort S.**
 
+**Built (8 Nov 2026).** `MEASURES.tipsgrad` in `proc-anim.js`, tested in `tests/tips-gradient.test.js`. It plays as step 5 on the three slides that play the TIPS
+(`shunts/play`, the stent-placement slide, rather than the static `shunts/tips`; `variceal-bleed/tips`; `ten-years/tips`): each declares
+`procedure: { kind: 'tips', then: 'tipsgrad' }`, and the Next after the stent is in plays the reading. One step: the catheter goes on through the stent to the
+portal trunk and reads, is drawn back to the IVC at the hepatic veins and reads, then the gradient stands beside the tip (green under 12). The gradient is the
+tiles' PPG (`tenthGap(metrics.pv, metrics.ivc)`): 9.2 mmHg through 8 mm, 7.9 through 10 mm in cirr-decomp.
+
 ### I4. An Ultrasound tab: the survey, and bedside volume
 
 A new tab in the Tests card, with two modes. Both are built from readings the model already has.

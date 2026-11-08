@@ -278,7 +278,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.ok(next.indexOf('procNext()') > 0 && next.indexOf('procNext()') < next.indexOf('go(want + 1)'), 'a procedure step comes before the next slide');
   assert.match(pz, /const prev = \(\) => \{ if \(procBack\(\)\) return;/);
   const pn = pz.match(/const procNext = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(pn, /if \(procRun\) return procRun\.next\(\);/);
+  assert.match(pn, /if \(procRun\) return procRun\.next\(\) \|\| procQueue\(\);/, 'a step, or (a TIPS on its last step) the reading queued behind it');
   assert.match(pn, /procDoneAt === want/, 'once played through, Next moves on');
   assert.match(pn, /procPlay\(s, want, 0\);\n\s+return true;/, 'the first Next puts the catheter in');
   const el = pz.match(/function procEl\([\s\S]*?\n {2}\}/)[0];
@@ -321,10 +321,14 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
 
 test('a TIPS is placed step by step only where a slide teaches the placement; elsewhere it is simply there', () => {
   const guided = new Set();
-  for (const d of DECKS) for (const s of d.slides) if (s.procedure === 'tips') guided.add(`${d.id}/${s.id}`);
+  for (const d of DECKS) for (const s of d.slides) if (procKindOf(s.procedure) === 'tips') guided.add(`${d.id}/${s.id}`);
   assert.deepEqual([...guided].sort(), ['gastric-varices/tips', 'shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
+  // (Three of them go on to read the gradient across the new stent as step 5: MEASURES.tipsgrad.)
+  const thens = [];
+  for (const d of DECKS) for (const s of d.slides) if (s.procedure?.then) { thens.push(`${d.id}/${s.id}`); assert.equal(s.procedure.then, 'tipsgrad'); assert.ok(specOf(s.procedure.then)?.measure, 'a reading'); }
+  assert.deepEqual(thens.sort(), ['shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
   for (const d of DECKS) {
-    assert.ok(d.slides.filter((s) => s.procedure === 'tips').length <= 1, `${d.id}: one guided TIPS at most`);
+    assert.ok(d.slides.filter((s) => procKindOf(s.procedure) === 'tips').length <= 1, `${d.id}: one guided TIPS at most`);
     for (const s of d.slides) if (s.procedure) assert.ok(!s.lapse && !s.cath && !s.question, `${d.id}/${s.id}: no time-lapse, catheter or question with it`);
   }
 });

@@ -116,10 +116,10 @@ export const TEN_YEARS = {
       ask: ['A man bleeds again on carvedilol and repeat banding. Is a TIPS considered?', 'Yes. Baveno VIII 4.13 says to consider a TIPS when bleeding continues despite secondary prophylaxis.'],
     },
     {
-      id: 'tips', tick: 'TIPS', milestone: 'TIPS', params: { tips: { on: true, d: 8 } }, procedure: 'tips', cam: 'liver', tool: { kind: 'profile', from: 'rebleed', fromLabel: 'Before TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'rebleed',
+      id: 'tips', tick: 'TIPS', milestone: 'TIPS', params: { tips: { on: true, d: 8 } }, procedure: { kind: 'tips', then: 'tipsgrad' }, cam: 'liver', tool: { kind: 'profile', from: 'rebleed', fromLabel: 'Before TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'rebleed',
       kicker: 'Year 9', site: 'sin', title: 'A TIPS when prevention fails',
       line: 'A covered TIPS takes the PPG to {ppg}. The price is its portal blood: sinusoidal flow falls to {liver} of normal, most of it now from the hepatic artery.',
-      notes: 'Baveno VIII advises considering a TIPS for bleeding despite secondary prophylaxis with carvedilol and banding (4.13). The stent opens a channel from the portal vein to a hepatic vein, so the gradient falls under the level where varices bleed. The cost is a share of portal blood that no longer passes through the liver, and with it a risk of encephalopathy.',
+      notes: 'Baveno VIII advises considering a TIPS for bleeding despite secondary prophylaxis with carvedilol and banding (4.13). The stent opens a channel from the portal vein to a hepatic vein, so the gradient falls under the level where varices bleed. The cost is a share of portal blood that no longer passes through the liver, and with it a risk of encephalopathy. Step 5 reads the gradient across the new stent: the same catheter measures the portal pressure through the stent, is drawn back to the IVC at the hepatic veins, and measures again. Under 12 mmHg, a beta-blocker is not required after the TIPS (AASLD 2024). The reading just after the procedure can be skewed by general anaesthesia and vasoactive drugs (Baveno VIII), so it may not be the long-term gradient.',
       ask: ['What does a TIPS cost the liver?', 'Most of its portal blood, which now bypasses it through the stent. The hepatic artery dilates and makes up part of the loss.'],
     },
     {
