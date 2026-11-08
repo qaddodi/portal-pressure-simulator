@@ -1696,13 +1696,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // kept for the slide (evKept), so coming back to it played through shows the graph whole.
   let evg = null;
   const evKept = new WeakMap();
-  function evDrop() { if (!evg) return; evg.ft.dispose(); evg = null; }
+  function evDrop() { if (!evg) return; if (!evg.tool) evg.ft.dispose(); evg = null; }   // (a graph in the data card's tool is the tool's: it lives with the card, not the words)
   function eventGraph(s, i, st) {
     const g = eventGraphOf(s);
+    if (s.tool?.kind === 'evgraph') return null;   // (its graph is in the data card: evAdopt)
     if (!g || !procOffered(g.kind, st?.params || store.get().params, st ? null : store.get().frame?.metrics)) return null;   // (as its steps: none for a patient who cannot have it)
     const ft = createEventGraph();
     evg = { ft, spec: g, s, i };
     return h('div', { class: 'pz-timegraph pz-evtime', role: 'group', 'aria-label': `What the ${specOf(g.kind)?.name || 'procedure'} changes, second by second` }, ft.el);
+  }
+  // The same graph as the data card's instrument (tool { kind: 'evgraph' }, Mohammad 8 Nov 2026: the pre-emptive TIPS slide's chart moves up into the
+  // instrument card where the indications table was): the card's instrument is the chart, driven here exactly as the one on the words.
+  function evAdopt(s, i, st) {
+    const g = eventGraphOf(s), ft = ui?.tools.current('evgraph');
+    if (!g || !ft || !procOffered(g.kind, st?.params || store.get().params, st ? null : store.get().frame?.metrics)) return;
+    evg = { ft, spec: g, s, i, tool: true };
+    evStart(st);
   }
   // (Where its lines start: the state the slide opened on, its before state on a slide whose own patient has had it. Where they end, when the
   // slide's own state has it done (its scale then holds both); else the scale holds the start, and a fall from it.)
@@ -2908,7 +2917,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       data.dataset.tool = ui.tools.sig(s.tool);
       ui.dhT.textContent = cardTitle(s); unitSpans(ui.dhT);
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
-      if (s.tool) showTool(s, i, lap, i === lastAt + 1); else ui.tools.hide();   // (forward: stepped onto from the slide before, so the HVPG card plays its tracing)
+      if (s.tool) showTool(s, i, lap, i === lastAt + 1); else ui.tools.hide();
+      if (s.tool?.kind === 'evgraph') evAdopt(s, i, st);   // (forward: stepped onto from the slide before, so the HVPG card plays its tracing)
       if (s.tool) ui.tools.ghost(toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them. So
       // too while the new cards wait, unseen, for the camera to land (bare): their count ran unseen beside the glide, a frame's

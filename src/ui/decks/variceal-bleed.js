@@ -90,10 +90,8 @@ export const BLEED = {
     },
     {
       id: 'tips', params: { tips: { on: true } }, procedure: 'tips', cam: 'liver', ripple: true, data: 'tiles',
-      tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', short: 'Who gets it', lead: 'Any one of these is enough.', rule: 'Baveno VIII 5.31',
-        rows: [{ text: 'Child–Pugh C', cut: 'C 10–13', note: 'C 10', met: true, lit: true },
-          { text: 'Child–Pugh B, bleeding at endoscopy', cut: 'B 8–9', note: 'not B' }, { text: 'HVPG, where measured', cut: '≥20 mmHg', note: 'not given' }],
-        verdict: 'He qualifies: a TIPS within 72 hours.' }, tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
+      // (The who-gets-it table is the algorithm's, on the slide before; this card is what the stent does, second by second, drawn live as it opens: event-graph.js.)
+      tool: { kind: 'evgraph', title: 'PPG and varix after the stent' }, tiles: ['ppg', 'varix'], key: ['ppg'], delta: true,
       kicker: 'After the scope', site: 'sin', title: 'High-risk patients get a TIPS within 72 hours',
       line: 'Child–Pugh C 10 qualifies him for a covered TIPS. It lowers the PPG to {ppg} and cuts rebleeding and death.',
       notes: 'Child–Pugh points in this case: bilirubin 3.2 mg/dL 3, INR 1.9 2, albumin 2.8 g/dL 2, ascites 2 and no encephalopathy 1, for a total of 10. Baveno VIII: in high-risk patients a pre-emptive TIPS, ideally within 24 hours and no later than 72, reduces rebleeding and death. An HVPG of 20 mmHg or more, where measured, also marks high risk. A patient who misses the 72-hour window can still benefit from a TIPS placed later, up to about 1 week in Child–Pugh B and 2 weeks in Child–Pugh C. For everyone else, after the acute bleed: a non-selective beta-blocker with repeated banding every 2 to 4 weeks until the varices are gone. Rescue TIPS is for bleeding that drugs and banding do not control. A raised bilirubin, a high MELD, ACLF, overt encephalopathy or severe alcohol-related hepatitis are not absolute contraindications to a pre-emptive TIPS (5.33). (Baveno VIII 5.31, 5.32.)',
