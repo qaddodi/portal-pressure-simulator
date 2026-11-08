@@ -11,7 +11,7 @@ import { store } from './store.js';
 import { s, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
 import { recordLayer } from './over-records.js';
 import { lerpVT } from './cam-arc.js';
-import { easeArrive, createGlideTracker, D_SURFACE } from './ease.js';
+import { easeArrive, createGlideTracker, CAM_MS_MAX, D_SURFACE } from './ease.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, lineIndexBuf, indexHits } from './seg-hits.js';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_B } from './organ-art.js';
@@ -3073,7 +3073,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       // (It used to shrink past it to 0.6× about the middle and stay there: a small figure off to one side that nothing put back.)
       const circuit = morphTarget === 1, d = defaultVT(circuit), whole = circuit ? circWhole() : d, lo = whole.k < d.k ? whole : d;
       const base = vtGliding && vtTarget ? vtTarget : vt;
-      if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; else markCirc(lo === whole ? 'whole' : 'focus', lo); fitted = true; if (!sameView(lo, base)) animateVT(lo, 260); return; }
+      if (base.k / 1.4 <= lo.k * 1.001) { if (!circuit) homeAt = lo; else markCirc(lo === whole ? 'whole' : 'focus', lo); fitted = true; if (!sameView(lo, base)) animateVT(lo, CAM_MS_MAX, { scale: true }); return; }
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
     fit, refit, closeView,

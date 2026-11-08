@@ -198,6 +198,69 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
 }
 
+// Camera and hand (motion recommendations, push E, items 11, 12 and 14; tests/camera-hand.test.js runs what it can and these pin the wiring a unit
+// test cannot reach without the page). A pattern that no longer matches means the code it guarded changed: look before editing the rule.
+{
+  const text = (f) => readFileSync(join(ROOT, f), 'utf8');
+  const need = (file, rules) => {
+    const src = text(file);
+    for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
+  };
+  need('src/ui/stage-fit.js', [
+    [/animateVT\(to, CAM_MS_MAX, \{ scale: true \}\);\n/, 'Fit glides in the time its reach needs (camMs), not a fixed 420 ms'],
+    [/animateVT\(revealTo, CAM_MS_MAX, \{ scale: true \}\)/, 'a reveal glides by its reach'],
+    [/animateVT\(revealFrom, CAM_MS_MAX, \{ scale: true \}\)/, 'the unreveal glides by its reach'],
+    [/const goal = live\.vtGliding \? live\.vtTarget : live\.vt;\n\s+if \(live\.vtGliding\) \{ cancelFrame\(live\.vtAnim\); driftEnd\(\); live\.vtGliding = false; \}/, "a circuit turn during a glide starts from where the view is, not from the glide's end (item 14)"],
+  ]);
+  need('src/ui/stage-camera.js', [[/animateVT\(\{ k, x: vx - wx \* k, y: vy - wy \* k \}, CAM_MS_MAX, \{ scale: true \}\)/, 'the zoom pill and a double click glide by their reach']]);
+  need('src/ui/stage.js', [[/animateVT\(lo, CAM_MS_MAX, \{ scale: true \}\)/, "the zoom pill's last step out glides by its reach"], [/animateVT\(d, VIEW_CHANGE_S \* 1000\)/, 'the view change stays 1.3 s (kept as decided)']]);
+  need('src/ui/stage-gestures.js', [
+    [/animateVT\(d, CAM_MS_MAX, \{ scale: true, v0 \}\)/, 'the spring-back to the fit glides by its reach, with the hand\'s speed'],
+    [/animateVT\(to, CAM_MS_MAX, \{ scale: true, v0 \}\)/, 'the spring-back inside the limits glides by its reach, with the hand\'s speed'],
+    [/const v0 = hand\.take\(performance\.now\(\), handAge\);/, 'the spring-back takes the hand\'s speed as it let go'],
+    [/if \(wheelGlide\.active\) \{ settleSoon\(60\); return; \}/, 'the spring-back waits for a wheel notch that is still gliding'],
+    [/applyVT\(\); live\.CTM = null; handSample\(80\);/, 'a pinch and a drag give the hand tracker a sample at each step'],
+    [/zoomAt\(ev\.clientX, ev\.clientY, Math\.exp\(-clamp\(dy, -50, 50\) \* 0\.01\), true\); handSample\(300\);/, 'a trackpad pinch stays direct (zoomAt at once), and is sampled'],
+    [/wheelKind = isPadWheel\(ev\) \? 'pad' : 'wheel';/, 'a notch is told from a trackpad by isPadWheel (wheel-glide.js)'],
+    [/stopGlide\(\); wheelGlide\.cancel\(\); stageScope\.clear\(settleT\); panFit = null;/, 'a button takes the notch glide over'],
+    [/wheelGlide\.cancel\(\); hand\.begin\(\);/, 'a press takes the notch glide over'],
+  ]);
+  const gest = text('src/ui/stage-gestures.js');
+  if (!(gest.indexOf('if (ev.ctrlKey || ev.metaKey) {') >= 0 && gest.indexOf('if (ev.ctrlKey || ev.metaKey) {') < gest.indexOf('wheelGlide.push('))) errors.push('src/ui/stage-gestures.js: the trackpad pinch (ctrlKey) is handled before the notch glide, direct');
+  need('src/ui/lobule-zoom.js', [
+    [/focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{/, 'focusOn: the ms it is given is a ceiling (the presenter gives 1500)'],
+    [/glideTo\(to, ms, true, atFit \? null : \{ part, zoom, to \}, ease, false, true\);/, 'focusOn times itself by reach'],
+    [/if \(reach && ease !== 'in'\) ms = Math\.min\(ms, lobuleMs\(from, to, Math\.max\(1, snap\.w\)\)\);/, "the lobule's glide takes the least of the ms given and its reach's (lobuleMs), the way out to the rise keeping its own"],
+    [/glideTo\(target, LOBULE_MS_MAX, false, null, 'inOut', false, true\);/, 'the lobule buttons glide by their reach'],
+    [/glideTo\(F0, LOBULE_MS_MAX, false, null, 'inOut', false, true\); \}/, 'the lobule Fit glides by its reach'],
+    [/const kS = kMax \* Math\.pow\(rawHi \/ kMax, 0\.3\), rS = kS \/ V\.k;/, "the lobule's zoom-in limit stretches at the stage's 0.3 power on a pinch"],
+    [/zoomAround\(mx, my, \(pinch\.k \* d \/ pinch\.d\) \/ \(rawHi \|\| V\.k\), true\);/, 'a touch pinch stretches past the zoom-in limit'],
+    [/zoomAround\(px, py, f, pinchy\);/, 'a wheel pinch stretches past the zoom-in limit'],
+    [/if \(rawHi\) springHi\(\);/, 'the last finger up lets the stretch go'],
+    [/function endStretch\(\) \{ if \(!rawK && !rawHi\) return;/, "a wheel pinch's stretch past the zoom-in limit springs back when the wheel is quiet"],
+    [/zoomAround\(localX\(ev\), localY\(ev\), V\.k < kFit \* KMAX \* 0\.98 \? 2 : 1 \/ KMAX\)/, 'a double click stops hard at the limit, as the stage\'s does'],
+    [/if \(wheelKind === 'wheel' && !reduce\.matches && !ev\.ctrlKey && !ev\.metaKey\) \{ wheelGlide\.push\(/, "a mouse wheel's notch glides in the lobule, a trackpad pinch stays direct"],
+    [/wheelKind = ev\.ctrlKey \|\| ev\.metaKey \? 'pinch' : isPadWheel\(ev\) \? 'pad' : 'wheel';/, 'the lobule tells a notch from a trackpad by the same isPadWheel'],
+  ]);
+  {
+    const lz = text('src/ui/lobule-zoom.js');
+    if (/glideTo\([^\n]*, 380\)/.test(lz)) errors.push('src/ui/lobule-zoom.js: a fixed 380 ms glide is back: time it by its reach (lobuleMs, item 12)');
+    if (/animateVT\([^\n]*, (?:260|320|380|420)\)/.test(text('src/ui/stage-gestures.js') + text('src/ui/stage-fit.js') + text('src/ui/stage-camera.js'))) errors.push('src/ui/stage-*.js: a fixed 260/320/380/420 ms glide is back: time it by its reach (camMs, item 12)');
+  }
+  need('src/ui/stage-glide.js', [
+    [/const v0 = opt\.v0 \|\| \(!drift && live\.vtGliding \? vtTrack\.take\(performance\.now\(\)\) : null\);/, "a glide takes the hand's speed (opt.v0) or the glide's it replaces"],
+    [/if \(v0 && \(!live\.arcRun \|\| newArc\) && !sameView\(from, to\)\) \{/, 'a fresh arc carries the old speed on, as a plain glide does (item 14)'],
+    [/t0 = prev\.t0; ms = prev\.ms;\n\s+live\.arcRun = \{ from: prev\.from, to, t0, ms, at \};/, "a refit's blend of a running arc keeps its pace and end time"],
+  ]);
+  need('src/ui/stage-ride.js', [[/lerpInto\(a, b, f, FOLLOW_V\)/, 'the card-room follow zooms in log space (item 14)']]);
+  need('src/ui/card-zoom.js', [
+    [/const ms = reverseMs\(SHUT_MS, s\.cur\.s, s\.plan\.s\);/, 'a zoom shut part-way takes the share of the time that is left'],
+    [/st\.cur = lerpTo\(m, m\.m0 >= 0 \? settleAt\(p, m\.m0\) : easeArrive\(p\)\);/, 'a glide turned back mid-way starts on the speed it carries'],
+    [/export const ZOOM_MS = 520;/, 'the card zoom in stays 520 ms (kept as decided)'],
+    [/export const SHUT_MS = 440;/, 'the card zoom back stays 440 ms (kept as decided)'],
+  ]);
+}
+
 // Code never rides after a line comment in stepBlood (6 Nov 2026): 0eec029 left so.speed, so.still, so.dt and so.bt after the // on so.phasic's
 // line, so every stream stepped with dt 0 and a reversed portal vein kept its hepatopetal chevrons under the reversed orange. The options the
 // streams read are each set in code, on a line no // comes before.

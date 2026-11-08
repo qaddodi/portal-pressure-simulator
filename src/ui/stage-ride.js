@@ -1,6 +1,7 @@
 // The camera ride: the labels riding a glide, a hand zoom or a carry, drift and carry ends, the settle, the arc room and the follow of a framed move.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VIEW } from './anatomy.js';
+import { lerpInto } from './cam-arc.js';
 import { cancelFrame } from './frame.js';
 import { cams } from './scene-cam.js';
 import { clamp, rideChanged } from './util.js';
@@ -87,6 +88,7 @@ export function createRide(st, live) {
     if (live.followScene) { sceneStart(); live.followU = 0; } else live.drifting = true;   // (drifting: the labels ride, see drifting; driftEnd solves them again)
     return true;
   }
+  const FOLLOW_V = { k: 1, x: 0, y: 0 };   // (followAt's working view, written in place and read at once)
   function followAt(u) {
     if (!live.following) return;
     const f = clamp(u, 0, 1), a = live.follow0, b = live.follow1;
@@ -94,11 +96,13 @@ export function createRide(st, live) {
       // (v(f) from v0: screen' = S screen + t, where S = k(f)/k0 and t = (O + s x(f)) - S (O + s x0), O and s the view box's place in the stage.)
       live.followU = f;
       const bx = stageBox(), vb = vbBox, sc = Math.min(bx.sw / vb.width, bx.sh / vb.height), O = bx.sx + (bx.sw - vb.width * sc) / 2 - vb.x * sc, Oy = bx.sy + (bx.sh - vb.height * sc) / 2 - vb.y * sc;
-      const k = a.k + (b.k - a.k) * f, x = a.x + (b.x - a.x) * f, y = a.y + (b.y - a.y) * f, S = k / a.k;
+      // (Even on screen: the zoom runs on a log scale and the pan in step with it, as every glide does (lerpInto), so a tuck that also zooms 2x
+      // does not run slowly at first and fast at the end.)
+      const v = lerpInto(a, b, f, FOLLOW_V), k = v.k, x = v.x, y = v.y, S = k / a.k;
       sceneSet(S, O + sc * x - S * (O + sc * a.x), Oy + sc * y - S * (Oy + sc * a.y));
       return;
     }
-    live.vt = { k: a.k + (b.k - a.k) * f, x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+    live.vt = f >= 1 ? { k: b.k, x: b.x, y: b.y } : lerpInto(a, b, f, { k: 1, x: 0, y: 0 });
     applyVT(); live.CTM = null;
     if (live.cath.st) { refreshCTM(); live.cathLabelsSoon(); }
     if (live.sites.list) { refreshCTM(); sitesPaint(); }

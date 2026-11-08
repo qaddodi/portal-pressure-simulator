@@ -1,5 +1,6 @@
 // The camera core: the view transform write (flush, apply), the box and safe-side reads, the world transform matrix and the coordinate conversions, the zoom at a point.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
+import { CAM_MS_MAX } from './ease.js';
 import { figOpt } from './frame.js';
 import { gpuProbe } from './gpu-probe.js';
 import { provideStage } from './layout-snap.js';
@@ -155,13 +156,13 @@ addEventListener('orientationchange', saRead);
     return [m.a * cx + m.c * cy + m.e, m.b * cx + m.d * cy + m.f];
   }
   function freeCentre() { const ins = safeInsets(), b = stageBox(); return [b.left + (ins.l + ins.W - ins.r) / 2, b.top + (ins.t + ins.H - ins.b) / 2]; }
-  // A zoom step by the buttons glides there instead of jumping.
+  // A zoom step by the buttons (or a double click) glides there instead of jumping, in the time its reach needs (camMs, ease.js).
   function animZoomAt(cx, cy, factor) {
     live.fitted = false; live.handed = !live.lobuleOn;
     if (live.lobuleOn) return;
     const [vx, vy] = clientToVBFast(cx, cy), base = live.vtTarget && live.vtAnim ? live.vtTarget : live.vt;
     const k = clamp(base.k * factor, 0.6, 6), wx = (vx - live.vt.x) / live.vt.k, wy = (vy - live.vt.y) / live.vt.k;
-    animateVT({ k, x: vx - wx * k, y: vy - wy * k }, 260);
+    animateVT({ k, x: vx - wx * k, y: vy - wy * k }, CAM_MS_MAX, { scale: true });
   }
   // A trackpad pinch may stretch a little past the limits (it springs back when it ends).
   function zoomAt(cx, cy, factor, stretch = false) {

@@ -55,11 +55,12 @@ import { leaderEnd, leaderEndRects, runInside } from './leader-end.js';
 import { LIGHT } from './light.js';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js';
 import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
-import { easeMove, carryRate, carried, createGlideTracker, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
+import { easeMove, carryRate, carried, createGlideTracker, cubicBezier, lobuleMs, LOBULE_MS_MAX, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
 import { camThen, camSet, camId, camAbout, cams } from './scene-cam.js';
 import { lerpInto } from './cam-arc.js';
+import { createWheelGlide, isPadWheel } from './wheel-glide.js';
 import { createCaptions, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './label-captions.js';
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
@@ -344,6 +345,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Zooming out past the framing stretches with resistance (as the anatomy's pinch-out does: softK, a 0.3 power) and
   // glides back to the framing once the gesture ends. rawK is the unresisted scale while stretched, 0 when not.
   let rawK = 0, stretchT = 0;
+  // The zoom-in limit stretches the same way (item 11): a pinch past kFit × KMAX goes on at the 0.3 power of what it asked for (the anatomy's
+  // softK), up to HI_RAW times the limit asked, and glides back to the limit when the pinch ends. rawHi: the unresisted scale while stretched,
+  // 0 when not; hiX, hiY: the pinch's point, which the spring-back keeps in place. A notch of the wheel, a double click and the buttons stop at the limit.
+  const HI_RAW = 4;
+  let rawHi = 0, hiX = 0, hiY = 0;
   function stretchBy(px, py, f) {
     if (!geo) return;
     if (!rawK) rawK = kFit;
@@ -360,7 +366,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (The stretch's and the rubber band's spring-backs, each one timer, asked again (and re-armed while the wheel is not yet quiet) here.)
   function stretchSoon(ms) { clearTimeout(stretchT); stretchT = setTimeout(endStretch, ms); }
   function rubberSoon(ms) { clearTimeout(rubberT); rubberT = setTimeout(rubberEnd, ms); }
-  function endStretch() { if (!rawK) return; if (!wheelQuiet()) { stretchSoon(120); return; } rawK = 0; rubber = false; glideTo(fitV(), 380); atFit = true; }
+  function endStretch() { if (!rawK && !rawHi) return; if (!wheelQuiet()) { stretchSoon(120); return; } if (rawHi) { springHi(); return; } rawK = 0; rubber = false; glideTo(fitV(), LOBULE_MS_MAX, false, null, 'inOut', false, true); atFit = true; }
   function clampV() {
     if (!geo || rubber) return;
     const F0 = fitInto(fitC);
@@ -391,11 +397,32 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       done: () => { cancelFlick = null; },
     });
   }
-  function zoomAround(px, py, factor) {
+  function zoomAround(px, py, factor, soft = false) {
     stopInertia();
+    if (soft && geo) {   // (a pinch: past the zoom-in limit the view stretches and springs back when the pinch ends)
+      const kMax = kFit * KMAX, raw = (rawHi || V.k) * factor;
+      if (raw > kMax * 1.0001) {
+        rawHi = Math.min(raw, kMax * HI_RAW); hiX = px; hiY = py;
+        const kS = kMax * Math.pow(rawHi / kMax, 0.3), rS = kS / V.k;
+        V.x = px - (px - V.x) * rS; V.y = py - (py - V.y) * rS; V.k = kS; atFit = false; viewChanged();
+        return;
+      }
+      if (rawHi) { rawHi = 0; factor = raw / V.k; }   // (back inside the limit: the view takes the pinch's own scale)
+    }
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k;
     clampV(); viewChanged();
+  }
+  // The stretch past the zoom-in limit lets go: the view glides back to the limit about the pinch's point.
+  function springHi() {
+    clearTimeout(stretchT);
+    if (!rawHi) return;
+    rawHi = 0;
+    if (!geo) return;
+    const kMax = kFit * KMAX, r = kMax / V.k, saved = { ...V };   // alloc-rare: once as a pinch lets go
+    Object.assign(V, { k: kMax, x: hiX - (hiX - V.x) * r, y: hiY - (hiY - V.y) * r }); clampV();
+    const to = { ...V }; Object.assign(V, saved);
+    glideTo(to, LOBULE_MS_MAX, false, null, 'inOut', false, true);
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0, gliding = false;
@@ -406,13 +433,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // the glide back a little instead of carrying it part of the way at once.)
   // (The in-out glide on the stage camera's curve, the quintic: ease.js, combined plan M2.)
   const glideTrack = createGlideTracker();   // (a glide's last frames: its speed per ms, so another begun on it carries that on, ease.js)
-  function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut', steady = false) {
+  function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut', steady = false, reach = false) {
     stopInertia();
     const v0 = gliding && ease !== 'in' ? glideTrack.take(performance.now()) : null;
     glideTrack.begin();
     cancelFrame(glide); gliding = false;
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
     const from = { ...V }, t0 = performance.now();   // alloc-rare: once as a glide begins (a button, a station, a resize), kept by its frames
+    // (reach: the time its reach on the lobule's own view needs (ease.js lobuleMs: 480 ms up to half a screen, then in proportion), the `ms` given
+    // acting as the ceiling, so a step between two nearby zones is quick and a long dive takes its 1.5 s. The way out to the rise ('in') keeps its time.)
+    if (reach && ease !== 'in') ms = Math.min(ms, lobuleMs(from, to, Math.max(1, snap.w)));
     // (Lite mode: the presenter's camera jumps, and the lobule fades in at its new framing.)
     if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); return; }
     // A presenter's glide carries the labels, leaders and dots with the figure (ride, as every other glide does), and they are placed
@@ -430,6 +460,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     gliding = true;
     glide = nextFrame(step);
   }
+  // (The wheel's notches glide here too, and give up whatever they owed to a button, a press or a glide that takes the view over.)
   function zoomBy(factor) {
     if (!geo) return;
     if (sinTo) return;   // in the sinusoid: only the view switch goes back up to the lobule
@@ -439,7 +470,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
     const saved = { ...V }; Object.assign(V, to); clampV(); const target = { ...V }; Object.assign(V, saved);
-    glideTo(target);
+    glideTo(target, LOBULE_MS_MAX, false, null, 'inOut', false, true);
   }
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
   let refitLater = false;
@@ -515,16 +546,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function centreOn(w) {
     const f = freeRect(), saved = { ...V };
     Object.assign(V, { k: V.k, x: (f.l + f.r) / 2 - w[0] * V.k, y: (f.t + f.b) / 2 - w[1] * V.k }); clampV();
-    const to = { ...V }; Object.assign(V, saved); glideTo(to, 380);
+    const to = { ...V }; Object.assign(V, saved); glideTo(to, LOBULE_MS_MAX, false, null, 'inOut', false, true);
   }
   // (Not while the dive is still on its way in or out: a glide begun on its first frames re-staged or popped the framing at landing.)
-  function fitView() { if (sinTo || fade < 0.98 || diveScaled) return; handsOff(); atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
+  function fitView() { if (sinTo || fade < 0.98 || diveScaled) return; handsOff(); atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0, LOBULE_MS_MAX, false, null, 'inOut', false, true); }
   // A button (Fit, + or −) wins over the scroll that was under way when it was pressed: a Mac trackpad's momentum goes on
   // for a second or more after the fingers lift, and each of its events cancelled the button's glide (Fit did nothing).
   // That scroll is ignored until it stops; a stretch or rubber band it left springs back as part of the glide.
   function handsOff() {
     if (performance.now() - wheelAt < 250) wheelMute = true;
-    clearTimeout(rubberT); clearTimeout(stretchT); rubber = false; rawK = 0;
+    clearTimeout(rubberT); clearTimeout(stretchT); rubber = false; rawK = 0; rawHi = 0; wheelGlide.cancel();
   }
 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
@@ -536,14 +567,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // lobule out to its framing between two of the pinch's events, and the next one zoomed it in again, the zoom flickering in and out
   // (4 Nov 2026, Mohammad). A gesture's own 250 ms window counts the same way: a slow frame never ends a pinch.)
   const wheelQuiet = (ms = 200) => performance.now() - wheelAt >= ms && frameCount() - wheelFrame >= 2;
-  const rubberEnd = () => { rubberT = 0; if (!rubber) return; if (!wheelQuiet()) { rubberSoon(120); return; } rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; };   // (the wheel's rubber band lets go: springs back)
+  const rubberEnd = () => { rubberT = 0; if (!rubber) return; if (!wheelQuiet()) { rubberSoon(120); return; } rubber = false; const G0 = fitV(); glideTo(G0, LOBULE_MS_MAX, false, null, 'inOut', false, true); atFit = true; };   // (the wheel's rubber band lets go: springs back)
+  // One step of the wheel's zoom about (px, py), by the factor f: a zoom-out at the framing stretches and springs back, a zoom-in goes to the limit
+  // (a pinch stretches past it); called for each wheel event, and for each frame of a notch's glide.
+  function wheelZoomStep(px, py, f, pinchy = false) {
+    // (A two-finger drift at the framing that began a pad scroll leaves its rubber band and its 220 ms spring-back pending: a pinch that follows
+    // must end it here, or the spring-back glided the lobule to the framing in the middle of the zoom, then the pinch carried on.)
+    if (rubber && !rawK) { clearTimeout(rubberT); rubberT = 0; rubber = false; }
+    if (V.k <= kFit * 1.001 && f < 1) {
+      stretchBy(px, py, f); stretchSoon(220); return;   // a zoom-out at its framing stretches and springs back
+    }
+    if (rawK && f > 1) { stretchBy(px, py, f); stretchSoon(220); return; }
+    zoomAround(px, py, f, pinchy);
+    if (rawHi) stretchSoon(220);
+  }
+  const wheelGlide = createWheelGlide({ ask: nextFrame, cancel: cancelFrame, apply: (d, x, y) => wheelZoomStep(x, y, Math.exp(d)) });
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (wheelMute) { const now = performance.now(); if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     stopInertia();
     cancelFrame(glide); gliding = false;   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? snap.h : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
-    if (wheelQuiet(250)) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
+    if (wheelQuiet(250)) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : isPadWheel(ev) ? 'pad' : 'wheel';
     wheelAt = now; wheelFrame = frameCount();
     if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
       if (V.k <= kFit * 1.001 && geo) {   // at its framing the lobule follows the scroll on a rubber band, and springs back when it stops
@@ -560,14 +605,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
     const px = localX(ev), py = localY(ev);
-    // (A two-finger drift at the framing that began a pad scroll leaves its rubber band and its 220 ms spring-back pending: a pinch that follows
-    // must end it here, or the spring-back glided the lobule to the framing in the middle of the zoom, then the pinch carried on.)
-    if (rubber && !rawK) { clearTimeout(rubberT); rubberT = 0; rubber = false; }
-    if (V.k <= kFit * 1.001 && f < 1) {
-      stretchBy(px, py, f); stretchSoon(220); return;   // a zoom-out at its framing stretches and springs back
-    }
-    if (rawK && f > 1) { stretchBy(px, py, f); stretchSoon(220); return; }
-    zoomAround(px, py, f);
+    // (A mouse wheel's notch glides (wheel-glide.js), carrying the speed of the one before; a trackpad's pinch is direct, and stretches past the zoom-in limit.)
+    if (wheelKind === 'wheel' && !reduce.matches && !ev.ctrlKey && !ev.metaKey) { wheelGlide.push(Math.log(f), px, py, now); return; }
+    wheelZoomStep(px, py, f, wheelKind === 'pinch' || ev.ctrlKey || ev.metaKey);
   }, { passive: false });
   const touches = new Map();
   let pinch = null, down = null, drag = null;
@@ -593,7 +633,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     stopInertia();
     if (ev.isPrimary) touches.clear();
     touches.set(ev.pointerId, local(ev));   // (one [x, y] a finger, kept and moved in place while it is down)
-    cancelFrame(glide); gliding = false;
+    cancelFrame(glide); gliding = false; wheelGlide.cancel();
     // Captured, so a drag keeps going over the labels, the card or past the edge.
     try { el.setPointerCapture(ev.pointerId); } catch (e) { caught('lobule-zoom:527', e); /* gone */ }
     if (touches.size === 2) {
@@ -616,7 +656,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           stretchBy(mx, my, d / dl);
           return;
         }
-        zoomAround(mx, my, (pinch.k * d / pinch.d) / V.k);
+        zoomAround(mx, my, (pinch.k * d / pinch.d) / (rawHi || V.k), true);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
         const dp = drag.p;
         if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) return;
@@ -646,11 +686,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const finished = drag;
     down = null;
     if (touches.size < 2) pinch = null;
-    if (!touches.size) { rubber = false; rawK = 0; }
-    if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) + Math.abs(V.k - F0.k) * 100 > 0.5) { glideTo(F0, 380); atFit = true; } }
+    const sprung = !touches.size && rawHi > 0;   // (a stretch past the zoom-in limit lets go: its glide back is the lobule's move, not a flick's)
+    if (!touches.size) { rubber = false; rawK = 0; if (rawHi) springHi(); }
+    if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) + Math.abs(V.k - F0.k) * 100 > 0.5) { glideTo(F0, LOBULE_MS_MAX, false, null, 'inOut', false, true); atFit = true; } }
     if (ev.type === 'pointerup' && !touches.size && finished) {   // every pointer type flicks the same way
       const n = trN, ia = trI, ib = (trI + n - 1) & TR_MASK, dt = trT[ib] - trT[ia];
-      if (n >= 3 && dt >= 30 && performance.now() - trT[ib] < 50 && V.k > kFit * 1.001) {
+      if (n >= 3 && dt >= 30 && performance.now() - trT[ib] < 50 && V.k > kFit * 1.001 && !sprung) {
         const vx = (trX[ib] - trX[ia]) / dt, vy = (trY[ib] - trY[ia]) / dt;
         const cap = Math.min(1, 2 / (Math.hypot(vx, vy) || 1));
         fling(vx * cap, vy * cap);
@@ -5109,7 +5150,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const F0 = fitV(); kFit = F0.k;
       const to = !part || part === 'fit' ? F0 : framing(part, zoom);
       const moved = Math.abs(V.k - to.k) + Math.abs(V.x - to.x) + Math.abs(V.y - to.y) > 0.5;
-      atFit = !part || part === 'fit'; glideTo(to, ms, true, atFit ? null : { part, zoom, to }, ease);
+      atFit = !part || part === 'fit'; wheelGlide.cancel(); glideTo(to, ms, true, atFit ? null : { part, zoom, to }, ease, false, true);   // (ms: the ceiling; the glide takes the time its reach needs, lobuleMs)
       return moved;
     },
     /** Before (or during) the dive into the lobule: where a presenter slide will want it, so the dive lands there
