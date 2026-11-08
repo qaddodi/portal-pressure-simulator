@@ -1027,7 +1027,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--surface-3), transparent); transform: translateX(100%); animation: shimmer 1.2s linear infinite; pointer-events: none; }
 @keyframes shimmer { to { transform: translateX(-100%); } }
 
-.modal-back { position: fixed; inset: var(--modal-top, 0px) 0 var(--modal-kb, 0px) 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
+.modal-back { position: fixed; inset: var(--modal-top, 0px) 0 var(--modal-kb, 0px) 0; z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .modal-back.show { display: grid; animation: crossfade var(--d-small) var(--ease); }
 /* (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to what is left above it, util.js fitModal,
    and glides there by translate.) */
@@ -1037,7 +1037,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .modal-back.leaving .modal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--d-surface); animation-timing-function: var(--ease); }
-.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - var(--modal-top, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; overscroll-behavior: contain; animation: scale-settle var(--d-small) var(--ease); }   /* (the hairline ring: a dialog keeps its edge on the dark theme's near-black as the menus do) */
+/* (The veil over the figure is the dialog's own outer shadow, as the search palette's is: its frost is drawn in the figure's canvas, UNDER this layer, so a full-page background veil on .modal-back dimmed the glass with the scene. A shadow is never painted under its own box.) */
+.modal { --modal-veil: 0 0 0 100vmax var(--scrim); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline), var(--modal-veil); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - var(--modal-top, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; overscroll-behavior: contain; animation: scale-settle var(--d-small) var(--ease); }   /* (the hairline ring: a dialog keeps its edge on the dark theme's near-black as the menus do) */
 .modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); transition: none; }
 /* Once the page has scrolled under the title, a hairline and a faint shade mark its edge (util.js openModal); at the top there is none. */
 .modal > header.scrolled { box-shadow: 0 1px 0 var(--hairline), 0 8px 12px -10px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 2)); }
@@ -7488,7 +7489,8 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 /* The main menu's preview card, the dialogs and the search palette are frosted GPU glass too (menu-glass.js). Their sticky head keeps no fill of its own over it. */
 .um-pv, .modal, .pal { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
 :root:root :is(.um-pv, .modal, .pal)[data-gl] { background: none; box-shadow: none; }
-:root:root .pal[data-gl] { box-shadow: var(--pal-veil); }   /* (the GPU draws the palette's ring and shadow; the veil around it stays the page's) */
+:root:root .pal[data-gl] { box-shadow: var(--pal-veil); }
+:root:root .modal[data-gl] { box-shadow: var(--modal-veil); }   /* (the GPU draws the dialog's ring and shadow; the veil around it stays the page's) */   /* (the GPU draws the palette's ring and shadow; the veil around it stays the page's) */
 :root:root .modal > header { background: color-mix(in srgb, var(--surface) 92%, transparent); }   /* (sticky: nearly solid, so scrolled rows do not show through it)  */
 /* Before the GPU has drawn a menu's glass (its first frames, and wherever it cannot) the fill is already the glass's own tint, so nothing changes when the frost lands under it:
    no solid-to-glass flash (Mohammad, 4 Nov 2026, "when the menus first appear they still flicker"). Blur effect off keeps the solid fill above. */
