@@ -309,7 +309,9 @@ export function createCore(post) {
       // store.on('params') listener, 10 to 30 times a second for 1.2 to 2 s). It goes at the start, about 4 times a second, and at the landing.
       if (k >= 1 || now - morphParamsAt >= MORPH_PARAMS_MS) { paramsDirty = true; morphParamsAt = now; }
       if (k >= 1) morph = null;
-      frameDirty = true;
+      // (Perf C4: the blend is a function of time, so a frame the page has not painted the last one of yet is not built: the next one carries the
+      // state it has by then. The landing, a page that does not acknowledge, and a page silent past ACK_MAX_MS still post.)
+      if (k >= 1 || !(ackOn && unpainted && now - lastFrame <= ACK_MAX_MS)) frameDirty = true;
     } else if (running) {
       if (clock === 'hemo') {
         if (lapse?.bedside) bedsideStep(now);
