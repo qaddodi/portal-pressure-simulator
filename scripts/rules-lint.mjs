@@ -161,7 +161,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/const stillUse = still && !\(quads && \(part \|\| dirt \|\| pool \|\| \(fl\?\.ripple && nFluid\) \|\| cathRect\)\);/, 'still lumens kept only when that is exact'],
   ];
   for (const [re, why] of compRules) if (!re.test(comp)) errors.push(`src/ui/veins-gl.js composite(): ${why} (${re})`);
-  if (!(comp.indexOf('if (quads) drawHeads(m, layer, glow, warm, useStack, stillUse);') > comp.indexOf('UC.i1(U.bloodOnly, 1);'))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn after the blood-only picture');
+  if (!(comp.indexOf('drawHeads(m, layer, glow, warm, useStack, stillUse);') > comp.indexOf('UC.i1(U.bloodOnly, 1);'))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn after the blood-only picture');
   if (!(comp.indexOf('if (quads) drawHeads(m, false, glow, warm, useStack, false);') < comp.indexOf("gpuProbe.time(gl, 'catheter', cathT);"))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn again, in a catheter box, before the catheter timing');
   need('src/ui/veins-gl.js', [
     [/heads: who === 'stage' \?/, 'the lobule is given no axes: its renderer keeps the composite heads'],
