@@ -833,9 +833,14 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // 9 MP picture, and its card canvas held one: svg-gl 163 ms a frame in the lobule, 5 fps (4 Nov 2026, Mohammad's ?perf).)
         const t = performance.now();
         if (!(t - shared.winT0 <= SHRINK_MS)) { shared.lastW = shared.winW || 0; shared.lastH = shared.winH || 0; shared.winW = 0; shared.winH = 0; shared.winT0 = t; }
-        if (Wd > shared.winW) shared.winW = Wd;
-        if (Hd > shared.winH) shared.winH = Hd;
-        const fitW = capOf(Math.max(shared.lastW, shared.winW)), fitH = capOf(Math.max(shared.lastH, shared.winH));
+        // (A big layer (over a quarter of the screen: the lobule's leaders with a pointer up, a zoomed card's boosted chart) is drawn in a buffer
+        // sized for it alone and never joins the window: it held the buffer at its size for every small chart after it, so each card readout and
+        // callout handed over megapixels (svg-gl 68 to 130 ms a frame, 4 to 11 fps on a pan or pinch, 8 Nov 2026). The next small chart cuts the
+        // buffer straight back to the window's size. A hand-over already gives the buffer away, so the cut costs no more than the hand-over did.)
+        const big = bigLayer(Wd, Hd);
+        if (!big && Wd > shared.winW) shared.winW = Wd;
+        if (!big && Hd > shared.winH) shared.winH = Hd;
+        const fitW = big ? capOf(Wd) : capOf(Math.max(shared.lastW, shared.winW)), fitH = big ? capOf(Hd) : capOf(Math.max(shared.lastH, shared.winH));
         if (glCanvas.width < Wd || glCanvas.height < Hd || glCanvas.width > fitW || glCanvas.height > fitH) {
           glCanvas.width = Math.max(fitW, capOf(Wd)); glCanvas.height = Math.max(fitH, capOf(Hd)); sharedStats.resizes++;
         }
