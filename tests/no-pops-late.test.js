@@ -55,7 +55,7 @@ test('popovers and figure pieces fade out instead of vanishing (P20, P21, P23)',
 test('the patient pill glides to a new name\'s width and the name crossfades (P8)', () => {
   assert.match(read('index.html'), /<div class="float-pill tb-id">\s*<span class="tb-face" aria-hidden="true"><\/span>/);
   assert.match(css, /\.topbar \.tb-id \{ position: relative; isolation: isolate; background: transparent; box-shadow: none; \}/);
-  assert.match(read('src/ui/topbar-motion.js'), /if \(face\) plateGlide\(face, 0, s\.w, n\.w, \{ duration: MOVE_MS, easing: EASE \}\);/);
+  assert.match(read('src/ui/topbar-motion.js'), /if \(face\) plateGlide\(face, 0, s\.w, n\.w, \{ duration: MOVE_MS, easing: EASE_MOVE \}\);/);
   assert.match(read('src/ui/main.js'), /const scFill = \(\) => \{\s*const el = \$\('#scenarioName'\);\s*el\.replaceChildren\(h\('span', SN_L, scName\)/);
   assert.match(read('src/ui/main.js'), /swapFade\(el, scFill\);/);
 });

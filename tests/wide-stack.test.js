@@ -98,7 +98,7 @@ test('the wide stack draws the phone\'s two pieces of glass upside down, the rea
   assert.ok(css.includes('.pz.pz-wide .pz-lip:not([hidden]) { display: block;'), 'the handle shows');
   assert.ok(css.includes('.pz.pz-wide .pz-data > .pz-grip { display: none; }'), 'no edge handle: it never docks to the side');
   // (It comes and goes whole, its glass opaque while its parts fade, the old card's top glide kept.)
-  assert.ok(css.includes(`${W}.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease), visibility 0s linear var(--d-small); }`));
+  assert.ok(css.includes(`${W}.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }`));
   assert.ok(css.includes(`${W}:not(.pz-hide) { visibility: visible; transition: transform var(--d-surface) var(--ease) .12s, visibility 0s linear 0s; }`));
 });
 

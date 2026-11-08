@@ -636,7 +636,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       clearSwipe(s.cur, s.nb);
       if (go) { pick(TABS[s.j]); scrollInto(tabEls[TABS[s.j]].b, { block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
     };
-    const timer = setTimeout(done, afterMs(D_SMALL));   // (the settle is a small step)
+    const timer = setTimeout(done, afterMs(D_SMALL));
     settle = done; resting = go ? s.nb : s.cur;
     const [x1, y1, x2, y2] = curve.match(/-?[\d.]+/g).map(Number);
     easing = { el: resting, from: go ? s.dx + d * s.w : s.dx, to: 0, t0: performance.now(), ms: D_SMALL, f: cubicBezier(x1, y1, x2, y2) };

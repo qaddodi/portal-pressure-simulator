@@ -577,7 +577,7 @@ test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a 
   // (The cell is scaled as it sits in the panel's fit zoom, which the card is not.)
   assert.match(js, /scale: \(el\) => \(el && el !== data && el\.offsetWidth \? el\.getBoundingClientRect\(\)\.width \/ el\.offsetWidth : wrap\.getBoundingClientRect\(\)\.width \/ \(wrap\.clientWidth \|\| 1\)\) \|\| 1,/);
   // (The app's own scrim, never snapping: both veils fade, the shadow eases, the cell shows the pointer that says what a tap does.)
-  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity var\(--d-surface\) var\(--ease\)/);
+  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity var\(--d-small\) var\(--ease-in\)/);   // (off is the leave: the step below, on the leaving curve; .on keeps the surface step)
   assert.match(rule('.pz-pscrim.on'), /pointer-events: auto/);
   assert.match(rule('.pz-gscrim {'), /z-index: 1/);
   assert.match(css, /^\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ cursor: zoom-in; transition: none; \}$/m, '(1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');

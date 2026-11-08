@@ -40,7 +40,7 @@ test('the knob is never cropped at either end of the bar: its ring, held and gro
   assert.match(src, /disc\(ctx, x, cy, Math\.min\(\(r \+ v\[0\]\) \* sc, room\)\)/);
   // (The bar is as tall as the held ring: 28 px, 32 under a finger.)
   assert.match(css, /isolation: isolate; height: 28px;/);
-  assert.match(css, /\.range-wrap \{ --tw: 32px; --dot: 22px; \}[^\n]*\n  \.range-wrap, input\[type=range\] \{ height: 32px; \}/);
+  assert.match(css, /\.range-wrap \{ --tw: 32px; --dot: 22px; \}[^\n]*\n {2}\.range-wrap, input\[type=range\] \{ height: 32px; \}/);
 });
 
 test('the glide runs from the start fraction to the end, on the steps, and ends exactly on the end', () => {

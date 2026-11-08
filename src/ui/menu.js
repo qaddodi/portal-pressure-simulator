@@ -711,7 +711,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         clear(s.cur); clear(s.nb);
         if (go) { setTab(TABS[s.j], false, true); cols.scrollTop = 0; }
       };
-      const timer = setTimeout(done, afterMs(D_SMALL));   // (the settle is a small step)
+      const timer = setTimeout(done, afterMs(D_SMALL));
       settle = done; resting = go ? s.nb : s.cur;
       easing = { el: resting, from: go ? s.dx + d * s.w : s.dx, to: 0, t0: performance.now(), f: cssCurve(curve) };
     };

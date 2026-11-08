@@ -15,7 +15,7 @@ test('the lens pill glides its plate to a new key\'s width on the key\'s clock, 
   // (by plate pieces since the off-GPU gate: no width animates)
   assert.match(tb, /if \(face\) plateGlide\(face, hang \? t\.dw : 0, s\.w, n\.w, \{ duration: D_SURFACE, easing: EASE_MOVE \}\);/);
   assert.doesNotMatch(tb, /width: `\$\{s\.w\}px`/);
-  assert.match(tb, /inRow\(el\) \? \{ duration: D_SURFACE, easing: EASE_MOVE \}/, 'the chips beside the key move with the plate');
+  assert.match(tb, /inRow\(el\) \? ROW_MOVE : BAR_MOVE/, 'the chips beside the key move with the plate');
   // The pill and the key move by how far their right edges moved.
   assert.match(tb, /t\.x \+= \(s\.x \+ s\.w - n\.x - n\.w\) - \(s\.x - n\.x\);/);
   assert.match(css, /\.topbar \.sb-right\.has-face \{ position: relative; isolation: isolate; background: transparent; box-shadow: none; overflow: visible; \}/);
