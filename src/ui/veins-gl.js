@@ -56,7 +56,7 @@ import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } fro
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
 import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor } from './frame.js';
-import { guardCanvas } from './canvas-guard.js';
+import { keepScreen } from './keep-screen.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
@@ -2025,13 +2025,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // A pass that is about to write every pixel of its target says so first, so a tile GPU (Apple's, under Safari's Metal) does not load the
   // target's old picture into the pass: the canvas (the default framebuffer, or the host's texture when shared) or a framebuffer object's colour.
-  // (Never the canvas itself where the browser does not keep it (8 Nov 2026, Mohammad's Mac after f56992f: the figure flickered at rest, under
-  // every glass, and in the Circuit once landed). Without preserveDrawingBuffer the canvas's buffer is the very surface Safari shows, and an
-  // invalidate of it under Metal (ANGLE) marks the pass's store as "don't care": the copy laid after it is lost wherever the pass is cut before
-  // the frame ends, and the glasses cut it each time they read the canvas for their blur. With the canvas kept, the browser's own buffer stood in
-  // between and took the invalidate harmlessly. The copy writes every pixel anyway, so a load skipped is all the invalidate saved.)
+  // (Where the renderer keeps the canvas (keep-screen.js), "the canvas" here is its screen texture; the shown surface is never invalidated.)
   function noLoad(target, onCanvas) {
-    if (onCanvas && !scr && !KEEP_CANVAS) return;
     INVC[0] = onCanvas && !scr ? gl.COLOR : gl.COLOR_ATTACHMENT0;
     gl.invalidateFramebuffer(target, INVC);
   }
@@ -2058,29 +2053,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // black frame's cause was the lone pass clearing the canvas (presentSelf's soloOn gate, 4 Nov), and every write to this canvas is a whole lay
   // (the present's copy, a camera or under lay, a whole picture drawn straight onto it, a clear) or rides one in the same present (the overlays,
   // the tops); a reader outside the task goes through capture(). A renderer with no kept picture of its own still keeps the canvas's.)
-  // (Kept again, the same evening: without it the figure flickered on Mohammad's Mac at rest, under every glass and in the Circuit, and two
-  // fixes (3f414f4's guard, ebb62bb's no canvas invalidate) did not end it; ebb62bb made it worse. The flicker is gone first; the frame rate
-  // is won back another way. The guard and the uninvalidated canvas stay wired to KEEP_CANVAS false, so the canvas not kept can be tried again.)
-  const KEEP_CANVAS = true;
+  // (Kept by the browser again for an hour (500f38c, 15 fps): without it the figure had flickered (3f414f4's guard and ebb62bb's no canvas
+  // invalidate did not end it). Now the renderer keeps it itself (keep-screen.js, below): the speed of f56992f, and the shown surface gets one
+  // whole copy a frame and nothing else.)
+  const KEEP_CANVAS = !ownBuf;
   let gl = null;
   try { gl = share ? share.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: KEEP_CANVAS, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (gl && !share) setFenceContext(gl);   // (?perf's GPU fences are planted in the figure's own context, gpu-fence.js)
   if (!gl) return null;
-  // (The canvas not kept, a write to it before the whole picture is laid in a display cycle goes off screen (canvas-guard.js): Mohammad's
-  // flicker after f56992f. laying: inside a lay (a present, a clear, the fade's seed: top.whole). laid: a whole picture is on the canvas and the
-  // browser has not shown it yet. The browser shows (and then clears) the canvas at the end of the rendering update, right after the frame's
-  // rAF, so laid ends with the scheduler's frame (onFrameEnd); a lay outside a frame asks for one, so its cycle ends there too. (3f414f4 ended
-  // a lay outside a frame with its task's microtasks: the resolution fade's seed, laid in a microtask right after the canvas is resized, ran
-  // after that end and was sent off screen, so every resolution change showed one blank frame, the glass with it.)
-  let laying = 0, laid = false;
-  const askLaidEnd = frameFor('figure-canvas-shown');
+  // (The canvas not kept by the browser, the renderer keeps it (keep-screen.js): every bind of the canvas binds a texture its size, and the
+  // frame's end copies that onto the canvas once, whole. The canvas the browser shows gets one write a frame; nothing else ever touches it.)
+  const askShow = frameFor('figure-canvas-shown');
   const noop = () => {};
-  function markLaid() {
-    laid = true;
-    if (!framePhase() && canvasGuard) { try { askLaidEnd(noop); } catch (e) { caught('veins-gl:laid-end', e); /* (no frames here: node) */ } }
-  }
-  const offLaidEnd = onFrameEnd(() => { laid = false; });
-  const canvasGuard = !KEEP_CANVAS && !share ? guardCanvas(gl, () => laying > 0 || laid, canvas) : null;
+  const screenKeep = !KEEP_CANVAS && !share ? keepScreen(gl, canvas, { onEnd: onFrameEnd, ask: () => { if (!framePhase()) { try { askShow(noop); } catch (e) { caught('veins-gl:show', e); /* (no frames here: node) */ } } } }) : null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl);
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
@@ -3263,10 +3248,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   function clearAll() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; }
   function presentSelf(top, again) {
-    const p0 = presents;
-    laying++;
-    try { presentLay(top, again); } finally { laying--; }
-    if (presents !== p0) markLaid();
+    presentLay(top, again);
   }
   function presentLay(top, again) {
     if (replace && !lost && replace.on()) {
@@ -4419,9 +4401,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       /** A warm-up of something drawn over the figure here ({ done(), run() }): run once done() says its programs are compiled, at a free
        *  moment of the renderer (prepare: between pictures, not mid gesture), where its small draw may set any state. */
       warmIn(t) { if (t && !lost) freeTasks.push(t); },
-      /** Runs fn, which covers the whole canvas (a clear and a whole picture: the resolution fade's seed on a canvas just resized), as a lay:
-       *  its writes reach the canvas and count as its picture for this display cycle (canvas-guard.js). */
-      whole(fn) { laying++; try { fn(); } finally { laying--; } markLaid(); },
+      /** Runs fn, which covers the whole canvas (a clear and a whole picture: the resolution fade's seed on a canvas just resized). */
+      whole(fn) { fn(); },
     } : null,
     overlay: overOK ? {
       set(groups, names) {
@@ -4606,7 +4587,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // device → world: the inverse of [a c e; b d f].
       const ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
       const ie = -(ia * m[4] + ic * m[5]), iff = -(ib * m[4] + id * m[5]);
-      if (direct) markLaid();   // (the whole picture is drawn straight onto the canvas next: it is laid)
       if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, direct ? null : own.fbo);
       directNow = direct; if (own) ownStale = direct;
       if (direct) { directFrame = frameCount(); directP = directB = -1; }
@@ -4970,11 +4950,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get viewKey() { return baseM ? viewKeyStr : ''; },
     /** Calls f each time drawSeq changes; returns the call that stops it. */
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
-    clear() { laying++; try { clearAll(); } finally { laying--; } markLaid(); },
-    /** Writes to the canvas sent off screen because no whole picture had been laid in their display cycle (canvas-guard.js). */
-    get strayWrites() { return canvasGuard ? canvasGuard.redirected : 0; },
+    clear() { clearAll(); },
+    /** How many times the kept screen was copied onto the canvas (keep-screen.js; 0 where the browser keeps the canvas). */
+    get screenShows() { return screenKeep ? screenKeep.flushes : 0; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
-    snapshot() { if (share) return null; const c = { ...cam }; cam.k = 1; cam.ex = cam.ey = 0; cam.a = 1; try { present(false); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
+    snapshot() { if (share) return null; const c = { ...cam }; cam.k = 1; cam.ex = cam.ey = 0; cam.a = 1; try { present(false); screenKeep?.flush(); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
     /**
      * The canvas holding the whole current picture, for a reader that takes it in this same task (a download, a handout, the glass'
      * copy, drawImage, createImageBitmap, toDataURL): the kept picture is copied onto it first, so the reader
@@ -4985,10 +4965,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     capture() {
       const f = frameCount();
       // (A host's ask waiting for the frame's end is laid now, and is the picture the reader takes: not laid a second time below.)
-      if (presPend) { const again = (presPend & 2) !== 0; presPend = 0; presentNow(true, again); capturedAt = f; capP = pictureSeq; capB = bloodSeq; capN = presents; return canvas; }
-      if (f === capturedAt && capP === pictureSeq && capB === bloodSeq && capN === presents && !(replace && replace.on())) return canvas;
+      if (presPend) { const again = (presPend & 2) !== 0; presPend = 0; presentNow(true, again); capturedAt = f; capP = pictureSeq; capB = bloodSeq; capN = presents; screenKeep?.flush(); return canvas; }
+      if (f === capturedAt && capP === pictureSeq && capB === bloodSeq && capN === presents && !(replace && replace.on())) { screenKeep?.flush(); return canvas; }
       presentNow(true, false); capturedAt = f; capP = pictureSeq; capB = bloodSeq; capN = presents;
-      return canvas;
+      screenKeep?.flush(); return canvas;
     },
     /**
      * Copies the kept picture onto the canvas again, so a reader of the canvas outside the frame that drew it (a copy for the glass,
@@ -5026,7 +5006,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * then cannot draw until the browser restores it, so give the next instance a new canvas.
      */
     dispose({ lose = false } = {}) {
-      offPresFinal(); offLaidEnd(); presPend = 0;
+      offPresFinal(); screenKeep?.dispose(); presPend = 0;
       (hostCv || canvas).removeEventListener('webglcontextlost', onLost);
       (hostCv || canvas).removeEventListener('webglcontextrestored', onRestored);
       if (!lost) {
