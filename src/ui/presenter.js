@@ -1774,6 +1774,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     pushTo(s, to, (s.lapse.seconds || 8) * 1000);
     paintChrome();
     figureHooks('lapse', s);   // (a deck visuals package's glow from the days' start: slide-ext.js)
+    // (A cap: when no frame has moved the days on for three times the lapse's length, the worker has stalled or a message was lost;
+    // the loop ends and the slide lands on its computed end, as for a finished lapse.)
+    let dBest = -1, moveAt = performance.now();
     while (lapseOn && !cut()) {
       const fast = lapseLeft === 0;
       await wait(fast ? 60 : 150);
@@ -1788,6 +1791,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // the card already shows the settled start.)
       if (fr?.metrics && d >= 1) dataTo(s, liveFp(fr), ref, fast ? 120 : 280);
       if (d >= days && fr?.clock === 'hemo') break;
+      if (d > dBest) { dBest = d; moveAt = performance.now(); } else if (performance.now() - moveAt > 3000 * (s.lapse.seconds || 8)) { degrade('lapse-stall'); break; }
     }
     if (!lapseOn || cut()) { stopLapse(); return; }
     lapseOn = false; paintChrome();
