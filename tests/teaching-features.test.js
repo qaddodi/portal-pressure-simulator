@@ -207,7 +207,7 @@ test('no Since the bleed tile (his 30 Oct, "I kinda hate the time since bleed ti
 
 test('a slide that cannot land is not rebuilt without end (Variceal bleed 3 to 4 froze the talk, 25 Oct)', () => {
   const p = src('presenter.js');
-  assert.match(p, /if \(tries > 2\) \{ console\.warn\(`presenter: slide \$\{want \+ 1\} did not land`\); break; \}/, 'the move loop gives up on a slide after two tries');
+  assert.match(p, /if \(tries > 2\) \{ console\.warn\(`presenter: slide \$\{want \+ 1\} did not land\$\{phaseNote\(\)\}`\); break; \}/, 'the move loop gives up on a slide after two tries');
   const vb = DECKS.find((d) => d.id === 'variceal-bleed').slides.find((s) => s.id === 'minutes');
   assert.equal(vb.predict, undefined, 'Predict is gone: Variceal bleed 4 never had a choice question');
 });

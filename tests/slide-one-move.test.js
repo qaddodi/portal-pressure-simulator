@@ -40,7 +40,7 @@ test('the change of patient starts with the glide, and is awaited only once the 
 test('a change after the landing never starts mid-glide, and the move ends only once the glide has landed', () => {
   assert.match(run, /if \(!plate \|\| \(later && !under\)\) await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 1500\);/);
   assert.match(run, /if \(later && !under\) \{ if \(!await morphTo\(st, cut, MORPH_ONE_MS\)\) return;/);
-  assert.match(run, /await wait\(60\); await until\(\(\) => cut\(\) \|\| !cardsEntering\(bareSeen \? CARDS_SEEN : 0\), 1200\);\s*if \(cut\(\)\) return;\s*(?:\/\/[^\n]*\n\s*)*if \(plate\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 1500\); if \(cut\(\)\) return; \}/);
+  assert.match(run, /await waitCut\(60, cut\); await until\(\(\) => cut\(\) \|\| !cardsEntering\(bareSeen \? CARDS_SEEN : 0\), 1200\);\s*if \(cut\(\)\) return;\s*(?:\/\/[^\n]*\n\s*)*if \(plate\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), 1500\); if \(cut\(\)\) return; \}/);
 });
 
 // Cards in sight, marks next (the polish of 31 Oct): over the plate with the same patient the unseen cards' last fitting runs under the glide's
