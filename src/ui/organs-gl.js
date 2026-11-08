@@ -102,6 +102,7 @@ export function viewInside(p, m, cw, ch) {
   }
   return true;
 }
+const INVC = [0];   // (invalidateFramebuffer's list)
 const VQ = [1, 0, 0, 1, 0, 0], VI = [1, 0, 0, 1, 0, 0], VM = [1, 0, 0, 1, 0, 0];   // (viewInside's and marginViewTo's scratch)
 /** The view the margin picture is painted under: m with the canvas's centre kept and everything MOVE_MARGIN times smaller about it. */
 export function marginView(m, cw, ch) { return marginViewTo([0, 0, 0, 0, 0, 0], m, cw, ch); }
@@ -584,6 +585,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.viewport(0, 0, w, h);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.BLEND);
+    INVC[0] = gl.COLOR_ATTACHMENT0; gl.invalidateFramebuffer(gl.FRAMEBUFFER, INVC);   // (the move writes every pixel of the stack: the old picture is not loaded into the pass)
     gl.useProgram(moveP.p);
     setM(U.toS, mulTo(MA, base.m, im));
     setM(U.toM, useM ? mulTo(MB, marg.p, im) : IDM);

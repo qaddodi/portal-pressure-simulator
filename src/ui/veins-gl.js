@@ -214,7 +214,7 @@ const SCRATCH = { world: new Float32Array(9), inv: new Float32Array(9), be: new 
 const ORIGIN_WHITE = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
 // The composite's defaults and scratch, made once (it made an array for each default it fell back on, a rest list for its
 // signature and a list of passes, in every frame: 2 Nov 2026, scripts/frame-alloc.mjs). None is written to by a reader.
-const NONE = [], NOBLOOD = {}, INV1 = [0];
+const NONE = [], NOBLOOD = {}, INV1 = [0], INVC = [0];
 const R_UNIT = [0, 0, 1, 1], V4_ZERO = [0, 0, 0, 0], LV_DEF = [1, 0], CHEV_INK = [0.08, 0.08, 0.1], CHEV_LIGHT = [1, 0.93, 0.86];
 const DYE_COL = [0.8, 0.95, 0.2], REV_COL = [1, 0.55, 0.16], INK_LIGHT = [1, 1, 1], INK_DARK = [0.1, 0.1, 0.16];
 /** A 2D transform [a b c d e f] written as the 3×3 the shaders take, into dst, in place. */
@@ -2007,6 +2007,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     }
     return scr.fbo;
   }
+  // A pass that is about to write every pixel of its target says so first, so a tile GPU (Apple's, under Safari's Metal) does not load the
+  // target's old picture into the pass: the canvas (the default framebuffer, or the host's texture when shared) or a framebuffer object's colour.
+  function noLoad(target, onCanvas) {
+    INVC[0] = onCanvas && !scr ? gl.COLOR : gl.COLOR_ATTACHMENT0;
+    gl.invalidateFramebuffer(target, INVC);
+  }
   // (A row is written in ROW2_BITS bits in the second lumen target: many more rows than the figure has, about two hundred.)
   if (nTubes + 1 > ROW2_MASK) { console.warn(`Veins renderer: ${nTubes} vessel rows do not fit the second lumen target.`); return null; }
   // (For the ?perf readout: who asked for a whole draw or a target sized again, gpu-probe.js BY.)
@@ -3271,6 +3277,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (A picture under the canvas's size with the plain upscale: filtered, as the page's compositor scales a smaller canvas up.)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCR());
+      if (up || (own.w === canvas.width && own.h === canvas.height)) noLoad(gl.DRAW_FRAMEBUFFER, true);   // (the copy covers the whole canvas)
       gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, up ? canvas.width : own.w, up ? canvas.height : own.h, gl.COLOR_BUFFER_BIT, up ? gl.LINEAR : gl.NEAREST);
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
@@ -3496,6 +3503,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST);
+    noLoad(gl.FRAMEBUFFER, true);   // (the upscale writes the whole canvas)
     gl.useProgram(upP.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, own.tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -3549,6 +3557,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.disable(gl.SCISSOR_TEST);
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own ? own.fbo : null);
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, rz.fbo);
+    if (!own || (own.w === rz.w && own.h === rz.h)) noLoad(gl.DRAW_FRAMEBUFFER, false);   // (the copy covers the whole target)
     gl.blitFramebuffer(0, 0, rz.w, rz.h, 0, 0, rz.w, rz.h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     for (let i = 0; i < 6; i++) RZM[i] = m[i];   // (a copy: m is the frame's scratch)
@@ -4674,6 +4683,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (gpuProbe.on) gpuProbe.gauge('streaks at half size', nWide > 0 ? `${half.w}×${half.h}, ${nWide} cells of wide rows${sq ? '' : ', cleared first'}` : `${half.w}×${half.h}, whole`);
       } else halfUse = null;
       halfWas = halfOn;
+      // (A whole picture writes every pixel of its target, the kept picture or the canvas: the old one is not loaded into the pass. A part of a
+      // picture keeps what is there.)
+      if (full && own) noLoad(gl.FRAMEBUFFER, direct);
       // (With the heads drawn as quads after this pass, still lumens are left alone only on a frame whose one drawing of lumens is the blood's
       // own pass: the heads' quads then skip the pixels it skips, and lay a head once on every pixel it draws again.)
       const stillUse = still && !(quads && (part || dirt || pool || (fl?.ripple && nFluid) || cathRect));
