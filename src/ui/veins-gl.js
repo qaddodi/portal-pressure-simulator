@@ -2024,7 +2024,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // A pass that is about to write every pixel of its target says so first, so a tile GPU (Apple's, under Safari's Metal) does not load the
   // target's old picture into the pass: the canvas (the default framebuffer, or the host's texture when shared) or a framebuffer object's colour.
+  // (Never the canvas itself where the browser does not keep it (8 Nov 2026, Mohammad's Mac after f56992f: the figure flickered at rest, under
+  // every glass, and in the Circuit once landed). Without preserveDrawingBuffer the canvas's buffer is the very surface Safari shows, and an
+  // invalidate of it under Metal (ANGLE) marks the pass's store as "don't care": the copy laid after it is lost wherever the pass is cut before
+  // the frame ends, and the glasses cut it each time they read the canvas for their blur. With the canvas kept, the browser's own buffer stood in
+  // between and took the invalidate harmlessly. The copy writes every pixel anyway, so a load skipped is all the invalidate saved.)
   function noLoad(target, onCanvas) {
+    if (onCanvas && !scr && !KEEP_CANVAS) return;
     INVC[0] = onCanvas && !scr ? gl.COLOR : gl.COLOR_ATTACHMENT0;
     gl.invalidateFramebuffer(target, INVC);
   }
