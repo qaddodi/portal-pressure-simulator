@@ -1723,8 +1723,6 @@ button.finding { cursor: pointer; }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
 .lz-labels > :is(.lz-lab, .lz-zone, .lz-call) { left: 0; top: 0; }   /* (placed by translate: lobule-zoom.js put) */
-.lz-labels.lz-ease .lz-lab { transition: opacity var(--d-surface) var(--ease), translate var(--d-surface) var(--ease); }
-@media (prefers-reduced-motion: reduce) { .lz-labels.lz-ease .lz-lab { transition: none; } }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
 .lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--danger-ink); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
 .lz-call.on { opacity: 1; transform: none; }

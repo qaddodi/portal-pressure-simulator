@@ -12,13 +12,16 @@ export function createView(st, live) {
   const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
   const xfVis = [null, null];
   function viewXfP() { const x = live.viewXf, t = live.easeInOut(live.morph); return x.tT === x.t0 ? 1 : clamp((t - x.t0) / (x.tT - x.t0), 0, 1); }
-  // (The label layers the GPU does not draw (the SVG's own) come in with the new labels.)
+  // (The label layers the GPU does not draw (the SVG's own) come in with the new labels. Written on the layer's two groups, never on the #labels
+  // root: label-gl multiplies every picture by the root's opacity (layer-alpha.js) and then by the change's own xfOld and xfNew, so a fade on the
+  // root made the crossfade twice over: the old labels drawn at nothing at the tap, the new ones at n squared. 8 Nov 2026, animation recs item 1.
+  // The FibroScan callout's group (gScan) has its own class fade and is left to it.)
   function xfLayer(n) {
     const v = n >= 1 ? '' : n.toFixed(3);
     if (v === live.xfOp) return;
     live.xfOp = v;
-    if (live.labelSvg) live.labelSvg.style.opacity = v;
-    live.labelGL?.check();   // (the label layer's own fade changed: label-gl.js check)
+    if (live.gLabels) live.gLabels.style.opacity = v;
+    if (live.gLeaders) live.gLeaders.style.opacity = v;
   }
   function xfVisFill() {
     for (let v = 0; v < 2; v++) { const a = xfVis[v] ||= new Uint8Array(EV.length); for (let i = 0; i < EV.length; i++) a[i] = live.F && visAt(EV[i], v === 0) ? 1 : 0; }

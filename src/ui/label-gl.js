@@ -31,7 +31,7 @@ import { planRepack, stepRepack, reconcileRepack, commitRepack } from './label-r
 import { classSoon } from './class-soon.js';
 import { readStyle } from './layout-snap.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, D_SMALL, easeMove } from './motion.js';
 import { leaderEnd } from './leader-end.js';
 import { darkMQ } from './look.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
@@ -784,15 +784,21 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // offset, its dot on the point and its leader from the point to the label, all moved by the same step in the same frame. No ride, carry
   // or follow moves a pinned label: a pan, a pinch or a view change moves its point, and the label goes with it, rigid. Only a new layout
   // changes the offset, and the label takes it at once (no glide), its point and dot not moving.
-  let pinAt = null, pinWorldAt = null, PIN_HID = false;
+  // A label a new layout puts in another place (its offset moved by more than MOVE_PX) does not slide and does not swap in one frame: it
+  // fades out where it stood and in at its new place, over D_SMALL on the frame clock, both on the same point (8 Nov 2026, Mohammad: "item 10:
+  // yes, fade"; V-LBL-3). It is a fade, not a glide, so the label is still rigid on its point every frame (V-LBL-1). Not during a view change
+  // or a presenter's glide (the ghosts and the change's own crossfade do that), and not with Reduce Motion.
+  let pinAt = null, pinWorldAt = null;
   const PIN = [0, 0];
-  // (The offset each pinned label was last drawn at, by its group, kept past its picture: a label whose picture is made again (its text
-  // size changes with the zoom) still eases from where it stood, never jumps to its new offset.)
-  const pinLast = new WeakMap();   // group -> Float64Array [ox, oy]
+  const MOVE_PX = 3;
+  // (What each pinned label was last drawn at, by its group: its key (a group the pool gives another label has no past), the offset and the
+  // leader and dot it had, the frame it was drawn in, and a fade to the new offset while one runs: mf (0 to 1, the new place's share), mx and
+  // my (where it stood), mw (what it had), mt (when the fade began), ms (the frame the share was worked out in).)
+  const pinLast = new WeakMap();   // group -> record, made once
+  const newPinRec = (key) => ({ key, ox: 0, oy: 0, want: 0, seq: -9, on: false, mf: 1, mx: 0, my: 0, mw: 0, mt: 0, ms: -1 });
   // (A label with a world anchor (pwv set: step 3, every figure label) is pinned by that world point, taken to the stage under the camera of this frame;
   // a station's is named by its id. Either way the label is its point now plus its layout's offset.)
   const pinOf = (s) => {
-    PIN_HID = false;
     if (!pinAt || !s || s.pid == null) return null;
     // (A point the figure cannot give this frame (a station of a slide gone by, such as the TIPS stent's on a healthy liver) is no pin: it must
     // not throw, or the rest of the frame's labels lose their leaders and dots. Slide 51 on the iPhone, 5 Nov 2026: the stent slide's reading,
@@ -817,6 +823,25 @@ void main() { o = texture(uT, vUV) * uA; }`;
   function pinDev(st) {
     const px = Math.round(PIN[0] * dpr), py = Math.round(PIN[1] * dpr);
     PD[0] = px; PD[1] = py; PD[2] = px + Math.round(OFF[0] * dpr) + st.ox; PD[3] = py + Math.round(OFF[1] * dpr) + st.oy;
+  }
+  // (A pinned label's place this frame against the one it was drawn at last frame, offset ox, oy: a move of more than MOVE_PX, with nothing else
+  // moving the labels, begins a fade from the old place to the new. Returns the label's record, its fade worked out for this frame (on, mf, mx, my).)
+  function moveFade(g, ox, oy, now) {
+    const key = g.dataset?.key || '';
+    let pr = pinLast.get(g);
+    if (!pr || pr.key !== key) pinLast.set(g, pr = newPinRec(key));   // alloc-rare: one per pinned label (a new one when the pool gives the group to another label)
+    const calm = !ghosts.length && xfNew >= 1 && xfOld >= 1 && !REDUCE?.matches;
+    if (!calm) pr.on = false;
+    else if (pr.seq === frameSeq - 1 && (Math.abs(ox - pr.ox) > MOVE_PX || Math.abs(oy - pr.oy) > MOVE_PX)) {
+      // (Begun from where it stands drawn: a fade already running lets go of its old place, which was only a part shown.)
+      pr.on = true; pr.mx = pr.ox; pr.my = pr.oy; pr.mw = pr.want; pr.mt = now;
+    }
+    if (pr.on) {
+      const u = (now - pr.mt) / D_SMALL;
+      if (u >= 1) pr.on = false; else { pr.mf = easeMove(u < 0 ? 0 : u); pr.ms = frameSeq; }
+    }
+    pr.ox = ox; pr.oy = oy; pr.seq = frameSeq;
+    return pr;
   }
   // The view change (B2): the labels standing as it begins are kept as ghosts, frozen (their pictures, their pins and offsets, their leaders'
   // and dots' looks), and ride the morphing figure under the pin of their world anchors, drawn at xfOld; the new view's labels, already
@@ -1550,7 +1575,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
       for (let i = 0; i < ghosts.length; i++) {
         const gh = ghosts[i], q = gh.s, st = gh.st;
         gh.on = false;
-        if (!(xfOld * gh.a0 * st.opacity > 0.001) || !st.slot || !pinOf(q) || PIN_HID) continue;
+        if (!(xfOld * gh.a0 * st.opacity > 0.001) || !st.slot || !pinOf(q)) continue;
         pinOff(q); pinDev(st);
         const x = PD[2], y = PD[3];
         gh.on = true; gh.px = PD[0]; gh.py = PD[1]; gh.lx = x; gh.ly = y;   // (device px)
@@ -1602,14 +1627,14 @@ void main() { o = texture(uT, vUV) * uA; }`;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
       let x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, a = Math.min(1, st.opacity) * (s.alpha ?? 1);   // (s.alpha: an owner's fade carried on the record, the captions')
       const pinned = pinOf(s);
-      if (pinned && PIN_HID) continue;
+      let pr = null;
       if (pinned) {
-        // (Pinned: at its point now plus its offset, the offset easing from where it was drawn only while a new layout's glide runs.)
+        // (Pinned: at its point now plus its offset; a new layout's offset is taken at once, as a fade between the two places: moveFade.)
         pinOff(s);
         const ox = OFF[0], oy = OFF[1];
         st.pox = ox; st.poy = oy; st.pin = true; st.ppx = PIN[0]; st.ppy = PIN[1];
-        let pl = pinLast.get(g); if (!pl) pinLast.set(g, pl = new Float64Array(2));   // alloc-rare: one per pinned label
-        pl[0] = ox; pl[1] = oy;
+        pr = moveFade(g, ox, oy, now);
+        if (pr.on) moving = true;
         pinDev(st); x = PD[2]; y = PD[3];
       } else if (rideM) {
         // (Riding: its centre carried by the camera's move since it was laid out, on a whole device pixel, and kept inside the stage: a
@@ -1622,6 +1647,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
       if (!pinned) st.pin = false;
       a *= xfNew;   // (the view change's crossfade: this view's labels come in as it passes its half)
       st.dx = x; st.dy = y; st.drawn = now;
+      if (pr?.on) {
+        // (A label fading from where it stood to its new place: the picture at the old place under, going out, and at the new, coming in.)
+        const keepX = OFF[0], keepY = OFF[1];
+        OFF[0] = pr.mx; OFF[1] = pr.my; pinDev(st);
+        const x0 = PD[2], y0 = PD[3];
+        OFF[0] = keepX; OFF[1] = keepY;
+        if (!(x0 > W || y0 > H || x0 + st.w < 0 || y0 + st.h < 0)) { takeItem(st.slot.page, x0, y0, st.w, st.h, st.slot.x, st.slot.y, a * (1 - pr.mf), st); boxAt(x0, y0, x0 + st.w, y0 + st.h); }
+        a *= pr.mf;
+      }
       if (x > W || y > H || x + st.w < 0 || y + st.h < 0) continue;
       st.seq = frameSeq;
       takeItem(st.slot.page, x, y, st.w, st.h, st.slot.x, st.slot.y, a, st);
@@ -2025,13 +2059,25 @@ void main() { o = texture(uT, vUV) * uA; }`;
       let a = Math.min(1, st.opacity) * xfNew;
       pinOff(s, now); pinDev(st);
       const px = PD[0], py = PD[1], lx = PD[2], ly = PD[3];   // (the point and the label as drawIn put them: one rounding for the three)
+      // (A label fading to a new place: its leader and fan go out at the old place and come in at the new, the dot stays on the point.)
+      const pr = pinLast.get(s.g), fading = !!pr && pr.on && pr.ms === frameSeq, mf = fading ? pr.mf : 1, al = a * mf;
+      if (pr) pr.want = want;
       let rec = pinDrawn.get(key);
       if (!rec) pinDrawn.set(key, rec = { seq: -1, hasLine: false, hasDot: false, line: new Float64Array(4), dot: new Float64Array(2), a: 0, nFan: 0, fan: new Float64Array(4 * FAN_MAX) });   // alloc-rare: one record per pinned label key
-      rec.seq = frameSeq; rec.hasLine = false; rec.hasDot = false; rec.a = a;
+      rec.seq = frameSeq; rec.hasLine = false; rec.hasDot = false; rec.a = al;
+      if (fading) {
+        const keepX = OFF[0], keepY = OFF[1];
+        OFF[0] = pr.mx; OFF[1] = pr.my; pinDev(st);
+        const ox = PD[2], oy = PD[3];
+        OFF[0] = keepX; OFF[1] = keepY;
+        const ao = a * (1 - mf);
+        if ((pr.mw & 4) && leaderGeom(px, py, ox, oy, st.w, st.h, pr.mw & 1 ? lk?.dotR ?? 2.4 : 0)) pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, ao);
+        if (s.fans) drawFans(s.fans, s.pwv, ox, oy, st, lk, ao, null);
+      }
       // (The leader: exactly where the layout asked for one (want bit 4: the one leader rule, decided at the solve, stage-label-solve.js), from
       // the point to the picture's edge; no test of its own here, only none where the point lies inside the letters (leaderGeom).)
       if ((want & 4) && leaderGeom(px, py, lx, ly, st.w, st.h, want & 1 ? lk?.dotR ?? 2.4 : 0)) {
-        if (pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, a)) { rec.hasLine = true; for (let i = 0; i < 4; i++) rec.line[i] = PG[i] / dpr; }
+        if (pinMark(lk?.line?.stroke ? lk.line : defLine, PG, true, al)) { rec.hasLine = true; for (let i = 0; i < 4; i++) rec.line[i] = PG[i] / dpr; }
       }
       if (want & 1) {
         const ds = lk?.dot || defDot;
@@ -2039,7 +2085,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         PG[0] = px; PG[1] = py; PG[2] = (lk?.dotR ?? 2.4) * dpr; PG[3] = 0;
         if (pinMark(ds, PG, false, a * (ds?.op ?? 1))) { rec.hasDot = true; rec.dot[0] = px / dpr; rec.dot[1] = py / dpr; }
       }
-      rec.nFan = s.fans ? drawFans(s.fans, s.pwv, lx, ly, st, lk, a, rec.fan) : 0;
+      rec.nFan = s.fans ? drawFans(s.fans, s.pwv, lx, ly, st, lk, al, rec.fan) : 0;
     }
     // (The ghosts' leaders and dots, as their labels had them, riding their points and fading with them.)
     for (let i = 0; i < ghosts.length; i++) {

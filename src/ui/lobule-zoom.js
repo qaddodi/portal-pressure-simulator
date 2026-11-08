@@ -47,7 +47,7 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, framePart, easeNow, inMotion, PACED } from './frame.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { createResCover, coverFollowInto } from './res-cover-gl.js';
@@ -467,9 +467,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (fade <= 0 && !store.get().lobule) { snap.cardKey = '~'; return; }
     if (!occT) occT = restPass(onOcc);
   });
-  // A new text size: the labels glide to their new places instead of jumping.
-  let easeT = 0;
-  addEventListener('pps:labelscale', () => { measureShown(); classSoon(labels, 'lz-ease', true); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
+  // A new text size: the labels are laid out again at it, each at its new place in that frame (the GPU's names never glide: V-LBL-1).
+  addEventListener('pps:labelscale', () => { measureShown(); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
   // (viewBumps: the bumps of drawVersion that only moved the camera: the model's own, drawVersion less these, is what the surface pass
   // in drawGL waits for when the model is paused.)
@@ -1423,9 +1422,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const LAB_WH = [100, 40];   // (read, never written: a label's size before it is measured)
   const labWH = (L) => (L.sz && (classHas(L.el, 'stack') ? L.sz.s1 : L.sz.s0)) || LAB_WH;
   // ── Where a label is seen, mid-glide ──
-  // A label moved while the labels glide (app.css .lz-ease: left and top on --d-surface with --ease) goes there on that curve from
-  // where it was seen; its glide is noted as it is written (noteAt), and each frame's place worked out from it (seenAt), on the page's
-  // animation clock, so the leaders follow it with no read of the page.
+  // A label's place as seen: its glide (none now: a label laid out to another slot is there in the frame, noteAt) noted as it is written, and each
+  // frame's place worked out from it (seenAt), on the page's animation clock, so the leaders follow it with no read of the page.
   const EASE_LAB = cubicBezier(0.2, 0.8, 0.2, 1);
   const tlNow = () => document.timeline?.currentTime ?? performance.now();
   const ZERO2 = [0, 0];   // (read, never written)
@@ -2075,7 +2073,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const f = follow;
     if (!rides) {
       // (the pan carries them by the same translate a layout glides: no glide may run under it, or they would trail the hand)
-      classSoon(labels, 'lz-ease', false);
       freezeLabelGlides();
       rides = rideList; rideN = 0;
       for (let i = 0; i < LAB_KEYS.length; i++) {
@@ -2113,8 +2110,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // A hand can take over before the last layout's glide lands. Carry the position actually on screen; capSync must not overwrite
   // the ride with that old glide's positions. Leaders already use seenAt on the same clock.
   function freezeLabelGlides() {
-    if (glideRaf) cancelFrame(glideRaf);
-    glideRaf = 0; glideUntil = 0;
     const now = tlNow();
     for (let i = 0; i < LAB_KEYS.length; i++) {
       const L = labs[LAB_KEYS[i]];
@@ -2125,7 +2120,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function bakeRides() {
     if (!rides) return false;
     // (Written in place with no glide on, then the page styled once, so the layout's glide starts from where each piece is seen.)
-    classSoon(labels, 'lz-ease', false);
     let moved = false;
     for (let i = 0; i < rideN; i++) {
       const r = rideList[i], dx = r.d[0], dy = r.d[1];
@@ -2503,10 +2497,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (bakeFollow()) { relayout(); return; }
     // (No glide after a hand's pan or zoom lets go: the labels take their final spots at once, never easing there; Mohammad, 6 Nov 2026.)
     layoutN++;
-    // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
-    // while the view itself pans or zooms, the labels follow it at once.
+    // A label that moves while the view holds still (a term lit, a value's width changed) is there in this frame, and so is one that follows
+    // a pan or zoom (the DOM label no longer glides under its GPU name: the glide class and its rule were removed, 8 Nov 2026).
     const wasFollow = follow;   // (put back should the labels wait to be measured, below)
-    if ((layoutKey && follow.W === g.W && follow.H === g.H && V.k === follow.k && V.x === follow.x && V.y === follow.y)) { classSoon(labels, 'lz-ease', true); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
     const nf = wasFollow === follows[0] ? follows[1] : follows[0];
     layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null; follow = nf;
     pickAnchors(fr0);
@@ -2744,9 +2737,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       setGeo(L.dotEl, 'cx', a[0]); setGeo(L.dotEl, 'cy', a[1]);
       leadGL.paint();
     }
-    // A label gliding to its new spot takes its leader's end with it, frame by frame, so the leader never runs
-    // through it or stops short of it on the way.
-    if (classHas(labels, 'lz-ease')) { syncLeaders(); glideUntil = performance.now() + 480; if (!glideRaf) glideRaf = frame(glideLeaders, 'lobule-glide'); }
     mirrorAll();   // (their classes as laid out, a label at the edge or on the left, and the ones now shown: read again between frames)
   }
   // The labels to be measured, asked for (kept, written in place: measureRun takes it and clears it).
@@ -2776,14 +2766,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let hidden = false;
     for (let i = 0; i < n; i++) if (inks[i].L !== L && runInside(L.a, q, inks[i]) > 0.5) { hidden = true; break; }
     classSoon(L.line, 'lz-hid', hidden);
-  }
-  let glideRaf = 0, glideUntil = 0;
-  // The glide cut short (its time is up): the labels land at once, and their leaders with them.
-  function easeEnd() { classSoon(labels, 'lz-ease', false); unglide(); syncLeaders(); }
-  function glideLeaders(now) {
-    glideRaf = 0;
-    // (Followed until every glide has ended: a slow frame can start one late.)
-    if (syncLeaders() || now < glideUntil) glideRaf = frame(glideLeaders, 'lobule-glide');
   }
   // Each leader's end set from where its label is seen now (part way through a glide, or landed). True while one glides.
   function syncLeaders() {

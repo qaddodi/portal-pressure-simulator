@@ -116,7 +116,7 @@ test('the leaders\' and the FibroScan callout\'s layers go to the GPU with the l
   assert.match(CSS, /#labels :is\(\.lb-leaders, \.lb-scan\) > \[data-gl\] \{ visibility: hidden; \}/);
   // (A step group's fan: drawn by the GPU from its number's record at the number's opacity, step-fan-rigid.test.js; only the SVG fades its own copy.)
   assert.match(STAGE, /if \(!live\.labelGL\) for \(const w of leaders\) \{/);
-  assert.match(LGL, /rec\.nFan = s\.fans \? drawFans\(s\.fans, s\.pwv, lx, ly, st, lk, a, rec\.fan\) : 0;/);
+  assert.match(LGL, /rec\.nFan = s\.fans \? drawFans\(s\.fans, s\.pwv, lx, ly, st, lk, al, rec\.fan\) : 0;/);
   assert.match(LGL, /float span\(float x, float a, float b\)/);
 });
 
