@@ -6,7 +6,7 @@ import { store } from './store.js';
 import { s } from './util.js';
 
 export function createVenous(st, live) {
-  const { E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA } = st;
+  const { E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, tipsBare } = st;
   // A vein a slide shows stented (store.stented: a hepatic vein or the IVC, which the model has no device for): the same mesh over
   // the stretch VST_SPAN of the vein, unrolled from its heart end (where a transjugular catheter comes from) while it fades in, and
   // rolled back the same way when the slide leaves it. It eases on its own clock, so the figure is never waiting on the model.
@@ -15,7 +15,9 @@ export function createVenous(st, live) {
   const vstRecs = new Map();   // (each vessel's record, made ahead and set afresh as its stent comes in)
   for (const id of Object.keys(E)) vstRecs.set(id, { k: 0, parts: null });
   let vstRaf = 0, vstAt = 0, vstDirty = false;
-  const vstGoal = (id, anat) => (anat && store.get().stented?.includes(id) && E[id]?.vis && !E[id].reveal && geo[id]?.cur ? 1 : 0);
+  // (The TIPS is the one stent here the model has: the covered stent, unrolled from its portal end once the shunt has drawn on, rolled back as it
+  // retracts, in the circuit as well as the figure. visual-style D4.)
+  const vstGoal = (id, anat) => ((id === 'TIPS' || (anat && store.get().stented?.includes(id))) && E[id]?.vis && !E[id].reveal && geo[id]?.cur ? 1 : 0);
   // The mesh is built once, whole (each rebuild of the overlays, not each frame), and unrolled on the GPU: it sits in a group (F) placed
   // at the unrolling front, turned to the way it unrolls, and clipped to the half of the plane behind that front, its pieces taken back
   // to where they stand by a group inside it (the inverse). Each frame moves only those two frames, the front's marker and the strength
@@ -30,16 +32,17 @@ export function createVenous(st, live) {
       if (!(v.k > 0.002) || !E[id]?.vis || !geo[id]?.cur) continue;
       const L = geo[id].len;
       const cid = `vstClip-${id}-${++vstN}`;
-      const R = meshR(id, p), d0 = VST_SPAN[1] * L, d1 = VST_SPAN[0] * L, r1 = R(d1);
+      const tips = id === 'TIPS', open = tips && v.k >= 1;   // (open: the whole stent in, so no front to clip it by: the circuit's lane turns back on itself, which a half-plane cannot follow)
+      const R = meshR(id, p), d0 = tips ? 2 : VST_SPAN[1] * L, d1 = tips ? L - 2 : VST_SPAN[0] * L, r1 = R(d1);
       const far = Math.abs(d1 - d0) + 4 * r1 + 20;   // (the clip: the half of the plane behind the front, as far as the whole mesh reaches)
       // (An outline, not a rect: the overlays' GPU painter dropped a rect clip under a turned frame, 2 Nov 2026, and the mesh with it.)
-      const pieces = meshPaths(id, p, d0, d1, 1, false), markPath = s('path', { class: 'stent-mark', d: `M0 ${(-r1).toFixed(2)} L0 ${r1.toFixed(2)}` });
+      const pieces = meshPaths(id, p, d0, d1, 1, false, tips ? tipsBare(id) : 0), markPath = s('path', { class: 'stent-mark', d: `M0 ${(-r1).toFixed(2)} L0 ${r1.toFixed(2)}` });
       const back = s('g', {}, ...pieces);
-      const front = s('g', { 'clip-path': `url(#${cid})` }, back);
+      const front = s('g', open ? {} : { 'clip-path': `url(#${cid})` }, back);
       const mark = s('g', {}, markPath);
       const clip = s('clipPath', { id: cid, clipPathUnits: 'userSpaceOnUse' }, s('path', { d: `M${(-far).toFixed(1)} ${(-far).toFixed(1)} L0 ${(-far).toFixed(1)} L0 ${far.toFixed(1)} L${(-far).toFixed(1)} ${far.toFixed(1)} Z` }));
-      const root = s('g', {}, s('defs', {}, clip), front, mark);
-      v.parts = { root, front, back, mark, R, d0, d1, r1, fade: [...pieces, markPath] };
+      const root = s('g', {}, ...(open ? [] : [s('defs', {}, clip)]), front, mark);
+      v.parts = { root, front, back, mark, R, d0, d1, r1, open, fade: [...pieces, markPath] };
       venousMove(id, v);
       kids.push(root);
     }
@@ -70,7 +73,7 @@ export function createVenous(st, live) {
         const was = v.k;
         v.k = goal ? Math.min(1, v.k + step) : Math.max(0, v.k - step);
         // (A rolled stent only moves its frames; one that comes in or goes out is built or taken away.)
-        if (v.parts && v.k > 0.002) venousMove(id, v); else if (v.parts || (v.k > 0.002) !== (was > 0.002)) vstDirty = true;
+        if (v.parts && v.k > 0.002 && !(v.parts.open && v.k < 1)) venousMove(id, v); else if (v.parts || (v.k > 0.002) !== (was > 0.002)) vstDirty = true;
         if (v.k !== goal) moving = true;
       }
       if (v.k === 0 && !goal) { if (v.parts) vstDirty = true; vst.delete(id); }
@@ -79,11 +82,19 @@ export function createVenous(st, live) {
     if (vstDirty) { vstDirty = false; if (!vstBuildAsk) vstBuildAsk = restPass(venousBuild); }
     if (moving) vstRaf = nextFrame(venousTick); else vstAt = 0;
   }
-  let venousAnat = true, vstBuildAsk = 0;
+  let venousAnat = true, vstBuildAsk = 0, tipsFirst = true;
   const venousBuild = () => { vstBuildAsk = 0; venousDraw(live.F?.viewParams || store.get().params); };
   // Called from every overlay update: starts the ease when the slide's stented veins (or the view) changed, and redraws on a rebuild.
   function venousSync(p, anat, rebuilt) {
     venousAnat = anat;
+    const tips = E.TIPS;
+    // (A TIPS already in when the page opens is in whole; one that comes in after it unrolls once its shunt has drawn on.)
+    if (tips && !vst.has('TIPS') && (tips.vis || tips.reveal)) {
+      const v = vstRecs.get('TIPS'), whole = tipsFirst && !tips.reveal;
+      v.k = whole ? 1 : 0; v.parts = null; vst.set('TIPS', v);
+      if (whole && !vstBuildAsk) vstBuildAsk = restPass(venousBuild);
+    }
+    tipsFirst = false;
     const stented = store.get().stented;
     if (stented) for (let i = 0; i < stented.length; i++) { const id = stented[i]; if (!vst.has(id) && E[id]) { const v = vstRecs.get(id); v.k = 0; v.parts = null; vst.set(id, v); } }
     for (const [id, v] of vst) if (v.k !== vstGoal(id, anat) && !vstRaf) { vstAt = 0; vstRaf = nextFrame(venousTick); break; }

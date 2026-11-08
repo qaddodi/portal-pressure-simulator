@@ -12,6 +12,7 @@ import { createHalos } from './stage-halos.js';
 import { createMarks } from './stage-marks.js';
 import { createOutlines } from './stage-outlines.js';
 import { createVenous } from './stage-venous.js';
+import { bareOf, stentMeshD } from './stent-mesh.js';
 import { store } from './store.js';
 import { clamp, s } from './util.js';
 
@@ -257,39 +258,26 @@ export function createTransitions(st, live) {
     return (d) => (x.width / 2) * (wf ? wf(d / (L || 1)) : 1) + (x.wallPx || 1) + 1.2;
   }
   // ends: false leaves out the far end's marker (a stent unrolled by its front, venousDraw, carries that marker on the front).
-  function meshPaths(id, p, d0, d1, k = 1, ends = true) {
-    const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0), e = A * k;
+  // bare > 0: the covered TIPS stent (stent-mesh.js): that much bare from d0, a PTFE cover over the rest, a ring where they meet. Its struts and
+  // rails take a floor of one device pixel (.stent-px: a non-scaling stroke), so the lattice does not thin out of sight when the figure is small.
+  function meshPaths(id, p, d0, d1, k = 1, ends = true, bare = 0) {
+    const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0);
     const R = meshR(id, p);
     const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
-    const P = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
-    const cell = Math.max(6, R(d0) * 1.7);
-    let rails = '', struts = '';
-    for (const side of [1, -1]) {
-      rails += 'M' + P(f(0, side));
-      for (let a = 3; a < e; a += 3) rails += ' L' + P(f(a, side));
-      rails += ' L' + P(f(e, side)) + ' ';
-    }
-    for (const start of [1, -1]) {
-      let side = start, prev = f(0, side);
-      struts += 'M' + P(prev);
-      for (let a = cell / 2; a <= A + 0.01; a += cell / 2) {
-        side = -side;
-        const q = f(Math.min(a, A), side);
-        if (a > e + 0.01) {   // (the lattice's growing end: the strut under way, drawn as far as it has come)
-          const u = (e - (a - cell / 2)) / (cell / 2);
-          if (u > 0.001) struts += ' L' + P([prev[0] + (q[0] - prev[0]) * u, prev[1] + (q[1] - prev[1]) * u]);
-          break;
-        }
-        struts += ' L' + P(q); prev = q;
-      }
-      struts += ' ';
-    }
-    let marks = '';
-    for (const a of k > 0.02 && ends ? [0, e] : [0]) { const m = f(a, 1), n = f(a, -1); marks += `M${P(m)} L${P(n)} `; }
-    return [s('path', { class: 'stent-strut', d: struts }), s('path', { class: 'stent-rail', d: rails }), s('path', { class: 'stent-rail-glint', d: rails }), s('path', { class: 'stent-mark', d: marks })];
+    const m = stentMeshD(f, R(d0), A, k, ends, bare), px = bare > 0 ? ' stent-px' : '';
+    // (Cover first, under the struts; the ring last. One site makes every piece.)
+    const parts = [['stent-cover', m.cover], ['stent-strut' + px, m.struts], ['stent-strut stent-strut-cov' + px, m.covStruts], ['stent-rail' + px, m.rails], ['stent-rail-glint', m.rails], ['stent-mark', m.marks], ['stent-ring', m.ring]];
+    const out = [];
+    for (const [cls, d] of parts) if (d) out.push(s('path', { class: cls, d }));
+    return out;
   }
+  // The TIPS stent's bare stretch at its portal end, as drawn length (the 2 cm of the shunt's 8): the covered stent venousDraw unrolls.
+  const tipsBare = (id) => bareOf(geo[id].len - 4, E[id].e.len);
   // TIPS, DIPS and the shunts drawn with the stent tool: the whole drawn shunt, in place at once (the vessel itself draws on).
-  function stentMesh(id, p) { putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2)); }
+  function stentMesh(id, p) {
+    if (id === 'TIPS') return;   // (the covered stent unrolls on its own clock, with the veins' stents: stage-venous.js)
+    putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2));
+  }
   function putMark(host, key, vessel, els, anatOnly = false) {
     const g = s('g', { 'data-mk': key });
     g.append(...els);
@@ -297,7 +285,7 @@ export function createTransitions(st, live) {
     markA.hold(key, g);
     host.append(g);
   }
-  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA }, live);
+  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, tipsBare }, live);
   // Surgical shunts: a row of sutures across each anastomosis.
   function anastomoses(id) {
     const x = E[id], L = geo[id].len;

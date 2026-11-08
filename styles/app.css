@@ -750,6 +750,15 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
    group above it, on SVG (2 Nov 2026, "Move everything to GPU"). Their segments are single strokes or smooth curves: nothing shows.) */
 .stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; stroke-linejoin: round; }
 .stent-guide.invalid { stroke: var(--danger); }
+/* The TIPS stent is covered (stent-mesh.js, visual-style D4): a pale PTFE wash over the lumen under fainter struts, a bare stretch of open struts at the portal
+   end, and one radiopaque ring where they meet. --dev-ptfe and --dev-platinum are the device materials (theme-tokens.js); until a look has them the
+   wash is a pale grey and the ring takes the stent's own marker ink. .stent-px: struts and rails never thinner than one device pixel (a non-scaling stroke). */
+.stent-cover { fill: var(--dev-ptfe, #DDE3EB); fill-opacity: .46; stroke: none; }
+.stent-strut-cov { stroke-opacity: .3; }
+.stent-ring { fill: none; stroke: var(--dev-platinum, var(--stent-marker)); stroke-width: 2.4; stroke-linecap: round; stroke-opacity: .95; }
+.stent-px { vector-effect: non-scaling-stroke; }
+.stent-strut.stent-px { stroke-width: 1; }
+.stent-rail.stent-px { stroke-width: 1.2; }
 .target-glow { fill: none; stroke: var(--accent); stroke-opacity: .35; stroke-linecap: round; }
 
 /* ── Panel (inspector) ──────────────────────────── */
