@@ -815,3 +815,12 @@ test('the hepatic artery\'s gate stands toward the fork, well clear of where the
   assert.ok(c0[0] < c1[0] && c0[1] === c1[1]);
   assert.ok(CIRCUIT_PATH.A_HR.startsWith(`M${c1[0]} ${c1[1]}`), 'the circuit artery ends where its branches start');
 });
+
+test('the probe\'s front band is the inverse of its body: dark on the light looks, light on the dark ones (8 Nov)', () => {
+  const lum = (h) => { const n = parseInt(h.slice(1), 16); return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; };
+  for (const [look, bodyDark] of [['light', false], ['dark', true]]) {
+    const body = lum(TOKENS[look].surface), face = lum(TOKENS[look]['dop-face']);
+    assert.ok(bodyDark ? face > body + 0.5 : face < body - 0.5, `${look}: band ${face.toFixed(2)} against body ${body.toFixed(2)}`);
+  }
+  assert.doesNotMatch(tokens.split('/* BEGIN')[0], /--dop-face/, 'the band is the look\'s token, not one fixed colour');
+});

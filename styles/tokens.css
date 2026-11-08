@@ -10,7 +10,7 @@
   /* anatomy */
   --cap-ink: var(--text);   /* (what a name's own colour is mixed with, so it reads on the theme's label halo: the theme's text ink, dark on the light halo, light on the dark one) */
   --cap-outline: var(--label-halo);   /* (the outline of a lobule or sinusoid name: the theme's one label halo, as the Anatomy and Circuit labels have it) */
-  --dop-mark: #FFFFFF; --dop-rim: #000000; --dop-face: #15181D;   /* the Doppler probe and sample gate: white lines on a black rim, every theme */
+  --dop-mark: #FFFFFF; --dop-rim: #000000;   /* the Doppler probe and sample gate: white lines on a black rim, every theme (the probe's front band, --dop-face, is the look's: theme-tokens.js) */
   --module-fill: rgba(255, 255, 255, .02); --module-fill-open: rgba(124, 150, 255, .05); --module-line: rgba(150, 172, 255, .3);
 
   /* lens ramps (both themes): "#colour position" stops, interpolated in OKLab by colormap.js.
@@ -267,6 +267,7 @@
   --label-halo: rgba(241, 235, 224, .92);
   --label-panel: rgba(241, 235, 224, .74);
   --doppler: #22C38E;
+  --dop-face: #15181D;
   --dop-glow: #1F2433;
   --vel-ink: 45%;
   --shadow-rgb: 46 22 34;
@@ -494,6 +495,7 @@
     --label-panel: rgba(26, 25, 23, .72);
     --doppler: #3EE0A5;
     --dop-glow: #F4F6FF;
+    --dop-face: #F1ECE2;
     --vel-ink: 72%;
     --s1: #3987e5;
     --s2: #d95926;
@@ -705,6 +707,7 @@
   --label-panel: rgba(26, 25, 23, .72);
   --doppler: #3EE0A5;
   --dop-glow: #F4F6FF;
+  --dop-face: #F1ECE2;
   --vel-ink: 72%;
   --s1: #3987e5;
   --s2: #d95926;
