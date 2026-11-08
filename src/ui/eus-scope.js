@@ -22,7 +22,7 @@ export const EUS_TARGETS = { pv: ['PVH_L', 0.9], hv: ['LHV_IVC', 0.6] };
 const DEG = Math.PI / 180;
 /** Each station: where the scope stops (a point on its route), the needle's angle forward of the scope's axis as the elevator sets it,
  *  and the side of the scope the transducer faces (+1: the needle turned clockwise from the axis on the figure, y down). */
-export const EUS_STATIONS = { pv: { at: [826.0, 299.3], exit: 80 * DEG, hand: 1 }, hv: { at: [801.1, 240.6], exit: 90 * DEG, hand: 1 } };
+export const EUS_STATIONS = { pv: { at: [826.0, 299.3], exit: 80 * DEG, hand: 1 }, hv: { at: [801.6, 246.0], exit: 90 * DEG, hand: 1 } };
 // The way in: above the figure (the esophagus fades out at its top), the esophagus, and on one smooth curve through the cardia and
 // down the proximal stomach to the portal vein's station (the route's end); the hepatic vein's is in the esophagus, at the cardia.
 const LEAD = [[787, -175], [787, -105]];
@@ -57,6 +57,10 @@ function smoothWay(parts) {
 export const EUS_RHO = 45, EUS_BEND_MIN = 14, EUS_RIGID = 11;
 const WAY = smoothWay([ESO, CARDIA, PROXIMAL]);
 const RIGID = EUS_RIGID, FAN_HALF = (30 * Math.PI) / 180;
+// (Where the working channel opens, along the tip from its end in rigid lengths and across from the axis in scope radii; its port's radius
+// in scope radii: side + port well inside the outline.)
+export const EUS_EXIT_BACK = 0.95, EUS_EXIT_SIDE = 0.6, EUS_PORT_R = 0.26;
+const EXIT_BACK = EUS_EXIT_BACK, EXIT_SIDE = EUS_EXIT_SIDE, PORT_R = EUS_PORT_R;
 
 // EUS-guided coils and glue for a fundal varix (proc-anim.js ENDO.eusglue; Baveno VIII 5.40): the same echoendoscope, down the esophagus,
 // through the cardia on one wide turn (radius 40, over three scope widths: never a sharp knee, his ask, 7 Nov 2026) and on under the dome
@@ -66,9 +70,9 @@ const RIGID = EUS_RIGID, FAN_HALF = (30 * Math.PI) / 180;
 /** Where on the figure the varix is punctured: a vessel and how far along its drawn course; the glue's X sits there too (stage-clamps). */
 export const EUS_GLUE_TARGET = ['C2', 0.8];
 /** The glue's station: the scope's end, the needle's angle forward of the axis (square to it) and the transducer's side (+1: below). */
-export const EUS_GLUE_STATION = { at: [925, 281], exit: 90 * DEG, hand: 1 };
+export const EUS_GLUE_STATION = { at: [927.6, 280.9], exit: 90 * DEG, hand: 1 };
 const GLUE_TURN = Array.from({ length: 9 }, (_, i) => { const a = ((5 + i * 10.6) * Math.PI) / 180; return [842 - 40 * Math.cos(a), 244 + 40 * Math.sin(a)]; });
-const FUNDUS = [[854, 283.7], [866, 283.2], [878, 282.6], [891, 282], [904, 281.5], [915, 281.2], [925, 281]];
+const FUNDUS = [[854, 283.7], [866, 283.2], [878, 282.6], [891, 282], [904, 281.5], [915, 281.2], [927.6, 280.9]];
 const GLUE_WAY = smoothWay([ESO, GLUE_TURN, FUNDUS]);
 // (The box a station's work fills on screen: the scope's end and its target, with room round them.)
 const workBox = (q, t, m) => [Math.min(q[0], t[0]) - m, Math.min(q[1], t[1]) - m, Math.max(q[0], t[0]) + m, Math.max(q[1], t[1]) + m];
@@ -193,7 +197,9 @@ export function eusPose(r, D, at, T, aim, exitA, hand, g) {
     a1[0] = Math.cos(thA + phi); a1[1] = Math.sin(thA + phi);
     end[0] = p2[0] + a1[0] * RIGID; end[1] = p2[1] + a1[1] * RIGID;
     rot(a1[0], a1[1], one ? Math.PI / 2 : -Math.PI / 2, sd);
-    ex[0] = end[0] - a1[0] * RIGID * 0.62 + sd[0] * EUS_SCOPE_R * 0.92; ex[1] = end[1] - a1[1] * RIGID * 0.62 + sd[1] * EUS_SCOPE_R * 0.92;
+    // (The working channel's opening: on the transducer's side, just behind the curved array, and inside the scope's own outline, so
+    // only the needle comes out of it (his ask, 8 Nov 2026: "the openning of the needle should not be beyond the scope").)
+    ex[0] = end[0] - a1[0] * RIGID * EXIT_BACK + sd[0] * EUS_SCOPE_R * EXIT_SIDE; ex[1] = end[1] - a1[1] * RIGID * EXIT_BACK + sd[1] * EUS_SCOPE_R * EXIT_SIDE;
     g.d0 = d0; g.bend = dA - d0; g.phi = phi;
     nd[0] = T[0] - ex[0]; nd[1] = T[1] - ex[1]; unit(nd);
     // (The axis the needle asks for: its line turned back by the exit angle, on the transducer's side.)
@@ -215,7 +221,7 @@ export const newTip = () => ({ c1: [0, 0], c2: [0, 0], a1: [0, 0], side: [0, 0],
 // The materials: the insertion tube's black polymer, its hairline, the rigid tip's grey, the transducer's pale face, the FNA needle's
 // sheath and its steel; the ultrasound sector a pale grey-blue.
 const BLACK = [0.17, 0.18, 0.2], INK = [0.04, 0.05, 0.07], TIP_GREY = [0.36, 0.37, 0.4], FACE = [0.78, 0.79, 0.8];
-const SHEATH = [0.28, 0.5, 0.82], STEEL = [0.7, 0.72, 0.76], FAN = [0.8, 0.86, 0.93], PORT = [0.05, 0.05, 0.06];
+const STEEL = [0.7, 0.72, 0.76], FAN = [0.8, 0.86, 0.93], PORT = [0.05, 0.05, 0.06];
 const STEP = 2;   // (the shaft's samples, world units apart)
 
 // Kept between frames and written in place: the scope's centreline, its samples' directions and lengths, the vertices and the draws.
@@ -300,8 +306,8 @@ export function eusDraw(st, r, tipD, at, rgb) {
   disc(fx, fy, g.a1[0], g.a1[1], RIGID * 0.62, R * 0.5, 8, INK, 0.55);
   disc(fx, fy, g.a1[0], g.a1[1], RIGID * 0.56, R * 0.42, 4, FACE, 1);
   // The working channel's port, where the needle leaves the scope.
-  disc(g.exit[0], g.exit[1], g.a1[0], g.a1[1], R * 0.34, R * 0.34, 8, PORT, 0.9 * (st.aim || 0));
-  // The needle: its sheath just out of the channel, then the steel on to its bevelled point; the hit's rings at the target, and the
+  disc(g.exit[0], g.exit[1], g.a1[0], g.a1[1], R * PORT_R, R * PORT_R, 8, PORT, 0.9 * (st.aim || 0));
+  // The needle: its steel from the port on to its bevelled point; the hit's rings at the target, and the
   // manometer's reading as two ripples there while it reads.
   const nl = (st.needle || 0) * g.len;
   if (nl > 0.4) {
@@ -315,31 +321,35 @@ export function eusDraw(st, r, tipD, at, rgb) {
       draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: [0, 0], len: l1 - l0 });
     };
     const bev = 2.6, nw = (l) => 0.62 * (1 - 0.8 * smooth01((l - (nl - bev)) / bev));
-    const sh = Math.min(nl, 5);
-    line(0, sh, 1.45, 7, INK, 0.7); line(0, sh, 1.25, 2, SHEATH, 1);
-    if (nl > sh) { line(sh - 0.2, nl, (l) => nw(l) + 0.16, 7, INK, 0.8); line(sh - 0.2, nl, nw, 3, STEEL, 1); }
+    // (Only the steel leaves the port: its sheath stays in the working channel.)
+    line(0, nl, (l) => nw(l) + 0.16, 7, INK, 0.8); line(0, nl, nw, 3, STEEL, 1);
   }
-  // The coils (EUS-guided coils and glue): a fine steel coil pushed out of the needle's point curls into loops inside the varix, as much of
-  // it as is out (st.coil 0..1). It is laid along the varix's own centreline (r.glue.path) as a helix seen from the side: each sample sits
-  // on the centreline's normal at its own point, no further from it than the lumen's radius (r.glue.rad, the vessel's drawn caliber now)
-  // less the wire's width, so the coil is inside the vessel's walls whatever the varix's size and the zoom (his ask, 7 Nov 2026: "should
-  // deploy and be within the varix vessel walls not outside"). They stay in the varix once the needle is back.
+  // The coils (EUS-guided coils and glue): a fine steel coil pushed out of the needle's point into the varix (his ask, 8 Nov 2026: "the
+  // coils should emerge from the needle"). Its first loop starts at the needle's point, on the varix's centreline, and as more is pushed out
+  // (st.coil 0..1) it curls on along the vessel, the part already out keeping its place: drawn from the point out to the length pushed so far.
+  // It is laid along the varix's own centreline (r.glue.path) as a helix seen from the side, each sample on the centreline's normal at its
+  // own point, no further from it than the lumen's radius (r.glue.rad, the vessel's drawn caliber now) less the wire's width, so the coil is
+  // inside the vessel's walls whatever the varix's size and the zoom (his ask, 7 Nov 2026: "should deploy and be within the varix vessel
+  // walls not outside"). It stays in the varix once the needle is back.
   const gl = r.glue;
   OUT.coil = -1;
   if ((st.coil || 0) > 0.01 && gl?.path && gl.rad > COIL_EDGE + COIL_GAP) {
     const k = Math.min(1, st.coil), m = Math.max(3, Math.ceil(COIL_N * k)), pa = gl.path;
-    // (The loops' radius across the vessel: the lumen less the wire's dark edge and a hair, so the outer edge of the wire stays inside; their
-    // length along it, a few lumen widths, inside the stretch laid round the needle's point.)
-    const rho = Math.max(0, Math.min(COIL_R, gl.rad - COIL_EDGE - COIL_GAP)), span = Math.min(COIL_SPAN_K * gl.rad, (pa.n - 1) * pa.step * 0.8);
+    // (It runs on toward the side of the needle's point with more of the varix laid; the loops' radius across the vessel is the lumen less
+    // the wire's dark edge and a hair, so the wire's outer edge stays inside, and they open out over the first few samples from the point;
+    // their length along it, a few lumen widths, inside the stretch laid.)
+    const dir = pa.n - 1 - pa.at >= pa.at ? 1 : -1, room = (dir > 0 ? pa.n - 1 - pa.at : pa.at) * pa.step;
+    const rho = Math.max(0, Math.min(COIL_R, gl.rad - COIL_EDGE - COIL_GAP)), span = Math.max(0, Math.min(COIL_SPAN_K * gl.rad, room - 2 * rho * COIL_SWAY - 1));
     for (let i = 0; i <= m; i++) {
-      const u = (k * i) / m, th = COIL_TURNS * 2 * Math.PI * u, rr = rho * (1 - 0.25 * u);
-      const along = (u - 0.5) * span + rr * 0.9 * Math.sin(th);
+      const u = (k * i) / m, th = COIL_TURNS * 2 * Math.PI * u, rr = rho * (1 - 0.25 * u) * Math.min(1, u / COIL_OPEN);
+      const along = dir * (u * span + rr * COIL_SWAY * (1 - Math.cos(th)));
       const q = Math.min(pa.n - 1, Math.max(0, pa.at + along / pa.step)), i0 = Math.min(pa.n - 2, Math.floor(q)), f = q - i0;
       const cx0 = pa.x[i0] + (pa.x[i0 + 1] - pa.x[i0]) * f, cy0 = pa.y[i0] + (pa.y[i0 + 1] - pa.y[i0]) * f;
       let tx0 = pa.tx[i0] + (pa.tx[i0 + 1] - pa.tx[i0]) * f, ty0 = pa.ty[i0] + (pa.ty[i0 + 1] - pa.ty[i0]) * f;
       const tl = Math.hypot(tx0, ty0) || 1; tx0 /= tl; ty0 /= tl;
-      CP[i * 2] = cx0 - ty0 * rr * Math.cos(th); CP[i * 2 + 1] = cy0 + tx0 * rr * Math.cos(th);
+      CP[i * 2] = cx0 - ty0 * rr * Math.sin(th); CP[i * 2 + 1] = cy0 + tx0 * rr * Math.sin(th);
     }
+    OUT.coilTip = CP[m * 2]; OUT.coilTipY = CP[m * 2 + 1];
     let px = 0, py = 0;
     OUT.coil = V.length / 6;
     for (const L of COIL_LAYERS) {
@@ -370,10 +380,10 @@ const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
 // its dark edge.)
 // (COIL_R: the loops' largest radius; COIL_SPAN_K: their length along the vessel in lumen radii; COIL_EDGE: the wire's dark edge's half width,
 // the widest layer; COIL_GAP: what is left between it and the wall.)
-const COIL_N = 72, COIL_TURNS = 3.2, COIL_R = 4, COIL_SPAN_K = 3.2, COIL_EDGE = 0.78, COIL_GAP = 0.3, CP = new Float64Array((COIL_N + 1) * 2);
+const COIL_N = 72, COIL_TURNS = 3.2, COIL_R = 4, COIL_SPAN_K = 3.2, COIL_EDGE = 0.78, COIL_GAP = 0.3, COIL_SWAY = 0.9, COIL_OPEN = 0.06, CP = new Float64Array((COIL_N + 1) * 2);
 const COIL_LAYERS = [[COIL_EDGE, 7, INK, 0.75], [0.56, 3, STEEL, 1]];
 /** The coil's widest layer's half width (its dark edge) and what it keeps from the wall: a lumen narrower than both has no coil drawn. */
 export const EUS_COIL_EDGE = COIL_EDGE + COIL_GAP;
 // (The scope's centreline as drawn, for the tests: its samples' count and coordinates, kept.)
 const LINE = { n: 0, x: null, y: null };
-const OUT = { V, draws, tip: null, needle: null, line: null, coil: -1 };
+const OUT = { V, draws, tip: null, needle: null, line: null, coil: -1, coilTip: 0, coilTipY: 0 };

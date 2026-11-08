@@ -1,5 +1,5 @@
 // EUS-guided coils and glue for a fundal varix (proc-anim.js ENDO.eusglue, eus-scope.js EUS_GLUE_ROUTE), played on the Gastric varices
-// talk's Treat the spleen slide before the spleen's buttons (his ask, 7 Nov 2026). On the figure's own outlines: the scope stays inside the
+// talk's own Coils and glue slide (his asks, 7 and 8 Nov 2026), before the Treat the spleen slide. On the figure's own outlines: the scope stays inside the
 // esophagus and the stomach and never bends sharply; the needle runs square from it into the varix and keeps clear of the gastrorenal
 // shunt and the arch where the two meet; the coils curl in the varix. In the model the varix alone closes: its feeder (C2) is occluded,
 // the shunt stays open, the fundal varix is obliterated and no blood runs through it.
@@ -17,12 +17,22 @@ import { GASTRIC } from '../src/ui/decks/gastric-varices.js';
 const G = ENDO.eusglue, T = G.T;
 const times = Array.from({ length: Math.ceil(T.end / 20) + 1 }, (_, i) => i * 20);
 
-test('a treatment through the scope: off the HVPG card’s catheter buttons, played by the Treat the spleen slide before the spleen’s buttons', () => {
+test('a treatment through the scope: off the HVPG card’s catheter buttons, played by its own slide, the spleen’s slide after it with the varix still glued', () => {
   assert.ok(!PROC_KINDS.includes('eusglue') && !PROCS.eusglue);
   assert.equal(specOf('eusglue'), G);
-  const s = GASTRIC.slides.find((x) => x.id === 'splenectomy');
+  // (His ask, 8 Nov 2026: "the EUS gastric variceal treatment slide should be its own slide, and the following slide will have to talk
+  // about embolizing and treating the spleen".)
+  const ids = GASTRIC.slides.map((x) => x.id), e = ids.indexOf('eusglue'), s = GASTRIC.slides[e], sp = GASTRIC.slides[e + 1];
   assert.equal(s.procedure, 'eusglue');
-  assert.deepEqual(s.compare.map((o) => o.params.splenicRx), [0, 1, 2], 'the spleen’s buttons stay, after the glue');
+  assert.equal(ids[e - 1], 'svt', 'after the clotted splenic vein');
+  assert.equal(s.params.occluded.C2, true, 'its state: the varix closed');
+  assert.equal(s.compare, undefined, 'no spleen buttons on the glue’s slide');
+  assert.equal(sp.id, 'splenectomy');
+  assert.equal(sp.procedure, undefined, 'the spleen’s slide plays no glue');
+  assert.equal(sp.preset, undefined, 'the spleen’s slide carries the glued varix on (no preset of its own)');
+  assert.equal(sp.params.occluded, undefined);
+  assert.deepEqual(sp.compare.map((o) => o.params.splenicRx), [0, 1, 2], 'the spleen’s buttons');
+  assert.ok(sp.compare.every((o) => !o.preset && !o.params.occluded), 'each button keeps the varix glued');
   assert.deepEqual(G.steps.map((x) => x[0]), ['enter', 'needle', 'coils', 'glue', 'done']);
   assert.equal(G.steps.length, G.stops.length);
 });
@@ -203,4 +213,38 @@ test('the coil deploys inside the varix’s walls, for any lumen, every frame it
   r.glue.rad = EUS_COIL_EDGE * 0.9;
   const f = procFrame('eusglue', T.coil1);
   assert.equal(eusDraw({ ...f, ring: null, clock: T.coil1 }, r, r.free, at, () => [0.5, 0.5, 0.5]).coil, -1, 'no coil in a lumen narrower than its wire');
+});
+
+// His ask, 8 Nov 2026: "the coils should emerge from the needle". The coil starts at the needle's point (the needle in the varix while it is
+// pushed out), grows from there as more is pushed (its reach from the point never shrinking, past a loop's turn), and the part already out keeps its
+// place: the coil at a third pushed lies on the coil fully pushed.
+test('the coil comes out of the needle\'s point and grows from it, the part already out staying put', () => {
+  const r = route();
+  r.glue.rad = 5;
+  const pull = (k) => {
+    const f = procFrame('eusglue', T.coil0 + (T.coil1 - T.coil0) * 0.5);
+    const o = eusDraw({ ...f, coil: k, ring: null, clock: 0 }, r, r.free, at, () => [0.5, 0.5, 0.5]);
+    const d = o.draws.find((x) => x.first >= o.coil && x.mode === 3), pts = [];
+    for (let i = d.first; i < d.first + d.count; i += 2) pts.push([(o.V[i * 6] + o.V[i * 6 + 6]) / 2, (o.V[i * 6 + 1] + o.V[i * 6 + 7]) / 2]);
+    return { pts, needle: o.needle && [...o.needle], f };
+  };
+  const full = pull(1);
+  assert.equal(full.f.needle, 1, 'the needle in while the coil goes out');
+  const T0 = r.tg.pv;
+  assert.ok(Math.hypot(full.needle[0] - T0[0], full.needle[1] - T0[1]) < 0.5, 'the needle\'s point at the varix');
+  let last = 0;
+  for (const k of [0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1]) {
+    const c = pull(k), p0 = c.pts[0], pe = c.pts.at(-1);
+    assert.ok(Math.hypot(p0[0] - T0[0], p0[1] - T0[1]) < 0.3, `pushed ${k}: the coil starts at the needle's point`);
+    const far = Math.max(...c.pts.map((p) => Math.hypot(p[0] - T0[0], p[1] - T0[1])));
+    assert.ok(far >= last - 0.25, `pushed ${k}: the coil reaches no less far than before (${far.toFixed(2)} < ${last.toFixed(2)})`);
+    last = far;
+    if (k < 1) for (const p of c.pts) {
+      let m = Infinity;
+      for (let i = 1; i < full.pts.length; i++) m = Math.min(m, segD(p, full.pts[i - 1], full.pts[i]));
+      assert.ok(m < 0.35, `pushed ${k}: the part out keeps its place (${m.toFixed(2)} off the coil at full)`);
+    }
+    if (k <= 0.05) assert.ok(Math.hypot(pe[0] - T0[0], pe[1] - T0[1]) < 5, `pushed ${k}: only the coil's first bit out`);
+  }
+  assert.ok(last > 10, `the coil laid along the varix (${last.toFixed(1)})`);
 });

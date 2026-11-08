@@ -181,11 +181,11 @@ export const GRAFTS = {
 };
 // A treatment through the echoendoscope (EUS-guided coils and glue, Baveno VIII 5.40), played as BRTO and BATO are, step by step with a
 // numbered callout on the varix. It changes the model (the varix is closed), so it is not a measurement; it is not a catheter either, so
-// it stays off the HVPG card's treatment buttons (PROCS). A slide plays it: Gastric varices, Treat the spleen (his ask, 7 Nov 2026: "EUS
+// it stays off the HVPG card's treatment buttons (PROCS). A slide plays it: Gastric varices, its own Coils and glue slide just before Treat the spleen (his ask, 7 Nov 2026: "EUS
 // guided coiling and glue injection ... before embolizing and removing the spleen as a step").
 // The scope goes down the esophagus, through the cardia on one wide turn and on under the fundus to a station over the varix
 // (eus-scope.js EUS_GLUE_ROUTE); straight there, its transducer faces the varix and the needle goes square from it into the varix (no sharp
-// bend: his ask). Coils are pushed through the needle and curl inside the varix, then cyanoacrylate is injected over them and casts it.
+// bend: his ask). Coils are pushed out of the needle's point and curl on inside the varix, then cyanoacrylate is injected over them and casts it.
 // The model then closes the varix alone (occluded C2: its X sits on the varix, never on the gastrorenal shunt, and the flow in it slows to
 // a stop as the model eases), as step 5 starts, after the glue's stop (as BRTO's shunt closes only at its step 4).
 const GLUE_T = { travel0: 300, travel1: 6000, aim0: 6400, aim1: 7200, fan0: 6500, fan1: 7300, needle0: 7600, needle1: 9000, flash0: 8900, flash1: 9700,
