@@ -59,6 +59,7 @@ const bigLayer = (Wd, Hd) => {
 };
 export const sharedStats = { covRemade: 0, resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
 const CAP_STEP = 256;
+const WASTE_PX = 2e6;   // (the most a hand-over moves beyond the chart's own buffer: past it, the chart takes a buffer of its own size)
 const SHRINK_MS = 1000;   // (the shared buffer is cut back to the largest chart drawn in the last one to two seconds)
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
@@ -840,9 +841,15 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         const big = bigLayer(Wd, Hd);
         if (!big && Wd > shared.winW) shared.winW = Wd;
         if (!big && Hd > shared.winH) shared.winH = Hd;
-        const fitW = big ? capOf(Wd) : capOf(Math.max(shared.lastW, shared.winW)), fitH = big ? capOf(Hd) : capOf(Math.max(shared.lastH, shared.winH));
-        if (glCanvas.width < Wd || glCanvas.height < Hd || glCanvas.width > fitW || glCanvas.height > fitH) {
-          glCanvas.width = Math.max(fitW, capOf(Wd)); glCanvas.height = Math.max(fitH, capOf(Hd)); sharedStats.resizes++;
+        // (The window keeps its widest and its tallest chart apart, so a wide strip and a tall card made a buffer far larger than either, and every
+        // small readout handed that over: svg-gl still 18 ms a frame for 20 pictures a second (8 Nov 2026). A chart the window would give more
+        // than 2 MP beyond its own area draws in a buffer of its own size instead: a hand-over never moves megapixels it does not need. Charts
+        // of card sizes keep sharing one steady buffer (U2), as their window is never that much larger than any of them.)
+        const ownW = capOf(Wd), ownH = capOf(Hd);
+        let fitW = capOf(Math.max(shared.lastW, shared.winW, Wd)), fitH = capOf(Math.max(shared.lastH, shared.winH, Hd));
+        if (big || fitW * fitH > ownW * ownH + WASTE_PX) { fitW = ownW; fitH = ownH; }
+        if (glCanvas.width !== fitW || glCanvas.height !== fitH) {
+          glCanvas.width = fitW; glCanvas.height = fitH; sharedStats.resizes++;
         }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.useProgram(null);
         gl.clearStencil(0); gl.stencilMask(0xff);
