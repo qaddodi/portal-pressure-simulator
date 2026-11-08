@@ -167,8 +167,11 @@ skewed by general anaesthesia and vasoactive drugs.
 
 **What exists.** The after-procedure graph (`event-graph.js`) already draws the PPG with a green "Target <12" band.
 
-**What is missing.** The catheter step that takes the two readings, built as EUS-PPG's measure spec is (`MEASURES.eus` in
-proc-anim). In `cirr-decomp` the PPG falls from 17.4 to 9.2 mmHg (8 mm stent) or 7.9 mmHg (10 mm).
+**What is missing.** A fifth step of the TIPS play in which the same transjugular catheter reads the portal vein pressure through
+the stent, is pulled back to read the right atrium (or IVC), and reports the gradient. No endoscope and no EUS are involved: it is the
+TIPS catheter. In code it can be written the way proc-anim already writes a measurement that changes nothing in the model (the
+`MEASURES` table), but the route, readings and words are the TIPS catheter's own. In `cirr-decomp` the gradient falls from 17.4 to
+9.2 mmHg (8 mm stent) or 7.9 mmHg (10 mm).
 
 It lands in shunts `tips`, variceal-bleed's TIPS slide and ten-years' TIPS slide.
 
