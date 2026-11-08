@@ -7,6 +7,7 @@
 
 const SCAN = { kind: 'fibroscan' };
 const PROFILE = { kind: 'profile' };
+const CAUSES = { kind: 'causes', metric: 'ppg' };
 // (The two gradients on one plane, with the line where the wedge reads the portal pressure: a dot above it is the HVPG under-reading.)
 const PLANE = { kind: 'plane', plane: { base: 'hvpg-ppg', diag: { label: 'HVPG = PPG' } } };
 const GAPS = 'The two gradients', STIFF = 'Stiffness and weight', MORE = 'Drugs and alcohol';
@@ -36,6 +37,14 @@ export const MASLD = {
       line: 'Her HVPG is {hvpg}, yet the PPG is {ppg}. Resistance before the sinusoids lies upstream of the wedge, so the wedged pressure does not see it.',
       notes: 'Baveno VIII (2.5) says that in MASLD-related cACLD the HVPG may underestimate the true portal pressure gradient. The model reads that as extra resistance before the sinusoids, in the portal venules and the periportal scar: the wedged catheter reads the sinusoids and everything downstream of them, so it misses that part and the HVPG falls short of the PPG. That placement is the model\'s explanation, not a proven mechanism, and it exaggerates the case: in patients the gap is smaller and varies. The BMI and the diabetes are in the case only; the model has neither.',
       ask: ['Her HVPG is 11 mmHg and the PPG, read in the portal vein, is 14 mmHg. Why do they differ?', 'Part of the resistance lies before the sinusoids, which the wedged catheter does not read. The HVPG then under-reads the portal gradient.'],
+    },
+    {
+      // (Her PPG split into its causes, as the Why? panel works them out: the step for resistance before the sinusoids is the part the wedge leaves out.)
+      id: 'parts', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: CAUSES, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg', 'hvpg'],
+      kicker: GAPS, site: 'sin', title: 'Part of her PPG is resistance the wedge cannot see', cite: 'Baveno VIII 2.5',
+      line: 'Most of her PPG of {ppg} is the cirrhosis itself. The step for resistance before the sinusoids lies upstream of the wedge, so her HVPG of {hvpg} leaves it out.',
+      notes: 'Each bar is one cause of her PPG, worked out by the model by taking that cause away. The largest step is the cirrhosis, the resistance in the sinusoids that the wedge reads. Baveno VIII (2.5) says that in MASLD-related cACLD the HVPG may underestimate the true portal pressure gradient. The model reads that as the step for presinusoidal fibrosis in the portal venules and the periportal scar: it adds to the PPG and the wedged catheter does not read it. That step is small beside the cirrhosis, and its placement is the model\'s reading of the statement, not a proven mechanism. The sizes of the steps are the model\'s own, not published figures.',
+      ask: ['Which step of her PPG does the HVPG leave out?', 'The resistance before the sinusoids, in the portal venules and the periportal scar. The wedged catheter reads the sinusoids and everything downstream of them.'],
     },
     {
       id: 'still',

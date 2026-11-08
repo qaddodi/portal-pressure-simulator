@@ -93,6 +93,16 @@ export const SITES = {
       ask: ['Why are varices rare in heart failure despite a portal pressure of about 20 mmHg?', 'Varices need a portal-to-systemic gradient; the systemic veins are high too, so the gradient (PPG) is normal.'],
     },
     {
+      // (The PPG of each of the six patients split into its causes, as the Why? panel works them out: the cirrhosis patient is the slide's own, and a button eases to each of the others.)
+      id: 'steps', preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'causes', metric: 'ppg' }, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg'],
+      compare: [{ label: 'Portal vein thrombosis', short: 'Clot', preset: 'pvt-chronic' }, { label: 'Schistosomiasis', short: 'Schisto', preset: 'schisto' }, { label: 'Cirrhosis', own: true },
+        { label: 'Sinusoidal obstruction', short: 'SOS', preset: 'sos' }, { label: 'Budd–Chiari syndrome', short: 'Budd–Chiari', preset: 'budd-chiari' }, { label: 'Right heart failure', short: 'Heart', preset: 'rhf' }],
+      kicker: 'How to tell them apart', title: 'Each site builds the PPG from its own steps',
+      line: 'The resistance itself is the largest step to the right, and collaterals take some pressure off. In right heart failure the large steps go left.',
+      notes: 'Each bar is one cause of the patient\'s PPG, worked out by the model by taking that cause away. Tap a patient to see the steps. In the clot it is the clot, in schistosomiasis the resistance in the portal venules, in cirrhosis the resistance in the sinusoids, in sinusoidal obstruction the resistance after them, and in Budd–Chiari the clot in the hepatic veins. Collaterals take some pressure off in each. In right heart failure the IVC pressure that the PPG subtracts is raised, so the steps go left and the PPG reads normal. AASLD 2024 Table 1 sorts portal hypertension by where the resistance lies. The sizes of the steps are the model\'s own, not published figures.',
+      ask: ['Which step is largest in cirrhosis, and which patient\'s steps go left?', 'The resistance in the sinusoids is the largest step to the right. In right heart failure the steps go left: the high pressure behind the liver is subtracted, so the PPG reads normal.'],
+    },
+    {
       id: 'ladders', cam: 'fit', visual: 'ladders', of: SIX, question: 'Which of the six raised the HVPG?',
       kicker: 'How to tell them apart', title: 'The biggest pressure drop shows where the resistance is',
       notes: 'Read each ladder from left to right. Pre-hepatic and presinusoidal: the fall comes before the sinusoids the wedge reads, so HVPG is normal and only a direct portal pressure (or the PPG) shows it. Sinusoidal and postsinusoidal: the fall lies inside the HVPG bracket, exactly what HVPG measures. Post-hepatic: the fall comes after the hepatic vein. Cardiac: there is no fall at all; every station is high.',
