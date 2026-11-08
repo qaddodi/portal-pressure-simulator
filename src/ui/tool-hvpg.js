@@ -21,8 +21,8 @@ const REDUCED = () => typeof matchMedia === 'function' && reduceMotionMQ.matches
 /** The readings a card shows from a fingerprint (or the live metrics): the two pressures, and the HVPG as the difference of them as printed. */
 export const levelsOf = (m) => (m && Number.isFinite(m.fhvp) && Number.isFinite(m.whvp) ? { fhvp: m.fhvp, whvp: m.whvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg) } : null);
 /** How long the free sweep lasts before the balloon starts, and the stretch between the balloon being up and the result taking over (ms on the procedure's clock). */
-export const SWEEP_FREE_MS = T.inflate - 80 - (T.free - 300);
-export const SWEEP_SETTLE_MS = T.callout - T.wedge;
+export const SWEEP_FREE_MS = T.inflate - 80 - (T.free - 300);   // motion-scale: own pace (the sweep, from the procedure's table)
+export const SWEEP_SETTLE_MS = T.callout - T.wedge;   // motion-scale: own pace (the sweep, from the procedure's table)
 /** The catheter steps a card can follow (a slide's cath). */
 export const STEPS = ['free', 'wedge', 'result'];
 

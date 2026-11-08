@@ -8,6 +8,9 @@ const SCAN = { kind: 'fibroscan' };
 // slide's own cut-off (under 10 kPa); the plane's zones are the rule for untreated disease, and both agree here. The
 // obese MASLD slide charts its stiffness over the year instead, where the 25 kPa rule does not strictly apply (Baveno VIII 1.16).
 const PLANE = { kind: 'plane', plane: 'csph' };
+// The MASLD and alcohol patients open on a scar worse than their preset's (params set after the preset's years), so they first live a year at it, as the
+// higher-start patient does (her slide runs 365 days): the spleen and the platelets settle to it, and the year after does not open with a dip (relax, decks.js).
+const RELAX = 365;
 const HCV = 'Hepatitis C cured', HIGH = 'A higher start', MASLD = 'MASLD', ALC = 'Alcohol stopped';
 
 export const CAUSE_TREATED = {
@@ -36,7 +39,7 @@ export const CAUSE_TREATED = {
       ask: ['Why start carvedilol now, if the virus will soon be cured?', 'The portal pressure falls only slowly after cure, and carvedilol lowers the risk of decompensation in the meantime.'],
     },
     {
-      id: 'year1', days: 365, ramp: { cirrhosis: [0.6, 0.45] }, lapse: { seconds: 8, from: 'Cure', to: 'One year later' }, cam: 'liver',
+      id: 'year1', lens: 'since', days: 365, ramp: { cirrhosis: [0.6, 0.45] }, lapse: { seconds: 8, from: 'Cure', to: 'One year later' }, cam: 'liver',
       tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over the year' }, data: 'tiles', tiles: ['hvpg', 'varix', 'lsm', 'plt'], key: ['lsm'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'A year after cure, the pressure and the stiffness fall',
       line: 'The stiffness reads {lsm}, the platelets have risen to {plt} and the HVPG has fallen to {hvpg}.',
@@ -73,32 +76,44 @@ export const CAUSE_TREATED = {
       ask: ['Ascites seen only on ultrasound: is she decompensated?', 'No: only clinically evident ascites marks decompensation, though even a little fluid on ultrasound carries a worse outlook.'],
     },
     {
-      id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', compare: [{ label: 'First patient', short: 'First', slide: 'year2' }, { label: 'This patient', short: 'This one', own: true }], tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['lsm', 'varix'], delta: 'high',
+      id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['lsm', 'varix'], delta: 'high',
       kicker: HIGH, site: 'sin', title: 'Two years after cure, CSPH persists',
       line: 'The HVPG is still {hvpg}, which is {>=10 mmHg}, so CSPH persists and she keeps carvedilol.',
-      notes: 'Switch to the first patient to compare his HVPG. When the HVPG starts well above 10 mmHg, CSPH often persists after cure, and so does the risk of decompensation. She keeps carvedilol and liver cancer surveillance every 6 months. Her stiffness, still in the gray zone, cannot tell on its own whether CSPH has gone.',
+      notes: 'When the HVPG starts well above 10 mmHg, CSPH often persists after cure, and so does the risk of decompensation. She keeps carvedilol and liver cancer surveillance every 6 months. Her stiffness, still in the gray zone, cannot tell on its own whether CSPH has gone.',
       ask: ['Should she stop carvedilol now that the virus is gone?', 'No: CSPH persists, so carvedilol continues.'],
     },
     {
-      id: 'masld', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Weight loss starts', to: 'One year later' }, cam: 'liver',
-      // The weight line is the slide's own 12% (the model has no weight), spread evenly over the year as the scar eases back; the stiffness line is the model's.
-      tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 }, title: 'Weight lost and stiffness over the year' },
+      id: 'masld', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, relax: RELAX, days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Weight loss starts', to: 'One year later' }, cam: 'liver',
+      // The weight line is the slide's own 12% loss, drawn as body weight from 100% down to 88% (the model has no weight), spread evenly over the year as the scar eases back; the stiffness line is the model's.
+      tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 }, title: 'Body weight and stiffness over the year' },
       data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
       kicker: MASLD, site: 'sin', title: 'Losing 12% of her weight lowers the stiffness',
-      vignette: 'A 54-year-old woman with MASH cirrhosis and a BMI of 34 has a liver stiffness of 15 kPa on FibroScan. Her platelets are 136,000/µL, and she has never had ascites or bleeding.',
+      vignette: 'A 54-year-old woman with MASH cirrhosis and a BMI of 34 has a liver stiffness of 15 kPa on FibroScan. Her platelets are 138,000/µL, and she has never had ascites or bleeding.',
       line: 'Losing 12% of her weight over a year lowers the stiffness from the gray zone to {lsm} and lifts the platelets to {plt}, which now rules CSPH out.',
-      notes: 'At the start her stiffness sits in the gray zone, and at a BMI of 30 or more a stiffness of 25 kPa or more no longer rules CSPH in, because it often overstates the portal pressure in obesity. Baveno VIII then uses ANTICIPATE-NASH, which adds the BMI, and calls CSPH present at a probability of 75% or more. In MASLD-related cACLD, Baveno VIII (2.13) links a weight loss of 10% or more with a fall in stiffness of 30% or more. A confirmed change of 30% or more goes with a meaningful change in the risk of liver-related events, particularly when the stiffness crosses 15 kPa (2.9). Diet and exercise come first; GLP-1–based drugs can be used for their approved indications, obesity included, and bariatric surgery suits selected patients without CSPH, with CSPH only at expert centers. A stiffness of 15 kPa or less with platelets of 150,000/µL or more rules CSPH out, whatever the cause. Note: The model has no fat or weight. On the chart, the weight line is the 12% named on the slide, spread evenly over the year with the scar easing back in step, and the stiffness line comes from the model.',
+      notes: 'At the start her stiffness sits in the gray zone, and at a BMI of 30 or more a stiffness of 25 kPa or more no longer rules CSPH in, because it often overstates the portal pressure in obesity. Baveno VIII then uses ANTICIPATE-NASH, which adds the BMI, and calls CSPH present at a probability of 75% or more. In MASLD-related cACLD, Baveno VIII (2.13) links a weight loss of 10% or more with a fall in stiffness of 30% or more. A confirmed change of 30% or more goes with a meaningful change in the risk of liver-related events, particularly when the stiffness crosses 15 kPa (2.9). Diet and exercise come first; GLP-1–based drugs can be used for their approved indications, obesity included, and bariatric surgery suits selected patients without CSPH, with CSPH only at expert centers. A stiffness of 15 kPa or less with platelets of 150,000/µL or more rules CSPH out, whatever the cause. Note: The model has no fat or weight. On the chart, body weight falls from 100% to 88%, the 12% named on the slide, spread evenly over the year with the scar easing back in step, and the stiffness line comes from the model.',
       ask: ['How much weight loss changes the stiffness meaningfully?', '≥10% of body weight, which goes with a fall in stiffness of ≥30%.'],
     },
     {
       // (Alcohol stopped: the scar eases back over the year as the inflammation settles. Carvedilol stays out of the params, as for the others.)
-      id: 'alcohol', preset: 'csph', params: { cirrhosis: 0.7 }, days: 365, ramp: { cirrhosis: [0.7, 0.55] }, lapse: { seconds: 8, from: 'Last drink', to: 'One year sober' }, cam: 'liver',
+      id: 'alcohol', preset: 'csph', params: { cirrhosis: 0.7 }, relax: RELAX, days: 365, ramp: { cirrhosis: [0.7, 0.55] }, lapse: { seconds: 8, from: 'Last drink', to: 'One year sober' }, cam: 'liver',
       tool: SCAN, data: 'tiles', tiles: ['hvpg', 'lsm'], key: ['hvpg'],
       kicker: ALC, site: 'sin', title: 'A year without alcohol lowers the pressure',
-      vignette: 'A 49-year-old man with alcohol-associated cirrhosis and CSPH, Child–Pugh A 6, stops drinking after his first clinic visit. He has small varices and no ascites.',
+      vignette: 'A 49-year-old man with alcohol-associated cirrhosis and CSPH, Child–Pugh A 6, stops drinking after his first clinic visit. He has medium esophageal varices and no ascites.',
       line: 'A year sober, his HVPG has fallen to {hvpg} and his stiffness to {lsm}. Drinking again would push the pressure back up.',
       notes: 'Abstinence is the cause treatment in alcohol-associated cirrhosis, and the HVPG falls within months of the last drink, more in those who stop completely than in those who cut down; continued drinking raises it. Much of the early fall in stiffness is inflammation settling, so the stiffness is best read after some months sober. Support to stay abstinent is part of the treatment: counseling, and drugs such as baclofen or acamprosate, which are safe in cirrhosis; disulfiram and naltrexone are avoided in advanced disease. Carvedilol continues while CSPH persists, and liver cancer surveillance every 6 months continues for life. In the model the scar eases back evenly over the year, without the drinking days between.',
       ask: ['How soon after stopping alcohol does the portal pressure fall?', 'Within months, more with complete abstinence; drinking again raises it.'],
+    },
+    {
+      // (All four patients on one chart: his mock E1, 7 Nov 2026. Each is the deck's own slides run again with a reading on every day, sampled every three months (allpatients-model.js);
+      // the MASLD and alcohol patients have one year in the deck, so the model gives them a second at year one's pace, drawn dotted.)
+      id: 'allpatients', cam: 'fit', visual: 'allpatients',
+      cohort: [{ name: 'Hepatitis C', c: 's1', slides: ['before', 'year1', 'year2'] }, { name: 'Higher start', c: 's2', slides: ['high', 'high2'] },
+        { name: 'MASLD', c: 's3', slides: ['masld'], pace: true, clear: 'Ruled out' }, { name: 'Alcohol', c: 's7', slides: ['alcohol'], pace: true }],
+      kicker: 'Summary', title: 'Where each patient started decides where they end',
+      line: 'Two years on, only the patient who started at {hvpg@high} is still {>=10 mmHg}; the other three are {<10 mmHg}.',
+      chartFoot: ['* Dotted: a second year the deck has no slide for, the model with year one\u2019s pace kept.', 'LSM is liver stiffness in kPa, Plt platelets in \u00d710\u00b3/\u00b5L. All four are off carvedilol.'],
+      notes: 'The four patients on one chart, the HVPG over two years with the CSPH line at 10 mmHg. The 1 and 2 year values stand on the lines, and the key gives the HVPG, the stiffness and the platelets before treatment, at 1 year and at 2 years, the patient with the highest pressure first. The hepatitis C patients are the deck\u2019s own slides. The MASLD and alcohol patients have one year in the deck; their second year is the model with the scar easing at the same pace as in the first, which takes the alcohol patient under 10 mmHg too. Patients vary far more than the model does, and the pressure can stop falling. The one who starts highest, at 14.7 mmHg, is still over the line after two years, so she keeps carvedilol.',
+      ask: ['Which of the four still has CSPH at two years, and why?', 'The woman who started at 14.7 mmHg: cure lowered her HVPG only to 10.8 mmHg, which is ≥10. The others fell to <10.'],
     },
     {
       // (The relation chart before the summary: the model's cirrhosis from mild to severe, each point settled for a year, read stiffness
@@ -117,8 +132,8 @@ export const CAUSE_TREATED = {
       id: 'summary', visual: 'table', cols: ['hvpg', 'lsm', 'plt'], asc: false, rowHead: 'Patient',
       of: [{ id: 'before', kicker: 'Hepatitis C', title: 'Before cure' }, { id: 'year1', kicker: 'Hepatitis C', title: 'One year after cure', vs: 'before' }, { id: 'year2', kicker: 'Hepatitis C', title: 'Two years after cure', vs: 'before' },
         { id: 'high', kicker: 'Higher start', title: 'Before cure', ref: true }, { id: 'high2', kicker: 'Higher start', title: 'Two years after cure', vs: 'high' },
-        { preset: 'cirr-comp', params: { cirrhosis: 0.45 }, key: 'masld0', kicker: 'MASLD', title: 'Before weight loss', ref: true }, { id: 'masld', kicker: 'MASLD', title: 'After 12% weight loss', vs: 'masld0' },
-        { preset: 'csph', params: { cirrhosis: 0.7 }, key: 'alc0', kicker: 'Alcohol', title: 'Still drinking', ref: true }, { id: 'alcohol', kicker: 'Alcohol', title: 'A year sober', vs: 'alc0' }],
+        { preset: 'cirr-comp', params: { cirrhosis: 0.45 }, relax: RELAX, key: 'masld0', kicker: 'MASLD', title: 'Before weight loss', ref: true }, { id: 'masld', kicker: 'MASLD', title: 'After 12% weight loss', vs: 'masld0' },
+        { preset: 'csph', params: { cirrhosis: 0.7 }, relax: RELAX, key: 'alc0', kicker: 'Alcohol', title: 'Still drinking', ref: true }, { id: 'alcohol', kicker: 'Alcohol', title: 'A year sober', vs: 'alc0' }],
       kicker: 'Summary', title: 'How far the pressure falls depends on where it started',
       line: 'Treating the cause lowers the HVPG in most patients, but CSPH persists when it starts high.',
       notes: 'Curing hepatitis C, suppressing hepatitis B, stopping alcohol or losing weight is the most effective long-term treatment of portal hypertension, but the pressure falls over years, not weeks. Patients who start with a high HVPG often keep CSPH and keep their beta-blocker. Liver cancer surveillance continues after any cure in a patient who had cirrhosis. Hepatitis B behaves like hepatitis C here: entecavir or tenofovir, taken long term, suppresses the virus, and the stiffness and the HVPG fall over years; the cancer risk falls but does not go.',

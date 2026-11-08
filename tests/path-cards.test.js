@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ALGOS, PATHS, WORST, OUTCOMES, litOf, outcomeOf, readingFor, chipsOf, patientFor, mapWordsOf, isTree } from '../src/ui/path-data.js';
 import { CARD_HELPERS, ROLE, shownOf } from '../src/ui/tool-path.js';
-import { drawCard, layout, model, patientsOf, scoreState, zoneText, cardCompact, CARD_WIDE_MIN, isCardKind } from '../src/ui/path-cards.js';
+import { drawCard, gridGroups, layout, model, patientsOf, scoreState, zoneText, cardCompact, CARD_WIDE_MIN, isCardKind } from '../src/ui/path-cards.js';
 import { loadMetrics, textCovers } from '../src/ui/text-gl.js';
 import { LOOKS } from '../src/ui/chart-looks/index.js';
 import { makeCtx, withCtx, resolveProps } from '../src/ui/chart-looks/resolve.js';
@@ -205,6 +205,8 @@ test('the layout fits the card at the Mac and the phone widths: every word and s
           assert.ok(o.y > 0 && o.y <= h + 0.5, `${a.id} ${name}: "${o.text}" baseline ${o.y} in the body ${h}`);
         } else if (o.k === 'r') {
           assert.ok(o.x >= -0.01 && o.x + o.w <= W + 0.01 && o.y >= -0.01 && o.y + o.h <= h + 0.5, `${a.id} ${name}: a box inside (${o.look} ${o.x},${o.y},${o.w},${o.h})`);
+        } else if (o.k === 'd') {
+          assert.ok(o.pts.every(([x, y]) => x >= -0.01 && x <= W + 0.01 && y >= -0.01 && y <= h + 0.5), `${a.id} ${name}: a shape inside (${o.look})`);
         } else {
           assert.ok(o.x1 >= -0.01 && o.x2 <= W + 0.01 && o.y1 >= -0.01 && o.y2 <= h + 0.5, `${a.id} ${name}: a line inside (${o.look})`);
         }
@@ -256,6 +258,31 @@ test('one size for every patient: the reserved height holds the tallest body at 
   }
   // the small layout is taller than the wide one (a stack), never wider
   for (const a of CARDS) assert.ok(layout(a, 340, true, null, H).H >= layout(a, 528, false, null, H).H * 0.6, a.id);
+});
+
+test('pvtgrid: one shape for each answer (three, not six), every word centred in its frame and inside it, at every width', () => {
+  const G = gridGroups(pvtgrid);
+  assert.deepEqual(G.map((g) => [g.ce[0], g.cells.length]).sort(), [['Consider stopping', 1], ['Full dose, long-term', 2], ['Lower-dose DOAC', 3]]);
+  assert.deepEqual(G.find((g) => g.ce[0] === 'Lower-dose DOAC').box, [1, 1, 0, 1], 'the lower-dose words sit in the L\'s wide foot');
+  assert.deepEqual(G.find((g) => g.ce[0] === 'Full dose, long-term').box, [0, 1, 2, 2], 'full dose over both rows');
+  for (const [name, W, phone] of WIDTHS) {
+    const compact = cardCompact(W, phone);
+    for (const p of patientsOf(pvtgrid)) {
+      const { ops } = drawCard(pvtgrid, W, compact, p, H), framed = ops.filter((o) => o.k === 't' && o.box);
+      assert.ok(framed.length >= 3 + 2 * 2 + 5, `${name}: the headers, the row names and the answers are framed`);
+      const lines = new Map();   // the pieces of one line together (a line is one face here, but keep it general)
+      for (const t of framed) { const k = `${t.box.join(',')}|${t.y.toFixed(1)}`; (lines.get(k) || lines.set(k, []).get(k)).push(t); }
+      for (const ts of lines.values()) {
+        const b = ts[0].box, x0 = Math.min(...ts.map((t) => t.x)), x1 = Math.max(...ts.map((t) => t.x + H.textWidth(t.text, { weight: ROLE[t.face].weight, size: ROLE[t.face].size })));
+        const what = `${name} ${JSON.stringify(p)} "${ts.map((t) => t.text).join('')}"`;
+        assert.ok(x0 >= b[0] - 0.5 && x1 <= b[1] + 0.5, `${what}: inside its frame (${x0.toFixed(1)}–${x1.toFixed(1)} in ${b[0].toFixed(1)}–${b[1].toFixed(1)})`);
+        assert.ok(Math.abs((x0 - b[0]) - (b[1] - x1)) <= 1, `${what}: centred across`);
+        assert.ok(ts[0].y - ROLE[ts[0].face].size >= b[2] - 0.5 && ts[0].y + 4 <= b[3] + 0.5, `${what}: inside its frame down`);
+      }
+      assert.equal(ops.filter((o) => o.k === 'd' && o.look === 'path.group').length, 3);
+      assert.equal(ops.filter((o) => o.k === 'd' && o.on).length, 1, 'the patient\'s shape lit');
+    }
+  }
 });
 
 test('the model draws what shows: the lit pieces are the patient\'s answers, the rest is unlit', () => {
@@ -339,7 +366,7 @@ test('the faces and looks resolve in every look, lit or not, in every tone the c
   const used = new Set(['rn', 'rd', 'op', 'pt', 'zl', 'gh', 'gr', 'gs', 'ct', 'ctc', 'cs', 'sn', 'yo', 'sw', 'bk', 'bb', 'rh', 'rs', 'rp', 'r', 't']);
   for (const f of used) assert.ok(ROLE[f], `a face ${f}`);
   for (const f of Object.keys(ROLE)) assert.ok(LOOKS[`path.${f}`], `a look for the face ${f}`);
-  for (const k of ['opt', 'bar', 'cell', 'step', 'back', 'rule']) assert.ok(LOOKS[`path.${k}`], `a look for ${k}`);
+  for (const k of ['opt', 'bar', 'cell', 'group', 'step', 'back', 'rule']) assert.ok(LOOKS[`path.${k}`], `a look for ${k}`);
   for (const theme of ['light', 'soft', 'dark']) for (const k of Object.keys(LOOKS).filter((x) => x.startsWith('path.'))) for (const lit of [false, true]) for (const tone of ['text', 'ok', 'caution', 'danger', 'accent']) {
     const p = resolveProps(LOOKS[k], ctx({ theme, dark: theme === 'dark' }), { lit }, { tone });
     for (const v of Object.values(p)) assert.doesNotMatch(String(v), /255, 0, 255/, `${k} ${theme} ${tone} lit ${lit}`);
@@ -351,7 +378,9 @@ test('the faces and looks resolve in every look, lit or not, in every tone the c
   assert.equal(at('path.opt', false).opacity, 0.4, 'unlit at 40%');
   assert.equal(at('path.opt', true).opacity, 1);
   assert.equal(at('path.op', false).opacity, 0.4);
-  assert.notEqual(at('path.cell', true, 'accent').stroke, at('path.cell', true, 'danger').stroke, 'a lit cell is in its own colour');
+  assert.notEqual(at('path.cell', true, 'accent').fill, at('path.cell', true, 'danger').fill, 'a lit cell is in its own colour');
+  assert.notEqual(at('path.group', false, 'accent').stroke, at('path.group', false, 'danger').stroke, 'an answer\'s shape keeps its colour at rest');
+  assert.ok(at('path.group', true).width > at('path.group', false).width, 'the patient\'s shape has the thicker edge');
   assert.equal(at('path.rn', false).opacity ?? 1, 1, 'a row\'s name is plain ink, at rest');
   assert.ok(at('path.step', true).width === at('path.step', false).width);
 });
@@ -359,7 +388,7 @@ test('the faces and looks resolve in every look, lit or not, in every tone the c
 test('the card draws the new kinds on the GPU, with no page text and no layout read, and the head, rule and foot stay the card\'s', () => {
   const card = read('src/ui/path-cards.js'), path = read('src/ui/tool-path.js');
   for (const src of [card, path]) assert.doesNotMatch(src, /requestAnimationFrame|getBoundingClientRect|getComputedStyle|createElementNS|getContext|clientWidth|offsetWidth|offsetHeight|readMetric|readBox|textContent|innerHTML|innerText/, 'no raw frame, no layout read, no canvas 2D, no SVG DOM, no page words');
-  assert.match(path, /cardLayout\(spec\.algo, W, compact, base, CARD_HELPERS\)/);
+  assert.match(path, /cardLayout\(spec\.algo, Wv, compact, base, CARD_HELPERS\)/);
   assert.match(path, /cardModel\(spec\.algo, lay\.card, patient, CARD_HELPERS, oy\)/);
   assert.match(path, /gl\.show\(/);
   assert.match(path, /the answers lit, the width and layout, the chips, and the reading's words/, 'the paint key holds all that shows');

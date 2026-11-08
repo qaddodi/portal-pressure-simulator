@@ -26,7 +26,7 @@ test('the copy is the GPU\'s, or none (no 2D tiles since 1 Nov: the dive then sc
 });
 
 test('each frame of the zoom draws the copy on the GPU, placed as the CSS transform placed the 2D copy', () => {
-  const sd = fn('setDiveZoom(k, x, y, tx = x, ty = y) {');
+  const sd = fn('setDiveZoom(k, x, y, tx = x, ty = y, out = false) {');
   assert.match(sd, /if \(wide\?\.gl\) wide\.gl\.draw\(wide\.W, wide\.H, wide\.dpr, wide\.box, k, x, y, tx, ty\);/);
   assert.match(sd, /if \(wide\?\.gl\?\.lost\) dropWide\(\);/, 'a lost context drops the copy, never a blank lobule');
   assert.match(wg, /uniform4f\(uS\.rect, \(tx \+ k \* \(qx - x\)\) \* dpr, \(ty \+ k \* \(qy - y\)\) \* dpr, k/);
@@ -55,7 +55,7 @@ test('one context for the lobule: the copy is made and shown in the vessels\' ow
   const b = fn('function buildWideGL(W, H, box) {');
   assert.match(b, /if \(hosted\) ok = onG && tisIn && \(fxIn \|\| !fxOn\) && \(g\.present\(\), wg\.tile\(t, [^;]*'host'\)\);/, 'every layer laid in the vessels\' canvas, then the tile copied inside the context');
   assert.doesNotMatch(b, /drawImage|getContext\('2d'\)|texImage2D/, 'no canvas sent from one context to another');
-  const sd = fn('setDiveZoom(k, x, y, tx = x, ty = y) {');
+  const sd = fn('setDiveZoom(k, x, y, tx = x, ty = y, out = false) {');
   assert.match(sd, /if \(wide\?\.host\) glCv\.style\.visibility = '';/);
   assert.match(sd, /if \(k >= 0\.9999 \|\| \(wide\?\.host && e === glCv\)\) \{ e\.style\.transform = ''; e\.style\.transformOrigin = ''; continue; \}/, 'the canvas that shows the copy is never scaled by CSS');
   assert.match(sd, /wideView = \{ W: wide\.W, H: wide\.H, dpr: wide\.dpr, box: wide\.box, k, x, y, tx, ty \};\n\s*if \(gl && !gl\.lost\) gl\.present\(\);/);

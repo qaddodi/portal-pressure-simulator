@@ -57,8 +57,11 @@ const bigLayer = (Wd, Hd) => {
   const px = typeof screen !== 'undefined' && screen.width > 0 ? screen.width * screen.height * (devicePixelRatio || 1) ** 2 : 0;
   return px > 0 && Wd * Hd > px / 4;
 };
+// (Pictures handed over by who drew them, in the last second, with the size of the last one: the ?perf readout's charts line names the busiest. Cleared by the readout.)
+export const transfersBy = new Map();
 export const sharedStats = { covRemade: 0, resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
 const CAP_STEP = 256;
+const WASTE_PX = 2e6;   // (the most a hand-over moves beyond the chart's own buffer: past it, the chart takes a buffer of its own size)
 const SHRINK_MS = 1000;   // (the shared buffer is cut back to the largest chart drawn in the last one to two seconds)
 export const capOf = (n) => Math.ceil(Math.max(1, n) / CAP_STEP) * CAP_STEP;
 function makePool() {
@@ -369,7 +372,7 @@ const premulInto = (out, o, c, alpha = 1) => { const v = rgba(c), a = v[3] * alp
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
 // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
-export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
+export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false, name = '' } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   let unsized = null;   // (the size subscription's release, called by dispose)
@@ -833,17 +836,28 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // 9 MP picture, and its card canvas held one: svg-gl 163 ms a frame in the lobule, 5 fps (4 Nov 2026, Mohammad's ?perf).)
         const t = performance.now();
         if (!(t - shared.winT0 <= SHRINK_MS)) { shared.lastW = shared.winW || 0; shared.lastH = shared.winH || 0; shared.winW = 0; shared.winH = 0; shared.winT0 = t; }
-        if (Wd > shared.winW) shared.winW = Wd;
-        if (Hd > shared.winH) shared.winH = Hd;
-        const fitW = capOf(Math.max(shared.lastW, shared.winW)), fitH = capOf(Math.max(shared.lastH, shared.winH));
-        if (glCanvas.width < Wd || glCanvas.height < Hd || glCanvas.width > fitW || glCanvas.height > fitH) {
-          glCanvas.width = Math.max(fitW, capOf(Wd)); glCanvas.height = Math.max(fitH, capOf(Hd)); sharedStats.resizes++;
+        // (A big layer (over a quarter of the screen: the lobule's leaders with a pointer up, a zoomed card's boosted chart) is drawn in a buffer
+        // sized for it alone and never joins the window: it held the buffer at its size for every small chart after it, so each card readout and
+        // callout handed over megapixels (svg-gl 68 to 130 ms a frame, 4 to 11 fps on a pan or pinch, 8 Nov 2026). The next small chart cuts the
+        // buffer straight back to the window's size. A hand-over already gives the buffer away, so the cut costs no more than the hand-over did.)
+        const big = bigLayer(Wd, Hd);
+        if (!big && Wd > shared.winW) shared.winW = Wd;
+        if (!big && Hd > shared.winH) shared.winH = Hd;
+        // (The window keeps its widest and its tallest chart apart, so a wide strip and a tall card made a buffer far larger than either, and every
+        // small readout handed that over: svg-gl still 18 ms a frame for 20 pictures a second (8 Nov 2026). A chart the window would give more
+        // than 2 MP beyond its own area draws in a buffer of its own size instead: a hand-over never moves megapixels it does not need. Charts
+        // of card sizes keep sharing one steady buffer (U2), as their window is never that much larger than any of them.)
+        const ownW = capOf(Wd), ownH = capOf(Hd);
+        let fitW = capOf(Math.max(shared.lastW, shared.winW, Wd)), fitH = capOf(Math.max(shared.lastH, shared.winH, Hd));
+        if (big || fitW * fitH > ownW * ownH + WASTE_PX) { fitW = ownW; fitH = ownH; }
+        if (glCanvas.width !== fitW || glCanvas.height !== fitH) {
+          glCanvas.width = fitW; glCanvas.height = fitH; sharedStats.resizes++;
         }
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindVertexArray(null); gl.useProgram(null);
         gl.clearStencil(0); gl.stencilMask(0xff);
       }
       if (!shown && (canvas.width !== Wd || canvas.height !== Hd)) { canvas.width = Wd; canvas.height = Hd; }   // (a shared chart's canvas takes the buffer's size from the hand-over)
-      W = Wd; H = Hd; K = Wd / w; api.drawnW = w; api.drawnH = h;
+      W = Wd; H = Hd; K = Wd / w; api.drawnW = w; api.drawnH = h; api.drawnWd = Wd;
       gl.viewport(0, 0, W, H);
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
       if (shown) { gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, W, H); }   // (only the chart's own W x H of the larger buffer is cleared)
@@ -874,6 +888,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       if (shown) {
         if (shared.active === api) shared.active = null;
         sharedStats.transfers++; notePass('transfer', W * H);
+        { const who = name || host.parentElement?.className?.split?.(' ')[0] || '?', r = transfersBy.get(who); if (r) { r.n++; r.w = glCanvas.width; r.h = glCanvas.height; } else if (transfersBy.size < 32) transfersBy.set(who, { n: 1, w: glCanvas.width, h: glCanvas.height }); }   // alloc-rare: a record for each drawer that hands over, cleared once a second
         let bmp = null;
         try { bmp = glCanvas.transferToImageBitmap(); shown.transferFromImageBitmap(bmp); bmp = null; place(glCanvas.width, glCanvas.height); } catch (e) { ok = false; console.warn('Charts on the GPU: the picture could not be handed over.', e); }
         if (bmp) { try { bmp.close?.(); } catch { /* already gone */ } }
@@ -1248,7 +1263,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     },
   };
   const shim = createShim(api);
-  api.drawnW = 0; api.drawnH = 0;   // (the CSS size its last frame began at: redrawSized)
+  api.drawnW = 0; api.drawnH = 0; api.drawnWd = 0;   // (its width in device px, redrawBoosted; the CSS size its last frame began at: redrawSized)
   if (redraw) noteDrawer(host, api, redraw);
   return api;
 }

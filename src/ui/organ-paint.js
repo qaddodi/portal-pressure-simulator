@@ -19,6 +19,7 @@ import { strHash } from './liver-geo.js';
 import { readStyle, readLocalCTM } from './layout-snap.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
 import { getLive } from './live-style.js';
+import { WARM_MS } from './warm-views.js';
 import { STOPS, STOPS_CMAP, STOP_LOOK } from './stop-tokens.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
@@ -1221,6 +1222,7 @@ export function createOrganPaint(gl, shape) {
   }
   function clearOne(b, t) {
     if (!t.on) allocOne(t);   // (a layer is given its room when first cleared for a group: the mask layers and the deeper pairs of a painter that never needs them stay one texel)
+    if (t !== layers[0]) warmDeep();
     gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbo);
     gl.viewport(0, 0, W, H);
     scissor(b); gl.clearBufferfv(gl.COLOR, 0, CLEAR0); gl.disable(gl.SCISSOR_TEST);
@@ -1243,6 +1245,24 @@ export function createOrganPaint(gl, shape) {
     gl.disable(gl.BLEND); gl.disable(gl.SCISSOR_TEST);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindVertexArray(null);
+  }
+  // (Perf D2: the mask layer and the nested pairs are given back once nothing has cleared them for WARM_MS. A plain idle timer: they are not
+  // held in the global budget, so counting them cannot make the budget drop anything else mid gesture. Only ever from a timer, never within
+  // a paint, and never while a picture's job holds them (a slide change's bakes clear them all the time; dropping and making them again
+  // mid-change cost 385 ms frames, 3 Nov). The next first clear makes them again.)
+  let deepT = 0, deepAt = 0;
+  const deepBytesNow = () => { let n = 0; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) n++; return n * AW * AH * 4; };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const trimDeepNow = () => { if (holder) return false; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) trimOne(depths[d][j]); return true; };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
+  const deepArm = (ms) => { clearTimeout(deepT); deepT = setTimeout(deepCheck, ms); deepT?.unref?.(); };   // alloc-rare: armed when the layers are first used after being given back
+  function deepCheck() {   // alloc-rare: runs from a timer, a few times in a warm period
+    deepT = 0;
+    if (gl.isContextLost()) return;
+    const idle = performance.now() - deepAt;
+    if (idle < WARM_MS || !trimDeepNow()) deepArm(Math.max(1000, WARM_MS - idle));   // used lately, or a picture's job is painting with them: asked again
+  }
+  function warmDeep() {
+    deepAt = performance.now();
+    if (!deepT) deepArm(WARM_MS);
   }
   const trimOne = (t) => { t.on = false; gl.bindTexture(gl.TEXTURE_2D, t.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
   const dropOne = (t) => { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); };   // alloc-rare: built once when the painter is made (once per GL context), never in a frame
@@ -1352,13 +1372,14 @@ export function createOrganPaint(gl, shape) {
       const spent = meshesOld; meshesOld = meshes; meshes = spent; meshes.clear(); dKeys.clear(); forgetLives();
     },
     /** The bytes held by the layers a live frame does not need: the mask layer and every nested depth (made when a masked or nested group first needs them). */
-    deepBytes() { let n = 0; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) n++; return n * AW * AH * 4; },
+    deepBytes: deepBytesNow,
     /** Gives those layers back (not while a picture's job is painting with them); a group that needs one again makes it at its first clear. */
-    trimDeep() { if (holder) return false; for (let d = 0; d < depths.length; d++) for (let j = 0; j < 2; j++) if ((d > 0 || j === 1) && depths[d][j].on) trimOne(depths[d][j]); return true; },
-    trim() { this.dropKept(); if (!AW) return; W = H = AW = AH = BW = BH = 0; trimOne(scratch); for (let d = 0; d < depths.length; d++) { trimOne(depths[d][0]); trimOne(depths[d][1]); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
+    trimDeep() { return trimDeepNow(); },
+    trim() { this.dropKept(); clearTimeout(deepT); deepT = 0; if (!AW) return; W = H = AW = AH = BW = BH = 0; trimOne(scratch); for (let d = 0; d < depths.length; d++) { trimOne(depths[d][0]); trimOne(depths[d][1]); } gl.bindRenderbuffer(gl.RENDERBUFFER, stencil); gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, 1, 1); },
     dispose() {
       // (Every mesh's arrays given back with the shape drawer: those kept for pictures, the live frame's and the last frame's.)
       kept.clear(); meshes.clear(); meshesOld.clear(); holder = null;
+      clearTimeout(deepT); deepT = 0;
       shape.dispose();
       dropOne(scratch); for (let d = 0; d < depths.length; d++) { dropOne(depths[d][0]); dropOne(depths[d][1]); }
       gl.deleteRenderbuffer(stencil); gl.deleteBuffer(quad); gl.deleteVertexArray(vao); gl.deleteProgram(paintP.p); gl.deleteProgram(layP.p);

@@ -6,12 +6,13 @@
 // made only on the GPU, inside the canvas's own presents (res-fade-gl.js); the canvas stays shown, so its opacity is never touched.
 import { finalFrameFor, noteDraw } from './frame.js';
 import { D_SURFACE } from './ease.js';
+import { smooth01 } from './motion.js';
 import { keepOnGpu } from './res-fade-gl.js';
 import { caught } from './caught.js';
 
 export const FADE_MS = D_SURFACE;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */
-export const fadeAlpha = (u) => { const t = Math.min(1, Math.max(0, u)); return 1 - t * t * (3 - 2 * t); };
+export const fadeAlpha = (u) => 1 - smooth01(u);
 
 const late = finalFrameFor('res-fade');
 // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU") the fade runs only on the GPU (res-fade-gl.js): the picture before copied once
@@ -117,7 +118,9 @@ export function fadeOver(canvas, follow = null, capture = null, host = null, box
   // (The caller resizes the canvas next, which clears it: the picture before is laid on it at once, before the page shows it blank.)
   queueMicrotask(() => {   // alloc-rare: once per resolution fade, right after the canvas is resized
     if (fades.get(canvas) !== f || (canvas.width === keep.w && canvas.height === keep.h)) return;
-    try { keep.draw(1, oldPlace(null, f.at, translateOf(canvas.style.translate)), w, h, true); } catch (e) { caught('res-fade:71', e); /* (a lost context) */ }
+    // (A whole picture on the cleared canvas: laid as one (host.whole), so the canvas guard lets it reach the canvas, veins-gl.js.)
+    const seed = () => keep.draw(1, oldPlace(null, f.at, translateOf(canvas.style.translate)), w, h, true);   // alloc-rare: once per resolution fade
+    try { if (host.whole) host.whole(seed); else seed(); } catch (e) { caught('res-fade:71', e); /* (a lost context) */ }
   });
   if (!asked) { asked = true; late(step); }
 }

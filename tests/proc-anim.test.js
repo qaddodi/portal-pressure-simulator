@@ -4,7 +4,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PROCS, PROC_KINDS, specOf, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
+import { PROCS, PROC_KINDS, specOf, procKindOf, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { defaultParams } from '../src/engine/scenario.js';
 import { isOccluded } from '../src/engine/topology.js';
@@ -86,7 +86,7 @@ test('built-in slides use procedure only where adopted, each naming a known one 
   for (const d of DECKS) for (const s of d.slides) {
     if (s.procedure == null) continue;
     assert.ok(adopted(d, s, 'procedure'), `${d.id}/${s.id} uses procedure without being listed in tests/deck-adopted.js`);
-    const k = typeof s.procedure === 'string' ? s.procedure : s.procedure.kind;
+    const k = procKindOf(s.procedure);
     assert.ok(specOf(k), `${d.id}/${s.id}: unknown procedure ${k}`);
   }
 });
@@ -139,7 +139,7 @@ test('every step plays inside one shot, the camera moving only between steps, tw
     for (let i = 1; i < P.stops.length; i++) assert.ok(P.stops[i] > P.stops[i - 1], `${k}: stops in order`);
     // (shots: the whole way in first, then the close-up for the rest; never back out mid-procedure. BRTO and BATO frame the
     // balloon closer still, then the tip on to the varices for the sclerosant: his ask, 29 Oct, "zoom into the balloon catheter tip")
-    assert.deepEqual(P.steps.map((s) => s[4]), k === 'tips' ? ['way', 'tip', 'tip', 'tip'] : ['way', 'tip', 'work', 'work'], `${k} shots`);
+    assert.deepEqual(P.steps.map((s) => s[4]), k === 'tips' ? ['way', 'tip', 'tip', 'tip'] : ['way', 'tip', 'fill', 'work'], `${k} shots`);
     for (const t of times(T)) {
       const f = procFrame(k, t);
       if (f.step >= 0) { assert.equal(f.step, stepAt(k, t)); assert.equal(f.shot, P.steps[f.step][4], `${k} at ${t}`); }
@@ -216,17 +216,37 @@ test('presented, it holds at each step until Next, waits for each shot to land, 
     assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip']);
     assert.equal(steps.at(-1), 1); assert.equal(marks.at(-1), '2 Balloon up');
     assert.ok(play.next()); R.run(30000);
-    assert.equal(applied, 1, 'the model took the change as the sclerosant filled');
+    assert.equal(applied, 0, 'the shunt stays open through the sclerosant step: it closes (and its X shows) only at step 4');
+    assert.ok(PROCS.brto.T.apply > P.stops[2] && PROCS.bato.T.apply > PROCS.bato.stops[2] && PROCS.brto.T.apply < P.stops[3], 'BRTO and BATO close at step 4');
     assert.ok(play.back()); R.run(30000);
-    assert.equal(applied, 0, 'and gave it back going back');
+    assert.equal(applied, 0, 'and nothing is applied going back');
     assert.equal(steps.at(-1), 1);
     assert.ok(play.back()); R.run(30000);
-    assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'work', 'tip', 'way'], 'back through each shot, between steps');
+    assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'fill', 'tip', 'way'], 'back through each shot, between steps');
     assert.ok(play.back()); R.run(30000);
     assert.equal(play.running, false); assert.deepEqual(ends, [{ done: false, rewound: true }]);
     assert.equal(R.moves.at(-1).mode, 'home'); assert.equal(marks.at(-1), null);
     assert.equal(R.cats.at(-1), null, 'the catheter is gone');
     void P;
+  } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
+});
+
+// Mock B, his pick, 7 Nov 2026: played step by step to its end, BRTO keeps its result framed (no glide home while the catheter backs
+// out); the slide's next move takes the camera from there.
+test('presented to its end, BRTO and BATO hold their result: no glide home', () => {
+  const saved = { p: globalThis.performance, r: globalThis.requestAnimationFrame, c: globalThis.cancelAnimationFrame };
+  try {
+    for (const k of ['brto', 'bato']) {
+      const R = rig(), ends = [];
+      let forgot = 0;
+      R.stage.cathForget = () => forgot++;
+      const play = playProcedure(R.stage, k, { stepped: true, onEnd: (e) => ends.push(e) });
+      R.run(12000);
+      for (let i = 0; i < 3; i++) { assert.ok(play.next()); R.run(30000); }
+      assert.deepEqual(ends, [{ done: true, rewound: false }], k);
+      assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip', 'fill', 'work'], `${k}: no glide home`);
+      assert.equal(forgot, 1, `${k}: the kept home view is let go`);
+    }
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });
 
@@ -241,8 +261,9 @@ test('in Tests it plays through by itself, every step in turn, and leaves the ch
       assert.deepEqual(steps, [0, 1, 2, 3], k);
       assert.equal(applied, 1, k);
       assert.deepEqual(ends, [{ done: true, rewound: false }], k);
-      assert.deepEqual(R.moves.map((m) => m.mode), k === 'tips' ? ['way', 'tip', 'home'] : ['way', 'tip', 'work', 'home'], `${k}: a move only between shots`);
-      assert.ok(R.moves.every((m) => m.ms >= 1400), `${k}: every move glides as a slide's camera does`);
+      assert.deepEqual(R.moves.map((m) => m.mode), k === 'tips' ? ['way', 'tip', 'home'] : ['way', 'tip', 'fill', 'work', 'home'], `${k}: a move only between shots`);
+      // (TIPS glides as a slide's camera does; BRTO and BATO each shot as long as its move needs, straight: mock B, his pick, 7 Nov 2026.)
+      assert.ok(R.moves.every((m) => m.ms === (m.mode !== 'home' && PROCS[k].shotMs?.[m.mode] || 1500)), `${k}: every move glides for its shot's time`);
     }
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });
@@ -257,7 +278,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.ok(next.indexOf('procNext()') > 0 && next.indexOf('procNext()') < next.indexOf('go(want + 1)'), 'a procedure step comes before the next slide');
   assert.match(pz, /const prev = \(\) => \{ if \(procBack\(\)\) return;/);
   const pn = pz.match(/const procNext = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(pn, /if \(procRun\) return procRun\.next\(\);/);
+  assert.match(pn, /if \(procRun\) return procRun\.next\(\) \|\| procQueue\(\);/, 'a step, or (a TIPS on its last step) the reading queued behind it');
   assert.match(pn, /procDoneAt === want/, 'once played through, Next moves on');
   assert.match(pn, /procPlay\(s, want, 0\);\n\s+return true;/, 'the first Next puts the catheter in');
   const el = pz.match(/function procEl\([\s\S]*?\n {2}\}/)[0];
@@ -267,7 +288,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(el, /class: 'pz-step'/); assert.doesNotMatch(el, /pz-abb/);
   // Going forward, the slide opens on its state before the procedure (the worker's before), its words on the state after.
   assert.match(pz, /own = lap \? \(await stateReady\(stateOf\[to\]\)\)\?\.start \|\| null : pre \? \(await stateReady\(to\)\)\?\.before \|\| null : null;/);
-  assert.match(pz, /before: s\.procedure \? specOf\(s\.procedure\.kind \|\| s\.procedure\)\?\.before : undefined/);
+  assert.match(pz, /before: s\.procedure \? specOf\(procKindOf\(s\.procedure\)\)\?\.before : undefined/);
   const wk = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
   assert.match(wk, /if \(st\.before\) \{\n\s+const b = new Engine\(\); b\.restore\(e\.snapshot\(\)\); b\.setParams\(deepMerge\(b\.params, st\.before\)\); b\.settle\(\);/);
   for (const k of PROC_KINDS) assert.ok(PROCS[k].before && PROCS[k].had(PROCS[k].apply({})) && !PROCS[k].had(structuredClone(PROCS[k].before)), `${k}: before undoes it`);
@@ -276,26 +297,38 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   // (one caliber for all three, the TIPS one: his ask, 29 Oct, the BRTO catheter was hair thin)
   assert.match(st, /if \(E\.RHV_IVC\) for \(let f = 0\.2; f <= 1\.001; f \+= 0\.1\) t = Math\.min\(t, cathRadOf\('RHV_IVC', f\)\);/);
   assert.match(st, /return Math\.max\(0\.5, Math\.min\(t \* 0\.4, m \* 0\.7\)\);/);
-  assert.match(st, /const PROC_K_TIP = 12;/, 'BRTO and BATO\'s balloon close-up, closer (his ask, 6 Nov)');
-  // (their way in frames the last stretch before the tip's stop, not the whole route, and follows the tip in: his ask, 6 Nov)
+  // (BRTO and BATO ride along, mock B, his pick, 7 Nov 2026: one scale for the way in with the vessel ahead in view, a short push in on the
+  // balloon, the view panning up with the sclerosant, then one pull back to the result, held.)
+  assert.match(st, /const OBLIT_K_WAY = 4, OBLIT_K_TIP = 7, OBLIT_K_WORK = 5, OBLIT_LEAD = 0\.18;/);
+  assert.match(st, /if \(isOblit\(r\) && \(mode === 'tip' \|\| mode === 'fill' \|\| mode === 'work' \|\| \(mode === 'way' && !reduceMotion\.matches\)\)\) return oblitFocus\(/);
+  // (The BRTO play with a target, Baveno VIII 6.12: the same way up to the left renal vein, out the renal venules to where the splenorenal shunt joins, up C6; BRTO's camera.)
+  const routes = readFileSync(new URL('../src/ui/proc-routes.js', import.meta.url), 'utf8');   // (the routes' table, shared with the timing tests)
+  assert.match(routes, /brtoC6: \{ ids: \['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'V_KID_L', 'C6'\]/);
+  assert.match(routes, /B\.vessel\('V_KID_L', \{ rev: true, near: c6, name: 'renal' \}\); B\.vessel\('C6', \{ rev: true, name: 'shunt' \}\);/);
+  assert.match(st, /const isOblit = \(r\) => r\.kind === 'brto' \|\| r\.kind === 'brtoC6' \|\| r\.kind === 'bato';/);
+  // (EUS-PPG's way in frames the last stretch before the scope's stop and follows it in)
   assert.match(st, /const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;/);
-  assert.match(st, /: wayIn \? \[Math\.max\(procIn\(r\), r\.free - Rf \* WAY_BEHIND\), Math\.min\(r\.total, r\.free \+ Rf \* WAY_AHEAD\)\]/);
+  assert.match(st, /wayIn \? \[Math\.max\(procIn\(r\), r\.free - Rf \* WAY_BEHIND\), Math\.min\(r\.total, r\.free \+ Rf \* WAY_AHEAD\)\]/);
   // A step callout keeps clear of every vessel on a short leader, at its own point, on a vessel not drawn yet too (the tract).
   assert.match(st, /const tidy = \(lv \|\| m\.pin\) && !dop\.all \?/);
   assert.match(st, /const segAt = m\.f \?\? /);
   assert.match(st, /m\.ghost && geo\[m\.edges\[0\]\]\?\.cur\?\.length/);
-  assert.match(st, /shaftPart\(sh\.n \* 2, rc \* CATH_EDGE, 7, edge, 0\.62\);/, 'every catheter, HVPG and treatments alike, on the one hairline edge');
+  assert.match(st, /shaftPart\(sh\.n \* 2, ew, 7, edge, 0\.62\);/, 'every catheter, HVPG and treatments alike, on the one hairline edge (never under a device pixel past the shaft)');
   assert.match(st, /r\.parts \? Math\.max\(rc \* 1\.35, Rb\) : rc \* 1\.35/);
   assert.match(st, /const PROC_K_MAX = 5;/);
-  assert.match(st, /if \(r\.parts\) \{\n\s+const tq = cathAt\(r, Math\.max\(tipD, procIn\(r\)\)\)\.p/, 'the view follows the tip in');
+  assert.match(st, /if \(r\.parts\) \{[\s\S]{0,300}const tq = cathAt\(r, ob \? oblitAim\(r, fill \? [^\n]*: Math\.max\(tipD, procIn\(r\)\)\)\.p/, 'the view follows the tip in (BRTO and BATO: ahead of it, or the sclerosant\'s front)');
 });
 
 test('a TIPS is placed step by step only where a slide teaches the placement; elsewhere it is simply there', () => {
   const guided = new Set();
-  for (const d of DECKS) for (const s of d.slides) if (s.procedure === 'tips') guided.add(`${d.id}/${s.id}`);
+  for (const d of DECKS) for (const s of d.slides) if (procKindOf(s.procedure) === 'tips') guided.add(`${d.id}/${s.id}`);
   assert.deepEqual([...guided].sort(), ['gastric-varices/tips', 'shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
+  // (Three of them go on to read the gradient across the new stent as step 5: MEASURES.tipsgrad.)
+  const thens = [];
+  for (const d of DECKS) for (const s of d.slides) if (s.procedure?.then) { thens.push(`${d.id}/${s.id}`); assert.equal(s.procedure.then, 'tipsgrad'); assert.ok(specOf(s.procedure.then)?.measure, 'a reading'); }
+  assert.deepEqual(thens.sort(), ['shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
   for (const d of DECKS) {
-    assert.ok(d.slides.filter((s) => s.procedure === 'tips').length <= 1, `${d.id}: one guided TIPS at most`);
+    assert.ok(d.slides.filter((s) => procKindOf(s.procedure) === 'tips').length <= 1, `${d.id}: one guided TIPS at most`);
     for (const s of d.slides) if (s.procedure) assert.ok(!s.lapse && !s.cath && !s.question, `${d.id}/${s.id}: no time-lapse, catheter or question with it`);
   }
 });

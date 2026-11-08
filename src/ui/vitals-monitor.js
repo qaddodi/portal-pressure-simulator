@@ -96,24 +96,28 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     let same = lay && w === layW && hh === layH && cells.length === layN;
     for (let i = 0; same && i < cells.length; i++) if (layK[i] !== cells[i].k || layU[i] !== cells[i].u) same = false;
     if (same) return lay;
-    const pad = 14, ew = w - 2 * pad, eh = Math.round(clamp(hh * 0.42, 34, 110)), top = pad, bot = pad + eh;   // alloc-rare: only when the size or the cells' words change
-    const y0 = bot + 12, rh = hh - pad - y0, cw = ew / cells.length;
+    // (8 Nov 2026, "the vital signs card is taller than it needs to be": the numbers are sized from the width first, and the strip takes what
+    // is left of the box, up to 110 px, so the card's own height ends at the numbers (styles/app.css .vitals-box max-height: 214 = 14 + 110 + 12 + 18 + 46 + 14, the strip and the numbers at their full size).)
+    const pad = 14, ew = w - 2 * pad, cw = ew / cells.length, top = pad;
     const cl = [];   // alloc-rare: only when the size or the cells' words change
+    let bigMax = 22;
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i];
-      let big = Math.round(clamp(Math.min(rh - 20, cw * 0.42, 46), 22, 46));
+      let big = Math.round(clamp(Math.min(cw * 0.42, 46), 22, 46));
       const uw = textWidth(c.u, 500, 12);
       while (!(textWidth('88.8', 700, big) + uw + 10 <= cw - 6 || big <= 18)) big -= 2;
       cl.push({ x: pad + i * cw, big });   // alloc-rare: only when the size or the cells' words change
+      if (big > bigMax) bigMax = big;
       layK[i] = c.k; layU[i] = c.u;
     }
+    const eh = Math.round(clamp(hh - pad - (12 + 18 + bigMax + pad), 34, 110)), bot = pad + eh, y0 = bot + 12, rh = hh - pad - y0;
     layW = w; layH = hh; layN = cells.length;
     lay = { pad, ew, eh, top, bot, y0, rh, cw, cells: cl };   // alloc-rare: only when the size or the cells' words change
     return lay;
   }
   // The pictures' lists for the GPU, kept and written in place (vitals-gl.js draw reads them as it is called): a rectangle or a word is one
   // kept entry [.., col], and a frame sets how many are in use.
-  const RECTS = [], TEXTS = [], LINE = { pts: null, n: 0, half: 0, col: null, clip: [0, 0, 0, 0] }, DRAW = { W: 0, H: 0, dpr: 1, rects: RECTS, line: null, texts: TEXTS, redraw: null };
+  const RECTS = [], TEXTS = [], LINE = { pts: null, n: 0, half: 0, col: null, clip: [0, 0, 0, 0] }, DRAW = { W: 0, H: 0, dpr: 1, ver: 0, rects: RECTS, line: null, texts: TEXTS, redraw: null };
   const rectAt = (i, x, y, w, h, r, col) => {
     const e = RECTS[i] || (RECTS[i] = [0, 0, 0, 0, 0, null]);   // alloc-rare: the first frame that needs this many rectangles
     e[0] = x; e[1] = y; e[2] = w; e[3] = h; e[4] = r; e[5] = col;
@@ -122,6 +126,22 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     const e = TEXTS[i] || (TEXTS[i] = ['', 0, 0, 0, 0, null]);   // alloc-rare: the first frame that needs this many words
     e[0] = str; e[1] = wt; e[2] = px; e[3] = x; e[4] = y; e[5] = col;
   };
+  // The version of the rectangles and words (DRAW.ver): bumped, by a compare field by field (no string is made), when anything they show differs from
+  // the frame they were written for. stillNow answers whether it did, and keeps what this frame shows for the next to be compared with.
+  let ver = 0, kN = -1, kW = -1, kH = -1, kDpr = -1, kL = null;
+  const kC = [null, null, null, null, null, null, null], kId = [], kK = [], kU = [], kDec = [], kBad = [], kVal = [], valS = [];
+  function stillNow(cells, w, hh, dpr, L, bg, text, bright, alarm, grid, ecg, art) {
+    const n = cells ? cells.length : 0;
+    let same = n === kN && w === kW && hh === kH && dpr === kDpr && L === kL
+      && kC[0] === bg && kC[1] === text && kC[2] === bright && kC[3] === alarm && kC[4] === grid && kC[5] === ecg && kC[6] === art;
+    for (let i = 0; same && i < n; i++) { const c = cells[i]; if (kId[i] !== c.id || kK[i] !== c.k || kU[i] !== c.u || kDec[i] !== c.d || kBad[i] !== c.bad || kVal[i] !== valS[i]) same = false; }
+    if (same) return false;
+    kN = n; kW = w; kH = hh; kDpr = dpr; kL = L;
+    kC[0] = bg; kC[1] = text; kC[2] = bright; kC[3] = alarm; kC[4] = grid; kC[5] = ecg; kC[6] = art;
+    for (let i = 0; i < n; i++) { const c = cells[i]; kId[i] = c.id; kK[i] = c.k; kU[i] = c.u; kDec[i] = c.d; kBad[i] = c.bad; kVal[i] = valS[i]; }
+    ver++;
+    return true;
+  }
   const inkOf = (id, ecg, art, bright) => (id === 'hr' ? ecg : id === 'map' ? art : bright);
   // The cells with no metrics yet: the names, no numbers (kept, one per id).
   const BLANK = new Map(), BLANK_LIST = [];
@@ -160,9 +180,6 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     const L = layout(w, hh, cells), { pad, ew, eh, top, bot, y0 } = L;
     const bg = colorOf(C('--mon-bg')), text = colorOf(C('--mon-text')), bright = colorOf(C('--mon-bright')), alarm = colorOf(C('--mon-alarm')), grid = colorOf(C('--mon-grid'));
     const ecg = colorOf(C('--mon-ecg') || C('--mon-bright')), art = colorOf(C('--mon-art') || C('--mon-bright'));
-    rectAt(0, 0, 0, w, hh, 12, bg); rectAt(1, pad, Math.round(bot - 6), ew, 1, 0, grid);
-    let nr = 2, nt = 0;
-    textAt(nt++, 'EKG', 600, 12, pad, top + 11, text);
     // The strip.
     let line = null;
     const x1 = headX(), x0 = Math.max(x1 - SPAN_S, firstT), hr = synth ? synth.w.bpm : frame?.metrics?.hr;
@@ -197,17 +214,32 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
           if (txtQ[i] !== q || txtD[i] !== c.d) { txtQ[i] = q; txtD[i] = c.d; txtS[i] = fmt(sv, c.d); }   // alloc-rare: only when the printed number changes
           val = txtS[i];
         }
-        // (2 Nov 2026, "stop numbers jiggling": the number stands in a box of the widest it can be (three figures, or two and a decimal; the
-        // figures are tabular), flush to its right edge, so the unit and the alarm patch never move as a reading goes from 99 to 100 or a
-        // digit changes. The cell's size was already found for the "88.8" box.)
-        const { x, big } = L.cells[i], by = y0 + 12 + 6 + big, nw = textWidth(val, 700, big), rw = textWidth(c.d ? '88.8' : '888', 700, big), ink = inkOf(c.id, ecg, art, bright);
-        textAt(nt++, c.k, 600, 12, x, y0 + 12, c.bad ? alarm : ink === bright ? text : ink);
-        if (c.bad) rectAt(nr++, x - 5, by - big * 0.78 - 4, rw + 10, big * 0.78 + 10, 5, alarm);
-        textAt(nt++, val, 700, big, x + rw - nw, by, c.bad ? bg : ink);
-        textAt(nt++, c.u, 500, 12, x + rw + 5, by, c.bad ? alarm : text);
+        valS[i] = val;
       }
     }
-    RECTS.length = nr; TEXTS.length = nt;
+    // The rectangles and words are written again only when something they show changed: the size and density, the colours, the layout, the
+    // cells' words, a printed number or an alarm flag (stillNow, the stillKey/keyNow pattern of stage.js). A frame that scrolls only the strip
+    // leaves the lists as they are, with the version they had, and vitals-gl.js keeps the instance data it built from them on the GPU.
+    if (stillNow(m ? cells : null, w, hh, dpr, L, bg, text, bright, alarm, grid, ecg, art)) {
+      rectAt(0, 0, 0, w, hh, 12, bg); rectAt(1, pad, Math.round(bot - 6), ew, 1, 0, grid);
+      let nr = 2, nt = 0;
+      textAt(nt++, 'EKG', 600, 12, pad, top + 11, text);
+      if (m) {
+        for (let i = 0; i < cells.length; i++) {
+          const c = cells[i], val = valS[i];
+          // (2 Nov 2026, "stop numbers jiggling": the number stands in a box of the widest it can be (three figures, or two and a decimal; the
+          // figures are tabular), flush to its right edge, so the unit and the alarm patch never move as a reading goes from 99 to 100 or a
+          // digit changes. The cell's size was already found for the "88.8" box.)
+          const { x, big } = L.cells[i], by = y0 + 12 + 6 + big, nw = textWidth(val, 700, big), rw = textWidth(c.d ? '88.8' : '888', 700, big), ink = inkOf(c.id, ecg, art, bright);
+          textAt(nt++, c.k, 600, 12, x, y0 + 12, c.bad ? alarm : ink === bright ? text : ink);
+          if (c.bad) rectAt(nr++, x - 5, by - big * 0.78 - 4, rw + 10, big * 0.78 + 10, 5, alarm);
+          textAt(nt++, val, 700, big, x + rw - nw, by, c.bad ? bg : ink);
+          textAt(nt++, c.u, 500, 12, x + rw + 5, by, c.bad ? alarm : text);
+        }
+      }
+      RECTS.length = nr; TEXTS.length = nt;
+    }
+    DRAW.ver = ver;
     DRAW.W = devW; DRAW.H = devH; DRAW.dpr = dpr; DRAW.line = line; DRAW.redraw = atlasIn;
     const drawn = glr.draw(DRAW);
     if (!drawn && !glr.lost && !ticking && !raf) raf = nextFrame(rafDraw);   // (its programs are not ready yet: the next frame)

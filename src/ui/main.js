@@ -5,7 +5,8 @@ import { motionBudget } from './motion-budget.js';   // (first: counts from the 
 import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { createLease } from './slide-txn.js';
+import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
@@ -27,11 +28,11 @@ import { sharpMoving, setSharpMoving } from './adapt-tier.js';
 import { UPDATED, RELEASE, CONTENT_UPDATED, VALIDATION, AUTHOR, AUTHOR_URL, FEEDBACK_EMAIL } from '../version.js';
 import { normalizeSel, shuntable, edgeValue, bedStats } from './actions.js';
 import { gradientCss, dropCss, PRESSURE_TICKS, flowCss, flowPos, velocityCss, heatCss, HEAT_MAX, oxygenCss, OXY_MIN } from './colormap.js';
-import { EDGES, PORTAL_TERRITORY } from '../engine/topology.js';
+import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
-import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
@@ -68,11 +69,11 @@ const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoom
 // only armed gesture left is a shunt waiting for its target.
 import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
-import { ORIGINS } from './blood.js';
+import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, setFramePump } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, setFramePump, figOpt, setFigOpt } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
@@ -91,6 +92,8 @@ const nextFrame = frameFor('main');
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
 const ORIGIN_CSS = ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => `var(--origin-${o})`);   // the order of ORIGINS (blood.js)
+// The First pass lens's four colours, in the order of FIRSTPASS (blood.js).
+const FP_CSS = ['var(--fp-raw)', 'var(--fp-clear)', 'var(--origin-artery)', 'var(--origin-systemic)'];
 const LENSES = {
   pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
   delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))'],
@@ -101,8 +104,9 @@ const LENSES = {
   direction: ['Flow direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
   oxygen: ['Oxygen', 'How much oxygen the blood carries', () => oxygenCss('to right')],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
+  firstpass: ['First pass', 'Gut blood cleaned by the liver', () => `linear-gradient(to right, ${FP_CSS.map((c, i) => `${c} ${i * 25}% ${(i + 1) * 25}%`).join(', ')})`],
 };
-const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', oxygen: 'Oxygen', origin: 'Blood origin' };
+const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', oxygen: 'Oxygen', origin: 'Blood origin', firstpass: 'First pass' };
 
 let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu, idleRest;
 
@@ -144,6 +148,9 @@ const presenter = {
 };
 
 async function main() {
+  // The engine's worker starts first and loads while the figure is built below (E1): the stage reads `healthy` only when a model frame
+  // draws, and the first frame is taken in after the answers, so it never sees the figure before the reference is set.
+  const engineUp = startHost();
   startReport(() => { const st = store.get(), pos = presenter.position(); return pos ? `${pos.id} slide ${pos.at + 1}` : `${st.mode} ${st.lobule ? (st.sinusoid ? 'sinusoid' : 'lobule') : st.view}`; });   // (PR-03: the ring, the reload count and the heartbeat, before anything else can fail)
   const savedTheme = readLS('pps.theme');
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
@@ -160,7 +167,18 @@ async function main() {
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
-  const kind = await startHost();
+  why = createWhy($('#whyPop'));
+  stage = createStage({
+    wrap: view,
+    onSelect: (sel, opts) => { if (sel && isPhone() && treatOpen()) closeTreat(); select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
+    onAction: doAction,
+    onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
+    onHoverInfo: hoverInfo,
+    onViewChange: () => card?.position(),
+  });
+  setHvpgStage(stage);
+  setEusStage(stage);
+  const kind = await engineUp;
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   // (In learner words: no background worker means the model and the drawing share one thread.)
   if (kind === 'main') toast('This browser runs the model and the figure together, so the figure may stutter.');
@@ -175,17 +193,6 @@ async function main() {
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   store.set({ presetList: presets });
 
-  why = createWhy($('#whyPop'));
-  stage = createStage({
-    wrap: view,
-    onSelect: (sel, opts) => { if (sel && isPhone() && treatOpen()) closeTreat(); select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
-    onAction: doAction,
-    onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
-    onHoverInfo: hoverInfo,
-    onViewChange: () => card?.position(),
-  });
-  setHvpgStage(stage);
-  setEusStage(stage);
   // Idle rest (idle heat, 1 Nov): left alone 30 s in Explore, the blood eases to a stop, the model holds its numbers (its worker
   // stops stepping, as for a hidden page) and the figure stops drawing; the first input brings it all back from that frame.
   // Never while a talk is open, a time-lapse plays or the patient is still changing.
@@ -291,7 +298,7 @@ async function main() {
     ctx: {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); },
       startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select,
-      zoomLobule: (lobe) => zoomLobule(lobe), paneApi: (id) => dock.pane(id),
+      zoomLobule: (lobe) => zoomLobule(lobe), askSinusoid: () => stage.askSinusoid(), paneApi: (id) => dock.pane(id),
       injectDye: (id, o) => stage.injectDye(id, o), releaseDye: () => stage.releaseDye(), dyeInjecting: () => stage.dyeInjecting(),
       canDye: () => !store.get().imaging,
     },
@@ -331,7 +338,7 @@ async function main() {
   let viewSinBtn = null, viewSinHide = false, viewInSin = false, viewBtns = null;
   const viewChange = () => { viewSinBtn.hidden = viewSinHide; app.classList.toggle('sin-focus', viewInSin); };
   const syncViewSeg = () => {
-    const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view, inSin = !!(st.lobule && st.sinusoid);
+    const st = store.get(), cur = viewKey(st) === 'anatomy' ? 'anatomic' : viewKey(st), inSin = viewKey(st) === 'sinusoid';
     const sinBtn = $('#viewSeg [data-view="sinusoid"]'), sinHide = !st.lobule || !sinusoidSupported();
     if (app.classList.contains('sin-focus') !== inSin || sinBtn.hidden !== sinHide) {
       viewSinBtn = sinBtn; viewSinHide = sinHide; viewInSin = inSin;
@@ -785,7 +792,7 @@ function renderPaintHint() {
 }
 let hintT = 0;
 // The Lobule view: a view of its own beside Anatomy and Circuit.
-function zoomLobule() { store.set({ lobule: true, sinusoid: false }); }
+function zoomLobule() { stage.askSinusoid(false); setViewKey('lobule'); }   // (a sinusoid still waiting on the dive is called off too)
 
 // ── Figure header: view, color, legend; banners ─────
 let tipEl, stageClock;
@@ -798,8 +805,8 @@ function buildHud() {
   delete blood.origin;   // now the Blood origin lens
   blood.look = 'shimmer'; blood.phasic = false;   // the Blood menu offers streaks and chevrons only
   store.set({ blood });
-  // Streaks off (Chevrons only) is remembered per device too: with the streaks off the blood is the arrowheads alone, the cheapest moving blood.
-  try { if (localStorage.getItem('pps.streaks') === '0') store.set({ layers: { ...store.get().layers, flow: false } }); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
+  // The streaks start off for anyone with no saved choice (the store's default is flow:false: the blood is the arrowheads alone, the cheapest moving blood); a device that chose them on ('1') keeps them on, one that chose off ('0') keeps them off.
+  try { if (localStorage.getItem('pps.streaks') === '1') store.set({ layers: { ...store.get().layers, flow: true } }); } catch (e) { caught('main:streaks', e); /* storage unavailable */ }
   store.on('blood', (v) => {
     try { localStorage.setItem('pps.blood2', JSON.stringify(v)); } catch (e) { caught('main:690', e); /* storage unavailable */ }   // alloc-rare: the saved choice is written when the Blood menu changes it, never per frame
     sendBeat(); syncBloodBtn();
@@ -829,7 +836,7 @@ function buildHud() {
   const syncRotate = () => rotateBtn.setAttribute('aria-pressed', String(stage.circuitRotated()));
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
   syncRotate();
-  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? store.set({ sinusoid: true }) : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : store.set({ lobule: false, view: b.dataset.view }))));
+  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   const sinLens = () => store.get().lobule && store.get().sinusoid;   // no lens in the sinusoid view
   $('#btnLayers').addEventListener('click', (e) => { if (!sinLens()) openLayers(e.currentTarget); });
@@ -862,6 +869,8 @@ const LG_TITLE = { class: 'lg-title' }, LG_CAP = { class: 'lg-cap', 'aria-hidden
 const LG_BAR_STYLE = { background: '' }, LG_BAR = { class: 'lg-bar', style: LG_BAR_STYLE };   // (the bar's colours are written into the one style before each build)
 const LG_DOT = { normal: { style: { background: 'var(--flow-normal)' } }, reversed: { style: { background: 'var(--flow-reversed)' } }, portal: { style: { background: 'var(--vein-portal)' } }, systemic: { style: { background: 'var(--vein-systemic)' } } };
 const LG_ORIGIN_ORDER = [0, 1, 2, 4, 3];
+const LG_FP_DOTS = { class: 'lg-cats lg-dots', title: 'Gut blood by the path it took: raw before the liver, clear after its sinusoids. Not an ammonia level' };
+const LG_FIRSTPASS = FIRSTPASS.map((o, i) => ({ span: { title: o[3] }, dot: { style: { background: FP_CSS[i] } }, name: o[2] }));
 const LG_ORIGIN = ORIGINS.map((o, i) => ({ span: { title: o[3] }, dot: { style: { background: ORIGIN_CSS[i] } }, name: o[2] }));
 // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
 // the scale's own font being the numbers'), so the first and last are never pulled in off their ticks: "30" had sat 7.5 px left of its tick.)
@@ -955,6 +964,12 @@ function renderLegend() {
     for (let k = 0; k < LG_ORIGIN_ORDER.length; k++) { const o = LG_ORIGIN[LG_ORIGIN_ORDER[k]]; cats.append(h('span', o.span, h('i', o.dot), h('b', NOATTR, o.name))); }
     lgPut(el, same, cats);
     el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet SV (splenic vein), slate blue Sys (systemic), crimson HA (hepatic artery)');
+  } else if (m === 'firstpass') {
+    // The short names (Raw, Clear, HA, Sys), as the origin key has them; what each means is in its title, and the key says it is no ammonia level.
+    const cats = h('div', LG_FP_DOTS);
+    for (let k = 0; k < LG_FIRSTPASS.length; k++) { const o = LG_FIRSTPASS[k]; cats.append(h('span', o.span, h('i', o.dot), h('b', NOATTR, o.name))); }
+    lgPut(el, same, cats);
+    el.setAttribute('aria-label', 'Legend: gut blood colored by whether it has been through the liver. Orange Raw: gut blood that has not passed the sinusoids, including blood that took a collateral, a shunt or a stent. Teal Clear: gut blood after the sinusoids. Crimson HA: hepatic artery blood. Slate blue Sys: blood from the rest of the body. This shows the path the blood took, not an ammonia level');
   } else if (m === 'neutral') {
     lgPut(el, same, h('div', LG_CATS, h('span', NOATTR, h('i', LG_DOT.portal), 'Portal veins'), h('span', NOATTR, h('i', LG_DOT.systemic), 'Systemic veins'),
       h('span', LG_NOTE, svgIcon('info'), 'Pressures unmeasured')));
@@ -1078,6 +1093,7 @@ function hoverInfo(info) {
   const liver = e.kind === 'liver', b = liver ? bedStats(e, f) : null;
   const vals = [edgeValue(e, f, 'pressure', null).v, fmtFlow((f.Qf ? f.Qf[k] : f.Q[k]) * 0.06),
     ...(liver ? [fmt(b.dp, 1), b.r == null ? '—' : fmt(b.r, 1)] : [fmt(v, 1), fmt(f.D[k], 1)])].map(String);
+  if (tiedOff(store.get().params, info.id)) { vals[0] = '—'; if (!liver) vals[2] = '—'; }   // (a vein tied off at surgery has no pressure or velocity to read)
   // Built once per vessel; while it stays hovered each frame only changes the numbers, and the tip is measured
   // and placed again only when the pointer moves or a number changes its length.
   const shape = `${info.id}|${info.peek ? 1 : 0}`;
@@ -1269,6 +1285,8 @@ function openSettings(anchor, withSearch = false) {
         document.documentElement.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
         if (was === on) themeChanged();   // (the labels drawn on the GPU take the glass's look: label-theme.js)
       }),
+      h('div', { class: 'menu-title' }, 'Figure size (megapixels)'),
+      figureMpControl(),
       menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Draw the figure at full resolution during a pan or zoom, even if frames run long', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
     // (What the model shows and how far it goes has its own heading; none of it is in a talk.)
     ...(talk ? [] : [menuSection('Model',
@@ -1306,6 +1324,29 @@ function textSizeControl() {
   reset.addEventListener('click', () => { stage.setLabelScale(1); paint(); });
   paint();
   return h('div', { class: 'seg full menu-seg text-size', role: 'group', 'aria-label': 'Text size on the figure' }, smaller, reset, larger);
+}
+// Settings › Figure size (Mohammad, 8 Nov 2026: "an option to change the megapixels in settings", "even small small ones"): the figure
+// canvas's pixel budget (frame.js figOpt('cap'), stage-res.js figShare), from a quarter of a megapixel to Full (the screen's own density,
+// up to 2x). Fewer pixels: every GPU pass of the figure costs less, the figure is softer; the labels, cards and readings stay sharp.
+// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to 8.
+const MP_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 0];
+function figureMpControl() {
+  const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));
+  const less = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Fewer megapixels', title: 'Fewer megapixels (softer, faster)' }, '−');
+  const now = h('button', { class: 'ts-reset', 'aria-label': 'Figure size: back to 8 megapixels', title: 'Back to 8 megapixels' });
+  const more = h('button', { class: 'ts-a ts-lg', 'aria-label': 'More megapixels', title: 'More megapixels (sharper, slower)' }, '+');
+  const paint = () => {
+    const i = at(), v = MP_STEPS[i];
+    less.disabled = i === 0; more.disabled = i === MP_STEPS.length - 1;
+    now.textContent = v ? `${v} MP` : 'Full';
+    now.setAttribute('aria-pressed', String(v === 8));
+  };
+  const step = (d) => { setFigOpt('cap', MP_STEPS[Math.max(0, Math.min(MP_STEPS.length - 1, at() + d))]); paint(); };
+  less.addEventListener('click', () => step(-1));
+  more.addEventListener('click', () => step(1));
+  now.addEventListener('click', () => { setFigOpt('cap', 8); paint(); });
+  paint();
+  return h('div', { class: 'seg full menu-seg text-size fig-mp', role: 'group', 'aria-label': 'Figure size in megapixels' }, less, now, more);
 }
 // Full screen through the browser. iPhone Safari has no full screen for pages, so there the
 // sheet says how to get the same room: Add to Home Screen opens the app without browser bars.
@@ -1368,7 +1409,7 @@ function setSpeed(v, lapse = false) {
   if (lapse) { store.set({ lapse: v }); host.send({ type: 'run', speed: v, clock: 'disease' }); }
   else { store.set({ speed: v, lapse: 0 }); host.send({ type: 'run', speed: v, clock: 'hemo' }); }
 }
-// A theme chosen in the app crossfades the whole page (.45 s): the old look is held as a still picture at full resolution and
+// A theme chosen in the app crossfades the whole page (a surface step, D_SURFACE = 420 ms, --d-surface in styles/app.css): the old look is held as a still picture at full resolution and
 // fades over the live new one (View Transitions, styles/app.css). Where that is not supported it changes at once, as before
 // (motion review P1). Page load and a change of the device's own theme apply at once.
 // (PR-16: never over the memory budget: a crossfade holds the old page as a texture beside the new one, two more full-page surfaces.)
@@ -1379,18 +1420,19 @@ function setSpeed(v, lapse = false) {
 const canCrossfade = () => !!document.startViewTransition && !document.hidden && !gpuBudget().overMemory;
 // (Returns a promise for the wait: it resolves when the new page is whole and the crossfade is about to play, at once when the look changes without one.
 // The Appearance tiles show a ring on the tapped tile until then, look-chooser.js.)
+const pumpLease = createLease(() => setFramePump(true), () => setFramePump(false));
 function switchTheme(t, clear) {
   if (!canCrossfade()) { applyTheme(t, clear); return Promise.resolve(); }
   // (The new page is whole before the crossfade captures it: every surface has drawn the look, themeSettled in theme-epoch.js, capped.)
   // (The page's rendering is held while the callback is pending, and with it the browser's animation frames: the scheduler's frames come from a
   // timer meanwhile (setFramePump), so the surfaces draw the new look before the new picture is taken. Once whole, it is.)
   return crossfade(async () => {
-    setFramePump(true);
+    const pumpOff = pumpLease.take();   // (a lease, not a switch: a skipped crossfade's callback finishing must not stop the pump the newer one still needs)
     try {
       applyTheme(t, clear);
       // (All of it within 900 ms, whatever each step waits for: the old page stays up until then, so a surface that never answers must not hold it long.)
       await Promise.race([(async () => { await themeSettled(); await stage?.lookWhole?.(700); await settledSurfaces(); })(), new Promise((r) => setTimeout(r, 900))]);
-    } finally { setFramePump(false); }
+    } finally { pumpOff(); }
   });
 }
 // While a crossfade plays, its pictures cover the page, so a tap would land on <html>: lost, and taken as a tap outside the
@@ -1423,6 +1465,7 @@ function applyTheme(t, clear) {
 onThemeBusy(labelsBusy);   // (the labels' and leaders' pictures are built whole for a new look: the crossfade waits for them)
 onTheme(() => {
   stage?.lookChanged?.();
+  if (legendM) { for (const k in LG_GRAD) delete LG_GRAD[k]; renderLegend(); }   // (the lens ramps differ per look (colormap.js builds them again in this epoch): the key's bar is drawn from the new ones)
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
 });
 // The browser's and the installed app's status bar take the color of whatever sits under it: the
@@ -1467,6 +1510,30 @@ function leave(el) {
   setTimeout(done, 400);
 }
 const arrive = (el) => { el.classList.remove('card-leaving'); switchIn(el); };
+// One at a time (8 Nov 2026, Mohammad: "menus hate to be on top of each other"). A menu's frost is drawn in the figure's canvas, under every
+// page element, so the words and pictures of a card lying under a menu show straight through it. So a card coming in puts the open menus
+// away, and a menu coming in sends away each card its box lies over (all of them when it is a sheet), except the card it was opened from.
+function surfacesAway() { closePopover(); why?.close(); mainMenu?.close(); }
+const CARDS = [
+  { el: () => $('#panel'), shown: () => app.classList.contains('panel-open'), close: () => closePanel() },
+  { el: () => $('#dock'), shown: () => app.classList.contains('dock-open'), close: () => setPanelTab('chart') },
+  { el: () => $('#treatCard'), shown: () => !$('#treatCard').hidden, close: () => closeTreat() },
+  { el: () => $('#historyCard'), shown: () => !$('#historyCard').hidden, close: () => closeHistory() },
+];
+// (The card a menu was opened from stays under it. The frost cannot hide that card's words, so the menu wears a plain fill there: .over-card, app.css.)
+function cardsAway(s) {
+  const b = s.box?.();
+  let under = false;
+  for (const c of CARDS) {
+    if (!c.shown()) continue;
+    const el = c.el();
+    if (b) { const r = el.getBoundingClientRect(); if (r.right <= b.left || r.left >= b.right || r.bottom <= b.top || r.top >= b.bottom) continue; }
+    if (s.anchor && el.contains(s.anchor)) { under = true; continue; }
+    c.close();
+  }
+  s.el?.classList.toggle('over-card', under);
+}
+onSurfaceOpened(cardsAway);
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
 // The figure re-fits to the space the open cards leave (once as the card starts, again when its sheet has settled).
 // The patient's name in the top bar shows whole, never cut with "…" (sweep, 16 Oct: "Budd–Chiari (he…" on a phone held
@@ -1548,6 +1615,7 @@ function openPanel(tab = 'chart') {
   // The panel holds a selection's details, the advanced physiology or a pinned comparison; with none of them it stays shut.
   if (!store.get().details && !store.get().compareSnap) return;
   if (app.classList.contains('instrument-focus')) dock.setState('open');
+  if (!panelShown()) surfacesAway();
   // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
   if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
   else giveWay('panel');
@@ -1572,7 +1640,8 @@ function setPanelTab(tab) {
   const instr = tab === 'instruments';
   if (instr) dock.ensure();
   const was = app.classList.contains('dock-open');
-  if (instr && !was) giveWay('dock');   // (the other right-hand cards give way when they would leave the vessel card no strip)
+  if (instr && !was) surfacesAway();
+  if (instr && !was) giveWay('dock');   // (the other right-hand cards give way when they would leave the vessel card no strip)   // (the other right-hand cards give way when they would leave the vessel card no strip)
   if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
   $('#tabInstruments').setAttribute('aria-pressed', instr ? 'true' : 'false');
@@ -1724,18 +1793,19 @@ function wireFloating() {
   whyGlass();
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, armT = 0, down = null, moved = false;
+  let dimmed = false;   // (stage-busy as asked: the class is written after a task of its own, classSoon, so reading it back is stale for that task)
   // (Adding a class it already has still counts as a change to the page's observers: every pointer move of a drag or
   // pinch woke four of them and laid the page out again, review #31. So the class is added only when it is missing.)
   // The pieces dim only once the figure has moved for BUSY_DELAY (premium-feel R7): a tap, or a drag that is over inside it, dims nothing.
   const BUSY_DELAY = 120;
-  const busyOff = () => { clearTimeout(armT); armT = 0; classSoon(app, 'stage-busy', false); };
-  const busyArmed = () => { armT = 0; if (!app.classList.contains('stage-busy')) classSoon(app, 'stage-busy', true); };
+  const busyOff = () => { clearTimeout(armT); armT = 0; dimmed = false; classSoon(app, 'stage-busy', false); };
+  const busyArmed = () => { armT = 0; if (!dimmed) { dimmed = true; classSoon(app, 'stage-busy', true); } };
   const busy = (ms) => {
     clearTimeout(busyT); busyT = setTimeout(busyOff, ms);
-    if (!armT && !app.classList.contains('stage-busy')) armT = setTimeout(busyArmed, BUSY_DELAY);
+    if (!armT && !dimmed) armT = setTimeout(busyArmed, BUSY_DELAY);
   };
   // A gesture over: the pieces already dimmed stay so for ms more; ones still waiting to dim never do.
-  const busyEnd = (ms) => { if (app.classList.contains('stage-busy')) busy(ms); else { clearTimeout(armT); armT = 0; clearTimeout(busyT); } };
+  const busyEnd = (ms) => { if (dimmed) busy(ms); else { clearTimeout(armT); armT = 0; clearTimeout(busyT); } };
   // On a phone the same gestures also give the figure more room: the vitals dock folds to a small pill in the
   // lower-left corner (play and clock; the zoom buttons take the lower right) and the top bar's second row (view, colour legend) slides away, while the figure moves and
   // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.
@@ -2155,7 +2225,7 @@ function wireKeyboard() {
       return;
     }
     const k = letterOf(e);
-    if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
+    if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; setViewKey(viewKey() === 'circuit' ? 'anatomy' : 'circuit'); return; }
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
       const ks = lensKeys(), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];

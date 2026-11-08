@@ -4,11 +4,12 @@ import { fibroReading } from './clock.js';
 import { dropLabel } from './drop-label.js';
 import { cancelFrame, paceMs } from './frame.js';
 import { D_SMALL, D_SURFACE, reduceMotionMQ as reduceMotion } from './motion.js';
-import { createScanRec, scanRecReset, scanTap, scanTo } from './scan-ease.js';
+import { createScanRec, scanKpaOf, scanReadingText, scanRecReset, scanTap, scanTo } from './scan-ease.js';
 import { paintWave, wavePacks } from './scan-waves.js';
 import { flattenPathInto, newFlat, polyBoxInto } from './shape-gl.js';
+import { restPass } from './rest-pass.js';
 import { store } from './store.js';
-import { clamp, putText } from './util.js';
+import { clamp } from './util.js';
 
 import { stageScope } from './stage-scope.js';
 export function createScan(st, live) {
@@ -30,7 +31,9 @@ export function createScan(st, live) {
   const scanRec = createScanRec();
   const scanEase = (k, to, dur) => { if (scanTo(scanRec, k, to, performance.now(), dur)) live.labelGL?.redraw(); };
   const scanOp = () => { const e = scan.el; scanEase('op', e && !e.classList.contains('cath-pre') && !e.classList.contains('off') ? 1 : 0, D_SURFACE); };
-  const scanKpa = () => live.F?.metrics?.[scan.organ === 'spleen' ? 'ssm' : 'lsm'];
+  // (The slide's own reading wins while a slide has pinned one (fibroReading.pinned: the settled stiffness its tiles and words print), so the
+  // probe's number and its waves read what the slide says even where its card is out of sight; the live value swings with each beat.)
+  const scanKpa = () => scanKpaOf(fibroReading.pinnedOrgan === scan.organ ? fibroReading.pinned : null, live.F?.metrics?.[scan.organ === 'spleen' ? 'ssm' : 'lsm']);
   const scanSpeed = () => 35 * (clamp(scanKpa() ?? 5, 4, 40) / 5) ** 1.3;   // px/s, steeper than linear: 35 at 5 kPa (clearly slow), 240 at 25 (7x), 520 from 40
   function scanArc(r) {
     const [cx, cy] = SCAN_TIP, h = SCAN_HALF * (0.75 + 0.25 * Math.min(1, r / 50));   // the front widens a little with depth
@@ -161,14 +164,26 @@ export function createScan(st, live) {
   // is on screen; without one it falls back to the model's eased value.
   function scanShow(cardTxt) {
     if (!scan.el) return;
-    if (cardTxt != null && cardTxt === scan.shown && scan.svEl) return;   // (the card gives its number every frame; the same number is not written again)
+    if (cardTxt != null && cardTxt === scan.shown) return;   // (the card gives its number every frame; the same number is not written again)
     // (Whether a card is on screen is asked only when its number is not given: the card's own frame gives it, and asking laid the page out.)
     const card = fibroReading.cv, k = scan.k;   // (no layout asked: the card's own frame gives the number)
-    const txt = cardTxt ?? (card?.isConnected && !card.closest('[hidden]') && fibroReading.txt != null ? fibroReading.txt : k == null ? '--' : k.toFixed(1));
-    const sv = scan.svEl?.isConnected && scan.el.contains(scan.svEl) ? scan.svEl : (scan.svEl = scan.el.querySelector('.sp-val'));   // (found once, not queried every frame)
-    putText(sv, txt); scanRec.txt = txt;
+    const txt = scanReadingText(cardTxt, card?.isConnected && !card.closest('[hidden]') ? fibroReading.txt : null, k);
+    scanRec.txt = txt;   // (what the GPU layer draws: label-gl.js reads the record, never the page's words)
     scan.shown = cardTxt != null ? cardTxt : null;
+    scanDom(txt);
   }
+  // The model's own words, kept in step for what reads the page (the GPU layer's first look, the checks). A plain text write between
+  // frames: never putText, whose GPU words would take the page's words over and make their fill clear (.glw-on), and the GPU layer, which
+  // paints a run by its fill, would skip the number and draw "kPa" alone (Mohammad, 7 Nov 2026: the probe had no number).
+  const scanDom = (txt) => {
+    scan.domTxt = txt;
+    if (scan.domAsk) return;
+    scan.domAsk = restPass(() => {
+      scan.domAsk = 0;
+      const sv = scan.svEl?.isConnected && scan.el?.contains(scan.svEl) ? scan.svEl : (scan.svEl = scan.el?.querySelector('.sp-val'));   // (found once, not queried every frame)
+      if (sv && sv.textContent !== scan.domTxt) sv.textContent = scan.domTxt;
+    });
+  };
   fibroReading.show = scanShow;
   // (Its body's far corners sit 76 px back from the tip along the probe and 13.8 px either side of it, the stroke included,
   // so the corners bound the rounded body: near the screen's top edge, a phone on its side, the probe lies flatter, down to 10°, so the whole
@@ -255,7 +270,7 @@ export function createScan(st, live) {
         el.style.setProperty('--fibroscan', 'var(--fibroscan-spleen)');
         el.querySelector('.sp-read')?.setAttribute('data-flip', '');
       }
-      late('add', sites.el, el); scan.el = el; scan.deg = 45; scan.turn = null; scanRecReset(scanRec, el);
+      late('add', sites.el, el); scan.el = el; scan.deg = 45; scan.turn = null; scan.shown = null; scan.svEl = null; scanRecReset(scanRec, el);
       live.labelGL?.setScan(scanRec);   // (drawn over the labels on their GPU layer while it can be; label-gl.js)
       const t0 = scanTipLocal(); if (t0) scanTurn(t0.tx, t0.y);   // (turned before it first shows, so it fades in at its angle rather than swinging to it)
       nextFrame(scanShown);   // (its first look at cath-pre is this frame's own style pass: no layout forced for the fade)

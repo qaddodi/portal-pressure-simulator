@@ -76,8 +76,8 @@ export const RATE = {
   plt: (v) => (v < 100 ? T_hi_Severe : v < 150 ? T_mid_Low : T_ok_Normal),
   // (A flow that reads 0.0 is no flow, as with a clotted portal vein: it has no direction.)
   pvFlow: (v) => (v < 0 ? T_hi_Hepatofugal : v === 0 ? T_hi_No_flow : T_null_Hepatopetal),
-  // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 stasis, below zero reversed.
-  pvVel: (v) => (v < 0 ? T_hi_Reversed : v < FLOW_CUTS.stasis ? T_hi_Stasis : v < 15 ? T_mid_Slow : T_ok_Normal),
+  // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 either way stasis (as the Doppler tool's judgeFlow), backward past -9 reversed.
+  pvVel: (v) => (v <= -FLOW_CUTS.stasis ? T_hi_Reversed : v < FLOW_CUTS.stasis ? T_hi_Stasis : v < 15 ? T_mid_Slow : T_ok_Normal),
   liver: (v) => (v <= 55 ? T_hi_Severe : v <= 75 ? T_mid_Low : T_ok_Normal),
   shunt: (v) => (v >= 0.3 ? T_hi_Large : v >= 0.1 ? T_mid_Moderate : T_ok_Small),
   map: (v) => (v < KIDNEY_CUTS.mapBeta ? T_hi_Low : T_ok_Normal),
@@ -106,7 +106,7 @@ export const RATE = {
   // with the tile's reading itself, so it never reads as a fault.
   co: (v) => (v < 4 ? T_hi_Low : v > 8 ? T_info_High : T_ok_Normal),
   bv: (v) => (v < 4500 ? T_hi_Low : v > 5500 ? T_info_High : T_ok_Normal),
-  // The model's encephalopathy risk index (metrics.heRisk: the shunted share of the portal blood scaled by cirrhosis, 0 to about 1): Low under 0.2,
+  // The model's encephalopathy risk index (metrics.heRisk: the shunted share of the portal blood and the liver's lost perfusion, weighted by cirrhosis, 0 to 1): Low under 0.2,
   // Moderate under 0.45, High from there. It is the model's own index, not a clinical score, and its tile says so.
   he: (v) => (v < 0.2 ? T_ok_Low : v < 0.45 ? T_mid_Moderate : T_hi_High),
   // The HVPG response (slide field hvpgResp): the fall from a named slide's HVPG, in percent. A fall of 10% or more marks a response
@@ -147,7 +147,7 @@ export const TILE = {
   hbTo: { t: 'Hemoglobin to come', n: 'Hb to come', s: 'Once the plasma refills', u: 'g/dL', better: 1 },
   co: { t: 'Cardiac output', n: 'Output', s: 'Heart', u: 'L/min' },
   bv: { t: 'Blood volume', n: 'Volume', s: 'Whole blood', u: 'L', x: 0.001 },
-  he: { t: 'Encephalopathy risk', n: 'HE risk', s: 'Model index from the shunted blood, high ≥0.45', u: '', d: 2, better: -1 },
+  he: { t: 'Encephalopathy risk', n: 'HE risk', s: 'Model index from the shunted blood and the liver\'s own flow, high ≥0.45', u: '', d: 2, better: -1 },
 };
 // Tiles worked out by the presenter rather than read from the live fingerprint: the HVPG response (slide field hvpgResp), the fall
 // from a named slide's HVPG.
@@ -202,17 +202,17 @@ export const portalSplit = (sh) => { const v = Math.min(1, Math.max(0, +sh || 0)
 // The table's columns: the raw pressures shade above normal, the rest by their tile's rating.
 // Headers match the pressure chart's axis (PV, WHVP, FHVP, IVC, RA). res: the resistance inside the liver, as the model has it (rih). (PPG ÷ portal flow would also count the collaterals,
 // whose resistance rises as propranolol lowers the pressure, and read as if the drug raised the liver's.)
-export const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', gv: 'Fundal', asc: 'Ascites', liver: 'Liver flow', shunt: 'Shunted', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', ssm: 'SSM', spleen: 'Spleen', map: 'MAP', rpp: 'Kidney P', hr: 'HR', hb: 'Hb', hbTo: 'Hb to come', co: 'Output', bv: 'Volume', he: 'HE risk', pvFlow: 'Flow (Q)', res: 'Liver R' };
+export const COLS = { pv: 'PV', whvp: 'WHVP', fhvp: 'FHVP', ivc: 'IVC', ra: 'RA', hvpg: 'HVPG', ppg: 'PPG', sin: 'Sinusoids', varix: 'Varix', gv: 'Fundal', asc: 'Ascites', liver: 'Liver flow', shunt: 'Shunted', saag: 'SAAG', tp: 'Protein', plt: 'Platelets', lsm: 'LSM', ssm: 'SSM', spleen: 'Spleen', map: 'MAP', rpp: 'Kidney P', hr: 'HR', hb: 'Hb', hbTo: 'Hb to come', co: 'Output', bv: 'Volume', he: 'HE risk', pvFlow: 'Flow (Q)', pvVel: 'PV velocity', res: 'Liver R' };
 // Each column's cut-offs (the same as the readouts' status colors), shown on its heading (hover, or a tap under the table) so the legend can stay short.
 export const CUT = { pv: '↑ >10, ↑↑ ≥15 mmHg', whvp: '↑ >10, ↑↑ ≥15 mmHg', fhvp: '↑ >8, ↑↑ >16 mmHg', ivc: '↑ >8, ↑↑ >16 mmHg', ra: '↑ >8, ↑↑ >16 mmHg',
   hvpg: '↑ ≥5, ↑↑ ≥10 mmHg', ppg: '↑ ≥6, ↑↑ ≥12 mmHg', sin: '↑ ≥9, ↑↑ ≥12 mmHg', varix: '↑ 2.5 to 5 mm, ↑↑ ≥5 mm', gv: '↑ 2.5 to 5 mm, ↑↑ ≥5 mm (fundal varix)',
   plt: '↓ <150, ↓↓ <100 × 10³/µL', lsm: '↑ 10 to 25, ↑↑ ≥25 kPa', ssm: `↑ ${SSM_CUTS.spareScope} to ${SSM_CUTS.ruleIn}, ↑↑ >${SSM_CUTS.ruleIn} kPa`, spleen: '↑ >13, ↑↑ >16 cm', liver: '↓ ≤75%, ↓↓ ≤55%', shunt: '↑ ≥10%, ↑↑ ≥30%', map: `↓↓ <${KIDNEY_CUTS.mapBeta} mmHg`, rpp: `↓↓ <${KIDNEY_CUTS.rpp} mmHg (pressure, not kidney function)`, hr: '↑↑ >100 beats/min (slow, <60, is not flagged)', hb: '↓ <12, ↓↓ <7 g/dL', hbTo: '↓ <12, ↓↓ <7 g/dL, once the plasma refills', co: '↓↓ <4 L/min (high, >8, is not flagged)', bv: '↓↓ <4.5 L (high, >5.5, is not flagged)', he: '↑ 0.2 to 0.45, ↑↑ ≥0.45 (the model\'s index, not a clinical score)',
-  asc: '↑ grade 1, ↑↑ grade 2 or 3', saag: '↑ ≥1.1 g/dL: portal hypertension; ↓ <1.1', tp: '↑ ≥2.5 g/dL, ↓ <2.5 (ascites protein)', pvFlow: '↓ <0.9 L/min, ↓↓ stasis or reversed; ↑ >1.3 L/min (fasting normal)' };
+  asc: '↑ grade 1, ↑↑ grade 2 or 3', saag: '↑ ≥1.1 g/dL: portal hypertension; ↓ <1.1', tp: '↑ ≥2.5 g/dL, ↓ <2.5 (ascites protein)', pvFlow: '↓ <0.9 L/min, ↓↓ stasis or reversed; ↑ >1.3 L/min (fasting normal)', pvVel: '↓ <15 cm/s (slow), ↓↓ stasis or reversed (main portal vein, Doppler)' };
 /** A cut-off as the words write it: a comparison is always a symbol (> < ≥ ≤), never "more than" or "150,000+" (Mohammad, 26 Oct); "{>=10 mmHg}" reads "≥10 mmHg". */
 export const cutText = (c) => String(c).replace(/^>=\s*/, '≥').replace(/^<=\s*/, '≤').replace(/^([<>≥≤])\s+/, '$1');
 // Raw pressures, in whole mmHg: ↑ over the first, ↑↑ over the second. PV and WHVP follow the portal pressure readout (normal 10 or less, high from 15).
 export const RAW = { pv: [10, 14], whvp: [10, 14], fhvp: [8, 16], ivc: [8, 16], ra: [8, 16] };
-export const UP_GOOD = new Set(['liver', 'plt', 'map', 'rpp', 'salb', 'hb', 'hbTo']);   // (higher is better: a low one rates amber or red, an arrow down)
+export const UP_GOOD = new Set(['liver', 'plt', 'map', 'rpp', 'salb', 'hb', 'hbTo', 'pvVel']);   // (higher is better: a low one rates amber or red, an arrow down)
 export const PRESS = new Set(['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg', 'sin', 'map', 'rpp']);
 export const fpv = (k, f) => (k === 'ivc' ? f.ivc ?? f.ra : k === 'res' ? f.rih ?? null : f[k]);
 // A cell's direction: against the normal range ('abs': ↑ above, ↑↑ well above or past the red cut-off, ↓ below, a dash within),
@@ -230,14 +230,14 @@ export function dirAbs(k, f) {
   return r === 'hi' ? 2 * sign : r === 'mid' ? sign : 0;
 }
 // Against the baseline every real change shows (octreotide's half-millimetre, banding's slight rise), so the steps are small.
-export const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, ppg: .5, sin: .5, varix: .3, gv: .3, asc: 100, liver: 2, shunt: .05, pvFlow: .15, res: 1.5, map: 2, rpp: 2, hr: 2, co: .3, bv: 100, he: .05, hb: 1, hbTo: 1 };   // (hemoglobin: about one unit's worth)
+export const STEP_REL = { pv: .5, whvp: .5, fhvp: .5, ivc: .5, ra: .5, hvpg: .5, ppg: .5, sin: .5, varix: .3, gv: .3, asc: 100, liver: 2, shunt: .05, pvFlow: .15, pvVel: 2, res: 1.5, map: 2, rpp: 2, hr: 2, co: .3, bv: 100, he: .05, hb: 1, hbTo: 1 };   // (hemoglobin: about one unit's worth)
 export function dirRel(k, f, ref) {
   const a = atShown(k, fpv(k, f)), b = atShown(k, fpv(k, ref));
   if (a == null || b == null) return 0;
   const d = a - b, r = Math.abs(d) / Math.max(Math.abs(b), 1e-6);
   return Math.abs(d) < (STEP_REL[k] ?? 1) ? 0 : (d > 0 ? 1 : -1) * (r >= 0.4 ? 2 : 1);
 }
-export const DP = { varix: 1, gv: 1, asc: 1, lsm: 1, ssm: 1, spleen: 1, pvFlow: 1, res: 1, liver: 0, shunt: 2, plt: 0, map: 0, rpp: 0, hr: 0, he: 2 };
+export const DP = { varix: 1, gv: 1, asc: 1, lsm: 1, ssm: 1, spleen: 1, pvFlow: 1, res: 1, liver: 0, shunt: 2, plt: 0, map: 0, rpp: 0, hr: 0, he: 2, pvVel: 0 };
 export const atShown = (k, v) => { if (v == null) return v; if (k === 'asc') return Math.round(v / 100) * 100; const d = PRESS.has(k) ? 0 : DP[k] ?? 1, m = 10 ** d; return Math.round(v * m) / m; };
 
 // In the comparison table a change is coloured by what it means for the patient: green better, red worse.

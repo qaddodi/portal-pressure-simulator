@@ -31,7 +31,7 @@ export async function runSteps(steps) {
 
 // Slide i's state: its own, or the last one before it that changed the model.
 export async function deckStates(d) {
-  const steps = d.slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse } : {}));
+  const steps = d.slides.map((s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse } : {}));
   const key = createHash('sha256').update(sourceHash() + JSON.stringify(steps)).digest('hex').slice(0, 24);
   const file = join(CACHE, `${d.id}-${key}.bin`);
   let fps;

@@ -10,8 +10,10 @@ const K = 'The circuit';
 const C = 'circuit';
 const R = ['rLiver', 'rColl'];   // the resistors on the figure: the liver's, and the collaterals' once they open
 // Every collateral shut: the same advanced liver as 'parallel' without them, so its row changes only the parallel resistor.
+const NO_DRUG = { drugs: { propranolol: false, carvedilol: false } };
 const NO_COLLATERALS = { C1a: 1, C1b: 1, C2: 1, C3: 1, C4: 1, C5: 1, C6: 1, C7: 1, C8: 1, C9: 1 };
-const MEAL = { days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal' } };
+// (A meal is half an hour, not eight disease days: it plays on the bedside clock, so the spleen, the varix and the ascites do not move with it.)
+const MEAL = { days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal', clock: 'seconds' } };
 
 // 'resistance' and 'collaterals' in a line take their resistor's colour and light its zigzag on the figure.
 const POINTS = { resistance: 'rLiver', collaterals: 'rColl' };
@@ -36,7 +38,7 @@ export const CIRCUIT = withPoints({
   summary: 'Portal hypertension as a circuit: more flow, more resistance, collaterals in parallel and TIPS, each read as ΔP = Q × R.',
   slides: [
     {
-      id: 'ohm', preset: 'healthy', view: C, cam: 'series', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'],
+      id: 'ohm', reveal: true, preset: 'healthy', view: C, cam: 'series', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'],
       kicker: K, title: 'Pressure falls in proportion to flow and resistance',
       eq: [dP + mo('=') + mi('Q') + mo('×') + '<mi class="eq-wedge">R</mi>', 'ΔP pressure drop · Q flow · R resistance'],
       line: 'The pressure drop across a segment equals its flow times its resistance (ΔP = Q × R). Across the liver it rises when flow or resistance rises, usually both.',
@@ -54,16 +56,17 @@ export const CIRCUIT = withPoints({
       id: 'meal', ...MEAL, view: C, cam: 'gutLiver', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
       kicker: K, title: 'A meal raises portal flow but barely the gradient',
       line: 'A healthy liver has very little resistance, so even a large rise in flow adds little pressure (gradient = flow × resistance).',
-      notes: 'In people portal flow rises by 40 to 80% after a meal; the model shows a rise of about half. The Q term. The rise in the gradient is the rise in flow times the hepatic resistance, and a healthy liver\'s resistance is small. The same meal on a cirrhotic liver comes back two slides on.',
+      notes: 'In people portal flow rises by 40 to 80% after a meal; the model shows a rise of about half. The Q term. The rise in the gradient is the rise in flow times the hepatic resistance, and a healthy liver\'s resistance is small. The same meal on a cirrhotic liver comes back two slides on. The meal plays over a few seconds, as it takes half an hour in a patient, without aging the disease.',
       ask: ['Why does a meal barely change portal pressure in a healthy liver?', 'The extra flow crosses a very low resistance.'],
     },
     {
       id: 'resist', preset: 'csph', view: C, zone: 'liver', kMax: 2.6, sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg', 'ppg'], delta: 'ohm',
       whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
+      compare: [{ label: 'No drug', own: true, params: NO_DRUG }, { label: 'Propranolol', short: 'Prop.', params: { drugs: { propranolol: true, carvedilol: false } } }, { label: 'Carvedilol', short: 'Carv.', params: { drugs: { propranolol: false, carvedilol: true } } }],
       kicker: K, site: 'sin', title: 'Cirrhosis raises the resistance in the liver',
       vignette: 'A 58-year-old woman with alcohol-associated cirrhosis, sober for a year, has small varices at her screening endoscopy. She has never had ascites.',
       line: 'Scarring raises the resistance several-fold. Part of the rise is vascular tone, which drugs can relax.',
-      notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same.',
+      notes: 'The R term. In cirrhosis about three quarters of the extra resistance is fixed (fibrosis, nodules, capillarized sinusoids) and a quarter is tone: contracted stellate cells and too little nitric oxide in the sinusoids. The tone is what drugs can reverse. The tiles compare with the healthy liver on the first slide; the portal flow is almost the same. The buttons try two drugs on this liver. Propranolol lowers the portal pressure by cutting the flow (Q). Carvedilol cuts the flow too, and also relaxes the intrahepatic tone, so it lowers the resistance (R) as well (AASLD 2024).',
       ask: ['What part of the intrahepatic resistance can drugs lower?', 'The dynamic part, stellate cell and vascular tone; scar and nodules do not relax.'],
     },
     {
@@ -83,10 +86,11 @@ export const CIRCUIT = withPoints({
       ask: ['Why do collaterals not relieve portal hypertension?', 'Their resistance is still high and the inflow rises with them, so the gradient stays high.'],
     },
     {
-      id: 'tips', lens: 'flow', params: { tips: { on: true } }, view: C, cam: 'tips', sites: R, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
+      id: 'tips', lens: 'flow', params: { tips: { on: true } }, view: C, cam: 'tips', sites: R, tool: { kind: 'causes', metric: 'ppg' }, data: 'tiles', tiles: ['ppg', 'shunt', 'liver'], delta: true,
+      whatIf: { label: 'Stent width', param: 'tips.d', min: 6, max: 12, step: 1, unit: 'mm' },
       kicker: K, site: 'sin', title: 'TIPS lowers the gradient by bypassing the liver',
       line: 'A covered stent beside the sinusoids has far less resistance than they or any collateral do, so it carries most of the portal blood and the gradient halves.',
-      notes: 'A covered stent 8 to 10 mm wide has a far lower resistance than the sinusoids or any collateral, so most portal blood takes it. The gradient falls below 12 mmHg; the cost is less portal blood for the liver and a risk of encephalopathy. An 8 mm stent is a compromise between the two.',
+      notes: 'A covered stent 8 to 10 mm wide has a far lower resistance than the sinusoids or any collateral, so most portal blood takes it. The gradient falls below 12 mmHg; the cost is less portal blood for the liver and a risk of encephalopathy. An 8 mm stent is a compromise between the two. The waterfall reads left to right from the healthy gradient: each cause adds a step, and the stent is the step back. Drag Stent width to see a wider stent take more.',
       ask: ['What does TIPS cost the liver?', 'Most of its portal blood; and gut blood, with its ammonia, now reaches the brain unfiltered.'],
     },
     {
@@ -98,6 +102,18 @@ export const CIRCUIT = withPoints({
       line: 'Each line is one liver as its inflow changes. The same rise in flow lifts the PPG about three times as much in cirrhosis; this liver carries {pvFlow} at {ppg}.',
       notes: 'Each line holds the liver fixed and changes only the gut arterioles, from narrow to wide, so the flow into the portal vein changes. Read as ΔP = Q × R, the slope of each line is the resistance the flow meets: about 2 mmHg per L/min in the healthy liver and about 6 in cirrhosis. That is why a meal or splanchnic vasodilation lifts the gradient more in cirrhosis, and why a drug that lowers the inflow lowers it more there too. The ring is this patient with CSPH. (AASLD 2024 p. 1181: portal pressure is proportional to the splanchnic inflow and to the resistance opposing it.)',
       ask: ['Two livers get the same extra 0.5 L/min of portal flow. Why does the cirrhotic one gain more pressure?', 'Its resistance is higher, so each L/min of flow costs more pressure: the line is steeper.'],
+    },
+    {
+      // (Ohm's law on a plane, C1 of docs/recommendations/new-features-recs.md: portal flow across, the PPG up, and a line from the origin for each
+      // resistance. The summary table's rows, each change as a ring (before) and a dot (after).)
+      id: 'flowres', preset: 'csph', view: C, sites: R, visual: 'plane',
+      plane: { base: 'flow-ppg', y: { key: 'ppg', min: 0, max: 24, ticks: [0, 6, 12, 18, 24] }, iso: { rays: [4, 8, 16, 24] } },
+      of: [{ id: 'ohm', name: 'Healthy' }, { id: 'meal', from: 'ohm', name: 'Healthy, after a meal', short: 'Meal' }, { id: 'resist', from: 'ohm', name: 'Cirrhosis' }, { id: 'both', from: 'resist', name: 'Cirrhosis, after a meal', short: 'Meal' },
+        { id: 'parallel', name: 'Advanced cirrhosis', short: 'Advanced' }, { id: 'tips', from: 'parallel', name: 'TIPS' }],
+      kicker: 'Summary', title: 'Every patient sits on a line of one resistance',
+      line: 'A meal moves a patient right along their line, because the flow rises. Cirrhosis lifts the patient onto a steeper line, and a TIPS drops them onto a lower one.',
+      notes: 'Portal flow runs across and the PPG up. A line from the origin joins all the points that share one resistance, the PPG divided by the flow in mmHg per L/min, so a steeper line is a higher resistance. A meal raises the flow and the patient moves right along nearly the same line, and further up it in cirrhosis, where the line is steeper. Cirrhosis raises the resistance, so the patient moves up onto a steeper line. Collaterals and a TIPS are resistors in parallel: they lower the resistance of the whole circuit, and the dot drops onto a lower line. The resistance on this plane is the whole circuit\'s, PPG ÷ flow, not the liver\'s alone. (AASLD 2024 p. 1181: portal pressure is proportional to the splanchnic inflow and to the resistance opposing it.)',
+      ask: ['A patient moves right along a line from the origin. What changed, and what did not?', 'The flow rose and the resistance stayed the same; the pressure rose in proportion to the flow.'],
     },
     {
       // Each row against the row it changes (vs), in the circuit's own terms: portal flow (Q), the liver's own resistance (R) and the gradient.

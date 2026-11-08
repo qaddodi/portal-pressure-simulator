@@ -3,10 +3,13 @@
 // bitmap fades in over the one shown, so a step reads as a glide. The balloon and the bleeding jet fade in and out.
 import { bleedPulse } from './blood.js';
 import { columnAngle, depthAt } from './endo-columns.js';
-export const FADE_MS = 280;
-// The band follows the deflating vein: the vein starts at once, the band cinches in a beat later.
-export const DEFLATE_MS = 500, BAND_MS = 420, BAND_DELAY_MS = 140;
-const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+import { D_FLIP, D_SMALL, easeMove } from './motion.js';
+export const FADE_MS = D_SMALL;
+// The scope view moves by one rule (item 23): a FOLLOW toward its target (glide() below, a time constant), never a fixed tween. The model's size
+// and presence follow at SIZE_TAU_MS, the banding at BAND_TAU_MS. The band follows the deflating vein: the vein starts at once, the band
+// cinches in a beat later (BAND_DELAY_MS: its target is taken that long after the change).
+export const SIZE_TAU_MS = 200, DEFLATE_TAU_MS = D_FLIP, BAND_TAU_MS = D_FLIP, BAND_DELAY_MS = D_FLIP;
+const ease = easeMove;
 /** How far the new field has faded in, 0..1, ms after it was drawn. */
 export function fadeIn(ms) { return ms >= FADE_MS ? 1 : ms <= 0 ? 0 : ease(ms / FADE_MS); }
 /** cur eased toward target over dtMs (time constant tauMs, about 0.6 s to settle at 120 ms), landing exactly on it. */

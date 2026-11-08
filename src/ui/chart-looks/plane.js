@@ -78,6 +78,9 @@ export const PLANE = {
   'plane.cut': { base: { stroke: tok('text-3'), width: 1, dash: [3, 4] } },
   // 7339, 7346 .pze-diag (.pze-axes .pze-diag a step stronger): where the two readings are equal
   'plane.diag': { state: { axes: 'data-axes' }, base: { stroke: tok('text-3'), width: 1.5, dash: [3, 4] }, when: [[{ axes: true }, { stroke: tok('text-2') }]] },
+  // lines of equal resistance (iso, visual-plane.js): a quiet ray from the origin, its name in the diagonal's ink
+  'plane.iso': { base: { stroke: tok('text-3'), width: 1.25, opacity: 0.6 } },
+  'plane.isot': { state: { axes: 'data-axes' }, base: { weight: 600, fill: tok('text-3') }, when: [[{ axes: true }, { halo: { stroke: tok('surface-2'), width: 4, join: 'round' } }]] },
   // 7344 .pze-grid, 7345 .pze-axis: a scatter's hairlines and its two axis lines
   'plane.grid': { base: { stroke: mix('srgb', tok('border-strong'), 70, 'transparent'), width: 1 } },
   'plane.axis': { base: { stroke: tok('text-3'), width: 1.5 } },

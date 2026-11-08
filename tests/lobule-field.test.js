@@ -24,7 +24,7 @@ test('the field starts with lobules about true to scale, deep in the liver, so t
   for (const land of [164, 272]) assert.ok(Math.exp(lc + Math.log(Math.max(rh * 2, land) / rh)) >= 120, `only ×${Math.exp(lc + Math.log(land / rh)).toFixed(0)} for a ${land} px lobule`);
   assert.match(stage, /const lt = LC \+ Math\.log\(Math\.max\(RH \* 2, (?:live\.)?(?:live\.)?diveLand\.r\) \/ RH\);/);
   // Longer for the deeper zoom, the way out quicker; the field's sizes blended so their detail comes in gradually.
-  assert.match(stage, /const DIVE_MS = 2200, RISE_MS = 1300;/);
+  assert.match(readFileSync(new URL('../src/ui/motion.js', import.meta.url), 'utf8'), /export const DIVE_MS = 2200, RISE_MS = 1300;/);   // (the named exceptions, motion.js)
   assert.match(lz, /fieldBlend\(rd \* 0\.55\)/);
 });
 
@@ -76,7 +76,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   assert.match(lz, /if \(fade <= 0 && !staging\) return;/, 'update fills in the model while staging');
   // The way in (a tap or slide; manual zoom never dives) draws it before the zoom's clock starts.
   assert.match(stage, /(?:live\.)?(?:live\.)?lz\.prewarm\((?:live\.)?(?:live\.)?diveLand\.r\);\n\s+(?:live\.)?(?:live\.)?lz\.stage\(\); {3}\/\/ the lobule is drawn now/);
-  assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    live.lobOn = on;'), 'drawn before the zoom is timed');
+  assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = easeNow();\n    live.lobOn = on;'), 'drawn before the zoom is timed');
   // The frame it starts to fade in draws nothing new when the framing still matches.
   assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; snapState\(\); if \((?:live\.)?F\) update\((?:live\.)?F\); \}/);
   // Its memory is given back when the zoom returns to the anatomy (never mid-zoom); the idle preparation keeps nothing.

@@ -11,7 +11,7 @@
 // and a context that is handed one in place of a canvas makes its texture from the record (isGpuPicture), the first time it is drawn.
 // No 2D context, no drawImage and no pixel read anywhere (the owner, 1 Nov 2026: "block everything until everything is on GPU").
 
-import { glGet, glOn, glCap } from './gl-state.js';
+import { glGet, glOn, glCap, fbComplete } from './gl-state.js';
 import { ucOf } from './uniform-cache.js';
 import { cssColor } from './css-color.js';
 import { hold } from './gpu-budget.js';
@@ -698,13 +698,13 @@ export function paintGL(gl) {
 }
 
 export function createPaintGL(gl) {
-  let progs = null, started = null, failed = false, res = null, freeT = 0, warmHold = null;
+  let progs = null, started = null, failed = false, res = null, freeT = 0, warmHold = null, stenOnly = true, shChecked = false;
   const SAVED = { fbR: null, fbD: null, vp: null, prog: null, vao: null, buf: null, rb: null, unit: 0, tex: null, blend: false, stencil: false, scissor: false, depth: false, cull: false,   // alloc-rare: once per GL context (made at its first picture), not per frame: the host's state, saved and put back at each paint
     bf: [0, 0, 0, 0], be: [0, 0], cm: null, cc: null, sm: 0, sbm: 0, sci: null };   // alloc-rare: once per GL context (made at its first picture), not per frame
   const VIEW = [0, 0, 0, 0], FULL = [0, 0, 0, 0], BOX4 = [0, 0, 0, 0], SV = [0, 0, 0, 0], QUAD = new Float32Array(12), GS = new Float32Array(32), GT = new Float32Array(8);   // alloc-rare: once per GL context (made at its first picture), not per frame: scratch the tile and its shadow write in place
   const D = { r: null, tx: 0, ty: 0, tw: 0, th: 0, clipOn: null };   // alloc-rare: once per GL context (made at its first picture), not per frame: the tile being drawn
   // (Review pass item 8: what a paint leaves warm is held in the global budget (gpu-budget.js hold), which may let it go before WARM_MS.)
-  const resBytes = () => { const r = res; if (!r) return 0; const t = TILE * TILE; return t * 8 * Math.max(1, r.samples) + t * 4 + (r.sh ? r.sh.w * r.sh.h * 12 : 0); };   // alloc-rare: once per GL context (made at its first picture), not per frame
+  const resBytes = () => { const r = res; if (!r) return 0; const t = TILE * TILE; return t * (r.sten ? 5 : 8) * Math.max(1, r.samples) + t * 4 + (r.sh ? r.sh.w * r.sh.h * (r.sten ? 9 : 12) : 0); };   // alloc-rare: once per GL context (made at its first picture), not per frame
   const begin = () => {   // alloc-rare: once per GL context (made at its first picture), not per frame
     try {
       started = [startProgram(gl, VS_C, FS_C, [['p', 0], ['c', 1]]), startProgram(gl, VS_P, FS_P, [['p', 0]]), startProgram(gl, VS_Q, FS_B, [['p', 0]])];   // alloc-rare: once per GL context (made at its first picture), not per frame
@@ -736,11 +736,12 @@ export function createPaintGL(gl) {
     const ms = gl.createFramebuffer(), msC = gl.createRenderbuffer(), msS = gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, msC);
     if (samples > 0) gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.RGBA8, TILE, TILE); else gl.renderbufferStorage(gl.RENDERBUFFER, gl.RGBA8, TILE, TILE);
-    gl.bindRenderbuffer(gl.RENDERBUFFER, msS);
-    if (samples > 0) gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, gl.DEPTH24_STENCIL8, TILE, TILE); else gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, TILE, TILE);
     gl.bindFramebuffer(gl.FRAMEBUFFER, ms);
     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, msC);
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, msS);
+    // (Perf D4: stencil only. Depth testing is never on here and nothing reads depth, so the 24 bits were 3 bytes a sample for nothing. The
+    // framebuffer is checked once; a driver that will not complete it keeps the old depth-stencil format, still on the GPU.)
+    stencilTo(msS, TILE, TILE, samples);
+    if (stenOnly && !fbComplete(gl, gl.FRAMEBUFFER, 'rgba8+s8', TILE, TILE)) { stenOnly = false; stencilTo(msS, TILE, TILE, samples); }
     const rs = gl.createFramebuffer(), rsT = tex(TILE, TILE);
     gl.bindFramebuffer(gl.FRAMEBUFFER, rs);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rsT, 0);
@@ -754,8 +755,15 @@ export function createPaintGL(gl) {
     gl.bufferData(gl.ARRAY_BUFFER, FS_TRI, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 8, 0);
     gl.bindVertexArray(null);
-    res = { samples, ms, msC, msS, rs, rsT, vaoC, vaoP, bufC, bufP, vaoQ, bufQ, sh: null };   // alloc-rare: once per warm period of the painter's targets (they are freed a few seconds after the last picture)
+    res = { sten: stenOnly, samples, ms, msC, msS, rs, rsT, vaoC, vaoP, bufC, bufP, vaoQ, bufQ, sh: null };   // alloc-rare: once per warm period of the painter's targets (they are freed a few seconds after the last picture)
     return res;
+  }
+  // A stencil renderbuffer for the bound framebuffer, in the format in use (stencil only, or the old depth-stencil if the driver refused it).
+  function stencilTo(rb, w, h, samples = 0) {
+    const f = stenOnly ? gl.STENCIL_INDEX8 : gl.DEPTH24_STENCIL8;
+    gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+    if (samples > 0) gl.renderbufferStorageMultisample(gl.RENDERBUFFER, samples, f, w, h); else gl.renderbufferStorage(gl.RENDERBUFFER, f, w, h);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, stenOnly ? gl.STENCIL_ATTACHMENT : gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, rb);
   }
   function tex(w, h) {
     const t = gl.createTexture();
@@ -775,10 +783,13 @@ export function createPaintGL(gl) {
     dropShadow();
     const W = bucket(Math.max(w, ow)), H = bucket(Math.max(h, oh));   // (R08: in buckets, warm-views.js)
     const a = gl.createFramebuffer(), aT = tex(W, H), aS = gl.createRenderbuffer(), b = gl.createFramebuffer(), bT = tex(W, H);
-    gl.bindRenderbuffer(gl.RENDERBUFFER, aS); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, W, H);
     gl.bindFramebuffer(gl.FRAMEBUFFER, a);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, aT, 0);
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, aS);
+    stencilTo(aS, W, H);
+    if (!shChecked) {   // (checked once, as the tile's is)
+      shChecked = true;
+      if (stenOnly && !fbComplete(gl, gl.FRAMEBUFFER, 'rgba8+s8', W, H)) { stenOnly = false; stencilTo(aS, W, H); }
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, b);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, bT, 0);
     r.sh = { a, aT, aS, b, bT, w: W, h: H };   // alloc-rare: only when the shadow's scratch is made or has to grow (a bigger shadow than any before)
@@ -858,7 +869,7 @@ export function createPaintGL(gl) {
         gl.blitFramebuffer(0, 0, tw, th, 0, 0, tw, th, gl.COLOR_BUFFER_BIT, gl.NEAREST);
         // (The multisampled colour and depth are cleared by the next tile and read by nothing else: told to the driver, a tile-based GPU (the
         // iPhone's) does not write the 4x samples, about 32 MB, back to memory after each tile. Render-cost review P4, 5 Nov 2026.)
-        gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER, INVAL);
+        gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER, r.sten ? INVAL_S : INVAL_DS);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, r.rs);
         gl.bindTexture(gl.TEXTURE_2D, out);
         gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, tx, ty, 0, 0, tw, th);
@@ -956,7 +967,7 @@ export function createPaintGL(gl) {
     so(gl.ZERO, gl.ZERO, gl.ZERO);
     coverBox(D.r, box);
   };
-  const INVAL = [0x8CE0, 0x84F9];   // (COLOR_ATTACHMENT0, DEPTH_STENCIL_ATTACHMENT)
+  const INVAL_S = [0x8CE0, 0x8D20], INVAL_DS = [0x8CE0, 0x84F9];   // (COLOR_ATTACHMENT0 with STENCIL_ATTACHMENT, or with DEPTH_STENCIL_ATTACHMENT)
   function drawTile(rec, r, tx, ty, tw, th) {
     gl.bindFramebuffer(gl.FRAMEBUFFER, r.ms);
     gl.viewport(0, 0, tw, th); gl.scissor(0, 0, tw, th);

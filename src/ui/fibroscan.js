@@ -30,7 +30,7 @@ let theme = null, themeWatch = false, themeSoon = 0;
 function readTheme() {
   themeSoon = 0;
   const cs = getComputedStyle(document.documentElement), g = (n) => cs.getPropertyValue(n).trim();
-  theme = { panel: g('--inst-panel') || g('--surface-2'), edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan'), halo: g('--fibroscan-halo') || 'black' };   // (halo: the big reading's, one solid colour, the map's darkest tone: a see-through halo showed the stroke's own overlaps as beads along the edge)
+  theme = { edge: g('--border'), tick: g('--text-3'), text: g('--text-2'), orange: g('--fibroscan'), halo: g('--fibroscan-halo') || 'black' };   // (halo: the big reading's, one solid colour, the map's darkest tone: a see-through halo showed the stroke's own overlaps as beads along the edge)
 }
 function watchTheme() {
   if (themeWatch) return;
@@ -336,5 +336,5 @@ export function createFibroScan({ organ: organ0 = 'liver', switcher = true } = {
   function dispose() { gone = true; running = false; anim(false); cancelFrame(raf); raf = 0; io?.disconnect(); boxRO?.disconnect(); offRun(); words?.dispose(); }
   if (switcher) fibroReading.organ = organ;
   return { id: 'fibroscan', label: 'FibroScan', el, head: seg, update, configure, organ: () => organ,
-    pin(fp) { pinFp = fp || null; pinned = fp?.[ORGAN[organ].key] ?? null; if (pinned != null) { model = pinned; none = false; } }, dispose() { dispose(); offSurface(); } };
+    pin(fp) { pinFp = fp || null; pinned = fp?.[ORGAN[organ].key] ?? null; if (pinned != null) { model = pinned; none = false; } fibroReading.pinned = pinned; fibroReading.pinnedOrgan = organ; }, dispose() { dispose(); offSurface(); } };
 }

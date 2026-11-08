@@ -48,7 +48,7 @@ test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer 
 });
 
 test('A4: hover and selection glows are slim bands', () => {
-  assert.match(stage, /\{ id, col: null, amt: 1\.0, wide: 0\.5, dur: 280 \}/);
+  assert.match(stage, /\{ id, col: null, amt: 1\.0, wide: 0\.5, dur: D_SMALL \}/);
   assert.match(stage, /\{ id, col: null, amt: 1\.5, wide: 0\.6, dur: SEL_FADE \* 1000 \}/);
 });
 

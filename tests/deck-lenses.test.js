@@ -11,7 +11,7 @@ import { originFractions, oxygenSat, SAT } from '../src/ui/blood.js';
 import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 
-const KNOWN = ['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'oxygen', 'origin'];
+const KNOWN = ['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'oxygen', 'origin', 'firstpass'];
 // The deck-only lenses a deck visuals package adds (slide-ext.js): A's vein system (V7) and change since a slide (V11). They are
 // not in Explore's lens menu, so Patients never shows them.
 const PKG = ['system', 'since'];
@@ -74,7 +74,8 @@ test('Shunts and varices: the origin lens separates splenic from gut blood', () 
     assert.ok(pv.spleen < 0.05 && pv.smv > 0.9, `${d}/${id}: the portal vein carries gut blood`);
   }
   const s = run('shunts', 'dsrs');
-  assert.ok(origin(s, 'S_DSR').spleen > 0.95 && s.Q[s.ei.S_DSR] > 4, 'Warren shunt carries splenic blood');
+  // (Mostly splenic: the stomach's short gastric veins join it too once the coronary vein is tied off, 7 Nov, and the lens counts the stomach as gut blood; the share grows over the slide's four months, 8 Nov, as the coronary collateral closes: 84% splenic at once, 78% after.)
+  assert.ok(origin(s, 'S_DSR').spleen > 0.75 && s.Q[s.ei.S_DSR] > 4, 'Warren shunt carries splenic blood');
   const v = run('gastric-varices', 'svt');
   assert.ok(origin(v, 'C2').spleen > 0.95 && v.Q[v.ei.C2] > 2, 'gastric varices carry splenic blood');
 });

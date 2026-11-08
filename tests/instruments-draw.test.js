@@ -36,6 +36,8 @@ function fakeCtx(log, node = null) {
     createLinearGradient: () => { log.gradients++; return { addColorStop() {} }; },
     // (A chart's still picture, still-layer.js: a canvas of its own with no parent. Clearing it starts it again; laying it down on the chart writes what
     // it holds among the chart's own words and shapes, where a person would see them.)
+    // (A pen that keeps no layer: the chart's kept still parts, still-layer.js, are drawn at once, as the GPU drawer draws them the first time.)
+    keep: (name, sig, draw) => { draw(); return false; },
     clearRect: () => { if (node && !node.parent) for (const k of ['texts', 'fonts', 'rounds', 'bad']) log[k].length = 0; },
     drawImage: (img) => { if (img?.log) for (const k of ['texts', 'fonts', 'rounds', 'bad']) log[k].push(...img.log[k]); },
   };

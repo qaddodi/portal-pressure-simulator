@@ -279,7 +279,7 @@ Anatomy to Circuit morphs each vessel into its circuit line, and each station's 
 into the lobule zooms from the liver straight into the lobule with no cut, and the lobule's labels are waiting when it lands. Going back
 up is the same film run backwards.
 
-- **V-VIEW-1 (Fix)** Anatomy ↔ Circuit is one morph (MORPH_ONE_MS 1200). Station labels, leaders and dots follow their station's move
+- **V-VIEW-1 (Fix)** Anatomy ↔ Circuit is one morph (VIEW_CHANGE_S 1.3 s, `view-xf.js`; the patient's change under a glide, MORPH_ONE_MS 1200 in `presenter.js`, is another thing). Station labels, leaders and dots follow their station's move
   through it; labels that do not exist on both sides fade out before and in after. *Check*: gate `views` switch: per-frame label vs
   station within 1 px; no label `gen` mismatch.
 - **V-VIEW-2 (Fix)** The scale pill (Anatomy / Lobule / Sinusoid) and a slide's `cam: 'lobule:…'` both dive by the same film: camera
@@ -323,7 +323,7 @@ up is the same film run backwards.
 
 ## 11. Timing and easing
 
-One table. Anything not listed uses the closest row. Reduced motion replaces every travel with a 120 ms crossfade in place.
+One table. Anything not listed uses the closest row. Reduced motion replaces every travel with a 120 ms crossfade in place, except the camera's glide and the change between the views, which keep a 300 ms move (`REDUCED_MOVE_MS`, `motion.js`).
 
 | Motion | Duration | Curve | Source |
 |---|---|---|---|
@@ -331,7 +331,7 @@ One table. Anything not listed uses the closest row. Reduced motion replaces eve
 | Second card behind the first | +40 ms stagger | same | `THROW_STAGGER` |
 | Cards readable during camera glide | at 75 % of the glide | | `CARDS_AT` |
 | Camera glide | 480 to 900 ms by distance | EASE_MOVE `(.5,0,.5,1)` | `CAM_MS_MIN/MAX` |
-| Anatomy ↔ Circuit morph | 1200 ms | EASE_MOVE | `MORPH_ONE_MS` |
+| Anatomy ↔ Circuit morph | 1300 ms (300 ms under Reduce Motion) | EASE_MOVE | `VIEW_CHANGE_MS` (`motion.js`; `VIEW_CHANGE_S` 1.3 in `view-xf.js`). `MORPH_ONE_MS` (1200) is the patient's change under a glide, not the view change |
 | Card zoom in / out | 520 / 440 ms | EASE_ARRIVE `(.2,.8,.2,1)` | `card-zoom.js` |
 | Surface (card size, hide/show, reframe, lens) | 420 ms | EASE_MOVE for moves, EASE_ARRIVE for arrivals | `D_SURFACE` |
 | Small (word, chip, pill, label tone, label fade) | 240 ms | EASE_ARRIVE | `D_SMALL` |
@@ -341,8 +341,9 @@ One table. Anything not listed uses the closest row. Reduced motion replaces eve
 Rules:
 
 - **V-TIME-1 (Now)** No overshoot anywhere (curve y never past 1).
-- **V-TIME-2 (Fix)** All motion runs on the scheduler's clock (`easeNow`); a long frame holds everything where it was together rather
-  than letting one part run ahead.
+- **V-TIME-2 (Fix)** All motion runs on the scheduler's honest wall clock (`easeNow`), so every part of one change agrees where it is,
+  with one cap: the first two frames of any move advance it by at most 40 ms each (the long frames the layout and label passes that set
+  it off make), after which a long frame shows the move where the wall clock puts it. The rule is written in `src/ui/motion.js`.
 - **V-TIME-3 (Fix)** A motion taken over mid-way keeps its velocity (no stop then start). A retarget blends from the current velocity.
 - **V-TIME-4 (Now)** 120 Hz on iPhone ProMotion and Mac: durations are in ms, never in frames.
 

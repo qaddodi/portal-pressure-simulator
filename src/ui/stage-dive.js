@@ -1,8 +1,8 @@
 // The lobule dive and rise: one continuous zoom from a spot in the liver (the camera's compositor scale, the field's bloom, the layers hidden and given back), setLobule and its waits.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { D_SMALL } from './ease.js';
-import { PACED, cancelFrame, easeNow } from './frame.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { cancelFrame, easeNow } from './frame.js';
+import { reduceMotionMQ as reduceMotion, settleAt, smooth01, DIVE_MS, RISE_MS } from './motion.js';
 import { fadeStop } from './res-fade.js';
 import { riseCentre } from './rise-path.js';
 import { store } from './store.js';
@@ -15,7 +15,7 @@ export function createDive(st, live) {
   const { applyVT, defaultVT, drawFrame, drawVeins, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap } = st;
   const DIVEC = cams.stage.dive;   // (the dive's camera, a scene-cam record in canvas px: setDiveScale is its only writer, pushCam hands it to the figure)
   const diveAtBuf = [0, 0];   // (diveAt's pair, written in place)
-  const DIVE_MS = 2200, RISE_MS = 1300;
+  const RISE_SLOPE = 0.5;   // (the rise's speed on its first frame, as a share of its mean speed: settleAt's starting slope)
   // The anatomy's share of the zoom (×16), the field's the rest: the camera goes deep into one part of the liver, its vessels still
   // drawn, before any lobule shows (Mohammad, 24 Oct, on an iPad: at ×5 the liver and its portal branches still filled the screen as
   // the lobules came in). RH: a lobule's radius on screen (px) at that zoom, about true to scale, a lobule (1 to 1.5 mm) being about
@@ -110,7 +110,7 @@ export function createDive(st, live) {
   }
   function camShowStep(now) {
     live.camShowRaf = 0;
-    const u = Math.min(1, (now - live.camShowT0) / D_SMALL), e = u * u * (3 - 2 * u);
+    const u = Math.min(1, (now - live.camShowT0) / D_SMALL), e = smooth01(u);
     live.camShow = live.camShowFrom + (live.camShowTo - live.camShowFrom) * e;
     pushCam();
     if (u < 1) live.camShowRaf = drawFrame(camShowStep);
@@ -196,11 +196,14 @@ export function createDive(st, live) {
       // Eased in and out (smootherstep), one ease over the whole log scale: the anatomy's part and the field's run on at the same
       // speed where they meet. (Each part had its own rate, so the zoom sped up by a sixth or more, suddenly, a third of the way in.)
       // (riseFast: a way out of the landed lobule moves from its first frame; the dive's ease starts at rest and held the lobule
-      // still for its first 120-160 ms. A reversal keeps the curve it was on, so nothing jumps.)
+      // still for its first 120-160 ms. The rise is settleAt's Hermite from the lobule outward, starting at 0.5 of its mean speed: it moves
+      // on the first frame and builds speed over the first 100 ms or so (u * u * (2 - u) began at 75 % of its peak, a lurch).
+      // A reversal keeps the curve it was on, so nothing jumps: the curve is a function of the position, and the position runs on a
+      // reversible clock, stage.js diveClock.)
       // (A sine ease: from rest and back to rest, its fastest a sixth slower than the smootherstep's, which passed the hand-over at
       // its peak speed.)
       const TJ = live.riseFast ? 1 : 0.84, u = clamp(t / TJ, 0, 1);
-      const p = live.riseFast ? u * u * (2 - u) : (1 - Math.cos(Math.PI * u)) / 2;
+      const p = live.riseFast ? 1 - settleAt(1 - u, RISE_SLOPE) : (1 - Math.cos(Math.PI * u)) / 2;
       const z = lt * p;
       live.diveZ = z;
       // Landed in the lobule: the anatomy under it is shown again only once the lobule has settled and its flow marks have
@@ -225,7 +228,7 @@ export function createDive(st, live) {
       if (live.riseLine) { diveFrom[0] = live.diveLand.x; diveFrom[1] = live.diveLand.y; diveTo[0] = ox; diveTo[1] = oy; const c = riseCentre(diveFrom, diveTo, Math.exp(-lt), Math.exp(z - lt)); px = c[0]; py = c[1]; }
       else { px = lerp(ox, live.diveLand.x, g); py = lerp(oy, live.diveLand.y, g); }
       // The detailed lobule rides on the field's own lobule at that centre, so it grows out of it.
-      live.lz.setDiveZoom(t >= 1 ? 1 : clamp(r / live.diveLand.r, 0.05, 1), live.diveLand.x, live.diveLand.y, px, py);
+      live.lz.setDiveZoom(t >= 1 ? 1 : clamp(r / live.diveLand.r, 0.05, 1), live.diveLand.x, live.diveLand.y, px, py, !!live.diveOut);
       // (The field's state is one kept object written in place: lobule-zoom.js reads it at once and keeps none of it.)
       const df = diveField;
       if (t <= 0 || t >= 1) { live.lz.setDive(null); labelsRide(lab, t, t >= 1 ? 1 : 0); }
@@ -354,17 +357,18 @@ export function createDive(st, live) {
       }
     }
     // (Lite mode: no zoom, the figure fades in at the lobule or the anatomy.)
-    // A reversal mid-way glides back from where it is, at the speed of the move it turns round (eased from rest, not at full speed at once).
+    // A reversal mid-way turns round from where it is, at the speed of the move it turns round: the clock slews its velocity over D_FLIP
+    // (stage.js diveClock), so it slows and comes back rather than stopping dead and starting again from rest.
     const turn = from0 > 0 && from0 < 1, from = live.diveT, to = on ? 1 : 0;
     const ms = reduceMotion.matches ? 0 : turn ? (on ? RISE_MS : DIVE_MS) : on ? DIVE_MS : RISE_MS;
-    // (Timed by the eases' clock, frame.js easeNow: a long frame mid-zoom holds it back rather than letting it leap ahead. The backstop
+    // (Timed by the one clock rule, motion.js: the honest wall clock, easeNow, with the first two frames held to 40 ms each. The backstop
     // below passes `end` to land it.)
-    const t0 = PACED ? easeNow() : performance.now();
-    live.lobOn = on; live.lobFrom = from; live.lobTo = to; live.lobTurn = turn; live.lobMs = ms; live.lobT0 = t0; live.lobSeen = -1;
+    const t0 = easeNow();
+    live.lobOn = on; live.lobTo = to; live.lobMs = ms; live.lobSeen = -1;
     lobuleStep(t0);
     // Backstop: if the frames stop (a throttled or dropped frame loop), land on the end state anyway.
     stageScope.clear(live.lobEnd);
-    // (With the eases' clock a run of long frames makes the zoom take longer: it is landed only once it stops moving, frames having stopped.)
+    // (A turn takes D_FLIP and a landing a little longer: the backstop lands it only once it stops moving, frames having stopped.)
     live.lobEnd = stageScope.timer(lobuleBackstop, ms * Math.abs(to - from) + 250);
   }
   return { anatCovered, camShowTo_, diveFrame, prepRise, pushCam, riseReady, setDiveScale, setLobule };

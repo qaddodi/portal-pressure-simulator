@@ -19,9 +19,9 @@ import { restPass } from './rest-pass.js';
 import { readStyle, stageBox } from './layout-snap.js';
 import { parseCssColor } from './css-color.js';
 import { caught } from './caught.js';
-
-export const HOLD_MS = 500, HOLD_SLOP = 10, PEN_PX = 3.5, STEP_PX = 1.5, MAX_SEGS = 24000;
-const VEIL = 0.62, FADE_MS = 90;
+import { D_FLIP } from './motion.js';
+export const HOLD_MS = 500, HOLD_SLOP = 10, PEN_PX = 3.5, STEP_PX = 1.5, MAX_SEGS = 24000;   // motion-scale: not a move (the press-and-hold time of the pen)
+const VEIL = 0.62, FADE_MS = D_FLIP;
 /** The pass's place among the figure's tops: over the lobule's (LZ_UNDER_GLASS + 1 and below), under every glass (order 0 and up). */
 export const INK_ORDER = -2;
 

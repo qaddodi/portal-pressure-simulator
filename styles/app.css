@@ -715,6 +715,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-rail-w, 1.4); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
 .stent-strut { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-strut-w, 1); stroke-linejoin: round; stroke-opacity: var(--stent-alpha, .95); }
 .stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
+.tied-off { fill: none; stroke: var(--text); stroke-opacity: .42; stroke-linecap: round; stroke-linejoin: round; }
 .ligature { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
 .clamp, .clamp-out { fill: var(--text); fill-opacity: .82; }
@@ -731,15 +732,15 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .thrombus-core { fill: var(--thrombus); fill-opacity: .6; }
 .circuit-only { opacity: 0; transition: opacity var(--d-surface) var(--ease); }
 .circuit .circuit-only { opacity: 1; }
-.band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; stroke-linejoin: round; }
-/* The tamponade tube's balloons (the gastric one in the stomach, drawn up against the cardia; the esophageal one on it) look like the HVPG wedge balloon (veins-gl.js mode 5): cream latex, clear in the middle, denser at the rim */
-.balloon-latex { fill: var(--latex); fill-opacity: .34; stroke: none; }
-.balloon-latex-rim { fill: var(--latex); fill-opacity: .2; fill-rule: evenodd; stroke: none; }
-.balloon-edge { fill: none; stroke: var(--latex-edge); stroke-opacity: .85; stroke-width: .7; stroke-linejoin: round; }
+.band-ring { fill: none; stroke: var(--dev-platinum, var(--stent-metal)); stroke-width: 2.4; stroke-linejoin: round; }   /* (a device colour, not text ink: the device material --dev-platinum, the stent's metal until that is set) */
+/* The tamponade tube's balloons (the gastric one in the stomach, drawn up against the cardia; the esophageal one on it) look like the HVPG wedge balloon (veins-gl.js mode 5): latex (--dev-latex, a fuller fill on the light looks: --dev-latex-a), clear in the middle, denser at the rim, on a rim in --dev-latex-edge; the tube is the catheter's polymer (--dev-poly) and its marker bands platinum */
+.balloon-latex { fill: var(--dev-latex); fill-opacity: var(--dev-latex-a); stroke: none; }
+.balloon-latex-rim { fill: var(--dev-latex); fill-opacity: calc(var(--dev-latex-a) * .6); fill-rule: evenodd; stroke: none; }
+.balloon-edge { fill: none; stroke: var(--dev-latex-edge); stroke-opacity: .9; stroke-width: 1; stroke-linejoin: round; }
 .balloon-hi ellipse { fill: var(--white); fill-opacity: .28; }
 .balloon-shaft-rim { fill: none; stroke: var(--cath-shadow); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.balloon-shaft { fill: none; stroke: var(--cath-body); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.balloon-marker { fill: var(--cath-tip); }
+.balloon-shaft { fill: none; stroke: var(--dev-poly); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.balloon-marker { fill: var(--dev-platinum); }
 /* The traction: a thin arrow up the esophagus's side as the tube is drawn up, in the treatment colour the slides' marks use */
 .balloon-pull-line { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .balloon-pull-head { fill: var(--accent); stroke: var(--accent); stroke-width: 1; stroke-linejoin: round; }
@@ -749,6 +750,15 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
    group above it, on SVG (2 Nov 2026, "Move everything to GPU"). Their segments are single strokes or smooth curves: nothing shows.) */
 .stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; stroke-linejoin: round; }
 .stent-guide.invalid { stroke: var(--danger); }
+/* The TIPS stent is covered (stent-mesh.js, visual-style D4): a pale PTFE wash over the lumen under fainter struts, a bare stretch of open struts at the portal
+   end, and one radiopaque ring where they meet. --dev-ptfe and --dev-platinum are the device materials (theme-tokens.js, set in every look).
+   .stent-px: struts and rails never thinner than one device pixel (a non-scaling stroke). */
+.stent-cover { fill: var(--dev-ptfe); fill-opacity: .46; stroke: none; }
+.stent-strut-cov { stroke-opacity: .3; }
+.stent-ring { fill: none; stroke: var(--dev-platinum); stroke-width: 2.4; stroke-linecap: round; stroke-opacity: .95; }
+.stent-px { vector-effect: non-scaling-stroke; }
+.stent-strut.stent-px { stroke-width: 1; }
+.stent-rail.stent-px { stroke-width: 1.2; }
 .target-glow { fill: none; stroke: var(--accent); stroke-opacity: .35; stroke-linecap: round; }
 
 /* ── Panel (inspector) ──────────────────────────── */
@@ -813,7 +823,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
    with the value) and the input on top keeps a clear track, so the drawing and the thumb line up: the thumb's centre runs
    from half its width to the far end less half its width (--tw), as the browser places it. A normal range is the tiles'
    green band on the track, and that slider draws no fill. */
-.range-wrap { touch-action: none; position: relative; isolation: isolate; height: 20px; display: flex; align-items: center; --tw: 18px; --p: 0; }
+.range-wrap { touch-action: none; position: relative; isolation: isolate; height: 28px; display: flex; align-items: center; --tw: 28px; --dot: 18px; --p: 0; }
 .range-wrap::before, .range-wrap::after { content: ''; position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: 3px; pointer-events: none; z-index: 0; }
 .range-wrap::before { right: 0; background: color-mix(in srgb, var(--text) 10%, transparent); }
 .range-wrap::after { width: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--p)); background: color-mix(in srgb, var(--accent) 60%, transparent); }
@@ -822,19 +832,19 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .range-wrap .sl-start { position: absolute; top: 50%; left: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--s, 0)); width: 12px; height: 12px; margin: -6px 0 0 -6px; z-index: 1; box-sizing: border-box; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text) 50%, transparent); background: var(--surface); pointer-events: none; }
 /* Dragging a slider never scrolls the card, panel or page under the finger. */
 .range-wrap, input[type=range] { touch-action: none; }
-input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; height: 20px; margin: 0; position: relative; z-index: 2; cursor: pointer; }
+input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; height: 28px; margin: 0; position: relative; z-index: 2; cursor: pointer; }
 input[type=range]::-webkit-slider-runnable-track { height: 6px; background: transparent; }
 input[type=range]::-moz-range-track { height: 6px; background: transparent; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; margin-top: calc(3px - var(--tw, 18px) / 2); box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive); }
-input[type=range]::-moz-range-thumb { width: var(--tw, 18px); height: var(--tw, 18px); border-radius: 50%; background: var(--accent); border: 0; box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 3px transparent; transition: transform var(--d-small) var(--ease-arrive); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: var(--tw, 28px); height: var(--tw, 28px); border-radius: 50%; background: radial-gradient(circle, var(--accent) calc(var(--dot, 18px) / 2 - .5px), var(--surface) calc(var(--dot, 18px) / 2 + .5px) calc(var(--dot, 18px) / 2 + 2.5px), transparent calc(var(--dot, 18px) / 2 + 3.5px)); border: 0; margin-top: calc(3px - var(--tw, 28px) / 2); box-shadow: 0 1px 3px 1px rgb(var(--black-rgb) / .14), 0 0 0 0 transparent, inset 0 0 0 2px transparent; transition: transform var(--d-small) var(--ease-arrive); }
+input[type=range]::-moz-range-thumb { width: var(--tw, 28px); height: var(--tw, 28px); border-radius: 50%; background: radial-gradient(circle, var(--accent) calc(var(--dot, 18px) / 2 - .5px), var(--surface) calc(var(--dot, 18px) / 2 + .5px) calc(var(--dot, 18px) / 2 + 2.5px), transparent calc(var(--dot, 18px) / 2 + 3.5px)); border: 0; box-shadow: 0 1px 3px 1px rgb(var(--black-rgb) / .14), 0 0 0 0 transparent, inset 0 0 0 2px transparent; transition: transform var(--d-small) var(--ease-arrive); }
 /* Held (a mouse press, or a finger: .held, set in enhanceRanges since iOS gives a range no :active): the dot grows a little and a
    soft ring of the accent's wash spreads out from under it, so a finger that covers the dot still sees the slider has it. The ring
    eases in and back out (transition above); it never flashes. Hover on a mouse shows a smaller ring. */
-input[type=range]:active::-webkit-slider-thumb, input[type=range].held::-webkit-slider-thumb { transform: scale(1.12); box-shadow: 0 0 0 3px var(--surface), 0 2px 6px 3px rgb(var(--black-rgb) / .16), 0 0 0 8px var(--accent-soft); }
-input[type=range]:active::-moz-range-thumb, input[type=range].held::-moz-range-thumb { transform: scale(1.12); box-shadow: 0 0 0 3px var(--surface), 0 2px 6px 3px rgb(var(--black-rgb) / .16), 0 0 0 8px var(--accent-soft); }
+input[type=range]:active::-webkit-slider-thumb, input[type=range].held::-webkit-slider-thumb { transform: scale(1.12); box-shadow: 0 2px 6px 1px rgb(var(--black-rgb) / .16), 0 0 0 3px var(--accent-soft), inset 0 0 0 2px transparent; }
+input[type=range]:active::-moz-range-thumb, input[type=range].held::-moz-range-thumb { transform: scale(1.12); box-shadow: 0 2px 6px 1px rgb(var(--black-rgb) / .16), 0 0 0 3px var(--accent-soft), inset 0 0 0 2px transparent; }
 @media (hover: hover) {
-  input[type=range]:not(:disabled):not(:active):hover::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 6px var(--accent-soft); }
-  input[type=range]:not(:disabled):not(:active):hover::-moz-range-thumb { box-shadow: 0 0 0 3px var(--surface), 0 1px 3px 3px rgb(var(--black-rgb) / .14), 0 0 0 6px var(--accent-soft); }
+  input[type=range]:not(:disabled):not(:active):hover::-webkit-slider-thumb { box-shadow: 0 1px 3px 1px rgb(var(--black-rgb) / .14), 0 0 0 1px var(--accent-soft), inset 0 0 0 2px transparent; }
+  input[type=range]:not(:disabled):not(:active):hover::-moz-range-thumb { box-shadow: 0 1px 3px 1px rgb(var(--black-rgb) / .14), 0 0 0 1px var(--accent-soft), inset 0 0 0 2px transparent; }
 }
 @media (prefers-reduced-motion: reduce) {
   input[type=range]::-webkit-slider-thumb { transition: none; }
@@ -842,8 +852,8 @@ input[type=range]:active::-moz-range-thumb, input[type=range].held::-moz-range-t
 }
 input[type=range]:disabled { cursor: not-allowed; opacity: .45; }
 input[type=range]:focus-visible { outline: none; }
-input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus); }
-input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--focus); }
+input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent, inset 0 0 0 2px var(--focus); }
+input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent, inset 0 0 0 2px var(--focus); }
 /* A slider the GPU draws (slider-gl.js, widget-gl.js): its track, fill, normal band, start ring and dot are the GPU's picture, laid over the wrapper
    and under the input, so the page's own drawing steps aside the moment that picture is up (.wgl-on), never before. The input stays (clear) for
    the pointer, the keys, focus and the value a screen reader reads. */
@@ -1026,7 +1036,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, var(--surface-3), transparent); transform: translateX(100%); animation: shimmer 1.2s linear infinite; pointer-events: none; }
 @keyframes shimmer { to { transform: translateX(-100%); } }
 
-.modal-back { position: fixed; inset: var(--modal-top, 0px) 0 var(--modal-kb, 0px) 0; background: var(--scrim); z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
+.modal-back { position: fixed; inset: var(--modal-top, 0px) 0 var(--modal-kb, 0px) 0; z-index: var(--z-dialog); display: none; place-items: center; padding: calc(16px + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .modal-back.show { display: grid; animation: crossfade var(--d-small) var(--ease); }
 /* (The on-screen keyboard covers the page's foot without shrinking it: the dialog is held to what is left above it, util.js fitModal,
    and glides there by translate.) */
@@ -1036,7 +1046,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .modal-back.leaving .modal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* A theme chosen in the app (main.js switchTheme): the old page, held as a still, fades over the new one. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--d-surface); animation-timing-function: var(--ease); }
-.modal { background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - var(--modal-top, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; overscroll-behavior: contain; animation: scale-settle var(--d-small) var(--ease); }   /* (the hairline ring: a dialog keeps its edge on the dark theme's near-black as the menus do) */
+/* (The veil over the figure is the dialog's own outer shadow, as the search palette's is: its frost is drawn in the figure's canvas, UNDER this layer, so a full-page background veil on .modal-back dimmed the glass with the scene. A shadow is never painted under its own box.) */
+.modal { --modal-veil: 0 0 0 100vmax var(--scrim); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline), var(--modal-veil); width: min(720px, 100%); max-height: min(88dvh, 900px, calc(100dvh - var(--modal-kb, 0px) - var(--modal-top, 0px) - 32px - var(--safe-top) - env(safe-area-inset-bottom, 0px))); overflow: auto; overscroll-behavior: contain; animation: scale-settle var(--d-small) var(--ease); }   /* (the hairline ring: a dialog keeps its edge on the dark theme's near-black as the menus do) */
 .modal > header { padding: 20px 24px 16px; display: flex; align-items: flex-start; gap: 12px; position: sticky; top: 0; background: var(--surface); z-index: var(--z-figure); transition: none; }
 /* Once the page has scrolled under the title, a hairline and a faint shade mark its edge (util.js openModal); at the top there is none. */
 .modal > header.scrolled { box-shadow: 0 1px 0 var(--hairline), 0 8px 12px -10px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 2)); }
@@ -1170,14 +1181,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
   .p-head { padding: 12px 16px 12px; }
   .p-body { padding: 4px 16px 24px; }
   .changes { padding-left: 16px; padding-right: 16px; }
-  .range-wrap { --tw: 22px; }   /* (a bigger dot to grab on a phone; the drawing follows --tw) */
-  .range-wrap, input[type=range] { height: 28px; }
+  .range-wrap { --tw: 32px; --dot: 22px; }   /* (a bigger dot to grab on a phone; the drawing follows --tw, the box of the dot and its ring, and --dot, the dot itself) */
+  .range-wrap, input[type=range] { height: 32px; }
   .section > summary { padding: 16px 0; min-height: 48px; }
 }
 /* The same bigger dot and bar wherever a finger is the pointer: a phone or an iPad held sideways (844 px and wider) had the 20 px mouse size. (The docked action card keeps its own 24 px.) */
 @media (pointer: coarse) {
-  .range-wrap { --tw: 22px; }
-  .range-wrap, input[type=range] { height: 28px; }
+  .range-wrap { --tw: 32px; --dot: 22px; }
+  .range-wrap, input[type=range] { height: 32px; }
 }
 /* Phone in landscape: the figure fills the screen; the side panel slides over it */
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
@@ -1353,7 +1364,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .action-card.docked .ac-stat { padding: 0 1px; align-items: baseline; }
 /* A slider is one row: name, track, value (a long name takes a line of its own above the track and the value). */
 .action-card.docked .ac-slider { display: grid; align-items: center; column-gap: 10px; row-gap: 0; }
-.action-card.docked .range-wrap, .action-card.docked input[type=range] { height: 24px; }
+.action-card.docked .range-wrap, .action-card.docked input[type=range] { height: 28px; }
 .action-card.docked .ac-slider:not(.long) { grid-template-columns: minmax(92px, max-content) minmax(0, 1fr) auto; }
 .action-card.docked .ac-slider .ac-label { white-space: nowrap; gap: 6px; }
 .action-card.docked .ac-slider .ctl-val { font-variant-numeric: tabular-nums; }
@@ -1520,12 +1531,14 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--
 .app.home-open { visibility: hidden; }
 
 /* Command palette */
-.pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); background: var(--scrim); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
+.pal-back { position: fixed; inset: 0; z-index: var(--z-dialog); display: flex; justify-content: center; align-items: flex-start; padding: calc(12vh + var(--safe-top)) calc(16px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px)); }
 .pal-back[hidden] { display: none; }
 .pal-back { animation: crossfade var(--d-small) var(--ease); }
 .pal-back.leaving { pointer-events: none; animation: crossfade-out var(--d-flip) var(--ease-in) forwards; }
 .pal-back.leaving .pal { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
-.pal { width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); overflow: hidden; animation: scale-settle var(--d-small) var(--ease); }
+/* (The veil over the figure is the palette's own outer shadow, not a background of .pal-back: the palette's frost is drawn in the figure's canvas, which lies UNDER this layer, so a full-page veil dimmed the palette's glass with the scene
+   (Mohammad, 7 Nov 2026: "when I hit / the menu is dim"). A shadow is never painted under its own box, so the glass is lit and the veil is on everything around it, following the box's rounded corners, size and fade with no script.) */
+.pal { --pal-veil: 0 0 0 100vmax var(--scrim); width: min(620px, 100%); background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline), var(--pal-veil); overflow: hidden; animation: scale-settle var(--d-small) var(--ease); }
 .pal-top { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); }
 .pal-ic { width: var(--ic-m); height: var(--ic-m); stroke: var(--text-3); fill: none; stroke-width: 1.7; }
 .pal-input { flex: 1; border: 0; outline: none; background: transparent; font-size: var(--fs-16); color: var(--text); }
@@ -1720,8 +1733,6 @@ button.finding { cursor: pointer; }
 .lz-leaders { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .lz-labels { position: absolute; inset: 0; pointer-events: none; }
 .lz-labels > :is(.lz-lab, .lz-zone, .lz-call) { left: 0; top: 0; }   /* (placed by translate: lobule-zoom.js put) */
-.lz-labels.lz-ease .lz-lab { transition: opacity var(--d-surface) var(--ease), translate var(--d-surface) var(--ease); }
-@media (prefers-reduced-motion: reduce) { .lz-labels.lz-ease .lz-lab { transition: none; } }
 /* Station cards: the anatomy's label style, as buttons that open the station's card */
 .lz-call { position: absolute; padding: 4px 10px 5px; border-radius: 999px; font: 600 14px/1.2 var(--font-ui); width: max-content; text-wrap: balance; color: var(--danger-ink); pointer-events: none; opacity: 0; transform: scale(.94); transition: opacity var(--d-surface) var(--ease), transform var(--d-surface) var(--ease); }
 .lz-call.on { opacity: 1; transform: none; }
@@ -1861,7 +1872,7 @@ button.finding { cursor: pointer; }
 .pz-text.pz-enter > * { --edge-x: -18px; --edge-o: 0; animation: slide-from-edge var(--d-surface) var(--ease) both; animation-delay: .12s; }
 /* The data card comes in with the words (same pace, same start), never ahead of them. */
 .pz-data:not(.pz-hide) { transition-duration: var(--d-surface); transition-delay: .12s; }
-.pz-text > .pz-leave { opacity: 0; transform: translateX(-18px); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-text > .pz-leave { opacity: 0; transform: translateX(-18px); transition: opacity var(--d-small) var(--ease-in), transform var(--d-small) var(--ease-in); }
 .pz-text.pz-enter > .pz-mon.pz-stay { animation: none; }
 /* Slide text: the six roles (tokens.css --t-*) at a slide's size: on a wide screen they follow the screen's height
    (a laptop at 900 px: caption 15.6 · label 18.2 · body 20.8 · value 28.6 · big 41.6 · title 57.2); a phone's stacked
@@ -2419,7 +2430,7 @@ button.finding { cursor: pointer; }
    soft inner pill that eases from word to word. Mac and iPad landscape: in the counter's row, 8 px left of the counter pill. A phone and an
    upright iPad (.stack): centred 8 px above the teaching card's glass. It comes in and leaves with the teaching card, in its fade. */
 .pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; right: calc(var(--pz-cm) + var(--pzs-r, 236px) + 8px); bottom: max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)); display: flex; align-items: stretch; height: 44px; box-sizing: border-box; padding: 4px; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) var(--pz-frost, 66%), transparent); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; opacity: 1; transition: opacity var(--d-surface) var(--ease) .12s; }
-.pz-scales.pz-leave { opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
+.pz-scales.pz-leave { opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease-in); }
 .pz-scales[hidden] { display: none; }
 .pz-scales > button { position: relative; z-index: 1; border: 0; background: none; padding: 0 14px; border-radius: calc(var(--r-sheet) - 4px); font: 500 14px/1 var(--font-ui); color: var(--text-2); white-space: nowrap; cursor: pointer; transition: none; -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) { .pz-scales > button:hover { color: var(--text); } }
@@ -2894,7 +2905,7 @@ button.finding { cursor: pointer; }
 .pz.stack .pz-tool[data-kind="doppler"] .dop-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: 140px; }
 .pz.stack .pz-tool[data-kind="vitals"] .vitals-box { height: 140px; }
-.pz-tool[data-kind="vitals"] .vitals-box { flex: none; min-width: 120px; min-height: 96px; }   /* (the monitor draws from 120 x 90 px: a tucked card squeezed its box to 70 px and it drew nothing, the blank Vital signs card) */
+.pz-tool[data-kind="vitals"] .vitals-box { flex: none; min-width: 120px; min-height: 96px; max-height: 214px; }   /* (8 Nov 2026: the card ends at the numbers: 214 = the strip at its full 110 px and the numbers at 46, with their margins; vitals-monitor.js layout) */   /* (the monitor draws from 120 x 90 px: a tucked card squeezed its box to 70 px and it drew nothing, the blank Vital signs card) */
 .pz.stack .pz-tool[data-kind="beats"] .pt-box { height: 172px; }   /* (tall enough for the pressures and the HVPG lane, trace-lanes.js; the EKG strip needs a taller card) */
 /* Phone: the scope sits beside its grade and size, and the Doppler drops its sentence, so a tile still fits under the instrument. */
 .pz.stack .pz-tool[data-kind="scope"] .pz-inst { flex-direction: row; align-items: center; gap: 12px; }
@@ -2975,7 +2986,7 @@ button.finding { cursor: pointer; }
   /* The stacked card's handle (.pz-lip) fades with the cards too, in once the glass is in and out before it, never popping in or out
      ahead of them: with every transition off it came up at once while the cards were still fading in (Mohammad, 25 Oct). */
   .pz > .pz-lip { transition: opacity var(--d-small) var(--ease) .3s !important; transform: none !important; }
-  .pz > .pz-data.pz-hide + .pz-lip { transition: opacity var(--d-flip) var(--ease) !important; }
+  .pz > .pz-data.pz-hide + .pz-lip { transition: opacity var(--d-flip) var(--ease-in) !important; }
 }
 /* Menu › Present: the presentations and your scripts. */
 /* High contrast (P while presenting, or Settings): colour only, never a size. Stronger words, ratings as filled chips, a deeper shade. Organ art unchanged. */
@@ -3247,10 +3258,10 @@ button.finding { cursor: pointer; }
    column in front of the balloon in the wedged pressure's colour. Labels are screen-sized pills at the tip. */
 .cath { pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 .cath-shadow { fill: none; stroke: var(--cath-shadow); stroke-linecap: round; stroke-linejoin: round; }
-.cath-body { fill: none; stroke: var(--cath-body); stroke-linecap: round; stroke-linejoin: round; }
-.cath-tip { fill: var(--cath-body); stroke: none; }
+.cath-body { fill: none; stroke: var(--dev-poly); stroke-linecap: round; stroke-linejoin: round; }
+.cath-tip { fill: var(--dev-poly); stroke: none; }
 .cath-ring { fill: none; stroke-width: .8; stroke-opacity: .85; stroke-linejoin: round; }
-.cath-balloon { fill: var(--cath-balloon); stroke: var(--cath-shadow); stroke-width: .5; stroke-linejoin: round; }
+.cath-balloon { fill: var(--dev-nylon); fill-opacity: .78; stroke: var(--cath-shadow); stroke-width: .5; stroke-linejoin: round; }
 .cath-column { fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: .9; }
 /* While the catheter is in, the figure's own readouts are hidden so its labels read clearly. */
 .stage-view #labels { transition: opacity var(--d-surface) var(--ease); }
@@ -3260,8 +3271,10 @@ button.finding { cursor: pointer; }
 .cath-label { position: absolute; left: 0; top: 0; isolation: isolate; display: inline-flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 16px 8px; border: 2px solid transparent; border-radius: 14px; white-space: nowrap;
   --c: var(--text); --rg: color-mix(in srgb, var(--c) 70%, transparent); --lo: 1;
   color: var(--text); font: 500 12px var(--font-ui);
-  box-shadow: var(--shadow-cath-label);
-  translate: -50% calc(-100% - 18px + var(--pre, 0px)); transition: translate var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease); }   /* (--pre: the arrival's rise, cath-pre, eased by translate on the compositor, not by top) */
+  translate: -50% calc(-100% - 18px + var(--pre, 0px)); transition: translate var(--d-surface) var(--ease); }   /* (--pre: the arrival's rise, cath-pre, eased by translate on the compositor, not by top) */
+/* The label's drop shadow is its own layer, so it fades as opacity on the compositor (a box-shadow transition repaints every frame; recs 17,
+   8 Nov 2026). It covers the label's border box (its 2 px border is outside the padding box an inset is measured from). It stays a plain shadow of the label's box, behind the glass; the states below set its opacity to 0 where they hid the shadow. */
+.cath-label::before { content: ''; position: absolute; inset: -2px; z-index: -2; border-radius: inherit; box-shadow: var(--shadow-cath-label); opacity: 1; pointer-events: none; transition: opacity var(--d-surface) var(--ease); }
 /* The body is frosted glass like the panels (the data card's tint and blur), drawn by callout.js as one shape: the card and
    its pointer (down to the tip, or up to the wedged vein, for the reading ahead of it) with its 2 px outline.
    The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
@@ -3294,14 +3307,15 @@ button.finding { cursor: pointer; }
 .cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
 .cath-label.free { --c: var(--tr-hv); }
 .cath-label.wedge { --c: var(--tr-wedge); } .cath-label.pv { --c: var(--tr-pv); }   /* (pv: EUS-PPG's portal vein reading) */
+.cath-label.ivc { --c: var(--tr-ivc); }   /* (ivc: the TIPS gradient's IVC reading) */
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
-.cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease) .35s; } .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
+.cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease); } .cath-label.site::before, .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
 /* One leaving fades out whole and at once (no entrance pause), its glass and shadow with it; the glass is hidden outright only once
    faded (stage.js siteLeave removes it after). */
-.cath-label.site.cath-leave { --lo: 0; box-shadow: var(--shadow-cath-label-off); }
-.cath-label.site.cath-leave, .cath-label.site.cath-leave > * { transition-delay: 0s; }
-.cath-label.site.cath-leave > .cl-glass { visibility: hidden; transition: opacity var(--d-surface) var(--ease), visibility 0s linear var(--d-surface); }
+.cath-label.site.cath-leave { --lo: 0; } .cath-label.site.cath-leave::before { opacity: 0; }
+.cath-label.site.cath-leave, .cath-label.site.cath-leave::before, .cath-label.site.cath-leave > * { transition-delay: 0s; transition-duration: var(--d-small); transition-timing-function: var(--ease-in); }   /* (a leave takes the step below its entrance, on the leaving curve; stage.js siteLeave waits D_SMALL + slack) */
+.cath-label.site.cath-leave > .cl-glass { visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
 .cath-label.site.pv { --c: var(--tr-pv); } .cath-label.site.ivc { --c: var(--tr-ivc); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { --scan: var(--fibroscan); /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity var(--d-surface) var(--ease); pointer-events: none; }
@@ -3338,9 +3352,9 @@ button.finding { cursor: pointer; }
 .dop-probe .dpr-line { fill: none; stroke: var(--dop-mark); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .dop-probe .dpr-gate-rim { fill: none; stroke: var(--dop-rim); stroke-width: 5.6; stroke-linecap: round; }
 .dop-probe .dpr-gate { fill: none; stroke: var(--dop-mark); stroke-width: 3; stroke-linecap: round; }   /* (a bit thicker than the 2 px axis line (both thickened, Mohammad, 20 Oct); drawn on top of the axis and the line of sight) */
-.dop-probe .dpr-rim { fill: none; stroke: var(--dop-rim); stroke-width: 4; stroke-linejoin: round; }
-.dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-mark); stroke-width: 1.6; stroke-linejoin: round; }
-.dop-probe .dpr-face { fill: none; stroke: var(--dop-mark); stroke-width: 3; }
+.dop-probe .dpr-rim { fill: none; stroke: var(--dop-head-rim); stroke-width: 4; stroke-linejoin: round; }
+.dop-probe .dpr-body { fill: var(--surface); stroke: var(--dop-head-ink); stroke-width: 1.6; stroke-linejoin: round; }
+.dop-probe .dpr-face { fill: var(--dop-face); stroke: var(--dop-head-ink); stroke-width: 1.4; stroke-linejoin: round; }   /* (the transducer band across the front, the face that touches the skin: the inverse of the body, dark on the light looks and light on the dark ones, --dop-face; white-lined like the rest) */
 .dop-probe .dpr-light { fill: var(--dop-glow); }
 /* Where portal blood goes: the share that bypasses the liver as the headline, over one bar split into the liver's share
    (portal pink) and the shunts' (plain, amber from the shunt tile's moderate cut, red from its large one), each share
@@ -3376,17 +3390,17 @@ button.finding { cursor: pointer; }
 .cath-label.site.res b + span:empty { display: none; }
 /* The resistors' key ("× healthy liver's resistance"), said once for the group (17 Oct design review): above the outermost reading of a
    level circuit, under the readings of an upright one, centred on the group either way (stage.js calloutBox keeps labels off it). */
-.cath-label.site.res .res-k { display: none; }
+.cath-label.site.res .res-k { display: none; } .cath-label.site.res::before { display: none; }
 .cath-label.site.res.keyed .res-k { display: block; position: absolute; left: 50%; bottom: calc(100% + 4px); translate: -50% 0; font-style: normal; white-space: nowrap; color: var(--text-3); font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 600; letter-spacing: .02em; }
 .app .cath-label.site.res.low.keyed .res-k { bottom: auto; top: calc(100% + 4px); }
 .app .cath-label.site.res.low.keyed:not(.coll, .gut) .res-k { left: calc(100% + 10px); }
 .app .cath-label.site.res.coll.low.keyed .res-k { left: -10px; }
-.cath-label.site.off { --lo: 0; } .cath-label.site.off, .cath-label.site.off > * { transition-delay: 0s; }
+.cath-label.site.off { --lo: 0; } .cath-label.site.off, .cath-label.site.off::before, .cath-label.site.off > * { transition-delay: 0s; transition-duration: var(--d-small); transition-timing-function: var(--ease-in); }
 /* (A hidden callout's frosted glass is hidden outright once it has faded, and its shadow fades with it: the shadow left behind
    drew a ghost rectangle over the figure on a phone.) */
-.cath-label.site.off > .cl-glass { visibility: hidden; transition: opacity var(--d-surface) var(--ease), visibility 0s linear var(--d-surface); }
+.cath-label.site.off > .cl-glass { visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
 .cath-label.site.cath-pre > .cl-glass { visibility: hidden; }
-.cath-label.site.off { box-shadow: var(--shadow-cath-label-off); }   /* (its shadow goes with it, else the shadow alone drew the ghost) */
+.cath-label.site.off::before { opacity: 0; }   /* (its shadow goes with it, else the shadow alone drew the ghost) */
 .cath-label.site { padding: 5px 12px 6px; } .cath-label.site b { font-size: 20px; }
 /* A phone keeps each site to one line (name, value, unit) so two fit in the small figure. */
 @media (max-width: 600px) { .cath-label.site { flex-direction: row; align-items: baseline; gap: 5px; padding: 4px 10px; border-radius: 11px; } .cath-label.site b { font-size: 16px; } .cath-label.site b + span { margin-top: 0; } }
@@ -3402,22 +3416,22 @@ button.finding { cursor: pointer; }
 .cath-leads .wedge { stroke: var(--tr-wedge); } .cath-leads .lead-dot.wedge { fill: var(--tr-wedge); stroke: var(--surface); } .cath-leads .pv { stroke: var(--tr-pv); } .cath-leads .lead-dot.pv { fill: var(--tr-pv); stroke: var(--surface); }
 .cath-sum-box { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; translate: 0 var(--pre, 0px); transition: translate var(--d-surface) var(--ease); }
 .cath-sum-col { display: flex; flex-direction: column; gap: 10px; }
-.cath-label.in-sum { position: relative; translate: none; transition: none; }
+.cath-label.in-sum { position: relative; translate: none; transition: none; } .cath-label.in-sum::before { transition: none; }
 .cath-label.in-sum > * { transition: opacity var(--d-surface) var(--ease); }
 .cath-brace { flex: none; overflow: visible; }
 .cath-brace path { fill: none; stroke: var(--text-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 /* The shadow fades with the body (the label's own shadow is not under the children's fade). */
-.cath-label.cath-pre, .cath-sum.cath-pre .cath-label, .cath-sum.cath-travel .cath-label.in-sum.calc { box-shadow: var(--shadow-cath-label-off); }
+.cath-label.cath-pre::before, .cath-sum.cath-pre .cath-label::before, .cath-sum.cath-travel .cath-label.in-sum.calc::before { opacity: 0; }
 /* Going: everything fades at once and quickly, no staggered delays. */
-.cath-out .cath-label, .cath-label.cath-out, .cath-out .cath-label > *, .cath-label.cath-out > *, .cath-out .cath-brace, .cath-out .cath-leads { transition-duration: var(--d-small) !important; transition-delay: 0s !important; }
+.cath-out .cath-label, .cath-label.cath-out, .cath-out .cath-label::before, .cath-label.cath-out::before, .cath-out .cath-label > *, .cath-label.cath-out > *, .cath-out .cath-brace, .cath-out .cath-leads { transition-duration: var(--d-small) !important; transition-delay: 0s !important; }
 /* A reading fades in when it appears and out when it goes (opacity and a few pixels of rise only). */
 .cath-label.cath-pre { --lo: 0; }
 .cath-sum.cath-pre .cath-label { --lo: 0; } .cath-sum.cath-pre .cath-brace, .cath-sum.cath-pre .cath-leads { opacity: 0; transition-delay: 0s; }
 /* The summary after the readings travel in: the bracket and leaders follow, then the HVPG fades and rises in. */
 .cath-sum .cath-brace, .cath-sum .cath-leads { transition: opacity var(--d-surface) var(--ease) .65s; }
-.cath-sum .cath-label.in-sum.calc { transition: translate var(--d-surface) var(--ease) .75s, box-shadow var(--d-surface) var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc > * { transition: opacity var(--d-surface) var(--ease) .75s; }
+.cath-sum .cath-label.in-sum.calc { transition: translate var(--d-surface) var(--ease) .75s; } .cath-sum .cath-label.in-sum.calc::before, .cath-sum .cath-label.in-sum.calc > * { transition: opacity var(--d-surface) var(--ease) .75s; }
 .cath-sum.cath-travel .cath-brace, .cath-sum.cath-travel .cath-leads { opacity: 0; transition: none; }
-.cath-sum.cath-travel .cath-label.in-sum.calc { --lo: 0; transition: none; } .cath-sum.cath-travel .cath-label.in-sum.calc > * { transition: none; }
+.cath-sum.cath-travel .cath-label.in-sum.calc { --lo: 0; transition: none; } .cath-sum.cath-travel .cath-label.in-sum.calc::before, .cath-sum.cath-travel .cath-label.in-sum.calc > * { transition: none; }
 .cath-sum.cath-travel .cath-label.in-sum.calc { translate: 0 6px; }
 .hvpg-kv dd.in { animation: fade-rise var(--d-surface) var(--ease); }
 @media (prefers-reduced-motion: reduce) { .hvpg-kv dd.in { animation-name: crossfade; } }
@@ -4804,7 +4818,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .app.figure-focus .zoom-pill:not(.under-sheet) { translate: 0 calc(var(--bot-occ, 120px) + 8px - env(safe-area-inset-bottom) - 12px - var(--sheet-h, 0px)); }
 }
 .topbar .stage-bar.top { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), visibility var(--d-small); }   /* (visibility last, so the fade-out finishes before it flips) */
-.app.figure-focus .topbar.two-rows .stage-bar.top { opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none; }
+.app.figure-focus .topbar.two-rows .stage-bar.top { opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none; transition: opacity var(--d-flip) var(--ease-in), transform var(--d-flip) var(--ease-in), visibility var(--d-flip); }   /* (a leave: the step below, on the leaving curve) */
 
 /* Turning "Always show HVPG" on or off: its readouts fade to the new state (opacity only). */
 body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev,
@@ -5843,7 +5857,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    handle of the stacked cards appears before the cards"). It fades in once the glass is in (the card's own fade runs .12 s to .62 s, the bar's .42 s
    to .72 s) and out first, in .2 s. A card that has just come to stand with its glass already on (pz-lip-in, presenter.js lipSync) starts
    from this same out look.) */
-.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity var(--d-flip) var(--ease), transform var(--d-small) var(--ease); }
+.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity var(--d-flip) var(--ease-in), transform var(--d-small) var(--ease-in); }
 .pz .pz-lip.pz-lip-in:not([hidden]) { opacity: 0; transition: none !important; }
 .pz.stack .pz-data.pz-hide + .pz-lip { transform: translateY(-18px); }
 .pz.pz-turning .pz-lip, .pz.pz-turning .pz-lip::before { transition: none !important; }
@@ -5904,10 +5918,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* (The handle rides in the readings' card's foot, tucked or out: --pz-u is copied to it by presenter.js placeLip, frame by frame.) */
 .pz.stack .pz-data.pz-sheet + .pz-lip::before { content: none; }
 .pz.stack .pz-data.pz-sheet.pz-sliding + .pz-lip { margin-top: calc(-24px * var(--pz-u, 0)); transition: opacity var(--d-small) var(--ease) .42s, transform var(--d-surface) var(--ease) .12s; }
-.pz.stack .pz-data.pz-sheet.pz-sliding.pz-hide + .pz-lip { transition: opacity var(--d-flip) var(--ease), transform var(--d-small) var(--ease); }   /* (a slide that changes mid-pull: the bar still leaves first) */
+.pz.stack .pz-data.pz-sheet.pz-sliding.pz-hide + .pz-lip { transition: opacity var(--d-flip) var(--ease-in), transform var(--d-small) var(--ease-in); }   /* (a slide that changes mid-pull: the bar still leaves first) */
 /* (Inside a fading card a glass piece loses its blur until the fade ends, so here the card stays opaque and its parts and its two
    pieces fade, the card hidden once they have gone. The readings fade by their own ease.) */
-.pz.stack.stack .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
+.pz.stack.stack .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
 .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform var(--d-surface) var(--ease) .12s, visibility 0s linear 0s; }
 .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after, .pz.stack.stack .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity var(--d-small) var(--ease); }
 .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::before, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::after, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: var(--d-surface); transition-delay: .12s; }
@@ -5970,7 +5984,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles ~ .pz-tiles { margin-top: 0; }   /* (rides under the first: see the phone's) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform var(--d-surface) var(--ease) .12s, visibility 0s linear 0s; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity var(--d-small) var(--ease); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: var(--d-surface); transition-delay: .12s; }
@@ -6025,8 +6039,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    transform, so its words and chart only get larger. Two veils, the app's own scrim, dim what is behind it: the page's (.pz-pscrim, under the
    panel) and the panel's (.pz-gscrim, a child of the grid, out of its flow, over the other cells and under the zoomed one). A tap on either puts it back.
    The cell takes the card's shadow while it is up, and eases it out as it goes back. Only where the grid draws a chart in each cell. */
-.pz-pscrim, .pz-gscrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-surface) var(--ease); }
-.pz-pscrim.on, .pz-gscrim.on { opacity: 1; pointer-events: auto; }
+.pz-pscrim, .pz-gscrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-small) var(--ease-in); }   /* (off is the leave: the step below, on the leaving curve) */
+.pz-pscrim.on, .pz-gscrim.on { opacity: 1; pointer-events: auto; transition: opacity var(--d-surface) var(--ease); }
 .pz-gscrim { z-index: 1; }
 .pz:not(.stack):not(.low) .pz-cell { cursor: zoom-in; transition: none; }
 .pz:not(.stack):not(.low) .pz-cell[data-zoomed] { position: relative; z-index: 2; cursor: zoom-out; }
@@ -6274,11 +6288,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    pushed its box 70 % past the track's end. That reached the card's scroll width, the card's fit read it as overflow and drew every
    phone instrument card at half size: Beat by beat's trace and the scope squat and tiny. Clipped sideways only, the dot still overhangs
    the track above and below; it is clamped 6 px inside the ends, so only its 2 px halo can meet the clip at the very end of a scale.) */
-/* (A change of slide eases the marks' translate and the link's scale on the compositor over the count's own --tile-ms: presenter.js
-   tileGlide.) */
-.tglide { --tile-ms: 950ms; }
-.tglide :is(.pzb-now, .pzb-was) { transition: translate var(--tile-ms) var(--ease-move) /*own pace*/; }
-.tglide .pzb-link { transition: translate var(--tile-ms) var(--ease-move) /*own pace*/, scale var(--tile-ms) var(--ease-move) /*own pace*/; }
+/* (The marks' translate and the link's translate and scale have no transition: presenter.js bigTiles paints them in each display frame from the
+   page's shown state, the same follower as the tile's number (tile-shown.js, recs 15), so a number and its bar arrive together.) */
 .pzb-zs { position: absolute; inset: 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--text) 8%, transparent); }
 .pzb-z { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--text-3) 30%, transparent); transition: none; }
 .pzb-z[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 60%, transparent); }
@@ -6978,6 +6989,17 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 
 /* Reduce Motion (P3): the same keyframes without the movement, so every entrance and exit still fades. (A @keyframes in a
    matching media query replaces the one of the same name above.) Loops that only move stop; spinners breathe instead. */
+/* Reduce Motion, the small moves inside controls (item 22 of docs/recommendations/animation-and-transitions.md): a switch's thumb, a chevron, a
+   fill or a band that only follows a state or a value is set at once; an opacity that goes with it stays (a fade stands in for a move, motion.js).
+   The zoom pill and the view bar keep their fade and lose their slide. (-moz-range-thumb is alone: one pseudo the browser does not know drops a whole list.) */
+@media (prefers-reduced-motion: reduce) {
+  .section > summary .chev, .switch span::after, .ac-toggle .switch-vis i, .ab-tg .switch-vis i, .ab-dp-alb .switch-vis i, .menu-btn .chev, .workspace-divider span, .scan-probe .sp-svg,
+  .ab-belly-fill, .ab-iap-fill, .dop-band, .dop-band-caps > i, .dop-mark, .dop-ticks > span, .stage-fit, .stage-rotate, .stage-clock { transition: none; }
+  input[type=range]::-webkit-slider-thumb { transition: none; }
+  input[type=range]::-moz-range-thumb { transition: none; }
+  .zoom-pill, .app.figure-focus .zoom-pill, .zoom-pill .ib:not(.stage-rotate):not(:disabled), .um-tab::after { transition-property: opacity; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   @keyframes fade-rise { from { opacity: 0; } }
   @keyframes fade-rise-b { from { opacity: 0; } }
@@ -7076,6 +7098,11 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz-curve :is(svg, .ic), .pz-cbars :is(svg, .ic) { grid-area: 1 / 1; width: 100%; height: 100%; overflow: visible; transition: opacity var(--d-surface) var(--ease); }
 .pz-curve :is(svg, .ic).in { opacity: 0; }
 
+/* The all-patients chart (visual-allpatients.js): a panel drawn on the GPU at the box's width, its height set from its own layout (the chart and its key). */
+.pzap-wrap { width: 100%; }
+.pzap-plot { position: relative; width: 100%; aspect-ratio: 2.05; }   /* (until the layout has set the height: about what it comes to) */
+.pzap-plot :is(svg, .ic) { position: absolute; inset: 0; display: block; overflow: visible; }
+.pz.stack .pzap-plot { aspect-ratio: .7; }
 /* ── Package C: end ── */
 
 /* ── Package D, teaching card and tables: start ── */
@@ -7478,10 +7505,14 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    them ([data-gl]); until then, and where it cannot, they keep the fill, ring and shadow above. */
 .menu, .umenu, .why-pop { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
 :root:root :is(.menu, .umenu, .why-pop)[data-gl] { background: none; box-shadow: none; }
+/* A menu opened from inside a card lies over that card's words and pictures, which the page draws above the figure's canvas where the frost is: the GPU leaves it out (menu-glass.js live) and it keeps a plain fill (main.js cardsAway). */
+:root:root :is(.menu, .why-pop).over-card:not([data-gl]) { background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); }
 .tooltip { --gl-tint: color-mix(in srgb, var(--text) 80%, transparent); --gl-drop: var(--shadow-2); }
 /* The main menu's preview card, the dialogs and the search palette are frosted GPU glass too (menu-glass.js). Their sticky head keeps no fill of its own over it. */
 .um-pv, .modal, .pal { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
 :root:root :is(.um-pv, .modal, .pal)[data-gl] { background: none; box-shadow: none; }
+:root:root .pal[data-gl] { box-shadow: var(--pal-veil); }
+:root:root .modal[data-gl] { box-shadow: var(--modal-veil); }   /* (the GPU draws the dialog's ring and shadow; the veil around it stays the page's) */   /* (the GPU draws the palette's ring and shadow; the veil around it stays the page's) */
 :root:root .modal > header { background: color-mix(in srgb, var(--surface) 92%, transparent); }   /* (sticky: nearly solid, so scrolled rows do not show through it)  */
 /* Before the GPU has drawn a menu's glass (its first frames, and wherever it cannot) the fill is already the glass's own tint, so nothing changes when the frost lands under it:
    no solid-to-glass flash (Mohammad, 4 Nov 2026, "when the menus first appear they still flicker"). Blur effect off keeps the solid fill above. */
@@ -7524,8 +7555,9 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    Three or more readings drop their units and the name wraps to two lines before it crowds them. */
 .pz-hr { display: none; }
 .pz .pz-data.has-tool > .pz-dh > .pz-hr:not([data-n="0"]) { display: flex; flex: 0 1 auto; align-items: baseline; justify-content: flex-end; gap: 4px 12px; margin-left: auto; white-space: nowrap; letter-spacing: 0; text-transform: none; }
-.pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) { flex-wrap: nowrap; justify-content: space-between; align-items: center; text-align: left; gap: 4px 12px; }
-.pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) > span:first-child { flex: 1 1 auto; min-width: 0; text-wrap: balance; }
+/* (The name never shares a row it has no room on: it keeps its own line at its natural width, and the readings take the row beneath, at the right, when both do not fit one row. Before, the row never wrapped and the name was squeezed to nothing, its words spilling under the numbers, "LIVER STIFFNESS, FIBROSCAN" over three lines on the readings, 7 Nov 2026.) */
+.pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) { flex-wrap: wrap; justify-content: space-between; align-items: baseline; text-align: left; gap: 2px 12px; }
+.pz .pz-data.has-tool > .pz-dh:has(> .pz-hr:not([data-n="0"])) > span:first-child { flex: 1 1 auto; text-wrap: balance; }
 .pz-hi { display: inline-flex; align-items: baseline; gap: .3em; }
 .pz-hk { font-size: .86em; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2); }
 .pz-hi > b { font: 600 1.15em/1 var(--font-ui); letter-spacing: 0; color: var(--text); }
@@ -7538,3 +7570,14 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .pz-hi > small[hidden] { display: none; }
 .pz.stack .pz-hr:is([data-n="3"], [data-n="4"]) .pz-hi > small { display: none; }
 .pz.pz .pz-data.pz-data[data-tool^="criteria:"] > .pz-dh > .pz-hr { font: var(--caps-w) calc(1em / 1.3)/1.25 var(--font-ui); }   /* (the criteria card's name is set larger, in the display face: its readings keep the other cards' size) */
+
+/* The time graph over a time-lapse bar on the teaching card (lapse-graph.js; Mohammad, 7 Nov 2026, option A): the slide's two tiles drawn
+   day by day by the flow-time chart. A box of its own height, like the monitor's (.pz-mon): it gives way with the words (--pz-bk) but never
+   below what the chart needs to draw its two bands. The chart reads its size from the box. */
+.pz-timegraph { flex: none; min-width: 0; --pz-sm: max(11px, calc(var(--s-cap, 14px) * .9)); }   /* (the chart's type: the card's caption size, the way the chart reads it, .pz-flowtime) */
+.pz .pz-timegraph .pz-flowtime { --ft-h: max(116px, calc(clamp(130px, calc(20 * var(--pzh)), 230px) * var(--pz-bk, 1) * var(--pz-bk, 1))); height: var(--ft-h); min-height: 0; }
+.pz .pz-timegraph .pz-flowtime svg { height: 100%; max-height: none; }
+.pz.stack .pz-timegraph .pz-flowtime { --ft-h: 142px; height: var(--ft-h); }
+.pz.stack .pz-timegraph .pz-flowtime svg { max-height: none; }
+.pz.stack .pz-text:has(.pz-timegraph) { max-height: 50%; }
+.pz.low .pz-timegraph .pz-flowtime { --ft-h: 104px; }

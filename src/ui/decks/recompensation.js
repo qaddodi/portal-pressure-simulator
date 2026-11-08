@@ -21,8 +21,8 @@ export const RECOMPENSATION = {
   slides: [
     {
       id: 'csph', tick: 'CSPH', preset: 'csph', cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['varix'],
-      kicker: 'Compensated', site: 'sin', title: 'Compensated, with CSPH',
-      vignette: 'A 47-year-old man with alcohol-associated cirrhosis drinks about eight drinks a day. He has never had ascites or bleeding, and his platelets are 88,000/µL.',
+      kicker: 'Compensated', site: 'sin', title: 'Compensated, with CSPH', cite: 'Baveno VIII 3.15',
+      vignette: 'A 47-year-old man with alcohol-associated cirrhosis drinks about eight drinks a day. He has never had ascites or bleeding, and his platelets are 90,000/µL.',
       line: 'The HVPG is {hvpg}, which is {>=10 mmHg}: CSPH, with no ascites or bleeding. Baveno VIII would start carvedilol now; this case holds it back to show what follows.',
       notes: 'Source: Baveno VIII 3.15. Clinically significant portal hypertension marks the patients at risk of decompensation. Baveno VIII advises treating the cause and starting a non-selective beta-blocker, preferably carvedilol, at this stage to prevent decompensation. The patient keeps drinking and takes no treatment, so the disease runs its course.',
       ask: ['What does Baveno VIII advise for compensated cirrhosis with CSPH?', 'Treat the cause, and start a non-selective beta-blocker, preferably carvedilol, to prevent decompensation.'],
@@ -51,10 +51,10 @@ export const RECOMPENSATION = {
       ask: ['What are the maximum daily doses of spironolactone and furosemide?', '400 mg of spironolactone and 160 mg of furosemide.'],
     },
     {
-      id: 'cure', tick: 'Cause removed', days: 365, ramp: { cirrhosis: [0.85, 0.6], albumin: [2.8, 3.8] }, lapse: { seconds: 10 }, cam: 'liver', tool: { kind: 'hvpg' }, milestone: 'Abstinence', data: 'tiles', tiles: ['salb', 'asc'], key: ['salb'], delta: 'diuretics',
+      id: 'cure', lens: 'since', since: 'ascites', sinceLabel: 'the first ascites', tick: 'Cause removed', days: 365, ramp: { cirrhosis: [0.85, 0.6], albumin: [2.8, 3.8] }, lapse: { seconds: 10 }, cam: 'liver', tool: { kind: 'hvpg' }, milestone: 'Abstinence', data: 'tiles', tiles: ['salb', 'asc'], key: ['salb'], delta: 'diuretics',
       kicker: 'Recompensation', site: 'sin', title: 'Stopping alcohol lowers the portal pressure',
       line: 'A year of abstinence: the albumin rises to {salb}, the ascites clears and the HVPG falls to {hvpg}.',
-      notes: 'Removing the cause, by stopping alcohol, curing hepatitis C or suppressing hepatitis B, is the most effective long-term treatment of portal hypertension. Inflammation settles and some scar regresses, so the resistance in the liver and the HVPG fall over months to years. The fall is often incomplete: many patients keep CSPH, and they keep the beta-blocker.',
+      notes: 'Removing the cause, by stopping alcohol, curing hepatitis C or suppressing hepatitis B, is the most effective long-term treatment of portal hypertension. Inflammation settles and some scar regresses, so the resistance in the liver and the HVPG fall over months to years. The fall is often incomplete: many patients keep CSPH, and they keep the beta-blocker. The vessels are colored by their change since the first ascites.',
       ask: ['What is the most effective long-term way to lower the portal pressure?', 'Remove the cause of the cirrhosis.'],
     },
     {
@@ -81,7 +81,7 @@ export const RECOMPENSATION = {
       // The stiffness and spleen stiffness are the model's, over the case's HVPG. tool-path.js.)
       id: 'path-stopcarv', cam: 'fit',
       tool: { kind: 'path', of: 'stopcarv', short: 'Stopping carvedilol', patient: { hv: 'high' } },
-      kicker: 'Recompensation', site: 'sin', title: 'Recompensated, but CSPH has not resolved',
+      kicker: 'Recompensation', site: 'sin', title: 'Recompensating, but CSPH has not resolved',
       line: 'Stopping carvedilol takes proof that CSPH has gone. His HVPG is {hvpg}, which is {>=10 mmHg}, and his stiffness is {lsm}: CSPH persists, so the drug stays.',
       notes: 'Source: Baveno VIII 7.15 to 7.19. CSPH may resolve over time in a recompensated patient (7.15), but carvedilol may be stopped only if the resolution is confirmed (7.18, weak). It is confirmed by an HVPG under 10 mmHg measured off carvedilol (7.16). Without a catheter, a stiffness under 10 kPa, or under 15 kPa with a spleen stiffness under 25 kPa, may rule CSPH out, and over 25 kPa may rule it in (7.19). Varices and collaterals may stay after CSPH resolves, so they prove nothing either way (7.17). He has never taken carvedilol, so his HVPG of 11.4 mmHg is already an off-drug reading, and it shows that CSPH persists. His stiffness of 23.5 kPa and spleen stiffness of about 49 kPa do not rule it out. Carvedilol is the drug for him to start, and to keep. The chart that follows shows why the pressure stays up.',
       ask: ['An HVPG measured off carvedilol is 7 mmHg. May the drug stop?', 'Yes: an HVPG <10 mmHg off carvedilol confirms that CSPH has resolved (7.16, 7.18). Varices that remain do not argue against it.'],

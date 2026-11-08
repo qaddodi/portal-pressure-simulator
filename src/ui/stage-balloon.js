@@ -3,6 +3,7 @@
 import { gastricUp } from '../engine/scenario.js';
 import { BALLOON, BALLOON_MS, balloonShape, esoAt, smoothPath } from './balloon-eso.js';
 import { GAS, gasShape, pathAt, pullArrow, sheath, sheathArcs, tubePath, tubeTip, tubeTo } from './balloon-gas.js';
+import { easeMove } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { s } from './util.js';
 
@@ -16,7 +17,7 @@ export function createBalloon(st, live) {
   // whose gastric balloon is up: gastricUp, scenario.js.)
   const bal = { adv: 0, gas: 0, eso: 0, last: 0, wantGas: false, wantEso: false, anat: true, dirty: true };
   const BAL_ADV_MS = BALLOON_MS.adv, BAL_INF_MS = BALLOON_MS.inflate, BAL_ESO_MS = BALLOON_MS.eso;
-  const balEase = (x) => x * x * (3 - 2 * x);
+  const balEase = easeMove;   // (the one inflation curve, procedure balloons' too: motion.js)
   // (The tube's fit to the stomach is worked out once, in a few milliseconds: ahead of its first use, while the page is idle.)
   (typeof requestIdleCallback === 'function' ? (f) => requestIdleCallback(f, { timeout: 5000 }) : (f) => stageScope.timer(f, 3000))(() => { tubePath(); });
   function balloonStep(p, anat) {

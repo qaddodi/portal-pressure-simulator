@@ -214,6 +214,10 @@ vec3 endoInk(vec3 under, float d, float dN, float dJ, float det) {
 // ── The lumen, flat as the lobule's: pressure colour, a thin light line and a thin dark one, the streaks ──
 vec3 lumen(float x, float y, float hw, int lane0) {
   vec3 c = cLumen;
+  // The flow's light (the shimmer, the sheen, the glints): white on a dark lumen, a deep shade of the lumen on a pale one, where white is
+  // 1.2 to 1.9:1; eased by the lumen's lightness (the pressure colour moves), as the vessels' streaks are (veins-gl bloodAt; visual-style B5).
+  float fPale = smoothstep(0.58, 0.66, dot(cLumen, vec3(0.299, 0.587, 0.114)));
+  vec3 fInk = mix(vec3(1.0), mix(cLumen, vec3(0.07, 0.075, 0.13), 0.7), fPale);
   c = mix(c, vec3(1.0), 0.28 * line(y + hw - 0.5, 0.16));
   c = mix(c, vec3(0.0), 0.1 * line(y - hw + 0.5, 0.16));
   // Streaks in lanes, each at its lane's speed (the parabolic profile: fastest in the middle).
@@ -227,18 +231,18 @@ vec3 lumen(float x, float y, float hw, int lane0) {
   float e = (xx - x0) / Ls;
   float yc = (lc + (h1(ki, id + 11) - 0.5) * 0.6 / NL) * hw;
   float rr = 1.0 - r * r;
-  c = mix(c, vec3(1.0), 0.07 * rr * rr * uShim / 0.5);
+  c = mix(c, fInk, 0.07 * rr * rr * uShim / 0.5);
   float wy = min(max(0.35, 2.8 * uPx), 0.3 * hw / NL);
   // Light on a flowing liquid: a slow sheen drifts with the blood (two broad, warped waves), and each streak is a soft
   // glint, bright at its head and trailing off, that swells and fades as the sheen passes over it, so none blinks.
   float sx2 = x - uFlow * (0.55 + 0.45 * rr);
   float sh = 0.5 + 0.5 * sin(sx2 * 0.075 + 1.6 * sin(sx2 * 0.031 + y * 0.35) + y * 0.22);
   sh = sh * sh * (3.0 - 2.0 * sh);
-  c = mix(c, vec3(1.0), 0.11 * sh * rr * uShim / 0.5);
+  c = mix(c, fInk, 0.11 * sh * rr * uShim / 0.5);
   float ed = uDir < 0.0 ? 1.0 - e : e;   // the head leads the flow
   float along = smoothstep(0.0, 0.85, ed) * (1.0 - smoothstep(0.86, 1.0, ed));
   float acr = exp(-pow((y - yc) / (wy * (0.6 + 0.6 * ed)), 2.0));
-  c = mix(c, vec3(1.0), along * acr * smoothstep(0.15, 0.35, hk) * uShim * 0.6 * (0.45 + 0.75 * sh));
+  c = mix(c, fInk, along * acr * smoothstep(0.15, 0.35, hk) * uShim * 0.6 * (0.45 + 0.75 * sh));
   return c;
 }
 

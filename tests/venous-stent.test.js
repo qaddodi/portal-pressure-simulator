@@ -64,13 +64,14 @@ test('the Budd–Chiari "One open hepatic vein" slide stents the right hepatic v
 test('the figure unrolls and rolls back a stented vein on its own clock, and the presenter hands each slide its veins', () => {
   const stage = stageSource();
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(stage, /function meshPaths\(id, p, d0, d1, k = 1, ends = true\)/, 'one mesh for the TIPS and the veins');
+  assert.match(stage, /function meshPaths\(id, p, d0, d1, k = 1, ends = true, bare = 0\)/, 'one mesh for the TIPS and the veins');
   // (2 Nov 2026: the vein's mesh is built once and unrolled by its frames and a clip, on the GPU.)
   const move = stage.slice(stage.indexOf('function venousMove('), stage.indexOf('function venousTick('));
   assert.ok(move.length > 0 && !/meshPaths|s\('/.test(move), 'an unrolling stent builds nothing per frame');
   assert.match(move, /(?:live\.)?putA\(P\.front, 'transform'/, 'it moves the front');
-  assert.match(stage, /meshPaths\(id, p, d0, d1, 1, false\)/, 'the whole mesh, built once');
-  assert.match(stage, /putMark\(ov\.stents, `stent:\$\{id\}`, id, meshPaths\(id, p, 2, geo\[id\]\.len - 2\)\)/, 'the TIPS mesh is the whole drawn shunt, as before (now faded in and out)');
+  assert.match(stage, /meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole mesh, built once');
+  assert.match(stage, /putMark\(ov\.stents, `stent:\$\{id\}`, id, meshPaths\(id, p, 2, geo\[id\]\.len - 2\)\)/, 'the DIPS and the stent tool\'s shunts: the whole drawn shunt, faded in and out');
+  assert.match(stage, /if \(id === 'TIPS'\) return;/, 'the TIPS is the covered stent, unrolled with the veins\' (D4)');
   assert.match(stage, /venousSync\(p, t < 0\.5, key !== (?:live\.)?overlayKey\)/, 'followed on every overlay update');
   assert.match(stage, /(?:live\.)?easeInOut\(v\.k\)/, 'it eases, never snaps');
   assert.match(stage, /reduceMotion\.matches \? 1 : dt/, 'reduced motion takes it in one step');

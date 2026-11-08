@@ -17,11 +17,10 @@ test('the track is the tiles\' 6 px bar, drawn by the wrapper; the input\'s own 
 
 test('the thumb is a solid dot with a ring of the card\'s colour, centred on the 6 px track at any size', () => {
   const t = rule('input[type=range]::-webkit-slider-thumb {');
-  assert.match(t, /width: var\(--tw, 18px\); height: var\(--tw, 18px\)/);
-  assert.match(t, /background: var\(--accent\)/);
-  assert.match(t, /margin-top: calc\(3px - var\(--tw, 18px\) \/ 2\)/);
-  assert.match(t, /box-shadow: 0 0 0 3px var\(--surface\)/);
-  assert.match(css, /\.range-wrap \{ --tw: 22px; \}/, 'a bigger dot on a phone');
+  assert.match(t, /width: var\(--tw, 28px\); height: var\(--tw, 28px\)/, 'the dot\'s box: the dot and its ring');
+  assert.match(t, /background: radial-gradient\(circle, var\(--accent\) calc\(var\(--dot, 18px\) \/ 2 - \.5px\), var\(--surface\)/, 'the dot, then a ring of the card\'s colour, in the box');
+  assert.match(t, /margin-top: calc\(3px - var\(--tw, 28px\) \/ 2\)/);
+  assert.match(css, /\.range-wrap \{ --tw: 32px; --dot: 22px; \}/, 'a bigger dot on a phone');
 });
 
 test('a normal range is the tiles\' green band on the track, and that slider draws no fill', () => {
@@ -46,7 +45,7 @@ test('every slider paints its fill through paintRange, on its wrapper', () => {
 
 test('a finger on the track lands the thumb\'s centre there, whatever the thumb\'s size', () => {
   assert.match(util, /const th = dotWidth\(\);/, 'the dot\'s width: the stylesheet\'s own two media queries (slider-gl.js), no style read');
-  assert.ok(!/th = 22;/.test(util));
+  assert.ok(!/th = (22|32);/.test(util));
 });
 
 test('a slide\'s what-if: a ring where the slide started, no box, the track on its own line with its end words under its ends', () => {

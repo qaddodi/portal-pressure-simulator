@@ -3,10 +3,12 @@
 // of its fields is unchanged.
 //   visual: 'plane'      two readings on one plane with a guideline's zones (visual-plane.js), plane: 'csph' | 'hvpg-ppg' | {…}
 //   tool kind 'plane'    the same in the data card, read from the slide's case
+//   visual: 'allpatients'   every patient's HVPG over two years on one chart, with a key of three readings (visual-allpatients.js), cohort: [{ name, c, slides, pace? }]
 //   table column 'wave' (col-wave.js)
 
 import { planeVisual, createPlaneTool, toolPlane } from './visual-plane.js';
 import { waveColumn } from './col-wave.js';
+import { allPatientsVisual, warmAllPatients } from './visual-allpatients.js';
 
 // A plane's rows: the slide's `of`, as a table's (a slide id, { id, name }, or { preset, params?, days?, name } for a patient no
 // slide shows). A slide's row reads its state's numbers (redrawn as they come); a patient row is worked out once in the
@@ -60,6 +62,7 @@ export const planeTitle = (p) => (p ? `${word(p.x)} and ${lc(word(p.y))}` : 'Two
 export default {
   visuals: {
     plane: (s, ctx) => planeVisual(s, ctx, rowsFp),
+    allpatients: Object.assign((s, ctx) => allPatientsVisual(s, ctx), { warm: warmAllPatients }),
   },
   tools: {
     plane: { make: () => createPlaneTool(), title: (t) => planeTitle(toolPlane(t)), short: () => 'Two readings' },

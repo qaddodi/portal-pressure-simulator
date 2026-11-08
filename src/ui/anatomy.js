@@ -32,7 +32,7 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   'SIN_RL',
   // The stomach's own drainage into the coronary vein is modeled, not drawn: a branch across the
   // stomach body only cluttered the lesser curvature.
-  'V_STO',
+  'V_STO', 'V_STO_SG',
   // The caudate lobe veins are modeled but set aside in both views for now (the drawing, its
   // tributaries and Budd–Chiari collaterals are kept below for later).
   'CAUD']);
@@ -163,8 +163,12 @@ export const EDGE_PATH = {
   RHV_IVC: 'M500 246 C 545 240 590 232 616 206',
   MHV_IVC: 'M548 282 C 575 272 600 256 615 230',
   // (It meets the cava higher than the right hepatic vein, 21 units from its end. At 11 apart the two were joined as one vein
-  // and their round ends met across the cava in a bar.)
-  LHV_IVC: 'M690 232 C 668 232 650 219 630 191',
+  // and their round ends met across the cava in a bar: a join takes every end of a node within 20 units of another, vein-joins.js.)
+  // The left vein's end lies 3 units off the cava's axis, inside its wall at every caliber: it ended at 630 (10.5 off), which a clotted
+  // Budd–Chiari figure (thin veins, a narrower cava, wall 6.2) left outside the join's reach and outside the wall, a bare round cap
+  // short of the cava (8 Nov 2026). Its end keeps 20.5+ units from the cava's node (620, 166) and from the right vein's end
+  // (616, 206): tests/hepatic-vein-joins.test.js.
+  LHV_IVC: 'M690 232 C 668 232 648 217 623 186.5',
   IVC_IS: 'M620 650 L 620 166',
   IVCS_RA: 'M620 166 L 620 112',
   V_UP: 'M620 -40 L 620 40',

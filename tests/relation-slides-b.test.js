@@ -141,14 +141,14 @@ test('Gastric varices: closing the shunt flattens the fundal varix and grows the
   assert.ok(Math.abs(c.fp.varix - 2) < 0.05, 'the patient has no esophageal varix with the shunt open');
 });
 
-test('Encephalopathy: a wider stent lowers the PPG and takes liver flow; the HE index is past 1 at the ring, which is why the liver\'s flow is charted', async () => {
+test('Encephalopathy: a wider stent lowers the PPG and takes liver flow; the HE index stays inside its 0 to 1 tile at the ring (it used to pass 1; tests/he-index.test.js)', async () => {
   const c = await chartOf('encephalopathy');
   assert.equal(c.t.lines.join(), 'ppg,liver');
   assert.ok(ys(c, 0).every((y, i, a) => !i || y < a[i - 1]) && ys(c, 1).every((y, i, a) => !i || y < a[i - 1]), 'both fall at every millimeter');
   assert.equal(xs(c).at(-1) - xs(c)[0], 6);
   near(c.fp.ppg, 9.2, 0.05, 'the 8 mm stent\'s PPG'); assert.ok(c.fp.ppg < 12, 'under the 12 mmHg target');
   near(c.ring.ys[0], at(c, 8, 0), 0.05, 'the ring is the 8 mm point');
-  assert.ok(c.fp.he > 1, `the HE index ${c.fp.he} is past its 0 to 1 tile: the chart reads the liver's flow instead; revisit when the index is fixed`);
+  assert.ok(c.fp.he > 0.45 && c.fp.he < 1, `the HE index ${c.fp.he} is High and inside its 0 to 1 tile`);
 });
 
 test('TIPS Doppler: the PPG passes 12 mmHg at about a third narrowed, the portal vein drops under 30 cm/s at about half; the ring is 60%', async () => {

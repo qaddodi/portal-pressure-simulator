@@ -16,6 +16,7 @@
 // only at junctions.
 
 import { lumenSurface, lumenAt } from './stomach-lumen.js';
+import { D_SURFACE, smooth01 } from './motion.js';
 
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;
@@ -177,12 +178,15 @@ function advanceKept(st, opts) {
   return st;
 }
 /**
- * How far a stream's stagnant blood (its smoke) has drifted, in shimmer cells: stasis × 0.06 cells a second, added up
+ * How far a stream's stagnant blood (its smoke) has drifted, in shimmer cells: stasis × DRIFT_RATE cells a second, added up
  * frame by frame and wrapped at the noise's 50-cell period (seamless). A change in stasis changes only the drift's speed;
  * as stasis × clock it moved the whole pattern by Δstasis × clock, further the longer the app had run (round 2 review, B1).
  */
 export const DRIFT_PERIOD = 50;
-export const drift = (st, dt) => ((st.drift || 0) + st.stasis * dt * 0.06) % DRIFT_PERIOD;
+// (Cells a second at full stasis: 0.06 until 8 Nov 2026, slowed to 0.04 when the smoke was given a swirl and a little more body, visual-style B6.
+// The GPU's flowDrift, the stage's anchors and the lobule's smoke all take it from here.)
+export const DRIFT_RATE = 0.04;
+export const drift = (st, dt) => ((st.drift || 0) + st.stasis * dt * DRIFT_RATE) % DRIFT_PERIOD;
 /**
  * Reduced motion: still chevrons spaced by flow. The spacing level (0–3, continuous) for a flow q (mL/s, either way): 0, the
  * finest spacing, from 0.8 L/min; each halving of the flow doubles the spacing, up to 3 (eight times as far apart).
@@ -250,6 +254,23 @@ const SOURCE = { A_SMA: 0, A_LGA: 0, A_IMA: 1, A_SPL: 2, A_HEP: 3 };
 /** Named sources (the rest is systemic): the channels of originFractions. */
 export const ORIGIN_N = 4;
 
+// ── First pass ─────────────────────────────────────
+// The first-pass lens (colorMode 'firstpass') runs the same network pass with other channels: 0 gut blood that has not been through the
+// liver, 1 gut blood the sinusoids have cleaned, 2 unused, 3 the hepatic artery's, the rest systemic. Every gut artery names channel 0;
+// the blood leaving a sinusoid (liver edge, zone 'sin') moves from 0 to 1, so blood that reaches the cava by a collateral, a shunt or a
+// stent keeps channel 0. It is the path the blood took, not a clearance: no ammonia, no extraction fraction (the key says so).
+// Colours follow the shader's originCol slots: 0 raw, 1 cleared, 2 (unused), 3 artery, 4 systemic.
+export const FIRSTPASS = [
+  ['raw', 'Gut blood, not yet through the liver', 'Raw', 'Gut blood that has not passed the sinusoids: it keeps this color in a collateral, a shunt or a stent'],
+  ['clear', 'Gut blood cleared by the liver', 'Clear', 'Gut blood after the sinusoids'],
+  ['artery', 'Hepatic artery', 'HA', 'Arterial blood through the liver'],
+  ['systemic', 'Systemic', 'Sys', 'Blood from the rest of the body'],
+];
+const SOURCE_PASS = { A_SMA: 0, A_LGA: 0, A_IMA: 0, A_SPL: 0, A_HEP: 3 };
+let SRC = SOURCE, PASS = false;   // (the table and the lens of the call being worked: set at the top of originFractionsInto)
+/** Whether the blood leaving edge `e` has been through the sinusoids (the first-pass lens). */
+const cleans = (e) => e.kind === 'liver' && e.zone === 'sin';
+
 // Scratch the network passes below write over, kept from call to call (2 Nov 2026, scripts/off-gpu-scan.mjs alloc: a Map, arrays and
 // typed arrays made for every model frame). Plain arrays grow by being written past their end, so none is ever sized or remade; a number
 // held as a Float32Array's is rounded with Math.fround where it is stored, the same value the typed array gave.
@@ -296,7 +317,7 @@ const O_NODE = [], O_W = [], O_C = [], O_SUM = [];
 for (let i = 0; i < ORIGIN_N; i++) { O_C.push(0); O_SUM.push(0); }
 /** O_C: the blend of edge k's blood: the named source of a source artery, else its upstream node's. */
 function blendOf(edges, Q, k) {
-  const N = ORIGIN_N, s = SOURCE[edges[k].id];
+  const N = ORIGIN_N, s = SRC[edges[k].id];
   if (s != null) { for (let i = 0; i < N; i++) O_C[i] = i === s ? 1 : 0; return; }
   const n = Q[k] >= 0 ? EF[k] : ET[k];
   for (let i = 0; i < N; i++) O_C[i] = O_NODE[n * N + i];
@@ -307,8 +328,10 @@ function blendOf(edges, Q, k) {
  * artery (the rest is systemic), written into `out` (a Float32Array of ORIGIN_N × edges, which it returns). Nodes are
  * visited from high pressure to low, the order blood flows in, so one pass mixes every junction from its already-mixed
  * inflows. Allocates nothing: a caller that reads it every frame keeps its own `out`.
+ * `pass`: the first-pass lens's channels instead (FIRSTPASS above).
  */
-export function originFractionsInto(edges, nodes, Q, P, out, ends) {
+export function originFractionsInto(edges, nodes, Q, P, out, ends, pass = false) {
+  SRC = pass ? SOURCE_PASS : SOURCE; PASS = !!pass;
   const N = ORIGIN_N, NI = nodeIndex(nodes), nn = nodes.length, ne = edges.length;
   for (let k = 0; k < ne; k++) { EF[k] = NI.get(edges[k].from); ET[k] = NI.get(edges[k].to); }
   inflowLists(edges, nn, Q);
@@ -319,7 +342,7 @@ export function originFractionsInto(edges, nodes, Q, P, out, ends) {
     const n = ORDER[x];
     let w = 0;
     for (let i = 0; i < N; i++) sum[i] = 0;
-    for (let p = IN_AT[n]; p < IN_AT[n + 1]; p++) { const k = IN_LIST[p], q = Math.abs(Q[k]); blendOf(edges, Q, k); w += q; for (let i = 0; i < N; i++) sum[i] += q * c[i]; }
+    for (let p = IN_AT[n]; p < IN_AT[n + 1]; p++) { const k = IN_LIST[p], q = Math.abs(Q[k]); blendOf(edges, Q, k); if (PASS && cleans(edges[k])) { c[1] += c[0]; c[0] = 0; } w += q; for (let i = 0; i < N; i++) sum[i] += q * c[i]; }
     O_W[n] = w;
     if (w > 0) for (let i = 0; i < N; i++) node[n * N + i] = Math.fround(sum[i] / w);
   }
@@ -338,19 +361,34 @@ export function originFractionsInto(edges, nodes, Q, P, out, ends) {
  * blood all along. A vessel whose flow never runs back (slosh 0) has Pe in the thousands and is drawn as before.
  * ends = { slosh (per edge: the flow that runs back and forth, L/min, ≥ 0), down (ORIGIN_N × edges, written: the downstream
  * junction's blend, already eased toward the upstream one as Pe grows), pe (per edge, written: Pe signed by the flow's direction
- * from→to; 0 for one blood all along) }. The shader (veins-gl originAt) draws the profile from these.
+ * from→to; 0 for one blood all along), join (optional, per edge: where along it, 0 to 1 from its upstream end, a side-hosted shunt runs
+ * into it, 0 for none) }. The shader (veins-gl originAt) draws the profile from these.
+ * A vein that a shunt is drawn into part-way (stage-geo.js SIDE_HOSTS: the splenorenal shunt into the left renal vein's venules, V_KID_L,
+ * whose model end is the node further on) carries the blend of its downstream node from the join on: pe = 10 + join, a step at the join
+ * in the shader, instead of the kidney's blood to the node and the shunt's only after it (the renal vein stayed slate blue past the join, 8 Nov 2026).
  */
 // (Pe at which the downstream blend starts to fade out, and is gone: the vessel is one blood. Below 2 more blood runs to and fro than
 // passes; by 6 a vessel is one-way but for a beat's reflux, as the hepatic veins' a wave (Pe 6–9 in cirrhosis), which stays one blood.)
 export const ORIGIN_PE_FADE = [2, 6];
 function originEnds(edges, Q, ends, out) {
-  const N = ORIGIN_N, ne = edges.length, { slosh, down, pe } = ends, [p0, p1] = ORIGIN_PE_FADE;
+  const N = ORIGIN_N, ne = edges.length, { slosh, down, pe, join } = ends, [p0, p1] = ORIGIN_PE_FADE;
   for (let k = 0; k < ne; k++) {
     pe[k] = 0;
     for (let i = 0; i < N; i++) down[k * N + i] = out[k * N + i];
-    if (edges[k].kind === 'wedge' || SOURCE[edges[k].id] != null) continue;
+    if (edges[k].kind === 'wedge' || SRC[edges[k].id] != null) continue;
+    if (PASS && cleans(edges[k])) {
+      // (A sinusoid cleans its gut blood along its length: raw at the inlet, cleared at the outlet, a straight blend between (a Pe near 0).)
+      const raw = out[k * N];
+      if (raw > 1e-4) { down[k * N + 1] = Math.fround(out[k * N + 1] + raw); down[k * N] = 0; pe[k] = Q[k] >= 0 ? 0.01 : -0.01; }
+      continue;
+    }
     const fwd = Q[k] >= 0, u = fwd ? EF[k] : ET[k], d = fwd ? ET[k] : EF[k];
     if (!(u >= 0) || !(d >= 0) || !(O_W[u] > 0) || !(O_W[d] > 0)) continue;
+    if (join && join[k] > 0 && Q[k] > 0) {
+      let diff = 0;
+      for (let i = 0; i < N; i++) { const v = O_NODE[d * N + i]; down[k * N + i] = v; diff += Math.abs(v - out[k * N + i]); }
+      if (diff > 1e-4) { pe[k] = Math.fround(10 + join[k]); continue; }
+    }
     const P = Math.abs(Q[k]) / (Math.max(0, slosh[k] || 0) + 1e-3);
     if (P >= p1) continue;
     const t = P <= p0 ? 0 : (P - p0) / (p1 - p0), keep = 1 - t * t * (3 - 2 * t);
@@ -363,8 +401,8 @@ function originEnds(edges, Q, ends, out) {
   }
 }
 /** originFractionsInto into a new Float32Array. */
-export function originFractions(edges, nodes, Q, P) {
-  return originFractionsInto(edges, nodes, Q, P, new Float32Array(edges.length * ORIGIN_N));
+export function originFractions(edges, nodes, Q, P, pass = false) {
+  return originFractionsInto(edges, nodes, Q, P, new Float32Array(edges.length * ORIGIN_N), undefined, pass);
 }
 
 // ── Oxygen ─────────────────────────────────────────
@@ -655,11 +693,11 @@ export const HIDDEN_SECONDS = HIDDEN_S;
 // (x1, y1) the pool's surface, r0 its radius, r1 how far it breaks into drops (0..1).
 // A bleed's pool and stream come and go over BLEED_FADE seconds (never in one frame): the share shown steps toward 1 while
 // the bleed runs and toward 0 once it stops (Reduce Motion: at once), and every shape's alpha is scaled by its eased value.
-export const BLEED_FADE = 0.5;
+export const BLEED_FADE = D_SURFACE / 1000;
 export const stepBleedFade = (a, on, dt, instant = false) => (instant ? (on ? 1 : 0) : on ? Math.min(1, a + dt / BLEED_FADE) : Math.max(0, a - dt / BLEED_FADE));
 export const fadeBleedShapes = (shapes, a) => {
   if (a >= 1) return shapes;
-  const k = a <= 0 ? 0 : a * a * (3 - 2 * a);
+  const k = smooth01(a);
   return k ? shapes.map((sh) => { const o = sh.slice(); o[6] *= k; return o; }) : [];
 };
 const NO_SHAPES = [];   // (fadeBleedShapesInto's answer for a bleed faded out: empty, never written)
@@ -669,7 +707,7 @@ const NO_SHAPES = [];   // (fadeBleedShapesInto's answer for a bleed faded out: 
  */
 export const fadeBleedShapesInto = (out, shapes, a) => {
   if (a >= 1) return shapes;
-  const k = a <= 0 ? 0 : a * a * (3 - 2 * a);
+  const k = smooth01(a);
   if (!k) return NO_SHAPES;
   for (let i = 0; i < shapes.length; i++) {
     const sh = shapes[i], o = out[i];

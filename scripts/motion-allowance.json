@@ -1,4 +1,8 @@
 {
- "note": "Lines in styles/*.css that set a transition or animation without a --d-* duration token (PR-22). The number only goes down: node scripts/rules-lint.mjs --tighten lowers it to today's count. Convert a line to var(--d-flip|small|surface|camera) and var(--ease-*), or mark a teaching scene with an own-pace comment and a --dur token.",
- "bareDurations": 17
+ "note": "Lines in styles/*.css that set a transition or animation without a --d-* duration token (PR-22). The number only goes down: node scripts/rules-lint.mjs --tighten lowers it to today's count. Convert a line to var(--d-flip|small|surface|camera) and var(--ease-*), or mark a teaching scene with an own-pace comment and a --dur token. gpuConstants: by file, the *_MS / *_DUR constants in a file that imports frameFor with neither a motion.js/ease.js token nor a motion-scale marker (tests/motion-scale.test.js); only the labels thread's files are left, to be marked or tokened in its push, and the number only goes down.",
+ "bareDurations": 17,
+ "gpuConstants": {
+  "src/ui/label-gl.js": 1,
+  "src/ui/stage-labels.js": 1
+ }
 }

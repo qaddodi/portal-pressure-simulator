@@ -44,10 +44,10 @@ import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js';
 import { NODES, EDGES } from '../engine/topology.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js';
-import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js';
+import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, frame, framePart, easeNow, inMotion, PACED } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, framePart, easeNow, inMotion } from './frame.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { createResCover, coverFollowInto } from './res-cover-gl.js';
@@ -55,16 +55,17 @@ import { leaderEnd, leaderEndRects, runInside } from './leader-end.js';
 import { LIGHT } from './light.js';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js';
 import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
-import { easeMove, carryRate, carried, createGlideTracker, cubicBezier, D_SMALL, D_SURFACE } from './ease.js';
+import { easeMove, carryRate, carried, createGlideTracker, cubicBezier, lobuleMs, LOBULE_MS_MAX, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
 import { camThen, camSet, camId, camAbout, cams } from './scene-cam.js';
 import { lerpInto } from './cam-arc.js';
+import { createWheelGlide, isPadWheel } from './wheel-glide.js';
 import { createCaptions, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } from './label-captions.js';
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
 import { overlapLRTB, discInto, needsLeader, SHORT_LEAD, LONG_LEAD } from './label-place.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, createReversible, smooth01 } from './motion.js';
 import { darkMQ } from './look.js';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -162,13 +163,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // whose numbers the picture draws as they stand; a change to one asks for a frame of the picture.
   const leadersBox = h('div', { class: 'lz-leaders svg-gl-box', 'aria-hidden': 'true' });
   const leaders = svgModel('svg', { 'data-look': 'small.root', viewBox: '0 0 1 1', preserveAspectRatio: 'none' });
-  const leadGL = createSvgGL(leadersBox, { host: 'lobule' });
+  const leadGL = createSvgGL(leadersBox, { host: 'lobule', follows: true });
   const leadPaint = () => leadGL.paint();
   leadGL.cv.setAttribute('aria-hidden', 'true'); leadGL.cv.removeAttribute('role');
   leadGL.show(leaders, false);
   // (With label-gl drawing the leaders and dots (cap-lead), this layer shows only a slide's pointer: with none up it draws nothing, so a zoom's
   // frames never clear and hand over a full-screen picture of hidden lines. See svg-gl.js g.skip.)
-  leadGL.skip = () => leadersBox.classList.contains('cap-lead') && !classHas(callRing, 'on');
+  // (Nor while the lobule is shut (fade 0): a slide's class change, the captions' presented/lost and the glasses' holes each asked this
+  // full-screen layer for a frame through a pan of the figure, a picture no one could see (8 Nov 2026, svg-gl through a pan, 30 fps at best).
+  // The lobule's first frame back paints it again: setFade.)
+  leadGL.skip = () => fade <= 0 || (leadersBox.classList.contains('cap-lead') && !classHas(callRing, 'on'));
   if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
   // (What a slide lights is a class on the app: the leaders' looks are read again when it changes.)
   { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => { syncDim(); leadGL.relook(); mirrorAll(); }).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
@@ -344,6 +348,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Zooming out past the framing stretches with resistance (as the anatomy's pinch-out does: softK, a 0.3 power) and
   // glides back to the framing once the gesture ends. rawK is the unresisted scale while stretched, 0 when not.
   let rawK = 0, stretchT = 0;
+  // The zoom-in limit stretches the same way (item 11): a pinch past kFit × KMAX goes on at the 0.3 power of what it asked for (the anatomy's
+  // softK), up to HI_RAW times the limit asked, and glides back to the limit when the pinch ends. rawHi: the unresisted scale while stretched,
+  // 0 when not; hiX, hiY: the pinch's point, which the spring-back keeps in place. A notch of the wheel, a double click and the buttons stop at the limit.
+  const HI_RAW = 4;
+  let rawHi = 0, hiX = 0, hiY = 0;
   function stretchBy(px, py, f) {
     if (!geo) return;
     if (!rawK) rawK = kFit;
@@ -360,7 +369,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (The stretch's and the rubber band's spring-backs, each one timer, asked again (and re-armed while the wheel is not yet quiet) here.)
   function stretchSoon(ms) { clearTimeout(stretchT); stretchT = setTimeout(endStretch, ms); }
   function rubberSoon(ms) { clearTimeout(rubberT); rubberT = setTimeout(rubberEnd, ms); }
-  function endStretch() { if (!rawK) return; if (!wheelQuiet()) { stretchSoon(120); return; } rawK = 0; rubber = false; glideTo(fitV(), 380); atFit = true; }
+  function endStretch() { if (!rawK && !rawHi) return; if (!wheelQuiet()) { stretchSoon(120); return; } if (rawHi) { springHi(); return; } rawK = 0; rubber = false; glideTo(fitV(), LOBULE_MS_MAX, false, null, 'inOut', false, true); atFit = true; }
   function clampV() {
     if (!geo || rubber) return;
     const F0 = fitInto(fitC);
@@ -391,11 +400,32 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       done: () => { cancelFlick = null; },
     });
   }
-  function zoomAround(px, py, factor) {
+  function zoomAround(px, py, factor, soft = false) {
     stopInertia();
+    if (soft && geo) {   // (a pinch: past the zoom-in limit the view stretches and springs back when the pinch ends)
+      const kMax = kFit * KMAX, raw = (rawHi || V.k) * factor;
+      if (raw > kMax * 1.0001) {
+        rawHi = Math.min(raw, kMax * HI_RAW); hiX = px; hiY = py;
+        const kS = kMax * Math.pow(rawHi / kMax, 0.3), rS = kS / V.k;
+        V.x = px - (px - V.x) * rS; V.y = py - (py - V.y) * rS; V.k = kS; atFit = false; viewChanged();
+        return;
+      }
+      if (rawHi) { rawHi = 0; factor = raw / V.k; }   // (back inside the limit: the view takes the pinch's own scale)
+    }
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     V.x = px - (px - V.x) * r; V.y = py - (py - V.y) * r; V.k = k;
     clampV(); viewChanged();
+  }
+  // The stretch past the zoom-in limit lets go: the view glides back to the limit about the pinch's point.
+  function springHi() {
+    clearTimeout(stretchT);
+    if (!rawHi) return;
+    rawHi = 0;
+    if (!geo) return;
+    const kMax = kFit * KMAX, r = kMax / V.k, saved = { ...V };   // alloc-rare: once as a pinch lets go
+    Object.assign(V, { k: kMax, x: hiX - (hiX - V.x) * r, y: hiY - (hiY - V.y) * r }); clampV();
+    const to = { ...V }; Object.assign(V, saved);
+    glideTo(to, LOBULE_MS_MAX, false, null, 'inOut', false, true);
   }
   // A short glide between framings (the buttons, Fit, a card opening).
   let glide = 0, gliding = false;
@@ -406,13 +436,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // the glide back a little instead of carrying it part of the way at once.)
   // (The in-out glide on the stage camera's curve, the quintic: ease.js, combined plan M2.)
   const glideTrack = createGlideTracker();   // (a glide's last frames: its speed per ms, so another begun on it carries that on, ease.js)
-  function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut', steady = false) {
+  function glideTo(to, ms = 260, cam = false, aim = null, ease = 'inOut', steady = false, reach = false) {
     stopInertia();
     const v0 = gliding && ease !== 'in' ? glideTrack.take(performance.now()) : null;
     glideTrack.begin();
     cancelFrame(glide); gliding = false;
     camAim = aim;   // (any other glide, or a hand on the lobule, replaces the presenter's)
     const from = { ...V }, t0 = performance.now();   // alloc-rare: once as a glide begins (a button, a station, a resize), kept by its frames
+    // (reach: the time its reach on the lobule's own view needs (ease.js lobuleMs: 480 ms up to half a screen, then in proportion), the `ms` given
+    // acting as the ceiling, so a step between two nearby zones is quick and a long dive takes its 1.5 s. The way out to the rise ('in') keeps its time.)
+    if (reach && ease !== 'in') ms = Math.min(ms, lobuleMs(from, to, Math.max(1, snap.w)));
     // (Lite mode: the presenter's camera jumps, and the lobule fades in at its new framing.)
     if (reduce.matches || !fade) { camAim = null; Object.assign(V, to); viewChanged(); return; }
     // A presenter's glide carries the labels, leaders and dots with the figure (ride, as every other glide does), and they are placed
@@ -430,6 +463,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     gliding = true;
     glide = nextFrame(step);
   }
+  // (The wheel's notches glide here too, and give up whatever they owed to a button, a press or a glide that takes the view over.)
   function zoomBy(factor) {
     if (!geo) return;
     if (sinTo) return;   // in the sinusoid: only the view switch goes back up to the lobule
@@ -439,7 +473,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const k = clamp(V.k * factor, kFit, kFit * KMAX), r = k / V.k;
     const to = { k, x: px - (px - V.x) * r, y: py - (py - V.y) * r };
     const saved = { ...V }; Object.assign(V, to); clampV(); const target = { ...V }; Object.assign(V, saved);
-    glideTo(target);
+    glideTo(target, LOBULE_MS_MAX, false, null, 'inOut', false, true);
   }
   // When the free space changes (a card opens, the readouts expand), a fitted lobule follows it.
   let refitLater = false;
@@ -467,9 +501,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (fade <= 0 && !store.get().lobule) { snap.cardKey = '~'; return; }
     if (!occT) occT = restPass(onOcc);
   });
-  // A new text size: the labels glide to their new places instead of jumping.
-  let easeT = 0;
-  addEventListener('pps:labelscale', () => { measureShown(); classSoon(labels, 'lz-ease', true); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
+  // A new text size: the labels are laid out again at it, each at its new place in that frame (the GPU's names never glide: V-LBL-1).
+  addEventListener('pps:labelscale', () => { measureShown(); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
   // (viewBumps: the bumps of drawVersion that only moved the camera: the model's own, drawVersion less these, is what the surface pass
   // in drawGL waits for when the model is paused.)
@@ -516,16 +549,16 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function centreOn(w) {
     const f = freeRect(), saved = { ...V };
     Object.assign(V, { k: V.k, x: (f.l + f.r) / 2 - w[0] * V.k, y: (f.t + f.b) / 2 - w[1] * V.k }); clampV();
-    const to = { ...V }; Object.assign(V, saved); glideTo(to, 380);
+    const to = { ...V }; Object.assign(V, saved); glideTo(to, LOBULE_MS_MAX, false, null, 'inOut', false, true);
   }
   // (Not while the dive is still on its way in or out: a glide begun on its first frames re-staged or popped the framing at landing.)
-  function fitView() { if (sinTo || fade < 0.98 || diveScaled) return; handsOff(); atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0); }
+  function fitView() { if (sinTo || fade < 0.98 || diveScaled) return; handsOff(); atFit = true; const F0 = fitV(); kFit = F0.k; glideTo(F0, LOBULE_MS_MAX, false, null, 'inOut', false, true); }
   // A button (Fit, + or −) wins over the scroll that was under way when it was pressed: a Mac trackpad's momentum goes on
   // for a second or more after the fingers lift, and each of its events cancelled the button's glide (Fit did nothing).
   // That scroll is ignored until it stops; a stretch or rubber band it left springs back as part of the glide.
   function handsOff() {
     if (performance.now() - wheelAt < 250) wheelMute = true;
-    clearTimeout(rubberT); clearTimeout(stretchT); rubber = false; rawK = 0;
+    clearTimeout(rubberT); clearTimeout(stretchT); rubber = false; rawK = 0; rawHi = 0; wheelGlide.cancel();
   }
 
   // ── Gestures: wheel and pinch zoom, drag pans, a tap selects; out past 1× returns to the liver ──
@@ -537,14 +570,28 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // lobule out to its framing between two of the pinch's events, and the next one zoomed it in again, the zoom flickering in and out
   // (4 Nov 2026, Mohammad). A gesture's own 250 ms window counts the same way: a slow frame never ends a pinch.)
   const wheelQuiet = (ms = 200) => performance.now() - wheelAt >= ms && frameCount() - wheelFrame >= 2;
-  const rubberEnd = () => { rubberT = 0; if (!rubber) return; if (!wheelQuiet()) { rubberSoon(120); return; } rubber = false; const G0 = fitV(); glideTo(G0, 380); atFit = true; };   // (the wheel's rubber band lets go: springs back)
+  const rubberEnd = () => { rubberT = 0; if (!rubber) return; if (!wheelQuiet()) { rubberSoon(120); return; } rubber = false; const G0 = fitV(); glideTo(G0, LOBULE_MS_MAX, false, null, 'inOut', false, true); atFit = true; };   // (the wheel's rubber band lets go: springs back)
+  // One step of the wheel's zoom about (px, py), by the factor f: a zoom-out at the framing stretches and springs back, a zoom-in goes to the limit
+  // (a pinch stretches past it); called for each wheel event, and for each frame of a notch's glide.
+  function wheelZoomStep(px, py, f, pinchy = false) {
+    // (A two-finger drift at the framing that began a pad scroll leaves its rubber band and its 220 ms spring-back pending: a pinch that follows
+    // must end it here, or the spring-back glided the lobule to the framing in the middle of the zoom, then the pinch carried on.)
+    if (rubber && !rawK) { clearTimeout(rubberT); rubberT = 0; rubber = false; }
+    if (V.k <= kFit * 1.001 && f < 1) {
+      stretchBy(px, py, f); stretchSoon(220); return;   // a zoom-out at its framing stretches and springs back
+    }
+    if (rawK && f > 1) { stretchBy(px, py, f); stretchSoon(220); return; }
+    zoomAround(px, py, f, pinchy);
+    if (rawHi) stretchSoon(220);
+  }
+  const wheelGlide = createWheelGlide({ ask: nextFrame, cancel: cancelFrame, apply: (d, x, y) => wheelZoomStep(x, y, Math.exp(d)) });
   el.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (wheelMute) { const now = performance.now(); if (now - wheelAt < 250) { wheelAt = now; return; } wheelMute = false; }
     stopInertia();
     cancelFrame(glide); gliding = false;   // a button's glide never fights the hand
     const u = ev.deltaMode === 1 ? 16 : ev.deltaMode === 2 ? snap.h : 1, dx = ev.deltaX * u, dy = ev.deltaY * u, now = performance.now();
-    if (wheelQuiet(250)) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : ev.deltaMode === 0 && (dx !== 0 || ev.wheelDeltaY == null || Math.abs(Math.abs(ev.wheelDeltaY) - Math.abs(ev.deltaY) * 3) < 1) ? 'pad' : 'wheel';
+    if (wheelQuiet(250)) wheelKind = ev.ctrlKey || ev.metaKey ? 'pinch' : isPadWheel(ev) ? 'pad' : 'wheel';
     wheelAt = now; wheelFrame = frameCount();
     if (wheelKind === 'pad' && !ev.ctrlKey && !ev.metaKey) {
       if (V.k <= kFit * 1.001 && geo) {   // at its framing the lobule follows the scroll on a rubber band, and springs back when it stops
@@ -561,14 +608,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     const f = ev.ctrlKey || ev.metaKey ? Math.exp(-clamp(dy, -50, 50) * 0.01) : Math.exp(-clamp(dy, -120, 120) * 0.0015);
     const px = localX(ev), py = localY(ev);
-    // (A two-finger drift at the framing that began a pad scroll leaves its rubber band and its 220 ms spring-back pending: a pinch that follows
-    // must end it here, or the spring-back glided the lobule to the framing in the middle of the zoom, then the pinch carried on.)
-    if (rubber && !rawK) { clearTimeout(rubberT); rubberT = 0; rubber = false; }
-    if (V.k <= kFit * 1.001 && f < 1) {
-      stretchBy(px, py, f); stretchSoon(220); return;   // a zoom-out at its framing stretches and springs back
-    }
-    if (rawK && f > 1) { stretchBy(px, py, f); stretchSoon(220); return; }
-    zoomAround(px, py, f);
+    // (A mouse wheel's notch glides (wheel-glide.js), carrying the speed of the one before; a trackpad's pinch is direct, and stretches past the zoom-in limit.)
+    if (wheelKind === 'wheel' && !reduce.matches && !ev.ctrlKey && !ev.metaKey) { wheelGlide.push(Math.log(f), px, py, now); return; }
+    wheelZoomStep(px, py, f, wheelKind === 'pinch' || ev.ctrlKey || ev.metaKey);
   }, { passive: false });
   const touches = new Map();
   let pinch = null, down = null, drag = null;
@@ -594,7 +636,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     stopInertia();
     if (ev.isPrimary) touches.clear();
     touches.set(ev.pointerId, local(ev));   // (one [x, y] a finger, kept and moved in place while it is down)
-    cancelFrame(glide); gliding = false;
+    cancelFrame(glide); gliding = false; wheelGlide.cancel();
     // Captured, so a drag keeps going over the labels, the card or past the edge.
     try { el.setPointerCapture(ev.pointerId); } catch (e) { caught('lobule-zoom:527', e); /* gone */ }
     if (touches.size === 2) {
@@ -617,7 +659,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           stretchBy(mx, my, d / dl);
           return;
         }
-        zoomAround(mx, my, (pinch.k * d / pinch.d) / V.k);
+        zoomAround(mx, my, (pinch.k * d / pinch.d) / (rawHi || V.k), true);
       } else if (touches.size === 1 && drag && (ev.buttons || ev.pointerType !== 'mouse')) {
         const dp = drag.p;
         if (down && Math.hypot(ev.clientX - down.x, ev.clientY - down.y) < 8) return;
@@ -647,11 +689,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const finished = drag;
     down = null;
     if (touches.size < 2) pinch = null;
-    if (!touches.size) { rubber = false; rawK = 0; }
-    if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) + Math.abs(V.k - F0.k) * 100 > 0.5) { glideTo(F0, 380); atFit = true; } }
+    const sprung = !touches.size && rawHi > 0;   // (a stretch past the zoom-in limit lets go: its glide back is the lobule's move, not a flick's)
+    if (!touches.size) { rubber = false; rawK = 0; if (rawHi) springHi(); }
+    if (!touches.size && geo && V.k <= kFit * 1.001) { const F0 = fitV(); if (Math.abs(V.x - F0.x) + Math.abs(V.y - F0.y) + Math.abs(V.k - F0.k) * 100 > 0.5) { glideTo(F0, LOBULE_MS_MAX, false, null, 'inOut', false, true); atFit = true; } }
     if (ev.type === 'pointerup' && !touches.size && finished) {   // every pointer type flicks the same way
       const n = trN, ia = trI, ib = (trI + n - 1) & TR_MASK, dt = trT[ib] - trT[ia];
-      if (n >= 3 && dt >= 30 && performance.now() - trT[ib] < 50 && V.k > kFit * 1.001) {
+      if (n >= 3 && dt >= 30 && performance.now() - trT[ib] < 50 && V.k > kFit * 1.001 && !sprung) {
         const vx = (trX[ib] - trX[ia]) / dt, vy = (trY[ib] - trY[ia]) / dt;
         const cap = Math.min(1, 2 / (Math.hypot(vx, vy) || 1));
         fling(vx * cap, vy * cap);
@@ -734,19 +777,21 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // A new patient (or any change to the tissue's state) crossfades into the lobule instead of snapping: the bitmap it replaces
   // is kept (worldOld, swapped rather than copied) and laid under the new one as it fades in, and the surround's tiles the
   // same way. Both pictures stay sharp throughout; the fade only adds one image draw a frame while it runs.
-  const XF_MS = 900;   // as long as the vessels' calibers take to settle (easeRadii, τ 0.3 s)
+  const XF_MS = 900;   // as long as the vessels' calibers take to settle (easeRadii, τ 0.3 s)   // motion-scale: own pace (as long as the calibers take to settle)
   let worldOld = noPicture(), worldOldSc = 0, worldState = '', xfT0 = 0, surNow = null, surOld = null, surT0 = 0;
-  const xfU = (t0, now) => { const u = Math.min(1, Math.max(0, (now - t0) / XF_MS)); return u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2; };
-  // (The crossfades run on the eases' clock, frame.js easeNow: a long frame as a new picture comes in, its texture going up, holds the fade
-  // back rather than eating its first half. ?paced=0: the wall clock, as before.)
-  const xfNow = (now) => (PACED ? easeNow() : now);
+  const xfU = (t0, now) => { const u = Math.min(1, Math.max(0, (now - t0) / XF_MS)); return easeMove(u); };
+  // (The crossfades run on the honest wall clock, frame.js easeNow: one time per frame, never held back (motion.js, the clock rule). A long
+  // frame as a new picture comes in, its texture going up, shows the fade where the wall clock puts it.)
+  const xfNow = () => easeNow();
   const tissueFading = (now = performance.now()) => { const n = xfNow(now); return (xfT0 > 0 && n - xfT0 < XF_MS) || (surT0 > 0 && n - surT0 < XF_MS); };
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
   // The vessel attributes as last sent (tubeShown), the rows changed since the vessel layer was drawn (glRows), and the
   // look it was drawn with (glLook): a redraw of only those rows' cells stands in for a whole one (veins-gl drawRows).
   let tubeShown = null, glLook = '';
   const glRows = new Set();
-  let clock = 0, origins = null, originsF = null;
+  let clock = 0, origins = null, originsF = null, originsPass = false;
+  // (The First pass lens: the sinusoid cleans along its length, so its row carries the blend at its outlet and a Pe near 0 (blood.js originEnds).)
+  const lobEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length) };
   const pc = (p) => (model?.hide ? tk('--lz-lumen-hidden') : pressureColor(p));
 
   // One GPU context for the figure (4 Nov 2026, Mohammad: "everything on one GPU context"): the lobule's vessels, tissue, overlay and field are
@@ -931,7 +976,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // held in the render graph's budget (gpu-budget.js): while the graph is over its memory envelope it is given back whole, and the next
   // dive builds it again, as its first ever did. Never while the lobule is open.
   let keptH = null, keptT = 0;
-  const KEPT_MS = 90000;   // (how long out of the lobule before the bitmaps it kept are given back)
+  const KEPT_MS = 90000;   // motion-scale: not a move (how long bitmaps are kept); (how long out of the lobule before the bitmaps it kept are given back)
   function keptHold() {   // alloc-rare: once per close of the lobule
     if (keptH?.held) { keptH.touch(); return; }
     keptH = hold({ owner: 'lobule kept', kind: 'retained', bytes: () => ownerBytes('lz-canvas'), release: keptRelease });
@@ -1213,11 +1258,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     cancelFrame(easeRaf);
     if (eased.moving || since.moving) easeRaf = nextFrame(glideP);
     model.inks = readInks(styles());
-    if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
+    if (originOn() && (originsF !== f || originsPass !== passOn())) { originsPass = passOn(); origins = originFractionsInto(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P, origins || new Float32Array(EDGES.length * ORIGIN_N), originsPass ? lobEnds : undefined, originsPass); originsF = f; }
     panel();
     if (!raf) raf = nextFrame(loop);
   }
-  const originOn = () => !store.get().imaging && store.get().colorMode === 'origin';
+  const originOn = () => !store.get().imaging && (store.get().colorMode === 'origin' || store.get().colorMode === 'firstpass');
+  const passOn = () => store.get().colorMode === 'firstpass';
   // Between model frames only the pressures move: re-ease them and redraw the panel, nothing else.
   let glideAt = 0;
   function glideP(now) {
@@ -1423,9 +1469,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const LAB_WH = [100, 40];   // (read, never written: a label's size before it is measured)
   const labWH = (L) => (L.sz && (classHas(L.el, 'stack') ? L.sz.s1 : L.sz.s0)) || LAB_WH;
   // ── Where a label is seen, mid-glide ──
-  // A label moved while the labels glide (app.css .lz-ease: left and top on --d-surface with --ease) goes there on that curve from
-  // where it was seen; its glide is noted as it is written (noteAt), and each frame's place worked out from it (seenAt), on the page's
-  // animation clock, so the leaders follow it with no read of the page.
+  // A label's place as seen: its glide (none now: a label laid out to another slot is there in the frame, noteAt) noted as it is written, and each
+  // frame's place worked out from it (seenAt), on the page's animation clock, so the leaders follow it with no read of the page.
   const EASE_LAB = cubicBezier(0.2, 0.8, 0.2, 1);
   const tlNow = () => document.timeline?.currentTime ?? performance.now();
   const ZERO2 = [0, 0];   // (read, never written)
@@ -1772,6 +1817,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // again each time, or a fresh one in the settled re-layout that still has a clash, where the first answer must outlive the second.)
   const mkCallOut = () => ({ box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]] });   // alloc-rare: once at setup (callOutMain), else only in the settled clash retry (coreFirst), never a frame of a hand's move
   const callOutMain = mkCallOut();
+  const CALL_GAP = 7, CALL_PAD = [10, 10, 4, 5];   // (the leader's gap to the letters, px; the pill's left, right, top and bottom padding, app.css .lz-call)
+  const callInk = { x0: 0, y0: 0, x1: 0, y1: 0, r: 0 };   // (the letters' box, grown by the gap: written again at each placement)
   function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep, into, out) {
     if (!callEl.isConnected) { mount(labels, callEl); mount(leaders, callLine, callRing); }
     // (Not shown until its size is known for its words: placed at a guessed size, it slid sideways once measured, seconds in on a slow renderer.)
@@ -1823,11 +1870,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     put(callEl, bx - w / 2, by - hh / 2);
     // The leader starts on the ring's edge (not at its centre) and runs to the pill.
     const dl = Math.hypot(bx - a[0], by - a[1]) || 1, e0 = rr / dl;
-    setGeo(callLine, 'x1', a[0] + (bx - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (by - a[1]) * e0); setGeo(callLine, 'x2', bx); setGeo(callLine, 'y2', by);
+    // The leader stops CALL_GAP short of the word's letters (the pill's padding is not letters), on the side facing the ring, so the line never
+    // runs in under the outlined text ("Resistance sits above the callout line", 8 Nov 2026). It never stops inside the ring.
+    const ink = callInk, gap = CALL_GAP;
+    ink.x0 = bx - w / 2 + CALL_PAD[0] - gap; ink.x1 = bx + w / 2 - CALL_PAD[1] + gap; ink.y0 = by - hh / 2 + CALL_PAD[2] - gap; ink.y1 = by + hh / 2 - CALL_PAD[3] + gap;
+    const le = leaderEnd(ink, a[0], a[1]);
+    let ex = bx, ey = by;
+    if (le) { const k = Math.max(Math.hypot(le.x - a[0], le.y - a[1]), rr) / dl; ex = a[0] + (bx - a[0]) * k; ey = a[1] + (by - a[1]) * k; }
+    setGeo(callLine, 'x1', a[0] + (bx - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (by - a[1]) * e0); setGeo(callLine, 'x2', ex); setGeo(callLine, 'y2', ey);
     setGeo(callRing, 'cx', a[0]); setGeo(callRing, 'cy', a[1]); setGeo(callRing, 'r', rr);
     leadGL.paint();
     const ld = out.lead;
-    ld[0][0] = a[0] + (bx - a[0]) * e0; ld[0][1] = a[1] + (by - a[1]) * e0; ld[1][0] = bx; ld[1][1] = by;
+    ld[0][0] = a[0] + (bx - a[0]) * e0; ld[0][1] = a[1] + (by - a[1]) * e0; ld[1][0] = ex; ld[1][1] = ey;
     return ld;
   }
   // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
@@ -2075,7 +2129,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const f = follow;
     if (!rides) {
       // (the pan carries them by the same translate a layout glides: no glide may run under it, or they would trail the hand)
-      classSoon(labels, 'lz-ease', false);
       freezeLabelGlides();
       rides = rideList; rideN = 0;
       for (let i = 0; i < LAB_KEYS.length; i++) {
@@ -2113,8 +2166,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // A hand can take over before the last layout's glide lands. Carry the position actually on screen; capSync must not overwrite
   // the ride with that old glide's positions. Leaders already use seenAt on the same clock.
   function freezeLabelGlides() {
-    if (glideRaf) cancelFrame(glideRaf);
-    glideRaf = 0; glideUntil = 0;
     const now = tlNow();
     for (let i = 0; i < LAB_KEYS.length; i++) {
       const L = labs[LAB_KEYS[i]];
@@ -2125,7 +2176,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   function bakeRides() {
     if (!rides) return false;
     // (Written in place with no glide on, then the page styled once, so the layout's glide starts from where each piece is seen.)
-    classSoon(labels, 'lz-ease', false);
     let moved = false;
     for (let i = 0; i < rideN; i++) {
       const r = rideList[i], dx = r.d[0], dy = r.d[1];
@@ -2503,10 +2553,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (bakeFollow()) { relayout(); return; }
     // (No glide after a hand's pan or zoom lets go: the labels take their final spots at once, never easing there; Mohammad, 6 Nov 2026.)
     layoutN++;
-    // A label that moves while the view holds still (a term lit, a value's width changed) glides to its new spot;
-    // while the view itself pans or zooms, the labels follow it at once.
+    // A label that moves while the view holds still (a term lit, a value's width changed) is there in this frame, and so is one that follows
+    // a pan or zoom (the DOM label no longer glides under its GPU name: the glide class and its rule were removed, 8 Nov 2026).
     const wasFollow = follow;   // (put back should the labels wait to be measured, below)
-    if ((layoutKey && follow.W === g.W && follow.H === g.H && V.k === follow.k && V.x === follow.x && V.y === follow.y)) { classSoon(labels, 'lz-ease', true); clearTimeout(easeT); easeT = setTimeout(easeEnd, 450); }
     const nf = wasFollow === follows[0] ? follows[1] : follows[0];
     layoutKey = 'laid'; fillBase(nf, fr0, g); nf.k = V.k; nf.x = V.x; nf.y = V.y; nf.ride = null; follow = nf;
     pickAnchors(fr0);
@@ -2744,9 +2793,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       setGeo(L.dotEl, 'cx', a[0]); setGeo(L.dotEl, 'cy', a[1]);
       leadGL.paint();
     }
-    // A label gliding to its new spot takes its leader's end with it, frame by frame, so the leader never runs
-    // through it or stops short of it on the way.
-    if (classHas(labels, 'lz-ease')) { syncLeaders(); glideUntil = performance.now() + 480; if (!glideRaf) glideRaf = frame(glideLeaders, 'lobule-glide'); }
     mirrorAll();   // (their classes as laid out, a label at the edge or on the left, and the ones now shown: read again between frames)
   }
   // The labels to be measured, asked for (kept, written in place: measureRun takes it and clears it).
@@ -2776,14 +2822,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let hidden = false;
     for (let i = 0; i < n; i++) if (inks[i].L !== L && runInside(L.a, q, inks[i]) > 0.5) { hidden = true; break; }
     classSoon(L.line, 'lz-hid', hidden);
-  }
-  let glideRaf = 0, glideUntil = 0;
-  // The glide cut short (its time is up): the labels land at once, and their leaders with them.
-  function easeEnd() { classSoon(labels, 'lz-ease', false); unglide(); syncLeaders(); }
-  function glideLeaders(now) {
-    glideRaf = 0;
-    // (Followed until every glide has ended: a slow frame can start one late.)
-    if (syncLeaders() || now < glideUntil) glideRaf = frame(glideLeaders, 'lobule-glide');
   }
   // Each leader's end set from where its label is seen now (part way through a glide, or landed). True while one glides.
   function syncLeaders() {
@@ -2996,8 +3034,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const sinBusyNow = () => (sinTo === 1 ? sinU < 1 : sinU > 0);
   let wide = null;   // { el, tiles, box, soft }: the copy, its tiles in one box placed at (−l, −t) in the stage
   const WIDE_HIDE = [tissue, tissueG, glCv, fx, fxG];
+  // (atFit says the view is the fit only once a glide to it has landed: it is set as the glide sets off (fitView, focusOn, a refit), so a
+  // way out begun mid-glide, a slide's zoom back to the whole lobule cut short by the rise, still stands zoomed in. Mid-glide the
+  // lobule's own reach decides, as anywhere else: 7 Nov 2026, Mohammad, "zooming into the lobule during slides is showing the cropped lobule".)
   function padBox(W, H) {
-    if (!geo || atFit) return null;
+    if (!geo || (atFit && !gliding)) return null;
     return padRect(sX(geo.cx), sY(geo.cy), geo.R * V.k * 1.35, W, H);
   }
   function buildWide(W, H, box) {
@@ -3191,7 +3232,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (surroundGrade, in the shaders and the 2D passes), so a lens switch needs no new tiles.
   const grey = { k: 0, from: 0, to: 0, t0: 0 };
   const surroundSeen = () => !unseen() || fieldOp > 0.002;
-  const greyNow = (now = performance.now()) => greyStep(grey, isGreyLens(lensModeOf(store.get())) ? 1 : 0, PACED ? easeNow() : now, LENS_FADE, !surroundSeen() || reduce.matches);
+  const greyNow = (now = performance.now()) => greyStep(grey, isGreyLens(lensModeOf(store.get())) ? 1 : 0, easeNow(), LENS_FADE, !surroundSeen() || reduce.matches);
   const greyMoving = () => { greyNow(); return grey.k !== grey.to; };
   // later: the open lobule asks (#27). A tissue state that changes mid-animation (a time-lapse, a slide's morph) needs new tiles, each
   // tens of ms to draw: the open lobule keeps showing the last state's tile (its quiet surround changes slowly) while the new one is
@@ -3690,12 +3731,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const INK_TMP = [0, 0, 0], NEUTRAL_TMP = [0, 0, 0], VEL_RANGE = [1 / 1.5, 1.5], OXY_FULL = [1, 1, 1];
   // The same as [r, g, b] 0–1 in the caller's own triple; mid-switch, the old lens's color eased into the new one's (k: 0 … 1).
   function inkRGBInto(out, seg, w = 0, k = lensK()) {
-    const M = model.mode, to = M === 'origin' ? ORIGIN_RGB : rgb01(inkOf(M, seg, w));
+    const M = model.mode, to = M === 'origin' || M === 'firstpass' ? ORIGIN_RGB : rgb01(inkOf(M, seg, w));
     if (k >= 1) { out[0] = to[0]; out[1] = to[1]; out[2] = to[2]; return out; }
     return inkMix(out, to, seg, w, k);
   }
   function inkMix(out, to, seg, w, k) {
-    const from = lensFrom === 'origin' ? ORIGIN_RGB : rgb01(inkOf(lensFrom, seg, w));
+    const from = lensFrom === 'origin' || lensFrom === 'firstpass' ? ORIGIN_RGB : rgb01(inkOf(lensFrom, seg, w));
     for (let i = 0; i < 3; i++) out[i] = from[i] + (to[i] - from[i]) * k;
     return out;
   }
@@ -3743,13 +3784,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (lensMode !== null && M !== lensMode && fade > 0.98 && !reduce.matches) {
       // (A switch mid-fade starts from the colour now shown: near the end it is the new lens, otherwise the one it left.)
       if (!lensFrom || lensK() >= 0.5) lensFrom = lensMode;
-      lensT0 = PACED ? easeNow() : performance.now();   // (the eases' clock, frame.js easeNow, as the tissue's crossfades)
+      lensT0 = easeNow();   // (the wall clock, frame.js easeNow, as the tissue's crossfades)
     } else if (fade <= 0.98) lensFrom = null;
     lensMode = M;
   }
   function lensK() {
     if (!lensFrom) return 1;
-    const u = ((PACED ? easeNow() : performance.now()) - lensT0) / LENS_FADE;
+    const u = (easeNow() - lensT0) / LENS_FADE;
     if (u >= 1 || lensFrom === model.mode) { lensFrom = null; return 1; }
     return easeMove(u);
   }
@@ -3974,14 +4015,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // Density and stasis ease the same way, so the shimmer thickens or thins instead of popping.
       sm.occ = sm.occ == null ? occ : sm.occ + (occ - sm.occ) * ease;
       sm.st = sm.st == null ? stasis : sm.st + (stasis - sm.st) * ease;
-      sm.drift = ((sm.drift || 0) + sm.st * dt * 0.06) % DRIFT_PERIOD;   // (the smoke's drift, as the anatomy's: blood.js drift)
+      sm.drift = ((sm.drift || 0) + sm.st * dt * DRIFT_RATE) % DRIFT_PERIOD;   // (the smoke's drift, as the anatomy's: blood.js drift)
       sm.rev += (rev - sm.rev) * ease;
       const o = t.id * FLOW_TEXELS * 4, Rm = t.maxR || G.rs0;
       flowData[o] = sm.D; flowData[o + 1] = sm.v; flowData[o + 2] = (sm.occ * Math.max(Math.abs(sm.v), 2) * laneSum(Rm, pxW)) / s0; flowData[o + 3] = sm.st;
       flowData[o + 4] = f0; flowData[o + 5] = f1; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       flowData[o + 14] = sm.drift;
       flowData[o + 12] = 1;   // (each vessel's chevron weight, as the anatomy's: every lobule vessel shows them when they are on)
-      if (origin && origins && !t.lymph) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
+      if (origin && origins && !t.lymph) {
+        const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c];
+        if (originsPass && lobEnds.pe[kk] !== 0) { flowData[o + 27] = lobEnds.pe[kk]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 28 + c] = lobEnds.down[kk * ORIGIN_N + c]; }
+      }
     }
     if (!flowSame) { g.setFlow(flowData); flowG = g; flowAt = flowA; }
     // (The look comes only from the styles: built and written out once per copy of them, the stage's kept copy changing
@@ -3992,7 +4036,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // same object, whose values are then this frame's, the latest. bleed stays empty; the colours are the shared, cached ones.)
     const bc = bloodColors(), blood = bloodArg;
     blood.alpha = flowA; blood.on = (bloodOn || lyOn) && flowA > 0.002; blood.streakA = bloodOn ? 1 : 0; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in; streakA: the Blood streaks setting: off, no streak is worked out or drawn, while the lymph dashes (lyOn) and the chevrons go on)
-    blood.originCol = bc.originCol; blood.dyeCol = bc.dyeCol; blood.inkLight = bc.inkLight; blood.inkDark = bc.inkDark; blood.revCol = bc.revCol; blood.chevInk = bc.chevInk; blood.chevLight = bc.chevLight;
+    blood.originCol = originsPass ? bc.firstCol : bc.originCol; blood.dyeCol = bc.dyeCol; blood.inkLight = bc.inkLight; blood.inkDark = bc.inkDark; blood.revCol = bc.revCol; blood.chevInk = bc.chevInk; blood.chevLight = bc.chevLight;
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
     if (glDirty || !dSame || lsig !== glLook) {
@@ -4234,7 +4278,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // hepatocytes and the neighbouring lobules flashed the page's dark colour, black in a dark look (Mohammad, 1 Nov, iPhone). The GPU's
   // picture is opaque, so the 2D one under it is never seen once it shows. (Not while the dive's rim clears the surround on the GPU:
   // the 2D picture would show through there.)
-  const HANDOFF_MS = 160;
+  const HANDOFF_MS = 160;   // motion-scale: not a move (how long the 2D picture stays under the GPU one)
   let handoffT = 0;
   function showTissueGL(on) {
     if (on === tissueOnGL) return;
@@ -4669,6 +4713,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
   const sv = createSinusoidView({ host, before, share: { top: () => (shared && shareTop && gl && !gl.lost ? shareTop : null), order: LZ_UNDER_GLASS - 4, capOrder: LZ_UNDER_GLASS + 2 } });   // (the sinusoid is a pass of the stage's present too, over the lobule's, under the glass)
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
+  const sinClock = createReversible({ ms: 1150 });   // (sinU's clock: reversible, motion.js)
   let sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
   const easeIO = easeMove;   // (the sinusoid zoom is a move of the view: the camera's quintic, ease.js, which the pill and the bars that ride it share)
   // Which sinusoid, and where on it: the one whose card is open, else the one carrying the label.
@@ -4798,11 +4843,17 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   function applyChrome() {
     const ch = clamp((fade - 0.55) / 0.45, 0, 1);
-    el.style.setProperty('--lz-chrome', (ch * ch * (3 - 2 * ch)).toFixed(3));
+    el.style.setProperty('--lz-chrome', smooth01(ch).toFixed(3));
   }
-  function resetSinusoid() { cancelFrame(sinRaf); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
+  function resetSinusoid() { cancelFrame(sinRaf); sinClock.set(0); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
+  // The Sinusoid button while the lobule is still fading in: kept here (sinPending) and carried on at the landing, with no store write to refuse. True: kept.
+  function askSinusoid(on) {
+    if (!on) { sinPending = false; return false; }
+    if (fade < 0.98 && sv.available && store.get().lobule) { sinPending = true; return true; }
+    return false;
+  }
   function diveSinusoid(on) {
-    if (quietSin) { sinTo = 0; cancelFrame(sinRaf); return; }   // the lobule view is closing: the sinusoid fades out with it
+    if (quietSin || (!on && !store.get().lobule)) { sinTo = 0; cancelFrame(sinRaf); sinClock.stop(); return; }   // the lobule view is closing, in this same change or before it: the sinusoid fades out with it
     // Asked for while the dive into the lobule is still on its way: it carries on into the sinusoid once the dive lands (setDiveZoom).
     if (on && fade < 0.98 && sv.available && store.get().lobule) sinPending = true;
     if (on && (!geo || fade < 0.98 || !model || !sv.available)) { queueMicrotask(() => { if (store.get().sinusoid && !sinTo) store.set({ sinusoid: false }); }); return; }   // alloc-rare: only when the zoom is asked for while the lobule cannot take it (once per such request)
@@ -4827,14 +4878,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!on) { diveDrawn = false; drawVersion++; tissueKey = ''; layoutKey = ''; }
     if (!raf && fade > 0) raf = nextFrame(loop);
     // (Lite mode: no zoom into or out of the sinusoid; it fades in.)
-    const from = sinU, ms = (reduce.matches ? 280 : on ? 1150 : 950) * Math.abs(to - from);
-    // (On the eases' clock, frame.js easeNow: a long frame holds the zoom back rather than letting it leap.)
-    const t0 = PACED ? easeNow() : performance.now();
+    // (On the one clock rule, motion.js: the honest wall clock, easeNow, with the first two frames held to 40 ms each. A reversal mid-way
+    // slews the zoom's velocity over D_FLIP, sinClock, instead of turning it round in one frame; the zoom's curve, easeIO, is a function of the position.)
+    const ms = (reduce.matches ? 280 : on ? 1150 : 950);   // (the full run's time; a reversal runs at the rate of the leg it turns into)
+    sinClock.sync(sinU); sinClock.aim(to, ms);
     cancelFrame(sinRaf);
-    const step = (now) => {   // alloc-rare: once per sinusoid-zoom gesture (its start); the frames of the zoom call this same function
-      const t = ms > 0 ? clamp(((PACED ? easeNow() : now) - t0) / ms, 0, 1) : 1;
-      sinU = lerp(from, to, t); placeSinusoid();
-      if (t < 1) sinRaf = nextFrame(step);
+    const step = () => {   // alloc-rare: once per sinusoid-zoom gesture (its start); the frames of the zoom call this same function
+      sinU = sinClock.tick(easeNow()); placeSinusoid();
+      if (sinU !== to) sinRaf = nextFrame(step);
       else if (!on) { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); if (refitLater) refit(); }
     };
     sinRaf = nextFrame(step);
@@ -4890,7 +4941,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       applyChrome();
       el.classList.toggle('on', fade > 0.98);
       if (fade > 0.98 && was <= 0.98) sinOnLanding();
-      if (fade > 0 && was <= 0) cap.paint();   // (the names are placed in the frames they are drawn in: none was while the view was out)
+      if (fade > 0 && was <= 0) { cap.paint(); leadGL.paint(); }   // (the names are placed in the frames they are drawn in: none was while the view was out)
       restAttr(el, 'aria-hidden', String(fade < 0.98));
       // Entering: the lobule is framed.
       // (Its flow marks start faded and ease in once it has landed: left at full from an earlier visit, they made every frame of the
@@ -4926,6 +4977,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     },
     setDive: (d) => framePart('lz.setDive', () => paintField(d)),
     sinBusy: () => sinBusyNow(),
+    askSinusoid,
     // (The vessel canvas keeps no picture between frames (veins-gl.js ownBuf): a reader outside the frame lays it first.)
     capture: () => gl?.capture?.() ?? null,
     /** Whether the lobule is drawn in the stage's own GPU context (the glass and the dive then need no hand-over). */
@@ -5003,7 +5055,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
     covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
-    setDiveZoom(k, x, y, tx = x, ty = y) {
+    setDiveZoom(k, x, y, tx = x, ty = y, out = false) {
       if (k < 0.9999) resCoverEnd();
       diveScaled = k < 0.9999; if (!diveScaled) diveDrawn = false;
       if (!diveScaled && fade <= 0) { staged = ''; if (relLater) { relLater = false; release(); } }   // the dive is over with the lobule unseen
@@ -5016,7 +5068,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (Landed, or back at full size: the wide copy goes, and the layers, drawn for the screen before the zoom, show as they are.)
       // (A GPU copy whose context was lost goes too: the layers, scaled, as before there was a copy.)
       if (wide?.gl?.lost) dropWide();
-      if (wide && !rim) dropWide(true);
+      // (out: the way out of the lobule. Its copy (stageRise) is built at full size and shown from the rise's first frame, which is at full size
+      // too: dropped there, as a landing drops the dive's, the whole rise shrank the screen's rectangle, the lobule cut off at its edges inside
+      // the field (7 Nov 2026, Mohammad, every slide). It goes when the rise ends (stage.js, k 1 with no out) or lands back in the lobule.)
+      if (wide && !rim && !out) dropWide(true);
       diveRim = rim && !wide ? { x: +x.toFixed(1), y: +y.toFixed(1), r: +r.toFixed(1) } : null;
       // (The rim drawn by the tissue's shader, and the GPU canvas scaled as it is: no copy. Drawn once for the rim: each frame of the
       // zoom only scales it. Landed, the picture is drawn again without the rim before the scale goes.)
@@ -5120,7 +5175,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const F0 = fitV(); kFit = F0.k;
       const to = !part || part === 'fit' ? F0 : framing(part, zoom);
       const moved = Math.abs(V.k - to.k) + Math.abs(V.x - to.x) + Math.abs(V.y - to.y) > 0.5;
-      atFit = !part || part === 'fit'; glideTo(to, ms, true, atFit ? null : { part, zoom, to }, ease);
+      atFit = !part || part === 'fit'; wheelGlide.cancel(); glideTo(to, ms, true, atFit ? null : { part, zoom, to }, ease, false, true);   // (ms: the ceiling; the glide takes the time its reach needs, lobuleMs)
       return moved;
     },
     /** Before (or during) the dive into the lobule: where a presenter slide will want it, so the dive lands there
@@ -5135,7 +5190,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** For the checks: the spot at the middle of the free space (lobule radii from its centre) and the zoom against the framing. */
     spot: () => (geo ? viewSpot() : null),
     /** For the checks: a "Colored by" crossfade is under way (0 … 1 through it), or null. */
-    lensFade: () => (lensFrom ? Math.min(1, ((PACED ? easeNow() : performance.now()) - lensT0) / LENS_FADE) : null),
+    lensFade: () => (lensFrom ? Math.min(1, (easeNow() - lensT0) / LENS_FADE) : null),
     /** For the checks: bytes held in the lobule's bitmaps (its canvases, world bitmap and field tiles). */
     memBytes(detail = false) {
       const b = (cv) => (cv ? cv.width * cv.height * 4 : 0);
@@ -5146,6 +5201,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** For the checks: how many times the labels have been placed in full (a pan should only carry them along). */
     labelLayouts: () => layoutN,
     isOpen: () => fade > 0.98,
+    /** A presenter's or a button's glide of the lobule's view is moving now (false once it has landed: the presenter waits on this, not on a number). */
+    glideBusy: () => gliding,
     /** The open view's figure → stage px as an affine { a, b, c, d, e, f } (the ink's, ink-gl.js), written into o: the sinusoid's while it shows, else the lobule's; false when neither rests open. */
     xform(o) { if (sv.isOpen()) return sv.xform(o); if (fade <= 0.98) return false; o.a = V.k; o.b = 0; o.c = 0; o.d = V.k; o.e = V.x; o.f = V.y; return true; },
     isShown: () => fade > 0,

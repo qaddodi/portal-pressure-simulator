@@ -216,7 +216,8 @@ export function fibrousCuff(c, cx, cy, inner, outer, rgb, fibrosis) {
 // Kept for the painting: a colour in the middle of a mix, a cell's base and tone, the stellate strands' points, the options of a septum's
 // band, the middle of a short septum, the tract corners already drawn, and the tables the loops read.
 const MIXC = [0, 0, 0], BASE = [0, 0, 0], CT = [0, 0, 0], DEAD_DARK = [0.42, 0.33, 0.3], DEAD_LIGHT = [0.93, 0.86, 0.72];
-const PRE_DARK = [0.86, 0.78, 0.6], PRE_LIGHT = [0.78, 0.64, 0.44], SPURS = [1, 3, 5], ZONE_K = [1, 0.66, 0.36], ZONE_TOK = ['--lz-zone-1', '--lz-zone-2', '--lz-zone-3'];
+const PRE_DARK = [0.86, 0.78, 0.6], PRE_LIGHT = [0.78, 0.64, 0.44], SPURS = [1, 3, 5], ZONE_TOK = ['--lz-zone-1', '--lz-zone-2', '--lz-zone-3'];
+const ZONE_AT = [[0, ZONE_TOK[2]], [0.18, ZONE_TOK[2]], [0.5, ZONE_TOK[1]], [0.85, ZONE_TOK[0]], [1, ZONE_TOK[0]]];   // (the gradient's stops by the share of R from the central vein)
 const SP = new Float64Array(33), PM = [0, 0];
 const SO = { w: 0, rgb: null, a: 1, e0: 1.5, e1: 1.5, amp: 0, seed: 0, pts: null, path: null };
 function hexPath(c, l, k = 1) {
@@ -279,11 +280,12 @@ export function paintLobule(c, P) {
     gr.addColorStop(0, tk('--lz-nutmeg', 0.5 * cu)); gr.addColorStop(0.6, tk('--lz-nutmeg', 0.22 * cu)); gr.addColorStop(1, tk('--lz-nutmeg', 0));
     c.fillStyle = gr; c.fillRect(cx - R, cy - R, 2 * R, 2 * R);
   }
-  // Zones of the acinus (toggle): hexagonal bands from the triads (1) to the central vein (3).
+  // Zones of the acinus (toggle): one radial gradient from the portal tracts (zone 1, at the corners, radius R) to the central vein (zone 3),
+  // not nested hexagons (which read as a target): zonation is a gradient. The same stops and mix as lobule-live.js.
   if (zonesOn) {
-    for (let i = 0; i < 3; i++) { hexPath(c, main, ZONE_K[i]); c.fillStyle = tk(ZONE_TOK[i], dark ? 0.2 : 0.17); c.fill(); }
-    c.lineWidth = 1; c.strokeStyle = tk('--lz-zone-line');
-    hexPath(c, main, 0.66); c.stroke(); hexPath(c, main, 0.36); c.stroke();
+    const za = dark ? 0.2 : 0.17, gz = c.createRadialGradient(cx, cy, 0, cx, cy, R);
+    for (let i = 0; i < ZONE_AT.length; i++) gz.addColorStop(ZONE_AT[i][0], tk(ZONE_AT[i][1], za));
+    c.fillStyle = gz; c.fillRect(cx - R, cy - R, 2 * R, 2 * R);
   }
   // Space of Disse collagen (capillarization) along every sinusoid.
   if (m.fibSin > 0.05) {

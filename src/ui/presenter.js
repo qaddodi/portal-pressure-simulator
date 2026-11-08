@@ -17,7 +17,7 @@ import { store, replaceParams } from './store.js';
 import { download } from './download.js';
 import { controlOwnsKey } from './key-owner.js';
 import { glWords } from './gl-words.js';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged } from './util.js';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged } from './util.js';
 import { titleParts } from './title-units.js';
 import { liveText, wordsOf } from './live-text.js';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js';
@@ -41,8 +41,8 @@ import { createPresenterLink } from './presenter-view.js';
 import { noteResume, resumeFor } from './resume.js';
 import { parseDeckSource, checkDeck } from './deck-source.js';
 import { cleanEq } from './import-safety.js';
-import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, shownSig, sameHead, headOf, cutDp } from './table-marks.js';
-import { frameFor, cancelFrame, holdMotion, easeNow, PACED } from './frame.js';
+import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, LIVE_MAX, shownSig, sameHead, headOf, cutDp } from './table-marks.js';
+import { frameFor, cancelFrame, holdMotion, easeNow } from './frame.js';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
@@ -50,9 +50,10 @@ import { createTxns, createLease, createScope } from './slide-txn.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
 import { prepareShaders, shaderFailures } from './gl-compile.js';
 import { createFigureKey } from './figure-key.js';
+import { onTheme } from './theme-epoch.js';
 import { traceWhen } from './trace-labels.js';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js';
-import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe } from './slide-ext.js';
+import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe, warmOf } from './slide-ext.js';
 import { clotWords } from './callout-math.js';
 import { citeText, focusOf, oneLadder } from './teach-extras.js';
 import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js';
@@ -61,8 +62,10 @@ import { anchorsOf, roomFor } from './cam-room.js';
 import { beatCount, beatView } from './slide-beats.js';
 import { clausesOf, revealCount, shownLine } from './reveal.js';
 import { COMPACT, WIDE } from './card-type.js';
-import { flowTimeHeight, trailKeys } from './flow-time.js';
-import { specOf, procBlocked, procOffered, playProcedure, stepMarks } from './proc-anim.js';
+import { createFlowTime, flowTimeHeight, trailKeys } from './flow-time.js';
+import { lapseGraphOf, graphTrail } from './lapse-graph.js';
+import { createEventGraph, eventGraphOf } from './event-graph.js';
+import { specOf, procKindOf, procBlocked, procOffered, playProcedure, stepMarks } from './proc-anim.js';
 import { createInsetHold } from './inset-hold.js';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChangedWhy, cardBack } from './card-keep.js';
 import { gpuProbe } from './gpu-probe.js';
@@ -73,6 +76,8 @@ import { tileKeys as cardKeys, toolOnly } from './card-tiles.js';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, RISE_PX, cssCurve, easeIn, easeArrive } from './ease.js';
 import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './script-glide.js';
 import { signalMove } from './num-move.js';
+import { shownState as pageShown } from './shown.js';
+import { createTileShown, tileSmall } from './tile-shown.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, RAIL_GAP, RAIL_MS, easeRail } from './card-throw.js';
@@ -90,19 +95,24 @@ let TESTING = [];
 const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 // alloc-rare: one timer per awaited step of a procedure, seconds apart, not per frame
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-import { reduceMotionMQ as reduce } from './motion.js';
+const NEVER = () => false;   // (a wait nothing cuts: a caller with no change of its own to ask)
+import { reduceMotionMQ as reduce, easeMove, COUNT_MS } from './motion.js';
 import { createScopeLens } from './scope-lens.js';
-const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
-/** Poll (not frames: a hidden tab runs none) until fn() holds or ms pass. */
-async function until(fn, ms = 3000) { const t0 = performance.now(); while (!fn() && performance.now() - t0 < ms) await wait(40); }
+import { createWaits } from './wait-cut.js';
+import { VIEW_CHANGE_MS } from './view-xf.js';
+const ease = easeMove;   // (the tweens and glides of the data card: the one in-out curve, motion.js)
+// Waits a newer press can cut (wait-cut.js): waitCut(ms, cut) ends at ms or the first frame in which cut() holds; until(fn, ms) is the same asked the other way.
+// Looked at by frame (a hidden tab, which runs none, by a slow poll and the timer), no longer by a 40 ms timer that made every wait about 20 ms late.
+const { waitCut, until } = createWaits({ frame: nextFrame });
+// The change between Anatomy and Circuit has landed (stage.viewChanging), or ms pass: the longest it can take, VIEW_CHANGE_S, and a margin for a late frame.
+const viewSettled = (cut, stage) => waitCut(VIEW_CHANGE_MS + 400, () => cut() || !stage.viewChanging?.());
 /** One painted frame (or 100 ms: a hidden tab paints none). */
 const painted = () => new Promise((done) => { const t = setTimeout(done, 100); nextFrame(() => { clearTimeout(t); done(); }); });
 /** Until the page paints two frames in a row promptly, or ms pass. A card's fade is timed by the clock, not by the frames shown:
  *  one begun just before a long frame (a new organ picture, a lens repainting the figure) is over when that frame lands, and the
  *  card seems to pop. Begun once the frames come smoothly, it is seen whole. */
 async function smooth(cut, ms = 700) {
-  // (Two prompt frames in a row since 1 Nov 2026: one alone was often the gap between two long ones. ?paced=0: one, as before.)
-  const need = PACED ? 2 : 1;
+  const need = 2;   // (two prompt frames in a row since 1 Nov 2026: one alone was often the gap between two long ones)
   const t0 = performance.now(); await painted(); let last = performance.now(), run = 0;
   while (!cut() && performance.now() - t0 < ms) { await painted(); const t = performance.now(); run = t - last < 40 ? run + 1 : 0; if (run >= need) return; last = t; }
 }
@@ -131,6 +141,7 @@ const LENS_KEY = {
   delta: ['change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
   oxygen: ['oxygen', () => oxygenCss('to right'), 'Low', 'High'],
   origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen', 'SV'], ['--origin-artery', 'Artery', 'HA'], ['--origin-systemic', 'Systemic', 'Sys']]],   // (the short names blood.js ORIGINS uses: a phone's key beside the pill, fitKey)
+  firstpass: ['first pass, not ammonia', [['--fp-raw', 'Not cleared', 'Raw'], ['--fp-clear', 'Cleared by the liver', 'Clear'], ['--origin-artery', 'Artery', 'HA'], ['--origin-systemic', 'Systemic', 'Sys']]],   // (gut blood by the path it took: blood.js FIRSTPASS; the name says it is no ammonia level)
 };
 // (A deck visuals package's lenses (slide-ext.js) after the app's own; a key whose words depend on the slide is a function of it.)
 for (const [k, v] of Object.entries(EXT.lenses)) if (!LENS_KEY[k]) LENS_KEY[k] = v;
@@ -358,9 +369,9 @@ function lineRe(s = {}) {
 }
 // A view the words name ("With the vessels colored by congestion"): the view's name is a pill in that view's own colour,
 // as its key on the figure draws it (Mohammad, 16 Oct). It points at nothing on the figure, so it lights nothing.
-export const LENS_WORDS = { 'pressure drop': 'drop', 'blood origin': 'origin', origin: 'origin', velocity: 'velocity', 'flow volume': 'flow',
+export const LENS_WORDS = { 'pressure drop': 'drop', 'blood origin': 'origin', origin: 'origin', 'first pass': 'firstpass', velocity: 'velocity', 'flow volume': 'flow',
   flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta', 'vein system': 'system', oxygen: 'oxygen' };
-export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', system: '--tr-var', oxygen: '--lens-oxygen' };
+export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', firstpass: '--fp-clear', system: '--tr-var', oxygen: '--lens-oxygen' };
 const LENS_RE = String.raw`\b([Cc]olou?red by )(${Object.keys(LENS_WORDS).sort((a, b) => b.length - a.length).join('|')})\b`;
 function rich(t, s = {}, fp = null, tips = false, cuts = null) {
   const { re, tl } = lineRe(s);
@@ -521,7 +532,7 @@ const tileVal = (k, v) => (v == null ? '—' : fmt(v * (tileOf(k)?.x ?? 1), tile
 const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf || fr.Q, D: fr.D, params: store.get().params });
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
-// (Tiles glide on the compositor: see tileGlide, on the travelling curve.)
+// (Tiles' numbers and bar marks follow the page's shown state: see tileGlide.)
 // (A touch's history of points, [x or time, time or distance] pairs the drags read the last 100 ms of: kept pairs are written in place. A pair that
 // falls out of a window, or past PT_MAX points, is the next point's, so a drag allocates only for its first points.)
 const PT_FREE = [], PT_MAX = 48;
@@ -531,8 +542,8 @@ const ptPush = (pts, a, b) => { if (pts.length >= PT_MAX) PT_FREE.push(pts.shift
 // R19: a live model frame never writes the tiles while their card moves (a slide's slide or fold): the newest is kept and written
 // once the card is still. A slide's own paint (its arrival, a new set of tiles) is never held.
 // R19: a tile's changing number is drawn on the GPU (gl-words.js: Inter's outlines over the tile's own words, which are made clear and
-// take the number back once it holds still), not written into the page on each model frame. A slide's count still rolls its digits
-// on the compositor (tileGlide), written into the page as it starts.
+// take the number back once it holds still), not written into the page on each model frame. A slide's count follows the page's shown state
+// (tileGlide), its number and bar mark painted from one follower in each display frame.
 // (A record's fields set to another's, in place: the keys it lacks are let go, so it ends equal to `src`, as a fresh copy would, with none made.)
 function copyKeys(dst, src) {
   for (const k in dst) if (!(k in src)) delete dst[k];
@@ -541,7 +552,7 @@ function copyKeys(dst, src) {
 }
 function tweener(draw) {
   let cur = null, raf = 0;
-  const run = (to, ms = 950) => {
+  const run = (to, ms = COUNT_MS) => {
     cancelFrame(raf);
     if (!cur || reduce.matches || ms === 0) { cur = copyKeys(cur || {}, to); draw(cur); return; }
     const from = { ...cur }, t0 = performance.now();
@@ -656,15 +667,16 @@ function railBlock() {
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
   const head = h('span', { class: 'pz-hr', 'data-n': '0' });   // (the same readings, numbers only, for an instrument card's header row)
-  let sig = '', parts = [], draw = null, goal = false, tileArgs = null, tileAsk = 0, picT = null, tileRO = null, dead = false;
+  let sig = '', parts = [], draw = null, goal = false, tileArgs = null, tileAsk = 0, picT = null, tileRO = null, dead = false, stopShown = null;
   // (The newest paintTiles call's seven arguments, kept in one array written in place: a what-if drag calls it every frame. The paint, a task
   // between frames, reads them; one pass is asked for however many calls land before it.)
   const paintAsk = () => { tileAsk = 0; const a = tileArgs; if (a) paintTilesNow(a[0], a[1], a[2], a[3], a[4], a[5], a[6]); };
   // (R19: a tile's number as shown, and set: through its GPU words while the model ticks, into the page at once (now) while a slide's
   // roll is set up or the fit measures.)
-  let sync = false;
+  // (Its value, bar mark and start ring follow the page's shown state, tile-shown.js: painted from what is shown, in the frames while one is on the way.)
+  const ts = createTileShown(pageShown);
   const vText = (p) => (p.vw ? p.vw.text : p.v.textContent);
-  const vSet = (p, t) => { if (!p.vw) setT(p.v, t); else if (sync) p.vw.now(t); else p.vw.set(t); };
+  const vSet = (p, t) => { if (!p.vw) setT(p.v, t); else p.vw.set(t); };
   // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "High" under a line that
   // says the target is reached.
   const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? tipsGoal(f.ppg) : rateOf(k, f));
@@ -701,12 +713,11 @@ function bigTiles() {
   let fitRaf = 0, fitShape = '';
   const fitSoon = () => { if (dead) return; cancelRest(fitRaf); fitRaf = restPass(fit); };   // (measured between frames, never in one: rest-pass.js)
   if (typeof ResizeObserver !== 'undefined') (tileRO = new ResizeObserver(fitSoon)).observe(el);
-  el.classList.toggle('tglide', odoOn());   // (the bar's marks glide on the compositor: tileGlide)
   document.fonts?.ready?.then(fitSoon);
   function buildTiles(ks, withRef) {
     if (dead) return;
     picT?.stop(); picT = null;
-    for (const p of parts || []) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); }   // (recs §8: the tiles they wrote are replaced; their GPU words and scope picture go with them)
+    for (const p of parts || []) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); ts.drop(p.k); }   // (recs §8: the tiles they wrote are replaced; their GPU words, scope picture and followers go with them)
     parts = ks.map((k) => {
       const T = tileOf(k) || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });
@@ -730,7 +741,7 @@ function bigTiles() {
       // its own GPU words, in the rating's ink with the label look's outline (halo); the rating is the item's data-rate, written with the tile's.)
       const hv = h('b', {}), hu = h('small', {}), hi = pic ? null : h('span', { class: 'pz-hi', 'data-rate': 'plain' }, h('span', { class: 'pz-hk' }, T.n || T.t), hv, hu);
       const hw = hi ? glWords(hv, { halo: true, keep: true }) : null;   // (kept: the GPU number stays up, no hand-over to the page's text, as the Doppler numbers)
-      return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic, hi, hv, hu, hw };
+      return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic, hi, hv, hu, hw, sm: tileSmall(T, S), none: false, hasRef: false, sv: NaN, sr: NaN };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
     head.replaceChildren(...parts.filter((p) => p.hi).map((p) => p.hi));
@@ -741,17 +752,55 @@ function bigTiles() {
     // count wrote each tile's text on every frame); only the endoscopic view, a GPU picture, follows its value through the ease.)
     picT = parts.some((p) => p.pic) ? tweener((f) => parts.forEach((p) => { if (p.pic) p.pic.set(f.varix); })) : null;
     let cur = null;
-    draw = { has: () => !!cur, jump: (to) => { cur = { ...to }; write(cur); }, go: (to, ms) => { draw.jump(to); picT?.(to, ms); } };
-    const write = (f) => parts.forEach((p) => {
+    draw = { has: () => !!cur, jump: (to) => { cur = { ...to }; write(cur); }, glide: (to) => { cur = { ...to }; write(cur, true); }, go: (to, ms) => { draw.jump(to); picT?.(to, ms); } };
+    // (A tile's number and bar mark from the value shown now, v (the model's units): painted by a write at once, and by paintShown in each display
+    // frame while the follower is on the way. Always .set on a header reading, never .now: a kept GPU number is redrawn by set alone.)
+    const putNum = (p, v) => {
+      const hs = p.none ? '—' : tileVal(p.k, v);
+      vSet(p, hs);
+      if (p.hi) { if (!p.hw) setT(p.hv, hs); else p.hw.set(hs); }
+    };
+    const putBar = (p, v, v0) => {
+      if (!p.S) return;
+      const on = p.on, w = on ? at(p.k, v) : 0;
+      // (The marks stay whole inside the track: a value past either end of the scale, as platelets of 380 on a bar
+      // that stops at 300, rests against that end instead of running half off it. Sweep, 16 Oct.)
+      if (p.now._w !== w) { p.now._w = w; p.now.style.translate = `clamp(6px, ${w}%, calc(100% - 6px)) 0`; }   // (written only when it moves; a transform: the mark is the track's width, app.css)
+      if (p.was) {
+        const ok = p.hasRef, w0 = ok ? at(p.k, v0) : 0;
+        if (p.was._w !== w0) { p.was._w = w0; p.was.style.translate = `clamp(4.5px, ${w0}%, calc(100% - 4.5px)) 0`; }
+        if (p.link._w !== w || p.link._w0 !== w0) { p.link._w = w; p.link._w0 = w0; p.link.style.translate = `${Math.min(w, w0)}% 0`; p.link.style.scale = `${(Math.abs(w - w0) / 100).toFixed(4)} 1`; }
+      }
+    };
+    // (Each display frame while a tile's follower is on the way: the number and the marks from what is shown, the same filter as the dock's bars.)
+    const paintShown = () => {
+      for (const p of parts) {
+        if (p.pic || !p.on) continue;
+        const v = ts.get(p.k, p.sv), v0 = p.hasRef ? ts.get(p.k, p.sr, true) : p.sr;
+        if (v === p.sv && v0 === p.sr) continue;
+        p.sv = v; p.sr = v0;
+        putNum(p, v); putBar(p, v, v0);
+      }
+    };
+    stopShown?.();
+    stopShown = ts.onFrame(paintShown);
+    // go: the values follow the page's shown state (a slide's change, a kept card's patient); otherwise they are shown at once.
+    const write = (f, go = false) => parts.forEach((p) => {
       if (p.pic) return;
       const [cls, word] = ratedShown(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
-      vSet(p, none ? '—' : tileVal(p.k, f[p.k]));
+      const on = !none && f[p.k] != null, r0 = p.k === 'hvpgFall' ? null : f['ref_' + p.k], ok = on && r0 != null;
+      p.none = none; p.on = on; p.hasRef = ok;
+      p.sv = on ? ts.set(p.k, f[p.k], p.sm, go) : f[p.k];
+      p.sr = ok ? ts.set(p.k, r0, p.sm, go, true) : r0;
+      if (!on) ts.drop(p.k);
+      putNum(p, p.sv);
       p.u.hidden = none || !p.T.u;
       setT(p.r, word);
       setA(p.tile, 'data-rate', cls || (none ? 'none' : 'plain'));
       if (p.hi) {
-        const hs = none ? '—' : tileVal(p.k, f[p.k]);
-        if (!p.hw) setT(p.hv, hs); else if (sync) p.hw.now(hs); else p.hw.set(hs);
+        // (putNum sets the header's number: always .set, never .now, even while the tiles glide in. A kept GPU number is redrawn by set alone; now writes only
+        // the page's text, which stays clear under the picture, so a header reading written that way kept showing the number it had before, the slide's start
+        // on a time-lapse's end: 7 Nov 2026, "the slide says 15.1 but the readout says 23.7". Nothing measures the header's words, so nothing needs now.)
         p.hu.hidden = none || !p.T.u;
         if (p.hu.textContent !== p.T.u) p.hu.textContent = p.T.u;
         setA(p.hi, 'data-rate', cls || (none ? 'none' : 'plain'));
@@ -761,19 +810,10 @@ function bigTiles() {
         const t = f.respFrom == null ? '' : `from ${fmt(f.respFrom, 1)} mmHg`;
         if (p.d.textContent !== t) p.d.textContent = t;
       }
-      const r0 = p.k === 'hvpgFall' ? null : f['ref_' + p.k];
       if (p.S) {
-        const on = !none && f[p.k] != null, w = on ? at(p.k, f[p.k]) : 0;
         p.now.hidden = !on;
-        // (The marks stay whole inside the track: a value past either end of the scale, as platelets of 380 on a bar
-        // that stops at 300, rests against that end instead of running half off it. Sweep, 16 Oct.)
-        if (p.now._w !== w) { p.now._w = w; p.now.style.translate = `clamp(6px, ${w}%, calc(100% - 6px)) 0`; }   // (written only when it moves; a transform: the mark is the track's width, app.css)
-        if (p.was) {
-          const ok = on && r0 != null, w0 = ok ? at(p.k, r0) : 0;
-          p.was.hidden = p.link.hidden = !ok;
-          if (p.was._w !== w0) { p.was._w = w0; p.was.style.translate = `clamp(4.5px, ${w0}%, calc(100% - 4.5px)) 0`; }
-          if (p.link._w !== w || p.link._w0 !== w0) { p.link._w = w; p.link._w0 = w0; p.link.style.translate = `${Math.min(w, w0)}% 0`; p.link.style.scale = `${(Math.abs(w - w0) / 100).toFixed(4)} 1`; }
-        }
+        if (p.was) p.was.hidden = p.link.hidden = !ok;
+        putBar(p, p.sv, p.sr);
       }
       if (r0 == null || f[p.k] == null) return;
       // (The start as shown: the ring on the bar marks it, the words give its number.)
@@ -782,20 +822,15 @@ function bigTiles() {
       if (p.d.textContent !== t) p.d.textContent = t;
     });
   }
-  // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a change of slide no longer redraws the tiles on every
-  // frame of their 950 ms count, which wrote each number's text, its rating and the bar's marks' places (a layout of the card a frame)
-  // through the camera's glide. They are written once, at their end, and the way there is the compositor's: each changed digit rolls in
-  // its own column (util.js odoSwap) and each mark slides from where it stood by a transform, on the count's own curve. The rating's
-  // word and colour take their new value as it starts. A number whose shape changes (9.9 to 10.1) shows its new value at once. Not
-  // with the endoscopic view (it draws each step), or Reduce Motion.)
-  function tileGlide(to, ms = 950) {
+  // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a change of slide no longer redraws the tiles with the
+  // model's own work on each frame of a count: the rating's word and colour take their new value as it starts, and the number, the bar's
+  // mark and the start ring follow the page's shown state (tile-shown.js, 8 Nov 2026, recs 15), the filter the dock's bars and the vessels
+  // use: the number is drawn by the GPU's words (gl-words.js) and the marks are a translate, both from the same follower in each display
+  // frame, so the number, the bar and the figure arrive together. A kept card's polls bend the speed instead of restarting a curve. A
+  // number whose shape changes (9.9 to 10.1) simply takes its new text. Not with the endoscopic view (it draws each step), or Reduce Motion.)
+  function tileGlide(to, ms = 950) {   // (ms 0: shown at once; any other time is the follower's, not the caller's)
     if (!odoOn() || !draw?.has() || reduce.matches || ms === 0 || parts.some((p) => p.pic)) return false;
-    const before = parts.map(vText);
-    // (The marks' translate and the link's scale are set once (app.css .tglide): the compositor eases them there over --tile-ms.)
-    el.style.setProperty('--tile-ms', `${ms}ms`);
-    sync = true;
-    try { draw.jump(to); } finally { sync = false; }
-    parts.forEach((p, i) => { const b = before[i], t = p.v.textContent; if (b !== t) odoSwap(p.v, b, t, parseFloat(t) > parseFloat(b), ms, EASE_MOVE); });
+    draw.glide(to);
     return true;
   }
   // A band's colour is the rating of its middle (after TIPS the PPG's bands follow its target, as its word does).
@@ -829,7 +864,8 @@ function bigTiles() {
       cancelRest(tileAsk); tileAsk = 0; cancelRest(fitRaf); fitRaf = 0; tileArgs = null; held = null;
       tileRO?.disconnect(); tileRO = null; heldObs?.disconnect(); heldObs = null;
       picT?.stop(); picT = null;
-      for (const p of parts) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); }
+      stopShown?.(); stopShown = null;
+      for (const p of parts) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); ts.drop(p.k); }
       parts = []; draw = null;
     },
     paintTiles(f, ks, key, ref, ms, tips, live) {
@@ -905,6 +941,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   let want = 0, shown = null, shownState = -1, busy = false, playing = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
   let entering = null;   // (the slide whose cards are coming in, from their last unseen layout: its sizes hold from there, see layout's lockKey)
   let ui = null, black = false, digits = '', digitT = 0;
+  let keyNow = null;   // (the colour key on show, [lens, slide]: a new look draws a gradient key again from the new look's ramp)
+  onTheme(() => { if (ui && keyNow && typeof (lensSpec(keyNow[0], keyNow[1]) || PRESSURE_KEY)[1] === 'function') ui.fk.replaceChildren(...keyNodes(keyNow[0], keyNow[1])); });
   let saved = null, layersBefore = null;   // (the viewer's own lobule layers, put back when the show ends)
   // High contrast: a deeper shade, stronger text, ratings as filled chips (pz-hi). Off for now; no control offers it.
   const PROJ = 'pps.projector';
@@ -931,7 +969,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
   // (before: a slide that plays its procedure also gets the state it opens on, the procedure not done yet: see the landing.)
-  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' && trailKeys(s.tool), before: s.procedure ? specOf(s.procedure.kind || s.procedure)?.before : undefined } : {});
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : graphTrail(s), before: s.procedure ? specOf(procKindOf(s.procedure))?.before : undefined } : {});
   // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
   const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   let prepRev = 0;   // (bumped each time a presentation's states are set: the slide preparation's manifests belong to one of these)
@@ -948,7 +986,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const hit = key && cache.get(key);
     if (hit) { states = hit.states; waiters = []; return; }
     const mine = []; states = mine; waiters = [];
-    const c = getCalc(), steps = [...slides.map(stepOf), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days }))];
+    const c = getCalc(), steps = [...slides.map(stepOf), ...extra.map((o) => ({ preset: o.preset, params: o.params, days: o.days, relax: o.relax }))];
     const presetAt = []; let pid = store.get().presetId;
     slides.forEach((s, i) => { if (s.preset) pid = s.preset; presetAt[i] = pid; });
     extra.forEach((o, k) => { presetAt[slides.length + k] = o.preset; });
@@ -983,7 +1021,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         // its slide: slide-ext.js tools' warm.)
         // (recs-production-120hz §16: only the working set, the slide shown and its neighbours, not every slide of a long deck at once;
         // the rest are warmed by the slide preparation as the talk reaches them, its manifests owning them.)
-        if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) > 2) return; const w = EXT.tools[s.tool?.kind]?.warm; if (w) safe(() => w(s.tool, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); });   // (a rejection here is read by slide-prep's own warm, B16)
+        if (states === mine) slides.forEach((s, i) => { if (Math.abs(i - want) > 2) return; safe(() => warmOf(s, ctxOf(s, i)), null, 'warm')?.catch?.(() => {}); });   // (a rejection here is read by slide-prep's own warm, B16)
         return;
       }
       // The slides could not be computed (most often a page left open across an update): the next try starts a fresh
@@ -1016,7 +1054,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A change of patient on screen eases (the model blends from where it is to the slide's state: lesions grow, sliders,
   // pressures and flows travel, the days run on); a newer slide mid-way eases on from wherever the model has got to.
   // Resolves once the slide's exact state is in, or early (the model left part way) when cut() says a newer slide was asked for.
-  const MORPH_MS = 2000;
+  const MORPH_MS = 2000;   // motion-scale: own pace (the patient's change under a slide)
   // A slide change is one move (premium-feel R1). Over the plate the cards come in during the
   // camera's last three quarters (CARDS_AT: once a quarter of it has run), so it lands on a finished slide, and a change of patient eases under the glide itself, over
   // MORPH_ONE_MS (the glide's camMs, 480 to 900 ms, and a tail), not 2 s after it lands. A large change keeps easing under the cards:
@@ -1028,7 +1066,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // glide ran. The cards now come in once a quarter of the glide has run (CARDS_AT 0.75 of it left), the smooth-frames gate gives up after
   // QUICK_SMOOTH ms, not 700, and the new card starts its way in at once, not 120 ms late.)
   const QUICK_SMOOTH = 240;
-  const CARDS_AT = 0.75, MORPH_ONE_MS = 1200;
+  const CARDS_AT = 0.75, MORPH_ONE_MS = 1200;   // motion-scale: own pace (the patient's change under a glide)
   // A chart or gauge that only reads the model as it eases (the pressure profile, a relation curve, the flows, the talk's trace, the criteria,
   // the plane) comes in over the change, riding it: its numbers and curve travel with the vessels, as a kept card's do. An instrument that
   // records the patient's flow (Doppler, beat by beat, vitals), plays on arrival, or is a deck package's own, still waits for the slide's state.
@@ -1038,7 +1076,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // running, at the arrival curve about 95 percent of the way), not after the title's last frame, which was most of half a second of
   // an empty figure between the cards landing and the slide's own marks arriving.
   const CARDS_SEEN = D_SMALL - 40;
-  const CATH_SETTLE_MS = 4000;   // (at most: a model still drifting never holds the catheter longer)
+  const CATH_SETTLE_MS = 4000;   // motion-scale: not a move (a longest wait); (at most: a model still drifting never holds the catheter longer)
   // (.app.pz-morph while a change of patient eases: the checks hold the data card to it.)
   async function morphTo(st, cut, ms = MORPH_MS, mark = true) {
     host.send({ type: 'morph', snap: st.snap, ms });
@@ -1065,14 +1103,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const fadeMs = () => (reduce.matches ? 0 : D_SURFACE);
   // A quiet arc over the figure's free space while a new patient settles (it fades in and out with the dim, never pops).
   const loading = (on) => { ui?.load.classList.toggle('on', on); if (on) ui?.load.classList.remove('idle'); };
-  async function figureOut() { loading(true); view.classList.add('pz-out'); await wait(fadeMs()); }
+  async function figureOut(cut) { loading(true); view.classList.add('pz-out'); await waitCut(fadeMs(), cut || NEVER); }
   function figureIn() { view.classList.remove('pz-out'); loading(false); }
   // (next: the slide being moved to, if it frames the plate, so the way out of the lobule lands on that framing
   // in one zoom rather than stopping at the fit first.)
-  const RISE_FIT_MS = 450;   // (the zoom back to the whole lobule before a rise: about the rise's own speed where they meet)
-  const RISE_AHEAD_MS = 1200;   // (a lobule slide settled this long: its way out's organ picture is made ahead)
+  const RISE_FIT_MS = 450;   // (the zoom back to the whole lobule before a rise: about the rise's own speed where they meet)   // motion-scale: own pace (the zoom back before a rise, about the rise's own speed)
+  const RISE_AHEAD_MS = 1200;   // (a lobule slide settled this long: its way out's organ picture is made ahead)   // motion-scale: not a move (a wait)
   let prepAheadT = 0;
-  const RISE_READY_MS = 2500;   // (the longest the rise waits for the organs' picture: past it, the live drawing shows, as before)
+  const RISE_READY_MS = 2500;   // (the longest the rise waits for the organs' picture: past it, the live drawing shows, as before)   // motion-scale: not a move (a longest wait)
   // (cut: the owning transition was replaced or stopped. Checked after every wait and before every write, so a stale exit stops
   // where it is and touches neither the camera nor the store; the newer transition owns the hold from then on.)
   async function toAnatomy(next, cut = () => false) {
@@ -1080,7 +1118,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
     // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
-    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(60); await until(() => cut() || (!stage.sinBusy() && !stage.sinusoidOpen()), 4000); if (cut()) return; }
+    if (st.sinusoid) { store.set({ sinusoid: false }); await waitCut(60, cut); await until(() => cut() || (!stage.sinBusy() && !stage.sinusoidOpen()), 4000); if (cut()) return; }
     // The anatomy under the lobule is brought up to the patient now and its organs' picture made, unseen (begun in camera() as the
     // new cards come in); the rise waits for it (stage.js prepRise), so the organs fade in as they are, never swapped in one frame at landing.
     if (cut()) return;
@@ -1091,10 +1129,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (The way back to the fit eases in only: it reaches the fit still moving and the rise, which moves from its first frame, carries
     // straight on. Eased out as well, the zoom came to rest at the whole lobule and set off again: it stopped midway (Mohammad, 20 Oct,
     // Circulation 9 to 10).)
-    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await wait(ms); if (cut()) return; } }
+    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await waitCut(ms + 150, () => cut() || !stage.lobuleGlide?.()); if (cut()) return; } }
     if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
     store.set({ lobule: false });
-    await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await wait(80);
+    await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await waitCut(80, cut);
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
   // (early: a share of the glide over the plate; camera() resolves once only that much of it is left, the glide running on: one move, above.)
@@ -1105,7 +1143,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // (A slide's layers: ['zones'] shows the lobule's zone bands; any other lobule slide has them off.)
       const zonesWant = !!s.layers?.includes('zones');
       if (!!store.get().lobuleLayers?.zones !== zonesWant) store.set({ lobuleLayers: { ...store.get().lobuleLayers, zones: zonesWant } });
-      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(cut, stage); if (cut()) return; }   // (the change landed, not 700 ms: it takes VIEW_CHANGE_S)
       // The station this slide frames: the dive lands on it in one move, and (mid-dive) no other station's labels show.
       const part = cam === 'sinusoid' ? 'sinusoid' : cam.split(':')[1] || 'fit', zoom = s.zoom ?? 2.3;
       if (!store.get().lobule) {
@@ -1116,15 +1154,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         // (A first dive also loads the lobule, which a slow tablet can take several seconds over.)
         await until(() => cut() || (stage.lobuleSettled() && stage.lobuleOpen()), 12000);
         if (cut()) return;
-        await wait(120);
+        await waitCut(120, cut);
       } else {
         await until(() => cut() || stage.lobuleOpen(), 9000);
       }
       if (cut()) return;
       const sin = cam === 'sinusoid' && sinusoidSupported() && stage.lobuleOpen();
-      if (sin) { if (!store.get().sinusoid) { store.set({ sinusoid: true }); await wait(ms ? 1250 : 0); } return; }
-      if (store.get().sinusoid) { store.set({ sinusoid: false }); await wait(ms ? 1000 : 0); }
-      if (stage.lobuleFocus(part, { zoom, ms })) await wait(ms);
+      // (Each wait ends when the stage says the move has landed (the zoom into the sinusoid, out of it, the lobule's glide), never a number; the
+      // number is only the longest it may take, and a newer press cuts it at once.)
+      if (sin) { if (!store.get().sinusoid) { store.set({ sinusoid: true }); if (ms) await waitCut(1250 + 400, () => cut() || !stage.sinBusy()); } return; }
+      if (store.get().sinusoid) { store.set({ sinusoid: false }); if (ms) await waitCut(1000 + 400, () => cut() || !stage.sinBusy()); if (cut()) return; }
+      if (stage.lobuleFocus(part, { zoom, ms })) await waitCut(ms + 300, () => cut() || !stage.lobuleGlide?.());
       return;
     }
     const v = s.view || 'anatomic';
@@ -1142,7 +1182,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (cut()) return;
     await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null, cut);
     if (cut()) return;
-    if (store.get().view !== v) { store.set({ view: v }); await wait(700); }
+    // (A switch of view sets off here and the slide's framing is asked of it at once, below: it becomes the change's new end (stage-view.js viewXfRetargetTo),
+    // so the camera travels once, on the change's clock, instead of a second glide starting 700 ms into a change that takes 1.3 s.)
+    const switching = store.get().view !== v;
+    if (switching) store.set({ view: v });
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
     // cover it is set outright, so the reveal never catches it on its way.)
     const gl = booting ? 0 : ms || 300;
@@ -1154,14 +1197,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (early && gl) {
       // (One timer to the point asked for, then a look: polled alone every 40 ms, a busy glide's late timers put the cards after its landing.)
       const g0 = stage.glideLeft?.();
-      if (g0?.ms) await wait(Math.max(0, g0.left - g0.ms * early - 40));
+      if (g0?.ms) await waitCut(Math.max(0, g0.left - g0.ms * early - 40), cut);
+      else if (switching) await viewSettled(cut, stage);   // (no camera move to time it by, a change of view with the camera where it is: its landing)
       await until(() => { if (cut()) return true; const g = stage.glideLeft?.(); return !g || g.left <= g.ms * early; }, gl + 1500); return;
     }
     // (A camera beat or a flip of the scale, which wait for no cards: its call-outs come once the glide has landed, 480 to 900 ms and an arc's
     // stretch, not 1.5 s after it set off; and at once when the framing did not change, where no glide began. Polled, so a beat pressed
     // again while this one moves is noticed within a frame or two, not after the glide: nothing waits on the exact frame it lands.)
-    if (gl) { await until(() => cut() || !stage.gliding(), gl + 1500); return; }
-    await wait(gl);
+    // (A switch of view still morphing with the camera nowhere to go is moving too: viewChanging.)
+    if (gl) { await until(() => cut() || (!stage.gliding() && !stage.viewChanging?.()), gl + 1500); return; }
+    if (switching) await viewSettled(cut, stage);
+    else await waitCut(gl, cut);
   }
   // (left: only the entrances with more than this many ms still to run count: 0 is all of them; CARDS_SEEN, the cards in sight.)
   // (R01: the cards' way in is card-throw.js's, scheduler-driven inline transform and opacity that getAnimations() never lists: throwState says
@@ -1300,11 +1346,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A slide whose own patient has already had it (the BRTO slides show the shunt closed) plays it from just before: the live
   // model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back; going back to
   // before the first step puts the slide as it was. Leaving the slide stops it where it is; the next slide's camera takes over.
-  let procRun = null, procWait = false, procShown = -1, procDoneAt = -1;
-  const procKind = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
+  let procRun = null, procWait = false, procShown = -1, procDoneAt = -1, procThenAt = -1, procQueued = false, procRunKind = '';
+  // (A slide whose procedure is { kind: 'tips', then: 'tipsgrad' } plays a reading after it, as one more step on the same card: the TIPS catheter reads the
+  // gradient across the new stent (proc-anim.js MEASURES.tipsgrad, TIPS step 5). procThenAt: the slide whose main run has played through with its reading
+  // still to come; procQueued: a Next came while the main run was on its last step, so the reading starts as it ends.)
+  const procThen = (s) => { const k = typeof s?.procedure === 'object' ? s.procedure.then : null; return k && specOf(k) ? k : null; };
+  const procKind = (s) => procKindOf(s.procedure);   // ('brto' with a target plays that target's spec: proc-anim.js)
   // (home: the slide stays, so the camera glides back and its own marks and names come back through onMark; leaving it, the next
   // slide's camera and marks take over.)
   function procStop(home = false) {
+    procQueued = false;
     if (!procRun) return;
     const r = procRun;
     if (home) r.stop({ home }); else { procRun = null; r.stop({ home }); stage.cathForget(); }
@@ -1322,8 +1373,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // The slide's own callouts and names, as it landed (a clot mark's words as the model now has them).
   const slideMarks = (i) => (markBase?.i === i ? markFocus(clotMarks(markBase.marks, store.get().params)) : null);
-  async function procPlay(s, i, to = 0) {
-    const kind = procKind(s), mine = () => !!deck && shown?.i === i && slides[i] === s;
+  async function procPlay(s, i, to = 0, kind = procKind(s)) {
+    const isThen = kind !== procKind(s), base = isThen ? specOf(procKind(s)).steps.length : 0, mine = () => !!deck && shown?.i === i && slides[i] === s;
     if (!specOf(kind) || !mine() || cath.on || procWait) return;
     if (procRun) { procRun.to(to); return; }
     if (lapseOn) stopLapse();
@@ -1331,20 +1382,21 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     try {
       await toAnatomy(null, () => !mine());
       if (!mine()) return;
-      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(() => !mine(), stage); }
     } finally { procWait = false; }
     if (!mine() || procRun) { procPaint(); return; }
     const before = structuredClone(store.get().params), names = store.get().presentLabels || [];
     // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
     if (specOf(kind).had(before)) liveSet(s, i, specOf(kind).undo(structuredClone(before)));
+    procRunKind = kind;
     const run = procRun = playProcedure(stage, kind, {
       stepped: true, to,
       apply: () => {
         if (procRun !== run || !mine() || procBlocked(kind, store.get().params, store.get().frame?.metrics)) return;
-        liveSet(s, i, specOf(kind).apply(structuredClone(store.get().params))); procCompare(s);
+        liveSet(s, i, specOf(kind).apply(structuredClone(store.get().params)), evRun(s, i)); procCompare(s);
       },
-      unapply: () => { if (procRun === run && mine()) { liveSet(s, i, specOf(kind).undo(structuredClone(store.get().params))); procCompare(s); } },
-      onStep: (k) => { if (procRun === run) { procShown = k; procPaint(); } },
+      unapply: () => { if (procRun === run && mine()) { evBack(s); liveSet(s, i, specOf(kind).undo(structuredClone(store.get().params))); procCompare(s); } },
+      onStep: (k) => { if (procRun === run) { procShown = base + k; procPaint(); } },
       // (The step's callout stands in for the slide's marks while it plays; its names join the slide's. Then the slide's come back:
       // on the BRTO slides the last step's "Shunt closed" is the slide's own mark, so it stays where it is.)
       // (false: no callout while the catheter travels in, the names for its way kept.)
@@ -1356,12 +1408,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         store.set(m !== null ? { focus: m ? markFocus(all || [m]) : null, presentLabels: [...new Set([...names, ...(add || [])])] }
           : { focus: slideMarks(i) || (run.at === last ? markFocus(stepMarks(kind, last)) : null), presentLabels: names });
       },
-      onEnd: ({ rewound }) => {
+      onEnd: ({ done, rewound }) => {
         if (procRun !== run) return;
         procRun = null;
-        if (rewound && mine()) { liveSet(s, i, before); procCompare(s); procShown = -1; procDoneAt = -1; }
+        // (The reading changes nothing in the model: going back from its start only leaves the stent done, its steps lit to the last.)
+        if (rewound && mine() && isThen) { procThenAt = i; procShown = base - 1; }
+        else if (rewound && mine()) { evBack(s); liveSet(s, i, before); procCompare(s); procShown = -1; procDoneAt = -1; }
+        else if (mine() && done && !isThen && procThen(s)) procThenAt = i;   // (the reading comes next)
         else if (mine()) procDoneAt = i;   // (played through: the next Next moves on)
         procPaint();
+        if (procQueued && procThenAt === i && mine()) { procQueued = false; procPlay(s, i, 0, procThen(s)); }
       },
     });
     procPaint();
@@ -1376,14 +1432,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // the first step, a Next waits with it rather than leaving.)
   const procNext = () => {
     if (shown?.i !== want) return false;
-    if (procRun) return procRun.next();
+    if (procRun) return procRun.next() || procQueue();
     if (procWait) return true;
     const s = slides[want];
+    // (The stent is in and its reading is still to come: this Next plays it.)
+    if (procThenAt === want && procThen(s) && !cath.on) {
+      const k = procThen(s);
+      if (procBlocked(k, store.get().params, store.get().frame?.metrics)) { procThenAt = -1; procDoneAt = want; return false; }
+      procPlay(s, want, 0, k);
+      return true;
+    }
     if (!s?.procedure || procDoneAt === want || cath.on || !procCan(s)) return false;
     procPlay(s, want, 0);
     return true;
   };
-  const procBack = () => !!procRun && shown?.i === want && procRun.back();
+  // (A Next on the main run's last step, which goes on to its end by itself: the reading starts as it ends, not a Next lost to the next slide.)
+  const procQueue = () => {
+    const s = slides[want];
+    if (!procRun || !procThen(s) || procRunKind !== procKind(s) || procQueued) return false;
+    procQueued = true;
+    return true;
+  };
+  const procBack = () => { procQueued = false; return !!procRun && shown?.i === want && procRun.back(); };
   function procEl(s, i, st) {
     const kind = procKind(s), P = specOf(kind), p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
     // (BRTO and BATO only on a patient with gastric varices, or one who has had it already, so it plays from just before.)
@@ -1392,24 +1462,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // The steps as a line of words, each after its number in the slides' own step circle ({#n}, as the Circulation slides number
     // theirs), the one on show lit: progress, never buttons (his ask, 29 Oct: Next plays them). The callout on the figure carries the
     // same number. One the patient cannot have shows dimmed with why.
-    const steps = P?.steps || [['play', kind, '', kind]];
+    const steps = [...(P?.steps || [['play', kind, '', kind]]), ...(procThen(s) ? specOf(procThen(s)).steps : [])];   // (its reading, if it has one, is one more step)
     return h('p', { class: 'pz-procs', role: 'list', 'aria-label': `${P?.name || kind}, step by step: Next plays each step`, ...(why ? { 'data-why': why, title: why } : {}) },
       ...steps.flatMap((st0, k) => [k ? ' ' : null, h('span', { class: `pz-proc${procRun && k === procShown ? ' on' : ''}`, role: 'listitem', 'aria-label': `Step ${k + 1}: ${st0[1]}`, title: why || st0[2] },
         h('span', { class: 'pz-step', 'aria-hidden': 'true' }, String(k + 1)), nb(` ${st0[1]}`))]).filter(Boolean));
   }
   // Out: the readings go, the balloon goes down and the catheter fades (at once when the figure is fading anyway).
-  async function cathOut(fading) {
+  async function cathOut(fading, cut) {
     if (!cath.on) return;
     if (!fading) {
       cath.show = []; cath.ring = null; cath.follow = false; cath.probeT0 = 0;
       cathTrack('balloon', 0, 400); cathTrack('column', 0, 400); cathTrack('opacity', 0, 650);
-      await wait(reduce.matches ? 0 : 700);
-    } else await figureOut();
+      await waitCut(reduce.matches ? 0 : 700, cut || NEVER);
+    } else await figureOut(cut);
     cathStop();
   }
   async function cathTo(mode, fp, cut) {
     await toAnatomy(null, cut);
-    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(cut, stage); }
     if (cut()) return;
     if (!cath.on) { cath.on = true; cath.t0 = performance.now(); cath.ostium = mode === 'blocked'; cathFrame(); }
     cath.fp = fp;
@@ -1419,34 +1489,34 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       cath.show = []; cath.ring = null;
       if (!stage.cathFocus('route', ms(1200), { near: true })) return;
       cath.cam = 'route';
-      await wait(ms(1000)); if (cut()) return;
+      await waitCut(ms(1000), cut); if (cut()) return;
       const t = 3800 * (1 - v.u);
       cath.follow = true; cathTrack('u', 1, t);
-      await wait(ms(t + 100)); cath.follow = false; if (cut()) return;
+      await waitCut(ms(t + 100), cut); cath.follow = false; if (cut()) return;
     }
     if (mode === 'route') {
       cath.show = []; cath.ring = null; cathTrack('balloon', 0, 500); cathTrack('column', 0, 500);
-      if (cath.cam !== 'route') { stage.cathFocus('route', ms(1300)); cath.cam = 'route'; await wait(ms(1300)); }
+      if (cath.cam !== 'route') { stage.cathFocus('route', ms(1300)); cath.cam = 'route'; await waitCut(ms(1300), cut); }
       return;
     }
     // The tip close up (again each slide: the data card may have come or gone).
     stage.cathFocus('tip', ms(cath.cam === 'tip' ? 700 : 1500), { both: true }); 
-    await wait(ms(cath.cam === 'tip' ? 700 : 1500)); cath.cam = 'tip';
+    await waitCut(ms(cath.cam === 'tip' ? 700 : 1500), cut); cath.cam = 'tip';
     if (cut()) return;
     if (mode === 'blocked') {
       cath.show = ['occ']; cath.ring = null; cath.probeT0 = performance.now();
-      await wait(ms(3800)); if (cut()) return;
+      await waitCut(ms(3800), cut); if (cut()) return;
       cath.show = ['abort']; cath.ring = CC.bad;
       return;
     }
     if (mode === 'free') { cath.show = ['f']; cath.ring = CC.free; cathTrack('balloon', 0, 500); cathTrack('column', 0, 500); return; }
     // Wedge: the balloon goes up just behind the tip, flow stops, the still column fills toward the sinusoids.
-    if (v.balloon < 0.999) { cath.show = ['f']; cath.ring = CC.free; cathTrack('balloon', 1, 1800); await wait(ms(1900)); if (cut()) return; }
+    if (v.balloon < 0.999) { cath.show = ['f']; cath.ring = CC.free; cathTrack('balloon', 1, 1800); await waitCut(ms(1900), cut); if (cut()) return; }
     cath.ring = CC.wedge;
     // The still column fills first and the pressure holds on its plateau; only then does the WHVP callout ease in,
     // and for the result slide the HVPG bracket follows it.
-    if (v.column < 0.999) { cath.show = ['f']; cathTrack('column', 1, 1800); await wait(ms(1900)); if (cut()) return; await wait(ms(600)); if (cut()) return; }
-    if (!cath.show.includes('w')) { cath.show = ['f', 'w']; if (mode === 'result') { await wait(ms(1500)); if (cut()) return; } }
+    if (v.column < 0.999) { cath.show = ['f']; cathTrack('column', 1, 1800); await waitCut(ms(1900), cut); if (cut()) return; await waitCut(ms(600), cut); if (cut()) return; }
+    if (!cath.show.includes('w')) { cath.show = ['f', 'w']; if (mode === 'result') { await waitCut(ms(1500), cut); if (cut()) return; } }
     if (mode === 'result') { cath.show = ['sum']; cath.ring = null; }
   }
 
@@ -1496,7 +1566,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     let easing = true;
     (async () => {
       while (easing && mine()) {
-        await wait(150);
+        await waitCut(150, () => !mine());
         const fr = store.get().frame;
         if (easing && fr?.metrics && mine()) dataTo(s, liveFp(fr), ref, 280);
       }
@@ -1507,6 +1577,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // The slide's colour key on the figure (null: none); another lens fades the old key out, the new one in.
   function paintKey(k, s = null) {
+    keyNow = k ? [k, s] : null;
     if (!ui) return;
     ui.text.classList.toggle('pz-keyed', !!k);
     ui.figKey.set(!!k, () => {
@@ -1524,7 +1595,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (store.get().colorMode !== lens) store.set({ colorMode: lens });
     paintKey(lens, s);
   }
-  const LIVE_SET = { type: 'setParams', params: null, settle: false, ease: 1200 }, LIVE_RUN = { type: 'run', running: true, clock: 'hemo', speed: 1 };
+  const LIVE_EASE = 1200, LIVE_SET = { type: 'setParams', params: null, settle: false, ease: LIVE_EASE }, LIVE_RUN = { type: 'run', running: true, clock: 'hemo', speed: 1 };
   // (The keys a what-if slide watches: the same for the slide until the screen changes shape, so made once for each.)
   const LIVE_KEYS = new WeakMap();
   function liveKeys(s) {
@@ -1536,7 +1607,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     LIVE_KEYS.set(s, { ph, keys });
     return keys;
   }
-  async function liveSet(s, i, patch) {
+  // ev (evRun): a procedure's change, played on the model's own course (ease 0: no settling, so the pressures fall as the model's physics has
+  // them) and read every 100 ms by its graph, model seconds from the change; the readings stop with the graph's last.
+  async function liveSet(s, i, patch, ev = null) {
     if (!deck || shown?.i !== i || slides[i] !== s) return;
     const g = ++abGen, ref = refOf(s, i), mine = () => g === abGen && shown?.i === i && !!deck;
     liveOff = true;
@@ -1546,20 +1619,22 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const ms = clotMarks(markBase.marks, store.get().params);
       if (ms.map((m) => m.label).join('|') !== (store.get().focus?.marks || []).map((m) => m.label).join('|')) store.set({ focus: markFocus(ms) });
     }
-    LIVE_SET.params = store.get().params; host.send(LIVE_SET);   // (the host copies a message as it posts it: one kept message)
+    LIVE_SET.params = store.get().params; LIVE_SET.ease = ev ? 0 : LIVE_EASE; host.send(LIVE_SET);   // (the host copies a message as it posts it: one kept message)
     host.send(LIVE_RUN);
-    const keys = liveKeys(s);
+    const keys = liveKeys(s), m0 = store.get().frame?.t;
     let sig = null, still = performance.now();
     for (const t0 = performance.now(); mine();) {
-      await wait(150);
+      await waitCut(ev ? 100 : 150, () => !mine());
       const fr = store.get().frame, now = performance.now();
       if (fr?.metrics && mine()) {
         const f = liveFp(fr), k = shownSig(f, keys);
         dataTo(s, f, ref, 280);
         if (k !== sig) { sig = k; still = now; }
+        if (ev && Number.isFinite(m0) && ev.sample(fr.t - m0, f)) break;
       }
-      if (liveSettled(now - t0, now - still)) break;
+      if (ev ? now - t0 >= LIVE_MAX : liveSettled(now - t0, now - still)) break;
     }
+    if (ev && mine()) ev.end();
     if (mine()) abSlow();
   }
   // A what-if slider (whatIf: { label, param, min, max, step, ends?, unit? }) drags one parameter of the live model
@@ -1619,6 +1694,75 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // as the days run and the words change (live-text.js).
   const lapseRow = (s) => h('div', { class: 'pz-lapse', role: 'status' }, h('span', { class: 'pzl-bar' }, h('i')),
     liveText('span', 'pzl-t', [lapseText(s, 0, s.days, false), lapseText(s, s.days, s.days, false), lapseText(s, s.days, s.days, true)], lapseText(s, 0, s.days, false)).el);
+  // ── The time graph on the teaching card (lapse-graph.js) ──
+  // A time-lapse slide with no time chart of its own carries one over its bar: the slide's two tiles drawn day by day by the same flow-time
+  // chart the Varices and Treating the cause slides have on their data card, its lines growing as the days run (Mohammad, 7 Nov 2026, option A).
+  // One at a time, made with the slide's words and let go with them; its lines come from the state's trail (modelStep asks the worker for them).
+  let lg = null, lgK = 1, lgLap = false;   // (lgK: how far along the days it is drawn, so a card built again mid-lapse carries on from there)
+  function lgDrop() { if (!lg) return; lg.ft.dispose(); lg = null; }
+  function lapseGraph(s) {
+    const g = lapseGraphOf(s);
+    if (!g) return null;
+    const ft = createFlowTime();
+    lg = { ft, spec: { clock: g.clock, lines: g.lines } };
+    return h('div', { class: 'pz-timegraph', role: 'group', 'aria-label': 'What changes over the time-lapse' }, ft.el);
+  }
+  // (A time-lapse about to play opens on its start; any other way onto the slide shows where its days ended.)
+  function lgStart(st) {
+    if (!lg) return;
+    lgK = lgLap ? 0 : lapseOn ? lgK : 1;
+    lg.ft.set(st?.trail ?? null, lgK, lg.spec);
+  }
+  function lgSet(k, trail) { lgLap = false; lgK = k; lg?.ft.set(trail, k, lg.spec); }
+  // ── The procedure's graph on the teaching card (event-graph.js) ──
+  // A slide that plays a TIPS, BRTO, BATO or a Meso-Rex bypass carries a graph of its two tiles over its steps, drawn live from the moment the
+  // procedure changes the patient (Mohammad, 7 Nov 2026: the PPG and the sinusoidal flow "changing in real time after the TIPS gets placed").
+  // Built with the words, its box there from the start so the card keeps its size; it starts where the slide opened, and the procedure's
+  // change (procPlay's apply) hands it to liveSet, which gives it each live reading as it gives the tiles theirs. A run played through is
+  // kept for the slide (evKept), so coming back to it played through shows the graph whole.
+  let evg = null;
+  const evKept = new WeakMap();
+  function evDrop() { if (!evg) return; if (!evg.tool) evg.ft.dispose(); evg = null; }   // (a graph in the data card's tool is the tool's: it lives with the card, not the words)
+  function eventGraph(s, i, st) {
+    const g = eventGraphOf(s);
+    if (s.tool?.kind === 'evgraph') return null;   // (its graph is in the data card: evAdopt)
+    if (!g || !procOffered(g.kind, st?.params || store.get().params, st ? null : store.get().frame?.metrics)) return null;   // (as its steps: none for a patient who cannot have it)
+    const ft = createEventGraph();
+    evg = { ft, spec: g, s, i };
+    return h('div', { class: 'pz-timegraph pz-evtime', role: 'group', 'aria-label': `What the ${specOf(g.kind)?.name || 'procedure'} changes, second by second` }, ft.el);
+  }
+  // The same graph as the data card's instrument (tool { kind: 'evgraph' }, Mohammad 8 Nov 2026: the pre-emptive TIPS slide's chart moves up into the
+  // instrument card where the indications table was): the card's instrument is the chart, driven here exactly as the one on the words.
+  function evAdopt(s, i, st) {
+    const g = eventGraphOf(s), ft = ui?.tools.current('evgraph');
+    if (!g || !ft || !procOffered(g.kind, st?.params || store.get().params, st ? null : store.get().frame?.metrics)) return;
+    evg = { ft, spec: g, s, i, tool: true };
+    evStart(st);
+  }
+  // (Where its lines start: the state the slide opened on, its before state on a slide whose own patient has had it. Where they end, when the
+  // slide's own state has it done (its scale then holds both); else the scale holds the start, and a fall from it.)
+  function evStart(st) {
+    if (!evg) return;
+    const { spec, s, i } = evg, own = stateOf[i] === i ? states[i] : null, had = !!own?.before;
+    const b = (had ? own.before.fp : st?.fp) || null;
+    if (!b) return;
+    const end = had ? own.fp : null, lines = spec.lines;
+    const kept = procDoneAt === evg.i ? evKept.get(s) || null : null;
+    evg.ft.set(spec, [b[lines[0]], b[lines[1]]], end ? [end[lines[0]], end[lines[1]]] : null, kept);
+  }
+  // What liveSet is handed at the change: it lets the model run its own course (no settling) and gives each reading to the graph, until the
+  // graph's seconds have run; the tiles stop on the same reading the graph ends on.
+  function evRun(s, i) {
+    if (!evg || evg.s !== s || evg.i !== i) return null;
+    const g = evg;
+    g.ft.start();
+    return {
+      secs: g.ft.secs,
+      sample(t, f) { if (evg !== g) return true; g.ft.push(t, f[g.spec.lines[0]], f[g.spec.lines[1]]); return t >= g.ft.secs; },
+      end() { if (evg === g) { const k = g.ft.kept(); if (k) evKept.set(g.s, k); } },
+    };
+  }
+  function evBack(s) { if (evg?.s === s) { evg.ft.reset(); evKept.delete(s); } }
   function paintLapse(s, d, n, done = false) {
     const el = ui?.text.querySelector('.pz-lapse');
     if (!el) return;
@@ -1651,31 +1795,35 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const days = s.days, d0 = store.get().frame?.day ?? 0, ref = refOf(s, to);
     lapseOn = true; lapseLeft = days;
     let seen = false;
-    ui?.tools.progress(0, end.trail);
+    ui?.tools.progress(0, end.trail); lgSet(0, end.trail);
     host.send({ type: 'lapse', days, speed: days / (s.lapse.seconds || 8), ramp: s.ramp || null, bedside: bedside(s) });
     pushTo(s, to, (s.lapse.seconds || 8) * 1000);
     paintChrome();
     figureHooks('lapse', s);   // (a deck visuals package's glow from the days' start: slide-ext.js)
+    // (A cap: when no frame has moved the days on for three times the lapse's length, the worker has stalled or a message was lost;
+    // the loop ends and the slide lands on its computed end, as for a finished lapse.)
+    let dBest = -1, moveAt = performance.now();
     while (lapseOn && !cut()) {
       const fast = lapseLeft === 0;
-      await wait(fast ? 60 : 150);
+      await waitCut(fast ? 60 : 150, cut);
       const fr = store.get().frame;
       // (A bedside lapse counts its days in lapseDay, which frames from before it started lack, and frames after it ended lack again.)
       if (fr?.lapseDay != null) seen = true;
       const d = clamp(bedside(s) ? fr?.lapseDay ?? (seen ? days : 0) : (fr?.day ?? d0) - d0, 0, days);
       if (lapseLeft) lapseLeft = days - d;
       paintLapse(s, d, days);
-      ui?.tools.progress(d / days);
+      ui?.tools.progress(d / days); lgSet(d / days);
       // (Only once a day has run: before that the live figure is at the bedside, its numbers swinging with each beat, while
       // the card already shows the settled start.)
       if (fr?.metrics && d >= 1) dataTo(s, liveFp(fr), ref, fast ? 120 : 280);
       if (d >= days && fr?.clock === 'hemo') break;
+      if (d > dBest) { dBest = d; moveAt = performance.now(); } else if (performance.now() - moveAt > 3000 * (s.lapse.seconds || 8)) { degrade('lapse-stall'); break; }
     }
     if (!lapseOn || cut()) { stopLapse(); return; }
     lapseOn = false; paintChrome();
     pushEnd(s, to, reduce.matches ? 0 : 600);
     paintLapse(s, days, days, true);
-    ui?.tools.progress(1);
+    ui?.tools.progress(1); lgSet(1);
     // (The live days land a hair off the computed end: the last step eases there too.)
     shownState = -1;
     if (!await morphTo(end, cut, reduce.matches ? 0 : 600, false)) return;
@@ -1731,7 +1879,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (A case may end on one short question of its own, caseQ, on its own line under the case: the card already holds the talk until it is
     // lifted, so the room has the pause to think.)
     const card = cardUp('Case', h('p', { class: 'pz-case-p' }, nb(s.vignette)), s.caseQ ? h('p', { class: 'pz-case-p pz-case-q' }, nb(s.caseQ)) : null);
-    await wait(card.ms);
+    await waitCut(card.ms, cut);
     if (cut()) return false;
     // The leaving slide's cards (faded out, still in place) no longer count for the framing: the wide view is the whole patient
     // around the case card. (The new slide's words set their own space again before the zoom to the slide: settleRun.)
@@ -1764,7 +1912,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // figure as it stands: no camera retreat, no patient morph. The slide's cards wait behind it (the caseCard branches), the camera makes its
   // one move to the slide's framing as it lifts, and a slide that changes the model plays that change then (answerPlay, playLapse).
   async function questionRun(s, cut) {
-    await wait(cardUp('Question', h('p', { class: 'pz-case-p' }, nb(s.question))).ms);
+    await waitCut(cardUp('Question', h('p', { class: 'pz-case-p' }, nb(s.question))).ms, cut);
     return !cut();
   }
   // Lifted (tap, Next, a swipe anywhere): the card leaves now, while the slide carries on behind it.
@@ -1865,7 +2013,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!card) return;
     if (!card.lifted) await until(() => cut() || card.lifted, 864e5);
     if (cut()) return;
-    await wait(caseShut());
+    await waitCut(caseShut(), cut);
   }
 
   // ── Slides ──
@@ -1925,6 +2073,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A data card that stays (the same instrument) stays put. Transform and opacity only.
   // (Moved by card-throw.js, on one clock with the GPU glass: their inline transform and opacity written in the scheduler's frame.)
   let throwDir = '', throwD = 0;
+  let thrownNow = false;   // (wordsOut: every card that leaves is on card-throw.js's way out, so throwsOut() times the leave and wordsOut asks for no floor)
   // alloc-rare: once per swipe, cached in pull.els as the first move lands
   const pageEls = () => [ui.text, ui.shade];
   // (A swipe takes every card that shows with the words, the data card and the panel too, on the finger's one move, and lets them go
@@ -1940,7 +2089,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}|${glEpoch()}`, steps: {
     state: (i) => stateReady(i),
     glyphs: () => loadGlyphs(),
-    tool: (i) => { const s = slides[i], w = EXT.tools[s?.tool?.kind]?.warm; return w ? w(s.tool, ctxOf(s, i)) : null; },   // (B16: a throw or rejection reaches slide-prep, which marks the manifest failed; safe() would have turned it into null = ready)
+    tool: (i) => { const s = slides[i]; return s ? warmOf(s, ctxOf(s, i)) : null; },   // (B16: a throw or rejection reaches slide-prep, which marks the manifest failed; safe() would have turned it into null = ready)
     shadersFailed: () => shaderFailures(),
     shaders: (ms = 4) => prepareShaders(ms),
   } });
@@ -1952,6 +2101,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // way out are disowned (inert) from the press until this change's cards come in, so a card leaving or held out of sight takes no tap.)
   const txns = createTxns();
   let txn = null;
+  const phaseNote = () => { const q = txns.stats(); return q.phase ? ` (stuck in ${q.phase} for ${Math.round(q.since)} ms)` : ''; };
   // (R03: the timers one talk starts belong to its scope, which stopNow disposes; a timer also acts only on the cards it was set for.)
   let sess = null;
   const stimer = (fn, ms) => { const u = ui; return sess ? sess.timer(() => { if (ui === u) fn(); }, ms) : 0; };
@@ -1981,11 +2131,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (busy) outNow();
       if (!busy) run();
     };
-    if (!slidePrep.ready(want)) prepHold(want, goOn); else goOn();
+    // (The cards that show are thrown on the press, before the wait for the slide's preparation: the throw takes about 170 ms to clear, which covers
+    // most of the PREP_MS hold, so a Next on a slide not yet prepared answers at once. Push B, item 4 step 3. A card the plan is not known for stays.)
+    if (!slidePrep.ready(want)) { outNow(); prepHold(want, goOn); } else goOn();
   }
   // (R05: the cards that show stay where they are until the slide going in is prepared (slide-prep.js ready: its state, glyphs, data card
   // and shaders), so the new card never comes in empty; at most PREP_MS, so a Next is still answered at once. A newer press takes over.)
-  const PREP_MS = 160;
+  const PREP_MS = 160;   // motion-scale: not a move (a budget for a slide's preparation)
   let prepT = 0;
   // (R05: a slide shown before its preparation or its instrument's window was complete says so: the root's data-pz-degraded names what was
   // missing ('prep-preparing', 'prep-failed', 'prep-unprepared', 'window') until the next press, and degraded() counts them. The time limit
@@ -2057,8 +2209,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       while (deck && (!shown || shown.i !== want || shown.gen !== gen || shownBeat !== beat)) {
         const landed = !!shown && shown.i === want && shown.gen === gen, k = `${want}|${gen}|${txn?.id || 0}|${landed ? beat : ''}`;
         tries = k === key ? tries + 1 : 1; key = k;
-        if (tries > 2 && landed) { console.warn(`presenter: slide ${want + 1}, view ${beat + 1}, did not land`); break; }
-        if (tries > 2) { console.warn(`presenter: slide ${want + 1} did not land`); break; }
+        if (tries > 2 && landed) { console.warn(`presenter: slide ${want + 1}, view ${beat + 1}, did not land${phaseNote()}`); break; }
+        if (tries > 2) { console.warn(`presenter: slide ${want + 1} did not land${phaseNote()}`); break; }
         if (landed) await beatMove(want, beat); else await transition(want);
       }
     } catch (e) {
@@ -2088,7 +2240,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // Back only once the camera or the sinusoid has landed (its labels laid out there) and the lit set's own eases
     // (a pill in or out, a label lit or not) have run, unseen.
     await until(() => cut() || (store.get().sinusoid ? !!document.querySelector('.sv.on .sv-region') : !document.querySelector('.lz.lz-sin')), 2500);
-    await wait(80);
+    await waitCut(80, cut);
     await eased(['opacity', 'pill-in', 'sv-fade-in'], 1500, ':is(.lz-lab, .lz-zone, .sv-region)');
     if (cut()) return;
     hushed = false;
@@ -2181,8 +2333,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (pageForce) { pageForce = false; if (keepNow.text) keepNow = { ...keepNow, text: false }; }
     glassTurn(s, ask, ct);
     if (ui) tx?.own([keepNow.text ? null : ui.text, keepNow.text ? null : ui.shade, keepNow.data ? null : ui.data, ui.panel]);   // (leaving: no input until this change's cards come in)
-    const outAt = performance.now(), outMs = wordsOut(s);
-    if (outMs) { await painted(); await painted(); }
+    // (Thrown cards: wordsOut asks for no fixed floor (outMs 0). throwsOut() below ends when they are out of sight on the eases' clock, about 170 ms
+    // in, not at the D_SMALL + 20 the fade needed: the 90 ms after that were an empty slot. The two painted frames stay: the throw is seen begun
+    // before the marks and the lens can make a long frame.)
+    const outAt = performance.now(), outMs = wordsOut(s), thrown = thrownNow;
+    tx?.phase('leave');
+    if (outMs || thrown) { await painted(); await painted(); }
     if (cut()) return;
     // Words out, and the marks: they belong to the slide that is leaving.
     markBase = null;
@@ -2194,11 +2350,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     // (Back onto a procedure's slide from the next lands on it done, so Next moves on.)
-    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1;
-    await wait(Math.max(0, outMs - (performance.now() - outAt)));
+    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1; procThenAt = -1; procQueued = false;
+    if (outMs) await waitCut(Math.max(0, outMs - (performance.now() - outAt)), cut);
     if (throwDir) await throwsOut();   // (thrown: until the old cards are out of sight on the eases' clock, never mid-flight: card-throw.js)
     // (Nothing in the liver changes until its labels are gone.)
-    if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
+    tx?.phase('hush-out');
+    if (hushed) { await waitCut(Math.max(0, HUSH_OUT - (performance.now() - hushAt)), cut); if (cut()) return; await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
     if (cut()) return;
     // (A flip of the scale still moving stops at its next step, cut by this slide: its camera is let finish before the slide's own.)
     if (flipping) { await until(() => !flipping, 9000); if (cut()) return; }
@@ -2212,13 +2369,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!outNow) slideLayers(s);
     // The catheter leaves with its slides. (Only a new patient on the first slide or with reduced motion fades the figure, which takes
     // it; otherwise the patient eases in after (morphTo) and the figure never dims, so the catheter retracts and fades on its own.)
-    if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches)); if (cut()) return; }
+    tx?.phase('cath-out');
+    if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches), cut); if (cut()) return; }
+    tx?.phase('to-anatomy');
     if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null, cut); if (cut()) return; slideLayers(s); if (cut()) return; }
     // (A patient still being computed off screen: after a short wait the arc shows.)
     const lateT = states[si] && (!lap || states[stateOf[to]]) ? 0 : stimer(() => { if (!cut()) loading(true); }, 260);
     // (A time-lapse with its own params plays from them set and settled: the chain's start state, not the slide before's.)
     let own, st;
     try {
+      tx?.phase('state-ready');
       own = lap ? (await stateReady(stateOf[to]))?.start || null : pre ? (await stateReady(to))?.before || null : null;
       st = own || await stateReady(si);
     } finally { clearTimeout(lateT); }   // (R03: also when a wait throws or the move is cut; the cover is not raised late for a move that has gone)
@@ -2248,9 +2408,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const glide = swap && !booting && !reduce.matches, later = glide && !ct && !!ui;
     if (swap) {
       liveOff = false;
+      tx?.phase('morph');
       if (glide) { shownState = -1; if (!later) { if (!await morphTo(st, cut)) return; shownState = own ? -1 : si; } }
       else {
-        if (shownState >= 0 && !view.classList.contains('pz-out')) { await figureOut(); if (cut()) return; }
+        if (shownState >= 0 && !view.classList.contains('pz-out')) { await figureOut(cut); if (cut()) return; }
         applyState(st); shownState = own ? -1 : si;
         await drawn(st);
       }
@@ -2279,13 +2440,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // card they also stay out until it is lifted, a catheter slide's included: its words would otherwise come in under the case.)
     if (keepNow.text) { /* (kept words stay on screen as they are) */ }
     else if (bare || caseCard) { ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
+    tx?.phase('settle');
     await settleRun();
     if (!bare) { await caseEnd(cut); if (cut()) return; cardsIn({ i: to, gen: g }); }
     if (cut()) return;
     // The liver's own labels light with the words, so their glow fades in during the dive rather than after it.
     if (!s.visual) app.dataset.lit = slideTargets(fv).lit.join(' ');
     const lead = swap && !glide && !ct && cam && !LOBULE_CAM.test(cam) && !store.get().lobule && !reduce.matches && !booting ? camera(cam, fv, cut) : null;
-    if (lead) { await wait(150); if (cut()) return; }
+    tx?.phase('lead');
+    if (lead) { await waitCut(150, cut); if (cut()) return; }
     if (swap || view.classList.contains('pz-out')) figureIn(); else loading(false);
     if (cut()) return;
     // A catheter slide with a new patient changes it before its camera moves (its cards come in at once), and the catheter then drives
@@ -2311,6 +2474,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // the cards come in once a quarter of it has run on any machine, not after it has landed. A new patient's waits for its change.)
     let prep = null, bareSeen = false;
     const prepWith = plate && !swap && !caseCard ? () => { prep ||= unseenFit(cut); } : null;
+    tx?.phase('cath-in');
     if (ct) await cathTo(ct, st.fp, cut);
     else if (lead) await lead;
     else if (cam) await camera(cam, fv, cut, plate ? CARDS_AT : 0, prepWith);
@@ -2336,7 +2500,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       bare = false; cardsIn({ i: to, gen: g });
       // (Once they are in, so the size they settle at is the one the camera already framed: no second move.)
       bareSeen = plate && !swap && !caseCard;   // (no change of patient under them: the slide's marks need no model to wait for)
-      await wait(60); await until(() => cut() || !cardsEntering(bareSeen ? CARDS_SEEN : 0), 1200);
+      await waitCut(60, cut); await until(() => cut() || !cardsEntering(bareSeen ? CARDS_SEEN : 0), 1200);
       if (cut()) return;
       // (One move: the glide the cards came in over has landed, and the change of patient under it has eased in.)
       if (plate) { await until(() => cut() || !stage.gliding(), 1500); if (cut()) return; }
@@ -2351,6 +2515,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (R01: a full landing is the throws' own promise, then whatever the browser's animations still run.)
     if (bareSeen) { await Promise.race([Promise.all(throwCards().map((el) => el && throwLanded(el))), wait(1200)]); if (cut()) return; await until(() => cut() || !cardsEntering(), 1200); if (cut()) return; }
     lastCam = cam; framedSig = cardSig();
+    tx?.phase('unhush');
     await unhush(cut);
     if (cut()) return;
     shown = { i: to, gen: g }; lastAt = to; shownBeat = b0;
@@ -2503,6 +2668,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const turnDone = () => { clearTimeout(glassT); turnNow = ''; glassT = stimer(() => { if (ui && !busy) setTurn(false); }, D_SURFACE + 520); };
   // (Starts the cards' fade out and returns how long it runs, ms: 0 when nothing is showing.)
   function wordsOut(next) {
+    thrownNow = false;
     if (!ui) return 0;
     // (A card the next slide would build the same stays where it is and leaves nothing to fade: keepFor, card-keep.js.)
     const out = [ui.text, ui.panel].filter((el) => !(keepNow.text && el === ui.text)), data = ui.data;
@@ -2526,7 +2692,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // Cards already on their way out or fully out (the slide was asked for again before the last one's cards came back: Next
     // pressed in a row) have nothing new to fade: the move waits only for what is still fading, never a whole step more.
     const leaving = !dataOut && !out.some((el) => !el.hidden && el.childElementCount && !(keep && el === ui.text ? [...el.children].every((c) => c === mon.el || c.classList.contains('pz-leave')) : el.classList.contains('pz-leave')));
-    const fading = leaving ? Math.max(fadeLeft([...out, data, ui.scl, ui.shade]), ...[...out, data, ui.shade].map(throwLeft)) : 0;
+    // (Cards on card-throw.js's way out are timed by throwsOut() when they are out of sight, not by the rest of their 560 ms: only the browser's own fades are counted here.)
+    const byThrow = throwDir && !keep;
+    const fading = leaving ? Math.max(fadeLeft([...out, data, ui.scl, ui.shade]), ...(byThrow ? [] : [...out, data, ui.shade].map(throwLeft))) : 0;
+    if (leaving && byThrow && [...out, data, ui.shade].some((el) => throwLeft(el) > 0)) thrownNow = true;
     if (!keepNow.text) ui.text.dataset.out = turnNow;   // (set with the leave, in the same style change, so the words go the right way at once)
     // (Thrown: the data card and a panel go the same way as the words.)
     for (const el of [data, ui.panel]) { if (throwDir) el.dataset.out = throwDir; else delete el.dataset.out; }
@@ -2548,6 +2717,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (goes) ui.shade.classList.add('pz-leave');
       if (pageHeld) pageHand(goes);
     }
+    let threw = false;
     if (throwDir && !leaving) {
       // (Thrown, each on card-throw.js's clock from where it stands (a swipe's finger included): the words and their glass as one, a data
       // card that changes and a panel with them. Not the words around a catheter's monitor kept up: they fade around it as before.)
@@ -2562,8 +2732,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const sized = goes.filter((el) => el !== ui.shade);
       const dist = (throwD = Math.min(innerWidth, Math.max(120, ...sized.map(wOf)) + RAIL_GAP));
       for (const el of goes) throwOut(el, throwDir, dist);
+      threw = goes.length > 0 && !keep;
     }
     if (leaving) return fading ? fading + 20 : 0;
+    // (Every card that leaves is thrown: no floor. The move waits for throwsOut(), which is the cards' own end of sight, not a number sized for the fade.)
+    if (threw) { thrownNow = true; return 0; }
     return D_SMALL + 20;   // (the words leave at the data card's pace, one small step; with reduced motion they still fade, without sliding: app.css)
   }
   // Next pressed while the words are still coming in: their entrance (a WAAPI move, above the CSS leave) is stopped where it has got
@@ -2644,7 +2817,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // frame paints it there), never in a frame; the glide itself is a transform.)
     if (stay && !reduce.matches) queueMicrotask(() => {
       const dy = y0 - readBox(mon.el).top;
-      if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: D_SURFACE, easing: EASE_ARRIVE });
+      if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: D_SURFACE, easing: EASE_MOVE, composite: 'add' });
     });
     nextFrame(() => mon.set(s.monitor, states[stateOf[i]]?.fp, cath.v.balloon));
     return mon.el;
@@ -2663,7 +2836,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!end || cut()) return;
     const ref = refOf(s, i);
     let easing = true;
-    (async () => { while (easing && !cut()) { await wait(150); const fr = store.get().frame; if (easing && fr?.metrics && !cut()) dataTo(s, liveFp(fr), ref, 280); } })();
+    (async () => { while (easing && !cut()) { await waitCut(150, cut); const fr = store.get().frame; if (easing && fr?.metrics && !cut()) dataTo(s, liveFp(fr), ref, 280); } })();
     shownState = -1;
     const done = await morphTo(end, cut, reduce.matches ? 0 : MORPH_MS, false);
     easing = false;
@@ -2696,6 +2869,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!ui) return;
     keepArgs = { s, st, i, fresh, lap, now };
     ui.scope?.slide(s);   // (the ring on the varices when the slide shows them; a lens left open closes)
+    lgLap = lap;
     if (!keepNow.text) textIn(s, st, i);
     if (keepNow.data) dataKept(s, i, now); else dataIn(s, st, i, fresh, lap, now);
     layout();
@@ -2704,6 +2878,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // The teaching card's words (or a visual's panel) for slide i, and what stands with them: the scale switch, the level's tab.
   function textIn(s, st, i) {
     const { text, panel } = ui;
+    lgDrop(); evDrop();   // (the last slide's time graph is let go before the words are drawn again)
     paintScales(s, i);
     // The slide's level (Presinusoidal, Cardiac...) is a tab in the glass's top left corner, the deck tab's mirror in the level's
     // colour (17 Oct), not a pill over the title: set with the words, gone on a visual slide.
@@ -2740,13 +2915,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
           line, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
           s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
+          s.procedure ? eventGraph(s, i, st) : null,
           s.procedure ? procEl(s, i, st) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
           s.column ? wedgeColumn() : null,
+          s.lapse && i > 0 ? lapseGraph(s) : null,
           s.lapse && i > 0 ? lapseRow(s) : null,
           s.rail ? rail(s.rail === 'all' ? 'all' : s.site) : null,
           s.causes?.length ? h('p', { class: 'pz-causes' }, h('span', { class: 'pz-sub' }, s.causesHead || 'Causes'), nb(listCase(s.causes))) : null]);
       paintKey((slideLens(s) !== 'pressure' || lensButtons(s)) ? slideLens(s) : null, s);
+      lgStart(st); evStart(st);   // (the graph's chart is drawn once its box is in the card: its size is read from it)
       markLong(text, gen !== redrawn);   // (drawn again for a new text size: judged at its full size, as a fresh load does)
       [...text.children].forEach((c, k) => c.style.setProperty('--i', k));
       text.dataset.turn = turnNow || throwDir;   // (the way the new words come in: app.css; '' comes in from the card's edge with the glass, as before)
@@ -2780,7 +2958,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       data.dataset.tool = ui.tools.sig(s.tool);
       ui.dhT.textContent = cardTitle(s); unitSpans(ui.dhT);
       // (A flow-time chart over a time-lapse starts empty and draws as it plays.)
-      if (s.tool) showTool(s, i, lap, i === lastAt + 1); else ui.tools.hide();   // (forward: stepped onto from the slide before, so the HVPG card plays its tracing)
+      if (s.tool) showTool(s, i, lap, i === lastAt + 1); else ui.tools.hide();
+      if (s.tool?.kind === 'evgraph') evAdopt(s, i, st);   // (forward: stepped onto from the slide before, so the HVPG card plays its tracing)
       if (s.tool) ui.tools.ghost(toolGhost(s, i));
       // (With a new patient the numbers are set at once, while the card is still out: it fades back in already showing them. So
       // too while the new cards wait, unseen, for the camera to land (bare): their count ran unseen beside the glide, a frame's
@@ -2862,7 +3041,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     for (const k of bad) keepNow = { ...keepNow, [k]: false };
     if (bad.includes('data')) { ui.data.classList.add('pz-hide'); delete ui.data.dataset.colswap; }
     if (bad.includes('text')) { ui.text.classList.add('pz-leave'); ui.scl.classList.add('pz-leave'); }
-    await wait(D_SMALL + 20);
+    await waitCut(D_SMALL + 20, cut);
     if (cut() || !ui || !keepArgs) return false;
     const { s, st, i, fresh, lap, now } = keepArgs;
     if (bad.includes('text')) { textIn(s, st, i); ui.text.classList.add('pz-leave'); ui.root.dataset.bare = ''; }
@@ -2888,7 +3067,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const ref = refOf(s, to);
     (async () => {
       while (!cut() && ui) {
-        await wait(150);
+        await waitCut(150, cut);
         if (cut() || !ui) return;
         // (The patient has landed, shownState set: the card takes the slide's own numbers and is done.)
         if (shownState === stateOf[to]) { if (s.tool) showTool(s, to); dataTo(s, st.fp, ref, 280); return; }
@@ -2900,7 +3079,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // Each row of a table still computing fills in (its cells fade in) as its patient arrives. It is asked for by the table itself, as it is built, so
   // every way a table gets drawn (a slide landing, the card drawn again for a new text size, a kept panel) fills in, and a slide that is slow to
   // land (the model paused, a heavy figure) never leaves its cells blank for good. A table that has left the page is let go.
-  const TABLE_WAIT_MS = 1500;
+  const TABLE_WAIT_MS = 1500;   // motion-scale: not a move (a longest wait)
   function watchRows(el, s) {
     for (const k of new Set(rowIdx(s).filter((x) => !states[x]))) {
       // (R15: the rows are published at a safe boundary: not while the cards are still on their throws, then the layout they change is asked for once, R14.)
@@ -2937,7 +3116,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       request: (type, payload = {}) => getCalc().request(type, payload),
       // (steps as stepOf makes them; from: the snapshot the first starts from, the slide's own by default. Resolves with each
       // step's { snap, params, fp, extra? }, or null when the worker failed.)
-      run: (steps, from = st?.snap ?? null) => { const out = []; return getCalc().sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, params: m.params, fp: m.fp, extra: m.extra }; }).then((end) => (end?.type === 'error' ? null : out)); },
+      run: (steps, from = st?.snap ?? null) => { const out = []; return getCalc().sequence(steps, from, (m) => { out[m.i] = { snap: m.snap, params: m.params, fp: m.fp, extra: m.extra, trail: m.trail }; }).then((end) => (end?.type === 'error' ? null : out)); },
     };
   }
   // A visual's rows: the deck's slides by id ('pvt', or { id, name } to name it), or { preset, name } patients that
@@ -3611,9 +3790,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // shrank the card while a phone's tool folded, and the shrunk fit then stuck.)
       // (A line's glyphs or a pinned button reaching a pixel or two past its part is not overflow: counted, it shrank every
       // phone instrument card by the fit loop's full eight steps, its words to 0.86.)
+      // (The tiles' numbers each have a GPU picture that reaches past its tile, and its size follows the number: the tiles' own
+      // scroll height is no overflow either. Counted, a number changing in a drag zoomed the whole card down to half, 7 Nov.)
       // (A card's header grows with its words; only its Show chip's tap area reaches past it, and that is no overflow: counted,
       // it shrank a phone's folded data card to half, its chip to 19 px.)
-      const clip = s.maxHeight !== 'none' || c.classList.contains('pz-dh') ? 0 : Math.max(0, readMetric(c, 'scrollHeight') - readMetric(c, 'clientHeight') - 3);
+      const clip = s.maxHeight !== 'none' || c.classList.contains('pz-dh') || c.classList.contains('pz-tiles') ? 0 : Math.max(0, readMetric(c, 'scrollHeight') - readMetric(c, 'clientHeight') - 3);
       // A protected time chart eases to its allocated height. Fit against its destination, so the old height
       // during that ease cannot shrink the card's words and start another fit/resize cycle.
       const chartH = el.classList.contains('pz-flowfit') && c.matches('.pz-tool[data-kind="flowtime"]') ? parseFloat(el.style.getPropertyValue('--ft-room')) : 0;
@@ -3789,6 +3970,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     let refit = false;
     for (const el of els) {
       if (!el || el.hidden || 'folding' in el.dataset) continue;   // (a part mid-fold: the card keeps the fit it will rest with)
+      // (A readings card of tiles alone, while a what-if slider or a compare button moves its numbers: its size is the one it came in with.
+      // A tile that measured taller for a moment (a number changing its length, a rating's word) was read as overflow, the card zoomed down
+      // to half and the tiles shrank in the middle of a drag, Circuit "Cirrhosis raises the resistance" on a Mac, 7 Nov. A resize, a turn or a new
+      // slide deletes the fit first (fitDone), so they still fit it afresh.)
+      if (el === ui?.data && el.classList.contains('tiles-only') && !el.querySelector(':scope > .pz-tool') && fitDone.has(el) && cardsStill()) continue;
       const sig = fitSig(el);
       if (fitDone.get(el) === sig) continue;
       const was = parseFloat(el.style.getPropertyValue('--pz-fit')) || 1;
@@ -5003,7 +5189,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if ((store.get().lobule || store.get().sinusoid) && !booting) hush();
     markBase = null;
     store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
-    if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
+    if (hushed) { await waitCut(Math.max(0, HUSH_OUT - (performance.now() - hushAt)), cut); if (cut()) return; await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
     const homeOff = homeLease.take();
     try { await camera(cam, v, cut); } finally { homeOff(); }
     lastCam = cam;
@@ -5026,7 +5212,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       markBase = null;
       store.set({ focus: null, presentLabels: [], presentTerms: null, lobuleCallout: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null);
       figureHooks('clear');
-      if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
+      if (hushed) { await waitCut(Math.max(0, HUSH_OUT - (performance.now() - hushAt)), cut); if (cut()) return; await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
       fig = { i, s: v };
       const homeOff = homeLease.take();
       try { await camera(cam, v, cut); } finally { homeOff(); }
@@ -5051,7 +5237,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (flipping) { await until(() => !flipping, 9000); if (cut()) return; }
       if ((store.get().lobule || store.get().sinusoid) && !booting && slideTargets(v).lit.join(' ') !== (app.dataset.lit || '')) {
         hush();
-        await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return;
+        await waitCut(Math.max(0, HUSH_OUT - (performance.now() - hushAt)), cut); if (cut()) return; await eased(['opacity'], 600, '.lz-labels'); if (cut()) return;
       }
       fig = { i, s: v };
       paintClauses(ui.text.querySelector('.pz-line'), k + 1);
@@ -6144,7 +6330,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (pageHeld) { clearTimeout(pageHeld.t); pageHeld = null; }
     pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); evDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     insets.reset();   // (and a room held through the last slide change is never written back after the talk: inset-hold.js)
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)
@@ -6171,13 +6357,13 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   async function putHealthy(b) {
     const ms = reduce.matches ? 0 : D_SURFACE;
     const me = ++healthyGen, gone = () => me !== healthyGen && (view.style.opacity = '', true);
-    if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await wait(ms); if (gone()) return; }
+    if (ms) { view.style.transition = `opacity ${ms}ms var(--ease)`; view.style.opacity = '.22'; await waitCut(ms, gone); if (gone()) return; }
     const st = store.get();
     store.set({ mode: 'explore', colorMode: 'pressure', selection: null, details: null, compareSnap: null, compareView: 'B', hvpgMeasured: false, lastHVPG: null, lapse: 0, speed: 1 });
-    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 0 : 1000); if (gone()) return; }
-    if (st.lobule) { store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80); if (gone()) return; }
+    if (st.sinusoid) { store.set({ sinusoid: false }); await waitCut(reduce.matches ? 0 : 1000, gone); if (gone()) return; }
+    if (st.lobule) { store.set({ lobule: false }); await until(() => gone() || stage.lobuleSettled(), 2600); await waitCut(80, gone); if (gone()) return; }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
-    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(reduce.matches ? 0 : 700); if (gone()) return; }
+    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); if (!reduce.matches) await viewSettled(gone, stage); if (gone()) return; }
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     await loadPreset?.('healthy');
     if (gone()) return;

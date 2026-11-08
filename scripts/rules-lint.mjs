@@ -142,6 +142,10 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
   };
   const forbid = (file, re, why) => { if (re.test(text(file))) errors.push(`${file}: ${why} (${re})`); };
+  need('src/ui/presenter.js', [
+    [/c\.classList\.contains\('pz-tiles'\) \? 0 :/, "the tiles' own scroll height is no overflow: their numbers' GPU pictures reach past a tile, and counted it zoomed the readings card down in a what-if drag (7 Nov 2026)"],
+    [/el\.classList\.contains\('tiles-only'\) && !el\.querySelector\(':scope > \.pz-tool'\) && fitDone\.has\(el\) && cardsStill\(\)\) continue;/, "a tiles-only readings card keeps the fit it came in with while a what-if or compare drives its numbers (7 Nov 2026)"],
+  ]);
   need('src/ui/ink-gl.js', [
     [/if \(touches\.size > 1\) return;/, 'the laser is armed by one finger'],
     [/e\.target !== window\) return;/, "the laser ignores other elements' blur"],
@@ -192,6 +196,114 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   const pres = text('src/ui/presenter.js');
   if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
+
+  // Presenter waits and hand-overs (8 Nov 2026, animation review push B, items 2 to 4): source shapes moved out of tests (PR-02), each with its reason.
+  need('src/ui/presenter.js', [
+    [/const \{ waitCut, until \} = createWaits\(\{ frame: nextFrame \}\);/, 'until is polled by frame, and waitCut ends a wait at a newer press (wait-cut.js), not a 40 ms timer or a bare setTimeout'],
+    [/const viewSettled = \(cut, stage\) => waitCut\(VIEW_CHANGE_MS \+ 400, \(\) => cut\(\) \|\| !stage\.viewChanging\?\.\(\)\);/, "a step after a switch of view waits for the change to land (stage.viewChanging), with VIEW_CHANGE_S's margin as the longest"],
+    [/stage\.lobuleFocus\(part, \{ zoom, ms \}\)\) await waitCut\(ms \+ 300, \(\) => cut\(\) \|\| !stage\.lobuleGlide\?\.\(\)\);/, "the wait after a lobule focus is the lobule glide's landing (the focus times itself by reach), ms only its ceiling"],
+    [/store\.set\(\{ sinusoid: true \}\); if \(ms\) await waitCut\(1250 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'into the sinusoid: until its zoom has landed'],
+    [/store\.set\(\{ sinusoid: false \}\); if \(ms\) await waitCut\(1000 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'out of the sinusoid: until its zoom has landed'],
+    [/const switching = store\.get\(\)\.view !== v;\s*if \(switching\) store\.set\(\{ view: v \}\);/, "a slide's switch of view sets off and its framing is asked of the running change at once (camera travels once)"],
+    [/\{ store\.set\(\{ view: 'anatomic' \}\); await viewSettled\(cut, stage\); if \(cut\(\)\) return; \}/, 'the dive after a switch to Anatomy waits for the change to land, not 700 ms'],
+    [/if \(threw\) \{ thrownNow = true; return 0; \}/, 'every card that leaves is thrown: wordsOut asks for no fixed floor, throwsOut() ends when they are out of sight (about 170 ms, not 260)'],
+    [/if \(outMs\) await waitCut\(Math\.max\(0, outMs - \(performance\.now\(\) - outAt\)\), cut\);\s*\n\s*if \(throwDir\) await throwsOut\(\);/, 'the old cards are waited for by their own end of sight'],
+    [/if \(!slidePrep\.ready\(want\)\) \{ outNow\(\); prepHold\(want, goOn\); \} else goOn\(\);/, "the cards that show are thrown on the press, before the wait for the slide's preparation"],
+  ]);
+  forbid('src/ui/presenter.js', /\bwait\(700\)|async function until\(/, 'no 700 ms wait left from the 0.6 s change, and no 40 ms timer poll');
+  {
+    const pz = text('src/ui/presenter.js'), cam = pz.slice(pz.indexOf('  async function camera('), pz.indexOf('  // (left: only the entrances with more than this many ms still to run count'));
+    if (/\bwait\(/.test(cam)) errors.push('src/ui/presenter.js camera(): a wait here is waitCut or until, so a newer press cuts it');
+    const at = cam.indexOf('const switching = store.get().view !== v;');
+    if (!(at > 0 && cam.indexOf('frameTo(cam, s, gl);', at) > at && cam.indexOf('viewSettled(cut, stage)', at) > cam.indexOf('frameTo(cam, s, gl);', at))) errors.push('src/ui/presenter.js camera(): the framing is asked of the change before any wait for it to land');
+  }
+  {
+    // M10 step 2 (8 Nov 2026): a bare `await wait(` is a wait Next cannot cut. The ones left, per file; the number only goes down.
+    const bare = { 'src/ui/presenter.js': 3 /* boot cover settle loop; putHealthy's two closing fade waits */, 'src/ui/stage.js': 2 /* lobule fit on open */, 'src/ui/tool-hvpg.js': 2 /* the learner-run sweep, not a slide change */ };
+    for (const [f, n] of Object.entries(bare)) {
+      const c = (text(f).split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n').match(/await wait\(/g) || []).length;
+      if (c !== n) errors.push(`${f}: ${c} bare await wait( (allowance ${n}): use waitCut(ms, cut), or lower the allowance in scripts/rules-lint.mjs when one goes`);
+    }
+    const pz = text('src/ui/presenter.js'), cth = pz.slice(pz.indexOf('  async function cathTo('), pz.indexOf('  // ── A time-lapse on the live model'));
+    if (/\bwait\(/.test(cth.replace(/waitCut\(/g, ''))) errors.push('src/ui/presenter.js cathTo(): every wait is waitCut(ms, cut), so Next cuts the catheter descent');
+  }
+  need('src/ui/stage-view.js', [
+    [/const ms = reducedMs\(VIEW_CHANGE_MS\); live\.vtUntil = performance\.now\(\) \+ viewXfLeftMs\(live\.morph, live\.morphTarget, ms\); live\.vtMs = ms;/, "the change's length for whoever waits on it comes from VIEW_CHANGE_S"],
+    [/if \(xfSolveSlice\(x\.lab, XF_SLICE_MS\)\)/, 'a pending label solve goes on for the camera it began for, whatever the camera is retargeted to'],
+  ]);
+  forbid('src/ui/stage-view.js', /vtUntil = performance\.now\(\) \+ 700|vtMs = 700/, 'the change is not 700 ms');
+  need('src/ui/stage-glide.js', [[/if \(live\.viewXf && viewXfRetargetTo\(to\)\) \{ live\.following = false; return; \}/, "a framing asked for during a change between the views is the change's new end, not a second glide"]]);
+  need('src/ui/stage-gestures.js', [[/viewXfDetach\(live\.viewXf\);[^\n]*\n\s+if \(live\.vtGliding\) \{ cancelFrame/, 'a wheel or pinch takes the camera from a running change'], [/viewXfDetach\(live\.viewXf\);[^\n]*\n\s+cancelFrame\(live\.vtAnim\);/, 'a press takes the camera from a running change']]);
+  need('src/ui/stage-fit.js', [[/viewXfDetach\(live\.viewXf\);[^\n]*\n\s+const goal = /, 'a turn of the circuit ends a running change cleanly']]);
+  need('src/ui/stage.js', [
+    [/const u = viewXfCamU\(viewXf, viewXfP\(\)\);/, "the change's camera is its share since the last retarget"],
+    [/gliding: \(\) => vtGliding \|\| !!viewXf,/, 'the camera is still moving while a change between the views lands, even when it has nowhere to go'],
+    [/viewChanging: \(\) => !!viewXf \|\| morph !== morphTarget,/, 'the stage says when the change between the views is still under way'],
+    [/glideLeft: \(\) => \(vtGliding \|\| viewXf \?/, "glideLeft counts the change between the views, camera moving or not"],
+  ]);
+}
+
+// Camera and hand (motion recommendations, push E, items 11, 12 and 14; tests/camera-hand.test.js runs what it can and these pin the wiring a unit
+// test cannot reach without the page). A pattern that no longer matches means the code it guarded changed: look before editing the rule.
+{
+  const text = (f) => readFileSync(join(ROOT, f), 'utf8');
+  const need = (file, rules) => {
+    const src = text(file);
+    for (const [re, why] of rules) if (!(typeof re === 'string' ? src.includes(re) : re.test(src))) errors.push(`${file}: ${why} (${re})`);
+  };
+  need('src/ui/stage-fit.js', [
+    [/animateVT\(to, CAM_MS_MAX, \{ scale: true \}\);\n/, 'Fit glides in the time its reach needs (camMs), not a fixed 420 ms'],
+    [/animateVT\(revealTo, CAM_MS_MAX, \{ scale: true \}\)/, 'a reveal glides by its reach'],
+    [/animateVT\(revealFrom, CAM_MS_MAX, \{ scale: true \}\)/, 'the unreveal glides by its reach'],
+    [/const goal = live\.vtGliding \? live\.vtTarget : live\.vt;\n\s+if \(live\.vtGliding\) \{ cancelFrame\(live\.vtAnim\); driftEnd\(\); live\.vtGliding = false; \}/, "a circuit turn during a glide starts from where the view is, not from the glide's end (item 14)"],
+  ]);
+  need('src/ui/stage-camera.js', [[/animateVT\(\{ k, x: vx - wx \* k, y: vy - wy \* k \}, CAM_MS_MAX, \{ scale: true \}\)/, 'the zoom pill and a double click glide by their reach']]);
+  need('src/ui/stage.js', [[/animateVT\(lo, CAM_MS_MAX, \{ scale: true \}\)/, "the zoom pill's last step out glides by its reach"], [/animateVT\(d, VIEW_CHANGE_S \* 1000\)/, 'the view change stays 1.3 s (kept as decided)']]);
+  need('src/ui/stage-gestures.js', [
+    [/animateVT\(d, CAM_MS_MAX, \{ scale: true, v0 \}\)/, 'the spring-back to the fit glides by its reach, with the hand\'s speed'],
+    [/animateVT\(to, CAM_MS_MAX, \{ scale: true, v0 \}\)/, 'the spring-back inside the limits glides by its reach, with the hand\'s speed'],
+    [/const v0 = hand\.take\(performance\.now\(\), handAge\);/, 'the spring-back takes the hand\'s speed as it let go'],
+    [/if \(wheelGlide\.active\) \{ settleSoon\(60\); return; \}/, 'the spring-back waits for a wheel notch that is still gliding'],
+    [/applyVT\(\); live\.CTM = null; handSample\(80\);/, 'a pinch and a drag give the hand tracker a sample at each step'],
+    [/zoomAt\(ev\.clientX, ev\.clientY, Math\.exp\(-clamp\(dy, -50, 50\) \* 0\.01\), true\); handSample\(300\);/, 'a trackpad pinch stays direct (zoomAt at once), and is sampled'],
+    [/wheelKind = isPadWheel\(ev\) \? 'pad' : 'wheel';/, 'a notch is told from a trackpad by isPadWheel (wheel-glide.js)'],
+    [/stopGlide\(\); wheelGlide\.cancel\(\); stageScope\.clear\(settleT\); panFit = null;/, 'a button takes the notch glide over'],
+    [/wheelGlide\.cancel\(\); hand\.begin\(\);/, 'a press takes the notch glide over'],
+  ]);
+  const gest = text('src/ui/stage-gestures.js');
+  if (!(gest.indexOf('if (ev.ctrlKey || ev.metaKey) {') >= 0 && gest.indexOf('if (ev.ctrlKey || ev.metaKey) {') < gest.indexOf('wheelGlide.push('))) errors.push('src/ui/stage-gestures.js: the trackpad pinch (ctrlKey) is handled before the notch glide, direct');
+  need('src/ui/lobule-zoom.js', [
+    [/focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{/, 'focusOn: the ms it is given is a ceiling (the presenter gives 1500)'],
+    [/glideTo\(to, ms, true, atFit \? null : \{ part, zoom, to \}, ease, false, true\);/, 'focusOn times itself by reach'],
+    [/if \(reach && ease !== 'in'\) ms = Math\.min\(ms, lobuleMs\(from, to, Math\.max\(1, snap\.w\)\)\);/, "the lobule's glide takes the least of the ms given and its reach's (lobuleMs), the way out to the rise keeping its own"],
+    [/glideTo\(target, LOBULE_MS_MAX, false, null, 'inOut', false, true\);/, 'the lobule buttons glide by their reach'],
+    [/glideTo\(F0, LOBULE_MS_MAX, false, null, 'inOut', false, true\); \}/, 'the lobule Fit glides by its reach'],
+    [/const kS = kMax \* Math\.pow\(rawHi \/ kMax, 0\.3\), rS = kS \/ V\.k;/, "the lobule's zoom-in limit stretches at the stage's 0.3 power on a pinch"],
+    [/zoomAround\(mx, my, \(pinch\.k \* d \/ pinch\.d\) \/ \(rawHi \|\| V\.k\), true\);/, 'a touch pinch stretches past the zoom-in limit'],
+    [/zoomAround\(px, py, f, pinchy\);/, 'a wheel pinch stretches past the zoom-in limit'],
+    [/if \(rawHi\) springHi\(\);/, 'the last finger up lets the stretch go'],
+    [/function endStretch\(\) \{ if \(!rawK && !rawHi\) return;/, "a wheel pinch's stretch past the zoom-in limit springs back when the wheel is quiet"],
+    [/zoomAround\(localX\(ev\), localY\(ev\), V\.k < kFit \* KMAX \* 0\.98 \? 2 : 1 \/ KMAX\)/, 'a double click stops hard at the limit, as the stage\'s does'],
+    [/if \(wheelKind === 'wheel' && !reduce\.matches && !ev\.ctrlKey && !ev\.metaKey\) \{ wheelGlide\.push\(/, "a mouse wheel's notch glides in the lobule, a trackpad pinch stays direct"],
+    [/wheelKind = ev\.ctrlKey \|\| ev\.metaKey \? 'pinch' : isPadWheel\(ev\) \? 'pad' : 'wheel';/, 'the lobule tells a notch from a trackpad by the same isPadWheel'],
+  ]);
+  {
+    const lz = text('src/ui/lobule-zoom.js');
+    if (/glideTo\([^\n]*, 380\)/.test(lz)) errors.push('src/ui/lobule-zoom.js: a fixed 380 ms glide is back: time it by its reach (lobuleMs, item 12)');
+    if (/animateVT\([^\n]*, (?:260|320|380|420)\)/.test(text('src/ui/stage-gestures.js') + text('src/ui/stage-fit.js') + text('src/ui/stage-camera.js'))) errors.push('src/ui/stage-*.js: a fixed 260/320/380/420 ms glide is back: time it by its reach (camMs, item 12)');
+  }
+  need('src/ui/stage-glide.js', [
+    [/const v0 = opt\.v0 \|\| \(!drift && live\.vtGliding \? vtTrack\.take\(performance\.now\(\)\) : null\);/, "a glide takes the hand's speed (opt.v0) or the glide's it replaces"],
+    [/if \(v0 && \(!live\.arcRun \|\| newArc\) && !sameView\(from, to\)\) \{/, 'a fresh arc carries the old speed on, as a plain glide does (item 14)'],
+    [/t0 = prev\.t0; ms = prev\.ms;\n\s+live\.arcRun = \{ from: prev\.from, to, t0, ms, at \};/, "a refit's blend of a running arc keeps its pace and end time"],
+  ]);
+  need('src/ui/stage-ride.js', [[/lerpInto\(a, b, f, FOLLOW_V\)/, 'the card-room follow zooms in log space (item 14)']]);
+  need('src/ui/card-zoom.js', [
+    [/const ms = reverseMs\(SHUT_MS, s\.cur\.s, s\.plan\.s\);/, 'a zoom shut part-way takes the share of the time that is left'],
+    [/st\.cur = lerpTo\(m, m\.m0 >= 0 \? settleAt\(p, m\.m0\) : easeArrive\(p\)\);/, 'a glide turned back mid-way starts on the speed it carries'],
+    [/export const ZOOM_MS = 520;/, 'the card zoom in stays 520 ms (kept as decided)'],
+    [/export const SHUT_MS = 440;/, 'the card zoom back stays 440 ms (kept as decided)'],
+  ]);
 }
 
 // Code never rides after a line comment in stepBlood (6 Nov 2026): 0eec029 left so.speed, so.still, so.dt and so.bt after the // on so.phasic's
@@ -204,6 +316,20 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!lines.length) errors.push(`src/ui/stage-blood.js no longer sets so.${f} in stepBlood: the streams would step without it`);
     for (const l of lines) { const cm = l.indexOf('//'); if (cm >= 0 && cm < l.search(re)) errors.push(`src/ui/stage-blood.js sets so.${f} after a // on its line, so it is a comment, not code: ${l.trim().slice(0, 100)}`); }
   }
+}
+
+// Chart heads and the catheter labels' shadow (8 Nov 2026, motion recs 16 and 17). The flow-time and event-graph heads glide by time, through
+// headStep (display-state.js: 1 - exp(-dt / tau)), never a fixed fraction per frame (twice as fast at 120 Hz as at 60). A catheter label's drop
+// shadow is the opacity of its ::before; a box-shadow in its transition list repainted every frame it moved.
+{
+  for (const f of ['flow-time', 'event-graph']) {
+    const src = readFileSync(join(ROOT, `src/ui/${f}.js`), 'utf8');
+    if (!/headStep\(shown, goal, dt\)/.test(src)) errors.push(`src/ui/${f}.js: the head steps by headStep(shown, goal, dt), the time between frames, not a fraction per frame`);
+    if (/shown \+= \(goal - shown\)/.test(src)) errors.push(`src/ui/${f}.js: shown += (goal - shown) * k per frame is faster at 120 Hz than at 60: use headStep`);
+  }
+  const css = readFileSync(join(ROOT, 'styles/app.css'), 'utf8');
+  if (!/\.cath-label::before \{[^}]*box-shadow: var\(--shadow-cath-label\)[^}]*transition: opacity/.test(css)) errors.push('styles/app.css: the catheter label\'s shadow is its ::before, faded by opacity');
+  for (const l of css.split('\n')) if (/\.cath-label/.test(l) && /transition[^;}]*box-shadow/.test(l)) errors.push(`styles/app.css: a catheter label transition lists box-shadow (fade the ::before's opacity): ${l.trim().slice(0, 90)}`);
 }
 
 // Chrome glass (4 Nov 2026, "the top bar is not all glass"): app.css's [data-gl] / :not([data-gl]) fallback rules for the figure's chrome pills must list

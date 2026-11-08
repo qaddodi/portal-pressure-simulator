@@ -7,8 +7,18 @@
 // and markup here; stage.js places it (dprobePaint).
 
 // The vessels whose forward flow runs away from the probe (doppler.js PROBES, away: true; a test keeps the two in step).
+import { smooth01 } from './motion.js';
 export const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 export const awayFromProbe = (id) => AWAY.has(id);
+
+// Where along its drawn course the gate stands on a vessel whose middle is a poor place to sample (a stent has its thirds instead:
+// stage-doppler.js). The hepatic artery's middle is where the paraumbilical vein crosses it (Mohammad, 7 Nov 2026: "the ultrasound of
+// the hepatic artery is happening at the point where the paraumbilical vein crosses it, so it's confusing; move it closer to the
+// bifurcation"), so its gate stands four fifths along, the way the blood runs, short of the fork into the right and left branches.
+// (A_HEP's path runs from the celiac end to the hilum in the anatomy and the circuit alike; the crossing is at 0.475.)
+export const GATE_FRAC = { A_HEP: 0.8 };
+/** How far along the vessel's drawn course the gate stands (0 … 1), or null for the middle (the default). */
+export const gateFrac = (id) => GATE_FRAC[id] ?? null;
 
 // The probe's shape, in CSS px along its axis from its face: drawn at SCALE (1.35: a bit bigger, Mohammad, 20 Oct), the body
 // reaches 48 × 1.35 ≈ 65 px back (no cable: Mohammad, 22 Oct, "remove the wire sticking out"; the room kept for it, 62 × 1.35 ≈ 84, stays, so the probe stands where it did); 11 × 1.35 ≈ 15 px either side (17.5 with the outline).
@@ -476,12 +486,11 @@ export const probeSwing = (side, toward) => side * (toward ? 1 : -1) * PROBE.SWI
 /** How much of the probe shows while it is drawn back by `oP` (0: at its place, 1: out): all of it until it has begun to leave, then
  *  fading as it goes (never in place), none once it is mostly out. The same curve out and in, so a probe reversed half way is continuous. */
 export function probeFade(oP) {
-  const t = Math.min(1, Math.max(0, (oP - 0.2) / 0.6));
-  return 1 - t * t * (3 - 2 * t);
+  return 1 - smooth01((oP - 0.2) / 0.6);
 }
 
 // (The gate bars are drawn last, on top of the line of sight and the flow axis: Mohammad, 20 Oct.)
-// The probe's head: a convex face, a neck and a handle with a light in the glow's colour. Every mark is white-lined on a black
+// The probe's head: a convex face (a dark transducer band across the front, whatever the look, as a real probe's), a neck and a handle with a light in the glow's colour. Every mark is white-lined on a black
 // rim, so it reads on every vessel colour and theme.
 const BODY = 'M2 -11 Q-3 0 2 11 L10 11 L18 6 L42 6 Q48 6 48 0 Q48 -6 42 -6 L18 -6 L10 -11 Z';
 // (A model only, since 1 Nov 2026: plain elements carrying the shapes' numbers and their look from app.css, drawn on the labels' GPU layer
@@ -492,4 +501,4 @@ export const PROBE_MODEL = '<div class="dpr-svg"><i id="dpr-wedge">'
   + '<i class="dpr-rim-l dpr-beam"></i><i class="dpr-line dpr-beam"></i><i class="dpr-rim-l dpr-axis"></i><i class="dpr-line dpr-axis"></i>'
   + '<i class="dpr-gate-rim dpr-bars"></i><i class="dpr-gate dpr-bars"></i>'
   + `<i class="dpr-head"><i class="dpr-rim" d="${BODY}"></i><i class="dpr-body" d="${BODY}"></i>`
-  + '<i class="dpr-face" d="M2 -11 Q-3 0 2 11"></i><i class="dpr-light" cx="33" cy="0" r="3"></i></i></i></div>';
+  + '<i class="dpr-face" d="M2 -11 Q-3 0 2 11 L8 11 Q3 0 8 -11 Z"></i><i class="dpr-light" cx="33" cy="0" r="3"></i></i></i></div>';

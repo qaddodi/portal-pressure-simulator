@@ -27,7 +27,7 @@ const nextFrame = frameFor('lumen');
 /** A step this big (share of the lumen, either channel) is a jump, glided; one this small after a quiet spell is followed straight. */
 export const FOLLOW_JUMP = 0.12, FOLLOW_LONE = 0.01;
 /** Steps closer together than this (ms) are a stream; the stream's interval is followed, held between the two bounds. */
-export const FOLLOW_STREAM_MS = 320, FOLLOW_MIN_MS = 16, FOLLOW_MAX_MS = 300, FOLLOW_GAP0 = 45;
+export const FOLLOW_STREAM_MS = 320, FOLLOW_MIN_MS = 16, FOLLOW_MAX_MS = 300, FOLLOW_GAP0 = 45;   // motion-scale: not a move (the follower's stream bounds, the interval of the steps it follows)
 export const FOLLOW_GLIDE_MS = D_SURFACE;
 /** The follower of two channels (stenosis, thrombus): goal(a, b, now) takes the model's value, at(now) writes the shown pair into
  *  f.a and f.b and returns true while it is still moving. One record, written in place: nothing is made per step or per frame. */

@@ -12,6 +12,7 @@
 // more, and moves (by a glide) only if it no longer fits clear of the cards. The field is drawn by the scope's shader into the cards' GPU
 // drawer; the page paints neither.
 import { h } from './util.js';
+import { D_SMALL } from './ease.js';
 import { createEndoscopy } from './instruments.js';
 import { wordSetter } from './gl-words.js';
 import { frameFor } from './frame.js';
@@ -27,11 +28,11 @@ const NO_P = {};
 const nextFrame = frameFor('scope-lens');
 const noop = () => {};
 // (How long the camera must hold still before the cone is laid again and the lens is looked at once more, ms.)
-const STILL_MS = 160;
+const STILL_MS = 160;   // motion-scale: not a move (a settle wait)
 // (How long the varices must be gone before the ring leaves a slide that shows them, ms: a patient loading, or a size crossing the cut-off with the beat, never takes it down.)
-const GONE_MS = 900;
+const GONE_MS = 900;   // motion-scale: not a move (a patience)
 // (How long it takes to glide shut, ms: the --d-small its opacity and transform run for, app.css .pz-lens.)
-const SHUT_MS = 240;
+const SHUT_MS = D_SMALL;
 
 /**
  * stage: the figure (setScopeRing, setScopeCone, scopeRingAt, scopeRingInto, onScopeView); store: the app's store (frames); root: the element the lens is laid

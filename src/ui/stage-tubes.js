@@ -15,12 +15,13 @@ import { SYSTEM_COLOR, systemOf } from './highlight-math.js';
 import { createJunctionWidths } from './junction-widths.js';
 import { lesionEase } from './lesion-ease.js';
 import { lumOf } from './luma.js';
+import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { fluidSpringFor } from './organ-ease.js';
 import { booting, holdCover, sinceInput } from './quiet.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
-import { varixBead } from './varix-bead.js';
+import { BEAD_LAMBDA_FUNDAL, BEAD_SITE, beadLambda, beadRadius, varixBead, varixWale } from './varix-bead.js';
 import { LOOK_SITE, varixHold, varixOpacity, varixSize, varixSpreadK, varixWidthK } from './varix-look.js';
 import { TUBE_TEXELS } from './veins-gl.js';
 
@@ -226,9 +227,16 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     if (x.cbr) for (const cb of x.cbr) cb.w = Math.max(1.2, w * cb.k);
     if (x.strands) for (let i = 0; i < x.strands.length; i++) {
       const sd = x.strands[i];
-      sd.bead = e.id === 'C1a' ? Math.round(varixBead(f.metrics?.varix?.d) * (1 - t) * 100) / 100 : 0;   // (in hundredths: the radii are sent again only when it moves a step)
+      sd.bead = BEAD_SITE[e.id] ? Math.round(varixBead(f.metrics?.[BEAD_SITE[e.id]]?.d) * (1 - t) * 100) / 100 : 0;   // (in hundredths: the radii are sent again only when it moves a step; the esophageal and the fundal varices bead, on their own periods)
+      sd.beadL = beadLambda(e.id);
+      // The red wale on the esophageal strands (V3): a share of --red-wale in their lumen, by the wall-stress ratio and the varix's size; the pressure lens only
+      // (the other lenses' colours are data), and none in the circuit. colPass writes it into the strand's recolour texels.
+      const vx = f.metrics?.varix;
+      sd.wale = e.id === 'C1a' && layerMode() === 'pressure' ? Math.round(varixWale(!!vx?.redWale, vx?.ratioMean ?? vx?.ratio, varixSNow.VAR) * (1 - t) * 100) / 100 : 0;
       sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
     }
+    // (The gastrorenal shunt is one vein, not a plexus, so it is beaded itself: renderTube reads this into its radii.)
+    if (e.id === 'C5') x.bead = Math.round(varixBead(f.metrics?.gastricVarix?.d) * (1 - t) * 100) / 100;
     if (x.feeders) {
       const cfg = FEEDERS[e.id];
       let live = 1;
@@ -262,7 +270,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   }
   // (The glow a selected vessel takes, one entry per vessel made here once: setGlowSrc reads them and copies what it changes.)
   const SEL_ENTRY = {}, selGlowList = [];
-  for (const x of EV) { const id = x.e.id; SEL_ENTRY[id] = SIN_EDGES.has(id) ? { id, col: null, amt: 1.5, wide: 1.2, dur: 450 } : { id, col: null, amt: 1.5, wide: 0.6, dur: SEL_FADE * 1000 }; }
+  for (const x of EV) { const id = x.e.id; SEL_ENTRY[id] = SIN_EDGES.has(id) ? { id, col: null, amt: 1.5, wide: 1.2, dur: D_SURFACE } : { id, col: null, amt: 1.5, wide: 0.6, dur: SEL_FADE * 1000 }; }
   const varixSNow = { VAR: 0, GV: 0 }, coilingBuf = [], NO_VESSELS = [], selIdsNow = [], selIdsKept = [];   // (kept, written in place)
   // A vessel's (or feeder's) two end colours, which the GPU's vessel rows take (syncVeins reads them at once and keeps none): the pair is made
   // the first time and written in place after.
@@ -672,6 +680,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // shading of a lit cylinder (veins-gl.js). The circuit, closed collaterals and vessels being drawn on are plain strokes.
   // Recomputed only when a width, a lesion or the geometry changes.
   const smooth = (u) => u * u * (3 - 2 * u);
+  const BEAD_PHASE_V = 0.9;   // (the beaded shunt's phase along its course, C5: a vessel has no strand phase of its own)
   // (renderTube's three little helpers, as functions of their own that take what they read, in place of three closures made for each vessel
   // on each update.)
   const tubeEndW = (J, n, id, stroked, w, lo, lim) => (J[n] && !stroked && GPU_EASE[id] === n ? clamp(J[n], w * lo, w * lim) : w);
@@ -691,10 +700,10 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   }
   // The tube's radius at u along it, from the numbers renderTube kept on the vessel (no closure made when they change).
   function tubeRadius(x, u) {
-    const a = x.rA, w = x.rW, b = x.rB, h0 = x.rH0, h1 = x.rH1, f = x.stenF, L = x.rL;
+    const a = x.rA, w = x.rW, b = x.rB, h0 = x.rH0, h1 = x.rH1, f = x.stenF, L = x.rL, bd = x.rBd;
     const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
     const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? sideEndScale((1 - u) * L, h1) : 1);
-    return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side);
+    return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side * (bd ? beadRadius(1, bd, u, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1));
   }
   // The tube's N_SAMPLES radii in one loop (tubeRadius at each sample, the same arithmetic); with `ra` the cava drawn as one: the first
   // share f of the samples along x, the rest along ra. Nothing is handed back from a call, so no number is boxed per sample.
@@ -703,10 +712,10 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const u = i / (N_SAMPLES - 1);
       let v = u, q = x;
       if (ra) { if (u < f) v = u / f; else { v = (u - f) / (1 - f); q = ra; } }
-      const a = q.rA, w = q.rW, b = q.rB, h0 = q.rH0, h1 = q.rH1, fn = q.stenF, L = q.rL;
+      const a = q.rA, w = q.rW, b = q.rB, h0 = q.rH0, h1 = q.rH1, fn = q.stenF, L = q.rL, bd = q.rBd;
       const r = v < 0.3 ? lerp(a, w, smooth(v / 0.3)) : v > 0.7 ? lerp(w, b, smooth((v - 0.7) / 0.3)) : w;
       const side = (h0 ? sideEndScale(v * L, h0) : 1) * (h1 ? sideEndScale((1 - v) * L, h1) : 1);
-      R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side);
+      R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side * (bd ? beadRadius(1, bd, v, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1));
     }
   }
   function renderTube(x, p, t, J) {
@@ -731,17 +740,18 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     keep(x, 'kh0', tubeHostR(id, 0, stroked), qw); keep(x, 'kh1', tubeHostR(id, 1, stroked), qw);
     // (What the radii are made from, kept as numbers and compared one by one: a joined string per vessel per call was garbage on every
     // frame a width eased. A change takes a new version, shadeVer, which the radii keys follow.)
+    const bdQ = x.bead && !stroked ? x.bead : 0;   // (the beaded shunt, C5: none once drawn as a stroke)
     const wallQ = Math.round(wallPx * 100), vQ = sten ? Math.round(v * 1000) : -1, atQ = sten ? stenosisAt(id, p) : 0;
-    const same = x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === live.lastMorph && x.skStroked === stroked;
+    const same = x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === live.lastMorph && x.skStroked === stroked && x.skBd === bdQ;
     if (same && x.shadeOk) return;
     x.shadeOk = true;
     if (!same) {
-      x.skKw = x.kw; x.skKa = x.ka; x.skKb = x.kb; x.skH0 = x.kh0; x.skH1 = x.kh1; x.skWall = wallQ; x.skV = vQ; x.skAt = atQ; x.skMorph = live.lastMorph; x.skStroked = stroked;
+      x.skKw = x.kw; x.skKa = x.ka; x.skKb = x.kb; x.skH0 = x.kh0; x.skH1 = x.kh1; x.skWall = wallQ; x.skV = vQ; x.skAt = atQ; x.skMorph = live.lastMorph; x.skStroked = stroked; x.skBd = bdQ;
       x.shadeVer = (x.shadeVer | 0) + 1;
     }
     const f = sten ? waist(id, v, g.len, w, p) : null;
     x.stenF = f;   // (its caliber factor along it: the GPU's colour follows the resistance it adds, sendRadii alongOf)
-    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1;
+    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1; x.rBd = bdQ;
     // (Kept as the function the radii are read through; it reads the numbers above, which this call has just set.)
     if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }

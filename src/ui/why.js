@@ -8,12 +8,12 @@ import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { restRemove } from './rest-pass.js';
 import { glidePlate } from './plate-glide.js';
 import { sheetLayer } from './sheet-layer.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, afterMs } from './motion.js';
 
 export function createWhy(pop) {
   if (pop?.isConnected) sheetLayer().append(pop);   // (laid in the one sheet layer, cut on the dock's top line: sheet-layer.js)
   // (The one surface on top: util.js claimSurface routes Esc and the outside tap to it; a metric, finding, vital, button or link is not 'outside', it opens the next card.)
-  const me = { close: () => close(), has: (n) => pop.contains(n) || !!n.closest?.('.metric, .finding, .vital, .btn, .link') };
+  const me = { get anchor() { return anchorEl; }, el: pop, box: () => (pop.classList.contains('as-sheet') ? null : pop.getBoundingClientRect()), close: () => close(), has: (n) => pop.contains(n) || !!n.closest?.('.metric, .finding, .vital, .btn, .link') };
   let openFor = null, anchorEl = null;
   // (Placed by util.js placeAt, the one placer: under the button, centred on it, or above it where there is no room. On a phone, upright
   // or an upright iPad, it is a short bottom sheet instead, as every other menu is there: CSS places it, with a scrim that takes the tap,
@@ -96,9 +96,9 @@ export function createWhy(pop) {
       // (A card swiped away is already sliding down: it leaves as it is.)
       if (pop.dataset.swiped) { pop.classList.remove('show'); pop.classList.add('leaving'); }
       else leaveFromHere(pop, () => { pop.classList.remove('show'); pop.classList.add('leaving'); });
-      clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), asSheet() ? D_SMALL + 20 : 200);
+      clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), afterMs(asSheet() ? D_SMALL : D_FLIP));
     }
-    if (scrim) { const sc = scrim; scrim = null; leaveFromHere(sc, () => sc.classList.add('out')); setTimeout(() => restRemove(sc), D_SMALL + 20); }
+    if (scrim) { const sc = scrim; scrim = null; leaveFromHere(sc, () => sc.classList.add('out')); setTimeout(() => restRemove(sc), afterMs(D_SMALL)); }
     releaseSurface(me);
     openFor = null; anchorEl?.focus?.({ preventScroll: true }); anchorEl = null;
   }

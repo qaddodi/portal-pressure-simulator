@@ -12,8 +12,12 @@ import { createHalos } from './stage-halos.js';
 import { createMarks } from './stage-marks.js';
 import { createOutlines } from './stage-outlines.js';
 import { createVenous } from './stage-venous.js';
+import { bareOf, stentMeshD } from './stent-mesh.js';
 import { store } from './store.js';
 import { clamp, s } from './util.js';
+
+// Where the cross sits on a vein the Warren shunt has tied off and greyed out, as a share of its course (Mohammad, 7 Nov: about half way).
+const TIED_X = 0.5;
 
 export function createTransitions(st, live) {
   const { E, EI, EV, FLUID_COLS, FLUID_R, JUMP_MMHG, MAP, ND_PER, ND_SEG, NI, SEL_DIM, abdTo, anyReveal, arcMid, ascitesLine, ascitesPath, ascitesSvg, caud, clampW, clampWOut, collOpen, defs, diaCut, divideLen, drawFrame, easeInOut, edgeVisible, findingHidden, flag, flank, gBackdrop, gFx, gFxC, gOver, geo, haloEls, hidePlate, late, liveOn, liverR, liverTint, lv, morphLiver, nd, nextFrame, nodeDots, nodePos, organEls, organG, ov, plateOn, platePoke, pointAt, putA, qP, readFrame, recruitFrac, refreshCTM, resTheme, routeCustomShunts, setGlowSrc, setReveal, spleenMv, spot, svg, syncOrganMasks, syncVeins, themeKey, toRGB, update, updateGeometry, waist, wrap, wrapCls } = st;
@@ -254,39 +258,26 @@ export function createTransitions(st, live) {
     return (d) => (x.width / 2) * (wf ? wf(d / (L || 1)) : 1) + (x.wallPx || 1) + 1.2;
   }
   // ends: false leaves out the far end's marker (a stent unrolled by its front, venousDraw, carries that marker on the front).
-  function meshPaths(id, p, d0, d1, k = 1, ends = true) {
-    const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0), e = A * k;
+  // bare > 0: the covered TIPS stent (stent-mesh.js): that much bare from d0, a PTFE cover over the rest, a ring where they meet. Its struts and
+  // rails take a floor of one device pixel (.stent-px: a non-scaling stroke), so the lattice does not thin out of sight when the figure is small.
+  function meshPaths(id, p, d0, d1, k = 1, ends = true, bare = 0) {
+    const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0);
     const R = meshR(id, p);
     const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
-    const P = (p) => `${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
-    const cell = Math.max(6, R(d0) * 1.7);
-    let rails = '', struts = '';
-    for (const side of [1, -1]) {
-      rails += 'M' + P(f(0, side));
-      for (let a = 3; a < e; a += 3) rails += ' L' + P(f(a, side));
-      rails += ' L' + P(f(e, side)) + ' ';
-    }
-    for (const start of [1, -1]) {
-      let side = start, prev = f(0, side);
-      struts += 'M' + P(prev);
-      for (let a = cell / 2; a <= A + 0.01; a += cell / 2) {
-        side = -side;
-        const q = f(Math.min(a, A), side);
-        if (a > e + 0.01) {   // (the lattice's growing end: the strut under way, drawn as far as it has come)
-          const u = (e - (a - cell / 2)) / (cell / 2);
-          if (u > 0.001) struts += ' L' + P([prev[0] + (q[0] - prev[0]) * u, prev[1] + (q[1] - prev[1]) * u]);
-          break;
-        }
-        struts += ' L' + P(q); prev = q;
-      }
-      struts += ' ';
-    }
-    let marks = '';
-    for (const a of k > 0.02 && ends ? [0, e] : [0]) { const m = f(a, 1), n = f(a, -1); marks += `M${P(m)} L${P(n)} `; }
-    return [s('path', { class: 'stent-strut', d: struts }), s('path', { class: 'stent-rail', d: rails }), s('path', { class: 'stent-rail-glint', d: rails }), s('path', { class: 'stent-mark', d: marks })];
+    const m = stentMeshD(f, R(d0), A, k, ends, bare), px = bare > 0 ? ' stent-px' : '';
+    // (Cover first, under the struts; the ring last. One site makes every piece.)
+    const parts = [['stent-cover', m.cover], ['stent-strut' + px, m.struts], ['stent-strut stent-strut-cov' + px, m.covStruts], ['stent-rail' + px, m.rails], ['stent-rail-glint', m.rails], ['stent-mark', m.marks], ['stent-ring', m.ring]];
+    const out = [];
+    for (const [cls, d] of parts) if (d) out.push(s('path', { class: cls, d }));
+    return out;
   }
+  // The TIPS stent's bare stretch at its portal end, as drawn length (the 2 cm of the shunt's 8): the covered stent venousDraw unrolls.
+  const tipsBare = (id) => bareOf(geo[id].len - 4, E[id].e.len);
   // TIPS, DIPS and the shunts drawn with the stent tool: the whole drawn shunt, in place at once (the vessel itself draws on).
-  function stentMesh(id, p) { putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2)); }
+  function stentMesh(id, p) {
+    if (id === 'TIPS') return;   // (the covered stent unrolls on its own clock, with the veins' stents: stage-venous.js)
+    putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2));
+  }
   function putMark(host, key, vessel, els, anatOnly = false) {
     const g = s('g', { 'data-mk': key });
     g.append(...els);
@@ -294,7 +285,7 @@ export function createTransitions(st, live) {
     markA.hold(key, g);
     host.append(g);
   }
-  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA }, live);
+  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, tipsBare }, live);
   // Surgical shunts: a row of sutures across each anastomosis.
   function anastomoses(id) {
     const x = E[id], L = geo[id].len;
@@ -308,15 +299,26 @@ export function createTransitions(st, live) {
   }
   // A vessel divided at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
   // shunt): two suture ties across its tied-off stump, a little apart, just behind the stump's rounded end.
-  function ligature(id, shunt) {
-    const x = E[id], c = Math.min(divideLen(id) + 5, geo[id].len * 0.6);
+  // (A vein tied off along its length, not divided: `at`, the tie's place as a share of its course, puts the same two ties there, greys
+  // the whole vein out as clotted, and puts the plug's cross halfway along it: the coronary vein in a Warren shunt.)
+  function ligature(id, shunt, at) {
+    const x = E[id], c = at != null ? geo[id].len * at : Math.min(divideLen(id) + 5, geo[id].len * 0.6);
     const R = x.width / 2 + (x.wallPx || 1) + 3;
     let d = '';
+    if (at != null) {
+      let w = '';
+      geo[id].cur.forEach((q, i) => { w += `${i ? 'L' : 'M'}${q[0].toFixed(1)} ${q[1].toFixed(1)} `; });
+      putMark(ov.stents, `tieGrey:${id}`, shunt, [s('path', { class: 'tied-off', d: w, 'stroke-width': (x.width + 2 * (x.wallPx || 1)).toFixed(1) })]);
+    }
     for (const o of [-3.5, 3.5]) {
       const q = frameAt(id, c + o);
       d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
     }
     putMark(ov.stents, `tie:${id}`, shunt, [s('path', { class: 'ligature', d })]);
+    if (at == null) return;
+    const m = frameAt(id, geo[id].len * TIED_X);
+    putMark(ov.plugs, `tieX:${id}`, shunt, [s('circle', { cx: m.x, cy: m.y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
+      s('path', { d: `M${m.x - 4} ${m.y - 4} L ${m.x + 4} ${m.y + 4} M${m.x + 4} ${m.y - 4} L ${m.x - 4} ${m.y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
   }
   return { anastomoses, appEl, caliperAt, caliperSegs, canFade, clampA, clampFading, clampShade, easeLiver, fluidEasing, fluidFade, fluidLook, fxBuild, fxK, fxPill, fxSync, gMatrix, gSelO, glLines, holdReversals, ligature, markA, marksStale, marksSync, mk, normal, normalSync, olFading, olKey, olRings, olSet, olStep, orgTone, pinOrgans, polysD, putMark, quietFx, revHold, reversedShown, setCallouts, spotOrgans, startExit, stentMesh, stepFluid, stepReveals, trackChanges, updateFocus, updateNodesCircuit, updateOrganSel, updateOrgans, venousSync };
 }

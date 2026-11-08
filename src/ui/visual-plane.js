@@ -20,6 +20,10 @@
 // diag: { label } (or true) draws the dashed line where the two readings are equal (the wedge against the portal pressure: a point
 // on it means the wedge reads the portal vein), named along its upper end, the points' names keeping clear of it.
 //
+// iso: { rays: [5, 10, 20], label?: 'R' } (or an array of rays) draws lines of equal resistance from the origin, y = R x, for a plane whose x
+// axis is a flow and whose y axis is a pressure drop starting at 0 (pvFlow against ppg: Ohm's law, ΔP = Q × R). Each ray is named at its
+// far end ('R = 10'), mmHg per L/min, and the points' names keep clear of every ray and its name.
+//
 // Everything that decides a place or a size is a pure function here (tests/panels-e.test.js); the drawing is at the
 // element's own pixels, one unit a CSS pixel, so its words keep the slide's caption size (12 px or more) at any width.
 
@@ -105,6 +109,20 @@ export const PLANES = {
     source: '',
     key: false,
   },
+};
+PLANES['flow-ppg'] = {
+  // (Ohm's law, C1 of docs/recommendations/new-features-recs.md: portal flow across, the PPG up, lines of equal resistance from the origin. A
+  // beta-blocker slides a patient down their line; carvedilol drops them to a lower one; a meal moves them right; a TIPS takes them near the floor.
+  // No zones: it is a scatter with axes. The PPG 12 line is the bleed-risk cut-off the other planes name.)
+  x: { key: 'pvFlow', min: 0, max: 2, ticks: [0, 0.5, 1, 1.5, 2], name: 'Portal flow, L/min', short: 'Flow, L/min', abbr: 'Flow' },
+  y: { key: 'ppg', min: 0, max: 20, ticks: [0, 5, 10, 15, 20], name: 'PPG (portal − IVC), mmHg', short: 'PPG, mmHg', abbr: 'PPG' },
+  zones: [],
+  cuts: { y: [PPG_CUTS.red] },
+  lineNames: { y: { [PPG_CUTS.red]: `Bleed risk ≥${PPG_CUTS.red}` } },
+  iso: { rays: [4, 8, 16, 32] },
+  nameGap: 4,
+  source: 'Each line is one resistance, PPG ÷ flow, in mmHg per L/min.',
+  key: 'never',
 };
 /** A slide's plane: a named one, or the deck's own, filled from the named one it starts from (base). */
 export function planeOf(p) {
@@ -320,7 +338,31 @@ export function diagOf(pl, X, Y, fs = 13) {
   if (label) boxes.push(label.box);
   return { seg, boxes, label };
 }
-/** The plane's lines as thin boxes words keep clear of: the cut-offs, the outlined boxes' edges and the diagonal. */
+/** The plane's lines of equal resistance (pl.iso: rays in y per x, or { rays }), each a ray from the origin, y = R x, clipped to the plot:
+ *  its segment in px, its name ("R = 10") just inside its far end (over the line where it ends at the right edge, under the top edge and
+ *  right of the line where it ends there), and the thin boxes words keep clear of (every 8 px, 3 px either side, and each name's own box).
+ *  null without iso, or where the axes do not both start at 0. [{ r, seg, label: { text, x, y, anchor, box } }] and boxes. */
+export function isoOf(pl, X, Y, fr, fs = 13) {
+  const iso = pl.iso;
+  const rays = (Array.isArray(iso) ? iso : iso?.rays || []).filter((r) => Number.isFinite(r) && r > 0);
+  if (!rays.length || (pl.x.min ?? 0) !== 0 || (pl.y.min ?? 0) !== 0) return null;
+  const lines = [], boxes = [];
+  for (const r of [...rays].sort((a, b) => a - b)) {
+    const xe = Math.min(pl.x.max, pl.y.max / r), ye = r * xe, atTop = pl.y.max / r < pl.x.max;
+    const seg = { x1: X(0), y1: Y(0), x2: X(xe), y2: Y(ye) }, n = Math.max(1, Math.ceil(Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1) / 8));
+    for (let i = 1; i <= n; i++) { const x = seg.x1 + (seg.x2 - seg.x1) * i / n, y = seg.y1 + (seg.y2 - seg.y1) * i / n; boxes.push([x - 3, y - 3, x + 3, y + 3]); }
+    const text = `R = ${r}`, w = est(text, fs, 0.62);
+    const label = atTop
+      ? { text, anchor: 'start', x: seg.x2 + 5, y: seg.y2 + fs * 0.95 }
+      : { text, anchor: 'end', x: seg.x2 - 4, y: seg.y2 - 4 };
+    const x0 = label.anchor === 'start' ? label.x : label.x - w;
+    label.box = [x0 - 2, label.y - fs * 0.8 - 2, x0 + w + 2, label.y + fs * 0.25 + 2];
+    boxes.push(label.box);
+    lines.push({ r, seg, label });
+  }
+  return { lines, boxes };
+}
+/** The plane's lines as thin boxes words keep clear of: the cut-offs, the outlined boxes' edges, the diagonal and the lines of equal resistance. */
 export function lineBoxes(pl, X, Y, fr, fs = 13) {
   const out = [];
   // (4 px either side, so a word never sits against a line either.)
@@ -329,7 +371,7 @@ export function lineBoxes(pl, X, Y, fr, fs = 13) {
     const [x0, x1, y0, y1] = zoneRect(pl, b), L = X(x0), R = X(x1), T = Y(y1), B = Y(y0);
     out.push([L - 2, T, L + 2, B], [R - 2, T, R + 2, B], [L, T - 2, R, T + 2], [L, B - 2, R, B + 2]);
   }
-  out.push(...(diagOf(pl, X, Y, fs)?.boxes || []));
+  out.push(...(diagOf(pl, X, Y, fs)?.boxes || []), ...(isoOf(pl, X, Y, fr, fs)?.boxes || []));
   return out;
 }
 /** The cut-off lines that carry a meaning of their own (pl.lineNames: { x: { 10: 'CSPH ≥10' }, y: { 12: '…' } }), each named beside
@@ -823,6 +865,8 @@ export function planePlot(pl, { card = false } = {}) {
     for (const l of lines) kids.push(sv('text', { class: 'pze-ln', 'data-look': 'plane.ln', x: l.x, y: l.y, 'text-anchor': l.anchor, 'font-size': fs }, l.text));
     const dg = diagOf(pl, X, Y, fs);
     if (dg) kids.push(sv('line', { class: 'pze-diag', 'data-look': 'plane.diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', 'data-look': 'plane.dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, 'font-size': fs }, dg.label.text) : null);
+    const io = isoOf(pl, X, Y, fr, fs);
+    if (io) for (const l of io.lines) kids.push(sv('line', { class: 'pze-iso', 'data-look': 'plane.iso', ...l.seg }), sv('text', { class: 'pze-isot', 'data-look': 'plane.isot', x: l.label.x, y: l.label.y, 'text-anchor': l.label.anchor, 'font-size': fs }, l.label.text));
     // The axes: their lines and ticks over the diagonal's start, the numbers and names beside them.
     if (ax) for (const l of [...ax.axes, ...ax.ticks]) kids.push(sv('line', { class: 'pze-axis', 'data-look': 'plane.axis', ...l }));
     // The numbers and the axes' names on the plot (a plane with zones: no axis lines, the shape's edge is the axis).

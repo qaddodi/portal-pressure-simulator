@@ -26,8 +26,8 @@ test('a what-if follows the model until its readings hold still, not for a fixed
   assert.ok(!/< 7000/.test(body), 'no fixed 7 s window left');
 });
 
-test('a bleed\'s jets and pool fade in and out over half a second, never in one frame', () => {
-  assert.equal(BLEED_FADE, 0.5);
+test('a bleed\'s jets and pool fade in and out over a surface step (420 ms), never in one frame', () => {
+  assert.equal(BLEED_FADE, 0.42);   // (a surface step of the motion scale)
   let a = 0;
   a = stepBleedFade(a, true, 1 / 60);
   assert.ok(a > 0 && a < 0.1, 'a rupture fades in');

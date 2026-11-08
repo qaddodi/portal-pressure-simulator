@@ -1,6 +1,6 @@
 // Presenter talk: choosing the treatment (Advanced), a capstone for the treatment talks. Five cases, one slide each: the case
 // card brings the patient in and asks what to do, and the slide behind it plays the choice the guidelines make (Baveno VIII;
-// AASLD 2024; EASL 2025 for the vascular liver diseases). Four of the five are time-lapses, so the case card covers the patient
+// AASLD 2024, and Baveno VIII for the vascular liver diseases: 9.5 to 9.10 and Fig. 5 for the portal vein clot, 8.31 to 8.34 for Budd–Chiari syndrome). Four of the five are time-lapses, so the case card covers the patient
 // at the time-lapse's start and the days play after it lifts. The slide fields are described at the top of decks.js.
 
 const BAND = { kind: 'band' };
@@ -37,13 +37,14 @@ export const CHOOSE_TREATMENT = {
       ask: ['Name the three criteria for a pre-emptive TIPS.', 'Child–Pugh C 10 to 13; Child–Pugh B >7 with active bleeding at endoscopy; an HVPG ≥20 mmHg.'],
     },
     {
-      id: 'a2', preset: 'cirr-decomp', params: { diuretics: true, tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'fluid', window: true }, data: 'tiles', tiles: ['asc', 'liver'], key: ['asc'],
-      vignette: 'A 57-year-old man with MASH cirrhosis needs a 6 L paracentesis every two weeks despite full-dose diuretics. His bilirubin is 1.8 mg/dL and he has no encephalopathy.',
+      // (He starts as the ascites and kidney talks build him: diuretics off, 200 days, 5.2 L. The TIPS goes in on the first day of the lapse: a ramp from 0 to 1 on tips.on is on from day 1.)
+      id: 'a2', preset: 'cirr-decomp', params: { diuretics: false, albumin: 2.5 }, relax: 200, days: 28, ramp: { 'tips.on': [0, 1] }, lapse: { seconds: 7, from: 'Before the stent', to: 'Four weeks later' }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'fluid', window: true }, data: 'tiles', tiles: ['asc', 'liver'], key: ['asc'],
+      vignette: 'A 57-year-old man with MASH cirrhosis needs a 5 L paracentesis every two weeks despite full-dose diuretics. His bilirubin is 1.8 mg/dL and he has no encephalopathy.',
       caseQ: 'What stops ascites that keeps coming back?',
       kicker: 'Ascites', site: 'sin', title: 'TIPS for recurrent ascites',
-      line: 'He has no encephalopathy and a low bilirubin, so he gets a TIPS. Over the following weeks the ascites clears and diuretics are tapered; sinusoidal flow is {liver} of normal.',
+      line: 'He has no encephalopathy and a low bilirubin, so he gets a TIPS. Over four weeks the ascites falls to {asc} and sinusoidal flow to {liver} of normal.',
       notes: 'Refractory ascites returns within four weeks despite the highest diuretic doses and a low-salt diet, or the diuretics cannot be given. Large-volume paracentesis with albumin, 6 to 8 g for each liter drained, treats it but must be repeated, because the fluid comes from the sinusoids and only a lower sinusoidal pressure stops it at its source. Baveno VIII: patients with recurrent or refractory ascites should be considered for a TIPS, discussed together with liver transplant. The stent may be dilated to the smallest diameter that controls the ascites, to lower the risk of encephalopathy and heart failure. Past encephalopathy, a high bilirubin, heart failure or pulmonary hypertension weigh against a TIPS. (Baveno VIII 6.3 to 6.5.)',
-      ask: ['What lowers the risk of encephalopathy after a TIPS for ascites?', 'The smallest stent diameter that controls the ascites, rifaximin in selected patients, and choosing patients without past encephalopathy.'],
+      ask: ['What lowers the risk of encephalopathy after a TIPS for ascites?', 'The smallest stent diameter that controls the ascites (6.5), and rifaximin, which Baveno VIII says to consider before every elective TIPS (6.16, strong). Past encephalopathy is reviewed first, but it does not by itself rule a TIPS out (6.14, 6.15).'],
     },
     {
       // (A recent clot in cirrhosis, found on the 6-monthly scan: the commoner portal vein clot in clinic. The clot is partial, over half the
@@ -58,12 +59,22 @@ export const CHOOSE_TREATMENT = {
     },
     {
       id: 'a4', preset: 'pvt-acute', params: { anticoag: true }, days: 180, lapse: { seconds: 8, from: 'Anticoagulation starts', to: '6 months later' }, cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
-      vignette: 'A 39-year-old woman with factor V Leiden who takes an OCP has had 4 days of constant periumbilical pain. CT shows a fresh clot in the portal vein. Her liver is normal.',
+      vignette: 'A 39-year-old woman with homozygous factor V Leiden who takes an OCP has had 4 days of constant periumbilical pain. CT shows a fresh clot in the portal vein. Her liver is normal.',
       caseQ: 'What treatment reopens the vein?',
       kicker: 'Clots', site: 'pre', title: 'Anticoagulate at once, for ≥6 months',
-      line: 'With early anticoagulation the vein reopens in about half; here it does: six months on, portal flow is back to {pvFlow} and the PPG is {ppg}.',
-      notes: 'A recent portal vein clot without cirrhosis threatens the bowel, through spreading clot in the mesenteric veins, and the liver\'s portal supply. The OCP is stopped. JAK2 and other myeloproliferative markers are still tested, because several risk factors often coexist. EASL 2025: anticoagulation starts as soon as possible, because early treatment lowers the risk of bowel ischemia and raises the chance that the vein reopens, and it continues for at least 6 months. Thrombolysis and endovascular treatment are kept, in expert centers, for signs of intestinal ischemia that do not improve early on anticoagulation. Neither thrombolysis nor a TIPS comes first. A lasting prothrombotic cause, such as a myeloproliferative neoplasm, calls for long-term anticoagulation. In the model the clot always dissolves on anticoagulation; in patients the vein reopens in only some. (EASL 2025, recent portal vein thrombosis.)',
-      ask: ['How long is anticoagulation given after a recent portal vein clot?', '≥6 months, and long term when a lasting prothrombotic cause is found.'],
+      line: 'The earlier anticoagulation starts, the likelier the vein reopens; here it does. Six months on, portal flow is back to {pvFlow} and the PPG is {ppg}.',
+      notes: 'A recent portal vein clot without cirrhosis threatens the bowel, through spreading clot in the mesenteric veins, and the liver\'s portal supply. The OCP is stopped. Baveno VIII advises a workup for permanent and reversible risk factors, because several often coexist (9.5). A recent clot rarely clears on its own and the vein reopens more often the earlier anticoagulation starts, so it starts at diagnosis at a therapeutic dose (9.6) and continues for at least 6 months (9.8). When the clot reaches the SMV the bowel is assessed for ischemia (9.7); endovascular treatment is considered, in experienced centers, only if ischemia persists or worsens after 24 to 48 hours of anticoagulation (9.14). Neither thrombolysis nor a TIPS comes first. Her factor V Leiden is homozygous, a permanent major risk factor, so anticoagulation then continues long term at a therapeutic dose (9.10a, Fig. 5); the next slide shows the chart. In the model the clot always dissolves on anticoagulation; in patients the vein reopens in only some. (Baveno VIII 9.5 to 9.10, 9.14.)',
+      ask: ['How long is anticoagulation given after a recent portal vein clot?', '≥6 months (Baveno VIII 9.8), and long term when a permanent major risk factor is found (9.10).'],
+    },
+    {
+      // (Fig. 5 of Baveno VIII, lit for the same woman as the slide before: a reversible factor (the OCP) and a permanent major one (homozygous factor V Leiden).
+      // Case facts. The figure and the card stay as on the slide before; tool-path.js.)
+      id: 'a4-grid', cam: 'portal', labels: ['CONF', 'SMV'],
+      tool: { kind: 'path', of: 'pvtgrid', short: 'Long-term grid', patient: { r: 'yes', c: 'maj' } },
+      kicker: 'Clots', site: 'pre', title: 'A permanent major factor means long-term anticoagulation',
+      line: 'Her OCP was a reversible factor, but homozygous factor V Leiden is a permanent, major one. In that column the answer is full-dose anticoagulation, long term.',
+      notes: 'Source: Baveno VIII Fig. 5, 9.5, 9.10. For a portal vein clot without cirrhosis, two questions place the patient in one cell: was the clot provoked, by a reversible risk factor in the last 3 months, and is there a permanent risk factor, and if so is it major? A permanent major factor, such as a homozygous or combined thrombophilia or a myeloproliferative neoplasm, calls for long-term anticoagulation at a therapeutic dose (9.10a, strong). Isolated heterozygous factor V Leiden is a permanent factor that is not major (supplement Table S4); with a removed trigger the cell reads: a lower-dose DOAC can be considered (9.10b, weak). Her homozygous genotype puts her in the red cell.',
+      ask: ['The same woman had isolated heterozygous factor V Leiden instead. What does Fig. 5 offer?', 'A permanent factor that is not major, with the OCP removed: a lower-dose DOAC can be considered for the long term (weak recommendation).'],
     },
     {
       id: 'a5', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, lapse: { seconds: 8, from: 'DIPS placed', to: '2 months later' }, cam: 'dips', labels: ['RHV', 'IVCS', 'RA'], mark: { edges: ['DIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'asc'], key: ['asc'],
@@ -71,23 +82,32 @@ export const CHOOSE_TREATMENT = {
       caseQ: 'Which shunt decompresses her liver?',
       kicker: 'Outflow', site: 'post', title: 'A shunt straight to the IVC',
       line: 'With the hepatic veins clotted, the shunt runs from the portal vein straight to the IVC. Two months on, the PPG is {ppg} and the ascites {asc}.',
-      notes: 'Treatment of Budd–Chiari syndrome is stepwise: anticoagulation for everyone, angioplasty or a stent for a short stenosis, a shunt when the patient does not respond, and transplant when the shunt fails or the liver fails acutely. Here the first two steps are done or not possible. EASL 2025: the shunt is made through a hepatic vein stump or directly through the IVC wall (a direct intrahepatic portosystemic shunt, DIPS), in an experienced center. Shunt dysfunction is common but can usually be treated by angioplasty. Anticoagulation continues for life unless there is a major contraindication; the model leaves the anticoagulant off here, so the change is the shunt\'s alone. (EASL 2025, Budd–Chiari syndrome.)',
+      notes: 'Treatment of Budd–Chiari syndrome is stepwise (Baveno VIII 8.31): anticoagulation for everyone, started as soon as possible and continued long term, including after a transplant (8.32); angioplasty or a stent for a stenosis that suits it, which is looked for actively (8.33); a TIPS when medical treatment is not enough and recanalization is not possible or has failed (8.34); and transplant. Here the first two steps are done or not possible. With the hepatic veins clotted, a standard TIPS has no vein to start from, so the stent runs from the IVC through the caudate lobe to the portal vein: a direct intrahepatic portosystemic shunt, DIPS. The model leaves the anticoagulant off here, so the change is the shunt\'s alone. (Baveno VIII 8.31 to 8.34.)',
       ask: ['Why is a DIPS often needed in Budd–Chiari syndrome?', 'The hepatic veins are clotted, so a standard TIPS has no vein to drain into; the DIPS drains straight into the IVC.'],
+    },
+    {
+      // (The treatment menu before the relation chart: one patient with bleeding and ascites, every treatment he could get run on him, the PPG each reaches against the sinusoidal flow
+      // it costs. Mohammad, 8 Nov 2026: new-features recs C2.)
+      id: 'menu', preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'menu' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      kicker: 'Summary', site: 'sin', title: 'Every treatment priced in liver flow',
+      line: 'From {ppg}, the drugs leave the liver most of its flow, and carvedilol lowers the pressure the most. A TIPS or a shunt lowers it further and costs the most.',
+      notes: 'Each dot is this patient after one treatment, worked out by the model from the state on screen; the ring is where he stands now. Carvedilol lowers the gradient and leaves the liver almost all of its flow, because it also lowers the resistance inside the liver. Propranolol lowers it less and takes more flow. A TIPS and the surgical shunts lower it most and take the most flow, so they are kept for the case the drugs and bands cannot treat. A dot grows with the share of the portal blood that bypasses the liver.',
+      ask: ['Why is carvedilol the first choice among the drugs here?', 'Of the drugs it lowers the PPG the most and leaves the liver the most flow.'],
     },
     {
       // (The relation chart before the summary: each patient before treatment as a ring, after it as the dot, on the HVPG against
       // PPG plane. The portal vein clot in cirrhosis starts from its own ring: the same man with the clot, before anticoagulation.)
       id: 'relation', cam: 'fit', visual: 'plane', plane: 'hvpg-ppg',
-      of: [{ id: 'a1', from: { preset: 'cirr-decomp' }, name: 'Carvedilol and bands', short: 'Carvedilol' }, { id: 'a2', from: { preset: 'cirr-decomp' }, name: 'TIPS' },
+      of: [{ id: 'a1', from: { preset: 'cirr-decomp' }, name: 'Carvedilol and bands', short: 'Carvedilol' }, { id: 'a2', from: { preset: 'cirr-decomp', params: { diuretics: false, albumin: 2.5 }, relax: 200 }, name: 'TIPS' },
         { id: 'a3', from: { preset: 'csph', params: { drugs: { carvedilol: true }, thrombus: { PV_TRUNK: 0.6 } } }, name: 'Anticoagulation, cirrhosis', short: 'Anticoag., cirrhosis' },
         { id: 'a4', from: { preset: 'pvt-acute' }, name: 'Anticoagulation', short: 'Anticoag.' }, { id: 'a5', from: { preset: 'budd-chiari' }, name: 'DIPS' }],
       kicker: 'Summary', title: 'What each treatment does to the two gradients',
       line: 'Each ring is a patient before treatment and its dot after. Carvedilol and a TIPS lower both gradients. Anticoagulation and a DIPS lower the PPG alone.',
-      notes: 'The HVPG runs across and the PPG up, with the app\'s cut-offs (HVPG 5 and 10, PPG 6 and 12 mmHg). The HVPG 10 line marks clinically significant portal hypertension (CSPH: an HVPG of 10 mmHg or more, Baveno VIII and AASLD 2024), and an HVPG to its right is CSPH, whatever the PPG. The PPG 12 line marks the risk of bleeding, and a TIPS aims under it; it is not a CSPH cut-off. The two cirrhosis patients start from the same ring. Carvedilol lowers the inflow, so both gradients fall a little; the TIPS opens a channel beside the sinusoids and takes both down much further. The two portal vein clots and Budd–Chiari start high on the PPG for their HVPG, and their treatments bring the PPG down with the HVPG barely moving; in cirrhosis the clot sits on top of a sinusoidal HVPG, so the HVPG alone would miss the pressure it adds. In Budd–Chiari the hepatic veins cannot be wedged, so its HVPG is a number the model gives and no catheter takes. (AASLD 2024 Table 1; Baveno VIII 6.3, TIPS for recurrent ascites, and 9.19, anticoagulation for portal vein thrombosis.)',
+      notes: 'The HVPG runs across and the PPG up, with the app\'s cut-offs (HVPG 5 and 10, PPG 6 and 12 mmHg). The HVPG 10 line marks clinically significant portal hypertension (CSPH: an HVPG of 10 mmHg or more, Baveno VIII and AASLD 2024), and an HVPG to its right is CSPH, whatever the PPG. The PPG 12 line marks the risk of bleeding, and a TIPS aims under it; it is not a CSPH cut-off. The two cirrhosis patients start from rings of their own, the man with tense ascites a little higher. Carvedilol lowers the inflow, so both gradients fall a little; the TIPS opens a channel beside the sinusoids and takes both down much further. The two portal vein clots and Budd–Chiari start high on the PPG for their HVPG, and their treatments bring the PPG down with the HVPG barely moving; in cirrhosis the clot sits on top of a sinusoidal HVPG, so the HVPG alone would miss the pressure it adds. In Budd–Chiari the hepatic veins cannot be wedged, so its HVPG is a number the model gives and no catheter takes. (AASLD 2024 Table 1; Baveno VIII 6.3, TIPS for recurrent ascites, and 9.19, anticoagulation for portal vein thrombosis.)',
       ask: ['A patient with a portal vein clot starts anticoagulation. Which gradient shows whether it worked?', 'The PPG. The HVPG is normal before and after, because the clot lies before the sinusoids.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['ppg', 'asc', 'liver'], asc: false, note: 'Choice', rowHead: 'Case',
+      id: 'summary', visual: 'table', cols: ['ppg', 'asc', 'liver'], asc: false, note: 'Choice', rowHead: 'Case', focusRow: 'a4',
       of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', note: 'None', ref: true },
         { id: 'a1', kicker: 'Bleeding', title: 'Bleed, Child–Pugh B 8', note: 'Carvedilol and bands' }, { id: 'a2', kicker: 'Ascites', title: 'Refractory ascites', note: 'TIPS' },
         { id: 'a3', kicker: 'Clots', title: 'Portal vein clot, cirrhosis', note: 'Anticoagulation' }, { id: 'a4', kicker: 'Clots', title: 'Portal vein clot, no cirrhosis', note: 'Anticoagulation' },

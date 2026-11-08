@@ -199,7 +199,7 @@ export function createCauses({ host } = {}) {
   };
   function makeRow(r) {
     const { f } = G, lines = G.rows.find((p) => p.key === r.key)?.lines || wrapLabel(r.label, G.Lw, f);
-    const label = sv('text', { class: 'pcs-l', 'data-look': 'causes.l', x: 0, 'text-anchor': 'start' }, lines.map((l, j) => sv('tspan', { 'data-look': 'causes.l.span', x: 0, dy: j ? `${LH}em` : null }, l)));
+    const label = sv('text', { class: 'pcs-l', 'data-look': 'causes.l', x: 0, 'text-anchor': 'start' }, lines.map((l, j) => sv('tspan', { 'data-look': 'causes.l.span', x: 0, dy: j ? +(LH * f).toFixed(2) : null }, l)));   // (px, not em: the GPU text reads a dy as a number of pixels, so "1.15em" stacked the two lines)
     const bar = sv('rect', r.kind === 'total' ? { class: 'pcs-b', 'data-look': 'causes.bar.total', rx: 2 } : { class: 'pcs-b', 'data-look': 'causes.bar.step', 'data-p-c': colourOf(r.group), rx: 2 });
     const val = sv('text', { class: 'pcs-v', 'data-look': 'causes.val' });
     const g = sv('g', { 'data-look': 'causes.row', class: 'pcs-row' + (r.key === OTHER ? ' other' : '') + (r.kind === 'total' ? ' total' : '') + (r.key === NOW ? ' now' : '') }, label, bar, val);

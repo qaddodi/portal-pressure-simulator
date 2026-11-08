@@ -490,6 +490,8 @@ export function createLabelSolve(st, live) {
           const mk = dop.all && /^focus/.test(it.key);
           if (ps.clear) { if (ps.pad != null ? lineHits(r, ps.pad, true) : mk ? lineHits(r, 3, true) : it.point ? lineHits(r, 4, true) : held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
           if (mk && dop.id && lineHits(r, 3, { only: dop.id })) return;   // (and in any pass, 2 px off its own stent as drawn)
+          // (A leader that may cross at most lmax vessels besides the one it starts on, 3 px off each: 0, one that runs clear.)
+          if (ps.lmax != null) { const le = leaderEnd(r, it.ax, it.ay); if (leaderVesselHits(live.segIdx, it.ax, it.ay, le.x, le.y, 3, ps.lmax < 1) > ps.lmax) return; }
           // (A reading out on a ring is joined to its station by a leader: one that would cross a vessel or a label is no use.)
           // A reading moving off its vessel or rescued (passes from 3 on, and the rescue's: strict) keeps 4 px from every other
           // reading, off every other station's ring and every other reading's leader, and its own leader, if it is far enough out
@@ -508,7 +510,9 @@ export function createLabelSolve(st, live) {
               if (others.some((sg) => segsCross(sg, [it.ax, it.ay, ex, ey]))) return;
               // (A zone title's column that the station itself stands at the edge of (VAR beside "Portal veins" on a phone) does not
               // stop its leader: it starts there.)
-              const own = (p) => p.zone && it.ax > p.x0 - 4 && it.ax < p.x1 + 4 && it.ay > p.y0 - 4 && it.ay < p.y1 + 4;
+              // (Nor does any box the point stands in, short of a label's: a stent's narrowing arrows ring the site the "Narrowing" tag
+              // names, and its leader starts inside their box.)
+              const own = (p) => (p.zone || !p.lab) && it.ax > p.x0 - 4 && it.ax < p.x1 + 4 && it.ay > p.y0 - 4 && it.ay < p.y1 + 4;
               for (let u = ps.strict || ps.resc ? 0 : 8, q = ps.strict || ps.resc ? 3 : 2; u < L - 2; u += ps.strict || ps.resc ? 2 : 3) {   // (rescued: from its station's ring on, the ring too kept clear)
                 const px = it.ax + ((ex - it.ax) * u) / L, py = it.ay + ((ey - it.ay) * u) / L, pr = { x0: px - q, y0: py - q, x1: px + q, y1: py + q };
                 if ((ps.ring === 'clean' && lineHits(pr, 0)) || placed.some((p) => !(it.point && p.probe) && !p.dot && !own(p) && hits(pr, p))) return;   // (a leader may pass a station's dot, never a reading)
@@ -1111,7 +1115,11 @@ export function createLabelSolve(st, live) {
       // (A mark with live readings (package F) keeps its side as its numbers and the vessels under it change: its side first, a little
       // farther out if need be, before it tries another.)
       // (So does a treatment's step callout (pin): it names the vessel the step works on and stays on its side through the steps.)
-      const side = (lv || m.pin) && !dop.all && prevSol.get(it.key);
+      // (A mark on a stent's third, the "Narrowing" tag, is a callout too: its words off every vessel, on a leader that crosses as few
+      // as the stent's own surroundings allow (the site stands where the stent joins the hepatic veins), as a step's callout does, so
+      // it never stands on the stent or the vein it narrows into: his ask, 8 Nov 2026.)
+      const onSite = !!m.seg && isStent(EDGES[EI[m.edges[0]]]), pinned = m.pin || onSite;
+      const side = (lv || pinned) && !dop.all && prevSol.get(it.key);
       // (Its pill also touches nothing drawn: 6 px clear of every vessel, a varix's strands and glow included, and 12 px inside the stage.
       // So does a step callout, on a short leader, farther out where the close-up's vessels are wide: his ask, 29 Oct, the
       // "Sclerosant" pill covered the shunt.)
@@ -1119,8 +1127,10 @@ export function createLabelSolve(st, live) {
       // on their route, and the vessel it names, drawn or not yet (the tract and its balloon): his ask, 29 Oct, "Tract dilated" sat on
       // the tract. Where no spot is clear of the vessels too, it still keeps off those.)
       const av = m.pin ? pinAvoid(m.edges[0]) : undefined;
-      const tidy = (lv || m.pin) && !dop.all ? [gap, gap + 14, gap + 30, gap + 50, ...(m.pin ? [gap + 80, gap + 120, gap + 170] : [])].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12, avoid: av }))
-        .concat(m.pin ? [gap, gap + 30, gap + 80, gap + 140].map((g) => ({ gap: g, leader: true, inView: true, pad: 6, edge: 12, avoid: av })) : []) : null;
+      // (The stent's mark first with a leader over no vessel, then over one, each in turn at growing reach, then wherever its words are clear.)
+      const tidy = (lv || pinned) && !dop.all ? [...(onSite ? [0, 1].flatMap((lmax) => [gap, gap + 14, gap + 30, gap + 50, gap + 80, gap + 120, gap + 170, gap + 230].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12, avoid: av, lmax, uncrossed: true }))) : []),
+        ...[gap, gap + 14, gap + 30, gap + 50, ...(pinned ? [gap + 80, gap + 120, gap + 170] : [])].map((g) => ({ gap: g, leader: true, clear: true, inView: true, pad: 6, edge: 12, avoid: av }))]
+        .concat(pinned ? [gap, gap + 30, gap + 80, gap + 140].map((g) => ({ gap: g, leader: true, inView: true, pad: 6, edge: 12, avoid: av })) : []) : null;
       if (tidy) buildLines();
       // (Every mark first takes a spot in the free figure, off the cards (a phone's teaching card over the figure's bottom) and the other
       // callouts, before any that may cover one: his ask, 6 Nov 2026, "The shunt callout is covering the card on phone". A round that

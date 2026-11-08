@@ -8,7 +8,7 @@ const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), '
 const between = (a, b) => src.slice(src.indexOf(a), src.indexOf(b, src.indexOf(a)));
 
 test('the label layout, the ride and the captions\' frame write no class and read none from the page', () => {
-  const parts = [between('function ride()', 'function bakeFollow()'), between('function bakeFollow()', '\n  }\n'), between('function layoutLabels()', 'function easeEnd()'), between('function capSync(', 'cap.onFrame = capSync;')];
+  const parts = [between('function ride()', 'function bakeFollow()'), between('function bakeFollow()', '\n  }\n'), between('function layoutLabels()', 'function syncLeaders()'), between('function capSync(', 'cap.onFrame = capSync;')];
   for (const [i, p] of parts.entries()) {
     assert.ok(p.length > 200, `part ${i} found`);
     assert.doesNotMatch(p, /\.classList\.(add|remove|toggle|contains)\(/, `part ${i}: no class is written or read from the page in a frame`);

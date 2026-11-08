@@ -115,6 +115,27 @@ export function liftEnd(spotted, joins) {
   return 0;
 }
 
+/** Whether the point (px, py) lies within tol of the drawn course pts ([[x, y]…]) — a lit vessel's end only runs on at full into
+ *  a lit neighbour that is drawn there. Two vessels that share a node in the model need not meet in the picture: the TIPS leaves
+ *  the right hepatic vein 40 units in from its blunt end, so that end is free and eases back into the network like any other
+ *  (Mohammad, 7 Nov: the highlighted vessels on TIPS and shunts 8/14 stopped in hard cut-offs). */
+export function nearPath(pts, px, py, tol) {
+  if (!pts || !pts.length) return false;
+  const t2 = tol * tol;
+  let ax = pts[0][0], ay = pts[0][1];
+  if ((px - ax) * (px - ax) + (py - ay) * (py - ay) <= t2) return true;
+  for (let i = 1; i < pts.length; i++) {
+    const bx = pts[i][0], by = pts[i][1], dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    const k = l2 > 1e-9 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2)) : 0;
+    const ex = ax + k * dx - px, ey = ay + k * dy - py;
+    if (ex * ex + ey * ey <= t2) return true;
+    ax = bx; ay = by;
+  }
+  return false;
+}
+/** How far a lit vessel eases back into the dimmed network at a free end: a share of its length, at most this long (world units). */
+export const LIFT_EASE_SHARE = 0.45, LIFT_EASE_MAX = 80;
+
 // ── The change ripple (V6) ──
 // As Patients' Δ glow (stage.js stepHalos): the vessels whose mean pressure moved by 2 mmHg or more, the 16 that moved most.
 export const RIPPLE_MIN = 2, RIPPLE_MAX = 16;

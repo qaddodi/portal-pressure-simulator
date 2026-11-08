@@ -25,6 +25,6 @@ test('#21 a swipe in phone Tests first finishes the previous swipe still settlin
   assert.match(move, /sw\.carry = resting && settle \? shiftX\(resting\) : 0;\s*settle\?\.\(\);/);
   assert.match(move, /const tdx = dx \+ sw\.carry, d = tdx < 0 \? 1 : -1/);
   const end = dock.slice(dock.indexOf('const endSwipe'), dock.indexOf("body.addEventListener('touchend'"));
-  assert.match(end, /const timer = setTimeout\(done, 250\);\s*settle = done; resting = go \? s\.nb : s\.cur;/);
+  assert.match(end, /const timer = setTimeout\(done, afterMs\(D_SMALL\)\);\s*settle = done; resting = go \? s\.nb : s\.cur;/);
   assert.match(end, /clearTimeout\(timer\); settle = null;/);
 });

@@ -7,6 +7,7 @@ import { readFileSync } from 'node:fs';
 import { advanceStream, REVERSE_HOLD, bleedShapes, BLEED_ROWS, bleedPulse, poolFill, POOL_SHARE, chevFlowLevel, CHEV_Q_FULL } from '../src/ui/blood.js';
 import { LUMEN, LUMEN_AREA, LUMEN_BOTTOM, STO_N, lumenSurface, lumenAt } from '../src/ui/stomach-lumen.js';
 import { varixBead, beadRadius, BEAD_MAX } from '../src/ui/varix-bead.js';
+import { tokensOfLook, LOOK_IDS } from '../src/ui/theme-tokens.js';
 
 const src = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const STAGE = stageSource(), GL = src('src/ui/veins-gl.js');
@@ -117,7 +118,10 @@ test('G12 taken back: the pressure legend is as it was (its scale is absolute pr
   assert.match(cm, /export const PRESSURE_TICKS = \[0, 10, 20, 30\];/);
   assert.doesNotMatch(cm, /PRESSURE_MARKS/);
   assert.doesNotMatch(src('src/ui/main.js'), /lg-mark|PRESSURE_MARKS/);
-  assert.deepEqual([...src('styles/tokens.css').matchAll(/--ramp-pressure: (#[0-9A-F]{6}) 0,/g)].map((m) => m[1]), ['#DCEBF7']);
+  // (The pressure ramp is per look since the visual-style C1/C2 work: Linen's pale end, Oat's old one, the dark looks' own. The cut-offs and ticks above are unchanged.)
+  const pale = Object.fromEntries(LOOK_IDS.map((id) => [id, tokensOfLook(id)['ramp-pressure'].split(',')[0].trim()]));
+  assert.deepEqual(pale, { light: '#B8D5ED 0', soft: '#DCEBF7 0', dark: '#D7E7F4 0', navy: '#D7E7F4 0', black: '#D7E7F4 0' });
+  assert.deepEqual(src('styles/tokens.css').match(/--ramp-pressure: [^;]+;/g).length, 4, 'light, the system dark block, dark and soft print it; the palettes take Dark\'s');
 });
 
 test('G14: the esophageal varix strands bead once the varix is large, as the endoscopy draws it', () => {
@@ -134,7 +138,8 @@ test('G14: the esophageal varix strands bead once the varix is large, as the end
   assert.ok(Math.max(...rs) > r * 1.25 && Math.min(...rs) < r * 0.75);
   assert.ok(rs.every((x) => x >= r * (1 - b) - 1e-9 && x <= r * (1 + b) + 1e-9));
   assert.equal(beadRadius(r, 0, 0.5, len, 1, u0), r);
-  assert.match(STAGE, /sd\.bead = e\.id === 'C1a' \? Math\.round\(varixBead\(f\.metrics\?\.varix\?\.d\)/);
+  // (The esophageal strands, and since visual-style V3 the fundal channels' too, each by its own varix: varix-bead.js BEAD_SITE.)
+  assert.match(STAGE, /sd\.bead = BEAD_SITE\[e\.id\] \? Math\.round\(varixBead\(f\.metrics\?\.\[BEAD_SITE\[e\.id\]\]\?\.d\)/);
 });
 
 test('G17: with reduced motion the chevrons stand still, spaced by flow', () => {
@@ -164,20 +169,63 @@ test('the flow arrowheads stand 2.5 times as far apart, by one constant on the l
   assert.match(GL, /ramp = max\(2\.0 \* L, 0\.3 \* Pc\)/);
 });
 
-test('A7: the pressure ramp gets darker at every stop, so 12 and 20 mmHg differ in lightness, not only in hue', () => {
-  // (Mohammad, 18 Oct: round 2 review A7.)
-  const m = src('styles/tokens.css').match(/--ramp-pressure: ([^;]+);/)[1];
-  const stops = m.split(',').map((x) => x.trim().split(/\s+/));
-  assert.deepEqual(stops.map((x) => +x[1]), [0, 5, 10, 12, 20, 30]);
+const okL = (hex) => {
   const lin = (c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  const L = (hex) => {
-    const [r, g, b] = [1, 3, 5].map((i) => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
-    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), mm = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-    return 0.2104542553 * l + 0.793617785 * mm - 0.0040720468 * s;
-  };
-  const Ls = stops.map((x) => L(x[0]));
-  for (let i = 1; i < Ls.length; i++) assert.ok(Ls[i] < Ls[i - 1] - 0.03, `stop ${stops[i][1]} mmHg is not darker than ${stops[i - 1][1]}: ${Ls.map((v) => v.toFixed(3))}`);
-  assert.ok(Ls[3] - Ls[4] > 0.1, '12 and 20 mmHg differ clearly in lightness');
+  const [r, g, b] = [1, 3, 5].map((i) => lin(parseInt(hex.slice(i, i + 2), 16) / 255));
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), mm = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  return 0.2104542553 * l + 0.793617785 * mm - 0.0040720468 * s;
+};
+const rampOf = (id, name) => tokensOfLook(id)[name].split(',').map((x) => x.trim().split(/\s+/));
+const contrast = (a, b) => {
+  const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+};
+
+test('A7: the pressure ramp gets darker at every stop, in every look, so 12 and 20 mmHg differ in lightness, not only in hue', () => {
+  // (Mohammad, 18 Oct: round 2 review A7. Per look since C1: the dark looks keep the rule at a higher floor.)
+  for (const id of LOOK_IDS) {
+    const stops = rampOf(id, 'ramp-pressure');
+    assert.deepEqual(stops.map((x) => +x[1]), [0, 5, 10, 12, 20, 30]);
+    const Ls = stops.map((x) => okL(x[0]));
+    for (let i = 1; i < Ls.length; i++) assert.ok(Ls[i] < Ls[i - 1] - 0.03, `${id}: stop ${stops[i][1]} mmHg is not darker than ${stops[i - 1][1]}: ${Ls.map((v) => v.toFixed(3))}`);
+    assert.ok(Ls[3] - Ls[4] > 0.1, `${id}: 12 and 20 mmHg differ clearly in lightness`);
+  }
+});
+
+test('C1: on the dark looks every lens ramp keeps a floor (a 30 mmHg vessel was 1.41:1 against Dark), and the light looks are as they were', () => {
+  const ground = { dark: '#1A1917', navy: '#0E1422', black: '#000000' };
+  for (const id of ['dark', 'navy', 'black']) {
+    assert.deepEqual(rampOf(id, 'ramp-pressure'), rampOf('dark', 'ramp-pressure'), `${id} takes Dark's pressure ramp`);
+    const top = rampOf(id, 'ramp-pressure').at(-1)[0];
+    assert.ok(contrast(top, ground[id]) >= 2.5, `${id}: 30 mmHg is ${contrast(top, ground[id]).toFixed(2)}:1`);
+    assert.ok(Math.abs(okL(top) - 0.5) < 0.02, '30 mmHg sits at about L .5');
+    for (const name of ['ramp-flow', 'ramp-velocity', 'ramp-heat', 'ramp-drop']) {
+      const end = rampOf(id, name).at(-1)[0];
+      assert.ok(okL(end) >= 0.47 && contrast(end, ground[id]) >= 2.5, `${id} ${name}: its dark end is ${end} (L ${okL(end).toFixed(3)}, ${contrast(end, ground[id]).toFixed(2)}:1)`);
+    }
+  }
+  // Same stops, positions and bright ends as the light looks'; only the dark end moved.
+  for (const name of ['ramp-flow', 'ramp-velocity', 'ramp-heat', 'ramp-drop']) {
+    const lt = rampOf('light', name), dk = rampOf('dark', name);
+    assert.deepEqual(dk.map((x) => x[1]), lt.map((x) => x[1]));
+    assert.deepEqual(dk.slice(0, -1), lt.slice(0, -1), `${name}: every stop but the dark end is the light looks'`);
+  }
+  for (const name of ['ramp-flow', 'ramp-velocity', 'ramp-heat', 'ramp-drop']) assert.deepEqual(rampOf('soft', name), rampOf('light', name));
+});
+
+test('C2: Linen pales its 0 and 5 mmHg stops against the paper; Soft keeps today\'s two', () => {
+  assert.deepEqual(rampOf('light', 'ramp-pressure').slice(0, 2).map((x) => x[0]), ['#B8D5ED', '#85B6E9']);
+  assert.deepEqual(rampOf('soft', 'ramp-pressure').slice(0, 2).map((x) => x[0]), ['#DCEBF7', '#99C2ED']);
+  assert.ok(contrast('#B8D5ED', '#F1EBE0') > 1.25, '0 mmHg on Linen');
+  // The rest of the ramp is the same in both light looks.
+  assert.deepEqual(rampOf('light', 'ramp-pressure').slice(2), rampOf('soft', 'ramp-pressure').slice(2));
+});
+
+test('C1: the colour tables are built again for a new look (colormap.js listens to the theme epoch)', () => {
+  const cm = src('src/ui/colormap.js');
+  assert.match(cm, /import \{ onTheme \} from '\.\/theme-epoch\.js';/);
+  assert.match(cm, /onTheme\(\(\) => \{\s*lutBuilt = false; GRADS\.clear\(\); deltaReady = false;\s*for \(const reset of SCALES\) reset\(\);/);
+  assert.match(cm, /SCALES\.push\(\(\) => \{ built = false; cssKept\.clear\(\); \}\);/);
 });
 
 test('the bleed slides frame the esophagus down to the bottom of the stomach, so the pool is on screen', async () => {

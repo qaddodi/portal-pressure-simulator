@@ -162,5 +162,5 @@ export function createRes(st, live) {
   const lowWarm = () => { stageScope.clear(lowWarmT); lowWarmT = stageScope.timer(() => { if (live.veins && !live.veins.lost && !inMotion()) live.veins.prepLow?.(TIER_TOP); }, 1500); };
   lowWarm();
 new ResizeObserver(lowWarm).observe(wrap);
-  return { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel };
+  return { autoNow, easeRes, lowWarm, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel };
 }

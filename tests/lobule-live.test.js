@@ -72,8 +72,10 @@ test('colours: tokens with and without their own alpha, and the gap and cell col
 
 test('the shader follows paintLobule\'s order and numbers, and the bitmap path is still there under it', () => {
   const live = readFileSync(new URL('../src/ui/lobule-live.js', import.meta.url), 'utf8');
-  // fill 1.015, gap fill 0.55/0.5, cells (fill 0.92/0.8, dead 0.6; membrane max 0.6; nucleus max 0.9), nutmeg 0.05–0.55 R, zones 0.2/0.17, hairline
-  for (const s of ['lvHex(wp, 1.015)', 'dark ? 0.55 : 0.5', 'dark ? 0.8 : 0.92', 'max(0.6, 0.6 * px)', 'max(0.9, ww * 0.16)', 'min(lw, ww) * 0.38', '0.05 * R) / (0.5 * R)', 'dark ? 0.2 : 0.17', 'lvHex(wp, 0.66)', 'lvHex(wp, 0.36)', 'if (sj < 0.05)']) assert.ok(live.includes(s), s);
+  // fill 1.015, gap fill 0.55/0.5, cells (fill 0.92/0.8, dead 0.6; membrane max 0.6; nucleus max 0.9), nutmeg 0.05–0.55 R, zones 0.2/0.17 (one radial gradient, ZONE_AT in lobule-paint.js), hairline
+  for (const s of ['lvHex(wp, 1.015)', 'dark ? 0.55 : 0.5', 'dark ? 0.8 : 0.92', 'max(0.6, 0.6 * px)', 'max(0.9, ww * 0.16)', 'min(lw, ww) * 0.38', '0.05 * R) / (0.5 * R)', 'dark ? 0.2 : 0.17', 'length(wp - uLCen.xy) / R', '(zr - 0.18) / 0.32', '(zr - 0.5) / 0.35', 'if (sj < 0.05)']) assert.ok(live.includes(s), s);
+  const paintSrc = readFileSync(new URL('../src/ui/lobule-paint.js', import.meta.url), 'utf8');
+  assert.match(paintSrc, /ZONE_AT = \[\[0, ZONE_TOK\[2\]\], \[0\.18, ZONE_TOK\[2\]\], \[0\.5, ZONE_TOK\[1\]\], \[0\.85, ZONE_TOK\[0\]\], \[1, ZONE_TOK\[0\]\]\]/, 'the zones are one radial gradient: zone 3 to 0.18 R, zone 2 at 0.5 R, zone 1 from 0.85 R (the shader\'s stops are the same)');
   assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e; c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\); own = mix\(own, ls, uLive\); \}/, 'mixing the two pictures laid over the surround = laying their mix');
   assert.match(tissueFS(true), /vec3 c0 = c;\n\s+if \(w\.x >= 0\.0/, 'the surround before the bitmap');
   assert.doesNotMatch(tissueFS(false), /uL[A-Z]|uLive|liveTissue|\bc0\b|\blv[A-Z]/, 'the program without the live lobule has none of it in it: the picture as before');
@@ -178,16 +180,16 @@ test('the live program starts compiling as soon as the tissue\'s GPU drawing is 
   assert.match(lz, /K\[ki\+\+\] = lk > 0 \? Math\.round\(lk \* 1000\) : -1;/, 'and the tissue\'s key moves with the share, so it is not skipped as unchanged');
 });
 
-test('the share eases in a 400 ms smoothstep either way, never in a step; a pause does not jump it', async () => {
+test('the share eases in a 420 ms (D_SURFACE) smoothstep either way, never in a step; a pause does not jump it', async () => {
   const { liveEase, liveShareOf, LIVE_MS } = await import('../src/ui/lobule-live.js');
-  assert.equal(LIVE_MS, 400);
+  assert.equal(LIVE_MS, 420);   // (a surface step of the motion scale)
   for (const [from, goal] of [[0, 1], [1, 0]]) {
     let e = from, t = 0, last = liveShareOf(e, 1), worst = 0;
     while (e !== goal) { e = liveEase(e, goal, 1000 / 60); t += 1000 / 60; const s = liveShareOf(e, 1); worst = Math.max(worst, Math.abs(s - last)); last = s; assert.ok(t < 600, 'arrives'); }
-    assert.ok(t >= 395 && t <= 420, `${from}→${goal} takes ${t.toFixed(0)} ms`);
+    assert.ok(t >= LIVE_MS - 25 && t <= LIVE_MS + 20, `${from}→${goal} takes ${t.toFixed(0)} ms`);
     assert.ok(worst < 0.07, `no frame at 60 Hz moves the share by ${worst.toFixed(3)}`);
   }
-  assert.equal(liveEase(0, 1, 60000), 0.25, 'a gap of a minute counts as 100 ms');
+  assert.ok(Math.abs(liveEase(0, 1, 60000) - 100 / LIVE_MS) < 1e-9, 'a gap of a minute counts as 100 ms');
   assert.equal(liveEase(1, 1, 16), 1); assert.equal(liveEase(0, 0, 16), 0);
   assert.equal(liveEase(0.3, 1, -50), 0.3, 'a clock that stepped back does not move it');
   assert.equal(liveShareOf(0, 1), 0, 'off: exactly 0, so the shader is given nothing');

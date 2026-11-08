@@ -76,7 +76,9 @@ test('"almost stopped" needs a vessel that normally carries flow', () => {
 });
 
 test('the summary table\'s portal velocity rating uses the same boundaries', () => {
-  assert.deepEqual(RATE.pvVel(-0.4), ['hi', 'Reversed']);
+  assert.deepEqual(RATE.pvVel(-9), ['hi', 'Reversed']);
+  assert.deepEqual(RATE.pvVel(-3), ['hi', 'Stasis'], 'a small backward drift is stasis, as the Doppler tool reads it');
+  assert.deepEqual(RATE.pvVel(-0.4), ['hi', 'Stasis']);
   assert.deepEqual(RATE.pvVel(8.9), ['hi', 'Stasis']);
   assert.deepEqual(RATE.pvVel(9), ['mid', 'Slow']);
 });

@@ -39,7 +39,7 @@ test('a gesture taking over a half-finished label glide carries its visible posi
   const labs = { triad: { el, gl: { x0: 20, y0: 40, x1: 100, y1: 120, t0: 0 } } };
   const seen = new Map(), cancelled = [];
   const freeze = new Function('LAB_KEYS', 'labs', 'spot', 'ZERO2', 'tlNow', 'easeLab', 'glOf', 'put', 'cancelled',
-    `let glideRaf = 7, glideUntil = 480; const cancelFrame = (id) => cancelled.push(id);\n${take('seenAt')}\n${take('freezeLabelGlides')}\nreturn freezeLabelGlides;`)(
+    `${take('seenAt')}\n${take('freezeLabelGlides')}\nreturn freezeLabelGlides;`)(
     ['triad'], labs, spot, [0, 0], () => 100, () => 0.5, () => { throw new Error('existing glide lost'); },
     (e, x, y) => { spot.set(e, [x, y]); seen.set(e, [x, y]); }, cancelled);
   freeze();
@@ -47,7 +47,8 @@ test('a gesture taking over a half-finished label glide carries its visible posi
   assert.equal(labs.triad.gl, null, 'capSync cannot override the camera ride with the previous glide');
   freeze();
   assert.deepEqual(spot.get(el), [60, 80], 'a second step keeps the same basis');
-  assert.deepEqual(cancelled, [7], 'the old leader glide cannot overwrite the ride geometry in a later callback');
-  assert.match(lz, /classSoon\(labels, 'lz-ease', false\);\s*freezeLabelGlides\(\);\s*rides = rideList/);
+  assert.deepEqual(cancelled, [], 'no leader glide runs any more (lz-ease and glideLeaders are gone, 8 Nov 2026): nothing to cancel');
+  assert.match(lz, /\/\/ \(the pan carries them by the same translate a layout glides[^\n]*\n\s*freezeLabelGlides\(\);\s*rides = rideList/);
+  assert.doesNotMatch(lz, /lz-ease|glideLeaders|glideUntil|easeT\b/, 'the lobule\'s label glide class, its timer and its leader loop are gone');
   assert.match(lz, /if \(!panOn\) freezeLabelGlides\(\);/);
 });

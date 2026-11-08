@@ -14,6 +14,7 @@ import { TIME } from './time.js';
 import { PROFILE } from './profile.js';
 import { FLOWS } from './flows.js';
 import { PATH } from './path.js';
+import { ALLP } from './allp.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -31,6 +32,7 @@ export const LOOKS = {
   ...PROFILE,
   ...FLOWS,
   ...PATH,
+  ...ALLP,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */

@@ -156,14 +156,24 @@ export function createMorph(st, live) {
   }
   // The stretches, one at a time, each in its own task: its moments (itemsAt, joinsOf) here, its binning in the worker, its upload here.
   function morphTrackBuild(gen) {
-    const blank = () => MORPH_PIECES.map(([t0, t1]) => ({ t0, t1, anat: t0 < 0.5, set: null }));
+    // (tight: the stretch's heads and runs also carry circles about one of their own points as it is in the frame, which the shader
+    // tests instead of the circles swept over the whole stretch: see veins-sweep.js. Only the change's stretches, whose frames lie
+    // between two neighbouring moments; a coil's ease is checked against any of its moments.)
+    const blank = () => MORPH_PIECES.map(([t0, t1]) => ({ t0, t1, anat: t0 < 0.5, set: null, tight: true, gen: 0 }));
     const pieces = blank();
     mt.pieces ||= blank();
+    // The order the stretches are made in: those with no binning first (none yet, or a failed one), then the oldest. In the order of the
+    // change, a figure that kept changing at rest (a collateral's coil easing for half a minute after a slide change: a new key at every
+    // check, every build begun again) remade the Anatomy's first stretch over and over and never reached the Circuit's half, and every
+    // frame of that half was binned again on the CPU, 2 to 30 MB sent up a frame (8 Nov 2026, "anatomy to circuit like 10fps").
+    const was = mt.pieces, rank = (i) => (was[i]?.set ? was[i].gen || 0 : -1);
+    const order = MORPH_PIECES.map((_, i) => i).sort((a, b) => rank(a) - rank(b) || a - b);
     let k = 0, held = 0;
     // A stretch made takes the place of the one before it.
     const put = (pc) => {
-      const old = mt.pieces[k];
-      mt.pieces[k] = pc;
+      const at = order[k], old = mt.pieces[at];
+      pc.gen = gen;
+      mt.pieces[at] = pc;
       if (old?.set) { if (mt.using === old.set) morphOff(); old.set.owner.dropMorphSet(old.set); }
       k++; held = 0;
     };
@@ -173,7 +183,7 @@ export function createMorph(st, live) {
       // (A move holds it for as long as the move lasts, however long: beginMotion ends one itself after MOTION_MAX_MS. Only the person's
       // own input is capped, at twelve looks.)
       { const moving = inMotion(); if ((moving || (sinceInput() < 700 && held < 12)) && live.morph === live.morphTarget) { held++; stageScope.timer(next, 120); return; } }
-      const pc = pieces[k];
+      const pc = pieces[order[k]];
       const ts = Array.from({ length: MORPH_STEPS + 1 }, (_, i) => pc.t0 + (pc.t1 - pc.t0) * i / MORPH_STEPS);
       if (pc.t1 === 0.5) ts[MORPH_STEPS] = 0.5 - 1e-6;   // (the anatomy's side ends just short of the half, where the circuit's vessels take over)
       // (One pass over the joins a task: each is a pass over every vessel and its joins. A moment's passes in one task were a long
@@ -231,7 +241,7 @@ export function createMorph(st, live) {
     pc.jreach = U.map((u) => u.reach * 1.5 + 6);
     const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row); return { id: it.row, path: pc.path.get(it.row), reach: r, core: r - 18 + BLOOD_PAD }; });
     const joins = U.map(({ j }, ji) => ({ path: pc.jpath[ji], reach: pc.jreach[ji] + MORPH_JSLACK - MORPH_SLACK, k: j.k, fillet: j.fillet, members: j.members, trunk: j.trunk, fork: j.fork }));
-    return live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK } });
+    return live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK, tight: !!pc.tight } });
   }
   function setOf(pc, b) {
     pc.set = live.veins.makeMorphSet(b);

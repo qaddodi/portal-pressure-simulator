@@ -80,19 +80,27 @@ const sweepFile = basename(Object.keys(sweep.metafile.outputs).find((f) => f.end
 const dye = await build({ ...common, entryPoints: [join(ROOT, 'src/ui/dye-worker.js')], outdir: ASSETS, entryNames: 'dye-[hash]', write: true, metafile: true });
 const dyeFile = basename(Object.keys(dye.metafile.outputs).find((f) => f.endsWith('.js')));
 
-// 2. The app. host.js and presenter.js (each starts an engine worker) point the Worker at the bundled worker file, and stage.js at the
-// bundled binning worker.
+// 2. The app. Every module that starts a worker (host.js, presenter-visuals.js: the engine; stage-vessels.js: the binning; stage-blood.js:
+// the dye) points the Worker at the bundled worker file. The modules are found by what they hold, not by name: when the stage split
+// moved the binning and dye workers out of stage.js, a filter naming stage.js left the shipped build asking for ./sweep-worker.js, which
+// is not there, so every stretch of the change between the views failed and each of its frames was binned on the CPU (his Mac, 8 Nov
+// 2026: "stretches ready 0 of 6", 5 to 10 fps). The build also refuses an output that still names a source worker (see below).
+const WORKER_SRC = [
+  [/new URL\('\.\.\/worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${workerFile}', import.meta.url)`],
+  [/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${sweepFile}', import.meta.url)`],
+  [/new URL\('\.\/dye-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/g, `new URL('./${dyeFile}', import.meta.url)`],
+];
+const workerHolders = new Set(readdirSync(join(ROOT, 'src/ui')).filter((f) => f.endsWith('.js')).map((f) => join(ROOT, 'src/ui', f))
+  .filter((f) => WORKER_SRC.some(([re]) => { re.lastIndex = 0; return re.test(readFileSync(f, 'utf8')); })));
 const workerUrl = {
   name: 'worker-url',
   setup(b) {
-    b.onLoad({ filter: /[\\/]src[\\/]ui[\\/](host|presenter)\.js$/ }, (args) => ({
-      contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\.\/worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${workerFile}', import.meta.url)`),
-      loader: 'js',
-    }));
-    b.onLoad({ filter: /[\\/]src[\\/]ui[\\/]stage\.js$/ }, (args) => ({
-      contents: readFileSync(args.path, 'utf8').replace(/new URL\('\.\/sweep-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${sweepFile}', import.meta.url)`).replace(/new URL\('\.\/dye-worker\.js(\?v=[0-9a-f]+)?', import\.meta\.url\)/, `new URL('./${dyeFile}', import.meta.url)`),
-      loader: 'js',
-    }));
+    b.onLoad({ filter: /[\\/]src[\\/]ui[\\/][\w-]+\.js$/ }, (args) => {
+      if (!workerHolders.has(resolve(args.path))) return undefined;   // (left to the next plugin and esbuild's own loading)
+      let contents = readFileSync(args.path, 'utf8');
+      for (const [re, to] of WORKER_SRC) contents = contents.replace(re, to);
+      return { contents, loader: 'js' };
+    });
   },
 };
 // Picture and glyph data (plain literals, nothing to run) ships as data, not script (Holding 120 Hz §2.9): a JSON file parses several
@@ -100,7 +108,7 @@ const workerUrl = {
 // loader that fetches its hashed .json (preloaded in the head for the ones the first screen needs, so the fetch runs beside the scripts),
 // and the SDF atlas's base64 PNG becomes a real .png the browser decodes off the main thread. The source modules stay as they are: the
 // repository root runs them as is. The build fails if a value does not come back from JSON exactly as it was.
-const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyph-data-opsz|glyphs-inter|glyphs-inter-png|glyphs-inter-display|glyphs-inter-display-png)\.js$/;
+const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyph-data-opsz|glyphs-inter|glyphs-inter-png|glyphs-inter-display|glyphs-inter-display-png|glyph-metrics|liver-geo-data)\.js$/;
 const dataOut = new Map();   // module name → the file it became
 const dataFiles = {
   name: 'data-files',
@@ -140,6 +148,12 @@ for (let round = 0; round < 60; round++) {
   }
 }
 const app = await build({ ...appOpts(), write: true });
+// (No shipped file may still start a worker from its source address: the bundle has no such file, the worker fails to load, and its
+// callers fall back to the main thread without a word. Always refused, preview builds too.)
+for (const f of Object.keys(app.metafile.outputs).filter((x) => x.endsWith('.js'))) {
+  const left = readFileSync(resolve(f), 'utf8').match(/new URL\(["'`](?:\.\.\/worker|\.\/sweep-worker|\.\/dye-worker)\.js/);
+  if (left) throw new Error(`Build refused: ${basename(f)} still starts a worker from its source address (${left[0]}): add its module to the worker-url plugin`);
+}
 // A module made an entry above also gets an entry file that only re-exports it; the app imports the shared chunk instead, so a re-export
 // file nothing imports (and that is not the app itself or an import() target) is left out.
 const reached = new Set(Object.values(app.metafile.outputs).flatMap((o) => o.imports.map((i) => i.path)));
@@ -198,7 +212,7 @@ const head = [
   monoLatin ? `<link rel="preload" href="assets/${monoLatin}" as="font" type="font/woff2" crossorigin />` : '',
   `<link rel="stylesheet" href="assets/${cssFile}" />`,
   // (The data the first screen's scripts wait for: fetched beside them, not after them.)
-  ...['organ-art', 'glyphs-inter', 'glyphs-inter-display'].filter((n) => dataOut.has(n)).map((n) => `<link rel="preload" href="assets/${dataOut.get(n)}" as="fetch" crossorigin />`),
+  ...['organ-art', 'liver-geo-data', 'glyphs-inter', 'glyphs-inter-display'].filter((n) => dataOut.has(n)).map((n) => `<link rel="preload" href="assets/${dataOut.get(n)}" as="fetch" crossorigin />`),
   dataOut.has('glyphs-inter-png') ? `<link rel="preload" href="assets/${dataOut.get('glyphs-inter-png')}" as="image" />` : '',
   dataOut.has('glyphs-inter-display-png') ? `<link rel="preload" href="assets/${dataOut.get('glyphs-inter-display-png')}" as="image" />` : '',
   ...staticChunks.map((c) => `<link rel="modulepreload" href="assets/${c}" />`),

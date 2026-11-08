@@ -2,7 +2,7 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js';
+import { store, updateParams, setViewKey } from './store.js';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js';
 import { D_FLIP, EASE_ARRIVE } from './ease.js';
 import { restPass, cancelRest } from './rest-pass.js';
@@ -12,6 +12,7 @@ import { EDGES } from '../engine/topology.js';
 import { DRUGS } from '../engine/scenario.js';
 import { HIDDEN_EDGES } from './anatomy.js';
 import { LOOKS } from './looks.js';
+import { SURGICAL, SURGICAL_BY_ID, shuntName, surgicalVerbs } from './surgical-shunts.js';
 
 // One highlight under the list that glides to the active row; the arrow keys and the pointer only move it (and aria-selected on two rows),
 // and the list is rebuilt only when the results change.
@@ -19,6 +20,7 @@ const FOCUS_NO_SCROLL = Object.freeze({ preventScroll: true });
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9+ ]/g, ' ');
 
 export function createPalette({ ctx }) {
+  const surgical = surgicalVerbs({ store, updateParams, select: (sel) => ctx.select(sel), toast });
   const back = h('div', { class: 'pal-back', hidden: true });
   const input = h('input', { class: 'pal-input', type: 'text', placeholder: innerWidth < 600 ? 'Search vessels, patients, treatments' : 'Search a vessel, patient or treatment: “tips 10”, “+6 months”…', 'aria-label': 'Search', autocomplete: 'off', spellcheck: 'false', role: 'combobox', 'aria-autocomplete': 'list', 'aria-controls': 'pal-list', 'aria-expanded': 'true' });
   const list = h('div', { class: 'pal-list glides', id: 'pal-list', role: 'listbox', 'aria-label': 'Results' });
@@ -62,6 +64,9 @@ export function createPalette({ ctx }) {
     // (The tamponade tube: the gastric balloon first, drawn up against the cardia; the esophageal balloon second, on a tube whose gastric balloon is up.)
     add('Treat', 'Gastric balloon', () => updateParams((p) => { p.balloonGas = !p.balloonGas; if (!p.balloonGas) p.balloonEso = false; return p; }, { label: 'Gastric balloon' }), { kw: 'tamponade sengstaken minnesota traction first' });
     add('Treat', 'Esophageal balloon', () => updateParams((p) => { p.balloonEso = !p.balloonEso; if (p.balloonEso) p.balloonGas = true; return p; }, { label: 'Esophageal balloon' }), { kw: 'tamponade sengstaken minnesota second' });
+    // The surgical shunts, as the Treat card's Procedures tab makes them (surgical-shunts.js), each with its take-down.
+    for (const x of SURGICAL) add('Treat', shuntName(x), () => surgical.placeShunt(x.id), { kw: `${x.kw} ${x.sub}` });
+    for (const [id, name] of [['warren', 'Warren shunt'], ['pc-es', 'portocaval shunt'], ['mesocaval', 'mesocaval shunt'], ['rex', 'Meso-Rex bypass']]) add('Treat', `Remove ${name}`, () => surgical.removeShunt(id), { kw: `take down ${SURGICAL_BY_ID[id].kw}` });
     add('Tests', 'Doppler of the portal vein', () => { ctx.probe('PV_TRUNK'); ctx.showPane('doppler'); }, { kw: 'ultrasound velocity' });
     add('Tests', 'Endoscopy', () => ctx.showPane('endoscopy'), { kw: 'scope varices' });
     // Time
@@ -72,8 +77,8 @@ export function createPalette({ ctx }) {
     add('Time', 'Compare from here', () => ctx.pin(), { kw: 'compare snapshot pin' });
     // View
     for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Colored by ${t.toLowerCase()}`, () => store.set({ colorMode: id }), { kw: `color colour lens ${d}` });
-    add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
-    add('View', 'Circuit view', () => store.set({ view: 'circuit' }), { kw: 'schematic map' });
+    add('View', 'Anatomy view', () => setViewKey('anatomy'), { kw: 'anatomic' });
+    add('View', 'Circuit view', () => setViewKey('circuit'), { kw: 'schematic map' });
     add('View', 'Lobule view', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid lobule zoom' });
     add('View', 'Tests', () => ctx.instruments(), { kw: 'measure instruments charts dock' });
     // Go to a structure

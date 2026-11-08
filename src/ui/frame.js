@@ -20,6 +20,7 @@ import { gpuProbe } from './gpu-probe.js';
 import { createFrameRecorder } from './frame-stats.js';
 import { createInputLatency, describeTarget } from './input-latency.js';
 import { caught } from './caught.js';
+import { fenceFrame, fenceMark } from './gpu-fence.js';
 // A batch of asked-for callbacks, in request order (plan "Holding 120 Hz, always" rev 2 §2.8: zero allocation on the frame path). Three
 // parallel arrays that keep their length from frame to frame, so an ask writes three slots and allocates nothing, and running a batch
 // walks it by index (the Map of [tag, cb] pairs it replaces made one array per ask and one entry array per callback run). A cancelled
@@ -102,6 +103,7 @@ function flush(now) {
   paceStep();
   frames++; allFrames++;
   if (chained && lastNow && now > lastNow) noteGap(now - lastNow);
+  fenceFrame(allFrames);   // (?perf only: a fence in the figure's context at the frame's start and after each phase, gpu-fence.js)
   frameT0 = performance.now();
   const watching = watchers.size > 0, t0 = watching ? performance.now() : 0;
   parts = watching ? outsideParts.splice(0) : null;
@@ -117,13 +119,24 @@ function flush(now) {
   queue = spareQ.size ? new Batch() : spareQ;   // asked for while running: the next frame, as with requestAnimationFrame
   try {
     run(current, now, 'early');
+    fenceMark(1);
     lateNow = late;
     late = spareL.size ? new Batch() : spareL;   // asked for while the late ones run: the next frame
     run(lateNow, now, 'late');
+    fenceMark(2);
     finalNow = fin;
     fin = spareF.size ? new Batch() : spareF;    // (likewise)
     run(finalNow, now, 'final');
-    if (finals.size) for (const w of finals) try { w(now); } catch (e) { rethrow(e); }   // (after the last callback, before the frame is judged: the ink lays itself on the figure as drawn)
+    fenceMark(3);
+    if (finals.size) {
+      // (After the last callback, before the frame is judged: the ink lays itself on the figure as drawn, and the figure's present (veins-gl.js
+      // flushPresent: the kept picture onto the canvas, the glasses over it) runs here. Timed as its own surface, 'frame end', so the ?perf
+      // readout names it: 8 Nov 2026, a Mac's frames showed 26 ms of script with 14 ms in named surfaces, and this was the untimed rest.)
+      const tf = timeFrame ? performance.now() : 0;
+      for (const w of finals) try { w(now); } catch (e) { rethrow(e); }
+      if (timeFrame) { const ms = performance.now() - tf; totals.ms[FRAME_END] = (totals.ms[FRAME_END] || 0) + (parts || TIME_ALL ? ms : ms * TIME_EVERY); parts?.push([FRAME_END, 'final', ms]); }   // alloc-rare: only while frames are watched (parts is null otherwise)
+    }
+    fenceMark(4);
     runMay(now);
   } finally {
     current.clear(); spareQ = current; current = null;
@@ -161,6 +174,7 @@ function flush(now) {
 // totals.ms (an estimate of the same sum), plus the deferrable surfaces, whose predicted cost the watchdog judges by. The other frames
 // make no performance.now() pair per callback.)
 export const TIME_EVERY = 30;
+const FRAME_END = 'frame end';   // (the surface name of the frame-end hooks' time: the figure's present and the ink)
 const TIME_ALL = typeof location !== 'undefined' && /[?&](perf|fps)(?=[=&#]|$)/.test(location.search || '');
 let timeFrame = false;
 /** Whether this frame's callbacks are each timed (every frame while watched or under ?perf/?fps, else one in TIME_EVERY). */
@@ -487,16 +501,12 @@ export function cancelFrame(id) {
 /** Where the scheduler is now: 'early' (the frame's first callbacks), 'late', 'final', or null (outside a frame). A surface asked to
  *  draw while the early ones run can leave it to its own late callback, which still runs in this frame, and so draw once in it. */
 // ── The eases' clock (1 Nov 2026, Mohammad: "the cards start popping in instead of smoothing in eased") ──
-// An ease timed by the wall clock jumps over a long frame: a 900 ms crossfade begun just before a 400 ms frame shows its first half
-// in one step, and a zoom leaps ahead by the frame's length. easeNow() runs with the wall clock while frames come promptly, and
-// moves on by at most PACE_CAP ms (or twice the usual interval, see paceStep) from one frame to the next, so after a long frame an ease timed by it carries on from where the
-// screen last showed it instead of landing past it. The total time runs a little longer by what the long frames held back. Monotonic,
-// in performance.now()'s timebase while nothing has been held back.
+// (First built as a held clock, 1 Nov 2026: a long frame carried an ease on by at most PACE_CAP ms. R20 below, 2 Nov, replaced that with
+// the honest wall clock, and motion.js (the clock rule) added back only a 40 ms cap on the first two frames of a move. PACE_CAP and PACE_MAX
+// stay as the yardstick for what counts as a long frame in clockStats: the cap is twice the usual interval of the last frames that ran one
+// after another, PACE_CAP at least and PACE_MAX at most, so a device that draws a slow scene at 10 frames a second does not count its own
+// pace as long frames.)
 export const PACE_CAP = 50;
-export const PACED = true;   // (switch deleted; kept for stage.js, presenter.js and lobule-zoom.js until their own pass)
-// (Only a frame long against the ones before it is held back: the cap is twice the usual interval of the last frames that ran one
-// after another, PACE_CAP at least and PACE_MAX at most, so a device that draws a slow scene at 10 frames a second keeps its eases at
-// their own speed, and only its sudden long frames are smoothed over.)
 export const PACE_MAX = 1000;   // (a software renderer's frames, a second apart, run at their own speed)
 let paceReal = 0, paceBase = 0, paceCap = PACE_CAP;
 const paceGaps = new Float64Array(9), paceSort = new Float64Array(9);
@@ -524,7 +534,7 @@ function paceNote(gap) {
   paceSort.set(paceGaps); paceSort.fill(Infinity, paceN); paceSort.sort();
   paceCap = Math.min(PACE_MAX, Math.max(PACE_CAP, 2 * paceSort[paceN >> 1]));
 }
-/** The eases' clock (ms): performance.now() while frames come promptly, held to PACE_CAP ms of progress from frame to frame. */
+/** The eases' clock (ms): the wall clock, performance.now(), one time per frame (motion.js has the rule for the first frames of a move). */
 export function easeNow() {
   const t = wall();
   if (!paceReal) { paceReal = paceBase = t; return t; }
@@ -536,6 +546,11 @@ export function easeNow() {
 let holdUntil = 0;
 /** Keeps deferrable work out of the next `ms` (the longest of the holds asked for wins). */
 export function holdMotion(ms) { holdUntil = Math.max(holdUntil, wall() + ms); }
+// The figure's camera moving (a pan, a pinch, a glide): stage-camera.js notes each step. The charts that do not ride the figure (a card's
+// readouts) hand their pictures over less often meanwhile (svg-gl.js): each hand-over waits on the figure's GPU work.
+let camUntil = 0;
+export const noteCamera = () => { camUntil = wall() + 200; };
+export const cameraMoving = () => wall() < camUntil;
 export const MOTION_MAX_MS = 5000;
 const moving = new Map();   // (transition token → { name, t0, until })
 /** A transition begins: deferrable work waits until the returned end() is called (or MOTION_MAX_MS passes, counted as overdue). */
@@ -664,7 +679,7 @@ export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.de
 //   them changes; only a large external screen (a 5K one, 14.7) draws fewer pixels than its full density, and its heat with them.
 // floor: the lowest share Auto goes to (10%, 25% or 50%).
 // adapt: after each move, one step lower if the frames came slowly, one step back up when they came at the screen's pace.
-export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
+export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
 const figOpts = { move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 };
 for (const k of Object.keys(figOpts)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch (e) { caught('frame:602', e); /* storage unavailable */ }

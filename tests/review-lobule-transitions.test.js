@@ -21,7 +21,7 @@ test('G18: organs and vessels ease on one clock and one curve', () => {
   assert.match(lz, /const LENS_FADE = D_SURFACE,/, 'the lobule\'s lens crossfade takes the same time');
   assert.match(tokens, /--d-surface: 420ms;/, 'the SVG organs\' CSS fade takes the same time');
   // The quintic (easeMove) on every clock, and as a CSS curve.
-  assert.match(stage, /u = easeMove\(clamp\(\(\(PACED \? easeNow\(\) : now\) - (?:live\.)?lensT0\) \/ LENS_FADE, 0, 1\)\)/);
+  assert.match(stage, /u = easeMove\(clamp\(\(easeNow\(\) - (?:live\.)?lensT0\) \/ LENS_FADE, 0, 1\)\)/);
   assert.match(stage, /const u = easeMove\(clamp\(\(now - plateT0\) \/ PLATE_FADE, 0, 1\)\);/);
   assert.match(read('../src/ui/organs-gl.js'), /L\.k = easeMove\(\(now - L\.from\) \/ VIEW_FADE_MS\);/);
   assert.doesNotMatch(app, /#net \{ transition|#backEdges \.vg/, 'the vessels have no CSS fade left (the GPU draws them)');

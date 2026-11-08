@@ -23,3 +23,12 @@ test('the monitor and the callouts print the mean FHVP and WHVP, not the trace h
   assert.match(src, /function fm1\(c, v\) \{\s*if \(!Object\.is\(c\.v, v\)\) \{ c\.v = v; c\.s = fmt\(v, 1\); \}/, 'the cached text is fmt of the number');
   assert.doesNotMatch(src, /fm1\([A-Za-z]+, pAt/, 'no callout prints the trace height');
 });
+
+// Motion recommendation 9: the sweep's clock is capped as the procedures' is (a long frame or a hidden tab never leaps it to its end), and both
+// traces draw their waves on the model's beat and breath (hvpg-clock.js syncWave), not on the procedure's clock.
+test('the sweep is capped at 64 ms a frame and both traces take the model’s beat and breath', () => {
+  assert.match(src, /function step\(now\) \{\n\s+const dt = Math\.max\(0, Math\.min\(64, now - last\)\); last = now;/);
+  assert.equal((src.match(/syncWave\(wave, /g) || []).length, 2);
+  assert.match(src, /const pAt = \(tt, v\) => pressureAt\(tt, v, waveNow\);/);
+  assert.match(src, /cathA\.u = cruise\(k01\(t, T\.travel0, T\.travel1\)\);/, 'the catheter travels at a steady pace');
+});

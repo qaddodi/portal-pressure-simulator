@@ -32,7 +32,7 @@ test('swipe let go: held for the slide\'s leave while a change is on its way (ru
   assert.match(presenter, /if \(!changing\(\)\) pageForce = false;/, 'the force that makes the words leave survives the wait');
   assert.match(presenter, /!!ui && !changing\(\) && !caseCard && !zoomOn\(\)/, 'no finger follow starts on a card about to leave');
   const go = presenter.slice(presenter.indexOf('  function go(i) {'), presenter.indexOf('  function prepHold('));
-  assert.match(go, /if \(!slidePrep\.ready\(want\)\) prepHold\(want, goOn\); else goOn\(\);/, 'prepHold is the wait the swipe lands in');
+  assert.match(go, /if \(!slidePrep\.ready\(want\)\) \{ outNow\(\); prepHold\(want, goOn\); \} else goOn\(\);/, 'prepHold is the wait the swipe lands in (the cards that show are thrown first: push B)');
   assert.match(go, /const goOn = \(\) => \{\n\s+clearTimeout\(prepT\); prepT = 0;/, 'a press answered now leaves no stale wait that reads as a change');
   const hold = presenter.slice(presenter.indexOf('  function prepHold('), presenter.indexOf('  const KEEP_NOW'));
   assert.match(hold, /prepT = setTimeout\(look, 16\);/, 'prepT is set for the whole wait');

@@ -15,7 +15,7 @@ import { measure as measureWords } from './glyph-measure.js';
 import { caught } from './caught.js';
 import { widgetGL } from './widget-gl.js';
 import { layoutToast, paintToast, inkOf } from './toast-gl.js';
-import { readMetric, readAnims, readStyle, readBox } from './layout-snap.js';
+import { readMetric, readBox } from './layout-snap.js';
 import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
@@ -171,7 +171,7 @@ function dropToast(t) {
   if (wrap.classList.contains('docked') || reduceMotionMQ.matches) return;
   others.forEach((c, i) => {
     const dy = tops[i] - c.getBoundingClientRect().top;
-    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE });
+    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });
   });
 }
 // Where the toasts sit: slid down from behind the top bars, or (no bars to sit under: the sinusoid view's) at the foot of the screen
@@ -386,9 +386,15 @@ let openMenu = null;
 // A surface is { close(), has(target), onEsc?(e) } (onEsc answers true when it used the key itself, as the search field's clear does).
 let surface = null;
 const dialogUp = () => !!document.querySelector('#modalBack.show, .pal-back:not([hidden]):not(.leaving)');   // (a dialog on top has the keys and the taps)
+// A menu's frost is drawn in the figure's canvas, under every page element, so a card's own words and pictures lying under a menu show straight
+// through it (8 Nov 2026, Mohammad: "menus hate to be on top of each other"). main.js gives its hook (cards under the surface step away);
+// a surface says which box it is with s.box() (null: the whole screen) and what opened it with s.anchor.
+let surfaceOpened = null;
+export function onSurfaceOpened(fn) { surfaceOpened = fn; }
 export function claimSurface(s) {
   if (surface && surface !== s) { const old = surface; surface = null; old.close(); }
   surface = s; s.armed = false;
+  surfaceOpened?.(s);
   setTimeout(() => { s.armed = true; }, 0);   // (armed after this task, so the tap that opened it does not close it)
 }
 export function releaseSurface(s) { if (surface === s) surface = null; }
@@ -518,7 +524,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
   const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
   // (Armed after this task, so the tap that opened the menu does not close it; a close before then cancels it.)
-  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n) };
+  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n), anchor, el, box: () => (asSheet ? null : el.getBoundingClientRect()) };
   claimSurface(me);
   vv?.addEventListener('resize', onVV);
   openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); onClose?.(); } };
@@ -610,11 +616,11 @@ function glideWatch(root, sel, { ms = 520, dur = D_SMALL, also = NO_ALSO }) {
     for (const [el, [x, y]] of now) {
       const p = prev.get(el);
       if (!p) continue;
-      let cx = 0, cy = 0;
-      for (const a of readAnims(el)) if (a.id === 'glide') { const m = new DOMMatrixReadOnly(readStyle(el).transform); cx = m.m41; cy = m.m42; a.cancel(); break; }
-      const dx = p[0] + cx - x, dy = p[1] + cy - y;
+      // (A glide still running is left to run and the new move added to it, composite 'add': the places are the layout's (offsetLeft, offsetTop),
+      // so the move is just what the layout did, and a second change carries on at the speed the first had. What was on screen travels on the move curve.)
+      const dx = p[0] - x, dy = p[1] - y;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
-      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: EASE_ARRIVE }).id = 'glide';
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: EASE_MOVE, composite: 'add' }).id = 'glide';
     }
     prev = now;
   });
@@ -700,7 +706,7 @@ export function reconcile(list, rows) {
   }
   if (was) for (const [e, y0] of was) {
     const dy = y0 - e.offsetTop;
-    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_FLIP, easing: EASE_MOVE });
+    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_FLIP, easing: EASE_MOVE, composite: 'add' });
   }
   if (shown) {
     for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });
@@ -1256,7 +1262,7 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 const varCache = new Map();
 const alphaCache = new Map();   // (cleared with the tokens: the instruments ask for the same few colours on every frame)
 const varNames = new Set();
-let varsAsk = 0;
+let varsAsk = 0, varsRead = 0;   // (varsRead counts the passes that read every token again: bloodColors follows it)
 const NO_RULES = Object.freeze([]);
 function collectVarNames(rules) {
   for (const r of rules || NO_RULES) {
@@ -1268,6 +1274,7 @@ function collectVarNames(rules) {
 }
 function readVars() {
   varsAsk = 0;
+  varsRead++;
   if (typeof getComputedStyle !== 'function') return;   // (no page: the unit tests' stand-in)
   const root = document.documentElement;
   for (const sh of document.styleSheets || NO_RULES) { let rules = null; try { rules = sh.cssRules; } catch (e) { caught('util:1024', e); /* (another origin) */ } collectVarNames(rules); }
@@ -1337,13 +1344,17 @@ export const cssRamp = (name) => {
   if (r === undefined) { r = [...t.matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]); if (rampOf.size > 64) rampOf.clear(); rampOf.set(t, r); }   // alloc-rare: a ramp text met for the first time (kept in rampOf)
   return r;
 };
-// The blood's colours on the GPU (theme independent: they sit on the lumen, not on the page), in 0–1.
-// originCol follows ORIGINS (blood.js): SMV, IMV, splenic vein, hepatic artery, systemic.
-let bloodCols = null;
-// alloc-rare: made once, on the first ask, and kept in bloodCols
-export const bloodColors = () => bloodCols || (bloodCols = {
+// The blood's colours on the GPU, in 0–1. They sit on the lumen, not on the page, so most do not change with the look; --blood-reversed
+// is --flow-reversed, which does (Linen's darker orange, the others' lighter one), so the set is read again after every pass that
+// reads the tokens again (a look change), and kept between them. The record is made anew then, never written in place: the surfaces copy
+// its fields each frame. originCol follows ORIGINS (blood.js): SMV, IMV, splenic vein, hepatic artery, systemic.
+let bloodCols = null, bloodColsAt = -1;
+// alloc-rare: made on the first ask and again after a look change, and kept in bloodCols
+export const bloodColors = () => bloodCols && bloodColsAt === varsRead ? bloodCols : (bloodColsAt = varsRead, bloodCols = {
   // alloc-rare: made once with the record above
   originCol: ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => cssRGB01(`--origin-${o}`)),
+  // (The First pass lens: the same five slots, as blood.js FIRSTPASS has them: raw gut, cleared gut, (unused), artery, systemic.)
+  firstCol: ['--fp-raw', '--fp-clear', '--fp-clear', '--origin-artery', '--origin-systemic'].map((v) => cssRGB01(v)),
   dyeCol: cssRGB01('--blood-dye'), inkLight: cssRGB01('--blood-ink-light'), inkDark: cssRGB01('--blood-ink-dark'),
   revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'), chevLight: cssRGB01('--blood-chevron-light'),
 });
@@ -1354,9 +1365,17 @@ export const bloodColors = () => bloodCols || (bloodCols = {
 const boxes = new WeakMap();
 // The instruments drawn at this many times the screen's density: a zoomed data card (card-zoom.js) shows them larger than they were
 // laid out, so they are drawn for the size they are seen at. 1 otherwise.
-let canvasBoost = 1;
-export const setCanvasBoost = (k) => { canvasBoost = Math.max(1, +k || 1); };
-const BOOST_PIXELS = 3.2e6;
+let canvasBoost = 1, boostAsk = 0;
+// (A new boost redraws the pictures already on the page at the density it gives, between frames: a picture drawn once (a kept readout, a path
+// card) was left at the density it was made at and the zoom only stretched it, soft and jagged. 7 Nov 2026: "zoom in, the readouts are jagged".)
+export const setCanvasBoost = (k) => {
+  const was = canvasBoost;
+  canvasBoost = Math.max(1, +k || 1);
+  if (canvasBoost !== was && !boostAsk) boostAsk = restPass(() => { boostAsk = 0; redrawBoosted(); });
+};
+const BOOST_PIXELS = 4.5e6;   // (a zoomed card's pictures: the whole card at its seen density, 3.4x on a Mac at a 1.7 zoom, is about 5 million pixels)
+/** The densest a picture is drawn: the screen's own, up to 3x; a zoomed card's (canvasBoost) up to 4x, so what is seen at its zoom is not stretched. */
+const DENSITY_MAX = 3, BOOSTED_MAX = 4;
 const sizedSubs = new WeakMap();   // (canvas -> functions run when it first has a box, or has one again after none)
 // (2 Nov 2026, timers and observers during motion: the observer only records the boxes. The redraws that waited for a box (a chart's
 // first GPU draw, seconds of work on a phone) run in a rest pass, between frames and within its shared budget, never inside the
@@ -1424,7 +1443,25 @@ export function releaseCanvasSize(canvas, w, h) {
 // frame was drawn at another size than the one held for it.)
 const drawers = new WeakMap();
 /** trace-gl.js: `api` draws `canvas`'s chart (api.drawnW/H: the CSS size its last frame began at), `redraw` draws it again. */
-export function noteDrawer(canvas, api, redraw) { drawers.set(canvas, { api, redraw }); }   // alloc-rare: once for each chart, as its drawer is made
+export function noteDrawer(canvas, api, redraw) {
+  if (!drawers.has(canvas)) drawerRefs.add(new WeakRef(canvas));   // alloc-rare: once for each chart canvas
+  drawers.set(canvas, { api, redraw });
+}
+const drawerRefs = new Set();   // (WeakRefs of every canvas with a drawer: a new boost looks at each, redrawBoosted)
+/** Draws again, now, each chart on the page whose last frame was at another density than canvasSize gives it now (a zoomed card's boost came or went). Returns how many. */
+export function redrawBoosted() {
+  let n = 0;
+  for (const ref of drawerRefs) {
+    const cv = ref.deref();
+    if (!cv) { drawerRefs.delete(ref); continue; }
+    const d = drawers.get(cv);
+    if (!d || !cv.isConnected) continue;
+    const z = canvasSize(cv);
+    if (!(z.w >= 1 && z.h >= 1) || !(d.api.drawnWd > 0) || d.api.drawnWd === z.W) continue;
+    try { d.redraw(); n++; } catch (e) { setTimeout(() => { throw e; }); }
+  }
+  return n;
+}   // alloc-rare: once for each chart, as its drawer is made
 /** Draws `canvas`'s chart again now if its last frame was at another size than canvasSize gives it; true when it asked for one. */
 export function redrawSized(canvas) {
   const d = drawers.get(canvas);
@@ -1442,7 +1479,7 @@ export function canvasSize(canvas) {
   // their words at 2x, slightly soft (#34). Battery saver keeps 2x.
   // (A card zoomed up draws its charts denser, but not past about 3 million pixels: the shared GPU canvas is made again at the new size, and a
   // 6 MP one stalled the frame in Safari when the zoom landed and left. The screen's own density is never given up.)
-  const dpr = Math.min(saver() ? 2 : 3, (window.devicePixelRatio || 1) * canvasBoost);
+  const dpr = Math.min(saver() ? 2 : canvasBoost > 1 ? BOOSTED_MAX : DENSITY_MAX, (window.devicePixelRatio || 1) * canvasBoost);
   const dev = window.devicePixelRatio || 1, fit = canvasBoost > 1 && r.width > 0 && r.height > 0 ? Math.max(dev, Math.sqrt(BOOST_PIXELS / (r.width * r.height))) : dpr, d = Math.min(dpr, fit);
   let z = sizeOf.get(canvas);
   if (!z) sizeOf.set(canvas, z = { w: 0, h: 0, W: 1, H: 1, dpr: 1 });   // alloc-rare: a canvas's record, made once with its first size
@@ -1548,7 +1585,7 @@ export function enhanceRanges(root = document) {
     fire(input, INPUT_EV);
     if (commit) fire(input, CHANGE_EV);
   };
-  // (th: the thumb's width, the slider's --tw, 18 px or 22 px on a phone: its centre runs from th / 2 to the far end less th / 2.)
+  // (th: the thumb's box, the slider's --tw, 28 px or 32 px on a phone, the dot and its ring: its centre runs from th / 2 to the far end less th / 2.)
   // (r: the slider's box, read once at the press, never in the drag's moves.)
   const fromX = (input, cx, th, r) => {
     const min = +input.min || 0, max = +(input.max || 100);

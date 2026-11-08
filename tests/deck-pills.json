@@ -788,6 +788,11 @@
   "{ppg}",
   "{varix}"
  ],
+ "gastric-varices/bato": [
+  "{gv}",
+  "{ppg}",
+  "{varix}"
+ ],
  "gastric-varices/svt": [
   "splenic vein",
   "fundal varices",
@@ -795,9 +800,12 @@
   "{gv}",
   "{pv}"
  ],
+ "gastric-varices/eusglue": [
+  "{gv}"
+ ],
  "gastric-varices/splenectomy": [
+  "spleen",
   "fundal varices",
-  "{gv}",
   "{plt}"
  ],
  "gastric-varices/relation": [

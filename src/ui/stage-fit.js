@@ -3,6 +3,7 @@
 import { VB_ANAT, VB_CIRC } from './anatomy.js';
 import { lerpVT } from './cam-arc.js';
 import { caught } from './caught.js';
+import { CAM_MS_MAX } from './ease.js';
 import { clipBox, mapBox } from './fit-box.js';
 import { cancelFrame } from './frame.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
@@ -10,6 +11,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 import { clamp, restBox, settledBox, translateRest } from './util.js';
+import { viewXfDetach } from './view-xf.js';
 
 import { stageScope } from './stage-scope.js';
 export function createFit(st, live) {
@@ -319,8 +321,8 @@ export function createFit(st, live) {
     if (!circuit) live.homeAt = to;
     else markCirc(to === whole ? 'whole' : 'focus', to);
     live.fitted = true;
-    // It glides there, as the zoom buttons do (reduced motion: a short glide).
-    animateVT(to, 420);
+    // It glides there, as the zoom buttons do, in the time its reach needs (camMs; reduced motion: a short glide).
+    animateVT(to, CAM_MS_MAX, { scale: true });
   };
   // (Measured first in the next frame, while the layout is still the last frame's (readFrame), and glided after: a refit asked for in a
   // frame (main.js, a card's fold) no longer lays the page out among that frame's writes.)
@@ -360,9 +362,13 @@ export function createFit(st, live) {
     on = on ? 1 : 0;
     try { localStorage.setItem('pps.circuitRot', String(on)); } catch (e) { caught('stage:2120', e); /* storage unavailable */ }
     if (on === live.rotTarget) return;
-    // Mid-glide (Fit, a zoom button), the turn starts from where the glide was going.
-    if (live.vtGliding) { cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; live.vt = { ...live.vtTarget }; applyVT(); live.CTM = null; }
-    const whole = live.morphTarget !== 1 || live.vt.k <= 1.001 || sameView(live.vt, circWhole());
+    // Mid-glide (Fit, a zoom button), the turn starts from where the view is, never from where the glide was going (that snapped the view to
+    // the glide's end, then turned): the glide is let go where it stands. Whether the turn lands on the whole map is judged by where the
+    // glide was going, as Fit judges a second tap.
+    viewXfDetach(live.viewXf);   // (a change between the views running: the turn starts from where the camera is, view-xf.js)
+    const goal = live.vtGliding ? live.vtTarget : live.vt;
+    if (live.vtGliding) { cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; }
+    const whole = live.morphTarget !== 1 || goal.k <= 1.001 || sameView(goal, circWhole());
     live.rotHold = null;
     if (!whole) {
       const ins = safeInsets(), b = stageBox();
@@ -422,10 +428,10 @@ export function createFit(st, live) {
     if (revealTo && !sameView(live.vt, revealTo)) revealFrom = null;   // the learner moved the figure: keep it where it is
     if (!revealFrom) revealFrom = { ...live.vt };
     revealTo = { k: live.vt.k, x: live.vt.x + dx / s, y: live.vt.y + dy / s };
-    animateVT(revealTo, 320);
+    animateVT(revealTo, CAM_MS_MAX, { scale: true });
   }
   function unreveal() {
-    if (revealFrom && sameView(live.vt, revealTo)) animateVT(revealFrom, 320);
+    if (revealFrom && sameView(live.vt, revealTo)) animateVT(revealFrom, CAM_MS_MAX, { scale: true });
     revealFrom = revealTo = null;
   }
   return { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, keptNow, markCirc, refit, reveal, rotStep, safeInsets, sameView, setCircuitRotated, snapFresh, spaceSig, unreveal, unseenCard };

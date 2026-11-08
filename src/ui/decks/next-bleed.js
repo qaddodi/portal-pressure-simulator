@@ -34,7 +34,7 @@ export const NEXT_BLEED = {
   slides: [
     {
       id: 'after', terms: ['varix'], preset: 'cirr-decomp', action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['varix', 'hvpg'], key: ['hvpg'],
-      vignette: 'A 58-year-old man with alcohol-associated cirrhosis and ascites bled from esophageal varices five days ago. Octreotide, ceftriaxone and one band stopped it. He did not qualify for a pre-emptive TIPS.',
+      vignette: 'A 58-year-old man with alcohol-associated cirrhosis and diuretic-controlled ascites bled from esophageal varices five days ago. Octreotide, ceftriaxone and one band stopped it. He did not qualify for a pre-emptive TIPS.',
       kicker: 'After the bleed', site: 'sin', title: 'The bleed is over, the pressure is not',
       line: 'One band stopped the bleeding, but the varices are still {varix}, the HVPG {hvpg}. Without prevention up to 60% bleed again within a year, most in the first 6 weeks.',
       notes: 'Secondary prophylaxis starts before discharge, within 7 days of admission, because the risk of a rebleed is highest in the first 6 weeks. Nothing about the bleed lowered the portal pressure: the octreotide stops when the bleeding is controlled, and the band treats one varix, not the pressure behind it. He is Child–Pugh B 8 and was not bleeding actively at endoscopy, so he missed the pre-emptive TIPS criteria (Child–Pugh C 10 to 13, or B 8 to 9 with active bleeding). Patients who had a pre-emptive TIPS need no further prophylaxis; everyone else needs a plan before they go home. (AASLD 2024, prevention of rebleeding.)',
@@ -66,8 +66,7 @@ export const NEXT_BLEED = {
       ask: ['Why do varices return after they have been banded away?', 'The portal pressure that made them has not changed, so blood keeps opening the same collaterals.'],
     },
     {
-      id: 'nsbb', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['hvpg', 'hr'], hvpgResp: 'after', key: ['hvpg'], delta: 'after',
-      compare: [{ label: 'No drug', params: NONE }, { label: 'Propranolol', short: 'Prop.', params: PROP }, { label: 'Carvedilol', short: 'Carv.', own: true, params: CARV }],
+      id: 'nsbb', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['hvpg', 'hr'], hvpgResp: 'after', key: ['hvpg'], delta: 'after', cite: 'Baveno VIII 4.8, Table 3',
       kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the pressure behind the varices',
       line: 'Once titrated, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the pulse to {hr}. After a bleed, a fall of ≥20%, or to {<=12 mmHg}, is a response.',
       notes: 'Carvedilol starts at 6.25 mg a day and rises to 12.5 mg a day if the blood pressure allows. It cuts the portal inflow, as propranolol does, and also relaxes the resistance inside the liver, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. The 10% fall is the response before any bleed (Baveno VIII Table 3, primary prophylaxis); after a bleed the target is a fall of 20% or more, or to 12 mmHg or less. About half of patients reach that response, so a near miss is common; this man responds clearly, by about a quarter. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops. (Baveno VIII 4.8, Table 3.) The response tile is the third tile on this slide because the fall is the point of it. A beta-blocker does not shrink the varices within days, so the varix is not shown here; in the model it follows the pressure at once.',

@@ -13,12 +13,13 @@ export function lookChanged(v, plateIsOn, sig) {
   A[n++] = v.shOff[0]; A[n++] = v.shOff[1];
   for (let i = 0; i < v.light.length; i++) A[n++] = v.light[i];
   A[n++] = v.reach; A[n++] = v.organs; A[n++] = v.netAlpha; A[n++] = v.fx ? 1 : 0;
-  for (let i = 0; i < 4; i++) { A[n++] = v.casing[i]; A[n++] = v.shadow[i]; A[n++] = v.sheen[i]; A[n++] = v.shade[i]; A[n++] = v.ring[i]; }
+  for (let i = 0; i < 4; i++) { A[n++] = v.casing[i]; A[n++] = v.shadow[i]; A[n++] = v.sheen[i]; A[n++] = v.shade[i]; A[n++] = v.rim[i]; A[n++] = v.paper[i]; A[n++] = v.ring[i]; }
   for (let i = 0; i < v.tierAlpha.length; i++) A[n++] = v.tierAlpha[i];
   for (let i = 0; i < v.tierGroup.length; i++) A[n++] = v.tierGroup[i];
   const m = v.map;
   A[n++] = m.a; A[n++] = m.fxOn ? 1 : 0; A[n++] = m.fxU;
-  for (let i = 0; i < 4; i++) { A[n++] = m.dot[i]; A[n++] = m.zone[i]; A[n++] = m.fx[i]; A[n++] = m.alt[i]; A[n++] = m.rot[i]; }
+  for (let i = 0; i < 4; i++) { A[n++] = m.dot[i]; A[n++] = m.fx[i]; A[n++] = m.alt[i]; A[n++] = m.rot[i]; }
+  for (let i = 0; i < m.zone.length; i++) A[n++] = m.zone[i];   // (the three zones' colours, 12 numbers)
   A[n++] = m.fxX[0]; A[n++] = m.fxX[1]; A[n++] = m.fxCol[0]; A[n++] = m.fxCol[1]; A[n++] = m.fxCol[2];
   const pl = v.plate;
   A[n++] = pl ? 1 : 0; A[n++] = pl ? pl.alpha : 0; A[n++] = pl ? pl.sat : 0; A[n++] = pl && pl.stack ? 1 : 0; A[n++] = plateIsOn ? 1 : 0;

@@ -25,11 +25,11 @@ import { tenthGap } from '../engine/gap.js';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js';
 import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../engine/kidney-cuts.js';
 import { compareRows } from './idle-keys.js';
-import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE } from './ease.js';
+import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { caught } from './caught.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, afterMs } from './motion.js';
 import { fibroReading } from './clock.js';
 const nextFrame = frameFor('dock');
 
@@ -636,7 +636,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       clearSwipe(s.cur, s.nb);
       if (go) { pick(TABS[s.j]); scrollInto(tabEls[TABS[s.j]].b, { block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
     };
-    const timer = setTimeout(done, 250);
+    const timer = setTimeout(done, afterMs(D_SMALL));
     settle = done; resting = go ? s.nb : s.cur;
     const [x1, y1, x2, y2] = curve.match(/-?[\d.]+/g).map(Number);
     easing = { el: resting, from: go ? s.dx + d * s.w : s.dx, to: 0, t0: performance.now(), ms: D_SMALL, f: cubicBezier(x1, y1, x2, y2) };
@@ -869,7 +869,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       tabEls[id].b.dataset.slot = on && open.length > 1 && !isPair() ? String(at + 1) : '';
     }
     fitTabs();
-    if (flip) for (const [b, x0] of flip) { const dx = x0 - readMetric(b, 'offsetLeft'); if (Math.abs(dx) > 0.5) b.animate([{ translate: `${dx}px 0` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_ARRIVE }); }
+    if (flip) for (const [b, x0] of flip) { const dx = x0 - readMetric(b, 'offsetLeft'); if (Math.abs(dx) > 0.5) b.animate([{ translate: `${dx}px 0` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' }); }
     remember();
     fitHeight();
     queueRefresh();

@@ -88,7 +88,7 @@ test('the label lights the vessel through setHover, so the glow is the vessel\'s
   assert.match(stage, /if \(edge\) setHover\(edge, also\);/);
   // (setHover, with no `also`, is what it was: the vessel under the pointer and nothing else.)
   assert.match(stage, /function setHover\(id, also = null\) \{\s*if \(id === (?:live\.)?(?:live\.)?hoverId && also === vh\.also\) return;/);
-  assert.match(stage, /setGlowSrc\('hover', on \? vhEdges\(on\)\.map\(\(id\) => \(\{ id, col: null, amt: 1\.0, wide: 0\.5, dur: 280 \}\)\) : \[\]\);/);
+  assert.match(stage, /setGlowSrc\('hover', on \? vhEdges\(on\)\.map\(\(id\) => \(\{ id, col: null, amt: 1\.0, wide: 0\.5, dur: D_SMALL \}\)\) : \[\]\);/);
   assert.match(stage, /g\.addEventListener\('focus'/);
   assert.match(stage, /g\.matches\(':focus-visible'\)/, 'focus lights it only from the keyboard, not after a click');
 });

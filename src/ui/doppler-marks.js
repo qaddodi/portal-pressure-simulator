@@ -5,6 +5,7 @@
 //                   vein and the right hepatic vein, worker-core.js sample), drawn over the same seconds.
 
 import { scaleFor } from './dopplerWindow.js';
+import { D_SURFACE, easeMove } from './motion.js';
 
 /** The pulsatility index the reading names the pattern from (doppler.js interpret): the swing over the larger extreme. */
 export const pulsatility = (hi, lo) => { const big = Math.max(Math.abs(hi), Math.abs(lo)); return big > 0.5 ? (hi - lo) / big : 0; };
@@ -50,9 +51,9 @@ export function caliperFrame(buf, tNow, sweep, W, markPx) {
 
 /** How the calipers change without jumping (Mohammad, 19 Oct): no flat marks; a dashed line at the peak and one at the
  *  trough run across the whole trace, from one upright caliper fixed at the trace's left end to its right end, where the
- *  Doppler stops. When a level changes, its line and the upright's end tick ease there over CAL_FADE seconds (smoothstep). */
-export const CAL_FADE = 0.35;
-export const caliperEase = (since, dur = CAL_FADE) => { const u = Math.min(1, Math.max(0, since / dur)); return u * u * (3 - 2 * u); };
+ *  Doppler stops. When a level changes, its line and the upright's end tick ease there over CAL_FADE seconds (a surface step, on the move curve: the line travels). */
+export const CAL_FADE = D_SURFACE / 1000;
+export const caliperEase = (since, dur = CAL_FADE) => easeMove(since / dur);
 /** A level (a velocity) `since` seconds after it began easing from `from` to `to`. */
 export const caliperLevel = (from, to, since, dur = CAL_FADE) => from + (to - from) * caliperEase(since, dur);
 /** The upright caliper's fixed x, px: at the left end of a trace that starts at padL, its end ticks (tick px each side) whole

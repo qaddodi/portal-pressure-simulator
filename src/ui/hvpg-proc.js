@@ -16,7 +16,7 @@ import { pressureColor } from './colormap.js';
 import { store, logAction, hiddenNow, updateParams } from './store.js';
 import { shownOr } from './shown.js';
 import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js';
-import { T, ease, k01, balloonAt, timeOfBalloon, pressureAt as pAt } from './hvpg-clock.js';
+import { T, ease, cruise, k01, balloonAt, timeOfBalloon, pressureAt, newWave, syncWave } from './hvpg-clock.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { createTraceGL, fitPen } from './trace-gl.js';
 import { traceRoom, TRACE_MIN } from './trace-room.js';
@@ -32,7 +32,7 @@ export function setHvpgStage(stage) { stageRef = stage; }
 
 // A thrombosed hepatic vein (Budd–Chiari): the tip reaches the ostium, probes it a few times, then the
 // procedure is aborted and the catheter withdrawn. No reading, so HVPG stays unmeasured.
-const TB = { probe0: 4600, probe1: 8200, abort: 8200, back: 9600, end: 13000 };
+const TB = { probe0: T.zoom + 300, probe1: T.zoom + 3900, abort: T.zoom + 3900, back: T.zoom + 5300, end: T.zoom + 8700 };   // (from the end of the catheter's way in, as it was: 4600, 8200, 8200, 9600, 13000)
 const ABORT_MSG = 'Unable to cannulate hepatic vein — procedure aborted';
 const STEPS = [
   ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC, through the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
@@ -65,9 +65,11 @@ const mkF = calloutCell(), mkW = calloutCell();   // (the two trace markers' wor
 const cF = cell(), cW = cell(), cH = cell(), cHT = cell(), cLvF = cell(), cLvW = cell();
 // The tracing's axes, set by traceOn for the frame it draws (the draw is synchronous and does not call itself).
 let axTop = 0, axBot = 0, axMax = 15, axL = 0, axR = 0;
+let waveNow = null;   // the model's clock for the frame being drawn (syncWave), or null: the trace's own beat and breath
+const pAt = (tt, v) => pressureAt(tt, v, waveNow);
 const Y = (p) => axBot - (clamp(p, 0, axMax) / axMax) * (axBot - axTop);
 const X = (tt) => axL + k01(tt, T.free - 300, T.back) * (axR - axL);
-const DASH = [4, 4];
+const DASH = [4, 4], WEDGE_DASH = [7, 4];   // (the wedged trace's own dashes, CSS px along the trace)
 const SHOT_NEAR = { near: true }, SHOT_FAR = { near: false };   // (cathFocus's options, made once: only the route shot keeps the view near the tip)
 const HEADS = ['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'];
 const NOTE_PROBE = ['Probing the ostium: the vein will not take the catheter.', 'The vein will not take the catheter.'];
@@ -216,7 +218,7 @@ export function createHvpgProcedure() {
       lblCalc.text = fm1(cH, v.hvpg); lblCalc.cls = RESULT_CLS[sevOf(v.hvpg)];
       labels.push(lblSum);
     }
-    cathA.u = ease(k01(t, T.travel0, T.travel1));
+    cathA.u = cruise(k01(t, T.travel0, T.travel1));
     cathA.balloon = balloonAt(t) * (1 - k01(t, T.back, T.back + 500));
     cathA.column = ease(k01(t, T.settle, T.settle + 1400)) * (1 - k01(t, T.back, T.back + 500));
     cathA.columnColor = pressureColor(v.whvp);
@@ -238,7 +240,7 @@ export function createHvpgProcedure() {
     if (t >= TB.probe0 && t < TB.abort) labels.push(lblP);
     else if (t >= TB.abort && t < TB.end - 800) labels.push(lblA);
     cathB.probe = probe;
-    cathB.u = ease(k01(t, T.travel0, T.travel1)) * (1 - ease(k01(t, TB.back, TB.end - 500)));
+    cathB.u = cruise(k01(t, T.travel0, T.travel1)) * (1 - ease(k01(t, TB.back, TB.end - 500)));
     cathB.ring = t >= TB.abort ? C.danger : null; cathB.pulse = 0.5 + 0.5 * Math.sin(t / 170); cathB.clock = t;
     cathB.opacity = 1 - k01(t, TB.end - 900, TB.end); cathB.follow = follow;
     sg.setCatheter(cathB);
@@ -305,8 +307,9 @@ export function createHvpgProcedure() {
   }
 
   // ── The tracing ──────────────────────────────────
-  const drawSt = { ph: '', t: 0, v: null, blocked: false, running: false };   // (what the tracing is handed: kept, written in place, read at once)
-  const draw = () => { drawSt.ph = phase(); drawSt.t = t; drawSt.v = values(); drawSt.blocked = blocked; drawSt.running = t0 != null; drawTrace(cv, drawSt, gpu); };
+  const drawSt = { ph: '', t: 0, v: null, blocked: false, running: false, wave: null };   // (what the tracing is handed: kept, written in place, read at once)
+  const wave = newWave();   // (the model's beat and breath, which the trace's waves follow: hvpg-clock.js syncWave)
+  const draw = () => { drawSt.ph = phase(); drawSt.t = t; drawSt.v = values(); drawSt.blocked = blocked; drawSt.running = t0 != null; drawSt.wave = syncWave(wave, now(), t, performance.now()); drawTrace(cv, drawSt, gpu); };
 
   function update(f) {
     frame = f;
@@ -352,15 +355,16 @@ export function createHvpgMonitor() {
   };
   const saySoon = () => { clearTimeout(sayT); sayT = setTimeout(sayNow, 400); };
   const phase = () => (t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
-  const drawSt = { ph: '', t: 0, v: null, blocked: false, running: true };   // (what the tracing is handed: kept, written in place, read at once)
-  const draw = () => { drawSt.ph = phase(); drawSt.t = t; drawSt.v = live(); drawTrace(cv, drawSt, gpu); };
+  const drawSt = { ph: '', t: 0, v: null, blocked: false, running: true, wave: null };   // (what the tracing is handed: kept, written in place, read at once)
+  const wave = newWave();   // (the model's beat and breath, which the trace's waves follow: hvpg-clock.js syncWave)
+  const draw = () => { drawSt.ph = phase(); drawSt.t = t; drawSt.v = live(); drawSt.wave = syncWave(wave, store.get().frame, t, performance.now()); drawTrace(cv, drawSt, gpu); };
   // The balloon is the clock for the pressure's rise: the trace climbs exactly as far as the balloon is filled, so it
   // waits at the free level until the balloon starts to fill, holds its plateau once it is up, and comes back down
   // with it. Past the wedge (balloon up) the trace runs on its own clock again.
   const rising = () => mode !== 'free' && bal < 1 && t <= T.wedge;   // the balloon is still setting the trace
   const falling = () => mode === 'free' && bal > 0;                  // back from a wedge slide: held, then down with the balloon
   function step(now) {
-    const dt = now - last; last = now;
+    const dt = Math.max(0, Math.min(64, now - last)); last = now;   // (a long frame or a hidden tab moves the sweep 64 ms, as the procedures' own clock does, never to its end)
     if (falling()) { if (bal < 1) t = Math.min(t, timeOfBalloon(bal)); }
     else if (mode === 'free' && t >= T.inflate) t = SPAN.free[0];   // the balloon is down: the free trace sweeps in afresh
     else if (rising()) t = bal > 0 ? timeOfBalloon(bal) : Math.min(t + dt, T.inflate);
@@ -401,7 +405,8 @@ export function createHvpgMonitor() {
 }
 
 // ── The tracing: the monitor in the IR suite, dark in both themes ──
-// st: { ph: the phase, t: ms on the procedure's clock (T), v: { fhvp, whvp, hvpg }, blocked, running: still sweeping }
+// st: { ph: the phase, t: ms on the procedure's clock (T), v: { fhvp, whvp, hvpg }, blocked, running: still sweeping, wave: the model's beat and
+// breath for the waves (hvpg-clock.js syncWave; null: the trace's own) }
 // g: the GPU drawer (trace-gl.js): the whole monitor drawn by the GPU through its 2D context, every word, line and fill, with this
 // canvas left blank; null, or where the GPU cannot draw now, on this canvas as before.
 function drawTrace(cv, st, g = null) {
@@ -409,8 +414,9 @@ function drawTrace(cv, st, g = null) {
   try { traceOn(p, st); } finally { p.ctx.end?.(); }
 }
 let FS = 12;   // the monitor's word size this frame (traceRoom's fs: 12 on a small monitor, up to 15 on a wide one)
-function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
+function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running, wave }) {
   if (w < 80 || hh < 60) return;
+  waveNow = wave;
   ctx.clearRect(0, 0, w, hh);
   rrect(ctx, 0, 0, w, hh, 12); ctx.fillStyle = C.bg; ctx.fill();
   const x = 14, y = 10, W = w - 28, H = hh - 18;
@@ -467,7 +473,7 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
   // The trace, swept up to now: blue while free, orchid once the balloon is up.
   const tNow = Math.min(t, T.back);
   seg(ctx, T.free - 300, T.inflate, C.free, tNow, v);
-  seg(ctx, T.inflate, T.back, C.wedge, tNow, v);
+  seg(ctx, T.inflate, T.back, C.wedge, tNow, v, WEDGE_DASH);   // (the wedged trace dashed, its hue kept: C4, it was the portal's neighbour in hue)
   if (t < T.back) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(pAt(tNow, v)), 2.6, 0, Math.PI * 2); ctx.fill(); }
   // (Each level's name and number at the right, centred on its line; the two pairs kept 28 px apart so they never touch.)
   const both = ph === 'result', sep = both ? Math.max(0, 28 * HK - (Y(v.fhvp) - Y(v.whvp))) / 2 : 0;
@@ -506,16 +512,17 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running }) {
 }
 
 // The trace from a to b (ms on the procedure's clock), swept as far as tNow. (Drawn with the axes traceOn set: Y, X.)
-function seg(ctx, a, b, colr, tNow, v) {
+function seg(ctx, a, b, colr, tNow, v, dash) {
   if (tNow <= a) return;
   // (Laid as small round boxes along the trace, not one stroked line: a stroke is drawn through the GPU's coverage target and the tracing came
   // up with no line on a phone while its dot, words and axes drew. A box draws wherever the dot does.)
   ctx.fillStyle = colr; ctx.beginPath();
-  let px = 0, py = 0, have = false;
+  let px = 0, py = 0, have = false, run = 0;
   const end = Math.min(b, tNow);
   for (let tt = a; tt <= end + 15; tt += 30) {
     const t2 = Math.min(tt, end), X1 = X(t2), Y1 = Y(pAt(t2, v));
-    if (have) inkSeg(ctx, px, py, X1, Y1, 2); else inkSeg(ctx, X1, Y1, X1, Y1, 2);
+    // (A dashed trace: the dash is measured along the trace from its start, so it stays put as the sweep reveals more of it.)
+    if (have) { if (!dash || run % (dash[0] + dash[1]) < dash[0]) inkSeg(ctx, px, py, X1, Y1, 2); run += Math.hypot(X1 - px, Y1 - py); } else inkSeg(ctx, X1, Y1, X1, Y1, 2);
     px = X1; py = Y1; have = true;
     if (t2 >= end) break;
   }

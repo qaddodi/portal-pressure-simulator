@@ -81,7 +81,7 @@ test('the slide card draws the new layout; the Patients chart and an unmeasured 
 
 test('the bleed decks name what the dotted lines are', () => {
   const tools = DECKS.flatMap((d) => d.slides.filter((s) => s.tool?.kind === 'trace' && s.tool.range === 'beats').map((s) => [d.id, s.id, s.tool]));
-  assert.ok(tools.length >= 10);
+  assert.ok(tools.length >= 9);   // (variceal-bleed oct and blood show the criteria card and the vitals monitor, not the trace)
   for (const [d, id, t] of tools) assert.match(t.deltaLabel || '', /^before the (re)?bleed$/, `${d} ${id}`);
   const vb = DECKS.find((d) => d.id === 'variceal-bleed');
   for (const id of ['rebleed', 'failure', 'bridge']) assert.equal(vb.slides.find((s) => s.id === id).tool.deltaLabel, 'before the rebleed');

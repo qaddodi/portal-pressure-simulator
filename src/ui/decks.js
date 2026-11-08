@@ -29,6 +29,8 @@
 //                            the words (site: a level of ladder.js SITES; it colours the kicker). The title stands alone without
 //                            the kicker, and the line is a sentence of its own. In the line, {braces} mark the one value to set
 //                            in a pill (else the first value with a unit; pill: false for none); bold: extra key terms to bold
+//   relax                    days lived at the slide's preset and params before its ramp or days, so the slow organs (the spleen, the platelets) settle to a
+//                            scar that params set worse or better than the preset's; without it the first months of a ramp run them there (a dip in the platelets)
 //   rail                     true: the six levels with this slide's site marked; 'all': every level named
 //   data                     'tiles': the tiles (tiles: which, key: what to highlight, delta: true or a slide id to show each
 //                            tile's change from that state; a slide that changes the same patient (no preset) counts from the
@@ -43,7 +45,7 @@
 //                            names a hepatic vein Doppler's a, S and D. With data too, the tool sits above the tiles
 //                            (on a phone it folds away behind a Show button; open: true keeps it open there and folds the tiles instead)
 //   lens                     the vessel colours on that slide: 'velocity', 'flow', 'direction', 'heat' (congestion), 'drop'
-//                            (pressure drop), 'delta' (change from healthy), 'oxygen' (oxygen saturation) or 'origin' (blood origin), with a key under the line; pressure when absent
+//                            (pressure drop), 'delta' (change from healthy), 'oxygen' (oxygen saturation), 'origin' (blood origin) or 'firstpass' (gut blood the liver cleaned against blood that went round it), with a key under the line; pressure when absent
 //   sites                    readings on the figure: 'pv', 'ivc', 'ra', 'web' (pressures; web: the IVC below a web), 'rLiver', 'rColl' (the circuit's resistors), 'split' (portal blood to liver and shunts)
 //   cath                     the HVPG catheter instead of a camera: 'route', 'free', 'wedge', 'result' or 'blocked'
 //   monitor                  the catheter's pressure monitor (Measure › HVPG's tracing) under the slide's words: 'free', 'wedge' or 'result'
@@ -55,6 +57,9 @@
 //                            start and end in place of a day counter, e.g. 'Fasting' and 'After a meal'; keep the
 //                            days at least the seconds, or the live clock runs sub-day and skips the ramp; clock: 'seconds'
 //                            plays the ramp over the seconds on the bedside clock instead, so a Doppler keeps recording, e.g. a meal)
+//   graph                    a time-lapse slide's graph on its teaching card (lapse-graph.js): the first two of its tiles, day by day, over the bar. Names its two lines
+//                            when it has no tiles (['map', 'co']; the keys are flow-time.js LINE); false for none (a slide whose own record is the graph, or a chart tool)
+//                            On a slide that plays a TIPS, BRTO or BATO (procedure) the same field names the two lines its procedure graph draws live after the stent (event-graph.js)
 //   visual                   over the dimmed figure: 'ladders' (each row's Gut to heart profile, six in a grid), 'table' (cols, asc: SAAG and protein columns, note: a text column's heading or several, vs: 'first' to show arrows against the first row,
 //                            foot: one sentence after the legend, which is built from the table; a row's ref: true keeps its numbers, its vs: a slide id
 //                            compares it with that row instead, its note: the text column's words, or an array of them), 'scale' (scale), 'quadrant'
@@ -80,7 +85,7 @@
 //                            (a dotted path, e.g. 'tips.d', or an array of paths moved together, e.g. both lobes' fibrosis)
 //                            of the live model; the figure and the data card follow it. With tool in place of param ({ label, tool: 'air', min, max, step?, unit? })
 //                            it moves one option of the slide's instrument (the scope's air pressure) and the model is left alone
-//   procedure                'tips' | 'brto' | 'bato' | 'rex', or { kind, auto: true }: a Play button on the teaching card plays that catheter
+//   procedure                'tips' | 'brto' | 'bato' | 'rex', or { kind, auto: true, target }: (target: { kind: 'brto', target: 'C6' } plugs the splenorenal shunt in place of the gastrorenal one, Baveno VIII 6.12; { kind: 'tips', target: 'C1a' } coils the coronary vein before the stent, Baveno VIII 5.41) a Play button on the teaching card plays that catheter
 //                            procedure (or, for 'rex', the Meso-Rex graft, which grows along its path) on the figure (proc-anim.js; auto: as the slide lands, going forward), and the live model takes
 //                            the change when it ends, as a compare button does. Opt-in: a built-in slide uses it only when
 //                            tests/deck-adopted.js lists it. A patient who already has the result has it taken back first, and the play puts it back

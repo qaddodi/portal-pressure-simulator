@@ -3,6 +3,7 @@
 import { isOccluded } from '../engine/topology.js';
 import { SPLEEN_CENTER, SPLEEN_PSE_BADGE } from './anatomy.js';
 import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotSpan, hashSeed } from './clot-shape.js';
+import { bandRing } from './band-ring.js';
 import { pressureColor } from './colormap.js';
 import { D_SMALL } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
@@ -10,6 +11,7 @@ import { restPass } from './rest-pass.js';
 import { store } from './store.js';
 import { glyphsReady, loadGlyphs, textBox, textPolys } from './text-gl.js';
 import { s } from './util.js';
+import { EUS_GLUE_TARGET } from './eus-scope.js';
 import { ringShapes } from './scope-lens-rule.js';
 
 import { stageScope } from './stage-scope.js';
@@ -27,6 +29,9 @@ function pseFillD(x, y) {
   for (let k = 0; k <= 16; k++) { const a = Math.PI + PSE_A - k * (Math.PI + 2 * PSE_A) / 16; d += `${k ? ' L' : 'M'}${(x + 9 * Math.cos(a)).toFixed(2)} ${(y + 9 * Math.sin(a)).toFixed(2)}`; }
   return d + ' Z';
 }
+
+// Where the Warren shunt ties the coronary vein, as a share of its course from the stomach to the portal vein (engine.js closes the same vein).
+const CORONARY_TIE = 0.75;
 
 export function createClamps(st, live) {
   const { E, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, qP, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
@@ -89,7 +94,9 @@ export function createClamps(st, live) {
   const clampLook = { weight: 600, size: 12, tnum: true };
   function clampGlyphs(el) {
     if (el._txt == null || !glyphsReady()) return;
-    const size = parseFloat(el.style.fontSize) || (parseFloat(live.clampFs) || 12), end = el.getAttribute('text-anchor') === 'end';
+    // (Always the size the camera asks for now, live.clampFs, never the font-size written on the element at the last layout: that stood
+    // at the zoom of the last solve, so the "60 %" was drawn at an old zoom's size, huge after a zoom in, between two solves.)
+    const size = parseFloat(live.clampFs) || 12, end = el.getAttribute('text-anchor') === 'end';
     const x = attrNum(el, 'x') + attrNum(el, 'dx'), y = attrNum(el, 'y') + attrNum(el, 'dy');
     if (el._gs === size && el._gx === x && el._gy === y && el._ge === end && el._gp) return;
     el._gs = size; el._gx = x; el._gy = y; el._ge = end;
@@ -102,7 +109,7 @@ export function createClamps(st, live) {
   function clampTextBox(el) {
     if (!glyphsReady()) { if (!clampGlyphAsk) { clampGlyphAsk = true; loadGlyphs().then(clampGlyphsIn); } return null; }
     const cls = el.getAttribute('class') || '';
-    const size = parseFloat(el.style.fontSize) || (/clamp-label/.test(cls) && parseFloat(live.clampFs)) || 12;
+    const size = (/clamp-label/.test(cls) && parseFloat(live.clampFs)) || parseFloat(el.style.fontSize) || 12;   // (a live "60 %" at the camera's size now, as clampGlyphs draws it)
     const o = clampTbOpts;   // (kept, rewritten: textBox reads it and holds nothing)
     o.anchor = el.getAttribute('text-anchor') || 'start'; o.size = size; o.k = live.CTM?.sc > 0 ? live.CTM.sc : 1;
     return textBox(el._txt ?? el.textContent, attrNum(el, 'x') + attrNum(el, 'dx'), attrNum(el, 'y') + attrNum(el, 'dy'), o);   // (tnum: the "60 %" is drawn in tabular figures (#labels text), so its box is one width whatever its digits are)
@@ -150,11 +157,11 @@ export function createClamps(st, live) {
     if (t !== okT) { okT = t; okTs = t.toFixed(3); }
     o.push(okTs, live.isImaging(), findingHidden('clot'));
     okFlat(o, p.stenosis); okFlat(o, p.stenosisSite); okFlat(o, p.thrombus); okFlat(o, p.occluded); o.push(p.splenicRx | 0);
-    okFlat(o, p.tips); okFlat(o, p.dips); okFlat(o, p.customShunts); okFlat(o, p.balloonEso); okFlat(o, p.balloonGas);
+    okFlat(o, p.tips); okFlat(o, p.dips); o.push(!!p.portocavalSide); okFlat(o, p.customShunts); okFlat(o, p.balloonEso); okFlat(o, p.balloonGas);
     for (const id in p.stenosis) okLesion(o, id);
     for (const id in p.thrombus) okLesion(o, id);
     for (const id in p.occluded) okLesion(o, id);
-    okLesion(o, 'TIPS'); okLesion(o, 'DIPS'); okLesion(o, 'S_PC'); okLesion(o, 'S_DSR'); okLesion(o, 'S_MC'); okLesion(o, 'REX');
+    okLesion(o, 'LGV_CONF'); okLesion(o, 'TIPS'); okLesion(o, 'DIPS'); okLesion(o, 'S_PC'); okLesion(o, 'S_DSR'); okLesion(o, 'S_MC'); okLesion(o, 'REX');
     for (let i = 0; i < LIGATED.length; i++) okLesion(o, LIGATED[i][1]);
     for (const id in p.customShunts) okLesion(o, id);
     const stented = store.get().stented;
@@ -269,10 +276,14 @@ export function createClamps(st, live) {
       if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id, p); else anastomoses(id);
     }
     // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.
-    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis) ligature(vein, shunt);
+    // (A side-to-side portocaval shunt divides nothing: the trunk stays whole and untied.)
+    for (const [shunt, vein] of LIGATED) if (E[shunt].vis && !E[shunt].reveal && E[vein]?.vis && !(vein === 'PV_TRUNK' && p.portocavalSide)) ligature(vein, shunt);
+    // The Warren shunt also ties off the coronary vein (the engine closes it too): two ties and the plug's cross, three quarters of the way to the portal vein.
+    if (E.S_DSR.vis && !E.S_DSR.reveal && E.LGV_CONF?.vis) ligature('LGV_CONF', 'S_DSR', CORONARY_TIE);
     for (const id of new Set([...Object.keys(p.occluded), ...(p.occluded.C5 ? ['C2'] : [])])) {
       if (!isOccluded(p, id) || !E[id] || !E[id].vis) continue;
-      const [x, y] = pointAt(geo[id].cur, 0.5);
+      // (EUS-guided glue closes the varix alone, C2 with the shunt open: its X sits where the needle went in, on the varix: proc-anim.js ENDO.)
+      const [x, y] = pointAt(geo[id].cur, id === 'C2' && !p.occluded.C5 ? EUS_GLUE_TARGET[1] : 0.5);
       putMark(ov.plugs, `plug:${id}`, id, [s('circle', { cx: x, cy: y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),
         s('path', { d: `M${x - 4} ${y - 4} L ${x + 4} ${y + 4} M${x + 4} ${y - 4} L ${x - 4} ${y + 4}`, stroke: 'var(--danger)', 'stroke-width': 2 })]);
     }
@@ -295,9 +306,9 @@ export function createClamps(st, live) {
     // ligation, are drawn over the lower esophagus.
     ov.varices.innerHTML = ''; ov.gvarices.innerHTML = ''; ov.bands.innerHTML = '';
     if (anat) {
-      const eso = (y) => 789 + (y - 24) * 0.066;
+      // (Each band lies on the drawn esophagus, turned to its walls and inside them: band-ring.js.)
       const nb = Math.round(f.bands || 0);
-      for (let i = 0; i < nb; i++) { const y = 272 - i * 16; putMark(ov.bands, `band:${i}`, null, [s('ellipse', { cx: eso(y), cy: y, rx: 11, ry: 3, class: 'band-ring' })], true); }
+      for (let i = 0; i < nb; i++) putMark(ov.bands, `band:${i}`, null, [s('path', { d: bandRing(i).d, class: 'band-ring' })], true);
       // The scope view's ring on the varix columns, with its badge (mock C1, 6 Nov 2026): one of the figure's marks, so the GPU draws it in
       // world units with the vessels and it moves with every zoom, pan and view change, never eased. Tapping it opens the lens (scope-lens.js).
       const sr = live.scopeRing;

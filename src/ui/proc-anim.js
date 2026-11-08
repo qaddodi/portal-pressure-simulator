@@ -8,9 +8,12 @@
 //   BATO: through the liver into the right portal vein → portal and splenic veins → the short gastric feeder of the varices.
 
 import { frameFor, cancelFrame } from './frame.js';
-import { ease, k01 } from './hvpg-clock.js';
+import { ease, cruise, k01, legMs, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS } from './hvpg-clock.js';
+import { COIL_B } from './proc-routes.js';
+import { easeMove, createReversible } from './motion.js';
 import { NODES } from '../engine/topology.js';
 import { hvpgSev } from '../engine/pressure-cuts.js';
+import { tenthGap } from '../engine/gap.js';
 const NODE_I = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const nextFrame = frameFor('proc-anim');
 
@@ -18,26 +21,72 @@ const nextFrame = frameFor('proc-anim');
 // short word, the shot it plays in, the vessel its callout names, the station names shown with it, where along that vessel the
 // callout points (0..1 of its drawn course: the tract for a TIPS, the balloon on the shunt, the varices the sclerosant fills)].
 // Shots, all close enough to see the catheter and its balloon: 'way', on the tip from where it enters, the view following it
-// in (panning only, at one scale); 'tip', the stretch it works on, held still (for BRTO and BATO the tip and its balloon alone,
-// closer); 'work', BRTO and BATO's tip on to the varices. A new shot glides in only between steps, and
+// in (panning only, at one scale); 'tip', the stretch it works on, held still (for BRTO and BATO the balloon with the vessel ahead,
+// closer); 'fill', BRTO and BATO's sclerosant, the view following its front up to the varices; 'work', their result, the shunt and the
+// varices (stage-cath.js oblitFocus: mock B, his pick, 7 Nov 2026). A new shot glides in only between steps, and
 // playProcedure waits for it to land before anything moves (his asks, 29 Oct: the zoom jumped, the callouts moved, the catheter
 // could not be seen; recs in review/procedure-animation-ideas). The first step's callout comes once the catheter has arrived.
 // T: the sequence in ms from the start (apply: the model takes the change; back: the catheter starts out; end: it has gone).
 // stops: where each step ends; presented, one Next plays one step and holds at its stop.
 // before: what a slide that plays it opens on, the procedure not done yet (no TIPS, the shunt open): its words keep the after state.
-const OBLIT_T = { travel0: 300, travel1: 6500, inflate0: 7400, inflate1: 9000, fill0: 10200, fill1: 15200, apply: 15500, fillOut: 16500, deflate: 17700, back: 18900, end: 22000 };
-const OBLIT_STOPS = [7100, 9900, 16300, 22000];
-// How long a shot glides (ms), as a slide's own camera does; the procedure waits this long, and a little more, at each new shot.
-const SHOT_MS = 1500;
+// (apply comes after step 3's stop, as step 4 starts: the model closes the shunt, and its plug's X shows, only at step 4, "Shunt closed";
+// at 15500 it landed inside step 3, so the X was on the shunt while the sclerosant step was on show. Mohammad, 7 Nov 2026.)
+// (The travel legs, the balloons and the shots are timed from one table, hvpg-clock.js: a leg takes legMs of its route's length at one speed,
+// a balloon BALLOON_IN_MS up and BALLOON_OUT_MS down on easeMove, a shot the camera's own camMs. What was written out per procedure is laid
+// out from it below; the gaps between events are the ones the tables always had. Old and new travel times, ms: TIPS in 3700 -> 3600, its
+// catheter over the wire 1400 -> 2400, BRTO 6200 -> 6200, BATO 6200 -> 9100, EUS scope 4900 -> 5200, glue 5700 -> 6200, HVPG 4000 -> 3400.)
+const LEG = { tips: legMs(ROUTE_LEN.tips), tipsOver: legMs(ROUTE_LEN.tipsOver), tipsCoil: legMs(ROUTE_LEN.tipsCoil), brto: legMs(ROUTE_LEN.brto), brtoC6: legMs(ROUTE_LEN.brtoC6), bato: legMs(ROUTE_LEN.bato), eus: legMs(ROUTE_LEN.eus), eusglue: legMs(ROUTE_LEN.eusglue) };
+/** A table of event times (ms) with the events at or after each `at` moved by `d`, for each [at, d] of moves, in the table as first written. */
+const retime = (T, moves) => {
+  const at = (x) => { let d = 0; for (let i = 0; i < moves.length; i++) if (x >= moves[i][0]) d += moves[i][1]; return x + d; };
+  return Array.isArray(T) ? T.map(at) : Object.fromEntries(Object.entries(T).map(([k, x]) => [k, at(x)]));
+};
+// BRTO and BATO (one table of gaps, a leg of its own length each).
+const oblitT = (leg) => {
+  const travel1 = 300 + leg, inflate0 = travel1 + 900, inflate1 = inflate0 + BALLOON_IN_MS, fill0 = inflate1 + 1200, fill1 = fill0 + 5000, apply = fill1 + 1300;
+  const deflate = apply + 1200, back = deflate + BALLOON_OUT_MS;
+  return { travel0: 300, travel1, inflate0, inflate1, fill0, fill1, apply, fillOut: apply, deflate, back, end: back + 3100 };
+};
+const oblitStops = (T) => [T.travel1 + 600, T.inflate1 + 900, T.apply - 200, T.end];
+const OBLIT_TS = { brto: oblitT(LEG.brto), brtoC6: oblitT(LEG.brtoC6), bato: oblitT(LEG.bato) };
+const OBLIT_STOPS = { brto: oblitStops(OBLIT_TS.brto), brtoC6: oblitStops(OBLIT_TS.brtoC6), bato: oblitStops(OBLIT_TS.bato) };
+// TIPS: the catheter in to where the tract leaves the hepatic vein, the needle across, the wire on, the catheter over them, the balloon.
+const tipsT = () => {
+  const travel1 = 300 + LEG.tips, needle0 = travel1 + 900, needle1 = needle0 + 1600, flash0 = needle1 - 100, flash1 = flash0 + 800, wire0 = flash0 + 500, wire1 = wire0 + 900;
+  const over0 = wire1 + 200, over1 = over0 + LEG.tipsOver, inflate0 = over1 + 700, inflate1 = inflate0 + BALLOON_IN_MS, deflate0 = inflate1 + 600, deflate1 = deflate0 + BALLOON_OUT_MS;
+  const apply = deflate1 + 100, back = apply + 600;
+  return { travel0: 300, travel1, needle0, needle1, flash0, flash1, wire0, wire1, over0, over1, inflate0, inflate1, deflate0, deflate1, apply, back, end: back + 3000 };
+};
+const TIPS_T = tipsT();
+const TIPS_STOPS = [TIPS_T.travel1 + 600, TIPS_T.over1 + 300, TIPS_T.inflate1 + 400, TIPS_T.end];
+// TIPS that coils the coronary vein (Baveno VIII 5.41): the TIPS as above to the balloon let down, then the catheter on over the wire along the
+// portal trunk and up the coronary vein (cv0 to cv1, a leg of its own length), the coil pushed out of its tip (coil0 to coil1), and the catheter
+// back to the right portal vein (cvOut0 to cvOut1); the stent last. The model takes both changes together, as the stent step starts (apply).
+const tipsCoilT = () => {
+  const T = TIPS_T, cv0 = T.deflate1 + 400, cv1 = cv0 + LEG.tipsCoil, coil0 = cv1 + 500, coil1 = coil0 + 2400, cvOut0 = coil1 + 700, cvOut1 = cvOut0 + LEG.tipsCoil;
+  const apply = cvOut1 + 100, back = apply + 600;
+  const head = { ...T }; delete head.apply; delete head.back; delete head.end;   // (the TIPS's own, to where the balloon is let down)
+  return { ...head, cv0, cv1, coil0, coil1, cvOut0, cvOut1, apply, back, end: back + 3000 };
+};
+const TIPS_COIL_T = tipsCoilT();
+const TIPS_COIL_STOPS = [TIPS_T.travel1 + 600, TIPS_T.over1 + 300, TIPS_T.inflate1 + 400, TIPS_COIL_T.coil1 + 500, TIPS_COIL_T.end];
+// How long a shot may glide (ms), as a slide's own camera does: it asks for the camera's own time for the move (cathFocus scale: stage-glide.js
+// camMs, 480 to 900 ms by how far it goes), this being the ceiling. The procedure waits for the glide to land, and a little more, at each new shot.
+const SHOT_MS = 1500;   // motion-scale: own pace (a shot's camera glide of a procedure)
+// (cathFocus's options, made once. A shot with no times of its own is timed by the camera, on an arc for a long move; BRTO's, BATO's and the glue's keep their own, straight.)
+const SHOT_CAM = { arc: true, scale: true }, SHOT_OWN = { arc: false, scale: false };
+// BRTO and BATO glide straight (no arc), each shot as long as its move needs: the way in, the short push in to the balloon, the fill (the
+// same framing: no move), the pull back to the result. Played step by step, their result stays framed when they end, until the slide
+// moves on (holdEnd: the old camera glided home while the catheter was still backing out). Mock B, his pick, 7 Nov 2026.
+const OBLIT_SHOT_MS = { way: 1200, tip: 800, fill: 300, work: 1200 };   // motion-scale: own pace (decided: BRTO and BATO shots)
 export const PROCS = {
   tips: {
     name: 'TIPS', label: 'TIPS', balloonSpan: 'tract',
     // (Step 2, his ask, 5 Nov: the catheter parks in the hepatic vein, a needle runs out of it across the liver into the right
     // portal vein, a flash marks the portal hit, the wire runs on into the trunk, then the catheter slides over them into the
     // right portal vein. Mock: tips-needle-mock.html; design: the TIPS closer zoom and needle step doc.)
-    T: { travel0: 300, travel1: 4000, needle0: 4900, needle1: 6500, flash0: 6400, flash1: 7200, wire0: 6900, wire1: 7800, over0: 8000, over1: 9400,
-      inflate0: 10100, inflate1: 11300, deflate0: 11900, deflate1: 12700, apply: 12800, back: 13400, end: 16400 },
-    stops: [4600, 9700, 11700, 16400],
+    T: TIPS_T,
+    stops: TIPS_STOPS,
     steps: [
       ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
       ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein. A wire goes through it into the portal trunk, and the catheter slides over them.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
@@ -51,22 +100,22 @@ export const PROCS = {
     before: { tips: { on: false } },
   },
   brto: {
-    name: 'BRTO', label: 'BRTO', T: OBLIT_T, stops: OBLIT_STOPS,
+    name: 'BRTO', label: 'BRTO', T: OBLIT_TS.brto, stops: OBLIT_STOPS.brto, shotMs: OBLIT_SHOT_MS, holdEnd: true,
     steps: [
       ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'C5', ['IVCI', 'LRV'], 0.8],
       ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C5', ['LRV'], 0.84],
-      ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'work', 'C5', ['LRV'], 0.35],
+      ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'fill', 'C5', ['LRV'], 0.35],
       ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'work', 'C5', ['LRV'], 0.5],
     ],
     can: oblitCan,
     apply: oblitApply, had: oblitHad, undo: oblitUndo, before: { occluded: { C5: false } },
   },
   bato: {
-    name: 'BATO', label: 'BATO', T: OBLIT_T, stops: OBLIT_STOPS,
+    name: 'BATO', label: 'BATO', T: OBLIT_TS.bato, stops: OBLIT_STOPS.bato, shotMs: OBLIT_SHOT_MS, holdEnd: true,
     steps: [
       ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.', 'In', 'way', 'C2', ['CONF', 'SV'], 0.35],
       ['balloon', 'Balloon up', 'The balloon blocks the feeding vein, so the inflow to the varices stops.', 'Balloon', 'tip', 'C2', ['SV'], 0.31],
-      ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.', 'Fill', 'work', 'C2', ['SV'], 0.7],
+      ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.', 'Fill', 'fill', 'C2', ['SV'], 0.7],
       ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'work', 'C2', ['SV'], 0.5],
     ],
     can: (p, m) => oblitCan(p, m) || ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so BATO has no route.' : ''),
@@ -82,12 +131,14 @@ export const PROC_KINDS = Object.keys(PROCS);
 // into a hepatic vein (here the left; the middle, or the IVC, serve as well). Each reading is the mean of three. EUS-PPG = PV − HV.
 // The scope works from the proximal stomach, just below the cardia, then from the cardia itself (eus-scope.js): its tip turned a little
 // toward the lesser curvature, the needle raised by the elevator toward each vein in the plane of the image.
-const EUS_T = { travel0: 300, travel1: 5200, aim0: 5000, aim1: 6300, fan0: 5600, fan1: 6600,
+// (Written for a way in of 4900 ms, 300 to 5200; retimed to the leg its length takes. The scope turns as it arrives, so its aim starts at 5000.)
+const EUS_MOVE = [[5000, LEG.eus - 4900]];
+const EUS_T = retime({ travel0: 300, travel1: 5200, aim0: 5000, aim1: 6300, fan0: 5600, fan1: 6600,
   pv0: 7000, pv1: 8800, pvFlash0: 8700, pvFlash1: 9500, pvRead0: 9400, pvRead1: 11300, pvOut0: 11700, pvOut1: 12600,
   move0: 12800, move1: 14400, hv0: 14800, hv1: 16600, hvFlash0: 16500, hvFlash1: 17300, hvRead0: 17200, hvRead1: 19100,
-  hvOut0: 19500, hvOut1: 20400, apply: 20500, fanOut0: 20400, fanOut1: 21200, back: 21300, end: 25600 };
+  hvOut0: 19500, hvOut1: 20400, apply: 20500, fanOut0: 20400, fanOut1: 21200, back: 21300, end: 25600 }, EUS_MOVE);
 const r1 = (v) => Math.round(v * 10) / 10;
-const EUS_MARK_T = [6800, 11400, 19200, EUS_T.apply], EUS_SUM_OFF = 400;
+const EUS_MARK_T = [...retime([6800, 11400, 19200], EUS_MOVE), EUS_T.apply], EUS_SUM_OFF = 400;
 // (The readings the scope's labels show, kept and written in place: the portal vein's at the PV target (at 'ahead'), the hepatic vein's at
 // the HV target (at 'tip'), and the summary that takes them both in.)
 const EUS_PV = { key: 'w', at: 'ahead', kicker: 'PV', text: '', unit: 'mmHg', cls: 'pv' };
@@ -98,10 +149,23 @@ const EUS_SUM = { key: 's', at: 'sum', mid: true, rows: [EUS_ROW_HV, EUS_ROW_PV]
 const EUS_RESULT_CLS = { danger: 'result danger', caution: 'result caution', ok: 'result ok' };
 const NO_MARKS = Object.freeze([]);
 const mmHg = (v) => (Number.isFinite(v) ? v.toFixed(1) : '\u2014');
+// TIPS gradient (below): the catheter all the way in through the stent into the portal trunk (the TIPS leg and the leg over the wire, one
+// speed), the portal pressure read as it settles, the catheter drawn back to the IVC at the hepatic veins, that read, the gradient standing
+// while it waits, then out. The reading's wait is the EUS's (the mean of three).
+const GRAD_T = (() => {
+  const travel1 = 300 + LEG.tips + LEG.tipsOver, pvRead0 = travel1 + 300, pvRead1 = pvRead0 + 2200, pull0 = pvRead1 + 600, pull1 = pull0 + LEG.tips;
+  const ivRead0 = pull1 + 200, ivRead1 = ivRead0 + 2200, res0 = ivRead1 + 300, back = res0 + 3200;
+  return { travel0: 300, travel1, pvRead0, pvRead1, pull0, pull1, ivRead0, ivRead1, res0, back, end: back + 3000 };
+})();
+const GRAD_U_IVC = 0.4;   // (the IVC stretch's place on the route, u, when the stage has not given the route's stops)
+const GRAD_TARGET = 12;   // (mmHg: AASLD 2024, the gradient under which no beta-blocker is needed after a TIPS)
+const GRAD_PV = { key: 'w', at: 'tip', kicker: 'PORTAL VEIN', text: '', unit: 'mmHg', cls: 'pv' };
+const GRAD_IV = { key: 'f', at: 'tip', kicker: 'IVC', text: '', unit: 'mmHg', cls: 'ivc' };
+const GRAD_RES = { key: 'g', at: 'tip', kicker: 'GRADIENT', text: '', unit: 'mmHg', cls: 'result ok' };
 export const MEASURES = {
   eus: {
     name: 'EUS-PPG', label: 'EUS-PPG', measure: true, T: EUS_T,
-    stops: [6800, 11500, 19300, EUS_T.end],
+    stops: retime([6800, 11500, 19300], EUS_MOVE).concat(EUS_T.end),
     // (Each callout once its reading has settled; the result as soon as the needle is back in the scope, so it stands while the
     // scope comes out.)
     markT: EUS_MARK_T,
@@ -141,6 +205,35 @@ export const MEASURES = {
     },
     can: () => '', apply: (p) => p, had: () => false, undo: (p) => p, before: {},
   },
+  // The gradient across the new stent (TIPS step 5; AASLD 2024 p. 1197: no beta-blocker is needed once the portosystemic gradient is under 12 mmHg).
+  // Not EUS: the same transjugular catheter that placed the stent goes on through it into the portal vein and reads the pressure, is drawn back to
+  // the IVC at the hepatic veins (the right atrium's level) and reads again; the gradient is the portal vein less the IVC, the PPG the tiles show
+  // (metrics.pv, metrics.ivc, tenthGap). It changes nothing in the model, so it sits with the readings, not the treatments. It travels the TIPS route.
+  tipsgrad: {
+    name: 'TIPS gradient', label: 'TIPS gradient', measure: true, route: 'tips', ring2: 'var(--tr-ivc)', T: GRAD_T, stops: [GRAD_T.end],
+    markT: [GRAD_T.res0],
+    steps: [
+      ['gradient', 'Gradient', 'The same catheter goes on through the new stent into the portal vein and reads the pressure there. It is drawn back to the IVC at the hepatic veins (the right atrium’s level) and reads again. The portal reading less the IVC reading is the portosystemic gradient: under 12 mmHg means no beta-blocker is needed after the TIPS.', 'Gradient', 'way', 'TIPS', ['RHV', 'RPV'], 0.5],
+    ],
+    // The readings, taken when the result comes: the portal vein's and the IVC's pressure as the tiles show them, and the gradient as they show it.
+    capture(i, rd, f) {
+      const m = f?.metrics;
+      rd.pv = m ? r1(m.pv) : NaN; rd.iv = m ? r1(m.ivc) : NaN; rd.ppg = m ? tenthGap(m.pv, m.ivc, m.ppg) : NaN;
+    },
+    marks: () => NO_MARKS,
+    // The reading beside the catheter's tip: the portal vein's as it settles, then the IVC's, then the gradient, which stands while the catheter waits there and goes as it comes out.
+    labels(t, rd, f, out) {
+      out.length = 0;
+      const T = GRAD_T, m = f?.metrics;
+      if (t >= T.back) return out;
+      if (t >= T.res0 && Number.isFinite(rd.ppg)) {
+        GRAD_RES.text = mmHg(rd.ppg); GRAD_RES.cls = rd.ppg < GRAD_TARGET ? 'result ok' : 'result caution'; out.push(GRAD_RES);
+      } else if (t >= T.ivRead0 && t < T.res0) { GRAD_IV.text = mmHg(m ? r1(m.ivc) : NaN); out.push(GRAD_IV); }
+      else if (t >= T.pvRead0 && t < T.pull0) { GRAD_PV.text = mmHg(m ? r1(m.pv) : NaN); out.push(GRAD_PV); }
+      return out;
+    },
+    can: (p) => (p.tips?.on ? '' : 'There is no TIPS yet to measure through.'), apply: (p) => p, had: () => false, undo: (p) => p, before: {},
+  },
 };
 // A bypass graft is a surgical procedure: no catheter, no route to follow. The graft itself is the thing played (the Meso-Rex bypass:
 // the model takes the change as the sequence passes T.apply, and the stage draws the new vessel on from the gut end, stage-transitions
@@ -172,10 +265,104 @@ export const GRAFTS = {
     before: { rex: false },
   },
 };
-/** A procedure's, a measurement's or a graft's definition. */
-export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || null;
+// A treatment through the echoendoscope (EUS-guided coils and glue, Baveno VIII 5.40), played as BRTO and BATO are, step by step with a
+// numbered callout on the varix. It changes the model (the varix is closed), so it is not a measurement; it is not a catheter either, so
+// it stays off the HVPG card's treatment buttons (PROCS). A slide plays it: Gastric varices, its own Coils and glue slide just before Treat the spleen (his ask, 7 Nov 2026: "EUS
+// guided coiling and glue injection ... before embolizing and removing the spleen as a step").
+// The scope goes down the esophagus, through the cardia on one wide turn and on under the fundus to a station over the varix
+// (eus-scope.js EUS_GLUE_ROUTE); straight there, its transducer faces the varix and the needle goes square from it into the varix (no sharp
+// bend: his ask). Coils are pushed out of the needle's point and curl on inside the varix, then cyanoacrylate is injected over them and casts it.
+// The model then closes the varix alone (occluded C2: its X sits on the varix, never on the gastrorenal shunt, and the flow in it slows to
+// a stop as the model eases), as step 5 starts, after the glue's stop (as BRTO's shunt closes only at its step 4).
+// (Written for a way in of 5700 ms, 300 to 6000; retimed to the leg its length takes.)
+const GLUE_MOVE = [[6000, LEG.eusglue - 5700]];
+const GLUE_T = retime({ travel0: 300, travel1: 6000, aim0: 6400, aim1: 7200, fan0: 6500, fan1: 7300, needle0: 7600, needle1: 9000, flash0: 8900, flash1: 9700,
+  coil0: 10300, coil1: 12700, fill0: 13300, fill1: 16000, apply: 16600, needleOut0: 16900, needleOut1: 17800, fanOut0: 17600, fanOut1: 18400,
+  aimOut0: 17800, aimOut1: 18600, back: 18800, end: 22600 }, GLUE_MOVE);
+const GLUE_STOPS = retime([6200, 9900, 13000, 16300, 22600], GLUE_MOVE);
+const GLUE_SHOT_MS = { way: 1200, tip: 800, work: 1200 };   // motion-scale: own pace (the glue shots)
+// (The callouts on the varix: each step's number and word, once its step has played, where the needle goes in. The varix is
+// the short gastric feeder's course, C2, at the glue's point (eus-scope.js EUS_GLUE_TARGET).)
+const GLUE_F = 0.8;
+const GLUE_STEPS = [
+  ['enter', 'Scope in', 'A linear echoendoscope goes down the esophagus, through the cardia and on under the fundus. From there it images the fundal varix through the stomach wall, and color Doppler shows the blood running through it.', 'Scope', 'way', 'C2', [], GLUE_F],
+  ['needle', 'Needle in', 'The transducer faces the varix. A 19-gauge needle, raised square to the scope, crosses the stomach wall into the varix.', 'Needle', 'tip', 'C2', ['GV'], GLUE_F],
+  ['coils', 'Coils', 'Coils are pushed through the needle and curl inside the varix. They hold the glue that follows, so less of it washes away into the shunt.', 'Coils', 'tip', 'C2', ['GV'], GLUE_F],
+  ['glue', 'Glue', 'Cyanoacrylate is injected over the coils. It sets in seconds and casts the varix from inside.', 'Glue', 'tip', 'C2', ['GV'], GLUE_F],
+  ['done', 'Varix closed', 'The varix is closed: the flow in it slows and stops. The gastrorenal shunt stays open, and the clotted splenic vein is still there, so the spleen is treated next.', 'Closed', 'work', 'C2', ['GV'], GLUE_F],
+];
+// (Every step has its callout, the first too: "1 Scope in" shows once the scope is in place; his report, 8 Nov 2026: step 1's number never showed.)
+const GLUE_MARKS = GLUE_STEPS.map((s, i) => Object.freeze([{ edges: [s[5]], label: `${i + 1} ${s[1]}`, num: String(i + 1), word: s[1], kind: 'treat', f: s[7], pin: true, ghost: true }]));
+const glueHad = (p) => !!p.occluded?.C2;
+export const ENDO = {
+  eusglue: {
+    name: 'EUS coils and glue', label: 'EUS coils and glue', T: GLUE_T, stops: GLUE_STOPS, shotMs: GLUE_SHOT_MS, holdEnd: true,
+    steps: GLUE_STEPS,
+    marks: (i) => GLUE_MARKS[i] || GLUE_MARKS[0],
+    can: (p, m) => (p.spontaneous?.C5 === false ? 'This patient has no fundal varices.' : p.occluded?.C2 || p.occluded?.C5 ? 'The fundal varices are already closed.'
+      : !hasGastricVarices(m) ? 'This patient has no gastric varices to treat.' : ''),
+    apply: (p) => { p.occluded = { ...p.occluded, C2: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
+    had: glueHad,
+    undo: (p) => { p.occluded = { ...p.occluded, C2: false }; return p; },   // alloc-rare: once, going back past T.apply
+    before: { occluded: { C2: false } },
+  },
+};
+// BRTO's play with another target (Baveno VIII 6.12: embolization of a large portosystemic shunt for recurrent or persistent encephalopathy):
+// the same route, up from the femoral vein and the left renal vein, but into the spontaneous splenorenal shunt, C6, in place of the
+// gastrorenal one, C5. A slide asks for it with procedure: { kind: 'brto', target: 'C6' } (procKindOf). It stays out of PROCS (the HVPG
+// card's treatment buttons), and the default BRTO is unchanged.
+const plugCan = (p) => (!p.spontaneous?.C6 ? 'This patient has no splenorenal shunt.' : p.occluded?.C6 ? 'The splenorenal shunt is already closed.' : '');
+export const PLUGS = {
+  brtoC6: {
+    name: 'Shunt embolization', label: 'Shunt embolization', T: OBLIT_TS.brtoC6, stops: OBLIT_STOPS.brtoC6, shotMs: OBLIT_SHOT_MS, holdEnd: true,
+    steps: [
+      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the splenorenal shunt.', 'In', 'way', 'C6', ['IVCI', 'LRV'], 0.85],
+      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C6', ['LRV'], 0.8],
+      ['fill', 'Embolic', 'A plug or coils, or a sclerosant, fill the shunt back up from the renal vein until no blood passes.', 'Fill', 'fill', 'C6', ['LRV'], 0.45],
+      ['done', 'Shunt closed', 'The shunt is closed. The splenic blood goes back through the liver, so the portal pressure rises and less gut blood bypasses it.', 'Closed', 'work', 'C6', ['LRV'], 0.5],
+    ],
+    can: plugCan,
+    apply: (p) => { p.occluded = { ...p.occluded, C6: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
+    had: (p) => !!p.occluded?.C6,
+    undo: (p) => { p.occluded = { ...p.occluded, C6: false }; return p; },   // alloc-rare: once, going back past T.apply
+    offered: (p) => !!p.spontaneous?.C6,
+    before: { occluded: { C6: false } },
+  },
+  // TIPS with the coronary vein coiled (Baveno VIII 5.41, "TIPS ± variceal embolisation"; AASLD 2024: obliteration at the time of the TIPS cuts rebleeding and
+  // encephalopathy). A slide asks for it with procedure: { kind: 'tips', target: 'C1a' }. The same way in as the TIPS: the needle, the tract, the balloon;
+  // then the catheter goes on over the wire along the portal trunk and up the coronary vein, the varices' feeder, and coils fill it before the stent goes in.
+  // The model takes the stent and the closed coronary vein together (occluded.C1a: the esophageal varices lose their feeder, engine.js varixObliterated).
+  tipscoil: {
+    name: 'TIPS with coils', label: 'TIPS with coils', balloonSpan: 'tract', T: TIPS_COIL_T, stops: TIPS_COIL_STOPS,
+    steps: [
+      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
+      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein. A wire goes through it into the portal trunk, and the catheter slides over them.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['coil', 'Vein coiled', 'The catheter goes on along the portal trunk and up the coronary vein, the feeder of the varices. Coils fill it, so portal blood no longer reaches them.', 'Coils', 'coil', 'LGV_CONF', ['LGV'], 1 - COIL_B],
+      ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
+    ],
+    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is clotted, so a TIPS has no route.' : ''),
+    apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; p.occluded = { ...p.occluded, C1a: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
+    had: (p) => !!p.tips?.on && !!p.occluded?.C1a,
+    undo: (p) => { p.tips = { ...p.tips, on: false }; p.occluded = { ...p.occluded, C1a: false }; return p; },   // alloc-rare: once, going back past T.apply
+    offered: () => true,
+    before: { tips: { on: false }, occluded: { C1a: false } },
+  },
+};
+// The targets of a play: the spec each one plays (BRTO's default, C5, is BRTO itself; a TIPS that coils the coronary vein, C1a, is its own).
+const PLUG_TARGETS = { brto: { C5: 'brto', C6: 'brtoC6' }, tips: { C1a: 'tipscoil' } };
+/** The spec a slide's `procedure` plays: 'brto', or { kind: 'brto', target: 'C6' } → 'brtoC6'. A target the kind does not take gives a name no spec has
+ *  (so a deck test names it); null when the slide plays none. */
+export function procKindOf(proc) {
+  const kind = typeof proc === 'string' ? proc : proc?.kind;
+  if (!kind) return null;
+  const t = typeof proc === 'object' ? proc.target : null;
+  return t == null ? kind : PLUG_TARGETS[kind]?.[t] || `${kind}:${t}`;
+}
+/** A procedure's, a measurement's, a graft's or an endoscopic treatment's definition. */
+export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || ENDO[kind] || PLUGS[kind] || null;
 // The readings each kind's last run took (its callouts and its card read them): { pv, hv, ppg } for EUS-PPG.
-export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN } };
+export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN }, tipsgrad: { pv: NaN, iv: NaN, ppg: NaN } };
 // (No params at all: the checks below only read, so one empty record stands in, not a new one each call.)
 const NO_PARAMS = Object.freeze({});
 // (A callout names no stations: one empty list, never written to.)
@@ -200,7 +387,7 @@ function oblitUndo(p) { p.occluded = { ...p.occluded, C5: false }; return p; }
 export const procBlocked = (kind, p, m = null) => (specOf(kind) ? specOf(kind).can(p || NO_PARAMS, m) : 'Unknown procedure.');
 /** Whether a procedure is offered at all for this patient: BRTO and BATO only while there are gastric varices (or the
  *  procedure has already closed them, so it can be watched again). TIPS always is (dimmed when it cannot run). */
-export const procOffered = (kind, p, m = null) => !!specOf(kind) && (GRAFTS[kind] ? GRAFTS[kind].had(p || NO_PARAMS) || GRAFTS[kind].offered(p) : kind === 'tips' || !!MEASURES[kind] || PROCS[kind].had(p || NO_PARAMS) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
+export const procOffered = (kind, p, m = null) => !!specOf(kind) && (GRAFTS[kind] ? GRAFTS[kind].had(p || NO_PARAMS) || GRAFTS[kind].offered(p) : kind === 'tips' || !!MEASURES[kind] || specOf(kind).had(p || NO_PARAMS) || (PLUGS[kind] ? PLUGS[kind].offered(p || NO_PARAMS) : p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
 
 /** The step a time falls in (pure): each runs up to and including its stop, so a procedure held at a stop still shows that step. */
 export const stepAt = (kind, t) => { const S = specOf(kind).stops; for (let i = 0; i < S.length; i++) if (t <= S[i]) return i; return S.length - 1; };
@@ -235,36 +422,55 @@ export const stepMarks = (kind, i) => {
  * playing procedure keeps one for its frames), else a new one.
  */
 export function procFrame(kind, t, stops = null, into = null) {
-  const P = specOf(kind), T = P.T, back = ease(k01(t, T.back, T.end - 400));
+  const P = specOf(kind), T = P.T, back = cruise(k01(t, T.back, T.end - 400));   // (going out is a travel leg too)
   const opacity = 1 - k01(t, T.end - 800, T.end);
   const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
   if (kind === 'eus') return eusFrame(T, t, back, opacity, step, shot, into || {});
+  if (kind === 'tipsgrad') return gradFrame(T, t, back, opacity, step, shot, stops, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
+  if (kind === 'eusglue') return glueFrame(T, t, back, opacity, step, shot, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
   if (P.graft) {
     const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
     f.u = 0; f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
     return f;
   }
-  if (kind === 'tips') {
+  if (kind === 'tips' || kind === 'tipscoil') {
     const tr = stops?.tract || TRACT, a = tr[0], b = tr[1], rp = stops?.rpv || RPV, c = Math.max(b, rp[0] + (rp[1] - rp[0]) * CATH_RPV);
     // The catheter in to where the tract leaves the hepatic vein, then (once the needle and wire are out) over them into the
     // right portal vein; the needle out along the tract a little past its end, covered again as the catheter reaches it; the
     // wire on from the needle's tip into the trunk (u 1). Going out, the wire comes back with the catheter.
-    const tip = t < T.over0 ? a * ease(k01(t, T.travel0, T.travel1)) : a + (c - a) * ease(k01(t, T.over0, T.over1));
+    // (The TIPS that coils goes on, after its balloon, from the right portal vein to the coil site, u 1, and back: the wire is already out that far.)
+    const coils = kind === 'tipscoil', go = coils ? cruise(k01(t, T.cv0, T.cv1)) * (1 - cruise(k01(t, T.cvOut0, T.cvOut1))) : 0;
+    const tip = (t < T.over0 ? a * cruise(k01(t, T.travel0, T.travel1)) : a + (c - a) * cruise(k01(t, T.over0, T.over1))) + (1 - c) * go;
     const nd = a + (Math.min(c, b + 0.01) - a) * ease(k01(t, T.needle0, T.needle1));
     const u = tip * (1 - back);
     const needle = t >= T.needle0 && t < T.over1 && nd > tip ? nd : 0;
     const wd = nd + (1 - nd) * ease(k01(t, T.wire0, T.wire1)), wire = t >= T.wire0 ? Math.max(u, wd - (wd - u) * Math.min(1, back * 3)) : 0;
     const flash = t > T.flash0 && t < T.flash1 ? k01(t, T.flash0, T.flash1) : 0;
-    const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate0, T.deflate1)));
+    const balloon = easeMove(k01(t, T.inflate0, T.inflate1)) * (1 - easeMove(k01(t, T.deflate0, T.deflate1)));
     const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
     f.u = u; f.balloon = balloon; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = needle; f.wire = wire > u ? wire : 0; f.flash = flash; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
+    f.coil = coils ? ease(k01(t, T.coil0, T.coil1)) : 0;   // (the coil stays in the vein once it is out)
     return f;
   }
-  const u = ease(k01(t, T.travel0, T.travel1)) * (1 - back);
-  const balloon = ease(k01(t, T.inflate0, T.inflate1)) * (1 - ease(k01(t, T.deflate, T.back)));
+  const u = cruise(k01(t, T.travel0, T.travel1)) * (1 - back);
+  const balloon = easeMove(k01(t, T.inflate0, T.inflate1)) * (1 - easeMove(k01(t, T.deflate, T.back)));
   const column = ease(k01(t, T.fill0, T.fill1)) * (1 - ease(k01(t, T.fillOut, T.deflate)));
   const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
   f.u = u; f.balloon = balloon; f.column = column; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
+  return f;
+}
+
+/**
+ * The TIPS gradient at t ms (pure): u, how far in the catheter is (0..1 of the TIPS route's way to its trunk, the stent crossed): in to the
+ * portal trunk, then drawn back to the IVC at the hepatic veins (the end of the route's IVC stretch, a little short of it), then out; read,
+ * 1 or 2 while the manometer reads the portal vein or the IVC (the tip's ripples). Nothing else is out: no needle, no wire, no balloon.
+ */
+function gradFrame(T, t, back, opacity, step, shot, stops, f) {
+  const iv = stops?.IVC_IS, uIV = iv ? iv[0] + (iv[1] - iv[0]) * 0.8 : GRAD_U_IVC;
+  const inward = cruise(k01(t, T.travel0, T.travel1)), pull = cruise(k01(t, T.pull0, T.pull1));
+  f.u = (t < T.pull0 ? inward : 1 + (uIV - 1) * pull) * (1 - back);
+  f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = t >= T.back ? '' : shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0;   // (no shot once it comes out: the view stops following the tip and waits to go home)
+  f.read = t >= T.pvRead0 && t < T.pvRead1 ? 1 : t >= T.ivRead0 && t < T.ivRead1 ? 2 : 0;
   return f;
 }
 
@@ -278,7 +484,7 @@ function eusFrame(T, t, back, opacity, step, shot, f) {
   const hv = t >= T.move0, tgt = ease(k01(t, T.move0, T.move1));
   const needle = hv ? ease(k01(t, T.hv0, T.hv1)) * (1 - ease(k01(t, T.hvOut0, T.hvOut1))) : ease(k01(t, T.pv0, T.pv1)) * (1 - ease(k01(t, T.pvOut0, T.pvOut1)));
   const fl0 = hv ? T.hvFlash0 : T.pvFlash0, fl1 = hv ? T.hvFlash1 : T.pvFlash1;
-  f.u = ease(k01(t, T.travel0, T.travel1)) * (1 - back); f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot;
+  f.u = cruise(k01(t, T.travel0, T.travel1)) * (1 - back); f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot;
   // (While the scope moves between its stations its tip straightens and turns again: the transducer's side and the elevator's angle
   // change only while it is straight.)
   const mv = k01(t, T.move0, T.move1), dip = mv > 0 && mv < 1 ? Math.sin(Math.PI * mv) : 0;
@@ -289,13 +495,30 @@ function eusFrame(T, t, back, opacity, step, shot, f) {
   return f;
 }
 
+/**
+ * EUS-guided coils and glue at t ms (pure): u, how far in the scope is; aim, its port open and the elevator up (the scope does not turn:
+ * the needle leaves square to it, eus-scope.js); fan, the ultrasound sector; needle, how far out the needle is (0..1 of the way to the
+ * varix); flash, the hit's rings; coil, how much of the coil is out in the varix (it stays there); column, the glue filling the varix along
+ * its course (stage-cath.js tints it; it stays). tgt 0: one station, one target.
+ */
+function glueFrame(T, t, back, opacity, step, shot, f) {
+  f.u = cruise(k01(t, T.travel0, T.travel1)) * (1 - back); f.balloon = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.tgt = 0; f.wire = 0; f.read = 0;
+  f.aim = ease(k01(t, T.aim0, T.aim1)) * (1 - ease(k01(t, T.aimOut0, T.aimOut1)));
+  f.fan = ease(k01(t, T.fan0, T.fan1)) * (1 - ease(k01(t, T.fanOut0, T.fanOut1)));
+  f.needle = ease(k01(t, T.needle0, T.needle1)) * (1 - ease(k01(t, T.needleOut0, T.needleOut1)));
+  f.flash = t > T.flash0 && t < T.flash1 ? k01(t, T.flash0, T.flash1) : 0;
+  f.coil = ease(k01(t, T.coil0, T.coil1));
+  f.column = ease(k01(t, T.fill0, T.fill1));
+  return f;
+}
+
 // How many procedures or measurements are playing (one catheter or scope on the figure at a time: each card asks before it starts one).
 let runs = 0;
 export const procRunning = () => runs > 0;
 
 // Going back through a step runs it backwards (the balloon goes down, the sclerosant drains, the catheter backs out), a little
 // faster than forward. Autoplay (Tests) holds at each stop for AUTO_HOLD ms before the next step.
-const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;
+const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;   // motion-scale: own pace (the landing of a step reversed)
 
 /**
  * Plays a procedure on the figure, step by step. stepped: hold at each step's stop until next(), back() or to(k) (a
@@ -308,13 +531,16 @@ const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;
  */
 export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null, read = null } = {}) {
   const P = specOf(kind), T = P.T, n = P.stops.length, rd = READS[kind];
-  if (rd) { rd.pv = NaN; rd.hv = NaN; rd.ppg = NaN; }
+  if (rd) for (const k in rd) rd[k] = NaN;
   runs++;
   let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = P.stops[at];
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
-  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0 };
-  const cat = { route: kind, u: 0, needle: 0, wire: 0, flash: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0, coil: 0 };
+  const cat = { route: P.route || kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  // (The procedure's clock, in ms of the sequence, 1 ms a ms forward and BACK_SPEED back: a reversible clock, so Back or Next while a step is still
+  // moving slows the catheter and turns it round over D_FLIP, never in one frame. It lands exactly on each stop; the steps hold there.)
+  const clock = createReversible({ ms: 1, min: 0, max: T.end, land: false, x: 0 });
   let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2, shownMark = -3;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
@@ -333,15 +559,16 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     }
     // (The view follows the tip in on the first step, once its shot has landed; a measurement's, its work as well.)
     cat.u = f.u; cat.needle = f.needle; cat.wire = f.wire; cat.flash = f.flash; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
-    cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? 'var(--tr-hv)' : null;
+    cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; cat.coil = f.coil || 0; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? (P.ring2 || 'var(--tr-hv)') : null;
     if (P.labels) P.labels(t, rd, read?.(), cat.labels);
     // (A measurement's scope is followed at its work too, from one station to the next: its shot names which, 'way' or 'tip'.)
-    cat.follow = f.shot === shot && (shot === 'way' || (P.measure && shot === 'tip')) && !stage.gliding?.() ? shot : false;
+    // (BRTO and BATO's 'fill': the view follows the sclerosant's front.)
+    cat.follow = f.shot === shot && (shot === 'way' || shot === 'fill' || (P.measure && shot === 'tip')) && !stage.gliding?.() ? shot : false;
     stage.setCatheter(cat);
     stops ||= stage.cathStops?.() || null;
     // The step's shot, glided to once (a slide's own glide, arcing on a long move). Until it lands nothing moves: no step starts
     // with the camera on its way. (A switch from the circuit takes a moment: cathFocus says no until the route is drawn.)
-    if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, SHOT_MS, { arc: true })) shot = f.shot;   // alloc-rare: only when a new step's shot starts to glide (a few times in a procedure)
+    if (f.shot && f.shot !== shot && stage.cathFocus(f.shot, P.shotMs?.[f.shot] ?? SHOT_MS, P.shotMs ? SHOT_OWN : SHOT_CAM)) shot = f.shot;   // alloc-rare: only when a new step's shot starts to glide (a few times in a procedure)
     if (!shot || stage.gliding?.()) landT = now;
     // (A graft has no shot of its own: the figure stays where it is, so nothing waits for a camera.)
     const still = P.graft ? false : !shot || now - landT < LAND_MS;
@@ -351,7 +578,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     if (t >= T.end) { finish(false); return; }
     if (at < 0 && t <= 0) { finish(true); return; }
     const t0 = t;
-    if (!still && t !== goal) { t = t < goal ? Math.min(goal, t + dt) : Math.max(goal, t - dt * BACK_SPEED); holdT = 0; }
+    if (!still && t !== goal) { clock.aim(goal, goal < t ? 1 / BACK_SPEED : 1); t = clock.step(dt); holdT = 0; }
     else if (!still && !stepped && at < n - 1) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { at++; goal = P.stops[at]; holdT = 0; } }
     // (Held at a stop with the camera landed and its last frame drawn: no frames until Next, Back or a step's button asks.)
     if (still || t !== t0 || t !== goal || !stepped || at < 0) raf = nextFrame(tick);
@@ -359,7 +586,9 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   function finish(rewound) {
     over = true; raf = 0; runs--;
     stage.setCatheter(null);
-    if (shot) stage.cathFocus('home', SHOT_MS, { arc: true });   // alloc-rare: once, as the procedure ends
+    // (Played through step by step, BRTO and BATO keep their result framed: the slide's next move takes the camera from there.)
+    if (shot && !rewound && stepped && P.holdEnd) stage.cathForget?.();
+    else if (shot) stage.cathFocus('home', SHOT_MS, SHOT_CAM);   // alloc-rare: once, as the procedure ends
     onMark?.(null, null);
     onEnd?.({ done: !rewound, rewound });   // alloc-rare: once, as the procedure ends
   }
@@ -369,7 +598,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     cancelFrame(raf); raf = 0; over = true; runs--;
     stage.setCatheter(null);
     // alloc-rare: once, as the procedure is stopped
-    if (home && shot) stage.cathFocus('home', SHOT_MS, { arc: true });
+    if (home && shot) stage.cathFocus('home', SHOT_MS, SHOT_CAM);
     onMark?.(null, null);
     // alloc-rare: once, as the procedure is stopped
     onEnd?.({ done: false, rewound: false });

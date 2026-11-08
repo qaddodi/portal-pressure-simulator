@@ -122,3 +122,20 @@ test('the leaving cards are disowned at the press and when the change starts, an
   assert.match(PZ, /if \(mine && want === to\) tx\.end\(\);/);
   assert.match(fn('function stopNow('), /txn\?\.end\(\); txn = null;/);
 });
+
+test('phase: each begin starts without a phase; stats and trail name the current step', () => {
+  const txns = createTxns();
+  const a = txns.begin({ to: 1 });
+  assert.equal(txns.stats(0).phase, null);
+  a.phase('leave', 100); a.phase('camera', 250);
+  assert.deepEqual(txns.stats(1000), { ...txns.stats(1000), phase: 'camera', since: 750 });
+  assert.deepEqual(txns.trail(), [{ phase: 'leave', at: 100 }, { phase: 'camera', at: 250 }]);
+  const b = txns.begin({ to: 2 });
+  assert.equal(txns.stats(0).phase, null);
+  a.phase('late', 300);   // a superseded change names nothing
+  assert.equal(txns.stats(0).phase, null);
+  b.phase('cards', 5);
+  assert.equal(txns.stats(10).phase, 'cards');
+  b.end();
+  assert.equal(txns.stats(10).phase, null);
+});

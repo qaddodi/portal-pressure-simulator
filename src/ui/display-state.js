@@ -84,6 +84,14 @@ export const FILL_SMALL = 0.005;
 /** A bar's start and length as written to the page: in steps of 1/2048 of its track (a twentieth to a tenth of a device pixel on a tile's bar),
  *  so a drift the screen cannot show writes nothing, and no style or paint is asked for it. */
 export const fillQ = (n) => Math.round(n * 2048) / 2048;
+/** A chart head's time constant (s): a head glides after its goal, a first-order follow with this tau. */
+export const HEAD_TAU = 0.1;
+/** The first step of a run after rest has no frame before it to measure from: it is taken as one frame of a 60 Hz screen. */
+export const HEAD_DT0 = 1 / 60;
+/** One step of a chart head (flow-time.js, event-graph.js) towards its goal: `1 - exp(-dt / tau)` of the way, so it is on the same
+ *  curve at 15, 60 or 120 Hz (the old `+= (goal - shown) * 0.16` per frame settled twice as fast at 120 Hz as at 60). A long gap
+ *  (a hidden tab) is capped at 0.1 s as the other followers do. */
+export const headStep = (shown, goal, dt, tau = HEAD_TAU) => shown + (goal - shown) * (1 - Math.exp(-Math.min(0.1, Math.max(0, dt)) / tau));
 let jumps = 0;
 /** The model just jumped (main.js, from the frame's jump flag or a clock change): every follower takes its next target at once. */
 export function noteJump() { jumps++; }

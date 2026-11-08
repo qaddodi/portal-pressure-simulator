@@ -230,7 +230,7 @@ test('the Colored by cards are two lines at most in the 142 px column of a two-c
   const m = src('src/ui/main.js');
   const block = m.slice(m.indexOf('const LENSES = {'), m.indexOf('const COLOR_MODES'));
   const descs = [...block.matchAll(/^\s+\w+: \['[^']+', '((?:[^'\\]|\\.)*)'/gm)].map((q) => q[1].replace(/\\u2019/g, '’'));
-  assert.equal(descs.length, 9);
+  assert.equal(descs.length, 10);
   // 142 px at 12 px Inter is about 22 characters a line: two lines hold 44 with the slack of a word
   for (const d of descs) assert.ok(d.length <= 40, `${d.length}: ${d}`);
   assert.match(css, /\.lens-d \{[^}]*text-wrap: balance/);

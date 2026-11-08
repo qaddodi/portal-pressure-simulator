@@ -19,7 +19,7 @@ test('a tile the GPU cannot draw drops the copy, never shows a blank lobule', ()
 });
 
 test('landed, the copy goes and the layers show as drawn; a softer copy fades into them; the copy goes on release and on a new framing', () => {
-  assert.match(lz, /if \(wide && !rim\) dropWide\(true\);/);
+  assert.match(lz, /if \(wide && !rim && !out\) dropWide\(true\);/);
   assert.match(lz, /if \(ease && w\.soft && !reduce\.matches\) \{[^\n]*w\.el\.style\.transition = `opacity \$\{D_SMALL\}ms var\(--ease\)`; w\.el\.style\.opacity = '0';/, 'never a snap to the sharp picture');
   assert.match(lz, /diveRim = rim && !wide \?/, 'no second copy of the tissue while the wide copy shows');
   assert.match(lz, /if \(wide\) \{ for \(const e of WIDE_HIDE\) e\.style\.visibility = 'hidden'; wide\.el\.style\.visibility = ''; \}/);
@@ -33,17 +33,17 @@ test('landed, the copy goes and the layers show as drawn; a softer copy fades in
 test('the rise out of a zoomed-in lobule shrinks it whole, whichever way out', () => {
   // A presenter's next slide: the lobule glides to its whole view and the rise waits for it (the central-vein close-up included).
   const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pz, /if \(stage\.lobuleOpen\(\)\) \{ const ms = reduce\.matches \|\| booting \? 0 : RISE_FIT_MS; if \(stage\.lobuleFocus\('fit', \{ ms, ease: 'in' \}\)\) \{ await wait\(ms\); if \(cut\(\)\) return; \} \}\n\s+if \(next && !reduce\.matches && !booting\) stage\.riseTo\(next\.box, next\.kMax, next\.clear\);[^\n]*\n\s+store\.set\(\{ lobule: false \}\);/);
+  assert.match(pz, /if \(stage\.lobuleOpen\(\)\) \{ const ms = reduce\.matches \|\| booting \? 0 : RISE_FIT_MS; if \(stage\.lobuleFocus\('fit', \{ ms, ease: 'in' \}\)\) \{ await waitCut\(ms \+ 150, \(\) => cut\(\) \|\| !stage\.lobuleGlide\?\.\(\)\); if \(cut\(\)\) return; \} \}\n\s+if \(next && !reduce\.matches && !booting\) stage\.riseTo\(next\.box, next\.kMax, next\.clear\);[^\n]*\n\s+store\.set\(\{ lobule: false \}\);/);
   assert.match(lz, /focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{[\s\S]*?const moved = [^\n]*> 0\.5;[\s\S]*?return moved;/, 'it waits whenever the view moves');
   // Every other way out (back to healthy, the view buttons, a key) from a zoomed-in view: the whole copy, before the rise's clock.
   const st = stageSource();
-  assert.ok(st.indexOf('lz.stageRise();') > 0 && st.indexOf('lz.stageRise();') < st.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    live.lobOn = on;'), 'built before the rise is timed');
+  assert.ok(st.indexOf('lz.stageRise();') > 0 && st.indexOf('lz.stageRise();') < st.indexOf('const t0 = easeNow();\n    live.lobOn = on;'), 'built before the rise is timed');
   assert.match(st, /(?:live\.)?riseFast = true;\n\s+(?:live\.)?lz\.stageRise\(\);/);
   // The way back to the fit reaches it still moving (eased in only, Mohammad 20 Oct: Circulation 9 to 10 stopped midway), quick enough
   // to meet the rise at about its own speed, and the rise moves from its first frame.
   assert.ok(+/const RISE_FIT_MS = (\d+);/.exec(pz)[1] <= 600, 'the zoom to the fit is short');
   assert.match(lz, /e = ease === 'in' \? u \* u : /);
-  assert.match(st, /const p = (?:live\.)?riseFast \? u \* u \* \(2 - u\) : /);
+  assert.match(st, /const p = (?:live\.)?riseFast \? 1 - settleAt\(1 - u, RISE_SLOPE\) : /);
   const sr = lz.match(/function stageRise\(\) \{[\s\S]*?\n {2}\}/)[0];
   assert.match(sr, /const \[W, H\] = hostSize\(\), (?:live\.)?box = padBox\(W, H\);\n\s+if \(!(?:live\.)?box\) return;/);
   assert.match(sr, /const wd = buildWide\(W, H, (?:live\.)?box\);\n\s+idleDrawn = ''; draw\(0\); wide = wd;/);
@@ -127,4 +127,29 @@ test('the dive\'s canvases stay under 300 MB on every iPhone and iPad, at their 
       assert.ok(peak + gl <= 340 * MB, `${W0}×${H0}, ${grow}×, with WebGL: ${((peak + gl) / MB).toFixed(0)} MB`);
     }
   }
+});
+
+// 7 Nov 2026, Mohammad (Mac, deck slide 6/16, every slide): "zooming into the lobule during slides is showing the cropped lobule": the lobule
+// as the screen's rectangle, cut off at its top, bottom and right, inside the field's pale lobules. Three ways the whole copy went missing.
+test('the rise keeps its copy from its first frame, which is at full size, until it ends or lands back in the lobule', () => {
+  assert.match(lz, /setDiveZoom\(k, x, y, tx = x, ty = y, out = false\) \{/);
+  const dv = readFileSync(new URL('../src/ui/stage-dive.js', import.meta.url), 'utf8');
+  assert.match(dv, /live\.lz\.setDiveZoom\(t >= 1 \? 1 : clamp\(r \/ live\.diveLand\.r, 0\.05, 1\), live\.diveLand\.x, live\.diveLand\.y, px, py, !!live\.diveOut\);/, 'the dive frames say which way they go');
+  // (The rise's end and a view switch call it at full size with no direction: the copy goes there, or with the lobule's release.)
+  const st = stageSource();
+  assert.match(st, /lz\.setDiveZoom\(1, 0, 0\)/);
+  assert.match(lz, /function release\(\) \{\n\s+dropWide\(\);/);
+});
+
+test('a way out begun mid-glide to the whole lobule is judged by where the lobule reaches, not by the glide\'s aim', () => {
+  const pb = lz.match(/function padBox\(W, H\) \{[\s\S]*?\n {2}\}/)[0];
+  assert.match(pb, /if \(!geo \|\| \(atFit && !gliding\)\) return null;/);
+  const sr = lz.match(/function stageRise\(\) \{[\s\S]*?\n {2}\}/)[0];
+  assert.ok(sr.indexOf('padBox(W, H)') < sr.indexOf('if (gliding) { cancelFrame(glide); gliding = false;'), 'the box is asked for while the glide still counts as one');
+});
+
+test('each tile of the copy is judged by its own GL calls, not by an error another pass left with the driver', () => {
+  const wg = readFileSync(new URL('../src/ui/wide-gl.js', import.meta.url), 'utf8');
+  const t = wg.match(/tile\(t, pw, ph, dpr, layers\) \{[\s\S]*?if \(layers === 'host'\) return fromHost/)[0];
+  assert.match(t, /glOkBefore\(gl\);\n\s+if \(layers === 'host'\) return fromHost/);
 });

@@ -330,7 +330,9 @@ test('zoom: the stack that is out as the card zooms is fitted as it tucks, large
     z.follow(-126, -150);   // (tucked: the top of the whole 126 px lower, the readings' rise 150 px less)
     const t = parseT(card.style.transform);
     assert.ok(t.s > out.s, 'larger as it shortens');
-    assert.deepEqual(log, [['boost', +t.s.toFixed(2)]]);
+    assert.deepEqual(log, [], 'not drawn again on each step of the follow (8 Nov 2026)');
+    await new Promise((r) => setTimeout(r, 260));
+    assert.deepEqual(log, [['boost', +t.s.toFixed(2)]], 'drawn for it once the steps stop');
   } finally { back(); }
 });
 
@@ -577,7 +579,7 @@ test('a tap on one of the six ladders zooms it, a tap on it, outside it, Esc, a 
   // (The cell is scaled as it sits in the panel's fit zoom, which the card is not.)
   assert.match(js, /scale: \(el\) => \(el && el !== data && el\.offsetWidth \? el\.getBoundingClientRect\(\)\.width \/ el\.offsetWidth : wrap\.getBoundingClientRect\(\)\.width \/ \(wrap\.clientWidth \|\| 1\)\) \|\| 1,/);
   // (The app's own scrim, never snapping: both veils fade, the shadow eases, the cell shows the pointer that says what a tap does.)
-  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity var\(--d-surface\) var\(--ease\)/);
+  assert.match(rule('.pz-pscrim, .pz-gscrim {'), /background: var\(--scrim\)/); assert.match(rule('.pz-pscrim, .pz-gscrim {'), /transition: opacity var\(--d-small\) var\(--ease-in\)/);   // (off is the leave: the step below, on the leaving curve; .on keeps the surface step)
   assert.match(rule('.pz-pscrim.on'), /pointer-events: auto/);
   assert.match(rule('.pz-gscrim {'), /z-index: 1/);
   assert.match(css, /^\.pz:not\(\.stack\):not\(\.low\) \.pz-cell \{ cursor: zoom-in; transition: none; \}$/m, '(1 Nov 2026, move everything to GPU: a colour, shadow or edge eased repaints every frame, so it is taken at once)');

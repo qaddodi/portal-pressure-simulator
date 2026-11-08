@@ -3,7 +3,7 @@
 import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
 import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, VB_ANAT, VB_CIRC } from './anatomy.js';
 import { peelAt } from './flow-peel.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { reduceMotionMQ as reduceMotion, easeMove } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
 import { store, varixGrowth } from './store.js';
 import { clamp, lerp, themeChanged } from './util.js';
@@ -161,6 +161,8 @@ export function createFrame(st, live) {
     if (MAP.a !== t) { MAP.a = t; nd.dirty = true; }
     live.CTM = null;
   }
-  const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
+  // (The change between the views, the label layer's glide, the callouts' room glide and the dive's lobule share all run on the camera's curve, the
+  // quintic easeMove: the quadratic in-out it replaces had its acceleration flip from +4 to -4 at the midpoint, a catch in the longest move there is.)
+  const easeInOut = easeMove;
   return { collOpen, easeInOut, edgeVisible, findingHidden, recruitFrac, setViewBox, shownFrac, strandAt, updateGeometry, varixHeld, vesselAt };
 }

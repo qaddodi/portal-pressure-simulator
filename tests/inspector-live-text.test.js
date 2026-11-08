@@ -32,7 +32,7 @@ function plainChanges(p) {
   if (p.splenicRx) add('splenicRx', p.splenicRx === 2 ? 'Splenectomy' : 'Partial splenic embolization', (q) => { q.splenicRx = 0; });
   if (p.tips.on) add('tips', `TIPS ${p.tips.d} mm`, (q) => { q.tips.on = false; });
   if (p.dips.on) add('dips', `DIPS ${p.dips.d} mm`, (q) => { q.dips.on = false; });
-  if (p.portocaval) add('portocaval', 'Portocaval shunt', (q) => { q.portocaval = false; });
+  if (p.portocaval) add('portocaval', p.portocavalSide ? 'Portocaval shunt (side-to-side)' : 'Portocaval shunt', (q) => { q.portocaval = false; q.portocavalSide = false; });
   if (p.dsrs) add('dsrs', 'Distal splenorenal shunt', (q) => { q.dsrs = false; });
   if (p.mesocaval) add('mesocaval', 'Mesocaval shunt', (q) => { q.mesocaval = false; });
   if (p.rex) add('rex', 'Meso-Rex bypass', (q) => { q.rex = false; });
@@ -80,7 +80,7 @@ function patients() {
     p.splenicRx = (rnd() * 3) | 0;
     p.tips.on = rnd() < 0.4; p.tips.d = 6 + ((rnd() * 12) | 0) / 2;
     p.dips.on = rnd() < 0.3; p.dips.d = 6 + ((rnd() * 12) | 0) / 2;
-    p.portocaval = rnd() < 0.2; p.dsrs = rnd() < 0.2; p.mesocaval = rnd() < 0.2;
+    p.portocaval = rnd() < 0.2; p.portocavalSide = p.portocaval && rnd() < 0.5; p.dsrs = rnd() < 0.2; p.mesocaval = rnd() < 0.2;
     p.customShunts = rnd() < 0.4 ? { C2: 4 + ((rnd() * 8) | 0), C3: 6 } : undefined;
     p.balloonGas = rnd() < 0.3; p.balloonEso = rnd() < 0.3;
     p.occluded = rnd() < 0.4 ? { C5: true, C2: true } : {};

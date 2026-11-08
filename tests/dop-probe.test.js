@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { TOKENS } from '../src/ui/theme-tokens.js';
-import { AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeGeomInto, makeProbeGeom, makeProbeDraw, probeFade, probeTurn, probeSwing, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, wedgeBoxes, PROBE, PROBE_MODEL, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
+import { GATE_FRAC, gateFrac, AWAY, probePose, fitPose, SIZES, QUIET, ZOOMED_OUT, probeGeomInto, makeProbeGeom, makeProbeDraw, probeFade, probeTurn, probeSwing, probeJumps, JUMP_DEG, JUMP_PX, gateDims, bodyBox, beamBoxes, gateBoxes, wedgeBoxes, PROBE, PROBE_MODEL, placeId, createProbeMind, SLACK, NONE_MS, PEND_MS, LEAVES } from '../src/ui/dop-probe.js';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const stage = stageSource(), doppler = read('src/ui/doppler.js'), css = read('styles/app.css'), tokens = read('styles/tokens.css');
@@ -103,7 +103,7 @@ test('the angle marked is the one between the line of sight and the flow axis, o
 });
 
 test('the figure places the gate where the callout points (the middle of the vessel) or on the stent\'s sampled third', () => {
-  assert.match(stage, /const u = dop\.seg \? STENT_SITES\[dop\.seg\] : null;/);
+  assert.match(stage, /const u = dop\.seg \? STENT_SITES\[dop\.seg\] : gateFrac\(id\);/);
   assert.match(stage, /u == null \? arcMid\(pts\) : pointAt\(pts, u\)/);
   // It follows the camera with the labels, and the labels keep clear of its body.
   assert.equal((stage.match(/^\s*(?:live\.)?dprobePaint\(\);$|^\s*if \(dop\.id\) \{ dprobePaint\(\); live\.labelGL\?\.redraw\(\); \}$/gm) || []).length, 5, 'view change, zoom glide, labels laid out, Doppler set, and the glow pass');
@@ -793,4 +793,36 @@ test('the probe\'s record: nothing is made writing it; the geometry is the same 
   assert.equal(probeGeomInto(g, 90, 10, 50, 1, 0.5), g, 'written in place');
   assert.deepEqual(Object.keys(g), ['dh', 'far', 'wk', 'bx1', 'at', 'half', 'open', 'axx', 'axy', 'hs']);
   const before = JSON.stringify(g); probeGeomInto(g, 90, 10, 50, 1, 0.5); assert.equal(JSON.stringify(g), before);
+});
+
+test('the hepatic artery\'s gate stands toward the fork, well clear of where the paraumbilical vein crosses it (Mohammad, 7 Nov 2026)', async () => {
+  const { EDGE_PATH, CIRCUIT_PATH } = await import('../src/ui/anatomy.js');
+  assert.equal(gateFrac('A_HEP'), 0.8);
+  assert.equal(gateFrac('A_HR'), null, 'every other vessel keeps the middle');
+  assert.ok(GATE_FRAC.A_HEP > 0.5 && GATE_FRAC.A_HEP < 1, 'between the middle and the fork');
+  // The anatomy's paths are polylines (the artery) and cubic curves (the vein): sample both, find the artery's point at each fraction.
+  const nums = (d) => [...d.matchAll(/(-?[\d.]+)[ ,](-?[\d.]+)/g)].map((m) => [+m[1], +m[2]]);
+  const artery = nums(EDGE_PATH.A_HEP);
+  const len = artery.slice(1).reduce((a, p, i) => a + Math.hypot(p[0] - artery[i][0], p[1] - artery[i][1]), 0);
+  const at = (u) => { let run = 0; for (let i = 1; i < artery.length; i++) { const sg = Math.hypot(artery[i][0] - artery[i - 1][0], artery[i][1] - artery[i - 1][1]); if (run + sg >= u * len) { const k = (u * len - run) / sg; return [artery[i - 1][0] + k * (artery[i][0] - artery[i - 1][0]), artery[i - 1][1] + k * (artery[i][1] - artery[i - 1][1])]; } run += sg; } return artery.at(-1); };
+  const [a, b, c, d] = nums(EDGE_PATH.C3).slice(0, 4).map((p) => p), vein = []; // (C3 starts 'M x y C x1 y1 x2 y2 x y')
+  for (let t = 0; t <= 1; t += 0.005) { const m = 1 - t; vein.push([m ** 3 * a[0] + 3 * m * m * t * b[0] + 3 * m * t * t * c[0] + t ** 3 * d[0], m ** 3 * a[1] + 3 * m * m * t * b[1] + 3 * m * t * t * c[1] + t ** 3 * d[1]]); }
+  const away = (u) => Math.min(...vein.map((p) => Math.hypot(p[0] - at(u)[0], p[1] - at(u)[1])));
+  assert.ok(away(0.5) < 6, 'the middle is where the vein crosses it (the reason for the move)');
+  assert.ok(away(GATE_FRAC.A_HEP) > 20, `the gate stands ${away(GATE_FRAC.A_HEP).toFixed(1)} units from the vein`);
+  // The circuit's artery is a straight lane to the fork at its far end: the same fraction stands short of it.
+  const [c0, c1] = nums(CIRCUIT_PATH.A_HEP);
+  assert.ok(c0[0] < c1[0] && c0[1] === c1[1]);
+  assert.ok(CIRCUIT_PATH.A_HR.startsWith(`M${c1[0]} ${c1[1]}`), 'the circuit artery ends where its branches start');
+});
+
+test('the probe\'s front band is the inverse of its body: dark on the light looks, light on the dark ones (8 Nov)', () => {
+  const lum = (h) => { const n = parseInt(h.slice(1), 16); return (0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255)) / 255; };
+  for (const [look, bodyDark] of [['light', false], ['dark', true]]) {
+    const body = lum(TOKENS[look].surface), face = lum(TOKENS[look]['dop-face']);
+    assert.ok(bodyDark ? face > body + 0.5 : face < body - 0.5, `${look}: band ${face.toFixed(2)} against body ${body.toFixed(2)}`);
+    const rim = lum(TOKENS[look]['dop-head-rim']), ink = lum(TOKENS[look]['dop-head-ink']);
+    assert.ok(bodyDark ? rim > body + 0.5 && ink < body + 0.1 : rim < body - 0.5 && ink > body - 0.1 || ink > rim, `${look}: the head's rim and line swap with the body`);
+    assert.equal(bodyDark, rim > ink, `${look}: light rim over a dark line on the dark looks only`);
+  }
 });

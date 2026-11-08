@@ -32,6 +32,7 @@ export function defaultParams() {
     tips: { on: false, d: 8 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     dips: { on: false, d: 8 },   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     portocaval: false,
+    portocavalSide: false,        // the portocaval shunt made side-to-side: the portal trunk is kept, so the liver can drain back out through it (end-to-side divides it)
     customShunts: {},   // alloc-rare: builds the parameter record the engine is handed (callers edit their copy); asked when a parameter changes, in the simulation worker, never by a drawn frame
     dsrs: false,
     mesocaval: false,

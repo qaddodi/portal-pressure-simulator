@@ -13,11 +13,34 @@ const glideAt = new Function(`${pure('function glideAt').replace('export functio
 const LV = src.slice(src.indexOf('export const IDLE'), src.indexOf('export const levelFor'));
 const levelFor = new Function(`${LV.replaceAll('export const', 'const')}; ${src.slice(src.indexOf('export const levelFor'), src.indexOf('\n', src.indexOf('export const levelFor'))).replace('export const levelFor =', 'const levelFor =')}; return levelFor;`)();
 
-test('the dot sits where the browser puts the native one: half its width in from each end', () => {
-  assert.equal(thumbX(300, 18, 0), 9);
-  assert.equal(thumbX(300, 18, 1), 291);
-  assert.equal(thumbX(300, 22, 0.5), 150);
-  assert.equal(thumbX(10, 22, 1), 11, 'a bar shorter than the dot keeps the dot on its middle');
+test('the dot sits where the browser puts the native one: half its box in from each end', () => {
+  assert.equal(thumbX(300, 28, 0), 14);
+  assert.equal(thumbX(300, 28, 1), 286);
+  assert.equal(thumbX(300, 32, 0.5), 150);
+  assert.equal(thumbX(10, 32, 1), 16, 'a bar shorter than the dot keeps the dot on its middle');
+});
+
+test('the knob is never cropped at either end of the bar: its ring, held and grown, fits inside the dot\'s box (what-if slider at 0, 7 Nov 2026)', () => {
+  const room = Number(src.match(/export const ROOM = (\d+);/)[1]);
+  const dotOf = new Function(`const ROOM = ${room}; ${src.slice(src.indexOf('export const dotOf'), src.indexOf('\n', src.indexOf('export const dotOf'))).replace('export const dotOf =', 'return')}`)();
+  const RING = 3, HELD = 1.12;
+  for (const [tw, dot] of [[28, 18], [32, 22]]) {
+    assert.equal(dotOf(tw), dot, `a ${tw} px box holds the ${dot} px dot`);
+    for (const f of [0, 1]) {
+      const W = 300, x = thumbX(W, tw, f), r = dot / 2;
+      for (const sc of [1, HELD]) {
+        const edge = (r + RING) * sc;   // the surface ring, the part the card's own box used to clip
+        assert.ok(x - edge >= 0, `f=${f} sc=${sc}: the ring's left edge is inside the bar (${x - edge})`);
+        assert.ok(x + edge <= W, `f=${f} sc=${sc}: the ring's right edge is inside the bar (${x + edge - W})`);
+      }
+    }
+  }
+  assert.ok(css.includes('--tw: 28px; --dot: 18px;') && css.includes('--tw: 32px; --dot: 22px;'), 'the stylesheet\'s boxes are the same two');
+  assert.match(src, /const room = Math\.min\(x - pad, pad \+ W - x\);/, 'the hover, held and focus rings stop at the bar\'s end');
+  assert.match(src, /disc\(ctx, x, cy, Math\.min\(\(r \+ v\[0\]\) \* sc, room\)\)/);
+  // (The bar is as tall as the held ring: 28 px, 32 under a finger.)
+  assert.match(css, /isolation: isolate; height: 28px;/);
+  assert.match(css, /\.range-wrap \{ --tw: 32px; --dot: 22px; \}[^\n]*\n {2}\.range-wrap, input\[type=range\] \{ height: 32px; \}/);
 });
 
 test('the glide runs from the start fraction to the end, on the steps, and ends exactly on the end', () => {
@@ -47,8 +70,10 @@ test('the rings are the stylesheet\'s numbers: 3 / 6 / 8 px, shadow 1 / 1 / 2 px
   assert.match(rows, /of\(3, 0, 1, 3, 0\.14, 1, 0\)/);
   assert.match(rows, /of\(6, 1, 1, 3, 0\.14, 1, 0\)/);
   assert.match(rows, /of\(8, 1, 2, 6, 0\.16, 1\.12, 0\)/);
-  assert.match(css, /input\[type=range\]:active::-webkit-slider-thumb, input\[type=range\]\.held::-webkit-slider-thumb \{ transform: scale\(1\.12\); box-shadow: 0 0 0 3px var\(--surface\), 0 2px 6px 3px rgb\(var\(--black-rgb\) \/ \.16\), 0 0 0 8px var\(--accent-soft\); \}/);
-  assert.match(css, /:hover::-webkit-slider-thumb \{ box-shadow: 0 0 0 3px var\(--surface\), 0 1px 3px 3px rgb\(var\(--black-rgb\) \/ \.14\), 0 0 0 6px var\(--accent-soft\); \}/);
+  // (The page's own thumb before the GPU's picture is up: its box is the dot's box, the surface ring is in its picture, and the soft ring and focus ring are
+  // the same radii from the dot as the GPU's, so the rings are 5 px nearer the box's edge than the old 3 / 6 / 8.)
+  assert.match(css, /input\[type=range\]:active::-webkit-slider-thumb, input\[type=range\]\.held::-webkit-slider-thumb \{ transform: scale\(1\.12\); box-shadow: 0 2px 6px 1px rgb\(var\(--black-rgb\) \/ \.16\), 0 0 0 3px var\(--accent-soft\), inset 0 0 0 2px transparent; \}/);
+  assert.match(css, /:hover::-webkit-slider-thumb \{ box-shadow: 0 1px 3px 1px rgb\(var\(--black-rgb\) \/ \.14\), 0 0 0 1px var\(--accent-soft\), inset 0 0 0 2px transparent; \}/);
 });
 
 test('the page\'s own drawing steps aside only once the GPU\'s picture is up, and the input stays for the pointer, keys and screen readers', () => {
@@ -74,12 +99,12 @@ test('the touch, mouse and key states reach the dot as events, never as a frame\
   assert.ok(!/new Event\('input'/.test(util.slice(util.indexOf('export function enhanceRanges'))), 'a drag\'s moves make no event');
 });
 
-test('the dot is 22 px under the two media queries the stylesheet gives it, and 18 px elsewhere', () => {
+test('the dot\'s box is 32 px under the two media queries the stylesheet gives it, and 28 px elsewhere', () => {
   const q = (name) => src.match(new RegExp(`export const [^;]*${name} = '([^']*)'`))[1];
   const phone = q('PHONE_MQ'), coarse = q('COARSE_MQ');
   assert.ok(css.includes(`@media ${phone} {`), 'the phone query is the stylesheet\'s');
-  assert.ok(css.includes(`@media ${coarse} {\n  .range-wrap { --tw: 22px; }`), 'the finger query is the stylesheet\'s');
-  assert.match(src, /const dotWidth = \(\) => \(phone\?\.matches \|\| coarse\?\.matches \? 22 : 18\);/);
+  assert.ok(css.includes(`@media ${coarse} {\n  .range-wrap { --tw: 32px; --dot: 22px; }`), 'the finger query is the stylesheet\'s');
+  assert.match(src, /const dotWidth = \(\) => \(phone\?\.matches \|\| coarse\?\.matches \? 32 : 28\);/);
   assert.ok(!/readStyle|getComputedStyle/.test(src), 'no style is read');
 });
 

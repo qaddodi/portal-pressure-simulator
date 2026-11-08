@@ -220,7 +220,7 @@ test('composite: with nothing chained, the streaks, the heads and the join are d
   // Unchained ends fade as before.
   assert.match(gl, /if \(ends\.x <= 0\.0 && ends\.y <= 0\.0\) \{\n\s*float e = min\(sc, len - sc\);\n\s*if \(e < lo\) return vec2\(0\.0\);\n\s*endF = smoothstep\(lo, lo \+ ramp, e\);/);
   // The join: 0.6 as before with rel and mn both 0; 0.3 for the minor inflow; none where one pattern runs through.
-  assert.match(gl, /float dimK = mix\(mix\(0\.6, 0\.3, mn\), 0\.0, rel\);\n\s*float a = A\.a \* \(1\.0 - dimK \* smoothstep\(0\.02, 0\.5, b\)\);/);
+  assert.match(gl, /float dimK = mix\(mix\(0\.6, 0\.3, mn\), 0\.0, rel\);\n\s*float a = A\.a \* \(1\.0 - dimK \* smoothstep\(0\.02, 0\.5, b\)\) \* \(1\.0 - castAt\(id1, s1, len1\)\);/);
   assert.match(gl, /c \*= 1\.0 - smoothstep\(0\.02, 0\.25, b\) \* \(1\.0 - rel\);/);
   // (The noise table this once fed is gone with the lattice: the tile is read per pixel.)
 });

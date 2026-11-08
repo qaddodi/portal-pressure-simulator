@@ -96,7 +96,6 @@ test('item 6: a short lobule glide carries the labels with their spots and lays 
   assert.doesNotMatch(src, /const tr = \(e, x, y\) => \{[^}]*e\.style\.translate/);
   assert.match(src, /function domFlush\(\) \{[\s\S]{0,200}if \(rides\) return;[\s\S]{0,200}e\.style\.translate = /);
   assert.match(src, /for \(const e of clrQ\) if \(e\.style\.translate\) e\.style\.translate = '';/);
-  assert.match(rd, /classSoon\(labels, 'lz-ease', false\);/);
   assert.match(src, /function bakeFollow\(\) \{\s*if \(bakeRides\(\)\)/);
   // The lit terms are split once per change, not queried for every candidate spot.
   assert.match(src, /const named = \(k\) => litOf\(\)\.has\(/);

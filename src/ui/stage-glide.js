@@ -2,26 +2,31 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { VB_ANAT, VIEW } from './anatomy.js';
 import { blendPaths, camPath, driftEase, lerpVT, viewsOverlap } from './cam-arc.js';
-import { camMs, carried, carryRate, easeMove } from './ease.js';
+import { camMs, carried, easeMove, springSlope } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { glideClock } from './glide-clock.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { reduceMotionMQ as reduceMotion, reducedMs } from './motion.js';
 import { store } from './store.js';
 import { clamp } from './util.js';
 
 import { stageScope } from './stage-scope.js';
 export function createGlide(st, live) {
-  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack } = st;
+  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo } = st;
   // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
   // (opt.scale: a slide's framing, a fit, a camera set) takes the time its reach on screen needs, 480 to 900 ms, never longer than
   // asked.
   const camEase = easeMove;
+  // (camEase backwards, for the one place that has only the eased progress: an older arc's path, asked for its view at u by a refit's blend.
+  // Bisection on a rising curve; run once a frame for the few frames a carried arc is being blended away.)
+  const camEaseInv = (u) => { let lo = 0, hi = 1; for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2; if (camEase(m) < u) lo = m; else hi = m; } return (lo + hi) / 2; };
   // opt.steady: a refit to cards that moved (a data card tucked or untucked, a turn): timed by glideClock, so a slow frame at its start
   // (the layout and label passes the same change set off) holds it back a little instead of carrying it part of the way in one step.
   const NO_OPT = {};   // (the options of a glide asked for with none: read only)
   const aimedBuf = { k: 1, x: 0, y: 0 };   // (where a framing would go, written in place; aimView reads it at once)
   function animateVT(to, ms = 700, opt = NO_OPT) {
     if (live.aiming) { aimedBuf.k = to.k; aimedBuf.x = to.x; aimedBuf.y = to.y; live.aimed = aimedBuf; return; }   // (asked only where it would go: aimView)
+    // (A change between the views running: the framing asked for is the change's new end, and the camera goes there on its clock, no second glide: view-xf.js.)
+    if (live.viewXf && viewXfRetargetTo(to)) { live.following = false; return; }
     live.following = false;   // (a glide or a framing set outright takes over from a card the view was following)
     cancelFrame(live.vtAnim);
     const prev = live.arcRun; live.arcRun = null;
@@ -31,7 +36,7 @@ export function createGlide(st, live) {
     live.vtTarget = to;
     const from = { ...live.vt };
     let t0 = performance.now();
-    if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
+    if (reduceMotion.matches) ms = reducedMs(ms, true);   // (reduced motion: a short glide, never a jump: REDUCED_MOVE_MS, the exception motion.js writes down)
     else if (opt.scale && !drift && ms > 0) ms = Math.min(ms, camMs(from, to, VIEW.w));
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
     if (ms <= 0) {
@@ -39,9 +44,10 @@ export function createGlide(st, live) {
       if (!sameView(from, to)) logMove({ t: t0, ms, restart: live.vtGliding, kind: 'glide', zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
       live.vtGliding = false; live.vt = to; applyVT(); live.CTM = null; camSettle(); live.dprLet(); return;
     }
-    let at = (u) => (u >= 1 ? { ...to } : lerpVT(from, to, u));
+    let at = (u) => (u >= 1 ? { ...to } : lerpVT(from, to, u)), newArc = null;
     // (Another plain glide still moving: this one carries its speed on, instead of starting over from rest. The arcs blend their own.)
-    const v0 = !drift && live.vtGliding ? vtTrack.take(performance.now()) : null;
+    // (opt.v0: the hand's own speed when it let go, a spring-back's: stage-gestures.js.)
+    const v0 = opt.v0 || (!drift && live.vtGliding ? vtTrack.take(performance.now()) : null);
     vtTrack.begin();
     const room = opt.arc && !reduceMotion.matches ? arcRoom() : null;   // (reduced motion: no pull-back, the plain short glide)
     if (room && prev && live.vtGliding && performance.now() < prev.t0 + prev.ms && viewsOverlap(prev.to, to, room.vb)) {
@@ -54,12 +60,16 @@ export function createGlide(st, live) {
       live.arcRun = { from: prev.from, to, t0, ms, at };
     } else if (room) {
       const path = camPath(from, to, room.vb, room.wMax);
-      if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; live.arcRun = { from, to, t0, ms, at }; }
+      if (path.arc) { ms = Math.round(ms * path.stretch); at = path.at; live.arcRun = { from, to, t0, ms, at }; newArc = path.at; }
     }
     let c0 = 0;
-    if (v0 && !live.arcRun && !sameView(from, to)) {
-      c0 = carryRate(v0, from, to, VIEW.w) * ms;
-      if (c0 > 0) at = (u, raw) => (u >= 1 ? { ...to } : lerpVT(from, to, carried(u, raw, c0)));
+    if (v0 && (!live.arcRun || newArc) && !sameView(from, to)) {
+      c0 = springSlope(v0, from, to, VIEW.w, ms);
+      // (A new arc takes the old speed on too, along the straight line to its end: an arc leaves the old framing toward the same side, and
+      // the cap keeps the carried term from running the progress past 1. A refit's blend reads an older arc by u alone, so the carried
+      // arc finds its clock from u again.)
+      if (c0 > 0 && newArc) { at = (u, raw) => newArc(carried(u, raw ?? camEaseInv(u), c0)); live.arcRun.at = at; }
+      else if (c0 > 0) at = (u, raw) => (u >= 1 ? { ...to } : lerpVT(from, to, carried(u, raw, c0)));
     }
     if (!sameView(from, to)) logMove({ t: t0, ms, restart: live.vtGliding, kind: drift ? 'drift' : 'glide', arc: !!live.arcRun, zoom: Math.abs(Math.log(to.k / from.k)), pan: Math.hypot(to.x - from.x, to.y - from.y) });
     const left = Math.max(0, t0 + ms - performance.now());

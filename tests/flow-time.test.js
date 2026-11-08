@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
 await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
-const { flowTimeSeries, MINUTES, LINE, headLeft, modelLines, trailKeys, withUnit } = await import('../src/ui/flow-time.js');
+const { flowTimeSeries, pairScales, MINUTES, LINE, headLeft, modelLines, trailKeys, withUnit } = await import('../src/ui/flow-time.js');
 
 // The meal time-lapse the Circulation deck's meal slide used to carry (the deck rebuild moved the meal to Circuit, which has no chart), run off
 // screen as the presenter does: its trail is the model's pressure and flow each day. The chart's own settings stay tested here.
@@ -40,11 +40,12 @@ test('the meal slide charts portal pressure and flow over its time-lapse', async
   for (let m = MINUTES.rise; m <= MINUTES.end; m++) assert.equal(s.pv[ix(m)], tr.at(-1)[1]), assert.equal(s.flow[ix(m)], tr.at(-1)[2]);
   // Each model day lands on its own minute, exactly.
   tr.forEach((r, d) => { const m = MINUTES.rise * d / meal.days; if (Number.isInteger(m)) assert.ok(Math.abs(s.flow[ix(m)] - r[2]) < 1e-9); });
-  // Scales: pressure from zero (its rise stays small), flow tight (its rise fills most of its band), all values inside.
-  assert.equal(s.pScale.min, 0);
-  assert.ok(Math.max(...s.pv) <= s.pScale.max && (tr.at(-1)[1] - tr[0][1]) / s.pScale.max < 0.15);
+  // Scales (two y-axes, 8 Nov 2026): each line fitted tight to the plot's full height, all values inside, the same number of steps.
+  assert.ok(Math.max(...s.pv) <= s.pScale.max && s.pScale.min <= Math.min(...s.pv));
   assert.ok(s.fScale.min <= Math.min(...s.flow) && Math.max(...s.flow) <= s.fScale.max);
-  assert.ok((tr.at(-1)[2] - tr[0][2]) / (s.fScale.max - s.fScale.min) > 0.5, 'the flow rise fills most of its band');
+  assert.equal(s.pScale.ticks.length, s.fScale.ticks.length, 'one set of gridlines for both axes');
+  assert.ok((tr.at(-1)[1] - tr[0][1]) / (s.pScale.max - s.pScale.min) > 0.5, 'the pressure rise fills most of the height');
+  assert.ok((tr.at(-1)[2] - tr[0][2]) / (s.fScale.max - s.fScale.min) > 0.5, 'the flow rise fills most of the height');
 });
 
 test('a flow-time series needs two finite points', () => {
@@ -95,7 +96,7 @@ test('the ascites time-lapse charts sinusoids and ascites, one point a day', asy
   assert.equal(tr.length, s.days + 1);
   assert.ok(Math.abs(tr.at(-1)[1] - after.fp.sin) < 1e-9 && Math.abs(tr.at(-1)[2] - after.fp.asc) < 1e-9);
   const ser = flowTimeSeries(tr, 'days', s.tool.lines);
-  assert.equal(ser.min.length, s.days + 1); assert.equal(ser.pScale.min, 0);
+  assert.equal(ser.min.length, s.days + 1);
   assert.ok(Math.abs(ser.flow.at(-1) - after.fp.asc / 1000) < 1e-9, 'ascites in litres');
   assert.ok(ser.flow.at(-1) > ser.flow[0] && ser.pv.at(-1) > ser.pv[0], 'both rise');
 });
@@ -116,10 +117,10 @@ test("a line's value at its head keeps clear of the right margin's numbers", () 
   assert.equal(headLeft(100, 40, 30, f, w, [tick(30)]), false, 'mid-chart, far from the margin');
 });
 
-// The Treating the cause deck's MASLD slide charts weight lost (left, %) against the stiffness (right, kPa) over its year. The
+// The Treating the cause deck's MASLD slide charts body weight (left, % of start) against the stiffness (right, kPa) over its year. The
 // stiffness is the model's; the weight is the slide's own 12%, which the model has no body for. Baveno VIII 2.13 links a weight
 // loss of 10% or more with a fall in stiffness of 30% or more in MASLD-related cACLD, so the model's fall has to be that big.
-test('the MASLD slide charts the weight lost and the model\'s stiffness over the year (Baveno VIII 2.13)', async () => {
+test('the MASLD slide charts the body weight and the model\'s stiffness over the year (Baveno VIII 2.13)', async () => {
   const { CAUSE_TREATED } = await import('../src/ui/decks/cause-treated.js');
   const slide = CAUSE_TREATED.slides.find((x) => x.id === 'masld'), t = slide.tool;
   assert.equal(t.kind, 'flowtime'); assert.equal(t.clock, 'days'); assert.deepEqual(t.lines, ['wt', 'lsm']);
@@ -144,14 +145,14 @@ test('the MASLD slide charts the weight lost and the model\'s stiffness over the
 
   const ser = flowTimeSeries(tr, 'days', t.lines, t.given);
   assert.equal(ser.min.length, slide.days + 1);
-  assert.equal(ser.pv[0], 0); assert.equal(ser.pv.at(-1), t.given.wt);
-  for (let d = 1; d < ser.pv.length; d++) assert.ok(ser.pv[d] > ser.pv[d - 1], `day ${d}: the weight lost only grows`);
-  assert.ok(Math.abs(ser.pv[73] - t.given.wt / 5) < 1e-9, 'steadily: a fifth of the weight a fifth of the way through the year');
+  assert.equal(ser.pv[0], 100); assert.equal(ser.pv.at(-1), 100 - t.given.wt); assert.equal(ser.pv.at(-1), 88);
+  for (let d = 1; d < ser.pv.length; d++) assert.ok(ser.pv[d] < ser.pv[d - 1], `day ${d}: the body weight only falls`);
+  assert.ok(Math.abs(ser.pv[73] - (100 - t.given.wt / 5)) < 1e-9, 'steadily: a fifth of the loss a fifth of the way through the year');
   assert.deepEqual(ser.flow, tr.map((r) => r[1]), 'the stiffness is the model\'s, one value a day');
   const fall = 1 - ser.flow.at(-1) / ser.flow[0];
   assert.ok(fall >= 0.3, `the stiffness falls ${(fall * 100).toFixed(0)}%, the 30% Baveno VIII 2.13 links with a 10% weight loss`);
-  // Scales: the weight from zero in fives, the stiffness tight with room above and below its line.
-  assert.deepEqual(ser.pScale.ticks, [0, 5, 10, 15]);
+  // Scales: the weight from 84 to 100% in fours (its 88% on a gridline), the stiffness tight with room above and below its line.
+  assert.deepEqual(ser.pScale.ticks, [84, 88, 92, 96, 100]);
   assert.ok(ser.fScale.min < Math.min(...ser.flow) && Math.max(...ser.flow) < ser.fScale.max);
   const room = (Math.min(...ser.flow) - ser.fScale.min) / (ser.fScale.max - ser.fScale.min);
   assert.ok(room > 0.1, `the end of the line keeps ${(room * 100).toFixed(0)}% of its band clear of the axis`);
@@ -161,9 +162,28 @@ test('a given line needs its number, and the other charts keep their scales', ()
   const tr = [[0, 15], [1, 14], [2, 12]];
   assert.equal(flowTimeSeries(tr, 'days', ['wt', 'lsm']), null, 'no end value given: no chart');
   assert.ok(flowTimeSeries(tr, 'days', ['wt', 'lsm'], { wt: 12 }));
-  // (Pad and parts are options of the two new lines only: the ascites chart's scales are as they were.)
+  // (The ascites chart: the sinusoidal pressure on the left axis, the ascites in litres on the right, each fitted to the full height.)
   const asc = flowTimeSeries([[0, 8, 200], [60, 12, 1200]], 'days', ['sin', 'asc']);   // (the ascites in mL, drawn in litres)
-  assert.deepEqual(asc.pScale.ticks, [0, 10, 20]);
-  assert.equal(asc.fScale.min, 0); assert.ok(asc.fScale.max >= 1.2);
-  assert.equal(withUnit(12, 0, '%'), '12%'); assert.equal(withUnit(10.23, 1, 'kPa'), '10.2 kPa'); assert.equal(withUnit(5.4, 1, 'mmHg'), '5.4 mmHg');
+  assert.ok(asc.pScale.min <= 8 && asc.pScale.max >= 12 && asc.pScale.max - asc.pScale.min < 8, 'tight, not from zero');
+  assert.ok(asc.fScale.min <= 0.2 && asc.fScale.max >= 1.2);
+  assert.equal(asc.pScale.ticks.length, asc.fScale.ticks.length);
+  assert.equal(withUnit(88, 0, '% of start'), '88%'); assert.equal(withUnit(10.23, 1, 'kPa'), '10.2 kPa'); assert.equal(withUnit(5.4, 1, 'mmHg'), '5.4 mmHg');
+});
+
+test('pairScales: each axis fills the height, the steps are shared, a flat line stays inside', () => {
+  const frac = (sc, v) => (v - sc.min) / (sc.max - sc.min);
+  // The cirrhosis-opens-the-arteries card: arterial pressure 78 to 92 mmHg, cardiac output 5.2 to 6.8 L/min (both nearly flat on one band).
+  const [L, R] = pairScales([78, 92], [5.2, 6.8]);
+  assert.equal(L.ticks.length, R.ticks.length);
+  for (const [sc, a, b] of [[L, 78, 92], [R, 5.2, 6.8]]) {
+    assert.ok(sc.min <= a && sc.max >= b);
+    assert.ok(frac(sc, b) - frac(sc, a) > 0.6, `the change spans ${((frac(sc, b) - frac(sc, a)) * 100).toFixed(0)}% of the height`);
+  }
+  assert.ok(L.min > 0, 'the pressure axis is not forced down to zero');
+  // A fixed scale keeps it and the other axis follows its steps.
+  const [W, S] = pairScales([100, 88], [15, 9], { scale: [84, 100, 4] }, { pad: 0.15 });
+  assert.deepEqual(W.ticks, [84, 88, 92, 96, 100]); assert.equal(S.ticks.length, 5);
+  // A line that does not move sits inside its axis, not on the rules.
+  const [F] = pairScales([60, 60, 60], [1, 2]);
+  assert.ok(F.min < 60 && F.max > 60);
 });

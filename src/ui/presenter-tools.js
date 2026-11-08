@@ -15,12 +15,13 @@
 //   tool: { kind: 'wall' }                          the varix in cross-section, Laplace's σ, r and w (the scope's Wall mechanics)
 //   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
 //                                                   teaching clock in minutes (flow-time.js), drawn as it plays
+//   tool: { kind: 'evgraph', title? }                a TIPS, BRTO or BATO slide's procedure graph (event-graph.js) in the data card, drawn live after the stent as the presenter plays it
 //   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }
 //                                                   the same chart over a disease time-lapse: two fingerprint keys
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //   tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 } }
-//                                                   a line the model has no number for (weight lost, %) is the slide's own: given is its
-//                                                   end value, reached in step with the time-lapse's ramp from 0; the other line is the model's
+//                                                   a line the model has no number for (body weight, % of start) is the slide's own: given is its
+//                                                   fall in %, from 100 down in step with the time-lapse's ramp; the other line is the model's
 //
 //   tool: { kind: 'vitals', show?: ['hr', 'map', 'hb'] }
 //                                                   a black bedside monitor: the EKG strip over up to three of hr, map, co, hb as large numbers
@@ -39,6 +40,7 @@
 // has landed, the model sends the steady state's last seconds (worker-core.js, History) and the instrument takes them in front of what it
 // has recorded (backfill.js), so the trace sweeps on live from there instead of in from empty.
 
+import { fibroReading } from './clock.js';
 import { store } from './store.js';
 import { h } from './util.js';
 import { EDGES } from '../engine/topology.js';
@@ -48,6 +50,7 @@ import { createPressureTime } from './pressure-time.js';
 import { createVitalsMonitor } from './vitals-monitor.js';
 import { createHvpgCard } from './tool-hvpg.js';
 import { createFlowTime } from './flow-time.js';
+import { createEventGraph } from './event-graph.js';
 import { createEndoscopy, createAbdomen, createVarixWall } from './instruments.js';
 import { frameFor } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
@@ -66,6 +69,7 @@ const TITLE = {
   abdomen: () => 'The abdomen',
   wall: () => 'The varix wall, in cross-section',
   flowtime: () => 'Portal pressure and flow over time',
+  evgraph: (t) => t.title || 'What the stent changes',
   vitals: () => 'Vital signs',
   hvpg: () => 'HVPG, catheter tracing',
 };
@@ -102,7 +106,7 @@ export function createTools({ host, stage }) {
   function make(k) {
     if (made[k]) return made[k];
     const inst = k === 'doppler' ? createDoppler({ onProbe: noop, pickGate: false }) : k === 'fibroscan' ? createFibroScan({ switcher: false }) : k === 'scope' ? createEndoscopy({ onAction: noop })
-      : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'flowtime' ? createFlowTime()
+      : k === 'abdomen' ? createAbdomen({ onAction: noop }) : k === 'wall' ? createVarixWall() : k === 'beats' ? createPressureTime() : k === 'talk' ? talkTrace() : k === 'flowtime' ? createFlowTime() : k === 'evgraph' ? createEventGraph()
         : k === 'vitals' ? createVitalsMonitor() : k === 'hvpg' ? createHvpgCard()
         : Object.hasOwn(EXT.tools, k) ? guard(safe(() => EXT.tools[k].make({ host, stage, store }), null, `tools.${k}.make`), `tools.${k}`) : null;
     if (inst && !inst.el?.classList) return null;   // (a registered instrument that made no element is left out)
@@ -157,7 +161,7 @@ export function createTools({ host, stage }) {
       if (cur && cur !== inst) cur.park?.();
       if (cur !== inst) box.replaceChildren(inst.el, ghostEl);
       cur = inst; kind = k;
-      box.dataset.kind = k;
+      box.dataset.kind = k === 'evgraph' ? 'flowtime' : k;   // (the procedure's graph is the flow-time chart's box and looks: its card sizes and fits as that one does)
       if (k === 'talk') inst.set(chain);
       else if (k === 'flowtime') inst.set(trail, reveal, { clock: t.clock, lines: t.lines, given: t.given });
       else { const f = store.get().frame; if (f) nextFrame(() => cur === inst && inst.update?.(f)); }
@@ -169,6 +173,8 @@ export function createTools({ host, stage }) {
     option(patch) { if (cur && lastTool) cur.configure?.(patch ? { ...lastTool, ...patch } : lastTool, lastCtx); },
     /** The numbers the slide's tiles and words show (a fingerprint): a reading instrument shows the same, not the beat-to-beat live value. */
     pin(fp) { for (const k in made) made[k]?.pin?.(fp); },
+    /** The instrument of kind k when it is the one showing (the presenter drives the procedure's graph: presenter.js evAdopt), else null. */
+    current(k) { return kind === k ? cur : null; },
     progress(k, trail) { if (kind === 'flowtime') cur.set(trail, k); },
     /** The card has been fitted (its zoom may have changed with the chart's box the same size): a chart redraws at the type its zoom now asks for. */
     refit() { cur?.refit?.(); },
@@ -201,7 +207,7 @@ export function createTools({ host, stage }) {
     holdAnswer(on, instant = false) { cur?.hold?.(!!on, instant); },
     /** The catheter's balloon on the figure (0 down … 1 wedged), every frame it moves: the tracing on the card, if it follows the catheter, rides it. */
     balloon(b) { cur?.balloon?.(b); },
-    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); cur?.park?.(); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },
+    hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); fibroReading.pinned = null; cur?.park?.(); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },
     /** The presentation is over: the Doppler goes back to the vessel it had. */
     dispose() {
       if (probe0 !== undefined) { host.send({ type: 'probe', id: probe0 }); store.set({ dopGate: gate0 || 'mid' }); } probe0 = undefined; lastSt = null; lastSlide = null; this.hide();

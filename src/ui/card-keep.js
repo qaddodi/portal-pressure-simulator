@@ -22,7 +22,7 @@ const ownData = (s) => !s || OWN.some((k) => k !== 'lapse' && s[k] && !(k === 'c
 // Instruments that record the patient's flow as it passes: another patient clears their trace, so their card is built again
 // rather than kept. Charts drawn from the deck's own states (the talk's trace, the flow-time chart) are redrawn per slide.
 const records = (t) => !!t && (t.kind === 'doppler' || t.kind === 'vitals' || (t.kind === 'trace' && t.range === 'beats'));
-const drawn = (t) => !!t && (t.kind === 'flowtime' || (t.kind === 'trace' && t.range !== 'beats'));
+const drawn = (t) => !!t && (t.kind === 'flowtime' || t.kind === 'evgraph' || (t.kind === 'trace' && t.range !== 'beats'));
 /** Whether the data card's instrument can ride a change of patient: it reads the live model, which eases from the old patient to the new. */
 export const eases = (t) => !records(t) && !drawn(t);
 
@@ -40,7 +40,7 @@ export function dataPlan(s, o = {}) {
 // What a slide's teaching card is made of: the whole slide but what only the data card, the figure, the camera or the model read. A
 // field this leaves out that does change the words would keep stale words; so it names what to leave out, not what to keep.
 const NOT_WORDS = ['id', 'notes', 'tell', 'tool', 'data', 'tiles', 'dataTitle', 'clock', 'hvpgResp', 'delta', 'cam', 'view', 'kMax', 'clear', 'layers',
-  'labels', 'tint', 'mark', 'marks', 'glow', 'sites', 'callout', 'tick', 'when', 'milestone', 'preset', 'presetDays', 'params', 'action', 'days', 'ramp', 'beats'];
+  'labels', 'tint', 'mark', 'marks', 'glow', 'sites', 'callout', 'tick', 'when', 'milestone', 'preset', 'presetDays', 'params', 'action', 'days', 'relax', 'ramp', 'beats'];
 /** A slide's teaching card, or null when the slide has none (a visual's panel is another card). */
 export function textPlan(s) {
   if (!s || s.visual) return null;

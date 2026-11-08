@@ -52,7 +52,7 @@ const VESSEL = {
   AP_R: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.', AP_L: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.',
   TIPS: 'A stent through the liver from a portal branch to a hepatic vein: bypasses the sinusoids and lowers portal pressure at once.',
   DIPS: 'A stent through the caudate lobe from the right portal vein into the intrahepatic IVC, below the hepatic veins. Used when the hepatic veins are occluded and the cava is open.',
-  S_PC: 'A surgical portocaval shunt: the portal vein joined to the IVC. Total diversion.',
+  S_PC: 'A surgical portocaval shunt: the portal vein joined to the IVC. End-to-side divides the portal vein at the liver (total diversion); side-to-side keeps it, so the liver drains back out through it too.',
   S_DSR: 'The Warren distal splenorenal shunt: decompresses the varices through the splenic vein while keeping some portal flow to the liver.',
   S_MC: 'A surgical mesocaval shunt from the superior mesenteric vein to the IVC.',
   REX: 'The Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein at the Rex recess, past a clotted portal trunk. It returns the gut\u2019s blood to the liver instead of to the veins of the body.',

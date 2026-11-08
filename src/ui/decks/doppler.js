@@ -1,6 +1,6 @@
 // Presenter talk: Doppler of the portal system (Core). Slide fields as documented at the top of decks.js. The last half is Read the
 // Doppler's five cases (deck rebuild plan D1, 25 Oct 2026): each case is one slide, the case card asking before the slide answers. The Doppler facts follow McNaughton and Abu-Yousef (RadioGraphics 2011);
-// EASL 2025 makes Doppler the first test for portal vein thrombosis and Budd–Chiari syndrome.
+// Baveno VIII 9.2 makes Doppler the first-line test for portal vein thrombosis (8.25 gives the diagnosis of Budd–Chiari syndrome).
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 const STENT = { tips: { on: true, d: 9 }, splanchnicTone: 0.7, habrStrength: 1.5, apShunt: 0.5, stenosis: { TIPS: 0.6 } };
@@ -17,7 +17,7 @@ export const DOPPLER = {
   checks: [
     ['In what order do you read a Doppler trace, and what does a main portal vein trace below the baseline mean?', 'Direction (above or below the baseline), then speed (the velocity), then shape (steady, pulsing or flat). Below the baseline is hepatofugal flow: portal blood runs away from the liver, out through collaterals, in advanced cirrhosis.'],
     ['The portal vein pulses with each beat and the HVPG is normal. Where is the problem?', 'In the heart: a high right atrial pressure reaches back through the sinusoids to the portal vein.'],
-    ['A year after a TIPS, the left portal vein flows toward the liver. What do you suspect?', 'The stent is narrowing. Sample the stent at its three points and confirm with venography and a pressure gradient.'],
+    ['Six months after a TIPS, the left portal vein flows toward the liver. What do you suspect?', 'The stent is narrowing. Sample the stent at its three points and confirm with venography and a pressure gradient.'],
     ['Over two years, portal velocity falls from 25 to 12 cm/s with no clot. What moved?', 'The resistance inside the liver rose, so less blood runs through the portal trunk and more takes the collaterals.'],
   ],
   summary: 'What the Doppler probe reads in the portal and hepatic veins, and how to read a trace in order: direction, speed, shape. Five cases to read before the answer, from reversed portal flow to a narrowed TIPS, then a table that compares them.',
@@ -39,8 +39,8 @@ export const DOPPLER = {
     },
     {
       // (The same meal as the Circuit talk's, eased in over 8 days, as a time-lapse from fasting, on the seconds clock so the Doppler records the rise.)
-      id: 'meal', params: { respiration: false }, days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal', clock: 'seconds' },
-      cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'meal', params: { respiration: false }, days: 8, ramp: { meal: [0, 1] }, lapse: { seconds: 6, from: 'Fasting', to: 'After a meal', clock: 'seconds' }, graph: false,   // (the Doppler record is this slide's time graph)
+      cam: 'gut', lapseGlow: ['bowel'], labels: ['SMV', 'CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
       data: 'tiles', tiles: ['pvFlow'], key: ['pvFlow'], delta: true,
       kicker: 'Doppler', title: 'Portal flow rises after a meal',
       line: 'Within half an hour of eating, the gut arterioles open and portal flow rises by 40 to 80%. Scan fasting, or you will overestimate the velocity and miss slow flow.',
@@ -49,11 +49,11 @@ export const DOPPLER = {
     },
     {
       id: 'slow', lens: 'velocity', preset: 'cirr-decomp', params: { cirrhosis: 0.92 }, cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
-      data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
+      data: 'tiles', tiles: ['pvVel'], key: ['pvVel'],
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis slows the portal vein',
-      vignette: 'A 62-year-old man with alcohol-associated cirrhosis has ascites on spironolactone and furosemide and large esophageal varices. He comes fasting for a Doppler ultrasound.',
+      vignette: 'A 62-year-old man with alcohol-associated cirrhosis has large esophageal varices, and his ascites is controlled on diuretics. He comes fasting for a Doppler ultrasound.',
       caseQ: 'How fast will his portal vein run?',
-      line: 'Resistance in the sinusoids slows portal flow. A velocity {<15 cm/s} is abnormal.',
+      line: 'Resistance in the sinusoids slows portal flow to {pvVel}. A velocity {<15 cm/s} is abnormal.',
       notes: 'As intrahepatic resistance rises, portal velocity falls and the vein widens (a main portal vein over 13 mm is a soft sign). The congestion index, cross-sectional area over mean velocity, is about 0.07 cm × s in health; above 0.1 suggests portal hypertension. These signs are specific but insensitive: a normal Doppler does not exclude clinically significant portal hypertension. Splenomegaly, collaterals and reversed flow in the paraumbilical vein add to the picture.',
       ask: ['What portal vein velocity is abnormal?', 'A velocity <15 cm/s.'],
     },
@@ -65,21 +65,21 @@ export const DOPPLER = {
       ask: ['Describe the normal main portal vein trace.', 'Above the baseline (hepatopetal), ≥15 cm/s, steady with a gentle ripple from breathing.'],
     },
     {
-      id: 'a1', lens: 'direction', preset: 'cirr-hepatofugal', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'a1', lens: 'direction', preset: 'cirr-hepatofugal', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK', mode: 'color' },
       vignette: 'A 63-year-old man with hepatitis C cirrhosis has had two admissions for encephalopathy this year. He comes fasting for an ultrasound before a TIPS is considered.',
       caseQ: 'Which way will his portal blood run?',
       kicker: 'Portal inflow', site: 'sin', title: 'Below the baseline: the portal vein has reversed',
       line: 'The spectrum sits below the baseline: portal blood runs away from the liver, out through a splenorenal shunt. Hepatofugal flow signals a large shunt and a worse outlook.',
-      notes: 'Hepatofugal flow appears in advanced cirrhosis, in about 8% of patients, usually with large spontaneous shunts, when the liver resists more than the collaterals do. The liver then depends on the hepatic artery. It raises the risk of portal vein thrombosis and of encephalopathy, and it is a warning before a TIPS. To-and-fro flow is the step before full reversal. Colored by direction, the portal and splenic veins show the reversed flow draining away through the splenorenal shunt.',
+      notes: 'Hepatofugal flow appears in advanced cirrhosis, in about 8% of patients, usually with large spontaneous shunts, when the liver resists more than the collaterals do. The liver then depends on the hepatic artery. It raises the risk of portal vein thrombosis and of encephalopathy, and it is a warning before a TIPS. To-and-fro flow is the step before full reversal. Colored by direction, the portal and splenic veins show the reversed flow draining away through the splenorenal shunt. On the color map the reversed vein reads blue, the color of flow away from the probe.',
       ask: ['What does hepatofugal portal flow tell you about the liver?', 'Its resistance is higher than the collaterals\', so portal blood leaves through them: advanced cirrhosis.'],
     },
     {
-      id: 'a2', terms: ['pv'], preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK' },
+      id: 'a2', terms: ['pv'], preset: 'pvt-acute', cam: 'portal', labels: ['CONF'], mark: { edges: ['PV_TRUNK'], label: 'Clot' }, tool: { kind: 'doppler', vessel: 'PV_TRUNK', mode: 'color' }, cite: 'Baveno VIII 9.2',
       vignette: 'A 41-year-old woman with a JAK2-positive myeloproliferative neoplasm has had 5 days of constant abdominal pain. Her liver tests are normal.',
       caseQ: 'What will the portal vein trace show?',
       kicker: 'Portal inflow', site: 'pre', title: 'No signal: a clot fills the portal vein',
       line: 'An occlusive clot leaves nothing to read in the portal vein, and the HVPG stays {hvpg} because the resistance lies before the liver.',
-      notes: 'EASL 2025 makes Doppler ultrasound the first test for portal vein thrombosis: echogenic material in the lumen with no color or spectral signal. An empty trace counts only once the technique is right: the angle under 60 degrees, the gain and scale low enough for slow flow, and the gate inside the lumen. An acute clot may be nearly anechoic, so the missing flow matters more than the gray-scale picture. When portal flow falls, the hepatic artery dilates and carries more (the hepatic arterial buffer response). CT or MR then shows how far the clot reaches into the splenic and mesenteric veins.',
+      notes: 'Baveno VIII 9.2 makes Doppler ultrasound the first-line test for portal vein thrombosis: solid material in the lumen, or a network of porto-portal collaterals that suggests a cavernoma. On the color map a clot leaves no color fill, and the spectrum is empty. An empty trace counts only once the technique is right: the angle under 60 degrees, the gain and scale low enough for slow flow, and the gate inside the lumen. An acute clot may be nearly anechoic, so the missing flow matters more than the gray-scale picture. When portal flow falls, the hepatic artery dilates and carries more (the hepatic arterial buffer response). Multiphase CT then confirms the clot and shows how far it reaches into the splenic and mesenteric veins (9.2).',
       ask: ['The trace is empty with the angle and gain set right. What does that suggest?', 'No flow in the vein: an occlusive clot.'],
     },
     {
@@ -88,7 +88,7 @@ export const DOPPLER = {
       caseQ: 'What will her right hepatic vein trace show?',
       kicker: 'Outflow', site: 'post', title: 'No waves in the hepatic veins: Budd–Chiari syndrome',
       line: 'The hepatic veins are clotted, so the trace is absent or flat. The portal vein slows to {pvVel}, about half its healthy speed, and ascites builds.',
-      notes: 'A normal hepatic vein trace runs mostly below the baseline, toward the heart, in two waves each beat with a brief reversal as the atrium contracts. EASL 2025 makes Doppler ultrasound the first test for Budd–Chiari syndrome: absent, reversed or flat flow in the hepatic veins, comma-shaped intrahepatic collaterals (spider-web veins) and a large caudate lobe. The portal vein slows and may reverse. It is the mirror image of portal vein thrombosis, where the portal vein is empty and the hepatic veins are normal.',
+      notes: 'A normal hepatic vein trace runs mostly below the baseline, toward the heart, in two waves each beat with a brief reversal as the atrium contracts. Doppler ultrasound is the usual first test for Budd–Chiari syndrome. It looks for absent, reversed or flat flow in the hepatic veins, comma-shaped intrahepatic collaterals (spider-web veins) and a large caudate lobe. Baveno VIII 8.25 makes the diagnosis by showing obstruction of the venous lumen, or hepatic vein collaterals with no patent hepatic veins. The portal vein slows and may reverse. It is the mirror image of portal vein thrombosis, where the portal vein is empty and the hepatic veins are normal.',
       ask: ['How does Doppler tell Budd–Chiari syndrome from portal vein thrombosis?', 'In Budd–Chiari the hepatic veins have no flow; in portal vein thrombosis the portal vein has none.'],
     },
     {
@@ -102,7 +102,7 @@ export const DOPPLER = {
     },
     {
       id: 'a5', lens: 'direction', preset: 'cirr-decomp', params: STENT, days: 180, cam: 'liver', labels: ['LPV'], mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'PVH_L' },
-      vignette: 'A 60-year-old man had a covered TIPS for refractory ascites a year ago. Over the last month his ascites has come back.',
+      vignette: 'A 60-year-old man had a covered TIPS for refractory ascites six months ago. Over the last month his ascites has come back.',
       caseQ: 'Which way will his left portal vein flow?',
       kicker: 'After TIPS', site: 'sin', title: 'Toward the liver again: the stent has narrowed',
       line: 'The left portal vein flows toward the liver again, so the stent no longer draws it. The stent has narrowed, and the PPG is back to {ppg}.',

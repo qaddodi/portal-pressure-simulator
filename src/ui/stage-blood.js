@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, NODES } from '../engine/topology.js';
 import { SITES } from './anatomy.js';
-import { DRIFT_PERIOD, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, MEAN_TAU, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createBreathMean, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
+import { DRIFT_PERIOD, DRIFT_RATE, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, MEAN_TAU, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createBreathMean, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
 import { createDyeRemote } from './dye-remote.js';
 import { flowClose, retireRows } from './flow-rows.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
@@ -16,7 +16,7 @@ import { STYLE_D, STYLE_E } from './blood-tile.js';
 const STYLE_ANATOMY = STYLE_D, STYLE_CIRCUIT = STYLE_E;
 
 export function createBlood(st, live) {
-  const { E, EI, EV, GL_ROWS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold } = st;
+  const { E, EI, EV, GL_ROWS, SIDE_HOSTS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold } = st;
   // ── Moving blood ──────────────────────────────────
   // What is kept true, and what is exaggerated, is set out in blood.js. Every model vessel has a
   // stream (hidden ones too: a dye bolus passes through them); each drawn vessel, strand and
@@ -57,7 +57,7 @@ export function createBlood(st, live) {
       // (Where the GPU has it now: the stream's own distance and drift follow it, so the two never part. The GPU integrates the
       // display speed's slope aA too (flowD), so a beat's swing needs no new anchor while the slope holds.)
       sm.D = (((sm.aD + (sm.aV + 0.5 * sm.aA * dt) * sm.aS * dt) % PERIOD) + PERIOD) % PERIOD;
-      sm.drift = (sm.aR + sm.aT * 0.06 * dt) % DRIFT_PERIOD;
+      sm.drift = (sm.aR + sm.aT * DRIFT_RATE * dt) % DRIFT_PERIOD;
       if (sp === sm.aS && Math.abs(sm.vd - (sm.aV + sm.aA * dt)) <= VD_HAIR + VD_REL * Math.abs(sm.aV) && Math.abs(sm.stasis - sm.aT) <= STASIS_HAIR) { sm.vp = sm.vd; return; }
     }
     // (The new slope: this frame's change in the display speed over the blood clock it took; none while the clock stands still.)
@@ -76,13 +76,40 @@ export function createBlood(st, live) {
   const laneOpen = (id) => !!E[id]?.vis && !E[id].ghost;
   const keyOnly = () => !!store.get().presenting || !!store.get().blood?.keyChevrons;
   // The Blood origin lens colors each lumen by where its blood comes from (streams side by side).
-  const originOn = () => !!live.F && layerMode() === 'origin';
+  // (Its sibling, the First pass lens, colors the same streams by what the liver did to the gut blood: blood.js FIRSTPASS.)
+  const originOn = () => !!live.F && (layerMode() === 'origin' || layerMode() === 'firstpass');
+  let oPass = false, oPassed = false;   // (the lens the origin colours are worked for; kept while the lens fades out, so they do not change colour on the way)
   // Its mixing along a vessel (blood.js originEnds): each vessel's flow forward and back, from the model's beat-by-beat flow, averaged
   // over a few breaths (ORIGIN_TAU s). Their difference is the mean that sets the blends at the junctions; the smaller of the two is the
   // blood that runs to and fro. One pass over the vessels a frame, a few sums each; the blends themselves are worked out once a model frame.
   const ORIGIN_TAU = 3;
   const oFwd = new Float64Array(EDGES.length), oBack = new Float64Array(EDGES.length), oMean = new Float64Array(EDGES.length);
-  const oEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length) };
+  const oEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length), join: new Float32Array(EDGES.length) };
+  // A shunt drawn into the side of a vein part-way (stage-geo.js SIDE_HOSTS) whose model end is the shunt's own node: the left renal vein's
+  // venules (V_KID_L) take the splenorenal shunt in front of the node, so from there on they carry the shunt's blood too (blood.js originEnds, join).
+  const HOSTED = [];
+  for (const cid of Object.keys(SIDE_HOSTS || {})) for (const hid of SIDE_HOSTS[cid][1] || []) if (EI[cid] != null && EI[hid] != null && EDGES[EI[cid]].to === EDGES[EI[hid]].to) HOSTED.push({ cid, hid, kc: EI[cid], kh: EI[hid] });
+  // Where along `P` (a polyline of [x, y]) the point (px, py) falls, 0 to 1 by arc length.
+  function arcFrac(P, px, py) {
+    let tot = 0, best = Infinity, at = 0;
+    for (let i = 1; i < P.length; i++) {
+      const ax = P[i - 1][0], ay = P[i - 1][1], dx = P[i][0] - ax, dy = P[i][1] - ay, l2 = dx * dx + dy * dy, l = Math.sqrt(l2);
+      const t = l2 > 0 ? clamp(((px - ax) * dx + (py - ay) * dy) / l2, 0, 1) : 0, d2 = (ax + t * dx - px) ** 2 + (ay + t * dy - py) ** 2;
+      if (d2 < best) { best = d2; at = tot + t * l; }
+      tot += l;
+    }
+    return tot > 0 ? at / tot : 0;
+  }
+  function setJoins() {
+    oEnds.join.fill(0);
+    if (live.morph >= 0.5) return;   // (the circuit draws no shunt into a vein's side)
+    for (let i = 0; i < HOSTED.length; i++) {
+      const h = HOSTED[i], c = E[h.cid], P = geo[h.hid]?.cur, C = geo[h.cid]?.cur;
+      if (!c?.vis || c.ghost || !E[h.hid]?.vis || !P || P.length < 2 || !C || C.length < 2 || !(oMean[h.kc] > 0.01) || !(oMean[h.kh] > 0)) continue;
+      const end = C[C.length - 1], j = arcFrac(P, end[0], end[1]);
+      if (j > 0.02 && j < 0.98) oEnds.join[h.kh] = j;
+    }
+  }
   let oSeeded = false;
   function stepOriginFlow(dt) {
     const Q = live.F.Q, Qf = live.F.Qf || Q;
@@ -279,9 +306,11 @@ export function createBlood(st, live) {
     if (!live.veins) return;
     const on = blendA.s > 0 || blendA.c > 0 || blendA.o > 0;
     stepOriginFlow(moving ? dt * live.restK : 0);
-    if (blendA.o > 0 && live.originsF !== live.F) {
-      live.origins = originFractionsInto(EDGES, NODES, oMean, live.F.Pf || live.F.P, live.origins?.length === EDGES.length * ORIGIN_N ? live.origins : new Float32Array(EDGES.length * ORIGIN_N), oEnds);
-      live.originsF = live.F;
+    if (originOn()) oPass = layerMode() === 'firstpass';
+    if (blendA.o > 0 && (live.originsF !== live.F || oPassed !== oPass)) setJoins();
+    if (blendA.o > 0 && (live.originsF !== live.F || oPassed !== oPass)) {
+      live.origins = originFractionsInto(EDGES, NODES, oMean, live.F.Pf || live.F.P, live.origins?.length === EDGES.length * ORIGIN_N ? live.origins : new Float32Array(EDGES.length * ORIGIN_N), oEnds, oPass);
+      live.originsF = live.F; oPassed = oPass;
     }
     syncEnds();
     // (Each row drawn is written whole and a row no longer drawn is cleared once after the loop (flow-rows.js retireRows): the
@@ -307,7 +336,7 @@ export function createBlood(st, live) {
       // Tributaries drawn into a trunk: a share of its flow by caliber.
       if (live.morph < 0.5) for (const fd of x.feeders || NONE) if ((fd.live ?? 1) > 0 && fd.w) put(fd.row, k, q * 0.5 * (fd.w / Math.max(1, x.width)) ** 2, true, false, rs * (fd.live ?? 1));
       // The liver's branches in the circuit: a share of the vessel's flow by caliber.
-      if (live.morph >= 0.5) for (const cb of x.cbr || NONE) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs);
+      if (live.morph >= 0.5) for (const cb of x.cbr || NONE) if (cb.w) put(cb.row, k, q * 0.5 * (cb.w / Math.max(1, x.width)) ** 2, true, true, rs, oPass);   // (First pass: a liver branch cleans along its length too)
     }
     if (on) {
       // (At idle rest the junctions' blends hold where the blood stopped: rewritten as they stand, no step taken, and a blend that was
@@ -381,6 +410,7 @@ export function createBlood(st, live) {
     L.style = live.morph < 0.5 ? STYLE_ANATOMY : STYLE_CIRCUIT;   // (a view's look: blood-tile.js STYLE_*; Circuit's is its own thread's to change)
     L.clock = live.bloodClock; L.bt = live.bloodClock - bEpoch; L.dye = !st.imaging; L.bleed = bleedSpray(); L.noChev = live.noChevBoxes; L.holes = live.chevHoles; L.vdpr = live.vdpr;
     L.originCol = bc.originCol; L.dyeCol = bc.dyeCol; L.inkLight = bc.inkLight; L.inkDark = bc.inkDark; L.revCol = bc.revCol; L.chevInk = bc.chevInk; L.chevLight = bc.chevLight;
+    if (oPass) L.originCol = bc.firstCol;   // (the First pass lens's five colours in the origin slots)
     return L;
   }
   return { bloodLook, bloodOn, bolus, chevOn, injectDye, originOn, restStill, sprayFading, sprayOn, stepBlood, stepRest, stepSpray, streams };

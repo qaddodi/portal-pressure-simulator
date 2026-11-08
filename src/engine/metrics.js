@@ -106,7 +106,11 @@ export function computeMetrics(eng, out = null) {
   const lossPct = clamp((ref + b.infused - (b.inf0 || 0) - bv) / ref * 100, -50, 100);
   const shock = eng.blood.lost > 0 ? (lossPct >= 40 ? 4 : lossPct >= 30 ? 3 : lossPct >= 15 ? 2 : 1) : 0;
   const hct = eng.hct();
-  const heIdx = shuntFraction * (0.6 + 0.8 * p.cirrhosis);
+  // The encephalopathy index (0 to 1, a model index and not a clinical score): how much of the gut's blood misses the liver's work, from the two
+  // things that say so: the share of the portal blood that skips the liver (shunt) and how little the liver itself is perfused (the sinusoidal flow
+  // against its own normal). The share saturates near 94% after any TIPS from 6 to 12 mm, the perfusion does not, so the stent widths read apart.
+  // Cirrhosis weighs both (a scarred liver clears less of what still reaches it); a normal liver keeps 0.8 of it (acute PVT, 0.34).
+  const heIdx = (0.5 * shuntFraction + 0.5 * clamp(1 - hepFlow / eng.baseHepFlow, 0, 1)) * (0.8 + 0.2 * clamp(p.cirrhosis, 0, 1));
 
   const cath = p.catheter;
   let measured = null;

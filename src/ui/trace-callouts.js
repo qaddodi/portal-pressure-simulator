@@ -4,10 +4,11 @@
 // it sits on and moves with it, never as a DOM label. Nothing here allocates per frame (the words are kept per marker: a cell).
 
 import { FONT } from './charts.js';
+import { D_SMALL } from './motion.js';
 import { fmt } from './util.js';
 
 /** How long a marker takes to drop onto its point (ms) and how far above (or below) its place it starts (px). */
-export const DROP_MS = 220;
+export const DROP_MS = D_SMALL;
 export const DROP_PX = 10;
 const STEM = 7, PAD = 6, PILL_H = 18;
 /** The share of a marker that has dropped, `since` ms after its reading was taken (0 before it, 1 from DROP_MS on; eased out). */

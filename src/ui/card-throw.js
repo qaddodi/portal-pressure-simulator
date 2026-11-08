@@ -22,7 +22,7 @@ const nextFrame = frameFor('card-throw');
 // rail's curve.)
 // (Out on the rail's curve, which starts at once and fast, gone from sight by 85 % of its way (a few frames), and in on it from
 // the same distance.)
-export const RAIL_MS = 560, RAIL_GAP = 24;
+export const RAIL_MS = 560, RAIL_GAP = 24;   // motion-scale: own pace (the rail throw, decided with the cards)
 export const easeRail = cubicBezier(0.32, 0.72, 0, 1);
 
 /** Where a card is at k (0 to 1) of its move, on the rail's curve: out, gone from sight by 85 % of its way; in, with no overshoot,
@@ -116,7 +116,7 @@ function step() {
 // (The guard: one timer for every move, asked when a move starts and again for the next deadline. A move still running GUARD_MS after
 // its own end on the wall clock was not finished by a frame (the loop stopped, or the frames came too late): it lands where it was
 // going, its holder told, as step would have. A page whose frames run on time never reaches it.)
-const GUARD_MS = 400;
+const GUARD_MS = 400;   // motion-scale: not a move (a guard for stopped frames)
 let guardT = 0, guardAt = Infinity;
 function guardBy(deadline) {
   if (guardT && guardAt <= deadline) return;
