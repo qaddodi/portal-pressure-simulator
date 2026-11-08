@@ -496,7 +496,7 @@
     --diaphragm: #9C8C84;
     --artery: #E4606C;
     --casing-rgb: 10 8 8;
-    --casing-a: .6;
+    --casing-a: .3;
     --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
     --ascites: #F0C67A;
     --ascites-a: .24;
@@ -727,7 +727,7 @@
   --diaphragm: #9C8C84;
   --artery: #E4606C;
   --casing-rgb: 10 8 8;
-  --casing-a: .6;
+  --casing-a: .3;
   --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
   --ascites: #F0C67A;
   --ascites-a: .24;
@@ -990,7 +990,7 @@
   --flow-reversed: #FF8C42;
   --artery: #E4606C;
   --casing-rgb: 0 0 0;
-  --casing-a: .72;
+  --casing-a: .38;
   --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
   --leader: rgba(236, 228, 214, .42);
   --vein-portal: var(--tour-portal);
@@ -1043,7 +1043,7 @@
     --flow-reversed: #FF8C42;
     --artery: #E4606C;
     --casing-rgb: 0 0 0;
-    --casing-a: .72;
+    --casing-a: .38;
     --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
     --leader: rgba(236, 228, 214, .42);
     --vein-portal: var(--tour-portal);
@@ -1175,7 +1175,7 @@
   --organ-body: #0F0F11;
   --organ-body-line: #2A2A2E;
   --casing-rgb: 0 0 0;
-  --casing-a: .7;
+  --casing-a: .38;
   --stage-grid: rgba(255, 255, 255, .05);
   --leader: rgba(230, 230, 235, .42);
   --arrow-ink: rgba(244, 244, 245, .82);
