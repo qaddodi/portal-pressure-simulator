@@ -943,7 +943,7 @@ export function createVessels(st, live) {
     lookRgba(vl.sheen, toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42));
     lookRgba(vl.shade, toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2));
     lookRgba(vl.rim, toRGB('var(--light-ink)', cs), cssNum(cs, '--vessel-rim-a', 0));
-    lookRgba(vl.paper, toRGB('var(--stage-bg)', cs), 1);
+    lookRgba(vl.paper, toRGB('var(--stage-bg)', cs), cssNum(cs, '--vessel-knock-a', 1));
     lookRgba(vl.ring, live.olCol = toRGB('var(--accent)', cs), 0.34);
     vl.netAlpha = live.netA;
     live.vLook = vl;
