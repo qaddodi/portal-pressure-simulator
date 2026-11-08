@@ -2043,8 +2043,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // wholly black, no vessels, organs or labels, the cards and charts drawn. A canvas that does not keep its picture is cleared once the page has
   // shown it, so any frame that touches it without the whole kept picture laid first (a pass, a glass or a cover drawing on its own, a draw of
   // nothing) shows a cleared figure. Kept, such a frame shows the last picture under it. Every present still lays the kept picture whole.)
+  // (Not kept again where ownBuf is (8 Nov 2026, Mohammad's Mac: 26 fps, GPU-bound, the sampled gpu line "present copy 33 ms, whole picture 66").
+  // WebKit makes a canvas that keeps its picture draw into a separate full-size buffer of its own, and at each display copies that buffer whole
+  // into the surface the page shows (WebGLDefaultFramebuffer resolveColorIntoResult): with our own whole copy, two full-screen copies a frame
+  // (5.9 MP each on a 14-inch MacBook Pro) and 24 MB more held. Not kept, the canvas is that surface: the present's copy is the only one. The
+  // black frame's cause was the lone pass clearing the canvas (presentSelf's soloOn gate, 4 Nov), and every write to this canvas is a whole lay
+  // (the present's copy, a camera or under lay, a whole picture drawn straight onto it, a clear) or rides one in the same present (the overlays,
+  // the tops); a reader outside the task goes through capture(). A renderer with no kept picture of its own still keeps the canvas's.)
+  const KEEP_CANVAS = !ownBuf;
   let gl = null;
-  try { gl = share ? share.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: true, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
+  try { gl = share ? share.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: KEEP_CANVAS, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (gl && !share) setFenceContext(gl);   // (?perf's GPU fences are planted in the figure's own context, gpu-fence.js)
   if (!gl) return null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.

@@ -78,8 +78,10 @@ export function fenceText() {
   if (!on) return '';
   if (!n) return gl ? `gpu: no sample yet (one frame in ${SAMPLE_EVERY} waits for the GPU)` : 'gpu: no figure context';
   const f = (i) => median(i).toFixed(1);
+  // (A named step's wait is taken out of its phase's: the phase's fence comes after it and finds the queue already worked. So "late 0.0" beside
+  // "present copy 33" (Mohammad's Mac, 8 Nov 2026) is one wait, read in the step; the frame's total counts both.)
   let total = 0; for (let i = 1; i < PHASES; i++) total += median(i);
   let steps = '';
-  for (let i = 0; i < stepNames.length; i++) if (stepN[i]) steps += `${steps ? ', ' : ''}${stepNames[i]} ${stepMedian(i).toFixed(1)}`;   // alloc-rare: once a second, for the readout
-  return `gpu (${n} sampled frames, 1 in ${SAMPLE_EVERY}, each phase's wait for the GPU): backlog at frame start ${f(0)} ms; early ${f(1)}, late ${f(2)}, final ${f(3)}, frame end ${f(4)} ms; this frame's passes ${total.toFixed(1)} ms${steps ? `; inside: ${steps}` : ''}`;
+  for (let i = 0; i < stepNames.length; i++) if (stepN[i]) { const w = stepMedian(i); total += w; steps += `${steps ? ', ' : ''}${stepNames[i]} ${w.toFixed(1)}`; }   // alloc-rare: once a second, for the readout
+  return `gpu (${n} sampled frames, 1 in ${SAMPLE_EVERY}, each phase's wait for the GPU): backlog at frame start ${f(0)} ms; early ${f(1)}, late ${f(2)}, final ${f(3)}, frame end ${f(4)} ms; this frame's passes ${total.toFixed(1)} ms${steps ? `; inside (taken out of the phases): ${steps}` : ''}`;
 }
