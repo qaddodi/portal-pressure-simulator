@@ -96,17 +96,21 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     let same = lay && w === layW && hh === layH && cells.length === layN;
     for (let i = 0; same && i < cells.length; i++) if (layK[i] !== cells[i].k || layU[i] !== cells[i].u) same = false;
     if (same) return lay;
-    const pad = 14, ew = w - 2 * pad, eh = Math.round(clamp(hh * 0.42, 34, 110)), top = pad, bot = pad + eh;   // alloc-rare: only when the size or the cells' words change
-    const y0 = bot + 12, rh = hh - pad - y0, cw = ew / cells.length;
+    // (8 Nov 2026, "the vital signs card is taller than it needs to be": the numbers are sized from the width first, and the strip takes what
+    // is left of the box, up to 110 px, so the card's own height ends at the numbers (styles/app.css .vitals-box max-height: 214 = 14 + 110 + 12 + 18 + 46 + 14, the strip and the numbers at their full size).)
+    const pad = 14, ew = w - 2 * pad, cw = ew / cells.length, top = pad;
     const cl = [];   // alloc-rare: only when the size or the cells' words change
+    let bigMax = 22;
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i];
-      let big = Math.round(clamp(Math.min(rh - 20, cw * 0.42, 46), 22, 46));
+      let big = Math.round(clamp(Math.min(cw * 0.42, 46), 22, 46));
       const uw = textWidth(c.u, 500, 12);
       while (!(textWidth('88.8', 700, big) + uw + 10 <= cw - 6 || big <= 18)) big -= 2;
       cl.push({ x: pad + i * cw, big });   // alloc-rare: only when the size or the cells' words change
+      if (big > bigMax) bigMax = big;
       layK[i] = c.k; layU[i] = c.u;
     }
+    const eh = Math.round(clamp(hh - pad - (12 + 18 + bigMax + pad), 34, 110)), bot = pad + eh, y0 = bot + 12, rh = hh - pad - y0;
     layW = w; layH = hh; layN = cells.length;
     lay = { pad, ew, eh, top, bot, y0, rh, cw, cells: cl };   // alloc-rare: only when the size or the cells' words change
     return lay;
