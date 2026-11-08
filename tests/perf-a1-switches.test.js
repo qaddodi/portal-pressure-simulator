@@ -123,7 +123,8 @@ test('A1.1: the figure\'s own present is never folded: it is laid at once, in a 
 
 test('A1.1: a picture laid without the passes over the figure does not satisfy the ask', () => {
   const { g, look } = renderer();
-  g.draw(M1, look, { on: true });   // (through the kept picture: a present of the figure alone copies it, with no recompose)
+  g.draw(M1, look, { on: true });
+  g.composite(look, { on: true });   // (through the kept picture: a present of the figure alone copies it, with no recompose)
   const t = withTop(g), p0 = g.top.presents, d0 = t.draws;
   runFrame(() => {
     g.top.ask();
@@ -234,4 +235,11 @@ test('A1.2: blood off or a uniform changed: drawn as before (the signature still
   assert.notEqual(g.composite(look, { on: false, bt: 1 }), false, 'blood switched off');
   assert.notEqual(g.composite(look, { on: true, bt: 1 }), false, 'and on');
   assert.notEqual(g.composite(look, { on: true, bt: 1, alpha: 0.5 }), false, 'faded');
+});
+
+test('A1.3: a whole picture goes straight onto the canvas while blood flows too (the frame after makes the kept picture again)', () => {
+  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.ok(!/bloodOk/.test(veins), 'no blood gate on the direct whole picture');
+  assert.match(veins, /const direct = who !== 'lobule' && !noDirect && !!own && full && !up && !camOn\(\)/);
+  assert.match(veins, /if \(own && ownStale && !full\) full = true;/);
 });

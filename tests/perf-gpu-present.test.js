@@ -72,8 +72,9 @@ test('A2: a whole picture drawn straight onto the canvas invalidates the canvas 
 
 test('A2: a whole picture into the kept picture invalidates its colour, and the copy invalidates the canvas', () => {
   const { g, f, look } = renderer();
+  g.draw(M1, look, { on: true });   // (blood on: straight onto the canvas since A1.3, 8 Nov 2026)
   const n0 = f.calls.length;
-  g.draw(M1, look, { on: true });   // (blood on: the kept picture, then the copy onto the canvas)
+  g.composite(look, { on: true });   // (the frame after a direct one makes the kept picture whole again, then copies it onto the canvas)
   const inv = invals(f, n0);
   assert.equal(inv.length, 2);
   const [kept, canvas] = inv;
@@ -89,6 +90,7 @@ test('A2: a whole picture into the kept picture invalidates its colour, and the 
 test('A2: the blood\'s own frame keeps the kept picture it repaints in part: no colour invalidated for the part', () => {
   const { g, f, look } = renderer();
   g.draw(M1, look, { on: true });
+  g.composite(look, { on: true });   // (the kept picture made whole again after the direct one, A1.3)
   const n0 = f.calls.length;
   g.composite(look, { on: true, alpha: 0.5 });
   const inv = invals(f, n0).filter(([c]) => c[1] === f.gl.FRAMEBUFFER);

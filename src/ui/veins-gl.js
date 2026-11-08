@@ -4576,8 +4576,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // a direct run (ownStale, not full) is never direct, so the run ends there.)
       // (Reverted to the kept picture while blood moves (4 Nov 2026, Mohammad: the figure flickers at rest in Anatomy): B2's direct runs beside
       // blood frames are taken out until the flicker is cleared, so a whole picture with blood on goes through the kept one again.)
-      const bloodOk = !blood.on;
-      const direct = who !== 'lobule' && !noDirect && !!own && full && bloodOk && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
+      // (Back on 8 Nov 2026, performance A1.3: the canvas is kept by the renderer now (keep-screen.js, 475a76a), shown in one whole copy a frame, so a
+      // direct whole picture can no longer show half drawn; the frame after a direct run makes the kept picture again (ownStale, below).)
+      const direct = who !== 'lobule' && !noDirect && !!own && full && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
       wholeRun = full ? wholeRun + 1 : 0;
       if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
