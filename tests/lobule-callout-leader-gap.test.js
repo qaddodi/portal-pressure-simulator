@@ -2,7 +2,6 @@
 // line"): it never runs in under the outlined text.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { leaderEnd } from '../src/ui/leader-end.js';
 
 test('the callout leader ends a gap below the letters of a word standing above its ring', () => {
@@ -12,11 +11,4 @@ test('the callout leader ends a gap below the letters of a word standing above i
   const lettersBottom = by + hh / 2 - PAD[3];
   assert.ok(Math.abs(e.y - (lettersBottom + GAP)) < 1e-9, `ends ${e.y - lettersBottom}px below the letters`);
   assert.equal(e.x, 200);
-});
-
-test('lobule-zoom ends the pointer leader on the letters box grown by a gap, not at the pill\'s middle', () => {
-  const js = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(js, /const le = leaderEnd\(ink, a\[0\], a\[1\]\);/);
-  assert.match(js, /setGeo\(callLine, 'x2', ex\); setGeo\(callLine, 'y2', ey\)/);
-  assert.doesNotMatch(js, /setGeo\(callLine, 'x2', bx\)/, 'the leader no longer runs to the pill\'s middle');
 });

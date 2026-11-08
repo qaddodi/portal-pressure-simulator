@@ -76,11 +76,4 @@ test('during a view change (ghosts, or the change\'s own crossfade) and with Red
   state.reduce = true;
   assert.equal(frame(80, 80, 64).on, false, 'Reduce Motion: instant');
 });
-
-test('the draw puts the old picture and its leader out and the new in, and the dot stays whole', () => {
-  assert.match(SRC, /a \*= pr\.mf;/, 'the new picture comes in on the fade');
-  assert.match(SRC, /a \* \(1 - pr\.mf\), st\)/, 'the old picture goes out on it');
-  assert.match(SRC, /const ao = a \* \(1 - mf\);[\s\S]{0,300}pinMark\(lk\?\.line\?\.stroke \? lk\.line : defLine, PG, true, ao\)/, 'the old leader goes out');
-  assert.match(SRC, /pinMark\(lk\?\.line\?\.stroke \? lk\.line : defLine, PG, true, al\)/, 'the new leader comes in');
-  assert.match(SRC, /pinMark\(ds, PG, false, a \* \(ds\?\.op \?\? 1\)\)/, 'the dot on the point is not part of the fade');
-});
+// (The draw's fade assertions on label-gl.js are rules in scripts/source-shapes/b.mjs.)

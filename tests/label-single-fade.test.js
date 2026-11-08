@@ -4,7 +4,6 @@
 // Now the fade is written on the layer's groups (the SVG's own copy of the labels), the root is left alone, and LA stays 1.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const { installPage } = await import('../scripts/warm/dom.mjs');
 installPage();
@@ -54,10 +53,4 @@ test('at the tap (the old labels at full, the new at nothing) the old labels are
   const last = log.filter((x) => x !== 'check').pop();
   assert.deepEqual(last, { o: 1, n: 0 }, 'the old labels ride at full, as view-xf.js says: never a frame with no labels on the figure');
 });
-
-test('no writer of the change or of a presenter\'s glide fades the #labels root', () => {
-  for (const f of ['stage-view.js', 'glide-labels.js']) {
-    const src = readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-    assert.doesNotMatch(src, /labelSvg\.style\.opacity/, f);
-  }
-});
+// (No writer of the change or of a presenter's glide fades the #labels root: a rule in scripts/source-shapes/b.mjs.)

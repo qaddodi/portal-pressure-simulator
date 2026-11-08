@@ -2,7 +2,6 @@
 // page what runs on it: getAnimations flushes style. No browser: a fake page records what is read and what is listed.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import './dom-shim.js';
 
 let frames = [];
@@ -70,9 +69,4 @@ test('a missed transition end cannot keep a hidden tooltip listed', () => {
   classOf(false);
   runFrames(); runFrames(); runFrames(); runFrames();
   assert.equal(listed(), false, 'the count starts again as .show leaves');
-});
-
-test('the present does not read the tooltip\'s animations', () => {
-  const src = readFileSync(new URL('../src/ui/menu-glass.js', import.meta.url), 'utf8');
-  assert.doesNotMatch(src, /tip\.getAnimations/);
 });

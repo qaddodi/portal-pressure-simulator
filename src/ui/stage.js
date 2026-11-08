@@ -3218,11 +3218,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lookChanged() { themeSnap = true; glowSync = true; veinsDirty = true; plateStale = true; stageWake(); },
     lookWhole(cap = 700) {
       return new Promise((done) => {
-        const t0 = performance.now(), t = setTimeout(done, cap);
+        const t0 = performance.now(), t = stageScope.timer(done, cap);
         let calm = 0;
         const poll = () => {
           if (lookPending() || !csSnap || csAsk || themeSnap || glowSync || veinsDirty || veins?.organs?.fading) calm = 0; else calm++;
-          if (calm >= 3 || performance.now() - t0 >= cap) { clearTimeout(t); done(); return; }
+          if (calm >= 3 || performance.now() - t0 >= cap) { stageScope.clear(t); done(); return; }
           lookFrame(poll);
         };
         lookFrame(poll);
