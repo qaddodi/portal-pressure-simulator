@@ -293,6 +293,7 @@ uniform vec4 shadow;                   // rgb, alpha
 uniform vec4 sheenInk;                 // rgb, alpha
 uniform vec4 shadeInk;                 // rgb, alpha
 uniform vec4 rimInk;                   // a dark lumen's light rim: rgb, alpha (0 on the light looks)
+uniform vec4 paperInk;                 // the figure's ground: rgb, alpha (the knock-out ring where vessels of one tier cross)
 uniform vec4 ring;                     // selection ring: rgb, alpha
 uniform vec2 light;                    // unit direction toward the light (world)
 uniform float netAlpha;                // the network group's opacity (dimmed while a vessel is focused)
@@ -746,6 +747,18 @@ void main() {
     float cA = (flags & ${F_NOCASE}) != 0 ? 0.0 : (flags & ${F_DOTTED}) != 0 ? 0.35 : 1.0;
 
     float aa = px * ${EDGE_GLSL};   // (the figure's one edge softness, device px: edge.js, shared with the organ painter)
+    // Where vessels of one tier cross, the one drawn above is cut out of the one below by a ring of the figure's ground 2.5 device px wide, outside its
+    // casing, with its casing across the cut (the atlas convention): without it the two lumens swapped colour at an edge with no line. Only inside the
+    // lower lumen (the ring is a cut in it), never at a join, never for a vessel without a casing.
+    float kn = 0.0, kcas = 0.0;
+    if (fx == 1 && paperInk.a > 0.0) for (int s = 0; s < MAXS; s++) {
+      if ((mem & (1 << s)) == 0 || s == ow || (conn & (1 << s)) != 0 || stier[s] != tt || sz[s] <= sz[ow] || sd[s] < 0.0) continue;
+      int fl = int(sflag[s] + 0.5);
+      if ((fl & (${F_NOCASE} | ${F_DOTTED})) != 0) continue;
+      float reachK = swall[s] + 2.5 * px, fa = clamp(sa[s] * pres[s], 0.0, 1.0) * ((fl & ${F_VEIL}) != 0 ? 0.5 : 1.0);
+      kn = max(kn, fa * paperInk.a * clamp(0.5 - (sd[s] - reachK) / aa, 0.0, 1.0));
+      kcas = max(kcas, fa * clamp(0.5 - (sd[s] - swall[s]) / aa, 0.0, 1.0));
+    }
     float aL = clamp(0.5 - D / aa, 0.0, 1.0);
     if (aL > 0.0) dep = true;
     float aC = clamp(0.5 - (D - wall) / aa, 0.0, 1.0);
@@ -803,11 +816,12 @@ void main() {
       float hs = (he.x > 0.0 ? smoothstep(0.0, max(he.x, fl), sv[ow] * Lh) : 1.0) * (he.y > 0.0 ? smoothstep(0.0, max(he.y, fl), (1.0 - sv[ow]) * Lh) : 1.0);
       lum = mix(lum, min(lum * 1.18 + 0.04, vec3(1.0)), shov[ow] * hs);
     }
+    lum = mix(mix(lum, paperInk.rgb, kn), casing.rgb, casing.a * kcas * kn);
     c = over(vec4(lum, 1.0) * aL, c);
     c *= alpha * tierAlpha[ti];
     float wsel = grp == 1 ? ssel[ow] : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
     float gf = grp == 0 ? 1.0 - occl * sof[ow] : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
-    float lumA = aL * alpha * tierAlpha[ti] * gf;
+    float lumA = aL * (1.0 - kn) * alpha * tierAlpha[ti] * gf;
     if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
       // The stream shown here: the two joined lumens with the largest share, by nearness and by how
       // far past its own end each one runs (a vessel's streaks fade out beyond its end, so at a fork
@@ -2799,7 +2813,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (LKN.length < 512) { LKN = new Float64Array(512); LKD = new Float64Array(512); nLKD = -1; }   // alloc-rare: once, the first look
     nLKN = 0;
     LKN[nLKN++] = k.reach;
-    lkArr(k.shOff); lkArr(k.casing); lkArr(k.shadow); lkArr(k.sheen); lkArr(k.shade); lkArr(k.rim || NO_RIM); lkArr(k.ring); lkArr(k.light);
+    lkArr(k.shOff); lkArr(k.casing); lkArr(k.shadow); lkArr(k.sheen); lkArr(k.shade); lkArr(k.rim || NO_RIM); lkArr(k.paper || NO_RIM); lkArr(k.ring); lkArr(k.light);
     LKN[nLKN++] = k.netAlpha; LKN[nLKN++] = k.fx ? 1 : 0;
     lkArr(k.tierAlpha); lkArr(k.tierGroup);
     LKN[nLKN++] = k.organs;
@@ -3078,6 +3092,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     UC.f4a(u.sheenInk, look.sheen);
     UC.f4a(u.shadeInk, look.shade);
     UC.f4a(u.rimInk, look.rim || NO_RIM);
+    UC.f4a(u.paperInk, look.paper || NO_RIM);
     UC.f4a(u.ring, look.ring);
     UC.f2a(u.light, look.light);
     UC.f1(u.netAlpha, look.netAlpha);

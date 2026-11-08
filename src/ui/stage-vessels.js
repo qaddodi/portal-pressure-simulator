@@ -864,7 +864,7 @@ export function createVessels(st, live) {
     else if (whole) live.tubesNew = true;
     if (live.morph === live.morphTarget) { mt.reach[live.morphTarget] = new Map(live.vBinReach); morphTrackSoon(); envSoon(); }
   }
-  const VLOOK = { shOff: [1.4, 2.8], light: LIGHT, reach: 0, organs: 0, casing: [0, 0, 0, 0], shadow: [0, 0, 0, 0], sheen: [0, 0, 0, 0], shade: [0, 0, 0, 0], rim: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 0, fx: true, tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: null, map: MAP, plate: null };   // alloc-rare: kept, made once for the stage
+  const VLOOK = { shOff: [1.4, 2.8], light: LIGHT, reach: 0, organs: 0, casing: [0, 0, 0, 0], shadow: [0, 0, 0, 0], sheen: [0, 0, 0, 0], shade: [0, 0, 0, 0], rim: [0, 0, 0, 0], paper: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 0, fx: true, tierAlpha: TIER_ALPHA, tierGroup: TIER_GROUP, fluid: null, map: MAP, plate: null };   // alloc-rare: kept, made once for the stage
   const lookRgba = (out, rgb, a) => { out[0] = rgb[0]; out[1] = rgb[1]; out[2] = rgb[2]; out[3] = a; };
   const LOOK_SIG = newLookSig();   // (what the look held at the last sync that drew it: look-sig.js)
   function syncVeinsNow(t) {
@@ -939,6 +939,7 @@ export function createVessels(st, live) {
     lookRgba(vl.sheen, toRGB('var(--light-ink)', cs), cssNum(cs, '--tube-sheen', 0.42));
     lookRgba(vl.shade, toRGB('var(--tube-shade-ink)', cs), cssNum(cs, '--tube-shade', 0.2));
     lookRgba(vl.rim, toRGB('var(--light-ink)', cs), cssNum(cs, '--vessel-rim-a', 0));
+    lookRgba(vl.paper, toRGB('var(--stage-bg)', cs), 1);
     lookRgba(vl.ring, live.olCol = toRGB('var(--accent)', cs), 0.34);
     vl.netAlpha = live.netA;
     live.vLook = vl;
