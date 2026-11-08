@@ -237,6 +237,7 @@ export function createCore(post) {
     return clock === 'disease' && lapse && !lapse.bedside ? Math.max(0, lapse.left - diseaseAcc) / Math.max(speed, 1e-6) : undefined;
   }
   function frame() {
+    wstat.frames++; if (paramsDirty) wstat.params++;
     const m = detectEvents(eng);
     const D = new Float32Array(eng.E);   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; a posted frame's buffers are transferred to the page, so each frame needs fresh ones
     for (let k = 0; k < eng.E; k++) D[k] = eng.diameter(eng.edges[k].id);
@@ -327,10 +328,18 @@ export function createCore(post) {
     for (let k = 0; k < eng.E; k++) { const d = eng.diameter(eng.edges[k].id); if (Math.abs(d - still.D[k]) > EPS_ABS + EPS_REL * Math.abs(still.D[k])) return true; }
     return false;
   }
+  // (The ?perf frame panel's physics row (frame-hud.js, 8 Nov 2026): what the clock really did since it last asked, 'perfStats'. A few
+  // increments a tick and one more clock read; nothing is made.)
+  const wstat = { ticks: 0, steps: 0, busy: 0, maxBusy: 0, maxGap: 0, late: 0, dropped: 0, frames: 0, params: 0, held: 0, samples: 0, days: 0, jobs: {}, jobMs: 0, since: performance.now() };
   function tickOnce() {
     const now = performance.now();
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
+    if (last != null) { const g = now - last; if (g > wstat.maxGap) wstat.maxGap = g; if (g > 50) wstat.late++; if (g > 100) wstat.dropped += g - 100; }
+    wstat.ticks++;
     last = now;
+    try { tickBody(now, realDt); } finally { const b = performance.now() - now; wstat.busy += b; if (b > wstat.maxBusy) wstat.maxBusy = b; }
+  }
+  function tickBody(now, realDt) {
     eng.beat = beat;
     if (morph || running) stateVer++;
     if (morph) {
@@ -362,9 +371,10 @@ export function createCore(post) {
         let n = Math.min(Math.floor(stepAcc / h + 1e-9), cap);
         stepAcc = n >= cap ? 0 : Math.max(0, stepAcc - n * h);
         const every = Math.max(1, Math.floor(n / 24));
+        wstat.steps += n;
         for (let i = 0; i < n; i++) {
           eng.step(h);
-          if (i % every === 0) sample();
+          if (i % every === 0) { sample(); wstat.samples++; }
         }
       } else {
         diseaseAcc += realDt * speed; // speed = sim days per real second
@@ -379,7 +389,7 @@ export function createCore(post) {
             sample();
           }
         } else if (days > 0) {
-          diseaseAcc -= days;
+          diseaseAcc -= days; wstat.days += days;
           if (lapse) lapseDays(days);
           else {
             const r = eng.advanceDays(days);
@@ -395,6 +405,7 @@ export function createCore(post) {
     const due = running && now - lastFrame > 95 && (!ackOn || !unpainted || now - lastFrame > ACK_MAX_MS);
     // (Held only by the page's paint: owed, and built the moment its 'painted' comes, not on the next 33 ms tick (rev 2 step 3).)
     owed = held || (running && !due && ackOn && unpainted && now - lastFrame > 95);
+    if (owed) wstat.held++;
     if (frameDirty || paramsDirty || eng.newEvents.length || (due && (now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
       lastFrame = now; frame();
       keepStill();
@@ -623,6 +634,14 @@ export function createCore(post) {
       }
       post({ type: 'sequence', reqId });
     },
+    // The frame panel's physics row (frame-hud.js, ?perf only): the clock's counts since the last ask, and what it is doing now.
+    perfStats({ reqId }) {
+      const now = performance.now(), w = wstat;
+      post({ type: 'perfStats', reqId, secs: (now - w.since) / 1000, ticks: w.ticks, steps: w.steps, busy: w.busy, maxBusy: w.maxBusy, maxGap: w.maxGap, late: w.late, dropped: w.dropped,   // alloc-rare: runs in the simulation worker, once a second while the ?perf panel shows
+        frames: w.frames, params: w.params, held: w.held, samples: w.samples, days: w.days, jobs: w.jobs, jobMs: w.jobMs,
+        running, visible, ticking: !!timer, clock, speed, crashed, morph: !!morph, lapse: lapse ? (lapse.bedside ? 'bedside' : 'days') : '', relaxing: now < relaxUntil, easing: !!eng.easing?.(), ackOn, unpainted, edges: eng.E });
+      w.ticks = w.steps = w.busy = w.maxBusy = w.maxGap = w.late = w.dropped = w.frames = w.params = w.held = w.samples = w.days = w.jobMs = 0; w.jobs = {}; w.since = now;   // alloc-rare: once a second while the ?perf panel shows
+    },
     presets({ reqId }) { post({ type: 'presets', reqId, presets: PRESETS.map(({ id, label, group, summary, days }) => ({ id, label, group, summary, days })) }); },
   };
 
@@ -631,7 +650,7 @@ export function createCore(post) {
   const queue = [];
   let busy = false;
   // (Messages that leave the live model as it is: they do not end a kept history, see histCache.)
-  const NO_STATE = ['snapshot', 'presets', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe'];
+  const NO_STATE = ['snapshot', 'presets', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe', 'perfStats'];
   async function drain() {
     if (busy) return;
     busy = true;
@@ -640,6 +659,7 @@ export function createCore(post) {
       try {
         const handler = handlers[msg.type];
         if (!NO_STATE.includes(msg.type)) stateVer++;
+        const jt0 = msg.type === 'perfStats' ? 0 : performance.now();
         const job = handler?.(msg);
         if (job?.next) {
           stop();
@@ -651,10 +671,11 @@ export function createCore(post) {
             }
           }
         }
+        if (jt0) { const ms = performance.now() - jt0; if (ms >= 2) { wstat.jobMs += ms; wstat.jobs[msg.type] = (wstat.jobs[msg.type] || 0) + ms; } }   // (a message's own time, for the ?perf physics row: a long one holds the clock)
         if (RECOVER.includes(msg.type)) crashed = false;
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
-        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint'].includes(msg.type)) {
+        if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'perfStats'].includes(msg.type)) {
           // (Perf C5: a slider drag's input while the page has not painted the last frame is held for painted(), not posted at once.)
           if (msg.type === 'setParams' && ackOn && unpainted && running && visible && timer && performance.now() - lastFrame <= ACK_MAX_MS) { held = true; owed = true; }
           else {

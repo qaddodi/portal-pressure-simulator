@@ -20,7 +20,7 @@ const cur = new Float64Array(PHASES);
 /** The figure's context, where the fences are planted (veins-gl.js, when the renderer is made; null when it goes). */
 export function setFenceContext(g) { gl = g; }
 /** Whether the readout wants the samples (frame-hud.js turns them on while it shows). */
-export function setFences(v) { on = !!v; if (!on) { sampling = sampled = false; n = 0; at = 0; stepN.fill(0); stepAt.fill(0); } }
+export function setFences(v) { on = !!v; if (!on) { sampling = sampled = false; n = 0; at = 0; stepN.fill(0); stepAt.fill(0); ev = null; } }
 export const fencesOn = () => on;
 /** Whether the frame running now (or the one that just ended) is a sample, whose script time is the GPU's wait: the readout leaves it out. */
 export const fenceSampling = () => sampling || sampled;
@@ -31,14 +31,21 @@ function wait() {
 }
 /** frame.js: the frame `frame` begins. */
 export function fenceFrame(frame) {
+  frameNo = frame; forcedMs = 0; phaseAt = 1;
+  // (A whole draw asked for outside a frame (a resize, a timer) is measured at the next frame's start: everything since it is its own.)
+  if (ev) endEvent(wait(), 'the next frame\'s start (asked outside a frame)', false);
   sampled = false;
   sampling = on && !!gl && frame % SAMPLE_EVERY === 0;
-  if (sampling) cur[0] = wait();
+  if (sampling) { cur.fill(0); cur[0] = wait(); }
 }
 /** frame.js: the commands of phase `i` (1 early, 2 late, 3 final, 4 the frame's end) have been issued. */
 export function fenceMark(i) {
+  phaseAt = i + 1;
+  if (ev && !sampling) { endEvent(wait(), PHASE_NAMES[i]); return; }
   if (!sampling) return;
-  cur[i] = wait();
+  const w = wait();
+  cur[i] += w;
+  if (ev) endEvent(w, PHASE_NAMES[i]);
   if (i === PHASES - 1) {
     waits.set(cur, at * PHASES); at = (at + 1) % KEEP; if (n < KEEP) n++;
     sampling = false; sampled = true;
@@ -50,12 +57,59 @@ const STEP_MAX = 8;
 const stepNames = [], stepWaits = new Float64Array(STEP_MAX * KEEP), stepN = new Int32Array(STEP_MAX), stepAt = new Int32Array(STEP_MAX);
 /** veins-gl.js: the commands of the step `name` have been issued (a sampled frame waits for them and keeps the wait under that name). */
 export function fencePart(name) {
+  if (ev && !sampling) { endEvent(wait(), name); return; }
   if (!sampling) return;
   let i = stepNames.indexOf(name);
   if (i < 0) { if (stepNames.length >= STEP_MAX) return; i = stepNames.length; stepNames.push(name); }   // alloc-rare: a step's name is kept the first time it is seen
   const w = wait();
   stepWaits[i * KEEP + stepAt[i]] = w; stepAt[i] = (stepAt[i] + 1) % KEEP; if (stepN[i] < KEEP) stepN[i]++;
+  if (ev) endEvent(w, name);
 }
+
+// ── Every whole vessel redraw, measured (8 Nov 2026, Mohammad: "?perf to give us exactly what we're looking for"). A whole redraw of the
+// vessel layer (veins-gl.js draw: tally(counts.why, reason)) is the costliest pass the figure has, and one in thirty frames sampled
+// missed most of them: a 163 ms "radii changed" redraw showed only as a long frame with no cause. While the readout shows, each whole
+// redraw (at most one in EVENT_GAP_MS, the rest counted) waits for the GPU twice: once as it is asked for (the queue ahead of it,
+// `before`) and once at the next fence point after it (the layer pass and the picture over it: its own GPU time). frame-counts.js calls
+// fenceWhole; the frame panel (frame-hud.js) lists them with their frame. The waits are the page's script in that frame: forcedWait()
+// says how long, so the panel takes them out of its script numbers.
+const PHASE_NAMES = ['frame start', 'early phase', 'late phase', 'final phase', 'frame end'];
+export const EVENT_GAP_MS = 250;
+const EV_KEEP = 48;
+// alloc-rare: the ring of measured redraws is made once with the module; a redraw writes into its row
+const evRing = Array.from({ length: EV_KEEP }, () => ({ seq: 0, frame: 0, at: 0, why: '', before: 0, ms: 0, to: '' }));
+let ev = null, evSeq = 0, evLast = -1e9, frameNo = 0, forcedMs = 0, phaseAt = 1;
+/** The whole redraws asked for since the readout started: by reason, [asked, measured]. */
+export const wholeTally = {};
+function endEvent(ms, to, inScript = true) {
+  ev.ms = ms; ev.to = to; ev.frame = frameNo;
+  if (!sampling && inScript) forcedMs += ms;
+  ev = null;
+}
+/** frame-counts.js: a whole vessel redraw for `why` is about to be drawn. */
+export function fenceWhole(why) {
+  if (!on || !gl) return;
+  const t = wholeTally[why] || (wholeTally[why] = [0, 0]);   // alloc-rare: a reason's record is made the first time it is seen
+  t[0]++;
+  const now = performance.now();
+  if (ev || now - evLast < EVENT_GAP_MS) return;
+  evLast = now; t[1]++;
+  const before = wait();
+  // (In a sampled frame the wait ahead belongs to the phase under way: added to it, so the phase's own fence, finding the queue worked, loses nothing.)
+  if (sampling) cur[Math.min(PHASES - 1, phaseAt)] += before; else forcedMs += before;
+  const r = evRing[evSeq % EV_KEEP];
+  r.seq = ++evSeq; r.frame = frameNo; r.at = now; r.why = why; r.before = before; r.ms = 0; r.to = '';
+  ev = r;
+}
+/** The measured redraws after `seq` (oldest first; the one still waiting for its fence left out). */
+export function wholeEvents(seq = 0) {
+  const out = [];   // alloc-rare: once a second, for the readout
+  for (let k = Math.max(seq + 1, evSeq - EV_KEEP + 1); k <= evSeq; k++) { const r = evRing[(k - 1) % EV_KEEP]; if (r.seq === k && r !== ev) out.push(r); }
+  return out;
+}
+export const wholeSeq = () => evSeq;
+/** The waits this frame made for the readout outside a sample (the whole redraws measured): ms of its script that were the GPU's. */
+export const forcedWait = () => forcedMs;
 const sortBuf = new Float64Array(KEEP);
 function stepMedian(i) {
   for (let k = 0; k < stepN[i]; k++) sortBuf[k] = stepWaits[i * KEEP + k];
@@ -66,6 +120,18 @@ function median(i) {
   for (let k = 0; k < n; k++) sortBuf[k] = waits[k * PHASES + i];
   sortBuf.fill(Infinity, n); sortBuf.sort();
   return sortBuf[n >> 1];
+}
+function phaseMax(i) { let m = 0; for (let k = 0; k < n; k++) m = Math.max(m, waits[k * PHASES + i]); return m; }
+function stepMax(i) { let m = 0; for (let k = 0; k < stepN[i]; k++) m = Math.max(m, stepWaits[i * KEEP + k]); return m; }
+/** The samples kept as numbers, for the frame panel's plain words (frame-hud.js): each phase's and each named step's median and
+ * largest wait (ms), how many samples, and the sampled frame's GPU total (the phases and steps, the backlog apart). null with none. */
+export function fenceSummary() {
+  if (!on || !n) return null;
+  const phases = [], steps = [];   // alloc-rare: once a second, for the readout
+  let total = 0;
+  for (let i = 0; i < PHASES; i++) { const med = median(i); phases.push({ name: PHASE_NAMES[i], med, max: phaseMax(i) }); if (i) total += med; }
+  for (let i = 0; i < stepNames.length; i++) if (stepN[i]) { const med = stepMedian(i); total += med; steps.push({ name: stepNames[i], med, max: stepMax(i), n: stepN[i] }); }
+  return { n, every: SAMPLE_EVERY, phases, steps, total, backlog: phases[0].med };
 }
 /** The samples kept, oldest first: [backlog, early, late, final, end] ms each. For the tests and the console. */
 export function fenceReport() {
