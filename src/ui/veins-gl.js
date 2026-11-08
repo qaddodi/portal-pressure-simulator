@@ -2871,9 +2871,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let pM = null, pLook = null, pMode = 0;
   const gA = [null, 0], oA = [null, 0];
   const pieceFn = () => {
-    if (pMode === 3) clearLayer();
-    // (The mesh vessel renderer, when it is on and can draw: a whole draw or a pan's strip, through the same scissor.)
-    if ((pMode === 0 || pMode === 3) && meshUse() && meshPass(pM, pLook)) return;
+    if (pMode >= 3) clearLayer();
+    // (The mesh vessel renderer, when it is on and can draw: a whole draw, a pan's strip or a changed rows' box (4), through the same scissor;
+    // a box it cannot draw is drawn whole there by the classic pass.)
+    if ((pMode === 0 || pMode >= 3) && meshUse() && meshPass(pM, pLook)) return;
     if (pMode === 1 || pMode === 2) { gA[0] = partVAO; gA[1] = partG; oA[0] = partSVAO; oA[1] = partS; vesselPass(pM, pLook, gA, oA, true, pMode === 2); }
     else { gA[0] = vao; gA[1] = nGen; oA[0] = oneVAO; oA[1] = nSimple; vesselPass(pM, pLook, gA, oA); }
   };
@@ -2979,6 +2980,63 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (patchK) for (let c = 0; c < nCells; c++) if (patchMark[c] && !part.mark[c]) { part.mark[c] = 1; part.k++; }
     cellsOfRows(tint, part.mark, PART_B);
     return PARTS;
+  }
+  // The mesh's partial draw: the marked cells' device boxes, on a grid of MT px tiles, as runs of tiles along each tile row (at most
+  // MR_MAX; more are drawn as one box round them all), each cleared and drawn by the mesh pass through its scissor. Pixels of a tile
+  // outside the marked cells are drawn as they were (nothing they read changed).
+  const MT = 128, MR_MAX = 12, MR = new Int32Array(MR_MAX * 4);
+  let mTiles = new Uint8Array(0);
+  function meshRects(m, mark) {
+    const x0w = la[0], y0w = la[1], W = fboW, H = fboH, cols = Math.ceil(W / MT), rowsN = Math.ceil(H / MT);
+    if (mTiles.length < cols * rowsN) mTiles = new Uint8Array(cols * rowsN);   // alloc-rare: once per layer size
+    mTiles.fill(0, 0, cols * rowsN);
+    for (let c = 0; c < nCells; c++) {
+      if (!mark[c]) continue;
+      const cx = cellsCPU[c * 6], cy = cellsCPU[c * 6 + 1];
+      let a = Infinity, b = -Infinity, e = Infinity, f = -Infinity;
+      for (let i = 0; i < 4; i++) {
+        const x = cx + (i & 1) * CELL, y = cy + (i >> 1) * CELL;
+        const px = m[0] * x + m[2] * y + m[4] - x0w, py = m[1] * x + m[3] * y + m[5] - y0w;
+        if (px < a) a = px; if (px > b) b = px; if (py < e) e = py; if (py > f) f = py;
+      }
+      const i0 = Math.max(0, Math.floor((a - 2) / MT)), i1 = Math.min(cols - 1, Math.floor((b + 2) / MT));
+      const j0 = Math.max(0, Math.floor((e - 2) / MT)), j1 = Math.min(rowsN - 1, Math.floor((f + 2) / MT));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) mTiles[j * cols + i] = 1;
+    }
+    let n = 0, bx0 = cols, bx1 = -1, by0 = rowsN, by1 = -1;
+    for (let j = 0; j < rowsN; j++) {
+      for (let i = 0; i < cols; i++) {
+        if (!mTiles[j * cols + i]) continue;
+        let r = i;
+        while (r + 1 < cols && mTiles[j * cols + r + 1]) r++;
+        if (i < bx0) bx0 = i; if (r > bx1) bx1 = r; if (j < by0) by0 = j; if (j > by1) by1 = j;
+        // (A run the same as the one above it is that one made taller.)
+        let same = -1;
+        for (let q = 0; q < n; q++) if (MR[q * 4] === i * MT && MR[q * 4 + 2] === (r + 1 - i) * MT && MR[q * 4 + 1] + MR[q * 4 + 3] === j * MT) same = q;
+        if (same >= 0) MR[same * 4 + 3] += MT;
+        else if (n < MR_MAX) { MR[n * 4] = i * MT; MR[n * 4 + 1] = j * MT; MR[n * 4 + 2] = (r + 1 - i) * MT; MR[n * 4 + 3] = MT; n++; }
+        else n = MR_MAX + 1;
+        i = r;
+      }
+    }
+    if (n > MR_MAX) { MR[0] = bx0 * MT; MR[1] = by0 * MT; MR[2] = (bx1 + 1 - bx0) * MT; MR[3] = (by1 + 1 - by0) * MT; n = 1; }
+    for (let q = 0; q < n; q++) {
+      // (Into the window, as screen pixels.)
+      MR[q * 4 + 2] = Math.min(MR[q * 4 + 2], W - MR[q * 4]); MR[q * 4 + 3] = Math.min(MR[q * 4 + 3], H - MR[q * 4 + 1]);
+      MR[q * 4] += x0w; MR[q * 4 + 1] += y0w;
+    }
+    return n;
+  }
+  function meshCellsPass(m, look, mark) {
+    const n = meshRects(m, mark);
+    if (!n) return;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
+    gl.viewport(0, 0, fboW, fboH);
+    gl.enable(gl.SCISSOR_TEST);
+    pM = m; pLook = look; pMode = 4;
+    for (let q = 0; q < n; q++) eachPiece(MR[q * 4], MR[q * 4 + 1], MR[q * 4 + 2], MR[q * 4 + 3], true);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
   }
   // The marked cells' quads, for partVAO (the general program's) and partSVAO (the one-vessel build's).
   const PART_SPLIT = { gen: new Float32Array(0), one: new Float32Array(0), nGen: 0, nOne: 0 };   // (kept: splitCells writes the marked cells into it)
@@ -4537,8 +4595,25 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (The caller's rows have to name every row whose radii changed, which this renderer keeps: they are not dropped here
       // to let a partial draw through.)
       if (!radCovered(rows)) return refuse('radii not listed');
-      // (The mesh vessel renderer draws the layer whole: a whole mesh draw stands for a partial one, docs/veins-mesh-plan.md section 4.)
-      if (meshUse()) return refuse('mesh renderer');
+      // (The mesh vessel renderer: the changed rows' cells, as boxes of whole tiles, cleared and drawn again by the mesh pass, every vessel
+      // in them, so each pixel there ends as a whole draw leaves it; docs/veins-mesh-plan.md section 4.)
+      if (meshUse()) {
+        if (!meshTargets()) return refuse('mesh renderer');
+        const { part: mp, tintPart: mt } = rowParts(rows);
+        const mark = mp.mark;
+        let k = mp.k;
+        for (let c = 0; c < nCells; c++) if (mt.mark[c] && !mark[c]) { mark[c] = 1; k++; }
+        if (k > nCells * 0.6) return refuse('most cells');
+        rowsStatus = 'drawn';
+        tubesNew = false; clearMarks();
+        if (gpuProbe.on) gpuProbe.note(COUNTED.rows);
+        meshCellsPass(m, look, mark);
+        partCells += k;
+        drawnNow();
+        if (k) uploadPart(mark);
+        this.composite(look, blood, full, k);
+        return true;
+      }
       // (Rows whose lumen colours alone changed are recoloured, which draws again only the pixels those colours reach:
       // however many cells list them, that costs less than a whole draw. The rest have their cells drawn again whole.)
       const { part, tintPart } = rowParts(rows);

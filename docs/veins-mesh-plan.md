@@ -90,8 +90,10 @@ The refactor lands alone first, with the classic picture unchanged (same operati
 
 - `draw` (a whole draw) and `shiftLayer` (a pan's uncovered strips): the mesh pass, through the same pieces and scissor (`wrapPieces`), the
   piece cleared first. Depth and stencil are cleared inside the scissor too.
-- `drawRows`, `tintPass`, the partial cells of a pan: **a whole mesh draw** (drawRows refuses with "mesh renderer" and the caller draws
-  whole). A partial mesh redraw over the kept picture is not exact where vessels overlap; a whole one is. To be measured with `?perf`.
+- `drawRows` (and the rows it would recolour with `tintPass`): the changed rows' cells, rounded out to 128 px tiles and grouped into at
+  most 12 boxes, each cleared and drawn again by the mesh pass through its scissor, every vessel in it. Each pixel there ends as a whole
+  draw would leave it (the brief's "the same picture"), and the rest of the layer is kept. More than 60% of the cells: a whole draw.
+  (First built as a whole mesh draw for every partial one; at rest that was about 11 whole draws a second, 8 Nov 2026.)
 - One-pass zoom frames (`fused`): off while the mesh draws; each zoom frame is a whole mesh draw and the normal composite.
 - `lowPass` (Vessels lower while pinching): stays on the classic shader at its own size. `reuseDraw`, the upscale: unchanged (they read
   the layer). Morphs: the strips read the frame's points (`PT()` from `posBase`), the patches the frame's joins (`JT()`).
