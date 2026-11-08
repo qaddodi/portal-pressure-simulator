@@ -302,8 +302,9 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(st, /const OBLIT_K_WAY = 4, OBLIT_K_TIP = 7, OBLIT_K_WORK = 5, OBLIT_LEAD = 0\.18;/);
   assert.match(st, /if \(isOblit\(r\) && \(mode === 'tip' \|\| mode === 'fill' \|\| mode === 'work' \|\| \(mode === 'way' && !reduceMotion\.matches\)\)\) return oblitFocus\(/);
   // (The BRTO play with a target, Baveno VIII 6.12: the same way up to the left renal vein, out the renal venules to where the splenorenal shunt joins, up C6; BRTO's camera.)
-  assert.match(st, /brtoC6: \{ ids: \['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'V_KID_L', 'C6'\]/);
-  assert.match(st, /B\.vessel\('V_KID_L', \{ rev: true, near: c6, name: 'renal' \}\); B\.vessel\('C6', \{ rev: true, name: 'shunt' \}\);/);
+  const routes = readFileSync(new URL('../src/ui/proc-routes.js', import.meta.url), 'utf8');   // (the routes' table, shared with the timing tests)
+  assert.match(routes, /brtoC6: \{ ids: \['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'V_KID_L', 'C6'\]/);
+  assert.match(routes, /B\.vessel\('V_KID_L', \{ rev: true, near: c6, name: 'renal' \}\); B\.vessel\('C6', \{ rev: true, name: 'shunt' \}\);/);
   assert.match(st, /const isOblit = \(r\) => r\.kind === 'brto' \|\| r\.kind === 'brtoC6' \|\| r\.kind === 'bato';/);
   // (EUS-PPG's way in frames the last stretch before the scope's stop and follows it in)
   assert.match(st, /const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;/);

@@ -47,7 +47,8 @@ test('it needs a splenorenal shunt, says so when there is none or it is closed, 
 
 test('it plays like BRTO: four steps on the same timing, its callouts on C6 and the route\'s stations, and it eases in and out', () => {
   const P = specOf('brtoC6'), B = PROCS.brto;
-  assert.deepEqual(P.stops, B.stops); assert.equal(P.T, B.T);
+  // (The same table of gaps as BRTO's, a leg of the route's own length: the splenorenal route is a little longer, hvpg-clock.js ROUTE_LEN.)
+  assert.equal(P.stops.length, B.stops.length); assert.ok(P.T.travel1 > B.T.travel1 && P.T.end - P.T.back === B.T.end - B.T.back);
   assert.deepEqual(P.steps.map((s) => s[4]), ['way', 'tip', 'fill', 'work']);
   P.steps.forEach((s, i) => {
     assert.equal(s[5], 'C6'); assert.ok(s[7] > 0 && s[7] < 1);

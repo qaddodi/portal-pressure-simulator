@@ -79,6 +79,7 @@ test('ROUTE_LEN is what the routes measure on the figure’s outlines', () => {
   within(tips.spans.rpv[0] + (tips.spans.rpv[1] - tips.spans.rpv[0]) * 0.28 - tips.spans.tract[0], ROUTE_LEN.tipsOver, 0.03, 'TIPS over the wire');
   within(travel(S.brto), ROUTE_LEN.brto, 0.03, 'BRTO');
   within(travel(S.bato), ROUTE_LEN.bato, 0.03, 'BATO');
+  within(travel(S.brtoC6), ROUTE_LEN.brtoC6, 0.03, 'BRTO into the splenorenal shunt');
   within(travel(EUS_ROUTE), ROUTE_LEN.eus, 0.03, 'EUS scope');
   within(travel(EUS_GLUE_ROUTE), ROUTE_LEN.eusglue, 0.03, 'EUS glue');
   // The HVPG catheter's: the neck, the SVC, the IVC, the right hepatic vein, to the tip's reading place (stage-cath.js cathRoute).

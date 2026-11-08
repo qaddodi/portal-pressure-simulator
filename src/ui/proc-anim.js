@@ -33,7 +33,7 @@ const nextFrame = frameFor('proc-anim');
 // a balloon BALLOON_IN_MS up and BALLOON_OUT_MS down on easeMove, a shot the camera's own camMs. What was written out per procedure is laid
 // out from it below; the gaps between events are the ones the tables always had. Old and new travel times, ms: TIPS in 3700 -> 3600, its
 // catheter over the wire 1400 -> 2400, BRTO 6200 -> 6200, BATO 6200 -> 9100, EUS scope 4900 -> 5200, glue 5700 -> 6200, HVPG 4000 -> 3400.)
-const LEG = { tips: legMs(ROUTE_LEN.tips), tipsOver: legMs(ROUTE_LEN.tipsOver), brto: legMs(ROUTE_LEN.brto), bato: legMs(ROUTE_LEN.bato), eus: legMs(ROUTE_LEN.eus), eusglue: legMs(ROUTE_LEN.eusglue) };
+const LEG = { tips: legMs(ROUTE_LEN.tips), tipsOver: legMs(ROUTE_LEN.tipsOver), brto: legMs(ROUTE_LEN.brto), brtoC6: legMs(ROUTE_LEN.brtoC6), bato: legMs(ROUTE_LEN.bato), eus: legMs(ROUTE_LEN.eus), eusglue: legMs(ROUTE_LEN.eusglue) };
 /** A table of event times (ms) with the events at or after each `at` moved by `d`, for each [at, d] of moves, in the table as first written. */
 const retime = (T, moves) => {
   const at = (x) => { let d = 0; for (let i = 0; i < moves.length; i++) if (x >= moves[i][0]) d += moves[i][1]; return x + d; };
@@ -46,8 +46,8 @@ const oblitT = (leg) => {
   return { travel0: 300, travel1, inflate0, inflate1, fill0, fill1, apply, fillOut: apply, deflate, back, end: back + 3100 };
 };
 const oblitStops = (T) => [T.travel1 + 600, T.inflate1 + 900, T.apply - 200, T.end];
-const OBLIT_TS = { brto: oblitT(LEG.brto), bato: oblitT(LEG.bato) };
-const OBLIT_STOPS = { brto: oblitStops(OBLIT_TS.brto), bato: oblitStops(OBLIT_TS.bato) };
+const OBLIT_TS = { brto: oblitT(LEG.brto), brtoC6: oblitT(LEG.brtoC6), bato: oblitT(LEG.bato) };
+const OBLIT_STOPS = { brto: oblitStops(OBLIT_TS.brto), brtoC6: oblitStops(OBLIT_TS.brtoC6), bato: oblitStops(OBLIT_TS.bato) };
 // TIPS: the catheter in to where the tract leaves the hepatic vein, the needle across, the wire on, the catheter over them, the balloon.
 const tipsT = () => {
   const travel1 = 300 + LEG.tips, needle0 = travel1 + 900, needle1 = needle0 + 1600, flash0 = needle1 - 100, flash1 = flash0 + 800, wire0 = flash0 + 500, wire1 = wire0 + 900;
@@ -258,7 +258,7 @@ export const ENDO = {
 const plugCan = (p) => (!p.spontaneous?.C6 ? 'This patient has no splenorenal shunt.' : p.occluded?.C6 ? 'The splenorenal shunt is already closed.' : '');
 export const PLUGS = {
   brtoC6: {
-    name: 'Shunt embolization', label: 'Shunt embolization', T: OBLIT_T, stops: OBLIT_STOPS, shotMs: OBLIT_SHOT_MS, holdEnd: true,
+    name: 'Shunt embolization', label: 'Shunt embolization', T: OBLIT_TS.brtoC6, stops: OBLIT_STOPS.brtoC6, shotMs: OBLIT_SHOT_MS, holdEnd: true,
     steps: [
       ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the splenorenal shunt.', 'In', 'way', 'C6', ['IVCI', 'LRV'], 0.85],
       ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C6', ['LRV'], 0.8],
