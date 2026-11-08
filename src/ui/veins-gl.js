@@ -2992,6 +2992,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const ROW_SPLIT = { shape: [], tint: [] };   // (kept: splitRows fills it again each time)
   // (The two lists of cells, kept and filled again: their marks are pooled in each, the picture of a partial draw.)
   const PART_A = { mark: null, k: 0 }, PART_B = { mark: null, k: 0 }, PARTS = { part: PART_A, tintPart: PART_B };
+  // (draw()'s changed rows under the mesh renderer: their cells' marks and count, written in place.)
+  const MESH_PARTS = { mark: null, k: 0 };
   function rowParts(rows) {
     const { shape, tint } = splitRows(rows, tubeNow, tubeDrawn, ROW_W, radRows, ROW_SPLIT);
     const part = cellsOfRows(shape, null, PART_A);
@@ -4540,6 +4542,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // laid in the composite (overM), not in the layer. shiftLayer moves nothing for (0, 0).)
       const panAt = fboOK && radCovered(rows) && lkSame && near && sameLin(m, baseM);
       if (panAt && !meshUse() && (rows?.length || patchK)) { parts = rowParts(rows || NONE); if (parts.part.k > nCells * 0.6) parts = null; }
+      // (The mesh renderer the same way, as its drawRows does (9 Nov 2026, Mohammad's MacBook Air M5: "tubes changed" whole mesh redraws four
+      // times a second at rest, about 70 ms each, from the model's colour updates): the named rows' cells, shape and colour alike, marked
+      // and drawn again by the mesh pass through their tiles' scissor over the kept layer; most of the cells, or no rows named, a whole draw.)
+      else if (panAt && meshUse() && (rows?.length || patchK) && meshTargets()) {
+        const { part: mp, tintPart: mt } = rowParts(rows || NONE);
+        let k = mp.k;
+        for (let c = 0; c < nCells; c++) if (mt.mark[c] && !mp.mark[c]) { mp.mark[c] = 1; k++; }
+        if (k <= nCells * 0.6) { MESH_PARTS.mark = mp.mark; MESH_PARTS.k = k; parts = MESH_PARTS; }
+      }
       const pan = panAt && (!(tubesNew || radRows.size || patchK) || parts);
       // (Vessels lower while pinching, when on and Pinch frame reuse is off: a zoom frame under a hand draws the layer lower: lowPass.)
       if (lowK && lowOn && !reuseEvery && !pan && baseM && (lowMorph || !sameLin(m, baseM)) && !gpuProbe.skipGL && !lost) {
@@ -4587,7 +4598,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
             : !near ? 'moved too far' : !sameLin(m, baseM) ? 'zoom or turn' : 'tubes changed'));
         }
       }
-      if (pan) { shiftLayer(m, look, dx, dy); if (parts) { cellsPass(m, look, parts.part); tintPass(m, look, parts.tintPart); } }
+      if (pan) {
+        shiftLayer(m, look, dx, dy);
+        if (parts === MESH_PARTS) { if (parts.k) meshCellsPass(m, look, parts.mark); partCells += parts.k; }
+        else if (parts) { cellsPass(m, look, parts.part); tintPass(m, look, parts.tintPart); }
+      }
       else {
         layOut(layoutFor(m));
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
