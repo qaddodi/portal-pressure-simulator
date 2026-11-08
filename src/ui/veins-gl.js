@@ -56,6 +56,7 @@ import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } fro
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
 import { frameCount, framePhase, onFrameFinal } from './frame.js';
+import { guardCanvas } from './canvas-guard.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
@@ -2055,6 +2056,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   try { gl = share ? share.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: KEEP_CANVAS, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (gl && !share) setFenceContext(gl);   // (?perf's GPU fences are planted in the figure's own context, gpu-fence.js)
   if (!gl) return null;
+  // (The canvas not kept, a write to it before the whole picture is laid in a display cycle goes off screen (canvas-guard.js): Mohammad's
+  // flicker after f56992f. laying: inside a lay (a present, a clear); laidFrame: the frame a picture was last laid in; laidTask: one was laid in
+  // this task, outside a frame (cleared at its end).)
+  let laying = 0, laidFrame = -1, laidTask = false;
+  const endTask = () => { laidTask = false; };
+  function markLaid() {
+    laidFrame = framePhase() ? frameCount() : -1;
+    if (!laidTask) { laidTask = true; queueMicrotask(endTask); }
+  }
+  const canvasGuard = !KEEP_CANVAS && !share ? guardCanvas(gl, () => laying > 0 || laidTask || (laidFrame === frameCount() && framePhase() !== null), canvas) : null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl);
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
@@ -3234,7 +3245,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (Shared: the picture is laid in this renderer's texture; the host lays it over the figure in its own present, which this asks for.)
     if (share && top && !lost) share.present?.();
   }
+  function clearAll() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; }
   function presentSelf(top, again) {
+    const p0 = presents;
+    laying++;
+    try { presentLay(top, again); } finally { laying--; }
+    if (presents !== p0) markLaid();
+  }
+  function presentLay(top, again) {
     if (replace && !lost && replace.on()) {
       presents++;
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
@@ -4569,6 +4587,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // device → world: the inverse of [a c e; b d f].
       const ia = m[3] / det, ib = -m[1] / det, ic = -m[2] / det, id = m[0] / det;
       const ie = -(ia * m[4] + ic * m[5]), iff = -(ib * m[4] + id * m[5]);
+      if (direct) markLaid();   // (the whole picture is drawn straight onto the canvas next: it is laid)
       if (own) gl.bindFramebuffer(gl.FRAMEBUFFER, direct ? null : own.fbo);
       directNow = direct; if (own) ownStale = direct;
       if (direct) { directFrame = frameCount(); directP = directB = -1; }
@@ -4928,7 +4947,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get viewKey() { return baseM ? viewKeyStr : ''; },
     /** Calls f each time drawSeq changes; returns the call that stops it. */
     onPicture(f) { onPicture.add(f); return () => onPicture.delete(f); },
-    clear() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; },
+    clear() { laying++; try { clearAll(); } finally { laying--; } markLaid(); },
+    /** Writes to the canvas sent off screen because no whole picture had been laid in their display cycle (canvas-guard.js). */
+    get strayWrites() { return canvasGuard ? canvasGuard.redirected : 0; },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { if (share) return null; const c = { ...cam }; cam.k = 1; cam.ex = cam.ey = 0; cam.a = 1; try { present(false); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
     /**
