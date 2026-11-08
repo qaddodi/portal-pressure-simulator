@@ -5,6 +5,7 @@ import { motionBudget } from './motion-budget.js';   // (first: counts from the 
 import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's registry and pass counts, R06: before any context is made)
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
+import { createLease } from './slide-txn.js';
 import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
@@ -1383,18 +1384,19 @@ function setSpeed(v, lapse = false) {
 const canCrossfade = () => !!document.startViewTransition && !document.hidden && !gpuBudget().overMemory;
 // (Returns a promise for the wait: it resolves when the new page is whole and the crossfade is about to play, at once when the look changes without one.
 // The Appearance tiles show a ring on the tapped tile until then, look-chooser.js.)
+const pumpLease = createLease(() => setFramePump(true), () => setFramePump(false));
 function switchTheme(t, clear) {
   if (!canCrossfade()) { applyTheme(t, clear); return Promise.resolve(); }
   // (The new page is whole before the crossfade captures it: every surface has drawn the look, themeSettled in theme-epoch.js, capped.)
   // (The page's rendering is held while the callback is pending, and with it the browser's animation frames: the scheduler's frames come from a
   // timer meanwhile (setFramePump), so the surfaces draw the new look before the new picture is taken. Once whole, it is.)
   return crossfade(async () => {
-    setFramePump(true);
+    const pumpOff = pumpLease.take();   // (a lease, not a switch: a skipped crossfade's callback finishing must not stop the pump the newer one still needs)
     try {
       applyTheme(t, clear);
       // (All of it within 900 ms, whatever each step waits for: the old page stays up until then, so a surface that never answers must not hold it long.)
       await Promise.race([(async () => { await themeSettled(); await stage?.lookWhole?.(700); await settledSurfaces(); })(), new Promise((r) => setTimeout(r, 900))]);
-    } finally { setFramePump(false); }
+    } finally { pumpOff(); }
   });
 }
 // While a crossfade plays, its pictures cover the page, so a tap would land on <html>: lost, and taken as a tap outside the
@@ -1755,18 +1757,19 @@ function wireFloating() {
   whyGlass();
   // Focus: dragging, pinching or scrolling the figure fades the floating pieces until it stops.
   let busyT = 0, armT = 0, down = null, moved = false;
+  let dimmed = false;   // (stage-busy as asked: the class is written after a task of its own, classSoon, so reading it back is stale for that task)
   // (Adding a class it already has still counts as a change to the page's observers: every pointer move of a drag or
   // pinch woke four of them and laid the page out again, review #31. So the class is added only when it is missing.)
   // The pieces dim only once the figure has moved for BUSY_DELAY (premium-feel R7): a tap, or a drag that is over inside it, dims nothing.
   const BUSY_DELAY = 120;
-  const busyOff = () => { clearTimeout(armT); armT = 0; classSoon(app, 'stage-busy', false); };
-  const busyArmed = () => { armT = 0; if (!app.classList.contains('stage-busy')) classSoon(app, 'stage-busy', true); };
+  const busyOff = () => { clearTimeout(armT); armT = 0; dimmed = false; classSoon(app, 'stage-busy', false); };
+  const busyArmed = () => { armT = 0; if (!dimmed) { dimmed = true; classSoon(app, 'stage-busy', true); } };
   const busy = (ms) => {
     clearTimeout(busyT); busyT = setTimeout(busyOff, ms);
-    if (!armT && !app.classList.contains('stage-busy')) armT = setTimeout(busyArmed, BUSY_DELAY);
+    if (!armT && !dimmed) armT = setTimeout(busyArmed, BUSY_DELAY);
   };
   // A gesture over: the pieces already dimmed stay so for ms more; ones still waiting to dim never do.
-  const busyEnd = (ms) => { if (app.classList.contains('stage-busy')) busy(ms); else { clearTimeout(armT); armT = 0; clearTimeout(busyT); } };
+  const busyEnd = (ms) => { if (dimmed) busy(ms); else { clearTimeout(armT); armT = 0; clearTimeout(busyT); } };
   // On a phone the same gestures also give the figure more room: the vitals dock folds to a small pill in the
   // lower-left corner (play and clock; the zoom buttons take the lower right) and the top bar's second row (view, colour legend) slides away, while the figure moves and
   // for three seconds after. A tap anywhere, or an event on the timeline, brings them back at once.

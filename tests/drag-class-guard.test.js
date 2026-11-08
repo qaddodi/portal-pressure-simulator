@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
 
 test('#31 a drag adds stage-busy and figure-focus only when they are missing', () => {
-  assert.match(main, /const busyArmed = \(\) => \{ armT = 0; if \(!app\.classList\.contains\('stage-busy'\)\) classSoon\(app, 'stage-busy', true\); \};/);
+  assert.match(main, /const busyArmed = \(\) => \{ armT = 0; if \(!dimmed\) \{ dimmed = true; classSoon\(app, 'stage-busy', true\); \} \};/);
   assert.match(main, /armT = setTimeout\(busyArmed, BUSY_DELAY\);/);
   assert.match(main, /if \(!focused\) \{ focused = true; classSoon\(app, 'figure-focus', true\); \}/);
   assert.doesNotMatch(main, /\{ app\.classList\.add\('stage-busy'\)/);
@@ -19,7 +19,7 @@ test('#31 a drag adds stage-busy and figure-focus only when they are missing', (
 test('R7 the stage-busy class still arms only after 120 ms of motion (the pieces still step back to .55, as ink or as frosted plates)', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   assert.match(main, /const BUSY_DELAY = 120;/);
-  assert.match(main, /const busyEnd = \(ms\) => \{ if \(app\.classList\.contains\('stage-busy'\)\) busy\(ms\); else \{ clearTimeout\(armT\); armT = 0; clearTimeout\(busyT\); \} \};/);
+  assert.match(main, /const busyEnd = \(ms\) => \{ if \(dimmed\) busy\(ms\); else \{ clearTimeout\(armT\); armT = 0; clearTimeout\(busyT\); \} \};/);
   assert.match(main, /addEventListener\('pointerup', \(\) => \{ if \(down\) \{ down = null; busyEnd\(600\);/);
   assert.match(main, /addEventListener\('pointercancel', \(\) => \{ if \(down\) \{ down = null; busyEnd\(300\);/);
   // (3 Nov 2026: the frosted-plate cards still fade as a whole; every other piece fades its ink and keeps its glass whole.)
