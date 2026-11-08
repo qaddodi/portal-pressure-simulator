@@ -55,7 +55,8 @@ import { fusedVS, fusedFS } from './veins-fuse.js';
 import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
-import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor } from './frame.js';
+import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor, vesselMesh } from './frame.js';
+import { MASK_VS, MASK_FS, ZERO_FS, maskPad, segEntries, S_ONE, S_MANY, S_COUNT, S_DRAWN } from './veins-mesh.js';
 import { keepScreen } from './keep-screen.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
@@ -2128,7 +2129,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     started = { fuseGen: fuse && startProgram(gl, fuseVS, fuse.gen), fuseOne: fuse?.one ? startProgram(gl, fuseVS, fuse.one) : null,
       prog: startProgram(gl, vesVS, vesselFS(false)), simple: startProgram(gl, vesVS, vesselFS(true)), comp: startProgram(gl, compVS, compFS), compCell: startProgram(gl, compCellVS, compFS), streak: streakFS ? startProgram(gl, compVS, streakFS) : null, streakCell: streakFS ? startProgram(gl, compCellVS, streakFS) : null,
       // (The arrowheads' quads (blood-heads.js): the stage's figure only, the one renderer given the vessels' axes.)
-      heads: who === 'stage' ? startProgram(gl, headVS({ zoom: ZOOM_VS, along: ALONG_GLSL, rows: ROWS_GLSL, orange: CHEV_ORANGE_GLSL, nSamples: N_SAMPLES }), COMP_FS(false, false, true)) : null, plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
+      heads: who === 'stage' ? startProgram(gl, headVS({ zoom: ZOOM_VS, along: ALONG_GLSL, rows: ROWS_GLSL, orange: CHEV_ORANGE_GLSL, nSamples: N_SAMPLES }), COMP_FS(false, false, true)) : null, plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS),
+      // (The mesh pass's vessel quads and its zero shader (veins-mesh.js): the stage's figure only; the lobule stays on the classic pass.)
+      mesh: who === 'stage' ? startProgram(gl, MASK_VS(N_SAMPLES, ENT_W), MASK_FS) : null, zero: who === 'stage' ? startProgram(gl, vesVS, ZERO_FS) : null };
   } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
   // Every other program this context will draw with, started now beside these, before any is read (GPU practice §2, docs/gpu-practices.md;
   // ?shaderwarm=0: each compiled where it is first made or drawn, as before): the organs' stack, painter and shapes (taken up just below,
@@ -2141,9 +2144,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // frame can be drawn by the general ones. With KHR_parallel_shader_compile they are left compiling here and published by
   // prepare() once the driver says they are done, never waited on (addendum §10.1); until then the general ones draw, the
   // same picture. Without the extension they are finished here with the rest, as before.
-  const later = pcx ? [...(started.simple ? ['simple'] : []), 'plain', ...(started.streak ? ['streak'] : []), ...(started.fuseGen ? ['fused'] : []), ...(started.heads ? ['heads'] : [])] : [];
+  const later = pcx ? [...(started.simple ? ['simple'] : []), 'plain', ...(started.streak ? ['streak'] : []), ...(started.fuseGen ? ['fused'] : []), ...(started.heads ? ['heads'] : []), ...(started.mesh ? ['mesh'] : [])] : [];
   // (Each optional build's programs, by its name in `later`.)
-  const startsOf = (k) => (k === 'heads' ? [started.heads] : k === 'streak' ? [started.streak, started.streakCell] : k === 'plain' ? [started.plain, started.plainCell] : k === 'fused' ? [started.fuseGen, started.fuseOne].filter(Boolean) : [started.simple]);
+  const startsOf = (k) => (k === 'mesh' ? [started.mesh, started.zero] : k === 'heads' ? [started.heads] : k === 'streak' ? [started.streak, started.streakCell] : k === 'plain' ? [started.plain, started.plainCell] : k === 'fused' ? [started.fuseGen, started.fuseOne].filter(Boolean) : [started.simple]);
   let prog;
   try { prog = finishProgram(gl, started.prog); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); freeShaders(); return null; }
   // The one-vessel build (see vesselFS): null when it failed, and every cell keeps the general program.
@@ -2180,6 +2183,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     try { headP = finishProgram(gl, started.heads); } catch (e) { console.warn('Veins renderer: the arrowheads\' quad shader failed; the composite keeps drawing them.', e); gl.deleteProgram(started.heads.p); headP = null; }
   };
   if (started.heads && !later.includes('heads')) finishHeads();
+  // The mesh pass's programs (veins-mesh.js), both or neither: null while compiling, off or failed, and every vessel pass is the classic one.
+  let maskP = null, zeroP = null;
+  const finishMesh = () => {
+    try { maskP = finishProgram(gl, started.mesh); zeroP = finishProgram(gl, started.zero); } catch (e) {
+      console.warn('Veins renderer: the mesh vessel shaders failed; the vessels keep the classic pass.', e);
+      gl.deleteProgram(started.mesh.p); gl.deleteProgram(started.zero.p); maskP = zeroP = null;
+    }
+  };
+  if (started.mesh && !later.includes('mesh')) finishMesh();
   function halfReady(rebind) {
     const w = Math.ceil(PW() / 2), h = Math.ceil(PH() / 2);
     if (!half.tex) { half.tex = dataTex(gl, gl.LINEAR); half.fbo = gl.createFramebuffer(); }
@@ -3113,6 +3125,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (`size`: the target's pixels when it is not the layer's, for the vessels drawn lower while pinching: lowPass.)
   function vesselPass(m, look, gen, one, redraw = false, tint = false, size = null) {
     gl.disable(gl.BLEND);
+    const meshed = meshPass(m, look, gen, one, redraw, tint, size);
+    if (gpuProbe.on) noteMesh();
+    if (meshed) return;
     if (gen[1]) vesselDraw(prog, m, look, gen[0], gen[1], redraw, tint, size);
     if (one[1] && simpleP) vesselDraw(simpleP, m, look, one[0], one[1], redraw, tint, size);
   }
@@ -3170,6 +3185,112 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, rmaxTex); UC.i1(u.rmax, 4);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, tint ? depTex : depNone); UC.i1(u.depL, 5);
   }
+  // ── The mesh pass (Settings › Display › Mesh vessel renderer; veins-mesh.js, docs/veins-mesh-plan.md) ──
+  // The vessel quads count, in the bound target's depth and stencil, how many vessel rows can reach each pixel; then each pixel of the
+  // cells runs only what it needs: nothing (none in reach), the one-vessel build (one), the general build (two or more). The same
+  // picture as the classic pass, pixel for pixel. The layer's and the tint's targets share one depth-stencil buffer (the layer's size),
+  // the pinch's lower targets have their own, and the kept picture's own buffer takes depth beside its stencil (ownSize).
+  const DS_LAYER = { rb: null, w: 0, h: 0, a: null, b: null }, DS_LOW = { rb: null, w: 0, h: 0, a: null, b: null };
+  const INV_DS = [gl.DEPTH_STENCIL_ATTACHMENT];
+  const maskVAO = gl.createVertexArray();
+  gl.bindVertexArray(maskVAO);
+  gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+  gl.bindVertexArray(null);
+  // (For the ?perf readout: what the last vessel pass was, and why it was the classic one.)
+  let meshWhy = '', meshQuads = 0, meshPasses = 0;
+  function dsOn(rec, fb, w, h) {
+    if (!rec.rb || rec.w !== w || rec.h !== h) {
+      rec.rb ||= gl.createRenderbuffer();
+      gl.bindRenderbuffer(gl.RENDERBUFFER, rec.rb);
+      gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, w, h);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+      rec.w = w; rec.h = h;
+      if (gpuProbe.on) noteAlloc(w * h * 4 / 1024);
+    }
+    if (rec.a !== fb && rec.b !== fb) {
+      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, rec.rb);
+      if (fb === tintFbo) rec.b = fb; else rec.a = fb;
+    }
+  }
+  // (?perf: the vessel pass's path, the quads it drew and why a pass was the classic one.)
+  const noteMesh = () => gpuProbe.gauge('vessel path', meshWhy ? `classic (${meshWhy})` : `mesh: ${meshQuads} segment quads × 2, ${meshPasses} mesh passes so far`);
+  /** Why a vessel pass at this target is the classic one ('' when the mesh pass can run). */
+  function meshNo() {
+    if (!vesselMesh()) return 'off in Settings';
+    if (software) return 'software GL';
+    if (!maskP || !zeroP) return started.mesh ? 'still compiling' : 'not built (lobule)';
+    if (!simpleP) return 'no one-vessel build';
+    if (lost) return 'context lost';
+    return '';
+  }
+  // The vessel quads into the bound target's depth and stencil (cleared first, within the scissor): stencil S_ONE where some vessel row can
+  // reach a pixel, S_MANY where two or more can. The colour writes are masked; the stencil's other bits are left alone.
+  function maskDraw(m, look, nQ, SW, SH) {
+    gl.depthMask(true); gl.stencilMask(0xff);
+    gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
+    const u = maskP.u;
+    gl.useProgram(maskP.p);
+    UC.m3(u.world, m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]));
+    UC.f2(u.size, SW, SH);
+    UC.f2(u.lOff, lOffNow[0], lOffNow[1]);
+    UC.f1(u.pad, maskPad(look.reach, look.shOff, 1 / Math.max(1e-6, Math.hypot(m[0], m[1]))));
+    UC.f1(u.zK, 1 / (nTubes + 2));
+    UC.i1(u.morphOn, geo.morph ? (geo.morph.tight ? 2 : 1) : 0);
+    if (geo.morph) UC.i1(u.posBase, geo.morph.posBase);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, entTex); UC.i1(u.ent, 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, radTex); UC.i1(u.rad, 1);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, tubeTex); UC.i1(u.tube, 2);
+    gl.colorMask(false, false, false, false);
+    gl.disable(gl.CULL_FACE);
+    gl.enable(gl.DEPTH_TEST); gl.enable(gl.STENCIL_TEST);
+    gl.stencilMask(S_COUNT); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+    gl.bindVertexArray(maskVAO);
+    // (A: the lowest row at each pixel kept in the depth, S_ONE marked. B: any other row there marks S_MANY.)
+    gl.depthFunc(gl.LESS); gl.stencilFunc(gl.ALWAYS, S_ONE, 0xff);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nQ);
+    gl.depthMask(false); gl.depthFunc(gl.NOTEQUAL); gl.stencilFunc(gl.ALWAYS, S_MANY, 0xff);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nQ);
+    gl.bindVertexArray(null);
+    gl.depthMask(true); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST);
+    gl.colorMask(true, true, true, true);
+    gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+    meshQuads = nQ; meshPasses++;
+  }
+  // The vessel pass as the mesh pass (vesselPass's arguments); false when it cannot run here, and the classic pass draws.
+  function meshPass(m, look, gen, one, redraw, tint, size) {
+    let why = meshNo();
+    const fb = glGet(gl, gl.FRAMEBUFFER_BINDING);
+    const rec = fb === fbo || fb === tintFbo ? DS_LAYER : lw.fbo && fb === lw.fbo ? DS_LOW : null;
+    if (!why && !rec) why = 'another target';
+    const nQ = why ? 0 : segEntries(cellsCPU, nCells);
+    if (!why && !nQ) why = 'no vessels';
+    meshWhy = why;
+    if (why) return false;
+    dsOn(rec, fb, rec === DS_LOW ? lw.w : fboW, rec === DS_LOW ? lw.h : fboH);
+    maskDraw(m, look, nQ, size ? size[0] : fboW, size ? size[1] : fboH);
+    gl.enable(gl.STENCIL_TEST); gl.stencilMask(0);
+    // (The cells that list one vessel: its build wherever it can reach. The others: the one-vessel build where one row can, the general where more.)
+    if (one[1]) { gl.stencilFunc(gl.LEQUAL, S_ONE, S_COUNT); vesselDraw(simpleP, m, look, one[0], one[1], redraw, tint, size); }
+    if (gen[1]) {
+      gl.stencilFunc(gl.EQUAL, S_ONE, S_COUNT); vesselDraw(simpleP, m, look, gen[0], gen[1], redraw, tint, size);
+      gl.stencilFunc(gl.LEQUAL, S_MANY, S_COUNT); vesselDraw(prog, m, look, gen[0], gen[1], redraw, tint, size);
+    }
+    // (A redraw over the kept picture writes every pixel of its cells: those no vessel reaches empty, as the classic shader writes them.)
+    if (redraw && !tint && (gen[1] || one[1])) {
+      gl.stencilFunc(gl.EQUAL, 0, S_COUNT);
+      const u = zeroP.u, M = m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]);
+      gl.useProgram(zeroP.p);
+      UC.m3(u.world, M); UC.f2(u.size, size ? size[0] : fboW, size ? size[1] : fboH); UC.f1(u.cell, CELL); UC.f2(u.lOff, lOffNow[0], lOffNow[1]);
+      if (gen[1]) { gl.bindVertexArray(gen[0]); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, gen[1]); }
+      if (one[1]) { gl.bindVertexArray(one[0]); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, one[1]); }
+      gl.bindVertexArray(null);
+    }
+    gl.disable(gl.STENCIL_TEST); gl.stencilMask(0xff);
+    // (The counts are spent: the tile GPU need not write them back to memory, as the one-pass frames' stencil is not.)
+    gl.invalidateFramebuffer(gl.FRAMEBUFFER, INV_DS);
+    return true;
+  }
   // A one-pass build ready to draw: the vessel half's uniforms and textures, then the composite's textures (compBind), and the
   // vessel textures the composite half has no unit for put on the units of the layer it no longer reads (base, gbuf, gbuf2:
   // 16 units in all, WebGL2's least). The composite half's own uniforms are set with the composite's (see composite).
@@ -3183,7 +3304,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The picture's own copy (ownBuf): what the canvas would keep with preserveDrawingBuffer. Every composite draws
   // into it and present() copies it whole onto the canvas, so the canvas always holds a whole, current picture, whatever the
   // browser did with the last one. Null where ownBuf is not (the canvas keeps its picture itself).
-  const makeOwn = () => { const o = { tex: dataTex(gl), fbo: gl.createFramebuffer(), w: 0, h: 0 }; gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return o; };
+  const makeOwn = () => { const o = { tex: dataTex(gl), fbo: gl.createFramebuffer(), w: 0, h: 0, ds: who === 'stage' }; gl.bindTexture(gl.TEXTURE_2D, o.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); return o; };
   // (Sharper upscaling makes one too, while it is on, and gives it back after: the picture is drawn there and upscaled onto the canvas.)
   let own = ownBuf ? makeOwn() : null;
   let directNow = false, ownStale = false, noDirect = false, wholeRun = 0, compLook = null, compBlood = null, directFrame = -1;
@@ -3202,9 +3323,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (The stencil the one-pass frames mark the vessel cells in: see composite.)
     own.rb ||= gl.createRenderbuffer();
     gl.bindRenderbuffer(gl.RENDERBUFFER, own.rb);
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, own.w, own.h);
+    // (Depth and stencil for the stage's figure: the mesh pass's vessel quads count the vessels there on a one-pass zoom frame, veins-mesh.js.)
+    gl.renderbufferStorage(gl.RENDERBUFFER, own.ds ? gl.DEPTH24_STENCIL8 : gl.STENCIL_INDEX8, own.w, own.h);
     gl.bindRenderbuffer(gl.RENDERBUFFER, null);
-    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, own.rb);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, own.ds ? gl.DEPTH_STENCIL_ATTACHMENT : gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, own.rb);
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     return true;
   }
@@ -3718,6 +3840,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     for (const t of lw.tex) gl.deleteTexture(t);
     gl.deleteFramebuffer(lw.fbo);
     lw.fbo = lw.tex = null; lw.w = lw.h = 0;
+    if (DS_LOW.rb) { gl.deleteRenderbuffer(DS_LOW.rb); DS_LOW.rb = DS_LOW.a = DS_LOW.b = null; DS_LOW.w = DS_LOW.h = 0; }
   }
   // A texture on its unit, and the unit named in the program's uniform.
   function bindUnit(U, unit, tex, name) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); UC.i1(U[name], unit); }
@@ -3817,6 +3940,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       later.splice(later.indexOf(k), 1);
       if (k === 'streak') { finishStreak(); if (streakP) warm('streak'); }
       else if (k === 'heads') finishHeads();
+      else if (k === 'mesh') finishMesh();
       else if (k === 'plain') { finishPlain(); if (plainCell) warm('plain'); }
       else if (k === 'fused') { finishFuse(); if (fuseGen) warm('fused'); }
       else { finishSimple(); if (simpleP) { warm('simple'); uploadCells(); fboOK = false; } }
@@ -4785,13 +4909,35 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         // The one-pass frame: the vessel cells drawn by the one-pass builds, each marking its pixels in the stencil, then the
         // picture's own build over every pixel left unmarked, where the (empty) layer is what the vessel pass would have left.
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture, one pass');
+        // (The mesh pass, where it can run (the kept picture's own buffer, with depth: ownSize): the vessel quads count the vessels in the stencil's
+        // low bits first, and each cell's pixel runs the build it needs, marking S_DRAWN; a pixel no vessel reaches is left to the picture's own build.)
+        const fbNow = glGet(gl, gl.FRAMEBUFFER_BINDING), nQ = segEntries(cellsCPU, nCells);
+        let fm = meshNo();
+        if (!fm && !(own && own.ds && fbNow === own.fbo)) fm = 'one-pass frame on the canvas';
+        if (!fm && !fuseOne) fm = 'no one-pass one-vessel build';
+        if (!fm && !nQ) fm = 'no vessels';
+        meshWhy = fm;
+        if (gpuProbe.on) noteMesh();
         gl.enable(gl.STENCIL_TEST);
-        gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
-        gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-        // (The general cells, then the one-vessel build's: a call for each, where a list of lists was made.)
-        if (nGen) { fuseBind(fuseGen, m, look, layer, glow, warm, useStack); gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nGen); }
-        if (nSimple) { fuseBind(fuseOne, m, look, layer, glow, warm, useStack); gl.bindVertexArray(oneVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nSimple); }
-        gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        if (!fm) {
+          maskDraw(m, look, nQ, PW(), PH());
+          gl.enable(gl.STENCIL_TEST);
+          gl.stencilMask(S_DRAWN); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+          if (nSimple) { gl.stencilFunc(gl.LEQUAL, S_DRAWN | S_ONE, S_COUNT); fuseBind(fuseOne, m, look, layer, glow, warm, useStack); gl.bindVertexArray(oneVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nSimple); }
+          if (nGen) {
+            gl.stencilFunc(gl.EQUAL, S_DRAWN | S_ONE, S_COUNT); fuseBind(fuseOne, m, look, layer, glow, warm, useStack); gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nGen);
+            gl.stencilFunc(gl.LEQUAL, S_DRAWN | S_MANY, S_COUNT); fuseBind(fuseGen, m, look, layer, glow, warm, useStack); gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nGen);
+          }
+          gl.stencilMask(0xff);
+          gl.stencilFunc(gl.EQUAL, 0, S_DRAWN); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        } else {
+          gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
+          gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+          // (The general cells, then the one-vessel build's: a call for each, where a list of lists was made.)
+          if (nGen) { fuseBind(fuseGen, m, look, layer, glow, warm, useStack); gl.bindVertexArray(vao); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nGen); }
+          if (nSimple) { fuseBind(fuseOne, m, look, layer, glow, warm, useStack); gl.bindVertexArray(oneVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nSimple); }
+          gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        }
         gl.useProgram(prg.p);
         compBind(U, layer, glow, warm, useStack);
         UC.i1(U.bloodOnly, 0);
@@ -4803,7 +4949,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         // zoom or pan frame, Apple's Metal guide "Load and Store Actions", MDN "WebGL best practices".)
         // (The enum follows the buffer bound, not whether a kept picture exists: the canvas's own takes STENCIL, a framebuffer object
         // STENCIL_ATTACHMENT.)
-        INV1[0] = own && !direct ? gl.STENCIL_ATTACHMENT : gl.STENCIL; gl.invalidateFramebuffer(gl.FRAMEBUFFER, INV1);
+        INV1[0] = own && !direct ? (own.ds ? gl.DEPTH_STENCIL_ATTACHMENT : gl.STENCIL_ATTACHMENT) : gl.STENCIL; gl.invalidateFramebuffer(gl.FRAMEBUFFER, INV1);
       } else if (full) {
         UC.i1(U.bloodOnly, 0);
         if (gpuProbe.on) gpuProbe.gauge('blood squares on screen', 'whole picture');
@@ -4996,6 +5142,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
       }
       fboW = fboH = 0; baseM = null; fboOK = false; wrapNone(); lowLive = null;
+      if (DS_LAYER.rb) { gl.bindRenderbuffer(gl.RENDERBUFFER, DS_LAYER.rb); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, 1, 1); gl.bindRenderbuffer(gl.RENDERBUFFER, null); DS_LAYER.w = DS_LAYER.h = 1; }
       freeLayer(lineLayer); freeLayer(glowLayer); freeLayer(warmLayer); lineKV = glowKV = warmKV = -1;
       // (The quality tiers' targets, the streaks' half-size target and, shared, the host's texture for this picture: given back too. The tiers'
       // are made again by the stage a moment after the figure is shown (stage-res lowWarm), the others by the next draw that needs them.)
@@ -5020,13 +5167,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const S of [...morphSets]) dropSet(S);
         for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
-        for (const v of [vao, oneVAO, bloodVAO, halfSet.va, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
+        for (const v of [vao, oneVAO, bloodVAO, halfSet.va, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO, maskVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
-        for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP]) if (x) gl.deleteProgram(x.p);
+        for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP, maskP, zeroP]) if (x) gl.deleteProgram(x.p);
         if (half.tex) { gl.deleteTexture(half.tex); gl.deleteFramebuffer(half.fbo); }
         over?.dispose(); stack?.dispose(); tileGPU?.dispose();
         gl.deleteFramebuffer(fbo); gl.deleteFramebuffer(tintFbo); gl.deleteFramebuffer(lineLayer.fbo); gl.deleteFramebuffer(glowLayer.fbo); gl.deleteFramebuffer(warmLayer.fbo);
         if (own) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); }
+        for (const r of [DS_LAYER.rb, DS_LOW.rb]) if (r) gl.deleteRenderbuffer(r);
         if (rz.tex) { gl.deleteTexture(rz.tex); gl.deleteFramebuffer(rz.fbo); }
         if (rz.P) gl.deleteProgram(rz.P.p);
         for (const x of [layP, upP]) if (x) gl.deleteProgram(x.p);

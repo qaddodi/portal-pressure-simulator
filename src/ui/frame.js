@@ -724,6 +724,16 @@ export function setFigLab(k, v) {
 }
 /** Called with (key, value) each time one of the Figure performance switches changes. */
 export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
+// Settings › Display › Mesh vessel renderer (Mohammad, 8 Nov 2026: "make it a setting to switch to mesh renderer or not"): the figure's vessels
+// drawn by the mesh pass (veins-gl.js meshPass, veins-mesh.js), the same picture for less GPU time; off, the classic pass alone. On by default,
+// kept across reloads (pps.vesselMesh, '0' when off). The picture is the same either way, so a change needs no redraw.
+let meshOn = true;
+try { if (localStorage.getItem('pps.vesselMesh') === '0') meshOn = false; } catch (e) { caught('frame:mesh', e); /* storage unavailable */ }
+export const vesselMesh = () => meshOn;
+export function setVesselMesh(on) {
+  meshOn = !!on;
+  try { if (meshOn) localStorage.removeItem('pps.vesselMesh'); else localStorage.setItem('pps.vesselMesh', '0'); } catch (e) { caught('frame:mesh2', e); /* storage unavailable */ }
+}
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;
