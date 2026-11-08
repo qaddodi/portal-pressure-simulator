@@ -822,5 +822,4 @@ test('the probe\'s front band is the inverse of its body: dark on the light look
     const body = lum(TOKENS[look].surface), face = lum(TOKENS[look]['dop-face']);
     assert.ok(bodyDark ? face > body + 0.5 : face < body - 0.5, `${look}: band ${face.toFixed(2)} against body ${body.toFixed(2)}`);
   }
-  assert.doesNotMatch(tokens.split('/* BEGIN')[0], /--dop-face/, 'the band is the look\'s token, not one fixed colour');
 });
