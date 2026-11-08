@@ -174,8 +174,8 @@ test('a non-scaling stroke is painted at its width in the page\'s px, whatever i
   assert.deepEqual(log, [0.8, 1.6]);
 });
 
-test('the mask and nested layers are held warm in the budget, given back at rest by a timer, never while a job holds them or soon after a clear (Perf D2)', async () => {
-  const { holdersNow } = await import('../src/ui/gpu-budget.js');
+test('the mask and nested layers are given back at rest by a timer, never while a job holds them or soon after a clear (Perf D2)', async () => {
+  const { holdersNow } = await import('../src/ui/gpu-budget.js');   // (they must never be counted as a budget holder: counting them could make the budget drop other things mid gesture)
   const timers = [], was = { set: globalThis.setTimeout, clear: globalThis.clearTimeout };
   globalThis.setTimeout = (f, ms) => { timers.push({ f, ms, live: true }); return timers.length; };
   globalThis.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].live = false; };
@@ -192,13 +192,13 @@ test('the mask and nested layers are held warm in the budget, given back at rest
     const a = p.bakeJob(spec(), ID, 100, 100, {});
     assert.equal(a.step(performance.now() + 0), 'more');   // (the layers cleared, one op in; the job holds them)
     assert.ok(p.deepBytes() > 0);
-    assert.equal(mine(), before + 1, 'held in the budget as a warm holder');
+    assert.equal(mine(), before, 'not a budget holder');
     assert.equal(timers.filter((t) => t.live).length, 1);
     assert.equal(timers.at(-1).ms, 12000);
     // The timer fires while the job is half done, and a long time on: nothing is given back, it asks again.
     clock += 20000; fire();
     assert.ok(p.deepBytes() > 0, 'kept while a picture\'s job holds the layers');
-    assert.equal(mine(), before + 1);
+    assert.equal(mine(), before);
     assert.equal(p.trimDeep(), false);
     while (a.step() !== 'done');
     a.drop();
@@ -207,16 +207,14 @@ test('the mask and nested layers are held warm in the budget, given back at rest
     assert.equal(a2.step(), 'done');
     clock += 100; fire();
     assert.ok(p.deepBytes() > 0, 'cleared a moment ago: kept');
-    clock += 20000; fire();   // (idle for the warm period: given back, and the budget's holder with them)
+    clock += 20000; fire();   // (idle for the warm period: given back)
     assert.equal(p.deepBytes(), 0, 'given back at rest');
-    assert.equal(mine(), before, 'the holder left the budget with them');
     // Made again at the next first clear.
     const n = calls.length;
     const b = p.bakeJob(spec(), ID, 100, 100, {});
     assert.equal(b.step(), 'done');
-    assert.ok(p.deepBytes() > 0 && mine() === before + 1);
+    assert.ok(p.deepBytes() > 0 && mine() === before);
     assert.ok(calls.slice(n).some((c) => c[0] === 'texImage2D' && c[4] === 100), 'its room made again');
     p.dispose();
-    assert.equal(mine(), before, 'dispose lets the holder go');
   } finally { globalThis.setTimeout = was.set; globalThis.clearTimeout = was.clear; performance.now = pnow; }
 });
