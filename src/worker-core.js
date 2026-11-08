@@ -136,10 +136,16 @@ export function createCore(post) {
   // between the live ticks and never stops the clock. Only a steady state is lent a past: not while the model is easing, on a time-lapse
   // or on the disease clock, and a change of state cancels it.
   let hist = null, histEng = null, histTimer = 0;
+  // (Perf C3: the last history made, kept for the same request on the same state. stateVer counts everything that can move the model: a message
+  // that is not a query, and every tick of a running clock or a morph. The kept history is used only at the version it was begun at, and
+  // for the same generation, clock, beat count, window, vessel and params; so it is exactly what a new run would make.)
+  let histCache = null, stateVer = 0;
+  const copySamples = (s) => Object.fromEntries(Object.entries(s).map(([k, a]) => [k, a.slice()]));   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once for a history made or reused
   function endHistory(done) {
     clearTimeout(histTimer); histTimer = 0;
     if (!hist) return;
     const { reqId } = hist, h = hist; hist = null;
+    if (done && h.ver === stateVer) histCache = { ver: h.ver, key: h.key, s: copySamples(h.s), probe: h.probe, T: h.T };   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once when a history ends
     post({ type: 'history', reqId, samples: done ? h.s : null, probe: h.probe, t: h.T });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once when a history ends
   }
   // The model was given another state (a patient, a restore, an action): the history under way is of the old one, and nothing posted is the new one's.
@@ -182,7 +188,13 @@ export function createCore(post) {
     endHistory(false);   // (one still running is answered empty: the newer request is the instrument's)
     if (crashed || clock !== 'hemo' || lapse || morph || !(eng.t >= 0)) { post({ type: 'history', reqId, samples: null }); return; }
     const W = Math.min(HIST_MAX_S, Math.max(2, +secs || 10)), D = 4 * Math.ceil((W + HIST_RUNIN_S) / 4);
-    const fresh = postedT <= eng.t, T = fresh ? postedT : eng.t, cycT = fresh ? postedCyc : eng.cyc || 0, c = (histEng ||= new Engine());
+    const fresh = postedT <= eng.t, T = fresh ? postedT : eng.t, cycT = fresh ? postedCyc : eng.cyc || 0;
+    const key = [gen, eng.t, T, cycT, eng.cyc || 0, W, probe, JSON.stringify(eng.params)].join('|');   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once for each history request
+    if (histCache && histCache.ver === stateVer && histCache.key === key) {
+      post({ type: 'history', reqId, samples: copySamples(histCache.s), probe: histCache.probe, t: histCache.T });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; once for a history reused
+      return;
+    }
+    const c = (histEng ||= new Engine());
     c.restore(eng.snapshot());
     // (What restore() starts over and the copy must have as the live model has it: relaxHidden.)
     Object.assign(c, { COf: eng.COf, pvQm: eng.pvQm, pvVm: eng.pvVm, vitM: eng.vitM && [...eng.vitM], vitM1: eng.vitM1 && [...eng.vitM1] });
@@ -191,7 +203,7 @@ export function createCore(post) {
     c.bleed = { ...c.bleed, active: false }; c.infusions = []; c.valsalva = { until: -1, start: -1 };
     c.t = T % 4;
     c.cyc = cycT - D * (eng.hr || 70) / 60;
-    hist = { reqId, c, secs: W, T, cycT, i: 0, n: Math.round(D / HIST_DT), probe, s: newSamples() };
+    hist = { reqId, c, ver: stateVer, key, secs: W, T, cycT, i: 0, n: Math.round(D / HIST_DT), probe, s: newSamples() };
     histTimer = setTimeout(histSlice, 0);
   }
 
@@ -298,6 +310,7 @@ export function createCore(post) {
     const realDt = last == null ? 0 : Math.min(0.1, (now - last) / 1000);
     last = now;
     eng.beat = beat;
+    if (morph || running) stateVer++;
     if (morph) {
       const k = Math.min(1, (now - morph.t0) / morph.ms);
       // W2: the beat runs on through the blend. The snapshots carry no cardiac phase, so it is advanced here at the blended heart
@@ -591,6 +604,8 @@ export function createCore(post) {
   // partially constructed scenarios or interleave with a disease-clock jump.
   const queue = [];
   let busy = false;
+  // (Messages that leave the live model as it is: they do not end a kept history, see histCache.)
+  const NO_STATE = ['snapshot', 'presets', 'healthyProfile', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint', 'visibility', 'probe'];
   async function drain() {
     if (busy) return;
     busy = true;
@@ -598,6 +613,7 @@ export function createCore(post) {
       const { msg, resolve } = queue.shift();
       try {
         const handler = handlers[msg.type];
+        if (!NO_STATE.includes(msg.type)) stateVer++;
         const job = handler?.(msg);
         if (job?.next) {
           stop();

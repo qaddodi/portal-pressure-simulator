@@ -87,3 +87,52 @@ test('Perf C5: a slider drag while the page has not painted is answered by one f
   assert.equal(b.last, a.last, 'the model is where the same drag leaves it');
   assert.ok(b.lastFrame.changed !== undefined && b.r.frames.length > b.frames, 'the frames go on after the drag ends');
 });
+
+test('Perf C3: the same history asked for again on an unchanged model is the kept one, and any change makes a new one', async (t) => {
+  const msgs = [];
+  const core = createCore((m) => msgs.push(m));
+  t.after(() => core.dispose());
+  await core.handle({ type: 'preset', id: 'cirr-decomp' });
+  core.handle({ type: 'run', running: true });
+  await new Promise((r) => setTimeout(r, 400));
+  await core.handle({ type: 'run', running: false });
+  const step = t.mock.method(Engine.prototype, 'step');
+  const ask = async (secs, reqId) => {
+    const at = msgs.length;
+    core.handle({ type: 'history', secs, reqId });
+    for (let i = 0; i < 400; i++) {
+      const m = msgs.slice(at).find((x) => x.type === 'history' && x.reqId === reqId);
+      if (m) return m;
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    throw new Error('no history');
+  };
+  const a = await ask(6, 1), steps = step.mock.callCount();
+  assert.ok(a.samples && steps > 1000, `a first history is run (${steps} steps)`);
+  const b = await ask(6, 2);
+  assert.equal(step.mock.callCount(), steps, 'the second costs no model steps');
+  assert.deepEqual(b.samples, a.samples, 'and is the same history');
+  assert.equal(b.t, a.t);
+  assert.notEqual(b.samples, a.samples, 'each is its own object');
+  b.samples.t[0] = -1;
+  assert.notEqual((await ask(6, 3)).samples.t[0], -1, 'what the page does to one does not reach the kept one');
+  assert.equal(step.mock.callCount(), steps);
+  await ask(8, 4);
+  assert.ok(step.mock.callCount() > steps, 'another window is a new history');
+  const s2 = step.mock.callCount();
+  await core.handle({ type: 'setParams', params: deepMerge(core.engine().params, { cirrhosis: 0.5 }), settle: true });
+  await ask(8, 5);
+  assert.ok(step.mock.callCount() > s2, 'a changed model is a new history');
+  const s3 = step.mock.callCount();
+  await ask(8, 6);
+  assert.equal(step.mock.callCount(), s3, 'and that one is kept in turn');
+  await core.handle({ type: 'action', action: { kind: 'infuse', fluid: 'saline' } });
+  await ask(8, 7);
+  assert.ok(step.mock.callCount() > s3, 'an action makes a new one');
+  const s4 = step.mock.callCount();
+  core.handle({ type: 'run', running: true });
+  await new Promise((r) => setTimeout(r, 100));
+  await core.handle({ type: 'run', running: false });
+  await ask(8, 8);
+  assert.ok(step.mock.callCount() > s4 + 1000, 'a clock that has run since makes a new one');
+});
