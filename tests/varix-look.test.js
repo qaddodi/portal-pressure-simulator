@@ -4,6 +4,7 @@ import { stageSource } from './stage-src.js';
 // pressure now, but its channels (the coronary vein C1a and its drain C1b; the short gastric feeder C2 and the gastrorenal shunt
 // C5) are sized by weeks of remodeling, so carvedilol (fundal 8.5 → 5.5 mm) and a TIPS (8.5 → 2.1 mm) moved the drawn channel by
 // 5 % at most. varix-look.js turns the varix's size into how it is drawn; stage.js applies it.
+import { procSpecs } from '../src/ui/proc-routes.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -121,9 +122,9 @@ test('stage.js draws the varices\' channels by it: width (anatomy, not the flow 
 });
 
 test('BRTO\'s balloon sits near the renal end of the shunt, clear of the splenic vein that crosses it at 0.30 to 0.34', () => {
-  const m = stage.match(/brto: \{ ids: \['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'\], start: 0\.55, tip: \['shunt', ([\d.]+)\]/);
-  assert.ok(m, 'the route is still there');
-  assert.ok(+m[1] < 0.25, `the tip is ${m[1]} up the shunt (the splenic vein crosses from 0.30)`);
+  const tip = procSpecs({}, () => 1).brto.tip;   // (the route moved out of stage-cath.js into proc-routes.js, where the timing tests read it too)
+  assert.equal(tip[0], 'shunt');
+  assert.ok(tip[1] < 0.25, `the tip is ${tip[1]} up the shunt (the splenic vein crosses from 0.30)`);
 });
 
 test('a paused model\'s frame takes the diameter at once: its one frame per change is the only one that will come', () => {
