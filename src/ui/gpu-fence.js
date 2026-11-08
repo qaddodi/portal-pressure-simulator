@@ -20,7 +20,7 @@ const cur = new Float64Array(PHASES);
 /** The figure's context, where the fences are planted (veins-gl.js, when the renderer is made; null when it goes). */
 export function setFenceContext(g) { gl = g; }
 /** Whether the readout wants the samples (frame-hud.js turns them on while it shows). */
-export function setFences(v) { on = !!v; if (!on) { sampling = sampled = false; n = 0; at = 0; } }
+export function setFences(v) { on = !!v; if (!on) { sampling = sampled = false; n = 0; at = 0; stepN.fill(0); stepAt.fill(0); } }
 export const fencesOn = () => on;
 /** Whether the frame running now (or the one that just ended) is a sample, whose script time is the GPU's wait: the readout leaves it out. */
 export const fenceSampling = () => sampling || sampled;
@@ -44,7 +44,24 @@ export function fenceMark(i) {
     sampling = false; sampled = true;
   }
 }
+// (Named steps inside a phase, for the sampled frame alone: veins-gl.js marks the blood pass, the heads, the present copy and the glasses and labels
+// over it, so a late phase of 26 ms (Mohammad's Mac, 8 Nov 2026) says which of its passes took it. STEP_MAX names, each a ring of KEEP waits.)
+const STEP_MAX = 8;
+const stepNames = [], stepWaits = new Float64Array(STEP_MAX * KEEP), stepN = new Int32Array(STEP_MAX), stepAt = new Int32Array(STEP_MAX);
+/** veins-gl.js: the commands of the step `name` have been issued (a sampled frame waits for them and keeps the wait under that name). */
+export function fencePart(name) {
+  if (!sampling) return;
+  let i = stepNames.indexOf(name);
+  if (i < 0) { if (stepNames.length >= STEP_MAX) return; i = stepNames.length; stepNames.push(name); }   // alloc-rare: a step's name is kept the first time it is seen
+  const w = wait();
+  stepWaits[i * KEEP + stepAt[i]] = w; stepAt[i] = (stepAt[i] + 1) % KEEP; if (stepN[i] < KEEP) stepN[i]++;
+}
 const sortBuf = new Float64Array(KEEP);
+function stepMedian(i) {
+  for (let k = 0; k < stepN[i]; k++) sortBuf[k] = stepWaits[i * KEEP + k];
+  sortBuf.fill(Infinity, stepN[i]); sortBuf.sort();
+  return sortBuf[stepN[i] >> 1];
+}
 function median(i) {
   for (let k = 0; k < n; k++) sortBuf[k] = waits[k * PHASES + i];
   sortBuf.fill(Infinity, n); sortBuf.sort();
@@ -62,5 +79,7 @@ export function fenceText() {
   if (!n) return gl ? `gpu: no sample yet (one frame in ${SAMPLE_EVERY} waits for the GPU)` : 'gpu: no figure context';
   const f = (i) => median(i).toFixed(1);
   let total = 0; for (let i = 1; i < PHASES; i++) total += median(i);
-  return `gpu (${n} sampled frames, 1 in ${SAMPLE_EVERY}, each phase's wait for the GPU): backlog at frame start ${f(0)} ms; early ${f(1)}, late ${f(2)}, final ${f(3)}, frame end ${f(4)} ms; this frame's passes ${total.toFixed(1)} ms`;
+  let steps = '';
+  for (let i = 0; i < stepNames.length; i++) if (stepN[i]) steps += `${steps ? ', ' : ''}${stepNames[i]} ${stepMedian(i).toFixed(1)}`;   // alloc-rare: once a second, for the readout
+  return `gpu (${n} sampled frames, 1 in ${SAMPLE_EVERY}, each phase's wait for the GPU): backlog at frame start ${f(0)} ms; early ${f(1)}, late ${f(2)}, final ${f(3)}, frame end ${f(4)} ms; this frame's passes ${total.toFixed(1)} ms${steps ? `; inside: ${steps}` : ''}`;
 }

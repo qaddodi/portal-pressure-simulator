@@ -33,7 +33,7 @@
 
 import { glGet, glCap, glOkBefore, glOkAfter, fbComplete } from './gl-state.js';
 import { CHEV_GLSL } from './chevron-glsl.js';
-import { setFenceContext } from './gpu-fence.js';
+import { setFenceContext, fencePart } from './gpu-fence.js';
 import { LIGHT } from './light.js';
 import { EDGE_GLSL } from './edge.js';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
@@ -3287,6 +3287,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (top && tops.length) {
         runTops();
         gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
+        fencePart('glasses and labels');
       }
       directNow = false; directP = pictureSeq; directB = bloodSeq;
       return;
@@ -3309,10 +3310,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
     overLay(true);
+    fencePart('present copy');
     // (What is drawn over the figure in this canvas, the glasses: on every picture laid, as the overlays are.)
     if (top && tops.length) {
       runTops();
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
+      fencePart('glasses and labels');
     }
     if (keep) keepNote(laidUnder && top);
   }
@@ -4728,6 +4731,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         } else { gl.bindVertexArray(compVAO); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); }
         gl.bindVertexArray(null);
         halfUse = half.tex;
+        fencePart('half-size streaks');
         rebind(); gl.viewport(0, 0, PW(), PH()); gl.useProgram(prg.p);
         if (gpuProbe.on) gpuProbe.gauge('streaks at half size', nWide > 0 ? `${half.w}×${half.h}, ${nWide} cells of wide rows${sq ? '' : ', cleared first'}` : `${half.w}×${half.h}, whole`);
       } else halfUse = null;
@@ -4783,7 +4787,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         if (dirt) { gl.bindVertexArray(dirtVAO); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, dirt); }
       }
       gl.bindVertexArray(null);
-      if (quads) drawHeads(m, layer, glow, warm, useStack, stillUse);
+      fencePart(fused ? 'one-pass picture' : full ? 'whole picture' : 'blood pass');
+      if (quads) { drawHeads(m, layer, glow, warm, useStack, stillUse); fencePart('heads'); }
       // (This picture's uniforms, and every row as it now is: what the next blood pass compares with.)
       if (!stillSig) stillSig = new Float64Array(sigNow.length);
       for (let i = 0; i < sn; i++) stillSig[i] = sigNow[i];

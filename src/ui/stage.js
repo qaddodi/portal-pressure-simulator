@@ -27,7 +27,7 @@ import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
 import { createGlassGL, glassRegions, GLASS } from './glass-gl.js';
 import { createVeinsGL, TUBE_TEXELS, MAX_TIERS, ORIGIN_GREY } from './veins-gl.js';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor } from './frame.js';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor, inMotion, cameraMoving } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { layoutWatch } from './idle-keys.js';
 import { surface } from './gpu-surfaces.js';
@@ -2015,6 +2015,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // frost held, then a few squares of it were blurred again, a patchwork of old and new. In the liver it is the lobule's blood now, its own squares.)
   const FROST_EVERY = 3, thirdSeq = (count = () => veins.bloodSeq) => { let held = -Infinity; return () => { const q = count(); if (q < held || q - held >= FROST_EVERY) held = q; return held; }; };
   const frostFresh = (() => { const t = thirdSeq(), tl = thirdSeq(() => lz?.bloodSeq?.() ?? 0); return () => (frostLiver ? 0 : lzInFigure() ? tl() : t()); })();
+  // (8 Nov 2026, Mohammad's Mac ?perf in a talk with a time-lapse: the cards' glass blurred again on every frame, 33 a second, because every frame
+  // was a new picture (the vessels change with the model, and the blood's clock is in the picture's signature, so no frame counts as the blood's
+  // alone), and the GPU took 26 ms a frame in the figure's late phase. While nothing moves on screen (no camera, no transition), the anatomy's
+  // glasses take the picture's count at most every FROST_EVERY pictures, as the frost takes the blood's: a 16 or 22 px blur of vessels that
+  // change by a hair a frame cannot show a picture two frames old. A camera move or a transition reads every picture, as before; a card that moves
+  // changes the parts the glass reads, which blurs at once whatever the count. The liver's own frost is untouched.)
+  const heldPictures = () => { const t = thirdSeq(() => veins.drawSeq); return () => (cameraMoving() || inMotion() ? veins.drawSeq : t()); };
+  const frostVersion = (() => { const h = heldPictures(); return () => (frostLiver || lzInFigure() ? frostSeq() : h()); })();
   const frostBloodRects = (a, b, o, p) => (lzInFigure() ? (lz.bloodRects?.(a, b, o, p) ?? -1) : (veins.bloodDirtyRects?.(a, b, o, p) ?? -1));
   const frostBloodBox = (a, b, o) => (lzInFigure() ? false : veins.bloodDirty(a, b, o));
   // The callouts' frosted glass, drawn on the GPU under both callout layers while it can be (glass-gl.js); else the browser's.
@@ -2038,7 +2046,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The figure's callouts (cards.callouts): the same renderer with the callouts' own ways: drawn while the figure is on, from the figure's own
     // pictures and blood, in the turn between the cards' two, over what lies over the callouts, and their holes in the labels under 'callouts'.)
     if (cards.callouts) {
-      const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: () => veins.drawSeq, fresh: thirdSeq(), dirty: (a, b, o) => veins.bloodDirty(a, b, o), dirtyRects: (a, b, o, p) => veins.bloodDirtyRects?.(a, b, o, p) ?? -1, pictureRects: (a, b, o, p) => veins.pictureDirtyRects?.(a, b, o, p) ?? -1, camKey: () => veins.camKey ?? -1, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles('callouts') });
+      const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: heldPictures(), fresh: thirdSeq(), dirty: (a, b, o) => veins.bloodDirty(a, b, o), dirtyRects: (a, b, o, p) => veins.bloodDirtyRects?.(a, b, o, p) ?? -1, pictureRects: (a, b, o, p) => veins.pictureDirtyRects?.(a, b, o, p) ?? -1, camKey: () => veins.camKey ?? -1, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles('callouts') });
       if (!g) { wrap.dataset.glass = 'css'; return null; }
       hostFrost(g, { order: 2, over: () => frostOver('callouts') });
       glassGL = g;
@@ -2049,7 +2057,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cards.holesWhile = () => diveT > 0;   // (glass-gl.js: while the dive has the glass off the figure's canvas, the labels still leave the cards' places out)
     const shade = cards.low;
     const key = {};
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzShares() || (!anatCovered() && !(diveT > 0)))), version: frostSeq, fresh: frostFresh, dirty: frostBloodBox, dirtyRects: frostBloodRects, pictureRects: lzGlass.rects, camKey: () => veins.camKey ?? -1, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzShares() || (!anatCovered() && !(diveT > 0)))), version: frostVersion, fresh: frostFresh, dirty: frostBloodBox, dirtyRects: frostBloodRects, pictureRects: lzGlass.rects, camKey: () => veins.camKey ?? -1, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
     if (!g) return null;
     hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: noOver, low: (el) => el === shade || !!cards.isLow?.(el) || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
