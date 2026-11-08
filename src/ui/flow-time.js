@@ -1,6 +1,9 @@
-// Portal pressure and portal flow around a meal, on one chart (the presenter's flow-time tool). Flow sits in the upper
-// band on its own tight scale (L/min, right) so its rise reads clearly; pressure sits in the lower band on a scale from
-// zero (mmHg, left), so its small rise reads as small. The two never cross.
+// Portal pressure and portal flow around a meal, on one chart (the presenter's flow-time tool). Two y-axes (Mohammad, 8 Nov 2026:
+// "make it two y-axis, a primary on the left and a secondary on the right, each for a different line; it's ok if the lines overlap,
+// that gives them a wider y range"): the lower line (a pressure, mmHg) reads on the LEFT axis, the upper line (flow, L/min) on the
+// RIGHT, and each axis takes the plot's full height on a tight fit of its own line (see pairScales), so a small change is a visible
+// one. The two scales share one count of steps, so the gridlines are one set and both axes' numbers sit on them; each axis's numbers
+// and line are in the line's colour. The lines may cross.
 // Time is a teaching scale in minutes: a fasting baseline before the meal (a dashed line at 0), the slide's time-lapse
 // spread over the rise, then the state it reaches held to the end. The values are the model's own: the off-screen chain
 // keeps the portal pressure and flow on each day of the time-lapse (worker-core's trail), read here once a minute
@@ -31,9 +34,8 @@ const FT_MIN = 12;   // (px on the screen: the smallest the chart's words are dr
 export const MINUTES = { from: -10, rise: 30, end: 40 };
 // The lines a chart can plot (fingerprint keys): name, unit, decimals, colour, a scale on the model's value and options:
 // given (the slide gives the line's change, tool.given, in place of the model: it runs from base down by that number), base,
-// scale (a lower line's fixed scale [min, max, step] in place of one from zero), parts (a lower line's scale from zero is
-// cut in this many steps, two by default) and pad (a share of a tight upper line's range kept clear above and below it).
-// A chart's lines are [lower, upper]: the lower a pressure on a scale from zero, the upper on its own tight scale.
+// scale (a lower line's fixed scale [min, max, step] in place of a fitted one) and pad (a share of a line's range kept clear above
+// and below it, 8% by default). A chart's lines are [lower, upper]: the lower on the left axis, the upper on the right, both fitted.
 export const LINE = {
   pv: ['Portal pressure', 'mmHg', 1, '--tr-pv'], ppg: ['PPG', 'mmHg', 1, '--tr-pv'], pvFlow: ['Portal flow', 'L/min', 1, '--tr-hv'],
   sin: ['Sinusoids', 'mmHg', 1, '--tr-wedge'], asc: ['Ascites', 'L', 1, '--tr-hv', 0.001],
@@ -56,19 +58,40 @@ export const withUnit = (v, d, unit) => `${fmt(v, d)}${unit[0] === '%' ? '%' : `
 const NICE = [1, 2, 2.5, 5, 10];
 const niceStep = (raw) => { const p = Math.pow(10, Math.floor(Math.log10(raw))); return NICE.find((s) => s * p >= raw - 1e-9) * p; };
 const ticksOf = (lo, hi, step) => Array.from({ length: Math.round((hi - lo) / step) + 1 }, (_, k) => +(lo + k * step).toPrecision(6));
-// Flow: a tight scale around its values (about four steps), so the rise fills most of its band (pad: room kept clear of both ends).
-function flowScale(v, pad = 0) {
-  const lo0 = Math.min(...v), hi0 = Math.max(...v), room = (hi0 - lo0) * pad, a = lo0 - room, b = hi0 + room, step = niceStep(Math.max(1e-6, (b - a) / 4));
-  const lo = Math.max(0, Math.floor(a / step + 1e-9) * step), hi = Math.ceil(b / step - 1e-9) * step;
-  const ticks = ticksOf(lo, hi, step);
-  return { min: ticks[0], max: ticks.at(-1), ticks };
+// A line's range as it is fitted: the values' own span with `pad` (a share of it) kept clear above and below, never under zero. A
+// line that does not move at all (a span of nothing) gets a small span around its value, so it sits mid-axis and not on a rule.
+const PAD = 0.08;
+function rangeOf(v, pad = PAD) {
+  const lo0 = Math.min(...v), hi0 = Math.max(...v), span = hi0 - lo0;
+  if (span < 1e-6 * (Math.abs(hi0) + 1)) { const h = Math.max(Math.abs(hi0) * 0.05, 0.5); return [Math.max(0, lo0 - h), hi0 + h]; }
+  return [Math.max(0, lo0 - span * pad), hi0 + span * pad];
 }
+// The nice step (and the first gridline under the range's start) that covers [a, b] in exactly n steps.
+function fitSteps(a, b, n) {
+  let step = niceStep(Math.max(1e-6, (b - a) / n));
+  for (let i = 0; i < 12; i++, step = niceStep(step * 1.0001)) {
+    const lo = Math.floor(a / step + 1e-9) * step;
+    if (lo + n * step >= b - 1e-9 * step) return { lo, step };
+  }
+  return { lo: 0, step: niceStep(b / n) };
+}
+const scaleOf = ({ lo, step }, n) => { const ticks = ticksOf(lo, lo + n * step, step); return { min: ticks[0], max: ticks.at(-1), ticks }; };
 // A line with a scale of its own, [min, max, step] (body weight: 84 to 100% in fours, its 88% on a gridline).
-function fixedScale([lo, hi, step]) { const ticks = ticksOf(lo, hi, step); return { min: lo, max: hi, ticks }; }
-// Pressure: from zero, so its rise keeps its true size.
-function pressureScale(v, parts = 2) {
-  const top = Math.max(...v), step = niceStep(top / parts), ticks = ticksOf(0, Math.ceil(top / step - 1e-9) * step, step);
-  return { min: 0, max: ticks.at(-1), ticks };
+const fixedScale = ([lo, hi, step]) => scaleOf({ lo, step }, Math.round((hi - lo) / step));
+/** The two axes of a chart, left (the lower line, vl) and right (the upper, vu), each fitted tight to its own line so each fills the
+ *  plot's whole height, and cut in the same number of steps so the gridlines are one set and both axes' numbers sit on them. A line
+ *  with a scale given (LINE option scale) keeps it and the other is fitted to its step count; else the count (2 to 5) that wastes the
+ *  least of either axis, four preferred. → [left scale, right scale], each { min, max, ticks }. */
+export function pairScales(vl, vu, optL = {}, optU = {}) {
+  if (optL.scale) { const L = fixedScale(optL.scale), n = L.ticks.length - 1, [a, b] = rangeOf(vu, optU.pad); return [L, scaleOf(fitSteps(a, b, n), n)]; }
+  if (optU.scale) { const U = fixedScale(optU.scale), n = U.ticks.length - 1, [a, b] = rangeOf(vl, optL.pad); return [scaleOf(fitSteps(a, b, n), n), U]; }
+  const [la, lb] = rangeOf(vl, optL.pad), [ua, ub] = rangeOf(vu, optU.pad);
+  let best = null;
+  for (const n of [4, 3, 5, 2]) {
+    const L = fitSteps(la, lb, n), U = fitSteps(ua, ub, n), waste = Math.max(n * L.step / (lb - la), n * U.step / (ub - ua));
+    if (!best || waste < best.waste - 1e-9) best = { n, L, U, waste };
+  }
+  return [scaleOf(best.L, best.n), scaleOf(best.U, best.n)];
 }
 
 /** trail: [[day, ...the model's lines], ...] → { min (the clock: minutes, or days), pv (the lower line), flow (the upper), one
@@ -91,14 +114,15 @@ export function flowTimeSeries(trail, clock = 'meal', lines = MEAL_LINES, given 
   };
   const min = Array.from({ length: ax.end - ax.from + 1 }, (_, k) => ax.from + k);
   const pv = min.map((m) => at(0, m)), flow = min.map((m) => at(1, m));
-  return { min, pv, flow, pScale: opt(lines[0]).scale ? fixedScale(opt(lines[0]).scale) : pressureScale(pv, opt(lines[0]).parts), fScale: flowScale(flow, opt(lines[1]).pad), ax };
+  const [pScale, fScale] = pairScales(pv, flow, opt(lines[0]), opt(lines[1]));
+  return { min, pv, flow, pScale, fScale, ax };
 }
 
 // (2 Nov 2026: the chart is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const sv = svgModel;
-// The plot, drawn at the chart's own size in pixels with the card's small type (f): the upper line's band at the top, the
-// lower's under it, the clock under both. Each band's numbers sit on its own side, in its line's colour; the legend names
-// the two lines (with their units) over the plot, on one row when it fits, else two.
+// The plot, drawn at the chart's own size in pixels with the card's small type (f): both lines over the plot's full height, the
+// clock under it. Each axis's numbers sit on its own side (the lower line's left, the upper's right), in its line's colour; the
+// legend names the two lines (with their units) over the plot, on one row when it fits, else two.
 const cw = (t, f, b) => t.length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: the chart is laid out before it is drawn)
 let legendKeys = null, legendF = 0, legendOut = null;
 // (The legend's entries for these lines in this type size, kept: asked again for the same lines and size, the same list is handed back.)
@@ -160,7 +184,7 @@ export function createFlowTime() {
     const half = cw(`+${ax().end}`, f) / 2 + 6, L = Math.ceil(tw(ser.pScale) + 14 + (rx.length ? Math.max(3, f * 0.3) + 2 : 0)), R = Math.floor(w - Math.max(tw(ser.fScale) + 14, half + (meal ? 3 : 4) * f * 0.78 + 10));
     // (Room over the plot for the "Fasting" and "Meal" row, else for the upper line's value over its head.)
     const T = legH + (meal ? 1.9 * f : 1.9 * f), B = h - 1.7 * f - bandRoom(f), ph = Math.max(4 * f, B - T);
-    return { w, h, f, half, meal, keysL, oneRow, rowH, keyH: legH, L, R, T, B, FB: [T, T + 0.36 * ph], PB: [T + 0.62 * ph, T + ph] };
+    return { w, h, f, half, meal, keysL, oneRow, rowH, keyH: legH, L, R, T, B, FB: [T, T + ph], PB: [T, T + ph] };   // (both axes the plot's full height: the lines may overlap)
   }
   const X = (m) => G.L + (G.R - G.L) * (m - ax().from) / (ax().end - ax().from);
   function build() {
@@ -189,9 +213,10 @@ export function createFlowTime() {
       const gap = Math.abs(Y(sc.ticks[0]) - Y(sc.ticks.at(-1))) / Math.max(1, sc.ticks.length - 1);
       return (j) => gap >= 1.3 * f || j === sc.ticks.length - 1 || (j === 0 && gap * (sc.ticks.length - 1) >= 1.3 * f);
     };
-    const grid = (sc, Y, x, anchor, c) => {
+    // (The two axes share their steps, so one set of gridlines serves both: the left axis draws them, the right one only its numbers.)
+    const grid = (sc, Y, x, anchor, c, rules = true) => {
       const show = shows(sc, Y);
-      return sc.ticks.map((v, j) => sv('g', { class: 'ptk-grid' }, sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: Y(v), y2: Y(v) }),
+      return sc.ticks.map((v, j) => sv('g', { class: 'ptk-grid' }, rules ? sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: Y(v), y2: Y(v) }) : null,
         show(j) ? sv('text', { 'data-look': 'time.grid.text', 'data-p-c': tokName(c), x, y: Y(v) + 0.35 * f, 'text-anchor': anchor }, fmt(v, dec(sc))) : null));
     };
     // The legend: each line's swatch, name and unit; the lower line's on the left, the upper's on the right (or under it).
@@ -215,7 +240,7 @@ export function createFlowTime() {
     // clock stand inside it; with none, the foot is 1.7 em under the axis, under the clock's numbers.)
     const panel = plotPanel(sv, 0, G.keyH + 0.1 * f, G.w, G.h - (G.keyH + 0.1 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
-      sv('defs', {}, panel.clip), panel.back, bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c), grid(ser.pScale, lp.Y, L - 6 - (rx.length ? Math.max(3, f * 0.3) + 2 : 0), 'end', lp.c), legend,
+      sv('defs', {}, panel.clip), panel.back, bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c, false), grid(ser.pScale, lp.Y, L - 6 - (rx.length ? Math.max(3, f * 0.3) + 2 : 0), 'end', lp.c), legend,
       sv('line', { class: 'pft-x', 'data-look': 'time.axis.line', x1: L, x2: R, y1: B, y2: B }),
       mins.map((m) => sv('text', { class: 'pft-tk', 'data-look': 'time.tk', x: X(m), y: B + 1.25 * f, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
       sv('text', { class: 'ptk-ax', 'data-look': 'plot.ax', x: R + G.half, y: B + 1.25 * f }, meal ? 'min' : 'days'),
