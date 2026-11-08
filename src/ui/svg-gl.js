@@ -913,7 +913,10 @@ export function createSvgGL(box, opts = null) {
       if (label) attrSoon(cv, 'aria-label', label);
     } finally { handed = framePart('svg-gl: hand over', endPen, ctx); }   // (false: the picture could not be handed over, trace-gl.js end)
     g.drawn?.(!!pen.gpu && bw > 0 && bh > 0 && handed);   // (whether the GPU drew this frame: gl-words.js shows its picture only then)
-    if (now < g.until || g.ins.size || easing) g.ask = finalFrame(draw);
+    // (A loop (albumin's drift, a flow's pulse) asks for its next frame only while its box is on the screen: off it, a scene's loops drew and
+    // handed over a picture every frame no one saw (8 Nov 2026, lag hunt). The observer below paints it again as it comes back.)
+    if (now < g.until || g.ins.size) g.ask = finalFrame(draw);
+    else if (easing) { if (g.seen === false) g.loopWait = true; else g.ask = finalFrame(draw); }
   }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.gpu = createTraceGL(cv, { redraw: () => draw() });
@@ -923,6 +926,8 @@ export function createSvgGL(box, opts = null) {
   if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver((es) => { if (g.pk) dropRoots(g.pk); const r = es[0]?.contentRect; if (r && g.local.boxW !== r.width) { g.local.boxW = r.width; if (looksNeedWidth()) g.relook(); } g.paint(); }); g.ro.observe(box); }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
+  // alloc-rare: made once as the picture for a chart host is created (whether its box is on the screen, for the loops above)
+  if (typeof IntersectionObserver === 'function') { g.io = new IntersectionObserver((es) => { const on = es[es.length - 1].isIntersecting; g.seen = on; if (on && g.loopWait) { g.loopWait = false; g.paint(); } }); g.io.observe(box); }
   /** The picture moved as one: a point p is drawn at k p + (e, f) (box px). A pan is k 1; the lobule's dive is a scale about a point. */
   g.setHoles = (list) => { if (g.holes === list) return; g.holes = list; g.paint(); };
   g.view = (k, e, f) => { if (g.vk === k && g.ve === e && g.vf === f) return; g.vk = k; g.ve = e; g.vf = f; g.paint(); };
@@ -1020,7 +1025,7 @@ export function createSvgGL(box, opts = null) {
   g.dispose = () => {
     if (g.dead) return;
     g.dead = true;
-    live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.();
+    live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.io?.disconnect?.();
     cancelFrame(g.ask); cancelRest(g.lookAsk); cancelRest(g.connAsk); g.ask = g.lookAsk = g.connAsk = 0;
     for (const t of g.timers) clearTimeout(t);
     g.timers.clear(); g.ins.clear(); g.pending = null; g.cache.clear();
