@@ -70,7 +70,7 @@ Details are in I1 below.
 | I2 | **HVPG done right**: technique modes on the catheter | instrument, deck K1 | The 12 measuring rules, and what breaks the reading | one knob | M |
 | C1 | **Flow and resistance plane** | chart | Ohm's law: which drug lowers the flow, which the resistance | none | S |
 | C2 | **Treatment menu** for the patient on screen | chart | Every treatment's PPG against the liver flow it costs | none | M |
-| P1 | **Plug a spontaneous shunt** (play) | procedure | Baveno VIII 6.12 | none | S–M |
+| P1 | **Plug a spontaneous shunt** (play) — built 8 Nov | procedure | Baveno VIII 6.12 | none | S–M |
 | P2 | **Narrow or close the TIPS** (play) | procedure | Baveno VIII 6.17 | none | S–M |
 | P3 | **Splenic vein stent and splenic embolization** (plays) | procedure | AASLD 2024 statement 47, left-sided PH | none | S–M |
 | P4 | **Portal vein recanalization, with or without a TIPS** (play) | procedure | Baveno VIII 9.12, 9.13, 9.15, 5.45 | none | M |
@@ -295,23 +295,29 @@ It lands in choose-treatment, shunts and encephalopathy.
 Today these changes happen instantly through `params` or `compare`. The slides that need them exist; what is missing is the play.
 Each play goes through `specOf` in proc-anim, as the six plays do now (steps, `can`, `apply`, `undo`), and draws on veins-gl.
 
-### P1. Plug a spontaneous shunt (Baveno VIII 6.12)
+### P1. Plug a spontaneous shunt (Baveno VIII 6.12) — BUILT (8 Nov 2026, 0880c3a and eeae429)
 
-**The play.** From the femoral vein to the left renal vein, then into the splenorenal shunt (C6). The route is the BRTO's into C5.
-A plug or coils are deployed.
+**The play.** `procedure: { kind: 'brto', target: 'C6' }` plays `PLUGS.brtoC6` (proc-anim.js): up from the right femoral vein, through the IVC and the
+left renal vein, along the renal venules into the splenorenal shunt (route `brtoC6` in proc-routes.js, its own leg length in hvpg-clock.js), balloon
+near the renal end, embolic filling the shunt back up, then "Shunt closed". Four steps on BRTO's timing and camera. It is offered only to a patient with
+the shunt (`spontaneous.C6`), says so when there is none or it is already closed, and closes C6 only. The encephalopathy deck's `plug` slide plays it, and the
+`embolize` slide after it shows two months later. Guideline check: Baveno VIII 6.12 reads "In patients with recurrent/persistent HE despite optimal
+pharmacological therapy, embolisation of large portosystemic shunts should be considered, in addition to LT discussion, particularly when liver function is
+preserved (LoE 3; strong recommendation; new; 91% agreement)", which the slide's notes and ask quote.
 
-**The model** (`occluded.C6`, verified), on `cirr-decomp` with a splenorenal shunt:
+**The model** (`occluded.C6`), on `cirr-decomp` with a splenorenal shunt, no diuretics, 30 days (the HE index was reweighted on 8 Nov, so the first version of
+this table no longer holds; the slide's numbers are live tokens):
 
 | Reading | Shunt open | Shunt plugged |
 |---|---|---|
-| PPG | 10.3 mmHg | 17.4 mmHg |
-| Liver perfusion | 35% | 59% |
-| Encephalopathy index | 1.28 | 0.88 |
-| Esophageal varix | 2.1 mm | 7.2 mm |
+| PPG | 10.1 mmHg | 17.8 mmHg |
+| Liver perfusion | 33% | 61% |
+| Encephalopathy index | 0.81 | 0.52 |
+| Esophageal varix | 4.4 mm | 7.6 mm |
 
-It lands in encephalopathy `embolize`, which is a params change today.
-
-**Effort S–M.**
+**Left as is.** The embolic is drawn as BRTO's fill (a column filling the shunt); a distinct coil or plug picture was not drawn, because the guideline does not
+choose between plug, coils and sclerosant and the slide's words name all three. The free simulator's Procedures tab does not list it (it lists `PROCS` only);
+the play is a deck play.
 
 ### P2. Narrow or close the TIPS (Baveno VIII 6.17)
 
