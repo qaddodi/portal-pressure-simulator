@@ -14,9 +14,10 @@ import { deepMerge } from '../src/engine/scenario.js';
 import { LOOK_SITE, VARIX_REST_MM, VARIX_FULL_MM, varixSize, varixHold, varixMean, VARIX_MEAN_MS, VARIX_JUMP_MM, varixWidthK, varixSpreadK, varixOpacity } from '../src/ui/varix-look.js';
 
 const stage = stageSource();
-const sizes = (id, patch) => {
+// (A fall in the pressure shrinks the varix over weeks, not at once: VARIX.tauFall, doc 4.1, 8 Nov 2026. `weeks` is the time given to the patch; its rise would be at once.)
+const sizes = (id, patch, weeks = 0) => {
   const e = new Engine(); e.loadPreset(id);
-  if (patch) { e.setParams(deepMerge(e.params, patch)); e.settle(); }
+  if (patch) { e.setParams(deepMerge(e.params, patch)); e.settle(); if (weeks) { e.advanceDays(weeks * 7, { noRupture: true, silent: true }); e.settle(); } }
   const m = computeMetrics(e);
   return { VAR: varixSize('VAR', m.varix.d), GV: varixSize('GV', m.gastricVarix.d) };
 };
@@ -50,21 +51,22 @@ test('the presets the decks stand on are drawn exactly as before', () => {
 });
 
 test('a fall in pressure shrinks the fundal varices\' drawing', () => {
-  const carv = sizes('gastric-varix', { drugs: { carvedilol: true } }).GV;
-  const tips = sizes('gastric-varix', { tips: { on: true, d: 8 } }).GV;
-  const cure = sizes('gastric-varix', { cirrhosis: 0.4 }).GV;
+  const carv = sizes('gastric-varix', { drugs: { carvedilol: true } }, 12).GV;
+  const tips = sizes('gastric-varix', { tips: { on: true, d: 8 } }, 26).GV;
+  const cure = sizes('gastric-varix', { cirrhosis: 0.4 }, 26).GV;
   assert.ok(carv < 1 && carv > tips, `carvedilol ${carv.toFixed(2)} between ${tips.toFixed(2)} and 1`);
-  // Visibly: carvedilol takes about a quarter off the width, a TIPS or the cause treated well over half.
-  assert.ok(varixWidthK(carv) < 0.85, `carvedilol: width ${varixWidthK(carv).toFixed(2)}`);
+  // Visibly: a TIPS or the cause treated takes well over half off the width. Carvedilol took a quarter off the moment it was started; three months on,
+  // once the varix has remodelled (VARIX.tauFall) and the channels feeding it have begun to close again (which raises the pressure a little), about a tenth.
+  assert.ok(varixWidthK(carv) < 0.92, `carvedilol: width ${varixWidthK(carv).toFixed(2)}`);
   assert.ok(varixWidthK(tips) < 0.45, `TIPS: width ${varixWidthK(tips).toFixed(2)}`);
   assert.ok(varixWidthK(cure) < 0.45, `cirrhosis 0.4: width ${varixWidthK(cure).toFixed(2)}`);
-  assert.ok(varixOpacity(carv) < 0.85 && varixOpacity(tips) < 0.4, 'and fainter');
+  assert.ok(varixOpacity(carv) < 0.92 && varixOpacity(tips) < 0.4, 'and fainter');
 });
 
 test('a fall in pressure shrinks the esophageal varices\' drawing too', () => {
   const base = sizes('cirr-decomp').VAR;
-  const carv = sizes('cirr-decomp', { drugs: { carvedilol: true } }).VAR;
-  const tips = sizes('cirr-decomp', { tips: { on: true, d: 8 } }).VAR;
+  const carv = sizes('cirr-decomp', { drugs: { carvedilol: true } }, 12).VAR;
+  const tips = sizes('cirr-decomp', { tips: { on: true, d: 8 } }, 26).VAR;
   const early = sizes('csph').VAR;
   assert.equal(base, 1);
   assert.ok(carv < base, `carvedilol ${carv.toFixed(2)}`);

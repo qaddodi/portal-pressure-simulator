@@ -7,16 +7,16 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DECKS } from '../src/ui/decks.js';
 import { beatCount } from '../src/ui/slide-beats.js';
-import { PROCS as PROC_TABLE, MEASURES, GRAFTS, ENDO } from '../src/ui/proc-anim.js';
+import { PROCS as PROC_TABLE, MEASURES, GRAFTS, ENDO, PLUGS, procKindOf } from '../src/ui/proc-anim.js';
 // (A measuring procedure, the EUS-PPG, steps like the others: its Next plays its steps before the slide moves on.)
-const PROCS = { ...PROC_TABLE, ...MEASURES, ...GRAFTS, ...ENDO };
+const PROCS = { ...PROC_TABLE, ...MEASURES, ...GRAFTS, ...ENDO, ...PLUGS };
 import { pageOn, followOf, pageIn, FOLLOW } from '../src/ui/card-page.js';
 
 const read = (rel) => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const presenter = read('../src/ui/presenter.js');
 const css = read('../styles/app.css');
 const body = (name) => { const i = presenter.indexOf(`function ${name}(`); assert.ok(i >= 0, name); return presenter.slice(i, presenter.indexOf('\n  }\n', i)); };
-const procKind = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
+const procKind = (s) => procKindOf(s.procedure);
 
 // presenter.js turnsSlide, as written there, run against each state of the walk.
 const turnsSrc = (() => { const i = presenter.indexOf('const turnsSlide = (dx) =>'); return presenter.slice(presenter.indexOf('=>', i) + 2, presenter.indexOf(';\n', i)); })();

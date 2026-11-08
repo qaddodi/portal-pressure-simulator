@@ -13,12 +13,12 @@ import { PPG_CUTS } from '../src/engine/pressure-cuts.js';
 await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
 const { LINE } = await import('../src/ui/flow-time.js');
 const { eventLines, eventGraphOf, eventScale, EVENT_S, PRE_S, EVENT_WORD } = await import('../src/ui/event-graph.js');
-const { specOf } = await import('../src/ui/proc-anim.js');
+const { specOf, procKindOf } = await import('../src/ui/proc-anim.js');
 
 const decks = (await Promise.all(readdirSync(new URL('../src/ui/decks/', import.meta.url)).map((f) => import(`../src/ui/decks/${f}`))))
   .flatMap((m) => Object.values(m)).filter((d) => d?.slides && d.id);
 const unique = [...new Map(decks.map((d) => [d.id, d])).values()];
-const kindOf = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
+const kindOf = (s) => procKindOf(s.procedure);
 const procSlides = unique.flatMap((d) => d.slides.map((s, i) => ({ d, s, i })).filter(({ s }) => s.procedure));
 
 test('TIPS and shunts 7/14 graphs the PPG and the sinusoidal flow, with the PPG goal after a TIPS', () => {

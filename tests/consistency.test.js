@@ -65,15 +65,39 @@ test('esophageal varix size follows the portal-to-right-atrial gradient across e
   }
 });
 
-test('varices take weeks to form, then follow the gradient in real time', () => {
+test('varices take weeks to form, rise with the gradient at once and fall from it over weeks', () => {
   const e = new Engine(); run(e.loadPresetSteps('healthy', {}));
   assert.ok(computeMetrics(e).varix.d < 2.5);
   e.setParams(deepMerge(e.params, { cirrhosis: 1 })); e.settle();
   assert.ok(computeMetrics(e).varix.d < 2.5, 'none at onset');
   e.advanceDays(90, { noRupture: true, silent: true }); e.settle();
   assert.ok(computeMetrics(e).varix.d >= 5, `varix ${computeMetrics(e).varix.d.toFixed(1)} mm`);
+  // (4.1: the resting size falls on a first-order lag, VARIX.tauFall, so a cured cause does not make them vanish in a second.)
   e.setParams(deepMerge(e.params, { cirrhosis: 0 })); e.settle();
-  assert.ok(computeMetrics(e).varix.d < 2.5, 'and they are gone when the gradient is');
+  const d0 = computeMetrics(e).varix.d;
+  assert.ok(d0 >= 5, `still ${d0.toFixed(1)} mm the moment the gradient is gone`);
+  e.advanceDays(30, { noRupture: true, silent: true }); e.settle();
+  const d30 = computeMetrics(e).varix.d;
+  assert.ok(d30 < d0 - 1 && d30 > 2.5, `shrinking after a month (${d0.toFixed(1)} → ${d30.toFixed(1)} mm)`);
+  e.advanceDays(300, { noRupture: true, silent: true }); e.settle();
+  assert.ok(computeMetrics(e).varix.d < 2.5, 'and they are gone some months after the gradient is');
+});
+
+test('the lag on a varix\'s fall does not depend on the time step, and the rise is not lagged', () => {
+  const from = () => { const e = new Engine(); run(e.loadPresetSteps('cirr-decomp', {})); e.settle(); e.setParams(deepMerge(e.params, { drugs: { carvedilol: true } })); e.settle(); return e; };
+  const a = from(), b = from(), c = from();
+  a.advanceDays(60, { noRupture: true, silent: true });
+  for (let i = 0; i < 60; i++) b.advanceDays(1, { noRupture: true, silent: true });
+  for (let i = 0; i < 240; i++) c.advanceFraction(0.25);
+  for (const e of [a, b, c]) e.settle();
+  const [da, db, dc] = [a, b, c].map((e) => computeMetrics(e).varix.d);
+  assert.ok(Math.abs(da - db) < 0.1 && Math.abs(da - dc) < 0.1, `60 days in one, 60 and 240 steps: ${da.toFixed(2)}, ${db.toFixed(2)}, ${dc.toFixed(2)} mm`);
+  assert.ok(da < 6.5 && da > 4.5, `after two months on carvedilol ${da.toFixed(2)} mm`);
+  // The rise: a worse gradient is a larger varix the moment it is, not weeks later.
+  const e = new Engine(); run(e.loadPresetSteps('csph', {})); e.settle();
+  const d0 = computeMetrics(e).varix.d;
+  e.setParams(deepMerge(e.params, { cirrhosis: 1 })); e.settle();
+  assert.ok(computeMetrics(e).varix.d > d0 + 0.5, `${d0.toFixed(2)} → ${computeMetrics(e).varix.d.toFixed(2)} mm at once`);
 });
 
 test('two inflows: with the buffer off a portal clot leaves about 40% of liver flow, reached within the button\'s ease', () => {

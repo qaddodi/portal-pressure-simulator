@@ -32,6 +32,16 @@ export function procSpecs(geo, radOf) {
         B.vessel('ILI_IVC'); B.vessel('IVC_IS', { until: (q) => q[1] <= lrv[1] + 4 });
         B.vessel('LRV_IVC', { rev: true, name: 'lrv' }); B.vessel('C5', { rev: true, name: 'shunt' });
       } },
+    // (The BRTO play with another target, Baveno VIII 6.12: the same way up to the left renal vein, then out along the renal venules to where the
+    // spontaneous splenorenal shunt, C6, joins them (it leaves the renal vein beyond the gastrorenal shunt's mouth, stage-geo.js SIDE_HOSTS),
+    // and up it against its drawn course as C5 is. proc-anim.js PLUGS.)
+    brtoC6: { ids: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'V_KID_L', 'C6'], start: 0.55, tip: ['shunt', 0.2], focus: ['lrv', 'shunt'],
+      build(B) {
+        const bot = geo.ILI_IVC.cur[0], lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1], c6 = geo.C6.cur[geo.C6.cur.length - 1];
+        B.pts([[bot[0] + 4, bot[1] + 150], [bot[0] + 1, bot[1] + 60], bot], 'ILI_IVC', 0);
+        B.vessel('ILI_IVC'); B.vessel('IVC_IS', { until: (q) => q[1] <= lrv[1] + 4 });
+        B.vessel('LRV_IVC', { rev: true, name: 'lrv' }); B.vessel('V_KID_L', { rev: true, near: c6, name: 'renal' }); B.vessel('C6', { rev: true, name: 'shunt' });
+      } },
     bato: { ids: ['PVH_R', 'PV_TRUNK', 'SV_CONF', 'C2'], start: 0.1, tip: ['feeder', 0.35], focus: ['splenic', 'feeder'],
       build(B) {
         const rpv = geo.PVH_R.cur[geo.PVH_R.cur.length - 1];

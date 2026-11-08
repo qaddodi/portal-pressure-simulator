@@ -4,7 +4,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PROCS, PROC_KINDS, specOf, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
+import { PROCS, PROC_KINDS, specOf, procKindOf, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { defaultParams } from '../src/engine/scenario.js';
 import { isOccluded } from '../src/engine/topology.js';
@@ -86,7 +86,7 @@ test('built-in slides use procedure only where adopted, each naming a known one 
   for (const d of DECKS) for (const s of d.slides) {
     if (s.procedure == null) continue;
     assert.ok(adopted(d, s, 'procedure'), `${d.id}/${s.id} uses procedure without being listed in tests/deck-adopted.js`);
-    const k = typeof s.procedure === 'string' ? s.procedure : s.procedure.kind;
+    const k = procKindOf(s.procedure);
     assert.ok(specOf(k), `${d.id}/${s.id}: unknown procedure ${k}`);
   }
 });
@@ -288,7 +288,7 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   assert.match(el, /class: 'pz-step'/); assert.doesNotMatch(el, /pz-abb/);
   // Going forward, the slide opens on its state before the procedure (the worker's before), its words on the state after.
   assert.match(pz, /own = lap \? \(await stateReady\(stateOf\[to\]\)\)\?\.start \|\| null : pre \? \(await stateReady\(to\)\)\?\.before \|\| null : null;/);
-  assert.match(pz, /before: s\.procedure \? specOf\(s\.procedure\.kind \|\| s\.procedure\)\?\.before : undefined/);
+  assert.match(pz, /before: s\.procedure \? specOf\(procKindOf\(s\.procedure\)\)\?\.before : undefined/);
   const wk = readFileSync(new URL('../src/worker-core.js', import.meta.url), 'utf8');
   assert.match(wk, /if \(st\.before\) \{\n\s+const b = new Engine\(\); b\.restore\(e\.snapshot\(\)\); b\.setParams\(deepMerge\(b\.params, st\.before\)\); b\.settle\(\);/);
   for (const k of PROC_KINDS) assert.ok(PROCS[k].before && PROCS[k].had(PROCS[k].apply({})) && !PROCS[k].had(structuredClone(PROCS[k].before)), `${k}: before undoes it`);
@@ -301,6 +301,10 @@ test('presented, Next drives it: the first Next starts it, each Next plays a ste
   // balloon, the view panning up with the sclerosant, then one pull back to the result, held.)
   assert.match(st, /const OBLIT_K_WAY = 4, OBLIT_K_TIP = 7, OBLIT_K_WORK = 5, OBLIT_LEAD = 0\.18;/);
   assert.match(st, /if \(isOblit\(r\) && \(mode === 'tip' \|\| mode === 'fill' \|\| mode === 'work' \|\| \(mode === 'way' && !reduceMotion\.matches\)\)\) return oblitFocus\(/);
+  // (The BRTO play with a target, Baveno VIII 6.12: the same way up to the left renal vein, out the renal venules to where the splenorenal shunt joins, up C6; BRTO's camera.)
+  assert.match(st, /brtoC6: \{ ids: \['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'V_KID_L', 'C6'\]/);
+  assert.match(st, /B\.vessel\('V_KID_L', \{ rev: true, near: c6, name: 'renal' \}\); B\.vessel\('C6', \{ rev: true, name: 'shunt' \}\);/);
+  assert.match(st, /const isOblit = \(r\) => r\.kind === 'brto' \|\| r\.kind === 'brtoC6' \|\| r\.kind === 'bato';/);
   // (EUS-PPG's way in frames the last stretch before the scope's stop and follows it in)
   assert.match(st, /const PROC_K_WAY = 6, WAY_BEHIND = 36, WAY_AHEAD = 6;/);
   assert.match(st, /wayIn \? \[Math\.max\(procIn\(r\), r\.free - Rf \* WAY_BEHIND\), Math\.min\(r\.total, r\.free \+ Rf \* WAY_AHEAD\)\]/);

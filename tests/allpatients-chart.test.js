@@ -219,7 +219,7 @@ test('the drawing: every look it names is in the table, its words are inside the
     for (let i = 0; i < texts.length; i++) for (let j = i + 1; j < texts.length; j++) assert.ok(!hit(box(texts[i], f), box(texts[j], f)), `${W}: "${texts[i].txt}" and "${texts[j].txt}" are apart`);
     // the key says the values in the order before, 1 year, 2 years
     const all = P.texts.map((t) => t.txt);
-    for (const v of ['11.6', '7.7', '4.8', '23.7', '15.1', '9.1', '90', '127', '187', '14.7', '12.8', '10.8', '27.0', '25.4', '22.1', '69', '79', '94', '3.9', '7.0', '216', '6.4', '12.5', '149', 'Resolved', 'Persists', 'Ruled out', 'MASLD*', 'Alcohol*', 'Hepatitis C', 'Higher start', 'CSPH', 'No CSPH', '1 year'.replace('1 year', W < PHONE_W ? '1 yr' : '1 year')]) assert.ok(all.includes(v), `${W}: "${v}" is drawn`);
+    for (const v of ['11.6', '7.7', '4.8', '23.7', '15.1', '9.1', '90', '127', '187', '14.7', '12.8', '10.8', '27.0', '25.4', '22.1', '69', '77', '94', '3.9', '7.0', '216', '6.4', '12.5', '149', 'Resolved', 'Persists', 'Ruled out', 'MASLD*', 'Alcohol*', 'Hepatitis C', 'Higher start', 'CSPH', 'No CSPH', '1 year'.replace('1 year', W < PHONE_W ? '1 yr' : '1 year')]) assert.ok(all.includes(v), `${W}: "${v}" is drawn`);
     const small = P.texts.filter((t) => t.look === 'time.tk' && t.x === +G.note.x.toFixed(1)).map((t) => t.txt).join(' ');
     assert.equal(small, slide.chartFoot.join(' '), `${W}: the small print is drawn whole`);
     assert.ok(!all.includes('Hepatitis C*') && !all.includes('Higher start*'), `${W}: only the two the model carries on are starred`);

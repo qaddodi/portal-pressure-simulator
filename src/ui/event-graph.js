@@ -29,6 +29,7 @@ import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { fix1, round1, printedKey } from './fix-text.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
+import { procKindOf } from './proc-anim.js';
 import { reduceMotionMQ } from './motion.js';
 import { headStep, HEAD_DT0 } from './display-state.js';
 import { fittedType, tokName } from './chart-ctx.js';
@@ -43,8 +44,8 @@ export const PRE_S = 5, EVENT_S = 20, TICK_S = 5;
 // What the change is called over its line, for each procedure that makes one (a measurement, EUS-PPG, changes nothing and has no graph).
 // (BRTO and BATO: the word of their last step, the moment the model closes the shunt. Banding and a meal have time charts of their own: the
 // beat or talk trace on a banding slide, the time-lapse graph on a meal slide, so they get no second one here.)
-export const EVENT_WORD = { tips: 'Stent open', brto: 'Shunt closed', bato: 'Varices closed' };
-const kindOf = (s) => (typeof s?.procedure === 'string' ? s.procedure : s?.procedure?.kind) || null;
+export const EVENT_WORD = { tips: 'Stent open', brto: 'Shunt closed', brtoC6: 'Shunt closed', bato: 'Varices closed' };
+const kindOf = (s) => procKindOf(s?.procedure);
 const isP = (k) => LINE[k]?.[1] === 'mmHg';
 const NO_F = Object.freeze({});
 const ORDER = { ok: 0, mid: 1, hi: 2 };

@@ -251,8 +251,40 @@ export const ENDO = {
     before: { occluded: { C2: false } },
   },
 };
+// BRTO's play with another target (Baveno VIII 6.12: embolization of a large portosystemic shunt for recurrent or persistent encephalopathy):
+// the same route, up from the femoral vein and the left renal vein, but into the spontaneous splenorenal shunt, C6, in place of the
+// gastrorenal one, C5. A slide asks for it with procedure: { kind: 'brto', target: 'C6' } (procKindOf). It stays out of PROCS (the HVPG
+// card's treatment buttons), and the default BRTO is unchanged.
+const plugCan = (p) => (!p.spontaneous?.C6 ? 'This patient has no splenorenal shunt.' : p.occluded?.C6 ? 'The splenorenal shunt is already closed.' : '');
+export const PLUGS = {
+  brtoC6: {
+    name: 'Shunt embolization', label: 'Shunt embolization', T: OBLIT_T, stops: OBLIT_STOPS, shotMs: OBLIT_SHOT_MS, holdEnd: true,
+    steps: [
+      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the splenorenal shunt.', 'In', 'way', 'C6', ['IVCI', 'LRV'], 0.85],
+      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C6', ['LRV'], 0.8],
+      ['fill', 'Embolic', 'A plug or coils, or a sclerosant, fill the shunt back up from the renal vein until no blood passes.', 'Fill', 'fill', 'C6', ['LRV'], 0.45],
+      ['done', 'Shunt closed', 'The shunt is closed. The splenic blood goes back through the liver, so the portal pressure rises and less gut blood bypasses it.', 'Closed', 'work', 'C6', ['LRV'], 0.5],
+    ],
+    can: plugCan,
+    apply: (p) => { p.occluded = { ...p.occluded, C6: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
+    had: (p) => !!p.occluded?.C6,
+    undo: (p) => { p.occluded = { ...p.occluded, C6: false }; return p; },   // alloc-rare: once, going back past T.apply
+    offered: (p) => !!p.spontaneous?.C6,
+    before: { occluded: { C6: false } },
+  },
+};
+// The BRTO play's targets: the spec each one plays (the default, C5, is BRTO itself).
+const PLUG_TARGETS = { brto: { C5: 'brto', C6: 'brtoC6' } };
+/** The spec a slide's `procedure` plays: 'brto', or { kind: 'brto', target: 'C6' } → 'brtoC6'. A target the kind does not take gives a name no spec has
+ *  (so a deck test names it); null when the slide plays none. */
+export function procKindOf(proc) {
+  const kind = typeof proc === 'string' ? proc : proc?.kind;
+  if (!kind) return null;
+  const t = typeof proc === 'object' ? proc.target : null;
+  return t == null ? kind : PLUG_TARGETS[kind]?.[t] || `${kind}:${t}`;
+}
 /** A procedure's, a measurement's, a graft's or an endoscopic treatment's definition. */
-export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || ENDO[kind] || null;
+export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || ENDO[kind] || PLUGS[kind] || null;
 // The readings each kind's last run took (its callouts and its card read them): { pv, hv, ppg } for EUS-PPG.
 export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN } };
 // (No params at all: the checks below only read, so one empty record stands in, not a new one each call.)
@@ -279,7 +311,7 @@ function oblitUndo(p) { p.occluded = { ...p.occluded, C5: false }; return p; }
 export const procBlocked = (kind, p, m = null) => (specOf(kind) ? specOf(kind).can(p || NO_PARAMS, m) : 'Unknown procedure.');
 /** Whether a procedure is offered at all for this patient: BRTO and BATO only while there are gastric varices (or the
  *  procedure has already closed them, so it can be watched again). TIPS always is (dimmed when it cannot run). */
-export const procOffered = (kind, p, m = null) => !!specOf(kind) && (GRAFTS[kind] ? GRAFTS[kind].had(p || NO_PARAMS) || GRAFTS[kind].offered(p) : kind === 'tips' || !!MEASURES[kind] || specOf(kind).had(p || NO_PARAMS) || (p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
+export const procOffered = (kind, p, m = null) => !!specOf(kind) && (GRAFTS[kind] ? GRAFTS[kind].had(p || NO_PARAMS) || GRAFTS[kind].offered(p) : kind === 'tips' || !!MEASURES[kind] || specOf(kind).had(p || NO_PARAMS) || (PLUGS[kind] ? PLUGS[kind].offered(p || NO_PARAMS) : p?.spontaneous?.C5 !== false && hasGastricVarices(m)));
 
 /** The step a time falls in (pure): each runs up to and including its stop, so a procedure held at a stop still shows that step. */
 export const stepAt = (kind, t) => { const S = specOf(kind).stops; for (let i = 0; i < S.length; i++) if (t <= S[i]) return i; return S.length - 1; };

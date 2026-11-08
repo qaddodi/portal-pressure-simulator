@@ -65,7 +65,7 @@ import { COMPACT, WIDE } from './card-type.js';
 import { createFlowTime, flowTimeHeight, trailKeys } from './flow-time.js';
 import { lapseGraphOf, graphTrail } from './lapse-graph.js';
 import { createEventGraph, eventGraphOf } from './event-graph.js';
-import { specOf, procBlocked, procOffered, playProcedure, stepMarks } from './proc-anim.js';
+import { specOf, procKindOf, procBlocked, procOffered, playProcedure, stepMarks } from './proc-anim.js';
 import { createInsetHold } from './inset-hold.js';
 import { dataPlan, textPlan, keepData, keepText, cardSnap, cardChangedWhy, cardBack } from './card-keep.js';
 import { gpuProbe } from './gpu-probe.js';
@@ -967,7 +967,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // stateOf[i]: the slide whose model state slide i shows (itself, or the last one before it that changed the model).
   const changes = (s) => !!(s.preset || s.params || s.action || s.days);
   // (before: a slide that plays its procedure also gets the state it opens on, the procedure not done yet: see the landing.)
-  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : graphTrail(s), before: s.procedure ? specOf(s.procedure.kind || s.procedure)?.before : undefined } : {});
+  const modelStep = (s) => (changes(s) ? { preset: s.preset, presetDays: s.presetDays, params: s.params, action: s.action, days: s.days, relax: s.relax, ramp: s.ramp, fine: !!s.lapse, trail: s.tool?.kind === 'flowtime' ? trailKeys(s.tool) : graphTrail(s), before: s.procedure ? specOf(procKindOf(s.procedure))?.before : undefined } : {});
   // (With the extra work a deck visuals package asks for at the slide's state, kept with it as st.extra: slide-ext.js stepExtra.)
   const stepOf = (s) => { const x = stepExtra(s); return x ? { ...modelStep(s), ...x } : modelStep(s); };
   let prepRev = 0;   // (bumped each time a presentation's states are set: the slide preparation's manifests belong to one of these)
@@ -1345,7 +1345,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back; going back to
   // before the first step puts the slide as it was. Leaving the slide stops it where it is; the next slide's camera takes over.
   let procRun = null, procWait = false, procShown = -1, procDoneAt = -1;
-  const procKind = (s) => (typeof s.procedure === 'string' ? s.procedure : s.procedure?.kind) || null;
+  const procKind = (s) => procKindOf(s.procedure);   // ('brto' with a target plays that target's spec: proc-anim.js)
   // (home: the slide stays, so the camera glides back and its own marks and names come back through onMark; leaving it, the next
   // slide's camera and marks take over.)
   function procStop(home = false) {

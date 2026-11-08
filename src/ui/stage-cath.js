@@ -837,7 +837,7 @@ export function createCath(st, live) {
   const OBLIT_K_WAY = 4, OBLIT_K_TIP = 7, OBLIT_K_WORK = 5, OBLIT_LEAD = 0.18;
   // (The result frame: from a little before the shunt (BATO: the feeder) leaves its vein, OBLIT_BACK, to the varices, with room above them.)
   const OBLIT_BACK = 40, OBLIT_VARIX_PAD = 26;
-  const isOblit = (r) => r.kind === 'brto' || r.kind === 'bato';
+  const isOblit = (r) => r.kind === 'brto' || r.kind === 'brtoC6' || r.kind === 'bato';
   // EUS-guided coils and glue rides the same way (his ask, 7 Nov 2026: camera B, as BRTO and BATO): the way in at OBLIT_K_WAY, the view riding
   // with the scope's tip and the way ahead of it; a short push in to the needle and the varix, up to OBLIT_K_TIP, held still while the
   // needle, the coils and the glue go in; then one pull back to the whole varix with its X and the scope over it, up to OBLIT_K_WORK.
@@ -928,7 +928,7 @@ export function createCath(st, live) {
     if (mode === 'work') {
       const leg = r.spans?.[r.kind === 'bato' ? 'splenic' : 'lrv'], d0 = Math.max(procIn(r), (leg ? leg[1] : r.free) - OBLIT_BACK);
       // (with the feeder's whole course, C2, so both of the closed shunt's X marks are in the frame: the shunt's and the feeder's)
-      const seg = [...cutLen(r.pts, r.cum, d0, r.total), ...(geo.C2?.cur || [])], xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]);
+      const seg = [...cutLen(r.pts, r.cum, d0, r.total), ...(r.kind === 'brtoC6' ? [] : geo.C2?.cur || [])], xs = seg.map((q) => q[0]), ys = seg.map((q) => q[1]);
       const x0 = Math.min(...xs) - 18, x1 = Math.max(...xs) + 18, y0 = Math.min(...ys) - OBLIT_VARIX_PAD, y1 = Math.max(...ys) + 18;
       k = clamp(Math.min(fw / (x1 - x0), fh / (y1 - y0)) * 0.86, 1, OBLIT_K_WORK);
       c = [(x0 + x1) / 2, (y0 + y1) / 2];
