@@ -22,6 +22,15 @@ test('R14 Settings keeps what a learner understands and none of the experiments'
   assert.doesNotMatch(main, /function figLabRows\(|function figSeg\(/);
 });
 
+test('R14 owner-approved row (8 Nov 2026): Settings > Display has "Mesh vessel renderer" right after Figure size (megapixels)', () => {
+  assert.ok(settings.includes("'Mesh vessel renderer'"), 'the row is in Settings');
+  const at = (t) => settings.indexOf(t);
+  assert.ok(at("'Figure size (megapixels)'") > 0 && at("figureMpControl()") > at("'Figure size (megapixels)'"));
+  assert.ok(at("'Mesh vessel renderer'") > at('figureMpControl()'), 'after the megapixel control');
+  assert.ok(at("'Mesh vessel renderer'") < at("'Sharp while moving'"), 'before the next row');
+  assert.match(settings, /menuToggle\(vesselMesh\(\), 'layers', 'Mesh vessel renderer'/, 'an on/off menuToggle');
+});
+
 test('R14 every default is as it was: Full, and off (but the credit\'s lean look, H7, and the 8-megapixel budget, 1 Nov: on)', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };

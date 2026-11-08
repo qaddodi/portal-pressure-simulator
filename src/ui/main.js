@@ -73,7 +73,7 @@ import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, setFramePump, figOpt, setFigOpt } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, setFramePump, figOpt, setFigOpt, vesselMesh, setVesselMesh } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { sizeOf, watchSize, rectsSoon, restTask } from './geom.js';
@@ -1287,6 +1287,7 @@ function openSettings(anchor, withSearch = false) {
       }),
       h('div', { class: 'menu-title' }, 'Figure size (megapixels)'),
       figureMpControl(),
+      menuToggle(vesselMesh(), 'layers', 'Mesh vessel renderer', 'Draw the vessels as meshes, which cost the GPU less. Off uses the classic renderer', (on) => setVesselMesh(on)),
       menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Draw the figure at full resolution during a pan or zoom, even if frames run long', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
     // (What the model shows and how far it goes has its own heading; none of it is in a talk.)
     ...(talk ? [] : [menuSection('Model',

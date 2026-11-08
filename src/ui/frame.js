@@ -724,6 +724,22 @@ export function setFigLab(k, v) {
 }
 /** Called with (key, value) each time one of the Figure performance switches changes. */
 export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
+// Mesh vessel renderer (8 Nov 2026; Settings › Display, after Figure size): the figure's vessels drawn as meshes instead of the classic
+// shader. ON by default; stored in pps.vesselMesh as '0' when off, the key removed when on. The renderer reads vesselMesh() and listens
+// with onVesselMesh() (it returns the unsubscribe); this file only keeps the choice.
+let meshOn = true;
+try { meshOn = localStorage.getItem('pps.vesselMesh') !== '0'; } catch (e) { caught('frame:vmesh-r', e); /* storage unavailable */ }
+const meshSubs = new Set();
+export const vesselMesh = () => meshOn;
+export function setVesselMesh(on) {
+  on = !!on;
+  if (meshOn === on) return;
+  meshOn = on;
+  try { if (on) localStorage.removeItem('pps.vesselMesh'); else localStorage.setItem('pps.vesselMesh', '0'); } catch (e) { caught('frame:vmesh-w', e); /* storage unavailable */ }
+  for (const f of meshSubs) f(on);
+}
+/** Called with the new value each time the mesh vessel renderer is switched; returns the unsubscribe. */
+export function onVesselMesh(f) { meshSubs.add(f); return () => meshSubs.delete(f); }
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;
