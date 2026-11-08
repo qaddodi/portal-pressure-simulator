@@ -86,6 +86,15 @@ export const CHOOSE_TREATMENT = {
       ask: ['Why is a DIPS often needed in Budd–Chiari syndrome?', 'The hepatic veins are clotted, so a standard TIPS has no vein to drain into; the DIPS drains straight into the IVC.'],
     },
     {
+      // (The treatment menu before the relation chart: one patient with bleeding and ascites, every treatment he could get run on him, the PPG each reaches against the sinusoidal flow
+      // it costs. Mohammad, 8 Nov 2026: new-features recs C2.)
+      id: 'menu', preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'menu' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      kicker: 'Summary', site: 'sin', title: 'Every treatment priced in liver flow',
+      line: 'From {ppg}, the drugs leave the liver most of its flow, and carvedilol lowers the pressure the most. A TIPS or a shunt lowers it further and costs the most.',
+      notes: 'Each dot is this patient after one treatment, worked out by the model from the state on screen; the ring is where he stands now. Carvedilol lowers the gradient and leaves the liver almost all of its flow, because it also lowers the resistance inside the liver. Propranolol lowers it less and takes more flow. A TIPS and the surgical shunts lower it most and take the most flow, so they are kept for the case the drugs and bands cannot treat. A dot grows with the share of the portal blood that bypasses the liver.',
+      ask: ['Why is carvedilol the first choice among the drugs here?', 'Of the drugs it lowers the PPG the most and leaves the liver the most flow.'],
+    },
+    {
       // (The relation chart before the summary: each patient before treatment as a ring, after it as the dot, on the HVPG against
       // PPG plane. The portal vein clot in cirrhosis starts from its own ring: the same man with the clot, before anticoagulation.)
       id: 'relation', cam: 'fit', visual: 'plane', plane: 'hvpg-ppg',

@@ -97,6 +97,15 @@ export const ENCEPHALOPATHY = {
       ask: ['What does narrowing the stent cost?', 'The portal pressure rises, so the ascites or bleeding the TIPS treated can come back.'],
     },
     {
+      // (The treatment menu before the relation chart: the decompensated patient of the collaterals slide, every treatment he could get run on him, the PPG each reaches against the
+      // sinusoidal flow it costs. Mohammad, 8 Nov 2026: new-features recs C2.)
+      id: 'menu', preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'menu' }, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
+      kicker: 'Summary', site: 'sin', title: 'Every option lowers the pressure by taking liver flow',
+      line: 'The drugs cost the liver little, and the PPG falls little. The stents and the surgical shunts take the PPG down and the liver\'s flow with it.',
+      notes: 'Each dot is the same patient after one treatment, worked out by the model from the state on screen; the ring is where he stands now. The liver\'s flow is what the brain pays for: the less portal blood the liver sees, the more of what the gut absorbs reaches the brain unfiltered. A 10 mm stent lowers the PPG further than an 8 mm one and takes more of the liver\'s flow, which is why the narrowest stent that reaches the target is chosen. A dot grows with the share of the portal blood that bypasses the liver.',
+      ask: ['Why is the narrowest stent that reaches the target gradient the one to choose?', 'A wider stent lowers the PPG further but sends more portal blood around the liver, and encephalopathy follows the blood that bypasses it.'],
+    },
+    {
       // (The relation chart before the summary: the same TIPS patient with a stent from 6 to 12 mm, the PPG and the liver's share of flow read against
       // the width. The model's encephalopathy index is High at every width and rises only a little, so the liver's flow is charted. The ring is 8 mm.)
       id: 'relation', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', mark: STENT,

@@ -127,6 +127,15 @@ export const SHUNTS = {
       ask: ['Why is the Warren shunt called selective?', 'It drains the varices through the spleen to the left renal vein, while SMV blood keeps perfusing the liver at portal pressure.'],
     },
     {
+      // (The treatment menu before the summary: the decompensated patient of the baseline, every treatment he could get run on him, the PPG each reaches against the sinusoidal flow it
+      // costs. Mohammad, 8 Nov 2026: new-features recs C2. The drugs sit by the ring; every shunt runs down and to the left.)
+      id: 'menu', preset: 'cirr-decomp', cam: 'fit', tool: { kind: 'menu' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      kicker: 'A surgical shunt', site: 'sin', title: 'Every shunt trades pressure for liver flow',
+      line: 'From {ppg}, a drug lowers the pressure a little and leaves the liver its flow. Each shunt lowers it further and takes more of that flow.',
+      notes: 'Each dot is this patient after one treatment, worked out by the model from the state on screen; the ring is where he stands now. The drugs move him a little, down and slightly to the left. A TIPS, a mesocaval shunt and a portocaval shunt take the PPG well under the 12 mmHg line and the sinusoidal flow under 55% of normal, with almost all of the portal blood bypassing the liver. A wider stent sits further down and to the left than a narrower one. A dot grows with the share of the portal blood that bypasses the liver. These are the model\'s numbers for one patient, not trial results.',
+      ask: ['Which treatment on the chart lowers the PPG the most, and what does it cost?', 'The portocaval shunt takes the PPG to about 3 mmHg, and every drop of portal blood bypasses the liver.'],
+    },
+    {
       id: 'summary', visual: 'table', cols: ['ppg', 'shunt', 'liver', 'he'], asc: false, vs: 'first', rowHead: 'Shunt',
       of: [{ id: 'own', kicker: 'Baseline', title: 'Decompensated cirrhosis' }, { id: 'srs', title: 'Splenorenal shunt' },
         { id: 'tips', title: 'TIPS, 8 mm' }, { id: 'wide', title: 'TIPS, 12 mm' }, { id: 'occl', title: 'TIPS, occluded' },
