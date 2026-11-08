@@ -532,6 +532,11 @@ export function easeNow() {
 let holdUntil = 0;
 /** Keeps deferrable work out of the next `ms` (the longest of the holds asked for wins). */
 export function holdMotion(ms) { holdUntil = Math.max(holdUntil, wall() + ms); }
+// The figure's camera moving (a pan, a pinch, a glide): stage-camera.js notes each step. The charts that do not ride the figure (a card's
+// readouts) hand their pictures over less often meanwhile (svg-gl.js): each hand-over waits on the figure's GPU work.
+let camUntil = 0;
+export const noteCamera = () => { camUntil = wall() + 200; };
+export const cameraMoving = () => wall() < camUntil;
 export const MOTION_MAX_MS = 5000;
 const moving = new Map();   // (transition token → { name, t0, until })
 /** A transition begins: deferrable work waits until the returned end() is called (or MOTION_MAX_MS passes, counted as overdue). */

@@ -28,7 +28,7 @@ export const withGlass = (el) => {
 function lineGL(S) {
   S.ask = 0;
   if (S.gl || S.gone) return;
-  S.gl = createSvgGL(S.glass);
+  S.gl = createSvgGL(S.glass, { follows: true });
   S.gl.cv.setAttribute('aria-hidden', 'true'); S.gl.cv.removeAttribute('role');
   S.gl.show(S.svg, false);
   S.glass.prepend(S.svg);   // (the model first, before the GPU drawer's canvases: the figure's GPU glass reads the shape there)

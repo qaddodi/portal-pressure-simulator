@@ -1,7 +1,7 @@
 // The camera core: the view transform write (flush, apply), the box and safe-side reads, the world transform matrix and the coordinate conversions, the zoom at a point.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { CAM_MS_MAX } from './ease.js';
-import { figOpt } from './frame.js';
+import { figOpt, noteCamera } from './frame.js';
 import { gpuProbe } from './gpu-probe.js';
 import { provideStage } from './layout-snap.js';
 import { cams, camSet } from './scene-cam.js';
@@ -23,7 +23,7 @@ export function createCamera(st, live) {
     live.worldOver?.setAttribute('transform', tr);
   };
   const applyVT = () => {
-    vtDirty = true;
+    vtDirty = true; noteCamera();
     syncSemantic();
     live.CTM = null; live.viewVersion++; live.stageWake();
     live.viewHook?.();   // (the scope view's lens hides while the figure moves: scope-lens.js)

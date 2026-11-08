@@ -15,7 +15,7 @@
 
 import { createTraceGL, fitPen, eraseHoles } from './trace-gl.js';
 import { flattenPath, flattenCmdsInto, newFlat, elBox4 } from './shape-gl.js';
-import { finalFrameFor, easeNow, cancelFrame, framePart } from './frame.js';
+import { finalFrameFor, easeNow, cancelFrame, framePart, cameraMoving } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { cssColor } from './css-color.js';
@@ -813,6 +813,7 @@ export function viewMap(vb, par, w, h) {
 
 // ── The picture ──
 const finalFrame = finalFrameFor('svg-gl');
+const CAM_HOLD_MS = 150;
 const live = new Set();
 let themeAsk = 0;
 function themeRead() { themeAsk = 0; clearShared(); clearLookMemo(); for (const g of live) { if (!g.box.isConnected) continue; g.relook(); } }
@@ -925,7 +926,20 @@ export function createSvgGL(box, opts = null) {
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver((es) => { if (g.pk) dropRoots(g.pk); const r = es[0]?.contentRect; if (r && g.local.boxW !== r.width) { g.local.boxW = r.width; if (looksNeedWidth()) g.relook(); } g.paint(); }); g.ro.observe(box); }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
-  g.paint = () => { if (!g.ask) g.ask = finalFrame(draw); };
+  // (While the figure's camera moves, a picture that does not ride it (a card's readout, the dock's values) is handed over at most every
+  // CAM_HOLD_MS: each hand-over waited on the figure's GPU work, ~4 ms a small picture on a Mac, and 25 a second held a pan to 22 fps
+  // (8 Nov 2026, ?perf). The last one asked is drawn as the wait ends. opts.follows: a picture that moves with the figure (the lobule's
+  // leaders, a callout's glass) is drawn every frame it is asked.)
+  const follows = !!opts?.follows;
+  g.paint = () => {
+    if (g.ask || g.camT) return;
+    if (!follows && cameraMoving()) {
+      const t = performance.now();
+      if (t - (g.camAt || 0) < CAM_HOLD_MS) { g.camT = setTimeout(() => { g.camT = 0; g.paint(); }, CAM_HOLD_MS - (t - g.camAt)); return; }
+      g.camAt = t;
+    }
+    g.ask = finalFrame(draw);
+  };
   // alloc-rare: made once as the picture for a chart host is created (whether its box is on the screen, for the loops above)
   if (typeof IntersectionObserver === 'function') { g.io = new IntersectionObserver((es) => { const on = es[es.length - 1].isIntersecting; g.seen = on; if (on && g.loopWait) { g.loopWait = false; g.paint(); } }); g.io.observe(box); }
   /** The picture moved as one: a point p is drawn at k p + (e, f) (box px). A pan is k 1; the lobule's dive is a scale about a point. */
@@ -1025,7 +1039,7 @@ export function createSvgGL(box, opts = null) {
   g.dispose = () => {
     if (g.dead) return;
     g.dead = true;
-    live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.io?.disconnect?.();
+    clearTimeout(g.camT); live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.io?.disconnect?.();
     cancelFrame(g.ask); cancelRest(g.lookAsk); cancelRest(g.connAsk); g.ask = g.lookAsk = g.connAsk = 0;
     for (const t of g.timers) clearTimeout(t);
     g.timers.clear(); g.ins.clear(); g.pending = null; g.cache.clear();

@@ -12,9 +12,8 @@ import { glWords } from './gl-words.js';
 import { frameFor } from './frame.js';
 
 const EVERY = 500;   // ms between readings
-const STEP = 32;     // ms between steps of the count
 const next = frameFor('fps-counter');
-let el = null, num = null, unit = null, ask = 0, t0 = 0, tStep = 0, n = 0, shown = 0, target = 0;
+let el = null, num = null, unit = null, ask = 0, t0 = 0, n = 0, shown = 0, target = 0;
 
 const tick = (t) => {
   if (!el) return;   // (turned off: the callback already asked for ends here)
@@ -22,12 +21,9 @@ const tick = (t) => {
   n++;
   if (!t0) { t0 = t; return; }
   if (t - t0 >= EVERY) { target = Math.round((n * 1000) / (t - t0)); t0 = t; n = 0; }
-  if (shown !== target && t - tStep >= STEP) {
-    tStep = t;
-    const d = target - shown;
-    shown += Math.abs(d) <= 2 ? d : Math.ceil(Math.abs(d) / 4) * Math.sign(d);   // (closes a gap in about six steps)
-    num.set(String(shown));
-  }
+  // (Set once a reading, never counted toward it: each step was a picture handed over by the charts' GPU context, which on a busy Mac waited
+  // on the figure's GPU work, ~4 ms a picture, 11 a second, so the counter itself cost the frames it measured: 8 Nov 2026, ?perf.)
+  if (shown !== target) { shown = target; num.set(String(shown)); }
 };
 
 export function setFpsCounter(on) {
@@ -38,7 +34,7 @@ export function setFpsCounter(on) {
     document.body.appendChild(el);
     num = glWords(a); unit = glWords(b, { keep: true });
     num.set('--'); unit.set('fps');
-    t0 = 0; n = 0; shown = 0; target = 0; tStep = 0;
+    t0 = 0; n = 0; shown = 0; target = 0;
     ask = next(tick);
   } else {
     ask = 0;
