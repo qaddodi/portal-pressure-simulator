@@ -1,12 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { stageSource, stageFn } from './stage-src.js';
 
 // Performance recommendations A2 to A5 and D1 (the figure's GPU present): exact changes to which passes load, which
 // frame presents how often, and what the overlays' lay and a trim touch. The GL context is recorded, not run.
 
 globalThis.ResizeObserver ??= class { observe() {} };
-globalThis.MutationObserver ??= class { observe() {} };
+globalThis.MutationObserver = class { observe() {} disconnect() {} takeRecords() { return []; } };
 globalThis.window ??= globalThis;
 globalThis.Element ??= class {};
 globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
@@ -112,4 +113,29 @@ test('A2: the organ stack\'s camera move and the reuse target say so before they
   assert.match(organs, /gl\.disable\(gl\.SCISSOR_TEST\); gl\.disable\(gl\.BLEND\);\n\s+INVC\[0\] = gl\.COLOR_ATTACHMENT0; gl\.invalidateFramebuffer\(gl\.FRAMEBUFFER, INVC\);[^\n]*\n\s+gl\.useProgram\(moveP\.p\);/);
   const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   assert.match(veins, /gl\.bindFramebuffer\(gl\.DRAW_FRAMEBUFFER, rz\.fbo\);\n\s+if \(!own \|\| \(own\.w === rz\.w && own\.h === rz\.h\)\) noLoad\(gl\.DRAW_FRAMEBUFFER, false\);[^\n]*\n\s+gl\.blitFramebuffer\(0, 0, rz\.w, rz\.h/);
+});
+
+// ── A3 ──
+test('A3: a frame that draws and has stale overlays lays one picture: the draw\'s own present lays them', () => {
+  const { g, f, look } = renderer();
+  g.draw(M1, look, { on: false });
+  g.overlay.set(new Map([['o0', [{ spec: { ops: [], opacity: 1, mask: null }, m: [1, 0, 0, 1, 0, 0] }]]]), ['o0']);
+  assert.equal(g.overlay.stale, true);
+  const at = g.top.presents;
+  const n0 = f.calls.length;
+  g.draw([1, 0, 0, 1, 5, 0], look, { on: false });
+  assert.equal(g.top.presents, at + 1, 'one picture laid for the frame');
+  assert.equal(g.overlay.stale, false, 'with the overlays in it, so the stage lays no second one');
+  assert.ok(f.calls.slice(n0).some((c) => c[0] === 'drawArrays'));
+});
+
+test('A3: the stage lays the overlays alone after its draw, and only if the draw laid no picture', () => {
+  const stage = stageSource();
+  assert.doesNotMatch(stage, /if \(OVER_ON && veins\?\.overlay\?\.stale && !veins\.lost\) veins\.present\(\);/, 'no present ahead of the draw');
+  assert.match(stage, /const overAt = OVER_ON && veins\?\.top \? veins\.top\.presents : -1;/);
+  const fn = stageFn('overAlone');
+  assert.match(fn, /veins\?\.overlay\?\.stale && !veins\.lost && veins\.top\.presents === at\) veins\.present\(\)/);
+  // (After the draw and before the still key is copied; and where a still figure goes to sleep.)
+  assert.match(stage, /veins\.composite\(vLook, bloodLook\(\), fluidMoved\) !== false\) \{[^\n]*\n\s+overAlone\(overAt\);\n\s+drawnView = viewVersion;/);
+  assert.match(stage, /!anyReveal\(\)\) \{ overAlone\(overAt\); sleep\(\); return; \}/);
 });
