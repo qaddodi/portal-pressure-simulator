@@ -361,13 +361,17 @@ export function originFractionsInto(edges, nodes, Q, P, out, ends, pass = false)
  * blood all along. A vessel whose flow never runs back (slosh 0) has Pe in the thousands and is drawn as before.
  * ends = { slosh (per edge: the flow that runs back and forth, L/min, ≥ 0), down (ORIGIN_N × edges, written: the downstream
  * junction's blend, already eased toward the upstream one as Pe grows), pe (per edge, written: Pe signed by the flow's direction
- * from→to; 0 for one blood all along) }. The shader (veins-gl originAt) draws the profile from these.
+ * from→to; 0 for one blood all along), join (optional, per edge: where along it, 0 to 1 from its upstream end, a side-hosted shunt runs
+ * into it, 0 for none) }. The shader (veins-gl originAt) draws the profile from these.
+ * A vein that a shunt is drawn into part-way (stage-geo.js SIDE_HOSTS: the splenorenal shunt into the left renal vein's venules, V_KID_L,
+ * whose model end is the node further on) carries the blend of its downstream node from the join on: pe = 10 + join, a step at the join
+ * in the shader, instead of the kidney's blood to the node and the shunt's only after it (the renal vein stayed slate blue past the join, 8 Nov 2026).
  */
 // (Pe at which the downstream blend starts to fade out, and is gone: the vessel is one blood. Below 2 more blood runs to and fro than
 // passes; by 6 a vessel is one-way but for a beat's reflux, as the hepatic veins' a wave (Pe 6–9 in cirrhosis), which stays one blood.)
 export const ORIGIN_PE_FADE = [2, 6];
 function originEnds(edges, Q, ends, out) {
-  const N = ORIGIN_N, ne = edges.length, { slosh, down, pe } = ends, [p0, p1] = ORIGIN_PE_FADE;
+  const N = ORIGIN_N, ne = edges.length, { slosh, down, pe, join } = ends, [p0, p1] = ORIGIN_PE_FADE;
   for (let k = 0; k < ne; k++) {
     pe[k] = 0;
     for (let i = 0; i < N; i++) down[k * N + i] = out[k * N + i];
@@ -380,6 +384,11 @@ function originEnds(edges, Q, ends, out) {
     }
     const fwd = Q[k] >= 0, u = fwd ? EF[k] : ET[k], d = fwd ? ET[k] : EF[k];
     if (!(u >= 0) || !(d >= 0) || !(O_W[u] > 0) || !(O_W[d] > 0)) continue;
+    if (join && join[k] > 0 && Q[k] > 0) {
+      let diff = 0;
+      for (let i = 0; i < N; i++) { const v = O_NODE[d * N + i]; down[k * N + i] = v; diff += Math.abs(v - out[k * N + i]); }
+      if (diff > 1e-4) { pe[k] = Math.fround(10 + join[k]); continue; }
+    }
     const P = Math.abs(Q[k]) / (Math.max(0, slosh[k] || 0) + 1e-3);
     if (P >= p1) continue;
     const t = P <= p0 ? 0 : (P - p0) / (p1 - p0), keep = 1 - t * t * (3 - 2 * t);

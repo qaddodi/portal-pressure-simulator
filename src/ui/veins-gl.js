@@ -1405,7 +1405,8 @@ vec3 originAt(int id, float s, float y, float R) {
   if (pe != 0.0) {
     float x = clamp(s / max(texelFetch(tube, ivec2(5, id), 0).z, 1.0), 0.0, 1.0), P = abs(pe);
     if (pe < 0.0) x = 1.0 - x;
-    float g = P < 0.05 ? x : (exp(P * x) - 1.0) / (exp(P) - 1.0);
+    // (Pe from 10: a shunt runs into the vein part-way, at 10 less Pe of its length from the upstream end; its blend from there on, blood.js originEnds join.)
+    float g = P >= 10.0 ? smoothstep(P - 10.03, P - 9.97, x) : P < 0.05 ? x : (exp(P * x) - 1.0) / (exp(P) - 1.0);
     f2 = mix(f2, texelFetch(flow, ivec2(7, id), 0), g);
   }
   float u = clamp((y + 1.0) * 0.5, 0.0, 1.0), e = clamp(0.6 * pxW / max(R, 0.3), 0.01, 0.12);

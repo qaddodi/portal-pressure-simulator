@@ -2461,7 +2461,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const NODE_ENDS = nodeEnds(ALL_EDGES, (e) => E[e.id]);
   const nodeVisible = (id) => !(ANAT_HIDDEN_NODES.has(id) && morph < 0.5) && nodeDrawn(NODE_ENDS[id]);
 
-  const { bloodLook, bloodOn, bolus, chevOn, injectDye, originOn, restStill, sprayFading, sprayOn, stepBlood, stepRest, stepSpray, streams } = createBlood({ E, EI, EV, GL_ROWS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold }, live);
+  const { bloodLook, bloodOn, bolus, chevOn, injectDye, originOn, restStill, sprayFading, sprayOn, stepBlood, stepRest, stepSpray, streams } = createBlood({ E, EI, EV, GL_ROWS, SIDE_HOSTS, bal, cath, easeInOut, geo, glow, holdReversals, layerMode, revHold }, live);
   let origins = null, originsF = null, bloodClock = 0, dyeShown = false;
   let bloodEasing = false;
   let restOn = false, restU = 1, restK = 1;
