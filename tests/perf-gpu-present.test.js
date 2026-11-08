@@ -214,3 +214,45 @@ test('A5: camDraw cuts the camera lay with the box it is given', () => {
   assert.match(veins, /const sb = box \|\| \(plain \? ovBox : null\);\n\s+if \(sb\) \{ gl\.enable\(gl\.SCISSOR_TEST\); gl\.scissor\(sb\[0\], sb\[1\], sb\[2\] - sb\[0\], sb\[3\] - sb\[1\]\); \} else gl\.disable\(gl\.SCISSOR_TEST\);/);
   assert.match(veins, /if \(ob && !camBox\(ob\)\) return;\n\s+try \{ if \(camDraw\(over\.texture, true, false, ob \? CB : null\)\) return; \} finally \{ gl\.disable\(gl\.SCISSOR_TEST\); \}/);
 });
+
+// ── D1 ──
+test('D1: trim() gives back the quality tiers\' targets, and prepLow makes them again', () => {
+  const { g, f } = renderer();
+  g.prepLow(0.7);
+  const made = g.lowMade;
+  assert.ok(made >= 1);
+  let n0 = f.calls.length;
+  g.trim();
+  const c = f.calls.slice(n0);
+  assert.equal(c.filter((x) => x[0] === 'deleteFramebuffer').length, 1, 'the tiers\' framebuffer');
+  assert.ok(c.filter((x) => x[0] === 'deleteTexture').length >= 3, 'and their textures');
+  n0 = f.calls.length;
+  g.trim();
+  assert.ok(!f.calls.slice(n0).some((x) => x[0] === 'deleteFramebuffer' || x[0] === 'deleteTexture'), 'a second trim has nothing more to give');
+  g.prepLow(0.7);
+  assert.equal(g.lowMade, made + 1, 'made again between frames, not at the first move');
+});
+
+test('D1: trim() of the lobule\'s shared renderer shrinks its texture of the host to a texel', () => {
+  const host = renderer();
+  const f = host.f;
+  const canvas = { width: 640, height: 480, addEventListener() {}, removeEventListener() {} };
+  const lob = mod.createVeinsGL(canvas, { tubes: 4, force: true, who: 'lobule', share: host.g.top });
+  const t = lob.target, gen = t.gen;
+  assert.equal(t.w, 640);
+  const n0 = f.calls.length;
+  lob.trim();
+  const sh = f.calls.slice(n0).filter((x) => x[0] === 'texImage2D' && x[4] === 1 && x[5] === 1 && x[3] === f.gl.RGBA8);
+  assert.ok(sh.length >= 2, 'the vessel layer\'s base and the host\'s texture');
+  assert.equal(lob.target.w, 640, 'sized again, cleared, when it is next asked for at the canvas\'s size');
+  assert.ok(lob.target.gen > gen, 'a new texture generation: a kept picture of it is out of date');
+});
+
+test('D1: the streaks\' half-size target and the stage\'s warm-up after a trim', () => {
+  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(veins, /lowFree\(\);\n\s+if \(half\.tex\) \{[^\n]*texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA8, 1, 1,[^\n]*half\.w = half\.h = 0; \}/);
+  const stage = stageSource();
+  assert.match(stage, /if \(veinsTrimmed\) \{ veinsTrimmed = false; lowWarm\(\); \}/, 'shown again in the frame loop');
+  assert.match(stage, /set veinsTrimmed\(v\) \{ if \(veinsTrimmed && !v\) lowWarm\(\); veinsTrimmed = v; \}/, 'or by the dive\'s draw ahead');
+  assert.match(stage, /const \{ autoNow, easeRes, lowWarm, moveGaps,/);
+});

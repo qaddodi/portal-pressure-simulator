@@ -567,7 +567,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get veinsDrawKey() { return veinsDrawKey; }, set veinsDrawKey(v) { veinsDrawKey = v; },
     get veinsHold() { return veinsHold; }, set veinsHold(v) { veinsHold = v; },
     get veinsRows() { return veinsRows; },
-    get veinsTrimmed() { return veinsTrimmed; }, set veinsTrimmed(v) { veinsTrimmed = v; },
+    get veinsTrimmed() { return veinsTrimmed; }, set veinsTrimmed(v) { if (veinsTrimmed && !v) lowWarm(); veinsTrimmed = v; },
     get vhStep() { return vhStep; },
     get viewKeyN() { return viewKeyN; }, set viewKeyN(v) { viewKeyN = v; },
     get viewRaf() { return viewRaf; }, set viewRaf(v) { viewRaf = v; },
@@ -1671,7 +1671,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // keeps about the pixels it had at home), in steps down to 10%. It is changed only once the view has settled and been let go,
   // so a pinch or a glide never reallocates the canvas as it moves.
   let autoK = 1, autoT = 0;
-  const { autoNow, easeRes, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel } = createRes({ OVER_ASK, QUALITY, drawVeins: (...a) => drawVeins(...a), schedulePlateView: () => schedulePlateView(), stageBox, vCanvas, wrap }, live);
+  const { autoNow, easeRes, lowWarm, moveGaps, noteMoveFrame, resizeCanvas, settleRes, subPixel } = createRes({ OVER_ASK, QUALITY, drawVeins: (...a) => drawVeins(...a), schedulePlateView: () => schedulePlateView(), stageBox, vCanvas, wrap }, live);
   // Figure resolution › Adapt to frame rate: the gaps between the frames of each move (moveGaps, from drawVeins); once it settles,
   // one step lower (down to 25%) when they ran half again as long as the screen's own pace (the shortest gaps seen, fastGap), one
   // step back up when they kept up with it. Once a move, never during one.
@@ -2717,7 +2717,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Fully inside the lobule, the plate is covered (a pending redraw waits for the frame it can show in): the loop sleeps
     // there, and leaving the lobule (a store change) wakes it. While the lobule only covers it on the way in or out, it keeps looking.
     if (lz?.isOpen()) { trimVeins(); sleep(); return; }
-    veinsTrimmed = false;   // (shown again: the next draw makes what trimVeins gave back)
+    if (veinsTrimmed) { veinsTrimmed = false; lowWarm(); }   // (shown again: the next draw makes what trimVeins gave back, and the tiers' targets are made again a moment on)
     hiddenAt = 0;   // (shown: a later hide starts its warm window afresh)
     if (veinsHold) { veinsHold.drop(); veinsHold = null; }   // (in use again: no longer warm)
     if (lz?.covers()) { askAnimate(); return; }
