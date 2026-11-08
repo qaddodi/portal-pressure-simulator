@@ -260,6 +260,8 @@
   --label-halo: rgba(241, 235, 224, .92);
   --label-panel: rgba(241, 235, 224, .74);
   --doppler: #22C38E;
+  --dop-head-rim: #000000;
+  --dop-head-ink: #FFFFFF;
   --dop-face: #15181D;
   --dop-glow: #1F2433;
   --vel-ink: 45%;
@@ -510,6 +512,8 @@
     --doppler: #3EE0A5;
     --dop-glow: #F4F6FF;
     --dop-face: #F1ECE2;
+    --dop-head-rim: #FFFFFF;
+    --dop-head-ink: #000000;
     --vel-ink: 72%;
     --s1: #3987e5;
     --s2: #d95926;
@@ -741,6 +745,8 @@
   --doppler: #3EE0A5;
   --dop-glow: #F4F6FF;
   --dop-face: #F1ECE2;
+  --dop-head-rim: #FFFFFF;
+  --dop-head-ink: #000000;
   --vel-ink: 72%;
   --s1: #3987e5;
   --s2: #d95926;

@@ -821,5 +821,8 @@ test('the probe\'s front band is the inverse of its body: dark on the light look
   for (const [look, bodyDark] of [['light', false], ['dark', true]]) {
     const body = lum(TOKENS[look].surface), face = lum(TOKENS[look]['dop-face']);
     assert.ok(bodyDark ? face > body + 0.5 : face < body - 0.5, `${look}: band ${face.toFixed(2)} against body ${body.toFixed(2)}`);
+    const rim = lum(TOKENS[look]['dop-head-rim']), ink = lum(TOKENS[look]['dop-head-ink']);
+    assert.ok(bodyDark ? rim > body + 0.5 && ink < body + 0.1 : rim < body - 0.5 && ink > body - 0.1 || ink > rim, `${look}: the head's rim and line swap with the body`);
+    assert.equal(bodyDark, rim > ink, `${look}: light rim over a dark line on the dark looks only`);
   }
 });

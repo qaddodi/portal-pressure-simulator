@@ -107,6 +107,7 @@ export const TOKENS = {
     'label-halo': 'rgba(241, 235, 224, .92)',
     'label-panel': 'rgba(241, 235, 224, .74)',   // a reading's panel on the figure: the paper itself at 72 %, the halo does the separating (looks review F8); dark: the ground
     'doppler': '#22C38E',
+    'dop-head-rim': '#000000', 'dop-head-ink': '#FFFFFF',   // the probe head's outer rim and its inner line: black and white on the light looks, swapped on the dark ones (a true colour inversion, 8 Nov)
     'dop-face': '#15181D',   // the Doppler probe's front band (the face that touches the skin): dark on the light looks' cream body, light on the dark looks' dark one (the exact inverse, 8 Nov)
     'dop-glow': '#1F2433',   // the Doppler's vessel glow, beam and probe light on the figure (white on the dark themes): 19 Oct, the green read as "normal"
     'vel-ink': '45%',   // a stent point's number: how much of its velocity colour, the rest the text's (4.5:1 at least on the light stage)
@@ -296,7 +297,7 @@ export const TOKENS = {
     'organ-body': '#262421', 'organ-body-line': '#3A3733',
     'organ-liver': '#A88C82', 'organ-spleen': '#93889A', 'organ-gut': '#A8948A', 'organ-stomach': '#A99088', 'organ-heart': '#AE8387',
     'organ-kidney': '#A07E8E', 'organ-lung': '#6E7A8C', 'organ-pancreas': '#AFA286', 'organ-gb': '#8C9A7E', 'organ-aorta': '#6E6470', 'organ-a': '.3', 'organ-tint': '20%', 'diaphragm': '#9C8C84',
-    'artery': '#E4606C', 'casing-rgb': '10 8 8', 'casing-a': '.3', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'ascites': '#F0C67A', 'ascites-a': '.24', 'stage-grid': 'rgba(255, 240, 220, .05)', 'leader': 'rgba(236, 228, 214, .42)', 'vein-portal': 'var(--tour-portal)', 'vein-systemic': 'var(--tour-sys)', 'arrow-ink': 'rgba(238, 235, 229, .82)', 'label-halo': 'rgba(26, 25, 23, .9)', 'label-panel': 'rgba(26, 25, 23, .72)', 'doppler': '#3EE0A5', 'dop-glow': '#F4F6FF', 'dop-face': '#F1ECE2', 'vel-ink': '72%',
+    'artery': '#E4606C', 'casing-rgb': '10 8 8', 'casing-a': '.3', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'ascites': '#F0C67A', 'ascites-a': '.24', 'stage-grid': 'rgba(255, 240, 220, .05)', 'leader': 'rgba(236, 228, 214, .42)', 'vein-portal': 'var(--tour-portal)', 'vein-systemic': 'var(--tour-sys)', 'arrow-ink': 'rgba(238, 235, 229, .82)', 'label-halo': 'rgba(26, 25, 23, .9)', 'label-panel': 'rgba(26, 25, 23, .72)', 'doppler': '#3EE0A5', 'dop-glow': '#F4F6FF', 'dop-face': '#F1ECE2', 'dop-head-rim': '#FFFFFF', 'dop-head-ink': '#000000', 'vel-ink': '72%',
     's1': '#3987e5', 's2': '#d95926', 's3': '#199e70', 's4': '#c98500', 's5': '#d55181', 's6': '#17A317', 's7': '#9085e9', 's8': '#e66767',
     'grid': '#2B2926', 'axis': '#4A4641',
     'tr-pv': '#F0649E', 'tr-wedge': '#DA7EDD', 'tr-hv': '#5CA4F2', 'tr-ra': '#B7B1A8', 'tr-ivc': '#4CC2D6', 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
