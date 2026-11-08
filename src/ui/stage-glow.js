@@ -93,7 +93,7 @@ export function createGlow(st, live) {
       // (l.v is the glow's progress, stepped linearly by k = dt / dur toward its goal; glow-texels.js eases it (easeInOut) where it is drawn, so
       // a fade is eased at both ends over its duration, which is a step of the motion scale. A glow at its goal stays there.)
       const goal = l.to ? 1 : 0;
-      l.v = goal > l.v ? Math.min(1, l.v + k) : Math.max(0, l.v - k);
+      l.v = l.v < goal ? Math.min(goal, l.v + k) : Math.max(goal, l.v - k);
       l.cu = Math.min(1, l.cu + k);
       for (let i = 0; i < 2; i++) { const d = l.endT[i] - l.end[i]; l.end[i] = Math.abs(d) < 0.5 ? l.endT[i] : l.end[i] + d * Math.min(1, k * 2); }
       for (let i = 0; i < 2; i++) { const d = l.spanT[i] - l.span[i]; l.span[i] = Math.abs(d) < 0.003 ? l.spanT[i] : l.span[i] + d * Math.min(1, k * 1.5); }
