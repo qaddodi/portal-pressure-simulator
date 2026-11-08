@@ -10,13 +10,10 @@ globalThis.MutationObserver ??= class { observe() {} };
 globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
 globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty() {} } }, addEventListener() {}, createElement: () => ({ getContext: () => ({}) }) };
 globalThis.addEventListener ??= () => {};
-const { awayKey } = await import('../src/ui/dopplerColor.js');
 
-test('the key says which side is away, and what away means for the vessel', () => {
-  assert.deepEqual(awayKey('portal', false), ['below the line: away from the probe; here, hepatofugal', 'below the line: away; here, hepatofugal']);
-  assert.equal(awayKey('hepatic', true)[0], 'above the line: away from the probe; here, toward the heart');
-  assert.equal(awayKey('artery', false)[0], 'below the line: away from the probe');
-  assert.equal(awayKey('nonsense', false)[1], 'below the line: away; here, hepatofugal', 'an unknown kind falls back to the portal key');
+test('the colour modes carry no caption under the baseline (Mohammad, 8 Nov: remove "below the line: away from the probe…")', () => {
+  const src = readFileSync(new URL('../src/ui/doppler.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /awayKey|SL\.key/);
 });
 
 test('away is the brighter blue and the red wale one cherry red, each a token', () => {

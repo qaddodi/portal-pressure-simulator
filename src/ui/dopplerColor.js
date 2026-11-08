@@ -89,15 +89,3 @@ export function swatchGradient(mode) {
   if (mode === 'variance') return `linear-gradient(90deg,${legendColor(mode, true, 0)},${legendColor(mode, true, 1)} 50%,${legendColor(mode, false, 0)} 50%,${legendColor(mode, false, 1)})`;
   return `linear-gradient(90deg,${legendColor(mode, true)} 50%,${legendColor(mode, false)} 50%)`;
 }
-
-// The colour key's one line: which side of the baseline is "away" (blue), and what away means for the vessel on the probe. Two lengths (the
-// short one for a narrow card); built once. Portal flow runs toward the liver, so away is hepatofugal; the hepatic veins and the IVC drain
-// away from the probe, toward the heart.
-const HERE = { portal: 'hepatofugal', hepatic: 'toward the heart', ivc: 'toward the heart' };
-const KEYS = {};
-for (const above of [false, true]) for (const kind of ['portal', 'hepatic', 'ivc', 'artery', 'tips', 'collateral']) {
-  const side = above ? 'above' : 'below', here = HERE[kind] ? `; here, ${HERE[kind]}` : '';
-  KEYS[`${kind}|${above}`] = [`${side} the line: away from the probe${here}`, `${side} the line: away${here}`];
-}
-/** The key line for the Doppler's colour modes, in two lengths (long, short). above: Invert has put "away" above the baseline. */
-export const awayKey = (kind, above) => KEYS[`${kind}|${!!above}`] || KEYS[`portal|${!!above}`];

@@ -9,7 +9,7 @@ import { glWords, wordsRect } from './gl-words.js';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js';
 import { FONT, textW } from './charts.js';
 import { logAction, shownVel, store } from './store.js';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient, awayKey } from './dopplerColor.js';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js';
 import { frameFor, noteDraw, paceMs, cancelFrame, frameAnimating } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js';
@@ -985,7 +985,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     try { drawWith(pen, now); } finally { pen.ctx.end?.(); }
   }
   // The velocity scale's ticks, numbers and unit, drawn from SL by the kept layer (see drawWith).
-  const SL = { ver: 0, w: 0, hh: 0, scale: 0, baseY: 0, pxPerV: 0, padL: 0, padT: 0, W: 0, H: 0, ovOn: false, lw: 0, yLab: 0, i1: '', i2: '', i3: '', key: null, keyUp: false };
+  const SL = { ver: 0, w: 0, hh: 0, scale: 0, baseY: 0, pxPerV: 0, padL: 0, padT: 0, W: 0, H: 0, ovOn: false, lw: 0, yLab: 0, i1: '', i2: '', i3: '' };
   const LAB_STEPS = [1, 2, 5, 10, 20, 50, 100, 200, 500];
   let scaleCtx = null;
   function drawScaleLayer() {
@@ -1008,17 +1008,6 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // (left out where a narrow monitor's bottom label would run into it: the strip's reading already names the unit)
     ctx.fillStyle = SL.i3; ctx.textAlign = 'right';
     if (!ovOn || padL + lw + 8 <= w - 6 - textW(ctx, 'cm/s')) ctx.fillText('cm/s', w - 6, ovOn ? yLab : 13);
-    // The colour key (S3): which side of the baseline is "away", beside the line on the trace's left, with a halo under the fill. The long line
-    // if it fits the trace, else the short one, else none; and only where the room beside the line is there (the card's size never moves).
-    if (SL.key) {
-      const up = SL.keyUp, y = padT + baseY + (up ? -4 : 4), room = up ? baseY - 4 : H - baseY - 4;
-      ctx.font = FONT(500, 11); ctx.textAlign = 'left'; ctx.textBaseline = up ? 'bottom' : 'top'; ctx.lineJoin = 'round';
-      const txt = textW(ctx, SL.key[0]) <= W - 16 ? SL.key[0] : SL.key[1];
-      if (room >= 14 && textW(ctx, txt) <= W - 16) {
-        ctx.lineWidth = 3.5; ctx.strokeStyle = cssAlpha('--black', 0.85); ctx.strokeText(txt, padL + 8, y);
-        ctx.fillStyle = SL.i2; ctx.fillText(txt, padL + 8, y);
-      }
-    }
   }
   function drawWith({ ctx, w, h: hh }, now) {
     labBusy = false;
@@ -1198,11 +1187,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // colours change, not built word by word every frame; ?chartkeep=0 draws them every frame.)
     // (What the layer is drawn from is kept in SL, and its signature is a counter that moves when any of it does: nothing is built to compare.)
     const ink1 = cssAlpha('--white', .55), ink2 = cssAlpha('--white', .78), ink3 = cssAlpha('--white', .5);
-    const keyUp = invert, key = mode === 'spectrum' ? null : awayKey(meta().kind, keyUp);   // (the key's two lines, from a table made once)
-    if (SL.key !== key || SL.keyUp !== keyUp || SL.w !== w || SL.hh !== hh || SL.scale !== scale || SL.baseY !== baseY || SL.pxPerV !== pxPerV || SL.padL !== padL || SL.padT !== padT || SL.W !== W || SL.H !== H
+    if (SL.w !== w || SL.hh !== hh || SL.scale !== scale || SL.baseY !== baseY || SL.pxPerV !== pxPerV || SL.padL !== padL || SL.padT !== padT || SL.W !== W || SL.H !== H
       || SL.ovOn !== ovOn || SL.lw !== lw || SL.yLab !== yLab || SL.i1 !== ink1 || SL.i2 !== ink2 || SL.i3 !== ink3) {
       SL.w = w; SL.hh = hh; SL.scale = scale; SL.baseY = baseY; SL.pxPerV = pxPerV; SL.padL = padL; SL.padT = padT; SL.W = W; SL.H = H;
-      SL.ovOn = ovOn; SL.lw = lw; SL.yLab = yLab; SL.i1 = ink1; SL.i2 = ink2; SL.i3 = ink3; SL.key = key; SL.keyUp = keyUp; SL.ver++;
+      SL.ovOn = ovOn; SL.lw = lw; SL.yLab = yLab; SL.i1 = ink1; SL.i2 = ink2; SL.i3 = ink3; SL.ver++;
     }
     scaleCtx = ctx;
     keepLayer(ctx, 'scale', SL.ver, drawScaleLayer);
