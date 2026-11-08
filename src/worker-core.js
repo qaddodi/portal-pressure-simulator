@@ -583,6 +583,9 @@ export function createCore(post) {
       for (let i = 0; i < (steps || []).length; i++) {
         const st = steps[i] || {};
         if (st.restart && i) { e = new Engine(); if (base) e.restore(base); }
+        // (A preset starts the patient over, so it starts on a fresh engine: a load on an engine that has run other patients left a hair of their solver
+        // state in the numbers, enough to change a rounded reading between a chain and the same slides alone, 8 Nov: the ascites chart's dot and the slide.)
+        if (st.preset && i) e = new Engine();
         if (st.preset) yield* loadPresetKept(e, keptPresets, st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
         for (const a of [st.action || []].flat()) applyAction(e, a);
