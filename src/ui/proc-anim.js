@@ -9,7 +9,7 @@
 
 import { frameFor, cancelFrame } from './frame.js';
 import { ease, cruise, k01, legMs, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS } from './hvpg-clock.js';
-import { easeMove } from './motion.js';
+import { easeMove, createReversible } from './motion.js';
 import { NODES } from '../engine/topology.js';
 import { hvpgSev } from '../engine/pressure-cuts.js';
 const NODE_I = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
@@ -412,6 +412,9 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
   const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0, coil: 0 };
   const cat = { route: kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  // (The procedure's clock, in ms of the sequence, 1 ms a ms forward and BACK_SPEED back: a reversible clock, so Back or Next while a step is still
+  // moving slows the catheter and turns it round over D_FLIP, never in one frame. It lands exactly on each stop; the steps hold there.)
+  const clock = createReversible({ ms: 1, min: 0, max: T.end, land: false, x: 0 });
   let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2, shownMark = -3;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
@@ -449,7 +452,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     if (t >= T.end) { finish(false); return; }
     if (at < 0 && t <= 0) { finish(true); return; }
     const t0 = t;
-    if (!still && t !== goal) { t = t < goal ? Math.min(goal, t + dt) : Math.max(goal, t - dt * BACK_SPEED); holdT = 0; }
+    if (!still && t !== goal) { clock.aim(goal, goal < t ? 1 / BACK_SPEED : 1); t = clock.step(dt); holdT = 0; }
     else if (!still && !stepped && at < n - 1) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { at++; goal = P.stops[at]; holdT = 0; } }
     // (Held at a stop with the camera landed and its last frame drawn: no frames until Next, Back or a step's button asks.)
     if (still || t !== t0 || t !== goal || !stepped || at < 0) raf = nextFrame(tick);

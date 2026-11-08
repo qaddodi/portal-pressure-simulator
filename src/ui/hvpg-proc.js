@@ -364,7 +364,7 @@ export function createHvpgMonitor() {
   const rising = () => mode !== 'free' && bal < 1 && t <= T.wedge;   // the balloon is still setting the trace
   const falling = () => mode === 'free' && bal > 0;                  // back from a wedge slide: held, then down with the balloon
   function step(now) {
-    const dt = Math.min(64, now - last); last = now;   // (a long frame or a hidden tab moves the sweep 64 ms, as the procedures' own clock does, never to its end)
+    const dt = Math.max(0, Math.min(64, now - last)); last = now;   // (a long frame or a hidden tab moves the sweep 64 ms, as the procedures' own clock does, never to its end)
     if (falling()) { if (bal < 1) t = Math.min(t, timeOfBalloon(bal)); }
     else if (mode === 'free' && t >= T.inflate) t = SPAN.free[0];   // the balloon is down: the free trace sweeps in afresh
     else if (rising()) t = bal > 0 ? timeOfBalloon(bal) : Math.min(t + dt, T.inflate);

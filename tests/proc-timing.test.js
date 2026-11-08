@@ -159,6 +159,24 @@ test('shots with no times of their own are timed by the camera (scale), on an ar
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });
 
+// ── 6 (the procedure clock): Back or Next while a step is still moving slows and turns, it does not flip in one frame ──
+test('Back while a step is still moving turns the procedure’s clock round over D_FLIP, not in one frame', () => {
+  const saved = { p: globalThis.performance, r: globalThis.requestAnimationFrame, c: globalThis.cancelAnimationFrame };
+  try {
+    const R = rig(), ts = [], ends = [];
+    const play = playProcedure(R.stage, 'tips', { stepped: true, onFrame: (f, t) => ts.push(t), onEnd: (e) => ends.push(e) });
+    let backed = -1;
+    for (let i = 0; i < 4000 && backed < 0; i++) { R.run(16); if (ts.length && ts.at(-1) > 1500) { play.back(); backed = ts.length; } }
+    assert.ok(backed > 0, 'it was moving when Back came');
+    R.run(20000);
+    const d = ts.slice(backed - 3).map((t, i, a) => (i ? t - a[i - 1] : 0)).slice(1);
+    let worst = 0; for (let i = 1; i < 12; i++) worst = Math.max(worst, Math.abs(d[i] - d[i - 1]));
+    assert.ok(Math.min(...d) < 0 && d.some((x) => x > 10), 'it ran on a little, then back');
+    assert.ok(worst < 12, `the step changes by at most ${worst.toFixed(1)} ms a frame through the turn (a flip would change it by 40)`);
+    assert.deepEqual(ends, [{ done: false, rewound: true }]);
+  } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
+});
+
 // ── 9: the HVPG trace on the model’s clock ──
 const v = { fhvp: 5, whvp: 17, hvpg: 12 };
 const frame = (t, phase, extra = {}) => ({ t, phase, running: true, speed: 1, clock: 'hemo', resp: true, metrics: { hr: 60 }, ...extra });
