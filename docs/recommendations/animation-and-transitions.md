@@ -382,6 +382,17 @@ which still leaves on the arrive curve (`menu.js:136-141`), and the tooltip's 4 
 A and B change what a talk feels like the most and can go first, in parallel: they touch different files except that both read
 `stage-view.js`, where A only touches `xfLayer` and B touches the timing fields.
 
+Where the pushes share files (fetch and rebase before every push):
+- **B and E** both touch `stage-glide.js`, `stage-fit.js` and `stage-gestures.js`. B adds the checks for a running `viewXf`; E changes
+  the arc branch, the spring-back and the fixed glide times.
+- **B and E on the lobule.** B owns the waits in `presenter.js camera()`, including the one after a lobule focus (wait for the
+  lobule's landing, not a number). E makes `focusOn` in `lobule-zoom.js` time itself by reach, with the `ms` it is given as a ceiling.
+- **C and D.** C writes the reversible clock in `motion.js` first and uses it for the view change, the turn, the dive and the
+  sinusoid. D owns `proc-anim.js` and uses the same helper for the procedure clock.
+- **C** also takes the view-change part of item 22 (Reduce Motion), since it sits in the same morph step in `stage.js`.
+- **F**'s item 15 is in `presenter.js tileGlide`, away from B's `camera()` and `transitionRun`.
+- **G** goes last: it renames durations across files the others edit.
+
 ## Looked at and judged fine
 
 - Labels, leaders and dots are drawn from the same frame's camera as the vessels in every move traced: glides, pinch, wheel, the
