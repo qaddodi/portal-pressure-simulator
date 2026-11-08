@@ -38,15 +38,38 @@ const sync = (e) => {
   if (m !== e.classList.contains('mg-move')) e.classList.toggle('mg-move', m);
   if (m) { movers.add(e); if (!raf) raf = nextFrame(tick); } else movers.delete(e);
 };
+// The tooltip's own exit, followed as the why-pop's is, by its class and its transition events, so no present asks the page what is running on it
+// (getAnimations flushes style). tipRuns: transitions and animations running on the tooltip itself (counted by their events); tipPend: frames left
+// after .show leaves for the exit's first event (a transition is announced a frame or two after the class write); tipShown: .show as last seen.
+// The count starts again from nothing as .show leaves, so a missed end can never keep a hidden tooltip listed.
+let tipRuns = 0, tipPend = 0, tipShown = false, tipRaf = 0;
+const tipTick = () => { tipRaf = 0; if (tipPend > 0) { tipPend--; if (tipPend > 0) tipRaf = nextFrame(tipTick); } reg?.redraw?.(); };
+const tipStart = new Set(['animationstart', 'transitionrun']);
 let listening = false;
 function listen() {
   if (listening || typeof document === 'undefined') return;
   listening = true;
+  tipShown = !!document.getElementById('tooltip')?.classList.contains('show');
   for (const ev of ['animationstart', 'animationend', 'animationcancel', 'transitionrun', 'transitionend', 'transitioncancel']) {
-    document.addEventListener(ev, (x) => { const e = x.target; if (e?.matches?.(MENUISH)) { othersAt = -1e9; sync(e); } }, true);
+    document.addEventListener(ev, (x) => {
+      const e = x.target;
+      if (e?.id === 'tooltip') { tipRuns = Math.max(0, tipRuns + (tipStart.has(ev) ? 1 : -1)); reg?.redraw?.(); return; }
+      if (e?.matches?.(MENUISH)) { othersAt = -1e9; sync(e); }
+    }, true);
   }
   // (A class change that starts or ends the exit (leaving, out) is seen here too, before the animation's own event.)
-  new MutationObserver((rs) => { for (const r of rs) { const t = r.target; if (t.matches?.(MENUISH)) sync(t); if (t.id === 'whyPop' || t.id === 'tooltip') reg?.redraw?.(); } }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  new MutationObserver((rs) => {
+    for (const r of rs) {
+      const t = r.target;
+      if (t.matches?.(MENUISH)) sync(t);
+      if (t.id === 'tooltip') {
+        const sh = t.classList.contains('show');
+        if (tipShown && !sh) { tipRuns = 0; tipPend = 3; if (!tipRaf) tipRaf = nextFrame(tipTick); } else if (sh) tipPend = 0;
+        tipShown = sh;
+      }
+      if (t.id === 'whyPop' || t.id === 'tooltip') reg?.redraw?.();
+    }
+  }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
 }
 const live = () => {
   list.length = 0;
@@ -55,11 +78,11 @@ const live = () => {
   if (t - othersAt > 120) { othersAt = t; others.length = 0; for (const e of document.querySelectorAll(OTHERS)) { others.push(e); if (!seen.has(e)) { seen.add(e); own.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] }); } } }
   for (const e of others) if (e.isConnected) list.push(e);
   // (Only while shown or leaving: a hidden why-pop (display none) and a tooltip at rest (no .show, nothing running) are not read at each
-  // measure. Their class writes are seen by the body observer in listen(), which asks for a redraw.)
+  // measure. Their class writes, and the tooltip's transition events, are seen in listen(), which asks for a redraw.)
   const why = document.getElementById('whyPop');
   if (why && (why.classList.contains('show') || why.classList.contains('leaving'))) list.push(why);
   const tip = document.getElementById('tooltip');
-  if (tip && (tip.classList.contains('show') || tip.getAnimations?.().length)) list.push(tip);   // (the tooltip's card is glass too; its words are the GPU picture of tip-gl.js)
+  if (tip && (tip.classList.contains('show') || tipRuns > 0 || tipPend > 0)) list.push(tip);   // (the tooltip's card is glass too; its words are the GPU picture of tip-gl.js; its exit is followed in listen(), nothing is read here)
   return list;
 };
 // The cut: a menu in the one sheet layer is never drawn below the dock's top line (sheet-layer.js; the layer's own clip, app.css), so its glass,
