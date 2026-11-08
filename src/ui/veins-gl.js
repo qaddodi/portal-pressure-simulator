@@ -55,7 +55,7 @@ import { fusedVS, fusedFS } from './veins-fuse.js';
 import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
-import { frameCount, framePhase, onFrameFinal } from './frame.js';
+import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor } from './frame.js';
 import { guardCanvas } from './canvas-guard.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
@@ -2057,15 +2057,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   if (gl && !share) setFenceContext(gl);   // (?perf's GPU fences are planted in the figure's own context, gpu-fence.js)
   if (!gl) return null;
   // (The canvas not kept, a write to it before the whole picture is laid in a display cycle goes off screen (canvas-guard.js): Mohammad's
-  // flicker after f56992f. laying: inside a lay (a present, a clear); laidFrame: the frame a picture was last laid in; laidTask: one was laid in
-  // this task, outside a frame (cleared at its end).)
-  let laying = 0, laidFrame = -1, laidTask = false;
-  const endTask = () => { laidTask = false; };
+  // flicker after f56992f. laying: inside a lay (a present, a clear, the fade's seed: top.whole). laid: a whole picture is on the canvas and the
+  // browser has not shown it yet. The browser shows (and then clears) the canvas at the end of the rendering update, right after the frame's
+  // rAF, so laid ends with the scheduler's frame (onFrameEnd); a lay outside a frame asks for one, so its cycle ends there too. (3f414f4 ended
+  // a lay outside a frame with its task's microtasks: the resolution fade's seed, laid in a microtask right after the canvas is resized, ran
+  // after that end and was sent off screen, so every resolution change showed one blank frame, the glass with it.)
+  let laying = 0, laid = false;
+  const askLaidEnd = frameFor('figure-canvas-shown');
+  const noop = () => {};
   function markLaid() {
-    laidFrame = framePhase() ? frameCount() : -1;
-    if (!laidTask) { laidTask = true; queueMicrotask(endTask); }
+    laid = true;
+    if (!framePhase() && canvasGuard) { try { askLaidEnd(noop); } catch (e) { caught('veins-gl:laid-end', e); /* (no frames here: node) */ } }
   }
-  const canvasGuard = !KEEP_CANVAS && !share ? guardCanvas(gl, () => laying > 0 || laidTask || (laidFrame === frameCount() && framePhase() !== null), canvas) : null;
+  const offLaidEnd = onFrameEnd(() => { laid = false; });
+  const canvasGuard = !KEEP_CANVAS && !share ? guardCanvas(gl, () => laying > 0 || laid, canvas) : null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl);
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
@@ -4404,6 +4409,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       /** A warm-up of something drawn over the figure here ({ done(), run() }): run once done() says its programs are compiled, at a free
        *  moment of the renderer (prepare: between pictures, not mid gesture), where its small draw may set any state. */
       warmIn(t) { if (t && !lost) freeTasks.push(t); },
+      /** Runs fn, which covers the whole canvas (a clear and a whole picture: the resolution fade's seed on a canvas just resized), as a lay:
+       *  its writes reach the canvas and count as its picture for this display cycle (canvas-guard.js). */
+      whole(fn) { laying++; try { fn(); } finally { laying--; } markLaid(); },
     } : null,
     overlay: overOK ? {
       set(groups, names) {
@@ -5008,7 +5016,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * then cannot draw until the browser restores it, so give the next instance a new canvas.
      */
     dispose({ lose = false } = {}) {
-      offPresFinal(); presPend = 0;
+      offPresFinal(); offLaidEnd(); presPend = 0;
       (hostCv || canvas).removeEventListener('webglcontextlost', onLost);
       (hostCv || canvas).removeEventListener('webglcontextrestored', onRestored);
       if (!lost) {
