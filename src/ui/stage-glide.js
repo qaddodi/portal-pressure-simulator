@@ -11,7 +11,7 @@ import { clamp } from './util.js';
 
 import { stageScope } from './stage-scope.js';
 export function createGlide(st, live) {
-  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack } = st;
+  const { CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo } = st;
   // The camera's curve and its time (ease.js; combined plan M2): the quintic, with no catch half way, and a glide asked to be scaled
   // (opt.scale: a slide's framing, a fit, a camera set) takes the time its reach on screen needs, 480 to 900 ms, never longer than
   // asked.
@@ -25,6 +25,8 @@ export function createGlide(st, live) {
   const aimedBuf = { k: 1, x: 0, y: 0 };   // (where a framing would go, written in place; aimView reads it at once)
   function animateVT(to, ms = 700, opt = NO_OPT) {
     if (live.aiming) { aimedBuf.k = to.k; aimedBuf.x = to.x; aimedBuf.y = to.y; live.aimed = aimedBuf; return; }   // (asked only where it would go: aimView)
+    // (A change between the views running: the framing asked for is the change's new end, and the camera goes there on its clock, no second glide: view-xf.js.)
+    if (live.viewXf && viewXfRetargetTo(to)) { live.following = false; return; }
     live.following = false;   // (a glide or a framing set outright takes over from a card the view was following)
     cancelFrame(live.vtAnim);
     const prev = live.arcRun; live.arcRun = null;

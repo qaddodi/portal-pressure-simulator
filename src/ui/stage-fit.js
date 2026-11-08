@@ -11,6 +11,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
 import { clamp, restBox, settledBox, translateRest } from './util.js';
+import { viewXfDetach } from './view-xf.js';
 
 import { stageScope } from './stage-scope.js';
 export function createFit(st, live) {
@@ -364,6 +365,7 @@ export function createFit(st, live) {
     // Mid-glide (Fit, a zoom button), the turn starts from where the view is, never from where the glide was going (that snapped the view to
     // the glide's end, then turned): the glide is let go where it stands. Whether the turn lands on the whole map is judged by where the
     // glide was going, as Fit judges a second tap.
+    viewXfDetach(live.viewXf);   // (a change between the views running: the turn starts from where the camera is, view-xf.js)
     const goal = live.vtGliding ? live.vtTarget : live.vt;
     if (live.vtGliding) { cancelFrame(live.vtAnim); driftEnd(); live.vtGliding = false; }
     const whole = live.morphTarget !== 1 || goal.k <= 1.001 || sameView(goal, circWhole());

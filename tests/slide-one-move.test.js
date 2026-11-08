@@ -18,7 +18,7 @@ test('always one move: the share of the glide and the shared morph window', () =
 
 test('the stage says what is left of its glide, read from the glide itself', () => {
   assert.match(stage, /(?:live\.)?(?:live\.)?vtGliding = true; (?:live\.)?(?:live\.)?vtUntil = t0 \+ ms; (?:live\.)?(?:live\.)?vtMs = ms;/);
-  assert.match(stage, /glideLeft: \(\) => \((?:live\.)?vtGliding \? \{ left: Math\.max\(0, (?:live\.)?vtUntil - performance\.now\(\)\), ms: (?:live\.)?vtMs \} : \{ left: 0, ms: 0 \}\),/);
+  assert.match(stage, /glideLeft: \(\) => \((?:live\.)?vtGliding \|\| (?:live\.)?viewXf \? \{ left: Math\.max\(0, (?:live\.)?vtUntil - performance\.now\(\)\), ms: (?:live\.)?vtMs \} : \{ left: 0, ms: 0 \}\),/);
 });
 
 test('what stays serial: the liver, a catheter, a case or question card, an instrument, a figure that cannot move smoothly', () => {
@@ -73,8 +73,8 @@ test('the slide\'s marks start once the cards are in sight (CARDS_SEEN), and the
 test('words out: cards already out or on their way out make the move wait only for what is still fading', () => {
   const out = src.slice(src.indexOf('function wordsOut(next) {'), src.indexOf('const fadeLeft ='));
   assert.match(out, /const leaving = !dataOut && !out\.some\(/);
-  assert.match(out, /const fading = leaving \? Math\.max\(fadeLeft\(\[\.\.\.out, data, ui\.scl, ui\.shade\]\), \.\.\.\[\.\.\.out, data, ui\.shade\]\.map\(throwLeft\)\) : 0;/, 'what is still fading, by the browser or thrown by card-throw.js');
-  assert.match(out, /if \(leaving\) return fading \? fading \+ 20 : 0;\s*\n\s*return D_SMALL \+ 20;/);
+  assert.match(out, /const fading = leaving \? Math\.max\(fadeLeft\(\[\.\.\.out, data, ui\.scl, ui\.shade\]\), \.\.\.\(byThrow \? \[\] : \[\.\.\.out, data, ui\.shade\]\.map\(throwLeft\)\)\) : 0;/, 'what is still fading, by the browser (a thrown card is timed by throwsOut(), push B)');
+  assert.match(out, /if \(leaving\) return fading \? fading \+ 20 : 0;\s*\n[^\n]*\n\s*if \(threw\) \{ thrownNow = true; return 0; \}\s*\n\s*return D_SMALL \+ 20;/);
   assert.match(src, /const fadeLeft = \(els\) => els\.reduce\(/);
 });
 
@@ -97,9 +97,10 @@ test('a move cut by a newer slide leaves its cards unseen instead of bringing th
 // A camera beat and a flip of the scale (they wait for no cards) used to wait a flat 1.5 s after the glide set off, though the glide lands in
 // 480 to 900 ms (camMs, and an arc's stretch), and at all when the framing did not change: their call-outs came late. Now the wait is the glide's.
 test('a move that waits for no cards ends with its glide: polled, cut by a newer beat', () => {
-  const tail = cam.slice(cam.indexOf('if (gl) { await until('), cam.indexOf('await wait(gl);') + 'await wait(gl);'.length);
+  const tail = cam.slice(cam.indexOf('if (gl) { await until('), cam.indexOf('else await waitCut(gl, cut);') + 'else await waitCut(gl, cut);'.length);
   assert.ok(tail.startsWith('if (gl) {'), 'a glide is waited for');
-  assert.match(tail, /^if \(gl\) \{ await until\(\(\) => cut\(\) \|\| !stage\.gliding\(\), gl \+ 1500\); return; \}\s*await wait\(gl\);$/);
+  // (a change of view still morphing is moving too, and the wait is cut by a newer press: push B)
+  assert.match(tail, /^if \(gl\) \{ await until\(\(\) => cut\(\) \|\| \(!stage\.gliding\(\) && !stage\.viewChanging\?\.\(\)\), gl \+ 1500\); return; \}\s*if \(switching\) await viewSettled\(cut, stage\);\s*else await waitCut\(gl, cut\);$/);
   // (polled, never one timer: a beat pressed again while this one moves is noticed within a frame or two, not after the glide)
   assert.doesNotMatch(tail, /glideLeft/);
   // (the callers: a beat and a flip of the scale paint their call-outs right after the camera returns)

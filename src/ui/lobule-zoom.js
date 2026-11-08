@@ -5176,6 +5176,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** For the checks: how many times the labels have been placed in full (a pan should only carry them along). */
     labelLayouts: () => layoutN,
     isOpen: () => fade > 0.98,
+    /** A presenter's or a button's glide of the lobule's view is moving now (false once it has landed: the presenter waits on this, not on a number). */
+    glideBusy: () => gliding,
     /** The open view's figure → stage px as an affine { a, b, c, d, e, f } (the ink's, ink-gl.js), written into o: the sinusoid's while it shows, else the lobule's; false when neither rests open. */
     xform(o) { if (sv.isOpen()) return sv.xform(o); if (fade <= 0.98) return false; o.a = V.k; o.b = 0; o.c = 0; o.d = V.k; o.e = V.x; o.f = V.y; return true; },
     isShown: () => fade > 0,

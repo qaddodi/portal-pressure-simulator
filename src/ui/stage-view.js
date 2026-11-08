@@ -5,7 +5,8 @@ import { peelAt } from './flow-peel.js';
 import { cancelFrame, cancelMay, mayTask } from './frame.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
-import { viewXfMix } from './view-xf.js';
+import { reducedMs } from './motion.js';
+import { VIEW_CHANGE_MS, viewXfLeftMs, viewXfMix, viewXfRetarget } from './view-xf.js';
 import { createGlideLabels } from './glide-labels.js';
 
 export function createView(st, live) {
@@ -160,8 +161,10 @@ export function createView(st, live) {
     const to = { k: d.k, x: d.x, y: d.y };
     // (landAt: the share of the change at which the target's labels were whole (0: at the tap), null while they are still being solved. The old
     // view's labels ride as ghosts at full until then: viewXfMix.)
-    live.viewXf = { t0: live.easeInOut(live.morph), tT: live.morphTarget, from: { ...live.vt }, to, same: sameView(live.vt, to), pending, landAt: pending ? null : 0, tStart: performance.now(), sigTap: live.solvedFor?.sig || null };
-    live.vtTarget = to; live.vtGliding = !live.viewXf.same; live.vtUntil = performance.now() + 700; live.vtMs = 700;
+    // (lab: the camera the new labels were solved for. p0: the camera's share already travelled when a framing was asked of the change, viewXfRetarget.)
+    live.viewXf = { t0: live.easeInOut(live.morph), tT: live.morphTarget, from: { ...live.vt }, to, lab: to, p0: 0, same: sameView(live.vt, to), pending, landAt: pending ? null : 0, tStart: performance.now(), sigTap: live.solvedFor?.sig || null };
+    // (The change's own length, for whoever waits on it (the presenter's cards: glideLeft, viewChanging): what is left of VIEW_CHANGE_S from the morph as it stands, not 700 ms.)
+    live.vtTarget = to; live.vtGliding = !live.viewXf.same; const ms = reducedMs(VIEW_CHANGE_MS); live.vtUntil = performance.now() + viewXfLeftMs(live.morph, live.morphTarget, ms); live.vtMs = ms;
     live.xfOp = '';
     xfLayer(0);
     viewXfStep(true);
@@ -176,7 +179,7 @@ export function createView(st, live) {
     if (x.pending && !first) {
       if (!live.labelJob) { x.pending = false; x.landAt = p; live.labelKey = null; live.solveAsked = true; }   // (the job was dropped by another: laid out as it lands)
       else {
-        if (xfSolveSlice(x.to, XF_SLICE_MS)) { x.pending = false; x.landAt = p; x.sigTap = live.solvedFor?.sig || null; }
+        if (xfSolveSlice(x.lab, XF_SLICE_MS)) { x.pending = false; x.landAt = p; x.sigTap = live.solvedFor?.sig || null; }
       }
     }
     const m = viewXfMix(p, x.landAt, XF_MIX);
@@ -273,6 +276,27 @@ export function createView(st, live) {
     const sig = labelSig(live.F), cut = (t) => t.slice(t.indexOf('|'));
     if (sig !== tap && cut(sig) === cut(tap)) { live.solvedFor.sig = sig; if (live.labelKey) live.labelKey[16] = sig; }
   }
+  // A framing asked for while the change runs (animateVT: a slide's, a Fit, a refit to cards that settled) is the change's new end: the camera goes on
+  // from where it stands to it on the change's one clock, with no second glide that would fight the morph's own camera writes (push B, item 3).
+  // The new view's labels, if they are not yet crossing over, are solved again for that camera, as the tap solved them for the first.
+  function viewXfRetargetTo(to) {
+    const x = live.viewXf;
+    if (!x || x.hand) return false;
+    const p = viewXfP();
+    if (!viewXfRetarget(x, live.vt, to, p, sameView(live.vt, to))) return false;
+    live.vtTarget = x.to; live.vtGliding = !x.same;
+    const crossing = x.landAt != null && (x.landAt >= 1 || p > (x.landAt > 0.5 ? x.landAt : 0.5));
+    if (!crossing && !sameView(x.lab, x.to) && live.F) {
+      labelJobDrop();
+      x.lab = x.to;
+      // (As at the tap: with no change running in the label code's eyes, which would skip the solve.)
+      live.viewXf = null;
+      let pending;
+      try { pending = solveTargetView(x.to); } finally { live.viewXf = x; }
+      x.pending = pending; x.landAt = pending ? null : p; x.sigTap = live.solvedFor?.sig || null;
+    }
+    return true;
+  }
   function viewXfEnd() {
     const x = live.viewXf;
     if (!x) return;
@@ -291,5 +315,5 @@ export function createView(st, live) {
     if (live.F && x.sigTap && !live.labelJob) xfMarkCurrent(x.sigTap);
     if (live.F) updateLabels(live.F);
   }
-  return { glideXfEnd, glideXfStart, glideXfStep, morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease };
+  return { glideXfEnd, glideXfStart, glideXfStep, morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfRetargetTo, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease };
 }

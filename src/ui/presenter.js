@@ -94,9 +94,14 @@ const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').the
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 import { reduceMotionMQ as reduce } from './motion.js';
 import { createScopeLens } from './scope-lens.js';
+import { createWaits } from './wait-cut.js';
+import { VIEW_CHANGE_MS } from './view-xf.js';
 const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
-/** Poll (not frames: a hidden tab runs none) until fn() holds or ms pass. */
-async function until(fn, ms = 3000) { const t0 = performance.now(); while (!fn() && performance.now() - t0 < ms) await wait(40); }
+// Waits a newer press can cut (wait-cut.js): waitCut(ms, cut) ends at ms or the first frame in which cut() holds; until(fn, ms) is the same asked the other way.
+// Looked at by frame (a hidden tab, which runs none, by a slow poll and the timer), no longer by a 40 ms timer that made every wait about 20 ms late.
+const { waitCut, until } = createWaits({ frame: nextFrame });
+// The change between Anatomy and Circuit has landed (stage.viewChanging), or ms pass: the longest it can take, VIEW_CHANGE_S, and a margin for a late frame.
+const viewSettled = (cut, stage) => waitCut(VIEW_CHANGE_MS + 400, () => cut() || !stage.viewChanging?.());
 /** One painted frame (or 100 ms: a hidden tab paints none). */
 const painted = () => new Promise((done) => { const t = setTimeout(done, 100); nextFrame(() => { clearTimeout(t); done(); }); });
 /** Until the page paints two frames in a row promptly, or ms pass. A card's fade is timed by the clock, not by the frames shown:
@@ -1084,7 +1089,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const st = store.get();
     if (!st.lobule && !st.sinusoid) return;
     // Out of the sinusoid, then back to the lobule's normal framing, and only then out of the lobule: three steps, never one zoom through them.
-    if (st.sinusoid) { store.set({ sinusoid: false }); await wait(60); await until(() => cut() || (!stage.sinBusy() && !stage.sinusoidOpen()), 4000); if (cut()) return; }
+    if (st.sinusoid) { store.set({ sinusoid: false }); await waitCut(60, cut); await until(() => cut() || (!stage.sinBusy() && !stage.sinusoidOpen()), 4000); if (cut()) return; }
     // The anatomy under the lobule is brought up to the patient now and its organs' picture made, unseen (begun in camera() as the
     // new cards come in); the rise waits for it (stage.js prepRise), so the organs fade in as they are, never swapped in one frame at landing.
     if (cut()) return;
@@ -1095,10 +1100,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (The way back to the fit eases in only: it reaches the fit still moving and the rise, which moves from its first frame, carries
     // straight on. Eased out as well, the zoom came to rest at the whole lobule and set off again: it stopped midway (Mohammad, 20 Oct,
     // Circulation 9 to 10).)
-    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await wait(ms); if (cut()) return; } }
+    if (stage.lobuleOpen()) { const ms = reduce.matches || booting ? 0 : RISE_FIT_MS; if (stage.lobuleFocus('fit', { ms, ease: 'in' })) { await waitCut(ms + 150, () => cut() || !stage.lobuleGlide?.()); if (cut()) return; } }
     if (next && !reduce.matches && !booting) stage.riseTo(next.box, next.kMax, next.clear);   // (box: a function, asked for when the rise begins)
     store.set({ lobule: false });
-    await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await wait(80);
+    await until(() => cut() || stage.lobuleSettled(), 6000); if (!cut()) await waitCut(80, cut);
   }
   // Glide the camera to a slide's framing; resolves when it has landed (cut(): a newer slide was asked for).
   // (early: a share of the glide over the plate; camera() resolves once only that much of it is left, the glide running on: one move, above.)
@@ -1109,7 +1114,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // (A slide's layers: ['zones'] shows the lobule's zone bands; any other lobule slide has them off.)
       const zonesWant = !!s.layers?.includes('zones');
       if (!!store.get().lobuleLayers?.zones !== zonesWant) store.set({ lobuleLayers: { ...store.get().lobuleLayers, zones: zonesWant } });
-      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(cut, stage); if (cut()) return; }   // (the change landed, not 700 ms: it takes VIEW_CHANGE_S)
       // The station this slide frames: the dive lands on it in one move, and (mid-dive) no other station's labels show.
       const part = cam === 'sinusoid' ? 'sinusoid' : cam.split(':')[1] || 'fit', zoom = s.zoom ?? 2.3;
       if (!store.get().lobule) {
@@ -1120,15 +1125,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         // (A first dive also loads the lobule, which a slow tablet can take several seconds over.)
         await until(() => cut() || (stage.lobuleSettled() && stage.lobuleOpen()), 12000);
         if (cut()) return;
-        await wait(120);
+        await waitCut(120, cut);
       } else {
         await until(() => cut() || stage.lobuleOpen(), 9000);
       }
       if (cut()) return;
       const sin = cam === 'sinusoid' && sinusoidSupported() && stage.lobuleOpen();
-      if (sin) { if (!store.get().sinusoid) { store.set({ sinusoid: true }); await wait(ms ? 1250 : 0); } return; }
-      if (store.get().sinusoid) { store.set({ sinusoid: false }); await wait(ms ? 1000 : 0); }
-      if (stage.lobuleFocus(part, { zoom, ms })) await wait(ms);
+      // (Each wait ends when the stage says the move has landed (the zoom into the sinusoid, out of it, the lobule's glide), never a number; the
+      // number is only the longest it may take, and a newer press cuts it at once.)
+      if (sin) { if (!store.get().sinusoid) { store.set({ sinusoid: true }); if (ms) await waitCut(1250 + 400, () => cut() || !stage.sinBusy()); } return; }
+      if (store.get().sinusoid) { store.set({ sinusoid: false }); if (ms) await waitCut(1000 + 400, () => cut() || !stage.sinBusy()); if (cut()) return; }
+      if (stage.lobuleFocus(part, { zoom, ms })) await waitCut(ms + 300, () => cut() || !stage.lobuleGlide?.());
       return;
     }
     const v = s.view || 'anatomic';
@@ -1146,7 +1153,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (cut()) return;
     await toAnatomy(v === 'anatomic' ? riseFor(cam, s) : null, cut);
     if (cut()) return;
-    if (store.get().view !== v) { store.set({ view: v }); await wait(700); }
+    // (A switch of view sets off here and the slide's framing is asked of it at once, below: it becomes the change's new end (stage-view.js viewXfRetargetTo),
+    // so the camera travels once, on the change's clock, instead of a second glide starting 700 ms into a change that takes 1.3 s.)
+    const switching = store.get().view !== v;
+    if (switching) store.set({ view: v });
     // (Reduced motion keeps the glide, short: a jump of the whole figure is harder to follow than a quick move. Under the start's
     // cover it is set outright, so the reveal never catches it on its way.)
     const gl = booting ? 0 : ms || 300;
@@ -1158,14 +1168,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (early && gl) {
       // (One timer to the point asked for, then a look: polled alone every 40 ms, a busy glide's late timers put the cards after its landing.)
       const g0 = stage.glideLeft?.();
-      if (g0?.ms) await wait(Math.max(0, g0.left - g0.ms * early - 40));
+      if (g0?.ms) await waitCut(Math.max(0, g0.left - g0.ms * early - 40), cut);
+      else if (switching) await viewSettled(cut, stage);   // (no camera move to time it by, a change of view with the camera where it is: its landing)
       await until(() => { if (cut()) return true; const g = stage.glideLeft?.(); return !g || g.left <= g.ms * early; }, gl + 1500); return;
     }
     // (A camera beat or a flip of the scale, which wait for no cards: its call-outs come once the glide has landed, 480 to 900 ms and an arc's
     // stretch, not 1.5 s after it set off; and at once when the framing did not change, where no glide began. Polled, so a beat pressed
     // again while this one moves is noticed within a frame or two, not after the glide: nothing waits on the exact frame it lands.)
-    if (gl) { await until(() => cut() || !stage.gliding(), gl + 1500); return; }
-    await wait(gl);
+    // (A switch of view still morphing with the camera nowhere to go is moving too: viewChanging.)
+    if (gl) { await until(() => cut() || (!stage.gliding() && !stage.viewChanging?.()), gl + 1500); return; }
+    if (switching) await viewSettled(cut, stage);
+    else await waitCut(gl, cut);
   }
   // (left: only the entrances with more than this many ms still to run count: 0 is all of them; CARDS_SEEN, the cards in sight.)
   // (R01: the cards' way in is card-throw.js's, scheduler-driven inline transform and opacity that getAnimations() never lists: throwState says
@@ -1335,7 +1348,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     try {
       await toAnatomy(null, () => !mine());
       if (!mine()) return;
-      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+      if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(() => !mine(), stage); }
     } finally { procWait = false; }
     if (!mine() || procRun) { procPaint(); return; }
     const before = structuredClone(store.get().params), names = store.get().presentLabels || [];
@@ -1413,7 +1426,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   async function cathTo(mode, fp, cut) {
     await toAnatomy(null, cut);
-    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(700); }
+    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(cut, stage); }
     if (cut()) return;
     if (!cath.on) { cath.on = true; cath.t0 = performance.now(); cath.ostium = mode === 'blocked'; cathFrame(); }
     cath.fp = fp;
@@ -1993,6 +2006,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A data card that stays (the same instrument) stays put. Transform and opacity only.
   // (Moved by card-throw.js, on one clock with the GPU glass: their inline transform and opacity written in the scheduler's frame.)
   let throwDir = '', throwD = 0;
+  let thrownNow = false;   // (wordsOut: every card that leaves is on card-throw.js's way out, so throwsOut() times the leave and wordsOut asks for no floor)
   // alloc-rare: once per swipe, cached in pull.els as the first move lands
   const pageEls = () => [ui.text, ui.shade];
   // (A swipe takes every card that shows with the words, the data card and the panel too, on the finger's one move, and lets them go
@@ -2049,7 +2063,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (busy) outNow();
       if (!busy) run();
     };
-    if (!slidePrep.ready(want)) prepHold(want, goOn); else goOn();
+    // (The cards that show are thrown on the press, before the wait for the slide's preparation: the throw takes about 170 ms to clear, which covers
+    // most of the PREP_MS hold, so a Next on a slide not yet prepared answers at once. Push B, item 4 step 3. A card the plan is not known for stays.)
+    if (!slidePrep.ready(want)) { outNow(); prepHold(want, goOn); } else goOn();
   }
   // (R05: the cards that show stay where they are until the slide going in is prepared (slide-prep.js ready: its state, glyphs, data card
   // and shaders), so the new card never comes in empty; at most PREP_MS, so a Next is still answered at once. A newer press takes over.)
@@ -2249,8 +2265,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (pageForce) { pageForce = false; if (keepNow.text) keepNow = { ...keepNow, text: false }; }
     glassTurn(s, ask, ct);
     if (ui) tx?.own([keepNow.text ? null : ui.text, keepNow.text ? null : ui.shade, keepNow.data ? null : ui.data, ui.panel]);   // (leaving: no input until this change's cards come in)
-    const outAt = performance.now(), outMs = wordsOut(s);
-    if (outMs) { await painted(); await painted(); }
+    // (Thrown cards: wordsOut asks for no fixed floor (outMs 0). throwsOut() below ends when they are out of sight on the eases' clock, about 170 ms
+    // in, not at the D_SMALL + 20 the fade needed: the 90 ms after that were an empty slot. The two painted frames stay: the throw is seen begun
+    // before the marks and the lens can make a long frame.)
+    const outAt = performance.now(), outMs = wordsOut(s), thrown = thrownNow;
+    if (outMs || thrown) { await painted(); await painted(); }
     if (cut()) return;
     // Words out, and the marks: they belong to the slide that is leaving.
     markBase = null;
@@ -2263,7 +2282,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     // (Back onto a procedure's slide from the next lands on it done, so Next moves on.)
     stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1;
-    await wait(Math.max(0, outMs - (performance.now() - outAt)));
+    if (outMs) await waitCut(Math.max(0, outMs - (performance.now() - outAt)), cut);
     if (throwDir) await throwsOut();   // (thrown: until the old cards are out of sight on the eases' clock, never mid-flight: card-throw.js)
     // (Nothing in the liver changes until its labels are gone.)
     if (hushed) { await wait(Math.max(0, HUSH_OUT - (performance.now() - hushAt))); await eased(['opacity'], 600, '.lz-labels'); if (cut()) return; }
@@ -2571,6 +2590,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const turnDone = () => { clearTimeout(glassT); turnNow = ''; glassT = stimer(() => { if (ui && !busy) setTurn(false); }, D_SURFACE + 520); };
   // (Starts the cards' fade out and returns how long it runs, ms: 0 when nothing is showing.)
   function wordsOut(next) {
+    thrownNow = false;
     if (!ui) return 0;
     // (A card the next slide would build the same stays where it is and leaves nothing to fade: keepFor, card-keep.js.)
     const out = [ui.text, ui.panel].filter((el) => !(keepNow.text && el === ui.text)), data = ui.data;
@@ -2594,7 +2614,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // Cards already on their way out or fully out (the slide was asked for again before the last one's cards came back: Next
     // pressed in a row) have nothing new to fade: the move waits only for what is still fading, never a whole step more.
     const leaving = !dataOut && !out.some((el) => !el.hidden && el.childElementCount && !(keep && el === ui.text ? [...el.children].every((c) => c === mon.el || c.classList.contains('pz-leave')) : el.classList.contains('pz-leave')));
-    const fading = leaving ? Math.max(fadeLeft([...out, data, ui.scl, ui.shade]), ...[...out, data, ui.shade].map(throwLeft)) : 0;
+    // (Cards on card-throw.js's way out are timed by throwsOut() when they are out of sight, not by the rest of their 560 ms: only the browser's own fades are counted here.)
+    const byThrow = throwDir && !keep;
+    const fading = leaving ? Math.max(fadeLeft([...out, data, ui.scl, ui.shade]), ...(byThrow ? [] : [...out, data, ui.shade].map(throwLeft))) : 0;
+    if (leaving && byThrow && [...out, data, ui.shade].some((el) => throwLeft(el) > 0)) thrownNow = true;
     if (!keepNow.text) ui.text.dataset.out = turnNow;   // (set with the leave, in the same style change, so the words go the right way at once)
     // (Thrown: the data card and a panel go the same way as the words.)
     for (const el of [data, ui.panel]) { if (throwDir) el.dataset.out = throwDir; else delete el.dataset.out; }
@@ -2616,6 +2639,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (goes) ui.shade.classList.add('pz-leave');
       if (pageHeld) pageHand(goes);
     }
+    let threw = false;
     if (throwDir && !leaving) {
       // (Thrown, each on card-throw.js's clock from where it stands (a swipe's finger included): the words and their glass as one, a data
       // card that changes and a panel with them. Not the words around a catheter's monitor kept up: they fade around it as before.)
@@ -2630,8 +2654,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const sized = goes.filter((el) => el !== ui.shade);
       const dist = (throwD = Math.min(innerWidth, Math.max(120, ...sized.map(wOf)) + RAIL_GAP));
       for (const el of goes) throwOut(el, throwDir, dist);
+      threw = goes.length > 0 && !keep;
     }
     if (leaving) return fading ? fading + 20 : 0;
+    // (Every card that leaves is thrown: no floor. The move waits for throwsOut(), which is the cards' own end of sight, not a number sized for the fade.)
+    if (threw) { thrownNow = true; return 0; }
     return D_SMALL + 20;   // (the words leave at the data card's pace, one small step; with reduced motion they still fade, without sliding: app.css)
   }
   // Next pressed while the words are still coming in: their entrance (a WAAPI move, above the CSS leave) is stopped where it has got
@@ -6257,7 +6284,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (st.sinusoid) { store.set({ sinusoid: false }); await wait(reduce.matches ? 0 : 1000); if (gone()) return; }
     if (st.lobule) { store.set({ lobule: false }); await until(() => stage.lobuleSettled(), 2600); await wait(80); if (gone()) return; }
     if (b.lobuleLayers) store.set({ lobuleLayers: b.lobuleLayers });
-    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await wait(reduce.matches ? 0 : 700); if (gone()) return; }
+    if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); if (!reduce.matches) await viewSettled(gone, stage); if (gone()) return; }
     host.send({ type: 'run', running: true, clock: 'hemo', speed: 1 });
     await loadPreset?.('healthy');
     if (gone()) return;

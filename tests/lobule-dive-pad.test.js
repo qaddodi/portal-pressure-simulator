@@ -33,7 +33,7 @@ test('landed, the copy goes and the layers show as drawn; a softer copy fades in
 test('the rise out of a zoomed-in lobule shrinks it whole, whichever way out', () => {
   // A presenter's next slide: the lobule glides to its whole view and the rise waits for it (the central-vein close-up included).
   const pz = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
-  assert.match(pz, /if \(stage\.lobuleOpen\(\)\) \{ const ms = reduce\.matches \|\| booting \? 0 : RISE_FIT_MS; if \(stage\.lobuleFocus\('fit', \{ ms, ease: 'in' \}\)\) \{ await wait\(ms\); if \(cut\(\)\) return; \} \}\n\s+if \(next && !reduce\.matches && !booting\) stage\.riseTo\(next\.box, next\.kMax, next\.clear\);[^\n]*\n\s+store\.set\(\{ lobule: false \}\);/);
+  assert.match(pz, /if \(stage\.lobuleOpen\(\)\) \{ const ms = reduce\.matches \|\| booting \? 0 : RISE_FIT_MS; if \(stage\.lobuleFocus\('fit', \{ ms, ease: 'in' \}\)\) \{ await waitCut\(ms \+ 150, \(\) => cut\(\) \|\| !stage\.lobuleGlide\?\.\(\)\); if \(cut\(\)\) return; \} \}\n\s+if \(next && !reduce\.matches && !booting\) stage\.riseTo\(next\.box, next\.kMax, next\.clear\);[^\n]*\n\s+store\.set\(\{ lobule: false \}\);/);
   assert.match(lz, /focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{[\s\S]*?const moved = [^\n]*> 0\.5;[\s\S]*?return moved;/, 'it waits whenever the view moves');
   // Every other way out (back to healthy, the view buttons, a key) from a zoomed-in view: the whole copy, before the rise's clock.
   const st = stageSource();

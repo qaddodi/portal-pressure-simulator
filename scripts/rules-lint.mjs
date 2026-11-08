@@ -196,6 +196,41 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   const pres = text('src/ui/presenter.js');
   if ((pres.match(/ui\.tools\.pin\((\w+(?:\.fp)?)\); ui\.scope\?\.pin\(\1\);/g) || []).length !== 3) errors.push('src/ui/presenter.js: the scope is pinned wherever the Scope card is (3 places)');
   if (!/ink\?\.clear\(\);[^\n]*\n\s+ui\?\.scope\?\.close\(\);/.test(pres)) errors.push('src/ui/presenter.js: the scope shuts as the slide turns');
+
+  // Presenter waits and hand-overs (8 Nov 2026, animation review push B, items 2 to 4): source shapes moved out of tests (PR-02), each with its reason.
+  need('src/ui/presenter.js', [
+    [/const \{ waitCut, until \} = createWaits\(\{ frame: nextFrame \}\);/, 'until is polled by frame, and waitCut ends a wait at a newer press (wait-cut.js), not a 40 ms timer or a bare setTimeout'],
+    [/const viewSettled = \(cut, stage\) => waitCut\(VIEW_CHANGE_MS \+ 400, \(\) => cut\(\) \|\| !stage\.viewChanging\?\.\(\)\);/, "a step after a switch of view waits for the change to land (stage.viewChanging), with VIEW_CHANGE_S's margin as the longest"],
+    [/stage\.lobuleFocus\(part, \{ zoom, ms \}\)\) await waitCut\(ms \+ 300, \(\) => cut\(\) \|\| !stage\.lobuleGlide\?\.\(\)\);/, "the wait after a lobule focus is the lobule glide's landing (the focus times itself by reach), ms only its ceiling"],
+    [/store\.set\(\{ sinusoid: true \}\); if \(ms\) await waitCut\(1250 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'into the sinusoid: until its zoom has landed'],
+    [/store\.set\(\{ sinusoid: false \}\); if \(ms\) await waitCut\(1000 \+ 400, \(\) => cut\(\) \|\| !stage\.sinBusy\(\)\)/, 'out of the sinusoid: until its zoom has landed'],
+    [/const switching = store\.get\(\)\.view !== v;\s*if \(switching\) store\.set\(\{ view: v \}\);/, "a slide's switch of view sets off and its framing is asked of the running change at once (camera travels once)"],
+    [/\{ store\.set\(\{ view: 'anatomic' \}\); await viewSettled\(cut, stage\); if \(cut\(\)\) return; \}/, 'the dive after a switch to Anatomy waits for the change to land, not 700 ms'],
+    [/if \(threw\) \{ thrownNow = true; return 0; \}/, 'every card that leaves is thrown: wordsOut asks for no fixed floor, throwsOut() ends when they are out of sight (about 170 ms, not 260)'],
+    [/if \(outMs\) await waitCut\(Math\.max\(0, outMs - \(performance\.now\(\) - outAt\)\), cut\);\s*\n\s*if \(throwDir\) await throwsOut\(\);/, 'the old cards are waited for by their own end of sight'],
+    [/if \(!slidePrep\.ready\(want\)\) \{ outNow\(\); prepHold\(want, goOn\); \} else goOn\(\);/, "the cards that show are thrown on the press, before the wait for the slide's preparation"],
+  ]);
+  forbid('src/ui/presenter.js', /\bwait\(700\)|async function until\(/, 'no 700 ms wait left from the 0.6 s change, and no 40 ms timer poll');
+  {
+    const pz = text('src/ui/presenter.js'), cam = pz.slice(pz.indexOf('  async function camera('), pz.indexOf('  // (left: only the entrances with more than this many ms still to run count'));
+    if (/\bwait\(/.test(cam)) errors.push('src/ui/presenter.js camera(): a wait here is waitCut or until, so a newer press cuts it');
+    const at = cam.indexOf('const switching = store.get().view !== v;');
+    if (!(at > 0 && cam.indexOf('frameTo(cam, s, gl);', at) > at && cam.indexOf('viewSettled(cut, stage)', at) > cam.indexOf('frameTo(cam, s, gl);', at))) errors.push('src/ui/presenter.js camera(): the framing is asked of the change before any wait for it to land');
+  }
+  need('src/ui/stage-view.js', [
+    [/const ms = reducedMs\(VIEW_CHANGE_MS\); live\.vtUntil = performance\.now\(\) \+ viewXfLeftMs\(live\.morph, live\.morphTarget, ms\); live\.vtMs = ms;/, "the change's length for whoever waits on it comes from VIEW_CHANGE_S"],
+    [/if \(xfSolveSlice\(x\.lab, XF_SLICE_MS\)\)/, 'a pending label solve goes on for the camera it began for, whatever the camera is retargeted to'],
+  ]);
+  forbid('src/ui/stage-view.js', /vtUntil = performance\.now\(\) \+ 700|vtMs = 700/, 'the change is not 700 ms');
+  need('src/ui/stage-glide.js', [[/if \(live\.viewXf && viewXfRetargetTo\(to\)\) \{ live\.following = false; return; \}/, "a framing asked for during a change between the views is the change's new end, not a second glide"]]);
+  need('src/ui/stage-gestures.js', [[/viewXfDetach\(live\.viewXf\);[^\n]*\n\s+if \(live\.vtGliding\) \{ cancelFrame/, 'a wheel or pinch takes the camera from a running change'], [/viewXfDetach\(live\.viewXf\);[^\n]*\n\s+cancelFrame\(live\.vtAnim\);/, 'a press takes the camera from a running change']]);
+  need('src/ui/stage-fit.js', [[/viewXfDetach\(live\.viewXf\);[^\n]*\n\s+const goal = /, 'a turn of the circuit ends a running change cleanly']]);
+  need('src/ui/stage.js', [
+    [/const u = viewXfCamU\(viewXf, viewXfP\(\)\);/, "the change's camera is its share since the last retarget"],
+    [/gliding: \(\) => vtGliding \|\| !!viewXf,/, 'the camera is still moving while a change between the views lands, even when it has nowhere to go'],
+    [/viewChanging: \(\) => !!viewXf \|\| morph !== morphTarget,/, 'the stage says when the change between the views is still under way'],
+    [/glideLeft: \(\) => \(vtGliding \|\| viewXf \?/, "glideLeft counts the change between the views, camera moving or not"],
+  ]);
 }
 
 // Camera and hand (motion recommendations, push E, items 11, 12 and 14; tests/camera-hand.test.js runs what it can and these pin the wiring a unit

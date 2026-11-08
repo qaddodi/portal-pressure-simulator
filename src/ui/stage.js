@@ -11,6 +11,7 @@ import { store } from './store.js';
 import { s, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
 import { recordLayer } from './over-records.js';
 import { lerpVT } from './cam-arc.js';
+import { VIEW_CHANGE_S, viewXfCamU } from './view-xf.js';
 import { easeArrive, createGlideTracker, CAM_MS_MAX, D_SURFACE } from './ease.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, lineIndexBuf, indexHits } from './seg-hits.js';
@@ -1235,9 +1236,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The ONE writer of the camera (S6.6): whoever moves the view drops the transform in the same breath, so the labels and the figure never read
   // a transform made for another view. Every part writes `live.vt = ...`; nothing else assigns vt.
   function writeVT(v) { vt = v; CTM = null; }
-  // How long the change between Anatomy and Circuit takes, seconds (0.6 until 6 Nov 2026; Mohammad: "Make the morph slower its way too fast").
-  // The camera rides the same clock (viewXfP); the fallback camera glide in setView takes the same time.
-  const VIEW_CHANGE_S = 1.3;
+  // (How long the change between Anatomy and Circuit takes, VIEW_CHANGE_S: view-xf.js, which the presenter's waits read too.)
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
   // The change's clock is a reversible one (motion.js createReversible): tapped back mid-change, the figure and its camera slow over D_FLIP
   // and come back, they do not flip from full speed forward to full speed backward in one frame. With Reduce Motion the change takes
@@ -1467,7 +1466,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // then runs everything: the camera is lerped from its framing to the target's by p, the ghosts ride their points at 1 - 2p and the new labels
   // theirs at 2p - 1. Nothing is solved or built as it lands; the pictures of the new view are built in the frames of the change.
   let viewXf = null, glSuppress = false, xfOp = '';
-  const { glideXfEnd, glideXfStart, glideXfStep, morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease } = createView({ CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto }, live);
+  const { glideXfEnd, glideXfStart, glideXfStep, morphAnchorAt, pre, preAbort, preAsk, preRun, viewXfP, viewXfRetargetTo, viewXfStart, viewXfStep, xfMarkCurrent, xfRelease } = createView({ CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto }, live);
   // The solve is a job sliced over the change's frames: one short slice in the tap's own frame (xfSolving shortens updateLabels' first slice), then one
   // per frame of the morph (viewXfStep), the rest at the landing if it comes first. The new labels stay at nothing until it lands.
   let xfSolving = false;
@@ -1523,7 +1522,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // zooms straight to that framing, so there is no stop at the fit on the way. The box is asked for when the rise
   // begins (the plate is brought up to date first, so it is measured as it will be). It expires if the lobule was not open to rise from.
   let riseBox = null, riseExp = 0, riseUsed = false;
-  const { animateVT: animateVT$, frameBox, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack }, live);
+  const { animateVT: animateVT$, frameBox, riseTo, riseVT: riseVT$, vtFor, zoomToBox } = createGlide({ CIRC_C, applyVT, arcRoom, camSettle, camSettleIdle, circVB, dpr, driftEnd, glideXfStart, glideXfStep, logMove, nextFrame, refreshCTM, rideStep, safeInsets, sameView, sitesPaint, svg, vbCenter, vtTrack, viewXfRetargetTo }, live);
   function animateVT(...a) { return animateVT$(...a); }   // <stage-split stub>
   function riseVT(...a) { return riseVT$(...a); }   // <stage-split stub>
   function zoomLiver() {
@@ -2746,7 +2745,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       viewClock.sync(morph); viewClock.aim(morphTarget, viewMs());
       morph = viewClock.tick(now);
       // (The camera is on the change's clock: its framing is the share of the way the figure has come.)
-      if (viewXf && !viewXf.same) { const p = viewXfP(); writeVT(p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p)); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
+      if (viewXf && !viewXf.same) { const u = viewXfCamU(viewXf, viewXfP()); writeVT(u >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, u)); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
       if (F) update(F); else updateGeometry(true);
       if (viewXf) viewXfStep();
     } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
@@ -3177,9 +3176,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The organs are drawn from the GPU copy again after a patient change (or never will be: no WebGL), so a camera move costs only the GPU's draw. */
     organsSettled: () => plateOn() || !glWanted(),
     /** The camera is still gliding (a slide's cards wait for it to land). */
-    gliding: () => vtGliding,
+    gliding: () => vtGliding || !!viewXf,   // (a change between the views still landing is the camera's too: the marks and cards wait for it)
     /** What is left of the glide under way, and its whole length, ms ({ left: 0, ms: 0 } at rest): a slide's cards come in over its last part. */
-    glideLeft: () => (vtGliding ? { left: Math.max(0, vtUntil - performance.now()), ms: vtMs } : { left: 0, ms: 0 }),
+    glideLeft: () => (vtGliding || viewXf ? { left: Math.max(0, vtUntil - performance.now()), ms: vtMs } : { left: 0, ms: 0 }),
+    /** The change between Anatomy and Circuit is still under way (the figure morphing, or its landing not yet done): a slide's next step waits for it to land. */
+    viewChanging: () => !!viewXf || morph !== morphTarget,
     /** A slow push is under way (frameBox or fitSlow with { drift: true }): the labels ride with it. */
     drifting: () => drifting,
     /** A slow push can run smoothly here: the organs are drawn live on the GPU while a time-lapse changes them (otherwise every frame of
@@ -3282,6 +3283,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     /** The way out of the lobule begins (true: its framing stays in the space the leaving slide's cards left) or is called off (false). */
     lobuleHold: (on) => lz?.holdFrame(on),
     /** The dive into the lobule (or back out) has finished: the view is wholly the lobule, or wholly the anatomy. */
+    /** The presenter's glide inside the lobule (a station focus, the zoom back to the fit) is still moving: false once it has landed. */
+    lobuleGlide: () => !!lz?.glideBusy?.(),
     lobuleSettled: () => !diveWait && !(lz?.sinBusy()) && (lobuleOn ? diveT >= 1 : diveT <= 0),
     /** From the anatomy to the sinusoid view in two zooms: into the lobule's normal framing, then into the sinusoid. In the lobule already, just the sinusoid. */
     async diveToSinusoid() {
