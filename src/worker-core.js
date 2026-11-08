@@ -208,7 +208,7 @@ export function createCore(post) {
     for (let k = 0; k < eng.E; k++) D[k] = eng.diameter(eng.edges[k].id);
     const f = {   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; the posted frame message itself
       type: 'frame',
-      changed: frameDirty, gen,
+      changed: frameDirty || held, gen,
       jump: jumpDirty || clock !== postedClock,
       t: eng.t, day: eng.day, running, speed, clock, probe,
       parkSecs: parkSecs(),
@@ -235,7 +235,7 @@ export function createCore(post) {
       params: paramsDirty ? eng.paramsTarget() : undefined,
     };
     paramsDirty = false;
-    frameDirty = false;
+    frameDirty = false; held = false;
     jumpDirty = false; postedClock = clock;
     if (samples) { postedT = sampT; postedCyc = sampCyc; }
     samples = null;
@@ -270,6 +270,8 @@ export function createCore(post) {
 
   let stepAcc = 0;   // W1: model seconds owed to the bedside clock, less than one step
   let lastFrame = 0, ackOn = false, unpainted = false, owed = false;
+  // (Perf C5: a slider's change that waits for the page's paint: the frame it owes is built by painted(), once, however many inputs came meanwhile.)
+  let held = false;
   const ACK_MAX_MS = 400;
   // A frame goes out only when the model moved past a small hysteresis since the last one posted, or once a second as a heartbeat (the
   // samples taken meanwhile wait in `samples` and go out with it, so the traces lose nothing). Anything that changes the model sets
@@ -354,9 +356,10 @@ export function createCore(post) {
       }
     }
     if (!finite(eng.P) || !finite(eng.Q)) throw new Error('The model produced a pressure or flow that is not a number.');
+    if (held && (!ackOn || !unpainted || now - lastFrame > ACK_MAX_MS)) { held = false; frameDirty = true; }
     const due = running && now - lastFrame > 95 && (!ackOn || !unpainted || now - lastFrame > ACK_MAX_MS);
     // (Held only by the page's paint: owed, and built the moment its 'painted' comes, not on the next 33 ms tick (rev 2 step 3).)
-    owed = running && !due && ackOn && unpainted && now - lastFrame > 95;
+    owed = held || (running && !due && ackOn && unpainted && now - lastFrame > 95);
     if (frameDirty || paramsDirty || eng.newEvents.length || (due && (now - lastFrame > HEARTBEAT_MS || morph || lapse || eng.easing() || movedSincePost()))) {
       lastFrame = now; frame();
       keepStill();
@@ -610,8 +613,12 @@ export function createCore(post) {
         // Queries must not wake the renderer. Mutations send one immediate frame,
         // including UI-originated parameters without echoing those parameters back.
         if (!crashed && !['snapshot', 'explain', 'healthyProfile', 'presets', 'metrics', 'presetMetrics', 'sequence', 'history', 'painted', 'ackPaint'].includes(msg.type)) {
-          frameDirty = true;
-          if (visible) { lastFrame = performance.now(); frame(); }
+          // (Perf C5: a slider drag's input while the page has not painted the last frame is held for painted(), not posted at once.)
+          if (msg.type === 'setParams' && ackOn && unpainted && running && visible && timer && performance.now() - lastFrame <= ACK_MAX_MS) { held = true; owed = true; }
+          else {
+            frameDirty = true;
+            if (visible) { lastFrame = performance.now(); frame(); }
+          }
         }
       }
       catch (err) { post({ type: 'error', reqId: msg.reqId, message: String(err && err.stack || err) }); }   // reqId: the waiting request settles

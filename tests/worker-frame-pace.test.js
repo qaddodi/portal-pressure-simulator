@@ -57,3 +57,33 @@ test('Perf C4: a morph posts no frame while the page has not painted the last on
   assert.ok(Math.abs(out.slow.core.engine().params.cirrhosis - 0.7) < 1e-9, 'it lands on the slide state');
   assert.ok(out.slow.frames.some((f) => f.m.params), 'the params throttle still posts the params');
 });
+
+test('Perf C5: a slider drag while the page has not painted is answered by one frame a paint, not one an input', async (t) => {
+  const out = {};
+  for (const [name, opts] of [['noAck', { ack: false }], ['slow', { ack: true, paintMs: 50 }]]) {
+    await t.test(name, async (st) => {
+      const r = rig(st, opts);
+      await r.start();
+      const base = structuredClone(r.core.engine().params);
+      let n = 0;
+      // A 60 Hz drag for a second: an input every 16 ms.
+      r.run(1000, (now) => {
+        if (now % 16 === 0) {
+          n++;
+          r.core.handle({ type: 'setParams', params: deepMerge(base, { cirrhosis: 0.1 + 0.0005 * n }) });
+        }
+      });
+      out[name] = { frames: r.frames.length, inputs: n, last: r.core.engine().paramsTarget().cirrhosis, r };
+      r.run(500);
+      out[name].after = r.core.engine().params.cirrhosis;
+      out[name].lastFrame = r.frames.at(-1).m;
+      st.mock.timers.reset();
+    });
+  }
+  const a = out.noAck, b = out.slow;
+  console.log(`# C5 drag, ${a.inputs} inputs in 1 s: ${a.frames} frames with no ack, ${b.frames} with a 50 ms paint`);
+  assert.ok(a.frames >= a.inputs, `a page that does not acknowledge gets a frame an input (${a.frames} for ${a.inputs})`);
+  assert.ok(b.frames <= 25, `a page that paints every 50 ms gets about one frame a paint (${b.frames})`);
+  assert.equal(b.last, a.last, 'the model is where the same drag leaves it');
+  assert.ok(b.lastFrame.changed !== undefined && b.r.frames.length > b.frames, 'the frames go on after the drag ends');
+});
