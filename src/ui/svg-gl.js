@@ -814,6 +814,16 @@ export function viewMap(vb, par, w, h) {
 // ── The picture ──
 const finalFrame = finalFrameFor('svg-gl');
 const CAM_HOLD_MS = 100;
+// (The pictures that do not ride the figure, asked together: drawn in one frame on a shared beat, or held while the camera moves: createSvgGL g.paint.)
+const BATCH_MS = 120;
+const batchQ = new Set();
+let batchT = 0;
+function batchRun() {
+  batchT = 0;
+  if (cameraMoving()) { batchT = setTimeout(batchRun, CAM_HOLD_MS); return; }
+  for (const g of batchQ) if (!g.ask && !g.dead) g.ask = finalFrame(g.draw);
+  batchQ.clear();
+}
 const live = new Set();
 let themeAsk = 0;
 function themeRead() { themeAsk = 0; clearShared(); clearLookMemo(); for (const g of live) { if (!g.box.isConnected) continue; g.relook(); } }
@@ -932,11 +942,16 @@ export function createSvgGL(box, opts = null) {
   // second, svg-gl 17-30 ms a frame, a pan at 22-25 fps), even at a 150 ms pace. opts.follows: a picture that moves with the figure (the
   // lobule's leaders, a callout's glass) is drawn every frame it is asked.)
   const follows = !!opts?.follows;
-  const camWait = () => { g.camT = 0; g.paint(); };
+  g.draw = draw;
+  // (And at rest: such pictures are asked together, on one shared beat (BATCH_MS), so they are drawn and handed over in the same frame. The
+  // page's wait for the GPU is paid by the first of them; the rest find it done. Asked one by one, a running model's readouts (the dock's
+  // values, the timeline's time, the ?perf counter) each paid it in a frame of its own: 16-25 waits a second, svg-gl 12-19 ms a frame at
+  // rest on a Mac (8 Nov 2026).)
   g.paint = () => {
-    if (g.ask || g.camT) return;
-    if (!follows && cameraMoving()) { g.camT = setTimeout(camWait, CAM_HOLD_MS); return; }
-    g.ask = finalFrame(draw);
+    if (g.ask) return;
+    if (follows) { g.ask = finalFrame(draw); return; }
+    batchQ.add(g);
+    if (!batchT) batchT = setTimeout(batchRun, BATCH_MS - (performance.now() % BATCH_MS));
   };
   // alloc-rare: made once as the picture for a chart host is created (whether its box is on the screen, for the loops above)
   if (typeof IntersectionObserver === 'function') { g.io = new IntersectionObserver((es) => { const on = es[es.length - 1].isIntersecting; g.seen = on; if (on && g.loopWait) { g.loopWait = false; g.paint(); } }); g.io.observe(box); }
@@ -1037,7 +1052,7 @@ export function createSvgGL(box, opts = null) {
   g.dispose = () => {
     if (g.dead) return;
     g.dead = true;
-    clearTimeout(g.camT); live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.io?.disconnect?.();
+    batchQ.delete(g); live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.io?.disconnect?.();
     cancelFrame(g.ask); cancelRest(g.lookAsk); cancelRest(g.connAsk); g.ask = g.lookAsk = g.connAsk = 0;
     for (const t of g.timers) clearTimeout(t);
     g.timers.clear(); g.ins.clear(); g.pending = null; g.cache.clear();

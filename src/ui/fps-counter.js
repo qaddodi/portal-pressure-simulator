@@ -11,7 +11,7 @@ import { h } from './util.js';
 import { glWords } from './gl-words.js';
 import { frameFor } from './frame.js';
 
-const EVERY = 500;   // ms between readings
+const EVERY = 1000;   // ms between readings (each new reading is a GPU picture handed over: once a second)
 const next = frameFor('fps-counter');
 let el = null, num = null, unit = null, ask = 0, t0 = 0, n = 0, shown = 0, target = 0;
 
