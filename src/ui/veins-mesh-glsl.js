@@ -104,12 +104,8 @@ float glowAmt(int id, float d, float wall, float vAt, float aIn, out vec4 gc, ou
   return min(0.9, 0.6 * gc.a) * aIn * smoothstep(-0.6, 0.6, e) * fall * ends;
 }
 
-// The tier's shape drawn at a pixel: contact shadow, selection ring, casing, the flat lumen with its light and dark lines, rounding,
-// pale wall band, dark lumen's rim, lift, hover and the knock-out ring, premultiplied, before the tier's alpha. D, Ds: the lumen's and the
-// shadow's signed distance; R, wall, col, g: the blended radius, casing width, colour and direction; aL: the lumen's coverage.
-vec4 tubeShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int flags, bool sel, float cA, int grp, int id, float vAt, float hov,
-               vec3 edge, float kn, float kcas, float aa, float aL) {
-  float aC = clamp(0.5 - (D - wall) / aa, 0.0, 1.0);
+// The contact shadow under the tier's shape (premultiplied; 0 without fx or F_SHADOW). Ds: the shadow's signed distance.
+vec4 shadowOf(float Ds, float wall, int flags, bool sel, float aa) {
   vec4 c = vec4(0.0);
   if (fx == 1 && (flags & ${F_SHADOW}) != 0) {
     float blur = sel ? 2.4 : 1.3;
@@ -117,6 +113,16 @@ vec4 tubeShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int fla
     float as = 0.55 * shadow.a * (1.0 - smoothstep(-blur * 1.4, blur * 1.4 + aa, Ds - wall));
     c = vec4(shadow.rgb * as, as);
   }
+  return c;
+}
+
+// The tier's shape drawn at a pixel: contact shadow, selection ring, casing, the flat lumen with its light and dark lines, rounding,
+// pale wall band, dark lumen's rim, lift, hover and the knock-out ring, premultiplied, before the tier's alpha. D, Ds: the lumen's and the
+// shadow's signed distance; R, wall, col, g: the blended radius, casing width, colour and direction; aL: the lumen's coverage.
+vec4 tubeShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int flags, bool sel, float cA, int grp, int id, float vAt, float hov,
+               vec3 edge, float kn, float kcas, float aa, float aL) {
+  float aC = clamp(0.5 - (D - wall) / aa, 0.0, 1.0);
+  vec4 c = shadowOf(Ds, wall, flags, sel, aa);
   if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
   // (A veiled vessel keeps half its casing: behind an organ the wall's line is the first thing to go.)
   if ((flags & ${F_VEIL}) != 0) cA *= 0.5;
@@ -192,3 +198,233 @@ uvec4 packFlow2(uint gId2, float gS2, float gY2) {
   return uvec4(gId2 | ((gQ2 >> 2u) << ${ROW2_BITS}u), (uint(clamp((gS2 + S_OFF) * 4.0, 0.0, 16383.0)) << 2u) | (gQ2 & 3u), 0u, 0u);
 }
 `;
+
+// ── The mesh vessel passes (docs/veins-mesh-plan.md, Phase 2.2) ──────────────────────────────────────────────────────────────────────
+// The mesh shaders are the vessel shader's own text (veins-gl.js vesselFS(simple, mesh)): MESH 1, a vessel's strip (one vessel, no join),
+// MESH 2, a join's patch (its members, its one join). In place of the cell's search they take their vessels from the instance, and the
+// tier loop stops at the pass's tier (tierNow), whose part of the picture the pass lays: its glows, its shadow, its shape (casing, lumen,
+// lines, rings; the stream and the colour reach), the selected vessel's lift, or the ring where one of its vessels crosses another.
+// Overlapping fragments: each pass but the lift and the ring has a prepass that keeps in the depth target the lowest key any fragment of the
+// tier makes at the pixel (the shape: a lumen by its z, the one drawn above it winning, then the nearest wall; the shadow and the glow: the
+// strongest), and the pass draws only the fragment whose key that is, once (the stencil), reading the depth target as a texture.
+export const MP = { GLOW_K: 0, GLOW: 1, UP_K: 2, UP: 3, SHADOW_K: 4, SHADOW: 5, SHAPE_K: 6, SHAPE: 7, LIFT: 8, RING: 9 };
+export const MESH_WIN = 3;   // the segments a strip's fragment reads each side of its sample
+export const KEY_TOL = 3;    // depth units (2^-24) a fragment's key may differ from the kept one and still be it
+export const KEY_BIAS = 2e-5;   // a patch's key under its members' strips (in the pass's range), so the patch draws the join
+
+export const meshFS = ({ EDGE, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K }) => {
+  const defs = Object.entries(MP).map(([k, v]) => `#define MP_${k} ${v}`).join('\n');
+  const decl = `${defs}
+#define MESH_WIN ${MESH_WIN}
+uniform int mPass;                     // the pass (MP_*)
+uniform int tierNow;                   // the tier it draws
+uniform highp sampler2D keyTex;        // the prepass's kept keys (its depth target)
+uniform float keyBase;                 // this pass's keys: keyBase + [0, 1) * keyH
+uniform float keyH;
+uniform float keyShape;                // (the ring) the shape pass's keyBase
+const float KEY_TOL = ${KEY_TOL}.0 / 16777215.0;
+const float KEY_BIAS = ${KEY_BIAS};`;
+
+  const key = `
+  // ── The mesh pass: this fragment's key (lower wins), then the prepass keeps it or the pass draws only the kept one ──
+  float aaK = px * ${EDGE};
+  float occK = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * ${VEIL_K} * organK : 0.0;
+  float kf = 1.0;
+  int kind = mPass >= MP_SHAPE_K ? 2 : mPass >= MP_SHADOW_K ? 1 : 0;   // 0 the glows, 1 the shadow, 2 the shape (and its lift and ring)
+#if MESH == 1
+  if (mPass == MP_RING) {
+    // Where this vessel crosses over another of its tier, the ring of the figure's ground outside its casing, cut into the lumen under it,
+    // with its casing across the cut: only where the shape pass left that lower lumen (a lumen's key is its z: f < 0.5, z = 1 - 2f).
+    int id = sid[0];
+    int fl = int(T(id, 2).z + 0.5);
+    float wl = T(id, 0).w, reachK = wl + 2.5 * px;
+    if (fx != 1 || paperInk.a <= 0.0 || (fl & (${F_NOCASE} | ${F_DOTTED})) != 0 || sd[0] < 0.0 || sd[0] > reachK + aaK) discard;
+    float f = (texelFetch(keyTex, ivec2(gl_FragCoord.xy), 0).r - keyShape) / keyH;
+    if (!(f >= 0.0 && f < 0.5 && 1.0 - 2.0 * f < T(id, 2).y - 1e-4)) discard;
+    float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
+    vec3 aCol, aEdge;
+    vesAttrs(id, su[0], sv[0], p, occK, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
+    float fa = clamp(aA, 0.0, 1.0) * ((fl & ${F_VEIL}) != 0 ? 0.5 : 1.0);
+    float kn = fa * paperInk.a * clamp(0.5 - (sd[0] - reachK) / aaK, 0.0, 1.0), kc = fa * clamp(0.5 - (sd[0] - wl) / aaK, 0.0, 1.0);
+    if (kn < 0.02) discard;
+    vec4 rc = over(vec4(casing.rgb, 1.0) * (casing.a * kc * kn), vec4(paperInk.rgb, 1.0) * kn) * tierAlpha[tierNow] * (tierGroup[tierNow] == 0 ? 1.0 - occK * aOf : 1.0);
+    outColor = ditherOut(rc, q); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0);
+    return;
+  }
+  {
+    int id = sid[0];
+    vec4 t2 = T(id, 2);
+    int fl = int(t2.z + 0.5);
+    float wl = T(id, 0).w;
+    if (kind == 2) kf = sd[0] < 0.0 ? 0.5 * (1.0 - t2.y) : 0.5 + min(sd[0], 255.0) / 512.0;
+    else if (kind == 1) {
+      float as = shadowOf(sh[0], wl, fl, (fl & ${F_SEL}) != 0, aaK).a;
+      if (as <= 0.0) discard;
+      kf = 1.0 - as / max(0.55 * shadow.a, 1e-4);
+    } else {
+      float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
+      vec3 aCol, aEdge;
+      vesAttrs(id, su[0], sv[0], p, occK, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
+      vec4 gc, ge;
+      float gv = glowAmt(id, sd[0], wl, sv[0], aA, gc, ge);
+      if (gc.a <= 0.0 || (ge.w > 5.0) != (mPass >= MP_UP_K)) discard;
+      // (Inside its own wall a lit vessel keeps the pixel and draws no glow there: no other lit vessel's band shows in its lumen.)
+      if (sd[0] - wl < 0.0) kf = 0.0;
+      else if (gv <= 0.0) discard;
+      else kf = 1.0 - gv / 0.9;
+    }
+  }
+#else
+  {
+    // A patch: the tier's shape over the join's members as the tier loop makes it (the tier's own members, and the lower ones it copies
+    // near the join), its wall's distance with the fillet; its key a little under its members' strips, so the join is the patch's.
+    int mt = 0, ok = -1;
+    float zmx = 0.0;
+    for (int s = 0; s < MAXS; s++) if (s < n && int(T(sid[s], 2).x + 0.5) == tierNow) { mt |= 1 << s; zmx = max(zmx, T(sid[s], 2).y); }
+    if (mt == 0 || jn == 0 || kind == 0) discard;   // (no member of this tier, no join here; the glows are the strips')
+    int mm = mt;
+    if (tierGroup[tierNow] != 2 && jf[0] > 0.0) for (int s = 0; s < MAXS; s++) {
+      if (s >= n || (jm[0] & (1 << s)) == 0) continue;
+      int lt = int(T(sid[s], 2).x + 0.5);
+      if (lt < tierNow && tierGroup[lt] != 2) mm |= 1 << s;
+    }
+    float Dk = 1e9, Dsk = 1e9;
+    for (int s = 0; s < MAXS; s++) if ((mm & (1 << s)) != 0) {
+      Dk = min(Dk, sd[s]); Dsk = min(Dsk, sh[s]);
+      if ((mt & (1 << s)) != 0 && (ok < 0 || sd[s] < sd[ok])) ok = s;
+    }
+    if (jk[0] > 0.0) {
+      int jj = jm[0] & mm;
+      for (int a = 0; a < MAXS; a++) {
+        if ((jj & (1 << a)) == 0) continue;
+        for (int b = a + 1; b < MAXS; b++) {
+          if ((jj & (1 << b)) == 0) continue;
+          int ro = (jt[0] & (1 << a)) != 0 ? 1 : (jt[0] & (1 << b)) != 0 ? 2 : 0;
+          bool fa = ro == 1 && (jtf[0] & (1 << a)) != 0, fb = ro == 2 && (jtf[0] & (1 << b)) != 0;
+          int ta = fa ? tn[a] : a, tb = fb ? tn[b] : b;
+          float kw = fa || fb ? jk[0] * js[0] : 0.0;
+          float kk = jk[0] * js[0] * corner(p, sg[ta], sd[ta], sr[ta], sg[tb], sd[tb], sr[tb], ro, kw);
+          Dk = min(Dk, smin(sd[a], sd[b], kk));
+          Dsk = min(Dsk, smin(sh[a], sh[b], kk));
+        }
+      }
+    }
+    if (kind == 2) kf = (Dk < 0.0 ? 0.5 * (1.0 - zmx) : 0.5 + min(Dk, 255.0) / 512.0) - KEY_BIAS;
+    else {
+      int fl = int(T(sid[ok], 2).z + 0.5);
+      float as = shadowOf(Dsk, T(sid[ok], 0).w, fl, (fl & ${F_SEL}) != 0, aaK).a;
+      if (as <= 0.0) discard;
+      kf = 1.0 - as / max(0.55 * shadow.a, 1e-4) - KEY_BIAS;
+    }
+  }
+#endif
+  float kd = keyBase + clamp(kf, 0.0, 1.0) * keyH;
+  if (mPass == MP_GLOW_K || mPass == MP_UP_K || mPass == MP_SHADOW_K || mPass == MP_SHAPE_K) { gl_FragDepth = kd; return; }
+  if (abs(texelFetch(keyTex, ivec2(gl_FragCoord.xy), 0).r - kd) > KEY_TOL) discard;`;
+
+  const out = `
+  // ── The mesh pass's part of the picture (what the classic shader lays together at the end, for the pass's tier) ──
+  if (mPass == MP_GLOW || mPass == MP_UP) {
+    vec4 lgm = mPass == MP_UP ? mLgU : mLg;
+    if (lgm.a <= 0.0) discard;
+    if (tierGroup[tierNow] == 1) lgm *= min(1.0 / max(netAlpha, 1e-3), 1.0 / lgm.a);   // (laid with the network, which is faded as a whole)
+    outColor = ditherOut(lgm, q); outDep = vec4(dep ? 1.0 : 0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u);
+    return;
+  }
+  if (mPass == MP_SHADOW) {
+    if (mSh.a < 0.002) discard;
+    outColor = ditherOut(mSh, q); outDep = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u);
+    return;
+  }
+  if (mPass == MP_LIFT) {
+    vec4 lc = mC * mWs;
+    if (lc.a < 0.002) discard;
+    outColor = ditherOut(lc, q); outDep = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u);
+    return;
+  }
+  // (The shape: a pixel it leaves clear is left as it is; one it covers outside a lumen hides the stream under it.)
+  if (!mLum && mC.a < 0.002) discard;
+  outColor = ditherOut(mC, q);
+  outDep = vec4(dep ? 1.0 : 0.0);
+  bool mfl = gId > 0u && gW > 0.01;
+  outFlow = mfl ? packFlow(gId, gId2, gS, gY, gW, gB) : uvec4(0u);
+  outFlow2 = mfl && gId2 > 0u ? packFlow2(gId2, gS2, gY2) : uvec4(0u);
+  return;`;
+  return { decl, key, out };
+};
+
+// The strip's vertex shader: one instance a vessel row, its vertices placed from the textures (veins-mesh.js STRIP_VS_GLSL meshWorld),
+// widened by the pass's reach past the vessel's casing (padU). A glow pass draws only the rows lit for it (the others fold to nothing).
+export const meshStripVS = (STRIP_VS_GLSL) => `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+layout(location=0) in vec4 aV;         // (kind, sample, side, corner): veins-mesh.js stripIndex
+layout(location=1) in float aRow;      // the vessel row (per instance)
+uniform mat3 world;                    // world → device pixels
+uniform vec2 size;
+uniform vec2 lOff;
+uniform highp sampler2D tube;
+uniform int mPass;
+uniform float padU;                    // world units past the casing the pass can draw
+${STRIP_VS_GLSL}
+out float vI;
+flat out int vRow;
+void main() {
+  int id = int(aRow + 0.5);
+  vRow = id;
+  vI = aV.y + (int(aV.x + 0.5) == K_TRAP ? aV.w : 0.0);
+  bool lit = texelFetch(tube, ivec2(10, id), 0).a > 0.0, up = texelFetch(tube, ivec2(11, id), 0).w > 5.0;
+  if (mPass <= ${MP.UP} && (!lit || up != (mPass >= ${MP.UP_K}))) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vec2 w = meshWorld(id, aV, texelFetch(tube, ivec2(0, id), 0).w + padU);
+  vec3 d = world * vec3(w, 1.0);
+  d.xy += lOff;
+  gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
+}`;
+
+// The patch's vertex shader: one quad a join over its reach (between the views, the join as the frame has it: JT()), and for each member the
+// stretch of its segments that come within that reach (so the fragment reads those alone).
+export const meshPatchVS = (STRIP_VS_GLSL) => `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+layout(location=0) in vec2 aC;         // the quad's corner (-1 … 1)
+layout(location=1) in vec4 aJ0;        // the join entry's A (per instance)
+layout(location=2) in vec4 aJ1;        // its B: the members
+uniform mat3 world;
+uniform vec2 size;
+uniform vec2 lOff;
+uniform int morphOn;
+uniform int joinBase;
+uniform float reachU;
+${STRIP_VS_GLSL}
+vec4 JT(int j) { int t = joinBase + j; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }
+flat out vec4 vJ0;
+flat out vec4 vJ1;
+flat out ivec4 vWa;
+flat out ivec4 vWb;
+void main() {
+  vec4 J = morphOn >= 1 ? JT(int(aJ0.x + 0.5)) : aJ0;
+  vJ0 = aJ0; vJ1 = aJ1;   // (as the join entry has them: the fragment shader reads the frame's join itself, as the classic one does)
+  ivec4 a = ivec4(0), b = ivec4(-1);
+  float lim = J.z + reachU + 1.0;
+  for (int m = 0; m < 4; m++) {
+    if (aJ1[m] < -0.5) continue;
+    int id = int(aJ1[m] + 0.5), lo = N_SAMPLES, hi = -1;
+    for (int i = 0; i < N_SAMPLES; i++) if (length(PT(id, i) - J.xy) - mRW(id, i, 0.0) < lim) { lo = min(lo, i); hi = max(hi, i); }
+    if (hi >= 0) { a[m] = max(0, lo - 1); b[m] = min(N_QUADS - 1, hi); }
+  }
+  vWa = a; vWb = b;
+  if (!(J.z > 0.0)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vec3 d = world * vec3(J.xy + aC * J.z, 1.0);
+  d.xy += lOff;
+  gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
+}`;
+
+// A scratch layer (the network group drawn apart while it is dimmed, the selected vessel's lift) laid over the vessel layer, weighed by uK.
+export const MESH_LAY_FS = `#version 300 es
+precision mediump float;
+uniform sampler2D uT;
+uniform float uK;
+out vec4 o;
+void main() { o = texelFetch(uT, ivec2(gl_FragCoord.xy), 0) * uK; }`;

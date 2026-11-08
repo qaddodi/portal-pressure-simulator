@@ -737,6 +737,8 @@ export function setVesselMesh(on) {
   meshOn = on;
   try { if (on) localStorage.removeItem('pps.vesselMesh'); else localStorage.setItem('pps.vesselMesh', '0'); } catch (e) { caught('frame:vmesh-w', e); /* storage unavailable */ }
   for (const f of meshSubs) f(on);
+  // (And the figure is drawn again, as after a resolution change: the stage and the other views hear onRenderScale.)
+  for (const f of renderSubs) f(renderK);
 }
 /** Called with the new value each time the mesh vessel renderer is switched; returns the unsubscribe. */
 export function onVesselMesh(f) { meshSubs.add(f); return () => meshSubs.delete(f); }

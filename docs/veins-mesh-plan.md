@@ -1,6 +1,7 @@
 # Vessel mesh renderer: plan (Option 1, tube meshes + junction patches)
 
-Status: **Phase 0, waiting for Mohammad's approval** (stop point 1 of the brief). Nothing below is built yet.
+Status: **Phase 5, first preview (stop point 2)**. Phase 0 approved (8 Nov 2026); Phases 1 to 4 built (sections 4 and 6). The switch is the
+Settings › Display row "Mesh vessel renderer" (on by default), not a compare split, by the owner's word.
 Owner's change to the brief (8 Nov 2026): no left/right compare split. Instead, a row in **Settings › Display** beside
 "Figure size (megapixels)" switches the figure's vessels between the classic renderer and the mesh renderer. The R14 test
 (`tests/settings-product.test.js`) gets that one row added to what Settings keeps, by the owner's word.
@@ -85,15 +86,33 @@ vec4 ditherOut(vec4 o, vec2 q);
 
 The refactor lands alone first, with the classic picture unchanged (same operations in the same order), and the fast checks.
 
-## 4. Phase 3 choices (to be confirmed by `?perf`)
+## 4. Phase 3 choices, as built
 
-- `draw`: whole mesh draw of the layer. `shiftLayer` (pans): the strips and patches drawn through the scissor of `wrapPieces`, with the
-  area cleared first.
-- `drawRows`: the changed rows' cells' box (`boxOfCells`) cleared, then every strip and patch crossing that box drawn (not only the
-  changed rows: a box can hold other vessels' pixels). Same picture as a whole draw inside the box.
-- `tintPass`: lumen + glow passes, colour only, `depL` kept. `syncGlowOnly`: the glow pass. `lowPass`: the mesh at the low target's size.
-  `reuseDraw` and the upscale: unchanged (they read the layer). One-pass zoom frames (`fused`): classic in v1 (the composite is fused
-  into the classic shader); the mesh draws the layer and the normal composite runs instead when the mesh is on.
+- `draw` (a whole draw) and `shiftLayer` (a pan's uncovered strips): the mesh pass, through the same pieces and scissor (`wrapPieces`), the
+  piece cleared first. Depth and stencil are cleared inside the scissor too.
+- `drawRows`, `tintPass`, the partial cells of a pan: **a whole mesh draw** (drawRows refuses with "mesh renderer" and the caller draws
+  whole). A partial mesh redraw over the kept picture is not exact where vessels overlap; a whole one is. To be measured with `?perf`.
+- One-pass zoom frames (`fused`): off while the mesh draws; each zoom frame is a whole mesh draw and the normal composite.
+- `lowPass` (Vessels lower while pinching): stays on the classic shader at its own size. `reuseDraw`, the upscale: unchanged (they read
+  the layer). Morphs: the strips read the frame's points (`PT()` from `posBase`), the patches the frame's joins (`JT()`).
+- Falls back to classic: the switch off, software GL, the lobule (it never builds the mesh programs), a shader that fails to compile or
+  link (console.warn), a depth or stencil target the driver will not make. Until the programs are published (parallel compile) the classic
+  pass draws.
+- `?perf`: the gauge "vessel renderer" says `mesh: N passes, N strips, N patches drawn` or `classic: <why>`, and "vessels: mesh" counts
+  mesh draws.
+
+## 6. How the passes pick the fragment that draws (as built)
+
+Hardware blending cannot take the minimum over a tier the way the classic shader does, so each pass (glow, up glow, shadow, shape) has a
+prepass into a depth texture the layer's size: every fragment of the tier writes a key as its depth, and the depth test keeps the lowest.
+The pass then runs over the same strips and patches, reads that depth texture, and draws only a fragment whose key is the kept one; the
+stencil lets it draw a pixel once (two overlapping triangles of one vessel make the same key). Keys: the shape, a lumen by its z (the vessel
+drawn above wins, as the classic crossing rule), else the nearest wall; the shadow and the glow, the strongest. Each pass's keys lie below
+every earlier pass's, so the depth is cleared once a draw. The lift (the selected vessel's own share over the dimmed network) reads the
+shape pass's keys; the crossing ring reads them too, and draws only over a lower lumen of the same tier.
+Known differences from the classic picture: a casing, shadow or ring over another tier's lumen hides that lumen's stream there (integer
+targets do not blend); a fade (tier alpha below 1) is applied to the shadow and the shape separately; where more than eight vessels meet,
+all of them are drawn (the classic keeps eight); glows are cut only by lit lumens of their own tier.
 
 ## 5. Risks, and what I do not yet understand
 
