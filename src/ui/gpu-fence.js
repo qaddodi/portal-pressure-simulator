@@ -53,7 +53,7 @@ export function fenceMark(i) {
 }
 // (Named steps inside a phase, for the sampled frame alone: veins-gl.js marks the blood pass, the heads, the present copy and the glasses and labels
 // over it, so a late phase of 26 ms (Mohammad's Mac, 8 Nov 2026) says which of its passes took it. STEP_MAX names, each a ring of KEEP waits.)
-const STEP_MAX = 8;
+const STEP_MAX = 10;
 const stepNames = [], stepWaits = new Float64Array(STEP_MAX * KEEP), stepN = new Int32Array(STEP_MAX), stepAt = new Int32Array(STEP_MAX);
 /** veins-gl.js: the commands of the step `name` have been issued (a sampled frame waits for them and keeps the wait under that name). */
 export function fencePart(name) {

@@ -3603,7 +3603,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (directNow) {
       presents++;
       gl.disable(gl.SCISSOR_TEST);
-      overLay();
+      overPrep();
+      fencePart('organ layer');   // (?perf: the live organ layer's repaint, timed apart)
+      overLay(true);
       if (top && tops.length) {
         runTops();
         gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
@@ -3616,6 +3618,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (The overlays' stack drawn again, if it changed, before the canvas is bound: drawn after the copy, its own passes stored the canvas and loaded it
     // back in the middle of the present.)
     overPrep();
+    fencePart('organ layer');   // (?perf: the live organ layer's repaint, timed apart from the copy below)
     gl.disable(gl.SCISSOR_TEST);
     presents++;
     let laidUnder = false;

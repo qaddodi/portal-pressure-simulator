@@ -119,6 +119,7 @@ import { prestart, linkProgram, exerciseDraw } from './gl-compile.js';
 import { netChanged } from './idle-keys.js';
 import { uniformCache } from './uniform-cache.js';
 import { easeMove, D_SURFACE } from './ease.js';
+import { counts, tally } from './frame-counts.js';
 // (The colour a clear writes, one array for every clear: none made per call, plan rev 2 §2.8.)
 const CLEAR0 = new Float32Array(4);
 
@@ -287,6 +288,9 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     for (let i = 0; i < a.n; i++) if (!numEq(a.m[i], b.m[i])) return false;
     return true;
   };
+  // (Why a render paints: the first part of the key that differs, for the ?perf readout's organ-layer line. Fixed strings, nothing made.)
+  const whyKey = (a, b) => (!b.ok ? 'first picture' : a.cw !== b.cw || a.ch !== b.ch ? 'size changed' : a.ver !== b.ver ? 'layers changed' : a.liveVer !== b.liveVer ? 'live organ changed' : a.page !== b.page ? 'page changed' : a.f !== b.f ? 'view fading in' : 'view moved');   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  let lastWhy = '';
   const dropPrev = (L) => { if (L.prev) { gl.deleteTexture(L.prev.tex); L.prev = null; } };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const free = (map) => { for (const L of map.values()) { gl.deleteTexture(L.tex); dropPrev(L); } map.clear(); };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // (A view's picture fading in: its key moves with the clock until it is whole, so each frame draws it a step further.)
@@ -727,6 +731,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
     /** Whether a render at transform m and this size would draw something new (a pan, a zoom, a new set, a live group written). */
     // (Without the page watch, a render is always asked while groups are live: what they draw is read from the page there, and
     // nothing is drawn when it is as it was.)
+    /** Why the last render painted (a fixed string; ?perf's organ-layer line). */
+    get lastWhy() { return lastWhy; },   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
     stale: (m, cw, ch) => !sameKey(keyOf(kNow, m, cw, ch), kDrawn) || (!watch && liveNow()) || (mvShown && performance.now() - mvAt >= MOVE_SETTLE_MS),   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
     /**
      * The stack drawn for transform m (world → device px) into its texture, the canvas's size. Returns what changed in it: true for
@@ -737,6 +743,8 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
       const key = keyOf(kNow, m, cw, ch), unchanged = sameKey(key, kDrawn);
       const settle = mvShown && performance.now() - mvAt >= MOVE_SETTLE_MS;
       if (unchanged && (watch || !liveNow()) && !settle) return null;
+      lastWhy = settle ? 'camera settled' : !unchanged ? whyKey(key, kDrawn) : 'live, read from the page';
+      counts.organ++; tally(counts.organWhy, lastWhy);   // (?perf's "organ layer painted" line, by reason: a render past here paints)
       const ck = contentKey(cw, ch);
       // (Landed back on the camera the move set off from, its content unchanged: the copy taken as the move began (mvS) is that exact
       // picture, so it is put back and nothing is painted from shapes. A view change that returns to the framing it left, Anatomy to

@@ -129,3 +129,18 @@ test('the panel writes its summary and every row from frames run through the sch
   for (const head of ['== WHY ==', 'NOW: view switch (pieces ready 4 of 6)', 'GOAL:', '== WORST FRAMES', '== PAGE (main thread) ==', 'PHYSICS WORKER', '== GPU', 'whole vessel redraws:', 'display probe']) assert.ok(text.includes(head), `${head} in:\n${text}`);
   assert.match(text, /7500\.0 steps\/s/);
 });
+
+test('the live organ layer\'s repaint is its own GPU step, in plain words, apart from the present copy (9 Nov 2026)', () => {
+  const goal = goalOf({ maxHz: 60, ua: SAFARI });
+  const d = diagnose({ st: st({ fps: 16, p50: 59, s50: 3 }), goal, gpu: gpuOf([['organ layer', 50, 60], ['present copy', 1], ['blood pass', 1]]), surfaces: [['stage', 1.9]], whole: { perFrame: 0, rate: 0, med: 0, worst: null }, worst: null, idle: false, hidden: false });
+  assert.match(d.head, /live organs \(liver, spleen, diaphragm\) painted again at the figure's size \("organ layer"\) 50\.0 ms/);
+  assert.equal(d.top[0].name, 'organ layer');
+  assert.match(plainStep('organ layer'), /live organs/);
+});
+
+test('an organ layer repaint is counted with its reason, for the GPU section\'s "organ layer painted" line', () => {
+  const n0 = counts.organ, r0 = counts.organWhy['live organ changed'] || 0;
+  counts.organ++; tally(counts.organWhy, 'live organ changed');
+  assert.equal(counts.organ, n0 + 1);
+  assert.equal(counts.organWhy['live organ changed'], r0 + 1);
+});

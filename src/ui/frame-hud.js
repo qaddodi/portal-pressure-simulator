@@ -62,6 +62,7 @@ export function goalOf({ maxHz, ua }) {
 // The GPU fence names (veins-gl.js fencePart, gpu-fence.js phases) in plain words, and what usually cuts each one.
 const PLAIN = {
   'present copy': ['kept figure picture copied onto the screen canvas', 'the copy writes every figure pixel each frame: no copy on frames where nothing in the figure changed, or copy only the changed area (lowering the FIG_OPTS cap broke the Mac picture on 2fc3302)'],
+  'organ layer': ['live organs (liver, spleen, diaphragm) painted again at the figure\'s size', 'the organ layer is painted again on every change: see "organ layer painted" in the GPU section for how often and why, then paint only the changed box or less often'],
   'whole picture': ['whole figure picture drawn (vessels, blood, organs together)', 'a whole picture each frame: draw only the blood over the kept vessels (blood pass) where nothing else changed'],
   'one-pass picture': ['vessels + blood drawn in one pass (zoom or turn frames)', 'zoom/turn frames shade every pixel: draw them at a lower resolution while moving'],
   'blood pass': ['moving blood drawn over the kept vessels', 'fewer blood squares on screen, or the blood at a lower resolution'],
@@ -187,7 +188,7 @@ export function physicsText(p, got) {
 export function startFrameHud() {
   // (One record per frame the scheduler ran, written in place: the stats, the worst frames and their causes come from here.)
   const ring = Array.from({ length: RING }, () => ({ at: 0, frame: 0, gap: 0, script: 0, wait: 0, act: 0, sampled: false, p: ['', '', ''], pm: [0, 0, 0] }));   // alloc-rare: made once as the panel starts
-  let rn = 0, dead = false, c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs } };
+  let rn = 0, dead = false, c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs }, organWhy: { ...counts.organWhy } };
   // (Who handed the pictures over, busiest first, with the buffer size of the last one: the next lag names its own layer.)
   const byText = () => { const l = [...transfersBy].sort((a, b) => b[1].n - a[1].n).slice(0, 6).map(([k, r]) => `${k} ${r.n} (${r.w}x${r.h})`).join(', '); transfersBy.clear(); return l; };   // alloc-rare: once a second, with ?perf on
   let last = perf().totals, lastFrames = last.frames, workerHz = 0, lastCharts = { ...sharedStats };
@@ -386,8 +387,9 @@ export function startFrameHud() {
       if (worstEv) L.push(`  worst: ${f(worstEv.ms)} ms (${worstEv.why}), ${f(worstEv.before)} ms queued ahead of it, timed to ${worstEv.to}`);
     }
     const wh = (rec, rec0) => Object.keys(rec).map((k) => `${k} ${rec[k] - (rec0[k] || 0)}`).filter((t) => !t.endsWith(' 0')).join(', ');
-    const cn = { draw: counts.draw - c0.draw, composite: counts.composite - c0.composite, whole: counts.whole - c0.whole, blur: counts.blur - c0.blur };
+    const cn = { draw: counts.draw - c0.draw, composite: counts.composite - c0.composite, whole: counts.whole - c0.whole, blur: counts.blur - c0.blur, organ: counts.organ - c0.organ };
     L.push(`  per second: vessel draws ${cn.draw}, composites ${cn.composite} (whole picture ${cn.whole}), glass blurs ${cn.blur}${cn.blur ? ` (${wh(counts.blurs, c0.blurs)})` : ''}`);
+    L.push(`  organ layer painted: ${cn.organ}${cn.organ ? ` (${wh(counts.organWhy, c0.organWhy)})` : ''}`);
     L.push(`  row draws refused: ${wh(counts.refused, c0.refused) || 'none'}`);
     if (ms && ms.gpu + ms.cpu > 0) L.push(`  view switch frames since the page opened: ${ms.gpu} from pieces made ahead, ${ms.cpu} binned on the CPU${Object.keys(ms.miss).length ? ` (${Object.entries(ms.miss).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}; pieces ready ${ms.ready} of ${ms.of}${ms.failed?.length ? ` (failed: ${ms.failed.join(', ')})` : ''}`);
     else if (pieces) L.push(`  view switch pieces ready ${pieces.ready} of ${pieces.of}${ms.failed?.length ? ` (failed: ${ms.failed.join(', ')})` : ''}`);
@@ -396,7 +398,7 @@ export function startFrameHud() {
     fullText = L.join('\n');
     show();
     if (copyB.textContent !== 'Copy') copyB.textContent = 'Copy';   // (a 'Copied' shown until the next write)
-    c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs } };
+    c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs }, organWhy: { ...counts.organWhy } };
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
     askPhysics();
   };
