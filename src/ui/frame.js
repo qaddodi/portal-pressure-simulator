@@ -487,16 +487,12 @@ export function cancelFrame(id) {
 /** Where the scheduler is now: 'early' (the frame's first callbacks), 'late', 'final', or null (outside a frame). A surface asked to
  *  draw while the early ones run can leave it to its own late callback, which still runs in this frame, and so draw once in it. */
 // ── The eases' clock (1 Nov 2026, Mohammad: "the cards start popping in instead of smoothing in eased") ──
-// An ease timed by the wall clock jumps over a long frame: a 900 ms crossfade begun just before a 400 ms frame shows its first half
-// in one step, and a zoom leaps ahead by the frame's length. easeNow() runs with the wall clock while frames come promptly, and
-// moves on by at most PACE_CAP ms (or twice the usual interval, see paceStep) from one frame to the next, so after a long frame an ease timed by it carries on from where the
-// screen last showed it instead of landing past it. The total time runs a little longer by what the long frames held back. Monotonic,
-// in performance.now()'s timebase while nothing has been held back.
+// (First built as a held clock, 1 Nov 2026: a long frame carried an ease on by at most PACE_CAP ms. R20 below, 2 Nov, replaced that with
+// the honest wall clock, and motion.js (the clock rule) added back only a 40 ms cap on the first two frames of a move. PACE_CAP and PACE_MAX
+// stay as the yardstick for what counts as a long frame in clockStats: the cap is twice the usual interval of the last frames that ran one
+// after another, PACE_CAP at least and PACE_MAX at most, so a device that draws a slow scene at 10 frames a second does not count its own
+// pace as long frames.)
 export const PACE_CAP = 50;
-export const PACED = true;   // (switch deleted; kept for stage.js, presenter.js and lobule-zoom.js until their own pass)
-// (Only a frame long against the ones before it is held back: the cap is twice the usual interval of the last frames that ran one
-// after another, PACE_CAP at least and PACE_MAX at most, so a device that draws a slow scene at 10 frames a second keeps its eases at
-// their own speed, and only its sudden long frames are smoothed over.)
 export const PACE_MAX = 1000;   // (a software renderer's frames, a second apart, run at their own speed)
 let paceReal = 0, paceBase = 0, paceCap = PACE_CAP;
 const paceGaps = new Float64Array(9), paceSort = new Float64Array(9);
@@ -524,7 +520,7 @@ function paceNote(gap) {
   paceSort.set(paceGaps); paceSort.fill(Infinity, paceN); paceSort.sort();
   paceCap = Math.min(PACE_MAX, Math.max(PACE_CAP, 2 * paceSort[paceN >> 1]));
 }
-/** The eases' clock (ms): performance.now() while frames come promptly, held to PACE_CAP ms of progress from frame to frame. */
+/** The eases' clock (ms): the wall clock, performance.now(), one time per frame (motion.js has the rule for the first frames of a move). */
 export function easeNow() {
   const t = wall();
   if (!paceReal) { paceReal = paceBase = t; return t; }

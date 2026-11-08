@@ -42,7 +42,7 @@ import { noteResume, resumeFor } from './resume.js';
 import { parseDeckSource, checkDeck } from './deck-source.js';
 import { cleanEq } from './import-safety.js';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, LIVE_MAX, shownSig, sameHead, headOf, cutDp } from './table-marks.js';
-import { frameFor, cancelFrame, holdMotion, easeNow, PACED } from './frame.js';
+import { frameFor, cancelFrame, holdMotion, easeNow } from './frame.js';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
@@ -103,8 +103,7 @@ const painted = () => new Promise((done) => { const t = setTimeout(done, 100); n
  *  one begun just before a long frame (a new organ picture, a lens repainting the figure) is over when that frame lands, and the
  *  card seems to pop. Begun once the frames come smoothly, it is seen whole. */
 async function smooth(cut, ms = 700) {
-  // (Two prompt frames in a row since 1 Nov 2026: one alone was often the gap between two long ones. ?paced=0: one, as before.)
-  const need = PACED ? 2 : 1;
+  const need = 2;   // (two prompt frames in a row since 1 Nov 2026: one alone was often the gap between two long ones)
   const t0 = performance.now(); await painted(); let last = performance.now(), run = 0;
   while (!cut() && performance.now() - t0 < ms) { await painted(); const t = performance.now(); run = t - last < 40 ? run + 1 : 0; if (run >= need) return; last = t; }
 }

@@ -37,13 +37,13 @@ test('the rise out of a zoomed-in lobule shrinks it whole, whichever way out', (
   assert.match(lz, /focusOn\(part, \{ zoom = 2, ms = 1400, ease = 'inOut' \} = \{\}\) \{[\s\S]*?const moved = [^\n]*> 0\.5;[\s\S]*?return moved;/, 'it waits whenever the view moves');
   // Every other way out (back to healthy, the view buttons, a key) from a zoomed-in view: the whole copy, before the rise's clock.
   const st = stageSource();
-  assert.ok(st.indexOf('lz.stageRise();') > 0 && st.indexOf('lz.stageRise();') < st.indexOf('const t0 = PACED ? easeNow() : performance.now();\n    live.lobOn = on;'), 'built before the rise is timed');
+  assert.ok(st.indexOf('lz.stageRise();') > 0 && st.indexOf('lz.stageRise();') < st.indexOf('const t0 = easeNow();\n    live.lobOn = on;'), 'built before the rise is timed');
   assert.match(st, /(?:live\.)?riseFast = true;\n\s+(?:live\.)?lz\.stageRise\(\);/);
   // The way back to the fit reaches it still moving (eased in only, Mohammad 20 Oct: Circulation 9 to 10 stopped midway), quick enough
   // to meet the rise at about its own speed, and the rise moves from its first frame.
   assert.ok(+/const RISE_FIT_MS = (\d+);/.exec(pz)[1] <= 600, 'the zoom to the fit is short');
   assert.match(lz, /e = ease === 'in' \? u \* u : /);
-  assert.match(st, /const p = (?:live\.)?riseFast \? u \* u \* \(2 - u\) : /);
+  assert.match(st, /const p = (?:live\.)?riseFast \? 1 - settleAt\(1 - u, RISE_SLOPE\) : /);
   const sr = lz.match(/function stageRise\(\) \{[\s\S]*?\n {2}\}/)[0];
   assert.match(sr, /const \[W, H\] = hostSize\(\), (?:live\.)?box = padBox\(W, H\);\n\s+if \(!(?:live\.)?box\) return;/);
   assert.match(sr, /const wd = buildWide\(W, H, (?:live\.)?box\);\n\s+idleDrawn = ''; draw\(0\); wide = wd;/);

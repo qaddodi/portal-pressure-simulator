@@ -26,7 +26,7 @@ import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
 import { createGlassGL, glassRegions, GLASS } from './glass-gl.js';
 import { createVeinsGL, TUBE_TEXELS, MAX_TIERS, ORIGIN_GREY } from './veins-gl.js';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, PACED, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor } from './frame.js';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { layoutWatch } from './idle-keys.js';
 import { surface } from './gpu-surfaces.js';
@@ -80,7 +80,7 @@ const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const REVERSAL_WATCH = new Set(['PV_TRUNK', 'SV_CONF', 'SMV_CONF', 'LGV_CONF', 'PVH_R', 'PVH_L', 'PRE_R', 'PRE_L', 'V_SPL', 'SV_MID', 'V_IMV', 'V_INT', 'RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'V_STO', 'IVC_IS']);
 
-import { reduceMotionMQ as reduceMotion } from './motion.js'; // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
+import { reduceMotionMQ as reduceMotion, createReversible, REDUCED_MOVE_MS } from './motion.js'; // The figure's overlays drawn on the GPU, in the vessel canvas (stage-over.js; 31 Oct, recs A1): on wherever the GPU draws the
 // vessels. Not on a software renderer (the CPU would paint them) unless asked for (?stageover=gpu), as
 // CI's visual check asks, to compare it with the page's own drawing.
 const OVER_ASK = typeof location !== 'undefined' && /[?&]stageover=gpu\b/.test(location.search);
@@ -387,14 +387,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get liveSet() { return liveSet; }, set liveSet(v) { liveSet = v; },
     get lobAnim() { return lobAnim; }, set lobAnim(v) { lobAnim = v; },
     get lobEnd() { return lobEnd; }, set lobEnd(v) { lobEnd = v; },
-    get lobFrom() { return lobFrom; }, set lobFrom(v) { lobFrom = v; },
+    get diveClock() { return diveClock; },
     get lobIn() { return lobIn; }, set lobIn(v) { lobIn = v; },
     get lobMs() { return lobMs; }, set lobMs(v) { lobMs = v; },
     get lobOn() { return lobOn; }, set lobOn(v) { lobOn = v; },
     get lobSeen() { return lobSeen; }, set lobSeen(v) { lobSeen = v; },
-    get lobT0() { return lobT0; }, set lobT0(v) { lobT0 = v; },
     get lobTo() { return lobTo; }, set lobTo(v) { lobTo = v; },
-    get lobTurn() { return lobTurn; }, set lobTurn(v) { lobTurn = v; },
     get lobU() { return lobU; }, set lobU(v) { lobU = v; },
     get lobuleOn() { return lobuleOn; }, set lobuleOn(v) { lobuleOn = v; },
     get logMove() { return logMove; },
@@ -1241,6 +1239,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The camera rides the same clock (viewXfP); the fallback camera glide in setView takes the same time.
   const VIEW_CHANGE_S = 1.3;
   let morph = store.get().view === 'circuit' ? 1 : 0, morphTarget = morph, lastMorph = -1;
+  // The change's clock is a reversible one (motion.js createReversible): tapped back mid-change, the figure and its camera slow over D_FLIP
+  // and come back, they do not flip from full speed forward to full speed backward in one frame. With Reduce Motion the change takes
+  // REDUCED_MOVE_MS (the camera's short form, docs/ACCESSIBILITY.md), still a crossfade-and-move.
+  const viewClock = createReversible({ ms: VIEW_CHANGE_S * 1000, x: morph });
+  const viewMs = () => (reduceMotion.matches ? REDUCED_MOVE_MS : VIEW_CHANGE_S * 1000);
   // The circuit can be turned a quarter turn counter-clockwise, so its flow runs bottom to top and
   // the map is tall instead of wide: it fills a phone held upright. rotU is the (animated) turn,
   // 0 to 1; the anatomy is never turned. The turn is part of the world transform and of the view
@@ -1250,6 +1253,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const portraitPhone = () => matchMedia(UPRIGHT_MQ).matches;   // (the style sheet's upright clause, util.js)
   let rotTarget = (() => { try { const v = localStorage.getItem('pps.circuitRot'); return v == null ? (portraitPhone() ? 1 : 0) : v === '1' ? 1 : 0; } catch { return portraitPhone() ? 1 : 0; } })();
   let rotU = rotTarget;
+  const turnClock = createReversible({ ms: 500, x: rotU });   // (the quarter turn's clock: reversible like the change's)
   const rotEase = (u) => u * u * (3 - 2 * u);
   const CIRC_C = [VB_CIRC[0] + VB_CIRC[2] / 2, VB_CIRC[1] + VB_CIRC[3] / 2];
   const VB_CIRC_R = [CIRC_C[0] - VB_CIRC[3] / 2, CIRC_C[1] - VB_CIRC[2] / 2, VB_CIRC[3], VB_CIRC[2]];
@@ -1401,18 +1405,23 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let diveWait = 0, diveGen = 0;
   // (The glide in and out of the lobule, one at a time: a new one cancels the frame and the backstop of the last, so its state is kept
   // here, in the variables below, and one function steps it, instead of a closure made for each.)
-  let lobOn = false, lobFrom = 0, lobTo = 0, lobTurn = false, lobMs = 0, lobT0 = 0, lobSeen = -1;
+  // (The dive's progress, diveT, runs on a reversible clock: a reversal mid-way slows over D_FLIP and returns, it does not stop dead and start
+  // again from rest; the dive's own curves (stage-dive.js diveFrame) are functions of the position, so they follow without a kink.)
+  let lobOn = false, lobTo = 0, lobMs = 0, lobSeen = -1;
+  const diveClock = createReversible({ ms: 2200 });
   const lobulePoke = () => { if (lobuleOn && lz.isOpen()) platePoke(); };
   const lobuleRasterSoon = () => afterMotion(lobulePoke);
   function lobuleStep(now, end = false) {
-    const on = lobOn, from = lobFrom, to = lobTo, turn = lobTurn, ms = lobMs, t0 = lobT0;
-    const e0 = ms && !end ? clamp(((PACED ? easeNow() : now) - t0) / (ms * Math.abs(to - from) || 1), 0, 1) : 1, e = turn ? e0 * e0 * (3 - 2 * e0) : e0;
+    const on = lobOn, to = lobTo, ms = lobMs;
+    diveClock.sync(diveT);   // (diveT is also written outside this clock: the lobule closed by the circuit, a reset)
+    if (ms > 0 && !end) { diveClock.aim(to, ms); } else diveClock.set(to);
+    const e = ms > 0 && !end ? diveClock.tick(easeNow()) : to;
     const wasDiving = diveT > 0;
-    diveT = from + (to - from) * e;
+    diveT = e;
     if (wasDiving !== diveT > 0) for (const g of cardGLs) g.redraw();   // (the cards' glass: drawn in the figure's canvas, or only leaving its place out of the labels, the dive's turn)
     // A frame that throws must not leave the anatomy stuck mid-zoom: the glide always goes on to its end.
     try { diveFrame(diveT); } catch (err) { if (e < 1) console.error(err); }
-    if (e < 1) lobAnim = nextFrame(lobuleStep);
+    if (e !== to) lobAnim = nextFrame(lobuleStep);
     // the anatomy's raster, held back during the dive, catches up under the lobule (once the slide's cards have come in: frame.js holdMotion)
     else if (on) stageScope.timer(lobuleRasterSoon, 600);
     else if (!on) {
@@ -1427,7 +1436,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   function lobuleBackstop() {
     if (lobuleOn !== lobOn || diveT === lobTo) return;
-    if (PACED && diveT !== lobSeen) { lobSeen = diveT; lobEnd = stageScope.timer(lobuleBackstop, 1000); return; }
+    if (diveT !== lobSeen) { lobSeen = diveT; lobEnd = stageScope.timer(lobuleBackstop, 1000); return; }
     cancelFrame(lobAnim); lobuleStep(0, true);
   }
   let lobEnd = 0;
@@ -2734,14 +2743,16 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     stepPlateEase();
     stepMap(dt);
     if (morph !== morphTarget) {
-      morph = clamp(morph + Math.sign(morphTarget - morph) * dt / VIEW_CHANGE_S, 0, 1);
+      viewClock.sync(morph); viewClock.aim(morphTarget, viewMs());
+      morph = viewClock.tick(now);
       // (The camera is on the change's clock: its framing is the share of the way the figure has come.)
       if (viewXf && !viewXf.same) { const p = viewXfP(); writeVT(p >= 1 ? { ...viewXf.to } : lerpVT(viewXf.from, viewXf.to, p)); viewVersion++; }   // (the camera moved: a view move, never paced like the model's motion)
       if (F) update(F); else updateGeometry(true);
       if (viewXf) viewXfStep();
     } else if (widthEasing && F && !stepOrgans() && !stepWidths()) update(F);   // a width still easing to its target: one step a frame (stepWidths: the widths alone, when nothing else changed)
     if (rotU !== rotTarget) {
-      rotU = clamp(rotU + Math.sign(rotTarget - rotU) * dt / 0.5, 0, 1);
+      turnClock.sync(rotU); turnClock.aim(rotTarget);
+      rotU = turnClock.tick(now);
       setViewBox(easeInOut(morph));
       rotStep();   // (stage-fit.js: a held view keeps its spot; a whole one glides to the turned framing, rec 8)
     }

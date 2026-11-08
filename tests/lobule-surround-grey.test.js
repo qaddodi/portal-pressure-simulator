@@ -84,7 +84,7 @@ test('the grey is the shaders\' alone: toward the luma, then toward the page (th
 });
 
 test('it eases over the lens crossfade, there at once where nothing of the surround is seen, and keeps the loop going while it moves', () => {
-  assert.match(lz, /const greyNow = \(now = performance\.now\(\)\) => greyStep\(grey, isGreyLens\(lensModeOf\(store\.get\(\)\)\) \? 1 : 0, PACED \? easeNow\(\) : now, LENS_FADE, !surroundSeen\(\) \|\| reduce\.matches\);/);
+  assert.match(lz, /const greyNow = \(now = performance\.now\(\)\) => greyStep\(grey, isGreyLens\(lensModeOf\(store\.get\(\)\)\) \? 1 : 0, easeNow\(\), LENS_FADE, !surroundSeen\(\) \|\| reduce\.matches\);/);
   assert.match(lz, /const surroundSeen = \(\) => !unseen\(\) \|\| fieldOp > 0\.002;/);
   assert.match(lz, /if \(rzMoving \|\| lensFrom \|\| tissueFading\(now\)\) drawVersion\+\+;.*\n\s+if \(greyMoving\(\)\) drawVersion\+\+;/);
   assert.match(lz, /const greyMoving = \(\) => \{ greyNow\(\); return grey\.k !== grey\.to; \};/);

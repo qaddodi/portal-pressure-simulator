@@ -6,7 +6,7 @@ import { cssColor8 } from './css-color.js';
 import { createColourFollow } from './display-state.js';
 import { D_SURFACE, easeMove } from './ease.js';
 import { PEEL_GLOW, peelAt, peelGlow } from './flow-peel.js';
-import { PACED, PINCH_LOW_K, easeNow, figLab, figOpt, inMotion } from './frame.js';
+import { PINCH_LOW_K, easeNow, figLab, figOpt, inMotion } from './frame.js';
 import { writeGlowTexels } from './glow-texels.js';
 import { gpuProbe } from './gpu-probe.js';
 import { liftEnd, nearPath } from './highlight-math.js';
@@ -279,9 +279,9 @@ export function createVessels(st, live) {
     return big && live.shownCol.size > 0;
   }
   const LENS_FADE = D_SURFACE;   // (a lens crossfade is a surface step of the motion scale, ease.js; the organs' and the lobule's clocks are the same)
-  // (The lens crossfade and the plate's ease over it run on the eases' clock, frame.js easeNow: the long frame a lens change can bring,
-  // the vessels recoloured and the organs' picture redrawn, holds them back instead of eating their first half. ?paced=0: the wall clock.)
-  const lensNow = () => (PACED ? easeNow() : performance.now());
+  // (The lens crossfade and the plate's ease over it run on the honest wall clock, frame.js easeNow: the long frame a lens change can
+  // bring, the vessels recoloured and the organs' picture redrawn, shows them where the wall clock puts them.)
+  const lensNow = () => easeNow();
   const lensFading = () => !!live.lensFrom && lensNow() - live.lensT0 < LENS_FADE + 20;
   const rgbCache = new Map(), rgbVarName = new Map();
   // Any CSS color (rgb(), #hex, a named var) as [r, g, b] in 0–1.
@@ -734,7 +734,7 @@ export function createVessels(st, live) {
       s0[0] = k[0]; s0[1] = k[1]; s0[2] = k[2]; s1[0] = k[3]; s1[1] = k[4]; s1[2] = k[5];
       colRows.add(it.row);
       if (live.lensFrom) {
-        const was = live.lensFrom.get(it.row), u = easeMove(clamp(((PACED ? easeNow() : now) - live.lensT0) / LENS_FADE, 0, 1));
+        const was = live.lensFrom.get(it.row), u = easeMove(clamp((easeNow() - live.lensT0) / LENS_FADE, 0, 1));
         if (was) { mix3To(s0, was[0], s0, u); mix3To(s1, was[1], s1, u); }
       }
       live.shownCol.set(it.row, pair);

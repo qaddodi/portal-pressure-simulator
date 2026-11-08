@@ -341,8 +341,9 @@ One table. Anything not listed uses the closest row. Reduced motion replaces eve
 Rules:
 
 - **V-TIME-1 (Now)** No overshoot anywhere (curve y never past 1).
-- **V-TIME-2 (Fix)** All motion runs on the scheduler's clock (`easeNow`); a long frame holds everything where it was together rather
-  than letting one part run ahead.
+- **V-TIME-2 (Fix)** All motion runs on the scheduler's honest wall clock (`easeNow`), so every part of one change agrees where it is,
+  with one cap: the first two frames of any move advance it by at most 40 ms each (the long frames the layout and label passes that set
+  it off make), after which a long frame shows the move where the wall clock puts it. The rule is written in `src/ui/motion.js`.
 - **V-TIME-3 (Fix)** A motion taken over mid-way keeps its velocity (no stop then start). A retarget blends from the current velocity.
 - **V-TIME-4 (Now)** 120 Hz on iPhone ProMotion and Mac: durations are in ms, never in frames.
 

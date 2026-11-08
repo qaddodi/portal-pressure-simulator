@@ -47,7 +47,7 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, framePart, easeNow, inMotion, PACED } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, framePart, easeNow, inMotion } from './frame.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { createResCover, coverFollowInto } from './res-cover-gl.js';
@@ -64,7 +64,7 @@ import { createCaptions, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } fro
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
 import { overlapLRTB, discInto, needsLeader, SHORT_LEAD, LONG_LEAD } from './label-place.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, createReversible } from './motion.js';
 import { darkMQ } from './look.js';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -736,9 +736,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const XF_MS = 900;   // as long as the vessels' calibers take to settle (easeRadii, τ 0.3 s)
   let worldOld = noPicture(), worldOldSc = 0, worldState = '', xfT0 = 0, surNow = null, surOld = null, surT0 = 0;
   const xfU = (t0, now) => { const u = Math.min(1, Math.max(0, (now - t0) / XF_MS)); return u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2; };
-  // (The crossfades run on the eases' clock, frame.js easeNow: a long frame as a new picture comes in, its texture going up, holds the fade
-  // back rather than eating its first half. ?paced=0: the wall clock, as before.)
-  const xfNow = (now) => (PACED ? easeNow() : now);
+  // (The crossfades run on the honest wall clock, frame.js easeNow: one time per frame, never held back (motion.js, the clock rule). A long
+  // frame as a new picture comes in, its texture going up, shows the fade where the wall clock puts it.)
+  const xfNow = () => easeNow();
   const tissueFading = (now = performance.now()) => { const n = xfNow(now); return (xfT0 > 0 && n - xfT0 < XF_MS) || (surT0 > 0 && n - surT0 < XF_MS); };
   const tubeData = new Float32Array(MAXT * TUBE_TEXELS * 4), flowData = new Float32Array(MAXT * FLOW_TEXELS * 4);
   // The vessel attributes as last sent (tubeShown), the rows changed since the vessel layer was drawn (glRows), and the
@@ -3176,7 +3176,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (surroundGrade, in the shaders and the 2D passes), so a lens switch needs no new tiles.
   const grey = { k: 0, from: 0, to: 0, t0: 0 };
   const surroundSeen = () => !unseen() || fieldOp > 0.002;
-  const greyNow = (now = performance.now()) => greyStep(grey, isGreyLens(lensModeOf(store.get())) ? 1 : 0, PACED ? easeNow() : now, LENS_FADE, !surroundSeen() || reduce.matches);
+  const greyNow = (now = performance.now()) => greyStep(grey, isGreyLens(lensModeOf(store.get())) ? 1 : 0, easeNow(), LENS_FADE, !surroundSeen() || reduce.matches);
   const greyMoving = () => { greyNow(); return grey.k !== grey.to; };
   // later: the open lobule asks (#27). A tissue state that changes mid-animation (a time-lapse, a slide's morph) needs new tiles, each
   // tens of ms to draw: the open lobule keeps showing the last state's tile (its quiet surround changes slowly) while the new one is
@@ -3728,13 +3728,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (lensMode !== null && M !== lensMode && fade > 0.98 && !reduce.matches) {
       // (A switch mid-fade starts from the colour now shown: near the end it is the new lens, otherwise the one it left.)
       if (!lensFrom || lensK() >= 0.5) lensFrom = lensMode;
-      lensT0 = PACED ? easeNow() : performance.now();   // (the eases' clock, frame.js easeNow, as the tissue's crossfades)
+      lensT0 = easeNow();   // (the wall clock, frame.js easeNow, as the tissue's crossfades)
     } else if (fade <= 0.98) lensFrom = null;
     lensMode = M;
   }
   function lensK() {
     if (!lensFrom) return 1;
-    const u = ((PACED ? easeNow() : performance.now()) - lensT0) / LENS_FADE;
+    const u = (easeNow() - lensT0) / LENS_FADE;
     if (u >= 1 || lensFrom === model.mode) { lensFrom = null; return 1; }
     return easeMove(u);
   }
@@ -4654,6 +4654,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // covers it. Zooming out (the zoom buttons, a pinch, the wheel), its back button or Escape reverse it.
   const sv = createSinusoidView({ host, before, share: { top: () => (shared && shareTop && gl && !gl.lost ? shareTop : null), order: LZ_UNDER_GLASS - 4, capOrder: LZ_UNDER_GLASS + 2 } });   // (the sinusoid is a pass of the stage's present too, over the lobule's, under the glass)
   let sinU = 0, sinTo = 0, sinRaf = 0, sinDive = null, sinPick = null, quietSin = false, sinPending = false;
+  const sinClock = createReversible({ ms: 1150 });   // (sinU's clock: reversible, motion.js)
   let sinZ = 0;   // (sinZ: the sinusoid zoom's log scale so far, for the tests)
   const easeIO = easeMove;   // (the sinusoid zoom is a move of the view: the camera's quintic, ease.js, which the pill and the bars that ride it share)
   // Which sinusoid, and where on it: the one whose card is open, else the one carrying the label.
@@ -4785,9 +4786,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const ch = clamp((fade - 0.55) / 0.45, 0, 1);
     el.style.setProperty('--lz-chrome', (ch * ch * (3 - 2 * ch)).toFixed(3));
   }
-  function resetSinusoid() { cancelFrame(sinRaf); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
+  function resetSinusoid() { cancelFrame(sinRaf); sinClock.set(0); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
   function diveSinusoid(on) {
-    if (quietSin) { sinTo = 0; cancelFrame(sinRaf); return; }   // the lobule view is closing: the sinusoid fades out with it
+    if (quietSin) { sinTo = 0; cancelFrame(sinRaf); sinClock.stop(); return; }   // the lobule view is closing: the sinusoid fades out with it
     // Asked for while the dive into the lobule is still on its way: it carries on into the sinusoid once the dive lands (setDiveZoom).
     if (on && fade < 0.98 && sv.available && store.get().lobule) sinPending = true;
     if (on && (!geo || fade < 0.98 || !model || !sv.available)) { queueMicrotask(() => { if (store.get().sinusoid && !sinTo) store.set({ sinusoid: false }); }); return; }   // alloc-rare: only when the zoom is asked for while the lobule cannot take it (once per such request)
@@ -4812,14 +4813,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!on) { diveDrawn = false; drawVersion++; tissueKey = ''; layoutKey = ''; }
     if (!raf && fade > 0) raf = nextFrame(loop);
     // (Lite mode: no zoom into or out of the sinusoid; it fades in.)
-    const from = sinU, ms = (reduce.matches ? 280 : on ? 1150 : 950) * Math.abs(to - from);
-    // (On the eases' clock, frame.js easeNow: a long frame holds the zoom back rather than letting it leap.)
-    const t0 = PACED ? easeNow() : performance.now();
+    // (On the one clock rule, motion.js: the honest wall clock, easeNow, with the first two frames held to 40 ms each. A reversal mid-way
+    // slews the zoom's velocity over D_FLIP, sinClock, instead of turning it round in one frame; the zoom's curve, easeIO, is a function of the position.)
+    const ms = (reduce.matches ? 280 : on ? 1150 : 950);   // (the full run's time; a reversal runs at the rate of the leg it turns into)
+    sinClock.sync(sinU); sinClock.aim(to, ms);
     cancelFrame(sinRaf);
-    const step = (now) => {   // alloc-rare: once per sinusoid-zoom gesture (its start); the frames of the zoom call this same function
-      const t = ms > 0 ? clamp(((PACED ? easeNow() : now) - t0) / ms, 0, 1) : 1;
-      sinU = lerp(from, to, t); placeSinusoid();
-      if (t < 1) sinRaf = nextFrame(step);
+    const step = () => {   // alloc-rare: once per sinusoid-zoom gesture (its start); the frames of the zoom call this same function
+      sinU = sinClock.tick(easeNow()); placeSinusoid();
+      if (sinU !== to) sinRaf = nextFrame(step);
       else if (!on) { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); if (refitLater) refit(); }
     };
     sinRaf = nextFrame(step);
@@ -5123,7 +5124,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** For the checks: the spot at the middle of the free space (lobule radii from its centre) and the zoom against the framing. */
     spot: () => (geo ? viewSpot() : null),
     /** For the checks: a "Colored by" crossfade is under way (0 … 1 through it), or null. */
-    lensFade: () => (lensFrom ? Math.min(1, ((PACED ? easeNow() : performance.now()) - lensT0) / LENS_FADE) : null),
+    lensFade: () => (lensFrom ? Math.min(1, (easeNow() - lensT0) / LENS_FADE) : null),
     /** For the checks: bytes held in the lobule's bitmaps (its canvases, world bitmap and field tiles). */
     memBytes(detail = false) {
       const b = (cv) => (cv ? cv.width * cv.height * 4 : 0);
