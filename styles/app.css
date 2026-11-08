@@ -7485,6 +7485,8 @@ body { font-optical-sizing: auto; font-kerning: normal; }
    them ([data-gl]); until then, and where it cannot, they keep the fill, ring and shadow above. */
 .menu, .umenu, .why-pop { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }
 :root:root :is(.menu, .umenu, .why-pop)[data-gl] { background: none; box-shadow: none; }
+/* A menu opened from inside a card lies over that card's words and pictures, which the page draws above the figure's canvas where the frost is: it keeps a plain fill (main.js cardsAway). */
+:root:root :is(.menu, .why-pop).over-card[data-gl] { background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); }
 .tooltip { --gl-tint: color-mix(in srgb, var(--text) 80%, transparent); --gl-drop: var(--shadow-2); }
 /* The main menu's preview card, the dialogs and the search palette are frosted GPU glass too (menu-glass.js). Their sticky head keeps no fill of its own over it. */
 .um-pv, .modal, .pal { --gl-tint: color-mix(in srgb, var(--surface) 76%, transparent); --gl-line: var(--hairline); --gl-drop: var(--shadow-3); }

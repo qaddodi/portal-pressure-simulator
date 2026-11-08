@@ -152,7 +152,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     el.querySelector('.um-q').focus();
   };
   // (The one surface on top, util.js claimSurface: Esc clears a typed search first and then closes; a tap outside closes. A question opened from a row is answered with the menu still open behind it.)
-  const surf = { anchor, box: () => (el && !el.classList.contains('sheet') ? el.getBoundingClientRect() : null), close: () => close(), has: (n) => !el || el.contains(n) || !!pv?.contains(n) || anchor.contains(n) || !!n.closest?.('#modalBack'), onEsc: () => { const q = el?.querySelector('.um-q'); if (q && q.value) { q.value = ''; query = ''; filter(); q.focus({ preventScroll: true }); return true; } return false; } };   // (a question opened from a row, Delete script or a name, is answered with the menu still open behind it)
+  const surf = { anchor, get el() { return el; }, box: () => (el && !el.classList.contains('sheet') ? el.getBoundingClientRect() : null), close: () => close(), has: (n) => !el || el.contains(n) || !!pv?.contains(n) || anchor.contains(n) || !!n.closest?.('#modalBack'), onEsc: () => { const q = el?.querySelector('.um-q'); if (q && q.value) { q.value = ''; query = ''; filter(); q.focus({ preventScroll: true }); return true; } return false; } };   // (a question opened from a row, Delete script or a name, is answered with the menu still open behind it)
 
   // ── Rows ──
   // A deck's level as a short muted word (Foundation, Core, Advanced), not a row of pips.

@@ -1481,15 +1481,18 @@ const CARDS = [
   { el: () => $('#treatCard'), shown: () => !$('#treatCard').hidden, close: () => closeTreat() },
   { el: () => $('#historyCard'), shown: () => !$('#historyCard').hidden, close: () => closeHistory() },
 ];
+// (The card a menu was opened from stays under it. The frost cannot hide that card's words, so the menu wears a plain fill there: .over-card, app.css.)
 function cardsAway(s) {
   const b = s.box?.();
+  let under = false;
   for (const c of CARDS) {
     if (!c.shown()) continue;
     const el = c.el();
-    if (s.anchor && el.contains(s.anchor)) continue;
     if (b) { const r = el.getBoundingClientRect(); if (r.right <= b.left || r.left >= b.right || r.bottom <= b.top || r.top >= b.bottom) continue; }
+    if (s.anchor && el.contains(s.anchor)) { under = true; continue; }
     c.close();
   }
+  s.el?.classList.toggle('over-card', under);
 }
 onSurfaceOpened(cardsAway);
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
