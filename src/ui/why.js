@@ -13,7 +13,7 @@ import { reduceMotionMQ } from './motion.js';
 export function createWhy(pop) {
   if (pop?.isConnected) sheetLayer().append(pop);   // (laid in the one sheet layer, cut on the dock's top line: sheet-layer.js)
   // (The one surface on top: util.js claimSurface routes Esc and the outside tap to it; a metric, finding, vital, button or link is not 'outside', it opens the next card.)
-  const me = { close: () => close(), has: (n) => pop.contains(n) || !!n.closest?.('.metric, .finding, .vital, .btn, .link') };
+  const me = { get anchor() { return anchorEl; }, box: () => (pop.classList.contains('as-sheet') ? null : pop.getBoundingClientRect()), close: () => close(), has: (n) => pop.contains(n) || !!n.closest?.('.metric, .finding, .vital, .btn, .link') };
   let openFor = null, anchorEl = null;
   // (Placed by util.js placeAt, the one placer: under the button, centred on it, or above it where there is no room. On a phone, upright
   // or an upright iPad, it is a short bottom sheet instead, as every other menu is there: CSS places it, with a scrim that takes the tap,

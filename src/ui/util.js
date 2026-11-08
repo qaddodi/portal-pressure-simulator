@@ -386,9 +386,15 @@ let openMenu = null;
 // A surface is { close(), has(target), onEsc?(e) } (onEsc answers true when it used the key itself, as the search field's clear does).
 let surface = null;
 const dialogUp = () => !!document.querySelector('#modalBack.show, .pal-back:not([hidden]):not(.leaving)');   // (a dialog on top has the keys and the taps)
+// A menu's frost is drawn in the figure's canvas, under every page element, so a card's own words and pictures lying under a menu show straight
+// through it (8 Nov 2026, Mohammad: "menus hate to be on top of each other"). main.js gives its hook (cards under the surface step away);
+// a surface says which box it is with s.box() (null: the whole screen) and what opened it with s.anchor.
+let surfaceOpened = null;
+export function onSurfaceOpened(fn) { surfaceOpened = fn; }
 export function claimSurface(s) {
   if (surface && surface !== s) { const old = surface; surface = null; old.close(); }
   surface = s; s.armed = false;
+  surfaceOpened?.(s);
   setTimeout(() => { s.armed = true; }, 0);   // (armed after this task, so the tap that opened it does not close it)
 }
 export function releaseSurface(s) { if (surface === s) surface = null; }
@@ -518,7 +524,7 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
   // The keyboard opening or closing (a search field) moves the visible bottom: place the menu again.
   const vv = window.visualViewport, onVV = () => { if (!asSheet) put(); };
   // (Armed after this task, so the tap that opened the menu does not close it; a close before then cancels it.)
-  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n) };
+  const me = { close: closePopover, has: (n) => el.contains(n) || anchor.contains(n), anchor, box: () => (asSheet ? null : el.getBoundingClientRect()) };
   claimSurface(me);
   vv?.addEventListener('resize', onVV);
   openMenu = { el, anchor, put, plate, scrim, cleanup: () => { releaseSurface(me); vv?.removeEventListener('resize', onVV); onClose?.(); } };

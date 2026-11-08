@@ -31,7 +31,7 @@ import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
-import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
@@ -1471,6 +1471,27 @@ function leave(el) {
   setTimeout(done, 400);
 }
 const arrive = (el) => { el.classList.remove('card-leaving'); switchIn(el); };
+// One at a time (8 Nov 2026, Mohammad: "menus hate to be on top of each other"). A menu's frost is drawn in the figure's canvas, under every
+// page element, so the words and pictures of a card lying under a menu show straight through it. So a card coming in puts the open menus
+// away, and a menu coming in sends away each card its box lies over (all of them when it is a sheet), except the card it was opened from.
+function surfacesAway() { closePopover(); why?.close(); mainMenu?.close(); }
+const CARDS = [
+  { el: () => $('#panel'), shown: () => app.classList.contains('panel-open'), close: () => closePanel() },
+  { el: () => $('#dock'), shown: () => app.classList.contains('dock-open'), close: () => setPanelTab('chart') },
+  { el: () => $('#treatCard'), shown: () => !$('#treatCard').hidden, close: () => closeTreat() },
+  { el: () => $('#historyCard'), shown: () => !$('#historyCard').hidden, close: () => closeHistory() },
+];
+function cardsAway(s) {
+  const b = s.box?.();
+  for (const c of CARDS) {
+    if (!c.shown()) continue;
+    const el = c.el();
+    if (s.anchor && el.contains(s.anchor)) continue;
+    if (b) { const r = el.getBoundingClientRect(); if (r.right <= b.left || r.left >= b.right || r.bottom <= b.top || r.top >= b.bottom) continue; }
+    c.close();
+  }
+}
+onSurfaceOpened(cardsAway);
 function panelShown() { return !app.classList.contains('instrument-focus') && app.classList.contains('panel-open'); }
 // The figure re-fits to the space the open cards leave (once as the card starts, again when its sheet has settled).
 // The patient's name in the top bar shows whole, never cut with "…" (sweep, 16 Oct: "Budd–Chiari (he…" on a phone held
@@ -1552,6 +1573,7 @@ function openPanel(tab = 'chart') {
   // The panel holds a selection's details, the advanced physiology or a pinned comparison; with none of them it stays shut.
   if (!store.get().details && !store.get().compareSnap) return;
   if (app.classList.contains('instrument-focus')) dock.setState('open');
+  if (!panelShown()) surfacesAway();
   // A phone has room for one sheet at a time: the chart puts Treat and the instruments away.
   if (isPhone()) { closeTreat(); if (app.classList.contains('dock-open')) setPanelTab('chart'); }
   else giveWay('panel');
@@ -1576,7 +1598,7 @@ function setPanelTab(tab) {
   const instr = tab === 'instruments';
   if (instr) dock.ensure();
   const was = app.classList.contains('dock-open');
-  if (instr && !was) giveWay('dock');   // (the other right-hand cards give way when they would leave the vessel card no strip)
+  if (instr && !was) { surfacesAway(); giveWay('dock'); }   // (the other right-hand cards give way when they would leave the vessel card no strip)
   if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
   $('#tabInstruments').setAttribute('aria-pressed', instr ? 'true' : 'false');
