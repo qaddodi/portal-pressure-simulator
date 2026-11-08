@@ -213,7 +213,10 @@ test('the rigid tip is drawn the same every frame: its own five samples, its len
 test('the scope, its sector and its needle are whole draws for the GPU catheter', () => {
   const r = route();
   const rgb = () => [0.5, 0.5, 0.5];
-  for (const t of [3000, 6600, 8000, 10000, 13500, 15500, 18000, 22000]) {
+  // (Sampled where the sequence has them: after the way in, which is as long as the route takes, so the times move with it.)
+  const shift = T.travel1 - 5200;
+  for (const t0 of [3000, 6600, 8000, 10000, 13500, 15500, 18000, 22000]) {
+    const t = t0 >= 5000 ? t0 + shift : t0;
     const f = procFrame('eus', t);
     const st = { ...f, ring: f.read ? 'var(--tr-pv)' : null, clock: t };
     const tipD = r.start + ((r.free + (r.hvD - r.free) * f.tgt) - r.start) * f.u;

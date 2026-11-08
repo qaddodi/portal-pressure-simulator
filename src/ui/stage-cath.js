@@ -5,12 +5,14 @@ import { flipAt, flipFrom } from './cath-flip.js';
 import { PILL_GAP, pillsClear, placePillsInto } from './cath-pill.js';
 import { outlineBox, placeSummary } from './cath-place.js';
 import { dropLabel } from './drop-label.js';
-import { D_SMALL, EASE_IN } from './ease.js';
+import { D_SMALL } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
 import { balloonOutline, balloonRy, routeRadii } from './hvpg-balloon.js';
+import { cathFadeAlpha } from './hvpg-clock.js';
 import { LIGHT } from './light.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { procSpecs } from './proc-routes.js';
 import { restPass } from './rest-pass.js';
 import { clamp, lerp, s } from './util.js';
 import { EUS_GLUE_ROUTE, EUS_ROUTE, eusDraw } from './eus-scope.js';
@@ -109,35 +111,9 @@ export function createCath(st, live) {
   // gastric feeder of the fundal varices. build lays the legs in the order the catheter travels (see procRoute); tip: where
   // the tip stops (a leg's name and how far along it); focus: the legs the close-up frames; start: how far along the lead-in
   // the tip sits before it moves.
+  // (TIPS, BRTO and BATO: proc-routes.js, which the timing tests read too.)
   const PROC_ROUTES = {
-    tips: { ids: ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'], start: 0.55, tip: ['trunk', 0.45], focus: ['hv', 'trunk'],
-      build(B) {
-        const top = geo.SVC_RA.cur[0], ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
-        B.pts([[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], 'SVC_RA', 0);
-        B.vessel('SVC_RA'); B.vessel('IVCS_RA', { rev: true });
-        B.vessel('IVC_IS', { rev: true, until: (q) => q[1] >= ost[1] - 4 });
-        // Out along the right hepatic vein to where the tract leaves it, then the needle's path through the liver (the tract,
-        // as wide as the stent will be) into the right portal vein, and the wire on into the portal trunk.
-        B.vessel('RHV_IVC', { rev: true, near: geo.TIPS.cur[geo.TIPS.cur.length - 1], name: 'hv' });
-        B.vessel('TIPS', { rev: true, name: 'tract', r: cathRadOf('PVH_R', 0.5) * 0.8 });
-        B.vessel('PVH_R', { rev: true, name: 'rpv' }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
-      } },
-    // (BRTO's balloon sits near the renal end of the shunt, 0.2 of the way up it: at 0.3 the tip and balloon lay on the splenic vein,
-    // which crosses the shunt from 0.30 to 0.34, and the catheter drew over it. Now the tip stops about 36 px below it.)
-    brto: { ids: ['ILI_IVC', 'IVC_IS', 'LRV_IVC', 'C5'], start: 0.55, tip: ['shunt', 0.2], focus: ['lrv', 'shunt'],
-      build(B) {
-        const bot = geo.ILI_IVC.cur[0], lrv = geo.LRV_IVC.cur[geo.LRV_IVC.cur.length - 1];
-        B.pts([[bot[0] + 4, bot[1] + 150], [bot[0] + 1, bot[1] + 60], bot], 'ILI_IVC', 0);
-        B.vessel('ILI_IVC'); B.vessel('IVC_IS', { until: (q) => q[1] <= lrv[1] + 4 });
-        B.vessel('LRV_IVC', { rev: true, name: 'lrv' }); B.vessel('C5', { rev: true, name: 'shunt' });
-      } },
-    bato: { ids: ['PVH_R', 'PV_TRUNK', 'SV_CONF', 'C2'], start: 0.1, tip: ['feeder', 0.35], focus: ['splenic', 'feeder'],
-      build(B) {
-        const rpv = geo.PVH_R.cur[geo.PVH_R.cur.length - 1];
-        B.pts([[rpv[0] - 215, rpv[1] + 34], [rpv[0] - 120, rpv[1] + 16], rpv], 'PVH_R', 1);
-        B.vessel('PVH_R', { rev: true }); B.vessel('PV_TRUNK', { rev: true });
-        B.vessel('SV_CONF', { rev: true, name: 'splenic' }); B.vessel('C2', { name: 'feeder' });
-      } },
+    ...procSpecs(geo, cathRadOf),
     eus: EUS_ROUTE,   // (EUS-PPG's echoendoscope: down the esophagus to the lesser curve, eus-scope.js)
     eusglue: EUS_GLUE_ROUTE,   // (EUS-guided coils and glue: the same scope, on under the fundus to a station over the varix)
   };
@@ -413,17 +389,17 @@ export function createCath(st, live) {
   // The catheter fades over a small step (240 ms). The readings leave as every reading does (cathLabels: cath-pre, cath-out): each label's own children
   // fade, so its glass, drawn on the GPU from the glass element's own opacity (glass-gl.js), fades with its words. A fade of the whole
   // layer was one that glass could not follow: the pills stayed solid after their words had gone.
+  // (One value drives both pictures: how much of the catheter is left, hvpg-clock.js cathFadeAlpha(k), written to the GPU draws' alpha and to the SVG group's opacity
+  // in the same frame, so the two cannot run on different curves. The SVG group is shown only without WebGL: the other is the fallback's.)
   const CATH_OUT_MS = D_SMALL, READING_OUT_MS = D_SMALL + 100;
   function cathFadeOut() {
-    const gs = live.veins?.canCath ? cathLast : null, anims = [];
+    const gs = live.veins?.canCath ? cathLast : null, svgOn = cath.g.style.display !== 'none';
     if (cath.made) for (const el of cath.made.values()) el.classList.add('cath-pre', 'cath-out');
-    if (cath.g.style.display !== 'none' && cath.g.animate) anims.push(cath.g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CATH_OUT_MS, easing: EASE_IN, fill: 'forwards' }));
     const me = { raf: 0, done: null, cleared: false }, t0 = performance.now();
     // The catheter itself: gone once its fade has run.
     const catheterGone = () => {
       if (me.cleared) return;
       me.cleared = true;
-      for (const a of anims) a.cancel();
       if (live.veins?.canCath) live.veins.setCath(null);
       live.cathVer++; live.stageWake();
       cath.g.style.display = 'none';
@@ -441,7 +417,11 @@ export function createCath(st, live) {
       const el = Math.max(0, now - t0), k = Math.min(1, el / CATH_OUT_MS);   // (the frame's clock can be a few ms before t0: 0, not a negative k that would draw the catheter brighter than it was)
       if (el >= READING_OUT_MS) { me.done(); return; }
       if (k >= 1) catheterGone();
-      else if (gs && live.veins?.canCath) { const a = (1 - k) * (1 - k); live.veins.setCath({ ...gs, draws: gs.draws.map((d) => ({ ...d, alpha: d.alpha * a })) }); live.cathVer++; live.stageWake(); }
+      else {
+        const a = cathFadeAlpha(k);
+        if (svgOn) cath.g.style.opacity = a;
+        if (gs && live.veins?.canCath) { live.veins.setCath({ ...gs, draws: gs.draws.map((d) => ({ ...d, alpha: d.alpha * a })) }); live.cathVer++; live.stageWake(); }
+      }
       me.raf = easeFrame(step);
     };
     live.cathFade = me;
@@ -849,9 +829,9 @@ export function createCath(st, live) {
   // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
   const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   // (steady: a refit to cards that moved, see animateVT.)
-  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false } = {}) {
+  function cathFocus(mode, ms = 700, { both = false, near = false, arc = false, steady = false, scale = false } = {}) {   // (scale: the camera's own time for how far it goes, ms its ceiling: animateVT)
     const r = cathRoute();
-    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { arc }); cath.saved = null; return true; }
+    if (mode === 'home') { if (cath.saved) animateVT(cath.saved, ms, { arc, scale }); cath.saved = null; return true; }
     if (!r) return false;
     if (!cath.saved) cath.saved = { ...(live.vtTarget && live.vtAnim ? live.vtTarget : live.vt) };
     const wr = wrap.getBoundingClientRect(), ins = safeInsets();
@@ -888,7 +868,7 @@ export function createCath(st, live) {
         cx = (Math.min(...ax) + Math.max(...ax)) / 2; cy = (Math.min(...ay) + Math.max(...ay)) / 2;
       } else if (mode === 'way') [cx, cy] = cathAt(r, Math.max(r.start + (r.free - r.start) * clamp(cath.st?.u || 0, 0, 1), procIn(r))).p;
       else { cx = (x0 + x1) / 2; cy = (y0 + y1) / 2; }
-      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms, { arc, steady });
+      animateVT({ k, x: (fr.x0 + fr.x1) / 2 - cx * k, y: (fr.y0 + fr.y1) / 2 - cy * k }, ms, { arc, steady, scale });
       return true;
     } else if (mode === 'tip') {
       const tp = cutLen(r.pts, r.cum, 0, r.free).at(-1);

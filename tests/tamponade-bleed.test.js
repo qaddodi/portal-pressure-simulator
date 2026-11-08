@@ -178,6 +178,7 @@ test('the tube goes in in order: the tube, then the gastric balloon and its trac
   assert.match(stage, /if \(wantGas\) \{ if \(bal\.adv >= 1\) bal\.gas = Math\.min\(1, bal\.gas \+ dt \/ BAL_INF_MS\); \}/, 'the gastric balloon fills only once the tube is in');
   assert.match(stage, /else if \(bal\.eso <= 0\) bal\.gas = Math\.max\(0, bal\.gas - out \/ BAL_INF_MS \* 1\.5\);/, 'and is let down once the esophageal one is');
   assert.match(stage, /else if \(bal\.gas <= 0\) bal\.adv = Math\.max\(0, bal\.adv - out \/ BAL_ADV_MS \* 1\.5\);/, 'the tube comes out last');
+  assert.match(stage, /const balEase = easeMove;/, 'the tube’s balloons fill on the one inflation curve (motion recommendation 8)');
   assert.match(stage, /const pull = balEase\(Math\.min\(1, Math\.max\(0, \(bal\.gas - 0\.45\) \/ 0\.55\)\)\);/, 'the traction is the second half of the gastric balloon filling: it is seated when the balloon is full');
   assert.match(stage, /const gs = gasShape\(kG, pull\)/, 'drawn from the fitted shape');
   assert.doesNotMatch(stage, /SITES\.fundus\b[^\n]*circ\(/, 'no more round balloon at a fixed spot in the fundus');
