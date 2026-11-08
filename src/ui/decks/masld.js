@@ -7,6 +7,8 @@
 
 const SCAN = { kind: 'fibroscan' };
 const PROFILE = { kind: 'profile' };
+// (The two gradients on one plane, with the line where the wedge reads the portal pressure: a dot above it is the HVPG under-reading.)
+const PLANE = { kind: 'plane', plane: { base: 'hvpg-ppg', diag: { label: 'HVPG = PPG' } } };
 const GAPS = 'The two gradients', STIFF = 'Stiffness and weight', MORE = 'Drugs and alcohol';
 
 export const MASLD = {
@@ -30,38 +32,38 @@ export const MASLD = {
       id: 'under', preset: 'masld-csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: PROFILE, key: ['hvpg', 'ppg'],
       vignette: 'A 57-year-old woman with MASH, type 2 diabetes and a BMI of 36 has a nodular liver, a large spleen and platelets of 82,000/µL. She has no ascites and has never bled.',
       caseQ: 'Will her HVPG show the whole portal gradient?',
-      kicker: GAPS, site: 'sin', title: 'In obese MASLD cirrhosis the HVPG can read below the portal gradient',
+      kicker: GAPS, site: 'sin', title: 'In obese MASLD cirrhosis the HVPG can read below the portal gradient', cite: 'Baveno VIII 2.5',
       line: 'Her HVPG is {hvpg}, yet the PPG is {ppg}. Resistance before the sinusoids lies upstream of the wedge, so the wedged pressure does not see it.',
-      notes: 'Baveno VIII (2.5) says that in MASLD-related cACLD the HVPG may underestimate the true portal pressure gradient. The model reads that as extra resistance before the sinusoids, in the portal venules and the periportal scar: the wedged catheter reads the sinusoids and everything downstream of them, so it misses that part and the HVPG falls short of the PPG. That placement is the model\'s explanation, not a proven mechanism, and it exaggerates the case: in patients the gap is smaller and varies. The BMI and the diabetes are in the case only; the model has neither. (Baveno VIII 2.5.)',
+      notes: 'Baveno VIII (2.5) says that in MASLD-related cACLD the HVPG may underestimate the true portal pressure gradient. The model reads that as extra resistance before the sinusoids, in the portal venules and the periportal scar: the wedged catheter reads the sinusoids and everything downstream of them, so it misses that part and the HVPG falls short of the PPG. That placement is the model\'s explanation, not a proven mechanism, and it exaggerates the case: in patients the gap is smaller and varies. The BMI and the diabetes are in the case only; the model has neither.',
       ask: ['Her HVPG is 11 mmHg and the PPG, read in the portal vein, is 14 mmHg. Why do they differ?', 'Part of the resistance lies before the sinusoids, which the wedged catheter does not read. The HVPG then under-reads the portal gradient.'],
     },
     {
       id: 'still',
-      cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: PROFILE, key: ['hvpg', 'ppg'],
-      kicker: GAPS, site: 'sin', title: 'An HVPG ≥10 mmHg still carries the risk',
+      cam: 'route', labels: ['CONF', 'SIN_R', 'RHV'], tool: PLANE, key: ['hvpg', 'ppg'],
+      kicker: GAPS, site: 'sin', title: 'An HVPG ≥10 mmHg still carries the risk', cite: 'Baveno VIII 2.5',
       line: 'An HVPG of {hvpg} is {>=10 mmHg}, which goes with a clearly higher risk of decompensation. A lower HVPG carries a lower risk, but not none.',
-      notes: 'Baveno VIII (2.5) adds that an HVPG of 10 mmHg or more remains associated with a significantly higher risk of decompensation than the lower, though still present, risk seen below 10 mmHg. Because the HVPG can under-read in MASLD, a measured value is the least the portal gradient can be, so a value just under 10 mmHg does not clear a patient. In a milder cirrhosis the HVPG can fall under 10 mmHg while the PPG stays high. (Baveno VIII 2.5.)',
+      notes: 'Baveno VIII (2.5) adds that an HVPG of 10 mmHg or more remains associated with a significantly higher risk of decompensation than the lower, though still present, risk seen below 10 mmHg. Because the HVPG can under-read in MASLD, a measured value is the least the portal gradient can be, so a value just under 10 mmHg does not clear a patient. In a milder cirrhosis the HVPG can fall under 10 mmHg while the PPG stays high. On the plane, a dot above the dashed line is a PPG higher than the HVPG, and a dot to the right of the HVPG 10 line is CSPH whatever the PPG.',
       ask: ['In obese MASLD cirrhosis the HVPG is 8 mmHg. Does that exclude a raised portal gradient?', 'No. The HVPG can under-read, and the risk at an HVPG <10 mmHg is lower but still present.'],
     },
     {
-      id: 'bmi', cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt'], key: ['plt'],
-      kicker: STIFF, site: 'sin', title: 'At a BMI ≥30, a model that adds the BMI decides, not the 25 kPa rule',
+      id: 'bmi', cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt', 'ssm'],
+      kicker: STIFF, site: 'sin', title: 'At a BMI ≥30, a model that adds the BMI decides, not the 25 kPa rule', cite: 'Baveno VIII 1.14, 1.16',
       line: 'Her stiffness is {lsm} and her platelets {plt}. The 25 kPa rule needs a BMI <30; a model that adds the BMI estimates the probability, and ≥75% means CSPH.',
-      notes: 'The 25 kPa rule-in covers viral and alcohol-related disease and non-obese (BMI under 30) MASLD. In MASLD with obesity (BMI 30 or more) Baveno VIII uses ANTICIPATE-NASH, built on the stiffness, the platelets and the BMI, or NICER, to estimate the probability of CSPH, and calls it present at 75% or more. The model has no BMI, so it shows the stiffness and platelets and leaves the probability to the calculator. Stiffness 15 to 25 kPa is the gray zone, where a model or a spleen stiffness settles it. (Baveno VIII 1.14, 1.16.)',
+      notes: 'The 25 kPa rule-in covers viral and alcohol-related disease and non-obese (BMI under 30) MASLD. In MASLD with obesity (BMI 30 or more) Baveno VIII uses ANTICIPATE-NASH, built on the stiffness, the platelets and the BMI, or NICER, to estimate the probability of CSPH, and calls it present at 75% or more. The model has no BMI, so it shows the stiffness and platelets and leaves the probability to the calculator. Stiffness 15 to 25 kPa is the gray zone, where a model or a spleen stiffness settles it: a spleen stiffness above 55 kPa rules CSPH in (1.16). Hers is under that line, so the spleen stiffness tile does not settle her case.',
       ask: ['A man with MASH, a BMI of 36 and a stiffness of 27 kPa. Is CSPH ruled in?', 'Not by the 25 kPa rule, which is for a BMI <30. ANTICIPATE-NASH decides: ≥75% means CSPH.'],
     },
     {
-      id: 'start', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt'], key: ['plt'],
+      id: 'start', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, cam: 'liver', tool: SCAN, data: 'tiles', tiles: ['plt', 'ssm'], key: ['plt'],
       vignette: 'A 50-year-old man with MASH cirrhosis and a BMI of 34 has a stiffness of 15 kPa and platelets of 160,000/µL. He has never had ascites or bleeding, and begins a diet and exercise program.',
-      kicker: STIFF, site: 'sin', title: 'Without CSPH, a falling stiffness can be followed',
+      kicker: STIFF, site: 'sin', title: 'Without CSPH, a falling stiffness can be followed', cite: 'Baveno VIII 1.15, 2.6',
       line: 'In another patient, stiffness {lsm} with platelets {plt} rules CSPH out. Without CSPH, Baveno VIII reads a large, confirmed fall in stiffness as possible fibrosis regression.',
-      notes: 'A stiffness of 15 kPa or less with platelets of 150,000/µL or more rules CSPH out (Baveno VIII 1.15). The statement on regression applies only in patients without CSPH: with CSPH, a falling stiffness is not read this way. Stiffness is measured fasting and confirmed on a repeat scan. (Baveno VIII 1.4, 1.15, 2.6.)',
+      notes: 'A stiffness of 15 kPa or less with platelets of 150,000/µL or more rules CSPH out (Baveno VIII 1.15). The statement on regression applies only in patients without CSPH: with CSPH, a falling stiffness is not read this way. Stiffness is measured fasting and confirmed on a repeat scan (1.4).',
       ask: ['Which patients does the regression statement cover?', 'Patients with MASLD-related cACLD without CSPH.'],
     },
     {
       id: 'regress', days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Diet starts', to: 'One year later' }, cam: 'liver',
       tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 }, title: 'Body weight and stiffness over the year' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
-      kicker: STIFF, site: 'sin', title: 'Losing 12% of his weight can lower the stiffness by 30%',
+      kicker: STIFF, site: 'sin', title: 'Losing 12% of his weight can lower the stiffness by 30%', cite: 'Baveno VIII 2.13, 2.6',
       line: 'A year on, his stiffness has fallen from {lsm@start} to {lsm}. A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.',
       notes: 'In MASLD-related cACLD, a weight loss of 10% or more goes with a fall in stiffness of 30% or more (Baveno VIII 2.13). In patients without CSPH, a confirmed relative fall of 30% or more may indicate fibrosis regression of at least one stage (2.6), and combining it with an improving second test such as the ELF score makes the call more accurate (2.7). Baveno VIII prefers to read these changes as a change in the risk of liver-related events, not as a fibrosis stage (2.8, 2.9). In the model the scar eases evenly over the year; in patients the course is less regular. The 12% is the slide\'s own figure.',
       ask: ['His stiffness falls from 15 to 10 kPa on two scans, and he has no CSPH. What may that mean?', 'A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.'],
@@ -78,9 +80,9 @@ export const MASLD = {
     {
       id: 'alcohol', preset: 'csph', params: { cirrhosis: 0.62 }, cam: 'liver', data: 'tiles', tiles: ['hvpg', 'lsm'], key: ['hvpg'],
       vignette: 'A 52-year-old man with MASH, type 2 diabetes and a BMI of 31 drinks four beers most evenings. He has compensated cirrhosis with small varices, no ascites and no history of bleeding.',
-      kicker: MORE, site: 'sin', title: 'With alcohol on top, the advice is to stop, not to cut down',
+      kicker: MORE, site: 'sin', title: 'With alcohol on top, the advice is to stop, not to cut down', cite: 'Baveno VIII 2.1, 2.2, Table 3',
       line: 'In another patient with CSPH, drinking adds to the fatty liver disease. In alcohol-related disease Baveno VIII favors complete abstinence over reduction, and encourages it in all cirrhosis.',
-      notes: 'Return to or continuation of alcohol use is a major driver of liver-related events in alcohol-related cACLD (Baveno VIII 2.1), and in that setting complete abstinence is favored over reduction (2.2). The statement is written for alcohol-related disease. For cirrhosis of any cause, a consensus statement that still stands from earlier Baveno meetings encourages abstinence (Table 3), so a man with MASH who drinks heavily is advised to stop. The model has no alcohol, so the numbers show his cirrhosis only. (Baveno VIII 2.1, 2.2, Table 3.)',
+      notes: 'Return to or continuation of alcohol use is a major driver of liver-related events in alcohol-related cACLD (Baveno VIII 2.1), and in that setting complete abstinence is favored over reduction (2.2). The statement is written for alcohol-related disease. For cirrhosis of any cause, a consensus statement that still stands from earlier Baveno meetings encourages abstinence (Table 3), so a man with MASH who drinks heavily is advised to stop. The model has no alcohol, so the numbers show his cirrhosis only.',
       ask: ['A man with MASH cirrhosis drinks four beers a night. Is cutting down enough?', 'No. Complete abstinence is favored over reduction, and encouraged in all cirrhosis.'],
     },
     {

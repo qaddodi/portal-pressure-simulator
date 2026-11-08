@@ -219,7 +219,13 @@ test('Circulation 4/13 numbers each bed\'s vessels as a group, in a frame that h
   const circ = DECKS.find((d) => d.id === 'circulation'), s = circ.slides.find((x) => x.id === 'series');
   assert.deepEqual(s.glow, [['V_INT', 'V_SPL', 'V_IMV'], ['SIN_RR', 'SIN_LL']]);
   assert.ok(adopted(circ, s, 'glow:group'));
-  const [x0, y0, x1, y1] = s.cam;
+  // The camera frames the bed's vessels by name (cam-frame.js: the box is what the names fill, with room for their leaders and labels), so
+  // every vessel in the glow groups is named in it; a raw box (older form) is checked against each vessel's middle below.
+  if (s.cam && !Array.isArray(s.cam)) {
+    assert.deepEqual(s.cam.on.filter((id) => s.glow.flat().includes(id)).sort(), s.glow.flat().sort(), 'the camera names every vessel it numbers');
+    assert.equal(s.cam.near, 'route', 'and starts from the route, as the older box did');
+  }
+  const [x0, y0, x1, y1] = Array.isArray(s.cam) ? s.cam : [-Infinity, -Infinity, Infinity, Infinity];
   // Each vessel's middle (and the solid stretch of one that fades out of its organ) lies inside the camera's box.
   const paths = { V_INT: 'M756 800 C 752 758 700 716 690 660', V_SPL: 'M1034 360 C 1010 385 988 420 962 448', V_IMV: 'M932 690 C 925 620 905 560 880 505' };
   for (const [id, d] of Object.entries(paths)) {

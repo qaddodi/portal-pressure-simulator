@@ -27,6 +27,8 @@ const VITALS = { kind: 'vitals', show: ['hr', 'map', 'co'] };
 const BELLY = { kind: 'abdomen' };
 const TAP = { kind: 'paracentesis', mL: 5100, albumin: true };
 const BLEED = { kind: 'hemorrhage', mL: 1300 };
+// (Four units of red cells give back the 1.3 L of BLEED; the albumin goes with the terlipressin. The model's bleed is replaced before the HRS-AKI slide.)
+const UNIT = { kind: 'infuse', fluid: 'prbc' }, ALBUMIN = { kind: 'infuse', fluid: 'albumin' };
 const CARV_ON = { drugs: { carvedilol: true } }, CARV_OFF = { drugs: { carvedilol: false } };
 const TILES = ['map', 'rpp'];
 
@@ -48,8 +50,8 @@ export const KIDNEY = {
   slides: [
     {
       id: 'arteries', preset: 'cirr-decomp', cam: 'fit', tool: VITALS,
-      vignette: 'A 58-year-old man with alcohol-associated cirrhosis has ascites on spironolactone and furosemide, large esophageal varices and an albumin of 2.8 g/dL.',
-      kicker: 'Kidney pressure', site: 'sin', title: 'Wide arteries leave the MAP low in decompensated cirrhosis',
+      vignette: 'A 58-year-old man with alcohol-associated cirrhosis has ascites controlled on spironolactone and furosemide, large esophageal varices and an albumin of 2.8 g/dL.',
+      kicker: 'Kidney pressure', site: 'sin', title: 'Wide arteries leave the MAP low in decompensated cirrhosis', cite: 'AASLD 2024, Figure 2',
       line: 'His arteries are wide and underfilled. The heart beats at {hr} and pumps {co}, yet the mean arterial pressure is only {map}.',
       notes: 'In decompensated cirrhosis the splanchnic and systemic arteries are wide, the effective arterial blood volume is low and the kidneys hold sodium and water; at a late stage compensatory renal vasoconstriction produces hepatorenal syndrome (AASLD 2024, introduction and Figure 2). The heart works harder to make up for it, so the output rises and the arterial pressure still falls. This is the starting point for the talk: every kidney pressure that follows begins from this MAP. The model has the wide arteries and the low MAP, and it has no kidneys.',
       ask: ['Why is the MAP low in decompensated cirrhosis although the cardiac output is high?', 'The arteries are wide, so the resistance has fallen by more than the output has risen.'],
@@ -68,22 +70,22 @@ export const KIDNEY = {
       cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'rpp'], key: ['rpp'], delta: 'pressure',
       kicker: 'Kidney pressure', site: 'sin', title: 'A tense abdomen takes pressure from the kidneys',
       line: 'He stops his diuretics. Four months on, {asc} of fluid fills the abdomen, and the kidney pressure falls from {rpp@pressure} to {rpp}.',
-      notes: 'The pressure inside the abdomen rises with the volume of ascites, slowly at first and steeply once the belly is tense. The MAP barely moves, so the whole fall in the kidney pressure comes from the abdomen. In patients a tense abdomen also compresses the renal veins and cuts the urine output. The model keeps to the pressure and has no urine. The serum albumin falls over the four months, as it did in the Ascites talk.',
+      notes: 'The pressure inside the abdomen rises with the volume of ascites, and faster once the belly is tense. The MAP falls only a little, so most of the fall in the kidney pressure comes from the abdomen. In patients a tense abdomen also compresses the renal veins and cuts the urine output. The model keeps to the pressure and has no urine. The serum albumin falls over the four months, as it did in the Ascites talk.',
       ask: ['The MAP is unchanged and the ascites has grown to 5 L. What happened to the kidney pressure, and why?', 'It fell, because the pressure inside the abdomen rose and the kidneys are fed at the MAP less that pressure.'],
     },
     {
       id: 'tap', action: TAP, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'rpp'], key: ['rpp'], delta: 'tense',
-      kicker: 'Kidney pressure', site: 'sin', title: 'A large-volume tap raises the kidney pressure',
+      kicker: 'Kidney pressure', site: 'sin', title: 'A large-volume tap raises the kidney pressure', cite: 'Baveno VIII Table 3',
       line: 'The tap drains the abdomen to {asc}, so the abdomen pushes back less and the kidney pressure rises to {rpp}. Albumin goes with the tap.',
-      notes: 'Draining the fluid takes the abdomen back to its resting pressure and gives the pressure back to the kidneys. Short-term albumin is indicated with a large-volume paracentesis (Baveno VIII, Table 3, a statement that remains valid from earlier Baveno reports); without it a large tap can lower the effective blood volume further and injure the kidneys, which the model does not show. In the model the albumin raises the serum albumin and the kidney pressure follows the abdomen. The MAP dips a little with the tap.',
+      notes: 'Draining the fluid takes the abdomen back to its resting pressure and gives the pressure back to the kidneys. Short-term albumin is indicated with a large-volume paracentesis (Baveno VIII, Table 3, a statement that remains valid from earlier Baveno reports); without it a large tap can lower the effective blood volume further and injure the kidneys, which the model does not show. In the model the albumin raises the serum albumin and the kidney pressure follows the abdomen. The MAP changes little with the tap.',
       ask: ['Why does albumin go with a large-volume tap?', 'It guards the effective blood volume so the arteries do not fall further and the kidneys are not injured. Baveno VIII Table 3 keeps short-term albumin for large-volume paracentesis.'],
     },
     {
       id: 'carv', params: CARV_ON, cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'tap',
       compare: [{ label: 'No beta-blocker', short: 'None', params: CARV_OFF }, { label: 'Carvedilol', own: true, params: CARV_ON }],
-      kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the MAP, and the kidney pressure with it',
+      kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the MAP, and the kidney pressure with it', cite: 'Baveno VIII 4.4, 4.6 · AASLD 2024',
       line: 'Carvedilol relaxes the arteries as well as the liver. The MAP falls to {map} and the kidney pressure to {rpp}, which is still {>=60 mmHg}.',
-      notes: 'Carvedilol lowers the portal pressure and, through its α1 blockade, the arterial pressure. In this man the fall is small, and the kidney pressure stays clear of its line. In a patient with a lower MAP to begin with, or a bleed or an infection, the same fall can take the MAP across 65 mmHg. Carvedilol is preferred over the other non-selective beta-blockers (Baveno VIII 4.4), so the question is how to use it safely, and the next slide gives the rule (Baveno VIII 4.6, 4.7).',
+      notes: 'Carvedilol lowers the portal pressure and, through its α1 blockade, the arterial pressure. In this man the fall is small, and the kidney pressure stays clear of its line. In a patient with a lower MAP to begin with, or a bleed or an infection, the same fall can take the MAP across 65 mmHg. AASLD 2024 adds that a systolic pressure below 90 mmHg may take away the survival benefit of a non-selective beta-blocker, possibly by lowering the renal perfusion pressure and raising the risk of HRS-AKI, and suggests propranolol or nadolol for a patient whose pressure is low on a low dose of carvedilol. Carvedilol is preferred over the other non-selective beta-blockers (Baveno VIII 4.4), so the question is how to use it safely, and the next slide gives the rule (Baveno VIII 4.6, 4.7).',
       ask: ['What does carvedilol do to the MAP, and why does it matter for the kidneys?', 'It lowers it, because it relaxes the arteries. A lower MAP leaves the kidneys a lower pressure.'],
     },
     {
@@ -107,10 +109,10 @@ export const KIDNEY = {
       ask: ['A man on carvedilol has a MAP of 62 mmHg after a bleed. What do you do with the carvedilol, and when does it restart?', 'Reduce the dose or stop it. Restart once the blood pressure has recovered and any HRS-AKI has resolved.'],
     },
     {
-      id: 'terli', params: { drugs: { carvedilol: false, terlipressin: true } }, action: { kind: 'infuse', fluid: 'albumin' }, cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'hold',
-      kicker: 'HRS-AKI', site: 'sin', title: 'Terlipressin with albumin lifts the MAP in HRS-AKI',
-      line: 'For HRS-AKI, consider terlipressin with albumin, preferably as a continuous infusion starting at {2 to 3 mg/24 h}. The MAP rises to {map}, the kidney pressure to {rpp}.',
-      notes: 'Baveno VIII 6.18: in HRS-AKI, treatment with terlipressin and albumin should be considered (LoE 1, strong). 6.19: terlipressin is preferably given as a continuous intravenous infusion, starting at 2 to 3 mg/24 h, to reduce adverse events. Terlipressin narrows the splanchnic and systemic arteries, so the MAP rises; the albumin fills the circulation. Carvedilol is on hold in this state. The model shows the rise in the MAP and the kidney pressure and cannot show the kidney recovering. The heart rate is faster than before because carvedilol is off and the bleed has not been replaced.',
+      id: 'terli', params: { drugs: { carvedilol: false, terlipressin: true } }, action: [UNIT, UNIT, UNIT, UNIT, ALBUMIN], cam: 'fit', tool: VITALS, data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'carv',
+      kicker: 'HRS-AKI', site: 'sin', title: 'Terlipressin with albumin lifts the MAP in HRS-AKI', cite: 'Baveno VIII 6.18, 6.19',
+      line: 'Once the bleed is replaced, consider terlipressin with albumin for HRS-AKI, preferably as a continuous infusion starting at {2 to 3 mg/24 h}. The MAP rises to {map}.',
+      notes: 'Baveno VIII 6.18: in HRS-AKI, treatment with terlipressin and albumin should be considered (LoE 1, strong). 6.19: terlipressin is preferably given as a continuous intravenous infusion, starting at 2 to 3 mg/24 h, to reduce adverse events. Terlipressin narrows the splanchnic and systemic arteries, so the MAP rises; the albumin fills the circulation. HRS-AKI is not blood loss, so the 1.3 L bleed of the last slide is replaced first, with four units of red cells, and the tiles compare with the state before the bleed. Carvedilol is on hold in this state, which is why the heart rate is a little faster than on carvedilol. The model shows the rise in the MAP and the kidney pressure and cannot show the kidney recovering.',
       ask: ['How is terlipressin given in HRS-AKI, and what goes with it?', 'Preferably as a continuous infusion, starting at 2 to 3 mg/24 h, with albumin.'],
     },
     {
@@ -132,8 +134,8 @@ export const KIDNEY = {
       ask: ['What is checked about the kidneys before a TIPS for refractory ascites?', 'Renal function in every patient, with chronic kidney disease staged by eGFR for risk stratification.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['map', 'asc', 'rpp'], asc: false, vs: 'first', rowHead: 'State',
-      of: [{ id: 'arteries', kicker: 'Start', title: 'Ascites on diuretics' }, { id: 'tense', kicker: 'Tense abdomen', title: 'Four months off diuretics' }, { id: 'tap', kicker: 'Tap', title: 'Paracentesis with albumin' }, { id: 'carv', kicker: 'Drug', title: 'Carvedilol' }, { id: 'hold', kicker: 'Bleed', title: 'Large bleed on carvedilol' }, { id: 'terli', kicker: 'HRS-AKI', title: 'Terlipressin with albumin' }],
+      id: 'summary', visual: 'table', cols: ['map', 'hr', 'asc', 'rpp'], asc: false, vs: 'first', rowHead: 'State',
+      of: [{ id: 'arteries', kicker: 'Start', title: 'Ascites on diuretics' }, { id: 'tense', kicker: 'Tense abdomen', title: 'Four months off diuretics' }, { id: 'tap', kicker: 'Tap', title: 'Paracentesis with albumin' }, { id: 'carv', kicker: 'Drug', title: 'Carvedilol' }, { id: 'hold', kicker: 'Bleed', title: 'Large bleed on carvedilol' }, { id: 'terli', kicker: 'HRS-AKI', title: 'Terlipressin, albumin, bleed replaced' }],
       kicker: 'Summary', title: 'What moves the kidney pressure',
       line: 'The MAP and the abdomen\'s pressure set the kidney pressure. A tap and terlipressin raise it, and carvedilol and a bleed lower it.',
       notes: 'The kidney pressure follows two things: the MAP, which the wide arteries hold low and carvedilol and a bleed lower further, and the pressure in the abdomen, which tense ascites raises and a tap brings back. Terlipressin with albumin lifts the MAP. Carvedilol is cut back with a MAP <65 mmHg or HRS-AKI and restarted once they have resolved. Norepinephrine is the alternative to terlipressin, and the kidneys are staged by eGFR before a TIPS. The tile is a pressure and does not measure kidney function.',

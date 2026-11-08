@@ -34,7 +34,7 @@ export const HYPERDYNAMIC = {
       ask: ['If the cardiac output rises and the mean arterial pressure falls, what has happened to the systemic resistance?', 'It has fallen, by more than the output rose.'],
     },
     {
-      id: 'dilate', preset: 'cirr-comp', params: {}, days: 365, ramp: { cirrhosis: [0.4, 0.85] }, lapse: { seconds: 10, from: 'Compensated', to: 'Decompensated' }, graph: ['map', 'co'], cam: 'fit', lens: 'flow', tool: VITALS,
+      id: 'dilate', preset: 'cirr-comp', params: {}, days: 365, ramp: { cirrhosis: [0.4, 0.85] }, lapse: { seconds: 10, from: 'Compensated', to: 'Large varices' }, graph: ['map', 'co'], cam: 'fit', lens: 'flow', tool: VITALS,
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis opens the arteries',
       line: 'Nitric oxide and other vasodilators open the arteries. A year on, the heart beats at {hr} and pumps {co}, yet the mean arterial pressure has fallen to {map}.',
       notes: 'In cirrhosis the gut and the systemic arteries make and meet more vasodilators, nitric oxide first among them, and respond less to vasoconstrictors. The arterial pressure falls, the baroreflex speeds the heart, and the cardiac output rises: the hyperdynamic circulation that AASLD describes once portal hypertension is clinically significant. Colored by flow, the figure shows more blood moving through the wide gut arteries. (AASLD 2024.)',
@@ -56,16 +56,16 @@ export const HYPERDYNAMIC = {
       ask: ['Why does the blood volume rise in cirrhosis although the arteries seem underfilled?', 'The kidneys keep sodium and water in answer to the low effective arterial volume, but the extra fluid sits in the wide splanchnic bed and the peritoneum.'],
     },
     {
-      id: 'forward', cam: 'portal', terms: ['pv'], tool: VITALS, data: 'tiles', tiles: ['bv', 'pv'], key: ['pv'], delta: 'rest',
+      id: 'forward', reveal: true, cam: 'portal', terms: ['pv'], tool: { kind: 'causes', metric: 'pv' }, data: 'tiles', tiles: ['bv', 'pv'], key: ['pv'], delta: 'rest',
       whatIf: { label: 'Gut arteriole tone', param: 'splanchnicTone', min: 0.6, max: 1.6, step: 0.05, ends: ['Dilated', 'Constricted'] },
       kicker: 'Cirrhosis', site: 'sin', title: 'Wide gut arteries keep the portal pressure up',
-      line: 'Wide gut arteries pour more blood into the [portal vein](pv) and hold its pressure at {pv}. Tighter arteries lower it, as beta-blockers do.',
-      notes: 'The slider tightens or widens them. Portal pressure is portal inflow times the resistance it meets. The resistance rises first, in the scarred liver; once the gradient reaches about 10 mmHg, collaterals and splanchnic vasodilation follow, and the extra inflow pushes the pressure higher still (AASLD 2024, Figure 2). The slider changes the tone of the gut arterioles: dilated adds inflow, constricted takes it away.',
+      line: 'Wide gut arteries pour more blood into the [portal vein](pv) | and hold its pressure at {pv}. | Tighter arteries lower it, as beta-blockers do.',
+      notes: 'The slider tightens or widens them. Portal pressure is portal inflow times the resistance it meets. The resistance rises first, in the scarred liver; once the gradient reaches about 10 mmHg, collaterals and splanchnic vasodilation follow, and the extra inflow pushes the pressure higher still (AASLD 2024, Figure 2). The slider changes the tone of the gut arterioles: dilated adds inflow, constricted takes it away. The waterfall starts at the healthy portal pressure. The scar is the largest step to the right, the wide gut arteries and the extra blood volume add inflow, and the collaterals take some pressure off again, a step to the left. The last bar is the portal pressure in the tile.',
       ask: ['Two parts make the portal pressure. Name them.', 'The resistance to portal flow (the liver and the collaterals) and the portal inflow from the gut arteries.'],
     },
     {
       id: 'full', preset: 'cirr-decomp', cam: 'route', terms: ['pv'], tool: VITALS, data: 'tiles', tiles: ['pv'], key: ['pv'],
-      vignette: 'A 49-year-old woman with MASH cirrhosis has ascites on spironolactone and furosemide, large esophageal varices and an albumin of 2.8 g/dL.',
+      vignette: 'A 49-year-old woman with MASH cirrhosis has ascites controlled on spironolactone and furosemide, large esophageal varices and an albumin of 2.8 g/dL. She could not tolerate a beta-blocker.',
       kicker: 'Losing blood', site: 'sin', title: 'The volume behind the portal pressure',
       line: 'The vessels hold {bv} of blood, and the [portal vein](pv) pressure is {pv}. What fills the circulation fills the portal system too.',
       notes: 'Cirrhosis widens the splanchnic and systemic arteries, and the kidneys keep salt and water to fill them, so the blood volume is larger than in health. The portal pressure depends on the resistance of the liver and on how much blood flows in. Volume changes the second.',
@@ -80,12 +80,12 @@ export const HYPERDYNAMIC = {
       ask: ['Why does the portal pressure fall during a bleed?', 'Less volume means less inflow into the portal system.'],
     },
     {
-      // (Eight units after the liter lost: the blood volume ends about 400 mL past where he started.)
+      // (Eight units after the liter lost: the blood volume ends about 400 mL past where she started.)
       id: 'over', action: [UNIT, UNIT, UNIT, UNIT, UNIT, UNIT, UNIT, UNIT],
-      cam: 'route', tool: VITALS, data: 'tiles', tiles: ['pv'], key: ['pv'], delta: 'full',
+      cam: 'route', ripple: true, tool: VITALS, data: 'tiles', tiles: ['pv', 'hb', 'bv'], key: ['pv'], delta: 'full',
       kicker: 'Losing blood', site: 'sin', title: 'Too much given back raises the portal pressure',
-      line: 'Given past where he started, eight units raise the portal pressure to {pv}, above the {pv@full} before the bleed. Transfusion stops at a hemoglobin of 7 to 8.',
-      notes: 'This is why transfusion in a variceal bleed is restrictive: transfuse <7 g/dL and aim for 7 to 8. In cirrhosis the wide splanchnic bed takes the extra volume, so the portal inflow and pressure climb past their level before the bleed, and in the trials a liberal target brought more rebleeding and more deaths. In patients, restoring volume after a bleed raises the portal pressure above its level before the bleed (Kravetz, in portal hypertensive animals). Plasma for the clotting tests adds volume of its own. The heart rate settles below where it began, a sign the circulation is overfilled. Patients with heart disease or ongoing massive bleeding may need more. (Baveno VIII 5.4.)',
+      line: 'Given past where she started, eight units raise the portal pressure to {pv}, above the {pv@full} before the bleed. Transfusion stops at a hemoglobin of 7 to 8.',
+      notes: 'This is why transfusion in a variceal bleed is restrictive: transfuse <7 g/dL and aim for 7 to 8. In cirrhosis the wide splanchnic bed takes the extra volume, so the portal inflow and pressure climb past their level before the bleed, and in the trials a liberal target brought more rebleeding and more deaths. In patients, restoring volume after a bleed raises the portal pressure above its level before the bleed (Kravetz, in portal hypertensive animals). Plasma for the clotting tests adds volume of its own. Eight units is deliberately more than anyone would give: the hemoglobin and volume tiles show where it ends, a hemoglobin well above the target and a volume past the start. The heart rate settles below where it began, a sign the circulation is overfilled. Patients with heart disease or ongoing massive bleeding may need more. (Baveno VIII 5.4.)',
       ask: ['Why not transfuse a variceal bleed to a hemoglobin of 10?', 'Extra volume raises the portal pressure above its level before the bleed, and a liberal target brought more rebleeding and death.'],
     },
     {
@@ -100,7 +100,7 @@ export const HYPERDYNAMIC = {
     },
     {
       id: 'summary', visual: 'table', cols: ['co', 'hr', 'map', 'pv'], asc: false, vs: 'first', calm: ['co'], rowHead: 'Patient',
-      of: [{ id: 'rest', kicker: 'Reference', title: 'Healthy' }, { preset: 'cirr-comp', kicker: 'Cirrhosis', title: 'Compensated' }, { preset: 'csph', kicker: 'Cirrhosis', title: 'CSPH' }, { id: 'dilate', kicker: 'Cirrhosis', title: 'Decompensated' },
+      of: [{ id: 'rest', kicker: 'Reference', title: 'Healthy' }, { preset: 'cirr-comp', kicker: 'Cirrhosis', title: 'Compensated' }, { preset: 'csph', kicker: 'Cirrhosis', title: 'CSPH' }, { id: 'dilate', kicker: 'Cirrhosis', title: 'Large varices' },
         { id: 'loss', kicker: 'Bleed', title: 'A liter lost' }, { id: 'over', kicker: 'Bleed', title: 'Eight units given back' }],
       kicker: 'Summary', title: 'The circulation from health to a bleed',
       line: 'As cirrhosis advances, the output and the heart rate climb while the arterial pressure falls. A liter lost then lowers the arterial and the portal pressure.',

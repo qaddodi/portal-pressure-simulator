@@ -70,7 +70,7 @@ test('nothing a built-in deck produces changes: targets, glows, marks and steps'
   const newNames = new Set([...Object.keys(EXT.targets), ...Object.values(EXT.targets).map((t) => t.node).filter(Boolean)]);
   for (const d of DECKS) for (const s of d.slides) {
     const at = `${d.id}/${s.id}`;
-    if (!adopted(d, s, 'cols.wave')) assert.equal(stepExtra(s), null, `${at}: no extra work on a built-in slide`);
+    if (!adopted(d, s, 'cols.wave') && !adopted(d, s, 'kind:causes')) assert.equal(stepExtra(s), null, `${at}: no extra work on a built-in slide`);
     if (s.glow) assert.equal(expandIds(s.glow), s.glow, `${at}: its glow is read as it is`);
     for (const m of s.marks || (s.mark ? [s.mark] : [])) {
       if (m.organ && adopted(d, s, 'mark.organ')) continue;

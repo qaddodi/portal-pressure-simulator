@@ -2,7 +2,8 @@
 // VIII's stiffness and platelet zones (the slide fields are described at the top of decks.js). Each case is one slide: its case card asks,
 // and the plane and the two tiles answer. Case 5 is the patient the zones do not fit.
 
-// (The plane already plots the stiffness and the platelets, so the tiles beside it give the two gradients the zones stand in for.)
+// (The plane already plots the stiffness and the platelets, so the tiles beside it give the other two measures the zones stand in for: the spleen stiffness,
+// which Baveno VIII 1.16c and 1.19 add to the liver's, and the HVPG.)
 const PLANE = { kind: 'plane', plane: 'csph' };
 
 export const STIFFNESS = {
@@ -89,48 +90,48 @@ export const STIFFNESS = {
       ask: ['A patient has a stiffness of 22 kPa and platelets of 120,000/µL. What do AASLD 2024 and Baveno VIII each say?', 'AASLD presumes CSPH (20 to 24.9 kPa with platelets <150,000/µL). Baveno VIII leaves him in the gray zone until ANTICIPATE or a spleen stiffness >55 kPa decides.'],
     },
     {
-      id: 'a1', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
+      id: 'a1', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['ssm', 'hvpg'], key: ['ssm', 'hvpg'],
       vignette: 'A 47-year-old man had hepatitis C diagnosed ten years ago and was never treated. He feels well, drinks no alcohol and has had no ascites or bleeding.',
       caseQ: 'Is CSPH ruled out, ruled in or still open?',
       kicker: 'Case 1', site: 'sin', title: 'Case 1: CSPH is ruled out',
       line: 'Stiffness is {lsm}, platelets {plt}: ≤15 kPa with ≥150,000/µL rules CSPH out. No carvedilol, no scope; repeat both in 12 months.',
-      notes: 'Baveno VIII rules CSPH out when the stiffness is 15 kPa or less and the platelets are 150,000/µL or more; fewer than 1 in 10 patients with that result have CSPH. Without CSPH a non-selective beta-blocker is not used to prevent decompensation, and under 20 kPa with such platelets the screening scope is spared as well. A stiffness of 10 to 15 kPa still suggests advanced liver disease, so he stays in follow-up with both tests repeated every 12 months, and the hepatitis C is treated. The cause matters for the next cases, because the rule-in applies to viral and alcohol-related disease and to MASLD with a BMI under 30. (Baveno VIII 1.9, 1.15.)',
+      notes: 'Baveno VIII rules CSPH out when the stiffness is 15 kPa or less and the platelets are 150,000/µL or more; fewer than 1 in 10 patients with that result have CSPH. Without CSPH a non-selective beta-blocker is not used to prevent decompensation, and under 20 kPa with such platelets the screening scope is spared as well. A stiffness of 10 to 15 kPa still suggests advanced liver disease, so he stays in follow-up with both tests repeated every 12 months, and the hepatitis C is treated. The cause matters for the next cases, because the rule-in applies to viral and alcohol-related disease and to MASLD with a BMI under 30. His spleen stiffness, on the card, is well under the 40 kPa that spares the scope. (Baveno VIII 1.9, 1.15, 1.19.)',
       ask: ['Does he need a screening scope or carvedilol?', 'Neither. CSPH is ruled out, so repeat the stiffness and the platelets in 12 months.'],
     },
     {
-      id: 'a2', preset: 'csph', params: { cirrhosis: 0.8 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
+      id: 'a2', preset: 'csph', params: { cirrhosis: 0.8 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['ssm', 'hvpg'], key: ['ssm', 'hvpg'],
       vignette: 'A 58-year-old woman with alcohol-associated cirrhosis stopped drinking two years ago. She has had no ascites, confusion or bleeding, and has never had an EGD.',
       caseQ: 'Is CSPH ruled in, and does she need a scope?',
       kicker: 'Case 2', site: 'sin', title: 'Case 2: CSPH is ruled in',
       line: 'Stiffness is {lsm}, which meets the {>=25 kPa} rule: CSPH is ruled in without a catheter. She starts carvedilol, and on carvedilol she needs no screening scope.',
-      notes: 'In viral or alcohol-related cirrhosis, and in MASLD with a BMI under 30, a stiffness of 25 kPa or more establishes CSPH. Baveno VIII then recommends a non-selective beta-blocker, preferably carvedilol, to prevent decompensation. A patient already on one needs no screening endoscopy, because what it finds would not change treatment. She has never had an endoscopy, so the scope is part of the question. Staying off alcohol remains the most effective treatment of the cause. (Baveno VIII 1.16, 3.15, 3.18.)',
+      notes: 'In viral or alcohol-related cirrhosis, and in MASLD with a BMI under 30, a stiffness of 25 kPa or more establishes CSPH. Baveno VIII then recommends a non-selective beta-blocker, preferably carvedilol, to prevent decompensation. A patient already on one needs no screening endoscopy, because what it finds would not change treatment. She has never had an endoscopy, so the scope is part of the question. Her spleen stiffness, on the card, is also over 55 kPa, which alone establishes CSPH on the 100 Hz probe (1.16c). Staying off alcohol remains the most effective treatment of the cause. (Baveno VIII 1.16, 3.15, 3.18.)',
       ask: ['Does she need a screening EGD before carvedilol?', 'No. She takes a non-selective beta-blocker for CSPH, so the scope would not change her treatment.'],
     },
     {
-      id: 'a3', preset: 'cirr-comp', params: { cirrhosis: 0.55 }, days: 365, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
+      id: 'a3', preset: 'cirr-comp', params: { cirrhosis: 0.55 }, days: 365, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['ssm', 'hvpg'], key: ['ssm', 'hvpg'],
       vignette: 'A 61-year-old man with MASH and type 2 diabetes has a BMI of 27 and no ascites or bleeding. An ultrasound shows a nodular liver and a spleen larger than normal.',
       caseQ: 'Which zone is he in, and what comes next?',
       kicker: 'Case 3', site: 'sin', title: 'Case 3: CSPH is still open',
       line: 'Stiffness is {lsm}, platelets {plt}: neither rule applies. ANTICIPATE ≥75%, or a spleen stiffness >55 kPa, makes the diagnosis. Until then, off a beta-blocker, he needs a screening endoscopy.',
-      notes: 'Between 15 and 25 kPa, or with platelets under 150,000/µL, Baveno VIII does not decide on the stiffness alone. He is not obese, so the rules and the model both apply. ANTICIPATE estimates the chance of CSPH from the stiffness and the platelets, and a spleen stiffness over 55 kPa on the 100 Hz probe also establishes it. The spleen is larger than normal, which fits portal hypertension but does not decide it. Until one of them settles it, he is off a beta-blocker with a stiffness over 20 kPa and platelets under 150,000/µL, so the scope-sparing rule does not apply and he needs a screening endoscopy now; the gray-zone tests are repeated in 12 months. Most centers do not need a catheter for this decision. (Baveno VIII 1.16, 1.17.)',
+      notes: 'Between 15 and 25 kPa, or with platelets under 150,000/µL, Baveno VIII does not decide on the stiffness alone. He is not obese, so the rules and the model both apply. ANTICIPATE estimates the chance of CSPH from the stiffness and the platelets, and a spleen stiffness over 55 kPa on the 100 Hz probe also establishes it. The spleen is larger than normal, which fits portal hypertension but does not decide it. Until one of them settles it, he is off a beta-blocker with a stiffness over 20 kPa and platelets under 150,000/µL, so the scope-sparing rule does not apply and he needs a screening endoscopy now; the gray-zone tests are repeated in 12 months. His spleen stiffness, on the card, falls between 40 and 55 kPa: too high to spare the scope (<40 kPa, 1.19) and too low to establish CSPH (>55 kPa, 1.16c), which is why the gray zone stays open. Most centers do not need a catheter for this decision. (Baveno VIII 1.16, 1.17.)',
       ask: ['What are two ways to settle a gray-zone result without a catheter?', 'A validated model (ANTICIPATE, ≥75%) or a spleen stiffness >55 kPa. Meanwhile, off a beta-blocker, he has a screening endoscopy.'],
     },
     {
-      id: 'a4', preset: 'csph', params: { cirrhosis: 0.7 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
+      id: 'a4', preset: 'csph', params: { cirrhosis: 0.7 }, cam: 'liver', glow: ['liver'], tool: PLANE, data: 'tiles', tiles: ['ssm', 'hvpg'], key: ['ssm', 'hvpg'],
       vignette: 'A 49-year-old man with MASH and type 2 diabetes has a BMI of 36 and no ascites or bleeding. His platelets have been low for two years, and an ultrasound shows a nodular liver.',
       caseQ: 'Does his stiffness rule CSPH in?',
       kicker: 'Case 4', site: 'sin', title: 'Case 4: the BMI decides, not the stiffness',
-      line: 'Stiffness is {lsm}, but the 25 kPa rule needs a BMI <30. At a BMI of 36, a model that includes the BMI decides; ≥75% means CSPH.',
-      notes: 'The 25 kPa rule-in covers viral and alcohol-related cirrhosis and MASLD with a BMI under 30. For MASLD with a BMI of 30 or more, Baveno VIII uses ANTICIPATE-NASH, built on the stiffness, the platelets and the BMI. The stiffness here is as high as in case 2, but the cause is MASH and the BMI is 36, so check the case before reading the zone. If the model says CSPH, carvedilol starts, as in case 2. (Baveno VIII 1.14, 1.16.)',
-      ask: ['Why does 27 kPa rule CSPH in for case 2 but not for case 4?', 'The 25 kPa rule is for a BMI <30. At a BMI of 36 the model ANTICIPATE-NASH decides.'],
+      line: 'Stiffness is {lsm}, but the 25 kPa rule needs a BMI <30. At a BMI of 36 a BMI model decides, or a spleen stiffness >55 kPa ({ssm}).',
+      notes: 'The 25 kPa rule-in covers viral and alcohol-related cirrhosis and MASLD with a BMI under 30. For MASLD with a BMI of 30 or more, Baveno VIII uses ANTICIPATE-NASH, built on the stiffness, the platelets and the BMI. The stiffness here is as high as in case 2, but the cause is MASH and the BMI is 36, so check the case before reading the zone. The BMI limit applies to the liver stiffness only: a spleen stiffness >55 kPa on the 100 Hz probe establishes CSPH at any BMI (1.16c), and his reading, on the card, sits close to that line. If either test says CSPH, carvedilol starts, as in case 2. (Baveno VIII 1.14, 1.16.)',
+      ask: ['Why does a stiffness ≥25 kPa rule CSPH in for case 2 but not for case 4?', 'The 25 kPa rule is for a BMI <30. At a BMI of 36, ANTICIPATE-NASH or a spleen stiffness >55 kPa decides.'],
     },
     {
-      id: 'a5', preset: 'schisto', cam: 'liver', glow: ['liver', 'spleen'], tool: PLANE, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['hvpg', 'ppg'],
+      id: 'a5', preset: 'schisto', cam: 'liver', glow: ['liver', 'spleen'], tool: PLANE, data: 'tiles', tiles: ['ssm', 'hvpg'], key: ['ssm', 'hvpg'],
       vignette: 'A 41-year-old man from the Nile Delta was treated for schistosomiasis as a boy. He now has a large spleen, low platelets and normal liver tests, and an EGD shows large esophageal varices.',
       caseQ: 'Do the zones apply to him?',
       kicker: 'Case 5', site: 'presin', title: 'Case 5: the rules do not fit a soft liver',
       line: 'Stiffness is {lsm}, yet the spleen is {spleen} and the varices are large. A soft liver with portal hypertension points to vascular liver disease, so the zones do not apply.',
-      notes: 'The stiffness and platelet rules were built for compensated advanced chronic liver disease, so ask first whether they were written for a patient like this one. A stiffness under 10 kPa with clinical or imaging signs of portal hypertension should raise the suspicion of vascular liver disease, such as portosinusoidal vascular disorder or schistosomiasis. The dot sits on the plane, but the zones were not drawn for him. The HVPG would read near normal, because the wedged catheter reads the sinusoids and the resistance lies upstream of them. Doppler of the portal vein and imaging come next. (Baveno VIII 1.6.)',
+      notes: 'The stiffness and platelet rules were built for compensated advanced chronic liver disease, so ask first whether they were written for a patient like this one. A stiffness under 10 kPa with clinical or imaging signs of portal hypertension should raise the suspicion of vascular liver disease, such as portosinusoidal vascular disorder or schistosomiasis. The dot sits on the plane, but the zones were not drawn for him. The HVPG would read near normal, because the wedged catheter reads the sinusoids and the resistance lies upstream of them. Doppler of the portal vein and imaging come next. His spleen stiffness, on the card, reads high (>55 kPa) while the liver stiffness stays low. (Baveno VIII 1.6.)',
       ask: ['Why can the HVPG be normal when the resistance lies in the portal venules?', 'The wedged catheter reads the sinusoids, and the resistance lies before them, in the portal venules.'],
     },
     {

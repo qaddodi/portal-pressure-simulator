@@ -23,7 +23,7 @@ export const SITES = {
   ],
   slides: [
     {
-      id: 'overview', preset: 'healthy', lens: 'system', cam: 'fit', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], rail: 'all',
+      id: 'overview', reveal: true, preset: 'healthy', lens: 'system', cam: 'fit', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], rail: 'all',
       glow: [['V_INT', 'V_SPL', 'V_IMV'], ['PVH_R', 'PVH_L'], ['SIN_RR', 'SIN_LL'], ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], 'IVCS_RA'], glowSeq: 550, steps: true,   // (1: the gut and spleen's veins; 2: the portal vein into both lobes; 3: both lobes' sinusoids; 4: the three hepatic veins)
       kicker: 'Portal hypertension', title: 'Portal hypertension is named for the site of resistance',
       line: 'Blood runs from the gut {#1} through the portal veins {#2} and the liver\'s sinusoids {#3} to the systemic veins {#4} and the heart {#5}. Resistance at any point raises the pressure upstream of it.',
@@ -42,13 +42,14 @@ export const SITES = {
       id: 'pvt', lens: 'drop', preset: 'pvt-chronic', cam: 'portal', labels: ['CONF', 'SV'], terms: { 'portal pressure': 'pv', 'wedged pressure': 'whvp' }, mark: { edges: ['PV_TRUNK'], label: 'Clot' },
       tool: PROFILE, key: ['hvpg', 'ppg'],
       kicker: 'Pre-hepatic', site: 'pre', title: 'Portal vein thrombosis: the PPG is high, the HVPG normal',
-      vignette: 'A 38-year-old man with a JAK2-positive myeloproliferative neoplasm has splenomegaly and small esophageal varices on EGD. His liver tests are normal, and there is no ascites.',
+      vignette: 'A 38-year-old man with a JAK2-positive myeloproliferative neoplasm has splenomegaly and esophageal varices on EGD. His liver tests are normal, and there is no ascites.',
       line: 'Portal pressure is high, yet the wedged pressure and HVPG are normal: the catheter wedges downstream of the clot.',
       notes: 'Chronic thrombosis turns the portal vein into a cavernoma: a web of small collaterals around the occluded trunk that still carries portal blood to the liver. The liver itself is normal, so its function is preserved and ascites is uncommon, while varices and a large spleen are common. Doppler ultrasound or CT shows the clot or the cavernoma. HVPG is normal because the wedged catheter reads the sinusoids, downstream of the clot; the portal pressure gradient (PPG) is high. On the profile the fall comes between the gut and the portal venules, before the sinusoids the wedge reads. The usual causes are cirrhosis, a myeloproliferative neoplasm or another thrombophilia, pancreatitis or abdominal sepsis, and liver or pancreatic cancer.',
       ask: ['Why is HVPG normal when the portal pressure is about 20 mmHg?', 'The wedge reads the sinusoids, which lie downstream of the clot and are at normal pressure.'],
     },
     {
       id: 'presin', lens: 'drop', terms: { 'portal venules': 'lobule:triad', sinusoids: 'lobule:sinusoid' }, preset: 'schisto', cam: 'lobule:triad', tool: PROFILE, key: ['pv', 'hvpg', 'ppg'], callout: { at: 'triad', label: 'Resistance' },
+      scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R'], glow: ['PV_TRUNK'] } },
       kicker: 'Intrahepatic · presinusoidal', site: 'presin', title: 'Schistosomiasis: resistance before the sinusoids spares the wedge',
       vignette: 'A 26-year-old man who grew up in the Nile Delta presents with hematemesis. EGD shows large esophageal varices. His spleen is enlarged, his liver tests are normal, and there is no ascites.',
       line: 'Eggs lodge in the portal venules and cause fibrosis upstream of the sinusoids, so the HVPG stays near normal.',
@@ -57,14 +58,16 @@ export const SITES = {
     },
     {
       id: 'sin', lens: 'drop', terms: { sinusoids: 'lobule:sinusoid' }, preset: 'cirr-decomp', cam: 'lobule:sinusoid', callout: { at: 'sin', label: 'Resistance' }, tool: PROFILE, key: ['whvp', 'hvpg'],
+      scales: { anatomy: { cam: 'liver', labels: ['CONF', 'SIN_R', 'RHV'], glow: ['SIN_RR', 'SIN_LL'] } },
       kicker: 'Intrahepatic · sinusoidal', site: 'sin', title: 'Cirrhosis: sinusoidal resistance raises the wedge',
-      vignette: 'A 58-year-old man with alcohol-associated cirrhosis has ascites despite spironolactone and furosemide. His albumin is 2.8 g/dL, his platelets are 57,000/µL, and EGD shows large esophageal varices.',
+      vignette: 'A 58-year-old man with alcohol-associated cirrhosis has ascites controlled on diuretics and could not take a beta-blocker. His albumin is 2.8 g/dL, his platelets are 60,000/µL, and EGD shows large esophageal varices.',
       line: 'Fibrosis, nodules and stellate cell contraction narrow the sinusoids. The wedged pressure reflects sinusoidal pressure, so HVPG rises with portal pressure.',
       notes: 'In cirrhosis the resistance is in the sinusoids: fibrosis, regenerative nodules, a capillarized endothelium and contracted stellate cells, the dynamic part that drugs can relax. Splanchnic vasodilation then raises portal inflow and sustains the pressure. The wedged pressure closely tracks the portal pressure, so HVPG estimates the portal gradient: 10 mmHg or more is clinically significant portal hypertension, and the risk of bleeding rises from about 12. In MASLD cirrhosis the wedge can read low, so an HVPG under 10 does not rule out CSPH. On the profile the fall now lies between the sinusoids and the hepatic vein, inside the HVPG bracket. The usual causes are alcohol, fatty liver disease (MASLD), hepatitis B and C, and autoimmune, cholestatic and metabolic disease.',
       ask: ['Why does the wedged pressure track the portal pressure in cirrhosis?', 'The resistance lies in the sinusoids the wedge reads, so the wedged pressure rises with the portal pressure.'],
     },
     {
       id: 'postsin', lens: 'drop', terms: { 'central veins': 'lobule:central', sinusoids: 'lobule:sinusoid' }, preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, tool: PROFILE, key: ['whvp', 'hvpg'],
+      scales: { anatomy: { cam: 'liver', labels: ['SIN_R', 'RHV'], glow: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'] } },
       kicker: 'Intrahepatic · postsinusoidal', site: 'postsin', title: 'Sinusoidal obstruction syndrome: the HVPG rises after the sinusoids too',
       vignette: 'A 45-year-old woman, 21 days after myeloablative conditioning for allogeneic HSCT, has tender hepatomegaly, a 4% weight gain and new ascites. Her bilirubin is 2.1 mg/dL.',
       line: 'Damaged endothelium raises resistance in the sinusoids and central veins, between the wedge and the free reading, so the HVPG rises.',
@@ -76,13 +79,13 @@ export const SITES = {
       tool: PROFILE, key: ['fhvp', 'ra', 'hvpg'],
       kicker: 'Post-hepatic', site: 'post', title: 'Budd–Chiari syndrome: a high PPG, the HVPG near zero',
       vignette: 'A 29-year-old woman taking OCPs has had RUQ pain for 2 months and now has tense ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL.',
-      line: 'Where a catheter gets behind the clotted veins, the wedged and free pressures are both high, so the HVPG is near zero while the [right atrium](ra) stays at {ra}.',
+      line: 'Behind the clotted veins both pressures are high, so the HVPG is near zero; the [right atrium](ra) stays at {ra}. The [caudate lobe](caudate) drains to the IVC and often enlarges.',
       notes: 'Hepatic venous outflow obstruction, anywhere from the small hepatic veins to the IVC at the right atrium. The liver is congested and enlarged; the caudate lobe, which drains straight into the IVC, hypertrophies. Ascites is common, protein-rich (2.5 g/dL or more) and with a SAAG of 1.1 or more. In practice the clotted veins often cannot be catheterized; when one can be entered, both readings lie behind the resistance. The model shows the pressures there. Doppler ultrasound, CT or MR venography make the diagnosis. On the profile the fall comes after the hepatic vein, between it and the IVC, outside the HVPG bracket. Colored by pressure drop, the clotted veins stand out. Causes: a myeloproliferative neoplasm (JAK2), thrombophilia, pregnancy or OCP use, an IVC web, and tumor invading the veins.',
       ask: ['Why is HVPG near zero although the portal pressure is about 26 mmHg?', 'Where the catheter reaches behind the resistance, both the wedged and the free pressures are measured there, so both are high and their difference is small.'],
     },
     {
       id: 'cardiac', lens: 'drop', terms: ['hv', 'sin'], preset: 'rhf', cam: 'heart', labels: ['RHV', 'IVCS', 'RA'], glow: ['ivc', 'hv'], glowSeq: 550,
-      tool: PROFILE, key: ['fhvp', 'hvpg', 'ppg'],
+      tool: PROFILE, key: ['fhvp', 'hvpg', 'ppg'], compare: [{ label: 'Normal heart', short: 'Normal', preset: 'healthy' }, { label: 'Failing heart', short: 'Failing', own: true }],
       kicker: 'Cardiac', site: 'cardiac', title: 'Right heart failure: every pressure rises, neither gradient',
       vignette: 'A 67-year-old man with severe TR from pulmonary hypertension has a raised JVP, leg edema and ascites. Paracentesis shows a SAAG of 1.4 and a total protein of 4.3 g/dL, and EGD shows no varices.',
       line: 'Raised [right atrial pressure](ra) passes back through the hepatic veins to the sinusoids, so all stations rise together: a high portal pressure, but neither gradient rises.',

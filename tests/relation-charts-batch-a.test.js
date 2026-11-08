@@ -78,12 +78,13 @@ test('Recompensation: ascites takes him up the line, a year without alcohol brin
 test('Ten years: carvedilol and the TIPS move him along the varix line, bands take the varix below it without lowering the HVPG', async () => {
   const c = await chart(TEN_YEARS), d365 = c.dot('d365'), carv = c.dot('carv'), asc = c.dot('ascites'), bands = c.dot('bands'), tips = c.dot('tips'), rebleed = c.at('rebleed');
   near(d365.f.varix, d365.on[0], 0.3, 'year 2 sits on the line');
-  assert.ok(carv.x < d365.x - 2.5 && carv.f.varix < d365.f.varix - 1.5, 'carvedilol lowers the HVPG and the varix with it');
-  assert.ok(carv.f.varix > carv.on[0] - 1, 'and stays near the line');
+  // (The varix falls on a lag of weeks since 8 Nov, VARIX.tauFall: the HVPG drops at once and the varix has only begun to follow, so the dot is above the line.)
+  assert.ok(carv.x < d365.x - 2.5 && carv.f.varix <= d365.f.varix, 'carvedilol lowers the HVPG at once, and the varix has only begun to follow');
+  assert.ok(carv.f.varix > carv.on[0], 'so it sits above the line, to fall onto it over the next weeks');
   assert.ok(bands.f.varix < bands.on[0] - 2, `bands: ${bands.f.varix.toFixed(2)} mm under the line's ${bands.on[0].toFixed(2)}`);
   assert.ok(bands.x >= asc.x - 0.1, 'and the HVPG is not lowered');
   assert.ok(tips.x < 7 && rebleed.hvpg > tips.x + 7, `the TIPS takes the HVPG from ${rebleed.hvpg.toFixed(1)} to ${tips.x.toFixed(1)}`);
-  near(tips.f.varix, 2, 0.15, 'the varix rests at its floor');
+  assert.ok(tips.f.varix > 3 && tips.f.varix <= rebleed.varix + 0.01, `the varix has not yet remodelled the moment the stent opens: ${tips.f.varix.toFixed(2)} mm`);   // (it falls over weeks, VARIX.tauFall; the Confusion slide, 60 days on, is lower)
   near(c.ring.x, c.fp.hvpg, 1e-9, 'the ring is the slide before\'s state');
 });
 

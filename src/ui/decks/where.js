@@ -22,7 +22,7 @@ export const WHERE = {
   slides: [
     {
       id: 'a1', preset: 'csph', cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, compare: LENS, tool: { kind: 'profile' }, key: ['whvp', 'hvpg'], rail: true,
-      vignette: 'A 57-year-old man treated for hepatitis C ten years ago has small esophageal varices on EGD. His platelets are 88,000/µL, his liver stiffness is 24 kPa, and there is no ascites.',
+      vignette: 'A 57-year-old man treated for hepatitis C ten years ago has small esophageal varices on EGD. His platelets are 90,000/µL, his liver stiffness is 24 kPa, and there is no ascites.',
       caseQ: 'Where is the resistance?',
       kicker: 'Case 1', site: 'sin', title: 'Case 1: small varices and a stiff liver',
       line: 'Cirrhosis after hepatitis C. The fall sits in the sinusoids, inside the HVPG bracket, so the HVPG, {hvpg}, carries almost the whole PPG.',
@@ -58,7 +58,7 @@ export const WHERE = {
     },
     {
       id: 'a5', preset: 'schisto', cam: 'lobule:triad', terms: { 'portal venules': 'lobule:triad' }, compare: LENS, tool: { kind: 'profile' }, key: ['pv', 'hvpg', 'ppg'], rail: true,
-      vignette: 'A 33-year-old man who fished in Lake Victoria as a boy vomits blood. EGD shows large esophageal varices. His spleen is large, his platelets are 70,000/µL, and his liver stiffness is 6.1 kPa.',
+      vignette: 'A 33-year-old man who fished in Lake Victoria as a boy vomits blood. EGD shows large esophageal varices. His spleen is large, his platelets are 71,000/µL, and his liver stiffness is 6.1 kPa.',
       caseQ: 'Where is the resistance?',
       kicker: 'Case 5', site: 'presin', title: 'Case 5: large varices and a soft liver',
       line: 'Schistosomiasis. Eggs lodge in the portal venules, before the sinusoids, so the HVPG stays at {hvpg} with an open portal vein.',
@@ -78,8 +78,27 @@ export const WHERE = {
       id: 'ladders', cam: 'fit', visual: 'ladders', of: SIX,
       kicker: 'Telling them apart', title: 'Six ladders, six levels of resistance',
       line: 'From the portal vein to the heart, the largest fall moves one level at a time.',
-      notes: 'Read the ladders in order of level. Case 2: the fall comes at the clot, before the liver; case 5: in the portal venules. Both lie before the wedge, so only the PPG sees them, and at the bedside Doppler of the portal vein tells them apart. Cases 1 and 4: the fall lies inside the HVPG bracket, which the HVPG measures. Case 6: the fall lies between the IVC and the atrium, which neither gradient includes. Case 3: there is no fall at all.',
+      notes: 'Read the ladders in order of level. Case 2: the fall comes at the clot, before the liver; case 5: in the portal venules. Both lie before the wedge, so only the PPG sees them, and Doppler of the portal vein tells them apart, as the next slide shows. Cases 1 and 4: the fall lies inside the HVPG bracket, which the HVPG measures. Case 6: the fall lies between the IVC and the atrium, which neither gradient includes. Case 3: there is no fall at all.',
       ask: ['Which two cases did neither gradient find?', 'Case 6, the IVC web, and case 3, the heart.'],
+    },
+    {
+      // (Cases 2 and 5 share their HVPG and PPG; the Doppler of the portal trunk tells them apart. Case 5 is the slide's own patient and a button eases to case 2.)
+      id: 'doppler', preset: 'schisto', cam: 'portal', labels: ['CONF'], tool: { kind: 'doppler', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pvVel', 'ppg'], key: ['pvVel'],
+      compare: [{ label: 'Case 5', own: true }, { label: 'Case 2', preset: 'pvt-chronic' }],
+      kicker: 'Telling them apart', title: 'Doppler of the portal vein tells cases 2 and 5 apart',
+      line: 'Cases 2 and 5 share their HVPG and PPG. The portal vein flows in case 5, the schistosomiasis, and carries none in case 2, the clot.',
+      notes: 'Source: Baveno VIII 9.2; AASLD 2024 Table 1. Doppler ultrasound is the first-line test for a portal vein clot: solid material in the vein, or a network of porto-portal collaterals that suggests a cavernoma (Baveno VIII 9.2). In case 2 the trunk is clotted, so the Doppler shows no flow and a cavernoma carries the blood around it. In case 5 the trunk is open and the resistance lies in the portal venules. AASLD 2024 Table 1 places a portal vein clot at the prehepatic level and schistosomiasis at the presinusoidal level. Neither Baveno VIII nor AASLD 2024 gives Doppler cut-offs for this.',
+      ask: ['Cases 2 and 5 share their HVPG and PPG. What does Doppler of the portal vein show in each?', 'Case 2: no flow in the trunk, a clot with a cavernoma. Case 5: an open vein with flow, so the resistance lies in the portal venules.'],
+    },
+    {
+      // (The PPG of each case split into its causes, as the Why? panel works them out: patient buttons run through the six cases. The IVC web and the heart step left.)
+      id: 'causes', preset: 'csph', cam: 'fit', tool: { kind: 'causes' }, data: 'tiles', tiles: ['ppg', 'hvpg'], key: ['ppg'],
+      compare: [{ label: 'Clot', preset: 'pvt-chronic' }, { label: 'Schistosomiasis', short: 'Schisto', preset: 'schisto' }, { label: 'Cirrhosis', own: true }, { label: 'Sinusoidal obstruction', short: 'SOS', preset: 'sos' },
+        { label: 'IVC web', preset: 'ivc-web' }, { label: 'Pericarditis', short: 'Heart', preset: 'constrictive' }],
+      kicker: 'Telling them apart', title: 'Each case builds its PPG from different steps',
+      line: 'Resistance adds pressure to the PPG and collaterals take some off. In the IVC web and the heart the only large step goes left: the PPG misses them.',
+      notes: 'Each bar is one cause of the case\'s PPG, worked out by the model by taking that cause away. Tap a case to see its steps. In cirrhosis and sinusoidal obstruction the resistance in or after the sinusoids is the largest step to the right. In schistosomiasis it is resistance in the portal venules, and in the clot it is the clot, with collaterals taking some pressure off in both. The IVC web and constrictive pericarditis raise the IVC pressure that the PPG subtracts, so their steps go left and the PPG reads normal. AASLD 2024 Table 1 sorts portal hypertension by where the resistance lies. The sizes of the steps are the model\'s own, not published figures.',
+      ask: ['Which step is largest in cirrhosis, and which cases step left?', 'Resistance in the sinusoids is the largest step. The IVC web and constrictive pericarditis step left: the high pressure behind the liver is subtracted, so the PPG misses them.'],
     },
     {
       // (The relation chart before the summary: each case's portal pressure across and its HVPG up. The portal pressure is high in
@@ -92,14 +111,14 @@ export const WHERE = {
         { id: 'a1', name: 'Cirrhosis' }, { id: 'a4', name: 'Sinusoidal obstruction', short: 'SOS' }, { id: 'a6', name: 'IVC web' }, { id: 'a3', name: 'Constrictive pericarditis', short: 'Pericarditis' }],
       kicker: 'Summary', title: 'The portal pressure is raised in all six; the HVPG finds two',
       line: 'Every case sits right of the healthy liver. Only cirrhosis and sinusoidal obstruction reach an HVPG ≥5 mmHg: their resistance lies inside the wedge\'s bracket.',
-      notes: 'Each case is a point: its portal vein pressure across, its HVPG up. All six have portal hypertension, but the HVPG reads only the fall between the wedged and the free hepatic pressure. A clot or schistosomiasis lies before the wedge, the IVC web and the pericardium after the hepatic veins, so their HVPG stays normal. A normal HVPG with varices or a high portal pressure sends you to the PPG, the IVC and the right atrium. (AASLD 2024 Table 1 and p. 1181; Baveno VIII Table 3; EASL 2025: the HVPG misses the portal hypertension of PSVD and portal vein thrombosis.)',
+      notes: 'Each case is a point: its portal vein pressure across, its HVPG up. All six have portal hypertension, but the HVPG reads only the fall between the wedged and the free hepatic pressure. A clot or schistosomiasis lies before the wedge, the IVC web and the pericardium after the hepatic veins, so their HVPG stays normal. A normal HVPG with varices or a high portal pressure sends you to the PPG, the IVC and the right atrium. (AASLD 2024 Table 1 and p. 1181; Baveno VIII Table 3. That a clot or schistosomiasis leaves the HVPG normal is the model\'s own result, from the site of the resistance.)',
       ask: ['A patient has varices and an HVPG of 3 mmHg. Does that rule out portal hypertension?', 'No. The resistance may lie before the sinusoids, in the IVC or in the heart: read the PPG and the right atrium.'],
     },
     {
-      id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], asc: true, of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, ...SIX],
+      id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ivc', 'ra', 'hvpg', 'ppg'], asc: true, focusRow: 'a6', of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, ...SIX],
       kicker: 'Summary', title: 'The largest fall on the ladder names the level',
       line: 'The HVPG sees only sinusoidal and postsinusoidal resistance. A high portal pressure with a normal PPG points to the IVC or the heart.',
-      notes: 'The HVPG reads the drop across the sinusoids and central veins. The PPG adds the portal vein and the portal venules but stops at the IVC. When both are normal and the portal pressure is high, compare the IVC with the right atrium. The SAAG and protein columns add one more clue: protein-rich ascites comes from congestion behind the sinusoids. The Sites and causes talk teaches the same six sites in order, one per slide; this talk is its puzzle version.',
+      notes: 'The HVPG reads the drop across the sinusoids and central veins. The PPG adds the portal vein and the portal venules but stops at the IVC. When both are normal and the portal pressure is high, compare the IVC with the right atrium. The SAAG and Prot. columns add one more clue: protein-rich ascites comes from congestion behind the sinusoids. A row with no ascites shows None. The Sites and causes talk teaches the same six sites in order, one per slide; this talk is its puzzle version.',
       ask: ['A patient has varices, a normal HVPG and a high PPG. What test comes next?', 'Doppler of the portal vein: a clot means pre-hepatic, an open vein means presinusoidal.'],
     },
   ],

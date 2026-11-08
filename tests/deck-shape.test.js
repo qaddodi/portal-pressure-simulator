@@ -3,6 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DECKS, withOverview } from '../src/ui/decks.js';
+import { adopted } from './deck-adopted.js';
 
 const words = (t) => (t || '').replace(/\s*\{#\d+\}/g, '').split(/\s+/).filter(Boolean).length;   // (a figure's step marker {#2} is no word)
 
@@ -17,12 +18,13 @@ test('a talk uses at most two lenses (the lens buttons on a slide are not counte
 const TILES_CHANGE = new Set([
   'ascites/tense>lvp', 'ascites/lvp>back',                      // the albumin tile appears for the paracentesis and leaves with it
   'stiffness/measure>fibrosis',                                 // FibroScan reads in its own picture; the tiles arrive with the lesson
-  'doppler/hepatic>meal', 'doppler/slow>normal',                // each Doppler slide shows the reading it is about
+  'doppler/hepatic>meal',                                       // each Doppler slide shows the reading it is about
   'tips-doppler/narrow>warn', 'tips-doppler/backup>fix',
   'outflow/normal>tr', 'outflow/tr>pulse', 'outflow/pulse>constrict',
   'cause-treated/high>high2',                                   // a second patient with her own pair of tiles
   'gastric-varices/tips>brto',                                  // the gastric varix tile replaces the liver tile
   'hyperdynamic/resist>volume',                                 // the vitals monitor, then the volume tiles
+  'hyperdynamic/loss>over',                                     // the hemoglobin and the volume join for the eight units: where they end is the point
   'ten-years/d365>carv', 'ten-years/rebleed>tips', 'ten-years/tips>he', // one patient over ten years: the tiles follow the event
   'variceal-bleed/tear>minutes',                                // "Shock before anemia": the hemoglobin to come joins, for that slide only
 ]);
@@ -51,6 +53,7 @@ const THREE_TILES = new Set([
   'pregnancy/before', 'pregnancy/weeks', 'pregnancy/after', 'cause-treated/before', 'cause-treated/year1',
   'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/bato', 'gastric-varices/svt',
   'variceal-bleed/minutes',   // (the point is the third: the hemoglobin has not moved, and where it is heading)
+  'hyperdynamic/over',        // (eight units is more than anyone gives: the hemoglobin and the volume show where it ends)
 ]);
 
 test('no slide has more than two tiles except the listed ones', () => {
@@ -65,10 +68,10 @@ test('no slide has more than two tiles except the listed ones', () => {
   assert.deepEqual([...THREE_TILES].filter((k) => !found.has(k)), [], 'an allowlisted slide now has two tiles or fewer: remove it');
 });
 
-test('no built-in slide has a cite, and only the TIPS Doppler jet, the kidney pressure and the Meso-Rex child slides have a caveat', () => {
+test('a built-in slide has a cite only when tests/deck-adopted.js lists it, and only the TIPS Doppler jet, the kidney pressure and the Meso-Rex child slides have a caveat', () => {
   const cites = [], caveats = [];
   for (const d of DECKS) for (const s of d.slides) {
-    if (s.cite) cites.push(`${d.id}/${s.id}`);
+    if (s.cite && !adopted(d, s, 'cite')) cites.push(`${d.id}/${s.id}`);
     if (s.caveat) caveats.push(`${d.id}/${s.id}`);
   }
   assert.deepEqual(cites, []);

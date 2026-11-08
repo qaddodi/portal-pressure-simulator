@@ -32,9 +32,13 @@ test('the fibrosis slider moves both lobes from their shared value', () => {
   for (const id of ['pvt', 'presin', 'sin', 'postsin', 'post']) assert.ok(!slide(id).whatIf, `${id}: the Sites levels carry no control`);
 });
 
-test('the heart slide is the failing heart, with no Normal/Failing buttons', () => {
-  assert.equal(slide('cardiac').compare, undefined);
-  assert.equal(slide('cardiac').preset, 'rhf');
+test('the heart slide is the failing heart, with Normal heart and Failing heart buttons its notes promise', () => {
+  const c = slide('cardiac');
+  assert.equal(c.preset, 'rhf');
+  assert.deepEqual(c.compare.map((o) => o.label), ['Normal heart', 'Failing heart']);
+  assert.equal(c.compare[0].preset, 'healthy', 'Normal heart eases to the healthy patient');
+  assert.equal(c.compare[1].own, true, 'Failing heart is the slide itself');
+  assert.match(c.notes, /Normal heart/, 'the notes name the button');
 });
 
 test('the presenter moves every path of a what-if slider together', () => {

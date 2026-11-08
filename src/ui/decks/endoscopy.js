@@ -25,7 +25,7 @@ export const ENDOSCOPY = {
   slides: [
     {
       id: 'size', preset: 'cirr-decomp', ...SAME, tool: SCOPE,
-      vignette: 'A 61-year-old man with alcohol-associated cirrhosis has ascites on spironolactone and furosemide. At his surveillance endoscopy, the endoscopist will size the varices.',
+      vignette: 'A 61-year-old man with alcohol-associated cirrhosis has ascites that is controlled on spironolactone and furosemide. At his surveillance endoscopy, the endoscopist will size the varices.',
       compare: [{ label: 'Small', preset: 'csph' }, { label: 'Large', own: true }],
       kicker: 'Size and signs',
       title: 'A large varix is wider and more twisted than a small one',
