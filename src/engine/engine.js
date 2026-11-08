@@ -15,7 +15,7 @@ const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
 // The drugs that lower the portal pressure within seconds (holdVarices: they do not regrade a varix until it has remodelled).
 const VASO_DRUGS = ['propranolol', 'carvedilol', 'terlipressin', 'octreotide'];
-export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60 };   // (tauRegress: days for a held grade size to remodel to the varix now, holdVarices)
+export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90 };   // (tauRegress: days for a held grade size to remodel to the varix now, holdVarices; tauCut: days for the esophageal varices to shrink once a Warren shunt has cut their feeder, varixTarget)
 /** Seconds the tube's gastric balloon must press on the tear before the bleed counts as stopped: a little over the 2.4 s it takes the tube to go
  *  in and the balloon to fill and be drawn up on screen (balloon-eso.js BALLOON_MS; tests/tamponade-bleed.test.js holds the two together). */
 export const BALLOON_SEAL_S = 3;
@@ -177,6 +177,7 @@ export class Engine {
       d: Object.fromEntries(this.collaterals.map((k) => [EDGES[k].id, dMinOf(EDGES[k])])),
       r0: { VAR: VARIX.r0Healthy, GV: VARIX.r0Healthy },
       vHold: { VAR: null, GV: null },   // (the size a varix is graded at while a drug's fall in pressure has not yet remodelled it: varixGraded)
+      vCut: null,   // (the radius, mm, the esophageal varices keep while they shrink after a Warren shunt has cut their feeder: varixTarget)
       spleen: 11,
       splTone: 1,
       volExtra: 0,
@@ -994,6 +995,10 @@ export class Engine {
       const now = 2 * this.varix(site).r, next = h + (now - h) * Math.min(1, days / VARIX.tauRegress);
       s.vHold[site] = next - now < 0.05 ? null : next;
     }
+    if (s.vCut != null) {   // the esophageal varices a Warren shunt cut off shrink toward the size the pressure now sets (VARIX.tauCut)
+      const to = this.varixTarget('VAR', this.Pf || this.P, true), next = s.vCut + (to - s.vCut) * Math.min(1, days / VARIX.tauCut);
+      s.vCut = next - to < 0.03 ? null : next;
+    }
     if (this.bands > 0) this.bands = Math.max(0, this.bands - 0.02 * days); // bands slough; columns can recur
     // Spleen
     // Venous back-pressure from the right heart (raised IVC) congests the spleen far less than a portal block:
@@ -1245,7 +1250,7 @@ export class Engine {
 
   /** The radius (mm) of a varix at the current gradient. It follows the gradient as it changes (smoothed over a few
    *  seconds by the display-filtered pressures), up to a ceiling that grows over weeks with the coronary vein; banding shrinks it until the bands slough. */
-  varixTarget(site, P = this.Pf || this.P) {
+  varixTarget(site, P = this.Pf || this.P, noKeep = false) {
     const p = this.params;
     // Both kinds of varix follow the portosystemic pressure gradient above its healthy value, the same quantity
     // that recruits collaterals (see routeExcess): the portal-to-systemic drop for esophageal varices (portal
@@ -1268,7 +1273,12 @@ export class Engine {
     // on a gastrorenal shunt that is present from birth, so they are not capped.
     const mature = this.varixMature(site);
     const grown = clamp(VARIX.r0Healthy + (site === 'GV' ? VARIX.kGV : VARIX.k) * Math.max(0, ex0 - (site === 'GV' ? VARIX.openGV : VARIX.open)), VARIX.r0Healthy, VARIX.r0Healthy + mature * (VARIX.rMax - VARIX.r0Healthy));
-    return site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
+    const r = site === 'VAR' ? VARIX.r0Healthy + (grown - VARIX.r0Healthy) * Math.pow(0.6, this.bands) : grown;
+    // A Warren shunt drops the pressure in them at once, but the wall took weeks to build and takes months to go: they stay as they were,
+    // slack under the low pressure (varix: the radius follows the pressure across the wall), and shrink over about three months (vCutStep).
+    // Most are small or gone by a year; shunt failure or a stenosis puts the pressure back and they swell again at once.
+    const kept = site === 'VAR' && !noKeep ? this.slow.vCut : null;
+    return kept != null && kept > r ? kept : r;
   }
 
   /** A vasoactive drug that lowers the portal pressure (a beta-blocker, terlipressin, octreotide) drops the varix's distending pressure within
@@ -1276,6 +1286,9 @@ export class Engine {
    *  2.5 s). When one is started, the size the varix had is held for its grade (varixGraded), and slowStep lets that go on the disease clock.
    *  The drawn and measured diameter (varix, metrics varix.d) still follows the pressure at once, as the drawing of it is asked to. */
   holdVarices(prev, p) {
+    // A Warren shunt cuts the esophageal varices' feeder (the coronary vein): the varices keep the size they had while the pressure in them falls (varixTarget).
+    if (!prev.dsrs && p.dsrs) this.slow.vCut = this.varixTarget('VAR', this.Pf || this.P);
+    else if (prev.dsrs && !p.dsrs) this.slow.vCut = null;   // (the feeder is open again: the pressure sizes them)
     const on = (q) => VASO_DRUGS.some((k) => !!q?.drugs?.[k]);
     const h = this.slow.vHold || (this.slow.vHold = { VAR: null, GV: null });
     if (!on(p)) { h.VAR = h.GV = null; return; }

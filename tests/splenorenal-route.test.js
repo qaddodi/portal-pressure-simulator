@@ -120,7 +120,8 @@ test('Warren shunt ties off the coronary vein: no flow in it, sutures, a cross a
   const { computeMetrics } = await import('../src/engine/metrics.js');
   const vm = (p) => { const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle(); return computeMetrics(e).varix; };
   assert.ok(vm({}).present && vm({}).d >= 5, 'large varices before');
-  assert.ok(!vm({ dsrs: true }).present && vm({ dsrs: true }).d < 2.5, 'no varices after a Warren shunt');
+  // (Real life, 8 Nov: the pressure in them falls at once, the veins shrink over months, most are small or gone by a year: the "Warren shunt varices" test below.)
+  assert.ok(vm({ dsrs: true }).present, 'the varices are still there the day the coronary vein is tied');
   assert.match(engine, /this\.routeExcess\(\[p\.dsrs \? 'LGV' : 'CONF', 'RA'\], P\)/);
   const stage = stageSource();
   assert.match(stage, /ligature\('LGV_CONF', 'S_DSR', CORONARY_TIE\)/);
@@ -132,4 +133,45 @@ test('Warren shunt ties off the coronary vein: no flow in it, sutures, a cross a
   assert.match(fs.readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /tiedOff\(store\.get\(\)\.params, info\.id\)\) \{ vals\[0\] = '—'/, 'the tooltip reads —');
   const { SHUNTS } = await import('../src/ui/decks/shunts.js');
   assert.match(SHUNTS.slides.find((x) => x.id === 'dsrs').line, /coronary vein is tied off/);
+});
+
+// Mohammad, 8 Nov: "should some varices stay after a Warren shunt? tie off the coronary vein and follow physiology, whatever happens in real life".
+// Real life: the pressure in the varices falls at once (selective decompression through the short gastric veins and the spleen), the veins themselves
+// shrink over weeks to months and are small or gone in most patients (83% disappeared or decreased, up to 10 years; Henderson 2006: variceal rebleeding
+// 5.5% with a Warren shunt); a failed (thrombosed) shunt gives the pressure back and the varices stay or recur.
+test('Warren shunt varices: slack at once, shrinking over months, back when the shunt fails', async () => {
+  const { computeMetrics } = await import('../src/engine/metrics.js');
+  const fs = await import('node:fs');
+  const at = (p, days) => {
+    const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle();
+    if (days) { e.advanceDays(days, { silent: true, noRupture: true }); e.settle(); }
+    return computeMetrics(e).varix;
+  };
+  const base = at({}), w0 = at({ dsrs: true }), w30 = at({ dsrs: true }, 30), w90 = at({ dsrs: true }, 90), w1y = at({ dsrs: true }, 365);
+  assert.ok(base.grade.label === 'Large' && base.ratio > 1, 'large varices on the verge of tearing before');
+  // The day of the operation: the pressure is gone, the veins are not.
+  assert.ok(w0.present && w0.d > 5.5 && w0.d < base.d, 'still large, slack under the low pressure');
+  assert.ok(w0.ratio < 0.8 * base.ratio && w0.ratio < 1, 'the wall tension falls below the tear point at once');
+  // Then they shrink on the disease clock: Large, then Small, then none (or nearly) within a year.
+  assert.ok(w30.d < w0.d && w90.d < w30.d && w1y.d < w90.d, 'they shrink month by month');
+  assert.equal(w90.grade.label, 'Small', 'small at three months');
+  assert.ok(w90.present && w90.d > 2.5, 'still visible at three months');
+  assert.ok(w1y.d < 2.5 && !w1y.present, 'gone, or too small to grade, at a year');
+  // A shunt that has closed gives the pressure back: the varices stay large and at the tear point.
+  const f90 = at({ dsrs: true, thrombus: { S_DSR: 1 } }, 90);
+  assert.ok(f90.present && f90.d > 5 && f90.ratio > 1, 'a thrombosed Warren shunt leaves large varices at risk of rebleeding');
+  // Taking the shunt away puts the feeder back: the pressure sizes them again at once.
+  const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, { dsrs: true })); e.settle();
+  e.advanceDays(30, { silent: true, noRupture: true }); e.settle();
+  assert.ok(e.slow.vCut != null, 'the varices keep their size while they shrink');
+  e.setParams(deepMerge(e.params, { dsrs: false })); e.settle();
+  assert.equal(e.slow.vCut, null, 'no kept size once the shunt is gone');
+  const engine = fs.readFileSync(new URL('../src/engine/engine.js', import.meta.url), 'utf8');
+  assert.match(engine, /if \(!prev\.dsrs && p\.dsrs\) this\.slow\.vCut = this\.varixTarget\('VAR'/);
+});
+
+test('the Warren slide plays the months after the operation', async () => {
+  const { SHUNTS } = await import('../src/ui/decks/shunts.js');
+  const sl = SHUNTS.slides.find((x) => x.id === 'dsrs');
+  assert.ok(sl.days >= 90 && sl.lapse && sl.lapse.seconds <= sl.days, 'a time-lapse of months, from the operation');
 });
