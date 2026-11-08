@@ -9,6 +9,7 @@
 
 import { frameFor, cancelFrame } from './frame.js';
 import { ease, cruise, k01, legMs, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS } from './hvpg-clock.js';
+import { COIL_B } from './proc-routes.js';
 import { easeMove, createReversible } from './motion.js';
 import { NODES } from '../engine/topology.js';
 import { hvpgSev } from '../engine/pressure-cuts.js';
@@ -34,7 +35,7 @@ const nextFrame = frameFor('proc-anim');
 // a balloon BALLOON_IN_MS up and BALLOON_OUT_MS down on easeMove, a shot the camera's own camMs. What was written out per procedure is laid
 // out from it below; the gaps between events are the ones the tables always had. Old and new travel times, ms: TIPS in 3700 -> 3600, its
 // catheter over the wire 1400 -> 2400, BRTO 6200 -> 6200, BATO 6200 -> 9100, EUS scope 4900 -> 5200, glue 5700 -> 6200, HVPG 4000 -> 3400.)
-const LEG = { tips: legMs(ROUTE_LEN.tips), tipsOver: legMs(ROUTE_LEN.tipsOver), brto: legMs(ROUTE_LEN.brto), brtoC6: legMs(ROUTE_LEN.brtoC6), bato: legMs(ROUTE_LEN.bato), eus: legMs(ROUTE_LEN.eus), eusglue: legMs(ROUTE_LEN.eusglue) };
+const LEG = { tips: legMs(ROUTE_LEN.tips), tipsOver: legMs(ROUTE_LEN.tipsOver), tipsCoil: legMs(ROUTE_LEN.tipsCoil), brto: legMs(ROUTE_LEN.brto), brtoC6: legMs(ROUTE_LEN.brtoC6), bato: legMs(ROUTE_LEN.bato), eus: legMs(ROUTE_LEN.eus), eusglue: legMs(ROUTE_LEN.eusglue) };
 /** A table of event times (ms) with the events at or after each `at` moved by `d`, for each [at, d] of moves, in the table as first written. */
 const retime = (T, moves) => {
   const at = (x) => { let d = 0; for (let i = 0; i < moves.length; i++) if (x >= moves[i][0]) d += moves[i][1]; return x + d; };
@@ -58,6 +59,17 @@ const tipsT = () => {
 };
 const TIPS_T = tipsT();
 const TIPS_STOPS = [TIPS_T.travel1 + 600, TIPS_T.over1 + 300, TIPS_T.inflate1 + 400, TIPS_T.end];
+// TIPS that coils the coronary vein (Baveno VIII 5.41): the TIPS as above to the balloon let down, then the catheter on over the wire along the
+// portal trunk and up the coronary vein (cv0 to cv1, a leg of its own length), the coil pushed out of its tip (coil0 to coil1), and the catheter
+// back to the right portal vein (cvOut0 to cvOut1); the stent last. The model takes both changes together, as the stent step starts (apply).
+const tipsCoilT = () => {
+  const T = TIPS_T, cv0 = T.deflate1 + 400, cv1 = cv0 + LEG.tipsCoil, coil0 = cv1 + 500, coil1 = coil0 + 2400, cvOut0 = coil1 + 700, cvOut1 = cvOut0 + LEG.tipsCoil;
+  const apply = cvOut1 + 100, back = apply + 600;
+  const head = { ...T }; delete head.apply; delete head.back; delete head.end;   // (the TIPS's own, to where the balloon is let down)
+  return { ...head, cv0, cv1, coil0, coil1, cvOut0, cvOut1, apply, back, end: back + 3000 };
+};
+const TIPS_COIL_T = tipsCoilT();
+const TIPS_COIL_STOPS = [TIPS_T.travel1 + 600, TIPS_T.over1 + 300, TIPS_T.inflate1 + 400, TIPS_COIL_T.coil1 + 500, TIPS_COIL_T.end];
 // How long a shot may glide (ms), as a slide's own camera does: it asks for the camera's own time for the move (cathFocus scale: stage-glide.js
 // camMs, 480 to 900 ms by how far it goes), this being the ceiling. The procedure waits for the glide to land, and a little more, at each new shot.
 const SHOT_MS = 1500;   // motion-scale: own pace (a shot's camera glide of a procedure)
@@ -316,9 +328,29 @@ export const PLUGS = {
     offered: (p) => !!p.spontaneous?.C6,
     before: { occluded: { C6: false } },
   },
+  // TIPS with the coronary vein coiled (Baveno VIII 5.41, "TIPS ± variceal embolisation"; AASLD 2024: obliteration at the time of the TIPS cuts rebleeding and
+  // encephalopathy). A slide asks for it with procedure: { kind: 'tips', target: 'C1a' }. The same way in as the TIPS: the needle, the tract, the balloon;
+  // then the catheter goes on over the wire along the portal trunk and up the coronary vein, the varices' feeder, and coils fill it before the stent goes in.
+  // The model takes the stent and the closed coronary vein together (occluded.C1a: the esophageal varices lose their feeder, engine.js varixObliterated).
+  tipscoil: {
+    name: 'TIPS with coils', label: 'TIPS with coils', balloonSpan: 'tract', T: TIPS_COIL_T, stops: TIPS_COIL_STOPS,
+    steps: [
+      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
+      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein. A wire goes through it into the portal trunk, and the catheter slides over them.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['coil', 'Vein coiled', 'The catheter goes on along the portal trunk and up the coronary vein, the feeder of the varices. Coils fill it, so portal blood no longer reaches them.', 'Coils', 'coil', 'LGV_CONF', ['LGV'], 1 - COIL_B],
+      ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
+    ],
+    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is clotted, so a TIPS has no route.' : ''),
+    apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; p.occluded = { ...p.occluded, C1a: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
+    had: (p) => !!p.tips?.on && !!p.occluded?.C1a,
+    undo: (p) => { p.tips = { ...p.tips, on: false }; p.occluded = { ...p.occluded, C1a: false }; return p; },   // alloc-rare: once, going back past T.apply
+    offered: () => true,
+    before: { tips: { on: false }, occluded: { C1a: false } },
+  },
 };
-// The BRTO play's targets: the spec each one plays (the default, C5, is BRTO itself).
-const PLUG_TARGETS = { brto: { C5: 'brto', C6: 'brtoC6' } };
+// The targets of a play: the spec each one plays (BRTO's default, C5, is BRTO itself; a TIPS that coils the coronary vein, C1a, is its own).
+const PLUG_TARGETS = { brto: { C5: 'brto', C6: 'brtoC6' }, tips: { C1a: 'tipscoil' } };
 /** The spec a slide's `procedure` plays: 'brto', or { kind: 'brto', target: 'C6' } → 'brtoC6'. A target the kind does not take gives a name no spec has
  *  (so a deck test names it); null when the slide plays none. */
 export function procKindOf(proc) {
@@ -401,12 +433,14 @@ export function procFrame(kind, t, stops = null, into = null) {
     f.u = 0; f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
     return f;
   }
-  if (kind === 'tips') {
+  if (kind === 'tips' || kind === 'tipscoil') {
     const tr = stops?.tract || TRACT, a = tr[0], b = tr[1], rp = stops?.rpv || RPV, c = Math.max(b, rp[0] + (rp[1] - rp[0]) * CATH_RPV);
     // The catheter in to where the tract leaves the hepatic vein, then (once the needle and wire are out) over them into the
     // right portal vein; the needle out along the tract a little past its end, covered again as the catheter reaches it; the
     // wire on from the needle's tip into the trunk (u 1). Going out, the wire comes back with the catheter.
-    const tip = t < T.over0 ? a * cruise(k01(t, T.travel0, T.travel1)) : a + (c - a) * cruise(k01(t, T.over0, T.over1));
+    // (The TIPS that coils goes on, after its balloon, from the right portal vein to the coil site, u 1, and back: the wire is already out that far.)
+    const coils = kind === 'tipscoil', go = coils ? cruise(k01(t, T.cv0, T.cv1)) * (1 - cruise(k01(t, T.cvOut0, T.cvOut1))) : 0;
+    const tip = (t < T.over0 ? a * cruise(k01(t, T.travel0, T.travel1)) : a + (c - a) * cruise(k01(t, T.over0, T.over1))) + (1 - c) * go;
     const nd = a + (Math.min(c, b + 0.01) - a) * ease(k01(t, T.needle0, T.needle1));
     const u = tip * (1 - back);
     const needle = t >= T.needle0 && t < T.over1 && nd > tip ? nd : 0;
@@ -415,6 +449,7 @@ export function procFrame(kind, t, stops = null, into = null) {
     const balloon = easeMove(k01(t, T.inflate0, T.inflate1)) * (1 - easeMove(k01(t, T.deflate0, T.deflate1)));
     const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
     f.u = u; f.balloon = balloon; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = needle; f.wire = wire > u ? wire : 0; f.flash = flash; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
+    f.coil = coils ? ease(k01(t, T.coil0, T.coil1)) : 0;   // (the coil stays in the vein once it is out)
     return f;
   }
   const u = cruise(k01(t, T.travel0, T.travel1)) * (1 - back);

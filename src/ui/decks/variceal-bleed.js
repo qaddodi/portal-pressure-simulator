@@ -98,6 +98,16 @@ export const BLEED = {
       ask: ['Which patients get a pre-emptive TIPS after a variceal bleed?', 'Child–Pugh C 10 to 13, Child–Pugh B >7 with active bleeding at endoscopy, or an HVPG ≥20 mmHg, in a patient aged <75 with a creatinine <3 mg/dL and no heart failure.'],
     },
     {
+      // (The same TIPS, played with the coronary vein coiled: Baveno VIII 5.41, "TIPS ± variceal embolisation". The slide opens with no stent and the vein open, and the
+      // catheter that makes the tract goes on through it, up the vein, before the stent goes in; proc-anim.js PLUGS.tipscoil. The model closes the vein with the stent.)
+      id: 'tipscoil', params: { tips: { on: true }, occluded: { C1a: true } }, procedure: { kind: 'tips', target: 'C1a' }, cam: 'liver', ripple: true, data: 'tiles',
+      tool: { kind: 'evgraph', title: 'PPG and varix after the stent and coils' }, tiles: ['ppg', 'varix'], key: ['ppg'], delta: 'path',
+      kicker: 'After the scope', site: 'sin', title: 'The same TIPS can coil the varices\u2019 feeder',
+      line: 'The TIPS catheter goes on up the coronary vein, the varices\u2019 feeder, and fills it with coils before the stent. The PPG falls to {ppg}, the varix to {varix}.',
+      notes: 'Source: Baveno VIII 5.41; AASLD 2024. Baveno VIII names TIPS with or without variceal embolization, as soon as possible, as the preferred definitive treatment after a bleed from GOV2 or IGV1. AASLD adds that obliterating the varices at the time of the TIPS lowers rebleeding further and the risk of encephalopathy. In practice the catheter that has made the tract goes on through it into the portal vein, finds the coronary (left gastric) vein, which feeds the esophageal and cardiac varices, and fills it with coils before the covered stent goes in. The model closes the coronary vein together with the stent: the esophageal varices lose their feeder whatever the gradient, so the varix shrinks to a resting vein. The stent alone has already taken the PPG below 12 mmHg here, so the coils add little to the numbers; they add protection where the pressure is not the whole story.',
+      ask: ['What does Baveno VIII advise after a bleed from GOV2 or IGV1, as the definitive treatment?', 'A TIPS, with or without embolization of the varices, as soon as possible.'],
+    },
+    {
       // (Two days on from a bleed of about a quarter of her blood: the plasma has refilled, so the hemoglobin has fallen to where the tiles of the first
       // case said it was heading.)
       id: 'controlled', preset: 'cirr-decomp', params: { drugs: { octreotide: true }, respiration: false }, action: [{ kind: 'hemorrhage', mL: 1200 }, BAND], days: 2, cam: 'varices', labels: ['VAR'], tool: BEATS, data: 'tiles', tiles: ['map', 'hb'], key: ['map'],

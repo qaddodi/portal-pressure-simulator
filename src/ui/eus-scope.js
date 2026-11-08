@@ -341,63 +341,7 @@ export function eusDraw(st, r, tipD, at, rgb, px = 0) {
   // own point, no further from it than the lumen's radius (r.glue.rad, the vessel's drawn caliber now) less the wire's width, so the coil is
   // inside the vessel's walls whatever the varix's size and the zoom (his ask, 7 Nov 2026: "should deploy and be within the varix vessel
   // walls not outside"). It stays in the varix once the needle is back.
-  const gl = r.glue;
-  OUT.coil = -1;
-  if ((st.coil || 0) > 0.01 && gl?.path && gl.rad > COIL_EDGE + COIL_GAP) {
-    const k = Math.min(1, st.coil), m = Math.max(3, Math.ceil(COIL_N * k)), pa = gl.path;
-    // (It runs on toward the side of the needle's point with more of the varix laid; the loops' radius across the vessel is the lumen less
-    // the wire's dark edge and a hair, so the wire's outer edge stays inside, and they open out over the first few samples from the point;
-    // their length along it, a few lumen widths, inside the stretch laid: coilReach.)
-    const { dir, rho, span } = coilReach(gl, COIL_OUT);
-    for (let i = 0; i <= m; i++) {
-      const u = (k * i) / m, th = COIL_TURNS * 2 * Math.PI * u, rr = rho * (1 - 0.25 * u) * Math.min(1, u / COIL_OPEN);
-      const along = dir * (u * span + rr * COIL_SWAY * (1 - Math.cos(th)));
-      const q = Math.min(pa.n - 1, Math.max(0, pa.at + along / pa.step)), i0 = Math.min(pa.n - 2, Math.floor(q)), f = q - i0;
-      const cx0 = pa.x[i0] + (pa.x[i0 + 1] - pa.x[i0]) * f, cy0 = pa.y[i0] + (pa.y[i0 + 1] - pa.y[i0]) * f;
-      let tx0 = pa.tx[i0] + (pa.tx[i0 + 1] - pa.tx[i0]) * f, ty0 = pa.ty[i0] + (pa.ty[i0 + 1] - pa.ty[i0]) * f;
-      const tl = Math.hypot(tx0, ty0) || 1; tx0 /= tl; ty0 /= tl;
-      CP[i * 2] = cx0 - ty0 * rr * Math.sin(th); CP[i * 2 + 1] = cy0 + tx0 * rr * Math.sin(th);
-    }
-    OUT.coilTip = CP[m * 2]; OUT.coilTipY = CP[m * 2 + 1];
-    let qx = 0, qy = 0;
-    OUT.coil = V.length / 6;
-    // (Its platinum wire never under 1.5 px wide, its dark edge a little more than that: visual-style D3.)
-    const wirePt = Math.max(COIL_WIRE, px * COIL_PX / 2);
-    const wire = (w, mode, col, alpha) => {
-      const first = V.length / 6;
-      let run = 0;
-      for (let i = 0; i <= m; i++) {
-        const j0 = Math.max(0, i - 1), j1 = Math.min(m, i + 1), dx = CP[j1 * 2] - CP[j0 * 2], dy = CP[j1 * 2 + 1] - CP[j0 * 2 + 1], l = Math.hypot(dx, dy) || 1;
-        const x = CP[i * 2], y = CP[i * 2 + 1], nx = -dy / l, ny = dx / l;
-        if (i) run += Math.hypot(x - qx, y - qy);
-        qx = x; qy = y;
-        V.push(x - nx * w, y - ny * w, nx, ny, -1, run, x + nx * w, y + ny * w, nx, ny, 1, run);
-      }
-      draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: [0, 0], len: run + 1 });
-    };
-    wire(Math.max(COIL_EDGE, wirePt + COIL_EDGE - COIL_WIRE), 7, M.ink, 0.75);
-    wire(wirePt, 3, M.platinum, 1);
-    // Its fibre tufts (an embolisation coil's Dacron: what holds the glue): two short pale strokes across the wire at every half turn,
-    // leaning forward and back, none longer than the lumen has room for. One triangle draw of the satin polymer.
-    const tuftHalf = Math.max(TUFT_W, px * 0.5), first = V.length / 6;
-    for (let j = 1; j <= Math.floor(COIL_TURNS * 2 * k); j++) {
-      const u = j / (COIL_TURNS * 2), fi = (u / k) * m, i0 = Math.min(m - 1, Math.floor(fi)), f = fi - i0;
-      const x = CP[i0 * 2] + (CP[i0 * 2 + 2] - CP[i0 * 2]) * f, y = CP[i0 * 2 + 1] + (CP[i0 * 2 + 3] - CP[i0 * 2 + 1]) * f;
-      const dx = CP[i0 * 2 + 2] - CP[i0 * 2], dy = CP[i0 * 2 + 3] - CP[i0 * 2 + 1], dl = Math.hypot(dx, dy) || 1, wx = dx / dl, wy = dy / dl;
-      // (How far this point is from the varix's centreline, across it: the loop's own offset, rr sin(th), at most the lumen's radius less the wire.)
-      const lat = rho * Math.abs(Math.sin(COIL_TURNS * 2 * Math.PI * u)), room = gl.rad - COIL_GAP - lat - wirePt;
-      const len = Math.min(TUFT_L, room);
-      if (!(len > TUFT_W * 2)) continue;
-      for (let sd = -1; sd <= 1; sd += 2) {
-        // (The stroke leaves the wire across it, leaning back along it by TUFT_LEAN: direction d, and its across-unit u, the vertices' direction.)
-        const dx2 = sd * -wy * Math.cos(TUFT_LEAN) - wx * Math.sin(TUFT_LEAN), dy2 = sd * wx * Math.cos(TUFT_LEAN) - wy * Math.sin(TUFT_LEAN);
-        const ux = -dy2, uy = dx2, hx = ux * tuftHalf, hy = uy * tuftHalf, ex = x + dx2 * len, ey = y + dy2 * len;
-        V.push(x - hx, y - hy, ux, uy, -1, 0.01, x + hx, y + hy, ux, uy, 1, 0.01, ex - hx, ey - hy, ux, uy, -1, len,
-          x + hx, y + hy, ux, uy, 1, 0.01, ex + hx, ey + hy, ux, uy, 1, len, ex - hx, ey - hy, ux, uy, -1, len);
-      }
-    }
-    if (V.length / 6 > first) draws.push({ mode: 2, tri: true, first, count: V.length / 6 - first, col: M.fibre, alpha: 0.9 * op, fade: [0, 0], len: 1e3 });
-  }
+  OUT.coil = layCoil(st, r.glue, rgb, px, op, V, draws);
   const tcol = rgb(tg < 0.5 ? 'var(--tr-pv)' : 'var(--tr-hv)');
   if ((st.flash || 0) > 0) for (const k of [st.flash, (st.flash + 0.5) % 1]) disc(TGT[0], TGT[1], 1, 0, 1.4 + 6 * k, 1.4 + 6 * k, 6, tcol, (1 - k) * (1 - k) * 0.85);
   if (st.ring) {
@@ -407,6 +351,70 @@ export function eusDraw(st, r, tipD, at, rgb, px = 0) {
   OUT.line = LINE; LINE.n = n; LINE.x = cx; LINE.y = cy;
   OUT.tip = g.end; OUT.needle = nl > 0.4 ? [g.exit[0] + g.nd[0] * nl, g.exit[1] + g.nd[1] * nl] : g.end;   // alloc-rare: only while the needle is out (the readings' point)
   return OUT;
+}
+/**
+ * The coil, laid into V and draws (the caller's own: the scope's in eusDraw, the TIPS catheter's in stage-cath.js; base: how many vertices the caller's
+ * base buffer holds before V, so the draws' first indices count them). gl: the vessel it lies in, { path, rad, dir? } (lumenPath; coilReach). It starts at
+ * the path's point and curls on along the vessel inside its walls. Returns the index of its first vertex, or -1 when none is drawn (not out yet, or the
+ * lumen too narrow for the wire).
+ */
+export function layCoil(st, gl, rgb, px, op, V, draws, base = 0) {
+  if (!((st.coil || 0) > 0.01 && gl?.path && gl.rad > COIL_EDGE + COIL_GAP)) return -1;
+  const M = materials(rgb);
+  const k = Math.min(1, st.coil), m = Math.max(3, Math.ceil(COIL_N * k)), pa = gl.path;
+  // (It runs on toward the side of the needle's point with more of the varix laid; the loops' radius across the vessel is the lumen less
+  // the wire's dark edge and a hair, so the wire's outer edge stays inside, and they open out over the first few samples from the point;
+  // their length along it, a few lumen widths, inside the stretch laid: coilReach.)
+  const { dir, rho, span } = coilReach(gl, COIL_OUT);
+  for (let i = 0; i <= m; i++) {
+    const u = (k * i) / m, th = COIL_TURNS * 2 * Math.PI * u, rr = rho * (1 - 0.25 * u) * Math.min(1, u / COIL_OPEN);
+    const along = dir * (u * span + rr * COIL_SWAY * (1 - Math.cos(th)));
+    const q = Math.min(pa.n - 1, Math.max(0, pa.at + along / pa.step)), i0 = Math.min(pa.n - 2, Math.floor(q)), f = q - i0;
+    const cx0 = pa.x[i0] + (pa.x[i0 + 1] - pa.x[i0]) * f, cy0 = pa.y[i0] + (pa.y[i0 + 1] - pa.y[i0]) * f;
+    let tx0 = pa.tx[i0] + (pa.tx[i0 + 1] - pa.tx[i0]) * f, ty0 = pa.ty[i0] + (pa.ty[i0 + 1] - pa.ty[i0]) * f;
+    const tl = Math.hypot(tx0, ty0) || 1; tx0 /= tl; ty0 /= tl;
+    CP[i * 2] = cx0 - ty0 * rr * Math.sin(th); CP[i * 2 + 1] = cy0 + tx0 * rr * Math.sin(th);
+  }
+  OUT.coilTip = CP[m * 2]; OUT.coilTipY = CP[m * 2 + 1];
+  let qx = 0, qy = 0;
+  const first0 = base + V.length / 6;
+  // (Its platinum wire never under 1.5 px wide, its dark edge a little more than that: visual-style D3.)
+  const wirePt = Math.max(COIL_WIRE, px * COIL_PX / 2);
+  const wire = (w, mode, col, alpha) => {
+    const first = base + V.length / 6;
+    let run = 0;
+    for (let i = 0; i <= m; i++) {
+      const j0 = Math.max(0, i - 1), j1 = Math.min(m, i + 1), dx = CP[j1 * 2] - CP[j0 * 2], dy = CP[j1 * 2 + 1] - CP[j0 * 2 + 1], l = Math.hypot(dx, dy) || 1;
+      const x = CP[i * 2], y = CP[i * 2 + 1], nx = -dy / l, ny = dx / l;
+      if (i) run += Math.hypot(x - qx, y - qy);
+      qx = x; qy = y;
+      V.push(x - nx * w, y - ny * w, nx, ny, -1, run, x + nx * w, y + ny * w, nx, ny, 1, run);
+    }
+    draws.push({ mode, first, count: base + V.length / 6 - first, col, alpha: alpha * op, fade: [0, 0], len: run + 1 });
+  };
+  wire(Math.max(COIL_EDGE, wirePt + COIL_EDGE - COIL_WIRE), 7, M.ink, 0.75);
+  wire(wirePt, 3, M.platinum, 1);
+  // Its fibre tufts (an embolisation coil's Dacron: what holds the glue): two short pale strokes across the wire at every half turn,
+  // leaning forward and back, none longer than the lumen has room for. One triangle draw of the satin polymer.
+  const tuftHalf = Math.max(TUFT_W, px * 0.5), first = base + V.length / 6;
+  for (let j = 1; j <= Math.floor(COIL_TURNS * 2 * k); j++) {
+    const u = j / (COIL_TURNS * 2), fi = (u / k) * m, i0 = Math.min(m - 1, Math.floor(fi)), f = fi - i0;
+    const x = CP[i0 * 2] + (CP[i0 * 2 + 2] - CP[i0 * 2]) * f, y = CP[i0 * 2 + 1] + (CP[i0 * 2 + 3] - CP[i0 * 2 + 1]) * f;
+    const dx = CP[i0 * 2 + 2] - CP[i0 * 2], dy = CP[i0 * 2 + 3] - CP[i0 * 2 + 1], dl = Math.hypot(dx, dy) || 1, wx = dx / dl, wy = dy / dl;
+    // (How far this point is from the varix's centreline, across it: the loop's own offset, rr sin(th), at most the lumen's radius less the wire.)
+    const lat = rho * Math.abs(Math.sin(COIL_TURNS * 2 * Math.PI * u)), room = gl.rad - COIL_GAP - lat - wirePt;
+    const len = Math.min(TUFT_L, room);
+    if (!(len > TUFT_W * 2)) continue;
+    for (let sd = -1; sd <= 1; sd += 2) {
+      // (The stroke leaves the wire across it, leaning back along it by TUFT_LEAN: direction d, and its across-unit u, the vertices' direction.)
+      const dx2 = sd * -wy * Math.cos(TUFT_LEAN) - wx * Math.sin(TUFT_LEAN), dy2 = sd * wx * Math.cos(TUFT_LEAN) - wy * Math.sin(TUFT_LEAN);
+      const ux = -dy2, uy = dx2, hx = ux * tuftHalf, hy = uy * tuftHalf, ex = x + dx2 * len, ey = y + dy2 * len;
+      V.push(x - hx, y - hy, ux, uy, -1, 0.01, x + hx, y + hy, ux, uy, 1, 0.01, ex - hx, ey - hy, ux, uy, -1, len,
+        x + hx, y + hy, ux, uy, 1, 0.01, ex + hx, ey + hy, ux, uy, 1, len, ex - hx, ey - hy, ux, uy, -1, len);
+    }
+  }
+  if (base + V.length / 6 > first) draws.push({ mode: 2, tri: true, first, count: base + V.length / 6 - first, col: M.fibre, alpha: 0.9 * op, fade: [0, 0], len: 1e3 });
+  return first0;
 }
 const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
 // (The coil: its samples, its turns, its loops' radius and how far it runs along the vessel, world units; drawn as the needle's steel on
@@ -425,7 +433,7 @@ const COIL_OUT = { dir: 1, rho: 0, span: 0 };
  */
 export function coilReach(glue, out = {}) {
   const pa = glue.path, rad = glue.rad;
-  out.dir = pa.n - 1 - pa.at >= pa.at ? 1 : -1;
+  out.dir = glue.dir || (pa.n - 1 - pa.at >= pa.at ? 1 : -1);   // (dir: the TIPS catheter's coil runs on up the vein, the way it came)
   const room = (out.dir > 0 ? pa.n - 1 - pa.at : pa.at) * pa.step;
   out.rho = Math.max(0, Math.min(COIL_R, rad - COIL_EDGE - COIL_GAP));
   out.span = Math.max(0, Math.min(COIL_SPAN_K * rad, room - 2 * out.rho * COIL_SWAY - 1));

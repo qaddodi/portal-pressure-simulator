@@ -9,19 +9,34 @@
 // B: pts(list, id, f, name) loose points (a lead-in from outside the plate); vessel(id, { rev, a, b, until, near, name, r }) a vessel, whole or in
 //   part, the way the catheter travels it.
 
+const TIPS_IDS = ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'];
+/** How far up the coronary vein the TIPS catheter goes to coil it, of the vein from where it joins the portal trunk (0..1 of its length). */
+export const COIL_B = 0.17;
 export function procSpecs(geo, radOf) {
+  // The TIPS's way in, shared with the TIPS that coils: the neck, the SVC, the IVC and the right hepatic vein to where the tract leaves it, the tract (as wide
+  // as the stent will be) through the liver, and the right portal vein.
+  const tipsLegs = (B) => {
+    const top = geo.SVC_RA.cur[0], ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
+    B.pts([[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], 'SVC_RA', 0);
+    B.vessel('SVC_RA'); B.vessel('IVCS_RA', { rev: true });
+    B.vessel('IVC_IS', { rev: true, until: (q) => q[1] >= ost[1] - 4 });
+    // Out along the right hepatic vein to where the tract leaves it, then the needle's path through the liver (the tract,
+    // as wide as the stent will be) into the right portal vein, and the wire on into the portal trunk.
+    B.vessel('RHV_IVC', { rev: true, near: geo.TIPS.cur[geo.TIPS.cur.length - 1], name: 'hv' });
+    B.vessel('TIPS', { rev: true, name: 'tract', r: radOf('PVH_R', 0.5) * 0.8 });
+    B.vessel('PVH_R', { rev: true, name: 'rpv' });
+  };
   return {
-    tips: { ids: ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC', 'TIPS', 'PVH_R', 'PV_TRUNK'], start: 0.55, tip: ['trunk', 0.45], focus: ['hv', 'trunk'],
+    tips: { ids: TIPS_IDS, start: 0.55, tip: ['trunk', 0.45], focus: ['hv', 'trunk'],
+      build(B) { tipsLegs(B); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' }); } },
+    // TIPS with the coronary vein coiled (Baveno VIII 5.41: "TIPS ± variceal embolisation"): the same way in, the tract and the right portal vein,
+    // then on along the trunk to where the coronary vein joins it (its drawn end, anatomy.js LGV_CONF) and up that vein against its course, as far
+    // as COIL_B of it, where the coil is pushed out. The tip stops there; the catheter's stops for the tract and the portal vein are the TIPS's.
+    tipscoil: { ids: [...TIPS_IDS, 'LGV_CONF'], start: 0.55, tip: ['coronary', 1], focus: ['hv', 'coronary'],
       build(B) {
-        const top = geo.SVC_RA.cur[0], ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
-        B.pts([[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], 'SVC_RA', 0);
-        B.vessel('SVC_RA'); B.vessel('IVCS_RA', { rev: true });
-        B.vessel('IVC_IS', { rev: true, until: (q) => q[1] >= ost[1] - 4 });
-        // Out along the right hepatic vein to where the tract leaves it, then the needle's path through the liver (the tract,
-        // as wide as the stent will be) into the right portal vein, and the wire on into the portal trunk.
-        B.vessel('RHV_IVC', { rev: true, near: geo.TIPS.cur[geo.TIPS.cur.length - 1], name: 'hv' });
-        B.vessel('TIPS', { rev: true, name: 'tract', r: radOf('PVH_R', 0.5) * 0.8 });
-        B.vessel('PVH_R', { rev: true, name: 'rpv' }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
+        tipsLegs(B);
+        B.vessel('PV_TRUNK', { rev: true, near: geo.LGV_CONF.cur[geo.LGV_CONF.cur.length - 1], name: 'trunk' });
+        B.vessel('LGV_CONF', { rev: true, b: COIL_B, name: 'coronary' });
       } },
     // (BRTO's balloon sits near the renal end of the shunt, 0.2 of the way up it: at 0.3 the tip and balloon lay on the splenic vein,
     // which crosses the shunt from 0.30 to 0.34, and the catheter drew over it. Now the tip stops about 36 px below it.)

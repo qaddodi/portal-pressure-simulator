@@ -44,7 +44,7 @@ export const PRE_S = 5, EVENT_S = 20, TICK_S = 5;
 // What the change is called over its line, for each procedure that makes one (a measurement, EUS-PPG, changes nothing and has no graph).
 // (BRTO and BATO: the word of their last step, the moment the model closes the shunt. Banding and a meal have time charts of their own: the
 // beat or talk trace on a banding slide, the time-lapse graph on a meal slide, so they get no second one here.)
-export const EVENT_WORD = { tips: 'Stent open', brto: 'Shunt closed', brtoC6: 'Shunt closed', bato: 'Varices closed' };
+export const EVENT_WORD = { tips: 'Stent open', tipscoil: 'Stent open', brto: 'Shunt closed', brtoC6: 'Shunt closed', bato: 'Varices closed' };
 const kindOf = (s) => procKindOf(s?.procedure);
 const isP = (k) => LINE[k]?.[1] === 'mmHg';
 const NO_F = Object.freeze({});
@@ -63,7 +63,7 @@ export function eventLines(s) {
 /** The slide's graph: { kind, word, lines, target } (target: the PPG's goal after a TIPS, mmHg, on the line that has it), or null. */
 export function eventGraphOf(s) {
   const lines = eventLines(s), kind = kindOf(s);
-  return lines ? { kind, word: EVENT_WORD[kind], lines, target: kind === 'tips' && lines[0] === 'ppg' ? PPG_CUTS.red : null } : null;
+  return lines ? { kind, word: EVENT_WORD[kind], lines, target: (kind === 'tips' || kind === 'tipscoil') && lines[0] === 'ppg' ? PPG_CUTS.red : null } : null;
 }
 
 const NICE = [1, 2, 2.5, 5, 10];

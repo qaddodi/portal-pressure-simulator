@@ -15,7 +15,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { procSpecs } from './proc-routes.js';
 import { restPass } from './rest-pass.js';
 import { clamp, lerp, s } from './util.js';
-import { EUS_GLUE_ROUTE, EUS_ROUTE, coilReach, eusDraw } from './eus-scope.js';
+import { EUS_GLUE_ROUTE, EUS_ROUTE, coilReach, eusDraw, layCoil, lumenPath } from './eus-scope.js';
 
 import { stageScope } from './stage-scope.js';
 export function createCath(st, live) {
@@ -115,11 +115,16 @@ export function createCath(st, live) {
   // the tip stops (a leg's name and how far along it); focus: the legs the close-up frames; start: how far along the lead-in
   // the tip sits before it moves.
   // (TIPS, BRTO and BATO: proc-routes.js, which the timing tests read too.)
+  const PROC_BASE = procSpecs(geo, cathRadOf);
   const PROC_ROUTES = {
-    ...procSpecs(geo, cathRadOf),
+    ...PROC_BASE,
     eus: EUS_ROUTE,   // (EUS-PPG's echoendoscope: down the esophagus to the lesser curve, eus-scope.js)
     eusglue: EUS_GLUE_ROUTE,   // (EUS-guided coils and glue: the same scope, on under the fundus to a station over the varix)
+    // (The TIPS that coils the coronary vein: the TIPS's route on up the vein; coilAt, the vein's centreline round the tip where the coil is pushed out,
+    // running on up the vein the way the catheter came, against the vein's drawn course.)
+    tipscoil: { ...PROC_BASE.tipscoil, after(r) { const q = r.parts.find((x) => x.name === 'coronary'); r.coilAt = { id: q.id, f: q.fb, rad: 0, path: lumenPath(geo[q.id].cur, q.fb, COIL_PATH_HALF), dir: -1 }; } },
   };
+  const COIL_PATH_HALF = 16;   // (the vein's centreline each side of the coil's start, world units: the coil runs on inside it, eus-scope.js)
   // A leg's lumen radius: a vessel's drawn caliber there, or a fixed one ('=r', a tract through the liver).
   const PROC_FIXED = new Map();   // ('=r' → r, each fixed radius a route was built with, set when the leg is laid)
   const procRadOf = (id, f) => (id[0] === '=' ? PROC_FIXED.get(id) ?? +id.slice(1) : cathRadOf(id, f));
@@ -357,6 +362,9 @@ export function createCath(st, live) {
       }
       draws.push({ mode: 5, first, count: begin() - first, col: toRGB(sp ? 'var(--dev-nylon)' : 'var(--dev-latex)', cs), alpha: (0.7 + 0.3 * bl) * op });   // latex over dilute contrast (a TIPS's dilation balloon, on its span, is clear nylon)
     }
+    // The coil of a TIPS that coils the coronary vein (eus-scope.js layCoil, the scope's coil): pushed out of the catheter's tip, it curls on up the vein inside its
+    // walls and stays there once the catheter is back. (The vein's lumen as drawn now, so it fits whatever the zoom or the vein's width.)
+    if (r.coilAt && st.coil > 0) { r.coilAt.rad = cathRadOf(r.coilAt.id, r.coilAt.f); layCoil(st, r.coilAt, (c) => toRGB(c, cs), px, op, V, draws, sh.count); }
     // The tip reading: two ripples running out from it.
     if (st.ring) {
       const rgb = toRGB(st.ring, cs), ph = ((st.clock || 0) / 1300) % 1;
@@ -846,6 +854,10 @@ export function createCath(st, live) {
   // (The TIPS close-up, his ask, 5 Nov: the tract itself with a short stretch of the hepatic vein before it and of the right portal
   // vein after it, about twice as close as the hepatic vein to the trunk was; the wire runs on out of the frame into the trunk.)
   const TIPS_K_MAX = 9, TIPS_BEFORE = 26, TIPS_AFTER = 22;
+  const isTips = (r) => r.kind === 'tips' || r.kind === 'tipscoil';
+  // (The TIPS that coils: its 'coil' shot frames the coronary vein from a little before it leaves the portal trunk to the end of the coil, held still while the
+  // catheter goes in, the coil is pushed out and the catheter comes back; up to TIPS_K_MAX, as the tract's close-up.)
+  const COIL_BEFORE = 30, COIL_PAD = 14;
   // Where a treatment's route enters the plate (its lead-in from outside ends there): the view never follows the tip off the figure.
   const procIn = (r) => r.parts?.[1]?.d0 ?? r.start;
   // (steady: a refit to cards that moved, see animateVT.)
@@ -859,6 +871,7 @@ export function createCath(st, live) {
     let cx, cy, k, cyScreen = (fy0 + fy1) / 2;
     if (isOblit(r) && (mode === 'tip' || mode === 'fill' || mode === 'work' || (mode === 'way' && !reduceMotion.matches))) return oblitFocus(r, mode, wr, ins, ms, steady);
     if (r.glue && (mode === 'tip' || mode === 'work' || mode === 'way')) return glueFocus(r, mode, wr, ins, ms, steady);
+    if (r.coilAt && mode === 'coil') return coilFocus(r, wr, ins, ms, steady);
     if ((mode === 'tip' || mode === 'way' || mode === 'work') && r.focus) {
       // A treatment's two shots, at one scale, the stretch it works on (the hepatic vein, the tract and the portal vein; the renal
       // vein and the shunt; the splenic vein and the feeder) filling the space the cards leave, up to PROC_K_MAX: close enough to
@@ -867,11 +880,11 @@ export function createCath(st, live) {
       // (cathFollow) at that scale, panning only, so it never zooms while the catheter moves.
       // (BRTO and BATO have their own camera, oblitFocus, but for a reduced-motion way in, framed whole below.)
       // (EUS-PPG's scope, r.box: its work shots frame its two stations and both targets, and its way in the esophagus and stomach, r.focus.)
-      const Rf = cathAt(r, r.free).r, wayIn = r.kind !== 'tips' && mode === 'way';
+      const Rf = cathAt(r, r.free).r, wayIn = !isTips(r) && mode === 'way';
       const [d0, d1] = wayIn ? [Math.max(procIn(r), r.free - Rf * WAY_BEHIND), Math.min(r.total, r.free + Rf * WAY_AHEAD)]
-        : mode === 'work' && r.kind !== 'tips' ? [Math.max(procIn(r), r.free - Rf * 4), r.total]
-          : r.kind === 'tips' && r.spans?.tract && r.spans.rpv ? [Math.max(procIn(r), r.spans.tract[0] - TIPS_BEFORE), Math.min(r.total, r.spans.rpv[0] + TIPS_AFTER)] : r.focus;
-      const tips = r.kind === 'tips';
+        : mode === 'work' && !isTips(r) ? [Math.max(procIn(r), r.free - Rf * 4), r.total]
+          : isTips(r) && r.spans?.tract && r.spans.rpv ? [Math.max(procIn(r), r.spans.tract[0] - TIPS_BEFORE), Math.min(r.total, r.spans.rpv[0] + TIPS_AFTER)] : r.focus;
+      const tips = isTips(r);
       // (EUS-PPG: its 'tip' shot frames the station the scope is at, at the one scale both stations' work needs, and the view follows the
       // scope from one to the other (cathFollow); its 'work' shot, the result, frames both stations and both targets.)
       const seg = r.box && mode === 'tip' ? eusWorkSeg(r, clamp(cath.st?.tgt || 0, 0, 1)) : r.box && mode !== 'way' ? [r.box.slice(0, 2), r.box.slice(2)] : cutLen(r.pts, r.cum, d0, d1), pad = r.box ? 16 : tips ? 14 : wayIn ? 12 : 16;
@@ -958,6 +971,15 @@ export function createCath(st, live) {
       k = clamp(Math.min(fw / (b[2] - b[0]), fh / (b[3] - b[1])) * 0.88, 1, mode === 'tip' ? OBLIT_K_TIP : mode === 'work' ? OBLIT_K_WORK : OBLIT_K_WAY);
       c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
     }
+    animateVT({ k, x: (fr.x0 + fr.x1) / 2 - c[0] * k, y: (fr.y0 + fr.y1) / 2 - c[1] * k }, ms, { steady });
+    return true;
+  }
+  function coilFocus(r, wr, ins, ms, steady) {
+    const fr = cathFree(wr, ins), g = r.coilAt, P = cutLen(r.pts, r.cum, Math.max(procIn(r), (r.spans.coronary?.[0] ?? r.free) - COIL_BEFORE), r.total);
+    for (let i = 0; i < g.path.n; i += 8) P.push([g.path.x[i], g.path.y[i]]);   // (the vein round the coil's start, so the coil lies inside the frame)
+    const b = boxOf(P, COIL_PAD);
+    cath.followPx = fr.px;
+    const k = clamp(Math.min((fr.x1 - fr.x0) / (b[2] - b[0]), (fr.y1 - fr.y0) / (b[3] - b[1])) * 0.86, 1, TIPS_K_MAX), c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
     animateVT({ k, x: (fr.x0 + fr.x1) / 2 - c[0] * k, y: (fr.y0 + fr.y1) / 2 - c[1] * k }, ms, { steady });
     return true;
   }

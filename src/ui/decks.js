@@ -85,7 +85,7 @@
 //                            (a dotted path, e.g. 'tips.d', or an array of paths moved together, e.g. both lobes' fibrosis)
 //                            of the live model; the figure and the data card follow it. With tool in place of param ({ label, tool: 'air', min, max, step?, unit? })
 //                            it moves one option of the slide's instrument (the scope's air pressure) and the model is left alone
-//   procedure                'tips' | 'brto' | 'bato' | 'rex', or { kind, auto: true, target }: (target: { kind: 'brto', target: 'C6' } plugs the splenorenal shunt in place of the gastrorenal one, Baveno VIII 6.12) a Play button on the teaching card plays that catheter
+//   procedure                'tips' | 'brto' | 'bato' | 'rex', or { kind, auto: true, target }: (target: { kind: 'brto', target: 'C6' } plugs the splenorenal shunt in place of the gastrorenal one, Baveno VIII 6.12; { kind: 'tips', target: 'C1a' } coils the coronary vein before the stent, Baveno VIII 5.41) a Play button on the teaching card plays that catheter
 //                            procedure (or, for 'rex', the Meso-Rex graft, which grows along its path) on the figure (proc-anim.js; auto: as the slide lands, going forward), and the live model takes
 //                            the change when it ends, as a compare button does. Opt-in: a built-in slide uses it only when
 //                            tests/deck-adopted.js lists it. A patient who already has the result has it taken back first, and the play puts it back

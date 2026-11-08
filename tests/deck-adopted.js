@@ -130,6 +130,7 @@ export const ADOPTED = {
   'variceal-bleed/oct': ['ripple', 'kind:criteria'],
   'variceal-bleed/blood': ['cite'],
   'variceal-bleed/tips': ['ripple', 'procedure'],
+  'variceal-bleed/tipscoil': ['ripple', 'procedure'],
   'variceal-bleed/rescue': ['kind:profile', 'tool.from', 'tool.fromLabel', 'cite'],
   'sites/overview': ['lens:system', 'steps', 'glow:group'],
   'sites/healthy': ['kind:profile'],
