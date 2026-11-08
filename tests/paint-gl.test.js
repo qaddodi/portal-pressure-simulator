@@ -136,3 +136,11 @@ test('a fill or stroke colour set as numbers (setFillRGBA, setStrokeRGBA) record
   const c = new PaintRecorder(10, 10); c.setFillRGBA(255, 0, 0, 1); c.save(); c.setFillRGBA(0, 0, 255, 1); c.restore(); c.beginPath(); c.rect(0, 0, 5, 5); c.fill();
   assert.ok(c.cvb[2] === 1 && c.cvb[4] === 0, 'a restore brings back the colour set before the save');
 });
+
+test('the tile and the shadow scratch keep a stencil only, never a depth buffer, with one completeness check and the old format as the fallback (Perf D4)', () => {
+  const src = read('../src/ui/paint-gl.js');
+  assert.ok(src.includes('gl.STENCIL_INDEX8') && src.includes('gl.STENCIL_ATTACHMENT'), 'stencil-only storage on STENCIL_ATTACHMENT');
+  assert.equal((src.match(/gl\.DEPTH24_STENCIL8/g) || []).length, 1, 'the old format only in the one fallback');
+  assert.equal((src.match(/checkFramebufferStatus/g) || []).length, 2, 'checked once for the tile, once for the scratch');
+  assert.ok(!/gl\.enable\(gl\.DEPTH_TEST\)|gl\.depthFunc|gl\.depthMask/.test(src), 'depth testing is never enabled in the painter');
+});
