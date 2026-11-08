@@ -169,7 +169,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   leadGL.show(leaders, false);
   // (With label-gl drawing the leaders and dots (cap-lead), this layer shows only a slide's pointer: with none up it draws nothing, so a zoom's
   // frames never clear and hand over a full-screen picture of hidden lines. See svg-gl.js g.skip.)
-  leadGL.skip = () => leadersBox.classList.contains('cap-lead') && !classHas(callRing, 'on');
+  // (Nor while the lobule is shut (fade 0): a slide's class change, the captions' presented/lost and the glasses' holes each asked this
+  // full-screen layer for a frame through a pan of the figure, a picture no one could see (8 Nov 2026, svg-gl through a pan, 30 fps at best).
+  // The lobule's first frame back paints it again: setFade.)
+  leadGL.skip = () => fade <= 0 || (leadersBox.classList.contains('cap-lead') && !classHas(callRing, 'on'));
   if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
   // (What a slide lights is a class on the app: the leaders' looks are read again when it changes.)
   { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => { syncDim(); leadGL.relook(); mirrorAll(); }).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
@@ -4917,7 +4920,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       applyChrome();
       el.classList.toggle('on', fade > 0.98);
       if (fade > 0.98 && was <= 0.98) sinOnLanding();
-      if (fade > 0 && was <= 0) cap.paint();   // (the names are placed in the frames they are drawn in: none was while the view was out)
+      if (fade > 0 && was <= 0) { cap.paint(); leadGL.paint(); }   // (the names are placed in the frames they are drawn in: none was while the view was out)
       restAttr(el, 'aria-hidden', String(fade < 0.98));
       // Entering: the lobule is framed.
       // (Its flow marks start faded and ease in once it has landed: left at full from an earlier visit, they made every frame of the
