@@ -204,8 +204,8 @@ features. P3 items are about consistency and keeping things clean.
   more than about 3 px, fade the old picture out and the new one in at the same pin over `D_SMALL`. This is a fade, not a glide, so
   it keeps V-LBL-1 (labels never trail the figure) and V-LBL-3. Use the same fade at `camSettle` for the glides that `glideOk`
   refused.
-- **Decision for Mohammad.** The CSS comment says "4 Nov: a label shows and goes at once, no entry fade". If that was your call, keep
-  the swap and skip this item.
+- **Decided (8 Nov 2026, Mohammad: "item 10: yes, fade").** Build the crossfade. It replaces the 4 Nov "a label shows and goes at
+  once" rule (`app.css:246`) for labels that move to a new slot; a label that only appears or leaves with its slide follows item 1.
 - **Where.** `label-gl.js`, `glide-labels.js`, `stage-labels.js`. **Owner: the labels thread.** **Size** M. **Confidence** high.
 
 ### 11. Pinch, wheel and spring-back
@@ -371,7 +371,7 @@ which still leaves on the arrive curve (`menu.js:136-141`), and the tooltip's 4 
 
 | Push | Items | Who | Size |
 |---|---|---|---|
-| A. Labels crossfade once | 1 (then 10 if wanted) | labels thread | S (+M) |
+| A. Labels crossfade once, and fade on a new slot | 1, 10, and the label parts of 24 (`lz-ease`, `PIN_HID`, `pinLast`) | labels thread | M |
 | B. Presenter waits and hand-overs | 2, 3, 4 | one thread (presenter and stage-view) | M |
 | C. One curve and one reversible clock | 5, 6, 13, 19 | one thread (motion.js, stage, dive, proc clock) | M |
 | D. Procedures | 7, 8, 9, 23 (catheter fade) | one thread | M |
