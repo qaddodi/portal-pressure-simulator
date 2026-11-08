@@ -661,14 +661,17 @@ export function blockOps(d, lay, mode = 0) {
     if (strokeFirst) { S(); F(); } else { F(); S(); }
   };
   for (const p of d.parts) {
-    if (p.k === 'rect') { put({ poly: roundRectPoly(p.x, p.y, p.w, p.h, p.rx) }, lay.m, p.fill, p.stroke, p.sw, p.strokeFirst); continue; }
-    if (p.k === 'poly') { put({ poly: [{ pts: Float32Array.from(p.pts), closed: true }] }, lay.m, p.fill, p.stroke, p.sw, p.strokeFirst); continue; }
+    // (The shapes are made once per layBlock result, kept on it (lay.geoms): a split picture is painted twice from one result (mode 1 and 2), and the
+    // painter keys a mesh by the shape's object, so the second paint finds the first's meshes and builds none. Animation recs, performance B2.)
+    const gm = lay.geoms || (lay.geoms = new Map());   // alloc-rare: one map per laid-out label
+    if (p.k === 'rect') { put(gm.get(p) || gm.set(p, { poly: roundRectPoly(p.x, p.y, p.w, p.h, p.rx) }).get(p), lay.m, p.fill, p.stroke, p.sw, p.strokeFirst); continue; }
+    if (p.k === 'poly') { put(gm.get(p) || gm.set(p, { poly: [{ pts: Float32Array.from(p.pts), closed: true }] }).get(p), lay.m, p.fill, p.stroke, p.sw, p.strokeFirst); continue; }
     for (const q of lay.lines.find((l) => l.p === p).runs) {
       const r = q.r;
       if (!r.t) continue;
       // (Slanted about its baseline when italic: x moves right by SLANT per px above it.)
       const m = r.it ? mul(lay.m, [1, 0, -SLANT, 1, SLANT * p.y, 0]) : lay.m;
-      put({ poly: textPolys(r.t, q.x, p.y, typeOf(r)).polys }, m, r.fill, r.stroke, r.sw, r.strokeFirst);
+      put(gm.get(q) || gm.set(q, { poly: textPolys(r.t, q.x, p.y, typeOf(r)).polys }).get(q), m, r.fill, r.stroke, r.sw, r.strokeFirst);
     }
   }
   return ops;
@@ -725,7 +728,7 @@ out vec4 o;
 void main() { o = texture(uT, vUV) * uA; }`;
   // The programs, the vertex arrays and the atlas's buffer: made now, and again when a lost context comes back (none of a context's
   // objects survives a loss). All four programs are started before any is read, so the driver compiles them side by side (gl-compile.js).
-  let prog, mprog, rprog, aprog, U, MU, RU, AU, vao, avao, abuf;
+  let prog, mprog, rprog, aprog, U, MU, RU, AU, vao, avao, abuf, abufCap = 0;   // (abufCap: bytes the GPU holds for the instance buffer: it grows by doubling, performance recs B6)
   function start() {
     const hp = startProgram(gl, VS, FS), hm = startProgram(gl, MVS, MFS), hr = startProgram(gl, RVS, RFS), ha = startProgram(gl, AVS, AFS, [['aR', 0], ['aT', 1], ['aI0', 2], ['aI1', 3], ['aI2', 4]]);
     return [hp, hm, hr, ha];
@@ -738,7 +741,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
     vao = gl.createVertexArray();
     // The atlas: pages of pictures (each a square texture, at most two), and the instance list drawn from them.
     AU = Object.fromEntries(['uView', 'uT'].map((k) => [k, gl.getUniformLocation(aprog, k)]));
-    avao = gl.createVertexArray(); abuf = gl.createBuffer();
+    avao = gl.createVertexArray(); abuf = gl.createBuffer(); abufCap = 0;
     gl.bindVertexArray(avao); gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
     for (let loc = 0; loc < 5; loc++) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, IB, loc * 16); gl.vertexAttribDivisor(loc, 1); }
     gl.bindVertexArray(null);
@@ -1084,7 +1087,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   canvas.addEventListener('webglcontextlost', (e) => {
     e.preventDefault(); lost = true; undisplace();
     svgAsk?.(null, true, true);   // (L3 P10: every label's full SVG pieces, made in this event)
-    for (const s of last) s.g.removeAttribute('data-gl');
+    for (const s of last) glDrop(s.g);
     for (const root of marks) for (const el of root.children) { el.removeAttribute('data-gl'); markSvg(el, markGeo.get(el)); }
     scanEl?.removeAttribute('data-gl');
   }, { signal: ac.signal });
@@ -1150,7 +1153,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // Every label, mark and the probes given back to the SVG (host mode, while the labels may not be drawn over the figure).
   function release() {
     undisplace();
-    for (const s of last) s.g.removeAttribute('data-gl');
+    for (const s of last) glDrop(s.g);
     for (const root of marks) for (const el of root.children) { el.removeAttribute('data-gl'); markSvg(el, markGeo.get(el)); }
     scanEl?.removeAttribute('data-gl');
     released = true;
@@ -1548,6 +1551,13 @@ void main() { o = texture(uT, vUV) * uA; }`;
     drawing = true;
     try { drawIn(); } finally { drawing = false; }
   }
+  // (A label's data-gl, written only when it changes: kept on its sprite as glA. Every place that takes the attribute off a label without this (release,
+  // the layer's loss, a restart) drops glA with it: glDrop.)
+  function glSet(g, st, on) {
+    if (st) { if (st.glA === on) return; st.glA = on; }
+    if (on) { if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', ''); } else if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl');
+  }
+  function glDrop(g) { g.removeAttribute('data-gl'); const st = sprites.get(g); if (st) st.glA = false; }
   function drawIn() {
     if (lost || gl.isContextLost()) return;
     owed = false;
@@ -1586,27 +1596,28 @@ void main() { o = texture(uT, vUV) * uA; }`;
     }
     for (const s of last) {
       const { g } = s, rot = !!s.rot;
-      const until = live.get(g);
+      // (Performance recs B5: a set with nothing in it is not asked for each label, and the label's data-gl is written only when it changes, glSet.)
+      const until = live.size ? live.get(g) : undefined;
       if (until != null && until < now) { live.delete(g); dirty.add(g); }   // (read once more as it ends)
-      const ex = exact.get(g);
+      const ex = exact.size ? exact.get(g) : undefined;
       if (ex != null && ex < now) exact.delete(g);
       const st = sprites.get(g);
       if (st?.trk && !st.trk.ended && now >= st.trk.end) { st.trk.ended = true; dirty.add(g); }   // (its animations over: read once more)
-      const isLive = live.has(g);
+      const isLive = live.size > 0 && live.has(g), isDirty = dirty.size > 0 && dirty.has(g);
       // (2 Nov 2026, "label-gl fully to the GPU": a label whose look may have changed is described, laid out and painted again between
       // frames (rebuildPass), never here: a frame draws what it has kept, and the SVG shows a label that has no picture yet. todo holds
       // what the pass owes each label: 1 turned, 2 its look changed, 4 its colour ease moved, 8 read it again.)
-      if (!st || dirty.has(g) || st.rot !== rot || (isLive && (exact.has(g) || !st.trk || st.trk.carry))) {
-        todo.set(g, (todo.get(g) | 0) | 8 | (rot ? 1 : 0) | (dirty.has(g) ? 2 : 0));
+      if (!st || isDirty || st.rot !== rot || (isLive && (exact.has(g) || !st.trk || st.trk.carry))) {
+        todo.set(g, (todo.get(g) | 0) | 8 | (rot ? 1 : 0) | (isDirty ? 2 : 0));
         settleSoon();
       }
-      if ((!st || st.rot !== rot || (st.mode === 'gl' && !st.slot)) && (pending.has(g) || todo.has(g) || (st?.wait && !stuck && st.rot === rot))) {
+      if ((!st || st.rot !== rot || (st.mode === 'gl' && !st.slot)) && ((pending.size > 0 && pending.has(g)) || (todo.size > 0 && todo.has(g)) || (st?.wait && !stuck && st.rot === rot))) {
         // (Owed a picture by the pass (todo: a label new to the layer, as in a view switch, is not given to the SVG for a frame, A1), its next chunk, or by the atlas being packed: shown by no stand-in, the SVG's copy kept hidden.)
-        if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
+        glSet(g, st, true);
         continue;
       }
       if (!st || st.rot !== rot || (st.mode === 'gl' && !st.slot)) {   // (no picture of its own yet, or of the other way up, or its place in the atlas given back: the SVG draws it till the pass has made one)
-        if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl');
+        glSet(g, st, false);
         svgLeft.add(g);
         continue;
       }
@@ -1618,11 +1629,11 @@ void main() { o = texture(uT, vUV) * uA; }`;
         if (st.trk.ended && !exact.has(g)) live.delete(g);
       }
       st.held = st.opacity;   // (the opacity it is drawn at this frame, its own)
-      if (live.has(g)) moving = true;
+      if (live.size > 0 && live.has(g)) moving = true;
       // (Marked in the same frame as the picture is drawn, so neither the SVG's copy and the picture both show, nor neither.)
       if (st.mode !== 'gl') st.held = st.mode === 'none' ? 0 : null;   // (nothing shown, or the SVG's own opacity, not known here: not held)
-      if (st.mode !== 'gl') { if (g.hasAttribute('data-gl')) g.removeAttribute('data-gl'); if (st.mode === 'svg') svgLeft.add(g); continue; }
-      if (!g.hasAttribute('data-gl')) g.setAttribute('data-gl', '');
+      if (st.mode !== 'gl') { glSet(g, st, false); if (st.mode === 'svg') svgLeft.add(g); continue; }
+      glSet(g, st, true);
       if (!(st.opacity > 0.001)) continue;
       // (The label's origin on a whole device pixel, the picture at its offset from it.)
       let x = Math.round(s.x * dpr) + st.ox, y = Math.round(s.y * dpr) + st.oy, a = Math.min(1, st.opacity) * (s.alpha ?? 1);   // (s.alpha: an owner's fade carried on the record, the captions')
@@ -1679,7 +1690,9 @@ void main() { o = texture(uT, vUV) * uA; }`;
       gl.useProgram(aprog); gl.bindVertexArray(avao);
       ucOf(gl).f2(AU.uView, W, H); ucOf(gl).i1(AU.uT, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, abuf);
-      gl.bufferData(gl.ARRAY_BUFFER, inst, gl.DYNAMIC_DRAW, 0, ni * IF);
+      // (The store is made at the array's size when that grows, and each draw writes into it; a draw re-specifying it orphaned the store every frame.)
+      if (inst.byteLength > abufCap) { gl.bufferData(gl.ARRAY_BUFFER, inst.byteLength, gl.DYNAMIC_DRAW); abufCap = inst.byteLength; }
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, inst, 0, ni * IF);
       // (Consecutive pictures on one page are one draw: a run ends where the page changes.)
       for (let from = 0, to; from < ni; from = to) {
         const page = ITEMS[from].page;

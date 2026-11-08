@@ -90,8 +90,8 @@ test('the SVG copy is see-through only while the GPU draws that label, marked in
   assert.doesNotMatch(CSS, /#labelGl/, 'no canvas of its own, so no selector for one');
   assert.match(CSS, /\.stage-view\.in-lobule #labels/);
   assert.match(CSS, /\.cath-on #labels/);
-  assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ if \(g\.hasAttribute\('data-gl'\)\) g\.removeAttribute\('data-gl'\); if \(st\.mode === 'svg'\) svgLeft\.add\(g\); continue; \}\n\s+if \(!g\.hasAttribute\('data-gl'\)\) g\.setAttribute\('data-gl', ''\);/);
-  assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) s\.g\.removeAttribute\('data-gl'\);/);
+  assert.match(LGL, /if \(st\.mode !== 'gl'\) \{ glSet\(g, st, false\); if \(st\.mode === 'svg'\) svgLeft\.add\(g\); continue; \}\n\s+glSet\(g, st, true\);/);
+  assert.match(LGL, /webglcontextlost[\s\S]{0,200}for \(const s of last\) glDrop\(s\.g\);/);
 });
 
 test('leaders and dots: straight leaders and circles are drawn on the GPU, anything else stays SVG', async () => {
