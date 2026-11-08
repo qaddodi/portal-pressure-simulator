@@ -50,7 +50,7 @@ test('a GPU-bound Mac readout names the GPU step that takes the frame, in plain 
   assert.match(d.head, /kept figure picture copied onto the screen canvas \("present copy"\) 26\.0 ms/);
   assert.equal(d.top.length, 3);
   assert.deepEqual(d.top.map((c) => c.name), ['present copy', 'blood pass', 'glasses and labels']);
-  assert.match(d.fix, /figure pixels/);
+  assert.match(d.fix, /figure pixel/);
 });
 
 test('whole vessel redraws are a cost of their own, spread over the frames, and a spike names its redraw and reason', () => {

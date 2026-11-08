@@ -61,7 +61,7 @@ export function goalOf({ maxHz, ua }) {
 
 // The GPU fence names (veins-gl.js fencePart, gpu-fence.js phases) in plain words, and what usually cuts each one.
 const PLAIN = {
-  'present copy': ['kept figure picture copied onto the screen canvas', 'the copy writes every figure pixel each frame: fewer figure pixels (FIG_OPTS cap), or no copy on frames where nothing in the figure changed'],
+  'present copy': ['kept figure picture copied onto the screen canvas', 'the copy writes every figure pixel each frame: no copy on frames where nothing in the figure changed, or copy only the changed area (lowering the FIG_OPTS cap broke the Mac picture on 2fc3302)'],
   'whole picture': ['whole figure picture drawn (vessels, blood, organs together)', 'a whole picture each frame: draw only the blood over the kept vessels (blood pass) where nothing else changed'],
   'one-pass picture': ['vessels + blood drawn in one pass (zoom or turn frames)', 'zoom/turn frames shade every pixel: draw them at a lower resolution while moving'],
   'blood pass': ['moving blood drawn over the kept vessels', 'fewer blood squares on screen, or the blood at a lower resolution'],
