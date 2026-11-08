@@ -1602,7 +1602,8 @@ function setPanelTab(tab) {
   const instr = tab === 'instruments';
   if (instr) dock.ensure();
   const was = app.classList.contains('dock-open');
-  if (instr && !was) { surfacesAway(); giveWay('dock'); }   // (the other right-hand cards give way when they would leave the vessel card no strip)
+  if (instr && !was) surfacesAway();
+  if (instr && !was) giveWay('dock');   // (the other right-hand cards give way when they would leave the vessel card no strip)   // (the other right-hand cards give way when they would leave the vessel card no strip)
   if (instr) arrive($('#dock')); else if (was && !app.classList.contains('instrument-focus')) leave($('#dock'));
   app.classList.toggle('dock-open', instr);
   $('#tabInstruments').setAttribute('aria-pressed', instr ? 'true' : 'false');

@@ -73,7 +73,7 @@ function listen() {
 }
 const live = () => {
   list.length = 0;
-  for (const e of open) { if (!e.isConnected) open.delete(e); else list.push(e); }
+  for (const e of open) { if (!e.isConnected) open.delete(e); else if (!e.classList.contains('over-card')) list.push(e); }   // (a menu over its own card keeps a plain fill: main.js cardsAway)
   const t = performance.now();
   if (t - othersAt > 120) { othersAt = t; others.length = 0; for (const e of document.querySelectorAll(OTHERS)) { others.push(e); if (!seen.has(e)) { seen.add(e); own.observe(e, { attributes: true, attributeFilter: ['style', 'class', 'hidden'] }); } } }
   for (const e of others) if (e.isConnected) list.push(e);

@@ -24,12 +24,12 @@ test('main.js sends away the cards under a surface, but not the card it came fro
   assert.match(m, /onSurfaceOpened\(cardsAway\);/);
   assert.match(m, /if \(s\.anchor && el\.contains\(s\.anchor\)\) \{ under = true; continue; \}/);
   assert.match(m, /if \(!panelShown\(\)\) surfacesAway\(\);/);
-  assert.match(m, /if \(instr && !was\) \{ surfacesAway\(\); giveWay\('dock'\); \}/);
+  assert.match(m, /if \(instr && !was\) surfacesAway\(\);\n\s*if \(instr && !was\) giveWay\('dock'\);/);
 });
 
 test('a menu opened from inside a card, over it, keeps a plain fill so the card does not show through', () => {
   assert.match(src('main.js'), /if \(s\.anchor && el\.contains\(s\.anchor\)\) \{ under = true; continue; \}/);
   assert.match(src('main.js'), /s\.el\?\.classList\.toggle\('over-card', under\);/);
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /:root:root :is\(\.menu, \.why-pop\)\.over-card\[data-gl\] \{ background: var\(--surface\);/);
+  assert.match(css, /:root:root :is\(\.menu, \.why-pop\)\.over-card:not\(\[data-gl\]\) \{ background: var\(--surface\);/);
 });
