@@ -3187,28 +3187,37 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // as it is, so the picture is laid again with it even in the frame that drew it straight onto the canvas. Skipped there, the new card's
   // glass waited for the figure's next picture, which a figure at rest never draws: the card showed clear, or solid once its wait ran out
   // (2 Nov 2026, Mohammad's Mac and iPhone: "no blur", every card that opened).)
-  // (One present a frame (4 Nov 2026, Mohammad's ?perf on a slide change: "kept picture onto the canvas x2", 62 MB copied on the GPU every
-  // frame). A present asked inside a frame of the scheduler is laid once, at the frame's very end (onFrameFinal), with every ask of that
-  // frame folded in: the figure's own picture and the glass's ask after its cards moved (host.now) were two whole copies of the kept
-  // picture and two draws of every card's glass. A reader that takes the canvas in the frame (capture) lays the pending one first; a
-  // present outside a frame, or once the frame's end has passed, is laid at once as before.)
-  const PRES_FOLD = false;
-  let presPend = 0, presFlushing = false, presDoneAt = -1;
+  // (One present a frame for the hosts' asks (4 Nov 2026, Mohammad's ?perf on a slide change: "kept picture onto the canvas x2", 62 MB copied on
+  // the GPU every frame). A host's ask (ask: the labels', the glasses'; the figure's own present is never one) made inside a frame of the
+  // scheduler waits for the frame's very end (onFrameFinal). The figure's own present is laid at once, as it always was (38c96ea took the
+  // fold of that one out: a frame that touches the canvas without the whole kept picture laid first). At the frame's end the ask is dropped
+  // when a picture has been laid since it was made that ran the passes drawn over the figure (presents moved, and tops with it: the
+  // labels' and the glasses' own draws are in that picture, so a second copy of the whole kept picture is not needed); else it is laid
+  // then. A reader that takes the canvas in the frame (capture) lays a pending one first; an ask outside a frame, or once the frame's
+  // end has passed, is laid at once as before.)
+  const PRES_FOLD = true;
+  let presPend = 0, presFlushing = false, presDoneAt = -1, askPresents = 0, askTops = 0, topsLaid = 0;
   function flushPresent() {
     presDoneAt = frameCount();
     if (!presPend) return;
     const p = presPend;
     presPend = 0;
+    if (!lost && presents !== askPresents && (!tops.length || topsLaid !== askTops)) return;   // (laid since the ask, with the passes over it)
     presFlushing = true;
     try { presentNow(true, (p & 2) !== 0); } finally { presFlushing = false; }
   }
   const offPresFinal = onFrameFinal(flushPresent);
   function present(top = true, again = false) {
-    // (Laid at once again (4 Nov 2026, the figure flicker Mohammad still saw after the other speed changes came out): the fold into one present
-    // at the frame's end (2e44012) is off while it is chased. PRES_FOLD brings it back.)
-    if (PRES_FOLD && top && !presFlushing && !lost && framePhase() && presDoneAt !== frameCount()) { presPend |= 1 | (again ? 2 : 0); return; }
-    if (presPend && top) { again = again || (presPend & 2) !== 0; presPend = 0; }
+    // (A present asked for by anything but a host, the figure's own: laid at once. A pending host ask rides on it: its `again` is kept, and
+    // flushPresent drops the ask once this has laid the picture.)
+    if (presPend && top) again = again || (presPend & 2) !== 0;
     presentNow(top, again);
+  }
+  // A host's ask (top.ask, stage.js labelHost and stage-glass.js frostHost): present(true, true), folded into the frame's end while a frame of the
+  // scheduler runs and its end has not been reached.
+  function presentAsk() {
+    if (PRES_FOLD && !presFlushing && !lost && framePhase() && presDoneAt !== frameCount()) { presPend |= 3; askPresents = presents; askTops = topsLaid; return; }
+    present(true, true);
   }
   function presentNow(top, again) {
     presentSelf(top, again);
@@ -3353,7 +3362,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return snap;
   }
   function runTops() {
-    topDepth++;
+    topDepth++; topsLaid++;
     try {
       let snap = snapTops();
       for (let i = 0; i < snap.length; i++) { const t = snap[i]; try { t.prep?.(); t.fails = 0; } catch (e) { topFailed(t, e); } }
@@ -4337,8 +4346,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       screen: SCR,
       /** Lays a texture over the canvas (blended, premultiplied) as p' = M p + t (M = [a b; c d], t = (tx, ty) in canvas px, y down), weighed by alpha: a shared renderer's picture. */
       lay(tex, a, b, c, d, tx, ty, alpha = 1) { if (!lost) layTex(tex, a, b, c, d, tx, ty, alpha); },
-      /** Presents the canvas again with everything on it (a shared renderer's picture changed). */
+      /** Presents the canvas again with everything on it (a shared renderer's picture changed), at once. */
       present: () => present(true, true),
+      /** A host's ask (the labels', the glasses'): the same present, folded into the end of the frame it is made in unless a picture with the
+       *  passes over the figure is laid since (see presentAsk). For a host that does not read the canvas after the call. */
+      ask: presentAsk,
       add(t) { if (t.solo && lyP === null && !lost) { try { lyP = finishProgram(gl, startProgram(gl, REUSE_VS, LAYT_FS)); } catch { lyP = false; } } tops.push(t); tops.sort((a, b) => (a.order || 0) - (b.order || 0)); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; },
       /** What is drawn under the figure in this canvas ({ on(), draw() }, one at a time): drawn first at each present while on() says so,
        *  onto the cleared canvas, the kept picture laid over it. Returns the call that takes it out. */
@@ -4909,7 +4921,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // canvas as it is: the same full-screen copy and glass draw were done again for each glass that asked.)
     capture() {
       const f = frameCount();
-      if (presPend) { const again = (presPend & 2) !== 0; presPend = 0; presentNow(true, again); }
+      // (A host's ask waiting for the frame's end is laid now, and is the picture the reader takes: not laid a second time below.)
+      if (presPend) { const again = (presPend & 2) !== 0; presPend = 0; presentNow(true, again); capturedAt = f; capP = pictureSeq; capB = bloodSeq; capN = presents; return canvas; }
       if (f === capturedAt && capP === pictureSeq && capB === bloodSeq && capN === presents && !(replace && replace.on())) return canvas;
       presentNow(true, false); capturedAt = f; capP = pictureSeq; capB = bloodSeq; capN = presents;
       return canvas;

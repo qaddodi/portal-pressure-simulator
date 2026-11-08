@@ -2158,9 +2158,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // shows it blurred, as glass would: no hole is cut. (Until 4 Nov 2026 they had a canvas of their own.)
   const frostWake = () => { glassGL?.redraw(); for (const g of cardGLs) g.redraw(); };
   const LABELS_ORDER = -6;   // (over the lobule's and sinusoid's pictures and their captions, under the glasses at 0 … 3: veins-gl top.add)
+  // (ask and now are the host's asks that veins-gl folds into the end of the frame they are made in: top.ask; the figure's own present stays immediate.)
   const labelHost = () => {
     const top = veins?.top;
-    return top ? { gl: top.gl, canvas: top.canvas, ask: () => veins?.top?.present(), now: () => veins?.top?.present(), active: () => !!veins?.top && !veins.lost && wrap.classList.contains('gl-on'), scale: () => vCanvas.width / (stageBox().width || 1), layerAlpha: true } : null;
+    return top ? { gl: top.gl, canvas: top.canvas, ask: () => veins?.top?.ask(), now: () => veins?.top?.ask(), active: () => !!veins?.top && !veins.lost && wrap.classList.contains('gl-on'), scale: () => vCanvas.width / (stageBox().width || 1), layerAlpha: true } : null;
   };
   const { PIN_DIR, labelPass, pinKind } = createLabelHost({ E, LABELS_ORDER, arcMid, easeInOut, frostWake, gLabels, gLeaders, gScan, geo, labelAnchor, labelHost, labelSvg, morphAnchorAt, nodePos, refreshCTM, worldToLocalInto, wrap }, live);
   // The frosted glasses drawn inside the figure's canvas (round 2, 2.1, 31 Oct): each glass's blur is taken from the picture the vessel
