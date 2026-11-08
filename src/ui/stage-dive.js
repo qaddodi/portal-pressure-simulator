@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { D_SMALL } from './ease.js';
 import { cancelFrame, easeNow } from './frame.js';
-import { reduceMotionMQ as reduceMotion, settleAt } from './motion.js';
+import { reduceMotionMQ as reduceMotion, settleAt, smooth01, DIVE_MS, RISE_MS } from './motion.js';
 import { fadeStop } from './res-fade.js';
 import { riseCentre } from './rise-path.js';
 import { store } from './store.js';
@@ -15,7 +15,6 @@ export function createDive(st, live) {
   const { applyVT, defaultVT, drawFrame, drawVeins, driftEnd, liverBox, lobuleBackstop, lobuleStep, nextFrame, refreshCTM, riseVT, sameView, spleenMoving, svg, syncSemantic, update, updateLabels, vCanvas, worldToLocal, wrap } = st;
   const DIVEC = cams.stage.dive;   // (the dive's camera, a scene-cam record in canvas px: setDiveScale is its only writer, pushCam hands it to the figure)
   const diveAtBuf = [0, 0];   // (diveAt's pair, written in place)
-  const DIVE_MS = 2200, RISE_MS = 1300;
   const RISE_SLOPE = 0.5;   // (the rise's speed on its first frame, as a share of its mean speed: settleAt's starting slope)
   // The anatomy's share of the zoom (×16), the field's the rest: the camera goes deep into one part of the liver, its vessels still
   // drawn, before any lobule shows (Mohammad, 24 Oct, on an iPad: at ×5 the liver and its portal branches still filled the screen as
@@ -111,7 +110,7 @@ export function createDive(st, live) {
   }
   function camShowStep(now) {
     live.camShowRaf = 0;
-    const u = Math.min(1, (now - live.camShowT0) / D_SMALL), e = u * u * (3 - 2 * u);
+    const u = Math.min(1, (now - live.camShowT0) / D_SMALL), e = smooth01(u);
     live.camShow = live.camShowFrom + (live.camShowTo - live.camShowFrom) * e;
     pushCam();
     if (u < 1) live.camShowRaf = drawFrame(camShowStep);

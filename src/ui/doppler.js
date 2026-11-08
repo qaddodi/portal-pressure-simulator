@@ -19,7 +19,8 @@ import { createDopplerGL } from './doppler-gl.js';
 import { surface } from './gpu-surfaces.js';
 import { olderThan } from './backfill.js';
 import { createFollow } from './display-state.js';
-import { D_SMALL, EASE_ARRIVE } from './ease.js';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE } from './ease.js';
+import { smooth01 } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
 import { attrSoon, classSoon, dataSoon, propSoon, runSoon } from './class-soon.js';
@@ -1210,9 +1211,9 @@ export function createDoppler({ onProbe, pickGate = true }) {
         }
       }
       if (wl) {
-        wl.alpha = clamp(wl.alpha + (wl.out ? -1 : 1) * dtL / 0.4, 0, 1);
+        wl.alpha = clamp(wl.alpha + (wl.out ? -1 : 1) * dtL / (D_SURFACE / 1000), 0, 1);
         labBusy = wl.out ? wl.alpha > 0 : wl.alpha < 1;
-        const A = wl.alpha * wl.alpha * (3 - 2 * wl.alpha);
+        const A = smooth01(wl.alpha);
         ctx.font = FONT(700, WAVE_PX); ctx.textAlign = 'center'; ctx.lineJoin = 'round';
         for (let i = 0; i < 4; i++) {
           const pt = wl.pts[i], t = pt[0], name = pt[2];

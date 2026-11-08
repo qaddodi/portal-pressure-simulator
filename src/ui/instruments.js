@@ -13,7 +13,7 @@ import { surface } from './gpu-surfaces.js';
 import { renderEndo } from './endo-render.js';
 import { endoGrow, airRatio, airFlat } from './endo-size.js';
 import { varixMean } from './varix-look.js';
-import { DEFLATE_MS, BAND_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js';
+import { SIZE_TAU_MS, DEFLATE_TAU_MS, BAND_TAU_MS, BAND_DELAY_MS, fadeIn, glide, scopeTear } from './endo-motion.js';
 import { drawScopeBleed } from './endo-bleed.js';
 import { poolFill } from './blood.js';
 import { FONT } from './charts.js';
@@ -165,15 +165,14 @@ export function createEndoscopy({ onAction }) {
     if (!shown || still.matches) { fadeT0 = -1; return; }   // (the first field: drawn as it is)
     swap = true; fadeT0 = performance.now();
   }
-  // An eased tween toward a target value: cur follows from -> to over dur ms after a delay.
-  const tw = (v) => ({ v, from: v, to: v, t0: 0, dur: 1, delay: 0, cur: v });   // alloc-rare: only when the tweens are first made (the first draw)
-  const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-  function tween(t, target, now, dur, delay) {
-    if (target !== t.to) { t.from = t.cur; t.to = target; t.t0 = now; t.dur = dur; t.delay = delay; }
-    if (t.dur <= 1) { t.cur = t.v = t.to; return false; } // snap
-    const k = Math.min(1, Math.max(0, (now - t.t0 - t.delay) / t.dur));
-    t.cur = t.from + (t.to - t.from) * ease(k); t.v = t.cur;
-    return k < 1 && t.cur !== t.to;
+  // A column's deflation and a band's knuckle follow their target like everything else in the scope view (endo-motion.js glide, a time
+  // constant), the target taken `delay` ms after it changes (the band cinches in a beat after the vein). Busy while it waits or has not landed.
+  const tw = (v) => ({ v, to: v, at: 0, cur: v });   // alloc-rare: only when the tweens are first made (the first draw)
+  function tween(t, target, wall, dtMs, tau, delay) {
+    if (target !== t.to) { t.to = target; t.at = wall + delay; }
+    if (wall < t.at) return true;
+    t.cur = t.v = glide(t.cur, t.to, dtMs, tau);
+    return t.cur !== t.to;
   }
   const offRun = store.on('running', () => { if (last && !isPaused()) draw(last.f, last.vx); });
   function draw(f, vx) {
@@ -185,7 +184,7 @@ export function createEndoscopy({ onAction }) {
     // Banding deflates the banded columns only. The model's single varix size falls as bands go on,
     // so unbanded columns keep the size seen before the first band.
     last = lastS; lastS.f = f; lastS.vx = vx;
-    const now = simTime() * 1000, wall = performance.now();
+    const wall = performance.now();
     // The field's size, stigmata and presence ease on the display clock (a paused model still finishes them), as the figure's varices do.
     const dt = Math.min(0.1, Math.max(0, (wall - lastT) / 1000)); lastT = wall;
     // The field shows the varix over the beat, not each beat's swell: the model's size and wall stress rise and fall with every
@@ -222,17 +221,17 @@ export function createEndoscopy({ onAction }) {
       an = { g: tg, v: tv, r: tr, def: defT.map((x) => tw(x)), kn: knT.map((x) => tw(x)) };
       an.def.forEach((t, i) => { t.v = defT[i]; }); an.kn.forEach((t, i) => { t.v = knT[i]; });   // alloc-rare: the same first draw
     }
-    // Size and presence follow the model continuously (critically damped, ~0.2 s); banding plays a
-    // slower eased tween: the vein deflates first, the knuckle and band follow.
-    const kf = 1 - Math.exp(-dt / 0.2);
+    // Size and presence follow the model continuously (critically damped, ~0.2 s); banding follows its target the
+    // same way, a beat apart: the vein deflates first, the knuckle and band follow.
+    const kf = 1 - Math.exp(-dt * 1000 / SIZE_TAU_MS);
     an.g += (tg - an.g) * kf; an.v += (tv - an.v) * kf; an.r += (tr - an.r) * kf;
     if (Math.abs(tg - an.g) < 0.0008) an.g = tg;
     if (Math.abs(tv - an.v) < 0.0008) an.v = tv;
     if (Math.abs(tr - an.r) < 0.0008) an.r = tr;
     let busy = an.g !== tg || an.v !== tv || an.r !== tr;
     // The banded vein starts deflating at once; its band cinches in from a wide loop a beat later (endo-motion.js).
-    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], now, DEFLATE_MS, 0) || busy;
-    for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], now, BAND_MS, knT[i] ? BAND_DELAY_MS : 0) || busy;
+    for (let c = 0; c < 4; c++) busy = tween(an.def[c], defT[c], wall, dt * 1000, DEFLATE_TAU_MS, 0) || busy;
+    for (let i = 0; i < 16; i++) busy = tween(an.kn[i], knT[i], wall, dt * 1000, BAND_TAU_MS, knT[i] ? BAND_DELAY_MS : 0) || busy;
     if (busy && !raf) raf = drawFrame(redraw);   // (on the display clock: a paused model's field finishes its ease too)
     const res = clamp(Math.round(2 * R * (window.devicePixelRatio || 1)), 160, 480);
     let img;

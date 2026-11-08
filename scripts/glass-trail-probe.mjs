@@ -1,7 +1,7 @@
 // Does the GPU glass of a card stand where its card is presented? (3 Nov 2026, "cards trail behind")
 //
 // The compositor draws a card moved by a CSS or script animation a display frame after the page's time at the frame start, so a glass drawn
-// from the page's own time trails it by that frame (glass-motion.js leadFor). Playwright's stepped clock cannot show this (it does not move
+// from the page's own time trails it by that frame (glass-motion.js no longer adds a lead for it: it reads each animation's own clock, clockAt). Playwright's stepped clock cannot show this (it does not move
 // the document timeline and the compositor is not stepped), so this probe runs in real time with every WebGL draw skipped, which makes
 // the frames milliseconds long on software GL, and compares two things the page itself can tell:
 //   - each glass pane the page DRAWS in frame N (the pane program's uBox and fade, noted by a hook on the context; nothing is drawn), and

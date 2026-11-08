@@ -3,11 +3,11 @@
 import { ORGANS, RECTUM_FADE } from './anatomy.js';
 import { acrossVessel, spanOf, spanPath, spleenCaliper, zoneBand } from './callout-math.js';
 import { caught } from './caught.js';
-import { easeMove } from './ease.js';
+import { D_FLIP, D_SMALL, easeMove } from './ease.js';
 import { bandRing, dashRings, normalShown } from './highlight-math.js';
 import { darkMQ } from './look.js';
 import { markFade } from './mark-fade.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { reduceMotionMQ as reduceMotion, smooth01 } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { measurePath } from './shape-gl.js';
 import { store } from './store.js';
@@ -48,14 +48,14 @@ export function createOutlines(st, live) {
   new MutationObserver((rs) => { orgToneRead(); if (rs.some((r) => r.attributeName === 'class')) nextFrame(resTheme); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-palette', 'class'] });
   darkMQ.addEventListener?.('change', orgToneRead);
   onTheme(resTheme);
-  const OL_FADE = 160;   // ms
+  const OL_FADE = D_FLIP;   // ms
   // A narrowing's clamp and its "60 %" fade in and out with the narrowing (they had popped): each narrowing's shown amount
   // (0 … 1), stepped in olStep. A narrowing that goes keeps its marks, moved to ov.clampsOut, until they have faded.
   // (The arrows are drawn on the GPU, so their fade is the draw's alpha; the label, and the arrows without the GPU, take opacity.)
-  const CLAMP_FADE = 250;   // ms
+  const CLAMP_FADE = D_SMALL;   // ms
   const clampA = new Map();   // id → { a, on }
   const clampFading = () => { for (const c of clampA.values()) if (c.a !== (c.on ? 1 : 0)) return true; return false; };
-  const clampEase = (id) => { const a = clampA.get(id)?.a ?? 1; return a * a * (3 - 2 * a); };
+  const clampEase = (id) => smooth01(clampA.get(id)?.a ?? 1);
   // The marks a treatment leaves (a stent's mesh, a shunt's sutures, the tie on a divided vein, the cross on a closed shunt, the splenic
   // patches, the variceal bands) fade in and out the same way (mark-fade.js): each is a group with data-mk, its key; the GPU draws it
   // at that key's amount (marksBuild tags its draws), the SVG copy takes the amount as the group's opacity. markLast: when it last stepped.
@@ -588,7 +588,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     olDrawN = 0; olFadeN = 0;
     let first = 0;
     for (const o of live.olList) {
-      const ease = o.a * o.a * (3 - 2 * o.a);
+      const ease = smooth01(o.a);
       const col = o.col || (o.kind === 'pin' ? live.olCol : orgTone(o.id));
       // A warm layer: a soft glow along each side of every tube, strongest on its edge and easing out from it (strips are laid with MAX,
       // so where two meet they never stack). Only a loop's edge that shows is lit: not where a loop drawn over it lies on it, nor

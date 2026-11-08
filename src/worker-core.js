@@ -2,6 +2,7 @@
 // Used inside a Web Worker (src/worker.js) or on the main thread as a fallback.
 
 import { Engine } from './engine/engine.js';
+import { easeMove } from './ui/ease.js';
 import { computeMetrics } from './engine/metrics.js';
 import { fingerprintOf } from './engine/fingerprint.js';
 import { detectEvents } from './engine/events.js';
@@ -40,7 +41,7 @@ function mix(a, b, k) {
   return k < 0.5 ? a : b;
 }
 const morphAt = (from, to, k) => ({ ...to, ...Object.fromEntries(MORPH_KEYS.map((key) => [key, mix(from[key], to[key], k)])) });   // alloc-rare: runs in the simulation worker (its own thread and heap), not on the page's render thread; only while an eased change of patient (a morph) is under way
-const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+const easeInOut = easeMove;   // (the patient's change: the app's one in-out curve, ui/ease.js)
 
 // A slide's extra work, asked for by a deck visuals package (slide-ext.js steps), on scratch engines so the chain is untouched:
 // explain: a metric id or a list (engine/explain.js METRICS), the Why? contributions at the slide's state;

@@ -1,3 +1,4 @@
+import { VIEW_CHANGE_MS } from './motion.js';
 // The crossfade between the two views' labels through the change between the views, from the change's own progress (view-switch-labels-recs.md,
 // option B2): never from a timer, and never a frame with no labels on the figure.
 //
@@ -23,8 +24,8 @@ export function viewXfMix(p, landAt, out = { o: 1, n: 0 }) {
 
 /** How long the change between Anatomy and Circuit takes, seconds (0.6 until 6 Nov 2026; Mohammad: "Make the morph slower its way too fast").
  *  The camera rides the same clock (viewXfP); the fallback camera glide in setView takes the same time; the presenter waits for it (stage.viewChanging). */
-export const VIEW_CHANGE_S = 1.3;
-export const VIEW_CHANGE_MS = VIEW_CHANGE_S * 1000;
+export const VIEW_CHANGE_S = VIEW_CHANGE_MS / 1000;   // (1.3: the length itself is the named exception in motion.js)
+export { VIEW_CHANGE_MS };
 
 /** When the change lands, ms from now: the share of the way still to go, on its one clock (the morph steps at a steady dt / VIEW_CHANGE_S). */
 export const viewXfLeftMs = (morph, target, ms = VIEW_CHANGE_MS) => Math.abs(target - morph) * ms;

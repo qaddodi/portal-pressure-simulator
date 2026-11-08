@@ -21,9 +21,9 @@ import { slideFold } from './fold-slide.js';
 import { leaveFromHere } from './menu-leave.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
-import { releaseSpeed, carryCurve, cssCurve, D_FLIP, D_SMALL, EASE_ARRIVE, RISE_PX } from './ease.js';
+import { releaseSpeed, carryCurve, cssCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, RISE_PX } from './ease.js';
 import { moverOf, cancelMoves } from './num-move.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, afterMs } from './motion.js';
 const nextFrame = frameFor('menu');
 const profFrame = frameFor('menu-profile');
 // The hover preview's change of size and place runs without layout per frame: the card is laid out once at the taller of its old
@@ -235,7 +235,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       pvKey = key;
       const old = pv._in.firstElementChild, h0 = pv._h1 || pv.offsetHeight;
       const next = make();
-      if (old && pv.classList.contains('on')) { classSoon(old, 'um-pv-old', true); setTimeout(() => removeSoon(old), 130); } else old?.remove();
+      if (old && pv.classList.contains('on')) { classSoon(old, 'um-pv-old', true); setTimeout(() => removeSoon(old), afterMs(D_FLIP)); } else old?.remove();   // (.um-pv-old fades out over D_FLIP, afterMs)
       pv._in.append(next);
       if (old && h0 && !reduce.matches) pvResize(pv, h0, next.offsetHeight);
       $$rows().forEach((r) => classSoon(r, 'pv-on', r === row));
@@ -315,7 +315,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const marked = el?.getElementsByClassName('pv-on');
     if (marked) for (let i = 0; i < marked.length; i++) classSoon(marked[i], 'pv-on', false);
     if (now || !p.classList.contains('on')) { p.remove(); return; }
-    classSoon(p, 'on', false); setTimeout(removeSoon, 140, p);
+    classSoon(p, 'on', false); setTimeout(removeSoon, afterMs(D_FLIP), p);   // (the page's exit is D_FLIP)
   }
   // On touch, the ⓘ opens the preview under its row (one at a time), easing open and shut.
   function toggleInline(li, make, btn) {
@@ -525,8 +525,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const t = el.offsetTop, was = el._top;
     el._top = t;
     if (was == null || Math.abs(was - t) < 1 || reduce.matches || !el.animate) return;
-    el._lift?.cancel();
-    el._lift = el.animate([{ transform: `translateY(${(was - t).toFixed(1)}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, composite: 'add' });
+    // (A lift still running is left to run: this one is added to it, composite 'add', for the layout moved since; the sheet was on screen, so it travels on the move curve.)
+    el._lift = el.animate([{ transform: `translateY(${(was - t).toFixed(1)}px)` }, { transform: 'none' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });
   }
   function place() {
     if (!el || el.classList.contains('sheet')) return;
@@ -711,7 +711,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         clear(s.cur); clear(s.nb);
         if (go) { setTab(TABS[s.j], false, true); cols.scrollTop = 0; }
       };
-      const timer = setTimeout(done, 250);
+      const timer = setTimeout(done, afterMs(D_SMALL));   // (the settle is a small step)
       settle = done; resting = go ? s.nb : s.cur;
       easing = { el: resting, from: go ? s.dx + d * s.w : s.dx, to: 0, t0: performance.now(), f: cssCurve(curve) };
     };

@@ -5,7 +5,7 @@ import { blendPaths, camPath, driftEase, lerpVT, viewsOverlap } from './cam-arc.
 import { camMs, carried, easeMove, springSlope } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { glideClock } from './glide-clock.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { reduceMotionMQ as reduceMotion, reducedMs } from './motion.js';
 import { store } from './store.js';
 import { clamp } from './util.js';
 
@@ -36,7 +36,7 @@ export function createGlide(st, live) {
     live.vtTarget = to;
     const from = { ...live.vt };
     let t0 = performance.now();
-    if (reduceMotion.matches) ms = Math.min(ms, 300);   // (reduced motion: a short glide, never a jump)
+    if (reduceMotion.matches) ms = reducedMs(ms, true);   // (reduced motion: a short glide, never a jump: REDUCED_MOVE_MS, the exception motion.js writes down)
     else if (opt.scale && !drift && ms > 0) ms = Math.min(ms, camMs(from, to, VIEW.w));
     // Lite mode: a jump, and a move that changes the view (not a small refit) fades the figure in at its new framing.
     if (ms <= 0) {

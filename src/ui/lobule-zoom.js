@@ -65,7 +65,7 @@ import { createCaptions, composeView, inkRows, mirrorOf, rgbaOf as capRGBA } fro
 import { readStyle, readBox as boxOf } from './layout-snap.js';
 import { hitLabel, explainText } from './label-explain.js';
 import { overlapLRTB, discInto, needsLeader, SHORT_LEAD, LONG_LEAD } from './label-place.js';
-import { reduceMotionMQ, createReversible } from './motion.js';
+import { reduceMotionMQ, createReversible, smooth01 } from './motion.js';
 import { darkMQ } from './look.js';
 const nextFrame = frameFor('lobule-zoom');
 
@@ -774,9 +774,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // A new patient (or any change to the tissue's state) crossfades into the lobule instead of snapping: the bitmap it replaces
   // is kept (worldOld, swapped rather than copied) and laid under the new one as it fades in, and the surround's tiles the
   // same way. Both pictures stay sharp throughout; the fade only adds one image draw a frame while it runs.
-  const XF_MS = 900;   // as long as the vessels' calibers take to settle (easeRadii, τ 0.3 s)
+  const XF_MS = 900;   // as long as the vessels' calibers take to settle (easeRadii, τ 0.3 s)   // motion-scale: own pace (as long as the calibers take to settle)
   let worldOld = noPicture(), worldOldSc = 0, worldState = '', xfT0 = 0, surNow = null, surOld = null, surT0 = 0;
-  const xfU = (t0, now) => { const u = Math.min(1, Math.max(0, (now - t0) / XF_MS)); return u < 0.5 ? 2 * u * u : 1 - (-2 * u + 2) ** 2 / 2; };
+  const xfU = (t0, now) => { const u = Math.min(1, Math.max(0, (now - t0) / XF_MS)); return easeMove(u); };
   // (The crossfades run on the honest wall clock, frame.js easeNow: one time per frame, never held back (motion.js, the clock rule). A long
   // frame as a new picture comes in, its texture going up, shows the fade where the wall clock puts it.)
   const xfNow = () => easeNow();
@@ -971,7 +971,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // held in the render graph's budget (gpu-budget.js): while the graph is over its memory envelope it is given back whole, and the next
   // dive builds it again, as its first ever did. Never while the lobule is open.
   let keptH = null, keptT = 0;
-  const KEPT_MS = 90000;   // (how long out of the lobule before the bitmaps it kept are given back)
+  const KEPT_MS = 90000;   // motion-scale: not a move (how long bitmaps are kept); (how long out of the lobule before the bitmaps it kept are given back)
   function keptHold() {   // alloc-rare: once per close of the lobule
     if (keptH?.held) { keptH.touch(); return; }
     keptH = hold({ owner: 'lobule kept', kind: 'retained', bytes: () => ownerBytes('lz-canvas'), release: keptRelease });
@@ -4260,7 +4260,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // hepatocytes and the neighbouring lobules flashed the page's dark colour, black in a dark look (Mohammad, 1 Nov, iPhone). The GPU's
   // picture is opaque, so the 2D one under it is never seen once it shows. (Not while the dive's rim clears the surround on the GPU:
   // the 2D picture would show through there.)
-  const HANDOFF_MS = 160;
+  const HANDOFF_MS = 160;   // motion-scale: not a move (how long the 2D picture stays under the GPU one)
   let handoffT = 0;
   function showTissueGL(on) {
     if (on === tissueOnGL) return;
@@ -4825,7 +4825,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   function applyChrome() {
     const ch = clamp((fade - 0.55) / 0.45, 0, 1);
-    el.style.setProperty('--lz-chrome', (ch * ch * (3 - 2 * ch)).toFixed(3));
+    el.style.setProperty('--lz-chrome', smooth01(ch).toFixed(3));
   }
   function resetSinusoid() { cancelFrame(sinRaf); sinClock.set(0); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
   function diveSinusoid(on) {

@@ -7,6 +7,7 @@
 // disorder), the nutmeg, the zones, and the limiting plate's hairline. A state with anything else in it (the collagen of fibrosis, the
 // stellate cells, septa, tracts, the central vein's cuff) is drawn from the bitmap, as before, until the shader draws that too.
 
+import { D_SURFACE, smooth01 } from './motion.js';
 import { fibHash, bandGeomInto, bandFibreInto, bandNucleusInto, bandFibreCount, bandNucleiCount, scarGrowth } from './lobule-paint.js';
 
 export const BIN = 16;          // a bin's side, world units
@@ -27,7 +28,7 @@ export const liveEligible = () => true;
 export const liveZoomShare = (s, R) => smooth(3.5, 6, s * R * 0.052);
 
 /** How long the shader's share takes to ease between 0 and 1 when the shader arrives (or is lost) or the state changes it, ms. */
-export const LIVE_MS = 400;
+export const LIVE_MS = D_SURFACE;
 /** One step of that easing from e toward goal (0 or 1) after dtMs: a gap longer than 100 ms (a pause, a hidden tab) counts as 100,
  *  so nothing jumps when drawing starts again. */
 export function liveEase(e, goal, dtMs, ms = LIVE_MS) {
@@ -36,7 +37,7 @@ export function liveEase(e, goal, dtMs, ms = LIVE_MS) {
   return goal > e ? Math.min(goal, e + dt) : Math.max(goal, e - dt);
 }
 /** The shader's share of the picture from the eased goal e (0 … 1, smoothed) and the zoom's own share (liveZoomShare): 0 when either is 0. */
-export const liveShareOf = (e, zoom) => Math.min(e * e * (3 - 2 * e), zoom);
+export const liveShareOf = (e, zoom) => Math.min(smooth01(e), zoom);
 
 /** How far a pan may be from a whole number of device px and still count as one: only the rounding of the sums that make it (about
  *  1e-12 for a drag of whole CSS px), and under the 0.0002 px a float32 steps at 3000 px, which the shader cannot tell apart either. */

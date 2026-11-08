@@ -1372,7 +1372,7 @@ function setSpeed(v, lapse = false) {
   if (lapse) { store.set({ lapse: v }); host.send({ type: 'run', speed: v, clock: 'disease' }); }
   else { store.set({ speed: v, lapse: 0 }); host.send({ type: 'run', speed: v, clock: 'hemo' }); }
 }
-// A theme chosen in the app crossfades the whole page (.45 s): the old look is held as a still picture at full resolution and
+// A theme chosen in the app crossfades the whole page (a surface step, D_SURFACE = 420 ms, --d-surface in styles/app.css): the old look is held as a still picture at full resolution and
 // fades over the live new one (View Transitions, styles/app.css). Where that is not supported it changes at once, as before
 // (motion review P1). Page load and a change of the device's own theme apply at once.
 // (PR-16: never over the memory budget: a crossfade holds the old page as a texture beside the new one, two more full-page surfaces.)

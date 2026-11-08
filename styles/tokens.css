@@ -142,7 +142,12 @@
        --d-camera   the shortest camera glide (ease.js camMs: 480 ms up to half a screen, then in proportion, 900 ms at most);
                     a piece that rides a glide sets its own time (--vp-ms)
      A leave takes the step below its entrance (a surface comes in over 420 ms and goes out over 240). A scene that teaches (a column
-     filling, a halo) has its own pace and carries an own-pace marker comment; a loop (a spinner, a pulse) is not motion on a scale. */
+     filling, a halo) has its own pace and carries an own-pace marker comment; a loop (a spinner, a pulse) is not motion on a scale.
+     Leaves are written on the leaving state (the class that hides it), not on the base rule: --ease-in and the step below, so the way in
+     keeps the arrive curve. Two exceptions are on purpose. A fade-only toggle that has no travel and no entrance of its own (a plain swap
+     of opacity both ways) may be symmetric. The phone sheets (menus, popovers and the data sheet that slide from the dock's edge) run
+     240 ms in and 240 ms out: they are one rise-and-sink pair (the 4 Nov 2026 menu audit), so a sheet pulled back mid-way turns round
+     on the same clock. */
   --d-flip: 120ms; --d-small: 240ms; --d-surface: 420ms; --d-camera: 480ms;
   /* A card zoomed: the page's veil comes in over 260 ms and goes out over 200, and the figure's labels leave in 160 (Mohammad, 6 Nov 2026, mock F2), quicker than the card's own glide. */
   --d-zoom-in: 260ms; --d-zoom-out: 200ms; --d-zoom-labels: 160ms;

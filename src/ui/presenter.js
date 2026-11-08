@@ -95,11 +95,11 @@ let TESTING = [];
 const testingLoad = PREVIEW ? import('./test-decks/demo-all-new-visuals.js').then(({ DEMO_ALL }) => { TESTING = [DEMO_ALL].map((d) => ({ id: 'test-' + d.id, title: d.title, summary: d.summary || '', deck: checkDeck(d), test: true })); }).catch(() => { /* the preview's test deck only */ }) : Promise.resolve();
 // alloc-rare: one timer per awaited step of a procedure, seconds apart, not per frame
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-import { reduceMotionMQ as reduce } from './motion.js';
+import { reduceMotionMQ as reduce, easeMove, COUNT_MS } from './motion.js';
 import { createScopeLens } from './scope-lens.js';
 import { createWaits } from './wait-cut.js';
 import { VIEW_CHANGE_MS } from './view-xf.js';
-const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
+const ease = easeMove;   // (the tweens and glides of the data card: the one in-out curve, motion.js)
 // Waits a newer press can cut (wait-cut.js): waitCut(ms, cut) ends at ms or the first frame in which cut() holds; until(fn, ms) is the same asked the other way.
 // Looked at by frame (a hidden tab, which runs none, by a slow poll and the timer), no longer by a 40 ms timer that made every wait about 20 ms late.
 const { waitCut, until } = createWaits({ frame: nextFrame });
@@ -550,7 +550,7 @@ function copyKeys(dst, src) {
 }
 function tweener(draw) {
   let cur = null, raf = 0;
-  const run = (to, ms = 950) => {
+  const run = (to, ms = COUNT_MS) => {
     cancelFrame(raf);
     if (!cur || reduce.matches || ms === 0) { cur = copyKeys(cur || {}, to); draw(cur); return; }
     const from = { ...cur }, t0 = performance.now();
@@ -1052,7 +1052,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A change of patient on screen eases (the model blends from where it is to the slide's state: lesions grow, sliders,
   // pressures and flows travel, the days run on); a newer slide mid-way eases on from wherever the model has got to.
   // Resolves once the slide's exact state is in, or early (the model left part way) when cut() says a newer slide was asked for.
-  const MORPH_MS = 2000;
+  const MORPH_MS = 2000;   // motion-scale: own pace (the patient's change under a slide)
   // A slide change is one move (premium-feel R1). Over the plate the cards come in during the
   // camera's last three quarters (CARDS_AT: once a quarter of it has run), so it lands on a finished slide, and a change of patient eases under the glide itself, over
   // MORPH_ONE_MS (the glide's camMs, 480 to 900 ms, and a tail), not 2 s after it lands. A large change keeps easing under the cards:
@@ -1064,7 +1064,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // glide ran. The cards now come in once a quarter of the glide has run (CARDS_AT 0.75 of it left), the smooth-frames gate gives up after
   // QUICK_SMOOTH ms, not 700, and the new card starts its way in at once, not 120 ms late.)
   const QUICK_SMOOTH = 240;
-  const CARDS_AT = 0.75, MORPH_ONE_MS = 1200;
+  const CARDS_AT = 0.75, MORPH_ONE_MS = 1200;   // motion-scale: own pace (the patient's change under a glide)
   // A chart or gauge that only reads the model as it eases (the pressure profile, a relation curve, the flows, the talk's trace, the criteria,
   // the plane) comes in over the change, riding it: its numbers and curve travel with the vessels, as a kept card's do. An instrument that
   // records the patient's flow (Doppler, beat by beat, vitals), plays on arrival, or is a deck package's own, still waits for the slide's state.
@@ -1074,7 +1074,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // running, at the arrival curve about 95 percent of the way), not after the title's last frame, which was most of half a second of
   // an empty figure between the cards landing and the slide's own marks arriving.
   const CARDS_SEEN = D_SMALL - 40;
-  const CATH_SETTLE_MS = 4000;   // (at most: a model still drifting never holds the catheter longer)
+  const CATH_SETTLE_MS = 4000;   // motion-scale: not a move (a longest wait); (at most: a model still drifting never holds the catheter longer)
   // (.app.pz-morph while a change of patient eases: the checks hold the data card to it.)
   async function morphTo(st, cut, ms = MORPH_MS, mark = true) {
     host.send({ type: 'morph', snap: st.snap, ms });
@@ -1105,10 +1105,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   function figureIn() { view.classList.remove('pz-out'); loading(false); }
   // (next: the slide being moved to, if it frames the plate, so the way out of the lobule lands on that framing
   // in one zoom rather than stopping at the fit first.)
-  const RISE_FIT_MS = 450;   // (the zoom back to the whole lobule before a rise: about the rise's own speed where they meet)
-  const RISE_AHEAD_MS = 1200;   // (a lobule slide settled this long: its way out's organ picture is made ahead)
+  const RISE_FIT_MS = 450;   // (the zoom back to the whole lobule before a rise: about the rise's own speed where they meet)   // motion-scale: own pace (the zoom back before a rise, about the rise's own speed)
+  const RISE_AHEAD_MS = 1200;   // (a lobule slide settled this long: its way out's organ picture is made ahead)   // motion-scale: not a move (a wait)
   let prepAheadT = 0;
-  const RISE_READY_MS = 2500;   // (the longest the rise waits for the organs' picture: past it, the live drawing shows, as before)
+  const RISE_READY_MS = 2500;   // (the longest the rise waits for the organs' picture: past it, the live drawing shows, as before)   // motion-scale: not a move (a longest wait)
   // (cut: the owning transition was replaced or stopped. Checked after every wait and before every write, so a stale exit stops
   // where it is and touches neither the camera nor the store; the newer transition owns the hold from then on.)
   async function toAnatomy(next, cut = () => false) {
@@ -2097,7 +2097,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // (R05: the cards that show stay where they are until the slide going in is prepared (slide-prep.js ready: its state, glyphs, data card
   // and shaders), so the new card never comes in empty; at most PREP_MS, so a Next is still answered at once. A newer press takes over.)
-  const PREP_MS = 160;
+  const PREP_MS = 160;   // motion-scale: not a move (a budget for a slide's preparation)
   let prepT = 0;
   // (R05: a slide shown before its preparation or its instrument's window was complete says so: the root's data-pz-degraded names what was
   // missing ('prep-preparing', 'prep-failed', 'prep-unprepared', 'window') until the next press, and degraded() counts them. The time limit
@@ -2767,7 +2767,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // frame paints it there), never in a frame; the glide itself is a transform.)
     if (stay && !reduce.matches) queueMicrotask(() => {
       const dy = y0 - readBox(mon.el).top;
-      if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: D_SURFACE, easing: EASE_ARRIVE });
+      if (Math.abs(dy) > 1) mon.el.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: D_SURFACE, easing: EASE_MOVE, composite: 'add' });
     });
     nextFrame(() => mon.set(s.monitor, states[stateOf[i]]?.fp, cath.v.balloon));
     return mon.el;
@@ -3028,7 +3028,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // Each row of a table still computing fills in (its cells fade in) as its patient arrives. It is asked for by the table itself, as it is built, so
   // every way a table gets drawn (a slide landing, the card drawn again for a new text size, a kept panel) fills in, and a slide that is slow to
   // land (the model paused, a heavy figure) never leaves its cells blank for good. A table that has left the page is let go.
-  const TABLE_WAIT_MS = 1500;
+  const TABLE_WAIT_MS = 1500;   // motion-scale: not a move (a longest wait)
   function watchRows(el, s) {
     for (const k of new Set(rowIdx(s).filter((x) => !states[x]))) {
       // (R15: the rows are published at a safe boundary: not while the cards are still on their throws, then the layout they change is asked for once, R14.)

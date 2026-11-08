@@ -2,9 +2,9 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, NODES } from '../engine/topology.js';
 import { HIDDEN_NODES, NODE_POS } from './anatomy.js';
-import { easeArrive } from './ease.js';
+import { D_SURFACE, easeArrive } from './ease.js';
 import { cancelFrame } from './frame.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { reduceMotionMQ as reduceMotion, HALO_MS } from './motion.js';
 import { createScope } from './scope.js';
 import { restPass } from './rest-pass.js';
 import { store } from './store.js';
@@ -51,7 +51,7 @@ if (live.haloK) gHalo.style.setProperty('--halo-k', live.haloK);
   }
   // (haloRing: r 8 → 26 over 1.5 s, its stroke at nothing, .9 at a fifth, nothing at the end; haloText: in by an eighth, held to 70 %,
   // out by the end; each stretch eased as the keyframes' own --ease.)
-  const HALO_MS = 1500, seg = (p, a, b) => easeArrive(Math.min(1, Math.max(0, (p - a) / (b - a))));
+  const seg = (p, a, b) => easeArrive(Math.min(1, Math.max(0, (p - a) / (b - a))));
   let haloRaf = 0, haloT0 = 0, haloScaleK = NaN, haloScaleS = '';
   function haloStep(now) {
     haloRaf = 0;
@@ -128,7 +128,7 @@ if (live.haloK) gHalo.style.setProperty('--halo-k', live.haloK);
       if (Math.abs(d) >= 2) glows.push([x, d]);
     }
     glows.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? 'var(--glow-up)' : 'var(--glow-down)', amt: 1.35, wide: 1.1, dur: 420 })));
+    if (!reduceMotion.matches) setGlowSrc('delta', glows.slice(0, 16).map(([x, d]) => ({ id: x.e.id, col: d > 0 ? 'var(--glow-up)' : 'var(--glow-down)', amt: 1.35, wide: 1.1, dur: D_SURFACE })));
     const gpu = glyphsReady();
     gHalo.replaceChildren(...cand.slice(0, 3).map(([id, d]) => {
       const [x, y] = nodePos(id, t);

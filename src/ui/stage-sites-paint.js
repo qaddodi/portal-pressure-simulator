@@ -7,7 +7,7 @@ import { dropLabel } from './drop-label.js';
 import { ROOM_BASE, placeCallout } from './callout-room.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { reduceMotionMQ as reduceMotion, D_SMALL, D_SURFACE, COUNT_MS, afterMs } from './motion.js';
 import { portalSplit } from './table-marks.js';
 import { clamp, fmt, putText } from './util.js';
 
@@ -89,7 +89,7 @@ export function createSitesPaint(st, live) {
   // once the figure has come to rest (for each slide and view: a card that is still clear is never moved), it then rides the figure at
   // the same offset like every reading, and a spot chosen again glides there. While the figure still moves the first time, it waits hidden
   // (at most ROOM_WAIT_MS), so it never shows in a spot it is then taken from.
-  const ROOM_AIR = 7, ROOM_WAIT_MS = 1200, ROOM_GLIDE_MS = 450, ROOM_PK = 8;
+  const ROOM_AIR = 7, ROOM_WAIT_MS = 1200, ROOM_GLIDE_MS = D_SURFACE, ROOM_PK = 8;
   const siteAt2 = [0, 0];
   const roomHit = (a, b, m) => a.x0 < b.x1 + m && a.x1 > b.x0 - m && a.y0 < b.y1 + m && a.y1 > b.y0 - m;
   // (What a choice was made for: the point and the figure's scale on the stage, the free band, and the key's box.)
@@ -157,14 +157,14 @@ export function createSitesPaint(st, live) {
   function siteLeave(k, el) {
     if (sites.made.get(k) === el) sites.made.delete(k);
     el.classList.add('cath-leave');
-    stageScope.timer(siteGone, reduceMotion.matches ? 0 : 700, el);
+    stageScope.timer(siteGone, reduceMotion.matches ? 0 : afterMs(D_SMALL), el);   // (the leave's fade-out, app.css .cath-label.site.cath-leave: --d-small)
   }
   const sitePreQ = [], sitePreRun = () => { for (let i = 0; i < sitePreQ.length; i++) sitePreQ[i].classList.remove('cath-pre'); sitePreQ.length = 0; sitesAgain(); };   // (the readings just made, shown from the frame after)
   const siteGone = (el) => { dropLabel(el); el.remove(); };
-  // A reading's number counts to a new value over 950 ms, eased, as the data card's tiles count (presenter.js tweener), so a slide's
+  // A reading's number counts to a new value over COUNT_MS (motion.js), eased, as the data card's tiles count (presenter.js tweener), so a slide's
   // or a patient's change never swaps it at once; within tol of the number shown (the live model breathing, a slider being dragged)
   // it simply follows. A reading just shown, hidden, or under reduced motion takes its number at once.
-  const COUNT_MS = 950, LABEL_GLIDE_MS = 450;   // (LABEL_GLIDE_MS: the figure's labels glide as long: labelGlide)
+  const LABEL_GLIDE_MS = D_SURFACE;   // (the figure's labels glide as long as the readings' room: labelGlide)
   let sitesRaf = 0;
   const sitesRun = () => { sitesRaf = 0; if (live.F && sites.list) { refreshCTM(); sitesPaint(); } };
   const sitesAgain = () => { if (!sitesRaf) sitesRaf = nextFrame(sitesRun); };

@@ -7,6 +7,7 @@ import { flowColor, heatColor, oxygenColor, pressureColor, velColorOf, velocityC
 import { rippleList } from './highlight-math.js';
 import { explainText } from './label-explain.js';
 import { leaderEnd as edgeOf, leaderEndRects as edgeOfRects } from './leader-end.js';
+import { D_SURFACE } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { sceneBegin, sceneStyle } from './scene-store.js';
@@ -37,7 +38,7 @@ export function createLabelItems(st, live) {
     const cs = sceneStyle(svg) || getComputedStyle(svg), lift = clamp(cssNum(cs, '--ripple-lift', 0), 0, 1);
     const tone = (v) => { const c = mix3(toRGB(v, cs), [1, 1, 1], lift); return `rgb(${c.map((x) => Math.round(x * 255)).join(', ')})`; };   // colour-exempt: built from the glow tokens
     const up = tone('var(--glow-up)'), down = tone('var(--glow-down)');
-    setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? up : down, amt: RIPPLE_AMT, wide: 1.3, dur: 420 })));
+    setGlowSrc('delta', list.map(([id, d]) => ({ id, col: d > 0 ? up : down, amt: RIPPLE_AMT, wide: 1.3, dur: D_SURFACE })));
     if (list.length) rippleT = setTimeout(setGlowSrc, RIPPLE_HOLD, 'delta', noGlows);
   }
   const isImaging = () => !!store.get().imaging;

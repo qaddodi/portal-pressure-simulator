@@ -15,7 +15,7 @@ import { measure as measureWords } from './glyph-measure.js';
 import { caught } from './caught.js';
 import { widgetGL } from './widget-gl.js';
 import { layoutToast, paintToast, inkOf } from './toast-gl.js';
-import { readMetric, readAnims, readStyle, readBox } from './layout-snap.js';
+import { readMetric, readBox } from './layout-snap.js';
 import { sliderOf, sliderFor, dotWidth, jump, glide, gliding, setHover, setHeld, setFocus, releaseAll, followInput } from './slider-gl.js';
 import { plateFor } from './plate-gl.js';
 import { glassPlate } from './menu-glass.js';
@@ -171,7 +171,7 @@ function dropToast(t) {
   if (wrap.classList.contains('docked') || reduceMotionMQ.matches) return;
   others.forEach((c, i) => {
     const dy = tops[i] - c.getBoundingClientRect().top;
-    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE });
+    if (Math.abs(dy) > 0.5) c.animate?.([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_SMALL, easing: EASE_MOVE, composite: 'add' });
   });
 }
 // Where the toasts sit: slid down from behind the top bars, or (no bars to sit under: the sinusoid view's) at the foot of the screen
@@ -616,11 +616,11 @@ function glideWatch(root, sel, { ms = 520, dur = D_SMALL, also = NO_ALSO }) {
     for (const [el, [x, y]] of now) {
       const p = prev.get(el);
       if (!p) continue;
-      let cx = 0, cy = 0;
-      for (const a of readAnims(el)) if (a.id === 'glide') { const m = new DOMMatrixReadOnly(readStyle(el).transform); cx = m.m41; cy = m.m42; a.cancel(); break; }
-      const dx = p[0] + cx - x, dy = p[1] + cy - y;
+      // (A glide still running is left to run and the new move added to it, composite 'add': the places are the layout's (offsetLeft, offsetTop),
+      // so the move is just what the layout did, and a second change carries on at the speed the first had. What was on screen travels on the move curve.)
+      const dx = p[0] - x, dy = p[1] - y;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
-      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: EASE_ARRIVE }).id = 'glide';
+      el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: dur, easing: EASE_MOVE, composite: 'add' }).id = 'glide';
     }
     prev = now;
   });
@@ -706,7 +706,7 @@ export function reconcile(list, rows) {
   }
   if (was) for (const [e, y0] of was) {
     const dy = y0 - e.offsetTop;
-    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_FLIP, easing: EASE_MOVE });
+    if (Math.abs(dy) > 0.5) e.animate([{ translate: `0 ${dy}px` }, { translate: '0 0' }], { duration: D_FLIP, easing: EASE_MOVE, composite: 'add' });
   }
   if (shown) {
     for (const r of fresh) if (r.dataset.row) r.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }], { duration: D_SMALL, easing: EASE_ARRIVE, delay: going.length ? 80 : 0, fill: 'backwards' });

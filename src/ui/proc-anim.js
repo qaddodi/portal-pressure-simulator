@@ -59,13 +59,13 @@ const TIPS_T = tipsT();
 const TIPS_STOPS = [TIPS_T.travel1 + 600, TIPS_T.over1 + 300, TIPS_T.inflate1 + 400, TIPS_T.end];
 // How long a shot may glide (ms), as a slide's own camera does: it asks for the camera's own time for the move (cathFocus scale: stage-glide.js
 // camMs, 480 to 900 ms by how far it goes), this being the ceiling. The procedure waits for the glide to land, and a little more, at each new shot.
-const SHOT_MS = 1500;
+const SHOT_MS = 1500;   // motion-scale: own pace (a shot's camera glide of a procedure)
 // (cathFocus's options, made once. A shot with no times of its own is timed by the camera, on an arc for a long move; BRTO's, BATO's and the glue's keep their own, straight.)
 const SHOT_CAM = { arc: true, scale: true }, SHOT_OWN = { arc: false, scale: false };
 // BRTO and BATO glide straight (no arc), each shot as long as its move needs: the way in, the short push in to the balloon, the fill (the
 // same framing: no move), the pull back to the result. Played step by step, their result stays framed when they end, until the slide
 // moves on (holdEnd: the old camera glided home while the catheter was still backing out). Mock B, his pick, 7 Nov 2026.
-const OBLIT_SHOT_MS = { way: 1200, tip: 800, fill: 300, work: 1200 };
+const OBLIT_SHOT_MS = { way: 1200, tip: 800, fill: 300, work: 1200 };   // motion-scale: own pace (decided: BRTO and BATO shots)
 export const PROCS = {
   tips: {
     name: 'TIPS', label: 'TIPS', balloonSpan: 'tract',
@@ -225,7 +225,7 @@ const GLUE_T = retime({ travel0: 300, travel1: 6000, aim0: 6400, aim1: 7200, fan
   coil0: 10300, coil1: 12700, fill0: 13300, fill1: 16000, apply: 16600, needleOut0: 16900, needleOut1: 17800, fanOut0: 17600, fanOut1: 18400,
   aimOut0: 17800, aimOut1: 18600, back: 18800, end: 22600 }, GLUE_MOVE);
 const GLUE_STOPS = retime([6200, 9900, 13000, 16300, 22600], GLUE_MOVE);
-const GLUE_SHOT_MS = { way: 1200, tip: 800, work: 1200 };
+const GLUE_SHOT_MS = { way: 1200, tip: 800, work: 1200 };   // motion-scale: own pace (the glue shots)
 // (The callouts on the varix: none while the scope goes in, then each step's number and word where the needle went in. The varix is
 // the short gastric feeder's course, C2, at the glue's point (eus-scope.js EUS_GLUE_TARGET).)
 const GLUE_F = 0.8;
@@ -392,7 +392,7 @@ export const procRunning = () => runs > 0;
 
 // Going back through a step runs it backwards (the balloon goes down, the sclerosant drains, the catheter backs out), a little
 // faster than forward. Autoplay (Tests) holds at each stop for AUTO_HOLD ms before the next step.
-const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;
+const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;   // motion-scale: own pace (the landing of a step reversed)
 
 /**
  * Plays a procedure on the figure, step by step. stepped: hold at each step's stop until next(), back() or to(k) (a

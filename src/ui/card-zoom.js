@@ -12,8 +12,8 @@ import { frameFor } from './frame.js';
 import { sceneCam, zoomRide, zoomFrameRun } from './scene-cam.js';
 export const ZOOM_MAX = 2.2;    // the most the card grows
 export const ZOOM_MIN = 1.2;    // under this the card is large enough; no zoom is offered
-export const ZOOM_MS = 520;     // in
-export const SHUT_MS = 440;     // and back
+export const ZOOM_MS = 520;     // motion-scale: own pace (kept as decided: 520 in); in
+export const SHUT_MS = 440;     // motion-scale: own pace (kept as decided: 440 back); and back
 
 /** The time a zoom turned back takes: SHUT_MS (or ZOOM_MS) scaled by the share of the way it is from rest (cur.s − 1 over plan.s − 1), never under 0.35 of it, so a zoom shut a little way in is back in a little time (V-ZOOM-5). */
 export const reverseMs = (full, curS, planS) => Math.round(full * Math.max(0.35, Math.min(1, (curS - 1) / ((planS - 1) || 1))));

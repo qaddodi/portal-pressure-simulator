@@ -6,12 +6,13 @@
 // made only on the GPU, inside the canvas's own presents (res-fade-gl.js); the canvas stays shown, so its opacity is never touched.
 import { finalFrameFor, noteDraw } from './frame.js';
 import { D_SURFACE } from './ease.js';
+import { smooth01 } from './motion.js';
 import { keepOnGpu } from './res-fade-gl.js';
 import { caught } from './caught.js';
 
 export const FADE_MS = D_SURFACE;
 /** The old picture's weight u of the way through the fade: 1 to 0, smoothstep (no step at either end). */
-export const fadeAlpha = (u) => { const t = Math.min(1, Math.max(0, u)); return 1 - t * t * (3 - 2 * t); };
+export const fadeAlpha = (u) => 1 - smooth01(u);
 
 const late = finalFrameFor('res-fade');
 // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU") the fade runs only on the GPU (res-fade-gl.js): the picture before copied once

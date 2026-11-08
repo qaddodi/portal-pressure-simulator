@@ -1872,7 +1872,7 @@ button.finding { cursor: pointer; }
 .pz-text.pz-enter > * { --edge-x: -18px; --edge-o: 0; animation: slide-from-edge var(--d-surface) var(--ease) both; animation-delay: .12s; }
 /* The data card comes in with the words (same pace, same start), never ahead of them. */
 .pz-data:not(.pz-hide) { transition-duration: var(--d-surface); transition-delay: .12s; }
-.pz-text > .pz-leave { opacity: 0; transform: translateX(-18px); transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease); }
+.pz-text > .pz-leave { opacity: 0; transform: translateX(-18px); transition: opacity var(--d-small) var(--ease-in), transform var(--d-small) var(--ease-in); }
 .pz-text.pz-enter > .pz-mon.pz-stay { animation: none; }
 /* Slide text: the six roles (tokens.css --t-*) at a slide's size: on a wide screen they follow the screen's height
    (a laptop at 900 px: caption 15.6 · label 18.2 · body 20.8 · value 28.6 · big 41.6 · title 57.2); a phone's stacked
@@ -2430,7 +2430,7 @@ button.finding { cursor: pointer; }
    soft inner pill that eases from word to word. Mac and iPad landscape: in the counter's row, 8 px left of the counter pill. A phone and an
    upright iPad (.stack): centred 8 px above the teaching card's glass. It comes in and leaves with the teaching card, in its fade. */
 .pz-scales { --pz-glass-edge: color-mix(in srgb, var(--white) 45%, transparent); --pz-glass-drop: var(--glass-drop); position: absolute; right: calc(var(--pz-cm) + var(--pzs-r, 236px) + 8px); bottom: max(var(--pz-cm), calc(env(safe-area-inset-bottom, 0px) + 8px)); display: flex; align-items: stretch; height: 44px; box-sizing: border-box; padding: 4px; --gl-glass: 1; --gl-tint: color-mix(in srgb, var(--surface) var(--pz-frost, 66%), transparent); background: var(--gl-tint); border: 1px solid color-mix(in srgb, var(--text) 10%, transparent); border-radius: var(--r-sheet); box-shadow: inset 0 1px 0 var(--pz-glass-edge), 0 14px 34px -10px var(--pz-glass-drop), 0 2px 6px -1px var(--pz-glass-drop); pointer-events: auto; opacity: 1; transition: opacity var(--d-surface) var(--ease) .12s; }
-.pz-scales.pz-leave { opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
+.pz-scales.pz-leave { opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease-in); }
 .pz-scales[hidden] { display: none; }
 .pz-scales > button { position: relative; z-index: 1; border: 0; background: none; padding: 0 14px; border-radius: calc(var(--r-sheet) - 4px); font: 500 14px/1 var(--font-ui); color: var(--text-2); white-space: nowrap; cursor: pointer; transition: none; -webkit-tap-highlight-color: transparent; }
 @media (hover: hover) { .pz-scales > button:hover { color: var(--text); } }
@@ -2986,7 +2986,7 @@ button.finding { cursor: pointer; }
   /* The stacked card's handle (.pz-lip) fades with the cards too, in once the glass is in and out before it, never popping in or out
      ahead of them: with every transition off it came up at once while the cards were still fading in (Mohammad, 25 Oct). */
   .pz > .pz-lip { transition: opacity var(--d-small) var(--ease) .3s !important; transform: none !important; }
-  .pz > .pz-data.pz-hide + .pz-lip { transition: opacity var(--d-flip) var(--ease) !important; }
+  .pz > .pz-data.pz-hide + .pz-lip { transition: opacity var(--d-flip) var(--ease-in) !important; }
 }
 /* Menu › Present: the presentations and your scripts. */
 /* High contrast (P while presenting, or Settings): colour only, never a size. Stronger words, ratings as filled chips, a deeper shade. Organ art unchanged. */
@@ -3313,8 +3313,8 @@ button.finding { cursor: pointer; }
 /* One leaving fades out whole and at once (no entrance pause), its glass and shadow with it; the glass is hidden outright only once
    faded (stage.js siteLeave removes it after). */
 .cath-label.site.cath-leave { --lo: 0; } .cath-label.site.cath-leave::before { opacity: 0; }
-.cath-label.site.cath-leave, .cath-label.site.cath-leave::before, .cath-label.site.cath-leave > * { transition-delay: 0s; }
-.cath-label.site.cath-leave > .cl-glass { visibility: hidden; transition: opacity var(--d-surface) var(--ease), visibility 0s linear var(--d-surface); }
+.cath-label.site.cath-leave, .cath-label.site.cath-leave::before, .cath-label.site.cath-leave > * { transition-delay: 0s; transition-duration: var(--d-small); transition-timing-function: var(--ease-in); }   /* (a leave takes the step below its entrance, on the leaving curve; stage.js siteLeave waits D_SMALL + slack) */
+.cath-label.site.cath-leave > .cl-glass { visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
 .cath-label.site.pv { --c: var(--tr-pv); } .cath-label.site.ivc { --c: var(--tr-ivc); }
 /* The FibroScan probe on the skin over the liver; its shear wave eases out into the right lobe and fades. */
 .scan-probe { --scan: var(--fibroscan); /* the orange of the FibroScan card's readout (ORANGE in fibroscan.js) */ position: absolute; left: 0; top: 0; width: 220px; height: 96px; translate: 0 -50%; transition: opacity var(--d-surface) var(--ease); pointer-events: none; }
@@ -3394,10 +3394,10 @@ button.finding { cursor: pointer; }
 .app .cath-label.site.res.low.keyed .res-k { bottom: auto; top: calc(100% + 4px); }
 .app .cath-label.site.res.low.keyed:not(.coll, .gut) .res-k { left: calc(100% + 10px); }
 .app .cath-label.site.res.coll.low.keyed .res-k { left: -10px; }
-.cath-label.site.off { --lo: 0; } .cath-label.site.off, .cath-label.site.off::before, .cath-label.site.off > * { transition-delay: 0s; }
+.cath-label.site.off { --lo: 0; } .cath-label.site.off, .cath-label.site.off::before, .cath-label.site.off > * { transition-delay: 0s; transition-duration: var(--d-small); transition-timing-function: var(--ease-in); }
 /* (A hidden callout's frosted glass is hidden outright once it has faded, and its shadow fades with it: the shadow left behind
    drew a ghost rectangle over the figure on a phone.) */
-.cath-label.site.off > .cl-glass { visibility: hidden; transition: opacity var(--d-surface) var(--ease), visibility 0s linear var(--d-surface); }
+.cath-label.site.off > .cl-glass { visibility: hidden; transition: opacity var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
 .cath-label.site.cath-pre > .cl-glass { visibility: hidden; }
 .cath-label.site.off::before { opacity: 0; }   /* (its shadow goes with it, else the shadow alone drew the ghost) */
 .cath-label.site { padding: 5px 12px 6px; } .cath-label.site b { font-size: 20px; }
@@ -4817,7 +4817,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .app.figure-focus .zoom-pill:not(.under-sheet) { translate: 0 calc(var(--bot-occ, 120px) + 8px - env(safe-area-inset-bottom) - 12px - var(--sheet-h, 0px)); }
 }
 .topbar .stage-bar.top { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), visibility var(--d-small); }   /* (visibility last, so the fade-out finishes before it flips) */
-.app.figure-focus .topbar.two-rows .stage-bar.top { opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none; }
+.app.figure-focus .topbar.two-rows .stage-bar.top { opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none; transition: opacity var(--d-flip) var(--ease-in), transform var(--d-flip) var(--ease-in), visibility var(--d-flip); }   /* (a leave: the step below, on the leaving curve) */
 
 /* Turning "Always show HVPG" on or off: its readouts fade to the new state (opacity only). */
 body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev,
@@ -5856,7 +5856,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    handle of the stacked cards appears before the cards"). It fades in once the glass is in (the card's own fade runs .12 s to .62 s, the bar's .42 s
    to .72 s) and out first, in .2 s. A card that has just come to stand with its glass already on (pz-lip-in, presenter.js lipSync) starts
    from this same out look.) */
-.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity var(--d-flip) var(--ease), transform var(--d-small) var(--ease); }
+.pz .pz-data.pz-hide + .pz-lip:not([hidden]) { opacity: 0; transform: translateX(18px); pointer-events: none; transition: opacity var(--d-flip) var(--ease-in), transform var(--d-small) var(--ease-in); }
 .pz .pz-lip.pz-lip-in:not([hidden]) { opacity: 0; transition: none !important; }
 .pz.stack .pz-data.pz-hide + .pz-lip { transform: translateY(-18px); }
 .pz.pz-turning .pz-lip, .pz.pz-turning .pz-lip::before { transition: none !important; }
@@ -5917,10 +5917,10 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 /* (The handle rides in the readings' card's foot, tucked or out: --pz-u is copied to it by presenter.js placeLip, frame by frame.) */
 .pz.stack .pz-data.pz-sheet + .pz-lip::before { content: none; }
 .pz.stack .pz-data.pz-sheet.pz-sliding + .pz-lip { margin-top: calc(-24px * var(--pz-u, 0)); transition: opacity var(--d-small) var(--ease) .42s, transform var(--d-surface) var(--ease) .12s; }
-.pz.stack .pz-data.pz-sheet.pz-sliding.pz-hide + .pz-lip { transition: opacity var(--d-flip) var(--ease), transform var(--d-small) var(--ease); }   /* (a slide that changes mid-pull: the bar still leaves first) */
+.pz.stack .pz-data.pz-sheet.pz-sliding.pz-hide + .pz-lip { transition: opacity var(--d-flip) var(--ease-in), transform var(--d-small) var(--ease-in); }   /* (a slide that changes mid-pull: the bar still leaves first) */
 /* (Inside a fading card a glass piece loses its blur until the fade ends, so here the card stays opaque and its parts and its two
    pieces fade, the card hidden once they have gone. The readings fade by their own ease.) */
-.pz.stack.stack .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
+.pz.stack.stack .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
 .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform var(--d-surface) var(--ease) .12s, visibility 0s linear 0s; }
 .pz.stack.stack .pz-data.pz-sheet::before, .pz.stack.stack .pz-data.pz-sheet::after, .pz.stack.stack .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity var(--d-small) var(--ease); }
 .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::before, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide)::after, .pz.stack.stack .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: var(--d-surface); transition-delay: .12s; }
@@ -5983,7 +5983,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet > .pz-tiles ~ .pz-tiles { margin-top: 0; }   /* (rides under the first: see the phone's) */
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet.pz-sheet.pz-sliding > .pz-tiles { transition: none; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-sheet:not(.tool-open):not(.pz-sliding) > .pz-tiles { visibility: hidden; }
-.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease), visibility 0s linear var(--d-small); }
+.pz.pz-wide.pz-wide .pz-data.pz-sheet.pz-hide { opacity: 1; visibility: hidden; transition: transform var(--d-small) var(--ease-in), visibility 0s linear var(--d-small); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) { visibility: visible; transition: transform var(--d-surface) var(--ease) .12s, visibility 0s linear 0s; }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet > :is(.pz-dh, .pz-tool) { transition: opacity var(--d-small) var(--ease); }
 .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::before, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide)::after, .pz.pz-wide.pz-wide .pz-data.pz-sheet:not(.pz-hide) > :is(.pz-dh, .pz-tool) { transition-duration: var(--d-surface); transition-delay: .12s; }
@@ -6038,8 +6038,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    transform, so its words and chart only get larger. Two veils, the app's own scrim, dim what is behind it: the page's (.pz-pscrim, under the
    panel) and the panel's (.pz-gscrim, a child of the grid, out of its flow, over the other cells and under the zoomed one). A tap on either puts it back.
    The cell takes the card's shadow while it is up, and eases it out as it goes back. Only where the grid draws a chart in each cell. */
-.pz-pscrim, .pz-gscrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-surface) var(--ease); }
-.pz-pscrim.on, .pz-gscrim.on { opacity: 1; pointer-events: auto; }
+.pz-pscrim, .pz-gscrim { position: absolute; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity var(--d-small) var(--ease-in); }   /* (off is the leave: the step below, on the leaving curve) */
+.pz-pscrim.on, .pz-gscrim.on { opacity: 1; pointer-events: auto; transition: opacity var(--d-surface) var(--ease); }
 .pz-gscrim { z-index: 1; }
 .pz:not(.stack):not(.low) .pz-cell { cursor: zoom-in; transition: none; }
 .pz:not(.stack):not(.low) .pz-cell[data-zoomed] { position: relative; z-index: 2; cursor: zoom-out; }
@@ -6988,6 +6988,17 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 
 /* Reduce Motion (P3): the same keyframes without the movement, so every entrance and exit still fades. (A @keyframes in a
    matching media query replaces the one of the same name above.) Loops that only move stop; spinners breathe instead. */
+/* Reduce Motion, the small moves inside controls (item 22 of docs/recommendations/animation-and-transitions.md): a switch's thumb, a chevron, a
+   fill or a band that only follows a state or a value is set at once; an opacity that goes with it stays (a fade stands in for a move, motion.js).
+   The zoom pill and the view bar keep their fade and lose their slide. (-moz-range-thumb is alone: one pseudo the browser does not know drops a whole list.) */
+@media (prefers-reduced-motion: reduce) {
+  .section > summary .chev, .switch span::after, .ac-toggle .switch-vis i, .ab-tg .switch-vis i, .ab-dp-alb .switch-vis i, .menu-btn .chev, .workspace-divider span, .scan-probe .sp-svg,
+  .ab-belly-fill, .ab-iap-fill, .dop-band, .dop-band-caps > i, .dop-mark, .dop-ticks > span, .stage-fit, .stage-rotate, .stage-clock { transition: none; }
+  input[type=range]::-webkit-slider-thumb { transition: none; }
+  input[type=range]::-moz-range-thumb { transition: none; }
+  .zoom-pill, .app.figure-focus .zoom-pill, .zoom-pill .ib:not(.stage-rotate):not(:disabled), .um-tab::after { transition-property: opacity; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   @keyframes fade-rise { from { opacity: 0; } }
   @keyframes fade-rise-b { from { opacity: 0; } }

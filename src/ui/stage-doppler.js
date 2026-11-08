@@ -4,7 +4,7 @@ import { STENT_SITES } from '../engine/topology.js';
 import { ORGANS } from './anatomy.js';
 import { NONE_MS, PROBE, PROBE_MODEL, SLACK, awayFromProbe, beamBoxes, createProbeMind, fitPoseInto, gateBoxes, gateFrac, probeFade, probeGeomInto, probeSwing, probeTurn, wedgeBoxes } from './dop-probe.js';
 import { readBox, readElAt } from './layout-snap.js';
-import { reduceMotionMQ as reduceMotion } from './motion.js';
+import { reduceMotionMQ as reduceMotion, easeMove, smooth01 } from './motion.js';
 import { store } from './store.js';
 
 import { stageScope } from './stage-scope.js';
@@ -345,8 +345,7 @@ export function createDoppler(st, live) {
   // The probe as drawn (dpr.cur: its direction from the gate, its face's distance from the wall and its size), easing to where it
   // stands (dpr.tgt) in about 0.3 s, one frame at a time; the line of sight always square to its face, the flow axis along the flow.
   const angTo = (a, b) => ((((b - a) % 360) + 540) % 360) - 180;   // b − a, in −180 … 180
-  const outEase = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);   // (calm both ends, no overshoot)
-  const smooth01 = (p) => p * p * (3 - 2 * p);   // (the probe's own, unclamped, for its head's fade: kept here, never handed to the stage, whose live.smooth01 is the liver's clamped one)
+  const outEase = easeMove;   // (calm both ends, no overshoot: the one move curve)
   // Writes the probe's record (where it stands, its turn, its swing out, its fades and the marks' numbers) and asks the labels' layer to draw it;
   // while anything is still easing, it carries on in the next frame (dprStep).
   function dprShape() {

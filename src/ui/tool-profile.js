@@ -23,7 +23,7 @@ import { hvpgRate, ppgRate } from '../engine/pressure-cuts.js';
 import { numWords } from './num-words.js';
 import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { fittedType } from './chart-ctx.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, D_SURFACE } from './motion.js';
 
 const PATH = PROFILE_PATHS[0];
 export const STATIONS = PATH.nodes;
@@ -609,7 +609,7 @@ export function placeBrackets(G, tw, goal, hl, bf, sides, prev = null, pills = [
   return best;
 }
 
-const FADE_MS = 420;
+const FADE_MS = D_SURFACE;
 
 // ── The chart as a model that stays (2 Nov 2026, zero-allocation pass) ──
 // The chart used to be built afresh, tree and strings, in every frame of a glide. Now its pieces are made once for a size (buildModel,

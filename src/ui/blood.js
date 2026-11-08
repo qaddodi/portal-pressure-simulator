@@ -16,6 +16,7 @@
 // only at junctions.
 
 import { lumenSurface, lumenAt } from './stomach-lumen.js';
+import { D_SURFACE, smooth01 } from './motion.js';
 
 // Display speed, world units per second, for a mean velocity in cm/s.
 export const SPEED_K = 9.5;
@@ -658,11 +659,11 @@ export const HIDDEN_SECONDS = HIDDEN_S;
 // (x1, y1) the pool's surface, r0 its radius, r1 how far it breaks into drops (0..1).
 // A bleed's pool and stream come and go over BLEED_FADE seconds (never in one frame): the share shown steps toward 1 while
 // the bleed runs and toward 0 once it stops (Reduce Motion: at once), and every shape's alpha is scaled by its eased value.
-export const BLEED_FADE = 0.5;
+export const BLEED_FADE = D_SURFACE / 1000;
 export const stepBleedFade = (a, on, dt, instant = false) => (instant ? (on ? 1 : 0) : on ? Math.min(1, a + dt / BLEED_FADE) : Math.max(0, a - dt / BLEED_FADE));
 export const fadeBleedShapes = (shapes, a) => {
   if (a >= 1) return shapes;
-  const k = a <= 0 ? 0 : a * a * (3 - 2 * a);
+  const k = smooth01(a);
   return k ? shapes.map((sh) => { const o = sh.slice(); o[6] *= k; return o; }) : [];
 };
 const NO_SHAPES = [];   // (fadeBleedShapesInto's answer for a bleed faded out: empty, never written)
@@ -672,7 +673,7 @@ const NO_SHAPES = [];   // (fadeBleedShapesInto's answer for a bleed faded out: 
  */
 export const fadeBleedShapesInto = (out, shapes, a) => {
   if (a >= 1) return shapes;
-  const k = a <= 0 ? 0 : a * a * (3 - 2 * a);
+  const k = smooth01(a);
   if (!k) return NO_SHAPES;
   for (let i = 0; i < shapes.length; i++) {
     const sh = shapes[i], o = out[i];

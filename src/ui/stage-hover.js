@@ -5,6 +5,7 @@ import { ABDOMEN_CLIP, BACK_EDGES, CONTEXT_EDGES, IVC_EDGES, LIVER_SPLIT_X, ORGA
 import { classSoon } from './class-soon.js';
 import { HOVER_LINK, labelTarget, labelsOf } from './hover-link.js';
 import { hitLabel } from './label-explain.js';
+import { D_SMALL } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
 import { flattenPath } from './shape-gl.js';
@@ -142,7 +143,7 @@ export function createHover(st, live) {
     const on = id && store.get().tool === 'select' && !live.shunt ? id : null;
     if (on === vh.id && also === vh.also) return;
     vh.id = on; vh.also = also;
-    setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.0, wide: 0.5, dur: 280 })) : []);
+    setGlowSrc('hover', on ? vhEdges(on).map((id) => ({ id, col: null, amt: 1.0, wide: 0.5, dur: D_SMALL })) : []);
     if (!vh.raf) { vh.t = performance.now(); vh.raf = nextFrame(vhStep); }
     if (HOVER_LINK) linkSync();   // (its reading lifts as it lights, lets go as it dims)
   }
@@ -441,7 +442,7 @@ export function createHover(st, live) {
   // The shunt's targets in the accent, the one under the pointer stronger and wider.
   function shuntGlow(on) {
     if (!live.shunt) return;
-    setGlowSrc('shunt', [...live.shunt.targets.keys()].map((id) => ({ id, col: 'var(--accent)', amt: id === on ? 1.4 : 0.9, wide: id === on ? 0.9 : 0.6, dur: 300 })));
+    setGlowSrc('shunt', [...live.shunt.targets.keys()].map((id) => ({ id, col: 'var(--accent)', amt: id === on ? 1.4 : 0.9, wide: id === on ? 0.9 : 0.6, dur: D_SMALL })));
   }
   // (A drag's target is hit-tested first in the next frame, while the layout is the last frame's, and its guide drawn after.)
   let shuntEv = null, shuntAsk = 0;

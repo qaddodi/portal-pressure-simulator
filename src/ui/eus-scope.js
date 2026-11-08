@@ -15,6 +15,7 @@
 // (Mohammad, 6 Nov 2026: it "bends in super sharp angles" and popped "OUTSIDE the stomach"). Each needle's way runs through the
 // stomach wall and the liver only, clear of the portal trunk, the hepatic artery and the IVC (tests/eus-ppg.test.js holds all of it).
 
+import { smooth01 } from './motion.js';
 /** The scope's radius in the figure (world units). */
 export const EUS_SCOPE_R = 6;
 /** The targets: a vessel and how far along its drawn course (0..1 by length). */
@@ -156,7 +157,6 @@ export function pointOn(P, f) {
 
 const rot = (x, y, a, out) => { const c = Math.cos(a), s = Math.sin(a); out[0] = x * c - y * s; out[1] = x * s + y * c; return out; };
 const unit = (v) => { const l = Math.hypot(v[0], v[1]) || 1; v[0] /= l; v[1] /= l; return v; };
-const smooth01 = (x) => { const u = Math.min(1, Math.max(0, x)); return u * u * (3 - 2 * u); };
 
 // The bending section: as an echoendoscope's deflection is (its link joints share the bend evenly), it turns by one curvature on top of
 // the route's own, from a bend's length before the rigid tip to the rigid tip, which goes straight on. Straight (no turn), the whole scope

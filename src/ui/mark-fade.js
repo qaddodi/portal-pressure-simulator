@@ -12,10 +12,11 @@
 // The first build only shows what is already there (a patient loaded, the page opened): no mark fades in from nothing then.
 // A mark fades in over D_SURFACE and out over D_SMALL (a leave takes the step below its entrance).
 import { D_SMALL, D_SURFACE } from './ease.js';
+import { smooth01 } from './motion.js';
 
 export const MARK_IN_MS = D_SURFACE, MARK_OUT_MS = D_SMALL;
-/** The smoothstep every other fade of the figure takes (a clamp's, an organ outline's). */
-export const markEase = (a) => a * a * (3 - 2 * a);
+/** The smoothstep every other fade of the figure takes (a clamp's, an organ outline's): motion.js smooth01, the one a time ease goes through. */
+export const markEase = smooth01;
 
 export function markFade({ inMs = MARK_IN_MS, outMs = MARK_OUT_MS } = {}) {
   const marks = new Map();   // key → { a (0 … 1 shown), on (wanted), seen (wanted in the build now running), el, meta }

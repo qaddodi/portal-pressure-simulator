@@ -24,7 +24,7 @@ test('the field starts with lobules about true to scale, deep in the liver, so t
   for (const land of [164, 272]) assert.ok(Math.exp(lc + Math.log(Math.max(rh * 2, land) / rh)) >= 120, `only ×${Math.exp(lc + Math.log(land / rh)).toFixed(0)} for a ${land} px lobule`);
   assert.match(stage, /const lt = LC \+ Math\.log\(Math\.max\(RH \* 2, (?:live\.)?(?:live\.)?diveLand\.r\) \/ RH\);/);
   // Longer for the deeper zoom, the way out quicker; the field's sizes blended so their detail comes in gradually.
-  assert.match(stage, /const DIVE_MS = 2200, RISE_MS = 1300;/);
+  assert.match(readFileSync(new URL('../src/ui/motion.js', import.meta.url), 'utf8'), /export const DIVE_MS = 2200, RISE_MS = 1300;/);   // (the named exceptions, motion.js)
   assert.match(lz, /fieldBlend\(rd \* 0\.55\)/);
 });
 

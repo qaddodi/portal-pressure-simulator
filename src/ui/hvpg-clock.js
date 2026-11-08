@@ -49,8 +49,8 @@ const SETTLE = WEDGE + 700, CALLOUT = SETTLE + 1700, RESULT = CALLOUT + 2200, SU
 export const T = { travel0: 300, travel1: TRAVEL1, zoom: TRAVEL1, free: TRAVEL1 + 800, inflate: INFLATE, wedge: WEDGE, settle: SETTLE, callout: CALLOUT, result: RESULT, sum: SUM, back: BACK, end: BACK + 800 };
 
 const clamp01 = (x) => Math.min(1, Math.max(0, x));
-/** The cubic in-out (the needle, the column, the sweeps: what eases and holds). Balloons use easeMove. */
-export const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+/** The one in-out curve (the needle, the column, the sweeps, the balloons: what eases and holds): easeMove, the quintic, not the cubic it was. */
+export const ease = easeMove;
 export const k01 = (t, a, b) => clamp01((t - a) / (b - a));
 
 /** How far the balloon stands at time tt on the procedure's clock. */

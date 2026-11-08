@@ -5,7 +5,7 @@ import { flipAt, flipFrom } from './cath-flip.js';
 import { PILL_GAP, pillsClear, placePillsInto } from './cath-pill.js';
 import { outlineBox, placeSummary } from './cath-place.js';
 import { dropLabel } from './drop-label.js';
-import { D_SMALL } from './ease.js';
+import { D_SMALL, D_SURFACE } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
 import { balloonOutline, balloonRy, routeRadii } from './hvpg-balloon.js';
@@ -476,7 +476,7 @@ export function createCath(st, live) {
   // A reading that has to move to a new spot (the cards or the slide changed the room it has) glides there, eased, never
   // jumps: its jump is kept as an offset that eases to nothing, while it still follows its point on the figure as the camera moves.
   // (x, y: where it should be now; ax, ay: its point. Returns where it shows. A glide still running asks for the next frame.)
-  const CATH_GLIDE = 600;
+  const CATH_GLIDE = D_SURFACE;
   // (The glide's answer goes in one kept pair, which its two callers read at once; the glide's record is the label's own, written in place.)
   const GLIDE_XY = [0, 0], cathGlideTick = () => { cath.glideRaf = 0; cath.lblKey = ''; cathLabelsSoon(); };
   function cathGlide(el, x, y, ax, ay) {

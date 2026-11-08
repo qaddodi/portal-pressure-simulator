@@ -22,11 +22,35 @@
 // ease timed from a start time (t0) that is not one of these has no cap and is the plain wall clock. simTime (200 ms) and the blood's
 // clock (100 ms) are the model's own clocks, not moves, and keep their caps.
 import { STEP_MAX } from './glide-clock.js';
-import { D_FLIP, settleAt } from './ease.js';
+import { D_FLIP, CAM_MS_MIN, settleAt } from './ease.js';
 export {
-  D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX, CAM_MS_MIN, CAM_MS_MAX,
-  easeMove, easeArrive, easeIn, cubicBezier, cssCurve, camMs, settleAt,
+  D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX, CAM_MS_MIN, CAM_MS_MAX, LOBULE_MS_MAX,
+  easeMove, easeArrive, easeIn, cubicBezier, cssCurve, camMs, lobuleMs, settleAt,
 } from './ease.js';
+
+// ── The GPU's durations and curves (item 18 of the same recommendations) ───────────────────────────────────────────────────────────────────
+// The CSS side has three durations (tokens.css); the GPU side takes the same three (D_FLIP, D_SMALL, D_SURFACE above) and the camera's range
+// (CAM_MS_MIN to CAM_MS_MAX, LOBULE_MS_MAX for the lobule's long dives), and these named exceptions, each a move that keeps its own pace for
+// a reason. tests/motion-scale.test.js: a *_MS or *_DUR constant in a file that imports frameFor comes from here (or from ease.js) or carries
+// the marker `motion-scale: own pace` (a move that teaches, or was decided) or `motion-scale: not a move` (a wait, a budget, a poll: a time that
+// is not the length of anything drawn); a hand-written t * t * (3 - 2 * t) against a clock is smooth01 below, or easeMove when the thing travels.
+/** The change between Anatomy and Circuit, ms (decided: 1.3 s, 6 Nov 2026). view-xf.js VIEW_CHANGE_S is this in seconds. */
+export const VIEW_CHANGE_MS = 1300;   // motion-scale: own pace (decided: 1.3 s)
+/** The dive into the lobule, and the rise out of it, ms. */
+export const DIVE_MS = 2200, RISE_MS = 1300;   // motion-scale: own pace (the longest camera moves that are not the view change)
+/** The ring a halo throws out, ms. */
+export const HALO_MS = 1500;   // motion-scale: own pace (an attention cue, a loop's single turn)
+/** A number counting to its new value (the data card's tiles, a callout's reading), ms. */
+export const COUNT_MS = 950;   // motion-scale: own pace (the digits roll as long as the bar beside them travels)
+/** The circuit's quarter turn: the camera's shortest glide. */
+export const TURN_MS = CAM_MS_MIN;
+/** The slack a timer adds to a CSS transition it waits for (the transition ends, then the timer: closeModal's D_FLIP + 20), ms. */
+export const SLACK_MS = 20;
+/** A timer that waits for a CSS transition of `ms` to end: the token plus the fixed slack. */
+export const afterMs = (ms) => ms + SLACK_MS;
+
+/** The smoothstep 3t² − 2t³ of t clamped to 0..1: the ease of a FADE or a mix against a clock (a thing that travels takes easeMove). */
+export const smooth01 = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
 
 /** The page's one prefers-reduced-motion list (a stand-in with matches:false where there is no matchMedia, as in a unit test). */
 export const reduceMotionMQ = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : { matches: false, addEventListener() {}, removeEventListener() {} };

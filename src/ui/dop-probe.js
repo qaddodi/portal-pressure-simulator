@@ -7,6 +7,7 @@
 // and markup here; stage.js places it (dprobePaint).
 
 // The vessels whose forward flow runs away from the probe (doppler.js PROBES, away: true; a test keeps the two in step).
+import { smooth01 } from './motion.js';
 export const AWAY = new Set(['RHV_IVC', 'MHV_IVC', 'LHV_IVC', 'IVCS_RA']);
 export const awayFromProbe = (id) => AWAY.has(id);
 
@@ -485,8 +486,7 @@ export const probeSwing = (side, toward) => side * (toward ? 1 : -1) * PROBE.SWI
 /** How much of the probe shows while it is drawn back by `oP` (0: at its place, 1: out): all of it until it has begun to leave, then
  *  fading as it goes (never in place), none once it is mostly out. The same curve out and in, so a probe reversed half way is continuous. */
 export function probeFade(oP) {
-  const t = Math.min(1, Math.max(0, (oP - 0.2) / 0.6));
-  return 1 - t * t * (3 - 2 * t);
+  return 1 - smooth01((oP - 0.2) / 0.6);
 }
 
 // (The gate bars are drawn last, on top of the line of sight and the flow axis: Mohammad, 20 Oct.)
