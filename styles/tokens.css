@@ -34,7 +34,7 @@
   /* blood origin lens (both themes): the streams in the vessels, their legend, and the matching traces */
   --origin-smv: #E69929; --origin-imv: #179E8C; --origin-spleen: #7D5CDB; --origin-artery: #D63347; --origin-systemic: #708FBF;
   /* blood on the GPU (both themes): dye bolus, stream inks on dark and pale lumens, reversed flow, chevrons */
-  --blood-dye: #C7F533; --blood-ink-light: #FFFFFF; --blood-ink-dark: #121426; --blood-reversed: #FF8C29; --blood-chevron: #14141A;
+  --blood-dye: #C7F533; --blood-ink-light: #FFFFFF; --blood-ink-dark: #121426; --blood-reversed: var(--flow-reversed); --blood-chevron: #14141A;
   --blood-chevron-light: #FFEEDC;   /* a reversed chevron on an orange vessel: near-white cream, so it stands off the orange */
   /* lens neutrals and glows (both themes): the grey of a vessel a lens does not colour, and the brief glow
      on a change (warmer: pressure rose; cooler: it fell); the organs' volume shading */

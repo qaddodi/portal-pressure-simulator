@@ -44,7 +44,7 @@ import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js';
 import { NODES, EDGES } from '../engine/topology.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js';
-import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD } from './blood.js';
+import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
 import { createSinusoidView } from './sinusoid-view.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, framePart, easeNow, inMotion } from './frame.js';
@@ -3959,7 +3959,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // Density and stasis ease the same way, so the shimmer thickens or thins instead of popping.
       sm.occ = sm.occ == null ? occ : sm.occ + (occ - sm.occ) * ease;
       sm.st = sm.st == null ? stasis : sm.st + (stasis - sm.st) * ease;
-      sm.drift = ((sm.drift || 0) + sm.st * dt * 0.06) % DRIFT_PERIOD;   // (the smoke's drift, as the anatomy's: blood.js drift)
+      sm.drift = ((sm.drift || 0) + sm.st * dt * DRIFT_RATE) % DRIFT_PERIOD;   // (the smoke's drift, as the anatomy's: blood.js drift)
       sm.rev += (rev - sm.rev) * ease;
       const o = t.id * FLOW_TEXELS * 4, Rm = t.maxR || G.rs0;
       flowData[o] = sm.D; flowData[o + 1] = sm.v; flowData[o + 2] = (sm.occ * Math.max(Math.abs(sm.v), 2) * laneSum(Rm, pxW)) / s0; flowData[o + 3] = sm.st;

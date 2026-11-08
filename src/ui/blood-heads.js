@@ -45,12 +45,14 @@ uniform highp float bT;
 uniform int still;
 uniform float cssPx;
 uniform vec3 chevInk, chevLight, revCol, inkLight;
+uniform vec3 blendA;                   // (the origin lens's share, in z: chevInks)
+uniform int origin;
 ${zoom}
 ${along}
 ${rows}
 ${orange}
 flat out vec4 hC;                      // the head's centre (world) and the way it points (unit)
-flat out vec4 hS;                      // its half width (world), its strength (0 … 1), its vessel's row
+flat out vec4 hS;                      // its half width (world), its strength (0 … 1), its vessel's row, its reversed flag (0 … 1)
 flat out vec3 hInk, hRim;              // the colours of its core and of its light rim
 const int N_LAST = ${nSamples - 1};
 void main() {
@@ -123,19 +125,16 @@ void main() {
   tg /= tl;
   vec2 c = mix(p0, p1, u - float(i0)) + tg * (sc - clamp(sc, 0.0, len));
   vec2 t = tg * dir, nn = vec2(-t.y, t.x);
-  float ea = reach + 2.0 * pxW, ec = 1.1 * hw + 3.8 * pxW;   // (the quad: the head, its rim and two pixels more)
+  float ea = reach + 2.0 * pxW + 0.4 * L * f1.w, ec = 1.1 * hw + 3.8 * pxW;   // (the quad: the head, its rim and two pixels more)
   vec2 q = corner * 2.0 - 1.0;
   vec3 d = world * vec3(c + t * (q.x * ea) + nn * (q.y * ec), 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
-  // Its colours (the composite's: a dark core tinted a fifth toward a deep shade of the vessel, orange if reversed, cream on an
-  // orange vessel; a light rim), from the vessel's colour at the head.
+  // Its colours (the composite's, chevInks: a dark core tinted a fifth toward a deep shade of the vessel with a light rim on a pale lumen,
+  // near-white with a dark rim on a dark one, orange if reversed, cream on an orange vessel), from the vessel's colour at the head.
   vec3 vc = mix(texelFetch(tube, ivec2(0, id), 0).rgb, texelFetch(tube, ivec2(1, id), 0).rgb, alongAt(id, clamp(sc / len, 0.0, 1.0)));
-  vec3 ink = mix(chevInk, vc * 0.3, 0.2);
-  float rv = f1.w, warm = rv * chevOrange(vc);
-  hRim = mix(inkLight, vc * 0.45, warm);
-  hInk = mix(mix(ink, revCol, rv), chevLight, warm);
+  chevInks(vc, f1.w, hInk, hRim);
   hC = vec4(c, t);
-  hS = vec4(hw, fade, float(id), 0.0);
+  hS = vec4(hw, fade, float(id), f1.w);   // (w: the eased reversed flag, for the » pair behind a reversed head)
 }`;
 }
 
@@ -193,7 +192,7 @@ void main() {
   if (wt <= 0.0) discard;
   vec2 w = (inv * vec3(FC.x, H - FC.y, 1.0)).xy;
   vec2 dw = w - hC.xy;
-  vec2 c = chevHead(dot(dw, hC.zw), abs(dot(dw, vec2(-hC.w, hC.z))), hS.x, pxW) * (hS.y * wt);
+  vec2 c = chevHead(dot(dw, hC.zw), abs(dot(dw, vec2(-hC.w, hC.z))), hS.x, pxW, hS.w) * (hS.y * wt);
   if (c.x + c.y <= 0.0) discard;
   // None under a figure reading on its vessel, nor round a stent point (the composite's cut-outs, a pixel of antialiasing).
   for (int i = 0; i < 12; i++) {

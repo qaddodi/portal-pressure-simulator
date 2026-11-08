@@ -1256,7 +1256,7 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 const varCache = new Map();
 const alphaCache = new Map();   // (cleared with the tokens: the instruments ask for the same few colours on every frame)
 const varNames = new Set();
-let varsAsk = 0;
+let varsAsk = 0, varsRead = 0;   // (varsRead counts the passes that read every token again: bloodColors follows it)
 const NO_RULES = Object.freeze([]);
 function collectVarNames(rules) {
   for (const r of rules || NO_RULES) {
@@ -1268,6 +1268,7 @@ function collectVarNames(rules) {
 }
 function readVars() {
   varsAsk = 0;
+  varsRead++;
   if (typeof getComputedStyle !== 'function') return;   // (no page: the unit tests' stand-in)
   const root = document.documentElement;
   for (const sh of document.styleSheets || NO_RULES) { let rules = null; try { rules = sh.cssRules; } catch (e) { caught('util:1024', e); /* (another origin) */ } collectVarNames(rules); }
@@ -1337,11 +1338,13 @@ export const cssRamp = (name) => {
   if (r === undefined) { r = [...t.matchAll(/(#[0-9a-f]{6})\s+(-?[\d.]+)/gi)].map((m) => [+m[2], m[1]]); if (rampOf.size > 64) rampOf.clear(); rampOf.set(t, r); }   // alloc-rare: a ramp text met for the first time (kept in rampOf)
   return r;
 };
-// The blood's colours on the GPU (theme independent: they sit on the lumen, not on the page), in 0–1.
-// originCol follows ORIGINS (blood.js): SMV, IMV, splenic vein, hepatic artery, systemic.
-let bloodCols = null;
-// alloc-rare: made once, on the first ask, and kept in bloodCols
-export const bloodColors = () => bloodCols || (bloodCols = {
+// The blood's colours on the GPU, in 0–1. They sit on the lumen, not on the page, so most do not change with the look; --blood-reversed
+// is --flow-reversed, which does (Linen's darker orange, the others' lighter one), so the set is read again after every pass that
+// reads the tokens again (a look change), and kept between them. The record is made anew then, never written in place: the surfaces copy
+// its fields each frame. originCol follows ORIGINS (blood.js): SMV, IMV, splenic vein, hepatic artery, systemic.
+let bloodCols = null, bloodColsAt = -1;
+// alloc-rare: made on the first ask and again after a look change, and kept in bloodCols
+export const bloodColors = () => bloodCols && bloodColsAt === varsRead ? bloodCols : (bloodColsAt = varsRead, bloodCols = {
   // alloc-rare: made once with the record above
   originCol: ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => cssRGB01(`--origin-${o}`)),
   dyeCol: cssRGB01('--blood-dye'), inkLight: cssRGB01('--blood-ink-light'), inkDark: cssRGB01('--blood-ink-dark'),

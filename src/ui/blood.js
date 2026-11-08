@@ -177,12 +177,15 @@ function advanceKept(st, opts) {
   return st;
 }
 /**
- * How far a stream's stagnant blood (its smoke) has drifted, in shimmer cells: stasis × 0.06 cells a second, added up
+ * How far a stream's stagnant blood (its smoke) has drifted, in shimmer cells: stasis × DRIFT_RATE cells a second, added up
  * frame by frame and wrapped at the noise's 50-cell period (seamless). A change in stasis changes only the drift's speed;
  * as stasis × clock it moved the whole pattern by Δstasis × clock, further the longer the app had run (round 2 review, B1).
  */
 export const DRIFT_PERIOD = 50;
-export const drift = (st, dt) => ((st.drift || 0) + st.stasis * dt * 0.06) % DRIFT_PERIOD;
+// (Cells a second at full stasis: 0.06 until 8 Nov 2026, slowed to 0.04 when the smoke was given a swirl and a little more body, visual-style B6.
+// The GPU's flowDrift, the stage's anchors and the lobule's smoke all take it from here.)
+export const DRIFT_RATE = 0.04;
+export const drift = (st, dt) => ((st.drift || 0) + st.stasis * dt * DRIFT_RATE) % DRIFT_PERIOD;
 /**
  * Reduced motion: still chevrons spaced by flow. The spacing level (0–3, continuous) for a flow q (mL/s, either way): 0, the
  * finest spacing, from 0.8 L/min; each halving of the flow doubles the spacing, up to 3 (eight times as far apart).

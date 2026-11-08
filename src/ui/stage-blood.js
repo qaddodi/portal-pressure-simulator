@@ -2,7 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, NODES } from '../engine/topology.js';
 import { SITES } from './anatomy.js';
-import { DRIFT_PERIOD, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, MEAN_TAU, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createBreathMean, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
+import { DRIFT_PERIOD, DRIFT_RATE, DYE_BINS, HIDDEN_SECONDS, KAPPA, KEY_CHEV_LANES, MEAN_TAU, ORIGIN_N, PERIOD, STASIS_MIN_D, advanceStreamAt, bleedShapes, chevFlowLevel, createBreathMean, createStreamChain, displaySpeed, fadeBleedShapes, keyChevron, originFractionsInto, stepBleedFade } from './blood.js';
 import { createDyeRemote } from './dye-remote.js';
 import { flowClose, retireRows } from './flow-rows.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
@@ -57,7 +57,7 @@ export function createBlood(st, live) {
       // (Where the GPU has it now: the stream's own distance and drift follow it, so the two never part. The GPU integrates the
       // display speed's slope aA too (flowD), so a beat's swing needs no new anchor while the slope holds.)
       sm.D = (((sm.aD + (sm.aV + 0.5 * sm.aA * dt) * sm.aS * dt) % PERIOD) + PERIOD) % PERIOD;
-      sm.drift = (sm.aR + sm.aT * 0.06 * dt) % DRIFT_PERIOD;
+      sm.drift = (sm.aR + sm.aT * DRIFT_RATE * dt) % DRIFT_PERIOD;
       if (sp === sm.aS && Math.abs(sm.vd - (sm.aV + sm.aA * dt)) <= VD_HAIR + VD_REL * Math.abs(sm.aV) && Math.abs(sm.stasis - sm.aT) <= STASIS_HAIR) { sm.vp = sm.vd; return; }
     }
     // (The new slope: this frame's change in the display speed over the blood clock it took; none while the clock stands still.)

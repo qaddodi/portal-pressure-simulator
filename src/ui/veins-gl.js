@@ -35,7 +35,7 @@ import { glGet, glCap, glOkBefore, glOkAfter, fbComplete } from './gl-state.js';
 import { CHEV_GLSL } from './chevron-glsl.js';
 import { LIGHT } from './light.js';
 import { EDGE_GLSL } from './edge.js';
-import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD } from './blood.js';
+import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { cssRGB } from './util.js';
 import { LIFT_EASE_SHARE, LIFT_EASE_MAX } from './highlight-math.js';
 import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js';
@@ -1017,7 +1017,7 @@ float flowD(int id, float D, float vd) {
 }
 float flowDrift(int id, float dr, float stasis) {
   vec2 a = texelFetch(flow, ivec2(6, id), 0).xy;
-  return a.y == 0.0 ? dr : mod(dr + stasis * 0.06 * (bT - a.x), ${DRIFT_PERIOD}.0);
+  return a.y == 0.0 ? dr : mod(dr + stasis * ${DRIFT_RATE} * (bT - a.x), ${DRIFT_PERIOD}.0);
 }
 // A chained vessel's root stream (row rid): its distance and drift now, from its own row (ch: the CPU's copy, flow texel 5).
 vec2 rootDD(int rid, vec2 ch) {
@@ -1026,13 +1026,26 @@ vec2 rootDD(int rid, vec2 ch) {
   vec4 r0 = texelFetch(flow, ivec2(0, rid), 0);
   float tr = bT - a.x;
   return vec2(mod(r0.x + (r0.y + 0.5 * a.z * tr) * a.y * tr, ${PERIOD}.0),
-              mod(texelFetch(flow, ivec2(3, rid), 0).z + r0.w * 0.06 * (bT - a.x), ${DRIFT_PERIOD}.0));
+              mod(texelFetch(flow, ivec2(3, rid), 0).z + r0.w * ${DRIFT_RATE} * (bT - a.x), ${DRIFT_PERIOD}.0));
 }
 `;
 // How orange a vessel's colour is (see chevAt), for the composite and the arrowheads' quads alike.
 const CHEV_ORANGE_GLSL = `
 float chevOrange(vec3 c) {
   return smoothstep(0.35, 0.55, c.r - c.b) * smoothstep(0.65, 0.8, c.r) * smoothstep(0.25, 0.35, c.g) * (1.0 - smoothstep(0.62, 0.78, c.g));
+}
+// A head's two inks, from the colour of the vessel it is on (vc) and that vessel's eased reversed flag (rv): the core and the light-or-dark
+// rim. By the lumen's lightness, over a small band so a vessel whose colour eases never pops (visual-style B1): a dark head with a light rim
+// on a pale lumen, a near-white head (chevLight) with a dark rim on a dark one (a dark head on a 30 mmHg lumen is 1.49:1, on 20 mmHg
+// 2.64:1). The band sits at luma .38 to .46 (the 20 mmHg stop is .39, the arteries .33 to .40, so they flip). A reversed head stays orange (revCol) on any lumen but an orange one, where it takes the same near-white flip (chevOrange, as before). In the origin
+// lens the head keeps its own ink (an orange head on the SMV's amber is 1.01:1): the » pair behind it (chevHead) alone says reversed there.
+void chevInks(vec3 vc, float rv, out vec3 core, out vec3 rim) {
+  float rk = origin == 1 ? rv * (1.0 - blendA.z) : rv;
+  float dark = 1.0 - smoothstep(0.38, 0.46, dot(vc, vec3(0.299, 0.587, 0.114)));
+  float warm = rk * chevOrange(vc);
+  vec3 ink = mix(chevInk, vc * 0.3, 0.2);
+  core = mix(mix(mix(ink, chevLight, dark), revCol, rk), chevLight, warm);
+  rim = mix(inkLight, vc * 0.45, max(dark, warm));
 }
 `;
 const ZOOM_VS = `
@@ -1272,6 +1285,11 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   // cell size cross-fading between the slot scales (1, 2, 4 slots) over a band of zoom, so it never steps.
   float qy = y * R / max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
   float drift = flowDrift(id, texelFetch(flow, ivec2(3, id), 0).z, stasis);   // (anchored per stream on the CPU: blood.js drift, flowDrift)
+  // Stagnant blood swirls (visual-style B6): besides sliding along, its lanes sway across the vessel on two slow eddies a quarter turn apart,
+  // each standing at its own place along it, turned by the drift itself (so by the stasis: none at 0, and no pop in or out as it eases; 60
+  // whole turns to the drift's 50-cell period, so the wrap is seamless, about 20 s a turn at full stasis).
+  float sw = 6.2831853 * 1.2 * drift;
+  qy += stasis * 0.6 * (sin(sw) * sin(s * 0.021 + float(id) * 1.7) + cos(sw) * sin(s * 0.034 + float(id) * 0.9 + 2.0));
   // A stream carried on from another vessel (flow texel 4: the root's row + 1, A, B, its weight cw; texel 5: the root's distance
   // and drift): the root's pattern at s_e = A + B s, mixed with the vessel's own by cw while a link forms or lets go.
   vec4 ch4 = texelFetch(flow, ivec2(4, id), 0);
@@ -1315,7 +1333,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
     }
   }
   float sx = zoomB.z;
-  float p = max(min(1.0, flux * sx / (max(abs(vd), 2.0) * sumK)), 0.45 * stasis);
+  float p = max(min(1.0, flux * sx / (max(abs(vd), 2.0) * sumK)), 0.6 * stasis);   // (the density floor of stagnant blood: 0.45 until visual-style B6)
   float ends = min(f1.x > 0.5 ? smoothstep(0.0, 1.5 * sx, s) : 1.0, f1.y > 0.5 ? smoothstep(0.0, 1.5 * sx, len - s) : 1.0);
   // Past a packed lane (B2): the streaks denser and brighter, up to 35 % more, by about log2 of the overflow (2.885 (x − 1) / (x + 1),
   // the series of log2 near 1, within 4 % of it up to 2, with no transcendental a pixel; at most one doubling), so a TIPS carrying
@@ -1329,7 +1347,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   float streak = smoothstep(0.46 - 0.08 * dens, 0.9, nz);
   float wall = 1.0 - smoothstep(0.7, 1.0, ay);
   float glowCore = 0.22 * (1.0 - ay * ay) * (1.0 - ay * ay);
-  float a = clamp(streak * (0.32 + 0.26 * dens) + glowCore, 0.0, 0.75) * wall * ends * f1.z * mix(1.0, 0.6, stasis);
+  float a = clamp(streak * (0.32 + 0.26 * dens) + glowCore, 0.0, 0.75) * wall * ends * f1.z * mix(1.0, 0.76, stasis);   // (stagnant blood's alpha: 0.6 until visual-style B6)
   vec4 sOut = vec4(mix(halo, core, smoothstep(0.0, 0.7, streak)), a);
   if (bloodStyle != 1) return sOut;
   // Style D's tube light (arithmetic only): a soft highlight a third of the way across, a darker rim at the wall and a faint glow along
@@ -1407,7 +1425,7 @@ vec2 chevOne(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs, fl
   float keep = odd > 0.5 ? 1.0 - smoothstep(0.15, 0.85, fr) : 1.0;
   float hw = min(0.8 * R, clamp(0.5 * R, 4.0 * cssPx * pxW, 8.0 * cssPx * pxW)), L = 1.6 * hw;            // half width, length: one fixed shape per vessel, never stretched
   // Past the head and its soft rim along the course (|u| > 0.55 L + 0.19 hw + 3.4 px reaches nothing): no more reads.
-  if (abs(x) > 0.6 * L + 0.15 * hw + 4.0 * pxW) return vec2(0.0);
+  if (abs(x) > (0.6 + 0.4 * f1.w) * L + 0.15 * hw + 4.0 * pxW) return vec2(0.0);   // (a reversed head's » pair reaches 0.4 L further behind)
   // Across, and the lumen where the head sits (so none overhangs a narrowing vessel), between the radius samples.
   float yd = y * Rs, ay = abs(yd);
   float Rl = radAt(id, sc, len);
@@ -1429,7 +1447,7 @@ vec2 chevOne(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs, fl
   float fade = smoothstep(0.5, 3.0, abs(vd)) * f1.z * texelFetch(flow, ivec2(3, id), 0).x * keep * endF * smoothstep(1.3 * pxW, 2.4 * pxW, R);
   // Where the lumen is narrower than the head, the head fades out instead of squeezing to fit.
   fade *= smoothstep(0.85 * hw, 1.15 * hw, Rl);
-  return chevHead(u, ay, hw, pxW) * fade;
+  return chevHead(u, ay, hw, pxW, f1.w) * fade;
 }
 vec2 chevAt(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs) {
   // One size and one spacing for the whole vessel (from its caliber midway), so every head is the
@@ -1462,6 +1480,13 @@ float dyeAt(int id, float s, float y) {
   float sp = s - dir * (2.0 * (1.0 - y * y) - 1.0) * 1.4 * R;
   float u = clamp(sp / len, 0.0, 1.0);
   return texture(dye, vec2((u * (BINS - 1.0) + 0.5) / BINS, (float(id) + 0.5) / rows)).r;
+}
+
+// The bolus's leading edge (0 … 1) where the dye c is: how much thinner the dye is four pixels ahead along the flow, so a band a few
+// pixels wide on the front's own side, soft as the front is.
+float dyeEdge(int id, float s, float y, float c) {
+  float ahead = (texelFetch(flow, ivec2(0, id), 0).y < 0.0 ? -4.0 : 4.0) * pxW;
+  return clamp((c - dyeAt(id, s + ahead, y)) * 3.0, 0.0, 1.0);
 }
 
 // Ascites at world point w, premultiplied (its own colour whatever the lens; see main): over the plate and the vessels. Also the
@@ -1686,12 +1711,20 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
       col = mix(col, amber, lk * aL);
     }
     if (dyeOn == 1) {
-      float c = dyeAt(id1, s1, y1) * (1.0 - b) + (b > 0.004 ? dyeAt(id2, s2, y2) * b : 0.0);
+      float dc1 = dyeAt(id1, s1, y1), dc2 = b > 0.004 ? dyeAt(id2, s2, y2) : 0.0;
+      float c = dc1 * (1.0 - b) + dc2 * b;
       // A rich, slightly glowing column: the dye tints the lumen and lifts it a little.
       // The wall line across a join (the end cap of the vessel) knocks vis to zero, which read as a seam; across
       // the lumen (away from the side walls) the dye fills regardless, and along the walls it follows vis.
       float inLumen = 1.0 - smoothstep(0.6, 0.85, abs(y1));
-      col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * max(smoothstep(0.0, 0.2, vis), inLumen));
+      float dyeK = max(smoothstep(0.0, 0.2, vis), inLumen);
+      col = mix(col, dyeCol, clamp(c, 0.0, 1.0) * 0.9 * dyeK);
+      // The bolus's leading edge, a few pixels of the lumen's own deep shade where the dye thins out ahead of it (the lime is told from a
+      // pale lumen by hue alone: 1.04:1 on the lowest stop; visual-style B4). Only where there is dye, so a clear lumen costs no read.
+      if (c > 0.02) {
+        float de = dyeEdge(id1, s1, y1, dc1) * (1.0 - b) + (b > 0.004 ? dyeEdge(id2, s2, y2, dc2) * b : 0.0);
+        col = mix(col, vc1 * 0.45, de * 0.55 * clamp(c, 0.0, 1.0) * dyeK);
+      }
     }
     if (chev == 1 && chevQuad == 0 && f1.z > 0.0 && !isLy) {
       vec2 c = chevAt(id1, s1, y1, f0, f1, len1, R1);
@@ -1720,18 +1753,13 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
       }
       }
       if (c.x + c.y > 0.0) {
-        float rv = f1.w;
-        // A faint light rim lifts the head off the lumen; the head itself dark, or orange if reversed.
-        // The head keeps its dark core, tinted at most a fifth toward a deep shade of the vessel's own colour (more loses
-        // contrast on the faded cava and dark lumens), with the light rim as before.
-        vec3 vc = vc1;
-        vec3 ink = mix(chevInk, vc * 0.3, 0.2);
-        // An orange head is lost on an orange vessel (the Direction lens, an orange step of another lens's ramp): there a
-        // reversed head turns near-white cream and its rim a deep shade of the vessel, so it stands clear. By the vessel's own
-        // colour and the eased reversed flag, so it follows the vessel's colour as that eases, never popping.
-        float warm = rv * chevOrange(vc);
-        col = mix(col, mix(inkLight, vc * 0.45, warm), c.y * 0.75 * vis * flowA * blendA.y);
-        col = mix(col, mix(mix(ink, revCol, rv), chevLight, warm), c.x * vis * flowA * blendA.y);
+        // A faint rim lifts the head off the lumen. By the vessel's own colour (a lumen's lightness, an orange vessel) and the eased
+        // reversed flag, not a switch, so a head follows the vessel's colour as that eases and never pops: a dark core with a light rim
+        // on a pale lumen, near-white with a dark rim on a dark one, orange if reversed (chevInks).
+        vec3 hCore, hRim;
+        chevInks(vc1, f1.w, hCore, hRim);
+        col = mix(col, hRim, c.y * 0.75 * vis * flowA * blendA.y);
+        col = mix(col, hCore, c.x * vis * flowA * blendA.y);
       }
     }
     v = vec4(col * v.a, v.a);
