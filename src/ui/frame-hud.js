@@ -17,7 +17,7 @@ import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watc
 import { restPass } from './rest-pass.js';
 import { sharedStats, transfersBy } from './trace-gl.js';
 import { caught } from './caught.js';
-import { setFences, fenceText } from './gpu-fence.js';
+import { setFences, fenceText, fenceSampling } from './gpu-fence.js';
 
 const KEEP = 600;
 
@@ -101,6 +101,7 @@ export function startFrameHud() {
   document.addEventListener('visibilitychange', () => { hiddenAt = performance.now(); });
   watchFrames((fr) => {
     if (dead) return;
+    if (fenceSampling()) return;   // (a sampled frame's script is the GPU's wait, not the page's: left out, gpu-fence.js)
     const spansHidden = hiddenAt >= 0 && hiddenAt >= fr.now - fr.gap - 1;
     if (spansHidden) hiddenAt = -1;
     if (fr.gap > 0 && !spansHidden) { gaps.push(fr.gap); if (gaps.length > KEEP) gaps.shift(); }
@@ -137,7 +138,7 @@ export function startFrameHud() {
     const wh = (r, r0) => Object.keys(r).map((k) => `${k} ${r[k] - (r0[k] || 0)}`).filter((t) => !t.endsWith(' 0')).join(', ');
     const cn = { draw: counts.draw - c0.draw, composite: counts.composite - c0.composite, whole: counts.whole - c0.whole, blur: counts.blur - c0.blur };
     el.textContent += `\nper second: vessel draws ${cn.draw}, composites ${cn.composite} (whole ${cn.whole}), glass blurs ${cn.blur}${cn.blur ? ` (${wh(counts.blurs, c0.blurs)})` : ''}`;
-    // (The GPU's own time along the frame, from fences in the figure's context (gpu-fence.js): whether the frame waits on the GPU at all, and in which phase.)
+    // (The GPU's own time along the frame, from one sampled frame in thirty (gpu-fence.js): whether the frame waits on the GPU at all, and in which phase.)
     const ft = fenceText();
     if (ft) el.textContent += `\n${ft}`;
     el.textContent += `\nwhole vessel draws by reason: ${wh(counts.why, c0.why) || 'none'}\nrow draws refused: ${wh(counts.refused, c0.refused) || 'none'}`;

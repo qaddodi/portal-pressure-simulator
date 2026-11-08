@@ -1,93 +1,66 @@
-// GPU fences along the frame, for the ?perf readout (8 Nov 2026, Mohammad's Mac: 31 fps with 2 ms of script, "GPU-bound", and nothing in
-// the readout said what the GPU was doing or whether it was the GPU at all). While the readout asks (setFences(true)), the scheduler plants a
-// fence in the figure's context at the frame's start and after each phase (frame.js flush: start, early, late, final, the frame's end).
-// A timer polls them between frames (never a wait: getSyncParameter asks whether the GPU has passed the fence, it does not block), so each
-// fence's signal time is known to a few ms. From them the readout tells:
-// - the backlog at the frame's start: how long after the start fence was planted the GPU reached it (0: the GPU was idle as the frame began;
-//   a page whose frames come at 30 Hz with a backlog near 0 and a short tail is not GPU-bound, it is held by the browser);
-// - the GPU's own time for each phase's commands: one fence's signal minus the one before it;
-// - the tail: how long after the frame's script ended the GPU finished the frame's commands (the frame's GPU time past the main thread's).
-// Nothing runs while the readout is off: no fence, no timer, no record. Fences are on the figure's context alone (setFenceContext, veins-gl.js);
-// the charts' shared context is not fenced (its hand-over waits are inside the script time already).
+// The GPU's time along the frame, for the ?perf readout (8 Nov 2026, Mohammad's Mac: 30 ms frames with 2 ms of script, "GPU-bound", and
+// nothing in the readout said what the GPU was doing). While the readout shows (setFences(true)), one frame in SAMPLE_EVERY is a sample: the
+// scheduler plants a fence in the figure's context at its start and after each phase (frame.js flush: start, early, late, final, the frame's
+// end) and times the call. In Safari a fence is a round trip to the GPU process that returns once the context's queue has been worked through,
+// so the call takes as long as the GPU needs for everything queued before it: at the start that is the backlog the last frame left, after a
+// phase it is that phase's own passes. (First built as fences polled between frames, 787f66b: on that Mac the fence calls themselves waited,
+// 25 ms a frame over five of them, so the readout measured its own waits and the page under ?perf ran a frame behind. Sampled, one frame in
+// thirty waits; the rest run as they do for everyone, and the readout leaves the sampled frame out of its script and interval numbers.)
+// Nothing runs while the readout is off: no fence, no record. Fences are planted in the figure's context alone (setFenceContext, veins-gl.js).
 
-const PHASES = ['start', 'early', 'late', 'final', 'end'];
-const KEEP = 64;   // (frames kept, a ring)
-let gl = null, on = false, pollT = 0;
-// alloc-rare: the ring of frame records is made once with the module; a frame writes into its slot
-const ring = [];
-for (let i = 0; i < KEEP; i++) ring.push({ frame: 0, scriptEnd: 0, n: 0, fences: new Array(PHASES.length).fill(null), at: new Float64Array(PHASES.length), sig: new Float64Array(PHASES.length).fill(-1), done: true });
-let ringAt = 0, cur = null, pending = 0;
+export const SAMPLE_EVERY = 30;
+const PHASES = 5;   // start (the backlog), early, late, final, the frame's end
+const KEEP = 16;    // (samples kept, a ring)
+let gl = null, on = false, sampling = false, sampled = false;
+// alloc-rare: the ring of samples is made once with the module; a sample writes into its row
+const waits = new Float64Array(KEEP * PHASES);
+let at = 0, n = 0;
+const cur = new Float64Array(PHASES);
 
 /** The figure's context, where the fences are planted (veins-gl.js, when the renderer is made; null when it goes). */
 export function setFenceContext(g) { gl = g; }
-/** Whether the readout wants fences (frame-hud.js turns them on while it shows). */
-export function setFences(v) { on = !!v; if (!on) { for (const r of ring) dropFences(r); } }
+/** Whether the readout wants the samples (frame-hud.js turns them on while it shows). */
+export function setFences(v) { on = !!v; if (!on) { sampling = sampled = false; n = 0; at = 0; } }
 export const fencesOn = () => on;
-function dropFences(r) {
-  for (let i = 0; i < r.fences.length; i++) { const f = r.fences[i]; if (f) { try { gl?.deleteSync(f); } catch { /* lost */ } r.fences[i] = null; } }
-  r.done = true;
+/** Whether the frame running now (or the one that just ended) is a sample, whose script time is the GPU's wait: the readout leaves it out. */
+export const fenceSampling = () => sampling || sampled;
+function wait() {
+  const t0 = performance.now();
+  try { if (!gl.isContextLost()) { const f = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); gl.flush(); if (f) gl.deleteSync(f); } } catch { /* lost: nothing to wait for */ }
+  return performance.now() - t0;
 }
 /** frame.js: the frame `frame` begins. */
 export function fenceFrame(frame) {
-  if (!on || !gl) { cur = null; return; }
-  const r = ring[ringAt]; ringAt = (ringAt + 1) % KEEP;
-  if (!r.done) { dropFences(r); pending = Math.max(0, pending - 1); }
-  r.frame = frame; r.n = 0; r.scriptEnd = 0; r.done = false;
-  for (let i = 0; i < PHASES.length; i++) { r.sig[i] = -1; r.at[i] = 0; }
-  cur = r;
-  fenceMark(0);
+  sampled = false;
+  sampling = on && !!gl && frame % SAMPLE_EVERY === 0;
+  if (sampling) cur[0] = wait();
 }
-/** frame.js: the commands of phase `i` (0 start, 1 early, 2 late, 3 final, 4 the frame's end) have been issued. */
+/** frame.js: the commands of phase `i` (1 early, 2 late, 3 final, 4 the frame's end) have been issued. */
 export function fenceMark(i) {
-  const r = cur;
-  if (!r || !gl) return;
-  let f = null;
-  try { if (!gl.isContextLost()) { f = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); gl.flush(); } } catch { f = null; }
-  r.fences[i] = f; r.at[i] = performance.now(); r.n = i + 1;
-  if (i === PHASES.length - 1) { r.scriptEnd = r.at[i]; cur = null; pending++; if (!pollT) pollT = setTimeout(poll, 2); }
-}
-function poll() {
-  pollT = 0;
-  if (!on || !gl) return;
-  const t = performance.now();
-  let left = 0;
-  for (const r of ring) {
-    if (r.done) continue;
-    let all = true;
-    for (let i = 0; i < r.n; i++) {
-      if (r.sig[i] >= 0) continue;
-      const f = r.fences[i];
-      if (!f) { r.sig[i] = r.at[i]; continue; }   // (no fence could be made: counted as done at once)
-      let ok;
-      try { ok = gl.isContextLost() || gl.getSyncParameter(f, gl.SYNC_STATUS) === gl.SIGNALED; } catch { ok = true; }
-      if (!ok) { all = false; break; }   // (fences signal in order: the ones after wait)
-      r.sig[i] = t;
-      try { gl.deleteSync(f); } catch { /* lost */ }
-      r.fences[i] = null;
-    }
-    if (all) { r.done = true; pending = Math.max(0, pending - 1); } else left++;
+  if (!sampling) return;
+  cur[i] = wait();
+  if (i === PHASES - 1) {
+    waits.set(cur, at * PHASES); at = (at + 1) % KEEP; if (n < KEEP) n++;
+    sampling = false; sampled = true;
   }
-  if (left) pollT = setTimeout(poll, 2);
 }
-/** The last `n` finished frames' numbers, oldest first: { frame, backlog, phase: [early, late, final, end] GPU ms, tail }. For the readout. */
-export function fenceReport(n = KEEP) {
-  const out = [];   // alloc-rare: the readout's once-a-second report
-  const ordered = [];
-  for (let k = 0; k < KEEP; k++) ordered.push(ring[(ringAt + k) % KEEP]);
-  for (const r of ordered) {
-    if (!r.done || !r.frame || r.n < PHASES.length) continue;
-    const backlog = Math.max(0, r.sig[0] - r.at[0]);
-    const phase = [];
-    for (let i = 1; i < PHASES.length; i++) phase.push(Math.max(0, r.sig[i] - Math.max(r.sig[i - 1], r.at[i])));
-    out.push({ frame: r.frame, backlog, phase, tail: Math.max(0, r.sig[PHASES.length - 1] - r.scriptEnd) });
-  }
-  return out.slice(-n);
+const sortBuf = new Float64Array(KEEP);
+function median(i) {
+  for (let k = 0; k < n; k++) sortBuf[k] = waits[k * PHASES + i];
+  sortBuf.fill(Infinity, n); sortBuf.sort();
+  return sortBuf[n >> 1];
 }
-/** The readout's line: medians over the frames kept, or '' with none. */
+/** The samples kept, oldest first: [backlog, early, late, final, end] ms each. For the tests and the console. */
+export function fenceReport() {
+  const out = [];   // alloc-rare: a read for the tests and the console, never a frame
+  for (let k = 0; k < n; k++) { const r = (at - n + k + KEEP) % KEEP; out.push(Array.from(waits.subarray(r * PHASES, r * PHASES + PHASES))); }
+  return out;
+}
+/** The readout's line: medians over the samples kept, or '' with none. */
 export function fenceText() {
-  const rs = fenceReport();
-  if (!rs.length) return on ? (gl ? 'gpu fences: no frame finished yet' : 'gpu fences: no figure context') : '';
-  const med = (f) => { const a = rs.map(f).sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; };   // alloc-rare: once a second, for the readout
-  const p = (i) => med((r) => r.phase[i]).toFixed(1);
-  return `gpu (${rs.length} frames, fences, ~2 ms steps): backlog at frame start ${med((r) => r.backlog).toFixed(1)} ms; GPU per phase early ${p(0)}, late ${p(1)}, final ${p(2)}, frame end ${p(3)} ms; tail after script ${med((r) => r.tail).toFixed(1)} ms`;
+  if (!on) return '';
+  if (!n) return gl ? `gpu: no sample yet (one frame in ${SAMPLE_EVERY} waits for the GPU)` : 'gpu: no figure context';
+  const f = (i) => median(i).toFixed(1);
+  let total = 0; for (let i = 1; i < PHASES; i++) total += median(i);
+  return `gpu (${n} sampled frames, 1 in ${SAMPLE_EVERY}, each phase's wait for the GPU): backlog at frame start ${f(0)} ms; early ${f(1)}, late ${f(2)}, final ${f(3)}, frame end ${f(4)} ms; this frame's passes ${total.toFixed(1)} ms`;
 }
