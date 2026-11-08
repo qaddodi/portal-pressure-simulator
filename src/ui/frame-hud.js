@@ -141,7 +141,11 @@ export function startFrameHud() {
     // (The GPU's own time along the frame, from one sampled frame in thirty (gpu-fence.js): whether the frame waits on the GPU at all, and in which phase.)
     const ft = fenceText();
     if (ft) el.textContent += `\n${ft}`;
-    el.textContent += `\nwhole vessel draws by reason: ${wh(counts.why, c0.why) || 'none'}\nrow draws refused: ${wh(counts.refused, c0.refused) || 'none'}`;
+    // (The change between Anatomy and Circuit since the page opened: its frames drawn from the stretches binned ahead, and those binned
+    // again on the CPU (a stretch not made yet, or a frame that did not fit it), and how many stretches are made now. 8 Nov 2026.)
+    const ms = window.pps?.stage?.morphStats?.();
+    const sw = ms && ms.gpu + ms.cpu > 0 ? `\nview switch frames: ${ms.gpu} from stretches made ahead, ${ms.cpu} binned on the CPU${Object.keys(ms.miss).length ? ` (${Object.entries(ms.miss).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}; stretches ready ${ms.ready} of ${ms.of}` : '';
+    el.textContent += `\nwhole vessel draws by reason: ${wh(counts.why, c0.why) || 'none'}\nrow draws refused: ${wh(counts.refused, c0.refused) || 'none'}${sw}`;
     c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs } };
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
   };

@@ -69,6 +69,55 @@ test('every segment of a frame within the slack of its stretch is listed, with h
   }
 });
 
+// (tight, 8 Nov 2026: the change ran at 10 fps on his Mac. Swept over the whole stretch, a head's and a run's circles held a vessel in every
+// cell it passes anywhere in the stretch, so mid-change a pixel walked 4 to 5 times the entries it walks in the Anatomy at rest. Tight
+// stretches also carry circles about one of their own points as the frame has it, which the shader tests with morphOn 2.)
+test('tight: every point of a head or a run in a frame between two neighbouring moments lies in its circle about the frame\'s own point', () => {
+  const bt = binSwept(tubes, joins, { rows: 16, samples: N, slack: SLACK, tight: true });
+  assert.equal(bt.tight, true);
+  assert.deepEqual([...bt.cells], [...b.cells], 'the same cells and lists as a stretch without');
+  // A frame as morphFrame lets one through: each point within the slack of the line between its own two samples, at a share of its own.
+  const frame = (t, j) => t.path[j].map((p, i) => { const q = t.path[j + 1][i], f = rnd(), a = rnd() * Math.PI * 2, r = rnd() * SLACK * 0.999; return [p[0] + (q[0] - p[0]) * f + Math.cos(a) * r, p[1] + (q[1] - p[1]) * f + Math.sin(a) * r]; });
+  let heads = 0, runs = 0;
+  for (let trial = 0; trial < 40; trial++) {
+    const j = trial % 2, P = new Map(tubes.map((t) => [t.id, frame(t, j)]));
+    for (let c = 0; c < bt.nCells; c++) {
+      const s0 = bt.cells[c * 6 + 2], n = bt.cells[c * 6 + 3];
+      for (let e = s0; e < s0 + n;) {
+        const Q = P.get(bt.ent[e * 8 + 4]), m = bt.ent[e * 8 + 7], hr = bt.ent[e * 8 + 3], ref = Q[bt.ent[e * 8 + 6]];
+        assert.equal(bt.ent[e * 8 + 5], -1);
+        assert.ok(Number.isInteger(bt.ent[e * 8 + 6]) && bt.ent[e * 8 + 6] >= 0 && bt.ent[e * 8 + 6] < N, 'the head\'s point is one of the vessel\'s');
+        for (let g = e + 1; g <= e + m; g++) { const s = bt.ent[g * 8 + 5]; for (const p of [Q[s], Q[s + 1]]) assert.ok(Math.hypot(p[0] - ref[0], p[1] - ref[1]) <= hr + 1e-3, 'in the head\'s tight circle'); }
+        heads++;
+        for (let g = e + 1; g <= e + m;) {
+          const k = bt.ent[g * 8 + 7], rr = bt.ent[g * 8 + 2], rp = Q[bt.ent[g * 8 + 3]];
+          for (let q = g; q < g + k; q++) { const s = bt.ent[q * 8 + 5]; for (const p of [Q[s], Q[s + 1]]) assert.ok(Math.hypot(p[0] - rp[0], p[1] - rp[1]) <= rr + 1e-3, 'in the run\'s tight circle'); }
+          runs++; g += k;
+        }
+        e += m + 1;
+      }
+    }
+  }
+  assert.ok(heads > 100 && runs > heads);
+  // A stretch whose moments are close (the change's: twelve a stretch) passes over most vessels at their heads: a vessel listed in a
+  // cell for where it goes later in the stretch is far from it in this frame.
+  const near = tubes.map((t) => ({ ...t, path: [0, 1, 2, 3, 4, 5, 6].map((q) => t.path[0].map((p, i) => [p[0] + q * 9, p[1] + q * 5 + i * 0])) }));
+  const bn = binSwept(near, [], { rows: 16, samples: N, slack: SLACK, tight: true });
+  let passed = 0, sweptPassed = 0, all = 0;
+  for (let c = 0; c < bn.nCells; c++) for (let e = bn.cells[c * 6 + 2], e1 = e + bn.cells[c * 6 + 3]; e < e1; e += bn.ent[e * 8 + 7] + 1) {
+    const t = near.find((u) => u.id === bn.ent[e * 8 + 4]), ref = t.path[0][bn.ent[e * 8 + 6]], cx = bn.cells[c * 6] + CELL / 2, cy = bn.cells[c * 6 + 1] + CELL / 2;
+    all++;
+    if (Math.hypot(cx - ref[0], cy - ref[1]) - CELL * Math.SQRT1_2 - bn.ent[e * 8 + 3] > t.reach) passed++;
+    if (Math.hypot(cx - bn.ent[e * 8], cy - bn.ent[e * 8 + 1]) - CELL * Math.SQRT1_2 - bn.ent[e * 8 + 2] > t.reach) sweptPassed++;
+  }
+  assert.ok(passed > all * 0.15 && passed > 4 * sweptPassed, `${passed} of ${all} heads passed over at the stretch's first moment (swept circles: ${sweptPassed})`);
+  // The shader takes them only with morphOn 2, which only a tight set sets, as well as the swept ones.
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(gl, /if \(morphOn == 2\) \{ vec2 hc = PT\(id, int\(B\.z \+ 0\.5\)\); hd = max\(hd, /);
+  assert.match(gl, /if \(morphOn == 2\) \{ vec2 rc = PT\(id, int\(A\.w \+ 0\.5\)\); lo = max\(lo, /);
+  assert.match(gl, /UC\.i1\(u\.morphOn, geo\.morph \? \(geo\.morph\.tight \? 2 : 1\) : 0\);/);
+});
+
 test('a join is listed, by its index, wherever it reaches along the course of its centres', () => {
   const j = joins[0];
   for (let k = 0; k < 20; k++) {
@@ -107,8 +156,8 @@ test('a frame of the change draws from a stretch only once every point, reach an
   assert.match(stage, /if \(\(key !== (?:live\.)?(?:live\.)?vBinKey \|\| grew\) && gpuProbe\.time\(null, 'vessel sync: (?:live\.)?(?:live\.)?morph frame', morphFrame, items\)\) (?:live\.)?(?:live\.)?vBinKey = key;\n\s*else if \(key !== (?:live\.)?(?:live\.)?vBinKey \|\| grew\)/);
   // The shader reads the points and joins from the frame's rows only with morphOn.
   const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
-  assert.match(gl, /if \(morphOn == 1\) \{ int si = int\(B\.y \+ 0\.5\); A = vec4\(PT\(id, si\), PT\(id, si \+ 1\)\); \}/);
-  assert.match(gl, /if \(morphOn == 1\) A = JT\(int\(A\.x \+ 0\.5\)\);/);
+  assert.match(gl, /if \(morphOn >= 1\) \{ int si = int\(B\.y \+ 0\.5\); A = vec4\(PT\(id, si\), PT\(id, si \+ 1\)\); \}/);
+  assert.match(gl, /if \(morphOn >= 1\) A = JT\(int\(A\.x \+ 0\.5\)\);/);
   // The worker is bundled with the build.
   assert.match(readFileSync(new URL('../scripts/build.mjs', import.meta.url), 'utf8'), /sweep-worker\.js/);
 });

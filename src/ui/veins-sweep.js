@@ -16,6 +16,11 @@
 //   - a segment entry's points are the first sample's; the shader reads the points from the frame's rows instead. Its head's circle
 //     and its runs' radii hold the points of every sample, and the slack, so the passes they let the shader skip stay safe.
 //   - a join entry's first float is the join's index: its centre, reach, blend width and fillet are read from the frame's rows.
+//   - (tight) a head's spare floats hold a circle about the middle point of its segments as the frame has it (A.w its radius, B.z that
+//     point's index), and a run's first entry holds its own in A.zw (radius, index), which the shader tests as well as the swept ones. Swept over the whole stretch, the
+//     heads' and runs' circles held a vessel in every cell it passes through anywhere in the stretch, so a pixel walked every entry of
+//     every vessel that would pass it in the stretch (mid-change 4 to 5 times the entries a pixel walks in the Anatomy at rest); about
+//     the frame's own points, the vessels not near in this frame are passed over at their head (8 Nov 2026, "anatomy to circuit 10fps").
 
 import { CELL, ENT_W, RUN } from './veins-bin.js';
 
@@ -58,10 +63,11 @@ const up = (r) => (Math.fround(r) < r ? r * (1 + 1e-6) + 1e-6 : r);
 /**
  * tubes: [{ id (row), path: [P0, … Pm] (each nSamples points [x, y]), reach, core }]; joins: [{ path: [[x, y], …] (its centre at each
  * sample), reach (the most it reaches anywhere in the stretch), k, fillet, members, trunk, fork }]. opts: { rows (vessel rows the frame's
- * points cover), samples (points a vessel), slack (world units) }. Returns binVeins' result, with `posBase` and `joinBase` (texel
+ * points cover), samples (points a vessel), slack (world units), tight (the heads' and runs' circles about a point of the frame too: see
+ * fitSwept; for frames that lie between two neighbouring moments) }. Returns binVeins' result, with `posBase` and `joinBase` (texel
  * indices of the frame's points and joins in `ent`, filled with the first sample's) and `nJoins`.
  */
-export function binSwept(tubes, joins, { rows, samples, slack = 2 }) {
+export function binSwept(tubes, joins, { rows, samples, slack = 2, tight = false }) {
   const HALF = CELL * Math.SQRT1_2;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const t of tubes) {
@@ -149,7 +155,7 @@ export function binSwept(tubes, joins, { rows, samples, slack = 2 }) {
       let g = e + 1;
       while (g < e1 && ent[g * 8 + 4] === id && ent[g * 8 + 5] !== -1) g++;
       ent[e * 8 + 7] = g - e - 1;
-      fitSwept(ent, e, g, path, slack);
+      fitSwept(ent, e, g, path, slack, tight);
       e = g;
     }
   }
@@ -185,11 +191,34 @@ export function binSwept(tubes, joins, { rows, samples, slack = 2 }) {
   wetAt.forEach((at, b) => blood.set(cells.subarray(at, at + 6), b * 6));
   const nBloodQ = quarters.length / 2, bloodQ = new Float32Array(nBloodQ * 6);
   for (let k = 0; k < nBloodQ; k++) { bloodQ[k * 6] = quarters[k * 2]; bloodQ[k * 6 + 1] = quarters[k * 2 + 1]; }
-  return { ent, rows: total, cells, nCells, nEnt, blood, nBlood, bloodQ, nBloodQ, posBase, joinBase, nJoins: joins.length, entRows };
+  return { ent, rows: total, cells, nCells, nEnt, blood, nBlood, bloodQ, nBloodQ, posBase, joinBase, nJoins: joins.length, entRows, tight };
 }
 
 // A stretch's head (h, its stretch running to g) and runs, fitted to every sample's points of its segments.
-function fitSwept(ent, h, g, path, slack) {
+// (tight) How far any point of the list `idx` (sample indices) can lie from point r of the same vessel in a frame between two neighbouring
+// moments of the stretch: each point of such a frame lies within the slack of the line between its own two samples (stage-vessels.js
+// frameFrom), at a share of the way of its own, and the farthest two points on two segments are at two of their ends, so the farthest
+// is the most of the four distances between the ends at each pair of neighbouring moments, and the slack of each of the two points.
+function tightR(path, idx, r, slack) {
+  let R2 = 0;
+  if (path.length === 1) { const P = path[0]; for (const j of idx) R2 = Math.max(R2, d2(P[j][0] - P[r][0], P[j][1] - P[r][1])); }
+  for (let s = 0; s + 1 < path.length; s++) {
+    const A = path[s], B = path[s + 1], ax = A[r][0], ay = A[r][1], bx = B[r][0], by = B[r][1];
+    for (const j of idx) {
+      const p = A[j], q = B[j];
+      R2 = Math.max(R2, d2(p[0] - ax, p[1] - ay), d2(p[0] - bx, p[1] - by), d2(q[0] - ax, q[1] - ay), d2(q[0] - bx, q[1] - by));
+    }
+  }
+  return up(Math.sqrt(R2) + 2 * slack);
+}
+const IDX = [];
+// The sample half way between the first and the last of a list's (any sample will do: the frame has every one of the vessel's points).
+function midIdx(idx) {
+  let lo = Infinity, hi = -Infinity;
+  for (const i of idx) { if (i < lo) lo = i; if (i > hi) hi = i; }
+  return Math.round((lo + hi) / 2);
+}
+function fitSwept(ent, h, g, path, slack, tight = false) {
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   for (let f = h + 1; f < g; f++) {
     const i = ent[f * 8 + 5];
@@ -199,11 +228,27 @@ function fitSwept(ent, h, g, path, slack) {
   let R2 = 0;
   for (let f = h + 1; f < g; f++) { const i = ent[f * 8 + 5]; for (const P of path) R2 = Math.max(R2, d2(P[i][0] - cx, P[i][1] - cy), d2(P[i + 1][0] - cx, P[i + 1][1] - cy)); }
   ent[h * 8] = cx; ent[h * 8 + 1] = cy; ent[h * 8 + 2] = up(Math.sqrt(R2) + slack);
+  // (tight: the head's circle about the middle point of its segments as the frame has it (that point's index in the head's spare float
+  // B.z), its radius in A.w; read by the shader with morphOn 2, as well as the swept one.)
+  if (tight) {
+    IDX.length = 0;
+    for (let f = h + 1; f < g; f++) { const i = ent[f * 8 + 5]; IDX.push(i, i + 1); }
+    const r = midIdx(IDX);
+    ent[h * 8 + 3] = tightR(path, IDX, r, slack); ent[h * 8 + 6] = r;
+  }
   for (let e = h + 1; e < g;) {
     const q0 = e * 8, ax = ent[q0], ay = ent[q0 + 1], n = Math.min(RUN, g - e);
     let rho2 = 0;
     for (let k = 0; k < n; k++) { const i = ent[(e + k) * 8 + 5]; for (const P of path) rho2 = Math.max(rho2, d2(P[i][0] - ax, P[i][1] - ay), d2(P[i + 1][0] - ax, P[i + 1][1] - ay)); }
     ent[q0 + 6] = up(Math.sqrt(rho2) + slack); ent[q0 + 7] = n;
+    // (tight: the run's circle about the middle point of its segments as the frame has it, its radius in A.z and that point's index in
+    // A.w: with morphOn the shader reads the segment's ends from the frame's rows, never the entry's own.)
+    if (tight) {
+      IDX.length = 0;
+      for (let k = 0; k < n; k++) { const i = ent[(e + k) * 8 + 5]; IDX.push(i, i + 1); }
+      const r = midIdx(IDX);
+      ent[q0 + 2] = tightR(path, IDX, r, slack); ent[q0 + 3] = r;
+    }
     e += n;
   }
 }

@@ -305,7 +305,7 @@ uniform int tierGroup[${MAX_TIERS}];   // 0 behind the organs, 1 the network, 2 
 uniform int redraw;                    // 1: some cells drawn again over the last picture (drawRows), not cleared first: a pixel left empty is written empty
 uniform int tint;                      // 1: a colour-only redraw (tintPass): only the pixels a lumen colour reaches (depL) are drawn
 uniform sampler2D depL;                // the last whole draw's outDep (tint 1 only)
-uniform int morphOn;                   // 1: a binning made for a stretch of the change between the views (veins-sweep.js): the points and joins from the frame's rows
+uniform int morphOn;                   // 1: a binning made for a stretch of the change between the views (veins-sweep.js): the points and joins from the frame's rows; 2: the same, its heads and runs with circles about the frame's points (tight)
 uniform int posBase;                   // (morphOn) the texel of the frame's points in ent: N_SAMPLES / 2 texels a vessel row, two points a texel
 uniform int joinBase;                  // (morphOn) the texel of the frame's joins: one a join (centre, reach, blend width and fillet)
 layout(location=0) out vec4 outColor;
@@ -409,7 +409,11 @@ void main() {
     // its length; see veins-bin). When every point lies out of reach, by the wall and by the shadow, the vessel would not
     // be kept here whatever its segments, so they are passed over.
     if (B.y < -0.5) {
-      if (length(p - A.xy) - A.z - rmx > reach + 0.01 && length(ps - A.xy) - A.z - rmx > reach + 0.01) k += int(B.w + 0.5);
+      // (Between the views, tight: also the circle about the head's middle point as it is in this frame (veins-sweep.js fitSwept). Each
+      // circle holds every point of the head's segments in this frame, so a pixel out of reach of either is out of reach of them all.)
+      float hd = min(length(p - A.xy), length(ps - A.xy)) - A.z;
+      if (morphOn == 2) { vec2 hc = PT(id, int(B.z + 0.5)); hd = max(hd, min(length(p - hc), length(ps - hc)) - A.w); }
+      if (hd - rmx > reach + 0.01) k += int(B.w + 0.5);
       continue;
     }
     // A run of this vessel's segments (B.w of them, every point within B.z of this one's start: see veins-bin) that lies
@@ -418,10 +422,11 @@ void main() {
     // shadow, so it would change nothing. (Never the vessel's first run: the nearest so far starts unset.)
     if (B.w > 1.5) {
       float lo = length(p - A.xy) - B.z - rmx, los = length(ps - A.xy) - B.z - rmx;
+      if (morphOn == 2) { vec2 rc = PT(id, int(A.w + 0.5)); lo = max(lo, length(p - rc) - A.z - rmx); los = max(los, length(ps - rc) - A.z - rmx); }
       if (lo > aM + 12.01 && los > bs + 0.01) { k += int(B.w + 0.5) - 1; continue; }
     }
     // (Between the views, the segment as it is in this frame: the entry holds a sample's, for the passes above.)
-    if (morphOn == 1) { int si = int(B.y + 0.5); A = vec4(PT(id, si), PT(id, si + 1)); }
+    if (morphOn >= 1) { int si = int(B.y + 0.5); A = vec4(PT(id, si), PT(id, si + 1)); }
     // The part of this segment inside the drawn stretch (a vessel drawing on is cut short).
     float i = B.y, u0 = i / LAST, u1 = (i + 1.0) / LAST;
     if (u1 < clip.x || u0 > clip.y) continue;
@@ -461,7 +466,7 @@ void main() {
   for (int k = 0; k < min(vR.w, 64); k++) {
     if (jn == MAXJ) break;
     vec4 A = E(vR.z + k, 0), B = E(vR.z + k, 1);
-    if (morphOn == 1) A = JT(int(A.x + 0.5));
+    if (morphOn >= 1) A = JT(int(A.x + 0.5));
     float dc = length(p - A.xy);
     if (dc > A.z) continue;
     int mask = 0, c = 0, tm = 0, tfm = 0;
@@ -3131,7 +3136,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     UC.m3(u.world, M);
     UC.f2(u.size, SW, SH);
     UC.f1(u.cell, CELL);
-    UC.i1(u.morphOn, geo.morph ? 1 : 0);
+    UC.i1(u.morphOn, geo.morph ? (geo.morph.tight ? 2 : 1) : 0);
     if (geo.morph) { UC.i1(u.posBase, geo.morph.posBase); UC.i1(u.joinBase, geo.morph.joinBase); }
     UC.f1(u.px, 1 / Math.max(1e-6, Math.hypot(m[0], m[1])));
     const det = m[0] * m[3] - m[1] * m[2] || 1e-9;
@@ -3895,7 +3900,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const sb = gl.createBuffer(), bb = gl.createBuffer(), bv = gl.createVertexArray();
       bloodVAOOf(bv, bb);
       const S = { owner: api, entTex: dataTex(gl), vao: v, cellBuf: cb, simpleBuf: sb, oneVAO: cellVAO(sb), bloodVAO: bv, bloodBuf: bb, nGen: 0, nSimple: 0, simpleOf: null, nBlood: 0, bloodCell: CELL, bloodCPU: null, cellsCPU: null, entCPU: null, nCells: 0, cellBox: null, rowCells: null, patchMark: null, patchK: 0,
-        morph: { posBase: bins.posBase, joinBase: bins.joinBase, entRows: bins.entRows, rows: bins.rows } };
+        morph: { posBase: bins.posBase, joinBase: bins.joinBase, entRows: bins.entRows, rows: bins.rows, tight: !!bins.tight } };
       morphSets.add(S);
       useMorphSet(S);
       gl.bindTexture(gl.TEXTURE_2D, entTex);
