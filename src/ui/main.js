@@ -6,7 +6,7 @@ import { budget as gpuBudget } from './gpu-budget.js';   // (the render graph's 
 import './gl-state.js';   // (early: every WebGL2 context is recorded from its creation, R09/R06)
 import { startHost, host, hostFailed, restartHost } from './host.js';
 import { createLease } from './slide-txn.js';
-import { store, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
+import { store, viewKey, setViewKey, updateParams, replaceParams, bindParamSender, clearHistory, logAction, varicesPresent, hiddenNow } from './store.js';
 import { fibroReading } from './clock.js';
 import { createStage } from './stage.js';
 import { createCreditPlacer } from './credit.js';
@@ -295,7 +295,7 @@ async function main() {
     ctx: {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); },
       startShunt: (id) => stage.startShunt(id), canShunt: (id) => shuntable(id), select,
-      zoomLobule: (lobe) => zoomLobule(lobe), paneApi: (id) => dock.pane(id),
+      zoomLobule: (lobe) => zoomLobule(lobe), askSinusoid: () => stage.askSinusoid(), paneApi: (id) => dock.pane(id),
       injectDye: (id, o) => stage.injectDye(id, o), releaseDye: () => stage.releaseDye(), dyeInjecting: () => stage.dyeInjecting(),
       canDye: () => !store.get().imaging,
     },
@@ -335,7 +335,7 @@ async function main() {
   let viewSinBtn = null, viewSinHide = false, viewInSin = false, viewBtns = null;
   const viewChange = () => { viewSinBtn.hidden = viewSinHide; app.classList.toggle('sin-focus', viewInSin); };
   const syncViewSeg = () => {
-    const st = store.get(), cur = st.lobule && st.sinusoid ? 'sinusoid' : st.lobule ? 'lobule' : st.view, inSin = !!(st.lobule && st.sinusoid);
+    const st = store.get(), cur = viewKey(st) === 'anatomy' ? 'anatomic' : viewKey(st), inSin = viewKey(st) === 'sinusoid';
     const sinBtn = $('#viewSeg [data-view="sinusoid"]'), sinHide = !st.lobule || !sinusoidSupported();
     if (app.classList.contains('sin-focus') !== inSin || sinBtn.hidden !== sinHide) {
       viewSinBtn = sinBtn; viewSinHide = sinHide; viewInSin = inSin;
@@ -789,7 +789,7 @@ function renderPaintHint() {
 }
 let hintT = 0;
 // The Lobule view: a view of its own beside Anatomy and Circuit.
-function zoomLobule() { store.set({ lobule: true, sinusoid: false }); }
+function zoomLobule() { stage.askSinusoid(false); setViewKey('lobule'); }   // (a sinusoid still waiting on the dive is called off too)
 
 // ── Figure header: view, color, legend; banners ─────
 let tipEl, stageClock;
@@ -833,7 +833,7 @@ function buildHud() {
   const syncRotate = () => rotateBtn.setAttribute('aria-pressed', String(stage.circuitRotated()));
   rotateBtn.onclick = () => { stage.setCircuitRotated(!stage.circuitRotated()); syncRotate(); };
   syncRotate();
-  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? store.set({ sinusoid: true }) : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : store.set({ lobule: false, view: b.dataset.view }))));
+  $$('#viewSeg button').forEach((b) => b.addEventListener('click', () => (b.dataset.view === 'lobule' ? zoomLobule() : b.dataset.view === 'sinusoid' ? (store.get().lobule ? stage.askSinusoid() : stage.diveToSinusoid()) : b.dataset.view === 'anatomic' && store.get().sinusoid ? stage.exitSinusoid() : setViewKey(b.dataset.view === 'circuit' ? 'circuit' : 'anatomy'))));
   // The legend is the lens switcher: it shows what the colors mean and changes what they show.
   const sinLens = () => store.get().lobule && store.get().sinusoid;   // no lens in the sinusoid view
   $('#btnLayers').addEventListener('click', (e) => { if (!sinLens()) openLayers(e.currentTarget); });
@@ -2189,7 +2189,7 @@ function wireKeyboard() {
       return;
     }
     const k = letterOf(e);
-    if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; store.set({ lobule: false, view: store.get().view === 'circuit' ? 'anatomic' : 'circuit' }); return; }
+    if (k === 'a' && !e.shiftKey) { if (store.get().sinusoid) return; setViewKey(viewKey() === 'circuit' ? 'anatomy' : 'circuit'); return; }
     if ((k === 'l' || (e.key === 'C' && e.shiftKey)) && !store.get().imaging && !(store.get().lobule && store.get().sinusoid)) {
       const ks = lensKeys(), i = ks.indexOf(store.get().colorMode);
       const next = ks[(i + (e.shiftKey && k === 'l' ? ks.length - 1 : 1)) % ks.length];

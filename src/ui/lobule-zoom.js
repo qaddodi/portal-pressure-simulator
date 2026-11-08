@@ -4831,8 +4831,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     el.style.setProperty('--lz-chrome', smooth01(ch).toFixed(3));
   }
   function resetSinusoid() { cancelFrame(sinRaf); sinClock.set(0); sinU = 0; sinTo = 0; sinDive = null; placeSinusoid(); }
+  // The Sinusoid button while the lobule is still fading in: kept here (sinPending) and carried on at the landing, with no store write to refuse. True: kept.
+  function askSinusoid(on) {
+    if (!on) { sinPending = false; return false; }
+    if (fade < 0.98 && sv.available && store.get().lobule) { sinPending = true; return true; }
+    return false;
+  }
   function diveSinusoid(on) {
-    if (quietSin) { sinTo = 0; cancelFrame(sinRaf); sinClock.stop(); return; }   // the lobule view is closing: the sinusoid fades out with it
+    if (quietSin || (!on && !store.get().lobule)) { sinTo = 0; cancelFrame(sinRaf); sinClock.stop(); return; }   // the lobule view is closing, in this same change or before it: the sinusoid fades out with it
     // Asked for while the dive into the lobule is still on its way: it carries on into the sinusoid once the dive lands (setDiveZoom).
     if (on && fade < 0.98 && sv.available && store.get().lobule) sinPending = true;
     if (on && (!geo || fade < 0.98 || !model || !sv.available)) { queueMicrotask(() => { if (store.get().sinusoid && !sinTo) store.set({ sinusoid: false }); }); return; }   // alloc-rare: only when the zoom is asked for while the lobule cannot take it (once per such request)
@@ -4956,6 +4962,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     },
     setDive: (d) => framePart('lz.setDive', () => paintField(d)),
     sinBusy: () => sinBusyNow(),
+    askSinusoid,
     // (The vessel canvas keeps no picture between frames (veins-gl.js ownBuf): a reader outside the frame lays it first.)
     capture: () => gl?.capture?.() ?? null,
     /** Whether the lobule is drawn in the stage's own GPU context (the glass and the dive then need no hand-over). */

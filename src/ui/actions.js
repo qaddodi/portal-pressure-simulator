@@ -464,7 +464,7 @@ function buildLobuleCards() {
     const first = part === 'an' ? AN_A : SIN_A;
     cards.set(part, { ...LOBULE_BASE, title: part === 'an' ? 'Sinusoidal anastomosis' : 'Sinusoid', value: lpressure(getP2),
       verbs: [lobuleAbout((m, o) => { o.push(first); if (m.fibSin > 0.1) o.push(SIN_FIB); if (m.congU > 0.1) o.push(SIN_CONG); }),
-        { type: 'button', id: 'sinusoid', label: 'Zoom into the sinusoid', icon: 'explore', run: () => store.set({ sinusoid: true }), note: () => SINUSOID_NOTE },
+        { type: 'button', id: 'sinusoid', label: 'Zoom into the sinusoid', icon: 'explore', run: () => CTX.askSinusoid(), note: () => SINUSOID_NOTE },
         FIB_SIN, CIRRHOSIS, lstat('Into the central vein', centralMm), lstat('Sinusoidal flow', (m, c) => pctOf(c, m.flow))] });
   }
   {

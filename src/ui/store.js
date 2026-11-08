@@ -80,6 +80,31 @@ function wakeSoon() {
   soonKeys.clear();
   wake(keys);
 }
+// The view, said once (implicit-state-machines M6/M7). Four legal states over three store fields: anatomy, circuit, lobule (over the anatomy)
+// and sinusoid (inside the lobule). The fields stay readable for every listener; only the writers go through setViewKey, which writes
+// them in one store.set that is always legal (and only the fields that change, so no listener hears a value it already had).
+export const VIEW_KEYS = Object.freeze(['anatomy', 'circuit', 'lobule', 'sinusoid']);
+export function viewKey(st = state) { return st.lobule ? (st.sinusoid ? 'sinusoid' : 'lobule') : st.view === 'circuit' ? 'circuit' : 'anatomy'; }
+/** The illegal combinations of the three fields (null when legal): the lobule is over the anatomy, the sinusoid is inside the lobule. */
+export function viewIllegal(st = state) {
+  if (st.sinusoid && !st.lobule) return 'sinusoid without the lobule';
+  if (st.lobule && st.view === 'circuit') return 'lobule over the circuit';
+  return null;
+}
+const VIEW_PATCH = {};   // (kept: set() reads the patch's keys at once and does not keep it)
+/** Go to one of the four views with a single, legal store.set. Writes only the fields that change; returns the key. */
+export function setViewKey(k) {
+  if (!VIEW_KEYS.includes(k)) throw new Error(`setViewKey: ${k}`);
+  const lob = k === 'lobule' || k === 'sinusoid', sin = k === 'sinusoid', view = k === 'circuit' ? 'circuit' : 'anatomic';
+  const p = VIEW_PATCH; for (const key in p) delete p[key];
+  // (The order is the old writers': the lobule, then the sinusoid, then the view, so a listener of one hears the others already in place.)
+  let n = 0;
+  if (state.lobule !== lob) { p.lobule = lob; n++; }
+  if (state.sinusoid !== sin) { p.sinusoid = sin; n++; }
+  if (state.view !== view) { p.view = view; n++; }
+  if (n) store.set(p);
+  return k;
+}
 export const store = {
   get: () => state,
   /** Bumped by every set() that changes something besides `frame` (a camera move never sets the store). */

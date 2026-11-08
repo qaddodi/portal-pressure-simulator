@@ -2,7 +2,7 @@
 // chart, so every command lands in the timeline like any other change. A number in the query is
 // the argument: "tips 8", "cirrhosis 60", "albumin 2.5", "+6 months", "narrow portal 80".
 
-import { store, updateParams } from './store.js';
+import { store, updateParams, setViewKey } from './store.js';
 import { h, svgIcon, toast, afterExit, visibleBottom, fadeWhileMore, scrollBehavior } from './util.js';
 import { D_FLIP, EASE_ARRIVE } from './ease.js';
 import { restPass, cancelRest } from './rest-pass.js';
@@ -77,8 +77,8 @@ export function createPalette({ ctx }) {
     add('Time', 'Compare from here', () => ctx.pin(), { kw: 'compare snapshot pin' });
     // View
     for (const [id, [t, d]] of Object.entries(ctx.lenses)) add('View', `Colored by ${t.toLowerCase()}`, () => store.set({ colorMode: id }), { kw: `color colour lens ${d}` });
-    add('View', 'Anatomy view', () => store.set({ view: 'anatomic' }), { kw: 'anatomic' });
-    add('View', 'Circuit view', () => store.set({ view: 'circuit' }), { kw: 'schematic map' });
+    add('View', 'Anatomy view', () => setViewKey('anatomy'), { kw: 'anatomic' });
+    add('View', 'Circuit view', () => setViewKey('circuit'), { kw: 'schematic map' });
     add('View', 'Lobule view', () => ctx.zoomLobule(), { kw: 'microcirculation sinusoid lobule zoom' });
     add('View', 'Tests', () => ctx.instruments(), { kw: 'measure instruments charts dock' });
     // Go to a structure

@@ -7,7 +7,7 @@ import { peelAt, peelRank } from './flow-peel.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
 import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
-import { store } from './store.js';
+import { store, setViewKey } from './store.js';
 import { s, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
 import { recordLayer } from './over-records.js';
 import { lerpVT } from './cam-arc.js';
@@ -1452,6 +1452,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (!lz) return;
     // Turning to the circuit closes the lobule view.
     if (lobuleOn && morphTarget !== 0) { lobuleOn = false; lobU = 0; diveT = 0; diveLand = null; lz.setDive(null); lz.setDiveZoom(1, 0, 0); if (diveAt) setDiveScale(1); { const lab = wrap.querySelector('#labels'); if (lab) lab.style.opacity = ''; labelGL?.check(); } cancelFrame(lobAnim); if (store.get().lobule) store.setSoon(LOBULE_OFF); }
+    else if (diveWait && morphTarget !== 0) { diveWait = 0; diveGen++; if (store.get().lobule) store.setSoon(LOBULE_OFF); }   // (a dive still waiting for its paint is called off, and the store stops saying lobule on the circuit: implicit-state-machines M5)
     const u = morphTarget === 0 ? lobU : 0;
     const wasOpen = lz.isOpen();
     lz.setFade(u);
@@ -1540,7 +1541,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The lobule is a view of its own (Anatomy · Circuit · Lobule): it opens over the figure and closes
   // only from the view switch, never by zooming out. The anatomy underneath keeps its framing.
   function openLobule(tries = 0) {
-    if (morphTarget !== 0) store.set1('view', 'anatomic');
+    if (morphTarget !== 0 && store.get().view !== 'anatomic') store.set1('view', 'anatomic');   // (setViewKey has put it there already)
     // The lobule's code loads after the first paint (lobuleReady): a dive asked for before it is there goes on once it is.
     if (!lz) {
       if (!lzWaiting) {
@@ -1567,7 +1568,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const lobuleNotArrived = (err) => { lzWaiting = false; loadFailed(err); store.set(LOBULE_OFF_BOTH); };
   function closeLobule() { stageScope.clear(lobuleRetryT); setLobule(false); }
   store.on('lobule', (on) => (on ? openLobule() : closeLobule()));
-  const zoomLobule = () => store.set1('lobule', true);
+  const zoomLobule = () => { if (!store.get().lobule) setViewKey('lobule'); };
   // The lobule's layer (the zoom, the sinusoid view under it) is built when its code has arrived, which the stage asks for once the
   // figure is on screen and the page has a moment (prepLobule), or at once when a dive is asked for. It takes the place in the page it
   // always had (the anchor), so the layers stack as they did, and reads the frame and the store as they stand. What a presenter slide
@@ -3327,6 +3328,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       if (lz.focusOn('fit', { ms: 900 })) await wait(900);
       if (me !== sinMoveGen || store.get().sinusoid) return;
       if (store.get().lobule) store.set({ lobule: false });
+    },
+    /** The Sinusoid button: zoom into the sinusoid from the lobule. While the dive into the lobule is still landing the ask is kept in the
+     *  lobule (it carries on at the landing) and the store is not written, so the view says sinusoid once, not true, false, true. askSinusoid(false)
+     *  calls a kept ask off. */
+    askSinusoid(on = true) {
+      if (!on) { lz?.askSinusoid(false); return; }
+      if (!lz?.askSinusoid(true)) setViewKey('sinusoid');
     },
     /** True once the sinusoid view is wholly in. */
     sinusoidOpen: () => !!lz?.sinusoidOpen(),
