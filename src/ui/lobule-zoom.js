@@ -1817,6 +1817,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // again each time, or a fresh one in the settled re-layout that still has a clash, where the first answer must outlive the second.)
   const mkCallOut = () => ({ box: { l: 0, r: 0, t: 0, b: 0 }, lead: [[0, 0], [0, 0]] });   // alloc-rare: once at setup (callOutMain), else only in the settled clash retry (coreFirst), never a frame of a hand's move
   const callOutMain = mkCallOut();
+  const CALL_GAP = 7, CALL_PAD = [10, 10, 4, 5];   // (the leader's gap to the letters, px; the pill's left, right, top and bottom padding, app.css .lz-call)
+  const callInk = { x0: 0, y0: 0, x1: 0, y1: 0, r: 0 };   // (the letters' box, grown by the gap: written again at each placement)
   function placeCall(fr, placed, cards, leads, crosses, ring, hex, keep, into, out) {
     if (!callEl.isConnected) { mount(labels, callEl); mount(leaders, callLine, callRing); }
     // (Not shown until its size is known for its words: placed at a guessed size, it slid sideways once measured, seconds in on a slow renderer.)
@@ -1868,11 +1870,18 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     put(callEl, bx - w / 2, by - hh / 2);
     // The leader starts on the ring's edge (not at its centre) and runs to the pill.
     const dl = Math.hypot(bx - a[0], by - a[1]) || 1, e0 = rr / dl;
-    setGeo(callLine, 'x1', a[0] + (bx - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (by - a[1]) * e0); setGeo(callLine, 'x2', bx); setGeo(callLine, 'y2', by);
+    // The leader stops CALL_GAP short of the word's letters (the pill's padding is not letters), on the side facing the ring, so the line never
+    // runs in under the outlined text ("Resistance sits above the callout line", 8 Nov 2026). It never stops inside the ring.
+    const ink = callInk, gap = CALL_GAP;
+    ink.x0 = bx - w / 2 + CALL_PAD[0] - gap; ink.x1 = bx + w / 2 - CALL_PAD[1] + gap; ink.y0 = by - hh / 2 + CALL_PAD[2] - gap; ink.y1 = by + hh / 2 - CALL_PAD[3] + gap;
+    const le = leaderEnd(ink, a[0], a[1]);
+    let ex = bx, ey = by;
+    if (le) { const k = Math.max(Math.hypot(le.x - a[0], le.y - a[1]), rr) / dl; ex = a[0] + (bx - a[0]) * k; ey = a[1] + (by - a[1]) * k; }
+    setGeo(callLine, 'x1', a[0] + (bx - a[0]) * e0); setGeo(callLine, 'y1', a[1] + (by - a[1]) * e0); setGeo(callLine, 'x2', ex); setGeo(callLine, 'y2', ey);
     setGeo(callRing, 'cx', a[0]); setGeo(callRing, 'cy', a[1]); setGeo(callRing, 'r', rr);
     leadGL.paint();
     const ld = out.lead;
-    ld[0][0] = a[0] + (bx - a[0]) * e0; ld[0][1] = a[1] + (by - a[1]) * e0; ld[1][0] = bx; ld[1][1] = by;
+    ld[0][0] = a[0] + (bx - a[0]) * e0; ld[0][1] = a[1] + (by - a[1]) * e0; ld[1][0] = ex; ld[1][1] = ey;
     return ld;
   }
   // Zone names written in the bands themselves, as the organs are named on the anatomy: quiet capitals in each
