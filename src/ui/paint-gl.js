@@ -11,7 +11,7 @@
 // and a context that is handed one in place of a canvas makes its texture from the record (isGpuPicture), the first time it is drawn.
 // No 2D context, no drawImage and no pixel read anywhere (the owner, 1 Nov 2026: "block everything until everything is on GPU").
 
-import { glGet, glOn, glCap } from './gl-state.js';
+import { glGet, glOn, glCap, fbComplete } from './gl-state.js';
 import { ucOf } from './uniform-cache.js';
 import { cssColor } from './css-color.js';
 import { hold } from './gpu-budget.js';
@@ -741,7 +741,7 @@ export function createPaintGL(gl) {
     // (Perf D4: stencil only. Depth testing is never on here and nothing reads depth, so the 24 bits were 3 bytes a sample for nothing. The
     // framebuffer is checked once; a driver that will not complete it keeps the old depth-stencil format, still on the GPU.)
     stencilTo(msS, TILE, TILE, samples);
-    if (stenOnly && gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) { stenOnly = false; stencilTo(msS, TILE, TILE, samples); }
+    if (stenOnly && !fbComplete(gl, gl.FRAMEBUFFER, 'rgba8+s8', TILE, TILE)) { stenOnly = false; stencilTo(msS, TILE, TILE, samples); }
     const rs = gl.createFramebuffer(), rsT = tex(TILE, TILE);
     gl.bindFramebuffer(gl.FRAMEBUFFER, rs);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rsT, 0);
@@ -788,7 +788,7 @@ export function createPaintGL(gl) {
     stencilTo(aS, W, H);
     if (!shChecked) {   // (checked once, as the tile's is)
       shChecked = true;
-      if (stenOnly && gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) { stenOnly = false; stencilTo(aS, W, H); }
+      if (stenOnly && !fbComplete(gl, gl.FRAMEBUFFER, 'rgba8+s8', W, H)) { stenOnly = false; stencilTo(aS, W, H); }
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, b);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, bT, 0);

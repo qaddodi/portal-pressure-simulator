@@ -141,6 +141,6 @@ test('the tile and the shadow scratch keep a stencil only, never a depth buffer,
   const src = read('../src/ui/paint-gl.js');
   assert.ok(src.includes('gl.STENCIL_INDEX8') && src.includes('gl.STENCIL_ATTACHMENT'), 'stencil-only storage on STENCIL_ATTACHMENT');
   assert.equal((src.match(/gl\.DEPTH24_STENCIL8/g) || []).length, 1, 'the old format only in the one fallback');
-  assert.equal((src.match(/checkFramebufferStatus/g) || []).length, 2, 'checked once for the tile, once for the scratch');
+  assert.equal((src.match(/fbComplete\(gl/g) || []).length, 2, 'checked once for the tile, once for the scratch, through the per-generation verdict');
   assert.ok(!/gl\.enable\(gl\.DEPTH_TEST\)|gl\.depthFunc|gl\.depthMask/.test(src), 'depth testing is never enabled in the painter');
 });
