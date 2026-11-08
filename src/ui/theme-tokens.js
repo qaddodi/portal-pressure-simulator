@@ -114,7 +114,7 @@ export const TOKENS = {
     // rendering: organ lighting, vessel tubes, background plane, circuit map
     'shadow-rgb': '46 22 34', 'shadow-a': '.15', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))',
     'tube-shade': '.24', 'tube-sheen': '.42',
-    'vessel-knock-a': '1',   // the paper gap where vessels of one tier cross (veins-gl.js, visual-style V2): a paper convention, off on the dark looks, where the ground is black and the gap read as a black outline (8 Nov 2026)
+    'vessel-knock-a': '0',   // the paper gap where vessels of one tier cross (veins-gl.js, visual-style V2): PARKED on every look (8 Nov 2026). It cut the lower vessel round the end of one that joins it (hepatic veins into the IVC, branches off a trunk) with a black cap on the dark looks; it needs the joins listed before it comes back
     'vessel-rim-a': '0',   // a dark lumen's light rim (veins-gl.js, visual-style V1): off on the light looks, whose dark casing already edges it
     'organ-cast': 'rgba(80, 44, 40, .15)',
     'tex-a': '.11', 'lit-hi': '.4', 'lit-lo': '.13',

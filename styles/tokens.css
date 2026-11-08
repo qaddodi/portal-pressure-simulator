@@ -268,7 +268,7 @@
   --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .24;
   --tube-sheen: .42;
-  --vessel-knock-a: 1;
+  --vessel-knock-a: 0;
   --vessel-rim-a: 0;
   --organ-cast: rgba(80, 44, 40, .15);
   --tex-a: .11;
