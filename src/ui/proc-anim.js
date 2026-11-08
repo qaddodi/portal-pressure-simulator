@@ -12,6 +12,7 @@ import { ease, cruise, k01, legMs, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS } fr
 import { easeMove, createReversible } from './motion.js';
 import { NODES } from '../engine/topology.js';
 import { hvpgSev } from '../engine/pressure-cuts.js';
+import { tenthGap } from '../engine/gap.js';
 const NODE_I = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const nextFrame = frameFor('proc-anim');
 
@@ -136,6 +137,19 @@ const EUS_SUM = { key: 's', at: 'sum', mid: true, rows: [EUS_ROW_HV, EUS_ROW_PV]
 const EUS_RESULT_CLS = { danger: 'result danger', caution: 'result caution', ok: 'result ok' };
 const NO_MARKS = Object.freeze([]);
 const mmHg = (v) => (Number.isFinite(v) ? v.toFixed(1) : '\u2014');
+// TIPS gradient (below): the catheter all the way in through the stent into the portal trunk (the TIPS leg and the leg over the wire, one
+// speed), the portal pressure read as it settles, the catheter drawn back to the IVC at the hepatic veins, that read, the gradient standing
+// while it waits, then out. The reading's wait is the EUS's (the mean of three).
+const GRAD_T = (() => {
+  const travel1 = 300 + LEG.tips + LEG.tipsOver, pvRead0 = travel1 + 300, pvRead1 = pvRead0 + 2200, pull0 = pvRead1 + 600, pull1 = pull0 + LEG.tips;
+  const ivRead0 = pull1 + 200, ivRead1 = ivRead0 + 2200, res0 = ivRead1 + 300, back = res0 + 3200;
+  return { travel0: 300, travel1, pvRead0, pvRead1, pull0, pull1, ivRead0, ivRead1, res0, back, end: back + 3000 };
+})();
+const GRAD_U_IVC = 0.4;   // (the IVC stretch's place on the route, u, when the stage has not given the route's stops)
+const GRAD_TARGET = 12;   // (mmHg: AASLD 2024, the gradient under which no beta-blocker is needed after a TIPS)
+const GRAD_PV = { key: 'w', at: 'tip', kicker: 'PORTAL VEIN', text: '', unit: 'mmHg', cls: 'pv' };
+const GRAD_IV = { key: 'f', at: 'tip', kicker: 'IVC', text: '', unit: 'mmHg', cls: 'ivc' };
+const GRAD_RES = { key: 'g', at: 'tip', kicker: 'GRADIENT', text: '', unit: 'mmHg', cls: 'result ok' };
 export const MEASURES = {
   eus: {
     name: 'EUS-PPG', label: 'EUS-PPG', measure: true, T: EUS_T,
@@ -178,6 +192,35 @@ export const MEASURES = {
       return out;
     },
     can: () => '', apply: (p) => p, had: () => false, undo: (p) => p, before: {},
+  },
+  // The gradient across the new stent (TIPS step 5; AASLD 2024 p. 1197: no beta-blocker is needed once the portosystemic gradient is under 12 mmHg).
+  // Not EUS: the same transjugular catheter that placed the stent goes on through it into the portal vein and reads the pressure, is drawn back to
+  // the IVC at the hepatic veins (the right atrium's level) and reads again; the gradient is the portal vein less the IVC, the PPG the tiles show
+  // (metrics.pv, metrics.ivc, tenthGap). It changes nothing in the model, so it sits with the readings, not the treatments. It travels the TIPS route.
+  tipsgrad: {
+    name: 'TIPS gradient', label: 'TIPS gradient', measure: true, route: 'tips', ring2: 'var(--tr-ivc)', T: GRAD_T, stops: [GRAD_T.end],
+    markT: [GRAD_T.res0],
+    steps: [
+      ['gradient', 'Gradient', 'The same catheter goes on through the new stent into the portal vein and reads the pressure there. It is drawn back to the IVC at the hepatic veins (the right atrium’s level) and reads again. The portal reading less the IVC reading is the portosystemic gradient: under 12 mmHg means no beta-blocker is needed after the TIPS.', 'Gradient', 'way', 'TIPS', ['RHV', 'RPV'], 0.5],
+    ],
+    // The readings, taken when the result comes: the portal vein's and the IVC's pressure as the tiles show them, and the gradient as they show it.
+    capture(i, rd, f) {
+      const m = f?.metrics;
+      rd.pv = m ? r1(m.pv) : NaN; rd.iv = m ? r1(m.ivc) : NaN; rd.ppg = m ? tenthGap(m.pv, m.ivc, m.ppg) : NaN;
+    },
+    marks: () => NO_MARKS,
+    // The reading beside the catheter's tip: the portal vein's as it settles, then the IVC's, then the gradient, which stands while the catheter waits there and goes as it comes out.
+    labels(t, rd, f, out) {
+      out.length = 0;
+      const T = GRAD_T, m = f?.metrics;
+      if (t >= T.back) return out;
+      if (t >= T.res0 && Number.isFinite(rd.ppg)) {
+        GRAD_RES.text = mmHg(rd.ppg); GRAD_RES.cls = rd.ppg < GRAD_TARGET ? 'result ok' : 'result caution'; out.push(GRAD_RES);
+      } else if (t >= T.ivRead0 && t < T.res0) { GRAD_IV.text = mmHg(m ? r1(m.ivc) : NaN); out.push(GRAD_IV); }
+      else if (t >= T.pvRead0 && t < T.pull0) { GRAD_PV.text = mmHg(m ? r1(m.pv) : NaN); out.push(GRAD_PV); }
+      return out;
+    },
+    can: (p) => (p.tips?.on ? '' : 'There is no TIPS yet to measure through.'), apply: (p) => p, had: () => false, undo: (p) => p, before: {},
   },
 };
 // A bypass graft is a surgical procedure: no catheter, no route to follow. The graft itself is the thing played (the Meso-Rex bypass:
@@ -287,7 +330,7 @@ export function procKindOf(proc) {
 /** A procedure's, a measurement's, a graft's or an endoscopic treatment's definition. */
 export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || ENDO[kind] || PLUGS[kind] || null;
 // The readings each kind's last run took (its callouts and its card read them): { pv, hv, ppg } for EUS-PPG.
-export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN } };
+export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN }, tipsgrad: { pv: NaN, iv: NaN, ppg: NaN } };
 // (No params at all: the checks below only read, so one empty record stands in, not a new one each call.)
 const NO_PARAMS = Object.freeze({});
 // (A callout names no stations: one empty list, never written to.)
@@ -351,6 +394,7 @@ export function procFrame(kind, t, stops = null, into = null) {
   const opacity = 1 - k01(t, T.end - 800, T.end);
   const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
   if (kind === 'eus') return eusFrame(T, t, back, opacity, step, shot, into || {});
+  if (kind === 'tipsgrad') return gradFrame(T, t, back, opacity, step, shot, stops, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
   if (kind === 'eusglue') return glueFrame(T, t, back, opacity, step, shot, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
   if (P.graft) {
     const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
@@ -378,6 +422,20 @@ export function procFrame(kind, t, stops = null, into = null) {
   const column = ease(k01(t, T.fill0, T.fill1)) * (1 - ease(k01(t, T.fillOut, T.deflate)));
   const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
   f.u = u; f.balloon = balloon; f.column = column; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
+  return f;
+}
+
+/**
+ * The TIPS gradient at t ms (pure): u, how far in the catheter is (0..1 of the TIPS route's way to its trunk, the stent crossed): in to the
+ * portal trunk, then drawn back to the IVC at the hepatic veins (the end of the route's IVC stretch, a little short of it), then out; read,
+ * 1 or 2 while the manometer reads the portal vein or the IVC (the tip's ripples). Nothing else is out: no needle, no wire, no balloon.
+ */
+function gradFrame(T, t, back, opacity, step, shot, stops, f) {
+  const iv = stops?.IVC_IS, uIV = iv ? iv[0] + (iv[1] - iv[0]) * 0.8 : GRAD_U_IVC;
+  const inward = cruise(k01(t, T.travel0, T.travel1)), pull = cruise(k01(t, T.pull0, T.pull1));
+  f.u = (t < T.pull0 ? inward : 1 + (uIV - 1) * pull) * (1 - back);
+  f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = t >= T.back ? '' : shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0;   // (no shot once it comes out: the view stops following the tip and waits to go home)
+  f.read = t >= T.pvRead0 && t < T.pvRead1 ? 1 : t >= T.ivRead0 && t < T.ivRead1 ? 2 : 0;
   return f;
 }
 
@@ -438,13 +496,13 @@ const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;   // motion-scale: own 
  */
 export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null, read = null } = {}) {
   const P = specOf(kind), T = P.T, n = P.stops.length, rd = READS[kind];
-  if (rd) { rd.pv = NaN; rd.hv = NaN; rd.ppg = NaN; }
+  if (rd) for (const k in rd) rd[k] = NaN;
   runs++;
   let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = P.stops[at];
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
   const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0, coil: 0 };
-  const cat = { route: kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  const cat = { route: P.route || kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
   // (The procedure's clock, in ms of the sequence, 1 ms a ms forward and BACK_SPEED back: a reversible clock, so Back or Next while a step is still
   // moving slows the catheter and turns it round over D_FLIP, never in one frame. It lands exactly on each stop; the steps hold there.)
   const clock = createReversible({ ms: 1, min: 0, max: T.end, land: false, x: 0 });
@@ -466,7 +524,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     }
     // (The view follows the tip in on the first step, once its shot has landed; a measurement's, its work as well.)
     cat.u = f.u; cat.needle = f.needle; cat.wire = f.wire; cat.flash = f.flash; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
-    cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; cat.coil = f.coil || 0; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? 'var(--tr-hv)' : null;
+    cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; cat.coil = f.coil || 0; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? (P.ring2 || 'var(--tr-hv)') : null;
     if (P.labels) P.labels(t, rd, read?.(), cat.labels);
     // (A measurement's scope is followed at its work too, from one station to the next: its shot names which, 'way' or 'tip'.)
     // (BRTO and BATO's 'fill': the view follows the sclerosant's front.)

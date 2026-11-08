@@ -3307,6 +3307,7 @@ button.finding { cursor: pointer; }
 .cath-label b + span { color: var(--text-3); font-size: 12px; font-weight: 600; margin-top: -2px; }
 .cath-label.free { --c: var(--tr-hv); }
 .cath-label.wedge { --c: var(--tr-wedge); } .cath-label.pv { --c: var(--tr-pv); }   /* (pv: EUS-PPG's portal vein reading) */
+.cath-label.ivc { --c: var(--tr-ivc); }   /* (ivc: the TIPS gradient's IVC reading) */
 .cath-label.ghost { --lo: .5; }
 /* The presenter's measuring sites (PPG: portal vein and IVC), in the tracing colours; one off the free space waits hidden. */
 .cath-label.site { transition: scale var(--d-surface) var(--ease) .35s, translate var(--d-surface) var(--ease); } .cath-label.site::before, .cath-label.site > * { transition: opacity var(--d-surface) var(--ease) .35s; }
