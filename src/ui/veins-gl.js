@@ -1147,8 +1147,9 @@ uniform float pxW;                     // world units per device pixel
 // The circuit's map, under everything (2 Nov 2026, the figure's SVG model as data): the dot grid running on past the figure and fading
 // out in steps, the two tinted pressure zones and a slide's lit zone (mapAt). mapA: its opacity (the morph's t; 0 draws and reads none).
 uniform float mapA;
-uniform vec4 mapDot, mapZone, mapFx;   // straight rgb and alpha: the grid's dots, a tinted zone, the lit zone (its fade in the alpha)
-uniform vec4 mapAlt;                   // the two tinted zones' x spans (world)
+uniform vec4 mapDot, mapFx;            // straight rgb and alpha: the grid's dots, the lit zone (its fade in the alpha)
+uniform vec4 mapZone[3];               // straight rgb and alpha of the three tinted zones, before the liver, the liver, after it (the chart's own zone bands)
+uniform vec4 mapAlt;                   // the portal veins' and the hepatic veins' x spans (world); the liver's lies between them
 uniform vec2 mapFxX;                   // the lit zone's x span
 uniform vec4 mapRot;                   // cos, sin of the map's turn from the vessels' (it turns upright at once, never with the morph), its centre
 uniform int blood;                     // 1: draw the blood
@@ -1228,8 +1229,12 @@ vec4 mapAt(vec2 w) {
   }
   float iy = clamp(min(w.y - 40.0, 730.0 - w.y) / pxW + 0.5, 0.0, 1.0);
   if (iy > 0.0) {
-    float z = max(clamp(min(w.x - mapAlt.x, mapAlt.y - w.x) / pxW + 0.5, 0.0, 1.0), clamp(min(w.x - mapAlt.z, mapAlt.w - w.x) / pxW + 0.5, 0.0, 1.0)) * iy * mapZone.a;
-    c = over(vec4(mapZone.rgb * z, z), c);
+    float zp = clamp(min(w.x - mapAlt.x, mapAlt.y - w.x) / pxW + 0.5, 0.0, 1.0) * iy * mapZone[0].a;
+    float zl = clamp(min(w.x - mapAlt.y, mapAlt.z - w.x) / pxW + 0.5, 0.0, 1.0) * iy * mapZone[1].a;
+    float zh = clamp(min(w.x - mapAlt.z, mapAlt.w - w.x) / pxW + 0.5, 0.0, 1.0) * iy * mapZone[2].a;
+    c = over(vec4(mapZone[0].rgb * zp, zp), c);
+    c = over(vec4(mapZone[1].rgb * zl, zl), c);
+    c = over(vec4(mapZone[2].rgb * zh, zh), c);
     float f = clamp(min(w.x - mapFxX.x, mapFxX.y - w.x) / pxW + 0.5, 0.0, 1.0) * iy * mapFx.a;
     c = over(vec4(mapFx.rgb * f, f), c);
   }
@@ -2666,7 +2671,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // as drawn, as a pixel with no lumen is. `moved`: the rows changed since the last picture drawn (every setter marks the rows it
   // changes; movedAll: assume all did); stillSig: that picture's uniforms (sigOf).
   const moved = new Uint8Array(nTubes), movedUp = new Float32Array(nTubes * 4).fill(-1);
-  let movedAll = true, stillSig = null, sigNow = new Float64Array(320), texVer = 0, dyeSent = null;
+  let movedAll = true, stillSig = null, sigNow = new Float64Array(384), texVer = 0, dyeSent = null;
   let sn = 0, stillN = 0;
   // (One value at a time, taken in the order they were listed: a rest list made an array for each call.)
   const sg = (v) => {
@@ -4593,7 +4598,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         UC.i1(U.noChevN, ncN);
         UC.fv4(U.chevHole, hb); UC.fv1(U.chevHoleR, hr); UC.i1(U.chevHoleN, hoN);
         UC.f1(U.mapA, map ? map.a : 0);
-        if (map) { UC.f4a(U.mapDot, map.dot); UC.f4a(U.mapZone, map.zone); UC.f4a(U.mapFx, map.fx); UC.f4a(U.mapAlt, map.alt); UC.f2a(U.mapFxX, map.fxX); UC.f4a(U.mapRot, map.rot); }
+        if (map) { UC.f4a(U.mapDot, map.dot); UC.fv4(U.mapZone, map.zone); UC.f4a(U.mapFx, map.fx); UC.f4a(U.mapAlt, map.alt); UC.f2a(U.mapFxX, map.fxX); UC.f4a(U.mapRot, map.rot); }
       }
       const U = prg.u;
       // The still lumens (see moved): only in the blood's own pass, with no bleed (whose spray and pool move with

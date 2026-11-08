@@ -840,9 +840,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Circuit view: quiet bands for each pressure zone (captioned by the label layer), over a grid of dots that runs on past the figure in
   // every direction and fades out in steps, and a slide's lit zone (deck visuals V25, ext-callouts.js: zone), lit softly. All drawn by the
   // GPU from these numbers (veins-gl.js mapAt, under the organs; 2 Nov 2026, the figure's SVG model as data): no element, pattern or
-  // layer. a: the morph's t (the grid fades with it); the colours from the theme (syncMapInk: --map-dot, --text at .028 for the two
+  // layer. a: the morph's t (the grid fades with it); the colours from the theme (syncMapInk: --map-dot, the chart's three zone bands for the
   // tinted zones, --accent at .09 for the lit one); rot: its turn from the vessels' (mapTurn); fx: the lit zone's fade (stepMap).
-  const MAP = { a: 0, dot: [0, 0, 0, 0], zone: [0, 0, 0, 0], fx: [0, 0, 0, 0], alt: [0, 0, 0, 0], fxX: [0, 0], rot: [1, 0, 0, 0], fxOn: false, fxU: 0, fxCol: [0, 0, 0] };
+  const MAP = { a: 0, dot: [0, 0, 0, 0], zone: new Float32Array(12), fx: [0, 0, 0, 0], alt: [0, 0, 0, 0], fxX: [0, 0], rot: [1, 0, 0, 0], fxOn: false, fxU: 0, fxCol: [0, 0, 0] };
   CIRCUIT_ZONES.filter((z, i) => i % 2).forEach(([, x0, x1], j) => { MAP.alt[2 * j] = x0; MAP.alt[2 * j + 1] = x1; });
 
   // Each organ is drawn as a medical plate draws it, lit from the upper left:
@@ -1125,12 +1125,15 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The map's and the dots' colours from the theme (with the vessels' look: syncVeins), each read once per sync.
   let mapWake = false;
+  const ZONE_BAND = ['--chart-pre-band', '--chart-liver-band', '--chart-post-band'];
   function syncMapInk(cs) {
     const d = cssColor8(cs.getPropertyValue('--map-dot').trim() || 'transparent');
     for (let i = 0; i < 4; i++) MAP.dot[i] = d[i];
     const tx = toRGB('var(--text)', cs), ac = toRGB('var(--accent)', cs), bg = toRGB('var(--stage-bg)', cs);
-    for (let i = 0; i < 3; i++) { MAP.zone[i] = tx[i]; MAP.fx[i] = ac[i]; }
-    MAP.zone[3] = 0.028; MAP.fx[3] = 0.09 * easeArrive(MAP.fxU);
+    for (let i = 0; i < 3; i++) MAP.fx[i] = ac[i];
+    // (The tinted zones are the pressure profile's own bands, so the map and the ladder speak one zone language: before the liver, the liver, after it. V5.)
+    for (let j = 0; j < 3; j++) { const z = cssColor8(cs.getPropertyValue(ZONE_BAND[j]).trim() || 'transparent'); for (let i = 0; i < 4; i++) MAP.zone[4 * j + i] = z[i]; }
+    MAP.fx[3] = 0.09 * easeArrive(MAP.fxU);
     for (let i = 0; i < 3; i++) if (nd.fill[i] !== bg[i] || nd.ring[i] !== tx[i]) { nd.fill[i] = bg[i]; nd.ring[i] = tx[i]; nd.dirty = true; }
   }
   // The lit zone's fade (in on the arrive ease, out the same way) and each dot's (the move ease), a surface step each, on the frame's time.

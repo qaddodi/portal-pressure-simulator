@@ -69,7 +69,7 @@ let waveNow = null;   // the model's clock for the frame being drawn (syncWave),
 const pAt = (tt, v) => pressureAt(tt, v, waveNow);
 const Y = (p) => axBot - (clamp(p, 0, axMax) / axMax) * (axBot - axTop);
 const X = (tt) => axL + k01(tt, T.free - 300, T.back) * (axR - axL);
-const DASH = [4, 4];
+const DASH = [4, 4], WEDGE_DASH = [7, 4];   // (the wedged trace's own dashes, CSS px along the trace)
 const SHOT_NEAR = { near: true }, SHOT_FAR = { near: false };   // (cathFocus's options, made once: only the route shot keeps the view near the tip)
 const HEADS = ['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'];
 const NOTE_PROBE = ['Probing the ostium: the vein will not take the catheter.', 'The vein will not take the catheter.'];
@@ -473,7 +473,7 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running, wave }) {
   // The trace, swept up to now: blue while free, orchid once the balloon is up.
   const tNow = Math.min(t, T.back);
   seg(ctx, T.free - 300, T.inflate, C.free, tNow, v);
-  seg(ctx, T.inflate, T.back, C.wedge, tNow, v);
+  seg(ctx, T.inflate, T.back, C.wedge, tNow, v, WEDGE_DASH);   // (the wedged trace dashed, its hue kept: C4, it was the portal's neighbour in hue)
   if (t < T.back) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(pAt(tNow, v)), 2.6, 0, Math.PI * 2); ctx.fill(); }
   // (Each level's name and number at the right, centred on its line; the two pairs kept 28 px apart so they never touch.)
   const both = ph === 'result', sep = both ? Math.max(0, 28 * HK - (Y(v.fhvp) - Y(v.whvp))) / 2 : 0;
@@ -512,16 +512,17 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running, wave }) {
 }
 
 // The trace from a to b (ms on the procedure's clock), swept as far as tNow. (Drawn with the axes traceOn set: Y, X.)
-function seg(ctx, a, b, colr, tNow, v) {
+function seg(ctx, a, b, colr, tNow, v, dash) {
   if (tNow <= a) return;
   // (Laid as small round boxes along the trace, not one stroked line: a stroke is drawn through the GPU's coverage target and the tracing came
   // up with no line on a phone while its dot, words and axes drew. A box draws wherever the dot does.)
   ctx.fillStyle = colr; ctx.beginPath();
-  let px = 0, py = 0, have = false;
+  let px = 0, py = 0, have = false, run = 0;
   const end = Math.min(b, tNow);
   for (let tt = a; tt <= end + 15; tt += 30) {
     const t2 = Math.min(tt, end), X1 = X(t2), Y1 = Y(pAt(t2, v));
-    if (have) inkSeg(ctx, px, py, X1, Y1, 2); else inkSeg(ctx, X1, Y1, X1, Y1, 2);
+    // (A dashed trace: the dash is measured along the trace from its start, so it stays put as the sweep reveals more of it.)
+    if (have) { if (!dash || run % (dash[0] + dash[1]) < dash[0]) inkSeg(ctx, px, py, X1, Y1, 2); run += Math.hypot(X1 - px, Y1 - py); } else inkSeg(ctx, X1, Y1, X1, Y1, 2);
     px = X1; py = Y1; have = true;
     if (t2 >= end) break;
   }

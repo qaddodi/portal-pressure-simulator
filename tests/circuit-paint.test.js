@@ -20,10 +20,11 @@ test('the map grid is drawn by the GPU, fading by its frames\' dot alpha, with n
   assert.match(veins, /const map = look\.map && look\.map\.a > 0 \? look\.map : null;/);
 });
 
-test('the map\'s colours are the theme\'s: dots --map-dot, two zones --text at .028, the lit zone --accent at .09 eased', () => {
+test('the map\'s colours are the theme\'s: dots --map-dot, the three zones the profile ladder\'s own bands (--chart-pre-band, --chart-liver-band, --chart-post-band), the lit zone --accent at .09 eased', () => {
   assert.match(stage, /cssColor8\(cs\.getPropertyValue\('--map-dot'\)/);
-  assert.match(stage, /MAP\.zone\[3\] = 0\.028; MAP\.fx\[3\] = 0\.09 \* easeArrive\(MAP\.fxU\);/);
-  assert.match(stage, /CIRCUIT_ZONES\.filter\(\(z, i\) => i % 2\)/, 'every other band tinted, as before');
+  assert.match(stage, /ZONE_BAND = \['--chart-pre-band', '--chart-liver-band', '--chart-post-band'\]/);
+  assert.match(stage, /MAP\.fx\[3\] = 0\.09 \* easeArrive\(MAP\.fxU\);/);
+  assert.match(stage, /CIRCUIT_ZONES\.filter\(\(z, i\) => i % 2\)/, 'the portal and hepatic veins\' spans are the map\'s alt spans, the liver\'s lies between them');
   assert.doesNotMatch(css, /map-accent/, 'no token that is defined nowhere (the dots had gone black, 1 Nov)');
 });
 

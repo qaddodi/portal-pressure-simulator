@@ -59,7 +59,7 @@ const nice = (span, n = 4) => { const raw = Math.max(1e-6, span / n); const p = 
 
 // Kept once, for every frame (nothing below is made in a frame: gpu-practices.md, "no allocation in a frame"). Dashes are handed to the pen,
 // which copies them; the words are tables made here, at load, so a frame reads a string instead of building one.
-const DASH_NONE = [], DASH_PORTAL = [6, 4], DASH_BEFORE = [0.1, 4.5], DASH_LIMIT = [3, 4], DASH_MARK = [2, 3], DASH_SWATCH = [4, 3];
+const DASH_NONE = [], DASH_PORTAL = [6, 4], DASH_BEFORE = [0.1, 4.5], DASH_LIMIT = [3, 4], DASH_MARK = [2, 3], DASH_SWATCH = [4, 3], DASH_WEDGE = [7, 5];
 const TICK_CHOICES = [5, 10, 20, 25, 50];
 const HVPG_KEYS = ['hvpg'];
 const RANGE_SPAN = Object.fromEntries(RANGES.map((r) => [r[0], r[2]]));   // (seconds on screen; null: the days)
@@ -1036,7 +1036,9 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
           if (s.x.length < 1) continue;
           const c = cssVar(t.c);
           if (s.lo) band(ctx, s, c, 0.16);
-          line(ctx, s, c, t.id === 'CONF' ? 2 : 1.75, plotW);
+          // (The wedged trace is dashed, its hue kept: it is ~35° from the portal's at similar lightness, C4.)
+          if (t.id === 'whvp') { ctx.setLineDash(DASH_WEDGE); line(ctx, s, c, 1.75, plotW); ctx.setLineDash(DASH_NONE); }
+          else line(ctx, s, c, t.id === 'CONF' ? 2 : 1.75, plotW);
           if (range === 'days' && s.x.length < 60) dots(ctx, s, c, panel);
           const e = range === 'days' ? recent(s) : (slide && Number.isFinite(endOf(t.id)) ? endOf(t.id) : liveEnd(t, frame.metrics)) ?? recent(s); pushEnd(Y(range !== 'days' && slide && Number.isFinite(recent(s)) ? recent(s) : e), e, undefined, t.abbr, c, lane);   // (on a slide, written at the line's end, its steady number; the live readings, so wedged − free is the header's HVPG)
         }

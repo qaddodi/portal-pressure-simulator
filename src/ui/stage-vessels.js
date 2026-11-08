@@ -671,6 +671,9 @@ export function createVessels(st, live) {
   // The colour pass's frame (syncVeinsNow sets these, colPass reads them; nothing is made per frame).
   let cpItems = null, cpCs = null, cpT0 = 0, cpNow = 0, cpArtery = null, cpOrigin = false, cpIvcOn = false, cpDt = 0;
   const NEUTRAL = 'var(--lens-neutral)', FAN_FR = [0.7, 0.4];
+  // A vessel gets its light line (F_SPEC) from this drawn width (x.width, px at the default fit): between 3.4 and about 5 the light line, the dark line and the rim together
+  // covered most of the lumen and a thin vessel read striped (V4, visual-style review).
+  const SPEC_MIN_W = 6;
   const cpRgb = (c) => toRGB(c, cpCs);
   const cpMixA = [0, 0, 0], cpMixB = [0, 0, 0], cpFade = new Float64Array(8);
   const mix3To = (out, a, b, k) => { out[0] = a[0] + (b[0] - a[0]) * k; out[1] = a[1] + (b[1] - a[1]) * k; out[2] = a[2] + (b[2] - a[2]) * k; return out; };
@@ -725,7 +728,7 @@ export function createVessels(st, live) {
       if (x.back || tier >= TIER_LIFT) alpha *= live.netA + (1 - live.netA) * easeInOut(Math.max(vh.selA.get(id) || 0, ra ? vh.selA.get(ra.e.id) || 0 : 0));
       const shade = (!x.isArt || x.tube) && !ghost;
       const veil = IVC_EDGES.has(id) && !ivcOn, whole = IVC_EDGES.has(id) && ivcOn;
-      const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= 3.4;
+      const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= SPEC_MIN_W;
       const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
@@ -907,7 +910,8 @@ export function createVessels(st, live) {
     // mapped its colours, mixed them into new arrays and kept them in a new Map every frame; now the numbers go straight into
     // tubeData and into kept colour pairs, colPass below, in the same arithmetic.)
     cpT0 = easeInOut(live.morph); cpNow = performance.now(); cpCs = cs;
-    cpArtery = toRGB('var(--artery)', cs);
+    // (The Change and Heat lenses draw their "higher" in red, ΔE 3 from --artery: there the arteries step back to the lens's neutral grey, C4.)
+    cpArtery = toRGB(mode === 'delta' || mode === 'heat' ? 'var(--lens-neutral)' : 'var(--artery)', cs);
     cpOrigin = live.originOn();
     const T0 = cpT0;
     tubeData.fill(0);
@@ -965,7 +969,7 @@ export function createVessels(st, live) {
     gm.plate = live.veins.hasPlate(0); gm.cls = wrapCls(); gm.bits = glowBits(items, 0); gm.reach = live.vLook.reach;
     gm.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
     gm.wide.length = items.length;   // (the sheen's width: syncRadiiOnly)
-    for (let q = 0; q < items.length; q++) gm.wide[q] = items[q].x.width >= 3.4;
+    for (let q = 0; q < items.length; q++) gm.wide[q] = items[q].x.width >= SPEC_MIN_W;
     live.glowMemo = gm;
     // The SVG organs just hid for the GPU plate: draw it now, so no frame shows neither.
     if (!plateWas && live.plateOn()) drawVeins(false, 'plate shown');
