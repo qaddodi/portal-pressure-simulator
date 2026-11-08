@@ -6278,11 +6278,8 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
    pushed its box 70 % past the track's end. That reached the card's scroll width, the card's fit read it as overflow and drew every
    phone instrument card at half size: Beat by beat's trace and the scope squat and tiny. Clipped sideways only, the dot still overhangs
    the track above and below; it is clamped 6 px inside the ends, so only its 2 px halo can meet the clip at the very end of a scale.) */
-/* (A change of slide eases the marks' translate and the link's scale on the compositor over the count's own --tile-ms: presenter.js
-   tileGlide.) */
-.tglide { --tile-ms: 950ms; }
-.tglide :is(.pzb-now, .pzb-was) { transition: translate var(--tile-ms) var(--ease-move) /*own pace*/; }
-.tglide .pzb-link { transition: translate var(--tile-ms) var(--ease-move) /*own pace*/, scale var(--tile-ms) var(--ease-move) /*own pace*/; }
+/* (The marks' translate and the link's translate and scale have no transition: presenter.js bigTiles paints them in each display frame from the
+   page's shown state, the same follower as the tile's number (tile-shown.js, recs 15), so a number and its bar arrive together.) */
 .pzb-zs { position: absolute; inset: 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--text) 8%, transparent); }
 .pzb-z { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--text-3) 30%, transparent); transition: none; }
 .pzb-z[data-rate="ok"] { background: color-mix(in srgb, var(--ok) 60%, transparent); }

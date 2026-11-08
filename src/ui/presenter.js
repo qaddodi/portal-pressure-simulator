@@ -17,7 +17,7 @@ import { store, replaceParams } from './store.js';
 import { download } from './download.js';
 import { controlOwnsKey } from './key-owner.js';
 import { glWords } from './gl-words.js';
-import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoSwap, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged } from './util.js';
+import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged } from './util.js';
 import { titleParts } from './title-units.js';
 import { liveText, wordsOf } from './live-text.js';
 import { swipeDir, SWIPE_MIN, SWIPE_RATIO, ownsSideways, ownsTouch, cardSwipe, caseFling, caseFlight, wheelFinger, wheelGesture, ownsWheel } from './swipe.js';
@@ -75,6 +75,8 @@ import { tileKeys as cardKeys, toolOnly } from './card-tiles.js';
 import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, RISE_PX, cssCurve, easeIn, easeArrive } from './ease.js';
 import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './script-glide.js';
 import { signalMove } from './num-move.js';
+import { shownState as pageShown } from './shown.js';
+import { createTileShown, tileSmall } from './tile-shown.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
 import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, RAIL_GAP, RAIL_MS, easeRail } from './card-throw.js';
@@ -527,7 +529,7 @@ const tileVal = (k, v) => (v == null ? '—' : fmt(v * (tileOf(k)?.x ?? 1), tile
 const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf || fr.Q, D: fr.D, params: store.get().params });
 
 // A value counts from where it was to where it goes (eased, about a second); reduced motion jumps.
-// (Tiles glide on the compositor: see tileGlide, on the travelling curve.)
+// (Tiles' numbers and bar marks follow the page's shown state: see tileGlide.)
 // (A touch's history of points, [x or time, time or distance] pairs the drags read the last 100 ms of: kept pairs are written in place. A pair that
 // falls out of a window, or past PT_MAX points, is the next point's, so a drag allocates only for its first points.)
 const PT_FREE = [], PT_MAX = 48;
@@ -537,8 +539,8 @@ const ptPush = (pts, a, b) => { if (pts.length >= PT_MAX) PT_FREE.push(pts.shift
 // R19: a live model frame never writes the tiles while their card moves (a slide's slide or fold): the newest is kept and written
 // once the card is still. A slide's own paint (its arrival, a new set of tiles) is never held.
 // R19: a tile's changing number is drawn on the GPU (gl-words.js: Inter's outlines over the tile's own words, which are made clear and
-// take the number back once it holds still), not written into the page on each model frame. A slide's count still rolls its digits
-// on the compositor (tileGlide), written into the page as it starts.
+// take the number back once it holds still), not written into the page on each model frame. A slide's count follows the page's shown state
+// (tileGlide), its number and bar mark painted from one follower in each display frame.
 // (A record's fields set to another's, in place: the keys it lacks are let go, so it ends equal to `src`, as a fresh copy would, with none made.)
 function copyKeys(dst, src) {
   for (const k in dst) if (!(k in src)) delete dst[k];
@@ -662,15 +664,16 @@ function railBlock() {
 function bigTiles() {
   const el = h('div', { class: 'pz-tiles' });
   const head = h('span', { class: 'pz-hr', 'data-n': '0' });   // (the same readings, numbers only, for an instrument card's header row)
-  let sig = '', parts = [], draw = null, goal = false, tileArgs = null, tileAsk = 0, picT = null, tileRO = null, dead = false;
+  let sig = '', parts = [], draw = null, goal = false, tileArgs = null, tileAsk = 0, picT = null, tileRO = null, dead = false, stopShown = null;
   // (The newest paintTiles call's seven arguments, kept in one array written in place: a what-if drag calls it every frame. The paint, a task
   // between frames, reads them; one pass is asked for however many calls land before it.)
   const paintAsk = () => { tileAsk = 0; const a = tileArgs; if (a) paintTilesNow(a[0], a[1], a[2], a[3], a[4], a[5], a[6]); };
   // (R19: a tile's number as shown, and set: through its GPU words while the model ticks, into the page at once (now) while a slide's
   // roll is set up or the fit measures.)
-  let sync = false;
+  // (Its value, bar mark and start ring follow the page's shown state, tile-shown.js: painted from what is shown, in the frames while one is on the way.)
+  const ts = createTileShown(pageShown);
   const vText = (p) => (p.vw ? p.vw.text : p.v.textContent);
-  const vSet = (p, t) => { if (!p.vw) setT(p.v, t); else if (sync) p.vw.now(t); else p.vw.set(t); };
+  const vSet = (p, t) => { if (!p.vw) setT(p.v, t); else p.vw.set(t); };
   // After TIPS the PPG is read against its target (below 12 mmHg), so a tile never says "High" under a line that
   // says the target is reached.
   const rated = (k, f) => (goal && k === 'ppg' && f.ppg != null ? tipsGoal(f.ppg) : rateOf(k, f));
@@ -707,12 +710,11 @@ function bigTiles() {
   let fitRaf = 0, fitShape = '';
   const fitSoon = () => { if (dead) return; cancelRest(fitRaf); fitRaf = restPass(fit); };   // (measured between frames, never in one: rest-pass.js)
   if (typeof ResizeObserver !== 'undefined') (tileRO = new ResizeObserver(fitSoon)).observe(el);
-  el.classList.toggle('tglide', odoOn());   // (the bar's marks glide on the compositor: tileGlide)
   document.fonts?.ready?.then(fitSoon);
   function buildTiles(ks, withRef) {
     if (dead) return;
     picT?.stop(); picT = null;
-    for (const p of parts || []) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); }   // (recs §8: the tiles they wrote are replaced; their GPU words and scope picture go with them)
+    for (const p of parts || []) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); ts.drop(p.k); }   // (recs §8: the tiles they wrote are replaced; their GPU words, scope picture and followers go with them)
     parts = ks.map((k) => {
       const T = tileOf(k) || { t: k, s: '', u: '' };
       const v = h('span', { class: 'pzt-v' }), u = h('small', {}, T.u), r = h('span', { class: 'pzt-r' });
@@ -736,7 +738,7 @@ function bigTiles() {
       // its own GPU words, in the rating's ink with the label look's outline (halo); the rating is the item's data-rate, written with the tile's.)
       const hv = h('b', {}), hu = h('small', {}), hi = pic ? null : h('span', { class: 'pz-hi', 'data-rate': 'plain' }, h('span', { class: 'pz-hk' }, T.n || T.t), hv, hu);
       const hw = hi ? glWords(hv, { halo: true, keep: true }) : null;   // (kept: the GPU number stays up, no hand-over to the page's text, as the Doppler numbers)
-      return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic, hi, hv, hu, hw };
+      return { k, T, tile, v, vw, u, r, d, S, bands, zs, link, was, now, zr: '', pic, hi, hv, hu, hw, sm: tileSmall(T, S), none: false, hasRef: false, sv: NaN, sr: NaN };
     });
     el.replaceChildren(...parts.map((p) => p.tile));
     head.replaceChildren(...parts.filter((p) => p.hi).map((p) => p.hi));
@@ -747,20 +749,55 @@ function bigTiles() {
     // count wrote each tile's text on every frame); only the endoscopic view, a GPU picture, follows its value through the ease.)
     picT = parts.some((p) => p.pic) ? tweener((f) => parts.forEach((p) => { if (p.pic) p.pic.set(f.varix); })) : null;
     let cur = null;
-    draw = { has: () => !!cur, jump: (to) => { cur = { ...to }; write(cur); }, go: (to, ms) => { draw.jump(to); picT?.(to, ms); } };
-    const write = (f) => parts.forEach((p) => {
+    draw = { has: () => !!cur, jump: (to) => { cur = { ...to }; write(cur); }, glide: (to) => { cur = { ...to }; write(cur, true); }, go: (to, ms) => { draw.jump(to); picT?.(to, ms); } };
+    // (A tile's number and bar mark from the value shown now, v (the model's units): painted by a write at once, and by paintShown in each display
+    // frame while the follower is on the way. Always .set on a header reading, never .now: a kept GPU number is redrawn by set alone.)
+    const putNum = (p, v) => {
+      const hs = p.none ? '—' : tileVal(p.k, v);
+      vSet(p, hs);
+      if (p.hi) { if (!p.hw) setT(p.hv, hs); else p.hw.set(hs); }
+    };
+    const putBar = (p, v, v0) => {
+      if (!p.S) return;
+      const on = p.on, w = on ? at(p.k, v) : 0;
+      // (The marks stay whole inside the track: a value past either end of the scale, as platelets of 380 on a bar
+      // that stops at 300, rests against that end instead of running half off it. Sweep, 16 Oct.)
+      if (p.now._w !== w) { p.now._w = w; p.now.style.translate = `clamp(6px, ${w}%, calc(100% - 6px)) 0`; }   // (written only when it moves; a transform: the mark is the track's width, app.css)
+      if (p.was) {
+        const ok = p.hasRef, w0 = ok ? at(p.k, v0) : 0;
+        if (p.was._w !== w0) { p.was._w = w0; p.was.style.translate = `clamp(4.5px, ${w0}%, calc(100% - 4.5px)) 0`; }
+        if (p.link._w !== w || p.link._w0 !== w0) { p.link._w = w; p.link._w0 = w0; p.link.style.translate = `${Math.min(w, w0)}% 0`; p.link.style.scale = `${(Math.abs(w - w0) / 100).toFixed(4)} 1`; }
+      }
+    };
+    // (Each display frame while a tile's follower is on the way: the number and the marks from what is shown, the same filter as the dock's bars.)
+    const paintShown = () => {
+      for (const p of parts) {
+        if (p.pic || !p.on) continue;
+        const v = ts.get(p.k, p.sv), v0 = p.hasRef ? ts.get(p.k, p.sr, true) : p.sr;
+        if (v === p.sv && v0 === p.sr) continue;
+        p.sv = v; p.sr = v0;
+        putNum(p, v); putBar(p, v, v0);
+      }
+    };
+    stopShown?.();
+    stopShown = ts.onFrame(paintShown);
+    // go: the values follow the page's shown state (a slide's change, a kept card's patient); otherwise they are shown at once.
+    const write = (f, go = false) => parts.forEach((p) => {
       if (p.pic) return;
       const [cls, word] = ratedShown(p.k, f), none = cls == null && (p.k === 'saag' || p.k === 'tp');
-      vSet(p, none ? '—' : tileVal(p.k, f[p.k]));
+      const on = !none && f[p.k] != null, r0 = p.k === 'hvpgFall' ? null : f['ref_' + p.k], ok = on && r0 != null;
+      p.none = none; p.on = on; p.hasRef = ok;
+      p.sv = on ? ts.set(p.k, f[p.k], p.sm, go) : f[p.k];
+      p.sr = ok ? ts.set(p.k, r0, p.sm, go, true) : r0;
+      if (!on) ts.drop(p.k);
+      putNum(p, p.sv);
       p.u.hidden = none || !p.T.u;
       setT(p.r, word);
       setA(p.tile, 'data-rate', cls || (none ? 'none' : 'plain'));
       if (p.hi) {
-        const hs = none ? '—' : tileVal(p.k, f[p.k]);
-        // (Always .set, never .now, even while the tiles glide in: a kept GPU number is redrawn by set alone; now writes only the page's text, which
-        // stays clear under the picture, so a header reading written that way kept showing the number it had before, the slide's start on a
-        // time-lapse's end: 7 Nov 2026, "the slide says 15.1 but the readout says 23.7". Nothing measures the header's words, so nothing needs now.)
-        if (!p.hw) setT(p.hv, hs); else p.hw.set(hs);
+        // (putNum sets the header's number: always .set, never .now, even while the tiles glide in. A kept GPU number is redrawn by set alone; now writes only
+        // the page's text, which stays clear under the picture, so a header reading written that way kept showing the number it had before, the slide's start
+        // on a time-lapse's end: 7 Nov 2026, "the slide says 15.1 but the readout says 23.7". Nothing measures the header's words, so nothing needs now.)
         p.hu.hidden = none || !p.T.u;
         if (p.hu.textContent !== p.T.u) p.hu.textContent = p.T.u;
         setA(p.hi, 'data-rate', cls || (none ? 'none' : 'plain'));
@@ -770,19 +807,10 @@ function bigTiles() {
         const t = f.respFrom == null ? '' : `from ${fmt(f.respFrom, 1)} mmHg`;
         if (p.d.textContent !== t) p.d.textContent = t;
       }
-      const r0 = p.k === 'hvpgFall' ? null : f['ref_' + p.k];
       if (p.S) {
-        const on = !none && f[p.k] != null, w = on ? at(p.k, f[p.k]) : 0;
         p.now.hidden = !on;
-        // (The marks stay whole inside the track: a value past either end of the scale, as platelets of 380 on a bar
-        // that stops at 300, rests against that end instead of running half off it. Sweep, 16 Oct.)
-        if (p.now._w !== w) { p.now._w = w; p.now.style.translate = `clamp(6px, ${w}%, calc(100% - 6px)) 0`; }   // (written only when it moves; a transform: the mark is the track's width, app.css)
-        if (p.was) {
-          const ok = on && r0 != null, w0 = ok ? at(p.k, r0) : 0;
-          p.was.hidden = p.link.hidden = !ok;
-          if (p.was._w !== w0) { p.was._w = w0; p.was.style.translate = `clamp(4.5px, ${w0}%, calc(100% - 4.5px)) 0`; }
-          if (p.link._w !== w || p.link._w0 !== w0) { p.link._w = w; p.link._w0 = w0; p.link.style.translate = `${Math.min(w, w0)}% 0`; p.link.style.scale = `${(Math.abs(w - w0) / 100).toFixed(4)} 1`; }
-        }
+        if (p.was) p.was.hidden = p.link.hidden = !ok;
+        putBar(p, p.sv, p.sr);
       }
       if (r0 == null || f[p.k] == null) return;
       // (The start as shown: the ring on the bar marks it, the words give its number.)
@@ -791,20 +819,15 @@ function bigTiles() {
       if (p.d.textContent !== t) p.d.textContent = t;
     });
   }
-  // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a change of slide no longer redraws the tiles on every
-  // frame of their 950 ms count, which wrote each number's text, its rating and the bar's marks' places (a layout of the card a frame)
-  // through the camera's glide. They are written once, at their end, and the way there is the compositor's: each changed digit rolls in
-  // its own column (util.js odoSwap) and each mark slides from where it stood by a transform, on the count's own curve. The rating's
-  // word and colour take their new value as it starts. A number whose shape changes (9.9 to 10.1) shows its new value at once. Not
-  // with the endoscopic view (it draws each step), or Reduce Motion.)
-  function tileGlide(to, ms = 950) {
+  // (Since 1 Nov 2026 (Mohammad: "Move everything to GPU"; a 120 Hz frame budget) a change of slide no longer redraws the tiles with the
+  // model's own work on each frame of a count: the rating's word and colour take their new value as it starts, and the number, the bar's
+  // mark and the start ring follow the page's shown state (tile-shown.js, 8 Nov 2026, recs 15), the filter the dock's bars and the vessels
+  // use: the number is drawn by the GPU's words (gl-words.js) and the marks are a translate, both from the same follower in each display
+  // frame, so the number, the bar and the figure arrive together. A kept card's polls bend the speed instead of restarting a curve. A
+  // number whose shape changes (9.9 to 10.1) simply takes its new text. Not with the endoscopic view (it draws each step), or Reduce Motion.)
+  function tileGlide(to, ms = 950) {   // (ms 0: shown at once; any other time is the follower's, not the caller's)
     if (!odoOn() || !draw?.has() || reduce.matches || ms === 0 || parts.some((p) => p.pic)) return false;
-    const before = parts.map(vText);
-    // (The marks' translate and the link's scale are set once (app.css .tglide): the compositor eases them there over --tile-ms.)
-    el.style.setProperty('--tile-ms', `${ms}ms`);
-    sync = true;
-    try { draw.jump(to); } finally { sync = false; }
-    parts.forEach((p, i) => { const b = before[i], t = p.v.textContent; if (b !== t) odoSwap(p.v, b, t, parseFloat(t) > parseFloat(b), ms, EASE_MOVE); });
+    draw.glide(to);
     return true;
   }
   // A band's colour is the rating of its middle (after TIPS the PPG's bands follow its target, as its word does).
@@ -838,7 +861,8 @@ function bigTiles() {
       cancelRest(tileAsk); tileAsk = 0; cancelRest(fitRaf); fitRaf = 0; tileArgs = null; held = null;
       tileRO?.disconnect(); tileRO = null; heldObs?.disconnect(); heldObs = null;
       picT?.stop(); picT = null;
-      for (const p of parts) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); }
+      stopShown?.(); stopShown = null;
+      for (const p of parts) { p.vw?.dispose(); p.hw?.dispose(); p.pic?.dispose(); ts.drop(p.k); }
       parts = []; draw = null;
     },
     paintTiles(f, ks, key, ref, ms, tips, live) {
