@@ -3,6 +3,7 @@
 // cannot drift apart. The text needs the host shader's declarations: the samplers ent, rad, tube, organ; the uniforms the classic
 // shader declares (organK, useOrgan, tierGroup, px, fx, the inks, casing, shadow, ring, light, paperInk, rimInk); T(), alongAt(), over(),
 // LAST and S_OFF. K: the renderer's constants (flags, VEIL_K, the lift's ease, LUMEN2, ROW2_BITS, the edge softness's GLSL).
+import { PG_J } from './veins-mesh-data.js';
 export const shadeGLSL = ({ F_DIFFUSE, F_EDGE, F_SHADOW, F_SPEC, F_VEIL, F_WHOLE, LIFT_EASE_MAX, LIFT_EASE_SHARE, LUMEN2, ROW2_BITS, VEIL_K }) => `
 // One segment's nearest point, folded into the vessel's nearest so far (the vessel shader's search, per segment): bd, bs the wall's and
 // the shadow's distance, br the radius, bu the along, bx the across, bg the direction from the centreline; aM, aW, aU the soft along.
@@ -283,27 +284,31 @@ const float KEY_BIAS = ${KEY_BIAS};`;
     for (int s = 0; s < MAXS; s++) if (s < n && int(T(sid[s], 2).x + 0.5) == tierNow) { mt |= 1 << s; zmx = max(zmx, T(sid[s], 2).y); }
     if (mt == 0 || jn == 0 || kind == 0) discard;   // (no member of this tier, no join here; the glows are the strips')
     int mm = mt;
-    if (tierGroup[tierNow] != 2 && jf[0] > 0.0) for (int s = 0; s < MAXS; s++) {
-      if (s >= n || (jm[0] & (1 << s)) == 0) continue;
-      int lt = int(T(sid[s], 2).x + 0.5);
-      if (lt < tierNow && tierGroup[lt] != 2) mm |= 1 << s;
+    if (tierGroup[tierNow] != 2) for (int j = 0; j < MAXJ; j++) {
+      if (j >= jn || (jm[j] & mt) == 0 || jf[j] <= 0.0) continue;
+      for (int s = 0; s < MAXS; s++) {
+        if (s >= n || (jm[j] & (1 << s)) == 0) continue;
+        int lt = int(T(sid[s], 2).x + 0.5);
+        if (lt < tierNow && tierGroup[lt] != 2) mm |= 1 << s;
+      }
     }
     float Dk = 1e9, Dsk = 1e9;
     for (int s = 0; s < MAXS; s++) if ((mm & (1 << s)) != 0) {
       Dk = min(Dk, sd[s]); Dsk = min(Dsk, sh[s]);
       if ((mt & (1 << s)) != 0 && (ok < 0 || sd[s] < sd[ok])) ok = s;
     }
-    if (jk[0] > 0.0) {
-      int jj = jm[0] & mm;
+    for (int j = 0; j < MAXJ; j++) {
+      if (j >= jn || jk[j] <= 0.0) continue;
+      int jj = jm[j] & mm;
       for (int a = 0; a < MAXS; a++) {
         if ((jj & (1 << a)) == 0) continue;
         for (int b = a + 1; b < MAXS; b++) {
           if ((jj & (1 << b)) == 0) continue;
-          int ro = (jt[0] & (1 << a)) != 0 ? 1 : (jt[0] & (1 << b)) != 0 ? 2 : 0;
-          bool fa = ro == 1 && (jtf[0] & (1 << a)) != 0, fb = ro == 2 && (jtf[0] & (1 << b)) != 0;
+          int ro = (jt[j] & (1 << a)) != 0 ? 1 : (jt[j] & (1 << b)) != 0 ? 2 : 0;
+          bool fa = ro == 1 && (jtf[j] & (1 << a)) != 0, fb = ro == 2 && (jtf[j] & (1 << b)) != 0;
           int ta = fa ? tn[a] : a, tb = fb ? tn[b] : b;
-          float kw = fa || fb ? jk[0] * js[0] : 0.0;
-          float kk = jk[0] * js[0] * corner(p, sg[ta], sd[ta], sr[ta], sg[tb], sd[tb], sr[tb], ro, kw);
+          float kw = fa || fb ? jk[j] * js[j] : 0.0;
+          float kk = jk[j] * js[j] * corner(p, sg[ta], sd[ta], sr[ta], sg[tb], sd[tb], sr[tb], ro, kw);
           Dk = min(Dk, smin(sd[a], sd[b], kk));
           Dsk = min(Dsk, smin(sh[a], sh[b], kk));
         }
@@ -389,34 +394,59 @@ precision highp float;
 precision highp int;
 precision highp sampler2D;
 layout(location=0) in vec2 aC;         // the quad's corner (-1 … 1)
-layout(location=1) in vec4 aJ0;        // the join entry's A (per instance)
-layout(location=2) in vec4 aJ1;        // its B: the members
+layout(location=1) in vec4 aM0;        // its vessels' rows (-1 none), the first four (per instance)
+layout(location=2) in vec4 aM1;        // the next four
+layout(location=3) in vec2 aG;         // its joins: the first in pjTex, their count
 uniform mat3 world;
 uniform vec2 size;
 uniform vec2 lOff;
 uniform int morphOn;
 uniform int joinBase;
 uniform float reachU;
+uniform highp sampler2D pjTex;
 ${STRIP_VS_GLSL}
 vec4 JT(int j) { int t = joinBase + j; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }
-flat out vec4 vJ0;
-flat out vec4 vJ1;
+flat out vec4 vM0;
+flat out vec4 vM1;
 flat out ivec4 vWa;
 flat out ivec4 vWb;
+flat out ivec4 vWa2;
+flat out ivec4 vWb2;
+flat out ivec4 vR;
 void main() {
-  vec4 J = morphOn >= 1 ? JT(int(aJ0.x + 0.5)) : aJ0;
-  vJ0 = aJ0; vJ1 = aJ1;   // (as the join entry has them: the fragment shader reads the frame's join itself, as the classic one does)
-  ivec4 a = ivec4(0), b = ivec4(-1);
-  float lim = J.z + reachU + 1.0;
-  for (int m = 0; m < 4; m++) {
-    if (aJ1[m] < -0.5) continue;
-    int id = int(aJ1[m] + 0.5), lo = N_SAMPLES, hi = -1;
-    for (int i = 0; i < N_SAMPLES; i++) if (length(PT(id, i) - J.xy) - mRW(id, i, 0.0) < lim) { lo = min(lo, i); hi = max(hi, i); }
-    if (hi >= 0) { a[m] = max(0, lo - 1); b[m] = min(N_QUADS - 1, hi); }
+  int j0 = int(aG.x + 0.5), jc = min(int(aG.y + 0.5), ${PG_J});
+  vR = ivec4(0, 0, j0, jc); vM0 = aM0; vM1 = aM1;
+  // (Its joins as this frame has them: between the views, the frame's (JT), as the fragment shader reads them.)
+  vec3 J[${PG_J}];
+  vec2 lo = vec2(1e9), hi = vec2(-1e9);
+  for (int k = 0; k < ${PG_J}; k++) {
+    J[k] = vec3(0.0, 0.0, -1.0);
+    if (k >= jc) continue;
+    vec4 A = texelFetch(pjTex, ivec2(0, j0 + k), 0);
+    if (morphOn >= 1) A = JT(int(A.x + 0.5));
+    J[k] = A.xyz;
+    if (!(A.z > 0.0)) continue;
+    lo = min(lo, A.xy - A.z); hi = max(hi, A.xy + A.z);
   }
-  vWa = a; vWb = b;
-  if (!(J.z > 0.0)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  vec3 d = world * vec3(J.xy + aC * J.z, 1.0);
+  // (Each vessel's segments within any join's reach, and the reach past it anything is drawn.)
+  ivec4 a = ivec4(0), b = ivec4(-1), a2 = ivec4(0), b2 = ivec4(-1);
+  for (int m = 0; m < 8; m++) {
+    float mv = m < 4 ? aM0[m] : aM1[m - 4];
+    if (mv < -0.5) continue;
+    int id = int(mv + 0.5), lw = N_SAMPLES, hw = -1;
+    for (int i = 0; i < N_SAMPLES; i++) {
+      vec2 q = PT(id, i);
+      float d = 1e9;
+      for (int k = 0; k < ${PG_J}; k++) if (J[k].z > 0.0) d = min(d, length(q - J[k].xy) - J[k].z);
+      if (d - mRW(id, i, 0.0) < reachU + 1.0) { lw = min(lw, i); hw = max(hw, i); }
+    }
+    if (hw < 0) continue;
+    int wa = max(0, lw - 1), wb = min(N_QUADS - 1, hw);
+    if (m < 4) { a[m] = wa; b[m] = wb; } else { a2[m - 4] = wa; b2[m - 4] = wb; }
+  }
+  vWa = a; vWb = b; vWa2 = a2; vWb2 = b2;
+  if (!(hi.x > lo.x)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vec3 d = world * vec3(mix(lo, hi, aC * 0.5 + 0.5), 1.0);
   d.xy += lOff;
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
 }`;

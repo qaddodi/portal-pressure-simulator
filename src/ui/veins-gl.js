@@ -53,8 +53,8 @@ import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl
 import { warmFade } from './res-fade-gl.js';
 import { fusedVS, fusedFS } from './veins-fuse.js';
 import { shadeGLSL, meshFS, meshStripVS, meshPatchVS, MESH_LAY_FS, MP } from './veins-mesh-glsl.js';
-import { STRIP_VS_GLSL, stripIndex, PATCH_QUAD, joinEntriesOf, patchInstances } from './veins-mesh.js';
-import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier } from './veins-mesh-data.js';
+import { STRIP_VS_GLSL, stripIndex, PATCH_QUAD } from './veins-mesh.js';
+import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGroups, PG_W, PG_M } from './veins-mesh-data.js';
 import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
@@ -290,11 +290,14 @@ flat in ivec4 vR;
 in float vI;                           // (mesh strip) the sample index along the vessel, interpolated across the strip
 flat in int vRow;                      // (mesh strip) its vessel row
 #else
-flat in vec4 vJ0;                      // (mesh patch) the join: centre, reach, blend width and fillet (as a join entry's A, or JT())
-flat in vec4 vJ1;                      // (mesh patch) its members, as a join entry's B (row, + the trunk's mark; -1 none)
-flat in ivec4 vWa;                     // (mesh patch) each member's first segment near the join
+flat in vec4 vM0;                      // (mesh patch) its vessels, rows (-1 none): the first four
+flat in vec4 vM1;                      // (mesh patch) and the next four
+flat in ivec4 vWa;                     // (mesh patch) each vessel's first segment near the patch's joins (vessels 0-3)
 flat in ivec4 vWb;                     // (mesh patch) and its last
-const ivec4 vR = ivec4(0, 0, 0, 1);    // (mesh patch) its one join entry, read by E() below
+flat in ivec4 vWa2;                    // (mesh patch) the same, vessels 4-7
+flat in ivec4 vWb2;
+flat in ivec4 vR;                      // (mesh patch) its joins: z the first in pjTex, w their count (read by E() below)
+uniform highp sampler2D pjTex;         // (mesh patch) the patches' join entries, one a texel row (A, B), as the binned entries hold them
 #endif
 #endif
 #if MESH
@@ -342,14 +345,14 @@ uvec4 outFlow2;                        // (one vessel and no join: never a secon
 #endif
 layout(location=3) out vec4 outDep;    // 1: some vessel's lumen colour reaches this pixel (its lumen, or a glow in its own colour); 0: it does not
 
-#define MAXS ${simple ? 1 : mesh === 2 ? 4 : 8}
-#define MAXJ ${simple || mesh === 2 ? 1 : 6}
+#define MAXS ${simple ? 1 : 8}
+#define MAXJ ${simple ? 1 : 6}
 #define ENT_W ${ENT_W}
 const float LAST = ${N_SAMPLES - 1}.0;
 const float S_OFF = ${S_OFF}.0;
 
 #if MESH == 2
-vec4 E(int e, int k) { return k == 0 ? vJ0 : vJ1; }   // (a patch: its join entry, from the instance)
+vec4 E(int e, int k) { return texelFetch(pjTex, ivec2(k, e), 0); }   // (a patch: its joins' entries)
 #else
 vec4 E(int e, int k) { int t = e * 2 + k; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }
 #endif
@@ -473,16 +476,18 @@ void main() {
     if (min(bd, bs) < reach) { sk[0] = bd; sid[0] = id; sd[0] = bd; sh[0] = bs; sr[0] = br; su[0] = bu; sg[0] = bg; sx[0] = bx; sv[0] = aW > 0.0 ? aU / aW : bu; n = 1; }
   }
 #else
-  // (A patch: the join's own members, each over its segments near the join (the vertex shader found them).)
-  for (int m = 0; m < 4; m++) {
-    if (vJ1[m] < -0.5) continue;
-    int id = int(vJ1[m] + 0.5);
+  // (A patch: its joins' vessels, each over its segments near them (the vertex shader found them).)
+  for (int m = 0; m < 8; m++) {
+    int mi = m < 4 ? m : m - 4;
+    float mv = m < 4 ? vM0[mi] : vM1[mi];
+    if (mv < -0.5) continue;
+    int id = int(mv + 0.5), wa = m < 4 ? vWa[mi] : vWa2[mi], wb = m < 4 ? vWb[mi] : vWb2[mi];
     bool dup = false;
     for (int s = 0; s < MAXS; s++) if (s < n && sid[s] == id) dup = true;
     if (dup) continue;
     bd = 1e9; bs = 1e9; br = 0.0; bu = 0.0; bx = 0.0; aM = 1e9; aW = 0.0; aU = 0.0; bg = vec2(0.0);
     clip = T(id, 5); dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0;
-    for (int j = vWa[m]; j <= vWb[m]; j++) segNear(id, float(j), vec4(PT(id, j), PT(id, j + 1)), p, ps, clip, dotted, bd, bs, br, bu, bx, bg, aM, aW, aU);
+    for (int j = wa; j <= wb; j++) segNear(id, float(j), vec4(PT(id, j), PT(id, j + 1)), p, ps, clip, dotted, bd, bs, br, bu, bx, bg, aM, aW, aU);
     if (min(bd, bs) < reach) { int s = n; sk[s] = bd; sid[s] = id; sd[s] = bd; sh[s] = bs; sr[s] = br; su[s] = bu; sg[s] = bg; sx[s] = bx; sv[s] = aW > 0.0 ? aU / aW : bu; n++; }
   }
 #endif
@@ -3196,11 +3201,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (The switch as this renderer last read it: a change makes the next picture a whole draw, frame.js telling the views to draw again.)
   let meshPick = vesselMesh();
   const meshSync = () => { if (meshPick !== vesselMesh()) { meshPick = vesselMesh(); fboOK = false; } };
-  const MG = { ent: null, morph: null, dirty: true, pts: {}, jl: {}, patch: null, tb: {}, pb: {}, tex: null, texRows: 0,
+  const MG = { ent: null, morph: null, dirty: true, pts: {}, jl: {}, patch: {}, tb: {}, pb: {}, tex: null, pj: null, texRows: 0,
     stripVAO: null, patchVAO: null, layVAO: null, rowBuf: null, patchBuf: null, rowCap: 0, patchCap: 0, nIndex: 0,
     key: null, prep: null, w: 0, h: 0, ok: false, scrN: null, scrT: null, sw: 0, sh: 0, kP: 0, ref: 0,
     passes: 0, strips: 0, patches: 0 };   // alloc-rare: made once per renderer
-  const ONE1 = new Float32Array([1]), ZERO1I = new Int32Array([0]);
+  const ONE1 = new Float32Array([1]), ONE8 = new Float32Array(8), ZERO1I = new Int32Array([0]);
   const MESH_GLOW_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.COLOR_ATTACHMENT3], MESH_COLOR_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.NONE];
   const MESH_RING_BUF = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.NONE, gl.NONE];
   const meshUse = () => {
@@ -3217,7 +3222,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!MG.dirty && MG.ent === entCPU && MG.morph === geo.morph) return MG;
     pointsFromEntries(entCPU, cellsCPU, nCells, nTubes, MG.pts);
     const list = joinEntryList(cellsCPU, nCells, MG.jl);
-    MG.patch = patchInstances(joinEntriesOf(entCPU, list), 0);
+    patchGroups(entCPU, list, MG.patch, geo.morph ? geo.morph.joinBase : -1);
+    // (The patches' join entries, a texel row each: A, B.)
+    if (!MG.pj) MG.pj = dataTex(gl);
+    gl.bindTexture(gl.TEXTURE_2D, MG.pj);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 2, Math.max(1, MG.patch.j.length / 8), 0, gl.RGBA, gl.FLOAT, MG.patch.j.length ? MG.patch.j : ONE8, 0);
     if (!geo.morph) {
       if (!MG.tex) MG.tex = dataTex(gl);
       gl.bindTexture(gl.TEXTURE_2D, MG.tex);
@@ -3247,8 +3256,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindBuffer(gl.ARRAY_BUFFER, qb); gl.bufferData(gl.ARRAY_BUFFER, PATCH_QUAD, gl.STATIC_DRAW);
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, MG.patchBuf);
-      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, 0); gl.vertexAttribDivisor(1, 1);
-      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, 16); gl.vertexAttribDivisor(2, 1);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 4, gl.FLOAT, false, PG_W * 4, 16); gl.vertexAttribDivisor(1, 1);
+      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, PG_W * 4, 32); gl.vertexAttribDivisor(2, 1);
+      gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 2, gl.FLOAT, false, PG_W * 4, 48); gl.vertexAttribDivisor(3, 1);
       MG.layVAO = gl.createVertexArray();
       gl.bindVertexArray(MG.layVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -3332,8 +3342,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, shapeBase);
       gl.bindVertexArray(MG.patchVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, MG.patchBuf);
-      gl.vertexAttribPointer(1, 4, gl.FLOAT, false, 32, pb.start[t] * 32);
-      gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 32, pb.start[t] * 32 + 16);
+      const o = pb.start[t] * PG_W * 4;
+      gl.vertexAttribPointer(1, 4, gl.FLOAT, false, PG_W * 4, o + 16);
+      gl.vertexAttribPointer(2, 4, gl.FLOAT, false, PG_W * 4, o + 32);
+      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, PG_W * 4, o + 48);
       if (pass === MP.SHAPE) gl.drawBuffers(ATTACH);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, pb.count[t]);
       MG.patches += pb.count[t];
@@ -3379,14 +3391,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function meshPass(m, look) {
     if (!meshTargets()) return false;
     const G = meshGeo();
-    const tb = tierBuckets(tubeNow, G.pts.on, nTubes, G.tb), pb = patchesByTier(G.patch.data, G.patch.count, tubeNow, G.pb);
+    const tb = tierBuckets(tubeNow, G.pts.on, nTubes, G.tb), pb = patchesByTier(G.patch.data, G.patch.count, tubeNow, G.pb, PG_W, PG_M);
     // (The rows and patches by tier, into buffers kept at their largest.)
     gl.bindBuffer(gl.ARRAY_BUFFER, MG.rowBuf);
     if (MG.rowCap < tb.rows.length) { MG.rowCap = tb.rows.length; gl.bufferData(gl.ARRAY_BUFFER, MG.rowCap * 4, gl.DYNAMIC_DRAW); }
     if (tb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, tb.rows, 0, tb.n);
     gl.bindBuffer(gl.ARRAY_BUFFER, MG.patchBuf);
-    if (MG.patchCap < pb.n * 8) { MG.patchCap = Math.max(pb.n * 8, 8); gl.bufferData(gl.ARRAY_BUFFER, MG.patchCap * 4, gl.DYNAMIC_DRAW); }
-    if (pb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, pb.data, 0, pb.n * 8);
+    if (MG.patchCap < pb.n * PG_W) { MG.patchCap = Math.max(pb.n * PG_W, PG_W); gl.bufferData(gl.ARRAY_BUFFER, MG.patchCap * 4, gl.DYNAMIC_DRAW); }
+    if (pb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, pb.data, 0, pb.n * PG_W);
     MG.passes = 0; MG.strips = 0; MG.patches = 0;
     // (Both programs' uniforms and textures as the classic pass's, then the points: the figure's own texture, or the morph set's frame rows.)
     for (const P of [meshPt, meshS]) {
@@ -3394,7 +3406,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (!geo.morph) { UC.i1(P.u.posBase, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, MG.tex); }
       UC.i1(P.u.keyTex, 6);
       UC.f1(P.u.reachU, look.reach);
+      if (P === meshPt) UC.i1(P.u.pjTex, 9);
     }
+    gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, MG.pj);
     const px = 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));
     // (The depth and stencil, cleared within the caller's scissor.)
     gl.depthMask(true); gl.stencilMask(0xff);
@@ -5312,7 +5326,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const v of [vao, oneVAO, bloodVAO, halfSet.va, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
         for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP, meshS, meshPt, meshL]) if (x) gl.deleteProgram(x.p);
-        for (const t of [MG.tex, MG.key, MG.scrN, MG.scrT]) if (t) gl.deleteTexture(t);
+        for (const t of [MG.tex, MG.pj, MG.key, MG.scrN, MG.scrT]) if (t) gl.deleteTexture(t);
         if (MG.prep) { gl.deleteFramebuffer(MG.prep); gl.deleteRenderbuffer(meshSt); }
         for (const v of [MG.stripVAO, MG.patchVAO, MG.layVAO]) if (v) gl.deleteVertexArray(v);
         for (const b of [MG.rowBuf, MG.patchBuf]) if (b) gl.deleteBuffer(b);

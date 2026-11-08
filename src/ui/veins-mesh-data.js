@@ -105,10 +105,10 @@ export function tierBuckets(tube, on, nTubes, out) {
 }
 
 // The tiers (a bit mask) of the members of one patch; a member of -1 (or below) is empty, a row outside the tube array is ignored.
-function patchTiers(patchData, p, tube, nRows) {
+function patchTiers(patchData, p, tube, nRows, W = 8, M = 4) {
   let mask = 0;
-  for (let m = 4; m < 8; m++) {
-    const v = patchData[p * 8 + m];
+  for (let m = 4; m < 4 + M; m++) {
+    const v = patchData[p * W + m];
     if (!(v > -0.5)) continue;
     const row = Math.floor(v + 0.5);
     if (row < 0 || row >= nRows) continue;
@@ -118,31 +118,104 @@ function patchTiers(patchData, p, tube, nRows) {
 }
 
 /**
+ * (W, M: the floats a patch and its member slots from float 4; 8 and 4 for patchInstances, PG_W and PG_M for patchGroups.)
  * Join patches grouped by tier. patchData: patchInstances(...).data (8 floats a patch; floats 4..7 are member values, row = floor(v + 0.5),
  * -1 none), count patches. A patch with members in several tiers is copied into each of them (once a tier). out: { data (Float32Array,
  * 8 floats a copy, tier ascending), start[t], count[t] (Int32Array MAX_TIERS, in patches) }, and out.n the copies in all.
  */
-export function patchesByTier(patchData, count, tube, out) {
+export function patchesByTier(patchData, count, tube, out, W = 8, M = 4) {
   const nRows = Math.floor(tube.length / TUBE_FLOATS);
   if (!out.start) { out.start = new Int32Array(MAX_TIERS); out.count = new Int32Array(MAX_TIERS); out.cur = new Int32Array(MAX_TIERS); }   // alloc-rare: the per-tier arrays, once
   const { start, count: cnt, cur } = out;
   cnt.fill(0);
   for (let p = 0; p < count; p++) {
-    const mask = patchTiers(patchData, p, tube, nRows);
+    const mask = patchTiers(patchData, p, tube, nRows, W, M);
     for (let t = 0; t < MAX_TIERS; t++) if (mask & (1 << t)) cnt[t]++;
   }
   let at = 0;
   for (let t = 0; t < MAX_TIERS; t++) { start[t] = at; cur[t] = at; at += cnt[t]; }
-  if (!out.data || out.data.length < at * 8) out.data = new Float32Array(at * 8);   // alloc-rare: grown with the patches
+  if (!out.data || out.data.length < at * W) out.data = new Float32Array(at * W);   // alloc-rare: grown with the patches
   const data = out.data;
   for (let p = 0; p < count; p++) {
-    const mask = patchTiers(patchData, p, tube, nRows);
+    const mask = patchTiers(patchData, p, tube, nRows, W, M);
     for (let t = 0; t < MAX_TIERS; t++) {
       if (!(mask & (1 << t))) continue;
-      const o = cur[t]++ * 8, q = p * 8;
-      for (let k = 0; k < 8; k++) data[o + k] = patchData[q + k];
+      const o = cur[t]++ * W, q = p * W;
+      for (let k = 0; k < W; k++) data[o + k] = patchData[q + k];
     }
   }
   out.n = at;
+  return out;
+}
+
+/**
+ * The join patches as the mesh draws them: joins that share a vessel and whose reaches overlap (the hepatic veins on the cava) are one
+ * patch, so a pixel near them is drawn knowing every join it lies in, as the classic shader's cell does (MAXJ joins, MAXS vessels). Joins
+ * are merged nearest first while the patch keeps at most PG_M vessels and PG_J joins. `ent`: the binned entries; `list`: the join
+ * entries' indices (joinEntryList). out: { j (8 floats a join, the patches' joins one after another, as the entries hold them), data
+ * (PG_W floats a patch: the joins' box centre x, y and half-size, 0; PG_M member rows (-1 none); the first join in j and their count, 0, 0),
+ * count }. Repeats of a join (binVeins writes it in every cell it reaches) and joins with no reach or no member are left out.
+ */
+export const PG_M = 8, PG_J = 6, PG_W = 16;
+export function patchGroups(ent, list, out, joinBase = -1) {
+  // (Between the views a join entry's x is the join's index: its place is the frame's, four floats a join from texel joinBase.)
+  const X = (q) => (joinBase >= 0 ? ent[(joinBase + ent[q]) * 4] : ent[q]), Y = (q) => (joinBase >= 0 ? ent[(joinBase + ent[q]) * 4 + 1] : ent[q + 1]);
+  const keyOf = (e) => { let k = ''; for (let i = 0; i < 8; i++) k += ent[e * 8 + i] + ','; return k; };
+  const seen = new Set(), js = [];   // alloc-rare: geometry upload: once per binning, sized by the joins, never on a steady frame
+  for (const e of list) {
+    if (!(ent[e * 8 + 2] > 0)) continue;
+    let any = false;
+    for (let m = 0; m < 4; m++) if (ent[e * 8 + 4 + m] > -0.5) any = true;
+    if (!any) continue;
+    const k = keyOf(e);
+    if (seen.has(k)) continue;
+    seen.add(k); js.push(e);
+  }
+  const n = js.length, par = new Int32Array(n), mem = [], jc = new Int32Array(n);   // alloc-rare: as above
+  for (let i = 0; i < n; i++) {
+    par[i] = i; jc[i] = 1;
+    const s = new Set();   // alloc-rare: as above
+    for (let m = 0; m < 4; m++) { const v = ent[js[i] * 8 + 4 + m]; if (v > -0.5) s.add(Math.floor(v + 0.5)); }
+    mem.push(s);
+  }
+  const root = (i) => { while (par[i] !== i) i = par[i] = par[par[i]]; return i; };
+  const pairs = [];   // alloc-rare: as above
+  for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) {
+    const A = js[a] * 8, B = js[b] * 8, d = Math.hypot(X(A) - X(B), Y(A) - Y(B));
+    if (d >= ent[A + 2] + ent[B + 2]) continue;
+    let share = false;
+    for (const r of mem[a]) if (mem[b].has(r)) share = true;
+    if (share) pairs.push([d, a, b]);
+  }
+  pairs.sort((x, y) => x[0] - y[0]);
+  for (const [, a, b] of pairs) {
+    const ra = root(a), rb = root(b);
+    if (ra === rb || jc[ra] + jc[rb] > PG_J) continue;
+    const u = new Set([...mem[ra], ...mem[rb]]);   // alloc-rare: as above
+    if (u.size > PG_M) continue;
+    par[rb] = ra; mem[ra] = u; jc[ra] += jc[rb];
+  }
+  const groups = new Map();   // alloc-rare: as above
+  for (let i = 0; i < n; i++) { const r = root(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(i); }
+  out.j = new Float32Array(n * 8); out.data = new Float32Array(groups.size * PG_W);   // alloc-rare: as above
+  let jAt = 0, g = 0;
+  for (const [r, ids] of groups) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const o = g * PG_W;
+    out.data[o + 12] = jAt; out.data[o + 13] = ids.length;
+    for (const i of ids) {
+      const q = js[i] * 8;
+      for (let k = 0; k < 8; k++) out.j[jAt * 8 + k] = ent[q + k];
+      jAt++;
+      x0 = Math.min(x0, X(q) - ent[q + 2]); x1 = Math.max(x1, X(q) + ent[q + 2]);
+      y0 = Math.min(y0, Y(q) - ent[q + 2]); y1 = Math.max(y1, Y(q) + ent[q + 2]);
+    }
+    out.data[o] = (x0 + x1) / 2; out.data[o + 1] = (y0 + y1) / 2; out.data[o + 2] = Math.max(x1 - x0, y1 - y0) / 2;
+    let m = 0;
+    for (const row of mem[r]) out.data[o + 4 + m++] = row;
+    for (; m < PG_M; m++) out.data[o + 4 + m] = -1;
+    g++;
+  }
+  out.count = g;
   return out;
 }

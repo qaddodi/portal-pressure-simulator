@@ -199,3 +199,27 @@ test('patchesByTier: members outside the tube array are ignored', () => {
   assert.equal(out.n, 1);
   assert.equal(out.count[3], 1);
 });
+
+test('patchGroups: joins sharing a vessel with overlapping reaches are one patch (the hepatic veins on the cava), others stay apart', async () => {
+  const { patchGroups, PG_W, PG_M } = await import('../src/ui/veins-mesh-data.js');
+  // Entries: three hepatic joins on the cava (rows 10 above, 11 below), close together; one far join of other vessels; a repeat.
+  const J = [
+    [0, 0, 5, 300.5, 1, 10, 11.25, -1],
+    [0, 4, 5, 300.5, 2, 10, 11.25, -1],
+    [0, -4, 5, 300.5, 3, 10.25, 11, -1],
+    [100, 100, 5, 300.5, 20, 21, -1, -1],
+    [0, 0, 5, 300.5, 1, 10, 11.25, -1],
+    [50, 50, 0, 300.5, 30, 31, -1, -1],   // (no reach: left out)
+  ];
+  const ent = new Float32Array(J.flat());
+  const out = patchGroups(ent, [0, 1, 2, 3, 4, 5], {});
+  assert.equal(out.count, 2);
+  assert.equal(out.j.length, 4 * 8, 'four joins kept, the repeat and the reachless one left out');
+  const g0 = out.data.subarray(0, PG_W), rows = [...g0.subarray(4, 4 + PG_M)].filter((r) => r >= 0).sort((a, b) => a - b);
+  assert.deepEqual(rows, [1, 2, 3, 10, 11], 'one patch holds the three veins and the cava');
+  assert.equal(g0[13], 3, 'with its three joins');
+  assert.deepEqual([g0[0], g0[1], g0[2]], [0, 0, 9], 'its box: every join\'s reach');
+  const g1 = out.data.subarray(PG_W, 2 * PG_W);
+  assert.equal(g1[12], 3); assert.equal(g1[13], 1);
+  assert.deepEqual([...out.j.subarray(24, 32)], J[3], 'a join\'s entry as the binning holds it');
+});
