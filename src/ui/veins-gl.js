@@ -297,6 +297,7 @@ flat in ivec4 vWb;                     // (mesh patch) and its last
 flat in ivec4 vWa2;                    // (mesh patch) the same, vessels 4-7
 flat in ivec4 vWb2;
 flat in ivec4 vR;                      // (mesh patch) its joins: z the first in pjTex, w their count (read by E() below)
+flat in int vNJ;                       // (mesh patch) its joins' count, for the test below
 uniform highp sampler2D pjTex;         // (mesh patch) the patches' join entries, one a texel row (A, B), as the binned entries hold them
 #endif
 #endif
@@ -476,6 +477,18 @@ void main() {
     if (min(bd, bs) < reach) { sk[0] = bd; sid[0] = id; sd[0] = bd; sh[0] = bs; sr[0] = br; su[0] = bu; sg[0] = bg; sx[0] = bx; sv[0] = aW > 0.0 ? aU / aW : bu; n = 1; }
   }
 #else
+  // (A patch: a pixel outside every one of its joins' reach is drawn by the strips alone: there no join changes the shape (the join
+  // loop below skips a join farther than its reach), and the strips' keys stand. Only the pixels inside one are worked out here.)
+  {
+    bool inJ = false;
+    for (int k = 0; k < 6; k++) {
+      if (k >= vNJ) break;
+      vec4 A = E(vR.z + k, 0);
+      if (morphOn >= 1) A = JT(int(A.x + 0.5));
+      if (length(p - A.xy) <= A.z) inJ = true;
+    }
+    if (!inJ) discard;
+  }
   // (A patch: its joins' vessels, each over its segments near them (the vertex shader found them).)
   for (int m = 0; m < 8; m++) {
     int mi = m < 4 ? m : m - 4;
@@ -2076,7 +2089,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       heads: who === 'stage' ? startProgram(gl, headVS({ zoom: ZOOM_VS, along: ALONG_GLSL, rows: ROWS_GLSL, orange: CHEV_ORANGE_GLSL, nSamples: N_SAMPLES }), COMP_FS(false, false, true)) : null, plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
     // (The mesh vessel renderer's programs, the stage's figure only: a strip a vessel, a patch a join, and the scratch layers' laying. Not
     // needed to draw: until they are published, or if they fail, the classic vessel pass draws.)
-    if (who === 'stage') { try { started.meshStrip = startProgram(gl, meshStripVS(STRIP_VS_GLSL), vesselFS(true, 1)); started.meshPatch = startProgram(gl, meshPatchVS(STRIP_VS_GLSL), vesselFS(false, 2)); started.meshLay = startProgram(gl, REUSE_VS, MESH_LAY_FS); } catch (e) { console.warn('Veins renderer: the mesh vessel shaders could not be made; the classic vessel pass draws.', e); delete started.meshStrip; delete started.meshPatch; delete started.meshLay; } }
+    if (who === 'stage') { try { started.meshStrip = startProgram(gl, meshStripVS(STRIP_VS_GLSL, F_SEL), vesselFS(true, 1)); started.meshPatch = startProgram(gl, meshPatchVS(STRIP_VS_GLSL), vesselFS(false, 2)); started.meshLay = startProgram(gl, REUSE_VS, MESH_LAY_FS); } catch (e) { console.warn('Veins renderer: the mesh vessel shaders could not be made; the classic vessel pass draws.', e); delete started.meshStrip; delete started.meshPatch; delete started.meshLay; } }
   } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
   // Every other program this context will draw with, started now beside these, before any is read (GPU practice §2, docs/gpu-practices.md;
   // ?shaderwarm=0: each compiled where it is first made or drawn, as before): the organs' stack, painter and shapes (taken up just below,
@@ -3319,7 +3332,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     const aa = px * EDGE_PX;
     if (pass <= MP.UP) return 12 * 1.3 + 0.6 + aa + 2 * px;
     if (pass <= MP.SHADOW) return Math.hypot(look.shOff[0], look.shOff[1]) + 2.4 * 1.4 + aa + 2 * px;
-    return 4 + aa + 2.5 * px + 2 * px;
+    return aa + 2.5 * px + 2 * px;   // (the selection ring's 4 past the wall: selPad, on the selected rows alone)
   }
   // One draw of tier t's strips (and its patches) for a pass.
   function meshDraw(pass, t, base, H, shapeBase, px, look, patches) {
@@ -3327,7 +3340,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (tb.count[t]) {
       const u = meshS.u;
       gl.useProgram(meshS.p);
-      UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, shapeBase); UC.f1(u.padU, pad);
+      UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, shapeBase); UC.f1(u.padU, pad); UC.f1(u.selPad, pass >= MP.SHAPE_K ? 4 : 0);
       gl.bindVertexArray(MG.stripVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, MG.rowBuf);
       gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 4, tb.start[t] * 4);

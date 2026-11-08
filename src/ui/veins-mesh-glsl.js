@@ -360,7 +360,7 @@ const float KEY_BIAS = ${KEY_BIAS};`;
 
 // The strip's vertex shader: one instance a vessel row, its vertices placed from the textures (veins-mesh.js STRIP_VS_GLSL meshWorld),
 // widened by the pass's reach past the vessel's casing (padU). A glow pass draws only the rows lit for it (the others fold to nothing).
-export const meshStripVS = (STRIP_VS_GLSL) => `#version 300 es
+export const meshStripVS = (STRIP_VS_GLSL, F_SEL = 1) => `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2D;
@@ -372,6 +372,7 @@ uniform vec2 lOff;
 uniform highp sampler2D tube;
 uniform int mPass;
 uniform float padU;                    // world units past the casing the pass can draw
+uniform float selPad;                  // and more for a selected vessel (its ring, 4 past its wall), in the passes that draw it
 ${STRIP_VS_GLSL}
 out float vI;
 flat out int vRow;
@@ -381,7 +382,8 @@ void main() {
   vI = aV.y + (int(aV.x + 0.5) == K_TRAP ? aV.w : 0.0);
   bool lit = texelFetch(tube, ivec2(10, id), 0).a > 0.0, up = texelFetch(tube, ivec2(11, id), 0).w > 5.0;
   if (mPass <= ${MP.UP} && (!lit || up != (mPass >= ${MP.UP_K}))) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  vec2 w = meshWorld(id, aV, texelFetch(tube, ivec2(0, id), 0).w + padU);
+  bool sel = (int(texelFetch(tube, ivec2(2, id), 0).z + 0.5) & ${F_SEL}) != 0;
+  vec2 w = meshWorld(id, aV, texelFetch(tube, ivec2(0, id), 0).w + padU + (sel ? selPad : 0.0));
   vec3 d = world * vec3(w, 1.0);
   d.xy += lOff;
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
@@ -413,9 +415,10 @@ flat out ivec4 vWb;
 flat out ivec4 vWa2;
 flat out ivec4 vWb2;
 flat out ivec4 vR;
+flat out int vNJ;
 void main() {
   int j0 = int(aG.x + 0.5), jc = min(int(aG.y + 0.5), ${PG_J});
-  vR = ivec4(0, 0, j0, jc); vM0 = aM0; vM1 = aM1;
+  vR = ivec4(0, 0, j0, jc); vNJ = jc; vM0 = aM0; vM1 = aM1;
   // (Its joins as this frame has them: between the views, the frame's (JT), as the fragment shader reads them.)
   vec3 J[${PG_J}];
   vec2 lo = vec2(1e9), hi = vec2(-1e9);
