@@ -16,7 +16,7 @@ import { ownsSideways, pageGo } from './swipe.js';
 import { frameFor } from './frame.js';
 import { sheetLayer } from './sheet-layer.js';
 import { restPass } from './rest-pass.js';
-import { classSoon, removeSoon } from './class-soon.js';
+import { classSoon, classNow, removeSoon } from './class-soon.js';
 import { slideFold } from './fold-slide.js';
 import { leaveFromHere } from './menu-leave.js';
 import { plateFor } from './plate-gl.js';
@@ -216,11 +216,12 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     restPass(pvPlace);
   }
   // (The step is made once and reads the ask made last: an older ask, or a hide, has moved the token on and drops it.)
-  let pvAsk = 0, pvRow = null, pvMake = null, pvCol = null;
+  let pvGone = null, pvAsk = 0, pvRow = null, pvMake = null, pvCol = null;
   const pvPlace = () => { if (pvAsk !== pvTok) return; pvAsk = 0; placePreview(pvRow, pvMake, pvCol); };
   function placePreview(row, make, col) {
     if (!el || !row.isConnected) return;
     if (!pv) {
+      pvGone?.remove(); pvGone = null;   // (one card at a time: one still going out from the last hide is taken off now, not left to fade beside the new one)
       // (The words sit in a cut of their own, kept for the card's life: a change of height reveals or hides them by two opposite
       // translates, the cut's and its contents', never by a clip-path, so it is the compositor's.)
       pv = h('div', { class: 'um-pv', role: 'region', 'aria-label': 'Preview' }, h('div', { class: 'um-pv-cut' }, h('div', { class: 'um-pv-cutin' })));
@@ -233,9 +234,18 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     if (pvKey !== key) {
       // Crossfade: the old content fades out over the new, and the card eases to the new height.
       pvKey = key;
-      const old = pv._in.firstElementChild, h0 = pv._h1 || pv.offsetHeight;
+      // (Every card still in it goes: a second hover before the first one's fade had finished left two in the flow, one under the other. Each goes
+      // out of the flow at once, classNow, not a frame later, so the new one never stands under it.)
+      const olds = pv._in.children, old = olds[olds.length - 1], h0 = pv._h1 || pv.offsetHeight;
       const next = make();
-      if (old && pv.classList.contains('on')) { classSoon(old, 'um-pv-old', true); setTimeout(() => removeSoon(old), afterMs(D_FLIP)); } else old?.remove();   // (.um-pv-old fades out over D_FLIP, afterMs)
+      const fade = pv.classList.contains('on');
+      for (let i = olds.length - 1; i >= 0; i--) {
+        const o = olds[i];
+        if (!fade) { o.remove(); continue; }
+        if (o.classList.contains('um-pv-old')) continue;   // (already fading, its removal is set)
+        classNow(o, 'um-pv-old', true); setTimeout(() => removeSoon(o), afterMs(D_FLIP));   // (.um-pv-old fades out over D_FLIP, afterMs)
+      }
+      if (!fade) next.style.animation = 'none';   // (the card's own fade in carries the first words, so they do not fade in a second time under it)
       pv._in.append(next);
       if (old && h0 && !reduce.matches) pvResize(pv, h0, next.offsetHeight);
       $$rows().forEach((r) => classSoon(r, 'pv-on', r === row));
@@ -315,7 +325,8 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     const marked = el?.getElementsByClassName('pv-on');
     if (marked) for (let i = 0; i < marked.length; i++) classSoon(marked[i], 'pv-on', false);
     if (now || !p.classList.contains('on')) { p.remove(); return; }
-    classSoon(p, 'on', false); setTimeout(removeSoon, afterMs(D_FLIP), p);   // (the page's exit is D_FLIP)
+    pvGone = p;
+    classSoon(p, 'on', false); setTimeout(() => { if (pvGone === p) pvGone = null; removeSoon(p); }, afterMs(D_FLIP), p);   // (the page's exit is D_FLIP)
   }
   // On touch, the ⓘ opens the preview under its row (one at a time), easing open and shut.
   function toggleInline(li, make, btn) {

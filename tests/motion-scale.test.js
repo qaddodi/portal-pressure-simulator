@@ -358,8 +358,8 @@ test('item 20: what was on screen and is displaced travels on the move curve, an
 
 test('item 21: the timers that wait on a transition come from its token and a fixed slack (afterMs), not a number of their own', () => {
   const src = (f) => read(`src/ui/${f}`);
-  assert.match(src('menu.js'), /setTimeout\(\(\) => removeSoon\(old\), afterMs\(D_FLIP\)\)/);
-  assert.match(src('menu.js'), /setTimeout\(removeSoon, afterMs\(D_FLIP\), p\)/);
+  assert.match(src('menu.js'), /setTimeout\(\(\) => removeSoon\(o\), afterMs\(D_FLIP\)\)/);
+  assert.match(src('menu.js'), /removeSoon\(p\); \}, afterMs\(D_FLIP\), p\)/);
   assert.match(src('menu.js'), /const timer = setTimeout\(done, afterMs\(D_SMALL\)\)/);
   assert.match(src('dock.js'), /const timer = setTimeout\(done, afterMs\(D_SMALL\)\)/);
   assert.match(src('why.js'), /afterMs\(asSheet\(\) \? D_SMALL : D_FLIP\)\)/);
