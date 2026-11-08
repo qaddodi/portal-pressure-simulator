@@ -71,6 +71,18 @@ export const TREATMENT = {
       ask: ['Why does TIPS lower the gradient so much more than any drug?', 'The drugs trim the inflow or the tone; TIPS gives portal blood a low-resistance path around the sinusoids.'],
     },
     {
+      // (Ohm's law on a plane, C1 of docs/recommendations/new-features-recs.md: this patient before treatment (ring) and on each drug and the TIPS (dot),
+      // portal flow across and the PPG up. A line from the origin is one resistance, PPG ÷ flow.)
+      id: 'flowres', cam: 'liver', visual: 'plane',
+      plane: { base: 'flow-ppg', x: { key: 'pvFlow', min: 0, max: 1.6, ticks: [0, 0.4, 0.8, 1.2, 1.6], name: 'Portal flow, L/min', short: 'Flow, L/min', abbr: 'Flow' }, iso: { rays: [5, 10, 20, 30, 40] } },
+      of: [{ id: 'target', name: 'No treatment', short: 'Before' }, { id: 'prop', from: 'target', name: 'Propranolol', short: 'Prop.' }, { id: 'carv', from: 'target', name: 'Carvedilol', short: 'Carv.' }, { id: 'oct', from: 'target', name: 'Octreotide', short: 'Oct.' },
+        { id: 'terli', from: 'target', name: 'Terlipressin', short: 'Terli.' }, { id: 'vs', from: 'target', name: 'TIPS' }],
+      kicker: 'Compared', title: 'Each treatment moves the patient along flow or resistance',
+      line: 'Each ring is the patient before treatment, each dot on the drug. Drugs that cut the inflow move left; a TIPS drops the dot to a lower line.',
+      notes: 'Portal pressure is flow times resistance, so a patient is a point on a plane: portal flow across, the PPG up, and every line from the origin is one resistance (the PPG divided by the flow, in mmHg per L/min). Propranolol, octreotide and terlipressin cut the inflow, so the dot moves left; the pressure falls less than the flow, so it ends on a steeper line. Carvedilol also relaxes the sinusoids, so its dot moves left and stays close to the line it started on. The TIPS opens a channel beside the liver: the flow rises and the pressure falls, so the dot lands on a much lower line. The resistance on this plane is the whole circuit\'s (PPG ÷ flow), not the liver\'s alone. The numbers are the model\'s for this one patient, not trial results.',
+      ask: ['Which treatments move the patient left on this plane, and which drop them to a lower line?', 'The drugs that cut the inflow move it left. A TIPS lowers the resistance, so the dot drops to a lower line; carvedilol stays near its line because it lowers resistance as well as flow.'],
+    },
+    {
       id: 'schisto', preset: 'schisto', params: CARV, caseQ: 'Will carvedilol add much to propranolol here?', cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, terms: { 'portal venules': 'lobule:triad' }, data: 'tiles', tiles: ['pv', 'hvpg'], key: ['pv'],
       compare: [{ label: 'Propranolol', params: PROP }, { label: 'Carvedilol', own: true, params: CARV }],
       vignette: 'A 38-year-old woman from the Senegal River region has a large spleen and large esophageal varices on EGD. Her liver tests are normal, and she has never bled.',

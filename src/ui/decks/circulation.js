@@ -63,6 +63,15 @@ export const CIRCULATION = {
       ask: ['Which three events mark the end of compensated cirrhosis?', 'Clinically evident ascites, variceal bleeding and overt hepatic encephalopathy (Baveno VIII 3.3).'],
     },
     {
+      // (Ohm's law on a plane, C1 of docs/recommendations/new-features-recs.md: the healthy liver of the first slide (ring) and this patient's (dot).)
+      id: 'flowres', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], visual: 'plane', plane: 'flow-ppg',
+      of: [{ id: 'inflow', name: 'Healthy' }, { id: 'define', from: 'inflow', name: 'Cirrhosis with CSPH', short: 'CSPH' }],
+      kicker: 'Definition', title: 'The gradient is the flow times the liver\'s resistance',
+      line: 'Each line from the origin is one resistance. Scarring lifts the patient onto a steeper line, so the same blood flow meets a much higher gradient.',
+      notes: 'Portal flow runs across and the PPG up. A line from the origin joins the points that share one resistance, the PPG divided by the flow in mmHg per L/min. The healthy liver carries about 1.1 L/min at a PPG near 4 mmHg. The patient with CSPH carries about the same flow at a PPG over 13 mmHg, so the resistance is about three times higher. The resistance on this plane is the whole circuit\'s, PPG ÷ flow. (AASLD 2024 p. 1181: portal pressure is proportional to the splanchnic inflow and to the resistance opposing it.)',
+      ask: ['The patient and the healthy liver carry about the same flow. Why is the gradient three times higher?', 'The resistance is three times higher: the dot sits on a steeper line.'],
+    },
+    {
       // (The relation chart, last in the talk: scarring from none to severe, each point a liver settled for a year, the HVPG and the PPG on
       // one scale with the HVPG's 5 and 10. The ring is the CSPH liver of the slide before.)
       id: 'relation', preset: 'csph', cam: 'route', labels: ['CONF', 'SIN_R', 'RHV', 'RA'],

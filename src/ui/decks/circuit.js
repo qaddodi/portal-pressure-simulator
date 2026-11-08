@@ -104,6 +104,18 @@ export const CIRCUIT = withPoints({
       ask: ['Two livers get the same extra 0.5 L/min of portal flow. Why does the cirrhotic one gain more pressure?', 'Its resistance is higher, so each L/min of flow costs more pressure: the line is steeper.'],
     },
     {
+      // (Ohm's law on a plane, C1 of docs/recommendations/new-features-recs.md: portal flow across, the PPG up, and a line from the origin for each
+      // resistance. The summary table's rows, each change as a ring (before) and a dot (after).)
+      id: 'flowres', preset: 'csph', view: C, sites: R, visual: 'plane',
+      plane: { base: 'flow-ppg', y: { key: 'ppg', min: 0, max: 24, ticks: [0, 6, 12, 18, 24] }, iso: { rays: [4, 8, 16, 24] } },
+      of: [{ id: 'ohm', name: 'Healthy' }, { id: 'meal', from: 'ohm', name: 'Healthy, after a meal', short: 'Meal' }, { id: 'resist', from: 'ohm', name: 'Cirrhosis' }, { id: 'both', from: 'resist', name: 'Cirrhosis, after a meal', short: 'Meal' },
+        { id: 'parallel', name: 'Advanced cirrhosis', short: 'Advanced' }, { id: 'tips', from: 'parallel', name: 'TIPS' }],
+      kicker: 'Summary', title: 'Every patient sits on a line of one resistance',
+      line: 'A meal moves a patient right along their line, because the flow rises. Cirrhosis lifts the patient onto a steeper line, and a TIPS drops them onto a lower one.',
+      notes: 'Portal flow runs across and the PPG up. A line from the origin joins all the points that share one resistance, the PPG divided by the flow in mmHg per L/min, so a steeper line is a higher resistance. A meal raises the flow and the patient moves right along nearly the same line, and further up it in cirrhosis, where the line is steeper. Cirrhosis raises the resistance, so the patient moves up onto a steeper line. Collaterals and a TIPS are resistors in parallel: they lower the resistance of the whole circuit, and the dot drops onto a lower line. The resistance on this plane is the whole circuit\'s, PPG ÷ flow, not the liver\'s alone. (AASLD 2024 p. 1181: portal pressure is proportional to the splanchnic inflow and to the resistance opposing it.)',
+      ask: ['A patient moves right along a line from the origin. What changed, and what did not?', 'The flow rose and the resistance stayed the same; the pressure rose in proportion to the flow.'],
+    },
+    {
       // Each row against the row it changes (vs), in the circuit's own terms: portal flow (Q), the liver's own resistance (R) and the gradient.
       id: 'summary', visual: 'table', cols: ['pvFlow', 'res', 'ppg'], asc: false, rowHead: 'Circuit',
       foot: 'Across the whole circuit R = PPG ÷ Q; collaterals and TIPS lower it as resistors in parallel, while the liver R column shows the liver itself.',
