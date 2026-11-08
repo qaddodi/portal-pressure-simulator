@@ -330,7 +330,9 @@ test('zoom: the stack that is out as the card zooms is fitted as it tucks, large
     z.follow(-126, -150);   // (tucked: the top of the whole 126 px lower, the readings' rise 150 px less)
     const t = parseT(card.style.transform);
     assert.ok(t.s > out.s, 'larger as it shortens');
-    assert.deepEqual(log, [['boost', +t.s.toFixed(2)]]);
+    assert.deepEqual(log, [], 'not drawn again on each step of the follow (8 Nov 2026)');
+    await new Promise((r) => setTimeout(r, 260));
+    assert.deepEqual(log, [['boost', +t.s.toFixed(2)]], 'drawn for it once the steps stop');
   } finally { back(); }
 });
 

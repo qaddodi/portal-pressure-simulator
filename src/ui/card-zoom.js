@@ -265,7 +265,9 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       if (st.cam) { clearTimeout(st.sharpT); const me = st; me.sharpT = setTimeout(() => { if (st === me && !me.closing && me.steady) camera.sharp?.(true); }, 200); }   // (the readings still moving: sharp again 200 ms after the last step)
       zoomFrameRun();
       st.s = sc;
-      if (sc > st.boosted + 0.01) { st.boosted = sc; boost(sc); }
+      // (The boost redraws every chart at the new density (util.js redrawBoosted): asked on each step of the readings' rise it redrew them all
+      // again and again through the follow. It is given once the steps stop, 200 ms after the last, like the camera's sharp (8 Nov 2026, lag hunt).)
+      if (sc > st.boosted + 0.01) { st.boosted = sc; clearTimeout(st.boostT); const me = st; me.boostT = setTimeout(() => { if (st === me && !me.closing) boost(me.boosted); }, 200); }
       return true;
     },
     /** Glides back (or at once: instant, Reduce Motion). Resolves when the card is where it was. */
