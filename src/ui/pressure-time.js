@@ -106,7 +106,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     h('button', { 'data-range': id, 'aria-pressed': String(id === range), onclick: () => { userRange = id; setRange(id); } }, label)));
   const cv = h('canvas', { role: 'img', 'aria-label': 'Pressure over time' });
   // The chart's still parts (laptop-heat recs H3): its panel, grid, thresholds and, on a slide's card, the column of readings, drawn
-  // first each frame between a save and a restore (still-layer.js: it takes no key now, the GPU's pen draws them again at no copy); the traces, ends, markers, axis and crosshair are drawn over it.
+  // first each frame, kept on the GPU as a layer while their version holds (still-layer.js, trace-gl.js keepLayer); the traces, ends, markers, axis and crosshair are drawn over it.
   const still = createStill(cv, { on: stillLayer });
   const box = h('div', { class: 'chart-box pt-box' }, cv);
   // The chart drawn by the GPU (trace-gl.js; Mohammad, 1 Nov: "Move everything to GPU"): every part of it, the panel, grid and words as
@@ -549,6 +549,29 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     }
   }
   const beatStillFn = (c) => drawBeatStill(c, SB);
+  // The beat card's still parts are kept on the GPU while nothing they print moves: KB is a copy of what SB (and its column) held when the layer
+  // was last drawn, compared field by field (nothing is built to compare), and its ver moves when any of it differs. The printed words are in it.
+  const KB = { ver: 0, w: 0, hh: 0, panel: '', faint: '', muted: '', text: '', hair: '', danger: '', ok: '', cap: '', join: '', L: 0, hrT: '', hvT: '', word: '', sevC: '', hrC: '', ylN: 0, col: false, x: 0, k: 0, deltas: false, rows: false, hrSince: '', hvSince: '', rn: 0 };
+  const kbYT = [], kbYY = [], kbR = [{ c: '', name: '', dashed: false, txt: '' }, { c: '', name: '', dashed: false, txt: '' }, { c: '', name: '', dashed: false, txt: '' }];
+  function beatVer() {
+    const S = SB, C = S.col, rl = keyRowList;
+    let ch = KB.w !== S.w || KB.hh !== S.hh || KB.panel !== S.panel || KB.faint !== S.faint || KB.muted !== S.muted || KB.text !== S.text || KB.hair !== S.hair || KB.danger !== S.danger || KB.ok !== S.ok
+      || KB.cap !== S.cap || KB.join !== S.join || KB.L !== S.L || KB.hrT !== S.hrT || KB.hvT !== S.hvT || KB.word !== S.word || KB.sevC !== S.sevC || KB.hrC !== S.hrC || KB.ylN !== S.ylN || KB.col !== !!C;
+    for (let i = 0; !ch && i < S.ylN; i++) if (kbYT[i] !== S.ylTxt[i] || kbYY[i] !== S.ylY[i]) ch = true;
+    if (!ch && C) {
+      ch = KB.x !== C.x || KB.k !== C.plan.k || KB.deltas !== C.plan.deltas || KB.rows !== C.plan.rows || KB.hrSince !== C.hrSince || KB.hvSince !== C.hvSince || KB.rn !== rl.length;
+      for (let i = 0; !ch && i < rl.length; i++) { const r = rl[i], q = kbR[i]; if (q.c !== r.c || q.name !== r.name || q.dashed !== r.dashed || q.txt !== r.txt) ch = true; }
+    }
+    if (!ch) return KB.ver;
+    KB.w = S.w; KB.hh = S.hh; KB.panel = S.panel; KB.faint = S.faint; KB.muted = S.muted; KB.text = S.text; KB.hair = S.hair; KB.danger = S.danger; KB.ok = S.ok;
+    KB.cap = S.cap; KB.join = S.join; KB.L = S.L; KB.hrT = S.hrT; KB.hvT = S.hvT; KB.word = S.word; KB.sevC = S.sevC; KB.hrC = S.hrC; KB.ylN = S.ylN; KB.col = !!C;
+    for (let i = 0; i < S.ylN; i++) { kbYT[i] = S.ylTxt[i]; kbYY[i] = S.ylY[i]; }
+    if (C) {
+      KB.x = C.x; KB.k = C.plan.k; KB.deltas = C.plan.deltas; KB.rows = C.plan.rows; KB.hrSince = C.hrSince; KB.hvSince = C.hvSince; KB.rn = rl.length;
+      for (let i = 0; i < rl.length; i++) { const r = rl[i], q = kbR[i]; q.c = r.c; q.name = r.name; q.dashed = r.dashed; q.txt = r.txt; }
+    }
+    return ++KB.ver;
+  }
   // The "before" plate's room: a line's extent over the label's width, kept as a span if it has any sample there.
   function addSpan(s, lx, rx) {
     let a = Infinity, b = -Infinity;
@@ -597,7 +620,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       SBcol.x = lay.colX; SBcol.plan = colPlan(hh, !!(hrSince || hvSince)); SBcol.hrSince = hrSince; SBcol.hvSince = hvSince;
       SB.col = SBcol;
     } else SB.col = null;
-    still.lay(ctx, null, beatStillFn);
+    still.lay(ctx, 'pt-beat', beatVer(), beatStillFn);
 
     // the paper, from the plot's bottom left corner up through the strip: a heavy line every 5 squares
     const paperTop = lay.ekg ? lay.ekg.top : top;
@@ -779,6 +802,22 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     }
   }
   const chartStillFn = (c) => drawChartStill(c, SC);
+  // The chart's still parts are kept on the GPU while nothing they draw moves (see beatVer): KC copies SC and each lane's box and range, which
+  // settle once the lanes' ease does; the cut-offs' and the grid's words are made from those and from constants, so they are in it too.
+  const KC = { ver: 0, w: 0, hh: 0, panel: '', faint: '', gridOn: '', danger: '', caution: '', slide: false, narrow: false, L: 0, plotW: 0, cap: '', join: '', n: 0 };
+  const kcL = [];
+  for (let i = 0; i < 3; i++) kcL.push({ key: '', top: 0, bot: 0, lo: 0, hi: 0, tick: 0 });
+  function chartVer() {
+    const S = SC, ls = S.lanes;
+    let ch = KC.w !== S.w || KC.hh !== S.hh || KC.panel !== S.panel || KC.faint !== S.faint || KC.gridOn !== S.gridOn || KC.danger !== S.danger || KC.caution !== S.caution || KC.slide !== S.slide
+      || KC.narrow !== S.narrow || KC.L !== S.L || KC.plotW !== S.plotW || KC.cap !== S.cap || KC.join !== S.join || KC.n !== ls.length;
+    for (let i = 0; !ch && i < ls.length; i++) { const l = ls[i], q = kcL[i]; if (q.key !== l.key || q.top !== l.top || q.bot !== l.bot || q.lo !== l.lo || q.hi !== l.hi || q.tick !== l.tick) ch = true; }
+    if (!ch) return KC.ver;
+    KC.w = S.w; KC.hh = S.hh; KC.panel = S.panel; KC.faint = S.faint; KC.gridOn = S.gridOn; KC.danger = S.danger; KC.caution = S.caution; KC.slide = S.slide;
+    KC.narrow = S.narrow; KC.L = S.L; KC.plotW = S.plotW; KC.cap = S.cap; KC.join = S.join; KC.n = ls.length;
+    for (let i = 0; i < ls.length; i++) { const l = ls[i], q = kcL[i]; q.key = l.key; q.top = l.top; q.bot = l.bot; q.lo = l.lo; q.hi = l.hi; q.tick = l.tick; }
+    return ++KC.ver;
+  }
 
   function drawNow() {
     const p = fitPen(cv, gpu);
@@ -960,7 +999,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     SC.w = w; SC.hh = hh; SC.panel = panel; SC.faint = faint; SC.gridOn = gridOn; SC.danger = cssVar('--danger'); SC.caution = cssVar('--caution');
     SC.slide = slide; SC.narrow = narrow; SC.L = L; SC.plotW = plotW;
     SC.cap = typeof ctx.lineCap === 'string' ? ctx.lineCap : 'butt'; SC.join = typeof ctx.lineJoin === 'string' ? ctx.lineJoin : 'miter';
-    still.lay(ctx, null, chartStillFn);
+    still.lay(ctx, 'pt-chart', chartVer(), chartStillFn);
     // (What the grid used to leave on the context, which the parts drawn after it read without setting: the baseline, the weight, the colours.)
     if (lanes.length) { ctx.globalAlpha = 1; ctx.lineWidth = 1; ctx.font = FONT(500, 12); ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.strokeStyle = gridOn; ctx.fillStyle = faint; }
 
