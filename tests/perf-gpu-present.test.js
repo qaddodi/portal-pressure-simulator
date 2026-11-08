@@ -157,3 +157,60 @@ test('A4: the overlays\' stack is drawn before the canvas is bound for the copy,
   assert.equal(after.filter((x) => x[0] === 'drawArrays').length, 1, 'the lay is the one draw');
   assert.equal(g.overlay.stale, false);
 });
+
+// ── A5 ──
+test('A5: the box the camera lay is cut to holds every fragment that reads a texel inside the overlay bounds', () => {
+  let seed = 7;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const cw = 90, ch = 60;
+  let boxes = 0, small = 0;
+  for (let trial = 0; trial < 120; trial++) {
+    const pw = trial % 3 ? cw : 45, ph = trial % 3 ? ch : 30;
+    const x0 = Math.floor(rnd() * pw * 0.8), y0 = Math.floor(rnd() * ph * 0.8);
+    const ob = [x0, y0, x0 + 1 + Math.floor(rnd() * (pw - x0 - 1)), y0 + 1 + Math.floor(rnd() * (ph - y0 - 1))];
+    const k = [0.6, 1, 1.7, 3.3][trial % 4], ex = (rnd() - 0.5) * cw * 2, eyUp = (rnd() - 0.5) * ch * 2;
+    const box = [0, 0, 0, 0], any = mod.camLayBox(box, ob, k, ex, eyUp, cw, ch, pw, ph);
+    // (CAM_FS: q = (fragment - (ex, eyUp)) / k, uv = q / canvas; the texture is read bilinearly at uv * picture size, clamped at its edge.)
+    let reads = 0;
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+      const qx = (x + 0.5 - ex) / k, qy = (y + 0.5 - eyUp) / k, u = qx / cw, v = qy / ch;
+      if (u < 0 || v < 0 || u > 1 || v > 1) continue;
+      const tx = u * pw - 0.5, ty = v * ph - 0.5;   // (texel centres at integers; y up in the texture, ob is y down)
+      let hit = false;
+      for (const i of [Math.floor(tx), Math.floor(tx) + 1]) for (const j of [Math.floor(ty), Math.floor(ty) + 1]) {
+        const ci = Math.min(pw - 1, Math.max(0, i)), cj = Math.min(ph - 1, Math.max(0, j));
+        const row = ph - 1 - cj;   // (the texel's row, counted from the top)
+        if (ci + 1 > ob[0] && ci < ob[2] && row + 1 > ob[1] && row < ob[3]) hit = true;
+      }
+      if (!hit) continue;
+      reads++;
+      assert.ok(any && x >= box[0] && x < box[2] && y >= box[1] && y < box[3], `fragment ${x},${y} reads the bounds ${ob} outside the box ${box} (k ${k})`);
+    }
+    if (any) { boxes++; if ((box[2] - box[0]) * (box[3] - box[1]) < cw * ch / 2) small++; }
+    else assert.equal(reads, 0, 'an empty box reads nothing');
+  }
+  assert.ok(boxes > 30 && small > 10, `the boxes are real and mostly smaller than the canvas (${boxes}, ${small})`);
+  assert.equal(mod.camLayBox([0, 0, 0, 0], [0, 0, 0, 0], 1, 0, 0, cw, ch, cw, ch), false, 'no ops: no box');
+  assert.equal(mod.camLayBox([0, 0, 0, 0], [10, 10, 20, 20], 1, 500, 0, cw, ch, cw, ch), false, 'carried off the canvas');
+});
+
+test('A5: under a camera the overlay lay is cut to its bounds, and nothing is laid for an empty stack', () => {
+  const { g, f, look } = renderer();
+  g.draw(M1, look, { on: true });
+  g.overlay.set(new Map([['o0', [{ spec: { ops: [], opacity: 1, mask: null }, m: [1, 0, 0, 1, 0, 0] }]]]), ['o0']);
+  g.present();
+  g.setCamera(2, 300, 200, 1);
+  const n0 = f.calls.length;
+  g.present();
+  assert.equal(f.calls.slice(n0).filter((c) => c[0] === 'drawArrays').length, 1, 'only the picture under the camera: the empty overlay is not laid');
+  // (A scissor left on would cut the glass and the labels drawn after the overlays.)
+  const sc = f.calls.slice(n0).filter((c) => c[0] === 'enable' || c[0] === 'disable').filter((c) => c[1] === f.gl.SCISSOR_TEST);
+  assert.notEqual(sc.at(-1)?.[0], 'enable');
+});
+
+test('A5: camDraw cuts the camera lay with the box it is given', () => {
+  const veins = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(veins, /function camDraw\(tex, blend, plain = false, box = null\) \{/);
+  assert.match(veins, /const sb = box \|\| \(plain \? ovBox : null\);\n\s+if \(sb\) \{ gl\.enable\(gl\.SCISSOR_TEST\); gl\.scissor\(sb\[0\], sb\[1\], sb\[2\] - sb\[0\], sb\[3\] - sb\[1\]\); \} else gl\.disable\(gl\.SCISSOR_TEST\);/);
+  assert.match(veins, /if \(ob && !camBox\(ob\)\) return;\n\s+try \{ if \(camDraw\(over\.texture, true, false, ob \? CB : null\)\) return; \} finally \{ gl\.disable\(gl\.SCISSOR_TEST\); \}/);
+});

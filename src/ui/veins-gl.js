@@ -1983,6 +1983,19 @@ export function boxOfCells(cells, n, cell) {
   return [x0, y0, x1 + cell, y1 + cell];
 }
 
+/**
+ * The overlay stack's bounds `ob` (its picture's px, y down, pw × ph) as laid through the camera p' = k p + (ex, eyUp) on a canvas cw × ch (px, y up),
+ * the box camDraw's scissor is cut to, into `o` (x0, y0, x1, y1): grown by what the texture's filtered read reaches (a texel, at the camera's scale)
+ * and a pixel, cut to the canvas. False when the stack holds nothing or none of it is on the canvas.
+ */
+export function camLayBox(o, ob, k, ex, eyUp, cw, ch, pw, ph) {
+  if (!(ob[2] > ob[0] && ob[3] > ob[1])) return false;
+  const kx = cw / pw, ky = ch / ph, pad = Math.ceil(Math.abs(k) * Math.max(kx, ky)) + 1;
+  const xa = k * ob[0] * kx + ex, xb = k * ob[2] * kx + ex, ya = k * (ch - ob[3] * ky) + eyUp, yb = k * (ch - ob[1] * ky) + eyUp;
+  o[0] = Math.max(0, Math.floor(Math.min(xa, xb)) - pad); o[2] = Math.min(cw, Math.ceil(Math.max(xa, xb)) + pad);
+  o[1] = Math.max(0, Math.floor(Math.min(ya, yb)) - pad); o[3] = Math.min(ch, Math.ceil(Math.max(ya, yb)) + pad);
+  return o[2] > o[0] && o[3] > o[1];
+}
 export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'stage', onPlate = null, share = null }) {
   // share (the lobule, 4 Nov 2026: one GPU context for the figure): another renderer's `top` ({ gl, canvas }). This one then makes no context
   // and no canvas of its own: it draws in the host's context, and what it would put on its canvas goes to a texture and framebuffer of
@@ -3400,9 +3413,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function overLay(prepped = false) {
     if (!over || !overShown || !overM) return;
     if (!prepped) overPrep();
-    if (camOn() && camDraw(over.texture, true)) return;
-    // (Only the box the overlays' shapes lie in is laid and blended, and nothing when it is empty: the texture is clear elsewhere.)
     const ob = over.bounds;
+    if (camOn()) {
+      // (Under a camera the box the overlays' shapes lie in is carried through it, and only that is laid: a full-canvas blend otherwise.)
+      if (ob && !camBox(ob)) return;
+      try { if (camDraw(over.texture, true, false, ob ? CB : null)) return; } finally { gl.disable(gl.SCISSOR_TEST); }
+    }
+    // (Only the box the overlays' shapes lie in is laid and blended, and nothing when it is empty: the texture is clear elsewhere.)
     if (ob) {
       const kx = canvas.width / PW(), ky = canvas.height / PH();
       OB[0] = Math.max(0, Math.floor(ob[0] * kx) - 1); OB[2] = Math.min(canvas.width, Math.ceil(ob[2] * kx) + 1);
@@ -3431,7 +3448,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.disable(gl.BLEND);
     } finally { gl.disable(gl.SCISSOR_TEST); ovBox = null; }
   }
-  const OB = [0, 0, 0, 0];
+  const OB = [0, 0, 0, 0], CB = [0, 0, 0, 0];
+  // The overlay bounds `ob` as the box camDraw lays them in: into CB (camLayBox).
+  function camBox(ob) {
+    const k = cam.k * scn.k;
+    return camLayBox(CB, ob, k, scn.k * cam.ex + scn.ex, canvas.height * (1 - k) - (scn.k * cam.ey + scn.ey), canvas.width, canvas.height, PW(), PH());
+  }
   let ovBox = null;   // (the box the overlay lay is cut to this present: device px, y up)
   // The camera (k about (ox, oy), canvas px, y down) and alpha the final present lays the figure with: the dive's zoom and every fade of the
   // figure's canvas (a hide, the first framing), as uniforms of one pass, so the glass drawn over the figure in the same present never moves
@@ -3443,7 +3465,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const camOn = () => cam.k !== 1 || cam.a !== 1 || scn.k !== 1;
   let camSeq = 0;   // (counts the cameras' changes (setCameraRec, setScene): the glass takes a kept blur as current only with no camera on and none changed)
   let camP = null;
-  function camDraw(tex, blend, plain = false) {
+  function camDraw(tex, blend, plain = false, box = null) {
     // (The scene's camera after the dive's, composed in y down as the scene camera records are, and flipped for the framebuffer once, at the end.
     // plain: no camera, a picture of another size laid up over the whole canvas, filtered.)
     const a = plain ? 1 : cam.a, k = plain ? 1 : cam.k * scn.k, ex = plain ? 0 : scn.k * cam.ex + scn.ex, eyUp = plain ? 0 : canvas.height * (1 - k) - (scn.k * cam.ey + scn.ey);
@@ -3453,7 +3475,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!camP) return false;
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
-    if (plain && ovBox) { gl.enable(gl.SCISSOR_TEST); gl.scissor(ovBox[0], ovBox[1], ovBox[2] - ovBox[0], ovBox[3] - ovBox[1]); } else gl.disable(gl.SCISSOR_TEST);
+    const sb = box || (plain ? ovBox : null);
+    if (sb) { gl.enable(gl.SCISSOR_TEST); gl.scissor(sb[0], sb[1], sb[2] - sb[0], sb[3] - sb[1]); } else gl.disable(gl.SCISSOR_TEST);
     gl.disable(gl.STENCIL_TEST);
     if (blend) { gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); } else { gl.disable(gl.BLEND); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }
     if (!(a > 0)) { gl.disable(gl.BLEND); return true; }   // (nothing to lay: the cleared canvas is the picture)
