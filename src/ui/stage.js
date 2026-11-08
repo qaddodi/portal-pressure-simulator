@@ -138,6 +138,7 @@ import { createGlide } from './stage-glide.js';
 import { stageScope } from './stage-scope.js';
 import { ringOnScreen as scopeRingOn, ringInto as scopeRingInto } from './scope-lens-rule.js';
 import { createLzGlassSeq } from './lobule-glass-seq.js';
+import { viewMovingOf } from './view-moving.js';
 export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, onViewChange }) {
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
@@ -1477,8 +1478,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let xfHold = false;
   // (A layout owed to the page's leaders and dots: one asked for found no blank to take, and the next layout makes them, whenever it comes (stage-label-layer.js leadTop).)
   let leadOwed = false;
-  // (Whether the view is moving now: a glide, a pan or a pinch. Boxes kept for the frame's reads are not read again while it is.)
-  const viewMoving = () => vtGliding || camMove || wrap.classList.contains('panning');
+  // (Whether the view is moving now: a glide, a pan, a pinch, a wheel zoom or a fling. Boxes kept for the frame's reads are not read again while it is.)
+  const MOVING_SRC = { glide: () => vtGliding, cam: () => camMove, view: () => !!viewXf, hand: () => live.gestureOn(), panning: () => wrap.classList.contains('panning') };
+  const viewMoving = () => viewMovingOf(MOVING_SRC);   // (view-moving.js: every motion source feeds the one answer)
   // A slow push (opt.drift: a time-lapse's lapse.cam) is not a move of that kind: the labels stay up and ride with the figure, each kept
   // on its side as a hand's zoom keeps them (updateLabels), and are solved again for where it stopped once it lands, gliding there.
   let drifting = false;
