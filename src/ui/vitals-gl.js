@@ -106,11 +106,11 @@ export function textWidth(str, w, px) {
  * A GPU renderer for the monitor whose layout box is `cv`, or null where WebGL 2 cannot be had (nothing is drawn then). `redraw`: called
  * when the monitor can be drawn that it could not be (the pool's programs or atlas came in, a context came back).
  */
-export function createVitalsGL(cv, { redraw = null } = {}) {
+export function createVitalsGL(cv, { redraw = null, makePen = createTraceGL } = {}) {   // (makePen: the tests give a recorder for the chart drawer)
   if (typeof WebGL2RenderingContext === 'undefined') return null;
   let S = null;   // the frame being drawn (set by draw, read by under as the chart drawer's frame begins)
   let R = null, glOf = null, genOf = -1, drew = false, dead = false, failed = null, cancelPub = null;
-  const pen = createTraceGL(cv, { redraw, keep: true, under: (gl) => { drew = false; if (sync(gl) && S) drew = paint(gl, S); } });
+  const pen = makePen(cv, { redraw, keep: true, under: (gl) => { drew = false; if (sync(gl) && S) drew = paint(gl, S); } });
   if (!pen) return null;
 
   // What the pool's context holds for this monitor: three programs (started now, published when the driver is done), a quad and the
@@ -133,7 +133,7 @@ export function createVitalsGL(cv, { redraw = null } = {}) {
       gl.bindBuffer(gl.ARRAY_BUFFER, buf);
       for (const [loc, n, stride, off] of attrs) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, stride, off); gl.vertexAttribDivisor(loc, 1); }
       gl.bindVertexArray(null);
-      return { vao, buf, cap: 0 };
+      return { vao, buf, cap: 0, ver: NaN, n: 0, df: null };   // (ver, n, df: the version, count and field of the instance data the buffer holds)
     };
     R = {
       gl, progs, ready: false, u: null, qb,
@@ -214,12 +214,18 @@ export function createVitalsGL(cv, { redraw = null } = {}) {
     gl.viewport(0, 0, W, H);
     gl.disable(gl.SCISSOR_TEST);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    // Rectangles.
-    const rd = new Float32Array(s.rects.length * 9);
-    s.rects.forEach(([x, y, w, h, r, col], i) => { rd.set([x * dpr, y * dpr, w * dpr, h * dpr, r * dpr, ...col], i * 9); });
-    if (s.rects.length) {
+    // Rectangles. (The instance data is built and sent only when the monitor's version differs from the one the buffer holds: a frame that only
+    // scrolls the strip draws the rectangles and words from the buffers as they are. A caller with no version builds them every time.)
+    const keep = Number.isFinite(s.ver), rs = R.rect;
+    if (!keep || rs.ver !== s.ver) {
+      const rd = new Float32Array(s.rects.length * 9);
+      s.rects.forEach(([x, y, w, h, r, col], i) => { rd.set([x * dpr, y * dpr, w * dpr, h * dpr, r * dpr, ...col], i * 9); });
+      if (rd.length) send(gl, rs, rd);
+      rs.n = s.rects.length; rs.ver = s.ver;
+    }
+    if (rs.n) {
       gl.useProgram(R.p.rect); gl.uniform2f(R.u.rect.size, W, H);
-      send(gl, R.rect, rd); gl.bindVertexArray(R.rect.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, s.rects.length);
+      gl.bindVertexArray(rs.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, rs.n);
     }
     // The strip.
     const L = s.line;
@@ -233,14 +239,19 @@ export function createVitalsGL(cv, { redraw = null } = {}) {
     }
     // Words and digits, from the pool's atlas (the drawer only begins a frame once it is in).
     if (s.texts.length && atlas) {
-      let cap = 0; for (const t of s.texts) cap += String(t[0]).length;
-      const gd = new Float32Array(cap * 13);
-      let n = 0;
-      for (const [str, w, px, x, y, col] of s.texts) n = layText(gd, n, str, w, px, x, y, col, dpr);
-      if (n) {
+      const gs = R.glyph, df = displayField();   // (the big readouts' field coming in changes the glyphs a number is drawn from)
+      if (!keep || gs.ver !== s.ver || gs.df !== df) {
+        let cap = 0; for (const t of s.texts) cap += String(t[0]).length;
+        const gd = new Float32Array(cap * 13);
+        let n = 0;
+        for (const [str, w, px, x, y, col] of s.texts) n = layText(gd, n, str, w, px, x, y, col, dpr);
+        if (n) send(gl, gs, gd.subarray(0, n * 13));
+        gs.n = n; gs.ver = s.ver; gs.df = df;
+      }
+      if (gs.n) {
         gl.useProgram(R.p.glyph); gl.uniform2f(R.u.glyph.size, W, H); gl.uniform2f(R.u.glyph.atlas, ATLAS_W, ATLAS_H); gl.uniform2f(R.u.glyph.sdf, RADIUS, CUTOFF);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, atlas); gl.uniform1i(R.u.glyph.tex, 0);
-        send(gl, R.glyph, gd.subarray(0, n * 13)); gl.bindVertexArray(R.glyph.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, n);
+        gl.bindVertexArray(gs.vao); gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, gs.n);
       }
     }
     gl.bindVertexArray(null);
