@@ -76,8 +76,8 @@ export const RATE = {
   plt: (v) => (v < 100 ? T_hi_Severe : v < 150 ? T_mid_Low : T_ok_Normal),
   // (A flow that reads 0.0 is no flow, as with a clotted portal vein: it has no direction.)
   pvFlow: (v) => (v < 0 ? T_hi_Hepatofugal : v === 0 ? T_hi_No_flow : T_null_Hepatopetal),
-  // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 stasis, below zero reversed.
-  pvVel: (v) => (v < 0 ? T_hi_Reversed : v < FLOW_CUTS.stasis ? T_hi_Stasis : v < 15 ? T_mid_Slow : T_ok_Normal),
+  // Main portal vein velocity on Doppler: 15 cm/s or more normal, slower is slow, under 9 either way stasis (as the Doppler tool's judgeFlow), backward past -9 reversed.
+  pvVel: (v) => (v <= -FLOW_CUTS.stasis ? T_hi_Reversed : v < FLOW_CUTS.stasis ? T_hi_Stasis : v < 15 ? T_mid_Slow : T_ok_Normal),
   liver: (v) => (v <= 55 ? T_hi_Severe : v <= 75 ? T_mid_Low : T_ok_Normal),
   shunt: (v) => (v >= 0.3 ? T_hi_Large : v >= 0.1 ? T_mid_Moderate : T_ok_Small),
   map: (v) => (v < KIDNEY_CUTS.mapBeta ? T_hi_Low : T_ok_Normal),
