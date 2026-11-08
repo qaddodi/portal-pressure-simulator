@@ -323,10 +323,15 @@ void main() {
   float m = uMode == 1 ? boxCover(p - uBox.xy, uBox.zw, uRad) : texture(uMask, (p - uBox.xy) / uBox.zw * uMS).a;
   // (A card's drop shadows, outside its box only, as the CSS draws a box-shadow: so the card's box, its edge and its shadow are one GPU
   // shape that can change size in view with nothing of the page laid out again.)
-  float d0 = uD0C.a > 0.0 ? uD0C.a * (uMode == 1 ? shCover(p, uD0B, uRad, max(uDS.x, 0.5)) : cover(p.x, uD0B.x, uD0B.z, max(uDS.x, 0.5)) * cover(p.y, uD0B.y, uD0B.w, max(uDS.x, 0.5))) : 0.0;
-  float d1 = uD1C.a > 0.0 ? uD1C.a * (uMode == 1 ? shCover(p, uD1B, uRad, max(uDS.y, 0.5)) : cover(p.x, uD1B.x, uD1B.z, max(uDS.y, 0.5)) * cover(p.y, uD1B.y, uD1B.w, max(uDS.y, 0.5))) : 0.0;
-  float sa = 1.0 - (1.0 - d0) * (1.0 - d1);
-  vec3 sc = sa > 0.0 ? (uD0C.rgb * d0 * (1.0 - d1) + uD1C.rgb * d1) / sa : vec3(0.0);
+  float sa = 0.0;
+  vec3 sc = vec3(0.0);
+  // (Weighted by 1 - m below, so a pixel the card covers fully never needs them.)
+  if (m < 1.0) {
+    float d0 = uD0C.a > 0.0 ? uD0C.a * (uMode == 1 ? shCover(p, uD0B, uRad, max(uDS.x, 0.5)) : cover(p.x, uD0B.x, uD0B.z, max(uDS.x, 0.5)) * cover(p.y, uD0B.y, uD0B.w, max(uDS.x, 0.5))) : 0.0;
+    float d1 = uD1C.a > 0.0 ? uD1C.a * (uMode == 1 ? shCover(p, uD1B, uRad, max(uDS.y, 0.5)) : cover(p.x, uD1B.x, uD1B.z, max(uDS.y, 0.5)) * cover(p.y, uD1B.y, uD1B.w, max(uDS.y, 0.5))) : 0.0;
+    sa = 1.0 - (1.0 - d0) * (1.0 - d1);
+    sc = sa > 0.0 ? (uD0C.rgb * d0 * (1.0 - d1) + uD1C.rgb * d1) / sa : vec3(0.0);
+  }
   if (m <= 0.0) { if (sa <= 0.001) discard; o = vec4(sc * sa, sa) * uA; return; }
   vec4 s = texture(uScene, clamp((p - uReg.xy) / uReg.zw, 0.0, 1.0));
   vec3 c = s.rgb + uBg * (1.0 - s.a);

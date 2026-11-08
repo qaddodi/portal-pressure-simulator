@@ -42,3 +42,11 @@ test('the browser\'s glass stays with the blur effect off, reduced transparency,
   assert.equal(glassWanted(doc(false), win(true)), false);
   assert.equal(glassWanted(doc(false), win(false, false)), false);
 });
+
+test('the glass shader works out the drop-shadow covers only where the card does not fully cover the pixel (Perf A6)', () => {
+  const main = SRC.slice(SRC.indexOf('float m = uMode == 1 ? boxCover'), SRC.indexOf('if (m <= 0.0) { if (sa <= 0.001)'));
+  const guard = main.indexOf('if (m < 1.0) {');
+  assert.ok(guard > 0, 'the shadow covers sit inside an m < 1.0 branch');
+  for (const k of ['float d0 =', 'float d1 =', 'sa = 1.0 - (1.0 - d0)', 'sc = sa > 0.0']) assert.ok(main.indexOf(k) > guard, k + ' is inside the branch');
+  assert.ok(main.indexOf('float sa = 0.0;') < guard && main.indexOf('vec3 sc = vec3(0.0);') < guard, 'sa and sc start at 0 before the branch');
+});
