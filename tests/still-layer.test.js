@@ -32,7 +32,7 @@ const realClock = () => { performance.now = realNow; };
 const hash = (s) => { let h = 7; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
 globalThis.getComputedStyle = () => ({
   fontSize: '14px',
-  getPropertyValue: (n) => (n === '--ramp-pressure' ? '#DCEBF7 0, #99C2ED 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30' : `#${(0x1000000 | (hash(n) & 0xffffff)).toString(16).slice(1)}`),
+  getPropertyValue: (n) => (n === '--ramp-pressure' ? '#B8D5ED 0, #85B6E9 5, #718EDF 10, #8671CF 12, #9B2B6A 20, #661030 30' : `#${(0x1000000 | (hash(n) & 0xffffff)).toString(16).slice(1)}`),
 });
 
 // (What each kind of call reads from the context: a stroke does not read the fill colour, so two states that differ only there draw the same pixels.)

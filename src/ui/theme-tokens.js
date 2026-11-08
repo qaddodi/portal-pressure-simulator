@@ -53,6 +53,16 @@ export const TOKENS = {
     // flow semantics
     'flow-normal': '#16988F',
     'flow-reversed': '#EC7424',
+    // lens ramps ("#colour position", interpolated in OKLab by colormap.js; pressure positions are mmHg, the others run 0 to 1)
+    // (pressure: lightness falls at every stop, so 12 and 20 mmHg differ on a projector or a printout as well as in hue (round 2 review A7,
+    // Mohammad 18 Oct). The hue turns where the meaning turns: blue to 8 or so, the violet turn centred on 10 to 12 and a richer violet there,
+    // magenta by 16, wine from 20 (looks review, 31 Oct). Linen's pale end is #B8D5ED 0, #85B6E9 5 (visual-style C2): the old #DCEBF7 was ΔE 3.9 from the paper.)
+    'ramp-pressure': '#B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
+    'ramp-flow': '#9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #1B366A 1',
+    // (velocity against each vessel's normal: sand below it, teal within it, violet above it (thirds of the scale))
+    'ramp-velocity': '#C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #4A2A8C 1',
+    'ramp-heat': '#B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #6E0B2E 1',
+    'ramp-drop': '#DCE6D2 0, #A8C97A .3, #4F8C3C .65, #1D4724 1',
     // anatomy plate: tissue tones [light face, shaded face, outline], muted so vessels lead
     'og-liver-1': '#e3b8a7', 'og-liver-2': '#c6826d', 'og-liver-3': '#97513e',
     'og-stomach-1': '#edcec2', 'og-stomach-2': '#d9a08c', 'og-stomach-3': '#a46854',
@@ -170,6 +180,8 @@ export const TOKENS = {
   // Soft light: warm, low-glare paper with frosted cards and softer ink; organ colours unchanged.
   soft: {
     from: 'light',
+    // (pressure keeps its pale end from before Linen's: Oat is darker than #DCEBF7, so that end reads lighter than the ground here, where Linen's #B8D5ED would sit at Oat's own lightness)
+    'ramp-pressure': '#DCEBF7 0, #99C2ED 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30',
     // Oat (6 Nov, picked from the Soft mocks): a deeper, warmer cream, frosted cards, firmer organs, trace lines at 3:1 on the card
     'gut-a': '.80',
     'organ-a': '.52',
@@ -245,6 +257,14 @@ export const TOKENS = {
     'brand-bg': '#3A342E', 'accent': '#7C9BFF', 'accent-ink': '#A5BAFF', 'accent-soft': 'rgba(124, 155, 255, .13)', 'accent-line': 'rgba(124, 155, 255, .4)', 'focus': '#7C9BFF',
     'ok': '#34C38F', 'caution': '#F0B43C', 'danger': '#F2634D', 'critical': '#FF4747', 'info': '#7C9BFF', 'disease': '#D2A2F2',
     'flow-normal': '#2CC5BD', 'flow-reversed': '#FF8C42',
+    // lens ramps for a dark ground (visual-style C1): the light looks' ramps fall to dark ends that sink into the ground (a 30 mmHg vessel was 1.41:1).
+    // Pressure keeps its hue path (ice, sky, cornflower, violet, magenta, wine) and keeps lightness falling at every stop (OKLab L .92 to .50); the flow,
+    // velocity, heat and drop ramps keep their stops and lift only the dark end to about L .5 (hue and chroma kept). Navy and Black take these from Dark.
+    'ramp-pressure': '#D7E7F4 0, #9DC9F7 5, #7BA1FC 10, #A074F4 12, #BD2C92 20, #B31553 30',
+    'ramp-flow': '#9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #3F5C94 1',
+    'ramp-velocity': '#C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #684DB1 1',
+    'ramp-heat': '#B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #9E3D55 1',
+    'ramp-drop': '#DCE6D2 0, #A8C97A .3, #4F8C3C .65, #456F4A 1',
     // organs lit as the light theme's, two steps darker in OKLab with their hue and chroma kept (looks review L3, 31 Oct), so the liver stays
     // liver-coloured on the dark ground; the outline is the lit face a step lighter, since on a dark ground the line is the light thing
     'og-liver-1': '#885B4C', 'og-liver-2': '#6F3425', 'og-liver-3': '#C1998B',

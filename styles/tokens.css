@@ -13,20 +13,10 @@
   --dop-mark: #FFFFFF; --dop-rim: #000000;   /* the Doppler probe and sample gate: white lines on a black rim, every theme (the probe's front band, --dop-face, is the look's: theme-tokens.js) */
   --module-fill: rgba(255, 255, 255, .02); --module-fill-open: rgba(124, 150, 255, .05); --module-line: rgba(150, 172, 255, .3);
 
-  /* lens ramps (both themes): "#colour position" stops, interpolated in OKLab by colormap.js.
-     Pressure positions are mmHg; the others run 0 to 1 along their scale. */
-  /* (pressure: lightness falls at every stop, so 12 and 20 mmHg differ on a projector or a printout as well as in hue;
-     they had the same OKLab lightness, .556 and .553. Round 2 review A7, Mohammad 18 Oct) */
-  /* (The hue turns where the meaning turns: blue to 8 or so, the violet turn centred on 10 to 12 and a richer violet there, magenta by
-     16, wine from 20; lightness still falls at every stop. Looks review, 31 Oct: 9 against 14 mmHg, the range a learner must learn to
-     tell apart, read as one blue-to-mauve stretch before.) */
-  --ramp-pressure: #DCEBF7 0, #99C2ED 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
-  --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #1B366A 1;
-  /* velocity against each vessel's normal: sand below it, teal within it, violet above it (thirds of the scale) */
-  --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #4A2A8C 1;
+  /* lens ramps: "#colour position" stops, interpolated in OKLab by colormap.js. Pressure positions are mmHg; the others run 0 to 1 along
+     their scale. The pressure, flow, velocity, heat and drop ramps differ per look (src/ui/theme-tokens.js, printed below: Linen's paler
+     blue end, the dark looks' lifted dark ends); oxygen is the same on every look. */
   --vel-slow: #D8B26A; --vel-normal: #3FA092; --vel-fast: #6E4FB0;
-  --ramp-heat: #B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #6E0B2E 1;
-  --ramp-drop: #DCE6D2 0, #A8C97A .3, #4F8C3C .65, #1D4724 1;
   --ramp-oxygen: #3A4F8F 0, #6E6A9F .35, #A9578A .65, #D2386F .9, #DC2F5E 1;   /* oxygen saturation 60–100 %: deoxygenated blue to oxygenated cerise */
   --ramp-violet: #925CDD; --ramp-wine: #A4216E;   /* (the pressure ramp's 12 and 20 mmHg stops, as flat colours: the HVPG against PPG plane's violet and wine zones) */
   --lens-flow: #1E6F8C; --lens-heat: #D7263D; --lens-drop: #4F8C3C; --lens-oxygen: #C2387A;   /* a view named in the words: its pill, from its own ramp */
@@ -196,6 +186,11 @@
   --disease: #8A3FB5;
   --flow-normal: #16988F;
   --flow-reversed: #EC7424;
+  --ramp-pressure: #B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
+  --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #1B366A 1;
+  --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #4A2A8C 1;
+  --ramp-heat: #B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #6E0B2E 1;
+  --ramp-drop: #DCE6D2 0, #A8C97A .3, #4F8C3C .65, #1D4724 1;
   --og-liver-1: #e3b8a7;
   --og-liver-2: #c6826d;
   --og-liver-3: #97513e;
@@ -424,6 +419,11 @@
     --disease: #D2A2F2;
     --flow-normal: #2CC5BD;
     --flow-reversed: #FF8C42;
+    --ramp-pressure: #D7E7F4 0, #9DC9F7 5, #7BA1FC 10, #A074F4 12, #BD2C92 20, #B31553 30;
+    --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #3F5C94 1;
+    --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #684DB1 1;
+    --ramp-heat: #B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #9E3D55 1;
+    --ramp-drop: #DCE6D2 0, #A8C97A .3, #4F8C3C .65, #456F4A 1;
     --og-liver-1: #885B4C;
     --og-liver-2: #6F3425;
     --og-liver-3: #C1998B;
@@ -636,6 +636,11 @@
   --disease: #D2A2F2;
   --flow-normal: #2CC5BD;
   --flow-reversed: #FF8C42;
+  --ramp-pressure: #D7E7F4 0, #9DC9F7 5, #7BA1FC 10, #A074F4 12, #BD2C92 20, #B31553 30;
+  --ramp-flow: #9CC7B5 0, #72BFA4 .25, #3EAA98 .5, #1E6F8C .75, #3F5C94 1;
+  --ramp-velocity: #C9973F 0, #E2CF9A .2, #5DB4A4 .5, #9A7ED6 .8, #684DB1 1;
+  --ramp-heat: #B4B8C2 0, #F4D35E .12, #F08A24 .45, #D7263D .75, #9E3D55 1;
+  --ramp-drop: #DCE6D2 0, #A8C97A .3, #4F8C3C .65, #456F4A 1;
   --og-liver-1: #885B4C;
   --og-liver-2: #6F3425;
   --og-liver-3: #C1998B;
@@ -814,6 +819,7 @@
 }
 /* Soft light: warm, low-glare paper with frosted cards and softer ink. */
 :root[data-theme="soft"] {
+  --ramp-pressure: #DCEBF7 0, #99C2ED 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;
   --gut-a: .80;
   --organ-a: .52;
   --bg: #DDD0B9;

@@ -1427,6 +1427,7 @@ function applyTheme(t, clear) {
 onThemeBusy(labelsBusy);   // (the labels' and leaders' pictures are built whole for a new look: the crossfade waits for them)
 onTheme(() => {
   stage?.lookChanged?.();
+  if (legendM) { for (const k in LG_GRAD) delete LG_GRAD[k]; renderLegend(); }   // (the lens ramps differ per look (colormap.js builds them again in this epoch): the key's bar is drawn from the new ones)
   const f = store.get().frame; if (f) { stage?.update(viewFrame(f)); dock?.update(f); }
 });
 // The browser's and the installed app's status bar take the color of whatever sits under it: the

@@ -50,6 +50,7 @@ import { createTxns, createLease, createScope } from './slide-txn.js';
 import { glEpoch, onGLRestored } from './gl-state.js';
 import { prepareShaders, shaderFailures } from './gl-compile.js';
 import { createFigureKey } from './figure-key.js';
+import { onTheme } from './theme-epoch.js';
 import { traceWhen } from './trace-labels.js';
 import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js';
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe, warmOf } from './slide-ext.js';
@@ -938,6 +939,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   let want = 0, shown = null, shownState = -1, busy = false, playing = false, gen = 0, redrawn = -1;   // (redrawn: the cards drawn again for a new text size, see pps:labelscale)
   let entering = null;   // (the slide whose cards are coming in, from their last unseen layout: its sizes hold from there, see layout's lockKey)
   let ui = null, black = false, digits = '', digitT = 0;
+  let keyNow = null;   // (the colour key on show, [lens, slide]: a new look draws a gradient key again from the new look's ramp)
+  onTheme(() => { if (ui && keyNow && typeof (lensSpec(keyNow[0], keyNow[1]) || PRESSURE_KEY)[1] === 'function') ui.fk.replaceChildren(...keyNodes(keyNow[0], keyNow[1])); });
   let saved = null, layersBefore = null;   // (the viewer's own lobule layers, put back when the show ends)
   // High contrast: a deeper shade, stronger text, ratings as filled chips (pz-hi). Off for now; no control offers it.
   const PROJ = 'pps.projector';
@@ -1548,6 +1551,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // The slide's colour key on the figure (null: none); another lens fades the old key out, the new one in.
   function paintKey(k, s = null) {
+    keyNow = k ? [k, s] : null;
     if (!ui) return;
     ui.text.classList.toggle('pz-keyed', !!k);
     ui.figKey.set(!!k, () => {
