@@ -34,6 +34,7 @@ export const GAS = {
   soft: 1.2,     // how softly it gives: the skin eases toward the wall over about this much more than the seat, it does not stop at it
   reach: [26, 40],   // the junction: the cardia and the roof round it, within the first distance of the cardia, and not beyond the second
   push: 5,       // the most the skin is pressed in at the junction, in world units ("a bit"): a fit that would press further is turned down
+  snug: [14, 24],   // the balloon drawn up fills the junction: skin within the first distance of the wall at the cardia is drawn out to it, the pull easing off to nothing by the second
   nudge: 0.9,    // and the most anywhere else (the softness of the margin itself): the balloon is fitted not to press on the rest of the wall
 };
 
@@ -87,6 +88,16 @@ function probe(p, poly) {
   return { c: out ? -best : best, n: best > 1e-9 ? [((out ? -1 : 1) * (p[0] - qx)) / l, ((out ? -1 : 1) * (p[1] - qy)) / l] : [0, 1] };
 }
 const smooth = (t) => t * t * (3 - 2 * t);
+/** How much more clearly a point has one wall to press on than another (0 mid way between two walls, 1 clearly nearer one): the nearest wall point q (clearance c) and the nearest one more than 8 units from it. */
+function lean(p, poly, q, c) {
+  let other = Infinity;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+    const u = l2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)) : 0, x = a[0] + u * dx, y = a[1] + u * dy;
+    if (Math.hypot(x - q[0], y - q[1]) > 8) other = Math.min(other, Math.hypot(p[0] - x, p[1] - y));
+  }
+  return smooth(Math.min(1, Math.max(0, (other - c) / 4)));
+}
 /** How much the junction counts at a point: 1 within GAS.reach[0] of the cardia, 0 beyond GAS.reach[1], eased between. */
 const giveAt = (p, mouth) => 1 - smooth(Math.min(1, Math.max(0, (Math.hypot(p[0] - mouth[0], p[1] - mouth[1]) - GAS.reach[0]) / (GAS.reach[1] - GAS.reach[0]))));
 /** How near the wall the skin may come at a point: the seat at the junction, the margin away from it, eased between. */
@@ -112,6 +123,51 @@ export function wallPress(ring, poly = paintedOutline(), mouth = [esoAt(251).c, 
     return d < 1e-4 ? p : [p[0] + n[0] * d, p[1] + n[1] * d];
   });
   return { ring: out, deepest, over };
+}
+/**
+ * The balloon drawn up against the cardia does not stand off it: it is soft, the traction holds it to the junction, and it spreads across the whole of the
+ * opening, the lesser curvature below it and the roof beside it, not only where the pear happened to meet them. Each point of the ring within the junction's reach
+ * and within GAS.snug[0] of the wall is drawn out along the wall's normal until it stands the seat off it (a gap of GAS.snug[1] or more is left alone, the pull
+ * easing off between), by `amount` (0 … 1, the traction's and the filling's): the cone's shoulder lies against the wall all across the cardia, and the flat top
+ * of the balloon closes the opening. Away from the junction nothing moves.
+ */
+export function snugPress(ring, amount, poly = paintedOutline(), mouth = [esoAt(251).c, 251]) {
+  if (amount <= 0) return ring;
+  const [near, far] = GAS.snug, n = ring.length;
+  const hold = (p) => standoff(giveAt(p, mouth)) + 0.3;   // (the nearest the skin comes to the wall at a point)
+  const apex = (p) => smooth(Math.min(1, Math.max(0, (Math.hypot(p[0] - mouth[0], p[1] - mouth[1]) - 4) / 8)));   // (not the neck at the tube: that stays on it)
+  // How far each point is drawn, as a vector along the wall's normal to it: out to the wall.
+  let move = ring.map((p) => {
+    const w = giveAt(p, mouth) * apex(p);
+    if (w <= 0) return [0, 0];
+    const { c, n: nr } = probe(p, poly), gap = c - hold(p);
+    if (gap <= 0) return [0, 0];
+    const d = gap * w * amount * lean(p, poly, [p[0] - nr[0] * c, p[1] - nr[1] * c], c) * (1 - smooth(Math.min(1, Math.max(0, (gap - near) / (far - near)))));
+    return [-nr[0] * d, -nr[1] * d];
+  });
+  // The pull itself is eased along the skin (a few passes of its neighbours' average), so the skin follows the wall in one smooth sweep, no corner where the pull begins.
+  for (let pass = 0; pass < 8; pass++) move = move.map((m, i) => { const a = move[(i + n - 1) % n], b = move[(i + 1) % n]; return [(a[0] + 2 * m[0] + b[0]) / 4, (a[1] + 2 * m[1] + b[1]) / 4]; });
+  // (Never through the wall: where the skin would come nearer than its standoff, the pull is eased back until it does not.)
+  const drawn = ring.map((p, i) => {
+    let f = 1;
+    for (let k = 0; k < 6; k++, f *= 0.6) {
+      const q = [p[0] + move[i][0] * f, p[1] + move[i][1] * f];
+      if (clearance(q, poly) >= Math.min(hold(q), clearance(p, poly))) return q;
+    }
+    return p;
+  });
+  // Where the skin was drawn out to a wall, a long stretch between two points is stepped, so a curve drawn through them does not swing.
+  const out = [];
+  drawn.forEach((p, i) => {
+    out.push(p);
+    const q = drawn[(i + 1) % n], m = Math.floor(Math.hypot(q[0] - p[0], q[1] - p[1]) / 3.5);
+    for (let j = 1; j <= m; j++) out.push([p[0] + ((q[0] - p[0]) * j) / (m + 1), p[1] + ((q[1] - p[1]) * j) / (m + 1)]);
+  });
+  // (And a last look: a point the stepping left nearer the wall than its standoff is eased back off it.)
+  return out.map((p) => {
+    const { c, n: nr } = probe(p, poly), s = standoff(giveAt(p, mouth)) + 0.05;
+    return c >= s ? p : [p[0] + nr[0] * (s - c), p[1] + nr[1] * (s - c)];
+  });
 }
 
 // ── The pear ──────────────────────────────────────────
@@ -206,9 +262,10 @@ const fit = () => FIT || (FIT = fitGas());
 export function gasShape(k, q = 1, n = 40, f = fit()) {
   const b = GAS.neck + (f.b - GAS.neck) * k, s = GAS.slack * (1 - q);
   const p0 = [f.p0[0] + f.dir[0] * s, f.p0[1] + f.dir[1] * s], { ring, half } = pearOutline(p0, f.dir, f.L, b, GAS.neck, n);
-  const [dx, dy] = f.dir, pressed = wallPress(ring, f.poly, f.mouth).ring;
+  const [dx, dy] = f.dir, ease = (x) => smooth(Math.min(1, Math.max(0, x)));
+  const given = wallPress(ring, f.poly, f.mouth).ring, pressed = snugPress(given, ease(q) * ease((k - 0.2) / 0.8), f.poly, f.mouth);
   const narrow = (w) => pressed.map(([x, y]) => { const a = (x - p0[0]) * dx + (y - p0[1]) * dy, l = (x - p0[0]) * -dy + (y - p0[1]) * dx; return [p0[0] + dx * a - dy * l * w, p0[1] + dy * a + dx * l * w]; });
-  return { outline: pressed, raw: ring, p0, dir: f.dir, L: f.L, half, ring: narrow, b };
+  return { outline: pressed, given, raw: ring, p0, dir: f.dir, L: f.L, half, ring: narrow, b };
 }
 
 // ── The tube ──────────────────────────────────────────
