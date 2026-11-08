@@ -3268,6 +3268,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       return;
     }
     if (gpuProbe.on) gpuProbe.note(COUNTED.present, own.w * own.h * 4 / 1024);
+    // (The overlays' stack drawn again, if it changed, before the canvas is bound: drawn after the copy, its own passes stored the canvas and loaded it
+    // back in the middle of the present.)
+    overPrep();
     gl.disable(gl.SCISSOR_TEST);
     presents++;
     let laidUnder = false;
@@ -3281,7 +3284,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, up ? canvas.width : own.w, up ? canvas.height : own.h, gl.COLOR_BUFFER_BIT, up ? gl.LINEAR : gl.NEAREST);
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
-    overLay();
+    overLay(true);
     // (What is drawn over the figure in this canvas, the glasses: on every picture laid, as the overlays are.)
     if (top && tops.length) {
       runTops();
@@ -3387,11 +3390,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     for (let i = 0; i < 6; i++) OV_M[i] = om[i];
     return OV_M;
   }
-  function overLay() {
+  function overPrep() {
     if (!over || !overShown || !overM) return;
     const m = overView();
     stack.painter.cssPx = overCss * PW() / canvas.width;
     if (over.stale(m, PW(), PH())) over.render(m, PW(), PH());
+  }
+  // (prepped: overPrep has run already in this present.)
+  function overLay(prepped = false) {
+    if (!over || !overShown || !overM) return;
+    if (!prepped) overPrep();
     if (camOn() && camDraw(over.texture, true)) return;
     // (Only the box the overlays' shapes lie in is laid and blended, and nothing when it is empty: the texture is clear elsewhere.)
     const ob = over.bounds;

@@ -139,3 +139,21 @@ test('A3: the stage lays the overlays alone after its draw, and only if the draw
   assert.match(stage, /veins\.composite\(vLook, bloodLook\(\), fluidMoved\) !== false\) \{[^\n]*\n\s+overAlone\(overAt\);\n\s+drawnView = viewVersion;/);
   assert.match(stage, /!anyReveal\(\)\) \{ overAlone\(overAt\); sleep\(\); return; \}/);
 });
+
+// ── A4 ──
+test('A4: the overlays\' stack is drawn before the canvas is bound for the copy, and the lay alone follows it', () => {
+  const { g, f, look } = renderer();
+  g.draw(M1, look, { on: true });
+  g.overlay.set(new Map([['o0', [{ spec: { ops: [], opacity: 1, mask: null }, m: [1, 0, 0, 1, 0, 0] }]]]), ['o0']);
+  assert.equal(g.overlay.stale, true);
+  const n0 = f.calls.length;
+  g.present();
+  const c = f.calls.slice(n0), blit = c.findIndex((x) => x[0] === 'blitFramebuffer');
+  const made = c.findIndex((x) => x[0] === 'texImage2D' && x[4] === 800 && x[5] === 600);
+  assert.ok(made >= 0 && made < blit, 'the stack drawn (made at the canvas\'s size) before the copy');
+  const after = c.slice(blit);
+  assert.ok(after.filter((x) => x[0] === 'bindFramebuffer' && x[1] !== f.gl.READ_FRAMEBUFFER).every((x) => x[2] === null), 'no other target is bound once the canvas is');
+  assert.ok(!after.some((x) => x[0] === 'clearBufferfv' || x[0] === 'clear' || x[0] === 'texImage2D'), 'nothing drawn into the stack after the copy');
+  assert.equal(after.filter((x) => x[0] === 'drawArrays').length, 1, 'the lay is the one draw');
+  assert.equal(g.overlay.stale, false);
+});
