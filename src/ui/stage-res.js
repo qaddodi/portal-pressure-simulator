@@ -127,7 +127,7 @@ export function createRes(st, live) {
     // (With the overlays on the GPU (?stageover=gpu) the canvas is at the screen's own density, as the SVG they replace is drawn, and
     // the figure, at its own, upscaled onto it by a plain filtered copy, as the page's compositor upscales a smaller canvas.)
     let full = live.veins?.overlay && (!live.SOFTWARE || OVER_ASK) ? devicePixelRatio || 1 : 0;
-    // (The pixel budget holds for that canvas too (figOpt('cap'), 8 MP): on a big external screen at the screen's own density it had been
+    // (The pixel budget holds for that canvas too (figOpt('cap'), 4 MP by default): on a big external screen at the screen's own density it had been
     // 14.7 MP, the figure upscaled onto it past the budget. Every laptop, iPad and phone is under it, so none of them changes.)
     full = capDensity(full, r.width, r.height, figOpt('cap'));
     let lin = false;
