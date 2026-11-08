@@ -44,6 +44,7 @@ const VESSEL = {
   C2: 'Short and posterior gastric veins from the spleen to the fundus: they feed fundal varices, alone in splenic vein thrombosis.',
   C3: 'The paraumbilical vein: a remnant reopened from the left portal vein to the abdominal wall (caput medusae). It decompresses the liver, not the varices.',
   C4: 'Rectal veins joining the portal (superior) and systemic (middle and inferior) sides: anorectal varices.',
+  C10: 'Pancreatic veins that grow across the divided splenic vein after a Warren shunt: they steal portal blood from the liver into the shunt, and the shunt loses its selectivity.',
   C5: 'A spontaneous gastrorenal shunt from fundal varices to the left renal vein; BRTO plugs it.',
   C6: 'A spontaneous splenorenal shunt: decompresses the portal system into the left renal vein, at the cost of encephalopathy.',
   C7: 'Retroperitoneal (Retzius) veins from the mesenteric veins to the IVC.',

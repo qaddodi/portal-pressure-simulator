@@ -133,6 +133,8 @@ export const EDGE_PATH = {
   V_IMV: 'M932 690 C 925 620 905 560 880 505',
   V_SPL: 'M1034 360 C 1010 385 988 420 962 448',
   SV_MID: 'M962 448 C 938 473 910 492 880 505',
+  // The pancreatic collaterals that bridge the divided splenic vein after a Warren shunt: a thin vein beside the division, on the pancreas side.
+  C10: 'M880 505 C 886 480 916 452 962 448',
   V_STO: 'M880 395 C 860 368 828 332 792 312',
   SMV_CONF: 'M690 660 C 692 625 696 590 700 556',
   SV_CONF: 'M880 505 C 830 525 765 545 700 556',
@@ -385,6 +387,8 @@ export const CIRCUIT_PATH = {
   // The splenorenal shunts leave the splenic vein midway (SVD), left of the IMV's junction.
   C6: route([[200, 261], [200, 510], [970, 510], [1000, 540]], 16),
   S_DSR: route([[200, 261], [184, 277], [184, 570], [970, 570], [1000, 540]], 16),
+  // The pancreatic collaterals bridge the divided splenic vein: a short lane over the division, from the splenic station to the shunt's.
+  C10: route([[320, 261], [304, 245], [216, 245], [200, 261]], 10),
   C7: route([[320, 394], [320, 600], [1120, 600]], 24),
   C3: route([[680, 387], [680, 640], [960, 640]], 24),
   C4: route([[240, 310], [240, 670], [1090, 670], [1120, 640]]),

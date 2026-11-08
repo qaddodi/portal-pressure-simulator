@@ -158,6 +158,10 @@ export const EDGES = [
   { id: 'C6', from: 'SVD', to: 'LRV', kind: 'collateral', route: ['SV', 'IVCI'], dMax: 12, Ropen: 0.1, label: 'Spontaneous splenorenal shunt', code: 'C6', spontaneous: true },
   { id: 'C7', from: 'SMV', to: 'IVCI', kind: 'collateral', route: ['SMV', 'IVCI'], dMax: 4, Ropen: 1.5, label: 'Retroperitoneal (Retzius) veins', code: 'C7' },
   { id: 'C9', from: 'IVCI', to: 'AZY', kind: 'collateral', route: ['IVCI', 'SVC'], dMax: 10, Ropen: 0.2, label: 'Ascending lumbar → azygos (caval collateral)', code: 'C9', systemic: true },
+  // The Warren shunt's late loss of selectivity: pancreatic and peripancreatic veins grow across the divided splenic vein, from the portal side (SV, the
+  // stump the IMV drains to) to the shunted side (SVD), and steal portal flow from the liver. Present only with a Warren shunt, driven by the pressure
+  // difference across the division, and slow (tauGrow, days): months to years in patients, a good part of them by two years (8 Nov 2026).
+  { id: 'C10', from: 'SV', to: 'SVD', kind: 'collateral', route: ['SV', 'SVD'], dMax: 4, Ropen: 0.7, open: 3, tauGrow: 240, label: 'Pancreatic collaterals (the Warren shunt losing its selectivity)', code: 'C10', warren: true },
   { id: 'C8', from: 'CONF', to: 'PVH', kind: 'collateral', route: ['CONF', 'PVH'], dMax: 6, Ropen: 0.15, label: 'Periportal collaterals (cavernoma)', code: 'C8' },
 
   // Arterioportal shunting (scales with cirrhosis)
@@ -210,7 +214,7 @@ export const dMinOf = (e) => e.dMax * (e.dMinRatio ?? COLLATERAL_DMIN_RATIO);
  *  anatomical variant unless absent, any other collateral always. */
 /** BRTO plugs the shunt (outflow) and the short gastric feeder (inflow) of the fundal varices. */
 export const isOccluded = (p, id) => !!p.occluded?.[id] || (id === 'C2' && !!p.occluded?.C5);
-export const edgePresent = (e, p) => (e.spontaneous ? !!p.spontaneous?.[e.id] : e.variant ? p.spontaneous?.[e.id] !== false : e.id === 'C2' ? p.spontaneous?.C5 !== false : true);
+export const edgePresent = (e, p) => (e.warren ? !!p.dsrs : e.spontaneous ? !!p.spontaneous?.[e.id] : e.variant ? p.spontaneous?.[e.id] !== false : e.id === 'C2' ? p.spontaneous?.C5 !== false : true);
 
 export const TARGETS = {
   MAP: 93, CO_Lmin: 5.0, RA: 3, IVC: 3.5, FHVP: 4, HVPG: 3, PV: 7.5,
