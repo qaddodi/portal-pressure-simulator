@@ -100,7 +100,7 @@ const workerUrl = {
 // loader that fetches its hashed .json (preloaded in the head for the ones the first screen needs, so the fetch runs beside the scripts),
 // and the SDF atlas's base64 PNG becomes a real .png the browser decodes off the main thread. The source modules stay as they are: the
 // repository root runs them as is. The build fails if a value does not come back from JSON exactly as it was.
-const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyph-data-opsz|glyphs-inter|glyphs-inter-png|glyphs-inter-display|glyphs-inter-display-png)\.js$/;
+const DATA_MODULES = /[\\/]src[\\/]ui[\\/](organ-art|organ-art-lite|glyph-data|glyph-data-opsz|glyphs-inter|glyphs-inter-png|glyphs-inter-display|glyphs-inter-display-png|glyph-metrics|liver-geo-data)\.js$/;
 const dataOut = new Map();   // module name → the file it became
 const dataFiles = {
   name: 'data-files',
@@ -198,7 +198,7 @@ const head = [
   monoLatin ? `<link rel="preload" href="assets/${monoLatin}" as="font" type="font/woff2" crossorigin />` : '',
   `<link rel="stylesheet" href="assets/${cssFile}" />`,
   // (The data the first screen's scripts wait for: fetched beside them, not after them.)
-  ...['organ-art', 'glyphs-inter', 'glyphs-inter-display'].filter((n) => dataOut.has(n)).map((n) => `<link rel="preload" href="assets/${dataOut.get(n)}" as="fetch" crossorigin />`),
+  ...['organ-art', 'liver-geo-data', 'glyphs-inter', 'glyphs-inter-display'].filter((n) => dataOut.has(n)).map((n) => `<link rel="preload" href="assets/${dataOut.get(n)}" as="fetch" crossorigin />`),
   dataOut.has('glyphs-inter-png') ? `<link rel="preload" href="assets/${dataOut.get('glyphs-inter-png')}" as="image" />` : '',
   dataOut.has('glyphs-inter-display-png') ? `<link rel="preload" href="assets/${dataOut.get('glyphs-inter-display-png')}" as="image" />` : '',
   ...staticChunks.map((c) => `<link rel="modulepreload" href="assets/${c}" />`),
