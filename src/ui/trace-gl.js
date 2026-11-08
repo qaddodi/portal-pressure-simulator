@@ -57,6 +57,8 @@ const bigLayer = (Wd, Hd) => {
   const px = typeof screen !== 'undefined' && screen.width > 0 ? screen.width * screen.height * (devicePixelRatio || 1) ** 2 : 0;
   return px > 0 && Wd * Hd > px / 4;
 };
+// (Pictures handed over by who drew them, in the last second, with the size of the last one: the ?perf readout's charts line names the busiest. Cleared by the readout.)
+export const transfersBy = new Map();
 export const sharedStats = { covRemade: 0, resizes: 0, transfers: 0, moves: 0, covAllocs: 0, uploads: 0, subUploads: 0 };
 const CAP_STEP = 256;
 const WASTE_PX = 2e6;   // (the most a hand-over moves beyond the chart's own buffer: past it, the chart takes a buffer of its own size)
@@ -370,7 +372,7 @@ const premulInto = (out, o, c, alpha = 1) => { const v = rgba(c), a = v[3] * alp
 
 /** The GPU drawer for one chart, over `host` (the chart's 2D canvas), or null where it cannot be (the 2D canvas draws the chart). */
 // alloc-rare: made once with the chart (createTraceGL runs once for a chart), never in a frame
-export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
+export function createTraceGL(host, { redraw = null, under = null, lose = null, keep = false, name = '' } = {}) {   // (keep: a widget's picture is never taken down by a frame the GPU could not draw: the last completed picture stays until the retry draws it again)
   // (canvasSize never measures: a chart drawn before the observer reported its box drew nothing, and draws again once it has one,
   // with or without this drawer)
   let unsized = null;   // (the size subscription's release, called by dispose)
@@ -886,6 +888,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
       if (shown) {
         if (shared.active === api) shared.active = null;
         sharedStats.transfers++; notePass('transfer', W * H);
+        { const who = name || host.parentElement?.className?.split?.(' ')[0] || '?', r = transfersBy.get(who); if (r) { r.n++; r.w = glCanvas.width; r.h = glCanvas.height; } else if (transfersBy.size < 32) transfersBy.set(who, { n: 1, w: glCanvas.width, h: glCanvas.height }); }   // alloc-rare: a record for each drawer that hands over, cleared once a second
         let bmp = null;
         try { bmp = glCanvas.transferToImageBitmap(); shown.transferFromImageBitmap(bmp); bmp = null; place(glCanvas.width, glCanvas.height); } catch (e) { ok = false; console.warn('Charts on the GPU: the picture could not be handed over.', e); }
         if (bmp) { try { bmp.close?.(); } catch { /* already gone */ } }

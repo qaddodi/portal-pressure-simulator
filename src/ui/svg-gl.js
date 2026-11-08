@@ -919,7 +919,7 @@ export function createSvgGL(box, opts = null) {
     else if (easing) { if (g.seen === false) g.loopWait = true; else g.ask = finalFrame(draw); }
   }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
-  g.gpu = createTraceGL(cv, { redraw: () => draw() });
+  g.gpu = createTraceGL(cv, { redraw: () => draw(), name: 'svg:' + (opts?.host || box.className.split(' ')[0] || '?') });
   // (Drawn again as its box first gets a size, or a new one: a chart built before its card was on the page drew nothing then.)
   // (A box that changes size may take another type size or scale from the stylesheet: its roots' shared looks are read again.)
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)

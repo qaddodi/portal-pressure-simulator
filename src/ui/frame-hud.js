@@ -15,7 +15,7 @@
 import { counts } from './frame-counts.js';
 import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watchdogStats, mayStats } from './frame.js';
 import { restPass } from './rest-pass.js';
-import { sharedStats } from './trace-gl.js';
+import { sharedStats, transfersBy } from './trace-gl.js';
 import { caught } from './caught.js';
 
 const KEEP = 600;
@@ -66,7 +66,7 @@ export function hudText(st, o) {
     st.n ? `script p50 ${f(st.s50)}  p95 ${f(st.s95)}  max ${f(st.smax)} ms${st.s95 > o.budget ? '  OVER' : ''}` : '',
     st.n ? `verdict: ${st.p50 > 2 * Math.max(st.s50, 0.5) && st.p50 > 1.5 * o.budget ? 'GPU-bound (the frame takes over twice the script time)' : st.s50 > 0.6 * st.p50 ? 'script-bound' : 'in between'}` : '',
     o.surfaces.length ? `per frame: ${o.surfaces.map(([k, ms]) => `${k} ${f(ms)}`).join(', ')}` : '',
-    o.charts ? `charts: ${o.charts.resizes} buffer resizes, ${o.charts.transfers} pictures handed over (last second)` : '',
+    o.charts ? `charts: ${o.charts.resizes} buffer resizes, ${o.charts.transfers} pictures handed over (last second)${o.charts.by ? `: ${o.charts.by}` : ''}` : '',
     `watchdog ${o.mode}, carried over ${o.shed}${o.gov == null || o.gov < 0 ? '' : `; governor ${['all run', 'P3 yielding', 'P2+P3 yielding'][o.gov]}, ${o.yielded} chart frames yielded, over budget ${o.streak} in a row`}`,
     o.may ? `may tasks: ${o.may.ran} run, ${o.may.waited} waits for budget, ${o.may.aged} run past their wait, ${o.may.queued} queued` : '',
     o.loaf ? `longest frame (10 s): ${o.loaf}` : '',
@@ -91,6 +91,8 @@ function workerClock(onHz) {
 export function startFrameHud() {
   const gaps = [], scripts = [];
   let dead = false, c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused } };
+  // (Who handed the pictures over, busiest first, with the buffer size of the last one: the next lag names its own layer.)
+  const byText = () => { const l = [...transfersBy].sort((a, b) => b[1].n - a[1].n).slice(0, 4).map(([k, r]) => `${k} ${r.n} (${r.w}x${r.h})`).join(', '); transfersBy.clear(); return l; };   // alloc-rare: once a second, with ?perf on
   let last = perf().totals, lastFrames = last.frames, workerHz = 0, idleAt = 0, lastCharts = { ...sharedStats };
   // (A visibility change is marked as it happens: the one interval that spans it is left out, by that published rule and no other;
   // a foreground stall of any length stays in.)
@@ -130,7 +132,7 @@ export function startFrameHud() {
     const worst = longs.reduce((a, e) => (!a || e.duration > a.duration ? e : a), null);
     // (Missed target chances: an interval past the target by over half a frame (timestamp jitter) counts each frame it skipped.)
     const b = frameBudget(), missed = gaps.slice(-k).reduce((n, g) => n + (g > b * 1.5 ? Math.max(1, Math.round(g / b) - 1) : 0), 0);
-    el.textContent = hudText(st, { hz, maxHz, workerHz, target: targetHz(), missed, budget: b, surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), may: mayStats(), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, target: targetHz(), hidden: document.hidden }) });
+    el.textContent = hudText(st, { hz, maxHz, workerHz, target: targetHz(), missed, budget: b, surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), may: mayStats(), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers, by: byText() }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, target: targetHz(), hidden: document.hidden }) });
     const cn = { draw: counts.draw - c0.draw, composite: counts.composite - c0.composite, whole: counts.whole - c0.whole, blur: counts.blur - c0.blur };
     el.textContent += `\nper second: vessel draws ${cn.draw}, composites ${cn.composite} (whole ${cn.whole}), glass blurs ${cn.blur}`;
     const wh = (r, r0) => Object.keys(r).map((k) => `${k} ${r[k] - (r0[k] || 0)}`).filter((t) => !t.endsWith(' 0')).join(', ');
