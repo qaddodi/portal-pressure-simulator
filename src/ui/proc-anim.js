@@ -226,7 +226,7 @@ const GLUE_T = retime({ travel0: 300, travel1: 6000, aim0: 6400, aim1: 7200, fan
   aimOut0: 17800, aimOut1: 18600, back: 18800, end: 22600 }, GLUE_MOVE);
 const GLUE_STOPS = retime([6200, 9900, 13000, 16300, 22600], GLUE_MOVE);
 const GLUE_SHOT_MS = { way: 1200, tip: 800, work: 1200 };   // motion-scale: own pace (the glue shots)
-// (The callouts on the varix: none while the scope goes in, then each step's number and word where the needle went in. The varix is
+// (The callouts on the varix: each step's number and word, once its step has played, where the needle goes in. The varix is
 // the short gastric feeder's course, C2, at the glue's point (eus-scope.js EUS_GLUE_TARGET).)
 const GLUE_F = 0.8;
 const GLUE_STEPS = [
@@ -236,7 +236,8 @@ const GLUE_STEPS = [
   ['glue', 'Glue', 'Cyanoacrylate is injected over the coils. It sets in seconds and casts the varix from inside.', 'Glue', 'tip', 'C2', ['GV'], GLUE_F],
   ['done', 'Varix closed', 'The varix is closed: the flow in it slows and stops. The gastrorenal shunt stays open, and the clotted splenic vein is still there, so the spleen is treated next.', 'Closed', 'work', 'C2', ['GV'], GLUE_F],
 ];
-const GLUE_MARKS = GLUE_STEPS.map((s, i) => (i ? Object.freeze([{ edges: [s[5]], label: `${i + 1} ${s[1]}`, num: String(i + 1), word: s[1], kind: 'treat', f: s[7], pin: true, ghost: true }]) : Object.freeze([])));
+// (Every step has its callout, the first too: "1 Scope in" shows once the scope is in place; his report, 8 Nov 2026: step 1's number never showed.)
+const GLUE_MARKS = GLUE_STEPS.map((s, i) => Object.freeze([{ edges: [s[5]], label: `${i + 1} ${s[1]}`, num: String(i + 1), word: s[1], kind: 'treat', f: s[7], pin: true, ghost: true }]));
 const glueHad = (p) => !!p.occluded?.C2;
 export const ENDO = {
   eusglue: {

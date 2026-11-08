@@ -43,7 +43,7 @@ test('EUS coils and glue on the stage: drawn every frame, ride along, one push i
   assert.ok(ended?.done, 'played through to the end');
   assert.ok(frames > 150);
   assert.equal(applied, 1, 'the varix closes once'); assert.equal(at, 4, 'as step 5, Varix closed, starts');
-  assert.deepEqual(said, ['2 Needle in', '3 Coils', '4 Glue', '5 Varix closed'], 'no callout while the scope goes in; then one per step, numbered');
+  assert.deepEqual(said, ['1 Scope in', '2 Needle in', '3 Coils', '4 Glue', '5 Varix closed'], 'one callout per step, numbered, the first included');
   // The camera: one scale riding in (it only pans while the tip travels), a push in for the needle's work, held there through the coils and
   // the glue, one pull back at the end, wider than the push in and no wider than the way in.
   const still = (sh) => seen.filter((x) => x.shot === sh && !x.gl).map((x) => x.k);

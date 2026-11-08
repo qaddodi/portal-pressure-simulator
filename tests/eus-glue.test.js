@@ -69,9 +69,9 @@ test('every value eases, the steps run in order, and the needle is out only with
   assert.equal(end.opacity, 0); assert.equal(end.u, 0); assert.equal(end.needle, 0); assert.equal(end.step, -1);
   assert.equal(stepAt('eusglue', T.coil0), 2); assert.equal(stepAt('eusglue', T.fill0), 3);
   assert.ok(T.apply > G.stops[3] && stepAt('eusglue', T.apply) === 4, 'the model closes the varix only once the glue step has played');
-  // (No callout while the scope goes in; then each step's number and word on the varix, where the needle went in.)
-  assert.equal(stepMarks('eusglue', 0).length, 0);
-  for (let i = 1; i < 5; i++) {
+  // (Each step's number and word on the varix, where the needle goes in, the first step's too: 1 Scope in.)
+  assert.equal(stepMarks('eusglue', 0)[0].num, '1');
+  for (let i = 0; i < 5; i++) {
     const [m] = stepMarks('eusglue', i);
     assert.deepEqual(m.edges, [EUS_GLUE_TARGET[0]]); assert.equal(m.f, EUS_GLUE_TARGET[1]); assert.equal(m.num, String(i + 1));
     assert.ok(markAt('eusglue', i) > T.travel1);

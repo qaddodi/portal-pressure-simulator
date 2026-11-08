@@ -21,8 +21,8 @@ import { stageScope } from './stage-scope.js';
 export function createCath(st, live) {
   const { E, NO_LIST, animateVT, appEl, applyVT, blockersRead, cardSpace, cardSpaceRead, cath, clientToVB, clientToVBFast, drawFrame, easeFrame, easeInOut, geo, glWanted, late, nextFrame, polyD, readBlockersRead, readFrame, refreshCTM, safeInsets, stageBox, syncVeins, toRGB, worldToLocalInto, wrap, wrapCS } = st;
   const CATH_IDS = ['SVC_RA', 'IVCS_RA', 'RHV_IVC', 'POST_R_RHV'];   // (and down the IVC_IS to the hepatic vein)
-  // (How far the glue spreads along the varix each way from the needle's point, as a share of the vessel's course, once it has all gone in.)
-  const GLUE_SPREAD = 0.16;
+  // (How far the glue spreads along the varix each way from the needle's point, as a share of the vessel's course, once it has all gone in: 0.3, of the feeder's 247 units about 74 each way, up to its fundal end.)
+  const GLUE_SPREAD = 0.3;
   // (World units per device pixel now, for the pixel floors of the finest parts and the edge: the stage's pixels per world unit and the canvas's per CSS pixel. 0 before the view is known.)
   const COIL_NOW = { dir: 1, rho: 0, span: 0 };
   const pxNow = () => { const c = live.CTM, k = c ? (live.vdpr || 1) * Math.hypot(c.a, c.b) : 0; return k > 0 ? 1 / k : 0; };
@@ -215,13 +215,13 @@ export function createCath(st, live) {
       // (BRTO's sclerosant, a liquid, keeps its translucent wash below.) Before the coil is laid it spreads GLUE_SPREAD each way as it did.
       const g = r.glue;
       g.rad = cathRadOf(g.id, g.f);   // (the varix's lumen as drawn now, as eusGL has it)
+      // (His ask, 8 Nov 2026: "we only see a little bit of the glue, just a little bit of fade of white ... it should fill a little bit more of the
+      // varix". The cast now spreads GLUE_SPREAD of the course each way from the needle's point (the coil's reach if that is more), and its ends
+      // are soft over a fraction of the lumen only: the old soft ends, 1.6 of the scope's radius each side, left a short cast never fully opaque.)
       const cr = g.path ? coilReach(g, COIL_NOW) : null, L = g.path?.len || 0;
-      let lo, hi;
-      if (cr && L > 0 && cr.span > 0) {
-        const fwd = (cr.span + cr.rho * 0.6 + 1) / L * col, back = (cr.rho * 0.5 + 1) / L * Math.min(1, col * 2);
-        lo = g.f - (cr.dir > 0 ? back : fwd); hi = g.f + (cr.dir > 0 ? fwd : back);
-      } else { const w = GLUE_SPREAD * col; lo = g.f - w; hi = g.f + w * 0.9; }
-      tint = { col: st.columnColor || 'var(--dev-glue)', soft: Rf * 1.6, cast: true, [g.id]: [lo, hi] };
+      const reach = cr && L > 0 && cr.span > 0 ? (cr.span + cr.rho * 0.6 + 1) / L : 0, w = Math.max(GLUE_SPREAD, reach) * col;
+      const lo = g.f - w, hi = g.f + w;
+      tint = { col: st.columnColor || 'var(--dev-glue)', soft: Math.max(2, g.rad * 0.7), cast: true, [g.id]: [lo, hi] };
     } else if (gpu && col > 0.001 && r.parts) {
       // A treatment's sclerosant: from the tip on to the route's end, each vessel it reaches tinted over the part it covers
       // (an end where it runs on into the next vessel left open, so the joins show no edge).
