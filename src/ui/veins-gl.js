@@ -52,6 +52,7 @@ import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-g
 import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js';
 import { warmFade } from './res-fade-gl.js';
 import { fusedVS, fusedFS } from './veins-fuse.js';
+import { shadeGLSL } from './veins-mesh-glsl.js';
 import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
@@ -248,6 +249,8 @@ void main() {
   vW = w; vR = ivec4(range + 0.5);
 }`;
 
+// The shading the classic and mesh vessel shaders share (veins-mesh-glsl.js), with the renderer's constants.
+const SHADE_GLSL = shadeGLSL({ F_DIFFUSE, F_EDGE, F_SHADOW, F_SPEC, F_VEIL, F_WHOLE, LIFT_EASE_MAX, LIFT_EASE_SHARE, LUMEN2, ROW2_BITS, VEIL_K });
 // Tube attributes, TUBE_TEXELS texels per vessel (row = vessel):
 //   0: color at the start (rgb), casing width (world)
 //   1: color at the end (rgb), alpha
@@ -356,6 +359,7 @@ float corner(vec2 p, vec2 ga, float da, float ra, vec2 gb, float db, float rb, i
   return smoothstep(0.25 * rm, 0.25 * rm + max(0.35 * rm, 0.9 * kw), off);
 }
 
+${SHADE_GLSL}
 void main() {
   // A colour-only redraw: a pixel no lumen colour reaches is left as drawn (its colour depends on none of them).
   if (tint == 1 && texelFetch(depL, ivec2(gl_FragCoord.xy), 0).r < 0.5) discard;
@@ -427,34 +431,7 @@ void main() {
     }
     // (Between the views, the segment as it is in this frame: the entry holds a sample's, for the passes above.)
     if (morphOn >= 1) { int si = int(B.y + 0.5); A = vec4(PT(id, si), PT(id, si + 1)); }
-    // The part of this segment inside the drawn stretch (a vessel drawing on is cut short).
-    float i = B.y, u0 = i / LAST, u1 = (i + 1.0) / LAST;
-    if (u1 < clip.x || u0 > clip.y) continue;
-    float t0 = clamp((clip.x - u0) * LAST, 0.0, 1.0), t1 = clamp((clip.y - u0) * LAST, 0.0, 1.0);
-    vec2 a = mix(A.xy, A.zw, t0), b = mix(A.xy, A.zw, t1), ba = b - a;
-    float L2 = max(dot(ba, ba), 1e-8);
-    vec2 rr = texelFetch(rad, ivec2(int(i + 0.5), id), 0).rg;
-    float hr = dot(p - a, ba) / L2, h = clamp(hr, 0.0, 1.0);
-    float hh = mix(t0, t1, h);
-    vec2 q = p - a - ba * h;
-    float dist = length(q), r = mix(rr.x, rr.y, hh);
-    // Along the course, carried on straight past the drawn ends (the blood runs on into a join).
-    float he = (u0 <= clip.x && hr < 0.0) || (u1 >= clip.y && hr > 1.0) ? hr : h;
-    float d = dist - r;
-    if (dotted) {
-      // A closed potential collateral: round dots 1.5 long every 6 units, as the SVG dashes.
-      float m = mod((i + hh) / LAST * clip.z, 6.0);
-      float along = m < 3.75 ? max(0.0, m - 1.5) : 6.0 - m;
-      d = length(vec2(dist, along)) - r;
-    }
-    if (d < bd) { bd = d; bg = dist > 1e-5 ? q / dist : vec2(0.0); br = r; bu = (i + mix(t0, t1, he)) / LAST; bx = (ba.x * (p - a).y - ba.y * (p - a).x) * inversesqrt(L2); }
-    if (d < aM + 12.0) {
-      float uv = (i + mix(t0, t1, clamp(hr, -2.0, 3.0))) / LAST;
-      if (d < aM) { float k = exp((d - aM) / 1.5); aW = aW * k + 1.0; aU = aU * k + uv; aM = d; }
-      else { float w = exp((aM - d) / 1.5); aW += w; aU += w * uv; }
-    }
-    float hs = clamp(dot(ps - a, ba) / L2, 0.0, 1.0);
-    bs = min(bs, length(ps - a - ba * hs) - mix(rr.x, rr.y, mix(t0, t1, hs)));
+    segNear(id, B.y, A, p, ps, clip, dotted, bd, bs, br, bu, bx, bg, aM, aW, aU);
   }
   if (n == 0) { if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; } discard; }
 
@@ -515,49 +492,11 @@ void main() {
   float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * ${VEIL_K} * organK : 0.0;
   for (int s = 0; s < MAXS; s++) {
     if (s >= n) break;
-    vec4 t0 = T(sid[s], 0), t1 = T(sid[s], 1), t2 = T(sid[s], 2), t3 = T(sid[s], 3), t4 = T(sid[s], 4);
-    stier[s] = t2.x; sz[s] = t2.y; sflag[s] = t2.z; swall[s] = t0.w;
-    sof[s] = (int(t2.z + 0.5) & ${F_WHOLE}) != 0 ? 0.0 : 1.0;   // (how far the organs fade this vessel: 1 as they cover it, 0 for a vessel shown whole)
-    scol[s] = mix(t0.rgb, t1.rgb, alongAt(sid[s], clamp(su[s], 0.0, 1.0)));
-    vec4 tc = T(sid[s], 8);
-    shov[s] = T(sid[s], 9).w;
-    // The selected vessel stands out of the dimmed network, easing back into it along its course toward each end that
-    // meets an unselected vessel, so it never stops in a hard, round end where the dimmed vessel carries on (a slide's
-    // spotlit vessel toward its free ends too: highlight-math.js liftEnd).
-    vec4 t12 = T(sid[s], 12);
-    ssel[s] = t12.x;
-    if (t12.x > 0.0) {
-      float Ls = max(T(sid[s], 5).z, 1.0), fs = min(${LIFT_EASE_SHARE} * Ls, ${LIFT_EASE_MAX}.0);
-      ssel[s] *= (t12.y > 0.5 ? smoothstep(0.0, fs, sv[s] * Ls) : 1.0) * (t12.z > 0.5 ? smoothstep(0.0, fs, (1.0 - sv[s]) * Ls) : 1.0);
-    }
-    if (tc.w > 0.0) {
-      vec4 tr = T(sid[s], 9);
-      float Lv = max(T(sid[s], 5).z, 1.0), uu = su[s] * Lv;
-      float k = smoothstep(tr.x * Lv - tr.z, tr.x * Lv + tr.z, uu) * (1.0 - smoothstep(tr.y * Lv - tr.z, tr.y * Lv + tr.z, uu));
-      scol[s] = mix(scol[s], tc.rgb, k * min(tc.w, 1.0));   // (tc.w 2: an opaque cast, the EUS glue; the blood stops inside it, castAt)
-    }
-    sedge[s] = (int(t2.z + 0.5) & ${F_EDGE}) != 0 ? T(sid[s], 6).rgb : vec3(0.0);
-    float a = t1.w;
-    if (t4.w > 2.5) {
-      // A dip: from its start alpha down to its faintest at the offset, and back up to solid at the end.
-      vec2 dd = t3.zw - t3.xy;
-      float v = clamp(dot(p - t3.xy, dd) / max(dot(dd, dd), 1e-6), 0.0, 1.0);
-      a *= v < t4.x ? mix(t4.y, t4.z, smoothstep(0.0, t4.x, v)) : mix(t4.z, 1.0, smoothstep(t4.x, 1.0, v));
-    } else if (t4.w > 1.5) {
-      float v = length(p - t3.xy) / max(t3.z, 1e-3);
-      a *= v < 0.45 ? mix(t4.y, t4.z, v / 0.45) : mix(t4.z, 0.0, clamp((v - 0.45) / 0.55, 0.0, 1.0));
-    } else if (t4.w > 0.5) {
-      vec2 dd = t3.zw - t3.xy;
-      float v = dot(p - t3.xy, dd) / max(dot(dd, dd), 1e-6);
-      a *= mix(t4.y, t4.z, clamp((v - t4.x) / max(1.0 - t4.x, 1e-4), 0.0, 1.0));
-    }
-    // A veiled vessel is faded all along its course, as much as an organ covering it would (behind
-    // an organ, by no more than that). In its alpha, so the fade blends across its joins.
-    if ((int(t2.z + 0.5) & ${F_VEIL}) != 0 && useOrgan == 1) {
-      float v = 1.0 - ${VEIL_K} * organK;
-      a *= tierGroup[int(t2.x + 0.5)] == 0 ? min(1.0, v / max(1.0 - occl, 1e-3)) : v;
-    }
-    sa[s] = a;
+    float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
+    vec3 aCol, aEdge;
+    vesAttrs(sid[s], su[s], sv[s], p, occl, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
+    stier[s] = aTier; sz[s] = aZ; sflag[s] = aFlag; swall[s] = aWall; sof[s] = aOf; scol[s] = aCol; shov[s] = aHov; ssel[s] = aSel; sedge[s] = aEdge;
+    sa[s] = aA;
   }
 
   // Whether a lumen colour (scol) reaches this pixel: through a lumen drawn here (aL > 0) or a glow in its vessel's
@@ -613,19 +552,10 @@ void main() {
     vec4 lg = vec4(0.0), lgU = vec4(0.0);
     for (int s = 0; s < MAXS; s++) {
       if (s >= n || stier[s] != tt) continue;
-      vec4 gc = T(sid[s], 10);
+      vec4 gc, ge;
+      float gv = glowAmt(sid[s], sd[s], swall[s], sv[s], sa[s], gc, ge);
       if (gc.a <= 0.0) continue;
-      vec4 ge = T(sid[s], 11);
-      float e = sd[s] - swall[s], Lh = max(T(sid[s], 5).z, 1.0);
-      float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, sv[s] * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - sv[s]) * Lh) : 1.0);
-      // A stretch (a stent's third): its two ends come as −(1 + u) along the vessel; the glow fades in and out over a few units there.
-      if (ge.x < 0.0) {
-        float x = sv[s] * Lh, a = (-ge.x - 1.0) * Lh, b = (-ge.y - 1.0) * Lh, w = min(6.0, 0.08 * Lh);
-        ends = (a > 0.5 ? smoothstep(a - w, a + w, x) : 1.0) * (b < Lh - 0.5 ? 1.0 - smoothstep(b - w, b + w, x) : 1.0);
-      }
       bool up = ge.w > 5.0;
-      float fall = 1.0 - smoothstep(0.0, 12.0 * clamp(up ? ge.w - 10.0 : ge.w, 0.5, 1.3), e);
-      float gv = min(0.9, 0.6 * gc.a) * sa[s] * smoothstep(-0.6, 0.6, e) * fall * ends;
       // None inside another lit vessel's lumen (the cava's two lengths, lit together): each band ends at the
       // other's wall, so a lit vessel's round end does not show as a disc in the next one's lumen.
       for (int u = 0; u < MAXS; u++) if (u != s && u < n && T(sid[u], 10).a > 0.0) gv *= smoothstep(-0.6, 0.6, sd[u] - swall[u]);
@@ -768,63 +698,7 @@ void main() {
     }
     float aL = clamp(0.5 - D / aa, 0.0, 1.0);
     if (aL > 0.0) dep = true;
-    float aC = clamp(0.5 - (D - wall) / aa, 0.0, 1.0);
-    vec4 c = vec4(0.0);
-    if (fx == 1 && (flags & ${F_SHADOW}) != 0) {
-      float blur = sel ? 2.4 : 1.3;
-      // A faint contact shadow only, so a vessel passing over another still reads as on top.
-      float as = 0.55 * shadow.a * (1.0 - smoothstep(-blur * 1.4, blur * 1.4 + aa, Ds - wall));
-      c = vec4(shadow.rgb * as, as);
-    }
-    if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
-    // (A veiled vessel keeps half its casing: behind an organ the wall's line is the first thing to go.)
-    if ((flags & ${F_VEIL}) != 0) cA *= 0.5;
-    float lumY = dot(col, vec3(0.299, 0.587, 0.114));
-    c = (flags & ${F_EDGE}) != 0 ? over(vec4(sedge[ow], 1.0) * (0.92 * aC), c) : over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
-    vec3 lum = col;
-    float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
-    if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) {
-      // A textbook plate, not a rendered tube: a flat lumen with one thin light line along the
-      // side toward the light and one thin dark line along the other. The across-tube
-      // coordinate (−1 … 1, positive on the lit side) places them at a fixed depth in the tube, so
-      // they run on through the joins and never slide to the rim as a vessel turns; where the light
-      // runs along a vessel they fade out smoothly, and on hairline vessels they are left out.
-      float k = dot(g, light);
-      float side = rho * sign(k);
-      float soft = 0.06 + aa / max(R, 1e-3);
-      float thin = smoothstep(1.2, 2.6, R / aa) * smoothstep(0.25, 0.7, abs(k));
-      // Both lines by the lumen's own lightness (looks review, the lumen's light lines): on the palest lumens (2 mmHg, nearly white) the light line
-      // has no room and read as a white wire, so it falls to half; on the darkest (wine, the dark theme) the dark line went
-      // below the ground, so it eases off there too. A mid lumen keeps both at full.
-      float aDark = (1.0 - smoothstep(0.1, 0.1 + soft, abs(side + 0.62))) * thin * (0.45 + 0.55 * smoothstep(0.1, 0.32, lumY));
-      lum = mix(lum, shadeInk.rgb, clamp(shadeInk.a * 1.3 * aDark, 0.0, 0.5));
-      if ((flags & ${F_SPEC}) != 0) {
-        float aLight = (1.0 - smoothstep(0.07, 0.07 + soft, abs(side - 0.5))) * thin * (1.0 - 0.5 * smoothstep(0.72, 0.9, lumY));
-        lum = mix(lum, sheenInk.rgb, clamp(sheenInk.a * 0.75 * aLight, 0.0, 0.5));
-      }
-      // Depth: the tube rounds off toward its wall (cubed, so the middle is untouched), deeper on the side away from the
-      // light; then a pale band of wall about a device pixel and a half wide just inside the casing. Both left out on hairlines.
-      float body = smoothstep(1.5, 3.5, R / aa);
-      float rim = rho * rho * rho;
-      lum = lum * (1.0 - body * rim * (0.09 - 0.05 * clamp(k, -1.0, 1.0)));
-      float wallW = clamp(0.1 * R, 1.2 * aa, 2.4 * aa);
-      float band = smoothstep(-wallW - aa, -wallW, D) * body;
-      lum = mix(lum, mix(lum, sheenInk.rgb, 0.45), 0.32 * band * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
-    }
-    // A dark lumen (the sickest vessels, on the dark looks, where the casing is no darker than the ground) gets a light edge 1 device px wide just
-    // inside its wall, by its own lightness, the way the label halo follows its ink (rimInk.a is 0 on the light looks; hairlines are left out).
-    lum = mix(lum, rimInk.rgb, rimInk.a * (1.0 - smoothstep(0.2, 0.4, lumY)) * smoothstep(-px - aa, -px, D) * smoothstep(1.5, 3.5, R / aa));
-    if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));
-    if (shov[ow] > 0.0) {
-      // The hovered vessel, a little brighter in its own hue, easing out toward each end that meets a vessel not lit with it
-      // (over a third of its length, at most 60), so the brighter lumen never stops in a hard line at the join.
-      vec4 he = T(sid[ow], 11);
-      float Lh = max(T(sid[ow], 5).z, 1.0), fl = min(0.35 * Lh, 60.0);
-      float hs = (he.x > 0.0 ? smoothstep(0.0, max(he.x, fl), sv[ow] * Lh) : 1.0) * (he.y > 0.0 ? smoothstep(0.0, max(he.y, fl), (1.0 - sv[ow]) * Lh) : 1.0);
-      lum = mix(lum, min(lum * 1.18 + 0.04, vec3(1.0)), shov[ow] * hs);
-    }
-    lum = mix(mix(lum, paperInk.rgb, kn), casing.rgb, casing.a * kcas * kn);
-    c = over(vec4(lum, 1.0) * aL, c);
+    vec4 c = tubeShade(D, Ds, R, wall, col, g, flags, sel, cA, grp, sid[ow], sv[ow], shov[ow], sedge[ow], kn, kcas, aa, aL);
     c *= alpha * tierAlpha[ti];
     float wsel = grp == 1 ? ssel[ow] : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
     float gf = grp == 0 ? 1.0 - occl * sof[ow] : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
@@ -882,27 +756,11 @@ void main() {
   }
   vec4 o = over(accT, over(accN * netAlpha, accB));
   if (o.a < 0.002) { if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; } discard; }
-  // Dither by up to a level (triangular noise, fixed per pixel) before the 8-bit layer: the colour and
-  // alpha of a soft gradient (the glow's falloff) would round at different places and draw thin stripes.
-  uvec2 fc = uvec2(ivec2(floor(q)));   // (fixed to the figure, not the screen: it moves with a pan)
-  uint hd = fc.x * 0x8da6b343u ^ fc.y * 0xd8163841u;
-  hd ^= hd >> 15; hd *= 0x2c1b3c6du; hd ^= hd >> 12; hd *= 0x297a2d39u; hd ^= hd >> 15;
-  float dn = (float(hd & 0xffffu) + float(hd >> 16)) / 65535.0 - 1.0;
-  o.a = clamp(o.a + dn / 255.0, 0.0, 1.0);
-  o.rgb = min(max(o.rgb + dn / 255.0, 0.0), vec3(o.a));
-  outColor = o;
+  outColor = ditherOut(o, q);
   outDep = vec4(dep ? 1.0 : 0.0);
   bool fl = gId > 0u && gW > 0.01;
-  // (The row's top bit, LUMEN2: a second lumen is written beside it, so the composite reads that target only where one is. Rows
-  // stay far below 32768.)
-  outFlow = fl
-    ? uvec4(gId | (gId2 > 0u ? ${LUMEN2}u : 0u), uint(clamp((gS + S_OFF) * 16.0, 0.0, 65535.0)), uint(clamp((gY + 1.0) * 32767.5, 0.0, 65535.0)),
-        (uint(round(clamp(gW, 0.0, 1.0) * 255.0)) << 8u) | (gId2 > 0u ? uint(round(clamp(gB, 0.0, 1.0) * 255.0)) : 0u))
-    : uvec4(0u);
-  uint gQ2 = uint(clamp((gY2 + 1.0) * 64.0, 0.0, 127.0));   // (the second lumen's across, 0–127: ROW2_BITS)
-  outFlow2 = fl && gId2 > 0u
-    ? uvec4(gId2 | ((gQ2 >> 2u) << ${ROW2_BITS}u), (uint(clamp((gS2 + S_OFF) * 4.0, 0.0, 16383.0)) << 2u) | (gQ2 & 3u), 0u, 0u)
-    : uvec4(0u);
+  outFlow = fl ? packFlow(gId, gId2, gS, gY, gW, gB) : uvec4(0u);
+  outFlow2 = fl && gId2 > 0u ? packFlow2(gId2, gS2, gY2) : uvec4(0u);
 }`;
 
 // ── Composite: the picture on screen, every frame ──

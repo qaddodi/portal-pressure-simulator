@@ -28,7 +28,7 @@ test('B9: while the anatomy still shows during the lobule dive, its blood keeps 
 });
 
 test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer streaks; vessels stay flat, organs keep their art', () => {
-  const gl = read('src/ui/veins-gl.js');
+  const gl = read('src/ui/veins-gl.js') + read('src/ui/veins-mesh-glsl.js');   // (the vessel shader's shading: veins-mesh-glsl.js)
   // A1: 4–8 CSS px half-width, never over 0.8 of the lumen; the stage and the lobule both say how many canvas px a CSS px is.
   assert.match(gl, /float hw = min\(0\.8 \* R, clamp\(0\.5 \* R, 4\.0 \* cssPx \* pxW, 8\.0 \* cssPx \* pxW\)\)/);
   assert.match(gl, /vec3 ink = mix\(chevInk, vc \* 0\.3, 0\.2\);/);

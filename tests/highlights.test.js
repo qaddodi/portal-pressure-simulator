@@ -339,6 +339,6 @@ test('a lit neighbour that is not drawn at a vessel\'s end leaves that end to ea
   // The shader eases over this much of the vessel, at most this long, and the stage asks nearPath of each lit neighbour.
   assert.ok(LIFT_EASE_SHARE > 0.35 && LIFT_EASE_SHARE <= 0.5 && LIFT_EASE_MAX > 60 && LIFT_EASE_MAX <= 120);
   assert.match(STAGE, /jn\.lit = \(vh\.sel\.has\(y\.e\.id\) \|\| spot\.ids\.has\(y\.e\.id\)\) && \(!pe \|\| nearPath\(/);
-  const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the selection's ease: veins-mesh-glsl.js vesAttrs)
   assert.match(GL, /fs = min\(\$\{LIFT_EASE_SHARE\} \* Ls, \$\{LIFT_EASE_MAX\}\.0\)/);
 });

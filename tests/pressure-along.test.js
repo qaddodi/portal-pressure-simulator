@@ -44,14 +44,14 @@ test('a near-closed vessel never puts the whole drop on one sample', () => {
   assert.equal(ALONG_K_MIN, 0.1);
 });
 
-const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the per-vessel colour: veins-mesh-glsl.js vesAttrs)
 const stage = stageSource();
 
 test('the curve rides with the radii (−1 for a vessel without one) and both shaders mix the colour by it', () => {
   assert.match(gl, /gl\.texImage2D\(gl\.TEXTURE_2D, 0, gl\.RGBA32F, N_SAMPLES, nTubes, 0, gl\.RGBA, gl\.FLOAT, null\);/);
   assert.match(gl, /radAll\[o \+ i \* 4 \+ 2\] = A \? A\[i\] : -1; radAll\[o \+ i \* 4 \+ 3\] = A \? A\[j\] : -1;/);
   assert.match(gl, /return a\.x < 0\.0 \? u : mix\(a\.x, a\.y, ui - float\(i0\)\);/);
-  assert.match(gl, /scol\[s\] = mix\(t0\.rgb, t1\.rgb, alongAt\(sid\[s\], clamp\(su\[s\], 0\.0, 1\.0\)\)\);/);
+  assert.match(gl, /col = mix\(t0\.rgb, t1\.rgb, alongAt\(id, clamp\(uAt, 0\.0, 1\.0\)\)\);/);
   assert.match(gl, /vc1 = mix\(texelFetch\(tube, ivec2\(0, id1\), 0\)\.rgb, texelFetch\(tube, ivec2\(1, id1\), 0\)\.rgb, alongAt\(id1, clamp\(s1 \/ len1, 0\.0, 1\.0\)\)\);/);
   // The largest radius is the radii's alone (the curve shares the texels).
   assert.match(gl, /if \(r\[i\] > mx\) mx = r\[i\];/);

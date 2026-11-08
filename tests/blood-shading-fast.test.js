@@ -87,7 +87,7 @@ test('the composite tests the arrowheads\' cut-outs only where a head is', () =>
 });
 
 // ── Item 5: the zoom's numbers once per vertex, and the vessel's own values read once for the streaks and the arrowheads ──
-const glSrc = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const glSrc = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the vessel shader's shading and packing: veins-mesh-glsl.js)
 const zoomVS = glSrc.slice(glSrc.indexOf('const ZOOM_VS = `'), glSrc.indexOf('}`;', glSrc.indexOf('const ZOOM_VS = `')));
 
 test('the vertex shaders work out the zoom\'s numbers (once per vertex, none per pixel)', () => {
@@ -132,8 +132,9 @@ test('the lumen buffer flags a second lumen in its row\'s top bit, and the fast 
   const { LUMEN2 } = await import('../src/ui/veins-gl.js');
   assert.equal(LUMEN2, 0x8000);
   // The vessel shader sets the bit exactly where it writes the second target (fl && gId2 > 0).
-  assert.match(glSrc, /outFlow = fl\n\s*\? uvec4\(gId \| \(gId2 > 0u \? \$\{LUMEN2\}u : 0u\), /);
-  assert.match(glSrc, /outFlow2 = fl && gId2 > 0u\n/);
+  assert.match(glSrc, /outFlow = fl \? packFlow\(gId, gId2, gS, gY, gW, gB\) : uvec4\(0u\);/);
+  assert.match(glSrc, /uvec4 packFlow\(uint gId, uint gId2, float gS, float gY, float gW, float gB\) \{\n\s*return uvec4\(gId \| \(gId2 > 0u \? \$\{LUMEN2\}u : 0u\), /);
+  assert.match(glSrc, /outFlow2 = fl && gId2 > 0u \? packFlow2\(gId2, gS2, gY2\) : uvec4\(0u\);/);
   // Rows stay far below the bit (the anatomy's ~250, the lobule's 320).
   assert.match(readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8'), /const MAXT = 320;/);
   for (const k of Object.keys(R)) {

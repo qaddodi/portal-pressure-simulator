@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const stage = stageSource();
-const vg = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const vg = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the per-vessel attributes: veins-mesh-glsl.js vesAttrs)
 
 // The inferior vena cava lies behind the liver and the portal vein. A selected, spotlit or shunt-targeted cava is shown whole
 // (no veil, no organ fading it) but it is not drawn above the portal tree for that (Mohammad, 1 Nov: "the IVC is on top of the
@@ -24,7 +24,8 @@ test('the shader lets the organs fade a vessel unless it is shown whole', () => 
   const flags = Object.fromEntries([...vg.matchAll(/\b(F_[A-Z]+) = (\d+)/g)].filter((m) => !/^F_(UP|DN|REV)$/.test(m[1])).map((m) => [m[1], +m[2]]));
   assert.equal(flags.F_WHOLE, 256);
   assert.equal(Object.values(flags).filter((v) => (v & flags.F_WHOLE) !== 0).length, 1, 'F_WHOLE is a bit of its own among the vessel flags');
-  assert.match(vg, /sof\[s\] = \(int\(t2\.z \+ 0\.5\) & \$\{F_WHOLE\}\) != 0 \? 0\.0 : 1\.0;/);
+  assert.match(vg, /\bof = \(int\(t2\.z \+ 0\.5\) & \$\{F_WHOLE\}\) != 0 \? 0\.0 : 1\.0;/);
+  assert.match(vg, /vesAttrs\(sid\[s\], su\[s\], sv\[s\], p, occl, aTier, aZ, aFlag, aWall, aOf,[^\n]*\n[^\n]*sof\[s\] = aOf;/);
   // Every place the organ cover (occl) fades a group-0 vessel scales it by that vessel's own factor: none is left to fade all alike.
   assert.doesNotMatch(vg, /1\.0 - occl\)/, 'no organ fade that ignores sof');
   assert.equal((vg.match(/1\.0 - occl \* sof\[/g) || []).length, 4, 'the hand-off keep and presence, the lumen and the layer each read it');
