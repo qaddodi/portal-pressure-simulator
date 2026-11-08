@@ -20,6 +20,7 @@ import { gpuProbe } from './gpu-probe.js';
 import { createFrameRecorder } from './frame-stats.js';
 import { createInputLatency, describeTarget } from './input-latency.js';
 import { caught } from './caught.js';
+import { fenceFrame, fenceMark } from './gpu-fence.js';
 // A batch of asked-for callbacks, in request order (plan "Holding 120 Hz, always" rev 2 §2.8: zero allocation on the frame path). Three
 // parallel arrays that keep their length from frame to frame, so an ask writes three slots and allocates nothing, and running a batch
 // walks it by index (the Map of [tag, cb] pairs it replaces made one array per ask and one entry array per callback run). A cancelled
@@ -102,6 +103,7 @@ function flush(now) {
   paceStep();
   frames++; allFrames++;
   if (chained && lastNow && now > lastNow) noteGap(now - lastNow);
+  fenceFrame(allFrames);   // (?perf only: a fence in the figure's context at the frame's start and after each phase, gpu-fence.js)
   frameT0 = performance.now();
   const watching = watchers.size > 0, t0 = watching ? performance.now() : 0;
   parts = watching ? outsideParts.splice(0) : null;
@@ -117,13 +119,24 @@ function flush(now) {
   queue = spareQ.size ? new Batch() : spareQ;   // asked for while running: the next frame, as with requestAnimationFrame
   try {
     run(current, now, 'early');
+    fenceMark(1);
     lateNow = late;
     late = spareL.size ? new Batch() : spareL;   // asked for while the late ones run: the next frame
     run(lateNow, now, 'late');
+    fenceMark(2);
     finalNow = fin;
     fin = spareF.size ? new Batch() : spareF;    // (likewise)
     run(finalNow, now, 'final');
-    if (finals.size) for (const w of finals) try { w(now); } catch (e) { rethrow(e); }   // (after the last callback, before the frame is judged: the ink lays itself on the figure as drawn)
+    fenceMark(3);
+    if (finals.size) {
+      // (After the last callback, before the frame is judged: the ink lays itself on the figure as drawn, and the figure's present (veins-gl.js
+      // flushPresent: the kept picture onto the canvas, the glasses over it) runs here. Timed as its own surface, 'frame end', so the ?perf
+      // readout names it: 8 Nov 2026, a Mac's frames showed 26 ms of script with 14 ms in named surfaces, and this was the untimed rest.)
+      const tf = timeFrame ? performance.now() : 0;
+      for (const w of finals) try { w(now); } catch (e) { rethrow(e); }
+      if (timeFrame) { const ms = performance.now() - tf; totals.ms[FRAME_END] = (totals.ms[FRAME_END] || 0) + (parts || TIME_ALL ? ms : ms * TIME_EVERY); parts?.push([FRAME_END, 'final', ms]); }   // alloc-rare: only while frames are watched (parts is null otherwise)
+    }
+    fenceMark(4);
     runMay(now);
   } finally {
     current.clear(); spareQ = current; current = null;
@@ -161,6 +174,7 @@ function flush(now) {
 // totals.ms (an estimate of the same sum), plus the deferrable surfaces, whose predicted cost the watchdog judges by. The other frames
 // make no performance.now() pair per callback.)
 export const TIME_EVERY = 30;
+const FRAME_END = 'frame end';   // (the surface name of the frame-end hooks' time: the figure's present and the ink)
 const TIME_ALL = typeof location !== 'undefined' && /[?&](perf|fps)(?=[=&#]|$)/.test(location.search || '');
 let timeFrame = false;
 /** Whether this frame's callbacks are each timed (every frame while watched or under ?perf/?fps, else one in TIME_EVERY). */

@@ -33,6 +33,7 @@
 
 import { glGet, glCap, glOkBefore, glOkAfter, fbComplete } from './gl-state.js';
 import { CHEV_GLSL } from './chevron-glsl.js';
+import { setFenceContext } from './gpu-fence.js';
 import { LIGHT } from './light.js';
 import { EDGE_GLSL } from './edge.js';
 import { SLOT, DYE_BINS, PERIOD, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
@@ -2044,6 +2045,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // nothing) shows a cleared figure. Kept, such a frame shows the last picture under it. Every present still lays the kept picture whole.)
   let gl = null;
   try { gl = share ? share.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: true, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
+  if (gl && !share) setFenceContext(gl);   // (?perf's GPU fences are planted in the figure's own context, gpu-fence.js)
   if (!gl) return null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl);

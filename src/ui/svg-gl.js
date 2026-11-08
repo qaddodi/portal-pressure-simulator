@@ -15,7 +15,7 @@
 
 import { createTraceGL, fitPen, eraseHoles } from './trace-gl.js';
 import { flattenPath, flattenCmdsInto, newFlat, elBox4 } from './shape-gl.js';
-import { finalFrameFor, easeNow, cancelFrame, framePart, cameraMoving } from './frame.js';
+import { finalFrameFor, readFrameFor, finalFrame as finalFrameAsk, framePhase, easeNow, cancelFrame, framePart, cameraMoving } from './frame.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { cssCurve, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { cssColor } from './css-color.js';
@@ -813,6 +813,16 @@ export function viewMap(vb, par, w, h) {
 
 // ── The picture ──
 const finalFrame = finalFrameFor('svg-gl');
+// (A picture that does not ride the figure (opts.follows false: a card's chart, a readout's words, the dock's values) is drawn and handed over
+// in the frame's READ phase, its very start, not its final one. The hand-over (trace-gl.js end: transferToImageBitmap) makes the page wait
+// for the GPU to finish everything queued before it in Safari: at the frame's end that is the figure's whole frame (its composite, the glasses,
+// the present), ~17-20 ms on a Mac whose GPU takes that long a frame; at the frame's start the GPU has finished the last frame for the
+// compositor and the wait is the picture's own draw, a millisecond or two (8 Nov 2026, Mohammad's Mac ?perf: svg-gl 7-19 ms a frame, 13-21
+// pictures a second, script p95 33 ms with 2 ms p50). The words or numbers it draws are the model's as the frame begins: a change made in a
+// frame is drawn at the start of the next, one frame on, as the page's own words would land. Pictures that ride the figure (a callout's glass,
+// the lobule's leaders) still draw in the final phase, over the figure's own pass of the same frame.)
+const readDraw = readFrameFor('svg-gl');
+const askDraw = (g) => (g.follows ? finalFrame(g.draw) : readDraw(g.draw));
 const CAM_HOLD_MS = 100;
 // (The pictures that do not ride the figure, asked together: drawn in one frame on a shared beat, or held while the camera moves: createSvgGL g.paint.)
 const BATCH_MS = 120;
@@ -821,7 +831,7 @@ let batchT = 0;
 function batchRun() {
   batchT = 0;
   if (cameraMoving()) { batchT = setTimeout(batchRun, CAM_HOLD_MS); return; }
-  for (const g of batchQ) if (!g.ask && !g.dead) g.ask = finalFrame(g.draw);
+  for (const g of batchQ) if (!g.ask && !g.dead) g.ask = askDraw(g);
   batchQ.clear();
 }
 const live = new Set();
@@ -853,7 +863,10 @@ export function createSvgGL(box, opts = null) {
   cv.setAttribute('role', 'img');
   box.prepend(cv);
   // alloc-rare: a picture's kept state, made once for each chart host
-  const g = { box, cv, local: { host: opts?.host || '' }, lc: null, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set(), vk: 1, ve: 0, vf: 0 };
+  const g = { box, cv, local: { host: opts?.host || '' }, lc: null, gpu: null, until: 0, ask: 0, lookAsk: 0, ins: new Map(), dead: false, timers: new Set(), vk: 1, ve: 0, vf: 0, follows: !!opts?.follows, draw: null, drawnOk: false, drawnAsk: 0 };
+  // (Drawn in the read phase, the owner's word that the GPU drew (g.drawn: gl-words.js makes the page's own words clear) is given at the frame's
+  // final phase, as a write of the page belongs: a class set in the read phase would have the reads after it lay the page out again. Same frame.)
+  g.drawnFn = () => { g.drawnAsk = 0; g.drawn?.(g.drawnOk); };   // alloc-rare: made once with the picture
   live.add(g);
   // (A drawing swapped in during a frame waits off the page, pending, and is drawn from there; it joins the box between frames.)
   // alloc-rare: the picture's drawings list, called by slide changes and rest passes, never by a frame's draw
@@ -923,11 +936,13 @@ export function createSvgGL(box, opts = null) {
       const label = last?.getAttribute('aria-label');
       if (label) attrSoon(cv, 'aria-label', label);
     } finally { handed = framePart('svg-gl: hand over', endPen, ctx); }   // (false: the picture could not be handed over, trace-gl.js end)
-    g.drawn?.(!!pen.gpu && bw > 0 && bh > 0 && handed);   // (whether the GPU drew this frame: gl-words.js shows its picture only then)
+    // (Whether the GPU drew this frame: gl-words.js shows its picture only then. From the read phase, told at the frame's final phase, see drawnFn.)
+    g.drawnOk = !!pen.gpu && bw > 0 && bh > 0 && handed;
+    if (framePhase() === 'read') { if (!g.drawnAsk) g.drawnAsk = finalFrameAsk(g.drawnFn, 'svg-gl'); } else g.drawn?.(g.drawnOk);
     // (A loop (albumin's drift, a flow's pulse) asks for its next frame only while its box is on the screen: off it, a scene's loops drew and
     // handed over a picture every frame no one saw (8 Nov 2026, lag hunt). The observer below paints it again as it comes back.)
-    if (now < g.until || g.ins.size) g.ask = finalFrame(draw);
-    else if (easing) { if (g.seen === false) g.loopWait = true; else g.ask = finalFrame(draw); }
+    if (now < g.until || g.ins.size) g.ask = askDraw(g);
+    else if (easing) { if (g.seen === false) g.loopWait = true; else g.ask = askDraw(g); }
   }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   g.gpu = createTraceGL(cv, { redraw: () => draw(), name: 'svg:' + (opts?.host || box.className.split(' ')[0] || '?') });
@@ -941,7 +956,7 @@ export function createSvgGL(box, opts = null) {
   // the GPU: on a Mac whose GPU is busy with the moving figure that is ~20 ms for a 512x256 picture (8 Nov 2026, ?perf: 21 such pictures a
   // second, svg-gl 17-30 ms a frame, a pan at 22-25 fps), even at a 150 ms pace. opts.follows: a picture that moves with the figure (the
   // lobule's leaders, a callout's glass) is drawn every frame it is asked.)
-  const follows = !!opts?.follows;
+  const follows = g.follows;
   g.draw = draw;
   // (And at rest: such pictures are asked together, on one shared beat (BATCH_MS), so they are drawn and handed over in the same frame. The
   // page's wait for the GPU is paid by the first of them; the rest find it done. Asked one by one, a running model's readouts (the dock's
@@ -950,6 +965,8 @@ export function createSvgGL(box, opts = null) {
   g.paint = () => {
     if (g.ask) return;
     if (follows) { g.ask = finalFrame(draw); return; }
+    // (Asked from the read phase itself (a readout set by a read callback): drawn in this frame's early phase would be no later than the
+    // batch's next beat; it joins the beat as the others do.)
     batchQ.add(g);
     if (!batchT) batchT = setTimeout(batchRun, BATCH_MS - (performance.now() % BATCH_MS));
   };
@@ -1052,7 +1069,7 @@ export function createSvgGL(box, opts = null) {
   g.dispose = () => {
     if (g.dead) return;
     g.dead = true;
-    batchQ.delete(g); live.delete(g); g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.io?.disconnect?.();
+    batchQ.delete(g); live.delete(g); if (g.drawnAsk) { cancelFrame(g.drawnAsk); g.drawnAsk = 0; } g.mo?.disconnect?.(); g.ro?.disconnect?.(); g.io?.disconnect?.();
     cancelFrame(g.ask); cancelRest(g.lookAsk); cancelRest(g.connAsk); g.ask = g.lookAsk = g.connAsk = 0;
     for (const t of g.timers) clearTimeout(t);
     g.timers.clear(); g.ins.clear(); g.pending = null; g.cache.clear();

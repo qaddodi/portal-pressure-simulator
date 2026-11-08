@@ -17,6 +17,7 @@ import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watc
 import { restPass } from './rest-pass.js';
 import { sharedStats, transfersBy } from './trace-gl.js';
 import { caught } from './caught.js';
+import { setFences, fenceText } from './gpu-fence.js';
 
 const KEEP = 600;
 
@@ -90,7 +91,7 @@ function workerClock(onHz) {
 
 export function startFrameHud() {
   const gaps = [], scripts = [];
-  let dead = false, c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused } };
+  let dead = false, c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs } };
   // (Who handed the pictures over, busiest first, with the buffer size of the last one: the next lag names its own layer.)
   const byText = () => { const l = [...transfersBy].sort((a, b) => b[1].n - a[1].n).slice(0, 4).map(([k, r]) => `${k} ${r.n} (${r.w}x${r.h})`).join(', '); transfersBy.clear(); return l; };   // alloc-rare: once a second, with ?perf on
   let last = perf().totals, lastFrames = last.frames, workerHz = 0, idleAt = 0, lastCharts = { ...sharedStats };
@@ -133,16 +134,20 @@ export function startFrameHud() {
     // (Missed target chances: an interval past the target by over half a frame (timestamp jitter) counts each frame it skipped.)
     const b = frameBudget(), missed = gaps.slice(-k).reduce((n, g) => n + (g > b * 1.5 ? Math.max(1, Math.round(g / b) - 1) : 0), 0);
     el.textContent = hudText(st, { hz, maxHz, workerHz, target: targetHz(), missed, budget: b, surfaces, gov: w.governor, yielded: w.yielded, streak: w.streak, loaf: loafText(worst), may: mayStats(), charts: { resizes: sharedStats.resizes - lastCharts.resizes, transfers: sharedStats.transfers - lastCharts.transfers, by: byText() }, mode: w.mode, shed: w.shed, throttle: throttleOf({ hz, maxHz, workerHz, target: targetHz(), hidden: document.hidden }) });
-    const cn = { draw: counts.draw - c0.draw, composite: counts.composite - c0.composite, whole: counts.whole - c0.whole, blur: counts.blur - c0.blur };
-    el.textContent += `\nper second: vessel draws ${cn.draw}, composites ${cn.composite} (whole ${cn.whole}), glass blurs ${cn.blur}`;
     const wh = (r, r0) => Object.keys(r).map((k) => `${k} ${r[k] - (r0[k] || 0)}`).filter((t) => !t.endsWith(' 0')).join(', ');
+    const cn = { draw: counts.draw - c0.draw, composite: counts.composite - c0.composite, whole: counts.whole - c0.whole, blur: counts.blur - c0.blur };
+    el.textContent += `\nper second: vessel draws ${cn.draw}, composites ${cn.composite} (whole ${cn.whole}), glass blurs ${cn.blur}${cn.blur ? ` (${wh(counts.blurs, c0.blurs)})` : ''}`;
+    // (The GPU's own time along the frame, from fences in the figure's context (gpu-fence.js): whether the frame waits on the GPU at all, and in which phase.)
+    const ft = fenceText();
+    if (ft) el.textContent += `\n${ft}`;
     el.textContent += `\nwhole vessel draws by reason: ${wh(counts.why, c0.why) || 'none'}\nrow draws refused: ${wh(counts.refused, c0.refused) || 'none'}`;
-    c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused } };
+    c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs } };
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
   };
+  setFences(true);   // (the GPU fences run only while the panel shows)
   const tick = () => { if (dead) return; if (!document.hidden) restPass(write); setTimeout(tick, 1000); };
   setTimeout(tick, 1000);
   if (window.pps) window.pps.hud = () => el.textContent;
-  el.stop = () => { dead = true; el.remove(); };   // (Settings › Show frame breakdown, off)
+  el.stop = () => { dead = true; setFences(false); el.remove(); };   // (Settings › Show frame breakdown, off)
   return el;
 }
