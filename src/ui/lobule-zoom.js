@@ -44,7 +44,7 @@ import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js';
 import { NODES, EDGES } from '../engine/topology.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js';
-import { SLOT, PERIOD, originFractions, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
+import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
 import { createSinusoidView } from './sinusoid-view.js';
 import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, framePart, easeNow, inMotion } from './frame.js';
@@ -789,7 +789,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // look it was drawn with (glLook): a redraw of only those rows' cells stands in for a whole one (veins-gl drawRows).
   let tubeShown = null, glLook = '';
   const glRows = new Set();
-  let clock = 0, origins = null, originsF = null;
+  let clock = 0, origins = null, originsF = null, originsPass = false;
+  // (The First pass lens: the sinusoid cleans along its length, so its row carries the blend at its outlet and a Pe near 0 (blood.js originEnds).)
+  const lobEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length) };
   const pc = (p) => (model?.hide ? tk('--lz-lumen-hidden') : pressureColor(p));
 
   // One GPU context for the figure (4 Nov 2026, Mohammad: "everything on one GPU context"): the lobule's vessels, tissue, overlay and field are
@@ -1256,11 +1258,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     cancelFrame(easeRaf);
     if (eased.moving || since.moving) easeRaf = nextFrame(glideP);
     model.inks = readInks(styles());
-    if (originOn() && originsF !== f) { origins = originFractions(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P); originsF = f; }
+    if (originOn() && (originsF !== f || originsPass !== passOn())) { originsPass = passOn(); origins = originFractionsInto(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P, origins || new Float32Array(EDGES.length * ORIGIN_N), originsPass ? lobEnds : undefined, originsPass); originsF = f; }
     panel();
     if (!raf) raf = nextFrame(loop);
   }
-  const originOn = () => !store.get().imaging && store.get().colorMode === 'origin';
+  const originOn = () => !store.get().imaging && (store.get().colorMode === 'origin' || store.get().colorMode === 'firstpass');
+  const passOn = () => store.get().colorMode === 'firstpass';
   // Between model frames only the pressures move: re-ease them and redraw the panel, nothing else.
   let glideAt = 0;
   function glideP(now) {
@@ -3719,12 +3722,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const INK_TMP = [0, 0, 0], NEUTRAL_TMP = [0, 0, 0], VEL_RANGE = [1 / 1.5, 1.5], OXY_FULL = [1, 1, 1];
   // The same as [r, g, b] 0–1 in the caller's own triple; mid-switch, the old lens's color eased into the new one's (k: 0 … 1).
   function inkRGBInto(out, seg, w = 0, k = lensK()) {
-    const M = model.mode, to = M === 'origin' ? ORIGIN_RGB : rgb01(inkOf(M, seg, w));
+    const M = model.mode, to = M === 'origin' || M === 'firstpass' ? ORIGIN_RGB : rgb01(inkOf(M, seg, w));
     if (k >= 1) { out[0] = to[0]; out[1] = to[1]; out[2] = to[2]; return out; }
     return inkMix(out, to, seg, w, k);
   }
   function inkMix(out, to, seg, w, k) {
-    const from = lensFrom === 'origin' ? ORIGIN_RGB : rgb01(inkOf(lensFrom, seg, w));
+    const from = lensFrom === 'origin' || lensFrom === 'firstpass' ? ORIGIN_RGB : rgb01(inkOf(lensFrom, seg, w));
     for (let i = 0; i < 3; i++) out[i] = from[i] + (to[i] - from[i]) * k;
     return out;
   }
@@ -4010,7 +4013,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       flowData[o + 4] = f0; flowData[o + 5] = f1; flowData[o + 6] = strength; flowData[o + 7] = sm.rev;
       flowData[o + 14] = sm.drift;
       flowData[o + 12] = 1;   // (each vessel's chevron weight, as the anatomy's: every lobule vessel shows them when they are on)
-      if (origin && origins && !t.lymph) { const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c]; }
+      if (origin && origins && !t.lymph) {
+        const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c];
+        if (originsPass && lobEnds.pe[kk] !== 0) { flowData[o + 27] = lobEnds.pe[kk]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 28 + c] = lobEnds.down[kk * ORIGIN_N + c]; }
+      }
     }
     if (!flowSame) { g.setFlow(flowData); flowG = g; flowAt = flowA; }
     // (The look comes only from the styles: built and written out once per copy of them, the stage's kept copy changing
@@ -4021,7 +4027,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // same object, whose values are then this frame's, the latest. bleed stays empty; the colours are the shared, cached ones.)
     const bc = bloodColors(), blood = bloodArg;
     blood.alpha = flowA; blood.on = (bloodOn || lyOn) && flowA > 0.002; blood.streakA = bloodOn ? 1 : 0; blood.chev = chev && flowA > 0.002; blood.look = b.look || 'shimmer'; blood.origin = origin; blood.clock = clock; blood.dye = false; blood.vdpr = k;   // (vdpr: canvas px per CSS px, which the chevrons' size is set in; streakA: the Blood streaks setting: off, no streak is worked out or drawn, while the lymph dashes (lyOn) and the chevrons go on)
-    blood.originCol = bc.originCol; blood.dyeCol = bc.dyeCol; blood.inkLight = bc.inkLight; blood.inkDark = bc.inkDark; blood.revCol = bc.revCol; blood.chevInk = bc.chevInk; blood.chevLight = bc.chevLight;
+    blood.originCol = originsPass ? bc.firstCol : bc.originCol; blood.dyeCol = bc.dyeCol; blood.inkLight = bc.inkLight; blood.inkDark = bc.inkDark; blood.revCol = bc.revCol; blood.chevInk = bc.chevInk; blood.chevLight = bc.chevLight;
     // A whole redraw of the vessel layer is by far the heaviest thing the lobule draws (about 150 plain fills of the
     // canvas); when only some vessels' attributes changed, only their cells are drawn again, to the same picture.
     if (glDirty || !dSame || lsig !== glLook) {

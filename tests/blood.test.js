@@ -230,3 +230,48 @@ test('B3: a reversal shows only once it has held for a breath; flapping with the
   at(1, 60); at(1, 60); at(1, 60);
   assert.equal(h.hold[0], 0);
 });
+
+// The First pass lens (colorMode 'firstpass'): the same pass with other channels: 0 gut blood the liver has not cleaned, 1 gut blood
+// the sinusoids have, 3 the hepatic artery's.
+function firstPass(preset, params) {
+  const e = new Engine(); e.loadPreset(preset); if (params) { e.setParams({ ...e.params, ...params }); e.settle(); }
+  const n = EDGES.length, ends = { slosh: new Float64Array(n), down: new Float32Array(n * ORIGIN_N), pe: new Float32Array(n) };
+  const up = originFractionsInto(EDGES, NODES, e.Q, e.P, new Float32Array(n * ORIGIN_N), ends, true);
+  const at = (arr, id) => Array.from(arr.slice(EI[id] * ORIGIN_N, EI[id] * ORIGIN_N + ORIGIN_N));
+  return { e, up: (id) => at(up, id), down: (id) => at(ends.down, id), pe: (id) => ends.pe[EI[id]] };
+}
+
+test('first pass: in health the gut blood is raw in the portal vein, cleared in the hepatic veins, and none of it reaches the heart raw', () => {
+  const m = firstPass('healthy');
+  const pv = m.up('PV_TRUNK');
+  assert.ok(pv[0] > 0.97 && pv[1] === 0, `portal vein: all raw ${pv}`);
+  const hv = m.up('RHV_IVC');
+  assert.ok(hv[1] > 0.3 && hv[0] < 0.005, `hepatic vein: cleared gut blood, none raw ${hv}`);
+  const ra = m.up('IVCS_RA');
+  assert.ok(ra[0] < 0.005 && ra[1] > 0.05, `right atrium: cleared gut blood only ${ra}`);
+  const sin = m.up('SIN_RR'), out = m.down('SIN_RR');
+  assert.ok(sin[0] > 0.4 && sin[1] === 0, `sinusoid inlet raw ${sin}`);
+  assert.ok(out[0] === 0 && Math.abs(out[1] - (sin[0] + sin[1])) < 1e-5, `sinusoid outlet cleared ${out}`);
+  assert.ok(m.pe('SIN_RR') > 0 && m.pe('SIN_RR') < 0.05, 'a sinusoid cleans along its length, a straight blend');
+});
+
+test('first pass: blood that reaches the cava by a collateral or a stent stays raw', () => {
+  const h = firstPass('healthy');
+  const c = firstPass('cirr-decomp');
+  const azy = c.up('AZY_SVC');
+  assert.ok(azy[0] > 0.5 && azy[1] < 1e-4, `azygos carries raw gut blood ${azy}`);
+  assert.ok(c.up('SVC_RA')[0] > 0.05 && h.up('SVC_RA')[0] < 0.005, 'raw gut blood reaches the right atrium by the collaterals, and not in health');
+  assert.ok(c.up('IVCS_RA')[0] > 0.05 && c.up('IVCS_RA')[1] > 0.05, 'the cava holds both: collateral blood raw, hepatic blood cleared');
+  const t = firstPass('cirr-decomp', { tips: { on: true, d: 8 } });
+  const tips = t.up('TIPS');
+  assert.ok(tips[0] > 0.7 && tips[1] < 1e-4, `the stent carries raw gut blood ${tips}`);
+  assert.ok(t.up('RHV_IVC')[0] > 0.05, 'and it reaches the hepatic vein raw');
+});
+
+test('first pass: the origin lens is unchanged by it', () => {
+  const e = new Engine(); e.settle();
+  const a = originFractions(EDGES, NODES, e.Q, e.P), b = originFractions(EDGES, NODES, e.Q, e.P, false);
+  firstPass('healthy');
+  assert.deepEqual(Array.from(originFractions(EDGES, NODES, e.Q, e.P)), Array.from(a));
+  assert.deepEqual(Array.from(b), Array.from(a));
+});

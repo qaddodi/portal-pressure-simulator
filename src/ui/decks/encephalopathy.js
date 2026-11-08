@@ -24,14 +24,14 @@ export const ENCEPHALOPATHY = {
   summary: 'How shunted gut blood reaches the brain: covert encephalopathy, a large splenorenal shunt and what closing it costs, and the stent width and rifaximin that lower encephalopathy after a TIPS.',
   slides: [
     {
-      id: 'firstpass', preset: 'healthy', cam: 'liver', scales: { lobule: {} }, lens: 'origin', sites: ['split'], tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
+      id: 'firstpass', preset: 'healthy', cam: 'liver', scales: { lobule: {} }, lens: 'firstpass', sites: ['split'], tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
       kicker: 'First pass', site: 'sin', title: 'In health, all gut blood passes through the liver',
       line: 'The liver clears what the gut absorbs, and none of the portal blood bypasses it.',
-      notes: 'The model has no ammonia or brain; the share of portal blood that skips the liver, scaled by cirrhosis, stands in for the risk (the encephalopathy risk tile, an index and not a clinical score). Gut bacteria and the breakdown of protein make ammonia, which reaches the liver in portal blood. Periportal hepatocytes turn it into urea, and perivenous hepatocytes take up what is left as glutamine. Blood that skips the liver skips both steps, and the ammonia reaches the brain.',
+      notes: 'Colored by first pass: orange is gut blood that has not been through the liver, teal is gut blood after its sinusoids, and a collateral, a shunt or a stent keeps the orange. It shows the path the blood took, not an ammonia level. The model has no ammonia or brain; the share of portal blood that skips the liver, scaled by cirrhosis, stands in for the risk (the encephalopathy risk tile, an index and not a clinical score). Gut bacteria and the breakdown of protein make ammonia, which reaches the liver in portal blood. Periportal hepatocytes turn it into urea, and perivenous hepatocytes take up what is left as glutamine. Blood that skips the liver skips both steps, and the ammonia reaches the brain.',
       ask: ['A young adult with a normal liver and a congenital portosystemic shunt is confused. Why?', 'Gut blood reaches the brain without passing through the liver, which would have cleared its ammonia.'],
     },
     {
-      id: 'collat', preset: 'cirr-decomp', cam: 'fit', lens: 'origin', sites: ['split'], tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'], delta: 'firstpass',
+      id: 'collat', preset: 'cirr-decomp', cam: 'fit', lens: 'firstpass', sites: ['split'], tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'], delta: 'firstpass',
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals carry gut blood around a scarred liver',
       vignette: 'A 69-year-old taxi driver with hepatitis C cirrhosis, cured 2 years ago, has had two minor car crashes this year. His wife finds him slower, and EGD shows large varices.',
       line: 'Collaterals now carry {shunt} of the portal blood around the liver, and the scarred liver clears less of what still reaches it.',
@@ -39,7 +39,7 @@ export const ENCEPHALOPATHY = {
       ask: ['He drives a taxi. What do you test, and what do you start?', 'One test for covert encephalopathy, such as animal naming; lactulose if it is abnormal; and advice not to drive until it improves.'],
     },
     {
-      id: 'grade', cam: 'fit', lens: 'origin', sites: ['split'], data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
+      id: 'grade', cam: 'fit', lens: 'firstpass', sites: ['split'], data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
       tool: { kind: 'criteria', title: 'West Haven grades', short: 'Grades', ticks: false,
         rows: ['**Covert**: minimal and grade 1, found by a test such as animal naming', '**Grade 2**: lethargy, disoriented in time, asterixis', '**Grade 3**: drowsy but rousable, disoriented in place', '**Grade 4**: coma'] },
       kicker: 'Overt encephalopathy', site: 'sin', title: 'Grade it at the bedside; ammonia is not needed',
@@ -48,7 +48,7 @@ export const ENCEPHALOPATHY = {
       ask: ['A confused patient with cirrhosis has a normal ammonia. Is it encephalopathy?', 'Possibly, but a normal ammonia argues against it: look harder for another cause, such as sepsis, a bleed in the head, drugs or low sodium.'],
     },
     {
-      id: 'trigger', cam: 'fit', lens: 'origin', sites: ['split'], data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
+      id: 'trigger', cam: 'fit', lens: 'firstpass', sites: ['split'], data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
       tool: { kind: 'criteria', title: 'Look first for', short: 'Triggers', ticks: false, rows: ['**Infection** or **bleeding**', '**Constipation** or missed **lactulose**', '**Sedatives** or **opioids**', '**Low sodium** or **potassium**, or **dehydration**'], verdict: 'Treating them comes first.' },
       kicker: 'Overt encephalopathy', site: 'sin', title: 'Treat the trigger before the ammonia',
       line: 'Plain confusion at the bedside is overt encephalopathy. Find and treat the trigger, give lactulose to two or three soft stools a day, and add rifaximin after a recurrence.',
@@ -56,7 +56,7 @@ export const ENCEPHALOPATHY = {
       ask: ['A man on diuretics becomes confused. What do you do first?', 'Look for the trigger: infection, bleeding, constipation, sedatives, or low sodium or potassium. Then lactulose, and rifaximin after a recurrence.'],
     },
     {
-      id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true }, diuretics: false }, days: 30, cam: 'splenic', lens: 'origin', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
+      id: 'srs', preset: 'cirr-decomp', params: { spontaneous: { C6: true }, diuretics: false }, days: 30, cam: 'splenic', lens: 'firstpass', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' },
       tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['he'], delta: 'collat',
       kicker: 'Spontaneous shunts', site: 'sin', title: 'A large splenorenal shunt keeps encephalopathy coming back',
       vignette: 'A 58-year-old man with hepatitis B cirrhosis on entecavir has been admitted four times in 8 months with confusion while taking lactulose and rifaximin. He has no ascites or varices.',
@@ -79,7 +79,7 @@ export const ENCEPHALOPATHY = {
       ask: ['Who is a good candidate for embolization, and what do you check afterwards?', 'Recurrent or persistent encephalopathy despite optimal drug treatment, a large shunt on imaging and preserved liver function; transplant is discussed as well (Baveno VIII 6.12). Afterwards, varices on endoscopy and ascites on ultrasound, because the portal pressure rises.'],
     },
     {
-      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', lens: 'origin', sites: ['split'], mark: STENT, tool: FLOWS,
+      id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', lens: 'firstpass', sites: ['split'], mark: STENT, tool: FLOWS,
       compare: [{ label: '8 mm', own: true, params: { tips: { on: true, d: 8 } } }, { label: '10 mm', params: { tips: { on: true, d: 10 } } }],
       data: 'tiles', tiles: ['he', 'ppg'], key: ['he'],
       kicker: 'After TIPS', site: 'sin', title: 'A wider stent takes more portal blood from the liver',

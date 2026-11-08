@@ -69,7 +69,7 @@ const ZOOM_TITLES = [['#zoomOut', 'Zoom out', 'Back out to the lobule'], ['#zoom
 // only armed gesture left is a shunt waiting for its target.
 import { initDebug } from './debug.js';
 import { initTopbarMotion } from './topbar-motion.js';
-import { ORIGINS } from './blood.js';
+import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
@@ -92,6 +92,8 @@ const nextFrame = frameFor('main');
 // Color lenses: [title, what it shows, legend swatch].
 // SMV, IMV, splenic vein, hepatic artery, systemic: as stage.js BLOOD_COLORS.
 const ORIGIN_CSS = ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => `var(--origin-${o})`);   // the order of ORIGINS (blood.js)
+// The First pass lens's four colours, in the order of FIRSTPASS (blood.js).
+const FP_CSS = ['var(--fp-raw)', 'var(--fp-clear)', 'var(--origin-artery)', 'var(--origin-systemic)'];
 const LENSES = {
   pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
   delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))'],
@@ -102,8 +104,9 @@ const LENSES = {
   direction: ['Flow direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
   oxygen: ['Oxygen', 'How much oxygen the blood carries', () => oxygenCss('to right')],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
+  firstpass: ['First pass', 'Gut blood cleaned by the liver', () => `linear-gradient(to right, ${FP_CSS.map((c, i) => `${c} ${i * 25}% ${(i + 1) * 25}%`).join(', ')})`],
 };
-const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', oxygen: 'Oxygen', origin: 'Blood origin' };
+const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', oxygen: 'Oxygen', origin: 'Blood origin', firstpass: 'First pass' };
 
 let stage, inspector, dock, why, timeline, compare, card, chart, mainMenu, idleRest;
 
@@ -866,6 +869,8 @@ const LG_TITLE = { class: 'lg-title' }, LG_CAP = { class: 'lg-cap', 'aria-hidden
 const LG_BAR_STYLE = { background: '' }, LG_BAR = { class: 'lg-bar', style: LG_BAR_STYLE };   // (the bar's colours are written into the one style before each build)
 const LG_DOT = { normal: { style: { background: 'var(--flow-normal)' } }, reversed: { style: { background: 'var(--flow-reversed)' } }, portal: { style: { background: 'var(--vein-portal)' } }, systemic: { style: { background: 'var(--vein-systemic)' } } };
 const LG_ORIGIN_ORDER = [0, 1, 2, 4, 3];
+const LG_FP_DOTS = { class: 'lg-cats lg-dots', title: 'Gut blood by the path it took: raw before the liver, clear after its sinusoids. Not an ammonia level' };
+const LG_FIRSTPASS = FIRSTPASS.map((o, i) => ({ span: { title: o[3] }, dot: { style: { background: FP_CSS[i] } }, name: o[2] }));
 const LG_ORIGIN = ORIGINS.map((o, i) => ({ span: { title: o[3] }, dot: { style: { background: ORIGIN_CSS[i] } }, name: o[2] }));
 // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
 // the scale's own font being the numbers'), so the first and last are never pulled in off their ticks: "30" had sat 7.5 px left of its tick.)
@@ -959,6 +964,12 @@ function renderLegend() {
     for (let k = 0; k < LG_ORIGIN_ORDER.length; k++) { const o = LG_ORIGIN[LG_ORIGIN_ORDER[k]]; cats.append(h('span', o.span, h('i', o.dot), h('b', NOATTR, o.name))); }
     lgPut(el, same, cats);
     el.setAttribute('aria-label', 'Legend: blood colored by where it comes from, as streams side by side: amber SMV (with the coronary vein), teal IMV, violet SV (splenic vein), slate blue Sys (systemic), crimson HA (hepatic artery)');
+  } else if (m === 'firstpass') {
+    // The short names (Raw, Clear, HA, Sys), as the origin key has them; what each means is in its title, and the key says it is no ammonia level.
+    const cats = h('div', LG_FP_DOTS);
+    for (let k = 0; k < LG_FIRSTPASS.length; k++) { const o = LG_FIRSTPASS[k]; cats.append(h('span', o.span, h('i', o.dot), h('b', NOATTR, o.name))); }
+    lgPut(el, same, cats);
+    el.setAttribute('aria-label', 'Legend: gut blood colored by whether it has been through the liver. Orange Raw: gut blood that has not passed the sinusoids, including blood that took a collateral, a shunt or a stent. Teal Clear: gut blood after the sinusoids. Crimson HA: hepatic artery blood. Slate blue Sys: blood from the rest of the body. This shows the path the blood took, not an ammonia level');
   } else if (m === 'neutral') {
     lgPut(el, same, h('div', LG_CATS, h('span', NOATTR, h('i', LG_DOT.portal), 'Portal veins'), h('span', NOATTR, h('i', LG_DOT.systemic), 'Systemic veins'),
       h('span', LG_NOTE, svgIcon('info'), 'Pressures unmeasured')));

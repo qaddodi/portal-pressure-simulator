@@ -141,6 +141,7 @@ const LENS_KEY = {
   delta: ['change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
   oxygen: ['oxygen', () => oxygenCss('to right'), 'Low', 'High'],
   origin: ['origin', [['--origin-smv', 'SMV'], ['--origin-imv', 'IMV'], ['--origin-spleen', 'Spleen', 'SV'], ['--origin-artery', 'Artery', 'HA'], ['--origin-systemic', 'Systemic', 'Sys']]],   // (the short names blood.js ORIGINS uses: a phone's key beside the pill, fitKey)
+  firstpass: ['first pass, not ammonia', [['--fp-raw', 'Not cleared', 'Raw'], ['--fp-clear', 'Cleared by the liver', 'Clear'], ['--origin-artery', 'Artery', 'HA'], ['--origin-systemic', 'Systemic', 'Sys']]],   // (gut blood by the path it took: blood.js FIRSTPASS; the name says it is no ammonia level)
 };
 // (A deck visuals package's lenses (slide-ext.js) after the app's own; a key whose words depend on the slide is a function of it.)
 for (const [k, v] of Object.entries(EXT.lenses)) if (!LENS_KEY[k]) LENS_KEY[k] = v;
@@ -368,9 +369,9 @@ function lineRe(s = {}) {
 }
 // A view the words name ("With the vessels colored by congestion"): the view's name is a pill in that view's own colour,
 // as its key on the figure draws it (Mohammad, 16 Oct). It points at nothing on the figure, so it lights nothing.
-export const LENS_WORDS = { 'pressure drop': 'drop', 'blood origin': 'origin', origin: 'origin', velocity: 'velocity', 'flow volume': 'flow',
+export const LENS_WORDS = { 'pressure drop': 'drop', 'blood origin': 'origin', origin: 'origin', 'first pass': 'firstpass', velocity: 'velocity', 'flow volume': 'flow',
   flow: 'flow', direction: 'direction', congestion: 'heat', change: 'delta', 'vein system': 'system', oxygen: 'oxygen' };
-export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', system: '--tr-var', oxygen: '--lens-oxygen' };
+export const LENS_TONE = { velocity: '--vel-normal', flow: '--lens-flow', direction: '--flow-reversed', heat: '--lens-heat', drop: '--lens-drop', delta: '--delta-high', origin: '--origin-spleen', firstpass: '--fp-clear', system: '--tr-var', oxygen: '--lens-oxygen' };
 const LENS_RE = String.raw`\b([Cc]olou?red by )(${Object.keys(LENS_WORDS).sort((a, b) => b.length - a.length).join('|')})\b`;
 function rich(t, s = {}, fp = null, tips = false, cuts = null) {
   const { re, tl } = lineRe(s);

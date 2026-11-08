@@ -1353,6 +1353,8 @@ let bloodCols = null, bloodColsAt = -1;
 export const bloodColors = () => bloodCols && bloodColsAt === varsRead ? bloodCols : (bloodColsAt = varsRead, bloodCols = {
   // alloc-rare: made once with the record above
   originCol: ['smv', 'imv', 'spleen', 'artery', 'systemic'].map((o) => cssRGB01(`--origin-${o}`)),
+  // (The First pass lens: the same five slots, as blood.js FIRSTPASS has them: raw gut, cleared gut, (unused), artery, systemic.)
+  firstCol: ['--fp-raw', '--fp-clear', '--fp-clear', '--origin-artery', '--origin-systemic'].map((v) => cssRGB01(v)),
   dyeCol: cssRGB01('--blood-dye'), inkLight: cssRGB01('--blood-ink-light'), inkDark: cssRGB01('--blood-ink-dark'),
   revCol: cssRGB01('--blood-reversed'), chevInk: cssRGB01('--blood-chevron'), chevLight: cssRGB01('--blood-chevron-light'),
 });

@@ -11,7 +11,7 @@ import { originFractions, oxygenSat, SAT } from '../src/ui/blood.js';
 import { DECKS } from '../src/ui/decks.js';
 import { EXT } from '../src/ui/slide-ext.js';
 
-const KNOWN = ['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'oxygen', 'origin'];
+const KNOWN = ['velocity', 'flow', 'direction', 'heat', 'drop', 'delta', 'oxygen', 'origin', 'firstpass'];
 // The deck-only lenses a deck visuals package adds (slide-ext.js): A's vein system (V7) and change since a slide (V11). They are
 // not in Explore's lens menu, so Patients never shows them.
 const PKG = ['system', 'since'];

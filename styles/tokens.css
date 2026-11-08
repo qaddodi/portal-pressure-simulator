@@ -23,6 +23,8 @@
   --delta-low: #2D6CDF; --delta-mid: #9696A0; --delta-high: #D22846;   /* Change lens: lower, same, higher than healthy */
   /* blood origin lens (both themes): the streams in the vessels, their legend, and the matching traces */
   --origin-smv: #E69929; --origin-imv: #179E8C; --origin-spleen: #7D5CDB; --origin-artery: #D63347; --origin-systemic: #708FBF;
+  /* first pass lens (both themes): gut blood the liver has not cleaned, and gut blood it has */
+  --fp-raw: #D9731F; --fp-clear: #2BB5A0;
   /* blood on the GPU (both themes): dye bolus, stream inks on dark and pale lumens, reversed flow, chevrons */
   --blood-dye: #C7F533; --blood-ink-light: #FFFFFF; --blood-ink-dark: #121426; --blood-reversed: var(--flow-reversed); --blood-chevron: #14141A;
   --blood-chevron-light: #FFEEDC;   /* a reversed chevron on an orange vessel: near-white cream, so it stands off the orange */
