@@ -4202,7 +4202,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       let parts = null;
       // (On an axis where the layer's window follows the figure, a pan of any length moves the window and draws nothing.)
       const near = (lAnch[0] || Math.abs(dx) < fboW / 2) && (lAnch[1] || Math.abs(dy) < fboH / 2);
-      const panAt = fboOK && radCovered(rows) && lkSame && (dx || dy) && near && sameLin(m, baseM);
+      // (A move of no whole pixel is a pan of none (8 Nov 2026, iPhone ?perf: 23 whole vessel draws a second at rest with the model running,
+      // 17 of them "same place"): a draw asked for with nothing the layer reads changed (its kept layer, size, whole-pixel view, look, tubes
+      // and radii as checked here) keeps the layer and draws only the rows named, as drawRows would; the part of a pixel the view moved is
+      // laid in the composite (overM), not in the layer. shiftLayer moves nothing for (0, 0).)
+      const panAt = fboOK && radCovered(rows) && lkSame && near && sameLin(m, baseM);
       if (panAt && (rows?.length || patchK)) { parts = rowParts(rows || NONE); if (parts.part.k > nCells * 0.6) parts = null; }
       const pan = panAt && (!(tubesNew || radRows.size || patchK) || parts);
       // (Vessels lower while pinching, when on and Pinch frame reuse is off: a zoom frame under a hand draws the layer lower: lowPass.)
@@ -4240,14 +4244,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         return;
       }
       rz.m = null;
-      if (!pan) tally(counts.why, !fboOK ? 'no kept layer' : !radCovered(rows) ? 'radii changed' : !lkSame ? 'look changed' : !(dx || dy) ? 'same place' : !near ? 'moved too far' : !sameLin(m, baseM) ? 'zoom or turn' : 'tubes changed');
+      if (!pan) tally(counts.why, !fboOK ? 'no kept layer' : !radCovered(rows) ? 'radii changed' : !lkSame ? 'look changed' : !near ? 'moved too far' : !sameLin(m, baseM) ? 'zoom or turn' : 'tubes changed');
       // (For the ?perf readout: a pan shift, or a whole draw and the first condition that made it one.)
       if (gpuProbe.on) {
         if (pan) gpuProbe.note(COUNTED.pan);
         else {
           gpuProbe.note(COUNTED.whole);
           gpuProbe.note(COUNTED.wholeBy + askedBy());
-          gpuProbe.note(COUNTED.wholeWhy + (!fboOK ? 'no kept layer' : !radCovered(rows) ? 'radii changed' : !lkSame ? 'look changed' : !(dx || dy) ? 'same place'
+          gpuProbe.note(COUNTED.wholeWhy + (!fboOK ? 'no kept layer' : !radCovered(rows) ? 'radii changed' : !lkSame ? 'look changed'
             : !near ? 'moved too far' : !sameLin(m, baseM) ? 'zoom or turn' : 'tubes changed'));
         }
       }

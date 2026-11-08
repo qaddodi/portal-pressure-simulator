@@ -43,7 +43,7 @@ export const COUNTED = {
 /** The counted names whose count above 1 in one frame means a surface drawn twice in it. */
 export const TWICE = new Set([COUNTED.picture, COUNTED.glassDrawn, COUNTED.paneDrawn, COUNTED.cardDrawn, COUNTED.lobulePicture]);
 /** Why a whole draw happened, as counted: the reasons are this fixed list. */
-export const WHY = ['no kept layer', 'radii changed', 'look changed', 'same place', 'moved too far', 'zoom or turn', 'tubes changed'];
+export const WHY = ['no kept layer', 'radii changed', 'look changed', 'moved too far', 'zoom or turn', 'tubes changed'];
 /**
  * Why a partial redraw (veins-gl.js drawRows) was refused, as counted and as its `rowsStatus` says ('drawn' when it was not):
  * a fixed list. Counted apart from the whole draw that follows, whose own reason is that draw's state, not the refusal's.
