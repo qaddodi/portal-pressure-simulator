@@ -74,6 +74,27 @@ function* stepExtras(e, st) {
   return out;
 }
 
+// A preset a chain loads again and again (a deck loads the same patient on many slides): the snapshot its load left, kept per
+// (preset, days, seed) and restored. The healthy reference a load measures against (refP, refQ, Qpref, Vbase: reset() settles it
+// again, to a hair's difference each time) comes back with it, so the restored model is the loaded one; the events a load starts
+// over are cleared as a load clears them.
+const KEPT_MAX = 24;
+const REFS = ['refP', 'refQ', 'Vbase'];
+function* loadPresetKept(e, kept, id, opts) {
+  const key = `${id}|${opts.days ?? ''}|${e.params.seed}`, k = kept.get(key);
+  if (k) {
+    e.restore(k.snap);
+    for (const r of REFS) e[r] = Float64Array.from(k[r]);
+    e.Qpref = k.Qpref;
+    e.eventLog = []; e.newEvents = []; e.eventCount = 0;
+    return e.params;
+  }
+  const params = yield* e.loadPresetSteps(id, opts);
+  if (kept.size >= KEPT_MAX) kept.delete(kept.keys().next().value);
+  kept.set(key, { snap: e.snapshot(), Qpref: e.Qpref, ...Object.fromEntries(REFS.map((r) => [r, Float64Array.from(e[r])])) });
+  return params;
+}
+
 // The bedside clock's step (seconds): 4 ms with the pulse on, 20 ms without. At 4× and 8× the pulse takes 8 ms steps, half
 // as many a tick, so a phone keeps up; the beat-averaged readings move by about 0.01 mmHg (MAP and heart rate by 0.15 at
 // most, tests/hemo-step.test.js). 1× and 2× (and every Present slide, which runs at 1×) keep 4 ms.
@@ -432,6 +453,7 @@ export function createCore(post) {
     }
   }
 
+  const keptPresets = new Map();   // (loadPresetKept: the states 'sequence' and 'presetMetrics' got from loading a preset)
   const handlers = {
     init({ params }) {
       if (params) { eng.setParams(sanitizeParams(params)); eng.settle(); }
@@ -540,7 +562,7 @@ export function createCore(post) {
     presetMetrics({ ids, reqId }) {
       const result = {};
       for (const id of ids || []) {
-        const e = new Engine(), g = e.loadPresetSteps(id, {});
+        const e = new Engine(), g = loadPresetKept(e, keptPresets, id, {});
         for (let n = g.next(); !n.done; n = g.next());
         e.settle();
         result[id] = fingerprint(computeMetrics(e), e);
@@ -560,7 +582,7 @@ export function createCore(post) {
       for (let i = 0; i < (steps || []).length; i++) {
         const st = steps[i] || {};
         if (st.restart && i) { e = new Engine(); if (base) e.restore(base); }
-        if (st.preset) yield* e.loadPresetSteps(st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
+        if (st.preset) yield* loadPresetKept(e, keptPresets, st.preset, st.presetDays != null ? { days: st.presetDays + (PRESETS.find((p) => p.id === st.preset)?.days || 0) } : {});
         if (st.params) { e.setParams(deepMerge(e.params, st.params)); e.settle(); }
         for (const a of [st.action || []].flat()) applyAction(e, a);
         // relax: days the patient lives at the state just set, before any ramp, so the slow organs (the spleen, and so the platelets) have settled to it.
