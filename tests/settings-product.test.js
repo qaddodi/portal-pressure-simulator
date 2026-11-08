@@ -22,13 +22,13 @@ test('R14 Settings keeps what a learner understands and none of the experiments'
   assert.doesNotMatch(main, /function figLabRows\(|function figSeg\(/);
 });
 
-test('R14 every default is as it was: Full, and off (but the credit\'s lean look, H7, and the pixel budget: 8 MP from 1 Nov, 4 MP from 8 Nov)', async () => {
+test('R14 every default is as it was: Full, and off (but the credit\'s lean look, H7, and the 8-megapixel budget, 1 Nov: on)', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=${Math.random()}`);
   assert.equal(f.renderSetting(), 1);
   assert.equal(f.renderScale(), 1);
-  assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_OPTS).map((k) => [k, f.figOpt(k)])), { move: 1, glow: 1, cap: 4, adapt: false, floor: 0.1 });
+  assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_OPTS).map((k) => [k, f.figOpt(k)])), { move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 });
   assert.deepEqual(Object.fromEntries(Object.keys(f.FIG_LAB).map((k) => [k, f.figLab(k)])),
     { motion60: true, glassCache: false, creditLean: true, lymphBoxes: false, pinchReuse: 0, upscale: false, lightArt: false, pinchLow: false });
   assert.equal(f.paceMs(), f.MOTION60_MS, 'steady motion at most every 10 ms (4 Nov 2026)');

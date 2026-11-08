@@ -1,5 +1,5 @@
 // The figure's pixel budget (1 Nov 2026, GPU move step 4): no canvas of the figure holds more than `capMP` megapixels (frame.js
-// figOpt('cap'), 4 by default since 8 Nov 2026, 8 before; 0 = no budget). Every laptop, iPad and phone is under 8 at its own density (a 16-inch MacBook's whole
+// figOpt('cap'), 8 by default; 0 = no budget). Every laptop, iPad and phone is under 8 at its own density (a 16-inch MacBook's whole
 // screen is 7.7), so only a large external screen draws fewer pixels than its full density, and its heat with them.
 
 /** The density (device px per CSS px) a w × h CSS px canvas may be drawn at: `dpr`, or less, so that it holds at most capMP megapixels. */
