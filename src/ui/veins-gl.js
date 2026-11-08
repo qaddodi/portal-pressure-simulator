@@ -2057,7 +2057,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // black frame's cause was the lone pass clearing the canvas (presentSelf's soloOn gate, 4 Nov), and every write to this canvas is a whole lay
   // (the present's copy, a camera or under lay, a whole picture drawn straight onto it, a clear) or rides one in the same present (the overlays,
   // the tops); a reader outside the task goes through capture(). A renderer with no kept picture of its own still keeps the canvas's.)
-  const KEEP_CANVAS = !ownBuf;
+  // (Kept again, the same evening: without it the figure flickered on Mohammad's Mac at rest, under every glass and in the Circuit, and two
+  // fixes (3f414f4's guard, ebb62bb's no canvas invalidate) did not end it; ebb62bb made it worse. The flicker is gone first; the frame rate
+  // is won back another way. The guard and the uninvalidated canvas stay wired to KEEP_CANVAS false, so the canvas not kept can be tried again.)
+  const KEEP_CANVAS = true;
   let gl = null;
   try { gl = share ? share.gl : canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: !ownBuf, preserveDrawingBuffer: KEEP_CANVAS, failIfMajorPerformanceCaveat: !force }); } catch { gl = null; }
   if (gl && !share) setFenceContext(gl);   // (?perf's GPU fences are planted in the figure's own context, gpu-fence.js)

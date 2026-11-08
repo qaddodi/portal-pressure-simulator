@@ -56,26 +56,34 @@ function boundAt(f, idx, target) {
 const invals = (f, n0) => f.calls.map((c, i) => [c, i]).filter(([c, i]) => i >= n0 && c[0] === 'invalidateFramebuffer');
 
 // ── A2 ──
-// (8 Nov 2026: the figure's canvas is not kept by the browser (f56992f), so it is never invalidated: under Metal an invalidate of the shown
-// surface lost the copy laid after it whenever the pass was cut (the glasses' blur reads cut it): Mohammad's flicker. Framebuffer objects
-// of the renderer's own still are.)
-test('A2: a whole picture drawn straight onto the canvas does not invalidate the canvas (the browser does not keep it)', () => {
+test('A2: a whole picture drawn straight onto the canvas invalidates the canvas colour before its draw', () => {
   const { g, f, look } = renderer();
   const n0 = f.calls.length;
   g.draw(M1, look, { on: false });
-  assert.equal(invals(f, n0).filter(([c]) => c[2][0] === f.gl.COLOR).length, 0);
-  assert.ok(f.calls.slice(n0).some((x) => x[0] === 'bindFramebuffer' && x[1] === f.gl.FRAMEBUFFER && x[2] === null), 'drawn onto the canvas');
+  const inv = invals(f, n0);
+  assert.equal(inv.length, 1);
+  const [c, at] = inv[0];
+  assert.deepEqual(c.slice(1), [f.gl.FRAMEBUFFER, [f.gl.COLOR]]);
+  assert.equal(boundAt(f, at, f.gl.FRAMEBUFFER), null, 'the canvas is bound');
+  assert.ok(f.calls.slice(at).some((x) => x[0] === 'drawArrays'), 'then drawn');
+  const bind = f.calls.findLastIndex((x, i) => i < at && x[0] === 'bindFramebuffer' && x[1] === f.gl.FRAMEBUFFER && x[2] === null);
+  assert.ok(!f.calls.slice(bind, at).some((x) => x[0] === 'drawArrays' || x[0] === 'drawArraysInstanced'), 'before any draw in that pass');
 });
 
-test('A2: a whole picture into the kept picture invalidates its colour; the copy onto the canvas invalidates nothing', () => {
+test('A2: a whole picture into the kept picture invalidates its colour, and the copy invalidates the canvas', () => {
   const { g, f, look } = renderer();
   const n0 = f.calls.length;
   g.draw(M1, look, { on: true });   // (blood on: the kept picture, then the copy onto the canvas)
   const inv = invals(f, n0);
-  assert.equal(inv.length, 1);
-  assert.deepEqual(inv[0][0].slice(1), [f.gl.FRAMEBUFFER, [f.gl.COLOR_ATTACHMENT0]]);
-  assert.ok(boundAt(f, inv[0][1], f.gl.FRAMEBUFFER)?.kind === 'createFramebuffer', 'the kept picture is bound');
-  assert.ok(f.calls.slice(inv[0][1]).some((c) => c[0] === 'blitFramebuffer'), 'then copied onto the canvas');
+  assert.equal(inv.length, 2);
+  const [kept, canvas] = inv;
+  assert.deepEqual(kept[0].slice(1), [f.gl.FRAMEBUFFER, [f.gl.COLOR_ATTACHMENT0]]);
+  assert.ok(boundAt(f, kept[1], f.gl.FRAMEBUFFER)?.kind === 'createFramebuffer', 'the kept picture is bound');
+  assert.deepEqual(canvas[0].slice(1), [f.gl.DRAW_FRAMEBUFFER, [f.gl.COLOR]]);
+  assert.equal(boundAt(f, canvas[1], f.gl.DRAW_FRAMEBUFFER), null);
+  const blit = f.calls.findIndex((c, i) => i > canvas[1] && c[0] === 'blitFramebuffer');
+  assert.ok(blit > canvas[1], 'before the copy');
+  assert.ok(!f.calls.slice(canvas[1], blit).some((c) => c[0] === 'drawArrays'), 'with no draw between');
 });
 
 test('A2: the blood\'s own frame keeps the kept picture it repaints in part: no colour invalidated for the part', () => {
@@ -87,13 +95,15 @@ test('A2: the blood\'s own frame keeps the kept picture it repaints in part: no 
   assert.equal(inv.length, 0, 'a dirty-row composite keeps its load');
 });
 
-test('A2: Sharper upscaling\'s whole-canvas draw and the plain upscale copy leave the canvas uninvalidated', () => {
+test('A2: Sharper upscaling\'s whole-canvas draw and the plain upscale copy invalidate the canvas', () => {
   for (const lin of [false, true]) {
     const { g, f, look } = renderer();
     g.setPicture([400, 300], lin);
     const n0 = f.calls.length;
     g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
-    assert.equal(invals(f, n0).filter(([c]) => c[2][0] === f.gl.COLOR).length, 0, lin ? 'the filtered copy' : 'the upscale draw');
+    const inv = invals(f, n0).filter(([c]) => c[2][0] === f.gl.COLOR);
+    assert.equal(inv.length, 1, lin ? 'the filtered copy' : 'the upscale draw');
+    assert.equal(boundAt(f, inv[0][1], inv[0][0][1]), null);
   }
 });
 
