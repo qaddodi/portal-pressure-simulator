@@ -732,7 +732,7 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .thrombus-core { fill: var(--thrombus); fill-opacity: .6; }
 .circuit-only { opacity: 0; transition: opacity var(--d-surface) var(--ease); }
 .circuit .circuit-only { opacity: 1; }
-.band-ring { fill: none; stroke: var(--text); stroke-width: 2.4; stroke-linejoin: round; }
+.band-ring { fill: none; stroke: var(--dev-platinum, var(--stent-metal)); stroke-width: 2.4; stroke-linejoin: round; }   /* (a device colour, not text ink: the device material --dev-platinum, the stent's metal until that is set) */
 /* The tamponade tube's balloons (the gastric one in the stomach, drawn up against the cardia; the esophageal one on it) look like the HVPG wedge balloon (veins-gl.js mode 5): cream latex, clear in the middle, denser at the rim */
 .balloon-latex { fill: var(--latex); fill-opacity: .34; stroke: none; }
 .balloon-latex-rim { fill: var(--latex); fill-opacity: .2; fill-rule: evenodd; stroke: none; }

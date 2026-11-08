@@ -2,6 +2,7 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { LIGHT } from './light.js';
 import { clamp, lerp, s } from './util.js';
+import { wiggleAt } from './wiggle-math.js';
 
 export function createPaths(st) {
   const { N_SAMPLES, scratchG } = st;
@@ -95,7 +96,7 @@ export function createPaths(st) {
       const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
       const u = cum[i] / L;
       const env = Math.min(1, u * 6, (1 - u) * 6);
-      const w = amp * env * Math.sin(cum[i] * k + seed);
+      const w = wiggleAt(amp, env, cum[i], k, seed);
       return [p[0] + nx * w, p[1] + ny * w];
     });
   }

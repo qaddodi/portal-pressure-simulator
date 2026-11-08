@@ -3,6 +3,7 @@
 import { isOccluded } from '../engine/topology.js';
 import { SPLEEN_CENTER, SPLEEN_PSE_BADGE } from './anatomy.js';
 import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotSpan, hashSeed } from './clot-shape.js';
+import { bandRing } from './band-ring.js';
 import { pressureColor } from './colormap.js';
 import { D_SMALL } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
@@ -305,9 +306,9 @@ export function createClamps(st, live) {
     // ligation, are drawn over the lower esophagus.
     ov.varices.innerHTML = ''; ov.gvarices.innerHTML = ''; ov.bands.innerHTML = '';
     if (anat) {
-      const eso = (y) => 789 + (y - 24) * 0.066;
+      // (Each band lies on the drawn esophagus, turned to its walls and inside them: band-ring.js.)
       const nb = Math.round(f.bands || 0);
-      for (let i = 0; i < nb; i++) { const y = 272 - i * 16; putMark(ov.bands, `band:${i}`, null, [s('ellipse', { cx: eso(y), cy: y, rx: 11, ry: 3, class: 'band-ring' })], true); }
+      for (let i = 0; i < nb; i++) putMark(ov.bands, `band:${i}`, null, [s('path', { d: bandRing(i).d, class: 'band-ring' })], true);
       // The scope view's ring on the varix columns, with its badge (mock C1, 6 Nov 2026): one of the figure's marks, so the GPU draws it in
       // world units with the vessels and it moves with every zoom, pan and view change, never eased. Tapping it opens the lens (scope-lens.js).
       const sr = live.scopeRing;

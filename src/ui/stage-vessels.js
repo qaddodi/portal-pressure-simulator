@@ -395,7 +395,7 @@ export function createVessels(st, live) {
     const b = kind === 's' ? it.obj.bead || 0 : 0, o = it.obj;
     keep(o, 'kr', r, widthMoving(x) ? edgeQ() : 0);
     const rk = String(o.kr);
-    if (b > 0) return [`${rk}|${b}|${Math.round(o.len || 0)}`, (i) => beadRadius(r, b, i / (N_SAMPLES - 1), o.len || 1, o.ph * 1.7, o.u0 || 0)];
+    if (b > 0) return [`${rk}|${b}|${Math.round(o.len || 0)}`, (i) => beadRadius(r, b, i / (N_SAMPLES - 1), o.len || 1, o.ph * 1.7, o.u0 || 0, o.beadL)];
     // (A sinusoid strand narrows across its stretch: sin-perfusion.js.)
     if (kind === 's' && SIN_EDGES.has(x.e.id)) { const w = x.width; return [`${r.toFixed(2)}|${w.toFixed(2)}|sin`, (i) => sinStrandRadius(r, w, i / (N_SAMPLES - 1), o.span)]; }
     return [rk, () => r];
@@ -504,7 +504,7 @@ export function createVessels(st, live) {
     const { x } = it, o = it.obj, n1 = N_SAMPLES - 1;
     if (radCase === 1) tubeFill(x, it.ra, it.f, out);
     else if (radCase === 2) tubeFill(x, null, 0, out);
-    else if (radCase === 3) for (let i = 0; i < N_SAMPLES; i++) out[i] = beadRadius(radR, radB, i / n1, o.len || 1, o.ph * 1.7, o.u0 || 0);
+    else if (radCase === 3) for (let i = 0; i < N_SAMPLES; i++) out[i] = beadRadius(radR, radB, i / n1, o.len || 1, o.ph * 1.7, o.u0 || 0, o.beadL);
     else if (radCase === 4) for (let i = 0; i < N_SAMPLES; i++) out[i] = sinStrandRadius(radR, radW, i / n1, o.span);
     else out.fill(radR);
   }
@@ -793,6 +793,12 @@ export function createVessels(st, live) {
         const tc = toRGB(live.cathTint.col, cs);
         tubeData[o + 32] = tc[0]; tubeData[o + 33] = tc[1]; tubeData[o + 34] = tc[2]; tubeData[o + 35] = 1;
         tubeData[o + 36] = t0; tubeData[o + 37] = t1; tubeData[o + 38] = live.cathTint.soft; tubeData[o + 39] = 0;
+      } else if (kind === 's' && obj.wale > 0 && !originMode) {
+        // The red wale sign on a varix strand (visual-style V3): the figure's --red-wale a share of the way into the lumen over the strand's middle
+        // (it eases in and out over 15 % of the strand's length at each end, where it rejoins its trunk), by the same recolour texels.
+        const wc = toRGB('var(--red-wale)', cs);
+        tubeData[o + 32] = wc[0]; tubeData[o + 33] = wc[1]; tubeData[o + 34] = wc[2]; tubeData[o + 35] = obj.wale;
+        tubeData[o + 36] = 0.1; tubeData[o + 37] = 0.9; tubeData[o + 38] = 0.15 * (obj.len || 1); tubeData[o + 39] = 0;
       }
       writeGlowTexels(tubeData, o, kind, id, ra?.e.id, obj.len, glow.lit, vh.amt, cpRgb, easeInOut);
       // The moving front of the flow peel: a vessel on its way between the views is lit a little in its own hue (the hover's lift, veins-gl

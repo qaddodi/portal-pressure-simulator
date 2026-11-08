@@ -134,7 +134,8 @@ test('G14: the esophageal varix strands bead once the varix is large, as the end
   assert.ok(Math.max(...rs) > r * 1.25 && Math.min(...rs) < r * 0.75);
   assert.ok(rs.every((x) => x >= r * (1 - b) - 1e-9 && x <= r * (1 + b) + 1e-9));
   assert.equal(beadRadius(r, 0, 0.5, len, 1, u0), r);
-  assert.match(STAGE, /sd\.bead = e\.id === 'C1a' \? Math\.round\(varixBead\(f\.metrics\?\.varix\?\.d\)/);
+  // (The esophageal strands, and since visual-style V3 the fundal channels' too, each by its own varix: varix-bead.js BEAD_SITE.)
+  assert.match(STAGE, /sd\.bead = BEAD_SITE\[e\.id\] \? Math\.round\(varixBead\(f\.metrics\?\.\[BEAD_SITE\[e\.id\]\]\?\.d\)/);
 });
 
 test('G17: with reduced motion the chevrons stand still, spaced by flow', () => {
