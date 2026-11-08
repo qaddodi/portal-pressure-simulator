@@ -68,8 +68,8 @@ test('the bare stretch is 2 cm of the shunt, never more than two fifths of it', 
 
 test('the figure draws it: struts keep a device pixel, the cover and ring are device materials, the TIPS is unrolled with the veins\' stents', () => {
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
-  assert.match(css, /\.stent-cover \{[^}]*var\(--dev-ptfe, /, 'the PTFE wash');
-  assert.match(css, /\.stent-ring \{[^}]*var\(--dev-platinum, /, 'the radiopaque ring');
+  assert.match(css, /\.stent-cover \{[^}]*var\(--dev-ptfe\)/, 'the PTFE wash');
+  assert.match(css, /\.stent-ring \{[^}]*var\(--dev-platinum\)/, 'the radiopaque ring');
   assert.match(css, /\.stent-px \{ vector-effect: non-scaling-stroke; \}/, 'a pixel floor for struts and rails');
   const venous = readFileSync(new URL('../src/ui/stage-venous.js', import.meta.url), 'utf8');
   assert.match(venous, /meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole covered mesh, built once');
