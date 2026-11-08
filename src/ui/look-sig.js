@@ -13,7 +13,7 @@ export function lookChanged(v, plateIsOn, sig) {
   A[n++] = v.shOff[0]; A[n++] = v.shOff[1];
   for (let i = 0; i < v.light.length; i++) A[n++] = v.light[i];
   A[n++] = v.reach; A[n++] = v.organs; A[n++] = v.netAlpha; A[n++] = v.fx ? 1 : 0;
-  for (let i = 0; i < 4; i++) { A[n++] = v.casing[i]; A[n++] = v.shadow[i]; A[n++] = v.sheen[i]; A[n++] = v.shade[i]; A[n++] = v.ring[i]; }
+  for (let i = 0; i < 4; i++) { A[n++] = v.casing[i]; A[n++] = v.shadow[i]; A[n++] = v.sheen[i]; A[n++] = v.shade[i]; A[n++] = v.rim[i]; A[n++] = v.ring[i]; }
   for (let i = 0; i < v.tierAlpha.length; i++) A[n++] = v.tierAlpha[i];
   for (let i = 0; i < v.tierGroup.length; i++) A[n++] = v.tierGroup[i];
   const m = v.map;

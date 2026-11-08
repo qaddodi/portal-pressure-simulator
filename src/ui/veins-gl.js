@@ -292,6 +292,7 @@ uniform vec4 casing;                   // rgb, alpha
 uniform vec4 shadow;                   // rgb, alpha
 uniform vec4 sheenInk;                 // rgb, alpha
 uniform vec4 shadeInk;                 // rgb, alpha
+uniform vec4 rimInk;                   // a dark lumen's light rim: rgb, alpha (0 on the light looks)
 uniform vec4 ring;                     // selection ring: rgb, alpha
 uniform vec2 light;                    // unit direction toward the light (world)
 uniform float netAlpha;                // the network group's opacity (dimmed while a vessel is focused)
@@ -758,6 +759,7 @@ void main() {
     if (sel) { float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
     // (A veiled vessel keeps half its casing: behind an organ the wall's line is the first thing to go.)
     if ((flags & ${F_VEIL}) != 0) cA *= 0.5;
+    float lumY = dot(col, vec3(0.299, 0.587, 0.114));
     c = (flags & ${F_EDGE}) != 0 ? over(vec4(sedge[ow], 1.0) * (0.92 * aC), c) : over(vec4(casing.rgb, 1.0) * (casing.a * cA * aC), c);
     vec3 lum = col;
     float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
@@ -774,7 +776,6 @@ void main() {
       // Both lines by the lumen's own lightness (looks review, the lumen's light lines): on the palest lumens (2 mmHg, nearly white) the light line
       // has no room and read as a white wire, so it falls to half; on the darkest (wine, the dark theme) the dark line went
       // below the ground, so it eases off there too. A mid lumen keeps both at full.
-      float lumY = dot(col, vec3(0.299, 0.587, 0.114));
       float aDark = (1.0 - smoothstep(0.1, 0.1 + soft, abs(side + 0.62))) * thin * (0.45 + 0.55 * smoothstep(0.1, 0.32, lumY));
       lum = mix(lum, shadeInk.rgb, clamp(shadeInk.a * 1.3 * aDark, 0.0, 0.5));
       if ((flags & ${F_SPEC}) != 0) {
@@ -790,6 +791,9 @@ void main() {
       float band = smoothstep(-wallW - aa, -wallW, D) * body;
       lum = mix(lum, mix(lum, sheenInk.rgb, 0.45), 0.32 * band * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
     }
+    // A dark lumen (the sickest vessels, on the dark looks, where the casing is no darker than the ground) gets a light edge 1 device px wide just
+    // inside its wall, by its own lightness, the way the label halo follows its ink (rimInk.a is 0 on the light looks; hairlines are left out).
+    lum = mix(lum, rimInk.rgb, rimInk.a * (1.0 - smoothstep(0.2, 0.4, lumY)) * smoothstep(-px - aa, -px, D) * smoothstep(1.5, 3.5, R / aa));
     if (sel && grp == 2) lum = min(lum * 1.12, vec3(1.0));
     if (shov[ow] > 0.0) {
       // The hovered vessel, a little brighter in its own hue, easing out toward each end that meets a vessel not lit with it
@@ -2781,6 +2785,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const sameLin = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
   // What the vessel pass reads from the look (anything else in it only matters to the composite): its numbers written into LKN, and
   // compared with the look the layer was drawn from (LKD), no string made.
+  const NO_RIM = [0, 0, 0, 0];   // (a look without a rim, as the unit tests' looks are)
   let LKN = new Float64Array(64), LKD = new Float64Array(64), nLKN = 0, nLKD = -1;
   // (A list's numbers are copied by a loop that reads each into the array in the same breath: passed one by one across a call they were
   // boxed, 500 bytes a frame, measured warmed in node with --expose-gc.)
@@ -2794,7 +2799,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (LKN.length < 512) { LKN = new Float64Array(512); LKD = new Float64Array(512); nLKD = -1; }   // alloc-rare: once, the first look
     nLKN = 0;
     LKN[nLKN++] = k.reach;
-    lkArr(k.shOff); lkArr(k.casing); lkArr(k.shadow); lkArr(k.sheen); lkArr(k.shade); lkArr(k.ring); lkArr(k.light);
+    lkArr(k.shOff); lkArr(k.casing); lkArr(k.shadow); lkArr(k.sheen); lkArr(k.shade); lkArr(k.rim || NO_RIM); lkArr(k.ring); lkArr(k.light);
     LKN[nLKN++] = k.netAlpha; LKN[nLKN++] = k.fx ? 1 : 0;
     lkArr(k.tierAlpha); lkArr(k.tierGroup);
     LKN[nLKN++] = k.organs;
@@ -3072,6 +3077,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     UC.f4a(u.shadow, look.shadow);
     UC.f4a(u.sheenInk, look.sheen);
     UC.f4a(u.shadeInk, look.shade);
+    UC.f4a(u.rimInk, look.rim || NO_RIM);
     UC.f4a(u.ring, look.ring);
     UC.f2a(u.light, look.light);
     UC.f1(u.netAlpha, look.netAlpha);

@@ -270,6 +270,7 @@
   --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .24;
   --tube-sheen: .42;
+  --vessel-rim-a: 0;
   --organ-cast: rgba(80, 44, 40, .15);
   --tex-a: .11;
   --lit-hi: .4;
@@ -526,6 +527,7 @@
     --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
     --tube-shade: .3;
     --tube-sheen: .38;
+    --vessel-rim-a: .3;
     --organ-cast: rgba(0, 0, 0, .42);
     --tex-a: .13;
     --lit-hi: .2;
@@ -743,6 +745,7 @@
   --vessel-shadow: rgb(var(--shadow-rgb) / var(--shadow-a));
   --tube-shade: .3;
   --tube-sheen: .38;
+  --vessel-rim-a: .3;
   --organ-cast: rgba(0, 0, 0, .42);
   --tex-a: .13;
   --lit-hi: .2;
