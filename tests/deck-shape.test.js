@@ -27,6 +27,7 @@ const TILES_CHANGE = new Set([
   'hyperdynamic/loss>over',                                     // the hemoglobin and the volume join for the eight units: where they end is the point
   'ten-years/d365>carv', 'ten-years/rebleed>tips', 'ten-years/tips>he', // one patient over ten years: the tiles follow the event
   'variceal-bleed/tear>minutes',                                // "Shock before anemia": the hemoglobin to come joins, for that slide only
+  'encephalopathy/srs>plug',                                    // the Doppler tile joins for the stagnant portal vein, for that slide only
 ]);
 
 test('inside a section, consecutive slides with the same instrument keep the same tiles', () => {
@@ -53,6 +54,7 @@ const THREE_TILES = new Set([
   'pregnancy/before', 'pregnancy/weeks', 'pregnancy/after', 'cause-treated/before', 'cause-treated/year1',
   'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/bato', 'gastric-varices/svt',
   'variceal-bleed/minutes',   // (the point is the third: the hemoglobin has not moved, and where it is heading)
+  'encephalopathy/srs',       // (the point is the third: the portal vein barely moves in a large splenorenal shunt)
   'hyperdynamic/over',        // (eight units is more than anyone gives: the hemoglobin and the volume show where it ends)
 ]);
 
