@@ -2,7 +2,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { awayKey } from '../src/ui/dopplerColor.js';
+
+globalThis.window ??= globalThis;
+globalThis.Element ??= class {};
+globalThis.ResizeObserver ??= class { observe() {} };
+globalThis.MutationObserver ??= class { observe() {} };
+globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
+globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty() {} } }, addEventListener() {}, createElement: () => ({ getContext: () => ({}) }) };
+globalThis.addEventListener ??= () => {};
+const { awayKey } = await import('../src/ui/dopplerColor.js');
 
 test('the key says which side is away, and what away means for the vessel', () => {
   assert.deepEqual(awayKey('portal', false), ['below the line: away from the probe; here, hepatofugal', 'below the line: away; here, hepatofugal']);
