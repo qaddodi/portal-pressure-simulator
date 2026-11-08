@@ -336,3 +336,54 @@ test('an allocation marked alloc-rare with a reason leaves the count and is list
   assert.match(rare[0].detail, /first frame only/);
   assert.ok(scan({ root }).rare.length === 2 && /tagged run-once\/rare allocations/.test(score(Object.assign(scan({ root }), {}))), "tagged lines are counted apart in the score line");
 });
+
+test('transition lists are read for repainting properties wherever the name stands (8 Nov 2026, recs 17)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'offgpu-tl-'));
+  mkdirSync(join(root, 'src/ui'), { recursive: true }); mkdirSync(join(root, 'styles'));
+  writeFileSync(join(root, 'index.html'), '<html><style>.hh { transition: opacity .2s, border-color .2s; }</style></html>');
+  writeFileSync(join(root, 'styles/a.css'), [
+    '.a { transition: translate var(--d-surface) var(--ease), box-shadow var(--d-surface) var(--ease) .35s; }',
+    '.b { transition: .4s box-shadow; }',
+    '.c { transition: opacity .2s cubic-bezier(.2, .8, .2, 1), text-shadow .2s; }',
+    '.d { --t-glow: opacity .2s, outline-color .4s ease; }',
+    '.e { transition: var(--t-glow); }',
+    '.f { transition-property: opacity, background-color; }',
+    '.g { transition: opacity .2s linear, text-decoration-color .2s, clip .2s !important; }',
+    '.h { transition: width .2s; }',
+    '.i { transition: .2s var(--ease), color .1s; }',
+    // none of these repaint:
+    '.n1 { transition: none; }',
+    '.n2 { transition: transform var(--d-small) var(--ease), opacity var(--d-surface) var(--ease) .35s, translate .2s steps(3, end); }',
+    '.n3 { --t-move: transform .3s ease, scale .3s ease; transition: var(--t-move); }',
+    '.n4 { transition-property: transform, opacity; transition: none; }',
+    '.n5 { transition: visibility 0s linear .4s, opacity .4s; }',
+    '.n6 { transition: opacity .2s cubic-bezier(.2,.8,.2,1); }',
+    '.n7::before { transition: opacity var(--d-surface) var(--ease); box-shadow: 0 8px 24px rgba(0,0,0,.2); }',
+  ].join('\n'));
+  writeFileSync(join(root, 'src/ui/frame.js'), 'export function frame(cb) { return requestAnimationFrame(cb); }\n');
+  writeFileSync(join(root, 'src/ui/j.js'), [
+    'export function a(el, on) { el.style.transition = on ? "box-shadow .3s ease" : ""; }',
+    'export function b(el, curve) { el.style.transition = `transform .2s ${curve}, outline-color .2s`; }',
+    'export function c(el, curve) { el.style.transition = `transform .2s ${curve}`; }',
+    'export function d(el, tr) { el.style.transition = tr; }',
+  ].join('\n'));
+  const hits = scan({ root });
+  const paint = hits.filter((h) => h.cat === 'paintAnim'), layout = hits.filter((h) => h.cat === 'layoutAnim');
+  const at = (file, re) => paint.some((h) => h.file === file && re.test(h.detail));
+  assert.ok(at('styles/a.css', /^transition: .*box-shadow var\(--d-surface\) var\(--ease\) \.35s/), 'a shadow after other names in the list');
+  assert.ok(at('styles/a.css', /^transition: \.4s box-shadow/), 'a time before the name');
+  assert.ok(at('styles/a.css', /text-shadow \.2s/), 'a name after a cubic-bezier with commas in it');
+  assert.ok(paint.some((h) => h.file === 'styles/a.css' && h.line === 5 && /^transition: var\(--t-glow\)/.test(h.detail)), 'a list held in a custom property and used through var()');
+  assert.ok(paint.some((h) => h.file === 'styles/a.css' && h.line === 6 && /background-color/.test(h.detail)), 'transition-property');
+  assert.ok(paint.some((h) => h.line === 7 && /text-decoration-color/.test(h.detail)) && paint.some((h) => h.line === 7 && /clip \.2s/.test(h.detail)), 'text-decoration-color and clip, with !important after');
+  assert.ok(paint.some((h) => h.file === 'index.html' && /border-color/.test(h.detail)), 'a <style> block in index.html');
+  assert.ok(paint.some((h) => h.file === 'src/ui/j.js' && h.line === 1), 'style.transition with a condition');
+  assert.ok(paint.some((h) => h.file === 'src/ui/j.js' && h.line === 2 && /outline-color/.test(h.detail)), 'style.transition with a template');
+  assert.ok(layout.some((h) => h.file === 'styles/a.css' && h.line === 8 && /width/.test(h.detail)), 'a layout property still counts');
+  assert.ok(layout.some((h) => h.file === 'styles/a.css' && h.line === 9), 'a part with no name transitions everything');
+  const clean = [...paint, ...layout].filter((h) => (h.file === 'styles/a.css' && h.line >= 10) || (h.file === 'src/ui/j.js' && h.line >= 3));
+  assert.deepEqual(clean.map((h) => `${h.file}:${h.line} ${h.detail}`), [], 'compositor-only lists (transform, opacity, translate, scale, visibility) report nothing');
+  // (The real stylesheet: no box-shadow, or any other repainting property, left in a transition list.)
+  const real = scan().filter((h) => (h.cat === 'paintAnim' || h.cat === 'layoutAnim') && h.file.endsWith('.css'));
+  assert.deepEqual(real.map((h) => `${h.file}:${h.line} ${h.detail}`), [], 'styles/*.css transitions stay on transform and opacity');
+});

@@ -30,6 +30,7 @@ import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { fix1, round1, printedKey } from './fix-text.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
+import { headStep, HEAD_DT0 } from './display-state.js';
 import { fittedType, tokName } from './chart-ctx.js';
 import { readMetric } from './layout-snap.js';
 import { LINE, withUnit, headLeft } from './flow-time.js';
@@ -106,7 +107,7 @@ export function createEventGraph() {
   const el = document.createElement('div');
   el.className = 'pz-flowtime pz-evgraph days';   // (the time-lapse graph's box and looks: styles/app.css .pz-timegraph .pz-flowtime)
   const gl = createSvgGL(el, { host: 'flowtime' });
-  let spec = null, before = null, scales = null, G = null, parts = null, raf = 0, shown = 0, goal = 0, lastSz = '';
+  let spec = null, before = null, scales = null, G = null, parts = null, raf = 0, lastT = 0, shown = 0, goal = 0, lastSz = '';
   // (The points after the change: [t, lower, upper] in the printed units, n of them; on: the change has happened.)
   const pts = new Float64Array(3 * CAP);
   let n = 0, on = false;
@@ -238,13 +239,15 @@ export function createEventGraph() {
     }
   }
   // The heads glide after the newest point (never a jump); held, nothing is drawn.
-  function tick() {
+  // (By time, not by frame: headStep, display-state.js, the same curve at any refresh rate.)
+  function tick(t) {
     raf = 0;
-    shown += (goal - shown) * (reduceMQ.matches ? 1 : 0.2);
+    const dt = lastT ? (t - lastT) / 1000 : HEAD_DT0;
+    shown = reduceMQ.matches ? goal : headStep(shown, goal, dt);
     if (Math.abs(goal - shown) < 0.002) shown = goal;
     paint(shown);
     gl.paint();
-    if (shown !== goal) raf = nextFrame(tick);
+    if (shown !== goal) { lastT = t; raf = nextFrame(tick); } else lastT = 0;
   }
   const size = () => {
     const w = readMetric(el, 'clientWidth'), hh = readMetric(el, 'clientHeight');
@@ -293,12 +296,12 @@ export function createEventGraph() {
       if (!raf) raf = nextFrame(tick);
     },
     /** Back before the change: what was drawn after it goes. */
-    reset() { if (!spec) return; cancelFrame(raf); raf = 0; n = 0; on = false; shown = goal = 0; paint(0); gl.paint(); },
+    reset() { if (!spec) return; cancelFrame(raf); raf = 0; lastT = 0; n = 0; on = false; shown = goal = 0; paint(0); gl.paint(); },
     /** The run as drawn, to show again whole (null before the change). */
     kept() { return on && n ? { pts: pts.slice(0, 3 * n), n } : null; },   // alloc-rare: once, as a run ends
     /** Seconds the clock runs after the change. */
     get secs() { return T1; },
-    dispose() { cancelFrame(raf); raf = 0; ro?.disconnect(); gl.dispose(); },
+    dispose() { cancelFrame(raf); raf = 0; lastT = 0; ro?.disconnect(); gl.dispose(); },
     refit: remake,
   };
 }

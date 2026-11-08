@@ -117,7 +117,7 @@
   /* pure inks: shadows, glass edges and sheens take these with an alpha (rgb(var(--black-rgb) / .2)) */
   --white: #FFFFFF; --black: #000000; --white-rgb: 255 255 255; --black-rgb: 0 0 0; --night-rgb: 20 22 30;
   --scrim-panel: var(--scrim); --scrim-menu: var(--scrim);
-  --shadow-btn-primary: 0 1px 2px rgba(20, 30, 80, .18); --shadow-cath-label: 0 8px 24px rgba(16, 20, 30, .22); --shadow-cath-label-off: 0 8px 24px rgba(16, 20, 30, 0);
+  --shadow-btn-primary: 0 1px 2px rgba(20, 30, 80, .18); --shadow-cath-label: 0 8px 24px rgba(16, 20, 30, .22);
   --albumin-line: rgba(120, 64, 0, .5); --pz-albumin: var(--albumin); --pz-hepatocyte: #C58B5C;
   --dye-icon: #7fae16;
   /* timeline time-lapse, and a wrong answer in the exam review */

@@ -22,6 +22,7 @@ import { createSvgGL, svgModel, setWords, setGeo, setPts } from './svg-gl.js';
 import { fix1, round1, printedKey } from './fix-text.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
+import { headStep, HEAD_DT0 } from './display-state.js';
 import { fittedType, tokName } from './chart-ctx.js';
 const nextFrame = frameFor('flow-time');
 
@@ -164,7 +165,7 @@ export function createFlowTime() {
   el.className = 'pz-flowtime';
   const gl = createSvgGL(el, { host: 'flowtime' });
   el.dataset.lines = MEAL_LINES.join(',');
-  let ser = null, parts = null, shown = 0, goal = 0, raf = 0, sig = '', clock = 'meal', keys = MEAL_LINES, given = null, LINES = linesOf(keys);
+  let ser = null, parts = null, shown = 0, goal = 0, raf = 0, lastT = 0, sig = '', clock = 'meal', keys = MEAL_LINES, given = null, LINES = linesOf(keys);
   let rx = [];   // (the treatments on through the slide's time-lapse that its tool shades, rx-bands.js; none on a built-in deck)
   const ax = () => ser?.ax || MINUTES;
   const Yof = (band, sc) => (v) => band[1] - (band[1] - band[0]) * clamp((v - sc.min) / (sc.max - sc.min), 0, 1);
@@ -309,13 +310,15 @@ export function createFlowTime() {
     }
   }
   // The heads glide after the goal (never a jump).
-  function tick() {
+  // (By time, not by frame: 1 - exp(-dt / tau) of the way each frame, the same curve at any refresh rate; headStep, display-state.js.)
+  function tick(t) {
     raf = 0;
-    shown += (goal - shown) * (reduceMQ.matches ? 1 : 0.16);
+    const dt = lastT ? (t - lastT) / 1000 : HEAD_DT0;
+    shown = reduceMQ.matches ? goal : headStep(shown, goal, dt);
     if (Math.abs(goal - shown) < 0.001 * (ax().end - ax().from)) shown = goal;
     paint(shown);
     gl.paint();   // (the picture draws the moved heads in this same frame)
-    if (shown !== goal) raf = nextFrame(tick);
+    if (shown !== goal) { lastT = t; raf = nextFrame(tick); } else lastT = 0;
   }
   // The chart's size: the box the card gives it (its height is set in CSS, shorter as the card fits), in its small type.
   // (The card zooms its contents to its own scale, a Mac's data card to 0.8 and an iPad's lower: the chart's type is set larger
@@ -342,7 +345,7 @@ export function createFlowTime() {
   return {
     el,
     /** The chart is done with (a presentation's own instruments go with it): its glide and its size observer are let go. */
-    dispose() { cancelFrame(raf); raf = 0; ro?.disconnect(); gl.dispose(); },
+    dispose() { cancelFrame(raf); raf = 0; lastT = 0; ro?.disconnect(); gl.dispose(); },
     /** trail: the time-lapse's [[day, ...the model's lines]] (null: not computed yet; undefined: keep the one drawn);
      *  k: how far along it to draw (0 to 1); spec: { clock: 'meal' | 'days', lines: [lower, upper], given? } (undefined: keep
      *  the one drawn). A new trail fades in over the old chart. */

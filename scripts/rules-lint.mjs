@@ -308,6 +308,20 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   }
 }
 
+// Chart heads and the catheter labels' shadow (8 Nov 2026, motion recs 16 and 17). The flow-time and event-graph heads glide by time, through
+// headStep (display-state.js: 1 - exp(-dt / tau)), never a fixed fraction per frame (twice as fast at 120 Hz as at 60). A catheter label's drop
+// shadow is the opacity of its ::before; a box-shadow in its transition list repainted every frame it moved.
+{
+  for (const f of ['flow-time', 'event-graph']) {
+    const src = readFileSync(join(ROOT, `src/ui/${f}.js`), 'utf8');
+    if (!/headStep\(shown, goal, dt\)/.test(src)) errors.push(`src/ui/${f}.js: the head steps by headStep(shown, goal, dt), the time between frames, not a fraction per frame`);
+    if (/shown \+= \(goal - shown\)/.test(src)) errors.push(`src/ui/${f}.js: shown += (goal - shown) * k per frame is faster at 120 Hz than at 60: use headStep`);
+  }
+  const css = readFileSync(join(ROOT, 'styles/app.css'), 'utf8');
+  if (!/\.cath-label::before \{[^}]*box-shadow: var\(--shadow-cath-label\)[^}]*transition: opacity/.test(css)) errors.push('styles/app.css: the catheter label\'s shadow is its ::before, faded by opacity');
+  for (const l of css.split('\n')) if (/\.cath-label/.test(l) && /transition[^;}]*box-shadow/.test(l)) errors.push(`styles/app.css: a catheter label transition lists box-shadow (fade the ::before's opacity): ${l.trim().slice(0, 90)}`);
+}
+
 // Chrome glass (4 Nov 2026, "the top bar is not all glass"): app.css's [data-gl] / :not([data-gl]) fallback rules for the figure's chrome pills must list
 // exactly the selectors of main.js CHROME; a wider list paints a pill that main.js gives no glass (the patient pill, the Colored-by key) solid.
 {
