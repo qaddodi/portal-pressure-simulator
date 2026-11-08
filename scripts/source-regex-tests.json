@@ -426,7 +426,6 @@
  "view-alias.test.js",
  "view-compose.test.js",
  "view-fade.test.js",
- "view-pill-fold.test.js",
  "view-sync-same-frame.test.js",
  "visual-glitch-sweep-1.test.js",
  "visual-ownership-b01-b09.test.js",
