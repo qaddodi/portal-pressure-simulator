@@ -144,7 +144,7 @@ export function startFrameHud() {
     // (The change between Anatomy and Circuit since the page opened: its frames drawn from the stretches binned ahead, and those binned
     // again on the CPU (a stretch not made yet, or a frame that did not fit it), and how many stretches are made now. 8 Nov 2026.)
     const ms = window.pps?.stage?.morphStats?.();
-    const sw = ms && ms.gpu + ms.cpu > 0 ? `\nview switch frames: ${ms.gpu} from stretches made ahead, ${ms.cpu} binned on the CPU${Object.keys(ms.miss).length ? ` (${Object.entries(ms.miss).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}; stretches ready ${ms.ready} of ${ms.of}` : '';
+    const sw = ms && ms.gpu + ms.cpu > 0 ? `\nview switch frames: ${ms.gpu} from stretches made ahead, ${ms.cpu} binned on the CPU${Object.keys(ms.miss).length ? ` (${Object.entries(ms.miss).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}; stretches ready ${ms.ready} of ${ms.of}${ms.failed?.length ? ` (failed: ${ms.failed.join(', ')})` : ''}` : '';
     el.textContent += `\nwhole vessel draws by reason: ${wh(counts.why, c0.why) || 'none'}\nrow draws refused: ${wh(counts.refused, c0.refused) || 'none'}${sw}`;
     c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs } };
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
