@@ -679,7 +679,7 @@ export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.de
 //   them changes; only a large external screen (a 5K one, 14.7) draws fewer pixels than its full density, and its heat with them.
 // floor: the lowest share Auto goes to (10%, 25% or 50%).
 // adapt: after each move, one step lower if the frames came slowly, one step back up when they came at the screen's pace.
-export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
+export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
 const figOpts = { move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 };
 for (const k of Object.keys(figOpts)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch (e) { caught('frame:602', e); /* storage unavailable */ }

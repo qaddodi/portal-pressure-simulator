@@ -117,7 +117,7 @@ test('the further options: all off by default but the 8-megapixel budget, stored
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=opts${Date.now()}`);
-  assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 4, 2], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
+  assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
   for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default`);
   let heard = 0;
   f.onRenderScale(() => heard++);
