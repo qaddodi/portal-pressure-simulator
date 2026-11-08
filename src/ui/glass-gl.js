@@ -1306,7 +1306,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
     if (ok) shareKeep(S); else shareForget(S);
     S.ok = !!ok;
-    if (ok) { S.blurs++; counts.blur++; tally(counts.blurs, S.look); S.camAt = ck; }
+    if (ok) { S.blurs++; counts.blur++; tally(counts.blurs, look === CARD ? 'cards' : look === PANE ? 'pane' : look === GLASS ? 'callouts' : S.look); S.camAt = ck; }   // (by look, for the frame panel: which glass blurs each frame)
     return S.ok;
   }
   // (pass: 'low', 'high' or 'all'; the last turn of the frame ('high', 'all') gives back the marks of the glasses not drawn.)
