@@ -7,7 +7,7 @@ import { HVPG_CUTS } from './pressure-cuts.js';
 const COLLATERAL_NAMES = {
   C1b: ['Esophageal varices', 'VAR'], C3: ['Paraumbilical vein (caput medusae)', 'C3'], C4: ['Anorectal varices', 'C4'],
   C5: ['Gastrorenal shunt', 'C5'], C6: ['Splenorenal shunt', 'C6'], C7: ['Retroperitoneal collaterals', 'C7'],
-  C8: ['Periportal cavernoma', 'C8'], C10: ['Pancreatic collaterals (Warren shunt losing its selectivity)', 'C10'], C2: ['Short gastric veins → fundal varices', 'GV'],
+  C8: ['Periportal cavernoma', 'C8'], C2: ['Short gastric veins → fundal varices', 'GV'],
 };
 
 // The conditions, built once (the worker runs this every frame: nothing here is made per call). Each has on(m, eng, splIn)

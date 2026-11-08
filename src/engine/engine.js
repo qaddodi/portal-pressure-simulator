@@ -985,7 +985,7 @@ export class Engine {
       const frac = clamp((driver - (e.open ?? COLLATERAL.open)) / COLLATERAL.span, 0, 1);
       const target = dMin + (e.dMax - dMin) * Math.sqrt(frac);
       const d = s.d[e.id];
-      const tau = target > d ? (e.tauGrow ?? COLLATERAL.tauGrow) : COLLATERAL.tauRegress;
+      const tau = target > d ? COLLATERAL.tauGrow : COLLATERAL.tauRegress;
       s.d[e.id] = clamp(d + (target - d) * Math.min(1, days / tau), dMin, e.dMax);
     }
     // Varix size is not slow state: it follows the portosystemic gradient as it changes (see varixTarget).

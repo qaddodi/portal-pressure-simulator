@@ -46,8 +46,8 @@ test('splenorenal shunt flow: blood runs from the splenic vein into the renal ve
   const W = run({ dsrs: true });
   assert.ok(W('S_DSR') > 0, 'Warren shunt drains the spleen');
   assert.ok(Math.abs(W('SV_MID')) < 1e-6, 'splenic vein divided between the shunt and the IMV');
-  assert.ok(Math.abs(W('S_DSR') - W('V_SPL') - W('V_STO_SG') - W('C10')) < 0.05, 'the splenic blood, the stomach\'s short gastric veins and the pancreatic collaterals (small at first) take the Warren shunt');
-  assert.ok(Math.abs(W('V_IMV') - W('SV_CONF') - W('C10')) < 0.05, 'the IMV drains through the splenic vein to the portal vein (less what the pancreatic collaterals send on to the shunt)');
+  assert.ok(Math.abs(W('S_DSR') - W('V_SPL') - W('V_STO_SG')) < 0.05, 'the splenic blood and the stomach\'s short gastric veins take the Warren shunt');
+  assert.ok(Math.abs(W('V_IMV') - W('SV_CONF')) < 0.05, 'the IMV drains through the splenic vein to the portal vein');
 });
 
 test('Warren slide: the varices decompress while the PPG stays high and the liver keeps more portal flow than TIPS', async () => {
@@ -176,32 +176,21 @@ test('the Warren slide plays the months after the operation', async () => {
   assert.ok(sl.days >= 90 && sl.lapse && sl.lapse.seconds <= sl.days, 'a time-lapse of months, from the operation');
 });
 
-// Mohammad, 8 Nov: "whatever happens in real life". The Warren shunt is selective only at first: pancreatic and peripancreatic veins grow across the divided
-// splenic vein over months to years (a 1981 angiographic series found collaterals between the portomesenteric and gastrosplenic systems and falling portal
-// flow in every patient by 3 months when only the stomach was disconnected; later series keep it for most patients for years, with a slow loss, which the
-// splenopancreatic disconnection and gastric transection were added to delay), and they steal portal blood from the liver into the shunt.
-test('Warren shunt loses its selectivity over months: pancreatic collaterals grow across the division and steal portal flow from the liver', async () => {
+// Mohammad, 8 Nov: "do they usually cut the pancreatic veins in the operation?" Yes: the Warren operation includes the splenopancreatic disconnection (the
+// splenic vein is freed from the pancreas and the veins between them are tied), with the coronary and gastroepiploic veins, which is what keeps the shunt selective;
+// without it the pancreatic veins grow across the division and the shunt behaves like a total one within months (a 1981 angiographic series). He decided the model's
+// Warren shunt always includes it. A few patients still lose selectivity late through gastric collaterals (hyperammonemia 9% at 5 years in one series): not modelled.
+test('Warren shunt includes the splenopancreatic disconnection: no pancreatic collaterals, the liver keeps its portal flow for years', async () => {
   const { computeMetrics } = await import('../src/engine/metrics.js');
-  const { EDGES, edgePresent } = await import('../src/engine/topology.js');
-  const at = (p, days) => {
-    const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, p)); e.settle();
+  const { EDGES } = await import('../src/engine/topology.js');
+  assert.ok(!EDGES.some((e) => e.from === 'SV' && e.to === 'SVD'), 'no vessel bridges the division of the splenic vein');
+  const at = (days) => {
+    const e = new Engine(); e.loadPreset('cirr-decomp'); e.setParams(deepMerge(e.params, { dsrs: true })); e.settle();
     if (days) { e.advanceDays(days, { silent: true, noRupture: true }); e.settle(); }
-    return { e, q: (id) => e.Q[e.ei[id]], m: computeMetrics(e) };
+    return { pv: e.Q[e.ei.PV_TRUNK], mid: e.Q[e.ei.SV_MID], liver: computeMetrics(e).liverPerfPct };
   };
-  const c10 = EDGES.find((e) => e.id === 'C10');
-  assert.ok(c10 && c10.from === 'SV' && c10.to === 'SVD', 'the collaterals join the portal side of the divided splenic vein to the shunted side');
-  assert.ok(!edgePresent(c10, { dsrs: false }) && edgePresent(c10, { dsrs: true }), 'only with a Warren shunt');
-  const none = at({}, 365), w0 = at({ dsrs: true }), w1 = at({ dsrs: true }, 365), w2 = at({ dsrs: true }, 730), w5 = at({ dsrs: true }, 1825);
-  assert.ok(none.q('C10') === 0, 'no collaterals without the shunt');
-  assert.ok(w0.q('C10') < 0.3, 'selective at first: next to nothing crosses the division');
-  assert.ok(w1.q('C10') > 3 * Math.max(0.05, w0.q('C10')) && w2.q('C10') > w1.q('C10'), 'it grows over the first years');
-  // The portal vein keeps most of its flow for a long while and loses about a third of it by two years; the plateau is partial.
-  assert.ok(w1.q('PV_TRUNK') < 0.85 * w0.q('PV_TRUNK') && w2.q('PV_TRUNK') > 0.55 * w0.q('PV_TRUNK'), 'the liver loses part, not all, of its portal flow');
-  assert.ok(Math.abs(w5.q('PV_TRUNK') - w2.q('PV_TRUNK')) < 0.1 * w2.q('PV_TRUNK'), 'and it levels off');
-  // More of the portal blood is shunted, the liver is perfused less and the portal pressure the shunt relieves falls.
-  assert.ok(w2.m.shuntFraction > w0.m.shuntFraction + 0.01, 'the shunted fraction (the encephalopathy index follows it) rises');
-  assert.ok(w2.m.liverPerfPct < w0.m.liverPerfPct, 'the liver is perfused less');
-  // (It is a vessel the figure draws, in both views, like any other collateral.)
-  const { EDGE_PATH, CIRCUIT_PATH } = await import('../src/ui/anatomy.js');
-  assert.ok(EDGE_PATH.C10 && CIRCUIT_PATH.C10, 'drawn in Anatomy and in Circuit');
+  const w0 = at(0), w2 = at(730);
+  assert.ok(Math.abs(w0.mid) < 1e-6 && Math.abs(w2.mid) < 1e-6, 'the divided splenic vein stays divided');
+  assert.ok(w2.pv > 0.9 * w0.pv, 'the portal vein keeps its flow after two years');
+  assert.ok(w2.liver > w0.liver - 1, 'and the liver its perfusion');
 });
