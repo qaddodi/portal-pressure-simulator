@@ -246,7 +246,7 @@ export function createPlate(st, live) {
     return o;
   };
   const MASK_OF = { gut: '#gutHide', stomach: '#frontM' };
-  const liveKeyNow = ['', '', '', '', '', '', '', '', '', '', '', ''], liveKeyOld = ['', '', '', '', '', '', '', '', '', '', '', ''];
+  const liveKeyNow = ['', '', '', '', '', '', '', '', '', '', '', '', ''], liveKeyOld = ['', '', '', '', '', '', '', '', '', '', '', '', ''];
   let pseEl = null;   // (the embolized spleen's infarct group, found once: stage.js detailFor)
   // (What eases, the outlines, the organs' frames and the parts' own opacities, the painter reads from the page at each paint
   // (organ-paint liveOf): the specs are read again only when what is in them changes: a part hidden or shown, the liver's mask,
@@ -261,6 +261,9 @@ export function createPlate(st, live) {
     // (The embolized spleen's infarct shown or hidden: without it the live spleen kept the infarct after the treatment was taken off,
     // Mohammad 6 Nov 2026.)
     k[11] = (pseEl ??= organG.spleen.querySelector('.spleen-pse'))?.getAttribute('display') ?? '';
+    // (The spleen's own opacity, 0.14 once it is removed: it was not in this key, so the live spleen kept that faint, near-black look
+    // on the slide after the splenectomy, going on, back or jumping, Mohammad 8 Nov 2026. The key moves with it, so the painter reads it again.)
+    k[12] = organG.spleen.style.opacity;
     return k;
   }
   function liveKeySame() { for (let i = 0; i < liveKeyNow.length; i++) if (liveKeyNow[i] !== liveKeyOld[i]) return false; return true; }
