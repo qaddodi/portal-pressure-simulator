@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BEAD_LAMBDA, BEAD_LAMBDA_FUNDAL, BEAD_SITE, WALE_MAX, beadLambda, beadRadius, varixBead, varixWale } from '../src/ui/varix-bead.js';
-import { WIGGLE_A2, WIGGLE_K2, wiggleAt } from '../src/ui/wiggle-math.js';
+import { WIGGLE_A2, wiggleAt } from '../src/ui/wiggle-math.js';
 import { BAND, bandRing } from '../src/ui/band-ring.js';
 import { esoAt } from '../src/ui/balloon-eso.js';
 
@@ -40,20 +40,10 @@ test('the red wale tint is off when the reading is off, and grows with the wall 
   assert.ok(varixWale(true, 0.9, 1) <= WALE_MAX);
 });
 
-test('the tortuosity has a second harmonic at a third of the amplitude on an incommensurate period', () => {
-  assert.ok(Math.abs(WIGGLE_A2 - 1 / 3) < 1e-9);
-  assert.ok(WIGGLE_K2 > 1 && Math.abs(WIGGLE_K2 - Math.round(WIGGLE_K2)) > 0.1, 'not a whole number of the base');
+test('the tortuosity is the one smooth wave (the second harmonic is parked: it kinked the strands)', () => {
+  assert.equal(WIGGLE_A2, 0);
   const k = (2 * Math.PI) / 90, amp = 4;
-  // not one pure sine: it differs from the base wave, by at most a third of the amplitude
-  let maxDiff = 0, peak = 0;
-  for (let d = 0; d < 600; d += 0.5) {
-    const w = wiggleAt(amp, 1, d, k, 0.7), base = amp * Math.sin(d * k + 0.7);
-    maxDiff = Math.max(maxDiff, Math.abs(w - base)); peak = Math.max(peak, Math.abs(w));
-  }
-  assert.ok(maxDiff > 0.9 * amp / 3 && maxDiff <= amp / 3 + 1e-9, `second harmonic ${maxDiff}`);
-  assert.ok(peak <= amp * (1 + 1 / 3) + 1e-9);
-  // it does not repeat after the base period
-  assert.ok(Math.abs(wiggleAt(amp, 1, 20, k, 0.7) - wiggleAt(amp, 1, 20 + 90, k, 0.7)) > 0.05);
+  for (let d = 0; d < 600; d += 0.5) assert.ok(Math.abs(wiggleAt(amp, 1, d, k, 0.7) - amp * Math.sin(d * k + 0.7)) < 1e-9);
   // the envelope and the amplitude still scale it, and a flat vessel stays flat
   assert.ok(wiggleAt(amp, 0, 33, k, 1) === 0);
   assert.ok(wiggleAt(0, 1, 33, k, 1) === 0);
