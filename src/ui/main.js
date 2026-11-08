@@ -144,6 +144,9 @@ const presenter = {
 };
 
 async function main() {
+  // The engine's worker starts first and loads while the figure is built below (E1): the stage reads `healthy` only when a model frame
+  // draws, and the first frame is taken in after the answers, so it never sees the figure before the reference is set.
+  const engineUp = startHost();
   startReport(() => { const st = store.get(), pos = presenter.position(); return pos ? `${pos.id} slide ${pos.at + 1}` : `${st.mode} ${st.lobule ? (st.sinusoid ? 'sinusoid' : 'lobule') : st.view}`; });   // (PR-03: the ring, the reload count and the heartbeat, before anything else can fail)
   const savedTheme = readLS('pps.theme');
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
@@ -160,7 +163,18 @@ async function main() {
   const wasOpen = savedInstruments().open;
   const openAtStart = [];
   if (Array.isArray(wasOpen)) for (const [id, l] of [['doppler', dopplerL], ['fibroscan', fibroL]]) if (wasOpen.includes(id)) openAtStart.push(l.get().catch(() => {}));
-  const kind = await startHost();
+  why = createWhy($('#whyPop'));
+  stage = createStage({
+    wrap: view,
+    onSelect: (sel, opts) => { if (sel && isPhone() && treatOpen()) closeTreat(); select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
+    onAction: doAction,
+    onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
+    onHoverInfo: hoverInfo,
+    onViewChange: () => card?.position(),
+  });
+  setHvpgStage(stage);
+  setEusStage(stage);
+  const kind = await engineUp;
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   // (In learner words: no background worker means the model and the drawing share one thread.)
   if (kind === 'main') toast('This browser runs the model and the figure together, so the figure may stutter.');
@@ -175,17 +189,6 @@ async function main() {
   store.set({ healthy: { P: healthy.P, Q: healthy.Q, D: healthy.D, metrics: healthy.metrics } });
   store.set({ presetList: presets });
 
-  why = createWhy($('#whyPop'));
-  stage = createStage({
-    wrap: view,
-    onSelect: (sel, opts) => { if (sel && isPhone() && treatOpen()) closeTreat(); select(sel); if (opts?.keyboard) setTimeout(() => card?.focusFirst(), 30); },
-    onAction: doAction,
-    onOpenTab: (id) => dock.show(id, { reveal: 'soft' }),
-    onHoverInfo: hoverInfo,
-    onViewChange: () => card?.position(),
-  });
-  setHvpgStage(stage);
-  setEusStage(stage);
   // Idle rest (idle heat, 1 Nov): left alone 30 s in Explore, the blood eases to a stop, the model holds its numbers (its worker
   // stops stepping, as for a hidden page) and the figure stops drawing; the first input brings it all back from that frame.
   // Never while a talk is open, a time-lapse plays or the patient is still changing.
