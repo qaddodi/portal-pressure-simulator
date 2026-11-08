@@ -339,7 +339,11 @@ export function createEndoscopy({ onAction }) {
     }
     if (jetA <= 0 && !bleeding) { bleedLast = null; poolA = 0; }
     ctx.restore();
-    ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    // The bezel: --scope-rim is one near-black on every look, which is gone on Dark, Navy and Black; there the ring gives 1 px of its 7 to a
+    // --border hairline on its outer edge (the same footprint, R - 3 to R + 4, inside the field's 4 px margin).
+    const darkLook = theme === 'dark' || (theme !== 'light' && theme !== 'soft' && darkNow);
+    ctx.strokeStyle = cssVar('--scope-rim'); ctx.lineWidth = darkLook ? 6 : 7; ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.stroke();
+    if (darkLook) { ctx.strokeStyle = cssVar('--border'); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R + 3.5, 0, Math.PI * 2); ctx.stroke(); }
     } finally { ctx.end?.(); }
   }
   /** This slide's options (presenter-tools show and option): { air, red, readings } as described at opt above. Eased, never snapped: the drawing
@@ -373,6 +377,9 @@ export function createEndoscopy({ onAction }) {
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
 const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'Rupture risk' };
+// The meter's four states by the stress's share of the tear point (one rule, read by the bar, the readout and the rim of the varix drawn below).
+const wallState = (r) => (r > 1 ? 'critical' : r > 0.7 ? 'danger' : r > 0.4 ? 'caution' : 'ok');
+const RIM_INK = { ok: '--ok', caution: '--caution', danger: '--danger', critical: '--critical' };
 // A name's ink as drawn (centred, baseline middle): the box round its glyphs' own ink, from the GPU atlas (glyph-measure.js inkBox: no
 // canvas is drawn and read back). Names are placed by the ink itself, not their line box.
 const inkRows = (font, t) => inkBox(t, font);
@@ -455,7 +462,7 @@ export function createVarixWall() {
     const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
     set(stressTxt, v.ratioShown > 1 ? 'above the tear point' : tearTxt(Math.round(v.ratioShown * 100)));
-    const sev = v.ratioShown > 1 ? 'critical' : v.ratioShown > 0.7 ? 'danger' : v.ratioShown > 0.4 ? 'caution' : 'ok';
+    const sev = wallState(v.ratioShown);
     dataSoon(stressBar, 'sev', sev);
     // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain
     // average while that many have not passed yet, so it reads steady and the same on every screen, folded or open.)
@@ -464,7 +471,7 @@ export function createVarixWall() {
     wT = now;
     // (On a slide the figure is the slide's own, the state its tiles show (pin), so every screen reads the same number.)
     if (Number.isFinite(wPin)) wMean = wPin;
-    const ms = wMean > 1 ? 'critical' : wMean > 0.7 ? 'danger' : wMean > 0.4 ? 'caution' : 'ok';
+    const ms = wallState(wMean);
     set(wPct, intTxt(Math.round(wMean * 100))); set(wSev, WALL_SEV[ms]);
     dataSoon(wSev, 'sev', ms); dataSoon(wBig, 'sev', ms);
     const wPctW = slideTxt(Math.round(clamp(v.ratioShown, 0, 1) * 1000));   // (slid in from the left inside its track: app.css .endo-bar i)
@@ -536,7 +543,7 @@ export function createVarixWall() {
     ctx.strokeStyle = cssVar('--hairline'); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
     ctx.fillStyle = cssVar('--surface'); ctx.beginPath(); ctx.arc(cx, cy, Rl, 0, 7); ctx.fill();
     // The varix in the submucosa at the top, bulging into the lumen; its size follows the model's radius.
-    const rim = v.ratio > 0.7 ? cssVar('--danger') : cssVar('--text-2');
+    const rim = cssVar(RIM_INK[wallState(v.ratioShown)]);   // (the stress meter's four states, below: ok, caution, danger, critical)
     // Transmural pressure pushes outward on the varix wall: longer arrows for a higher ΔP.
     ctx.strokeStyle = cssVar('--text-2'); ctx.fillStyle = cssVar('--text-2'); ctx.lineWidth = Math.max(1.25, R / 140);
     for (let a = -Math.PI; a < Math.PI - 0.01; a += Math.PI / 4) {
@@ -564,8 +571,11 @@ export function createVarixWall() {
       const qx = cx + 1.5 - rL, qFill = inkIn(inkR, qx, ry, cx, vy, rr - lw / 2 - 0.5);
       if (qFill > rFill) { rx = qx; rFill = qFill; rDash = inkFrom(inkR, qx, ry, boxDash); }
     }
-    ctx.fillStyle = cssVar('--white');
-    if (keepName('r', rFill >= 1 && rDash >= 2)) { ctx.font = f6; ctx.fillText('r', rx, ry); drawn |= 1; gR.fill = rFill; gR.dash = rDash; gaps.r = gR; }
+    // (The one label style: the theme's text ink over its --label-halo, 3 px, laid under the fill, so the "r" reads on every pressure fill.)
+    if (keepName('r', rFill >= 1 && rDash >= 2)) {
+      ctx.font = f6; ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = cssVar('--label-halo'); ctx.strokeText('r', rx, ry);
+      ctx.fillStyle = cssVar('--text'); ctx.fillText('r', rx, ry); drawn |= 1; gR.fill = rFill; gR.dash = rDash; gaps.r = gR;
+    }
     // Laplace's other two terms on the picture: the wall stress σ along the wall (two arrows pulling apart round the top,
     // heavier as the stress rises) and the wall thickness w across the rim (a bracket, in the faded label ink).
     const ink = cssVar('--text-3');

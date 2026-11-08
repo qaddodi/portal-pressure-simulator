@@ -72,8 +72,10 @@ test('colours: tokens with and without their own alpha, and the gap and cell col
 
 test('the shader follows paintLobule\'s order and numbers, and the bitmap path is still there under it', () => {
   const live = readFileSync(new URL('../src/ui/lobule-live.js', import.meta.url), 'utf8');
-  // fill 1.015, gap fill 0.55/0.5, cells (fill 0.92/0.8, dead 0.6; membrane max 0.6; nucleus max 0.9), nutmeg 0.05–0.55 R, zones 0.2/0.17, hairline
-  for (const s of ['lvHex(wp, 1.015)', 'dark ? 0.55 : 0.5', 'dark ? 0.8 : 0.92', 'max(0.6, 0.6 * px)', 'max(0.9, ww * 0.16)', 'min(lw, ww) * 0.38', '0.05 * R) / (0.5 * R)', 'dark ? 0.2 : 0.17', 'lvHex(wp, 0.66)', 'lvHex(wp, 0.36)', 'if (sj < 0.05)']) assert.ok(live.includes(s), s);
+  // fill 1.015, gap fill 0.55/0.5, cells (fill 0.92/0.8, dead 0.6; membrane max 0.6; nucleus max 0.9), nutmeg 0.05–0.55 R, zones 0.2/0.17 (one radial gradient, ZONE_AT in lobule-paint.js), hairline
+  for (const s of ['lvHex(wp, 1.015)', 'dark ? 0.55 : 0.5', 'dark ? 0.8 : 0.92', 'max(0.6, 0.6 * px)', 'max(0.9, ww * 0.16)', 'min(lw, ww) * 0.38', '0.05 * R) / (0.5 * R)', 'dark ? 0.2 : 0.17', 'length(wp - uLCen.xy) / R', '(zr - 0.18) / 0.32', '(zr - 0.5) / 0.35', 'if (sj < 0.05)']) assert.ok(live.includes(s), s);
+  const paintSrc = readFileSync(new URL('../src/ui/lobule-paint.js', import.meta.url), 'utf8');
+  assert.match(paintSrc, /ZONE_AT = \[\[0, ZONE_TOK\[2\]\], \[0\.18, ZONE_TOK\[2\]\], \[0\.5, ZONE_TOK\[1\]\], \[0\.85, ZONE_TOK\[0\]\], \[1, ZONE_TOK\[0\]\]\]/, 'the zones are one radial gradient: zone 3 to 0.18 R, zone 2 at 0.5 R, zone 1 from 0.85 R (the shader\'s stops are the same)');
   assert.match(gl, /if \(uLive > 0\.0\) \{ vec4 ls = liveTissue\(w\) \* e; c = mix\(c, ls\.rgb \+ c0 \* \(1\.0 - ls\.a\), uLive\); own = mix\(own, ls, uLive\); \}/, 'mixing the two pictures laid over the surround = laying their mix');
   assert.match(tissueFS(true), /vec3 c0 = c;\n\s+if \(w\.x >= 0\.0/, 'the surround before the bitmap');
   assert.doesNotMatch(tissueFS(false), /uL[A-Z]|uLive|liveTissue|\bc0\b|\blv[A-Z]/, 'the program without the live lobule has none of it in it: the picture as before');

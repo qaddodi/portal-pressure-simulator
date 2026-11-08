@@ -87,7 +87,7 @@
   --light-ink: #FFFFFF; --shade-ink: #000000; --tube-shade-ink: #0A0612; --lit-lo-ink: #1A0D14;
   /* pathology and devices on the plate */
   --path-congestion: #6B2432; --path-nutmeg: #5A2230;
-  --red-wale: #D0192E; --laser: #FF2B3A;
+  --red-wale: #E8404A; --laser: #FF2B3A;
   /* instruments drawn as their machines are, dark in both themes */
   --scope-bg: #05070D; --mon-bg: #07090C; --mon-grid: #1C2128; --mon-line: #2A3038; --mon-text: #9AA4B2; --mon-alarm: #FF7A85;
   /* endoscopy and FibroScan screens (both themes): balloon glare, blood pool and jet, the scope's rim */
@@ -95,13 +95,13 @@
   --scope-blood-jet: rgba(165, 8, 28, .92); --scope-blood-fresh: rgb(214, 30, 42); --scope-blood-pool-top: rgba(122, 4, 20, .95);
   --scope-blood-haze: rgb(120, 0, 16); --scope-rim: #0c0d10;
   /* endoscopy (WebGL, both themes): mucosa pale to deep, Z-line, surface vessels, varices small to large, crest highlight,
-     red wale marks, band halo and band, the scope light near and far, glint, the dark lumen */
+     band halo and band (the red wale marks are --red-wale, the one cherry red of the figure and the scope: endo-gl.js and its CPU twin endo-render.js), the scope light near and far, glint, the dark lumen */
   --endo-mucosa: rgb(226, 150, 132); --endo-mucosa-deep: rgb(150, 52, 50); --endo-zline: rgb(200, 70, 60); --endo-vessels: rgb(184, 84, 92);
-  --endo-varix-small: rgb(214, 178, 176); --endo-varix: rgb(80, 90, 172); --endo-crest: rgb(30, 26, 18); --endo-red-wale: rgb(158, 26, 42);
+  --endo-varix-small: rgb(214, 178, 176); --endo-varix: rgb(80, 90, 172); --endo-crest: rgb(30, 26, 18);
   --endo-band-halo: rgb(200, 78, 96); --endo-band: rgb(26, 16, 20); --endo-light-near: rgb(255, 247, 237); --endo-light-far: rgb(255, 179, 153);
   --endo-glint: rgb(255, 250, 242); --endo-lumen: rgb(11, 3, 3);
   /* colour Doppler (both themes): velocity map toward and away, variance map laminar to turbulent, the spectrum's bright end */
-  --dop-toward: rgb(224, 90, 48); --dop-away: rgb(58, 75, 168); --dop-var-toward: rgb(240, 138, 40); --dop-var-toward-turb: rgb(255, 232, 48);
+  --dop-toward: rgb(224, 90, 48); --dop-away: #5072E0; --dop-var-toward: rgb(240, 138, 40); --dop-var-toward-turb: rgb(255, 232, 48);
   --dop-var-away: rgb(107, 88, 168); --dop-var-away-turb: rgb(46, 154, 92); --dop-bright: rgb(236, 240, 250);
   --mon-bright: #E8EDF4; --mon-ecg: #43D98B; --mon-art: #FF6E62; --mon-free: #5CA4F2; --mon-wedge: #DA7EDD; --mon-ok: #34C38F; --mon-caution: #F0B43C;   /* (free and wedge: the dark theme's --tr-hv and --tr-wedge; ecg and art: a bedside monitor's green ECG and red arterial line) */
   /* pure inks: shadows, glass edges and sheens take these with an alpha (rgb(var(--black-rgb) / .2)) */

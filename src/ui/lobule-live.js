@@ -617,12 +617,10 @@ vec4 liveTissue(vec2 w) {
       acc = lvOver(lvTint(uLNut, a) * clipC, acc);
     }
     if (uLSt.z > 0.5) {
-      float za = dark ? 0.2 : 0.17;
-      acc = lvOver(lvTint(uLZ1, za) * (lvCov(lvHex(wp, 1.0), px) * clipC), acc);
-      acc = lvOver(lvTint(uLZ2, za) * (lvCov(lvHex(wp, 0.66), px) * clipC), acc);
-      acc = lvOver(lvTint(uLZ3, za) * (lvCov(lvHex(wp, 0.36), px) * clipC), acc);
-      acc = lvOver(lvTint(uLZl.rgb, uLZl.a) * (lvLine(lvHex(wp, 0.66), 0.5, px) * clipC), acc);
-      acc = lvOver(lvTint(uLZl.rgb, uLZl.a) * (lvLine(lvHex(wp, 0.36), 0.5, px) * clipC), acc);
+      // Zones: the radial gradient of paintLobule (lobule-paint.js ZONE_AT): zone 3 to 0.18 R from the central vein, zone 2 at 0.5 R, zone 1 from 0.85 R.
+      float zr = length(wp - uLCen.xy) / R;
+      vec3 zc = zr < 0.5 ? mix(uLZ3, uLZ2, clamp((zr - 0.18) / 0.32, 0.0, 1.0)) : mix(uLZ2, uLZ1, clamp((zr - 0.5) / 0.35, 0.0, 1.0));
+      acc = lvOver(lvTint(zc, dark ? 0.2 : 0.17) * clipC, acc);
     }
     // Space of Disse collagen: a round-capped stroke along each sinusoid, one alpha a tube (its segments' union), tubes laid in order.
     if (uLSin.a > 0.0 && ib.x >= 0 && ib.y >= 0 && ib.x < nb && ib.y < nb) {
