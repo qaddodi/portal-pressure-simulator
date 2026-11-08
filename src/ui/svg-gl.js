@@ -813,7 +813,7 @@ export function viewMap(vb, par, w, h) {
 
 // ── The picture ──
 const finalFrame = finalFrameFor('svg-gl');
-const CAM_HOLD_MS = 150;
+const CAM_HOLD_MS = 100;
 const live = new Set();
 let themeAsk = 0;
 function themeRead() { themeAsk = 0; clearShared(); clearLookMemo(); for (const g of live) { if (!g.box.isConnected) continue; g.relook(); } }
@@ -926,18 +926,16 @@ export function createSvgGL(box, opts = null) {
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
   if (typeof ResizeObserver === 'function') { g.ro = new ResizeObserver((es) => { if (g.pk) dropRoots(g.pk); const r = es[0]?.contentRect; if (r && g.local.boxW !== r.width) { g.local.boxW = r.width; if (looksNeedWidth()) g.relook(); } g.paint(); }); g.ro.observe(box); }
   // alloc-rare: made once as the picture for a chart host is created, or on a slide change (not per frame)
-  // (While the figure's camera moves, a picture that does not ride it (a card's readout, the dock's values) is handed over at most every
-  // CAM_HOLD_MS: each hand-over waited on the figure's GPU work, ~4 ms a small picture on a Mac, and 25 a second held a pan to 22 fps
-  // (8 Nov 2026, ?perf). The last one asked is drawn as the wait ends. opts.follows: a picture that moves with the figure (the lobule's
-  // leaders, a callout's glass) is drawn every frame it is asked.)
+  // (While the figure's camera moves, a picture that does not ride it (a card's readout, the dock's values, the ?perf counter) waits until the
+  // move ends (polled every CAM_HOLD_MS) and is drawn then, its last words. Each hand-over from the charts' context makes the page wait for
+  // the GPU: on a Mac whose GPU is busy with the moving figure that is ~20 ms for a 512x256 picture (8 Nov 2026, ?perf: 21 such pictures a
+  // second, svg-gl 17-30 ms a frame, a pan at 22-25 fps), even at a 150 ms pace. opts.follows: a picture that moves with the figure (the
+  // lobule's leaders, a callout's glass) is drawn every frame it is asked.)
   const follows = !!opts?.follows;
+  const camWait = () => { g.camT = 0; g.paint(); };
   g.paint = () => {
     if (g.ask || g.camT) return;
-    if (!follows && cameraMoving()) {
-      const t = performance.now();
-      if (t - (g.camAt || 0) < CAM_HOLD_MS) { g.camT = setTimeout(() => { g.camT = 0; g.paint(); }, CAM_HOLD_MS - (t - g.camAt)); return; }
-      g.camAt = t;
-    }
+    if (!follows && cameraMoving()) { g.camT = setTimeout(camWait, CAM_HOLD_MS); return; }
     g.ask = finalFrame(draw);
   };
   // alloc-rare: made once as the picture for a chart host is created (whether its box is on the screen, for the loops above)
