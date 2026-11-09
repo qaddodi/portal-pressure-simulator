@@ -3274,7 +3274,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     nTubes, who, gl, canvas,
     picture() { if (!own || lost) return null; ownSize(); PIC.tex = own.tex; PIC.w = own.w; PIC.h = own.h; return PIC; },
     tex: {
-      ent: () => vecEnt || entTex, rad: () => radTex, rmax: () => rmaxTex, tube: () => tubeTex, flow: () => flowTex, bend: () => bendTex, dye: () => dyeTex,
+      ent: () => vecEnt || vecPtsTex || entTex, rad: () => radTex, rmax: () => rmaxTex, tube: () => tubeTex, flow: () => flowTex, bend: () => bendTex, dye: () => dyeTex,
       organ: () => organTex,
       noiseT: () => { if (!tileTried) { tileTried = true; tileGPU = createBloodTile(gl); } return tileGPU?.bake() ? tileGPU.tex() : null; },
     },
@@ -3294,7 +3294,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get lines() { return lines; }, get cath() { return cath; }, get tops() { return tops; }, get stack() { return stack; },
   };
   /** Tells the Vector renderer a change (it takes what it needs of the data; a name it does not have is not an error while it is being built). */
-  const vecTell = (name, a, b, c, d, e, f, g) => { const fn = vec?.[name]; if (typeof fn === 'function') fn.call(vec, a, b, c, d, e, f, g); };
+  const vecTell = (name, a, b, c, d, e, f, g) => { const fn = vec?.[name]; if (typeof fn === 'function') { if (name === 'setOrgans') vecKick = true; fn.call(vec, a, b, c, d, e, f, g); } };
   // The classic and mesh targets, to a texel while Vector draws: the layer's colour and the two flow images and the depth, the mesh's depth
   // and stencil and its scratch layers. Made again at the right size by the classic layout the next time it draws (fboW is 0).
   function vecGiveBack() {
@@ -3339,6 +3339,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, bins.rows, 0, gl.RGBA, gl.FLOAT, bins.ent);
     return t;
   };
+  // The figure's own binning for Vector: the mesh's points texture (each vessel row's points, N_SAMPLES / 2 texels a row, two points a texel, posBase 0),
+  // made from the entries the way the mesh does (veins-mesh-data pointsFromEntries) and sent when the binning is. The classic entry texture holds
+  // the cell lists' entries, which are not points. Its own record, so the mesh's cache is left alone.
+  let vecPtsTex = null;
+  const VPTS = {};
+  function vecPointsUpload() {
+    if (lost || !entCPU || !cellsCPU) return;
+    pointsFromEntries(entCPU, cellsCPU, nCells, nTubes, VPTS);
+    if (!vecPtsTex) vecPtsTex = dataTex(gl);
+    gl.bindTexture(gl.TEXTURE_2D, vecPtsTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, VPTS.rows, 0, gl.RGBA, gl.FLOAT, VPTS.pts, 0);
+    if (gpuProbe.on) gpuProbe.note('uploaded: vector points', VPTS.rows * ENT_W * 16 / 1024);
+  }
   const vecMadeSet = (bins) => ({ owner: api, bins, ent: vecEntOf(bins), vecSet: vec.makeMorphSet?.(bins) ?? null, vecGen });
   const vecCurSet = () => { for (const S of vecSets) if (S.ent === vecEnt) return S; for (const S of morphSets) if (S.ent === vecEnt) return S; return null; };
   // A Vector picture was drawn into the kept picture: counted as the other renderers' are, and laid on the canvas with what goes over it.
@@ -3346,6 +3359,31 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     pictured(bloodKept);
     directNow = false; ownStale = false;
     if (own && !bloodKept) present();
+    vecIdleCheck();
+  }
+  // Idle frames (vec-renderer.js: the organs prepare their detail levels a few ms at a time, on a frame that has nothing else to draw, and
+  // none is drawn until they are): the stage draws nothing on a still figure, so nothing would ever ask for one. After each Vector frame this asks
+  // for a next frame while the renderer wants idle work, or the camera's scale or the organs changed (it prepares for the scale, and says so by
+  // wanting idle work); that frame is an empty composite, which the renderer takes as idle. When the work is done the whole picture is drawn
+  // again, now with the organs.
+  const askVecIdle = frameFor('vector-idle');
+  let vecIdleOn = false, vecIdleScale = 0, vecKick = false, vecBlood = null;
+  function vecIdleCheck() {
+    if (vecIdleOn || !vec || lost) return;
+    const sc = baseM ? Math.sqrt(Math.abs(baseM[0] * baseM[3] - baseM[1] * baseM[2])) : 1;
+    if (sc === vecIdleScale && !vecKick && !vec.idleWanted) return;
+    vecIdleScale = sc; vecKick = false; vecIdleOn = true;
+    try { askVecIdle(vecIdleRun); } catch (e) { vecIdleOn = false; caught('veins-gl:vec-idle', e); /* (no frames here: node) */ }
+  }
+  function vecIdleRun() {
+    vecIdleOn = false;
+    if (!vec || lost || !lastLook) return;
+    const f0 = vec.stats?.frames;
+    vec.composite(lastLook, vecBlood || NOBLOOD, false);
+    const drew = vec.stats?.frames !== f0;
+    if (vec.idleWanted) { if (drew) vecLaid(); else vecIdleCheck(); return; }
+    // (Done: the levels the organs were waiting for are there. The whole picture again, laid.)
+    vec.composite(lastLook, vecBlood || NOBLOOD, true); vecLaid();
   }
   // The lobule's kept picture under Vector (vec-lobule.js, workstream I): a frame where only the blood moved repaints the blood's boxes in the
   // texture the last whole present laid, in place of laying the picture whole. The same record, target and version stamps as the classic keep.
@@ -3397,7 +3435,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     vecGen++;
     if (who === 'lobule' && share && keep) { vecLobule = createVecLobule(gl, { read: vecLobRead, target: vecLobTarget, seq: () => pictureSeq, laid: vecLobLaid }); vecLobule.start(); if (flowSent) vecBloodRows(flowSent); }
     figVer++; texVer++; movedAll = true;
-    if (binsNow) vecTell('setGeometry', binsNow);
+    if (binsNow) { vecPointsUpload(); vecTell('setGeometry', binsNow); }
     vecTell('setOrgans', 'replay', vecOps);
     if (vecOps.overlay) vecTell('setOrgans', 'overlay', vecOps.overlay.groups, vecOps.overlay.names);
     // (G's module takes the lines, the catheter and the ascites' rows from the setters directly, as it is the one that draws them.)
@@ -4488,6 +4526,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         // (The entry texture is Vector's too, its points are read from it; the cell lists and the blood's cells are the classic passes' only.)
         keepRows(entTex, gl.RGBA32F, gl.RGBA, gl.FLOAT, ENT_W, bins.rows || 1, bins.ent.length ? bins.ent : (entNone ||= new Float32Array(ENT_W * 4)));
         cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells; rowCells = null; geoSkipped = true; movedAll = true;
+        vecPointsUpload();
         vecTell('useMorphSet', null); vecTell('setGeometry', bins);
         return;
       }
@@ -4512,7 +4551,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (vecNow()) {
         gl.bindTexture(gl.TEXTURE_2D, entTex);
         for (const [r0, r1] of bins.patch) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, r0, ENT_W, r1 - r0 + 1, gl.RGBA, gl.FLOAT, bins.ent, r0 * ENT_W * 4);
-        cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells; rowCells = null; geoSkipped = true; movedAll = true; vecTell('patchGeometry', bins);
+        cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells; rowCells = null; geoSkipped = true; movedAll = true; vecPointsUpload(); vecTell('patchGeometry', bins);
         return;
       }
       if (geoSkipped) { api.setGeometry(bins); return; }   // (the texture does not hold the binning this patches: it is sent whole)
@@ -4803,7 +4842,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
     draw(m, look, blood, rows = null) {
-      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); const r = vec.draw(m, look, blood, rows); vecLaid(); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); vecBlood = blood; const r = vec.draw(m, look, blood, rows); vecLaid(); return r; }
       flushRadii();
       meshSync();
       counts.draw++;
@@ -4915,7 +4954,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * (nothing they hold is dropped by a refusal). `rowsStatus` says which: 'drawn', or why it was refused (ROWS_REFUSED).
      */
     drawRows(m, look, blood, rows, full = false) {
-      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); const r = vec.drawRows(m, look, blood, rows, full); if (r) vecLaid(); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); vecBlood = blood; const r = vec.drawRows(m, look, blood, rows, full); if (r) vecLaid(); return r; }
       flushRadii();
       meshSync();
       for (let i = 0; i < 6; i++) OVER[i] = m[i];
@@ -5099,7 +5138,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * cells drawRows drew again (the vessel layer changed under them).
      */
     composite(look, blood = NOBLOOD, full = false, part = 0) {
-      if (vecOn()) { flushRadii(); lastLook = look; if (baseM) vecTell('setOverlays', look, baseM, PW(), PH()); const f0 = vec.stats?.frames; const r = vec.composite(look, blood, full, part); vecLaid(vecBloodKept(f0)); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; if (baseM) vecTell('setOverlays', look, baseM, PW(), PH()); vecBlood = blood; const f0 = vec.stats?.frames; const r = vec.composite(look, blood, full, part); vecLaid(vecBloodKept(f0)); return r; }
       flushRadii();
       compLook = look; compBlood = blood;
       // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, look E's sines.)
@@ -5654,7 +5693,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const v of [vao, oneVAO, bloodVAO, halfSet.va, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
         for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP, meshS, meshPt, meshL]) if (x) gl.deleteProgram(x.p);
-        for (const t of [MG.tex, MG.pj, MG.scrN, MG.scrT]) if (t) gl.deleteTexture(t);
+        for (const t of [MG.tex, MG.pj, MG.scrN, MG.scrT, vecPtsTex]) if (t) gl.deleteTexture(t);
         if (meshSt) gl.deleteRenderbuffer(meshSt);
         for (const v of [MG.stripVAO, MG.patchVAO, MG.layVAO]) if (v) gl.deleteVertexArray(v);
         for (const b of [MG.rowBuf, MG.patchBuf]) if (b) gl.deleteBuffer(b);

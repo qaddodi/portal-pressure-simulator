@@ -73,3 +73,59 @@ export const REGION_QUAD_PAD_PX = 1;
 /** FULL: everything, the blood included (camera, morph and deforming frames). BASE: everything but the blood and what lies over it
  *  (the kept still picture). BLOOD: lumen pixels only, the kept BASE read under the blood (frames where only the blood moved). */
 export const V_FULL = 0, V_BASE = 1, V_BLOOD = 2;
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// CONTRACT v2 (docs/recommendations/vector-renderer-plan-r1.md section 2.5; Mohammad's reviewer's second recommendation, 9 Nov 2026).
+// Additive: the names above (the fixed classification's CELL_SIMPLE / CELL_REGION path, MAX_MEMBERS, MAX_JOINS, WIN_MAX, REGION_TEXELS, JOIN0,
+// MASK_SPLIT) stay until E's switch-over and go in the push E switches in. Owner: A. Readers: K (leaves), B, C, D, E, I, L.
+//
+// The structure: the broad 16-unit cell index stays (GRID_*, one texel a cell, now empty, a leaf or a node); inside a cell a quadtree down to MAX_DEPTH
+// levels of leaves. Every vessel row is cut once into short RUNS of RUN_SEGS segments; a run keeps a conservative capsule bound for each contribution
+// (lumen and casing, shadow, glow, ring), and a leaf lists the runs whose bounds reach it, with the bits of the contributions each reaches with. A run is
+// never widened over what lies between two runs. Nothing keeps "the nearest" of anything: a leaf over SLOTS candidates becomes L_WIDE (SLOTS_WIDE slots).
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+// ── Runs ──
+/** Segments a run (a row's 63 segments are cut into runs 4k … 4k + 3, the last run shorter), and runs a row. A run id is row · RUNS_PER_ROW + k. */
+export const RUN_SEGS = 4, RUNS_PER_ROW = 16;
+/**
+ * The RUN texture: RGBA32F, texel (k · RUN_TEXELS + t, row), t = 0 … 3:
+ *   t0  the chord: a.xy (the run's first point), b.xy (its last point)
+ *   t1  the bound radii past the chord, sagitta included: rL (lumen and casing), rS (shadow, around the chord moved by shOff), rG (glow), rR (ring)
+ *       (0 where the contribution does not apply: rS 0 without F_SHADOW, rG 0 unless the vessel glows now, rR 0 unless it is selected)
+ *   t2  i0, i1 (the run's first and last segment), flags (R_* below), 0
+ *   t3  the morph box x0, y0, x1, y1 over every frame of the stretch (a morph set's run; a figure's run holds its own box)
+ */
+export const RUN_TEXELS = 4;
+export const R_ON = 1, R_SHADOW = 2, R_GLOW = 4, R_RING = 8;   // run flags (t2.z): the run draws; its vessel has a shadow, glows now, is selected
+/** Contribution bits (a leaf's run reference carries the bits it reaches the leaf with; boundOf takes one). */
+export const C_LUMEN = 1, C_SHADOW = 2, C_GLOW = 4, C_RING = 8, C_JOIN = 16;
+
+// ── Leaves and the node tree ── (K builds them; the names are here so every reader has one source)
+/** Cell texel kinds beside CELL_EMPTY: the cell is one leaf (G = leaf index) or a node (G = node index). */
+export const CELL_LEAF = 3, CELL_NODE = 4;
+/** NODE_TEX: RGBA32UI, NODE_W texels a row; four children a node, child q = 2 · (y ≥ centre) + (x ≥ centre), each `kind << 30 | index` (kind 0 empty, 1 leaf, 2 node). */
+export const NODE_W = 1024, NODE_KIND_EMPTY = 0, NODE_KIND_LEAF = 1, NODE_KIND_NODE = 2;
+export const MAX_DEPTH = 6;     // levels under a cell (a leaf of 0.25 world units at the finest)
+/** LEAF_TEX: RGBA32UI, LEAF_TEXELS a leaf: t0 class (+ L_CROSSTIER_BIT), runStart, runCount, joinStart; t1 joinCount, candMax, depth, owner row (L_SINGLE) or 0xffffffff. */
+export const LEAF_TEXELS = 2;
+/** LEAF_BOX: RGBA32F, one texel a leaf: x0, y0, size, class (the leaf quad's square). */
+export const LEAF_BOX_TEXELS = 1;
+/** RUNREF_TEX and JOINREF_TEX: R32UI, LIST_W texels a row; a run reference is `runId | bits << 24` (bits: C_*), a join reference is a join index. No capacity limit: leaves hold start and count. */
+export const LIST_W = 4096;
+export const RUNREF_BITS_SHIFT = 24, RUNREF_ID_MASK = 0xffffff;
+/** Leaf classes (section 2.3); K_CROSSTIER is kept as a bit (L_CROSSTIER_BIT) on the class word. */
+export const L_SINGLE = 1, L_LAYERED = 2, L_CROSS = 3, L_JOIN = 4, L_WIDE = 5, L_MORPH = 6, L_CROSSTIER_BIT = 256;
+export const OWNER_NONE = 0xffffffff;
+
+// ── Joins ──
+/** The JOIN texture (a join record, one per join of the graph, not per cell): RGBA32F, JOIN_TEXELS texels: t0 x, y, k, reach; t1 member rows (−1 none); t2 trunk member row (−1), fork 0/1, fillet 0 … 1, 0. */
+export const JOIN_TEXELS = 3;
+
+// ── Candidates and the refinement policy ──
+export const SLOTS_WIDE = 32;   // candidates a pixel in an L_WIDE leaf (SLOTS is the standard program's). Over SLOTS_WIDE is a stop point.
+/** Defaults the workload benchmark (workstream L) sets on the real anatomy. */
+export const BOUND_HEADROOM = 1.1;            // radius headroom in the lumen bound (a lower one: tighter leaves, more rebuilds during width easings)
+export const LEAF_MIN_PX = 8, LEAF_OVERHEAD = 64, REFINE_GAIN = 0.2;
+/** The rendering tolerance a shortlist must prove: half an 8-bit level. */
+export const TOLERANCE_8BIT = 0.5 / 255;

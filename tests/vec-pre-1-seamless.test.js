@@ -1,4 +1,6 @@
-// Acceptance 1 (vector-renderer-plan.md section 11): seamless joins and region edges at the deepest zoom.
+// Precondition for acceptance point 1 (vector-renderer-plan.md section 11; plan-r1 section 7): seamless joins and region edges at the deepest zoom.
+// NOT PASSED. This file is a node precondition, not the acceptance: it tests partition rules, maths and scheduling, which cannot show seamless GPU
+// rendering, stable streaks or pacing. The point is judged on the devices: pinch to the deepest zoom over a join and a region edge, with the vessels drawing.
 // Node judges, on the real anatomy (cirr-decomp, in the Anatomy and in the Circuit, booted by tests/vec-anatomy.js) and A's compiler:
 //   · under random cameras up to the deepest zoom, the cell a pixel centre falls in is the one the plan's formula gives (so a strip and a region
 //     both reading it agree), a cell has one owner, and the quad of a region cell is exactly that cell's square;
@@ -6,7 +8,6 @@
 //     ordinary cell of that vessel whose run holds the nearest segment, or a region that lists that vessel with that segment;
 //   · the same world point lands in the same cell under any camera (so the same owner draws it, and the same value results);
 //   · the stretch shader and the region shader find the cell by the same text and shade a single-member pixel with the same function.
-// On the devices: pinch to the deepest zoom over a join and a region edge.
 import { bootAnatomy } from './vec-anatomy.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';

@@ -8,7 +8,7 @@ import { lintGLSL, uniformsOf } from './glsl-lint.js';
 // (The page's DOM and a GL that does nothing, as the warm-frame harness has them: the modules below read them as they load.)
 const page = (await import('../scripts/warm/dom.mjs')).installPage();
 const R = '../src/ui/';
-const { indexFlow, createStamp, createVecLobule, KEEP_BOX_VS, FLOW_TEXELS: FT, F1X, F1Z, FACTOR, LYMPH_MARK } = await import(`${R}vec-lobule.js`);
+const { indexFlow, createStamp, createVecLobule, KEEP_BOX_VS, lobuleGeo, LOBULE_SCENES, SCENE_NAMES, SCENE_DEVICE, sceneWindow, sceneMatrix, FLOW_TEXELS: FT, F1X, F1Z, FACTOR, LYMPH_MARK } = await import(`${R}vec-lobule.js`);
 const { keepFS } = await import(`${R}lobule-keep.js`);
 const { MAX_MEMBERS, MAX_JOINS } = await import(`${R}vec-contract.js`);
 const { CELL } = await import(`${R}veins-bin.js`);
@@ -314,3 +314,60 @@ test('the lobule\'s lymph rows reach lymphAt in Vector\'s blood material', async
   assert.match(glsl, /isLy\s*=\s*f1\.x\s*<\s*-0\.5/, 'a lymph row is the one whose flow texel 1.x is negative');
   assert.match(glsl, /isLy && f1\.z > 0\.0\)\s*\{[^}]*vbLymph\(/, 'a lymph row with strength is drawn by vbLymph');
 });
+
+// ── The lobule's benchmark scenes (revision 1, section 4) ──
+const inside = (w, [x, y]) => x >= w.x0 && x <= w.x1 && y >= w.y0 && y <= w.y1;
+const dotsOf = ({ tubes }) => tubes.filter((t) => t.pts.every((p) => Math.hypot(p[0] - t.pts[0][0], p[1] - t.pts[0][1]) < 2));
+for (const [W, H] of [[1440, 900], [390, 800]]) {
+  test(`lobuleGeo ${W}x${H} is the lobule's own frame: the central vein at the centre, a portal tract at R, the joins' ring at the central vein`, { timeout: 120000 }, async () => {
+    const bins = await lobuleBins(W, H, true), g = lobuleGeo(W, H);
+    const dots = dotsOf(bins);
+    assert.ok(dots.some((t) => Math.hypot(t.pts[0][0] - g.cx, t.pts[0][1] - g.cy) < 1), 'a vessel seen end-on sits at the stage centre (the central vein)');
+    assert.ok(dots.some((t) => Math.hypot(t.pts[0][0] - (g.cx - g.R), t.pts[0][1] - g.cy) < 1), 'a portal venule sits at R to the left of the central vein');
+    const ring = bins.joins.filter((j) => Math.abs(Math.hypot(j.x - g.cx, j.y - g.cy) - g.rcv0) < 0.5);
+    if (W >= 720) assert.equal(ring.length, 12, 'twelve sinusoids join the central vein at rcv0');
+    else assert.ok(ring.length >= 6, 'sinusoids join the central vein at rcv0 (a phone has fewer)');
+  });
+  for (const name of SCENE_NAMES.filter(() => W === SCENE_DEVICE.w)) {   // (the scenes are named for the Mac; a phone's lobule has fewer sinusoids)
+    test(`scene ${name} at ${W}x${H}: its window holds what it names and stays clear of what it should`, { timeout: 120000 }, async (t) => {
+      const bins = await lobuleBins(W, H, LOBULE_SCENES[name].layers.lymph), g = lobuleGeo(W, H), win = sceneWindow(name, g, W, H);
+      const dots = dotsOf(bins);
+      const cv = dots.find((d) => Math.hypot(d.pts[0][0] - g.cx, d.pts[0][1] - g.cy) < 1);
+      const portal = dots.filter((d) => Math.hypot(d.pts[0][0] - g.cx, d.pts[0][1] - g.cy) > 0.9 * g.R);
+      const crossing = bins.tubes.filter((tb) => tb.pts.some((p) => inside(win, p)));
+      const joinsIn = bins.joins.filter((j) => inside(win, [j.x, j.y]));
+      assert.ok(portal.length >= 6, 'the portal tracts are found');
+      for (const d of portal) assert.ok(!inside(win, d.pts[0]), `${name}: the portal tract at ${d.pts[0].map((v) => Math.round(v))} is outside the window`);
+      if (name === 'cv-junction') {
+        assert.ok(inside(win, cv.pts[0]), 'the central vein is inside');
+        assert.ok(bins.joins.filter((j) => Math.hypot(j.x - g.cx, j.y - g.cy) <= g.rcv0 + 0.5).every((j) => inside(win, [j.x, j.y])), 'the ring of joins around it is inside');
+        assert.ok(crossing.length >= 25, `at least 25 vessels reach the window (${crossing.length})`);
+      } else {
+        assert.ok(!inside(win, cv.pts[0]) && bins.joins.filter((j) => Math.hypot(j.x - g.cx, j.y - g.cy) <= g.rcv0 + 0.5).every((j) => !inside(win, [j.x, j.y])), 'the central vein and its ring are outside');
+        assert.ok(crossing.length >= 10 && joinsIn.length >= 1, `sinusoids and joins fill the window (${crossing.length} vessels, ${joinsIn.length} joins)`);
+      }
+      const c = membersPerCell({ tubes: crossing });
+      t.diagnostic(`${name} ${W}x${H}: window ${win.x0.toFixed(0)},${win.y0.toFixed(0)} to ${win.x1.toFixed(0)},${win.y1.toFixed(0)}; ${crossing.length} vessels, ${joinsIn.length} joins, ${c.cells} cells, most members in one cell ${c.max}`);
+      assert.ok(c.max <= MAX_MEMBERS);
+    });
+  }
+}
+test('sceneMatrix frames the window: its centre lands mid-picture, its height fills the picture', () => {
+  const g = lobuleGeo(SCENE_DEVICE.w, SCENE_DEVICE.h), w = SCENE_DEVICE.w * SCENE_DEVICE.dpr, h = SCENE_DEVICE.h * SCENE_DEVICE.dpr;
+  for (const name of SCENE_NAMES) {
+    const m = sceneMatrix(name, g, w, h), win = sceneWindow(name, g, w, h), px = (x, y) => [m[0] * x + m[4], m[3] * y + m[5]];
+    const c = px(win.cx, win.cy), a = px(win.x0, win.y0), b = px(win.x1, win.y1);
+    assert.ok(Math.abs(c[0] - w / 2) < 1e-6 && Math.abs(c[1] - h / 2) < 1e-6, `${name}: centred`);
+    assert.ok(Math.abs(a[1]) < 1e-6 && Math.abs(b[1] - h) < 1e-6 && Math.abs(a[0]) < 1e-6 && Math.abs(b[0] - w) < 1e-6, `${name}: fills the picture`);
+    assert.equal(m[0], m[3]);
+  }
+});
+test('the scenes are frozen data both sides read: a route, the layers and a window', () => {
+  assert.deepEqual([...SCENE_NAMES], ['cv-junction', 'lobule-tissue']);
+  for (const s of Object.values(LOBULE_SCENES)) {
+    assert.ok(Object.isFrozen(s) && s.route.deck && s.route.slide && s.route.preset && s.route.cam && s.halfH > 0);
+    assert.deepEqual(JSON.parse(JSON.stringify(s)), s, 'plain data');
+  }
+});
+// The lobule under the hierarchy (A's runs, K's leaves): the classes, the L_WIDE leaves, the largest candMax. Waits on A (vec-runs.js) and K (vec-leaves.js).
+test('the lobule compiled by A and K: leaf classes, L_WIDE leaves (the central vein named) and candMax are reported', { skip: 'waits on A (vec-runs.js) and K (vec-leaves.js)' }, async () => {});

@@ -171,3 +171,66 @@ export function createVecLobule(gl, { read, target, seq, laid }) {
     release() { free(); if (P && !gl.isContextLost()) gl.deleteProgram(P.p); P = null; stamp.drop(); },
   };
 }
+
+// ── The lobule's benchmark scenes (revision 1, section 4: the named benchmarks `cv-junction` and `lobule-tissue`) ──
+// Plain data both node (the replay and the sweep) and the app (`?vecbench=<name>`) read. A scene names the model state and the slide it
+// belongs to, and the camera as a window on the lobule in units of its radius R, so the same scene frames the same vessels at any stage
+// size: `sceneWindow` gives the window in the lobule's world units (the stage's pixels, as the lobule builds its tubes) and `sceneMatrix`
+// the lobule draw matrix that frames it in a picture of w × h device pixels. Neither reads the app: they are arithmetic on `lobuleGeo`.
+
+/**
+ * The lobule's frame in world units for a stage of W × H css pixels, as lobule-zoom.js build() lays it out: centred on the stage, the
+ * portal corners at distance R (on a phone, W < 720, R is taken from the narrower side). A test ties these numbers to the real tubes
+ * (a portal venule at R from the central vein, the ring of joins at the central vein), so a change in the lobule fails there.
+ */
+export function lobuleGeo(W, H) {
+  const phone = W < 720;
+  const R = phone ? Math.min(W * 0.42, H * 0.3) : Math.min(W * 0.3, H * 0.34);
+  return { W, H, phone, R, cx: W * 0.5, cy: H * 0.5, rcv0: R * 0.07 };
+}
+
+/** The device the scenes are named for (the owner's Mac): css pixels of the stage, the device pixel ratio. */
+export const SCENE_DEVICE = { w: 1440, h: 900, dpr: 2 };
+
+/**
+ * The scenes. `route` is the model state and the slide the app shows them on (deck id, slide id, the preset the slide sets, its camera
+ * station); `layers` is the lobule's own layer state (the default: lymph on, the worst case for the central vein); `at` is the window's
+ * centre as offsets from the central vein in units of R (`dir` × `along`: the unit vector toward the portal corner `corner`, here the
+ * left one, the station the sinusoid framing uses); `halfH` is half the window's height in units of R. `expect` is what a test holds
+ * the window to (it names vessels the window must reach and vessels it must stay clear of).
+ */
+export const LOBULE_SCENES = Object.freeze({
+  'cv-junction': Object.freeze({
+    name: 'cv-junction',
+    about: 'The camera on the central vein, at the zoom where the 12 sinusoids\' meeting fills the screen (3.7 × the fit, inside the lobule\'s 5 ×).',
+    route: Object.freeze({ deck: 'lobule', slide: 'sos', preset: 'sos', cam: 'lobule:central' }),
+    layers: Object.freeze({ zones: false, lymph: true }),
+    at: Object.freeze({ dir: [0, 0], along: 0 }),
+    halfH: 0.32,
+    expect: Object.freeze({ keeps: 'the central vein and the ring of joins around it', clear: 'the portal tracts' }),
+  }),
+  'lobule-tissue': Object.freeze({
+    name: 'lobule-tissue',
+    about: 'The ordinary sinusoid field, half way from the left portal corner to the central vein: clear of the central vein and the triads.',
+    route: Object.freeze({ deck: 'lobule', slide: 'lobule', preset: 'healthy', cam: 'lobule:sinusoid' }),
+    layers: Object.freeze({ zones: false, lymph: true }),
+    at: Object.freeze({ dir: [-1, 0], along: 0.5 }),
+    halfH: 0.2,
+    expect: Object.freeze({ keeps: 'sinusoids and their joins', clear: 'the central vein and the portal tracts' }),
+  }),
+});
+export const SCENE_NAMES = Object.freeze(Object.keys(LOBULE_SCENES));
+
+/** A scene's window in world units: { x0, y0, x1, y1, cx, cy } for a picture whose aspect is w / h (the stage size the lobule was built at). */
+export function sceneWindow(scene, geo, w = SCENE_DEVICE.w, h = SCENE_DEVICE.h) {
+  const s = typeof scene === 'string' ? LOBULE_SCENES[scene] : scene;
+  const cx = geo.cx + s.at.dir[0] * s.at.along * geo.R, cy = geo.cy + s.at.dir[1] * s.at.along * geo.R;
+  const hh = s.halfH * geo.R, hw = hh * (w / h);
+  return { x0: cx - hw, y0: cy - hh, x1: cx + hw, y1: cy + hh, cx, cy };
+}
+
+/** The lobule draw matrix [a, b, c, d, e, f] (world units → device pixels, y down, as the lobule hands the renderer) framing the scene in w × h pixels. */
+export function sceneMatrix(scene, geo, w = SCENE_DEVICE.w * SCENE_DEVICE.dpr, h = SCENE_DEVICE.h * SCENE_DEVICE.dpr) {
+  const win = sceneWindow(scene, geo, w, h), k = h / (win.y1 - win.y0);
+  return [k, 0, 0, k, w / 2 - k * win.cx, h / 2 - k * win.cy];
+}
