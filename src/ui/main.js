@@ -73,7 +73,7 @@ import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, setFramePump, figOpt, setFigOpt, vesselMesh, setVesselMesh } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, setFramePump, figOpt, setFigOpt, vesselRenderer, setVesselRenderer, VECTOR_OFFERED } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
@@ -1289,7 +1289,8 @@ function openSettings(anchor, withSearch = false) {
       }),
       h('div', { class: 'menu-title' }, 'Figure size (megapixels)'),
       figureMpControl(),
-      menuToggle(vesselMesh(), 'layers', 'Mesh vessel renderer', 'Draw the vessels as meshes, which cost the GPU less. Off uses the classic renderer', (on) => setVesselMesh(on)),
+      h('div', { class: 'menu-title' }, 'Vessel renderer'),
+      vesselRendererControl(),
       menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Draw the figure at full resolution during a pan or zoom, even if frames run long', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
     // (What the model shows and how far it goes has its own heading; none of it is in a talk.)
     ...(talk ? [] : [menuSection('Model',
@@ -1350,6 +1351,20 @@ function figureMpControl() {
   now.addEventListener('click', () => { setFigOpt('cap', 8); paint(); });
   paint();
   return h('div', { class: 'seg full menu-seg text-size fig-mp', role: 'group', 'aria-label': 'Figure size in megapixels' }, less, now, more);
+}
+// Vessel renderer (Settings › Display, after Figure size): Classic, Mesh or Vector (frame.js keeps the choice and tells the figure). Vector is
+// offered once it draws end to end (VECTOR_OFFERED); until then the choice is Classic or Mesh.
+const RENDERER_CHOICES = [['classic', 'Classic', 'The original vessel shader'], ['mesh', 'Mesh', 'Each vessel drawn as a mesh, which costs the GPU less'], ['vector', 'Vector', 'Retained vector geometry, with blood shaded on it']];
+function vesselRendererControl() {
+  const cur = vesselRenderer();
+  return h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'Vessel renderer' }, RENDERER_CHOICES.filter(([v]) => VECTOR_OFFERED || v !== 'vector').map(([v, label, tip]) => {
+    const b = h('button', { 'aria-pressed': String(cur === v), 'data-renderer': v, title: tip }, label);
+    b.addEventListener('click', () => {
+      setVesselRenderer(v);
+      b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    });
+    return b;
+  }));
 }
 // Full screen through the browser. iPhone Safari has no full screen for pages, so there the
 // sheet says how to get the same room: Add to Home Screen opens the app without browser bars.

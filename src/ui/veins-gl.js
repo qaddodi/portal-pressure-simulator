@@ -58,7 +58,7 @@ import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGrou
 import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
-import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor, vesselMesh } from './frame.js';
+import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor, vesselMesh, vesselRenderer } from './frame.js';
 import { keepScreen } from './keep-screen.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
@@ -1975,6 +1975,10 @@ export function camLayBox(o, ob, k, ex, eyUp, cw, ch, pw, ph) {
   o[1] = Math.max(0, Math.floor(Math.min(ya, yb)) - pad); o[3] = Math.min(ch, Math.ceil(Math.max(ya, yb)) + pad);
   return o[2] > o[0] && o[3] > o[1];
 }
+// The vector vessel renderer's factory (vec-renderer.js createVecRenderer(gl, shared)), set where the app starts (and by the seam's tests).
+// Settings › Display › Vessel renderer › Vector hands the figure's draw, drawRows and composite to what it makes (the seam below).
+let vecFactory = null;
+export function setVectorFactory(f) { vecFactory = typeof f === 'function' ? f : null; }
 export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'stage', onPlate = null, share = null }) {
   // share (the lobule, 4 Nov 2026: one GPU context for the figure): another renderer's `top` ({ gl, canvas }). This one then makes no context
   // and no canvas of its own: it draws in the host's context, and what it would put on its canvas goes to a texture and framebuffer of
@@ -2199,6 +2203,23 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const notePlate = () => { const h = !!plates[0] || !!stack?.has(0); if (h !== plateSeen) { plateSeen = h; onPlate?.(h); } };
   // The organs as layers instead of one picture (the ?perf switch "GPU organs", stage.js): null where it cannot be made.
   const stack = createOrganStack(gl);
+  // ── The vector renderer's state (the seam proper is below, before the mesh renderer's) ──
+  let vec = null, vecFailed = false, vecChoice = '', binsNow = null, geoSkipped = false;
+  // (The organ and overlay inputs as the stack and the overlay were last given them, kept as references: what the Vector renderer starts from when it
+  // is chosen after they came, and what the stack is given when another renderer is chosen after Vector skipped the picture draws.)
+  const vecOps = { bakes: [new Map(), new Map()], commits: [null, null], paint: null, overlay: null, live: null, masks: null, liveAll: null, order: null, shift: {} };
+  // (What Vector skipped, for the stack and the covers: the baked layers, the commits, the cover's shapes, the overlays' groups.)
+  const vecSkip = { bakes: [new Map(), new Map()], commits: [null, null], paint: null, overlay: null };
+  /** Vector is drawing now (made, and still the choice): the skips below are decided on this, never on making it (that is a draw's). */
+  const vecNow = () => !!vec && vesselRenderer() === 'vector';
+  const VEC_JOB = { step: () => true, drop() {} };   // (a layer's bake under Vector: nothing to paint, it is whole at once)
+  let vecGen = 0;   // (how many Vector renderers have been made: a morph set of an earlier one is made again)
+  // (Whether Vector holds layer pictures for a slot: the ones it was told to show, standing in for the stack's staged ones.)
+  const vecHeld = (slot) => !!vec && vesselRenderer() === 'vector' && !!vecOps.commits[slot]?.length;
+  // (The stage is told whether the GPU holds the plate: with Vector, its layers count, though the stack holds none of their pictures.)
+  const onPlateTo = onPlate;
+  if (onPlateTo) onPlate = (h) => onPlateTo(h || vecHeld(0));
+  const plateTell = () => { const h = !!plates[0] || !!stack?.has(0) || vecHeld(0); if (h !== plateSeen) { plateSeen = h; onPlateTo?.(h); } };
   // The figure's overlays (stage.js: the lowest groups of #stageOver it can read), painted by the organs' painter at the canvas's
   // own size into a stack of their own, laid over the picture as it goes onto the canvas (present). Only with a kept picture of
   // its own (the canvas is then drawn whole at each present, the overlays with it). Made when first asked for (overlay.set).
@@ -3220,6 +3241,85 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, rmaxTex); UC.i1(u.rmax, 4);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, tint ? depTex : depNone); UC.i1(u.depL, 5);
   }
+  // ── The seam to the vector vessel renderer (Settings › Display › Vessel renderer › Vector; docs/recommendations/vector-renderer-plan.md 9.H) ──
+  // The one place this file hands over. With Vector chosen (the figure and the lobule: ownBuf), draw, drawRows and composite return what the
+  // Vector renderer returns before any classic or mesh work; the invalidations (geometry, morph sets, radii, bends, tubes, blood, dye, the organs
+  // and the overlays) are forwarded to it as they come, the data textures and mirrors they fill being its to read (vecShared). The classic layer's
+  // four targets and the mesh's depth and scratch are given back while it is on (they are not drawn), the geometry's texture uploads and the organ
+  // stack's picture draws are skipped, and all of it is made again, from what is kept here, when another renderer is chosen. Vector is pure: a
+  // frame is never drawn by the other two. (Only when it cannot be made at all, no factory or a shader that does not build, the chosen renderer
+  // falls to mesh or classic for the page, as mesh does without a depth buffer.)
+  const vecShared = {
+    gl, canvas, who, nTubes, software: () => software, scr: () => SCR(),
+    get rad() { return radTex; }, get rmax() { return rmaxTex; }, get tube() { return tubeTex; }, get flow() { return flowTex; }, get bend() { return bendTex; },
+    get dye() { return dyeTex; }, get organCover() { return organTex; }, get organRect() { return organRect; },
+    get bloodTile() { if (!tileTried) { tileTried = true; tileGPU = createBloodTile(gl); } return tileGPU; },
+    get radAll() { return radAll; }, get rmaxAll() { return rmaxAll; }, get axisAll() { return axisAll; }, get tubeNow() { return tubeNow; },
+    get flowSent() { return flowSent; }, get dyeSent() { return dyeSent; },
+    get cellsCPU() { return cellsCPU; }, get entCPU() { return entCPU; }, get bloodCPU() { return bloodCPU; }, get nCells() { return nCells; }, get bins() { return binsNow; },
+    get cam() { return cam; }, get look() { return lastLook; }, get picW() { return PW(); }, get picH() { return PH(); },
+    get lines() { return lines; }, get cath() { return cath; }, get tops() { return tops; }, get stack() { return stack; },
+  };
+  /** Tells the Vector renderer a change (it takes what it needs of the data; a name it does not have is not an error while it is being built). */
+  const vecTell = (name, a, b, c, d, e, f, g) => { const fn = vec?.[name]; if (typeof fn === 'function') fn.call(vec, a, b, c, d, e, f, g); };
+  // The classic and mesh targets, to a texel while Vector draws: the layer's colour and the two flow images and the depth, the mesh's depth
+  // and stencil and its scratch layers. Made again at the right size by the classic layout the next time it draws (fboW is 0).
+  function vecGiveBack() {
+    if (lost) return;
+    const one = (t, ifmt, fmt, type) => { if (!t) return; gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, ifmt, 1, 1, 0, fmt, type, null); };
+    if (fboW) {
+      one(baseTex, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE); one(gTex, gl.RGBA16UI, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT);
+      one(gTex2, gl.RG16UI, gl.RG_INTEGER, gl.UNSIGNED_SHORT); one(depTex, gl.R8, gl.RED, gl.UNSIGNED_BYTE);
+    }
+    if (meshStOn) { gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, null); gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); meshStOn = false; }
+    if (meshSt) { gl.bindRenderbuffer(gl.RENDERBUFFER, meshSt); gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, 1, 1); }
+    one(MG.scrN, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE); one(MG.scrT, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE);
+    MG.w = MG.h = MG.sw = MG.sh = -1;
+    fboW = fboH = 0; fboOK = false; baseM = null; wrapNone(); lowLive = null; rz.m = null;
+    stale = false;
+  }
+  // Another renderer chosen after Vector: what was skipped is done now, from what was kept (the geometry uploaded whole, the organ covers
+  // painted, the layers' pictures baked and shown, the overlays set), and the next picture is a whole one.
+  function vecLeave() {
+    const was = vec; vec = null;
+    try { was?.dispose?.(); } catch (e) { caught('veins-gl:vec-dispose', e); /* a renderer going */ }
+    if (lost) return;
+    if (geoSkipped && binsNow) { geoSkipped = false; api.setGeometry(binsNow); }
+    if (vecSkip.paint) { const { shapes, rect, k } = vecSkip.paint; vecSkip.paint = null; api.paintOrgans(shapes, rect, k); }
+    if (stack) {
+      for (const M of vecSkip.bakes) {
+        for (const a of M.values()) { const job = stack.bake(a.slot, a.name, a.groups, a.rect, a.scale, a.at); if (job) { try { while (!job.step(Infinity)); } finally { job.drop(); } } }
+        M.clear();
+      }
+      for (let slot = 0; slot < 2; slot++) if (vecSkip.commits[slot]) { stack.commit(slot, vecSkip.commits[slot]); vecSkip.commits[slot] = null; }
+      plateTell();
+    }
+    if (vecSkip.overlay && overOK) { const { groups, names } = vecSkip.overlay; vecSkip.overlay = null; api.overlay.set(groups, names); }
+    fboOK = false; stale = true; movedAll = true; figVer++; texVer++;
+  }
+  /** Whether the Vector renderer draws now; makes it, or lets it go, when the choice has changed since the last call. */
+  function vecOn() {
+    const pick = vesselRenderer();
+    if (pick !== vecChoice) { vecChoice = pick; vecFailed = false; }
+    const want = ownBuf && pick === 'vector' && !!vecFactory && !lost && !vecFailed;
+    if (want === !!vec) return want;
+    if (!want) { vecLeave(); return false; }
+    try {
+      vec = vecFactory(gl, vecShared);
+      if (!vec) throw new Error('no renderer');
+    } catch (e) {
+      vec = null; vecFailed = true;
+      console.warn('Veins renderer: the vector vessel renderer could not be made; the chosen renderer\'s own drawing is used instead.', e);
+      return false;
+    }
+    vecGiveBack();
+    vecGen++;
+    figVer++; texVer++; movedAll = true;
+    if (binsNow) vecTell('setGeometry', binsNow);
+    vecTell('setOrgans', 'replay', vecOps);
+    if (vecOps.overlay) vecTell('setOverlays', 'set', vecOps.overlay.groups, vecOps.overlay.names);
+    return true;
+  }
   // ── The mesh vessel renderer (Settings › Display › Mesh vessel renderer; docs/veins-mesh-plan.md) ──
   // Each vessel a strip of triangles placed from the textures (veins-mesh.js), each join a patch, drawn tier by tier as the classic shader
   // composites them (by group: behind the organs, the network, lifted): per tier its glows, its shadow, its shape, the selected vessel's lift
@@ -3583,6 +3683,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   function clearAll() { pictured(); if (own?.w) { gl.bindFramebuffer(gl.FRAMEBUFFER, own.fbo); gl.viewport(0, 0, own.w, own.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); } gl.bindFramebuffer(gl.FRAMEBUFFER, SCR()); gl.viewport(0, 0, canvas.width, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); nCells = nBlood = nGen = nSimple = 0; baseM = null; fboOK = false; }
   function presentSelf(top, again) {
+    // (Vector lays its own picture when a host asks for the canvas again; without that call, the canvas is laid as below from the kept picture.)
+    if (vecNow() && typeof vec.present === 'function') { vec.present(top, again); return; }
     presentLay(top, again);
   }
   function presentLay(top, again) {
@@ -4203,6 +4305,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     geoCur = S || null;
   }
   const morphSets = new Set();
+  const vecSets = new Set();   // (the morph sets made while Vector drew; a classic one is in morphSets)
+  let vecSet = null;
   function dropSet(S) {
     if (geoCur === S) useMorphSet(null);
     if (!morphSets.delete(S) || lost) return;
@@ -4221,6 +4325,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     makeMorphSet(bins) {
       if (lost) return null;
+      if (vecOn()) { vecSets.add(vecSet = { owner: api, bins, vecSet: vec.makeMorphSet?.(bins) ?? null, vecGen }); return vecSet; }
       const was = geoCur;
       useMorphSet(null);
       const v = gl.createVertexArray(), cb = gl.createBuffer();
@@ -4245,16 +4350,28 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       uploadCells();
       uploadBlood(bins);
       useMorphSet(was);
+      S.bins = bins;
       return S;
     },
     /** Draws from a morph set (null: the figure's own binning again). */
-    useMorphSet(S) { if (!S || (S.owner === api && morphSets.has(S))) useMorphSet(S); },
-    dropMorphSet(S) { if (S) dropSet(S); },
+    useMorphSet(S) {
+      if (vecOn()) {
+        if (S && S.owner !== api) return;
+        if (S && S.vecGen !== vecGen) { S.vecSet = vec.makeMorphSet?.(S.bins) ?? null; S.vecGen = vecGen; }
+        vecTell('useMorphSet', S ? S.vecSet : null);
+        return;
+      }
+      // (A set made while Vector drew has no classic texture: made now from its binning, as it is the same set.)
+      if (S && S.owner === api && !S.entTex && S.bins && !lost) { const B = api.makeMorphSet(S.bins); if (B) { morphSets.delete(B); Object.assign(S, B); morphSets.add(S); } }
+      if (!S || (S.owner === api && morphSets.has(S))) useMorphSet(S);
+    },
+    dropMorphSet(S) { if (!S) return; if (S.vecSet && S.vecGen === vecGen) vecTell('dropMorphSet', S.vecSet); vecSets.delete(S); dropSet(S); },
     /**
      * The frame's points and joins for the morph set in use: `rows` floats laid out as the set's rows after its entries (veins-sweep
      * writePoints / writeJoinNow from posBase). A few rows: the whole vessel layer is drawn again from them.
      */
     setMorphFrame(data) {
+      if (vecNow()) { vecTell('setMorphFrame', data); return; }
       const M = geo.morph;
       if (!M || lost) return;
       gl.bindTexture(gl.TEXTURE_2D, entTex);
@@ -4265,6 +4382,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     /** Uploads the binned geometry (from binVeins). */
     setGeometry(bins) {
       figVer++;
+      binsNow = bins;
+      // (Vector draws: the geometry is compiled by it from the binning; the texture and cell uploads below are for the other two, made when they are chosen.)
+      if (vecNow()) {
+        useMorphSet(null);
+        cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells; rowCells = null; geoSkipped = true; movedAll = true;
+        vecTell('useMorphSet', null); vecTell('setGeometry', bins);
+        return;
+      }
+      geoSkipped = false;
       useMorphSet(null);
       // (R05: a rebinning writes its rows into the entries' kept storage; the texture is made taller only when outgrown.)
       keepRows(entTex, gl.RGBA32F, gl.RGBA, gl.FLOAT, ENT_W, bins.rows || 1, bins.ent.length ? bins.ent : (entNone ||= new Float32Array(ENT_W * 4)));
@@ -4281,6 +4407,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     patchGeometry(bins) {
       figVer++;
+      binsNow = bins;
+      if (vecNow()) { cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells; rowCells = null; geoSkipped = true; movedAll = true; vecTell('patchGeometry', bins); return; }
+      if (geoSkipped) { api.setGeometry(bins); return; }   // (the texture does not hold the binning this patches: it is sent whole)
       useMorphSet(null);
       gl.bindTexture(gl.TEXTURE_2D, entTex);
       for (const [r0, r1] of bins.patch) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, r0, ENT_W, r1 - r0 + 1, gl.RGBA, gl.FLOAT, bins.ent, r0 * ENT_W * 4);   // (read from the rows' own offset: no view)
@@ -4376,6 +4505,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * union, as the 2D canvas drew them (the shape drawer's coverage, joined by the larger). Nothing is drawn on the CPU or uploaded.
      */
     paintOrgans(shapes, rect, k) {
+      const kept = vecOps.paint ||= { shapes: null, rect: null, k: 0 };
+      kept.shapes = shapes; kept.rect = rect; kept.k = k;
+      vecSkip.paint = null;
+      // (Vector draws the organs from the shapes it is given, not from this texture: nothing is painted, the cover's rectangle is noted, and
+      // the shapes are kept for the other two to paint when one is chosen.)
+      if (vecNow()) { texVer++; organRect = rect; vecSkip.paint = kept; vecTell('setOrgans', 'paint', shapes, rect, k); return; }
       const W = Math.max(1, Math.round(rect[2] * k)), H = Math.max(1, Math.round(rect[3] * k));
       const fb0 = glGet(gl, gl.FRAMEBUFFER_BINDING), vp0 = glGet(gl, gl.VIEWPORT);   // (gl-state.js: the record, not the driver)
       const shape = createShapeGL(gl), fbo = gl.createFramebuffer(), st = gl.createRenderbuffer(), mesh = ORGAN_MESH;
@@ -4481,12 +4616,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for (let i = 0; i + 1 < cells.length; i += 2) { const x = cells[i], y = cells[i + 1]; if (x < a) a = x; if (y < b) b = y; if (x > c) c = x; if (y > d) d = y; } fluidW[0] = a; fluidW[1] = b; fluidW[2] = c + CELL; fluidW[3] = d + CELL; }
     },
     dropPlate(slot) { texVer++; if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; } stack?.drop(slot); notePlate(); },
-    hasPlate: (slot) => !!plates[slot] || !!stack?.has(slot),
+    hasPlate: (slot) => !!plates[slot] || !!stack?.has(slot) || vecHeld(slot),
     /** The organs' layers (organs-gl.js), or null: a filled raster job (plateJob) is staged for a slot and the set committed whole. */
     organs: stack && {
       stage(slot, name, job, rect, at = 0) { stack.stage(slot, name, job.tex, rect, at); },
       /** A layer's picture painted on the GPU from its organs' shapes (organs-gl bake): a job stepped a frame at a time, then staged. */
-      bake: (slot, name, groups, rect, scale, at = 0) => stack.bake(slot, name, groups, rect, scale, at),
+      bake: (slot, name, groups, rect, scale, at = 0) => {
+        const rec = { slot, name, groups, rect, scale, at };
+        vecOps.bakes[slot].set(name, rec); vecSkip.bakes[slot].delete(name);
+        vecTell('setOrgans', 'bake', slot, name, groups, rect, scale, at);
+        // (Vector draws the layer from its groups: there is no picture to paint, and the job is whole at once. The groups are kept for the other two.)
+        if (vecNow()) { vecSkip.bakes[slot].set(name, rec); return VEC_JOB; }
+        return stack.bake(slot, name, groups, rect, scale, at);
+      },
       dropKept: () => stack.dropKept(),
       stats: () => stack.stats(),
       liveLayers: () => stack.liveLayers(),
@@ -4497,7 +4639,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         stack.commit(slot, names);
         notePlate();
       },
-      dropStaged: (slot) => stack.dropStaged(slot),
+      dropStaged: (slot) => { vecOps.bakes[slot].clear(); vecSkip.bakes[slot].clear(); stack.dropStaged(slot); },
       has: (slot) => stack.has(slot),
       /** Whether a slot holds pictures of its own, not only the whole set painted live (organs-gl setLive full). */
       pictured: (slot) => stack.pictured(slot),
@@ -4555,6 +4697,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
     draw(m, look, blood, rows = null) {
+      if (vecOn()) { flushRadii(); lastLook = look; return vec.draw(m, look, blood, rows); }
       flushRadii();
       meshSync();
       counts.draw++;
@@ -4666,6 +4809,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * (nothing they hold is dropped by a refusal). `rowsStatus` says which: 'drawn', or why it was refused (ROWS_REFUSED).
      */
     drawRows(m, look, blood, rows, full = false) {
+      if (vecOn()) { flushRadii(); lastLook = look; return vec.drawRows(m, look, blood, rows, full); }
       flushRadii();
       meshSync();
       for (let i = 0; i < 6; i++) OVER[i] = m[i];
@@ -4783,18 +4927,23 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     } : null,
     overlay: overOK ? {
       set(groups, names) {
+        const kept = vecOps.overlay ||= { groups: null, names: null };
+        kept.groups = groups; kept.names = names; vecSkip.overlay = null;
+        vecTell('setOverlays', 'set', groups, names);
+        // (Vector draws the overlays from these groups, not from the painter's stack: none is made, the groups are kept for the other two.)
+        if (vecNow()) { overShown = !!groups?.size; vecSkip.overlay = kept; return; }
         if (!over && groups?.size && !lost) over = createOrganStack(gl, { painter: stack.painter });
         if (!over) return;
         over.setOrder(names); over.setLive(groups && groups.size ? groups : null, null); overShown = !!groups?.size;
       },
       /** The groups' kept shapes (stage.js, over-records.js) were written in place: the next present draws them again. */
-      touch() { over?.touch(); },
+      touch() { over?.touch(); vecTell('setOverlays', 'touch'); },
       /** Device px per CSS px of the canvas (a non-scaling stroke's width: organ-paint cssPx). */
       set cssPx(v) { overCss = v; },
       /** Whether the stage moves the canvas by the vessels' sub-pixel rest (stage.js subPixel, below Full): the overlays then go at whole pixels too. */
       set snap(v) { overSnap = !!v; },
       get stale() {
-        if (!overShown || !overM || !own?.w) return false;
+        if (vecNow() || !overShown || !overM || !own?.w) return false;
         stack.painter.cssPx = overCss * PW() / canvas.width;
         return over.stale(overView(), PW(), PH());
       },
@@ -4844,6 +4993,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * cells drawRows drew again (the vessel layer changed under them).
      */
     composite(look, blood = NOBLOOD, full = false, part = 0) {
+      if (vecOn()) { flushRadii(); lastLook = look; return vec.composite(look, blood, full, part); }
       flushRadii();
       compLook = look; compBlood = blood;
       // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, look E's sines.)
@@ -5388,6 +5538,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       (hostCv || canvas).removeEventListener('webglcontextlost', onLost);
       (hostCv || canvas).removeEventListener('webglcontextrestored', onRestored);
       if (!lost) {
+        try { vec?.dispose?.(); } catch (e) { caught('veins-gl:vec-dispose', e); /* going anyway */ }
+        vec = null; vecSets.clear();
         useMorphSet(null);
         for (const S of [...morphSets]) dropSet(S);
         for (const t of [entTex, radTex, bendTex, rmaxTex, tubeTex, organTex, flowTex, dyeTex, fluidTex, baseTex, gTex, gTex2, depTex, depNone, lineLayer.tex, glowLayer.tex, warmLayer.tex, ...plates.map((x) => x?.tex)]) if (t) gl.deleteTexture(t);
@@ -5419,6 +5571,39 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       lost = true;
     },
   };
+  // (Every other input that changes what the vessels, the blood or the layers over them show is told to the Vector renderer once its own work is
+  // done; it reads the data they fill from vecShared. Before it is made, and with another renderer chosen, there is nobody to tell.)
+  for (const name of ['setRadii', 'setBend', 'setTubes', 'setFlow', 'setDye', 'setLines', 'setCath', 'setFluidSpans', 'setFluidLiver', 'setFluidCells', 'setCameraRec', 'setScene', 'setLayerScale', 'clear']) {
+    const was = api[name];
+    if (!was) continue;
+    api[name] = function (a0, a1, a2, a3) { const r = was.call(this, a0, a1, a2, a3); if (vec) vecTell(name, a0, a1, a2, a3); return r; };
+  }
+  // (The live organs and the overlays' order, as the stack is given them: kept for Vector's start, and told to it.)
+  if (api.organs) {
+    const O = api.organs;
+    // (A slot's layers shown: Vector is told, and takes them in place of the stack's pictures, which are not made; it counts for the plate the stage is told of.)
+    const commitTo = O.commit;
+    O.commit = (slot, names) => {
+      const kept = vecOps.commits[slot] = names.slice();
+      for (const n of vecOps.bakes[slot].keys()) if (!kept.includes(n)) { vecOps.bakes[slot].delete(n); vecSkip.bakes[slot].delete(n); }
+      vecTell('setOrgans', 'commit', slot, kept);
+      if (!vecNow()) { vecSkip.commits[slot] = null; commitTo(slot, names); return; }
+      texVer++;
+      if (plates[slot]) { gl.deleteTexture(plates[slot].tex); plates[slot] = null; }
+      vecSkip.commits[slot] = kept;
+      plateTell();
+    };
+    const hasTo = O.has, picturedTo = O.pictured;
+    O.has = (slot) => hasTo(slot) || vecHeld(slot);
+    O.pictured = (slot) => picturedTo(slot) || vecHeld(slot);
+    const dropTo = api.dropPlate;
+    api.dropPlate = (slot) => { vecOps.bakes[slot]?.clear(); vecSkip.bakes[slot]?.clear(); vecOps.commits[slot] = vecSkip.commits[slot] = null; vecTell('setOrgans', 'drop', slot); dropTo(slot); if (vec) plateTell(); };
+    const noted = (name, kind, keep) => { const was = O[name]; O[name] = (a, b) => { keep(a, b); vecTell('setOrgans', kind, a, b); return was(a, b); }; };
+    noted('setLive', 'live', (a, b) => { vecOps.live = a; vecOps.masks = b; vecOps.liveAll = null; });
+    noted('setLiveAll', 'liveAll', (a) => { vecOps.liveAll = a; vecOps.live = vecOps.masks = null; });
+    noted('setOrder', 'order', (a) => { vecOps.order = a; });
+    noted('shift', 'shift', (a, b) => { vecOps.shift[a] = b; });
+  }
   // (Timed for the debug overlay's GPU readout: gpu-probe.js. Off, each call costs one check.)
   const steps = { draw: 'vessels', drawRows: 'vessels', composite: 'picture', setGeometry: 'uploads', patchGeometry: 'uploads', setRadii: 'uploads', setBend: 'uploads', setTubes: 'uploads',
     paintOrgans: 'picture', plateJob: 'uploads', plateRows: 'uploads', setPlate: 'uploads', setFluidSpans: 'uploads', setFluidCells: 'uploads', setFlow: 'uploads', setDye: 'uploads' };
