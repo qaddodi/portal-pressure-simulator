@@ -175,6 +175,34 @@ test('PHASE has BEHIND = 3 for G, and a BASE pass draws BEHIND and UNDER only', 
   assert.deepEqual(h.overlays.phases, [PHASE.BEHIND, PHASE.UNDER, PHASE.HEADS]);
 });
 
+test("F's organs: update() before the passes (outside them), covers feed the veil, prepare and step on idle frames only", () => {
+  const h = harness();
+  const log = [], cover = {};
+  const o = h.organs;
+  o.update = () => log.push('update'); o.covers = () => ({ tex: cover, rect: [1, 2, 3, 4] });
+  o.prepare = (z, sc) => log.push(`prepare ${z} ${sc}`); let steps = 0;
+  o.step = () => { log.push('step'); return ++steps >= 2; };
+  h.r.setGeometry({ ent: new Float32Array(4) });
+  const gl = h.gl;
+  const orig = gl.bindFramebuffer;
+  gl.bindFramebuffer = function (...a) { log.push('bind'); return orig.apply(this, a); };
+  h.r.draw(h.m(0), h.look, h.blood);   // (the first frame makes the targets, whose own binds are setup)
+  log.length = 0;
+  h.r.draw(h.m(5), h.look, h.blood);
+  assert.deepEqual(log, ['update', 'bind'], 'the organs\' changes are written before the pass binds its target');
+  log.length = 0;
+  h.r.composite(h.look, h.blood, false);   // nothing changed: an idle frame
+  assert.deepEqual(log, ['prepare undefined 1', 'step']);
+  log.length = 0;
+  h.r.composite(h.look, h.blood, false);
+  assert.deepEqual(log, ['step'], 'prepared once for this scale, then stepped');
+  assert.equal(h.r.idleWanted, false, 'step said all is ready');
+  h.blood.bt = 76; h.r.composite(h.look, h.blood, false);   // (this one writes the base, so it draws organs)
+  log.length = 0;
+  h.blood.bt = 77; h.r.composite(h.look, h.blood, false);   // a blood frame: no organs work, no update
+  assert.deepEqual(log.filter((x) => x !== 'bind'), [], 'a blood frame: no organs work');
+});
+
 test('a colour change at rest redraws boxes: FULL and BASE scissored to the row\'s cells', () => {
   const h = harness();
   h.r.setGeometry({ ent: new Float32Array(4) });
