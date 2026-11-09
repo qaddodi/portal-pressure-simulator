@@ -3257,6 +3257,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // textures are filled from, the binning, the camera and the look.)
   const PIC = { tex: null, w: 0, h: 0 };
   let vecEnt = null, vecParts0 = null;   // (the entry texture of the morph set in use, null: the figure's own; the parts, made when the renderer is)
+  const BLEED_COL = new Float32Array(9);
+  let bleedFor = null;
+  function vecBleedCol() {
+    const key = lastLook;
+    if (bleedFor === key && key) return BLEED_COL;
+    bleedFor = key;
+    try {
+      let o = 0;
+      for (const t of ['--bleed-spray', '--bleed-fresh', '--bleed-deep']) { const c = cssRGB(t); BLEED_COL[o++] = c[0] / 255; BLEED_COL[o++] = c[1] / 255; BLEED_COL[o++] = c[2] / 255; }
+    } catch (e) { caught('veins-gl:vec-bleed', e); /* the tokens are unreadable here: black */ }
+    return BLEED_COL;
+  }
   const vecShared = {
     nTubes, who, gl, canvas,
     picture() { if (!own || lost) return null; ownSize(); PIC.tex = own.tex; PIC.w = own.w; PIC.h = own.h; return PIC; },
@@ -3268,6 +3280,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     uniforms: {
       get organRect() { return organRect; },
       get useOrgan() { return lastLook && lastLook.organs > 0 && organRect ? 1 : 0; },
+      // (The blood material's bleed colours, the tokens COMP_FS reads when it is built: read again when the look changes.)
+      get vbBleedCol() { return vecBleedCol(); },
     },
     isLost: () => lost,
     get parts() { return (vecParts0 ||= vecParts(gl, VEC_K)); },
@@ -4416,7 +4430,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (vecNow()) {
         const cur = vecEnt && vecCurSet();
         if (cur && !lost) { gl.bindTexture(gl.TEXTURE_2D, vecEnt); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, cur.bins.entRows, ENT_W, cur.bins.rows - cur.bins.entRows, gl.RGBA, gl.FLOAT, data); }
-        figVer++; fboOK = false; movedAll = true;
+        figVer++; movedAll = true; fboOK = false;
         vecTell('setMorphFrame', data);
         return;
       }
