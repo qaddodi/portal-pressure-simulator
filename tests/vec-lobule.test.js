@@ -229,19 +229,16 @@ for (const lymph of [false, true]) {
     const comp = await waits('vec-compile.js');
     if (!comp) return t.skip('waits for A: vec-compile.js');
     const lines = [];
-    let joinsOver = 0;
     for (const [W, H] of SIZES) {
       const view = compileLobule(comp, await lobuleBins(W, H, lymph));
       const st = view.stats;
       lines.push(`${W}x${H}: ${st.simple} stretch cells, ${st.regions} regions (join ${st.join}, cross ${st.cross}, crosstier ${st.crosstier}, hairpin ${st.hairpin}, near ${st.near}, long ${st.long}), most members ${st.maxMembers}, most joins ${st.maxJoins}, regions over ${MAX_MEMBERS}: ${st.overMembers}`);
       assert.equal(view.tooWide, false, `${W}x${H}: the grid fits the cell texture`);
       assert.equal(st.overMembers, 0, `${W}x${H}: no region lists more than ${MAX_MEMBERS} members (most: ${st.maxMembers})`);
-      if (st.overJoins > 0) joinsOver = Math.max(joinsOver, st.maxJoins);
+      assert.equal(st.overJoins, 0, `${W}x${H}: no region lists more than ${MAX_JOINS} joins (most: ${st.maxJoins})`);
       assert.ok(st.regions > 0 && st.simple > 0, 'the lobule has both ordinary stretches and regions');
     }
     t.diagnostic(lines.join('\n'));
-    // Joins per region: the lobule's central vein takes 12 joins inside a few cells (stop point 7, waiting for Mohammad's answer on MAX_JOINS).
-    if (joinsOver) t.todo(`regions list up to ${joinsOver} joins, the contract holds ${MAX_JOINS} (waiting for Mohammad's answer)`);
   });
 }
 
