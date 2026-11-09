@@ -1,7 +1,9 @@
-// Acceptance 3 (vector-renderer-plan.md section 11): continuous blood through speed change and reversal.
+// Precondition for acceptance point 3 (vector-renderer-plan.md section 11; plan-r1 section 7): continuous blood through speed change and reversal.
+// NOT PASSED. This file is a node precondition, not the acceptance: it tests partition rules, maths and scheduling, which cannot show seamless GPU
+// rendering, stable streaks or pacing. The point is judged on the devices: a TIPS slide and a reversal slide, with the vessels drawing.
 // Node judges (D's vec-blood-math.js, the JS mirror of the GLSL arithmetic, run with blood.js's own advanceStream): the stream's travelled
 // distance has no jump across a speed step, a beat, a re-anchor (the blood clock's epoch) or a reversal. D's own test runs one scripted
-// flow; this runs eight seeded random flows, so a case D did not think of is a case here. On the devices: a TIPS slide, and a reversal slide.
+// flow; this runs eight seeded random flows, so a case D did not think of is a case here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';

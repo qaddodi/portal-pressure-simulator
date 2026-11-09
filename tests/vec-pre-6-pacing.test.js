@@ -1,11 +1,12 @@
-// Acceptance 6 (vector-renderer-plan.md section 11): sustained pacing after warm-up.
+// Precondition for acceptance point 6 (vector-renderer-plan.md section 11; plan-r1 section 7): sustained pacing after warm-up.
+// NOT PASSED. This file is a node precondition, not the acceptance: it tests partition rules, maths and scheduling, which cannot show seamless GPU
+// rendering, stable streaks or pacing. The point is judged on the devices: ten minutes on the Mac and the iPhone with ?perf, with the vessels drawing.
 // Node judges (E's renderer on the warm harness's do-nothing WebGL, as scripts/stage-trace.mjs uses it): in a long seeded session of pans,
 // blood ticks, colour changes and idle frames, every frame is one render pass for its kind (two for the frame where motion ends: the base,
 // then the blood), no framebuffer bind falls inside a pass, a blood-only frame draws only the lumen programs, an idle frame calls the GPU
 // not at all, the base is written exactly once for each end of motion, and a frame allocates nothing. vec-renderer.test.js holds the same
 // claims for one frame of each kind; this holds them for every frame of a session. The shader workstreams' programs are stood in for by
-// programs that declare the uniforms the renderer sets, as in that test (the renderer is judged here, not the shaders). On the devices: ten
-// minutes on the Mac and the iPhone with ?perf.
+// programs that declare the uniforms the renderer sets, as in that test (the renderer is judged here, not the shaders).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
