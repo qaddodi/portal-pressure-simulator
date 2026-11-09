@@ -939,3 +939,41 @@ export function createVecCompiler(look = DEFAULT_LOOK) {
   function graphScratch(g) { if (scratchList.length < g.nRows) scratchList = new Int32Array(g.nRows * 2); return scratchList; }   // alloc-rare: grown with the vessel rows
   return api;
 }
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Revision 1: the grid K's leaves are built under (vec-runs.js runs, K's buildLeaves). The old classification above goes at E's switch-over.
+// ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+/**
+ * The broad 16-unit cell grid over every run's box (the points' hull widened by the run's largest bound radius and the shadow offset) and every join's disc,
+ * grown by GRID_PAD cells; `grid` is kept by the caller and written in place:
+ *   { x0, y0 (world origin, a multiple of CELL), nx, ny (cells across and down), cs (CELL), cells (Uint16Array GRID_W × ny RGBA16UI texels, zeroed: K writes
+ *     kind CELL_EMPTY / CELL_LEAF / CELL_NODE and the leaf or node index), tooWide (nx > GRID_W), texRows (= ny) }
+ * `cells` is only reallocated when the grid grows (// alloc-rare); a grid the same size keeps its array and is zeroed.
+ */
+export function fitGrid(runs, grid = {}) {
+  const g = runs.graph, J = g.joins, cs = CELL;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let r = 0; r < g.nRows; r++) {
+    for (const id of runs.runsOf(r)) {
+      const o = id * 4;
+      if (runs.box[o] < x0) x0 = runs.box[o]; if (runs.box[o + 1] < y0) y0 = runs.box[o + 1];
+      if (runs.box[o + 2] > x1) x1 = runs.box[o + 2]; if (runs.box[o + 3] > y1) y1 = runs.box[o + 3];
+    }
+  }
+  for (let j = 0; j < J.n; j++) {
+    const d = runs.joinDisc(j, DISC);
+    if (!(d.r > 0)) continue;
+    if (d.x - d.r < x0) x0 = d.x - d.r; if (d.y - d.r < y0) y0 = d.y - d.r; if (d.x + d.r > x1) x1 = d.x + d.r; if (d.y + d.r > y1) y1 = d.y + d.r;
+  }
+  if (!(x0 < Infinity)) { x0 = y0 = 0; x1 = y1 = cs; }
+  grid.cs = cs;
+  grid.x0 = (Math.floor(x0 / cs) - GRID_PAD) * cs; grid.y0 = (Math.floor(y0 / cs) - GRID_PAD) * cs;
+  grid.nx = Math.max(1, Math.ceil((x1 - grid.x0) / cs) + GRID_PAD); grid.ny = Math.max(1, Math.ceil((y1 - grid.y0) / cs) + GRID_PAD);
+  grid.tooWide = grid.nx > GRID_W; grid.texRows = grid.ny;
+  const n = GRID_W * grid.ny * 4;
+  if (!grid.cells || grid.cells.length < n) grid.cells = new Uint16Array(n);   // alloc-rare: with the grid
+  else grid.cells.fill(0, 0, n);
+  return grid;
+}
+const DISC = { x: 0, y: 0, r: 0 };
