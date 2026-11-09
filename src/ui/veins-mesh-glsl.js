@@ -209,7 +209,7 @@ uvec4 packFlow2(uint gId2, float gS2, float gY2) {
 // tier makes at the pixel (the shape: a lumen by its z, the one drawn above it winning, then the nearest wall; the shadow and the glow: the
 // strongest), and the pass draws only the fragment whose key that is, once (the stencil), reading the depth target as a texture.
 export const MP = { GLOW_K: 0, GLOW: 1, UP_K: 2, UP: 3, SHADOW_K: 4, SHADOW: 5, SHAPE_K: 6, SHAPE: 7, LIFT: 8, RING: 9, MARK: 10 };
-export const MESH_WIN = 3;   // the segments a strip's fragment reads each side of its sample
+export const MESH_WIN = 2;   // the segments a strip's fragment reads each side of its sample (its own quad and the joints either side need one; two for the soft along)
 export const KEY_BIAS = 2e-5;   // a patch's key under its members' strips (in the pass's range), so the patch draws the join
 
 export const meshFS = ({ EDGE, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K }) => {

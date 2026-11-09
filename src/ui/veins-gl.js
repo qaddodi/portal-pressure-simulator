@@ -3242,7 +3242,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     stripVAO: null, patchVAO: null, layVAO: null, rowBuf: null, patchBuf: null, rowCap: 0, patchCap: 0, nIndex: 0,
     w: 0, h: 0, ok: false, scrN: null, scrT: null, sw: 0, sh: 0, kP: 0, ref: 0,
     passes: 0, strips: 0, patches: 0 };   // alloc-rare: made once per renderer
-  const MESH_TWO = [null, null];   // (the mesh programs a pass sets up, kept)
+  const MESH_TWO = [null, null], MESH_DS = [gl.DEPTH_STENCIL_ATTACHMENT];   // (the mesh programs a pass sets up, kept)
   const ONE1 = new Float32Array([1]), ONE8 = new Float32Array(8), ZERO1I = new Int32Array([0]);
   const MESH_GLOW_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.COLOR_ATTACHMENT3], MESH_COLOR_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.NONE];
   const MESH_RING_BUF = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.NONE, gl.NONE];
@@ -3491,6 +3491,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.drawBuffers(ATTACH);
     gl.bindVertexArray(null);
     gl.depthMask(true);
+    // (The keys and the stencil are not wanted after the draw (the next one clears them): a tiled GPU need not write them out.)
+    gl.invalidateFramebuffer(gl.FRAMEBUFFER, MESH_DS);
     gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, null);
     if (gpuProbe.on) {
       gpuProbe.note('vessels: mesh');
