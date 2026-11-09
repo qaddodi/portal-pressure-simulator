@@ -23,7 +23,9 @@
 //                     (cells: RGBA16UI texels, GRID_W across, in the contract's layout; regions: REGION_TEXELS RGBA32F texels a region)
 //   parts.organs      { draw(pass, m), setOrgans(...), ready?() }   workstream F
 //   parts.overlays    { draw(pass, m, phase), setOverlays(...), ready?() }   workstream G, phase: PHASE.UNDER | HEADS | OVER
-// pass: the record handed to organs and overlays while a pass is open: { variant, w, h, m, box: [x0, y0, x1, y1] | null }.
+// pass: the record handed to organs and overlays while a pass is open: { variant, w, h, m, box: [x0, y0, x1, y1] | null, look }.
+// Organs (F) are also called outside a pass: update() before the passes of a frame that draws organs, prepare(undefined, scale) and step(deadline)
+// on idle frames (an idle frame draws nothing), setCovers(...) forwarded, covers() -> { tex, rect } read for the vessels' veil (the organ sampler, organRect, useOrgan).
 //
 // Attributes of the programs it draws (the programs bind these locations):
 //   stretch: layout(location=0) in vec4 aV (the mesh's stripIndex attribute); layout(location=1) in float aRow (instance, the vessel row)
@@ -249,11 +251,11 @@ export function createVecRenderer(gl, shared) {
   let haveM = false, curLook = null, curBlood = null;
   const WORLD = new Float32Array(9), INV = new Float32Array(9), SIZE = new Float32Array(2), GRIDO = new Float32Array(2), GRIDN = new Float32Array(2), LOFF = new Float32Array(2);
   const SC = new Float64Array(SCALARS.length);
-  let wNow = 0, hNow = 0, variantNow = 0;
+  let wNow = 0, hNow = 0, variantNow = 0, cov = null, lastPrepScale = 0, idleMore = false;
   const morph = { on: 0, posBase: 0, joinBase: 0 };
   let morphSet = null;
   const unitTex = new Array(16).fill(null);
-  const PASS = { variant: 0, w: 0, h: 0, m: curM, box: null };
+  const PASS = { variant: 0, w: 0, h: 0, m: curM, box: null, look: null };
   const BOX = [0, 0, 0, 0];
   const tubeLast = new Float32Array(TUBE_FLOATS * Math.max(nTubes, 1)), flowLast = new Float32Array(8 * 4 * Math.max(nTubes, 1));
   let tubesSeen = false, flowSeen = false;
@@ -288,6 +290,8 @@ export function createVecRenderer(gl, shared) {
       case 'cellTex': return cellTex || blank;
       case 'regionTex': return regionTex || blank;
       case 'vecBase': return variantNow === V_BLOOD ? targets.baseTex || blank : blank;   // (never the base while it is being written: a feedback loop)
+      case 'organ': if (cov?.tex) return cov.tex;   // falls through to the shared one
+      // eslint-disable-next-line no-fallthrough
       default: {
         const t = shared.tex?.[VB_FROM[name] || name];
         return (typeof t === 'function' ? t() : t) || blank;
@@ -308,6 +312,8 @@ export function createVecRenderer(gl, shared) {
       case 'lOff': return LOFF;
       case 'rimInk': return curLook?.rim || NO_RIM;
       case 'paperInk': return curLook?.paper || NO_RIM;
+      case 'organRect': if (cov?.rect) return cov.rect; break;
+      case 'useOrgan': if (cov) return curLook && curLook.organs > 0 ? 1 : 0; break;
       case 'blendA': case 'vbBlendA': return BLEND_A;
       case 'bleedE': return BLEEDE;
       case 'bleedB': return BLEEDB;
@@ -464,6 +470,8 @@ export function createVecRenderer(gl, shared) {
   }
   function scene(variant, m) {
     variantNow = variant;
+    cov = parts.organs?.covers?.() || null;
+    PASS.look = curLook;
     fillScalars();
     const s = progs[0][variant], r = progs[1][variant];
     const base = variant !== V_BLOOD;
@@ -545,7 +553,8 @@ export function createVecRenderer(gl, shared) {
     targets.invalidateDepth();   // (depth and stencil are never stored)
   }
   function runPlan(P) {
-    // The kept base first (BLOOD reads it), then the picture's boxes or whole, then the blood over it.
+    // The kept base first (BLOOD reads it), then the picture's boxes or whole, then the blood over it. The organs' frame changes are written first, outside any pass.
+    if ((P.base || P.full) && parts.organs?.update) { parts.organs.update(); unitTex.fill(null); }
     if (P.base) pass(V_BASE, P.base, P.baseBoxes, P.nBase);
     if (P.full) pass(V_FULL, P.full, P.fullBoxes, P.nFull);
     if (P.blood) {
@@ -553,6 +562,16 @@ export function createVecRenderer(gl, shared) {
     }
     stats.frames++;
     stats.lastKinds = (P.base ? 'B' : '') + (P.full ? 'F' : '') + (P.blood ? 'L' : '');
+  }
+
+  // ── Idle frames: the organs prepare their detail levels ahead (F), a few ms at a time ──
+  const IDLE_MS = 4;
+  function idleWork() {
+    const o = parts.organs;
+    if (!o?.step) return;
+    const sc = Math.sqrt(Math.abs(curM[0] * curM[3] - curM[1] * curM[2])) || 1;
+    if (sc !== lastPrepScale && o.prepare) { lastPrepScale = sc; o.prepare(undefined, sc); idleMore = true; }
+    if (idleMore) idleMore = !o.step(performance.now() + IDLE_MS);
   }
 
   // ── The frame ──
@@ -569,7 +588,7 @@ export function createVecRenderer(gl, shared) {
     setCamera(curM);
     GRIDO[0] = grid.gridO[0]; GRIDO[1] = grid.gridO[1]; GRIDN[0] = grid.gridN[0]; GRIDN[1] = grid.gridN[1];
     const P = frame.plan(curM, wNow, hNow, curLook, curBlood, false, wholeAsked, rowBoxes);
-    if (P.passes) { targets.unbound(); runPlan(P); }
+    if (P.passes) { targets.unbound(); runPlan(P); } else idleWork();
     frame.done();
     report(P);
     return P.passes > 0;
@@ -664,8 +683,14 @@ export function createVecRenderer(gl, shared) {
     /** The organ stack's input (workstream F): it answers with the box that changed, true for everywhere, or nothing. */
     setOrgans(...args) {
       const r = parts.organs?.setOrgans?.(...args);
+      lastPrepScale = 0;   // (new organs: their detail levels are wanted again, prepared on idle frames)
+      if (r === false) return;
       if (Array.isArray(r) && r.length >= 4) frame.noteBox(D.ORGANS, r[0], r[1], r[2], r[3]); else frame.noteBox(D.ORGANS);
     },
+    /** The organ covers the vessels' veil reads (F): forwarded; the vessels are drawn again with the new covers. */
+    setCovers(...args) { const r = parts.organs?.setCovers?.(...args); if (r !== false) frame.noteBox(D.ORGANS); },
+    /** True while the organs still have detail levels to prepare on idle frames (the figure asks for another frame while it does). */
+    get idleWanted() { return idleMore; },
     /** The overlays' input (workstream G): { under, over } each a box, true or nothing; a box or true alone is both. */
     setOverlays(...args) {
       const r = parts.overlays?.setOverlays?.(...args);
