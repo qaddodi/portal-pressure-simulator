@@ -4576,7 +4576,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (panAt && !meshUse() && (rows?.length || patchK)) { parts = rowParts(rows || NONE); if (parts.part.k > nCells * 0.6) parts = null; }
       const pan = panAt && (!(tubesNew || radRows.size || patchK) || parts);
       // (Vessels lower while pinching, when on and Pinch frame reuse is off: a zoom frame under a hand draws the layer lower: lowPass.)
-      if (lowK && lowOn && !reuseEvery && !pan && baseM && (lowMorph || !sameLin(m, baseM)) && !gpuProbe.skipGL && !lost) {
+      // (Not with the mesh renderer on: its frames are mesh frames, the classic shader draws none of them (owner, 9 Nov 2026: "No hybrid").)
+      if (lowK && lowOn && !meshUse() && !reuseEvery && !pan && baseM && (lowMorph || !sameLin(m, baseM)) && !gpuProbe.skipGL && !lost) {
         if (gpuProbe.on) gpuProbe.note('vessels: lower');
         layOut(layoutFor(m));   // (the picture's size: lowK is on)
         lowPass(m, look);

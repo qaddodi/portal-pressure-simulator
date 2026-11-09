@@ -186,8 +186,8 @@ What keeps it cheap:
   layer's own framebuffer, and the pass draws with depth EQUAL. The first build kept the keys in a framebuffer of their own and switched
   twice a pass: on a tiled GPU (Apple's) each switch stores and loads the whole layer's four targets, which made the mesh slower than the
   classic pass. The crossing ring reads no keys back (a stencil mark, then depth LESS).
-- **Partial draws.** A change of some rows' shape redraws their cells' 128 px tiles (at most 12 scissored boxes) with the mesh; a change of
-  lumen colour alone is the classic recolour (`tintPass`) over the mesh layer.
+- **Partial draws.** A change of some rows (shape or colour) redraws their cells' 128 px tiles (at most 12 scissored boxes) with the mesh.
+  No frame of the mesh path is drawn by the classic shader (owner, 9 Nov 2026: "No hybrid").
 - **Less per fragment.** A patch works only inside its joins' reach; the shape strips are no wider than the wall's soft edge (the
   selection ring's room only on the selected rows, `selPad`); glow and shadow passes skip the shading and the stream they do not draw.
 
