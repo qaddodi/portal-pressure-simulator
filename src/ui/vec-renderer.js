@@ -212,7 +212,7 @@ export function createVecRenderer(gl, shared) {
   }
   function takeGrid(g) {
     if (!g || !g.cells) return;
-    grid = g; hadGrid = true;
+    grid = g; hadGrid = true; gridVer++;
     const rows = g.dirtyRows;
     uploadGrid(g, rows ? rows[0] : 0, rows ? rows[1] : g.rowsH - 1);
     scanGrid(g);
@@ -261,6 +261,12 @@ export function createVecRenderer(gl, shared) {
   let tubesSeen = false, flowSeen = false;
   const bloodBoxes = new Int32Array(MAX_BOXES * 4);
   let nBloodBoxes = 0;
+  // The rows that show blood (the lobule leaves out the vessels seen end-on): the BLOOD pass is limited to the cells that list them. Their
+  // boxes are worked out again only when the rows, the grid or the view change. lastBlood: the last BLOOD pass's boxes (picture px, y from the
+  // bottom) for the seam to repaint a kept picture in just those.
+  const bloodMarks = new Uint8Array(Math.max(nTubes, 1)), bloodKeyM = new Float64Array(6);
+  let bloodRowsSet = false, bloodVer = 0, gridVer = 0, bloodKeyVer = -1, bloodKeyGrid = -1, bloodKeyW = 0, bloodKeyH = 0;
+  const lastBlood = { boxes: new Float32Array(MAX_BOXES * 4), n: 0 };
   let rowsStatus = 'drawn';
   const stats = { passes: 0, frames: 0, byKind: [0, 0, 0], draws: 0, programsUsed: [0, 0, 0, 0, 0, 0], skipped: 0, lastKinds: '' };
 
@@ -558,7 +564,27 @@ export function createVecRenderer(gl, shared) {
     if (P.base) pass(V_BASE, P.base, P.baseBoxes, P.nBase);
     if (P.full) pass(V_FULL, P.full, P.fullBoxes, P.nFull);
     if (P.blood) {
-      if (nBloodBoxes > 0) pass(V_BLOOD, 2, bloodBoxes, nBloodBoxes); else pass(V_BLOOD, 1, null, 0);
+      if (bloodRowsSet) {
+        let same = bloodKeyVer === bloodVer && bloodKeyGrid === gridVer && bloodKeyW === wNow && bloodKeyH === hNow;
+        for (let i = 0; same && i < 6; i++) same = bloodKeyM[i] === curM[i];
+        if (!same) {
+          nBloodBoxes = rowBoxes(bloodMarks, curM, bloodBoxes, MAX_BOXES);
+          bloodKeyVer = bloodVer; bloodKeyGrid = gridVer; bloodKeyW = wNow; bloodKeyH = hNow;
+          for (let i = 0; i < 6; i++) bloodKeyM[i] = curM[i];
+        }
+      }
+      if (nBloodBoxes > 0) {
+        pass(V_BLOOD, 2, bloodBoxes, nBloodBoxes);
+        for (let i = 0; i < nBloodBoxes; i++) {
+          lastBlood.boxes[i * 4] = bloodBoxes[i * 4]; lastBlood.boxes[i * 4 + 1] = hNow - bloodBoxes[i * 4 + 3];
+          lastBlood.boxes[i * 4 + 2] = bloodBoxes[i * 4 + 2]; lastBlood.boxes[i * 4 + 3] = hNow - bloodBoxes[i * 4 + 1];
+        }
+        lastBlood.n = nBloodBoxes;
+      } else if (bloodRowsSet) lastBlood.n = 0;   // (no vessel shows blood: no pass)
+      else {
+        pass(V_BLOOD, 1, null, 0);
+        lastBlood.boxes[0] = 0; lastBlood.boxes[1] = 0; lastBlood.boxes[2] = wNow; lastBlood.boxes[3] = hNow; lastBlood.n = 1;
+      }
     }
     stats.frames++;
     stats.lastKinds = (P.base ? 'B' : '') + (P.full ? 'F' : '') + (P.blood ? 'L' : '');
@@ -580,6 +606,7 @@ export function createVecRenderer(gl, shared) {
     if (!parts.compile || !hadGrid) { stats.skipped++; return false; }
     if (!prepare()) { stats.skipped++; return false; }
     if (gpuProbe.skipGL) return false;
+    lastBlood.n = 0;   // (set again by this frame's BLOOD pass, if it has one)
     const pic = shared.picture?.();
     if (!pic || !pic.tex || !(pic.w > 0 && pic.h > 0)) return false;
     wNow = pic.w; hNow = pic.h; SIZE[0] = wNow; SIZE[1] = hNow;
@@ -702,6 +729,16 @@ export function createVecRenderer(gl, shared) {
       nBloodBoxes = Math.min(n | 0, MAX_BOXES);
       for (let i = 0; i < nBloodBoxes * 4; i++) bloodBoxes[i] = list[i];
     },
+    /** The rows that show blood or lymph (the lobule's: vec-lobule.js indexFlow): BLOOD frames draw only the cells that list them. list[0 … n); none given: every row. */
+    setBloodRows(list, n = list ? list.length : 0) {
+      bloodMarks.fill(0);
+      bloodRowsSet = !!list;
+      if (list) for (let i = 0; i < n; i++) if (list[i] >= 0 && list[i] < nTubes) bloodMarks[list[i]] = 1;
+      bloodVer++; nBloodBoxes = 0;
+      frame.note(D.FLOW);
+    },
+    /** The boxes the last BLOOD pass drew in: { boxes: Float32Array (x0, y0, x1, y1 in picture px, y from the bottom), n } (one kept record; n 0: none). */
+    lastBloodBoxes() { return lastBlood; },
     /** The organ deforms every frame while it does (the liver's outline morph). */
     setDeforming(on) { frame.setDeforming(on); },
 
