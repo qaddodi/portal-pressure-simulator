@@ -31,6 +31,11 @@
 //        lum: the lumen's coverage × the vessel's alpha where blood may show (0 for a dotted collateral or under 0.02); lumCol: the colour
 //        of the pixel unpremultiplied. The blood is laid by the caller: vis = clamp(lum / max(o.a, 1e-3), 0.0, 1.0) where vis > 0.005 and
 //        o.a > 0.01 (classic's own visibility for the composite).
+//   vec4 vecShadeBits(int row, VecNear nr, vec2 p, float occl, int bits, out float lum, out vec3 lumCol);
+//        vecShadeOne for a pixel whose surviving runs reach it by the contributions in `bits` (C_* from vec-contract.js, a union): the glow only
+//        when C_GLOW is set, the shape (shadow, ring, casing, lumen) only when one of C_LUMEN, C_SHADOW, C_RING is, and tubeShade (casing, lumen,
+//        lines, rim, hover) only when C_LUMEN is; a pixel past the lumen's bound has no casing and no lumen, so shadow and ring alone are laid,
+//        which is tubeShade's own first two lines. vecShadeOne is vecShadeBits with C_ALL.
 //   vec3 vecStreamAt(int row, VecNear nr);                                    (arc length s in world units, across y −1 … 1, drawn radius R)
 //   ps = p − shOff (the contact shadow's point); the dither (ditherOut(o, gl_FragCoord.xy)) is the caller's, once, last.
 //
@@ -44,7 +49,10 @@ import { MAX_TIERS } from './veins-mesh-data.js';
 import { CELL, ENT_W } from './veins-bin.js';
 import { EDGE_GLSL } from './edge.js';
 import { LIFT_EASE_SHARE, LIFT_EASE_MAX } from './highlight-math.js';
-import { WIN_MAX, CELL_EMPTY, CELL_SIMPLE, CELL_REGION } from './vec-contract.js';
+import { WIN_MAX, CELL_EMPTY, CELL_SIMPLE, CELL_REGION, C_LUMEN, C_SHADOW, C_GLOW, C_RING } from './vec-contract.js';
+
+/** Every contribution (what vecShadeOne shades): the bits of a pixel no bound has narrowed. */
+export const C_ALL = C_LUMEN | C_SHADOW | C_GLOW | C_RING;
 
 export const VEC_PRECISION = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\nprecision highp usampler2D;\n';
 
@@ -147,7 +155,7 @@ VecNear vecNear(int row, int i0, int i1, vec2 p, vec2 ps) { return vecNearMore(v
 float vecOccl(vec2 p) { return useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * ${K.VEIL_K} * organK : 0.0; }
 vec3 vecStreamAt(int row, VecNear nr) { return vec3(nr.u * T(row, 5).z, clamp(nr.x / max(nr.r, 1e-3), -1.0, 1.0), nr.r); }
 
-vec4 vecShadeOne(int row, VecNear nr, vec2 p, float occl, out float lum, out vec3 lumCol) {
+vec4 vecShadeBits(int row, VecNear nr, vec2 p, float occl, int bits, out float lum, out vec3 lumCol) {
   lum = 0.0;
   lumCol = vec3(0.0);
   // Nothing to draw here: no glow band within reach, and the wall and the shadow both past what the shape draws (classic's early out).
@@ -162,9 +170,9 @@ vec4 vecShadeOne(int row, VecNear nr, vec2 p, float occl, out float lum, out vec
   int topGrp = 1;
   // The glow: one thin soft band hugging a lit vessel's wall, down with the vessel's own tier (a vessel alone has no other lit lumen to cut it).
   vec4 lg = vec4(0.0), lgU = vec4(0.0);
-  vec4 gc, ge;
-  float gv = glowAmt(row, nr.d, aWall, nr.v, aA, gc, ge);
-  if (gc.a > 0.0 && gv > 0.0) {
+  vec4 gc = vec4(0.0), ge = vec4(0.0);
+  float gv = (bits & ${C_GLOW}) != 0 ? glowAmt(row, nr.d, aWall, nr.v, aA, gc, ge) : 0.0;
+  if (gv > 0.0 && gc.a > 0.0) {
     vec4 glw = vec4((ge.z > 0.5 ? aCol : gc.rgb) * gv, gv);
     if (ge.w > 5.0) lgU = glw; else lg = glw;
   }
@@ -175,14 +183,20 @@ vec4 vecShadeOne(int row, VecNear nr, vec2 p, float occl, out float lum, out vec
     else accT = over(lg, accT);
   }
   // The tier's shape.
-  if (!(nr.d > 8.0 + 2.0 * px && nr.h > 6.0 + 2.0 * px)) {
+  if ((bits & ${C_LUMEN | C_SHADOW | C_RING}) != 0 && !(nr.d > 8.0 + 2.0 * px && nr.h > 6.0 + 2.0 * px)) {
     int flags = int(aFlag + 0.5);
     bool sel = (flags & ${K.F_SEL}) != 0;
     float cA = (flags & ${K.F_NOCASE}) != 0 ? 0.0 : (flags & ${K.F_DOTTED}) != 0 ? 0.35 : 1.0;
     float aa = px * ${EDGE_GLSL};
     float aL = clamp(0.5 - nr.d / aa, 0.0, 1.0);
     vec2 g = length(nr.g) > 1e-5 ? normalize(nr.g) : vec2(0.0);
-    vec4 c = tubeShade(nr.d, nr.h, nr.r, aWall, aCol, g, flags, sel, cA, grp, row, nr.v, aHov, aEdge, 0.0, 0.0, aa, aL);
+    // (A pixel past the lumen's bound has no casing and no lumen, so only the shadow and the ring remain: tubeShade's first two lines.)
+    vec4 c;
+    if ((bits & ${C_LUMEN}) != 0) c = tubeShade(nr.d, nr.h, nr.r, aWall, aCol, g, flags, sel, cA, grp, row, nr.v, aHov, aEdge, 0.0, 0.0, aa, aL);
+    else {
+      c = shadowOf(nr.h, aWall, flags, sel, aa);
+      if (sel) { float ar = ring.a * clamp(0.5 - (nr.d - aWall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c); }
+    }
     c *= aA * tierAlpha[ti];
     float wsel = grp == 1 ? aSel : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
     float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
@@ -202,6 +216,7 @@ vec4 vecShadeOne(int row, VecNear nr, vec2 p, float occl, out float lum, out vec
   lumCol = o.a > 0.01 ? o.rgb / o.a : vec3(0.0);
   return o;
 }
+vec4 vecShadeOne(int row, VecNear nr, vec2 p, float occl, out float lum, out vec3 lumCol) { return vecShadeBits(row, nr, p, occl, ${C_ALL}, lum, lumCol); }
 `;
 
 /** The shared text (see the file's header). K: the flags and VEIL_K from veins-gl.js. */

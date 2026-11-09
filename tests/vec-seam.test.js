@@ -43,7 +43,7 @@ function standIn(log) {
   const sets = [];
   return new Proxy({}, {
     get(_, k) {
-      if (typeof k !== 'string' || k === 'then' || k === 'failure') return undefined;
+      if (typeof k !== 'string' || k === 'then' || k === 'failure' || k === 'idleWanted' || k === 'stats') return undefined;
       if (k === 'status') return () => 'ready';
       return (...a) => {
         log.push([k, ...a]);

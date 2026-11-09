@@ -3294,7 +3294,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get lines() { return lines; }, get cath() { return cath; }, get tops() { return tops; }, get stack() { return stack; },
   };
   /** Tells the Vector renderer a change (it takes what it needs of the data; a name it does not have is not an error while it is being built). */
-  const vecTell = (name, a, b, c, d, e, f, g) => { const fn = vec?.[name]; if (typeof fn === 'function') fn.call(vec, a, b, c, d, e, f, g); };
+  const vecTell = (name, a, b, c, d, e, f, g) => { const fn = vec?.[name]; if (typeof fn === 'function') { if (name === 'setOrgans') vecKick = true; fn.call(vec, a, b, c, d, e, f, g); } };
   // The classic and mesh targets, to a texel while Vector draws: the layer's colour and the two flow images and the depth, the mesh's depth
   // and stencil and its scratch layers. Made again at the right size by the classic layout the next time it draws (fboW is 0).
   function vecGiveBack() {
@@ -3359,6 +3359,31 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     pictured(bloodKept);
     directNow = false; ownStale = false;
     if (own && !bloodKept) present();
+    vecIdleCheck();
+  }
+  // Idle frames (vec-renderer.js: the organs prepare their detail levels a few ms at a time, on a frame that has nothing else to draw, and
+  // none is drawn until they are): the stage draws nothing on a still figure, so nothing would ever ask for one. After each Vector frame this asks
+  // for a next frame while the renderer wants idle work, or the camera's scale or the organs changed (it prepares for the scale, and says so by
+  // wanting idle work); that frame is an empty composite, which the renderer takes as idle. When the work is done the whole picture is drawn
+  // again, now with the organs.
+  const askVecIdle = frameFor('vector-idle');
+  let vecIdleOn = false, vecIdleScale = 0, vecKick = false, vecBlood = null;
+  function vecIdleCheck() {
+    if (vecIdleOn || !vec || lost) return;
+    const sc = baseM ? Math.sqrt(Math.abs(baseM[0] * baseM[3] - baseM[1] * baseM[2])) : 1;
+    if (sc === vecIdleScale && !vecKick && !vec.idleWanted) return;
+    vecIdleScale = sc; vecKick = false; vecIdleOn = true;
+    try { askVecIdle(vecIdleRun); } catch (e) { vecIdleOn = false; caught('veins-gl:vec-idle', e); /* (no frames here: node) */ }
+  }
+  function vecIdleRun() {
+    vecIdleOn = false;
+    if (!vec || lost || !lastLook) return;
+    const f0 = vec.stats?.frames;
+    vec.composite(lastLook, vecBlood || NOBLOOD, false);
+    const drew = vec.stats?.frames !== f0;
+    if (vec.idleWanted) { if (drew) vecLaid(); else vecIdleCheck(); return; }
+    // (Done: the levels the organs were waiting for are there. The whole picture again, laid.)
+    vec.composite(lastLook, vecBlood || NOBLOOD, true); vecLaid();
   }
   // The lobule's kept picture under Vector (vec-lobule.js, workstream I): a frame where only the blood moved repaints the blood's boxes in the
   // texture the last whole present laid, in place of laying the picture whole. The same record, target and version stamps as the classic keep.
@@ -4817,7 +4842,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
     draw(m, look, blood, rows = null) {
-      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); const r = vec.draw(m, look, blood, rows); vecLaid(); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); vecBlood = blood; const r = vec.draw(m, look, blood, rows); vecLaid(); return r; }
       flushRadii();
       meshSync();
       counts.draw++;
@@ -4929,7 +4954,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * (nothing they hold is dropped by a refusal). `rowsStatus` says which: 'drawn', or why it was refused (ROWS_REFUSED).
      */
     drawRows(m, look, blood, rows, full = false) {
-      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); const r = vec.drawRows(m, look, blood, rows, full); if (r) vecLaid(); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); vecBlood = blood; const r = vec.drawRows(m, look, blood, rows, full); if (r) vecLaid(); return r; }
       flushRadii();
       meshSync();
       for (let i = 0; i < 6; i++) OVER[i] = m[i];
@@ -5113,7 +5138,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * cells drawRows drew again (the vessel layer changed under them).
      */
     composite(look, blood = NOBLOOD, full = false, part = 0) {
-      if (vecOn()) { flushRadii(); lastLook = look; if (baseM) vecTell('setOverlays', look, baseM, PW(), PH()); const f0 = vec.stats?.frames; const r = vec.composite(look, blood, full, part); vecLaid(vecBloodKept(f0)); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; if (baseM) vecTell('setOverlays', look, baseM, PW(), PH()); vecBlood = blood; const f0 = vec.stats?.frames; const r = vec.composite(look, blood, full, part); vecLaid(vecBloodKept(f0)); return r; }
       flushRadii();
       compLook = look; compBlood = blood;
       // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, look E's sines.)
