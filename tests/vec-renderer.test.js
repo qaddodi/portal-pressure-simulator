@@ -11,7 +11,7 @@ import { lintGLSL, uniformsOf } from './glsl-lint.js';
 // programs are not here yet; stand-ins declare the uniforms the renderer sets, which is all these tests need of them.
 
 const N = 12, W = 640, H = 480;
-const UNIFORMS = 'uniform mat3 world, inv; uniform vec2 size, gridO, gridN; uniform float px, H; uniform int variant; uniform usampler2D cellTex; uniform sampler2D regionTex, vecBase, tube; uniform vec4 casing; uniform float tierAlpha[3];';
+const UNIFORMS = 'uniform float padU, selPad; uniform mat3 world, inv; uniform vec2 size, gridO, gridN; uniform float px, H; uniform int variant; uniform usampler2D cellTex; uniform sampler2D regionTex, vecBase, tube; uniform vec4 casing; uniform float tierAlpha[3];';
 const stretchVS = `#version 300 es\nlayout(location=0) in vec4 aV; layout(location=1) in float aRow;\n${UNIFORMS}\nvoid main(){ gl_Position = vec4(0.); }`;
 const regionVS = `#version 300 es\nlayout(location=0) in vec2 aC; layout(location=1) in vec2 aCell;\n${UNIFORMS}\nvoid main(){ gl_Position = vec4(0.); }`;
 const fsOf = (tag) => (v) => `#version 300 es\nprecision highp float;\n${UNIFORMS}\nout vec4 o; // ${tag} variant ${v}\nvoid main(){ o = vec4(float(variant)); }`;
@@ -30,7 +30,7 @@ function fakeGrid() {
 function harness(opts = {}) {
   const calls = [];
   const gl = makeGL({ width: W, height: H });
-  const NAMES = ['bindFramebuffer', 'useProgram', 'drawElementsInstanced', 'drawArraysInstanced', 'clear', 'invalidateFramebuffer', 'scissor', 'framebufferTexture2D', 'beginQuery', 'endQuery'];
+  const NAMES = ['stencilFunc', 'stencilOp', 'bindFramebuffer', 'useProgram', 'drawElementsInstanced', 'drawArraysInstanced', 'clear', 'invalidateFramebuffer', 'scissor', 'framebufferTexture2D', 'beginQuery', 'endQuery'];
   if (!opts.plain) for (const k of NAMES) { const f = gl[k]; gl[k] = function (...a) { calls.push([k, ...a]); return f.apply(this, a); }; }
   if (opts.timer) {
     const ext = { TIME_ELAPSED_EXT: 0x88BF, GPU_DISJOINT_EXT: 0x8FBB };
@@ -98,8 +98,9 @@ test('a whole frame is ONE render pass: one framebuffer bind, no bind inside it,
   assert.equal(c.filter((x) => x[0] === 'drawElementsInstanced').length, 1);
   assert.equal(c.filter((x) => x[0] === 'drawArraysInstanced').length, 1);
   assert.equal(h.r.stats.lastKinds, 'F');
+  assert.equal(c.filter((x) => x[0] === 'stencilFunc').length, 0, 'no lumen stencil in a FULL pass');
   assert.equal(h.organs.draws, 2, 'organs drawn in the same pass (the warm-up frame, this one)');
-  assert.deepEqual(h.overlays.phases.slice(-3), [PHASE.UNDER, PHASE.HEADS, PHASE.OVER]);
+  assert.deepEqual(h.overlays.phases.slice(-4), [PHASE.BEHIND, PHASE.UNDER, PHASE.HEADS, PHASE.OVER]);
   // a pass that writes every pixel does not load its colour, and does not store its depth
   assert.ok(c.some((x) => x[0] === 'invalidateFramebuffer'));
   assert.equal(c.filter((x) => x[0] === 'invalidateFramebuffer').length, 2, 'colour before, depth and stencil after');
@@ -157,9 +158,21 @@ test('the frame where motion ends writes the base once; then a blood frame draws
     assert.equal(c.filter((x) => x[0] === 'bindFramebuffer').length, 1);
     assert.deepEqual([...new Set(c.filter((x) => x[0] === 'useProgram').map((x) => variantOfProgram(h.r, x[1])))], [V_BLOOD], 'a blood-only frame draws only lumen programs');
     assert.equal(c.filter((x) => x[0] === 'clear').length, 1);
+    assert.equal(c.filter((x) => x[0] === 'stencilFunc').length, 1, 'strips and regions write stencil 1 (one setting for both draws)');
+    assert.deepEqual(c.find((x) => x[0] === 'stencilFunc').slice(2), [1, 0xff]);
   }
   assert.equal(h.r.stats.byKind[V_BASE], 1, 'the base was written once');
   assert.equal(h.organs.draws, 3, 'organs untouched by blood frames');
+});
+
+test('PHASE has BEHIND = 3 for G, and a BASE pass draws BEHIND and UNDER only', () => {
+  assert.deepEqual({ ...PHASE }, { UNDER: 0, HEADS: 1, OVER: 2, BEHIND: 3 });
+  const h = harness();
+  h.r.setGeometry({ ent: new Float32Array(4) });
+  h.r.draw(h.m(0), h.look, h.blood); h.r.draw(h.m(4), h.look, h.blood);
+  h.overlays.phases.length = 0;
+  h.blood.bt = 9; h.r.composite(h.look, h.blood, false);   // BASE then BLOOD
+  assert.deepEqual(h.overlays.phases, [PHASE.BEHIND, PHASE.UNDER, PHASE.HEADS]);
 });
 
 test('a colour change at rest redraws boxes: FULL and BASE scissored to the row\'s cells', () => {
@@ -261,5 +274,7 @@ test('a frame allocates nothing (blood frames, pans, row redraws)', () => {
   const h0 = process.memoryUsage().heapUsed;
   for (let i = 6000; i < 26000; i++) step(i);
   const grown = process.memoryUsage().heapUsed - h0;
-  assert.ok(grown < 1.5 * 1024 * 1024, `heap grew ${grown} B over 20000 frames`);   // (garbage of 100 B a frame or more is 2 MB here)
+  // (The do-nothing context boxes each fractional number handed to its calls, about 50 B on a whole frame: that is the stub's, not the renderer's.
+  // The renderer's own code is closure-free: the planner is held to a much tighter bound in vec-frame.test.js. A closure or array made a frame is 200 B or more.)
+  assert.ok(grown < 3 * 1024 * 1024, `heap grew ${grown} B over 20000 frames`);
 });
