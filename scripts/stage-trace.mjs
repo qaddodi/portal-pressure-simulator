@@ -7,7 +7,13 @@
 //   node scripts/stage-trace.mjs --save [file]       write the hashes (default /tmp/stage-trace.json)
 //   node scripts/stage-trace.mjs --compare [file]    compare with the saved ones; exit 1 and name the first frame that differs
 //   node scripts/stage-trace.mjs                     run twice and say whether the two runs agree (the trace itself is deterministic)
+//   --renderer classic|mesh|vector                   run the same session with that vessel renderer chosen (Settings › Display), so a Vector push can be
+//                                                    compared with the last Vector one (vector-renderer-plan.md 9.J). Without the flag nothing changes: the
+//                                                    stored choice is left alone and the default file is /tmp/stage-trace.json. With it the default file is
+//                                                    /tmp/stage-trace-<renderer>.json, and the trace says so and exits 2 when frame.js cannot select that
+//                                                    renderer (Vector before workstream H's setting lands), rather than hashing a different renderer's draws.
 import { readFileSync, writeFileSync } from 'node:fs';
+import { RENDERERS, RENDERER_KEY } from '../src/ui/vec-contract.js';
 
 // ---- deterministic world: clock, timers, random, rAF ----
 let T = 1000;
@@ -91,8 +97,17 @@ async function installRecorder() {
   return page;
 }
 
-export async function runTrace() {
+// The stored choices frame.js reads at load (before the stage is imported): the renderer key (workstream H) and, for the build before it, the
+// old mesh key. 'classic' is the old key's '0'; 'mesh' is its default (removed); 'vector' has only the new key.
+function chooseRenderer(renderer) {
+  if (!renderer) return;
+  localStorage.setItem(RENDERER_KEY, renderer);
+  if (renderer === 'classic') localStorage.setItem('pps.vesselMesh', '0'); else localStorage.removeItem('pps.vesselMesh');
+}
+
+export async function runTrace({ renderer = null } = {}) {
   const page = await installRecorder();
+  chooseRenderer(renderer);
   // The engine's frames: the real core on the fake clock.
   const { createCore } = await import('../src/worker-core.js');
   const frames = [];
@@ -101,6 +116,12 @@ export async function runTrace() {
   for (let i = 0; i < 90; i++) pump(33);
   core.handle({ type: 'run', running: false });
   const { createStage } = await import('../src/ui/stage.js');
+  if (renderer) {
+    // Not hashing the wrong renderer: frame.js has to report the choice that was asked for.
+    const f = await import('../src/ui/frame.js');
+    const now = typeof f.vesselRenderer === 'function' ? f.vesselRenderer() : (f.vesselMesh?.() ? 'mesh' : 'classic');
+    if (now !== renderer) throw Object.assign(new Error(`--renderer ${renderer}: frame.js reports '${now}'${typeof f.vesselRenderer === 'function' ? '' : ' (it has no vesselRenderer() yet: the three-way setting is workstream H)'}`), { notSelectable: true });
+  }
   const st = createStage({ wrap: page.document.getElementById('stageView'), onSelect() {}, onAction() {}, onOpenTab() {}, onHoverInfo() {}, onViewChange() {} });
   const out = [];
   let fi = 0;
@@ -137,10 +158,17 @@ export async function runTrace() {
 }
 
 const args = process.argv.slice(2);
-const file = (flag) => { const i = args.indexOf(flag); return args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : '/tmp/stage-trace.json'; };
+const optValue = (flag) => { const i = args.indexOf(flag); return i >= 0 && args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : null; };
+const renderer = optValue('--renderer');
+const file = (flag) => optValue(flag) ?? (renderer ? `/tmp/stage-trace-${renderer}.json` : '/tmp/stage-trace.json');
 if (process.argv[1]?.endsWith('stage-trace.mjs')) {
+  if (args.includes('--renderer') && !RENDERERS.includes(renderer)) { console.error(`stage-trace: --renderer takes ${RENDERERS.join(', ')} (got ${renderer ?? 'nothing'})`); process.exit(2); }
   const t0 = performance.timeOrigin + 0, w0 = process.hrtime.bigint();
-  const frames = await runTrace();
+  let frames;
+  try { frames = await runTrace({ renderer }); } catch (e) {
+    if (!e.notSelectable) throw e;
+    console.error(`stage-trace: cannot run with ${e.message}`); process.exit(2);
+  }
   const dt = Number((process.hrtime.bigint() - w0) / 1000000n); void t0;
   const threw = frames.filter((l) => /THREW|ERR/.test(l));
   if (args.includes('--save')) { writeFileSync(file('--save'), JSON.stringify(frames)); console.log(`stage-trace: saved ${frames.length} frames to ${file('--save')} (${dt} ms)`); }
@@ -150,6 +178,7 @@ if (process.argv[1]?.endsWith('stage-trace.mjs')) {
     if (bad >= 0 || was.length !== frames.length) { console.error(`stage-trace: DIFFERENT at frame ${bad} (${frames[bad]} vs saved ${was[bad]}); ${frames.length} frames vs ${was.length} saved`); process.exit(1); }
     console.log(`stage-trace: same ${frames.length} frames as saved (${dt} ms)`);
   } else console.log(frames.slice(0, 3).join('\n') + `\n… ${frames.length} frames, ${new Set(frames.map((l) => l.split(' ')[1])).size} distinct GL hashes, ${threw.length} threw (${dt} ms)`);
+  if (renderer) console.log(`stage-trace: renderer ${renderer}`);
   if (threw.length) console.log(threw.slice(0, 5).join('\n'));
   if (DUMP) writeFileSync(process.env.TRACE_DUMP, DUMP.join('\n'));
   process.exit(0);
