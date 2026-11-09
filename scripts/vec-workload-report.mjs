@@ -58,8 +58,8 @@ export function reportText(all) {
 }
 
 // ── The policy sweep ──
-const BASE = { headroom: 1.1, leafMinPx: 8, leafOverhead: 64, refineGain: 0.2 };
-const PARAMS = ['headroom', 'leafMinPx', 'leafOverhead', 'refineGain'];
+const BASE = { headroom: 1.1, leafMinPx: 8, leafOverhead: 64, refineGain: 0.2, wJoin: 24 };
+const PARAMS = ['headroom', 'leafMinPx', 'leafOverhead', 'refineGain', 'wJoin'];
 const sameBut = (r, p) => PARAMS.every((q) => q === p || r[q] === BASE[q]);
 
 /**

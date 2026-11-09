@@ -212,9 +212,9 @@ let K = null;
 try { K = await import(`${R}vec-leaves.js`); } catch (e) { if (e?.code !== 'ERR_MODULE_NOT_FOUND') throw e; }
 if (!K) notes.push('new structure: src/ui/vec-leaves.js is not in the tree; the "new" column and the policy sweep are not measured.');
 const sweep = opt('sweep', false), sweepStride = +opt('sweep-stride', 8) || 8;
-const chosenArg = opt('policy', null);   // --policy headroom,leafMinPx,leafOverhead,refineGain: the values the main "new" column is built with (default: the contract's)
-const chosen = chosenArg ? (([h, m, o, g]) => ({ headroom: h, policy: { leafMinPx: m, leafOverhead: o, refineGain: g } }))(String(chosenArg).split(',').map(Number)) : {};
-const combo = opt('combo', null);   // --combo headroom,leafMinPx,leafOverhead,refineGain: measured as one more configuration
+const chosenArg = opt('policy', null);   // --policy headroom,leafMinPx,leafOverhead,refineGain[,wJoin]: the values the main "new" column is built with (default: the contract's)
+const chosen = chosenArg ? (([h, m, o, g, w]) => ({ headroom: h, policy: { leafMinPx: m, leafOverhead: o, refineGain: g, ...(w ? { wJoin: w } : {}) } }))(String(chosenArg).split(',').map(Number)) : {};
+const combo = opt('combo', null);   // --combo headroom,leafMinPx,leafOverhead,refineGain[,wJoin]: measured as one more configuration
 
 /** Replays one benchmark at one picture under a structure and returns the per-instant frames. */
 function measure(name, pic, structure, tables, names, replay) {
@@ -230,7 +230,7 @@ function measure(name, pic, structure, tables, names, replay) {
 const avg = (frames, f) => frames.reduce((a, x) => a + f(x), 0) / frames.length;
 const objective = (frames, leafCost) => avg(frames, (f) => f.totals.cost + (f.instances.inView ?? 0) * leafCost);
 
-const GRIDS = { headroom: [1.0, 1.05, 1.1, 1.2, 1.35], leafMinPx: [2, 4, 8, 16, 32], leafOverhead: [16, 64, 256, 1024], refineGain: [0.05, 0.2, 0.4] };
+const GRIDS = { headroom: [1.0, 1.05, 1.1, 1.2, 1.35], leafMinPx: [1, 2, 4, 8, 16, 32], leafOverhead: [16, 64, 256, 1024], refineGain: [0.02, 0.05, 0.2, 0.4], wJoin: [6, 12, 24, 48, 96] };
 const LEAF_QUAD_COST = 64;   // the fixed cost of one leaf quad in the objective, in the cost model's units (K's default leafOverhead; a device timer is what would settle it)
 const sweepRows = [];
 let oldAnat = null, newAnat = null;
@@ -274,13 +274,13 @@ function pick(p) { return { headroom: undefined, leafMinPx: p.leafMinPx, leafOve
 // ── The policy sweep: BOUND_HEADROOM, LEAF_MIN_PX, LEAF_OVERHEAD, REFINE_GAIN over a small grid each ──
 async function runSweep(name, picName, pic, graph) {
   const cfgs = [];
-  const base = { headroom: 1.1, leafMinPx: 8, leafOverhead: 64, refineGain: 0.2 };
+  const base = { headroom: 1.1, leafMinPx: 8, leafOverhead: 64, refineGain: 0.2, wJoin: 24 };
   cfgs.push({ ...base });
   for (const [k, vals] of Object.entries(GRIDS)) for (const v of vals) if (v !== base[k]) cfgs.push({ ...base, [k]: v });
-  if (combo) { const [h, m, o, g] = String(combo).split(',').map(Number); cfgs.push({ headroom: h, leafMinPx: m, leafOverhead: o, refineGain: g, combo: true }); }
+  if (combo) { const [h, m, o, g, w = 24] = String(combo).split(',').map(Number); cfgs.push({ headroom: h, leafMinPx: m, leafOverhead: o, refineGain: g, wJoin: w, combo: true }); }
   stride = sweepStride;
   for (const c of cfgs) {
-    const N = await newStructure(graph, { headroom: c.headroom, policy: { leafMinPx: c.leafMinPx, leafOverhead: c.leafOverhead, refineGain: c.refineGain } });
+    const N = await newStructure(graph, { headroom: c.headroom, policy: { leafMinPx: c.leafMinPx, leafOverhead: c.leafOverhead, refineGain: c.refineGain, wJoin: c.wJoin } });
     const frames = measure(name, pic, 'new', N.tables, NEW_NAMES, (T, x, y, p, o) => REP.replayPixel(T, x, y, p, o));
     sweepRows.push({ bench: name, picture: picName, stride: sweepStride, ...c, leaves: N.report.leaves, wide: N.report.wide, buildMs: N.buildMs, cost: Math.round(avg(frames, (f) => f.totals.cost)), work: Math.round(avg(frames, (f) => f.totals.work)), inView: Math.round(avg(frames, (f) => f.instances.inView)), objective: Math.round(objective(frames, LEAF_QUAD_COST)) });
     log(`sweep ${name} ${picName} ${JSON.stringify(c)}: objective ${sweepRows.at(-1).objective}, ${N.report.leaves} leaves`);
