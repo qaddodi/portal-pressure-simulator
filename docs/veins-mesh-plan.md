@@ -90,14 +90,12 @@ The refactor lands alone first, with the classic picture unchanged (same operati
 
 - `draw` (a whole draw) and `shiftLayer` (a pan's uncovered strips): the mesh pass, through the same pieces and scissor (`wrapPieces`), the
   piece cleared first. Depth and stencil are cleared inside the scissor too.
-- `drawRows`: the rows whose shape changed: their cells, rounded out to 128 px tiles and grouped into at
+- `drawRows` (and the rows it would recolour with `tintPass`): the changed rows' cells, rounded out to 128 px tiles and grouped into at
   most 12 boxes, each cleared and drawn again by the mesh pass through its scissor, every vessel in it. Each pixel there ends as a whole
   draw would leave it (the brief's "the same picture"), and the rest of the layer is kept. More than 60% of the cells: a whole draw.
   (First built as a whole mesh draw for every partial one; at rest that was about 11 whole draws a second, 8 Nov 2026.)
-- `tintPass` (rows whose lumen colours alone changed, the pressure colours at rest): kept as it is, over the mesh layer: it draws again
-  only the pixels a lumen colour reaches (the mesh writes the same outDep), with the shared shading, into the colour target (9 Nov 2026).
 - One-pass zoom frames (`fused`): off while the mesh draws; each zoom frame is a whole mesh draw and the normal composite.
-- `lowPass` (Vessels lower while pinching): stays on the classic shader at its own size. `reuseDraw`, the upscale: unchanged (they read
+- `lowPass` (Vessels lower while pinching): not with the mesh on (owner, 9 Nov 2026: "Mesh is mesh. Classic is classic. No hybrid"); a pinch frame is a whole mesh draw. `reuseDraw`, the upscale: unchanged (they read
   the layer). Morphs: the strips read the frame's points (`PT()` from `posBase`), the patches the frame's joins (`JT()`).
 - Falls back to classic: the switch off, software GL, the lobule (it never builds the mesh programs), a shader that fails to compile or
   link (console.warn), a depth or stencil target the driver will not make. Until the programs are published (parallel compile) the classic
