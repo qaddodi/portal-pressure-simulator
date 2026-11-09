@@ -669,9 +669,10 @@ export function createVecRenderer(gl, shared) {
       if (g) takeGrid(g);
       if (bins?.patchTubes?.length) frame.note(D.TUBES | D.RADII, bins.patchTubes); else frame.note(D.GEOM);
     },
-    makeMorphSet(bins) {
+    /** A morph set from the sweep's binning; `tubes`: the sweep's input [{ id, path, ... }] (A's morphBoxes reads the courses), as the stage gave the worker. */
+    makeMorphSet(bins, tubes) {
       if (!parts.compile?.morph) return null;
-      const g = parts.compile.morph(bins);
+      const g = parts.compile.morph(bins, tubes);
       return { owner: api, grid: g, morph: { posBase: bins.posBase, joinBase: bins.joinBase, tight: !!bins.tight } };
     },
     useMorphSet(S) {
