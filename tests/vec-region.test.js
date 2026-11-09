@@ -16,7 +16,7 @@ const { vecRegionVS, vecRegionFS, vecRegionParts, REGION_UNIFORMS, REGION_ATTRIB
 const K = await import('../src/ui/vec-contract.js');
 const { HIER_GLSL } = await import('../src/ui/vec-hier-glsl.js');
 const GL = await import('../src/ui/veins-gl.js');
-const { VEC_SHADE_UNIFORMS } = await import('../src/ui/vec-shade-glsl.js');
+const { VEC_SHADE_UNIFORMS, VEC_SHADE_UNIFORMS_LEAF } = await import('../src/ui/vec-shade-glsl.js');
 
 // The flags the renderer passes (veins-gl.js owns them), and stand-ins for D's blood library and G's overlays with their agreed signatures.
 const K_FLAGS = {
@@ -240,7 +240,8 @@ for (const cls of CLASSES) {
       const src = LFS(variant, cls);
       assert.deepEqual(lintGLSL(src), []);
       const u = uniformsOf(src);
-      const want = [...leafRegionUniforms(cls).fragment, ...VEC_SHADE_UNIFORMS];
+      const want = [...leafRegionUniforms(cls).fragment, ...VEC_SHADE_UNIFORMS_LEAF];
+      for (const n of ['cellTex', 'gridO', 'gridN', 'shOff']) assert.ok(!u.includes(n), `${n}: the hierarchy\'s own lookup and shadow offset stand in`);
       for (const n of want) assert.ok(u.includes(n), `${name}: ${n}`);
       assert.equal(u.includes('vecBase'), variant === K.V_BLOOD, 'the kept base only under the blood variant');
       assert.equal(u.includes('morphOn'), LEAF_CLASSES[cls].morph, 'the frame\'s join rows only in the morph class');

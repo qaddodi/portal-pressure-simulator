@@ -317,7 +317,7 @@ VecJoin joinOf(int j) {
   int leaf = vecLeafAt(p);
   if (leaf < 0 || leaf != vLeaf) discard;
   VecLeaf L = vecLeafRead(leaf);
-  vec2 ps = p - shOff;
+  vec2 ps = p - uVecShOff;
   bool overflow = false;   // more survivors than the array holds: the pixel is magenta, nothing is dropped
 ${J ? `
   // ── 4a. Joins whose disc covers this pixel (the others cannot change it) ──
@@ -596,7 +596,7 @@ uniform float reachU;                  // how far from a lumen anything is drawn
 ` : `const int SHAPE_BITS = ${C_LUMEN | C_SHADOW | C_RING | C_JOIN};   // the contributions that make the tier's shape (a candidate with only its glow adds only its glow)
 `}${legacy || cfg.morph ? `uniform int morphOn;                   // 1: a morph set (veins-sweep.js) is in use: the joins of its regions come from the frame's join rows
 uniform int joinBase;                  // (morphOn) the texel of the frame's joins in ent: one a join (centre, reach, blend width and fillet, as the entries)
-` : ''}${VEC_SHADE_GLSL(K)}${hier}${blood}${above}${isBlood ? 'uniform sampler2D vecBase;            // the kept still picture\n' : ''}${legacy ? 'flat in ivec2 vCell;' : 'flat in int vLeaf;'}
+` : ''}${VEC_SHADE_GLSL(K, !legacy)}${hier}${blood}${above}${isBlood ? 'uniform sampler2D vecBase;            // the kept still picture\n' : ''}${legacy ? 'flat in ivec2 vCell;' : 'flat in int vLeaf;'}
 layout(location=0) out vec4 outColor;
 
 ${legacy ? 'vec4 RG(int r, int k) { return texelFetch(regionTex, ivec2(k, r), 0); }\n' : ''}${legacy || cfg.morph ? 'vec4 JT(int j) { int t = joinBase + j; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }\n' : ''}${J ? `float smin(float a, float b, float k) {
