@@ -19,6 +19,7 @@ import { VB_ANAT, NODE_POS } from './anatomy.js';
 import { lobuleGeo, sceneMatrix, LOBULE_SCENES, SCENE_DEVICE } from './vec-lobule.js';
 import { frameFor, vesselRenderer } from './frame.js';
 import { currentMeasure, setLastReport } from './vec-measure.js';
+import { smooth01 } from './motion.js';
 
 /** The pictures the benchmarks are measured at: css size of the stage and the device pixel ratio. */
 export const PICTURES = Object.freeze({
@@ -32,7 +33,7 @@ export const ANAT_DEEP_K = 9;
 /** Where the anatomy benchmarks look: the portal confluence, node CONF in the anatomy's plate (anatomy.js NODE_POS). */
 export const CONFLUENCE = Object.freeze({ x: NODE_POS.CONF[0][0], y: NODE_POS.CONF[0][1] });
 /** The pinch's length (ms) and the instants node replays it at (fractions of its length). */
-export const PINCH_MS = 2000;
+export const PINCH_MS = 2000;   // motion-scale: not a move (a measurement run's length; it times a replay, nothing the viewer sees)
 export const PINCH_SAMPLES = Object.freeze([0, 0.25, 0.5, 0.75, 1]);
 
 export const BENCHMARKS = Object.freeze({
@@ -45,7 +46,6 @@ export const BENCHMARKS = Object.freeze({
 });
 export const BENCH_NAMES = Object.freeze(Object.keys(BENCHMARKS));
 
-const ease = (t) => t * t * (3 - 2 * t);
 
 /** The stage camera vt = { k, x, y } of an anatomy benchmark at fraction `t` (0 … 1) of its length. */
 export function benchVT(name, t = 0, out = { k: 1, x: 0, y: 0 }) {
@@ -57,7 +57,7 @@ export function benchVT(name, t = 0, out = { k: 1, x: 0, y: 0 }) {
     out.k = k; out.x = cx - k * CONFLUENCE.x; out.y = cy - k * CONFLUENCE.y;
   } else if (name === 'pinch') {
     // Zooms about the confluence where it stands at the fit: the point stays under the fingers, k grows exponentially with an eased time.
-    const k = Math.exp(Math.log(ANAT_DEEP_K) * ease(Math.min(1, Math.max(0, t))));
+    const k = Math.exp(Math.log(ANAT_DEEP_K) * smooth01(t));
     out.k = k; out.x = CONFLUENCE.x * (1 - k); out.y = CONFLUENCE.y * (1 - k);
   } else { out.k = 1; out.x = 0; out.y = 0; }
   return out;

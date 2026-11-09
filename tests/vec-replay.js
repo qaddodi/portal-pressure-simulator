@@ -33,13 +33,16 @@ const OLD_KIND_CLASS = [[OLD.K_JOIN, 2], [OLD.K_CROSSTIER, 3], [OLD.K_CROSS, 4],
 
 /** A count record (kept and written over by the replays). */
 export function newCounts() {
-  return { cls: 0, row: -1, leaf: -1, depth: 0, bound: 0, seg: 0, cand: 0, kept: 0, joins: 0, joinTests: 0, joinIters: 0, members: 0, walk: 0, work: 0, wide: 0, lumenD: 1e9 };
+  return { cls: 0, row: -1, leaf: -1, depth: 0, bound: 0, seg: 0, cand: 0, kept: 0, joins: 0, joinCover: 0, joinTests: 0, joinIters: 0, members: 0, walk: 0, work: 0, cost: 0, wide: 0, lumenD: 1e9 };
 }
 function clearCounts(o) {
-  o.cls = 0; o.row = -1; o.leaf = -1; o.depth = 0; o.bound = 0; o.seg = 0; o.cand = 0; o.kept = 0; o.joins = 0; o.joinTests = 0; o.joinIters = 0; o.members = 0; o.walk = 0; o.work = 0; o.wide = 0; o.lumenD = 1e9;
+  o.cls = 0; o.row = -1; o.leaf = -1; o.depth = 0; o.bound = 0; o.seg = 0; o.cand = 0; o.kept = 0; o.joins = 0; o.joinCover = 0; o.joinTests = 0; o.joinIters = 0; o.members = 0; o.walk = 0; o.work = 0; o.cost = 0; o.wide = 0; o.lumenD = 1e9;
 }
 /** The plan's cost model with equal weights: work = bound tests + segment tests + junction work (the disc tests and the member-mask iterations). */
 export const workOf = (o) => o.bound + o.seg + o.joinTests + o.joinIters;
+/** K's cost model (vec-leaves.js defaultPolicy: wBound 1, wSeg 6 a segment test, wJoin 24 a join whose disc covers the pixel), counted the same way for both structures. */
+export const COST_W = Object.freeze({ bound: 1, seg: 6, join: 24 });
+export const costOf = (o, w = COST_W) => w.bound * o.bound + w.seg * o.seg + w.join * o.joinCover;
 
 // ── Geometry shared by both ──
 const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
@@ -109,7 +112,7 @@ export function replayOld(T, wx, wy, px, out = newCounts()) {
     OLD_ACC.d = 1e9; OLD_ACC.h = 1e9;
     nearOld(T.graph, row, lo, hi, wx, wy, psx, psy, OLD_ACC, out);
     out.cls = C_STRIP; out.row = row; out.cand = 1; out.kept = 1; out.members = 1; out.lumenD = OLD_ACC.d < 1e8 ? OLD_ACC.d : lumenDistance(T.graph, row, wx, wy);
-    out.work = workOf(out);
+    out.work = workOf(out); out.cost = costOf(out);
     return out;
   }
   // A region: the member loop, every member's vecNear before it is known to matter, the nearest SLOTS kept.
@@ -146,8 +149,8 @@ export function replayOld(T, wx, wy, px, out = newCounts()) {
     }
   }
   out.cand = cands; out.kept = n;
-  if (n === 0) { out.work = workOf(out); return out; }
-  if (n === 1) { out.work = workOf(out); return out; }   // (one vessel: the single path, no junction loop)
+  if (n === 0) { out.work = workOf(out); out.cost = costOf(out); return out; }
+  if (n === 1) { out.work = workOf(out); out.cost = costOf(out); return out; }   // (one vessel: the single path, no junction loop)
   for (let m = 0; m < nm; m++) {
     const row = (R[b + (1 + m) * 4] + 0.5) | 0;
     OLD_MSL[m] = -1;
@@ -158,6 +161,7 @@ export function replayOld(T, wx, wy, px, out = newCounts()) {
     out.joinTests++;
     const dc = Math.hypot(wx - R[ja], wy - R[ja + 1]);
     if (dc > R[ja + 3]) continue;
+    out.joinCover++;
     const mlo = (R[jb] + 0.5) | 0, mhi = (R[jb + 2] + 0.5) | 0;
     let mask = 0, c = 0;
     for (let m = 0; m < OLD.MAX_MEMBERS; m++) {
@@ -169,7 +173,7 @@ export function replayOld(T, wx, wy, px, out = newCounts()) {
     }
     if (c >= 2) out.joins++;
   }
-  out.work = workOf(out);
+  out.work = workOf(out); out.cost = costOf(out);
   return out;
 }
 
@@ -271,8 +275,8 @@ export function replayPixel(T, wx, wy, px = 1, out = newCounts()) {
   const leaf = leafOf(T, wx, wy, out);
   if (leaf < 0) return out;
   const L = leaf * 8, cls = T.leaves[L], runStart = T.leaves[L + 1], runCount = T.leaves[L + 2], joinStart = T.leaves[L + 3], joinCount = T.leaves[L + 4];
-  out.cls = cls; out.leaf = leaf; out.wide = cls === K.leafClass.WIDE ? 1 : 0;
-  if (cls === K.leafClass.SINGLE) out.row = T.leaves[L + 7];
+  out.crossTier = (cls & C2.L_CROSSTIER_BIT) !== 0 ? 1 : 0; out.cls = cls & 0xff; out.leaf = leaf; out.wide = out.cls === K.leafClass.WIDE ? 1 : 0;
+  if (out.cls === K.leafClass.SINGLE) out.row = T.leaves[L + 7];
   const psx = wx - look.shOff[0], psy = wy - look.shOff[1];
   let nc = 0;
   const rpr = K.runsPerRow, rw = rpr * 4;
@@ -292,13 +296,14 @@ export function replayPixel(T, wx, wy, px = 1, out = newCounts()) {
     if (at >= 0) NEW_MASK[at] |= hit;
   }
   out.cand = nc;
-  if (cls === K.leafClass.SINGLE && T.graph && nc > 0) out.lumenD = lumenDistance(T.graph, NEW_ROWS[0], wx, wy);   // (for the blood-only frame's strip share; not counted as work)
+  if (out.cls === K.leafClass.SINGLE && T.graph && nc > 0) out.lumenD = lumenDistance(T.graph, NEW_ROWS[0], wx, wy);   // (for the blood-only frame's strip share; not counted as work)
   if (nc > 1 || joinCount > 0) {
     for (let q = 0; q < joinCount; q++) {
       const j = T.joinRef[joinStart + q], o = j * 12;
       out.joinTests++;
       const dc = Math.hypot(wx - T.joins[o], wy - T.joins[o + 1]);
-      if (dc > (T.joins[o + 3] + T.joins[o + 2]) * (T.headroom ?? C2.BOUND_HEADROOM)) continue;   // (A's joinDisc: (reach + k) × the headroom the runs were built with)
+      if (dc > (T.joins[o + 3] + T.joins[o + 2]) * (T.headroom ?? C2.BOUND_HEADROOM)) continue;
+      out.joinCover++;   // (A's joinDisc: (reach + k) × the headroom the runs were built with)
       let c = 0;
       for (let m = 0; m < 4; m++) {
         const mr = T.joins[o + 4 + m];
@@ -310,20 +315,20 @@ export function replayPixel(T, wx, wy, px = 1, out = newCounts()) {
     }
   }
   out.kept = nc;
-  out.work = workOf(out);
+  out.work = workOf(out); out.cost = costOf(out);
   return out;
 }
 
 // ═══════════════════════════════ Aggregates ═══════════════════════════════
 
 /** A running summary of one count over many pixels: n, sum, max, and a histogram for the p95 (counts are whole numbers; values past HIST are bucketed). */
-const HIST = 4096;
+const HIST = 32768;
 export function newStat() { return { n: 0, sum: 0, max: 0, hist: new Uint32Array(HIST + 1) }; }
 export function addStat(s, v) { s.n++; s.sum += v; if (v > s.max) s.max = v; s.hist[v > HIST ? HIST : v | 0]++; }
 export function meanOf(s) { return s.n ? s.sum / s.n : 0; }
 export function pctOf(s, p) { if (!s.n) return 0; const want = Math.ceil(s.n * p); let c = 0; for (let i = 0; i <= HIST; i++) { c += s.hist[i]; if (c >= want) return i; } return HIST; }
 
-export const FIELDS = Object.freeze(['bound', 'seg', 'cand', 'kept', 'joins', 'joinTests', 'work']);
+export const FIELDS = Object.freeze(['bound', 'seg', 'cand', 'kept', 'joins', 'joinTests', 'work', 'cost']);
 /** A class's tally: pixel count and one stat per field. */
 export function newTally() { const t = { px: 0 }; for (const f of FIELDS) t[f] = newStat(); return t; }
 export function addCounts(t, c) { t.px++; for (const f of FIELDS) addStat(t[f], c[f]); }
