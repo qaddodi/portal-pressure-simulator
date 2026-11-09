@@ -1,7 +1,7 @@
 // Rules held by lint, not by memory (Holding 120 Hz, revision 2, 2 Nov 2026). Fails `npm run lint` when:
 //
 //   switches   a runtime switch read from the address (/[?&]name/, searchParams.has/get('name')) that is not one of the measuring aids
-//              (perf, offgpu, fps, budget, inputs), a content deep link (script, slide, preset, home, back, presenter-view) or a cache stamp (v), and is not
+//              (perf, offgpu, fps, budget, inputs, vecbench), a content deep link (script, slide, preset, home, back, presenter-view) or a cache stamp (v), and is not
 //              in scripts/switches-left.json, the switches still waiting for their deletion pass. The list may only shrink: a name in it that
 //              the source no longer reads fails too, so a deleted switch leaves the list in the same commit. No new switch, ever.
 //   import()   a dynamic import that is not in scripts/lazy-imports.json, where each one says what reads its module in before a person can
@@ -35,7 +35,7 @@ import { sourceRegexTests } from './test-classes.mjs';
 import { inventory as chartInventory, countsOf as chartCounts } from './chart-looks-inventory.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v']);
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'vecbench', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v']);
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
