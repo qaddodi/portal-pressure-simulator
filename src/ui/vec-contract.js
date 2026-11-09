@@ -35,7 +35,10 @@ export const WIN_MAX = 8;
 // Texture: RGBA32F, REGION_TEXELS texels a region, one region a texel row.
 //   texel 0:                 kind bits (K_*), member count, join count, the region's largest reach (world)
 //   texels 1 … MAX_MEMBERS:  a member: vessel row, first segment i0, last segment i1, member flags (M_*)
-//   texels JOIN0 + 2j, +1:   join j: A = (x, y, blend width k, reach), B = (member mask, trunk member index or −1, fork 0/1, run-on 0/1)
+//   texels JOIN0 + 2j, +1:   join j: A = (x, y, blend width k, reach), B = (member mask, trunk member index or −1, fork 0/1, fillet 0..1)
+//     (B.x: bit m set = the region's member m (texel 1 + m) is a member of this join. B.w: the fillet fraction veins-bin writeJoin keeps in
+//     the fractional part of the entry's blend width (ent[q+3] = round(k·100) + 0.99·fillet), so the shader has classic's own js: run-on at
+//     a fork is fork && fillet < 0.01, a run is fillet < 0.98. k is that rounded value / 100, the world blend width.)
 export const REGION_TEXELS = 32;
 export const MAX_MEMBERS = 16;          // listed per region; the shader keeps the nearest SLOTS per pixel, as classic keeps MAXS = 8
 export const SLOTS = 8;
