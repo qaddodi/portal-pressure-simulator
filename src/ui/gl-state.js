@@ -43,7 +43,7 @@ function sweep(gl, r) {
   r.vp = Int32Array.from(g(gl.VIEWPORT) || [0, 0, 0, 0]); r.sci = Int32Array.from(g(gl.SCISSOR_BOX) || [0, 0, 0, 0]); // alloc-rare: read once when a context's record starts (its first use, and once after a restore)
   r.prog = g(gl.CURRENT_PROGRAM); r.vao = g(gl.VERTEX_ARRAY_BINDING); r.buf = g(gl.ARRAY_BUFFER_BINDING); r.rb = g(gl.RENDERBUFFER_BINDING);
   r.unit = g(gl.ACTIVE_TEXTURE); r.tex = new Map([[r.unit, g(gl.TEXTURE_BINDING_2D)]]); // alloc-rare: read once when a context's record starts (its first use, and once after a restore)
-  r.caps = new Map([gl.BLEND, gl.STENCIL_TEST, gl.SCISSOR_TEST, gl.DEPTH_TEST, gl.CULL_FACE].map((c) => [c, gl.isEnabled(c)])); // alloc-rare: read once when a context's record starts (its first use, and once after a restore)
+  r.caps = new Map([gl.BLEND, gl.STENCIL_TEST, gl.SCISSOR_TEST, gl.DEPTH_TEST, gl.CULL_FACE, gl.RASTERIZER_DISCARD].map((c) => [c, gl.isEnabled(c)])); // alloc-rare: read once when a context's record starts (its first use, and once after a restore)
   r.bf = [g(gl.BLEND_SRC_RGB), g(gl.BLEND_DST_RGB), g(gl.BLEND_SRC_ALPHA), g(gl.BLEND_DST_ALPHA)]; // alloc-rare: read once when a context's record starts (its first use, and once after a restore)
   r.be = [g(gl.BLEND_EQUATION_RGB), g(gl.BLEND_EQUATION_ALPHA)]; // alloc-rare: read once when a context's record starts (its first use, and once after a restore)
   r.cm = Array.from(g(gl.COLOR_WRITEMASK) || [true, true, true, true]); r.cc = Float32Array.from(g(gl.COLOR_CLEAR_VALUE) || [0, 0, 0, 0]); // alloc-rare: read once when a context's record starts (its first use, and once after a restore)

@@ -13,6 +13,8 @@
 // onto the canvas in one blit: the only write the shown surface gets, and a whole one. A write outside a frame asks for one (ask), so it is
 // shown at that frame's end. All on the GPU: nothing is read back.
 
+import { glOn } from './gl-state.js';
+
 /** Installs the screen on `gl` (the context object itself, so every host drawing in it is covered). `onEnd(fn)`: registers fn at the
  *  scheduler's frame end, returns its removal; `ask()`: asks for a frame. */
 export function keepScreen(gl, canvas, { onEnd = null, ask = null } = {}) {
@@ -78,7 +80,10 @@ export function keepScreen(gl, canvas, { onEnd = null, ask = null } = {}) {
     st.dirty = false;
     if (gl.isContextLost && gl.isContextLost()) return;
     if (st.w !== canvas.width || st.h !== canvas.height) size();   // (resized since: the canvas is cleared, the screen made again with it)
-    const sc = gl.isEnabled(gl.SCISSOR_TEST), rd = gl.isEnabled(gl.RASTERIZER_DISCARD);
+    // (From the context's own record (gl-state.js glOn), never gl.isEnabled: in Safari a state query is a synchronous trip that waits for
+    // the GPU to work through everything the frame queued. 8 Nov 2026, Mohammad's Safari recording: 7.6 of 10.9 s of sampled script sat in
+    // these two reads, about three quarters of every frame.)
+    const sc = glOn(gl, gl.SCISSOR_TEST), rd = glOn(gl, gl.RASTERIZER_DISCARD);
     if (sc) gl.disable(gl.SCISSOR_TEST);
     if (rd) gl.disable(gl.RASTERIZER_DISCARD);
     bind(gl.READ_FRAMEBUFFER, st.fb);
