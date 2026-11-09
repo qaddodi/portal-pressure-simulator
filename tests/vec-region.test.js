@@ -202,3 +202,15 @@ test('every uniform the region programs declare is one the renderer core sets', 
   }
   assert.deepEqual(uniformsOf(vecRegionVS).filter((n) => !(n in R.VEC_OWN_UNIFORMS)), []);
 });
+
+test('a morph region reads its joins from the frame\'s join rows, as classic does between the views', () => {
+  const src = FS(K.V_FULL);
+  assert.ok(src.includes('vec4 F = JT(int(A.x + 0.5)); A = vec4(F.xy, floor(F.w) * 0.01, F.z); B.w = fract(F.w) / 0.99;'));
+  assert.ok(src.includes(`(int(r0.x + 0.5) & ${K.K_MORPH}) != 0`) && src.includes('morphOn >= 1'));
+  // the packing of an entry's blend width and fillet (veins-bin.js writeJoin): round(k · 100) + 0.99 · fillet
+  for (const [k, fil] of [[0, 1], [3.5, 0], [12.25, 0.5], [7, 0.99]]) {
+    const w = Math.round(k * 100) + 0.99 * fil;
+    assert.ok(Math.abs(Math.floor(w) * 0.01 - Math.round(k * 100) * 0.01) < 1e-9);
+    assert.ok(Math.abs(w % 1 / 0.99 - fil) < 1e-9 || fil === 1);
+  }
+});
