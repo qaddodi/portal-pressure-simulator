@@ -100,8 +100,8 @@ test('the variants differ where the plan says: BASE has no blood, BLOOD reads th
   const full = vecStretchFS(V_FULL, K), base = vecStretchFS(V_BASE, K), blood = vecStretchFS(V_BLOOD, K);
   assert.ok(full.includes('vecBlood(vRow') && blood.includes('vecBlood(vRow'));
   assert.ok(!base.includes('vecBlood'), 'BASE: no blood');
-  assert.ok(blood.includes('texelFetch(keptBase, ivec2(gl_FragCoord.xy), 0)') && blood.includes('vecAboveAt(p)'));
-  assert.ok(!full.includes('keptBase') && !full.includes('vecAboveAt') && !base.includes('keptBase'));
+  assert.ok(blood.includes('texelFetch(vecBase, ivec2(gl_FragCoord.xy), 0)') && blood.includes('vecAboveAt(p)'));
+  assert.ok(!full.includes('vecBase') && !full.includes('vecAboveAt') && !base.includes('vecBase'));
   // BLOOD adds the change the blood makes to the base; it never recomputes the picture.
   assert.ok(blood.includes('b.rgb + o.a * (lit - lumCol)'));
   // The blood is laid as D's signature has it: a premultiplied layer, weighted by the lumen's visibility.
@@ -122,6 +122,7 @@ test('the vertex shader is the mesh\'s strip placement, padded by the reach (the
     assert.ok(vs.includes('flat out int vRow;'));
     assert.ok(/gl_Position = vec4\([^;]*\(float\(id\) \+ 0\.5\) \/ \d+\.0 \* 2\.0 - 1\.0, 1\.0\);/.test(vs), `${name}: z is the row's alone`);
   }
+  for (const [name, v] of VARIANTS) assert.ok(vecStretchVS(v, K).includes('texelFetch(tube, ivec2(1, id), 0).w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }'), `${name}: a row with no alpha is folded away`);
   assert.ok(vecStretchVS(V_FULL, K).includes('texelFetch(tube, ivec2(0, id), 0).w + padU + (sel ? selPad : 0.0)'));
   assert.ok(vecStretchVS(V_BASE, K).includes('texelFetch(tube, ivec2(0, id), 0).w + padU'));
   assert.ok(vecStretchVS(V_BLOOD, K).includes('float pad = padU;') && !vecStretchVS(V_BLOOD, K).includes('selPad)'));

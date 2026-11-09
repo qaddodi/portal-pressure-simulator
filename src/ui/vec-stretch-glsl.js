@@ -17,11 +17,11 @@
 //            fragment of the same vessel at a pixel, where one strip's triangles overlap at a bend).
 //   V_BASE   as V_FULL without step 4: the kept still picture.
 //   V_BLOOD  only the lumen strip (the vertex pad is padU alone: the caller sets it to a pixel or two), blend off: reads the kept base
-//            (uniform keptBase, the picture's size, no y flip) at the pixel, adds the change the blood makes (alpha × (lit − unlit)),
+//            (uniform vecBase, the picture's size, no y flip) at the pixel, adds the change the blood makes (alpha × (lit − unlit)),
 //            and lays the over-blood overlays (G's vecAboveAt(p)) on the result. A pixel with no blood showing is discarded: the picture
 //            already holds base + overlays there. Not dithered again (the base carries the dither).
 //
-// The uniforms, for the renderer core (E): VEC_SHADE_UNIFORMS (vec-shade-glsl.js) in every fragment shader, keptBase in V_BLOOD, and the
+// The uniforms, for the renderer core (E): VEC_SHADE_UNIFORMS (vec-shade-glsl.js) in every fragment shader, vecBase in V_BLOOD, and the
 // blood's and the overlays' own (D's VEC_BLOOD_UNIFORMS, G's). The vertex shader's: world (world → device px, y down), size (the picture, px),
 // tube, ent, rad, posBase, padU, selPad (vecStretchUniformNames below).
 import { STRIP_VS_GLSL } from './veins-mesh.js';
@@ -58,6 +58,8 @@ flat out int vRow;
 void main() {
   int id = int(aRow + 0.5);
   vRow = id;
+  // A row with no alpha draws nothing (the shape, the glow and the lift all scale by it): fold it away.
+  if (texelFetch(tube, ivec2(1, id), 0).w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   ${variant === V_BLOOD
     ? 'float pad = padU;'
     : `bool sel = (int(texelFetch(tube, ivec2(2, id), 0).z + 0.5) & ${K.F_SEL}) != 0;
@@ -70,7 +72,7 @@ void main() {
 /** The uniform names of the program for a variant, for the renderer core: { vs, fs } (the blood's and overlays' own come from D and G). */
 export const vecStretchUniformNames = (variant) => ({
   vs: ['world', 'size', 'tube', 'padU', ...(variant === V_BLOOD ? [] : ['selPad']), 'ent', 'rad', 'posBase'],
-  fs: [...VEC_SHADE_UNIFORMS, ...(variant === V_BLOOD ? ['keptBase'] : [])],
+  fs: [...VEC_SHADE_UNIFORMS, ...(variant === V_BLOOD ? ['vecBase'] : [])],
 });
 
 /**
@@ -80,7 +82,7 @@ export const vecStretchUniformNames = (variant) => ({
 export function vecStretchFS(variant, K, parts = {}) {
   const blood = parts.blood ?? VEC_BLOOD_STUB, above = parts.above ?? VEC_ABOVE_STUB;
   const head = `${VEC_PRECISION}${VEC_SHADE_GLSL(K)}${variant === V_BASE ? '' : blood}${variant === V_BLOOD ? `${above}
-uniform sampler2D keptBase;            // the kept still picture (V_BASE's output), the picture's size
+uniform sampler2D vecBase;            // the kept still picture (V_BASE's output), the picture's size
 ` : ''}flat in int vRow;
 layout(location=0) out vec4 outColor;
 `;
@@ -91,7 +93,7 @@ layout(location=0) out vec4 outColor;
   vec3 st = vecStreamAt(vRow, nr);
   vec4 bl = vecBlood(vRow, st.x, st.y, st.z, lumCol, px);
   vec3 lit = bl.rgb * vis + lumCol * (1.0 - bl.a * vis);
-  vec4 b = texelFetch(keptBase, ivec2(gl_FragCoord.xy), 0);
+  vec4 b = texelFetch(vecBase, ivec2(gl_FragCoord.xy), 0);
   vec4 r = vec4(b.rgb + o.a * (lit - lumCol), b.a);
   r = vec4(min(max(r.rgb, vec3(0.0)), vec3(r.a)), r.a);
   outColor = over(vecAboveAt(p), r);` : variant === V_FULL ? `${lay}

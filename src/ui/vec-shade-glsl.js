@@ -8,7 +8,7 @@
 //   VEC_SHADE_GLSL(K)                the shared text, in this order (a program puts nothing of its own between them):
 //        1. the host declarations: samplers ent, rad, tube, organ; the uniforms listed in VEC_SHADE_UNIFORMS; T(), PT(), alongAt(), over(),
 //           LAST, WIN_MAX, N_SAMPLES (blood's text, workstream D, goes AFTER this and must not declare them again);
-//        2. the cell test: uniforms cells, inv, gridO, gridN, const CELL; vec2 vecWorld(); uvec4 vecCellAt(vec2 p);
+//        2. the cell test: uniforms cellTex, inv, gridO, gridN, const CELL; vec2 vecWorld(); uvec4 vecCellAt(vec2 p);
 //        3. shadeGLSL (veins-mesh-glsl.js, imported, packFlow cut): segNear, vesAttrs, glowAmt, shadowOf, tubeShade, ditherOut;
 //        4. struct VecNear; vecNearNone(); vecNear(); vecNearMore(); vecOccl(); vecStreamAt(); vecShadeOne().
 //   VEC_SHADE_UNIFORMS               the uniform names of 1 and 2: what the renderer core (E) sets.
@@ -52,7 +52,7 @@ export const VEC_PRECISION = '#version 300 es\nprecision highp float;\nprecision
 export const VEC_SHADE_UNIFORMS = Object.freeze([
   'ent', 'rad', 'tube', 'organ', 'organRect', 'useOrgan', 'organK', 'px', 'shOff', 'casing', 'shadow', 'sheenInk', 'shadeInk', 'rimInk',
   'paperInk', 'ring', 'light', 'netAlpha', 'fx', 'tierAlpha', 'tierGroup', 'posBase',
-  'cells', 'inv', 'gridO', 'gridN',
+  'cellTex', 'inv', 'gridO', 'gridN',
 ]);
 
 const f1 = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
@@ -102,7 +102,7 @@ vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
  * (RGBA16UI: kind, vessel row or region index, i0, i1; see vec-contract.js). Outside the grid: kind 0 (empty).
  */
 const cellGLSL = () => `
-uniform highp usampler2D cells;        // the cell grid (vec-contract.js GRID_W wide)
+uniform highp usampler2D cellTex;       // the cell grid (vec-contract.js GRID_W wide)
 uniform highp mat3 inv;                // gl_FragCoord.xy → world
 uniform highp vec2 gridO;              // the grid's origin corner (world)
 uniform highp vec2 gridN;              // cells across, down
@@ -114,7 +114,7 @@ vec2 vecWorld() { return (inv * vec3(gl_FragCoord.xy, 1.0)).xy; }
 uvec4 vecCellAt(vec2 p) {
   vec2 c = floor((p - gridO) / CELL);
   if (c.x < 0.0 || c.y < 0.0 || c.x >= gridN.x || c.y >= gridN.y) return uvec4(0u);
-  return texelFetch(cells, ivec2(c), 0);
+  return texelFetch(cellTex, ivec2(c), 0);
 }
 `;
 
