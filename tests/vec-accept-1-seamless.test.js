@@ -52,7 +52,7 @@ const camera = (rnd, out, wx, wy) => {
 void camera;
 
 for (const [name, v] of Object.entries(views)) {
-  const { graph, reach, out } = v;
+  const { graph, out } = v;
 
   test(`${name}: under random cameras up to the deepest zoom a pixel centre's cell is the plan's formula, and a cell has one owner`, () => {
     const rnd = rng(11);

@@ -30,7 +30,6 @@ const MB = await import('../src/ui/vec-blood-math.js');
 const regions = [];
 for (let slot = 0; slot < anatomy.out.nRegions; slot++) regions.push(regionOf(anatomy.out, slot));
 const bit = (r, k) => (r.kind & k) !== 0;
-const sameJoin = (r, a, b) => r.joins.some((j) => (j.mask >> a & 1) && (j.mask >> b & 1));
 
 test('the figure has crossings and confluences to judge', () => {
   assert.ok(regions.filter((r) => bit(r, C.K_CROSS) && !bit(r, C.K_JOIN)).length > 0, 'unconnected crossings');
