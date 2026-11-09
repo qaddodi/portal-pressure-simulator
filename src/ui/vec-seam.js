@@ -5,27 +5,28 @@
 // from the modules that exist, each under the name E's header gives it. It imports no GL state of veins-gl.js (that would be a cycle): the
 // shader flags it needs come in as K, which veins-gl.js builds from its own constants (VEC_K_NAMES lists them, a test pins the list).
 //
-// What goes in when a workstream's module lands (one line each, here, and its name in VEC_WAITING below until then):
-//   parts.compile  A  vec-compile.js   { build, patch, rows, morph, exceeds, current }
-//   (parts.region C vec-region-glsl.js and parts.organs F vec-organs.js are in, via vec-organs-port.js for the organ stack's input.)
-//   the blood text D  vec-blood-glsl.js   passed to vecStretchFS as parts.blood (and to C's)
+// In: parts.stretch (B), parts.region (C), parts.organs (F, via vec-organs-port.js, which gives it the organ stack's input as a layer map),
+// parts.overlays (G) and parts.compile (A). A new workstream's part is one line in vecParts below, and its name in VEC_WAITING until then.
+// D's blood text is the default of B's and C's shaders (vec-blood-glsl.js); nothing is passed.
 import { createVecRenderer } from './vec-renderer.js';
 import { vecStretchVS, vecStretchFS } from './vec-stretch-glsl.js';
 import { createOverlays } from './vec-overlays.js';
 import { vecRegionParts } from './vec-region-glsl.js';
 import { createVecOrgans } from './vec-organs.js';
 import { vecOrgansPort } from './vec-organs-port.js';
+import { createVecCompiler } from './vec-compile.js';
+import { createVecLobule } from './vec-lobule.js';
 import { V_FULL } from './vec-contract.js';
 
-export { createVecRenderer };
+export { createVecRenderer, createVecLobule };
 
 /** The flags and numbers vec-shade-glsl.js takes as K (they live in veins-gl.js, which imports this file). */
 export const VEC_K_NAMES = Object.freeze(['F_DIFFUSE', 'F_EDGE', 'F_SHADOW', 'F_SPEC', 'F_VEIL', 'F_WHOLE', 'F_SEL', 'F_DOTTED', 'F_NOCASE', 'VEIL_K']);
 /** The parts of E's header that no module gives yet: the Vector renderer reports itself as waiting for them (status()) and is not used. */
-export const VEC_WAITING = Object.freeze(['compile']);
+export const VEC_WAITING = Object.freeze([]);
 
-/** The `parts` of E's shared accessor, from the modules that exist. K: the flags (VEC_K_NAMES). */
-export function vecParts(gl, K) {
+/** The `parts` of E's shared accessor, from the modules that exist. K: the flags (VEC_K_NAMES). shared: E's accessor (A's compiler reads the tube and radius tables from it). */
+export function vecParts(gl, K, shared = null) {
   for (const k of VEC_K_NAMES) if (K[k] === undefined) throw new Error(`vec-seam: K.${k} is missing`);
   const vs = vecStretchVS(V_FULL, K);
   return {
@@ -38,5 +39,16 @@ export function vecParts(gl, K) {
     region: vecRegionParts(K, {}),
     // (F: the organs; the port gives them the organ stack's input as they take it.)
     organs: vecOrgansPort(createVecOrgans(gl)),
+    // (A: the graph and the grid. E calls build(bins, nTubes) and patch(bins); the kept tube and radius tables are the instance's own, read through the accessor.)
+    compile: vecCompile(shared),
   };
+}
+
+/** A's compiler with the instance's tube and radius tables handed to its first build (it keeps them for the attribute and radius updates). */
+function vecCompile(shared) {
+  const c = createVecCompiler();
+  if (!shared) return c;
+  const port = Object.create(c);
+  port.build = (bins, nTubes) => c.build(bins, nTubes, shared);
+  return port;
 }

@@ -104,9 +104,9 @@ test('unavailable storage still works in memory', async () => {
   done();
 });
 
-test('Vector is not offered in Settings until it draws end to end', async () => {
+test('Vector is offered in Settings (every part of the renderer is in the seam)', async () => {
   withStore([]);
   const f = await load();
-  assert.equal(typeof f.VECTOR_OFFERED, 'boolean');
+  assert.equal(f.VECTOR_OFFERED, true);
   done();
 });
