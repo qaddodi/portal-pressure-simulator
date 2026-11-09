@@ -182,7 +182,8 @@ test('the classic layer\'s targets are given back (a texel) while Vector draws',
   mod.setVectorFactory(() => standIn([]));
   const n0 = f.calls.length;
   g.draw(M, look, { on: false });
-  const sizes = f.calls.slice(n0).filter((c) => c[0] === 'texImage2D').map((c) => c[4] + 'x' + c[5]);
+  // (The points texture Vector reads, the entries' width, is sent as it starts: not a classic target.)
+  const sizes = f.calls.slice(n0).filter((c) => c[0] === 'texImage2D' && c[4] !== 2048).map((c) => c[4] + 'x' + c[5]);
   assert.ok(sizes.length >= 4 && sizes.every((s) => s === '1x1'), `the four targets went to a texel: ${sizes}`);
 });
 
@@ -373,6 +374,18 @@ test('the lobule: a blood-only Vector frame that cannot be kept lays the picture
   assert.equal(told(log, 'composite').length, 1);
   assert.ok(g.presents > p0 || presented >= 0, 'a picture was laid');
   assert.equal(g.top.kept, false, 'nothing is kept before a whole picture has been laid through the tissue');
+});
+
+test('the entry texture Vector reads is the points texture (the mesh\'s layout), made when the geometry is sent and when a patch changes it', () => {
+  const { g, f, shared } = setup('vector');
+  g.draw(M, look, { on: false });
+  const ent = shared().tex.ent();
+  const ups = (from) => f.calls.slice(from).filter((c) => c[0] === 'texImage2D' && c[4] === 2048 && c[3] === f.gl.RGBA32F);
+  assert.ok(ent, 'a texture');
+  const n0 = f.calls.length;
+  g.setGeometry(bins());
+  assert.equal(ups(n0).length >= 1, true, 'the points are sent with the geometry');
+  assert.equal(shared().tex.ent(), ent, 'the same texture');
 });
 
 test.after(() => { mod.setVectorFactory(null); frame.setVesselRenderer('mesh'); });
