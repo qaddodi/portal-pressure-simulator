@@ -3274,7 +3274,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     nTubes, who, gl, canvas,
     picture() { if (!own || lost) return null; ownSize(); PIC.tex = own.tex; PIC.w = own.w; PIC.h = own.h; return PIC; },
     tex: {
-      ent: () => vecEnt || entTex, rad: () => radTex, rmax: () => rmaxTex, tube: () => tubeTex, flow: () => flowTex, bend: () => bendTex, dye: () => dyeTex,
+      ent: () => vecEnt || vecPtsTex || entTex, rad: () => radTex, rmax: () => rmaxTex, tube: () => tubeTex, flow: () => flowTex, bend: () => bendTex, dye: () => dyeTex,
       organ: () => organTex,
       noiseT: () => { if (!tileTried) { tileTried = true; tileGPU = createBloodTile(gl); } return tileGPU?.bake() ? tileGPU.tex() : null; },
     },
@@ -3339,6 +3339,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, bins.rows, 0, gl.RGBA, gl.FLOAT, bins.ent);
     return t;
   };
+  // The figure's own binning for Vector: the mesh's points texture (each vessel row's points, N_SAMPLES / 2 texels a row, two points a texel, posBase 0),
+  // made from the entries the way the mesh does (veins-mesh-data pointsFromEntries) and sent when the binning is. The classic entry texture holds
+  // the cell lists' entries, which are not points. Its own record, so the mesh's cache is left alone.
+  let vecPtsTex = null;
+  const VPTS = {};
+  function vecPointsUpload() {
+    if (lost || !entCPU || !cellsCPU) return;
+    pointsFromEntries(entCPU, cellsCPU, nCells, nTubes, VPTS);
+    if (!vecPtsTex) vecPtsTex = dataTex(gl);
+    gl.bindTexture(gl.TEXTURE_2D, vecPtsTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, VPTS.rows, 0, gl.RGBA, gl.FLOAT, VPTS.pts, 0);
+    if (gpuProbe.on) gpuProbe.note('uploaded: vector points', VPTS.rows * ENT_W * 16 / 1024);
+  }
   const vecMadeSet = (bins) => ({ owner: api, bins, ent: vecEntOf(bins), vecSet: vec.makeMorphSet?.(bins) ?? null, vecGen });
   const vecCurSet = () => { for (const S of vecSets) if (S.ent === vecEnt) return S; for (const S of morphSets) if (S.ent === vecEnt) return S; return null; };
   // A Vector picture was drawn into the kept picture: counted as the other renderers' are, and laid on the canvas with what goes over it.
@@ -3397,7 +3410,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     vecGen++;
     if (who === 'lobule' && share && keep) { vecLobule = createVecLobule(gl, { read: vecLobRead, target: vecLobTarget, seq: () => pictureSeq, laid: vecLobLaid }); vecLobule.start(); if (flowSent) vecBloodRows(flowSent); }
     figVer++; texVer++; movedAll = true;
-    if (binsNow) vecTell('setGeometry', binsNow);
+    if (binsNow) { vecPointsUpload(); vecTell('setGeometry', binsNow); }
     vecTell('setOrgans', 'replay', vecOps);
     if (vecOps.overlay) vecTell('setOrgans', 'overlay', vecOps.overlay.groups, vecOps.overlay.names);
     // (G's module takes the lines, the catheter and the ascites' rows from the setters directly, as it is the one that draws them.)
@@ -4488,6 +4501,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         // (The entry texture is Vector's too, its points are read from it; the cell lists and the blood's cells are the classic passes' only.)
         keepRows(entTex, gl.RGBA32F, gl.RGBA, gl.FLOAT, ENT_W, bins.rows || 1, bins.ent.length ? bins.ent : (entNone ||= new Float32Array(ENT_W * 4)));
         cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells; rowCells = null; geoSkipped = true; movedAll = true;
+        vecPointsUpload();
         vecTell('useMorphSet', null); vecTell('setGeometry', bins);
         return;
       }
@@ -4512,7 +4526,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (vecNow()) {
         gl.bindTexture(gl.TEXTURE_2D, entTex);
         for (const [r0, r1] of bins.patch) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, r0, ENT_W, r1 - r0 + 1, gl.RGBA, gl.FLOAT, bins.ent, r0 * ENT_W * 4);
-        cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells; rowCells = null; geoSkipped = true; movedAll = true; vecTell('patchGeometry', bins);
+        cellsCPU = bins.cells; entCPU = bins.ent; nCells = bins.nCells; rowCells = null; geoSkipped = true; movedAll = true; vecPointsUpload(); vecTell('patchGeometry', bins);
         return;
       }
       if (geoSkipped) { api.setGeometry(bins); return; }   // (the texture does not hold the binning this patches: it is sent whole)
@@ -5654,7 +5668,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const v of [vao, oneVAO, bloodVAO, halfSet.va, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
         for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP, meshS, meshPt, meshL]) if (x) gl.deleteProgram(x.p);
-        for (const t of [MG.tex, MG.pj, MG.scrN, MG.scrT]) if (t) gl.deleteTexture(t);
+        for (const t of [MG.tex, MG.pj, MG.scrN, MG.scrT, vecPtsTex]) if (t) gl.deleteTexture(t);
         if (meshSt) gl.deleteRenderbuffer(meshSt);
         for (const v of [MG.stripVAO, MG.patchVAO, MG.layVAO]) if (v) gl.deleteVertexArray(v);
         for (const b of [MG.rowBuf, MG.patchBuf]) if (b) gl.deleteBuffer(b);

@@ -1,8 +1,10 @@
-// Acceptance 5 (vector-renderer-plan.md section 11): fades and selection without double-darkening.
+// Precondition for acceptance point 5 (vector-renderer-plan.md section 11; plan-r1 section 7): fades and selection without double-darkening.
+// NOT PASSED. This file is a node precondition, not the acceptance: it tests partition rules, maths and scheduling, which cannot show seamless GPU
+// rendering, stable streaks or pacing. The point is judged on the devices: select a vessel over another, with the vessels drawing.
 // Node judges, with C's JS twin of the region shader's tier and group compositing (compositeGroups: accB, accN, accT): a faded network over
 // two overlapping vessels is the group's alpha once, not the product of two; the selected vessel's own share lies over the faded group, the
 // same inside the overlap and outside it; a tier's translucency is composited as one shape before the fade. On the region shader's text: the
-// network's fade is applied once. On the devices: select a vessel over another.
+// network's fade is applied once.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as C from '../src/ui/vec-contract.js';

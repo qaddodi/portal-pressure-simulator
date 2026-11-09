@@ -1,5 +1,10 @@
 # Vector vessel renderer: the plan
 
+> **Revised 9 Nov 2026, 17:00 UTC: read `vector-renderer-plan-r1.md` first.** The reviewer's second recommendation
+> (`vector-renderer-brief-r2.md`) replaces section 4's fixed 16-unit classification with an adaptive, segment-level hierarchy (short runs,
+> bounds for each contribution, adaptive leaves, explicit overflow, workload measurement), changes section 5.2's member loop, and adds
+> workstreams K and L. Everything else here stands. None of the six acceptance criteria has passed yet.
+
 9 Nov 2026. For Mohammad. Plan and contract only: no render code changed. Read from the code at preview tip `63aa6ae`
 (branch `claude/settings-topbar-icon-flvft1`; mesh renderer last pushed in `7955b2d7`), `docs/veins-mesh-plan.md`,
 `docs/recommendations/vessel-renderer-alternatives.md`, `/mnt/project-files/portal-reliability/render-cost-plan.md` and project
