@@ -347,3 +347,28 @@ test('every shader string lints clean and declares what the module sets', () => 
   assert.ok(G.T_W + 1 <= G.OP_TEXELS);
   assert.ok(G.OP_DEPTHS >= 4096);
 });
+
+// ── Coverage: every organ outline the figure has goes through the whole path ──
+test('every organ of the figure is prepared at every level and drawn', () => {
+  const { v, f } = organs();
+  const L = new Map();
+  let n = 0;
+  for (const o of ORGANS) {
+    if (!o.d || o.d.length > 30000) continue;
+    const layer = o.deco ? 'front' : 'back';
+    if (!L.has(layer)) L.set(layer, []);
+    const el = pathEl(o.d);
+    L.get(layer).push(entryOf([fillOp({ el, d: true }), ...(o.deco ? [strokeOp({ el, d: true })] : [])]));
+    n++;
+  }
+  assert.ok(n >= 10);
+  v.setOrgans(L, ['back', 'front']);
+  v.prepare(DIVE_K_MAX, 0.4);
+  v.prepareAll();
+  assert.ok(v.levelsHeld().length >= 5);
+  assert.equal(v.opCount >= n, true);
+  const n0 = f.calls.length;
+  for (const k of [0.4, 1, 3, 9]) v.draw(PASS, MAT(k));
+  assert.ok(count(f, 'drawArrays', n0) + count(f, 'drawArraysInstanced', n0) >= 4);
+  assert.ok(v.stats().bytes > 0);
+});
