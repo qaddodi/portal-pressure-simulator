@@ -1,0 +1,228 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { lintGLSL, uniformsOf } from './glsl-lint.js';
+
+// The lobule under the Vector vessel renderer (workstream I, docs/recommendations/vector-renderer-plan.md 9.I; src/ui/vec-lobule.js).
+// Checks that need the other workstreams' code (the compiler, the blood material, the seam) are skipped with the name of what they wait for.
+
+// (The page's DOM and a GL that does nothing, as the warm-frame harness has them: the modules below read them as they load.)
+const page = (await import('../scripts/warm/dom.mjs')).installPage();
+const R = '../src/ui/';
+const { indexFlow, createStamp, createVecLobule, KEEP_BOX_VS, FLOW_TEXELS: FT, F1X, F1Z, FACTOR, LYMPH_MARK } = await import(`${R}vec-lobule.js`);
+const { keepFS } = await import(`${R}lobule-keep.js`);
+const { MAX_MEMBERS, CELL_EMPTY } = await import(`${R}vec-contract.js`);
+const { CELL } = await import(`${R}veins-bin.js`);
+const waits = async (file) => { try { return await import(`${R}${file}`); } catch (e) { if (e?.code === 'ERR_MODULE_NOT_FOUND') return null; throw e; } };
+
+// ── The lobule's flow rows ──
+test('the flow row layout is veins-gl\'s: the lymph mark, the strength and the flow factor sit where the lobule writes them', async () => {
+  const { FLOW_TEXELS } = await import(`${R}veins-gl.js`);
+  assert.equal(FT, FLOW_TEXELS);
+  assert.equal(F1X, 1 * 4 + 0);   // texel 1.x
+  assert.equal(F1Z, 1 * 4 + 2);   // texel 1.z
+  assert.equal(FACTOR, 6 * 4 + 1);   // texel 6.y
+  assert.equal(LYMPH_MARK, -1);
+});
+
+const rowOf = (flow, r, { lymph = false, strength = 1, factor = 0 } = {}) => { const o = r * FT * 4; flow[o + F1X] = lymph ? LYMPH_MARK : 1; flow[o + F1Z] = strength; flow[o + FACTOR] = factor; };
+
+test('the flow index lists the rows that show blood or lymph, marks the lymph rows, and counts rows with a flow factor', () => {
+  const n = 9, flow = new Float32Array(n * FT * 4);
+  rowOf(flow, 1); rowOf(flow, 2, { lymph: true }); rowOf(flow, 4, { strength: 0.6 }); rowOf(flow, 6, { lymph: true }); rowOf(flow, 7, { strength: 0 });
+  const out = {};
+  indexFlow(flow, n, out);
+  assert.deepEqual([...out.rows.subarray(0, out.n)], [1, 2, 4, 6]);
+  assert.deepEqual([...out.lymph.subarray(0, out.nLymph)], [2, 6]);
+  assert.equal(out.anchored, 0, 'the lobule\'s flow factor is 0 on every row: the stream\'s distance is the CPU\'s own');
+  rowOf(flow, 4, { factor: 0.5 });
+  assert.equal(indexFlow(flow, n, out).anchored, 1);
+});
+
+test('the flow index allocates nothing once its lists exist', () => {
+  const n = 64, flow = new Float32Array(n * FT * 4), out = {};
+  for (let r = 0; r < n; r += 3) rowOf(flow, r);
+  indexFlow(flow, n, out);
+  const rows = out.rows, lymph = out.lymph;
+  indexFlow(flow, n, out);
+  assert.equal(out.rows, rows); assert.equal(out.lymph, lymph);
+});
+
+// ── The kept picture's stamps ──
+test('the kept picture holds only while the five numbers it was laid from stand', () => {
+  const s = createStamp(), ks = { v1: 1, v2: 2, v3: 3 };
+  assert.equal(s.same(5, 1, ks), false, 'nothing noted yet');
+  s.note(false, 5, 1, ks);
+  assert.equal(s.on, false, 'a present that did not go through the tissue keeps nothing');
+  s.note(true, 5, 1, ks);
+  assert.equal(s.same(5, 1, ks), true);
+  assert.equal(s.same(6, 1, ks), false, 'the vessel layer drew another picture');
+  assert.equal(s.same(5, 2, ks), false, 'the texture was made again');
+  assert.equal(s.same(5, 1, { v1: 9, v2: 2, v3: 3 }), false, 'the tissue moved');
+  assert.equal(s.same(5, 1, { v1: 1, v2: 9, v3: 3 }), false, 'the overlay moved');
+  assert.equal(s.same(5, 1, { v1: 1, v2: 2, v3: 9 }), false, 'the ductules moved');
+  assert.equal(s.same(5, 1, null), false, 'the picture cannot be kept now');
+  s.drop();
+  assert.equal(s.same(5, 1, ks), false);
+});
+
+// ── The kept picture's pass ──
+test('the box pass is the kept picture\'s own shader on a full-target triangle, and lints', () => {
+  assert.deepEqual(lintGLSL(KEEP_BOX_VS), []);
+  assert.deepEqual(lintGLSL(keepFS()), []);
+  const need = uniformsOf(keepFS());
+  for (const u of need) assert.ok(['uOwn', 'uTis', 'uView', 'uSize', 'uND', 'uD0', 'uD1', 'uCLum', 'uCCell', 'uCEdge', 'uCNuc', 'uEdge', 'uAlpha'].includes(u), `${u} is set by the pass`);
+});
+
+function fakeGL() {
+  const calls = [], enums = new Map(), progs = [];
+  let nextObj = 1;
+  const gl = new Proxy({}, {
+    get(_, k) {
+      if (typeof k !== 'string') return undefined;
+      if (/^[A-Z0-9_]+$/.test(k)) { if (!enums.has(k)) enums.set(k, 0x10000 + enums.size); return enums.get(k); }
+      return (...a) => {
+        calls.push([k, ...a]);
+        if (k === 'getShaderParameter') return true;
+        if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? 0 : true;
+        if (k === 'getExtension') return null;
+        if (k === 'getParameter') return 'stand-in';
+        if (k === 'getUniformLocation') return { name: a[1] };
+        if (k === 'isContextLost') return false;
+        if (k.startsWith('create')) { const o = { obj: nextObj++, kind: k }; if (k === 'createProgram') progs.push(o); return o; }
+        return undefined;
+      };
+    },
+  });
+  return { gl, calls, progs, name: (k) => calls.filter((c) => c[0] === k) };
+}
+
+function pass(over = {}) {
+  const f = fakeGL();
+  const ks = { tex: { t: 'tissue' }, w: 800, h: 600, v1: 1, v2: 1, v3: 1, ducts: null, view: [1, 0, 0, 1], lum: [0, 0, 0, 1], cell: [0, 0, 0, 1], edge: [0, 0, 0, 1], nuc: [0, 0, 0, 1], width: 1, alpha: 1 };
+  const st = { read: () => ks, target: () => ({ fbo: { f: 'scr' }, gen: 1, w: 800, h: 600 }), seq: () => 7, laid: () => { st.asked++; }, asked: 0, ks };
+  Object.assign(st, over);
+  const lob = createVecLobule(f.gl, { read: () => st.read(), target: () => st.target(), seq: () => st.seq(), laid: () => st.laid() });   // (the host's account is read again each time, so a test moves it)
+  return { f, st, lob };
+}
+
+test('a blood-only frame repaints the blood\'s boxes in the lobule\'s texture with one scissored triangle each, using only its own program', () => {
+  const { f, st, lob } = pass();
+  lob.start();
+  assert.equal(lob.ready(), true);
+  assert.equal(lob.keepBlood(new Float32Array([0, 0, 10, 10]), 1, { t: 'own' }), false, 'nothing kept before a whole present');
+  lob.noteLaid(true);
+  assert.equal(lob.stamp.on, true);
+  const draws0 = f.name('drawArrays').length;
+  const boxes = new Float32Array([10, 20, 110, 70, 300, 300, 900, 700, 50, 50, 50, 90]);   // the second runs past the target; the third is empty
+  assert.equal(lob.keepBlood(boxes, 3, { t: 'own' }), true);
+  const draws = f.name('drawArrays').slice(draws0), sc = f.name('scissor');
+  assert.equal(draws.length, 2, 'the empty box draws nothing');
+  assert.deepEqual(sc.map((c) => c.slice(1)), [[10, 20, 100, 50], [300, 300, 500, 300]], 'each box is cut to the target');
+  assert.ok(draws.every((c) => c[2] === 0 && c[3] === 3), 'one triangle');
+  assert.equal(f.progs.length, 1, 'the pass is the only program made');
+  assert.equal(f.name('useProgram').length, 1);
+  assert.equal(st.asked, 1, 'the host is asked to lay the picture');
+  assert.ok(f.name('disable').some((c) => c[1] === f.gl.SCISSOR_TEST), 'the scissor is left off');
+});
+
+test('the kept picture is not repainted once anything it was made of has moved', () => {
+  for (const [what, change] of [['the tissue', (st) => { st.ks.v1++; }], ['the overlay', (st) => { st.ks.v2++; }], ['the ductules', (st) => { st.ks.v3++; }], ['the vessel layer', (st) => { st.seq = () => 8; }], ['the texture', (st) => { st.target = () => ({ fbo: {}, gen: 2, w: 800, h: 600 }); }], ['a pass that is not still', (st) => { st.read = () => null; }]]) {
+    const { st, lob } = pass();
+    lob.start(); lob.ready(); lob.noteLaid(true);
+    change(st);
+    assert.equal(lob.keepBlood(new Float32Array([0, 0, 10, 10]), 1, {}), false, `${what} moved: the frame is laid whole`);
+  }
+});
+
+// ── The lobule's own geometry ──
+// The real lobule layer, booted in node with a capturing bin hook (lobule-zoom.js binAway): the tubes and joins it hands the binning.
+async function lobuleBins(W, H, lymph) {
+  const win = page.dom.window;
+  const BOX = { x: 0, y: 0, left: 0, top: 0, right: W, bottom: H, width: W, height: H };
+  win.Element.prototype.getBoundingClientRect = function () { return this.id === 'stageView' ? BOX : { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }; };
+  for (const [k, v] of [['clientWidth', W], ['clientHeight', H], ['offsetWidth', W], ['offsetHeight', H]]) Object.defineProperty(win.HTMLElement.prototype, k, { get() { return this.id === 'stageView' ? v : 0; }, configurable: true });
+  Object.defineProperty(globalThis, 'devicePixelRatio', { value: 2, configurable: true, writable: true });
+  const { createCore } = await import('../src/worker-core.js');
+  const frames = [];
+  const core = createCore((m) => { if (m.type === 'frame') frames.push(m); });
+  core.handle({ type: 'init' }); core.handle({ type: 'run', running: true });
+  for (let i = 0; i < 200 && !frames.length; i++) await new Promise((r) => setTimeout(r, 50));
+  core.handle({ type: 'run', running: false });
+  const { createVeinsGL, binVeins } = await import(`${R}veins-gl.js`);
+  const { createLobuleZoom } = await import(`${R}lobule-zoom.js`);
+  const { store } = await import(`${R}store.js`);
+  store.set({ lobuleLayers: { ...store.get().lobuleLayers, lymph } });
+  const wrap = page.document.getElementById('stageView');
+  const cv = page.document.createElement('canvas'); cv.width = W; cv.height = H; wrap.append(cv);
+  const veins = createVeinsGL(cv, { tubes: 220, force: true, who: 'stage' });
+  let got = null;
+  const lz = createLobuleZoom({ host: wrap, binAway: (tubes, joins) => { got = { tubes, joins }; return binVeins(tubes, joins); }, figure: () => veins.top });
+  lz.update(frames.at(-1));
+  const q = lz.preparePieces();
+  for (let i = 0; i < 80 && !got; i++) { if (!lz.prepareRun(q)) break; await new Promise((r) => setImmediate(r)); }
+  wrap.removeChild(cv);
+  return got;
+}
+
+// For each 16-unit cell, the vessels whose reach (the bin reach the lobule gives the binning) touches it: the members a region there holds.
+function membersPerCell({ tubes }) {
+  const per = new Map();
+  for (const t of tubes) {
+    const seen = new Set();
+    for (let i = 0; i < t.pts.length - 1; i++) {
+      const [ax, ay] = t.pts[i], [bx, by] = t.pts[i + 1], r = t.reach, dx = bx - ax, dy = by - ay;
+      const x0 = Math.floor((Math.min(ax, bx) - r) / CELL), x1 = Math.floor((Math.max(ax, bx) + r) / CELL), y0 = Math.floor((Math.min(ay, by) - r) / CELL), y1 = Math.floor((Math.max(ay, by) + r) / CELL);
+      for (let cy = y0; cy <= y1; cy++) for (let cx = x0; cx <= x1; cx++) {
+        const k = `${cx},${cy}`;
+        if (seen.has(k)) continue;
+        const sx = cx * CELL, sy = cy * CELL;
+        let best = Infinity;
+        for (let u = 0; u <= 1.0001; u += 0.25) { const qx = ax + dx * u, qy = ay + dy * u; best = Math.min(best, Math.hypot(Math.max(sx - qx, 0, qx - (sx + CELL)), Math.max(sy - qy, 0, qy - (sy + CELL)))); }
+        if (best <= r) { seen.add(k); let s = per.get(k); if (!s) per.set(k, s = new Set()); s.add(t.id); }
+      }
+    }
+  }
+  let max = 0, at = '', over = 0;
+  for (const [k, s] of per) { if (s.size > max) { max = s.size; at = k; } if (s.size > MAX_MEMBERS) over++; }
+  return { cells: per.size, max, at, over };
+}
+
+const SIZES = [[1440, 900], [1024, 768], [390, 800]];
+for (const lymph of [false, true]) {
+  test(`the lobule's ${lymph ? 'blood and lymph' : 'blood'} vessels: the most any cell's region would hold, at three sizes`, { timeout: 120000 }, async (t) => {
+    const lines = [];
+    let worst = 0;
+    for (const [W, H] of SIZES) {
+      const bins = await lobuleBins(W, H, lymph);
+      assert.ok(bins && bins.tubes.length > 100, 'the lobule hands the binning its vessels');
+      const c = membersPerCell(bins);
+      lines.push(`${W}x${H}: ${bins.tubes.length} vessels, ${c.cells} cells reached, most members in one cell ${c.max} at cell ${c.at}, ${c.over} cells over ${MAX_MEMBERS}`);
+      worst = Math.max(worst, c.max);
+    }
+    t.diagnostic(lines.join('\n'));
+    if (lymph) {
+      // Plan stop point 1 (a region over MAX_MEMBERS): the default Lymph layer puts 22 to 25 vessels in the cells around the central vein. Mohammad decides.
+      if (worst > MAX_MEMBERS) { t.todo(`stop point 1: ${worst} members in one cell, the contract holds ${MAX_MEMBERS} (waiting for Mohammad's answer)`); return; }
+    }
+    assert.ok(worst <= MAX_MEMBERS, `no cell holds more than ${MAX_MEMBERS} members (most: ${worst})`);
+  });
+}
+
+test('the lobule\'s binning compiled by A has no region over MAX_MEMBERS', async (t) => {
+  const compile = await waits('vec-compile.js');
+  if (!compile) return t.skip('waits for A: vec-compile.js');
+  void compile; void CELL_EMPTY;
+  t.skip('waits for A: compileGrid on the lobule\'s binning (report the region counts by kind)');
+});
+
+test('the lobule\'s instance under Vector calls no classic or mesh vessel program', async (t) => {
+  const seam = await waits('vec-renderer.js');
+  if (!seam) return t.skip('waits for E and H: vec-renderer.js and the seam in veins-gl.js');
+  t.skip('waits for H: the seam hands the lobule\'s instance to Vector');
+});
+
+test('the lobule\'s lymph rows reach lymphAt in Vector\'s blood material', async (t) => {
+  const blood = await waits('vec-blood-glsl.js');
+  if (!blood) return t.skip('waits for D: vec-blood-glsl.js');
+  assert.match(blood.VEC_BLOOD_GLSL, /lymphAt\(/, 'the blood material draws the lymph dashes');
+});
