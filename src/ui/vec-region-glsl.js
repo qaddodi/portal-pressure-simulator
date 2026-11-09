@@ -18,37 +18,28 @@
 // A pixel where only one member reaches calls B's vecShadeOne and D's vecBlood unchanged, which is what makes a cell edge seamless: the
 // stretch shader on the other side of the edge calls the very same functions on the very same inputs.
 //
-// The shader pieces it builds on come from the other workstreams and are passed in (`deps`), so each can land in its own time:
-//   deps.shade  B (vec-shade-glsl.js VEC_SHADE_GLSL(K), already applied to the instance's flag values): the host declarations every Vector
-//               fragment shader shares (rad, tube, organ, px, shOff, reachU, netAlpha, fx, the inks, tierAlpha[], tierGroup[]; T(), over()),
-//               shadeGLSL's functions (vesAttrs, glowAmt, shadowOf, tubeShade, ditherOut), the one cell test (uniforms cells, inv, gridO,
-//               gridN; vec2 vecWorld(); uvec4 vecCellAt(vec2 p), kind 0 outside the grid), and
-//                 struct VecNear { float d, h, r, u, x, v; vec2 g; float aM, aW, aU; };
-//                 VecNear vecNear(int row, int i0, int i1, vec2 p, vec2 ps);       VecNear vecNearMore(VecNear acc, int row, int i0, int i1, vec2 p, vec2 ps);
-//                 vec4 vecShadeOne(int row, VecNear nr, vec2 p, float occl, out float lum, out vec3 lumCol);   // premultiplied, no blood, no dither
-//                 vec3 vecStreamAt(int row, VecNear nr);   // (s, y, R) for the blood
-//                 float vecOccl(vec2 p);                   // how far an organ covers p (the veil)
-//   deps.blood  D (vec-blood-glsl.js VEC_BLOOD_GLSL): both return a premultiplied blood layer, laid over the lumen at coverage lum
-//               (col = layer.rgb * lum + col * (1 - layer.a * lum)):
-//                 vec4 vecBlood(int row, float s, float y, float R, vec3 lumenCol, float px);
-//                 vec4 vecBloodMix(int n, int rows[2], float s[2], float y[2], float R[2], float w[2], vec3 lumenCol, float px);   // normalises w itself
-//   deps.above  G (vec-overlays-glsl.js), the V_BLOOD variant only:  vec4 vecAboveAt(vec2 w);  (world point, premultiplied)
-//   deps.k      the instance's flag values { F_SEL, F_NOCASE, F_DOTTED, F_VEIL } (veins-gl.js owns them; importing it here would be circular).
-// This file declares only what is its own (the region texture, the kept base under the blood), and smin() and corner(), the join
-// arithmetic, which are the region shader's alone. The region quad carries its cell; the fragment draws only where the cell test
-// finds that cell's own region, so a pixel is drawn by exactly one program.
+// What it builds on is the shared text of workstream B (vec-shade-glsl.js, VEC_SHADE_GLSL(K), K the instance's flags and VEIL_K): the host
+// declarations, the one cell test (vecWorld(), vecCellAt(p)), shadeGLSL (vesAttrs, glowAmt, shadowOf, tubeShade, ditherOut) and
+//   struct VecNear { float d, h, r, u, x, v; vec2 g; float aM, aW, aU; };  vecNear / vecNearMore (a vessel's other runs) / vecNearNone,
+//   vecOccl(p), vecStreamAt(row, nr), and vecShadeOne(row, nr, p, occl, out lum, out lumCol): the pixel one vessel makes, premultiplied,
+// and of workstream D's blood text (vecBlood, vecBloodMix; premultiplied layers) and workstream G's vecAboveAt(w) for the V_BLOOD variant.
+// The blood is laid as B's stretch shader lays it (vis = lum / o.a, lit = layer.rgb * vis + lumCol * (1 - layer.a * vis)), so a pixel one
+// vessel reaches is the very same value from either program. This file declares only what is its own (the region texture, reachU for the
+// slot admission as classic's, the kept base under the blood is B's vecBase), and smin() and corner(), the join arithmetic.
+// The region quad carries its cell; the fragment draws only where the cell test finds that cell's own region, so a pixel is drawn by one program.
 import {
   GRID_W, CELL_REGION, MAX_MEMBERS, MAX_JOINS, SLOTS, JOIN0, REGION_TEXELS, K_JOIN, K_CROSS, K_HAIRPIN, K_CROSSTIER, K_NEAR, K_LONG, K_MORPH,
   M_LUMEN, M_JOINED, M_TRUNK, V_FULL, V_BASE, V_BLOOD,
 } from './vec-contract.js';
 import { CELL } from './veins-bin.js';
 import { EDGE_GLSL } from './edge.js';
+import { VEC_PRECISION, VEC_SHADE_GLSL } from './vec-shade-glsl.js';
+import { VEC_ABOVE_STUB } from './vec-stretch-glsl.js';
 
 /** The uniforms this file declares (E sets them; the host declarations of B's text are B's and E's to agree). */
 export const REGION_UNIFORMS = Object.freeze({
   vertex: ['world', 'size', 'gridO'],
-  fragment: ['regionTex'],   // (the cell grid, inv, gridO and gridN are B's text's: the one cell test)
-  blood: ['uBase'],   // the V_BLOOD variant only: the kept base picture under the blood
+  fragment: ['regionTex', 'reachU'],   // (the cell grid, inv, gridO, gridN and vecBase are B's text's, the others are shared: VEC_SHADE_UNIFORMS)
 });
 
 /** Attributes of the vertex shader (a TRIANGLE_STRIP of 4, instanced per region cell): location 0 the unit corner (0 … 1), location 1 the region cell (cells across, cells down), per instance. */
@@ -74,55 +65,59 @@ void main() {
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
 }`;
 
-const NEED = (what) => { throw new Error(`vecRegionFS: ${what} is not provided: pass the other workstreams' shader pieces as deps ({ shade, blood, above })`); };
+/** Stand-in for D's `vecBloodMix` (and `vecBlood`) until its text is passed in: no blood. The signatures are D's (vec-blood-glsl.js). */
+export const VEC_REGION_BLOOD_STUB = `
+vec4 vecBlood(int row, float s, float y, float R, vec3 lumenCol, float px) { return vec4(0.0); }
+vec4 vecBloodMix(int n, int rows[2], float s[2], float y[2], float R[2], float w[2], vec3 lumenCol, float px) { return vec4(0.0); }
+`;
 
 /**
  * The region fragment shader for a variant (V_FULL, V_BASE, V_BLOOD: vec-contract.js). FULL lays blood in the lumen; BASE leaves it out;
- * BLOOD draws the lumen's blood alone over the kept base picture and then what lies over the blood, and nothing outside a lumen.
+ * BLOOD adds the blood's change to the kept base picture and lays what lies over the blood, and draws nothing where no blood shows.
+ * K: the flags and VEIL_K (vec-shade-glsl.js). parts: { blood, above } the text of D's and G's libraries (declarations and functions); the
+ * defaults are stand-ins with their signatures and no effect.
  */
-export const vecRegionFS = (variant, deps = {}) => {
+export const vecRegionFS = (variant, K, parts = {}) => {
   if (variant !== V_FULL && variant !== V_BASE && variant !== V_BLOOD) throw new RangeError(`vecRegionFS: unknown variant ${variant}`);
-  const shade = deps.shade ?? NEED('B\'s shade text'), blood = variant === V_BASE ? '' : (deps.blood ?? NEED('D\'s blood text'));
-  const above = variant === V_BLOOD ? (deps.above ?? NEED('G\'s vecAboveAt')) : '';
-  const isBlood = variant === V_BLOOD, k = deps.k ?? NEED('the flag values deps.k ({ F_SEL, F_NOCASE, F_DOTTED, F_VEIL })');
-  const { F_SEL, F_NOCASE, F_DOTTED, F_VEIL } = k;
-  const bloodOf1 = 'vecBlood(sid[0], st1.x, st1.y, st1.z, lumCol1, px)';
-  // One vessel reaches the pixel: the very same functions the stretch shader calls.
-  const single = isBlood ? `    if (lum1 <= 0.02) discard;
-    outColor = over(vecAboveAt(p), over(${bloodOf1} * lum1, texelFetch(uBase, ivec2(gl_FragCoord.xy), 0)));
-    return;` : `    if (c1.a < 0.002) discard;
-${variant === V_FULL ? `    if (lum1 > 0.02) c1 = over(${bloodOf1} * lum1, c1);\n` : ''}    outColor = ditherOut(c1, gl_FragCoord.xy);
+  const isBlood = variant === V_BLOOD;
+  const blood = variant === V_BASE ? '' : (parts.blood ?? VEC_REGION_BLOOD_STUB), above = isBlood ? (parts.above ?? VEC_ABOVE_STUB) : '';
+  const { F_SEL, F_NOCASE, F_DOTTED, F_VEIL } = K;
+  // The blood laid over the pixel o (lum: the lumen's coverage where blood may show; lumCol: the pixel's colour unpremultiplied), as B's stretch shader lays it.
+  // `streams` computes `bl` (the blood layer) from the stream or streams of the lumen.
+  const lay = (streams) => variant === V_BASE ? '  outColor = ditherOut(o, gl_FragCoord.xy);' : isBlood ? `  float vis = clamp(lum / max(o.a, 1e-3), 0.0, 1.0);
+  if (!(vis > 0.005 && o.a > 0.01)) discard;
+${streams}
+  vec3 lit = bl.rgb * vis + lumCol * (1.0 - bl.a * vis);
+  vec4 b = texelFetch(vecBase, ivec2(gl_FragCoord.xy), 0);
+  vec4 r = vec4(b.rgb + o.a * (lit - lumCol), b.a);
+  r = vec4(min(max(r.rgb, vec3(0.0)), vec3(r.a)), r.a);
+  outColor = over(vecAboveAt(p), r);` : `  float vis = clamp(lum / max(o.a, 1e-3), 0.0, 1.0);
+  if (vis > 0.005 && o.a > 0.01) {
+${streams}
+    vec3 lit = bl.rgb * vis + lumCol * (1.0 - bl.a * vis);
+    o = vec4(lit * o.a, o.a);
+  }
+  outColor = ditherOut(o, gl_FragCoord.xy);`;
+  // One vessel reaches the pixel: the very same functions the stretch shader calls, laid the same way.
+  const single = `    vec4 o = vecShadeOne(sid[0], sn[0], p, occl, lum, lumCol);
+    if (o.a < 0.002) discard;
+${lay('    vec3 st = vecStreamAt(sid[0], sn[0]);\n    vec4 bl = vecBlood(sid[0], st.x, st.y, st.z, lumCol, px);')}
     return;`;
-  const bloodCall = variant === V_BASE ? '' : `  if (gRow >= 0 && gW > 0.01) {
+  // Several reach it: the lumen in front, and a joined lumen's stream beside it, mixed by D's weights.
+  const multi = lay(`    vec4 bl;
     if (gRow2 >= 0) {
       int rws[2]; float ss[2], yy[2], rr[2], ww[2];
       rws[0] = gRow; ss[0] = gS; yy[0] = gY; rr[0] = gR; ww[0] = 1.0 - gB;
       rws[1] = gRow2; ss[1] = gS2; yy[1] = gY2; rr[1] = gR2; ww[1] = gB;
-      bl = vecBloodMix(2, rws, ss, yy, rr, ww, gCol, px);
-    } else bl = vecBlood(gRow, gS, gY, gR, gCol, px);
-    bl *= gW;
-  }`;
-  const finish = `${bloodCall}
-${isBlood ? `  if (bl.a < 0.002) discard;
-  outColor = over(vecAboveAt(p), over(bl, texelFetch(uBase, ivec2(gl_FragCoord.xy), 0)));` : `  vec4 o = over(accT, over(accN * netAlpha, accB));
-  o = over(bl, o);
-  if (o.a < 0.002) discard;
-  outColor = ditherOut(o, gl_FragCoord.xy);`}
-`;
-  return `#version 300 es
-precision highp float;
-precision highp int;
-precision highp usampler2D;
-const int MAXS = ${SLOTS};
+      bl = vecBloodMix(2, rws, ss, yy, rr, ww, lumCol, px);
+    } else bl = vecBlood(gRow, gS, gY, gR, lumCol, px);`);
+  return `${VEC_PRECISION}const int MAXS = ${SLOTS};
 const int MAXJ = ${MAX_JOINS};
 const int MAXM = ${MAX_MEMBERS};
 const int JOIN0 = ${JOIN0};
-uniform highp sampler2D regionTex;        // the regions: REGION_TEXELS wide, one region a row (vec-contract.js)
-${isBlood ? 'uniform sampler2D uBase;               // the kept base picture (everything under the blood)' : ''}
-${shade}
-${blood}
-${above}
-flat in ivec2 vCell;
+uniform highp sampler2D regionTex;     // the regions: REGION_TEXELS wide, one region a row (vec-contract.js)
+uniform float reachU;                  // how far from a lumen anything is drawn (world): the slot admission, as classic's
+${VEC_SHADE_GLSL(K)}${blood}${above}${isBlood ? 'uniform sampler2D vecBase;            // the kept still picture\n' : ''}flat in ivec2 vCell;
 layout(location=0) out vec4 outColor;
 
 vec4 RG(int r, int k) { return texelFetch(regionTex, ivec2(k, r), 0); }
@@ -191,12 +186,8 @@ void main() {
 
   // ── One vessel reaches this pixel: the very same functions the stretch shader calls ──
   if (n == 1) {
-    VecNear nr = sn[0];
-    nr.v = sv[0];
-    float lum1;
-    vec3 lumCol1;
-    vec3 st1 = vecStreamAt(sid[0], nr);
-    vec4 c1 = vecShadeOne(sid[0], nr, p, occl, lum1, lumCol1);
+    float lum;
+    vec3 lumCol;
 ${single}
   }
 
@@ -298,7 +289,6 @@ ${single}
   // The frontmost lumen (for the blood laid in it) and how much of it shows; a second lumen joined to it, and its share.
   int gRow = -1, gRow2 = -1;
   float gS = 0.0, gY = 0.0, gW = 0.0, gS2 = 0.0, gY2 = 0.0, gB = 0.0, gR = 1.0, gR2 = 1.0;
-  vec3 gCol = vec3(0.0);
   for (int it = 0; it < MAXS; it++) {
     float tt = 1e9;
     for (int s = 0; s < MAXS; s++) if (s < n && stier[s] > last && stier[s] < tt) tt = stier[s];
@@ -471,7 +461,7 @@ ${single}
         }
       } else {
         int id = sid[o1];
-        gRow = id; gS = su[o1] * T(id, 5).z; gY = clamp(sx[o1] / max(sr[o1], 1e-3), -1.0, 1.0); gW = lumA; gR = sr[o1]; gCol = col;
+        gRow = id; gS = su[o1] * T(id, 5).z; gY = clamp(sx[o1] / max(sr[o1], 1e-3), -1.0, 1.0); gW = lumA; gR = sr[o1];
         gRow2 = -1; gB = 0.0;
         if (o2 >= 0 && w2 > 0.01 * w1) {
           gRow2 = sid[o2]; gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gR2 = sr[o2]; gB = w2 / (w1 + w2);
@@ -488,11 +478,17 @@ ${single}
     else accT = over(topC, accT);
   }
 
-  // ── The blood, from the lumens' own coordinates: the owning lumen's stream, and a joined lumen's, mixed by weights that sum to one ──
-  vec4 bl = vec4(0.0);
-${finish}
+  // ── The pixel, and the blood from the lumens' own coordinates: the owning lumen's stream, and a joined lumen's, mixed by D's weights ──
+  vec4 o = over(accT, over(accN * netAlpha, accB));
+  if (o.a < 0.002) discard;
+  float lum = gRow >= 0 ? gW : 0.0;
+  vec3 lumCol = o.a > 0.01 ? o.rgb / o.a : vec3(0.0);
+${multi}
 }`;
 };
+
+/** What the renderer core takes as `parts.region`: { vs, fs(variant) }, for an instance's flags K (and D's and G's texts when they are ready). */
+export const vecRegionParts = (K, parts = {}) => ({ vs: vecRegionVS, fs: (variant) => vecRegionFS(variant, K, parts) });
 
 // ── JS mirrors, for the tests (the GLSL above does the same arithmetic) ──────────────────────────────────────────────────────────────
 

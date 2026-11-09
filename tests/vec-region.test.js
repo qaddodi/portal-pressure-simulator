@@ -11,83 +11,17 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
-const { vecRegionVS, vecRegionFS, REGION_UNIFORMS, REGION_ATTRIBS, compositeGroups, pixelOwner, pixelStreams, over } = await import('../src/ui/vec-region-glsl.js');
+const { vecRegionVS, vecRegionFS, vecRegionParts, REGION_UNIFORMS, REGION_ATTRIBS, compositeGroups, pixelOwner, pixelStreams, over } = await import('../src/ui/vec-region-glsl.js');
 const K = await import('../src/ui/vec-contract.js');
-const { shadeGLSL } = await import('../src/ui/veins-mesh-glsl.js');
 const GL = await import('../src/ui/veins-gl.js');
-const { EDGE_GLSL } = await import('../src/ui/edge.js');
-void EDGE_GLSL;
+const { VEC_SHADE_UNIFORMS } = await import('../src/ui/vec-shade-glsl.js');
 
-// Until workstreams B, D and G land, stand-ins with the signatures agreed between the threads (see the header of vec-region-glsl.js): the
-// host declarations of B's text, shadeGLSL as the renderer builds it, B's vecNear and vecShadeOne, D's vecBlood and vecBloodMix, G's vecAboveAt.
-const SHADE = shadeGLSL({
+// The flags the renderer passes (veins-gl.js owns them), and stand-ins for D's blood library and G's overlays with their agreed signatures.
+const K_FLAGS = {
   F_DIFFUSE: GL.F_DIFFUSE, F_EDGE: GL.F_EDGE, F_SHADOW: GL.F_SHADOW, F_SPEC: GL.F_SPEC, F_VEIL: GL.F_VEIL, F_WHOLE: GL.F_WHOLE,
-  LIFT_EASE_MAX: 60, LIFT_EASE_SHARE: 0.35, LUMEN2: GL.LUMEN2, ROW2_BITS: GL.ROW2_BITS, VEIL_K: GL.VEIL_K,
-});
-const HOST = `
-uniform highp sampler2D rad;
-uniform highp sampler2D tube;
-uniform sampler2D organ;
-uniform vec4 organRect;
-uniform int useOrgan;
-uniform float organK;
-uniform float px;
-uniform float reachU;
-uniform vec2 shOff;
-uniform vec4 casing;
-uniform vec4 shadow;
-uniform vec4 sheenInk;
-uniform vec4 shadeInk;
-uniform vec4 rimInk;
-uniform vec4 paperInk;
-uniform vec4 ring;
-uniform vec2 light;
-uniform float netAlpha;
-uniform int fx;
-uniform float tierAlpha[${GL.MAX_TIERS}];
-uniform int tierGroup[${GL.MAX_TIERS}];
-uniform highp usampler2D cells;
-uniform mat3 inv;
-uniform vec2 gridO;
-uniform ivec2 gridN;
-const float CELL = 16.0;
-const float LAST = ${GL.N_SAMPLES - 1}.0;
-const float S_OFF = 96.0;
-vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
-vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
-float alongAt(int id, float u) { return u; }
-vec2 vecWorld() { return (inv * vec3(gl_FragCoord.xy, 1.0)).xy; }
-uvec4 vecCellAt(vec2 p) {
-  ivec2 cl = ivec2(floor((p - gridO) / CELL));
-  if (cl.x < 0 || cl.y < 0 || cl.x >= gridN.x || cl.y >= gridN.y) return uvec4(0u);
-  return texelFetch(cells, cl, 0);
-}
-float vecOccl(vec2 p) { return useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * ${GL.VEIL_K} * organK : 0.0; }
-${SHADE}
-struct VecNear { float d, h, r, u, x, v; vec2 g; float aM, aW, aU; };
-VecNear vecNearNone() {
-  VecNear n;
-  n.d = 1e9; n.h = 1e9; n.r = 0.0; n.u = 0.0; n.x = 0.0; n.v = 0.0; n.g = vec2(0.0); n.aM = 1e9; n.aW = 0.0; n.aU = 0.0;
-  return n;
-}
-VecNear vecNearMore(VecNear n, int row, int i0, int i1, vec2 p, vec2 ps) {
-  for (int i = i0; i <= i1; i++) segNear(row, float(i), vec4(0.0), p, ps, T(row, 5), false, n.d, n.h, n.r, n.u, n.x, n.g, n.aM, n.aW, n.aU);
-  n.v = n.aW > 0.0 ? n.aU / n.aW : n.u;
-  return n;
-}
-VecNear vecNear(int row, int i0, int i1, vec2 p, vec2 ps) { return vecNearMore(vecNearNone(), row, i0, i1, p, ps); }
-vec3 vecStreamAt(int row, VecNear nr) { return vec3(nr.u * T(row, 5).z, clamp(nr.x / max(nr.r, 1e-3), -1.0, 1.0), nr.r); }
-vec4 vecShadeOne(int row, VecNear nr, vec2 p, float occl, out float lum, out vec3 lumCol) {
-  lum = 0.0; lumCol = T(row, 0).rgb;
-  return vec4(0.0);
-}`;
-const BLOOD = `
-vec4 vecBlood(int row, float s, float y, float R, vec3 lumenCol, float px) { return vec4(0.0); }
-vec4 vecBloodMix(int n, int rows[2], float s[2], float y[2], float R[2], float w[2], vec3 lumenCol, float px) { return vec4(0.0); }`;
-const ABOVE = `
-uniform float fluidLv;
-vec4 vecAboveAt(vec2 w) { return vec4(0.0); }`;
-const DEPS = { shade: HOST, blood: BLOOD, above: ABOVE, k: { F_SEL: GL.F_SEL, F_NOCASE: GL.F_NOCASE, F_DOTTED: GL.F_DOTTED, F_VEIL: GL.F_VEIL } };
+  F_SEL: GL.F_SEL, F_DOTTED: GL.F_DOTTED, F_NOCASE: GL.F_NOCASE, VEIL_K: GL.VEIL_K,
+};
+const FS = (variant) => vecRegionFS(variant, K_FLAGS);
 
 test('the region vertex shader lints and reads only its own uniforms', () => {
   assert.deepEqual(lintGLSL(vecRegionVS), []);
@@ -98,18 +32,19 @@ test('the region vertex shader lints and reads only its own uniforms', () => {
 
 for (const [name, variant] of [['FULL', K.V_FULL], ['BASE', K.V_BASE], ['BLOOD', K.V_BLOOD]]) {
   test(`the region fragment shader (${name}) lints and declares the uniforms E sets`, () => {
-    const src = vecRegionFS(variant, DEPS);
+    const src = FS(variant);
     assert.deepEqual(lintGLSL(src), []);
     const u = uniformsOf(src);
-    for (const n of [...REGION_UNIFORMS.fragment, 'cells', 'inv', 'gridO', 'gridN']) assert.ok(u.includes(n), `${name}: ${n}`);
-    assert.equal(u.includes('uBase'), variant === K.V_BLOOD, `${name}: the kept base only under the blood variant`);
+    for (const n of [...REGION_UNIFORMS.fragment, ...VEC_SHADE_UNIFORMS]) assert.ok(u.includes(n), `${name}: ${n}`);
+    assert.equal(u.includes('vecBase'), variant === K.V_BLOOD, `${name}: the kept base only under the blood variant`);
+    assert.equal(u.filter((n) => n === 'reachU').length, 1);
     assert.equal(u.filter((n) => n === 'regionTex').length, 1);
   });
 }
 
 test('the partition: the cell test is B\'s one formula, and the draw is limited to the quad\'s own region', () => {
   for (const variant of [K.V_FULL, K.V_BASE, K.V_BLOOD]) {
-    const src = vecRegionFS(variant, DEPS);
+    const src = FS(variant);
     assert.ok(/vec2 p = vecWorld\(\);/.test(src) && /uvec4 ct = vecCellAt\(p\);/.test(src), 'the region shader asks the shared cell test, it has no formula of its own');
     assert.ok(!/gl_FragCoord/.test(src.split('void main()')[1].split('vecShadeOne')[0]), 'and reads no pixel position before it');
     assert.ok(new RegExp(`int\\(ct\\.r\\) != ${K.CELL_REGION} \\|\\| int\\(own\\.r\\) != ${K.CELL_REGION} \\|\\| ct\\.g != own\\.g`).test(src), 'drawn only where the cell is this quad\'s own region');
@@ -119,27 +54,29 @@ test('the partition: the cell test is B\'s one formula, and the draw is limited 
 });
 
 test('a pixel one member reaches calls the stretch shader\'s functions and the blood library\'s, unchanged', () => {
-  const full = vecRegionFS(K.V_FULL, DEPS);
-  assert.ok(/vecShadeOne\(sid\[0\], nr, p, occl, lum1, lumCol1\)/.test(full));
-  assert.ok(/vecBlood\(sid\[0\], st1\.x, st1\.y, st1\.z, lumCol1, px\)/.test(full) && /vecStreamAt\(sid\[0\], nr\)/.test(full));
-  const base = vecRegionFS(K.V_BASE, DEPS);
+  const full = FS(K.V_FULL);
+  assert.ok(/vecShadeOne\(sid\[0\], sn\[0\], p, occl, lum, lumCol\)/.test(full));
+  assert.ok(/vecBlood\(sid\[0\], st\.x, st\.y, st\.z, lumCol, px\)/.test(full) && /vecStreamAt\(sid\[0\], sn\[0\]\)/.test(full));
+  const base = FS(K.V_BASE);
   assert.ok(/vecShadeOne\(/.test(base) && !/vecBlood/.test(base), 'BASE lays no blood');
-  const bl = vecRegionFS(K.V_BLOOD, DEPS);
-  assert.ok(/vecAboveAt\(p\)/.test(bl) && /uBase/.test(bl), 'BLOOD reads the kept base and lays what lies over the blood');
+  const bl = FS(K.V_BLOOD);
+  assert.ok(/vecAboveAt\(p\)/.test(bl) && /vecBase/.test(bl), 'BLOOD reads the kept base and lays what lies over the blood');
 });
 
 test('the region shader ports the classic join code: fillet, trunk and fork, run-on, cross-tier copy, crossing ring, groups', () => {
-  const src = vecRegionFS(K.V_FULL, DEPS);
+  const src = FS(K.V_FULL);
   for (const piece of ['smin(sd[a], sd[b], kk)', 'corner(p, sg[ta]', 'tn[s]', 'js[j] < 0.98', 'keep[s]', 'tin[s]', 'paperInk.a', 'kcas', 'accN * netAlpha', 'accT = over(c * wsel, accT)',
-    'vecBloodMix(2, rws, ss, yy, rr, ww, gCol, px)']) assert.ok(src.includes(piece), piece);
+    'vecBloodMix(2, rws, ss, yy, rr, ww, lumCol, px)']) assert.ok(src.includes(piece), piece);
   // joins are read from the region record by the contract's layout
   assert.ok(src.includes(`RG(rg, JOIN0 + 2 * k)`) && src.includes(`const int JOIN0 = ${K.JOIN0};`) && src.includes(`const int MAXM = ${K.MAX_MEMBERS};`));
   assert.ok(src.includes(`const int MAXS = ${K.SLOTS};`) && src.includes(`const int MAXJ = ${K.MAX_JOINS};`));
 });
 
-test('without B\'s and D\'s pieces the shader is not built (no silent stand-ins)', () => {
-  assert.throws(() => vecRegionFS(K.V_FULL), /not provided/);
-  assert.throws(() => vecRegionFS(99, DEPS), RangeError);
+test('the renderer core\'s parts.region: the vertex shader, and the fragment shader of any variant', () => {
+  assert.throws(() => vecRegionFS(99, K_FLAGS), RangeError);
+  const parts = vecRegionParts(K_FLAGS);
+  assert.equal(parts.vs, vecRegionVS);
+  assert.equal(parts.fs(K.V_BASE), FS(K.V_BASE));
 });
 
 // ── Tier and group compositing (accN, accT): a faded network gives the group's alpha once ──
@@ -221,5 +158,26 @@ test('the trunk\'s stream owns the pixel inside a copied trunk (tin): the tribut
 });
 
 test('a vessel\'s second run continues its first (hairpins), through B\'s vecNearMore', () => {
-  for (const variant of [K.V_FULL, K.V_BASE, K.V_BLOOD]) assert.ok(vecRegionFS(variant, DEPS).includes('sn[at] = vecNearMore(sn[at], row,'));
+  for (const variant of [K.V_FULL, K.V_BASE, K.V_BLOOD]) assert.ok(FS(variant).includes('sn[at] = vecNearMore(sn[at], row,'));
+});
+
+test('a pixel one vessel reaches is laid exactly as the stretch shader lays it (the edge between a stretch and a region has no seam)', async () => {
+  const { vecStretchFS } = await import('../src/ui/vec-stretch-glsl.js');
+  for (const variant of [K.V_FULL, K.V_BASE, K.V_BLOOD]) {
+    const region = FS(variant), stretch = vecStretchFS(variant, K_FLAGS);
+    const norm = (s) => s.replace(/\s+/g, ' ');
+    // the lines both programs write after the vessel's own colour: the blood's visibility, its laying, the base, the over-blood overlays, the dither
+    const lines = [
+      'float vis = clamp(lum / max(o.a, 1e-3), 0.0, 1.0);',
+      'vec3 lit = bl.rgb * vis + lumCol * (1.0 - bl.a * vis);',
+      'vec4 b = texelFetch(vecBase, ivec2(gl_FragCoord.xy), 0);',
+      'vec4 r = vec4(b.rgb + o.a * (lit - lumCol), b.a);',
+      'r = vec4(min(max(r.rgb, vec3(0.0)), vec3(r.a)), r.a);',
+      'outColor = over(vecAboveAt(p), r);',
+      'o = vec4(lit * o.a, o.a);',
+      'outColor = ditherOut(o, gl_FragCoord.xy);',
+    ];
+    for (const l of lines) assert.equal(norm(region).includes(l), norm(stretch).includes(l), `variant ${variant}: ${l}`);
+    assert.ok(norm(region).includes('vecShadeOne(sid[0], sn[0], p, occl, lum, lumCol)') && norm(stretch).includes('vecShadeOne(vRow, nr, p, vecOccl(p), lum, lumCol)'));
+  }
 });
