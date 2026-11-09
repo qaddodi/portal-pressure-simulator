@@ -58,7 +58,8 @@ import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGrou
 import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
-import { createVecRenderer, vecParts } from './vec-seam.js';
+import { createVecRenderer, createVecLobule, vecParts } from './vec-seam.js';
+import { indexFlow } from './vec-lobule.js';
 import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor, vesselMesh, vesselRenderer } from './frame.js';
 import { keepScreen } from './keep-screen.js';
 import { caught } from './caught.js';
@@ -3284,7 +3285,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       get vbBleedCol() { return vecBleedCol(); },
     },
     isLost: () => lost,
-    get parts() { return (vecParts0 ||= vecParts(gl, VEC_K)); },
+    get parts() { return (vecParts0 ||= vecParts(gl, VEC_K, vecShared)); },
     software: () => software, scr: () => SCR(),
     get radAll() { return radAll; }, get rmaxAll() { return rmaxAll; }, get axisAll() { return axisAll; }, get tubeNow() { return tubeNow; },
     get flowSent() { return flowSent; }, get dyeSent() { return dyeSent; }, get organRect() { return organRect; },
@@ -3314,6 +3315,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // painted, the layers' pictures baked and shown, the overlays set), and the next picture is a whole one.
   function vecLeave() {
     const was = vec; vec = null;
+    if (vecLobule) { vecLobule.release(); vecLobule = null; VL_LAST.n = -1; }
     try { was?.dispose?.(); } catch (e) { caught('veins-gl:vec-dispose', e); /* a renderer going */ }
     if (lost) return;
     if (geoSkipped && binsNow) { geoSkipped = false; api.setGeometry(binsNow); }
@@ -3340,10 +3342,35 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const vecMadeSet = (bins) => ({ owner: api, bins, ent: vecEntOf(bins), vecSet: vec.makeMorphSet?.(bins) ?? null, vecGen });
   const vecCurSet = () => { for (const S of vecSets) if (S.ent === vecEnt) return S; for (const S of morphSets) if (S.ent === vecEnt) return S; return null; };
   // A Vector picture was drawn into the kept picture: counted as the other renderers' are, and laid on the canvas with what goes over it.
-  function vecLaid() {
-    pictured();
+  function vecLaid(bloodKept = false) {
+    pictured(bloodKept);
     directNow = false; ownStale = false;
-    if (own) present();
+    if (own && !bloodKept) present();
+  }
+  // The lobule's kept picture under Vector (vec-lobule.js, workstream I): a frame where only the blood moved repaints the blood's boxes in the
+  // texture the last whole present laid, in place of laying the picture whole. The same record, target and version stamps as the classic keep.
+  let vecLobule = null;
+  const VL_T = { fbo: null, gen: 0, w: 0, h: 0 }, VL_IDX = { rows: null, lymph: null, n: 0, nLymph: 0, anchored: 0 }, VL_LAST = { rows: new Uint16Array(0), n: -1 };
+  const vecLobRead = () => (keepRead() ? KS : null);
+  const vecLobTarget = () => { VL_T.fbo = SCR(); VL_T.gen = scr.gen; VL_T.w = scr.w; VL_T.h = scr.h; return VL_T; };
+  const vecLobLaid = () => { presents++; if (gpuProbe.on) gpuProbe.note(COUNTED.pictureKept); if (share && !lost) share.present?.(); };
+  /** After the Vector composite that ran a plan (frames before: f0): the blood's boxes repainted in the kept picture, true when that was all it needed. */
+  function vecBloodKept(f0) {
+    if (!vecLobule || !own || !vec.stats || vec.stats.frames === f0 || vec.stats.lastKinds !== 'L') return false;
+    const b = vec.lastBloodBoxes?.();
+    return !!b && b.n > 0 && vecLobule.keepBlood(b.boxes, b.n, own.tex);
+  }
+  /** The rows of the lobule's flow data that can show blood, handed to the renderer when they have changed (not every frame: it marks the blood due). */
+  function vecBloodRows(flow) {
+    if (!vec || who !== 'lobule') return;
+    indexFlow(flow, nTubes, VL_IDX);
+    const n = VL_IDX.n;
+    let same = VL_LAST.n === n;
+    for (let i = 0; same && i < n; i++) if (VL_LAST.rows[i] !== VL_IDX.rows[i]) same = false;
+    if (same) return;
+    if (VL_LAST.rows.length < n) VL_LAST.rows = new Uint16Array(VL_IDX.rows.length);   // alloc-rare: grown with the lobule's rows
+    VL_LAST.rows.set(VL_IDX.rows.subarray(0, n)); VL_LAST.n = n;
+    vecTell('setBloodRows', VL_IDX.rows, n);
   }
   /** Whether the Vector renderer draws now; makes it, or lets it go, when the choice has changed since the last call. */
   function vecOn() {
@@ -3368,6 +3395,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     useMorphSet(null);
     vecGiveBack();
     vecGen++;
+    if (who === 'lobule' && share && keep) { vecLobule = createVecLobule(gl, { read: vecLobRead, target: vecLobTarget, seq: () => pictureSeq, laid: vecLobLaid }); vecLobule.start(); if (flowSent) vecBloodRows(flowSent); }
     figVer++; texVer++; movedAll = true;
     if (binsNow) vecTell('setGeometry', binsNow);
     vecTell('setOrgans', 'replay', vecOps);
@@ -3844,6 +3872,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       fencePart('glasses and labels');
     }
     if (keep) keepNote(laidUnder && top);
+    if (vecLobule) vecLobule.noteLaid(laidUnder && top);
   }
   // The lobule's kept picture (lobule-keep.js). Whether the picture in scr can be kept and repainted in part: the tissue under it, the
   // overlay over it and the vessel layer are all the ones this renderer knows (keepSrc), nothing else moves in it (every pass added here is
@@ -4995,7 +5024,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       /** How many pictures have been laid on the canvas (present): an owner that drew under the figure lays one if a frame laid none. */
       get presents() { return presents; },
       /** Whether the picture is kept in this canvas's texture (keep): a blood-only frame then repaints only the blood's squares in it. */
-      get kept() { return kept.on; },
+      get kept() { return kept.on || !!vecLobule?.stamp.on; },
       /** A warm-up of something drawn over the figure here ({ done(), run() }): run once done() says its programs are compiled, at a free
        *  moment of the renderer (prepare: between pictures, not mid gesture), where its small draw may set any state. */
       warmIn(t) { if (t && !lost) freeTasks.push(t); },
@@ -5070,7 +5099,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * cells drawRows drew again (the vessel layer changed under them).
      */
     composite(look, blood = NOBLOOD, full = false, part = 0) {
-      if (vecOn()) { flushRadii(); lastLook = look; if (baseM) vecTell('setOverlays', look, baseM, PW(), PH()); const r = vec.composite(look, blood, full, part); vecLaid(); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; if (baseM) vecTell('setOverlays', look, baseM, PW(), PH()); const f0 = vec.stats?.frames; const r = vec.composite(look, blood, full, part); vecLaid(vecBloodKept(f0)); return r; }
       flushRadii();
       compLook = look; compBlood = blood;
       // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, look E's sines.)
@@ -5659,6 +5688,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     api[name] = function (a0, a1, a2, a3) {
       const r = was.call(this, a0, a1, a2, a3);
       if (name in G_SETTERS) { G_SETTERS[name](a0, a1); if (vec) vecParts0?.overlays?.[name]?.(a0, a1); }
+      if (name === 'setFlow' && vec && a0) vecBloodRows(a0);
       if (vec) vecTell(name, a0, a1, a2, a3);
       return r;
     };

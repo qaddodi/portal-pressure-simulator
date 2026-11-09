@@ -732,8 +732,8 @@ export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
 // The renderer reads vesselRenderer() and listens with onVesselRenderer() (it returns the unsubscribe); this file only keeps the choice.
 // vesselMesh() is kept as `vesselRenderer() === 'mesh'`, setVesselMesh(on) as mesh/classic, and onVesselMesh() as the change of that.
 const RENDERER_DEFAULT = 'mesh';
-/** The three-way choice is offered in Settings once Vector draws end to end (workstream H flips it when Phase 1 lands). */
-export const VECTOR_OFFERED = false;
+/** The three-way choice is offered in Settings once Vector draws end to end (workstream H: every part is in the seam, 9 Nov 2026). */
+export const VECTOR_OFFERED = true;
 let rendererNow = RENDERER_DEFAULT;
 try {
   const kept = localStorage.getItem(RENDERER_KEY);

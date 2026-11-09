@@ -10,7 +10,7 @@ const page = (await import('../scripts/warm/dom.mjs')).installPage();
 const R = '../src/ui/';
 const { indexFlow, createStamp, createVecLobule, KEEP_BOX_VS, FLOW_TEXELS: FT, F1X, F1Z, FACTOR, LYMPH_MARK } = await import(`${R}vec-lobule.js`);
 const { keepFS } = await import(`${R}lobule-keep.js`);
-const { MAX_MEMBERS, CELL_EMPTY } = await import(`${R}vec-contract.js`);
+const { MAX_MEMBERS, MAX_JOINS } = await import(`${R}vec-contract.js`);
 const { CELL } = await import(`${R}veins-bin.js`);
 const waits = async (file) => { try { return await import(`${R}${file}`); } catch (e) { if (e?.code === 'ERR_MODULE_NOT_FOUND') return null; throw e; } };
 
@@ -136,7 +136,13 @@ test('the kept picture is not repainted once anything it was made of has moved',
 
 // ── The lobule's own geometry ──
 // The real lobule layer, booted in node with a capturing bin hook (lobule-zoom.js binAway): the tubes and joins it hands the binning.
+const binsKept = new Map();
 async function lobuleBins(W, H, lymph) {
+  const key = `${W}x${H}${lymph ? 'L' : ''}`;
+  if (!binsKept.has(key)) binsKept.set(key, await bootBins(W, H, lymph));
+  return binsKept.get(key);
+}
+async function bootBins(W, H, lymph) {
   const win = page.dom.window;
   const BOX = { x: 0, y: 0, left: 0, top: 0, right: W, bottom: H, width: W, height: H };
   win.Element.prototype.getBoundingClientRect = function () { return this.id === 'stageView' ? BOX : { x: 0, y: 0, left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 }; };
@@ -187,7 +193,7 @@ function membersPerCell({ tubes }) {
   return { cells: per.size, max, at, over };
 }
 
-const SIZES = [[1440, 900], [1024, 768], [390, 800]];
+const SIZES = process.env.SIZES ? JSON.parse(process.env.SIZES) : [[1440, 900], [1024, 768], [390, 800]];
 for (const lymph of [false, true]) {
   test(`the lobule's ${lymph ? 'blood and lymph' : 'blood'} vessels: the most any cell's region would hold, at three sizes`, { timeout: 120000 }, async (t) => {
     const lines = [];
@@ -200,25 +206,106 @@ for (const lymph of [false, true]) {
       worst = Math.max(worst, c.max);
     }
     t.diagnostic(lines.join('\n'));
-    if (lymph) {
-      // Plan stop point 1 (a region over MAX_MEMBERS): the default Lymph layer puts 22 to 25 vessels in the cells around the central vein. Mohammad decides.
-      if (worst > MAX_MEMBERS) { t.todo(`stop point 1: ${worst} members in one cell, the contract holds ${MAX_MEMBERS} (waiting for Mohammad's answer)`); return; }
-    }
     assert.ok(worst <= MAX_MEMBERS, `no cell holds more than ${MAX_MEMBERS} members (most: ${worst})`);
   });
 }
 
-test('the lobule\'s binning compiled by A has no region over MAX_MEMBERS', async (t) => {
-  const compile = await waits('vec-compile.js');
-  if (!compile) return t.skip('waits for A: vec-compile.js');
-  void compile; void CELL_EMPTY;
-  t.skip('waits for A: compileGrid on the lobule\'s binning (report the region counts by kind)');
-});
+// The lobule's binning compiled by A (vec-compile.js): the vessels' radii from the bin reach the lobule gave them (reach = 1.6 × the widest
+// radius + the wall + 10), every row on tier 1 as the lobule sends them.
+function compileLobule(comp, { tubes, joins }) {
+  const { binVeins } = binMod;
+  const n = tubes.length, bins = binVeins(tubes, joins);
+  const radAll = new Float32Array(n * 64 * 4), tubeNow = new Float32Array(n * 52);
+  for (const t of tubes) {
+    const wall = 1, r = Math.max(0.5, (t.reach - 10 - wall) / 1.6);
+    for (let i = 0; i < 64; i++) radAll[(t.id * 64 + i) * 4] = r;
+    tubeNow[t.id * 52 + 3] = wall; tubeNow[t.id * 52 + 7] = 1; tubeNow[t.id * 52 + 8] = 1;
+  }
+  return comp.createVecCompiler().build(bins, n, { tubeNow, radAll });
+}
+const binMod = await import(`${R}veins-gl.js`);
+for (const lymph of [false, true]) {
+  test(`the lobule's ${lymph ? 'blood and lymph' : 'blood'} binning compiled by A has no region over MAX_MEMBERS`, { timeout: 120000 }, async (t) => {
+    const comp = await waits('vec-compile.js');
+    if (!comp) return t.skip('waits for A: vec-compile.js');
+    const lines = [];
+    let joinsOver = 0;
+    for (const [W, H] of SIZES) {
+      const view = compileLobule(comp, await lobuleBins(W, H, lymph));
+      const st = view.stats;
+      lines.push(`${W}x${H}: ${st.simple} stretch cells, ${st.regions} regions (join ${st.join}, cross ${st.cross}, crosstier ${st.crosstier}, hairpin ${st.hairpin}, near ${st.near}, long ${st.long}), most members ${st.maxMembers}, most joins ${st.maxJoins}, regions over ${MAX_MEMBERS}: ${st.overMembers}`);
+      assert.equal(view.tooWide, false, `${W}x${H}: the grid fits the cell texture`);
+      assert.equal(st.overMembers, 0, `${W}x${H}: no region lists more than ${MAX_MEMBERS} members (most: ${st.maxMembers})`);
+      if (st.overJoins > 0) joinsOver = Math.max(joinsOver, st.maxJoins);
+      assert.ok(st.regions > 0 && st.simple > 0, 'the lobule has both ordinary stretches and regions');
+    }
+    t.diagnostic(lines.join('\n'));
+    // Joins per region: the lobule's central vein takes 12 joins inside a few cells (stop point 7, waiting for Mohammad's answer on MAX_JOINS).
+    if (joinsOver) t.todo(`regions list up to ${joinsOver} joins, the contract holds ${MAX_JOINS} (waiting for Mohammad's answer)`);
+  });
+}
 
-test('the lobule\'s instance under Vector calls no classic or mesh vessel program', async (t) => {
-  const seam = await waits('vec-renderer.js');
-  if (!seam) return t.skip('waits for E and H: vec-renderer.js and the seam in veins-gl.js');
-  t.skip('waits for H: the seam hands the lobule\'s instance to Vector');
+// The lobule's instance under the seam (veins-gl.js who 'lobule', workstream H), with a Vector renderer that only remembers what it is told.
+const frame = await import(`${R}frame.js`);
+const veinsMod = await import(`${R}veins-gl.js`);
+function seamGL() {
+  const calls = [], enums = new Map(), src = new Map(), attached = new Map(), progOf = new Map();
+  let nextObj = 1;
+  const gl = new Proxy({}, {
+    get(_, k) {
+      if (typeof k !== 'string') return undefined;
+      if (/^[A-Z0-9_]+$/.test(k)) { if (!enums.has(k)) enums.set(k, 0x10000 + enums.size); return enums.get(k); }
+      return (...a) => {
+        calls.push([k, ...a]);
+        if (k === 'shaderSource') src.set(a[0], a[1]);
+        if (k === 'attachShader') { const l = attached.get(a[0]) || []; l.push(a[1]); attached.set(a[0], l); }
+        if (k === 'getShaderParameter') return true;
+        if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? 0 : true;
+        if (k === 'getExtension') return null;
+        if (k === 'getParameter') return 'stand-in';
+        if (k === 'getUniformLocation') return { name: a[1] };
+        if (k === 'isContextLost') return false;
+        if (k.startsWith('create')) return { obj: nextObj++, kind: k };
+        return undefined;
+      };
+    },
+  });
+  const textOf = (p) => (attached.get(p) || []).map((x) => src.get(x) || '').join('\n');
+  return { gl, calls, progOf, textOf };
+}
+const LOOK = { shOff: [0, 0], light: [0, -1], reach: 11, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierAlpha: Array(veinsMod.MAX_TIERS).fill(1), tierGroup: Array(veinsMod.MAX_TIERS).fill(0) };
+const IDENT = [1, 0, 0, 1, 0, 0];
+
+test('the lobule\'s instance under Vector calls no classic or mesh vessel program, and tells Vector which rows show blood', () => {
+  frame.setVesselRenderer('vector');
+  const told = [];
+  const standIn = new Proxy({}, { get: (_, k) => (typeof k !== 'string' || k === 'then' || k === 'failure' ? undefined : k === 'status' ? () => 'ready' : (...a) => { told.push([k, ...a]); return k === 'drawRows' ? true : undefined; }) });
+  veinsMod.setVectorFactory(() => standIn);
+  const f = seamGL();
+  const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
+  let presented = 0;
+  const g = veinsMod.createVeinsGL(canvas, { tubes: 4, force: true, who: 'lobule', share: { gl: f.gl, canvas, present() { presented++; } } });
+  assert.ok(g, 'the lobule\'s instance is made');
+  const line = (y) => Array.from({ length: veinsMod.N_SAMPLES }, (_, i) => [40 + i * 10, y]);
+  g.setGeometry(veinsMod.binVeins([0, 1, 2, 3].map((id) => ({ id, pts: line(100 + id * 60), reach: 30 })), []));
+  // (Row 0 a blood stream, row 1 a lymph row (texel 1.x = -1), row 2 a vessel seen end-on, row 3 blood with a flow factor of 0.)
+  const flow = new Float32Array(4 * FT * 4);
+  for (const r of [0, 1, 3]) flow[r * FT * 4 + F1Z] = 1;
+  flow[1 * FT * 4 + F1X] = LYMPH_MARK;
+  g.setFlow(flow);
+  const n0 = f.calls.length;
+  g.draw(IDENT, LOOK, { on: true }, null);
+  g.composite(LOOK, { on: true });
+  const used = f.calls.slice(n0).filter((c) => c[0] === 'useProgram' && c[1]);
+  assert.equal(used.length, 0, 'no classic or mesh vessel program was used');
+  const rows = told.filter((c) => c[0] === 'setBloodRows').at(-1);
+  assert.ok(rows, 'Vector is told which rows can show blood');
+  assert.deepEqual([...rows[1].subarray(0, rows[2])], [0, 1, 3], 'the end-on row is left out, the lymph row is in');
+  assert.equal(g.top.kept, false, 'nothing is kept before a whole present laid the picture');
+  const n = told.filter((c) => c[0] === 'setBloodRows').length;
+  g.setFlow(flow);
+  assert.equal(told.filter((c) => c[0] === 'setBloodRows').length, n, 'the same rows are not told again');
+  void presented;
 });
 
 test('the lobule\'s lymph rows reach lymphAt in Vector\'s blood material', async (t) => {

@@ -29,7 +29,7 @@
 // The region quad carries its cell; the fragment draws only where the cell test finds that cell's own region, so a pixel is drawn by one program.
 import {
   GRID_W, CELL_REGION, MAX_MEMBERS, MAX_JOINS, SLOTS, JOIN0, REGION_TEXELS, K_JOIN, K_CROSS, K_HAIRPIN, K_CROSSTIER, K_NEAR, K_LONG, K_MORPH,
-  M_LUMEN, M_JOINED, M_TRUNK, FORK_BIT, V_FULL, V_BASE, V_BLOOD,
+  M_LUMEN, M_JOINED, M_TRUNK, FORK_BIT, MASK_SPLIT, V_FULL, V_BASE, V_BLOOD,
 } from './vec-contract.js';
 import { CELL } from './veins-bin.js';
 import { EDGE_GLSL } from './edge.js';
@@ -112,6 +112,7 @@ const int MAXJ = ${MAX_JOINS};
 const int MAXM = ${MAX_MEMBERS};
 const int JOIN0 = ${JOIN0};
 const int FORK_BIT = ${FORK_BIT};
+const int MASK_SPLIT = ${MASK_SPLIT};
 uniform highp sampler2D regionTex;     // the regions: REGION_TEXELS wide, one region a row (vec-contract.js)
 uniform float reachU;                  // how far from a lumen anything is drawn (world): the slot admission, as classic's
 uniform int morphOn;                   // 1: a morph set (veins-sweep.js) is in use: the joins of its regions come from the frame's join rows
@@ -213,12 +214,12 @@ ${single}
     if (morph) { vec4 F = JT(int(A.x + 0.5)); A = vec4(F.xy, floor(F.w) * 0.01, F.z); B.w = fract(F.w) / 0.99; }
     float dc = length(p - A.xy);
     if (dc > A.w) continue;
-    // (B.x the member mask's bits 0 … 15, B.z its bits 16 … 31; B.y the trunk member, plus FORK_BIT at a fork, −1 none; B.w the fillet)
-    int mmask = int(B.x + 0.5) | (int(B.z + 0.5) << 16), mask = 0, c = 0, tm = 0, tfm = 0;
+    // (B.x the member mask's bits 0 … MASK_SPLIT−1, B.z its bits MASK_SPLIT …; B.y the trunk member, plus FORK_BIT at a fork, −1 none; B.w the fillet)
+    int mlo = int(B.x + 0.5), mhi = int(B.z + 0.5), mask = 0, c = 0, tm = 0, tfm = 0;
     int tmi = int(B.y + 0.5) & (FORK_BIT - 1);
     bool fork = B.y > float(FORK_BIT) - 0.5;
     for (int m = 0; m < MAXM; m++) {
-      if ((mmask & (1 << m)) == 0 || msl[m] < 0) continue;
+      if ((m < MASK_SPLIT ? (mlo & (1 << m)) : (mhi & (1 << (m - MASK_SPLIT)))) == 0 || msl[m] < 0) continue;
       int s = msl[m];
       if ((mask & (1 << s)) != 0) continue;
       mask |= 1 << s; c++;

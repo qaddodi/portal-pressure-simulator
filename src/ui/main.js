@@ -1353,7 +1353,7 @@ function figureMpControl() {
   return h('div', { class: 'seg full menu-seg text-size fig-mp', role: 'group', 'aria-label': 'Figure size in megapixels' }, less, now, more);
 }
 // Vessel renderer (Settings › Display, after Figure size): Classic, Mesh or Vector (frame.js keeps the choice and tells the figure). Vector is
-// offered once it draws end to end (VECTOR_OFFERED); until then the choice is Classic or Mesh.
+// offered when VECTOR_OFFERED (frame.js) is on; off, the choice is Classic or Mesh.
 const RENDERER_CHOICES = [['classic', 'Classic', 'The original vessel shader'], ['mesh', 'Mesh', 'Each vessel drawn as a mesh, which costs the GPU less'], ['vector', 'Vector', 'Retained vector geometry, with blood shaded on it']];
 function vesselRendererControl() {
   const cur = vesselRenderer();

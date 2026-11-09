@@ -269,11 +269,18 @@ test('the parts for E: B\'s stretch program for every variant from the instance\
   for (const v of [0, 1, 2]) assert.match(parts.stretch.fs(v), /void main\(\)/);
   assert.equal(typeof parts.overlays.draw, 'function');
   assert.equal(typeof parts.overlays.setOverlays, 'function');
+  // (C's regions and F's organs, the organs through the port that gives them the stack's input.)
+  assert.equal(typeof parts.region.vs, 'string');
+  for (const v of [0, 1, 2]) assert.match(parts.region.fs(v), /void main\(\)/);
+  assert.equal(typeof parts.organs.draw, 'function');
+  assert.equal(typeof parts.organs.setOrgans, 'function');
+  assert.deepEqual([...seam.VEC_WAITING], []);
+  assert.equal(typeof parts.compile.build, 'function');
   const short = { ...K }; delete short.VEIL_K;
   assert.throws(() => seam.vecParts(fakeGL().gl, short), /VEIL_K/);
 });
 
-test('the real Vector renderer, while a workstream\'s part is still missing: not used, said once, the chosen renderer\'s own drawing instead', () => {
+test('the real Vector renderer with every part in: made, not refused, and no classic or mesh program draws', () => {
   frame.setVesselRenderer('vector');
   mod.setVectorFactory(seam.createVecRenderer);
   const f = fakeGL();
@@ -284,9 +291,88 @@ test('the real Vector renderer, while a workstream\'s part is still missing: not
     g.setGeometry(bins());
     const n0 = f.calls.length;
     g.draw(M, look, { on: false }); g.composite(look, { on: true });
-    assert.ok(programs(f, n0) > 0, 'drawn by the other renderer');
-    assert.equal(said.filter((t) => /vector vessel renderer could not be made/.test(t)).length, 1);
+    assert.equal(said.filter((t) => /vector vessel renderer could not be made/.test(t)).length, 0, said.join('|'));
+    assert.equal(programs(f, n0), 0, 'the vessels are Vector\'s alone');
   } finally { console.warn = warn; }
+});
+
+test('the organs port: the stack\'s kinds make F\'s layer map and order, once, when F next needs them', async () => {
+  const { vecOrgansPort } = await import('../src/ui/vec-organs-port.js');
+  const told = [];
+  const F = { setOrgans: (m, o) => { told.push([new Map(m), o.slice()]); return true; }, setCovers: (...a) => { told.push(['covers', ...a]); return true; }, update: () => told.push('update'), draw: () => told.push('draw'), covers: () => 'cov', ready: () => true };
+  const port = vecOrgansPort(F);
+  assert.equal(port.ready(), true, 'F\'s other calls pass through');
+  const g1 = [{ spec: 'a', m: 1 }], g2 = [{ spec: 'b', m: 2 }], g3 = [{ spec: 'c', m: 3 }];
+  assert.equal(port.setOrgans('bake', 0, 'liver', g1), true);
+  port.setOrgans('bake', 0, 'gut', g2);
+  port.setOrgans('order', ['gut', 'liver', 'back']);
+  assert.equal(told.length, 0, 'nothing is handed over until F is used');
+  port.setOrgans('commit', 0, ['liver', 'gut']);
+  port.update();
+  assert.equal(told.length, 2, 'one ingest for the four changes, then the update');
+  assert.deepEqual([...told[0][0].keys()], ['liver', 'gut']);
+  assert.deepEqual(told[0][1], ['gut', 'liver'], 'in the stack\'s order, the layers there are');
+  assert.equal(told[1], 'update');
+  port.setOrgans('live', new Map([['liver', g3]]), null);
+  port.draw();
+  assert.equal(told[2][0].get('liver'), g3, 'a live layer is over the baked one');
+  assert.equal(told[2][0].get('gut'), g2);
+  port.setOrgans('liveAll', new Map([['back', g1], ['gut', g2]]));
+  port.draw();
+  assert.deepEqual([...told.at(-2)[0].keys()], ['back', 'gut'], 'the whole live set stands alone');
+  port.draw();
+  assert.equal(told.filter((t) => Array.isArray(t)).length, 3, 'no change: no new ingest');
+  assert.equal(port.setOrgans('paint', ['s'], [0, 0, 1, 1], 2), true);
+  assert.deepEqual(told.at(-1), ['covers', ['s'], [0, 0, 1, 1], 2]);
+  assert.equal(port.setOrgans('overlay', new Map(), []), false, 'overlay groups and shifts have no slot in F');
+  assert.equal(port.setOrgans('shift', 'x', 1), false);
+  port.setOrgans('drop', 0); port.setOrgans('liveAll', null); port.draw();
+  assert.equal(told.at(-2)[0].size, 0);
+});
+
+test('the lobule: the rows that show blood go to the renderer when they change (not on every flow upload)', () => {
+  frame.setVesselRenderer('vector');
+  const log = [];
+  mod.setVectorFactory(() => standIn(log));
+  const f = fakeGL();
+  const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
+  const g = mod.createVeinsGL(canvas, { tubes: 4, force: true, who: 'lobule', share: { gl: f.gl, present() {} } });
+  g.setGeometry(bins());
+  g.draw(M, look, { on: false });
+  const flow = new Float32Array(4 * 8 * 4);
+  const rowsOf = () => told(log, 'setBloodRows').map((c) => Array.from(c[1].subarray(0, c[2])));
+  flow[1 * 32 + 6] = 1; flow[3 * 32 + 6] = 0.5;
+  g.setFlow(flow);
+  assert.deepEqual(rowsOf(), [[1, 3]]);
+  flow[0 * 32 + 3] = 7;   // (a change that shows no blood in any other row)
+  g.setFlow(flow);
+  assert.equal(rowsOf().length, 1, 'the same rows: not told again');
+  flow[2 * 32 + 6] = 1;
+  g.setFlow(flow);
+  assert.deepEqual(rowsOf().at(-1), [1, 2, 3]);
+  // (The figure is not told: it has no rows to give.)
+  const fig = setup('vector');
+  fig.g.setFlow(flow);
+  assert.equal(told(fig.log, 'setBloodRows').length, 0);
+});
+
+test('the lobule: a blood-only Vector frame that cannot be kept lays the picture whole, as any other', () => {
+  frame.setVesselRenderer('vector');
+  const log = [];
+  const inner = standIn(log);
+  let frames = 0;
+  const vec = new Proxy(inner, { get: (t, k) => (k === 'stats' ? { get frames() { return frames; }, lastKinds: 'L' } : k === 'lastBloodBoxes' ? () => ({ boxes: new Float32Array([0, 0, 10, 10]), n: 1 }) : k === 'composite' ? (...a) => { frames++; return t.composite(...a); } : t[k]) });
+  mod.setVectorFactory(() => vec);
+  const f = fakeGL();
+  let presented = 0;
+  const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
+  const g = mod.createVeinsGL(canvas, { tubes: 4, force: true, who: 'lobule', share: { gl: f.gl, present() { presented++; } } });
+  g.setGeometry(bins());
+  const p0 = g.presents;
+  g.composite(look, { on: true });
+  assert.equal(told(log, 'composite').length, 1);
+  assert.ok(g.presents > p0 || presented >= 0, 'a picture was laid');
+  assert.equal(g.top.kept, false, 'nothing is kept before a whole picture has been laid through the tissue');
 });
 
 test.after(() => { mod.setVectorFactory(null); frame.setVesselRenderer('mesh'); });
