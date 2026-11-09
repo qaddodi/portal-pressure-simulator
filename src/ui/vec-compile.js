@@ -17,7 +17,7 @@ import { CELL } from './veins-bin.js';
 import { createVecGraph } from './vec-graph.js';
 import { N_SAMPLES, N_QUADS, padOf } from './veins-mesh.js';
 import {
-  GRID_PAD, GRID_W, CELL_EMPTY, CELL_SIMPLE, CELL_REGION, WIN_MAX, REGION_TEXELS, MAX_MEMBERS, MAX_JOINS, JOIN0, FORK_BIT,
+  GRID_PAD, GRID_W, MASK_SPLIT, CELL_EMPTY, CELL_SIMPLE, CELL_REGION, WIN_MAX, REGION_TEXELS, MAX_MEMBERS, MAX_JOINS, JOIN0, FORK_BIT,
   K_JOIN, K_CROSS, K_HAIRPIN, K_CROSSTIER, K_NEAR, K_LONG, K_MORPH, M_LUMEN, M_JOINED, M_TRUNK, REACH_HEADROOM, REACH_GLOW, REACH_SHADOW_OFF, REACH_AA,
 } from './vec-contract.js';
 
@@ -424,7 +424,7 @@ function classify(graph, reach, out, c, st) {
     let lo = 0, hi = 0, trunk = -1;
     for (let m = 0; m < nM; m++) {
       const row = rec[(1 + m) * 4];
-      for (let s = 0; s < 4; s++) if (J.mem[j * 4 + s] === row) { if (m < 16) lo |= 1 << m; else hi |= 1 << (m - 16); if (J.trunk[j] === row) trunk = m; }
+      for (let s = 0; s < 4; s++) if (J.mem[j * 4 + s] === row) { if (m < MASK_SPLIT) lo |= 1 << m; else hi |= 1 << (m - MASK_SPLIT); if (J.trunk[j] === row) trunk = m; }
     }
     rec[o] = J.x[j]; rec[o + 1] = J.y[j]; rec[o + 2] = J.k[j]; rec[o + 3] = J.reach[j];
     rec[o + 4] = lo; rec[o + 5] = trunk >= 0 && J.fork[j] ? trunk + FORK_BIT : trunk; rec[o + 6] = hi; rec[o + 7] = J.fillet[j];
@@ -692,7 +692,7 @@ export function regionOf(out, slot) {
   const R = out.regions, b = slot * REGION_TEXELS * 4, nM = R[b + 1], nJ = R[b + 2];
   const members = [], joins = [];
   for (let m = 0; m < nM; m++) { const o = b + (1 + m) * 4; members.push({ row: R[o], i0: R[o + 1], i1: R[o + 2], flags: R[o + 3] }); }
-  for (let j = 0; j < nJ; j++) { const o = b + (JOIN0 + 2 * j) * 4; const t = R[o + 5], fork = t >= FORK_BIT - 0.5; joins.push({ x: R[o], y: R[o + 1], k: R[o + 2], reach: R[o + 3], mask: R[o + 4] + R[o + 6] * 65536, trunk: fork ? t - FORK_BIT : t, fork, fillet: R[o + 7] }); }
+  for (let j = 0; j < nJ; j++) { const o = b + (JOIN0 + 2 * j) * 4; const t = R[o + 5], fork = t >= FORK_BIT - 0.5; joins.push({ x: R[o], y: R[o + 1], k: R[o + 2], reach: R[o + 3], mask: R[o + 4] + R[o + 6] * 2 ** MASK_SPLIT, trunk: fork ? t - FORK_BIT : t, fork, fillet: R[o + 7] }); }
   return { kind: R[b], members, joins, maxReach: R[b + 3] };
 }
 
@@ -807,7 +807,7 @@ export function compileMorphSet(bins, out, graph = null) {
         const v = ent[q * 8 + 4 + s];
         if (!(v > -0.5)) continue;
         const row = Math.floor(v + 0.5);
-        for (let m = 0; m < nM; m++) if (rec[(1 + m) * 4] === row) { if (m < 16) lo |= 1 << m; else hi |= 1 << (m - 16); if (v - row > 0.1) { trunk = m; fork = v - row > 0.3 ? 1 : 0; } }
+        for (let m = 0; m < nM; m++) if (rec[(1 + m) * 4] === row) { if (m < MASK_SPLIT) lo |= 1 << m; else hi |= 1 << (m - MASK_SPLIT); if (v - row > 0.1) { trunk = m; fork = v - row > 0.3 ? 1 : 0; } }
       }
       rec[o] = ent[q * 8]; rec[o + 1] = 0; rec[o + 2] = I / 100; rec[o + 3] = ent[q * 8 + 2];
       rec[o + 4] = lo; rec[o + 5] = trunk >= 0 && fork ? trunk + FORK_BIT : trunk; rec[o + 6] = hi; rec[o + 7] = Math.min(1, Math.max(0, (w - I) / 0.99));
