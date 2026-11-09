@@ -267,6 +267,26 @@ test('the heads\' quads use blood-heads.js\'s vertex shader unchanged, over this
   assert.ok(!/\bvb[A-Z]\w*\s*\(/.test(vs.replace(/vbZoomNums/g, '')), 'only the zoom arithmetic carries the vb prefix');
 });
 
+test('the heads\' fragment shader: lints, matches the vertex shader\'s varyings, takes its hooks, and reads the uniforms it lists', () => {
+  const fs = G.VEC_HEADS_FS(), vs = G.VEC_HEADS_VS();
+  assert.deepEqual(lintGLSL(fs), [], 'it lints');
+  assert.deepEqual([...uniformsOf(fs)].sort(), [...G.VEC_HEADS_UNIFORMS].sort());
+  // The varyings agree in name and type with the vertex shader's outputs (a link error otherwise).
+  const outs = [...vs.matchAll(/flat out (vec\d)\s+([^;]+);/g)].flatMap((m) => m[2].split(',').map((n) => `${m[1]} ${n.trim()}`));
+  const ins = [...fs.matchAll(/flat in (vec\d)\s+([^;]+);/g)].flatMap((m) => m[2].split(',').map((n) => `${m[1]} ${n.trim()}`));
+  for (const i of ins) assert.ok(outs.includes(i), `the vertex shader writes ${i}`);
+  // The uniforms both stages declare agree in type.
+  const decl = (src) => new Map([...src.replace(/\/\/.*$/gm, '').matchAll(/uniform\s+(?:highp\s+)?(\w+)\s+(\w+)/g)].map((m) => [m[2], m[1]]));
+  const dv = decl(vs), df = decl(fs);
+  for (const [n, t] of df) if (dv.has(n)) assert.equal(dv.get(n), t, `${n} has one type in both stages`);
+  // The hooks are the caller's: a weight and an over-blood overlay can replace the defaults, and the result still lints.
+  const hooked = G.VEC_HEADS_FS('float vecHeadWeight(int row, vec2 w) { return 0.5; }', 'vec4 vecAboveAt(vec2 p) { return vec4(0.1, 0.1, 0.1, 0.2); }');
+  assert.deepEqual(lintGLSL(hooked), []);
+  const code = fs.replace(/\/\/.*$/gm, '');
+  assert.ok(!/\b(dFdx|dFdy|fwidth)\b/.test(code) && !/\btexture\s*\(/.test(code));
+  assert.ok(!/gbuf/.test(code), 'no flow image: the head is clipped to its lumen from the radius, not from a lumen buffer');
+});
+
 test('mod and the period: the stream distance wraps seamlessly', () => {
   const a = { D: PERIOD - 1, vd: 10, stasis: 0, dr: 0, B0: 0, k: 1, slope: 0 };
   assert.ok(Math.abs(M.circDiff(M.streamDistance(a, 0.05), M.streamDistance(a, 0.1)) - 0.5) < 1e-9);

@@ -556,3 +556,78 @@ ${ZOOM_MATH}
 void zoomOut() { vbZoomNums(pxW, zoomA, zoomB); }`;
 /** The heads' vertex shader (blood-heads.js headVS over this module's rows, orange and zoom pieces under the composite's names). */
 export const VEC_HEADS_VS = () => headVS({ zoom: HEADS_ZOOM, along: '', rows: rowsGLSL(NAMES_COMP), orange: orangeGLSL(NAMES_COMP), nSamples: N_SAMPLES });
+
+/**
+ * The uniforms the heads' program reads beyond the vertex shader's own (blood-heads.js headVS declares world, size, flow, rad, tube, axis,
+ * bT, still, cssPx, chevInk, chevLight, revCol, inkLight, blendA, origin; pxW is shared by both stages). Composite names, since headVS has
+ * them; `axis` is the bend texture (veins-gl setBend binds it there too). inv is the renderer core's own (gl_FragCoord.xy, y up → world).
+ */
+export const VEC_HEADS_UNIFORMS = Object.freeze(['inv', 'pxW', 'flowA', 'blendA', 'rad', 'noChev', 'noChevN', 'chevHole', 'chevHoleR', 'chevHoleN']);
+/** The default hooks of the heads' fragment shader. */
+export const HEAD_WEIGHT_ONE = 'float vecHeadWeight(int row, vec2 w) { return 1.0; }';
+export const HEAD_ABOVE_NONE = 'vec4 vecAboveAt(vec2 p) { return vec4(0.0); }';
+/**
+ * The heads' fragment shader (blood-heads.js: one quad a head, premultiplied, blended ONE, ONE_MINUS_SRC_ALPHA over the picture after the
+ * lumens; in the BLOOD pass limited by the stencil the lumens wrote, so only pixels the pass redrew get a head). It lays the head's shape
+ * (chevHead, as COMP_FS's quads), clipped to its vessel's lumen across the axis, cut by the figure readings' boxes and holes, under the
+ * over-blood overlays (G's vecAboveAt).
+ *   weight (GLSL text): `float vecHeadWeight(int row, vec2 w)`, everything else that scales a head at a pixel and only the renderer's
+ *   cell and tube data know: the vessel's own fade and dimming (a faded network must dim its heads: COMP_FS had the lumen's alpha), and
+ *   where another vessel joins (no head there unless the two draw one pattern). The default is 1. Until the renderer core passes one,
+ *   draw the arrowheads in the lumen instead (vbChevQuad 0): vecBlood then has the lumen's own alpha and ownership.
+ *   above (GLSL text): vecAboveAt(vec2 p), premultiplied, what lies over the blood (G).
+ */
+export const VEC_HEADS_FS = (weight = HEAD_WEIGHT_ONE, above = HEAD_ABOVE_NONE) => `#version 300 es
+precision highp float;
+precision highp int;
+uniform mat3 inv;                      // gl_FragCoord.xy (y up) → world
+uniform float pxW;
+uniform float flowA;
+uniform vec3 blendA;
+uniform highp sampler2D rad;
+uniform vec4 noChev[12];
+uniform int noChevN;
+uniform vec4 chevHole[16];
+uniform float chevHoleR[16];
+uniform int chevHoleN;
+flat in vec4 hC;
+flat in vec4 hS;
+flat in vec3 hInk, hRim;
+out vec4 outColor;
+${CHEV_GLSL}
+vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
+${weight}
+${above}
+void main() {
+  vec2 w = (inv * vec3(gl_FragCoord.xy, 1.0)).xy;
+  vec2 dw = w - hC.xy;
+  float along = dot(dw, hC.zw), across = abs(dot(dw, vec2(-hC.w, hC.z)));
+  vec2 c = chevHead(along, across, hS.x, pxW, hS.w) * hS.y;
+  if (c.x + c.y <= 0.0) discard;
+  int id = int(hS.z + 0.5);
+  c *= vecHeadWeight(id, w);
+  // Only inside the head's own lumen (its caliber midway, which sized the head): the rim never spills onto the casing of a thin vessel.
+  float Rm = max(texelFetch(rad, ivec2(${LAST / 2 | 0}, id), 0).r, 0.3);
+  c *= 1.0 - smoothstep(Rm - 0.5 * pxW, Rm + 0.5 * pxW, across);
+  for (int i = 0; i < 12; i++) {
+    if (i >= noChevN) break;
+    vec2 qb = abs(w - (noChev[i].xy + noChev[i].zw) * 0.5) - (noChev[i].zw - noChev[i].xy) * 0.5;
+    c *= smoothstep(-pxW, pxW, length(max(qb, 0.0)) + min(max(qb.x, qb.y), 0.0));
+  }
+  for (int i = 0; i < 16; i++) {
+    if (i >= chevHoleN) break;
+    vec4 hh = chevHole[i];
+    float hr = chevHoleR[i], dh;
+    if (hr < 0.0) { vec2 ab = hh.zw - hh.xy; float t = clamp(dot(w - hh.xy, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0); dh = length(w - hh.xy - ab * t) + hr; }
+    else dh = length(max(max(hh.xy - w, w - hh.zw), 0.0)) - hr;
+    c *= smoothstep(-pxW, pxW, dh);
+  }
+  float k = flowA * blendA.y;
+  float ar = clamp(c.y * 0.75 * k, 0.0, 1.0), ac = clamp(c.x * k, 0.0, 1.0);
+  vec4 hd = over(vec4(hInk * ac, ac), vec4(hRim * ar, ar));
+  if (hd.a <= 0.0) discard;
+  // Under the over-blood overlays (the ascites): sent through them so the blend lands where the lumen's own would.
+  vec4 ab = vecAboveAt(w);
+  hd.rgb = hd.rgb * (1.0 - ab.a) + hd.a * ab.rgb;
+  outColor = hd;
+}`;
