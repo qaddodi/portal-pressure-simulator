@@ -37,16 +37,16 @@ default stays Mesh.
 | Part | Files | In the tree |
 |---|---|---|
 | Plan, brief, contract | `docs/recommendations/vector-renderer-*.md`, `src/ui/vec-contract.js` | yes (`2bcd99d`) |
-| A graph and compiler | `vec-graph.js`, `vec-compile.js` | contract only (`vec-contract.js`, reshaped 9 Nov: `MAX_MEMBERS` 32, `REGION_TEXELS` 64, `JOIN0` 33); graph and compiler not yet |
-| B stretch shader | `vec-shade-glsl.js`, `vec-stretch-glsl.js` | yes (`7e679ec`; D's blood and G's ascites text in, `4057f57`) |
-| C region shader | `vec-region-glsl.js` | not yet |
+| A graph and compiler | `vec-graph.js`, `vec-compile.js`, `vec-contract.js` | yes (`5bcfca7`; contract `MAX_MEMBERS` 48, `WIN_MAX` 64, `4e58124`) |
+| B stretch shader | `vec-shade-glsl.js`, `vec-stretch-glsl.js` | yes (`7e679ec`; the loop windowed about the strip's own sample, `a7fb90f`) |
+| C region shader | `vec-region-glsl.js` | yes (first slice `8cb684e`; morph regions `be2c71d`) |
 | D blood | `vec-blood-glsl.js`, `vec-blood-math.js` | yes (`08b0799`; the heads' fragment shader, `a02a438`) |
-| E renderer core | `vec-renderer.js`, `vec-frame.js`, `vec-targets.js` | yes (`2ea671d`; BEHIND phase and lumen stencil `62d8c19`; D's uniforms `2d060ef`) |
-| F organs | `vec-organs.js`, `vec-organs-glsl.js` | not yet |
+| E renderer core | `vec-renderer.js`, `vec-frame.js`, `vec-targets.js` | yes (`2ea671d`; BEHIND phase `62d8c19`; D's uniforms `2d060ef`; F's organs wired `6544d79`; blood rows `40a1f73`) |
+| F organs | `vec-organs.js`, `vec-organs-glsl.js` | yes (`6962e93`; every figure organ, `2586eb0`) |
 | G overlays | `vec-overlays.js`, `vec-overlays-glsl.js` | yes (`fd581c3`; E's overlay port `c861d5e`) |
-| H setting and seam | `frame.js`, `main.js`, `veins-gl.js` | not yet |
+| H setting and seam | `frame.js`, `main.js`, `veins-gl.js`, `vec-seam.js` | the Classic / Mesh / Vector choice and the seam (`aeaa31e`, `ee684a9`); at `5bcfca7`+ Vector is chosen but the renderer is still "waiting for region, compile" and the figure draws with the other renderer (see the trace below) |
 | I lobule | `vec-lobule.js` | first slice (`2ef670b`: flow-row index, kept-picture stamps and box repaint) |
-| J trace, acceptance, docs | `scripts/stage-trace.mjs --renderer`, `tests/vec-accept-*.test.js`, this page | trace flag (`9f0cec4`); acceptance points 3, 4 (except the camera check) and 6 judged in node; 1, 2 and 5 wait for A and C |
+| J trace, acceptance, docs | `scripts/stage-trace.mjs --renderer`, `tests/vec-accept-*.test.js`, this page | trace flag; all six acceptance points judged in node (40 checks, none skipped) |
 
 ## Checking it (node only: no browser, no screenshots)
 
@@ -54,17 +54,18 @@ default stays Mesh.
 - `node scripts/stage-trace.mjs --renderer vector --save` hashes the fixed scripted session (boot, zoom, Anatomy ↔ Circuit, the dive into
   the lobule and the rise, card zooms) with Vector chosen, into `/tmp/stage-trace-vector.json`; `--renderer vector --compare` says
   whether a later push draws the same GL calls in the same frames. `--renderer classic|mesh` does the same for the others. Without
-  `--renderer` nothing changes. Until the three-way setting (H) lands the trace exits 2 and says so rather than hashing another
-  renderer. Note: the unflagged trace already differs from its own saved copy at frame 317 (the first circuit frame, two values
+  `--renderer` nothing changes. Where frame.js cannot select the renderer the trace exits 2 and says so; where it is selected but cannot be made (`veins-gl.js` warns and
+  draws with the other renderer: today Vector is "waiting for region, compile" until the seam hands E its parts) it exits 3, saves and compares
+  nothing, and prints the reason, rather than hashing another renderer's draws (`--allow-fallback` hashes them anyway). Note: the unflagged trace already differs from its own saved copy at frame 317 (the first circuit frame, two values
   alternating from run to run); that is the trace, not a renderer, so compare Vector with Vector from the same tree.
-- `tests/vec-accept-*.test.js` are the six acceptance points as node checks (below). A check whose inputs are not in the tree is skipped,
-  and its skip names the workstream and file it waits for.
+- `tests/vec-accept-*.test.js` are the six acceptance points as node checks (below), on the real anatomy where a check needs it
+  (`tests/vec-anatomy.js` boots the stage with the do-nothing WebGL, as the compiler's tests do; each file takes about a minute).
 
 ## Acceptance (the brief's list)
 
 | Point | Node check | Test file | On the devices (when Mohammad likes) |
 |---|---|---|---|
-| Seamless joins and region edges at the deepest zoom | one owner a pixel centre; single-member pixels call the same functions on both sides | `vec-accept-1-seamless` | pinch to the deepest zoom over a join and a region edge |
+| Seamless joins and region edges at the deepest zoom | one owner a pixel centre under random cameras to the deepest zoom, every lumen point in a cell that draws it, the same cell under any camera; stretch and region shaders share the cell text and `vecShadeOne` | `vec-accept-1-seamless` | pinch to the deepest zoom over a join and a region edge |
 | Stream ownership at crossings and confluences | crossing → front stream only; confluence weights sum to 1 | `vec-accept-2-streams` | a crossing; the portal confluence |
 | Continuous blood through speed change and reversal | distance continuous across steps, beats, re-anchors, reversals | `vec-accept-3-continuity` | a TIPS slide; a reversal slide |
 | Stable streaks in a slow pinch and pan | footprint attenuation smooth; (s, y) unchanged by the camera | `vec-accept-4-streaks` | a slow pinch through the point where streaks pass a pixel |

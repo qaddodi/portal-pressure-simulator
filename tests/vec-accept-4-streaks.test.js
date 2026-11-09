@@ -2,7 +2,8 @@
 // Node judges (D's vec-blood-math.js): the streaks' filtering has no step as the pixel's footprint grows past a tile texel (the fine octave
 // fades smoothly, the coarse one beyond it), every number the zoom feeds the streaks moves continuously through a slow pinch, including
 // where the lattice changes scale, and the vessel coordinates (s, y) of a world point do not change with the camera (that last one needs
-// the compiler's geometry: A). On the devices: a slow pinch through the point where streaks pass a pixel.
+// the compiler's geometry: A, on the real anatomy). On the devices: a slow pinch through the point where streaks pass a pixel.
+import { bootAnatomy } from './vec-anatomy.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -71,7 +72,69 @@ test('a slow pinch: the lattice scales\' weights, the fades and the lane spacing
   }
 });
 
-const cam = await needs([['A', 'vec-graph.js', ['createVecGraph']], ['A', 'vec-compile.js', ['compileGrid']], ['D', 'vec-blood-math.js', ['patternPhases']]]);
-test('the vessel coordinates (s, y) of a world point are the same under any pan and any pinch', { skip: cam.skip }, () => {
-  assert.fail('Phase 3: random cameras, same world point on a compiled vessel, same (s, y) to the last bit');
+// ── (s, y) of a world point does not depend on the camera ──
+// A vessel's streak coordinates are its own: the row, the position along it (segment and fraction) and the signed distance across it. They are
+// worked out from the vessel's points, so the camera can only change which pixel a point falls in. Here: a world point is taken through random
+// cameras up to the deepest zoom (to a device position, and back through the float32 pixel → world matrix the shaders get), and its coordinates
+// from the point that comes back are those it started with, to far less than a pixel; and it lands in the same cell, so the same program draws it.
+const { createVecGraph } = await import('../src/ui/vec-graph.js');
+const VC = await import('../src/ui/vec-compile.js');
+const { N_QUADS } = await import('../src/ui/veins-mesh.js');
+const { DIVE_K_MAX } = await import('../src/ui/vec-organs.js');
+const A = await bootAnatomy();
+await A.preset('cirr-decomp', 40);
+const fig = A.figure();
+const graph = createVecGraph();
+graph.fromBins(fig.bins, fig.nTubes); graph.attrs(fig.tube);
+const radAll = new Float32Array(fig.nTubes * VC.NS * 4);
+for (let i = 0; i < fig.nTubes * VC.NS; i++) radAll[i * 4] = fig.rad[i];
+graph.radii(radAll);
+const compiled = VC.createCompiled(); VC.compileGrid(graph, VC.createReach(), compiled);
+
+/** The streak coordinates of a world point: the nearest segment of any vessel (row, segment, fraction along it) and the signed distance across. */
+function coordsOf(x, y) {
+  let best = null;
+  for (let r = 0; r < graph.nRows; r++) {
+    if (!graph.rows[r].on) continue;
+    for (let i = 0; i < N_QUADS; i++) {
+      if (!graph.seg[r * N_QUADS + i]) continue;
+      const o = (r * VC.NS + i) * 2, ax = graph.pts[o], ay = graph.pts[o + 1], bx = graph.pts[o + 2], by = graph.pts[o + 3];
+      const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      const t = L2 > 0 ? Math.min(1, Math.max(0, ((x - ax) * dx + (y - ay) * dy) / L2)) : 0;
+      const qx = ax + t * dx - x, qy = ay + t * dy - y, d = Math.hypot(qx, qy);
+      if (!best || d < best.d) best = { r, i, t, d, across: (dx * (y - ay) - dy * (x - ax)) / Math.sqrt(L2 || 1), u: i + t };
+    }
+  }
+  return best;
+}
+const sel = (seed) => { let s = seed >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; };
+
+test('the streak coordinates (vessel, along, across) of a world point are the same under any pan and any pinch, to far less than a pixel, and the point is drawn by the same cell', () => {
+  const rnd = sel(41), f32 = Math.fround;
+  const rows = [...Array(graph.nRows).keys()].filter((r) => graph.rows[r].on);
+  let compared = 0, worstAcross = 0, worstAlong = 0;
+  for (let n = 0; n < 400; n++) {
+    const r = rows[(rnd() * rows.length) | 0], i = (rnd() * N_QUADS) | 0;
+    if (!graph.seg[r * N_QUADS + i]) continue;
+    const o = (r * VC.NS + i) * 2, ax = graph.pts[o], ay = graph.pts[o + 1], bx = graph.pts[o + 2], by = graph.pts[o + 3], len = Math.hypot(bx - ax, by - ay);
+    if (!(len > 1e-3)) continue;
+    const t = rnd(), across = (rnd() * 2 - 1) * graph.rad[r * VC.NS + i], wx = ax + (bx - ax) * t - ((by - ay) / len) * across, wy = ay + (by - ay) * t + ((bx - ax) / len) * across;
+    const home = coordsOf(wx, wy), cell0 = VC.cellOfWorld(compiled, wx, wy);
+    for (let k = 0; k < 8; k++) {
+      const s = 0.5 + rnd() * (DIVE_K_MAX * 1.5 - 0.5), px = rnd() * 1200, py = rnd() * 800, tx = px - s * wx, ty = py - s * wy;
+      const inv = [f32(1 / s), 0, 0, f32(1 / s), f32(-tx / s), f32(-ty / s)];
+      const rx = f32(f32(f32(inv[0] * px) + f32(inv[2] * py)) + inv[4]), ry = f32(f32(f32(inv[1] * px) + f32(inv[3] * py)) + inv[5]);
+      const back = coordsOf(rx, ry), px1 = 1 / s;   // (one device pixel, in world units)
+      if (Math.abs(home.d - back.d) > 1e-3 && back.r !== home.r) continue;   // (two vessels as near as one another: either may own it)
+      if (back.r !== home.r) { assert.ok(Math.abs(home.d - back.d) < 1e-2, 'a different vessel only where two are equally near'); continue; }
+      worstAcross = Math.max(worstAcross, Math.abs(back.across - home.across));
+      worstAlong = Math.max(worstAlong, Math.abs(back.u - home.u) * len);
+      assert.ok(Math.abs(back.across - home.across) < 0.05 * px1 + 1e-3, `point ${n} camera ${k} (zoom ${s.toFixed(1)}): across moved ${Math.abs(back.across - home.across)}`);
+      assert.ok(Math.abs(back.u - home.u) * len < 0.05 * px1 + 1e-3 || back.i !== home.i, `point ${n} camera ${k}: along moved`);
+      const cell1 = VC.cellOfPixel(compiled, inv, px, py), fx = (wx - compiled.x0) / compiled.cs, fy = (wy - compiled.y0) / compiled.cs;
+      if (Math.abs(fx - Math.round(fx)) > 1e-3 && Math.abs(fy - Math.round(fy)) > 1e-3) assert.equal(cell1, cell0, `point ${n} camera ${k}: the cell`);
+      compared++;
+    }
+  }
+  assert.ok(compared > 800, `${compared} camera comparisons were made (worst across ${worstAcross.toExponential(1)}, along ${worstAlong.toExponential(1)} world units)`);
 });
