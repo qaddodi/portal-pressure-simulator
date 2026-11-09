@@ -187,7 +187,7 @@ for (const name of ['anatomy', 'circuit']) {
         const found = reg.joins.some((rj) => {
           if (rj.x !== J.x[j] || rj.y !== J.y[j] || rj.reach !== J.reach[j] || rj.k !== J.k[j] || rj.fillet !== J.fillet[j]) return false;
           const listed = new Set();
-          reg.members.forEach((mb, m) => { if (rj.mask & (2 ** m)) listed.add(mb.row); });
+          reg.members.forEach((mb, m) => { if (Math.floor(rj.mask / 2 ** m) % 2) listed.add(mb.row); });
           if (listed.size !== mine.length || !mine.every((r) => listed.has(r))) return false;
           if (J.trunk[j] >= 0 && graph.rows[J.trunk[j]].on && (reg.members[rj.trunk]?.row !== J.trunk[j] || rj.fork !== (J.fork[j] === 1))) return false;
           return true;
@@ -210,7 +210,7 @@ for (const name of ['anatomy', 'circuit']) {
       let differs = false;
       for (const rj of reg.joins) {
         let tier = -1;
-        reg.members.forEach((mb, m) => { if (!(rj.mask & (2 ** m))) return; const tr = graph.rows[mb.row].tier; if (tier >= 0 && tr !== tier) differs = true; tier = tr; });
+        reg.members.forEach((mb, m) => { if (!(Math.floor(rj.mask / 2 ** m) % 2)) return; const tr = graph.rows[mb.row].tier; if (tier >= 0 && tr !== tier) differs = true; tier = tr; });
       }
       assert.equal(!!(reg.kind & K_CROSSTIER), differs, `cell ${cx},${cy}: tiers ${differs ? 'differ' : 'agree'} and K_CROSSTIER is ${reg.kind & K_CROSSTIER ? 'set' : 'clear'}`);
       if (differs) withBit++;
@@ -434,8 +434,8 @@ test('test 8: every cell of a morph set is classified, every sweep crossing is i
 });
 
 // The stop point (plan section 10): a region over MAX_MEMBERS. The Anatomy and the Circuit hold at most 13; the morph sets' cells list every vessel that
-// can draw there anywhere along a stretch, 44 at the most in cirr-decomp. Waits on Mohammad's card (MAX_MEMBERS 48); the contract is not changed before.
-test('stop point: no morph region over MAX_MEMBERS', { todo: 'MAX_MEMBERS: Mohammad\'s card, 9 Nov (48 recommended)' }, () => {
+// can draw there anywhere along a stretch, 44 at the most in cirr-decomp (Mohammad, 9 Nov: MAX_MEMBERS 48).
+test('stop point: no morph region over MAX_MEMBERS', () => {
   let largest = 0;
   for (const set of MORPH_SETS) { const out = createCompiled(); compileMorphSet(set, out, views.circuit.graph); largest = Math.max(largest, out.stats.maxMembers); assert.equal(out.stats.overMembers, 0, `largest ${largest}`); }
 });
