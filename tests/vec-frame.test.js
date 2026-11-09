@@ -160,9 +160,10 @@ test('the planner allocates nothing in a frame', () => {
   const f = createVecFrame(N);
   const lk = look(), bl = calm(), m = [1, 0, 0, 1, 0, 0];
   run(f, m, lk, bl);
-  for (let i = 0; i < 2000; i++) { bl.bt = i; f.noteRow(i % N, D.TUBES); f.plan(m, W, H, lk, bl, false, false, boxes); f.done(); }   // warm
+  for (let i = 0; i < 6000; i++) { bl.bt = i; f.noteRow(i % N, D.TUBES); f.plan(m, W, H, lk, bl, false, false, boxes); f.done(); }   // warm
   const h0 = process.memoryUsage().heapUsed;
-  for (let i = 0; i < 4000; i++) { bl.bt = i; m[4] = i & 1; f.noteRow(i % N, D.TUBES); f.plan(m, W, H, lk, bl, false, false, boxes); f.done(); }
+  for (let i = 0; i < 20000; i++) { bl.bt = i; m[4] = i & 1; f.noteRow(i % N, D.TUBES); f.plan(m, W, H, lk, bl, false, false, boxes); f.done(); }
   const grown = process.memoryUsage().heapUsed - h0;
-  assert.ok(grown < 200 * 1024, `heap grew ${grown} B over 4000 frames`);
+  // (A garbage-making frame costs 100 B or more a frame: 2 MB over these. The bound is loose for compiled code landing under load.)
+  assert.ok(grown < 1.5 * 1024 * 1024, `heap grew ${grown} B over 20000 frames`);
 });
