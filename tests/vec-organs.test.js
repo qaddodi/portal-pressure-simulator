@@ -372,3 +372,19 @@ test('every organ of the figure is prepared at every level and drawn', () => {
   assert.ok(count(f, 'drawArrays', n0) + count(f, 'drawArraysInstanced', n0) >= 4);
   assert.ok(v.stats().bytes > 0);
 });
+
+test('a frame with nothing prepared still draws: its own level is made once', () => {
+  const { v, f, spies } = organs();
+  v.setOrgans(new Map([['liver', [entryOf([fillOp(polyGeom(circle(0, 0, 50, 48)))])]]]), ['liver']);
+  const n0 = f.calls.length;
+  v.draw(PASS, MAT(0.5));
+  assert.ok(count(f, 'drawArrays', n0) >= 1, 'drawn without a prepare or a step');
+  const was = { ...spies };
+  v.draw(PASS, MAT(0.5));
+  assert.deepEqual(spies, was, 'the second frame cuts nothing');
+  // After new organs are set, every level is stale: the frame makes its own again.
+  v.setOrgans(new Map([['liver', [entryOf([fillOp(polyGeom(circle(0, 0, 60, 48)))])]]]), ['liver']);
+  const n1 = f.calls.length;
+  v.draw(PASS, MAT(0.5));
+  assert.ok(count(f, 'drawArrays', n1) >= 1);
+});
