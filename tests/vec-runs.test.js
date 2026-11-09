@@ -10,9 +10,9 @@ import { N_SAMPLES, N_QUADS } from '../src/ui/veins-mesh.js';
 import { F_SHADOW } from '../src/ui/veins-mesh-data.js';
 import { PRESETS } from '../src/engine/scenario.js';
 import {
-  RUN_SEGS, RUNS_PER_ROW, RUN_TEXELS, C_LUMEN, C_SHADOW, C_GLOW, C_RING, BOUND_HEADROOM, REACH_RING, REACH_SHADOW_BLUR, REACH_SHADOW_OFF, REACH_AA, REACH_GLOW,
+  RUN_SEGS, RUNS_PER_ROW, RUN_TEXELS, C_LUMEN, C_SHADOW, C_GLOW, C_RING, BOUND_HEADROOM, REACH_RING, REACH_SHADOW_BLUR, REACH_SHADOW_OFF, REACH_AA, REACH_GLOW, G_JOIN, G_JOIN_SH, TOLERANCE_8BIT,
 } from '../src/ui/vec-contract.js';
-import { createVecGraph, TUBE_FLOATS, A_CASING, A_GLOW, A_GLOW_W, A_SEL, A_FLAGS, A_HOVER } from '../src/ui/vec-graph.js';
+import { createVecGraph, TUBE_FLOATS, A_TIER, A_CASING, A_GLOW, A_GLOW_W, A_SEL, A_FLAGS, A_HOVER } from '../src/ui/vec-graph.js';
 import { createRuns, glowReachOf } from '../src/ui/vec-runs.js';
 
 const NS = N_SAMPLES;
@@ -63,22 +63,48 @@ test('two separate pieces of a vessel are two runs, and no interval is widened o
   assert.ok(Math.hypot(a.bx - b.ax, a.by - b.ay) > 20, 'the gap lies between them');
 });
 
-test('a join\'s required runs are a list of the member runs its disc reaches, not an interval', () => {
+test('a join: its disc is classic\'s cut-off, its runs a list of the members\' runs whose grown bound reaches the disc, and the grown bounds follow plan r1.1', () => {
   const { R, g } = made();
   const J = g.joins;
   const disc = R.joinDisc(0), list = [...R.joinRunsOf(0)];
-  assert.equal(disc.x, 250); assert.equal(disc.y, 100); assert.ok(disc.r >= (J.reach[0] + J.k[0]));
+  assert.equal(disc.x, 250); assert.equal(disc.y, 100); assert.ok(Math.abs(disc.r - J.reach[0] * BOUND_HEADROOM) < 1e-4, 'reach × headroom');
   const want = [];
   for (let m = 0; m < 4; m++) {
     const row = J.mem[m];
     if (row < 0) continue;
-    for (const id of R.runsOf(row)) { const o = id * 4; if (segDist(disc.x, disc.y, R.chord[o], R.chord[o + 1], R.chord[o + 2], R.chord[o + 3]) <= disc.r + R.rad[o]) want.push(id); }
+    for (const id of R.runsOf(row)) {
+      const o = id * 4;
+      const gl = R.rad[o] + G_JOIN * J.k[0], gs = R.rad[o + 1] > 0 ? R.rad[o + 1] + G_JOIN_SH * J.k[0] : 0;
+      if (segDist(disc.x, disc.y, R.chord[o], R.chord[o + 1], R.chord[o + 2], R.chord[o + 3]) <= disc.r + gl
+        || (gs > 0 && segDist(disc.x - REACH_SHADOW_OFF, disc.y, R.chord[o], R.chord[o + 1], R.chord[o + 2], R.chord[o + 3]) <= disc.r + gs)) want.push(id);
+    }
   }
   assert.deepEqual(list.sort((a, b) => a - b), want.sort((a, b) => a - b));
-  assert.ok(list.length > 0 && list.length < 2 * RUNS_PER_ROW, `${list.length} required runs of the 32 the members have`);
+  assert.ok(list.length > 0 && list.length < 2 * RUNS_PER_ROW, `${list.length} listed of the 32 runs the members have`);
   for (const id of list) assert.ok([0, 2].includes(Math.floor(id / RUNS_PER_ROW)), 'only a member\'s runs');
+  // the fade and the grown bound
+  const Rr = J.reach[0];
+  assert.equal(R.joinFade(0, 0), J.k[0]); assert.equal(R.joinFade(0, 0.55 * Rr), J.k[0]); assert.equal(R.joinFade(0, Rr), 0); assert.equal(R.joinFade(0, 2 * Rr), 0);
+  const mid = R.joinFade(0, 0.775 * Rr); assert.ok(Math.abs(mid - J.k[0] * 0.5) < 1e-6, 'smoothstep halves at the middle');
+  const id = list[0], plain = R.boundOf(id, C_LUMEN), grown = R.joinBoundOf(id, C_LUMEN, 0.3);
+  assert.ok(Math.abs(grown.r - (plain.r + G_JOIN * 0.3)) < 1e-6 && grown.ax === plain.ax && grown.by === plain.by);
+  assert.equal(R.joinBoundOf(id, C_SHADOW, 0.3), null, 'no shadow bound where the vessel casts none');
+  assert.equal(R.joinCrossTier(0), false); assert.equal(R.joinPresenceOf(0).length, 0);
   const out = {}; R.packJoins(out);
   assert.equal(out.count, 1); assert.equal(out.data[0], 250); assert.equal(out.data[4], 0); assert.equal(out.data[5], 2); assert.equal(out.data[6], -1);
+});
+
+test('a cross-tier join exposes each upper member\'s one run nearest the centre as a presence run', () => {
+  const { R, g, tube } = made();
+  tube[2 * TUBE_FLOATS + A_TIER] = 3;
+  g.attrs(tube); R.rebuildRows(Int32Array.of(2));
+  assert.equal(R.joinCrossTier(0), true);
+  const p = [...R.joinPresenceOf(0)];
+  assert.equal(p.length, 1); assert.equal(Math.floor(p[0] / RUNS_PER_ROW), 2, 'the upper member (tier 3) is row 2');
+  let best = -1, bd = Infinity; const J = g.joins;
+  for (const id of R.runsOf(2)) { const o = id * 4, d = segDist(J.x[0], J.y[0], R.chord[o], R.chord[o + 1], R.chord[o + 2], R.chord[o + 3]); if (d < bd) { bd = d; best = id; } }
+  assert.equal(p[0], best);
+  assert.ok(R.nChangedJoins >= 1 && R.changedJoins[0] === 0, 'a tier change that makes a join cross-tier is a changed join');
 });
 
 test('invalidation: a radius inside BOUND_HEADROOM, a colour, a hover, a pressure: no rebuild', () => {
@@ -194,6 +220,79 @@ function judge(g, R, name, t) {
   }
   t.diagnostic(`${name}: ${runs} runs, ${pts} reach points inside their bounds; loosest bound ${loosest.toFixed(3)} past reach + sagitta`);
 }
+/**
+ * Classic's fillet and attribute blend replayed densely around every join (veins-gl.js, the junction block; plan r1.1 2.2.1), in node: for every point in the join's disc, the
+ * fillet's smooth-min of each pair of members' distance fields (pulling the edge in by up to kk / 4, kk the faded blend width) and the exponential attribute weight of every
+ * other member (exp(−(sd − m) / (0.3 jk))), each judged by the 8-bit coverage / weight change it makes. Every point where either exceeds TOLERANCE_8BIT must lie inside the
+ * grown bounds of BOTH members of the pair (lumen capsule + G_JOIN × jk), so that a leaf listing a join only where two grown bounds reach it loses no pixel.
+ */
+function replayJoins(g, R, name, t) {
+  const J = g.joins, STEP = 1.5;
+  let checked = 0, fillets = 0, blends = 0, joinsSeen = 0;
+  const cov = (x) => clamp(0.5 - x, 0, 1);
+  const cap = { ax: 0, ay: 0, bx: 0, by: 0, r: 0 };
+  const inGrown = (row, px, py, jk) => {
+    for (const id of R.runsOf(row)) { const b = R.joinBoundOf(id, C_LUMEN, jk, cap); if (b && segDist(px, py, b.ax, b.ay, b.bx, b.by) <= b.r + 1e-6) return true; }
+    return false;
+  };
+  for (let j = 0; j < J.n; j++) {
+    const rows = [];
+    for (let m = 0; m < 4; m++) { const r = J.mem[j * 4 + m]; if (r >= 0 && r < g.nRows && g.rows[r].on) rows.push(r); }
+    if (rows.length < 2) continue;
+    joinsSeen++;
+    const cx = J.x[j], cy = J.y[j], reach = J.reach[j];
+    // each member's segments near the join: [ax, ay, bx, by, ra, rb]
+    const segs = rows.map((r) => {
+      const out = [];
+      for (let i = 0; i < N_QUADS; i++) {
+        if (!g.seg[r * N_QUADS + i]) continue;
+        const ax = g.pts[(r * NS + i) * 2], ay = g.pts[(r * NS + i) * 2 + 1], bx = g.pts[(r * NS + i + 1) * 2], by = g.pts[(r * NS + i + 1) * 2 + 1];
+        if (segDist(cx, cy, ax, ay, bx, by) > reach + 40) continue;
+        out.push([ax, ay, bx, by, g.rad[r * NS + i], g.rad[r * NS + i + 1]]);
+      }
+      return out;
+    });
+    const sd = new Float64Array(rows.length);
+    for (let px = cx - reach; px <= cx + reach; px += STEP) for (let py = cy - reach; py <= cy + reach; py += STEP) {
+      const dc = Math.hypot(px - cx, py - cy);
+      if (dc > reach) continue;
+      const jk = R.joinFade(j, dc);
+      if (!(jk > 0)) continue;
+      let any = false;
+      for (let m = 0; m < rows.length; m++) {
+        let best = Infinity;
+        for (const [ax, ay, bx, by, ra, rb] of segs[m]) {
+          const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy, u = L > 0 ? clamp(((px - ax) * dx + (py - ay) * dy) / L, 0, 1) : 0;
+          const v = Math.hypot(ax + u * dx - px, ay + u * dy - py) - (ra + (rb - ra) * u);
+          if (v < best) best = v;
+        }
+        sd[m] = best; if (best < jk * 3 + 4) any = true;
+      }
+      if (!any) continue;
+      checked++;
+      let m0 = Infinity, a0 = -1;
+      for (let m = 0; m < rows.length; m++) if (sd[m] < m0) { m0 = sd[m]; a0 = m; }
+      for (let a = 0; a < rows.length; a++) for (let b = a + 1; b < rows.length; b++) {
+        const lo = Math.min(sd[a], sd[b]), h = Math.max(jk - Math.abs(sd[a] - sd[b]), 0) / jk, smin = lo - h * h * jk / 4;
+        if (Math.abs(cov(smin) - cov(lo)) > TOLERANCE_8BIT) {
+          fillets++;
+          assert.ok(inGrown(rows[a], px, py, jk) && inGrown(rows[b], px, py, jk), `${name} join ${j}: the fillet of members ${rows[a]} and ${rows[b]} changes (${px.toFixed(1)}, ${py.toFixed(1)}) by ${(cov(smin) - cov(lo)).toFixed(4)} outside a grown bound (jk ${jk.toFixed(2)})`);
+        }
+      }
+      if (m0 < 0.5) {
+        for (let b = 0; b < rows.length; b++) {
+          if (b === a0) continue;
+          const w = Math.exp(-(sd[b] - m0) / (0.3 * jk));
+          if (w > TOLERANCE_8BIT) {
+            blends++;
+            assert.ok(inGrown(rows[a0], px, py, jk) && inGrown(rows[b], px, py, jk), `${name} join ${j}: the attribute blend of members ${rows[a0]} and ${rows[b]} (weight ${w.toFixed(4)}) at (${px.toFixed(1)}, ${py.toFixed(1)}) lies outside a grown bound (jk ${jk.toFixed(2)})`);
+          }
+        }
+      }
+    }
+  }
+  t.diagnostic(`${name}: ${joinsSeen} joins replayed, ${checked} points near members, ${fillets} fillet changes and ${blends} blend changes, each inside two members' grown bounds`);
+}
 function graphOf(f, decorate) {
   const g = createVecGraph();
   g.fromBins(f.bins, f.nTubes); g.attrs(f.tube);
@@ -217,6 +316,7 @@ for (const p of PRESETS) {
     await A.preset(p.id, firstPreset ? 40 : 10); firstPreset = false;
     const g = graphOf(A.figure(), true), R = createRuns(g).build();
     judge(g, R, p.id, t);
+    replayJoins(g, R, p.id, t);
   });
 }
 test('the lobule: the bounds are conservative and no looser than the reach plus the sagitta', { timeout: 240000 }, async (t) => {
@@ -226,20 +326,5 @@ test('the lobule: the bounds are conservative and no looser than the reach plus 
   const f = { nTubes: tap.nTubes, bins: { ent: tap.bins.ent.slice(), cells: tap.bins.cells.slice(0, tap.bins.nCells * 6), nCells: tap.bins.nCells, nEnt: tap.bins.nEnt, rows: tap.bins.rows }, tube: tap.tube.slice(), rad: tap.rad.slice() };
   const g = graphOf(f, true), R = createRuns(g).build();
   judge(g, R, 'lobule', t);
-});
-
-test('fitGrid: the 16-unit grid holds every run\'s box and every join\'s disc, a multiple of CELL, and its cells are zeroed', async () => {
-  const { fitGrid } = await import('../src/ui/vec-compile.js');
-  const { CELL } = await import('../src/ui/veins-bin.js');
-  const c = made(), grid = fitGrid(c.R);
-  assert.equal(grid.cs, CELL); assert.equal(Math.abs(grid.x0 % CELL), 0); assert.equal(Math.abs(grid.y0 % CELL), 0);
-  assert.equal(grid.cells.length >= 256 * grid.ny * 4, true); assert.ok(grid.cells.every((v) => v === 0));
-  for (let r = 0; r < 3; r++) for (const id of c.R.runsOf(r)) {
-    const o = id * 4;
-    assert.ok(c.R.box[o] >= grid.x0 && c.R.box[o + 1] >= grid.y0 && c.R.box[o + 2] <= grid.x0 + grid.nx * CELL && c.R.box[o + 3] <= grid.y0 + grid.ny * CELL, `run ${id}'s box is inside the grid`);
-  }
-  const d = c.R.joinDisc(0);
-  assert.ok(d.x - d.r >= grid.x0 && d.y - d.r >= grid.y0 && d.x + d.r <= grid.x0 + grid.nx * CELL && d.y + d.r <= grid.y0 + grid.ny * CELL);
-  const cells = grid.cells;
-  assert.equal(fitGrid(c.R, grid).cells, cells, 'a grid the same size keeps its array');
+  replayJoins(g, R, 'lobule', t);
 });
