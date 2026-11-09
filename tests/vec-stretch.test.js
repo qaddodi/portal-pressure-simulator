@@ -6,7 +6,7 @@ import { STRIP_VS_GLSL } from '../src/ui/veins-mesh.js';
 import { shadeGLSL } from '../src/ui/veins-mesh-glsl.js';
 import { V_FULL, V_BASE, V_BLOOD, WIN_MAX, CELL_SIMPLE } from '../src/ui/vec-contract.js';
 import { VEC_PRECISION, VEC_SHADE_GLSL, VEC_SHADE_UNIFORMS } from '../src/ui/vec-shade-glsl.js';
-import { vecStretchVS, vecStretchFS, vecStretchUniformNames, VEC_BLOOD_STUB, VEC_ABOVE_STUB } from '../src/ui/vec-stretch-glsl.js';
+import { vecStretchVS, vecStretchFS, vecStretchUniformNames, VEC_ABOVE_GLSL } from '../src/ui/vec-stretch-glsl.js';
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -107,8 +107,8 @@ test('the variants differ where the plan says: BASE has no blood, BLOOD reads th
   // The blood is laid as D's signature has it: a premultiplied layer, weighted by the lumen's visibility.
   assert.ok(full.includes('bl.rgb * vis + lumCol * (1.0 - bl.a * vis)'));
   // The injected texts take the stubs' places.
-  const custom = vecStretchFS(V_BLOOD, K, { blood: '\nvec4 vecBlood(int row, float s, float y, float R, vec3 c, float px) { return vec4(1.0); }\n', above: '\nvec4 vecAboveAt(vec2 p) { return vec4(0.5); }\n' });
-  assert.ok(custom.includes('return vec4(1.0)') && custom.includes('return vec4(0.5)') && !custom.includes(VEC_ABOVE_STUB.trim()) && !custom.includes(VEC_BLOOD_STUB.trim()));
+  const custom = vecStretchFS(V_BLOOD, K, { blood: '\nvoid vecBloodAt(vec2 w) { }\nvec4 vecBlood(int row, float s, float y, float R, vec3 c, float px) { return vec4(1.0); }\n', above: '\nvec4 vecAboveAt(vec2 p) { return vec4(0.5); }\n' });
+  assert.ok(custom.includes('return vec4(1.0)') && custom.includes('return vec4(0.5)') && !custom.includes(VEC_ABOVE_GLSL.trim()) && !custom.includes('vbOn'));
   assert.deepEqual(lintGLSL(custom), []);
 });
 

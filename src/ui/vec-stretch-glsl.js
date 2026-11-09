@@ -8,7 +8,7 @@
 //   2. vecNear: the exact capsule distances over the cell's run of segments (the mesh's segNear maths, shadeGLSL);
 //   3. vecShadeOne: the classic single-vessel result (shadow, casing, lumen, lines, rim, hover, ring, lift, glow, fades, veil, organ cover,
 //      dotted, recolour, drawn part), premultiplied;
-//   4. in the lumen, vecBlood (workstream D) at (row, s, y) from the geometry, laid over the lumen colour;
+//   4. in the lumen, vecBlood (workstream D, vec-blood-glsl.js; vecBloodAt(p) first, for the in-lumen arrowheads) at (row, s, y) from the geometry, laid over the lumen colour;
 //   5. writes once, dithered once (the pixel's only vessel write).
 //
 // The three variants (vec-contract.js V_FULL, V_BASE, V_BLOOD):
@@ -27,18 +27,15 @@
 import { STRIP_VS_GLSL } from './veins-mesh.js';
 import { VEC_PRECISION, VEC_SHADE_GLSL, VEC_SHADE_UNIFORMS } from './vec-shade-glsl.js';
 import { V_FULL, V_BASE, V_BLOOD } from './vec-contract.js';
+import { VEC_BLOOD_GLSL, VEC_BLOOD_UNIFORMS } from './vec-blood-glsl.js';
+import { FLUID_GLSL, FLUID_UNIFORMS } from './vec-overlays-glsl.js';
 
 /** The vertex shader writes a depth that is the vessel row's alone, on (0, 1): a row's second fragment at a pixel fails depth LESS. */
 export const ROW_DEPTH_ROWS = 32768;
 
-/** Stand-in for D's `vecBlood` until its text is passed in: no blood. Same signature, a premultiplied layer, the stub's is empty. */
-export const VEC_BLOOD_STUB = `
-vec4 vecBlood(int row, float s, float y, float R, vec3 lumenCol, float px) { return vec4(0.0); }
-`;
-/** Stand-in for G's `vecAboveAt` until its text is passed in: nothing over the blood. */
-export const VEC_ABOVE_STUB = `
-vec4 vecAboveAt(vec2 p) { return vec4(0.0); }
-`;
+/** What lies over the blood at a pixel of V_BLOOD: G's ascites (vecAboveAt, vec-overlays-glsl.js), which needs the host's pxW. The outlines and the catheter are meshes drawn after. */
+export const VEC_ABOVE_GLSL = `uniform float pxW;                    // world units per device pixel (the ascites' edge)
+${FLUID_GLSL}`;
 
 const VS_HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
 
@@ -72,7 +69,7 @@ void main() {
 /** The uniform names of the program for a variant, for the renderer core: { vs, fs } (the blood's and overlays' own come from D and G). */
 export const vecStretchUniformNames = (variant) => ({
   vs: ['world', 'size', 'tube', 'padU', ...(variant === V_BLOOD ? [] : ['selPad']), 'ent', 'rad', 'posBase'],
-  fs: [...VEC_SHADE_UNIFORMS, ...(variant === V_BLOOD ? ['vecBase'] : [])],
+  fs: [...VEC_SHADE_UNIFORMS, ...(variant === V_BASE ? [] : VEC_BLOOD_UNIFORMS.map((u) => u.name)), ...(variant === V_BLOOD ? ['vecBase', 'pxW', ...FLUID_UNIFORMS] : [])],
 });
 
 /**
@@ -80,7 +77,7 @@ export const vecStretchUniformNames = (variant) => ({
  * vec-overlays text (declarations and functions; vecBlood / vecAboveAt); defaults are the stubs above.
  */
 export function vecStretchFS(variant, K, parts = {}) {
-  const blood = parts.blood ?? VEC_BLOOD_STUB, above = parts.above ?? VEC_ABOVE_STUB;
+  const blood = parts.blood ?? VEC_BLOOD_GLSL, above = parts.above ?? VEC_ABOVE_GLSL;
   const head = `${VEC_PRECISION}${VEC_SHADE_GLSL(K)}${variant === V_BASE ? '' : blood}${variant === V_BLOOD ? `${above}
 uniform sampler2D vecBase;            // the kept still picture (V_BASE's output), the picture's size
 ` : ''}flat in int vRow;
@@ -91,6 +88,7 @@ layout(location=0) out vec4 outColor;
   const body = variant === V_BLOOD ? `${lay}
   if (!(vis > 0.005 && o.a > 0.01)) discard;
   vec3 st = vecStreamAt(vRow, nr);
+  vecBloodAt(p);
   vec4 bl = vecBlood(vRow, st.x, st.y, st.z, lumCol, px);
   vec3 lit = bl.rgb * vis + lumCol * (1.0 - bl.a * vis);
   vec4 b = texelFetch(vecBase, ivec2(gl_FragCoord.xy), 0);
@@ -99,6 +97,7 @@ layout(location=0) out vec4 outColor;
   outColor = over(vecAboveAt(p), r);` : variant === V_FULL ? `${lay}
   if (vis > 0.005 && o.a > 0.01) {
     vec3 st = vecStreamAt(vRow, nr);
+    vecBloodAt(p);
     vec4 bl = vecBlood(vRow, st.x, st.y, st.z, lumCol, px);
     vec3 lit = bl.rgb * vis + lumCol * (1.0 - bl.a * vis);
     o = vec4(lit * o.a, o.a);
