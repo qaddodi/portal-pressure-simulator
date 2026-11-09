@@ -1,6 +1,6 @@
 # Vessel mesh renderer: plan (Option 1, tube meshes + junction patches)
 
-Status: **Phase 5, first preview (stop point 2)**. Phase 0 approved (8 Nov 2026); Phases 1 to 4 built (sections 4 and 6). The switch is the
+Status: **Phase 6 (docs, changelog) done 9 Nov 2026; preview built, PR only when the owner asks**. Phase 0 approved (8 Nov 2026); Phases 1 to 4 built (sections 4 and 6). The switch is the
 Settings › Display row "Mesh vessel renderer" (on by default), not a compare split, by the owner's word.
 Owner's change to the brief (8 Nov 2026): no left/right compare split. Instead, a row in **Settings › Display** beside
 "Figure size (megapixels)" switches the figure's vessels between the classic renderer and the mesh renderer. The R14 test
