@@ -68,9 +68,10 @@ test('calls that change nothing give null: the same attributes, the same radii, 
   none(c.radii(rad), 'the same radii');
   const r2 = rad.slice(); for (let i = 0; i < r2.length; i += 4) r2[i] *= 0.8;
   none(c.radii(r2), 'narrower is inside the bound');
-  const t2 = tube.slice(); for (let r = 0; r < F.nTubes; r++) t2[r * TUBE_FLOATS + 8] = 3;   // tier
+  let row = -1; for (let r = 0; r < c.graph.nRows; r++) if (c.graph.rows[r].on && c.graph.rows[r].tier !== 3) { row = r; break; }
+  const t2 = tube.slice(); t2[row * TUBE_FLOATS + 8] = 3;   // one row's tier
   const v = c.attrs(t2);
-  assert.ok(v === null || v.stats.full === false, 'a tier rebuilds at most the joins\' leaves, never everything');
+  assert.ok(v === null || v.stats.full === false, 'one row\'s tier rebuilds at most its joins\' leaves, never everything');
   t.diagnostic('ok');
 });
 
@@ -127,16 +128,28 @@ test('exceeds: says whether a row\'s radii are past its bound, rebuilding nothin
   assert.equal(c.exceeds(-1, r), false); assert.equal(c.exceeds(1e6, r), false);
 });
 
-test('morph: a set whose run boxes cover too many cells is reported (tooLarge), not built', (t) => {
-  // STOP POINT (9 Nov): a run's box over a whole stretch spans up to ~2,700 world units on the big view changes; waiting on Mohammad's answer on how morph sets get their leaves.
+test('morph: every set is built from the sweep\'s cell lists, and every swept path point lies in a leaf that names its run', (t) => {
   const used = sweeps.filter((s) => s.b && s.tubes && s.tubes.length);
   assert.ok(used.length > 0, 'the change between the views made no morph set');
   const { c } = fresh();
-  let large = 0, built = 0;
+  let checked = 0, leaves = 0, refs = 0;
   for (const s of used) {
     const v = c.morph(s.b, s.tubes, s.opts?.slack ?? 0);
-    if (v.tooLarge) { large++; assert.equal(v.tables, null); } else { built++; assert.equal(v.report.overWide.length, 0); }
+    assert.ok(v.tables && !v.tooLarge, 'built');
+    leaves += v.report.leaves; refs += v.report.runRefs;
+    assert.equal(v.report.byClass[6], v.report.leaves, 'every leaf is L_MORPH');
+    const R = v.runs;
+    for (const tb of s.tubes) {
+      if (tb.id >= R.graph.nRows) continue;
+      for (const P of tb.path) for (let i = 0; i < P.length; i += 3) {
+        const refs0 = refsAt(v, P[i][0], P[i][1]);
+        assert.ok(refs0, `no leaf at tube ${tb.id} point ${i}`);
+        const a = tb.id * 16 + Math.min(15, (Math.min(i, 62) / 4) | 0), b2 = tb.id * 16 + Math.min(15, (Math.max(i - 1, 0) / 4) | 0);
+        assert.ok(refs0.has(a) || refs0.has(b2), `the leaf at tube ${tb.id} point ${i} names neither run ${a} nor ${b2}`);
+        checked++;
+      }
+    }
   }
-  t.diagnostic(`${used.length} morph sets: ${built} built, ${large} too large`);
-  assert.ok(large + built === used.length);
+  t.diagnostic(`${used.length} morph sets, ${leaves} leaves, ${refs} run refs, ${checked} swept points found`);
+  assert.ok(checked > 1000);
 });

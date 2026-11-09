@@ -17,6 +17,8 @@ import { CELL } from './veins-bin.js';
 import { createVecGraph } from './vec-graph.js';
 import { createRuns, DEFAULT_RUN_LOOK } from './vec-runs.js';
 import { createLeafSet, buildLeaves, rebuildLeaves, defaultPolicy } from './vec-leaves.js';
+import { packBegin, setCell, setLeaf, setBox, reserveRunRefs, reserveJoinRefs, setRunRef, setJoinRef, CELL_LEAF as P_CELL_LEAF,
+  RUNS_PER_ROW, RUN_SEGS, L_MORPH, CLASS_CROSSTIER, NO_OWNER } from './vec-leaves-pack.js';
 import { N_SAMPLES, N_QUADS, padOf } from './veins-mesh.js';
 import {
   GRID_PAD, GRID_W, MASK_SPLIT, CELL_EMPTY, CELL_SIMPLE, CELL_REGION, WIN_MAX, REGION_TEXELS, MAX_MEMBERS, MAX_JOINS, JOIN0, FORK_BIT,
@@ -949,6 +951,82 @@ export function createVecCompiler(look = DEFAULT_LOOK) {
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 /**
+ * A morph set's leaves from the sweep's own cell lists (Mohammad, 9 Nov: "yes" to this over one hull box per run, which spans up to 2,700 world units and cannot be built).
+ * veins-sweep.js binSwept's lists already hold, for every 16-unit cell, each segment and join that can draw there at ANY frame of the stretch (slack included), so a cell is
+ * one L_MORPH leaf: its run refs are the runs of those segments (run = row · RUNS_PER_ROW + segment / RUN_SEGS, ascending, the bits of the contributions the run has), its join
+ * refs the joins the list names (the index in the frame's join rows, as the shader reads them through JT), CLASS_CROSSTIER when a listed join's members are in different tiers.
+ * Nothing is truncated and nothing is bounded by a hull. Written into `S.tables` (K's six tables) so the renderer reads it like any hierarchy.
+ */
+export function buildMorphLeaves(bins, R, g, S) {
+  const T = S.tables, ent = bins.ent, cs = CELL;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let c = 0; c < bins.nCells; c++) { const x = bins.cells[c * 6], y = bins.cells[c * 6 + 1]; if (x < x0) x0 = x; if (y < y0) y0 = y; if (x + cs > x1) x1 = x + cs; if (y + cs > y1) y1 = y + cs; }
+  if (!(x0 < Infinity)) { x0 = y0 = 0; x1 = y1 = cs; }
+  const grid = { x0: x0 - GRID_PAD * cs, y0: y0 - GRID_PAD * cs, nx: 0, ny: 0 };
+  grid.nx = Math.round((x1 - x0) / cs) + 2 * GRID_PAD; grid.ny = Math.round((y1 - y0) / cs) + 2 * GRID_PAD;
+  packBegin(T, grid);
+  const nIds = R.nRows * RUNS_PER_ROW;
+  const stamp = new Int32Array(nIds + 1), ids = new Int32Array(nIds + 1);   // alloc-rare: once a morph set (made ahead, not per frame)
+  let jStamp = new Int32Array(256), jl = new Int32Array(64), leaf = 0, st = 0;
+  const stats = { leavesWritten: 0, nodesWritten: 0, leavesFreed: 0, cellsTouched: bins.nCells, full: true };
+  for (let c = 0; c < bins.nCells; c++) {
+    const cx = Math.round((bins.cells[c * 6] - grid.x0) / cs), cy = Math.round((bins.cells[c * 6 + 1] - grid.y0) / cs);
+    const s0 = bins.cells[c * 6 + 2], sn = bins.cells[c * 6 + 3], j0 = bins.cells[c * 6 + 4], jn = bins.cells[c * 6 + 5];
+    st++;
+    let n = 0;
+    for (let e = s0; e < s0 + sn; e++) {
+      const row = ent[e * 8 + 4], i = ent[e * 8 + 5];
+      if (!(row >= 0) || !(i >= 0) || row >= R.nRows) continue;
+      const id = row * RUNS_PER_ROW + Math.min(RUNS_PER_ROW - 1, (i / RUN_SEGS) | 0);
+      if (stamp[id] === st) continue;
+      stamp[id] = st; ids[n++] = id;
+    }
+    let nj = 0, cross = false;
+    for (let q = j0; q < j0 + jn; q++) {
+      const ji = Math.round(ent[q * 8]);
+      if (ji < 0) continue;
+      if (ji >= jStamp.length) { const b = new Int32Array(ji * 2); b.set(jStamp); jStamp = b; }   // alloc-rare: once a set
+      if (jStamp[ji] === st) continue;
+      jStamp[ji] = st;
+      if (nj === jl.length) { const b = new Int32Array(nj * 2); b.set(jl); jl = b; }   // alloc-rare: as above
+      jl[nj++] = ji;
+      let tier = -1;
+      for (let m = 0; m < 4; m++) {
+        const v = ent[q * 8 + 4 + m];
+        if (!(v > -0.5)) continue;
+        const row = Math.floor(v + 0.5);
+        if (row >= g.nRows) continue;
+        const t = g.rows[row].tier;
+        if (tier >= 0 && t !== tier) cross = true;
+        tier = t;
+      }
+    }
+    if (n === 0 && nj === 0) continue;
+    const sorted = ids.subarray(0, n).sort();
+    const rs = reserveRunRefs(T, n), js = reserveJoinRefs(T, nj);
+    let nrows = 0, prev = -1;
+    for (let k = 0; k < n; k++) {
+      const id = sorted[k], o = id * 4;
+      let bits = 0;
+      if (R.rad[o] > 0) bits |= 1; if (R.rad[o + 1] > 0) bits |= 2; if (R.rad[o + 2] > 0) bits |= 4; if (R.rad[o + 3] > 0) bits |= 8;
+      setRunRef(T, rs + k, id, bits || 1);
+      const row = (id / RUNS_PER_ROW) | 0;
+      if (row !== prev) { nrows++; prev = row; }
+    }
+    jl.subarray(0, nj).sort();
+    for (let k = 0; k < nj; k++) setJoinRef(T, js + k, jl[k]);
+    setLeaf(T, leaf, L_MORPH | (cross ? CLASS_CROSSTIER : 0), rs, n, js, nj, nrows, 0, NO_OWNER);
+    setBox(T, leaf, grid.x0 + cx * cs, grid.y0 + cy * cs, cs, L_MORPH);
+    setCell(T, cx, cy, P_CELL_LEAF, leaf);
+    leaf++;
+  }
+  stats.leavesWritten = leaf;
+  S.tables = T; S.grid = grid; S.stats = stats;
+  S.report = { cells: leaf, leaves: leaf, nodes: 0, byClass: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: leaf }, depth: [leaf], runRefs: T.n.runRefs, joinRefs: T.n.joinRefs, wide: [], overWide: [], falseProximity: [] };
+  return S;
+}
+
+/**
  * createVecLeaves(look?, policy?) gives the calls vec-renderer.js's `parts.compile` makes (the same names as createVecCompiler), producing the hierarchy view.
  *   build(bins, nTubes, shared)  setGeometry: graph, runs and the whole hierarchy made again. `shared` = { tubeNow, radAll } as createVecCompiler's.
  *   patch(bins)                  patchGeometry: the rows whose points moved, the members of joins that changed, the joins that moved.
@@ -965,8 +1043,6 @@ export function createVecCompiler(look = DEFAULT_LOOK) {
  *     (what the hierarchy holds, with the stop points: overWide, falseProximity), tooWide (the grid is wider than GRID_W cells), runs, graph, joins (graph.joins) }.
  * The tubes in a morph set's call must be the sweep's own (E keeps and passes them).
  */
-/** The most cell-areas a morph set's run boxes may sum to before its leaves are not built (see morph). */
-export const MORPH_CELLS_MAX = 40000;
 export function createVecLeaves(look = DEFAULT_RUN_LOOK, policy = defaultPolicy()) {
   const graph = createVecGraph(), runs = createRuns(graph, look), set = createLeafSet();
   let tubeRef = null, radRef = null, built = false, rowsBuf = new Int32Array(64), mark = new Uint8Array(0), jBuf = new Int32Array(16);
@@ -1069,14 +1145,8 @@ export function createVecLeaves(look = DEFAULT_RUN_LOOK, policy = defaultPolicy(
       g.fromBins(bins, graph.nRows);
       for (let r = 0; r < graph.nRows; r++) { const a = graph.rows[r], b = g.rows[r]; b.casing = a.casing; b.flags = a.flags; b.glow = a.glow; b.glowW = a.glowW; b.sel = a.sel; b.tier = a.tier; b.hover = a.hover; }
       g.rad.set(graph.rad.subarray(0, g.rad.length));
-      R.build(); R.morphBoxes(tubes ?? [], slack);
-      // (STOP POINT, 9 Nov: a run's box over a whole stretch spans up to ~2,700 world units on the big view changes, 0.5 to 1 million cell-areas a set; building leaves from
-      // those exhausts memory. Asked Mohammad; until he answers a set whose boxes cover more than MORPH_CELLS_MAX cells is not built: `tooLarge`, no tables.)
-      let area = 0;
-      for (let id = 0; id < R.nRuns; id++) { const o = id * 4; if (R.rad[o] > 0) area += (R.box[o + 2] - R.box[o]) * (R.box[o + 3] - R.box[o + 1]) / (CELL * CELL); }
-      if (area > MORPH_CELLS_MAX) return { tooLarge: true, boxCells: area, tables: null, runs: R, graph: g, joins: g.joins };
-      const pol = { ...policy, mode: 'box' };
-      buildLeaves(R, g.joins, null, pol, S); S.stats.full = true;
+      R.build(); if (tubes?.length) R.morphBoxes(tubes, slack);
+      buildMorphLeaves(bins, R, g, S);
       const v = { ...viewOf({}, S, R, g), runTex: { data: null, width: 0, height: 0, dirty: null }, joinTex: { data: null, count: 0 } };
       R.packRuns(v.runTex); R.packJoins(v.joinTex);
       return v;
