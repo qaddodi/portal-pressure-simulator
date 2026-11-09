@@ -520,7 +520,7 @@ function makeLeaf(set, depth, x0, y0, size, L, existing) {
   if (old) {
     let same = (old.cls | (old.crossTier ? CLASS_CROSSTIER : 0)) === cls && old.runCount === L.n && old.joinCount === L.nj && old.candMax === rows && old.depth === depth && old.owner === (owner === NO_OWNER ? -1 : owner);
     for (let i = 0; same && i < L.n; i++) same = T.runRefs[old.runStart + i] === (((L.bits[i] << 24) | L.id[i]) >>> 0);
-    for (let i = 0; same && i < L.nj; i++) same = T.joinRefs[old.joinStart + i] === L.jn[i];
+    for (let i = 0; same && i < L.nj; i++) same = T.runRefs[old.joinStart + i] === L.jn[i];
     if (same) return existing;
   }
   if (id < 0) id = set.freeLeaves.length ? set.freeLeaves.pop() : set.nextLeaf++;
@@ -739,7 +739,7 @@ export function rebuildLeaves(changedRuns, set, n = changedRuns.length, changedJ
   set.stats.cellsTouched = nc;
   for (let i = 0; i < nc; i++) processCell(set, cellsList[i], true);
   set.report = summarize(set);
-  const used = set.tables.n.runRefs + set.tables.n.joinRefs;
+  const used = set.tables.n.runRefs;   // (the one shared list)
   if (set.garbage > Math.max(8192, used >> 1)) { buildLeaves(R, set.joins, null, set.policy, set); set.stats.full = true; set.stats.compacted = true; }
   return set;
 }

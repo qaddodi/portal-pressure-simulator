@@ -428,3 +428,10 @@ test('leafCandidates flags an overflow and drops nothing', () => {
   const joins = Array.from({ length: K.MAX_JOINS + 1 }, () => ({ c: [0, 0], reach: 3, rows: [0, 1] }));
   assert.equal(leafCandidates({ refs: [], joins }, [0, 0]).overflow, true, 'more covering joins than the array holds');
 });
+
+test('no leaf program declares more than 16 samplers (the cap on Mac and iPhone)', () => {
+  for (const cls of CLASSES) for (const variant of [K.V_FULL, K.V_BASE, K.V_BLOOD]) {
+    const n = [...LFS(variant, cls).matchAll(/uniform\s+(?:highp\s+|lowp\s+|mediump\s+)?u?sampler\w+\s+\w+/g)].length;
+    assert.ok(n <= 16, `${LEAF_CLASSES[cls].name} variant ${variant}: ${n} samplers`);
+  }
+});

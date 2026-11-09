@@ -11,30 +11,36 @@
 //     if ((bits & VEC_C_LUMEN) != 0 && vecBoundHit(run, VEC_C_LUMEN, world)) { …the lumen's segments run.i0 … run.i1 of row run.row… }
 //     …one test per contribution bit the ref lists…
 //   }
+// (the join part, HIER_JOIN_GLSL:)
 //   for (int j = 0; j < lf.joinCount; j++) { VecJoin jn = vecJoinRead(vecJoinRef(lf.joinStart + j)); if (vecJoinHit(jn, world)) … }
 //
 // The host (E) declares nothing of these: HIER_GLSL carries the samplers and uniforms below; the host binds them by name (HIER_UNIFORMS).
+// Six samplers in all (16 fragment texture units on a phone and a Mac; E, 9 Nov): cells, nodes, leaves, ONE ref list (run refs and join refs, joinStart an
+// absolute index into it) and ONE float table (A's runs, and the joins in rows below them, from uVecJoinRow0). Two parts so a program that never reads a
+// join (the strips, B) leaves the join code out: HIER_LOOKUP_GLSL (leaf, runs, bounds) and HIER_JOIN_GLSL (joins; needs the lookup part first). HIER_GLSL is both.
 // `world` is the caller's: inv × gl_FragCoord.xy (B's vecWorld()).
 import {
-  CELL_SIZE, CELL_LEAF, JOIN_TEXELS, NODE_W, MAX_DEPTH, LEAF_ROW, LIST_W, RUNS_PER_ROW, RUN_TEXELS, C_LUMEN, C_SHADOW, C_GLOW, C_RING, C_JOIN,
+  CELL_SIZE, CELL_LEAF, JOIN_TEXELS, JOIN_PER_ROW, NODE_W, MAX_DEPTH, LEAF_ROW, LIST_W, RUNS_PER_ROW, RUN_TEXELS, C_LUMEN, C_SHADOW, C_GLOW, C_RING, C_JOIN,
   L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_WIDE, L_MORPH, SLOTS, SLOTS_WIDE, R_ON, BOUND_HEADROOM, NO_OWNER,
 } from './vec-leaves-pack.js';
 
 const f1 = (v) => (Number.isInteger(v) ? `${v}.0` : String(v));
 
-/** Samplers and uniforms the lookup reads. Textures: cells RGBA16UI, nodes RGBA32UI, leaves RGBA32UI, run refs and join refs R32UI, runs and joins RGBA32F (A's tables). */
-export const HIER_UNIFORMS = Object.freeze([
-  'uVecCells', 'uVecNodes', 'uVecLeaves', 'uVecRunRefs', 'uVecJoinRefs', 'uVecRuns', 'uVecJoins', 'uVecGridO', 'uVecGridN', 'uVecShOff',
-]);
+/**
+ * Samplers and uniforms the lookup reads. Textures: cells RGBA16UI, nodes RGBA32UI, leaves RGBA32UI, the ref list R32UI (run refs and join refs together),
+ * the float table RGBA32F (A's runs, then the joins from row uVecJoinRow0; combineRunJoin in vec-leaves-pack.js makes it).
+ */
+export const HIER_LOOKUP_UNIFORMS = Object.freeze(['uVecCells', 'uVecNodes', 'uVecLeaves', 'uVecRunRefs', 'uVecRuns', 'uVecGridO', 'uVecGridN', 'uVecShOff']);
+/** The join part's uniform: the first row of the joins in uVecRuns (the number of vessel rows; an int). */
+export const HIER_JOIN_UNIFORMS = Object.freeze(['uVecJoinRow0']);
+export const HIER_UNIFORMS = Object.freeze([...HIER_LOOKUP_UNIFORMS, ...HIER_JOIN_UNIFORMS]);
 
-export const HIER_DECLS = `
+export const HIER_LOOKUP_DECLS = `
 uniform highp usampler2D uVecCells;
 uniform highp usampler2D uVecNodes;
 uniform highp usampler2D uVecLeaves;
 uniform highp usampler2D uVecRunRefs;
-uniform highp usampler2D uVecJoinRefs;
 uniform highp sampler2D uVecRuns;
-uniform highp sampler2D uVecJoins;
 uniform vec2 uVecGridO;
 uniform ivec2 uVecGridN;
 uniform vec2 uVecShOff;
@@ -60,10 +66,9 @@ const float VEC_BOUND_HEADROOM = ${f1(BOUND_HEADROOM)};
 
 struct VecLeaf { int cls; bool crossTier; int runStart; int runCount; int joinStart; int joinCount; int candMax; int depth; int owner; };
 struct VecRun { int id; int row; int i0; int i1; int flags; vec4 chord; vec4 rad; vec4 box; };
-struct VecJoin { vec2 c; float k; float reach; ivec4 rows; int trunk; int trunkIdx; bool fork; float fillet; };
 `;
 
-export const HIER_FUNCS = `
+export const HIER_LOOKUP_FUNCS = `
 // The leaf at a world point, or -1 (outside the grid, or an empty cell or node). The one rule: every program calls this with its own
 // inv × gl_FragCoord.xy, so exactly one leaf owns a pixel. Node n is texel (n % ${NODE_W}, n / ${NODE_W}); a child is kind << 30 | index (1 leaf, 2 node, 0 empty).
 int vecLeafAt(vec2 world) {
@@ -122,11 +127,6 @@ uint vecRunRef(int i) {
 int vecRefRun(uint ref) { return int(ref & 16777215u); }
 int vecRefBits(uint ref) { return int(ref >> 24u); }
 
-// A join reference (absolute index into the join-ref list: lf.joinStart + j): the join's index in A's join table.
-int vecJoinRef(int i) {
-  return int(texelFetch(uVecJoinRefs, ivec2(i & ${LIST_W - 1}, i >> ${Math.log2(LIST_W)}), 0).x);
-}
-
 // A run (A's run table, ${RUN_TEXELS} texels a run at (k · ${RUN_TEXELS} + t, row), runId = row · ${RUNS_PER_ROW} + k): chord = a.xy, b.xy; rad = the bound radii
 // (lumen, shadow, glow, ring; 0: that contribution has no bound here); i0, i1 = the run's first and last segment; box = the morph box.
 VecRun vecRunRead(int runId) {
@@ -147,7 +147,7 @@ VecRun vecRunRead(int runId) {
 
 // Whether the pixel at \`world\` is inside the run's bound for one contribution (the point-to-capsule distance, squared, against the radius,
 // squared). Shadow: the capsule is the chord moved by uVecShOff. VEC_C_JOIN: true
-// (a join's bound is its disc: vecJoinHit). A zero radius is no bound: false. The caller passes the pixel, never the shadow's shifted point.
+// (a junction's bound is its disc: the join part). A zero radius is no bound: false. The caller passes the pixel, never the shadow's shifted point.
 bool vecBoundHit(VecRun run, int contribution, vec2 world) {
   if (contribution == VEC_C_JOIN) return true;
   vec2 p = world;
@@ -172,13 +172,31 @@ bool vecBoundHitBox(VecRun run, int contribution, vec2 world) {
   float r = contribution == VEC_C_LUMEN ? run.rad.x : contribution == VEC_C_SHADOW ? run.rad.y : contribution == VEC_C_GLOW ? run.rad.z : run.rad.w;
   return r > 0.0 && world.x >= run.box.x && world.y >= run.box.y && world.x <= run.box.z && world.y <= run.box.w;
 }
+`;
 
-// A join (A's join table, ${JOIN_TEXELS} texels a join at (t, j)): c = x, y; k = the blend width; reach; rows = the member rows (-1 none); trunk = the trunk
+export const HIER_JOIN_DECLS = `
+uniform int uVecJoinRow0;
+struct VecJoin { vec2 c; float k; float reach; ivec4 rows; int trunk; int trunkIdx; bool fork; float fillet; };
+`;
+
+export const HIER_JOIN_FUNCS = `
+// A join reference (absolute index into the ref list: lf.joinStart + j): the join's index in the join records.
+int vecJoinRef(int i) {
+  return int(texelFetch(uVecRunRefs, ivec2(i & ${LIST_W - 1}, i >> ${Math.log2(LIST_W)}), 0).x);
+}
+
+// Where join j's first texel is in the float table: x = (j % ${JOIN_PER_ROW}) · ${JOIN_TEXELS}, y = uVecJoinRow0 + j / ${JOIN_PER_ROW}.
+int vecJoinTexelX(int j) { return (j % ${JOIN_PER_ROW}) * ${JOIN_TEXELS}; }
+int vecJoinTexelY(int j) { return uVecJoinRow0 + j / ${JOIN_PER_ROW}; }
+
+// A join (A's join record, ${JOIN_TEXELS} texels in the float table below the runs, at vecJoinTexelX/Y): c = x, y; k = the blend width; reach; rows = the member rows (-1 none); trunk = the trunk
 // member as A stores it, trunkIdx = its index 0..3 in rows (-1 none); fork; fillet.
 VecJoin vecJoinRead(int j) {
-  vec4 t0 = texelFetch(uVecJoins, ivec2(0, j), 0);
-  vec4 t1 = texelFetch(uVecJoins, ivec2(1, j), 0);
-  vec4 t2 = texelFetch(uVecJoins, ivec2(2, j), 0);
+  int x = vecJoinTexelX(j);
+  int y = vecJoinTexelY(j);
+  vec4 t0 = texelFetch(uVecRuns, ivec2(x, y), 0);
+  vec4 t1 = texelFetch(uVecRuns, ivec2(x + 1, y), 0);
+  vec4 t2 = texelFetch(uVecRuns, ivec2(x + 2, y), 0);
   VecJoin r;
   r.c = t0.xy;
   r.k = t0.z;
@@ -199,5 +217,11 @@ bool vecJoinHit(VecJoin jn, vec2 world) {
 }
 `;
 
-/** The whole lookup: declarations then functions. Put it after the program's precision statements and before any use. */
-export const HIER_GLSL = HIER_DECLS + HIER_FUNCS;
+export const HIER_DECLS = HIER_LOOKUP_DECLS + HIER_JOIN_DECLS;
+export const HIER_FUNCS = HIER_LOOKUP_FUNCS + HIER_JOIN_FUNCS;
+/** The lookup without any join (the strips' programs): samplers, uniforms and vecLeafAt, vecLeafRead, vecRunRef, vecRefRun, vecRefBits, vecRunRead, vecBoundHit, vecBoundHitBox. */
+export const HIER_LOOKUP_GLSL = HIER_LOOKUP_DECLS + HIER_LOOKUP_FUNCS;
+/** The join part (the region shaders'): uVecJoinRow0, VecJoin, vecJoinRef, vecJoinRead, vecJoinHit. Put it after HIER_LOOKUP_GLSL. */
+export const HIER_JOIN_GLSL = HIER_JOIN_DECLS + HIER_JOIN_FUNCS;
+/** The whole lookup: both parts. Put it after the program's precision statements and before any use. */
+export const HIER_GLSL = HIER_LOOKUP_GLSL + HIER_JOIN_GLSL;
