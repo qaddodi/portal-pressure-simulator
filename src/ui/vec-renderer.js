@@ -192,7 +192,7 @@ export function createVecRenderer(gl, shared) {
 
   // ── The hierarchies: the figure's, and one a morph set (they share the graph) ──
   const graph = createHierGraph();
-  const hiers = new Set();
+  const hiers = [];   // (an array: a setter that walks it every frame must not make an iterator)
   let main = null, active = null;
   const counts = { single: 0, layered: 0, cross: 0, join: 0, wide: 0, morph: 0, leaves: 0, rebuilds: 0 };
   const leafCounts = new Float64Array(6);
@@ -200,11 +200,11 @@ export function createVecRenderer(gl, shared) {
     const h = createHier(graph, opts);
     h.gpu = createHierGpu(gl, BUFS);
     h.want = true;
-    hiers.add(h);
+    hiers.push(h);
     return h;
   }
-  function freeHier(h) { hiers.delete(h); h.gpu?.dispose(); }
-  const wantAll = () => { for (const h of hiers) h.want = true; };
+  function freeHier(h) { const i = hiers.indexOf(h); if (i >= 0) hiers.splice(i, 1); h.gpu?.dispose(); }
+  const wantAll = () => { for (let i = 0; i < hiers.length; i++) hiers[i].want = true; };
   function tally(h) {
     h.counts(leafCounts);
     counts.single = leafCounts[0]; counts.layered = leafCounts[1]; counts.cross = leafCounts[2]; counts.join = leafCounts[3]; counts.wide = leafCounts[4]; counts.morph = leafCounts[5];
@@ -592,7 +592,7 @@ export function createVecRenderer(gl, shared) {
     start() { start(); },
     prepare,
     get lost() { return lost; },
-    set lost(v) { lost = !!v; if (lost) { frame.lose(); targets.dispose(); for (const h of hiers) h.gpu.dispose(); hiers.clear(); main = active = null; morphSet = null; ready = false; started = false; handles.length = 0; } },
+    set lost(v) { lost = !!v; if (lost) { frame.lose(); targets.dispose(); for (const h of hiers) h.gpu.dispose(); hiers.length = 0; main = active = null; morphSet = null; ready = false; started = false; handles.length = 0; } },
     get rowsStatus() { return rowsStatus; },
     get stats() { return stats; },
     get counts() { return counts; },
@@ -746,7 +746,7 @@ export function createVecRenderer(gl, shared) {
       disposed = true;
       targets.dispose();
       for (const h of hiers) h.gpu.dispose();
-      hiers.clear();
+      hiers.length = 0;
       if (blank) gl.deleteTexture(blank);
       for (const b of [stripAttr, stripIdx, quadBuf]) if (b) gl.deleteBuffer(b);
       eachProgram((pr) => { if (pr.p) gl.deleteProgram(pr.p); });
