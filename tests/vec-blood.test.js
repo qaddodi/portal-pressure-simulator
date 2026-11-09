@@ -15,6 +15,8 @@ globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
 const M = await import('../src/ui/vec-blood-math.js');
+const CT = await import('../src/ui/vec-contract.js');
+const SLOTS_WIDE = CT.SLOTS_WIDE ?? 32;   // (contract v2 names it; 32 until A's push)
 const G = await import('../src/ui/vec-blood-glsl.js');
 const { advanceStream, createStreamChain, REVERSE_HOLD, REVERSE_RAMP, REVERSE_SETTLE, PERIOD } = await import('../src/ui/blood.js');
 const { LANE_K: GL_LANE_K, ORIGIN_GREY } = await import('../src/ui/veins-gl.js');
@@ -285,6 +287,51 @@ test('the heads\' fragment shader: lints, matches the vertex shader\'s varyings,
   const code = fs.replace(/\/\/.*$/gm, '');
   assert.ok(!/\b(dFdx|dFdy|fwidth)\b/.test(code) && !/\btexture\s*\(/.test(code));
   assert.ok(!/gbuf/.test(code), 'no flow image: the head is clipped to its lumen from the radius, not from a lumen buffer');
+});
+
+test('the junction blends 1 to SLOTS_WIDE streams: weights sum to 1 over all of them, none dropped, and a reversal swaps the contributors, eased', () => {
+  for (let n = 1; n <= SLOTS_WIDE; n++) {
+    // Half the members run toward the pixel's end (inflow), half away, with unequal shares.
+    const share = Array.from({ length: n }, (_, i) => 0.2 + ((i * 7) % 5) * 0.3);
+    const vd = Array.from({ length: n }, (_, i) => (i % 2 ? -12 : 12)), near = Array.from({ length: n }, () => 1);
+    const w = M.mixWeights(share, vd, near);
+    assert.equal(w.length, n);
+    assert.ok(Math.abs(w.reduce((a, b) => a + b, 0) - 1) < 1e-12, `n=${n}: sums to 1`);
+    assert.ok(w.every((x) => x > 0), `n=${n}: no member dropped (each keeps its floor)`);
+    if (n >= 2) {
+      const flipped = M.mixWeights(share, vd.map((v) => -v), near);
+      const inA = w.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0), inB = flipped.filter((_, i) => i % 2 === 0).reduce((a, b) => a + b, 0);
+      assert.ok(inA > 0.5 || n === 1, 'the inflowing half supplies the junction');
+      assert.ok(inB < inA, 'after a reversal the other half supplies it');
+    }
+  }
+  // Eased: sweeping the speed of 32 streams through zero moves the total weight of the first half monotonically, with no jump.
+  const n = SLOTS_WIDE, share = Array.from({ length: n }, () => 1), near = Array.from({ length: n }, () => 1);
+  let prev = null, maxStep = 0;
+  for (let v = 20; v >= -20; v -= 0.01) {
+    const w = M.mixWeights(share, Array.from({ length: n }, (_, i) => (i < n / 2 ? v : -v)), near);
+    const a = w.slice(0, n / 2).reduce((x, y) => x + y, 0);
+    if (prev != null) { assert.ok(a <= prev + 1e-12, 'monotone'); maxStep = Math.max(maxStep, prev - a); }
+    prev = a;
+  }
+  assert.ok(maxStep < 0.01, `no jump through the reversal (${maxStep})`);
+});
+
+test('vecBloodMix for 2, 8 and 32 streams lints, with the loop bound a compile-time constant per size', () => {
+  const HOST = '#version 300 es\nprecision highp float;\nprecision highp int;\nuniform highp sampler2D rad, tube;\nout vec4 o;\n';
+  for (const sizes of [[2], [8], [SLOTS_WIDE], [2, 8], [2, 8, SLOTS_WIDE]]) {
+    const text = G.vecBloodGLSL(...sizes);
+    const arr = (t, v, N) => `${t} ${v}[${N}] = ${t}[${N}](${Array.from({ length: N }, (_, i) => (t === 'int' ? `${i}` : `${i}.0`)).join(', ')});`;
+    const calls = sizes.map((N) => `${arr('int', `r${N}`, N)} ${arr('float', `s${N}`, N)} ${arr('float', `y${N}`, N)} ${arr('float', `R${N}`, N)} ${arr('float', `w${N}`, N)} acc += vecBloodMix(${N}, r${N}, s${N}, y${N}, R${N}, w${N}, vec3(0.5), 0.5);`).join('\n  ');
+    const src = `${HOST}${text}\nvoid main() {\n  vec4 acc = vec4(0.0);\n  ${calls}\n  o = acc;\n}`;
+    assert.deepEqual(lintGLSL(src), [], `sizes ${sizes}`);
+    for (const N of sizes) {
+      assert.ok(text.includes(`vec4 vecBloodMix(int n, int rows[${N}], float s[${N}], float y[${N}], float R[${N}], float w[${N}], vec3 lumenCol, float px)`));
+      assert.ok(text.includes(`for (int i = 0; i < ${N}; i++)`), 'the loop bound is a literal');
+    }
+    if (!sizes.includes(SLOTS_WIDE)) assert.ok(!text.includes(`[${SLOTS_WIDE}]`), 'a narrow program carries no wide arrays');
+  }
+  assert.ok(G.VEC_BLOOD_GLSL.includes('rows[2]') && G.VEC_BLOOD_GLSL.includes(`rows[${CT.SLOTS}]`), 'the default text keeps the two-stream form B and C call, and the SLOTS one');
 });
 
 test('mod and the period: the stream distance wraps seamlessly', () => {
