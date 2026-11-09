@@ -2210,7 +2210,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let vec = null, vecFailed = false, vecChoice = '', binsNow = null, geoSkipped = false;
   // (The organ and overlay inputs as the stack and the overlay were last given them, kept as references: what the Vector renderer starts from when it
   // is chosen after they came, and what the stack is given when another renderer is chosen after Vector skipped the picture draws.)
-  const vecOps = { bakes: [new Map(), new Map()], commits: [null, null], paint: null, overlay: null, live: null, masks: null, liveAll: null, order: null, shift: {} };
+  const vecOps = { bakes: [new Map(), new Map()], commits: [null, null], paint: null, overlay: null, live: null, masks: null, liveAll: null, order: null, shift: {}, lines: undefined, cath: undefined, spans: null, liver: undefined };
   // (What Vector skipped, for the stack and the covers: the baked layers, the commits, the cover's shapes, the overlays' groups.)
   const vecSkip = { bakes: [new Map(), new Map()], commits: [null, null], paint: null, overlay: null };
   /** Vector is drawing now (made, and still the choice): the skips below are decided on this, never on making it (that is a draw's). */
@@ -3371,7 +3371,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     figVer++; texVer++; movedAll = true;
     if (binsNow) vecTell('setGeometry', binsNow);
     vecTell('setOrgans', 'replay', vecOps);
-    if (vecOps.overlay) vecTell('setOverlays', 'set', vecOps.overlay.groups, vecOps.overlay.names);
+    if (vecOps.overlay) vecTell('setOrgans', 'overlay', vecOps.overlay.groups, vecOps.overlay.names);
+    // (G's module takes the lines, the catheter and the ascites' rows from the setters directly, as it is the one that draws them.)
+    const ov = vecParts0?.overlays;
+    if (ov) {
+      if (vecOps.lines !== undefined) ov.setLines?.(vecOps.lines);
+      if (vecOps.cath !== undefined) ov.setCath?.(vecOps.cath);
+      if (vecOps.spans) ov.setFluidSpans?.(vecOps.spans[0], vecOps.spans[1]);
+      if (vecOps.liver !== undefined) ov.setFluidLiver?.(vecOps.liver);
+    }
     return true;
   }
   // ── The mesh vessel renderer (Settings › Display › Mesh vessel renderer; docs/veins-mesh-plan.md) ──
@@ -4766,7 +4774,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * transform [a, b, c, d, e, f]; `look`: the theme's inks and the per-tier opacity and group.
      */
     draw(m, look, blood, rows = null) {
-      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); const r = vec.draw(m, look, blood, rows); vecLaid(); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); const r = vec.draw(m, look, blood, rows); vecLaid(); return r; }
       flushRadii();
       meshSync();
       counts.draw++;
@@ -4878,7 +4886,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * (nothing they hold is dropped by a refusal). `rowsStatus` says which: 'drawn', or why it was refused (ROWS_REFUSED).
      */
     drawRows(m, look, blood, rows, full = false) {
-      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); const r = vec.drawRows(m, look, blood, rows, full); if (r) vecLaid(); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; setBase(m); vecTell('setOverlays', look, m, PW(), PH()); const r = vec.drawRows(m, look, blood, rows, full); if (r) vecLaid(); return r; }
       flushRadii();
       meshSync();
       for (let i = 0; i < 6; i++) OVER[i] = m[i];
@@ -4998,7 +5006,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       set(groups, names) {
         const kept = vecOps.overlay ||= { groups: null, names: null };
         kept.groups = groups; kept.names = names; vecSkip.overlay = null;
-        vecTell('setOverlays', 'set', groups, names);
+        vecTell('setOrgans', 'overlay', groups, names);
         // (Vector draws the overlays from these groups, not from the painter's stack: none is made, the groups are kept for the other two.)
         if (vecNow()) { overShown = !!groups?.size; vecSkip.overlay = kept; return; }
         if (!over && groups?.size && !lost) over = createOrganStack(gl, { painter: stack.painter });
@@ -5006,7 +5014,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         over.setOrder(names); over.setLive(groups && groups.size ? groups : null, null); overShown = !!groups?.size;
       },
       /** The groups' kept shapes (stage.js, over-records.js) were written in place: the next present draws them again. */
-      touch() { over?.touch(); vecTell('setOverlays', 'touch'); },
+      touch() { over?.touch(); vecTell('setOrgans', 'overlay-touch'); },
       /** Device px per CSS px of the canvas (a non-scaling stroke's width: organ-paint cssPx). */
       set cssPx(v) { overCss = v; },
       /** Whether the stage moves the canvas by the vessels' sub-pixel rest (stage.js subPixel, below Full): the overlays then go at whole pixels too. */
@@ -5062,7 +5070,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * cells drawRows drew again (the vessel layer changed under them).
      */
     composite(look, blood = NOBLOOD, full = false, part = 0) {
-      if (vecOn()) { flushRadii(); lastLook = look; const r = vec.composite(look, blood, full, part); vecLaid(); return r; }
+      if (vecOn()) { flushRadii(); lastLook = look; if (baseM) vecTell('setOverlays', look, baseM, PW(), PH()); const r = vec.composite(look, blood, full, part); vecLaid(); return r; }
       flushRadii();
       compLook = look; compBlood = blood;
       // (Blood look D, where the view asks for it and the tile is baked: until then, and for any other view, look E's sines.)
@@ -5643,10 +5651,17 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   };
   // (Every other input that changes what the vessels, the blood or the layers over them show is told to the Vector renderer once its own work is
   // done; it reads the data they fill from vecShared. Before it is made, and with another renderer chosen, there is nobody to tell.)
+  // (The setters the overlays' module draws from (workstream G): kept as given, for when it is made, and given to it as they come.)
+  const G_SETTERS = { setLines: (a) => { vecOps.lines = a; }, setCath: (a) => { vecOps.cath = a; }, setFluidSpans: (a, b) => { vecOps.spans = [a, b]; }, setFluidLiver: (a) => { vecOps.liver = a; } };
   for (const name of ['setRadii', 'setBend', 'setTubes', 'setFlow', 'setDye', 'setLines', 'setCath', 'setFluidSpans', 'setFluidLiver', 'setFluidCells', 'setCameraRec', 'setScene', 'setLayerScale', 'clear']) {
     const was = api[name];
     if (!was) continue;
-    api[name] = function (a0, a1, a2, a3) { const r = was.call(this, a0, a1, a2, a3); if (vec) vecTell(name, a0, a1, a2, a3); return r; };
+    api[name] = function (a0, a1, a2, a3) {
+      const r = was.call(this, a0, a1, a2, a3);
+      if (name in G_SETTERS) { G_SETTERS[name](a0, a1); if (vec) vecParts0?.overlays?.[name]?.(a0, a1); }
+      if (vec) vecTell(name, a0, a1, a2, a3);
+      return r;
+    };
   }
   // (The live organs and the overlays' order, as the stack is given them: kept for Vector's start, and told to it.)
   if (api.organs) {

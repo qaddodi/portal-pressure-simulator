@@ -205,13 +205,34 @@ test('organs: no picture is painted or baked while Vector draws; it is told the 
   g.organs.setLive(null, null);
   assert.deepEqual(told(log, 'setOrgans').slice(-2).map((c) => c[1]), ['order', 'live']);
   g.overlay.set(new Map(), ['x']);
-  assert.equal(told(log, 'setOverlays').length, 1);
+  assert.deepEqual(told(log, 'setOrgans').at(-1).slice(1, 2), ['overlay']);
   assert.equal(g.overlay.stale, false);
   // Another renderer: the cover is painted now, from the shapes kept.
   frame.setVesselRenderer('classic');
   const n1 = f.calls.length;
   g.draw(M, look, { on: false });
   assert.ok(f.calls.slice(n1).some((c) => c[0] === 'drawArrays' || c[0] === 'drawElements'), 'painted and drawn');
+});
+
+test('the overlays: told the look and the view before each picture, and G\'s own setters get the lines, the catheter and the ascites\' rows', () => {
+  const { g, log, shared } = setup('vector');
+  const got = [];
+  g.draw(M, look, { on: false });
+  const parts = shared().parts;   // (made now, from the real modules, on the do-nothing GL)
+  for (const k of ['setLines', 'setCath', 'setFluidSpans', 'setFluidLiver']) parts.overlays[k] = (...a) => got.push([k, ...a]);
+  const spec = { lines: [] };
+  g.setLines(spec); g.setCath(null); g.setFluidSpans([1, 2], [0, 0, 5, 5]); g.setFluidLiver([3]);
+  assert.deepEqual(got.map((c) => c[0]), ['setLines', 'setCath', 'setFluidSpans', 'setFluidLiver']);
+  assert.equal(got[0][1], spec);
+  assert.deepEqual(got[2].slice(1), [[1, 2], [0, 0, 5, 5]]);
+  const n = told(log, 'setOverlays').length;
+  g.draw(M, look, { on: false });
+  g.composite(look, { on: true });
+  g.drawRows(M, look, { on: false }, [0]);
+  const t = told(log, 'setOverlays').slice(n);
+  assert.equal(t.length, 3, 'once before each picture');
+  assert.equal(t[0][1], look);
+  assert.deepEqual(t[0].slice(3, 5), [800, 600], 'the picture\'s size');
 });
 
 test('morph sets: made for Vector without the classic texture, used and dropped through it', () => {
