@@ -245,10 +245,67 @@ for (const lymph of [false, true]) {
   });
 }
 
-test('the lobule\'s instance under Vector calls no classic or mesh vessel program', async (t) => {
-  const seam = await waits('vec-renderer.js');
-  if (!seam) return t.skip('waits for E and H: vec-renderer.js and the seam in veins-gl.js');
-  t.skip('waits for H: the seam hands the lobule\'s instance to Vector');
+// The lobule's instance under the seam (veins-gl.js who 'lobule', workstream H), with a Vector renderer that only remembers what it is told.
+const frame = await import(`${R}frame.js`);
+const veinsMod = await import(`${R}veins-gl.js`);
+function seamGL() {
+  const calls = [], enums = new Map(), src = new Map(), attached = new Map(), progOf = new Map();
+  let nextObj = 1;
+  const gl = new Proxy({}, {
+    get(_, k) {
+      if (typeof k !== 'string') return undefined;
+      if (/^[A-Z0-9_]+$/.test(k)) { if (!enums.has(k)) enums.set(k, 0x10000 + enums.size); return enums.get(k); }
+      return (...a) => {
+        calls.push([k, ...a]);
+        if (k === 'shaderSource') src.set(a[0], a[1]);
+        if (k === 'attachShader') { const l = attached.get(a[0]) || []; l.push(a[1]); attached.set(a[0], l); }
+        if (k === 'getShaderParameter') return true;
+        if (k === 'getProgramParameter') return a[1] === gl.ACTIVE_UNIFORMS ? 0 : true;
+        if (k === 'getExtension') return null;
+        if (k === 'getParameter') return 'stand-in';
+        if (k === 'getUniformLocation') return { name: a[1] };
+        if (k === 'isContextLost') return false;
+        if (k.startsWith('create')) return { obj: nextObj++, kind: k };
+        return undefined;
+      };
+    },
+  });
+  const textOf = (p) => (attached.get(p) || []).map((x) => src.get(x) || '').join('\n');
+  return { gl, calls, progOf, textOf };
+}
+const LOOK = { shOff: [0, 0], light: [0, -1], reach: 11, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierAlpha: Array(veinsMod.MAX_TIERS).fill(1), tierGroup: Array(veinsMod.MAX_TIERS).fill(0) };
+const IDENT = [1, 0, 0, 1, 0, 0];
+
+test('the lobule\'s instance under Vector calls no classic or mesh vessel program, and tells Vector which rows show blood', () => {
+  frame.setVesselRenderer('vector');
+  const told = [];
+  const standIn = new Proxy({}, { get: (_, k) => (typeof k !== 'string' || k === 'then' || k === 'failure' ? undefined : k === 'status' ? () => 'ready' : (...a) => { told.push([k, ...a]); return k === 'drawRows' ? true : undefined; }) });
+  veinsMod.setVectorFactory(() => standIn);
+  const f = seamGL();
+  const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
+  let presented = 0;
+  const g = veinsMod.createVeinsGL(canvas, { tubes: 4, force: true, who: 'lobule', share: { gl: f.gl, canvas, present() { presented++; } } });
+  assert.ok(g, 'the lobule\'s instance is made');
+  const line = (y) => Array.from({ length: veinsMod.N_SAMPLES }, (_, i) => [40 + i * 10, y]);
+  g.setGeometry(veinsMod.binVeins([0, 1, 2, 3].map((id) => ({ id, pts: line(100 + id * 60), reach: 30 })), []));
+  // (Row 0 a blood stream, row 1 a lymph row (texel 1.x = -1), row 2 a vessel seen end-on, row 3 blood with a flow factor of 0.)
+  const flow = new Float32Array(4 * FT * 4);
+  for (const r of [0, 1, 3]) flow[r * FT * 4 + F1Z] = 1;
+  flow[1 * FT * 4 + F1X] = LYMPH_MARK;
+  g.setFlow(flow);
+  const n0 = f.calls.length;
+  g.draw(IDENT, LOOK, { on: true }, null);
+  g.composite(LOOK, { on: true });
+  const used = f.calls.slice(n0).filter((c) => c[0] === 'useProgram' && c[1]);
+  assert.equal(used.length, 0, 'no classic or mesh vessel program was used');
+  const rows = told.filter((c) => c[0] === 'setBloodRows').at(-1);
+  assert.ok(rows, 'Vector is told which rows can show blood');
+  assert.deepEqual([...rows[1].subarray(0, rows[2])], [0, 1, 3], 'the end-on row is left out, the lymph row is in');
+  assert.equal(g.top.kept, false, 'nothing is kept before a whole present laid the picture');
+  const n = told.filter((c) => c[0] === 'setBloodRows').length;
+  g.setFlow(flow);
+  assert.equal(told.filter((c) => c[0] === 'setBloodRows').length, n, 'the same rows are not told again');
+  void presented;
 });
 
 test('the lobule\'s lymph rows reach lymphAt in Vector\'s blood material', async (t) => {
