@@ -240,9 +240,11 @@ test('morph sets: made for Vector without the classic texture, used and dropped 
   const { g, f, log } = setup('vector');
   g.draw(M, look, { on: false });
   const n0 = f.calls.length;
-  const S = g.makeMorphSet(Object.assign(bins(), { posBase: 0, joinBase: 0, entRows: 1 }));
+  const tubes = [{ id: 0, path: [[0, 0], [1, 1]] }];
+  const S = g.makeMorphSet(Object.assign(bins(), { posBase: 0, joinBase: 0, entRows: 1 }), tubes);
   assert.ok(S && S.owner, 'a set comes back');
   assert.equal(told(log, 'makeMorphSet').length, 1);
+  assert.equal(told(log, 'makeMorphSet')[0][2], tubes, 'the sweep\'s tubes go to the Vector renderer');
   assert.equal(f.calls.slice(n0).filter((c) => c[0] === 'bufferData').length, 0, 'no classic morph buffers');
   assert.equal(f.calls.slice(n0).filter((c) => c[0] === 'texImage2D').length, 1, 'one entry texture of its own');
   g.useMorphSet(S);

@@ -1,3 +1,4 @@
+import { bootAnatomy } from './vec-anatomy.js';   // (first: its module hook must be in place before the stage is)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeGL } from '../scripts/warm/gl-stub.mjs';
@@ -6,6 +7,7 @@ import { createVecTargets } from '../src/ui/vec-targets.js';
 import { GRID_W, REGION_TEXELS, CELL_SIMPLE, CELL_REGION, K_JOIN, V_FULL, V_BASE, V_BLOOD } from '../src/ui/vec-contract.js';
 import { gpuProbe } from '../src/ui/gpu-probe.js';
 import { lintGLSL, uniformsOf } from './glsl-lint.js';
+import { createVecCompiler } from '../src/ui/vec-compile.js';
 
 // vec-renderer.js (workstream E) on the warm harness's do-nothing WebGL: what it draws in a frame, by call. The shader workstreams' real
 // programs are not here yet; stand-ins declare the uniforms the renderer sets, which is all these tests need of them.
@@ -349,4 +351,35 @@ test('a frame allocates nothing (blood frames, pans, row redraws)', () => {
   // (The do-nothing context boxes each fractional number handed to its calls, about 50 B on a whole frame: that is the stub's, not the renderer's.
   // The renderer's own code is closure-free: the planner is held to a much tighter bound in vec-frame.test.js. A closure or array made a frame is 200 B or more.)
   assert.ok(grown < 3 * 1024 * 1024, `heap grew ${grown} B over 20000 frames`);
+});
+
+test('on the real anatomy with the real compiler: geometry compiled, drawn, a colour change redraws only its rows\' boxes', async () => {
+  const A = await bootAnatomy();
+  await A.preset('cirr-decomp', 40);
+  const f = A.figure();
+  const gl = makeGL({ width: W, height: H });
+  const calls = [];
+  for (const k of ['scissor', 'bindFramebuffer', 'drawElementsInstanced', 'drawArraysInstanced']) { const g0 = gl[k]; gl[k] = function (...a) { calls.push(k); return g0.apply(this, a); }; }
+  const comp = createVecCompiler(), pic = { tex: {}, w: 1200, h: 800 };
+  const r = createVecRenderer(gl, { nTubes: f.nTubes, picture: () => pic, tex: {}, parts: { stretch: { vs: stretchVS, fs: fsOf('s') }, region: { vs: regionVS, fs: fsOf('r') }, compile: comp } });
+  r.start(); r.prepare();
+  r.setGeometry(f.bins);
+  assert.ok(r.counts.regions > 0, 'the anatomy has interaction regions');
+  assert.ok(r.counts.join > 0, 'and joins');
+  const look = { reach: 4, shOff: [1, 1], casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [0, 0, 0, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], light: [0, -1], netAlpha: 1, fx: 1, tierAlpha: [1], tierGroup: [1], organs: 0 };
+  const blood = { on: true, bt: 1 };
+  const m = [1.2, 0, 0, 1.2, 40, 30];
+  r.setTubes(f.tube);
+  r.draw(m, look, blood);
+  assert.equal(r.stats.lastKinds, 'F');
+  assert.ok(calls.includes('drawArraysInstanced'), 'region quads drawn');
+  blood.bt = 2; r.composite(look, blood, false);   // the base is written
+  calls.length = 0;
+  const t2 = f.tube.slice();
+  t2[52 * 3 + 5] = t2[52 * 3 + 5] + 0.25;   // row 3's attributes
+  r.setTubes(t2);
+  r.draw(m, look, blood, [3]);
+  assert.equal(r.stats.lastKinds, 'BF');
+  assert.ok(calls.filter((c) => c === 'scissor').length >= 2, 'both passes limited to boxes');
+  assert.equal(calls.filter((c) => c === 'bindFramebuffer').length, 2);
 });

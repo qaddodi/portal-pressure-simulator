@@ -18,8 +18,11 @@
 //   isLost()          the context is lost
 //   parts.stretch     { vs, fs(variant) }   workstream B: strings (vs may be a function returning one)
 //   parts.region      { vs, fs(variant) }   workstream C
-//   parts.compile     { build(bins, nTubes) → grid, patch(bins) → grid|null, rows(rowList) → grid|null, morph(bins) → grid, exceeds(row, r) → bool }  workstream A
-//                     grid = { cells: Uint16Array, regions: Float32Array, nRegions, gridO: [x, y], gridN: [w, h], rowsH, dirtyRows?: [r0, r1] }
+//   parts.compile     { build(bins, nTubes, shared.cpu) → grid, patch(bins) → grid|null, attrs(tubeNow) → grid|null, rows(rowList) → grid|null, morph(bins) → grid,
+//                       exceeds(row, r) → bool, current() → grid }  workstream A (vec-compile.js createVecCompiler); a call that changed nothing returns null
+//   cpu               { tubeNow, radAll }: the instance's mirrors, read in place (optional; handed to build)
+//                     grid = { cells: Uint16Array, regions: Float32Array, nRegions, gridO: [x, y], gridN: [w, h], rowsH, cellSize, dirtyRows: [r0, r1]|null,
+//                              dirtyRegions: [g0, g1]|null, full, grew }
 //                     (cells: RGBA16UI texels, GRID_W across, in the contract's layout; regions: REGION_TEXELS RGBA32F texels a region)
 //   parts.organs      { draw(pass, m), setOrgans(...), ready?() }   workstream F
 //   parts.overlays    { draw(pass, m, phase), setOverlays(...), ready?() }   workstream G, phase: PHASE.UNDER | HEADS | OVER
@@ -167,26 +170,33 @@ export function createVecRenderer(gl, shared) {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   }
-  function uploadGrid(g, r0 = 0, r1 = g.rowsH - 1) {
+  function uploadGrid(g) {
+    const whole = g.full !== false && (g.full || !g.dirtyRows);   // (a grid that says nothing of its dirty rows is sent whole)
+    let r0 = 0, r1 = g.rowsH - 1;
+    if (g.dirtyRows && !g.full) { r0 = g.dirtyRows[0]; r1 = g.dirtyRows[1]; }
     if (!cellTex || cellTexH < g.rowsH) {
       if (cellTex) gl.deleteTexture(cellTex);
       cellTex = gl.createTexture(); cellTexH = Math.max(g.rowsH, 1);
       sampler(cellTex, gl.RGBA16UI, GRID_W, cellTexH, gl.NEAREST);
       r0 = 0; r1 = g.rowsH - 1;
     }
-    if (g.rowsH > 0) {
+    if (g.rowsH > 0 && (whole || g.dirtyRows)) {
       gl.bindTexture(gl.TEXTURE_2D, cellTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, r0, GRID_W, r1 - r0 + 1, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, g.cells, r0 * GRID_W * 4);
     }
     const nR = Math.max(g.nRegions | 0, 1);
+    let g0 = 0, g1 = (g.nRegions | 0) - 1;
+    if (g.dirtyRegions && !g.full && !g.grew) { g0 = g.dirtyRegions[0]; g1 = g.dirtyRegions[1]; }
+    else if (!g.dirtyRegions && g.full === false && !g.grew) g1 = -1;   // (the compiler says no region row was written)
     if (!regionTex || regionTexH < nR) {
       if (regionTex) gl.deleteTexture(regionTex);
       regionTex = gl.createTexture(); regionTexH = nR;
       sampler(regionTex, gl.RGBA32F, REGION_TEXELS, regionTexH, gl.NEAREST);
+      g0 = 0; g1 = (g.nRegions | 0) - 1;
     }
-    if (g.nRegions > 0) {
+    if (g1 >= g0 && g.nRegions > 0) {
       gl.bindTexture(gl.TEXTURE_2D, regionTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, REGION_TEXELS, g.nRegions, gl.RGBA, gl.FLOAT, g.regions);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, g0, REGION_TEXELS, g1 - g0 + 1, gl.RGBA, gl.FLOAT, g.regions, g0 * REGION_TEXELS * 4);
     }
   }
   // The region cells (the instances of the region quad) and the counts the gauge reports, found from the cell and region texels.
@@ -212,9 +222,11 @@ export function createVecRenderer(gl, shared) {
   }
   function takeGrid(g) {
     if (!g || !g.cells) return;
-    grid = g; hadGrid = true; gridVer++;
-    const rows = g.dirtyRows;
-    uploadGrid(g, rows ? rows[0] : 0, rows ? rows[1] : g.rowsH - 1);
+    const same = g === grid && g.full === false && !g.dirtyRows && !g.dirtyRegions && !g.grew;
+    grid = g; hadGrid = true;
+    if (same) return;
+    gridVer++;
+    uploadGrid(g);
     scanGrid(g);
   }
 
@@ -357,7 +369,7 @@ export function createVecRenderer(gl, shared) {
   }
   function fillScalars() {
     const pxv = SC[SC_AT.px];
-    SC[SC_AT.pxW] = pxv; SC[SC_AT.H] = hNow; SC[SC_AT.cell] = CELL; SC[SC_AT.variant] = variantNow;
+    SC[SC_AT.pxW] = pxv; SC[SC_AT.H] = hNow; SC[SC_AT.cell] = grid?.cellSize || CELL; SC[SC_AT.variant] = variantNow;
     const so = curLook?.shOff;
     SC[SC_AT.padU] = variantNow === V_BLOOD ? 2 * pxv : Math.hypot(so ? so[0] : 0, so ? so[1] : 0) + GLOW_REACH + 2 * pxv;
     SC[SC_AT.selPad] = variantNow === V_BLOOD ? 0 : 4 + 2 * pxv;
@@ -397,7 +409,7 @@ export function createVecRenderer(gl, shared) {
   function rowBoxes(marks, m, out, max) {
     const g = grid;
     if (!g) return -1;
-    const gw = g.gridN[0], gh = g.gridN[1], ox = g.gridO[0], oy = g.gridO[1];
+    const gw = g.gridN[0], gh = g.gridN[1], ox = g.gridO[0], oy = g.gridO[1], cs = g.cellSize || CELL;
     let n = 0;
     for (let cy = 0; cy < gh; cy++) {
       for (let cx = 0; cx < gw; cx++) {
@@ -409,7 +421,7 @@ export function createVecRenderer(gl, shared) {
           for (let k = 0; k < cnt && !hit; k++) hit = marks[g.regions[rb + (1 + k) * 4]] === 1;
         }
         if (!hit) continue;
-        const x0 = ox + cx * CELL, y0 = oy + cy * CELL, x1 = x0 + CELL, y1 = y0 + CELL;
+        const x0 = ox + cx * cs, y0 = oy + cy * cs, x1 = x0 + cs, y1 = y0 + cs;
         let lx = Infinity, ly = Infinity, hx = -Infinity, hy = -Infinity;
         for (let q = 0; q < 4; q++) {
           const wx = q & 1 ? x1 : x0, wy = q & 2 ? y1 : y0;
@@ -650,16 +662,17 @@ export function createVecRenderer(gl, shared) {
     setGeometry(bins) {
       frame.note(D.GEOM);
       morphSet = null; morph.on = 0;
-      if (parts.compile) takeGrid(parts.compile.build(bins, nTubes));
+      if (parts.compile) takeGrid(parts.compile.build(bins, nTubes, shared.cpu || null));
     },
     patchGeometry(bins) {
       const g = parts.compile?.patch?.(bins);
       if (g) takeGrid(g);
       if (bins?.patchTubes?.length) frame.note(D.TUBES | D.RADII, bins.patchTubes); else frame.note(D.GEOM);
     },
-    makeMorphSet(bins) {
+    /** A morph set from the sweep's binning; `tubes`: the sweep's input [{ id, path, ... }] (A's morphBoxes reads the courses), as the stage gave the worker. */
+    makeMorphSet(bins, tubes) {
       if (!parts.compile?.morph) return null;
-      const g = parts.compile.morph(bins);
+      const g = parts.compile.morph(bins, tubes);
       return { owner: api, grid: g, morph: { posBase: bins.posBase, joinBase: bins.joinBase, tight: !!bins.tight } };
     },
     useMorphSet(S) {
@@ -689,12 +702,14 @@ export function createVecRenderer(gl, shared) {
       if (!data) return;
       const n = Math.min(nTubes, Math.floor(data.length / TUBE_FLOATS));
       if (!tubesSeen) { tubesSeen = true; for (let i = 0; i < n * TUBE_FLOATS; i++) tubeLast[i] = data[i]; frame.note(D.GEOM); return; }
+      let any = false;
       for (let r = 0; r < n; r++) {
         const o = r * TUBE_FLOATS;
         let same = true;
         for (let k = 0; k < TUBE_FLOATS; k++) if (data[o + k] !== tubeLast[o + k]) { same = false; tubeLast[o + k] = data[o + k]; }
-        if (!same) frame.noteRow(r, D.TUBES);
+        if (!same) { frame.noteRow(r, D.TUBES); any = true; }
       }
+      if (any && parts.compile?.attrs) takeGrid(parts.compile.attrs(data));   // (a row whose tier or casing changed is compiled again)
     },
     /** The flow table (8 texels a row): the blood pass is due when any differs. */
     setFlow(data) {

@@ -227,3 +227,19 @@ test('the lobule: the bounds are conservative and no looser than the reach plus 
   const g = graphOf(f, true), R = createRuns(g).build();
   judge(g, R, 'lobule', t);
 });
+
+test('fitGrid: the 16-unit grid holds every run\'s box and every join\'s disc, a multiple of CELL, and its cells are zeroed', async () => {
+  const { fitGrid } = await import('../src/ui/vec-compile.js');
+  const { CELL } = await import('../src/ui/veins-bin.js');
+  const c = made(), grid = fitGrid(c.R);
+  assert.equal(grid.cs, CELL); assert.equal(Math.abs(grid.x0 % CELL), 0); assert.equal(Math.abs(grid.y0 % CELL), 0);
+  assert.equal(grid.cells.length >= 256 * grid.ny * 4, true); assert.ok(grid.cells.every((v) => v === 0));
+  for (let r = 0; r < 3; r++) for (const id of c.R.runsOf(r)) {
+    const o = id * 4;
+    assert.ok(c.R.box[o] >= grid.x0 && c.R.box[o + 1] >= grid.y0 && c.R.box[o + 2] <= grid.x0 + grid.nx * CELL && c.R.box[o + 3] <= grid.y0 + grid.ny * CELL, `run ${id}'s box is inside the grid`);
+  }
+  const d = c.R.joinDisc(0);
+  assert.ok(d.x - d.r >= grid.x0 && d.y - d.r >= grid.y0 && d.x + d.r <= grid.x0 + grid.nx * CELL && d.y + d.r <= grid.y0 + grid.ny * CELL);
+  const cells = grid.cells;
+  assert.equal(fitGrid(c.R, grid).cells, cells, 'a grid the same size keeps its array');
+});
