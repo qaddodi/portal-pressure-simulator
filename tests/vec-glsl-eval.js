@@ -5,7 +5,7 @@
 // Subset: scalar float / int / uint / bool; vec2, ivec2, uvec4, vec4 values as {x, y, z, w} (read by .x .y .z .w); structs; declarations with
 // initialisers; = += -= *= |= ; ++ ; if / else; for; return; ternary; the operators of the lookup; calls to float(), int(), uint(), floor(),
 // texelFetch(sampler, ivec2, lod), and the evaluated functions themselves.
-const TOK = /\s+|(?<num>0[xX][0-9a-fA-F]+[uU]?|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?[fFuU]?)|(?<id>[A-Za-z_]\w*)|(?<op><<=|>>=|&&|\|\||==|!=|<=|>=|\+\+|--|\+=|-=|\*=|\/=|\|=|<<|>>|[{}()[\];,.?:+\-*/<>=!~&|^])/gy;
+const TOK = /\s+|(?<num>0[xX][0-9a-fA-F]+[uU]?|(?:\d+\.\d*|\.\d+|\d+)(?:[eE][+-]?\d+)?[fFuU]?)|(?<id>[A-Za-z_]\w*)|(?<op><<=|>>=|&&|\|\||==|!=|<=|>=|\+\+|--|\+=|-=|\*=|\/=|\|=|<<|>>|[{}()[\];,.?:+\-*/%<>=!~&|^])/gy;
 const F = Math.fround;
 
 function tokens(src) {
@@ -89,13 +89,14 @@ function binop(op, a, b) {
     case '-': return num(t, wrap(t, x - y));
     case '*': return num(t, t === 'int' ? Math.imul(x, y) : t === 'uint' ? Math.imul(x, y) >>> 0 : wrap(t, x * y));
     case '/': return num(t, t === 'float' ? F(x / y) : t === 'int' ? (x / y) | 0 : (x / y) >>> 0);
+    case '%': if (t === 'float') throw new Error('glsl-eval: % on float'); return num(t, y === 0 ? 0 : t === 'int' ? (x % y) | 0 : (x % y) >>> 0);
     case '<': return num('bool', x < y); case '>': return num('bool', x > y); case '<=': return num('bool', x <= y); case '>=': return num('bool', x >= y);
     case '==': return num('bool', x === y); case '!=': return num('bool', x !== y);
     case '&': return num(t, wrap(t, x & y)); case '|': return num(t, wrap(t, x | y)); case '^': return num(t, wrap(t, x ^ y));
     default: throw new Error(`glsl-eval: operator ${op}`);
   }
 }
-const PREC = [['||'], ['&&'], ['|'], ['^'], ['&'], ['==', '!='], ['<', '>', '<=', '>='], ['<<', '>>'], ['+', '-'], ['*', '/']];
+const PREC = [['||'], ['&&'], ['|'], ['^'], ['&'], ['==', '!='], ['<', '>', '<=', '>='], ['<<', '>>'], ['+', '-'], ['*', '/', '%']];
 
 function parseExpr(s, lvl, ctx, live = true) {
   if (lvl === -1) return parseTernary(s, ctx, live);
@@ -143,6 +144,13 @@ function parsePostfix(s, ctx, live) {
   let a = parsePrimary(s, ctx, live);
   while (is(s, '.')) {
     s.p++; const f = peek(s).v; s.p++;
+    if (live && f.length > 1 && /^[xyzw]+$|^[rgba]+$/.test(f) && VEC.has(a.t)) {   // a read-only swizzle: .xy, .zw, .xyz …
+      const pre = a.t.slice(0, -1), names = 'xyzw', map = { r: 'x', g: 'y', b: 'z', a: 'w' };
+      const out = {};
+      for (let i = 0; i < f.length; i++) out[names[i]] = a.v[map[f[i]] ?? f[i]];
+      a = { t: pre + f.length, v: out };
+      continue;
+    }
     if (live) { const k = { r: 'x', g: 'y', b: 'z', a: 'w' }[f] ?? f; if (!(k in a.v) && !(a.v && k in a.v)) throw new Error(`glsl-eval: no field ${f}`); a = a.v[k]; }
   }
   return a;
@@ -179,6 +187,8 @@ function parsePrimary(s, ctx, live) {
     if (name === 'float' || name === 'int' || name === 'uint') return convert(name, a[0]);
     if (name === 'floor') return num('float', F(Math.floor(a[0].v)));
     if (name === 'ivec2') return { t: 'ivec2', v: { x: a[0], y: a[1] } };
+    if (name === 'ivec4' && a.length === 1 && a[0].t === 'vec4') { const o = {}; for (const k of 'xyzw') o[k] = num('int', Math.trunc(a[0].v[k].v) | 0); return { t: 'ivec4', v: o }; }
+    if (name === 'texelFetch' && ctx.env.textures[a[0].name].float) { const r = ctx.env.textures[a[0].name](a[1].v.x.v, a[1].v.y.v); return { t: 'vec4', v: { x: num('float', F(r[0])), y: num('float', F(r[1])), z: num('float', F(r[2])), w: num('float', F(r[3])) } }; }
     if (name === 'texelFetch') { const tex = ctx.env.textures[a[0].name]; const r = tex(a[1].v.x.v, a[1].v.y.v); return { t: 'uvec4', v: { x: num('uint', r[0] >>> 0), y: num('uint', r[1] >>> 0), z: num('uint', r[2] >>> 0), w: num('uint', r[3] >>> 0) } }; }
     if (ctx.fns.has(name)) return callFn(ctx.fns.get(name), a, ctx.env, { consts: ctx.vars[0], fns: ctx.fns, structs: ctx.structs });
     throw new Error(`glsl-eval: unknown function ${name}`);

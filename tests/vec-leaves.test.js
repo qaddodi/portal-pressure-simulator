@@ -6,9 +6,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lintGLSL, uniformsOf } from './glsl-lint.js';
 import { loadGLSL } from './vec-glsl-eval.js';
-import { HIER_GLSL, HIER_DECLS, HIER_FUNCS, HIER_UNIFORMS } from '../src/ui/vec-hier-glsl.js';
+import { HIER_GLSL, HIER_DECLS, HIER_FUNCS, HIER_UNIFORMS, HIER_LOOKUP_GLSL, HIER_JOIN_GLSL, HIER_LOOKUP_UNIFORMS, HIER_JOIN_UNIFORMS, HIER_LOOKUP_DECLS } from '../src/ui/vec-hier-glsl.js';
 import {
   createLeafTables, packBegin, setCell, setChild, setLeaf, setBox, reserveRunRefs, setRunRef, reserveJoinRefs, setJoinRef, leafRead,
+  combineRunJoin, joinTexel, JOIN_PER_ROW, RUN_TABLE_W, RUN_TEXELS, JOIN_TEXELS,
   CELL_SIZE, CELL_LEAF, CELL_NODE, CHILD_LEAF, CHILD_NODE, CHILD_EMPTY, MAX_DEPTH, LEAF_ROW, GRID_W, NO_OWNER, CLASS_CROSSTIER, tableSize,
 } from '../src/ui/vec-leaves-pack.js';
 import {
@@ -79,13 +80,24 @@ function texturesOf(p) {
     uVecNodes: (x, y) => { const o = (y * 1024 + x) * 4; return [p.nodes[o], p.nodes[o + 1], p.nodes[o + 2], p.nodes[o + 3]]; },
     uVecLeaves: (x, y) => { const l = (y * LEAF_ROW) + (x >> 1), o = (l * 2 + (x & 1)) * 4; return [p.leaves[o], p.leaves[o + 1], p.leaves[o + 2], p.leaves[o + 3]]; },
     uVecRunRefs: (x, y) => [p.runRefs[y * 4096 + x], 0, 0, 1],
-    uVecJoinRefs: (x, y) => [p.joinRefs[y * 4096 + x], 0, 0, 1],
   };
 }
 const fl = (v) => ({ t: 'float', v: Math.fround(v) });
 const uniformsOfTables = (p) => ({
   uVecGridO: { t: 'vec2', v: { x: fl(p.grid.x0), y: fl(p.grid.y0) } },
   uVecGridN: { t: 'ivec2', v: { x: { t: 'int', v: p.grid.nx }, y: { t: 'int', v: p.grid.ny } } },
+});
+
+test('the lookup is two parts: the lookup alone has no join and no join sampler, the join part adds only a uniform, and HIER_GLSL is both', () => {
+  assert.equal(HIER_GLSL, HIER_LOOKUP_GLSL + HIER_JOIN_GLSL);
+  assert.deepEqual(lintGLSL(`${HEAD}${HIER_LOOKUP_GLSL}\nvoid main() {}\n`), []);
+  assert.deepEqual(lintGLSL(`${HEAD}${HIER_LOOKUP_GLSL}${HIER_JOIN_GLSL}\nvoid main() {}\n`), []);
+  assert.doesNotMatch(HIER_LOOKUP_GLSL, /uVecJoin|VecJoin|vecJoin/, 'the lookup part declares and calls no join');
+  assert.deepEqual(uniformsOf(HIER_LOOKUP_DECLS).sort(), [...HIER_LOOKUP_UNIFORMS].sort());
+  assert.deepEqual([...HIER_JOIN_UNIFORMS], ['uVecJoinRow0']);
+  const samplers = (src) => src.split('\n').filter((l) => /^uniform .*sampler2D /.test(l)).map((l) => l.replace(/^.* (\w+);.*$/, '$1'));
+  assert.deepEqual(samplers(HIER_GLSL).sort(), ['uVecCells', 'uVecLeaves', 'uVecNodes', 'uVecRunRefs', 'uVecRuns'], 'five samplers in all: one ref list and one float table');
+  assert.deepEqual(samplers(HIER_JOIN_GLSL), [], 'the join part declares no sampler');
 });
 
 test('the evaluator catches a changed comparison (the agreement test can fail)', () => {
@@ -145,7 +157,42 @@ test('vecLeafRead, vecRunRef, vecRefRun, vecRefBits and vecJoinRef read the tabl
     assert.equal(decl.call('vecRefRun', [ref], env).v, p.runRefs[i] & 0xffffff);
     assert.equal(decl.call('vecRefBits', [ref], env).v, p.runRefs[i] >>> 24);
   }
-  for (let i = 0; i < p.n.joinRefs; i++) assert.equal(decl.call('vecJoinRef', [I(i)], env).v, p.joinRefs[i]);
+  for (let i = 0; i < p.n.runRefs; i++) assert.equal(decl.call('vecJoinRef', [I(i)], env).v, p.runRefs[i]);   // one list: a join ref reads the same array
+});
+
+test('the joins live below the runs in the one float table: vecJoinRead and vecJoinTexelX/Y agree with joinTexel, and combineRunJoin writes them there', () => {
+  const decl = loadGLSL(HIER_GLSL);
+  const nRows = 7, nJoins = 50;
+  const runsOut = { data: new Float32Array(nRows * RUN_TABLE_W * 4).map((_, i) => i % 97), width: RUN_TABLE_W, height: nRows, dirty: null };
+  const joinsOut = { data: new Float32Array(nJoins * JOIN_TEXELS * 4), count: nJoins };
+  for (let j = 0; j < nJoins; j++) {
+    const o = j * 12;
+    Object.assign(joinsOut.data.subarray(o, o + 12), [j + 0.5, -j, 1 + j * 0.01, 2 + j * 0.02, j, j + 1, -1, -1, j + 1, j % 2, 0.25, 0]);
+  }
+  const tab = combineRunJoin({}, runsOut, joinsOut);
+  assert.equal(tab.width, RUN_TABLE_W); assert.equal(tab.joinRow0, nRows); assert.equal(tab.height, nRows + Math.ceil(nJoins / JOIN_PER_ROW));
+  assert.equal(tab.dirty, null, 'the first fill is whole');
+  assert.deepEqual(Array.from(tab.data.subarray(0, nRows * RUN_TABLE_W * 4)), Array.from(runsOut.data), 'the runs are where A put them');
+  const env = {
+    textures: { uVecRuns: Object.assign((x, y) => { const o = (y * tab.width + x) * 4; return [tab.data[o], tab.data[o + 1], tab.data[o + 2], tab.data[o + 3]]; }, { float: true }) },
+    uniforms: { uVecJoinRow0: { t: 'int', v: tab.joinRow0 } },
+  };
+  const I = (v) => ({ t: 'int', v });
+  for (let j = 0; j < nJoins; j++) {
+    const tx = joinTexel(j, 0);
+    assert.equal(decl.call('vecJoinTexelX', [I(j)], env).v, tx.x); assert.equal(decl.call('vecJoinTexelY', [I(j)], env).v, tx.y - 0 + tab.joinRow0);
+    const r = decl.call('vecJoinRead', [I(j)], env).v;
+    assert.deepEqual([r.c.v.x.v, r.c.v.y.v, r.k.v, r.reach.v], Array.from(joinsOut.data.subarray(j * 12, j * 12 + 4)).map(Math.fround));
+    assert.deepEqual([r.rows.v.x.v, r.rows.v.y.v, r.rows.v.z.v, r.rows.v.w.v], [j, j + 1, -1, -1]);
+    assert.equal(r.trunk.v, j + 1); assert.equal(r.trunkIdx.v, 1); assert.equal(r.fork.v, j % 2 === 1); assert.equal(r.fillet.v, 0.25);
+  }
+  // a later fill with the same shape copies only the runs' dirty rows (and the joins), and says which rows to upload
+  runsOut.data[3 * RUN_TABLE_W * 4 + 5] = -9; runsOut.dirty = [3, 3];
+  joinsOut.data[0] = 123;
+  combineRunJoin(tab, runsOut, joinsOut);
+  assert.deepEqual(tab.dirty, [3, tab.height - 1]);
+  assert.equal(tab.data[3 * RUN_TABLE_W * 4 + 5], -9); assert.equal(tab.data[nRows * RUN_TABLE_W * 4], 123);
+  assert.equal(RUN_TEXELS, 4);
 });
 
 test('the texture sizes follow the counts and the dirty rows are the rows written', () => {
@@ -192,7 +239,7 @@ const sig = (set, leaf) => {   // everything a leaf says, as a string
   if (leaf < 0) return 'none';
   const T = set.tables, m = leafRead(T, leaf), refs = [], joins = [];
   for (let i = 0; i < m.runCount; i++) refs.push(T.runRefs[m.runStart + i]);
-  for (let i = 0; i < m.joinCount; i++) joins.push(T.joinRefs[m.joinStart + i]);
+  for (let i = 0; i < m.joinCount; i++) joins.push(T.runRefs[m.joinStart + i]);
   return `${m.cls}/${m.crossTier}/${m.candMax}/${m.owner}/${m.depth}|${refs.join(',')}|${joins.join(',')}`;
 };
 
@@ -284,7 +331,7 @@ function checkScene(t, name, fig, opts = {}) {
     const refs = new Map(), jl = new Set(), m = leaf >= 0 ? leafRead(T, leaf) : null;
     if (m) {
       for (let i = 0; i < m.runCount; i++) refs.set(refRun(T.runRefs[m.runStart + i]), refBits(T.runRefs[m.runStart + i]));
-      for (let i = 0; i < m.joinCount; i++) jl.add(T.joinRefs[m.joinStart + i]);
+      for (let i = 0; i < m.joinCount; i++) jl.add(T.runRefs[m.joinStart + i]);
       inLeaf++;
       assert.ok(px >= T.boxes[leaf * 4] && px <= T.boxes[leaf * 4] + T.boxes[leaf * 4 + 2] + 1e-6 && py >= T.boxes[leaf * 4 + 1] && py <= T.boxes[leaf * 4 + 1] + T.boxes[leaf * 4 + 2] + 1e-6, `${name}: leafAt gave a leaf whose square misses the point`);
     }
@@ -307,7 +354,7 @@ function checkScene(t, name, fig, opts = {}) {
     for (const l of leaves) {
       const m = leafRead(T, l.id);
       for (let i = 0; i < m.joinCount; i++) {
-        const j = T.joinRefs[m.joinStart + i], c = runs.joinDisc(j, {});
+        const j = T.runRefs[m.joinStart + i], c = runs.joinDisc(j, {});
         const dx = Math.max(l.x0 - c.x, 0, c.x - (l.x0 + l.size)), dy = Math.max(l.y0 - c.y, 0, c.y - (l.y0 + l.size)), d = Math.hypot(dx, dy);
         const two = growMembers(runs, graph, j, l.x0, l.y0, l.x0 + l.size, l.y0 + l.size, d, TOL).size >= 2 && d <= c.r + TOL;
         const tiers = [0, 1, 2, 3].map((q) => J.mem[j * 4 + q]).filter((r) => r >= 0).map((r) => graph.rows[r].tier);
@@ -325,7 +372,7 @@ function checkScene(t, name, fig, opts = {}) {
         checkedPts++;
         const m = leaf >= 0 ? leafRead(T, leaf) : null;
         let has = false;
-        for (let i = 0; m && i < m.joinCount; i++) if (T.joinRefs[m.joinStart + i] === j) has = true;
+        for (let i = 0; m && i < m.joinCount; i++) if (T.runRefs[m.joinStart + i] === j) has = true;
         assert.ok(has, `${name}: join ${j} has two members' grown bounds at (${px.toFixed(3)}, ${py.toFixed(3)}) but is not listed in its leaf`);
       }
     }
@@ -407,7 +454,7 @@ test('the hierarchy does not depend on the camera: building twice gives the same
   const a = createLeafSet(), b = createLeafSet();
   buildLeaves(runs, graph.joins, null, defaultPolicy(), a);
   buildLeaves(runs, graph.joins, null, defaultPolicy(), b);
-  for (const k of ['cells', 'nodes', 'leaves', 'boxes', 'runRefs', 'joinRefs']) {
+  for (const k of ['cells', 'nodes', 'leaves', 'boxes', 'runRefs']) {
     const len = k === 'cells' ? a.tables.cells.length : k === 'nodes' ? a.tables.n.nodes * 4 : k === 'leaves' ? a.tables.n.leaves * 8 : k === 'boxes' ? a.tables.n.leaves * 4 : a.tables.n[k];
     assert.deepEqual(Array.from(a.tables[k].subarray(0, len)), Array.from(b.tables[k].subarray(0, len)), `table ${k}`);
   }
