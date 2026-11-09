@@ -334,6 +334,16 @@ test('vecBloodMix for 2, 8 and 32 streams lints, with the loop bound a compile-t
   assert.ok(G.VEC_BLOOD_GLSL.includes('rows[2]') && G.VEC_BLOOD_GLSL.includes(`rows[${CT.SLOTS}]`), 'the default text keeps the two-stream form B and C call, and the SLOTS one');
 });
 
+test('the work of a blood pixel scales with its streams and doubles its tile reads when chained or cross-fading', () => {
+  const one = M.bloodPixelWork(1), many = M.bloodPixelWork(32);
+  assert.equal(many.total, one.total * 32);
+  assert.equal(M.bloodPixelWork(1, { style: 1 }).tile, 2);
+  assert.equal(M.bloodPixelWork(1, { crossfade: true }).tile, 4);
+  assert.equal(M.bloodPixelWork(1, { crossfade: true, chained: true }).tile, 8);
+  assert.equal(M.bloodPixelWork(1, { style: 2 }).tile, 0, 'look E reads no tile');
+  assert.ok(M.bloodPixelWork(1, { origin: true, dye: true, chev: true }).fetch > one.fetch);
+});
+
 test('mod and the period: the stream distance wraps seamlessly', () => {
   const a = { D: PERIOD - 1, vd: 10, stasis: 0, dr: 0, B0: 0, k: 1, slope: 0 };
   assert.ok(Math.abs(M.circDiff(M.streamDistance(a, 0.05), M.streamDistance(a, 0.1)) - 0.5) < 1e-9);

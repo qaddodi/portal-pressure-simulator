@@ -18,7 +18,9 @@
 // runs' numbers changed, so only the leaves those runs reach are rebuilt (K).
 //
 // SIGNATURES (K, B, C, L code against these):
-//   const runs = createRuns(graph, look?)       graph: vec-graph.js createVecGraph(); look: { shOff: [x, y], glow, aa } (default vec-compile DEFAULT_LOOK's numbers)
+//   const runs = createRuns(graph, look?)       graph: vec-graph.js createVecGraph(); look: { shOff: [x, y], aa, headroom } (defaults: the contract's REACH_SHADOW_OFF, REACH_AA, BOUND_HEADROOM;
+//                                                headroom is read once: a sweep builds runs at several; runs.headroom holds it)
+//                                                joinDisc(j) = (reach + k) × headroom, final: the packed JOIN texture holds reach and k, the shader multiplies by the same headroom (uniform)
 //   runs.build()                                 every row's runs made from the graph as it stands; returns runs
 //   runs.runsOf(row)        → Int32Array view    the row's run ids, in order (a kept view; its length is the count; runs with no segment in the binning are left out)
 //   runs.boundOf(run, C_*, out?) → out | null    the capsule { ax, ay, bx, by, r } for that contribution, or null when the run has none (no shadow, glow not on, not selected, off)
@@ -56,7 +58,7 @@ export function glowReachOf(rec) { return rec.glow > 0 ? GLOW_USUAL * clamp(rec.
 
 export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
   const R = {
-    graph, look, nRows: 0, nRuns: 0,
+    graph, look, headroom: look.headroom ?? BOUND_HEADROOM, nRows: 0, nRuns: 0,
     /** Per run: chord (ax, ay, bx, by), bound radii (rL, rS, rG, rR), segments (i0, i1), flags, morph box, the largest radius used (for pastRows). */
     chord: new Float32Array(0), rad: new Float32Array(0), seg: new Int16Array(0), flags: new Uint8Array(0), box: new Float32Array(0), radB: new Float32Array(0),
     count: new Uint8Array(0),                 // per row: how many runs
@@ -101,7 +103,7 @@ export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
     }
     for (let i = i0; i <= i1; i++) if (graph.seg[r * N_QUADS + i]) seen = true;
     const sag = Math.sqrt(sag2) + 1e-3;   // (1e-3: float32 rounding of the stored chord and radii)
-    const lum = rmax * BOUND_HEADROOM + rec.casing + R.look.aa * 0.5 + sag;
+    const lum = rmax * R.headroom + rec.casing + R.look.aa * 0.5 + sag;
     const glowR = glowReachOf(rec);
     const shadow = (rec.flags & F_SHADOW) !== 0;
     const rL = f32(lum), rS = shadow ? f32(lum + REACH_SHADOW_BLUR) : 0, rG = glowR > 0 ? f32(lum + glowR) : 0, rR = rec.sel > 0 ? f32(lum + REACH_RING) : 0;
@@ -115,7 +117,7 @@ export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
     set(R.rad, o4, rL); set(R.rad, o4 + 1, rS); set(R.rad, o4 + 2, rG); set(R.rad, o4 + 3, rR);
     set(R.seg, id * 2, i0); set(R.seg, id * 2 + 1, i1); set(R.flags, id, fl);
     set(R.box, o4, f32(x0 - reachMax)); set(R.box, o4 + 1, f32(y0 - reachMax)); set(R.box, o4 + 2, f32(x1 + reachMax)); set(R.box, o4 + 3, f32(y1 + reachMax));
-    R.radB[id] = f32(rmax * BOUND_HEADROOM);
+    R.radB[id] = f32(rmax * R.headroom);
     return diff;
   }
 
@@ -158,7 +160,7 @@ export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
     // (Lists are rebuilt whole each time they are asked for: a join's list is short and a rebuild is rare. A list longer than the kept one grows it.)
     const lists = [];
     for (let j = 0; j < J.n; j++) {
-      const l = [], rr = (J.reach[j] + J.k[j]) * BOUND_HEADROOM;
+      const l = [], rr = (J.reach[j] + J.k[j]) * R.headroom;
       for (let m = 0; m < 4; m++) {
         const row = J.mem[j * 4 + m];
         if (row < 0 || row >= graph.nRows) continue;
@@ -212,7 +214,7 @@ export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
   R.joinRunsOf = (j) => R.joinViews[j];
   R.joinDisc = function joinDisc(j, out = { x: 0, y: 0, r: 0 }) {
     const J = graph.joins;
-    out.x = J.x[j]; out.y = J.y[j]; out.r = (J.reach[j] + J.k[j]) * BOUND_HEADROOM;
+    out.x = J.x[j]; out.y = J.y[j]; out.r = (J.reach[j] + J.k[j]) * R.headroom;
     return out;
   };
   R.pastRows = function pastRows(list) {
@@ -227,7 +229,7 @@ export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
         else {
           for (let q = 0; q < R.views[r].length && !past; q++) {
             const id = R.views[r][q], i0 = R.seg[id * 2], i1 = Math.min(N_SAMPLES - 1, R.seg[id * 2 + 1] + 1);
-            for (let i = i0; i <= i1; i++) if (graph.rad[r * NS + i] * BOUND_HEADROOM > R.radB[id] + 1e-4) { past = true; break; }
+            for (let i = i0; i <= i1; i++) if (graph.rad[r * NS + i] > R.radB[id] + 1e-4) { past = true; break; }
           }
         }
       }
