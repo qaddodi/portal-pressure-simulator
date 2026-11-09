@@ -40,7 +40,7 @@ import { VEC_BLOOD_GLSL } from './vec-blood-glsl.js';
 /** The uniforms this file declares (E sets them; the host declarations of B's text are B's and E's to agree). */
 export const REGION_UNIFORMS = Object.freeze({
   vertex: ['world', 'size', 'gridO'],
-  fragment: ['regionTex', 'reachU'],   // (the cell grid, inv, gridO, gridN and vecBase are B's text's, the others are shared: VEC_SHADE_UNIFORMS)
+  fragment: ['regionTex', 'reachU', 'morphOn', 'joinBase'],   // (the cell grid, inv, gridO, gridN and vecBase are B's text's, the others are shared: VEC_SHADE_UNIFORMS)
 });
 
 /** Attributes of the vertex shader (a TRIANGLE_STRIP of 4, instanced per region cell): location 0 the unit corner (0 … 1), location 1 the region cell (cells across, cells down), per instance. */
@@ -114,10 +114,13 @@ const int JOIN0 = ${JOIN0};
 const int FORK_BIT = ${FORK_BIT};
 uniform highp sampler2D regionTex;     // the regions: REGION_TEXELS wide, one region a row (vec-contract.js)
 uniform float reachU;                  // how far from a lumen anything is drawn (world): the slot admission, as classic's
+uniform int morphOn;                   // 1: a morph set (veins-sweep.js) is in use: the joins of its regions come from the frame's join rows
+uniform int joinBase;                  // (morphOn) the texel of the frame's joins in ent: one a join (centre, reach, blend width and fillet, as the entries)
 ${VEC_SHADE_GLSL(K)}${blood}${above}${isBlood ? 'uniform sampler2D vecBase;            // the kept still picture\n' : ''}flat in ivec2 vCell;
 layout(location=0) out vec4 outColor;
 
 vec4 RG(int r, int k) { return texelFetch(regionTex, ivec2(k, r), 0); }
+vec4 JT(int j) { int t = joinBase + j; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }
 float smin(float a, float b, float k) {
   if (k <= 0.0) return min(a, b);
   float h = max(k - abs(a - b), 0.0) / k;
@@ -201,9 +204,13 @@ ${single}
   int jm[MAXJ], jt[MAXJ], jtf[MAXJ];  // (jt: the members that are the trunk the others end on; jtf: those of them at a fork)
   float jk[MAXJ], jf[MAXJ], js[MAXJ];
   int njr = min(int(r0.z + 0.5), MAXJ);
+  bool morph = morphOn >= 1 && (int(r0.x + 0.5) & ${K_MORPH}) != 0;
   for (int k = 0; k < MAXJ; k++) {
     if (k >= njr || jn == MAXJ) break;
     vec4 A = RG(rg, JOIN0 + 2 * k), B = RG(rg, JOIN0 + 2 * k + 1);
+    // (A morph region: the join as this frame has it. The record's A.x is its row in the frame's joins; the row holds centre, reach, and the
+    // blend width and fillet packed as the entries do.)
+    if (morph) { vec4 F = JT(int(A.x + 0.5)); A = vec4(F.xy, floor(F.w) * 0.01, F.z); B.w = fract(F.w) / 0.99; }
     float dc = length(p - A.xy);
     if (dc > A.w) continue;
     // (B.x the member mask's bits 0 … 15, B.z its bits 16 … 31; B.y the trunk member, plus FORK_BIT at a fork, −1 none; B.w the fillet)
