@@ -109,6 +109,10 @@ export const NODE_W = 1024, NODE_KIND_EMPTY = 0, NODE_KIND_LEAF = 1, NODE_KIND_N
 export const MAX_DEPTH = 6;     // levels under a cell (a leaf of 0.25 world units at the finest)
 /** LEAF_TEX: RGBA32UI, LEAF_TEXELS a leaf: t0 class (+ L_CROSSTIER_BIT), runStart, runCount, joinStart; t1 joinCount, candMax, depth, owner row (L_SINGLE) or 0xffffffff. */
 export const LEAF_TEXELS = 2;
+/** Leaves a row of LEAF_TEX (so the texture is LEAF_ROW × LEAF_TEXELS wide), and leaves (texels) a row of LEAF_BOX (K asked, 9 Nov). */
+export const LEAF_ROW = 1024, BOX_W = 4096;
+/** CELL_TEX texel (RGBA16UI): R kind, G the leaf or node index's low 16 bits, B its high 16 bits, A 0. A node's child word is kind << CELL_KIND_SHIFT | index (CELL_INDEX_MASK). */
+export const CELL_KIND_SHIFT = 30, CELL_INDEX_MASK = 0x3fffffff;
 /** LEAF_BOX: RGBA32F, one texel a leaf: x0, y0, size, class (the leaf quad's square). */
 export const LEAF_BOX_TEXELS = 1;
 /** RUNREF_TEX and JOINREF_TEX: R32UI, LIST_W texels a row; a run reference is `runId | bits << 24` (bits: C_*), a join reference is a join index. No capacity limit: leaves hold start and count. */
@@ -125,7 +129,9 @@ export const JOIN_TEXELS = 3;
 // ── Candidates and the refinement policy ──
 export const SLOTS_WIDE = 32;   // candidates a pixel in an L_WIDE leaf (SLOTS is the standard program's). Over SLOTS_WIDE is a stop point.
 /** Defaults the workload benchmark (workstream L) sets on the real anatomy. */
-export const BOUND_HEADROOM = 1.1;            // radius headroom in the lumen bound (a lower one: tighter leaves, more rebuilds during width easings)
-export const LEAF_MIN_PX = 8, LEAF_OVERHEAD = 64, REFINE_GAIN = 0.2;
+export const BOUND_HEADROOM = 1.0;            // radius headroom in the lumen bound (a lower one: tighter leaves, more rebuilds during width easings)
+/** A join's grown bound (plan r1.1, 2.2.1): a member run's lumen bound + G_JOIN × jk, its shadow bound + G_JOIN_SH × jk, jk = k × (1 − smoothstep(0.55 R, R, d)) at the leaf's point nearest the centre. */
+export const G_JOIN = 2.2, G_JOIN_SH = 1.25;
+export const LEAF_MIN_PX = 8, LEAF_OVERHEAD = 64, REFINE_GAIN = 0.05;
 /** The rendering tolerance a shortlist must prove: half an 8-bit level. */
 export const TOLERANCE_8BIT = 0.5 / 255;

@@ -15,6 +15,8 @@
 // cell a vessel can change is then inside the vessel's list for the cell. Nothing allocates on a repeated call (`// alloc-rare:` marks the growths).
 import { CELL } from './veins-bin.js';
 import { createVecGraph } from './vec-graph.js';
+import { createRuns, DEFAULT_RUN_LOOK } from './vec-runs.js';
+import { createLeafSet, buildLeaves, rebuildLeaves, defaultPolicy } from './vec-leaves.js';
 import { N_SAMPLES, N_QUADS, padOf } from './veins-mesh.js';
 import {
   GRID_PAD, GRID_W, MASK_SPLIT, CELL_EMPTY, CELL_SIMPLE, CELL_REGION, WIN_MAX, REGION_TEXELS, MAX_MEMBERS, MAX_JOINS, JOIN0, FORK_BIT,
@@ -941,39 +943,145 @@ export function createVecCompiler(look = DEFAULT_LOOK) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-// Revision 1: the grid K's leaves are built under (vec-runs.js runs, K's buildLeaves). The old classification above goes at E's switch-over.
+// Revision 1: the adapter. graph (vec-graph.js) → runs (vec-runs.js) → K's leaves (vec-leaves.js) → the tables E uploads. The classification above
+// (compileGrid, recompileRows, compileMorphSet, createVecCompiler and the caps they keep) goes in the push that switches E over; nothing below keeps
+// "the nearest" of anything or caps a member list: a leaf names every run its bounds reach (K), and an overflow is reported (stop point), never cut.
 // ════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 /**
- * The broad 16-unit cell grid over every run's box (the points' hull widened by the run's largest bound radius and the shadow offset) and every join's disc,
- * grown by GRID_PAD cells; `grid` is kept by the caller and written in place:
- *   { x0, y0 (world origin, a multiple of CELL), nx, ny (cells across and down), cs (CELL), cells (Uint16Array GRID_W × ny RGBA16UI texels, zeroed: K writes
- *     kind CELL_EMPTY / CELL_LEAF / CELL_NODE and the leaf or node index), tooWide (nx > GRID_W), texRows (= ny) }
- * `cells` is only reallocated when the grid grows (// alloc-rare); a grid the same size keeps its array and is zeroed.
+ * createVecLeaves(look?, policy?) gives the calls vec-renderer.js's `parts.compile` makes (the same names as createVecCompiler), producing the hierarchy view.
+ *   build(bins, nTubes, shared)  setGeometry: graph, runs and the whole hierarchy made again. `shared` = { tubeNow, radAll } as createVecCompiler's.
+ *   patch(bins)                  patchGeometry: the rows whose points moved, the members of joins that changed, the joins that moved.
+ *   attrs(tubeNow)               setTubes: casing, glow, selection, shadow changes rebuild the rows they move a bound of; a colour or tier changes nothing.
+ *   radii(radAll)                setRadii: only a radius past its bound (BOUND_HEADROOM) rebuilds its row.
+ *   exceeds(row, r)              records r as the row's radii and says whether a run's bound no longer holds them (without rebuilding).
+ *   rows(list, n?)               these rows rebuilt.
+ *   morph(bins, tubes, slack?)   a morph set (veins-sweep.js binSwept's binning and the tubes it was made from) as a hierarchy of its own (policy mode 'box': each run's box over the whole stretch).
+ *   current()                    the figure's view.
+ * Every call returns the view when something changed (null otherwise):
+ *   { tables (K's six tables: cells, nodes, leaves, boxes, runRefs, joinRefs; tables.dirty[name] = {lo, hi} rows to upload, tables.resized[name] = make the texture again;
+ *     call clearDirty(tables) from vec-leaves-pack.js after uploading), runTex ({ data, width, height, dirty [row0, row1] | null } for this call's rows: upload them, then the next call
+ *     writes its own), joinTex ({ data, count }, always whole: a few hundred floats), grid ({ x0, y0, nx, ny }), full (everything was built again), stats (what the call wrote), report
+ *     (what the hierarchy holds, with the stop points: overWide, falseProximity), tooWide (the grid is wider than GRID_W cells), runs, graph, joins (graph.joins) }.
+ * The tubes in a morph set's call must be the sweep's own (E keeps and passes them).
  */
-export function fitGrid(runs, grid = {}) {
-  const g = runs.graph, J = g.joins, cs = CELL;
-  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-  for (let r = 0; r < g.nRows; r++) {
-    for (const id of runs.runsOf(r)) {
-      const o = id * 4;
-      if (runs.box[o] < x0) x0 = runs.box[o]; if (runs.box[o + 1] < y0) y0 = runs.box[o + 1];
-      if (runs.box[o + 2] > x1) x1 = runs.box[o + 2]; if (runs.box[o + 3] > y1) y1 = runs.box[o + 3];
-    }
+/** The most cell-areas a morph set's run boxes may sum to before its leaves are not built (see morph). */
+export const MORPH_CELLS_MAX = 40000;
+export function createVecLeaves(look = DEFAULT_RUN_LOOK, policy = defaultPolicy()) {
+  const graph = createVecGraph(), runs = createRuns(graph, look), set = createLeafSet();
+  let tubeRef = null, radRef = null, built = false, rowsBuf = new Int32Array(64), mark = new Uint8Array(0), jBuf = new Int32Array(16);
+  const runTex = { data: null, width: 0, height: 0, dirty: null }, joinTex = { data: null, count: 0 };
+  const viewOf = (o, hier, runsOf, g) => {
+    const v = o.view ??= { tables: null, runTex, joinTex, grid: null, full: true, stats: null, report: null, tooWide: false, runs: null, graph: null, joins: null, set: null };   // alloc-rare: once a set
+    v.tables = hier.tables; v.grid = hier.grid; v.full = !!hier.stats.full; v.stats = hier.stats; v.report = hier.report;
+    v.tooWide = hier.grid.nx > GRID_W; v.runs = runsOf; v.graph = g; v.joins = g.joins; v.set = hier;
+    return v;
+  };
+  const anyDirty = (T) => { for (const t in T.dirty) if (T.dirty[t].lo >= 0) return true; return false; };
+  function packAll(R) { R.packRuns(runTex); R.packJoins(joinTex); }
+  function growBuf(n) {
+    if (rowsBuf.length < n + graph.nRows) rowsBuf = new Int32Array((n + graph.nRows) * 2);   // alloc-rare: grown with the vessel rows
+    if (mark.length < graph.nRows) mark = new Uint8Array(graph.nRows);   // alloc-rare: as above
   }
-  for (let j = 0; j < J.n; j++) {
-    const d = runs.joinDisc(j, DISC);
-    if (!(d.r > 0)) continue;
-    if (d.x - d.r < x0) x0 = d.x - d.r; if (d.y - d.r < y0) y0 = d.y - d.r; if (d.x + d.r > x1) x1 = d.x + d.r; if (d.y + d.r > y1) y1 = d.y + d.r;
+  // The leaves for the runs the last rebuildRows changed (and the joins that changed or moved).
+  function leavesFor(rows, n, movedJoins) {
+    growBuf(n);
+    const nChanged = runs.rebuildRows(rows, n);
+    // joins: the ones whose required runs changed (runs.changedJoins) and those whose numbers moved (the graph's jlist)
+    const J = graph.joins;
+    if (jBuf.length < J.n) jBuf = new Int32Array(J.n * 2);   // alloc-rare: grown with the joins
+    let nj = 0;
+    const seen = growMark(J.n);
+    for (let q = 0; q < runs.nChangedJoins; q++) { const j = runs.changedJoins[q]; if (!seen[j]) { seen[j] = 1; jBuf[nj++] = j; } }
+    if (movedJoins) for (let q = 0; q < graph.nj; q++) { const j = graph.jlist[q]; if (j < J.n && !seen[j]) { seen[j] = 1; jBuf[nj++] = j; } }
+    for (let q = 0; q < nj; q++) seen[jBuf[q]] = 0;
+    if (!nChanged && !nj) return null;
+    rebuildLeaves(runs.changed, set, nChanged, jBuf, nj);
+    runs.packRuns(runTex, rows, n); runs.packJoins(joinTex);
+    return anyDirty(set.tables) || set.stats.full ? viewOf(set, set, runs, graph) : null;
   }
-  if (!(x0 < Infinity)) { x0 = y0 = 0; x1 = y1 = cs; }
-  grid.cs = cs;
-  grid.x0 = (Math.floor(x0 / cs) - GRID_PAD) * cs; grid.y0 = (Math.floor(y0 / cs) - GRID_PAD) * cs;
-  grid.nx = Math.max(1, Math.ceil((x1 - grid.x0) / cs) + GRID_PAD); grid.ny = Math.max(1, Math.ceil((y1 - grid.y0) / cs) + GRID_PAD);
-  grid.tooWide = grid.nx > GRID_W; grid.texRows = grid.ny;
-  const n = GRID_W * grid.ny * 4;
-  if (!grid.cells || grid.cells.length < n) grid.cells = new Uint16Array(n);   // alloc-rare: with the grid
-  else grid.cells.fill(0, 0, n);
-  return grid;
+  let seenBuf = new Uint8Array(0);
+  const growMark = (n) => { if (seenBuf.length < n) seenBuf = new Uint8Array(n * 2); return seenBuf; };   // alloc-rare: grown with the joins
+  const take = (list, n) => { growBuf(n); for (let k = 0; k < n; k++) rowsBuf[k] = list[k]; return n; };
+  const api = {
+    graph, runs, policy, set,
+    build(bins, nTubes, shared = null) {
+      if (shared?.tubeNow) tubeRef = shared.tubeNow;
+      if (shared?.radAll) radRef = shared.radAll;
+      graph.fromBins(bins, nTubes);
+      if (tubeRef) graph.attrs(tubeRef);
+      if (radRef) graph.radii(radRef);
+      runs.build();
+      buildLeaves(runs, graph.joins, null, policy, set); set.stats.full = true;
+      packAll(runs);
+      built = true;
+      return viewOf(set, set, runs, graph);
+    },
+    patch(bins) {
+      if (!built) return null;
+      graph.patch(bins);
+      let n = take(graph.list, graph.n);
+      mark.fill(0, 0, graph.nRows);
+      for (let k = 0; k < n; k++) mark[rowsBuf[k]] = 1;
+      const J = graph.joins;
+      for (let q = 0; q < graph.nj; q++) for (let m = 0; m < 4; m++) {
+        const r = J.mem[graph.jlist[q] * 4 + m];
+        if (r >= 0 && r < graph.nRows && !mark[r]) { mark[r] = 1; if (n === rowsBuf.length) { const b = new Int32Array(n * 2); b.set(rowsBuf); rowsBuf = b; } rowsBuf[n++] = r; }   // alloc-rare: as above
+      }
+      return leavesFor(rowsBuf, n, true);
+    },
+    attrs(tubeNow) {
+      tubeRef = tubeNow;
+      if (!built) return null;
+      graph.attrs(tubeNow);
+      growBuf(graph.nRows);
+      // (the rows a tier or casing change listed, and those whose bounds are past: a tier alone moves no run's bound but can change a join's footprint)
+      let n = take(graph.list, graph.n);
+      mark.fill(0, 0, graph.nRows);
+      for (let k = 0; k < n; k++) mark[rowsBuf[k]] = 1;
+      for (let r = 0; r < graph.nRows; r++) if (!mark[r] && runs.rowPast(r)) rowsBuf[n++] = r;
+      return n ? leavesFor(rowsBuf, n, false) : null;
+    },
+    radii(radAll) {
+      radRef = radAll;
+      if (!built) return null;
+      graph.radii(radAll);
+      growBuf(graph.nRows);
+      const n = runs.pastRows(rowsBuf);
+      return n ? leavesFor(rowsBuf, n, false) : null;
+    },
+    exceeds(row, r) {
+      if (!built || row < 0 || row >= graph.nRows) return false;
+      const rec = graph.rows[row];
+      if (!rec.on) return false;
+      let mx = 0;
+      for (let i = 0; i < N_SAMPLES; i++) { const v = r[i]; graph.rad[row * N_SAMPLES + i] = v; if (v > mx) mx = v; }
+      rec.rmax = mx;
+      return runs.rowPast(row);
+    },
+    rows(list, n = list.length) {
+      if (!built) return null;
+      return leavesFor(rowsBuf, take(list, n), false);
+    },
+    morph(bins, tubes, slack = 0) {
+      // (a graph and runs of the set's own: its rows' points are the first moment's, widened below to the whole stretch; the material is the figure's)
+      const g = createVecGraph(), R = createRuns(g, look), S = createLeafSet();
+      g.fromBins(bins, graph.nRows);
+      for (let r = 0; r < graph.nRows; r++) { const a = graph.rows[r], b = g.rows[r]; b.casing = a.casing; b.flags = a.flags; b.glow = a.glow; b.glowW = a.glowW; b.sel = a.sel; b.tier = a.tier; b.hover = a.hover; }
+      g.rad.set(graph.rad.subarray(0, g.rad.length));
+      R.build(); R.morphBoxes(tubes ?? [], slack);
+      // (STOP POINT, 9 Nov: a run's box over a whole stretch spans up to ~2,700 world units on the big view changes, 0.5 to 1 million cell-areas a set; building leaves from
+      // those exhausts memory. Asked Mohammad; until he answers a set whose boxes cover more than MORPH_CELLS_MAX cells is not built: `tooLarge`, no tables.)
+      let area = 0;
+      for (let id = 0; id < R.nRuns; id++) { const o = id * 4; if (R.rad[o] > 0) area += (R.box[o + 2] - R.box[o]) * (R.box[o + 3] - R.box[o + 1]) / (CELL * CELL); }
+      if (area > MORPH_CELLS_MAX) return { tooLarge: true, boxCells: area, tables: null, runs: R, graph: g, joins: g.joins };
+      const pol = { ...policy, mode: 'box' };
+      buildLeaves(R, g.joins, null, pol, S); S.stats.full = true;
+      const v = { ...viewOf({}, S, R, g), runTex: { data: null, width: 0, height: 0, dirty: null }, joinTex: { data: null, count: 0 } };
+      R.packRuns(v.runTex); R.packJoins(v.joinTex);
+      return v;
+    },
+    current() { return built ? viewOf(set, set, runs, graph) : null; },
+  };
+  return api;
 }
-const DISC = { x: 0, y: 0, r: 0 };

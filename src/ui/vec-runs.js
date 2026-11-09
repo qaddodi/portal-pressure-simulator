@@ -20,12 +20,19 @@
 // SIGNATURES (K, B, C, L code against these):
 //   const runs = createRuns(graph, look?)       graph: vec-graph.js createVecGraph(); look: { shOff: [x, y], aa, headroom } (defaults: the contract's REACH_SHADOW_OFF, REACH_AA, BOUND_HEADROOM;
 //                                                headroom is read once: a sweep builds runs at several; runs.headroom holds it)
-//                                                joinDisc(j) = (reach + k) × headroom, final: the packed JOIN texture holds reach and k, the shader multiplies by the same headroom (uniform)
+//                                                joinDisc(j) = the junction's own footprint (9 Nov, K's finding): the farthest overlap of two members' capsules (lumen bound + k) from the centre, never more than
+//                                                (reach + k) × headroom. The packed JOIN texture still holds the binning's reach and k (the shader's blend fades by reach), so vecJoinHit's disc is the larger one:
+//                                                a leaf lists a join only where its footprint is, and outside it the join changes no pixel
 //   runs.build()                                 every row's runs made from the graph as it stands; returns runs
 //   runs.runsOf(row)        → Int32Array view    the row's run ids, in order (a kept view; its length is the count; runs with no segment in the binning are left out)
 //   runs.boundOf(run, C_*, out?) → out | null    the capsule { ax, ay, bx, by, r } for that contribution, or null when the run has none (no shadow, glow not on, not selected, off)
-//   runs.joinRunsOf(join)   → Int32Array view    the join's required run ids (a list, never an interval); runs.joinDisc(join, out?) → { x, y, r }
+//   runs.joinRunsOf(join)   → Int32Array view    the member runs whose grown bound at the loosest jk (= k) reaches the join's disc (a list, never an interval); K keeps per leaf only those whose
+//                                                bound at THAT leaf's jk reaches it (plan r1.1, 2.2.1). runs.joinDisc(join, out?) → { x, y, r = reach × headroom: classic's cut-off }
+//   runs.joinFade(join, d) → jk                  k × (1 − smoothstep(0.55 R, R, d)): the blend width at distance d from the centre (K takes d at the leaf's point nearest the centre)
+//   runs.joinBoundOf(run, C_LUMEN | C_SHADOW, jk, out?) → capsule | null    the member run's grown bound: its lumen (shadow, around the chord moved by shOff) capsule, radius + G_JOIN (G_JOIN_SH) × jk
+//   runs.joinCrossTier(join) → bool; runs.joinPresenceOf(join) → Int32Array view   a cross-tier join's presence runs: each upper-tier member's ONE run nearest the centre (C_JOIN only, no shading of its own)
 //   runs.pastRows(list)     → n                  rows (into the Int32Array `list`, at least nRows long) whose runs' bounds no longer hold what the graph has now
+//   runs.rowPast(row)       → bool               whether that one row's runs are past (pastRows asks it of every row)
 //   runs.rebuildRows(rows, n?) → n               rebuilds those rows' runs (and the required runs of the joins they are members of); the run ids whose numbers
 //                                                changed are in runs.changed[0 .. n) (kept), the joins whose required list changed in runs.changedJoins[0 .. runs.nChangedJoins)
 //   runs.packRuns(out, rows?, n?) → out          the RUN texture's data in the contract's layout (RUN_TEXELS): out = { data: Float32Array, width, height, dirty: [row0, row1] | null }
@@ -34,7 +41,7 @@
 //   runs.morphBoxes(tubes)                       the t3 box of every run over a morph stretch: tubes = veins-sweep.js binSwept's input [{ id, path: [P0 … Pm] }], slack (world)
 import {
   RUN_SEGS, RUNS_PER_ROW, RUN_TEXELS, R_ON, R_SHADOW, R_GLOW, R_RING, C_LUMEN, C_SHADOW, C_GLOW, C_RING, C_JOIN,
-  BOUND_HEADROOM, REACH_GLOW, REACH_RING, REACH_SHADOW_BLUR, REACH_SHADOW_OFF, REACH_AA,
+  BOUND_HEADROOM, G_JOIN, G_JOIN_SH, REACH_GLOW, REACH_RING, REACH_SHADOW_BLUR, REACH_SHADOW_OFF, REACH_AA,
 } from './vec-contract.js';
 import { N_SAMPLES, N_QUADS } from './veins-mesh.js';
 import { F_SHADOW } from './veins-mesh-data.js';
@@ -62,11 +69,12 @@ export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
     /** Per run: chord (ax, ay, bx, by), bound radii (rL, rS, rG, rR), segments (i0, i1), flags, morph box, the largest radius used (for pastRows). */
     chord: new Float32Array(0), rad: new Float32Array(0), seg: new Int16Array(0), flags: new Uint8Array(0), box: new Float32Array(0), radB: new Float32Array(0),
     count: new Uint8Array(0),                 // per row: how many runs
+    wasOn: new Uint8Array(0),                 // per row: whether the row was on when its runs were made (a row on with no segment in the binning has no run, and is not 'past')
     ids: new Int32Array(0),                   // per row, RUNS_PER_ROW run ids
     views: [],                                // per row: the kept view of ids
     mat: new Float32Array(0),                 // per row: the material the bounds were made with (casing, glow reach now, selected, shadow)
     changed: new Int32Array(0), nChanged: 0, changedJoins: new Int32Array(0), nChangedJoins: 0,
-    joinStart: new Int32Array(0), joinCount: new Int32Array(0), joinList: new Int32Array(0), joinViews: [], nJoins: 0,
+    joinStart: new Int32Array(0), joinCount: new Int32Array(0), joinR: new Float32Array(0), joinList: new Int32Array(0), joinViews: [], nJoins: 0,
     version: 0,
   };
   const MAT = 4;
@@ -77,7 +85,7 @@ export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
     if (R.count.length < nRows) {   // alloc-rare: grown with the vessel rows
       R.chord = new Float32Array(nRows * RUNS_PER_ROW * 4); R.rad = new Float32Array(nRows * RUNS_PER_ROW * 4); R.seg = new Int16Array(nRows * RUNS_PER_ROW * 2);
       R.flags = new Uint8Array(nRows * RUNS_PER_ROW); R.box = new Float32Array(nRows * RUNS_PER_ROW * 4); R.radB = new Float32Array(nRows * RUNS_PER_ROW);
-      R.count = new Uint8Array(nRows); R.ids = new Int32Array(nRows * RUNS_PER_ROW); R.mat = new Float32Array(nRows * MAT);
+      R.count = new Uint8Array(nRows); R.wasOn = new Uint8Array(nRows); R.ids = new Int32Array(nRows * RUNS_PER_ROW); R.mat = new Float32Array(nRows * MAT);
       R.changed = new Int32Array(nRows * RUNS_PER_ROW);
       R.views = [];
       for (let r = 0; r < nRows; r++) R.views.push(R.ids.subarray(r * RUNS_PER_ROW, r * RUNS_PER_ROW));
@@ -146,44 +154,63 @@ export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
     }
     if (R.count[r] !== n || fresh) { R.count[r] = n; R.views[r] = R.ids.subarray(r * RUNS_PER_ROW, r * RUNS_PER_ROW + n); }   // alloc-rare: a view when the row's run count changes
     else if (n) { /* the ids are rewritten in place, the view stays */ }
+    R.wasOn[r] = rec.on ? 1 : 0;
     matOf(rec, r * MAT);
   }
 
-  // The required runs of every join: every run of a member whose capsule the join's disc reaches.
+  // A join's records (plan r1.1, section 2.2.1). The disc is classic's own cut-off: reach × headroom (`dc > A.z` skips the join). A join can change a pixel only where two
+  // members' GROWN bounds reach it: a member run's lumen capsule + G_JOIN × jk and (F_SHADOW vessels) its shadow capsule + G_JOIN_SH × jk, jk = k × (1 − smoothstep(0.55 R, R, d))
+  // at the leaf's point nearest the centre (K takes that: runs.joinFade). Here, per join:
+  //   the member runs whose grown bound at the loosest jk (= k) reaches the disc          joinRunsOf(j)   (a list; K keeps per leaf only those whose bound reaches the leaf)
+  //   for a cross-tier join, each upper-tier member's one run nearest the centre           joinPresenceOf(j)   (presence only: the copy rules see the upper member)
   function joinRuns(only) {
     const J = graph.joins;
     R.nJoins = J.n;
-    if (R.joinStart.length < J.n) { R.joinStart = new Int32Array(J.n); R.joinCount = new Int32Array(J.n); R.joinViews = []; }   // alloc-rare: grown with the joins
+    if (R.joinStart.length < J.n) { R.joinStart = new Int32Array(J.n); R.joinCount = new Int32Array(J.n); R.joinViews = []; R.joinR = new Float32Array(J.n); R.presViews = []; R.joinCross = new Uint8Array(J.n); }   // alloc-rare: grown with the joins
     if (R.changedJoins.length < J.n) R.changedJoins = new Int32Array(J.n);   // alloc-rare: as above
-    if (!only) { R.joinList = new Int32Array(Math.max(16, J.n * 8)); R.joinViews.length = 0; }
+    if (!only) { R.joinList = new Int32Array(Math.max(16, J.n * 8)); R.joinViews.length = 0; R.presViews.length = 0; R.joinR.fill(-1); }
     R.nChangedJoins = 0;
     // (Lists are rebuilt whole each time they are asked for: a join's list is short and a rebuild is rare. A list longer than the kept one grows it.)
-    const lists = [];
+    const lists = [], pres = [], hd = R.headroom, sx = R.look.shOff[0], sy = R.look.shOff[1];
     for (let j = 0; j < J.n; j++) {
-      const l = [], rr = (J.reach[j] + J.k[j]) * R.headroom;
+      const l = [], p = [], disc = J.reach[j] * hd, cx = J.x[j], cy = J.y[j], k = J.k[j];
+      let top = -1, low = 1e9;
+      for (let m = 0; m < 4; m++) { const row = J.mem[j * 4 + m]; if (row < 0 || row >= graph.nRows) continue; const t = graph.rows[row].tier; if (t > top) top = t; if (t < low) low = t; }
+      const cross = top > low;
       for (let m = 0; m < 4; m++) {
         const row = J.mem[j * 4 + m];
         if (row < 0 || row >= graph.nRows) continue;
-        const view = R.views[row];
+        const view = R.views[row], upper = cross && graph.rows[row].tier === top;
+        let near = -1, nearD = Infinity;
         for (let q = 0; q < view.length; q++) {
           const id = view[q], o = id * 4;
-          if (ptSeg2(J.x[j], J.y[j], R.chord[o], R.chord[o + 1], R.chord[o + 2], R.chord[o + 3]) <= (rr + R.rad[o]) * (rr + R.rad[o])) l.push(id);
+          const gl = R.rad[o] + G_JOIN * k, gs = R.rad[o + 1] > 0 ? R.rad[o + 1] + G_JOIN_SH * k : 0;
+          const d0 = ptSeg2(cx, cy, R.chord[o], R.chord[o + 1], R.chord[o + 2], R.chord[o + 3]);
+          const reachL = disc + gl, reachS = gs > 0 ? disc + gs : -1;
+          if (d0 <= reachL * reachL || (reachS > 0 && ptSeg2(cx - sx, cy - sy, R.chord[o], R.chord[o + 1], R.chord[o + 2], R.chord[o + 3]) <= reachS * reachS)) l.push(id);
+          if (upper && d0 < nearD) { nearD = d0; near = id; }
         }
+        if (upper && near >= 0) p.push(near);
       }
-      lists.push(l);
+      lists.push(l); pres.push(p);
     }
     let total = 0;
-    for (const l of lists) total += l.length;
+    for (let j = 0; j < J.n; j++) total += lists[j].length + pres[j].length;
     if (R.joinList.length < total) R.joinList = new Int32Array(total * 2);   // alloc-rare: a list longer than any before
     let at = 0;
+    const same = (a, b) => { if (!a || a.length !== b.length) return false; for (let q = 0; q < b.length; q++) if (a[q] !== b[q]) return false; return true; };
     for (let j = 0; j < J.n; j++) {
-      const l = lists[j], was0 = R.joinViews[j];
-      let same = !!was0 && was0.length === l.length;
-      if (same) for (let q = 0; q < l.length; q++) if (was0[q] !== l[q]) { same = false; break; }
-      R.joinStart[j] = at; R.joinCount[j] = l.length;
+      const l = lists[j], p = pres[j], wasL = R.joinViews[j], wasP = R.presViews[j], r = f32(J.reach[j] * hd);
+      let top = -1, low = 1e9;
+      for (let m = 0; m < 4; m++) { const row = J.mem[j * 4 + m]; if (row < 0 || row >= graph.nRows) continue; const t = graph.rows[row].tier; if (t > top) top = t; if (t < low) low = t; }
+      const unchanged = same(wasL, l) && same(wasP, p) && R.joinR[j] === r && R.joinCross[j] === (top > low ? 1 : 0);
+      R.joinStart[j] = at; R.joinCount[j] = l.length; R.joinR[j] = r; R.joinCross[j] = top > low ? 1 : 0;
       for (let q = 0; q < l.length; q++) R.joinList[at++] = l[q];
       R.joinViews[j] = R.joinList.subarray(R.joinStart[j], at);
-      if (!same) R.changedJoins[R.nChangedJoins++] = j;
+      const ps = at;
+      for (let q = 0; q < p.length; q++) R.joinList[at++] = p[q];
+      R.presViews[j] = R.joinList.subarray(ps, at);
+      if (!unchanged) R.changedJoins[R.nChangedJoins++] = j;
     }
   }
 
@@ -212,29 +239,43 @@ export function createRuns(graph, look = DEFAULT_RUN_LOOK) {
     return out;
   };
   R.joinRunsOf = (j) => R.joinViews[j];
-  R.joinDisc = function joinDisc(j, out = { x: 0, y: 0, r: 0 }) {
-    const J = graph.joins;
-    out.x = J.x[j]; out.y = J.y[j]; out.r = (J.reach[j] + J.k[j]) * R.headroom;
+  R.joinPresenceOf = (j) => R.presViews[j];
+  R.joinCrossTier = (j) => R.joinCross[j] === 1;
+  /** jk: the join's blend width at distance d from its centre (classic's `k × (1 − smoothstep(0.55 R, R, d))`, k the binning's blend width). */
+  R.joinFade = function joinFade(j, d) {
+    const J = graph.joins, Rr = J.reach[j], t = clamp((d - 0.55 * Rr) / (0.45 * Rr), 0, 1);
+    return J.k[j] * (1 - t * t * (3 - 2 * t));
+  };
+  /** A member run's grown join bound: its C_LUMEN (or C_SHADOW, around the chord moved by shOff) capsule with radius + G × jk. null: no shadow bound. */
+  R.joinBoundOf = function joinBoundOf(run, c, jk, out = { ax: 0, ay: 0, bx: 0, by: 0, r: 0 }) {
+    if (!(R.flags[run] & R_ON)) return null;
+    const o = run * 4, shadow = c === C_SHADOW, r = R.rad[o + (shadow ? 1 : 0)];
+    if (!(r > 0)) return null;
+    const dx = shadow ? R.look.shOff[0] : 0, dy = shadow ? R.look.shOff[1] : 0;
+    out.ax = R.chord[o] + dx; out.ay = R.chord[o + 1] + dy; out.bx = R.chord[o + 2] + dx; out.by = R.chord[o + 3] + dy; out.r = r + (shadow ? G_JOIN_SH : G_JOIN) * jk;
     return out;
   };
+  R.joinDisc = function joinDisc(j, out = { x: 0, y: 0, r: 0 }) {
+    const J = graph.joins;
+    out.x = J.x[j]; out.y = J.y[j]; out.r = R.joinR[j];   // (reach × headroom: classic's cut-off)
+    return out;
+  };
+  // Whether row r's runs no longer hold what the graph has now (on-state, material or a radius past its bound).
+  function rowPast(r) {
+    const rec = graph.rows[r], o = r * MAT;
+    if ((rec.on ? 1 : 0) !== R.wasOn[r]) return true;
+    if (!rec.on) return false;
+    if (R.mat[o] !== rec.casing || R.mat[o + 1] !== glowReachOf(rec) || R.mat[o + 2] !== (rec.sel > 0 ? 1 : 0) || R.mat[o + 3] !== ((rec.flags & F_SHADOW) ? 1 : 0)) return true;
+    for (let q = 0; q < R.views[r].length; q++) {
+      const id = R.views[r][q], i0 = R.seg[id * 2], i1 = Math.min(N_SAMPLES - 1, R.seg[id * 2 + 1] + 1);
+      for (let i = i0; i <= i1; i++) if (graph.rad[r * NS + i] > R.radB[id] + 1e-4) return true;
+    }
+    return false;
+  }
+  R.rowPast = (r) => r >= 0 && r < graph.nRows && r < R.nRows && rowPast(r);
   R.pastRows = function pastRows(list) {
     let n = 0;
-    for (let r = 0; r < graph.nRows; r++) {
-      const rec = graph.rows[r];
-      let past = false;
-      const o = r * MAT, wasOn = R.count[r] > 0;
-      if (!!rec.on !== wasOn && (rec.on || wasOn)) past = true;
-      else if (rec.on) {
-        if (R.mat[o] !== rec.casing || R.mat[o + 1] !== glowReachOf(rec) || R.mat[o + 2] !== (rec.sel > 0 ? 1 : 0) || R.mat[o + 3] !== ((rec.flags & F_SHADOW) ? 1 : 0)) past = true;
-        else {
-          for (let q = 0; q < R.views[r].length && !past; q++) {
-            const id = R.views[r][q], i0 = R.seg[id * 2], i1 = Math.min(N_SAMPLES - 1, R.seg[id * 2 + 1] + 1);
-            for (let i = i0; i <= i1; i++) if (graph.rad[r * NS + i] > R.radB[id] + 1e-4) { past = true; break; }
-          }
-        }
-      }
-      if (past) list[n++] = r;
-    }
+    for (let r = 0; r < graph.nRows; r++) if (rowPast(r)) list[n++] = r;
     return n;
   };
   R.rebuildRows = function rebuildRows(rows, n = rows.length) {
