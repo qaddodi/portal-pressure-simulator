@@ -22,7 +22,7 @@ default stays Mesh.
 | Step | What happens | Where |
 |---|---|---|
 | Graph | One record per vessel row (centreline, radius, connections, identity, tier, depth, flags), read from the inputs `veins-gl.js` already receives | `vec-graph.js` (A) |
-| Compile | Every cell classified with each vessel's full reach (lumen, casing, shadow, glow, ring, hover, × `REACH_HEADROOM`); regions list up to `MAX_MEMBERS` members and `MAX_JOINS` joins; a radius past its compiled reach recompiles that row's cells | `vec-compile.js` (A) |
+| Compile | Every cell classified with each vessel's full reach (lumen, casing, shadow, glow, ring, hover, × `REACH_HEADROOM`); regions list up to `MAX_MEMBERS` (32) members and `MAX_JOINS` joins; a radius past its compiled reach recompiles that row's cells | `vec-compile.js` (A) |
 | Ordinary stretch | Instanced strip per vessel (the mesh's geometry); fragment draws only in cells its vessel owns; `vecNear`, then `vecShadeOne`, then `vecBlood` | `vec-stretch-glsl.js`, `vec-shade-glsl.js` (B) |
 | Interaction region | Quad per region cell; members' `vecNear`, nearest `SLOTS`, classic join/fillet/trunk/fork/run-on/cross-tier/crossing rules, tier and group compositing, `vecBloodMix` | `vec-region-glsl.js` (C) |
 | Blood | Streaks from `blood-tile.js` (two phases, mipmapped), stream distance and drift on the blood clock, chains, origin, dye, cast, lymph, stasis, reversal; filtered with analytic footprints | `vec-blood-glsl.js`, `vec-blood-math.js` (D) |
@@ -37,16 +37,16 @@ default stays Mesh.
 | Part | Files | In the tree |
 |---|---|---|
 | Plan, brief, contract | `docs/recommendations/vector-renderer-*.md`, `src/ui/vec-contract.js` | yes (`2bcd99d`) |
-| A graph and compiler | `vec-graph.js`, `vec-compile.js` | not yet |
-| B stretch shader | `vec-shade-glsl.js`, `vec-stretch-glsl.js` | not yet |
+| A graph and compiler | `vec-graph.js`, `vec-compile.js` | contract only (`vec-contract.js`, reshaped 9 Nov: `MAX_MEMBERS` 32, `REGION_TEXELS` 64, `JOIN0` 33); graph and compiler not yet |
+| B stretch shader | `vec-shade-glsl.js`, `vec-stretch-glsl.js` | yes (`7e679ec`; D's blood and G's ascites text in, `4057f57`) |
 | C region shader | `vec-region-glsl.js` | not yet |
-| D blood | `vec-blood-glsl.js`, `vec-blood-math.js` | not yet |
-| E renderer core | `vec-renderer.js`, `vec-frame.js`, `vec-targets.js` | not yet |
+| D blood | `vec-blood-glsl.js`, `vec-blood-math.js` | yes (`08b0799`; the heads' fragment shader, `a02a438`) |
+| E renderer core | `vec-renderer.js`, `vec-frame.js`, `vec-targets.js` | yes (`2ea671d`; BEHIND phase and lumen stencil `62d8c19`; D's uniforms `2d060ef`) |
 | F organs | `vec-organs.js`, `vec-organs-glsl.js` | not yet |
-| G overlays | `vec-overlays.js`, `vec-overlays-glsl.js` | not yet |
+| G overlays | `vec-overlays.js`, `vec-overlays-glsl.js` | yes (`fd581c3`; E's overlay port `c861d5e`) |
 | H setting and seam | `frame.js`, `main.js`, `veins-gl.js` | not yet |
-| I lobule | `vec-lobule.js` | not yet |
-| J trace, acceptance, docs | `scripts/stage-trace.mjs --renderer`, `tests/vec-accept-*.test.js`, this page | trace flag and acceptance skeleton (Phase 1) |
+| I lobule | `vec-lobule.js` | first slice (`2ef670b`: flow-row index, kept-picture stamps and box repaint) |
+| J trace, acceptance, docs | `scripts/stage-trace.mjs --renderer`, `tests/vec-accept-*.test.js`, this page | trace flag (`9f0cec4`); acceptance points 3, 4 (except the camera check) and 6 judged in node; 1, 2 and 5 wait for A and C |
 
 ## Checking it (node only: no browser, no screenshots)
 
