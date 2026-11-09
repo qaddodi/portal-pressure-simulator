@@ -63,6 +63,7 @@ export const VEC_OWN_UNIFORMS = Object.freeze({
   pxW: 'float',
   uVecGridO: 'vec2',    // the broad cell grid's origin (world)
   uVecGridN: 'ivec2',   // cells across, cells down
+  uVecJoinRow0: 'int',  // the row of the run table where the joins begin (= the vessel rows)
   uVecShOff: 'vec2',    // the shadow offset the runs' bounds were made with (the look's)
   padU: 'float',        // world units the strip is widened by past the lumen: |shOff| + the glow's reach (12 × 1.3) + 2 px; the BLOOD pass's lumen strip: 2 px
   selPad: 'float',      // and more for a selected vessel's ring: 4 + 2 px (0 in the BLOOD pass)
@@ -87,7 +88,7 @@ const BLOOD_VEC3 = { blendA: ['streakA', 'chevA', 'originA'] };
 
 const NO_RIM = [0, 0, 0, 0];
 // The own scalar uniforms, read from one kept Float64Array (a double returned from a function or kept in a variable is a heap number made each frame).
-const SCALARS = ['px', 'pxW', 'H', 'padU', 'selPad', 'variant', 'morphOn', 'posBase', 'joinBase',
+const SCALARS = ['px', 'pxW', 'H', 'uVecJoinRow0', 'padU', 'selPad', 'variant', 'morphOn', 'posBase', 'joinBase',
   'vbOn', 'vbChev', 'vbChevQuad', 'vbStill', 'vbLenOn', 'vbOrigin', 'vbDyeOn', 'vbStyle', 'vbFlowA', 'vbClock', 'vbBT', 'vbCssPx', 'vbDyeRows', 'vbBleedN', 'vbNoChevN', 'vbChevHoleN'];
 // workstream D's blood uniforms (vec-blood-glsl.js VEC_BLOOD_UNIFORMS): each names the composite uniform it stands for (`from`), set from the blood.
 const VB_FROM = Object.freeze(Object.fromEntries(VEC_BLOOD_UNIFORMS.filter((u) => u.from).map((u) => [u.name, u.from])));
@@ -345,6 +346,7 @@ export function createVecRenderer(gl, shared) {
     SC[SC_AT.vbDyeOn] = b && b.dye !== false ? 1 : 0; SC[SC_AT.vbStyle] = b ? b.style | 0 : 0;
     SC[SC_AT.vbFlowA] = b ? b.alpha ?? 1 : 1; SC[SC_AT.vbClock] = b ? b.clock || 0 : 0; SC[SC_AT.vbBT] = b ? b.bt || 0 : 0; SC[SC_AT.vbCssPx] = b ? b.vdpr || 1 : 1;
     SC[SC_AT.vbDyeRows] = nTubes; SC[SC_AT.vbBleedN] = nBleed; SC[SC_AT.vbNoChevN] = nNoChev; SC[SC_AT.vbChevHoleN] = nHoles;
+    SC[SC_AT.uVecJoinRow0] = active ? active.runTable.joinRow0 : 0;
     SC[SC_AT.morphOn] = morph.on; SC[SC_AT.posBase] = morph.posBase; SC[SC_AT.joinBase] = morph.joinBase;
   }
   function setUniforms(pr) {

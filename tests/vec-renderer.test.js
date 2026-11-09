@@ -18,7 +18,7 @@ import { TUBE_FLOATS, A_CASING, A_GLOW, A_ALPHA } from '../src/ui/vec-graph.js';
 // The shader workstreams' real programs are judged in their own tests; stand-ins declare the uniforms the renderer sets, which is all these tests need of them.
 
 const NS = N_SAMPLES, W = 640, H = 480;
-const HIER = 'uniform highp usampler2D uVecCells, uVecNodes, uVecLeaves, uVecRunRefs, uVecJoinRefs; uniform highp sampler2D uVecRuns, uVecJoins; uniform vec2 uVecGridO, uVecShOff; uniform ivec2 uVecGridN;';
+const HIER = 'uniform highp usampler2D uVecCells, uVecNodes, uVecLeaves, uVecRunRefs; uniform highp sampler2D uVecRuns; uniform vec2 uVecGridO, uVecShOff; uniform ivec2 uVecGridN; uniform int uVecJoinRow0;';
 const UNIFORMS = `uniform float padU, selPad; uniform mat3 world, inv; uniform vec2 size; uniform float px, H; uniform int variant, morphOn; uniform sampler2D vecBase, tube; uniform vec4 casing; uniform float tierAlpha[3]; ${HIER}`;
 const stretchVS = `#version 300 es\nlayout(location=0) in vec4 aV; layout(location=1) in float aRow;\n${UNIFORMS}\nvoid main(){ gl_Position = vec4(0.); }`;
 const regionVS = `#version 300 es\nlayout(location=0) in vec2 aC; layout(location=1) in vec4 aBox;\n${UNIFORMS}\nvoid main(){ gl_Position = vec4(0.); }`;
@@ -363,8 +363,9 @@ test('the hierarchy uniforms are fed: the grid origin and size (ivec2), the look
   assert.deepEqual(set.uVecGridN, { iv: [g.nx, g.ny] });
   assert.deepEqual(set.uVecGridO.fv, [g.x0, g.y0]);
   assert.deepEqual(set.uVecShOff.fv.map((x) => +x.toFixed(2)), [1.4, 2.8]);
-  const units = ['uVecCells', 'uVecNodes', 'uVecLeaves', 'uVecRunRefs', 'uVecJoinRefs', 'uVecRuns', 'uVecJoins'].map((n) => set[n]);
+  const units = ['uVecCells', 'uVecNodes', 'uVecLeaves', 'uVecRunRefs', 'uVecRuns'].map((n) => set[n]);
   assert.equal(new Set(units).size, units.length, 'each table its own unit');
+  assert.equal(set.uVecJoinRow0, N, 'the joins\' rows begin under the vessel rows');
   assert.equal(h.hier.runs.look.shOff[0], 1.4, 'and the bounds were made with that offset');
 });
 
@@ -401,7 +402,7 @@ test('the uniforms the shaders declare are found from their source, with array s
 });
 
 test('the stand-in shaders lint, and their uniforms are ones the renderer sets', () => {
-  const hier = new Set(['uVecCells', 'uVecNodes', 'uVecLeaves', 'uVecRunRefs', 'uVecJoinRefs', 'uVecRuns', 'uVecJoins']);
+  const hier = new Set(['uVecCells', 'uVecNodes', 'uVecLeaves', 'uVecRunRefs', 'uVecRuns']);
   for (const v of [0, 1, 2]) {
     const fs = fsOf('x')(v);
     assert.deepEqual(lintGLSL(fs), []);

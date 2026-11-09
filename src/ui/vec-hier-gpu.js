@@ -5,7 +5,7 @@
 // it never looks at the camera, so a pan, pinch or rotation uploads nothing. The instance lists are the leaves bucketed by class (K's box table holds the
 // class; the instance carries x0, y0, size and the leaf index) plus the vessel rows that own an L_SINGLE leaf (the strips' instances); they are made again
 // only when the leaf set changed (H.leafVer).
-import { GRID_W, NODE_W, LIST_W, RUNS_PER_ROW, RUN_TEXELS, JOIN_TEXELS, L_SINGLE, L_MORPH } from './vec-contract.js';
+import { GRID_W, NODE_W, LIST_W, RUNS_PER_ROW, RUN_TEXELS, L_SINGLE, L_MORPH } from './vec-contract.js';
 import { LEAF_ROW, LEAF_TEXELS } from './vec-leaves-pack.js';
 import { HIER_UNIFORMS } from './vec-hier-glsl.js';
 import { clearDirty, tableSize } from './vec-leaves-pack.js';
@@ -16,7 +16,6 @@ const SPEC = [
   { name: 'nodes', uni: 'uVecNodes', ifmt: 'RGBA32UI', fmt: 'RGBA_INTEGER', type: 'UNSIGNED_INT', per: 4, w: NODE_W },
   { name: 'leaves', uni: 'uVecLeaves', ifmt: 'RGBA32UI', fmt: 'RGBA_INTEGER', type: 'UNSIGNED_INT', per: 4, w: LEAF_ROW * LEAF_TEXELS },
   { name: 'runRefs', uni: 'uVecRunRefs', ifmt: 'R32UI', fmt: 'RED_INTEGER', type: 'UNSIGNED_INT', per: 1, w: LIST_W },
-  { name: 'joinRefs', uni: 'uVecJoinRefs', ifmt: 'R32UI', fmt: 'RED_INTEGER', type: 'UNSIGNED_INT', per: 1, w: LIST_W },
 ];
 /** Leaf classes the instance lists keep (the strips' L_SINGLE has rows, not boxes). */
 export const CLASS_FIRST = L_SINGLE + 1, CLASS_LAST = L_MORPH;
@@ -90,11 +89,10 @@ export function createHierGpu(gl, shared) {
       put(rec, spec, data, 0, used - 1);
     } else if (d.lo >= 0) put(rec, spec, data, d.lo, Math.min(d.hi, rec.h - 1));
   }
-  // A's tables: runs (RUNS_PER_ROW · RUN_TEXELS texels across, a row per vessel row) in part by row; joins (JOIN_TEXELS across, a row per join) whole.
+  // A's runs and joins, one float table (K's combineRunJoin: a row a vessel row, the joins' rows below): in part by row.
   const RUN_SPEC = { w: RUNS_PER_ROW * RUN_TEXELS, per: 4, fmt: 'RGBA', type: 'FLOAT' };
-  const JOIN_SPEC = { w: JOIN_TEXELS, per: 4, fmt: 'RGBA', type: 'FLOAT' };
   function syncRuns(H) {
-    const P = H.runsPack, rows = Math.max(1, P.height);
+    const P = H.runTable, rows = Math.max(1, P.height);
     if (!P.data || !have.has('uVecRuns')) return;
     let rec = tex.get('uVecRuns');
     if (!rec || rec.h < rows || H.runsWhole) {
@@ -102,15 +100,6 @@ export function createHierGpu(gl, shared) {
       put(rec, RUN_SPEC, P.data, 0, rows - 1);
     } else if (H.runsHi >= H.runsLo) put(rec, RUN_SPEC, P.data, H.runsLo, Math.min(H.runsHi, rec.h - 1));
     H.runsWhole = false; H.runsLo = 1e9; H.runsHi = -1;
-  }
-  function syncJoins(H) {
-    const P = H.joinsPack;
-    if (!have.has('uVecJoins') || !H.joinsDirty) return;
-    const n = Math.max(1, P.count | 0);
-    let rec = tex.get('uVecJoins');
-    if (!rec || rec.h !== n) rec = make('uVecJoins', 'RGBA32F', JOIN_SPEC.w, n);
-    if (P.data && P.count) put(rec, JOIN_SPEC, P.data, 0, n - 1);
-    H.joinsDirty = false;
   }
   function growInst(c, n) { if (inst[c].length < n * 4) inst[c] = new Float32Array(Math.max(n * 4, inst[c].length * 2, 64)); }   // alloc-rare: with the leaf count
   function lists(H) {
@@ -152,7 +141,7 @@ export function createHierGpu(gl, shared) {
       const before = stats.uploads + stats.made;
       const T = H.set.tables;
       for (const spec of SPEC) syncTable(T, spec);
-      syncRuns(H); syncJoins(H);
+      syncRuns(H);
       clearDirty(T);
       if (leafVer !== H.leafVer) { leafVer = H.leafVer; lists(H); }
       return stats.uploads + stats.made - before;

@@ -14,6 +14,7 @@ import { createVecGraph } from './vec-graph.js';
 import { createRuns } from './vec-runs.js';
 import { createLeafSet, buildLeaves, rebuildLeaves, defaultPolicy } from './vec-leaves.js';
 import { GRID_W, RUNS_PER_ROW, REACH_AA, L_SINGLE, L_MORPH } from './vec-contract.js';
+import { combineRunJoin } from './vec-leaves-pack.js';
 
 /** The world slack added to a morph set's boxes (the radius between two moments the sweep samples). */
 export const MORPH_SLACK = 4;
@@ -32,8 +33,10 @@ export function createHier(graph, opts = {}) {
     shOff: [opts.look?.shOff?.[0] ?? 0, opts.look?.shOff?.[1] ?? 0],
     runs: null, set: createLeafSet(),
     runsPack: { data: null, width: RUNS_PER_ROW * 4, height: 0, dirty: null }, joinsPack: { data: null, count: 0 },
+    // A's runs (rows 0 .. nRows - 1) and joins (the rows below, joinRow0 = nRows) as the one float table the shaders sample (K's combineRunJoin)
+    runTable: { data: null, width: 0, height: 0, joinRow0: 0, dirty: null },
     // what the GPU side has to take: the run rows written (lo..hi), whether the join table is, and a counter of the leaf set's changes (the instance lists)
-    runsLo: 1e9, runsHi: -1, runsWhole: true, joinsDirty: true, leafVer: 0,
+    runsLo: 1e9, runsHi: -1, runsWhole: true, leafVer: 0,
     built: false, tooWide: false,
     mark: new Uint8Array(0), marked: new Int32Array(0), nMarked: 0, jmark: new Uint8Array(0), jmarked: new Int32Array(0), nJmarked: 0,
     tier: new Uint8Array(0), rows: new Int32Array(0), jscratch: new Int32Array(0),
@@ -49,6 +52,11 @@ export function createHier(graph, opts = {}) {
     if (H.jmark.length < nj) { H.jmark = new Uint8Array(nj * 2 + 8); H.jmarked = new Int32Array(nj * 2 + 8); H.jscratch = new Int32Array(nj * 2 + 8); }   // alloc-rare: with the joins
   }
   const noteRun = (r0, r1) => { if (r0 < H.runsLo) H.runsLo = r0; if (r1 > H.runsHi) H.runsHi = r1; };
+  // The combined table brought up to the packs; the rows it changed are added to what the GPU side has still to take.
+  function combine() {
+    combineRunJoin(H.runTable, H.runsPack, H.joinsPack);
+    if (H.runTable.dirty) noteRun(H.runTable.dirty[0], H.runTable.dirty[1]); else H.runsWhole = true;
+  }
 
   // The box of everything row r's runs reach now (the set's per-run extents), joined into oldBox[r].
   function stash(r) {
@@ -75,7 +83,8 @@ export function createHier(graph, opts = {}) {
     buildLeaves(H.runs, graph.joins, null, policy(), H.set);
     H.tooWide = H.set.grid.nx > GRID_W;
     H.runs.packRuns(H.runsPack); H.runs.packJoins(H.joinsPack);
-    H.runsWhole = true; H.joinsDirty = true; H.runsLo = 1e9; H.runsHi = -1;
+    H.runTable.data = null;   // (made whole)
+    H.runsLo = 1e9; H.runsHi = -1; combine(); H.runsWhole = true;
     for (let r = 0; r < graph.nRows; r++) H.tier[r] = graph.rows[r].tier;
     H.nMarked = 0; H.mark.fill(0); H.nJmarked = 0; H.jmark.fill(0);
     H.leafVer++; H.built = true; H.stats.builds++;
@@ -132,8 +141,9 @@ export function createHier(graph, opts = {}) {
       H.stats.leavesRebuilt += H.set.stats.leavesWritten;
     }
     // The run table: the rows written (all of them after a full rebuild); the join table whole when any join changed.
-    if (n) { H.runs.packRuns(H.runsPack, H.rows, n); if (H.runsPack.dirty) noteRun(H.runsPack.dirty[0], H.runsPack.dirty[1]); }
-    if (nj || ncj) { H.runs.packJoins(H.joinsPack); H.joinsDirty = true; }
+    if (n) H.runs.packRuns(H.runsPack, H.rows, n);
+    if (nj || ncj) H.runs.packJoins(H.joinsPack);
+    if (n || nj || ncj) combine();
     H.stats.flushes++; H.stats.rowsRebuilt += n;
     H.stats.lastMs = (typeof performance !== 'undefined' ? performance.now() : 0) - t0;
     return nc || nj ? nc + nj : 0;
