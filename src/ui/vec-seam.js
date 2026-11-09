@@ -7,12 +7,14 @@
 //
 // What goes in when a workstream's module lands (one line each, here, and its name in VEC_WAITING below until then):
 //   parts.compile  A  vec-compile.js   { build, patch, rows, morph, exceeds, current }
-//   parts.region   C  vec-region-glsl.js   { vs, fs(variant) }
-//   parts.organs   F  vec-organs.js    { draw, setOrgans, ready }
+//   (parts.region C vec-region-glsl.js and parts.organs F vec-organs.js are in, via vec-organs-port.js for the organ stack's input.)
 //   the blood text D  vec-blood-glsl.js   passed to vecStretchFS as parts.blood (and to C's)
 import { createVecRenderer } from './vec-renderer.js';
 import { vecStretchVS, vecStretchFS } from './vec-stretch-glsl.js';
 import { createOverlays } from './vec-overlays.js';
+import { vecRegionParts } from './vec-region-glsl.js';
+import { createVecOrgans } from './vec-organs.js';
+import { vecOrgansPort } from './vec-organs-port.js';
 import { V_FULL } from './vec-contract.js';
 
 export { createVecRenderer };
@@ -20,7 +22,7 @@ export { createVecRenderer };
 /** The flags and numbers vec-shade-glsl.js takes as K (they live in veins-gl.js, which imports this file). */
 export const VEC_K_NAMES = Object.freeze(['F_DIFFUSE', 'F_EDGE', 'F_SHADOW', 'F_SPEC', 'F_VEIL', 'F_WHOLE', 'F_SEL', 'F_DOTTED', 'F_NOCASE', 'VEIL_K']);
 /** The parts of E's header that no module gives yet: the Vector renderer reports itself as waiting for them (status()) and is not used. */
-export const VEC_WAITING = Object.freeze(['compile', 'region', 'organs']);
+export const VEC_WAITING = Object.freeze(['compile']);
 
 /** The `parts` of E's shared accessor, from the modules that exist. K: the flags (VEC_K_NAMES). */
 export function vecParts(gl, K) {
@@ -32,5 +34,9 @@ export function vecParts(gl, K) {
     stretch: { vs, fs: (variant) => vecStretchFS(variant, K, {}) },
     // (G: E calls overlays.draw(pass, m, phase) in each pass and overlays.setOverlays(look, m, w, h) with the other setters.)
     overlays: createOverlays(gl),
+    // (C: the regions' vertex and fragment shaders; the same flags, D's blood text by default.)
+    region: vecRegionParts(K, {}),
+    // (F: the organs; the port gives them the organ stack's input as they take it.)
+    organs: vecOrgansPort(createVecOrgans(gl)),
   };
 }

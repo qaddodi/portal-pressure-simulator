@@ -269,6 +269,12 @@ test('the parts for E: B\'s stretch program for every variant from the instance\
   for (const v of [0, 1, 2]) assert.match(parts.stretch.fs(v), /void main\(\)/);
   assert.equal(typeof parts.overlays.draw, 'function');
   assert.equal(typeof parts.overlays.setOverlays, 'function');
+  // (C's regions and F's organs, the organs through the port that gives them the stack's input.)
+  assert.equal(typeof parts.region.vs, 'string');
+  for (const v of [0, 1, 2]) assert.match(parts.region.fs(v), /void main\(\)/);
+  assert.equal(typeof parts.organs.draw, 'function');
+  assert.equal(typeof parts.organs.setOrgans, 'function');
+  assert.deepEqual([...seam.VEC_WAITING], ['compile']);
   const short = { ...K }; delete short.VEIL_K;
   assert.throws(() => seam.vecParts(fakeGL().gl, short), /VEIL_K/);
 });
@@ -287,6 +293,40 @@ test('the real Vector renderer, while a workstream\'s part is still missing: not
     assert.ok(programs(f, n0) > 0, 'drawn by the other renderer');
     assert.equal(said.filter((t) => /vector vessel renderer could not be made/.test(t)).length, 1);
   } finally { console.warn = warn; }
+});
+
+test('the organs port: the stack\'s kinds make F\'s layer map and order, once, when F next needs them', async () => {
+  const { vecOrgansPort } = await import('../src/ui/vec-organs-port.js');
+  const told = [];
+  const F = { setOrgans: (m, o) => { told.push([new Map(m), o.slice()]); return true; }, setCovers: (...a) => { told.push(['covers', ...a]); return true; }, update: () => told.push('update'), draw: () => told.push('draw'), covers: () => 'cov', ready: () => true };
+  const port = vecOrgansPort(F);
+  assert.equal(port.ready(), true, 'F\'s other calls pass through');
+  const g1 = [{ spec: 'a', m: 1 }], g2 = [{ spec: 'b', m: 2 }], g3 = [{ spec: 'c', m: 3 }];
+  assert.equal(port.setOrgans('bake', 0, 'liver', g1), true);
+  port.setOrgans('bake', 0, 'gut', g2);
+  port.setOrgans('order', ['gut', 'liver', 'back']);
+  assert.equal(told.length, 0, 'nothing is handed over until F is used');
+  port.setOrgans('commit', 0, ['liver', 'gut']);
+  port.update();
+  assert.equal(told.length, 2, 'one ingest for the four changes, then the update');
+  assert.deepEqual([...told[0][0].keys()], ['liver', 'gut']);
+  assert.deepEqual(told[0][1], ['gut', 'liver'], 'in the stack\'s order, the layers there are');
+  assert.equal(told[1], 'update');
+  port.setOrgans('live', new Map([['liver', g3]]), null);
+  port.draw();
+  assert.equal(told[2][0].get('liver'), g3, 'a live layer is over the baked one');
+  assert.equal(told[2][0].get('gut'), g2);
+  port.setOrgans('liveAll', new Map([['back', g1], ['gut', g2]]));
+  port.draw();
+  assert.deepEqual([...told.at(-2)[0].keys()], ['back', 'gut'], 'the whole live set stands alone');
+  port.draw();
+  assert.equal(told.filter((t) => Array.isArray(t)).length, 3, 'no change: no new ingest');
+  assert.equal(port.setOrgans('paint', ['s'], [0, 0, 1, 1], 2), true);
+  assert.deepEqual(told.at(-1), ['covers', ['s'], [0, 0, 1, 1], 2]);
+  assert.equal(port.setOrgans('overlay', new Map(), []), false, 'overlay groups and shifts have no slot in F');
+  assert.equal(port.setOrgans('shift', 'x', 1), false);
+  port.setOrgans('drop', 0); port.setOrgans('liveAll', null); port.draw();
+  assert.equal(told.at(-2)[0].size, 0);
 });
 
 test.after(() => { mod.setVectorFactory(null); frame.setVesselRenderer('mesh'); });
