@@ -430,7 +430,7 @@ void main() {
 // A pixel's share of a straight edge's inside: the area of the unit square about the pixel's centre on the inside of a line
 // at signed distance d from that centre (d > 0: the centre is inside), with unit normal n. Exact for a straight edge at any
 // angle: half at d = 0, a linear ramp while the line crosses two opposite sides, a quadratic one near a corner.
-export const COVER_GLSL = `
+const COVER_GLSL = `
 float cover(float d0, vec2 n) {
   float d = d0 / ${EDGE_GLSL};   // (the figure's one edge softness, device px: edge.js, shared with the vessels)
   vec2 q = abs(n);

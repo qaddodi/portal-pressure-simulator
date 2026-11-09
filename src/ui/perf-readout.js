@@ -18,7 +18,6 @@ import { surfaceRows, surfacesText } from './gpu-surfaces.js';
 import { motionBudget, budgetText } from './motion-budget.js';
 import { caught } from './caught.js';
 import { contextText } from './gl-contexts.js';
-import { vecWorkText } from './vec-measure.js';
 
 const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
@@ -329,7 +328,7 @@ export function startPerfReadout({ zoom = () => '?' } = {}) {
   // (The quality tier now (adapt-tier.js, R07) and its last change, with why.)
   const tierText = () => { const t = sceneTier(), l = tierLog().at(-1); return `Quality tier: ${t ? `${Math.round(TIERS[t] * 100)}% on moving frames` : 'Full'}${l ? `; last change ${l.from}→${l.to}: ${l.why} (${l.mb} MB)` : ''}`; };
   if (window.pps) window.pps.tiers = () => tierLog();
-  const surfText = () => `${surfacesText(surfaceRows())}\n${gpuBudgetText()}\n${contextText()}\n${tierText()}${vecWorkText() ? `\n${vecWorkText()}` : ''}`;   // (and the render graph's budget, gpu-budget.js, R06)
+  const surfText = () => `${surfacesText(surfaceRows())}\n${gpuBudgetText()}\n${contextText()}\n${tierText()}`;   // (and the render graph's budget, gpu-budget.js, R06)
   pSurfEl = surfEl; pSurfText = surfText;
   setInterval(() => { if (!cur && !folded && !document.hidden) restPass(writeSurf); }, 500);
   if (window.pps) window.pps.surfaces = () => surfaceRows();   // (for a headless run: pps.surfaces())

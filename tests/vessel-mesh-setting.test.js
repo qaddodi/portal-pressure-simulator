@@ -1,5 +1,4 @@
-// vesselMesh() / setVesselMesh() / onVesselMesh() (8 Nov 2026), kept as the mesh-or-classic view of the three-way vessel renderer choice (9 Nov 2026,
-// tests/vector-setting.test.js has the storage and the migration). Default mesh; off is classic, stored under pps.vesselRenderer.
+// Settings > Display > "Mesh vessel renderer" (8 Nov 2026): the choice frame.js keeps. Default ON; pps.vesselMesh is '0' when off, the key is removed when on.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -14,7 +13,7 @@ test('vessel mesh: on by default, nothing stored', async () => {
   const store = withStore([]);
   const f = await load();
   assert.equal(f.vesselMesh(), true);
-  assert.equal(store.has('pps.vesselRenderer'), false);
+  assert.equal(store.has('pps.vesselMesh'), false);
   delete globalThis.localStorage;
 });
 
@@ -26,15 +25,15 @@ test('vessel mesh: a stored 0 starts it off; any other stored value starts it on
   delete globalThis.localStorage;
 });
 
-test('vessel mesh: off stores classic, on removes the key', async () => {
+test('vessel mesh: off stores 0, on removes the key', async () => {
   const store = withStore([]);
   const f = await load();
   f.setVesselMesh(false);
   assert.equal(f.vesselMesh(), false);
-  assert.equal(store.get('pps.vesselRenderer'), 'classic');
+  assert.equal(store.get('pps.vesselMesh'), '0');
   f.setVesselMesh(true);
   assert.equal(f.vesselMesh(), true);
-  assert.equal(store.has('pps.vesselRenderer'), false);
+  assert.equal(store.has('pps.vesselMesh'), false);
   delete globalThis.localStorage;
 });
 

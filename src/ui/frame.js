@@ -21,7 +21,6 @@ import { createFrameRecorder } from './frame-stats.js';
 import { createInputLatency, describeTarget } from './input-latency.js';
 import { caught } from './caught.js';
 import { fenceFrame, fenceMark } from './gpu-fence.js';
-import { RENDERERS, RENDERER_KEY } from './vec-contract.js';
 // A batch of asked-for callbacks, in request order (plan "Holding 120 Hz, always" rev 2 §2.8: zero allocation on the frame path). Three
 // parallel arrays that keep their length from frame to frame, so an ask writes three slots and allocates nothing, and running a batch
 // walks it by index (the Map of [tag, cb] pairs it replaces made one array per ask and one entry array per callback run). A cancelled
@@ -725,42 +724,23 @@ export function setFigLab(k, v) {
 }
 /** Called with (key, value) each time one of the Figure performance switches changes. */
 export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
-// Vessel renderer (Settings › Display, after Figure size): how the figure's vessels are drawn. 'classic' is the original shader, 'mesh'
-// (8 Nov 2026) draws each vessel as a mesh, 'vector' (9 Nov 2026, docs/recommendations/vector-renderer-plan.md) is the retained GPU vector
-// renderer. Mesh is the default. Stored under RENDERER_KEY ('classic' or 'vector'; the key is removed for the default). The old boolean
-// choice, pps.vesselMesh = '0' (mesh off), is read once at start: it becomes 'classic' under the new key and the old key goes.
-// The renderer reads vesselRenderer() and listens with onVesselRenderer() (it returns the unsubscribe); this file only keeps the choice.
-// vesselMesh() is kept as `vesselRenderer() === 'mesh'`, setVesselMesh(on) as mesh/classic, and onVesselMesh() as the change of that.
-const RENDERER_DEFAULT = 'mesh';
-/** The three-way choice is offered in Settings once Vector draws end to end (workstream H: every part is in the seam, 9 Nov 2026). */
-export const VECTOR_OFFERED = true;
-let rendererNow = RENDERER_DEFAULT;
-try {
-  const kept = localStorage.getItem(RENDERER_KEY);
-  if (RENDERERS.includes(kept)) rendererNow = kept;
-  else if (localStorage.getItem('pps.vesselMesh') === '0') {   // (migrated once: the old off is classic)
-    rendererNow = 'classic';
-    localStorage.setItem(RENDERER_KEY, 'classic');
-  }
-} catch (e) { caught('frame:vmesh-r', e); /* storage unavailable */ }
-try { if (localStorage.getItem('pps.vesselMesh') != null) localStorage.removeItem('pps.vesselMesh'); } catch (e) { caught('frame:vmesh-o', e); /* storage unavailable */ }
-const rendererSubs = new Set(), meshSubs = new Set();
-export const vesselRenderer = () => rendererNow;
-export const vesselMesh = () => rendererNow === 'mesh';
-export function setVesselRenderer(v) {
-  if (!RENDERERS.includes(v) || rendererNow === v) return;
-  const meshWas = rendererNow === 'mesh';
-  rendererNow = v;
-  try { if (v === RENDERER_DEFAULT) localStorage.removeItem(RENDERER_KEY); else localStorage.setItem(RENDERER_KEY, v); } catch (e) { caught('frame:vmesh-w', e); /* storage unavailable */ }
-  for (const f of rendererSubs) f(v);
-  if (meshWas !== (v === 'mesh')) for (const f of meshSubs) f(v === 'mesh');
+// Mesh vessel renderer (8 Nov 2026; Settings › Display, after Figure size): the figure's vessels drawn as meshes instead of the classic
+// shader. ON by default; stored in pps.vesselMesh as '0' when off, the key removed when on. The renderer reads vesselMesh() and listens
+// with onVesselMesh() (it returns the unsubscribe); this file only keeps the choice.
+let meshOn = true;
+try { meshOn = localStorage.getItem('pps.vesselMesh') !== '0'; } catch (e) { caught('frame:vmesh-r', e); /* storage unavailable */ }
+const meshSubs = new Set();
+export const vesselMesh = () => meshOn;
+export function setVesselMesh(on) {
+  on = !!on;
+  if (meshOn === on) return;
+  meshOn = on;
+  try { if (on) localStorage.removeItem('pps.vesselMesh'); else localStorage.setItem('pps.vesselMesh', '0'); } catch (e) { caught('frame:vmesh-w', e); /* storage unavailable */ }
+  for (const f of meshSubs) f(on);
   // (And the figure is drawn again, as after a resolution change: the stage and the other views hear onRenderScale.)
   for (const f of renderSubs) f(renderK);
 }
-export function setVesselMesh(on) { setVesselRenderer(on ? 'mesh' : 'classic'); }
-/** Called with the new renderer ('classic', 'mesh' or 'vector') each time the choice changes; returns the unsubscribe. */
-export function onVesselRenderer(f) { rendererSubs.add(f); return () => rendererSubs.delete(f); }
-/** Called with the new value (whether it is the mesh renderer) each time that changes; returns the unsubscribe. */
+/** Called with the new value each time the mesh vessel renderer is switched; returns the unsubscribe. */
 export function onVesselMesh(f) { meshSubs.add(f); return () => meshSubs.delete(f); }
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)

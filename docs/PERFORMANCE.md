@@ -194,25 +194,6 @@ What keeps it cheap:
 `?perf` shows a "vessel renderer" gauge (`mesh: passes, strips, patches drawn` or `classic: why`) and counts "vessels: mesh". No device
 numbers are recorded here.
 
-## Vector vessel renderer (9 Nov 2026; Settings › Display › Vessel renderer › Vector, once it lands)
-
-A third vessel renderer, built from `docs/recommendations/vector-renderer-plan.md` and described, as built, in `docs/vector-renderer.md`:
-retained strips for ordinary stretches, one shader per interaction region, blood shaded from the vessel's own coordinates, one render
-pass a frame. Its measuring is the plan's section 7, in `?perf` (workstream E):
-
-- **The gauge.** `vessel renderer: vector: N strips, N regions (join, cross, hairpin, near, morph), N passes`, beside the mesh and classic
-  gauges. A frame shows its kind: FULL (camera, morph, deforming), BASE (colour, radius, organ changes, in their boxes) or BLOOD (blood
-  only, over the kept base).
-- **GPU time per frame kind.** FULL, BASE and BLOOD each have their own time from `EXT_disjoint_timer_query_webgl2` through
-  `gpu-probe.js`, read asynchronously one or more frames later; a result is dropped when `GPU_DISJOINT_EXT` was set. A device without the
-  extension shows the kinds' counts and no times.
-- **Budgets are whole frames.** 16.67 ms at 60 Hz and 8.33 ms at 120 Hz include the organs, the presentation, the labels and the glass,
-  which the panel's own whole-frame times show; the per-kind times are only the vessels' part of them.
-- **What node checks.** One pass a frame kind with no framebuffer bind inside it, a blood-only frame that draws only lumen programs, the
-  base written once when motion ends, nothing allocated in a frame (`tests/vec-pre-6-pacing.test.js` (a precondition: sustained pacing is judged on the devices and has not passed), `tests/vec-renderer.test.js`,
-  `tests/vec-frame.test.js`), and `node scripts/stage-trace.mjs --renderer vector` for the GL calls of the fixed session. No device
-  numbers are recorded here; this page is updated when the gauge lands.
-
 ## Verification
 
 Run `npm test`. In addition to the physiological acceptance suite, lifecycle tests check pause/visibility behavior, immediate action frames, worker timeout cleanup, event-loop yielding and command ordering. The yielded calculations are compared with synchronous calculations, including complete snapshots after preset loading, advancing and prerolling.

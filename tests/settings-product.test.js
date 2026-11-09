@@ -22,13 +22,13 @@ test('R14 Settings keeps what a learner understands and none of the experiments'
   assert.doesNotMatch(main, /function figLabRows\(|function figSeg\(/);
 });
 
-test('R14 owner-approved row (9 Nov 2026): Settings > Display has the "Vessel renderer" choice right after Figure size (megapixels)', () => {
-  assert.ok(settings.includes("'Vessel renderer'"), 'the row is in Settings');
-  assert.ok(!settings.includes("'Mesh vessel renderer'"), 'the on/off toggle is replaced');
+test('R14 owner-approved row (8 Nov 2026): Settings > Display has "Mesh vessel renderer" right after Figure size (megapixels)', () => {
+  assert.ok(settings.includes("'Mesh vessel renderer'"), 'the row is in Settings');
   const at = (t) => settings.indexOf(t);
   assert.ok(at("'Figure size (megapixels)'") > 0 && at("figureMpControl()") > at("'Figure size (megapixels)'"));
-  assert.ok(at("'Vessel renderer'") > at('figureMpControl()'), 'after the megapixel control');
-  assert.ok(at('vesselRendererControl()') > at("'Vessel renderer'") && at('vesselRendererControl()') < at("'Sharp while moving'"), 'the choice, before the next row');
+  assert.ok(at("'Mesh vessel renderer'") > at('figureMpControl()'), 'after the megapixel control');
+  assert.ok(at("'Mesh vessel renderer'") < at("'Sharp while moving'"), 'before the next row');
+  assert.match(settings, /menuToggle\(vesselMesh\(\), 'layers', 'Mesh vessel renderer'/, 'an on/off menuToggle');
 });
 
 test('R14 every default is as it was: Full, and off (but the credit\'s lean look, H7, and the 8-megapixel budget, 1 Nov: on)', async () => {

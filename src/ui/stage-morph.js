@@ -240,12 +240,11 @@ export function createMorph(st, live) {
     pc.jpath = U.map((u) => u.path);
     pc.jreach = U.map((u) => u.reach * 1.5 + 6);
     const tubes = snaps[0].items.map((it) => { const r = pc.reach.get(it.row); return { id: it.row, path: pc.path.get(it.row), reach: r, core: r - 18 + BLOOD_PAD }; });
-    pc.tubes = tubes;   // (the sweep's tubes as the worker gets them: the vector renderer's morph bounds read their courses, setOf)
     const joins = U.map(({ j }, ji) => ({ path: pc.jpath[ji], reach: pc.jreach[ji] + MORPH_JSLACK - MORPH_SLACK, k: j.k, fillet: j.fillet, members: j.members, trunk: j.trunk, fork: j.fork }));
     return live.sweepBin({ tubes, joins, opts: { rows: GL_ROWS, samples: N_SAMPLES, slack: MORPH_SLACK, tight: !!pc.tight } });
   }
   function setOf(pc, b) {
-    pc.set = live.veins.makeMorphSet(b, pc.tubes);
+    pc.set = live.veins.makeMorphSet(b);
     pc.frame = new Float32Array((b.rows - b.entRows) * ENT_W * 4);
     pc.posBase = b.posBase - b.entRows * ENT_W; pc.joinBase = b.joinBase - b.entRows * ENT_W;
   }
