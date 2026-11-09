@@ -152,20 +152,17 @@ void main() {
   vec3 d = world * vec3(fluidRect.xy + corner * fluidRect.zw, 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
 }`;
-/** rebase false: the fluid alone, to be laid over what is in the picture (blend ONE, ONE_MINUS_SRC_ALPHA). rebase true: the fluid over the
- *  kept base (vecBase, the picture's texels), written without blending: the cavity's pixels made again when the fluid moved. */
-export const fluidFS = (rebase) => `#version 300 es
+/** The ascites over the picture: the fluid alone, laid over what is there (blend ONE, ONE_MINUS_SRC_ALPHA). */
+export const FLUID_FS = `#version 300 es
 precision highp float;
 uniform mat3 inv;
 uniform float H;
 uniform float pxW;
-${rebase ? 'uniform sampler2D vecBase;' : ''}
-${OVER_GLSL}${FLUID_GLSL}
+${FLUID_GLSL}
 out vec4 o;
 void main() {
   vec2 w = (inv * vec3(gl_FragCoord.x, H - gl_FragCoord.y, 1.0)).xy;
-  vec4 f = vecAboveAt(w);
-  o = ${rebase ? 'vecOver(f, texelFetch(vecBase, ivec2(gl_FragCoord.xy), 0))' : 'f'};
+  o = vecAboveAt(w);
 }`;
 
 // ── Strokes: the organ outlines, the glow behind the organs, the warm glow on them (veins-gl.js LINE_VS, LINE_FS) ──

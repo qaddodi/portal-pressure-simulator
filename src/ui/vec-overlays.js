@@ -9,26 +9,40 @@
 //                       drawCath    the HVPG catheter (mesh)
 //                       drawLines   the organ outlines (stroke mesh)
 //
-// The renderer core (E) calls these in OVERLAY_ORDER inside its one pass. Retained: the strokes' and the catheter's vertices go up once
+// The renderer core (E) calls draw(pass, m, phase) (below) in OVERLAY_ORDER inside its one pass. Retained: the strokes' and the catheter's vertices go up once
 // (setLines, setCath: the same specs stage.js hands veins-gl today), and a camera move changes only the matrix the vertex shader reads, so a
 // pinch or a pan flattens and uploads nothing. The ascites' cavity rows are a small texture kept the same way.
 //
 // State left on return (E sets what it needs next): BLEND, DEPTH_TEST and STENCIL_TEST off, depthMask on, stencilMask 0xff, colorMask on,
 // no vertex array bound, the draw's program still current; the scissor is never touched (E's dirty boxes cut every call here).
-// Texture units: the ascites reads its cavity rows from unit 0 and (rebase) the kept base from unit 1; unit 0 is active on return.
+// Texture unit: the ascites reads its cavity rows from unit 0 (left active).
 // The warm glow's exact union needs the picture framebuffer's depth and stencil (E's DEPTH24_STENCIL8); it uses depth, and stencil bit
 // STENCIL_BIT, and clears both afterwards (so it is drawn before the vessels, which then find the depth buffer cleared).
 import { linkProgram } from './gl-compile.js';
 import { ucOf } from './uniform-cache.js';
 import { LIGHT } from './light.js';
-import { CATH_VS, CATH_FS, LINE_VS, lineFS, MAP_VS, MAP_FS, FLUID_VS, fluidFS, STENCIL_BIT, OVERLAY_ORDER } from './vec-overlays-glsl.js';
+import { V_FULL, V_BLOOD } from './vec-contract.js';
+import { CATH_VS, CATH_FS, LINE_VS, lineFS, MAP_VS, MAP_FS, FLUID_VS, FLUID_FS, STENCIL_BIT, OVERLAY_ORDER } from './vec-overlays-glsl.js';
 
 export { OVERLAY_ORDER, STENCIL_BIT };
+
+/**
+ * The phases of E's scene() (vec-renderer.js PHASE) and the one it needs to add. A frame, bottom to top:
+ *   BEHIND (3)  V_FULL, V_BASE: before the organs: the glow behind them, then the circuit's map (COMP_FS lays both under the plate)
+ *   [organs, each fragment through vecPlate]
+ *   UNDER  (0)  V_FULL, V_BASE: after the organs, before the strips: the warm glow
+ *   [strips, regions, blood]
+ *   HEADS  (1)  V_BLOOD: the outlines and the catheter over the lumen pixels the blood write just made (stencil EQUAL 1: E marks every strip
+ *               and region fragment of V_BLOOD with 1); nothing in V_FULL
+ *   OVER   (2)  V_FULL: the ascites, the catheter, the outlines. (In V_BLOOD the lumen shaders lay vecAboveAt, the ascites, themselves.)
+ */
+export const OVERLAY_PHASE = Object.freeze({ UNDER: 0, HEADS: 1, OVER: 2, BEHIND: 3 });
+
 
 /** The programs' sources, [vertex, fragment] by name, for the renderer core to prestart (gl-compile.js prestart) with the others. */
 export const OVERLAY_SOURCES = Object.freeze({
   line: [LINE_VS, lineFS(false)], warm: [LINE_VS, lineFS(true)], cath: [CATH_VS, CATH_FS],
-  map: [MAP_VS, MAP_FS], fluid: [FLUID_VS, fluidFS(false)], rebase: [FLUID_VS, fluidFS(true)],
+  map: [MAP_VS, MAP_FS], fluid: [FLUID_VS, FLUID_FS],
 });
 
 const QUAD = new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]);
@@ -133,6 +147,7 @@ export function createOverlays(gl) {
   const pxWOf = (m) => 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));
 
   const off = () => { gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.STENCIL_TEST); gl.depthMask(true); gl.stencilMask(0xff); gl.colorMask(true, true, true, true); gl.bindVertexArray(null); };
+  const onlyWhere = (ref) => { gl.enable(gl.STENCIL_TEST); gl.stencilFunc(gl.EQUAL, ref, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); gl.stencilMask(0); };
   const lay = () => { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); };
 
   // Draws one kind of stroke: 0 outlines, 1 the glow behind the organs, 2 the warm glow. P: the program (plain or the warm glow's depth one).
@@ -272,13 +287,9 @@ export function createOverlays(gl) {
     off();
     return true;
   }
-  /**
-   * The ascites over the picture. base null: laid over what is there (V_FULL, after the vessels). base a texture (the kept base, the picture's size):
-   * the cavity's pixels written as the base with the fluid over it, no blending (a frame where only the fluid moved; E scissors to fluidBox, then
-   * draws the blood's pixels, which lay vecAboveAt themselves).
-   */
-  function drawFluid(m, look, pw, ph, base = null) {
-    const fl = fluidOf(look), p = base ? P.rebase : P.fluid;
+  /** The ascites, laid over what is in the picture (V_FULL, after the vessels). In a blood frame the lumen shaders lay vecAboveAt themselves. */
+  function drawFluid(m, look, pw, ph) {
+    const fl = fluidOf(look), p = P.fluid;
     if (!fl || !p) return false;
     const U = p.u;
     gl.useProgram(p.p);
@@ -292,16 +303,17 @@ export function createOverlays(gl) {
     UC.f4a(U.fluidInk, fl.ink);
     UC.f2a(U.fluidLv, fl.lv || LV_DEF);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, fluidTex); UC.i1(U.fluidMask, 0);
-    if (base) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, base); UC.i1(U.vecBase, 1); gl.activeTexture(gl.TEXTURE0); gl.disable(gl.BLEND); }
-    else lay();
+    lay();
     gl.bindVertexArray(quadVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     off();
     return true;
   }
-  function drawCath(m, pw, ph) {
+  /** The catheter; stencilRef as drawLines'. */
+  function drawCath(m, pw, ph, stencilRef = null) {
     if (!cath || !P.cath) return false;
     const U = P.cath.u;
+    if (stencilRef !== null) onlyWhere(stencilRef);
     gl.useProgram(P.cath.p);
     UC.m3(U.world, m3put(WORLD, m[0], m[1], m[2], m[3], m[4], m[5]));
     UC.f2(U.size, pw, ph);
@@ -326,7 +338,7 @@ export function createOverlays(gl) {
    */
   function drawLines(m, pw, ph, stencilRef = null) {
     if (!ready(0, P.line)) return false;
-    if (stencilRef !== null) { gl.enable(gl.STENCIL_TEST); gl.stencilFunc(gl.EQUAL, stencilRef, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); gl.stencilMask(0); }
+    if (stencilRef !== null) onlyWhere(stencilRef);
     lay();
     strokes(0, P.line, m, pw, ph);
     off();
@@ -337,6 +349,46 @@ export function createOverlays(gl) {
     drawFluid(m, look, pw, ph);
     drawCath(m, pw, ph);
     drawLines(m, pw, ph);
+  }
+  // ── E's port: draw(pass, m, phase), setOverlays(look, m, w, h) → { under, over } ──
+  let curLook = null;
+  const KEPT_U = new Float64Array(48), NOW_U = new Float64Array(48), KEPT_O = new Float64Array(12), NOW_O = new Float64Array(12);
+  const SEEN = { glow: -1, warm: -1, lines: -1, cath: -1, fluid: -1 };
+  const RES = { under: undefined, over: undefined }, FBOX = [0, 0, 0, 0];
+  let seenOnce = false;
+  const putN = (a, i, src, n) => { for (let k = 0; k < n; k++) a[i + k] = src ? src[k] || 0 : 0; return i + n; };
+  const differs = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return true; return false; };
+  /**
+   * The frame's look (map, fluid, plate), with the camera and picture size when known. Returns { under, over }, each true, a device-px box, or
+   * undefined: what changed since the last call (the strokes' and catheter's own changes, the map, the plate, the cavity and its ink, ripple
+   * and level). The record is kept: read it at once.
+   */
+  function setOverlays(look, m, pw, ph) {
+    curLook = look || null;
+    const map = look?.map && look.map.a > 0 ? look.map : null, plate = look?.plate && look.plate.alpha > 0 ? look.plate : null, fl = fluidOf(look);
+    NOW_U.fill(0); NOW_O.fill(0);
+    let n = putN(NOW_U, 0, null, 0);
+    NOW_U[n++] = map ? map.a : 0;
+    if (map) { n = putN(NOW_U, n, map.dot, 4); n = putN(NOW_U, n, map.zone, 12); n = putN(NOW_U, n, map.fx, 4); n = putN(NOW_U, n, map.alt, 4); n = putN(NOW_U, n, map.fxX, 2); n = putN(NOW_U, n, map.rot, 4); }
+    NOW_U[n++] = plate ? plate.alpha : 0; NOW_U[n] = plate ? plate.sat ?? 1 : 1;
+    if (fl) { putN(NOW_O, 0, fl.s, 4); putN(NOW_O, 4, fl.ink, 4); putN(NOW_O, 8, fl.lv || LV_DEF, 2); NOW_O[10] = 1; }
+    const underNew = !seenOnce || differs(NOW_U, KEPT_U) || SEEN.glow !== ver.glow || SEEN.warm !== ver.warm;
+    const fluidNew = !seenOnce || differs(NOW_O, KEPT_O) || SEEN.fluid !== ver.fluid;
+    const strokesNew = !seenOnce || SEEN.lines !== ver.lines || SEEN.cath !== ver.cath;
+    KEPT_U.set(NOW_U); KEPT_O.set(NOW_O);
+    SEEN.glow = ver.glow; SEEN.warm = ver.warm; SEEN.lines = ver.lines; SEEN.cath = ver.cath; SEEN.fluid = ver.fluid;
+    seenOnce = true;
+    RES.under = underNew ? true : undefined;
+    RES.over = strokesNew ? true : fluidNew ? ((m && pw > 0 && fluidBox(m, pw, ph, FBOX)) || true) : undefined;
+    return RES;
+  }
+  /** E's call: one phase of a pass. pass: { variant, w, h, m, box }. Premultiplied blending is set on entry; every call leaves depth, stencil and blend off. */
+  function draw(pass, m, phase) {
+    const look = curLook, w = pass.w, h = pass.h, v = pass.variant;
+    if (phase === OVERLAY_PHASE.BEHIND) { if (v !== V_BLOOD) drawBehind(m, look, w, h); }
+    else if (phase === OVERLAY_PHASE.UNDER) { if (v !== V_BLOOD) drawWarm(m, w, h); }
+    else if (phase === OVERLAY_PHASE.HEADS) { if (v === V_BLOOD) { drawCath(m, w, h, 1); drawLines(m, w, h, 1); } }
+    else if (phase === OVERLAY_PHASE.OVER) { if (v === V_FULL) drawOver(m, look, w, h); }
   }
   function dispose() {
     for (const b of [quad, lineGeo.buf, cathGeo.buf]) gl.deleteBuffer(b);
@@ -356,5 +408,6 @@ export function createOverlays(gl) {
     hasGlow: () => hasKind(1), hasWarm: () => hasKind(2), hasLines: () => hasKind(0), hasCath: () => !!cath, hasFluid: (look) => !!fluidOf(look),
     drawBehind, drawMap, drawWarm, drawFluid, drawCath, drawLines, drawOver,
     cathBox, fluidBox, dispose,
+    draw, setOverlays, ready: () => !!(P.line && P.map && P.fluid && P.cath),
   };
 }

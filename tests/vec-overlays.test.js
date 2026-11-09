@@ -16,7 +16,9 @@ globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
 const G = await import('../src/ui/vec-overlays-glsl.js');
-const { createOverlays, OVERLAY_SOURCES, setPlate } = await import('../src/ui/vec-overlays.js');
+const { createOverlays, OVERLAY_SOURCES, OVERLAY_PHASE, setPlate } = await import('../src/ui/vec-overlays.js');
+const { PHASE } = await import('../src/ui/vec-renderer.js');
+const { V_FULL, V_BASE, V_BLOOD } = await import('../src/ui/vec-contract.js');
 const { COMP_FS } = await import('../src/ui/veins-gl.js');
 
 // ── Stand-in WebGL: records calls; programs are named by the sources they were built from ──
@@ -103,8 +105,7 @@ test('every uniform a program declares is one the draws set, and every one set i
   ov.setLines(spec()); ov.setCath(cathSpec());
   ov.setFluidSpans(new Float32Array([100, 120, 140, 120]), [100, 200, 800, 300]);
   ov.setFluidLiver(new Float32Array([10, 20, 30, 40]));
-  const base = { obj: 'kept base' };
-  ov.drawBehind(VIEW, LOOK, 1000, 700); ov.drawWarm(VIEW, 1000, 700); ov.drawOver(VIEW, LOOK, 1000, 700); ov.drawFluid(VIEW, LOOK, 1000, 700, base);
+  ov.drawBehind(VIEW, LOOK, 1000, 700); ov.drawWarm(VIEW, 1000, 700); ov.drawOver(VIEW, LOOK, 1000, 700);
   for (const [k, [vs, fs]] of Object.entries(OVERLAY_SOURCES)) {
     const declared = new Set([...uniformsOf(vs), ...uniformsOf(fs)]), set = setNames(log, k);
     assert.ok(set.size > 0, `${k} was drawn`);
@@ -230,7 +231,7 @@ test('the catheter: its base is sent once, its vertices each frame, and its box 
 });
 
 // ── The ascites ──
-test('the ascites: one quad over the cavity; its box is the rectangle through the camera; nothing is drawn without ink; rebase reads the kept base', () => {
+test('the ascites: one quad over the cavity; its box is the rectangle through the camera; nothing is drawn without ink', () => {
   const { ov, log } = rig();
   ov.setFluidSpans(new Float32Array([100, 120, 140, 120]), [100, 200, 800, 300]);
   const box = ov.fluidBox(VIEW, 1000, 700, [0, 0, 0, 0]);
@@ -240,13 +241,61 @@ test('the ascites: one quad over the cavity; its box is the rectangle through th
   log.length = 0;
   assert.equal(ov.drawFluid(VIEW, LOOK, 1000, 700), true);
   assert.equal(calls(log, 'drawArrays').length, 1);
-  const base = { obj: 'base' };
-  log.length = 0;
-  ov.drawFluid(VIEW, LOOK, 1000, 700, base);
-  assert.ok(log.some((c) => c[0] === 'use' && c[1] === 'rebase'));
-  assert.ok(calls(log, 'bindTexture').some((c) => c[2] === base), 'the kept base is bound');
-  assert.ok(!log.some((c) => c[0] === 'blendFunc'), 'written, not blended');
   assert.equal(ov.hasFluid(LOOK), true);
+});
+
+// ── E's port ──
+test('the phases are E\'s (PHASE in vec-renderer.js), with BEHIND added for the glow and the map', () => {
+  for (const k of Object.keys(PHASE)) assert.equal(OVERLAY_PHASE[k], PHASE[k], k);
+  if (PHASE.BEHIND !== undefined) assert.equal(OVERLAY_PHASE.BEHIND, PHASE.BEHIND);
+  assert.equal(new Set(Object.values(OVERLAY_PHASE)).size, 4);
+});
+
+test('draw(pass, m, phase): BEHIND glow+map, UNDER warm, HEADS the blood frame\'s outlines and catheter over the lumen (stencil 1), OVER the ascites, catheter, outlines', () => {
+  const { ov, log, E } = rig();
+  ov.setLines(spec()); ov.setCath(cathSpec()); ov.setFluidSpans(new Float32Array([100, 120, 140, 120]), [100, 200, 800, 300]);
+  ov.setOverlays(LOOK, VIEW, 1000, 700);
+  const run = (variant, phase) => { log.length = 0; ov.draw({ variant, w: 1000, h: 700, m: VIEW, box: null }, VIEW, phase); return log.filter((c) => c[0] === 'use').map((c) => c[1]); };
+  assert.deepEqual(run(V_FULL, OVERLAY_PHASE.BEHIND), ['line', 'map']);
+  assert.deepEqual(run(V_BASE, OVERLAY_PHASE.BEHIND), ['line', 'map']);
+  assert.deepEqual(run(V_BLOOD, OVERLAY_PHASE.BEHIND), []);
+  assert.deepEqual(run(V_FULL, OVERLAY_PHASE.UNDER), ['warm', 'warm']);
+  assert.deepEqual(run(V_BASE, OVERLAY_PHASE.UNDER), ['warm', 'warm']);
+  assert.deepEqual(run(V_BLOOD, OVERLAY_PHASE.UNDER), []);
+  assert.deepEqual(run(V_FULL, OVERLAY_PHASE.HEADS), [], 'nothing over the vessels in HEADS of a full frame: OVER does it');
+  assert.deepEqual(run(V_BASE, OVERLAY_PHASE.OVER), [], 'the kept base has nothing that lies over the blood');
+  assert.deepEqual(run(V_FULL, OVERLAY_PHASE.OVER), ['fluid', 'cath', 'line']);
+  assert.deepEqual(run(V_BLOOD, OVERLAY_PHASE.OVER), [], 'in a blood frame the lumen shaders lay the ascites');
+  assert.deepEqual(run(V_BLOOD, OVERLAY_PHASE.HEADS), ['cath', 'line']);
+  const f = calls(log, 'stencilFunc');
+  assert.equal(f.length, 2);
+  for (const c of f) assert.deepEqual(c.slice(1), [E('EQUAL'), 1, 0xff], 'only where the blood wrote');
+});
+
+test('setOverlays names what changed: under for the glow, warm, map and plate; over for outlines, catheter and the cavity (a box for the cavity alone)', () => {
+  const { ov } = rig();
+  const sp = spec();
+  ov.setLines(sp); ov.setCath(cathSpec()); ov.setFluidSpans(new Float32Array([100, 120, 140, 120]), [100, 200, 800, 300]);
+  let r = ov.setOverlays(LOOK, VIEW, 1000, 700);
+  assert.equal(r.under, true); assert.equal(r.over, true, 'the first call: everything');
+  r = ov.setOverlays(LOOK, VIEW, 1000, 700);
+  assert.equal(r.under, undefined); assert.equal(r.over, undefined, 'the same look: nothing');
+  r = ov.setOverlays({ ...LOOK, fluid: { ...LOOK_FLUID, s: [500, 120, 2, 0.9] } }, VIEW, 1000, 700);
+  assert.equal(r.under, undefined);
+  assert.ok(Array.isArray(r.over) && r.over[2] > r.over[0], 'a ripple: the cavity\'s box');
+  r = ov.setOverlays({ ...LOOK, fluid: { ...LOOK_FLUID, s: [500, 120, 2, 0.9] } }, VIEW, 1000, 700);
+  assert.equal(r.over, undefined);
+  r = ov.setOverlays({ ...LOOK, map: { ...LOOK_MAP, a: 0.4 } }, VIEW, 1000, 700);
+  assert.equal(r.under, true);
+  r = ov.setOverlays({ ...LOOK, map: { ...LOOK_MAP, a: 0.4 }, plate: { alpha: 0.5, sat: 0.4 } }, VIEW, 1000, 700);
+  assert.equal(r.under, true, 'the plate\'s grey-down');
+  sp.draws[1].alpha = 0.1; ov.setLines(sp);
+  r = ov.setOverlays({ ...LOOK, map: { ...LOOK_MAP, a: 0.4 }, plate: { alpha: 0.5, sat: 0.4 } }, VIEW, 1000, 700);
+  assert.equal(r.under, true, 'a glow fading'); assert.equal(r.over, undefined);
+  sp.draws[0].alpha = 0.3; ov.setLines(sp);
+  r = ov.setOverlays({ ...LOOK, map: { ...LOOK_MAP, a: 0.4 }, plate: { alpha: 0.5, sat: 0.4 } }, VIEW, 1000, 700);
+  assert.equal(r.over, true, 'an outline fading');
+  assert.equal(ov.ready(), true);
 });
 
 // ── The warm glow ──
