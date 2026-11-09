@@ -369,5 +369,70 @@ test('the scenes are frozen data both sides read: a route, the layers and a wind
     assert.deepEqual(JSON.parse(JSON.stringify(s)), s, 'plain data');
   }
 });
-// The lobule under the hierarchy (A's runs, K's leaves): the classes, the L_WIDE leaves, the largest candMax. Waits on A (vec-runs.js) and K (vec-leaves.js).
-test('the lobule compiled by A and K: leaf classes, L_WIDE leaves (the central vein named) and candMax are reported', { skip: 'waits on A (vec-runs.js) and K (vec-leaves.js)' }, async () => {});
+
+// ── The lobule under the hierarchy (A's runs, K's leaves) ──
+const hier = { graph: await waits('vec-graph.js'), runs: await waits('vec-runs.js'), leaves: await waits('vec-leaves.js'), pack: await waits('vec-leaves-pack.js') };
+const hierReady = !!(hier.graph && hier.runs && hier.leaves && hier.pack && hier.leaves.buildLeaves);
+/** The lobule's binning built into A's runs and K's leaves: the radii from the bin reach the lobule gave them, every row on tier 1, as compileLobule does. */
+function leavesOfLobule({ tubes, joins }) {
+  const n = tubes.length, bins = binMod.binVeins(tubes, joins);
+  const NS = 64, radAll = new Float32Array(n * NS * 4), tubeNow = new Float32Array(n * 52);
+  for (const t of tubes) {
+    const wall = 1, r = Math.max(0.5, (t.reach - 10 - wall) / 1.6);
+    for (let i = 0; i < NS; i++) radAll[(t.id * NS + i) * 4] = r;
+    tubeNow[t.id * 52 + 3] = wall; tubeNow[t.id * 52 + 7] = 1; tubeNow[t.id * 52 + 8] = 1;
+  }
+  const graph = hier.graph.createVecGraph();
+  graph.fromBins(bins, n); graph.attrs(tubeNow); graph.radii(radAll);
+  const runs = hier.runs.createRuns(graph).build();
+  const set = hier.leaves.createLeafSet();
+  const t0 = performance.now();
+  hier.leaves.buildLeaves(runs, graph.joins, null, hier.leaves.defaultPolicy(), set);
+  return { set, runs, graph, ms: performance.now() - t0 };
+}
+/** The leaf report: classes, wide leaves with the central vein named, the largest candMax, the leaves inside a window by class. */
+function leafReport(set, geo, cvRow, win = null) {
+  const T = set.tables, rep = set.report, P = hier.pack;
+  let candMax = 0, at = null;
+  const inWin = {}, area = {}, cand = {}, wideRho = {}, noRun = { leaves: 0, area: 0 }, runsHist = {};
+  for (let i = 0; i < set.nextLeaf; i++) {
+    const m = P.leafRead(T, i);
+    if (m.candMax > candMax) { candMax = m.candMax; at = [T.boxes[i * 4], T.boxes[i * 4 + 1], T.boxes[i * 4 + 2]]; }
+    area[m.cls] = (area[m.cls] || 0) + T.boxes[i * 4 + 2] ** 2;
+    if (m.cls === P.L_JOIN) { const k = Math.min(m.runCount, 6); runsHist[k] = (runsHist[k] || 0) + 1; }
+    if (m.runCount === 0) { noRun.leaves++; noRun.area += T.boxes[i * 4 + 2] ** 2; }
+    if (m.cls === P.L_WIDE) {
+      cand[m.candMax] = (cand[m.candMax] || 0) + 1;
+      const rho = Math.min(9, Math.floor(Math.hypot(T.boxes[i * 4] - geo.cx, T.boxes[i * 4 + 1] - geo.cy) / geo.R * 10));
+      wideRho[rho] = (wideRho[rho] || 0) + 1;
+    }
+    if (win) {
+      const x = T.boxes[i * 4], y = T.boxes[i * 4 + 1], s = T.boxes[i * 4 + 2];
+      if (x + s > win.x0 && x < win.x1 && y + s > win.y0 && y < win.y1) inWin[m.cls] = (inWin[m.cls] || 0) + s * s;
+    }
+  }
+  const near = (e) => Math.hypot(e.x + e.size / 2 - geo.cx, e.y + e.size / 2 - geo.cy) <= 3 * geo.rcv0;
+  const wide = rep.wide.map((e) => ({ ...e, cv: e.rows.includes(cvRow) || near(e) }));
+  return { rep, candMax, at, wide, wideCv: wide.filter((e) => e.cv).length, inWin, area, cand, wideRho, noRun, runsHist };
+}
+for (const lymph of [false, true]) {
+  test(`the lobule's ${lymph ? 'blood and lymph' : 'blood'} vessels under A's runs and K's leaves: classes, L_WIDE leaves (the central vein named), the largest candMax`, { timeout: 180000 }, async (t) => {
+    if (!hierReady) return t.skip('waits for A (vec-runs.js) and K (vec-leaves.js buildLeaves)');
+    const lines = [], { L_WIDE, L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_MORPH, SLOTS_WIDE } = hier.pack;
+    const names = { [L_SINGLE]: 'single', [L_LAYERED]: 'layered', [L_CROSS]: 'cross', [L_JOIN]: 'join', [L_WIDE]: 'wide', [L_MORPH]: 'morph' };
+    for (const [W, H] of SIZES) {
+      const bins = await lobuleBins(W, H, lymph), geo = lobuleGeo(W, H);
+      const dot = bins.tubes.filter((tb) => tb.pts.every((p) => Math.hypot(p[0] - tb.pts[0][0], p[1] - tb.pts[0][1]) < 2)).find((tb) => Math.hypot(tb.pts[0][0] - geo.cx, tb.pts[0][1] - geo.cy) < 1);
+      const { set, ms } = leavesOfLobule(bins), r = leafReport(set, geo, dot ? dot.id : -1);
+      if (W === SCENE_DEVICE.w) for (const name of SCENE_NAMES) {
+        const w = leafReport(set, geo, dot ? dot.id : -1, sceneWindow(name, geo, W, H)).inWin, tot = Object.values(w).reduce((a, b) => a + b, 0) || 1;
+        lines.push(`  scene ${name}: window area by class ${Object.entries(w).map(([c, a]) => `${names[c]} ${(100 * a / tot).toFixed(0)}%`).join(', ')}`);
+      }
+      const by = Object.entries(r.rep.byClass).map(([c, n]) => `${names[c]} ${n}`).join(', ');
+      lines.push(`${W}x${H}: ${r.rep.cells} cells, ${r.rep.leaves} leaves (${by}), ${r.rep.nodes} nodes, depth ${r.rep.depth.join('/')}, built in ${ms.toFixed(0)} ms; wide ${r.wide.length} (central vein ${r.wideCv}), over ${SLOTS_WIDE} ${r.rep.overWide.length}, false proximity ${r.rep.falseProximity.length}; area by class ${Object.entries(r.area).map(([c, a]) => `${names[c]} ${Math.round(a)}`).join(', ')}; leaves with no run ${r.noRun.leaves} (area ${Math.round(r.noRun.area)}); join leaves by runs (6 = 6 or more) ${JSON.stringify(r.runsHist)}; wide candidates ${JSON.stringify(r.cand)}; wide by rho/R tenth ${JSON.stringify(r.wideRho)}; largest candMax ${r.candMax} at ${r.at ? r.at.map((v) => v.toFixed(1)).join(',') : '-'}`);
+      assert.ok(!set.tables.grid.tooWide && set.tables.grid.nx <= 256, `${W}x${H}: the grid fits the cell texture`);
+      assert.equal(r.rep.overWide.length, 0, `${W}x${H}: no leaf has more than ${SLOTS_WIDE} candidates (stop point: ${JSON.stringify(r.rep.overWide.slice(0, 3))})`);
+    }
+    t.diagnostic(lines.join('\n'));
+  });
+}
