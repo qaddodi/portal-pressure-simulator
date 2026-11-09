@@ -4663,20 +4663,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // in them, so each pixel there ends as a whole draw leaves it; docs/veins-mesh-plan.md section 4.)
       if (meshUse()) {
         if (!meshTargets()) return refuse('mesh renderer');
-        // (Rows whose lumen colours alone changed are recoloured by tintPass, as the classic layer is: it draws again only the pixels a lumen
-        // colour reaches (the mesh writes the same outDep), with the shared shading, in the colour target alone.)
         const { part: mp, tintPart: mt } = rowParts(rows);
-        if (mp.k > nCells * 0.6) return refuse('most cells');
+        const mark = mp.mark;
+        let k = mp.k;
+        for (let c = 0; c < nCells; c++) if (mt.mark[c] && !mark[c]) { mark[c] = 1; k++; }
+        if (k > nCells * 0.6) return refuse('most cells');
         rowsStatus = 'drawn';
         tubesNew = false; clearMarks();
         if (gpuProbe.on) gpuProbe.note(COUNTED.rows);
-        if (mp.k) meshCellsPass(m, look, mp.mark);
-        partCells += mp.k;
-        tintPass(m, look, mt);
+        meshCellsPass(m, look, mark);
+        partCells += k;
         drawnNow();
-        const both = mp.k + mt.k;
-        if (both) { const mark = mp.mark; for (let c = 0; c < nCells; c++) if (mt.mark[c]) mark[c] = 1; uploadPart(mark); }
-        this.composite(look, blood, full, both);
+        if (k) uploadPart(mark);
+        this.composite(look, blood, full, k);
         return true;
       }
       // (Rows whose lumen colours alone changed are recoloured, which draws again only the pixels those colours reach:
