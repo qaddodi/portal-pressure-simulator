@@ -25,7 +25,7 @@ await A.view('circuit', 100);
 figures.circuit = A.figure();
 
 const GL = await import('../src/ui/veins-gl.js');
-const { VEC_PRECISION, VEC_SHADE_GLSL, VEC_SHADE_UNIFORMS_LEAF } = await import('../src/ui/vec-shade-glsl.js');
+const { VEC_SHADE_UNIFORMS_LEAF } = await import('../src/ui/vec-shade-glsl.js');
 const { vecStretchFS, vecLeafStretchFS, vecLeafStretchUniformNames, vecStretchVS } = await import('../src/ui/vec-stretch-glsl.js');
 
 const K = {
@@ -92,7 +92,6 @@ test('the region program, when it reads the hierarchy, reads K\'s same text (one
 });
 
 // ── The nearest point over the survivors, on the real anatomy ──
-const f32 = Math.fround;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const rng = (seed) => { let s = seed >>> 0; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; };
 const segD = (px, py, ax, ay, bx, by) => {
