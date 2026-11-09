@@ -8,9 +8,10 @@
 //   leaves    RGBA32UI  LEAF_ROW leaves a row, LEAF_TEXELS (2) texels a leaf, leaf l at texel (2 · (l % LEAF_ROW) + t, l / LEAF_ROW):
 //                       t0  class | crossTier << 8, runStart, runCount, joinStart      t1  joinCount, candMax, depth, owner row (0xffffffff: none)
 //   boxes     RGBA32F   one texel a leaf, BOX_W a row:  x0, y0, size, class (the leaf's square: the region quad's)
-//   runRefs   R32UI     LIST_W a row:  runId | bits << 24, runId = row · RUNS_PER_ROW + k. One ref a run a leaf, bits OR'd; a leaf's refs run in
-//                       ascending runId (so the runs of one vessel are together)
-//   joinRefs  R32UI     LIST_W a row:  join index (ascending)
+//   runRefs   R32UI     LIST_W a row, ONE list for both kinds of reference (16 fragment texture units on a phone: E, 9 Nov):
+//                       a leaf's run refs  runId | bits << 24, runId = row · RUNS_PER_ROW + k (one ref a run a leaf, bits OR'd, ascending runId, so the
+//                       runs of one vessel are together), and its join refs  join index (ascending) at joinStart, an absolute index into this same list.
+//                       `joinRefs` on the tables is the same array (a getter), kept so a reader of joinStart + i still works.
 // Not in the contract yet (K asks A): LEAF_ROW, BOX_W, and the cell texel's high index word (B).
 import {
   GRID_W, CELL_EMPTY, CELL_LEAF, CELL_NODE, NODE_W, MAX_DEPTH, LEAF_TEXELS, LIST_W, RUNS_PER_ROW, RUN_SEGS, RUN_TEXELS, JOIN_TEXELS,
@@ -34,7 +35,7 @@ export const LEAF_ROW = 1024, BOX_W = 4096;
 export const CELL_KIND_SHIFT = 30, CELL_INDEX_MASK = 0x3fffffff;
 
 /** The tables' names, in the order the dirty report lists them. */
-export const TABLES = Object.freeze(['cells', 'nodes', 'leaves', 'boxes', 'runRefs', 'joinRefs']);
+export const TABLES = Object.freeze(['cells', 'nodes', 'leaves', 'boxes', 'runRefs']);
 
 function emptyDirty() { const d = {}; for (const t of TABLES) d[t] = { lo: -1, hi: -1 }; return d; }
 function mark(p, name, row) {
@@ -52,9 +53,9 @@ export function createLeafTables() {
   return {
     grid: { x0: 0, y0: 0, nx: 0, ny: 0 },
     cells: new Uint16Array(0), nodes: new Uint32Array(0), leaves: new Uint32Array(0), boxes: new Float32Array(0),
-    runRefs: new Uint32Array(0), joinRefs: new Uint32Array(0),
-    n: { leaves: 0, nodes: 0, runRefs: 0, joinRefs: 0 },
-    resized: { cells: false, nodes: false, leaves: false, boxes: false, runRefs: false, joinRefs: false },
+    runRefs: new Uint32Array(0), get joinRefs() { return this.runRefs; },
+    n: { leaves: 0, nodes: 0, runRefs: 0, joinRefs: 0 },   // (runRefs: the whole shared list in use; joinRefs: how many of its entries are join refs, a count only)
+    resized: { cells: false, nodes: false, leaves: false, boxes: false, runRefs: false },
     dirty: emptyDirty(),
   };
 }
@@ -68,7 +69,6 @@ export function tableSize(p, name) {
     case 'leaves': return { w: LEAF_ROW * LEAF_TEXELS, h: rowsOf(p.n.leaves, LEAF_ROW) };
     case 'boxes': return { w: BOX_W, h: rowsOf(p.n.leaves, BOX_W) };
     case 'runRefs': return { w: LIST_W, h: rowsOf(p.n.runRefs, LIST_W) };
-    case 'joinRefs': return { w: LIST_W, h: rowsOf(p.n.joinRefs, LIST_W) };
     default: throw new Error(`vec-leaves-pack: no table ${name}`);
   }
 }
@@ -126,11 +126,11 @@ export function setBox(p, l, x0, y0, size, cls) {
   mark(p, 'boxes', l / BOX_W | 0);
 }
 
-/** Makes room for `n` more entries at the end of the run-ref (or join-ref) list; returns the first index. The caller writes them with setRunRef / setJoinRef. */
+/** Makes room for `n` more entries at the end of the shared ref list; returns the first index. The caller writes them with setRunRef / setJoinRef. */
 export function reserveRunRefs(p, n) { const s = p.n.runRefs; p.n.runRefs += n; growTo(p, 'runRefs', Uint32Array, p.n.runRefs); return s; }
-export function reserveJoinRefs(p, n) { const s = p.n.joinRefs; p.n.joinRefs += n; growTo(p, 'joinRefs', Uint32Array, p.n.joinRefs); return s; }
+export function reserveJoinRefs(p, n) { const s = p.n.runRefs; p.n.runRefs += n; p.n.joinRefs += n; growTo(p, 'runRefs', Uint32Array, p.n.runRefs); return s; }
 export function setRunRef(p, i, runId, bits) { p.runRefs[i] = ((bits << 24) | runId) >>> 0; mark(p, 'runRefs', i / LIST_W | 0); }
-export function setJoinRef(p, i, join) { p.joinRefs[i] = join; mark(p, 'joinRefs', i / LIST_W | 0); }
+export function setJoinRef(p, i, join) { p.runRefs[i] = join; mark(p, 'runRefs', i / LIST_W | 0); }
 
 /** Forgets what was written since the last call (after the renderer core uploaded it). */
 export function clearDirty(p) {
@@ -148,4 +148,33 @@ export function leafRead(p, l) {
     cls: w[o] & 255, crossTier: (w[o] & CLASS_CROSSTIER) !== 0, runStart: w[o + 1], runCount: w[o + 2], joinStart: w[o + 3],
     joinCount: w[o + 4], candMax: w[o + 5], depth: w[o + 6], owner: w[o + 7] === NO_OWNER ? -1 : w[o + 7],
   };
+}
+
+// ── One float texture for runs and joins (16 fragment texture units: E, 9 Nov) ──
+// A's run table is RUNS_PER_ROW · RUN_TEXELS (64) texels wide, a vessel row a texel row. The joins go below it in the same texture: join j's JOIN_TEXELS (3) texels
+// at x = (j % JOIN_PER_ROW) · 3 + t, y = joinRow0 + floor(j / JOIN_PER_ROW), JOIN_PER_ROW = 21 joins a row (63 of the 64 texels).
+export const RUN_TABLE_W = RUNS_PER_ROW * RUN_TEXELS;
+export const JOIN_PER_ROW = Math.floor(RUN_TABLE_W / JOIN_TEXELS);
+/** The texel of join j's texture t (0 … JOIN_TEXELS − 1) relative to joinRow0: { x, y }. */
+export const joinTexel = (j, t) => ({ x: (j % JOIN_PER_ROW) * JOIN_TEXELS + t, y: Math.floor(j / JOIN_PER_ROW) });
+/**
+ * Writes A's run texture data (runsOut = packRuns' { data, width, height, dirty }) and join data (joinsOut = packJoins' { data, count }, 12 floats a join) into
+ * one RGBA32F table `out` = { data, width, height, joinRow0, dirty: [row0, row1] | null (null: all) } in place. The runs' dirty rows only are copied when the
+ * shape did not change; the joins (a few hundred texels) always.
+ */
+export function combineRunJoin(out, runsOut, joinsOut) {
+  const W = runsOut.width, rows = runsOut.height, jr = Math.ceil((joinsOut.count || 0) / JOIN_PER_ROW), total = rows + jr;
+  let full = !out.data || out.data.length < total * W * 4 || out.joinRow0 !== rows || out.width !== W;
+  if (full) { const d = new Float32Array(Math.max(total * W * 4, 4)); if (out.data && out.joinRow0 === rows) d.set(out.data.subarray(0, Math.min(out.data.length, d.length))); out.data = d; }   // alloc-rare: with the rows and joins
+  out.width = W; out.height = total; out.joinRow0 = rows;
+  let lo, hi;
+  if (full || !runsOut.dirty) { out.data.set(runsOut.data.subarray(0, rows * W * 4)); lo = 0; hi = rows - 1; full = true; }
+  else { const a = runsOut.dirty[0], b = runsOut.dirty[1]; out.data.set(runsOut.data.subarray(a * W * 4, (b + 1) * W * 4), a * W * 4); lo = a; hi = b; }
+  for (let j = 0; j < (joinsOut.count || 0); j++) {
+    const dst = ((rows + Math.floor(j / JOIN_PER_ROW)) * W + (j % JOIN_PER_ROW) * JOIN_TEXELS) * 4;
+    for (let k = 0; k < JOIN_TEXELS * 4; k++) out.data[dst + k] = joinsOut.data[j * JOIN_TEXELS * 4 + k];
+  }
+  if (jr) { if (lo > rows) lo = rows; hi = total - 1; }
+  out.dirty = full ? null : [lo, hi];
+  return out;
 }

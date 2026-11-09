@@ -26,7 +26,7 @@
 // tube, ent, rad, posBase, padU, selPad (vecStretchUniformNames below).
 import { STRIP_VS_GLSL } from './veins-mesh.js';
 import { VEC_PRECISION, VEC_SHADE_GLSL, VEC_SHADE_UNIFORMS, VEC_SHADE_UNIFORMS_LEAF } from './vec-shade-glsl.js';
-import { HIER_GLSL, HIER_UNIFORMS } from './vec-hier-glsl.js';
+import { HIER_LOOKUP_GLSL, HIER_LOOKUP_UNIFORMS } from './vec-hier-glsl.js';
 import { V_FULL, V_BASE, V_BLOOD } from './vec-contract.js';
 import { VEC_BLOOD_GLSL, VEC_BLOOD_UNIFORMS } from './vec-blood-glsl.js';
 import { FLUID_GLSL, FLUID_UNIFORMS } from './vec-overlays-glsl.js';
@@ -143,7 +143,7 @@ ${declsOf(variant, parts)}`;
  */
 export const vecLeafStretchUniformNames = (variant) => ({
   vs: vecStretchUniformNames(variant).vs,
-  fs: [...VEC_SHADE_UNIFORMS_LEAF, ...HIER_UNIFORMS, 'morphOn', ...(variant === V_BASE ? [] : VEC_BLOOD_UNIFORMS.map((u) => u.name)),
+  fs: [...VEC_SHADE_UNIFORMS_LEAF, ...HIER_LOOKUP_UNIFORMS, 'morphOn', ...(variant === V_BASE ? [] : VEC_BLOOD_UNIFORMS.map((u) => u.name)),
     ...(variant === V_BLOOD ? ['vecBase', 'pxW', ...FLUID_UNIFORMS] : [])],
 });
 
@@ -156,7 +156,7 @@ export const vecLeafStretchUniformNames = (variant) => ({
  * A pixel no run survives for is discarded. The lumen/blood tail is the old program's.
  */
 export function vecLeafStretchFS(variant, K, parts = {}) {
-  const head = `${VEC_PRECISION}${VEC_SHADE_GLSL(K, true)}${HIER_GLSL}uniform int morphOn;                   // 1 or 2: a morph set is in use (its runs' bound is the box over the whole sweep)
+  const head = `${VEC_PRECISION}${VEC_SHADE_GLSL(K, true)}${HIER_LOOKUP_GLSL}uniform int morphOn;                   // 1 or 2: a morph set is in use (its runs' bound is the box over the whole sweep)
 ${declsOf(variant, parts)}`;
   return `${head}void main() {
   vec2 p = vecWorld();

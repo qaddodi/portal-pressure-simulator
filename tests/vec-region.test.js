@@ -222,7 +222,6 @@ test('a morph region reads its joins from the frame\'s join rows, as classic doe
 
 const CLASSES = [K.L_LAYERED, K.L_CROSS, K.L_JOIN, K.L_WIDE, K.L_MORPH];
 const LFS = (variant, cls) => vecRegionFS(variant, cls, K_FLAGS);
-const cut = (src, a, b) => src.slice(src.indexOf(a), b ? src.indexOf(b) : undefined);
 
 test('the leaf vertex shader: the leaf\'s square from LEAF_BOX\'s row, padded by the contract\'s pixels, the leaf index flat to the fragment', () => {
   assert.deepEqual(lintGLSL(vecLeafRegionVS), []);
@@ -255,7 +254,7 @@ test('the five steps run in the reviewer\'s order, and the leaf test comes first
   for (const cls of CLASSES) {
     const src = LFS(K.V_FULL, cls), main = src.slice(src.lastIndexOf('void main()'));
     const at = (t) => { const i = main.indexOf(t); assert.ok(i >= 0, `${LEAF_CLASSES[cls].name}: ${t}`); return i; };
-    const order = ['vecLeafAt(p)', 'leaf != vLeaf', 'vecRunRef(L.runStart + i)', 'vecBoundHit', 'vecNearMore(sn[at]', 'vecOccl(p)', 'vecShadeBits(sid[0]', 'vesAttrs(', 'tubeShade(', 'vecBloodMix'].map(at);
+    const order = ['vecLeafAt(p)', 'leaf != vLeaf', 'vecRunRef(L.runStart + i)', 'vecBoundHit', 'vecNearMore(sn[at]', 'vecOccl(p)', 'vecShadeBits(sid[0]', 'vesAttrs(', 'tubeShade(', 'vec3 lumCol = o.a > 0.01'].map(at);
     assert.deepEqual(order, [...order].sort((a, b) => a - b), `${LEAF_CLASSES[cls].name}: ${order}`);
     assert.ok(!/gl_FragCoord/.test(main.slice(0, main.indexOf('vecShadeBits'))), 'the leaf test reads no pixel position of its own');
   }
@@ -275,7 +274,8 @@ test('each class holds only the work it needs', () => {
   ]) for (const cls of CLASSES) assert.equal(has(cls, piece), classes.includes(cls), `${LEAF_CLASSES[cls].name}: ${piece}`);
   // L_LAYERED: no fillet, no ring, no crossing depth, no joins at all; the owner is the nearest; group compositing is still there
   const lay = t(K.L_LAYERED);
-  for (const piece of ['accN * netAlpha', 'accT = over(c * wsel, accT)', 'vecBloodMix(2, rws, ss, yy, rr, ww, lumCol, px)']) assert.ok(lay.includes(piece), piece);
+  for (const piece of ['accN * netAlpha', 'accT = over(c * wsel, accT)', 'vec4 bl = vecBlood(gRow, gS, gY, gR, lumCol, px);']) assert.ok(lay.includes(piece), piece);
+  assert.ok(!lay.includes('vecBloodMix') && !lay.includes('gRow2'), 'one stream, no mix');
   assert.ok(!lay.includes('smin(') && !lay.includes('corner(') && !lay.includes('kcas = max'));
   // L_CROSS: the front lumen owns, the ring, and the front stream alone (the other lumen is never in the mix)
   const cross = t(K.L_CROSS);
@@ -333,14 +333,30 @@ test('a pixel one candidate reaches is B\'s and D\'s functions unchanged, as the
     assert.ok(/vec4 o = over\(accT, over\(accN \* netAlpha, accB\)\);/.test(src), 'the network\'s alpha is applied once, to the whole group');
   }
   // the blood is laid the very same way in the leaf programs and the current program
-  const blood = (src) => src.slice(src.indexOf('vec3 lumCol = o.a > 0.01'));
+  const blood = (src) => { const end = src.slice(src.lastIndexOf('vec3 lumCol = o.a > 0.01')); const i = end.indexOf('vec3 lit = bl.rgb'); return i >= 0 ? end.slice(i) : end.slice(end.lastIndexOf('outColor =')); };
   for (const variant of [K.V_FULL, K.V_BASE, K.V_BLOOD]) assert.equal(blood(LFS(variant, K.L_JOIN)).trim(), blood(FS(variant)).trim());
 });
 
-test('the leaf programs share the tier loop with the current program: the join classes are the same text as the current program\'s tiers', () => {
-  const tiers = (src) => cut(src, '  // ── Tiers, back to front ──');
-  assert.equal(tiers(LFS(K.V_FULL, K.L_JOIN)).replace(/\s+/g, ' ').replace(/ && \(sbits\[s\] & SHAPE_BITS\) != 0/, '').replace(/ \|\| \(sbits\[s\] & \d+\) == 0/, ''),
-    tiers(FS(K.V_FULL)).replace(/\s+/g, ' '));
+test('the leaf programs share the tier loop with the current program: the join classes are the same text as the current program\'s tiers, up to the streams', () => {
+  const norm = (src, a, b) => { const i = src.indexOf(a); return src.slice(i, src.indexOf(b, i)).replace(/\s+/g, ' ').replace(/ && \(sbits\[s\] & SHAPE_BITS\) != 0/, '').replace(/ \|\| \(sbits\[s\] & \d+\) == 0/, ''); };
+  const A = 'for (int it = 0; it < MAXS; it++) {', B = '    if (lumA > 0.02';
+  assert.equal(norm(LFS(K.V_FULL, K.L_JOIN), A, B), norm(FS(K.V_FULL), A, B));
+  assert.equal(norm(LFS(K.V_FULL, K.L_WIDE), A, B), norm(FS(K.V_FULL), A, B).replace(/\bMAXS\b/g, 'MAXS'));
+  const tail = (src) => src.slice(src.indexOf('} else gW *= 1.0 - c.a * gf;'), src.indexOf('vec3 lumCol = o.a > 0.01')).replace(/\s+/g, ' ');
+  assert.equal(tail(LFS(K.V_FULL, K.L_JOIN)), tail(FS(K.V_FULL)));
+});
+
+test('the junction classes mix every joined lumen with D\'s N-stream vecBloodMix, at the program\'s array size; the others show one stream', () => {
+  for (const cls of CLASSES) {
+    const full = LFS(K.V_FULL, cls), n = LEAF_CLASSES[cls].slots;
+    if (LEAF_CLASSES[cls].joins) {
+      assert.ok(full.includes('bl = vecBloodMix(gN, gRows, gSs, gYs, gRs, gWw, lumCol, px);') && full.includes('int gRows[MAXS];'), LEAF_CLASSES[cls].name);
+      assert.ok(full.includes(`vec4 vecBloodMix(int n, int rows[${n}], float s[${n}], float y[${n}], float R[${n}], float w[${n}]`), `D's text at size ${n}`);
+      assert.ok(!full.includes('gRow2'), 'no pair any more');
+      assert.ok(full.includes('wvs[s] > 0.01 * wmax'), 'a negligible share is the only one left out, and D normalises over the rest');
+    } else assert.ok(!full.includes('vecBloodMix') && !full.includes('gRows'), `${LEAF_CLASSES[cls].name}: one stream`);
+  }
+  assert.ok(FS(K.V_FULL).includes('vecBloodMix(2, rws, ss, yy, rr, ww, lumCol, px)'), 'the current program keeps its pair');
 });
 
 test('the programs of the classes are told apart for the renderer core: parts, uniforms, attributes', () => {
@@ -411,4 +427,11 @@ test('leafCandidates flags an overflow and drops nothing', () => {
   assert.equal(leafCandidates({ refs: refs.slice(0, 8) }, [0.5, 0], K.SLOTS).overflow, false);
   const joins = Array.from({ length: K.MAX_JOINS + 1 }, () => ({ c: [0, 0], reach: 3, rows: [0, 1] }));
   assert.equal(leafCandidates({ refs: [], joins }, [0, 0]).overflow, true, 'more covering joins than the array holds');
+});
+
+test('no leaf program declares more than 16 samplers (the cap on Mac and iPhone)', () => {
+  for (const cls of CLASSES) for (const variant of [K.V_FULL, K.V_BASE, K.V_BLOOD]) {
+    const n = [...LFS(variant, cls).matchAll(/uniform\s+(?:highp\s+|lowp\s+|mediump\s+)?u?sampler\w+\s+\w+/g)].length;
+    assert.ok(n <= 16, `${LEAF_CLASSES[cls].name} variant ${variant}: ${n} samplers`);
+  }
 });

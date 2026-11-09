@@ -6,9 +6,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lintGLSL, uniformsOf } from './glsl-lint.js';
 import { loadGLSL } from './vec-glsl-eval.js';
-import { HIER_GLSL, HIER_DECLS, HIER_FUNCS, HIER_UNIFORMS } from '../src/ui/vec-hier-glsl.js';
+import { HIER_GLSL, HIER_DECLS, HIER_FUNCS, HIER_UNIFORMS, HIER_LOOKUP_GLSL, HIER_JOIN_GLSL, HIER_LOOKUP_UNIFORMS, HIER_JOIN_UNIFORMS, HIER_LOOKUP_DECLS } from '../src/ui/vec-hier-glsl.js';
 import {
   createLeafTables, packBegin, setCell, setChild, setLeaf, setBox, reserveRunRefs, setRunRef, reserveJoinRefs, setJoinRef, leafRead,
+  combineRunJoin, joinTexel, JOIN_PER_ROW, RUN_TABLE_W, RUN_TEXELS, JOIN_TEXELS,
   CELL_SIZE, CELL_LEAF, CELL_NODE, CHILD_LEAF, CHILD_NODE, CHILD_EMPTY, MAX_DEPTH, LEAF_ROW, GRID_W, NO_OWNER, CLASS_CROSSTIER, tableSize,
 } from '../src/ui/vec-leaves-pack.js';
 import {
@@ -19,9 +20,11 @@ import { createRuns } from '../src/ui/vec-runs.js';
 import { PRESETS } from '../src/engine/scenario.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import {
-  C_LUMEN, C_SHADOW, C_GLOW, C_RING, C_JOIN, L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_WIDE, L_MORPH, SLOTS, SLOTS_WIDE, RUNS_PER_ROW, refRun, refBits,
+  C_LUMEN, C_SHADOW, C_GLOW, C_RING, L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_WIDE, L_MORPH, SLOTS, SLOTS_WIDE, RUNS_PER_ROW, refRun, refBits,
 } from '../src/ui/vec-leaves-pack.js';
 import { lobuleGeo } from '../src/ui/vec-lobule.js';
+import * as CONTRACT from '../src/ui/vec-contract.js';
+import { segRect2 } from '../src/ui/vec-leaves.js';
 
 const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp usampler2D;\nprecision highp sampler2D;\n';
 
@@ -77,13 +80,24 @@ function texturesOf(p) {
     uVecNodes: (x, y) => { const o = (y * 1024 + x) * 4; return [p.nodes[o], p.nodes[o + 1], p.nodes[o + 2], p.nodes[o + 3]]; },
     uVecLeaves: (x, y) => { const l = (y * LEAF_ROW) + (x >> 1), o = (l * 2 + (x & 1)) * 4; return [p.leaves[o], p.leaves[o + 1], p.leaves[o + 2], p.leaves[o + 3]]; },
     uVecRunRefs: (x, y) => [p.runRefs[y * 4096 + x], 0, 0, 1],
-    uVecJoinRefs: (x, y) => [p.joinRefs[y * 4096 + x], 0, 0, 1],
   };
 }
 const fl = (v) => ({ t: 'float', v: Math.fround(v) });
 const uniformsOfTables = (p) => ({
   uVecGridO: { t: 'vec2', v: { x: fl(p.grid.x0), y: fl(p.grid.y0) } },
   uVecGridN: { t: 'ivec2', v: { x: { t: 'int', v: p.grid.nx }, y: { t: 'int', v: p.grid.ny } } },
+});
+
+test('the lookup is two parts: the lookup alone has no join and no join sampler, the join part adds only a uniform, and HIER_GLSL is both', () => {
+  assert.equal(HIER_GLSL, HIER_LOOKUP_GLSL + HIER_JOIN_GLSL);
+  assert.deepEqual(lintGLSL(`${HEAD}${HIER_LOOKUP_GLSL}\nvoid main() {}\n`), []);
+  assert.deepEqual(lintGLSL(`${HEAD}${HIER_LOOKUP_GLSL}${HIER_JOIN_GLSL}\nvoid main() {}\n`), []);
+  assert.doesNotMatch(HIER_LOOKUP_GLSL, /uVecJoin|VecJoin|vecJoin/, 'the lookup part declares and calls no join');
+  assert.deepEqual(uniformsOf(HIER_LOOKUP_DECLS).sort(), [...HIER_LOOKUP_UNIFORMS].sort());
+  assert.deepEqual([...HIER_JOIN_UNIFORMS], ['uVecJoinRow0']);
+  const samplers = (src) => src.split('\n').filter((l) => /^uniform .*sampler2D /.test(l)).map((l) => l.replace(/^.* (\w+);.*$/, '$1'));
+  assert.deepEqual(samplers(HIER_GLSL).sort(), ['uVecCells', 'uVecLeaves', 'uVecNodes', 'uVecRunRefs', 'uVecRuns'], 'five samplers in all: one ref list and one float table');
+  assert.deepEqual(samplers(HIER_JOIN_GLSL), [], 'the join part declares no sampler');
 });
 
 test('the evaluator catches a changed comparison (the agreement test can fail)', () => {
@@ -143,7 +157,42 @@ test('vecLeafRead, vecRunRef, vecRefRun, vecRefBits and vecJoinRef read the tabl
     assert.equal(decl.call('vecRefRun', [ref], env).v, p.runRefs[i] & 0xffffff);
     assert.equal(decl.call('vecRefBits', [ref], env).v, p.runRefs[i] >>> 24);
   }
-  for (let i = 0; i < p.n.joinRefs; i++) assert.equal(decl.call('vecJoinRef', [I(i)], env).v, p.joinRefs[i]);
+  for (let i = 0; i < p.n.runRefs; i++) assert.equal(decl.call('vecJoinRef', [I(i)], env).v, p.runRefs[i]);   // one list: a join ref reads the same array
+});
+
+test('the joins live below the runs in the one float table: vecJoinRead and vecJoinTexelX/Y agree with joinTexel, and combineRunJoin writes them there', () => {
+  const decl = loadGLSL(HIER_GLSL);
+  const nRows = 7, nJoins = 50;
+  const runsOut = { data: new Float32Array(nRows * RUN_TABLE_W * 4).map((_, i) => i % 97), width: RUN_TABLE_W, height: nRows, dirty: null };
+  const joinsOut = { data: new Float32Array(nJoins * JOIN_TEXELS * 4), count: nJoins };
+  for (let j = 0; j < nJoins; j++) {
+    const o = j * 12;
+    Object.assign(joinsOut.data.subarray(o, o + 12), [j + 0.5, -j, 1 + j * 0.01, 2 + j * 0.02, j, j + 1, -1, -1, j + 1, j % 2, 0.25, 0]);
+  }
+  const tab = combineRunJoin({}, runsOut, joinsOut);
+  assert.equal(tab.width, RUN_TABLE_W); assert.equal(tab.joinRow0, nRows); assert.equal(tab.height, nRows + Math.ceil(nJoins / JOIN_PER_ROW));
+  assert.equal(tab.dirty, null, 'the first fill is whole');
+  assert.deepEqual(Array.from(tab.data.subarray(0, nRows * RUN_TABLE_W * 4)), Array.from(runsOut.data), 'the runs are where A put them');
+  const env = {
+    textures: { uVecRuns: Object.assign((x, y) => { const o = (y * tab.width + x) * 4; return [tab.data[o], tab.data[o + 1], tab.data[o + 2], tab.data[o + 3]]; }, { float: true }) },
+    uniforms: { uVecJoinRow0: { t: 'int', v: tab.joinRow0 } },
+  };
+  const I = (v) => ({ t: 'int', v });
+  for (let j = 0; j < nJoins; j++) {
+    const tx = joinTexel(j, 0);
+    assert.equal(decl.call('vecJoinTexelX', [I(j)], env).v, tx.x); assert.equal(decl.call('vecJoinTexelY', [I(j)], env).v, tx.y - 0 + tab.joinRow0);
+    const r = decl.call('vecJoinRead', [I(j)], env).v;
+    assert.deepEqual([r.c.v.x.v, r.c.v.y.v, r.k.v, r.reach.v], Array.from(joinsOut.data.subarray(j * 12, j * 12 + 4)).map(Math.fround));
+    assert.deepEqual([r.rows.v.x.v, r.rows.v.y.v, r.rows.v.z.v, r.rows.v.w.v], [j, j + 1, -1, -1]);
+    assert.equal(r.trunk.v, j + 1); assert.equal(r.trunkIdx.v, 1); assert.equal(r.fork.v, j % 2 === 1); assert.equal(r.fillet.v, 0.25);
+  }
+  // a later fill with the same shape copies only the runs' dirty rows (and the joins), and says which rows to upload
+  runsOut.data[3 * RUN_TABLE_W * 4 + 5] = -9; runsOut.dirty = [3, 3];
+  joinsOut.data[0] = 123;
+  combineRunJoin(tab, runsOut, joinsOut);
+  assert.deepEqual(tab.dirty, [3, tab.height - 1]);
+  assert.equal(tab.data[3 * RUN_TABLE_W * 4 + 5], -9); assert.equal(tab.data[nRows * RUN_TABLE_W * 4], 123);
+  assert.equal(RUN_TEXELS, 4);
 });
 
 test('the texture sizes follow the counts and the dirty rows are the rows written', () => {
@@ -190,7 +239,7 @@ const sig = (set, leaf) => {   // everything a leaf says, as a string
   if (leaf < 0) return 'none';
   const T = set.tables, m = leafRead(T, leaf), refs = [], joins = [];
   for (let i = 0; i < m.runCount; i++) refs.push(T.runRefs[m.runStart + i]);
-  for (let i = 0; i < m.joinCount; i++) joins.push(T.joinRefs[m.joinStart + i]);
+  for (let i = 0; i < m.joinCount; i++) joins.push(T.runRefs[m.joinStart + i]);
   return `${m.cls}/${m.crossTier}/${m.candMax}/${m.owner}/${m.depth}|${refs.join(',')}|${joins.join(',')}`;
 };
 
@@ -214,6 +263,23 @@ function samplePoints(set, packed, n, seed) {
     for (let py = 0; py < 24; py++) for (let px = 0; px < 36; px++) pts.push([cx + (px / 36 - 0.5) * 1440 / k, cy + (py / 24 - 0.5) * 900 / k]);
   }
   return pts;
+}
+
+
+// Plan-r1 2.2.1, replayed here without the builder's code: a join's grown bound for a member run at distance d from the join's centre.
+const G_JOIN = CONTRACT.G_JOIN ?? 2.2, G_JOIN_SH = CONTRACT.G_JOIN_SH ?? 1.25;
+const smoothstep01 = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+// the member rows (indices into mem) with a run whose grown bound reaches the box [x0, x1] x [y0, y1]; d: the box's nearest distance to the centre
+function growMembers(runs, graph, j, x0, y0, x1, y1, d, tol) {
+  const J = graph.joins, jk = J.k[j] * (1 - smoothstep01(0.55 * J.reach[j], J.reach[j], d)), sh = runs.look.shOff, rows = new Set();
+  for (const id of runs.joinRunsOf(j)) {
+    const row = Math.floor(id / RUNS_PER_ROW);
+    if (![0, 1, 2, 3].some((m) => J.mem[j * 4 + m] === row)) continue;
+    const o = id * 4, ax = runs.chord[o], ay = runs.chord[o + 1], bx = runs.chord[o + 2], by = runs.chord[o + 3];
+    const rl = runs.rad[o] + G_JOIN * jk + tol, rs = runs.rad[o + 1] > 0 ? runs.rad[o + 1] + G_JOIN_SH * jk + tol : 0;
+    if (segRect2(ax, ay, bx, by, x0, y0, x1, y1) <= rl * rl || (rs > 0 && segRect2(ax + sh[0], ay + sh[1], bx + sh[0], by + sh[1], x0, y0, x1, y1) <= rs * rs)) rows.add(row);
+  }
+  return rows;
 }
 
 function checkScene(t, name, fig, opts = {}) {
@@ -259,57 +325,61 @@ function checkScene(t, name, fig, opts = {}) {
   for (let id = 0; id < set.nIds; id++) if (runs.flags[id] & 1) ids.push(id);
   const joinsN = graph.joins.n, discs = [];
   for (let j = 0; j < joinsN; j++) discs.push(runs.joinDisc(j, {}));
-  let inLeaf = 0, bits = 0;
+  let inLeaf = 0, bits = 0, lumenPts = 0, lumenJoin = 0;
   for (const [px, py] of pts) {
     const leaf = leafAt(T, px, py);
     const refs = new Map(), jl = new Set(), m = leaf >= 0 ? leafRead(T, leaf) : null;
     if (m) {
       for (let i = 0; i < m.runCount; i++) refs.set(refRun(T.runRefs[m.runStart + i]), refBits(T.runRefs[m.runStart + i]));
-      for (let i = 0; i < m.joinCount; i++) jl.add(T.joinRefs[m.joinStart + i]);
+      for (let i = 0; i < m.joinCount; i++) jl.add(T.runRefs[m.joinStart + i]);
       inLeaf++;
       assert.ok(px >= T.boxes[leaf * 4] && px <= T.boxes[leaf * 4] + T.boxes[leaf * 4 + 2] + 1e-6 && py >= T.boxes[leaf * 4 + 1] && py <= T.boxes[leaf * 4 + 1] + T.boxes[leaf * 4 + 2] + 1e-6, `${name}: leafAt gave a leaf whose square misses the point`);
     }
     const rowsHit = new Set();
+    let inLumen = false;
     for (const id of ids) {
       for (const c of [C_LUMEN, C_SHADOW, C_GLOW, C_RING]) {
         if (!boundHit(data, id, c, px, py, sh)) continue;
-        rowsHit.add(Math.floor(id / RUNS_PER_ROW)); bits++;
+        rowsHit.add(Math.floor(id / RUNS_PER_ROW)); bits++; if (c === C_LUMEN) inLumen = true;
         assert.ok(m && ((refs.get(id) ?? 0) & c), `${name}: run ${id} bound ${c} covers (${px.toFixed(3)}, ${py.toFixed(3)}) but leaf ${leaf} lacks it`);
       }
     }
-    for (let j = 0; j < joinsN; j++) {
-      const d = discs[j];
-      if ((px - d.x) ** 2 + (py - d.y) ** 2 > d.r * d.r) continue;
-      assert.ok(m && jl.has(j), `${name}: join ${j} covers (${px.toFixed(3)}, ${py.toFixed(3)}) but leaf ${leaf} lacks it`);
-      for (const id of runs.joinRunsOf(j)) { assert.ok(refs.get(id) & C_JOIN, `${name}: join ${j}'s required run ${id} is not listed with its bit`); rowsHit.add(Math.floor(id / RUNS_PER_ROW)); }
-    }
+    if (inLumen && m) { lumenPts++; if (m.cls === L_JOIN) lumenJoin++; }
     if (rowsHit.size) assert.ok(m && m.candMax >= rowsHit.size, `${name}: candMax ${m?.candMax} under the true count ${rowsHit.size}`);
   }
-  assert.ok(inLeaf > 100, `${name}: sampled ${inLeaf} points in leaves`);
-  t.diagnostic(`${name}: ${rep.leaves} leaves in ${rep.cells} cells, ${rep.nodes} nodes, ${rep.runRefs} run refs, built in ${ms.toFixed(0)} ms; classes ${Object.entries(rep.byClass).map(([k, v]) => `${CLASSES[k]} ${v}`).join(', ')}; depth ${rep.depth.join('/')}; wide ${rep.wide.length} [hard candidates: ≤8 ${rep.wideHard.le8}, ≤32 ${rep.wideHard.le32}, more ${rep.wideHard.more}, max ${rep.wideHard.maxHard}] (over ${SLOTS_WIDE}: ${rep.overWide.length}, soft piles: ${rep.falseProximity.length}); ${bits} bound hits checked`);
-  if (opts.probe !== false && (name === 'circuit/healthy' || name === 'lobule' || name === 'anatomy/cirr-decomp')) {   // diagnostic: where the wideness comes from
-    const J = graph.joins, rs = [], ks = [];
-    for (let j = 0; j < J.n; j++) { rs.push(runs.joinDisc(j, {}).r); ks.push(J.k[j]); }
-    rs.sort((a, b) => a - b); ks.sort((a, b) => a - b);
-    const rl = []; for (const id of ids) rl.push(runs.rad[id * 4]); rl.sort((a, b) => a - b);
-    const q = (a, f) => (a.length ? a[Math.floor(a.length * f)].toFixed(2) : '-');
-    const noJoin = createLeafSet(); buildLeaves(runs, { n: 0, mem: graph.joins.mem }, null, defaultPolicy(), noJoin);
-    const noSoft = createLeafSet(); const pol = defaultPolicy(); buildLeaves(runs, { n: 0, mem: graph.joins.mem }, null, pol, noSoft);
-    t.diagnostic(`${name} probe: ${J.n} joins, disc radius p10/50/90 ${q(rs, 0.1)}/${q(rs, 0.5)}/${q(rs, 0.9)} (blend width k ${q(ks, 0.5)}); run lumen bound p10/50/90 ${q(rl, 0.1)}/${q(rl, 0.5)}/${q(rl, 0.9)}; WITHOUT joins: ${noJoin.report.leaves} leaves, wide ${noJoin.report.byClass[L_WIDE]}, hard≤8 ${noJoin.report.wideHard.le8}, max hard ${noJoin.report.wideHard.maxHard}, run refs ${noJoin.report.runRefs}`);
-    void noSoft;
-    // what a tight disc would give: the junction's own footprint, the widest member's lumen bound plus the blend width, instead of reach + blend width
-    const orig = runs.joinDisc, J2 = graph.joins;
-    runs.joinDisc = (j, o = { x: 0, y: 0, r: 0 }) => {
-      orig(j, o);
-      let w = 0;
-      for (const id of runs.joinRunsOf(j)) w = Math.max(w, runs.rad[id * 4]);
-      o.r = Math.min(o.r, (w + J2.k[j]) * 1.1);
-      return o;
-    };
-    const tight = createLeafSet(); buildLeaves(runs, graph.joins, null, defaultPolicy(), tight);
-    runs.joinDisc = orig;
-    t.diagnostic(`${name} probe: WITH TIGHT DISCS ((widest required run's lumen bound + k) x 1.1): ${tight.report.leaves} leaves, wide ${tight.report.byClass[L_WIDE]}, join ${tight.report.byClass[L_JOIN]}, hard<=8 ${tight.report.wideHard.le8}, max hard ${tight.report.wideHard.maxHard}, run refs ${tight.report.runRefs}`);
+  // joins (plan-r1 2.2.1): never listed in a leaf where fewer than two members' grown bounds reach it (cross-tier joins also inside 0.85 R), and always listed where two do
+  {
+    const J = graph.joins, TOL = 1e-3;
+    let listed = 0, checkedPts = 0;
+    for (const l of leaves) {
+      const m = leafRead(T, l.id);
+      for (let i = 0; i < m.joinCount; i++) {
+        const j = T.runRefs[m.joinStart + i], c = runs.joinDisc(j, {});
+        const dx = Math.max(l.x0 - c.x, 0, c.x - (l.x0 + l.size)), dy = Math.max(l.y0 - c.y, 0, c.y - (l.y0 + l.size)), d = Math.hypot(dx, dy);
+        const two = growMembers(runs, graph, j, l.x0, l.y0, l.x0 + l.size, l.y0 + l.size, d, TOL).size >= 2 && d <= c.r + TOL;
+        const tiers = [0, 1, 2, 3].map((q) => J.mem[j * 4 + q]).filter((r) => r >= 0).map((r) => graph.rows[r].tier);
+        const cross = Math.min(...tiers) !== Math.max(...tiers) && d <= 0.85 * J.reach[j] * 1.1 + TOL;
+        assert.ok(two || cross, `${name}: join ${j} is listed in leaf ${l.id} where fewer than two members' grown bounds reach it`);
+        listed++;
+      }
+    }
+    for (const [px, py] of pts) {
+      const leaf = leafAt(T, px, py);
+      for (let j = 0; j < joinsN; j++) {
+        const d = Math.hypot(px - discs[j].x, py - discs[j].y);
+        if (d > discs[j].r - TOL) continue;
+        if (growMembers(runs, graph, j, px, py, px, py, d, -TOL).size < 2) continue;
+        checkedPts++;
+        const m = leaf >= 0 ? leafRead(T, leaf) : null;
+        let has = false;
+        for (let i = 0; m && i < m.joinCount; i++) if (T.runRefs[m.joinStart + i] === j) has = true;
+        assert.ok(has, `${name}: join ${j} has two members' grown bounds at (${px.toFixed(3)}, ${py.toFixed(3)}) but is not listed in its leaf`);
+      }
+    }
+    t.diagnostic(`${name}: ${listed} join refs checked against the grown-bound rule, ${checkedPts} points where two members reach all list their join`);
   }
+  assert.ok(inLeaf > 100, `${name}: sampled ${inLeaf} points in leaves`);
+  t.diagnostic(`${name}: ${rep.leaves} leaves in ${rep.cells} cells, ${rep.nodes} nodes, ${rep.runRefs} run refs, built in ${ms.toFixed(0)} ms; classes ${Object.entries(rep.byClass).map(([k, v]) => `${CLASSES[k]} ${v}`).join(', ')}; depth ${rep.depth.join('/')}; wide ${rep.wide.length} [hard candidates: ≤8 ${rep.wideHard.le8}, ≤32 ${rep.wideHard.le32}, more ${rep.wideHard.more}, max ${rep.wideHard.maxHard}] (over ${SLOTS_WIDE}: ${rep.overWide.length}, soft piles: ${rep.falseProximity.length}); L_JOIN is ${(100 * rep.area[L_JOIN] / Math.max(1, Object.values(rep.area).reduce((x, y) => x + y, 0))).toFixed(1)}% of the leaf area, ${(100 * lumenJoin / Math.max(1, lumenPts)).toFixed(1)}% of the sampled lumen-bound points (${lumenPts}); ${bits} bound hits checked`);
   assert.equal(rep.overWide.length, 0, `${name}: stop point: a leaf with more than ${SLOTS_WIDE} candidates: ${JSON.stringify(rep.overWide.slice(0, 3))}`);
   return { graph, runs, set, rep };
 }
@@ -384,7 +454,7 @@ test('the hierarchy does not depend on the camera: building twice gives the same
   const a = createLeafSet(), b = createLeafSet();
   buildLeaves(runs, graph.joins, null, defaultPolicy(), a);
   buildLeaves(runs, graph.joins, null, defaultPolicy(), b);
-  for (const k of ['cells', 'nodes', 'leaves', 'boxes', 'runRefs', 'joinRefs']) {
+  for (const k of ['cells', 'nodes', 'leaves', 'boxes', 'runRefs']) {
     const len = k === 'cells' ? a.tables.cells.length : k === 'nodes' ? a.tables.n.nodes * 4 : k === 'leaves' ? a.tables.n.leaves * 8 : k === 'boxes' ? a.tables.n.leaves * 4 : a.tables.n[k];
     assert.deepEqual(Array.from(a.tables[k].subarray(0, len)), Array.from(b.tables[k].subarray(0, len)), `table ${k}`);
   }

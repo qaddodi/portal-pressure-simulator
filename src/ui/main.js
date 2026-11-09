@@ -1232,6 +1232,8 @@ function wireTopbar() {
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
   import('./high-refresh.js').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
   if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
+  // ?vecbench=<name>: runs a named Vector benchmark on the live figure and puts its report in the ?perf panel (vec-bench.js). Without it, never loaded.
+  { const vb = new URLSearchParams(location.search).get('vecbench'); if (vb) import('./vec-bench.js').then(({ startVecBench }) => startVecBench(vb)).catch(() => { /* a measuring aid only */ }); }
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });
   $('#btnMenu').addEventListener('click', () => mainMenu.toggle());

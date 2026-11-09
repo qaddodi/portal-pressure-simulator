@@ -68,7 +68,7 @@ import { CELL } from './veins-bin.js';
 import { EDGE_GLSL } from './edge.js';
 import { VEC_PRECISION, VEC_SHADE_GLSL } from './vec-shade-glsl.js';
 import { VEC_ABOVE_GLSL } from './vec-stretch-glsl.js';
-import { VEC_BLOOD_GLSL } from './vec-blood-glsl.js';
+import { VEC_BLOOD_GLSL, vecBloodGLSL } from './vec-blood-glsl.js';
 import { HIER_GLSL, HIER_UNIFORMS } from './vec-hier-glsl.js';
 import {
   GRID_W, CELL_REGION, MAX_MEMBERS, MAX_JOINS, SLOTS, JOIN0, REGION_TEXELS, K_JOIN, K_CROSS, K_HAIRPIN, K_CROSSTIER, K_NEAR, K_LONG, K_MORPH,
@@ -171,7 +171,9 @@ function buildRegionFS(variant, K, parts, cfg) {
   const J = legacy || cfg.joins, X = legacy || cfg.cross, G = !legacy;   // J: joins, X: depth and the ring, G: contributions gated by the bits that survived
   const slots = legacy ? SLOTS : cfg.slots;
   const isBlood = variant === V_BLOOD;
-  const blood = variant === V_BASE ? '' : (parts.blood ?? VEC_BLOOD_GLSL), above = isBlood ? (parts.above ?? VEC_ABOVE_GLSL) : '';
+  // The junction classes mix ALL the lumens joined to the owner (D's N-stream vecBloodMix at the program's array size; Mohammad, 9 Nov); the others show one stream.
+  const NS = !legacy && J;
+  const blood = variant === V_BASE ? '' : (parts.blood ?? (legacy ? VEC_BLOOD_GLSL : vecBloodGLSL(...(NS ? [slots] : [])))), above = isBlood ? (parts.above ?? VEC_ABOVE_GLSL) : '';
   const hier = legacy ? '' : (parts.hier ?? HIER_GLSL);
   const { F_SEL, F_NOCASE, F_DOTTED, F_VEIL } = K;
   // The blood laid over the pixel o (lum: the lumen's coverage where blood may show; lumCol: the pixel's colour unpremultiplied), as B's stretch shader lays it.
@@ -196,7 +198,11 @@ ${streams}
 ${lay('    vec3 st = vecStreamAt(sid[0], sn[0]);\n    vecBloodAt(p);\n    vec4 bl = vecBlood(sid[0], st.x, st.y, st.z, lumCol, px);')}
     return;`;
   // Several reach it: the lumen in front, and a joined lumen's stream beside it, mixed by D's weights.
-  const multi = lay(`    vecBloodAt(p);
+  const multi = NS ? lay(`    vecBloodAt(p);
+    vec4 bl;
+    if (gN > 1) bl = vecBloodMix(gN, gRows, gSs, gYs, gRs, gWw, lumCol, px);
+    else bl = vecBlood(gRow, gS, gY, gR, lumCol, px);`) : !legacy ? lay(`    vecBloodAt(p);
+    vec4 bl = vecBlood(gRow, gS, gY, gR, lumCol, px);`) : lay(`    vecBloodAt(p);
     vec4 bl;
     if (gRow2 >= 0) {
       int rws[2]; float ss[2], yy[2], rr[2], ww[2];
@@ -204,6 +210,18 @@ ${lay('    vec3 st = vecStreamAt(sid[0], sn[0]);\n    vecBloodAt(p);\n    vec4 b
       rws[1] = gRow2; ss[1] = gS2; yy[1] = gY2; rr[1] = gR2; ww[1] = gB;
       bl = vecBloodMix(2, rws, ss, yy, rr, ww, lumCol, px);
     } else bl = vecBlood(gRow, gS, gY, gR, lumCol, px);`);
+  const gState = legacy ? `  // The frontmost lumen (for the blood laid in it) and how much of it shows; a second lumen joined to it, and its share.
+  int gRow = -1, gRow2 = -1;
+  float gS = 0.0, gY = 0.0, gW = 0.0, gS2 = 0.0, gY2 = 0.0, gB = 0.0, gR = 1.0, gR2 = 1.0;
+` : NS ? `  // The frontmost lumen (for the blood laid in it) and how much of it shows; and every lumen joined to it, each with its own stream and share (gN of them).
+  int gRow = -1, gN = 0;
+  float gS = 0.0, gY = 0.0, gW = 0.0, gR = 1.0;
+  int gRows[MAXS];
+  float gSs[MAXS], gYs[MAXS], gRs[MAXS], gWw[MAXS];
+` : `  // The frontmost lumen (for the blood laid in it) and how much of it shows.
+  int gRow = -1;
+  float gS = 0.0, gY = 0.0, gW = 0.0, gR = 1.0;
+`;
   const shape = G ? ` && (sbits[s] & SHAPE_BITS) != 0` : '';   // a candidate that survived only by its glow is not in the tier's shape
   const glowOnly = G ? ` || (sbits[s] & ${C_GLOW}) == 0` : '';    // and a glow is computed only for a candidate whose glow bound reaches the pixel
   // Who is joined to the owner (the join loops), or only the owner.
@@ -546,7 +564,41 @@ ${J ? `      ${connOf}\n` : ''}    }
       kn = max(kn, fa * paperInk.a * clamp(0.5 - (sd[s] - reachK) / aa, 0.0, 1.0));
       kcas = max(kcas, fa * clamp(0.5 - (sd[s] - swall[s]) / aa, 0.0, 1.0));
     }` : `    float kn = 0.0, kcas = 0.0;   // (lumens and casings cannot meet in this class: no ring)`;
-  const streams = J ? `      // The stream shown here: the two joined lumens with the largest share, by nearness and by how far past its own end each one runs.
+  const nStreams = `      // The streams shown here: every joined lumen (conn) whose share is not negligible, by nearness and by how far past its own end it runs,
+      // each in its own (row, along, across), mixed by D's N-stream vecBloodMix (it normalises the shares: none dropped). Only the lumens joined to
+      // the owner count: an unconnected crossing's other lumen is never in the mix, the front lumen's stream alone shows.
+      float tb = max(0.7 * sr[ow], 1.5), wmax = 0.0;
+      float wvs[MAXS];
+      int top = ow;
+      for (int s = 0; s < MAXS; s++) {
+        wvs[s] = 0.0;
+        if ((conn & (1 << s)) == 0 || (int(sflag[s] + 0.5) & ${F_DOTTED}) != 0) continue;
+        float L2 = max(T(sid[s], 5).z, 1.0), ext = max(0.0, max(-su[s], su[s] - 1.0)) * L2;
+        float wv = exp(-max(sd[s] - sd[ow], 0.0) / tb) * (s == ow ? 1.0 : pres[s]) * (1.0 - smoothstep(0.0, 1.1 * sr[s] + 1.5, ext)) + 1e-4;
+        for (int t = 0; t < MAXS; t++) if ((conn & (1 << t)) != 0 && t != s) wv *= 1.0 - tin[t];   // inside the trunk, its stream
+        wvs[s] = wv;
+        if (wv > wmax) { wmax = wv; top = s; }
+      }
+      // A copy of a lower tier's vessel (a trunk under the veins that end on it) adds to the lumen that tier already showed and keeps its
+      // stream: the blood runs on at full strength across the join instead of fading to what the copy alone covers.
+      bool lower = stier[top] != tt && gRow >= 0;
+      if (lower) {
+        bool same = false;
+        for (int s = 0; s < MAXS; s++) if ((conn & (1 << s)) != 0 && sid[s] == gRow) same = true;
+        lower = same;
+      }
+      gW = lower ? min(1.0, lumA + gW * (1.0 - c.a * gf)) : lumA;
+      gN = 0;
+      for (int s = 0; s < MAXS; s++) {
+        if (!(wvs[s] > 0.01 * wmax)) continue;
+        int id = sid[s];
+        gRows[gN] = id; gSs[gN] = su[s] * T(id, 5).z; gYs[gN] = clamp(sx[s] / max(sr[s], 1e-3), -1.0, 1.0); gRs[gN] = sr[s]; gWw[gN] = wvs[s]; gN++;
+      }
+      gRow = sid[top]; gS = su[top] * T(gRow, 5).z; gY = clamp(sx[top] / max(sr[top], 1e-3), -1.0, 1.0); gR = sr[top];`;
+  const oneStream = `      // No join here: the owner's own stream alone shows (a crossing's front lumen; the other lumen is never in the mix).
+      int id = sid[ow];
+      gRow = id; gS = su[ow] * T(id, 5).z; gY = clamp(sx[ow] / max(sr[ow], 1e-3), -1.0, 1.0); gW = lumA; gR = sr[ow];`;
+  const twoStreams = `      // The stream shown here: the two joined lumens with the largest share, by nearness and by how far past its own end each one runs.
       // Only the lumens joined to the owner (conn) count: an unconnected crossing's other lumen is never in the mix, the front lumen's
       // stream alone shows.
       float tb = max(0.7 * sr[ow], 1.5), w1 = 0.0, w2 = 0.0;
@@ -580,10 +632,8 @@ ${J ? `      ${connOf}\n` : ''}    }
         if (o2 >= 0 && w2 > 0.01 * w1) {
           gRow2 = sid[o2]; gS2 = su[o2] * T(sid[o2], 5).z; gY2 = clamp(sx[o2] / max(sr[o2], 1e-3), -1.0, 1.0); gR2 = sr[o2]; gB = w2 / (w1 + w2);
         }
-      }` : `      // No join here: the owner's own stream alone shows (a crossing's front lumen; the other lumen is never in the mix).
-      int id = sid[ow];
-      gRow = id; gS = su[ow] * T(id, 5).z; gY = clamp(sx[ow] / max(sr[ow], 1e-3), -1.0, 1.0); gW = lumA; gR = sr[ow];
-      gRow2 = -1; gB = 0.0;`;
+      }`;
+  const streams = legacy ? twoStreams : J ? nStreams : oneStream;
 
   return `${VEC_PRECISION}const int MAXS = ${slots};
 const int MAXJ = ${MAX_JOINS};
@@ -636,10 +686,7 @@ ${keep}  // ── Tiers, back to front ──
   vec4 topC = vec4(0.0);
   int topGrp = 1;
   float last = -1.0;
-  // The frontmost lumen (for the blood laid in it) and how much of it shows; a second lumen joined to it, and its share.
-  int gRow = -1, gRow2 = -1;
-  float gS = 0.0, gY = 0.0, gW = 0.0, gS2 = 0.0, gY2 = 0.0, gB = 0.0, gR = 1.0, gR2 = 1.0;
-  for (int it = 0; it < MAXS; it++) {
+${gState}  for (int it = 0; it < MAXS; it++) {
     float tt = 1e9;
     for (int s = 0; s < MAXS; s++) if (s < n && stier[s] > last && stier[s] < tt) tt = stier[s];
     if (tt > 1e8) break;
