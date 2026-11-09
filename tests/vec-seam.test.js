@@ -16,6 +16,7 @@ globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
 const frame = await import('../src/ui/frame.js');
 const mod = await import('../src/ui/veins-gl.js');
+const seam = await import('../src/ui/vec-seam.js');
 
 function fakeGL() {
   const calls = [], enums = new Map();
@@ -42,7 +43,8 @@ function standIn(log) {
   const sets = [];
   return new Proxy({}, {
     get(_, k) {
-      if (typeof k !== 'string' || k === 'then') return undefined;
+      if (typeof k !== 'string' || k === 'then' || k === 'failure') return undefined;
+      if (k === 'status') return () => 'ready';
       return (...a) => {
         log.push([k, ...a]);
         if (k === 'makeMorphSet') { const S = { vecMade: sets.length }; sets.push(S); return S; }
@@ -146,22 +148,28 @@ test('the invalidations are forwarded, and the data they fill is shared', () => 
   for (const k of ['setRadii', 'setBend', 'setTubes', 'setFlow', 'setDye']) assert.ok(told(log, k).length >= 1, `${k} reaches Vector`);
   assert.equal(told(log, 'setRadii')[0][1], 0);
   assert.equal(shared().nTubes, 4);
-  for (const k of ['rad', 'tube', 'flow', 'bend', 'dye', 'organCover']) assert.ok(shared()[k], `${k} is shared`);
+  for (const k of ['ent', 'rad', 'rmax', 'tube', 'flow', 'bend', 'dye', 'organ']) assert.ok(shared().tex[k](), `${k} is shared`);
+  assert.equal(typeof shared().tex.noiseT, 'function');
+  assert.equal(shared().isLost(), false);
   assert.ok(shared().radAll.length > 0 && shared().tubeNow.length > 0);
+  const pic = shared().picture();
+  assert.ok(pic.tex && pic.w === 800 && pic.h === 600, 'the picture it draws into, the canvas\'s size');
+  assert.equal(shared().uniforms.useOrgan, 0);
   assert.equal(shared().bins, b);
 });
 
-test('Vector chosen: the geometry is not uploaded for the classic passes, and is sent whole when another renderer is chosen', () => {
+test('Vector chosen: the cell lists are not uploaded for the classic passes (the entry texture is), and are sent when another renderer is chosen', () => {
   const { g, f } = setup('vector');
   g.draw(M, look, { on: false });
   const n0 = f.calls.length;
   g.setGeometry(bins());
-  const uploads = (from) => f.calls.slice(from).filter((c) => c[0] === 'texImage2D' || c[0] === 'texSubImage2D' || c[0] === 'bufferData' || c[0] === 'bufferSubData').length;
-  assert.equal(uploads(n0), 0, 'no geometry texture or cell buffer written');
+  const buffers = (from) => f.calls.slice(from).filter((c) => c[0] === 'bufferData' || c[0] === 'bufferSubData').length;
+  assert.equal(buffers(n0), 0, 'no cell or blood buffer written');
+  assert.ok(f.calls.slice(n0).some((c) => c[0] === 'texImage2D' || c[0] === 'texSubImage2D'), 'the entry texture is');
   frame.setVesselRenderer('mesh');
   const n1 = f.calls.length;
   g.draw(M, look, { on: false });
-  assert.ok(uploads(n1) > 0, 'the geometry went up when mesh was chosen');
+  assert.ok(buffers(n1) > 0, 'the cells went up when mesh was chosen');
   assert.ok(programs(f, n1) > 0, 'and the mesh renderer draws');
 });
 
@@ -213,7 +221,8 @@ test('morph sets: made for Vector without the classic texture, used and dropped 
   const S = g.makeMorphSet(Object.assign(bins(), { posBase: 0, joinBase: 0, entRows: 1 }));
   assert.ok(S && S.owner, 'a set comes back');
   assert.equal(told(log, 'makeMorphSet').length, 1);
-  assert.equal(f.calls.slice(n0).filter((c) => c[0] === 'texImage2D').length, 0, 'no classic morph texture');
+  assert.equal(f.calls.slice(n0).filter((c) => c[0] === 'bufferData').length, 0, 'no classic morph buffers');
+  assert.equal(f.calls.slice(n0).filter((c) => c[0] === 'texImage2D').length, 1, 'one entry texture of its own');
   g.useMorphSet(S);
   assert.deepEqual(told(log, 'useMorphSet').at(-1)[1], S.vecSet);
   g.setMorphFrame(new Float32Array(8));
@@ -229,6 +238,34 @@ test('disposing lets the Vector renderer go', () => {
   g.draw(M, look, { on: false });
   g.dispose();
   assert.equal(told(log, 'dispose').length, 1);
+});
+
+test('the parts for E: B\'s stretch program for every variant from the instance\'s own flags, G\'s overlays', () => {
+  const K = { F_SEL: mod.F_SEL, F_DIFFUSE: mod.F_DIFFUSE, F_SHADOW: mod.F_SHADOW, F_DOTTED: mod.F_DOTTED, F_NOCASE: mod.F_NOCASE, F_SPEC: mod.F_SPEC, F_EDGE: mod.F_EDGE, F_VEIL: mod.F_VEIL, F_WHOLE: mod.F_WHOLE, VEIL_K: mod.VEIL_K };
+  assert.deepEqual(Object.keys(K).sort(), [...seam.VEC_K_NAMES].sort());
+  const parts = seam.vecParts(fakeGL().gl, K);
+  assert.equal(typeof parts.stretch.vs, 'string');
+  for (const v of [0, 1, 2]) assert.match(parts.stretch.fs(v), /void main\(\)/);
+  assert.equal(typeof parts.overlays.draw, 'function');
+  assert.equal(typeof parts.overlays.setOverlays, 'function');
+  const short = { ...K }; delete short.VEIL_K;
+  assert.throws(() => seam.vecParts(fakeGL().gl, short), /VEIL_K/);
+});
+
+test('the real Vector renderer, while a workstream\'s part is still missing: not used, said once, the chosen renderer\'s own drawing instead', () => {
+  frame.setVesselRenderer('vector');
+  mod.setVectorFactory(seam.createVecRenderer);
+  const f = fakeGL();
+  const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
+  const warn = console.warn; const said = []; console.warn = (...a) => said.push(String(a[0]));
+  try {
+    const g = mod.createVeinsGL(canvas, { tubes: 4, force: true, who: 'stage' });
+    g.setGeometry(bins());
+    const n0 = f.calls.length;
+    g.draw(M, look, { on: false }); g.composite(look, { on: true });
+    assert.ok(programs(f, n0) > 0, 'drawn by the other renderer');
+    assert.equal(said.filter((t) => /vector vessel renderer could not be made/.test(t)).length, 1);
+  } finally { console.warn = warn; }
 });
 
 test.after(() => { mod.setVectorFactory(null); frame.setVesselRenderer('mesh'); });
