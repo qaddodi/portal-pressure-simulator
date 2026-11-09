@@ -274,11 +274,11 @@ test('the parts for E: B\'s stretch program for every variant from the instance\
   assert.equal(typeof parts.overlays.setOverlays, 'function');
   // (C's regions and F's organs, the organs through the port that gives them the stack's input.)
   assert.equal(typeof parts.region.vs, 'string');
-  for (const v of [0, 1, 2]) assert.match(parts.region.fs(v), /void main\(\)/);
+  for (const v of [0, 1, 2]) for (const c of parts.region.classes) assert.match(parts.region.fs(v, c), /void main\(\)/);   // (a program a leaf class)
   assert.equal(typeof parts.organs.draw, 'function');
   assert.equal(typeof parts.organs.setOrgans, 'function');
   assert.deepEqual([...seam.VEC_WAITING], []);
-  assert.equal(typeof parts.compile.build, 'function');
+  assert.equal(parts.compile, undefined, 'the renderer builds its own hierarchy (vec-hier.js): no compiler is handed over');
   const short = { ...K }; delete short.VEIL_K;
   assert.throws(() => seam.vecParts(fakeGL().gl, short), /VEIL_K/);
 });
