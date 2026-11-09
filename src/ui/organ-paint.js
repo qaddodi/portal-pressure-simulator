@@ -139,6 +139,15 @@ export function bindShape(el, src) {
   if (src) src.n++;
   if (was && --was.n <= 0) FREE_SRC.push(was);   // alloc-rare: the free list grows only to the few sources in the air at once
 }
+/**
+ * What an op's shape is made from now, written into `out` ({ src, d, poly }): the app's own shape record (shapeSource: named by an id,
+ * its commands kept), else the path's text, else a fixed polygon (an ellipse, a circle, a rect). For the retained organs (vec-organs.js).
+ */
+export function geomSourceTo(out, geom) {
+  out.src = null; out.d = null; out.poly = null;
+  if (geom.d) { const s = srcOf(geom.el); if (s) out.src = s; else out.d = geom.el.getAttribute('d') || ''; } else out.poly = geom.poly;
+  return out;
+}
 /** The shape source of a path element whose `d` is still its text, or null. */
 function srcOf(el) { const s = SRC.get(el); return s && el.getAttribute('d') === s.d ? s : null; }
 /** Makes `src` (a record kept by the caller, made once by shapeSource) the shape { d, cmds } under a new name: no record is made for it. */
@@ -706,8 +715,8 @@ function chainMTo(o, chain) {
   for (const el of chain) mulTo(o, o, matOfTo(matTmp, el));
   return o;
 }
-const newLive = () => ({ m: [1, 0, 0, 1, 0, 0], cm: [1, 0, 0, 1, 0, 0], cm2: [1, 0, 0, 1, 0, 0], hasCm: false, hasCm2: false, alpha: 1 });   // alloc-rare: the pool's records, made as a frame first needs them (a handful, kept)
-function liveInto(l, op) {
+export const newLive = () => ({ m: [1, 0, 0, 1, 0, 0], cm: [1, 0, 0, 1, 0, 0], cm2: [1, 0, 0, 1, 0, 0], hasCm: false, hasCm2: false, alpha: 1 });   // alloc-rare: the pool's records, made as a frame first needs them (a handful, kept)
+export function liveInto(l, op) {
   if (!op.chain) {
     copy6(l.m, op.m); l.alpha = op.alpha;
     l.hasCm = !!op.clip; if (op.clip) copy6(l.cm, op.clip.m);
