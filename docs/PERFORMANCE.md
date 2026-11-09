@@ -173,6 +173,27 @@ What is measured, and where (`src/ui/frame.js`, `frame-stats.js`, `input-latency
   Sizing the canvas to the union of the labels was not built: the labels spread over most of the stage, the dive's transform is set on the
   layer's own box, and a label must land on a whole device pixel.
 
+## Mesh vessel renderer (8 to 9 Nov 2026; Settings › Display › Mesh vessel renderer, on by default)
+
+The vessel layer can be drawn from geometry instead of by searching every pixel's cell (`docs/veins-mesh-plan.md`): an instanced strip for
+each vessel row (`veins-mesh.js`, its points in a texture of their own) and a patch for each group of joins that share a vessel and
+overlap (`patchGroups`, `veins-mesh-data.js`), drawn tier by tier in the classic order with the same shading functions
+(`veins-mesh-glsl.js`). The switch is read on each draw; off, the layer gives back its depth and stencil and the classic pass draws as
+before. The lobule and software GL keep the classic pass, as does a shader that fails to build (with a console warning).
+
+What keeps it cheap:
+- **One framebuffer for the whole draw.** Each pass's prepass writes only its keys, as the depth of a DEPTH24_STENCIL8 buffer on the
+  layer's own framebuffer, and the pass draws with depth EQUAL. The first build kept the keys in a framebuffer of their own and switched
+  twice a pass: on a tiled GPU (Apple's) each switch stores and loads the whole layer's four targets, which made the mesh slower than the
+  classic pass. The crossing ring reads no keys back (a stencil mark, then depth LESS).
+- **Partial draws.** A change of some rows' shape redraws their cells' 128 px tiles (at most 12 scissored boxes) with the mesh; a change of
+  lumen colour alone is the classic recolour (`tintPass`) over the mesh layer.
+- **Less per fragment.** A patch works only inside its joins' reach; the shape strips are no wider than the wall's soft edge (the
+  selection ring's room only on the selected rows, `selPad`); glow and shadow passes skip the shading and the stream they do not draw.
+
+`?perf` shows a "vessel renderer" gauge (`mesh: passes, strips, patches drawn` or `classic: why`) and counts "vessels: mesh". No device
+numbers are recorded here.
+
 ## Verification
 
 Run `npm test`. In addition to the physiological acceptance suite, lifecycle tests check pause/visibility behavior, immediate action frames, worker timeout cleanup, event-loop yielding and command ordering. The yielded calculations are compared with synchronous calculations, including complete snapshots after preset loading, advancing and prerolling.
