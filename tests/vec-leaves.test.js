@@ -449,6 +449,14 @@ test('a material change (glow, selection) rebuilds only the leaves its runs reac
   }
 });
 
+test('vecJoinHit is the join disc: reach × headroom, the same radius as A\'s joinDisc (the blend width is not added)', async () => {
+  const body = HIER_JOIN_GLSL.slice(HIER_JOIN_GLSL.indexOf('bool vecJoinHit'));
+  assert.match(body, /float r = jn\.reach \* VEC_BOUND_HEADROOM;/);
+  assert.doesNotMatch(body, /jn\.k/);
+  const { graph, runs } = graphOf(await figure());
+  for (let j = 0; j < Math.min(graph.joins.n, 40); j++) assert.equal(runs.joinDisc(j, {}).r, graph.joins.reach[j] * CONTRACT.BOUND_HEADROOM, `join ${j}`);
+});
+
 test('the hierarchy does not depend on the camera: building twice gives the same tables, and the lookups under any camera leave them untouched', async () => {
   const fig = await figure(), { graph, runs } = graphOf(fig);
   const a = createLeafSet(), b = createLeafSet();

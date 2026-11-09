@@ -209,10 +209,10 @@ VecJoin vecJoinRead(int j) {
   return r;
 }
 
-// Whether the pixel is inside the join's disc: (reach + blend width) × BOUND_HEADROOM (the junction's bound, contribution VEC_C_JOIN; A's joinDisc).
+// Whether the pixel is inside the join's disc: reach × BOUND_HEADROOM (classic's cut-off; the junction's bound, contribution VEC_C_JOIN; A's joinDisc, plan r1.1).
 bool vecJoinHit(VecJoin jn, vec2 world) {
   vec2 d = world - jn.c;
-  float r = (jn.reach + jn.k) * VEC_BOUND_HEADROOM;
+  float r = jn.reach * VEC_BOUND_HEADROOM;
   return dot(d, d) <= r * r;
 }
 `;
