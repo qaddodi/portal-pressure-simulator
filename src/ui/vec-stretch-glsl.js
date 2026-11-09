@@ -32,6 +32,8 @@ import { FLUID_GLSL, FLUID_UNIFORMS } from './vec-overlays-glsl.js';
 
 /** The vertex shader writes a depth that is the vessel row's alone, on (0, 1): a row's second fragment at a pixel fails depth LESS. */
 export const ROW_DEPTH_ROWS = 32768;
+/** The segments read each side of the strip's sample at a fragment (an ordinary cell's run can be up to WIN_MAX, a whole vessel). */
+export const STRETCH_WIN = 8;
 
 /** What lies over the blood at a pixel of V_BLOOD: G's ascites (vecAboveAt, vec-overlays-glsl.js), which needs the host's pxW. The outlines and the catheter are meshes drawn after. */
 export const VEC_ABOVE_GLSL = `uniform float pxW;                    // world units per device pixel (the ascites' edge)
@@ -51,10 +53,12 @@ uniform vec2 size;                     // the picture, device pixels
 uniform highp sampler2D tube;
 uniform float padU;                    // world units past the casing the pass can draw (V_BLOOD: past the lumen)
 ${variant === V_BLOOD ? '' : 'uniform float selPad;                  // and more for a selected vessel (its ring, 4 past its wall)\n'}${STRIP_VS_GLSL.replace(/#define ENT_W (\d+)/, 'const int ENT_W = $1;')}
+out float vI;                          // the sample index along the vessel, interpolated across the strip (the fragment windows its segments about it)
 flat out int vRow;
 void main() {
   int id = int(aRow + 0.5);
   vRow = id;
+  vI = aV.y + (int(aV.x + 0.5) == K_TRAP ? aV.w : 0.0);
   // A row with no alpha draws nothing (the shape, the glow and the lift all scale by it): fold it away.
   if (texelFetch(tube, ivec2(1, id), 0).w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   ${variant === V_BLOOD
@@ -78,9 +82,11 @@ export const vecStretchUniformNames = (variant) => ({
  */
 export function vecStretchFS(variant, K, parts = {}) {
   const blood = parts.blood ?? VEC_BLOOD_GLSL, above = parts.above ?? VEC_ABOVE_GLSL;
-  const head = `${VEC_PRECISION}${VEC_SHADE_GLSL(K)}${variant === V_BASE ? '' : blood}${variant === V_BLOOD ? `${above}
+  const head = `${VEC_PRECISION}${VEC_SHADE_GLSL(K)}const int STRETCH_WIN = ${STRETCH_WIN};
+${variant === V_BASE ? '' : blood}${variant === V_BLOOD ? `${above}
 uniform sampler2D vecBase;            // the kept still picture (V_BASE's output), the picture's size
-` : ''}flat in int vRow;
+` : ''}in float vI;
+flat in int vRow;
 layout(location=0) out vec4 outColor;
 `;
   const lay = `
@@ -108,7 +114,10 @@ layout(location=0) out vec4 outColor;
   vec2 p = vecWorld();
   uvec4 cell = vecCellAt(p);
   if (cell.x != CELL_SIMPLE || int(cell.y) != vRow) discard;
-  VecNear nr = vecNear(vRow, int(cell.z), int(cell.w), p, p - shOff);
+  // (The cell's run can be the vessel's whole course: only the segments about this strip's own sample can hold the nearest point, as the mesh's
+  // fragment reads them, STRETCH_WIN each side; the soft along's weights beyond that are under a thousandth.)
+  int ic = clamp(int(vI), 0, N_SAMPLES - 2);
+  VecNear nr = vecNear(vRow, max(int(cell.z), ic - STRETCH_WIN), min(int(cell.w), ic + STRETCH_WIN), p, p - shOff);
   float lum;
   vec3 lumCol;
   vec4 o = vecShadeOne(vRow, nr, p, vecOccl(p), lum, lumCol);
