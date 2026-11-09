@@ -219,9 +219,9 @@ function samplePoints(set, packed, n, seed) {
 function checkScene(t, name, fig, opts = {}) {
   const { graph, runs } = graphOf(fig);
   const set = createLeafSet();
-  const t0 = performance.now();
+  const t0 = process.hrtime.bigint();
   buildLeaves(runs, graph.joins, null, defaultPolicy(), set);
-  const ms = performance.now() - t0;
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6;
   const T = set.tables, rep = set.report;
   assert.ok(rep.leaves > 0, `${name}: leaves were made`);
   assert.ok(!(T.grid.nx > 256), `${name}: the grid fits the cell texture (${T.grid.nx} wide)`);
@@ -286,13 +286,37 @@ function checkScene(t, name, fig, opts = {}) {
     if (rowsHit.size) assert.ok(m && m.candMax >= rowsHit.size, `${name}: candMax ${m?.candMax} under the true count ${rowsHit.size}`);
   }
   assert.ok(inLeaf > 100, `${name}: sampled ${inLeaf} points in leaves`);
-  t.diagnostic(`${name}: ${rep.leaves} leaves in ${rep.cells} cells, ${rep.nodes} nodes, ${rep.runRefs} run refs, built in ${ms.toFixed(0)} ms; classes ${Object.entries(rep.byClass).map(([k, v]) => `${CLASSES[k]} ${v}`).join(', ')}; depth ${rep.depth.join('/')}; wide ${rep.wide.length} (over ${SLOTS_WIDE}: ${rep.overWide.length}, soft piles: ${rep.falseProximity.length}); ${bits} bound hits checked`);
+  t.diagnostic(`${name}: ${rep.leaves} leaves in ${rep.cells} cells, ${rep.nodes} nodes, ${rep.runRefs} run refs, built in ${ms.toFixed(0)} ms; classes ${Object.entries(rep.byClass).map(([k, v]) => `${CLASSES[k]} ${v}`).join(', ')}; depth ${rep.depth.join('/')}; wide ${rep.wide.length} [hard candidates: ≤8 ${rep.wideHard.le8}, ≤32 ${rep.wideHard.le32}, more ${rep.wideHard.more}, max ${rep.wideHard.maxHard}] (over ${SLOTS_WIDE}: ${rep.overWide.length}, soft piles: ${rep.falseProximity.length}); ${bits} bound hits checked`);
+  if (opts.probe !== false && (name === 'circuit/healthy' || name === 'lobule' || name === 'anatomy/cirr-decomp')) {   // diagnostic: where the wideness comes from
+    const J = graph.joins, rs = [], ks = [];
+    for (let j = 0; j < J.n; j++) { rs.push(runs.joinDisc(j, {}).r); ks.push(J.k[j]); }
+    rs.sort((a, b) => a - b); ks.sort((a, b) => a - b);
+    const rl = []; for (const id of ids) rl.push(runs.rad[id * 4]); rl.sort((a, b) => a - b);
+    const q = (a, f) => (a.length ? a[Math.floor(a.length * f)].toFixed(2) : '-');
+    const noJoin = createLeafSet(); buildLeaves(runs, { n: 0, mem: graph.joins.mem }, null, defaultPolicy(), noJoin);
+    const noSoft = createLeafSet(); const pol = defaultPolicy(); buildLeaves(runs, { n: 0, mem: graph.joins.mem }, null, pol, noSoft);
+    t.diagnostic(`${name} probe: ${J.n} joins, disc radius p10/50/90 ${q(rs, 0.1)}/${q(rs, 0.5)}/${q(rs, 0.9)} (blend width k ${q(ks, 0.5)}); run lumen bound p10/50/90 ${q(rl, 0.1)}/${q(rl, 0.5)}/${q(rl, 0.9)}; WITHOUT joins: ${noJoin.report.leaves} leaves, wide ${noJoin.report.byClass[L_WIDE]}, hard≤8 ${noJoin.report.wideHard.le8}, max hard ${noJoin.report.wideHard.maxHard}, run refs ${noJoin.report.runRefs}`);
+    void noSoft;
+    // what a tight disc would give: the junction's own footprint, the widest member's lumen bound plus the blend width, instead of reach + blend width
+    const orig = runs.joinDisc, J2 = graph.joins;
+    runs.joinDisc = (j, o = { x: 0, y: 0, r: 0 }) => {
+      orig(j, o);
+      let w = 0;
+      for (const id of runs.joinRunsOf(j)) w = Math.max(w, runs.rad[id * 4]);
+      o.r = Math.min(o.r, (w + J2.k[j]) * 1.1);
+      return o;
+    };
+    const tight = createLeafSet(); buildLeaves(runs, graph.joins, null, defaultPolicy(), tight);
+    runs.joinDisc = orig;
+    t.diagnostic(`${name} probe: WITH TIGHT DISCS ((widest required run's lumen bound + k) x 1.1): ${tight.report.leaves} leaves, wide ${tight.report.byClass[L_WIDE]}, join ${tight.report.byClass[L_JOIN]}, hard<=8 ${tight.report.wideHard.le8}, max hard ${tight.report.wideHard.maxHard}, run refs ${tight.report.runRefs}`);
+  }
   assert.equal(rep.overWide.length, 0, `${name}: stop point: a leaf with more than ${SLOTS_WIDE} candidates: ${JSON.stringify(rep.overWide.slice(0, 3))}`);
   return { graph, runs, set, rep };
 }
 
 let first = true;
-for (const view of ['anatomy', 'circuit']) {
+async function figure() { let f = A.figure(); if (!f) { await A.preset('cirr-decomp', 40); first = false; f = A.figure(); } return f; }
+function presetTests(view) {
   for (const p of PRESETS) {
     test(`${view}, preset ${p.id}: the hierarchy (lookup, nothing lost, candMax, slots, overlap)`, { timeout: 280000 }, async (t) => {
       if (first) { await A.preset(p.id, 40); first = false; } else await A.preset(p.id, 12);
@@ -303,3 +327,124 @@ for (const view of ['anatomy', 'circuit']) {
     });
   }
 }
+presetTests('anatomy');
+
+// A changed material rebuilds only the squares its runs reach, and what it leaves is what a fresh build gives.
+function boxesAt(set, pts) { return pts.map(([x, y]) => { const l = leafAt(set.tables, x, y); return l < 0 ? null : [set.tables.boxes[l * 4], set.tables.boxes[l * 4 + 1], set.tables.boxes[l * 4 + 2]]; }); }
+const meets = (b, x0, y0, x1, y1) => b && b[0] <= x1 && b[0] + b[2] >= x0 && b[1] <= y1 && b[1] + b[2] >= y0;
+function sigsAt(set, pts) { return pts.map(([x, y]) => sig(set, leafAt(set.tables, x, y))); }
+test('a material change (glow, selection) rebuilds only the leaves its runs reach, and equals a fresh build; undoing it restores the original', { timeout: 280000 }, async (t) => {
+  const fig = await figure(), { graph, runs } = graphOf(fig);
+  const set = createLeafSet();
+  buildLeaves(runs, graph.joins, null, defaultPolicy(), set);
+  const pts = samplePoints(set, null, 4000, 5);
+  const original = sigsAt(set, pts), total = set.report.leaves;
+  const on = []; for (let r = 0; r < graph.nRows; r++) if (graph.rows[r].on) on.push(r);
+  const pick = [on[3], on[Math.floor(on.length / 3)], on[Math.floor(on.length / 2)], on[on.length - 2]];
+  for (const mode of ['glow', 'sel']) {
+    for (const row of pick) {
+      const rec = graph.rows[row], before = sigsAt(set, pts), boxBefore = boxesAt(set, pts), extWas = set.ext.slice();
+      if (mode === 'glow') { rec.glow = 1; rec.glowW = 1; } else rec.sel = 1;
+      const n = runs.rebuildRows([row], 1);
+      assert.ok(n > 0, `${mode} on row ${row} changed some runs`);
+      const changed = Array.from(runs.changed.subarray(0, n)), cj = Array.from(runs.changedJoins.subarray(0, runs.nChangedJoins));
+      rebuildLeaves(changed, set, n, cj, cj.length);
+      const written = set.stats.leavesWritten + set.stats.nodesWritten;
+      const fresh = createLeafSet();
+      buildLeaves(runs, graph.joins, null, defaultPolicy(), fresh);
+      assert.equal(set.report.leaves, fresh.report.leaves, `${mode} row ${row}: the same number of leaves as a fresh build`);
+      assert.deepEqual(set.report.byClass, fresh.report.byClass);
+      const after = sigsAt(set, pts), want = sigsAt(fresh, pts), boxAfter = boxesAt(set, pts);
+      let moved = 0;
+      for (let i = 0; i < pts.length; i++) {
+        assert.equal(after[i], want[i], `${mode} row ${row}: leaf at (${pts[i][0].toFixed(2)}, ${pts[i][1].toFixed(2)}) differs from a fresh build`);
+        if (after[i] !== before[i]) {   // a leaf that changed: its square (now or before) meets a box the changed runs reach (old or new bounds) or a changed join's disc
+          moved++;
+          const bx = [boxBefore[i], boxAfter[i]];
+          const inside = bx.some((q) => q && (changed.some((id) => meets(q, extWas[id * 4], extWas[id * 4 + 1], extWas[id * 4 + 2], extWas[id * 4 + 3]) || meets(q, set.ext[id * 4], set.ext[id * 4 + 1], set.ext[id * 4 + 2], set.ext[id * 4 + 3]))
+            || cj.some((j) => meets(q, set.jext[j * 7 + 3], set.jext[j * 7 + 4], set.jext[j * 7 + 5], set.jext[j * 7 + 6]))));
+          assert.ok(inside, `${mode} row ${row}: a leaf changed at (${pts[i][0].toFixed(2)}, ${pts[i][1].toFixed(2)}) where no changed run reaches`);
+        }
+      }
+      assert.ok(moved > 0 || mode === 'sel', `${mode} row ${row} moved some sampled leaves`);
+      assert.ok(set.stats.leavesWritten <= Math.max(8, total * 0.25), `${mode} row ${row}: ${set.stats.leavesWritten} of ${total} leaves written`);
+      t.diagnostic(`${mode} row ${row}: ${changed.length} runs changed, ${set.stats.leavesWritten} leaves and ${set.stats.nodesWritten} nodes written of ${total}, ${set.stats.cellsTouched} cells, ${moved} of ${pts.length} samples moved, full=${!!set.stats.full}`);
+      void written;
+      if (mode === 'glow') { rec.glow = 0; rec.glowW = 0; } else rec.sel = 0;
+      const n2 = runs.rebuildRows([row], 1), ch2 = Array.from(runs.changed.subarray(0, n2)), cj2 = Array.from(runs.changedJoins.subarray(0, runs.nChangedJoins));
+      rebuildLeaves(ch2, set, n2, cj2, cj2.length);
+      const back = sigsAt(set, pts);
+      for (let i = 0; i < pts.length; i++) assert.equal(back[i], original[i], `${mode} row ${row} undone: leaf at point ${i} is not the original`);
+    }
+  }
+});
+
+test('the hierarchy does not depend on the camera: building twice gives the same tables, and the lookups under any camera leave them untouched', async () => {
+  const fig = await figure(), { graph, runs } = graphOf(fig);
+  const a = createLeafSet(), b = createLeafSet();
+  buildLeaves(runs, graph.joins, null, defaultPolicy(), a);
+  buildLeaves(runs, graph.joins, null, defaultPolicy(), b);
+  for (const k of ['cells', 'nodes', 'leaves', 'boxes', 'runRefs', 'joinRefs']) {
+    const len = k === 'cells' ? a.tables.cells.length : k === 'nodes' ? a.tables.n.nodes * 4 : k === 'leaves' ? a.tables.n.leaves * 8 : k === 'boxes' ? a.tables.n.leaves * 4 : a.tables.n[k];
+    assert.deepEqual(Array.from(a.tables[k].subarray(0, len)), Array.from(b.tables[k].subarray(0, len)), `table ${k}`);
+  }
+  const before = Array.from(a.tables.nodes.subarray(0, a.tables.n.nodes * 4)).join();
+  for (const p of samplePoints(a, null, 800, 3)) leafAt(a.tables, p[0], p[1]);
+  assert.equal(Array.from(a.tables.nodes.subarray(0, a.tables.n.nodes * 4)).join(), before);
+});
+
+test('a morph set (bounds are the morph boxes): classes are single, morph or wide, and every box that covers a point is listed in its leaf', { timeout: 280000 }, async (t) => {
+  const fig = await figure(), { graph, runs } = graphOf(fig);
+  const set = createLeafSet(), pol = defaultPolicy();
+  pol.mode = 'box';
+  buildLeaves(runs, graph.joins, null, pol, set);
+  const rep = set.report, T = set.tables;
+  assert.equal(rep.byClass[L_LAYERED] + rep.byClass[L_CROSS] + rep.byClass[L_JOIN], 0, 'a morph set has only single, morph and wide leaves');
+  assert.ok(rep.byClass[L_MORPH] > 0);
+  const r = rnd(9);
+  let n = 0;
+  for (let i = 0; i < 3000; i++) {
+    const id = (r() * set.nIds) | 0;
+    if (!(runs.flags[id] & 1)) continue;
+    const o = id * 4, x = runs.box[o] + r() * (runs.box[o + 2] - runs.box[o]), y = runs.box[o + 1] + r() * (runs.box[o + 3] - runs.box[o + 1]);
+    const leaf = leafAt(T, x, y);
+    assert.ok(leaf >= 0, 'a point inside a run\'s box is in a leaf');
+    const m = leafRead(T, leaf);
+    let bits = 0;
+    for (let k = 0; k < m.runCount; k++) if (refRun(T.runRefs[m.runStart + k]) === id) bits = refBits(T.runRefs[m.runStart + k]);
+    for (let c = 0; c < 4; c++) if (runs.rad[o + c] > 0) assert.ok(bits & (1 << c), `box of run ${id} covers a point but contribution ${1 << c} is not listed`);
+    n++;
+  }
+  assert.ok(n > 500);
+  t.diagnostic(`morph-mode build: ${rep.leaves} leaves, classes ${Object.entries(rep.byClass).map(([k, v]) => `${CLASSES[k]} ${v}`).join(', ')}`);
+});
+
+presetTests('circuit');
+
+test('the lobule: the hierarchy, its wide leaves, and the central vein named', { timeout: 280000 }, async (t) => {
+  await A.view('lobule', 220);
+  const tap = taps.find((x) => x.who === 'lobule' && x.bins);
+  assert.ok(tap, 'the lobule\'s renderer was given a binning');
+  const fig = { nTubes: tap.nTubes, bins: { ent: tap.bins.ent.slice(), cells: tap.bins.cells.slice(0, tap.bins.nCells * 6), nCells: tap.bins.nCells, nEnt: tap.bins.nEnt, rows: tap.bins.rows }, tube: tap.tube.slice(), rad: tap.rad.slice() };
+  const out = checkScene(t, 'lobule', fig, { samples: 6000 });
+  // the central vein: where the most vessels meet (the leaf with the largest candMax, the one nearest the lobule's centre among equals)
+  const geo = lobuleGeo(1200, 800);
+  let best = null;
+  for (const l of walkLeaves(out.set)) {
+    const m = leafRead(out.set.tables, l.id), d = Math.hypot(l.x0 + l.size / 2 - geo.cx, l.y0 + l.size / 2 - geo.cy);
+    if (!best || m.candMax > best.cand || (m.candMax === best.cand && d < best.d)) best = { l, cand: m.candMax, d };
+  }
+  const cx = best.l.x0 + best.l.size / 2, cy = best.l.y0 + best.l.size / 2;
+  const rows = new Set();
+  { const m = leafRead(out.set.tables, best.l.id); for (let i = 0; i < m.runCount; i++) rows.add(Math.floor(refRun(out.set.tables.runRefs[m.runStart + i]) / RUNS_PER_ROW)); }
+  const near = out.rep.wide.filter((w) => Math.hypot(w.x + w.size / 2 - cx, w.y + w.size / 2 - cy) < 6);
+  t.diagnostic(`central vein (the leaf with the most vessels, candMax ${best.cand}, ${best.d.toFixed(1)} units from the lobule's centre (${geo.cx}, ${geo.cy})) at (${cx.toFixed(2)}, ${cy.toFixed(2)}): rows ${[...rows].join(',')}; ${near.length} wide leaves within 6 units of it (${out.rep.wide.length} wide in all)`);
+  const lf = leafAt(out.set.tables, cx, cy);
+  assert.ok(lf >= 0, 'the central vein\'s centre is inside a leaf');
+  const m = leafRead(out.set.tables, lf);
+  const listed = new Set();
+  for (let i = 0; i < m.runCount; i++) listed.add(Math.floor(refRun(out.set.tables.runRefs[m.runStart + i]) / RUNS_PER_ROW));
+  for (const r of rows) assert.ok(listed.has(r), `the central vein's vessel ${r} is listed at its centre (nothing dropped)`);
+  assert.ok(best.cand <= SLOTS_WIDE);
+  void lobuleGeo; void rebuildLeaves; void summarize;
+});

@@ -25,7 +25,8 @@
 // blood's and the overlays' own (D's VEC_BLOOD_UNIFORMS, G's). The vertex shader's: world (world → device px, y down), size (the picture, px),
 // tube, ent, rad, posBase, padU, selPad (vecStretchUniformNames below).
 import { STRIP_VS_GLSL } from './veins-mesh.js';
-import { VEC_PRECISION, VEC_SHADE_GLSL, VEC_SHADE_UNIFORMS } from './vec-shade-glsl.js';
+import { VEC_PRECISION, VEC_SHADE_GLSL, VEC_SHADE_UNIFORMS, VEC_SHADE_UNIFORMS_LEAF } from './vec-shade-glsl.js';
+import { HIER_GLSL, HIER_UNIFORMS } from './vec-hier-glsl.js';
 import { V_FULL, V_BASE, V_BLOOD } from './vec-contract.js';
 import { VEC_BLOOD_GLSL, VEC_BLOOD_UNIFORMS } from './vec-blood-glsl.js';
 import { FLUID_GLSL, FLUID_UNIFORMS } from './vec-overlays-glsl.js';
@@ -76,22 +77,12 @@ export const vecStretchUniformNames = (variant) => ({
   fs: [...VEC_SHADE_UNIFORMS, ...(variant === V_BASE ? [] : VEC_BLOOD_UNIFORMS.map((u) => u.name)), ...(variant === V_BLOOD ? ['vecBase', 'pxW', ...FLUID_UNIFORMS] : [])],
 });
 
-/**
- * The fragment shader of a variant. K: the flags and VEIL_K (vec-shade-glsl.js). parts: { blood, above } the text of D's VEC_BLOOD_GLSL and G's
- * vec-overlays text (declarations and functions; vecBlood / vecAboveAt); defaults are the stubs above.
- */
-export function vecStretchFS(variant, K, parts = {}) {
-  const blood = parts.blood ?? VEC_BLOOD_GLSL, above = parts.above ?? VEC_ABOVE_GLSL;
-  const head = `${VEC_PRECISION}${VEC_SHADE_GLSL(K)}const int STRETCH_WIN = ${STRETCH_WIN};
-${variant === V_BASE ? '' : blood}${variant === V_BLOOD ? `${above}
-uniform sampler2D vecBase;            // the kept still picture (V_BASE's output), the picture's size
-` : ''}in float vI;
-flat in int vRow;
-layout(location=0) out vec4 outColor;
-`;
+// What follows the shading in every strip program (the old cell-test one and the leaf one): the blood in the lumen, the dither once, V_BLOOD's
+// base-plus-change. `o`, `lum`, `lumCol`, `nr`, `vRow`, `p` are the main's.
+const tailOf = (variant) => {
   const lay = `
   float vis = clamp(lum / max(o.a, 1e-3), 0.0, 1.0);`;
-  const body = variant === V_BLOOD ? `${lay}
+  return variant === V_BLOOD ? `${lay}
   if (!(vis > 0.005 && o.a > 0.01)) discard;
   vec3 st = vecStreamAt(vRow, nr);
   vecBloodAt(p);
@@ -110,6 +101,26 @@ layout(location=0) out vec4 outColor;
   }
   outColor = ditherOut(o, gl_FragCoord.xy);` : `
   outColor = ditherOut(o, gl_FragCoord.xy);`;
+};
+
+// The declarations after the shared shading text, the same in both programs.
+const declsOf = (variant, parts) => {
+  const blood = parts.blood ?? VEC_BLOOD_GLSL, above = parts.above ?? VEC_ABOVE_GLSL;
+  return `${variant === V_BASE ? '' : blood}${variant === V_BLOOD ? `${above}
+uniform sampler2D vecBase;            // the kept still picture (V_BASE's output), the picture's size
+` : ''}in float vI;
+flat in int vRow;
+layout(location=0) out vec4 outColor;
+`;
+};
+
+/**
+ * The fragment shader of a variant. K: the flags and VEIL_K (vec-shade-glsl.js). parts: { blood, above } the text of D's VEC_BLOOD_GLSL and G's
+ * vec-overlays text (declarations and functions; vecBlood / vecAboveAt); defaults are the stubs above.
+ */
+export function vecStretchFS(variant, K, parts = {}) {
+  const head = `${VEC_PRECISION}${VEC_SHADE_GLSL(K)}const int STRETCH_WIN = ${STRETCH_WIN};
+${declsOf(variant, parts)}`;
   return `${head}void main() {
   vec2 p = vecWorld();
   uvec4 cell = vecCellAt(p);
@@ -121,7 +132,66 @@ layout(location=0) out vec4 outColor;
   float lum;
   vec3 lumCol;
   vec4 o = vecShadeOne(vRow, nr, p, vecOccl(p), lum, lumCol);
-  if (o.a < 0.002) discard;${body}
+  if (o.a < 0.002) discard;${tailOf(variant)}
+}`;
+}
+
+/**
+ * The uniforms of the leaf program (revision 1, plan r1 section 2.4), for the renderer core: the same lists as vecStretchUniformNames' with the
+ * fixed cell test's (cellTex, gridO, gridN) and shOff left out, and K's lookup's added (HIER_UNIFORMS; its uVecShOff is the shadow offset), and
+ * morphOn (the morph set's bound is its box).
+ */
+export const vecLeafStretchUniformNames = (variant) => ({
+  vs: vecStretchUniformNames(variant).vs,
+  fs: [...VEC_SHADE_UNIFORMS_LEAF, ...HIER_UNIFORMS, 'morphOn', ...(variant === V_BASE ? [] : VEC_BLOOD_UNIFORMS.map((u) => u.name)),
+    ...(variant === V_BLOOD ? ['vecBase', 'pxW', ...FLUID_UNIFORMS] : [])],
+});
+
+/**
+ * The fragment shader of a variant on K's leaf lookup (revision 1). The pixel finds its leaf by vecLeafAt(inv × gl_FragCoord), the one lookup every
+ * vector program shares; it draws only where the leaf is L_SINGLE and its owner row is this strip's row (another row's pixel, a layered, crossing,
+ * joined, wide or morph leaf belongs to a region). It then walks the leaf's run references: for each contribution a reference lists it tests the
+ * pixel against that run's bound (vecBoundHit; vecBoundHitBox in a morph set), skips the run when it survives none, and merges the segments of
+ * the survivors into one nearest point (vecNearMore). Contributions are shaded only for a run that survived them (vecShadeBits, classic's order).
+ * A pixel no run survives for is discarded. The lumen/blood tail is the old program's.
+ */
+export function vecLeafStretchFS(variant, K, parts = {}) {
+  const head = `${VEC_PRECISION}${VEC_SHADE_GLSL(K, true)}${HIER_GLSL}uniform int morphOn;                   // 1 or 2: a morph set is in use (its runs' bound is the box over the whole sweep)
+${declsOf(variant, parts)}`;
+  return `${head}void main() {
+  vec2 p = vecWorld();
+  int leaf = vecLeafAt(p);
+  if (leaf < 0) discard;
+  VecLeaf lf = vecLeafRead(leaf);
+  if (lf.cls != VEC_L_SINGLE || lf.owner != vRow) discard;
+  vec2 ps = p - uVecShOff;
+  VecNear nr = vecNearNone();
+  int bits = 0;
+  for (int n = 0; n < lf.runCount; n++) {
+    uint ref = vecRunRef(lf.runStart + n);
+    int rb = vecRefBits(ref);
+    VecRun run = vecRunRead(vecRefRun(ref));
+    int hit = 0;
+    if (morphOn >= 1) {
+      if ((rb & VEC_C_LUMEN) != 0 && vecBoundHitBox(run, VEC_C_LUMEN, p)) hit |= VEC_C_LUMEN;
+      if ((rb & VEC_C_SHADOW) != 0 && vecBoundHitBox(run, VEC_C_SHADOW, p)) hit |= VEC_C_SHADOW;
+      if ((rb & VEC_C_GLOW) != 0 && vecBoundHitBox(run, VEC_C_GLOW, p)) hit |= VEC_C_GLOW;
+      if ((rb & VEC_C_RING) != 0 && vecBoundHitBox(run, VEC_C_RING, p)) hit |= VEC_C_RING;
+    } else {
+      if ((rb & VEC_C_LUMEN) != 0 && vecBoundHit(run, VEC_C_LUMEN, p)) hit |= VEC_C_LUMEN;
+      if ((rb & VEC_C_SHADOW) != 0 && vecBoundHit(run, VEC_C_SHADOW, p)) hit |= VEC_C_SHADOW;
+      if ((rb & VEC_C_GLOW) != 0 && vecBoundHit(run, VEC_C_GLOW, p)) hit |= VEC_C_GLOW;
+      if ((rb & VEC_C_RING) != 0 && vecBoundHit(run, VEC_C_RING, p)) hit |= VEC_C_RING;
+    }
+    if (hit == 0) continue;
+    bits |= hit;
+    nr = vecNearMore(nr, run.row, run.i0, run.i1, p, ps);
+  }
+  if (bits == 0) discard;
+  float lum;
+  vec3 lumCol;
+  vec4 o = vecShadeBits(vRow, nr, p, vecOccl(p), bits, lum, lumCol);
+  if (o.a < 0.002) discard;${tailOf(variant)}
 }`;
 }
 
