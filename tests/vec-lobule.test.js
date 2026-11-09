@@ -224,5 +224,9 @@ test('the lobule\'s instance under Vector calls no classic or mesh vessel progra
 test('the lobule\'s lymph rows reach lymphAt in Vector\'s blood material', async (t) => {
   const blood = await waits('vec-blood-glsl.js');
   if (!blood) return t.skip('waits for D: vec-blood-glsl.js');
-  assert.match(blood.VEC_BLOOD_GLSL, /lymphAt\(/, 'the blood material draws the lymph dashes');
+  // (D's port of lymphAt is vbLymph: a row whose flow texel 1.x is the lymph mark, with strength above 0, gets the dashes and the albumin core.)
+  const glsl = blood.VEC_BLOOD_GLSL;
+  assert.match(glsl, /void vbLymph\(/, 'the blood material has the lymph dashes');
+  assert.match(glsl, /isLy\s*=\s*f1\.x\s*<\s*-0\.5/, 'a lymph row is the one whose flow texel 1.x is negative');
+  assert.match(glsl, /isLy && f1\.z > 0\.0\)\s*\{[^}]*vbLymph\(/, 'a lymph row with strength is drawn by vbLymph');
 });

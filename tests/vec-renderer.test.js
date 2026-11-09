@@ -218,6 +218,25 @@ test('the frame\'s targets: one DEPTH24_STENCIL8 shared by the picture and the b
   assert.equal(t.sized, 2, 'without making the base and depth again');
 });
 
+test("D's vb-prefixed blood uniforms are set from the composite names they stand for", () => {
+  const gl = makeGL({ width: W, height: H });
+  const names = new Map(), set = {};
+  const gul = gl.getUniformLocation;
+  gl.getUniformLocation = function (p, n) { const l = gul.call(this, p, n); names.set(l, n); return l; };
+  for (const k of ['uniform1f', 'uniform1i', 'uniform3fv', 'uniform4fv']) gl[k] = function (l, v) { set[names.get(l)] = Array.isArray(v) || ArrayBuffer.isView(v) ? Array.from(v) : v; };
+  const decl = 'uniform int vbOn, vbChev, vbChevQuad, vbBleedN, vbOrigin; uniform float vbBT, vbFlowA, vbCssPx; uniform vec3 vbBlendA; uniform sampler2D vbFlow; uniform vec4 vbBleedE[24];';
+  const fs = (v) => `#version 300 es\nprecision highp float;\n${decl}\nout vec4 o; // ${v}\nvoid main(){ o = vec4(1.); }`;
+  const vs = `#version 300 es\nlayout(location=0) in vec4 aV; layout(location=1) in float aRow;\nlayout(location=0) in vec2 aC; void main(){ gl_Position = vec4(0.); }`;
+  const r = createVecRenderer(gl, { nTubes: N, picture: () => ({ tex: {}, w: W, h: H }), tex: { flow: {} }, parts: { stretch: { vs, fs }, region: { vs, fs }, compile: { build: fakeGrid } } });
+  r.start(); r.prepare(); r.setGeometry({});
+  const blood = { on: true, chev: true, bt: 12.5, alpha: 0.5, vdpr: 2, origin: false, streakA: 0.3, chevA: 0.6, originA: 0.9, bleed: [[1, 2, 3, 4, 5, 6, 7, 8]] };
+  r.draw([1, 0, 0, 1, 0, 0], { reach: 4, shOff: [1, 1] }, blood);
+  assert.equal(set.vbOn, 1); assert.equal(set.vbChev, 1); assert.equal(set.vbChevQuad, 0, 'arrowheads in the lumen until the heads\' quads are wired');
+  assert.equal(set.vbBT, 12.5); assert.equal(set.vbFlowA, 0.5); assert.equal(set.vbCssPx, 2); assert.equal(set.vbBleedN, 1);
+  assert.deepEqual(set.vbBlendA.map((x) => +x.toFixed(2)), [0.3, 0.6, 0.9]);
+  assert.deepEqual(set['vbBleedE[0]'].slice(0, 4), [1, 2, 3, 4]);
+});
+
 test('the uniforms the shaders declare are found from their source, with array sizes', () => {
   const u = declaredUniforms('uniform highp sampler2D a, b; uniform vec4 c[12]; // uniform float skipped;', 'uniform float px; uniform float px2, z;');
   assert.deepEqual(u.map((x) => `${x.type} ${x.name}${x.size ? '[' + x.size + ']' : ''}`), ['sampler2D a', 'sampler2D b', 'vec4 c[12]', 'float px', 'float px2', 'float z']);
