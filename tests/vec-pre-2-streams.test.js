@@ -1,8 +1,9 @@
-// Acceptance 2 (vector-renderer-plan.md section 11): stream ownership at crossings and confluences.
+// Precondition for acceptance point 2 (vector-renderer-plan.md section 11; plan-r1 section 7): stream ownership at crossings and confluences.
+// NOT PASSED. This file is a node precondition, not the acceptance: it tests partition rules, maths and scheduling, which cannot show seamless GPU
+// rendering, stable streaks or pacing. The point is judged on the devices: a crossing and the portal confluence, with the vessels drawing.
 // Node judges: on the real anatomy (cirr-decomp, A's compiled regions) a crossing region joins none of its members to each other while a join
 // region's joins name theirs; C's pixel rules (JS twins of the shader's owner and stream choice) give a crossing the front lumen's stream only,
 // never a mix, and a confluence the streams of its joined members; D's junction weights sum to one for any flow and swap with a reversal, eased.
-// On the devices: a crossing, and the portal confluence.
 import { bootAnatomy } from './vec-anatomy.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';

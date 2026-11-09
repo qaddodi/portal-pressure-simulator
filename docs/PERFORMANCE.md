@@ -209,7 +209,7 @@ pass a frame. Its measuring is the plan's section 7, in `?perf` (workstream E):
 - **Budgets are whole frames.** 16.67 ms at 60 Hz and 8.33 ms at 120 Hz include the organs, the presentation, the labels and the glass,
   which the panel's own whole-frame times show; the per-kind times are only the vessels' part of them.
 - **What node checks.** One pass a frame kind with no framebuffer bind inside it, a blood-only frame that draws only lumen programs, the
-  base written once when motion ends, nothing allocated in a frame (`tests/vec-accept-6-pacing.test.js`, `tests/vec-renderer.test.js`,
+  base written once when motion ends, nothing allocated in a frame (`tests/vec-pre-6-pacing.test.js` (a precondition: sustained pacing is judged on the devices and has not passed), `tests/vec-renderer.test.js`,
   `tests/vec-frame.test.js`), and `node scripts/stage-trace.mjs --renderer vector` for the GL calls of the fixed session. No device
   numbers are recorded here; this page is updated when the gauge lands.
 
