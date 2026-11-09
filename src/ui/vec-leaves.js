@@ -544,7 +544,7 @@ export function buildLeaves(runs, joins, grid, policy, set) {
  */
 export function summarize(set) {
   const T = set.tables, P = set.policy, g = set.grid;
-  const rep = { cells: 0, leaves: 0, nodes: 0, byClass: { [L_SINGLE]: 0, [L_LAYERED]: 0, [L_CROSS]: 0, [L_JOIN]: 0, [L_WIDE]: 0, [L_MORPH]: 0 }, depth: new Array(P.maxDepth + 1).fill(0), runRefs: 0, joinRefs: 0, wide: [], overWide: [], falseProximity: [] };
+  const rep = { cells: 0, leaves: 0, nodes: 0, byClass: { [L_SINGLE]: 0, [L_LAYERED]: 0, [L_CROSS]: 0, [L_JOIN]: 0, [L_WIDE]: 0, [L_MORPH]: 0 }, depth: new Array(P.maxDepth + 1).fill(0), runRefs: 0, joinRefs: 0, wide: [], overWide: [], falseProximity: [], wideHard: { le8: 0, le32: 0, more: 0, softOnlyRows: 0, joinOnlyRows: 0, maxHard: 0 } };
   const visit = (w) => {
     const k = kindOf(w), i = idxOf(w);
     if (k === CHILD_NODE) { rep.nodes++; for (let q = 0; q < 4; q++) visit(T.nodes[i * 4 + q]); return; }
@@ -552,8 +552,16 @@ export function summarize(set) {
     const m = leafRead(T, i);
     rep.leaves++; rep.byClass[m.cls]++; rep.depth[m.depth]++; rep.runRefs += m.runCount; rep.joinRefs += m.joinCount;
     if (m.cls !== L_WIDE) return;
-    const rows = [];
-    for (let n = 0; n < m.runCount; n++) { const r = rowOfId(refRun(T.runRefs[m.runStart + n])); if (!rows.length || rows[rows.length - 1] !== r) rows.push(r); }
+    const rows = [], hard = new Set(), soft = new Set(), jo = new Set();
+    for (let n = 0; n < m.runCount; n++) {
+      const ref = T.runRefs[m.runStart + n], r = rowOfId(refRun(ref)), b = refBits(ref);
+      if (!rows.length || rows[rows.length - 1] !== r) rows.push(r);
+      if (b & C_LUMEN) hard.add(r); else if (b & (C_SHADOW | C_GLOW | 8)) soft.add(r); else jo.add(r);
+    }
+    for (const r of jo) if (!hard.has(r)) hard.add(r);
+    const W = rep.wideHard;   // how many of a wide leaf's vessels reach it by their lumen or a junction, not only by shadow, glow or ring (what a slot is for)
+    if (hard.size <= P.slots) W.le8++; else if (hard.size <= P.slotsWide) W.le32++; else W.more++;
+    W.maxHard = Math.max(W.maxHard, hard.size); W.softOnlyRows += soft.size; W.joinOnlyRows += jo.size;
     const e = { leaf: i, x: T.boxes[i * 4], y: T.boxes[i * 4 + 1], size: T.boxes[i * 4 + 2], rows, joins: m.joinCount, lumenOverlap: leafLumenOverlap(set, m) };
     rep.wide.push(e);
     if (rows.length > P.slotsWide) rep.overWide.push(e);
