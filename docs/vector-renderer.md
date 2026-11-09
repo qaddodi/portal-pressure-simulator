@@ -2,8 +2,13 @@
 
 How it works, as built. Workstream J keeps this page: it states what is in the tree, so a line here is true of the code at the commit
 that last touched the page, and the status table says which parts have not landed yet. The design and its reasons are
-`docs/recommendations/vector-renderer-plan.md` (the plan) and `docs/recommendations/vector-renderer-brief.md` (Mohammad's reviewer brief,
-word for word). The shared numbers and layouts are `src/ui/vec-contract.js`, the only place they are written.
+`docs/recommendations/vector-renderer-plan.md` (the plan), revised by `docs/recommendations/vector-renderer-plan-r1.md` (the adaptive
+hierarchy) after the reviewer's second recommendation, and the briefs `docs/recommendations/vector-renderer-brief.md` and
+`vector-renderer-brief-r2.md` (word for word; where they differ, the second wins).
+
+**Status: none of the six acceptance criteria has passed.** The node files `tests/vec-pre-*.test.js` are preconditions: they test partition
+rules, maths and scheduling and are kept green, but they cannot show seamless GPU rendering, stable streaks or sustained pacing. Those are
+judged on the devices, when the vessels draw (they did not, at the first GPU run, `8772ff8`). Nothing on this page says a criterion is met. The shared numbers and layouts are `src/ui/vec-contract.js`, the only place they are written.
 
 **In one paragraph.** The anatomy is prepared once and kept on the GPU. A compiler cuts the world into the binning's 16-unit cells and
 labels each cell empty, an *ordinary stretch* of one vessel, or an *interaction region* (a join, a crossing, a hairpin, a close
@@ -17,7 +22,28 @@ and a blood-only frame draws just the lumen pixels over it. Organs are retained 
 (`veins-fuse.js`), no `lowPass` and no `reuseDraw` draws any frame, and nothing is drawn off the GPU. Classic and Mesh are unchanged. The
 default stays Mesh.
 
-## Pipeline
+## The structure being built (revision 1: the adaptive hierarchy)
+
+The first build classified the world into fixed 16-unit cells. On the first GPU run about 98% of the lobule's occupied cells were regions
+and the lobule ran at about 9 fps, so the reviewer asked for the structure under the cells to be adaptive and segment-level. Revision 1
+(`vector-renderer-plan-r1.md`) replaces plan section 4; the retained renderer, the frame kinds, the organs, overlays, setting and seam stay.
+Nothing below is in the tree until its row in "Status of the tree" says so; this page is updated as each part lands.
+
+| Part | What it is | Owner |
+|---|---|---|
+| **Runs** | Each vessel row's 63 segments are cut into runs of `RUN_SEGS` = 4 (16 a row). A run is never widened to join two runs: a cell lists the pieces of a vessel that reach it, not an interval between them. | A (`vec-runs.js`) |
+| **Bounds** | One conservative capsule per run per contribution: lumen and casing, shadow, glow (its active reach now, never the widest), selection ring, junction (the join's disc and its required members), morph (the box over the stretch). A material change (glow, selection, casing, a radius past its bound) rebuilds only that row's runs and the leaves they reach. | A |
+| **Leaves** | The 16-unit cell stays the broad index; a cell is empty, a leaf or a node, nodes split in four down to `MAX_DEPTH` = 6. A leaf holds run references with the contribution bits they reach it with, the junction records needed, its most candidates and its class. Built on the CPU when geometry or a bound changes, retained on the GPU, never rebuilt on a camera change. Refined where the estimated shader work falls materially (cost model with the projected footprint, `LEAF_MIN_PX`, `REFINE_GAIN`). | K (`vec-leaves.js`) |
+| **Classes** | `L_SINGLE` (one vessel: its strip), `L_LAYERED` (soft contributions overlap only), `L_CROSS` (lumens may overlap, not connected), `L_JOIN` (a connected junction, cross-tier included), `L_WIDE` (still over `SLOTS` at the finest level: `SLOTS_WIDE` = 32 slots), `L_MORPH`. One program per class. | K, C |
+| **The fragment** | Reject the leaf; reject runs by their bounds; distances for the survivors only; junctions and depth for the joins whose disc covers the pixel; shade each candidate only for the contributions it survived, in classic's order; then the blood. | B, C, D |
+| **Overflow** | Never silent: a leaf over `SLOTS` subdivides, then becomes `L_WIDE` and keeps every candidate; over `SLOTS_WIDE` is a stop point (reported, nothing truncated). Lists have no capacity limit. A shortlist only where the bounds prove the excluded runs change the pixel by less than `TOLERANCE_8BIT`. | K, C |
+| **Exclusive ownership** | Every program finds a leaf the same way (`world = inv × gl_FragCoord.xy`, the cell, then the child at each node by comparing with its centre); a strip draws only in an `L_SINGLE` leaf of its row, a leaf quad covers exactly its leaf. The JS mirror `leafAt` does the same arithmetic in the same order. | K, B, C |
+| **Workload** | Reported numbers are projected pixels by class, bound tests, segment tests, surviving candidates, active joins, and GPU time by component, never cell percentages; named benchmarks `cv-junction`, `lobule-tissue`, `anat-fit`, `anat-deep`, `pinch`, `blood-only`, each old beside new. Numbers and the constants they chose: `docs/vector-workload.md` (L; not written yet). | L |
+
+The fixed classification's names (`MAX_MEMBERS`, `MAX_JOINS`, `WIN_MAX`, `REGION_TEXELS`, `JOIN0`, `CELL_SIMPLE` / `CELL_REGION`) are in the
+contract and the tree until E's switch-over push; the tables below describe that structure, which keeps drawing until then.
+
+## Pipeline (the first build, drawing until E's switch-over)
 
 | Step | What happens | Where |
 |---|---|---|
@@ -46,7 +72,11 @@ default stays Mesh.
 | G overlays | `vec-overlays.js`, `vec-overlays-glsl.js` | yes (`fd581c3`; E's overlay port `c861d5e`) |
 | H setting and seam | `frame.js`, `main.js`, `veins-gl.js`, `vec-seam.js` | the Classic / Mesh / Vector choice and the seam (`aeaa31e`, `ee684a9`); at `5bcfca7`+ Vector is chosen but the renderer is still "waiting for region, compile" and the figure draws with the other renderer (see the trace below) |
 | I lobule | `vec-lobule.js` | first slice (`2ef670b`: flow-row index, kept-picture stamps and box repaint) |
-| J trace, acceptance, docs | `scripts/stage-trace.mjs --renderer`, `tests/vec-accept-*.test.js`, this page | trace flag; all six acceptance points judged in node (40 checks, none skipped) |
+| K adaptive leaves (new) | `vec-leaves.js`, `vec-leaves-pack.js`, `vec-hier-glsl.js` | not yet |
+| L workload and benchmarks (new) | `vec-measure.js`, `vec-bench.js`, `scripts/vec-workload.mjs`, `docs/vector-workload.md` | not yet |
+| A contract v2, runs, bounds | `vec-contract.js`, `vec-runs.js` | not yet |
+| E visibility fix and switch-over | `vec-renderer.js` | not yet |
+| J trace, preconditions, docs | `scripts/stage-trace.mjs --renderer`, `tests/vec-pre-*.test.js`, this page | trace flag; the six node preconditions (40 checks), acceptance not passed; the trace on the new structure waits for E's switch-over |
 
 ## Checking it (node only: no browser, no screenshots)
 
@@ -56,20 +86,26 @@ default stays Mesh.
   whether a later push draws the same GL calls in the same frames. `--renderer classic|mesh` does the same for the others. Without
   `--renderer` nothing changes. Where frame.js cannot select the renderer the trace exits 2 and says so; where it is selected but cannot be made (`veins-gl.js` warns and
   draws with the other renderer: today Vector is "waiting for region, compile" until the seam hands E its parts) it exits 3, saves and compares
-  nothing, and prints the reason, rather than hashing another renderer's draws (`--allow-fallback` hashes them anyway). Note: the unflagged trace already differs from its own saved copy at frame 317 (the first circuit frame, two values
+  nothing, and prints the reason, rather than hashing another renderer's draws (`--allow-fallback` hashes them anyway). After E's switch-over the Vector trace is saved again as the reference for the new structure. Note: the unflagged trace already differs from its own saved copy at frame 317 (the first circuit frame, two values
   alternating from run to run); that is the trace, not a renderer, so compare Vector with Vector from the same tree.
-- `tests/vec-accept-*.test.js` are the six acceptance points as node checks (below), on the real anatomy where a check needs it
+- `tests/vec-pre-*.test.js` are the node preconditions of the six acceptance points (below; the points themselves are not passed), on the real anatomy where a check needs it
   (`tests/vec-anatomy.js` boots the stage with the do-nothing WebGL, as the compiler's tests do; each file takes about a minute).
 
-## Acceptance (the brief's list)
+## Acceptance (the brief's list): not passed
 
-| Point | Node check | Test file | On the devices (when Mohammad likes) |
+None of the six has passed. The files below are node **preconditions**: they test partition rules, mathematical helpers and scheduling, and
+say nothing about how the picture looks or how fast it runs. "One render pass" is not "little work" either (the reviewer's point):
+the workload numbers above are what say how much work a pass holds. Each point is judged on the devices, once the vessels draw.
+
+| Point | Node precondition (kept green) | File | Waits for the device judgement |
 |---|---|---|---|
-| Seamless joins and region edges at the deepest zoom | one owner a pixel centre under random cameras to the deepest zoom, every lumen point in a cell that draws it, the same cell under any camera; stretch and region shaders share the cell text and `vecShadeOne` | `vec-accept-1-seamless` | pinch to the deepest zoom over a join and a region edge |
-| Stream ownership at crossings and confluences | crossing → front stream only; confluence weights sum to 1 | `vec-accept-2-streams` | a crossing; the portal confluence |
-| Continuous blood through speed change and reversal | distance continuous across steps, beats, re-anchors, reversals | `vec-accept-3-continuity` | a TIPS slide; a reversal slide |
-| Stable streaks in a slow pinch and pan | footprint attenuation smooth; (s, y) unchanged by the camera | `vec-accept-4-streaks` | a slow pinch through the point where streaks pass a pixel |
-| Fades and selection without double-darkening | the group's alpha applied once | `vec-accept-5-fades` | select a vessel over another |
-| Sustained pacing after warm-up | one pass a frame kind, no bind inside it, nothing allocated a frame | `vec-accept-6-pacing` | ten minutes on the Mac and the iPhone, `?perf` |
+| Seamless joins and region edges at the deepest zoom | one owner a pixel centre under random cameras to the deepest zoom, every lumen point in a cell that draws it, the same cell under any camera; stretch and region shaders share the cell text and `vecShadeOne` | `vec-pre-1-seamless` | pinch to the deepest zoom over a join and a region edge |
+| Stream ownership at crossings and confluences | crossing → front stream only; confluence weights sum to 1 and swap eased with a reversal | `vec-pre-2-streams` | a crossing; the portal confluence |
+| Continuous blood through speed change and reversal | distance has no jump across steps, beats, re-anchors, reversals (seeded random flows) | `vec-pre-3-continuity` | a TIPS slide; a reversal slide |
+| Stable streaks in a slow pinch and pan | footprint attenuation and the zoom's lattice weights have no step; a world point's vessel coordinates and cell ignore the camera | `vec-pre-4-streaks` | a slow pinch through the point where streaks pass a pixel |
+| Fades and selection without double-darkening | the group's alpha applied once (JS twin of the compositing, and the shader's one multiply) | `vec-pre-5-fades` | select a vessel over another |
+| Sustained pacing after warm-up | one pass a frame kind, no bind inside it, base once per end of motion, nothing allocated over a seeded session | `vec-pre-6-pacing` | ten minutes on the Mac and the iPhone, `?perf` |
 
-What node cannot judge (how the picture looks, the frame times on the devices) is not claimed here. No device numbers are recorded.
+The preconditions follow the structure: when the hierarchy replaces the fixed cells, the cell and region checks in `vec-pre-1`, `vec-pre-2`
+and `vec-pre-4` are rewritten for leaves, runs and classes in the same push that switches over, and stay green. No device numbers are
+recorded here.

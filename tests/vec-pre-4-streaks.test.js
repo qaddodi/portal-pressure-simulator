@@ -1,8 +1,10 @@
-// Acceptance 4 (vector-renderer-plan.md section 11): stable streaks in a slow pinch and pan.
+// Precondition for acceptance point 4 (vector-renderer-plan.md section 11; plan-r1 section 7): stable streaks in a slow pinch and pan.
+// NOT PASSED. This file is a node precondition, not the acceptance: it tests partition rules, maths and scheduling, which cannot show seamless GPU
+// rendering, stable streaks or pacing. The point is judged on the devices: a slow pinch through the point where streaks pass a pixel, with the vessels drawing.
 // Node judges (D's vec-blood-math.js): the streaks' filtering has no step as the pixel's footprint grows past a tile texel (the fine octave
 // fades smoothly, the coarse one beyond it), every number the zoom feeds the streaks moves continuously through a slow pinch, including
 // where the lattice changes scale, and the vessel coordinates (s, y) of a world point do not change with the camera (that last one needs
-// the compiler's geometry: A, on the real anatomy). On the devices: a slow pinch through the point where streaks pass a pixel.
+// the compiler's geometry: A, on the real anatomy).
 import { bootAnatomy } from './vec-anatomy.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
