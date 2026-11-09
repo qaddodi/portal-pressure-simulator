@@ -64,19 +64,19 @@ contract and the tree until E's switch-over push; the tables below describe that
 |---|---|---|
 | Plan, brief, contract | `docs/recommendations/vector-renderer-*.md`, `src/ui/vec-contract.js` | yes (`2bcd99d`) |
 | A graph and compiler | `vec-graph.js`, `vec-compile.js`, `vec-contract.js` | yes (`5bcfca7`; contract `MAX_MEMBERS` 48, `WIN_MAX` 64, `4e58124`) |
-| B stretch shader | `vec-shade-glsl.js`, `vec-stretch-glsl.js` | yes (`7e679ec`; the loop windowed about the strip's own sample, `a7fb90f`) |
+| B stretch shader | `vec-shade-glsl.js`, `vec-stretch-glsl.js` | yes (`7e679ec`; the loop windowed about the strip's own sample, `a7fb90f`); r1: `vecShadeBits` shades only the contributions that survived their bounds (`cf44369`); the leaf lookup waits for K |
 | C region shader | `vec-region-glsl.js` | yes (first slice `8cb684e`; morph regions `be2c71d`) |
-| D blood | `vec-blood-glsl.js`, `vec-blood-math.js` | yes (`08b0799`; the heads' fragment shader, `a02a438`) |
+| D blood | `vec-blood-glsl.js`, `vec-blood-math.js` | yes (`08b0799`; the heads' fragment shader, `a02a438`); r1: `vecBloodMix` over up to `SLOTS_WIDE` streams (`59f4df3`) and `bloodPixelWork` for the workload replay (`9b3bd33`) |
 | E renderer core | `vec-renderer.js`, `vec-frame.js`, `vec-targets.js` | yes (`2ea671d`; BEHIND phase `62d8c19`; D's uniforms `2d060ef`; F's organs wired `6544d79`; blood rows `40a1f73`) |
-| F organs | `vec-organs.js`, `vec-organs-glsl.js` | yes (`6962e93`; every figure organ, `2586eb0`) |
+| F organs | `vec-organs.js`, `vec-organs-glsl.js` | yes (`6962e93`; every figure organ, `2586eb0`; a frame with no level prepared makes its own once, `37a3732`) |
 | G overlays | `vec-overlays.js`, `vec-overlays-glsl.js` | yes (`fd581c3`; E's overlay port `c861d5e`) |
-| H setting and seam | `frame.js`, `main.js`, `veins-gl.js`, `vec-seam.js` | the Classic / Mesh / Vector choice and the seam (`aeaa31e`, `ee684a9`); at `5bcfca7`+ Vector is chosen but the renderer is still "waiting for region, compile" and the figure draws with the other renderer (see the trace below) |
-| I lobule | `vec-lobule.js` | first slice (`2ef670b`: flow-row index, kept-picture stamps and box repaint) |
+| H setting and seam | `frame.js`, `main.js`, `veins-gl.js`, `vec-seam.js` | the Classic / Mesh / Vector choice and the seam (`aeaa31e`, `ee684a9`); Vector is now made on the fixed structure and the figure draws its vessels (the entry texture is the points texture, `47fcfc0`; idle frames while the organs prepare, `a924098`) |
+| I lobule | `vec-lobule.js` | first slice (`2ef670b`: flow-row index, kept-picture stamps and box repaint); r1: the benchmark scenes `cv-junction` and `lobule-tissue` for L (`33208eb`) |
 | K adaptive leaves (new) | `vec-leaves.js`, `vec-leaves-pack.js`, `vec-hier-glsl.js` | not yet |
 | L workload and benchmarks (new) | `vec-measure.js`, `vec-bench.js`, `scripts/vec-workload.mjs`, `docs/vector-workload.md` | not yet |
-| A contract v2, runs, bounds | `vec-contract.js`, `vec-runs.js` | not yet |
+| A contract v2, runs, bounds | `vec-contract.js`, `vec-runs.js` | runs and bounds yes (contract v2 additive and `vec-runs.js`, `1357dbd`; headroom option and `tests/vec-runs.test.js`, `d063293`; `fitGrid` for K, `317bd81`); the old names stay until E's switch-over |
 | E visibility fix and switch-over | `vec-renderer.js` | not yet |
-| J trace, preconditions, docs | `scripts/stage-trace.mjs --renderer`, `tests/vec-pre-*.test.js`, this page | trace flag; the six node preconditions (40 checks), acceptance not passed; the trace on the new structure waits for E's switch-over |
+| J trace, preconditions, docs | `scripts/stage-trace.mjs --renderer`, `tests/vec-pre-*.test.js`, this page | trace flag; the six node preconditions (40 checks), acceptance not passed; Vector now traces on the fixed structure (reference deterministic), the reference for the new structure waits for E's switch-over |
 
 ## Checking it (node only: no browser, no screenshots)
 
@@ -85,7 +85,7 @@ contract and the tree until E's switch-over push; the tables below describe that
   the lobule and the rise, card zooms) with Vector chosen, into `/tmp/stage-trace-vector.json`; `--renderer vector --compare` says
   whether a later push draws the same GL calls in the same frames. `--renderer classic|mesh` does the same for the others. Without
   `--renderer` nothing changes. Where frame.js cannot select the renderer the trace exits 2 and says so; where it is selected but cannot be made (`veins-gl.js` warns and
-  draws with the other renderer: today Vector is "waiting for region, compile" until the seam hands E its parts) it exits 3, saves and compares
+  draws with the other renderer: Vector was "waiting for region, compile" until `47fcfc0`) it exits 3, saves and compares
   nothing, and prints the reason, rather than hashing another renderer's draws (`--allow-fallback` hashes them anyway). After E's switch-over the Vector trace is saved again as the reference for the new structure. Note: the unflagged trace already differs from its own saved copy at frame 317 (the first circuit frame, two values
   alternating from run to run); that is the trace, not a renderer, so compare Vector with Vector from the same tree.
 - `tests/vec-pre-*.test.js` are the node preconditions of the six acceptance points (below; the points themselves are not passed), on the real anatomy where a check needs it

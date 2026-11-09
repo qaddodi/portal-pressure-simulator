@@ -3352,7 +3352,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, VPTS.rows, 0, gl.RGBA, gl.FLOAT, VPTS.pts, 0);
     if (gpuProbe.on) gpuProbe.note('uploaded: vector points', VPTS.rows * ENT_W * 16 / 1024);
   }
-  const vecMadeSet = (bins) => ({ owner: api, bins, ent: vecEntOf(bins), vecSet: vec.makeMorphSet?.(bins) ?? null, vecGen });
+  const vecMadeSet = (bins, tubes) => ({ owner: api, bins, tubes, ent: vecEntOf(bins), vecSet: vec.makeMorphSet?.(bins, tubes) ?? null, vecGen });
   const vecCurSet = () => { for (const S of vecSets) if (S.ent === vecEnt) return S; for (const S of morphSets) if (S.ent === vecEnt) return S; return null; };
   // A Vector picture was drawn into the kept picture: counted as the other renderers' are, and laid on the canvas with what goes over it.
   function vecLaid(bloodKept = false) {
@@ -4452,9 +4452,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      * A binning for a stretch of the change between the views (veins-sweep.js binSwept) put on the GPU in a set of its own, for
      * useMorphSet. Made at a free moment: its upload is the size of a whole binning's.
      */
-    makeMorphSet(bins) {
+    makeMorphSet(bins, tubes) {
       if (lost) return null;
-      if (vecOn()) { vecSets.add(vecSet = vecMadeSet(bins)); return vecSet; }
+      if (vecOn()) { vecSets.add(vecSet = vecMadeSet(bins, tubes)); return vecSet; }
       const was = geoCur;
       useMorphSet(null);
       const v = gl.createVertexArray(), cb = gl.createBuffer();
@@ -4469,6 +4469,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       bloodVAOOf(bv, bb);
       const S = { owner: api, entTex: dataTex(gl), vao: v, cellBuf: cb, simpleBuf: sb, oneVAO: cellVAO(sb), bloodVAO: bv, bloodBuf: bb, nGen: 0, nSimple: 0, simpleOf: null, nBlood: 0, bloodCell: CELL, bloodCPU: null, cellsCPU: null, entCPU: null, nCells: 0, cellBox: null, rowCells: null, patchMark: null, patchK: 0,
         morph: { posBase: bins.posBase, joinBase: bins.joinBase, entRows: bins.entRows, rows: bins.rows, tight: !!bins.tight } };
+      S.tubes = tubes;   // (kept for Vector, which makes its own set from the same binning if it is chosen)
       morphSets.add(S);
       useMorphSet(S);
       gl.bindTexture(gl.TEXTURE_2D, entTex);
@@ -4486,14 +4487,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     useMorphSet(S) {
       if (vecOn()) {
         if (S && S.owner !== api) return;
-        if (S && S.vecGen !== vecGen) { S.vecSet = vec.makeMorphSet?.(S.bins) ?? null; S.vecGen = vecGen; }
+        if (S && S.vecGen !== vecGen) { S.vecSet = vec.makeMorphSet?.(S.bins, S.tubes) ?? null; S.vecGen = vecGen; }
         if (S && !S.ent) S.ent = vecEntOf(S.bins);
         vecEnt = S ? S.ent : null;
         vecTell('useMorphSet', S ? S.vecSet : null);
         return;
       }
       // (A set made while Vector drew has no classic texture: made now from its binning, as it is the same set.)
-      if (S && S.owner === api && !S.entTex && S.bins && !lost) { const B = api.makeMorphSet(S.bins); if (B) { morphSets.delete(B); Object.assign(S, B); morphSets.add(S); } }
+      if (S && S.owner === api && !S.entTex && S.bins && !lost) { const B = api.makeMorphSet(S.bins, S.tubes); if (B) { morphSets.delete(B); Object.assign(S, B); morphSets.add(S); } }
       if (!S || (S.owner === api && morphSets.has(S))) useMorphSet(S);
     },
     dropMorphSet(S) { if (!S) return; if (S.vecSet && S.vecGen === vecGen) vecTell('dropMorphSet', S.vecSet); if (S.ent) { if (vecEnt === S.ent) vecEnt = null; if (!lost) gl.deleteTexture(S.ent); S.ent = null; } vecSets.delete(S); dropSet(S); },
