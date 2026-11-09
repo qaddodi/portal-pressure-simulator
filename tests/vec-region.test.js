@@ -241,7 +241,7 @@ for (const cls of CLASSES) {
       assert.deepEqual(lintGLSL(src), []);
       const u = uniformsOf(src);
       const want = [...leafRegionUniforms(cls).fragment, ...VEC_SHADE_UNIFORMS_LEAF];
-      for (const n of ['cellTex', 'gridO', 'gridN', 'shOff']) assert.ok(!u.includes(n), `${n}: the hierarchy\'s own lookup and shadow offset stand in`);
+      for (const n of ['cellTex', 'gridO', 'gridN', 'shOff']) assert.ok(!u.includes(n), `${n}: the hierarchy's own lookup and shadow offset stand in`);
       for (const n of want) assert.ok(u.includes(n), `${name}: ${n}`);
       assert.equal(u.includes('vecBase'), variant === K.V_BLOOD, 'the kept base only under the blood variant');
       assert.equal(u.includes('morphOn'), LEAF_CLASSES[cls].morph, 'the frame\'s join rows only in the morph class');
