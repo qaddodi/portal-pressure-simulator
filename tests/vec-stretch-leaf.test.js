@@ -16,7 +16,7 @@ import {
 import { createVecGraph, A_GLOW, A_SEL, A_FLAGS, TUBE_FLOATS } from '../src/ui/vec-graph.js';
 import { createRuns, glowReachOf } from '../src/ui/vec-runs.js';
 import { boundHit } from '../src/ui/vec-leaves.js';
-import { HIER_GLSL, HIER_UNIFORMS } from '../src/ui/vec-hier-glsl.js';
+import { HIER_LOOKUP_GLSL, HIER_LOOKUP_UNIFORMS, HIER_JOIN_UNIFORMS } from '../src/ui/vec-hier-glsl.js';
 
 const A = await bootAnatomy();
 await A.preset('cirr-decomp', 40);
@@ -47,7 +47,7 @@ test('the uniforms the leaf program declares are exactly the ones its list names
     const want = vecLeafStretchUniformNames(v).fs;
     assert.deepEqual([...new Set(uniformsOf(vecLeafStretchFS(v, K)))].sort(), [...want].sort(), name);
     for (const gone of ['cellTex', 'gridO', 'gridN', 'shOff']) assert.ok(!want.includes(gone), `${name}: ${gone}`);
-    for (const u of HIER_UNIFORMS) assert.ok(want.includes(u), `${name}: ${u}`);
+    for (const u of HIER_LOOKUP_UNIFORMS) assert.ok(want.includes(u), `${name}: ${u}`);
   }
   assert.ok(!VEC_SHADE_UNIFORMS_LEAF.includes('shOff'));
 });
@@ -55,7 +55,7 @@ test('the uniforms the leaf program declares are exactly the ones its list names
 test('the strip finds its leaf by K\'s one lookup, with no second cell formula, and draws only an L_SINGLE leaf of its own row', () => {
   for (const [name, v] of VARIANTS) {
     const fs = vecLeafStretchFS(v, K);
-    assert.equal(count(fs, HIER_GLSL), 1, `${name}: K's text once`);
+    assert.equal(count(fs, HIER_LOOKUP_GLSL), 1, `${name}: K's lookup text once`);
     assert.equal(count(fs, 'int vecLeafAt('), 1, name);
     assert.equal(count(fs, 'vecLeafAt(p)'), 1, name);
     assert.ok(!/vecCellAt|CELL_SIMPLE|\bgridN\b|\bcellTex\b/.test(fs), `${name}: no fixed cell test`);
@@ -80,15 +80,25 @@ test('the leaf program tests each contribution a reference lists against that ru
   assert.ok(fs.includes('if (bits == 0) discard;'));
   assert.ok(fs.includes('vecShadeBits(vRow, nr, p, vecOccl(p), bits, lum, lumCol)'));
   // the contribution numbers K's text declares are the contract's, which the shade text uses
-  assert.ok(HIER_GLSL.includes(`const int VEC_C_LUMEN = ${C_LUMEN};`) && HIER_GLSL.includes(`const int VEC_C_SHADOW = ${C_SHADOW};`));
-  assert.ok(HIER_GLSL.includes(`const int VEC_C_GLOW = ${C_GLOW};`) && HIER_GLSL.includes(`const int VEC_C_RING = ${C_RING};`));
+  assert.ok(HIER_LOOKUP_GLSL.includes(`const int VEC_C_LUMEN = ${C_LUMEN};`) && HIER_LOOKUP_GLSL.includes(`const int VEC_C_SHADOW = ${C_SHADOW};`));
+  assert.ok(HIER_LOOKUP_GLSL.includes(`const int VEC_C_GLOW = ${C_GLOW};`) && HIER_LOOKUP_GLSL.includes(`const int VEC_C_RING = ${C_RING};`));
 });
 
 test('the region program, when it reads the hierarchy, reads K\'s same text (one lookup for strip and region)', async () => {
   const { vecRegionFS } = await import('../src/ui/vec-region-glsl.js');
   const fs = vecRegionFS(V_FULL, K);
-  if (fs.includes('vecLeafAt(')) assert.equal(count(fs, HIER_GLSL), 1, 'region: K\'s text once');
+  if (fs.includes('vecLeafAt(')) assert.equal(count(fs, HIER_LOOKUP_GLSL), 1, 'region: K\'s lookup text once');
   else assert.ok(count(fs, 'vecCellAt(') >= 1, 'region still on the fixed cell test (workstream C has not moved over yet)');
+});
+
+test('the strip declares at most 15 samplers in every variant (the cap is 16 on Mac and iPhone) and nothing of the joins', () => {
+  for (const [name, v] of VARIANTS) {
+    const fs = vecLeafStretchFS(v, K);
+    const samplers = [...fs.matchAll(/uniform\s+(?:highp\s+|lowp\s+|mediump\s+)?u?sampler2D\s+(\w+)/g)].map((m) => m[1]);
+    assert.ok(samplers.length <= 15, `${name}: ${samplers.length} samplers (${samplers.join(' ')})`);
+    for (const u of HIER_JOIN_UNIFORMS) assert.ok(!fs.includes(u), `${name}: ${u}`);
+    assert.ok(!/vecJoin/.test(fs), name);
+  }
 });
 
 // ── The nearest point over the survivors, on the real anatomy ──
