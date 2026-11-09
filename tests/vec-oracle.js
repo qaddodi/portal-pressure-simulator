@@ -115,6 +115,8 @@ export function check1(v, t, name, opts) {
 export function check2(v, t, name, opts) {
   const { out } = v, tl = touches(v, true), want = new Map();
   for (const e of tl) { let m = want.get(e.cell); if (!m) want.set(e.cell, m = new Map()); let q = m.get(e.row); if (!q) m.set(e.row, q = [1e9, -1]); q[0] = Math.min(q[0], e.i); q[1] = Math.max(q[1], e.i); }
+  const outerSet = new Set();   // (the cells a segment reaches or comes within TOL of: a cell the compile names on the edge of a reach is not wrong)
+  for (const e of touches(v, false)) outerSet.add(e.cell * 4096 + e.row);
   let simple = 0, widest = 0;
   for (let cy = 0; cy < out.ny; cy++) for (let cx = 0; cx < out.nx; cx++) {
     const tx = cy * GRID_W + cx;
@@ -122,8 +124,17 @@ export function check2(v, t, name, opts) {
     simple++;
     const row = out.cells[tx * 4 + 1], i0 = out.cells[tx * 4 + 2], i1 = out.cells[tx * 4 + 3];
     const m = want.get(tx);
-    assert.ok(m && m.has(row), `ordinary cell ${cx},${cy} names row ${row} but no segment of it reaches the cell`);
-    assert.equal(m.size, 1, `ordinary cell ${cx},${cy}: ${m.size} vessels reach it`);
+    if (!(outerSet.has(tx * 4096 + row))) {
+      const { graph, reach } = v, cs = CS(v), wx = out.x0 + cx * cs, wy = out.y0 + cy * cs;
+      let best = Infinity, at = -1, why = '';
+      for (let i = 0; i < N_QUADS; i++) {
+        const o = (row * NS + i) * 2, R = Math.max(reach.rb[row * NS + i], reach.rb[row * NS + i + 1]) + reach.pad[row], g = Math.sqrt(segRectD2(graph.pts[o], graph.pts[o + 1], graph.pts[o + 2], graph.pts[o + 3], wx, wy, wx + cs, wy + cs)) - R;
+        if (g < best) { best = g; at = i; why = `seg flag ${graph.seg[row * N_QUADS + i]}, R ${R}, on ${graph.rows[row].on}`; }
+      }
+      assert.fail(`ordinary cell ${cx},${cy} names row ${row} (run ${out.cells[tx * 4 + 2]}-${out.cells[tx * 4 + 3]}) but no segment of it reaches the cell: closest segment ${at} is ${best} past its reach (${why})`);
+    }
+    assert.ok(!m || m.size <= 1, `ordinary cell ${cx},${cy}: ${m ? m.size : 0} vessels reach it`);
+    if (!m || !m.has(row)) { simple--; continue; }   // (named on the edge of its reach: nothing to cover)
     const [lo, hi] = m.get(row);
     assert.ok(i0 <= lo && i1 >= hi, `cell ${cx},${cy}: run ${i0}-${i1} misses a segment in ${lo}-${hi}`);
     assert.ok(i1 - i0 + 1 <= WIN_MAX, `cell ${cx},${cy}: run of ${i1 - i0 + 1} over WIN_MAX ${WIN_MAX}`);
@@ -245,4 +256,47 @@ export function check6(v, t, name) {
     }
   }
   assert.ok(pixels > 50000 && edge < pixels / 50);
+}
+
+// ── A width easing (test 7) ──
+import { recompileRows, rowsPast, padReach } from '../src/ui/vec-compile.js';
+const dumpOf = (o) => {
+  const lines = [];
+  for (let cy = 0; cy < o.ny; cy++) for (let cx = 0; cx < o.nx; cx++) {
+    const tx = cy * GRID_W + cx, kd = o.cells[tx * 4];
+    if (kd === CELL_SIMPLE) lines.push(`${cx},${cy} s ${o.cells[tx * 4 + 1]} ${o.cells[tx * 4 + 2]} ${o.cells[tx * 4 + 3]}`);
+    else if (kd === CELL_REGION) lines.push(`${cx},${cy} r ${JSON.stringify(regionOf(o, o.cells[tx * 4 + 1]))}`);
+  }
+  return lines;
+};
+/** A whole compile with the same bounds and grid as `out` holds, for comparing with a patched one. */
+export function freshLike(v) {
+  const { graph, out } = v, o2 = createCompiled(), r2 = createReach(out.reach.look);
+  r2.rb = out.reach.rb.slice(); r2.pad = out.reach.pad.slice(); r2.jb = out.reach.jb.slice(); r2.padNow = out.reach.padNow.slice();
+  o2.cell = out.cs; o2.fixed = true; o2.x0 = out.x0; o2.y0 = out.y0; o2.nx = out.nx; o2.ny = out.ny;
+  compileGrid(graph, r2, o2);
+  return o2;
+}
+/**
+ * The radii `radAll` (veins-gl's mirror) given to v's graph: rowsPast is exactly the rows whose radius or pad is past its compiled bound, and
+ * recompileRows on them gives the grid a whole compile with the same bounds gives. Returns the number of rows past.
+ */
+export function checkEasing(v, radAll) {
+  const { graph, out } = v, list = new Int32Array(graph.nRows * 2);
+  graph.radii(radAll);
+  const n = rowsPast(graph, out, list);
+  const got = [...list.subarray(0, n)].sort((a, b) => a - b), want = [];
+  for (let r = 0; r < graph.nRows; r++) {
+    if (!graph.rows[r].on) continue;
+    let p = padReach(graph.rows[r], out.reach.look) > out.reach.pad[r];
+    for (let i = 0; i < NS && !p; i++) if (graph.rad[r * NS + i] > out.reach.rb[r * NS + i]) p = true;
+    if (p) want.push(r);
+  }
+  assert.deepEqual(got, want, 'rowsPast is exactly the rows whose radius is past its compiled bound');
+  if (n) {
+    recompileRows(graph, list, out, n);
+    assert.equal(rowsPast(graph, out, list), 0, 'after the recompile nothing is past');
+    assert.deepEqual(dumpOf(out), dumpOf(freshLike(v)), 'the patched grid equals a whole compile with the same bounds');
+  }
+  return n;
 }
