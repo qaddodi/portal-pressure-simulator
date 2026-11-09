@@ -15,7 +15,7 @@ export function createVeinsGL(canvas, opts) {
   const wrap = {
     setGeometry(bins) { tap.bins = bins; tap.geoCount++; return api.setGeometry(bins); },
     patchGeometry(bins) { tap.bins = bins; return api.patchGeometry(bins); },
-    makeMorphSet(bins) { const S = api.makeMorphSet(bins); tap.sets.push({ bins, S }); return S; },
+    makeMorphSet(bins, tubes) { const S = api.makeMorphSet(bins, tubes); tap.sets.push({ bins, S }); return S; },
     setTubes(data) { tap.tube.set(data.length > tap.tube.length ? data.subarray(0, tap.tube.length) : data); return api.setTubes(data); },
     setRadii(row, r, along) {
       if (row >= 0 && row < tap.nTubes) for (let i = 0; i < NS; i++) tap.rad[row * NS + i] = r[i];

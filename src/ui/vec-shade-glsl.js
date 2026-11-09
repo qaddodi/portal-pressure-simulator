@@ -63,10 +63,13 @@ export const VEC_SHADE_UNIFORMS = Object.freeze([
   'cellTex', 'inv', 'gridO', 'gridN',
 ]);
 
+/** The same list for the hierarchy's programs (vec-hier-glsl.js declares the cell tables, the grid and the shadow offset (uVecShOff, in place of shOff) itself; the pixel's world point stays inv's). */
+export const VEC_SHADE_UNIFORMS_LEAF = Object.freeze(VEC_SHADE_UNIFORMS.filter((n) => !['cellTex', 'gridO', 'gridN', 'shOff'].includes(n)));
+
 const f1 = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
 
 /** The host declarations and helpers shadeGLSL needs (section 1 of the file's header). */
-const hostGLSL = () => `
+const hostGLSL = (leaf) => `
 uniform highp sampler2D ent;           // the entry texture: the frame's points from posBase (PT)
 uniform highp sampler2D rad;           // per vessel row (y), per sample (x): radius in .rg, the along curve in .ba
 uniform highp sampler2D tube;          // per vessel row: the tube texels (veins-gl.js layout)
@@ -75,8 +78,7 @@ uniform vec4 organRect;                // world x, y, w, h of the organ texture
 uniform int useOrgan;
 uniform float organK;                  // how much the organ covers fade the tiers behind them
 uniform float px;                      // world units per device pixel
-uniform vec2 shOff;                    // contact shadow offset (world)
-uniform vec4 casing;                   // rgb, alpha
+${leaf ? '' : 'uniform vec2 shOff;                    // contact shadow offset (world)\n'}uniform vec4 casing;                   // rgb, alpha
 uniform vec4 shadow;
 uniform vec4 sheenInk;
 uniform vec4 shadeInk;
@@ -124,6 +126,12 @@ uvec4 vecCellAt(vec2 p) {
   if (c.x < 0.0 || c.y < 0.0 || c.x >= gridN.x || c.y >= gridN.y) return uvec4(0u);
   return texelFetch(cellTex, ivec2(c), 0);
 }
+`;
+
+/** The pixel's world point alone (the hierarchy's programs: vec-hier-glsl.js does the rest of the lookup from it). */
+const worldGLSL = () => `
+uniform highp mat3 inv;                // gl_FragCoord.xy → world
+vec2 vecWorld() { return (inv * vec3(gl_FragCoord.xy, 1.0)).xy; }
 `;
 
 /** shadeGLSL with the flow-target packing cut (the vector renderer writes no flow targets). */
@@ -219,5 +227,5 @@ vec4 vecShadeBits(int row, VecNear nr, vec2 p, float occl, int bits, out float l
 vec4 vecShadeOne(int row, VecNear nr, vec2 p, float occl, out float lum, out vec3 lumCol) { return vecShadeBits(row, nr, p, occl, ${C_ALL}, lum, lumCol); }
 `;
 
-/** The shared text (see the file's header). K: the flags and VEIL_K from veins-gl.js. */
-export const VEC_SHADE_GLSL = (K) => hostGLSL() + cellGLSL() + shadePart(K) + nearGLSL(K);
+/** The shared text (see the file's header). K: the flags and VEIL_K from veins-gl.js. leaf: without the fixed cell test (the hierarchy's programs, which add HIER_GLSL). */
+export const VEC_SHADE_GLSL = (K, leaf = false) => hostGLSL(leaf) + (leaf ? worldGLSL() : cellGLSL()) + shadePart(K) + nearGLSL(K);
