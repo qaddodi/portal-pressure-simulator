@@ -2089,7 +2089,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       heads: who === 'stage' ? startProgram(gl, headVS({ zoom: ZOOM_VS, along: ALONG_GLSL, rows: ROWS_GLSL, orange: CHEV_ORANGE_GLSL, nSamples: N_SAMPLES }), COMP_FS(false, false, true)) : null, plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
     // (The mesh vessel renderer's programs, the stage's figure only: a strip a vessel, a patch a join, and the scratch layers' laying. Not
     // needed to draw: until they are published, or if they fail, the classic vessel pass draws.)
-    if (who === 'stage') { try { started.meshStrip = startProgram(gl, meshStripVS(STRIP_VS_GLSL, F_SEL), vesselFS(true, 1)); started.meshPatch = startProgram(gl, meshPatchVS(STRIP_VS_GLSL), vesselFS(false, 2)); started.meshLay = startProgram(gl, REUSE_VS, MESH_LAY_FS); } catch (e) { console.warn('Veins renderer: the mesh vessel shaders could not be made; the classic vessel pass draws.', e); delete started.meshStrip; delete started.meshPatch; delete started.meshLay; } }
+    if (who === 'stage') { try { started.meshStrip = startProgram(gl, meshStripVS(STRIP_VS_GLSL, F_SEL), vesselFS(true, 1)); started.meshPatch = startProgram(gl, meshPatchVS(STRIP_VS_GLSL), vesselFS(false, 2)); started.meshLay = startProgram(gl, REUSE_VS, MESH_LAY_FS); started.meshStripLay = startProgram(gl, meshStripVS(STRIP_VS_GLSL, F_SEL), MESH_LAY_FS); started.meshPatchLay = startProgram(gl, meshPatchVS(STRIP_VS_GLSL), MESH_LAY_FS); } catch (e) { console.warn('Veins renderer: the mesh vessel shaders could not be made; the classic vessel pass draws.', e); delete started.meshStrip; delete started.meshPatch; delete started.meshLay; delete started.meshStripLay; delete started.meshPatchLay; } }
   } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
   // Every other program this context will draw with, started now beside these, before any is read (GPU practice §2, docs/gpu-practices.md;
   // ?shaderwarm=0: each compiled where it is first made or drawn, as before): the organs' stack, painter and shapes (taken up just below,
@@ -2104,7 +2104,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // same picture. Without the extension they are finished here with the rest, as before.
   const later = pcx ? [...(started.simple ? ['simple'] : []), 'plain', ...(started.streak ? ['streak'] : []), ...(started.fuseGen ? ['fused'] : []), ...(started.heads ? ['heads'] : []), ...(started.meshLay ? ['mesh'] : [])] : [];
   // (Each optional build's programs, by its name in `later`.)
-  const startsOf = (k) => (k === 'mesh' ? [started.meshStrip, started.meshPatch, started.meshLay] : k === 'heads' ? [started.heads] : k === 'streak' ? [started.streak, started.streakCell] : k === 'plain' ? [started.plain, started.plainCell] : k === 'fused' ? [started.fuseGen, started.fuseOne].filter(Boolean) : [started.simple]);
+  const startsOf = (k) => (k === 'mesh' ? [started.meshStrip, started.meshPatch, started.meshLay, started.meshStripLay, started.meshPatchLay].filter(Boolean) : k === 'heads' ? [started.heads] : k === 'streak' ? [started.streak, started.streakCell] : k === 'plain' ? [started.plain, started.plainCell] : k === 'fused' ? [started.fuseGen, started.fuseOne].filter(Boolean) : [started.simple]);
   let prog;
   try { prog = finishProgram(gl, started.prog); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); freeShaders(); return null; }
   // The one-vessel build (see vesselFS): null when it failed, and every cell keeps the general program.
@@ -2142,9 +2142,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   };
   if (started.heads && !later.includes('heads')) finishHeads();
   // The mesh vessel renderer's programs (Settings › Display › Mesh vessel renderer): all three or none. meshWhy: why the classic pass draws.
+  // (meshSL, meshPL: the strips' and patches' geometry laying a scratch layer, the tier's shadow drawn there with MAX: null, and the shadow
+  // keeps its prepass, if they fail.)
+  let meshSL = null, meshPL = null;
   let meshS = null, meshPt = null, meshL = null, meshWhy = who === 'stage' ? 'compiling' : 'not the figure';
   const finishMesh = () => {
-    try { meshS = finishProgram(gl, started.meshStrip); meshPt = finishProgram(gl, started.meshPatch); meshL = finishProgram(gl, started.meshLay); meshWhy = ''; } catch (e) {
+    try { meshS = finishProgram(gl, started.meshStrip); meshPt = finishProgram(gl, started.meshPatch); meshL = finishProgram(gl, started.meshLay); meshWhy = '';
+      try { meshSL = finishProgram(gl, started.meshStripLay); meshPL = finishProgram(gl, started.meshPatchLay); } catch (e2) { console.warn('Veins renderer: the mesh shadow lay failed; the shadow keeps its prepass.', e2); meshSL = meshPL = null; }
+    } catch (e) {
       console.warn('Veins renderer: the mesh vessel shaders failed; the figure keeps the classic vessel pass.', e);
       for (const st of startsOf('mesh')) gl.deleteProgram(st.p);
       meshS = meshPt = meshL = null; meshWhy = 'shader failed';
@@ -3216,8 +3221,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const meshSync = () => { if (meshPick !== vesselMesh()) { meshPick = vesselMesh(); fboOK = false; } };
   const MG = { ent: null, morph: null, dirty: true, pts: {}, jl: {}, patch: {}, tb: {}, pb: {}, tex: null, pj: null, texRows: 0,
     stripVAO: null, patchVAO: null, layVAO: null, rowBuf: null, patchBuf: null, rowCap: 0, patchCap: 0, nIndex: 0,
-    key: null, prep: null, w: 0, h: 0, ok: false, scrN: null, scrT: null, sw: 0, sh: 0, kP: 0, ref: 0,
+    key: null, prep: null, w: 0, h: 0, ok: false, scrN: null, scrT: null, scrS: null, sw: 0, sh: 0, kP: 0, ref: 0,
     passes: 0, strips: 0, patches: 0 };   // alloc-rare: made once per renderer
+  const MESH_ALL = [null, null, null, null], MESH_TWO = [null, null];   // (the mesh programs a pass sets up, kept)
   const ONE1 = new Float32Array([1]), ONE8 = new Float32Array(8), ZERO1I = new Int32Array([0]);
   const MESH_GLOW_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.COLOR_ATTACHMENT3], MESH_COLOR_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.NONE];
   const MESH_RING_BUF = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.NONE, gl.NONE];
@@ -3303,15 +3309,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function meshScratch(k) {
     if (MG.sw !== fboW || MG.sh !== fboH) {
       MG.sw = fboW; MG.sh = fboH;
-      for (const t of [MG.scrN, MG.scrT]) if (t) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fboW, fboH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
+      for (const t of [MG.scrN, MG.scrT, MG.scrS]) if (t) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fboW, fboH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
     }
-    let t = k ? MG.scrT : MG.scrN;
+    let t = k === 2 ? MG.scrS : k ? MG.scrT : MG.scrN;
     if (!t) {
       t = dataTex(gl);
       gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fboW, fboH, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       if (gpuProbe.on) noteAlloc(fboW * fboH * 4 / 1024);
-      if (k) MG.scrT = t; else MG.scrN = t;
+      if (k === 2) MG.scrS = t; else if (k) MG.scrT = t; else MG.scrN = t;
     }
     return t;
   }
@@ -3335,11 +3341,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return aa + 2.5 * px + 2 * px;   // (the selection ring's 4 past the wall: selPad, on the selected rows alone)
   }
   // One draw of tier t's strips (and its patches) for a pass.
-  function meshDraw(pass, t, base, H, shapeBase, px, look, patches) {
-    const tb = MG.tb, pb = MG.pb, pad = meshPad(pass, look, px);
+  function meshDraw(pass, t, base, H, shapeBase, px, look, patches, lay = false) {
+    const tb = MG.tb, pb = MG.pb, pad = meshPad(pass, look, px), SP = lay ? meshSL : meshS, PP = lay ? meshPL : meshPt;
     if (tb.count[t]) {
-      const u = meshS.u;
-      gl.useProgram(meshS.p);
+      const u = SP.u;
+      gl.useProgram(SP.p);
       UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, shapeBase); UC.f1(u.padU, pad); UC.f1(u.selPad, pass >= MP.SHAPE_K ? 4 : 0);
       gl.bindVertexArray(MG.stripVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, MG.rowBuf);
@@ -3350,8 +3356,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       MG.strips += tb.count[t];
     }
     if (patches && pb.count[t]) {
-      const u = meshPt.u;
-      gl.useProgram(meshPt.p);
+      const u = PP.u;
+      gl.useProgram(PP.p);
       UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, shapeBase);
       gl.bindVertexArray(MG.patchVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, MG.patchBuf);
@@ -3389,6 +3395,27 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     meshDraw(cp, t, base, H, shapeBase, px, look, patches);
     gl.disable(gl.STENCIL_TEST);
   }
+  // A tier's shadow (Phase 2.2, the brief's shadow pass): its strips and patches draw it into a scratch layer blended with MAX, so where
+  // shadows overlap the strongest stands (they share one colour, premultiplied: MAX keeps the strongest alpha), then the same strips and
+  // patches lay that scratch over the target (each pixel once). One full pass and one that only copies, instead of a prepass and a pass.
+  function meshShadow(t, px, look, target) {
+    meshTarget(meshScratch(2));
+    gl.drawBuffers(MESH_COLOR_BUF);
+    gl.clearBufferfv(gl.COLOR, 0, CLR_F);
+    keyUnit(true);
+    gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND); gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE);
+    meshDraw(MP.SHADOW, t, 0, 0, 0, px, look, true);
+    gl.blendEquation(gl.FUNC_ADD);
+    meshTarget(target);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.enable(gl.STENCIL_TEST); gl.stencilFunc(gl.NOTEQUAL, meshRefNext(), 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); gl.stencilMask(0xff);
+    gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, MG.scrS);
+    gl.useProgram(meshSL.p); UC.i1(meshSL.u.uT, 7); UC.f1(meshSL.u.uK, 1);
+    gl.useProgram(meshPL.p); UC.i1(meshPL.u.uT, 7); UC.f1(meshPL.u.uK, 1);
+    meshDraw(MP.SHADOW, t, 0, 0, 0, px, look, true, true);
+    gl.disable(gl.STENCIL_TEST);
+  }
   // A scratch layer laid over the layer's colour, weighed by k.
   function meshLay(tex, k) {
     gl.drawBuffers(MESH_COLOR_BUF);
@@ -3414,12 +3441,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (pb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, pb.data, 0, pb.n * PG_W);
     MG.passes = 0; MG.strips = 0; MG.patches = 0;
     // (Both programs' uniforms and textures as the classic pass's, then the points: the figure's own texture, or the morph set's frame rows.)
-    for (const P of [meshPt, meshS]) {
+    const progs = meshSL ? MESH_ALL : MESH_TWO;
+    progs[0] = meshPt; progs[1] = meshS;
+    if (meshSL) { progs[2] = meshPL; progs[3] = meshSL; }
+    for (const P of progs) {
       vesselSet(P, m, look, false, false);
       if (!geo.morph) { UC.i1(P.u.posBase, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, MG.tex); }
       UC.i1(P.u.keyTex, 6);
       UC.f1(P.u.reachU, look.reach);
-      if (P === meshPt) UC.i1(P.u.pjTex, 9);
+      UC.i1(P.u.pjTex, 9);
     }
     gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, MG.pj);
     const px = 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));
@@ -3441,7 +3471,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       for (let t = 0; t < MAX_TIERS; t++) {
         if (TG[t] !== g || !(tb.count[t] || pb.count[t])) continue;
         if (tb.lit[t]) meshPair(MP.GLOW_K, MP.GLOW, t, px, look, false, MESH_GLOW_BUF);
-        if (look.fx && tb.shadow[t]) meshPair(MP.SHADOW_K, MP.SHADOW, t, px, look, true, MESH_COLOR_BUF);
+        if (look.fx && tb.shadow[t]) { if (meshSL) meshShadow(t, px, look, toN ? MG.scrN : baseTex); else meshPair(MP.SHADOW_K, MP.SHADOW, t, px, look, true, MESH_COLOR_BUF); }
         const sb = meshPair(MP.SHAPE_K, MP.SHAPE, t, px, look, true, ATTACH);
         if (lift && tb.sel[t]) { meshTarget(MG.scrT); meshColour(MP.LIFT, t, sb, 0.999 / KEY_PASSES, sb, px, look, true, MESH_COLOR_BUF); meshTarget(toN ? MG.scrN : baseTex); }
         if (ring && tb.count[t] > 1) meshColour(MP.RING, t, sb, 0.999 / KEY_PASSES, sb, px, look, false, MESH_RING_BUF);
@@ -5338,8 +5368,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, oneVAO, bloodVAO, halfSet.va, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
-        for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP, meshS, meshPt, meshL]) if (x) gl.deleteProgram(x.p);
-        for (const t of [MG.tex, MG.pj, MG.key, MG.scrN, MG.scrT]) if (t) gl.deleteTexture(t);
+        for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP, meshS, meshPt, meshL, meshSL, meshPL]) if (x) gl.deleteProgram(x.p);
+        for (const t of [MG.tex, MG.pj, MG.key, MG.scrN, MG.scrT, MG.scrS]) if (t) gl.deleteTexture(t);
         if (MG.prep) { gl.deleteFramebuffer(MG.prep); gl.deleteRenderbuffer(meshSt); }
         for (const v of [MG.stripVAO, MG.patchVAO, MG.layVAO]) if (v) gl.deleteVertexArray(v);
         for (const b of [MG.rowBuf, MG.patchBuf]) if (b) gl.deleteBuffer(b);

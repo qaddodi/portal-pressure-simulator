@@ -325,7 +325,8 @@ const float KEY_BIAS = ${KEY_BIAS};`;
 #endif
   float kd = keyBase + clamp(kf, 0.0, 1.0) * keyH;
   if (mPass == MP_GLOW_K || mPass == MP_UP_K || mPass == MP_SHADOW_K || mPass == MP_SHAPE_K) { gl_FragDepth = kd; return; }
-  if (abs(texelFetch(keyTex, ivec2(gl_FragCoord.xy), 0).r - kd) > KEY_TOL) discard;`;
+  // (keyH 0: a pass with no prepass, the shadow drawn with MAX into a scratch layer: every fragment draws.)
+  if (keyH > 0.0 && abs(texelFetch(keyTex, ivec2(gl_FragCoord.xy), 0).r - kd) > KEY_TOL) discard;`;
 
   const out = `
   // ── The mesh pass's part of the picture (what the classic shader lays together at the end, for the pass's tier) ──
