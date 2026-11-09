@@ -17,6 +17,8 @@
 // box it measures; node has no layout to measure, so both sides use k = 1, and a device report says so).
 import { VB_ANAT, NODE_POS } from './anatomy.js';
 import { lobuleGeo, sceneMatrix, LOBULE_SCENES, SCENE_DEVICE } from './vec-lobule.js';
+import { frameFor, vesselRenderer } from './frame.js';
+import { currentMeasure, setLastReport } from './vec-measure.js';
 
 /** The pictures the benchmarks are measured at: css size of the stage and the device pixel ratio. */
 export const PICTURES = Object.freeze({
@@ -153,5 +155,19 @@ export async function runVecBench(name, pps, host) {
   if (m) lines.push(m); else lines.push('  (no GPU timer: add ?perf and use a browser that offers EXT_disjoint_timer_query_webgl2)');
   const report = lines.join('\n');
   host.measure?.setReport?.(report);
+  return report;
+}
+
+/**
+ * `?vecbench=<name>`: waits for the app (window.pps), runs the benchmark with the app's own frame scheduler and the current vec-measure, and
+ * keeps the report for the ?perf panel (vec-measure.js vecWorkText) and the console. Called by main.js only when the address has ?vecbench.
+ */
+export async function startVecBench(name) {
+  const wait = frameFor('vecbench start');
+  for (let i = 0; i < 1200 && !(window.pps?.stage && window.pps.loadPreset); i++) await new Promise((r) => wait(r));
+  const measure = { reset: () => currentMeasure()?.reset(), text: () => currentMeasure()?.text(), setReport: (t) => setLastReport(t) };
+  const report = await runVecBench(name, window.pps, { frameFor, measure, renderer: vesselRenderer });
+  setLastReport(report);
+  console.log(report);
   return report;
 }

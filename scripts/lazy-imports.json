@@ -11,6 +11,7 @@
     "src/ui/main.js → ./frame-hud.js": "?perf only, at boot",
     "src/ui/main.js → ./high-refresh.js": "at boot",
     "src/ui/main.js → ./perf-readout.js": "?perf only, at boot",
+    "src/ui/main.js → ./vec-bench.js": "?vecbench only, at boot (a measuring aid: runs a named Vector benchmark and reports in ?perf)",
     "src/ui/main.js → ./offgpu-overlay.js": "?offgpu only, at boot",
     "src/ui/presenter.js → ./test-decks/demo-all-new-visuals.js": "the preview copy only, when the presenter module is read in",
     "src/ui/stage.js → ./lobule-zoom.js": "stage.js lobuleCode, once the figure is shown (prepIdle), long before the lobule can be opened",

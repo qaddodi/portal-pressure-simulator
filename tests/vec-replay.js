@@ -21,6 +21,7 @@
 import { CELL } from '../src/ui/veins-bin.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import * as OLD from '../scripts/vec-old/vec-contract.mjs';
+import * as C2 from '../src/ui/vec-contract.js';
 
 /** The replay's look: the contact shadow's offset (the stage's VLOOK) and the slot admission's reach (stage-vessels.js: 11, 20 with a glow lit). */
 export const REPLAY_LOOK = Object.freeze({ shOff: Object.freeze([1.4, 2.8]), reachU: 11 });
@@ -61,7 +62,6 @@ export function oldTables(graph, view) {
 }
 
 // The signed distances of the nearest point of a vessel row, over segments i0 … i1 (at most WIN_MAX, as vecNearMore loops): [d (lumen), h (shadow)].
-const NEAR = { d: 0, h: 0 };
 function nearOld(graph, row, i0, i1, px, py, psx, psy, acc, counts) {
   let bd = acc.d, bs = acc.h;
   const P = graph.pts, R = graph.rad;
@@ -173,6 +173,18 @@ export function replayOld(T, wx, wy, px, out = newCounts()) {
   return out;
 }
 
+/**
+ * Whether a point is inside a run's bound for one contribution (C_* bit), on the packed run texture: the capsule around the chord, the shadow's
+ * around the chord moved by shOff (tested as the point moved the other way). A bound of 0 is no bound. Used by replayPixel and checked against A's boundOf.
+ */
+export function runBoundHit(runs, runId, bit, px, py, shOff = REPLAY_LOOK.shOff, rpr = C2.RUNS_PER_ROW) {
+  const row = (runId / rpr) | 0, k = runId - row * rpr, o = (row * rpr * C2.RUN_TEXELS + k * C2.RUN_TEXELS) * 4;
+  const r = runs[o + 4 + (bit === C2.C_LUMEN ? 0 : bit === C2.C_SHADOW ? 1 : bit === C2.C_GLOW ? 2 : 3)];
+  if (!(r > 0) || bit === C2.C_JOIN) return false;
+  const qx = bit === C2.C_SHADOW ? px - shOff[0] : px, qy = bit === C2.C_SHADOW ? py - shOff[1] : py;
+  return pointSeg2(qx, qy, runs[o], runs[o + 1], runs[o + 2], runs[o + 3]) <= r * r;
+}
+
 /** The signed distance from p to a vessel row's lumen edge (the graph's points and radii): what the BLOOD pass's strip coverage is judged by. */
 export function lumenDistance(graph, row, wx, wy) {
   let best = 1e9;
@@ -190,7 +202,7 @@ export function lumenDistance(graph, row, wx, wy) {
 //
 // Tables (contract v2, plan section 2.5; flat typed arrays in the uploaded textures' own order and layouts):
 //   gridO [x, y], gridN [nx, ny]       the broad index, cells of CELL world units
-//   cells       Uint16Array  RGBA16UI, `gridW` (GRID_W) cells a row: R = kind (CELL_EMPTY 0, CELL_LEAF 3, CELL_NODE 4), G = leaf or node index
+//   cells       Uint16Array  RGBA16UI, `gridW` (GRID_W) cells a row: R = kind (CELL_EMPTY 0, CELL_LEAF 3, CELL_NODE 4), G | B << 16 = leaf or node index (K's pack)
 //   nodes       Uint32Array  RGBA32UI, one texel (4 words) a node: child q = 2·(y ≥ centre) + (x ≥ centre), each `kind << 30 | index` (0 empty, 1 leaf, 2 node)
 //   leaves      Uint32Array  2 texels a leaf (8 words): t0 class, runStart, runCount, joinStart; t1 joinCount, candMax, depth, owner row or 0xffffffff
 //   leafBox     Float32Array one texel a leaf: x0, y0, size, class
@@ -201,10 +213,23 @@ export function lumenDistance(graph, row, wx, wy) {
 //   consts      { gridW, runsPerRow, leafClass: { SINGLE, LAYERED, CROSS, JOIN, WIDE, MORPH }, bits: { LUMEN, SHADOW, GLOW, RING, JOIN }, cellLeaf, cellNode }
 // Until A and K's modules are in, these are the contract's own words; `newTables` builds them from whatever those modules export.
 export const K_NEW = Object.freeze({
-  gridW: 256, runsPerRow: 16, cellLeaf: 3, cellNode: 4,
-  leafClass: Object.freeze({ SINGLE: 1, LAYERED: 2, CROSS: 3, JOIN: 4, WIDE: 5, MORPH: 6 }),
-  bits: Object.freeze({ LUMEN: 1, SHADOW: 2, GLOW: 4, RING: 8, JOIN: 16 }),
+  gridW: C2.GRID_W, runsPerRow: C2.RUNS_PER_ROW, cellLeaf: C2.CELL_LEAF, cellNode: C2.CELL_NODE,
+  leafClass: Object.freeze({ SINGLE: C2.L_SINGLE, LAYERED: C2.L_LAYERED, CROSS: C2.L_CROSS, JOIN: C2.L_JOIN, WIDE: C2.L_WIDE, MORPH: C2.L_MORPH }),
+  bits: Object.freeze({ LUMEN: C2.C_LUMEN, SHADOW: C2.C_SHADOW, GLOW: C2.C_GLOW, RING: C2.C_RING, JOIN: C2.C_JOIN }),
 });
+/**
+ * The replay's tables from K's kept leaf tables (vec-leaves-pack.js createLeafTables: grid, cells, nodes, leaves, boxes, runRefs, joinRefs),
+ * A's packed run texture (runs.packRuns(out).data) and join texture (runs.packJoins(out).data), and the graph (for the strip's lumen distance).
+ */
+export function newTables(leafTables, runData, joinData, graph = null, look = REPLAY_LOOK, headroom = null) {
+  const g = leafTables.grid;
+  return {
+    kind: 'new', gridO: [g.x0, g.y0], gridN: [g.nx, g.ny], cs: CELL, consts: K_NEW, look, graph, headroom: headroom ?? C2.BOUND_HEADROOM,
+    cells: leafTables.cells, nodes: leafTables.nodes, leaves: leafTables.leaves, leafBox: leafTables.boxes, nLeaves: leafTables.n.leaves,
+    runRef: leafTables.runRefs, joinRef: leafTables.joinRefs, runs: runData, joins: joinData,
+  };
+}
+
 /** Leaf class → the pixel class names (index into CLASS_NAMES is not used for the new structure: see NEW_CLASS_NAMES). */
 export const NEW_CLASS_NAMES = Object.freeze(['empty', 'L_SINGLE', 'L_LAYERED', 'L_CROSS', 'L_JOIN', 'L_WIDE', 'L_MORPH']);
 
@@ -214,7 +239,7 @@ export function leafOf(T, wx, wy, out) {
   const cx = Math.floor((wx - T.gridO[0]) / cs), cy = Math.floor((wy - T.gridO[1]) / cs);
   out.walk = 0; out.depth = 0;
   if (cx < 0 || cy < 0 || cx >= T.gridN[0] || cy >= T.gridN[1]) return -1;
-  const t = (cy * K.gridW + cx) * 4, kind = T.cells[t], id = T.cells[t + 1];
+  const t = (cy * K.gridW + cx) * 4, kind = T.cells[t], id = T.cells[t + 1] | (T.cells[t + 2] << 16);   // (K's pack: the index is G | B << 16)
   if (kind === K.cellLeaf) return id;
   if (kind !== K.cellNode) return -1;
   let node = id, x0 = T.gridO[0] + cx * cs, y0 = T.gridO[1] + cy * cs, size = cs;
@@ -255,10 +280,10 @@ export function replayPixel(T, wx, wy, px = 1, out = newCounts()) {
     const ref = T.runRef[runStart + q], id = ref & 0xffffff, bits = ref >>> 24, row = (id / rpr) | 0, k = id - row * rpr;
     const o = (row * rw + k * 4) * 4, ax = T.runs[o], ay = T.runs[o + 1], bx = T.runs[o + 2], by = T.runs[o + 3];
     let hit = 0;
-    if (bits & K.bits.LUMEN) { out.bound++; const r = T.runs[o + 4]; if (pointSeg2(wx, wy, ax, ay, bx, by) <= r * r) hit |= K.bits.LUMEN; }
-    if (bits & K.bits.SHADOW) { out.bound++; const r = T.runs[o + 5]; if (pointSeg2(psx, psy, ax, ay, bx, by) <= r * r) hit |= K.bits.SHADOW; }
-    if (bits & K.bits.GLOW) { out.bound++; const r = T.runs[o + 6]; if (pointSeg2(wx, wy, ax, ay, bx, by) <= r * r) hit |= K.bits.GLOW; }
-    if (bits & K.bits.RING) { out.bound++; const r = T.runs[o + 7]; if (pointSeg2(wx, wy, ax, ay, bx, by) <= r * r) hit |= K.bits.RING; }
+    if (bits & K.bits.LUMEN) { out.bound++; if (pointSeg2(wx, wy, ax, ay, bx, by) <= T.runs[o + 4] * T.runs[o + 4]) hit |= K.bits.LUMEN; }
+    if (bits & K.bits.SHADOW) { out.bound++; if (pointSeg2(psx, psy, ax, ay, bx, by) <= T.runs[o + 5] * T.runs[o + 5]) hit |= K.bits.SHADOW; }
+    if (bits & K.bits.GLOW) { out.bound++; if (pointSeg2(wx, wy, ax, ay, bx, by) <= T.runs[o + 6] * T.runs[o + 6]) hit |= K.bits.GLOW; }
+    if (bits & K.bits.RING) { out.bound++; if (pointSeg2(wx, wy, ax, ay, bx, by) <= T.runs[o + 7] * T.runs[o + 7]) hit |= K.bits.RING; }
     if (!hit) continue;
     out.seg += Math.max(0, Math.min(T.runs[o + 9], N_SAMPLES - 2) - T.runs[o + 8] + 1);   // (run t2: i0, i1)
     let at = -1;
@@ -273,7 +298,7 @@ export function replayPixel(T, wx, wy, px = 1, out = newCounts()) {
       const j = T.joinRef[joinStart + q], o = j * 12;
       out.joinTests++;
       const dc = Math.hypot(wx - T.joins[o], wy - T.joins[o + 1]);
-      if (dc > T.joins[o + 3] + T.joins[o + 2]) continue;   // (the disc: its reach + the fillet's blend width)
+      if (dc > (T.joins[o + 3] + T.joins[o + 2]) * (T.headroom ?? C2.BOUND_HEADROOM)) continue;   // (A's joinDisc: (reach + k) × the headroom the runs were built with)
       let c = 0;
       for (let m = 0; m < 4; m++) {
         const mr = T.joins[o + 4 + m];
