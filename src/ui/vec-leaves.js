@@ -84,7 +84,13 @@ import {
   CLASS_CROSSTIER, NO_OWNER, CHILD_EMPTY, CHILD_LEAF, CHILD_NODE, createLeafTables, packBegin, setCell, setChild, setLeaf, setBox, reserveRunRefs,
   reserveJoinRefs, setRunRef, setJoinRef, refRun, refBits, leafRead,
 } from './vec-leaves-pack.js';
+import * as CONTRACT from './vec-contract.js';
 import { GRID_PAD } from './vec-contract.js';
+import { BOUND_HEADROOM } from './vec-leaves-pack.js';
+
+// Revision 1.1 (plan-r1 section 2.2.1): a join's grown bound past a member's lumen and shadow bounds. A adds these two to the contract; until then the plan's numbers.
+const G_JOIN = CONTRACT.G_JOIN ?? 2.2, G_JOIN_SH = CONTRACT.G_JOIN_SH ?? 1.25;
+const CROSS_NEAR = 0.85;   // classic's jf: a lower-tier member is copied into the upper tier inside 0.85 R of the join
 
 export const BOUND_EPS = 1e-3;   // (world units added to every bound when a run is listed: the shader's float32 distance must never reject what a leaf's double test kept out)
 const BITS = [C_LUMEN, C_SHADOW, C_GLOW, 8];   // slot s ↔ contribution bit (lumen, shadow, glow, ring)
@@ -207,11 +213,36 @@ function loadRun(set, id) {
 }
 
 const JD = { x: 0, y: 0, r: 0 };
+const smooth01 = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+// A join's record for the builder: its disc (A's joinDisc) and the box everything it can list reaches (the disc, or 0.85 R x headroom when cross-tier),
+// which members are upper (the highest tier among them) and, for a cross-tier join, each upper member's one run nearest the join's centre (the presence run).
 function loadJoin(set, j) {
-  const d = set.runs.joinDisc(j, JD), q = j * 7, e = set.jext, r = d.r + BOUND_EPS;
-  e[q] = d.x; e[q + 1] = d.y; e[q + 2] = d.r; e[q + 3] = d.x - r; e[q + 4] = d.y - r; e[q + 5] = d.x + r; e[q + 6] = d.y + r;
+  const d = set.runs.joinDisc(j, JD), q = j * 7, e = set.jext, J = set.joins, R = set.runs, rows = R.graph.rows;
+  let tmax = -1, tmin = Infinity;
+  for (let m = 0; m < 4; m++) { const r = J.mem[j * 4 + m]; if (r >= 0) { tmax = Math.max(tmax, rows[r].tier); tmin = Math.min(tmin, rows[r].tier); } }
+  const cross = tmax !== tmin;
+  set.jCross[j] = cross ? 1 : 0;
+  for (let m = 0; m < 4; m++) {
+    const r = J.mem[j * 4 + m];
+    set.jUpper[j * 4 + m] = r >= 0 && cross && rows[r].tier === tmax ? 1 : 0;
+    set.jPres[j * 4 + m] = -1;
+    if (!set.jUpper[j * 4 + m]) continue;
+    let best = Infinity;
+    for (let k = 0; k < RUNS_PER_ROW; k++) {
+      const id = r * RUNS_PER_ROW + k;
+      if (!(R.flags[id] & R_ON)) continue;
+      const o = id * 4, dd = pointSeg2(d.x, d.y, R.chord[o], R.chord[o + 1], R.chord[o + 2], R.chord[o + 3]);
+      if (dd < best) { best = dd; set.jPres[j * 4 + m] = id; }
+    }
+  }
+  const rr = (cross ? Math.max(d.r, CROSS_NEAR * J.reach[j] * BOUND_HEADROOM) : d.r) + BOUND_EPS;
+  e[q] = d.x; e[q + 1] = d.y; e[q + 2] = d.r; e[q + 3] = d.x - rr; e[q + 4] = d.y - rr; e[q + 5] = d.x + rr; e[q + 6] = d.y + rr;
 }
-const discHits = (set, j, x0, y0, x1, y1) => { const q = j * 7, r = set.jext[q + 2] + BOUND_EPS; return rectPt2(set.jext[q], set.jext[q + 1], x0, y0, x1, y1) <= r * r; };
+// whether the square is where join j can be listed (its disc, or 0.85 R of a cross-tier join): the cells' join lists
+const discHits = (set, j, x0, y0, x1, y1) => {
+  const q = j * 7, r = Math.max(set.jext[q + 2], set.jCross[j] ? CROSS_NEAR * set.joins.reach[j] * BOUND_HEADROOM : 0) + BOUND_EPS;
+  return rectPt2(set.jext[q], set.jext[q + 1], x0, y0, x1, y1) <= r * r;
+};
 function slotHits(set, id, s, x0, y0, x1, y1) {
   const c = set.cap, q = (id * 4 + s) * 5, r = c[q + 4];
   if (!(r > 0)) return false;
@@ -224,6 +255,54 @@ function slotHitsPoint(set, id, s, px, py) {
   if (!(r > 0)) return false;
   if (set.policy.mode === 'box') return px >= c[q] && px <= c[q + 2] && py >= c[q + 1] && py <= c[q + 3];
   return pointSeg2(px, py, c[q], c[q + 1], c[q + 2], c[q + 3]) <= r * r;
+}
+
+// Whether join j is listed for the square [x0, x1] x [y0, y1] (a point when x0 = x1 and y0 = y1), and if so the member runs it requires are stamped
+// (set.stamp2[id] = st). Plan-r1 2.2.1: the square reaches the disc and two different members have a run whose grown bound reaches it; or, cross-tier,
+// the square is inside 0.85 R and a lower member's bound reaches it (then the upper members' presence runs are required too).
+function joinTest(set, j, x0, y0, x1, y1, st) {
+  const q = j * 7, J = set.joins, cx = set.jext[q], cy = set.jext[q + 1];
+  const d2 = rectPt2(cx, cy, x0, y0, x1, y1), d = Math.sqrt(d2), R = J.reach[j];
+  const r = set.jext[q + 2] + BOUND_EPS;
+  const inDisc = d2 <= r * r, cross = set.jCross[j] === 1;
+  const near = cross && d <= CROSS_NEAR * R * BOUND_HEADROOM + BOUND_EPS;
+  if (!inDisc && !near) return false;
+  const jk = J.k[j] * (1 - smooth01(0.55 * R, R, d));
+  const pool = set.runs.joinRunsOf(j), mem = J.mem, c = set.cap;
+  const gl = G_JOIN * jk, gs = G_JOIN_SH * jk;
+  let seen = 0, nSeen = 0, lowerHit = false, n = 0;
+  const hit = set.hitTmp = growTmp(set.hitTmp, pool.length);
+  for (let i = 0; i < pool.length; i++) {
+    const id = pool[i], row = rowOfId(id);
+    let m = 0;
+    while (m < 4 && mem[j * 4 + m] !== row) m++;
+    if (m === 4) continue;   // (a run of a row that is not a member)
+    let grown = false;
+    const ql = id * 20, qs = id * 20 + 5;
+    if (c[ql + 4] > 0) grown = slotGrownHits(set, ql, c[ql + 4] + gl, x0, y0, x1, y1);
+    if (!grown && c[qs + 4] > 0) grown = slotGrownHits(set, qs, c[qs + 4] + gs, x0, y0, x1, y1);
+    if (grown && inDisc) { hit[n++] = id; if (!(seen & (1 << m))) { seen |= 1 << m; nSeen++; } }
+    if (near && !set.jUpper[j * 4 + m]) {   // a lower member: any of its bounds reaching the square
+      let any = false;
+      for (let s = 0; s < 4 && !any; s++) any = slotHits(set, id, s, x0, y0, x1, y1);
+      if (any) { lowerHit = true; hit[n++] = id; }
+    }
+  }
+  if (nSeen >= 2) { for (let i = 0; i < n; i++) set.stamp2[hit[i]] = st; if (near && lowerHit) for (let m = 0; m < 4; m++) if (set.jPres[j * 4 + m] >= 0) set.stamp2[set.jPres[j * 4 + m]] = st; return true; }
+  if (near && lowerHit) {
+    for (let i = 0; i < n; i++) set.stamp2[hit[i]] = st;
+    for (let m = 0; m < 4; m++) if (set.jPres[j * 4 + m] >= 0) set.stamp2[set.jPres[j * 4 + m]] = st;
+    return true;
+  }
+  return false;
+}
+function growTmp(a, n) { return a && a.length >= n ? a : new Int32Array(Math.max(64, n * 2)); }   // alloc-rare: grown with the largest join pool
+// the capsule (or morph box) of slot q (an offset into set.cap) grown to radius rr, against a square
+function slotGrownHits(set, q, rr, x0, y0, x1, y1) {
+  const c = set.cap;
+  if (set.policy.mode === 'box') return c[q] <= x1 + rr && c[q + 2] >= x0 - rr && c[q + 1] <= y1 + rr && c[q + 3] >= y0 - rr;
+  const r = rr + BOUND_EPS;
+  return segRect2(c[q], c[q + 1], c[q + 2], c[q + 3], x0, y0, x1, y1) <= r * r;
 }
 const popcount4 = (b) => (b & 1) + ((b >> 1) & 1) + ((b >> 2) & 1) + ((b >> 3) & 1);
 const rowOfId = (id) => Math.floor(id / RUNS_PER_ROW);
@@ -255,11 +334,15 @@ function prepare(set, runs, joins, grid, policy) {
   set.nIds = runs.nRows * RUNS_PER_ROW; set.nJoins = joins.n;
   if (set.cap.length < set.nIds * 20) { set.cap = new Float64Array(set.nIds * 20); set.ext = new Float64Array(set.nIds * 4); }   // alloc-rare: with the rows
   if (set.jext.length < set.nJoins * 7) set.jext = new Float64Array(set.nJoins * 7);   // alloc-rare: with the joins
+  if (!set.jCross || set.jCross.length < set.nJoins) { set.jCross = new Uint8Array(set.nJoins); set.jUpper = new Uint8Array(set.nJoins * 4); set.jPres = new Int32Array(set.nJoins * 4); }   // alloc-rare: with the joins
   set.stamp = grow(set.stamp, Int32Array, set.nIds);
   set.stamp2 = grow(set.stamp2 ?? new Int32Array(0), Int32Array, set.nIds);
   set.tmp = grow(set.tmp ?? new Int32Array(0), Int32Array, set.nIds);
   for (let id = 0; id < set.nIds; id++) loadRun(set, id);
   for (let j = 0; j < set.nJoins; j++) loadJoin(set, j);
+  set.rowJoins = Array.from({ length: runs.nRows }, () => []);   // alloc-rare: a build; the joins each row is a member of
+  set.maxK = 0;
+  for (let j = 0; j < set.nJoins; j++) { set.maxK = Math.max(set.maxK, joins.k[j]); for (let m = 0; m < 4; m++) { const r = joins.mem[j * 4 + m]; if (r >= 0 && r < runs.nRows) set.rowJoins[r].push(j); } }
   set.grid = grid ?? gridOf(set);
   set.nCells = set.grid.nx * set.grid.ny;
   // the per-depth scratch: a child's list is a subset of its parent's, so the cap is every run (and join) once
@@ -311,13 +394,9 @@ function buildCellLists(set) {
 function fillList(set, dst, sId, sBits, sOff, sN, jArr, jOff, jN, x0, y0, x1, y1) {
   const st = ++set.stampN;
   let nj = 0;
-  const J = set.runs;
   for (let i = 0; i < jN; i++) {
     const j = jArr[jOff + i];
-    if (!discHits(set, j, x0, y0, x1, y1)) continue;
-    dst.jn[nj++] = j;
-    const req = J.joinRunsOf(j);
-    for (let k = 0; k < req.length; k++) set.stamp2[req[k]] = st;
+    if (joinTest(set, j, x0, y0, x1, y1, st)) dst.jn[nj++] = j;
   }
   let n = 0;
   for (let i = 0; i < sN; i++) {
@@ -338,8 +417,9 @@ function fillCell(set, cell) {
   const cg = set.cg, cj = set.cj;
   for (let i = 0; i < cg.count[cell]; i++) { const id = cg.data[cg.start[cell] + i]; set.stamp[id] = st; tmp[m++] = id; }
   for (let i = 0; i < cj.count[cell]; i++) {
-    const req = set.runs.joinRunsOf(cj.data[cj.start[cell] + i]);
+    const jj = cj.data[cj.start[cell] + i], req = set.runs.joinRunsOf(jj);
     for (let k = 0; k < req.length; k++) { const id = req[k]; if (set.stamp[id] !== st && set.ext[id * 4] === set.ext[id * 4]) { set.stamp[id] = st; tmp[m++] = id; } }
+    for (let q = 0; q < 4; q++) { const id = set.jPres[jj * 4 + q]; if (id >= 0 && set.stamp[id] !== st && set.ext[id * 4] === set.ext[id * 4]) { set.stamp[id] = st; tmp[m++] = id; } }
   }
   tmp.subarray(0, m).sort();
   const x0 = g.x0 + cx * CELL_SIZE, y0 = g.y0 + cy * CELL_SIZE;
@@ -360,16 +440,9 @@ function costOf(set, L, x0, y0, size) {
   let bound = L.nj;
   for (let i = 0; i < L.n; i++) bound += popcount4(L.bits[i] & 15);
   let surv = 0, joins = 0;
-  const J = set.runs;
   for (let a = 0; a < ns; a++) for (let b = 0; b < ns; b++) {
     const px = x0 + size * (a + 0.5) / ns, py = y0 + size * (b + 0.5) / ns, st = ++set.stampN;
-    for (let k = 0; k < L.nj; k++) {
-      const j = L.jn[k], q = j * 7, dx = px - set.jext[q], dy = py - set.jext[q + 1];
-      if (dx * dx + dy * dy > set.jext[q + 2] * set.jext[q + 2]) continue;
-      joins++;
-      const req = J.joinRunsOf(j);
-      for (let r = 0; r < req.length; r++) set.stamp2[req[r]] = st;
-    }
+    for (let k = 0; k < L.nj; k++) if (joinTest(set, L.jn[k], px, py, px, py, st)) joins++;
     for (let i = 0; i < L.n; i++) {
       const id = L.id[i], bits = L.bits[i];
       let hit = set.stamp2[id] === st;
@@ -544,13 +617,13 @@ export function buildLeaves(runs, joins, grid, policy, set) {
  */
 export function summarize(set) {
   const T = set.tables, P = set.policy, g = set.grid;
-  const rep = { cells: 0, leaves: 0, nodes: 0, byClass: { [L_SINGLE]: 0, [L_LAYERED]: 0, [L_CROSS]: 0, [L_JOIN]: 0, [L_WIDE]: 0, [L_MORPH]: 0 }, depth: new Array(P.maxDepth + 1).fill(0), runRefs: 0, joinRefs: 0, wide: [], overWide: [], falseProximity: [], wideHard: { le8: 0, le32: 0, more: 0, softOnlyRows: 0, joinOnlyRows: 0, maxHard: 0 } };
+  const rep = { cells: 0, leaves: 0, nodes: 0, byClass: { [L_SINGLE]: 0, [L_LAYERED]: 0, [L_CROSS]: 0, [L_JOIN]: 0, [L_WIDE]: 0, [L_MORPH]: 0 }, depth: new Array(P.maxDepth + 1).fill(0), area: { [L_SINGLE]: 0, [L_LAYERED]: 0, [L_CROSS]: 0, [L_JOIN]: 0, [L_WIDE]: 0, [L_MORPH]: 0 }, runRefs: 0, joinRefs: 0, wide: [], overWide: [], falseProximity: [], wideHard: { le8: 0, le32: 0, more: 0, softOnlyRows: 0, joinOnlyRows: 0, maxHard: 0 } };
   const visit = (w) => {
     const k = kindOf(w), i = idxOf(w);
     if (k === CHILD_NODE) { rep.nodes++; for (let q = 0; q < 4; q++) visit(T.nodes[i * 4 + q]); return; }
     if (k !== CHILD_LEAF) return;
     const m = leafRead(T, i);
-    rep.leaves++; rep.byClass[m.cls]++; rep.depth[m.depth]++; rep.runRefs += m.runCount; rep.joinRefs += m.joinCount;
+    rep.leaves++; rep.byClass[m.cls]++; rep.area[m.cls] += T.boxes[i * 4 + 2] * T.boxes[i * 4 + 2]; rep.depth[m.depth]++; rep.runRefs += m.runCount; rep.joinRefs += m.joinCount;
     if (m.cls !== L_WIDE) return;
     const rows = [], hard = new Set(), soft = new Set(), jo = new Set();
     for (let n = 0; n < m.runCount; n++) {
@@ -601,7 +674,7 @@ export function rebuildLeaves(changedRuns, set, n = changedRuns.length, changedJ
   const R = set.runs;
   if (R.nRows * RUNS_PER_ROW !== set.nIds || set.joins.n !== set.nJoins) { buildLeaves(R, set.joins, null, set.policy, set); set.stats.full = true; return set; }
   set.stats.full = false; set.stats.leavesWritten = 0; set.stats.nodesWritten = 0; set.stats.leavesFreed = 0;
-  const need = (n + nChangedJoins) * 8;
+  const need = (n + nChangedJoins + set.nJoins) * 8;
   if (!set.touch || set.touch.length < need) set.touch = new Float64Array(Math.max(need, 64));   // alloc-rare: grown with the changes
   set.nTouch = 0;
   const addTouch = (x0, y0, x1, y1) => { const q = set.nTouch++ * 4; set.touch[q] = x0; set.touch[q + 1] = y0; set.touch[q + 2] = x1; set.touch[q + 3] = y1; };
@@ -615,22 +688,31 @@ export function rebuildLeaves(changedRuns, set, n = changedRuns.length, changedJ
     for (let cy = RNG[1]; cy <= RNG[3]; cy++) for (let cx = RNG[0]; cx <= RNG[2]; cx++) { const c = cy * g.nx + cx; if (set.cellStamp[c] !== st) { set.cellStamp[c] = st; cellsList[nc++] = c; } }
   };
   const E = set.ext;
+  const stj = ++set.stampN;
+  set.jStamp = grow(set.jStamp ?? new Int32Array(0), Int32Array, set.nJoins);
+  set.jList = grow(set.jList ?? new Int32Array(0), Int32Array, set.nJoins);
+  let nJ = 0;
+  const addJoin = (j) => { if (set.jStamp[j] !== stj) { set.jStamp[j] = stj; set.jList[nJ++] = j; } };
+  for (let i = 0; i < nChangedJoins; i++) addJoin(changedJoins[i]);
   for (let i = 0; i < n; i++) {
-    const id = changedRuns[i], q = id * 4;
+    const id = changedRuns[i], q = id * 4, row = rowOfId(id);
+    const rj = set.rowJoins[row] ?? [];
+    for (let k = 0; k < rj.length; k++) addJoin(rj[k]);   // (a member's bound moved: the join's grown test, and its presence run, may have)
+    const pad = rj.length ? G_JOIN * set.maxK + 2 * BOUND_EPS : 0;
     const ox0 = E[q], oy0 = E[q + 1], ox1 = E[q + 2], oy1 = E[q + 3];
     const wasDrawn = ox0 === ox0;
     loadRun(set, id);
     const isDrawn = E[q] === E[q];
-    if (isDrawn && (E[q] < g.x0 || E[q + 1] < g.y0 || E[q + 2] > g.x0 + g.nx * CELL_SIZE || E[q + 3] > g.y0 + g.ny * CELL_SIZE)) {   // grew past the grid: everything again
+    if (isDrawn && (E[q] - pad < g.x0 || E[q + 1] - pad < g.y0 || E[q + 2] + pad > g.x0 + g.nx * CELL_SIZE || E[q + 3] + pad > g.y0 + g.ny * CELL_SIZE)) {   // grew past the grid: everything again
       buildLeaves(R, set.joins, null, set.policy, set); set.stats.full = true; return set;
     }
     if (wasDrawn) {   // out of every cell the old bounds reached
-      addTouch(ox0, oy0, ox1, oy1); mark(ox0, oy0, ox1, oy1);
+      addTouch(ox0 - pad, oy0 - pad, ox1 + pad, oy1 + pad); mark(ox0 - pad, oy0 - pad, ox1 + pad, oy1 + pad);
       cellRange(set, ox0, oy0, ox1, oy1);
       for (let cy = RNG[1]; cy <= RNG[3]; cy++) for (let cx = RNG[0]; cx <= RNG[2]; cx++) listRemove(set.cg, cy * g.nx + cx, id);
     }
     if (isDrawn) {   // into every cell the new ones reach
-      addTouch(E[q], E[q + 1], E[q + 2], E[q + 3]); mark(E[q], E[q + 1], E[q + 2], E[q + 3]);
+      addTouch(E[q] - pad, E[q + 1] - pad, E[q + 2] + pad, E[q + 3] + pad); mark(E[q] - pad, E[q + 1] - pad, E[q + 2] + pad, E[q + 3] + pad);
       cellRange(set, E[q], E[q + 1], E[q + 2], E[q + 3]);
       for (let cy = RNG[1]; cy <= RNG[3]; cy++) for (let cx = RNG[0]; cx <= RNG[2]; cx++) {
         const x0 = g.x0 + cx * CELL_SIZE, y0 = g.y0 + cy * CELL_SIZE;
@@ -640,8 +722,8 @@ export function rebuildLeaves(changedRuns, set, n = changedRuns.length, changedJ
       }
     }
   }
-  for (let i = 0; i < nChangedJoins; i++) {
-    const j = changedJoins[i], q = j * 7, e = set.jext;
+  for (let i = 0; i < nJ; i++) {
+    const j = set.jList[i], q = j * 7, e = set.jext;
     addTouch(e[q + 3], e[q + 4], e[q + 5], e[q + 6]); mark(e[q + 3], e[q + 4], e[q + 5], e[q + 6]);
     cellRange(set, e[q + 3], e[q + 4], e[q + 5], e[q + 6]);
     for (let cy = RNG[1]; cy <= RNG[3]; cy++) for (let cx = RNG[0]; cx <= RNG[2]; cx++) listRemove(set.cj, cy * g.nx + cx, j);

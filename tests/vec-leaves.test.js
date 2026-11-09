@@ -19,9 +19,11 @@ import { createRuns } from '../src/ui/vec-runs.js';
 import { PRESETS } from '../src/engine/scenario.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import {
-  C_LUMEN, C_SHADOW, C_GLOW, C_RING, C_JOIN, L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_WIDE, L_MORPH, SLOTS, SLOTS_WIDE, RUNS_PER_ROW, refRun, refBits,
+  C_LUMEN, C_SHADOW, C_GLOW, C_RING, L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_WIDE, L_MORPH, SLOTS, SLOTS_WIDE, RUNS_PER_ROW, refRun, refBits,
 } from '../src/ui/vec-leaves-pack.js';
 import { lobuleGeo } from '../src/ui/vec-lobule.js';
+import * as CONTRACT from '../src/ui/vec-contract.js';
+import { segRect2 } from '../src/ui/vec-leaves.js';
 
 const HEAD = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp usampler2D;\nprecision highp sampler2D;\n';
 
@@ -216,6 +218,23 @@ function samplePoints(set, packed, n, seed) {
   return pts;
 }
 
+
+// Plan-r1 2.2.1, replayed here without the builder's code: a join's grown bound for a member run at distance d from the join's centre.
+const G_JOIN = CONTRACT.G_JOIN ?? 2.2, G_JOIN_SH = CONTRACT.G_JOIN_SH ?? 1.25;
+const smoothstep01 = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+// the member rows (indices into mem) with a run whose grown bound reaches the box [x0, x1] x [y0, y1]; d: the box's nearest distance to the centre
+function growMembers(runs, graph, j, x0, y0, x1, y1, d, tol) {
+  const J = graph.joins, jk = J.k[j] * (1 - smoothstep01(0.55 * J.reach[j], J.reach[j], d)), sh = runs.look.shOff, rows = new Set();
+  for (const id of runs.joinRunsOf(j)) {
+    const row = Math.floor(id / RUNS_PER_ROW);
+    if (![0, 1, 2, 3].some((m) => J.mem[j * 4 + m] === row)) continue;
+    const o = id * 4, ax = runs.chord[o], ay = runs.chord[o + 1], bx = runs.chord[o + 2], by = runs.chord[o + 3];
+    const rl = runs.rad[o] + G_JOIN * jk + tol, rs = runs.rad[o + 1] > 0 ? runs.rad[o + 1] + G_JOIN_SH * jk + tol : 0;
+    if (segRect2(ax, ay, bx, by, x0, y0, x1, y1) <= rl * rl || (rs > 0 && segRect2(ax + sh[0], ay + sh[1], bx + sh[0], by + sh[1], x0, y0, x1, y1) <= rs * rs)) rows.add(row);
+  }
+  return rows;
+}
+
 function checkScene(t, name, fig, opts = {}) {
   const { graph, runs } = graphOf(fig);
   const set = createLeafSet();
@@ -259,7 +278,7 @@ function checkScene(t, name, fig, opts = {}) {
   for (let id = 0; id < set.nIds; id++) if (runs.flags[id] & 1) ids.push(id);
   const joinsN = graph.joins.n, discs = [];
   for (let j = 0; j < joinsN; j++) discs.push(runs.joinDisc(j, {}));
-  let inLeaf = 0, bits = 0;
+  let inLeaf = 0, bits = 0, lumenPts = 0, lumenJoin = 0;
   for (const [px, py] of pts) {
     const leaf = leafAt(T, px, py);
     const refs = new Map(), jl = new Set(), m = leaf >= 0 ? leafRead(T, leaf) : null;
@@ -270,46 +289,50 @@ function checkScene(t, name, fig, opts = {}) {
       assert.ok(px >= T.boxes[leaf * 4] && px <= T.boxes[leaf * 4] + T.boxes[leaf * 4 + 2] + 1e-6 && py >= T.boxes[leaf * 4 + 1] && py <= T.boxes[leaf * 4 + 1] + T.boxes[leaf * 4 + 2] + 1e-6, `${name}: leafAt gave a leaf whose square misses the point`);
     }
     const rowsHit = new Set();
+    let inLumen = false;
     for (const id of ids) {
       for (const c of [C_LUMEN, C_SHADOW, C_GLOW, C_RING]) {
         if (!boundHit(data, id, c, px, py, sh)) continue;
-        rowsHit.add(Math.floor(id / RUNS_PER_ROW)); bits++;
+        rowsHit.add(Math.floor(id / RUNS_PER_ROW)); bits++; if (c === C_LUMEN) inLumen = true;
         assert.ok(m && ((refs.get(id) ?? 0) & c), `${name}: run ${id} bound ${c} covers (${px.toFixed(3)}, ${py.toFixed(3)}) but leaf ${leaf} lacks it`);
       }
     }
-    for (let j = 0; j < joinsN; j++) {
-      const d = discs[j];
-      if ((px - d.x) ** 2 + (py - d.y) ** 2 > d.r * d.r) continue;
-      assert.ok(m && jl.has(j), `${name}: join ${j} covers (${px.toFixed(3)}, ${py.toFixed(3)}) but leaf ${leaf} lacks it`);
-      for (const id of runs.joinRunsOf(j)) { assert.ok(refs.get(id) & C_JOIN, `${name}: join ${j}'s required run ${id} is not listed with its bit`); rowsHit.add(Math.floor(id / RUNS_PER_ROW)); }
-    }
+    if (inLumen && m) { lumenPts++; if (m.cls === L_JOIN) lumenJoin++; }
     if (rowsHit.size) assert.ok(m && m.candMax >= rowsHit.size, `${name}: candMax ${m?.candMax} under the true count ${rowsHit.size}`);
   }
-  assert.ok(inLeaf > 100, `${name}: sampled ${inLeaf} points in leaves`);
-  t.diagnostic(`${name}: ${rep.leaves} leaves in ${rep.cells} cells, ${rep.nodes} nodes, ${rep.runRefs} run refs, built in ${ms.toFixed(0)} ms; classes ${Object.entries(rep.byClass).map(([k, v]) => `${CLASSES[k]} ${v}`).join(', ')}; depth ${rep.depth.join('/')}; wide ${rep.wide.length} [hard candidates: ≤8 ${rep.wideHard.le8}, ≤32 ${rep.wideHard.le32}, more ${rep.wideHard.more}, max ${rep.wideHard.maxHard}] (over ${SLOTS_WIDE}: ${rep.overWide.length}, soft piles: ${rep.falseProximity.length}); ${bits} bound hits checked`);
-  if (opts.probe !== false && (name === 'circuit/healthy' || name === 'lobule' || name === 'anatomy/cirr-decomp')) {   // diagnostic: where the wideness comes from
-    const J = graph.joins, rs = [], ks = [];
-    for (let j = 0; j < J.n; j++) { rs.push(runs.joinDisc(j, {}).r); ks.push(J.k[j]); }
-    rs.sort((a, b) => a - b); ks.sort((a, b) => a - b);
-    const rl = []; for (const id of ids) rl.push(runs.rad[id * 4]); rl.sort((a, b) => a - b);
-    const q = (a, f) => (a.length ? a[Math.floor(a.length * f)].toFixed(2) : '-');
-    const noJoin = createLeafSet(); buildLeaves(runs, { n: 0, mem: graph.joins.mem }, null, defaultPolicy(), noJoin);
-    const noSoft = createLeafSet(); const pol = defaultPolicy(); buildLeaves(runs, { n: 0, mem: graph.joins.mem }, null, pol, noSoft);
-    t.diagnostic(`${name} probe: ${J.n} joins, disc radius p10/50/90 ${q(rs, 0.1)}/${q(rs, 0.5)}/${q(rs, 0.9)} (blend width k ${q(ks, 0.5)}); run lumen bound p10/50/90 ${q(rl, 0.1)}/${q(rl, 0.5)}/${q(rl, 0.9)}; WITHOUT joins: ${noJoin.report.leaves} leaves, wide ${noJoin.report.byClass[L_WIDE]}, hard≤8 ${noJoin.report.wideHard.le8}, max hard ${noJoin.report.wideHard.maxHard}, run refs ${noJoin.report.runRefs}`);
-    void noSoft;
-    // what a tight disc would give: the junction's own footprint, the widest member's lumen bound plus the blend width, instead of reach + blend width
-    const orig = runs.joinDisc, J2 = graph.joins;
-    runs.joinDisc = (j, o = { x: 0, y: 0, r: 0 }) => {
-      orig(j, o);
-      let w = 0;
-      for (const id of runs.joinRunsOf(j)) w = Math.max(w, runs.rad[id * 4]);
-      o.r = Math.min(o.r, (w + J2.k[j]) * 1.1);
-      return o;
-    };
-    const tight = createLeafSet(); buildLeaves(runs, graph.joins, null, defaultPolicy(), tight);
-    runs.joinDisc = orig;
-    t.diagnostic(`${name} probe: WITH TIGHT DISCS ((widest required run's lumen bound + k) x 1.1): ${tight.report.leaves} leaves, wide ${tight.report.byClass[L_WIDE]}, join ${tight.report.byClass[L_JOIN]}, hard<=8 ${tight.report.wideHard.le8}, max hard ${tight.report.wideHard.maxHard}, run refs ${tight.report.runRefs}`);
+  // joins (plan-r1 2.2.1): never listed in a leaf where fewer than two members' grown bounds reach it (cross-tier joins also inside 0.85 R), and always listed where two do
+  {
+    const J = graph.joins, TOL = 1e-3;
+    let listed = 0, checkedPts = 0;
+    for (const l of leaves) {
+      const m = leafRead(T, l.id);
+      for (let i = 0; i < m.joinCount; i++) {
+        const j = T.joinRefs[m.joinStart + i], c = runs.joinDisc(j, {});
+        const dx = Math.max(l.x0 - c.x, 0, c.x - (l.x0 + l.size)), dy = Math.max(l.y0 - c.y, 0, c.y - (l.y0 + l.size)), d = Math.hypot(dx, dy);
+        const two = growMembers(runs, graph, j, l.x0, l.y0, l.x0 + l.size, l.y0 + l.size, d, TOL).size >= 2 && d <= c.r + TOL;
+        const tiers = [0, 1, 2, 3].map((q) => J.mem[j * 4 + q]).filter((r) => r >= 0).map((r) => graph.rows[r].tier);
+        const cross = Math.min(...tiers) !== Math.max(...tiers) && d <= 0.85 * J.reach[j] * 1.1 + TOL;
+        assert.ok(two || cross, `${name}: join ${j} is listed in leaf ${l.id} where fewer than two members' grown bounds reach it`);
+        listed++;
+      }
+    }
+    for (const [px, py] of pts) {
+      const leaf = leafAt(T, px, py);
+      for (let j = 0; j < joinsN; j++) {
+        const d = Math.hypot(px - discs[j].x, py - discs[j].y);
+        if (d > discs[j].r - TOL) continue;
+        if (growMembers(runs, graph, j, px, py, px, py, d, -TOL).size < 2) continue;
+        checkedPts++;
+        const m = leaf >= 0 ? leafRead(T, leaf) : null;
+        let has = false;
+        for (let i = 0; m && i < m.joinCount; i++) if (T.joinRefs[m.joinStart + i] === j) has = true;
+        assert.ok(has, `${name}: join ${j} has two members' grown bounds at (${px.toFixed(3)}, ${py.toFixed(3)}) but is not listed in its leaf`);
+      }
+    }
+    t.diagnostic(`${name}: ${listed} join refs checked against the grown-bound rule, ${checkedPts} points where two members reach all list their join`);
   }
+  assert.ok(inLeaf > 100, `${name}: sampled ${inLeaf} points in leaves`);
+  t.diagnostic(`${name}: ${rep.leaves} leaves in ${rep.cells} cells, ${rep.nodes} nodes, ${rep.runRefs} run refs, built in ${ms.toFixed(0)} ms; classes ${Object.entries(rep.byClass).map(([k, v]) => `${CLASSES[k]} ${v}`).join(', ')}; depth ${rep.depth.join('/')}; wide ${rep.wide.length} [hard candidates: ≤8 ${rep.wideHard.le8}, ≤32 ${rep.wideHard.le32}, more ${rep.wideHard.more}, max ${rep.wideHard.maxHard}] (over ${SLOTS_WIDE}: ${rep.overWide.length}, soft piles: ${rep.falseProximity.length}); L_JOIN is ${(100 * rep.area[L_JOIN] / Math.max(1, Object.values(rep.area).reduce((x, y) => x + y, 0))).toFixed(1)}% of the leaf area, ${(100 * lumenJoin / Math.max(1, lumenPts)).toFixed(1)}% of the sampled lumen-bound points (${lumenPts}); ${bits} bound hits checked`);
   assert.equal(rep.overWide.length, 0, `${name}: stop point: a leaf with more than ${SLOTS_WIDE} candidates: ${JSON.stringify(rep.overWide.slice(0, 3))}`);
   return { graph, runs, set, rep };
 }
