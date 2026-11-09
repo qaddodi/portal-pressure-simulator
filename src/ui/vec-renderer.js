@@ -35,6 +35,7 @@ import { CELL } from './veins-bin.js';
 import { stripIndex } from './veins-mesh.js';
 import { startProgram, compileDone, checkProgram } from './gl-compile.js';
 import { gpuProbe } from './gpu-probe.js';
+import { VEC_BLOOD_UNIFORMS } from './vec-blood-glsl.js';
 import { createVecTargets } from './vec-targets.js';
 import { createVecFrame, addBox, D, REFUSED, MAX_BOXES } from './vec-frame.js';
 
@@ -77,7 +78,10 @@ const BLOOD_VEC3 = { blendA: ['streakA', 'chevA', 'originA'] };
 
 const NO_RIM = [0, 0, 0, 0];
 // The own scalar uniforms, read from one kept Float64Array (a double returned from a function or kept in a variable is a heap number made each frame).
-const SCALARS = ['px', 'pxW', 'H', 'cell', 'padU', 'selPad', 'variant', 'morphOn', 'posBase', 'joinBase'];
+const SCALARS = ['px', 'pxW', 'H', 'cell', 'padU', 'selPad', 'variant', 'morphOn', 'posBase', 'joinBase',
+  'vbOn', 'vbChev', 'vbChevQuad', 'vbStill', 'vbLenOn', 'vbOrigin', 'vbDyeOn', 'vbStyle', 'vbFlowA', 'vbClock', 'vbBT', 'vbCssPx', 'vbDyeRows', 'vbBleedN', 'vbNoChevN', 'vbChevHoleN'];
+// workstream D's blood uniforms (vec-blood-glsl.js VEC_BLOOD_UNIFORMS): each names the composite uniform it stands for (`from`), set from the blood.
+const VB_FROM = Object.freeze(Object.fromEntries(VEC_BLOOD_UNIFORMS.filter((u) => u.from).map((u) => [u.name, u.from])));
 const SC_AT = Object.freeze(Object.fromEntries(SCALARS.map((k, i) => [k, i])));
 const GLOW_REACH = 12 * 1.3;   // (the widest glow, as veins-gl's pad has it)
 const UNIFORM_RE = /uniform\s+(?:(?:highp|mediump|lowp)\s+)?(\w+)\s+([^;]+);/g;
@@ -285,7 +289,7 @@ export function createVecRenderer(gl, shared) {
       case 'regionTex': return regionTex || blank;
       case 'vecBase': return variantNow === V_BLOOD ? targets.baseTex || blank : blank;   // (never the base while it is being written: a feedback loop)
       default: {
-        const t = shared.tex?.[name];
+        const t = shared.tex?.[VB_FROM[name] || name];
         return (typeof t === 'function' ? t() : t) || blank;
       }
     }
@@ -304,10 +308,18 @@ export function createVecRenderer(gl, shared) {
       case 'lOff': return LOFF;
       case 'rimInk': return curLook?.rim || NO_RIM;
       case 'paperInk': return curLook?.paper || NO_RIM;
-      case 'blendA': return BLEND_A;
+      case 'blendA': case 'vbBlendA': return BLEND_A;
+      case 'bleedE': return BLEEDE;
+      case 'bleedB': return BLEEDB;
+      case 'noChev': return NOCHEV;
+      case 'chevHole': return HOLES;
+      case 'chevHoleR': return HOLER;
+      case 'originCol': return curBlood?.originCol ? ORIGINCOL : undefined;
       case 'dyeOn': return curBlood && curBlood.dye !== false ? 1 : 0;
       default: break;
     }
+    const fr = VB_FROM[name];
+    if (fr !== undefined) return valueOf(fr);
     const lk = lookKey[name];
     if (lk !== undefined && curLook) { const v = curLook[lk]; if (v !== undefined) return v; }
     const bk = bloodKey[name];
@@ -315,12 +327,34 @@ export function createVecRenderer(gl, shared) {
     return shared.uniforms?.[name];
   }
   const BLEND_A = new Float32Array(3);
+  // The blood's lists packed into kept arrays once a frame (the composite's: bleeds, figure-reading boxes, holes, the five origin colours).
+  const BLEEDE = new Float32Array(96), BLEEDB = new Float32Array(96), NOCHEV = new Float32Array(48), HOLES = new Float32Array(64), HOLER = new Float32Array(16), ORIGINCOL = new Float32Array(15);
+  let nBleed = 0, nNoChev = 0, nHoles = 0;
+  function packBlood() {
+    const b = curBlood;
+    nBleed = 0; nNoChev = 0; nHoles = 0;
+    if (!b) return;
+    const bl = b.bleed;
+    if (bl) { nBleed = Math.min(24, bl.length); for (let i = 0; i < nBleed; i++) for (let j = 0; j < 4; j++) { BLEEDE[i * 4 + j] = bl[i][j]; BLEEDB[i * 4 + j] = bl[i][4 + j]; } }
+    const nc = b.noChev;
+    if (nc) { nNoChev = Math.min(12, nc.length); for (let i = 0; i < nNoChev; i++) for (let j = 0; j < 4; j++) NOCHEV[i * 4 + j] = nc[i][j]; }
+    const ho = b.holes;
+    if (ho) { nHoles = Math.min(16, ho.length); for (let i = 0; i < nHoles; i++) { for (let j = 0; j < 4; j++) HOLES[i * 4 + j] = ho[i][j] ?? 0; HOLER[i] = ho[i][4] || 0; } }
+    const oc = b.originCol;
+    if (oc) for (let i = 0; i < 5; i++) { const c = oc[i]; if (c) { ORIGINCOL[i * 3] = c[0]; ORIGINCOL[i * 3 + 1] = c[1]; ORIGINCOL[i * 3 + 2] = c[2]; } }
+  }
   function fillScalars() {
     const pxv = SC[SC_AT.px];
     SC[SC_AT.pxW] = pxv; SC[SC_AT.H] = hNow; SC[SC_AT.cell] = CELL; SC[SC_AT.variant] = variantNow;
     const so = curLook?.shOff;
     SC[SC_AT.padU] = variantNow === V_BLOOD ? 2 * pxv : Math.hypot(so ? so[0] : 0, so ? so[1] : 0) + GLOW_REACH + 2 * pxv;
     SC[SC_AT.selPad] = variantNow === V_BLOOD ? 0 : 4 + 2 * pxv;
+    const b = curBlood;
+    SC[SC_AT.vbOn] = b && b.on ? 1 : 0; SC[SC_AT.vbChev] = b && b.chev ? 1 : 0; SC[SC_AT.vbChevQuad] = shared.uniforms?.chevQuad ? 1 : 0;   // (arrowheads in the lumen until the heads' quads are wired)
+    SC[SC_AT.vbStill] = b && b.still ? 1 : 0; SC[SC_AT.vbLenOn] = b && b.streakLen ? 1 : 0; SC[SC_AT.vbOrigin] = b && b.origin ? 1 : 0;
+    SC[SC_AT.vbDyeOn] = b && b.dye !== false ? 1 : 0; SC[SC_AT.vbStyle] = b ? b.style | 0 : 0;
+    SC[SC_AT.vbFlowA] = b ? b.alpha ?? 1 : 1; SC[SC_AT.vbClock] = b ? b.clock || 0 : 0; SC[SC_AT.vbBT] = b ? b.bt || 0 : 0; SC[SC_AT.vbCssPx] = b ? b.vdpr || 1 : 1;
+    SC[SC_AT.vbDyeRows] = nTubes; SC[SC_AT.vbBleedN] = nBleed; SC[SC_AT.vbNoChevN] = nNoChev; SC[SC_AT.vbChevHoleN] = nHoles;
     SC[SC_AT.morphOn] = morph.on; SC[SC_AT.posBase] = morph.posBase; SC[SC_AT.joinBase] = morph.joinBase;
   }
   function setUniforms(pr) {
@@ -648,7 +682,7 @@ export function createVecRenderer(gl, shared) {
 
     /** The whole frame for the view m (as veins-gl's draw): rows, the vessel rows whose attributes alone changed. */
     draw(m, look, blood, rows = null) {
-      curLook = look; curBlood = blood || null;
+      curLook = look; curBlood = blood || null; packBlood();
       setCamera(m);
       if (rows && rows.length) frame.note(D.TUBES, rows);
       step(false);
@@ -658,7 +692,7 @@ export function createVecRenderer(gl, shared) {
       const pic = shared.picture?.();
       const why = !pic ? REFUSED.NO_KEPT : frame.refusal(m, pic.w, pic.h, lost, rows);
       if (why) { rowsStatus = why; return false; }
-      curLook = look; curBlood = blood || null;
+      curLook = look; curBlood = blood || null; packBlood();
       setCamera(m);
       if (rows && rows.length) frame.note(D.TUBES, rows);
       rowsStatus = 'drawn';
@@ -669,7 +703,7 @@ export function createVecRenderer(gl, shared) {
     composite(look, blood = null, full = false) {
       if (!haveM) return;
       if (look) curLook = look;
-      curBlood = blood || curBlood;
+      curBlood = blood || curBlood; packBlood();
       step(!!full);
     },
     dispose() {
