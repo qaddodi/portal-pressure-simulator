@@ -171,3 +171,28 @@ export const LANE_K = Array.from({ length: 7 }, (_, j) => {
   for (let i = 0; i < n; i++) { const yl = n === 1 ? 0 : (((i + 0.5) / n) * 2 - 1) * 0.8; k += n === 1 ? 1 : Math.max(2, Math.floor(16 * (1 - yl * yl) + 0.5)) / 8; }
   return k;
 });
+
+// ── The work of one blood pixel (for the workload replay, workstream L) ──
+/**
+ * Texture reads one lumen pixel's blood costs, counted from vec-blood-glsl.js vbOne for `streams` contributing streams (vecBloodMix; 1 for
+ * vecBlood). tile: the baked tile's textureGrad reads (look D: two phases, a second zoom scale while the scales cross-fade (crossfade),
+ * and the root's pattern again while chained); fetch: the flow, tube and rad texel reads (flow texels 0, 1, 6; tube 5, 0, 1; rad .ba for the
+ * colour along; the streak's texels 3, 6, 4, plus 5 when chained). origin, dye, lymph and chev add their own. Estimates of reads, not of time.
+ * opts: { style (1 D, 2 E, 0 none), crossfade, chained (0 … 1 weight > 0), origin, dye, lymph, chev }.
+ */
+export function bloodPixelWork(streams, opts = {}) {
+  const { style = 1, crossfade = false, chained = false, origin = false, dye = false, lymph = false, chev = false } = opts;
+  const n = Math.max(1, streams | 0);
+  let fetch = 3 + 3 + 1;                                  // flow 0, 1, 6; tube 5, 0, 1; rad (alongAt)
+  let tile = 0;
+  if (!lymph) {
+    fetch += 3 + (chained ? 2 : 0);                       // drift (texels 3, 6) and the chain texel 4; a chained stream also 5 and the root's rows
+    if (style === 1) tile = 2 * (crossfade ? 2 : 1) * (chained ? 2 : 1);
+    fetch += 1;                                           // the glue cast's tube texel 8
+    if (chained) fetch += 2;                              // rootDD: the root's flow texels 6, 0, 3
+  }
+  if (origin) fetch += 2;                                 // flow texel 2 (and 6, 7 along a sloshing vessel)
+  if (dye) fetch += 2 + 1;                                // flow 0, tube 5, the dye texture; its edge four pixels ahead reads again
+  if (chev) fetch += 4;                                   // the vessel's mid caliber, the chain texels, the bend and radius at the head
+  return { fetch: fetch * n, tile: tile * n, total: (fetch + tile) * n, streams: n };
+}

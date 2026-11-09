@@ -5,7 +5,8 @@
 //
 // ── THE TWO ENTRY POINTS (published first, B and C code against them) ──
 //   vec4 vecBlood(int row, float s, float y, float R, vec3 lumenCol, float px)
-//   vec4 vecBloodMix(int n, int rows[2], float s[2], float y[2], float R[2], float w[2], vec3 lumenCol, float px)
+//   vec4 vecBloodMix(int n, int rows[N], float s[N], float y[N], float R[N], float w[N], vec3 lumenCol, float px)
+//     N is a compile-time constant of the program: 2 and SLOTS (8) in VEC_BLOOD_GLSL, or vecBloodGLSL(SLOTS_WIDE) (32) for the wide leaves.
 //     row/rows : the vessel's row in the flow and tube textures (the same row the geometry draws).
 //     s        : arc length along that vessel at the pixel (world units; may run past either end, as the lumen's does into a join).
 //     y        : the position across the lumen, −1 … 1 (the geometry's own coordinate).
@@ -13,7 +14,7 @@
 //     lumenCol : the lumen's colour at the pixel, straight rgb (the origin lens judges its lightness; the streaks' inks follow the
 //                vessel's own colour, which the function reads from the tube texture).
 //     px       : world units per device pixel (the footprint of one pixel; for textureGrad, never dFdx: valid in any control flow).
-//     n, w     : (vecBloodMix) 1 or 2 members, and each one's share of the pixel. w need not sum to 1: the function normalises it after
+//     n, w     : (vecBloodMix) 1 … N members, and each one's share of the pixel. w need not sum to 1: the function normalises it after
 //                weighting each member by whether its blood runs toward the junction (an upstream member supplies it; a reversal
 //                swaps them, eased through the speed's zero). Each member's stream is sampled in its OWN (row, s, y), then the layers are
 //                blended: streams are blended, never coordinates.
@@ -44,6 +45,7 @@ import { LUMEN, STO_Y0, STO_DY, STO_N } from './stomach-lumen.js';
 import { N_SAMPLES } from './veins-mesh.js';
 import { LANE_K, FINE_LO, FINE_HI, COARSE_LO, COARSE_HI, SHARE_B, SHARE_F, SPREAD_K, FLOOR_W, INFLOW_RANGE } from './vec-blood-math.js';
 import { headVS } from './blood-heads.js';
+import { SLOTS } from './vec-contract.js';
 
 const ORIGIN_GREY = 0.62;   // the lumen's colour while the blood is coloured by origin (veins-gl.js ORIGIN_GREY; a test holds them equal)
 const f1 = (x) => Number(x).toFixed(4);
@@ -158,8 +160,44 @@ void vbZoomNums(float pxw, out vec4 zA, out vec3 zB) {
 
 const STO_TEXT = LUMEN.map(([l, r]) => `vec2(${l.toFixed(2)}, ${r.toFixed(2)})`).join(', ');
 
+/**
+ * vecBloodMix for up to N contributing streams (N a compile-time constant of the program: 2, SLOTS = 8, or SLOTS_WIDE = 32 for C's wide
+ * leaves, the central vein's sinusoids): each member's share, times whether that member's blood runs toward the junction (the end its pixel
+ * is nearest to), eased through the speed's zero so a reversal swaps the contributors smoothly; a member running away keeps FLOOR_W of its
+ * share. Then normalised over ALL n members (none dropped). Each member's stream is sampled in its own (row, s, y); a member whose weight is
+ * 0 costs nothing. Arrays of different sizes are different types, so the sizes overload; n above N is cut to N.
+ */
+const mixGLSL = (N) => `vec4 vecBloodMix(int n, int rows[${N}], float s[${N}], float y[${N}], float R[${N}], float w[${N}], vec3 lumenCol, float px) {
+  vbZoomSet(px);
+  if (n <= 1) return vbOne(rows[0], s[0], y[0], R[0], lumenCol, px);
+  int m = min(n, ${N});
+  float wn[${N}];
+  float tot = 0.0;
+  for (int i = 0; i < ${N}; i++) {
+    wn[i] = 0.0;
+    if (i >= m) break;
+    int id = rows[i];
+    float vd = texelFetch(vbFlow, ivec2(0, id), 0).y;
+    float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
+    float toEnd = s[i] > 0.5 * len ? vd : -vd;
+    wn[i] = max(w[i], 0.0) * (${FLOOR_W} + ${1 - FLOOR_W} * smoothstep(-${INFLOW_RANGE}.0, ${INFLOW_RANGE}.0, toEnd));
+    tot += wn[i];
+  }
+  float even = 1.0 / float(m);
+  for (int i = 0; i < ${N}; i++) {
+    if (i >= m) break;
+    wn[i] = tot > 0.0 ? wn[i] / tot : even;
+  }
+  vec4 acc = vec4(0.0);
+  for (int i = 0; i < ${N}; i++) {
+    if (i >= m) break;
+    if (wn[i] > 0.0) acc += vbOne(rows[i], s[i], y[i], R[i], lumenCol, px) * wn[i];
+  }
+  return acc;
+}`;
+
 /** The blood material's GLSL (see the header). */
-export const VEC_BLOOD_GLSL = `
+export const vecBloodGLSL = (...sizes) => `
 // ── vec-blood-glsl.js: VEC_BLOOD_GLSL ──
 ${uniformText}
 const float VB_BINS = ${DYE_BINS}.0;
@@ -477,26 +515,7 @@ vec4 vecBlood(int row, float s, float y, float R, vec3 lumenCol, float px) {
   vbZoomSet(px);
   return vbOne(row, s, y, R, lumenCol, px);
 }
-vec4 vecBloodMix(int n, int rows[2], float s[2], float y[2], float R[2], float w[2], vec3 lumenCol, float px) {
-  vbZoomSet(px);
-  if (n <= 1) return vbOne(rows[0], s[0], y[0], R[0], lumenCol, px);
-  // The members' weights: each share, times whether that member's blood runs toward the junction (the end its pixel is nearest to), eased
-  // through the speed's zero so a reversal swaps them smoothly; a member running away keeps ${FLOOR_W} of its share. Then normalised.
-  float wn[2];
-  float tot = 0.0;
-  for (int i = 0; i < 2; i++) {
-    int id = rows[i];
-    float vd = texelFetch(vbFlow, ivec2(0, id), 0).y;
-    float len = max(texelFetch(tube, ivec2(5, id), 0).z, 1.0);
-    float toEnd = s[i] > 0.5 * len ? vd : -vd;
-    wn[i] = max(w[i], 0.0) * (${FLOOR_W} + ${1 - FLOOR_W} * smoothstep(-${INFLOW_RANGE}.0, ${INFLOW_RANGE}.0, toEnd));
-    tot += wn[i];
-  }
-  if (tot > 0.0) { wn[0] /= tot; wn[1] /= tot; } else { wn[0] = 0.5; wn[1] = 0.5; }
-  vec4 a = wn[0] > 0.0 ? vbOne(rows[0], s[0], y[0], R[0], lumenCol, px) : vec4(0.0);
-  vec4 b = wn[1] > 0.0 ? vbOne(rows[1], s[1], y[1], R[1], lumenCol, px) : vec4(0.0);
-  return a * wn[0] + b * wn[1];
-}
+${sizes.map(mixGLSL).join('\n')}
 
 // ── The bleed (COMP_FS, its stream and the stomach's pool) ──
 // Premultiplied, at world point w: the pool inside the stomach's lumen below a flat surface that ripples where the stream lands, and the
@@ -543,6 +562,9 @@ vec4 vecBleed(vec2 w, float px) {
   return inner;
 }
 `;
+
+/** The default text: vecBloodMix for 2 and SLOTS contributing streams (the current ordinary programs). C's wide-leaf program asks vecBloodGLSL(SLOTS_WIDE). */
+export const VEC_BLOOD_GLSL = vecBloodGLSL(2, SLOTS);
 
 // ── The heads' quads (Phase 1 "heads", blood-heads.js) ──
 // ZOOM for the heads' vertex shader under the composite's names, so blood-heads.js headVS places each head exactly as the composite's
