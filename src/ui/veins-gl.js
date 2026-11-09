@@ -4600,8 +4600,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         this.composite(look, blood, true);
         return;
       }
-      // A zoom or a turn with the one-pass builds (one-pass zoom frames): no vessel pass; the picture draws the vessels itself.
-      if (!pan && baseM && !sameLin(m, baseM) && fuseReady() && !meshUse() && bareOf(blood || NOBLOOD) && !gpuProbe.skipGL && !lost) {
+      // A zoom or a turn with the one-pass builds (one-pass zoom frames): no vessel pass; the picture draws the vessels itself. With the mesh
+      // renderer on too (Mohammad, 9 Nov 2026: WebGL2 has no framebuffer fetch, so a mesh frame cannot be one pass): the zoom's frames are the
+      // classic one-pass frames, and the frame after the zoom (no kept layer) is a whole mesh draw.
+      if (!pan && baseM && !sameLin(m, baseM) && fuseReady() && bareOf(blood || NOBLOOD) && !gpuProbe.skipGL && !lost) {
         // (Pinch frame reuse, when on: this frame lays the last one-pass picture again, moved to the view now, if it covers the canvas.
         // The layer is left stale and baseM is the view now, so the next picture at this view (the pinch let go) is shaded whole.)
         if (reuseEvery && reuseOn && stale && reuseN % reuseEvery !== 0 && reuseDraw(m)) {

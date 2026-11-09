@@ -96,7 +96,8 @@ The refactor lands alone first, with the classic picture unchanged (same operati
   (First built as a whole mesh draw for every partial one; at rest that was about 11 whole draws a second, 8 Nov 2026.)
 - `tintPass` (rows whose lumen colours alone changed, the pressure colours at rest): kept as it is, over the mesh layer: it draws again
   only the pixels a lumen colour reaches (the mesh writes the same outDep), with the shared shading, into the colour target (9 Nov 2026).
-- One-pass zoom frames (`fused`): off while the mesh draws; each zoom frame is a whole mesh draw and the normal composite.
+- One-pass zoom frames (`fused`): kept with the mesh on (owner, 9 Nov 2026): a zoom or turn frame is the classic one-pass frame (WebGL2 has
+  no framebuffer fetch, so a mesh frame cannot be one pass), and the frame after the zoom, with no kept layer, is a whole mesh draw.
 - `lowPass` (Vessels lower while pinching): stays on the classic shader at its own size. `reuseDraw`, the upscale: unchanged (they read
   the layer). Morphs: the strips read the frame's points (`PT()` from `posBase`), the patches the frame's joins (`JT()`).
 - Falls back to classic: the switch off, software GL, the lobule (it never builds the mesh programs), a shader that fails to compile or
