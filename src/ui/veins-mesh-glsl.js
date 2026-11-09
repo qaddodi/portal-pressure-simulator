@@ -208,9 +208,8 @@ uvec4 packFlow2(uint gId2, float gS2, float gY2) {
 // Overlapping fragments: each pass but the lift and the ring has a prepass that keeps in the depth target the lowest key any fragment of the
 // tier makes at the pixel (the shape: a lumen by its z, the one drawn above it winning, then the nearest wall; the shadow and the glow: the
 // strongest), and the pass draws only the fragment whose key that is, once (the stencil), reading the depth target as a texture.
-export const MP = { GLOW_K: 0, GLOW: 1, UP_K: 2, UP: 3, SHADOW_K: 4, SHADOW: 5, SHAPE_K: 6, SHAPE: 7, LIFT: 8, RING: 9 };
+export const MP = { GLOW_K: 0, GLOW: 1, UP_K: 2, UP: 3, SHADOW_K: 4, SHADOW: 5, SHAPE_K: 6, SHAPE: 7, LIFT: 8, RING: 9, MARK: 10 };
 export const MESH_WIN = 3;   // the segments a strip's fragment reads each side of its sample
-export const KEY_TOL = 3;    // depth units (2^-24) a fragment's key may differ from the kept one and still be it
 export const KEY_BIAS = 2e-5;   // a patch's key under its members' strips (in the pass's range), so the patch draws the join
 
 export const meshFS = ({ EDGE, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K }) => {
@@ -219,15 +218,14 @@ export const meshFS = ({ EDGE, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K }) => {
 #define MESH_WIN ${MESH_WIN}
 uniform int mPass;                     // the pass (MP_*)
 uniform int tierNow;                   // the tier it draws
-uniform highp sampler2D keyTex;        // the prepass's kept keys (its depth target)
 uniform float keyBase;                 // this pass's keys: keyBase + [0, 1) * keyH
 uniform float keyH;
 uniform float keyShape;                // (the ring) the shape pass's keyBase
-const float KEY_TOL = ${KEY_TOL}.0 / 16777215.0;
 const float KEY_BIAS = ${KEY_BIAS};`;
 
   const key = `
-  // ── The mesh pass: this fragment's key (lower wins), then the prepass keeps it or the pass draws only the kept one ──
+  // ── The mesh pass: this fragment's key (lower wins) as its depth: the prepass keeps the lowest (depth LESS), and the pass draws only the
+  // fragment whose key is the kept one (depth EQUAL: the same program on the same inputs makes the same key) ──
   float aaK = px * ${EDGE};
   float occK = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * ${VEIL_K} * organK : 0.0;
   float kf = 1.0;
@@ -235,13 +233,13 @@ const float KEY_BIAS = ${KEY_BIAS};`;
 #if MESH == 1
   if (mPass == MP_RING) {
     // Where this vessel crosses over another of its tier, the ring of the figure's ground outside its casing, cut into the lumen under it,
-    // with its casing across the cut: only where the shape pass left that lower lumen (a lumen's key is its z: f < 0.5, z = 1 - 2f).
+    // with its casing across the cut: only where the shape pass left a lumen (the stencil the mark pass set) of a lower z than this one (a
+    // lumen's key is its z, f = 0.5 (1 - z): its key over this depth, the depth test LESS).
     int id = sid[0];
     int fl = int(T(id, 2).z + 0.5);
     float wl = T(id, 0).w, reachK = wl + 2.5 * px;
     if (fx != 1 || paperInk.a <= 0.0 || (fl & (${F_NOCASE} | ${F_DOTTED})) != 0 || sd[0] < 0.0 || sd[0] > reachK + aaK) discard;
-    float f = (texelFetch(keyTex, ivec2(gl_FragCoord.xy), 0).r - keyShape) / keyH;
-    if (!(f >= 0.0 && f < 0.5 && 1.0 - 2.0 * f < T(id, 2).y - 1e-4)) discard;
+    gl_FragDepth = keyShape + 0.5 * (1.0 - T(id, 2).y + 1e-4) * keyH;
     float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
     vec3 aCol, aEdge;
     vesAttrs(id, su[0], sv[0], p, occK, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
@@ -324,9 +322,8 @@ const float KEY_BIAS = ${KEY_BIAS};`;
   }
 #endif
   float kd = keyBase + clamp(kf, 0.0, 1.0) * keyH;
-  if (mPass == MP_GLOW_K || mPass == MP_UP_K || mPass == MP_SHADOW_K || mPass == MP_SHAPE_K) { gl_FragDepth = kd; return; }
-  // (keyH 0: a pass with no prepass, the shadow drawn with MAX into a scratch layer: every fragment draws.)
-  if (keyH > 0.0 && abs(texelFetch(keyTex, ivec2(gl_FragCoord.xy), 0).r - kd) > KEY_TOL) discard;`;
+  gl_FragDepth = kd;
+  if (mPass == MP_GLOW_K || mPass == MP_UP_K || mPass == MP_SHADOW_K || mPass == MP_SHAPE_K) return;`;
 
   const out = `
   // ── The mesh pass's part of the picture (what the classic shader lays together at the end, for the pass's tier) ──

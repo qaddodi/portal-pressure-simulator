@@ -106,12 +106,19 @@ The refactor lands alone first, with the classic picture unchanged (same operati
 ## 6. How the passes pick the fragment that draws (as built)
 
 Hardware blending cannot take the minimum over a tier the way the classic shader does, so each pass (glow, up glow, shadow, shape) has a
-prepass into a depth texture the layer's size: every fragment of the tier writes a key as its depth, and the depth test keeps the lowest.
-The pass then runs over the same strips and patches, reads that depth texture, and draws only a fragment whose key is the kept one; the
-stencil lets it draw a pixel once (two overlapping triangles of one vessel make the same key). Keys: the shape, a lumen by its z (the vessel
-drawn above wins, as the classic crossing rule), else the nearest wall; the shadow and the glow, the strongest. Each pass's keys lie below
-every earlier pass's, so the depth is cleared once a draw. The lift (the selected vessel's own share over the dimmed network) reads the
-shape pass's keys; the crossing ring reads them too, and draws only over a lower lumen of the same tier.
+prepass: every fragment of the tier writes a key as its depth, no colour, and the depth test (LESS) keeps the lowest. The pass then runs
+over the same strips and patches and draws only the fragment whose key is the kept one (depth EQUAL: the same program on the same inputs
+makes the same key); the stencil lets it draw a pixel once (two overlapping triangles of one vessel make the same key). Keys: the shape, a
+lumen by its z (the vessel drawn above wins, as the classic crossing rule), else the nearest wall; the shadow and the glow, the strongest.
+Each pass's keys lie below every earlier pass's, so the depth is cleared once a draw (and after 64 passes). The lift (the selected vessel's
+own share over the dimmed network) draws over the shape pass's keys (EQUAL). The crossing ring: a mark pass sets the stencil where the
+tier's shape kept a lumen (depth GREATER than the lumens' top key), then the ring draws where it is marked and the kept lumen's z is under
+the crossing vessel's (depth LESS).
+The depth and stencil are one DEPTH24_STENCIL8 buffer on the layer's own framebuffer, so every prepass and pass of a draw goes to the
+same framebuffer (9 Nov 2026: the first build kept the keys in a framebuffer of their own and switched to it twice a pass; on a tiled GPU
+each switch stores and loads the whole layer, its four targets, which made the mesh slower than the classic pass). Switched off, the
+layer gives the depth and stencil back. A shadow drawn with MAX into a scratch layer (the brief's 2.2) was tried and taken back the same day:
+the scratch is another switch per tier.
 Known differences from the classic picture: a casing, shadow or ring over another tier's lumen hides that lumen's stream there (integer
 targets do not blend); a fade (tier alpha below 1) is applied to the shadow and the shape separately; where more than eight vessels meet,
 all of them are drawn (the classic keeps eight); glows are cut only by lit lumens of their own tier.
