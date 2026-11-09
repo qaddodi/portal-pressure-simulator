@@ -203,6 +203,31 @@ test("F's organs: update() before the passes (outside them), covers feed the vei
   assert.deepEqual(log.filter((x) => x !== 'bind'), [], 'a blood frame: no organs work');
 });
 
+test('rows that show blood limit the BLOOD pass to their cells, and the boxes are handed out (y from the bottom)', () => {
+  const h = harness();
+  h.r.setGeometry({ ent: new Float32Array(4) });
+  h.r.draw(h.m(0), h.look, h.blood);
+  h.blood.bt = 2; h.r.composite(h.look, h.blood, false);   // base written, whole-lumen blood pass
+  assert.deepEqual([h.r.lastBloodBoxes().n, Array.from(h.r.lastBloodBoxes().boxes.slice(0, 4))], [1, [0, 0, W, H]]);
+  h.r.setBloodRows([5], 1);
+  h.take();
+  h.blood.bt = 3; h.r.composite(h.look, h.blood, false);
+  const c = h.take(), lb = h.r.lastBloodBoxes();
+  assert.equal(lb.n, 1);
+  assert.deepEqual(Array.from(lb.boxes.slice(0, 4)), [15, H - 33, 33, H - 15], 'row 5 lists only in the region cell (1, 1): its box, y from the bottom');
+  assert.equal(c.filter((x) => x[0] === 'scissor').length, 1);
+  h.r.setBloodRows([9], 1);   // a row no cell lists: nothing to draw
+  h.take();
+  h.blood.bt = 4; h.r.composite(h.look, h.blood, false);
+  assert.equal(h.take().filter((x) => x[0] === 'drawElementsInstanced').length, 0);
+  assert.equal(h.r.lastBloodBoxes().n, 0);
+  h.r.setBloodRows(null);
+  h.blood.bt = 5; h.r.composite(h.look, h.blood, false);
+  assert.equal(h.r.lastBloodBoxes().n, 1);
+  h.r.draw(h.m(7), h.look, h.blood);
+  assert.equal(h.r.lastBloodBoxes().n, 0, 'a FULL frame has no blood-box record');
+});
+
 test('a colour change at rest redraws boxes: FULL and BASE scissored to the row\'s cells', () => {
   const h = harness();
   h.r.setGeometry({ ent: new Float32Array(4) });
