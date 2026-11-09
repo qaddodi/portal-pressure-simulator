@@ -15,6 +15,7 @@
 //   · a clip is the clip shape's triangles marked in the stencil (vec-organs.js); a mask is a texture of its luminance, redrawn when
 //     its shape changes (`uMode` 2 draws into it, `uMode` 1 draws the organ covers).
 import { COVER_GLSL } from './shape-gl.js';
+import { PLATE_GLSL } from './vec-overlays-glsl.js';
 
 /** Texels a row of the OPS texture takes (one op a row). */
 export const OP_TEXELS = 20;
@@ -145,12 +146,14 @@ flat in float vOp;
 ${OP_FETCH}
 ${PAINT}
 ${COVER_GLSL}
+${PLATE_GLSL}
 out vec4 o;
 void main() {
   int op = int(vOp + 0.5);
   float cov = dot(vN, vN) < 0.25 ? 1.0 : cover(vSd, vN);
   if (cov <= 0.0) discard;
   o = shade(op, vShape, vWorld, cov);
+  if (uMode == 0) o = vecPlate(o);   // the plate's grey-down, as COMP_FS applies it to the organs
 }`;
 
 // ── Strokes: one instanced quad a segment ──
@@ -215,6 +218,7 @@ flat in float vOp;
 ${OP_FETCH}
 ${PAINT}
 ${COVER_GLSL}
+${PLATE_GLSL}
 out vec4 o;
 void main() {
   int op = int(vOp + 0.5);
@@ -237,6 +241,7 @@ void main() {
   }
   if (c <= 0.0) discard;
   o = shade(op, vShape, vWorld, c);
+  if (uMode == 0) o = vecPlate(o);
 }`;
 
 // ── Clips: a shape's triangles marked in the stencil, no colour ──

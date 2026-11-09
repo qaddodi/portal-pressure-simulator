@@ -20,6 +20,7 @@ import { flattenCmds, flattenPath, ellipsePoly, polyBoxInto, polyMeshInto, inner
 import { dashPolys, geomSourceTo, newLive, liveInto, specOpacity, mulTo, invTo } from './organ-paint.js';
 import { strHash } from './liver-geo.js';
 import { linkProgram } from './gl-compile.js';
+import { setPlate } from './vec-overlays.js';
 import {
   OP_TEXELS, OP_DEPTHS, EXT_PX, T_M, T_E, T_COL, T_GP, T_GM0, T_GM1, T_SO, T_SC, T_W,
   fillVS, FILL_FS, strokeVS, STROKE_FS, CLIP_VS, CLIP_FS,
@@ -389,6 +390,39 @@ export function runsCross(a, ba, b, bb) {
   }
   return false;
 }
+/** The point where edges (a→b) and (c→d), which cross, meet. */
+function crossAt(ax, ay, bx, by, cx, cy, dx, dy) {
+  const d1 = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax), d2 = (bx - ax) * (dy - ay) - (by - ay) * (dx - ax), s = d1 / (d1 - d2);
+  return [cx + (dx - cx) * s, cy + (dy - cy) * s];
+}
+/**
+ * A run that crosses itself, cut at its crossing into runs that do not (a figure of eight is two loops of opposite turn): a fill's rule then
+ * reads each loop on its own, as the winding of the whole decides. Runs without a crossing come back as they are.
+ */
+export function splitLoops(run, out = [], depth = 0) {
+  const n = run.length / 2;
+  if (depth < 32) {
+    for (let i = 0; i < n; i++) {
+      const i2 = (i + 1) % n, ax = run[2 * i], ay = run[2 * i + 1], bx = run[2 * i2], by = run[2 * i2 + 1];
+      const x0 = Math.min(ax, bx), x1 = Math.max(ax, bx), y0 = Math.min(ay, by), y1 = Math.max(ay, by);
+      for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;
+        const j2 = (j + 1) % n, cx = run[2 * j], cy = run[2 * j + 1], dx = run[2 * j2], dy = run[2 * j2 + 1];
+        if (Math.max(cx, dx) < x0 || Math.min(cx, dx) > x1 || Math.max(cy, dy) < y0 || Math.min(cy, dy) > y1) continue;
+        if (!segCross(ax, ay, bx, by, cx, cy, dx, dy)) continue;
+        const [X, Y] = crossAt(ax, ay, bx, by, cx, cy, dx, dy), A = [X, Y], B = [];
+        for (let k = i + 1; k <= j; k++) A.push(run[2 * k], run[2 * k + 1]);
+        for (let k = 0; k <= i; k++) B.push(run[2 * k], run[2 * k + 1]);
+        B.push(X, Y);
+        for (let k = j + 1; k < n; k++) B.push(run[2 * k], run[2 * k + 1]);
+        splitLoops(A, out, depth + 1); splitLoops(B, out, depth + 1);
+        return out;
+      }
+    }
+  }
+  out.push(run);
+  return out;
+}
 /**
  * What a fill's runs make: `parts` (each an outline and the holes cut out of it, as run indices), `edges` (the boundary runs with the
  * side the fill lies on: +1 the left of the run's direction, −1 the right), and `crossing` when two runs cross each other (the fill is then
@@ -398,7 +432,8 @@ export function analyseFill(polys, eo = false) {
   const runs = [];
   for (const p of polys) {
     const r = cleanRun(p.pts);
-    if (r.length >= 6 && Math.abs(runArea(r)) > 0) runs.push(r);
+    if (r.length < 6) continue;
+    for (const q of splitLoops(r)) if (q.length >= 6 && Math.abs(runArea(q)) > 0) runs.push(q);
   }
   const R = runs.length, boxes = runs.map(runBox), area = runs.map(runArea);
   let crossing = false;
@@ -665,7 +700,7 @@ export function createVecOrgans(gl, deps = {}) {
 
   // ── State ──
   let layers = null, order = [], ops = [], masks = new Map(), clips = new Map(), entries = [];
-  let structVer = 0, dynVer = 0, covVer = 0, cssPx = 1, maskScale = 1;
+  let structVer = 0, dynVer = 0, covVer = 0, cssPx = 1, maskScale = 1, lookNow = null;
   const levels = new Map(), want = [];
   let wantTop = LEVEL_COARSE, budget = DEFAULT_BUDGET, bytes = 0;
   const stats = { flatten: 0, mesh: 0, levelsBuilt: 0, dynBuilt: 0, maskRebuilds: 0, coverRebuilds: 0, drawCalls: 0, batches: 0, level: 0, usedLevel: 0, fallbacks: 0, morphPrepared: 0, morphVertex: 0, ops: 0, bytes: 0 };
@@ -1190,6 +1225,7 @@ export function createVecOrgans(gl, deps = {}) {
     gl.uniform1i(u.uMaskOn, 0);
     gl.uniform1i(u.uMask, 1);
     if (u.uT) gl.uniform1f(u.uT, morphT);
+    if (mode === 0) setPlate(gl, u, lookNow);
   }
 
   // ── Covers: the organs' silhouettes the vessels read, one alpha texture over a world rectangle ──
@@ -1269,6 +1305,7 @@ export function createVecOrgans(gl, deps = {}) {
     if (!ops.length || !opsTex) return;
     const sc = scaleOfMat(m), lvl = pick(sc);
     if (!lvl) return;
+    if (pass.look) lookNow = pass.look;
     const W = pass.w, H = pass.h, flip = 1;
     const on = only == null ? null : Array.isArray(only) ? only : [only];
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, opsTex);
@@ -1344,11 +1381,13 @@ export function createVecOrgans(gl, deps = {}) {
     products.clear(); masks.clear(); ops = []; runs = []; bytes = 0;
   }
   const setCssPx = (v) => { cssPx = v; };
+  /** The look the plate's grey-down reads (look.plate: alpha, sat); the pass may carry it as pass.look. */
+  const setLook = (l) => { lookNow = l; };
   const setBudget = (b) => { budget = b; };
   const setMaskScale = (s) => { maskScale = s; };
 
   return {
-    setOrgans, prepare, step, prepareAll, ready, update, draw, covers, setCovers, setMorph, morphAt, trim, dispose, setCssPx, setBudget, setMaskScale,
+    setOrgans, prepare, step, prepareAll, ready, update, draw, covers, setCovers, setMorph, morphAt, trim, dispose, setCssPx, setLook, setBudget, setMaskScale,
     pick, stats: () => stats, limits: () => [...limits].map(([k, n]) => ({ what: k, n })), levelsHeld: () => [...levels.keys()].sort((a, b) => a - b),
     get opCount() { return ops.length; },
   };
