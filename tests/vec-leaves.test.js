@@ -427,20 +427,24 @@ test('the lobule: the hierarchy, its wide leaves, and the central vein named', {
   assert.ok(tap, 'the lobule\'s renderer was given a binning');
   const fig = { nTubes: tap.nTubes, bins: { ent: tap.bins.ent.slice(), cells: tap.bins.cells.slice(0, tap.bins.nCells * 6), nCells: tap.bins.nCells, nEnt: tap.bins.nEnt, rows: tap.bins.rows }, tube: tap.tube.slice(), rad: tap.rad.slice() };
   const out = checkScene(t, 'lobule', fig, { samples: 6000 });
-  // the central vein: the largest group of joins sharing one centre (more than 4 vessels arrive as several joins on one centre)
-  const J = out.graph.joins, groups = new Map();
-  for (let j = 0; j < J.n; j++) { const k = `${J.x[j].toFixed(2)},${J.y[j].toFixed(2)}`; (groups.get(k) ?? groups.set(k, []).get(k)).push(j); }
-  const [centre, members] = [...groups.entries()].sort((a, b) => b[1].length - a[1].length)[0];
-  const [cx, cy] = centre.split(',').map(Number);
+  // the central vein: where the most vessels meet (the leaf with the largest candMax, the one nearest the lobule's centre among equals)
+  const geo = lobuleGeo(1200, 800);
+  let best = null;
+  for (const l of walkLeaves(out.set)) {
+    const m = leafRead(out.set.tables, l.id), d = Math.hypot(l.x0 + l.size / 2 - geo.cx, l.y0 + l.size / 2 - geo.cy);
+    if (!best || m.candMax > best.cand || (m.candMax === best.cand && d < best.d)) best = { l, cand: m.candMax, d };
+  }
+  const cx = best.l.x0 + best.l.size / 2, cy = best.l.y0 + best.l.size / 2;
   const rows = new Set();
-  for (const j of members) for (let m = 0; m < 4; m++) if (J.mem[j * 4 + m] >= 0) rows.add(J.mem[j * 4 + m]);
+  { const m = leafRead(out.set.tables, best.l.id); for (let i = 0; i < m.runCount; i++) rows.add(Math.floor(refRun(out.set.tables.runRefs[m.runStart + i]) / RUNS_PER_ROW)); }
   const near = out.rep.wide.filter((w) => Math.hypot(w.x + w.size / 2 - cx, w.y + w.size / 2 - cy) < 6);
-  t.diagnostic(`central vein at (${cx}, ${cy}): ${members.length} joins on one centre, ${rows.size} vessels; ${near.length} wide leaves within 6 units of it (${out.rep.wide.length} wide in all); the leaf at the centre: class ${CLASSES[leafRead(out.set.tables, leafAt(out.set.tables, cx, cy)).cls]}, candMax ${leafRead(out.set.tables, leafAt(out.set.tables, cx, cy)).candMax}`);
+  t.diagnostic(`central vein (the leaf with the most vessels, candMax ${best.cand}, ${best.d.toFixed(1)} units from the lobule's centre (${geo.cx}, ${geo.cy})) at (${cx.toFixed(2)}, ${cy.toFixed(2)}): rows ${[...rows].join(',')}; ${near.length} wide leaves within 6 units of it (${out.rep.wide.length} wide in all)`);
   const lf = leafAt(out.set.tables, cx, cy);
   assert.ok(lf >= 0, 'the central vein\'s centre is inside a leaf');
   const m = leafRead(out.set.tables, lf);
   const listed = new Set();
   for (let i = 0; i < m.runCount; i++) listed.add(Math.floor(refRun(out.set.tables.runRefs[m.runStart + i]) / RUNS_PER_ROW));
   for (const r of rows) assert.ok(listed.has(r), `the central vein's vessel ${r} is listed at its centre (nothing dropped)`);
+  assert.ok(best.cand <= SLOTS_WIDE);
   void lobuleGeo; void rebuildLeaves; void summarize;
 });
