@@ -6,7 +6,7 @@ import { STRIP_VS_GLSL } from '../src/ui/veins-mesh.js';
 import { shadeGLSL } from '../src/ui/veins-mesh-glsl.js';
 import { V_FULL, V_BASE, V_BLOOD, WIN_MAX, CELL_SIMPLE } from '../src/ui/vec-contract.js';
 import { VEC_PRECISION, VEC_SHADE_GLSL, VEC_SHADE_UNIFORMS } from '../src/ui/vec-shade-glsl.js';
-import { vecStretchVS, vecStretchFS, vecStretchUniformNames, VEC_ABOVE_GLSL } from '../src/ui/vec-stretch-glsl.js';
+import { vecStretchVS, vecStretchFS, vecStretchUniformNames, VEC_ABOVE_GLSL, STRETCH_WIN } from '../src/ui/vec-stretch-glsl.js';
 
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -138,4 +138,15 @@ test('the region shader (workstream C) calls the same vecShadeOne and takes its 
   assert.equal(def(rs), def(stretch), 'the very same vecShadeOne text');
   assert.ok(rs.includes('vecShadeOne('));
   assert.equal(count(rs, 'floor((p - gridO) / CELL)'), 1, 'the one cell formula');
+});
+
+test('the fragment reads only the segments about its strip\'s sample, inside the cell\'s run, and never more than WIN_MAX', () => {
+  assert.ok(2 * STRETCH_WIN + 1 <= WIN_MAX, 'the window fits the loop');
+  for (const [name, v] of VARIANTS) {
+    const fs = vecStretchFS(v, K), vs = vecStretchVS(v, K);
+    assert.ok(fs.includes(`const int STRETCH_WIN = ${STRETCH_WIN};`), `${name}: the window is the module's`);
+    assert.ok(fs.includes('vecNear(vRow, max(int(cell.z), ic - STRETCH_WIN), min(int(cell.w), ic + STRETCH_WIN), p, p - shOff)'), `${name}: the run is cut to the window`);
+    assert.ok(fs.includes('int ic = clamp(int(vI), 0, N_SAMPLES - 2);') && fs.includes('in float vI;'), `${name}: from the interpolated sample index`);
+    assert.ok(vs.includes('out float vI;') && vs.includes('vI = aV.y + (int(aV.x + 0.5) == K_TRAP ? aV.w : 0.0);'), `${name}: the vertex shader writes it as the mesh does`);
+  }
 });
