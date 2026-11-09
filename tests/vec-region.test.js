@@ -184,10 +184,10 @@ test('a pixel one vessel reaches is laid exactly as the stretch shader lays it (
 
 test('the join record is read as the contract lays it out (mask in two halves, trunk plus the fork bit, fillet), with the contract\'s constants', () => {
   const src = FS(K.V_FULL);
-  assert.ok(src.includes('int(B.x + 0.5) | (int(B.z + 0.5) << 16)'));
+  assert.ok(src.includes('int mlo = int(B.x + 0.5), mhi = int(B.z + 0.5)') && src.includes('m < MASK_SPLIT ? (mlo & (1 << m)) : (mhi & (1 << (m - MASK_SPLIT)))') && src.includes(`const int MASK_SPLIT = ${K.MASK_SPLIT};`));
   assert.ok(src.includes('int tmi = int(B.y + 0.5) & (FORK_BIT - 1);') && src.includes(`const int FORK_BIT = ${K.FORK_BIT};`));
   assert.ok(src.includes('js[jn] = clamp(B.w, 0.0, 1.0);'));
-  assert.ok(src.includes(`const int MAXM = ${K.MAX_MEMBERS};`) && K.MAX_MEMBERS <= 32, 'a mask of at most 32 members');
+  assert.ok(src.includes(`const int MAXM = ${K.MAX_MEMBERS};`) && K.MAX_MEMBERS <= 2 * K.MASK_SPLIT, 'a mask in two whole-number halves');
   assert.ok(K.JOIN0 + 2 * K.MAX_JOINS <= K.REGION_TEXELS, 'the joins fit the region row');
 });
 
