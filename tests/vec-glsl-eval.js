@@ -30,7 +30,6 @@ export function loadGLSL(src) {
   const T = tokens(src);
   const consts = new Map(), fns = new Map(), structs = new Map();
   let p = 0;
-  const isType = (v) => SCALAR.has(v) || VEC.has(v) || structs.has(v) || v === 'void';
   const skipTo = (v) => { let d = 0; while (p < T.length) { const t = T[p]; if (t.k === 'op') { if ('({['.includes(t.v)) d++; else if (')}]'.includes(t.v)) d--; if (d === 0 && t.v === v) return; } p++; } };
   const constExpr = (toks) => { const sub = { T: toks, p: 0 }; return parseExpr(sub, 0, { vars: [consts] }); };
   void constExpr;
@@ -126,7 +125,7 @@ function parseBin(s, lvl, ctx, live) {
       continue;
     }
     const b = parseBin(s, lvl + 1, ctx, live);
-    if (!live) { a = a; continue; }
+    if (!live) continue;
     if (op === '<<' || op === '>>') {
       if (a.t === 'uint' && b.t === 'uint') a = num('uint', op === '<<' ? (a.v << b.v) >>> 0 : a.v >>> b.v);
       else if (a.t === 'int' && b.t === 'int') a = num('int', op === '<<' ? a.v << b.v : a.v >> b.v);

@@ -17,7 +17,7 @@
 // `world` is the caller's: inv × gl_FragCoord.xy (B's vecWorld()).
 import {
   CELL_SIZE, CELL_LEAF, JOIN_TEXELS, NODE_W, MAX_DEPTH, LEAF_ROW, LIST_W, RUNS_PER_ROW, RUN_TEXELS, C_LUMEN, C_SHADOW, C_GLOW, C_RING, C_JOIN,
-  L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_WIDE, L_MORPH, SLOTS, SLOTS_WIDE, RUN_F_MORPH, NO_OWNER,
+  L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_WIDE, L_MORPH, SLOTS, SLOTS_WIDE, R_ON, BOUND_HEADROOM, NO_OWNER,
 } from './vec-leaves-pack.js';
 
 const f1 = (v) => (Number.isInteger(v) ? `${v}.0` : String(v));
@@ -55,7 +55,8 @@ const int VEC_L_WIDE = ${L_WIDE};
 const int VEC_L_MORPH = ${L_MORPH};
 const int VEC_SLOTS = ${SLOTS};
 const int VEC_SLOTS_WIDE = ${SLOTS_WIDE};
-const int VEC_RUN_MORPH = ${RUN_F_MORPH};
+const int VEC_R_ON = ${R_ON};
+const float VEC_BOUND_HEADROOM = ${f1(BOUND_HEADROOM)};
 
 struct VecLeaf { int cls; bool crossTier; int runStart; int runCount; int joinStart; int joinCount; int candMax; int depth; int owner; };
 struct VecRun { int id; int row; int i0; int i1; int flags; vec4 chord; vec4 rad; vec4 box; };
@@ -145,7 +146,7 @@ VecRun vecRunRead(int runId) {
 }
 
 // Whether the pixel at \`world\` is inside the run's bound for one contribution (the point-to-capsule distance, squared, against the radius,
-// squared). Shadow: the capsule is the chord moved by uVecShOff. A morph run (flags & VEC_RUN_MORPH) is bounded by its box. VEC_C_JOIN: true
+// squared). Shadow: the capsule is the chord moved by uVecShOff. VEC_C_JOIN: true
 // (a join's bound is its disc: vecJoinHit). A zero radius is no bound: false. The caller passes the pixel, never the shadow's shifted point.
 bool vecBoundHit(VecRun run, int contribution, vec2 world) {
   if (contribution == VEC_C_JOIN) return true;
@@ -155,18 +156,21 @@ bool vecBoundHit(VecRun run, int contribution, vec2 world) {
   else if (contribution == VEC_C_GLOW) r = run.rad.z;
   else if (contribution == VEC_C_RING) r = run.rad.w;
   if (r <= 0.0) return false;
-  vec2 d;
-  if ((run.flags & VEC_RUN_MORPH) != 0) {
-    d = max(max(run.box.xy - p, p - run.box.zw), vec2(0.0));
-  } else {
-    vec2 a = run.chord.xy;
-    vec2 ab = run.chord.zw - a;
-    vec2 ap = p - a;
-    float l2 = dot(ab, ab);
-    float h = l2 > 0.0 ? clamp(dot(ap, ab) / l2, 0.0, 1.0) : 0.0;
-    d = ap - ab * h;
-  }
+  vec2 a = run.chord.xy;
+  vec2 ab = run.chord.zw - a;
+  vec2 ap = p - a;
+  float l2 = dot(ab, ab);
+  float h = l2 > 0.0 ? clamp(dot(ap, ab) / l2, 0.0, 1.0) : 0.0;
+  vec2 d = ap - ab * h;
   return dot(d, d) <= r * r;
+}
+
+// The same question for a morph set's leaf (class VEC_L_MORPH): the run's bound is its morph box (texel 3), which already holds every contribution's
+// reach over the whole stretch, so it is inside-the-box for any contribution the run has (a zero radius is none). Use it in a morph set's programs only.
+bool vecBoundHitBox(VecRun run, int contribution, vec2 world) {
+  if (contribution == VEC_C_JOIN) return true;
+  float r = contribution == VEC_C_LUMEN ? run.rad.x : contribution == VEC_C_SHADOW ? run.rad.y : contribution == VEC_C_GLOW ? run.rad.z : run.rad.w;
+  return r > 0.0 && world.x >= run.box.x && world.y >= run.box.y && world.x <= run.box.z && world.y <= run.box.w;
 }
 
 // A join (A's join table, ${JOIN_TEXELS} texels a join at (t, j)): c = x, y; k = the blend width; reach; rows = the member rows (-1 none); trunk = the trunk
@@ -187,10 +191,10 @@ VecJoin vecJoinRead(int j) {
   return r;
 }
 
-// Whether the pixel is inside the join's disc: its reach plus its blend width (the junction's bound, contribution VEC_C_JOIN).
+// Whether the pixel is inside the join's disc: (reach + blend width) × BOUND_HEADROOM (the junction's bound, contribution VEC_C_JOIN; A's joinDisc).
 bool vecJoinHit(VecJoin jn, vec2 world) {
   vec2 d = world - jn.c;
-  float r = jn.reach + jn.k;
+  float r = (jn.reach + jn.k) * VEC_BOUND_HEADROOM;
   return dot(d, d) <= r * r;
 }
 `;

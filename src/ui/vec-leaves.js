@@ -5,7 +5,7 @@
 // boundHit(...)            the JS mirror of vecBoundHit.
 // (the builder, buildLeaves / rebuildLeaves, follows in this file)
 import {
-  CELL_SIZE, MAX_DEPTH, CELL_LEAF, C_LUMEN, C_SHADOW, C_GLOW, C_JOIN, RUN_F_MORPH, RUN_TEXELS, RUNS_PER_ROW,
+  CELL_SIZE, MAX_DEPTH, CELL_LEAF, C_LUMEN, C_SHADOW, C_GLOW, C_JOIN, RUN_TEXELS, RUNS_PER_ROW,
   CELL_KIND_SHIFT, CELL_INDEX_MASK, GRID_W,
 } from './vec-leaves-pack.js';
 
@@ -47,15 +47,10 @@ export function boundDist2(runs, runId, contribution, px, py, shOff) {
   const r = runs[base + 4 + (contribution === C_LUMEN ? 0 : contribution === C_SHADOW ? 1 : contribution === C_GLOW ? 2 : 3)];
   if (contribution === C_JOIN || !(r > 0)) return Infinity;
   if (contribution === C_SHADOW) { px -= shOff[0]; py -= shOff[1]; }
-  let dx, dy;
-  if ((runs[base + 8 + 2] & RUN_F_MORPH) !== 0) {
-    dx = Math.max(runs[base + 12] - px, px - runs[base + 14], 0); dy = Math.max(runs[base + 13] - py, py - runs[base + 15], 0);
-  } else {
-    const ax = runs[base], ay = runs[base + 1], abx = runs[base + 2] - ax, aby = runs[base + 3] - ay, apx = px - ax, apy = py - ay;
-    const l2 = abx * abx + aby * aby;
-    const h = l2 > 0 ? Math.min(1, Math.max(0, (apx * abx + apy * aby) / l2)) : 0;
-    dx = apx - abx * h; dy = apy - aby * h;
-  }
+  const ax = runs[base], ay = runs[base + 1], abx = runs[base + 2] - ax, aby = runs[base + 3] - ay, apx = px - ax, apy = py - ay;
+  const l2 = abx * abx + aby * aby;
+  const h = l2 > 0 ? Math.min(1, Math.max(0, (apx * abx + apy * aby) / l2)) : 0;
+  const dx = apx - abx * h, dy = apy - aby * h;
   return dx * dx + dy * dy;
 }
 /** Whether a point is inside a run's bound for one contribution (the mirror of vecBoundHit; the shader's float32 rounding is not replayed). */

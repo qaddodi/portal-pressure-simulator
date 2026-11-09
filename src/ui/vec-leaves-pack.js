@@ -11,33 +11,27 @@
 //   runRefs   R32UI     LIST_W a row:  runId | bits << 24, runId = row · RUNS_PER_ROW + k. One ref a run a leaf, bits OR'd; a leaf's refs run in
 //                       ascending runId (so the runs of one vessel are together)
 //   joinRefs  R32UI     LIST_W a row:  join index (ascending)
-// Constants not in the contract yet (LEAF_ROW, BOX_W, the cell texel's high index word) are defined here and go to A for the contract.
-import * as C from './vec-contract.js';
+// Not in the contract yet (K asks A): LEAF_ROW, BOX_W, and the cell texel's high index word (B).
+import {
+  GRID_W, CELL_EMPTY, CELL_LEAF, CELL_NODE, NODE_W, MAX_DEPTH, LEAF_TEXELS, LIST_W, RUNS_PER_ROW, RUN_SEGS, RUN_TEXELS, JOIN_TEXELS,
+  C_LUMEN, C_SHADOW, C_GLOW, C_RING, C_JOIN, L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_WIDE, L_MORPH, L_CROSSTIER_BIT, SLOTS, SLOTS_WIDE, OWNER_NONE,
+  NODE_KIND_EMPTY, NODE_KIND_LEAF, NODE_KIND_NODE, R_ON, BOUND_HEADROOM, LEAF_MIN_PX, LEAF_OVERHEAD, REFINE_GAIN, TOLERANCE_8BIT,
+} from './vec-contract.js';
 import { CELL } from './veins-bin.js';
 
-const pick = (name, dflt) => (C[name] === undefined ? dflt : C[name]);   // (contract v2's name when A has published it, section 2.5's value until then)
-
+export {
+  GRID_W, CELL_EMPTY, CELL_LEAF, CELL_NODE, NODE_W, MAX_DEPTH, LEAF_TEXELS, LIST_W, RUNS_PER_ROW, RUN_SEGS, RUN_TEXELS, JOIN_TEXELS,
+  C_LUMEN, C_SHADOW, C_GLOW, C_RING, C_JOIN, L_SINGLE, L_LAYERED, L_CROSS, L_JOIN, L_WIDE, L_MORPH, SLOTS, SLOTS_WIDE, R_ON,
+  BOUND_HEADROOM, LEAF_MIN_PX, LEAF_OVERHEAD, REFINE_GAIN, TOLERANCE_8BIT,
+};
 export const CELL_SIZE = CELL;
-export const GRID_W = pick('GRID_W', 256);
-export const CELL_EMPTY = pick('CELL_EMPTY', 0), CELL_LEAF = pick('CELL_LEAF', 3), CELL_NODE = pick('CELL_NODE', 4);
-export const NODE_W = pick('NODE_W', 1024);
-export const MAX_DEPTH = pick('MAX_DEPTH', 6);
-export const LEAF_TEXELS = pick('LEAF_TEXELS', 2);
-export const LIST_W = pick('LIST_W', 4096);
-export const RUNS_PER_ROW = pick('RUNS_PER_ROW', 16), RUN_SEGS = pick('RUN_SEGS', 4), RUN_TEXELS = pick('RUN_TEXELS', 4);
-export const JOIN_TEXELS = pick('JOIN_TEXELS', 3);
-export const C_LUMEN = pick('C_LUMEN', 1), C_SHADOW = pick('C_SHADOW', 2), C_GLOW = pick('C_GLOW', 4), C_RING = pick('C_RING', 8), C_JOIN = pick('C_JOIN', 16);
-export const L_SINGLE = pick('L_SINGLE', 1), L_LAYERED = pick('L_LAYERED', 2), L_CROSS = pick('L_CROSS', 3), L_JOIN = pick('L_JOIN', 4), L_WIDE = pick('L_WIDE', 5), L_MORPH = pick('L_MORPH', 6);
-/** Bit 8 of a leaf's class word: a join here joins members of different tiers (the contract's K_CROSSTIER, kept as a bit of the class word). */
-export const CLASS_CROSSTIER = 256;
-export const SLOTS = pick('SLOTS', 8), SLOTS_WIDE = pick('SLOTS_WIDE', 32);
-/** A run's bounds are its morph box (texel 3) over the whole morph stretch, not a capsule on its chord (run flags, texel 2 .z). */
-export const RUN_F_MORPH = pick('RUN_F_MORPH', 1);
-export const NO_OWNER = 0xffffffff;
-/** Leaves a row of the leaf table (two texels each), and leaves a row of the leaf-box table. */
-export const LEAF_ROW = pick('LEAF_ROW', 1024), BOX_W = pick('BOX_W', 4096);
+/** Bit 8 of a leaf's class word (the contract's L_CROSSTIER_BIT): a join here joins members of different tiers. */
+export const CLASS_CROSSTIER = L_CROSSTIER_BIT;
+export const NO_OWNER = OWNER_NONE;
+export const CHILD_EMPTY = NODE_KIND_EMPTY, CHILD_LEAF = NODE_KIND_LEAF, CHILD_NODE = NODE_KIND_NODE;
+/** Leaves a row of the leaf table (two texels each), and leaves a row of the leaf-box table. (Not in the contract yet: K's to A.) */
+export const LEAF_ROW = 1024, BOX_W = 4096;
 export const CELL_KIND_SHIFT = 30, CELL_INDEX_MASK = 0x3fffffff;
-export const CHILD_EMPTY = 0, CHILD_LEAF = 1, CHILD_NODE = 2;
 
 /** The tables' names, in the order the dirty report lists them. */
 export const TABLES = Object.freeze(['cells', 'nodes', 'leaves', 'boxes', 'runRefs', 'joinRefs']);
