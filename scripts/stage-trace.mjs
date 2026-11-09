@@ -12,6 +12,8 @@
 //                                                    stored choice is left alone and the default file is /tmp/stage-trace.json. With it the default file is
 //                                                    /tmp/stage-trace-<renderer>.json, and the trace says so and exits 2 when frame.js cannot select that
 //                                                    renderer (Vector before workstream H's setting lands), rather than hashing a different renderer's draws.
+//                                                    The same when the chosen renderer is selected but cannot be made (veins-gl.js warns and draws with the
+//                                                    other one): exit 3 and the reason, nothing saved. --allow-fallback hashes it anyway.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { RENDERERS, RENDERER_KEY } from '../src/ui/vec-contract.js';
 
@@ -105,9 +107,13 @@ function chooseRenderer(renderer) {
   if (renderer === 'classic') localStorage.setItem('pps.vesselMesh', '0'); else localStorage.removeItem('pps.vesselMesh');
 }
 
+export const FALLBACK_WARNING = /the (\w+) vessel renderer could not be made/;   // (veins-gl.js: the chosen renderer failed and the other one draws)
 export async function runTrace({ renderer = null } = {}) {
   const page = await installRecorder();
   chooseRenderer(renderer);
+  const warned = new Set(), realWarn = console.warn;
+  console.warn = (...a) => { const m = FALLBACK_WARNING.exec(String(a[0])); if (m && m[1] === renderer) warned.add(`${String(a[0])} ${a.slice(1).map((x) => x?.message ?? x).join(' ')}`.trim()); else realWarn(...a); };
+  runTrace.warned = warned;
   // The engine's frames: the real core on the fake clock.
   const { createCore } = await import('../src/worker-core.js');
   const frames = [];
@@ -170,6 +176,10 @@ if (process.argv[1]?.endsWith('stage-trace.mjs')) {
     console.error(`stage-trace: cannot run with ${e.message}`); process.exit(2);
   }
   const dt = Number((process.hrtime.bigint() - w0) / 1000000n); void t0;
+  if (renderer && runTrace.warned?.size && !args.includes('--allow-fallback')) {
+    console.error(`stage-trace: ${renderer} was chosen but could not be made, so these ${frames.length} frames are another renderer's draws and are not saved or compared:\n  ${[...runTrace.warned].join('\n  ')}`);
+    process.exit(3);
+  }
   const threw = frames.filter((l) => /THREW|ERR/.test(l));
   if (args.includes('--save')) { writeFileSync(file('--save'), JSON.stringify(frames)); console.log(`stage-trace: saved ${frames.length} frames to ${file('--save')} (${dt} ms)`); }
   else if (args.includes('--compare')) {

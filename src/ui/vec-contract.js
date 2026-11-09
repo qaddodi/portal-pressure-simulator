@@ -43,13 +43,13 @@ export const WIN_MAX = 64;   // (Mohammad, 9 Nov: 8 left about 80% of the occupi
 //     (ent[q+3] = round(k·100) + 0.99·fillet), so the shader has classic's own js: run-on at a fork is fork && fillet < 0.01, a run is fillet < 0.98.
 //     k is that rounded value / 100, the world blend width.
 //     (In a morph set's region the join's A.x is its index in the frame's join rows, A.y = 0: the shader reads the join as the frame has it.)
-export const REGION_TEXELS = 64;
+export const REGION_TEXELS = 128;
 export const MASK_SPLIT = 24;           // member-mask bits in B.x (a float32 holds 24 whole bits); the rest are in B.z
 export const MAX_MEMBERS = 48;          // listed per region (the lobule's centre holds 25 with its Lymph layer, the morph sets' cells up to 44: Mohammad, 9 Nov); the shader keeps the nearest SLOTS per pixel, as classic keeps MAXS = 8
 if (MAX_MEMBERS > 2 * MASK_SPLIT) throw new Error('vec-contract: MAX_MEMBERS needs more mask bits');
 export const SLOTS = 8;
-export const MAX_JOINS = 6;             // as veins-mesh-data PG_J
-export const JOIN0 = 1 + MAX_MEMBERS;   // texel of the first join (49); joins end at JOIN0 + 2 · MAX_JOINS = 61; 61 … 63 spare
+export const MAX_JOINS = 16;            // listed per region, the nearest to the cell kept (the lobule's central vein takes 12 within a few cells: Mohammad, 9 Nov; veins-mesh-data PG_J is 6, classic's MAXJ per pixel)
+export const JOIN0 = 1 + MAX_MEMBERS;   // texel of the first join (49); joins end at JOIN0 + 2 · MAX_JOINS = 81; 81 … 127 spare
 export const FORK_BIT = 64;             // added to a join's trunk member index in B.y at a fork
 /** Region kind bits (texel 0.x, as a whole number): which interactions the cell holds. */
 export const K_JOIN = 1, K_CROSS = 2, K_HAIRPIN = 4, K_CROSSTIER = 8, K_NEAR = 16, K_LONG = 32, K_MORPH = 64;
