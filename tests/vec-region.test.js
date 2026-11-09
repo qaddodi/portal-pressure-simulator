@@ -181,3 +181,24 @@ test('a pixel one vessel reaches is laid exactly as the stretch shader lays it (
     assert.ok(norm(region).includes('vecShadeOne(sid[0], sn[0], p, occl, lum, lumCol)') && norm(stretch).includes('vecShadeOne(vRow, nr, p, vecOccl(p), lum, lumCol)'));
   }
 });
+
+test('the join record is read as the contract lays it out (mask in two halves, trunk plus the fork bit, fillet), with the contract\'s constants', () => {
+  const src = FS(K.V_FULL);
+  assert.ok(src.includes('int(B.x + 0.5) | (int(B.z + 0.5) << 16)'));
+  assert.ok(src.includes('int tmi = int(B.y + 0.5) & (FORK_BIT - 1);') && src.includes(`const int FORK_BIT = ${K.FORK_BIT};`));
+  assert.ok(src.includes('js[jn] = clamp(B.w, 0.0, 1.0);'));
+  assert.ok(src.includes(`const int MAXM = ${K.MAX_MEMBERS};`) && K.MAX_MEMBERS <= 32, 'a mask of at most 32 members');
+  assert.ok(K.JOIN0 + 2 * K.MAX_JOINS <= K.REGION_TEXELS, 'the joins fit the region row');
+});
+
+test('every uniform the region programs declare is one the renderer core sets', async () => {
+  const R = await import('../src/ui/vec-renderer.js');
+  const { VEC_BLOOD_UNIFORMS } = await import('../src/ui/vec-blood-glsl.js');
+  const known = new Set([...Object.keys(R.VEC_OWN_UNIFORMS), ...Object.values(R.LOOK_UNIFORMS), ...Object.values(R.BLOOD_UNIFORMS), ...VEC_BLOOD_UNIFORMS.map((u) => u.name ?? u),
+    ...VEC_SHADE_UNIFORMS, 'pxW', 'fluidMask', 'fluidRect', 'fluidS', 'fluidInk', 'fluidLv']);
+  for (const variant of [K.V_FULL, K.V_BASE, K.V_BLOOD]) {
+    const unknown = uniformsOf(FS(variant)).filter((n) => !known.has(n));
+    assert.deepEqual(unknown, [], `variant ${variant}: uniforms nothing sets`);
+  }
+  assert.deepEqual(uniformsOf(vecRegionVS).filter((n) => !(n in R.VEC_OWN_UNIFORMS)), []);
+});
