@@ -632,6 +632,7 @@ ${MESH_FS_KEY}
     int grp = tierGroup[ti];
 #if MESH
     if (ti > tierNow) break;   // (the mesh draws one tier a pass; a patch runs the tiers below it only for the stream it hands on)
+    if (ti < tierNow && mPass < MP_SHAPE_K) continue;   // (a glow or shadow pass: no stream, so not those)
 #endif
     // ── Glow: one thin soft band hugging a lit vessel's wall on both sides, fading to nothing at a free end.
     // Every highlight (hover, a slide's or step's vessels, the Doppler's) is this band, in its colour. It goes
@@ -793,7 +794,12 @@ ${MESH_FS_KEY}
     int fSh = flags;
     flags &= ~${F_SHADOW};   // (the mesh lays the tier's shadow in a pass of its own, under the whole tier: shadowOf below)
 #endif
+#if MESH
+    // (A glow or shadow pass draws neither the tier's shape nor its stream: the shading is left out there.)
+    vec4 c = mPass >= MP_SHAPE_K ? tubeShade(D, Ds, R, wall, col, g, flags, sel, cA, grp, sid[ow], sv[ow], shov[ow], sedge[ow], kn, kcas, aa, aL) : vec4(0.0);
+#else
     vec4 c = tubeShade(D, Ds, R, wall, col, g, flags, sel, cA, grp, sid[ow], sv[ow], shov[ow], sedge[ow], kn, kcas, aa, aL);
+#endif
     c *= alpha * tierAlpha[ti];
 #if MESH
     flags = fSh;
@@ -801,6 +807,9 @@ ${MESH_FS_KEY}
     float wsel = grp == 1 ? ssel[ow] : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
     float gf = grp == 0 ? 1.0 - occl * sof[ow] : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
     float lumA = aL * (1.0 - kn) * alpha * tierAlpha[ti] * gf;
+#if MESH
+    if (mPass < MP_SHAPE_K) lumA = 0.0;
+#endif
     if (lumA > 0.02 && (flags & ${F_DOTTED}) == 0) {
       // The stream shown here: the two joined lumens with the largest share, by nearness and by how
       // far past its own end each one runs (a vessel's streaks fade out beyond its end, so at a fork
