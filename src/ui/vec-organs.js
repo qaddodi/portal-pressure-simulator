@@ -1091,24 +1091,30 @@ export function createVecOrgans(gl, deps = {}) {
     for (let j = j0 + 1; j <= LEVEL_COARSE; j++) want.push(j);
     return want.length;
   }
+  /** A level made whole now: its static stream and its deforming shapes' (the draw's last resort, and each step of the job). */
+  function ensureLevel(j) {
+    let lv = levels.get(j);
+    if (!lv || lv.ver !== structVer) {
+      const old = lv;
+      const nl = finishStatic(buildStatic(j));
+      if (old) {
+        for (const k of ['sFill', 'sStroke', 'sClip']) freeStream(old[k]);
+        for (const k of ['dFill', 'dStroke', 'dClip', 'dFillM', 'dStrokeM', 'dOfs', 'dCnt', 'dMorph', 'dcFirst', 'dcCount', 'morph', 'dynVer']) nl[k] = old[k];
+      }
+      levels.set(j, nl); lv = nl; stats.levelsBuilt++;
+    }
+    if (lv.dynVer !== dynVer) buildDynamic(lv);
+    if (!want.includes(j)) want.push(j);
+    return lv;
+  }
   /** Builds the next level within `until` (performance.now); true when every level wanted (and its deforming shapes) is whole. */
   function step(until = Infinity) {
     let worked = false;
     for (const j of want) {
-      let lv = levels.get(j);
-      if (!lv || lv.ver !== structVer) {
+      const lv = levels.get(j);
+      if ((!lv || lv.ver !== structVer || lv.dynVer !== dynVer)) {
         if (worked && D.now() > until) return false;
-        const old = lv;
-        const nl = finishStatic(buildStatic(j));
-        if (old) {
-          for (const k of ['sFill', 'sStroke', 'sClip']) freeStream(old[k]);
-          for (const k of ['dFill', 'dStroke', 'dClip', 'dFillM', 'dStrokeM', 'dOfs', 'dCnt', 'dMorph', 'dcFirst', 'dcCount', 'morph', 'dynVer']) nl[k] = old[k];
-        }
-        levels.set(j, nl); lv = nl; stats.levelsBuilt++; worked = true;
-      }
-      if (lv.dynVer !== dynVer) {
-        if (worked && D.now() > until) return false;
-        buildDynamic(lv); worked = true;
+        ensureLevel(j); worked = true;
       }
     }
     stats.bytes = bytes;
@@ -1303,8 +1309,9 @@ export function createVecOrgans(gl, deps = {}) {
    */
   function draw(pass, m, only = null) {
     if (!ops.length || !opsTex) return;
-    const sc = scaleOfMat(m), lvl = pick(sc);
-    if (!lvl) return;
+    const sc = scaleOfMat(m);
+    // (Nothing prepared to draw from, the first frame of a set of organs: this level is made now, once, rather than draw nothing.)
+    const lvl = pick(sc) || ensureLevel(Math.max(LEVEL_MIN, levelOf(sc)));
     if (pass.look) lookNow = pass.look;
     const W = pass.w, H = pass.h, flip = 1;
     const on = only == null ? null : Array.isArray(only) ? only : [only];
