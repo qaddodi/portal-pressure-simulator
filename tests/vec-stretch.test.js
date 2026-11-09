@@ -4,7 +4,7 @@ import { lintGLSL, uniformsOf } from './glsl-lint.js';
 import { CELL } from '../src/ui/veins-bin.js';
 import { STRIP_VS_GLSL } from '../src/ui/veins-mesh.js';
 import { shadeGLSL } from '../src/ui/veins-mesh-glsl.js';
-import { V_FULL, V_BASE, V_BLOOD, WIN_MAX, CELL_SIMPLE } from '../src/ui/vec-contract.js';
+import { V_FULL, V_BASE, V_BLOOD, WIN_MAX, CELL_SIMPLE, C_LUMEN, C_SHADOW, C_GLOW, C_RING } from '../src/ui/vec-contract.js';
 import { VEC_PRECISION, VEC_SHADE_GLSL, VEC_SHADE_UNIFORMS } from '../src/ui/vec-shade-glsl.js';
 import { vecStretchVS, vecStretchFS, vecStretchUniformNames, VEC_ABOVE_GLSL, STRETCH_WIN } from '../src/ui/vec-stretch-glsl.js';
 
@@ -134,8 +134,7 @@ test('the region shader (workstream C) calls the same vecShadeOne and takes its 
   if (!region || !region.vecRegionFS) { t.skip('vec-region-glsl.js has not landed yet'); return; }
   const rs = region.vecRegionFS(V_FULL, K);
   const stretch = vecStretchFS(V_FULL, K);
-  const def = (s) => s.slice(s.indexOf('vec4 vecShadeOne('), s.indexOf('\n}\n', s.indexOf('vec4 vecShadeOne(')));
-  assert.equal(def(rs), def(stretch), 'the very same vecShadeOne text');
+  assert.ok(rs.includes(VEC_SHADE_GLSL(K)) && stretch.includes(VEC_SHADE_GLSL(K)), 'both programs carry the very same shared text, vecShadeOne with it');
   assert.ok(rs.includes('vecShadeOne('));
   assert.equal(count(rs, 'floor((p - gridO) / CELL)'), 1, 'the one cell formula');
 });
@@ -149,4 +148,22 @@ test('the fragment reads only the segments about its strip\'s sample, inside the
     assert.ok(fs.includes('int ic = clamp(int(vI), 0, N_SAMPLES - 2);') && fs.includes('in float vI;'), `${name}: from the interpolated sample index`);
     assert.ok(vs.includes('out float vI;') && vs.includes('vI = aV.y + (int(aV.x + 0.5) == K_TRAP ? aV.w : 0.0);'), `${name}: the vertex shader writes it as the mesh does`);
   }
+});
+
+test('vecShadeBits shades only the contributions that survived, and its shadow-and-ring path is tubeShade\'s own first two lines', () => {
+  const shared = VEC_SHADE_GLSL(K);
+  assert.ok(shared.includes(`vec4 vecShadeBits(int row, VecNear nr, vec2 p, float occl, int bits, out float lum, out vec3 lumCol)`));
+  assert.ok(shared.includes(`(bits & ${C_GLOW}) != 0 ? glowAmt(`), 'no glow work without the glow bit');
+  assert.ok(shared.includes(`(bits & ${C_LUMEN | C_SHADOW | C_RING}) != 0 && `), 'no shape work without lumen, shadow or ring');
+  assert.ok(shared.includes(`if ((bits & ${C_LUMEN}) != 0) c = tubeShade(`), 'the lumen\'s lines only with the lumen bit');
+  assert.ok(shared.includes(`vecShadeBits(row, nr, p, occl, ${C_LUMEN | C_SHADOW | C_GLOW | C_RING}, lum, lumCol)`), 'vecShadeOne is every bit');
+  // The path without the lumen bit is those lines of tubeShade, checked against the imported text so a change there shows here.
+  const classic = shadeGLSL({
+    F_DIFFUSE: K.F_DIFFUSE, F_EDGE: K.F_EDGE, F_SHADOW: K.F_SHADOW, F_SPEC: K.F_SPEC, F_VEIL: K.F_VEIL, F_WHOLE: K.F_WHOLE,
+    LIFT_EASE_MAX: 80, LIFT_EASE_SHARE: 0.45, LUMEN2: 0, ROW2_BITS: 0, VEIL_K: K.VEIL_K,
+  });
+  assert.ok(classic.includes('vec4 c = shadowOf(Ds, wall, flags, sel, aa);'));
+  assert.ok(classic.includes('float ar = ring.a * clamp(0.5 - (D - wall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c);'));
+  assert.ok(shared.includes('c = shadowOf(nr.h, aWall, flags, sel, aa);'));
+  assert.ok(shared.includes('float ar = ring.a * clamp(0.5 - (nr.d - aWall - 4.0) / aa, 0.0, 1.0); c = over(vec4(ring.rgb * ar, ar), c);'));
 });
