@@ -257,9 +257,9 @@ test('a frame allocates nothing (blood frames, pans, row redraws)', () => {
     else if (i % 7 === 0) { tubes[52 * 5 + 3] = i & 1; h.r.setTubes(tubes); h.r.drawRows(M[(i / 50 | 0) & 1], h.look, h.blood, rows, false); }
     else h.r.composite(h.look, h.blood, false);
   };
-  for (let i = 1; i < 3000; i++) step(i);   // warm
+  for (let i = 1; i < 6000; i++) step(i);   // warm
   const h0 = process.memoryUsage().heapUsed;
-  for (let i = 3000; i < 7000; i++) step(i);
+  for (let i = 6000; i < 26000; i++) step(i);
   const grown = process.memoryUsage().heapUsed - h0;
-  assert.ok(grown < 400 * 1024, `heap grew ${grown} B over 4000 frames`);
+  assert.ok(grown < 1.5 * 1024 * 1024, `heap grew ${grown} B over 20000 frames`);   // (garbage of 100 B a frame or more is 2 MB here)
 });
