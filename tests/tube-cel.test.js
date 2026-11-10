@@ -63,12 +63,40 @@ test('deep inside a lumen on the lit side, the result is the fill colour exactly
   near(celShadeJS({ ...base, D: -9 }), [...FILL, 1], 'lit side');
 });
 
-test('on the far side past BAND, the fill is darkened by TONE; before BAND it is not', () => {
-  const far = { ...base, g: [-1, 0] };
-  // rho = (R + D) / R: 0.8 at D = -2, past BAND (0.62); 0.3 at D = -7, before it.
-  near(celShadeJS({ ...far, D: -2 }), [...FILL.map((v) => v * CEL.TONE), 1], 'past the band');
-  near(celShadeJS({ ...far, D: -7 }), [...FILL, 1], 'before the band');
-  near(celShadeJS({ ...far, D: -2, flags: 0 }), [...FILL, 1], 'no diffuse flag: flat');
+// The tones: s = rho * dot(g, light); rho = (R + D) / R. Here light is [1, 0], so g [1, 0] faces the light and g [-1, 0] is the far side.
+const tone = (o) => celShadeJS({ ...base, ...o });
+const darker = (m) => [...FILL.map((v) => v * m), 1];
+test('three tones: lit lift, the plain fill, and two darker steps toward the far wall', () => {
+  const R = base.R;
+  const far = { g: [-1, 0] };
+  // rho 0.1: s -0.1, the plain fill. rho 0.35: s -0.35 past S1 (-0.2), before S2 (-0.5). rho 0.8: s -0.8, past both.
+  near(tone({ ...far, D: -R * 0.9 }), [...FILL, 1], 'far side, near the middle: the fill');
+  near(tone({ ...far, D: -R * 0.65 }), darker(1 - CEL.D1), 'far side, first step');
+  near(tone({ ...far, D: -R * 0.2 }), darker(1 - CEL.D1 - CEL.D2), 'far side, second step');
+  // The lit side: the middle is the fill; the wall (rho 0.9, s 0.9) is lifted toward white (clear of the light line at 0.52).
+  near(tone({ D: -R * 0.9 }), [...FILL, 1], 'lit side, the middle');
+  near(tone({ D: -R * 0.1 }), [...FILL.map((v) => v * (1 - CEL.LIT) + CEL.LIT), 1], 'lit side near the wall: lifted');
+  near(tone({ ...far, D: -2, flags: 0 }), [...FILL, 1], 'no diffuse flag: flat');
+});
+
+test('the tones are steps one pixel soft, and each follows the vessel\'s own colour', () => {
+  const R = base.R, e = base.aa / R, far = { g: [-1, 0] };
+  // Half way up a step (s = S1) the fill is half way between the two tones.
+  const rho = -CEL.S1;
+  near(tone({ ...far, D: -R * (1 - rho) }), darker(1 - CEL.D1 / 2), 'half way up the step');
+  // A pixel and more past it, on the near side, it is whole.
+  near(tone({ ...far, D: -R * (1 - rho + 2 * e) }), [...FILL, 1], 'a pixel clear above the step: the fill');
+  near(tone({ ...far, D: -R * (1 - rho - 2 * e) }), darker(1 - CEL.D1), 'a pixel clear below: the first tone');
+  const dark = [0.1, 0.1, 0.3];
+  near(tone({ ...far, col: dark, D: -R * 0.65 }), [...dark.map((v) => v * (1 - CEL.D1)), 1], 'a dark vessel: the same steps of its own colour');
+  const pale = [0.9, 0.9, 0.95];
+  near(tone({ ...far, col: pale, D: -R * 0.2 }), [...pale.map((v) => v * (1 - CEL.D1 - CEL.D2)), 1], 'a pale vessel too');
+});
+
+test('the tones turn with the light: a vessel running along the light has weaker steps than one across it', () => {
+  // g [0, 1] is across a vertical light: k 0, s 0: always the fill. With the light [0, 1], g [0, 1] faces it.
+  near(tone({ g: [0, 1], D: -2 }), [...FILL, 1], 'g along the wall, light across: no tone');
+  near(tone({ light: [0, 1], g: [0, -1], D: -2 }), darker(1 - CEL.D1 - CEL.D2), 'turn the light and the far side follows');
 });
 
 test('the outline is 1.5 device px on a hairline and 3 on a wide vessel, at any px', () => {
@@ -120,21 +148,24 @@ test('the outline follows the look: a dark casing gives the deep tone of the ves
 test('one crisp light line on the lit side only, at about half way to the wall', () => {
   const R = base.R;
   const at = (rho, o = {}) => celShadeJS({ ...base, D: -R * (1 - rho), ...o });
-  const white = FILL.map((v) => v * (1 - CEL.LIGHT) + CEL.LIGHT);
+  // The line sits inside the faint lift of the lit side (s above S3), so both are in the expected colour.
+  const lifted = FILL.map((v) => v * (1 - CEL.LIT) + CEL.LIT);
+  const white = lifted.map((v) => v * (1 - CEL.LIGHT) + CEL.LIGHT);
   near(at(0.52), [...white, 1], 'on the line');
   near(at(0.2), [...FILL, 1], 'inside it: the plain fill');
-  near(at(0.52 + 0.045 + 2 * (base.aa / R)), [...FILL, 1], 'outside it: the plain fill');
-  near(at(0.52, { g: [-1, 0] }), [...FILL, 1], 'not on the far side');
+  near(at(0.52 + 0.045 + 2 * (base.aa / R)), [...lifted, 1], 'outside it: the lit side\'s fill');
+  near(at(0.6, { g: [-1, 0] }), darker(1 - CEL.D1 - CEL.D2), 'not on the far side (its darker steps instead)');
   near(at(0.52, { g: [0, 1] }), [...FILL, 1], 'not where the light runs along the vessel');
   near(at(0.52, { flags: 0 }), [...FILL, 1], 'not without the diffuse flag');
 });
 
-test('a hairline has no band and no light line', () => {
-  // R / aa = 1.2 < 1.5: far side, deep in the lumen's band, still the plain fill; lit side at the line's place too.
+test('a hairline has no tones and no light line', () => {
+  // R / aa = 1.2 < 1.5: far side, deep in the tones' reach, still the plain fill; lit side at the line's place too.
   near(celShadeJS({ ...base, R: 0.6, g: [-1, 0], D: -0.1 }), [...FILL, 1], 'hairline, far side');
   near(celShadeJS({ ...base, R: 0.6, D: -0.6 * 0.48 }), [...FILL, 1], 'hairline, lit side');
-  // R / aa = 2: the band is out (needs 1.5 to 3.5 to come in), the light line needs 2.5 to 4.5.
-  near(celShadeJS({ ...base, R: 1, D: -0.48 }), [...FILL, 1], 'a narrow vessel: no line yet');
+  // R / aa = 2: the tones are mostly out (they need 1.5 to 3.5 to come in), the light line needs 2.5 to 4.5.
+  const narrow = celShadeJS({ ...base, R: 1, D: -0.48 });
+  assert.ok(narrow[0] > FILL[0] && narrow[0] < FILL[0] + CEL.LIT * (1 - FILL[0]), 'a narrow vessel: the lift only partly in, and no line yet');
 });
 
 test('a selected vessel has the ring outside the outline', () => {
@@ -150,12 +181,11 @@ test('the constants in the GLSL text are the ones in CEL', () => {
   const ink = /const vec3 CEL_INK = vec3\(([^)]*)\);/.exec(CEL_TEXT);
   assert.ok(ink, 'CEL_INK');
   assert.deepEqual(ink[1].split(',').map(Number), CEL.INK);
-  assert.equal(Number(/const float CEL_BAND = ([\d.]+);/.exec(CEL_TEXT)[1]), CEL.BAND);
-  assert.equal(Number(/const float CEL_TONE = ([\d.]+);/.exec(CEL_TEXT)[1]), CEL.TONE);
+  for (const n of ['S1', 'S2', 'S3', 'D1', 'D2', 'LIT']) assert.equal(Number(new RegExp(`const float CEL_${n} = (-?[\\d.]+);`).exec(CEL_TEXT)[1]), CEL[n], n);
   const wl = /float wl = clamp\(([\d.]+) \* R, ([\d.]+) \* px, ([\d.]+) \* px\);/.exec(CEL_TEXT);
   assert.ok(wl, 'the outline width line');
   assert.deepEqual(wl.slice(1).map(Number), [CEL.LINE_R, CEL.LINE_MIN, CEL.LINE_MAX]);
   assert.equal(Number(/lum = mix\(lum, vec3\(1\.0\), ([\d.]+) \* lineA\);/.exec(CEL_TEXT)[1]), CEL.LIGHT);
-  assert.deepEqual(CEL, { K: 1.6, INK: [0.07, 0.06, 0.06], BAND: 0.62, TONE: 0.88, LINE_MIN: 1.5, LINE_MAX: 3, LINE_R: 0.14, LIGHT: 0.3 });
+  assert.deepEqual(CEL, { K: 1.6, INK: [0.07, 0.06, 0.06], S1: -0.2, S2: -0.5, S3: 0.38, D1: 0.07, D2: 0.07, LIT: 0.1, LINE_MIN: 1.5, LINE_MAX: 3, LINE_R: 0.14, LIGHT: 0.3 });
   assert.ok(/uniform float celK;/.test(CEL_TEXT), 'celK stays declared');
 });

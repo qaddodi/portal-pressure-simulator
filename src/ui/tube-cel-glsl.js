@@ -1,5 +1,6 @@
-// The Tube renderer's cel shading (docs/recommendations/tube-renderer-plan.md, thread B): a flat fill in the vessel's own colour, one
-// soft hard-edged darker tone on the side away from the light, one crisp light line on the lit side, and a fine opaque outline (a deep tone of the vessel's own colour on the light looks, the look's own line colour on the dark ones), the way a cartoon or an anatomy book draws a vessel.
+// The Tube renderer's cel shading (docs/recommendations/tube-renderer-plan.md, thread B): a flat fill in the vessel's own colour in three
+// subtle tones lit from the top left (a faint lift on the side facing the light, the plain fill between, two darker steps toward the far wall,
+// each edge about one pixel soft), one crisp light line on the lit side, and a fine opaque outline (a deep tone of the vessel's own colour on the light looks, the look's own line colour on the dark ones), the way a cartoon or an anatomy book draws a vessel.
 // `celShade` is `tubeShade` (veins-mesh-glsl.js) with the same parameters in the same order, the same premultiplied result and the same host
 // declarations (the samplers and T(), over(), and the uniforms px, fx, casing, ring, rimInk, paperInk, light), so the Tube's strips and
 // patches call it where Mesh calls tubeShade. Only these lines differ from tubeShade: no contact shadow, the outline's width and colour,
@@ -8,8 +9,9 @@
 
 /** The look's numbers: K the old outline width as a multiple of the casing width (no longer read by the shading; the uniform stays for the host),
  *  LINE_MIN / LINE_MAX / LINE_R the outline's width in device px (R * LINE_R, held between the two), INK the near-black the light looks' deep tone is eased toward, BAND where the darker tone starts
- *  across the lumen (0 the middle, 1 the wall), TONE the fill's multiplier there. */
-export const CEL = { K: 1.6, INK: [0.07, 0.06, 0.06], BAND: 0.62, TONE: 0.88, LINE_MIN: 1.5, LINE_MAX: 3.0, LINE_R: 0.14, LIGHT: 0.30 };
+ *  LIGHT the light line's mix toward white. The tones are steps of s = rho * dot(g, light) (rho 0 the middle .. 1 the wall; s -1 the far wall .. +1 the wall
+ *  facing the light): below S1 the fill is darkened by D1, below S2 by D2 more (both of the fill's own colour), above S3 it is lifted LIT of the way to white. */
+export const CEL = { K: 1.6, INK: [0.07, 0.06, 0.06], S1: -0.2, S2: -0.5, S3: 0.38, D1: 0.07, D2: 0.07, LIT: 0.1, LINE_MIN: 1.5, LINE_MAX: 3.0, LINE_R: 0.14, LIGHT: 0.30 };
 
 const lit = (n) => (Number.isInteger(n) ? `${n}.0` : String(n));
 
@@ -17,10 +19,14 @@ const lit = (n) => (Number.isInteger(n) ? `${n}.0` : String(n));
 export const celGLSL = ({ F_DIFFUSE, F_EDGE, F_VEIL }) => `
 uniform float celK;                    // (declared for the host's sake; the outline's width is now in device pixels by caliber)
 const vec3 CEL_INK = vec3(${CEL.INK.map(lit).join(', ')});
-const float CEL_BAND = ${lit(CEL.BAND)};
-const float CEL_TONE = ${lit(CEL.TONE)};
+const float CEL_S1 = ${lit(CEL.S1)};
+const float CEL_S2 = ${lit(CEL.S2)};
+const float CEL_S3 = ${lit(CEL.S3)};
+const float CEL_D1 = ${lit(CEL.D1)};
+const float CEL_D2 = ${lit(CEL.D2)};
+const float CEL_LIT = ${lit(CEL.LIT)};
 
-// The tier's shape drawn at a pixel, cel shaded: selection ring, outline, the flat lumen with one darker tone away from the light, dark
+// The tier's shape drawn at a pixel, cel shaded: selection ring, outline, the flat lumen in three subtle tones lit from the top left, dark
 // lumen's rim, lift, hover and the knock-out ring, premultiplied, before the tier's alpha. Ds is unused (a cel shaded vessel has no contact
 // shadow); D, R, wall, col, g, aL as in tubeShade.
 vec4 celShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int flags, bool sel, float cA, int grp, int id, float vAt, float hov,
@@ -39,12 +45,18 @@ vec4 celShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int flag
   vec3 lum = col;
   float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
   if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) {
-    // One darker tone of the vessel's own colour, with a hard (one pixel) edge, on the side away from the light; none on hairlines.
+    // Three subtle tones lit from the top left: s is how far the pixel faces the light (-1 the far wall .. +1 the wall facing it); each step is
+    // about one pixel soft (e), is a multiple of the fill's own colour (any lens, either theme), and is left out on hairlines (hw).
     float k = dot(g, light);
-    float rho = clamp((R + D) / max(R, 1e-3), 0.0, 1.0);
     float e = aa / max(R, 1e-3);
-    float band = smoothstep(CEL_BAND - e, CEL_BAND + e, rho) * smoothstep(0.0, 0.25, -k) * smoothstep(1.5, 3.5, R / aa);
-    lum = mix(lum, lum * CEL_TONE, band);
+    float s = rho * k;
+    float et = 0.5 * e;                  // half width of a tone step in s: about one device pixel across a vessel facing the light
+    float hw = smoothstep(1.5, 3.5, R / aa);
+    float t1 = 1.0 - smoothstep(CEL_S1 - et, CEL_S1 + et, s);
+    float t2 = 1.0 - smoothstep(CEL_S2 - et, CEL_S2 + et, s);
+    float t3 = smoothstep(CEL_S3 - et, CEL_S3 + et, s);
+    lum *= 1.0 - hw * (CEL_D1 * t1 + CEL_D2 * t2);
+    lum = mix(lum, vec3(1.0), CEL_LIT * hw * t3);
     // One crisp light line on the lit side (a cartoon highlight, flat, no gradient); none on hairlines.
     float side = rho * sign(k);
     float lineA = (1.0 - smoothstep(0.045, 0.045 + e, abs(side - 0.52))) * smoothstep(0.25, 0.7, abs(k)) * smoothstep(2.5, 4.5, R / aa);
@@ -101,8 +113,11 @@ export function celShadeJS(o) {
     const k = dot2(g, light);
     const rho = clamp((R + D) / Math.max(R, 1e-3), 0, 1);
     const e = aa / Math.max(R, 1e-3);
-    const band = smoothstep(CEL.BAND - e, CEL.BAND + e, rho) * smoothstep(0, 0.25, -k) * smoothstep(1.5, 3.5, R / aa);
-    lum = mix3(lum, lum.map((v) => v * CEL.TONE), band);
+    const s = rho * k, et = 0.5 * e;
+    const hw = smoothstep(1.5, 3.5, R / aa);
+    const t1 = 1 - smoothstep(CEL.S1 - et, CEL.S1 + et, s), t2 = 1 - smoothstep(CEL.S2 - et, CEL.S2 + et, s), t3 = smoothstep(CEL.S3 - et, CEL.S3 + et, s);
+    lum = lum.map((v) => v * (1 - hw * (CEL.D1 * t1 + CEL.D2 * t2)));
+    lum = mix3(lum, [1, 1, 1], CEL.LIT * hw * t3);
     const side = rho * Math.sign(k);
     const lineA = (1 - smoothstep(0.045, 0.045 + e, Math.abs(side - 0.52))) * smoothstep(0.25, 0.7, Math.abs(k)) * smoothstep(2.5, 4.5, R / aa);
     lum = mix3(lum, [1, 1, 1], CEL.LIGHT * lineA);

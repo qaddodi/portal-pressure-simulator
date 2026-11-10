@@ -132,7 +132,8 @@ test('a dotted gap is empty and a dot is drawn without a stream', () => {
   const dot = tubeLeanJS({ ...dotted, u: 0.04 });
   assert.equal(dot.kind, 'draw');
   assert.equal(dot.flow, null, 'a dot has no stream');
-  near(dot.colour, [...FILL, 1], 'a dot is the fill');
+  // (a narrow vessel: the cel tones are only faintly in, so within a hair of the fill)
+  [...FILL, 1].forEach((v, i) => assert.ok(Math.abs(dot.colour[i] - v) < 0.01, `a dot is the fill: ${dot.colour}`));
   assert.ok(leanDistanceJS({ D: -1, R: 1, u: 0.3125, clip: [0, 1, 12], dotted: true }) > 1, 'the gap\'s distance past the wall');
   assert.equal(leanDistanceJS({ D: -1, R: 1, u: 0.04, clip: [0, 1, 12], dotted: true }), -1, 'a dot\'s centre: unchanged');
 });
