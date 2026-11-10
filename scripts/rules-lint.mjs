@@ -163,6 +163,18 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   for (const [re, why] of compRules) if (!re.test(comp)) errors.push(`src/ui/veins-gl.js composite(): ${why} (${re})`);
   if (!(comp.indexOf('drawHeads(m, layer, glow, warm, useStack, stillUse);') > comp.indexOf('UC.i1(U.bloodOnly, 1);'))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn after the blood-only picture');
   if (!(comp.indexOf('if (quads) drawHeads(m, false, glow, warm, useStack, false);') < comp.indexOf("gpuProbe.time(gl, 'catheter', cathT);"))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn again, in a catheter box, before the catheter timing');
+  // The Tube vessel renderer (10 Nov 2026, docs/tube-renderer.md): no hybrid, and the draw buffers set once.
+  need('src/ui/veins-gl.js', [
+    ['if ((pMode === 0 || pMode >= 3) && meshUse() && (tubePick ? tubePass(pM, pLook) : meshPass(pM, pLook))) return;', 'Tube chosen never reaches meshPass (no hybrid: when it is not ready, meshUse() is false and the classic pass draws)'],
+  ]);
+  {
+    const vg = text('src/ui/veins-gl.js');
+    const body = (from, to) => vg.slice(vg.indexOf(from), vg.indexOf(to, vg.indexOf(from)));
+    const tubeDrawBody = body('function tubeDraw(', 'function tubePair(');
+    if (!tubeDrawBody || /drawBuffers/.test(tubeDrawBody)) errors.push('src/ui/veins-gl.js tubeDraw: holds no gl.drawBuffers (the strip and the patch write the same four targets, so the draw buffers never change between them)');
+    const tubePassBody = body('function tubePass(', '// A one-pass build ready to draw');
+    if (!tubePassBody || /MESH_NONE/.test(tubePassBody)) errors.push('src/ui/veins-gl.js tubePass: holds no MESH_NONE (the prepass masks the colour; it never turns the draw buffers off)');
+  }
   need('src/ui/veins-gl.js', [
     [/heads: who === 'stage' \?/, 'the lobule is given no axes: its renderer keeps the composite heads'],
     [/void lymphAt\(float s, float y, vec4 f0, float len, float R, out float cover, out float core\)/, 'the composite has a lymph dash function'],
