@@ -21,7 +21,7 @@ export function createMorph(st, live) {
   const MORPH_NEAR = 10;   // (and a pair's every contact, veinJoins)
   const MORPH_STEPS = 12, MORPH_SLACK = 6, MORPH_JSLACK = 30, MORPH_JSUB = 3;
   const mt = { key: '', parts: null, firstAt: null, build: null, pieces: null, using: null, gen: 0, reach: [null, null], landAt: 0,
-    stats: { gpu: 0, cpu: 0, builds: 0, miss: {}, restart: null, last: null, units: {}, over: 0 } };
+    stats: { gpu: 0, cpu: 0, builds: 0, miss: {}, restart: null, last: null, units: {}, over: 0, coilKept: 0 }, coilCheck: null };
   const morphMiss = (why) => { mt.stats.miss[why] = (mt.stats.miss[why] || 0) + 1; return false; };
   function morphOff() {
     if (!mt.using) return;
@@ -161,7 +161,7 @@ export function createMorph(st, live) {
   // The building is a may task (frame.js): a slice a frame at most, each under SLICE_MS, held for motion and input. The first check is
   // made in the frame after the first binning (the first picture), not 400 ms after it; later ones settle for 400 ms (a burst of
   // binnings is one check).
-  const TRACK_TAG = 'view-switch pieces', CHECK_TAG = 'view-switch check', SLICE_MS = 8, SETTLE_MS = 400, COIL_WAIT_MS = 3000;
+  const TRACK_TAG = 'view-switch pieces', CHECK_TAG = 'view-switch check', COIL_TAG = 'view-switch coil check', SLICE_MS = 8, SETTLE_MS = 400, COIL_WAIT_MS = 3000;
   function morphTrackSoon() {
     if (!MORPH_GPU || mayWaiting(CHECK_TAG)) return;
     mayTask(CHECK_TAG, morphTrackCheck, { notBefore: mt.parts || mt.firstAt ? performance.now() + SETTLE_MS : 0 });
@@ -183,13 +183,66 @@ export function createMorph(st, live) {
     if (!d.length) return;
     // (Only the coil differs and it is still easing: wait for it to settle, the sets already made keep serving the frames that fit them.)
     if (d.length === 1 && d[0] === 'coil shape' && live.coilEasing) { morphTrackSoon(); return; }
+    // (Only the coil differs, settled: the pieces are made again only if the new shape leaves the courses they were binned for (coilFits).)
+    if (d.length === 1 && d[0] === 'coil shape') { coilCheckStart(parts); return; }
     morphTrackStart(parts, `${d.join(' + ')} changed`);
+  }
+  // ── A coil that settled at a shape close to the one the pieces were made for (10 Nov 2026) ──
+  // At rest on a slide the model's varix size steps now and then (varix-look.js varixHold), and a collateral's coil or a varix's fan settles
+  // a little away from where it was: the coil part of the key changed, and every such step made all six pieces again (Mohammad's Mac ?perf on
+  // a Doppler slide at rest: 6 builds, "coil shape changed", 1454 ms of main-thread work in 86 slices, the longest 237 ms, and each upload a
+  // whole vessel redraw). The pieces keep, for each moment of their stretch, the raw courses of the coiled vessels and their strands as they
+  // were binned (coilRaw, morphPrep); the new courses at the same moments (vesselAt, strandAt) are held against them, one piece a slice, and
+  // while every point is within half the slack the pieces stay: a frame of the change is still checked against its stretch's courses with
+  // the whole slack (stage-vessels.js frameFrom) and binned on the CPU if it does not fit, so a kept piece never draws wrong.
+  const COIL_NEAR = (MORPH_SLACK / 2) ** 2;
+  const coily = (x) => (x.e.kind === 'collateral' && !x.e.spontaneous) || !!x.strands?.length;
+  const flatPts = (P) => { const a = new Float64Array(P.length * 2); for (let i = 0; i < P.length; i++) { a[2 * i] = P[i][0]; a[2 * i + 1] = P[i][1]; } return a; };   // alloc-rare: a stretch's moment, made ahead between frames
+  function coursesNear(R, P) {
+    if (!R || !P || R.length !== P.length * 2) return false;
+    for (let i = 0; i < P.length; i++) { const dx = P[i][0] - R[2 * i], dy = P[i][1] - R[2 * i + 1]; if (dx * dx + dy * dy > COIL_NEAR) return false; }
+    return true;
+  }
+  // Whether piece pc's coiled courses at each of its moments are still near the ones it was binned from, for the vessels `changed`.
+  function coilFits(pc, changed) {
+    if (!pc?.set || pc.set.owner !== live.veins || !pc.coilRaw || !pc.ts) return false;
+    for (let q = 0; q < pc.ts.length; q++) {
+      const t = pc.ts[q];
+      for (const x of changed) {
+        const R = pc.coilRaw.get(x.row);
+        if (!R) continue;   // (not in this stretch: whether it shows is the key's anat and circ, judged on their own)
+        const v = vesselAt(x, t);
+        if (!coursesNear(R[q], v.pts)) return false;
+        if (!pc.anat) continue;
+        for (const sd of x.strands || []) { const S = pc.coilRaw.get(sd.row); if (S && !coursesNear(S[q], strandAt(x, sd, t, v))) return false; }
+      }
+    }
+    return true;
+  }
+  function coilCheckStart(parts) {
+    const A = mt.parts.coil.split(','), B = parts.coil.split(','), changed = [];
+    for (let i = 0; i < EV.length; i++) if (A[i] !== B[i]) changed.push(EV[i]);
+    mt.coilCheck = { parts, changed, i: 0, gen: mt.gen };
+    mayTask(COIL_TAG, coilCheckStep);
+  }
+  function coilCheckStep() {
+    const c = mt.coilCheck;
+    if (!c || c.gen !== mt.gen || mt.parts?.coil === c.parts.coil) { if (mt.coilCheck === c) mt.coilCheck = null; return false; }
+    if (inMotion() || live.coilEasing || live.morph !== live.morphTarget) { mt.coilCheck = null; morphTrackSoon(); return false; }   // (asked again once it rests)
+    if (!coilFits(mt.pieces?.[c.i], c.changed)) { mt.coilCheck = null; morphTrackStart(c.parts, 'coil shape changed'); return false; }
+    if (++c.i < MORPH_PIECES.length) return true;
+    // (Every piece still fits: the key takes the new coil, the pieces stay.)
+    mt.coilCheck = null;
+    mt.parts = c.parts; mt.key = `${c.parts.anat}|${c.parts.circ}|${c.parts.turn}|${c.parts.coil}`;
+    mt.stats.coilKept++;
+    return false;
   }
   function morphTrackStart(parts, reason) {
     // (The stretches made before stay on until each new one is up: a frame of the change still checks its courses against the one it
     // draws from. Those of a figure since replaced are of no use.)
     if (mt.pieces?.some((pc) => pc.set && pc.set.owner !== live.veins)) morphDrop();
     mt.stats.builds++;
+    mt.coilCheck = null; cancelMay(COIL_TAG);
     mt.gen++; mt.parts = parts; mt.key = `${parts.anat}|${parts.circ}|${parts.turn}|${parts.coil}`;
     mt.pieces ||= MORPH_PIECES.map(([t0, t1]) => ({ t0, t1, anat: t0 < 0.5, set: null, tight: true, gen: 0 }));
     const now = performance.now();
@@ -331,6 +384,9 @@ export function createMorph(st, live) {
     pc.work = null;
     const { items, own, o } = w;
     snaps.push({ t, items, ...w.all, J2: o.J.concat(w.J2), own: new Map(own.map((it) => [it.row, o.smooth.get(it.row) || it.pts])) });
+    // (The coiled vessels' and their strands' raw courses at this moment, kept with the piece: a coil that settles near them keeps it, coilFits.)
+    const coilRaw = pc.coilRaw ||= new Map(), sq = snaps.length - 1;
+    for (const it of items) if ((it.kind === 'v' || it.kind === 's') && coily(it.x)) { let a = coilRaw.get(it.row); if (!a) coilRaw.set(it.row, a = []); a[sq] = flatPts(it.pts); }
     if (snaps.length < ts.length) return kind;
     const rows = rowKey(snaps[0].items);
     if (snaps.some((sn) => rowKey(sn.items) !== rows)) { pc.bad = 'vessels'; pc.snaps = null; morphPut(bd, i, pc); return kind; }

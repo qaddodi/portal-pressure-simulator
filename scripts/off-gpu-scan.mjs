@@ -334,7 +334,7 @@ export function scan({ root = ROOT } = {}) {
     const ast = parseJs(file, text);
     const mod = { file, text, motionProps: [], fns: new Map(), origins: new Map(), calls: new Map(), imports: new Map(), exports: new Map(), seeds: new Set(), obsSeeds: new Set(), softSeeds: new Set(), late: [], regs: [], alias: new Map(), decls: new Map(), shapes: new Map() };
     mods.set(file, mod);
-    const frameCallers = new Set(['requestAnimationFrame', 'frame', 'lateFrame', 'finalFrame']);
+    const frameCallers = new Set(['requestAnimationFrame', 'frame', 'readFrame', 'lateFrame', 'finalFrame']);
     // (raf = frameFor('x'), and imported scheduler names under any local alias)
     visit(ast, null, (n) => {
       if (n.type === 'ImportDeclaration') {
@@ -345,10 +345,10 @@ export function scan({ root = ROOT } = {}) {
           mod.imports.set(s.local.name, [rel, s.imported.name]);
           const made = /^(create|make)([A-Z]\w*)$/.exec(s.local.name);
           if (made) mod.origins.set(made[2][0].toLowerCase() + made[2].slice(1), rel);
-          if (rel === SCHEDULER && ['frame', 'lateFrame', 'finalFrame'].includes(s.imported.name)) frameCallers.add(s.local.name);
+          if (rel === SCHEDULER && ['frame', 'readFrame', 'lateFrame', 'finalFrame'].includes(s.imported.name)) frameCallers.add(s.local.name);
         }
       }
-      if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init?.type === 'CallExpression' && /^(frameFor|lateFrameFor|finalFrameFor)$/.test(calleeName(n.init) || '')) frameCallers.add(n.id.name);
+      if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && n.init?.type === 'CallExpression' && /^(frameFor|readFrameFor|lateFrameFor|finalFrameFor)$/.test(calleeName(n.init) || '')) frameCallers.add(n.id.name);
       if (n.type === 'VariableDeclarator' && n.id.type === 'Identifier' && /raf|Frame$/i.test(n.id.name) && n.init && /frameFor|frame\(|Frame\(/.test(text.slice(n.init.start, n.init.end))) frameCallers.add(n.id.name);
     });
     let uid = 0;

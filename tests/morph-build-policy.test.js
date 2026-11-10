@@ -46,8 +46,8 @@ void newJoinStore;
 const N_SAMPLES = 4;
 /** A fake stage: two vessels, joins that cost `cost.joins` ms a pass, a worker that answers at once, and a GPU that makes a set in `cost.set` ms. */
 function boot(cost = { joins: 0, set: 0 }) {
-  const mk = (id, row) => ({ e: { id, kind: 'vein' }, row, width: 2, isArt: false, ghost: false, strands: [], feeders: [], cbr: null });
-  const EV = [mk('a', 0), mk('b', 1)];
+  const mk = (id, row, kind = 'vein') => ({ e: { id, kind }, row, width: 2, isArt: false, ghost: false, strands: [], feeders: [], cbr: null });
+  const EV = [mk('a', 0, 'collateral'), mk('b', 1)];
   const geo = { a: { cur: true, wig: 0, spr: 1 }, b: { cur: true, wig: 0, spr: 1 } };
   const shown = { a: true, b: true };
   const log = { sets: [], sweeps: [], units: 0 };
@@ -65,7 +65,8 @@ function boot(cost = { joins: 0, set: 0 }) {
   const st = {
     BLOOD_PAD: 2, EV, GL_ROWS: 2, N_SAMPLES, cavaAsOne: (items) => items, cbAt: () => [], geo, itemRadii: () => [0, () => 1], reachOf: () => 12, strandAt: () => [],
     veinJoins: () => { clock.T += cost.joins; log.units++; return []; },
-    vesselAt: (x, t) => ({ pts: Array.from({ length: N_SAMPLES }, (_, i) => [t * 100 + i, x.row * 50 + i]) }),
+    // (a coil moves the collateral's course 10 px for each unit of wig, as the stage's wiggle moves it off its line)
+    vesselAt: (x, t) => ({ pts: Array.from({ length: N_SAMPLES }, (_, i) => [t * 100 + i, x.row * 50 + i + 10 * (geo[x.e.id].wig || 0) * (1 - t)]) }),
     edgeVisible: (x) => shown[x.e.id],
     wrap: { classList: { contains: (c) => c === 'gl-on' } },
   };
@@ -126,6 +127,32 @@ test('a turn or a coil on its way does not restart the build; one that settles a
   assert.match(m.mt.stats.restart.reason, /vessels shown/);
   await frames(4000);
   assert.equal(ready(m), 6);
+  cancelMay('view-switch pieces');
+});
+
+test('a coil that settles close to the shape the pieces were made for keeps them; one that leaves their courses makes them again', async () => {
+  const { m, geo } = boot();
+  m.morphTrackSoon();
+  await frames(4000);
+  assert.equal(ready(m), 6);
+  const poke = async () => { m.morphTrackSoon(); await frames(2500); };
+  // 2 px off the binned courses (a varix's size stepping at rest): within half the slack, kept, and the key takes the new shape.
+  geo.a.wig = 0.2; await poke();
+  assert.equal(builds(m), 1, `a near coil: ${m.mt.stats.restart.reason}`);
+  assert.equal(m.mt.stats.coilKept, 1);
+  assert.equal(ready(m), 6, 'the pieces stay on the GPU');
+  assert.match(m.mt.key, /0\.2\/1\.00/);
+  // 10 px off them: made again.
+  geo.a.wig = 1; await poke();
+  assert.equal(builds(m), 2);
+  assert.match(m.mt.stats.restart.reason, /coil shape/);
+  await frames(4000);
+  assert.equal(ready(m), 6);
+  // Judged against the courses the pieces were binned from, not the last kept key: 0.2 then 0.4 from 1 is 6 px in all, made again.
+  geo.a.wig = 1.2; await poke();
+  assert.equal(builds(m), 2, 'a near step is kept');
+  geo.a.wig = 1.4; await poke();
+  assert.equal(builds(m), 3, 'the steps add up against the binned courses');
   cancelMay('view-switch pieces');
 });
 

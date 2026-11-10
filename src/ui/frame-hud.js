@@ -444,7 +444,7 @@ export function startFrameHud() {
     // (R1, 10 Nov 2026: how long the pieces took to make and what made them again last.)
     if (ms?.building || ms?.last || ms?.restart) {
       const at = performance.now(), b = ms.building, l = ms.last, r = ms.restart;
-      L.push(`  view switch pieces build: ${b ? `under way, ${b.done} of ${ms.of || 6} made after ${f((at - b.since) / 1000)} s (${f(b.busy)} ms of work, longest slice ${f(b.longest)} ms)` : l ? `took ${f(l.wallMs / 1000)} s (${f(l.busyMs)} ms of work in ${l.slices} slices, longest ${f(l.longestMs)} ms${l.bad ? `, ${l.bad} failed` : ''})` : 'not started'}${r ? `; last started ${f((at - r.at) / 1000)} s ago: ${r.reason}` : ''}; builds ${ms.builds}, slices over 8 ms ${ms.over}`);
+      L.push(`  view switch pieces build: ${b ? `under way, ${b.done} of ${ms.of || 6} made after ${f((at - b.since) / 1000)} s (${f(b.busy)} ms of work, longest slice ${f(b.longest)} ms)` : l ? `took ${f(l.wallMs / 1000)} s (${f(l.busyMs)} ms of work in ${l.slices} slices, longest ${f(l.longestMs)} ms${l.bad ? `, ${l.bad} failed` : ''})` : 'not started'}${r ? `; last started ${f((at - r.at) / 1000)} s ago: ${r.reason}` : ''}; builds ${ms.builds}, slices over 8 ms ${ms.over}${(() => { let k = '', u = null; for (const n in ms.units || {}) if (!u || ms.units[n].max > u.max) { k = n; u = ms.units[n]; } return u ? `, longest unit: ${k} ${f(u.max)} ms` : ''; })()}${ms.coilKept ? `; coil changes kept ${ms.coilKept}` : ''}`);
     }
     const ft = fenceText();
     if (ft) L.push(`  raw: ${ft}`);

@@ -10,7 +10,7 @@ import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './u
 import { FONT, textW } from './charts.js';
 import { logAction, shownVel, store } from './store.js';
 import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js';
-import { frameFor, noteDraw, paceMs, cancelFrame, frameAnimating } from './frame.js';
+import { readFrameFor, noteDraw, paceMs, cancelFrame, frameAnimating, framePart } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js';
 import { calloutCell } from './trace-callouts.js';
@@ -25,7 +25,14 @@ import { restPass } from './rest-pass.js';
 import { createTraceGL, fitPen, keepLayer } from './trace-gl.js';
 import { attrSoon, classSoon, dataSoon, propSoon, runSoon } from './class-soon.js';
 import { dropFront } from './drop-front.js';
-const nextFrame = frameFor('doppler');
+// (The trace is drawn and handed over in the frame's READ phase, its very start, as the cards' pictures are (svg-gl.js, 787f66b). The hand-over
+// (trace-gl.js end: transferToImageBitmap) makes Safari wait for the GPU to finish everything queued before it: drawn in the early phase, after
+// the figure (priority 0) had queued its frame, that was the figure's GPU work, and the Doppler read 5-11 ms of script a frame at rest on a
+// Doppler slide (10 Nov 2026, Mohammad's Mac ?perf: 34 fps, "doppler 6.8 ms"). At the frame's start the GPU has finished the last frame and the
+// wait is the trace's own draw. Its words are set through the soon queues (class-soon.js) and its layout is read between frames (stripLayout),
+// so nothing here reads or writes the page's layout. The pacing (paceMs) is the same.)
+const nextFrame = readFrameFor('doppler');
+const endPen = (ctx) => ctx.end?.();
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
 // What the Doppler calls a vessel: a stent also names its course ("TIPS RPV → RHV"), read from where the model connects it.
@@ -983,7 +990,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   function draw(now = performance.now()) {
     const pen = fitPen(cv, words);
-    try { drawWith(pen, now); } finally { pen.ctx.end?.(); }
+    try { drawWith(pen, now); } finally { framePart('doppler: hand over', endPen, pen.ctx); }   // (named, so ?perf says how much of the Doppler is the GPU wait)
   }
   // The velocity scale's ticks, numbers and unit, drawn from SL by the kept layer (see drawWith).
   const SL = { ver: 0, w: 0, hh: 0, scale: 0, baseY: 0, pxPerV: 0, padL: 0, padT: 0, W: 0, H: 0, ovOn: false, lw: 0, yLab: 0, i1: '', i2: '', i3: '' };

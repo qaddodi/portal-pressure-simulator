@@ -849,7 +849,13 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
         // of card sizes keep sharing one steady buffer (U2), as their window is never that much larger than any of them.)
         const ownW = capOf(Wd), ownH = capOf(Hd);
         let fitW = capOf(Math.max(shared.lastW, shared.winW, Wd)), fitH = capOf(Math.max(shared.lastH, shared.winH, Hd));
+        if (big) shared.bigAt = t;
         if (big || fitW * fitH > ownW * ownH + WASTE_PX) { fitW = ownW; fitH = ownH; }
+        // (While a big layer draws frame after frame (a slide's Doppler card over a quarter of a small screen: its trace scrolls every frame),
+        // a small chart between two of its frames draws in the buffer as it is, when it fits there and that costs at most WASTE_PX beyond its
+        // own: cut back to the window's size and grown again for every small picture, the buffer was made again 14 times a second beside 34
+        // Doppler hand-overs (10 Nov 2026, Mohammad's Mac ?perf). Once no big layer has drawn for SHRINK_MS the window's rule above holds again.)
+        else if (t - (shared.bigAt || -Infinity) <= SHRINK_MS && glCanvas.width >= fitW && glCanvas.height >= fitH && glCanvas.width * glCanvas.height <= ownW * ownH + WASTE_PX) { fitW = glCanvas.width; fitH = glCanvas.height; }
         if (glCanvas.width !== fitW || glCanvas.height !== fitH) {
           glCanvas.width = fitW; glCanvas.height = fitH; sharedStats.resizes++;
         }
