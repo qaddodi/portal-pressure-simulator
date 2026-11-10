@@ -257,3 +257,11 @@ test('the lumen layer lays the vessel layer\'s cel tones on its colour, over the
     assert.ok(text.indexOf('col = celTones(') > text.indexOf('dyeAt('), 'after the dye, the last thing done to the colour');
   }
 });
+
+test('V7: blood that shows trouble is wired in for style P only, and `still` is a uniform of the compositor\'s type', () => {
+  assert.ok(LUMEN.includes('vec4 troubleAt('), 'blood-trouble.js\'s text is included');
+  assert.ok(LUMEN.includes('if (bloodStyle == 3) { tr = troubleAt(id1, s1, y1, R1, len1, f0.y, f1.w > 0.5); f0.z *= tr.z; }'));
+  assert.ok(LUMEN.includes('bloodAt(id1, tr.x, tr.y, col, f0, f1, len1, R1, vc1)'));
+  assert.equal(uniformTypes(LUMEN).get('still'), 'int');
+  assert.equal(uniformTypes(gl.COMP_FS()).get('still'), 'int');
+});

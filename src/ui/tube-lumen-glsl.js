@@ -36,6 +36,7 @@
 // (ent, organ, organRect, useOrgan, organK, invA, tOff, lOff, sizeF, netAlpha, tierAlpha, tierGroup, posBase). `tube` and `rad` come with
 // compLumenUniforms. The world size of a device pixel is pxW (the compositor's), not lean's `px`: the feed is the same number.
 import { shadeGLSL } from './veins-mesh-glsl.js';
+import { TROUBLE_GLSL } from './blood-trouble.js';
 import { compLumenUniforms, compLumenFns, N_SAMPLES as COMP_N, S_OFF } from './comp-glsl.js';
 import { tubeJoinFS, JOIN_IN_GLSL } from './tube-join-glsl.js';
 import { celToneGLSL } from './tube-cel-glsl.js';
@@ -92,6 +93,7 @@ uniform int fx;                        // 1: shading (off in the figure view): t
 uniform int blood;                     // 1: draw the blood
 uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
 uniform float flowA;                   // 0..1: how visible the moving blood is (it fades in once the view is still)
+uniform int still;                     // 1: reduced motion (blood-trouble.js freezes its swirl)
 uniform highp sampler2D ent;
 uniform sampler2D organ;               // organ covers (alpha), world space
 uniform vec4 organRect;                // world x, y, w, h of the organ texture
@@ -112,6 +114,8 @@ vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
 vec2 PT(int id, int i) { int t = posBase + id * ${N_SAMPLES / 2} + (i >> 1); vec4 v = texelFetch(ent, ivec2(t % ${ENT_W}, t / ${ENT_W}), 0); return (i & 1) == 0 ? v.xy : v.zw; }
 // (alongAt, radAt, the noise styles, bloodAt, castAt, lymphAt, originAt, the dye: the compositor's own text, compLumenFns.)
 ${compLumenFns()}
+
+${TROUBLE_GLSL}
 
 ${fnText(shade, 'void vesAttrs(')}
 
@@ -206,7 +210,11 @@ void main() {
   }
   bool isLy = f1.x < -0.5;   // (a lymph row: dashes, never blood streaks)
   if (blood == 1 && blendA.x > 0.0 && f1.z > 0.0 && !isLy) {
-    vec4 A = bloodAt(id1, s1, y1, col, f0, f1, len1, R1, vc1);
+    // Blood that shows trouble (V7, blood-trouble.js; style P only): a shimmer where the flow reverses, a jet and eddies at a narrowing. The place
+    // the streaks are drawn at is bent, their density (the flux) scaled; untroubled blood is (s1, y1, 1) and byte for byte as before.
+    vec4 tr = vec4(s1, y1, 1.0, 0.0);
+    if (bloodStyle == 3) { tr = troubleAt(id1, s1, y1, R1, len1, f0.y, f1.w > 0.5); f0.z *= tr.z; }
+    vec4 A = bloodAt(id1, tr.x, tr.y, col, f0, f1, len1, R1, vc1);
     float a = A.a * (1.0 - castAt(id1, s1, len1));
     if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
   }
