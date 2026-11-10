@@ -151,10 +151,13 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       const t = marked >= 0 ? marked : interior >= 0 ? interior : pairA;
       if (t < 0) continue;
       const tRow = S.row[t], tSample = S.sample[t];
+      let branches = 0;
       for (let a = 0; a < nl; a++) {
         if (a === pairA || a === pairB || S.row[a] === tRow || S.mark[a] > 0.1 || !isEnd(a)) continue;
-        setEnd(a, endTrunk(tRow, tSample));
+        if (setEnd(a, endTrunk(tRow, tSample))) branches++;
       }
+      // A trunk whose own end the branches leave from, with no row carrying on, ends flat there and its round cap is gone (the arms' caps and the web make the fork; the cap showed as a disc, 10 Nov): its end code is itself.
+      if (branches > 0 && t !== pairA && t !== pairB && isEnd(t)) setEnd(t, endContinues(tRow, tSample));
     }
   }
   let exact = 0, joinOnly = 0, ended = 0;

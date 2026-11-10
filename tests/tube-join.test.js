@@ -131,7 +131,7 @@ ${tubeJoinVS(64)}`;
   assert.match(fs, /bool atStart = vI < 8\.0;/);
   assert.match(fs, /if \(!atStart && !\(vI > 55\.0\)\) return j;/);
   assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) { j.drop = true; return j; }`));
-  assert.match(fs, /if \(gap < -0\.5 \* px\) \{ j\.drop = true; return j; \}/);
+  assert.match(fs, /if \(gap < -0\.5 \* px && !beyond\) \{ j\.drop = true; return j; \}/);
   assert.ok(fs.includes(`j.fl = smoothstep(-${JOIN_FADE_IN} * R, ${JOIN_FADE_OUT.toFixed(1)} * R, gap);`));
   assert.ok(fs.includes(`j.fo = smoothstep(-${JOIN_FADE_LINE} * R, 0.0, gap);`));
   assert.ok(!/texelFetch|texture\(|vesAttrs|for \(/.test(fs), 'the fragment part reads nothing and loops over nothing');
@@ -213,4 +213,19 @@ test('the opacity ramp\'s GLSL lints in the lean shader\'s surroundings and deco
   const g = joinRampGLSL(0.55);
   assert.match(g, /float joinRamp\(JoinEnd j, float ownEff, float occl\)/);
   assert.match(g, /int tp = n & 31;/);
+});
+
+test('a trunk whose own end the branches leave from, with no row carrying on, ends flat (its code is itself): the branch is drawn beyond that end, the trunk draws nothing past it (no disc)', () => {
+  const t = line(-100, 0, 0, 0), own = line(0, 0, 60, 40), R = 6;
+  const rw = rowsOf({ 0: { pts: t, rad: t.map(() => R), tier: 7, colour: () => [0, 0, 0] } });
+  const self = joinOneJS({ e: endContinues(0, 63), atStart: false, own: { pts: t, tier: 7 }, id: 0, rows: rw });
+  assert.deepEqual(self.K, [0, JOIN_MODE.PLANE], 'a plane');
+  assert.deepEqual(self.J, [0, 0, 1, 0], 'at the end point, facing out along the trunk');
+  const e0 = joinOneJS({ e: endTrunk(0, 63), atStart: true, own: { pts: own, tier: 7 }, rows: rw });
+  assert.equal(e0.PT, -2, 'the branch knows the chord ends flat at b');
+  const at = (p) => joinEndJS({ vI: 2, J0: e0.J, J1: [0, 0, 0, 0], K: [...e0.K, -1, -1], C0: e0.C, C1: [0, 0, 0], PT0: e0.PT, p, R, px: PX });
+  assert.equal(at([3, 0]).drop, false, 'beyond the trunk\'s end, inside where its cap was: the branch\'s');
+  assert.equal(at([-3, 0]).drop, true, 'behind it, inside the trunk: the trunk\'s');
+  const plane = joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: self.J, K: [-1, -1, ...self.K], C0: [0, 0, 0], C1: self.C, p: [3, 0], R, px: PX });
+  assert.equal(plane.drop, true, 'and the trunk draws nothing past its end');
 });

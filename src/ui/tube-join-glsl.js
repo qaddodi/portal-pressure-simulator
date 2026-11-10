@@ -97,12 +97,18 @@ vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
     float hb = min(hl, length(c - PT(tr, 0))), hf = min(hl, length(PT(tr, ${LAST}) - c));
     K = vec2(r, texelFetch(tube, ivec2(2, id), 0).x > texelFetch(tube, ivec2(2, tr), 0).x + 0.5 ? 1.0 : 0.0);
     C.rgb = joinColour(tr, float(sm) / ${LAST}.0);
+    C.w = sm == ${LAST} ? -2.0 : sm == 0 ? -3.0 : -1.0;   // (the trunk's own end: with its cap gone the chord ends flat there, so the branch is drawn beyond it)
     return vec4(c - d * hb, c + d * hf);
   }
   if (e < -1.5) {
     int k = int(-e + 0.5) - 2, pr = k / ${END_BASE}, ps = k % ${END_BASE};
     vec2 E = PT(id, atStart ? 0 : ${LAST});
     vec2 dO = E - PT(id, atStart ? 2 : ${LAST - 2});
+    if (pr == id) {   // a trunk's own end that branches leave from, with no row carrying on: it ends flat, its round cap gone (the branches' own caps and the web make the fork)
+      float l0 = length(dO);
+      if (l0 > 1e-6) { K = vec2(0.0, 2.0); C = vec4(joinColour(id, float(ps) / ${LAST}.0), joinPack(id)); return vec4(E, dO / l0); }
+      return vec4(0.0);
+    }
     vec2 dP = PT(pr, ps) - PT(pr, ps == 0 ? 2 : ${LAST - 2});
     float lo = length(dO), lp = length(dP);
     if (lo > 1e-6 && lp > 1e-6) {
@@ -174,9 +180,18 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
   vec2 ba = J.zw - J.xy;
   float h = clamp(dot(p - J.xy, ba) / max(dot(ba, ba), 1e-8), 0.0, 1.0);
   float gap = length(p - J.xy - ba * h) - K.x;
+  // (A trunk's own end, its cap gone: past it the pixel is the branch's, whatever the chord's round end says.)
+  float fw = (atStart ? vC0 : vC1).w;
+  bool beyond = false;
+  if (fw < -1.5) {
+    vec2 dn = ba / max(length(ba), 1e-6);
+    beyond = fw < -2.5 ? dot(p - J.xy, dn) < 0.0 : dot(p - J.zw, dn) > 0.0;
+  }
   if (K.y < 0.5) {
-    if (gap < -0.5 * px) { j.drop = true; return j; }
+    if (gap < -0.5 * px && !beyond) { j.drop = true; return j; }
     j.wc = 1.0 - smoothstep(0.0, cw, gap);
+  } else if (beyond) {
+    return j;
   } else {
     j.fl = smoothstep(-${f(JOIN_FADE_IN)} * R, ${f(JOIN_FADE_OUT)} * R, gap);
     j.fo = smoothstep(-${f(JOIN_FADE_LINE)} * R, 0.0, gap);
@@ -241,10 +256,14 @@ export function joinOneJS(o) {
     const r = T.rad[sm];
     const d = ld > 1e-6 ? [d0[0] / ld, d0[1] / ld] : [1, 0], hl = Math.max(0.5 * ld, JOIN_REACH * r);
     const hb = Math.min(hl, len(sub(c, T.pts[0]))), hf = Math.min(hl, len(sub(T.pts[last], c)));
-    return { J: [c[0] - d[0] * hb, c[1] - d[1] * hb, c[0] + d[0] * hf, c[1] + d[1] * hf], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.FADE : JOIN_MODE.CUT], C: colOf(tr, sm / last), PT: -1 };
+    return { J: [c[0] - d[0] * hb, c[1] - d[1] * hb, c[0] + d[0] * hf, c[1] + d[1] * hf], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.FADE : JOIN_MODE.CUT], C: colOf(tr, sm / last), PT: sm === last ? -2 : sm === 0 ? -3 : -1 };
   }
   if (e < -1.5) {
     const k = Math.floor(-e + 0.5) - 2, pr = Math.floor(k / END_BASE), ps = k % END_BASE;
+    if (o.id !== undefined && pr === o.id) {
+      const P = o.own.pts, E = P[atStart ? 0 : last], dO = sub(E, P[atStart ? 2 : last - 2]), l0 = len(dO);
+      return l0 > 1e-6 ? { J: [E[0], E[1], dO[0] / l0, dO[1] / l0], K: [0, JOIN_MODE.PLANE], C: colOf(pr, ps / last), PT: joinPackJS(o.own.tier ?? 0, o.own.flags ?? 0, o.own.alpha ?? 1) } : { J: [0, 0, 0, 0], K: [-1, -1], C: [0, 0, 0], PT: -1 };
+    }
     const P = o.own.pts, Q = o.rows(pr).pts;
     const E = P[atStart ? 0 : last], dO = sub(E, P[atStart ? 2 : last - 2]), dP = sub(Q[ps], Q[ps === 0 ? 2 : last - 2]);
     const lo = len(dO), lp = len(dP);
@@ -277,11 +296,15 @@ export function joinEndJS(o) {
     return j;
   }
   const bx = J[2] - J[0], by = J[3] - J[1], qx = p[0] - J[0], qy = p[1] - J[1];
+  const fw = (atStart ? o.PT0 : o.PT1) ?? -1, bl = Math.max(Math.hypot(bx, by), 1e-6);
+  const beyond = fw < -1.5 && (fw < -2.5 ? qx * bx / bl + qy * by / bl < 0 : (p[0] - J[2]) * bx / bl + (p[1] - J[3]) * by / bl > 0);
   const h = clamp((qx * bx + qy * by) / Math.max(bx * bx + by * by, 1e-8), 0, 1);
   const gap = Math.hypot(qx - bx * h, qy - by * h) - K[0];
   if (K[1] < 0.5) {
-    if (gap < -0.5 * px) { j.drop = true; return j; }
+    if (gap < -0.5 * px && !beyond) { j.drop = true; return j; }
     j.wc = 1 - smooth(0, cw, gap);
+  } else if (beyond) {
+    return j;
   } else {
     j.fl = smooth(-JOIN_FADE_IN * R, JOIN_FADE_OUT * R, gap);
     j.fo = smooth(-JOIN_FADE_LINE * R, 0, gap);

@@ -80,7 +80,8 @@ test('tubeRows: an end of the trunk\'s own does not end it on itself, and a row 
     { x: 0.4, y: 20, reach: 14, k: 0.4, fillet: 1, members: [1, 2], trunk: 1 },
   ]);
   const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
-  assert.deepEqual(rec(out.rows, 0), [0, TUBE_NO_END, TUBE_NO_END, 2], 'a trunk is not on a vessel');
+  assert.deepEqual(rec(out.rows, 0), [0, endContinues(0, 0), TUBE_NO_END, 4], 'a trunk is not on a vessel; its own end the branches leave from, with no row carrying on, is flat, its cap gone (it ends on itself)');
+  assert.equal(out.rows[1 * 4 + 1], endContinues(1, 0), 'and so is the second trunk\'s');
   assert.equal(out.rows[2 * 4 + 1], 0 * N_SAMPLES + 0, 'row 2 starts on row 0 at its sample 0');
   assert.equal(out.rows[2 * 4 + 2], 1 * N_SAMPLES + 0, 'and ends on row 1 at its sample 0');
 });
