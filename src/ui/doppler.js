@@ -490,7 +490,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
       note = 'The IVC follows the right atrium: respiratory and cardiac phasicity.';
     } else {
       dir = j.none ? 'No flow' : r.mean > 0 ? 'Portal → systemic' : 'Systemic → portal'; sev = j.none ? 'ok' : 'caution';
-      pattern = j.none ? 'Closed' : 'Open collateral';
+      // (A collateral with no flow reads "No flow · No signal", as a clotted vein does: Mohammad, 10 Nov 2026, the glued varix's card.)
+      pattern = j.none ? 'No signal' : 'Open collateral';
       note = j.none ? 'This collateral carries no flow.' : 'Portal blood is bypassing the liver through this collateral.';
     }
     return say(dir, sev, pattern, note, pi, false);
@@ -860,7 +861,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     ivc: [['Toward the heart', 'Reversed'], ['Phasic, with reversal', 'Phasic', 'Continuous'], 2],
     artery: [['Antegrade', 'Reversed'], ['Resistive index 0.00'], 3],
     tips: [['Portal → hepatic vein', 'Portal → IVC', 'Reversed'], ['Occluded', 'Low velocity, jet', 'Low velocity', 'High velocity', 'Patent'], 3],
-    collateral: [['Portal → systemic', 'Systemic → portal'], ['Closed', 'Open collateral'], 2],
+    collateral: [['Portal → systemic', 'Systemic → portal'], ['No signal', 'Open collateral'], 2],
   };
   function stripWords() {
     const [dirs, pats, digits] = STRIP_WORDS[meta().kind] || STRIP_WORDS.portal;
