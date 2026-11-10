@@ -53,12 +53,14 @@ function fnText(text, head) {
 const f = (n) => (Number.isInteger(n) ? n.toFixed(1) : String(n));
 /** The lymph streaks' look (lobule): the ink at 0 % and at 100 % protein (the colours the old dashes used), the ramp between them, the density, how faint a poor lymph is. */
 export const LYMPH_INK = {
-  deepLight: [0.30, 0.56, 0.28], deepDark: [0.78, 0.95, 0.70], deepMix: 0.62,
-  amberLight: [0.89, 0.60, 0.12], amberDark: [0.95, 0.71, 0.29],
+  deepLight: [0.20, 0.46, 0.20], deepDark: [0.84, 1.0, 0.74], deepMix: 0.88,
+  amberLight: [0.86, 0.52, 0.04], amberDark: [1.0, 0.76, 0.26],
   ramp: [0.1, 0.9],   // protein 0 … 1 (lyProt 0.42 … 0.84): pure green below the first, pure amber above the second
-  occ: [0.45, 0.8],   // the share of a lane the streaks fill, poor to rich
-  faint: 0.45,        // the streaks' strength at 0 % protein (1 at 100 %)
-  glint: 0.25,        // how much of bloodAt's own streak colour (its light core) is kept
+  occ: [0.75, 1.0],   // the share of a lane the streaks fill, poor to rich
+  faint: 0.7,         // the streaks' strength at 0 % protein (1 at 100 %)
+  glint: 0.12,        // how much of bloodAt's own streak colour (its light core) is kept
+  gain: 2.6, cap: 0.92,   // bloodAt's alpha times this, at most cap: the lymph's channel is thin and pale, and the blood's own alpha left its streaks barely there (Mohammad, 10 Nov)
+  look: 36,           // the speed the streaks' LOOK (length, thickness) is worked at, the healthy trunk's: the lymph's own speed only moves them
 };
 
 /** A pixel is a web's when its vRad is more than this many times radAt's radius for its row (a web's is 4; a strip's is 1). */
@@ -197,9 +199,10 @@ void main() {
       int lkn = min(int(lcn), 5);
       float sumK = mix(LANE_K[lkn], LANE_K[lkn + 1], lcn - float(lkn));
       float occ = mix(${f(LYMPH_INK.occ[0])}, ${f(LYMPH_INK.occ[1])}, prot);
-      vec4 ly0 = vec4(sd.x, sd.y, occ * max(abs(sd.y), 2.0) * sumK / zoomB.z, 0.0);
+      float lyV = (sd.y < 0.0 ? -1.0 : 1.0) * max(abs(sd.y), ${f(LYMPH_INK.look)});   // (the look at the trunk's speed; the distance sd.x still moves them at the lymph's own)
+      vec4 ly0 = vec4(sd.x, lyV, occ * abs(lyV) * sumK / zoomB.z, 0.0);
       vec4 A = bloodAt(id1, s1, y1, col, ly0, vec4(1.0, 1.0, f1.z, 0.0), len1, R1, vc1);
-      float a = A.a * (1.0 - castAt(id1, s1, len1)) * mix(${f(LYMPH_INK.faint)}, 1.0, prot);
+      float a = min(A.a * ${f(LYMPH_INK.gain)} * mix(${f(LYMPH_INK.faint)}, 1.0, prot), ${f(LYMPH_INK.cap)}) * (1.0 - castAt(id1, s1, len1));
       col = mix(col, mix(ink, A.rgb, ${f(LYMPH_INK.glint)}), clamp(a * vis * flowA, 0.0, 1.0));
     } else {
       float lc, lk;
