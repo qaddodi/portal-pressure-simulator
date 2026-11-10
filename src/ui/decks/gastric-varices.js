@@ -91,7 +91,9 @@ export const GASTRIC = {
       // gastric variceal treatment slide should be its own slide, and the following slide will have to talk about embolizing and treating the
       // spleen". The glued varix (C2 occluded) carries on to the spleen's slide.)
       id: 'eusglue', params: { occluded: { C2: true } }, cam: 'splenic', terms: ['gv'], procedure: 'eusglue',
-      data: 'tiles', tiles: ['gv', 'pv'], key: ['gv'], delta: 'svt',
+      // (The instrument card is the varix's own Doppler, with the varix tile in its header: the trace runs through steps 1 to 4 and falls to "No flow" when the model closes C2 at step 5. The scope is the probe, so none is drawn on the figure: Mohammad, 10 Nov 2026, "do it except 10", eus-glue-steps.md item 3.)
+      tool: { kind: 'doppler', vessel: 'C2', probe: 'scope' },
+      data: 'tiles', tiles: ['gv'], key: ['gv'], delta: 'svt',
       kicker: 'A clotted splenic vein', site: 'pre', title: 'Coils and glue close the varix',
       line: 'Through the stomach wall, EUS guides coils and glue into the bleeding fundal varix: it closes, now {gv}. The splenic vein is still clotted, so the pressure behind it stays.',
       notes: 'Next plays the EUS-guided coils and glue step by step. Source: Baveno VIII 5.40; AASLD 2024. Baveno VIII: for a bleed from GOV2 or IGV1, conventional cyanoacrylate injection and EUS-guided therapy stop the bleeding about equally well; in experienced centres EUS-guided coils with cyanoacrylate may close more varices and cut late rebleeding (a weak recommendation). The echoendoscope finds the varix through the stomach wall with color Doppler; a 19-gauge needle enters it, the coils are pushed out of the needle and curl inside the varix, and the glue injected over them casts it. Doppler then shows no flow in the varix. In the model the varix closes and the gastrorenal shunt stays open; the portal vein pressure does not change. The glue treats the varix, not its cause: with the splenic vein still clotted the splenic side stays under pressure, so the spleen is treated next.',

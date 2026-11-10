@@ -23,6 +23,7 @@ const TILES_CHANGE = new Set([
   'outflow/normal>tr', 'outflow/tr>pulse', 'outflow/pulse>constrict',
   'cause-treated/high>high2',                                   // a second patient with her own pair of tiles
   'gastric-varices/tips>brto',                                  // the gastric varix tile replaces the liver tile
+  'gastric-varices/svt>eusglue',                                // the glued varix's Doppler keeps only the varix tile (the portal pressure does not move: 10 Nov 2026)
   'hyperdynamic/resist>volume',                                 // the vitals monitor, then the volume tiles
   'hyperdynamic/loss>over',                                     // the hemoglobin and the volume join for the eight units: where they end is the point
   'ten-years/d365>carv', // one patient over ten years: the tiles follow the event

@@ -122,7 +122,8 @@ export function createGlow(st, live) {
   let dopKeyOn = false, dopKeyId = null, dopKeySeg = '', dopKeyAll = false;   // (what dop.key was made of)
   const dopGlow = { id: null, col: 'var(--dop-glow)', amt: 1.1, wide: 0.8, dur: D_SURFACE, top: true, span: null }, dopGlowList = [dopGlow], noGlows = [];
   function dopApply() {
-    let id = dop.pin ?? dop.want ?? null;
+    // (pin false: the slide's Doppler reads a vessel with no probe on the figure, the scope is the probe (a tool's probe: 'scope'); Explore's choice does not bring one back.)
+    let id = dop.pin === false ? null : (dop.pin ?? dop.want ?? null);
     if (id && !E[id]) id = null;
     const st = store.get(), seg = id && isStent(EDGES[EI[id]]) ? stentGate(st.dopGate, st.params, id) : '';
     const all = !!seg && dop.points && id === dop.pin;

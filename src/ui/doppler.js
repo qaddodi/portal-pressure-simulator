@@ -62,6 +62,7 @@ const PROBES = [
   { id: 'DIPS', short: 'DIPS', kind: 'tips', normal: [90, 190] },
   { id: 'C1b', short: 'Varix C1', kind: 'collateral', normal: null },
   { id: 'C3', short: 'Paraumb. C3', kind: 'collateral', normal: null },
+  { id: 'C2', short: 'Varix C2', kind: 'collateral', normal: null },   // (the EUS coils and glue slide reads the fundal varix's feeder, 10 Nov 2026; it falls to "No flow" when the model closes it)
 ];
 for (const p of PROBES) p.name = p.kind === 'tips' ? `${p.short} ${stentCourse(EDGES[EI[p.id]])}` : p.short;
 // The fade a row takes when it comes in, and the two answers of the ?perf surfaces list: made once (animate() reads its keyframes and timing as it is called).

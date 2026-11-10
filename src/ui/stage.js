@@ -3044,7 +3044,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setDoppler(id) { dop.want = id; dopApply(); },
     /** The presenter's Doppler slide pins its vessel's glow, over whatever Explore's Doppler reads (null: unpin). points: on a
      *  stent, the figure calls out all three points it is sampled at, the sampled one named in the Doppler's green. */
-    pinDoppler(id, { points = false } = {}) { dop.pin = id; dop.points = !!id && points; dopApply(); },
+    pinDoppler(id, { points = false } = {}) { dop.pin = id; dop.points = !!id && points; dopApply(); },   // (false: no probe drawn at all, stage-glow.js dopApply)
     setScanProbe,
     setLabelScale(v) {
       labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);

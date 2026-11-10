@@ -3,6 +3,8 @@
 //
 //   tool: { kind: 'doppler', vessel: 'PV_TRUNK' }   spectral Doppler in one vessel (doppler.js PROBES ids); waves: true names
 //                                                   a hepatic vein's a, S, v and D waves on the trace
+//   tool: { kind: 'doppler', vessel: 'C2', probe: 'scope' }
+//                                                   the same with no probe on the figure: the endoscope is the probe (the EUS coils and glue slide)
 //   tool: { kind: 'scope' }                         the esophagus at this slide's varix state (endoscopy)
 //   tool: { kind: 'fibroscan' }                     liver stiffness, kPa (metrics.lsm)
 //   tool: { kind: 'fibroscan', organ: 'spleen' }    spleen stiffness on the 100 Hz spleen probe, kPa (metrics.ssm); the probe on the spleen
@@ -145,7 +147,10 @@ export function createTools({ host, stage }) {
         host.send({ type: 'probe', id: t.vessel || 'PV_TRUNK' });
         // (On a stent, the slide's gate: proximal, mid, distal, or 'site', the third that holds its narrowing.)
         if (store.get().dopGate !== (t.gate || 'mid')) store.set({ dopGate: t.gate || 'mid' });
-        stage?.pinDoppler?.(t.vessel || 'PV_TRUNK', { points: !!t.points });   // (points: the figure calls out all three of a stent's points)
+        // (probe: 'scope' is the EUS slide's Doppler, 10 Nov 2026, "the scope IS the probe": the card reads the vessel as always, but no transabdominal
+        // probe is drawn, steered or given room on the figure (pinDoppler false; cam-room.js leaves its place out too). Default off: every other slide pins.)
+        if (t.probe === 'scope') stage?.pinDoppler?.(false);
+        else stage?.pinDoppler?.(t.vessel || 'PV_TRUNK', { points: !!t.points });   // (points: the figure calls out all three of a stent's points)
       }
       inst.setWaves?.(!!t.waves);
       inst.configure?.(t, ctx);   // (an instrument's own options on this slide: a deck visuals package's, slide-ext.js)

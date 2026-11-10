@@ -153,7 +153,7 @@ function walk(s, tg) {
   for (let i = 0; i < tl.length; i++) if (!seenIn(sl, sl.length, tl[i]) && !seenIn(tl, i, tl[i])) walkLabel(tl[i]);
   for (const g of tg.groups || NONE) walkGroup(g);
   // (A probe on a vessel the plate does not draw, the hepatic artery, is in the data card alone.)
-  if (s.tool?.kind === 'doppler') {
+  if (s.tool?.kind === 'doppler' && s.tool.probe !== 'scope') {   // (a scope-sourced Doppler draws no probe, presenter-tools.js)
     const v = s.tool.vessel || 'PV_TRUNK';
     if (onVesselInto(v, PT)) addPlace(begin('probe', v, null));
   }
