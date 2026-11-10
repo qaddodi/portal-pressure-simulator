@@ -19,6 +19,11 @@
 // dash (at least 2.2 radii of half-length). The field fades to its exact mean coverage (density times the streak's area over the cell's
 // area) only where a whole cell is under 3 to 5 pixels long and cannot show one.
 //
+// Round 5 (the real app, "too tall and too few"): the mock had drawn the cell at 5.12 world units, but the composite's cell is 5.12 times
+// the parcel scale (SLOT = 7), 36 world units, and its lanes were the vessel's few wide lanes. Now a lane is a fixed few pixels (lanePx: 6
+// and 4) at every zoom, so a vessel holds dozens of thin streaks across, and a cell is 3 (not 9) of the composite's cells along the flow,
+// so a lane holds several along the vessel. pLaneW is then only the world distance across (qy times it); the lane height no longer uses it.
+//
 // Round 4 (Mohammad picked "D4, Mist with a glint" from a mock of variations): the streaks are now very long (cells 9 times longer), thin
 // (0.1 to 0.2 of the lane), very soft (SOFTE 0.8) with a slightly clearer head (HEAD0 0.2) and a little brighter (0.7 to 1).
 //
@@ -46,14 +51,14 @@ export const P = {
   HEAD0: 0.2,                 // the tail's share of the head's brightness
   OCC: 0.95,                  // the share of cells that hold a streak at a dens of 1
   SOFT: 6,                    // the thinning's slope: a streak fades over 1/6 of the random number's range
-  FRONT: { laneK: 1.4, sc: 1.0, len: 9.0, tsc: 1.0, bright: 1.0, seed: 0 },
-  BACK: { laneK: 1.0, sc: 0.7, len: 9.0, tsc: 0.72, bright: 0.7, seed: 0x5bd1e995 },   // (more, smaller lanes; slower; 0.7 of the brightness)
+  FRONT: { lanePx: 6.0, sc: 1.0, len: 3.0, tsc: 1.0, bright: 1.0, seed: 0 },
+  BACK: { lanePx: 4.0, sc: 0.7, len: 3.0, tsc: 0.72, bright: 0.7, seed: 0x5bd1e995 },   // (a finer lane, shorter cells; slower; 0.7 of the brightness)
   CELL_PX: [3, 5],            // the cell's length in pixels: under the first the field is the mean, over the second the streaks are drawn
 };
 
 const f = (x) => (Number.isInteger(x) ? `${x}.0` : String(x));
 const FR = P.FRONT, BK = P.BACK;
-const LAYER = (L) => `${f(L.laneK)}, ${f(L.sc)}, ${f(L.len)}, ${f(L.tsc)}`;
+const LAYER = (L) => `${f(L.lanePx)}, ${f(L.sc)}, ${f(L.len)}, ${f(L.tsc)}`;
 
 /** GLSL (no #version) that defines pNoise; needs `precision highp int` in the host. */
 export const P_GLSL = `
@@ -76,8 +81,8 @@ float pHalf(float vd, float g, float tsc, float cl) {
   return min(cl * (${f(P.HL0)} + ${f(P.HL1)} * sqrt(clamp(abs(vd) * g * 0.5 * tsc / ${f(P.SPEED_REF)}, 0.0, 1.7))), ${f(P.HL_MAX)} * cl);
 }
 // One layer at one flow-map phase (f: 0 to 1): the coverage of the streak in the pixel's cell and, where one could reach it, its neighbours'.
-float pLayer(int id, float s, float qw, float f, float cell, float drift, float vd, float px, float t, float laneK, float sc, float len, float tsc, uint seed) {
-  float laneH = laneK * pLaneW, cl = cell * sc * len;
+float pLayer(int id, float s, float qw, float f, float cell, float drift, float vd, float px, float t, float lanePx, float sc, float len, float tsc, uint seed) {
+  float laneH = lanePx * px, cl = cell * sc * len;
   float lane = floor(qw / laneH), qc = (lane + 0.5) * laneH;
   float g = pLaneG(min(abs(qc) * pInvR, 1.0));
   uint ul = uint(int(lane)), ui = uint(id);
@@ -110,8 +115,8 @@ float pLayer(int id, float s, float qw, float f, float cell, float drift, float 
 // A layer's mean coverage: the share of cells holding a streak, its mean brightness (0.8) and head ramp, times the capsule's mean area
 // (pi r^2 + 4 hl r; the soft edge leaves it as it is) over the cell's. The radius and half-length are the drawn ones, floored and dashed
 // as pLayer has them; the mean over the random size is taken at MEAN_N midpoints.
-float pMean(float cell, float ay, float vd, float t, float laneK, float sc, float len, float tsc, float px) {
-  float laneH = laneK * pLaneW, cl = cell * sc * len;
+float pMean(float cell, float ay, float vd, float t, float lanePx, float sc, float len, float tsc, float px) {
+  float laneH = lanePx * px, cl = cell * sc * len;
   float hl0 = pHalf(vd, pLaneG(ay), tsc, cl);
   float area = 0.0;
   for (int j = 0; j < ${P.MEAN_N}; j++) {
@@ -176,13 +181,13 @@ export function pCellRand(i, lane, id, seed) {
 }
 /** One cell's streak, in world units relative to its lane: where it sits (cx along from the cell's start, cy across from the lane's centre), its radius and half-length. */
 export function pParticle(r, cell, vd, cfg, L, lane = 0, ay = 0, px = 0) {
-  const laneH = L.laneK * cfg.laneW, cl = cell * L.sc * L.len;
+  const laneH = L.lanePx * px, cl = cell * L.sc * L.len;
   const r0 = Math.max(laneH * (P.WIDTH0 + P.WIDTH1 * r.hz), P.FLOOR_PX * px);
   const hl = Math.min(Math.max(pHalf(vd, pLaneG(ay), L.tsc, cl), P.DASH * r0), P.HL_MAX * cl);
   return { cx: (0.28 + 0.44 * r.hx) * cl, cy: (r.hy - 0.5) * Math.max(laneH - (2 + 2 * P.SOFTE) * r0, 0), r0, hl, laneH, cl, lane };
 }
 function pLayerJS(id, s, qw, fph, cell, drift, vd, px, t, L, cfg) {
-  const laneH = L.laneK * cfg.laneW, cl = cell * L.sc * L.len;
+  const laneH = L.lanePx * px, cl = cell * L.sc * L.len;
   const lane = Math.floor(qw / laneH), qc = (lane + 0.5) * laneH;
   const g = pLaneG(Math.min(Math.abs(qc) * cfg.invR, 1));
   const lo = (pHash(u32(lane | 0), u32(id), L.seed) & 0xffff) / 65536 * 31;
@@ -210,7 +215,7 @@ function pLayerJS(id, s, qw, fph, cell, drift, vd, px, t, L, cfg) {
 }
 /** A layer's mean coverage (pMean). */
 export function pMeanJS(cell, ay, vd, t, L, cfg, px) {
-  const laneH = L.laneK * cfg.laneW, cl = cell * L.sc * L.len;
+  const laneH = L.lanePx * px, cl = cell * L.sc * L.len;
   const hl0 = pHalf(vd, pLaneG(ay), L.tsc, cl);
   let area = 0;
   for (let j = 0; j < P.MEAN_N; j++) {

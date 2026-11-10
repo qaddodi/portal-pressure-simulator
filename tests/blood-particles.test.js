@@ -5,15 +5,17 @@ import { lintGLSL } from './glsl-lint.js';
 import { P_GLSL, STYLE_P, P, pNoiseJS, pFieldMean, pMeanJS, pCellRand, pParticle, pHash, pOnMean, pThreshold } from '../src/ui/blood-particles.js';
 import { D_CYCLE, STYLE_D, STYLE_E } from '../src/ui/blood-tile.js';
 
-const CELL = 5.12, LANE_W = 0.5, CFG = { laneW: LANE_W, invR: 0.0, dens: 1.0 };   // (invR 0: every lane at the axis speed, so the mean is the same in every lane)
-const PXC = 0.001;   // (a pixel is a thousandth of a cell: every particle is drawn)
+const CELL = 5.12 * 7;   // (the composite's cell: 5.12 times the first parcel scale, SLOT = 7)
+const PX = 0.5;          // (world units per device pixel at a typical view)
+const CFG = { laneW: 1, invR: 0.0, dens: 1.0 };   // (laneW 1: qy is the world distance across; invR 0: every lane at the axis speed, so the mean is the same in every lane)
+const PXC = PX / CELL;
 
 test('the shader lints as part of a host that declares nothing else', () => {
   const host = `#version 300 es
 precision highp float;
 precision highp int;
 out vec4 o;
-void main() { o = vec4(pNoise(1, 2.0, 0.3, 4.0, 0.2, 5.12, 0.1, 0.01, 12.0)); }`;
+void main() { o = vec4(pNoise(1, 2.0, 0.3, 4.0, 0.2, 35.84, 0.1, 0.01, 12.0)); }`;
   const src = host.replace('void main()', `${P_GLSL}\nvoid main()`);
   assert.deepEqual(lintGLSL(src), []);
   assert.equal(STYLE_P, 3);
@@ -41,8 +43,8 @@ test('coverage is 0 to 1 everywhere, at every speed, direction and density', () 
 
 test('the mean over many cells matches the stated mean within 3 % (4 % sampled)', () => {
   // (a) The closed form against the particles themselves: every cell of a long patch, its capsule's area, its brightness and head ramp.
-  for (const [vd, dens, px] of [[0, 0.5, 0.01], [6, 1, 0.01], [36, 1.35, 0.01], [0, 1, 0.55], [6, 0.8, 0.55], [36, 1, 0.55], [0, 1, 1.4]]) for (const L of [P.FRONT, P.BACK]) {
-    const cfg = { ...CFG, dens, laneW: Math.max(LANE_W, 3.2 * px) }, t = pThreshold(dens), cl = CELL * L.sc * L.len, laneH = L.laneK * cfg.laneW;   // (a lane is never under 3.2 px: bloodAt's laneW)
+  for (const [vd, dens, px] of [[0, 0.5, 0.01], [6, 1, 0.5], [36, 1.35, 0.5], [0, 1, 0.55], [6, 0.8, 0.2], [36, 1, 1.5], [0, 1, 1.4]]) for (const L of [P.FRONT, P.BACK]) {
+    const cfg = { ...CFG, dens }, t = pThreshold(dens), cl = CELL * L.sc * L.len, laneH = L.lanePx * px;
     let sum = 0, n = 0;
     for (let lane = 0; lane < 12; lane++) for (let i = 0; i < 8000; i++) {
       const r = pCellRand(i, lane, 2, L.seed), p = pParticle(r, CELL, vd, cfg, L, lane, 0, px);
@@ -52,22 +54,22 @@ test('the mean over many cells matches the stated mean within 3 % (4 % sampled)'
     const want = pMeanJS(CELL, 0, vd, t, L, cfg, px), got = sum / n;
     assert.ok(Math.abs(got - want) / want < 0.03, `layer ${L.sc} vd ${vd} dens ${dens} px ${px}: ${got} against ${want}`);
   }
-  // (b) The field itself, sampled at fixed random points, against the same mean (looser: a thousand particles' worth of sampling noise).
+  // (b) The field itself, sampled at fixed random points, against the same mean (looser: sampling noise).
   let seed = 12345;
   const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-  for (const [vd, dens, px] of [[0, 1, 0.01], [36, 0.5, 0.01], [6, 1.35, 0.01], [6, 1, 0.55], [36, 1, 0.55]]) {
-    const cfg = { ...CFG, dens, laneW: Math.max(LANE_W, 3.2 * px) }, want = pFieldMean(CELL, 0, vd, cfg, px), N = 600000;
+  for (const [vd, dens, px] of [[0, 1, 0.5], [36, 0.5, 0.5], [6, 1.35, 0.2], [6, 1, 1], [36, 1, 1.5]]) {
+    const cfg = { ...CFG, dens }, want = pFieldMean(CELL, 0, vd, cfg, px), N = 600000;
     let sum = 0;
-    for (let k = 0; k < N; k++) sum += pNoiseJS(2, rnd() * 1500 * CELL, (rnd() - 0.5) * 10, 16 * (k % 4) + rnd() * 3, 0, CELL, 0, px / CELL, vd, cfg);
+    for (let k = 0; k < N; k++) sum += pNoiseJS(2, rnd() * 600 * CELL, (rnd() - 0.5) * 80 * px, 16 * (k % 4) + rnd() * 3, 0, CELL, 0, px / CELL, vd, cfg);
     assert.ok(Math.abs(sum / N - want) / want < 0.04, `field vd ${vd} dens ${dens} px ${px}: ${sum / N} against ${want}`);
   }
 });
 
 test('slow blood is a short dash, never a dot; fast blood is a long streak, to at most 0.46 of the cell, longer with the square root of the speed', () => {
-  const cfg = CFG;
+  const cfg = CFG, at = (r, vd, L) => pParticle(r, CELL, vd, cfg, L, 0, 0, PX);
   for (const L of [P.FRONT, P.BACK]) {
     const r = pCellRand(7, 0, 1, L.seed);
-    const slow = pParticle(r, CELL, 0.0, cfg, L), mid = pParticle(r, CELL, 10, cfg, L), fast = pParticle(r, CELL, 36, cfg, L), huge = pParticle(r, CELL, 4000, cfg, L);
+    const slow = at(r, 0, L), mid = at(r, 10, L), fast = at(r, 36, L), huge = at(r, 4000, L);
     assert.ok(slow.hl >= P.DASH * slow.r0 - 1e-12, 'a dash even at rest: at least 2.2 radii of half-length');
     assert.ok(slow.r0 > 0);
     assert.ok(mid.hl >= slow.hl && fast.hl > mid.hl && huge.hl >= fast.hl);
@@ -77,34 +79,42 @@ test('slow blood is a short dash, never a dot; fast blood is a long streak, to a
   }
 });
 
-test('the radius is 0.1 to 0.2 of the lane, and the streak with its soft edge stays inside the lane', () => {
-  const cfg = { laneW: 1.76 };
-  for (const L of [P.FRONT, P.BACK]) {
+test('a streak is 0.9 px in radius or more, 0.1 to 0.2 of its lane when that is wider, and with its soft edge it stays inside the lane', () => {
+  for (const px of [0.2, 0.5, 1.5]) for (const L of [P.FRONT, P.BACK]) {
     let lo = Infinity, hi = 0;
     for (let i = 0; i < 4000; i++) {
-      const p = pParticle(pCellRand(i, 0, 1, L.seed), CELL, 0, cfg, L, 0, 0, 0);
-      lo = Math.min(lo, p.r0 / p.laneH); hi = Math.max(hi, p.r0 / p.laneH);
-      assert.ok(Math.abs(p.cy) + p.r0 * (1 + P.SOFTE) <= 0.5 * p.laneH + 1e-12, 'inside its lane, soft edge and all');
+      const p = pParticle(pCellRand(i, 0, 1, L.seed), CELL, 0, CFG, L, 0, 0, px);
+      lo = Math.min(lo, p.r0 / px); hi = Math.max(hi, p.r0 / px);
+      assert.ok(Math.abs(p.cy) + p.r0 * (1 + P.SOFTE) <= 0.5 * p.laneH + 1e-9, 'inside its lane, soft edge and all');
     }
-    assert.ok(lo >= P.WIDTH0 - 1e-9 && lo < P.WIDTH0 + 0.005 && hi <= P.WIDTH0 + P.WIDTH1 && hi > P.WIDTH0 + P.WIDTH1 - 0.005, `${lo} ${hi}`);
+    const top = Math.max(P.FLOOR_PX, (P.WIDTH0 + P.WIDTH1) * L.lanePx);
+    assert.ok(lo >= P.FLOOR_PX - 1e-9 && hi <= top + 1e-9 && hi > top - 0.02, `${px}: ${lo} to ${hi} px, top ${top}`);
   }
+});
+
+test('the lanes are the same few pixels at every zoom, so a wide vessel holds many streaks across (not a few tall ones)', () => {
+  for (const px of [0.1, 0.5, 2]) {
+    const lane = pParticle(pCellRand(1, 0, 1, 0), CELL, 10, CFG, P.FRONT, 0, 0, px).laneH / px;
+    assert.ok(Math.abs(lane - P.FRONT.lanePx) < 1e-9);
+  }
+  assert.ok(P.FRONT.lanePx <= 6 && P.BACK.lanePx <= 4.5, 'under 6 and 4.5 px a lane: a vessel 100 px wide holds more than 30 lanes of streaks');
 });
 
 // The coverage along the flow, on the particle's own row, as a list of samples at one instant.
 function row(vd, cell = 0) {
-  const cfg = { laneW: 1.76, invR: 0, dens: 1.35 }, id = 1;
+  const cfg = { laneW: 1, invR: 0, dens: 1.35 }, id = 1;
   // Find a cell whose front particle is present and sits at the lane's centre line (any cell will do: take the row through its centre).
   let k = cell;
   for (; k < cell + 100; k++) { const r = pCellRand(k, 0, id, 0); if (r.hw < 0.5) break; }
-  const r = pCellRand(k, 0, id, 0), p = pParticle(r, CELL, vd, cfg, P.FRONT, 0, 0, 5e-4);   // (the lane's centre line: lane 0 spans qw 0 to laneH)
+  const r = pCellRand(k, 0, id, 0), p = pParticle(r, CELL, vd, cfg, P.FRONT, 0, 0, PX);   // (the lane's centre line: lane 0 spans qw 0 to laneH)
   const qy = (p.cy + 0.5 * p.laneH) / cfg.laneW;   // (lane 0 spans qw 0 to laneH; its centre is laneH / 2)
   const out = [];
   // D = 0: phase 0 has weight 0, phase 1 (f1 = 0.5) has weight 1, shifted by g * 0.5 * cycle = 1 * 32 world units at the axis speed; unshift by it.
   const g = 0.125 * Math.max(2, 16 * (1 - 0.64 * Math.pow(Math.min(0.5 * p.laneH * 0, 1), 2)));
   const lo = (pHash(0, id, 0) & 0xffff) / 65536 * 31;
-  for (let x = -0.5 * p.cl; x <= 0.5 * p.cl; x += 0.04) {   // (this cell only: its neighbours' streaks are not part of it)
+  for (let x = -0.5 * p.cl; x <= 0.5 * p.cl; x += 0.2) {   // (this cell only: its neighbours' streaks are not part of it)
     const s = x + (k + 0.28 + 0.44 * r.hx - lo) * p.cl + g * 0.5 * P.CYCLE;
-    out.push({ x, c: pNoiseJS(id, s, qy, 0, 0, CELL, 0, 1e-4, vd, cfg) });
+    out.push({ x, c: pNoiseJS(id, s, qy, 0, 0, CELL, 0, PXC, vd, cfg) });
   }
   return { out, p };
 }
@@ -123,25 +133,24 @@ test('the along extent: a dash at rest, longer at speed, the head the brighter e
 
 test('where a whole cell is under 3 pixels long the field is its exact mean: no variance; between 3 and 5 it blends', () => {
   const px = CELL * P.FRONT.len / 2.5;   // (a cell 2.5 pixels long: it cannot show a streak)
-  const cfg = { ...CFG, dens: 1, laneW: 3.2 * px };
+  const cfg = { ...CFG, dens: 1 };
   const vals = [];
   for (let k = 0; k < 500; k++) vals.push(pNoiseJS(k % 4, k * 0.91, (k % 7) * 0.5 - 1.5, k * 3.7, 0, CELL, 0.2, px / CELL, 20, cfg));
   const m = vals.reduce((a, v) => a + v, 0) / vals.length;
   assert.ok(vals.every((v) => Math.abs(v - m) < 1e-12), 'every sample the same');
   assert.ok(Math.abs(m - pFieldMean(CELL, 0, 20, cfg, px)) < 1e-12, 'and it is the mean');
   const pxMid = CELL * P.FRONT.len / 4;   // (4 pixels: half way through the fade)
-  cfg.laneW = 3.2 * pxMid;
   const mid = [];
-  for (let k = 0; k < 500; k++) mid.push(pNoiseJS(1, k * 0.13, (k % 7) * 0.5 - 1.5, 0, 0, CELL, 0.2, pxMid / CELL, 20, cfg));
+  for (let k = 0; k < 500; k++) mid.push(pNoiseJS(1, k * 13, ((k % 7) - 3) * pxMid * 2, 0, 0, CELL, 0.2, pxMid / CELL, 20, cfg));
   assert.ok(Math.max(...mid) - Math.min(...mid) > 0, 'the dashes are on their way in');
 });
 
-test('at a typical fitted view (cell 5.12, a pixel 0.55 world units) the blood is streaks, not flat: a dash is at least 1.8 px wide and 4 px long', () => {
-  const px = 0.55, cfg = { laneW: 3.2 * px, invR: 0.4, dens: 1 };
+test('at a typical view (cell 35.84, a pixel 0.55 world units) the blood is streaks, not flat: a dash is at least 1.8 px wide and 4 px long', () => {
+  const px = 0.55, cfg = { laneW: 1, invR: 0.01, dens: 1 };
   for (const vd of [0, 4, 36]) {
     // The field: well above zero variance, along a lane and across the vessel.
     const vals = [];
-    for (let k = 0; k < 4000; k++) vals.push(pNoiseJS(3, k * 0.37, ((k * 7) % 11) * 0.3 - 1.6, 8 + (k % 5), 0.3, CELL, 0.1, px / CELL, vd, cfg));
+    for (let k = 0; k < 4000; k++) vals.push(pNoiseJS(3, k * 0.37, ((k * 7) % 11) * 2 - 10, 8 + (k % 5), 0.3, CELL, 0.1, px / CELL, vd, cfg));
     const mean = vals.reduce((a, v) => a + v, 0) / vals.length, variance = vals.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length;
     assert.ok(variance > 0.002 && Math.max(...vals) > 0.5, `vd ${vd}: variance ${variance}, peak ${Math.max(...vals)}`);
     // Every particle, front and back layer: at least 1.8 px across and 4 px long.
@@ -152,12 +161,12 @@ test('at a typical fitted view (cell 5.12, a pixel 0.55 world units) the blood i
     }
   }
   // And the drawn field shows it: along a lane's centre, a run of coverage at least 4 px long.
-  const cfgL = { laneW: 100, invR: 0, dens: 1.35 };
+  const cfgL = { laneW: 1, invR: 0, dens: 1.35 };
   let longest = 0;
   for (let k = 0; k < 6; k++) {
     let run = 0;
     for (let x = 0; x < 6 * CELL; x += px / 8) {
-      const c = pNoiseJS(1, x + k * 41.3, 0.5 * P.FRONT.laneK, 0, 0, CELL, 0, px / CELL, 0, cfgL);
+      const c = pNoiseJS(1, x + k * 41.3, 0.5 * P.FRONT.lanePx * px, 0, 0, CELL, 0, px / CELL, 0, cfgL);
       if (c > 0.3) { run += px / 8; longest = Math.max(longest, run); } else run = 0;
     }
   }
