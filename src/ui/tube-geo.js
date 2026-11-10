@@ -39,7 +39,8 @@ const L = TUBE_LEVEL;
 // A fading vessel's lumen sits BELOW every opaque vessel's lumen of its tier (and above its own casing), so where a faded branch overlaps its
 // trunk beyond the join's patch the trunk's lumen wins the pixel and is not thinned by the fade (the classic shader's rule: "a fading vein must
 // not thin the cava's lumen where it joins it"). FADE_A: the alpha at and under which the lumen is wholly in that low band; above it the levels
-// ease back to their own, so a vessel fading along its length never steps in depth.
+// ease back to their own, so a vessel fading along its length never steps in depth. Off where the scene is ordered by z (zK > 0, the lobule):
+// there the row's z says what is in front, faded or not.
 export const TUBE_FADE = { A: 0.35, L0: 0.21, H: 0.08 };
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -117,13 +118,13 @@ function mitreAB(a, b, rw, s) {
 }
 
 /** The across offset d (world units, positive toward the left of travel) and the level f of across column ac, for a ring whose half tube has radius rc. */
-function acrossAt(ac, rc, w, hRef, glow) {
+function acrossAt(ac, rc, w, hRef, glow, zz, hK) {
   if (ac === 0) return [-(rc + w), glow ? L.GLOW0 : L.CASE0];
   if (ac === 1) return [-rc, glow ? L.GLOW_WALL : L.CASE1];
   if (ac === TUBE_ACROSS - 2) return [rc, glow ? L.GLOW_WALL : L.CASE1];
   if (ac === TUBE_ACROSS - 1) return [rc + w, glow ? L.GLOW0 : L.CASE0];
   const th = ((ac - 2) / (TUBE_ARC - 1) - 0.5) * Math.PI, h = rc * Math.cos(th);
-  return [rc * Math.sin(th), glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(h / hRef, 0, 1)];
+  return [rc * Math.sin(th), glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(zz + hK * clamp(h / hRef, 0, 1), 0, 1)];
 }
 
 const mixf = (a, b, t) => a + (b - a) * t;
@@ -156,15 +157,15 @@ export function tubeFadeLevel(f, a) {
 }
 /**
  * Any vertex of the instance, the JS twin of tubePlace: returns [x, y, f]. P: the vessel's points flat (x0, y0, x1, y1 ... as veins-mesh
- * flatPoints), R: its radii, a: the attribute (kind, ring-or-sample, across, corner), o: { w (see tubeWidth), hRef (world), glow (true in a glow pass), fade (optional, see tubeAlpha: the row's fade, for the depth of a fading vessel) }.
+ * flatPoints), R: its radii, a: the attribute (kind, ring-or-sample, across, corner), o: { w (see tubeWidth), hRef (world), glow (true in a glow pass), z, zK, hK (the row's z and the lumen level's weights: LUMEN0 + LUMEN_H * clamp(zK * z + hK * clamp(h / hRef, 0, 1), 0, 1); defaults 0, 0, 1), fade (optional, see tubeAlpha: the row's fade, for the depth of a fading vessel) }.
  */
 export function tubeVertex(P, R, a, o) {
   const q = tubeVertex0(P, R, a, o);
-  return o.fade && !o.glow ? [q[0], q[1], tubeFadeLevel(q[2], tubeAlpha(o.fade, q[0], q[1]))] : q;
+  return o.fade && !o.glow && !(o.zK > 0) ? [q[0], q[1], tubeFadeLevel(q[2], tubeAlpha(o.fade, q[0], q[1]))] : q;
 }
 function tubeVertex0(P, R, a, o) {
   const kind = Math.round(a[0]), r = Math.round(a[1]), ac = Math.round(a[2]), cn = Math.round(a[3]);
-  const w = o.w, hRef = o.hRef, glow = !!o.glow;
+  const w = o.w, hRef = o.hRef, glow = !!o.glow, hK = o.hK ?? 1, zz = (o.zK ?? 0) * (o.z ?? 0);
   if (kind === TUBE_KIND.TRAP) {
     // segment r, side ac (1: left of travel), end cn: the segment's own normal at +-(rw + w), only where either end of it is bevelled
     const lv = glow ? L.GLOW0 : L.CASE0, qx = P[2 * (r + cn)], qy = P[2 * (r + cn) + 1];
@@ -174,7 +175,7 @@ function tubeVertex0(P, R, a, o) {
   }
   if (kind === TUBE_KIND.DOME) {
     const px = P[2 * r], py = P[2 * r + 1], rw = rwAt(R, r, 0);
-    if (ac === 0) return [px, py, glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(rw / hRef, 0, 1)];
+    if (ac === 0) return [px, py, glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(zz + hK * clamp(rw / hRef, 0, 1), 0, 1)];
     const lv = glow ? L.GLOW0 : L.CASE0;
     if (!(bevelled(P, R, r - 1, w) || bevelled(P, R, r, w) || bevelled(P, R, r + 1, w))) return [px, py, lv];
     const th = (2 * Math.PI * cn) / TUBE_HEX, rr = (rw + w) / Math.cos(Math.PI / TUBE_HEX);
@@ -189,10 +190,10 @@ function tubeVertex0(P, R, a, o) {
     const ph = c / TUBE_CAP * Math.PI / 2, g = segOf(P, R, i === 0 ? 0 : N_QUADS - 1, w);
     const nx = nrmX(g, 1), ny = nrmY(g, 1), ox = i === 0 ? -g.tx : g.tx, oy = i === 0 ? -g.ty : g.ty;
     const rc = rw * Math.cos(ph), e = rw * Math.sin(ph);
-    const [d, f] = acrossAt(ac, rc, w, hRef, glow);
+    const [d, f] = acrossAt(ac, rc, w, hRef, glow, zz, hK);
     return [px + ox * e + d * nx, py + oy * e + d * ny, f];
   }
-  const [d, f] = acrossAt(ac, rw, w, hRef, glow);
+  const [d, f] = acrossAt(ac, rw, w, hRef, glow, zz, hK);
   let nx, ny;
   if (i === 0 || i === N_SAMPLES - 1) {
     const g = segOf(P, R, i === 0 ? 0 : N_QUADS - 1, w);
@@ -235,6 +236,8 @@ uniform float tubeH;
 uniform float hRef;                    // the height (world) that is the top of the lumen's levels
 uniform float celK;                    // the outline's width, as a multiple of the row's casing width
 uniform float aaPad;                   // two device pixels, world
+uniform float zK;                      // the lumen level's weight on the row's z (0: the anatomy; 1: the lobule, ordered by z)
+uniform float hK;                      // and on the height (1: the anatomy; 0.008 in the lobule)
 ${STRIP_VS_GLSL}
 const int T_CAP = ${TUBE_CAP};
 const int T_ARC = ${TUBE_ARC};
@@ -256,17 +259,17 @@ const float L_FADE_H = ${f(TUBE_FADE.H)};
 out float vI;
 flat out int vRow;
 // The across offset d and the level f of across column ac, for a ring whose half tube has radius rc.
-vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow) {
+vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow, float zz) {
   if (ac == 0) return vec2(-(rc + w), glow ? L_GLOW0 : L_CASE0);
   if (ac == 1) return vec2(-rc, glow ? L_GLOW_WALL : L_CASE1);
   if (ac == T_ACROSS - 2) return vec2(rc, glow ? L_GLOW_WALL : L_CASE1);
   if (ac == T_ACROSS - 1) return vec2(rc + w, glow ? L_GLOW0 : L_CASE0);
   float th = (float(ac - 2) / float(T_ARC - 1) - 0.5) * M_PI;
   float h = rc * cos(th);
-  return vec2(rc * sin(th), glow ? L_GLOW1 : L_LUMEN0 + L_LUMEN_H * clamp(h / hr, 0.0, 1.0));
+  return vec2(rc * sin(th), glow ? L_GLOW1 : L_LUMEN0 + L_LUMEN_H * clamp(zz + hK * clamp(h / hr, 0.0, 1.0), 0.0, 1.0));
 }
 // Any vertex of the instance: (x, y) in world units, z the level.
-vec3 tubePlace(int id, vec4 a, float w, float hr, bool glow) {
+vec3 tubePlace(int id, vec4 a, float w, float hr, bool glow, float zz) {
   int kind = int(a.x + 0.5), r = int(a.y + 0.5), ac = int(a.z + 0.5), cn = int(a.w + 0.5);
   if (kind == T_TRAP) {
     vec2 q = PT(id, r + cn);
@@ -277,7 +280,7 @@ vec3 tubePlace(int id, vec4 a, float w, float hr, bool glow) {
   if (kind == T_DOME) {
     vec2 p = PT(id, r);
     float rw = mRW(id, r, 0.0);
-    if (ac == 0) return vec3(p, glow ? L_GLOW1 : L_LUMEN0 + L_LUMEN_H * clamp(rw / hr, 0.0, 1.0));
+    if (ac == 0) return vec3(p, glow ? L_GLOW1 : L_LUMEN0 + L_LUMEN_H * clamp(zz + hK * clamp(rw / hr, 0.0, 1.0), 0.0, 1.0));
     float lv = glow ? L_GLOW0 : L_CASE0;
     if (!mDiscOn(id, r, w)) return vec3(p, lv);
     float th = 2.0 * M_PI * float(cn) / float(T_HEX);
@@ -295,10 +298,10 @@ vec3 tubePlace(int id, vec4 a, float w, float hr, bool glow) {
     MSeg g = mSeg(id, i == 0 ? 0 : N_QUADS - 1, w);
     vec2 n = mNrm(g, 1.0), o = i == 0 ? -g.t : g.t;
     float rc = rw * cos(ph), e = rw * sin(ph);
-    vec2 df = tubeAcross(ac, rc, w, hr, glow);
+    vec2 df = tubeAcross(ac, rc, w, hr, glow, zz);
     return vec3(p + o * e + df.x * n, df.y);
   }
-  vec2 df = tubeAcross(ac, rw, w, hr, glow);
+  vec2 df = tubeAcross(ac, rw, w, hr, glow, zz);
   vec2 n;
   if (i == 0 || i == N_SAMPLES - 1) n = mNrm(mSeg(id, i == 0 ? 0 : N_QUADS - 1, w), 1.0);
   else {
@@ -347,8 +350,8 @@ void main() {
   if (glow && (!lit || up != (mPass >= ${MP.UP_K}))) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   bool sel = (int(texelFetch(tube, ivec2(2, id), 0).z + 0.5) & ${F_SEL}) != 0;
   float w = texelFetch(tube, ivec2(0, id), 0).w * celK + (sel ? selPad : 0.0) + aaPad + padU;
-  vec3 q = tubePlace(id, aV, w, hRef, glow);
-  if (!glow) q.z = tubeFadeLevel(q.z, tubeAlpha(id, q.xy));
+  vec3 q = tubePlace(id, aV, w, hRef, glow, zK * texelFetch(tube, ivec2(2, id), 0).y);
+  if (!glow && !(zK > 0.0)) q.z = tubeFadeLevel(q.z, tubeAlpha(id, q.xy));
   vec3 d = world * vec3(q.xy, 1.0);
   d.xy += lOff;
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 2.0 * (tubeBase + (1.0 - q.z) * tubeH) - 1.0, 1.0);

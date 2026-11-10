@@ -105,6 +105,7 @@ export function createTubePass(E) {
       UC.f1(P.u.celK, CEL.K);
     }
     UC.f1(E.tubeS.u.hRef, 64); UC.f1(E.tubeS.u.aaPad, 2 * px);
+    UC.f1(E.tubeS.u.zK, 0); UC.f1(E.tubeS.u.hK, 1);   // (the anatomy: the lumen's level by height alone; the lobule will set zK 1, hK 0.008. An unset uniform is 0, so both are set.)
     gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, MG.pj);
     // (The depth and stencil, cleared within the caller's scissor.)
     gl.depthMask(true); gl.stencilMask(0xff);

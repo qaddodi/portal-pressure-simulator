@@ -383,6 +383,41 @@ test('a faded branch overlapping its trunk: every lumen vertex of the fading bra
   for (let i = 1; i < N_SAMPLES; i++) { const g = V1[3 * v(TUBE_CAP + i, 5) + 2]; assert.ok(Math.abs(g - last) < 0.05, `ring ${i}: ${last} -> ${g}`); last = g; }
 });
 
+test('z in the lumen level (brief L-A): the defaults are today\'s levels bit for bit; with zK = 1, hK = 0.008 the row\'s z orders, then the height', () => {
+  const rw = 3, w = 1.58, hRef = 3.5, { P, R } = bent(5, rw, 17);
+  const lumen = (V) => { const out = []; for (let r = 0; r < TUBE_RINGS; r++) for (let a = 2; a <= 8; a++) out.push(V[3 * v(r, a) + 2]); return out; };
+  // defaults: the same numbers as before z existed
+  const V0 = place(P, R, OPT(w, hRef)), Vd = place(P, R, { w, hRef, z: 0.7, zK: 0, hK: 1 });
+  assert.deepEqual(Array.from(Vd), Array.from(V0), 'zK 0 gives the same whatever the z');
+  const r = TUBE_CAP + 20, th = (k) => ((k / 6) - 0.5) * Math.PI;
+  for (let k = 0; k < TUBE_ARC; k++) assert.equal(V0[3 * v(r, 2 + k) + 2], L.LUMEN0 + L.LUMEN_H * Math.min(1, Math.max(0, (rw * Math.cos(th(k))) / hRef)), `arc ${k}`);
+  assert.equal(V0[3 * v(r, 5) + 2], L.LUMEN0 + L.LUMEN_H * (rw / hRef));
+  assert.equal(V0[3 * (DOME_BASE + 19 * DOME_VERTS) + 2], L.LUMEN0 + L.LUMEN_H * (rw / hRef), 'a dome centre');
+  // z orders: 0.4 above 0.12 at every height
+  const o = (z) => ({ w, hRef, z, zK: 1, hK: 0.008 });
+  const hi = place(P, R, o(0.4)), lo = place(P, R, o(0.12)), lo2 = place(P, R, { ...o(0.12), hK: 0.008 });
+  assert.ok(Math.min(...lumen(hi)) > Math.max(...lumen(lo)), 'a row with z 0.4 is above a row with z 0.12, whatever the heights');
+  assert.deepEqual(Array.from(lo), Array.from(lo2));
+  // the same z: by height
+  for (let k = 0; k <= 3; k++) assert.ok(hi[3 * v(r, 2 + k) + 2] <= hi[3 * v(r, 2 + k + 1) + 2] + 1e-15 || k === 3);
+  for (let k = 0; k < 3; k++) assert.ok(hi[3 * v(r, 2 + k) + 2] < hi[3 * v(r, 2 + k + 1) + 2], 'the arc rises to the centre');
+  // bounds and the unchanged levels
+  for (const z of [0, 0.09, 0.4, 0.7, 5]) {
+    const V = place(P, R, o(z));
+    for (const f of lumen(V)) assert.ok(f >= L.LUMEN0 - 1e-12 && f <= L.LUMEN0 + L.LUMEN_H + 1e-12, `z ${z}: ${f}`);
+    for (let q = 0; q < TUBE_RINGS; q++) for (const a of [0, 1, 9, 10]) assert.equal(V[3 * v(q, a) + 2], V0[3 * v(q, a) + 2], 'casing and skirt levels are unchanged');
+    for (let q = 0; q < N_QUADS; q++) for (let k = 0; k < 4; k++) assert.equal(V[3 * (TRAP_BASE + 4 * q + k) + 2], L.CASE0);
+    const G = place(P, R, { ...o(z), glow: true });
+    for (let q = 0; q < TUBE_VERTS; q++) assert.equal(G[3 * q + 2], place(P, R, { w, hRef, glow: true })[3 * q + 2]);
+  }
+  // caps: the end ring is a point at the lumen's own level for this z
+  const zr = place(P, R, o(0.4));
+  assert.ok(Math.abs(zr[3 * v(TUBE_RINGS - 1, 5) + 2] - (L.LUMEN0 + L.LUMEN_H * 0.4)) < 1e-12);
+  // a z-ordered scene (zK > 0) is not re-ordered by a fade: the row's z says what is in front
+  const fade = { a: 0.3, t3: [0, 0, 1, 0], t4: [0, 0, 0, 0] };
+  assert.deepEqual(Array.from(place(P, R, { ...o(0.4), fade })), Array.from(zr));
+});
+
 test('tubeWidth: casing * celK + selection pad (selected rows only) + aaPad + padU', () => {
   assert.equal(tubeWidth(0.8, 1.6, 4, 0.3, 2, false), 0.8 * 1.6 + 0.3 + 2);
   assert.equal(tubeWidth(0.8, 1.6, 4, 0.3, 2, true), 0.8 * 1.6 + 4 + 0.3 + 2);
@@ -435,7 +470,10 @@ test('the GLSL holds the numbers of the JS twin: levels, grid sizes, the depth f
   assert.ok(VS.includes('if (!(mBevelled(id, r, w) || mBevelled(id, r + 1, w))) return vec3(q, lv);'));
   assert.ok(VS.includes('mRW(id, r + cn, w) * mNrm(mSeg(id, r, w), ac == 1 ? 1.0 : -1.0)'));
   assert.ok(VS.includes(`const float L_FADE_A = ${TUBE_FADE.A};`) && VS.includes(`const float L_FADE0 = ${TUBE_FADE.L0};`) && VS.includes(`const float L_FADE_H = ${TUBE_FADE.H};`));
-  assert.ok(VS.includes('if (!glow) q.z = tubeFadeLevel(q.z, tubeAlpha(id, q.xy));'));
+  assert.ok(VS.includes('if (!glow && !(zK > 0.0)) q.z = tubeFadeLevel(q.z, tubeAlpha(id, q.xy));'));
+  assert.ok(VS.includes('tubePlace(id, aV, w, hRef, glow, zK * texelFetch(tube, ivec2(2, id), 0).y)'));
+  assert.ok(VS.includes('uniform float zK;') && VS.includes('uniform float hK;'));
+  assert.ok(VS.includes('L_LUMEN0 + L_LUMEN_H * clamp(zz + hK * clamp(h / hr, 0.0, 1.0), 0.0, 1.0)'));
   assert.ok(VS.includes('a *= v < t4.x ? mix(t4.y, t4.z, smoothstep(0.0, t4.x, v)) : mix(t4.z, 1.0, smoothstep(t4.x, 1.0, v));'));
   assert.ok(VS.includes('return mix(L_FADE0 + L_FADE_H * k, f, s);'));
   // it places by the Mesh's own functions

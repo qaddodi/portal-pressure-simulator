@@ -62,6 +62,12 @@ of the vessel joining it never thins the trunk's lumen. In `tubeStripVS` a lumen
 fragment shader's), and `tubeFadeLevel` is the ease, both with JS twins under test. Casing, glow and patch levels are not moved, an opaque
 vessel is not moved, and a vessel fading along its length never steps in depth. Not drawn in glow passes.
 
+## z in the strip's lumen level (brief L-A, for the lobule)
+
+`tubeStripVS` has two uniforms, `zK` and `hK`: an arc vertex, a dome centre and a cap vertex have the level
+`LUMEN0 + LUMEN_H * clamp(zK * z + hK * clamp(h / hRef, 0, 1), 0, 1)`, with `z` the row's z (texel 2, y). `tube-pass.js` sets `zK = 0`, `hK = 1` for the anatomy (an unset uniform reads 0, which would flatten every lumen to LUMEN0); the lobule sets `zK = 1`, `hK = 0.008`. Where `zK > 0`
+the fading rule above is off (the row's z says what is in front). `tubeVertex` takes `o.z`, `o.zK`, `o.hK` (defaults 0, 0, 1).
+
 ## Known differences from the plan's list and from Mesh
 
 - No contact shadow; no crossing ring. Same-tier crossings without a join merge (as the Mesh shows them with its ring off).
