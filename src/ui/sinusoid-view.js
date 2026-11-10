@@ -32,7 +32,7 @@ import { STEP_MAX } from './glide-clock.js';
 import { sinusoidTargets } from './sinusoid-model.js';
 import { createSinusoidGL, poreAt, poreOpenness, calloutPore, cellAtInto, cellEdge, SLOT, SEED, UM } from './sinusoid-gl.js';
 import { placeFenDisse } from './fen-place.js';
-import { frameFor, noteDraw, saver, paceMs, frameGapFor, renderScale, onRenderScale, easeNow } from './frame.js';
+import { frameFor, noteDraw, saver, paceMs, frameGapFor, restGapFor, renderScale, onRenderScale, easeNow } from './frame.js';
 import { softwareGL, softwareYield } from './sw-yield.js';
 import { noteSinusoidSupport, sinusoidSupported } from './gl-support.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
@@ -1281,7 +1281,7 @@ export function createSinusoidView({ host, before = null, share = null }) {
     // once only the flow has moved for CALM_AFTER, it is drawn at the flow's 30 Hz, the shader stepping it on its own clock. On a 120 Hz
     // Mac the sinusoid drew every other screen frame whatever moved (4 Nov 2026, Mohammad: "is it in lobule too? and sinusoid?").)
     if (dive || drewNow || svMoving || !lastPaint) busyAt = now;
-    const gap = now - busyAt > CALM_AFTER ? Math.max(paceMs(), frameGapFor('flow')) : paceMs();
+    const gap = now - busyAt > CALM_AFTER ? Math.max(paceMs(), frameGapFor('flow'), restGapFor(now, busyAt)) : paceMs();
     if (!dive && !drewNow && now - lastPaint < gap) { raf = nextFrame(loop); return; }
     if (svYield && !dive && !drewNow && !svYield.ready(now)) { raf = nextFrame(loop); return; }   // (the zoom: drawn by place())
     lastPaint = now;

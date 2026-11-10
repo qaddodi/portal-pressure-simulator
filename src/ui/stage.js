@@ -27,7 +27,7 @@ import { HOVER_LINK } from './hover-link.js';
 import { createExplain } from './label-explain.js';
 import { createGlassGL, glassRegions, GLASS } from './glass-gl.js';
 import { createVeinsGL, TUBE_TEXELS, MAX_TIERS, ORIGIN_GREY } from './veins-gl.js';
-import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor, inMotion, cameraMoving } from './frame.js';
+import { frameFor, lateFrameFor, cancelFrame, noteDraw, easeNow, afterMotion, setSaver as setFrameSaver, onRenderScale, figOpt, figLab, onFigLab, readFrameFor, frameGapFor, restGapFor, inMotion, cameraMoving } from './frame.js';
 import { softwareYield } from './sw-yield.js';
 import { layoutWatch } from './idle-keys.js';
 import { surface } from './gpu-surfaces.js';
@@ -2718,7 +2718,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (viewMoved || forceDraw || drawOnce || restOn || restU !== 1) busyAt = now;
     const calm = now - busyAt > CALM_AFTER_MS;
     const base = m60 ? frameGapFor('glide') : paceOf(quality);   // (the governor, frame.js: 60 Hz while something moves; the calm 30 Hz below is its 'flow')
-    const interval = calm ? Math.max(base, CALM_MS) : base;
+    const interval = calm ? Math.max(base, CALM_MS, restGapFor(now, busyAt)) : base;   // (touch devices only: rest pacing, frame.js restGapFor, after 4 s of only the blood)
     if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { askAnimate(); return; }
     flowGate = interval && (!m60 || calm) ? now - ((now - flowGate) % interval) : now;
     const dt = Math.min(0.1, (now - lastT) / 1000);
