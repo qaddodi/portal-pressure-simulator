@@ -891,21 +891,27 @@ uniform mat3 world;
 uniform vec2 size;
 out vec2 vDir;
 out vec2 vUV;
+out vec2 vPos;   // the vertex's place in the world (the echo of a fan reads where a pixel lies)
 void main() {
   vec3 d = world * vec3(pos, 1.0);
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
-  vDir = dir; vUV = uv;
+  vDir = dir; vUV = uv; vPos = pos;
 }`;
 // mode 0: soft shadow · 1: still blood column · 2: catheter shaft · 3: marker band · 4: rounded tip
 // 5: balloon (translucent, lit at its rim) · 6: a reading ripple · 7, 8: a tube's, a disc's flat edge · 9: an ultrasound sector.
 // (A draw with `under` set lies under the vessels, not on them: its alpha is taken down by the vessel layer's cover at the pixel (base's
 // alpha, read at the texel the composite reads it at), so the vessels show whole over it in the classic, the Mesh and the Tube pass alike:
 // 10 Nov 2026, the EUS scope.)
+// (The glue slide's fan (eus-scope.js): mode 9 also draws the varix's lumen inside it as color Doppler, red toward the transducer and blue away, its
+// bands running with the model's flow in the varix (dopF: its display speed and the distance flowed) and standing dark as the flow stops, the cast
+// lying in it as bright echo (dopG); a draw with `echo` (the needle, the coil) is lit white where the fan lies on it (fanA, fanB, echoK); a tube's
+// `taper` lets the insertion tube fall to a floor beyond a distance from its end. All of them are zero or whole for any other draw.)
 export const CATH_FS = `#version 300 es
 precision highp float;
 precision highp int;
 in vec2 vDir;
 in vec2 vUV;
+in vec2 vPos;
 uniform int mode;
 uniform vec3 col;
 uniform float alpha;
@@ -918,7 +924,32 @@ uniform ivec2 lA, lWrap, lSize;
 uniform vec2 lowS, lowT;
 uniform ivec2 lowSz;
 uniform int lH;
+uniform vec4 dopP0, dopP1, dopP2, dopP3, dopP4;   // the varix's lumen in the fan's frame: ten points, in units of the fan's reach
+uniform vec4 dopQ;   // the fan's strength (0: no Doppler), the lumen's radius (the same unit), the path length to the first point and between points (world)
+uniform vec4 dopG;   // the cast along the lumen: from, to, softness (world, from the needle's point), on
+uniform vec4 dopF;   // the varix's display speed (signed along the path), the distance its blood has flowed (world)
+uniform vec3 dopTow, dopAway;
+uniform vec4 fanA;   // the fan an echo is lit by: its apex and axis
+uniform vec2 fanB;   // its half angle and reach
+uniform float echoK;   // 0: this draw is not lit by the fan
+uniform vec3 taper;   // a tube: whole within x of its end, down to z beyond x + y
 out vec4 o;
+// The lumen's nearest point on its ten-point path from p: x the distance, y the length along the path (world, from the needle's point),
+// z which side p lies on; tn the path's direction there.
+vec3 dopLumen(vec2 p, out vec2 tn) {
+  vec2 P[10];
+  P[0] = dopP0.xy; P[1] = dopP0.zw; P[2] = dopP1.xy; P[3] = dopP1.zw; P[4] = dopP2.xy; P[5] = dopP2.zw; P[6] = dopP3.xy; P[7] = dopP3.zw; P[8] = dopP4.xy; P[9] = dopP4.zw;
+  float best = 1e9, sb = 0.0, side = 0.0;
+  tn = vec2(1.0, 0.0);
+  for (int k = 0; k < 9; k++) {
+    vec2 a = P[k], ab = P[k + 1] - a;
+    float l2 = max(dot(ab, ab), 1e-9), t = clamp(dot(p - a, ab) / l2, 0.0, 1.0);
+    vec2 d = p - (a + ab * t);
+    float dd = length(d);
+    if (dd < best) { best = dd; sb = dopQ.z + (float(k) + t) * dopQ.w; tn = ab * inversesqrt(l2); side = tn.x * d.y - tn.y * d.x; }
+  }
+  return vec3(best, sb, side);
+}
 float vesselCover() {
   ivec2 ip = ivec2(gl_FragCoord.xy);
   ivec2 rel = ivec2(ip.x, lH - 1 - ip.y) - lA;
@@ -938,6 +969,7 @@ void main() {
     float v = clamp(vUV.x, -1.0, 1.0), e = 1.0 - abs(vUV.x);
     float aa = clamp(e / max(fwidth(vUV.x), 1e-4), 0.0, 1.0);
     a *= aa * smoothstep(0.0, max(fade.x, 1e-4), vUV.y) * clamp((len - vUV.y) / max(fade.y, 1e-4), 0.0, 1.0);
+    a *= mix(taper.z, 1.0, 1.0 - smoothstep(taper.x, taper.x + max(taper.y, 1e-3), len - vUV.y));
     n = vec3(vDir * v, sqrt(max(0.0, 1.0 - v * v)));
     float dif = max(dot(n, L), 0.0), sp = pow(max(dot(n, H), 0.0), mode == 3 ? 60.0 : 34.0);
     if (mode == 0) { a *= pow(1.0 - v * v, 2.2); }
@@ -993,12 +1025,44 @@ void main() {
       float ang = abs(atan(vUV.y, vUV.x)) / max(len, 1e-3), fw = max(fwidth(r * 6.0), 1e-4);
       float arcs = 1.0 - 0.35 * (1.0 - smoothstep(0.0, fw * 1.5, 0.5 - abs(fract(r * 6.0) - 0.5)));
       c = col;
-      a *= aa * (1.0 - smoothstep(0.8, 1.0, ang)) * smoothstep(0.0, 0.14, r) * (0.45 + 0.55 * (1.0 - smoothstep(0.55, 1.0, r))) * arcs;
+      float shape = aa * (1.0 - smoothstep(0.8, 1.0, ang)) * smoothstep(0.0, 0.14, r);
+      a *= shape * (0.45 + 0.55 * (1.0 - smoothstep(0.55, 1.0, r))) * arcs;
+      if (dopQ.x > 0.001) {
+        // Color Doppler where the varix's lumen lies in the fan (the glue slide): red where its blood runs toward the transducer, blue away, in
+        // bands that travel with it, brighter down its middle (laminar); no flow, and the lumen stands dark in the fan, an anechoic hole. The
+        // cast is bright echo, the blood stopped inside it.
+        vec2 tn;
+        vec3 Ld = dopLumen(vUV, tn);
+        float R = dopQ.y, aaw = max(fwidth(Ld.x), 1e-5);
+        float cover = (1.0 - smoothstep(R - aaw, R + aaw, Ld.x)) * shape * (1.0 - smoothstep(0.8, 1.0, r)) * dopQ.x;
+        if (cover > 0.002) {
+          float vd = dopF.x, sg = vd < 0.0 ? -1.0 : 1.0, kf = smoothstep(0.4, 5.0, abs(vd));
+          float cs = dot(tn * sg, -vUV / max(r, 1e-4)), lat = clamp(Ld.z / max(R, 1e-5), -1.0, 1.0);
+          float wave = 0.5 + 0.5 * sin(6.2832 * (Ld.y - dopF.y) / 7.0 + lat * 1.7);
+          vec3 fc = mix(dopAway, dopTow, smoothstep(-0.12, 0.12, cs)) * (0.45 + 0.8 * wave * (1.0 - 0.38 * lat * lat) * (0.55 + 0.45 * abs(cs)));
+          vec3 cd = mix(vec3(0.02, 0.03, 0.05), fc, kf);
+          float ad = cover * mix(0.55, 0.9, kf);
+          if (dopG.w > 0.5) {
+            float ck = smoothstep(dopG.x - dopG.z, dopG.x + dopG.z, Ld.y) * (1.0 - smoothstep(dopG.y - dopG.z, dopG.y + dopG.z, Ld.y));
+            cd = mix(cd, vec3(0.94, 0.96, 1.0) * (0.88 + 0.12 * sin(Ld.y * 1.3 + lat * 2.0)), ck);
+            ad = mix(ad, cover * 0.95, ck);
+          }
+          float na = ad + a * (1.0 - ad);
+          c = (cd * ad + col * a * (1.0 - ad)) / max(na, 1e-4);
+          a = na;
+        }
+      }
     } else {
       float d = abs(r - 0.86), fw = max(fwidth(r), 1e-4);
       a *= clamp((0.07 - d) / fw + 0.5, 0.0, 1.0) * 0.9 + exp(-d * d * 160.0) * 0.35;
       a *= step(r, 1.0);
     }
+  }
+  if (echoK > 0.001) {
+    // The needle and the coil are echogenic: lit white where the fan lies on them.
+    vec2 q = vPos - fanA.xy;
+    float rr = length(q) / max(fanB.y, 1e-3), an = abs(atan(dot(q, vec2(-fanA.w, fanA.z)), dot(q, fanA.zw))) / max(fanB.x, 1e-3);
+    c = mix(c, vec3(1.0), 0.62 * echoK * (1.0 - smoothstep(0.85, 1.0, an)) * (1.0 - smoothstep(0.9, 1.0, rr)));
   }
   if (under == 1) a *= 1.0 - vesselCover();
   o = vec4(c * a, a);
@@ -2591,6 +2655,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     r[0] = Math.max(0, Math.floor(x0) - 2); r[1] = Math.max(0, Math.floor(y0) - 2); r[2] = Math.min(PW(), Math.ceil(x1) + 2); r[3] = Math.min(PH(), Math.ceil(y1) + 2);
     return r[2] > r[0] && r[3] > r[1] ? r : null;
   }
+  let dopClock = 0, dopPhase = 0;   // (the blood clock the color Doppler last ran to, and the distance its blood has flowed)
+  const TAPER_NONE = [0, 1, 1];
   function drawCath(m) {
     const U = cathP.u;
     gl.useProgram(cathP.p);
@@ -2606,9 +2672,30 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(cathVAO);
+    // (The color Doppler's bands run with the varix's flow: the distance its blood has flowed is the display speed added up over the blood's own clock,
+    // which stands at rest, so the bands stand with the blood and never jump when the speed changes.)
+    const bc = compBlood ? compBlood.clock || 0 : 0;
+    let dtb = bc - dopClock;
+    dopClock = bc;
+    if (!(dtb > 0 && dtb < 0.5)) dtb = 0;
     for (const d of cath.draws) {
       UC.i1(U.mode, d.mode);
       UC.i1(U.under, d.under ? 1 : 0);
+      const tp = d.taper || TAPER_NONE;
+      UC.f3a(U.taper, tp);
+      const ec = d.echo;
+      UC.f1(U.echoK, ec ? ec.k : 0);
+      if (ec) { UC.f4a(U.fanA, ec.a); UC.f2a(U.fanB, ec.b); }
+      if (d.mode === 9) {
+        const dp = d.dop;
+        if (dp) {
+          const vd = dp.flowFn ? dp.flowFn() : 0;
+          dopPhase = (dopPhase + vd * dtb) % 700;
+          UC.f4a(U.dopP0, dp.p[0]); UC.f4a(U.dopP1, dp.p[1]); UC.f4a(U.dopP2, dp.p[2]); UC.f4a(U.dopP3, dp.p[3]); UC.f4a(U.dopP4, dp.p[4]);
+          UC.f4a(U.dopQ, dp.q); UC.f4a(U.dopG, dp.cast); UC.f4(U.dopF, vd, dopPhase, 0, 0);
+          UC.f3a(U.dopTow, dp.tow); UC.f3a(U.dopAway, dp.away);
+        } else UC.f4(U.dopQ, 0, 0, 0, 0);
+      }
       UC.f3a(U.col, d.col);
       UC.f1(U.alpha, d.alpha);
       UC.f2a(U.fade, (d.fade || [0, 0]));

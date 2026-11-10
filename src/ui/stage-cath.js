@@ -223,6 +223,7 @@ export function createCath(st, live) {
     // pressure's color in the vessel's own rendering, filling outward as the column settles.
     let tint = null;
     const col = clamp(st.column || 0, 0, 1);
+    if (r.glue) r.glue.castOn = 0;
     if (gpu && col > 0.001 && r.glue) {
       // EUS-guided glue: an opaque cast (--dev-glue, cast: the blood stops inside it, veins-gl.js castAt) that fills the varix from the needle's
       // point as far as the coils lie (eus-scope.js coilReach: along the coil's side, with a little behind the point), the cast's ends soft.
@@ -233,8 +234,17 @@ export function createCath(st, live) {
       // varix". The cast now spreads GLUE_SPREAD of the course each way from the needle's point (the coil's reach if that is more), and its ends
       // are soft over a fraction of the lumen only: the old soft ends, 1.6 of the scope's radius each side, left a short cast never fully opaque.)
       const cr = g.path ? coilReach(g, COIL_NOW) : null, L = g.path?.len || 0;
-      const reach = cr && L > 0 && cr.span > 0 ? (cr.span + cr.rho * 0.6 + 1) / L : 0, w = Math.max(GLUE_SPREAD, reach) * col;
-      const lo = g.f - w, hi = g.f + w;
+      const reach = cr && L > 0 && cr.span > 0 ? (cr.span + cr.rho * 0.6 + 1) / L : 0, W = Math.max(GLUE_SPREAD, reach);
+      // (His ask, 10 Nov 2026, recs item 8: "the glue sets on the coil first, then fills the lumen". The first half of the fill takes the cast out from the
+      // needle's point along the coil's own span (a little behind the point, as far as the coil's loops reach along its side); the second widens it, to the
+      // spread each way it had before, closing the lumen around the coil. The coil is drawn over the cast either way. A coil not laid has no span: the second
+      // half alone then spreads the cast from the point.)
+      const cd = cr ? cr.dir : 1, behind = cr && L > 0 ? (cr.rho * 0.6 + 1) / L : 0;
+      const cLo = g.f + Math.min(0, cd) * reach - Math.max(0, cd) * behind, cHi = g.f + Math.max(0, cd) * reach + Math.max(0, -cd) * behind;
+      const u1 = easeInOut(clamp(col / 0.55, 0, 1)), u2 = easeInOut(clamp((col - 0.5) / 0.5, 0, 1));
+      const lo1 = g.f + (cLo - g.f) * u1, hi1 = g.f + (cHi - g.f) * u1;
+      const lo = lo1 + (g.f - W - lo1) * u2, hi = hi1 + (g.f + W - hi1) * u2;
+      g.castLo = (lo - g.f) * L; g.castHi = (hi - g.f) * L; g.castOn = 1;   // (the fan's color Doppler shows the cast bright where it lies, eus-scope.js)
       tint = { col: st.columnColor || 'var(--dev-glue)', soft: Math.max(2, g.rad * 0.7), cast: true, [g.id]: [lo, hi] };
     } else if (gpu && col > 0.001 && r.parts) {
       // A treatment's sclerosant: from the tip on to the route's end, each vessel it reaches tinted over the part it covers
@@ -386,7 +396,11 @@ export function createCath(st, live) {
   let cathV = new Float32Array(0), cathLast = null;
   // EUS-PPG's echoendoscope, its sector and its needle (eus-scope.js), sent as the catheter is.
   function eusGL(st, r, tipD) {
-    if (r.glue) r.glue.rad = cathRadOf(r.glue.id, r.glue.f);   // (the varix's lumen as drawn now: the coil stays inside it, eus-scope.js)
+    if (r.glue) {
+      r.glue.rad = cathRadOf(r.glue.id, r.glue.f);   // (the varix's lumen as drawn now: the coil stays inside it, eus-scope.js)
+      // (The fan's color Doppler reads the varix's flow each frame the GPU draws, not as the procedure paints: it stops with the model's flow, held at a step or not.)
+      r.glue.flowFn ||= () => live.flowVd?.(r.glue.id) || 0;   // alloc-rare: once per route
+    }
     const o = eusDraw(st, r, tipD, cathAt, (c) => toRGB(c, wrapCS()), pxNow());
     if (cathV.length < o.V.length) cathV = new Float32Array(o.V.length * 2);
     cathV.set(o.V); cath.balBox = null; cath.at.tip = r.tg.hv; cath.at.ahead = r.tg.pv;   // (its readings' points: the hepatic vein's target and the portal vein's, cathLabels)

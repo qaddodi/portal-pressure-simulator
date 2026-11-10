@@ -114,7 +114,7 @@ export const EUS_GLUE_ROUTE = {
   after(r, geo) {
     const [id, f] = EUS_GLUE_TARGET, T = pointOn(geo[id].cur, f), end = EUS_GLUE_STATION.at;
     r.scope = true; r.stations = { pv: EUS_GLUE_STATION, hv: EUS_GLUE_STATION };
-    r.tg = { pv: T, hv: T }; r.glue = { id, f, rad: 0, path: lumenPath(geo[id].cur, f, GLUE_PATH_HALF) };
+    r.tg = { pv: T, hv: T }; r.glue = { id, f, rad: 0, path: lumenPath(geo[id].cur, f, GLUE_PATH_HALF), castLo: 0, castHi: 0, castOn: 0, flowFn: null };   // (castLo/castHi/castOn: the cast along the varix now, world units from the needle's point, and flowFn: the varix's display speed now, both written by stage-cath.js for the fan's color Doppler)
     r.work = { glue: workBox(end, T, RIGID * 2.2) };
     const C = geo[id].cur, xs = [end[0] - RIGID * 3, end[0] + RIGID, ...C.map((q) => q[0])], ys = [end[1] - RIGID * 1.5, ...C.map((q) => q[1])];
     r.result = [Math.min(...xs) - 14, Math.min(...ys) - 14, Math.max(...xs) + 14, Math.max(...ys) + 14];
@@ -222,11 +222,11 @@ export const newTip = () => ({ c1: [0, 0], c2: [0, 0], a1: [0, 0], side: [0, 0],
 // hairline (light on the dark looks), the rigid tip's grey, the transducer's pale face, the port, the needle's steel, the catheter's dark
 // edge (the coil's), the coil's platinum and its pale fibres; the ultrasound sector is drawn in the Doppler's glow (--dop-glow), as its wedge is.
 // Read through rgb() once a call, written in place into MAT.
-const MAT = { soft: [0, 0, 0], scope: null, edge: null, tip: null, face: null, port: null, steel: null, ink: null, platinum: null, fibre: null, fan: null };
+const MAT = { soft: [0, 0, 0], tow: null, away: null, scope: null, edge: null, tip: null, face: null, port: null, steel: null, ink: null, platinum: null, fibre: null, fan: null };
 function materials(rgb) {
   MAT.scope = rgb('var(--dev-scope)'); MAT.edge = rgb('var(--dev-scope-edge)'); MAT.tip = rgb('var(--dev-scope-tip)'); MAT.face = rgb('var(--dev-scope-face)');
   MAT.port = rgb('var(--dev-port)'); MAT.steel = rgb('var(--dev-steel)'); MAT.ink = rgb('var(--dev-poly-edge)'); MAT.platinum = rgb('var(--dev-platinum)');
-  MAT.fibre = rgb('var(--dev-ptfe)'); MAT.fan = rgb('var(--dop-glow)');
+  MAT.fibre = rgb('var(--dev-ptfe)'); MAT.fan = rgb('var(--dop-glow)'); MAT.tow = rgb('var(--dop-toward)'); MAT.away = rgb('var(--dop-away)');
   // (The scope's hairline: its edge colour moved halfway to the body's own, so it reads as the scope's shading, not a drawn outline.)
   for (let i = 0; i < 3; i++) MAT.soft[i] = MAT.edge[i] + (MAT.scope[i] - MAT.edge[i]) * EDGE_MIX;
   return MAT;
@@ -238,6 +238,16 @@ const STEP = 2;   // (the shaft's samples, world units apart)
 let cx = new Float64Array(0), cy = new Float64Array(0), tx = new Float64Array(0), ty = new Float64Array(0), cl = new Float64Array(0);
 let UNDER = false;   // (the draws laid now lie under the vessels: veins-gl.js's catheter pass lets the vessel layer's cover hide them)
 const V = [], draws = [], TIP = newTip(), SPOT = [0, 0], TGT = [0, 0], FD = [0, 0];
+// The color Doppler in the glue slide's fan (his ask, 10 Nov 2026, recs item 4), all of it on the GPU (veins-gl.js CATH_FS mode 9): the varix's lumen
+// as a polyline in the fan's own frame (DOP_N points, in units of the fan's reach, five vec4 of two points each) with its radius, where the cast lies
+// along it, and a reader for the varix's flow now (the shader gets the speed and direction each frame, so the colors stop as the model's flow does).
+// ECHO is the fan itself (apex, axis, half angle, reach, strength), which the needle and the coil are drawn bright inside (draw.echo).
+// TAPER is the insertion tube's fade with distance from its end: full within dist, down to floor beyond dist + ramp (draw.taper).
+const DOP_N = 10;
+const DOP = { p: [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]], q: [0, 0, 0, 0], cast: [0, 0, 0, 0], flowFn: null, tow: null, away: null };
+const ECHO = { a: [0, 0, 0, 0], b: [0, 0], k: 0 };
+const TAPER = [0, 1, 1];
+const TAPER_FULL = 3, TAPER_RAMP = 2, TAPER_FLOOR = 0.35;   // (in rigid-tip lengths: the tube is whole for the last three, falls over the next two to 35 %)
 let n = 0;
 // (Grown keeping the samples already laid this frame: made anew empty, the scope's first part went to the figure's corner, 0, 0, for
 // the frame it grew in, a streak from the top left of the figure that flickered on as the scope went in: Mohammad, 6 Nov 2026.)
@@ -248,6 +258,21 @@ function grow(m) {
 }
 const push = (x, y) => { grow(n + 1); cx[n] = x; cy[n] = y; n++; };
 
+// The varix's lumen in the fan's frame for the color Doppler (CATH_FS mode 9): DOP_N points of the path laid at equal steps along it, each as
+// (along the fan's axis, across it) in units of the fan's reach, its radius in the same unit, the path's length to the first point and between
+// two (world units, from the needle's point), where the cast lies along it (the stage's tint, relative to the point) and the strength k
+// (the fan's own: 0 off the fan). Written in place.
+function dopLumen(g, ax, ay, fd, reach, M, k) {
+  const pa = g.path, n = pa.n, step = pa.step, inv = 1 / reach;
+  for (let i = 0; i < DOP_N; i++) {
+    const idx = ((n - 1) * i) / (DOP_N - 1), i0 = Math.min(n - 2, Math.floor(idx)), f = idx - i0;
+    const x = pa.x[i0] + (pa.x[i0 + 1] - pa.x[i0]) * f - ax, y = pa.y[i0] + (pa.y[i0 + 1] - pa.y[i0]) * f - ay, o = DOP.p[i >> 1], h = (i & 1) * 2;
+    o[h] = (x * fd[0] + y * fd[1]) * inv; o[h + 1] = (-x * fd[1] + y * fd[0]) * inv;
+  }
+  DOP.q[0] = k; DOP.q[1] = g.rad * inv; DOP.q[2] = -pa.at * step; DOP.q[3] = ((n - 1) * step) / (DOP_N - 1);
+  DOP.cast[0] = g.castLo || 0; DOP.cast[1] = g.castHi || 0; DOP.cast[2] = Math.max(2, g.rad * 0.7); DOP.cast[3] = g.castOn || 0;
+  DOP.flowFn = g.flowFn || null; DOP.tow = M.tow; DOP.away = M.away;
+}
 /**
  * The scope, its sector and its needle for one frame. st: the catheter state (u, tgt, aim, needle, flash, ring, clock, fan, opacity);
  * r: the route (stage-cath.js procRoute, with EUS_ROUTE.after's hvD, tg, box); tipD: how far along it the scope's station now is;
@@ -287,10 +312,17 @@ export function eusDraw(st, r, tipD, at, rgb, px = 0) {
       V.push(ax, ay, FD[0], FD[1], 0, 0);
       for (const e of [a, b]) { rot(FD[0], FD[1], e, SPOT); V.push(ax + SPOT[0] * reach, ay + SPOT[1] * reach, FD[0], FD[1], Math.cos(e), Math.sin(e)); }
     }
-    draws.push({ mode: 9, tri: true, first, count: N * 3, col: M.fan, alpha: 0.2 * st.fan * op, len: FAN_HALF });
-  }
+    const fan = { mode: 9, tri: true, first, count: N * 3, col: M.fan, alpha: 0.2 * st.fan * op, len: FAN_HALF };
+    if (r.glue?.path) {
+      // (The glue slide's color Doppler: the varix's lumen in the fan's frame, and the fan as the needle and coil are lit by it.)
+      dopLumen(r.glue, ax, ay, FD, reach, M, st.fan * op);
+      fan.dop = DOP;
+      ECHO.a[0] = ax; ECHO.a[1] = ay; ECHO.a[2] = FD[0]; ECHO.a[3] = FD[1]; ECHO.b[0] = FAN_HALF; ECHO.b[1] = reach; ECHO.k = st.fan * op;
+    } else ECHO.k = 0;
+    draws.push(fan);
+  } else ECHO.k = 0;
   // A tube along the centreline from length a to b, its half width w(d) (a function of the length, or a number).
-  const tube = (a, b, w, mode, col, alpha, fade = null) => {
+  const tube = (a, b, w, mode, col, alpha, fade = null, taper = null) => {
     const first = V.length / 6;
     let last = -1;
     const put = (x, y, nx, ny, d) => { const ww = typeof w === 'number' ? w : w(d); V.push(x - nx * ww, y - ny * ww, nx, ny, -1, d - a, x + nx * ww, y + ny * ww, nx, ny, 1, d - a); };
@@ -300,7 +332,7 @@ export function eusDraw(st, r, tipD, at, rgb, px = 0) {
       put(cx[i], cy[i], -ty[i], tx[i], cl[i]); last = i;
     }
     if (last < 0) return;
-    draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: fade || [0, 0], len: b - a, under: UNDER });
+    draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: fade || [0, 0], len: b - a, under: UNDER, taper });
   };
   const disc = (px, py, dx, dy, hx, hy, mode, col, alpha) => {
     const first = V.length / 6, nx = -dy, ny = dx;
@@ -313,10 +345,18 @@ export function eusDraw(st, r, tipD, at, rgb, px = 0) {
   // 10 Nov 2026: "the EUS scope should be under the blood vessels not on top; also i hate the prominent outline".)
   const ER = Math.max(R * 1.12, R + px);   // (its hairline is at least a device pixel wide)
   const soft = M.soft;
+  // (Once the scope is parked, from the needle step on (st.aim), the insertion tube beyond three rigid-tip lengths from its end falls to 35 %, over two
+  // more, so a long dark bar does not cross the figure: the glue slide only, EUS-PPG's tube stays whole. The floor moves with st.aim's own ease, so
+  // there is no pop; the shaft's three layers share it, so the hairline never outstays the body. His ask, 10 Nov 2026, recs item 9.)
+  let taper = null;
+  if (r.glue) {
+    const park = smooth01(st.aim || 0);
+    if (park > 0.001) { TAPER[0] = RIGID * TAPER_FULL; TAPER[1] = RIGID * TAPER_RAMP; TAPER[2] = 1 - (1 - TAPER_FLOOR) * park; taper = TAPER; }
+  }
   UNDER = true;
-  tube(0, total, R * 1.9, 0, M.ink, 0.2, [60, 0]);
-  tube(0, total, ER, 7, soft, EDGE_A, [60, 0]);
-  tube(0, total, R, 2, M.scope, 1, [60, 0]);
+  tube(0, total, R * 1.9, 0, M.ink, 0.2, [60, 0], taper);
+  tube(0, total, ER, 7, soft, EDGE_A, [60, 0], taper);
+  tube(0, total, R, 2, M.scope, 1, [60, 0], taper);
   tube(rigid0, total, R * 0.98, 2, M.tip, 1);
   // Its rounded end, and the curved array of the transducer on the side that faces the liver.
   disc(g.end[0], g.end[1], g.a1[0], g.a1[1], ER, ER, 8, soft, EDGE_A);
@@ -338,7 +378,7 @@ export function eusDraw(st, r, tipD, at, rgb, px = 0) {
         const l = l0 + ((l1 - l0) * i) / steps, x = sx + dx * l, y = sy + dy * l, ww = typeof w === 'number' ? w : w(l);
         V.push(x - nx * ww, y - ny * ww, nx, ny, -1, l - l0, x + nx * ww, y + ny * ww, nx, ny, 1, l - l0);
       }
-      draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: [0, 0], len: l1 - l0 });
+      draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: [0, 0], len: l1 - l0, echo: r.glue && ECHO.k > 0.01 ? ECHO : null });   // (echo: lit by the fan it is in)
     };
     const bev = 2.6, nw0 = Math.max(0.62, px * NEEDLE_PX / 2), nw = (l) => nw0 * (1 - 0.8 * smooth01((l - (nl - bev)) / bev));   // (never under 2 px wide)
     // (Only the steel leaves the port: its sheath stays in the working channel.)
@@ -351,7 +391,9 @@ export function eusDraw(st, r, tipD, at, rgb, px = 0) {
   // own point, no further from it than the lumen's radius (r.glue.rad, the vessel's drawn caliber now) less the wire's width, so the coil is
   // inside the vessel's walls whatever the varix's size and the zoom (his ask, 7 Nov 2026: "should deploy and be within the varix vessel
   // walls not outside"). It stays in the varix once the needle is back.
+  const dn = draws.length;
   OUT.coil = layCoil(st, r.glue, rgb, px, op, V, draws);
+  if (r.glue && ECHO.k > 0.01) for (let i = dn; i < draws.length; i++) draws[i].echo = ECHO;   // (the coil shows bright where the fan lies on it)
   const tcol = rgb(tg < 0.5 ? 'var(--tr-pv)' : 'var(--tr-hv)');
   if ((st.flash || 0) > 0) for (const k of [st.flash, (st.flash + 0.5) % 1]) disc(TGT[0], TGT[1], 1, 0, 1.4 + 6 * k, 1.4 + 6 * k, 6, tcol, (1 - k) * (1 - k) * 0.85);
   if (st.ring) {
