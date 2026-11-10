@@ -62,8 +62,8 @@ test('an open end in the fragment: a cut drops what lies in the trunk\'s lumen; 
   assert.ok(inside.fl < wall.fl && inside.fl > 0, 'inside the lumen goes on fading');
   assert.ok(inside.fo < 1 && inside.fo > 0, 'the ink fades first');
   assert.equal(at(16, [0, 6 - JOIN_FADE_LINE * 4 - 0.1]).fo, 0, 'ink gone');
-  assert.equal(at(16, [0, 6 - JOIN_FADE_IN * 4 - 0.1]).drop, true, 'lumen gone: dropped');
-  assert.equal(at(16, [0, 6 - JOIN_FADE_IN * 4 + 0.1]).drop, false);
+  assert.ok(at(16, [0, 0]).fl < 0.05, 'on the trunk\'s centreline (a radius of 6 inside the wall) the branch is all but gone');
+  assert.equal(at(16, [0, -0.5]).fo, 0, 'and its ink');
   // monotone: the further in, the less of it
   let prev = 2;
   for (let y = 12; y >= 0; y -= 0.5) { const j = at(16, [0, y]); assert.ok(j.fl <= prev + 1e-12, `fl falls going in (${y})`); prev = j.fl; }
@@ -132,7 +132,7 @@ ${tubeJoinVS(64)}`;
   assert.match(fs, /if \(!atStart && !\(vI > 55\.0\)\) return j;/);
   assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) { j.drop = true; return j; }`));
   assert.match(fs, /if \(gap < -0\.5 \* px\) \{ j\.drop = true; return j; \}/);
-  assert.ok(fs.includes(`j.fl = smoothstep(-${JOIN_FADE_IN} * R, ${JOIN_FADE_OUT} * R, gap);`));
+  assert.ok(fs.includes(`j.fl = smoothstep(-${JOIN_FADE_IN} * R, ${JOIN_FADE_OUT.toFixed(1)} * R, gap);`));
   assert.ok(fs.includes(`j.fo = smoothstep(-${JOIN_FADE_LINE} * R, 0.0, gap);`));
   assert.ok(!/texelFetch|texture\(|vesAttrs|for \(/.test(fs), 'the fragment part reads nothing and loops over nothing');
   assert.match(vs, /int k = int\(-e \+ 0\.5\) - 2, pr = k \/ 64, ps = k % 64;/, 'a continuation: -(2 + row * 64 + sample)');
