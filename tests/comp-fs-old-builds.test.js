@@ -17,11 +17,13 @@ globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 const { COMP_FS } = await import('../src/ui/veins-gl.js');
 
 const sha = (s) => createHash('sha256').update(s).digest('hex');
+// (Updated on purpose with brief P5, 10 Nov 2026: pNoise, in the shared P_GLSL text every build includes, no longer runs its back layer in a
+// lumen under 5 px across and centres its lanes there. Nothing else in the text changed; the hashes before it were the b752802 ones.)
 const HASH = {
-  'COMP_FS()': '4e87733f627aa6213ae19e78a3f66cc0cb6e0dd551122665ec06d97797cc961a',
-  'COMP_FS(true)': '68c68dcb0dd56b6200beaf19295a854b719d0300cc9f98ca28739e55ad0adab0',
-  'COMP_FS(false, true)': 'c59fde4a2088bcacd42caf76dc899af867d51886968780e49a2ca3077eac0739',
-  'COMP_FS(false, false, true)': 'd0d6a31c55244526df09a2c2690217a17c9705a2f10280a98c456e367cf1b420',
+  'COMP_FS()': 'b14e98833562318ff9fe554fd0ea09a2855f323223be055e9e8fda7455cf5bdc',
+  'COMP_FS(true)': 'ef1c27ef814e10589abc5fca4504b54c38b83255d53aa35d047d70ebea605a48',
+  'COMP_FS(false, true)': 'a7c87cf118cd4fe7fff612f31c8341f1ec07093f743382b3dfd2784bea748a6b',
+  'COMP_FS(false, false, true)': '44cea9df597b99ac81e8ce3ddfd2e1f0f1c96464192d59c87d474aa6eac46bd4',
 };
 
 test('the full, plain, half-size streak and arrowhead compositor builds are byte for byte what they were at b752802', () => {

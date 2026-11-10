@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { lintGLSL } from './glsl-lint.js';
-import { P_GLSL, STYLE_P, P, pNoiseJS, pFieldMean, pMeanJS, pCellRand, pParticle, pHash, pOnMean, pThreshold } from '../src/ui/blood-particles.js';
+import { P_GLSL, STYLE_P, P, pNoiseJS, pFieldMean, pMeanJS, pCellRand, pParticle, pHash, pOnMean, pThreshold, pNoiseParts } from '../src/ui/blood-particles.js';
 import { D_CYCLE, STYLE_D, STYLE_E } from '../src/ui/blood-tile.js';
 
 const CELL = 5.12 * 7;   // (the composite's cell: 5.12 times the first parcel scale, SLOT = 7)
@@ -211,4 +211,83 @@ test('the thinning: dens 0 holds no particle, a dens high enough holds one in ev
   assert.ok(Math.abs(pOnMean(pThreshold(2)) - 1) < 1e-12);
   let last = 0;
   for (let d = 0; d <= 1.35; d += 0.05) { const m = pFieldMean(CELL, 0, 10, { ...CFG, dens: d }, PXC * CELL); assert.ok(m >= last); last = m; }
+});
+
+// ---- Brief P5: a narrow lumen draws the front layer alone ----
+
+// pNoise's values before brief P5, for a lumen 12 px across (cfg laneW 1.2, invR 1/3 at 0.5 world units a pixel, dens 0.8): [id, s, qy, D, ay, drift, vd, value].
+const BEFORE_P5 = [
+  [1, 8.161, -2.321, 34.762, 0.928, 6.349, -22, 0.205007080103],
+  [2, 364.012, -1.86, 31.737, 0.744, 5.483, 30, 0.282012823537],
+  [3, 238.44, 1.361, 2.551, 0.544, 7.438, -22, 0.190446204242],
+  [1, 386.324, -2.046, 44.775, 0.819, 4.603, 30, 0.166958993306],
+  [2, 158.593, 2.206, 25.992, 0.882, 9.528, -22, 0.205363798583],
+  [3, 397.471, 0.786, 27.065, 0.314, 4.999, 30, 0.163229675758],
+  [1, 114.914, -0.368, 43.22, 0.147, 1.553, -22, 0.036011166264],
+  [2, 35.508, 1.693, 19.94, 0.677, 0.071, 30, 0.153871526562],
+  [3, 185.067, -1, 36.671, 0.4, 9.623, -22, 0.068335223601],
+  [1, 6.186, 1.343, 19.344, 0.537, 3.211, 30, 0.322898190442],
+  [2, 381.995, 0.225, 42.705, 0.09, 6.57, -22, 0],
+  [3, 249.366, -1.626, 59.46, 0.65, 7.674, 30, 0],
+  [1, 182.827, 1.083, 21.233, 0.433, 7.127, -22, 0.20450390121],
+  [2, 230.421, 1.255, 28.335, 0.502, 2.06, 30, 0.375304857695],
+  [3, 182.78, 0.825, 33.345, 0.33, 8.727, -22, 0.010883593693],
+  [1, 156.642, 2.043, 47.504, 0.817, 1.429, 30, 0.276492836362],
+  [2, 274.072, -0.719, 22.927, 0.288, 7.931, -22, 0.07775107445],
+  [3, 318.644, -1.555, 7.615, 0.622, 4.041, 30, 0],
+  [1, 349.82, 1.073, 34.293, 0.429, 2.477, -22, 0.332584668876],
+  [2, 156.778, 1.776, 52.053, 0.71, 3.718, 30, 0.045308103753],
+  [3, 332.953, 0.923, 33.81, 0.369, 8.955, -22, 0.009661612591],
+  [1, 252.527, 2.017, 24.57, 0.807, 7.832, 30, 0.079746073862],
+  [2, 330.116, -1.937, 39.517, 0.775, 6.11, -22, 0.169178036591],
+  [3, 44.922, 0.378, 56.902, 0.151, 0.92, 30, 0.012415539975],
+];
+
+test('P5: over 9 px across the arithmetic is today\'s, to the last digit', () => {
+  const cfg = { laneW: 1.2, invR: 1 / 3, dens: 0.8 };
+  for (const [id, s, qy, D, ay, drift, vd, v] of BEFORE_P5) {
+    assert.ok(Math.abs(pNoiseJS(id, s, qy, D, ay, CELL, drift, PXC, vd, cfg) - v) < 1e-9, `${id} ${s}`);
+  }
+});
+
+test('P5: at 4 px the result is the front layer alone times the stated gain, and the back layer is not read', () => {
+  const R = 4 * PX / 2, cfg = { laneW: R, invR: 1 / R, dens: 0.8 };
+  let any = 0;
+  for (let i = 0; i < 200; i++) {
+    const y = (i * 0.618) % 1 * 2 - 1, s = i * 3.7, ay = Math.abs(y);
+    const parts = pNoiseParts(1, s, y, (i * 0.37) % 64, ay, CELL, 2.2, PXC, 30, cfg);
+    assert.equal(parts.kW, 0);
+    assert.equal(parts.B, parts.mB, 'the back layer is its mean: no streak was looked up');
+    const v = pNoiseJS(1, s, y, (i * 0.37) % 64, ay, CELL, 2.2, PXC, 30, cfg);
+    assert.equal(v, Math.min(1, parts.F * parts.gain));
+    assert.ok(Math.abs(parts.gain - P.NARROW_GAIN[4]) < 1e-9, 'the table\'s value at 4 px (2, 2.5, 3, 3.5, 4)');
+    if (v > 0.05) any++;
+  }
+  assert.ok(any > 5, 'streaks show in a 4 px lumen');
+});
+
+test('P5: between 5 and 9 px the back layer is mixed in by the width', () => {
+  const W = 7, R = W * PX / 2, cfg = { laneW: R, invR: 1 / R, dens: 0.8 };
+  const parts = pNoiseParts(1, 40.2, 0.1, 12.5, 0.1, CELL, 2.2, PXC, 30, cfg);
+  assert.ok(parts.kW > 0.4 && parts.kW < 0.6);
+  const full = Math.min(1, Math.max(0, 1 - (1 - parts.F) * (1 - P.BACK.bright * parts.B))), alone = Math.min(1, parts.F * parts.gain);
+  assert.ok(Math.abs(pNoiseJS(1, 40.2, 0.1, 12.5, 0.1, CELL, 2.2, PXC, 30, cfg) - (alone * (1 - parts.kW) + full * parts.kW)) < 1e-12);
+});
+
+test('P5: the mean tone is flat from 3 to 9 px across (over 9 the field is today\'s, which itself eases down a few percent to 14 px) (the table is the calibration), and the back layer\'s text is behind a branch', () => {
+  const mean = (W) => {
+    const R = W * PX / 2, cfg = { laneW: R, invR: 1 / R, dens: 0.8 };
+    let sum = 0;
+    const N = 50000;
+    for (let i = 0; i < N; i++) {
+      const y = (i * 0.6180339887) % 1 * 2 - 1;
+      sum += pNoiseJS(1, i * 0.913, y, (i * 0.37) % 64, Math.abs(y), CELL, 2.2, PXC, 30, cfg);
+    }
+    return sum / N;
+  };
+  const ref = mean(9);
+  for (const W of [3, 4, 5, 6, 7, 8]) assert.ok(Math.abs(mean(W) / ref - 1) < 0.03, `${W} px: ${mean(W)} against ${ref}`);
+  assert.ok(P_GLSL.includes('if (kB > 0.0 && kW > 0.0) {'), 'the back layer runs only where the lumen is over 5 px across');
+  assert.equal(P.BACK_PX0, 5); assert.equal(P.BACK_PX1, 9);
+  assert.equal(P.NARROW_GAIN.length, (9 - P.NARROW_W0) / P.NARROW_STEP + 1);
 });

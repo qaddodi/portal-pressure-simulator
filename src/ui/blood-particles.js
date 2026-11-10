@@ -53,6 +53,12 @@ export const P = {
   SOFT: 6,                    // the thinning's slope: a streak fades over 1/6 of the random number's range
   FRONT: { lanePx: 6.0, sc: 1.0, len: 3.0, tsc: 1.0, bright: 1.0, seed: 0 },
   BACK: { lanePx: 4.0, sc: 0.7, len: 3.0, tsc: 0.72, bright: 0.7, seed: 0x5bd1e995 },   // (a finer lane, shorter cells; slower; 0.7 of the brightness)
+  // Brief P5, calibrated: the front layer's strength in a narrow lumen (width W px, 2 to 9 in half pixels) that makes its mean tone equal the
+  // whole field's at 9 px, where the back layer is whole. Measured with the JS twin over the lumen's width (tests/blood-particles.test.js
+  // re-measures it: a table that drifts fails). The lanes are centred on the axis in a narrow lumen (see pNoise), which a lane wider than the
+  // lumen would otherwise leave nearly empty.
+  NARROW_GAIN: [1.165, 1.246, 1.35, 1.483, 1.652, 1.865, 2.132, 2.503, 3.121, 3.244, 2.887, 2.19, 1.63, 1.079, 1.0], NARROW_W0: 2, NARROW_STEP: 0.5,
+  BACK_PX0: 5, BACK_PX1: 9,   // the lumen's width in pixels: under the first the back layer is not drawn (the front takes its mean share), over the second it is whole (brief P5)
   CELL_PX: [3, 5],            // the cell's length in pixels: under the first the field is the mean, over the second the streaks are drawn
 };
 
@@ -63,6 +69,7 @@ const LAYER = (L) => `${f(L.lanePx)}, ${f(L.sc)}, ${f(L.len)}, ${f(L.tsc)}`;
 /** GLSL (no #version) that defines pNoise; needs `precision highp int` in the host. */
 export const P_GLSL = `
 const float P_CYCLE = ${f(P.CYCLE)};
+const float P_NARROW[${P.NARROW_GAIN.length}] = float[${P.NARROW_GAIN.length}](${P.NARROW_GAIN.map(f).join(', ')});
 float pLaneW = 1.0, pInvR = 1.0, pDens = 1.0;
 uint pHash(uint a, uint b, uint c) {
   uint h = a * 0x9e3779b1u ^ b * 0x85ebca6bu ^ c * 0xc2b2ae35u;
@@ -134,22 +141,32 @@ float pNoise(int id, float s, float qy, float D, float ay, float cell, float dri
   float w0 = 1.0 - abs(1.0 - 2.0 * f0), w1 = 1.0 - abs(1.0 - 2.0 * f1);
   float mF = pMean(cell, ay, vd, t, ${LAYER(FR)}, px);
   float mB = pMean(cell, ay, vd, t, ${LAYER(BK)}, px);
+  // A narrow lumen (brief P5): under BACK_PX0 pixels across the back layer is not run at all (no reads, no hashes) and the front is raised
+  // to the whole field's tone (NARROW_GAIN); its lanes are centred on the axis while the lumen is narrower than a lane (kW < 1: no change at all over BACK_PX1).
+  float kW = smoothstep(${f(P.BACK_PX0)}, ${f(P.BACK_PX1)}, 2.0 / (max(pInvR, 1e-6) * px));
+  float qwF = qw + ${f(0.5 * FR.lanePx)} * px * (1.0 - kW), qwB = qw + ${f(0.5 * BK.lanePx)} * px * (1.0 - kW);
   // (The mean only where a whole cell is under a few pixels long and cannot show a streak.)
   float kF = smoothstep(${f(P.CELL_PX[0])}, ${f(P.CELL_PX[1])}, cell * ${f(FR.sc * FR.len)} / px), kB = smoothstep(${f(P.CELL_PX[0])}, ${f(P.CELL_PX[1])}, cell * ${f(BK.sc * BK.len)} / px);
   float F = mF, B = mB;
   if (kF > 0.0) {
     float c = 0.0;
-    if (w0 > 0.0) c += w0 * pLayer(id, s, qw, f0, cell, drift, vd, px, t, ${LAYER(FR)}, ${FR.seed}u);
-    if (w1 > 0.0) c += w1 * pLayer(id, s, qw, f1, cell, drift, vd, px, t, ${LAYER(FR)}, ${FR.seed}u);
+    if (w0 > 0.0) c += w0 * pLayer(id, s, qwF, f0, cell, drift, vd, px, t, ${LAYER(FR)}, ${FR.seed}u);
+    if (w1 > 0.0) c += w1 * pLayer(id, s, qwF, f1, cell, drift, vd, px, t, ${LAYER(FR)}, ${FR.seed}u);
     F = mix(mF, c, kF);
   }
-  if (kB > 0.0) {
+  if (kB > 0.0 && kW > 0.0) {
     float c = 0.0;
-    if (w0 > 0.0) c += w0 * pLayer(id, s, qw, f0, cell, drift, vd, px, t, ${LAYER(BK)}, ${BK.seed}u);
-    if (w1 > 0.0) c += w1 * pLayer(id, s, qw, f1, cell, drift, vd, px, t, ${LAYER(BK)}, ${BK.seed}u);
+    if (w0 > 0.0) c += w0 * pLayer(id, s, qwB, f0, cell, drift, vd, px, t, ${LAYER(BK)}, ${BK.seed}u);
+    if (w1 > 0.0) c += w1 * pLayer(id, s, qwB, f1, cell, drift, vd, px, t, ${LAYER(BK)}, ${BK.seed}u);
     B = mix(mB, c, kB);
   }
-  return clamp(1.0 - (1.0 - F) * (1.0 - ${f(BK.bright)} * B), 0.0, 1.0);
+  float full = clamp(1.0 - (1.0 - F) * (1.0 - ${f(BK.bright)} * B), 0.0, 1.0);
+  if (kW >= 1.0) return full;
+  float gu = clamp((2.0 / (max(pInvR, 1e-6) * px) - ${f(P.NARROW_W0)}) / ${f(P.NARROW_STEP)}, 0.0, ${f(P.NARROW_GAIN.length - 1)});
+  int gi = min(int(gu), ${P.NARROW_GAIN.length - 2});
+  float gain = mix(P_NARROW[gi], P_NARROW[gi + 1], gu - float(gi));
+  float alone = clamp(F * gain, 0.0, 1.0);
+  return kW <= 0.0 ? alone : mix(alone, full, kW);
 }`;
 
 // ---- The JS twin (tests): the same arithmetic as P_GLSL, line for line. cfg = { laneW, invR, dens } is pLaneW, pInvR, pDens. ----
@@ -228,21 +245,33 @@ export function pMeanJS(cell, ay, vd, t, L, cfg, px) {
 /** The thinning threshold for a dens (pNoise's t). */
 export const pThreshold = (dens) => clamp(P.OCC * dens, 0, 1) * (1 + 1 / P.SOFT);
 /** pNoise, in JS: the same arguments as the shader's. cfg = { laneW, invR, dens }. */
-export function pNoiseJS(id, s, qy, D, ay, cell, drift, pxCell, vd, cfg) {
+export function pNoiseParts(id, s, qy, D, ay, cell, drift, pxCell, vd, cfg) {
   const qw = qy * cfg.laneW, px = Math.max(pxCell * cell, 1e-6), t = pThreshold(cfg.dens);
   const f0 = fract(D / P.CYCLE), f1 = fract(f0 + 0.5);
   const w0 = 1 - Math.abs(1 - 2 * f0), w1 = 1 - Math.abs(1 - 2 * f1);
+  const kW = smoothstep(P.BACK_PX0, P.BACK_PX1, 2 / (Math.max(cfg.invR, 1e-6) * px));
   const layer = (L) => {
+    const qwL = qw + 0.5 * L.lanePx * px * (1 - kW);   // (a narrow lumen: the lane grid centred on the axis, so a lane's streaks lie inside it)
     const m = pMeanJS(cell, ay, vd, t, L, cfg, px);
     const k = smoothstep(P.CELL_PX[0], P.CELL_PX[1], cell * L.sc * L.len / px);
     if (!(k > 0)) return m;
     let c = 0;
-    if (w0 > 0) c += w0 * pLayerJS(id, s, qw, f0, cell, drift, vd, px, t, L, cfg);
-    if (w1 > 0) c += w1 * pLayerJS(id, s, qw, f1, cell, drift, vd, px, t, L, cfg);
+    if (w0 > 0) c += w0 * pLayerJS(id, s, qwL, f0, cell, drift, vd, px, t, L, cfg);
+    if (w1 > 0) c += w1 * pLayerJS(id, s, qwL, f1, cell, drift, vd, px, t, L, cfg);
     return mix(m, c, k);
   };
-  const F = layer(P.FRONT), B = layer(P.BACK);
-  return clamp(1 - (1 - F) * (1 - P.BACK.bright * B), 0, 1);
+  const mF = pMeanJS(cell, ay, vd, t, P.FRONT, cfg, px), mB = pMeanJS(cell, ay, vd, t, P.BACK, cfg, px);
+  const F = layer(P.FRONT), B = kW > 0 ? layer(P.BACK) : mB;
+  const gu = clamp((2 / (Math.max(cfg.invR, 1e-6) * px) - P.NARROW_W0) / P.NARROW_STEP, 0, P.NARROW_GAIN.length - 1), gi = Math.min(Math.floor(gu), P.NARROW_GAIN.length - 2);
+  const gain = mix(P.NARROW_GAIN[gi], P.NARROW_GAIN[gi + 1], gu - gi);
+  return { F, B, mF, mB, kW, gain };
+}
+export function pNoiseJS(id, s, qy, D, ay, cell, drift, pxCell, vd, cfg) {
+  const { F, B, kW, gain } = pNoiseParts(id, s, qy, D, ay, cell, drift, pxCell, vd, cfg);
+  const full = clamp(1 - (1 - F) * (1 - P.BACK.bright * B), 0, 1);
+  if (kW >= 1) return full;
+  const alone = clamp(F * gain, 0, 1);
+  return kW <= 0 ? alone : mix(alone, full, kW);
 }
 /** The mean of the whole field (union of the two layers' means, as pNoise gives it where the streaks are too small to draw). */
 export function pFieldMean(cell, ay, vd, cfg, px) {
