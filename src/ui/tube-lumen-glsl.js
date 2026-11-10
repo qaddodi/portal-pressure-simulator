@@ -114,6 +114,22 @@ ${fnText(shade, 'void vesAttrs(')}
 
 ${fnText(shade, 'vec4 ditherOut(')}
 
+// A vessel seen end-on (the lobule's portal venule, arteriole and central vein: a disc) has no across to lay streams side by side over, so its blood is
+// a pie: wedges in originAt's order (SMV, IMV, splenic vein, hepatic artery, the rest) from twelve o'clock, clockwise, each as wide as its share. Such a row
+// says so in flow texel 7: z = -2 (no blend is ever below 0) and xy = the disc's centre (world; lobule-zoom.js putOrigin). originAt is given the angle as its
+// across (u = angle / 2 pi) and a radius that makes its edge as soft as a pixel at this pixel's distance from the centre; the seam at twelve o'clock mixes
+// the last wedge into the first. (Tube only: the Classic and Mesh compositors keep their text, byte for byte.)
+vec3 originHere(int id, float s, float y, float R, vec2 w) {
+  if (texelFetch(flow, ivec2(7, id), 0).z > -1.5) return originAt(id, s, y, R);
+  vec2 d = w - texelFetch(flow, ivec2(7, id), 0).xy;
+  float u = fract(atan(d.x, -d.y) * 0.15915494 + 1.0);
+  float e = clamp(0.6 * pxW / (max(length(d), 3.0 * pxW) * 6.2831853), 0.01, 0.08);
+  float Re = 0.6 * pxW / e;
+  vec3 c = originAt(id, s, u * 2.0 - 1.0, Re);
+  vec3 other = originAt(id, s, (u < 0.5 ? 0.9999 : 0.0001) * 2.0 - 1.0, Re);
+  return mix(c, other, 0.5 * (1.0 - smoothstep(0.0, e, u < 0.5 ? u : 1.0 - u)));
+}
+
 void main() {
   int id = vRow;
   vec4 t2 = T(id, 2), t5 = T(id, 5);
@@ -163,7 +179,7 @@ void main() {
     // The lumen is drawn a neutral grey; its light and dark lines are kept as a ratio of that grey.
     float shade = clamp(dot(col, vec3(0.299, 0.587, 0.114)) / ORIGIN_GREY, 0.55, 1.45);
     // A vessel that carries no blood (origin fractions marked −1, e.g. a lymphatic) keeps its own color.
-    vec3 oc = texelFetch(flow, ivec2(2, id1), 0).x < -0.5 ? col : min(originAt(id1, s1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3)) * shade, vec3(1.0));
+    vec3 oc = texelFetch(flow, ivec2(2, id1), 0).x < -0.5 ? col : min(originHere(id1, s1, y1, max(texelFetch(rad, ivec2(N_LAST / 2, id1), 0).r, 0.3), p) * shade, vec3(1.0));
     col = mix(col, oc, vis * blendA.z);
   }
   // The front lumen's flow, length, caliber here and own colour.

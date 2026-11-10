@@ -796,8 +796,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (The First pass lens: the sinusoid cleans along its length, so its row carries the blend at its outlet and a Pe near 0 (blood.js originEnds).)
   const lobEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length) };
   // (One row's origin texels: its edge's blend (flow texel 2) and, for the First pass lens, the blend at its outlet and its Pe (texels 6 and 7).)
-  const putOrigin = (o, kk) => {
+  // (An end-on disc is a pie, not streams across: flow texel 7 holds its centre (x, y) and z = -2 to say so, comp-glsl.js originPie. A pie has no length, so no Pe blend.)
+  const putOrigin = (o, kk, t) => {
     for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c];
+    if (t) { const a = t.pts[0], b = t.pts[t.pts.length - 1]; flowData[o + 28] = (a[0] + b[0]) / 2; flowData[o + 29] = (a[1] + b[1]) / 2; flowData[o + 30] = -2; return; }
     if (originsPass && lobEnds.pe[kk] !== 0) { flowData[o + 27] = lobEnds.pe[kk]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 28 + c] = lobEnds.down[kk * ORIGIN_N + c]; }
   };
   const pc = (p) => (model?.hide ? tk('--lz-lumen-hidden') : pressureColor(p));
@@ -4023,7 +4025,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
       else {   // vessels seen end-on carry no streaks (lymph moves as the drops on the overlay); the portal venule, arteriole and central vein carry their blood's origin
         const ke = END_ON_EDGE[lv];
-        if (origin && origins && ke !== undefined) putOrigin(t.id * FLOW_TEXELS * 4, ke);
+        if (origin && origins && ke !== undefined) putOrigin(t.id * FLOW_TEXELS * 4, ke, t);
         continue;
       }
       const mo = motionOf(t), sm = mo.stream || (mo.stream = { D: (t.id * 977) % PERIOD, rev: rev, v });   // alloc-once: a vessel's first flow step; the stream object is kept in its motion record (the shader's density divisor, laneSum, is read as veins-gl.js LANE_K)
