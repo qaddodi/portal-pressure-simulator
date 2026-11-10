@@ -247,7 +247,7 @@ test('coverage: bends and hairpins leave no point within rw + w - aaPad of the p
 });
 
 test('levels: every f is in 0..1; lumen above casing above glow; a glow pass has a level of its own', () => {
-  assert.ok(L.GLOW0 < L.GLOW1 && L.GLOW1 < L.CASE0 && L.CASE0 < L.CASE1 && L.CASE1 < L.LUMEN0 && L.LUMEN0 + L.LUMEN_H <= 1 && L.LUMEN0 + L.LUMEN_H < L.PATCH && L.PATCH < 1 && L.GLOW0 > 0);
+  assert.ok(L.GLOW0 < L.GLOW_WALL && L.GLOW_WALL < L.GLOW1 && L.GLOW1 < L.CASE0 && L.CASE0 < L.CASE1 && L.CASE1 < L.LUMEN0 && L.LUMEN0 + L.LUMEN_H <= 1 && L.LUMEN0 + L.LUMEN_H < L.PATCH && L.PATCH < 1 && L.GLOW0 > 0);
   const types = ['smooth', 'wiggly', 'hairpin'];
   for (let seed = 1; seed <= 60; seed++) {
     const rand = rng(seed * 7919), type = types[seed % 3];
@@ -266,13 +266,18 @@ test('levels: every f is in 0..1; lumen above casing above glow; a glow pass has
         const f = V[3 * q + 2];
         assert.ok(f >= 0 && f <= 1, `f ${f}`);
         assert.ok(Number.isFinite(V[3 * q]) && Number.isFinite(V[3 * q + 1]));
-        if (glow) assert.ok(f === L.GLOW0 || f === L.GLOW1);
+        if (glow) assert.ok(f === L.GLOW0 || f === L.GLOW_WALL || f === L.GLOW1);
         else assert.ok(f >= L.CASE0 && f <= L.LUMEN0 + L.LUMEN_H + 1e-12);
       }
       for (let r = 0; r < TUBE_RINGS; r++) {
         const arcMin = Math.min(...[2, 3, 4, 5, 6, 7, 8].map((a) => V[3 * v(r, a) + 2])), skirtMax = Math.max(...[0, 1, 9, 10].map((a) => V[3 * v(r, a) + 2]));
         if (!glow) assert.ok(arcMin >= L.LUMEN0 - 1e-12 && skirtMax <= L.CASE1, 'lumen above casing');
-        else assert.ok(arcMin >= L.GLOW1 && skirtMax <= L.GLOW0, 'glow: the middle above the edge');
+        else {
+          assert.ok(arcMin >= L.GLOW1 && skirtMax <= L.GLOW_WALL, 'glow: the middle above the skirt');
+          // the skirt slopes: the outer columns at GLOW0, the wall columns at GLOW_WALL (the nearest wall is the nearest surface)
+          assert.deepEqual([0, 10].map((a) => V[3 * v(r, a) + 2]), [L.GLOW0, L.GLOW0], 'glow: the outer edge');
+          assert.deepEqual([1, 9].map((a) => V[3 * v(r, a) + 2]), [L.GLOW_WALL, L.GLOW_WALL], 'glow: the wall');
+        }
       }
     }
     // the radius floor: a radius under MIN_RADIUS draws as MIN_RADIUS

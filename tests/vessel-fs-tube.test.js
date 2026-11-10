@@ -64,6 +64,8 @@ test('the Tube key block keeps every discard of the Mesh\'s and drops only the d
   assert.equal((tube.match(/discard/g) || []).length, (mesh.match(/discard/g) || []).length, 'every discard kept');
   assert.deepEqual(lines(mesh).filter((l) => !lines(tube).includes(l)).map((l) => l.trim().split(' ')[0]).sort(), ['gl_FragDepth', 'gl_FragDepth', 'if'].sort(), 'the three lines left out: two depth writes and the _K return');
   assert.deepEqual(lines(tube).filter((l) => !lines(mesh).includes(l)), [], 'nothing added');
-  assert.equal(meshFS(parts).out, meshFS({ ...parts, tube: 1 }).out, 'the part laid at the end is the same');
-  assert.equal(meshFS(parts).decl, meshFS({ ...parts, tube: 1 }).decl, 'and the declarations');
+  // (The Tube's glow prepass: tubeKey, one added declaration and one added line in the part laid at the end; tests/tube-glow.test.js.)
+  const noKey = (t) => t.split('\n').filter((l) => !l.includes('tubeKey')).join('\n');
+  assert.equal(meshFS(parts).out, noKey(meshFS({ ...parts, tube: 1 }).out), 'the part laid at the end is the same');
+  assert.equal(meshFS(parts).decl, noKey(meshFS({ ...parts, tube: 1 }).decl), 'and the declarations');
 });

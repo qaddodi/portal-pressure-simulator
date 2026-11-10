@@ -223,7 +223,8 @@ uniform int tierNow;                   // the tier it draws
 uniform float keyBase;                 // this pass's keys: keyBase + [0, 1) * keyH
 uniform float keyH;
 uniform float keyShape;                // (the ring) the shape pass's keyBase
-const float KEY_BIAS = ${KEY_BIAS};`;
+const float KEY_BIAS = ${KEY_BIAS};${tube ? `
+uniform int tubeKey;                   // (the Tube) 1 in a glow's depth prepass: a lit vessel's own wall keeps its depth there, so no other glow shows inside it`: ''}`;
 
   const key = `
   // ── The mesh pass: this fragment's key (lower wins) as its depth: the prepass keeps the lowest (depth LESS), and the pass draws only the
@@ -331,7 +332,7 @@ ${tube ? '' : `    gl_FragDepth = keyShape + 0.5 * (1.0 - T(id, 2).y + 1e-4) * k
   // ── The mesh pass's part of the picture (what the classic shader lays together at the end, for the pass's tier) ──
   if (mPass == MP_GLOW || mPass == MP_UP) {
     vec4 lgm = mPass == MP_UP ? mLgU : mLg;
-    if (lgm.a <= 0.0) discard;
+    ${tube ? 'if (lgm.a <= 0.0 && tubeKey == 1 && sd[0] < swall[0]) { outFlow = uvec4(0u); outFlow2 = uvec4(0u); outColor = vec4(0.0); outDep = vec4(0.0); return; }   // (the depth prepass: inside the lit vessel\'s own wall the nearest surface, with no colour: the Mesh\'s key 0 there)\n    ' : ''}if (lgm.a <= 0.0) discard;
     if (tierGroup[tierNow] == 1) lgm *= min(1.0 / max(netAlpha, 1e-3), 1.0 / lgm.a);   // (laid with the network, which is faded as a whole)
     outColor = ditherOut(lgm, q); outDep = vec4(dep ? 1.0 : 0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u);
     return;

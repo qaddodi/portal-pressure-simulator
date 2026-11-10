@@ -32,7 +32,9 @@ export const DOME_VERTS = 1 + TUBE_HEX;                           // centre + he
 export const DOME_BASE = GRID_VERTS;                              // sample i (1 .. N_SAMPLES - 2) at DOME_BASE + (i - 1) * DOME_VERTS
 export const TRAP_BASE = DOME_BASE + (N_SAMPLES - 2) * DOME_VERTS;   // segment j at TRAP_BASE + 4 * j
 export const TUBE_VERTS = TRAP_BASE + 4 * N_QUADS;                // 1522
-export const TUBE_LEVEL = { GLOW0: 0.02, GLOW1: 0.08, CASE0: 0.10, CASE1: 0.20, LUMEN0: 0.30, LUMEN_H: 0.50, PATCH: 0.95 };
+// (A glow's skirt slopes from GLOW0 at its outer edge up to GLOW_WALL at the lumen's wall, so where several lit vessels' skirts overlap the nearest
+// wall's is the nearest surface: the strongest glow wins the pixel, as the Mesh's key makes it. The lumen, GLOW1, is nearer than any skirt.)
+export const TUBE_LEVEL = { GLOW0: 0.02, GLOW_WALL: 0.07, GLOW1: 0.08, CASE0: 0.10, CASE1: 0.20, LUMEN0: 0.30, LUMEN_H: 0.50, PATCH: 0.95 };
 const L = TUBE_LEVEL;
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
@@ -112,8 +114,8 @@ function mitreAB(a, b, rw, s) {
 /** The across offset d (world units, positive toward the left of travel) and the level f of across column ac, for a ring whose half tube has radius rc. */
 function acrossAt(ac, rc, w, hRef, glow) {
   if (ac === 0) return [-(rc + w), glow ? L.GLOW0 : L.CASE0];
-  if (ac === 1) return [-rc, glow ? L.GLOW0 : L.CASE1];
-  if (ac === TUBE_ACROSS - 2) return [rc, glow ? L.GLOW0 : L.CASE1];
+  if (ac === 1) return [-rc, glow ? L.GLOW_WALL : L.CASE1];
+  if (ac === TUBE_ACROSS - 2) return [rc, glow ? L.GLOW_WALL : L.CASE1];
   if (ac === TUBE_ACROSS - 1) return [rc + w, glow ? L.GLOW0 : L.CASE0];
   const th = ((ac - 2) / (TUBE_ARC - 1) - 0.5) * Math.PI, h = rc * Math.cos(th);
   return [rc * Math.sin(th), glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(h / hRef, 0, 1)];
@@ -204,6 +206,7 @@ const int T_HEX = ${TUBE_HEX};
 const int T_DOME = ${TUBE_KIND.DOME};
 const int T_TRAP = ${TUBE_KIND.TRAP};
 const float L_GLOW0 = ${f(L.GLOW0)};
+const float L_GLOW_WALL = ${f(L.GLOW_WALL)};
 const float L_GLOW1 = ${f(L.GLOW1)};
 const float L_CASE0 = ${f(L.CASE0)};
 const float L_CASE1 = ${f(L.CASE1)};
@@ -215,8 +218,8 @@ flat out int vRow;
 // The across offset d and the level f of across column ac, for a ring whose half tube has radius rc.
 vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow) {
   if (ac == 0) return vec2(-(rc + w), glow ? L_GLOW0 : L_CASE0);
-  if (ac == 1) return vec2(-rc, glow ? L_GLOW0 : L_CASE1);
-  if (ac == T_ACROSS - 2) return vec2(rc, glow ? L_GLOW0 : L_CASE1);
+  if (ac == 1) return vec2(-rc, glow ? L_GLOW_WALL : L_CASE1);
+  if (ac == T_ACROSS - 2) return vec2(rc, glow ? L_GLOW_WALL : L_CASE1);
   if (ac == T_ACROSS - 1) return vec2(rc + w, glow ? L_GLOW0 : L_CASE0);
   float th = (float(ac - 2) / float(T_ARC - 1) - 0.5) * M_PI;
   float h = rc * cos(th);
