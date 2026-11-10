@@ -18,7 +18,7 @@ const { COMP_FS } = await import('../src/ui/veins-gl.js');
 
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 // (Updated on purpose with brief P5, 10 Nov 2026: pNoise, in the shared P_GLSL text every build includes, no longer runs its back layer in a
-// lumen under 5 px across and centres its lanes there. Nothing else in the text changed; the hashes before it were the b752802 ones.)
+// lumen under 5 px across and centres its lanes there. The change is style P text only (blood styles 1 and 2 run the same arithmetic as before); the hashes before it were the b752802 ones.)
 const HASH = {
   'COMP_FS()': 'b14e98833562318ff9fe554fd0ea09a2855f323223be055e9e8fda7455cf5bdc',
   'COMP_FS(true)': 'ef1c27ef814e10589abc5fca4504b54c38b83255d53aa35d047d70ebea605a48',
