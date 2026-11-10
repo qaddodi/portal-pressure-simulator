@@ -180,7 +180,13 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
   if (K.y > 1.5) {
     j.pt = (atStart ? vC0 : vC1).w;
     float s = dot(p - J.xy, J.zw);
-    if (s > ${f(JOIN_CUT)} * px) { j.drop = true; return j; }
+    if (s > ${f(JOIN_CUT)} * px) {
+      // The outer corner of a bend is not the other row's: between this row's end line (across its way out) and the next row's start line (across its way on) lies a wedge
+      // neither lumen covers, which the two end caps, one circle, round off. The bisector m is this row's way out turned by half the bend; undo that turn for the two ways.
+      float ha = 0.5 * K.x, ch = cos(ha), sh = sin(ha);
+      vec2 qe = p - J.xy, wo = vec2(ch * J.z + sh * J.w, -sh * J.z + ch * J.w), wf = vec2(ch * J.z - sh * J.w, sh * J.z + ch * J.w);
+      if (!(dot(qe, wo) > 0.0 && dot(qe, wf) < 0.0)) { j.drop = true; return j; }
+    }
     j.wc = 0.5 * (1.0 - smoothstep(0.0, cw, -s));
     j.rs = smoothstep(-${f(JOIN_RAMP_R)} * R, 0.0, s);
     j.rot = K.x * 0.5 * (1.0 - smoothstep(0.0, max(${f(JOIN_TONE_R)} * R, ${f(JOIN_TONE_MIN)}), -s));
@@ -313,7 +319,11 @@ export function joinEndJS(o) {
   if (K[1] > 1.5) {
     j.pt = (atStart ? o.PT0 : o.PT1) ?? -1;
     const s = (p[0] - J[0]) * J[2] + (p[1] - J[1]) * J[3];
-    if (s > JOIN_CUT * px) { j.drop = true; return j; }
+    if (s > JOIN_CUT * px) {
+      const ha = 0.5 * K[0], ch = Math.cos(ha), sh = Math.sin(ha), qx = p[0] - J[0], qy = p[1] - J[1];
+      const wo = [ch * J[2] + sh * J[3], -sh * J[2] + ch * J[3]], wf = [ch * J[2] - sh * J[3], sh * J[2] + ch * J[3]];
+      if (!(qx * wo[0] + qy * wo[1] > 0 && qx * wf[0] + qy * wf[1] < 0)) { j.drop = true; return j; }
+    }
     j.wc = 0.5 * (1 - smooth(0, cw, -s));
     j.rs = smooth(-JOIN_RAMP_R * R, 0, s);
     j.rot = K[0] * 0.5 * (1 - smooth(0, Math.max(JOIN_TONE_R * R, JOIN_TONE_MIN), -s));

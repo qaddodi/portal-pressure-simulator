@@ -130,7 +130,7 @@ ${tubeJoinVS(64)}`;
   assert.deepEqual(lintGLSL(env(JOIN_IN_GLSL)), []);
   assert.match(fs, /bool atStart = vI < 8\.0;/);
   assert.match(fs, /if \(!atStart && !\(vI > 55\.0\)\) return j;/);
-  assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) { j.drop = true; return j; }`));
+  assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) {`));
   assert.match(fs, /if \(gap < -0\.5 \* px && !beyond\) \{ j\.drop = true; return j; \}/);
   assert.ok(fs.includes(`j.fl = smoothstep(-${JOIN_FADE_IN} * R, ${JOIN_FADE_OUT.toFixed(1)} * R, gap);`));
   assert.ok(fs.includes(`j.fo = smoothstep(-${JOIN_FADE_LINE} * R, 0.0, gap);`));
@@ -256,4 +256,18 @@ test('one tone field over a join: at a bent continuation the cel tones\' directi
   assert.equal(joinTaperJS(f, 1, 60, 4), 0, 'nothing at its own end point (its round cap is the end)');
   assert.equal(joinTaperJS(f, 1 - (JOIN_TAPER_R * 4 + 1) / 60, 60, 4), 1, 'whole beyond the taper');
   assert.equal(joinTaperJS({ tp: 0 }, 1, 60, 4), 1, 'and none for a row with no fading end');
+});
+
+test('the outer corner of a bend is round, not notched: past the bisector plane a row still draws the wedge between its own end line and the next row\'s start line (the two end caps are one circle there); the inner side and the straight on are the other row\'s', () => {
+  const A = line(-100, 0, 0, 0), B = line(0, 0, 86.6, 50), R = 6;
+  const rw = rowsOf({ 0: { pts: A, tier: 3, colour: () => [1, 1, 1] }, 1: { pts: B, tier: 3, colour: () => [1, 1, 1] } });
+  const dA = joinOneJS({ e: endContinues(1, 0), atStart: false, own: { pts: A, tier: 3 }, id: 0, rows: rw });
+  const a = (x, y) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: dA.J, K: [-1, -1, ...dA.K], C0: [0, 0, 0], C1: dA.C, p: [x, y], R, px: PX });
+  assert.equal(a(2, -4).drop, false, 'the outer wedge (a bend to +y has its outer side at -y)');
+  assert.equal(a(2, 4).drop, true, 'the inner side is the next row\'s');
+  assert.equal(a(3, 0).drop, true, 'straight on is the next row\'s');
+  assert.equal(a(-1, -4).drop, false, 'and behind the plane it is its own');
+  const straight = joinOneJS({ e: endContinues(1, 0), atStart: false, own: { pts: A, tier: 3 }, id: 0, rows: rowsOf({ 0: { pts: A, tier: 3 }, 1: { pts: line(0, 0, 100, 0), tier: 3 } }) });
+  const s = (x, y) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: straight.J, K: [-1, -1, ...straight.K], C0: [0, 0, 0], C1: [0, 0, 0], p: [x, y], R, px: PX });
+  assert.equal(s(2, -4).drop, true, 'a straight continuation has no wedge');
 });
