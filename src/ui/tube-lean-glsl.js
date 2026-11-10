@@ -20,7 +20,7 @@
 //   ALONG_GLSL  the alongAt function (veins-gl.js)
 import { shadeGLSL, MP } from './veins-mesh-glsl.js';
 import { celGLSL, celShadeJS, CEL } from './tube-cel-glsl.js';
-import { tubeJoinFS, joinRampGLSL, JOIN_IN_GLSL, END_BASE, END_SEGS, trunkGapJS } from './tube-join-glsl.js';
+import { tubeJoinFS, joinRampGLSL, joinToneJS, joinTaperJS, JOIN_IN_GLSL, END_BASE, END_SEGS, trunkGapJS } from './tube-join-glsl.js';
 export { END_SEGS, trunkGapJS };
 
 /** The depth prepass for plain rows: no outputs, no work; drawn with the colour masked off. */
@@ -177,7 +177,7 @@ void main() {
   int flags = int(aFlag + 0.5);
   bool sel = (flags & ${F_SEL}) != 0;
   float cA = (flags & ${F_NOCASE}) != 0 ? 0.0 : (flags & ${F_DOTTED}) != 0 ? 0.35 : 1.0;
-  vec2 g = length(vG) > 1e-5 ? normalize(vG) : vec2(0.0);
+  vec2 g = joinTone(length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), je);   // (one tone field over a join: tube-join-glsl.js)
   float aa = px * ${EDGE};
   float aL = clamp(0.5 - D / aa, 0.0, 1.0);
   if (aL > 0.0) dep = true;
@@ -188,7 +188,8 @@ void main() {
   float lumA = aL * aA * tierAlpha[tt] * gf;
   // (A continuation eases its opacity to its partner's tier's over the last JOIN_RAMP_R radii when the partner is the fainter, so the two tiers meet without a step.)
   float jr = joinRamp(je, aA * tierAlpha[tt] * gf, occl);   // (a continuation eases its opacity to its partner's: tube-join-glsl.js)
-  lumA *= je.fl * jr;   // (a branch fading into its trunk: tube-join-glsl.js)
+  float jt = joinTaper(je, u, max(t5.z, 1.0), R);
+  lumA *= je.fl * jr * jt;   // (a branch fading into its trunk: tube-join-glsl.js)
   bool lum = lumA > 0.02 && !dotted;
   // The stream shown here: this lumen, with its place along and across for the compositor's blood.
   uint gId = 0u;
@@ -199,7 +200,7 @@ void main() {
     gId = uint(id + 1); gS = u * t5.z; gY = clamp(across / max(R, 1e-3), -1.0, 1.0); gW = lumA * smoothstep(0.5, 0.9, je.fl);   // (a branch fading into its trunk hands its blood and heads over to the trunk's before it is half gone: no stray head on the ghost of its end)
   }
   if (grp == 0) c *= 1.0 - occl * aOf;
-  c *= mix(je.fo, je.fl, aL) * jr;   // (the lumen's share fades with the branch, the outline's faster)
+  c *= mix(je.fo, je.fl, aL) * jr * jt;   // (the lumen's share fades with the branch, the outline's faster)
   // (The lift: the selected vessel's own share, laid over the network.)
   if (mPass == ${MP.LIFT}) {
     vec4 lc = c * wsel;
@@ -261,7 +262,7 @@ export function tubeLeanJS(o) {
   if (D > 8 + 2 * px) return { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   const flags = at.flags, grp = o.grp ?? 1, dotted = (flags & F_DOTTED) !== 0;
   const cA = (flags & F_NOCASE) !== 0 ? 0 : dotted ? 0.35 : 1;
-  const gl = Math.hypot(o.g[0], o.g[1]), g = gl > 1e-5 ? [o.g[0] / gl, o.g[1] / gl] : [0, 0];
+  const gl = Math.hypot(o.g[0], o.g[1]), g0 = gl > 1e-5 ? [o.g[0] / gl, o.g[1] / gl] : [0, 0], g = jn ? joinToneJS(g0, jn) : g0;   // (one tone field over a join)
   const aa = o.aa;
   const aL = clamp(0.5 - D / aa, 0, 1);
   const dep = aL > 0 || !!o.glowOwn ? 1 : 0;
@@ -273,11 +274,12 @@ export function tubeLeanJS(o) {
   const gf = grp === 0 ? 1 - occl * of : grp === 1 ? mix(netAlpha, 1, wsel) : 1;
   let lumA = aL * at.alpha * tierA * gf;
   const fl = jn ? jn.fl : 1, fo = jn ? jn.fo : 1;
+  const jt = jn ? joinTaperJS(jn, o.u, clip[2], o.R) : 1;
   const jr = jn && jn.pt >= 0 ? mix(1, Math.min(1, (o.partnerAlpha ?? tierA) / Math.max(tierA, 1e-3)), jn.rs) : 1;   // (o.partnerAlpha: the partner's tier alpha)
-  lumA *= fl * jr;
+  lumA *= fl * jr * jt;
   const lum = lumA > 0.02 && !dotted;
   if (grp === 0) c = c.map((v) => v * (1 - occl * of));
-  c = c.map((v) => v * mix(fo, fl, aL) * jr);
+  c = c.map((v) => v * mix(fo, fl, aL) * jr * jt);
   if (o.lift) {
     const lc = c.map((v) => v * wsel);
     return lc[3] < 0.002 ? { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 } : { kind: 'draw', colour: lc, flow: null, dep: 0 };

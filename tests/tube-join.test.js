@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, JOIN_FADE_IN, JOIN_FADE_OUT, JOIN_FADE_LINE, endTrunk, endContinues, endKind,
-  tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS, joinPackJS, joinRampGLSL,
+  tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS, joinToneJS, joinTaperJS, JOIN_TAPER_R, joinPackJS, joinRampGLSL,
 } from '../src/ui/tube-join-glsl.js';
 import { lintGLSL } from './glsl-lint.js';
 import { ALONG_GLSL } from '../src/ui/comp-glsl.js';
@@ -228,4 +228,32 @@ test('a trunk whose own end the branches leave from, with no row carrying on, en
   assert.equal(at([-3, 0]).drop, true, 'behind it, inside the trunk: the trunk\'s');
   const plane = joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: self.J, K: [-1, -1, ...self.K], C0: [0, 0, 0], C1: self.C, p: [3, 0], R, px: PX });
   assert.equal(plane.drop, true, 'and the trunk draws nothing past its end');
+});
+
+test('one tone field over a join: at a bent continuation the cel tones\' direction turns halfway to the next row\'s at the plane (each row by half, in opposite senses, so they meet); a cut branch\'s tones ease in from the trunk\'s wall; a fading branch\'s lumen rises from nothing at its own end', () => {
+  const A = line(-100, 0, 0, 0), B = line(0, 0, 86.6, 50), R = 6;
+  const rw = rowsOf({ 0: { pts: A, tier: 3, colour: () => [1, 1, 1] }, 1: { pts: B, tier: 3, colour: () => [1, 1, 1] } });
+  const dA = joinOneJS({ e: endContinues(1, 0), atStart: false, own: { pts: A, tier: 3 }, id: 0, rows: rw });
+  const dB = joinOneJS({ e: endContinues(0, 63), atStart: true, own: { pts: B, tier: 3 }, id: 1, rows: rw });
+  assert.ok(Math.abs(dA.K[0] - Math.PI / 6) < 1e-3, `the turn from A to B is 30 degrees: ${dA.K[0]}`);
+  assert.ok(Math.abs(dB.K[0] + Math.PI / 6) < 1e-3, 'and from B back to A the other way');
+  const a = (x) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: dA.J, K: [-1, -1, ...dA.K], C0: [0, 0, 0], C1: dA.C, p: [x, 0], R, px: PX });
+  const b = (x) => joinEndJS({ vI: 3, J0: dB.J, J1: [0, 0, 0, 0], K: [...dB.K, -1, -1], C0: dB.C, C1: [0, 0, 0], p: [x, 0], R, px: PX });
+  assert.equal(a(-60).rot, 0, 'far from the plane the row\'s own direction');
+  assert.ok(Math.abs(a(0).rot - Math.PI / 12) < 1e-3, 'at the plane half the turn');
+  assert.ok(Math.abs(b(0.1).rot + Math.PI / 12) < 1e-2, 'and the other row meets it from the other side');
+  const g = joinToneJS([0, 1], a(0));
+  assert.ok(Math.abs(Math.hypot(g[0], g[1]) - 1) < 1e-9, 'a turn keeps g a unit vector');
+  // a cut branch
+  const t = line(-100, 0, 100, 0), br = line(0, 60, 0, 0);
+  const rt = rowsOf({ 0: { pts: t, rad: t.map(() => 6), tier: 7, colour: () => [0, 0, 0] } });
+  const cut = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: br, tier: 7 }, rows: rt });
+  const c = (y) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: cut.J, K: [-1, -1, ...cut.K], C0: [0, 0, 0], C1: cut.C, p: [0, y], R: 4, px: PX });
+  assert.ok(c(6.2).tk < 0.05 && c(60).tk === 1, 'flat at the trunk\'s wall, whole far off');
+  const fade = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: br, tier: 16 }, rows: rt });
+  const f = joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: fade.J, K: [-1, -1, ...fade.K], C0: [0, 0, 0], C1: fade.C, p: [0, 3], R: 4, px: PX });
+  assert.equal(f.tp, 1, 'a fading branch at its end tapers at the end');
+  assert.equal(joinTaperJS(f, 1, 60, 4), 0, 'nothing at its own end point (its round cap is the end)');
+  assert.equal(joinTaperJS(f, 1 - (JOIN_TAPER_R * 4 + 1) / 60, 60, 4), 1, 'whole beyond the taper');
+  assert.equal(joinTaperJS({ tp: 0 }, 1, 60, 4), 1, 'and none for a row with no fading end');
 });
