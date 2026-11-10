@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, JOIN_FADE_IN, JOIN_FADE_OUT, JOIN_FADE_LINE, endTrunk, endContinues, endKind,
-  tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS,
+  tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS, joinPackJS, joinRampGLSL,
 } from '../src/ui/tube-join-glsl.js';
 import { lintGLSL } from './glsl-lint.js';
 import { ALONG_GLSL } from '../src/ui/comp-glsl.js';
@@ -200,9 +200,17 @@ test('a continuation between two tiers: the more opaque row eases to the other\'
   const A = line(-100, 0, 0, 0), B = line(0, 0, 100, 0);
   const rw = rowsOf({ 0: { pts: A, tier: 7, colour: () => [1, 1, 1] }, 1: { pts: B, tier: 3, colour: () => [1, 1, 1] } });
   const d = joinOneJS({ e: endContinues(1, 0), atStart: false, own: { pts: A, tier: 7 }, rows: rw });
-  assert.equal(d.PT, 3, 'the partner\'s tier rides in the colour\'s w');
+  assert.equal(d.PT, joinPackJS(3, 0, 1), 'the partner\'s tier, flags and alpha ride in the colour\'s w');
   const R = 6, at = (x) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: d.J, K: [-1, -1, ...d.K], C0: [0, 0, 0], C1: d.C, PT1: d.PT, p: [x, 0], R, px: PX });
   assert.equal(at(-50).rs, 0, 'far from the plane: whole');
   assert.ok(Math.abs(at(0).rs - 1) < 1e-9, 'at the plane: all the way to the partner\'s opacity');
   assert.ok(at(-9).rs > 0 && at(-9).rs < 1, 'between: eased');
+});
+
+test('the opacity ramp\'s GLSL lints in the lean shader\'s surroundings and decodes what joinPackJS packs', () => {
+  assert.equal(joinPackJS(3, 128, 1), 3 + 32 + 128 * 255);
+  assert.equal(joinPackJS(7, 256, 0.5), 7 + 64 + 128 * 128);
+  const g = joinRampGLSL(0.55);
+  assert.match(g, /float joinRamp\(JoinEnd j, float ownEff, float occl\)/);
+  assert.match(g, /int tp = n & 31;/);
 });

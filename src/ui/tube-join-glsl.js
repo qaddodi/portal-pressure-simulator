@@ -31,12 +31,13 @@ export const END_BASE = 64;                  // vEnd's packing of a sample (the 
 export const END_SEGS = 2;                   // (the multi-segment reference trunkGapJS reads this many segments each side of the sample, for the tests)
 export const JOIN_WIN = 8;                   // samples from an end within which a pixel looks at it
 export const JOIN_REACH = 2;                 // radii: the trunk's chord reaches at least this far each way from the sample
-export const JOIN_FADE_IN = 1.4;             // radii inside the trunk's wall at which a fading branch's lumen is gone
-export const JOIN_FADE_OUT = 0.9;            // radii outside the wall at which it starts to go
-export const JOIN_FADE_LINE = 0.5;          // radii inside the wall at which its outline is gone
+export const JOIN_FADE_IN = 1.8;             // radii inside the trunk's wall at which a fading branch's lumen is gone
+export const JOIN_FADE_OUT = 1.0;            // radii outside the wall at which it starts to go
+export const JOIN_FADE_LINE = 0.7;          // radii inside the wall at which its outline is gone
 export const JOIN_COLOUR_R = 3;              // radii over which a row's colour blends into the other's at a cut end or a continuation (at least JOIN_COLOUR_MIN world units)
 export const JOIN_COLOUR_MIN = 8;
 export const JOIN_RAMP_R = 3;                // radii before a continuation's plane over which the more opaque row eases to the other's opacity (no step in the look where the tiers differ)
+export const JOIN_F_VEIL = 128, JOIN_F_WHOLE = 256;   // veins-gl.js's flag bits (not imported: veins-gl.js imports this module's callers)
 export const JOIN_CUT = 0.25;                // device pixels: how far past the bisector plane a continuation still draws (so the two leave no hairline)
 export const JOIN_NONE = -1;
 export const JOIN_MODE = { CUT: 0, FADE: 1, PLANE: 2 };
@@ -75,6 +76,12 @@ ${JOIN_ALONG_GLSL}
 vec3 joinColour(int row, float u) {
   return mix(texelFetch(tube, ivec2(0, row), 0).rgb, texelFetch(tube, ivec2(1, row), 0).rgb, joinAlong(row, u));
 }
+// The partner row's tier, veil and whole flags and alpha, packed in one float (tier + 32 veil + 64 whole + 128 alpha8): what the fragment needs to find its opacity there.
+float joinPack(int row) {
+  vec4 t1 = texelFetch(tube, ivec2(1, row), 0), t2 = texelFetch(tube, ivec2(2, row), 0);
+  int fl = int(t2.z + 0.5);
+  return float(int(t2.x + 0.5) + ((fl & ${JOIN_F_VEIL}) != 0 ? 32 : 0) + ((fl & ${JOIN_F_WHOLE}) != 0 ? 64 : 0) + 128 * int(clamp(t1.w, 0.0, 1.0) * 255.0 + 0.5));
+}
 vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
   K = vec2(-1.0, -1.0);
   C = vec4(0.0, 0.0, 0.0, -1.0);   // (w: a continuation's partner's tier, for the opacity ramp)
@@ -101,7 +108,7 @@ vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
     if (lo > 1e-6 && lp > 1e-6) {
       vec2 m = dO / lo - dP / lp;
       float lm = length(m);
-      if (lm > 1e-4) { K = vec2(0.0, 2.0); C = vec4(joinColour(pr, float(ps) / ${LAST}.0), texelFetch(tube, ivec2(2, pr), 0).x); return vec4(E, m / lm); }
+      if (lm > 1e-4) { K = vec2(0.0, 2.0); C = vec4(joinColour(pr, float(ps) / ${LAST}.0), joinPack(pr)); return vec4(E, m / lm); }
     }
   }
   return vec4(0.0);
@@ -187,6 +194,24 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
 const len = (a) => Math.hypot(a[0], a[1]);
 
+/** joinPack in JS: tier, flags (the vessel flag bits), alpha 0..1 -> the packed float. */
+export const joinPackJS = (tier, flags, alpha) => tier + ((flags & JOIN_F_VEIL) !== 0 ? 32 : 0) + ((flags & JOIN_F_WHOLE) !== 0 ? 64 : 0) + 128 * Math.floor(clamp(alpha, 0, 1) * 255 + 0.5);
+
+/** The lean and the lumen shaders' ramp: joinRamp(je, own effective alpha, occl) is the factor on this row's opacity (1 unless a continuation whose partner is the fainter). Needs useOrgan, organK, tierAlpha, tierGroup in scope. */
+export const joinRampGLSL = (VEIL_K) => `float joinRamp(JoinEnd j, float ownEff, float occl) {
+  if (j.pt < 0.0) return 1.0;
+  int n = int(j.pt + 0.5);
+  int tp = n & 31;
+  float pa = float(n >> 7) / 255.0;
+  if (((n >> 5) & 1) != 0 && useOrgan == 1) {
+    float v = 1.0 - ${f(VEIL_K)} * organK;
+    pa *= tierGroup[tp] == 0 ? min(1.0, v / max(1.0 - occl, 1e-3)) : v;
+  }
+  float pe = pa * tierAlpha[tp] * (tierGroup[tp] == 0 ? 1.0 - occl * (((n >> 6) & 1) != 0 ? 0.0 : 1.0) : 1.0);
+  return mix(1.0, min(1.0, pe / max(ownEff, 1e-3)), j.rs);
+}
+`;
+
 /**
  * trunkGap in JS, the multi-segment reference the first version read in every fragment (END_SEGS segments each side of the sample): p [x, y]; pts the trunk's points
  * [[x, y], ...]; rad the radii [[r0, r1] per segment]; sample the sample the branch ends at; segs how many segments each side count (END_SEGS; more for the whole trunk). Negative: inside the trunk's lumen. The tests hold the one chord to it.
@@ -225,7 +250,7 @@ export function joinOneJS(o) {
     const lo = len(dO), lp = len(dP);
     if (lo > 1e-6 && lp > 1e-6) {
       const m = [dO[0] / lo - dP[0] / lp, dO[1] / lo - dP[1] / lp], lm = len(m);
-      if (lm > 1e-4) return { J: [E[0], E[1], m[0] / lm, m[1] / lm], K: [0, JOIN_MODE.PLANE], C: colOf(pr, ps / last), PT: o.rows(pr).tier ?? 0 };
+      if (lm > 1e-4) return { J: [E[0], E[1], m[0] / lm, m[1] / lm], K: [0, JOIN_MODE.PLANE], C: colOf(pr, ps / last), PT: joinPackJS(o.rows(pr).tier ?? 0, o.rows(pr).flags ?? 0, o.rows(pr).alpha ?? 1) };
     }
   }
   return { J: [0, 0, 0, 0], K: [-1, -1], C: [0, 0, 0], PT: -1 };

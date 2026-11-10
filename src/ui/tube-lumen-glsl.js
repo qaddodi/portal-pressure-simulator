@@ -38,7 +38,7 @@
 import { shadeGLSL } from './veins-mesh-glsl.js';
 import { TROUBLE_GLSL } from './blood-trouble.js';
 import { compLumenUniforms, compLumenFns, N_SAMPLES as COMP_N, S_OFF } from './comp-glsl.js';
-import { tubeJoinFS, JOIN_IN_GLSL } from './tube-join-glsl.js';
+import { tubeJoinFS, joinRampGLSL, JOIN_IN_GLSL } from './tube-join-glsl.js';
 import { celToneGLSL } from './tube-cel-glsl.js';
 
 /** The text of one top-level function in `text`: from its signature to its closing brace. */
@@ -144,6 +144,7 @@ vec3 originHere(int id, float s, float y, float R, vec2 w) {
 }
 
 ${tubeJoinFS(N_SAMPLES)}
+${joinRampGLSL(K.VEIL_K)}
 
 // (The cel tones of the vessel layer's fill, tube-cel-glsl.js: this layer's colour replaces the fill's, so the tones are laid on it, over the blood.)
 ${celToneGLSL()}
@@ -182,7 +183,7 @@ void main() {
   float wsel = grp == 1 ? aSel : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
   float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
   float lumA = aL * aA * tierAlpha[ti] * gf;
-  float jr = je.pt >= 0.0 ? mix(1.0, min(1.0, tierAlpha[int(je.pt + 0.5)] / max(tierAlpha[ti], 1e-3)), je.rs) : 1.0;   // (a continuation eases its opacity to the partner's, as tubeLeanFS)
+  float jr = joinRamp(je, aA * tierAlpha[ti] * gf, occl);   // (a continuation eases its opacity to its partner's: tube-join-glsl.js)
   lumA *= je.fl * jr;   // (a branch fading into its trunk, as tubeLeanFS has it)
   if (lumA <= ${LUM_MIN}) discard;
   // The place in the stream, as packFlow would have stored it and the compositor unpacked it: the arc length and the across.
