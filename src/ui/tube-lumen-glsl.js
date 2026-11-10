@@ -54,16 +54,22 @@ function fnText(text, head) {
 }
 
 const f = (n) => (Number.isInteger(n) ? n.toFixed(1) : String(n));
-/** The lymph streaks' look (lobule): the ink at 0 % and at 100 % protein (the colours the old dashes used), the ramp between them, the density, how faint a poor lymph is. */
+/**
+ * The lymph streaks' look (lobule). Mohammad, 10 Nov: with a tint close to the channel's and a glow along its axis the streaks were "barely there, just
+ * yellow". So the streaks are chosen for VALUE contrast against the channel, not only hue: a dark ink on a light channel and a light ink on a dark one
+ * (told by the channel's own luma), the blood's axis glow is taken out (a streak only, no wash), and the gaps between streaks keep the channel's own colour.
+ * The ink runs from a cool, pale-protein tone at 0 % protein to albumin amber at 100 %.
+ */
 export const LYMPH_INK = {
-  deepLight: [0.20, 0.46, 0.20], deepDark: [0.84, 1.0, 0.74], deepMix: 0.88,
-  amberLight: [0.86, 0.52, 0.04], amberDark: [1.0, 0.76, 0.26],
-  ramp: [0.1, 0.9],   // protein 0 … 1 (lyProt 0.42 … 0.84): pure green below the first, pure amber above the second
-  occ: [0.75, 1.0],   // the share of a lane the streaks fill, poor to rich
-  faint: 0.7,         // the streaks' strength at 0 % protein (1 at 100 %)
-  glint: 0.12,        // how much of bloodAt's own streak colour (its light core) is kept
-  gain: 2.6, cap: 0.92,   // bloodAt's alpha times this, at most cap: the lymph's channel is thin and pale, and the blood's own alpha left its streaks barely there (Mohammad, 10 Nov)
-  look: 36,           // the speed the streaks' LOOK (length, thickness) is worked at, the healthy trunk's: the lymph's own speed only moves them
+  onLight: { low: [0.16, 0.30, 0.24], high: [0.52, 0.26, 0.0] },     // the ink on a light channel: deep blue-green at 0 %, dark amber-brown at 100 %
+  onDark: { low: [0.82, 0.96, 0.96], high: [1.0, 0.84, 0.32] },      // the ink on a dark channel: pale cyan at 0 %, bright gold at 100 %
+  luma: [0.45, 0.6],     // the channel's luma (of vc): under the first it is dark (light ink), over the second light (dark ink), eased between
+  ramp: [0.1, 0.9],      // protein 0 … 1 (lyProt 0.42 … 0.84): the low ink below the first, the high above the second
+  occ: [0.5, 0.75],      // the share of a lane the streaks fill, poor to rich: the gaps between them show the channel
+  faint: 0.8,            // the streaks' strength at 0 % protein (1 at 100 %)
+  gain: 3.4, cap: 0.97,  // bloodAt's streak alpha (its glow taken out) times this, at most cap
+  glow: 0.22,            // bloodAt's glow along the axis (glowCore), taken out
+  look: 36,              // the speed the streaks' LOOK (length, thickness) is worked at, the healthy trunk's: the lymph's own speed only moves them
 };
 
 /** A pixel is a web's when its vRad is more than this many times radAt's radius for its row (a web's is 4; a strip's is 1). */
@@ -221,15 +227,17 @@ void main() {
   if (blood == 1 && isLy && f1.z > 0.0) {
     // Lymph. The lobule's lymph rows (lobule-zoom.js) carry the dashes' phase, pitch, protein and theme in flow texel 0, as before. A row that ALSO
     // carries a stream in texel 7 (x: the distance now, y: the signed speed, blood's D and vd; y = 0: none) is drawn as streaks, the same style
-    // as the blood (bloodAt, so the Tube's style P / D4 mist), coloured by the protein: a pale green channel's deep green at 0 %, albumin amber at
-    // 100 % (the protein f0.z is the lobule's lyProt scaled 0.42 … 0.84 to 0 … 1), fainter when poorer. A row with no stream keeps the dashes.
+    // as the blood (bloodAt, so the Tube's style P / D4 mist), coloured by the protein: a cool ink at 0 %, albumin amber at 100 % (dark on a light channel, light on a dark one) (the protein f0.z is the lobule's lyProt scaled 0.42 … 0.84 to 0 … 1), fainter when poorer. A row with no stream keeps the dashes.
     float prot = clamp(f0.z, 0.0, 1.0);
     vec4 sd = texelFetch(flow, ivec2(7, id1), 0);
     float aLy = clamp(f1.z * vis * flowA, 0.0, 1.0);   // (not blendA.x: the streaks' switch, which the lymph does not follow)
     if (sd.y != 0.0) {
-      vec3 deep = mix(vc1, f0.w > 0.5 ? vec3(${LYMPH_INK.deepDark.join(', ')}) : vec3(${LYMPH_INK.deepLight.join(', ')}), ${f(LYMPH_INK.deepMix)});
-      vec3 amberS = f0.w > 0.5 ? vec3(${LYMPH_INK.amberDark.join(', ')}) : vec3(${LYMPH_INK.amberLight.join(', ')});
-      vec3 ink = mix(deep, amberS, smoothstep(${f(LYMPH_INK.ramp[0])}, ${f(LYMPH_INK.ramp[1])}, prot));
+      float cl = dot(vc1, vec3(0.299, 0.587, 0.114));
+      float onLight = smoothstep(${f(LYMPH_INK.luma[0])}, ${f(LYMPH_INK.luma[1])}, cl);   // 1: a light channel, dark ink; 0: a dark one, light ink
+      float pk = smoothstep(${f(LYMPH_INK.ramp[0])}, ${f(LYMPH_INK.ramp[1])}, prot);
+      vec3 inkL = mix(vec3(${LYMPH_INK.onLight.low.join(', ')}), vec3(${LYMPH_INK.onLight.high.join(', ')}), pk);
+      vec3 inkD = mix(vec3(${LYMPH_INK.onDark.low.join(', ')}), vec3(${LYMPH_INK.onDark.high.join(', ')}), pk);
+      vec3 ink = mix(inkD, inkL, onLight);
       // (blood's density divisor, so that the streaks fill occ of a lane whatever the zoom: bloodAt's p = flux * sx / (|vd| sumK) = occ.)
       float lcn = clamp(1.7 * R1 / zoomA.x, 1.0, 7.0) - 1.0;
       int lkn = min(int(lcn), 5);
@@ -238,8 +246,11 @@ void main() {
       float lyV = (sd.y < 0.0 ? -1.0 : 1.0) * max(abs(sd.y), ${f(LYMPH_INK.look)});   // (the look at the trunk's speed; the distance sd.x still moves them at the lymph's own)
       vec4 ly0 = vec4(sd.x, lyV, occ * abs(lyV) * sumK / zoomB.z, 0.0);
       vec4 A = bloodAt(id1, s1, y1, col, ly0, vec4(1.0, 1.0, f1.z, 0.0), len1, R1, vc1);
-      float a = min(A.a * ${f(LYMPH_INK.gain)} * mix(${f(LYMPH_INK.faint)}, 1.0, prot), ${f(LYMPH_INK.cap)}) * (1.0 - castAt(id1, s1, len1));
-      col = mix(col, mix(ink, A.rgb, ${f(LYMPH_INK.glint)}), clamp(a * vis * flowA, 0.0, 1.0));
+      // bloodAt's alpha is the streaks plus a glow along the axis (glowCore, times the wall and the ends): the glow is taken out, so only a streak tints.
+      float ayL = clamp(abs(y1), 0.0, 1.0);
+      float glowL = ${f(LYMPH_INK.glow)} * (1.0 - ayL * ayL) * (1.0 - ayL * ayL) * (1.0 - smoothstep(0.7, 1.0, ayL)) * min(smoothstep(0.0, 1.5 * zoomB.z, s1), smoothstep(0.0, 1.5 * zoomB.z, len1 - s1)) * f1.z;
+      float a = min(max(A.a - glowL, 0.0) * ${f(LYMPH_INK.gain)} * mix(${f(LYMPH_INK.faint)}, 1.0, prot), ${f(LYMPH_INK.cap)}) * (1.0 - castAt(id1, s1, len1));
+      col = mix(col, ink, clamp(a * vis * flowA, 0.0, 1.0));
     } else {
       float lc, lk;
       lymphAt(s1, y1, f0, len1, R1, lc, lk);
@@ -300,13 +311,17 @@ export function tubeLumenJS(o) {
   return { u, s, across, y, web, D, coverage, lumA, drawn: coverage > 0 && lumA > LUM_MIN };
 }
 
-/** The lymph streak's ink for a protein share (0 … 1), the vessel's own colour vc, and the dark theme: the GLSL's `ink` and the strength factor. */
-export function lymphInkJS(prot, vc, dark) {
+/** The lymph streak's ink for a protein share (0 … 1) and the vessel's own colour vc: the GLSL's `ink`, the strength factor and the lane share. */
+export function lymphInkJS(prot, vc) {
   const L = LYMPH_INK, p = clamp(prot, 0, 1);
-  const deepT = dark ? L.deepDark : L.deepLight, amber = dark ? L.amberDark : L.amberLight;
-  const u = clamp((p - L.ramp[0]) / (L.ramp[1] - L.ramp[0]), 0, 1), k = u * u * (3 - 2 * u);   // (a smoothstep in the protein, not in time)
-  const ink = [0, 1, 2].map((i) => { const deep = vc[i] * (1 - L.deepMix) + deepT[i] * L.deepMix; return deep * (1 - k) + amber[i] * k; });
-  return { ink, strength: L.faint * (1 - p) + p, occ: L.occ[0] * (1 - p) + L.occ[1] * p };
+  const cl = 0.299 * vc[0] + 0.587 * vc[1] + 0.114 * vc[2];
+  const lu = clamp((cl - L.luma[0]) / (L.luma[1] - L.luma[0]), 0, 1), onLight = lu * lu * (3 - 2 * lu);
+  const ru = clamp((p - L.ramp[0]) / (L.ramp[1] - L.ramp[0]), 0, 1), pk = ru * ru * (3 - 2 * ru);   // (smoothsteps in a luma and the protein, not in time)
+  const ink = [0, 1, 2].map((i) => {
+    const l = L.onLight.low[i] * (1 - pk) + L.onLight.high[i] * pk, d = L.onDark.low[i] * (1 - pk) + L.onDark.high[i] * pk;
+    return d * (1 - onLight) + l * onLight;
+  });
+  return { ink, onLight, strength: L.faint * (1 - p) + p, occ: L.occ[0] * (1 - p) + L.occ[1] * p };
 }
 
 /** packFlow's arc and across, packed and unpacked in JS (the compositor's `float(g.y) / 16.0 - S_OFF` and `float(g.z) / 32767.5 - 1.0`). */
