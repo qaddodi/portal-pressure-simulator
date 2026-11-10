@@ -440,6 +440,11 @@ export function startFrameHud() {
     L.push(`  row draws refused: ${wh(counts.refused, c0.refused) || 'none'}`);
     if (ms && ms.gpu + ms.cpu > 0) L.push(`  view switch frames since the page opened: ${ms.gpu} from pieces made ahead, ${ms.cpu} binned on the CPU${Object.keys(ms.miss).length ? ` (${Object.entries(ms.miss).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}; pieces ready ${ms.ready} of ${ms.of}${ms.failed?.length ? ` (failed: ${ms.failed.join(', ')})` : ''}`);
     else if (pieces) L.push(`  view switch pieces ready ${pieces.ready} of ${pieces.of}${ms.failed?.length ? ` (failed: ${ms.failed.join(', ')})` : ''}`);
+    // (R1, 10 Nov 2026: how long the pieces took to make and what made them again last.)
+    if (ms?.building || ms?.last || ms?.restart) {
+      const at = performance.now(), b = ms.building, l = ms.last, r = ms.restart;
+      L.push(`  view switch pieces build: ${b ? `under way, ${b.done} of ${ms.of || 6} made after ${f((at - b.since) / 1000)} s (${f(b.busy)} ms of work, longest slice ${f(b.longest)} ms)` : l ? `took ${f(l.wallMs / 1000)} s (${f(l.busyMs)} ms of work in ${l.slices} slices, longest ${f(l.longestMs)} ms${l.bad ? `, ${l.bad} failed` : ''})` : 'not started'}${r ? `; last started ${f((at - r.at) / 1000)} s ago: ${r.reason}` : ''}; builds ${ms.builds}, slices over 8 ms ${ms.over}`);
+    }
     const ft = fenceText();
     if (ft) L.push(`  raw: ${ft}`);
     fullText = L.join('\n');

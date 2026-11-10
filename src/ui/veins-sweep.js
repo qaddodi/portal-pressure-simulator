@@ -43,7 +43,7 @@ export function hull4Dist2(px, py, ax, ay, bx, by, cx, cy, dx, dy) {
     segDist2(px, py, bx, by, dx, dy), segDist2(px, py, ax, ay, dx, dy), segDist2(px, py, bx, by, cx, cy));
 }
 /** Squared distance from (px, py) to segment i of a vessel anywhere between its samples (path: P0 … Pm). */
-function sweptDist2(px, py, path, i) {
+export function sweptDist2(px, py, path, i) {
   if (path.length === 1) { const P = path[0]; return segDist2(px, py, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1]); }
   let best = Infinity;
   for (let j = 0; j + 1 < path.length && best > 0; j++) {
@@ -51,6 +51,36 @@ function sweptDist2(px, py, path, i) {
     best = Math.min(best, hull4Dist2(px, py, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1], Q[i][0], Q[i][1], Q[i + 1][0], Q[i + 1][1]));
   }
   return best;
+}
+/**
+ * Whether (px, py) lies within sqrt(lim2) of segment i of a vessel anywhere between its samples: sweptDist2(...) <= lim2, found without
+ * the distance. Each pair of neighbouring moments' hull is first passed over when the point lies farther than the limit from the box
+ * about its four points (`box`: the boxes of the segment's hulls, 4 numbers each, from hullBoxes), and the answer is given at the first
+ * hull that holds the point or has a side within the limit. (R1, 10 Nov 2026: the stretches' binning is the longest part of making the
+ * change between the views ready, and the exact distance to every hull was 60% of it. The same cells are listed, but for a segment with
+ * two samples on one point: every cross product of its hull is zero, which hull4Dist2 took as holding every point, so its cells out of
+ * its reach were listed; they are not now.)
+ */
+function sweptWithin(px, py, path, i, lim2, box) {
+  if (path.length === 1) { const P = path[0]; return segDist2(px, py, P[i][0], P[i][1], P[i + 1][0], P[i + 1][1]) <= lim2; }
+  // (A margin past the root, so a rounding of it never passes over a hull that is exactly at the limit.)
+  const L = Math.sqrt(lim2) * (1 + 1e-9) + 1e-9;
+  for (let j = 0, b = 0; j + 1 < path.length; j++, b += 4) {
+    if (px < box[b] - L || px > box[b + 2] + L || py < box[b + 1] - L || py > box[b + 3] + L) continue;
+    const P = path[j], Q = path[j + 1], ax = P[i][0], ay = P[i][1], bx = P[i + 1][0], by = P[i + 1][1], cx = Q[i][0], cy = Q[i][1], dx = Q[i + 1][0], dy = Q[i + 1][1];
+    if (inTri(px, py, ax, ay, bx, by, cx, cy) || inTri(px, py, ax, ay, bx, by, dx, dy) || inTri(px, py, ax, ay, cx, cy, dx, dy) || inTri(px, py, bx, by, cx, cy, dx, dy)) return true;
+    if (segDist2(px, py, ax, ay, bx, by) <= lim2 || segDist2(px, py, cx, cy, dx, dy) <= lim2 || segDist2(px, py, ax, ay, cx, cy) <= lim2 ||
+      segDist2(px, py, bx, by, dx, dy) <= lim2 || segDist2(px, py, ax, ay, dx, dy) <= lim2 || segDist2(px, py, bx, by, cx, cy) <= lim2) return true;
+  }
+  return false;
+}
+/** The box about each hull of segment i (minX, minY, maxX, maxY for each pair of neighbouring moments) into `box`. */
+function hullBoxes(path, i, box) {
+  for (let j = 0, b = 0; j + 1 < path.length; j++, b += 4) {
+    const P = path[j], Q = path[j + 1], a = P[i], c = P[i + 1], d = Q[i], e = Q[i + 1];
+    box[b] = Math.min(a[0], c[0], d[0], e[0]); box[b + 1] = Math.min(a[1], c[1], d[1], e[1]);
+    box[b + 2] = Math.max(a[0], c[0], d[0], e[0]); box[b + 3] = Math.max(a[1], c[1], d[1], e[1]);
+  }
 }
 function polyDist2(px, py, C) {
   if (C.length === 1) return d2(px - C[0][0], py - C[0][1]);
@@ -86,20 +116,21 @@ export function binSwept(tubes, joins, { rows, samples, slack = 2, tight = false
     const { path, reach, core } = t, n = path[0].length;
     const R = reach + slack, lim2 = (R + HALF) ** 2, limC2 = core == null ? Infinity : (Math.min(core, reach) + slack + HALF) ** 2;
     const limQ2 = core == null ? Infinity : (Math.min(core, reach) + slack + HALF / 2) ** 2;
-    const cs = [], ss = [], bc = [], bq = [];
+    const cs = [], ss = [], bc = [], bq = [], box = new Float64Array(4 * Math.max(1, path.length - 1));
     for (let i = 0; i < n - 1; i++) {
       let ax0 = Infinity, ay0 = Infinity, ax1 = -Infinity, ay1 = -Infinity;
-      for (const P of path) for (const q of [P[i], P[i + 1]]) { ax0 = Math.min(ax0, q[0]); ay0 = Math.min(ay0, q[1]); ax1 = Math.max(ax1, q[0]); ay1 = Math.max(ay1, q[1]); }
+      for (const P of path) { const a = P[i], b = P[i + 1]; ax0 = Math.min(ax0, a[0], b[0]); ay0 = Math.min(ay0, a[1], b[1]); ax1 = Math.max(ax1, a[0], b[0]); ay1 = Math.max(ay1, a[1], b[1]); }
       const cx0 = Math.max(0, Math.floor((ax0 - R - x0) / CELL)), cx1 = Math.min(nx - 1, Math.floor((ax1 + R - x0) / CELL));
       const cy0 = Math.max(0, Math.floor((ay0 - R - y0) / CELL)), cy1 = Math.min(ny - 1, Math.floor((ay1 + R - y0) / CELL));
+      hullBoxes(path, i, box);
       for (let cy = cy0; cy <= cy1; cy++) for (let cx = cx0; cx <= cx1; cx++) {
-        const dd = sweptDist2(x0 + (cx + 0.5) * CELL, y0 + (cy + 0.5) * CELL, path, i);
-        if (dd > lim2) continue;
+        const mx = x0 + (cx + 0.5) * CELL, my = y0 + (cy + 0.5) * CELL;
+        if (!sweptWithin(mx, my, path, i, lim2, box)) continue;
         cs.push(cy * nx + cx); ss.push(i);
-        if (dd <= limC2) {
+        if (sweptWithin(mx, my, path, i, limC2, box)) {
           bc.push(cy * nx + cx);
           if (core != null) for (let q = 0; q < 4; q++) {
-            if (sweptDist2(x0 + (cx + 0.25 + 0.5 * (q & 1)) * CELL, y0 + (cy + 0.25 + 0.5 * (q >> 1)) * CELL, path, i) <= limQ2) bq.push((cy * nx + cx) * 4 + q);
+            if (sweptWithin(x0 + (cx + 0.25 + 0.5 * (q & 1)) * CELL, y0 + (cy + 0.25 + 0.5 * (q >> 1)) * CELL, path, i, limQ2, box)) bq.push((cy * nx + cx) * 4 + q);
           }
         }
       }
@@ -222,7 +253,7 @@ function fitSwept(ent, h, g, path, slack, tight = false) {
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   for (let f = h + 1; f < g; f++) {
     const i = ent[f * 8 + 5];
-    for (const P of path) for (const q of [P[i], P[i + 1]]) { bx0 = Math.min(bx0, q[0]); bx1 = Math.max(bx1, q[0]); by0 = Math.min(by0, q[1]); by1 = Math.max(by1, q[1]); }
+    for (const P of path) { const a = P[i], b = P[i + 1]; bx0 = Math.min(bx0, a[0], b[0]); bx1 = Math.max(bx1, a[0], b[0]); by0 = Math.min(by0, a[1], b[1]); by1 = Math.max(by1, a[1], b[1]); }
   }
   const cx = Math.fround((bx0 + bx1) / 2), cy = Math.fround((by0 + by1) / 2);
   let R2 = 0;
