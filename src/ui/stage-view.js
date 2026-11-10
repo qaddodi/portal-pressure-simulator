@@ -10,7 +10,7 @@ import { VIEW_CHANGE_MS, viewXfLeftMs, viewXfMix, viewXfRetarget } from './view-
 import { createGlideLabels } from './glide-labels.js';
 
 export function createView(st, live) {
-  const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
+  const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, endWidth, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
   const xfVis = [null, null];
   function viewXfP() { const x = live.viewXf, t = live.easeInOut(live.morph); return x.tT === x.t0 ? 1 : clamp((t - x.t0) / (x.tT - x.t0), 0, 1); }
   // (The label layers the GPU does not draw (the SVG's own) come in with the new labels. Written on the layer's two groups, never on the #labels
@@ -73,7 +73,7 @@ export function createView(st, live) {
   // (Runs fn with the stage at the change's end state, then puts it back, nothing drawn in between. Each slice of the solve runs inside it.)
   function atTargetStage(d, fn, tgt = live.morphTarget, kept = null) {
     const keepTgt = live.morphTarget, keepVT = live.vt, keepMorph = live.morph, keepLast = live.lastMorph, vb0 = vbBox.x, vb1 = vbBox.y, vb2 = vbBox.width, vb3 = vbBox.height;
-    const curS = [], visS = [];
+    const curS = [], visS = [], wS = [];
     live.glSuppress = true;
     try {
       live.morph = tgt; live.lastMorph = tgt; live.morphTarget = tgt;
@@ -82,7 +82,7 @@ export function createView(st, live) {
       solveTargetVT.k = d.k; solveTargetVT.x = d.x; solveTargetVT.y = d.y; live.vt = solveTargetVT;
       for (let i = 0; i < EV.length; i++) {
         const x = EV[i], g = geo[x.e.id];
-        curS.push(g.cur); visS.push(x.vis);
+        curS.push(g.cur); visS.push(x.vis); wS.push(x.width);
         // (kept: the end state's courses and shown set found once for the change's frames, not again for each slice of its solve.)
         if (kept && kept.pts[i]) { g.cur = kept.pts[i]; x.vis = kept.vis[i]; continue; }
         g.cur = vesselAt(x, tgt).pts;
@@ -90,9 +90,20 @@ export function createView(st, live) {
         if (kept) { kept.pts[i] = g.cur; kept.vis[i] = x.vis; }
       }
       live.CTM = null; refreshCTM();
+      // (Each vessel at the width it is drawn at once the change lands, under the target's camera (the Circuit's lines are about twice the
+      // Anatomy's): solved with the widths drawn at the tap, the new view's labels were laid out against the old view's lines, and their
+      // signature never matched the landed figure's, so the landing solved them all again and moved labels (and their leaders) a frame after
+      // the figure stopped. Mohammad, 10 Nov 2026: the leaders "still aren't fading smoothly and glitch" on the switch to the Circuit.)
+      for (let i = 0; i < EV.length; i++) {
+        const x = EV[i];
+        if (kept && kept.w[i] != null) { x.width = kept.w[i]; continue; }
+        const w = endWidth(x, tgt);
+        if (Number.isFinite(w)) x.width = w;
+        if (kept) kept.w[i] = x.width;
+      }
       return fn();
     } finally {
-      for (let i = 0; i < EV.length; i++) { geo[EV[i].e.id].cur = curS[i]; EV[i].vis = visS[i]; }
+      for (let i = 0; i < EV.length; i++) { geo[EV[i].e.id].cur = curS[i]; EV[i].vis = visS[i]; EV[i].width = wS[i]; }
       live.morph = keepMorph; live.lastMorph = keepLast; live.morphTarget = keepTgt; live.vt = keepVT;
       vbBox.x = vb0; vbBox.y = vb1; vbBox.width = vb2; vbBox.height = vb3;
       live.CTM = null; refreshCTM();
@@ -111,7 +122,7 @@ export function createView(st, live) {
   let xfKept = null;
   function solveTargetView(d) {
     live.labelKey = null; live.solveAsked = true;
-    xfKept = { pts: [], vis: [] };
+    xfKept = { pts: [], vis: [], w: [] };
     preAbort();
     live.xfSolving = true;
     try {
@@ -271,10 +282,36 @@ export function createView(st, live) {
     const wasOut = tgt === 1 && (live.vt.k <= 1.001 || (live.homeAt && sameView(live.vt, live.homeAt)));
     return wasOut ? circWhole() : defaultVT(tgt === 1);
   }
+  // (The signature the landed figure gives against the one its labels were solved for at the tap: the same but for the geometry's version and,
+  // within the 2 px steps the labels read them in (stage-labels.js sigWidth), the vessels' widths. The solve read each vessel at the width the
+  // change lands it at (endWidth), worked out from the model frame and the target camera of the tap; the figure drawn there may round a vein
+  // a pixel the other way (a phone's hepatic veins, 14 against 15). Solved again for that, the landing moved labels and their leaders and
+  // brought new ones in a frame after the figure stopped.)
+  const WIDTH_TOK = /^(.*?)(\d+)(g?)$/;
+  function sameWidthTok(a, b) {
+    if (a === b) return true;
+    let i = 0;
+    while (i < a.length && i < b.length && a[i] === b[i]) i++;
+    const ma = WIDTH_TOK.exec(a.slice(i)), mb = WIDTH_TOK.exec(b.slice(i));
+    return !!ma && !!mb && ma[1] === '' && mb[1] === '' && ma[3] === mb[3] && Math.abs(+ma[2] - +mb[2]) <= 2;
+  }
+  function sameButWidths(a, b) {
+    if (a === b) return true;
+    const fa = a.split('|'), fb = b.split('|');
+    if (fa.length !== fb.length) return false;
+    for (let i = 0; i < fa.length; i++) {
+      if (fa[i] === fb[i]) continue;
+      if (fa[i][0] !== '~' || fb[i][0] !== '~') return false;   // (only the vessels' field, marked so in labelSig: no other may differ)
+      const ta = fa[i].slice(1).split(','), tb = fb[i].slice(1).split(',');
+      if (ta.length !== tb.length) return false;
+      for (let j = 0; j < ta.length; j++) if (!sameWidthTok(ta[j], tb[j])) return false;
+    }
+    return true;
+  }
   function xfMarkCurrent(tap) {
     if (!live.F || !live.solvedFor || live.solvedFor.sig !== tap) return;
     const sig = labelSig(live.F), cut = (t) => t.slice(t.indexOf('|'));
-    if (sig !== tap && cut(sig) === cut(tap)) { live.solvedFor.sig = sig; if (live.labelKey) live.labelKey[16] = sig; }
+    if (sig !== tap && sameButWidths(cut(sig), cut(tap))) { live.solvedFor.sig = sig; if (live.labelKey) live.labelKey[16] = sig; }
   }
   // A framing asked for while the change runs (animateVT: a slide's, a Fit, a refit to cards that settled) is the change's new end: the camera goes on
   // from where it stands to it on the change's one clock, with no second glide that would fight the morph's own camera writes (push B, item 3).

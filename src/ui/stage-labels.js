@@ -72,6 +72,9 @@ export function createLabelDriver(st, live) {
   function sigWidth(x) {
     const w = x.width || 0, s = live.sigW.get(x.e.id);
     if (s != null && Math.abs(w - s) < 2) return s;
+    // (A solve at another stage (a view change's or a glide's end, live.glSuppress) reads the widths there and leaves the kept steps as the
+    // stage shown has them: written, the shown stage's next model frame found every width moved and laid its labels out again.)
+    if (live.glSuppress) return Math.round(w);
     live.sigW.set(x.e.id, Math.round(w));
     return Math.round(w);
   }
@@ -103,7 +106,7 @@ export function createLabelDriver(st, live) {
     if (sigDeps.length === d.length && sameDeps(sigDeps, d)) return sigText;
     for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
     sigStats.builds++;
-    const edges = EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');
+    const edges = '~' + EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');   // (after a ~: the field a view change's landing reads apart, stage-view.js sameButWidths)
     return (sigText = [labelGeo, t >= 0.5, live.rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
       isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), live.fxSig, live.fx?.steps && live.slideGlow.map((g) => g.id + g.at).join(), (live.fx?.organs.some((o) => o.organ === 'spleen') || live.fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), edges, `${tips}${dips}`, dop.key, d[19]].join('|'));
   }

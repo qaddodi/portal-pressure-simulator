@@ -281,6 +281,47 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   }
   function renderTubes(p, t, J) { for (const x of EV) if (x.vis && !x.isArt) renderTube(x, p, t, J); }
   const overlaysStep = (f, p, t) => live.updateOverlays(f, p, lerp(1, 0.8, t), t);   // (gain = lerp(1, 0.8, t), as updateInner has it)
+  // A vessel's width as the model gives it at the change's eased share t (0 the Anatomy, 1 the Circuit) under the layer `mode`, the lesions `p`, the
+  // varices' size `varixS` and the Circuit's boost: the frame's own (updateInner), and the target view's for the labels solved at a tap (endWidth).
+  // keepEnds: the frame's own, which keeps the two ends of the change on the vessel (the stretches' joins, widthRatio).
+  function widthAt(x, f, t, mode, p, varixS, circBoost, keepEnds = false) {
+    const e = x.e, k = EI[e.id], D = f.D[k];
+    // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
+    // as on a transit map, so the lines stay even and legible.
+    const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' || e.zone === 'post' ? 3.6 : 5.2) : vesselPx(IVC_EDGES.has(e.id) ? f.D[EI.IVC_IS] : D) * (IVC_EDGES.has(e.id) || e.id === 'SVC_RA' || e.id === 'V_UP' ? 0.72 : 1);   // the IVC is one tube: one caliber end to end (and the veins above the SVC take its scale, so the SVC widens below the azygos, never narrows: at full scale they bulged it at the join)
+    const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
+    let w = lerp(wA, wC, t);
+    // (Both ends of the change kept, for the stretches' joins: a vessel's width between the views, widthRatio. Under the flow layer the width ignores the view.)
+    // (An arterioportal shunt is a small branch: finer than the artery branch it leaves, AP_FINE.)
+    const artK = e.shunt === 'ap' ? AP_FINE : 1;
+    if (keepEnds) { x.wAn = x.isArt ? Math.max(1.8, vesselPx(D) * 0.5 * artK) : mode === 'flow' ? 1 : wA; x.wCi = x.isArt ? 3 * artK : mode === 'flow' ? 1 : wC; }
+    // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
+    if (mode === 'flow' && !x.isArt) w = clamp(2.2 + 8.5 * Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 2.2, 22);
+    if (x.isArt) w = lerp(Math.max(1.8, vesselPx(D) * 0.5 * artK), 3 * artK, t);
+    // Band ligation strangles the esophageal varices: each band thromboses a channel and the
+    // rest shrink (the model raises the route's resistance by the same count).
+    if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);
+    // The periportal collaterals (cavernoma) are fine channels, thinner than the caliber their flow alone would draw.
+    if (e.id === 'C8') w *= lerp(0.6, 1, t);
+    // The coronary vein is drawn a little finer than its flow alone would make it in the anatomy (0.85, 6 Nov); the flow lens and the circuit keep theirs.
+    if (e.id === 'LGV_CONF' && mode !== 'flow') w *= lerp(0.85, 1, t);
+    // The spontaneous splenorenal shunt never reads fatter than the splenic vein it leaves.
+    if (e.id === 'C6' && mode !== 'flow' && EI.V_SPL != null) w = Math.min(w, lerp(vesselPx(f.D[EI.V_SPL]), clamp(vesselPx(f.D[EI.V_SPL]) * 0.95, 6, 15) * circBoost, t));
+    // The varices' channels are drawn as big as the varix is now, not as the weeks of remodeling left them (varix-look.js), never under
+    // their resting caliber: in the anatomy only, as the bands' shrink above; the flow lens keeps its flow widths and a closed shunt its ghost.
+    if (LOOK_SITE[e.id] && mode !== 'flow' && !isOccluded(p, e.id)) w = Math.max(Math.min(w, vesselPx(dMinOf(e))), w * lerp(varixWidthK(varixS[LOOK_SITE[e.id]]), 1, t));
+    // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
+    if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
+    return w;
+  }
+  // (What the last model frame's widths were worked out from, kept for endWidth.)
+  let wLastF = null, wLastP = null, wLastMode = 'pressure';
+  /** The width vessel x is drawn at once the change between the views has landed on `view` (0 the Anatomy, 1 the Circuit), from the last model
+   *  frame, under the camera standing now (the Circuit's boost reads it: the target's, inside the labels' solve at a tap). A vessel leaving keeps its own. */
+  function endWidth(x, view) {
+    if (!wLastF || x.reveal?.out || x.width == null) return x.width;
+    return widthAt(x, wLastF, view, wLastMode, wLastP, varixSNow, clamp(10 / (15 * (live.CTM?.sc || 1)), 1, 1.75));
+  }
   function updateInner(f) {
     // Covered by the lobule or the dive's field (anatCovered), the plate is left as it is (reading the cards' boxes and
     // restyling it each model frame, unseen, stalled the zoom); it catches up on the way out, with its eases already where they
@@ -316,6 +357,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     const circBoost = clamp(10 / (15 * (live.CTM?.sc || 1)), 1, 1.75);
     const imaging = live.isImaging();
     const mode = layerMode();
+    wLastF = f; wLastP = p; wLastMode = mode;
     // (Three flags of the figure that no style sheet reads, kept as values rather than classes: nothing is written to the page for them.)
     flag.imaging = imaging;
     // Data layers other than pressure quiet the anatomy so the network carries the reading.
@@ -372,32 +414,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const D = f.D[k];
       const PM = f.Pf || f.P;
       const P1 = PM[NI[e.from]], P2 = PM[NI[e.to]];
-      // Anatomy: width follows diameter (compressed). Circuit: a narrower, more uniform range,
-      // as on a transit map, so the lines stay even and legible.
-      const wA = e.kind === 'liver' ? (e.zone === 'sin' || e.zone === 'inter' || e.zone === 'post' ? 3.6 : 5.2) : vesselPx(IVC_EDGES.has(e.id) ? f.D[EI.IVC_IS] : D) * (IVC_EDGES.has(e.id) || e.id === 'SVC_RA' || e.id === 'V_UP' ? 0.72 : 1);   // the IVC is one tube: one caliber end to end (and the veins above the SVC take its scale, so the SVC widens below the azygos, never narrows: at full scale they bulged it at the join)
-      const wC = (e.kind === 'liver' ? 8 : clamp(vesselPx(D) * 0.95, 6, 15)) * circBoost;
-      let w = lerp(wA, wC, t);
-      // (Both ends of the change kept, for the stretches' joins: a vessel's width between the views, widthRatio. Under the flow layer the width ignores the view.)
-      // (An arterioportal shunt is a small branch: finer than the artery branch it leaves, AP_FINE.)
-      const artK = e.shunt === 'ap' ? AP_FINE : 1;
-      x.wAn = x.isArt ? Math.max(1.8, vesselPx(D) * 0.5 * artK) : mode === 'flow' ? 1 : wA; x.wCi = x.isArt ? 3 * artK : mode === 'flow' ? 1 : wC;
-      // Flow layer: width follows flow volume (∝ √Q), like traffic volume on a city map.
-      if (mode === 'flow' && !x.isArt) w = clamp(2.2 + 8.5 * Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) * 0.06), 2.2, 22);
-      if (x.isArt) w = lerp(Math.max(1.8, vesselPx(D) * 0.5 * artK), 3 * artK, t);
-      // Band ligation strangles the esophageal varices: each band thromboses a channel and the
-      // rest shrink (the model raises the route's resistance by the same count).
-      if (e.code === 'C1' && f.bands > 0 && t < 1) w *= 1 - 0.14 * Math.min(4, f.bands);
-      // The periportal collaterals (cavernoma) are fine channels, thinner than the caliber their flow alone would draw.
-      if (e.id === 'C8') w *= lerp(0.6, 1, t);
-      // The coronary vein is drawn a little finer than its flow alone would make it in the anatomy (0.85, 6 Nov); the flow lens and the circuit keep theirs.
-      if (e.id === 'LGV_CONF' && mode !== 'flow') w *= lerp(0.85, 1, t);
-      // The spontaneous splenorenal shunt never reads fatter than the splenic vein it leaves.
-      if (e.id === 'C6' && mode !== 'flow' && EI.V_SPL != null) w = Math.min(w, lerp(vesselPx(f.D[EI.V_SPL]), clamp(vesselPx(f.D[EI.V_SPL]) * 0.95, 6, 15) * circBoost, t));
-      // The varices' channels are drawn as big as the varix is now, not as the weeks of remodeling left them (varix-look.js), never under
-      // their resting caliber: in the anatomy only, as the bands' shrink above; the flow lens keeps its flow widths and a closed shunt its ghost.
-      if (LOOK_SITE[e.id] && mode !== 'flow' && !isOccluded(p, e.id)) w = Math.max(Math.min(w, vesselPx(dMinOf(e))), w * lerp(varixWidthK(varixS[LOOK_SITE[e.id]]), 1, t));
-      // The caudate vein hypertrophies when it becomes the liver's outflow (Budd–Chiari).
-      if (e.id === 'CAUD' && t < 1) { const ref = store.get().healthy?.Q?.[k]; if (ref) w *= 0.8 * clamp(Math.sqrt(Math.abs(f.Qf ? f.Qf[k] : f.Q[k]) / Math.abs(ref)), 1, 1.8); }
+      let w = widthAt(x, f, t, mode, p, varixS, circBoost, true);
       // A vessel leaving keeps its width. While the views morph, the width follows the morph frame by frame.
       // Otherwise the model's width is the target on every model frame (no dead-band: the breath never stops and
       // starts), and the drawn width follows it on every display frame (followWidth).
@@ -755,5 +772,5 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     // (Kept as the function the radii are read through; it reads the numbers above, which this call has just set.)
     if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }
-  return { W_TAU, edgeQ, holdHome, keep, riseFitRead, stepOrgans, stepWidths, tubeFill, update, widthMoving };
+  return { W_TAU, edgeQ, endWidth, holdHome, keep, riseFitRead, stepOrgans, stepWidths, tubeFill, update, widthMoving };
 }

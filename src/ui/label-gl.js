@@ -1911,7 +1911,10 @@ void main() { o = texture(uT, vUV) * uA; }`;
               // (Drawn at its label's own opacity, as drawPins draws the marks of a label with a picture: at full strength, a slide's step
               // leaders flashed for a frame while their numbers, waiting for their pictures, were still held at 0 by their fade-in.)
               const lst = sprites.get(pl0.g);
-              if (!lst || (lst.mode === 'gl' && lst.wait)) folA = 0; else if (lst.mode === 'gl') folA = Math.min(1, Math.max(0, lst.opacity ?? 1));   // (none yet, or waiting for its picture: not shown, so neither are its marks; one the SVG draws: its own look)
+              // (Owed its picture by the pass (a view change's new labels, built a few a frame): drawIn hides it until it has one, so its marks
+              // are not drawn from the layout's geometry meanwhile, standing still on the screen while the figure and the label's point move.
+              // They come with the picture, drawn by drawPins on the point.)
+              if (!lst || (lst.mode === 'gl' && (lst.wait || (!lst.slot && (pending.has(pl0.g) || todo.has(pl0.g)))))) folA = 0; else if (lst.mode === 'gl') folA = Math.min(1, Math.max(0, lst.opacity ?? 1));   // (none yet, or waiting for its picture: not shown, so neither are its marks; one the SVG draws: its own look)
             }
             // (Every other mark is drawn from its geometry as of the layout the GPU was last handed (sync: mg.pv), as its label is, never a newer
             // one the page already holds: a layout run mid-ride (a ride key change in a card zoom) wrote its leaders before its labels came, and
@@ -2641,11 +2644,15 @@ void main() { o = texture(uT, vUV) * uA; }`;
     freezeGhosts() {
       if (lost) return 0;   // (S1: host mode keeps ghosts too, drawn in the host's present)
       dropGhosts();
+      // (Each ghost keeps a copy of its marks' looks as they stood: the record in pinLooks is the key's, and the new view's marks of the same key
+      // write theirs into it. A station's dot the Circuit does not keep (it fades, ld-gone, opacity 0) took the ghost's dot out a frame or
+      // two into the change while its name and leader still rode the figure: Mohammad, 10 Nov 2026, "the label leaders when switching
+      // between anatomy to circuit still aren't fading smoothly and glitch".)
       for (const s of last) {
         const g = s.g, st = sprites.get(g);
         if (s.pid == null || !st || st.mode !== 'gl' || !st.slot || !(st.opacity > 0.001)) continue;
         const key = g.dataset?.key;
-        ghosts.push({ s, key, a0: xfNew, want: key ? wantOf(s, key) : 0, lk: key ? pinLooks.get(key) : null, on: false, px: 0, py: 0, lx: 0, ly: 0, lkey: st.key,
+        ghosts.push({ s, key, a0: xfNew, want: key ? wantOf(s, key) : 0, lk: key && pinLooks.has(key) ? { ...pinLooks.get(key) } : null, on: false, px: 0, py: 0, lx: 0, ly: 0, lkey: st.key,
           st: { slot: st.slot, w: st.w, h: st.h, ox: st.ox, oy: st.oy, shadows: st.shadows, frame: st.frame, ring: null, opacity: st.opacity, mx: st.mx | 0, ink: st.ink ? st.ink.slice() : null } });   // (its inks as they were: the label's own go on with its new look)
         st.slot = null; st.key = ''; dirty.add(g); pending.add(g);
       }
