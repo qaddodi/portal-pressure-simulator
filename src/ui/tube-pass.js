@@ -7,7 +7,6 @@
 // attributes, the frame's morph) are read through E each time, never copied.
 import { MP } from './veins-mesh-glsl.js';
 import { tierBuckets, patchesByTier, PG_W, PG_M } from './veins-mesh-data.js';
-import { TUBE_LEVEL } from './tube-geo.js';
 import { CEL } from './tube-cel-glsl.js';
 
 /** Makes the pass for one renderer. E: gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_GLOW_BUF, MESH_COLOR_BUF, CLR_F, gpuProbe,
@@ -16,7 +15,9 @@ import { CEL } from './tube-cel-glsl.js';
 export function createTubePass(E) {
   const { gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_GLOW_BUF, MESH_COLOR_BUF, CLR_F, gpuProbe,
     meshPad, meshKeyNext, meshRefNext, meshTargets, meshGeo, meshTarget, meshScratch, meshLay, vesselSet } = E;
-  const PATCH_RING = (TUBE_LEVEL.CASE1 + TUBE_LEVEL.LUMEN0) / 2;   // a patch's outline: over every casing (to .20), under every lumen (from .30)
+  // (What orders the surfaces of a tier: the anatomy by height (zK 0, hK 1, hRef 64); the lobule, one tier, by each row's z first and the height only to settle
+  // a tie (zK 1, hK .008: under the smallest gap between two kinds' z, .01), hRef its largest radius, 21.42 (node scripts/lobule-joins.mjs), rounded up.)
+  const LV = E.lobule ? { hRef: 22, zK: 1, hK: 0.008 } : { hRef: 64, zK: 0, hK: 1 };
   let keyPre = 0;   // tubeKey: 1 while a glow's depth prepass runs (a lit vessel's own wall keeps its depth, so no other glow shows inside it), 2 while a shape's (a patch keeps the depth of the pixels inside its shape it leaves clear), else 0
   // One draw of tier t's strips (and its patches) for a pass, in the band that starts at base. Sets no draw buffers.
   function tubeDraw(pass, t, base, H, px, look, patches) {
@@ -44,10 +45,9 @@ export function createTubePass(E) {
       gl.vertexAttribPointer(2, 4, gl.FLOAT, false, PG_W * 4, o + 32);
       gl.vertexAttribPointer(3, 2, gl.FLOAT, false, PG_W * 4, o + 48);
       // (Two draws: the patch's outline, at a depth under every lumen (over every casing), then its lumen, over them all: a join's outline never
-      // shows across another vessel's inside. tubePart in the shader keeps each pixel to one of them.)
+      // shows across another vessel's inside. tubePart in the shader keeps each pixel to one of them, and the fragment writes the depth of each: no zU.)
       for (let part = 0; part < 2; part++) {
         UC.i1(u.tubePart, part);
-        UC.f1(u.zU, 2 * (base + (1 - (part ? TUBE_LEVEL.PATCH : PATCH_RING)) * H) - 1);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, pb.count[t]);
       }
       MG.patches += pb.count[t];
@@ -103,9 +103,9 @@ export function createTubePass(E) {
       UC.f1(P.u.reachU, look.reach);
       UC.i1(P.u.pjTex, 9);
       UC.f1(P.u.celK, CEL.K);
+      UC.f1(P.u.zK, LV.zK); UC.f1(P.u.hK, LV.hK);   // (an unset uniform is 0, so both programs are given both)
     }
-    UC.f1(E.tubeS.u.hRef, 64); UC.f1(E.tubeS.u.aaPad, 2 * px);
-    UC.f1(E.tubeS.u.zK, 0); UC.f1(E.tubeS.u.hK, 1);   // (the anatomy: the lumen's level by height alone; the lobule will set zK 1, hK 0.008. An unset uniform is 0, so both are set.)
+    UC.f1(E.tubeS.u.hRef, LV.hRef); UC.f1(E.tubeS.u.aaPad, 2 * px);
     gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, MG.pj);
     // (The depth and stencil, cleared within the caller's scissor.)
     gl.depthMask(true); gl.stencilMask(0xff);
@@ -143,7 +143,7 @@ export function createTubePass(E) {
     gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, null);
     if (gpuProbe.on) {
       gpuProbe.note('vessels: tube');
-      gpuProbe.gauge('vessel renderer', `tube: ${MG.passes} passes, ${MG.strips} strips, ${MG.patches} patches drawn`);
+      gpuProbe.gauge(E.lobule ? 'lobule vessel renderer' : 'vessel renderer', `tube: ${MG.passes} passes, ${MG.strips} strips, ${MG.patches} patches drawn`);
     }
     return true;
   }

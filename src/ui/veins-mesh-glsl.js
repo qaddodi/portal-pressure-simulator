@@ -214,7 +214,11 @@ export const KEY_BIAS = 2e-5;   // a patch's key under its members' strips (in t
 
 // (tube 1, the Tube's builds (docs/recommendations/tube-renderer-plan.md): the same key block, every line and every discard kept, without the
 // lines that write gl_FragDepth and the early return for the _K passes: the Tube takes its depth from its vertices and never draws a _K pass.)
+/** The Tube levels the patch's depth text uses (tube-geo.js TUBE_LEVEL has the same numbers: tests/tube-patch-depth.test.js pins them; no import here, tube-geo.js imports this file). */
+export const TUBE_FS_LEVEL = { CASE1: 0.20, LUMEN0: 0.30, LUMEN_H: 0.50 };
+const f = (n) => (Number.isInteger(n) ? n.toFixed(1) : String(n));
 export const meshFS = ({ EDGE, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K, tube = 0 }) => {
+  const TL = TUBE_FS_LEVEL;
   const defs = Object.entries(MP).map(([k, v]) => `#define MP_${k} ${v}`).join('\n');
   const decl = `${defs}
 #define MESH_WIN ${MESH_WIN}
@@ -227,6 +231,8 @@ const float KEY_BIAS = ${KEY_BIAS};${tube ? `
 uniform int tubeKey;                   // (the Tube) 1 in a glow's depth prepass: a lit vessel's own wall keeps its depth there, so no other glow shows inside it
 #if MESH == 2
 uniform int tubePart;                  // (the Tube's patch) which part this draw is: 0 the outline's pixels (no lumen), 1 the lumen's, at two depths
+uniform highp float zK;                // (the Tube's patch) the lumen level's weight on the z of the patch's vessels: 0 the anatomy, 1 the lobule (tube-geo.js, the strip's uniform of the same name)
+uniform highp float hK;                // and on the height: 1 the anatomy, 0.008 the lobule
 #endif`: ''}`;
 
   const key = `
@@ -325,7 +331,8 @@ ${tube ? '' : `    gl_FragDepth = keyShape + 0.5 * (1.0 - T(id, 2).y + 1e-4) * k
       if (as <= 0.0) discard;
       kf = 1.0 - as / max(0.55 * shadow.a, 1e-4) - KEY_BIAS;
     }
-  }
+${tube ? `    gl_FragDepth = keyBase + (1.0 - (tubePart == 0 ? ${f(TL.CASE1)} + 0.05 * (1.0 - clamp(Dk / 255.0, 0.0, 1.0)) : ${f(TL.LUMEN0)} + ${f(TL.LUMEN_H)} * clamp(zK * zmx + hK, 0.0, 1.0) + 0.02)) * keyH;   // (the Tube's patch writes its own depth: a lumen by its z (then the taller), an outline under every lumen, the nearest wall nearest: docs/recommendations/tube-renderer-lobule-plan.md "The rules")
+` : ''}  }
 #endif
   float kd = keyBase + clamp(kf, 0.0, 1.0) * keyH;${tube ? '' : `
   gl_FragDepth = kd;

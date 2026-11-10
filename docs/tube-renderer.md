@@ -35,7 +35,7 @@ Tube is a third renderer beside Classic and Mesh and **never a hybrid**. While i
    **Also left out of the Tube builds, because no Tube build may contain `gl_FragDepth`:** the crossing ring's `gl_FragDepth = keyShape ...`
    line (in the key block) and `if (mPass == MP_MARK) { gl_FragDepth = ...; return; }`. Both belong to passes the Tube never draws (`RING`, `MARK`).
 3. The strip build declares `layout(location=2) out uvec4 outFlow2;` so the strip and the patch write the same four targets.
-4. `meshPatchVS` writes `zU` as the position's z (0 unless set, so the Mesh, which writes `gl_FragDepth`, is unchanged).
+4. `meshPatchVS` writes `zU` as the position's z (0 unless set, so the Mesh, which writes `gl_FragDepth`, is unchanged). The Tube no longer sets it: the Tube's patch writes its own depth (below).
 
 ## The pass (`src/ui/tube-pass.js`, `createTubePass`)
 
@@ -43,7 +43,7 @@ Tube is a third renderer beside Classic and Mesh and **never a hybrid**. While i
 a pass pair takes one band of depth from `meshKeyNext()` (`H = 0.999 / KEY_PASSES`); the **prepass** is the same program with the colour
 masked off (depth LESS, write on, no blend, no stencil), the **colour pass** draws with depth EQUAL, write off, blend `ONE, ONE_MINUS_SRC_ALPHA`
 and the stencil `NOTEQUAL ref / REPLACE`. Depth comes from the vertices: levels in `TUBE_LEVEL` (glow .02 to .08, casing .10 to .20, lumen
-.30 + .50 h / hRef, patch .95; `zU` for patches). No `gl_FragDepth`, no key pass, no `MESH_NONE`.
+.30 + .50 h / hRef, patch lumen .82 and outline .20 to .25 by the fragment (the patch's depth rule below)). No `gl_FragDepth` in a strip, no key pass, no `MESH_NONE`.
 A patch does not draw where it leaves a pixel clear, but in a shape pair's prepass (`tubeKey` 2) it keeps the depth of the pixels inside its shape (`mD < 0`) that it leaves clear: where a higher tier's copy replaces a see-through vessel (`keep` 0) the vessel's own strips, which see no join, must not draw it whole under the copy (the Mesh's key pass does the same). The colour pass discards them.
 
 `gl.drawBuffers` is `ATTACH` for the whole pass except around a glow pair's colour pass (`MESH_GLOW_BUF`), the lift (`MESH_COLOR_BUF`) and
@@ -68,6 +68,26 @@ vessel is not moved, and a vessel fading along its length never steps in depth. 
 `LUMEN0 + LUMEN_H * clamp(zK * z + hK * clamp(h / hRef, 0, 1), 0, 1)`, with `z` the row's z (texel 2, y). `tube-pass.js` sets `zK = 0`, `hK = 1` for the anatomy (an unset uniform reads 0, which would flatten every lumen to LUMEN0); the lobule sets `zK = 1`, `hK = 0.008`. Where `zK > 0`
 the fading rule above is off (the row's z says what is in front). `tubeVertex` takes `o.z`, `o.zK`, `o.hK` (defaults 0, 0, 1).
 
+## The patch's depth is the fragment's (brief L-D, 10 Nov 2026)
+
+The strip's depth is its geometry's and its build writes no `gl_FragDepth`. The patch is one quad over many vessels, so only the fragment knows which it is on: **the
+patch build writes `gl_FragDepth`** (`keyBase + (1 - f) * keyH`), in the key block after `Dk` and `zmx`, per part (`tubePart`):
+the outline's part at `CASE1 + 0.05 * (1 - clamp(Dk / 255, 0, 1))` (over every casing, under every lumen and under the fading band, the nearest wall nearest), the lumen's part at
+`LUMEN0 + LUMEN_H * clamp(zK * zmx + hK, 0, 1) + 0.02` (over every strip lumen on the figure, where it is .82). `zK` and `hK` are fragment uniforms of the patch
+program of the same names as the strip's vertex uniforms, set together: the figure 0 and 1, the lobule 1 and 0.008. A guard `gl_FragDepth = gl_FragCoord.z;` opens the patch's `main`, so every path of it has written one
+(the brief says exactly one write; the guard is the second, there so no path leaves it undefined). The pixels a patch leaves clear inside its shape (the
+`keep` 0 pixels of fault 1) are the lumen part's, and in a shape prepass (`tubeKey` 2) they return having written that depth. `tests/tube-patch-depth.test.js`.
+
+## The lobule on the Tube (brief L-D)
+
+The lobule's renderer instance (`who: 'lobule'`) makes the Tube's strip and patch programs and the lay program when Tube is first chosen (`startLobuleTube`, veins-gl.js;
+at its creation if Tube is already the choice), never for Mesh or Classic: its lobule stays classic then (`meshUse()` needs the Mesh programs for Mesh). It has one tier, so what is in front
+is each row's `z`: `zK` 1, `hK` 0.008, `hRef` 22 (the largest radius, 21.42, `node scripts/lobule-joins.mjs`) in `tube-pass.js` (`E.lobule`).
+`?perf`: `vessels: tube` and the gauge `lobule vessel renderer`. `tests/tube-lobule-programs.test.js`.
+Under Tube the lobule's paths: a whole draw is the Tube pass; `drawRows` (the pulse and every recolour) draws the changed rows' cells by `meshCellsPass` (most cells: a whole draw); the pinch's
+lower layer and the one-pass zoom frames are off while a geometry renderer draws (`!meshUse()` guards), so a zoom frame is a whole Tube draw; the kept picture and `keepBlood` read the layer and the flow
+targets (same encodings) and the composite's blood style P through `compBind`, which the half-size streak program and the wide copy's draws share.
+
 ## Known differences from the plan's list and from Mesh
 
 - No contact shadow; no crossing ring. Same-tier crossings without a join merge (as the Mesh shows them with its ring off).
@@ -85,4 +105,4 @@ targets dropped. The shaders are linted, not compiled (this environment cannot c
 ## Tests
 
 `tests/vessel-renderer-setting.test.js` (the one choice and the carry-over), `tests/vessel-fs-old-builds.test.js` (the old builds' hashes), `tests/vessel-fs-tube.test.js`
-(both Tube fragment builds and `meshPatchVS` linted through `tests/glsl-pp.js`, no `gl_FragDepth`, `celShade(` used), plus A's, B's and C's own.
+(both Tube fragment builds and `meshPatchVS` linted through `tests/glsl-pp.js`, no `gl_FragDepth` in the strip build and the patch's two, `celShade(` used), plus A's, B's and C's own.

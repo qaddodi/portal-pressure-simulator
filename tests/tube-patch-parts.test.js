@@ -22,7 +22,7 @@ const keeps = (part, mLum, mD = 1) => !((part === 0) === (mLum || mD < 0));   //
 
 test('the Tube text takes the patch\'s two parts apart by one test, in the patch build only; the Mesh text has none of it', () => {
   const tube = meshFS({ ...K, tube: 1 }), mesh = meshFS(K);
-  assert.match(tube.decl, /#if MESH == 2\nuniform int tubePart;[^\n]*\n#endif/);
+  assert.match(tube.decl, /#if MESH == 2\nuniform int tubePart;[^\n]*\nuniform highp float zK;[^\n]*\nuniform highp float hK;[^\n]*\n#endif/);
   assert.match(tube.out, /#if MESH == 2\n {2}if \(mPass >= MP_SHAPE_K && \(tubePart == 0\) == \(mLum \|\| mD < 0\.0\)\) discard;/);
   assert.ok(!mesh.decl.includes('tubePart') && !mesh.out.includes('tubePart'));
   const strip = preprocess(vesselFS(true, 1, 1)), patch = preprocess(vesselFS(false, 2, 1));

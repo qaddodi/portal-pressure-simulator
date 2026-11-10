@@ -34,7 +34,10 @@ test('the patch vertex shader passes the lint and takes its depth from zU', () =
 
 test('no Tube build writes depth or uses the tube shading; both use the cartoon shading', () => {
   for (const [k, src] of Object.entries(builds)) {
-    assert.ok(!src.includes('gl_FragDepth'), `${k}: no gl_FragDepth`);
+    const writes = preprocess(src).split('gl_FragDepth').length - 1;
+    // (The strip's depth is its geometry's: none. The patch writes its own, per fragment (the lobule plan's rules): the guard at the top of main so that every path of it
+    // has written one, and the key block's, the depth that counts.)
+    assert.equal(writes, k.startsWith('strip') ? 0 : 2, `${k}: gl_FragDepth writes`);
     // (The function tubeShade is still defined, in the shared shading text; no call of it is left: celShade is called in its place.)
     assert.equal(src.split('tubeShade(').length - 1, 1, `${k}: tubeShade( only where it is defined, never called`);
     assert.match(src, /vec4 tubeShade\(/, `${k}: ...and that is the definition`);
@@ -63,9 +66,9 @@ test('the Tube key block keeps every discard of the Mesh\'s and drops only the d
   const lines = (t) => t.split('\n').filter((l) => l.trim());
   assert.equal((tube.match(/discard/g) || []).length, (mesh.match(/discard/g) || []).length, 'every discard kept');
   assert.deepEqual(lines(mesh).filter((l) => !lines(tube).includes(l)).map((l) => l.trim().split(' ')[0]).sort(), ['gl_FragDepth', 'gl_FragDepth', 'if'].sort(), 'the three lines left out: two depth writes and the _K return');
-  assert.deepEqual(lines(tube).filter((l) => !lines(mesh).includes(l)), [], 'nothing added');
+  assert.deepEqual(lines(tube).filter((l) => !lines(mesh).includes(l)).map((l) => l.trim().slice(0, 14)), ['gl_FragDepth ='], 'added: the patch\'s own depth line, in the patch branch');
   // (The Tube's glow prepass: tubeKey, one added declaration and one added line in the part laid at the end; tests/tube-glow.test.js.)
-  const noKey = (t) => t.replace(/\nuniform int tubeKey;[^\n]*\n#if MESH == 2\nuniform int tubePart;[^\n]*\n#endif/, '')
+  const noKey = (t) => t.replace(/\nuniform int tubeKey;[^\n]*\n#if MESH == 2\nuniform int tubePart;[^\n]*\nuniform highp float zK;[^\n]*\nuniform highp float hK;[^\n]*\n#endif/, '')
     .replace(/#if MESH == 2\n {2}if \(mPass >= MP_SHAPE_K && \(tubePart[^\n]*\n#endif\n/, '').split('\n').filter((l) => !l.includes('tubeKey')).join('\n');
   assert.equal(meshFS(parts).out, noKey(meshFS({ ...parts, tube: 1 }).out), 'the part laid at the end is the same');
   assert.equal(meshFS(parts).decl, noKey(meshFS({ ...parts, tube: 1 }).decl), 'and the declarations');
