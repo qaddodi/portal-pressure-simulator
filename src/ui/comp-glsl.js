@@ -336,3 +336,110 @@ float dyeEdge(int id, float s, float y, float c) {
 }`;
 // The whole of it for another shader: the constants, the basics, the blood, the bend and the dye, after compLumenUniforms().
 export const compLumenFns = () => [compConsts(), compBasics(), compBloodFns(), compBendFn(), compDyeFns()].join('\n');
+
+// ---- the Tube's compositor (brief S3-X part 2) ---------------------------------------------------------------------------------------
+// The arrowheads the compositor draws itself (chevQuad 0: the quads of blood-heads.js are the usual way): the text after the lumen section's
+// dye, shared by COMP_FS's two builds. It reads the locals id1 s1 y1 f0 f1 len1 R1 vc1 isLy vis, and rel b id2 s2 f0b f1b len2 R2 for a second lumen.
+export const compChevPart = () => `    if (chev == 1 && chevQuad == 0 && f1.z > 0.0 && !isLy) {
+      vec2 c = chevAt(id1, s1, y1, f0, f1, len1, R1);
+      // None where another vessel joins, except where the two draw one pattern: there the heads run on from one into the other,
+      // mixed by share as the streaks are.
+      if (rel > 0.0) c = mix(c, chevAt(id2, s2, y2, f0b, f1b, len2, R2), b * rel);
+      c *= 1.0 - smoothstep(0.02, 0.25, b) * (1.0 - rel);
+      // (The cut-outs below only ever scale a head down: where there is none, c stays zero whatever they say, so they are not
+      // tested at all. Most lumen pixels have no head.)
+      if (c.x + c.y > 0.0) {
+      // None under a figure reading on its vessel (stage.js noChevBoxes): cut along the box's edge with a pixel of antialiasing,
+      // as the stent points' holes are, instead of a hard unantialiased edge through a head (round 2 review, B8).
+      for (int i = 0; i < 12; i++) {
+        if (i >= noChevN) break;
+        vec2 q = abs(w - (noChev[i].xy + noChev[i].zw) * 0.5) - (noChev[i].zw - noChev[i].xy) * 0.5;
+        c *= smoothstep(-pxW, pxW, length(max(q, 0.0)) + min(max(q.x, q.y), 0.0));
+      }
+      // (none under a stent point's callout or round its dot: stage.js chevHoles)
+      for (int i = 0; i < 16; i++) {
+        if (i >= chevHoleN) break;
+        vec4 h = chevHole[i];
+        float hr = chevHoleR[i], dh;
+        if (hr < 0.0) { vec2 ab = h.zw - h.xy; float t = clamp(dot(w - h.xy, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0); dh = length(w - h.xy - ab * t) + hr; }
+        else dh = length(max(max(h.xy - w, w - h.zw), 0.0)) - hr;
+        c *= smoothstep(-pxW, pxW, dh);
+      }
+      }
+      if (c.x + c.y > 0.0) {
+        // A faint rim lifts the head off the lumen. By the vessel's own colour (a lumen's lightness, an orange vessel) and the eased
+        // reversed flag, not a switch, so a head follows the vessel's colour as that eases and never pops: a dark core with a light rim
+        // on a pale lumen, near-white with a dark rim on a dark one, orange if reversed (chevInks).
+        vec3 hCore, hRim;
+        chevInks(vc1, f1.w, hCore, hRim);
+        col = mix(col, hRim, c.y * 0.75 * vis * flowA * blendA.y);
+        col = mix(col, hCore, c.x * vis * flowA * blendA.y);
+      }
+    }
+`;
+
+// The lumen layer (the tubes' own drawing of the lumen in front: premultiplied colour, alpha its coverage times the vessel's opacity), at the
+// vessel layer's size and mapping, read at the texel `base` is read at.
+export const compTubeUniform = () => `uniform sampler2D lumenL;               // the Tube's lumen layer: the lumen in front, drawn by the tubes this frame (premultiplied; alpha: its coverage x the vessel's opacity)
+`;
+// What the Tube's compositor still needs of the blood's helpers: the caliber and the stream's distance at a place (the arrowheads', if drawn here).
+export const compTubeRowFns = () => [ALONG_GLSL, ROWS_GLSL].join('\n');
+// Before the plate: the lumen layer read, and the pixel left as drawn where there is nothing to draw. gbuf (the row in front) is read only where
+// something besides the lumen layer needs it: a still lumen's test and the arrowheads drawn here.
+export const compTubeHead = ({ LUMEN2, FLOW_TEXELS }) => `  // The Tube: the lumen as the tubes drew it this frame, at the texel the vessel layer is read at (a tier frame's small targets: filtered, as the layer is).
+  vec4 L = vec4(0.0);
+  if (inL) L = lowSz.x > 0 ? texture(lumenL, lowUV) : texelFetch(lumenL, lp, 0);
+  bool chevC = chev == 1 && chevQuad == 0;   // (the arrowheads drawn here, not by their quads: they are drawn on the row in front, so they read gbuf)
+  // A blood-only frame leaves a pixel with no lumen as drawn (the other builds' test, made on the lumen layer's alpha: it is the layer the blood is in).
+  if (bloodOnly == 1 && L.a == 0.0 && !chevC) discard;
+  uvec4 g = uvec4(0u);
+  if (inL && ((bloodOnly == 1 && stillOn == 1) || chevC)) g = texelFetch(gbuf, lp, 0);
+  g.x &= ${LUMEN2 - 1}u;
+  if (bloodOnly == 1 && L.a == 0.0 && g.x == 0u) discard;
+  // A lumen whose vessels' rows have not changed since the last picture, which had the same uniforms (stillOn), comes out as it is.
+  if (bloodOnly == 1 && stillOn == 1 && g.x > 0u && texelFetch(flow, ivec2(${FLOW_TEXELS}, int(g.x) - 1), 0).x == 0.0) discard;
+`;
+// In place of the lumen section (the origin tint, the streaks, the lymph dashes, the casts, the dye and its edge): the tubes drew those into lumenL, with
+// the lumen's own colour, at the lumen's own coverage. vis was the lumen's share of the layer's alpha (the lumen's alpha over the layer's), and so is
+// L.a / v.a here; each effect of the section was applied to the layer's colour at that share (col = mix(col, X, k * vis)), so the whole of them is one mix
+// of the layer's colour toward the lumen's final colour F = L.rgb / L.a at that share. At a pixel the lumen covers whole (vis 1) the colour is F; at the
+// lumen's edge or under a ghosted tier it is the layer's colour moved toward F by the share, and the casing and whatever lies over it are not touched.
+export const compTubeSection = () => `  if ((blood == 1 || dyeOn == 1 || origin == 1 || chevC) && v.a > 0.01) {
+    vec3 col = v.rgb / v.a;
+    if (blood == 1 || dyeOn == 1 || origin == 1) col = mix(col, min(L.rgb / max(L.a, 1e-4), vec3(1.0)), clamp(L.a / max(v.a, 1e-3), 0.0, 1.0));
+    if (chevC && g.x > 0u) {
+      // The arrowheads drawn here, on the row in front (the Tube has no second lumen: nothing is joined, so b, rel and the second row are zero).
+      int id1 = int(g.x) - 1;
+      float s1 = float(g.y) / 16.0 - S_OFF, y1 = float(g.z) / 32767.5 - 1.0;
+      float vis = clamp(float(g.w >> 8u) / 255.0 / max(v.a, 1e-3), 0.0, 1.0);
+      vec4 f0 = texelFetch(flow, ivec2(0, id1), 0), f1 = texelFetch(flow, ivec2(1, id1), 0);
+      f0.x = flowD(id1, f0.x, f0.y);
+      float len1 = 1.0, R1 = 0.3;
+      vec3 vc1 = vec3(0.0);
+      if (f1.z > 0.0) {
+        len1 = max(texelFetch(tube, ivec2(5, id1), 0).z, 1.0);
+        R1 = radAt(id1, s1, len1);
+        vc1 = mix(texelFetch(tube, ivec2(0, id1), 0).rgb, texelFetch(tube, ivec2(1, id1), 0).rgb, alongAt(id1, clamp(s1 / len1, 0.0, 1.0)));
+      }
+      float rel = 0.0, b = 0.0, s2 = 0.0, y2 = 0.0, len2 = 1.0, R2 = 0.3;
+      int id2 = -1;
+      vec4 f0b = vec4(0.0), f1b = vec4(0.0);
+      bool isLy = f1.x < -0.5;
+      ${compChevPart()}
+    }
+    v = vec4(col * v.a, v.a);
+  }
+`;
+// The twin of the Tube compositor's mix, in JS: v the vessel layer's pixel and L the lumen layer's, both premultiplied [r, g, b, a]; returns the
+// layer's pixel after the lumen's final colour is laid in at the lumen's share (the shader's `col = mix(col, min(L.rgb / max(L.a, 1e-4), 1), clamp(L.a / max(v.a, 1e-3), 0, 1))`
+// on the layer's own colour, premultiplied again by the layer's alpha). The alpha is never changed.
+export function tubeLumenMixJS(v, L) {
+  if (!(v[3] > 0.01)) return [v[0], v[1], v[2], v[3]];
+  const share = Math.min(Math.max(L[3] / Math.max(v[3], 1e-3), 0), 1), la = Math.max(L[3], 1e-4);
+  const out = [0, 0, 0, v[3]];
+  for (let i = 0; i < 3; i++) {
+    const col = v[i] / v[3], F = Math.min(L[i] / la, 1);
+    out[i] = (col * (1 - share) + F * share) * v[3];
+  }
+  return out;
+}

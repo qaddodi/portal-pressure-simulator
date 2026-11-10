@@ -60,7 +60,7 @@ import { createTubePass } from './tube-pass.js';
 import { STYLE_P } from './blood-particles.js';
 import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGroups, PG_W, PG_M } from './veins-mesh-data.js';
 import { createBloodTile, STYLE_D, STYLE_E } from './blood-tile.js';
-import { N_SAMPLES, ORIGIN_GREY, S_OFF, LANE_K, ALONG_GLSL, ROWS_GLSL, COMP_U, compBasics, compConsts, compBloodFns, compBendFn, compDyeFns } from './comp-glsl.js';
+import { N_SAMPLES, ORIGIN_GREY, S_OFF, LANE_K, ALONG_GLSL, ROWS_GLSL, COMP_U, compBasics, compConsts, compBloodFns, compBendFn, compDyeFns, compTubeUniform, compTubeRowFns, compTubeHead, compTubeSection, compChevPart } from './comp-glsl.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
 import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor, vesselMesh, vesselTube } from './frame.js';
@@ -1043,7 +1043,7 @@ void main() {
 // without the branches that do nothing in such a frame.
 // Less work a lumen pixel (26 Oct, review/blood-shading-ideas): the shimmer look alone (the app never draws the beads: main.js),
 // the layers under a lumen skipped where it is opaque, the arrowheads' cut-outs tested only where a head is.
-export const COMP_FS = (plain = false, streak = false, heads = false) => `#version 300 es
+const compFS = (plain, streak, heads, T) => `#version 300 es
 precision highp float;
 precision highp int;
 #define PLAIN ${plain ? 1 : 0}
@@ -1051,8 +1051,8 @@ precision highp int;
 precision highp usampler2D;
 uniform sampler2D base;                // the vessel layer (premultiplied)
 uniform usampler2D gbuf;               // its frontmost lumen per pixel
-uniform usampler2D gbuf2;              // near a join, the lumen it joins and its share
-uniform ivec2 lA, lWrap, lSize;        // the layer holds the screen pixels from lA (device px, y down) lSize on, pixel s in texel (s − lA + lWrap) wrapped at lSize
+${T ? compTubeUniform() : `uniform usampler2D gbuf2;              // near a join, the lumen it joins and its share
+`}uniform ivec2 lA, lWrap, lSize;        // the layer holds the screen pixels from lA (device px, y down) lSize on, pixel s in texel (s − lA + lWrap) wrapped at lSize
 uniform vec2 lowS;                     // R10: a tier frame's layer read straight from its small targets: their share of the layer (0: the layer itself)
 uniform ivec2 lowSz;                   // (the share's texels: the corner of the small targets the tier drew in)
 uniform vec2 lowT;                     // (the small targets' size, texels: the colour is read filtered at uv inside them)
@@ -1063,8 +1063,8 @@ uniform vec4 plateRect0, plateRect1;
 uniform int plates;                    // bit 0: whole plate, bit 1: sharp view
 // (The organs drawn layer by layer instead (organs-gl.js), device pixels, premultiplied, are read from plate1's unit while they are on
 // (stackOn): the plate rasters are not then, so one unit holds either. The freed unit 14 holds the half-size streaks, halfL.)
-uniform sampler2D halfL;               // the streaks of the wide lumens at half size, premultiplied (rgb × a, a); read where halfOn
-uniform int halfOn;
+${T ? '' : `uniform sampler2D halfL;               // the streaks of the wide lumens at half size, premultiplied (rgb × a, a); read where halfOn
+`}uniform int halfOn;
 uniform float halfR;                   // a lumen at least this many device px in radius takes its streaks from halfL
 uniform int stackOn;
 uniform float plateAlpha, plateSat;
@@ -1151,7 +1151,7 @@ vec4 mapAt(vec2 w) {
   }
   return c * mapA;
 }
-${compBloodFns()}
+${T ? compTubeRowFns() : compBloodFns()}
 ${CHEV_GLSL}
 // How orange a vessel's colour is (0..1): a bright red channel well above the blue, with green between a red's and a
 // yellow's, eased at each edge (the reversed orange and the heat ramp's orange 1; teal, wine, red, yellow and grey 0).
@@ -1232,7 +1232,7 @@ vec2 chevAt(int id, float s, float y, vec4 f0, vec4 f1, float len, float Rs) {
   }
   return c;
 }
-${compDyeFns()}
+${T ? '' : compDyeFns()}
 
 // Ascites at world point w, premultiplied (its own colour whatever the lens; see main): over the plate and the vessels. Also the
 // arrowheads' quads (HEADS), which lay a head under it as main does.
@@ -1296,7 +1296,7 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
   // at the nearest texel, the colour filtered, as the blit up had done; no full-size copy of the layer is made.)
   vec2 lowUV = (vec2(lp) + 0.5) * lowS / max(lowT, vec2(1.0));
   if (lowSz.x > 0) lp = min(ivec2(vec2(lp) * lowS), lowSz - 1);
-  uvec4 g = (inL ? texelFetch(gbuf, lp, 0) : uvec4(0u));
+${T ? compTubeHead({ LUMEN2, FLOW_TEXELS }) : `  uvec4 g = (inL ? texelFetch(gbuf, lp, 0) : uvec4(0u));
   // Between whole redraws a pixel with no lumen comes out as the last frame left it: everything it is made of (the plate, the
   // glows, the vessel layer, still fluid, the outlines) is unchanged, and the blood, chevrons, dye and origin colours are drawn
   // only where a lumen is (g.x > 0). So it is not drawn again: the blood squares' other pixels were most of each frame's work
@@ -1310,7 +1310,7 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
   // (stillOn: composite checks them): it would come out as it is (see moved in createVeinsGL).
   if (bloodOnly == 1 && stillOn == 1 && texelFetch(flow, ivec2(${FLOW_TEXELS}, int(g.x) - 1), 0).x == 0.0
       && (!two || texelFetch(flow, ivec2(${FLOW_TEXELS}, int((inL ? texelFetch(gbuf2, lp, 0) : uvec4(0u)).x & ${ROW2_MASK}u) - 1), 0).x == 0.0)) discard;
-  vec2 w = (inv * vec3(FC.x, H - FC.y, 1.0)).xy;
+`}  vec2 w = (inv * vec3(FC.x, H - FC.y, 1.0)).xy;
   vec4 v = (inL ? texelFetch(base, lp, 0) : vec4(0.0));
   if (lowSz.x > 0 && inL) v = texture(base, lowUV);   // (R10: a tier frame's colour, filtered as the blit up filtered it)
   // Under a fully opaque vessel pixel (the inside of nearly every lumen) nothing laid below it can show: over(v, under) is
@@ -1347,7 +1347,7 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
   vec4 fluidC = fluidAt(w);
 
 #endif
-#if STREAK
+${T ? compTubeSection() : `#if STREAK
   float vis = g.x > 0u ? 1.0 : 0.0;   // (the lumen's edge coverage is the full pass's: here a texel is in the lumen or not)
 #else
   float vis = g.x > 0u ? clamp(float(g.w >> 8u) / 255.0 / max(v.a, 1e-3), 0.0, 1.0) : 0.0;
@@ -1471,45 +1471,9 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
         col = mix(col, vc1 * 0.45, de * 0.55 * clamp(c, 0.0, 1.0) * dyeK);
       }
     }
-    if (chev == 1 && chevQuad == 0 && f1.z > 0.0 && !isLy) {
-      vec2 c = chevAt(id1, s1, y1, f0, f1, len1, R1);
-      // None where another vessel joins, except where the two draw one pattern: there the heads run on from one into the other,
-      // mixed by share as the streaks are.
-      if (rel > 0.0) c = mix(c, chevAt(id2, s2, y2, f0b, f1b, len2, R2), b * rel);
-      c *= 1.0 - smoothstep(0.02, 0.25, b) * (1.0 - rel);
-      // (The cut-outs below only ever scale a head down: where there is none, c stays zero whatever they say, so they are not
-      // tested at all. Most lumen pixels have no head.)
-      if (c.x + c.y > 0.0) {
-      // None under a figure reading on its vessel (stage.js noChevBoxes): cut along the box's edge with a pixel of antialiasing,
-      // as the stent points' holes are, instead of a hard unantialiased edge through a head (round 2 review, B8).
-      for (int i = 0; i < 12; i++) {
-        if (i >= noChevN) break;
-        vec2 q = abs(w - (noChev[i].xy + noChev[i].zw) * 0.5) - (noChev[i].zw - noChev[i].xy) * 0.5;
-        c *= smoothstep(-pxW, pxW, length(max(q, 0.0)) + min(max(q.x, q.y), 0.0));
-      }
-      // (none under a stent point's callout or round its dot: stage.js chevHoles)
-      for (int i = 0; i < 16; i++) {
-        if (i >= chevHoleN) break;
-        vec4 h = chevHole[i];
-        float hr = chevHoleR[i], dh;
-        if (hr < 0.0) { vec2 ab = h.zw - h.xy; float t = clamp(dot(w - h.xy, ab) / max(dot(ab, ab), 1e-6), 0.0, 1.0); dh = length(w - h.xy - ab * t) + hr; }
-        else dh = length(max(max(h.xy - w, w - h.zw), 0.0)) - hr;
-        c *= smoothstep(-pxW, pxW, dh);
-      }
-      }
-      if (c.x + c.y > 0.0) {
-        // A faint rim lifts the head off the lumen. By the vessel's own colour (a lumen's lightness, an orange vessel) and the eased
-        // reversed flag, not a switch, so a head follows the vessel's colour as that eases and never pops: a dark core with a light rim
-        // on a pale lumen, near-white with a dark rim on a dark one, orange if reversed (chevInks).
-        vec3 hCore, hRim;
-        chevInks(vc1, f1.w, hCore, hRim);
-        col = mix(col, hRim, c.y * 0.75 * vis * flowA * blendA.y);
-        col = mix(col, hCore, c.x * vis * flowA * blendA.y);
-      }
-    }
-    v = vec4(col * v.a, v.a);
+${compChevPart()}    v = vec4(col * v.a, v.a);
   }
-#if STREAK
+`}#if STREAK
   return;
 #endif
   // An active bleed. Inside the stomach, under the vessels that cross it (so the plate's depth holds): the pool, the stomach's own
@@ -1562,6 +1526,12 @@ ${heads ? '#if 0   // (the arrowheads\' build: its own main, below)\n' : ''}void
   if (lineOn == 1) o = over(texelFetch(lineL, ip, 0), o);
   outColor = o;
 }${heads ? `\n#endif\n${headMain({ LUMEN2, ROW2_MASK, FLOW_TEXELS })}` : ''}`;
+// The compositor's fragment shader. tube = 1 (Tube stage 3, brief S3-X): where the lumen section was, one read of the lumen layer the tubes drew
+// (lumenL) and one mix; no second lumen target, no half-size streak pass, and none of the blood's helpers (tube-lumen-glsl.js draws the blood with
+// them). The streak pass (streak) and the arrowheads' quads (heads) have no Tube build of their own: `streak` is ignored with tube = 1 (the
+// text is the full one's), and `heads` ignores tube (the quads read the same targets as ever and draw the same heads). tube = 0 is byte for byte
+// what it was (tests/comp-fs-old-builds.test.js).
+export const COMP_FS = (plain = false, streak = false, heads = false, tube = 0) => compFS(plain, streak && !tube, heads, tube && !heads ? 1 : 0);
 
 // Organ outlines (a selected or hovered organ): a stroke of world width, drawn with the figure so a
 // pan or zoom moves it in the same frame. Widened in device pixels so a hairline still covers its

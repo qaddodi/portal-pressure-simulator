@@ -179,10 +179,10 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     [/heads: who === 'stage' \?/, 'the lobule is given no axes: its renderer keeps the composite heads'],
     [/bool isLy = f1\.x < -0\.5;/, 'a lymph row is marked in the shader'],
     [/if \(blood == 1 && blendA\.x > 0\.0 && f1\.z > 0\.0 && !isLy\) \{/, 'blood streaks skip a lymph row'],
-    [/chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy/, 'arrowheads skip a lymph row'],
     [/if \(blood == 1 && isLy && f1\.z > 0\.0\) \{\n\s*float lc, lk;\n\s*lymphAt\(s1, y1, f0, len1, R1, lc, lk\);/, 'a lymph row draws its dashes'],
   ]);
   // (lymphAt moved to comp-glsl.js with the rest of the lumen text, 10 Nov 2026: the rule moved with it, as written.)
+  need('src/ui/comp-glsl.js', [[/chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy/, 'arrowheads skip a lymph row (the chevrons the compositor draws itself: moved to comp-glsl.js with the Tube build, 10 Nov 2026)']]);
   need('src/ui/comp-glsl.js', [[/void lymphAt\(float s, float y, vec4 f0, float len, float R, out float cover, out float core\)/, 'the composite has a lymph dash function']]);
   const cg = text('src/ui/comp-glsl.js');
   const lymphFn = cg.slice(cg.indexOf('void lymphAt('), cg.indexOf('// Moving blood in one lumen at arc length s'));

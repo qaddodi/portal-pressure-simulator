@@ -132,6 +132,13 @@ add('tubeLumen PLAIN (strip, no dye or origin)', { ...lumenNeeds, '../src/ui/tub
 add('tubeWebLumen (web + tubeLumenFS)', { ...lumenNeeds, '../src/ui/tube-joint.js': ['tubeWebVS'] }, (g, edge, bin, hl, lum, mm, tj) => ({
   vs: g.ZOOM_VS ? tj.tubeWebVS(mm.STRIP_VS_GLSL, g.F_SEL, g.ZOOM_VS) : withZoom(tj.tubeWebVS(mm.STRIP_VS_GLSL, g.F_SEL)), fs: lum.tubeLumenFS(lumenK(g, edge, bin, hl)), note: zoomNote(g) }));
 
+// The compositor's Tube builds (brief S3-X): COMP_FS with its last argument 1 (the lumen layer in place of the lumen section). Fragment only, as above.
+add('compositor Tube COMP_FS(.., tube)', { '../src/ui/veins-gl.js': ['COMP_FS'] }, (g) => ({ vs: g.COMP_VS ?? null, fs: g.COMP_FS(false, false, false, 1), note: compNote(g) }));
+add('compositor Tube COMP_FS(plain, tube)', { '../src/ui/veins-gl.js': ['COMP_FS'] }, (g) => ({ vs: g.COMP_VS ?? null, fs: g.COMP_FS(true, false, false, 1), note: compNote(g) }));
+add('compositor Tube COMP_FS(streak, tube)', { '../src/ui/veins-gl.js': ['COMP_FS'] }, (g) => ({ vs: g.COMP_VS ?? null, fs: g.COMP_FS(false, true, false, 1), note: compNote(g) }));
+add('compositor Tube COMP_FS(heads, tube)', { '../src/ui/veins-gl.js': ['COMP_FS'] }, (g) => ({ vs: g.COMP_VS ?? null, fs: g.COMP_FS(false, false, true, 1), note: compNote(g) }));
+add('compositor COMP_FS(heads)', { '../src/ui/veins-gl.js': ['COMP_FS'] }, (g) => ({ vs: g.COMP_VS ?? null, fs: g.COMP_FS(false, false, true), note: compNote(g) }));
+
 // ---- later threads: add yours above this line, one line each ------------------------------------------------------------------------
 // (S2-A/B/J/D: tubeLean, the web, ...; S3-X: COMP_FS with its new last argument; S3-C: the lumen shader; L-A/L-D: the lobule's.)
 

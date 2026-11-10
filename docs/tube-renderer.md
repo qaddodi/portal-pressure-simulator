@@ -137,3 +137,26 @@ speed, and it is **the only headless step the Tube threads may run** (owner, 10 
 programs with one `add(...)` line in the list (the header there says how); a missing module or export is skipped with a note until it lands. A
 program whose vertex shader is not exported yet (the classic vessel `VS`, `COMP_VS`) is compiled as a fragment shader alone, and linked once the
 owner of `veins-gl.js` exports it (the list reads `VESSEL_VS` and `COMP_VS`). `tests/glsl-compile-list.test.js` judges the list in node.
+
+## The compositor's lumen text and its Tube builds (brief S3-X, 10 Nov 2026)
+
+**Part 1 (5f42928).** The helpers the compositor's lumen section calls moved, as written, into `src/ui/comp-glsl.js`: `compLumenUniforms()` (the
+declarations, in pieces in `COMP_U` so `COMP_FS` lays each where it stood), `compConsts()`, `compBasics()` (`hsh`, `h01`, `over`), `compBloodFns()`
+(the noise styles, the particles, `radAt`, `flowD`, `flowDrift`, `rootDD`, `lymphAt`, `castAt`, `bloodAt`, `originAt`), `compBendFn()`, `compDyeFns()`,
+and `compLumenFns()` for another shader. `N_SAMPLES`, `ORIGIN_GREY`, `LANE_K`, `S_OFF`, `ALONG_GLSL` and `ROWS_GLSL` moved with them (veins-gl.js
+re-exports what it exported). Functions that read `gbuf`, `gbuf2`, `base` or `halfL` are only `main`, which stays. A shader that includes the text
+needs `#define PLAIN 0|1` before it. `tests/comp-fs-old-builds.test.js` holds the four old builds byte for byte.
+
+**Part 2.** `COMP_FS(plain, streak, heads, tube = 1)`:
+
+- A new `uniform sampler2D lumenL;` (premultiplied colour of the lumen in front, alpha its coverage x the vessel's opacity), read at the texel `base`
+  is read at (filtered at `lowUV` on a tier frame, as `base` is). `gbuf2`, `halfL`, the blood's helpers and the dye's are not in the text.
+- The lumen section is one mix. With `vis = clamp(L.a / max(v.a, 1e-3), 0, 1)` (the lumen's share of the layer's alpha, which is what `vis` was) and
+  `F = min(L.rgb / max(L.a, 1e-4), 1)`: `col = mix(col, F, vis)`, `col` the layer's colour `v.rgb / v.a`. The old section applied each effect as
+  `col = mix(col, X, k * vis)`; with the effects folded into `F` the lumen is `F` where it covers whole (vis 1: the interior, and a whole ghosted
+  vessel, whose lumen and layer alpha are both its opacity) and, at its edge or over another vessel, the layer's colour moved toward `F` by the
+  share. Where `L.a` is 0 (casing, outline, nothing) the pixel is exactly the layer's. The alpha is never changed. `tubeLumenMixJS` is the twin.
+- `bloodOnly`: a pixel with `L.a == 0` is left as drawn (the layer the blood is in). `stillOn`: the row in front is read from `gbuf` and the same
+  `flow` column test is made (no second row). The arrowheads the compositor draws itself (`chevQuad` 0) keep their text and read `gbuf` for the row, arc,
+  across and share. So `gbuf` is read once, only for those two uses.
+- `streak` is ignored with `tube` (the Tube has no half-size pass); `heads` ignores `tube` (the quads read `gbuf` and `gbuf2` and draw the same heads).

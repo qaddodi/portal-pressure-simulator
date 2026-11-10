@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 // turn near-white cream with a deep rim, so they stand clear of the orange instead of an orange head on it (Mohammad,
 // 19 Oct). Other vessels keep their dark heads, and an orange one where flow is reversed on a vessel that is not orange.
 
-const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const GL = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/comp-glsl.js', import.meta.url), 'utf8');
 const TOKENS = readFileSync(new URL('../styles/tokens.css', import.meta.url), 'utf8');
 const UTIL = readFileSync(new URL('../src/ui/util.js', import.meta.url), 'utf8');
 
