@@ -2659,6 +2659,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (pMode >= 3) clearLayer();
     // (The geometry renderer, when it is on and can draw: the Tube's when Tube is chosen (never the Mesh's then), else the mesh's: a whole draw, a
     // pan's strip or a changed rows' box (4), through the same scissor; a box it cannot draw is drawn whole there by the classic pass.)
+    tubePass.drew = 0;
     if ((pMode === 0 || pMode >= 3) && meshUse() && (tubePick ? tubePass(pM, pLook) : meshPass(pM, pLook))) return;
     if (pMode === 1 || pMode === 2) { gA[0] = partVAO; gA[1] = partG; oA[0] = partSVAO; oA[1] = partS; vesselPass(pM, pLook, gA, oA, true, pMode === 2); }
     else { gA[0] = vao; gA[1] = nGen; oA[0] = oneVAO; oA[1] = nSimple; vesselPass(pM, pLook, gA, oA); }
@@ -4090,6 +4091,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
 
   const api = {
     get lost() { return lost; },
+    /** The Tube's stage (1, 2 or 3) that drew the vessel layer last, 0 when the Tube did not. */
+    tubeStage() { return tubePass.drew; },
     /** Whether the browser renders WebGL on the CPU. */
     software,
     /**

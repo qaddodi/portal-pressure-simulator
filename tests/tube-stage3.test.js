@@ -144,3 +144,16 @@ test('stage 3 programs lost mid-run: the next frame is stage 2, and the lumen pa
   Object.defineProperty(h.E, 'tube3', { get: () => ok, configurable: true });
   assert.equal(h.tubePass.stage(), 3);
 });
+
+test('the stage that drew the layer is kept on the pass (veins-gl.js tubeStage()): the stage on a successful draw, left to the caller to zero', () => {
+  const h = makeHarness({ withStage3: true });
+  assert.equal(h.tubePass.drew, 0);
+  h.run();
+  assert.equal(h.tubePass.drew, 3);
+  const h2 = makeHarness();
+  h2.run();
+  assert.equal(h2.tubePass.drew, 2);
+  const h1 = makeHarness({ withStage2: false });
+  h1.run();
+  assert.equal(h1.tubePass.drew, 1);
+});

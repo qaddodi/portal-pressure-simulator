@@ -228,6 +228,7 @@ export function createTubePass(E) {
       lastText = `tube ${choice.stage}: ${why ? `${why}, ` : ''}${what}${why3}`;
       gpuProbe.gauge(E.lobule ? 'lobule vessel renderer' : 'vessel renderer', lastText);
     }
+    tubePass.drew = choice.stage;   // (the stage that drew the layer: veins-gl.js zeroes it before each layer draw, and its tubeStage() reads it)
     return true;
   }
   // ---- Stage 3: the lumen layer (docs/tube-renderer.md "Stage 3") ----
@@ -272,6 +273,7 @@ export function createTubePass(E) {
     MG.passes = keep;
     return true;
   }
+  tubePass.drew = 0;
   tubePass.stage = () => stageNow().stage;
   tubePass.lumen = tubeLumenPass;
   tubePass.gaugeText = () => `${lastText}${choice.stage === 3 ? `, lumen pass ${MG.lumStrips} strips ${MG.lumWebs} webs` : ''}`;
