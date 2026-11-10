@@ -56,7 +56,9 @@ test('Mesh chosen: a morph set\'s patch texture is made with the set, and using 
   const before = patchTexUploads(f);
   const S = g.makeMorphSet(swept());
   assert.ok(S);
-  assert.equal(patchTexUploads(f), before + 1, 'made with the set');
+  assert.equal(patchTexUploads(f), before, 'uploading the set makes no patch texture: preparing it does');
+  g.prepareMorphSet(S);
+  assert.equal(patchTexUploads(f), before + 1, 'made with the set, in its own slice');
   g.useMorphSet(S); g.useMorphSet(null); g.useMorphSet(S); g.useMorphSet(null);
   assert.equal(patchTexUploads(f), before + 1, 'a set change builds and uploads nothing');
   frame.setVesselRenderer('mesh');
@@ -68,6 +70,7 @@ test('Tube chosen with webs for joins: no patch texture is made for a morph set'
   const before = patchTexUploads(f);
   const S = g.makeMorphSet(swept());
   assert.ok(S);
+  g.prepareMorphSet(S);
   assert.equal(patchTexUploads(f), before, 'no patch built or uploaded where the joins are webs');
   frame.setVesselRenderer('mesh');
 });

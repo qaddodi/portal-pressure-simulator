@@ -4197,11 +4197,21 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       uploadBlood(bins);
       useMorphSet(was);
       figVer = keptVer; fboOK = keptOK; movedAll = keptAll;
-      prepareSet(S);   // (its geometry data and the Tube's stage 2 record, here at the free moment, not in the change's frames)
-      return S;
+      return S;   // (uploaded, not yet prepared: prepareMorphSet makes its geometry data and the Tube's stage 2 record, a slice of its own)
     },
-    /** Draws from a morph set (null: the figure's own binning again). */
-    useMorphSet(S) { if (!S || (S.owner === api && morphSets.has(S))) useMorphSet(S); },
+    /**
+     * A morph set's geometry data and the Tube's stage 2 record (for the mode now), made at a free moment away from the change's frames, so the caller can run it as its
+     * own slice after makeMorphSet. A set is ready (morphSetReady) once uploaded and prepared. Draws nothing and marks nothing changed; the set need not be the one in use.
+     */
+    prepareMorphSet(S) { if (S && S.owner === api && morphSets.has(S)) prepareSet(S); },
+    /** Whether a morph set is uploaded and prepared (the pieces ready count). */
+    morphSetReady(S) { return !!S && S.owner === api && morphSets.has(S) && !!S.entCPU && S.prepKey !== undefined; },
+    /** Draws from a morph set (null: the figure's own binning again). A set uploaded but not prepared is prepared at once. */
+    useMorphSet(S) {
+      if (S && !(S.owner === api && morphSets.has(S))) return;
+      if (S && S.prepKey === undefined) prepareSet(S);
+      useMorphSet(S);
+    },
     dropMorphSet(S) { if (S) dropSet(S); },
     /**
      * The frame's points and joins for the morph set in use: `rows` floats laid out as the set's rows after its entries (veins-sweep

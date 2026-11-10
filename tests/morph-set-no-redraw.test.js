@@ -1,5 +1,6 @@
 // Making a view-switch piece (makeMorphSet) draws nothing and leaves the set in use as it was, so the next frame is not a whole redraw of the vessel layer (10 Nov 2026, his
-// Mac: a 139 ms frame as the last piece was made); a real set change (useMorphSet) still is one. Run against the module with a stand-in GL.
+// Mac: a 139 ms frame as the last piece was made); a real set change (useMorphSet) still is one. And a set is uploaded by makeMorphSet and prepared by prepareMorphSet, a
+// slice of its own (morphSetReady once both are done); a switch that needs a set not yet prepared prepares it at once. Run against the module with a stand-in GL.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -68,6 +69,8 @@ for (const renderer of ['mesh', 'tube']) {
     const S = g.makeMorphSet(swept());
     assert.ok(S);
     assert.equal(drawKind(g), 'kept', 'making a set: no whole redraw');
+    g.prepareMorphSet(S);
+    assert.equal(drawKind(g), 'kept', 'preparing it: nothing changes either');
     g.useMorphSet(S);
     assert.equal(drawKind(g), 'whole', 'a real set change draws the layer again');
     // A set made while another is in use: the one in use stays as it was.
@@ -81,3 +84,21 @@ for (const renderer of ['mesh', 'tube']) {
   });
 }
 
+test('a set is ready once uploaded and prepared; a switch that needs an unprepared set prepares it at once', () => {
+  const g = figure('tube');
+  const S = g.makeMorphSet(swept());
+  assert.equal(g.morphSetReady(S), false, 'uploaded only');
+  g.prepareMorphSet(S);
+  assert.equal(g.morphSetReady(S), true, 'uploaded and prepared');
+  const T = g.makeMorphSet(swept());
+  assert.equal(g.morphSetReady(T), false);
+  g.useMorphSet(T);
+  assert.equal(g.morphSetReady(T), true, 'prepared at once by the switch');
+  g.useMorphSet(null);
+  assert.equal(g.morphSetReady(null), false);
+  g.prepareMorphSet(S);   // (again: harmless)
+  assert.equal(g.morphSetReady(S), true);
+  g.dropMorphSet(S);
+  assert.equal(g.morphSetReady(S), false, 'a dropped set is not ready');
+  frame.setVesselRenderer('mesh');
+});

@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Tube / Mesh: a view-switch piece's geometry data is made by `api.prepareMorphSet(S)`, a slice of its own.** (Morph set job part 2, 10 Nov 2026: the upload slice ran up to 237 ms on his Mac.)
+  `makeMorphSet` now only uploads the set (entries, cells, blood); the geometry data and the Tube's stage 2 record that `prepareSet` makes moved out to `prepareMorphSet(S)`, so the caller (stage-morph.js) can run each as its own slice. `morphSetReady(S)` says a set is uploaded and prepared (the pieces ready count). A switch that needs a set uploaded but not prepared prepares it at once in `useMorphSet`, as the draw always could. Idempotent: preparing a prepared set does nothing.
 - **Tube / Mesh: making a view-switch piece no longer makes the next frame a whole vessel redraw.** (Morph set job part 1, 10 Nov 2026: his Mac, a 139 ms frame as the last piece finished.)
   `makeMorphSet` swaps the geometry three times (to the figure's own, to the new set, back), and each swap marked the vessel layer as changed (`figVer`, `fboOK`, `movedAll`), so every piece of the six was followed by a whole redraw of what nothing had changed. The three marks are now put back after the swap back; a real `useMorphSet` still redraws. The lumen depth stamp and the stage 2 record are not touched by a swap. Node proof: `tests/morph-set-no-redraw.test.js`.
 - **Tube: the lumen pass clears and draws only where the rows inside the layer are.** (Tube speed, brief PL item 3, 10 Nov 2026.)
