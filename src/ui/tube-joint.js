@@ -200,6 +200,8 @@ export function webGeometry(PA, RA, PB, RB, inst, aaPad) {
   }
   const px = 0.5 * aaPad;
   const w = Math.min(clamp(0.14 * Rm, 1.5 * px, 3 * px) + aaPad, 0.98 * rho);
+  // (the skirt's width at each end is its own arm's outline's, so the web's outline meets each arm's without a step: the arms' radii differ, the outline's width follows the radius)
+  out.skirt = (k) => Math.min(clamp(0.14 * (A0.r + (B0.r - A0.r) * (k / WEB_ARC)), 1.5 * px, 3 * px) + aaPad, 0.98 * rho);
   out.empty = false; out.O = O; out.rho = rho; out.Ta = Ta; out.Tb = Tb; out.arc = arc; out.w = w; out.bis = bis;
   out.vDapex = Math.min(-(Math.hypot(C[0] - O[0], C[1] - O[1]) - rho), -2 * aaPad);
   return out;
@@ -217,7 +219,7 @@ export function webVertex(PA, RA, PB, RB, inst, a, aaPad) {
   const q = g.arc[k], ox = g.O[0] - q[0], oy = g.O[1] - q[1], ol = Math.hypot(ox, oy), ux = ox / ol, uy = oy / ol;
   res.x = q[0]; res.y = q[1]; res.gx = ux; res.gy = uy;
   if (kind === WEB_KIND.IN) res.f = L.CASE1;
-  else if (kind === WEB_KIND.OUT) { res.x = q[0] + ux * g.w; res.y = q[1] + uy * g.w; res.f = L.CASE0; res.vD = g.w; }
+  else if (kind === WEB_KIND.OUT) { const wk = g.skirt(k); res.x = q[0] + ux * wk; res.y = q[1] + uy * wk; res.f = L.CASE0; res.vD = wk; }
   return res;
 }
 
@@ -426,7 +428,8 @@ void main() {
     vec2 pt = O + vec2(va.x * ca - va.y * sa, va.x * sa + va.y * ca);
     vec2 up = normalize(O - pt);
     float px = 0.5 * aaPad;
-    float w = min(clamp(0.14 * Rm, 1.5 * px, 3.0 * px) + aaPad, 0.98 * rho);
+    float rk = mix(A0.r, B0.r, float(k) / float(W_ARC));   // (the skirt's width follows the radius along the arc: each arm's own outline at its end)
+    float w = min(clamp(0.14 * rk, 1.5 * px, 3.0 * px) + aaPad, 0.98 * rho);
     if (kind == W_APEX) { q = vec3(C, W_LEVEL); vD = min(-(length(C - O) - rho), -2.0 * aaPad); vG = bis; }
     else if (kind == W_FILL) { q = vec3(pt, W_LEVEL); vG = up; }
     else if (kind == W_IN) { q = vec3(pt, W_CASE1); vG = up; }

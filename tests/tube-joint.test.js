@@ -128,7 +128,7 @@ function checkWeb(w, g, label) {
     const along = (q.x - a[0]) * (g.O[0] - a[0]) + (q.y - a[1]) * (g.O[1] - a[1]);
     assert.ok(along > 0, `${label}: the skirt point ${k} is on the wrong side of its arc point`);
     assert.ok(Math.hypot(q.x - g.O[0], q.y - g.O[1]) >= 0.02 * g.rho - 1e-9, `${label}: the skirt reaches O`);
-    assert.ok(Math.abs(Math.hypot(q.x - a[0], q.y - a[1]) - g.w) < 1e-9);
+    assert.ok(Math.abs(Math.hypot(q.x - a[0], q.y - a[1]) - g.skirt(k)) < 1e-9, `${label}: the skirt's width follows the radius along the arc`);
   }
 }
 
@@ -224,7 +224,7 @@ test('vertex values: levels, vD, vG, vRad as the contract has them', () => {
   for (let k = 0; k < WEB_PTS; k++) {
     assert.equal(V[WEB_FILL + k].f, WEB_LEVEL); assert.equal(V[WEB_FILL + k].vD, 0);
     assert.equal(V[WEB_IN + k].f, TUBE_LEVEL.CASE1); assert.equal(V[WEB_IN + k].vD, 0);
-    assert.equal(V[WEB_OUT + k].f, TUBE_LEVEL.CASE0); assert.ok(Math.abs(V[WEB_OUT + k].vD - g.w) < 1e-12);
+    assert.equal(V[WEB_OUT + k].f, TUBE_LEVEL.CASE0); assert.ok(Math.abs(V[WEB_OUT + k].vD - g.skirt(k)) < 1e-12);
     // vG points from the arc toward O
     const q = V[WEB_FILL + k];
     assert.ok((g.O[0] - q.x) * q.gx + (g.O[1] - q.y) * q.gy > 0);
