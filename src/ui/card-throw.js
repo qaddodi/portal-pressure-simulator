@@ -10,7 +10,7 @@ import { frameFor, cancelFrame, easeNow, beginMotion } from './frame.js';
 import { cubicBezier } from './ease.js';
 import { classSoon, runSoon } from './class-soon.js';
 import { caught } from './caught.js';
-import { D_SMALL } from './ease.js';
+import { D_SMALL, D_SURFACE } from './ease.js';
 import { signalMove } from './num-move.js';
 
 /** How far (px) the new card comes in from, and the stagger (ms) of a second card behind the first. */
@@ -213,6 +213,24 @@ export function throwIn(el, dir, delay = 0) {
   // cardsIn, a staggered card asked again) used to drop it from full to nothing and slide it in again, a blink.)
   if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, s * THROW_IN, 0); runs.delete(el); }
   start(el, 'in', { x: 0, o: 1 }, RAIL_MS, was?.kind === 'in' ? 0 : delay);
+}
+
+/** Brings el in where it stands, from nothing to whole, over ms after delay ms, on this clock: no slide, only the fade. For a card that comes
+ *  in with no way to come from (no Next or Back: a time-lapse's data card let in once its days end, a slide reached by a jump, the deck's
+ *  first). A card caught on a move of its own fades in from where that left it. */
+// (10 Nov 2026, Mohammad: "the new card on new slide still sometimes FLICKERS". Such a card faded in by its leave class going, on the CSS
+// clock: the browser runs that fade on its compositor, frame after frame, while the card's GPU glass is drawn by the page's own frames. A
+// long frame (a time-lapse's last model frame, a new patient's organs, the slide's own build) held the glass where it was while the card's
+// words, edge and readings, and the split sheet's two panes, faded on without it: words over no frost, then the frost catching up in one
+// step. On this clock, as the throws, the card's fade and its glass are written and read in the same frame, and a long frame holds both.)
+export const FADE_MS = D_SURFACE, FADE_DELAY = 120;   // motion-scale: the card's own CSS fade in (app.css: --d-surface after .12s)
+export function throwFade(el, delay = FADE_DELAY, ms = FADE_MS) {
+  if (!el) return;
+  pinned.delete(el);
+  const was = runs.get(el);
+  releaseHeld(el);
+  if (!was) { el.style.setProperty('transition', 'none', 'important'); write(el, 0, 0); }
+  start(el, 'back', { x: 0, o: 1 }, ms, was ? 0 : delay);
 }
 
 /** A card let go short of a swipe (or one the swipe took along that the next slide keeps) eases back to its place from where the finger left it

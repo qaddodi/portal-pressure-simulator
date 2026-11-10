@@ -80,7 +80,7 @@ import { shownState as pageShown } from './shown.js';
 import { createTileShown, tileSmall } from './tile-shown.js';
 import { slideFold } from './fold-slide.js';
 import { pageOn, followOf, pageIn, swipeHeld } from './card-page.js';
-import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, RAIL_GAP, RAIL_MS, easeRail } from './card-throw.js';
+import { throwOut, throwIn, throwBack, throwLeft, throwing, throwStop, throwsOut, THROW_IN, THROW_STAGGER, throwOutNow, throwLeaving, throwHeld, throwPinned, throwRelease, throwState, throwBusy, throwLanded, throwFade, RAIL_GAP, RAIL_MS, easeRail } from './card-throw.js';
 import { readAnims, readBox, readCTM, readMetric, readRects, readStyle, readTiming, scrollInto } from './layout-snap.js';
 import { caught } from './caught.js';
 import { createInk } from './ink-gl.js';
@@ -2608,10 +2608,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (Bare, the words come in only once the camera lands: a card on the rail waits to ride with them, never on ahead of them. Mohammad,
     // 2 Nov 2026: "the data card and the teaching cards move out at different paces; should go together".)
     if (throwDir && !el.hidden && el.childElementCount) throwIn(el, throwDir, delay);
+    else fadeIn(el);
     delete el.dataset.out;
     el.classList.remove(cls);
     return true;
   }
+  // (No way to come from (no Next or Back): the card fades in where it stands on card-throw.js's clock, not its class's CSS fade, which the
+  // compositor ran on through a long frame while the card's GPU glass waited: words over no frost, then the frost in one step. card-throw.js
+  // throwFade. Reduced motion keeps the class's own short fade.)
+  function fadeIn(el) { if (!reduce.matches && !el.hidden && el.childElementCount && !throwing(el)) throwFade(el); }
   // The last refits that used to run as the cards came in (a ladder's strip given back its plot, the charts lettered again, the
   // layout their new sizes call for, a frame later) run while the cards are still unseen, so they come in at their final size and
   // never snap to it in view (an upright iPad's teaching card did). cardsIn's own reFit then finds nothing left to change.
@@ -2626,7 +2631,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     return true;
   }
   // A time-lapse whose data card is only numbers holds that card back (unseen, at its resting place) until the days have run.
-  function releaseData() { if (!ui || !('hold' in ui.data.dataset)) return; delete ui.data.dataset.hold; if (ui.data.dataset.prep) { delete ui.data.dataset.prep; ui.data.classList.remove('pz-hide'); } }
+  function releaseData() { if (!ui || !('hold' in ui.data.dataset)) return; delete ui.data.dataset.hold; if (ui.data.dataset.prep) { delete ui.data.dataset.prep; if (ui.data.classList.contains('pz-hide')) fadeIn(ui.data); ui.data.classList.remove('pz-hide'); } }
   // While bare, the new slide's cards are fitted at their resting place but unseen, and the camera frames around them (see transitionRun).
   let bare = false;
   async function settleRun() {
