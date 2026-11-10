@@ -38,9 +38,15 @@ test('the Tube builds of the full, plain and streak compositor read the lumen la
     assert.ok(!/\bgbuf2\b/.test(t), `${name}: no gbuf2`);
     assert.ok(!/\bhalfL\b/.test(t), `${name}: no halfL`);
     for (const f of ['originAt(', 'dyeAt(', 'dyeEdge(', 'lymphAt(', 'castAt(']) assert.ok(!t.includes(f), `${name}: no ${f}`);
-    // gbuf is read once, and only for a still lumen's test, the arrowheads drawn here or the mask of a lumen layer at a share of the layer's size.
+    // gbuf is read once, and only for a still lumen's test, a blood-only frame with no lumen layer drawn, the arrowheads drawn here or the mask of a lumen layer at a share of the layer's size.
     assert.equal((t.match(/texelFetch\(gbuf\b/g) || []).length, 1, `${name}: one gbuf read`);
-    assert.ok(/if \(inL && \(\(bloodOnly == 1 && stillOn == 1\) \|\| chevC \|\| lumM\)\) g = texelFetch\(gbuf, lp, 0\);/.test(t), `${name}: gbuf read only where needed`);
+    assert.ok(/if \(inL && \(\(bloodOnly == 1 && \(stillOn == 1 \|\| !lumOn\)\) \|\| chevC \|\| lumM\)\) g = texelFetch\(gbuf, lp, 0\);/.test(t), `${name}: gbuf read only where needed`);
+    // The lumen layer is drawn only while the streaks, the dye or the origin colours are on (veins-gl.js lumenFrame); with the arrowheads alone it holds an older
+    // frame's lumens, so it is not read and a blood-only frame finds the lumens by gbuf (else the heads' quads stacked heads where the old layer was empty, 10 Nov 2026).
+    assert.ok(/bool lumOn = blood == 1 \|\| dyeOn == 1 \|\| origin == 1;/.test(t), `${name}: lumOn is the lumen pass's own test`);
+    assert.ok(/bool lumM = lumOn && lumSc > 0\.0/.test(t), `${name}: no share-size read without the lumen layer`);
+    assert.ok(/if \(inL && lumOn\) L = /.test(t), `${name}: the lumen layer read only when drawn this frame`);
+    assert.ok(/if \(bloodOnly == 1 && lumOn && L\.a == 0\.0 && !chevC\) discard;/.test(t), `${name}: no lumen-layer discard without the lumen layer`);
   }
 });
 

@@ -389,14 +389,19 @@ export const compTubeRowFns = () => [ALONG_GLSL, ROWS_GLSL].join('\n');
 // something besides the lumen layer needs it: a still lumen's test and the arrowheads drawn here.
 export const compTubeHead = ({ LUMEN2, FLOW_TEXELS }) => `  // The Tube: the lumen as the tubes drew it this frame, at the texel the vessel layer is read at (a tier frame's small targets: filtered, as the layer is).
   vec4 L = vec4(0.0);
+  // (The lumen layer is drawn on a frame only while the blood streaks, the dye or the origin colours are on (veins-gl.js lumenFrame: the same three tests). With all three off,
+  // the arrowheads alone, it is not drawn and holds an older frame's lumens, or none: it is not read, and the vessel layer's own lumen (gbuf) says where a lumen is. Read
+  // anyway, a lumen the old layer left empty was left as drawn on a blood-only frame while the heads' quads went on laying a head over it, a stack of heads smeared along
+  // every vessel but the widest (Mohammad's Mac at full resolution, 10 Nov 2026).)
+  bool lumOn = blood == 1 || dyeOn == 1 || origin == 1;
   // (A lumen layer smaller than the vessel layer is read filtered at the layer texel's centre, and then masked below by the vessel layer's own lumen at full size; not in a tier frame's small targets.)
-  bool lumM = lumSc > 0.0 && lowSz.x == 0;
-  if (inL) L = lowSz.x > 0 ? texture(lumenL, lowUV) : lumM ? texture(lumenL, (vec2(lp) + 0.5) / vec2(lSize)) : texelFetch(lumenL, lp, 0);
+  bool lumM = lumOn && lumSc > 0.0 && lowSz.x == 0;
+  if (inL && lumOn) L = lowSz.x > 0 ? texture(lumenL, lowUV) : lumM ? texture(lumenL, (vec2(lp) + 0.5) / vec2(lSize)) : texelFetch(lumenL, lp, 0);
   bool chevC = chev == 1 && chevQuad == 0;   // (the arrowheads drawn here, not by their quads: they are drawn on the row in front, so they read gbuf)
   // A blood-only frame leaves a pixel with no lumen as drawn (the other builds' test, made on the lumen layer's alpha: it is the layer the blood is in).
-  if (bloodOnly == 1 && L.a == 0.0 && !chevC) discard;
+  if (bloodOnly == 1 && lumOn && L.a == 0.0 && !chevC) discard;
   uvec4 g = uvec4(0u);
-  if (inL && ((bloodOnly == 1 && stillOn == 1) || chevC || lumM)) g = texelFetch(gbuf, lp, 0);
+  if (inL && ((bloodOnly == 1 && (stillOn == 1 || !lumOn)) || chevC || lumM)) g = texelFetch(gbuf, lp, 0);
   g.x &= ${LUMEN2 - 1}u;
   // The share-size lumen layer, masked by the vessel layer's lumen at full size: no blood where the layer holds no lumen (so none spills over an outline or past a wall), and the lumen's
   // opacity is the layer's (g.w >> 8: the alpha the layer's lumen was drawn with), the small layer giving only the colour.
