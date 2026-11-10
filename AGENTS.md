@@ -54,6 +54,11 @@ Pages serves each copy as its production build (`npm run build` → `dist/`: bun
 file names and generated service worker. `tests/stamp.test.js` fails a committed stamp, and `npm run stamp` takes one out of a branch made before this.
 Workflows pin `ubuntu-24.04`, so a new runner image (and new visual references) is a deliberate change.
 
+**The one headless step besides the smoke (owner, 10 Nov 2026): the shader compile check.** `node scripts/glsl-compile.mjs [name ...]` compiles and
+links the shader strings of `scripts/glsl-compile-list.mjs` in headless Chromium's software WebGL2 and prints the driver's logs. It opens `about:blank`
+(never the app), draws nothing, takes no picture and measures nothing, and runs in no workflow. The Tube renderer's threads run it on their own programs
+before a push (`docs/tube-renderer.md`); every other headless run stays off.
+
 ## Per-frame work (the GPU is the only per-frame painter)
 
 - No per-frame work on the main thread outside the scheduler: ask for a frame with `frameFor(tag)` from `src/ui/frame.js`,

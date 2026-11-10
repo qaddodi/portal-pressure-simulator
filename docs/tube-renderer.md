@@ -106,3 +106,14 @@ targets dropped. The shaders are linted, not compiled (this environment cannot c
 
 `tests/vessel-renderer-setting.test.js` (the one choice and the carry-over), `tests/vessel-fs-old-builds.test.js` (the old builds' hashes), `tests/vessel-fs-tube.test.js`
 (both Tube fragment builds and `meshPatchVS` linted through `tests/glsl-pp.js`, no `gl_FragDepth` in the strip build and the patch's two, `celShade(` used), plus A's, B's and C's own.
+
+## The shader compile check (brief S0-K, 10 Nov 2026)
+
+`node scripts/glsl-compile.mjs [name ...]` compiles and links the shader strings listed in `scripts/glsl-compile-list.mjs` (`programs()`) in headless
+Chromium's software WebGL2 and prints, per program, `ok` or the shader and program info logs with the failing source lines numbered (exit 1 on any
+failure, 2 when the check itself could not run). It opens `about:blank`, not the app: it draws nothing, takes no picture, judges no look and measures no
+speed, and it is **the only headless step the Tube threads may run** (owner, 10 Nov 2026), on their own programs before a push. It is not part of
+`npm test`, lint, CI or any workflow. SwiftShader is not an iPhone, iPad or Mac driver: `ok` is strong evidence, not a guarantee. A thread adds its
+programs with one `add(...)` line in the list (the header there says how); a missing module or export is skipped with a note until it lands. A
+program whose vertex shader is not exported yet (the classic vessel `VS`, `COMP_VS`) is compiled as a fragment shader alone, and linked once the
+owner of `veins-gl.js` exports it (the list reads `VESSEL_VS` and `COMP_VS`). `tests/glsl-compile-list.test.js` judges the list in node.
