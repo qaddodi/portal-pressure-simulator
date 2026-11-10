@@ -24,13 +24,13 @@ test('the gauge says why the Tube is at stage 1', () => {
 
 const K = (() => { const k = { F_SEL: 1, F_DIFFUSE: 2, F_SHADOW: 4, F_DOTTED: 8, F_NOCASE: 16, F_SPEC: 32, F_EDGE: 64, F_VEIL: 128, F_WHOLE: 256, LIFT_EASE_MAX: 1, LIFT_EASE_SHARE: 0.5, LUMEN2: 0x8000, ROW2_BITS: 11, VEIL_K: 0.6, EDGE: 'const float EDGE = 1.0;', ENT_W: 2048, N_SAMPLES: 64, MAX_TIERS: 24, S_OFF: 96, ALONG_GLSL: 'float alongAt(int id, float u) { return u; }' }; return k; })();
 
-test('stage2Start starts the four programs by name; stage2Finish gives them back, or none and the names that failed', () => {
+test('stage2Start starts the five programs by name; stage2Finish gives them back, or none and the names that failed', () => {
   const started = [];
   const gl = { deleted: [], deleteProgram(p) { this.deleted.push(p); } };
   const start = (g, vs, fs) => { const s = { p: { n: started.length }, vs, fs }; started.push(s); return s; };
   const s = stage2Start(gl, start, K, '// zoom');
   assert.deepEqual(Object.keys(s), STAGE2_PROGRAMS);
-  assert.equal(started.length, 4);
+  assert.equal(started.length, 5);
   assert.equal(s.tubeLean.vs, s.tubeDepth.vs, 'the strip programs share a vertex shader');
   assert.equal(s.tubeWeb.vs, s.tubeWebDepth.vs);
   assert.notEqual(s.tubeLean.vs, s.tubeWeb.vs);
@@ -38,12 +38,12 @@ test('stage2Start starts the four programs by name; stage2Finish gives them back
   assert.ok(s.tubeDepth.fs.length < 200 && s.tubeDepth.fs === s.tubeWebDepth.fs);
   const ok = stage2Finish(gl, (g, st) => ({ p: st.p, u: {} }), STAGE2_PROGRAMS.map((n) => s[n]));
   assert.deepEqual(ok.failed, []);
-  assert.deepEqual(Object.keys(ok.P), ['lean', 'depth', 'web', 'webDepth']);
+  assert.deepEqual(Object.keys(ok.P), ['lean', 'depth', 'web', 'webDepth', 'joinDepth']);
   // one fails: none are kept, the finished ones are given back, the failed one is named
   const bad = stage2Finish(gl, (g, st) => { if (st === s.tubeWeb) throw new Error('link'); return { p: st.p, u: {} }; }, STAGE2_PROGRAMS.map((n) => s[n]));
   assert.equal(bad.P, null);
   assert.deepEqual(bad.failed, ['tubeWeb']);
-  assert.equal(gl.deleted.length, 4, 'the failed program and the three finished ones deleted');
+  assert.equal(gl.deleted.length, 5, 'the failed program and the four finished ones deleted');
 });
 
 test('joinEntriesInto copies the entries by index, with the frame\'s place between the views', () => {
@@ -98,12 +98,12 @@ test('a row that becomes dotted after the binning is an exact row at once, witho
 const draws = (log) => log.filter((c) => c.call === 'strips' || c.call === 'patch');
 const seq = (log) => draws(log).map((c) => `${c.prog}:${c.n}${c.mask === false ? ' pre' : ' col'}${c.mask === false ? '' : ' ' + c.depth}`);
 
-test('stage 2 draws a shape pair: the prepass plain rows with the depth program, exact rows with the lean one, webs with the web depth one; then all rows and the webs in colour', () => {
+test('stage 2 draws a shape pair: the prepass plain rows with the depth program, the rows exact only for a join end with the join-only depth one, the other exact rows with the lean one, webs with the web depth one; then all rows and the webs in colour', () => {
   const h = makeHarness();
   assert.equal(h.run(), true);
   const webs = h.MG.webs;
   assert.equal(webs, 4);
-  assert.deepEqual(seq(h.log), ['tubeDepth:1 pre', 'tubeLean:2 pre', `tubeWebDepth:${webs} pre`, 'tubeLean:3 col LEQUAL', `tubeWeb:${webs} col LEQUAL`]);
+  assert.deepEqual(seq(h.log), ['tubeDepth:1 pre', 'tubeJoinDepth:1 pre', 'tubeLean:1 pre', `tubeWebDepth:${webs} pre`, 'tubeLean:3 col LEQUAL', `tubeWeb:${webs} col LEQUAL`]);
   assert.ok(!draws(h.log).some((c) => c.call === 'patch'), 'no patch is drawn when the joins are webs');
   assert.ok(!draws(h.log).some((c) => c.prog === 'tubePatch' || c.prog === 'tubeStrip'), 'nor a stage 1 program, with no glow');
 });
@@ -128,7 +128,7 @@ test('a strip is drawn with isWeb 0 and a web with isWeb 1', () => {
 test('the gauge: tube 2 with the passes, the strips (the plain among them) and the webs, counted in the colour draws', () => {
   const h = makeHarness();
   h.run();
-  assert.deepEqual(h.gauges, [['vessel renderer', 'tube 2: 2 passes, strips drawn 3 of 3 (not culled), 3 strip draws (1 plain), 4 webs']]);
+  assert.deepEqual(h.gauges, [['vessel renderer', 'tube 2: 2 passes, strips drawn 3 of 3 (not culled), 3 strip draws (2 plain), 4 webs']]);
 });
 
 test('with the stage 2 programs not ready the Tube draws stage 1: its own programs and buffer, the patches, and the gauge says why', () => {

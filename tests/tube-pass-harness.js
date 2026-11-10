@@ -50,7 +50,7 @@ export function makeHarness({ withStage2 = true, withStage3 = false, withGlow = 
     passes: 0, strips: 0, patches: 0, plain: 0, webs: 0, kP: 0, ref: 0 };
   MG.dirty = false;
   let tube2 = null;
-  if (withStage2) tube2 = { lean: prog('tubeLean'), depth: prog('tubeDepth'), web: prog('tubeWeb'), webDepth: prog('tubeWebDepth') };
+  if (withStage2) tube2 = { lean: prog('tubeLean'), depth: prog('tubeDepth'), web: prog('tubeWeb'), webDepth: prog('tubeWebDepth'), joinDepth: prog('tubeJoinDepth') };
   let tube3 = null;
   if (withStage3) tube3 = { lumen: prog('tubeLumen'), webLumen: prog('tubeWebLumen'), comp: prog('compTube'), compCell: prog('compTubeCell'), plain: prog('plainTube'), plainCell: prog('plainTubeCell') };
   const tubeS = prog('tubeStrip'), tubePt = prog('tubePatch'), tubeGlow = withGlow ? prog('tubeGlow') : null;

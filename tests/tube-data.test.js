@@ -45,13 +45,14 @@ test('tubeRows: a dotted row, a clipped row and a row ending on a trunk are exac
   assert.equal(r, out); assert.equal(out.n, 7);
   // the trunk's nearest sample to x = 0.5: sample 32 at x = 1.587 (31 is at -1.587)
   assert.deepEqual(rec(out.rows, 0), [0, TUBE_NO_END, TUBE_NO_END, 2]);
-  assert.deepEqual(rec(out.rows, 1), [1, 0 * N_SAMPLES + 32, TUBE_NO_END, 3], 'row 1 ends on the trunk at its start');
-  assert.deepEqual(rec(out.rows, 2), [2, TUBE_NO_END, 0 * N_SAMPLES + 32, 3], 'row 2 ends on the trunk at its end');
+  assert.deepEqual(rec(out.rows, 1), [1, 0 * N_SAMPLES + 32, TUBE_NO_END, 4], 'row 1 ends on the trunk at its start (exact only for the end: kind 4)');
+  assert.deepEqual(rec(out.rows, 2), [2, TUBE_NO_END, 0 * N_SAMPLES + 32, 4], 'row 2 ends on the trunk at its end');
   assert.deepEqual(rec(out.rows, 3), [3, TUBE_NO_END, TUBE_NO_END, 3]);
   assert.deepEqual(rec(out.rows, 4), [4, TUBE_NO_END, TUBE_NO_END, 3]);
   assert.deepEqual(rec(out.rows, 5), [5, TUBE_NO_END, TUBE_NO_END, 3]);
   assert.deepEqual(rec(out.rows, 6), [6, TUBE_NO_END, TUBE_NO_END, 2]);
   assert.equal(out.exact, 5);
+  assert.equal(out.joinOnly, 2, 'rows 1 and 2 are exact only for their ends: the join-only prepass');
   assert.equal(out.ended, 2, 'rows 1 and 2 carry a join end (the ?perf lumen line counts them)');
   for (const [row, want] of [[0, false], [1, true], [2, true], [3, true], [4, true], [5, true], [6, false]]) assert.equal(rowIsExact(out.rows, row), want, `row ${row}`);
   // a one-float buffer reads as "no ends": the + 2 puts a record's w above 1.5 whatever its kind
@@ -63,7 +64,7 @@ test('tubeRows: a dotted row, a clipped row and a row ending on a trunk are exac
   const first = out.rows;
   tubeRows(sc.tube, sc.nRows, sc.ent, out, sc.pts);
   assert.equal(out.rows, first);
-  assert.deepEqual(rec(out.rows, 1), [1, 32, TUBE_NO_END, 3]);
+  assert.deepEqual(rec(out.rows, 1), [1, 32, TUBE_NO_END, 4]);
 });
 
 test('tubeRows: a join with no trunk, or a trunk listed as a plain member, puts no row on a vessel', () => {

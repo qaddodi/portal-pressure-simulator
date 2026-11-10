@@ -92,10 +92,12 @@ export function createTubePass(E) {
   // With ?tubejoin=patch the patches are drawn in the webs' place, as stage 1 draws them.
   function draw2(pass, t, base, H, px, look, pre) {
     const tb = FR.tb, P = E.tube2, D = FR.D, n = tb.count[t], pl = tb.plain[t], s0 = tb.start[t];
+    const en = tb.ends ? tb.ends[t] : 0;
     if (pre) {
       if (pl) stripCall(P.depth, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, pl);
-      if (n > pl) stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0 + pl, n - pl);
-    } else if (n) { stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, n); MG.plain += pl; }   // (the plain ones among them are the rows whose prepass cost no fragment work)
+      if (en) stripCall(P.joinDepth || P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0 + pl, en);   // (the rows exact only for a join end: the join-only depth program)
+      if (n > pl + en) stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0 + pl + en, n - pl - en);
+    } else if (n) { stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, n); MG.plain += pl + en; }   // (the plain ones among them, and the rows exact only for a join end, are the rows whose prepass cost next to no fragment work)
     if (FR.web) { if (FR.wb.count[t]) webCall(pre ? P.webDepth : P.web, pass, t, base, H, px, look, FR.wb.start[t], FR.wb.count[t]); }
     else if (FR.pb.count[t]) patchCall(pass, t, base, H);
     MG.passes++;
@@ -191,6 +193,7 @@ export function createTubePass(E) {
     if (two) {
       const P = E.tube2;
       setProgram(P.lean, m, look, px); setProgram(P.depth, m, look, px);
+      if (P.joinDepth) setProgram(P.joinDepth, m, look, px);
       if (web) { setProgram(P.web, m, look, px); setProgram(P.webDepth, m, look, px); } else setProgram(E.tubePt, m, look, px);
       if (glowAny) setProgram(glowP, m, look, px);
     } else { setProgram(E.tubePt, m, look, px); setProgram(E.tubeS, m, look, px); if (glowP !== E.tubeS) setProgram(glowP, m, look, px); }
@@ -254,7 +257,7 @@ export function createTubePass(E) {
     FR.two = true; FR.web = true; FR.tb = D.tb; FR.wb = D.wb; FR.pb = null;
     const tb = D.tb, P = E.tube2, P3 = E.tube3, keep = MG.passes;
     const px = 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));
-    for (const Q of [P.lean, P.depth, P.webDepth, P3.lumen, P3.webLumen]) setProgram(Q, m, look, px);
+    for (const Q of [P.lean, P.depth, P.webDepth, P.joinDepth, P3.lumen, P3.webLumen]) if (Q) setProgram(Q, m, look, px);
     E.lumenBind(P3.lumen); E.lumenBind(P3.webLumen);
     MG.kP = 0; MG.lumStrips = 0; MG.lumWebs = 0;
     gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST); gl.enable(gl.DEPTH_TEST);

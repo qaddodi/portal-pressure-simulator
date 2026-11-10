@@ -158,7 +158,7 @@ for (const [name, run] of sets) {
         const v = rows.rows[o + slot];
         if (v === TUBE_NO_END) continue;
         ends++;
-        assert.equal(rows.rows[o + 3], 3, `row ${r.id} has an end but is not exact`);
+        assert.ok(rows.rows[o + 3] > 2.5, `row ${r.id} has an end but is not exact`);   // (3, or 4: exact only for its end)
         const cont = v <= -2, code = cont ? -(v + 2) : v, tRow = Math.floor(code / N_SAMPLES), tSample = code % N_SAMPLES;
         if (cont) {
           continues++;

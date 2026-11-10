@@ -83,6 +83,7 @@ add('tube lean (tubeLeanFS)', stage2Needs, stage2('tubeLean'));
 add('tube depth (TUBE_DEPTH_FS)', stage2Needs, stage2('tubeDepth'));
 add('tube web (tubeWebVS + tubeLeanFS)', stage2Needs, stage2('tubeWeb'));
 add('tube web depth (tubeWebVS + TUBE_DEPTH_FS)', stage2Needs, stage2('tubeWebDepth'));
+add('tube join depth (strip + tubeJoinDepthFS)', stage2Needs, stage2('tubeJoinDepth'));
 
 // The Tube's stage 3 (briefs S3-C, S3-X, S3-D):
 const stage3Needs = { ...stage2Needs, '../src/ui/veins-gl.js': [...stage2Needs['../src/ui/veins-gl.js'], 'COMP_FS', 'COMP_VS', 'COMP_CELL_VS'] };

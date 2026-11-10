@@ -70,7 +70,7 @@ test('the lumen pass: all prepasses (depth only), then all lumens (LEQUAL), stri
   const webs = h.MG.lumWebs;
   assert.equal(webs, 4);
   assert.equal(h.MG.lumStrips, 3);
-  assert.deepEqual(seq(h.log), ['tubeDepth:1 pre', 'tubeLean:2 pre', `tubeWebDepth:${webs} pre`, 'tubeLumen:3 col LEQUAL', `tubeWebLumen:${webs} col LEQUAL`]);
+  assert.deepEqual(seq(h.log), ['tubeDepth:1 pre', 'tubeJoinDepth:1 pre', 'tubeLean:1 pre', `tubeWebDepth:${webs} pre`, 'tubeLumen:3 col LEQUAL', `tubeWebLumen:${webs} col LEQUAL`]);
   const binds = h.log.filter((c) => c.call === 'lumenBind').map((c) => c.prog);
   assert.deepEqual(binds, ['tubeLumen', 'tubeWebLumen']);
   assert.ok(h.log.findIndex((c) => c.call === 'lumenBind') < h.log.findIndex((c) => c.call === 'strips'), 'the blood\'s uniforms are set before the first draw');
@@ -127,7 +127,7 @@ test('the gauge text after the lumen pass: tube 3 with the layer pass\'s numbers
   const h = makeHarness({ withStage3: true });
   h.run();
   h.runLumen();
-  assert.equal(h.tubePass.gaugeText(), 'tube 3: 2 passes, strips drawn 3 of 3 (not culled), 3 strip draws (1 plain), 4 webs, lumen pass 3 strips 4 webs');
+  assert.equal(h.tubePass.gaugeText(), 'tube 3: 2 passes, strips drawn 3 of 3 (not culled), 3 strip draws (2 plain), 4 webs, lumen pass 3 strips 4 webs');
   assert.equal(h.tubePass.stage(), 3);
 });
 

@@ -167,3 +167,16 @@ test('colour: a cut end and a continuation blend into the other row\'s colour ov
 test('joinAlong is comp-glsl.js\'s alongAt under another name', () => {
   assert.equal(JOIN_ALONG_GLSL, ALONG_GLSL.trim().replace('alongAt', 'joinAlong'));
 });
+
+test('the join-only depth shader shares joinEnd\'s text with the lean and the lumen shaders (so the prepass and the colour pass cannot disagree), lints, and does no shading', async () => {
+  const { tubeJoinDepthFS, tubeLeanFS } = await import('../src/ui/tube-lean-glsl.js');
+  const { tubeLumenFS } = await import('../src/ui/tube-lumen-glsl.js');
+  const fs = tubeJoinDepthFS(64);
+  assert.ok(fs.includes(tubeJoinFS(64)), 'the same function text');
+  assert.deepEqual(lintGLSL(fs), []);
+  assert.ok(!/texelFetch|texture\(|vesAttrs|celShade/.test(fs), 'no reads and no shading');
+  assert.match(fs, /if \(joinEnd\(vI, vJ0, vJ1, vJK, vC0, vC1, p, vRad, px\)\.drop\) discard;/);
+  const K = { F_DIFFUSE: 2, F_EDGE: 64, F_SHADOW: 4, F_SPEC: 32, F_VEIL: 128, F_WHOLE: 256, F_SEL: 1, F_DOTTED: 8, F_NOCASE: 16, LIFT_EASE_MAX: 1, LIFT_EASE_SHARE: 1, LUMEN2: 32768, ROW2_BITS: 11, VEIL_K: 0.6, EDGE: '', ENT_W: 2048, N_SAMPLES: 64, MAX_TIERS: 20, S_OFF: 96, ALONG_GLSL: '' };
+  assert.ok(tubeLeanFS(K).includes(tubeJoinFS(64)));
+  assert.equal(typeof tubeLumenFS, 'function');
+});

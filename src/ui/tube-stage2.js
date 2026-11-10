@@ -1,21 +1,21 @@
 // The Tube's stage 2 (10 Nov 2026, brief S2-D; docs/tube-renderer.md "Stage 2"; docs/recommendations/tube-renderer-stage2-3-plan.md): what veins-gl.js and
 // tube-pass.js need to draw the lean strips and the webs, in a file of its own so veins-gl.js stays under the build's chunk limit.
-//   - the four programs (tubeLean, tubeDepth, tubeWeb, tubeWebDepth): started with the Tube's other programs, finished one by one, each optional;
+//   - the five programs (tubeLean, tubeDepth, tubeWeb, tubeWebDepth, tubeJoinDepth: the cheap prepass for a row that is exact only for a join end): started with the Tube's other programs, finished one by one, each optional;
 //   - the choice of stage and of joins, a pure function of (the programs ready, the query);
 //   - the data the stage draws from: J's row records (tube-data.js), the rows by tier with each tier's plain rows first, the webs by tier, and the
 //     buffers and vertex arrays they are drawn from (the strip's vertices are the stage 1 strip's, the same buffers).
 // Nothing here allocates in a frame: the arrays are made on the first frame or when a binning (a geometry upload) needs more, each marked alloc-rare.
 import { tubeStripVS } from './tube-geo.js';
 import { tubeWebVS, webIndex, WEB_FLOATS } from './tube-joint.js';
-import { tubeLeanFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
+import { tubeLeanFS, tubeJoinDepthFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
 import { tubeLumenFS } from './tube-lumen-glsl.js';
 import { tubeGlowFS } from './tube-glow-glsl.js';
 import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS } from './tube-data.js';
 import { STRIP_VS_GLSL, MIN_RADIUS } from './veins-mesh.js';
 import { rowBoxes, rowsInside } from './tube-cull.js';
 
-/** The four programs, in the order stage2Start returns them and the gauge names them. */
-export const STAGE2_PROGRAMS = ['tubeLean', 'tubeDepth', 'tubeWeb', 'tubeWebDepth'];
+/** The five programs, in the order stage2Start returns them and the gauge names them. */
+export const STAGE2_PROGRAMS = ['tubeLean', 'tubeDepth', 'tubeWeb', 'tubeWebDepth', 'tubeJoinDepth'];
 
 /** The page's query, read once here (the other debug flags are read the same way, where they are used). */
 export const TUBE_QUERY = typeof location !== 'undefined' ? location.search || '' : '';
@@ -63,7 +63,7 @@ export function stage1Why(ready, failed, compiling, query = TUBE_QUERY) {
  */
 export function stage2Sources(K, zoomVS) {
   const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), lean = tubeLeanFS(K);
-  return { tubeLean: { vs: sv, fs: lean }, tubeDepth: { vs: sv, fs: TUBE_DEPTH_FS }, tubeWeb: { vs: wv, fs: lean }, tubeWebDepth: { vs: wv, fs: TUBE_DEPTH_FS } };
+  return { tubeLean: { vs: sv, fs: lean }, tubeDepth: { vs: sv, fs: TUBE_DEPTH_FS }, tubeWeb: { vs: wv, fs: lean }, tubeWebDepth: { vs: wv, fs: TUBE_DEPTH_FS }, tubeJoinDepth: { vs: sv, fs: tubeJoinDepthFS(K.N_SAMPLES) } };
 }
 
 /**
@@ -100,7 +100,7 @@ export function stage2Finish(gl, finishProgram, started) {
     }
   });
   if (failed.length) { for (const d of done) if (d) gl.deleteProgram(d.p); return { P: null, failed }; }
-  return { P: { lean: done[0], depth: done[1], web: done[2], webDepth: done[3] }, failed };
+  return { P: { lean: done[0], depth: done[1], web: done[2], webDepth: done[3], joinDepth: done[4] }, failed };
 }
 
 /** The glow program (PD part 4): the strip's vertex shader over tubeGlowFS, optional on its own (a failure leaves the glow passes on the stage 1 strip program). */

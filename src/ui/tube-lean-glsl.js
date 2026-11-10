@@ -30,6 +30,30 @@ void main() {}
 `;
 
 
+/**
+ * The depth prepass for a row that is exact only because it has a join end (tube-data.js kind 4: not dotted, not clipped): the empty shader's keep-everything plus the
+ * join's drop, from the same joinEnd text as tubeLeanFS, so the prepass and the colour pass cannot disagree on which pixels are the other row's. No attributes, no
+ * shading, no reads: it works out the pixel's world position as the lean shader does and calls joinEnd on the flat data.
+ */
+export const tubeJoinDepthFS = (N_SAMPLES) => `#version 300 es
+precision highp float;
+precision highp int;
+in float vI;
+in float vRad;
+${JOIN_IN_GLSL}
+uniform float px;
+uniform vec4 invA;
+uniform vec2 tOff;
+uniform vec2 lOff;
+uniform vec2 sizeF;
+${tubeJoinFS(N_SAMPLES)}
+void main() {
+  vec2 q = vec2(gl_FragCoord.x, sizeF.y - gl_FragCoord.y) - lOff - tOff;
+  vec2 p = vec2(invA.x * q.x + invA.z * q.y, invA.y * q.x + invA.w * q.y);
+  if (joinEnd(vI, vJ0, vJ1, vJK, vC0, vC1, p, vRad, px).drop) discard;
+}
+`;
+
 export const tubeLeanFS = (K) => {
   const { F_SEL, F_DOTTED, F_NOCASE, F_SHADOW, EDGE, ENT_W, N_SAMPLES, MAX_TIERS, S_OFF, ALONG_GLSL } = K;
   if (N_SAMPLES !== END_BASE) throw new Error('tube-lean-glsl: vEnd packs the trunk row as row * 64 + sample, so N_SAMPLES must be 64');

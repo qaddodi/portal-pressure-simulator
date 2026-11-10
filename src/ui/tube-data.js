@@ -99,7 +99,7 @@ export function joinLegs(ent, q, pts, nRows) {
 /**
  * The Tube's row records (4 floats a row, nRows rows) into out.rows. tubeData: the tube attribute array (TUBE_FLOATS a row); joinEntries: join entries in
  * writeJoin's layout (8 floats an entry; repeats are fine); pts: the rows' points as pointsFromEntries lays them (needed for the ends; without it no row has an
- * end). A row is exact when it is dotted, clipped (its drawn part, texel 5, is not 0..1), ends on a vessel or continues another row; plain otherwise. A row ends on a
+ * end). A row is exact when it is dotted, clipped (its drawn part, texel 5, is not 0..1), ends on a vessel or continues another row; plain otherwise. Its kind (rows[b + 3]) is 2 plain, 3 exact (dotted or clipped: its prepass is the lean shader), 4 exact only for a join end (its prepass is the join-only depth program, tubeJoinDepthFS). A row ends on a
  * vessel at an end when that end is a leg of a join with a row that runs through it (the join's marked trunk, else the first member with two legs); it continues
  * another row when a join is two rows' ends and the two bend by no more than CONT_DEG; the first such join wins. out.exact: the exact rows' count; out.ended: the rows with a join end.
  */
@@ -120,7 +120,7 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       const nl = S.n;
       const setEnd = (a, code) => {   // a: a leg that is an end of its row; the first end given wins
         const b = S.row[a] * TUBE_ROW_FLOATS + (S.sample[a] === 0 ? 1 : 2);
-        if (rows[b] === TUBE_NO_END) { rows[b] = code; rows[S.row[a] * TUBE_ROW_FLOATS + 3] = 3; return true; }
+        if (rows[b] === TUBE_NO_END) { rows[b] = code; const kb = S.row[a] * TUBE_ROW_FLOATS + 3; if (rows[kb] < 2.5) rows[kb] = 4; return true; }   // (kind 4: exact only for the end, so its prepass is the join-only depth program; a dotted or clipped row stays 3)
         return false;
       };
       const isEnd = (a) => (S.sample[a] === 0 || S.sample[a] === N_SAMPLES - 1) && !(a + 1 < nl && S.row[a + 1] === S.row[a]) && !(a > 0 && S.row[a - 1] === S.row[a]);
@@ -157,13 +157,14 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       }
     }
   }
-  let exact = 0, ended = 0;
+  let exact = 0, joinOnly = 0, ended = 0;
   for (let r = 0; r < nRows; r++) {
     const b = r * TUBE_ROW_FLOATS;
     if (rows[b + 3] > 2.5) exact++;
+    if (rows[b + 3] > 3.5) joinOnly++;
     if (rows[b + 1] !== TUBE_NO_END || rows[b + 2] !== TUBE_NO_END) ended++;
   }
-  out.exact = exact; out.n = nRows; out.ended = ended;   // (ended: rows with a join end at either end, for the ?perf panel's lumen line)
+  out.exact = exact; out.joinOnly = joinOnly; out.n = nRows; out.ended = ended;   // (ended: rows with a join end at either end, for the ?perf panel's lumen line)
   return out;
 }
 
@@ -172,35 +173,36 @@ export const rowIsExact = (rows, r) => rows[r * TUBE_ROW_FLOATS + 3] > 2.5;
 
 /**
  * tierBuckets with the Tube's records. tube: the tube attribute array; on: 1 for a row with points; nTubes; rowData: tubeRows' out.rows. Rows with on 0 or alpha <= 0
- * are left out. out: { rows (Float32Array, TUBE_ROW_FLOATS a record in tier order, each tier's plain rows first and then its exact rows, row order within each),
- * start[t], count[t], plain[t] (Int32Array MAX_TIERS; start and count are in records), lit[t], litUp[t], sel[t], shadow[t] (Uint8Array MAX_TIERS) }, out.n the records in all.
+ * are left out. out: { rows (Float32Array, TUBE_ROW_FLOATS a record in tier order, each tier's plain rows first, then the rows exact only for a join end (kind 4), then its exact rows, row order within each),
+ * start[t], count[t], plain[t], ends[t] (Int32Array MAX_TIERS; start and count are in records), lit[t], litUp[t], sel[t], shadow[t] (Uint8Array MAX_TIERS) }, out.n the records in all.
  */
 export function tubeBuckets(tube, on, nTubes, rowData, out) {
   if (!out.rows || out.rows.length < nTubes * TUBE_ROW_FLOATS) out.rows = new Float32Array(nTubes * TUBE_ROW_FLOATS);   // alloc-rare: grown with the vessel rows
   if (!out.start) {   // alloc-rare: the per-tier arrays, once
-    out.start = new Int32Array(MAX_TIERS); out.count = new Int32Array(MAX_TIERS); out.plain = new Int32Array(MAX_TIERS);
-    out.curP = new Int32Array(MAX_TIERS); out.curX = new Int32Array(MAX_TIERS);
+    out.start = new Int32Array(MAX_TIERS); out.count = new Int32Array(MAX_TIERS); out.plain = new Int32Array(MAX_TIERS); out.ends = new Int32Array(MAX_TIERS);
+    out.curP = new Int32Array(MAX_TIERS); out.curE = new Int32Array(MAX_TIERS); out.curX = new Int32Array(MAX_TIERS);
     out.lit = new Uint8Array(MAX_TIERS); out.litUp = new Uint8Array(MAX_TIERS); out.sel = new Uint8Array(MAX_TIERS); out.shadow = new Uint8Array(MAX_TIERS);
   }
-  const { rows, start, count, plain, curP, curX, lit, litUp, sel, shadow } = out;
-  count.fill(0); plain.fill(0); lit.fill(0); litUp.fill(0); sel.fill(0); shadow.fill(0);
+  const { rows, start, count, plain, ends, curP, curE, curX, lit, litUp, sel, shadow } = out;
+  count.fill(0); plain.fill(0); ends.fill(0); lit.fill(0); litUp.fill(0); sel.fill(0); shadow.fill(0);
   for (let r = 0; r < nTubes; r++) {
     const o = r * TUBE_FLOATS;
     if (!on[r] || !(tube[o + T_ALPHA] > 0)) continue;
     const t = tierOf(tube, o);
     count[t]++;
-    if (!(rowData[r * TUBE_ROW_FLOATS + 3] > 2.5)) plain[t]++;
+    const kind = rowData[r * TUBE_ROW_FLOATS + 3];
+    if (!(kind > 2.5)) plain[t]++; else if (kind > 3.5) ends[t]++;
     if (tube[o + T_GLOW] > 0) { if (tube[o + T_GLOW_W] > UP_GLOW) litUp[t] = 1; else lit[t] = 1; }
     if (tube[o + T_SEL] > 0) sel[t] = 1;
     if ((Math.floor(tube[o + T_FLAGS] + 0.5) & F_SHADOW) !== 0) shadow[t] = 1;
   }
   let at = 0;
-  for (let t = 0; t < MAX_TIERS; t++) { start[t] = at; curP[t] = at; curX[t] = at + plain[t]; at += count[t]; }
+  for (let t = 0; t < MAX_TIERS; t++) { start[t] = at; curP[t] = at; curE[t] = at + plain[t]; curX[t] = at + plain[t] + ends[t]; at += count[t]; }
   for (let r = 0; r < nTubes; r++) {
     const o = r * TUBE_FLOATS;
     if (!on[r] || !(tube[o + T_ALPHA] > 0)) continue;
     const t = tierOf(tube, o), b = r * TUBE_ROW_FLOATS;
-    const at2 = (rowData[b + 3] > 2.5 ? curX[t]++ : curP[t]++) * TUBE_ROW_FLOATS;
+    const kd = rowData[b + 3], at2 = (kd > 3.5 ? curE[t]++ : kd > 2.5 ? curX[t]++ : curP[t]++) * TUBE_ROW_FLOATS;
     rows[at2] = rowData[b]; rows[at2 + 1] = rowData[b + 1]; rows[at2 + 2] = rowData[b + 2]; rows[at2 + 3] = rowData[b + 3];
   }
   out.n = at;
