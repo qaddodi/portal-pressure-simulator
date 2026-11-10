@@ -7,7 +7,7 @@
 // and the flat fill (three tones) in place of tubeShade's light line, dark line, rounding and wall band. `celShadeJS` is the same arithmetic for one
 // pixel, for the tests. Nothing draws with this file until thread D wires it.
 
-import { F_RING } from './veins-mesh-glsl.js';
+import { F_RING } from './veins-mesh-glsl.js';   // (ringOpen, the mouth mask's reader, is in that file's shade text, which comes before this text wherever celShade is used)
 
 /** The look's numbers: K the old outline width as a multiple of the casing width (no longer read by the shading; the uniform stays for the host),
  *  LINE_MIN / LINE_MAX / LINE_R the outline's width in device px (R * LINE_R, held between the two), INK the near-black the light looks' deep tone is eased toward,
@@ -50,6 +50,15 @@ vec3 celRing(vec3 lum, float D, float R, float aa) {
   float ringBand = smoothstep(-ringW - aa, -ringW, D) * smoothstep(1.5, 3.5, R / aa);
   return mix(lum, vec3(1.0), 0.144 * ringBand * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
 }
+
+// A disc cut across, outlined (flag F_RING; Mohammad, 10 Nov 2026: "outline it, where it's not connecting to a vessel"): inside the wall, an ink line wl wide (the
+// vessel's own outline ink, ink) and, inside that, the pale band; both all round, and none where a vessel joins (open 1: ringOpen) so the vessel flows in.
+// The lumen layer lays this again over the blood (it replaces this layer's fill), so both shaders call it.
+vec3 celDisc(vec3 lum, vec3 ink, float D, float R, float wl, float aa, float open) {
+  float closed = 1.0 - open;
+  lum = mix(lum, celRing(lum, D + wl, R, aa), closed);
+  return mix(lum, ink, clamp(0.5 + (D + wl) / aa, 0.0, 1.0) * closed * smoothstep(1.5, 3.5, R / aa));
+}
 `;
 
 /** GLSL (no #version, no main) that declares `uniform float celK;` and defines `celTones` and `celShade`. */
@@ -75,7 +84,7 @@ vec4 celShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int flag
   c = (flags & ${F_EDGE}) != 0 ? over(vec4(edge, 1.0) * (0.92 * aC), c) : over(vec4(ink, 1.0) * (cA * aC), c);
   vec3 lum = col;
   if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) lum = celTones(lum, D, R, g, aa);
-  if (fx == 1 && (flags & ${F_RING}) != 0 && aL > 0.0) lum = celRing(lum, D, R, aa);
+  if (fx == 1 && (flags & ${F_RING}) != 0 && aL > 0.0) lum = celDisc(lum, T(id, 4).rgb, D, R, 0.8 * wl, aa, ringOpen(T(id, 3).xyz, g));
   // A dark lumen (the sickest vessels, on the dark looks, where the outline is no darker than the ground) gets a light edge 1 device px wide just
   // inside its wall, by its own lightness, the way the label halo follows its ink (rimInk.a is 0 on the light looks; hairlines are left out).
   lum = mix(lum, rimInk.rgb, rimInk.a * (1.0 - smoothstep(0.2, 0.4, lumY)) * smoothstep(-px - aa, -px, D) * smoothstep(1.5, 3.5, R / aa));
@@ -121,6 +130,23 @@ export function celRingJS(lum, D, R, aa) {
   return mix3(lum, [1, 1, 1], 0.144 * band * (1 - 0.6 * smoothstep(0.72, 0.9, lumY)));
 }
 
+/** `celDisc` for one pixel: lum [r, g, b] the fill, ink [r, g, b] the line, D, R, wl (the line's width), aa, open 0 .. 1 (ringOpenJS). */
+export function celDiscJS(lum, ink, D, R, wl, aa, open) {
+  const closed = 1 - open;
+  const shifted = celRingJS(lum, D + wl, R, aa);
+  const l2 = mix3(lum, shifted, closed);
+  return mix3(l2, ink, clamp(0.5 + (D + wl) / aa, 0, 1) * closed * smoothstep(1.5, 3.5, R / aa));
+}
+
+/** `ringOpen` for one direction: m the three mouth words [a, b, c], g [x, y] the unit direction across (see veins-mesh-glsl.js ringOpen). */
+export function ringOpenJS(m, g) {
+  if (g[0] * g[0] + g[1] * g[1] < 1e-8) return 0;
+  const a = (Math.atan2(g[1], g[0]) * 0.15915494 + 0.5) * 72 - 0.5, fl = Math.floor(a), w = a - fl;
+  const b0 = (((fl + 72) % 72) + 72) % 72, b1 = b0 === 71 ? 0 : b0 + 1;
+  const bit = (b) => (Math.round(m[Math.floor(b / 24)]) >> (b % 24)) & 1;
+  return bit(b0) * (1 - w * w * (3 - 2 * w)) + bit(b1) * (w * w * (3 - 2 * w));
+}
+
 /** `celShade` for one pixel. o: { D, R, wall, col, g, flags, sel, cA, grp, vAt, hov, edge, kn, kcas, aa, aL } and the host's values
  *  { px, fx, light, casing, ring, rimInk, paperInk } (colours [r, g, b, a] or [r, g, b]), the flag bits { F_DIFFUSE, F_EDGE, F_VEIL },
  *  and for a hovered vessel T(id, 11) as `he` [x, y] and T(id, 5).z as `Lh`. Returns the premultiplied [r, g, b, a]. */
@@ -142,7 +168,7 @@ export function celShadeJS(o) {
   c = (flags & F_EDGE) !== 0 ? over([...edge.map((v) => v * (0.92 * aC)), 0.92 * aC], c) : over([...ink.map((v) => v * (cA * aC)), cA * aC], c);
   let lum = col.slice();
   if (fx === 1 && (flags & F_DIFFUSE) !== 0 && aL > 0) lum = celTonesJS(lum, D, R, g, aa);
-  if (fx === 1 && (flags & F_RING) !== 0 && aL > 0) lum = celRingJS(lum, D, R, aa);
+  if (fx === 1 && (flags & F_RING) !== 0 && aL > 0) lum = celDiscJS(lum, o.rowInk ?? ink, D, R, 0.8 * wl, aa, ringOpenJS(o.mask ?? [0, 0, 0], g));
   lum = mix3(lum, rimInk.slice(0, 3), rimInk[3] * (1 - smoothstep(0.2, 0.4, lumY)) * smoothstep(-px - aa, -px, D) * smoothstep(1.5, 3.5, R / aa));
   if (sel && grp === 2) lum = lum.map((v) => Math.min(v * 1.12, 1));
   if (hov > 0) {

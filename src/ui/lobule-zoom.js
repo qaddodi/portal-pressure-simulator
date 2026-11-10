@@ -44,6 +44,7 @@ import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js';
 import { NODES, EDGES } from '../engine/topology.js';
 import { F_RING } from './veins-mesh-glsl.js';
+import { CEL } from './tube-cel-glsl.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js';
 import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
@@ -1037,7 +1038,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const C = lobules[0].corners;
     const tubes = [], joins = [];   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     const add = (kind, c, o = {}) => { const t = { id: tubes.length, kind, pts: c.pts, len: c.len, ...o }; t.rho = t.pts.map(([x, y]) => Math.hypot(x - cx, y - cy) / R); tubes.push(t); return t; };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-    const join = (x, y, members, rSmall) => { const k = clamp(1.2 * rSmall + 1.2, 1.5, 9); joins.push({ x, y, k, reach: 2 * rSmall + k + 10, members: members.map((t) => t.id) }); };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    const join = (x, y, members, rSmall) => { const k = clamp(1.2 * rSmall + 1.2, 1.5, 9); joins.push({ x, y, k, rs: rSmall, reach: 2 * rSmall + k + 10, members: members.map((t) => t.id) }); };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
     const rs0 = clamp(R * 0.0085, 1.7, 3);     // sinusoid lumen (healthy), before SIN_NARROW
     const rsN = rs0 * SIN_NARROW;              // as drawn: a quarter narrower than the cords' gap (G21)
     const rcv0 = R * 0.07;
@@ -1215,7 +1216,32 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // …and on along the innermost sinusoids, thinning out toward the central vein (lymph forms all along
     // the sinusoid, least where the plates converge), so the channel fades in rather than starting abruptly.
     for (const t of L2) add('ly', curve((u) => at(beside(t), u)), { lymph: true, lvl: 2 });   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
-    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
+    // Where a vessel joins each disc seen end-on (the portal venule, central vein, arteriole, bile ductule): the rim's mask for the Tube's outline, which breaks there so
+    // the vessel flows in (tube-cel-glsl.js celDisc; Mohammad, 10 Nov 2026). 72 bins of 5 degrees from -180, bit b % 24 of word b / 24, each joining vessel's mouth
+    // from the joining vessel's healthy radius against the disc's, 2 degrees over (a bin, 5 degrees, is its softness). The disc's healthy radius is used (the mask is built once, with the geometry).
+    const mouths = new Map();
+    for (const t of tubes) {
+      if (t.kind !== 'pv' && t.kind !== 'cv' && t.kind !== 'ha' && t.kind !== 'bd') continue;
+      const a0 = t.pts[0], a1 = t.pts[t.pts.length - 1], mx = (a0[0] + a1[0]) / 2, my = (a0[1] + a1[1]) / 2;
+      const rD = t.kind === 'cv' ? rcv0 : t.kind === 'pv' ? R * 0.042 : Math.max(1.6, R * (t.kind === 'ha' ? 0.0115 : 0.0145));
+      const words = [0, 0, 0];
+      for (const j of joins) {
+        if (!j.members.includes(t.id)) continue;
+        for (const oid of j.members) {
+          if (oid === t.id) continue;
+          let best = null, bd = Infinity;
+          for (const p of tubes[oid].pts) { const d = Math.abs(Math.hypot(p[0] - mx, p[1] - my) - rD * 1.5); if (d < bd) { bd = d; best = p; } }
+          const o = tubes[oid], rO = o.kind === 's1' ? rsN * 1.15 : o.kind === 's2' ? rsN * 1.3 : o.kind === 'an' ? rsN * 0.68 : o.kind === 'in' ? R * 0.015 : o.kind === 'tw' ? Math.max(0.8, R * 0.0026) : o.kind === 's0' ? rsN : j.rs;
+          const ang = Math.atan2(best[1] - my, best[0] - mx), half = Math.asin(Math.min(0.94, rO / rD)) + 0.03;
+          for (let b = 0; b < 72; b++) {
+            const th = ((b + 0.5) / 72 - 0.5) * TAU;
+            if (Math.abs(Math.atan2(Math.sin(th - ang), Math.cos(th - ang))) <= half) words[Math.floor(b / 24)] |= 1 << (b % 24);
+          }
+        }
+      }
+      mouths.set(t.id, words);
+    }
+    return { W, H, phone, R, cx, cy, rt, rs0, rcv0, lobules, tubes, bloodTubes: tubes.filter((t) => !t.lymph), joins, triads, inlets, L0, L1, L2, cv, septaPC, cells, hsc, lymph, mouths };   // alloc-rare: geometry built only on a stage-size change (ensureGeo's geoKey)
   }
   function hexFrac(x, y, cx, cy, R) {
     let m = 0;
@@ -3825,7 +3851,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (style: the lobule's streaks are blood look D, as the anatomy's: the baked tile read twice a pixel, blood-tile.js; Mohammad, 5 Nov 2026.)
   const bloodArg = { alpha: 0, on: false, chev: false, look: '', origin: false, clock: 0, style: STYLE_D, dye: false, bleed: [], vdpr: 1, originCol: null, dyeCol: null, inkLight: null, inkDark: null, revCol: null, chevInk: null, chevLight: null };
   const selWas = [];   // (the ids of the selection the attributes were last made for)
-  let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akP = 0, akF = 0, akDark = null, akArt = '';
+  let artRaw = null, artRGB = null, akMode = null, akHide = false, akOrigin = false, akLymph = false, akP = 0, akF = 0, akDark = null, akArt = '', akLook = '';
   const LYD = [0, 0, 0], DISSE_DEEP = [0.79, 0.86, 0.74], DISSE_DEEP_DARK = [0.62, 0.7, 0.58];
   const NO_BLOOD = Object.freeze({});
   const Z_OF = { s0: 0.1, s1: 0.11, s2: 0.12, ly: 0.13, an: 0.09, lt: 0.25, in: 0.3, pv: 0.4, cv: 0.4, lv: 0.8, sh: 0.5, bd: 0.55, tw: 0.2, ha: 0.7 };   // (the twig runs under the inlet venule and the lymphatic it crosses, so it slips into the sinusoid instead of lying over them)
@@ -3943,10 +3969,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       if (inkWas.length !== n) { inkWas.length = n; inkMoved = true; }
       // (What the attributes are made from, compared as it stands: the mode, the layers, the lymph's protein and filtration to a hundredth,
       // the selection's ids and the artery's colour; attrKey is '' until they have been made once, and is cleared to make them again.)
+      // (The look's casing colour is in the discs' ink line, so a new look makes the attributes again: lookNow, as the draw below keeps it, is brought up to date first.)
+      if (cs !== lookCs) { lookCs = cs; lookNow = lookOf(cs); lookSig = JSON.stringify(lookNow); }   // alloc-rare: only when the stage's kept copy of the styles is a new one (a class, theme or system-setting change)
       const lyPq = Math.round(lyProt(m) * 100), lyFq = Math.round(lyF(m) * 100), artNow = cs.getPropertyValue('--artery'), selCh = selMoved(selIdsN);
-      const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && !selCh;
+      const akSame = attrKey !== '' && akMode === m.mode && akHide === m.hide && akOrigin === origin && akLymph === lymphOn && akP === lyPq && akF === lyFq && akDark === dark && akArt === artNow && akLook === lookSig && !selCh;
       if (inkMoved || !akSame) {
-        attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow;
+        attrKey = 'y'; akMode = m.mode; akHide = m.hide; akOrigin = origin; akLymph = lymphOn; akP = lyPq; akF = lyFq; akDark = dark; akArt = artNow; akLook = lookSig;
         tubeData.fill(0);
         if (artNow !== artRaw) { artRaw = artNow; artRGB = rgb01(artNow.trim()); }   // alloc-rare: only when the artery's colour token changed (a theme or palette change)
         const art = artRGB;
@@ -3978,6 +4006,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           else if (greyed) { put3(o, ORIGIN_RGB); put3(o + 4, ORIGIN_RGB); }
           else { put3(o, inkNow, p * 6); put3(o + 4, inkNow, p * 6 + 3); }
           tubeData[o + 3] = WALL[t.kind]; tubeData[o + 7] = alpha; tubeData[o + 8] = 1; tubeData[o + 9] = Z_OF[t.kind]; tubeData[o + 10] = flags; tubeData[o + 11] = 0;
+          if (endOn) {
+            // The disc's mouths (texel 3, xyz; the dip's texels, unused here: texel 4's w stays 0) and the ink of its line (texel 4, xyz): its own edge colour where it has one,
+            // else the cel outline's rule (tube-cel-glsl.js celShade): a deep tone of its fill, or the look's own casing colour where that is light.
+            const mk = G.mouths.get(t.id);
+            if (mk) { tubeData[o + 12] = mk[0]; tubeData[o + 13] = mk[1]; tubeData[o + 14] = mk[2]; }
+            const cc = lookNow.casing, kc = smooth(0.25, 0.45, cc[0] * 0.299 + cc[1] * 0.587 + cc[2] * 0.114);
+            for (let i = 0; i < 3; i++) tubeData[o + 16 + i] = edge ? edge[i] : (tubeData[o + i] * 0.34 * 0.75 + CEL.INK[i] * 0.25) * (1 - kc) + cc[i] * kc;
+          }
           tubeData[o + 20] = 0; tubeData[o + 21] = 1; tubeData[o + 22] = t.len; tubeData[o + 23] = 0;
           if (edge) { put3(o + 24, edge); tubeData[o + 27] = 0; }
         }

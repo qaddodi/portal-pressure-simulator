@@ -39,7 +39,7 @@ import { shadeGLSL, F_RING } from './veins-mesh-glsl.js';
 import { TROUBLE_GLSL } from './blood-trouble.js';
 import { compLumenUniforms, compLumenFns, N_SAMPLES as COMP_N, S_OFF } from './comp-glsl.js';
 import { tubeJoinFS, joinRampGLSL, JOIN_IN_GLSL } from './tube-join-glsl.js';
-import { celToneGLSL } from './tube-cel-glsl.js';
+import { celToneGLSL, CEL } from './tube-cel-glsl.js';
 
 /** The text of one top-level function in `text`: from its signature to its closing brace. */
 function fnText(text, head) {
@@ -126,6 +126,8 @@ ${TROUBLE_GLSL}
 ${fnText(shade, 'void vesAttrs(')}
 
 ${fnText(shade, 'vec4 ditherOut(')}
+
+${fnText(shade, 'float ringOpen(')}
 
 // A vessel seen end-on (the lobule's portal venule, arteriole and central vein: a disc) has no across to lay streams side by side over, so its blood is
 // a pie: wedges in originAt's order (SMV, IMV, splenic vein, hepatic artery, the rest) from twelve o'clock, clockwise, each as wide as its share. Such a row
@@ -278,8 +280,9 @@ void main() {
   }
   // The vessel layer's fill had the cel tones (a lift toward the top left, two darker steps away from it, a light line); this colour replaces it, so it gets them too.
   if (fx == 1 && (flags & ${K.F_DIFFUSE}) != 0) col = celTones(min(col, vec3(1.0)), D, R, joinTone(length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), je), aa);
-  // A disc cut across (the lobule's portal venule, central vein, arteriole, bile ductule) has the long vessels' pale band just inside its wall, over the blood too.
-  if (fx == 1 && (flags & ${F_RING}) != 0) col = celRing(min(col, vec3(1.0)), D, R, aa);
+  // A disc cut across (the lobule's portal venule, central vein, arteriole, bile ductule): the ink line and the pale band just inside its wall, over the blood too,
+  // and none where a vessel joins it (celDisc; the vessel layer's own fill, which this replaces, has them the same way).
+  if (fx == 1 && (flags & ${F_RING}) != 0) col = celDisc(min(col, vec3(1.0)), T(id, 4).rgb, D, R, 0.8 * clamp(${f(CEL.LINE_R)} * R, ${f(CEL.LINE_MIN)} * pxW, ${f(CEL.LINE_MAX)} * pxW), aa, ringOpen(T(id, 3).xyz, length(vG) > 1e-5 ? normalize(vG) : vec2(0.0)));
   outColor = ditherOut(vec4(min(col, vec3(1.0)), 1.0) * lumA, q);
 }
 `;

@@ -122,6 +122,22 @@ vec4 shadowOf(float Ds, float wall, int flags, bool sel, float aa) {
   return c;
 }
 
+// A disc cut across (F_RING): 1 where a vessel joins it in the direction g (the unit direction across, toward the wall), 0 round the rest of its rim.
+// m: the row's mouth mask (tube texel 3, xyz): 72 bins of 5 degrees from -180 (atan(g.y, g.x)), bin b is bit b % 24 of word b / 24 (24 bits a float
+// holds exactly); lobule-zoom.js sets them from the joins. Eased across a bin's width, so a mouth's edge is soft. No data (zeros): 0, a closed rim.
+float ringOpen(vec3 m, vec2 g) {
+  if (dot(g, g) < 1e-8) return 0.0;
+  float a = (atan(g.y, g.x) * 0.15915494 + 0.5) * 72.0 - 0.5;
+  float fl = floor(a), w = a - fl;
+  int b0 = int(fl) + 72;
+  b0 -= 72 * (b0 / 72);
+  int b1 = b0 == 71 ? 0 : b0 + 1;
+  int w0 = b0 / 24, w1 = b1 / 24;
+  float v0 = float((int((w0 == 0 ? m.x : w0 == 1 ? m.y : m.z) + 0.5) >> (b0 - 24 * w0)) & 1);
+  float v1 = float((int((w1 == 0 ? m.x : w1 == 1 ? m.y : m.z) + 0.5) >> (b1 - 24 * w1)) & 1);
+  return mix(v0, v1, w * w * (3.0 - 2.0 * w));
+}
+
 // The tier's shape drawn at a pixel: contact shadow, selection ring, casing, the flat lumen with its light and dark lines, rounding,
 // pale wall band, dark lumen's rim, lift, hover and the knock-out ring, premultiplied, before the tier's alpha. D, Ds: the lumen's and the
 // shadow's signed distance; R, wall, col, g: the blended radius, casing width, colour and direction; aL: the lumen's coverage.
@@ -167,7 +183,7 @@ vec4 tubeShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int fla
   // A disc cut across (F_RING): the same pale band, the same width and strength, all round just inside the wall; the tube's other shading is left out.
   if (fx == 1 && (flags & ${F_RING}) != 0 && aL > 0.0) {
     float ringW = clamp(0.1 * R, 1.2 * aa, 2.4 * aa);
-    float ringBand = smoothstep(-ringW - aa, -ringW, D) * smoothstep(1.5, 3.5, R / aa);
+    float ringBand = smoothstep(-ringW - aa, -ringW, D) * smoothstep(1.5, 3.5, R / aa) * (1.0 - ringOpen(T(id, 3).xyz, g));   // (none where a vessel joins: it flows in)
     lum = mix(lum, mix(lum, sheenInk.rgb, 0.45), 0.32 * ringBand * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
   }
   // A dark lumen (the sickest vessels, on the dark looks, where the casing is no darker than the ground) gets a light edge 1 device px wide just

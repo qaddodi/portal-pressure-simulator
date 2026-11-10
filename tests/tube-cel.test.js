@@ -10,6 +10,9 @@ const F = { F_DIFFUSE: 1, F_EDGE: 2, F_VEIL: 4 };
 const CEL_TEXT = celGLSL(F);
 const SHADE_TEXT = shadeGLSL({ F_DIFFUSE: 1, F_EDGE: 2, F_SHADOW: 8, F_SPEC: 16, F_VEIL: 4, F_WHOLE: 32, LIFT_EASE_MAX: 60, LIFT_EASE_SHARE: 0.35, LUMEN2: 32768, ROW2_BITS: 9, VEIL_K: 0.5 });
 
+// (celShade calls ringOpen, which the host's shade text defines before it: the same function, cut out of that text.)
+const RING_OPEN = SHADE_TEXT.slice(SHADE_TEXT.indexOf('float ringOpen('), SHADE_TEXT.indexOf("// The tier's shape drawn"));
+
 // A small host with what celShade needs: the tube texture and T(), over(), and the uniforms the shading reads.
 const HOST = `#version 300 es
 precision highp float;
@@ -25,6 +28,7 @@ uniform vec2 light;
 out vec4 outColor;
 vec4 T(int id, int k) { return texelFetch(tube, ivec2(k, id), 0); }
 vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
+${RING_OPEN}
 ${CEL_TEXT}
 void main() {
   vec4 c = celShade(-3.0, 0.0, 6.0, 1.0, vec3(0.8, 0.2, 0.2), vec2(1.0, 0.0), 1, false, 1.0, 1, 0, 0.5, 0.0, vec3(0.0), 0.0, 0.0, 1.0, 1.0);
