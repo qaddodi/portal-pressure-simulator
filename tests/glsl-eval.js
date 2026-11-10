@@ -141,7 +141,7 @@ export function compileVS(src) {
   }
 
   // ---- statements ----
-  const RET = Symbol('return'), BRK = Symbol('break');
+  const RET = Symbol('return'), BRK = Symbol('break'), CONT = Symbol('continue');
   function parseBlock() {
     expect('{');
     const list = [];
@@ -211,13 +211,14 @@ export function compileVS(src) {
           if (guard > 10000) throw new Error('glsl-eval: a loop ran away');
           const r = body(inner);
           if (r === BRK) break;
-          if (r) return r;
+          if (r && r !== CONT) return r;
           step(inner);
         }
         return null;
       };
     }
     if (is('break')) { take(); expect(';'); return () => BRK; }
+    if (is('continue')) { take(); expect(';'); return () => CONT; }
     if (is('return')) {
       take();
       if (is(';')) { take(); return (sc) => { sc.rt.retval = undefined; return RET; }; }

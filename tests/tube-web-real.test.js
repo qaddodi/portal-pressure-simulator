@@ -109,6 +109,40 @@ for (const [name, run] of sets) {
     assert.ok(WEB_MIN_DEG > 0 && WEB_MAX_DEG > WEB_MIN_DEG);
   });
 
+  test(`${name}: no web's straight edges hang in empty space: the real walls stay within reach of them (the fault of 10 Nov: fins past the walls)`, { timeout: BOOT_MS + 20000 }, async (t) => {
+    const d = loadCapture(await run);
+    const out = webInstances(d.ent, d.tube, d.pts, {});
+    // free(q): how far q lies outside both members' real lumens (negative: inside one). The fan's edges C->Ta and C->Tb run along the legs' wall lines: on the real wall,
+    // free is 0; where the vessel bends away from its straight line it grows, and that gap is a sliver of the web's colour in empty space.
+    const lumenGap = (row, q) => {
+      let best = Infinity;
+      const P = d.P[row], R = d.R[row];
+      for (let j = 0; j < N_SAMPLES - 1; j++) {
+        const ax = P[2 * j], ay = P[2 * j + 1], dx = P[2 * j + 2] - ax, dy = P[2 * j + 3] - ay;
+        const u = Math.min(1, Math.max(0, ((q[0] - ax) * dx + (q[1] - ay) * dy) / (dx * dx + dy * dy || 1e-300)));
+        best = Math.min(best, Math.hypot(q[0] - ax - u * dx, q[1] - ay - u * dy) - (R[j] * (1 - u) + R[j + 1] * u));
+      }
+      return best;
+    };
+    const rel = [];
+    for (let n = 0; n < out.count; n++) {
+      const rec = out.data.subarray(n * WEB_FLOATS, (n + 1) * WEB_FLOATS), a = rec[0], b = rec[4];
+      const g = webGeometry(d.P[a], d.R[a], d.P[b], d.R[b], rec, AA);
+      if (g.empty) continue;
+      let worst = -Infinity;
+      for (let k = 0; k <= 10; k++) for (const T of [g.Ta, g.Tb]) {
+        const q = [g.C[0] + (T[0] - g.C[0]) * (k / 10), g.C[1] + (T[1] - g.C[1]) * (k / 10)];
+        worst = Math.max(worst, Math.min(lumenGap(a, q), lumenGap(b, q)));
+      }
+      rel.push(worst / g.Rm);
+    }
+    rel.sort((x, y) => x - y);
+    const at = (p) => rel[Math.min(rel.length - 1, Math.floor(rel.length * p))];
+    t.diagnostic(`${rel.length} webs: edge gap to the real walls, share of the larger radius: median ${f2(at(0.5))}, 90th percentile ${f2(at(0.9))}, worst ${f2(rel[rel.length - 1])}`);
+    assert.ok(at(0.9) <= 0.25, `the 90th percentile of the edge gap is ${f2(at(0.9))} radii`);
+    assert.ok(rel[rel.length - 1] <= 0.6, `the worst edge gap is ${f2(rel[rel.length - 1])} radii: a fin of web colour in empty space`);
+  });
+
   test(`${name}: row records on the real data: ends carry the right trunk row and sample`, { timeout: BOOT_MS + 20000 }, async (t) => {
     const d = loadCapture(await run);
     const rows = tubeRows(d.tube, d.nRows, d.ent, {}, d.pts);
