@@ -190,6 +190,22 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if ((tp.match(/patchCall\(/g) || []).length !== 3) errors.push('src/ui/tube-pass.js: patchCall is called from tubeDraw (stage 1 and the glows) and draw2 (the else of webs) only, and defined once');
     if (/tubeStrip|tubePatch/.test(slice(vg, 'const finishTube2 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube2: finishes the four stage 2 programs only');
   }
+  // The lumen layer keeps its depth (brief PD part 2, 10 Nov 2026): any draw of the vessel layer marks it stale, and the lumen pass never draws lumens over a depth marked stale: it draws the
+  // depth again first (cleared, the prepasses), and a fresh depth is neither cleared nor invalidated.
+  {
+    const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const pieceBody = slice(vg, '  const pieceFn = () => {', '  function eachPiece(');
+    const iLumen = pieceBody.indexOf('if (pMode === 5)'), iStale = pieceBody.indexOf('lumenDepth.stale();'), iClear = pieceBody.indexOf('if (pMode >= 3) clearLayer();');
+    if (iLumen < 0 || iStale < iLumen || iClear < iStale) errors.push('src/ui/veins-gl.js pieceFn: every draw of the vessel layer (every mode but the lumen layer\'s own) marks the lumen depth stale first (lumenDepth.stale() before the draw)');
+    const lf = slice(vg, '  function lumenFrame(', '  // The composite\'s textures, each on its unit');
+    const iNeeds = lf.indexOf('pRedo = lumenDepth.needs('), iEach = lf.indexOf('eachPiece('), iDrawn = lf.indexOf('if (pRedo) { lumenDepth.drawn(');
+    if (iNeeds < 0 || iEach < iNeeds || iDrawn < iEach || !/if \(T\.made !== made\) lumenDepth\.stale\(\);/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth is asked for (lumenDepth.needs) before the pieces, recorded as drawn after them, and a new or resized lumen target makes it stale');
+    if (!/lost = true; lumenDepth\.stale\(\);/.test(vg)) errors.push('src/ui/veins-gl.js: a context loss marks the lumen depth stale');
+    const lp = slice(tp, '  function tubeLumenPass(', '  tubePass.drew = 0;');
+    const iRedo = lp.indexOf('if (redo) {'), iDepth = lp.indexOf('gl.clearBufferfv(gl.DEPTH'), iLum = lp.indexOf('stripCall(P3.lumen');
+    if (iRedo < 0 || iDepth < iRedo || iLum < iDepth || (lp.match(/gl\.clearBufferfv\(gl\.DEPTH/g) || []).length !== 1 || /invalidateFramebuffer/.test(lp) || !/if \(redo\) \{\n\s+gl\.depthMask\(true\);\n\s+gl\.clearBufferfv\(gl\.DEPTH/.test(lp)) errors.push('src/ui/tube-pass.js tubeLumenPass: the depth is cleared and drawn only in if (redo), before the lumens, and is never invalidated (a fresh depth is kept)');
+  }
   // The geometry bundle per binning (10 Nov 2026, the Anatomy to Circuit switch): a morph set's derived data (points, join list, patches, the Tube's stage 2 record) is made when the set is
   // (prepareSet from makeMorphSet, a free moment), never inside meshGeo for a set that has it, and the patches only where a renderer draws them (not for the Tube's web joins).
   {
@@ -224,7 +240,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const halfBlock = vg.indexOf('      if (halfOn) {\n        // (The streaks', lumIf);
     if (lumIf < 0 || firstBind < 0 || halfBlock < 0 || lumIf > halfBlock || lumIf > firstBind) errors.push('src/ui/veins-gl.js composite: in stage 3 the lumen pass runs on every blood frame (blood, dye or origin), before the compositor binds its textures and draws (if (stage3 && (blood.on || ...)) { gpuProbe.time(gl, \'lumen layer\', lumenFrame, ...))');
     if ((vg.match(/function lumenFrame\(/g) || []).length !== 1 || (vg.match(/lumenFrame, m, look/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: lumenFrame is defined once and called once, in the composite, in stage 3');
-    if (!/if \(pMode === 5\) \{ tubePass\.lumen\(pM, pLook\); return; \}/.test(vg)) errors.push('src/ui/veins-gl.js pieceFn: the lumen layer\'s piece is the Tube pass\'s lumen pass alone (pMode 5)');
+    if (!/if \(pMode === 5\) \{ tubePass\.lumen\(pM, pLook, pRedo\); return; \}/.test(vg)) errors.push('src/ui/veins-gl.js pieceFn: the lumen layer\'s piece is the Tube pass\'s lumen pass alone (pMode 5)');
     if (!/if \(stageNow\(\)\.stage !== 3\) return false;/.test(slice(tp, 'function tubeLumenPass(', 'const D = FR.D'))) errors.push('src/ui/tube-pass.js tubeLumenPass: draws nothing outside stage 3');
     if (!/AT = choice\.stage === 3 \? A3 : ATTACH;/.test(tp)) errors.push('src/ui/tube-pass.js tubePass: the layer pass writes no second flow target in stage 3 only (AT = choice.stage === 3 ? A3 : ATTACH)');
     if (/P3\.|E\.tube3\b(?!Failed)/.test(slice(tp, 'function tubePass(', '// ---- Stage 3'))) errors.push('src/ui/tube-pass.js tubePass: the layer pass names no lumen program (the lumen pass is tubeLumenPass)');

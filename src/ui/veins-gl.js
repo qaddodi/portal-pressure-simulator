@@ -57,7 +57,7 @@ import { STRIP_VS_GLSL, stripIndex, PATCH_QUAD } from './veins-mesh.js';
 import { tubeIndex, tubeStripVS } from './tube-geo.js';
 import { celGLSL } from './tube-cel-glsl.js';
 import { createTubePass } from './tube-pass.js';
-import { stage2Start, stage2Finish, STAGE2_PROGRAMS, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, tubeStage, stage2Prepare } from './tube-stage2.js';
+import { stage2Start, stage2Finish, STAGE2_PROGRAMS, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, createDepthStamp, tubeStage, stage2Prepare } from './tube-stage2.js';
 import { STYLE_P } from './blood-particles.js';
 import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGroups, PG_W, PG_M } from './veins-mesh-data.js';
 import { createBloodTile, STYLE_D, STYLE_E } from './blood-tile.js';
@@ -2652,10 +2652,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   // (What the vessel pass draws in a piece, set by whoever asks: pMode 0 the whole layer, 1 the marked cells, 2 their colours only, 3 a pan's
   // strip, cleared first.)
-  let pM = null, pLook = null, pMode = 0;
+  let pM = null, pLook = null, pMode = 0, pRedo = true;
+  const lumenDepth = createDepthStamp();
   const gA = [null, 0], oA = [null, 0];
   const pieceFn = () => {
-    if (pMode === 5) { tubePass.lumen(pM, pLook); return; }   // (the Tube's lumen layer, lumenFrame: its target is bound, nothing of the vessel layer's is cleared)
+    if (pMode === 5) { tubePass.lumen(pM, pLook, pRedo); return; }   // (the Tube's lumen layer, lumenFrame: its target is bound, nothing of the vessel layer's is cleared)
+    lumenDepth.stale();   // (any draw of the vessel layer, whole or a piece: the lumen layer's depth is no longer what the layer shows)
     if (pMode >= 3) clearLayer();
     // (The geometry renderer, when it is on and can draw: the Tube's when Tube is chosen (never the Mesh's then), else the mesh's: a whole draw, a
     // pan's strip or a changed rows' box (4), through the same scissor; a box it cannot draw is drawn whole there by the classic pass.)
@@ -3913,6 +3915,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!meshTargets()) return false;
     if (!lumTarget) lumTarget = createLumenTarget(gl);
     const made = lumTarget.made, T = lumTarget.ensure(fboW, fboH);
+    if (T.made !== made) lumenDepth.stale();
     if (gpuProbe.on && T.made !== made) noteAlloc(fboW * fboH * 7 / 1024);
     lumBlood = blood;
     gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
@@ -3921,8 +3924,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.colorMask(true, true, true, true);
     gl.clearBufferfv(gl.COLOR, 0, CLR_F);
     pM = m; pLook = look; pMode = 5;
+    pRedo = lumenDepth.needs(m, wo, la, fboW, fboH);
     eachPiece(la[0], la[1], fboW, fboH);
     pMode = 0;
+    if (pRedo) { lumenDepth.drawn(m, wo, la, fboW, fboH); if (gpuProbe.on) gpuProbe.note('lumen depth redraws'); }
     return true;
   }
   // The composite's textures, each on its unit (U: the program's uniforms; the flags: which of the layers it lays this frame).
@@ -4036,7 +4041,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // (Started now: the overlays' laying where there are overlays, the resolution fade where the canvas keeps its picture (res-fade-gl).)
   if (overOK) auxStart('lay');
   if (ownBuf && SHADER_WARM) { const t = warmFade(gl); if (t) freeTasks.push(t); }
-  const onLost = (e) => { e.preventDefault(); lost = true; UC.reset(); };
+  const onLost = (e) => { e.preventDefault(); lost = true; lumenDepth.stale(); UC.reset(); };
   const onRestored = () => UC.reset();
   (hostCv || canvas).addEventListener('webglcontextlost', onLost);
   (hostCv || canvas).addEventListener('webglcontextrestored', onRestored);

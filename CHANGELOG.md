@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Tube: the blood pass keeps its depth between frames.** (Tube speed plan P2, 10 Nov 2026.)
+  The lumen layer's depth is drawn again (cleared, every tier's prepass) only when the vessel layer was drawn, the lumen target or the view changed; blood frames at rest draw only the lumens. `?perf` counts `lumen depth redraws`. The Tube renderer also reports the stage that drew the last picture (`tubeStage()`, for the lobule's frame-rate rule).
 - **The Anatomy to Circuit switch no longer hitches in Tube.** (Mohammad, 10 Nov 2026: laggy in Tube, everything else smooth.)
   Each change of geometry set inside the switch made the renderer derive the set's points, join list, patch groups and patch texture in that frame, and the Tube bin its rows and webs again (about 165 ms a set change in node, seven a switch). The data is now kept per geometry set, made when the set is (a free moment), and a set change swaps references; patches are not built where the joins are webs; the repeated join entries a swept set lists are read once; and the layer pass and the lumen pass share one bucketing and upload. See `docs/tube-renderer.md` "The Anatomy to Circuit switch".
 - **Tube stage 3: the blood, the dye and the origin tint are drawn by the tubes into a lumen layer the compositor reads.** (Mohammad, 10 Nov 2026: finish the whole Tube renderer.)

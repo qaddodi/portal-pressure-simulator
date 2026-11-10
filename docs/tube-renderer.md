@@ -202,6 +202,18 @@ pass over the same geometry on every blood frame; its cost is the `lumen layer` 
 draw buffers, nothing of stage 3 in stages 1 and 2), and `scripts/rules-lint.mjs` (in stage 3 the compositor program is a Tube build and the lumen pass runs before it on every blood frame; in stages 1 and 2 nothing of
 stage 3 runs). The compile check lists all six programs (and the heads build, linked with its own vertex shader): 23 programs ok.
 
+## The lumen layer keeps its depth (brief PD part 2, 10 Nov 2026)
+
+The lumen pass used to clear its depth and draw every tier's prepass again on every blood frame. The depth only changes when what the vessel layer shows changes, so it is kept:
+`createDepthStamp` (tube-stage2.js) answers `needs(m, wo, la, w, h)`. **Any draw of the vessel layer** (`pieceFn`, so the whole layer, a pan's strip, marked cells and the tier pieces) calls
+`lumenDepth.stale()` first; a new or resized lumen target and a context loss do too; and a fresh depth is stale again if the view matrix, the layer's wrap (`wo`), window (`la`) or size
+differs from the ones it was drawn with. `lumenFrame` asks once a frame and hands the answer to every piece (`pRedo`).
+
+- **Stale:** as before (depth cleared, every tier's prepass, then the lumens), then the stamp is fresh. The depth is no longer invalidated at the end of the pass (it is the next frame's).
+- **Fresh:** no depth clear, no prepass; the colour is cleared, the lumens are drawn on `LEQUAL` with depth writes off and the bands (`BASES`) the prepasses used.
+- `?perf`: the note `lumen depth redraws` counts the frames that drew the depth (near 0 a second at rest, beside the `lumen layer` row).
+- Not stamped: the rows' alpha or tier changing with no layer draw (the layer redraws for those); a tier that gains rows without one would use a band its prepass never wrote.
+
 ## The Anatomy to Circuit switch (10 Nov 2026)
 
 **What was slow.** The change between the views runs through morph sets (veins-sweep.js, six stretches made ahead). Each set change inside the change made `meshGeo()` derive the set's

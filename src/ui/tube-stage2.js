@@ -127,6 +127,28 @@ export function stage3Finish(gl, finishProgram, started) {
 }
 
 /**
+ * Whether the lumen layer's depth (the keys the lumen pass drew its prepasses into) is still what the vessel layer shows. Events: stale() on any draw of the vessel layer (whole, a piece, a
+ * strip, marked cells), a new or resized lumen target, a context loss; needs(m, wo, la, w, h) answers whether the depth must be drawn again (stale, or the view matrix, the layer's wrap,
+ * window or size differ from those it was drawn with); drawn(...) records that it was. A fresh depth is kept between blood frames and never invalidated.
+ */
+export function createDepthStamp() {
+  const S = new Float64Array(12);
+  let fresh = false;
+  const put = (m, wo, la, w, h) => { for (let i = 0; i < 6; i++) S[i] = m[i]; S[6] = wo[0]; S[7] = wo[1]; S[8] = la[0]; S[9] = la[1]; S[10] = w; S[11] = h; };
+  return {
+    stale() { fresh = false; },
+    needs(m, wo, la, w, h) {
+      if (!fresh) return true;
+      for (let i = 0; i < 6; i++) if (S[i] !== m[i]) { fresh = false; return true; }
+      if (S[6] !== wo[0] || S[7] !== wo[1] || S[8] !== la[0] || S[9] !== la[1] || S[10] !== w || S[11] !== h) { fresh = false; return true; }
+      return false;
+    },
+    drawn(m, wo, la, w, h) { put(m, wo, la, w, h); fresh = true; },
+    get fresh() { return fresh; },
+  };
+}
+
+/**
  * The lumen layer: an RGBA8 texture and a depth renderbuffer on a framebuffer of their own, the vessel layer's size (ensure(w, h) makes them again when it changes).
  * tex(): the texture the compositor reads (lumenL). The colour is cleared by the caller (clear()); the depth is cleared in each piece's scissor by the pass.
  */

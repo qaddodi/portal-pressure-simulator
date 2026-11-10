@@ -64,6 +64,6 @@ export function makeHarness({ withStage2 = true, withStage3 = false, rows, joins
   const tubePass = createTubePass(E);
   const look = { tierGroup: new Int32Array(MAX_TIERS), tierAlpha: new Float32Array(MAX_TIERS).fill(1), netAlpha: 1, reach: 11 };
   const run = () => { log.length = 0; sets.length = 0; gauges.length = 0; keyN = 0; const ok = tubePass([1, 0, 0, 1, 0, 0], look); return ok; };
-  const runLumen = () => { log.length = 0; sets.length = 0; gauges.length = 0; keyN = 0; return tubePass.lumen([1, 0, 0, 1, 0, 0], look); };
+  const runLumen = (redo = true) => { log.length = 0; sets.length = 0; gauges.length = 0; keyN = 0; return tubePass.lumen([1, 0, 0, 1, 0, 0], look, redo); };
   return { run, runLumen, tubePass, log, sets, gauges, MG, E, sc, setTube2(v) { tube2 = v; }, MP };
 }

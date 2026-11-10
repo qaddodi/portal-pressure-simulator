@@ -236,8 +236,8 @@ export function createTubePass(E) {
   // through the layer's own pieces, scissors and lOff). All tiers' prepasses first (depth only, the layer pass's order and bands), then all tiers' lumens over the
   // kept depth (LEQUAL, no blend, no stencil): a lumen is drawn only where its surface is the nearest of all tiers, so a later tier's casing or outline over it
   // leaves it out. Draws nothing in stages 1 and 2 (returns false).
-  const BASES = new Float64Array(MAX_TIERS), ONE1 = new Float32Array([1]), INV_DEPTH = [gl.DEPTH_ATTACHMENT];
-  function tubeLumenPass(m, look) {
+  const BASES = new Float64Array(MAX_TIERS), ONE1 = new Float32Array([1]);
+  function tubeLumenPass(m, look, redo = true) {
     const G = meshGeo();
     if (stageNow().stage !== 3) return false;
     const D = FR.D ||= (MG.stage2 = createStage2Data(gl, MG)), mj = E.geo.morph;
@@ -247,17 +247,21 @@ export function createTubePass(E) {
     const px = 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));
     for (const Q of [P.lean, P.depth, P.webDepth, P3.lumen, P3.webLumen]) setProgram(Q, m, look, px);
     E.lumenBind(P3.lumen); E.lumenBind(P3.webLumen);
-    gl.depthMask(true);
-    gl.clearBufferfv(gl.DEPTH, 0, ONE1);
     MG.kP = 0; MG.lumStrips = 0; MG.lumWebs = 0;
     gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST); gl.enable(gl.DEPTH_TEST);
     const TG = look.tierGroup, H = 0.999 / KEY_PASSES;
     keyPre = 2;   // (not counted in the layer pass's numbers)
-    gl.colorMask(false, false, false, false); gl.depthFunc(gl.LESS);
-    for (let g = 0; g < 3; g++) for (let t = 0; t < MAX_TIERS; t++) {
-      if (TG[t] !== g || !has(t)) continue;
-      BASES[t] = meshKeyNext();
-      draw2(MP.SHAPE, t, BASES[t], H, px, look, true);
+    // The depth, only when it is stale (the vessel layer was drawn, or the target or its mapping changed: tube-stage2.js createDepthStamp): cleared, then every tier's prepass.
+    // A fresh depth is the last pass's, kept (never invalidated), with the bands (BASES) it was drawn with.
+    if (redo) {
+      gl.depthMask(true);
+      gl.clearBufferfv(gl.DEPTH, 0, ONE1);
+      gl.colorMask(false, false, false, false); gl.depthFunc(gl.LESS);
+      for (let g = 0; g < 3; g++) for (let t = 0; t < MAX_TIERS; t++) {
+        if (TG[t] !== g || !has(t)) continue;
+        BASES[t] = meshKeyNext();
+        draw2(MP.SHAPE, t, BASES[t], H, px, look, true);
+      }
     }
     gl.colorMask(true, true, true, true); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
     for (let g = 0; g < 3; g++) for (let t = 0; t < MAX_TIERS; t++) {
@@ -269,7 +273,6 @@ export function createTubePass(E) {
     keyPre = 0;
     gl.disable(gl.DEPTH_TEST); gl.depthMask(true);
     gl.bindVertexArray(null);
-    gl.invalidateFramebuffer(gl.FRAMEBUFFER, INV_DEPTH);
     MG.passes = keep;
     return true;
   }

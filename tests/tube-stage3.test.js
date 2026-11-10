@@ -74,11 +74,8 @@ test('the lumen pass: all prepasses (depth only), then all lumens (LEQUAL), stri
   const binds = h.log.filter((c) => c.call === 'lumenBind').map((c) => c.prog);
   assert.deepEqual(binds, ['tubeLumen', 'tubeWebLumen']);
   assert.ok(h.log.findIndex((c) => c.call === 'lumenBind') < h.log.findIndex((c) => c.call === 'strips'), 'the blood\'s uniforms are set before the first draw');
-  assert.ok(!h.log.some((c) => c.call === 'invalidate' && c.what[0] !== 'DEPTH_ATTACHMENT'));
-  const inv = h.log.filter((c) => c.call === 'invalidate');
-  assert.equal(inv.length, 1, 'the depth is invalidated, once');
-  assert.deepEqual(inv[0].what, ['DEPTH_ATTACHMENT']);
-  assert.ok(h.log.findIndex((c) => c.call === 'invalidate') > h.log.findLastIndex((c) => c.call === 'strips'), 'after the last draw');
+  assert.ok(!h.log.some((c) => c.call === 'invalidate'), 'the depth is kept for the next blood frame, never invalidated');
+  assert.equal(h.log.filter((c) => c.call === 'clear' && c.what === 'DEPTH').length, 1, 'cleared once, with the prepasses');
 });
 
 test('the lumen pass: no glow, no lift, no scratch layers, and no blend', () => {
