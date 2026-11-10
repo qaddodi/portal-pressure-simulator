@@ -31,6 +31,13 @@ test('R14 owner-approved row (8 Nov 2026): Settings > Display has "Mesh vessel r
   assert.match(settings, /menuToggle\(vesselMesh\(\), 'layers', 'Mesh vessel renderer'/, 'an on/off menuToggle');
 });
 
+test('R14 owner-approved row (10 Nov 2026): Settings > Display has "Tube vessel renderer" right after the Mesh row, off by default', () => {
+  const at = (t) => settings.indexOf(t);
+  assert.ok(at("'Tube vessel renderer'") > at("'Mesh vessel renderer'"), 'after the Mesh row');
+  assert.ok(at("'Tube vessel renderer'") < at("'Sharp while moving'"), 'before the next row');
+  assert.match(settings, /menuToggle\(vesselTube\(\), 'layers', 'Tube vessel renderer'/, 'an on/off menuToggle');
+});
+
 test('R14 every default is as it was: Full, and off (but the credit\'s lean look, H7, and the 8-megapixel budget, 1 Nov: on)', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };

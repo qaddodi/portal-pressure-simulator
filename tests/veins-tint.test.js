@@ -52,7 +52,7 @@ test('the lymph tint and the pulse, as the lobule sends them, are colour-only ch
 
 test('the vessel shader marks the pixels a lumen colour reaches, and a colour-only pass draws only those', () => {
   // (The vessel shader's text with the shading it shares with the mesh passes, veins-mesh-glsl.js, which it takes in whole.)
-  const fs = vg.slice(vg.indexOf('export const vesselFS = (simple, mesh = 0) => `'), vg.indexOf('// ── Composite')) + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');
+  const fs = vg.slice(vg.indexOf('export const vesselFS = (simple, mesh = 0, tube = 0) => `'), vg.indexOf('// ── Composite')) + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');
   assert.match(fs, /layout\(location=3\) out vec4 outDep;/);
   // The pass returns before any vessel is looked up, for a pixel no lumen colour reaches.
   const skip = fs.indexOf('if (tint == 1 && texelFetch(depL, ivec2(gl_FragCoord.xy), 0).r < 0.5) discard;');
