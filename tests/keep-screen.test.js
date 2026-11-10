@@ -55,3 +55,54 @@ test('a framebuffer of its own is untouched, and the canvas colour invalidated m
   gl.invalidateFramebuffer(gl.DRAW_FRAMEBUFFER, [gl.COLOR]);
   assert.deepEqual(calls.filter((c) => c[0] === 'invalidateFramebuffer').at(-1)[2], [gl.COLOR_ATTACHMENT0]);
 });
+
+// ?present=direct (10 Nov 2026): the renderer lays its present on the canvas itself, inside through(fn), once a frame; the frame's end copies nothing then.
+test('direct: a bind of the canvas inside through binds the canvas itself, and the frame end copies nothing over it', () => {
+  const { gl, calls } = fakeGL();
+  const canvas = { width: 300, height: 200 };
+  let end = null, strays = 0;
+  const sc = keepScreen(gl, canvas, { onEnd: (f) => { end = f; return () => {}; }, direct: true, stray: () => { strays++; } });
+  assert.equal(sc.direct, true);
+  sc.through(() => {
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
+    assert.equal(calls.filter((c) => c[0] === 'bindFramebuffer').at(-1)[2], null, 'the real canvas');
+    gl.invalidateFramebuffer(gl.DRAW_FRAMEBUFFER, [gl.COLOR]);
+    gl.blitFramebuffer(0, 0, 300, 200, 0, 0, 300, 200, gl.COLOR_BUFFER_BIT, gl.NEAREST);
+  });
+  assert.equal(calls.filter((c) => c[0] === 'invalidateFramebuffer').length, 0, 'the shown surface is never invalidated');
+  assert.equal(calls.filter((c) => c[0] === 'bindFramebuffer').at(-1)[2], sc.fb, 'outside through, the canvas is the screen again');
+  // (A write on the screen after the lay, in the same frame: not copied over the canvas laid whole.)
+  gl.drawArrays(5, 0, 4);
+  const n0 = calls.length;
+  end();
+  assert.equal(calls.slice(n0).filter((c) => c[0] === 'blitFramebuffer').length, 0, 'no copy: the canvas was laid this frame');
+  assert.equal(strays, 0);
+  sc.flush();
+  assert.equal(calls.slice(n0).filter((c) => c[0] === 'blitFramebuffer').length, 0, 'a reader\'s flush copies nothing in direct');
+});
+
+test('direct: a frame whose only writes went to the screen lays the present whole (stray), never the screen in part', () => {
+  const { gl, calls } = fakeGL();
+  const canvas = { width: 40, height: 30 };
+  let end = null, strays = 0;
+  const sc = keepScreen(gl, canvas, { onEnd: (f) => { end = f; return () => {}; }, direct: true, stray: () => { strays++; sc.through(() => { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.drawArrays(5, 0, 4); }); } });
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  gl.drawArrays(5, 0, 4);
+  const n0 = calls.length;
+  end();
+  assert.equal(strays, 1);
+  assert.equal(calls.slice(n0).filter((c) => c[0] === 'blitFramebuffer').length, 0, 'the screen is not copied');
+  const n1 = calls.length;
+  end();
+  assert.equal(strays, 1, 'nothing written since: nothing laid');
+  assert.equal(calls.length, n1);
+});
+
+test('not direct: through runs its function as it is, on the screen', () => {
+  const { gl, calls } = fakeGL();
+  const sc = keepScreen(gl, { width: 8, height: 8 }, { onEnd: () => () => {} });
+  let ran = 0;
+  sc.through(() => { ran++; gl.bindFramebuffer(gl.FRAMEBUFFER, null); });
+  assert.equal(ran, 1);
+  assert.equal(calls.filter((c) => c[0] === 'bindFramebuffer').at(-1)[2], sc.fb);
+});

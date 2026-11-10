@@ -1747,7 +1747,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // frame's end copies that onto the canvas once, whole. The canvas the browser shows gets one write a frame; nothing else ever touches it.)
   const askShow = frameFor('figure-canvas-shown');
   const noop = () => {};
-  const screenKeep = !KEEP_CANVAS && !share ? keepScreen(gl, canvas, { onEnd: onFrameEnd, ask: () => { if (!framePhase()) { try { askShow(noop); } catch (e) { caught('veins-gl:show', e); /* (no frames here: node) */ } } } }) : null;
+  // (?present=direct, opt-in (10 Nov 2026, Mohammad's Mac at 8 MP: 27 fps at rest, "present copy" 32 ms; "why are we even copying at all"): the
+  // figure's present is laid straight onto the canvas, once, at the frame's end (keep-screen.js through), not onto the screen texture and then
+  // copied again: one whole copy a frame in place of two. A present asked in the frame is folded into its end (present), a whole picture is
+  // never drawn straight onto the canvas mid-frame (direct, composite), and a frame whose only canvas writes were elsewhere lays its present whole
+  // at the end (stray). ?present=kept, or no query: the screen texture as before.)
+  const PRESENT_DIRECT = (() => { try { return /[?&]present=direct(?=[&#]|$)/.test(globalThis.location?.search || ''); } catch { return false; } })();
+  const screenKeep = !KEEP_CANVAS && !share ? keepScreen(gl, canvas, { onEnd: onFrameEnd, direct: PRESENT_DIRECT, stray: () => { if (!lost) presentNow(true, true); }, ask: () => { if (!framePhase()) { try { askShow(noop); } catch (e) { caught('veins-gl:show', e); /* (no frames here: node) */ } } } }) : null;
+  const presDirect = !!screenKeep?.direct;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl);
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
@@ -3436,6 +3443,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   }
   const offPresFinal = onFrameFinal(flushPresent);
   function present(top = true, again = false) {
+    // (?present=direct: the figure's own present in a frame is folded into the frame's end, as a host's ask is, so the canvas is laid once.)
+    if (presDirect && top && PRES_FOLD && !presFlushing && !lost && framePhase() && presDoneAt !== frameCount()) {
+      if (!presPend) { askPresents = presents; askTops = topsLaid; }
+      presPend |= again ? 3 : 1;
+      return;
+    }
     // (A present asked for by anything but a host, the figure's own: laid at once. A pending host ask rides on it: its `again` is kept, and
     // flushPresent drops the ask once this has laid the picture.)
     if (presPend && top) again = again || (presPend & 2) !== 0;
@@ -3448,7 +3461,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     present(true, true);
   }
   function presentNow(top, again) {
-    presentSelf(top, again);
+    // (?present=direct: laid onto the canvas itself, whole; keep-screen.js through.)
+    if (presDirect) screenKeep.through(() => presentSelf(top, again));
+    else presentSelf(top, again);
     // (Shared: the picture is laid in this renderer's texture; the host lays it over the figure in its own present, which this asks for.)
     if (share && top && !lost) share.present?.();
   }
@@ -4913,7 +4928,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // blood frames are taken out until the flicker is cleared, so a whole picture with blood on goes through the kept one again.)
       // (Back on 8 Nov 2026, performance A1.3: the canvas is kept by the renderer now (keep-screen.js, 475a76a), shown in one whole copy a frame, so a
       // direct whole picture can no longer show half drawn; the frame after a direct run makes the kept picture again (ownStale, below).)
-      const direct = who !== 'lobule' && !noDirect && !!own && full && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil);
+      const direct = who !== 'lobule' && !noDirect && !!own && full && !up && !camOn() && !(under && under.on()) && !(replace && replace.on()) && !(fused && !ctxStencil) && !presDirect;   // (?present=direct: through the kept picture, laid once at the frame's end)
       wholeRun = full ? wholeRun + 1 : 0;
       if (own && ownStale && !full) full = true;
       if (full) dirt = 0;
