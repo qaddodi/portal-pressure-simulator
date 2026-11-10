@@ -69,9 +69,9 @@ export function fencePart(name) {
 // ── The Tube's lumen pass, what it drew (R3, 10 Nov 2026). The pass runs on every blood frame as a second geometry pass; its time is the step
 // 'lumen pass' (the lobule's: 'lobule lumen pass'), and these are its counts, kept from the sampled frame beside the step: strips and webs
 // (joins) drawn, the rows in the pass, how many of them are exact, how many carry a join end. A number per slot in a typed array: nothing allocates.
-const LUMEN_N = 5;
+const LUMEN_N = 7;   // (the fifth is the join ends; the sixth the target's size in MP and the seventh its share of the vessel layer's: PL item 4)
 const lumenSeen = new Uint8Array(2), lumenNums = new Float64Array(2 * LUMEN_N), lumenTmp = new Float64Array(LUMEN_N);
-/** veins-gl.js: the lumen pass of the figure (lobule false) or the lobule has been drawn; `counts(out)` fills [strips, webs, rows, exact, ended]. Kept on a sampled frame only. */
+/** veins-gl.js: the lumen pass of the figure (lobule false) or the lobule has been drawn; `counts(out)` fills [strips, webs, rows, exact, ended, target MP, share]. Kept on a sampled frame only. */
 export function fenceLumen(lobule, counts) {
   if (!sampling) return;
   counts(lumenTmp);
@@ -81,7 +81,7 @@ export function fenceLumen(lobule, counts) {
 }
 /** The lumen pass's counts from the last sampled frame that drew it: { strips, webs, rows, exact, ended } for the figure and the lobule, null where none yet. */
 export function lumenSummary() {
-  const one = (k) => (lumenSeen[k] ? { strips: lumenNums[k * LUMEN_N], webs: lumenNums[k * LUMEN_N + 1], rows: lumenNums[k * LUMEN_N + 2], exact: lumenNums[k * LUMEN_N + 3], ended: lumenNums[k * LUMEN_N + 4] } : null);   // alloc-rare: once a second, for the readout
+  const one = (k) => (lumenSeen[k] ? { strips: lumenNums[k * LUMEN_N], webs: lumenNums[k * LUMEN_N + 1], rows: lumenNums[k * LUMEN_N + 2], exact: lumenNums[k * LUMEN_N + 3], ended: lumenNums[k * LUMEN_N + 4], mp: lumenNums[k * LUMEN_N + 5], share: lumenNums[k * LUMEN_N + 6] } : null);   // alloc-rare: once a second, for the readout
   return { figure: one(0), lobule: one(1) };
 }
 

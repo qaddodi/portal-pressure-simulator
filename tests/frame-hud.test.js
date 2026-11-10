@@ -164,12 +164,13 @@ test('R3: the lumen pass has its own GPU step, and a line with its strips, webs,
   assert.equal(fence.lumenSummary().figure, null);
   fence.fenceFrame(30);   // (a sampled frame)
   fence.fencePart('before lumen pass'); fence.fencePart('lumen pass'); fence.fenceLumen(false, feed([41, 35, 76, 20, 12]));
-  fence.fencePart('lobule lumen pass'); fence.fenceLumen(true, feed([156, 310, 156, 138, 90]));
+  fence.fencePart('lobule lumen pass'); fence.fenceLumen(true, feed([156, 310, 156, 138, 90, 1.04, 0.5]));
   const l = fence.lumenSummary();
-  assert.deepEqual(l.figure, { strips: 41, webs: 35, rows: 76, exact: 20, ended: 12 });
-  assert.deepEqual(l.lobule, { strips: 156, webs: 310, rows: 156, exact: 138, ended: 90 });
+  assert.deepEqual(l.figure, { strips: 41, webs: 35, rows: 76, exact: 20, ended: 12, mp: 0, share: 0 });
+  assert.deepEqual(l.lobule, { strips: 156, webs: 310, rows: 156, exact: 138, ended: 90, mp: 1.04, share: 0.5 });
   const line = lumenText('figure', l.figure, 4.25);
   assert.match(line, /blood drawn by the tubes \(lumen pass\), figure: 41 strips, 35 webs \(joins\), 76 rows of which 20 exact and 12 with a join end; GPU 4\.3 ms/);
+  assert.match(lumenText('lobule', l.lobule, null), /156 strips.*with a join end; target 1\.04 MP at 0\.50 of the vessel layer's size$/);
   assert.match(lumenText('lobule', null, null), /not drawn on a sampled frame yet.*1 frame in 30/);
   assert.match(plainStep('lumen pass'), /^blood drawn by the tubes \(lumen pass\).*\("lumen pass"\)$/);
   fence.setFences(false); fence.setFenceContext(null);

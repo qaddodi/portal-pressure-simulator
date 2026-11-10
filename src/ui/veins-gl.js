@@ -3953,6 +3953,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The lumen layer for this frame: the lumen target (the layer's size) cleared, then drawn by the Tube's lumen pass through the layer's own pieces (its wrap, scissors
   // and lOff), so every texel the compositor reads from the layer is read from the lumen layer at the same place. False when it cannot be drawn (the compositor
   // then keeps its own build). The caller binds its target again afterwards.
+  // (?perf's lumen pass line: the pass's counts, then the lumen target's size in MP and its share of the vessel layer's.)
+  const lumenCountsOut = (out) => { tubePass.lumenCounts(out); out[5] = lumTarget ? lumTarget.w * lumTarget.h / 1e6 : 0; out[6] = lumTarget && fboW ? lumTarget.w / fboW : 0; };
   function lumenFrame(m, look, blood) {
     if (!meshTargets()) return false;
     if (!lumTarget) lumTarget = createLumenTarget(gl);
@@ -5071,7 +5073,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (stage3 && (blood.on || (dyeAny && blood.dye !== false) || blood.origin)) {
         fencePart('before lumen pass');   // (?perf: what was queued ahead of the lumen pass is a step of its own, so the next one is the pass alone)
         gpuProbe.time(gl, 'lumen layer', lumenFrame, m, look, blood);
-        fencePart(who === 'lobule' ? 'lobule lumen pass' : 'lumen pass'); fenceLumen(who === 'lobule', tubePass.lumenCounts);   // (?perf: the pass timed on its own, with its strips, webs and rows, sampled frames only)
+        fencePart(who === 'lobule' ? 'lobule lumen pass' : 'lumen pass'); fenceLumen(who === 'lobule', lumenCountsOut);   // (?perf: the pass timed on its own, with its strips, webs and rows, sampled frames only)
         rebind(); gl.viewport(0, 0, PW(), PH()); gl.useProgram(prg.p);
         if (gpuProbe.on) gpuProbe.gauge(who === 'lobule' ? 'lobule vessel renderer' : 'vessel renderer', tubePass.gaugeText());
       }

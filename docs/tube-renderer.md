@@ -274,7 +274,7 @@ The lumen pass cleared and drew the whole target though the rows the cull keeps 
   between the views): the whole target, as before.
 - **The clear.** Everything outside the pixels the last frame drew in is clear already, so a frame clears only those (`LUMD`, at most four rects; the whole target after a new target, a frame with no box, `?lumen=off`) and keeps
   the rects it draws in (`LUMC`) for the next. **The depth** the pass keeps between blood frames is drawn only inside the box, so the depth stamp holds the box (`needs`/`drawn` take it): another box makes it stale.
-- **`?perf`.** The lumen layer gauge ends `drawn in N MP (P%)` (the sum of the rects) or `all of it`.
+- **`?perf`.** The lumen layer gauge ends `drawn in N MP (P%)` (the sum of the rects) or `all of it`; the lumen pass line of the GPU section (gpu-fence.js `lumenSummary`, frame-hud.js `lumenText`) ends `target N MP at S of the vessel layer's size` (brief PL item 4).
 - **Tests.** `tests/tube-lumen-scale.test.js` (the box holds the kept rows and the webs' reach, the rect under a view, the cut over a wrapped layer's pieces holds every pixel of the box and no pixel outside the window, the stamp).
 
 ## The Anatomy to Circuit switch (10 Nov 2026)

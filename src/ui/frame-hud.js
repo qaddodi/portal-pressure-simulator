@@ -129,7 +129,7 @@ export function loopText(name, asked, drawn, intervalMs, pageHz, probeHz) {
 export function lumenText(who, l, stepMs) {
   const head = `blood drawn by the tubes (lumen pass), ${who}:`;
   if (!l) return `  ${head} not drawn on a sampled frame yet (Tube stage 3 draws it on every blood frame; a sample comes 1 frame in ${SAMPLE_EVERY})`;
-  return `  ${head} ${l.strips} strips, ${l.webs} webs (joins), ${l.rows} rows of which ${l.exact} exact and ${l.ended} with a join end${stepMs == null ? '' : `; GPU ${stepMs.toFixed(1)} ms (median of the sampled frames)`}`;
+  return `  ${head} ${l.strips} strips, ${l.webs} webs (joins), ${l.rows} rows of which ${l.exact} exact and ${l.ended} with a join end${l.mp > 0 ? `; target ${l.mp.toFixed(2)} MP at ${l.share.toFixed(2)} of the vessel layer's size` : ''}${stepMs == null ? '' : `; GPU ${stepMs.toFixed(1)} ms (median of the sampled frames)`}`;
 }
 
 /** What to say when frames are missed and the script is small: the largest GPU step sampled, and that a step this browser's fences cannot see can hide the GPU. */
