@@ -251,7 +251,7 @@ export function createMorph(st, live) {
     // tests instead of the circles swept over the whole stretch: see veins-sweep.js. Only the change's stretches, whose frames lie
     // between two neighbouring moments; a coil's ease is checked against any of its moments.)
     mt.build = { gen: mt.gen, reason, t0: now, busy: 0, slices: 0, longest: 0, held: 0, stage: MORPH_PIECES.map(([t0, t1]) => ({ t0, t1, anat: t0 < 0.5, set: null, tight: true, gen: 0 })),
-      done: MORPH_PIECES.map(() => false), ndone: 0, ready: [], inflight: -1, results: [] };
+      done: MORPH_PIECES.map(() => false), ndone: 0, ready: [], inflight: -1, results: [], prep: [] };
     morphTrackAsk();
   }
   const morphTrackAsk = () => mayTask(TRACK_TAG, morphTrackStep, { maxWait: 1 });
@@ -285,20 +285,22 @@ export function createMorph(st, live) {
   // (What the next unit is expected to cost: an upload or a send as it has cost, else the most any of a stretch's own units has: which of
   // those comes next is not known, and the units of a stretch are small, so several are taken in one slice.)
   function unitNext(bd) {
+    if (bd.prep.length) return unitEst.prepare ?? SLICE_MS;
     if (bd.results.length) return unitEst.upload ?? SLICE_MS;
     if (bd.inflight < 0 && bd.ready.length) return unitEst.send ?? SLICE_MS;
     let m = 0;
-    for (const k in unitEst) if (k !== 'upload' && k !== 'send' && unitEst[k] > m) m = unitEst[k];
+    for (const k in unitEst) if (k !== 'upload' && k !== 'send' && k !== 'prepare' && unitEst[k] > m) m = unitEst[k];
     return m || SLICE_MS;
   }
-  // A stretch made takes the place of the one before it.
-  function morphPut(bd, i, pc) {
+  // A stretch made takes the place of the one before it. (`made` false: uploaded, its preparing still to come, see the 'prepare' unit.)
+  function morphPut(bd, i, pc, made = true) {
     const old = mt.pieces[i];
     pc.gen = bd.gen;
     mt.pieces[i] = pc;
     if (old?.set) { if (mt.using === old.set) morphOff(); old.set.owner.dropMorphSet(old.set); }
-    bd.done[i] = true; bd.ndone++; bd.held = 0;
+    if (made) morphMade(bd, i);
   }
+  function morphMade(bd, i) { bd.done[i] = true; bd.ndone++; bd.held = 0; }
   // One slice of the building (a may task: a slice a frame at most). Units run one after another while the next one is expected to
   // end inside SLICE_MS; the first always runs (a unit is one pass over the joins, which cannot be cut here).
   function morphTrackStep() {
@@ -334,11 +336,20 @@ export function createMorph(st, live) {
     const u0 = performance.now();
     let kind;
     const n = MORPH_PIECES.length;
-    if (bd.results.length) {
+    if (bd.prep.length) {
+      // (A piece's geometry data and the Tube's stage 2 record (veins-gl.js prepareMorphSet), a unit of its own after its upload: in one
+      // unit with it, an upload slice ran up to 237 ms on Mohammad's Mac, 10 Nov 2026. A frame that draws from a piece not yet prepared
+      // has it prepared on the spot (useMorphSet).)
+      kind = 'prepare';
+      const i = bd.prep.shift(), pc = mt.pieces[i];
+      if (pc?.set) live.veins.prepareMorphSet?.(pc.set);
+      morphMade(bd, i);
+    } else if (bd.results.length) {
       kind = 'upload';
       const [i, pc, b] = bd.results.shift();
       try { if (!b) throw new Error('no binning'); setOf(pc, b); } catch (e) { pc.bad = String(e); }
-      morphPut(bd, i, pc);
+      morphPut(bd, i, pc, !pc.set);
+      if (pc.set) bd.prep.push(i);
     } else if (bd.inflight < 0 && bd.ready.length) {
       kind = 'send';
       const i = morphPick(bd.ready);

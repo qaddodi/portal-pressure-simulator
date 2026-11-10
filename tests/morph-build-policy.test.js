@@ -45,16 +45,17 @@ void newJoinStore;
 
 const N_SAMPLES = 4;
 /** A fake stage: two vessels, joins that cost `cost.joins` ms a pass, a worker that answers at once, and a GPU that makes a set in `cost.set` ms. */
-function boot(cost = { joins: 0, set: 0 }) {
+function boot(cost = { joins: 0, set: 0, prep: 0 }) {
   const mk = (id, row, kind = 'vein') => ({ e: { id, kind }, row, width: 2, isArt: false, ghost: false, strands: [], feeders: [], cbr: null });
   const EV = [mk('a', 0, 'collateral'), mk('b', 1)];
   const geo = { a: { cur: true, wig: 0, spr: 1 }, b: { cur: true, wig: 0, spr: 1 } };
   const shown = { a: true, b: true };
-  const log = { sets: [], sweeps: [], units: 0 };
+  const log = { sets: [], sweeps: [], units: 0, preps: [] };
   const veins = {
     lost: false, useMorphSet() {}, dropMorphSet() {},
     // (vesselAt writes t into a vessel's points: the stretch a binning is for, in b.t0)
     makeMorphSet(b) { clock.T += cost.set; log.sets.push(b.t0 / 100); return { owner: veins, t0: b.t0 }; },
+    prepareMorphSet(S) { clock.T += cost.prep || 0; log.preps.push(S.t0 / 100); },
   };
   const live = {
     F: {}, morph: 0, morphTarget: 0, lobuleOn: false, rotU: 0, rotTarget: 0, coilEasing: false, veins, using: null,
@@ -179,6 +180,18 @@ test('a slice is cut inside 8 ms from units that are small; a unit that cannot b
   assert.ok(last.longestMs >= 20 && last.longestMs < 30);
   assert.ok(log.units > 0);
   for (const [k, u] of Object.entries(m.mt.stats.units)) if (k !== 'upload') assert.ok(u.max < 8, `${k} unit ${u.max} ms`);
+  cancelMay('view-switch pieces');
+});
+
+test('a piece is prepared in a unit of its own after its upload, and counts as made only then', async () => {
+  const { m, log } = boot({ joins: 1.5, set: 20, prep: 20 });
+  m.morphTrackSoon();
+  await frames(10000);
+  assert.equal(ready(m), 6);
+  assert.deepEqual(log.preps, log.sets, 'each set uploaded is prepared, in the same order');
+  assert.equal(m.mt.stats.units.prepare?.n, 6);
+  assert.equal(m.mt.stats.over, 12, 'the six uploads and the six preparings are over 8 ms, each a slice of its own');
+  assert.ok(m.mt.stats.last.longestMs < 30, `longest slice ${m.mt.stats.last.longestMs} ms: an upload and its preparing never share one`);
   cancelMay('view-switch pieces');
 });
 
