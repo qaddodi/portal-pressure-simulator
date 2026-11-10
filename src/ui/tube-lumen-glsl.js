@@ -38,6 +38,7 @@
 import { shadeGLSL } from './veins-mesh-glsl.js';
 import { compLumenUniforms, compLumenFns, N_SAMPLES as COMP_N, S_OFF } from './comp-glsl.js';
 import { tubeJoinGLSL } from './tube-join-glsl.js';
+import { celToneGLSL } from './tube-cel-glsl.js';
 
 /** The text of one top-level function in `text`: from its signature to its closing brace. */
 function fnText(text, head) {
@@ -87,6 +88,7 @@ in vec2 vG;                            // offset from the centreline point to th
 in float vRad;                         // the lumen's radius here, world units (a web: 4 x its larger member's radius)
 flat in vec2 vEnd;                     // the row this one ends on or continues (tube-join-glsl.js): a pixel that is the other row's is dropped, and near the end the look blends
 ${compLumenUniforms()}
+uniform int fx;                        // 1: shading (off in the figure view): the cel tones below
 uniform int blood;                     // 1: draw the blood
 uniform vec3 blendA;                   // 0..1 each: the streaks, the chevrons and the origin colours fading in or out (switched on or off)
 uniform float flowA;                   // 0..1: how visible the moving blood is (it fades in once the view is still)
@@ -132,6 +134,9 @@ vec3 originHere(int id, float s, float y, float R, vec2 w) {
 }
 
 ${tubeJoinGLSL(N_SAMPLES)}
+
+// (The cel tones of the vessel layer's fill, tube-cel-glsl.js: this layer's colour replaces the fill's, so the tones are laid on it, over the blood.)
+${celToneGLSL()}
 
 void main() {
   int id = vRow;
@@ -255,6 +260,8 @@ void main() {
       col = mix(col, vc1 * 0.45, de * 0.55 * clamp(c, 0.0, 1.0) * dyeK);
     }
   }
+  // The vessel layer's fill had the cel tones (a lift toward the top left, two darker steps away from it, a light line); this colour replaces it, so it gets them too.
+  if (fx == 1 && (flags & ${K.F_DIFFUSE}) != 0) col = celTones(min(col, vec3(1.0)), D, R, length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), aa);
   outColor = ditherOut(vec4(min(col, vec3(1.0)), 1.0) * lumA, q);
 }
 `;

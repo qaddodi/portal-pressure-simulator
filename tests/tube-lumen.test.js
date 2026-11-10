@@ -247,3 +247,13 @@ test('lymph with a stream is drawn as the blood\'s streaks, coloured by its prot
   assert.ok(lymphInkJS(1, vc, true).ink[0] > hi.ink[0], 'a lighter amber on the dark theme');
   assert.deepEqual(lymphInkJS(-1, vc, false).ink, lo.ink);
 });
+
+test('the lumen layer lays the vessel layer\'s cel tones on its colour, over the blood (it replaces the fill, so without them the shading never shows)', () => {
+  for (const text of [LUMEN, LUMEN_PLAIN]) {
+    assert.deepEqual(lintGLSL(resolve(text)), []);
+    assert.match(text, /^uniform int fx;/m, 'fx is read');
+    assert.match(text, /vec3 celTones\(vec3 lum, float D, float R, vec2 g, float aa\)/, 'the shared tone function');
+    assert.match(text, /if \(fx == 1 && \(flags & \d+\) != 0\) col = celTones\(/, 'applied to the final colour');
+    assert.ok(text.indexOf('col = celTones(') > text.indexOf('dyeAt('), 'after the dye, the last thing done to the colour');
+  }
+});
