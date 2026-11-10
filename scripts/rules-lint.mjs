@@ -190,6 +190,32 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if ((tp.match(/patchCall\(/g) || []).length !== 3) errors.push('src/ui/tube-pass.js: patchCall is called from tubeDraw (stage 1 and the glows) and draw2 (the else of webs) only, and defined once');
     if (/tubeStrip|tubePatch/.test(slice(vg, 'const finishTube2 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube2: finishes the four stage 2 programs only');
   }
+  // The Tube's stage 3 (brief S3-D, 10 Nov 2026): the lumen layer. In stage 3 the compositor program is a Tube build and the lumen pass runs before it on every blood frame;
+  // in stages 1 and 2 nothing of stage 3 runs (the old builds, the second flow target and the half-size streaks are as they were); a failed stage 3 program leaves stage 2.
+  {
+    const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const meshUseBody = slice(vg, 'const meshUse = () => {', '\n  };');
+    if (!meshUseBody || /tube3|tubeLumen|stage3/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no stage 3 program (a Tube frame that stage 2 can draw is never drawn by the Mesh or the classic because a stage 3 program failed)');
+    const finishTubeBody = slice(vg, 'const finishTube = () => {', '\n  };');
+    if (!finishTubeBody || /tube3/i.test(finishTubeBody)) errors.push('src/ui/veins-gl.js finishTube: leaves stage 3 to finishTube3');
+    if (/tubeStrip|tubePatch|tubeLean|tube2/.test(slice(vg, 'const finishTube3 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube3: finishes the six stage 3 programs only');
+    if (!/const stage3 = !!tube3 && tubePick && meshUse\(\) && tubePass\.stage\(\) === 3;/.test(vg)) errors.push('src/ui/veins-gl.js composite: stage 3 is the Tube chosen and drawing, tube3 ready and the pass at stage 3 (const stage3 = ...)');
+    if (!/const halfOn = !stage3 && /.test(vg)) errors.push('src/ui/veins-gl.js composite: the half-size streak pass is not run in stage 3 (const halfOn = !stage3 && ...)');
+    const prgLine = (vg.match(/\n[^\n]*const prg = [^\n]*/) || [''])[0];
+    if (!/stage3 \? tube3\.compCell : compCell/.test(prgLine) || !/stage3 \? tube3\.plainCell : plainCell/.test(prgLine) || !/const cPlain = stage3 \? tube3\.plain : plain, cFull = stage3 \? tube3\.comp : comp;/.test(vg)) errors.push('src/ui/veins-gl.js composite: in stage 3 the compositor program is a Tube build (tube3.comp, compCell, plain, plainCell), and the old builds in stages 1 and 2');
+    const nUse = (vg.match(/tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length, nGuard = (vg.match(/stage3 \? tube3\.(comp|compCell|plain|plainCell)\b/g) || []).length;
+    if (nUse !== nGuard) errors.push('src/ui/veins-gl.js: a Tube compositor build (tube3.comp, compCell, plain, plainCell) is named only after stage3 ?, so stages 1 and 2 never use one');
+    const lumIf = vg.indexOf("if (stage3 && (blood.on || (dyeAny && blood.dye !== false) || blood.origin)) {\n        gpuProbe.time(gl, 'lumen layer', lumenFrame, m, look, blood);");
+    const firstBind = vg.indexOf('compBind(U, layer, glow, warm, useStack);', lumIf);
+    const halfBlock = vg.indexOf('      if (halfOn) {\n        // (The streaks', lumIf);
+    if (lumIf < 0 || firstBind < 0 || halfBlock < 0 || lumIf > halfBlock || lumIf > firstBind) errors.push('src/ui/veins-gl.js composite: in stage 3 the lumen pass runs on every blood frame (blood, dye or origin), before the compositor binds its textures and draws (if (stage3 && (blood.on || ...)) { gpuProbe.time(gl, \'lumen layer\', lumenFrame, ...))');
+    if ((vg.match(/function lumenFrame\(/g) || []).length !== 1 || (vg.match(/lumenFrame, m, look/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: lumenFrame is defined once and called once, in the composite, in stage 3');
+    if (!/if \(pMode === 5\) \{ tubePass\.lumen\(pM, pLook\); return; \}/.test(vg)) errors.push('src/ui/veins-gl.js pieceFn: the lumen layer\'s piece is the Tube pass\'s lumen pass alone (pMode 5)');
+    if (!/if \(stageNow\(\)\.stage !== 3\) return false;/.test(slice(tp, 'function tubeLumenPass(', 'const D = FR.D'))) errors.push('src/ui/tube-pass.js tubeLumenPass: draws nothing outside stage 3');
+    if (!/AT = choice\.stage === 3 \? A3 : ATTACH;/.test(tp)) errors.push('src/ui/tube-pass.js tubePass: the layer pass writes no second flow target in stage 3 only (AT = choice.stage === 3 ? A3 : ATTACH)');
+    if (/P3\.|E\.tube3\b(?!Failed)/.test(slice(tp, 'function tubePass(', '// ---- Stage 3'))) errors.push('src/ui/tube-pass.js tubePass: the layer pass names no lumen program (the lumen pass is tubeLumenPass)');
+  }
   need('src/ui/veins-gl.js', [
     [/heads: who === 'stage' \?/, 'the lobule is given no axes: its renderer keeps the composite heads'],
     [/bool isLy = f1\.x < -0\.5;/, 'a lymph row is marked in the shader'],

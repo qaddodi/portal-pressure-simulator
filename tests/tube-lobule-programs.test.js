@@ -38,7 +38,8 @@ function fakeGL() {
 const frame = await import('../src/ui/frame.js');
 const mod = await import('../src/ui/veins-gl.js');
 const tubeSources = (src) => src.filter((s) => s.includes('celShade(') && s.includes('#define MESH '));
-const leanSources = (src) => src.filter((s) => s.includes('uniform int isWeb;'));   // (stage 2's lean fragment shader, started for the strip and for the web)
+const leanSources = (src) => src.filter((s) => s.includes('uniform int isWeb;') && !s.includes('uniform int blood;'));   // (stage 2's lean fragment shader: one object, shared by the strip's program and the web's)
+const lumenSources = (src) => src.filter((s) => s.includes('#define PLAIN ') && s.includes('flat in vec2 vEnd;') && s.includes('uniform vec3 blendA;') && !s.includes('celShade('));   // (stage 3's lumen fragment shader, likewise one for both)
 
 function lobule() {
   const f = fakeGL();
@@ -57,15 +58,18 @@ test('the lobule makes no Tube program while Mesh or Classic is chosen, and make
     g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
     assert.equal(tubeSources(f.sources).length, 0, `${choice}: no Tube shader text`);
     assert.equal(leanSources(f.sources).length, 0, `${choice}: no stage 2 shader text`);
+    assert.equal(lumenSources(f.sources).length, 0, `${choice}: no stage 3 shader text`);
     frame.setVesselRenderer('tube');
     g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
     const t = tubeSources(f.sources);
     assert.equal(t.length, 2, `${choice} then tube: the strip's and the patch's builds, once`);
     assert.ok(t.some((s) => s.includes('#define MESH 1')) && t.some((s) => s.includes('#define MESH 2')));
-    assert.equal(leanSources(f.sources).length, 2, `${choice} then tube: stage 2's lean shader, for the strip and for the web`);
+    assert.equal(leanSources(f.sources).length, 1, `${choice} then tube: stage 2's lean shader, once for the strip and the web`);
+    assert.equal(lumenSources(f.sources).length, 1, `${choice} then tube: stage 3's lumen shader, once for the strip and the web`);
     g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
     assert.equal(tubeSources(f.sources).length, 2, 'not made again');
-    assert.equal(leanSources(f.sources).length, 2, 'stage 2 not made again');
+    assert.equal(leanSources(f.sources).length, 1, 'stage 2 not made again');
+    assert.equal(lumenSources(f.sources).length, 1, 'stage 3 not made again');
   }
   frame.setVesselRenderer('mesh');
 });

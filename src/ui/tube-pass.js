@@ -24,7 +24,10 @@ export function createTubePass(E) {
   let keyPre = 0;   // tubeKey: 1 while a glow's depth prepass runs (a lit vessel's own wall keeps its depth, so no other glow shows inside it), 2 while a shape's (a patch keeps the depth of the pixels inside its shape it leaves clear), else 0
   // What this frame draws from (set by tubePass): the stage and the joins, the rows and webs by tier, the stage 2 buffers.
   const FR = { two: false, web: false, tb: null, pb: null, wb: null, D: null };
-  let lastP, choice = tubeStage(null);   // (the choice is read again only when the stage 2 programs change)
+  let lastText = '', lastP, lastP3, choice = tubeStage(null);   // (the choice is read again only when the stage 2 or stage 3 programs change)
+  // The layer's draw buffers: the four, or in stage 3 without the second flow target (the lumen layer carries what it carried; the first stays for the arrowheads' quads and picking).
+  const A3 = [ATTACH[0], ATTACH[1], gl.NONE, ATTACH[3]];
+  let AT = ATTACH;
   // Sets a vertex stage's pass uniforms on program P and draws n strips from record `first` of buf (size floats of each stride bytes: 1 for the stage 1 rows, 4 for J's).
   function stripCall(P, pass, t, base, H, px, look, vao, buf, size, stride, first, n) {
     const u = P.u;
@@ -119,11 +122,16 @@ export function createTubePass(E) {
     gl.enable(gl.STENCIL_TEST); gl.stencilFunc(gl.NOTEQUAL, meshRefNext(), 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); gl.stencilMask(0xff);
     if (bufs) gl.drawBuffers(bufs);
     if (two) draw2(pass, t, base, 0.999 / KEY_PASSES, px, look, false); else tubeDraw(pass, t, base, 0.999 / KEY_PASSES, px, look, patches);
-    if (bufs) gl.drawBuffers(ATTACH);
+    if (bufs) gl.drawBuffers(AT);
     gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
   }
   // Whether tier t has anything to draw this frame (rows, patches or webs).
   const has = (t) => FR.tb.count[t] > 0 || (FR.pb !== null && FR.pb.count[t] > 0) || (FR.two && FR.web && FR.wb.count[t] > 0);
+  // The stage this frame draws with (memoised on the programs, so the answer is read from the address once).
+  const stageNow = () => {
+    if (E.tube2 !== lastP || E.tube3 !== lastP3) { lastP = E.tube2; lastP3 = E.tube3; choice = tubeStage(lastP, undefined, !!lastP3); }
+    return choice;
+  };
   // A program's uniforms and textures for the pass: the vessel set, then the points (the figure's own texture, or the morph set's frame rows).
   function setProgram(P, m, look, px) {
     vesselSet(P, m, look, false, false);
@@ -141,8 +149,9 @@ export function createTubePass(E) {
     if (!meshTargets()) return false;
     const G = meshGeo();
     // (The stage: 2 when the four lean programs are ready and ?tube=1 is not set, else 1; the joins: webs in stage 2 unless ?tubejoin=patch.)
-    if (E.tube2 !== lastP) { lastP = E.tube2; choice = tubeStage(lastP); }
-    const two = choice.stage === 2, web = choice.joins === 'web';
+    stageNow();
+    const two = choice.stage >= 2, web = choice.joins === 'web';
+    AT = choice.stage === 3 ? A3 : ATTACH;
     let tb, pb = null;
     if (two) {
       // (Stage 2: J's rows by tier, plain first, and the webs by tier, into buffers of their own; the patches only when ?tubejoin=patch.)
@@ -180,7 +189,7 @@ export function createTubePass(E) {
     gl.depthMask(true); gl.stencilMask(0xff);
     gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
     MG.kP = 0; MG.ref = 0;
-    gl.drawBuffers(ATTACH);
+    gl.drawBuffers(AT);
     const TG = look.tierGroup, dim = look.netAlpha < 0.999;
     for (let g = 0; g < 3; g++) {
       let any = false, sel = false, up = false;
@@ -189,7 +198,7 @@ export function createTubePass(E) {
       // (The network while a vessel is focused: drawn apart and laid faded as one, so its vessels do not show through one another; the
       // selected vessel's lift drawn apart too, laid over the network.)
       const toN = g === 1 && dim, lift = g === 1 && sel;
-      if (lift || toN) gl.drawBuffers(ATTACH);
+      if (lift || toN) gl.drawBuffers(AT);
       if (lift) { meshTarget(meshScratch(1)); gl.clearBufferfv(gl.COLOR, 0, CLR_F); meshTarget(E.baseTex); }
       if (toN) { meshTarget(meshScratch(0)); gl.clearBufferfv(gl.COLOR, 0, CLR_F); }
       for (let t = 0; t < MAX_TIERS; t++) {
@@ -199,8 +208,8 @@ export function createTubePass(E) {
         if (lift && tb.sel[t]) { meshTarget(MG.scrT); tubeColour(MP.LIFT, t, sb, px, look, true, MESH_COLOR_BUF); meshTarget(toN ? MG.scrN : E.baseTex); }
       }
       if (up) for (let t = 0; t < MAX_TIERS; t++) if (TG[t] === g && tb.litUp[t]) tubePair(MP.UP, t, px, look, false, true);
-      if (toN) { meshTarget(E.baseTex); meshLay(MG.scrN, look.netAlpha); gl.drawBuffers(ATTACH); }
-      if (lift) { meshLay(MG.scrT, 1); gl.drawBuffers(ATTACH); }
+      if (toN) { meshTarget(E.baseTex); meshLay(MG.scrN, look.netAlpha); gl.drawBuffers(AT); }
+      if (lift) { meshLay(MG.scrT, 1); gl.drawBuffers(AT); }
     }
     gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
     gl.colorMask(true, true, true, true);
@@ -215,9 +224,56 @@ export function createTubePass(E) {
       // (tube 2: the passes, the strips (the plain ones among them, drawn by the depth program in a prepass), the webs; tube 1: why stage 2 is not drawing.)
       const what = two ? `${MG.passes} passes, ${MG.strips} strips (${MG.plain} plain), ${web ? `${MG.webs} webs` : `${MG.patches} patches`}` : `${MG.passes} passes, ${MG.strips} strips, ${MG.patches} patches drawn`;
       const why = two ? '' : stage1Why(!!E.tube2, E.tube2Failed, !E.tube2 && !(E.tube2Failed && E.tube2Failed.length));
-      gpuProbe.gauge(E.lobule ? 'lobule vessel renderer' : 'vessel renderer', `tube ${choice.stage}: ${why ? `${why}, ` : ''}${what}`);
+      const why3 = choice.stage === 2 && web && E.tube3Failed && E.tube3Failed.length ? `, stage 3: ${E.tube3Failed.join(', ')} failed` : '';
+      lastText = `tube ${choice.stage}: ${why ? `${why}, ` : ''}${what}${why3}`;
+      gpuProbe.gauge(E.lobule ? 'lobule vessel renderer' : 'vessel renderer', lastText);
     }
     return true;
   }
+  // ---- Stage 3: the lumen layer (docs/tube-renderer.md "Stage 3") ----
+  // The lumen of the surface in front at every pixel, drawn into the lumen target (bound by the caller, cleared in colour, its viewport; one piece of it at a time
+  // through the layer's own pieces, scissors and lOff). All tiers' prepasses first (depth only, the layer pass's order and bands), then all tiers' lumens over the
+  // kept depth (LEQUAL, no blend, no stencil): a lumen is drawn only where its surface is the nearest of all tiers, so a later tier's casing or outline over it
+  // leaves it out. Draws nothing in stages 1 and 2 (returns false).
+  const BASES = new Float64Array(MAX_TIERS), ONE1 = new Float32Array([1]), INV_DEPTH = [gl.DEPTH_ATTACHMENT];
+  function tubeLumenPass(m, look) {
+    const G = meshGeo();
+    if (stageNow().stage !== 3) return false;
+    const D = FR.D ||= (MG.stage2 = createStage2Data(gl, MG)), mj = E.geo.morph;
+    D.frame(G, E.tubeNow, E.nTubes, mj ? mj.joinBase : -1);
+    FR.two = true; FR.web = true; FR.tb = D.tb; FR.wb = D.wb; FR.pb = null;
+    const tb = D.tb, P = E.tube2, P3 = E.tube3, keep = MG.passes;
+    const px = 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));
+    for (const Q of [P.lean, P.depth, P.webDepth, P3.lumen, P3.webLumen]) setProgram(Q, m, look, px);
+    E.lumenBind(P3.lumen); E.lumenBind(P3.webLumen);
+    gl.depthMask(true);
+    gl.clearBufferfv(gl.DEPTH, 0, ONE1);
+    MG.kP = 0; MG.lumStrips = 0; MG.lumWebs = 0;
+    gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST); gl.enable(gl.DEPTH_TEST);
+    const TG = look.tierGroup, H = 0.999 / KEY_PASSES;
+    keyPre = 2;   // (not counted in the layer pass's numbers)
+    gl.colorMask(false, false, false, false); gl.depthFunc(gl.LESS);
+    for (let g = 0; g < 3; g++) for (let t = 0; t < MAX_TIERS; t++) {
+      if (TG[t] !== g || !has(t)) continue;
+      BASES[t] = meshKeyNext();
+      draw2(MP.SHAPE, t, BASES[t], H, px, look, true);
+    }
+    gl.colorMask(true, true, true, true); gl.depthFunc(gl.LEQUAL); gl.depthMask(false);
+    for (let g = 0; g < 3; g++) for (let t = 0; t < MAX_TIERS; t++) {
+      if (TG[t] !== g || !has(t)) continue;
+      const n = tb.count[t], w = FR.wb.count[t];
+      if (n) { stripCall(P3.lumen, MP.SHAPE, t, BASES[t], H, px, look, D.stripVAO, D.rowBuf, 4, 16, tb.start[t], n); MG.lumStrips += n; }
+      if (w) { webCall(P3.webLumen, MP.SHAPE, t, BASES[t], H, px, look, FR.wb.start[t], w); MG.lumWebs += w; }
+    }
+    keyPre = 0;
+    gl.disable(gl.DEPTH_TEST); gl.depthMask(true);
+    gl.bindVertexArray(null);
+    gl.invalidateFramebuffer(gl.FRAMEBUFFER, INV_DEPTH);
+    MG.passes = keep;
+    return true;
+  }
+  tubePass.stage = () => stageNow().stage;
+  tubePass.lumen = tubeLumenPass;
+  tubePass.gaugeText = () => `${lastText}${choice.stage === 3 ? `, lumen pass ${MG.lumStrips} strips ${MG.lumWebs} webs` : ''}`;
   return tubePass;
 }

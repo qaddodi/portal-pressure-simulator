@@ -8,7 +8,7 @@ import { scene, ray, straight } from './tube-web-helpers.js';
 /** Programs by name: { p: { name }, u: any uniform name → { prog, name } }; the stand-in uniform cache records each set value as `sets`. */
 const prog = (name) => ({ p: { name }, u: new Proxy({}, { get: (t, k) => (typeof k === 'string' ? (t[k] ||= { prog: name, name: k }) : undefined) }) });
 
-export function makeHarness({ withStage2 = true, rows, joins, tiers, tubeMutator, patches = false, capture = null } = {}) {
+export function makeHarness({ withStage2 = true, withStage3 = false, rows, joins, tiers, tubeMutator, patches = false, capture = null } = {}) {
   const log = [], sets = [], gauges = [];
   let cur = null, state = { mask: true, depthFunc: 'LESS', blend: false, stencil: false };
   const enums = new Map();
@@ -25,6 +25,9 @@ export function makeHarness({ withStage2 = true, rows, joins, tiers, tubeMutator
         else if (k === 'drawElementsInstanced') log.push({ call: 'strips', prog: cur, n: a[4], mask: state.mask, depth: state.depthFunc, tris: a[1] });
         else if (k === 'drawArraysInstanced') log.push({ call: 'patch', prog: cur, n: a[3], mask: state.mask, depth: state.depthFunc });
         else if (k === 'vertexAttribPointer') log.push({ call: 'attrib', loc: a[0], size: a[1], stride: a[4], offset: a[5] });
+        else if (k === 'drawBuffers') log.push({ call: 'drawBuffers', bufs: a[0] });
+        else if (k === 'clearBufferfv') log.push({ call: 'clear', what: a[0] });
+        else if (k === 'invalidateFramebuffer') log.push({ call: 'invalidate', what: a[1] });
         else if (k === 'bindBuffer' || k === 'bufferData' || k === 'bufferSubData') log.push({ call: k, target: a[0], size: typeof a[1] === 'number' ? a[1] : a[2]?.length });
         if (k.startsWith('create')) return { obj: k };
         return undefined;
@@ -48,16 +51,19 @@ export function makeHarness({ withStage2 = true, rows, joins, tiers, tubeMutator
   MG.dirty = false;
   let tube2 = null;
   if (withStage2) tube2 = { lean: prog('tubeLean'), depth: prog('tubeDepth'), web: prog('tubeWeb'), webDepth: prog('tubeWebDepth') };
+  let tube3 = null;
+  if (withStage3) tube3 = { lumen: prog('tubeLumen'), webLumen: prog('tubeWebLumen'), comp: prog('compTube'), compCell: prog('compTubeCell'), plain: prog('plainTube'), plainCell: prog('plainTubeCell') };
   const tubeS = prog('tubeStrip'), tubePt = prog('tubePatch');
   let keyN = 0;
   const E = {
     lobule: false, gl, UC, MG, MAX_TIERS, ATTACH: ['A'], KEY_PASSES: 64, MESH_TWO: [null, null], MESH_DS: ['DS'], MESH_GLOW_BUF: ['GLOW'], MESH_COLOR_BUF: ['COLOR'], CLR_F: new Float32Array(4),
     gpuProbe: { on: true, note() {}, gauge: (k, v) => gauges.push([k, v]) }, nTubes: n, tubeNow: sc.tube,
     meshPad: () => 0, meshKeyNext: () => 1 - ++keyN / 64, meshRefNext: () => 1, meshTargets: () => true, meshGeo: () => MG, meshTarget() {}, meshScratch: () => ({}), meshLay() {}, vesselSet() {},
-    get tubeS() { return tubeS; }, get tubePt() { return tubePt; }, get tube2() { return tube2; }, get tube2Failed() { return withStage2 ? null : []; }, get baseTex() { return {}; }, get geo() { return { morph: null }; },
+    get tubeS() { return tubeS; }, get tubePt() { return tubePt; }, get tube2() { return tube2; }, get tube2Failed() { return withStage2 ? null : []; }, get tube3() { return tube3; }, get tube3Failed() { return tube3 || !withStage3 ? null : []; }, lumenBind(P) { log.push({ call: 'lumenBind', prog: P.p.name }); }, get baseTex() { return {}; }, get geo() { return { morph: null }; },
   };
   const tubePass = createTubePass(E);
   const look = { tierGroup: new Int32Array(MAX_TIERS), tierAlpha: new Float32Array(MAX_TIERS).fill(1), netAlpha: 1, reach: 11 };
   const run = () => { log.length = 0; sets.length = 0; gauges.length = 0; keyN = 0; const ok = tubePass([1, 0, 0, 1, 0, 0], look); return ok; };
-  return { run, log, sets, gauges, MG, E, sc, setTube2(v) { tube2 = v; }, MP };
+  const runLumen = () => { log.length = 0; sets.length = 0; gauges.length = 0; keyN = 0; return tubePass.lumen([1, 0, 0, 1, 0, 0], look); };
+  return { run, runLumen, tubePass, log, sets, gauges, MG, E, sc, setTube2(v) { tube2 = v; }, MP };
 }

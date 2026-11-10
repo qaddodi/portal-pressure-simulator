@@ -104,7 +104,7 @@ test('H6: a still catheter repaints only its box (now and as last drawn), whole 
   const order = ['gl.scissor(cathRect[0], PH() - cathRect[3]', 'compBind(cathPass.u, false, glow, warm, useStack);', 'UC.i1(cathPass.u.stillOn, 0);', 'UC.i1(cathPass.u.bloodOnly, 0);', 'gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);', 'gpuProbe.time(gl, \'catheter\', cathT)', 'if (hard) gpuProbe.time(gl, \'outlines\', linesT);', 'gl.disable(gl.SCISSOR_TEST);'];
   let at = -1;
   for (const k of order) { const i = box.indexOf(k); assert.ok(i > at, k); at = i; }
-  assert.match(comp, /const cathPass = cathRect \? \(bare \? plain : comp\) : null;/, 'the whole picture\'s own build');
+  assert.match(comp, /const cathPass = cathRect \? \(bare \? cPlain : cFull\) : null;/, 'the whole picture\'s own build (cPlain, cFull: the Tube\'s builds in stage 3, the old ones otherwise)');
   assert.match(comp, /cathAt = cath \? cathBox\(m, BOX_AT\) : null;/, 'where it was drawn, for the next frame');
   // The box takes every vertex the draws use, base and frame alike, and a margin.
   const fn = v.slice(v.indexOf('  function cathBox(m, into) {'), v.indexOf('  function drawCath(m) {'));

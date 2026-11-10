@@ -146,7 +146,61 @@ the Tube's others and finished apart from them; `MG.gen` counts a binning).
 - **Known differences at joins** (the plan's three, on purpose): (1) inside a join a tributary's stream ends where the trunk's lumen is taller, on a curved line, and its streaks fade at
   its end as `bloodAt` already fades them; there is no cross-fade of the two streams. (2) A web takes its trunk's colour and attributes (or the wider member's). (3) No second lumen anywhere
   in the Tube.
-- Not in stage 2: the lumen layer and the compositor's Tube builds (stage 3, brief S3-D).
+- Not in stage 2: the lumen layer and the compositor's Tube builds (stage 3, below).
+
+## Stage 3: the lumen layer (brief S3-D, 10 Nov 2026)
+
+**What it is.** Stage 3 is stage 2 plus a lumen layer: the blood, the dye and the origin tint are drawn by the Tube's own lumen programs into a texture of their
+own, and the compositor reads that texture (`lumenL`) in place of its lumen section, the second flow target (`gbuf2`) and the half-size streak pass. The Tube
+is at stage 3 when stage 2 is drawing webs, the six stage 3 programs are ready, and neither `?tube=1` nor `?tube=2` is set (`tubeStage(ready, query, ready3)` in
+`tube-stage2.js`; `?tube=2` keeps stage 2 to compare the two on a device; `?tubejoin=patch` keeps stage 2 with patches). A failed stage 3 program leaves stage 2,
+never Mesh or Classic (`finishTube3` is separate from `finishTube2` and from `finishTube`; `meshUse` names none of them).
+
+**Programs** (`stage3Sources`, `stage3Start`, `stage3Finish` in `tube-stage2.js`, started with the stage 2 four, one compile for the strip's and the web's lumen fragment
+shader, the shader objects shared by text): `tubeLumen` (`tubeStripVS` + `tubeLumenFS`), `tubeWebLumen` (`tubeWebVS` + `tubeLumenFS`), and the compositor's Tube builds
+beside the four it has: `compTube`, `compTubeCell`, `plainTube`, `plainTubeCell` (`COMP_FS(plain, false, false, 1)` over `COMP_VS` / `COMP_CELL_VS`, now exported). The streak build is not
+needed. The arrowheads' quads program is the compositor's own heads build, reused: it reads `gbuf` only.
+
+**The lumen layer** (`createLumenTarget`): one `RGBA8` texture and a `DEPTH_COMPONENT24` renderbuffer on a framebuffer of their own, the vessel layer's size
+(`fboW` x `fboH`), made at the first lumen pass and again when the layer is, for the figure and, in its own instance, the lobule. The colour is cleared whole each
+frame; the depth is cleared in each piece's scissor and invalidated after the pass.
+
+**The lumen pass** (`tubeLumenPass` in `tube-pass.js`, `lumenFrame` in `veins-gl.js`), on every frame the compositor would draw blood (`blood.on`, or dye, or origin:
+the kept-picture and blood-only frames included), after the compositor has decided to draw the frame and before it binds its textures. The lumen layer is drawn through the vessel
+layer's own pieces (`eachPiece`: its wrap, scissors and `lOff`), so every texel the compositor reads is read at the place the layer's is. In a piece: the stage 2
+prepass of **every** tier first (depth only, colour masked, `LESS`, the layer pass's order and tier groups), then every tier's lumens (`tubeLumen` for the rows, `tubeWebLumen`
+for the webs, `LEQUAL`, no blend, no stencil, depth not written) with each tier's own kept band. Glows, lift and scratch layers are not drawn. A pixel's nearest surface is
+one lumen or none. The blood's uniforms and textures are set by `lumenBind` from the same values the compositor sets (`blood`, `flowA`, `blendA`, `lenOn`, `origin`, `dyeOn`,
+`clock`, `bT`, `rows`, the colours; the flow, dye and bend textures on units 6, 7 and 12, the noise tile on 15; the vessel set on units 0 to 5).
+
+**Planned as per-tier, built as all prepasses first (planner, 10 Nov 2026).** The brief says "for each tier: prepass, then lumens". With a later tier's prepass after an earlier tier's lumens, the earlier
+tier's lumen would lie under the later tier's casing and outline. Prepasses first, then lumens, leaves a lumen only where its surface is the nearest of all tiers.
+
+**The layer pass writes no second flow target (say which way, brief S3-D 5).** In stage 3 its draw buffers are `[colour, first flow target, NONE, picking target]` (`A3`) in place
+of the four `ATTACH`es, set where the pass sets them today (`AT` in `tube-pass.js`), and the layer's own four are restored at the end of the pass. The draw buffers change at the same places as in stage 2
+(none added). The first flow target stays for `blood-heads.js` and picking.
+
+**The compositor** in stage 3 uses its Tube builds (`stage3` in `composite`), with `lumenL` bound on unit 8 (the unit `gbuf2` has in the other builds). `halfOn` is off. The
+still-lumen signature includes the stage so a lumen drawn the other way is drawn again.
+
+**`?perf`.** `tube 3: N passes, N strips (N plain), N webs, lumen pass N strips N webs` (the lumen pass counted in the lumen draws only); the lumen pass is its own GPU-timed row,
+`lumen layer`, like the other whole redraws. Expected from the real captures, run through the real pass in node:
+
+  | | passes | strips (plain) | webs | lumen pass |
+  |---|---|---|---|---|
+  | figure, anatomy | 12 | 41 (30) | 35 | 41 strips 35 webs |
+  | figure, circuit | 12 | 56 (33) | 41 | 56 strips 41 webs |
+  | lobule | 2 | 156 (156) | 310 | 156 strips 310 webs |
+
+  When stage 3 failed, the stage 2 gauge adds `, stage 3: <programs> failed`.
+
+**Known differences (stage 3).** The three under "Joins made of geometry". The blood shows in the lumen in front, at that vessel's opacity (as it did, read from geometry). No half-size
+streak pass in Tube. Where a see-through vessel of a later tier lies over a lumen, the lumen under it shows no moving blood (only the surface in front draws blood). The lumen layer is a second
+pass over the same geometry on every blood frame; its cost is the `lumen layer` row.
+
+**Tests.** `tests/tube-stage3.test.js`, `tests/tube-stage3-two.test.js` (the stage choice as a pure function, the programs' start and finish, the target, the lumen pass's draw order, the
+draw buffers, nothing of stage 3 in stages 1 and 2), and `scripts/rules-lint.mjs` (in stage 3 the compositor program is a Tube build and the lumen pass runs before it on every blood frame; in stages 1 and 2 nothing of
+stage 3 runs). The compile check lists all six programs (and the heads build, linked with its own vertex shader): 23 programs ok.
 
 ## Known differences from the plan's list and from Mesh
 
@@ -159,8 +213,7 @@ the Tube's others and finished apart from them; `MG.gen` counts a binning).
 ## What stage 1 leaves out
 
 Stage 2: the short strip shader (along and across from the geometry, no nearest-segment search), a depth-only prepass without fragment
-work for plain rows, the zoom line-weight rule, the lobule. Stage 3 (needs Mohammad's word): the blood in the tube's shader and the flow
-targets dropped. The shaders are linted, not compiled (this environment cannot compile GLSL): the first real compile is a device.
+work for plain rows, the zoom line-weight rule, the lobule. Stage 3 is built (above). The shaders are compiled and linked by the compile check below in a software driver; the first real compile on a device is still the test.
 
 ## Tests
 

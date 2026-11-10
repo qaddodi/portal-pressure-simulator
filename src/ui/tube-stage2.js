@@ -8,6 +8,7 @@
 import { tubeStripVS } from './tube-geo.js';
 import { tubeWebVS, webIndex, WEB_FLOATS } from './tube-joint.js';
 import { tubeLeanFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
+import { tubeLumenFS } from './tube-lumen-glsl.js';
 import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS } from './tube-data.js';
 import { STRIP_VS_GLSL } from './veins-mesh.js';
 
@@ -18,16 +19,20 @@ export const STAGE2_PROGRAMS = ['tubeLean', 'tubeDepth', 'tubeWeb', 'tubeWebDept
 export const TUBE_QUERY = typeof location !== 'undefined' ? location.search || '' : '';
 const ONE_Q = /[?&]tube=1(?=[&#]|$)/, PATCH_Q = /[?&]tubejoin=patch(?=[&#]|$)/;
 
-// (The three answers, kept: the choice is read each frame and makes nothing.)
-const STAGE_1 = { stage: 1, joins: 'patch' }, STAGE_2_WEB = { stage: 2, joins: 'web' }, STAGE_2_PATCH = { stage: 2, joins: 'patch' };
+// (The four answers, kept: the choice is read each frame and makes nothing.)
+const STAGE_1 = { stage: 1, joins: 'patch' }, STAGE_2_WEB = { stage: 2, joins: 'web' }, STAGE_2_PATCH = { stage: 2, joins: 'patch' }, STAGE_3 = { stage: 3, joins: 'web' };
+const TWO_Q = /[?&]tube=2(?=[&#]|$)/;
 
 /**
- * The stage and the joins the Tube draws with. ready: the four programs are finished (a truthy value) ; query: the page's query string.
+ * The stage and the joins the Tube draws with. ready: the four stage 2 programs are finished (a truthy value); query: the page's query string; ready3: the
+ * stage 3 programs (the two lumen programs and the compositor's Tube builds) are finished too.
  * Stage 2 when the four are ready and `?tube=1` is not set, else stage 1 (which draws patches). Joins are 'web' in stage 2 unless `?tubejoin=patch`.
+ * Stage 3 when stage 2 is drawing webs, the stage 3 programs are ready and neither `?tube=1` nor `?tube=2` is set.
  */
-export function tubeStage(ready, query = TUBE_QUERY) {
+export function tubeStage(ready, query = TUBE_QUERY, ready3 = false) {
   if (!ready || ONE_Q.test(query)) return STAGE_1;
-  return PATCH_Q.test(query) ? STAGE_2_PATCH : STAGE_2_WEB;
+  if (PATCH_Q.test(query)) return STAGE_2_PATCH;
+  return ready3 && !TWO_Q.test(query) ? STAGE_3 : STAGE_2_WEB;
 }
 
 /**
@@ -51,11 +56,25 @@ export function stage2Sources(K, zoomVS) {
   return { tubeLean: { vs: sv, fs: lean }, tubeDepth: { vs: sv, fs: TUBE_DEPTH_FS }, tubeWeb: { vs: wv, fs: lean }, tubeWebDepth: { vs: wv, fs: TUBE_DEPTH_FS } };
 }
 
-/** Starts the four programs (startProgram: veins-gl.js's), by their names (STAGE2_PROGRAMS); see stage2Sources for K and zoomVS. */
-export function stage2Start(gl, startProgram, K, zoomVS) {
-  const src = stage2Sources(K, zoomVS), out = {};
-  for (const n of STAGE2_PROGRAMS) out[n] = startProgram(gl, src[n].vs, src[n].fs);
+/**
+ * Starts the programs of `src` ({ name: { vs, fs } }) with startProgram (veins-gl.js's), by name. makeShader(type, text), when given, makes the shader objects:
+ * a text two programs share is compiled once and the object shared.
+ */
+function startAll(gl, startProgram, src, names, makeShader) {
+  const have = new Map(), out = {};   // alloc-rare: program set-up, once
+  const get = (type, text) => {
+    if (!makeShader) return text;
+    const k = `${type}:${text}`;
+    if (!have.has(k)) have.set(k, makeShader(type, text));
+    return have.get(k);
+  };
+  for (const n of names) out[n] = startProgram(gl, get(gl.VERTEX_SHADER, src[n].vs), get(gl.FRAGMENT_SHADER, src[n].fs));
   return out;
+}
+
+/** Starts the four programs (startProgram: veins-gl.js's), by their names (STAGE2_PROGRAMS); see stage2Sources for K and zoomVS; makeShader: see startAll. */
+export function stage2Start(gl, startProgram, K, zoomVS, makeShader) {
+  return startAll(gl, startProgram, stage2Sources(K, zoomVS), STAGE2_PROGRAMS, makeShader);
 }
 
 /**
@@ -73,6 +92,73 @@ export function stage2Finish(gl, finishProgram, started) {
   if (failed.length) { for (const d of done) if (d) gl.deleteProgram(d.p); return { P: null, failed }; }
   return { P: { lean: done[0], depth: done[1], web: done[2], webDepth: done[3] }, failed };
 }
+
+/** The stage 3 programs, in the order stage3Start returns them. */
+export const STAGE3_PROGRAMS = ['tubeLumen', 'tubeWebLumen', 'compTube', 'compTubeCell', 'plainTube', 'plainTubeCell'];
+
+/**
+ * The stage 3 programs' shader text, by name, each { vs, fs }: the lumen shader over the strip's and the web's vertex shaders, and the compositor's Tube builds
+ * (COMP_FS with tube = 1: full and plain, each over the whole-picture vertex shader and the cell one). K, zoomVS: as stage2Sources; comp: { COMP_FS, COMP_VS,
+ * COMP_CELL_VS } from veins-gl.js (given, not imported: veins-gl.js imports this file).
+ */
+export function stage3Sources(K, zoomVS, comp) {
+  const sv = tubeStripVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), wv = tubeWebVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), lum = tubeLumenFS(K);
+  const full = comp.COMP_FS(false, false, false, 1), plain = comp.COMP_FS(true, false, false, 1);
+  return { tubeLumen: { vs: sv, fs: lum }, tubeWebLumen: { vs: wv, fs: lum }, compTube: { vs: comp.COMP_VS, fs: full }, compTubeCell: { vs: comp.COMP_CELL_VS, fs: full },
+    plainTube: { vs: comp.COMP_VS, fs: plain }, plainTubeCell: { vs: comp.COMP_CELL_VS, fs: plain } };
+}
+
+/** Starts the six stage 3 programs (startProgram: veins-gl.js's), by their names (STAGE3_PROGRAMS); see stage3Sources. */
+export function stage3Start(gl, startProgram, K, zoomVS, comp, makeShader) {
+  return startAll(gl, startProgram, stage3Sources(K, zoomVS, comp), STAGE3_PROGRAMS, makeShader);
+}
+
+/** Finishes the six started stage 3 programs, each in its own try: { P: { lumen, webLumen, comp, compCell, plain, plainCell } or null, failed: names }. */
+export function stage3Finish(gl, finishProgram, started) {
+  const done = [], failed = [];
+  started.forEach((s, i) => {
+    try { done[i] = finishProgram(gl, s); } catch (e) {
+      console.warn(`Veins renderer: the Tube's ${STAGE3_PROGRAMS[i]} shader failed; the Tube keeps stage 2.`, e);
+      gl.deleteProgram(s.p); failed.push(STAGE3_PROGRAMS[i]);
+    }
+  });
+  if (failed.length) { for (const d of done) if (d) gl.deleteProgram(d.p); return { P: null, failed }; }
+  return { P: { lumen: done[0], webLumen: done[1], comp: done[2], compCell: done[3], plain: done[4], plainCell: done[5] }, failed };
+}
+
+/**
+ * The lumen layer: an RGBA8 texture and a depth renderbuffer on a framebuffer of their own, the vessel layer's size (ensure(w, h) makes them again when it changes).
+ * tex(): the texture the compositor reads (lumenL). The colour is cleared by the caller (clear()); the depth is cleared in each piece's scissor by the pass.
+ */
+export function createLumenTarget(gl) {
+  const T = { w: 0, h: 0, fbo: null, rb: null, texture: null, made: 0 };
+  T.tex = () => T.texture;
+  T.ensure = (w, h) => {
+    if (T.fbo && T.w === w && T.h === h) return T;
+    if (!T.fbo) {   // alloc-rare: the first lumen pass only
+      T.fbo = gl.createFramebuffer(); T.rb = gl.createRenderbuffer(); T.texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, T.texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    T.w = w; T.h = h; T.made++;
+    gl.bindTexture(gl.TEXTURE_2D, T.texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.bindRenderbuffer(gl.RENDERBUFFER, T.rb);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT24, w, h);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, T.texture, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, T.rb);
+    gl.drawBuffers(DRAW0);
+    return T;
+  };
+  T.dispose = () => {
+    if (T.fbo) { gl.deleteFramebuffer(T.fbo); gl.deleteRenderbuffer(T.rb); gl.deleteTexture(T.texture); }
+    T.fbo = T.rb = T.texture = null; T.w = T.h = 0;
+  };
+  return T;
+}
+const DRAW0 = [0x8CE0];   // COLOR_ATTACHMENT0
 
 const NO_JOINS = new Float32Array(0), NO_END = 2.5;   // (the row record's kind + 2: above 2.5 is an exact row)
 
