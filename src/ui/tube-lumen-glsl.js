@@ -263,7 +263,7 @@ export function tubeLumenJS(o) {
 export function lymphInkJS(prot, vc, dark) {
   const L = LYMPH_INK, p = clamp(prot, 0, 1);
   const deepT = dark ? L.deepDark : L.deepLight, amber = dark ? L.amberDark : L.amberLight;
-  const t0 = clamp((p - L.ramp[0]) / (L.ramp[1] - L.ramp[0]), 0, 1), k = t0 * t0 * (3 - 2 * t0);
+  const u = clamp((p - L.ramp[0]) / (L.ramp[1] - L.ramp[0]), 0, 1), k = u * u * (3 - 2 * u);   // (a smoothstep in the protein, not in time)
   const ink = [0, 1, 2].map((i) => { const deep = vc[i] * (1 - L.deepMix) + deepT[i] * L.deepMix; return deep * (1 - k) + amber[i] * k; });
   return { ink, strength: L.faint * (1 - p) + p, occ: L.occ[0] * (1 - p) + L.occ[1] * p };
 }
