@@ -36,6 +36,11 @@ export const TUBE_VERTS = TRAP_BASE + 4 * N_QUADS;                // 1522
 // wall's is the nearest surface: the strongest glow wins the pixel, as the Mesh's key makes it. The lumen, GLOW1, is nearer than any skirt.)
 export const TUBE_LEVEL = { GLOW0: 0.02, GLOW_WALL: 0.07, GLOW1: 0.08, CASE0: 0.10, CASE1: 0.20, LUMEN0: 0.30, LUMEN_H: 0.50, PATCH: 0.95 };
 const L = TUBE_LEVEL;
+// A fading vessel's lumen sits BELOW every opaque vessel's lumen of its tier (and above its own casing), so where a faded branch overlaps its
+// trunk beyond the join's patch the trunk's lumen wins the pixel and is not thinned by the fade (the classic shader's rule: "a fading vein must
+// not thin the cava's lumen where it joins it"). FADE_A: the alpha at and under which the lumen is wholly in that low band; above it the levels
+// ease back to their own, so a vessel fading along its length never steps in depth.
+export const TUBE_FADE = { A: 0.35, L0: 0.21, H: 0.08 };
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
@@ -121,11 +126,43 @@ function acrossAt(ac, rc, w, hRef, glow) {
   return [rc * Math.sin(th), glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(h / hRef, 0, 1)];
 }
 
+const mixf = (a, b, t) => a + (b - a) * t;
+const smooth = (e0, e1, x) => { const t = clamp((x - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+/**
+ * The row's alpha at a point, as vesAttrs reads it (its base alpha, then a dip, a radial fade or a linear one): the JS twin of tubeAlpha. fade:
+ * { a: the row's texel 1's w, t3: texel 3, t4: texel 4 } (arrays of four). The veil (an organ's fade) is the fragment shader's alone.
+ */
+export function tubeAlpha(fade, x, y) {
+  let a = fade.a;
+  const [t3x, t3y, t3z, t3w] = fade.t3, [t4x, t4y, t4z, t4w] = fade.t4;
+  const ddx = t3z - t3x, ddy = t3w - t3y;
+  if (t4w > 2.5) {
+    const v = clamp(((x - t3x) * ddx + (y - t3y) * ddy) / Math.max(ddx * ddx + ddy * ddy, 1e-6), 0, 1);
+    a *= v < t4x ? mixf(t4y, t4z, smooth(0, t4x, v)) : mixf(t4z, 1, smooth(t4x, 1, v));
+  } else if (t4w > 1.5) {
+    const v = Math.hypot(x - t3x, y - t3y) / Math.max(t3z, 1e-3);
+    a *= v < 0.45 ? mixf(t4y, t4z, v / 0.45) : mixf(t4z, 0, clamp((v - 0.45) / 0.55, 0, 1));
+  } else if (t4w > 0.5) {
+    const v = ((x - t3x) * ddx + (y - t3y) * ddy) / Math.max(ddx * ddx + ddy * ddy, 1e-6);
+    a *= mixf(t4y, t4z, clamp((v - t4x) / Math.max(1 - t4x, 1e-4), 0, 1));
+  }
+  return a;
+}
+/** A level f at alpha a: a lumen level (f >= LUMEN0) eases into the low band as the vessel fades; casing and glow levels are left alone. The JS twin of tubeFadeLevel. */
+export function tubeFadeLevel(f, a) {
+  if (f < L.LUMEN0) return f;
+  const k = (f - L.LUMEN0) / L.LUMEN_H, s = smooth(TUBE_FADE.A, 1, a);
+  return mixf(TUBE_FADE.L0 + TUBE_FADE.H * k, f, s);
+}
 /**
  * Any vertex of the instance, the JS twin of tubePlace: returns [x, y, f]. P: the vessel's points flat (x0, y0, x1, y1 ... as veins-mesh
- * flatPoints), R: its radii, a: the attribute (kind, ring-or-sample, across, corner), o: { w (see tubeWidth), hRef (world), glow (true in a glow pass) }.
+ * flatPoints), R: its radii, a: the attribute (kind, ring-or-sample, across, corner), o: { w (see tubeWidth), hRef (world), glow (true in a glow pass), fade (optional, see tubeAlpha: the row's fade, for the depth of a fading vessel) }.
  */
 export function tubeVertex(P, R, a, o) {
+  const q = tubeVertex0(P, R, a, o);
+  return o.fade && !o.glow ? [q[0], q[1], tubeFadeLevel(q[2], tubeAlpha(o.fade, q[0], q[1]))] : q;
+}
+function tubeVertex0(P, R, a, o) {
   const kind = Math.round(a[0]), r = Math.round(a[1]), ac = Math.round(a[2]), cn = Math.round(a[3]);
   const w = o.w, hRef = o.hRef, glow = !!o.glow;
   if (kind === TUBE_KIND.TRAP) {
@@ -213,6 +250,9 @@ const float L_CASE1 = ${f(L.CASE1)};
 const float L_LUMEN0 = ${f(L.LUMEN0)};
 const float L_LUMEN_H = ${f(L.LUMEN_H)};
 const float L_PATCH = ${f(L.PATCH)};
+const float L_FADE_A = ${f(TUBE_FADE.A)};
+const float L_FADE0 = ${f(TUBE_FADE.L0)};
+const float L_FADE_H = ${f(TUBE_FADE.H)};
 out float vI;
 flat out int vRow;
 // The across offset d and the level f of across column ac, for a ring whose half tube has radius rc.
@@ -274,6 +314,29 @@ vec3 tubePlace(int id, vec4 a, float w, float hr, bool glow) {
   }
   return vec3(p + df.x * n, df.y);
 }
+// The row's alpha at p, as vesAttrs reads it (its base alpha, then a dip, a radial fade or a linear one; the veil is the fragment shader's).
+float tubeAlpha(int id, vec2 p) {
+  vec4 t1 = texelFetch(tube, ivec2(1, id), 0), t3 = texelFetch(tube, ivec2(3, id), 0), t4 = texelFetch(tube, ivec2(4, id), 0);
+  float a = t1.w;
+  vec2 dd = t3.zw - t3.xy;
+  if (t4.w > 2.5) {
+    float v = clamp(dot(p - t3.xy, dd) / max(dot(dd, dd), 1e-6), 0.0, 1.0);
+    a *= v < t4.x ? mix(t4.y, t4.z, smoothstep(0.0, t4.x, v)) : mix(t4.z, 1.0, smoothstep(t4.x, 1.0, v));
+  } else if (t4.w > 1.5) {
+    float v = length(p - t3.xy) / max(t3.z, 1e-3);
+    a *= v < 0.45 ? mix(t4.y, t4.z, v / 0.45) : mix(t4.z, 0.0, clamp((v - 0.45) / 0.55, 0.0, 1.0));
+  } else if (t4.w > 0.5) {
+    float v = dot(p - t3.xy, dd) / max(dot(dd, dd), 1e-6);
+    a *= mix(t4.y, t4.z, clamp((v - t4.x) / max(1.0 - t4.x, 1e-4), 0.0, 1.0));
+  }
+  return a;
+}
+// A lumen level eases into the low band as the vessel fades (see TUBE_FADE); casing and glow levels stay.
+float tubeFadeLevel(float f, float a) {
+  if (f < L_LUMEN0) return f;
+  float k = (f - L_LUMEN0) / L_LUMEN_H, s = smoothstep(L_FADE_A, 1.0, a);
+  return mix(L_FADE0 + L_FADE_H * k, f, s);
+}
 void main() {
   int id = int(aRow + 0.5);
   vRow = id;
@@ -285,6 +348,7 @@ void main() {
   bool sel = (int(texelFetch(tube, ivec2(2, id), 0).z + 0.5) & ${F_SEL}) != 0;
   float w = texelFetch(tube, ivec2(0, id), 0).w * celK + (sel ? selPad : 0.0) + aaPad + padU;
   vec3 q = tubePlace(id, aV, w, hRef, glow);
+  if (!glow) q.z = tubeFadeLevel(q.z, tubeAlpha(id, q.xy));
   vec3 d = world * vec3(q.xy, 1.0);
   d.xy += lOff;
   gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 2.0 * (tubeBase + (1.0 - q.z) * tubeH) - 1.0, 1.0);

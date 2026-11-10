@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   TUBE_CAP, TUBE_ARC, TUBE_ACROSS, TUBE_RINGS, TUBE_HEX, TUBE_KIND, GRID_VERTS, DOME_VERTS, DOME_BASE, TRAP_BASE, TUBE_VERTS, TUBE_LEVEL,
-  tubeIndex, tubeVertex, tubeSampleOf, tubeWidth, tubeStripVS,
+  tubeIndex, tubeVertex, tubeSampleOf, tubeWidth, tubeStripVS, TUBE_FADE, tubeAlpha, tubeFadeLevel,
 } from '../src/ui/tube-geo.js';
 import { N_SAMPLES, N_QUADS, MIN_RADIUS, STRIP_VS_GLSL, stripVertex, bevelled } from '../src/ui/veins-mesh.js';
 import { MP } from '../src/ui/veins-mesh-glsl.js';
@@ -316,6 +316,73 @@ test('a segment quad: collapsed to the samples unless either end is bevelled, th
   assert.ok(T.slice(first + 31 * 2, first + 33 * 2).some((t) => Math.abs(t.a2) > 1) && T.slice(first + 31 * 2, first + 33 * 2).every((t) => t.a2 >= 0));
 });
 
+test('a fading vessel\'s lumen sits below every opaque lumen and above its own casing, and never steps as the alpha changes', () => {
+  const F = TUBE_FADE;
+  assert.ok(F.L0 > L.CASE1 && F.L0 + F.H < L.LUMEN0, 'the low band is between the casing and the lumens');
+  // casing and glow levels are never moved; an opaque lumen is not moved
+  for (const f of [L.GLOW0, L.GLOW_WALL, L.GLOW1, L.CASE0, L.CASE1]) for (const a of [0, 0.2, 0.7, 1]) assert.equal(tubeFadeLevel(f, a), f);
+  for (const f of [L.LUMEN0, 0.45, L.LUMEN0 + L.LUMEN_H]) assert.equal(tubeFadeLevel(f, 1), f);
+  // wholly faded: every lumen level lands in the band, in the same order
+  let prev = -1;
+  for (let k = 0; k <= 10; k++) {
+    const f = L.LUMEN0 + (L.LUMEN_H * k) / 10, g = tubeFadeLevel(f, F.A);
+    assert.ok(g >= F.L0 - 1e-12 && g <= F.L0 + F.H + 1e-12 && g > prev, `level ${f} -> ${g}`);
+    prev = g;
+    assert.equal(tubeFadeLevel(f, 0), g, 'at or under FADE_A the same');
+  }
+  // between: continuous and falling as the alpha falls
+  for (const f of [L.LUMEN0, 0.5, 0.8]) {
+    let last = tubeFadeLevel(f, 1);
+    for (let a = 1; a >= 0; a -= 0.01) { const g = tubeFadeLevel(f, a); assert.ok(g <= last + 1e-12 && last - g < 0.02, `a ${a.toFixed(2)}: ${last} -> ${g}`); last = g; }
+  }
+});
+
+test('tubeAlpha: the row\'s alpha as vesAttrs reads it (base, linear fade, radial fade, dip)', () => {
+  const t3 = [0, 0, 100, 0];
+  assert.equal(tubeAlpha({ a: 0.6, t3, t4: [0, 0, 0, 0] }, 50, 7), 0.6);
+  // linear: from t4.y at t4.x of the way along to t4.z at the end
+  const lin = { a: 1, t3, t4: [0.2, 1, 0, 1] };
+  assert.equal(tubeAlpha(lin, 10, 0), 1);
+  assert.ok(Math.abs(tubeAlpha(lin, 60, 0) - 0.5) < 1e-12);
+  assert.equal(tubeAlpha(lin, 100, 0), 0);
+  // radial (t3.z the reach from t3.xy): t4.y at the centre falling to 0 at the reach
+  const rad = { a: 1, t3: [10, 10, 20, 0], t4: [0, 0.8, 0.5, 2] };
+  assert.ok(Math.abs(tubeAlpha(rad, 10, 10) - 0.8) < 1e-12);
+  assert.ok(Math.abs(tubeAlpha(rad, 10 + 9, 10) - 0.5) < 1e-12);
+  assert.ok(Math.abs(tubeAlpha(rad, 10 + 20, 10)) < 1e-12);
+  // dip: down to t4.z at t4.x along, back to solid at the end
+  const dip = { a: 0.9, t3, t4: [0.5, 1, 0.2, 3] };
+  assert.ok(Math.abs(tubeAlpha(dip, 0, 0) - 0.9) < 1e-12);
+  assert.ok(Math.abs(tubeAlpha(dip, 50, 0) - 0.9 * 0.2) < 1e-12);
+  assert.ok(Math.abs(tubeAlpha(dip, 100, 0) - 0.9) < 1e-12);
+});
+
+test('a faded branch overlapping its trunk: every lumen vertex of the fading branch is below every lumen vertex of the opaque trunk', () => {
+  const trunk = bent(5, 4, 0), branch = bent(5, 3, 20);
+  const o = (fade) => ({ w: 1.58, hRef: 4, fade });
+  const Vt = place(trunk.P, trunk.R, o({ a: 1, t3: [0, 0, 1, 0], t4: [0, 0, 0, 0] }));
+  for (const base of [0.3, 0.6, 0.9]) {
+    const Vb = place(branch.P, branch.R, o({ a: base, t3: [0, 0, 1, 0], t4: [0, 0, 0, 0] }));
+    let tMin = 1, bMax = 0, bMin = 1;
+    for (let r = 0; r < TUBE_RINGS; r++) for (let a = 2; a <= 8; a++) {
+      tMin = Math.min(tMin, Vt[3 * v(r, a) + 2]); bMax = Math.max(bMax, Vb[3 * v(r, a) + 2]); bMin = Math.min(bMin, Vb[3 * v(r, a) + 2]);
+    }
+    assert.ok(Math.abs(tMin - L.LUMEN0) < 1e-12, 'the opaque trunk keeps its levels');
+    if (base <= TUBE_FADE.A + 0.01) assert.ok(bMax < tMin, `alpha ${base}: faded lumen ${bMax} under the trunk's lowest ${tMin}`);
+    assert.ok(bMin > L.CASE1, 'and above its own casing');
+    // its casing skirt and everything but the lumen is as before
+    const Vp = place(branch.P, branch.R, { w: 1.58, hRef: 4 });
+    for (let r = 0; r < TUBE_RINGS; r++) for (const a of [0, 1, 9, 10]) assert.equal(Vb[3 * v(r, a) + 2], Vp[3 * v(r, a) + 2]);
+  }
+  // a glow pass is not touched
+  const Vg = place(branch.P, branch.R, { w: 1.58, hRef: 4, glow: true, fade: { a: 0.1, t3: [0, 0, 1, 0], t4: [0, 0, 0, 0] } });
+  for (let q = 0; q < TUBE_VERTS; q++) assert.ok([L.GLOW0, L.GLOW_WALL, L.GLOW1].includes(Vg[3 * q + 2]));
+  // a vessel fading along its length steps by no more than a smooth ease from ring to ring
+  const lin = { a: 1, t3: [0, 0, 63 * 5, 0], t4: [0, 1, 0.1, 1] }, V1 = place(trunk.P, trunk.R, o(lin));
+  let last = V1[3 * v(TUBE_CAP, 5) + 2];
+  for (let i = 1; i < N_SAMPLES; i++) { const g = V1[3 * v(TUBE_CAP + i, 5) + 2]; assert.ok(Math.abs(g - last) < 0.05, `ring ${i}: ${last} -> ${g}`); last = g; }
+});
+
 test('tubeWidth: casing * celK + selection pad (selected rows only) + aaPad + padU', () => {
   assert.equal(tubeWidth(0.8, 1.6, 4, 0.3, 2, false), 0.8 * 1.6 + 0.3 + 2);
   assert.equal(tubeWidth(0.8, 1.6, 4, 0.3, 2, true), 0.8 * 1.6 + 4 + 0.3 + 2);
@@ -367,6 +434,10 @@ test('the GLSL holds the numbers of the JS twin: levels, grid sizes, the depth f
   assert.ok(VS.includes(`const int T_TRAP = ${TUBE_KIND.TRAP};`));
   assert.ok(VS.includes('if (!(mBevelled(id, r, w) || mBevelled(id, r + 1, w))) return vec3(q, lv);'));
   assert.ok(VS.includes('mRW(id, r + cn, w) * mNrm(mSeg(id, r, w), ac == 1 ? 1.0 : -1.0)'));
+  assert.ok(VS.includes(`const float L_FADE_A = ${TUBE_FADE.A};`) && VS.includes(`const float L_FADE0 = ${TUBE_FADE.L0};`) && VS.includes(`const float L_FADE_H = ${TUBE_FADE.H};`));
+  assert.ok(VS.includes('if (!glow) q.z = tubeFadeLevel(q.z, tubeAlpha(id, q.xy));'));
+  assert.ok(VS.includes('a *= v < t4.x ? mix(t4.y, t4.z, smoothstep(0.0, t4.x, v)) : mix(t4.z, 1.0, smoothstep(t4.x, 1.0, v));'));
+  assert.ok(VS.includes('return mix(L_FADE0 + L_FADE_H * k, f, s);'));
   // it places by the Mesh's own functions
   for (const fn of ['mSeg(', 'mNrm(', 'mMitreAB(', 'mDiscOn(', 'PT(', 'mRW(']) assert.ok(VS.includes(fn), fn);
   assert.ok(!VS.replace(STRIP_VS_GLSL, '').includes('meshWorld('), 'the Mesh\'s placement is replaced, not called');
