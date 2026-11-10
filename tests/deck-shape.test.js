@@ -25,7 +25,7 @@ const TILES_CHANGE = new Set([
   'gastric-varices/tips>brto',                                  // the gastric varix tile replaces the liver tile
   'hyperdynamic/resist>volume',                                 // the vitals monitor, then the volume tiles
   'hyperdynamic/loss>over',                                     // the hemoglobin and the volume join for the eight units: where they end is the point
-  'ten-years/d365>carv', 'ten-years/rebleed>tips', 'ten-years/tips>he', // one patient over ten years: the tiles follow the event
+  'ten-years/d365>carv', // one patient over ten years: the tiles follow the event
   'variceal-bleed/tear>minutes',                                // "Shock before anemia": the hemoglobin to come joins, for that slide only
 ]);
 

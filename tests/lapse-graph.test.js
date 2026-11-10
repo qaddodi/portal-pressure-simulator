@@ -16,7 +16,7 @@ const lapses = unique.flatMap((d) => d.slides.map((s, i) => ({ d, s, i })).filte
 
 test('a time-lapse slide with no chart of its own gets a graph of two known readings', () => {
   const bare = lapses.filter(({ s }) => s.tool?.kind !== 'flowtime' && s.graph !== false);
-  assert.ok(bare.length >= 24, `at least 24 time-lapse slides carry a graph (found ${bare.length})`);
+  assert.ok(bare.length >= 18, `at least 18 time-lapse slides carry a graph on their words (found ${bare.length}; the rest took theirs up into the instrument card, 10 Nov 2026)`);
   const none = bare.filter(({ s }) => !graphLines(s)).map(({ d, s }) => `${d.id}/${s.id}`);
   assert.deepEqual(none, [], 'every one of them plots two readings');
   for (const { d, s } of bare) {

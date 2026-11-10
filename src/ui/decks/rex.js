@@ -84,7 +84,7 @@ export const MESO_REX = {
       ask: ['What does every other shunt trade for a lower gradient?', 'Blood to the liver. A Meso-Rex bypass does not, because the blood goes into the liver through the left portal vein.'],
     },
     {
-      id: 'months', days: 180, lapse: { seconds: 8 }, cam: 'portal', data: 'tiles', tiles: ['spleen', 'plt'], graph: ['pv', 'ssm'], key: ['spleen', 'plt'], delta: 'flows',
+      id: 'months', days: 180, lapse: { seconds: 8 }, cam: 'portal', tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'ssm'], title: 'Portal pressure and spleen stiffness over six months' }, data: 'tiles', tiles: ['spleen', 'plt'], key: ['spleen', 'plt'], delta: 'flows',
       kicker: 'The bypass', site: 'pre', title: 'Months later the spleen shrinks and the platelets rise',
       line: 'Six months on, the spleen measures {spleen} and the platelets have risen to {plt}, as the portal pressure falls and the collaterals shrink.',
       notes: 'With the bypass open the portal pressure is lower, so the collaterals shrink, the varices settle and the congested spleen gets smaller. The platelets that the spleen was holding go back into the blood. In the model this takes months, not days, and the spleen stiffness falls with it. In a child the bypass is judged by the same signs: the size of the spleen, the platelet count and the varices at endoscopy. Annual surveillance is advised for shunts that carry portal blood into the systemic veins (Baveno VIII 9.36); the Meso-Rex graft carries it into the liver.',

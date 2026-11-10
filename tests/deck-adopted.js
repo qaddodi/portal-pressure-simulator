@@ -196,7 +196,7 @@ export const ADOPTED = {
   'ten-years/bleed': ['milestone', 'calipers'],
   'ten-years/bands': ['calipers'],
   'ten-years/rebleed': ['milestone', 'kind:profile', 'tool.from', 'tool.fromLabel'],
-  'ten-years/tips': ['milestone', 'kind:profile', 'tool.from', 'tool.fromLabel', 'procedure'],
+  'ten-years/tips': ['milestone', 'procedure'],
   'ten-years/he': ['kind:profile', 'lens:since', 'since', 'sinceLabel'],
   'ten-years/he-answer': ['kind:criteria'],
   'ten-years/list': ['milestone', 'kind:criteria'],

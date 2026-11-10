@@ -53,7 +53,7 @@ export const CIRCUIT = withPoints({
       ask: ['Which resistance sets the portal inflow?', 'The splanchnic (gut) arterioles: they are the largest resistance before the portal vein.'],
     },
     {
-      id: 'meal', ...MEAL, view: C, cam: 'gutLiver', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
+      id: 'meal', ...MEAL, view: C, cam: 'gutLiver', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], tool: { kind: 'flowtime', clock: 'meal', lines: ['ppg', 'pvFlow'], keepTiles: true, title: 'PPG and portal flow around a meal' }, data: 'tiles', tiles: ['pvFlow', 'ppg'], delta: true,
       kicker: K, title: 'A meal raises portal flow but barely the gradient',
       line: 'A healthy liver has very little resistance, so even a large rise in flow adds little pressure (gradient = flow × resistance).',
       notes: 'In people portal flow rises by 40 to 80% after a meal; the model shows a rise of about half. The Q term. The rise in the gradient is the rise in flow times the hepatic resistance, and a healthy liver\'s resistance is small. The same meal on a cirrhotic liver comes back two slides on. The meal plays over a few seconds, as it takes half an hour in a patient, without aging the disease.',
@@ -71,7 +71,7 @@ export const CIRCUIT = withPoints({
     },
     {
       id: 'both', ...MEAL,
-      question: 'In cirrhosis, will the same meal raise the gradient more?', view: C, cam: 'gutLiver', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
+      question: 'In cirrhosis, will the same meal raise the gradient more?', view: C, cam: 'gutLiver', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], tool: { kind: 'flowtime', clock: 'meal', lines: ['hvpg', 'pvFlow'], keepTiles: true, title: 'HVPG and portal flow around a meal' }, data: 'tiles', tiles: ['pvFlow', 'hvpg'], delta: true,
       kicker: K, site: 'sin', title: 'In cirrhosis the same meal raises the gradient more',
       line: 'The gradient rises more even though the flow rises less, because the extra flow now crosses a higher resistance.',
       notes: 'In cirrhosis the splanchnic arterioles dilate for good (nitric oxide, glucagon, bacterial products), so the inflow stays high: the hyperdynamic circulation. A raised resistance and a raised inflow multiply. The rise is less than the resistance alone would predict: in cirrhosis the meal raises flow less, and part of it leaves through collaterals. Large transfusions raise the portal pressure the same way and can provoke a variceal bleed; meals may too.',

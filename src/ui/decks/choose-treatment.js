@@ -77,7 +77,7 @@ export const CHOOSE_TREATMENT = {
       ask: ['The same woman had isolated heterozygous factor V Leiden instead. What does Fig. 5 offer?', 'A permanent factor that is not major, with the OCP removed: a lower-dose DOAC can be considered for the long term (weak recommendation).'],
     },
     {
-      id: 'a5', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, lapse: { seconds: 8, from: 'DIPS placed', to: '2 months later' }, cam: 'dips', labels: ['RHV', 'IVCS', 'RA'], mark: { edges: ['DIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['ppg', 'asc'], key: ['asc'],
+      id: 'a5', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, lapse: { seconds: 8, from: 'DIPS placed', to: '2 months later' }, cam: 'dips', labels: ['RHV', 'IVCS', 'RA'], mark: { edges: ['DIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'asc'], keepTiles: true, title: 'PPG and ascites over two months' }, data: 'tiles', tiles: ['ppg', 'asc'], key: ['asc'],
       vignette: 'A 35-year-old woman with polycythemia vera has had Budd–Chiari syndrome for 2 months. Her ascites stays tense on anticoagulation and diuretics, and venography found no short stenosis.',
       caseQ: 'Which shunt decompresses her liver?',
       kicker: 'Outflow', site: 'post', title: 'A shunt straight to the IVC',

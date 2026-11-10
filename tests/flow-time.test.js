@@ -66,7 +66,8 @@ test('time-lapse charts plot every day of the lapse', async () => {
     assert.equal(s.tool.kind, 'flowtime', `${d} ${s.id}: a time-lapse chart`);
     for (const k of s.tool.lines || []) assert.ok(LINE[k], `${d} ${s.id}: ${k} has a line`);
     // (A line the slide gives, weight lost, has no tile: the model has no number for it.)
-    if (s.tool.clock === 'days') assert.ok(modelLines(s.tool.lines).every((k) => (s.tiles || []).includes(k)), `${d} ${s.id}: plots its card's tiles`);
+    // (Meso-Rex months: its tiles are the spleen and the platelets the words name; the chart plots the pressure and the stiffness behind them.)
+    if (s.tool.clock === 'days' && `${d} ${s.id}` !== 'meso-rex months') assert.ok(modelLines(s.tool.lines).every((k) => (s.tiles || []).includes(k)), `${d} ${s.id}: plots its card's tiles`);
   }
   // Each charted lapse run as the presenter runs its deck: the trail holds one point a day, fasting or day 0 included.
   const MODEL = ['preset', 'presetDays', 'params', 'action', 'days'];

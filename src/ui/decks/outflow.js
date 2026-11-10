@@ -66,7 +66,7 @@ export const OUTFLOW = {
       ask: ['Why can the wedge be read here but not when the hepatic veins are clotted?', 'Here the veins are open, so the catheter can wedge, and the resistance lies between the wedge and the free reading.'],
     },
     {
-      id: 'recover', lens: 'heat', days: 30, ramp: { 'fibrosis.R.post': [32, 1], 'fibrosis.L.post': [32, 1] }, lapse: { seconds: 6 }, cam: 'lobule:central', terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'sos',
+      id: 'recover', lens: 'heat', days: 30, ramp: { 'fibrosis.R.post': [32, 1], 'fibrosis.L.post': [32, 1] }, lapse: { seconds: 6 }, cam: 'lobule:central', terms: { 'central veins': 'lobule:central' }, tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over the month' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'sos',
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Most patients recover',
       line: 'As the lining heals the central veins clear; over the following weeks the ascites drains away and the HVPG falls to {hvpg}.',
       notes: 'Mild and moderate disease resolves with careful fluid balance, diuretics and pain relief. Severe disease, with kidney or lung failure, carries a high mortality, and defibrotide is the treatment for it. Prevention matters: gentler conditioning where possible, and ursodeoxycholic acid in many centers.',

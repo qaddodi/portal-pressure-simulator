@@ -16,7 +16,7 @@
 //   tool: { kind: 'flowtime' }                      portal pressure and portal flow around a meal, the slide's time-lapse on a
 //                                                   teaching clock in minutes (flow-time.js), drawn as it plays
 //   tool: { kind: 'evgraph', title? }                a TIPS, BRTO or BATO slide's procedure graph (event-graph.js) in the data card, drawn live after the stent as the presenter plays it
-//   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }
+//   tool: { kind: 'flowtime', clock: 'days', lines: [lower, upper] }   (keepTiles: true keeps the tiles for its two lines on a laptop or tablet too)
 //                                                   the same chart over a disease time-lapse: two fingerprint keys
 //                                                   (flow-time.js LINE), one point a model day, drawn as it plays
 //   tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 } }

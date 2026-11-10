@@ -43,8 +43,8 @@ test('every slide whose procedure changes the patient and shows two readings car
   assert.equal(eventLines({ procedure: 'tips', tiles: ['ppg', 'liver'], graph: false }), null, 'switched off');
   assert.deepEqual(eventLines({ procedure: 'tips', tiles: ['liver', 'ppg'] }), ['ppg', 'liver'], 'the pressure below');
   // (Every TIPS a slide plays: each graphs its PPG, and the reading its words are about.)
-  const tips = Object.fromEntries(procSlides.filter(({ s }) => kindOf(s) === 'tips').map(({ d, s }) => [`${d.id}/${s.id}`, eventLines(s)]).filter(([, l]) => l));   // (ten-years/tips has graph: false: its instrument is the before/after chart)
-  assert.deepEqual(tips, { 'shunts/play': ['ppg', 'liver'], 'gastric-varices/tips': ['ppg', 'gv'], 'variceal-bleed/tips': ['ppg', 'varix'] });
+  const tips = Object.fromEntries(procSlides.filter(({ s }) => kindOf(s) === 'tips').map(({ d, s }) => [`${d.id}/${s.id}`, eventLines(s)]).filter(([, l]) => l));
+  assert.deepEqual(tips, { 'shunts/play': ['ppg', 'liver'], 'gastric-varices/tips': ['ppg', 'gv'], 'variceal-bleed/tips': ['ppg', 'varix'], 'ten-years/tips': ['ppg', 'liver'] });
   // (BRTO and BATO: the fundal varix they close, and the PPG that rises as its outlet goes; no PPG goal, only its red cut-off.)
   for (const id of ['brto', 'bato']) {
     const s = unique.find((d) => d.id === 'gastric-varices').slides.find((x) => x.id === id), g = eventGraphOf(s);

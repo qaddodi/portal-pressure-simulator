@@ -14,7 +14,7 @@ export const shownBy = (s) => {
   if (t.kind === 'vitals') return Array.isArray(t.show) ? t.show : [];
   return [];
 };
-export const ownKeys = (s, onPhone) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !onPhone) && !shownBy(s).includes(k));
+export const ownKeys = (s, onPhone) => (s.tiles || []).filter((k) => !(s.tool?.kind === 'flowtime' && s.tool.lines?.includes(k) && !onPhone && !s.tool.keepTiles) && !shownBy(s).includes(k));
 export const tileKeys = (s, onPhone) => [...ownKeys(s, onPhone), ...(s.scopeTile ? ['scope'] : []), ...(s.hvpgResp && !s.tiles?.includes('hvpgFall') ? ['hvpgFall'] : [])];
 
 // An instrument card is one card, one fixed size, whatever readings go with it (Mohammad, 7 Nov 2026: "get rid of tucking untucking card").

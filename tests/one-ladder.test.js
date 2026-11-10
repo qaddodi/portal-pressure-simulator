@@ -52,7 +52,8 @@ test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' pro
   // (Ten years' Year 1 and carvedilol slides play the catheter on the figure and their tracing follows it: Mohammad, 5 Nov 2026, "no hvpg catheter or animations".)
   for (const id of ['d365', 'carv']) { assert.deepEqual(at('ten-years.js', id).tool, { kind: 'hvpg', catheter: true }, id); assert.equal(at('ten-years.js', id).cath, 'result', id); }
   assert.deepEqual(at('ten-years.js', 'rebleed').tool, { kind: 'profile', from: 'bands', fromLabel: 'Year 8' });
-  assert.deepEqual(at('ten-years.js', 'tips').tool, { kind: 'profile', from: 'rebleed', fromLabel: 'Before TIPS' });
+  // (The TIPS slide's instrument is the live graph of the stent, not a profile, Mohammad 10 Nov 2026: the teaching card holds no graph.)
+  assert.equal(at('ten-years.js', 'tips').tool.kind, 'evgraph');
   const prof = readFileSync(new URL('../src/ui/tool-profile.js', import.meta.url), 'utf8');
   assert.match(prof, /fromLabel: typeof t\?\.fromLabel === 'string' && t\.fromLabel\.trim\(\) \? t\.fromLabel\.trim\(\) : 'Before'/);
   assert.match(prof, /placeLineNames\(g, tw, goal, hl, bf, s, brk, cfg\.fromLabel, pl \|\| \[\]\)/, 'the faint line is named as the slide asks');
