@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { memberOf } from '../src/ui/veins-mesh.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import { WEB_FLOATS, WEB_ARC, WEB_MIN_DEG, WEB_MAX_DEG, webGeometry } from '../src/ui/tube-joint.js';
 import { webInstances, joinLegs, tubeRows, TUBE_ROW_FLOATS, TUBE_NO_END } from '../src/ui/tube-data.js';
@@ -146,9 +145,8 @@ for (const [name, run] of sets) {
   test(`${name}: row records on the real data: ends carry the right trunk row and sample`, { timeout: BOOT_MS + 20000 }, async (t) => {
     const d = loadCapture(await run);
     const rows = tubeRows(d.tube, d.nRows, d.ent, {}, d.pts);
-    let ends = 0, exact = 0, clipped = 0, dotted = 0;
+    let ends = 0, exact = 0, clipped = 0, dotted = 0, continues = 0;
     // each end flagged is a leg of some join whose trunk is the row stored, at the sample stored, and the end is the nearest sample of the row to that join
-    const nearest = (row, x, y) => { let bi = 0, bd = Infinity; for (let i = 0; i < N_SAMPLES; i++) { const dd = Math.hypot(d.P[row][2 * i] - x, d.P[row][2 * i + 1] - y); if (dd < bd) { bd = dd; bi = i; } } return bi; };
     for (const r of d.rows) {
       const o = r.id * TUBE_ROW_FLOATS;
       assert.equal(rows.rows[o], r.id);
@@ -161,23 +159,35 @@ for (const [name, run] of sets) {
         if (v === TUBE_NO_END) continue;
         ends++;
         assert.equal(rows.rows[o + 3], 3, `row ${r.id} has an end but is not exact`);
-        const tRow = Math.floor(v / N_SAMPLES), tSample = v % N_SAMPLES;
+        const cont = v <= -2, code = cont ? -(v + 2) : v, tRow = Math.floor(code / N_SAMPLES), tSample = code % N_SAMPLES;
+        if (cont) {
+          continues++;
+          // the partner's end points back at this row, at this row's end sample
+          const back = rows.rows[tRow * TUBE_ROW_FLOATS + (tSample === 0 ? 1 : 2)];
+          assert.equal(back, -(2 + r.id * N_SAMPLES + end), `row ${r.id} continues row ${tRow}, which does not continue it back`);
+        }
         let found = false;
         for (let e = 0; e < d.ent.length / 8 && !found; e++) {
           const q = e * 8;
           if (!(d.ent[q + 2] > 0)) continue;
-          let isMember = false, trunkHere = false;
-          for (let m = 0; m < 4; m++) { const mem = memberOf(d.ent[q + 4 + m]); if (!mem) continue; if (mem.row === r.id) isMember = true; if (mem.row === tRow && mem.mark > 0.1) trunkHere = true; }
-          if (!isMember || !trunkHere) continue;
-          if (nearest(r.id, d.ent[q], d.ent[q + 1]) === end && nearest(tRow, d.ent[q], d.ent[q + 1]) === tSample) found = true;
+          const L = joinLegs(d.ent, q, d.pts, d.nRows);
+          let mine = false, theirs = false, through = false;
+          for (let a = 0; a < L.n; a++) {
+            if (L.row[a] === r.id && L.sample[a] === end) mine = true;
+            if (L.row[a] === tRow && L.sample[a] === tSample && (cont || L.mark[a] > 0.1 || L.row.filter((x) => x === tRow).length === 2 || rows.rows[tRow * TUBE_ROW_FLOATS + (tSample === 0 ? 1 : 2)] <= -2)) theirs = true;
+            if (L.row[a] === tRow && L.row.filter((x) => x === tRow).length === 2) through = true;
+          }
+          if (!mine || !theirs) continue;
+          const trunkIsPair = rows.rows[tRow * TUBE_ROW_FLOATS + (tSample === 0 ? 1 : 2)] <= -2;   // (no row runs through: the target is the first row of the join's continuing pair)
+          if (cont ? L.row.filter((x) => x === r.id).length === 1 && L.row.filter((x) => x === tRow).length === 1 : through || trunkIsPair || L.mark.some((m) => m > 0.1)) found = true;   // (a continuation: two rows' end legs of one join)
         }
-        assert.ok(found, `row ${r.id} end ${end} says it ends on row ${tRow} sample ${tSample}, but no join of the data has that`);
+        assert.ok(found, `row ${r.id} end ${end} says it ${cont ? 'continues' : 'ends on'} row ${tRow} sample ${tSample}, but no join of the data has that`);
       }
       if (rows.rows[o + 1] === TUBE_NO_END && rows.rows[o + 2] === TUBE_NO_END) {
         const isClip = d.tube[r.id * 52 + 20] > 1e-6 || d.tube[r.id * 52 + 21] < 1 - 1e-6, isDot = (d.tube[r.id * 52 + 10] & 8) !== 0;
         assert.equal(kind, isClip || isDot ? 1 : 0, `row ${r.id}`);
       }
     }
-    t.diagnostic(`${d.rows.length} rows: ${exact} exact (${ends} ends on a vessel, ${clipped} clipped, ${dotted} dotted), ${d.rows.length - exact} plain`);
+    t.diagnostic(`${d.rows.length} rows: ${exact} exact (${ends} ends on a vessel or continuing one, of which ${continues} continuations, ${clipped} clipped, ${dotted} dotted), ${d.rows.length - exact} plain`);
   });
 }

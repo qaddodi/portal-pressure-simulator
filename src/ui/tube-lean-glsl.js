@@ -20,6 +20,8 @@
 //   ALONG_GLSL  the alongAt function (veins-gl.js)
 import { shadeGLSL, MP } from './veins-mesh-glsl.js';
 import { celGLSL, celShadeJS, CEL } from './tube-cel-glsl.js';
+import { tubeJoinGLSL, END_BASE, END_SEGS, trunkGapJS } from './tube-join-glsl.js';
+export { END_SEGS, trunkGapJS };
 
 /** The depth prepass for plain rows: no outputs, no work; drawn with the colour masked off. */
 export const TUBE_DEPTH_FS = `#version 300 es
@@ -27,10 +29,6 @@ precision highp float;
 void main() {}
 `;
 
-// The open end looks at the trunk's centreline over this many segments each side of the sample the branch ends at.
-export const END_SEGS = 2;
-// vEnd = trunk row * END_BASE + the trunk's sample there (the plan's contract: 64 = N_SAMPLES).
-const END_BASE = 64;
 
 export const tubeLeanFS = (K) => {
   const { F_SEL, F_DOTTED, F_NOCASE, F_SHADOW, EDGE, ENT_W, N_SAMPLES, MAX_TIERS, S_OFF, ALONG_GLSL } = K;
@@ -92,21 +90,7 @@ vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
 ${shadeGLSL(K)}
 ${celGLSL(K)}
 
-// How far p lies inside (negative) or outside the trunk's lumen the row ends on: the distance to its centreline over the ${END_SEGS * 2} segments about
-// its sample, less its radius there. e: trunk row * ${END_BASE} + sample.
-float trunkGap(vec2 p, int e) {
-  int tr = e / ${END_BASE}, sm = e % ${END_BASE};
-  float best = 1e9;
-  for (int k = -${END_SEGS}; k < ${END_SEGS}; k++) {
-    int j = clamp(sm + k, 0, ${N_SAMPLES - 2});
-    vec2 a = PT(tr, j), ba = PT(tr, j + 1) - a;
-    vec2 rr = texelFetch(rad, ivec2(j, tr), 0).rg;
-    float h = clamp(dot(p - a, ba) / max(dot(ba, ba), 1e-8), 0.0, 1.0);
-    best = min(best, length(p - a - ba * h) - mix(rr.x, rr.y, h));
-  }
-  return best;
-}
-
+${tubeJoinGLSL(N_SAMPLES)}
 void main() {
   // (Only the shape and its lift: a glow pass stays on the stage 1 program.)
   if (mPass < ${MP.SHAPE_K} || mPass > ${MP.LIFT}) discard;
@@ -137,13 +121,11 @@ void main() {
     if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
     discard;
   }
-  // The open end: a row that ends on another vessel draws no outline inside that vessel's lumen.
-  if (D > 0.0) {
-    float e = vI < 8.0 ? vEnd.x : vI > LAST - 8.0 ? vEnd.y : -1.0;
-    if (e > -0.5 && trunkGap(p, int(e + 0.5)) < 0.0) {
-      if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
-      discard;
-    }
+  // A row's end on another row (tube-join-glsl.js): a pixel inside the trunk the row ends on, or beyond a continuation's bisector plane, is the other row's.
+  JoinEnd je = joinEnd(id, vI, vEnd, p, R, px);
+  if (je.drop) {
+    if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
+    discard;
   }
   // Nothing to draw here: settled now, as the vessel shader settles it (no lit vessel's glow in reach, the outline far off).
   if (!(T(id, 10).a > 0.0 && D - T(id, 0).w < 15.7) && D > 8.01 + 2.0 * px) {
@@ -160,6 +142,9 @@ void main() {
   if (ti != tierNow && isWeb == 0) discard;
   int tt = isWeb == 1 ? tierNow : ti;   // (the tier it is drawn in)
   int grp = tierGroup[tt];
+  // Near that end the row takes on the other row's colour and opacity (je.w), so the two meet at one look.
+  JoinLook jo = JoinLook(vec3(0.0), 0.0, 0.0);
+  if (je.w > 0.0) { jo = joinOther(je, p, occl); aCol = mix(aCol, jo.col, je.w); }
   // Whether a lumen colour reaches this pixel: through a lumen drawn here (aL > 0) or a glow in its own colour.
   bool dep = false;
   vec4 gc, ge;
@@ -178,6 +163,10 @@ void main() {
   float wsel = grp == 1 ? aSel : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
   float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
   float lumA = aL * aA * tierAlpha[tt] * gf;
+  float cOwn = aA * tierAlpha[tt] * (grp == 0 ? 1.0 - occl * aOf : 1.0), lOwn = aA * tierAlpha[tt] * gf;
+  float jc = 1.0, jl = 1.0;   // (the join's share of the other row's opacity: the colour's factor and the lumen's)
+  if (je.w > 0.0) { jc = mix(cOwn, jo.aC, je.w) / max(cOwn, 1e-3); jl = mix(lOwn, jo.aL, je.w) / max(lOwn, 1e-3); }
+  lumA *= jl;
   bool lum = lumA > 0.02 && !dotted;
   // The stream shown here: this lumen, with its place along and across for the compositor's blood.
   uint gId = 0u;
@@ -188,6 +177,7 @@ void main() {
     gId = uint(id + 1); gS = u * t5.z; gY = clamp(across / max(R, 1e-3), -1.0, 1.0); gW = lumA;
   }
   if (grp == 0) c *= 1.0 - occl * aOf;
+  c *= jc;
   // (The lift: the selected vessel's own share, laid over the network.)
   if (mPass == ${MP.LIFT}) {
     vec4 lc = c * wsel;
@@ -211,21 +201,6 @@ void main() {
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 const mix = (a, b, t) => a * (1 - t) + b * t;
 
-/** The trunk's gap for the open end, in JS: p [x, y]; pts the trunk's points [[x, y], ...]; rad the radii [[r0, r1] per segment]; sample the sample the branch ends at.
- *  Negative: p lies inside the trunk's lumen. */
-export function trunkGapJS(p, pts, rad, sample) {
-  let best = 1e9;
-  const last = pts.length - 2;
-  for (let k = -END_SEGS; k < END_SEGS; k++) {
-    const j = clamp(sample + k, 0, last), a = pts[j], b = pts[j + 1];
-    const bx = b[0] - a[0], by = b[1] - a[1], px = p[0] - a[0], py = p[1] - a[1];
-    const h = clamp((px * bx + py * by) / Math.max(bx * bx + by * by, 1e-8), 0, 1);
-    const r = mix(rad[j][0], rad[j][1], h);
-    best = Math.min(best, Math.hypot(px - bx * h, py - by * h) - r);
-  }
-  return best;
-}
-
 /** Which end's vessel a pixel at sample position vI looks at (vEnd.x within 8 samples of the start, vEnd.y within 8 of the end), or -1: the GLSL's pick, in JS. */
 export function endOfJS(vI, vEnd, last = 63) {
   return vI < 8 ? vEnd[0] : vI > last - 8 ? vEnd[1] : -1;
@@ -248,8 +223,8 @@ export function leanDistanceJS(o) {
 
 /**
  * main's arithmetic for one pixel. o carries what the varyings and the row give, and the row's attributes as vesAttrs returns them:
- *   D (vD), R (vRad), g (vG, not unit), u (vI / LAST), clip [from, to, length], dotted, end { p, pts, rad, sample } or null (the open end:
- *   p the pixel, the trunk's points and radii), attrs { tier, flags, wall, col, alpha, hov, sel, edge, of }, tierNow, tierAlpha, grp, netAlpha,
+ *   D (vD), R (vRad), g (vG, not unit), u (vI / LAST), clip [from, to, length], dotted, join { drop, w, other { col, aC, aL } } or null (a row's end on
+ *   another row: tube-join-glsl.js joinEndJS, and the other row's look when w > 0), attrs { tier, flags, wall, col, alpha, hov, sel, edge, of }, tierNow, tierAlpha, grp, netAlpha,
  *   occl, and what celShadeJS takes (px, aa as px * EDGE, light, fx, casing, ring, rimInk, paperInk, F_DIFFUSE, F_EDGE, F_VEIL, F_SEL, F_DOTTED, F_NOCASE),
  *   redraw, reach, lift, isWeb (true for the web program: the row may be in another tier than tierNow; then `grp` and `tierAlpha` are those of tierNow, the tier it is drawn in).
  * Returns { kind: 'discard' | 'empty' | 'draw', colour [r, g, b, a] premultiplied, flow { id, s, y, w } or null, dep }.
@@ -260,10 +235,9 @@ export function tubeLeanJS(o) {
   const none = redraw === 1 ? { kind: 'empty', colour: [0, 0, 0, 0], flow: null, dep: 0 } : { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   const D = leanDistanceJS({ D: o.D, R: o.R, u: o.u, clip, dotted: !!(at.flags & F_DOTTED) });
   if (D >= reach) return none;
-  if (D > 0 && o.end) {
-    // (the end this pixel is nearer to: the caller names it by giving `end` only when vI is within 8 samples of that end)
-    if (trunkGapJS(o.end.p, o.end.pts, o.end.rad, o.end.sample) < 0) return none;
-  }
+  // (A row's end on another row: `join` is joinEndJS's { drop, w } with the other row's look { col, aC, aL } when w > 0; a dropped pixel is the other row's.)
+  const jn = o.join ?? null;
+  if (jn && jn.drop) return none;
   if (!(o.lit && D - at.wall < 15.7) && D > 8.01 + 2 * px) return none;
   if (at.tier !== o.tierNow && !o.isWeb) return { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   if (D > 8 + 2 * px) return { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
@@ -273,15 +247,19 @@ export function tubeLeanJS(o) {
   const aa = o.aa;
   const aL = clamp(0.5 - D / aa, 0, 1);
   const dep = aL > 0 || !!o.glowOwn ? 1 : 0;
-  const cel = celShadeJS({ ...o, D, g, R: o.R, col: at.col, flags, sel: (flags & F_SEL) !== 0, cA, grp, vAt: o.u, hov: at.hov ?? 0, edge: at.edge ?? [0, 0, 0], kn: 0, kcas: 0, aa, aL });
+  const cel = celShadeJS({ ...o, D, g, R: o.R, col: jn && jn.w > 0 && jn.other ? at.col.map((v, i) => mix(v, jn.other.col[i], jn.w)) : at.col, flags, sel: (flags & F_SEL) !== 0, cA, grp, vAt: o.u, hov: at.hov ?? 0, edge: at.edge ?? [0, 0, 0], kn: 0, kcas: 0, aa, aL });
   const tierA = o.tierAlpha ?? 1, scale = at.alpha * tierA;
   let c = cel.map((v) => v * scale);
   const wsel = grp === 1 ? (at.sel ?? 0) : 0;
   const netAlpha = o.netAlpha ?? 1, occl = o.occl ?? 0, of = at.of ?? 1;
   const gf = grp === 0 ? 1 - occl * of : grp === 1 ? mix(netAlpha, 1, wsel) : 1;
-  const lumA = aL * at.alpha * tierA * gf;
+  let lumA = aL * at.alpha * tierA * gf;
+  const cOwn = at.alpha * tierA * (grp === 0 ? 1 - occl * of : 1), lOwn = at.alpha * tierA * gf;
+  const jc = jn && jn.w > 0 && jn.other ? mix(cOwn, jn.other.aC, jn.w) / Math.max(cOwn, 1e-3) : 1, jl = jn && jn.w > 0 && jn.other ? mix(lOwn, jn.other.aL, jn.w) / Math.max(lOwn, 1e-3) : 1;
+  lumA *= jl;
   const lum = lumA > 0.02 && !dotted;
   if (grp === 0) c = c.map((v) => v * (1 - occl * of));
+  c = c.map((v) => v * jc);
   if (o.lift) {
     const lc = c.map((v) => v * wsel);
     return lc[3] < 0.002 ? { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 } : { kind: 'draw', colour: lc, flow: null, dep: 0 };

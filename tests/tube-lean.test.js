@@ -147,22 +147,33 @@ test('a part cut off by the clip is empty, with a round end where the clip stops
   assert.ok(Math.abs(cap - (Math.hypot(0, 0.5) - 10)) < 1e-9, 'a round end');
 });
 
-test('an open end draws no outline inside the trunk it ends on, and the ink outside it', () => {
-  const pts = [[0, 0], [10, 0], [20, 0], [30, 0], [40, 0], [50, 0]], rad = pts.slice(1).map(() => [3, 3]);
+test('a row\'s end on another row: a dropped pixel (inside the trunk, lumen or outline) is the other row\'s, the ink outside it stays', () => {
   const skirt = { ...base, D: 0.5, attrs };
-  const end = (p) => ({ p, pts, rad, sample: 2 });
-  assert.equal(tubeLeanJS({ ...skirt, end: end([20, 1]) }).kind, 'discard', 'inside the trunk\'s lumen (1 from its centreline, radius 3)');
-  assert.equal(tubeLeanJS({ ...skirt, end: end([20, 1]), redraw: 1 }).kind, 'empty');
-  const out = tubeLeanJS({ ...skirt, end: end([20, 5]) });
+  assert.equal(tubeLeanJS({ ...skirt, join: { drop: true, w: 0 } }).kind, 'discard', 'inside the trunk\'s lumen');
+  assert.equal(tubeLeanJS({ ...skirt, join: { drop: true, w: 0 }, redraw: 1 }).kind, 'empty');
+  assert.equal(tubeLeanJS({ ...base, D: -2, join: { drop: true, w: 0 } }).kind, 'discard', 'the lumen too: a capsule end inside a faded trunk is not drawn');
+  const out = tubeLeanJS({ ...skirt, join: { drop: false, w: 0 } });
   assert.equal(out.kind, 'draw', 'outside the trunk');
   near(out.colour, [...deepOf(FILL), 1], 'the ink');
-  assert.equal(tubeLeanJS({ ...skirt, end: null }).kind, 'draw', 'a row with no end');
-  assert.equal(tubeLeanJS({ ...base, D: -2, end: end([20, 1]) }).kind, 'draw', 'a lumen pixel is never cut by it');
+  assert.equal(tubeLeanJS({ ...skirt, join: null }).kind, 'draw', 'a row with no end');
   // the gap: negative inside the lumen, over the four segments about the sample
+  const pts = [[0, 0], [10, 0], [20, 0], [30, 0], [40, 0], [50, 0]], rad = pts.slice(1).map(() => [3, 3]);
   assert.ok(trunkGapJS([20, 1], pts, rad, 2) < 0 && trunkGapJS([20, 5], pts, rad, 2) > 0);
   assert.equal(trunkGapJS([20, 0], pts, rad, 2), -3);
   assert.ok(trunkGapJS([20, 0], pts, rad, 5) > 0 || END_SEGS === 2, 'only the segments about the sample count');
   assert.ok(trunkGapJS([50, 4], pts, rad, 0) > 0, 'far along the trunk: not inside it');
+});
+
+test('near that end the row takes on the other row\'s colour and opacity (the join\'s share w), colour and lumen each by their own formula', () => {
+  const other = { col: [0, 0, 1], aC: 0.2, aL: 0.2 };
+  const own = tubeLeanJS({ ...base, D: -2, join: { drop: false, w: 0 } });
+  const half = tubeLeanJS({ ...base, D: -2, join: { drop: false, w: 0.5, other } });
+  const full = tubeLeanJS({ ...base, D: -2, join: { drop: false, w: 1, other } });
+  assert.ok(half.colour[3] < own.colour[3] && full.colour[3] < half.colour[3], 'the opacity falls toward the other\'s');
+  near([full.colour[3] / own.colour[3]], [0.2 / (attrs.alpha * (base.tierAlpha ?? 1))], 'the factor is other / own', 1e-6);
+  assert.ok(full.flow.w < own.flow.w, 'and the stream\'s visibility with it');
+  const same = tubeLeanJS({ ...base, D: -2, join: { drop: false, w: 1, other: { col: attrs.col, aC: attrs.alpha * (base.tierAlpha ?? 1), aL: attrs.alpha * (base.tierAlpha ?? 1) } } });
+  near(same.colour, own.colour, 'an other row of the same look changes nothing', 1e-6);
 });
 
 test('which end a pixel looks at: the start within 8 samples of it, the end within 8 of the other, none between', () => {
@@ -172,7 +183,7 @@ test('which end a pixel looks at: the start within 8 samples of it, the end with
   assert.equal(endOfJS(30, vEnd), -1);
   assert.equal(endOfJS(7.9, vEnd), 130);
   assert.equal(endOfJS(8, vEnd), -1);
-  assert.match(LEAN, /float e = vI < 8\.0 \? vEnd\.x : vI > LAST - 8\.0 \? vEnd\.y : -1\.0;/, 'the shader picks the same');
+  assert.match(LEAN, /float e = vI < 8\.0 \? vEnd\.x : vI > 55\.0 \? vEnd\.y : -1\.0;/, 'the shader picks the same');
   assert.match(LEAN, /int tr = e \/ 64, sm = e % 64;/, 'and unpacks trunk row * 64 + sample');
 });
 

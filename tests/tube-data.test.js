@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { MAX_TIERS, TUBE_FLOATS } from '../src/ui/veins-mesh-data.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import { WEB_FLOATS } from '../src/ui/tube-joint.js';
+import { endTrunk, endContinues } from '../src/ui/tube-join-glsl.js';
 import { F_DOTTED, TUBE_ROW_FLOATS, TUBE_NO_END, tubeRows, tubeBuckets, rowIsExact, webInstances, websByTier } from '../src/ui/tube-data.js';
 import { scene, straight, ray } from './tube-web-helpers.js';
 
@@ -80,6 +81,44 @@ test('tubeRows: an end of the trunk\'s own does not end it on itself, and a row 
   assert.deepEqual(rec(out.rows, 0), [0, TUBE_NO_END, TUBE_NO_END, 2], 'a trunk is not on a vessel');
   assert.equal(out.rows[2 * 4 + 1], 0 * N_SAMPLES + 0, 'row 2 starts on row 0 at its sample 0');
   assert.equal(out.rows[2 * 4 + 2], 1 * N_SAMPLES + 0, 'and ends on row 1 at its sample 0');
+});
+
+test('tubeRows: a branch ends on the row that runs through its join whether or not the join marks it the trunk (a T with no mark)', () => {
+  const sc = scene([straight(-100, 0, 100, 0, T), straight(0, 0, 0, 100, 2)], [{ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }]);
+  const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
+  assert.equal(out.rows[1 * 4 + 1], endTrunk(0, 31), 'row 1 starts on row 0 at its nearest sample');
+  assert.equal(out.rows[1 * 4 + 2], TUBE_NO_END);
+  assert.deepEqual(rec(out.rows, 0).slice(1, 3), [TUBE_NO_END, TUBE_NO_END], 'the trunk is not on a vessel');
+  assert.ok(rowIsExact(out.rows, 1) && !rowIsExact(out.rows, 0));
+});
+
+test('tubeRows: two rows meeting end to end, bent by 45 degrees at most, continue each other (mutually); a sharper bend, a third row or a taken end does not', () => {
+  const straightPair = scene([straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T)], [{ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }]);
+  let out = tubeRows(straightPair.tube, straightPair.nRows, straightPair.ent, {}, straightPair.pts);
+  assert.equal(out.rows[0 * 4 + 2], endContinues(1, 0), 'row 0 ends where row 1 starts');
+  assert.equal(out.rows[1 * 4 + 1], endContinues(0, N_SAMPLES - 1), 'and row 1 starts where row 0 ends');
+  assert.equal(out.rows[0 * 4 + 1], TUBE_NO_END);
+  assert.ok(rowIsExact(out.rows, 0) && rowIsExact(out.rows, 1) && out.exact === 2);
+  const bent = (deg) => scene([straight(-100, 0, 0, 0, T), ray(0, 0, deg, 100, T)], [{ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }]);
+  for (const [deg, want] of [[30, true], [44, true], [50, false], [90, false]]) {
+    const sc = bent(deg);
+    out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
+    assert.equal(out.rows[0 * 4 + 2] !== TUBE_NO_END, want, `a ${deg} degree bend`);
+    assert.equal(out.rows[1 * 4 + 1] !== TUBE_NO_END, want, `and the partner, at ${deg}`);
+  }
+  // a taken end: row 1's start is already given to another join, so the pair is not made (never half a pair)
+  const three = scene([straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T), straight(-100, 30, 0, 0, T)], [
+    { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [1, 2] },
+    { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] },
+  ]);
+  out = tubeRows(three.tube, three.nRows, three.ent, {}, three.pts);
+  const back = (r, slot) => out.rows[r * 4 + slot];
+  for (const [r, slot] of [[0, 2], [1, 1], [2, 2]]) {
+    const v = back(r, slot);
+    if (v === TUBE_NO_END) continue;
+    const code = -(v + 2), pr = Math.floor(code / N_SAMPLES), ps = code % N_SAMPLES;
+    assert.equal(back(pr, ps === 0 ? 1 : 2), -(2 + r * N_SAMPLES + (slot === 1 ? 0 : N_SAMPLES - 1)), `row ${r} and its partner agree`);
+  }
 });
 
 function tiers() {

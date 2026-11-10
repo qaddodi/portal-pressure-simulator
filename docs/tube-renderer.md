@@ -226,6 +226,26 @@ lumen pass and each piece of a frame share one bucketing and one upload.
 - **Whatever replaces the webs** builds its records in `stage2Prepare` (or the call that replaces it) and nowhere else; nothing in the bundle or the set names webs. Its budget is the numbers
   above: it runs once per morph set (6 a switch) and once for the figure's own binning, over up to about 59k listed entries (a few hundred distinct), and must finish in a free moment.
 
+## Seamless joins at a row's end (10 Nov 2026, after Mohammad's device shots of 138d637)
+
+Two faults the webs could not fix: (1) a branch's round end (its lumen, not only its outline) lay inside the trunk it ends on, so where the trunk is faded (a tier
+alpha, the organ veil: the cava behind the liver) and the branch opaque, the end showed through as a capsule; (2) two rows meeting end to end drew a round cap each
+over the other, a ring wherever their opacities differ. `src/ui/tube-join-glsl.js` is the one GLSL text both fragment shaders (`tubeLeanFS`, `tubeLumenFS`) include
+(`trunkGap`, `joinEnd`, `joinOther`), with its JS twin `joinEndJS`. A row's end in `vEnd` (the row record's endStart / endEnd) is now one of:
+
+| code | meaning | what the row does |
+|---|---|---|
+| `row * 64 + sample` | open end on a trunk | draws nothing inside the trunk's lumen (lumen or outline); within 1.5 of its radii from the trunk's wall it takes the trunk's colour and opacity more and more |
+| `-(2 + row * 64 + sample)` | continuation of that row | ends at the bisector plane of the break, so the two are one surface with no cap or end outline; within 1.5 radii of the plane each takes half of the other's look, so both meet at the mean |
+| `-1` | none | as before |
+
+`tubeRows` (tube-data.js) sets them: an end leg of a join ends on the row that runs through the join (the marked trunk, else the first member with two legs: the
+mark is no longer needed); two rows' ends alone in a join, bent by at most 45 degrees, continue each other, both or neither. The opacity is each shader's own formula
+(`aA * tierAlpha * veil` for the colour, with the network's group fade for the lumen), taken at the other row's end sample and this pixel, so the vessel layer and the
+lumen layer agree. A web keeps its owner's look (known difference 3). Not handled: a branch in a lower tier than its trunk (the trunk's band draws over it, so the
+trunk's outline still crosses the branch's mouth; 1 end in the anatomy, 5 in the circuit), bends over 45 degrees and joins of three rows or more with no row through
+them (they keep caps and webs).
+
 ## Known differences from the plan's list and from Mesh
 
 - No contact shadow; no crossing ring. Same-tier crossings without a join merge (as the Mesh shows them with its ring off).
