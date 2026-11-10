@@ -724,42 +724,36 @@ export function setFigLab(k, v) {
 }
 /** Called with (key, value) each time one of the Figure performance switches changes. */
 export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
-// Mesh vessel renderer (8 Nov 2026; Settings › Display, after Figure size): the figure's vessels drawn as meshes instead of the classic
-// shader. ON by default; stored in pps.vesselMesh as '0' when off, the key removed when on. The renderer reads vesselMesh() and listens
-// with onVesselMesh() (it returns the unsubscribe); this file only keeps the choice.
-let meshOn = true;
-try { meshOn = localStorage.getItem('pps.vesselMesh') !== '0'; } catch (e) { caught('frame:vmesh-r', e); /* storage unavailable */ }
-const meshSubs = new Set();
-export const vesselMesh = () => meshOn;
-export function setVesselMesh(on) {
-  on = !!on;
-  if (meshOn === on) return;
-  meshOn = on;
-  try { if (on) localStorage.removeItem('pps.vesselMesh'); else localStorage.setItem('pps.vesselMesh', '0'); } catch (e) { caught('frame:vmesh-w', e); /* storage unavailable */ }
-  for (const f of meshSubs) f(on);
+// Vessel renderer (Settings › Display, after Figure size): which renderer draws the figure's vessels, one choice of three: 'classic' (the per-pixel
+// shader), 'mesh' (vessels as meshes, 8 Nov 2026; the default) or 'tube' (flat cartoon tubes with an outline and particle blood, 10 Nov 2026). Stored in
+// pps.vesselRenderer, the key removed for the default. A tester's earlier choice is carried over once from the two switches this replaced
+// (pps.vesselTube '1' gave tube; else pps.vesselMesh '0' gave classic), and those keys are removed. The renderer reads vesselMesh() and vesselTube()
+// (each true only for its own choice) and listens with onVesselRenderer() (it returns the unsubscribe); this file only keeps the choice.
+export const VESSEL_RENDERERS = ['classic', 'mesh', 'tube'];
+let rendererNow = 'mesh', rendererKept = false;
+try { const r = localStorage.getItem('pps.vesselRenderer'); if (VESSEL_RENDERERS.includes(r)) { rendererNow = r; rendererKept = true; } } catch (e) { caught('frame:vrend-r', e); /* storage unavailable */ }
+if (!rendererKept) {
+  try {
+    rendererNow = localStorage.getItem('pps.vesselTube') === '1' ? 'tube' : localStorage.getItem('pps.vesselMesh') === '0' ? 'classic' : 'mesh';
+    if (rendererNow !== 'mesh') localStorage.setItem('pps.vesselRenderer', rendererNow);
+    localStorage.removeItem('pps.vesselTube');
+    localStorage.removeItem('pps.vesselMesh');
+  } catch (e) { caught('frame:vrend-m', e); /* storage unavailable */ }
+}
+const rendererSubs = new Set();
+export const vesselRenderer = () => rendererNow;
+export const vesselMesh = () => rendererNow === 'mesh';
+export const vesselTube = () => rendererNow === 'tube';
+export function setVesselRenderer(v) {
+  if (!VESSEL_RENDERERS.includes(v) || rendererNow === v) return;
+  rendererNow = v;
+  try { if (v === 'mesh') localStorage.removeItem('pps.vesselRenderer'); else localStorage.setItem('pps.vesselRenderer', v); } catch (e) { caught('frame:vrend-w', e); /* storage unavailable */ }
+  for (const f of rendererSubs) f(v);
   // (And the figure is drawn again, as after a resolution change: the stage and the other views hear onRenderScale.)
   for (const f of renderSubs) f(renderK);
 }
-/** Called with the new value each time the mesh vessel renderer is switched; returns the unsubscribe. */
-export function onVesselMesh(f) { meshSubs.add(f); return () => meshSubs.delete(f); }
-// Tube vessel renderer (10 Nov 2026; Settings › Display, after the Mesh row): the figure's vessels drawn as flat cartoon tubes with a
-// black outline, the blood as particles. OFF by default; stored in pps.vesselTube as '1' when on, the key removed when off. While on it is
-// used in place of the mesh renderer. The renderer reads vesselTube() and listens with onVesselTube() (it returns the unsubscribe).
-let tubeOn = false;
-try { tubeOn = localStorage.getItem('pps.vesselTube') === '1'; } catch (e) { caught('frame:vtube-r', e); /* storage unavailable */ }
-const tubeSubs = new Set();
-export const vesselTube = () => tubeOn;
-export function setVesselTube(on) {
-  on = !!on;
-  if (tubeOn === on) return;
-  tubeOn = on;
-  try { if (on) localStorage.setItem('pps.vesselTube', '1'); else localStorage.removeItem('pps.vesselTube'); } catch (e) { caught('frame:vtube-w', e); /* storage unavailable */ }
-  for (const f of tubeSubs) f(on);
-  // (And the figure is drawn again, as after a resolution change: the stage and the other views hear onRenderScale.)
-  for (const f of renderSubs) f(renderK);
-}
-/** Called with the new value each time the tube vessel renderer is switched; returns the unsubscribe. */
-export function onVesselTube(f) { tubeSubs.add(f); return () => tubeSubs.delete(f); }
+/** Called with the new choice ('classic', 'mesh' or 'tube') each time the vessel renderer is switched; returns the unsubscribe. */
+export function onVesselRenderer(f) { rendererSubs.add(f); return () => rendererSubs.delete(f); }
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;

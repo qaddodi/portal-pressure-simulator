@@ -1,6 +1,7 @@
 # The Tube vessel renderer, as built (stage 1, 10 Nov 2026)
 
-Settings › Display › **Tube vessel renderer** (default off; `pps.vesselTube` is `'1'` when on). Mohammad's brief (10 Nov): the depth tube
+Settings › Display › **Vessel renderer**: one choice of Classic, Mesh (the default) or Tube (round 2, 10 Nov 2026: it replaced the two switches, Mesh and Tube, which could both be on).
+`frame.js` keeps one value, `vesselRenderer()` (`'classic' | 'mesh' | 'tube'`, `pps.vesselRenderer`, key removed for the default), with `vesselMesh()` and `vesselTube()` as readers that are true for their own choice only; a tester's earlier switches are carried over once. Mohammad's brief (10 Nov): the depth tube
 option of `docs/recommendations/tubes-and-particles-first-principles.md` with smoothed joints, a cel-shaded cartoon look and a black outline.
 The plan is `docs/recommendations/tube-renderer-plan.md`; this file says what was built. Built by four threads: A `src/ui/tube-geo.js`
 (the geometry and the strip's vertex shader), B `src/ui/tube-cel-glsl.js` (`celShade`), C `src/ui/blood-particles.js` (blood style 3, P),
@@ -10,7 +11,7 @@ D (the rest: the setting, the builds of the shared shader text, the pass `src/ui
 
 Tube is a third renderer beside Classic and Mesh and **never a hybrid**. While it is chosen it is used in place of the Mesh row's renderer:
 
-- `frame.js`: `vesselTube()`, `setVesselTube(on)`, `onVesselTube(f)`; a change draws the figure again as the Mesh switch does.
+- `frame.js`: `vesselRenderer()`, `setVesselRenderer(v)`, `onVesselRenderer(f)`; a change draws the figure again (the render subscribers hear it).
 - `veins-gl.js` keeps `tubePick` beside `meshPick` (`meshSync` follows both; a change makes the next picture a whole draw, and the depth and
   stencil buffer is given back only when both are off). `meshUse()` is "a geometry renderer draws": with Tube chosen it needs `tubeS`, `tubePt`
   and `meshL` (otherwise false, and `tubeWhy` says why), else the Mesh's rule as before. The software, lost and targets checks stay for both.
@@ -66,5 +67,5 @@ targets dropped. The shaders are linted, not compiled (this environment cannot c
 
 ## Tests
 
-`tests/vessel-tube-setting.test.js` (the choice), `tests/vessel-fs-old-builds.test.js` (the old builds' hashes), `tests/vessel-fs-tube.test.js`
+`tests/vessel-renderer-setting.test.js` (the one choice and the carry-over), `tests/vessel-fs-old-builds.test.js` (the old builds' hashes), `tests/vessel-fs-tube.test.js`
 (both Tube fragment builds and `meshPatchVS` linted through `tests/glsl-pp.js`, no `gl_FragDepth`, `celShade(` used), plus A's, B's and C's own.

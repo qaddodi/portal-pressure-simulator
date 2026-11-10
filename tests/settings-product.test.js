@@ -22,20 +22,13 @@ test('R14 Settings keeps what a learner understands and none of the experiments'
   assert.doesNotMatch(main, /function figLabRows\(|function figSeg\(/);
 });
 
-test('R14 owner-approved row (8 Nov 2026): Settings > Display has "Mesh vessel renderer" right after Figure size (megapixels)', () => {
-  assert.ok(settings.includes("'Mesh vessel renderer'"), 'the row is in Settings');
+test('R14 owner-approved control (10 Nov 2026): Settings > Display has one "Vessel renderer" choice (Classic, Mesh, Tube) right after Figure size (megapixels), not two switches', () => {
   const at = (t) => settings.indexOf(t);
-  assert.ok(at("'Figure size (megapixels)'") > 0 && at("figureMpControl()") > at("'Figure size (megapixels)'"));
-  assert.ok(at("'Mesh vessel renderer'") > at('figureMpControl()'), 'after the megapixel control');
-  assert.ok(at("'Mesh vessel renderer'") < at("'Sharp while moving'"), 'before the next row');
-  assert.match(settings, /menuToggle\(vesselMesh\(\), 'layers', 'Mesh vessel renderer'/, 'an on/off menuToggle');
-});
-
-test('R14 owner-approved row (10 Nov 2026): Settings > Display has "Tube vessel renderer" right after the Mesh row, off by default', () => {
-  const at = (t) => settings.indexOf(t);
-  assert.ok(at("'Tube vessel renderer'") > at("'Mesh vessel renderer'"), 'after the Mesh row');
-  assert.ok(at("'Tube vessel renderer'") < at("'Sharp while moving'"), 'before the next row');
-  assert.match(settings, /menuToggle\(vesselTube\(\), 'layers', 'Tube vessel renderer'/, 'an on/off menuToggle');
+  assert.ok(at("'Figure size (megapixels)'") > 0 && at('figureMpControl()') > at("'Figure size (megapixels)'"));
+  assert.ok(at("'Vessel renderer'") > at('figureMpControl()'), 'after the megapixel control');
+  assert.ok(at('vesselRendererSeg()') > at("'Vessel renderer'") && at('vesselRendererSeg()') < at("'Sharp while moving'"), 'the choice is before the next row');
+  assert.match(main, /\[\['classic', 'Classic'\], \['mesh', 'Mesh'\], \['tube', 'Tube'\]\]/, 'three choices');
+  assert.ok(!settings.includes("'Mesh vessel renderer'") && !settings.includes("'Tube vessel renderer'"), 'the two switches are gone');
 });
 
 test('R14 every default is as it was: Full, and off (but the credit\'s lean look, H7, and the 8-megapixel budget, 1 Nov: on)', async () => {
