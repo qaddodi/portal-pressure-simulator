@@ -16,7 +16,7 @@ const { EDGE_GLSL } = await import('../src/ui/edge.js');
 const { ENT_W } = await import('../src/ui/veins-bin.js');
 const { LIFT_EASE_SHARE, LIFT_EASE_MAX } = await import('../src/ui/highlight-math.js');
 const { shadeGLSL } = await import('../src/ui/veins-mesh-glsl.js');
-const { tubeLumenFS, tubeLumenJS, packedPlaceJS, LUM_MIN, WEB_RATIO } = await import('../src/ui/tube-lumen-glsl.js');
+const { tubeLumenFS, tubeLumenJS, packedPlaceJS, LUM_MIN, WEB_RATIO, LYMPH_INK, lymphInkJS } = await import('../src/ui/tube-lumen-glsl.js');
 const { tubeLeanFS } = await import('../src/ui/tube-lean-glsl.js');
 const { programs } = await import('../scripts/glsl-compile-list.mjs');
 
@@ -225,4 +225,25 @@ test('the compile list names the lumen programs (the web\'s waits for its vertex
   assert.ok([...have].some((n) => n.includes('tubeWebLumen')), 'tubeWebLumen is listed');
   const built = programs().filter((p) => p.name.includes('tubeLumen'));
   for (const p of built) { assert.equal(p.error, undefined); assert.ok(p.fs.includes('bloodAt(')); }
+});
+
+test('lymph with a stream is drawn as the blood\'s streaks, coloured by its protein; a row with none keeps its dashes', () => {
+  // The shader: a lymph row (f1.x < 0) with a stream in flow texel 7 goes through bloodAt; one without goes through lymphAt.
+  const at = LUMEN.indexOf('bool isLy');
+  const ly = LUMEN.slice(LUMEN.indexOf('if (blood == 1 && isLy', at));
+  assert.ok(ly.includes('texelFetch(flow, ivec2(7, id1), 0)'), 'the stream is read from texel 7');
+  assert.ok(ly.indexOf('bloodAt(') > 0 && ly.indexOf('lymphAt(') > ly.indexOf('bloodAt('), 'streaks first, the dashes as the fallback');
+  assert.deepEqual(lintGLSL(resolve(LUMEN)), []);
+  // The ramp: green at 0 %, amber at 100 %, monotone in between; fainter and sparser when poor; the dark theme lighter.
+  const vc = [0.88, 0.92, 0.82];
+  const lo = lymphInkJS(0, vc, false), mid = lymphInkJS(0.5, vc, false), hi = lymphInkJS(1, vc, false);
+  const deep = [0, 1, 2].map((i) => vc[i] * (1 - LYMPH_INK.deepMix) + LYMPH_INK.deepLight[i] * LYMPH_INK.deepMix);
+  assert.deepEqual(lo.ink.map((v) => +v.toFixed(9)), deep.map((v) => +v.toFixed(9)));
+  assert.deepEqual(hi.ink, LYMPH_INK.amberLight);
+  assert.ok(lo.ink[0] < mid.ink[0] && mid.ink[0] < hi.ink[0], 'red rises toward amber');
+  assert.ok(lo.ink[2] > mid.ink[2] && mid.ink[2] > hi.ink[2], 'blue falls toward amber');
+  assert.ok(lo.strength < mid.strength && mid.strength < hi.strength && hi.strength === 1);
+  assert.ok(lo.occ < hi.occ);
+  assert.ok(lymphInkJS(1, vc, true).ink[0] > hi.ink[0], 'a lighter amber on the dark theme');
+  assert.deepEqual(lymphInkJS(-1, vc, false).ink, lo.ink);
 });

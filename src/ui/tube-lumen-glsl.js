@@ -50,6 +50,17 @@ function fnText(text, head) {
   throw new Error(`tube-lumen-glsl: ${head} has no closing brace`);
 }
 
+const f = (n) => (Number.isInteger(n) ? n.toFixed(1) : String(n));
+/** The lymph streaks' look (lobule): the ink at 0 % and at 100 % protein (the colours the old dashes used), the ramp between them, the density, how faint a poor lymph is. */
+export const LYMPH_INK = {
+  deepLight: [0.30, 0.56, 0.28], deepDark: [0.78, 0.95, 0.70], deepMix: 0.62,
+  amberLight: [0.89, 0.60, 0.12], amberDark: [0.95, 0.71, 0.29],
+  ramp: [0.1, 0.9],   // protein 0 … 1 (lyProt 0.42 … 0.84): pure green below the first, pure amber above the second
+  occ: [0.45, 0.8],   // the share of a lane the streaks fill, poor to rich
+  faint: 0.45,        // the streaks' strength at 0 % protein (1 at 100 %)
+  glint: 0.25,        // how much of bloodAt's own streak colour (its light core) is kept
+};
+
 /** A pixel is a web's when its vRad is more than this many times radAt's radius for its row (a web's is 4; a strip's is 1). */
 export const WEB_RATIO = 2;
 
@@ -170,14 +181,35 @@ void main() {
     if (a > 0.0) col = mix(col, A.rgb, clamp(a * vis * flowA * blendA.x, 0.0, 1.0));
   }
   if (blood == 1 && isLy && f1.z > 0.0) {
-    float lc, lk;
-    lymphAt(s1, y1, f0, len1, R1, lc, lk);
-    // The dash's ink: clearly deeper than the channel's own green (lighter in the dark theme); the core a visible but quiet albumin amber.
-    vec3 ink = mix(vc1, f0.w > 0.5 ? vec3(0.78, 0.95, 0.70) : vec3(0.30, 0.56, 0.28), 0.62);
-    vec3 amber = f0.w > 0.5 ? vec3(0.95, 0.71, 0.29) : vec3(0.89, 0.60, 0.12);
+    // Lymph. The lobule's lymph rows (lobule-zoom.js) carry the dashes' phase, pitch, protein and theme in flow texel 0, as before. A row that ALSO
+    // carries a stream in texel 7 (x: the distance now, y: the signed speed, blood's D and vd; y = 0: none) is drawn as streaks, the same style
+    // as the blood (bloodAt, so the Tube's style P / D4 mist), coloured by the protein: a pale green channel's deep green at 0 %, albumin amber at
+    // 100 % (the protein f0.z is the lobule's lyProt scaled 0.42 … 0.84 to 0 … 1), fainter when poorer. A row with no stream keeps the dashes.
+    float prot = clamp(f0.z, 0.0, 1.0);
+    vec4 sd = texelFetch(flow, ivec2(7, id1), 0);
     float aLy = clamp(f1.z * vis * flowA, 0.0, 1.0);   // (not blendA.x: the streaks' switch, which the lymph does not follow)
-    col = mix(col, ink, lc * aLy);
-    col = mix(col, amber, lk * aLy);
+    if (sd.y != 0.0) {
+      vec3 deep = mix(vc1, f0.w > 0.5 ? vec3(${LYMPH_INK.deepDark.join(', ')}) : vec3(${LYMPH_INK.deepLight.join(', ')}), ${f(LYMPH_INK.deepMix)});
+      vec3 amberS = f0.w > 0.5 ? vec3(${LYMPH_INK.amberDark.join(', ')}) : vec3(${LYMPH_INK.amberLight.join(', ')});
+      vec3 ink = mix(deep, amberS, smoothstep(${f(LYMPH_INK.ramp[0])}, ${f(LYMPH_INK.ramp[1])}, prot));
+      // (blood's density divisor, so that the streaks fill occ of a lane whatever the zoom: bloodAt's p = flux * sx / (|vd| sumK) = occ.)
+      float lcn = clamp(1.7 * R1 / zoomA.x, 1.0, 7.0) - 1.0;
+      int lkn = min(int(lcn), 5);
+      float sumK = mix(LANE_K[lkn], LANE_K[lkn + 1], lcn - float(lkn));
+      float occ = mix(${f(LYMPH_INK.occ[0])}, ${f(LYMPH_INK.occ[1])}, prot);
+      vec4 ly0 = vec4(sd.x, sd.y, occ * max(abs(sd.y), 2.0) * sumK / zoomB.z, 0.0);
+      vec4 A = bloodAt(id1, s1, y1, col, ly0, vec4(1.0, 1.0, f1.z, 0.0), len1, R1, vc1);
+      float a = A.a * (1.0 - castAt(id1, s1, len1)) * mix(${f(LYMPH_INK.faint)}, 1.0, prot);
+      col = mix(col, mix(ink, A.rgb, ${f(LYMPH_INK.glint)}), clamp(a * vis * flowA, 0.0, 1.0));
+    } else {
+      float lc, lk;
+      lymphAt(s1, y1, f0, len1, R1, lc, lk);
+      // The dash's ink: clearly deeper than the channel's own green (lighter in the dark theme); the core a visible but quiet albumin amber.
+      vec3 ink = mix(vc1, f0.w > 0.5 ? vec3(0.78, 0.95, 0.70) : vec3(0.30, 0.56, 0.28), 0.62);
+      vec3 amber = f0.w > 0.5 ? vec3(0.95, 0.71, 0.29) : vec3(0.89, 0.60, 0.12);
+      col = mix(col, ink, lc * aLy);
+      col = mix(col, amber, lk * aLy);
+    }
   }
   if (dyeOn == 1) {
     float c = dyeAt(id1, s1, y1);
@@ -225,6 +257,15 @@ export function tubeLumenJS(o) {
   const y = web ? 1 : clamp(across / R, -1, 1);
   const lumA = coverage * opacity;
   return { u, s, across, y, web, D, coverage, lumA, drawn: coverage > 0 && lumA > LUM_MIN };
+}
+
+/** The lymph streak's ink for a protein share (0 … 1), the vessel's own colour vc, and the dark theme: the GLSL's `ink` and the strength factor. */
+export function lymphInkJS(prot, vc, dark) {
+  const L = LYMPH_INK, p = clamp(prot, 0, 1);
+  const deepT = dark ? L.deepDark : L.deepLight, amber = dark ? L.amberDark : L.amberLight;
+  const t0 = clamp((p - L.ramp[0]) / (L.ramp[1] - L.ramp[0]), 0, 1), k = t0 * t0 * (3 - 2 * t0);
+  const ink = [0, 1, 2].map((i) => { const deep = vc[i] * (1 - L.deepMix) + deepT[i] * L.deepMix; return deep * (1 - k) + amber[i] * k; });
+  return { ink, strength: L.faint * (1 - p) + p, occ: L.occ[0] * (1 - p) + L.occ[1] * p };
 }
 
 /** packFlow's arc and across, packed and unpacked in JS (the compositor's `float(g.y) / 16.0 - S_OFF` and `float(g.z) / 32767.5 - 1.0`). */
