@@ -35,7 +35,7 @@
 // `blendA` and `flowA` (the compositor's switches this section reads), and for the row's colour and opacity those tubeLeanFS declares
 // (ent, organ, organRect, useOrgan, organK, invA, tOff, lOff, sizeF, netAlpha, tierAlpha, tierGroup, posBase). `tube` and `rad` come with
 // compLumenUniforms. The world size of a device pixel is pxW (the compositor's), not lean's `px`: the feed is the same number.
-import { shadeGLSL } from './veins-mesh-glsl.js';
+import { shadeGLSL, F_RING } from './veins-mesh-glsl.js';
 import { TROUBLE_GLSL } from './blood-trouble.js';
 import { compLumenUniforms, compLumenFns, N_SAMPLES as COMP_N, S_OFF } from './comp-glsl.js';
 import { tubeJoinFS, joinRampGLSL, JOIN_IN_GLSL } from './tube-join-glsl.js';
@@ -278,6 +278,8 @@ void main() {
   }
   // The vessel layer's fill had the cel tones (a lift toward the top left, two darker steps away from it, a light line); this colour replaces it, so it gets them too.
   if (fx == 1 && (flags & ${K.F_DIFFUSE}) != 0) col = celTones(min(col, vec3(1.0)), D, R, joinTone(length(vG) > 1e-5 ? normalize(vG) : vec2(0.0), je), aa);
+  // A disc cut across (the lobule's portal venule, central vein, arteriole, bile ductule) has the long vessels' pale band just inside its wall, over the blood too.
+  if (fx == 1 && (flags & ${F_RING}) != 0) col = celRing(min(col, vec3(1.0)), D, R, aa);
   outColor = ditherOut(vec4(min(col, vec3(1.0)), 1.0) * lumA, q);
 }
 `;

@@ -7,6 +7,8 @@
 // and the flat fill (three tones) in place of tubeShade's light line, dark line, rounding and wall band. `celShadeJS` is the same arithmetic for one
 // pixel, for the tests. Nothing draws with this file until thread D wires it.
 
+import { F_RING } from './veins-mesh-glsl.js';
+
 /** The look's numbers: K the old outline width as a multiple of the casing width (no longer read by the shading; the uniform stays for the host),
  *  LINE_MIN / LINE_MAX / LINE_R the outline's width in device px (R * LINE_R, held between the two), INK the near-black the light looks' deep tone is eased toward,
  *  DIR the unit direction toward the light in screen space (x right, y down): the top left, fixed (the same for every look).
@@ -38,6 +40,16 @@ vec3 celTones(vec3 lum, float D, float R, vec2 g, float aa) {
   lum *= 1.0 - hw * CEL_SHADE * shadow;
   return mix(lum, vec3(1.0), CEL_LIT * hw * lit);
 }
+
+// A vessel cut across (a disc: the lobule's portal venule, central vein, arteriole and bile ductule, flag F_RING): the long vessels' pale band, a ring just
+// inside the wall (about 1.2 to 2.4 device px wide, a lift toward white by 0.144, less on a pale fill), the same width and strength as tubeShade's wall band and
+// all round, so a disc has no lit side. Left out on hairlines. Shared by celShade and the lumen layer's shader, which paints over it.
+vec3 celRing(vec3 lum, float D, float R, float aa) {
+  float lumY = dot(lum, vec3(0.299, 0.587, 0.114));
+  float ringW = clamp(0.1 * R, 1.2 * aa, 2.4 * aa);
+  float ringBand = smoothstep(-ringW - aa, -ringW, D) * smoothstep(1.5, 3.5, R / aa);
+  return mix(lum, vec3(1.0), 0.144 * ringBand * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
+}
 `;
 
 /** GLSL (no #version, no main) that declares `uniform float celK;` and defines `celTones` and `celShade`. */
@@ -63,6 +75,7 @@ vec4 celShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int flag
   c = (flags & ${F_EDGE}) != 0 ? over(vec4(edge, 1.0) * (0.92 * aC), c) : over(vec4(ink, 1.0) * (cA * aC), c);
   vec3 lum = col;
   if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) lum = celTones(lum, D, R, g, aa);
+  if (fx == 1 && (flags & ${F_RING}) != 0 && aL > 0.0) lum = celRing(lum, D, R, aa);
   // A dark lumen (the sickest vessels, on the dark looks, where the outline is no darker than the ground) gets a light edge 1 device px wide just
   // inside its wall, by its own lightness, the way the label halo follows its ink (rimInk.a is 0 on the light looks; hairlines are left out).
   lum = mix(lum, rimInk.rgb, rimInk.a * (1.0 - smoothstep(0.2, 0.4, lumY)) * smoothstep(-px - aa, -px, D) * smoothstep(1.5, 3.5, R / aa));
@@ -100,6 +113,14 @@ export function celTonesJS(lum, D, R, g, aa) {
   return mix3(out, [1, 1, 1], CEL.LIT * hw * litT);
 }
 
+/** `celRing` for one pixel: lum [r, g, b] the fill, D the distance from the wall, R the radius, aa one pixel's softness. */
+export function celRingJS(lum, D, R, aa) {
+  const lumY = lum[0] * 0.299 + lum[1] * 0.587 + lum[2] * 0.114;
+  const ringW = clamp(0.1 * R, 1.2 * aa, 2.4 * aa);
+  const band = smoothstep(-ringW - aa, -ringW, D) * smoothstep(1.5, 3.5, R / aa);
+  return mix3(lum, [1, 1, 1], 0.144 * band * (1 - 0.6 * smoothstep(0.72, 0.9, lumY)));
+}
+
 /** `celShade` for one pixel. o: { D, R, wall, col, g, flags, sel, cA, grp, vAt, hov, edge, kn, kcas, aa, aL } and the host's values
  *  { px, fx, light, casing, ring, rimInk, paperInk } (colours [r, g, b, a] or [r, g, b]), the flag bits { F_DIFFUSE, F_EDGE, F_VEIL },
  *  and for a hovered vessel T(id, 11) as `he` [x, y] and T(id, 5).z as `Lh`. Returns the premultiplied [r, g, b, a]. */
@@ -121,6 +142,7 @@ export function celShadeJS(o) {
   c = (flags & F_EDGE) !== 0 ? over([...edge.map((v) => v * (0.92 * aC)), 0.92 * aC], c) : over([...ink.map((v) => v * (cA * aC)), cA * aC], c);
   let lum = col.slice();
   if (fx === 1 && (flags & F_DIFFUSE) !== 0 && aL > 0) lum = celTonesJS(lum, D, R, g, aa);
+  if (fx === 1 && (flags & F_RING) !== 0 && aL > 0) lum = celRingJS(lum, D, R, aa);
   lum = mix3(lum, rimInk.slice(0, 3), rimInk[3] * (1 - smoothstep(0.2, 0.4, lumY)) * smoothstep(-px - aa, -px, D) * smoothstep(1.5, 3.5, R / aa));
   if (sel && grp === 2) lum = lum.map((v) => Math.min(v * 1.12, 1));
   if (hov > 0) {

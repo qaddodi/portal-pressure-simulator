@@ -4,6 +4,11 @@
 // shader declares (organK, useOrgan, tierGroup, px, fx, the inks, casing, shadow, ring, light, paperInk, rimInk); T(), alongAt(), over(),
 // LAST and S_OFF. K: the renderer's constants (flags, VEIL_K, the lift's ease, LUMEN2, ROW2_BITS, the edge softness's GLSL).
 import { PG_J } from './veins-mesh-data.js';
+
+/** A vessel seen end-on (the lobule's portal venule, central vein, arteriole and bile ductule: a disc cut across) gets the long vessels' pale band just
+ *  inside its wall and nothing else of their shading (no light or dark line, which on a disc read as stray arcs). A tube-texel flag, beside veins-gl.js's
+ *  F_SEL .. F_WHOLE (1 .. 256); defined here so the shading texts and the lobule need no change to that file's constants. */
+export const F_RING = 512;
 export const shadeGLSL = ({ F_DIFFUSE, F_EDGE, F_SHADOW, F_SPEC, F_VEIL, F_WHOLE, LIFT_EASE_MAX, LIFT_EASE_SHARE, LUMEN2, ROW2_BITS, VEIL_K }) => `
 // One segment's nearest point, folded into the vessel's nearest so far (the vessel shader's search, per segment): bd, bs the wall's and
 // the shadow's distance, br the radius, bu the along, bx the across, bg the direction from the centreline; aM, aW, aU the soft along.
@@ -158,6 +163,12 @@ vec4 tubeShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int fla
     float wallW = clamp(0.1 * R, 1.2 * aa, 2.4 * aa);
     float band = smoothstep(-wallW - aa, -wallW, D) * body;
     lum = mix(lum, mix(lum, sheenInk.rgb, 0.45), 0.32 * band * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
+  }
+  // A disc cut across (F_RING): the same pale band, the same width and strength, all round just inside the wall; the tube's other shading is left out.
+  if (fx == 1 && (flags & ${F_RING}) != 0 && aL > 0.0) {
+    float ringW = clamp(0.1 * R, 1.2 * aa, 2.4 * aa);
+    float ringBand = smoothstep(-ringW - aa, -ringW, D) * smoothstep(1.5, 3.5, R / aa);
+    lum = mix(lum, mix(lum, sheenInk.rgb, 0.45), 0.32 * ringBand * (1.0 - 0.6 * smoothstep(0.72, 0.9, lumY)));
   }
   // A dark lumen (the sickest vessels, on the dark looks, where the casing is no darker than the ground) gets a light edge 1 device px wide just
   // inside its wall, by its own lightness, the way the label halo follows its ink (rimInk.a is 0 on the light looks; hairlines are left out).
