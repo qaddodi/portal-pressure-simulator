@@ -256,7 +256,7 @@ test('park: a run started at its last stop shows the parked scope, applies nothi
     const p2 = playProcedure(R2.stage, 'eusglue', { stepped: true, to: last, park: true, apply: () => a2++, unapply: () => u2++ });
     R2.run(4000); p2.back(); R2.run(30000);
     assert.equal(a2, 0); assert.equal(u2, 1);
-    p2.stop();
+    p2.stop(); R2.run(900);   // (the fade's frames run out, so the shared frame scheduler is left idle)
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });
 
