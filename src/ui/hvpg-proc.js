@@ -69,7 +69,6 @@ let waveNow = null;   // the model's clock for the frame being drawn (syncWave),
 const pAt = (tt, v) => pressureAt(tt, v, waveNow);
 const Y = (p) => axBot - (clamp(p, 0, axMax) / axMax) * (axBot - axTop);
 const X = (tt) => axL + k01(tt, T.free - 300, T.back) * (axR - axL);
-const DASH = [4, 4];   // (the level lines' dashes; the trace itself is solid, wedged or free: owner, 10 Nov 2026)
 const SHOT_NEAR = { near: true }, SHOT_FAR = { near: false };   // (cathFocus's options, made once: only the route shot keeps the view near the tip)
 const HEADS = ['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'];
 const NOTE_PROBE = ['Probing the ostium: the vein will not take the catheter.', 'The vein will not take the catheter.'];
@@ -527,11 +526,11 @@ function seg(ctx, a, b, colr, tNow, v) {
   }
   ctx.fill();
 }
-// A level's dashed line across the grid and, when there is room, its name and number at the right (c: the number's text cell).
+// A level's solid line across the grid and, when there is room, its name and number at the right (c: the number's text cell).
 function level(ctx, p, colr, txt, ly, narrow, R, L, c) {
   ctx.save(); ctx.fillStyle = colr; ctx.globalAlpha = 0.75;
   const dy = Math.round(Y(p));
-  for (let dx = L; dx < R; dx += DASH[0] + DASH[1]) ctx.fillRect(dx, dy, Math.min(DASH[0], R - dx), 1);   // (dashes as boxes: see seg)
+  ctx.fillRect(L, dy, R - L, 1);   // (solid, as the trace is: owner, 10 Nov 2026; one box, drawn wherever the dot does: see seg)
   ctx.restore();
   if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, FS); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, ly - FS * 0.6); ctx.font = FONT(700, FS); ctx.fillText(fm1(c, p), R + 6, ly + FS * 0.6); }
 }
