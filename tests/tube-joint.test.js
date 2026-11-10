@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   WEB_ARC, WEB_PTS, WEB_KIND, WEB_VERTS, WEB_FILL, WEB_IN, WEB_OUT, WEB_FLOATS, WEB_LEVEL, WEB_MIN_DEG, WEB_MAX_DEG, WEB_FAR, WEB_CUT, WEB_LOOK,
-  webIndex, webGeometry, webVertex, legDirection, tubeWebVS,
+  WEB_STRIP, WEB_STRIP_PTS, WEB_STRIP_LEVEL, webIndex, webGeometry, webVertex, legDirection, tubeWebVS,
 } from '../src/ui/tube-joint.js';
 import { webInstances } from '../src/ui/tube-data.js';
 import { TUBE_LEVEL, TUBE_FADE, tubeStripVS } from '../src/ui/tube-geo.js';
@@ -47,8 +47,8 @@ const SCENES = {
 
 test('webIndex: counts, indices in range, no degenerate triangle, the attribute encoding', () => {
   const M = webIndex();
-  assert.equal(M.nVerts, WEB_VERTS); assert.equal(WEB_VERTS, 22); assert.equal(M.attr.length, WEB_VERTS * 4);
-  assert.equal(M.nIndex, 3 * WEB_ARC + 6 * WEB_ARC); assert.equal(M.index.length, M.nIndex);
+  assert.equal(M.nVerts, WEB_VERTS); assert.equal(WEB_VERTS, 22 + 2 * WEB_STRIP_PTS); assert.equal(M.attr.length, WEB_VERTS * 4);
+  assert.equal(M.nIndex, 3 * WEB_ARC + 6 * WEB_ARC + 12); assert.equal(M.index.length, M.nIndex);
   assert.ok(M.index instanceof Uint16Array);
   for (let t = 0; t < M.nIndex; t += 3) {
     const a = M.index[t], b = M.index[t + 1], c = M.index[t + 2];
@@ -57,7 +57,7 @@ test('webIndex: counts, indices in range, no degenerate triangle, the attribute 
   }
   const kinds = {};
   for (let v = 0; v < WEB_VERTS; v++) kinds[M.attr[v * 4]] = (kinds[M.attr[v * 4]] || 0) + 1;
-  assert.deepEqual(kinds, { [WEB_KIND.APEX]: 1, [WEB_KIND.FILL]: WEB_PTS, [WEB_KIND.IN]: WEB_PTS, [WEB_KIND.OUT]: WEB_PTS });
+  assert.deepEqual(kinds, { [WEB_KIND.APEX]: 1, [WEB_KIND.FILL]: WEB_PTS, [WEB_KIND.IN]: WEB_PTS, [WEB_KIND.OUT]: WEB_PTS, [WEB_KIND.STRIP_A]: WEB_STRIP_PTS, [WEB_KIND.STRIP_B]: WEB_STRIP_PTS });
   assert.deepEqual(Array.from(M.attr.subarray(0, 4)), [0, 0, 0, 0]);
   for (let k = 0; k < WEB_PTS; k++) {
     assert.deepEqual(Array.from(M.attr.subarray((WEB_FILL + k) * 4, (WEB_FILL + k) * 4 + 2)), [WEB_KIND.FILL, k]);
@@ -66,7 +66,9 @@ test('webIndex: counts, indices in range, no degenerate triangle, the attribute 
   }
   // the fan uses the apex and the fill arc only; the skirt only the in and out arcs
   for (let t = 0; t < 3 * WEB_ARC; t++) { const v = M.index[t]; assert.ok(v === 0 || (v >= WEB_FILL && v < WEB_FILL + WEB_PTS)); }
-  for (let t = 3 * WEB_ARC; t < M.nIndex; t++) { const v = M.index[t]; assert.ok(v >= WEB_IN && v < WEB_OUT + WEB_PTS); }
+  for (let t = 3 * WEB_ARC; t < 9 * WEB_ARC; t++) { const v = M.index[t]; assert.ok(v >= WEB_IN && v < WEB_OUT + WEB_PTS); }
+  for (let t = 9 * WEB_ARC; t < M.nIndex; t++) { const v = M.index[t]; assert.ok(v >= WEB_STRIP && v < WEB_VERTS); }   // the two wall strips: a quad each
+  assert.equal(WEB_VERTS - 22, 8, 'a web costs 8 vertices and 12 indices more with its wall strips');
 });
 
 test('the levels: a web fill sits over every casing and fading lumen and under every opaque lumen', () => {
@@ -265,13 +267,13 @@ const STUB = 'const int N_SAMPLES = 64;\nconst float M_PI = 3.14159265358979;\n'
 const prog = compileVS(tubeWebVS(STUB));
 const SIZE = [800, 600];
 const IDENT = { mat: true, m: [1, 0, 0, 0, 1, 0, 0, 0, 1] };
-function runVertex(w, attr, { mPass = MP.SHAPE, base = 0.25, H = 0.1 } = {}) {
+function runVertex(w, attr, { mPass = MP.SHAPE, base = 0.25, H = 0.1, zo = {} } = {}) {
   const rows = [w.PA, w.PB], rads = [w.RA, w.RB], ids = [w.rec[0], w.rec[4]];
   const P = (id, i) => { const r = ids.indexOf(id); return [rows[r][2 * i], rows[r][2 * i + 1]]; };
   const res = prog.run({
     attrs: { aV: [...attr], aLegA: [...w.rec.subarray(0, 4)], aLegB: [...w.rec.subarray(4, 8)], aWeb: [...w.rec.subarray(8, 12)] },
-    uniforms: { world: IDENT, size: SIZE, lOff: [0, 0], mPass, tubeBase: base, tubeH: H, aaPad: AA },
-    natives: { PT: (id, i) => P(id, i), mRW: (id, i, pad) => Math.max(rads[ids.indexOf(id)][i], MIN_RADIUS) + pad },
+    uniforms: { world: IDENT, size: SIZE, lOff: [0, 0], mPass, tubeBase: base, tubeH: H, aaPad: AA, zK: zo.zK ?? 0, tube: 0 },
+    natives: { ivec2: (a, b) => [a, b], texelFetch: (_t, at) => [0, (at[0] === 2 ? (at[1] === ids[1] ? zo.zB : zo.zA) : 0) ?? 0, 0, 0], PT: (id, i) => P(id, i), mRW: (id, i, pad) => Math.max(rads[ids.indexOf(id)][i], MIN_RADIUS) + pad },
   });
   const gp = res.gl_Position;
   return { x: ((gp[0] + 1) / 2) * SIZE[0], y: ((1 - gp[1]) / 2) * SIZE[1], f: 1 - ((gp[2] + 1) / 2 - base) / H, res, gp };
@@ -295,7 +297,7 @@ test('the shader text and the JS twin agree on a table of vertices (every vertex
   for (const owner of [0, 1, 2]) cases.push([`owner ${owner}`, { PA: sc2.P[0], RA: sc2.R[0], PB: sc2.P[1], RB: sc2.R[1], rec: Float32Array.from([0, 0, 1, 1, 1, 0, 1, -1, 0.7, 14, owner, 0]) }]);
   for (const [name, w] of cases) {
     for (let v = 0; v < WEB_VERTS; v++) {
-      const a = M.attr.subarray(v * 4, v * 4 + 4), t = webVertex(w.PA, w.RA, w.PB, w.RB, w.rec, a, AA), s = runVertex(w, a);
+      const a = M.attr.subarray(v * 4, v * 4 + 4), zo = { zK: v >= WEB_STRIP ? 1 : 0, zA: 0.2, zB: 0.45 }, t = webVertex(w.PA, w.RA, w.PB, w.RB, w.rec, a, AA, zo), s = runVertex(w, a, { zo });
       const tag = `${name} vertex ${v}`;
       const near = (x, y, what) => { const e = Math.abs(x - y); worst = Math.max(worst, e); assert.ok(e < 1e-6, `${tag}: ${what} ${x} (shader) against ${y} (twin)`); };
       near(s.x, t.x, 'x'); near(s.y, t.y, 'y'); near(s.f, t.f, 'level');
@@ -305,7 +307,7 @@ test('the shader text and the JS twin agree on a table of vertices (every vertex
       n++;
     }
   }
-  assert.ok(n >= 22 * 19);
+  assert.ok(n >= 30 * 19);
   assert.ok(worst < 1e-6);
 });
 
@@ -328,4 +330,26 @@ test('the web shader writes exactly the varyings the lean fragment shader reads 
   const ins = decl(tubeLeanFS(K), 'in'), outs = decl(VS, 'out');
   assert.ok(ins.length >= 6, `read ${ins}`);
   assert.deepEqual(outs, ins);
+});
+
+test('the wall strips: each fan edge from C to its tangent point is doubled two device pixels into its own leg, just over a lumen\'s level at its wall and under every taller lumen', () => {
+  const M = webIndex();
+  for (const name of ['t90', 'elbow', 'y']) for (const w of webs(SCENES[name]()).list) {
+    const g = webGeometry(w.PA, w.RA, w.PB, w.RB, w.rec, AA);
+    if (g.empty) continue;
+    const V = (s, k) => webVertex(w.PA, w.RA, w.PB, w.RB, w.rec, M.attr.subarray((WEB_STRIP + s * WEB_STRIP_PTS + k) * 4, (WEB_STRIP + s * WEB_STRIP_PTS + k) * 4 + 4), AA);
+    for (const [s, leg, T] of [[0, g.A, g.Ta], [1, g.B, g.Tb]]) {
+      const c = V(s, 0), t = V(s, 1), ti = V(s, 2), ci = V(s, 3);
+      assert.ok(Math.hypot(c.x - g.C[0], c.y - g.C[1]) < 1e-9, 'corner on C');
+      assert.ok(Math.hypot(t.x - T[0], t.y - T[1]) < 1e-9, 'far edge on the arc\'s tangent point');
+      // inside its leg: AA closer to the leg's centreline than its wall, perpendicular to the wall line
+      const off = (q, p) => (q.x - p.x) * leg.n[0] + (q.y - p.y) * leg.n[1];
+      assert.ok(Math.abs(off(ti, t) + AA) < 1e-9 && Math.abs(off(ci, c) + AA) < 1e-9, 'two device pixels inward');
+      assert.ok(Math.abs((ti.x - t.x) * leg.d[0] + (ti.y - t.y) * leg.d[1]) < 1e-9, 'straight in');
+      for (const q of [c, t, ti, ci]) { assert.equal(q.f, WEB_STRIP_LEVEL); assert.equal(q.vD, -AA); assert.ok(q.empty === false); }
+    }
+  }
+  assert.ok(WEB_STRIP_LEVEL > WEB_LEVEL + 0.01 - 1e-12 && WEB_STRIP_LEVEL < TUBE_LEVEL.LUMEN0 + 0.02, 'over the fade band and the fan, within a hair of a lumen\'s wall level');
+  const w = webs(SCENES.t90()).list[0], a = M.attr.subarray(WEB_STRIP * 4, WEB_STRIP * 4 + 4);
+  assert.equal(webVertex(w.PA, w.RA, w.PB, w.RB, w.rec, a, AA, { zK: 1, zA: 0.4, zB: 0 }).f, WEB_STRIP_LEVEL + TUBE_LEVEL.LUMEN_H * 0.4, 'in the lobule it follows its own leg\'s z');
 });

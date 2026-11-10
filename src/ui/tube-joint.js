@@ -52,10 +52,12 @@ import { JOIN_WEB_OUT_GLSL, JOIN_WEB_SET_GLSL } from './tube-join-glsl.js';
 
 export const WEB_ARC = 6;                        // the arc's steps
 export const WEB_PTS = WEB_ARC + 1;              // its points
-export const WEB_KIND = { APEX: 0, FILL: 1, IN: 2, OUT: 3 };
-export const WEB_VERTS = 1 + 3 * WEB_PTS;        // 22: the apex, then the fill, skirt-inner and skirt-outer arcs
-export const WEB_FILL = 1, WEB_IN = 1 + WEB_PTS, WEB_OUT = 1 + 2 * WEB_PTS;   // the first vertex of each arc
+export const WEB_KIND = { APEX: 0, FILL: 1, IN: 2, OUT: 3, STRIP_A: 4, STRIP_B: 5 };
+export const WEB_STRIP_PTS = 4;                  // a wall strip's corners: C, the tangent point, the tangent point and C moved two device pixels into the leg
+export const WEB_VERTS = 1 + 3 * WEB_PTS + 2 * WEB_STRIP_PTS;   // 30: the apex, the fill, skirt-inner and skirt-outer arcs, then leg A's and leg B's wall strips
+export const WEB_FILL = 1, WEB_IN = 1 + WEB_PTS, WEB_OUT = 1 + 2 * WEB_PTS, WEB_STRIP = 1 + 3 * WEB_PTS;   // the first vertex of each arc, and of the strips (A's, then B's)
 export const WEB_FLOATS = 12;                    // a web's instance record (see above)
+export const WEB_STRIP_LEVEL = TUBE_LEVEL.LUMEN0 + 0.01;   // a wall strip: just over a lumen's level at its wall (a lumen's height there is near zero), under any taller lumen over the join; clear of the fade band's top (WEB_LEVEL)
 export const WEB_LEVEL = 0.295;                  // a web's fill: over every casing and fading lumen, under every opaque lumen (TUBE_LEVEL's table is A's)
 export const WEB_MIN_DEG = 20;                   // legs closer to parallel than this make no web: the plain union of the two tubes is the join there (planner, 10 Nov: B)
 export const WEB_MAX_DEG = 170;                  // legs this far apart or more make none (a straight run has no corner)
@@ -75,10 +77,12 @@ export function webIndex() {
   const attr = new Float32Array(WEB_VERTS * 4);
   const put = (v, kind, k) => { attr[v * 4] = kind; attr[v * 4 + 1] = k; };
   put(0, WEB_KIND.APEX, 0);
+  for (let s = 0; s < 2; s++) for (let k = 0; k < WEB_STRIP_PTS; k++) put(WEB_STRIP + s * WEB_STRIP_PTS + k, s === 0 ? WEB_KIND.STRIP_A : WEB_KIND.STRIP_B, k);
   for (let k = 0; k < WEB_PTS; k++) { put(WEB_FILL + k, WEB_KIND.FILL, k); put(WEB_IN + k, WEB_KIND.IN, k); put(WEB_OUT + k, WEB_KIND.OUT, k); }
   const tri = [];
   for (let k = 0; k < WEB_ARC; k++) tri.push(0, WEB_FILL + k, WEB_FILL + k + 1);                                              // the fan
   for (let k = 0; k < WEB_ARC; k++) tri.push(WEB_IN + k, WEB_OUT + k, WEB_IN + k + 1, WEB_IN + k + 1, WEB_OUT + k, WEB_OUT + k + 1);   // the skirt
+  for (let s = 0; s < 2; s++) { const v = WEB_STRIP + s * WEB_STRIP_PTS; tri.push(v, v + 1, v + 2, v, v + 2, v + 3); }   // the wall strips: one quad each
   return { attr, index: Uint16Array.from(tri), nVerts: WEB_VERTS, nIndex: tri.length };
 }
 
@@ -211,11 +215,19 @@ export function webGeometry(PA, RA, PB, RB, inst, aaPad) {
  * Any vertex of a web, the JS twin of the shader's placement. inst: the record; a: the vertex attribute (kind, arc index, 0, 0). Returns
  * { x, y, f (the level), vD, gx, gy (vG), rad (vRad), sample (vI), ownB (the owner is leg B), empty }.
  */
-export function webVertex(PA, RA, PB, RB, inst, a, aaPad) {
+export function webVertex(PA, RA, PB, RB, inst, a, aaPad, zo = {}) {
   const g = webGeometry(PA, RA, PB, RB, inst, aaPad), kind = Math.round(a[0]), k = Math.round(a[1]);
   const res = { x: g.wa[0], y: g.wa[1], f: WEB_LEVEL, vD: 0, gx: 0, gy: 0, rad: 4 * g.Rm, sample: g.ownB ? inst[5] : inst[1], ownB: g.ownB, empty: g.empty };
   if (g.empty) return res;
   if (kind === WEB_KIND.APEX) { res.x = g.C[0]; res.y = g.C[1]; res.vD = g.vDapex; res.gx = g.bis[0]; res.gy = g.bis[1]; return res; }
+  if (kind === WEB_KIND.STRIP_A || kind === WEB_KIND.STRIP_B) {
+    // (the wall strip: the fan's straight edge from C to the tangent point, two device pixels thick, inside its leg: it covers the leg's lumen edge pixels that win the depth test and carry the leg's outline mix, so the web shows there)
+    const B = kind === WEB_KIND.STRIP_B, leg = B ? g.B : g.A, tl = g.rho / Math.tan(0.5 * g.theta), along = k === 1 || k === 2 ? tl : 0, inw = k >= 2 ? aaPad : 0;
+    res.x = g.C[0] + leg.d[0] * along - leg.n[0] * inw; res.y = g.C[1] + leg.d[1] * along - leg.n[1] * inw;
+    res.f = WEB_STRIP_LEVEL + L.LUMEN_H * clamp((zo.zK ?? 0) * (B ? zo.zB ?? 0 : zo.zA ?? 0), 0, 1);
+    res.vD = -aaPad; res.gx = g.bis[0]; res.gy = g.bis[1];
+    return res;
+  }
   const q = g.arc[k], ox = g.O[0] - q[0], oy = g.O[1] - q[1], ol = Math.hypot(ox, oy), ux = ox / ol, uy = oy / ol;
   res.x = q[0]; res.y = q[1]; res.gx = ux; res.gy = uy;
   if (kind === WEB_KIND.IN) res.f = L.CASE1;
@@ -262,6 +274,10 @@ const int W_APEX = ${WEB_KIND.APEX};
 const int W_FILL = ${WEB_KIND.FILL};
 const int W_IN = ${WEB_KIND.IN};
 const int W_OUT = ${WEB_KIND.OUT};
+const int W_STRIP_B = ${WEB_KIND.STRIP_B};
+const int W_STRIP_A = ${WEB_KIND.STRIP_A};
+const float W_STRIP = ${f(WEB_STRIP_LEVEL)};
+const float W_LUMEN_H = ${f(L.LUMEN_H)};
 const int W_ARC = ${WEB_ARC};
 const int W_LOOK = ${WEB_LOOK};
 const float W_LEVEL = ${f(WEB_LEVEL)};
@@ -433,6 +449,14 @@ void main() {
     if (kind == W_APEX) { q = vec3(C, W_LEVEL); vD = min(-(length(C - O) - rho), -2.0 * aaPad); vG = bis; }
     else if (kind == W_FILL) { q = vec3(pt, W_LEVEL); vG = up; }
     else if (kind == W_IN) { q = vec3(pt, W_CASE1); vG = up; }
+    else if (kind >= W_STRIP_A) {
+      bool sb = kind == W_STRIP_B;
+      vec2 sd = sb ? B.d : A.d, sn = sb ? B.n : A.n;
+      vec2 sq = C + sd * (k == 1 || k == 2 ? tl : 0.0);
+      if (k >= 2) sq -= sn * aaPad;
+      q = vec3(sq, W_STRIP + W_LUMEN_H * clamp(zK * texelFetch(tube, ivec2(2, sb ? idB : idA), 0).y, 0.0, 1.0));
+      vD = -aaPad; vG = bis;
+    }
     else { q = vec3(pt + up * w, W_CASE0); vD = w; vG = up; }
   }
   vec3 d = world * vec3(q.xy, 1.0);
