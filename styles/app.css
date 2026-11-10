@@ -2172,6 +2172,14 @@ button.finding { cursor: pointer; }
 .pz-proc.on { color: var(--text); }
 .pz-proc.on .pz-step { background: var(--accent); color: var(--on-accent); }
 .pz-procs[data-why] { opacity: .5; }
+/* EUS coils and glue lists its steps (presenter.js procEl, a short line on each): one row each, number, word, its line, all on the card from the
+   start at its full size (his ask, 10 Nov 2026). The steps played stay in full ink (.done) and the one on show is lit (.on), colours only, so the
+   list never reflows. On a phone's stacked card it is the one-line row again with the lines hidden, so that card does not grow. */
+.pz-procs-list .pz-proc { display: block; white-space: normal; padding-block: .18em; }
+.pz-procs-list .pz-proc.done { color: var(--text); }
+.pz-proc-line { margin-inline-start: .15em; }
+.pz.stack .pz-procs-list .pz-proc { display: inline; white-space: nowrap; padding-block: 0; }
+.pz.stack .pz-proc-line { display: none; }
 .pz-abb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Projector-size catheter readings. */
 .app.presenting .cath-label { padding: calc(7px * min(var(--label-k, 1), 1.7)) calc(16px * min(var(--label-k, 1), 1.7)) calc(8px * min(var(--label-k, 1), 1.7)); border-radius: calc(14px * min(var(--label-k, 1), 1.7)); }

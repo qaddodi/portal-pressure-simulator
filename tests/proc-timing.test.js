@@ -33,10 +33,10 @@ test('the travel legs use it; balloons, the needle and the column keep an eased 
     const f = procFrame(k, mid(T.travel0, T.travel1, 0.2), { tract: [0.5, 0.8], rpv: [0.8, 0.9] });
     assert.ok(Math.abs(f.u - (k === 'tips' ? 0.5 : 1) * 0.125) < 1e-9, `${k}: a fifth of the way in the first fifth of the time`);
   }
-  for (const [k, spec] of [['eus', MEASURES.eus], ['eusglue', ENDO.eusglue]]) {
-    const T = spec.T;
-    assert.ok(Math.abs(procFrame(k, T.travel0 + (T.travel1 - T.travel0) * 0.2).u - 0.125) < 1e-9, `${k}: the same`);
-  }
+  { const T = MEASURES.eus.T; assert.ok(Math.abs(procFrame('eus', T.travel0 + (T.travel1 - T.travel0) * 0.2).u - 0.125) < 1e-9, 'eus: the same'); }
+  // (The glue's scope has a speed of its own per stretch, 10 Nov 2026: fast down the esophagus, slow for the turn; see tests/eus-glue.test.js.)
+  { const T = ENDO.eusglue.T, u = (x) => procFrame('eusglue', T.travel0 + (T.travel1 - T.travel0) * x).u;
+    assert.equal(u(0), 0); assert.ok(Math.abs(u(1) - 1) < 1e-9); assert.ok(u(0.2) > 0.2, 'quicker than a steady leg through the esophagus'); }
   // Balloons ease and hold on the one inflation curve.
   for (const k of ['tips', 'brto', 'bato']) {
     const T = PROCS[k].T;
@@ -106,7 +106,7 @@ test('each procedure’s table is built from the timing table', () => {
   }
   for (const k of ['brto', 'bato']) assert.equal(D(PROCS[k].T, 'travel0', 'travel1'), legMs(ROUTE_LEN[k]), `${k}: its leg`);
   assert.equal(D(MEASURES.eus.T, 'travel0', 'travel1'), legMs(ROUTE_LEN.eus));
-  assert.equal(D(ENDO.eusglue.T, 'travel0', 'travel1'), legMs(ROUTE_LEN.eusglue));
+  assert.equal(D(ENDO.eusglue.T, 'travel0', 'travel1'), 3500, 'the glue’s way in: 3.5 s, not the steady leg’s legMs(ROUTE_LEN.eusglue) = 6200 (his ask, 10 Nov 2026; faster through the esophagus)');
   assert.equal(D(HT, 'travel0', 'travel1'), legMs(ROUTE_LEN.hvpg));
   assert.equal(D(HT, 'inflate', 'wedge'), BALLOON_IN_MS, 'the HVPG’s fill');
   // The old and the new, ms: the legs stay close to what they were but for BATO’s long route.
@@ -116,12 +116,14 @@ test('each procedure’s table is built from the timing table', () => {
   // Stops stay in order, each step's events inside it, whatever the legs.
   for (const [k, P] of [...Object.entries(PROCS), ['eus', MEASURES.eus], ['eusglue', ENDO.eusglue]]) {
     for (let i = 1; i < P.stops.length; i++) assert.ok(P.stops[i] > P.stops[i - 1], `${k}: stops in order`);
-    assert.equal(P.stops.at(-1), P.T.end, `${k}: ends with the catheter gone`);
+    // (The glue's scope stays parked at its last stop and fades out over end - back when the slide moves on: parkMs.)
+    if (P.parkMs) assert.equal(P.stops.at(-1), P.T.back, `${k}: parked at its last stop, to fade in place`);
+    else assert.equal(P.stops.at(-1), P.T.end, `${k}: ends with the catheter gone`);
     assert.ok(P.stops[0] > P.T.travel1, `${k}: the first step holds once the way in is over`);
   }
   // The EUS and glue sequences keep every gap they had (retimed, not rewritten).
   assert.equal(MEASURES.eus.T.end - MEASURES.eus.T.back, 4300); assert.equal(MEASURES.eus.T.aim0, MEASURES.eus.T.travel1 - 200);
-  assert.equal(ENDO.eusglue.T.end - ENDO.eusglue.T.back, 3800); assert.equal(ENDO.eusglue.T.aim0 - ENDO.eusglue.T.travel1, 400);
+  assert.equal(ENDO.eusglue.T.end - ENDO.eusglue.T.back, 800); assert.equal(ENDO.eusglue.T.aim0 - ENDO.eusglue.T.travel1, 400);
 });
 
 // A stand-in for the stage and the frame clock (the one tests/proc-anim.test.js uses): the options each shot was asked with.

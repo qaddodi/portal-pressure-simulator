@@ -2,7 +2,8 @@
 // on Treat the spleen: Next by Next. The scope is drawn by the GPU catheter every frame it is on, the camera rides along at one scale on the
 // way in (mock B: it only pans), pushes in once to the needle and the varix, holds still while the needle, the coils and the glue go in,
 // and pulls back once at the end, no closer than the way in's push; the varix closes (the model's change) exactly once, as step 5 starts,
-// and the callouts number the steps on the varix.
+// and the callouts number the steps on the varix. The last step parks the scope over the varix (no way out): it stays drawn until the slide
+// moves on, then fades out where it stands (his ask, 10 Nov 2026).
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { bootGL, pump } from './stage-gl-boot.js';
@@ -39,11 +40,12 @@ test('EUS coils and glue on the stage: drawn every frame, ride along, one push i
     for (let i = 0; i < 8; i++) await step();
     if (s < G.steps.length - 1) assert.equal(run.next(), true, `Next plays step ${s + 2}`);
   }
-  for (let i = 0; i < 250 && !ended; i++) await step();
-  assert.ok(ended?.done, 'played through to the end');
+  for (let i = 0; i < 30; i++) await step();
+  assert.equal(ended, null, 'held at the last stop with the scope parked, not run out');
+  assert.ok(G.stops.at(-1) < G.T.end && seen.at(-1).t === G.stops.at(-1), 'it waits at its last stop');
   assert.ok(frames > 150);
-  assert.equal(applied, 1, 'the varix closes once'); assert.equal(at, 4, 'as step 5, Varix closed, starts');
-  assert.deepEqual(said, ['1 Scope in', '2 Needle in', '3 Coils', '4 Glue', '5 Varix closed'], 'one callout per step, numbered, the first included');
+  assert.equal(applied, 1, 'the varix closes once'); assert.equal(at, 4, 'as step 5, No flow, starts');
+  assert.deepEqual(said, ['1 Varix found', '2 Needle in', '3 Coils', '4 Glue', '5 No flow'], 'one callout per step, numbered, the first included');
   // The camera: one scale riding in (it only pans while the tip travels), a push in for the needle's work, held there through the coils and
   // the glue, one pull back at the end, wider than the push in and no wider than the way in.
   const still = (sh) => seen.filter((x) => x.shot === sh && !x.gl).map((x) => x.k);
@@ -54,5 +56,14 @@ test('EUS coils and glue on the stage: drawn every frame, ride along, one push i
   assert.ok(tip[0] > way[0] + 0.5, `a push in: ${way[0].toFixed(2)} → ${tip[0].toFixed(2)}`);
   assert.ok(work[0] < tip[0] && work[0] > k0, `one pull back: ${tip[0].toFixed(2)} → ${work[0].toFixed(2)}`);
   assert.ok(way[0] <= 4 + 1e-6 && tip[0] <= 7 + 1e-6 && work[0] <= 5 + 1e-6, 'within the ride-along scales');
-  run.stop?.({ home: false });
+  // The slide moves on: the parked scope fades out in place over parkMs, in steps (not cut), then the stage has it taken away.
+  const drawn = [], was = st.setCatheter.bind(st);
+  st.setCatheter = (c) => { drawn.push(c ? c.opacity : null); return was(c); };
+  try {
+    run.stop({ home: false });
+    for (let i = 0; i < 30; i++) await step();
+  } finally { st.setCatheter = was; }
+  assert.equal(drawn.at(-1), null, 'then it is taken away');
+  const fade = drawn.slice(0, -1);
+  assert.ok(fade.length >= 4 && fade[0] > 0.9 && fade.every((x, i) => i === 0 || x <= fade[i - 1] + 1e-9) && fade.at(-1) < 0.2, `a fade in steps, not a cut: ${fade.map((x) => x.toFixed(2)).join(' ')}`);
 });

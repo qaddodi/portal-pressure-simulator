@@ -1363,7 +1363,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // (The step on show is the pressed one; after it has played through, the last stays pressed until the slide changes.)
   function procPaint() {
-    ui?.text.querySelectorAll('.pz-proc').forEach((b, k) => { b.classList.toggle('on', k === procShown); if (k === procShown) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
+    ui?.text.querySelectorAll('.pz-proc').forEach((b, k) => { b.classList.toggle('on', k === procShown); b.classList.toggle('done', k < procShown); if (k === procShown) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
   }
   // (The slide's treatment buttons press the one that now matches the live model.)
   function procCompare(s) {
@@ -1477,9 +1477,15 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // theirs), the one on show lit: progress, never buttons (his ask, 29 Oct: Next plays them). The callout on the figure carries the
     // same number. One the patient cannot have shows dimmed with why.
     const steps = [...(P?.steps || [['play', kind, '', kind]]), ...(procThen(s) ? specOf(procThen(s)).steps : [])];   // (its reading, if it has one, is one more step)
-    return h('p', { class: 'pz-procs', role: 'list', 'aria-label': `${P?.name || kind}, step by step: Next plays each step`, ...(why ? { 'data-why': why, title: why } : {}) },
-      ...steps.flatMap((st0, k) => [k ? ' ' : null, h('span', { class: `pz-proc${procRun && k === procShown ? ' on' : ''}`, role: 'listitem', 'aria-label': `Step ${k + 1}: ${st0[1]}`, title: why || st0[2] },
-        h('span', { class: 'pz-step', 'aria-hidden': 'true' }, String(k + 1)), nb(` ${st0[1]}`))]).filter(Boolean));
+    // (A procedure whose steps carry a short line, st0[8] (EUS coils and glue), lists them all at once, one under the other: number, word and its line, the
+    // steps played at full ink and the one on show lit. His ask, 10 Nov 2026, "do it except 10": nobody hovers in a lecture, so the sentence is on the card
+    // from the start, at its full size. The long caption stays the title. On a phone's stacked card (.pz.stack) it is the one-line row again with the
+    // lines hidden, so that card does not grow; TIPS, BRTO and BATO have none and keep the row.)
+    const list = steps.length > 0 && steps.every((x) => x[8]);
+    return h('p', { class: `pz-procs${list ? ' pz-procs-list' : ''}`, role: 'list', 'aria-label': `${P?.name || kind}, step by step: Next plays each step`, ...(why ? { 'data-why': why, title: why } : {}) },
+      ...steps.flatMap((st0, k) => [k ? ' ' : null, h('span', { class: `pz-proc${procRun && k === procShown ? ' on' : ''}${procRun && k < procShown ? ' done' : ''}`, role: 'listitem', 'aria-label': `Step ${k + 1}: ${st0[1]}${list ? `, ${st0[8]}` : ''}`, title: why || st0[2] },
+        h('span', { class: 'pz-step', 'aria-hidden': 'true' }, String(k + 1)), nb(` ${st0[1]}`),
+        list ? h('span', { class: 'pz-proc-line' }, ` ${st0[8]}`) : null)]).filter(Boolean));
   }
   // Out: the readings go, the balloon goes down and the catheter fades (at once when the figure is fading anyway).
   async function cathOut(fading, cut) {

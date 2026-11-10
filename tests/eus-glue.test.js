@@ -5,8 +5,8 @@
 // the shunt stays open, the fundal varix is obliterated and no blood runs through it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ENDO, PROCS, PROC_KINDS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
-import { EUS_GLUE_ROUTE, EUS_GLUE_TARGET, EUS_GLUE_STATION, EUS_RHO, EUS_SCOPE_R, EUS_COIL_EDGE, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
+import { ENDO, GLUE_ESO_U, PROCS, PROC_KINDS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
+import { EUS_GLUE_ROUTE, EUS_GLUE_TARGET, EUS_GLUE_STATION, EUS_RHO, EUS_SCOPE_R, EUS_COIL_EDGE, coilReach, lumenPath, eusPose, eusDraw, newTip, pointOn } from '../src/ui/eus-scope.js';
 import { EDGE_PATH, SEAM_D } from '../src/ui/anatomy.js';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
@@ -66,15 +66,72 @@ test('every value eases, the steps run in order, and the needle is out only with
   }
   assert.equal(last, G.steps.length - 1);
   const end = procFrame('eusglue', T.end);
-  assert.equal(end.opacity, 0); assert.equal(end.u, 0); assert.equal(end.needle, 0); assert.equal(end.step, -1);
+  assert.equal(end.opacity, 0); assert.equal(end.u, 1, 'parked over the varix to the end: no way out'); assert.equal(end.needle, 0); assert.equal(end.step, -1);
   assert.equal(stepAt('eusglue', T.coil0), 2); assert.equal(stepAt('eusglue', T.fill0), 3);
   assert.ok(T.apply > G.stops[3] && stepAt('eusglue', T.apply) === 4, 'the model closes the varix only once the glue step has played');
-  // (Each step's number and word on the varix, where the needle goes in, the first step's too: 1 Scope in.)
+  // (Each step's number and word on the varix, the first step's too: 1 Varix found. Each points at its own thing, f along C2: the varix ahead of the
+  // scope, the needle's point, the coil's far end, the middle of the cast, the X; tests below hold the numbers against the geometry.)
   assert.equal(stepMarks('eusglue', 0)[0].num, '1');
+  assert.deepEqual(G.steps.map((s) => s[1]), ['Varix found', 'Needle in', 'Coils', 'Glue', 'No flow'], 'the steps name what is found or done');
+  const fs = [0.7, EUS_GLUE_TARGET[1], null, EUS_GLUE_TARGET[1], EUS_GLUE_TARGET[1]];
   for (let i = 0; i < 5; i++) {
     const [m] = stepMarks('eusglue', i);
-    assert.deepEqual(m.edges, [EUS_GLUE_TARGET[0]]); assert.equal(m.f, EUS_GLUE_TARGET[1]); assert.equal(m.num, String(i + 1));
+    assert.deepEqual(m.edges, [EUS_GLUE_TARGET[0]]); assert.equal(m.num, String(i + 1)); assert.equal(m.label, `${i + 1} ${G.steps[i][1]}`);
+    if (fs[i] !== null) assert.equal(m.f, fs[i], `step ${i + 1} points at its own thing`); else assert.ok(m.f > EUS_GLUE_TARGET[1] + 0.02 && m.f < EUS_GLUE_TARGET[1] + 0.06, 'the coil’s far end, beyond the needle’s point');
     assert.ok(markAt('eusglue', i) > T.travel1);
+    assert.match(m.label, /^[A-Za-z0-9 ]+$/, 'plain glyphs of the labels’ GPU cut');
+  }
+  assert.equal(markAt('eusglue', 4), T.apply, 'the last callout comes with the X, as the model closes the varix, not as the scope leaves');
+  assert.ok(markAt('eusglue', 4) > G.stops[3] && markAt('eusglue', 4) < G.stops[4]);
+  assert.deepEqual([0, 1, 2, 3].map((i) => markAt('eusglue', i)), G.stops.slice(0, 4));
+});
+
+// His ask, 10 Nov 2026 (recs/eus-glue-steps.md item 1): every step has one short line for the teaching card's list, about eight words.
+test('each step has a short line of about eight words for the teaching card, the words and lines as drafted', () => {
+  assert.deepEqual(G.steps.map((s) => s[8]), ['Doppler finds it through the stomach wall', 'a 19-gauge needle enters the varix', 'they curl inside and hold the glue', 'cyanoacrylate casts the varix', 'Doppler confirms the varix is closed']);
+  for (const s of G.steps) assert.ok(s[8].split(' ').length <= 8 && s[2].length > s[8].length, `short: ${s[8]}`);
+  // (The other procedures carry none, so their card keeps the inline row.)
+  for (const k of ['tips', 'brto', 'bato']) assert.ok(PROCS[k].steps.every((s) => !s[8]), `${k}: no short lines`);
+});
+
+// His ask, 10 Nov 2026 (item 5): step 5 is the Doppler check; the scope stays parked, the fan stays on while the flow stops, and nothing travels back.
+test('step 5: the X lands at apply, the needle comes out, the fan stays on while the flow stops and goes after, and the scope stays parked', () => {
+  assert.ok(T.needleOut0 >= T.apply && T.needleOut1 <= T.fanOut0, 'the needle is out before the fan goes');
+  assert.ok(T.fanOut0 - T.apply >= 2000, 'the fan stays on for the flow to slow and stop (at least 2 s after the model takes the change)');
+  assert.ok(procFrame('eusglue', T.fanOut0 - 1).fan === 1 && procFrame('eusglue', T.fanOut1).fan === 0);
+  assert.ok(G.stops[4] >= T.fanOut1 && G.stops[4] === T.back && T.end - T.back === 800);
+  for (let t = T.apply; t <= T.end; t += 50) {
+    const f = procFrame('eusglue', t);
+    assert.equal(f.u, 1, `parked at ${t}`);
+    if (t <= G.stops[4]) assert.equal(f.opacity, 1, `shown through its last step at ${t}`);
+  }
+  assert.equal(procFrame('eusglue', T.back).aim, 0, 'the elevator down with the fan');
+});
+
+// His ask, 10 Nov 2026 (item 6, option a): about 3.5 s down to the fundus, quick through the esophagus, slow for the turn.
+test('the way in takes 3.5 s: fast through the esophagus, slowing for the turn into the fundus', () => {
+  assert.equal(T.travel1 - T.travel0, 3500);
+  const r = route(), start = r.spans.eso[0] * EUS_GLUE_ROUTE.start, uOf = (d) => (d - start) / (r.total - start);
+  assert.ok(Math.abs(uOf(r.spans.cardia[0]) - GLUE_ESO_U) < 0.005, `the esophagus ends at u ${uOf(r.spans.cardia[0]).toFixed(4)}`);
+  const u = (p) => procFrame('eusglue', T.travel0 + (T.travel1 - T.travel0) * p).u, len = r.total - start;
+  const speed = (p) => ((u(p + 0.005) - u(p - 0.005)) / (0.01 * 3.5)) * len;   // figure units a second
+  let peakEso = 0, peakTurn = 0;
+  for (let p = 0.05; p < 0.95; p += 0.01) { if (u(p) < GLUE_ESO_U - 0.03) peakEso = Math.max(peakEso, speed(p)); else if (u(p) > GLUE_ESO_U + 0.02) peakTurn = Math.max(peakTurn, speed(p)); }
+  assert.ok(peakEso > 200, `fast in the esophagus: ${peakEso.toFixed(0)} units a second`);
+  assert.ok(peakTurn < 120 && peakTurn < peakEso / 2, `slow for the turn: ${peakTurn.toFixed(0)} units a second`);
+  assert.ok(u(0.5) < u(0.6) && u(0.6) < u(0.9) && u(1) === 1, 'it only goes on');
+});
+
+// His ask, 10 Nov 2026 (item 7): the numbers GLUE_STEPS points its callouts at, held against the geometry.
+test('the callouts’ points: the varix ahead of the scope’s tip, the coil’s far end', () => {
+  const C = geo[EUS_GLUE_TARGET[0]].cur, ahead = G.steps[0][7];
+  assert.ok(Math.abs(pointOn(C, ahead)[0] - EUS_GLUE_STATION.at[0]) < 3, 'step 1: the varix straight ahead of (under) the scope’s tip');
+  assert.ok(pointOn(C, ahead)[1] > EUS_GLUE_STATION.at[1] + 20, 'and not on the needle’s point');
+  const f = EUS_GLUE_TARGET[1];
+  let L = 0; for (let i = 1; i < C.length; i++) L += Math.hypot(C[i][0] - C[i - 1][0], C[i][1] - C[i - 1][1]);
+  for (const rad of [3, 4, 5, 6]) {   // (the lumens C2 has as drawn)
+    const cr = coilReach({ path: lumenPath(C, f, 16), rad }), end = f + cr.dir * cr.span / L;
+    assert.ok(Math.abs(end - G.steps[2][7]) < 0.008, `step 3: the coil’s far end at lumen ${rad}: ${end.toFixed(4)} against ${G.steps[2][7].toFixed(4)}`);
   }
 });
 

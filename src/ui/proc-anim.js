@@ -287,29 +287,56 @@ export const GRAFTS = {
 // bend: his ask). Coils are pushed out of the needle's point and curl on inside the varix, then cyanoacrylate is injected over them and casts it.
 // The model then closes the varix alone (occluded C2: its X sits on the varix, never on the gastrorenal shunt, and the flow in it slows to
 // a stop as the model eases), as step 5 starts, after the glue's stop (as BRTO's shunt closes only at its step 4).
-// (Written for a way in of 5700 ms, 300 to 6000; retimed to the leg its length takes.)
-const GLUE_MOVE = [[6000, LEG.eusglue - 5700]];
+// (Written for a way in of 5700 ms, 300 to 6000; retimed to GLUE_WAY_MS.)
+// His ask, 10 Nov 2026 ("do it except 10", recs/eus-glue-steps.md item 6, option a): the way in is about 3.5 s, not 6.2 s. The esophagus is
+// 70% of the route and shows nothing new on this slide, so the scope cruises down it fast and slows only for the turn through the cardia and
+// on under the fundus, which is worth seeing once (GLUE_ESO_U: where the esophagus ends, as u, eus-scope.js EUS_GLUE_ROUTE's parts, held by
+// tests/eus-glue.test.js). One speed profile over the leg's time, built once: GLUE_ESO_SPEED times the turn's speed in the esophagus, eased
+// across GLUE_EASE_FROM..GLUE_EASE_TO of the time (done as the turn begins), eased in and out at the two ends; glueWay(p) is the way in as u.
+export const GLUE_ESO_U = 0.7025;
+const GLUE_WAY_MS = 3500, GLUE_ESO_SPEED = 2.5, GLUE_EASE_FROM = 0.34, GLUE_EASE_TO = 0.46;   // motion-scale: own pace (the glue scope's way in, his ask, 10 Nov 2026)
+const GLUE_MOVE = [[6000, GLUE_WAY_MS - 5700]];
+const GLUE_RUN = (() => {
+  const N = 128, cum = new Float64Array(N + 1), sm = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
+  const v = (p) => (1 + (GLUE_ESO_SPEED - 1) * (1 - sm((p - GLUE_EASE_FROM) / (GLUE_EASE_TO - GLUE_EASE_FROM)))) * sm(p / 0.12) * sm((1 - p) / 0.2);
+  for (let i = 1; i <= N; i++) cum[i] = cum[i - 1] + (v((i - 1) / N) + v(i / N)) / 2;
+  for (let i = 0; i <= N; i++) cum[i] /= cum[N];
+  return cum;
+})();
+/** How far in the scope is (u) at p, 0..1 of the way in's time: the profile above (pure, no allocation). */
+const glueWay = (p) => { const x = p * (GLUE_RUN.length - 1), i = Math.min(GLUE_RUN.length - 2, Math.floor(x)); return GLUE_RUN[i] + (GLUE_RUN[i + 1] - GLUE_RUN[i]) * (x - i); };
+// (Step 5 is the Doppler check, his ask, 10 Nov 2026: apply (the model closes the varix and its X lands), the needle comes out, the fan stays on while
+// the flow in the varix slows and stops, then the fan and the elevator go; the scope stays parked over the varix, back = where it stops, and fades
+// in place over end - back (800 ms, 600 of it by playProcedure's stop) when the slide moves on. No travel back up the esophagus.)
 const GLUE_T = retime({ travel0: 300, travel1: 6000, aim0: 6400, aim1: 7200, fan0: 6500, fan1: 7300, needle0: 7600, needle1: 9000, flash0: 8900, flash1: 9700,
-  coil0: 10300, coil1: 12700, fill0: 13300, fill1: 16000, apply: 16600, needleOut0: 16900, needleOut1: 17800, fanOut0: 17600, fanOut1: 18400,
-  aimOut0: 17800, aimOut1: 18600, back: 18800, end: 22600 }, GLUE_MOVE);
-const GLUE_STOPS = retime([6200, 9900, 13000, 16300, 22600], GLUE_MOVE);
+  coil0: 10300, coil1: 12700, fill0: 13300, fill1: 16000, apply: 16600, needleOut0: 16900, needleOut1: 17800, fanOut0: 19000, fanOut1: 19800,
+  aimOut0: 19000, aimOut1: 19800, back: 20200, end: 21000 }, GLUE_MOVE);
+const GLUE_STOPS = retime([6200, 9900, 13000, 16300, 20200], GLUE_MOVE);
 const GLUE_SHOT_MS = { way: 1200, tip: 800, work: 1200 };   // motion-scale: own pace (the glue shots)
-// (The callouts on the varix: each step's number and word, once its step has played, where the needle goes in. The varix is
-// the short gastric feeder's course, C2, at the glue's point (eus-scope.js EUS_GLUE_TARGET).)
-const GLUE_F = 0.8;
+// (The callouts on the varix: each step's number and word, once its step has played, each pointing at its own thing along the varix, the
+// short gastric feeder's course, C2 (eus-scope.js EUS_GLUE_TARGET; his ask, 10 Nov 2026, item 7). f, of the drawn course, 246.6 units long:
+// 1 the varix ahead of the scope, 0.7, where it lies straight under the scope's tip (its x is the station's); 2 the needle's point, 0.8; 3 the
+// coil's far end, the point plus the coil's reach along the side with more varix (eus-scope.js coilReach: 8 to 10 units for the lumens C2 has,
+// 9 here, tests/eus-glue.test.js holds it); 4 the middle of the cast, which spreads the same distance each way from the point, so 0.8 again;
+// 5 the X, 0.8.)
+const GLUE_F = 0.8, GLUE_F_AHEAD = 0.7, GLUE_F_COIL_END = GLUE_F + 9 / 246.6;
+// The step's word (the callout and the list), its caption (the title and the notes), the callout's short word, its shot, its vessel, its
+// stations, its point along the vessel, and one short line for the teaching card's list (about 8 words; his ask, 10 Nov 2026, items 1 and 2).
 const GLUE_STEPS = [
-  ['enter', 'Scope in', 'A linear echoendoscope goes down the esophagus, through the cardia and on under the fundus. From there it images the fundal varix through the stomach wall, and color Doppler shows the blood running through it.', 'Scope', 'way', 'C2', [], GLUE_F],
-  ['needle', 'Needle in', 'The transducer faces the varix. A 19-gauge needle, raised square to the scope, crosses the stomach wall into the varix.', 'Needle', 'tip', 'C2', ['GV'], GLUE_F],
-  ['coils', 'Coils', 'Coils are pushed through the needle and curl inside the varix. They hold the glue that follows, so less of it washes away into the shunt.', 'Coils', 'tip', 'C2', ['GV'], GLUE_F],
-  ['glue', 'Glue', 'Cyanoacrylate is injected over the coils. It sets in seconds and casts the varix from inside.', 'Glue', 'tip', 'C2', ['GV'], GLUE_F],
-  ['done', 'Varix closed', 'The varix is closed: the flow in it slows and stops. The gastrorenal shunt stays open, and the clotted splenic vein is still there, so the spleen is treated next.', 'Closed', 'work', 'C2', ['GV'], GLUE_F],
+  ['enter', 'Varix found', 'A linear echoendoscope goes down the esophagus, through the cardia and on under the fundus. From there it images the fundal varix through the stomach wall, and color Doppler shows the blood running through it.', 'Scope', 'way', 'C2', [], GLUE_F_AHEAD, 'Doppler finds it through the stomach wall'],
+  ['needle', 'Needle in', 'The transducer faces the varix. A 19-gauge needle, raised square to the scope, crosses the stomach wall into the varix.', 'Needle', 'tip', 'C2', ['GV'], GLUE_F, 'a 19-gauge needle enters the varix'],
+  ['coils', 'Coils', 'Coils are pushed through the needle and curl inside the varix. They hold the glue that follows, so less of it washes away into the shunt.', 'Coils', 'tip', 'C2', ['GV'], GLUE_F_COIL_END, 'they curl inside and hold the glue'],
+  ['glue', 'Glue', 'Cyanoacrylate is injected over the coils. It sets in seconds and casts the varix from inside.', 'Glue', 'tip', 'C2', ['GV'], GLUE_F, 'cyanoacrylate casts the varix'],
+  ['done', 'No flow', 'The Doppler check: the needle is out, and the flow in the varix slows and stops. The gastrorenal shunt stays open, and the clotted splenic vein is still there, so the spleen is treated next.', 'Closed', 'work', 'C2', ['GV'], GLUE_F, 'Doppler confirms the varix is closed'],
 ];
-// (Every step has its callout, the first too: "1 Scope in" shows once the scope is in place; his report, 8 Nov 2026: step 1's number never showed.)
+// (Every step has its callout, the first too: "1 Varix found" shows once the scope is in place; his report, 8 Nov 2026: step 1's number never showed.
+// The last comes with the X, as the model closes the varix (markT), not as the scope leaves.)
 const GLUE_MARKS = GLUE_STEPS.map((s, i) => Object.freeze([{ edges: [s[5]], label: `${i + 1} ${s[1]}`, num: String(i + 1), word: s[1], kind: 'treat', f: s[7], pin: true, ghost: true }]));
 const glueHad = (p) => !!p.occluded?.C2;
 export const ENDO = {
   eusglue: {
     name: 'EUS coils and glue', label: 'EUS coils and glue', T: GLUE_T, stops: GLUE_STOPS, shotMs: GLUE_SHOT_MS, holdEnd: true,
+    markT: [...GLUE_STOPS.slice(0, -1), GLUE_T.apply], parkMs: 600,   // (the last callout at apply, with the X; parkMs: the parked scope's fade when the slide moves on)
     steps: GLUE_STEPS,
     marks: (i) => GLUE_MARKS[i] || GLUE_MARKS[0],
     can: (p, m) => (p.spontaneous?.C5 === false ? 'This patient has no fundal varices.' : p.occluded?.C2 || p.occluded?.C5 ? 'The fundal varices are already closed.'
@@ -545,10 +572,10 @@ function eusFrame(T, t, back, opacity, step, shot, f) {
  * EUS-guided coils and glue at t ms (pure): u, how far in the scope is; aim, its port open and the elevator up (the scope does not turn:
  * the needle leaves square to it, eus-scope.js); fan, the ultrasound sector; needle, how far out the needle is (0..1 of the way to the
  * varix); flash, the hit's rings; coil, how much of the coil is out in the varix (it stays there); column, the glue filling the varix along
- * its course (stage-cath.js tints it; it stays). tgt 0: one station, one target.
+ * its course (stage-cath.js tints it; it stays). tgt 0: one station, one target. The scope parks over the varix at the end (no way out).
  */
 function glueFrame(T, t, back, opacity, step, shot, f) {
-  f.u = cruise(k01(t, T.travel0, T.travel1)) * (1 - back); f.balloon = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.tgt = 0; f.wire = 0; f.read = 0;
+  f.u = glueWay(k01(t, T.travel0, T.travel1)); f.balloon = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.tgt = 0; f.wire = 0; f.read = 0;   // (parked at the end: no way out, back is unused)
   f.aim = ease(k01(t, T.aim0, T.aim1)) * (1 - ease(k01(t, T.aimOut0, T.aimOut1)));
   f.fan = ease(k01(t, T.fan0, T.fan1)) * (1 - ease(k01(t, T.fanOut0, T.fanOut1)));
   f.needle = ease(k01(t, T.needle0, T.needle1)) * (1 - ease(k01(t, T.needleOut0, T.needleOut1)));
@@ -560,6 +587,8 @@ function glueFrame(T, t, back, opacity, step, shot, f) {
 
 // How many procedures or measurements are playing (one catheter or scope on the figure at a time: each card asks before it starts one).
 let runs = 0;
+// A parked scope fading out in place after its run was stopped (P.parkMs): any run that starts meanwhile ends the fade at once.
+let parkFade = 0;
 export const procRunning = () => runs > 0;
 
 // Going back through a step runs it backwards (the balloon goes down, the sclerosant drains, the catheter backs out), a little
@@ -581,7 +610,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   // a reading goes on from.)
   const stopAt = (k) => (hold && P.holdT && k === n - 1 ? P.holdT : P.stops[k]);
   if (rd) for (const k in rd) rd[k] = NaN;
-  runs++;
+  runs++; parkFade++;
   let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = stopAt(at);
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
@@ -629,6 +658,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     const t0 = t;
     if (!still && t !== goal) { clock.aim(goal, goal < t ? 1 / BACK_SPEED : 1); t = clock.step(dt); holdT = 0; }
     else if (!still && !stepped && at < n - 1) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { at++; goal = stopAt(at); holdT = 0; } }
+    else if (!still && !stepped && P.parkMs && goal < T.end) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { goal = T.end; holdT = 0; } }   // (autoplay: the scope parked at its last stop is shown for a hold, then fades out and the run ends; a presentation waits there for the slide to move on)
     // (Held at its last stop with the catheter in: the reading that goes on from here is asked for once, when this stop is reached and the camera has landed.)
     if (hold && P.holdT && at === n - 1 && t === goal && !still && !held) { held = true; onHold?.(); if (over) return; }
     // (Held at a stop with the camera landed and its last frame drawn: no frames until Next, Back or a step's button asks.)
@@ -647,7 +677,18 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   function stop({ home = true } = {}) {
     if (over) return;
     cancelFrame(raf); raf = 0; over = true; runs--;
-    stage.setCatheter(null);
+    // (A scope parked over its target fades out where it stands over P.parkMs, not cut: his ask, 10 Nov 2026. The run's own record is
+    // written down to nothing frame by frame; then the stage takes it away.)
+    if (P.parkMs && cat.opacity > 0.01) {
+      const id = ++parkFade, o0 = cat.opacity, t0 = performance.now();
+      const fade = () => {   // alloc-rare: a few dozen frames, once, as the slide moves on
+        if (id !== parkFade) return;
+        const k = k01(performance.now() - t0, 0, P.parkMs);
+        cat.opacity = o0 * (1 - ease(k));
+        if (k < 1) { stage.setCatheter(cat); nextFrame(fade); } else stage.setCatheter(null);
+      };
+      fade();
+    } else stage.setCatheter(null);
     // alloc-rare: once, as the procedure is stopped
     if (home && shot) stage.cathFocus('home', SHOT_MS, SHOT_CAM);
     onMark?.(null, null);
