@@ -68,7 +68,9 @@ const uniformsOf = (src) => {
 test('every uniform it declares is declared with the same type in the Tube strip build, so the pass feeds it unchanged', () => {
   const lean = uniformsOf(LEAN), strip = uniformsOf(STRIP);
   assert.ok(lean.size > 25, 'the uniforms were found');
-  for (const [name, type] of lean) assert.equal(strip.get(name), type, `${name}: ${type} (the strip build has ${strip.get(name)})`);
+  // (isWeb is new: 0 for the strips, 1 for the web program, which D sets; the strip build has no such thing.)
+  assert.equal(lean.get('isWeb'), 'int');
+  for (const [name, type] of lean) if (name !== 'isWeb') assert.equal(strip.get(name), type, `${name}: ${type} (the strip build has ${strip.get(name)})`);
   // (The shared text it takes in whole is the strip's: the alongAt text and the constants are the strip build's.)
   assert.ok(STRIP.includes(ALONG_GLSL), 'the alongAt text matches veins-gl.js');
   assert.ok(STRIP.includes('const float S_OFF = 96.0;') && STRIP.includes('const float LAST = 63.0;'));
@@ -108,6 +110,19 @@ test('the tier, the group and the alphas scale the picture as the vessel shader 
   assert.equal(tubeLeanJS({ ...base, attrs: { ...attrs, tier: 2 } }).kind, 'discard', 'a row of another tier');
   const behind = tubeLeanJS({ ...base, grp: 0, occl: 0.4, attrs: { ...attrs, of: 1 } });
   near(behind.colour, [...FILL.map((v) => v * 0.6), 0.6], 'behind an organ: faded by the cover');
+});
+
+test('a web is drawn in the tier it is given, whichever tier its owner\'s row is in; a strip of another tier is discarded', () => {
+  assert.match(LEAN, /uniform int isWeb;/);
+  assert.match(LEAN, /if \(ti != tierNow && isWeb == 0\) discard;/);
+  assert.match(LEAN, /int tt = isWeb == 1 \? tierNow : ti;/);
+  assert.match(LEAN, /int grp = tierGroup\[tt\];/);
+  const other = { ...base, attrs: { ...attrs, tier: 1 }, tierNow: 2, grp: 0, tierAlpha: 0.5 };
+  assert.equal(tubeLeanJS(other).kind, 'discard', 'a strip whose row is in tier 1, drawn in tier 2');
+  const web = tubeLeanJS({ ...other, isWeb: true });
+  assert.equal(web.kind, 'draw', 'a web of that row');
+  near(web.colour, [...FILL.map((v) => v * 0.5), 0.5], 'the owner\'s colour and opacity, the drawn tier\'s alpha');
+  assert.equal(tubeLeanJS({ ...base, isWeb: true }).kind, 'draw', 'a web in its owner\'s own tier too');
 });
 
 test('a dotted gap is empty and a dot is drawn without a stream', () => {

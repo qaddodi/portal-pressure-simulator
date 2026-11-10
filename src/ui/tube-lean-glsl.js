@@ -47,6 +47,7 @@ in float vRad;                         // the lumen's radius here, world units
 flat in vec2 vEnd;                     // the vessel this row ends on at its start (x) and its end (y): trunk row * 64 + the trunk's sample, or -1
 uniform int mPass;                     // the pass (MP_*)
 uniform int tierNow;                   // the tier it draws
+uniform int isWeb;                     // 0 a strip; 1 a web: drawn in the higher of its two members' tiers, carrying its owner's row (often in the lower tier)
 uniform highp sampler2D ent;
 uniform highp sampler2D rad;
 uniform highp sampler2D tube;
@@ -154,9 +155,11 @@ void main() {
   float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
   vec3 aCol, aEdge;
   vesAttrs(id, u, u, p, occl, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
+  // (A web is drawn in tierNow, whichever tier its owner's row is in: its colour and the row's own opacity are the owner's, its tier alpha and group the tier it is drawn in.)
   int ti = int(aTier + 0.5);
-  if (ti != tierNow) discard;
-  int grp = tierGroup[ti];
+  if (ti != tierNow && isWeb == 0) discard;
+  int tt = isWeb == 1 ? tierNow : ti;   // (the tier it is drawn in)
+  int grp = tierGroup[tt];
   // Whether a lumen colour reaches this pixel: through a lumen drawn here (aL > 0) or a glow in its own colour.
   bool dep = false;
   vec4 gc, ge;
@@ -171,10 +174,10 @@ void main() {
   float aL = clamp(0.5 - D / aa, 0.0, 1.0);
   if (aL > 0.0) dep = true;
   vec4 c = celShade(D, D, R, aWall, aCol, g, flags & ~${F_SHADOW}, sel, cA, grp, id, u, aHov, aEdge, 0.0, 0.0, aa, aL);
-  c *= aA * tierAlpha[ti];
+  c *= aA * tierAlpha[tt];
   float wsel = grp == 1 ? aSel : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
   float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
-  float lumA = aL * aA * tierAlpha[ti] * gf;
+  float lumA = aL * aA * tierAlpha[tt] * gf;
   bool lum = lumA > 0.02 && !dotted;
   // The stream shown here: this lumen, with its place along and across for the compositor's blood.
   uint gId = 0u;
@@ -248,7 +251,7 @@ export function leanDistanceJS(o) {
  *   D (vD), R (vRad), g (vG, not unit), u (vI / LAST), clip [from, to, length], dotted, end { p, pts, rad, sample } or null (the open end:
  *   p the pixel, the trunk's points and radii), attrs { tier, flags, wall, col, alpha, hov, sel, edge, of }, tierNow, tierAlpha, grp, netAlpha,
  *   occl, and what celShadeJS takes (px, aa as px * EDGE, light, fx, casing, ring, rimInk, paperInk, F_DIFFUSE, F_EDGE, F_VEIL, F_SEL, F_DOTTED, F_NOCASE),
- *   redraw, reach, lift.
+ *   redraw, reach, lift, isWeb (true for the web program: the row may be in another tier than tierNow; then `grp` and `tierAlpha` are those of tierNow, the tier it is drawn in).
  * Returns { kind: 'discard' | 'empty' | 'draw', colour [r, g, b, a] premultiplied, flow { id, s, y, w } or null, dep }.
  */
 export function tubeLeanJS(o) {
@@ -262,7 +265,7 @@ export function tubeLeanJS(o) {
     if (trunkGapJS(o.end.p, o.end.pts, o.end.rad, o.end.sample) < 0) return none;
   }
   if (!(o.lit && D - at.wall < 15.7) && D > 8.01 + 2 * px) return none;
-  if (at.tier !== o.tierNow) return { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
+  if (at.tier !== o.tierNow && !o.isWeb) return { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   if (D > 8 + 2 * px) return { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   const flags = at.flags, grp = o.grp ?? 1, dotted = (flags & F_DOTTED) !== 0;
   const cA = (flags & F_NOCASE) !== 0 ? 0 : dotted ? 0.35 : 1;
