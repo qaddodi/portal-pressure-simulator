@@ -1,605 +1,534 @@
-# What to add next, from first principles (10 Nov 2026)
+# What to add next, from first principles (second pass, 10 Nov 2026)
 
 Features, transitions, animations, UI and graphics. Docs only: nothing was built and no app code changed.
-Read at `9245905` on `claude/settings-topbar-icon-flvft1`.
 
-**What I read so this does not repeat it.** `new-features-recs.md` (I1 to L2), `animation-and-transitions.md` (items 1 to 24),
-`visual-style.md` (C, V, B, D, S), `picture-blood-fills-look.md`, `tubes-and-particles-first-principles.md`, `tube-renderer-plan.md`,
-`tube-renderer-speed-plan.md` (P1 to P7, V7), `deck-accuracy-and-feature-use.md`, `docs/deck-behavior-vision.md` (N1 to N10), the
-7 Nov ideas file, the short deck guide, and the code where an item below names a file. None of those items is repeated here. Where
-a new item leans on one of them, it says so.
+Mohammad asked for this file to be thought through again from nothing. This version replaces the first one (kept in git at
+`8c4d381`). It starts from a different question, arrives at a different order, drops some items, and adds new ones. Where an idea
+from the first pass is here again, it is because it came out of the new reasoning too, and the section says why.
+
+**Read for this pass.** The app's own code at `8c4d381`: the model's settings, drugs and events (`src/engine/`), the timeline and
+Compare, the lobule and sinusoid views, the instruments and their probes, the presenter, and the Tube renderer's files. The
+earlier recs files were read only to avoid repeating them (new features I1 to L2, motion 1 to 24, visual style, the Tube plans).
 
 **Rules every item keeps.** Everything drawn is drawn by the GPU. Tube is the cel-shaded look, and a renderer is never a hybrid.
-No liver seep for ascites. The Vector renderer stays shelved. One label style, and only the labels thread edits label code. Blood
-keeps its steady mean speed. Nothing here needs a backend, so nothing leaves the device.
+No liver seep for ascites. The Vector renderer stays shelved. One label style, edited only by the labels thread. Nothing needs a
+backend. Cards are glass of one fixed size.
 
-**What is not verified.** I read code; I ran nothing in a browser. Where an item says "check first", I could not tell from the
-code alone whether part of it already exists.
+**Not verified.** I read code and ran nothing. "Check first" marks what I could not confirm from the code.
 
 ---
 
-## The first principles
+## Starting point: what does the viewer have to remember?
 
-The app has one job: make a hidden causal system visible, to a room and to a learner alone. A person watching any system change
-asks five questions, in this order. Each item below is ranked by how directly it answers one of them.
+The app's one asset is that the picture is computed. A book can show a state. Only a live model can show several views of one
+state at once, the same patient under two choices, and a change as it happens.
 
-1. **Where do I look?** The eye needs one place at a time.
-2. **What changed?** The eye sees motion and difference, not state.
-3. **Why did it change?** A cause has a place and a direction. It should be seen starting somewhere and going somewhere.
-4. **What would happen if?** People learn a system by predicting it and being wrong.
-5. **Is the picture honest?** One quantity, one visual cue. A cue that means two things teaches nothing.
+The viewer's limit is memory. A person in a lecture hall can hold about four things in mind. Portal hypertension asks them to
+connect four things that are almost never on screen together:
 
-The app is already strong on 1 and 2 (camera, glow, spot, ripple, tiles that ease, the `since` lens). It is weakest on 3 and 4.
-"Why?" is a popover of bars, away from the figure. A prediction is a question card with no way to commit to an answer. Most of the
-top items are there.
+| What must be connected | Where it is today | What the viewer has to remember |
+|---|---|---|
+| **Scale**: sinusoid, lobule, organ, body | One scale at a time (the scale pill, the dive) | The other two scales |
+| **The other choice**: treated or not, this drug or that | Buttons flip between them | The state they just left |
+| **Cause**: where a change starts | Every vessel changes together | Nothing to remember, but nothing shown either |
+| **Place**: which vessel a number or an instrument belongs to | Cards beside the figure | Which vessel the card is about |
 
-Two more things fall out of the same thinking:
+So the test for every item is one sentence: **does it put on the screen something the viewer otherwise has to remember or
+guess?** The list is ranked by that test, then by cost.
 
-- **The app is silent.** There is no audio anywhere in `src/`. A Doppler is an instrument people listen to.
-- **The Tube look stops at the vessel wall.** The tubes are cel-shaded with an outline. The organs, devices and events around them
-  are still drawn in the older painted language.
+Two smaller tests come from who is watching:
+
+- **The back row.** A room reads shape, colour and motion. It does not read 12 px numbers. A key moment should be visible
+  without reading.
+- **The learner alone.** One person with a phone and five minutes needs something to do, not something to watch.
 
 ---
 
 ## The short version
 
-Size: **S** under a day, **M** one to three days, **L** several threads.
+Size: **S** under a day, **M** one to three days, **L** several threads. "Mock" means it changes the picture, so Mohammad
+should see a mock before a build.
 
-| # | Item | Kind | Question it answers | Size |
+| # | Item | Kind | What it puts on screen | Size |
 |---:|---|---|---|---|
-| 1 | **Why, drawn on the figure** (top pick) | feature | Why | M |
-| 2 | **Ride a red cell** (top pick) | feature, animation | Why, Where | M |
-| 3 | **Guess first**: drag your guess before the reveal (top pick) | feature | What if | S to M |
-| 4 | A Doppler you can hear | feature | Honest | M |
-| 5 | Build the patient: puzzles solved on the model | feature | What if | M |
-| 6 | "Then" as an outline under "now" | feature | What changed | M |
-| 7 | Notes as captions in self-study | feature | Why | S |
-| 8 | Take this patient with you: a code on the last slide | feature | What if | S |
-| 9 | The circuit stands up into the pressure ladder | transition | Why | M |
-| 10 | A change spreads from where it was made | transition | Why | S to M |
-| 11 | A number travels from its vessel to its tile | transition | Where | S |
-| 12 | Three kinds of slide change, three motions | transition | What changed | M |
-| 13 | A locator in the lobule and the sinusoid | transition, UI | Where | S |
-| 14 | A collateral opens from its high-pressure end | animation | Why | S |
-| 15 | Events happen at a place | animation, UI | Where | S |
-| 16 | Events in the cartoon's own language (Tube) | animation | What changed | S to M |
-| 17 | Wall tension you can see on the varix | animation | Why | S |
-| 18 | The legend is a control: brush a pressure band | UI | Where | S |
-| 19 | Charts and figure answer each other | UI | Where | S to M |
-| 20 | Fork badges: how the flow splits, at the fork | UI | Why | S |
-| 21 | First touch: a 20-second start on the figure | UI | Where | S |
-| 22 | Organs in the tubes' cel language (Tube) | graphics | Honest | M |
-| 23 | One quantity, one cue: particle count is flow | graphics | Honest | S |
-| 24 | Stepped-back vessels become line art, not see-through (Tube) | graphics, speed | Where | M |
-| 25 | Devices in the cel language (Tube) | graphics | Honest | S to M |
-| 26 | Three scales on one screen: anatomy with lobule and sinusoid cutouts (Mohammad's idea, 10 Nov) | feature | Why, Where | M to L |
+| 1 | **Three scales on one plate** (Mohammad's idea; top pick) | feature, transition | The other two scales | M to L, mock |
+| 2 | **A second state on the same figure**: before, or the road not taken (top pick) | feature | The other choice | M, mock |
+| 3 | **A change starts where it is made**: drugs land on their targets (top pick) | animation | The cause | M |
+| 4 | Every card is tied to its place | UI, transition | Which vessel a card is about | S to M |
+| 5 | Guess first: commit before the reveal | feature | The viewer's own prediction | S to M |
+| 6 | Pressure lines: a tick wherever the pressure crosses 5, 10, 15... | graphics | Where the pressure is lost, without a chart | S to M, mock |
+| 7 | Threshold moments: crossing 10 or 12 is an event the room sees | animation | The cut-off | S |
+| 8 | The chart draws itself as the eye walks the path | transition | Where a chart comes from | S |
+| 9 | Start from readings: open the patient nearest to a real one | feature | The viewer's own patient | M |
+| 10 | Things to try: three experiments on every patient | feature, UI | What a learner can do | M |
+| 11 | A detour in a talk, and the way back | UI | The room's own question | S to M |
+| 12 | A Doppler you can hear | feature | What the instrument really gives | M |
+| 13 | The patient in one sentence | UI | The state, in words | S |
+| 14 | Three kinds of slide change, three motions | transition | What kind of change this was | M |
+| 15 | Fork badges: how the flow splits, at the fork | UI | The split, where it happens | S |
+| 16 | The legend is a control | UI | Every vessel in a pressure band | S |
+| 17 | One hand: organs and devices in the tubes' cel language (Tube) | graphics | A picture that reads as one drawing | M, mock |
+| 18 | Nothing see-through: stepped-back vessels become line art (Tube) | graphics, speed | What matters, at a glance | M, mock |
+| 19 | Streak count is flow | graphics | Flow volume, without a number | S |
+| 20 | The heart shows the circulation | animation | Heart rate and output, without a tile | S |
+| 21 | Wall tension on the varix | animation | Why this varix will bleed | S |
+| 22 | A collateral opens from its high-pressure end | animation | What opened it | S |
+| 23 | Sudden things in the cartoon's language (Tube) | animation | That something just happened | S |
+| 24 | Study mode: the notes as captions | feature | The speaker's half of the talk | S |
+| 25 | A code on the last slide | feature | The patient, in the room's hands | S |
 
-**If only three are built:** 1, 2 and 3. They are the three that change what a room understands, and each reuses pieces that
-exist.
+**If only three are built: 1, 2 and 3.** They are the three rows of the table above that are empty today.
 
 ---
 
-## A. Features
-
-### 1. Why, drawn on the figure (top pick)
-
-**Principle.** A cause has a place and a direction. Today "Why?" (`why.js`) answers with one sentence and a waterfall of bars in a
-card. The bars are right, but the learner has to carry them back to the anatomy in their head.
-
-**What to add.** A "Show on the figure" step in the Why card, and a slide field (`why: 'ppg'`) that plays the same thing in a talk.
-
-1. The model already returns the contributions, largest first (`explain.js`: label, delta, kind).
-2. Each contribution has a home on the figure: cirrhosis is the liver's sinusoids, a clot is its vessel, a meal is the gut, a
-   beta-blocker is the heart and the gut arteries, a TIPS is the stent. That is a small table from factor to vessel or organ ids,
-   the ids `glow` already takes.
-3. The figure plays them in order. The first cause's home lights and carries its number ("+9 mmHg"). A pulse then runs along the
-   vessels from that home to the place the reading is taken. Then the second cause, and so on. The reading's own site lights last
-   with the total.
-4. On a talk, each Next plays one cause. In the free simulator it plays through once and holds.
-
-**Why it is cheap.** The pieces exist: `glowSeq` and `steps` light sites in order with numbered circles, marks carry live numbers,
-and the path between two stations is the topology the profile chart already walks. The new parts are the factor table, the pulse
-along a path (see item 10, the same piece), and the hook from the Why card.
-
-**Check first.** Contributions interact, so they do not add up exactly; the card already shows the rest as its own row. On the
-figure, the rest should stay in the card and not get a home.
-
-**Size M.** Callouts go through the labels thread's system.
-
-### 2. Ride a red cell (top pick)
-
-**Principle.** "Blood takes the path of least resistance" is the whole subject, and nobody has ever watched one cell do it. The
-figure shows all the blood at once, which is a state. One cell's trip is a story.
-
-**What to add.** A "Follow a cell" action on any vessel, and a slide field (`ride: { from: 'SMV' }`).
-
-- One particle is drawn bright with a small ring. The camera follows it at a steady, comfortable speed (not the blood's real
-  speed, which is far too fast in the cava and far too slow in the sinusoids).
-- At each fork the cell goes one way. Which way is drawn from the model's own flow shares at that fork, so in a healthy patient
-  nearly every ride crosses the liver, and in decompensated cirrhosis most rides leave by a collateral. Run it five times and the
-  learner has seen the shunt fraction.
-- A small strip under the figure draws the pressure the cell has felt so far, station by station. It is the pressure profile,
-  built as the cell travels.
-- With the scale switch the ride can go through the lobule: down a sinusoid, past the stellate cells, into the central vein.
-- A slide can fix the route (`via: 'C1a'`) so a talk shows the same trip every time.
-
-**On the GPU.** The particle is one more instance in the blood pass. The camera is the existing glide following a moving target.
-The strip is trace-gl. No new surface.
-
-**Check first.** The camera has one owner per move; a ride is a long move that Next, a pinch or a tap must be able to cut cleanly.
-The motion doc's item 2 (waits Next cannot cut) is the same concern.
-
-**Size M.**
-
-### 3. Guess first: drag your guess before the reveal (top pick)
-
-**Principle.** People learn a system by predicting it and being wrong. The question card asks, but nobody has to commit, so
-nobody is wrong, and the reveal lands softly.
-
-**What to add.** On a slide with `question`, an optional `guess: 'hvpg'`.
-
-- The question card shows that reading's tile scale, large, with a handle. The presenter (or the learner alone) drags the handle
-  to where they think the reading will land. On a talk the presenter asks the room and drags to what the room says.
-- On reveal the real dot eases along the scale to its value and the guess stays as a hollow ring. The gap between them is the
-  lesson. No score, no right or wrong words, nothing stored.
-- Direction-only form for quick slides: `guess: { of: 'pvFlow', as: 'updown' }` gives three targets (up, same, down).
-
-**On the GPU.** The tile scale already draws a dot for now and a ring for where the reading started (tile-gl). The guess is a
-third mark and a slider-gl handle.
-
-**Why not a poll.** N7 (the room poll) was turned down because it needs a backend. This needs none: one handle on the
-presenter's screen.
-
-**Size S to M.**
-
-### 4. A Doppler you can hear
-
-**Principle.** An instrument should be shown the way it is used. Nobody reads a Doppler in silence: the portal vein's low
-continuous hum, the hepatic artery's sharp beat and the hiss of a narrowed TIPS are how the finding is first noticed.
-
-**What to add.**
-
-- A speaker button on the Doppler card, off by default. On, the trace's own spectrum drives the sound: `doppler-synth.js` already
-  computes, for every moment, how much signal sits at each velocity. Velocity maps to pitch the way a real machine maps Doppler
-  shift, so a faster jet is a higher sound and a reversed flow moves to the other channel.
-- The same switch gives the bedside monitor (`vitals`) its beep at the model's heart rate. In the bleed deck the room hears the
-  heart rate climb before anyone reads the tile.
-- Silent under reduced motion unless turned on by hand. A talk never starts sound by itself: the presenter turns it on.
-
-**Rules check.** Sound is not drawing, so the GPU rule is not touched. It should run in an audio worklet, off the main thread,
-fed by the numbers the trace already has, so it adds no per-frame work to the page.
-
-**Check first.** iPhone Safari only starts audio from a tap, so the speaker button must be the thing that starts it.
-
-**Size M.**
-
-### 5. Build the patient: puzzles solved on the model
-
-**Principle.** The deepest test of understanding a system is the inverse problem. "Where is the resistance?" asks the learner to
-name it. This asks them to make it.
-
-**What to add.** A small set of puzzles under Patients, each a target written as readings: "HVPG normal, PPG 15, large spleen",
-"HVPG 20 and a portal vein that flows backwards", "varices with a normal liver". The learner starts from the healthy patient and
-uses the ordinary vessel actions (narrow, clot, scar the liver, open a shunt) until the live readings sit inside the target.
-
-- The target shows as rings on the tiles; each ring fills as its reading enters range. When all fill, the puzzle names the
-  textbook patient the learner has built and offers its deck.
-- The judge is the fingerprint the app already computes for every state. No new model work.
-- Different from the case runner (L1): a case tests decisions on a patient. This tests the mechanism, takes two minutes, and has
-  no vignette.
-
-**Size M.** Eight puzzles are enough to start; each is a few lines of data.
-
-### 6. "Then" as an outline under "now"
-
-**Principle.** The eye compares shapes far better than it compares memories. Compare (`compare.js`) pins a moment and lets the
-header switch between then, now and the change, so the two states are never on screen together.
-
-**What to add.** While a moment is pinned, draw every vessel's *then* calibre as a thin dashed outline under the live vessel, the
-way `normalOutline` already draws the normal spleen inside the large one. A varix that grew shows its old size inside it. A portal
-vein that shrank after a TIPS sits inside its old outline. The same for the spleen and the liver.
-
-- For decks: `outline: 'before'` draws the outline of an earlier slide's state.
-- It replaces the idea of two patients side by side (7 Nov F10), which needs two full vessel layers. This is one extra outline
-  pass over geometry that already exists at two widths.
-
-**Check first.** The outline pass must be its own optional program per renderer (Classic, Mesh, Tube), with no fallback from one
-renderer to another.
-
-**Size M.** Owned by whoever owns `veins-gl.js` at the time.
-
-### 7. Notes as captions in self-study
-
-**Principle.** A deck is half a talk: the other half is the speaker. A learner who opens a deck alone gets the slides without the
-voice. The voice is already written, in `notes`, and today it only prints.
-
-**What to add.** A "Study" way to open a deck (beside Present). Each slide shows its `notes` as two or three caption lines under
-the teaching card, and its `ask` as a tap-to-reveal question before Next. Nothing changes for a projected talk.
-
-**On the GPU.** Caption text is the same GPU text the cards use. Teaching cards keep showing all their text at once; the caption
-is a separate strip.
-
-**Check first.** Some notes start with "Source:" lines or are long. A caption should take the first two sentences and leave the
-rest behind a "more" tap. The humanizer rules apply to notes that become on-screen text.
-
-**Size S.**
-
-### 8. Take this patient with you: a code on the last slide
-
-**Principle.** A lecture ends and the room has watched, not done. The app's best feature is that anyone can do.
-
-**What to add.** The quick-check slide at the end of each deck shows a QR code that opens the app on the deck's main patient in
-the free simulator, with one suggested thing to try ("Narrow the stent and watch the liver"). `share-link.js` already packs a
-state into a link, and deep links (`?preset=`, `?script=`) exist.
-
-- The code is drawn by the GPU as squares (shape-gl), not as an image.
-- No backend, no account, nothing collected.
-
-**Size S.**
-
----
-
-## B. Transitions
-
-### 9. The circuit stands up into the pressure ladder
-
-**Principle.** The Circuit view and the Gut to heart chart are the same thing drawn twice: the same eight stations in the same
-order. One is laid out by anatomy and the other by pressure. Today they are a figure and a card with no visible link, and the
-learner has to work out that they match.
-
-**What to add.** One move. On the Circuit view, each station slides straight up or down to the height of its own pressure. The
-wires between stations tilt into the slopes of the ladder. A steep wire is a resistance. A flat one is not. Blood keeps running
-along the wires, now visibly downhill. A second tap lays the circuit flat again.
-
-- Raising the cirrhosis slider while it stands makes the sinusoid step grow under the learner's finger.
-- For decks: `view: 'circuit', stand: true`.
-
-**Why it is plausible.** Anatomy to Circuit already morphs every vessel between two layouts (`stage-morph.js`). This is a third
-layout of the same stations, with y taken from the model. The ladder's zones and brackets come from the profile chart's own
-drawing.
-
-**Check first.** Station heights move with every model update, so the layout must follow them through the same followers the
-tiles use, not rebuild the morph.
-
-**Size M.**
-
-### 10. A change spreads from where it was made
-
-**Principle.** A cause has a place. When a slide gives carvedilol or opens a TIPS, `ripple: true` makes the vessels whose pressure
-moved glow, all at once as far as I can read. The whole tree changing together says "something happened". It does not say where
-it started.
-
-**What to add.** Order the ripple by distance along the vessels from the place of the change. A TIPS starts at the stent and the
-fall runs back down the portal vein into the varices and the spleen. A banding starts at the varix. A drug starts at its target.
-The wave takes about 600 ms to cross the figure, on the existing curves.
-
-- This is a display order, not physiology. The pressures themselves still ease as they do now.
-- It is the same piece as the pulse in item 1: a delay per vessel, read from its distance to a start vessel.
-
-**Check first.** Confirm how the ripple is timed today (`highlight-math.js`, `veins-gl.js`). If it already staggers, this item is
-only the choice of the start vessel.
-
-**Size S to M.**
-
-### 11. A number travels from its vessel to its tile
-
-**Principle.** One thing should stay one thing. A pressure written beside the portal vein (`sites`) and the same pressure in a
-tile are one reading shown twice, and nothing on screen says so.
-
-**What to add.** When a slide brings in a tile whose reading is also written on the figure, the number lifts off the vessel and
-glides into its tile as the card arrives, once. After that both stay. On Back it does not replay.
-
-**On the GPU.** GPU text moving between two anchors; `num-move.js` and the card-entry clock exist. It must ride the card's own
-throw so it never arrives before its tile.
-
-**Size S.** Touches label code, so it goes to the labels thread.
-
-### 12. Three kinds of slide change, three motions
-
-**Principle.** Motion is a language, and the same word should not mean three things. A Next can mean a new patient, the same
-patient later, or the same patient treated. Today all three mostly read as "the figure eases to new values".
-
-**What to add.** One fixed motion for each, used everywhere:
-
-| The slide | What the room should feel | Motion |
-|---|---|---|
-| Loads a new patient | "This is someone else" | The figure dips a little in brightness and comes back with the new patient, with the case card. No morph between two people. |
-| Passes time (`days`, `lapse`) | "Time went by" | The time-lapse and its time graph, as built. |
-| Treats or acts | "We did something" | The spreading change of item 10, starting at the site. |
-
-**Check first.** What a new-patient slide does today when it has no vignette. The deck behaviour vision says nothing may blink, so
-the dip must be a real eased dip of the figure layer (opacity only), never a cut.
-
-**Size M.**
-
-### 13. A locator in the lobule and the sinusoid
-
-**Principle.** A dive that loses the whole loses its meaning. Inside the lobule or the sinusoid nothing on screen says where in
-the liver this is or how small it is.
-
-**What to add.** A small locator in a corner of the two deep views: the liver's outline with a dot where the lobule is, and in
-the sinusoid view the lobule's hexagon with the sinusoid marked. It carries a scale bar ("1 mm", "50 µm"). Tapping it rises one
-level.
-
-- During the dive, the locator's dot is where the camera went in, so the two views stay tied.
-- Drawn by shape-gl and GPU text; one small fixed card of glass.
-
-**Size S.**
-
----
-
-## C. Animations
-
-### 14. A collateral opens from its high-pressure end
-
-**Principle.** The pressure opens the vessel, so the opening should start where the pressure is.
-
-**What to add.** When a collateral is recruited, it grows in calibre from its portal end toward its systemic end over about a
-second, and closes the other way when the pressure falls. In the Tube look this is a taper along the tube's length driven by one
-number per vessel.
-
-**Check first.** How a collateral appears today (a fade, a width follower, or both). If it already widens along its length, drop
-this item.
-
-**Size S.**
-
-### 15. Events happen at a place
-
-**Principle.** The model fires events (a stagnant portal vein, a varix at its rupture threshold, a caudate that has grown). They
-arrive as lines in History and as toasts, away from where they happened.
-
-**What to add.** Each event drops a small pin on its vessel or organ for a few seconds, with a short pulse, and then the pin
-shrinks into the History button so the eye learns where the record went. Tapping an event in History glides the camera to the
-place and lights it.
-
-**On the GPU.** shape-gl and GPU text. The pin's words are label text, so the labels thread places them.
-
-**Size S.**
-
-### 16. Events in the cartoon's own language (Tube)
-
-**Principle.** A look is a promise about how things will be told. The Tube look is a cartoon, and cartoons have a vocabulary for
-sudden things that the painted look never had.
-
-**What to add, in the Tube look only:**
-
-- **Rupture:** a short flat burst shape at the tear (two frames large, then settling), in the outline's ink, before the steady
-  bleed spot takes over. The steady spot stays as decided.
-- **A balloon inflating, a stent opening, a band closing:** a brief overshoot and settle in the shape (squash and stretch of a few
-  percent), on the existing curves.
-- **A jet through a narrowing:** V7 already curls the blood. Add two or three short speed lines beside the jet, in outline ink.
-
-All of it is still under reduced motion. None of it changes a number.
-
-**Size S to M.** It should go to the Tube planner thread, since it sits on the Tube's pass.
-
-### 17. Wall tension you can see on the varix
-
-**Principle.** A varix bursts because its wall tension is too high, not because it is large. The wall tool shows this in a card.
-On the figure a varix only gets bigger.
-
-**What to add.** The varix's outline carries the model's wall stress (the `varix` reading, percent of rupture). As it climbs, the
-wall line thins and the fill pales toward the thin-wall colour, most on the bulging side. Near the threshold the wall trembles
-slightly (still under reduced motion). Banding or a fall in pressure thickens it again.
-
-**How it fits.** V3 in the visual style doc gives varices their beads and red signs. This adds the one variable that predicts the
-bleed. One uniform per varix in the vessel shader.
-
-**Size S.**
-
----
-
-## D. UI and UX
-
-### 18. The legend is a control: brush a pressure band
-
-**Principle.** A key that only explains is half a tool. The best way to ask "where is the pressure over 12?" is to point at 12.
-
-**What to add.** Drag along the colour legend to pick a band. Vessels inside the band keep their colour; the rest step back, as
-`spot` does. Tap the amber or red cut-off to snap to "over 5", "over 10" or "over 12". Tap away to clear.
-
-- Works for every lens: on velocity it shows the fast vessels, on direction the reversed ones.
-- One pair of uniforms in the vessel shader, read against the value the colour already comes from.
-
-**Size S.**
-
-### 19. Charts and figure answer each other
-
-**Principle.** Two pictures of one thing should point at each other. `hover-link.js` already does this between a label and its
-vessel. The charts are not part of it, as far as I can read.
-
-**What to add.**
-
-- Pointing at (or tapping) a station on the pressure profile lights that vessel on the figure, and the other way round.
-- The same for a segment of the portal blood bar (its route lights), a row of a summary table (its patient's dot on a plane), and
-  a bar of the causes waterfall (its home on the figure, which is item 1's table).
-- In a talk it is tap only, and it clears on Next.
-
-**Check first.** Which charts already light a vessel. Build only the missing links.
-
-**Size S to M.**
-
-### 20. Fork badges: how the flow splits, at the fork
-
-**Principle.** Flow divides at a fork in inverse proportion to resistance. That is where the lesson happens, and the split is
-shown only in a bar in a card.
-
-**What to add.** A Blood menu choice, "Flow split". At each main fork (the confluence, the portal bifurcation, where the coronary
-vein leaves, the stent's mouth) a small two-part ring shows the share going each way, live. A slide can ask for one:
-`forks: ['PV_TRUNK']`.
-
-- The shares are the flows the model already has on each edge.
-- Rings are shape-gl; the percent is label text in the one label style.
-
-**Size S.**
-
-### 21. First touch: a 20-second start on the figure
-
-**Principle.** People learn a tool by doing one thing with it, not by reading about it. A new user lands on a full figure and a
-top bar, and the thing that makes the app special (touch a vessel, and everything answers) is not visible until they try it.
-
-**What to add.** On the first visit only, three prompts on the figure itself, each waiting for the user to do it:
-
-1. "Tap the liver." The action card opens.
-2. "Make it cirrhotic." The pressures climb and the collaterals open.
-3. "Now look at the HVPG." The tile pulses once.
-
-Then it ends and never returns (one flag on the device, cleared by Reset everything). A "Skip" is always there. Deep links from
-an LMS skip it.
-
-**Size S.** The tester guides say what the first steps are, so both PDFs are regenerated in the same push.
-
----
-
-## E. Graphics
-
-### 22. Organs in the tubes' cel language (Tube)
-
-**Principle.** A picture should have one hand. With Tube chosen, the vessels are flat-toned with an ink outline, and they sit on
-organs that are still soft painted gradients. The two do not look drawn by the same person, and the eye reads the mismatch before
-it reads the anatomy.
-
-**What to add, when Tube is chosen and only then:**
-
-- Each organ in two or three flat tones split along the same light direction the tubes use, with one ink outline at the tubes'
-  outer weight.
-- A simple weight rule for every line in the picture: the outer edge of a shape is heaviest, an edge inside a shape is lighter,
-  and a thing behind another is lighter still.
-- The lobule's cells and the sinusoid's wall follow the same rule.
-
-**How.** The organ painter already fills each organ on the GPU from gradient stops (`organ-paint.js`, `stop-tokens.js`). A cel
-organ is the same fill with its stops snapped to bands, plus an outline pass. Classic and Mesh keep today's painted organs
-untouched. This is a look of the Tube choice, not a mix of renderers.
-
-**Check first.** Mohammad should see a mock of one organ before a build: this changes the whole picture.
-
-**Size M.**
-
-### 23. One quantity, one cue: particle count is flow
-
-**Principle.** A cue that means two things teaches nothing. The picture has four cues and four quantities, and they should be
-paired once and kept:
-
-| Cue | Quantity |
-|---|---|
-| Colour | Pressure (or the chosen lens) |
-| Calibre | Diameter |
-| Streak speed and length | Velocity |
-| How many streaks | Flow volume |
-
-The first three are in place. For the fourth, I could not confirm from the particle brief that streak density follows the flow in
-a vessel; it reads as a fixed coverage. If so, a wide slow vessel and a wide fast one differ only in streak speed, and a vessel
-that carries almost nothing still looks full.
-
-**What to add.** Scale the streak density by the vessel's flow against its own normal, within a floor and a ceiling so no vessel
-looks empty or solid. A collateral that has just opened then starts sparse and fills. A portal vein that a shunt has stolen from
-thins out before it reverses.
-
-**Check first.** Read `blood-particles.js` for what sets density today. If it already follows flow, drop this item.
-
-**Size S.** It belongs to the Tube particles thread.
-
-### 24. Stepped-back vessels become line art, not see-through (Tube)
-
-**Principle.** A cartoon steps a thing back by drawing it with less, not by making it transparent. Transparency is also the
-costly choice: the speed plan left out P4 (one pass for all tiers) because see-through vessels have to blend over the tier under
-them.
-
-**What to add, in the Tube look only.** A vessel that is dimmed (by `spot`, by a lit label set, or as the network behind a
-focus) is drawn as its outline only, in a lighter ink, with no fill and no blood. A vessel behind an organ is drawn the same way,
-dashed. Nothing in the Tube picture is partly transparent any more.
-
-**Why it matters twice.**
-
-- The picture is clearer: lit vessels are full cartoon tubes and everything else is a quiet line drawing. That is how an atlas
-  steps things back.
-- With no see-through vessels, one depth test can serve every tier, which is exactly what P4 needs.
-
-**Check first.** This is a question for the Tube planner thread: whether every case of a tier's alpha under one (fades at a view
-change, the veil behind organs, a fading branch's depth band) can become line art or a short dither. It also changes the picture,
-so it needs a mock.
-
-**Size M.**
-
-### 25. Devices in the cel language (Tube)
-
-**Principle.** Same as item 22. Catheters, wires, balloons, stents, coils, bands and the EUS scope are drawn with their own soft
-shading. The visual style doc's D1 gives them one set of materials per look. In the Tube look they also need the look's line.
-
-**What to add, in the Tube look only.** Each device gets flat tones and the ink outline at the "inside a shape" weight from item
-22, so a catheter in a vein reads as an object inside a tube. The stent's struts become outline ink. A balloon gets one flat
-highlight shape.
-
-**Size S to M.** Best built after D1, since D1 makes the device colours tokens.
-
-### 26. Three scales on one screen: anatomy with lobule and sinusoid cutouts
-
-Mohammad's idea (10 Nov). It is a stronger form of item 13: the locator puts the whole inside the deep view; this puts the deep
-views beside the whole.
-
-**Principle.** In this disease the cause is microscopic and the effect is whole-body. Scarred sinusoids raise the resistance, and
-the varices are what the room sees. Today a slide shows one scale at a time (the `scales` pill flips between them), so the room
-has to hold the other two in memory. With all three up, a change at one scale is seen arriving at the others.
-
-**What to add.** A slide field, for example `cutouts: ['lobule', 'sinusoid']`.
-
-- The anatomy stays the main figure. A round cutout of the lobule sits beside the liver, tied to it by two thin lines from a small
-  ring on the liver (a magnifier's cone). A second cutout of the sinusoid hangs off the lobule cutout the same way.
-- Each cutout is the real view, drawn from the same model state, so a drug or a `whatIf` drag moves all three together.
-- Tapping a cutout dives into it, with the cutout growing into the full view. That gives the dive its missing first frame.
+## Top picks
+
+### 1. Three scales on one plate (Mohammad's idea)
+
+**The gap.** In this disease the cause is microscopic and the effect is whole-body. Stiff, closed sinusoids raise the
+resistance; the room is shown varices. A slide shows one scale at a time, so the link between them, which is the whole lesson,
+lives only in the viewer's memory.
+
+**What to add.** A slide field, for example `cutouts: ['lobule', 'sinusoid']`, that lays the slide out as an atlas plate.
+
+- The anatomy stays the main figure.
+- A round cutout of the lobule sits beside the liver. A small ring on the liver marks where it was taken from, and two thin
+  lines join the ring to the cutout, like a magnifier's cone.
+- A second, smaller cutout of the sinusoid hangs off the lobule cutout the same way.
+- All three are the real views, drawn from the one model state. Give carvedilol and the sinusoid's wall relaxes, the lobule's
+  pressures fall and the varices shrink, together.
+
+**The same grammar for every small thing.** The cutout is not only for the liver. The app already has small pictures that
+belong to a place and are shown in a card or a ring: the scope view of the varices (the scope ring), the vessel cut across
+(`lumen`), and the varix wall (`wall`). All of them become cutouts of one kind: a ring on the figure, a cone, a round glass
+window. One rule, learned once: a round window is "this spot, magnified".
+
+**Transition.** Tapping a cutout dives into it: the window grows into the full view, and the anatomy shrinks into a small
+cutout of its own in the corner, so the way back is on screen. The dive then has a visible first and last frame. Inside a deep
+view, that corner cutout also answers "where in the liver is this?".
 
 **Rules that keep it good.**
 
-- **One place moves at a time.** The slide names which scale is the point; that one runs its blood, and the others hold still or
-  run slowly. Three moving pictures split the eye.
-- **Only where it earns it.** Slides where cause and effect sit at different scales: what cirrhosis does, carvedilol against
-  propranolol, the HVPG wedge, MASLD, congestion in outflow disease. Not on every slide.
-- **Mac and iPad on its side only.** A phone has no room; there the `scales` pill stays.
-- **Cutouts are glass of one fixed size**, placed by the same free-space rule as cards, and the figure fits the room they leave.
+- **One scale is the subject.** The slide names it. That one runs its blood. The others move slowly or hold still. Three busy
+  pictures split the eye.
+- **Only where cause and effect sit at different scales.** What cirrhosis does, carvedilol against propranolol, the wedge
+  pressure, MASLD, congestion in outflow disease, the sinusoid's lymph and ascites.
+- **Mac and iPad on its side only.** A phone keeps the scale pill.
+- **The figure fits the room the cutouts leave**, as it does for cards.
 
-**Cost, said plainly.** This is the item's risk. The lobule alone sits near 21 to 33 fps at rest on the Tube renderer today. A
-cutout is far fewer pixels than the full view, which helps, but three live views in one frame is still the heaviest thing the app
-would draw. So: a cutout draws at its own small size, a still cutout is drawn once and kept, and only the scale the slide names
-redraws every frame. Build it after the lobule's speed work lands, and read `?perf` on the first slide before adding more.
+**Cost, said plainly.** This is the heaviest frame the app would draw. The lobule alone runs near 21 to 33 fps at rest on Tube
+today. A cutout is far fewer pixels than a full view, which helps a lot. A cutout should draw at its own small size; a still
+cutout is drawn once and kept; only the subject redraws every frame. Build it after the lobule speed work, and read `?perf` on
+the first slide before writing more.
 
-**Check first.** Whether the lobule and sinusoid views can draw into a target that is not the stage (they have their own caches
-and glass), and that a cutout uses the chosen renderer with no fallback to another.
+**Check first.** Whether the lobule and sinusoid views can draw into a target that is not the stage. Each has its own caches,
+glass and wide copy (`wide-gl.js`, `tissue-gl.js`). A cutout uses the chosen renderer, never another one.
 
-**Size M to L.** Mock one slide first.
+**Size M to L.**
+
+### 2. A second state on the same figure: before, or the road not taken
+
+**The gap.** Medicine is a choice between two futures, and the app shows them one after the other. Compare buttons flip the
+figure between "no drug" and "carvedilol". Compare on the timeline switches the header between then and now. Each time, one
+state is on screen and the other is a memory.
+
+**What to add.** Draw the second state on the same figure as a quiet outline under the live one.
+
+- **Before.** While a moment is pinned in Compare, or on a slide with `outline: 'before'`, every vessel and organ keeps a thin
+  dashed outline at its earlier size. A varix that grew shows its old size inside it. A portal vein that shrank after a TIPS
+  sits inside its old outline. `normalOutline` already does exactly this for the spleen.
+- **The road not taken.** On a slide that treats, `twin: 'untreated'` runs the same patient forward without the treatment and
+  draws that patient as the outline. Six months after banding and carvedilol, the varix sits small inside the outline of the
+  varix it would have been.
+- **In the tiles.** Each tile's scale already has a dot for now and a ring for where the reading started. The twin is a second,
+  hollow dot. The room sees "14 with treatment, 19 without" as two marks on one scale.
+
+**Why it is plausible.** The model already runs other versions of a patient off to the side: the `curve` and `course` charts
+sweep a setting or a treatment and draw a line for each. The twin is one more run, kept as a snapshot. The outline is one more
+pass over vessel geometry that already exists at a second width.
+
+**What it replaces.** Two patients side by side (7 Nov F10) and a draggable before/after wipe both need two full vessel layers.
+This needs one extra outline pass.
+
+**Check first.** The outline must be its own optional program in each renderer, with no fallback from one renderer to another.
+A twin costs model time, so it is made when the slide is prepared, not when it lands.
+
+**Size M.**
+
+### 3. A change starts where it is made: drugs land on their targets
+
+**The gap.** When a slide gives a drug or opens a stent, the whole tree changes together. That says "something happened". It
+does not say what was touched, or in which direction the effect travelled. For a drug, the place it acts is the entire
+pharmacology lesson, and it is on screen only as a sentence.
+
+**What to add.**
+
+- **Drugs land.** The model already holds each drug as a small set of actions (`scenario.js` `DRUGS`): propranolol slows the
+  heart and tightens the gut's arterioles; carvedilol does both and also relaxes the sinusoids and the systemic arterioles;
+  terlipressin clamps the gut's arterioles hard and raises systemic resistance; octreotide tightens the gut's arterioles only.
+  When a drug is given, each of its targets lights in turn with a short tag (heart: "slower"; gut arterioles: "tighter";
+  sinusoids: "looser"). Propranolol lights two places. Carvedilol lights the same two and then the liver. The difference
+  between the two drugs is seen in two seconds, before any number moves.
+- **Then the effect travels.** From each target, the pressure change runs along the vessels in the direction it really
+  spreads: from the gut's arterioles forward into the portal vein, from the sinusoids back up the portal vein into the varices
+  and the spleen. About 600 ms across the figure.
+- **Lesions do the same.** A new clot, a narrowed stent or a scarring liver starts at its own site, and the rise in pressure
+  backs up from there. A TIPS starts at the stent and the fall runs back.
+- **"Why?" uses the same piece.** The Why card's causes (`explain.js` already returns them, largest first) can be played on the
+  figure the same way: each cause lights its home, then its share travels to where the reading is taken.
+
+**How.** A small table from each drug action and each cause to vessel and organ ids (the ids `glow` takes), and a delay per
+vessel taken from its distance along the network to the start. `ripple: true` already picks the vessels whose pressure moved
+(`highlight-math.js` `rippleList`); this gives them an order and a start. It is display order only. The model's pressures ease
+exactly as they do now.
+
+**Check first.** With a scale cutout up (item 1), carvedilol's "looser" tag belongs on the sinusoid cutout. That pairing is the
+strongest single slide these three items make together.
+
+**Size M.** Tags are label text and go through the labels thread.
 
 ---
 
+## Features
+
+### 5. Guess first: commit before the reveal
+
+**Why it survives a second pass.** The strongest single finding about learning is that a prediction, made and then checked,
+sticks far better than an answer that is shown. The question card already asks. Nobody has to answer, so nobody is wrong.
+
+**What to add.** On a slide with `question`, an optional `guess: 'hvpg'`. The question card shows that reading's scale, large,
+with a handle. The presenter drags it to what the room says, or the learner drags it alone. On reveal the real dot eases to its
+value and the guess stays as a hollow ring. The gap is the lesson. A quick form, `as: 'updown'`, gives three targets: up, same,
+down. No score, nothing stored, no backend.
+
+**On the GPU.** A third mark on the tile scale (tile-gl) and a slider-gl handle.
+
+**Size S to M.**
+
+### 9. Start from readings: open the patient nearest to a real one
+
+**The gap.** On rounds, teaching starts from a real patient: "stiffness 32, platelets 85, spleen 16 cm". The app has 17
+patients, and none of them is that one. The viewer has to map their patient onto the nearest preset in their head.
+
+**What to add.** "Start from readings" in the Patients menu. The user enters what they have (any of: stiffness, platelets,
+spleen length, HVPG, ascites yes or no). The app searches the model's own settings for the state whose readings sit nearest,
+opens it, and shows a row for each reading: entered, model, and how close.
+
+- The model already computes each of these readings from its settings, so this is a search over a few settings, done in the
+  worker.
+- Nothing typed leaves the device or is stored after the tab closes.
+
+**Wording matters here.** The app says it is an educational simulation and not for diagnosis or treatment. This feature must say
+so on its own card, name the result "a model patient with similar readings", and never print a risk or a recommendation.
+
+**Size M.**
+
+### 10. Things to try: three experiments on every patient
+
+**The gap.** The free simulator is the app's best part and it opens on a full figure with no suggestion. A learner alone does
+not know what is worth doing. The decks know, but a deck is watched, not done.
+
+**What to add.** Each patient carries three short experiments, listed on its card: "Clot the portal vein", "Give a meal", "Place
+a 10 mm TIPS, then narrow it". Each is one tap. It does the action, moves the camera, and then asks one thing ("Which gradient
+rose?") before showing a one-line finding from the live numbers.
+
+- An experiment is a tiny script, written in the deck format the app already plays, so it needs no new engine.
+- A harder tier turns it round: a target written as readings ("HVPG normal, PPG 15, large spleen") that the learner has to
+  build from the healthy patient with the ordinary actions. The app's fingerprint of each state is the judge.
+- The first visit opens the healthy patient with its first experiment offered. That is the onboarding. There is no tour.
+
+**Size M.** The experiments are data; fifty lines each at most. The tester guides change in the same push.
+
+### 12. A Doppler you can hear
+
+**The gap.** There is no sound anywhere in `src/`. A Doppler is listened to: the portal vein's low steady hum, the hepatic
+artery's sharp beat and the hiss of a narrowed stent are how the finding is first noticed.
+
+**What to add.** A speaker button on the Doppler card, off by default. `doppler-synth.js` already computes how much signal sits
+at each velocity at each moment; that spectrum drives the sound, with velocity as pitch. The bedside monitor gets its beep at the
+model's heart rate from the same switch, so in the bleed deck the room hears the heart rate climb.
+
+**Rules check.** Sound is not drawing. It runs in an audio worklet, off the main thread, fed by numbers the trace already has.
+A talk never starts sound by itself. On an iPhone, audio only starts from a tap, so the button is what starts it.
+
+**Size M.**
+
+### 24. Study mode: the notes as captions
+
+A deck is half a talk; the speaker is the other half. A learner who opens a deck alone gets slides without the voice. The voice
+is already written in `notes` and today it only prints in the handout. A "Study" way to open a deck shows the first two
+sentences of each slide's notes as a caption strip, and the slide's `ask` as a tap-to-reveal question before Next. Projected
+talks do not change. **Size S.**
+
+### 25. A code on the last slide
+
+The quick-check slide shows a QR code that opens the deck's main patient on a phone, with its first experiment (item 10)
+offered. Share links and deep links exist (`share-link.js`, `?preset=`). The code is drawn by the GPU as squares. No backend,
+nothing collected. **Size S.**
+
+---
+
+## Transitions
+
+### 4. Every card is tied to its place
+
+**The gap.** A Doppler card, a cross-section, a FibroScan or a tile floats beside the figure. Which vessel it is reading is said
+by a probe drawn on the figure (the Doppler has one) or not at all, and nothing joins the two.
+
+**What to add.**
+
+- **A tie.** Every instrument card gets a hairline from the card's edge to its site on the figure, drawn in the frame that
+  draws both, so it follows a pan, a zoom and a card move. It fades in after the card lands and steps back to faint after two
+  seconds.
+- **A number arrives from its place.** When a tile's reading is also written on the figure, the number lifts off the vessel and
+  glides into its tile as the card comes in, once.
+- **Both ways.** Pointing at a station on the pressure profile, a segment of the portal blood bar or a bar of the causes chart
+  lights its vessel. `hover-link.js` does this today between a label and its vessel only.
+
+**How it fits item 1.** A cutout is tied by a cone; a card is tied by a hairline. Round means "magnified", square means
+"measured".
+
+**Check first.** Which instruments already draw a site mark on the figure, so the tie has an end to land on.
+
+**Size S to M.** The tie and the travelling number are label-layer work, for the labels thread.
+
+### 8. The chart draws itself as the eye walks the path
+
+**The gap.** The Gut to heart chart is the anatomy with everything but pressure removed. It appears whole, in a card, and the
+viewer has to work out that its eight columns are eight places on the figure.
+
+**What to add.** The first time a deck shows the pressure profile, it is built in step with the figure: the gut lights and the
+first point appears; the light runs to the superior mesenteric vein and the line extends to the second point; and so on through
+the portal vein, the sinusoids, the central vein, the hepatic vein, the cava and the right atrium (the chart's own eight
+stations, `snapshots.js` `PATH`). About three seconds. After that the chart behaves as it does now.
+
+- Light on the figure is `glowSeq`. The chart side is the line's draw length, one number.
+- Once per deck, forward only. Back and jumps show it whole.
+
+**Size S.**
+
+### 14. Three kinds of slide change, three motions
+
+**The gap.** Motion is a language, and one word should not mean three things. Next can bring a different patient, the same
+patient later, or the same patient treated. All three mostly look like "the figure eases to new values".
+
+| The slide | What the room should feel | Motion |
+|---|---|---|
+| Loads a new patient | "This is someone else" | The figure dips in brightness and returns as the new patient, with the case card. No morph between two people. |
+| Passes time | "Time went by" | The time-lapse and its time graph, as built. |
+| Treats or acts | "We did something" | Item 3: it starts at the site and travels. |
+
+The dip is an eased opacity change of the figure layer, never a cut: nothing may blink.
+
+**Check first.** What a new-patient slide does today when it has no vignette.
+
+**Size M.**
+
+---
+
+## Animations
+
+### 7. Threshold moments
+
+**The gap.** The subject is taught as cut-offs: an HVPG of 5, 10, 12, 16, 20. In the model a reading slides through 10 like any
+other value. The tile changes colour, which the back row cannot see.
+
+**What to add.** When a key reading crosses one of its cut-offs (they live once, in `pressure-cuts.js`), the room sees a moment:
+a single ring opens from the place the reading is taken, in the cut-off's colour, and the cut-off's short name rides it once
+("Clinically significant"). Crossing back down plays the same ring closing. It fires at most once per slide per cut-off, so a
+reading that hovers at a line does not flicker; the events code already holds each state with hysteresis.
+
+**Size S.** The name is label text.
+
+### 20. The heart shows the circulation
+
+**The gap.** Cirrhosis makes a fast, high-output circulation, and a bleed makes a fast, empty one. On the figure the heart is a
+still shape. Heart rate and output are tiles.
+
+**What to add.** The heart's outline beats at the model's heart rate, and the size of each beat follows the stroke volume. A
+hyperdynamic heart beats fast and full; a bleeding patient's beats fast and small; a beta-blocker visibly slows it.
+
+**Check with Mohammad first.** The standing decision is that blood keeps its steady mean speed, with no heartbeat swing in the
+streaks. This item does not touch the blood. It moves one organ's outline by a few percent as a transform of a picture that is
+already drawn, so it adds no redraw. It stands still under reduced motion and when the figure rests.
+
+**Size S.**
+
+### 21. Wall tension on the varix
+
+A varix bleeds because its wall is under too much tension, not because it is large. The `wall` card shows that. On the figure a
+varix only grows. The model already has the number (the varix's wall stress as a percent of rupture). Let the varix's wall line
+thin and its fill pale as the stress climbs, most on the bulging side, and thicken again after banding or a fall in pressure.
+**Size S.**
+
+### 22. A collateral opens from its high-pressure end
+
+The pressure opens the vessel, so the opening should start at the portal end and run to the systemic end over about a second,
+and close the other way. In Tube this is a taper along the tube driven by one number. **Check first** how a collateral appears
+today; if it already widens along its length, drop this. **Size S.**
+
+### 23. Sudden things in the cartoon's language (Tube)
+
+The Tube look is a cartoon, and cartoons have a vocabulary for sudden things. In the Tube look only: a short flat burst shape at
+a rupture before the steady bleed spot takes over; a few percent of overshoot and settle when a balloon fills, a stent opens or a
+band closes; two or three speed lines beside a jet through a narrowing (the blood's own curl there is already built). Still
+under reduced motion. No number changes. **Size S.** For the Tube planner thread.
+
+---
+
+## UI and UX
+
+### 11. A detour in a talk, and the way back
+
+**The gap.** The best moment in a live talk is a question from the room: "what if you gave terlipressin now?" The app can answer
+it, because the model is live. I could not find a way to do it without ending the talk.
+
+**What to add.** A "Try it" control on the presenter's pill. It keeps the slide's patient, steps the cards aside and opens Treat
+and Tests over the same figure. Whatever the presenter does is real. "Back to the talk" restores the slide exactly (its state is
+a snapshot the talk already holds) and the cards return.
+
+**Check first.** Whether leaving and resuming a talk today keeps the slide's patient. If it does, this is only the control and
+the restore.
+
+**Size S to M.**
+
+### 13. The patient in one sentence
+
+**The gap.** After an action, a learner looks across a dozen tiles to work out what the patient now is. The app already writes
+the answer: a one-line reading of the patient, kept current for screen readers (`a11y.js`).
+
+**What to add.** Show that sentence, small, under the patient's name in the free simulator: "Decompensated cirrhosis: HVPG 18,
+large varices, 3 L of ascites." It changes when the state changes, with a crossfade. It is the cheapest feedback there is, and
+it is already correct.
+
+**Size S.**
+
+### 15. Fork badges
+
+Blood divides at a fork by resistance. The app's own first sentence is that blood "finds another way", and the fork is where it
+does. A Blood menu choice, "Flow split", puts a small two-part ring at each main fork (the confluence, the portal bifurcation,
+where the coronary vein leaves, the stent's mouth) showing the share going each way, live, from the flows the model already has.
+A slide can ask for one: `forks: ['PV_TRUNK']`. **Size S.** The percent is label text.
+
+### 16. The legend is a control
+
+Drag along the colour legend to pick a band. Vessels in the band keep their colour and the rest step back, as `spot` does. Tap
+a cut-off to snap to "over 10". It works for every lens. This is how a presenter answers "where is the pressure high?" in one
+gesture. Two uniforms in the vessel shader. **Size S.**
+
+---
+
+## Graphics
+
+### 6. Pressure lines: a tick wherever the pressure crosses 5, 10, 15...
+
+**The gap.** Colour says how high the pressure is. It does not say clearly where the pressure is lost, because a smooth ramp
+hides a steep fall inside a few shades. The profile chart shows it, in a card, away from the anatomy.
+
+**What to add.** A map shows a hill with contour lines: where the lines crowd, the ground is steep. Do the same for pressure.
+Along every vessel, draw a short tick across the lumen wherever the pressure crosses a multiple of 5 mmHg (or of 2 when zoomed
+in). In a healthy patient the portal tree has almost none. In cirrhosis the ticks crowd inside the liver. With a clot they
+crowd at the clot. In Budd-Chiari they crowd at the hepatic veins. **Where the ticks are close together is where the resistance
+is**, and the room sees it on the anatomy with no chart.
+
+- It suits the cel look: flat tones and ink lines. As an option, the colour can also step at each tick instead of blending, so
+  the picture is bands and lines.
+- In the vessel shader the pressure along a vessel is already what sets its colour. A tick is where that value, divided by the
+  step, crosses a whole number. No new data.
+- It is a Blood menu choice and a slide field (`lines: 5`), off by default.
+
+**Check first.** That the pressure varies along a vessel in the shader and is not one value per vessel. If it is one value,
+ticks fall only at joins, and the item becomes "a tick at each join whose pressure step is large", which is still useful.
+
+**Size S to M.**
+
+### 17. One hand: organs and devices in the tubes' cel language (Tube)
+
+**The gap.** With Tube chosen, the vessels are flat tones with an ink outline. They sit on organs painted as soft gradients, and
+catheters, stents, coils and balloons with their own soft shading. Three drawing styles on one plate read as three artists.
+
+**What to add, in the Tube look only.**
+
+- Organs in two or three flat tones, split along the tubes' light direction, with an ink outline.
+- Devices in flat tones with an ink outline. A stent's struts are ink.
+- One weight rule for every line: the outer edge of a shape is heaviest, an edge inside a shape is lighter, a thing behind
+  another is lighter still. Weights are set in pixels so they hold at any zoom.
+- The lobule's cells and the sinusoid's wall follow the same rule, so the cutouts of item 1 match the plate.
+
+**How.** The organ painter already fills each organ on the GPU from gradient stops (`organ-paint.js`, `stop-tokens.js`). A cel
+organ is the same fill with its stops snapped to bands, plus an outline pass. Classic and Mesh keep today's organs. This is the
+Tube look being finished, not a mix of renderers.
+
+**Size M.**
+
+### 18. Nothing see-through: stepped-back vessels become line art (Tube)
+
+**The gap.** A cartoon steps a thing back by drawing less of it. The app steps a vessel back by making it partly transparent,
+which looks muddy over organs and is the costly choice: the Tube speed plan left out "one pass for all tiers" (P4) because
+see-through vessels must blend over the tier beneath.
+
+**What to add, in the Tube look only.** A dimmed vessel (by `spot`, by a lit label set, or as the network behind a focus) is
+drawn as its outline only, in lighter ink, with no fill and no blood. A vessel behind an organ is the same, dashed. Nothing in
+the Tube picture is partly transparent.
+
+**It pays twice.** The lit vessels are full cartoon tubes on a quiet line drawing, which is how an atlas steps things back. And
+with no see-through vessels, one depth test can serve every tier, which is what P4 needs.
+
+**Check first.** A question for the Tube planner: whether every use of a tier's alpha (fades at a view change, the veil behind
+organs, a fading branch) can become line art or a short dither.
+
+**Size M.**
+
+### 19. Streak count is flow
+
+A picture is honest when each cue means one thing: colour is pressure, calibre is diameter, streak speed is velocity. Flow
+volume has no cue. From the particle brief, streak density reads as a fixed coverage, so a vessel carrying almost nothing looks
+as full as one carrying a litre a minute. Scale the density by the vessel's flow against its own normal, within a floor and a
+ceiling. A new collateral starts sparse and fills. A portal vein that a shunt steals from thins out before it reverses.
+**Check first** in `blood-particles.js`; if density already follows flow, drop this. **Size S.** For the Tube particles thread.
+
+---
+
+## What changed from the first pass, and why
+
+- **New order.** The first pass ranked by "why" and "what if". This one ranks by what the viewer has to remember, which puts
+  the scales, the second state and the cause at the top.
+- **New items:** 3 as drugs landing on their targets, 4 the tie, 6 pressure lines, 7 threshold moments, 9 start from readings,
+  10 things to try, 11 the detour, 13 the one sentence, 20 the heart.
+- **Merged:** "then as an outline" and the twin are one item (2). "Why on the figure" and the spreading ripple are parts of 3.
+  The locator is part of 1. The first-run tour and the puzzles are parts of 10. Cel organs and cel devices are one item (17).
+- **Changed:** "the circuit stands up into the ladder" became item 8, which teaches the same link for a tenth of the work.
+- **Dropped: "Ride a red cell".** It was a top pick in the first pass. On a second look it is a twenty-second show that a talk
+  would use once, a camera chasing a particle is uncomfortable on a projector, and fork badges (15) teach the same point for far
+  less.
+
 ## Considered and not recommended
 
-- **A draggable before/after wipe across the figure.** It needs two full vessel layers on screen. Item 6 gives the comparison for
-  one extra outline pass.
-- **Haptics.** iPhone Safari has no vibration call, and the iPhone is the phone that is tested.
-- **A heartbeat swing in the blood or the vessel walls.** Kept as decided: blood moves at its steady mean speed.
-- **A free 3D camera or orbit.** The Tube brief is a cel-shaded flat look, not 3D tubes.
-- **A chat tutor.** It needs a service off the device, which the privacy page rules out.
+- **Two patients side by side, or a draggable before/after wipe.** Two full vessel layers. Item 2 does it with one outline pass.
+- **Haptics.** iPhone Safari has no vibration call.
+- **A heartbeat swing in the blood.** Kept as decided. Item 20 moves the heart's outline only, and asks first.
+- **A free 3D camera.** The Tube brief is a flat cel look, not 3D tubes.
+- **A chat tutor, a room poll, phones following the talk live.** Each needs a service off the device.
 - **Recording a talk as video.** Turned down before: it needs a CPU pixel copy.
-- **A room poll or phones following the talk live.** They need a backend. Items 3 and 8 give the room a part without one.
 - **Fluid shown leaving the liver for ascites.** Reverted and not to be re-added.
 
 ---
 
 ## If these are built: who owns what
 
-So that parallel threads do not edit one file:
-
 | Thread | Items | Files it would own |
 |---|---|---|
-| Cause and ripple | 1, 10 | the factor table (new), the path pulse (new), `why.js` hook, `highlight-math.js` |
-| Ride | 2 | a new ride module, the blood pass's one bright instance, a trace strip |
-| Question card | 3, 7 | the question card, tile-gl's third mark, a Study way in |
-| Sound | 4 | a new audio module and worklet, the Doppler and vitals cards' button |
-| Puzzles and code | 5, 8 | a new puzzles data file, the Patients menu, the quick-check slide |
-| Vessel shader | 6, 17, 18 | `veins-gl.js` and the shared shader text (one thread, in order; the Tube integrator owns this file today) |
-| Circuit | 9 | `stage-morph.js` third layout |
-| Presenter | 12, 13 | the presenter's slide change, a locator card |
-| Labels thread | 11, 15, 20 and every callout above | label code (only this thread edits it) |
-| Charts | 19 | chart hit-testing and the hover link |
-| First touch | 21 | a new first-run module, both tester guide PDFs |
-| Tube planner and its threads | 14, 16, 22, 23, 24, 25 | the Tube pass, particles, cel shader, organ paint in Tube |
+| Plate and cutouts | 1 | a new cutout module; hooks in the lobule and sinusoid views; the scope ring, `lumen` and `wall` as cutouts later |
+| Second state | 2 | the twin run in the worker, the tile's second mark, the outline pass (with the vessel shader's owner) |
+| Cause | 3, 7, 14 | the action and cause table (new), `highlight-math.js`, the presenter's slide change |
+| Labels thread | 4, 15 and every tag, tie and name above | label code (only this thread edits it) |
+| Question card and study | 5, 24, 25 | the question card, tile-gl's third mark, a Study way in, the quick-check slide |
+| Vessel shader | 6, 16, 21, and 2's outline | `veins-gl.js` and the shared shader text, one thread, in order (the Tube integrator owns this file today) |
+| Charts | 8 | the profile chart's draw length, a `glowSeq` hook |
+| Patients | 9, 10, 13 | the Patients menu, a new experiments data file, the worker's search, both tester guide PDFs |
+| Presenter | 11 | the presenter's pill and restore |
+| Sound | 12 | a new audio module and worklet, the Doppler and monitor cards' button |
+| Organs | 20 | the heart's transform in the organ layer |
+| Tube planner and its threads | 17, 18, 19, 22, 23 | organ paint in Tube, the Tube pass, the particles, the cel shader |
 
-Items that change the picture and should be mocked for Mohammad before a build: 9, 16, 22, 24.
+Mock before building: 1, 2, 6, 17, 18.
