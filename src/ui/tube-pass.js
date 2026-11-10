@@ -284,6 +284,13 @@ export function createTubePass(E) {
   tubePass.drew = 0;
   tubePass.stage = () => stageNow().stage;
   tubePass.lumen = tubeLumenPass;
+  // The lumen pass's counts for the ?perf panel (gpu-fence.js fenceLumen, on a sampled frame): out = [strips, webs, rows in the pass, exact rows, rows with a join end].
+  tubePass.lumenCounts = (out) => {
+    const D = FR.D, tb = D && D.tb, B = MG.B || MG, R = B.s2 && B.s2.R;
+    let exact = 0;
+    if (tb && tb.count) for (let t = 0; t < MAX_TIERS; t++) exact += tb.count[t] - tb.plain[t];
+    out[0] = MG.lumStrips || 0; out[1] = MG.lumWebs || 0; out[2] = tb ? tb.n || 0 : 0; out[3] = exact; out[4] = R ? R.ended || 0 : 0;
+  };
   tubePass.gaugeText = () => `${lastText}${choice.stage === 3 ? `, lumen pass ${MG.lumStrips} strips ${MG.lumWebs} webs` : ''}`;
   return tubePass;
 }

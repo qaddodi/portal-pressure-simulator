@@ -33,7 +33,7 @@
 
 import { glGet, glCap, glOkBefore, glOkAfter, fbComplete } from './gl-state.js';
 import { CHEV_GLSL } from './chevron-glsl.js';
-import { setFenceContext, fencePart } from './gpu-fence.js';
+import { setFenceContext, fencePart, fenceLumen } from './gpu-fence.js';
 import { LIGHT } from './light.js';
 import { EDGE_GLSL, EDGE_PX } from './edge.js';
 import { SLOT, DYE_BINS } from './blood.js';
@@ -5019,7 +5019,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // The Tube's stage 3 lumen layer, on every frame that draws blood (the same test that makes the other builds read the flow targets, the kept-picture and
       // blood-only frames among them): before the compositor's own pass, which reads it. The compositor's target, viewport and program are set again after.
       if (stage3 && (blood.on || (dyeAny && blood.dye !== false) || blood.origin)) {
+        fencePart('before lumen pass');   // (?perf: what was queued ahead of the lumen pass is a step of its own, so the next one is the pass alone)
         gpuProbe.time(gl, 'lumen layer', lumenFrame, m, look, blood);
+        fencePart(who === 'lobule' ? 'lobule lumen pass' : 'lumen pass'); fenceLumen(who === 'lobule', tubePass.lumenCounts);   // (?perf: the pass timed on its own, with its strips, webs and rows, sampled frames only)
         rebind(); gl.viewport(0, 0, PW(), PH()); gl.useProgram(prg.p);
         if (gpuProbe.on) gpuProbe.gauge(who === 'lobule' ? 'lobule vessel renderer' : 'vessel renderer', tubePass.gaugeText());
       }

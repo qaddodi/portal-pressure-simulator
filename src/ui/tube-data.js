@@ -101,7 +101,7 @@ export function joinLegs(ent, q, pts, nRows) {
  * writeJoin's layout (8 floats an entry; repeats are fine); pts: the rows' points as pointsFromEntries lays them (needed for the ends; without it no row has an
  * end). A row is exact when it is dotted, clipped (its drawn part, texel 5, is not 0..1), ends on a vessel or continues another row; plain otherwise. A row ends on a
  * vessel at an end when that end is a leg of a join with a row that runs through it (the join's marked trunk, else the first member with two legs); it continues
- * another row when a join is two rows' ends and the two bend by no more than CONT_DEG; the first such join wins. out.exact: the exact rows' count.
+ * another row when a join is two rows' ends and the two bend by no more than CONT_DEG; the first such join wins. out.exact: the exact rows' count; out.ended: the rows with a join end.
  */
 export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
   if (!out.rows || out.rows.length < nRows * TUBE_ROW_FLOATS) out.rows = new Float32Array(nRows * TUBE_ROW_FLOATS);   // alloc-rare: grown with the vessel rows
@@ -157,9 +157,13 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       }
     }
   }
-  let exact = 0;
-  for (let r = 0; r < nRows; r++) if (rows[r * TUBE_ROW_FLOATS + 3] > 2.5) exact++;
-  out.exact = exact; out.n = nRows;
+  let exact = 0, ended = 0;
+  for (let r = 0; r < nRows; r++) {
+    const b = r * TUBE_ROW_FLOATS;
+    if (rows[b + 3] > 2.5) exact++;
+    if (rows[b + 1] !== TUBE_NO_END || rows[b + 2] !== TUBE_NO_END) ended++;
+  }
+  out.exact = exact; out.n = nRows; out.ended = ended;   // (ended: rows with a join end at either end, for the ?perf panel's lumen line)
   return out;
 }
 

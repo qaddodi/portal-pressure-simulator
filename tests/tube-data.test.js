@@ -52,6 +52,7 @@ test('tubeRows: a dotted row, a clipped row and a row ending on a trunk are exac
   assert.deepEqual(rec(out.rows, 5), [5, TUBE_NO_END, TUBE_NO_END, 3]);
   assert.deepEqual(rec(out.rows, 6), [6, TUBE_NO_END, TUBE_NO_END, 2]);
   assert.equal(out.exact, 5);
+  assert.equal(out.ended, 2, 'rows 1 and 2 carry a join end (the ?perf lumen line counts them)');
   for (const [row, want] of [[0, false], [1, true], [2, true], [3, true], [4, true], [5, true], [6, false]]) assert.equal(rowIsExact(out.rows, row), want, `row ${row}`);
   // a one-float buffer reads as "no ends": the + 2 puts a record's w above 1.5 whatever its kind
   for (let q = 0; q < 7; q++) assert.ok(out.rows[q * 4 + 3] > 1.5);

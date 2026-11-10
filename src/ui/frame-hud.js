@@ -19,7 +19,7 @@ import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watc
 import { restPass } from './rest-pass.js';
 import { sharedStats, transfersBy } from './trace-gl.js';
 import { caught } from './caught.js';
-import { setFences, fenceText, fenceSampling, fenceSummary, forcedWait, wholeEvents, wholeSeq, wholeTally, EVENT_GAP_MS } from './gpu-fence.js';
+import { setFences, fenceText, fenceSampling, fenceSummary, lumenSummary, forcedWait, wholeEvents, wholeSeq, wholeTally, EVENT_GAP_MS, SAMPLE_EVERY } from './gpu-fence.js';
 
 const RING = 1024;          // (frames kept: about 8 s at 120 Hz, 17 s at 60)
 const STATS_MS = 2000, WORST_MS = 5000, WORST_N = 8;
@@ -67,6 +67,9 @@ const PLAIN = {
   'one-pass picture': ['vessels + blood drawn in one pass (zoom or turn frames)', 'zoom/turn frames shade every pixel: draw them at a lower resolution while moving'],
   'blood pass': ['moving blood drawn over the kept vessels', 'fewer blood squares on screen, or the blood at a lower resolution'],
   'heads': ['blood-cell heads drawn as quads', 'fewer heads, or heads only on the vessels in view'],
+  'before lumen pass': ['figure work queued ahead of the Tube\'s lumen pass (uploads, the kept layers)', ''],
+  'lumen pass': ['blood drawn by the tubes (lumen pass), the figure\'s', 'the lumen pass is a second pass over the strips and webs on every blood frame: draw it on fewer frames, leave out the join test where no row end is near, or draw it at a lower resolution while moving'],
+  'lobule lumen pass': ['blood drawn by the tubes (lumen pass), the lobule\'s', 'the lobule draws 156 strips and 310 webs in the lumen pass on every blood frame: skip or reuse the join test in its fragment shader, or draw it at a calm gap'],
   'glasses and labels': ['glass blur under the pills and cards, and the labels', 'a glass blurs again whenever the figure under it changes: blur less often or a smaller area'],
   'half-size streaks': ['flow streaks drawn at half size', 'fewer streak rows'],
   'frame start': ['GPU still busy with the previous frame when this one began (backlog)', 'the GPU cannot finish a frame in time: cut the largest GPU step below'],
@@ -105,6 +108,38 @@ export function activityText(bits, pieces) {
   if (bits & ACT.morph) w.push('model blending to a new state');
   if (bits & ACT.rest) w.push('page resting');
   return w.length ? w.join(' + ') : 'at rest (nothing moving)';
+}
+
+/**
+ * One loop's line for the PAGE section: frames the loop asked for a second against frames it drew, with the browser's frame interval beside them,
+ * so "the page is held by the GPU or the browser" is one line. asked, drawn: perf().surfaces / perf().drawn for the loop's tag; pageHz: the page
+ * frames the browser gave (refreshHz); probeHz: the display's rate by a worker's own clock; intervalMs: the page's frame interval p50.
+ */
+export function loopText(name, asked, drawn, intervalMs, pageHz, probeHz) {
+  if (!asked && !drawn) return `${name} loop: not asking for frames (idle, or not on screen)`;
+  const f = (x) => x.toFixed(1);
+  const head = `${name} loop: asked for ${asked} frames/s, drew ${drawn}/s; the browser's frame interval ${intervalMs > 0 ? `${f(intervalMs)} ms` : '?'} (page frames at ${pageHz || '?'} Hz, display probe ${probeHz || '?'} Hz)`;
+  if (drawn < asked * 0.85) return `${head}: the APP skipped ${asked - drawn} frames/s on purpose (a pacing rule: Motion at 60, the calm gap or the saver)`;
+  const slow = (probeHz && pageHz && pageHz < probeHz * 0.8) || (probeHz && intervalMs > 1.3 * (1000 / probeHz));
+  if (slow) return `${head}: HELD BY THE GPU OR THE BROWSER: the app drew every frame it was asked for, but the browser gave the page ${pageHz || f(1000 / intervalMs)} of the display's ${probeHz} frames/s`;
+  return `${head}: keeping up with the display`;
+}
+
+/** The lumen pass line (gpu-fence.js lumenSummary for one view) for the GPU section; stepMs the pass's median fenced time or null. */
+export function lumenText(who, l, stepMs) {
+  const head = `blood drawn by the tubes (lumen pass), ${who}:`;
+  if (!l) return `  ${head} not drawn on a sampled frame yet (Tube stage 3 draws it on every blood frame; a sample comes 1 frame in ${SAMPLE_EVERY})`;
+  return `  ${head} ${l.strips} strips, ${l.webs} webs (joins), ${l.rows} rows of which ${l.exact} exact and ${l.ended} with a join end${stepMs == null ? '' : `; GPU ${stepMs.toFixed(1)} ms (median of the sampled frames)`}`;
+}
+
+/** What to say when frames are missed and the script is small: the largest GPU step sampled, and that a step this browser's fences cannot see can hide the GPU. */
+function gpuWords(i, goal) {
+  const steps = i.gpu ? i.gpu.steps : [];
+  let top = null;
+  for (const s of steps) if (!top || s.med > top.med) top = s;
+  const part = top ? `largest GPU step sampled: ${plainStep(top.name)} ${top.med.toFixed(1)} ms` : `no GPU step sampled yet (1 frame in ${SAMPLE_EVERY})`;
+  const blind = goal.webkit ? '; Safari\'s fences wait only for what the page has handed over, so GPU work after that is in no step and a step can read small while the GPU is the cap' : '';
+  return { text: `${part}${blind}`, fix: top && top.med >= 0.25 * i.st.p50 ? fixOf(top.name) : '' };   // (a fix only for a step that is a real share of the frame)
 }
 
 /**
@@ -150,8 +185,9 @@ export function diagnose(i) {
     head = `GPU + SCRIPT TOGETHER: ${f(gpuMs)} ms GPU + ${f(scr)} ms script fill each ${f(frameMs)} ms frame (${f(st.fps)} fps)${top[0] ? `. Biggest: ${top[0].who} ${top[0].words} ${f(top[0].ms)} ms` : ''}`;
     fix = top[0]?.fix || '';
   } else {
-    head = `HELD BY THE BROWSER: frames take ${f(frameMs)} ms (${f(st.fps)} fps) but the script (${f(scr)} ms) and the sampled GPU (${i.gpu ? `${f(gpuMs)} ms` : 'not sampled yet'}) do not fill them`;
-    fix = goal.webkit ? 'check Low Power Mode, a hot or unplugged Mac, or Safari holding the page below 60; nothing in the app fills the frame' : 'check power saving or the browser throttling the page; nothing in the app fills the frame';
+    const gw = gpuWords(i, goal);
+    head = `HELD BY THE BROWSER: frames take ${f(frameMs)} ms (${f(st.fps)} fps) but the script (${f(scr)} ms) and the sampled GPU (${i.gpu ? `${f(gpuMs)} ms` : 'not sampled yet'}) do not fill them; ${gw.text}`;
+    fix = gw.fix || (goal.webkit ? 'check Low Power Mode, a hot or unplugged Mac, or Safari holding the page below 60; nothing in the app fills the frame' : 'check power saving or the browser throttling the page; nothing in the app fills the frame');
     if (spike) head += `; worst ${spikeWords}`;
   }
   return { head, top, fix };
@@ -368,6 +404,11 @@ export function startFrameHud() {
     const lw = longs.reduce((a, e) => (!a || e.duration > a.duration ? e : a), null);
     L.push(lw ? `  longest browser frame (10 s): ${loafText(lw)}` : `  longest browser frame: ${PerformanceObserver.supportedEntryTypes?.includes('long-animation-frame') ? 'none over 50 ms' : 'not reported by this browser'}`);
     L.push(`  charts: ${sharedStats.resizes - lastCharts.resizes} buffer resizes, ${sharedStats.transfers - lastCharts.transfers} pictures handed over (last second)${(() => { const b = byText(); return b ? `: ${b}` : ''; })()}`);
+    {
+      const pf = perf();
+      L.push(`  ${loopText('figure', pf.surfaces.stage || 0, pf.drawn.stage || 0, st.n ? st.p50 : 0, refreshHz(), workerHz)}`);
+      L.push(`  ${loopText('lobule', pf.surfaces['lobule-zoom'] || 0, pf.drawn['lobule-zoom'] || 0, st.n ? st.p50 : 0, refreshHz(), workerHz)}`);
+    }
     L.push(`  display: page frames observed at ${refreshHz() || '?'} Hz (max seen ${refreshMaxHz() || '?'}); display probe ${workerHz || '?'} Hz (a tiny worker counting its own frames: the screen's rate, NOT the physics)`);
     L.push('');
     // ── PHYSICS ──
@@ -379,6 +420,11 @@ export function startFrameHud() {
       L.push(`  a sampled frame's GPU work ${f(gpu.total)} ms (median), and ${f(gpu.backlog)} ms still queued from the frame before at its start (max ${f(gpu.phases[0].max)})`);
       for (const s of gpu.steps) L.push(`  step  ${plainStep(s.name)}: ${f(s.med)} ms, max ${f(s.max)} (${s.n} samples)`);
       for (let k = 1; k < gpu.phases.length; k++) { const p = gpu.phases[k]; L.push(`  phase ${plainStep(p.name)}: ${f(p.med)} ms, max ${f(p.max)}`); }
+    }
+    {
+      const lu = lumenSummary(), stepOf = (n) => gpu?.steps.find((x) => x.name === n)?.med ?? null;
+      L.push(lumenText('figure', lu.figure, stepOf('lumen pass')));
+      if (lu.lobule || stepOf('lobule lumen pass') != null) L.push(lumenText('lobule', lu.lobule, stepOf('lobule lumen pass')));
     }
     const whyAll = Object.entries(asked);
     L.push(`  whole vessel redraws: ${askedN} in ${f(secs)} s${whyAll.length ? `: ${whyAll.map(([k, [a, m]]) => `${k} ${a} (${m} timed)`).join(', ')}` : ''}`);

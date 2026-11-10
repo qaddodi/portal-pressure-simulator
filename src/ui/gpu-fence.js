@@ -20,7 +20,7 @@ const cur = new Float64Array(PHASES);
 /** The figure's context, where the fences are planted (veins-gl.js, when the renderer is made; null when it goes). */
 export function setFenceContext(g) { gl = g; }
 /** Whether the readout wants the samples (frame-hud.js turns them on while it shows). */
-export function setFences(v) { on = !!v; if (!on) { sampling = sampled = false; n = 0; at = 0; stepN.fill(0); stepAt.fill(0); ev = null; } }
+export function setFences(v) { on = !!v; if (!on) { sampling = sampled = false; n = 0; at = 0; stepN.fill(0); stepAt.fill(0); ev = null; lumenSeen[0] = lumenSeen[1] = 0; } }
 export const fencesOn = () => on;
 /** Whether the frame running now (or the one that just ended) is a sample, whose script time is the GPU's wait: the readout leaves it out. */
 export const fenceSampling = () => sampling || sampled;
@@ -53,7 +53,7 @@ export function fenceMark(i) {
 }
 // (Named steps inside a phase, for the sampled frame alone: veins-gl.js marks the blood pass, the heads, the present copy and the glasses and labels
 // over it, so a late phase of 26 ms (Mohammad's Mac, 8 Nov 2026) says which of its passes took it. STEP_MAX names, each a ring of KEEP waits.)
-const STEP_MAX = 10;
+const STEP_MAX = 12;
 const stepNames = [], stepWaits = new Float64Array(STEP_MAX * KEEP), stepN = new Int32Array(STEP_MAX), stepAt = new Int32Array(STEP_MAX);
 /** veins-gl.js: the commands of the step `name` have been issued (a sampled frame waits for them and keeps the wait under that name). */
 export function fencePart(name) {
@@ -64,6 +64,25 @@ export function fencePart(name) {
   const w = wait();
   stepWaits[i * KEEP + stepAt[i]] = w; stepAt[i] = (stepAt[i] + 1) % KEEP; if (stepN[i] < KEEP) stepN[i]++;
   if (ev) endEvent(w, name);
+}
+
+// ── The Tube's lumen pass, what it drew (R3, 10 Nov 2026). The pass runs on every blood frame as a second geometry pass; its time is the step
+// 'lumen pass' (the lobule's: 'lobule lumen pass'), and these are its counts, kept from the sampled frame beside the step: strips and webs
+// (joins) drawn, the rows in the pass, how many of them are exact, how many carry a join end. A number per slot in a typed array: nothing allocates.
+const LUMEN_N = 5;
+const lumenSeen = new Uint8Array(2), lumenNums = new Float64Array(2 * LUMEN_N), lumenTmp = new Float64Array(LUMEN_N);
+/** veins-gl.js: the lumen pass of the figure (lobule false) or the lobule has been drawn; `counts(out)` fills [strips, webs, rows, exact, ended]. Kept on a sampled frame only. */
+export function fenceLumen(lobule, counts) {
+  if (!sampling) return;
+  counts(lumenTmp);
+  const k = lobule ? 1 : 0;
+  for (let i = 0; i < LUMEN_N; i++) lumenNums[k * LUMEN_N + i] = lumenTmp[i];
+  lumenSeen[k] = 1;
+}
+/** The lumen pass's counts from the last sampled frame that drew it: { strips, webs, rows, exact, ended } for the figure and the lobule, null where none yet. */
+export function lumenSummary() {
+  const one = (k) => (lumenSeen[k] ? { strips: lumenNums[k * LUMEN_N], webs: lumenNums[k * LUMEN_N + 1], rows: lumenNums[k * LUMEN_N + 2], exact: lumenNums[k * LUMEN_N + 3], ended: lumenNums[k * LUMEN_N + 4] } : null);   // alloc-rare: once a second, for the readout
+  return { figure: one(0), lobule: one(1) };
 }
 
 // ── Every whole vessel redraw, measured (8 Nov 2026, Mohammad: "?perf to give us exactly what we're looking for"). A whole redraw of the
