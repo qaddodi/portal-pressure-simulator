@@ -70,6 +70,9 @@ import { darkMQ } from './look.js';
 const nextFrame = frameFor('lobule-zoom');
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
+// The vessels seen end-on (a disc each) carry no streaks, but they carry blood, so the origin and first-pass lenses colour them from the model's
+// edge that feeds or drains them: the portal venule from the inlet's edge, the arteriole from the arterial one, the central vein from the post-sinusoidal one.
+const END_ON_EDGE = { pv: EI[LOBE.pre], ha: EI[LOBE.a], cv: EI[LOBE.post] };
 const TAU = Math.PI * 2;
 const N = N_SAMPLES;
 const MAXT = 320;                       // GPU rows: the lobule has ~170 vessels, ~285 with the lymphatics
@@ -792,6 +795,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let clock = 0, origins = null, originsF = null, originsPass = false;
   // (The First pass lens: the sinusoid cleans along its length, so its row carries the blend at its outlet and a Pe near 0 (blood.js originEnds).)
   const lobEnds = { slosh: new Float64Array(EDGES.length), down: new Float32Array(EDGES.length * ORIGIN_N), pe: new Float32Array(EDGES.length) };
+  // (One row's origin texels: its edge's blend (flow texel 2) and, for the First pass lens, the blend at its outlet and its Pe (texels 6 and 7).)
+  const putOrigin = (o, kk) => {
+    for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c];
+    if (originsPass && lobEnds.pe[kk] !== 0) { flowData[o + 27] = lobEnds.pe[kk]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 28 + c] = lobEnds.down[kk * ORIGIN_N + c]; }
+  };
   const pc = (p) => (model?.hide ? tk('--lz-lumen-hidden') : pressureColor(p));
 
   // One GPU context for the figure (4 Nov 2026, Mohammad: "everything on one GPU context"): the lobule's vessels, tissue, overlay and field are
@@ -3983,7 +3991,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // (A paused pan has the flow it sent last: the same numbers, so they are not worked out and sent again; it is redone with the surface pass.)
     const flowSame = panOnly && g === flowG && flowA === flowAt;
     if (!flowSame) flowData.fill(0);
-    if (!flowSame) for (const t of live) if (t.lymph) flowData[t.id * FLOW_TEXELS * 4 + 8] = -1;   // lymph carries no blood origin
+    if (!flowSame) for (const t of live) if (t.lymph || t.kind === 'bd') flowData[t.id * FLOW_TEXELS * 4 + 8] = -1;   // lymph and bile carry no blood origin (a bile ductule keeps its own olive, not the systemic blue of an empty row)
     // Lymph (the Lymph layer): soft dashes with an amber core run along each channel toward the portal tract, drawn by the composite from a
     // flow row like the blood's (veins-gl.js lymphAt), so they move with the vessels at no cost of their own. The row: D = the dashes' phase
     // (world units, within one pitch), v = the pitch, flux = the protein (0 … 1: the core's strength), stasis = 1 in the dark theme,
@@ -3996,6 +4004,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         const mo = motionOf(t), o = t.id * FLOW_TEXELS * 4;
         mo.ld = ((((mo.ld ?? t.id * 0.371 * pitch) + (lyStill ? 0 : (t.kind === 'ly' ? -1 : 1) * dt * lyVw)) % pitch) + pitch) % pitch;   // (the lymph runs out along the space of Disse, in toward the tract along the terminal lymphatics)
         flowData[o] = mo.ld; flowData[o + 1] = pitch; flowData[o + 2] = lyPr; flowData[o + 3] = dark ? 1 : 0; flowData[o + 4] = -1; flowData[o + 6] = 1;
+        // The same lymph as the blood's streaks (the Tube's compositor, tube-lumen-glsl.js: a stream in flow texel 7, x the distance now, y the signed speed,
+        // never 0, which means none): the distance advances on the blood's convention (modulo PERIOD, no allocation), coloured there by the protein in f0.z.
+        // Classic and Mesh read neither float and keep the dashes. (markRows compares every float of a row, so an advancing distance marks the row as moved.)
+        const lyS = (t.kind === 'ly' ? -1 : 1) * lyVw * 0.5;
+        mo.lyD = ((((mo.lyD ?? (t.id * 977) % PERIOD) + (lyStill ? 0 : lyS * dt)) % PERIOD) + PERIOD) % PERIOD;
+        flowData[o + 28] = mo.lyD; flowData[o + 29] = lyStill ? (lyS < 0 ? -1e-3 : 1e-3) : lyS;
       }
     }
     if (!flowSame && (bloodOn || chev || origin)) for (const t of live) {
@@ -4007,7 +4021,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       } else if (lv === 'an') { v = 0.35 * vS * t.sign; occ = 0.25 * clamp(fr, 0.2, 1.5); strength = 0.6; oe = LOBE.q; }
       else if (lv === 'in') { v = 24 * Math.sign(pr) * Math.sqrt(Math.abs(pr)); occ = clamp(0.55 * Math.abs(pr) ** 0.6, 0.05, 0.95); f0 = 1; f1 = 1; rev = pr < -0.02 ? 1 : 0; oe = LOBE.pre; }
       else if (lv === 'tw') { v = 30 * Math.sqrt(ar); occ = clamp(0.5 * ar ** 0.6, 0.05, 0.95); f0 = 1; oe = LOBE.a; }
-      else continue;   // vessels seen end-on carry no streaks; lymph moves as the drops on the overlay, not as streaks
+      else {   // vessels seen end-on carry no streaks (lymph moves as the drops on the overlay); the portal venule, arteriole and central vein carry their blood's origin
+        const ke = END_ON_EDGE[lv];
+        if (origin && origins && ke !== undefined) putOrigin(t.id * FLOW_TEXELS * 4, ke);
+        continue;
+      }
       const mo = motionOf(t), sm = mo.stream || (mo.stream = { D: (t.id * 977) % PERIOD, rev: rev, v });   // alloc-once: a vessel's first flow step; the stream object is kept in its motion record (the shader's density divisor, laneSum, is read as veins-gl.js LANE_K)
       // Speed eases toward the model's (a new frame changes it in a step), so the marks never lurch.
       sm.v = Math.sign(v) !== Math.sign(sm.v) ? v : sm.v + (v - sm.v) * ease;
@@ -4023,8 +4041,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       flowData[o + 14] = sm.drift;
       flowData[o + 12] = 1;   // (each vessel's chevron weight, as the anatomy's: every lobule vessel shows them when they are on)
       if (origin && origins && !t.lymph) {
-        const kk = EI[oe]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 8 + c] = origins[kk * ORIGIN_N + c];
-        if (originsPass && lobEnds.pe[kk] !== 0) { flowData[o + 27] = lobEnds.pe[kk]; for (let c = 0; c < ORIGIN_N; c++) flowData[o + 28 + c] = lobEnds.down[kk * ORIGIN_N + c]; }
+        putOrigin(o, EI[oe]);
       }
     }
     if (!flowSame) { g.setFlow(flowData); flowG = g; flowAt = flowA; }
