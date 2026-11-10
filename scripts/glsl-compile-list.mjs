@@ -122,14 +122,13 @@ const lumenNeeds = {
   '../src/ui/edge.js': ['EDGE_GLSL'], '../src/ui/veins-bin.js': ['ENT_W'], '../src/ui/highlight-math.js': ['LIFT_EASE_SHARE', 'LIFT_EASE_MAX'],
   '../src/ui/tube-lumen-glsl.js': ['tubeLumenFS'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'],
 };
-add('tubeLumen (strip + tubeLumenFS)', { ...lumenNeeds, '../src/ui/tube-geo.js': ['tubeStripVS'] }, (g, edge, bin, hl, lum, mm, tg) => {
-  const vs = tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL);
-  const real = /out float vD;/.test(vs) && /out vec2 vG;/.test(vs) && /out float vRad;/.test(vs);
-  return { vs: real ? withZoom(vs) : leanVaryings.replace('out float vI;', 'out float vI;\nflat out vec4 zoomA; flat out vec3 zoomB;').replace('gl_Position =', 'zoomA = vec4(5.0, 35.84, 71.68, 0.25); zoomB = vec3(1.0, 1.0, 40.0); gl_Position ='),
-    fs: lum.tubeLumenFS(lumenK(g, edge, bin, hl)), note: 'linked with zoomA and zoomB written in main here: the Tube\'s vertex shaders do not write the zoom\'s numbers yet (thread D adds them)' };
-});
+// The strip writes zoomA and zoomB itself when veins-gl.js exports its ZOOM_VS (tubeStripVS's third argument, thread A); until then the pair is linked with the stand-in.
+const stripLumenVS = (g, mm, tg) => (g.ZOOM_VS ? tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL, g.ZOOM_VS) : withZoom(tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL)));
+const zoomNote = (g) => (g.ZOOM_VS ? 'zoomA and zoomB written by the strip (ZOOM_VS)' : 'linked with zoomA and zoomB written in main here: veins-gl.js does not export ZOOM_VS yet (thread D)');
+add('tubeLumen (strip + tubeLumenFS)', { ...lumenNeeds, '../src/ui/tube-geo.js': ['tubeStripVS'] }, (g, edge, bin, hl, lum, mm, tg) => ({
+  vs: stripLumenVS(g, mm, tg), fs: lum.tubeLumenFS(lumenK(g, edge, bin, hl)), note: zoomNote(g) }));
 add('tubeLumen PLAIN (strip, no dye or origin)', { ...lumenNeeds, '../src/ui/tube-geo.js': ['tubeStripVS'] }, (g, edge, bin, hl, lum, mm, tg) => ({
-  vs: withZoom(tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL)), fs: lum.tubeLumenFS({ ...lumenK(g, edge, bin, hl), PLAIN: 1 }), note: 'zoomA and zoomB written in main here (see above)' }));
+  vs: stripLumenVS(g, mm, tg), fs: lum.tubeLumenFS({ ...lumenK(g, edge, bin, hl), PLAIN: 1 }), note: zoomNote(g) }));
 add('tubeWebLumen (web + tubeLumenFS)', { ...lumenNeeds, '../src/ui/tube-joint.js': ['tubeWebVS'] }, (g, edge, bin, hl, lum, mm, tj) => ({
   vs: withZoom(tj.tubeWebVS(mm.STRIP_VS_GLSL, g.F_SEL)), fs: lum.tubeLumenFS(lumenK(g, edge, bin, hl)), note: 'zoomA and zoomB written in main here (see above)' }));
 

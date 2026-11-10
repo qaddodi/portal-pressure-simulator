@@ -645,3 +645,13 @@ test('no name is declared both in the Tube\'s GLSL and in STRIP_VS_GLSL', () => 
   // (only the names that stay in mine are the shader's interface and its own tube* / T_* / L_* helpers)
   for (const n of ['tubePlace', 'tubeAcross', 'T_CAP', 'L_LUMEN0', 'vI', 'vRow', 'main']) assert.ok(b.has(n), n);
 });
+
+test('the zoom numbers: tubeStripVS given the host\'s ZOOM_VS includes it and calls zoomOut() in main; given none its text is unchanged', () => {
+  const ZOOM = 'precision highp float;\nuniform float pxW;\nflat out vec4 zoomA;\nflat out vec3 zoomB;\nvoid zoomOut() {\n  zoomA = vec4(pxW);\n  zoomB = vec3(pxW);\n}';
+  const z = tubeStripVS(STRIP_VS_GLSL, 1, ZOOM);
+  assert.ok(z.includes(ZOOM) && z.indexOf(ZOOM) < z.indexOf('out float vI;') && z.indexOf('void main() {') > z.indexOf('zoomOut() {'));
+  assert.ok(z.includes('vRow = id;\n  zoomOut();\n'), 'written before any early return');
+  assert.deepEqual(lintGLSL(expanded(z)), []);
+  assert.equal(tubeStripVS(STRIP_VS_GLSL, 1, ''), VS);
+  assert.ok(!VS.includes('zoomOut') && !VS.includes('zoomA'));
+});
