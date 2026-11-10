@@ -346,7 +346,7 @@ ${tube ? '' : `    gl_FragDepth = keyShape + 0.5 * (1.0 - T(id, 2).y + 1e-4) * k
     return;
   }
 ${tube ? `#if MESH == 2
-  if (mPass >= MP_SHAPE_K && (tubePart == 0) == mLum) discard;   // (the Tube's patch: its outline is drawn under every lumen, its lumen over them: each pixel in one draw)
+  if (mPass >= MP_SHAPE_K && (tubePart == 0) == (mLum || mD < 0.0)) discard;   // (the Tube's patch: its outline is drawn under every lumen, its lumen, and every pixel inside its shape, over them: each pixel in one draw)
 #endif
 ` : ''}  if (mPass == MP_LIFT) {
     vec4 lc = mC * mWs;
@@ -355,7 +355,7 @@ ${tube ? `#if MESH == 2
     return;
   }
   // (The shape: a pixel it leaves clear is left as it is; one it covers outside a lumen hides the stream under it.)
-  if (!mLum && mC.a < 0.002) discard;
+  ${tube ? 'if (tubeKey == 2 && !mLum && mC.a < 0.002 && mD < 0.0) { outFlow = uvec4(0u); outFlow2 = uvec4(0u); outColor = vec4(0.0); outDep = vec4(0.0); return; }   // (a shape prepass: a patch leaves clear the pixels inside its shape where a copy of this tier\'s vessel is drawn by a higher tier (keep 0), yet keeps their depth: the vessel\'s own strips under it must not draw them whole, as the Mesh\'s key pass leaves them to the patch)\n  ' : ''}if (!mLum && mC.a < 0.002) discard;
   outColor = ditherOut(mC, q);
   outDep = vec4(dep ? 1.0 : 0.0);
   bool mfl = gId > 0u && gW > 0.01;

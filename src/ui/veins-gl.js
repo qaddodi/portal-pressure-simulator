@@ -631,7 +631,8 @@ ${tube ? TUBE_FS_KEY : MESH_FS_KEY}
   // (What this pass's tier draws: its glows, its shadow, its shape, the selected vessel's lift, and whether a lumen of it shows here.)
   vec4 mLg = vec4(0.0), mLgU = vec4(0.0), mSh = vec4(0.0), mC = vec4(0.0);
   float mWs = 0.0;
-  bool mLum = false;
+  bool mLum = false;${tube ? `
+  float mD = 1e9;                      // (the Tube) the tier's shape distance at this pixel: a patch that leaves the pixel clear inside its shape still claims it (tubeKey 2)` : ''}
 #endif
   for (int it = 0; it < MAXS; it++) {
     float tt = 1e9;
@@ -866,7 +867,7 @@ ${tube ? TUBE_FS_KEY : MESH_FS_KEY}
     else if (grp == 1) { accN = over(c, accN); if (wsel > 0.0) accT = over(c * wsel, accT); }
     else accT = over(c, accT);
 #if MESH
-    if (ti == tierNow) { mC = c; mWs = wsel; mLum = lumA > 0.02 && (flags & ${F_DOTTED}) == 0; mSh = shadowOf(Ds, wall, flags, sel, aa) * alpha * tierAlpha[ti] * (grp == 0 ? gf : 1.0); break; }
+    if (ti == tierNow) { mC = c;${tube ? ' mD = D;' : ''} mWs = wsel; mLum = lumA > 0.02 && (flags & ${F_DOTTED}) == 0; mSh = shadowOf(Ds, wall, flags, sel, aa) * alpha * tierAlpha[ti] * (grp == 0 ? gf : 1.0); break; }
 #endif
   }
 #if MESH

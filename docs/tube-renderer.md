@@ -44,6 +44,7 @@ a pass pair takes one band of depth from `meshKeyNext()` (`H = 0.999 / KEY_PASSE
 masked off (depth LESS, write on, no blend, no stencil), the **colour pass** draws with depth EQUAL, write off, blend `ONE, ONE_MINUS_SRC_ALPHA`
 and the stencil `NOTEQUAL ref / REPLACE`. Depth comes from the vertices: levels in `TUBE_LEVEL` (glow .02 to .08, casing .10 to .20, lumen
 .30 + .50 h / hRef, patch .95; `zU` for patches). No `gl_FragDepth`, no key pass, no `MESH_NONE`.
+A patch does not draw where it leaves a pixel clear, but in a shape pair's prepass (`tubeKey` 2) it keeps the depth of the pixels inside its shape (`mD < 0`) that it leaves clear: where a higher tier's copy replaces a see-through vessel (`keep` 0) the vessel's own strips, which see no join, must not draw it whole under the copy (the Mesh's key pass does the same). The colour pass discards them.
 
 `gl.drawBuffers` is `ATTACH` for the whole pass except around a glow pair's colour pass (`MESH_GLOW_BUF`), the lift (`MESH_COLOR_BUF`) and
 the laying of a scratch layer (then back to `ATTACH`). Per tier: glow pair if lit (strips only), shape pair (strips and patches), the lift as

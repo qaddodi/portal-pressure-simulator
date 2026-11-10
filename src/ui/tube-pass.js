@@ -17,7 +17,7 @@ export function createTubePass(E) {
   const { gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_GLOW_BUF, MESH_COLOR_BUF, CLR_F, gpuProbe,
     meshPad, meshKeyNext, meshRefNext, meshTargets, meshGeo, meshTarget, meshScratch, meshLay, vesselSet } = E;
   const PATCH_RING = (TUBE_LEVEL.CASE1 + TUBE_LEVEL.LUMEN0) / 2;   // a patch's outline: over every casing (to .20), under every lumen (from .30)
-  let keyPre = 0;   // 1 while a glow's depth prepass runs (tubeKey: a lit vessel's own wall keeps its depth, so no other glow shows inside it)
+  let keyPre = 0;   // tubeKey: 1 while a glow's depth prepass runs (a lit vessel's own wall keeps its depth, so no other glow shows inside it), 2 while a shape's (a patch keeps the depth of the pixels inside its shape it leaves clear), else 0
   // One draw of tier t's strips (and its patches) for a pass, in the band that starts at base. Sets no draw buffers.
   function tubeDraw(pass, t, base, H, px, look, patches) {
     const tb = MG.tb, pb = MG.pb, SP = E.tubeS, PP = E.tubePt;
@@ -36,7 +36,7 @@ export function createTubePass(E) {
     if (patches && pb.count[t]) {
       const u = PP.u;
       gl.useProgram(PP.p);
-      UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, 0);
+      UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, 0); UC.i1(u.tubeKey, keyPre);
       gl.bindVertexArray(MG.patchVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, MG.patchBuf);
       const o = pb.start[t] * PG_W * 4;
@@ -62,7 +62,7 @@ export function createTubePass(E) {
     gl.colorMask(false, false, false, false);
     gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST);
     gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.depthMask(true);
-    keyPre = glow ? 1 : 0;
+    keyPre = glow ? 1 : 2;
     tubeDraw(pass, t, base, H, px, look, patches);
     keyPre = 0;
     tubeColour(pass, t, base, px, look, patches, glow ? MESH_GLOW_BUF : null);
