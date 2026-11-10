@@ -29,7 +29,7 @@
 // picture shows through it. Opacity steps are left.
 export const END_BASE = 64;                  // vEnd's packing of a sample (the plan's contract: N_SAMPLES)
 export const END_SEGS = 2;                   // (the multi-segment reference trunkGapJS reads this many segments each side of the sample, for the tests)
-export const JOIN_WIN = 8;                   // samples from an end within which a pixel looks at it
+export const JOIN_WIN = 24;                  // samples from an end within which a pixel looks at it (8 left the arch crossing the SVC and the hepatic veins crossing the cava uncut for 12-19 samples: the pale wedge and the angled cuts, 10 Nov)
 export const JOIN_REACH = 2;                 // radii: the trunk's chord reaches at least this far each way from the sample
 export const JOIN_COLOUR_R = 3;              // radii over which a row's colour blends into the other's at a cut end or a continuation (at least JOIN_COLOUR_MIN world units)
 export const JOIN_COLOUR_MIN = 8;
@@ -79,11 +79,30 @@ ${JOIN_ALONG_GLSL}
 vec3 joinColour(int row, float u) {
   return mix(texelFetch(tube, ivec2(0, row), 0).rgb, texelFetch(tube, ivec2(1, row), 0).rgb, joinAlong(row, u));
 }
-// The partner row's tier, veil and whole flags and alpha, packed in one float (tier + 32 veil + 64 whole + 128 alpha8): what the fragment needs to find its opacity there.
-float joinPack(int row) {
+// A row's own fade at p (veins-mesh-glsl.js vesAttrs: a dip, a radial or a linear fade along it, texels 3 and 4): the alpha the partner shows at the seam, not its flat row alpha (the SVC fades to 0.3 as it enters the atrium: the cava's ramp ended on a step, 10 Nov).
+float joinFade(int row, vec2 p) {
+  vec4 t3 = texelFetch(tube, ivec2(3, row), 0), t4 = texelFetch(tube, ivec2(4, row), 0);
+  if (t4.w > 2.5) {
+    vec2 dd = t3.zw - t3.xy;
+    float v = clamp(dot(p - t3.xy, dd) / max(dot(dd, dd), 1e-6), 0.0, 1.0);
+    return v < t4.x ? mix(t4.y, t4.z, smoothstep(0.0, t4.x, v)) : mix(t4.z, 1.0, smoothstep(t4.x, 1.0, v));
+  }
+  if (t4.w > 1.5) {
+    float v = length(p - t3.xy) / max(t3.z, 1e-3);
+    return v < 0.45 ? mix(t4.y, t4.z, v / 0.45) : mix(t4.z, 0.0, clamp((v - 0.45) / 0.55, 0.0, 1.0));
+  }
+  if (t4.w > 0.5) {
+    vec2 dd = t3.zw - t3.xy;
+    float v = dot(p - t3.xy, dd) / max(dot(dd, dd), 1e-6);
+    return mix(t4.y, t4.z, clamp((v - t4.x) / max(1.0 - t4.x, 1e-4), 0.0, 1.0));
+  }
+  return 1.0;
+}
+// The partner row's tier, veil and whole flags and alpha (with its fade at the seam point at), packed in one float (tier + 32 veil + 64 whole + 128 alpha8): what the fragment needs to find its opacity there.
+float joinPack(int row, vec2 at) {
   vec4 t1 = texelFetch(tube, ivec2(1, row), 0), t2 = texelFetch(tube, ivec2(2, row), 0);
   int fl = int(t2.z + 0.5);
-  return float(int(t2.x + 0.5) + ((fl & ${JOIN_F_VEIL}) != 0 ? 32 : 0) + ((fl & ${JOIN_F_WHOLE}) != 0 ? 64 : 0) + 128 * int(clamp(t1.w, 0.0, 1.0) * 255.0 + 0.5));
+  return float(int(t2.x + 0.5) + ((fl & ${JOIN_F_VEIL}) != 0 ? 32 : 0) + ((fl & ${JOIN_F_WHOLE}) != 0 ? 64 : 0) + 128 * int(clamp(t1.w * joinFade(row, at), 0.0, 1.0) * 255.0 + 0.5));
 }
 float joinPackColour(vec3 c) { return dot(floor(clamp(c, 0.0, 1.0) * 255.0 + 0.5), vec3(65536.0, 256.0, 1.0)); }
 // A trunk's arm from its sample sm: len along its own samples (spacing sp) in direction dir, no further than its end unless the trunk runs on straight there (thru: then on in a line).
@@ -124,7 +143,7 @@ vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
     vec2 dO = E - PT(id, atStart ? 2 : ${LAST - 2});
     if (pr == id) {   // a trunk's own end that branches leave from, with no row carrying on: it ends flat, its round cap gone (the branches' own caps and the web make the fork)
       float l0 = length(dO);
-      if (l0 > 1e-6) { K = vec2(0.0, 2.0); C = vec4(joinPackColour(joinColour(id, float(ps) / ${LAST}.0)), 0.0, 0.0, joinPack(id)); return vec4(E, dO / l0); }
+      if (l0 > 1e-6) { K = vec2(0.0, 2.0); C = vec4(joinPackColour(joinColour(id, float(ps) / ${LAST}.0)), 0.0, 0.0, joinPack(id, E)); return vec4(E, dO / l0); }
       return vec4(0.0);
     }
     vec2 dP = PT(pr, ps) - PT(pr, ps == 0 ? 2 : ${LAST - 2});
@@ -135,7 +154,7 @@ vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
       if (lm > 1e-4) {
         vec2 f = -dP / lp, o = dO / lo;
         K = vec2(atan(o.x * f.y - o.y * f.x, dot(o, f)) + 0.0, 2.0);   // (K.x: the turn from this row's way out to the next row's way on, which the cel tones' light direction follows across the join)
-        C = vec4(joinPackColour(joinColour(pr, float(ps) / ${LAST}.0)), 0.0, 0.0, joinPack(pr));
+        C = vec4(joinPackColour(joinColour(pr, float(ps) / ${LAST}.0)), 0.0, 0.0, joinPack(pr, E));
         return vec4(E, m / lm);
       }
     }
@@ -300,7 +319,7 @@ export function joinArmJS(pts, sm, dir, sp, reach, thru) {
 }
 
 /**
- * joinOne in JS: one end's data. o: { e (the vEnd value), atStart, own: { pts: [[x, y] x 64], tier }, rows: (row) => { pts, rad (a number a sample), tier } }.
+ * joinOne in JS: one end's data. o: { e (the vEnd value), atStart, own: { pts: [[x, y] x 64], tier }, rows: (row) => { pts, rad (a number a sample), tier, alpha, flags, fadeAt (point -> the row's own fade there, default 1) } }.
  * Returns { J: [x0, y0, x1, y1] (an open end: the trunk's arms a, b; Q the knee), K: [r, mode], C: [r, g, b] } (K [-1, -1] for none). rows(row).colour(u), when given, is the row's colour along it.
  */
 export function joinOneJS(o) {
@@ -318,14 +337,14 @@ export function joinOneJS(o) {
     const k = Math.floor(-e + 0.5) - 2, pr = Math.floor(k / END_BASE), ps = k % END_BASE;
     if (o.id !== undefined && pr === o.id) {
       const P = o.own.pts, E = P[atStart ? 0 : last], dO = sub(E, P[atStart ? 2 : last - 2]), l0 = len(dO);
-      return l0 > 1e-6 ? { J: [E[0], E[1], dO[0] / l0, dO[1] / l0], K: [0, JOIN_MODE.PLANE], C: colOf(pr, ps / last), PT: joinPackJS(o.own.tier ?? 0, o.own.flags ?? 0, o.own.alpha ?? 1) } : { J: [0, 0, 0, 0], K: [-1, -1], C: [0, 0, 0], PT: -1 };
+      return l0 > 1e-6 ? { J: [E[0], E[1], dO[0] / l0, dO[1] / l0], K: [0, JOIN_MODE.PLANE], C: colOf(pr, ps / last), PT: joinPackJS(o.own.tier ?? 0, o.own.flags ?? 0, (o.own.alpha ?? 1) * (o.own.fadeAt ? o.own.fadeAt(E) : 1)) } : { J: [0, 0, 0, 0], K: [-1, -1], C: [0, 0, 0], PT: -1 };
     }
     const P = o.own.pts, Q = o.rows(pr).pts;
     const E = P[atStart ? 0 : last], dO = sub(E, P[atStart ? 2 : last - 2]), dP = sub(Q[ps], Q[ps === 0 ? 2 : last - 2]);
     const lo = len(dO), lp = len(dP);
     if (lo > 1e-6 && lp > 1e-6) {
       const m = [dO[0] / lo - dP[0] / lp, dO[1] / lo - dP[1] / lp], lm = len(m);
-      if (lm > 1e-4) return { J: [E[0], E[1], m[0] / lm, m[1] / lm], K: [Math.atan2((dO[0] / lo) * (-dP[1] / lp) - (dO[1] / lo) * (-dP[0] / lp), (dO[0] / lo) * (-dP[0] / lp) + (dO[1] / lo) * (-dP[1] / lp)) + 0, JOIN_MODE.PLANE], C: colOf(pr, ps / last), PT: joinPackJS(o.rows(pr).tier ?? 0, o.rows(pr).flags ?? 0, o.rows(pr).alpha ?? 1) };
+      if (lm > 1e-4) return { J: [E[0], E[1], m[0] / lm, m[1] / lm], K: [Math.atan2((dO[0] / lo) * (-dP[1] / lp) - (dO[1] / lo) * (-dP[0] / lp), (dO[0] / lo) * (-dP[0] / lp) + (dO[1] / lo) * (-dP[1] / lp)) + 0, JOIN_MODE.PLANE], C: colOf(pr, ps / last), PT: joinPackJS(o.rows(pr).tier ?? 0, o.rows(pr).flags ?? 0, (o.rows(pr).alpha ?? 1) * (o.rows(pr).fadeAt ? o.rows(pr).fadeAt(E) : 1)) };
     }
   }
   return { J: [0, 0, 0, 0], K: [-1, -1], C: [0, 0, 0], PT: -1 };

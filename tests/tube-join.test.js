@@ -163,8 +163,8 @@ uniform highp sampler2D tube;
 ${tubeJoinVS(64)}`;
   assert.deepEqual(lintGLSL(env(vs)), []);
   assert.deepEqual(lintGLSL(env(JOIN_IN_GLSL)), []);
-  assert.match(fs, /bool atStart = vI < 8\.0;/);
-  assert.match(fs, /if \(!atStart && !\(vI > 55\.0\)\) return j;/);
+  assert.match(fs, new RegExp(`bool atStart = vI < ${JOIN_WIN}\\.0;`));
+  assert.match(fs, new RegExp(`if \\(!atStart && !\\(vI > ${63 - JOIN_WIN}\\.0\\)\\) return j;`));
   assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) {`));
   assert.ok(fs.includes('if (gap < (soft ? -px : -0.5 * px) && !beyond) { j.drop = true; return j; }'));
   assert.ok(fs.includes('if (soft && !beyond) { j.fl = smoothstep(-px, 0.0, gap); j.fo = j.fl; }'));
@@ -241,6 +241,15 @@ test('a continuation between two tiers: the more opaque row eases to the other\'
   assert.equal(at(-50).rs, 0, 'far from the plane: whole');
   assert.ok(Math.abs(at(0).rs - 1) < 1e-9, 'at the plane: all the way to the partner\'s opacity');
   assert.ok(at(-9).rs > 0 && at(-9).rs < 1, 'between: eased');
+});
+
+test('a continuation\'s ramp targets the partner\'s opacity AT the seam, its own fade along it included (the SVC fades to 0.3 into the atrium: the cava met it on a step)', () => {
+  const A = line(-100, 0, 0, 0), B = line(0, 0, 100, 0);
+  const rw = rowsOf({ 0: { pts: A, tier: 7, colour: () => [1, 1, 1] }, 1: { pts: B, tier: 3, alpha: 1, fadeAt: () => 0.3, colour: () => [1, 1, 1] } });
+  const d = joinOneJS({ e: endContinues(1, 0), atStart: false, own: { pts: A, tier: 7 }, rows: rw });
+  assert.equal(d.PT, joinPackJS(3, 0, 0.3), 'the partner\'s alpha rides with its fade at the end point');
+  assert.match(tubeJoinVS(64), /float joinFade\(int row, vec2 p\)/, 'the vertex shader reads the same three fades vesAttrs does');
+  assert.match(tubeJoinVS(64), /joinPack\(pr, E\)/, 'at the seam point');
 });
 
 test('the opacity ramp\'s GLSL lints in the lean shader\'s surroundings and decodes what joinPackJS packs', () => {
