@@ -155,8 +155,8 @@ settings tests, the as-built doc `docs/tube-renderer.md`.
 ## Known differences from Mesh, for Mohammad
 
 1. No contact shadow under vessels in Tube.
-2. The outline is near-black and opaque on every look. On the dark looks a black line on a dark ground is nearly invisible, so the
-   vessels read by their fill and the existing light rim. If he wants a light outline on dark looks, that is one constant.
+2. The outline is opaque on every look: near-black on the light looks, and the look's own (light) line colour on the dark looks, where
+   black would not show (Mohammad, 10 Nov: whatever makes sense, cartoon vessels like today's but better).
 3. The outline is 1.6 times today's casing width and still grows with zoom as today. The "weight that holds when zoomed" rule is stage 2.
 4. Same-tier crossings without a join merge (as Mesh shows them today).
 5. Blood is particles in Tube and streaks in Mesh and Classic.
