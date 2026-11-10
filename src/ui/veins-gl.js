@@ -402,7 +402,7 @@ ${SHADE_GLSL}${tube ? `\n${CEL_GLSL}` : ''}
 void main() {
 #if MESH
   // (The ring's mark: the tier's lumens, by their keys: this depth over a lumen's, the depth test GREATER, sets the stencil.)
-  if (mPass == MP_MARK) { gl_FragDepth = keyShape + 0.5 * keyH; return; }
+${tube ? '' : '  if (mPass == MP_MARK) { gl_FragDepth = keyShape + 0.5 * keyH; return; }'}
 #endif
   // A colour-only redraw: a pixel no lumen colour reaches is left as drawn (its colour depends on none of them).
   if (tint == 1 && texelFetch(depL, ivec2(gl_FragCoord.xy), 0).r < 0.5) discard;

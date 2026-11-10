@@ -35,7 +35,9 @@ test('the patch vertex shader passes the lint and takes its depth from zU', () =
 test('no Tube build writes depth or uses the tube shading; both use the cartoon shading', () => {
   for (const [k, src] of Object.entries(builds)) {
     assert.ok(!src.includes('gl_FragDepth'), `${k}: no gl_FragDepth`);
-    assert.ok(!src.includes('tubeShade('), `${k}: no tubeShade(`);
+    // (The function tubeShade is still defined, in the shared shading text; no call of it is left: celShade is called in its place.)
+    assert.equal(src.split('tubeShade(').length - 1, 1, `${k}: tubeShade( only where it is defined, never called`);
+    assert.match(src, /vec4 tubeShade\(/, `${k}: ...and that is the definition`);
     assert.ok(src.includes('celShade('), `${k}: celShade(`);
   }
 });
