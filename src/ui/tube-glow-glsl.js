@@ -1,10 +1,15 @@
 // The Tube's short fragment shader for glows (brief P6; docs/recommendations/tube-renderer-speed-plan.md).
 //
 // `tubeGlowFS(K)` replaces the stage 1 strip build (vesselFS(true, 1, 1)) for the two glow passes only, MP.GLOW (the plain glow) and MP.UP (the glow asked to
-// lie on top: the Doppler's), for a vessel row seen alone. It gives the same four outputs for the same pixel, but the pixel's distance comes from the
-// vertex shader's varying vD (with the row's clip and dotted rules, as tubeLeanFS applies them) in place of segNear's search over the vessel's
-// segments, and there is no join, no tier loop, no loop over vessels and no shape. It keeps from the shared text, unchanged: vesAttrs, glowAmt
-// (the same arguments), packFlow's neighbour ditherOut, the tier and group alphas, the redraw rule, the tint rule.
+// lie on top: the Doppler's), for a vessel row seen alone. It gives the same four outputs for the same pixel. There is no join, no tier loop, no loop over vessels
+// and no shape. It keeps from the shared text, unchanged: vesAttrs, glowAmt (the same arguments), segNear, packFlow's neighbour ditherOut, the tier and group
+// alphas, the redraw rule, the tint rule.
+//
+// The pixel's distance is the vessel's own (segNear over the GLOW_WIN segments each side of the fragment's sample), NOT the vertex shader's varying vD that
+// brief P6 first read: vD is each primitive's own number (a ring's across distance, a dome's hexagon, a trap quad's constant skirt edge), exact on a straight
+// run but not at a turn, where the depth test keeps whichever primitive is nearest in its level and its pixels then drew boxes and wedges out of the halo
+// with hard spokes (10 Nov 2026, the right hepatic vein's bend). One smooth field for every primitive, so what the depth test keeps no longer matters.
+//
 // Its discards are the strip build's: no glow colour (the vessel is not lit), the wrong one of the two passes (a vessel whose glow lies on top is
 // drawn only in MP.UP, the others only in MP.GLOW), no amount outside the wall; any other pass: discard. The depth prepass (tubeKey 1) keeps the
 // pixel inside a lit vessel's own wall (no colour, its depth) so no other glow shows inside it; the colour pass draws nothing there.
@@ -21,7 +26,10 @@
 //   MAX_TIERS   the tier arrays' length
 //   S_OFF       the arc length's offset (packFlow)
 //   ALONG_GLSL  the alongAt function (veins-gl.js)
-import { shadeGLSL, MP } from './veins-mesh-glsl.js';
+import { shadeGLSL, MP, MESH_WIN } from './veins-mesh-glsl.js';
+
+// The segments the fragment searches each side of its sample (one more than the strip build's MESH_WIN: a glow reaches far past the lumen).
+export const GLOW_WIN = MESH_WIN + 1;
 
 export const tubeGlowFS = (K) => {
   const { F_DOTTED, EDGE, ENT_W, N_SAMPLES, MAX_TIERS, S_OFF, ALONG_GLSL } = K;
@@ -31,8 +39,6 @@ precision highp float;
 precision highp int;
 in float vI;                           // the sample index along the vessel, interpolated (a segment plus its fraction)
 flat in int vRow;                      // the vessel row
-in float vD;                           // signed distance from the lumen's wall, world units: negative inside, positive in the glow's skirt
-in float vRad;                         // the lumen's radius here, world units
 uniform int mPass;                     // the pass (MP_*)
 uniform int tierNow;                   // the tier it draws
 uniform int tubeKey;                   // 1 in a glow's depth prepass: a lit vessel's own wall keeps its depth there, so no other glow shows inside it
@@ -89,20 +95,25 @@ void main() {
   vec2 p = vec2(invA.x * q.x + invA.z * q.y, invA.y * q.x + invA.w * q.y);
   float reach = reachU + 2.0 * px;
   int id = vRow;
-  vec4 t2 = T(id, 2), t5 = T(id, 5);
-  float u = vI / LAST;
-  float R = vRad, D = vD;
-  // The row's clip range and dotted rule, as segNear applies them (and tubeLeanFS): a round end where the clip cuts the vessel, the dots of a closed collateral.
-  bool dotted = (int(t2.z + 0.5) & ${F_DOTTED}) != 0;
-  if (t5.x > 0.0 || t5.y < 1.0) {
-    float ext = max(t5.x - u, u - t5.y) * t5.z;
-    if (ext > 0.0) D = length(vec2(D + R, ext)) - R;
+  vec4 t5 = T(id, 5);
+  bool dotted = (int(T(id, 2).z + 0.5) & ${F_DOTTED}) != 0;
+  // The distance is the vessel's own, worked out here from the segments about this fragment's sample (the strip build's search, ${GLOW_WIN} each side), not read from the
+  // vertex shader's distance varying. That one is the distance across the primitive's own ring, exact on a straight run; across a turn the domes, the trap quads and the overlapping rings of
+  // the inside each carry their own number (a dome's hexagon, a trap quad's constant skirt edge), so the glow showed as boxes and wedges cut out of the halo, with hard
+  // spokes at the bend. The nearest of the segments is one smooth field whichever of those primitives the depth test keeps for the pixel, and it carries the clip range
+  // and the dots as segNear applies them. The soft along (aU / aW) is segNear's too: the fade at the vessel's ends reads it, and it is smooth across a bend's fan.
+  float bd = 1e9, bs = 1e9, br = 0.0, bu = 0.0, bx = 0.0, aM = 1e9, aW = 0.0, aU = 0.0;
+  vec2 bg = vec2(0.0);
+  int ic = clamp(int(vI), 0, ${N_SAMPLES - 2});
+  vec2 pa = PT(id, max(0, ic - ${GLOW_WIN}));
+  for (int j = max(0, ic - ${GLOW_WIN}); j <= min(${N_SAMPLES - 2}, ic + ${GLOW_WIN}); j++) {
+    vec2 pb = PT(id, j + 1);
+    segNear(id, float(j), vec4(pa, pb), p, p, t5, dotted, bd, bs, br, bu, bx, bg, aM, aW, aU);
+    pa = pb;
   }
-  if (dotted) {
-    float m = mod(u * t5.z, 6.0);
-    float along = m < 3.75 ? max(0.0, m - 1.5) : 6.0 - m;
-    D = length(vec2(D + R, along)) - R;
-  }
+  float D = bd;
+  float u = bu;                        // (the nearest point's place along, for the colour)
+  float us = aW > 0.0 ? aU / aW : bu;  // (the soft along, for the ends' fade)
   // No vessel in reach of this pixel: it is left empty, written so when the cells are drawn again over the last picture.
   if (D >= reach) {
     if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
@@ -111,10 +122,10 @@ void main() {
   float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * ${K.VEIL_K} * organK : 0.0;
   float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
   vec3 aCol, aEdge;
-  vesAttrs(id, u, u, p, occl, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
+  vesAttrs(id, u, us, p, occl, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
   // The glow here. No glow colour (the vessel is not lit), or the other pass's vessel (the glow asked to lie on top is drawn in the up pass only), or no amount: nothing.
   vec4 gc, ge;
-  float gv = glowAmt(id, D, aWall, u, aA, gc, ge);
+  float gv = glowAmt(id, D, aWall, us, aA, gc, ge);
   if (gc.a <= 0.0 || (ge.w > 5.0) != (mPass == ${MP.UP})) discard;
   bool inside = D - aWall < 0.0;   // (inside its own wall a lit vessel keeps the pixel and draws no glow there)
   if (!inside && gv <= 0.0) discard;

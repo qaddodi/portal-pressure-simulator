@@ -18,7 +18,7 @@ const { LIFT_EASE_SHARE, LIFT_EASE_MAX } = await import('../src/ui/highlight-mat
 const { MP } = await import('../src/ui/veins-mesh-glsl.js');
 const { tubeStripVS } = await import('../src/ui/tube-geo.js');
 const { STRIP_VS_GLSL } = await import('../src/ui/veins-mesh.js');
-const { tubeGlowFS, tubeGlowJS, glowAmtJS } = await import('../src/ui/tube-glow-glsl.js');
+const { tubeGlowFS, tubeGlowJS, glowAmtJS, GLOW_WIN } = await import('../src/ui/tube-glow-glsl.js');
 
 const ALONG_GLSL = `
 float alongAt(int id, float u) {
@@ -35,11 +35,15 @@ const K = {
 const GLOW = tubeGlowFS(K);
 const STRIP = gl.vesselFS(true, 1, 1);
 
-test('the glow shader passes the lint, with no search and no loop over vessels', () => {
+test('the glow shader passes the lint, searches only its own vessel\'s segments about its sample, and reads no vD', () => {
   assert.deepEqual(lintGLSL(GLOW), []);
-  // (segNear is in the shared shading text, defined and never called: its name appears once, at its definition.)
-  assert.equal(GLOW.split('segNear(').length - 1, 1);
+  // (The distance is the vessel's own, from segNear over the window about the fragment's sample, one call in a loop: a strip's vD is wrong across a turn,
+  // where the domes, trap quads and overlapping rings of the glow's skirt drew boxes and wedges out of the halo.)
+  assert.equal(GLOW.split('segNear(').length - 1, 2, 'its definition and the one call');
   assert.match(GLOW, /void segNear\(/);
+  assert.match(GLOW, new RegExp(`for \\(int j = max\\(0, ic - ${GLOW_WIN}\\); j <= min\\(${gl.N_SAMPLES - 2}, ic \\+ ${GLOW_WIN}\\); j\\+\\+\\)`));
+  assert.ok(GLOW_WIN >= 3, 'a window wider than the strip build\'s');
+  assert.ok(!/\bvD\b|\bvRad\b/.test(GLOW), 'no varying distance is read');
   assert.ok(!/\bMAXS\b|\bMAXJ\b/.test(GLOW), 'no loop over vessels or joins');
   assert.ok(!GLOW.includes('gl_FragDepth'), 'no depth write');
   assert.ok(!/\bcelShade\(|\btubeShade\(/.test(GLOW.replace(/vec4 (celShade|tubeShade)\(/g, '')), 'no shape shading is called');
@@ -64,7 +68,7 @@ test('its varyings are the strip vertex shader\'s', () => {
 
 test('it keeps the glow\'s rules of the strip build and takes any other pass out', () => {
   assert.match(GLOW, new RegExp(`if \\(mPass != ${MP.GLOW} && mPass != ${MP.UP}\\) discard;`));
-  assert.match(GLOW, /glowAmt\(id, D, aWall, u, aA, gc, ge\)/);
+  assert.match(GLOW, /glowAmt\(id, D, aWall, us, aA, gc, ge\)/);
   assert.match(GLOW, /lgm\.a <= 0\.0 && tubeKey == 1 && inside/);
   assert.match(STRIP, /lgm\.a <= 0\.0 && tubeKey == 1 && sd\[0\] < swall\[0\]/);
 });
