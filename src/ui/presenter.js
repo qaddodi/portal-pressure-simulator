@@ -4196,8 +4196,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // The readings' card comes out as the card zooms (false: it stays tucked, behind the instrument card, and a tap on its handle brings it out).
   const ZOOM_OPENS_READINGS = false;
   // Whether the card may zoom now: it stands whole, on a wide screen, with an instrument, and nothing else is going on.
+  // (A slide with no data card at all, such as Sites and causes 2 of 14 whose teaching card holds the site bar, zooms the teaching card alone: the zoom is
+  // fitted and centred on the words and their glass, main in zoomOpen; Mohammad, 10 Nov 2026: "when i click on this card on this slide it doesn't zoom in
+  // view like other cards". It stood on `zoomCard() && dataStands()`, which a slide without a data card never meets.)
+  const wordsAlone = () => ui.data.hidden && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave');
   const zoomReady = () => !!ui && !!deck && !!shown && shown.i === want && shown.gen === gen && (!busy || playing) && !leaving && !black && !caseStands() && ui.jump.hidden && !isModalOpen()
-    && ui.root.classList.contains('pz-wide') && zoomCard() && dataStands() && !ui.root.classList.contains('pz-prep');
+    && ui.root.classList.contains('pz-wide') && ((zoomCard() && dataStands()) || wordsAlone()) && !ui.root.classList.contains('pz-prep');
   // (A card with an instrument zooms, and so does a tiles-only card, in every talk (Mohammad, 6 Nov 2026: a tap on the teaching card or the tile
   // card of Left-sided portal hypertension did nothing; only the Circuit talk had opted in). A talk may still opt out with zoomTiles: false.)
   const zoomCard = () => ui.data.classList.contains('has-tool') || (deck?.zoomTiles !== false && !ui.data.hidden);

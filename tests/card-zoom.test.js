@@ -649,6 +649,23 @@ test('zoom: a tap on the teaching card frames and centres it, the data card ridi
   } finally { back(); }
 });
 
+test('zoom: a slide with no data card zooms its teaching card alone (Sites and causes 2: the words and the site bar)', () => {
+  const card = new El({ left: 0, top: 0, width: 0, height: 0 }, { hidden: true }), lip = new El({ left: 0, top: 0, width: 0, height: 0 }, { hidden: true });
+  const words = new El({ left: 40, top: 280, width: 360, height: 330 }), shade = new El({ left: 40, top: 280, width: 360, height: 330 });
+  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
+  const z = createCardZoom({ card, along: [lip], scene: () => [words, shade], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }) });
+  const back = stands();
+  try {
+    assert.equal(z.open({ main: [words, shade] }), true, 'the words alone are framed');
+    const want = zoomPlan({ left: 40, top: 280, width: 360, height: 330 }, { left: 0, top: 0, width: 1440, height: 900 });
+    assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'fitted to the teaching card');
+    assert.ok(words.classList.contains('pz-zmain'));
+    z.reset();
+  } finally { back(); }
+  assert.match(js, /const wordsAlone = \(\) => ui\.data\.hidden && !ui\.text\.hidden/);
+  assert.match(js, /\(\(zoomCard\(\) && dataStands\(\)\) \|\| wordsAlone\(\)\)/);
+});
+
 test('zoom: a tap on the data card fits and centres the data card alone; the teaching card rides but never changes the framing', () => {
   const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
   const words = new El({ left: 500, top: 20, width: 400, height: 300 });
