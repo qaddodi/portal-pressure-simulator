@@ -1002,7 +1002,7 @@ void chevInks(vec3 vc, float rv, out vec3 core, out vec3 rim) {
   rim = mix(inkLight, vc * 0.45, max(dark, warm));
 }
 `;
-const ZOOM_VS = `
+export const ZOOM_VS = `
 precision highp float;
 uniform float pxW;
 flat out vec4 zoomA;                   // the lane spacing Lg, the parcel scales sA and sB, the cross-fade lf between them
@@ -1792,7 +1792,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // Their own try: a Tube that fails leaves the others as they are.
   const startTubeProgs = () => {
     try {
-      started.tubeStrip = startProgram(gl, tubeStripVS(STRIP_VS_GLSL, F_SEL), vesselFS(true, 1, 1)); started.tubePatch = startProgram(gl, meshPatchVS(STRIP_VS_GLSL), vesselFS(false, 2, 1));
+      started.tubeStrip = startProgram(gl, tubeStripVS(STRIP_VS_GLSL, F_SEL, ZOOM_VS), vesselFS(true, 1, 1)); started.tubePatch = startProgram(gl, meshPatchVS(STRIP_VS_GLSL), vesselFS(false, 2, 1));
       if (who === 'lobule') started.meshLay = startProgram(gl, REUSE_VS, MESH_LAY_FS);
     } catch (e) { console.warn('Veins renderer: the tube vessel shaders could not be made; the classic vessel pass draws when Tube is chosen.', e); delete started.tubeStrip; delete started.tubePatch; if (who === 'lobule') delete started.meshLay; }
   };

@@ -106,6 +106,7 @@ export function createTubePass(E) {
       UC.f1(P.u.zK, LV.zK); UC.f1(P.u.hK, LV.hK);   // (an unset uniform is 0, so both programs are given both)
     }
     UC.f1(E.tubeS.u.hRef, LV.hRef); UC.f1(E.tubeS.u.aaPad, 2 * px);
+    UC.f1(E.tubeS.u.pxW, px);   // (the compositor's zoom numbers, ZOOM_VS, which the strip's vertex shader hands on as zoomA and zoomB: the world size of a device pixel)
     gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, MG.pj);
     // (The depth and stencil, cleared within the caller's scissor.)
     gl.depthMask(true); gl.stencilMask(0xff);
