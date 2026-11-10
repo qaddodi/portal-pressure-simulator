@@ -196,7 +196,7 @@ void main() {
   if (lum) {
     vec2 a = PT(id, clamp(int(vI), 0, ${N_SAMPLES - 2})), ba = PT(id, clamp(int(vI), 0, ${N_SAMPLES - 2}) + 1) - a;
     float across = (ba.x * (p - a).y - ba.y * (p - a).x) * inversesqrt(max(dot(ba, ba), 1e-8));
-    gId = uint(id + 1); gS = u * t5.z; gY = clamp(across / max(R, 1e-3), -1.0, 1.0); gW = lumA;
+    gId = uint(id + 1); gS = u * t5.z; gY = clamp(across / max(R, 1e-3), -1.0, 1.0); gW = lumA * smoothstep(0.5, 0.9, je.fl);   // (a branch fading into its trunk hands its blood and heads over to the trunk's before it is half gone: no stray head on the ghost of its end)
   }
   if (grp == 0) c *= 1.0 - occl * aOf;
   c *= mix(je.fo, je.fl, aL) * jr;   // (the lumen's share fades with the branch, the outline's faster)
@@ -222,6 +222,7 @@ void main() {
 
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 const mix = (a, b, t) => a * (1 - t) + b * t;
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 /** The distance past the wall after the row's clip and dotted rules (the GLSL's two blocks before the reach test). o: { D (vD), R (vRad), u (vI / LAST), clip [from, to, length], dotted }. */
 export function leanDistanceJS(o) {
@@ -283,7 +284,7 @@ export function tubeLeanJS(o) {
   }
   if (!lum && c[3] < 0.002) return { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   let flow = null;
-  if (lum && lumA > 0.01) flow = { id: o.row ?? 0, s: o.u * clip[2], w: lumA };
+  if (lum && lumA * smooth(0.5, 0.9, fl) > 0.01) flow = { id: o.row ?? 0, s: o.u * clip[2], w: lumA * smooth(0.5, 0.9, fl) };
   return { kind: 'draw', colour: c, flow, dep };
 }
 

@@ -169,7 +169,9 @@ test('a branch fading into its trunk: the lumen\'s factor fl and the outline\'s 
   const own = tubeLeanJS({ ...base, D: -2, join: { drop: false, fl: 1, fo: 1 } });
   const half = tubeLeanJS({ ...base, D: -2, join: { drop: false, fl: 0.5, fo: 0 } });
   near([half.colour[3] / own.colour[3]], [0.5], 'a lumen pixel is scaled by fl', 1e-6);
-  assert.ok(Math.abs(half.flow.w / own.flow.w - 0.5) < 1e-6, 'and the stream\'s visibility with it');
+  assert.equal(half.flow, null, 'the stream and its heads are the trunk\'s once the branch is half gone');
+  const most = tubeLeanJS({ ...base, D: -2, join: { drop: false, fl: 0.9, fo: 1 } });
+  assert.ok(Math.abs(most.flow.w / own.flow.w - 0.9) < 1e-6, 'and the stream\'s visibility follows fl while the branch is mostly there');
   const ink = tubeLeanJS({ ...base, D: 0.5, attrs, join: { drop: false, fl: 1, fo: 0.25 } }), ink1 = tubeLeanJS({ ...base, D: 0.5, attrs, join: { drop: false, fl: 1, fo: 1 } });
   near([ink.colour[3] / ink1.colour[3]], [0.25], 'an outline pixel is scaled by fo', 1e-6);
   assert.equal(tubeLeanJS({ ...base, D: 0.5, attrs, join: { drop: false, fl: 1, fo: 0 } }).kind, 'discard', 'ink gone: nothing is drawn there');
