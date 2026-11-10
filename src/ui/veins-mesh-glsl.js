@@ -212,7 +212,9 @@ export const MP = { GLOW_K: 0, GLOW: 1, UP_K: 2, UP: 3, SHADOW_K: 4, SHADOW: 5, 
 export const MESH_WIN = 2;   // the segments a strip's fragment reads each side of its sample (its own quad and the joints either side need one; two for the soft along)
 export const KEY_BIAS = 2e-5;   // a patch's key under its members' strips (in the pass's range), so the patch draws the join
 
-export const meshFS = ({ EDGE, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K }) => {
+// (tube 1, the Tube's builds (docs/recommendations/tube-renderer-plan.md): the same key block, every line and every discard kept, without the
+// lines that write gl_FragDepth and the early return for the _K passes: the Tube takes its depth from its vertices and never draws a _K pass.)
+export const meshFS = ({ EDGE, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K, tube = 0 }) => {
   const defs = Object.entries(MP).map(([k, v]) => `#define MP_${k} ${v}`).join('\n');
   const decl = `${defs}
 #define MESH_WIN ${MESH_WIN}
@@ -239,8 +241,8 @@ const float KEY_BIAS = ${KEY_BIAS};`;
     int fl = int(T(id, 2).z + 0.5);
     float wl = T(id, 0).w, reachK = wl + 2.5 * px;
     if (fx != 1 || paperInk.a <= 0.0 || (fl & (${F_NOCASE} | ${F_DOTTED})) != 0 || sd[0] < 0.0 || sd[0] > reachK + aaK) discard;
-    gl_FragDepth = keyShape + 0.5 * (1.0 - T(id, 2).y + 1e-4) * keyH;
-    float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
+${tube ? '' : `    gl_FragDepth = keyShape + 0.5 * (1.0 - T(id, 2).y + 1e-4) * keyH;
+`}    float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
     vec3 aCol, aEdge;
     vesAttrs(id, su[0], sv[0], p, occK, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
     float fa = clamp(aA, 0.0, 1.0) * ((fl & ${F_VEIL}) != 0 ? 0.5 : 1.0);
@@ -321,9 +323,9 @@ const float KEY_BIAS = ${KEY_BIAS};`;
     }
   }
 #endif
-  float kd = keyBase + clamp(kf, 0.0, 1.0) * keyH;
+  float kd = keyBase + clamp(kf, 0.0, 1.0) * keyH;${tube ? '' : `
   gl_FragDepth = kd;
-  if (mPass == MP_GLOW_K || mPass == MP_UP_K || mPass == MP_SHADOW_K || mPass == MP_SHAPE_K) return;`;
+  if (mPass == MP_GLOW_K || mPass == MP_UP_K || mPass == MP_SHADOW_K || mPass == MP_SHAPE_K) return;`}`;
 
   const out = `
   // ── The mesh pass's part of the picture (what the classic shader lays together at the end, for the pass's tier) ──
@@ -403,6 +405,7 @@ uniform vec2 lOff;
 uniform int morphOn;
 uniform int joinBase;
 uniform float reachU;
+uniform float zU;                      // (the Tube) the patch's depth, from its band: 2 * (base + (1 - level) * H) - 1; the Mesh never sets it (0), and writes gl_FragDepth
 uniform highp sampler2D pjTex;
 ${STRIP_VS_GLSL}
 vec4 JT(int j) { int t = joinBase + j; return texelFetch(ent, ivec2(t % ENT_W, t / ENT_W), 0); }
@@ -449,7 +452,7 @@ void main() {
   if (!(hi.x > lo.x)) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   vec3 d = world * vec3(mix(lo, hi, aC * 0.5 + 0.5), 1.0);
   d.xy += lOff;
-  gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
+  gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, zU, 1.0);
 }`;
 
 // A scratch layer (the network group drawn apart while it is dimmed, the selected vessel's lift) laid over the vessel layer, weighed by uK.

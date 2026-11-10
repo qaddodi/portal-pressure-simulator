@@ -257,6 +257,10 @@ const SHADE_GLSL = shadeGLSL({ F_DIFFUSE, F_EDGE, F_SHADOW, F_SPEC, F_VEIL, F_WH
 // The mesh passes' parts of the same text (veins-mesh-glsl.js meshFS; vesselFS(simple, mesh) puts them in).
 const MESH_GLSL = meshFS({ EDGE: EDGE_GLSL, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K });
 const MESH_FS_DECL = MESH_GLSL.decl, MESH_FS_KEY = MESH_GLSL.key, MESH_FS_OUT = MESH_GLSL.out;
+// The Tube's builds of the same parts (no gl_FragDepth: its depth comes from its vertices).
+const TUBE_GLSL = meshFS({ EDGE: EDGE_GLSL, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K, tube: 1 });
+const TUBE_FS_KEY = TUBE_GLSL.key;
+const CEL_TODO = "";
 // Tube attributes, TUBE_TEXELS texels per vessel (row = vessel):
 //   0: color at the start (rgb), casing width (world)
 //   1: color at the end (rgb), alpha
@@ -278,7 +282,7 @@ const MESH_FS_DECL = MESH_GLSL.decl, MESH_FS_KEY = MESH_GLSL.key, MESH_FS_OUT = 
 // single vessel and no join (veins-bin simpleCells), with one vessel slot and the join code left out. In such a cell the
 // general build fills one slot and finds no join, so every loop over the other slots and over joins does nothing: the
 // simple build is the same arithmetic on the same inputs, without the work that cannot change anything there.
-export const vesselFS = (simple, mesh = 0) => `#version 300 es
+export const vesselFS = (simple, mesh = 0, tube = 0) => `#version 300 es
 precision highp float;
 precision highp int;
 #define SIMPLE ${simple ? 1 : 0}
@@ -340,11 +344,11 @@ uniform int posBase;                   // (morphOn) the texel of the frame's poi
 uniform int joinBase;                  // (morphOn) the texel of the frame's joins: one a join (centre, reach, blend width and fillet)
 layout(location=0) out vec4 outColor;
 layout(location=1) out uvec4 outFlow;  // the lumen in front: vessel row + 1, 16 × (arc length + S_OFF), across (0–65535), visibility (high byte) | the second lumen's share (low byte)
-#if SIMPLE == 0
+${tube ? `layout(location=2) out uvec4 outFlow2; // (the Tube) the second lumen's target, declared in the strip build too: the strip and the patch write the same four targets, so the draw buffers never change between them (a strip has no second lumen: it writes zero)` : `#if SIMPLE == 0
 layout(location=2) out uvec4 outFlow2; // near a join, the lumen it joins, packed (ROW2_BITS): row + 1 | across's top bits, 4 × (arc + S_OFF) | across's low bits
 #else
 uvec4 outFlow2;                        // (one vessel and no join: never a second lumen, always zero; the one-vessel build's draws leave that target as it stands, zero: see vesselDraw)
-#endif
+#endif`}
 layout(location=3) out vec4 outDep;    // 1: some vessel's lumen colour reaches this pixel (its lumen, or a glow in its own colour); 0: it does not
 
 #define MAXS ${simple ? 1 : 8}
@@ -390,7 +394,7 @@ float corner(vec2 p, vec2 ga, float da, float ra, vec2 gb, float db, float rb, i
   return smoothstep(0.25 * rm, 0.25 * rm + max(0.35 * rm, 0.9 * kw), off);
 }
 
-${SHADE_GLSL}
+${SHADE_GLSL}${tube ? `\n${CEL_TODO}` : ''}
 void main() {
 #if MESH
   // (The ring's mark: the tier's lumens, by their keys: this depth over a lumen's, the depth test GREATER, sets the stencil.)
@@ -541,7 +545,7 @@ void main() {
     for (int s = 0; s < MAXS; s++) if ((jm[j] & (1 << s)) != 0)
       for (int m = 0; m < MAXS; m++) if (m != s && (jm[j] & (1 << m)) != 0 && sd[m] < sd[tn[s]]) tn[s] = m;
 #if MESH
-${MESH_FS_KEY}
+${tube ? TUBE_FS_KEY : MESH_FS_KEY}
 #endif
 
   // ── Nothing to draw here: settled now, without the tiers below ──
@@ -797,9 +801,9 @@ ${MESH_FS_KEY}
 #endif
 #if MESH
     // (A glow or shadow pass draws neither the tier's shape nor its stream: the shading is left out there.)
-    vec4 c = mPass >= MP_SHAPE_K ? tubeShade(D, Ds, R, wall, col, g, flags, sel, cA, grp, sid[ow], sv[ow], shov[ow], sedge[ow], kn, kcas, aa, aL) : vec4(0.0);
+    vec4 c = mPass >= MP_SHAPE_K ? ${tube ? 'celShade' : 'tubeShade'}(D, Ds, R, wall, col, g, flags, sel, cA, grp, sid[ow], sv[ow], shov[ow], sedge[ow], kn, kcas, aa, aL) : vec4(0.0);
 #else
-    vec4 c = tubeShade(D, Ds, R, wall, col, g, flags, sel, cA, grp, sid[ow], sv[ow], shov[ow], sedge[ow], kn, kcas, aa, aL);
+    vec4 c = ${tube ? 'celShade' : 'tubeShade'}(D, Ds, R, wall, col, g, flags, sel, cA, grp, sid[ow], sv[ow], shov[ow], sedge[ow], kn, kcas, aa, aL);
 #endif
     c *= alpha * tierAlpha[ti];
 #if MESH
