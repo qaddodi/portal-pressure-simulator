@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  TUBE_CAP, TUBE_ARC, TUBE_ACROSS, TUBE_RINGS, TUBE_HEX, TUBE_KIND, GRID_VERTS, DOME_VERTS, DOME_BASE, TUBE_VERTS, TUBE_LEVEL,
+  TUBE_CAP, TUBE_ARC, TUBE_ACROSS, TUBE_RINGS, TUBE_HEX, TUBE_KIND, GRID_VERTS, DOME_VERTS, DOME_BASE, TRAP_BASE, TUBE_VERTS, TUBE_LEVEL,
   tubeIndex, tubeVertex, tubeSampleOf, tubeWidth, tubeStripVS,
 } from '../src/ui/tube-geo.js';
-import { N_SAMPLES, MIN_RADIUS, STRIP_VS_GLSL, stripVertex, bevelled } from '../src/ui/veins-mesh.js';
+import { N_SAMPLES, N_QUADS, MIN_RADIUS, STRIP_VS_GLSL, stripVertex, bevelled } from '../src/ui/veins-mesh.js';
 import { MP } from '../src/ui/veins-mesh-glsl.js';
 import { lintGLSL, uniformsOf } from './glsl-lint.js';
 
@@ -60,9 +60,9 @@ const v = (r, a) => r * TUBE_ACROSS + a;   // a grid vertex
 test('tubeIndex: counts, indices in range, no degenerate triple, the row ids, the attribute encoding', () => {
   assert.equal(TUBE_CAP, 6); assert.equal(TUBE_ARC, 7); assert.equal(TUBE_ACROSS, 11); assert.equal(TUBE_RINGS, 76); assert.equal(TUBE_HEX, 6);
   assert.equal(TUBE_RINGS, TUBE_CAP + N_SAMPLES + TUBE_CAP);
-  assert.equal(GRID_VERTS, 836); assert.equal(DOME_VERTS, 7); assert.equal(DOME_BASE, 836); assert.equal(TUBE_VERTS, 836 + 62 * 7);
+  assert.equal(GRID_VERTS, 836); assert.equal(DOME_VERTS, 7); assert.equal(DOME_BASE, 836); assert.equal(TRAP_BASE, 836 + 62 * 7); assert.equal(TUBE_VERTS, 1270 + 63 * 4); assert.equal(TUBE_VERTS, 1522);
   assert.equal(M.nVerts, TUBE_VERTS); assert.equal(M.attr.length, TUBE_VERTS * 4);
-  assert.equal(M.nIndex, 75 * 10 * 6 + 62 * 6 * 3);
+  assert.equal(M.nIndex, 75 * 10 * 6 + 62 * 6 * 3 + 63 * 6); assert.equal(M.nIndex, 5994);
   assert.ok(M.index instanceof Uint16Array); assert.equal(M.index.length, M.nIndex); assert.equal(M.nIndex % 3, 0);
   assert.ok(TUBE_VERTS < 65536);
   for (const i of M.index) assert.ok(i < TUBE_VERTS);
@@ -82,6 +82,10 @@ test('tubeIndex: counts, indices in range, no degenerate triple, the row ids, th
     assert.deepEqual(Array.from(M.attr.subarray(4 * b, 4 * b + 4)), [TUBE_KIND.DOME, i, 0, 0]);
     for (let u = 0; u < TUBE_HEX; u++) assert.deepEqual(Array.from(M.attr.subarray(4 * (b + 1 + u), 4 * (b + 1 + u) + 4)), [TUBE_KIND.DOME, i, 1, u]);
   }
+  for (let j = 0; j < N_QUADS; j++) for (let k = 0; k < 4; k++) {
+    const q = TRAP_BASE + 4 * j + k;
+    assert.deepEqual(Array.from(M.attr.subarray(4 * q, 4 * q + 4)), [TUBE_KIND.TRAP, j, k & 1, k >> 1]);
+  }
   // the row ids: the same ring of every row, one fixed grid
   assert.equal(tubeIndex(1).nIndex, M.nIndex);
 });
@@ -91,6 +95,7 @@ test('vI: the body sample for a body ring, 0 for the start cap, N_SAMPLES - 1 fo
   for (let i = 0; i < N_SAMPLES; i++) assert.equal(tubeSampleOf(TUBE_KIND.GRID, TUBE_CAP + i), i);
   for (let r = TUBE_CAP + N_SAMPLES; r < TUBE_RINGS; r++) assert.equal(tubeSampleOf(TUBE_KIND.GRID, r), N_SAMPLES - 1);
   for (let i = 1; i < N_SAMPLES - 1; i++) assert.equal(tubeSampleOf(TUBE_KIND.DOME, i), i);
+  for (let j = 0; j < N_QUADS; j++) { assert.equal(tubeSampleOf(TUBE_KIND.TRAP, j, 0), j); assert.equal(tubeSampleOf(TUBE_KIND.TRAP, j, 1), j + 1); }
 });
 
 test('the triangles are counter-clockwise as stripIndex\'s quads: a straight vessel has no clockwise triangle', () => {
@@ -155,13 +160,13 @@ test('the caps carry on past the end point: the last ring is rw past it with a s
   assert.ok(Math.abs(V[3 * v(last, 10) + 1] - w) < 1e-9 && Math.abs(V[3 * v(last, 0) + 1] + w) < 1e-9);
 });
 
-test('a gentle vessel: no dome has any area, every joint is a mitre (no bevel), no triangle is clockwise', () => {
+test('a gentle vessel: no dome or segment quad has any area, every joint is a mitre (no bevel), no triangle is clockwise', () => {
   const { P, R } = bent(5, 3, 17);
   const w = 1.58;
   for (let i = 1; i < N_SAMPLES - 1; i++) assert.equal(bevelled(P, R, i, w), false);
   const V = place(P, R, OPT(w, 3)), T = triangles(V);
   const nBody = 75 * 10 * 2;
-  for (let t = nBody; t < T.length; t++) assert.equal(T[t].a2, 0, `dome triangle ${t - nBody} has an area`);
+  for (let t = nBody; t < T.length; t++) assert.equal(T[t].a2, 0, `extra triangle ${t - nBody} has an area`);
   for (const t of T) assert.ok(t.a2 >= -1e-9, 'a clockwise triangle');
   // the mitre ring is the Mesh strip's own: its outer skirt vertex is stripVertex at pad = w (right side exactly, both sides at constant radius)
   const i = 32, r = TUBE_CAP + i;
@@ -213,25 +218,25 @@ test('a bevelled joint: the ring takes the plain average of the two normals, uni
   assert.ok(Math.abs(Vb[3 * v(rr, 10)] - B.P[64]) < 1e-9 && Math.abs(Vb[3 * v(rr, 10) + 1] - (B.P[65] + 3 + w)) < 1e-9, 'the first segment\'s normal');
 });
 
-test('coverage: a 17 degree bend and 150 degree hairpins leave no point within rw + w - aaPad of the polyline outside the triangles', () => {
+test('coverage: bends and hairpins leave no point within rw + w - aaPad of the polyline outside the triangles, at segment lengths from 0.2 to 5 times rw + w', () => {
   const casing = 0.8, celK = 1.6, aaPad = 0.3, w = tubeWidth(casing, celK, 0, aaPad, 0, false);
-  // Segment length as a multiple of rw + w (the half-width of the whole tube). A joint turned past what a mitre can take is bevelled: the ring
-  // takes the average normal and a dome covers the outside of the turn. That covers every point while the segments are no longer than about
-  // 0.6 x (rw + w); beyond that a sliver along the outside edge of the segment beside the joint is left bare (the note in tube-geo.js), and
-  // the cases below stay inside it. Real vessels are well inside it: about 64 samples over 50 to 300 units against a half-width of 2 or more.
-  const cases = [[17, 3, 3], [17, 6, 1], [17, 1, 3], [17, 1, 0.3], [150, 3, 0.6], [150, 3, 0.5], [150, 3, 0.25], [150, 6, 0.6], [150, 6, 0.4], [150, 1.2, 0.6], [150, 1.2, 0.2], [150, 8, 0.6], [100, 3, 0.6], [100, 8, 0.6], [175, 3, 1], [175, 8, 1]];
+  // Segment length as a multiple of rw + w (the half-width of the whole tube). A joint turned past what a mitre can take is bevelled: its ring takes
+  // the average normal, a dome covers the outside of the turn and a quad on each segment's own normal covers the rest, at any segment length.
+  const cases = [[17, 3, 3], [17, 6, 1], [17, 1, 3], [17, 1, 0.3], [17, 3, 5], [150, 3, 0.6], [150, 3, 0.5], [150, 3, 0.25], [150, 6, 0.6], [150, 6, 0.4], [150, 1.2, 0.6], [150, 1.2, 0.2], [150, 8, 0.6], [175, 3, 1], [175, 8, 1],
+    ...[100, 120, 150].flatMap((t) => [2, 5].flatMap((k) => [1.2, 3, 8].map((rw) => [t, rw, k]))), [175, 3, 2], [175, 3, 5], [90, 3, 2], [60, 3, 5], [130, 5, 1.2], [140, 2, 3.3]];
   for (const [turn, rw, ratio] of cases) {
     const step = ratio * (rw + w), { P, R } = bent(step, rw, turn);
     const T = triangles(place(P, R, OPT(w, rw)));
     const reach = rw + w - aaPad;
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    for (let i = 24; i <= 40; i++) { x0 = Math.min(x0, P[2 * i]); x1 = Math.max(x1, P[2 * i]); y0 = Math.min(y0, P[2 * i + 1]); y1 = Math.max(y1, P[2 * i + 1]); }
-    const gs = Math.max(0.05, reach / 24);
+    const span = ratio <= 1 ? 8 : 3;   // (samples either side of the joint the grid covers)
+    for (let i = 32 - span; i <= 32 + span; i++) { x0 = Math.min(x0, P[2 * i]); x1 = Math.max(x1, P[2 * i]); y0 = Math.min(y0, P[2 * i + 1]); y1 = Math.max(y1, P[2 * i + 1]); }
+    const gs = Math.max(0.05, reach / (ratio <= 1 ? 24 : 14));
     let n = 0;
     for (let x = x0 - reach; x <= x1 + reach; x += gs) {
       for (let y = y0 - reach; y <= y1 + reach; y += gs) {
         let near = false;
-        for (let j = 22; j < 42 && !near; j++) near = segDist(P, j, x, y) <= reach;
+        for (let j = 31 - span; j < 33 + span && !near; j++) near = segDist(P, j, x, y) <= reach;
         if (!near) continue;
         n++;
         assert.ok(covered(T, x, y, 1e-6), `uncovered point (${x.toFixed(2)}, ${y.toFixed(2)}): turn ${turn}, rw ${rw}, step ${step}`);
@@ -284,6 +289,28 @@ test('a dome\'s levels: the centre at its lumen\'s height, the rim at CASE0; in 
   for (let u = 1; u <= TUBE_HEX; u++) { assert.equal(lit[3 * (b + u) + 2], L.CASE0); assert.equal(glow[3 * (b + u) + 2], L.GLOW0); }
 });
 
+test('a segment quad: collapsed to the samples unless either end is bevelled, then at +-(rw + w) on the segment\'s own normal, level CASE0 (GLOW0 in a glow pass)', () => {
+  const rw = 3, w = 1.58, { P, R } = bent(3, rw, 150);
+  const V = place(P, R, OPT(w, 3)), G = place(P, R, OPT(w, 3, true));
+  assert.equal(bevelled(P, R, 32, w), true);
+  for (const j of [10, 40]) for (let k = 0; k < 4; k++) {
+    const q = TRAP_BASE + 4 * j + k, e = j + (k >> 1);
+    assert.deepEqual([V[3 * q], V[3 * q + 1]], [P[2 * e], P[2 * e + 1]], `segment ${j} collapses`);
+  }
+  for (const j of [31, 32]) {   // the segments either side of the bevelled sample 32 (segment j runs from sample j to j + 1)
+    const tx = (P[2 * j + 2] - P[2 * j]), ty = (P[2 * j + 3] - P[2 * j + 1]), len = Math.hypot(tx, ty);
+    const nx = -ty / len, ny = tx / len;
+    for (let k = 0; k < 4; k++) {
+      const q = TRAP_BASE + 4 * j + k, e = j + (k >> 1), s = k & 1 ? 1 : -1;
+      assert.ok(Math.hypot(V[3 * q] - (P[2 * e] + s * (rw + w) * nx), V[3 * q + 1] - (P[2 * e + 1] + s * (rw + w) * ny)) < 1e-9, `segment ${j}, vertex ${k}`);
+      assert.equal(V[3 * q + 2], L.CASE0); assert.equal(G[3 * q + 2], L.GLOW0);
+    }
+  }
+  const T = triangles(V);
+  const first = (75 * 10 + 62 * 6) ;
+  assert.ok(T.slice(first + 31 * 2, first + 33 * 2).some((t) => Math.abs(t.a2) > 1) && T.slice(first + 31 * 2, first + 33 * 2).every((t) => t.a2 >= 0));
+});
+
 test('tubeWidth: casing * celK + selection pad (selected rows only) + aaPad + padU', () => {
   assert.equal(tubeWidth(0.8, 1.6, 4, 0.3, 2, false), 0.8 * 1.6 + 0.3 + 2);
   assert.equal(tubeWidth(0.8, 1.6, 4, 0.3, 2, true), 0.8 * 1.6 + 4 + 0.3 + 2);
@@ -331,7 +358,10 @@ test('the GLSL holds the numbers of the JS twin: levels, grid sizes, the depth f
   assert.ok(VS.includes('float ph = float(c) / float(T_CAP) * M_PI / 2.0;'));
   assert.ok(VS.includes('float rr = (rw + w) / cos(M_PI / float(T_HEX));'));
   assert.ok(VS.includes('n = al < 1e-6 ? na : av / al;'));
-  assert.ok(VS.includes('vI = kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));'));
+  assert.ok(VS.includes('vI = kind == T_TRAP ? aV.y + aV.w : kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));'));
+  assert.ok(VS.includes(`const int T_TRAP = ${TUBE_KIND.TRAP};`));
+  assert.ok(VS.includes('if (!(mBevelled(id, r, w) || mBevelled(id, r + 1, w))) return vec3(q, lv);'));
+  assert.ok(VS.includes('mRW(id, r + cn, w) * mNrm(mSeg(id, r, w), ac == 1 ? 1.0 : -1.0)'));
   // it places by the Mesh's own functions
   for (const fn of ['mSeg(', 'mNrm(', 'mMitreAB(', 'mDiscOn(', 'PT(', 'mRW(']) assert.ok(VS.includes(fn), fn);
   assert.ok(!VS.replace(STRIP_VS_GLSL, '').includes('meshWorld('), 'the Mesh\'s placement is replaced, not called');

@@ -7,10 +7,8 @@
 //   - The caps are half spheres that carry on PAST the end point (pulling them inside the length gave pinched "sausage" joins).
 //   - Where the Mesh would bevel a joint (too tight for a mitre) the ring takes the plain average of the two normals and a dome (a fan of
 //     a centre and a hexagon) covers the outside of the turn; everywhere else the dome collapses to the sample's point (zero area).
-// Known limit (found by the coverage test, reported with brief A): the average-normal ring of a bevelled joint pulls the quad edge inside the
-// capsule's outside edge, and the dome only reaches rw + w round the sample. While the segments are no longer than about 0.6 x (rw + w) that
-// covers every point of a turn of any angle; with longer segments past a sharp turn (over about 100 degrees in one joint) a thin sliver along
-// the outside of the segment beside the joint is in no triangle (the Mesh adds a quad per segment for it). A mitred joint is covered at any length.
+//   - Per segment one quad on the segment's own normal (the Mesh's K_TRAP), collapsed unless either end of the segment is bevelled: it covers
+//     what the average-normal rings and the domes leave bare beside a tight turn, whatever the segment's length.
 // tubeVertex is the JS twin of tubePlace (GLSL below): same arithmetic in the same order; the tests run the JS one. The mitre and bevel
 // rules are the Mesh's own (STRIP_VS_GLSL: mSeg, mNrm, mMitreAB, mDiscOn), called with pad = w; segOf / nrmX / nrmY / mitreAB below are
 // their JS twins (veins-mesh.js keeps its own private), pinned to veins-mesh.js's stripVertex by tests/tube-geo.test.js.
@@ -23,15 +21,17 @@ export const TUBE_ARC = 7;                         // arc vertices across the lu
 export const TUBE_ACROSS = 11;                     // vertices a ring: skirt outer, skirt inner, arc x TUBE_ARC, skirt inner, skirt outer
 export const TUBE_RINGS = TUBE_CAP + N_SAMPLES + TUBE_CAP;   // 76
 export const TUBE_HEX = 6;                         // the sides of a dome's rim (circumscribed)
-export const TUBE_KIND = { GRID: 0, DOME: 1 };
+export const TUBE_KIND = { GRID: 0, DOME: 1, TRAP: 2 };
 // Vertex attribute aV = (kind, ring-or-sample, across index, corner):
 //   GRID: (0, ring 0 .. TUBE_RINGS - 1, across 0 .. TUBE_ACROSS - 1, 0). Ring r: 0 .. TUBE_CAP - 1 the start cap (ring 0 is its tip),
 //         TUBE_CAP + i the body sample i, TUBE_CAP + N_SAMPLES + c - 1 the end cap's ring c (c = TUBE_CAP is the tip).
 //   DOME: (1, sample 1 .. N_SAMPLES - 2, 0 for the centre / 1 for a rim vertex, rim corner 0 .. TUBE_HEX - 1).
+//   TRAP: (2, segment 0 .. N_QUADS - 1, side 0 (right of travel) / 1 (left), end 0 (the segment's first sample) / 1 (its second)); vertex 4 j + 2 end + side.
 export const GRID_VERTS = TUBE_RINGS * TUBE_ACROSS;               // 836
 export const DOME_VERTS = 1 + TUBE_HEX;                           // centre + hexagon
 export const DOME_BASE = GRID_VERTS;                              // sample i (1 .. N_SAMPLES - 2) at DOME_BASE + (i - 1) * DOME_VERTS
-export const TUBE_VERTS = DOME_BASE + (N_SAMPLES - 2) * DOME_VERTS;   // 1270
+export const TRAP_BASE = DOME_BASE + (N_SAMPLES - 2) * DOME_VERTS;   // segment j at TRAP_BASE + 4 * j
+export const TUBE_VERTS = TRAP_BASE + 4 * N_QUADS;                // 1522
 export const TUBE_LEVEL = { GLOW0: 0.02, GLOW1: 0.08, CASE0: 0.10, CASE1: 0.20, LUMEN0: 0.30, LUMEN_H: 0.50, PATCH: 0.95 };
 const L = TUBE_LEVEL;
 
@@ -47,6 +47,7 @@ export function tubeIndex(maxRows) {
     put(b, TUBE_KIND.DOME, i, 0, 0);
     for (let u = 0; u < TUBE_HEX; u++) put(b + 1 + u, TUBE_KIND.DOME, i, 1, u);
   }
+  for (let j = 0; j < N_QUADS; j++) for (let k = 0; k < 4; k++) put(TRAP_BASE + 4 * j + k, TUBE_KIND.TRAP, j, k & 1, k >> 1);
   const tri = [];
   for (let r = 0; r < TUBE_RINGS - 1; r++) {
     for (let a = 0; a < TUBE_ACROSS - 1; a++) {
@@ -58,14 +59,19 @@ export function tubeIndex(maxRows) {
     const b = DOME_BASE + (i - 1) * DOME_VERTS;
     for (let u = 0; u < TUBE_HEX; u++) tri.push(b, b + 1 + u, b + 1 + (u + 1) % TUBE_HEX);
   }
+  for (let j = 0; j < N_QUADS; j++) {
+    const A = TRAP_BASE + 4 * j, B = A + 1, C = A + 2, D = A + 3;   // A (end 0, right), B (end 0, left), C (end 1, right), D (end 1, left)
+    tri.push(A, C, B, B, C, D);
+  }
   if (TUBE_VERTS >= 65536) throw new Error('tube-geo: the vertex count does not fit a Uint16Array index');
   const rows = new Float32Array(maxRows);
   for (let r = 0; r < maxRows; r++) rows[r] = r;
   return { attr, index: Uint16Array.from(tri), nVerts: TUBE_VERTS, nIndex: tri.length, rows };
 }
 
-/** The body sample index the fragment shader gets as vI: 0 for the start cap's rings, N_SAMPLES - 1 for the end cap's, the sample for a body ring or a dome. */
-export function tubeSampleOf(kind, ring) {
+/** The body sample index the fragment shader gets as vI: 0 for the start cap's rings, N_SAMPLES - 1 for the end cap's, the sample for a body ring or a dome, the segment plus its end for a trap (corner = the end). */
+export function tubeSampleOf(kind, ring, corner = 0) {
+  if (kind === TUBE_KIND.TRAP) return ring + corner;
   return kind === TUBE_KIND.DOME ? ring : clamp(ring - TUBE_CAP, 0, N_SAMPLES - 1);
 }
 
@@ -120,6 +126,13 @@ function acrossAt(ac, rc, w, hRef, glow) {
 export function tubeVertex(P, R, a, o) {
   const kind = Math.round(a[0]), r = Math.round(a[1]), ac = Math.round(a[2]), cn = Math.round(a[3]);
   const w = o.w, hRef = o.hRef, glow = !!o.glow;
+  if (kind === TUBE_KIND.TRAP) {
+    // segment r, side ac (1: left of travel), end cn: the segment's own normal at +-(rw + w), only where either end of it is bevelled
+    const lv = glow ? L.GLOW0 : L.CASE0, qx = P[2 * (r + cn)], qy = P[2 * (r + cn) + 1];
+    if (!(bevelled(P, R, r, w) || bevelled(P, R, r + 1, w))) return [qx, qy, lv];
+    const g = segOf(P, R, r, w), s = ac === 1 ? 1 : -1, r2 = rwAt(R, r + cn, w);
+    return [qx + r2 * nrmX(g, s), qy + r2 * nrmY(g, s), lv];
+  }
   if (kind === TUBE_KIND.DOME) {
     const px = P[2 * r], py = P[2 * r + 1], rw = rwAt(R, r, 0);
     if (ac === 0) return [px, py, glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(rw / hRef, 0, 1)];
@@ -189,6 +202,7 @@ const int T_ARC = ${TUBE_ARC};
 const int T_ACROSS = ${TUBE_ACROSS};
 const int T_HEX = ${TUBE_HEX};
 const int T_DOME = ${TUBE_KIND.DOME};
+const int T_TRAP = ${TUBE_KIND.TRAP};
 const float L_GLOW0 = ${f(L.GLOW0)};
 const float L_GLOW1 = ${f(L.GLOW1)};
 const float L_CASE0 = ${f(L.CASE0)};
@@ -211,6 +225,12 @@ vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow) {
 // Any vertex of the instance: (x, y) in world units, z the level.
 vec3 tubePlace(int id, vec4 a, float w, float hr, bool glow) {
   int kind = int(a.x + 0.5), r = int(a.y + 0.5), ac = int(a.z + 0.5), cn = int(a.w + 0.5);
+  if (kind == T_TRAP) {
+    vec2 q = PT(id, r + cn);
+    float lv = glow ? L_GLOW0 : L_CASE0;
+    if (!(mBevelled(id, r, w) || mBevelled(id, r + 1, w))) return vec3(q, lv);
+    return vec3(q + mRW(id, r + cn, w) * mNrm(mSeg(id, r, w), ac == 1 ? 1.0 : -1.0), lv);
+  }
   if (kind == T_DOME) {
     vec2 p = PT(id, r);
     float rw = mRW(id, r, 0.0);
@@ -255,7 +275,7 @@ void main() {
   int id = int(aRow + 0.5);
   vRow = id;
   int kind = int(aV.x + 0.5), ring = int(aV.y + 0.5);
-  vI = kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));
+  vI = kind == T_TRAP ? aV.y + aV.w : kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));
   bool glow = mPass <= ${MP.UP};
   bool lit = texelFetch(tube, ivec2(10, id), 0).a > 0.0, up = texelFetch(tube, ivec2(11, id), 0).w > 5.0;
   if (glow && (!lit || up != (mPass >= ${MP.UP_K}))) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
