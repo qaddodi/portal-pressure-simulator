@@ -318,5 +318,5 @@ test('the vessel cells\' quads are moved by the same lOff the fragment shader ta
   assert.match(vs, /uniform vec2 lOff;[^\n]*\n[\s\S]*vec3 d = world \* vec3\(w, 1\.0\);\n {2}d\.xy \+= lOff;\n {2}gl_Position = vec4\(d\.x \/ size\.x \* 2\.0 - 1\.0, 1\.0 - d\.y \/ size\.y \* 2\.0, 0\.0, 1\.0\);/);
   assert.match(src, /vec2 q = vec2\(gl_FragCoord\.x, sizeF\.y - gl_FragCoord\.y\) - lOff - tOff;/);
   // (Zero outside the pieces: a one-pass frame, the lower layer, the warm-up and every whole draw read the layer as it shows.)
-  assert.match(src, /lOffNow\[1\] = AXY\[j \* 3 \+ 2\];\n\s+pieceFn\(\);\n\s+\}\n\s+\}\n\s+lOffNow\[0\] = 0; lOffNow\[1\] = 0;/);
+  assert.match(src, /lOffNow\[1\] = AXY\[j \* 3 \+ 2\];\n\s+\}\n\s+pieceFn\(\);\n\s+\}\n\s+\}\n\s+lOffNow\[0\] = 0; lOffNow\[1\] = 0;/);
 });

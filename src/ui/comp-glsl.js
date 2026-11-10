@@ -381,6 +381,7 @@ export const compChevPart = () => `    if (chev == 1 && chevQuad == 0 && f1.z > 
 // The lumen layer (the tubes' own drawing of the lumen in front: premultiplied colour, alpha its coverage times the vessel's opacity), at the
 // vessel layer's size and mapping, read at the texel `base` is read at.
 export const compTubeUniform = () => `uniform sampler2D lumenL;               // the Tube's lumen layer: the lumen in front, drawn by the tubes this frame (premultiplied; alpha: its coverage x the vessel's opacity)
+uniform float lumSc;                   // 1 while the lumen layer is a share of the vessel layer's size (read filtered and masked by the layer's own lumen), else 0 (read texel for texel)
 `;
 // What the Tube's compositor still needs of the blood's helpers: the caliber and the stream's distance at a place (the arrowheads', if drawn here).
 export const compTubeRowFns = () => [ALONG_GLSL, ROWS_GLSL].join('\n');
@@ -388,13 +389,18 @@ export const compTubeRowFns = () => [ALONG_GLSL, ROWS_GLSL].join('\n');
 // something besides the lumen layer needs it: a still lumen's test and the arrowheads drawn here.
 export const compTubeHead = ({ LUMEN2, FLOW_TEXELS }) => `  // The Tube: the lumen as the tubes drew it this frame, at the texel the vessel layer is read at (a tier frame's small targets: filtered, as the layer is).
   vec4 L = vec4(0.0);
-  if (inL) L = lowSz.x > 0 ? texture(lumenL, lowUV) : texelFetch(lumenL, lp, 0);
+  // (A lumen layer smaller than the vessel layer is read filtered at the layer texel's centre, and then masked below by the vessel layer's own lumen at full size; not in a tier frame's small targets.)
+  bool lumM = lumSc > 0.0 && lowSz.x == 0;
+  if (inL) L = lowSz.x > 0 ? texture(lumenL, lowUV) : lumM ? texture(lumenL, (vec2(lp) + 0.5) / vec2(lSize)) : texelFetch(lumenL, lp, 0);
   bool chevC = chev == 1 && chevQuad == 0;   // (the arrowheads drawn here, not by their quads: they are drawn on the row in front, so they read gbuf)
   // A blood-only frame leaves a pixel with no lumen as drawn (the other builds' test, made on the lumen layer's alpha: it is the layer the blood is in).
   if (bloodOnly == 1 && L.a == 0.0 && !chevC) discard;
   uvec4 g = uvec4(0u);
-  if (inL && ((bloodOnly == 1 && stillOn == 1) || chevC)) g = texelFetch(gbuf, lp, 0);
+  if (inL && ((bloodOnly == 1 && stillOn == 1) || chevC || lumM)) g = texelFetch(gbuf, lp, 0);
   g.x &= ${LUMEN2 - 1}u;
+  // The share-size lumen layer, masked by the vessel layer's lumen at full size: no blood where the layer holds no lumen (so none spills over an outline or past a wall), and the lumen's
+  // opacity is the layer's (g.w >> 8: the alpha the layer's lumen was drawn with), the small layer giving only the colour.
+  if (lumM && inL) L = g.x == 0u || L.a < 0.003 ? vec4(0.0) : vec4(L.rgb / L.a * (float(g.w >> 8u) / 255.0), float(g.w >> 8u) / 255.0);
   if (bloodOnly == 1 && L.a == 0.0 && g.x == 0u) discard;
   // A lumen whose vessels' rows have not changed since the last picture, which had the same uniforms (stillOn), comes out as it is.
   if (bloodOnly == 1 && stillOn == 1 && g.x > 0u && texelFetch(flow, ivec2(${FLOW_TEXELS}, int(g.x) - 1), 0).x == 0.0) discard;
@@ -430,6 +436,14 @@ export const compTubeSection = () => `  if ((blood == 1 || dyeOn == 1 || origin 
     v = vec4(col * v.a, v.a);
   }
 `;
+// The twin of the share-size lumen layer's mask, in JS: Ls the small layer's pixel read at the texel's centre (premultiplied [r, g, b, a]), row the vessel layer's row in front here (0: none),
+// wByte the layer's lumen alpha byte there (g.w >> 8). Returns the lumen layer's pixel the compositor mixes in: the small layer's colour at the layer's own opacity, [0, 0, 0, 0] where the
+// layer has no lumen or the small layer has none to give (the shader's `g.x == 0u || L.a < 0.003 ? vec4(0.0) : vec4(L.rgb / L.a * a, a)`).
+export function tubeLumenMaskJS(Ls, row, wByte) {
+  if (row === 0 || Ls[3] < 0.003) return [0, 0, 0, 0];
+  const a = wByte / 255;
+  return [Ls[0] / Ls[3] * a, Ls[1] / Ls[3] * a, Ls[2] / Ls[3] * a, a];
+}
 // The twin of the Tube compositor's mix, in JS: v the vessel layer's pixel and L the lumen layer's, both premultiplied [r, g, b, a]; returns the
 // layer's pixel after the lumen's final colour is laid in at the lumen's share (the shader's `col = mix(col, min(L.rgb / max(L.a, 1e-4), 1), clamp(L.a / max(v.a, 1e-3), 0, 1))`
 // on the layer's own colour, premultiplied again by the layer's alpha). The alpha is never changed.

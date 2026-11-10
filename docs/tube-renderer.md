@@ -240,6 +240,22 @@ Zoomed in (the lobule's dive, a zoomed Anatomy) most rows lie wholly off the ves
 - **`?perf`.** The vessel renderer gauge says `strips drawn N of M` (N the rows bucketed, M the rows with points; `(not culled)` when no row was left out for a reason above) and, apart, the strip draws.
 - **Tests.** `tests/tube-cull-wiring.test.js` (the rectangle, the flags and their key, the bundle's own record, the buckets and the upload, the morph case); rules in `scripts/rules-lint.mjs`.
 
+## The lumen layer at a share of the vessel layer's size (brief PL item 1, 10 Nov 2026)
+
+The lumen pass runs the blood shader on every lumen pixel of its target, so its cost goes with the target's area (the lobule: 4.15 MP on a Mac). The target is now `ceil(layer * share)` in each direction.
+- **The share** (`lumenScale`, `tube-stage2.js`): the lobule 0.5, the figure 1 (0.67 on a phone: coarse pointer and a device pixel ratio of 3 or more), `?lumenscale=<0.25..1>` overriding every instance (for comparing on a device).
+  A share of 1 is today's path exactly (no scaled view, `lumSc` 0 in the compositor).
+- **The pass draws the same picture smaller, with no change to the shaders.** `lumenFrame` gives the lumen pass the view in the target's pixels (`lumenView`: every row of `m` times the share) and `vesselSet` the target's size
+  (`lumK`), so the world matrix, the world size of a pixel (`px`, `pxW`), the translation, `size` and `sizeF` are all the target's, and the strip/web vertex shaders and the lean/lumen fragment shaders work as written.
+  The wrap: the layer's pieces keep their layer coordinates (`axisPieces`), and each piece's scissor is rounded to the nearest target pixel (`lumenPiece`) and its shift `lOff` is times the share, so a target pixel belongs to the piece
+  that holds its centre and is drawn through that piece's mapping; the pieces tile the target (the shares are `Wt / W` and `Ht / H`, so the last edge is exact). The depth prepass is at the target's size too (the depth stamp is told it).
+- **The compositor** (`compTubeHead`, the Tube builds only; the other builds are untouched) reads the small layer filtered at the layer texel's centre (`texture(lumenL, (lp + .5) / lSize)`, the target is LINEAR) and masks it by the vessel
+  layer's own lumen at full size: **the first flow target's row in front** (`gbuf.x & (LUMEN2 - 1)`, written where the lean shader's `gW > 0.01`) must be non-zero, else the lumen is empty (no blood over an outline or past a wall); the lumen's
+  **opacity is the layer's** (`gbuf.w >> 8`, the alpha the layer's lumen was drawn with) and only the colour is the small layer's (`L.rgb / L.a`). Where the small layer has nothing to give (`L.a < .003`) the layer's own colour stays.
+  Not in a tier frame's small targets (they are read as they were). JS twin: `tubeLumenMaskJS`.
+- **`?lumen=off`** draws no lumen pass and no blood: the target is one clear pixel, which the compositor reads as no lumen. **`?perf`** adds the `lumen layer` gauge (`lobule lumen layer`): the target's size in MP and its share of the layer's.
+- **Tests.** `tests/tube-lumen-scale.test.js` (the share, the size, the view, the pieces tile the target and each pixel is drawn through the piece holding its centre, the mask); `tests/comp-fs-tube.test.js`; rules in `scripts/rules-lint.mjs`.
+
 ## The Anatomy to Circuit switch (10 Nov 2026)
 
 **What was slow.** The change between the views runs through morph sets (veins-sweep.js, six stretches made ahead). Each set change inside the change made `meshGeo()` derive the set's

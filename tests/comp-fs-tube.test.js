@@ -33,14 +33,14 @@ test('the Tube builds of the full, plain and streak compositor read the lumen la
   for (const name of WHOLE) {
     const t = noComments(BUILDS[name]);
     assert.ok(/uniform sampler2D lumenL;/.test(t), `${name}: declares lumenL`);
-    assert.equal((t.match(/\b(?:texelFetch|texture)\(lumenL\b/g) || []).length, 2, `${name}: lumenL read at the layer's texel, or filtered on a tier frame`);
+    assert.equal((t.match(/\b(?:texelFetch|texture)\(lumenL\b/g) || []).length, 3, `${name}: lumenL read at the layer's texel, filtered on a tier frame, or filtered at a share of the layer's size`);
     assert.ok(!/bloodAt\(/.test(t), `${name}: no bloodAt`);
     assert.ok(!/\bgbuf2\b/.test(t), `${name}: no gbuf2`);
     assert.ok(!/\bhalfL\b/.test(t), `${name}: no halfL`);
     for (const f of ['originAt(', 'dyeAt(', 'dyeEdge(', 'lymphAt(', 'castAt(']) assert.ok(!t.includes(f), `${name}: no ${f}`);
-    // gbuf is read once, and only for a still lumen's test or the arrowheads drawn here.
+    // gbuf is read once, and only for a still lumen's test, the arrowheads drawn here or the mask of a lumen layer at a share of the layer's size.
     assert.equal((t.match(/texelFetch\(gbuf\b/g) || []).length, 1, `${name}: one gbuf read`);
-    assert.ok(/if \(inL && \(\(bloodOnly == 1 && stillOn == 1\) \|\| chevC\)\) g = texelFetch\(gbuf, lp, 0\);/.test(t), `${name}: gbuf read only where needed`);
+    assert.ok(/if \(inL && \(\(bloodOnly == 1 && stillOn == 1\) \|\| chevC \|\| lumM\)\) g = texelFetch\(gbuf, lp, 0\);/.test(t), `${name}: gbuf read only where needed`);
   }
 });
 

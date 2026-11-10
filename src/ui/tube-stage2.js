@@ -179,6 +179,45 @@ export function createDepthStamp() {
   };
 }
 
+// ---- The lumen layer's size (brief PL, 10 Nov 2026) ----
+// The lumen pass shades every lumen pixel of its target with the blood shader, so its cost goes with the target's area. The target is a share of the vessel layer's size
+// (`lumenScale`); the pass draws into it with the layer's own mapping scaled (the view's matrix, the wrap's shifts and the pieces' scissors times the scale: lumenPiece), and the
+// compositor reads it filtered, masked by the vessel layer's own lumen at full size.
+const SCALE_Q = /[?&]lumenscale=([0-9.]+)(?=[&#]|$)/, OFF_Q = /[?&]lumen=off(?=[&#]|$)/;
+/** ?lumen=off: no lumen pass and no blood drawn by the Tube (a device A/B that proves or clears the lumen pass as the cap). */
+export const lumenOff = (query = TUBE_QUERY) => OFF_Q.test(query);
+/**
+ * The share of the vessel layer's size the lumen layer is made at: ?lumenscale=<0.25..1> for every instance, else the lobule 0.5, the figure 1 (0.67 on a phone: a coarse pointer and a
+ * device pixel ratio of 3 or more). phone: that answer, read once by the caller.
+ */
+export function lumenScale(who, phone, query = TUBE_QUERY) {
+  const m = SCALE_Q.exec(query), q = m ? parseFloat(m[1]) : NaN;
+  if (q >= 0.25 && q <= 1) return q;
+  return who === 'lobule' ? 0.5 : phone ? 0.67 : 1;
+}
+/** The target's size for a layer of w x h at `scale`, into out [w, h]: ceil of each, at least 1; the full size at a scale of 1 or more. */
+export function lumenSize(w, h, scale, out) {
+  out[0] = scale >= 1 ? w : Math.max(1, Math.ceil(w * scale)); out[1] = scale >= 1 ? h : Math.max(1, Math.ceil(h * scale));
+  return out;
+}
+/**
+ * The view m (world -> layer pixels) in the target's pixels, into out (6): each row scaled by the target's share of the layer (sx across, sy down), the translation too. The lumen shaders
+ * (written for the layer) then work in target pixels unchanged: the world matrix, the world size of a pixel and the translation they take are the target's.
+ */
+export function lumenView(m, sx, sy, out) {
+  out[0] = m[0] * sx; out[1] = m[1] * sy; out[2] = m[2] * sx; out[3] = m[3] * sy; out[4] = m[4] * sx; out[5] = m[5] * sy;
+  return out;
+}
+/**
+ * A piece of the layer along one axis (start x, length w, layer pixels) in the target's pixels (the share s): [start, length], the edges rounded to the nearest target pixel, so a
+ * target pixel belongs to the piece that holds its centre and is drawn through that piece's mapping; the pieces tile the target. A piece's shift (lOff) is just times s.
+ */
+export function lumenPiece(x, w, s, out) {
+  const a = Math.round(x * s);
+  out[0] = a; out[1] = Math.round((x + w) * s) - a;
+  return out;
+}
+
 /**
  * The lumen layer: an RGBA8 texture and a depth renderbuffer on a framebuffer of their own, the vessel layer's size (ensure(w, h) makes them again when it changes).
  * tex(): the texture the compositor reads (lumenL). The colour is cleared by the caller (clear()); the depth is cleared in each piece's scissor by the pass.
@@ -191,7 +230,7 @@ export function createLumenTarget(gl) {
     if (!T.fbo) {   // alloc-rare: the first lumen pass only
       T.fbo = gl.createFramebuffer(); T.rb = gl.createRenderbuffer(); T.texture = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, T.texture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);   // (filtered: read at a share of its size; a full-size read is a texelFetch)
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }
     T.w = w; T.h = h; T.made++;

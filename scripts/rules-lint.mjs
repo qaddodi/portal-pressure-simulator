@@ -35,8 +35,9 @@ import { sourceRegexTests } from './test-classes.mjs';
 import { inventory as chartInventory, countsOf as chartCounts } from './chart-looks-inventory.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// (lumen, lumenscale: the lumen layer's device A/B, brief PL 10 Nov 2026: ?lumen=off draws no lumen pass and no blood, ?lumenscale=<0.25..1> sets the lumen layer's share of the vessel layer's size.)
 // (tube, tubejoin: the Tube's two stage aids, briefed with stage 2 (S2-D, 10 Nov 2026): ?tube=1 keeps stage 1, ?tubejoin=patch keeps the patches, to compare the stages on a device.)
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v', 'tube', 'tubejoin']);
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v', 'tube', 'tubejoin', 'lumen', 'lumenscale']);
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
@@ -209,6 +210,19 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!/websByTier\(st\.W\.data, st\.W\.count, tubeNow, D\.wb, B\.pts\.on, !B\.noEnds\)/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the joins\' webs are not culled (websByTier keeps B.pts.on)');
     if (!/Math\.max\(meshPad\(MP\.UP, look, px\), meshPad\(MP\.SHADOW, look, px\)\)/.test(vg)) errors.push('src/ui/veins-gl.js layerView: the cull\'s pad is the larger of the glow pass\'s and the shadow pass\'s reach (meshPad)');
     if ((tp.match(/D\.frame\(/g) || []).length !== 1) errors.push('src/ui/tube-pass.js: the stage 2 data is binned in frameD alone, with the layer\'s view, so the layer pass and the lumen pass cull the same rows');
+  }
+  // The lumen layer at a share of the vessel layer's size (brief PL item 1, 10 Nov 2026): while the lumen pass draws, its view, shifts, scissors and size are the target's (lumK), and the cull's rectangle is the layer pass's.
+  {
+    const vg = text('src/ui/veins-gl.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const lf = slice(vg, 'function lumenFrame(', '\n  }\n');
+    if (!/lumK = LK; \}/.test(lf) || !/eachPiece\(la\[0\], la\[1\], fboW, fboH\);\n\s+pMode = 0; lumK = null;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: lumK is set only around the lumen pass\'s eachPiece and cleared straight after it');
+    if (!/pM = scaled \? lumenView\(m, LK\.sx, LK\.sy, LK\.ms\) : m;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen pass is given the view in the target\'s pixels (lumenView) when the target is smaller than the layer');
+    if (!/lumenDepth\.needs\(m, wo, la, lw0, lh0\)/.test(lf) || !/lumenDepth\.drawn\(m, wo, la, lw0, lh0\)/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth stamp is told the target\'s size');
+    if (!/const SW = size \? size\[0\] : lumK \? lumK\.w : fboW/.test(vg)) errors.push('src/ui/veins-gl.js vesselSet: the layer\'s size uniforms are the target\'s while lumK is set');
+    if (!/if \(lumK\) m = lumK\.m;/.test(vg)) errors.push('src/ui/veins-gl.js layerView: the cull\'s rectangle comes from the full view while the lumen pass draws at a share (the layer pass\'s rectangle)');
+    const ep = slice(vg, 'function eachPiece(', '\n  }\n');
+    if (!/lumenPiece\(AXX\[i \* 3\], AXX\[i \* 3 \+ 1\], K\.sx, PCX\)/.test(ep) || !/AXX\[2\] \* K\.sx/.test(ep)) errors.push('src/ui/veins-gl.js eachPiece: a lumen pass at a share scissors and shifts its pieces in the target\'s pixels (lumenPiece, times the share)');
   }
   // The lumen layer keeps its depth (brief PD part 2, 10 Nov 2026): any draw of the vessel layer marks it stale, and the lumen pass never draws lumens over a depth marked stale: it draws the
   // depth again first (cleared, the prepasses), and a fresh depth is neither cleared nor invalidated.
