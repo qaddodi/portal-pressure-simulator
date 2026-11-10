@@ -110,6 +110,29 @@ add('tube web (tubeWebVS + tubeLeanFS)', {
 add('tube web depth (tubeWebVS + TUBE_DEPTH_FS)', { '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/tube-joint.js': ['tubeWebVS'], '../src/ui/tube-lean-glsl.js': ['TUBE_DEPTH_FS'] },
   (mm, tj, lean) => ({ vs: tj.tubeWebVS(mm.STRIP_VS_GLSL), fs: lean.TUBE_DEPTH_FS }));
 
+// The Tube's stage 3 (brief S3-C): the lumen shader over the strip's and the web's vertex shaders. The fragment shader reads the compositor's zoom
+// varyings (zoomA, zoomB), which the Tube's vertex shaders do not write until thread D adds the zoom's per-vertex numbers (ZOOM_VS), so the pair
+// is linked with those two written at the top of main here; the entry says so.
+const withZoom = (vs) => vs.replace(/void main\(\)\s*\{/, 'flat out vec4 zoomA;\nflat out vec3 zoomB;\nvoid main() {\n  zoomA = vec4(5.0, 35.84, 71.68, 0.25);\n  zoomB = vec3(1.0, 1.0, 40.0);');
+const lumenK = (g, edge, bin, hl) => ({ F_DIFFUSE: g.F_DIFFUSE, F_EDGE: g.F_EDGE, F_SHADOW: g.F_SHADOW, F_SPEC: g.F_SPEC, F_VEIL: g.F_VEIL, F_WHOLE: g.F_WHOLE, F_SEL: g.F_SEL,
+  F_DOTTED: g.F_DOTTED, F_NOCASE: g.F_NOCASE, LIFT_EASE_MAX: hl.LIFT_EASE_MAX, LIFT_EASE_SHARE: hl.LIFT_EASE_SHARE, LUMEN2: g.LUMEN2, ROW2_BITS: g.ROW2_BITS,
+  VEIL_K: g.VEIL_K, EDGE: edge.EDGE_GLSL, ENT_W: bin.ENT_W, N_SAMPLES: g.N_SAMPLES, MAX_TIERS: g.MAX_TIERS, S_OFF: 96 });
+const lumenNeeds = {
+  '../src/ui/veins-gl.js': ['F_SEL', 'F_DIFFUSE', 'F_SHADOW', 'F_DOTTED', 'F_NOCASE', 'F_SPEC', 'F_EDGE', 'F_VEIL', 'F_WHOLE', 'VEIL_K', 'MAX_TIERS', 'N_SAMPLES', 'LUMEN2', 'ROW2_BITS'],
+  '../src/ui/edge.js': ['EDGE_GLSL'], '../src/ui/veins-bin.js': ['ENT_W'], '../src/ui/highlight-math.js': ['LIFT_EASE_SHARE', 'LIFT_EASE_MAX'],
+  '../src/ui/tube-lumen-glsl.js': ['tubeLumenFS'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'],
+};
+add('tubeLumen (strip + tubeLumenFS)', { ...lumenNeeds, '../src/ui/tube-geo.js': ['tubeStripVS'] }, (g, edge, bin, hl, lum, mm, tg) => {
+  const vs = tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL);
+  const real = /out float vD;/.test(vs) && /out vec2 vG;/.test(vs) && /out float vRad;/.test(vs);
+  return { vs: real ? withZoom(vs) : leanVaryings.replace('out float vI;', 'out float vI;\nflat out vec4 zoomA; flat out vec3 zoomB;').replace('gl_Position =', 'zoomA = vec4(5.0, 35.84, 71.68, 0.25); zoomB = vec3(1.0, 1.0, 40.0); gl_Position ='),
+    fs: lum.tubeLumenFS(lumenK(g, edge, bin, hl)), note: 'linked with zoomA and zoomB written in main here: the Tube\'s vertex shaders do not write the zoom\'s numbers yet (thread D adds them)' };
+});
+add('tubeLumen PLAIN (strip, no dye or origin)', { ...lumenNeeds, '../src/ui/tube-geo.js': ['tubeStripVS'] }, (g, edge, bin, hl, lum, mm, tg) => ({
+  vs: withZoom(tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL)), fs: lum.tubeLumenFS({ ...lumenK(g, edge, bin, hl), PLAIN: 1 }), note: 'zoomA and zoomB written in main here (see above)' }));
+add('tubeWebLumen (web + tubeLumenFS)', { ...lumenNeeds, '../src/ui/tube-joint.js': ['tubeWebVS'] }, (g, edge, bin, hl, lum, mm, tj) => ({
+  vs: withZoom(tj.tubeWebVS(mm.STRIP_VS_GLSL, g.F_SEL)), fs: lum.tubeLumenFS(lumenK(g, edge, bin, hl)), note: 'zoomA and zoomB written in main here (see above)' }));
+
 // ---- later threads: add yours above this line, one line each ------------------------------------------------------------------------
 // (S2-A/B/J/D: tubeLean, the web, ...; S3-X: COMP_FS with its new last argument; S3-C: the lumen shader; L-A/L-D: the lobule's.)
 
