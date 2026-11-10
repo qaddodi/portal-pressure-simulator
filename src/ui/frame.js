@@ -801,8 +801,20 @@ export function frameGapFor(reason = frameReason()) {
 // gap above. 28 ms, as the first flow gap was: a 60 Hz screen's frames come 16.7 ms apart so every 2nd is drawn, a 120 Hz screen's
 // 8.3 ms so every 4th, a 90 Hz screen's 11.1 ms so every 3rd; no phase is carried.)
 export const CALM_FLOW_MS = 28;
-/** The least ms between two blood-only frames of a calm lobule: 30 Hz; Battery saver's 15 Hz; every frame where Motion at 60 is off. */
-export function calmFlowGapFor() {
+// (Tube speed plan P1, 10 Nov 2026: where the lobule's vessel renderer draws Tube stage 3 its blood pass is far cheaper than the old full-screen
+// blood, so its calm blood is drawn at the screen's rate; Classic, Mesh and Tube stages 1 and 2 keep the 30 Hz cap, Battery saver its 15 Hz.)
+/** The least ms between two blood-only frames of a calm lobule: 30 Hz; Battery saver's 15 Hz; every frame where Motion at 60 is off, or where `cheapBlood` (the Tube's stage 3 drew the lobule). */
+export function calmFlowGapFor(cheapBlood = false) {
   if (saverOn) return SAVER_MS;
-  return figLabs.motion60 ? CALM_FLOW_MS : 0;
+  return figLabs.motion60 && !cheapBlood ? CALM_FLOW_MS : 0;
 }
+/** Which rule is in force for a calm lobule's blood, in words, for ?perf. */
+export function calmFlowRule(cheapBlood = false) {
+  if (saverOn) return 'calm 15 Hz (Battery saver)';
+  if (!figLabs.motion60) return 'calm every frame (Motion at 60 off)';
+  return cheapBlood ? 'calm every frame (tube 3)' : 'calm 30 Hz';
+}
+let calmRuleNow = '';
+/** The lobule's loop notes the rule it paced a calm frame by (''= not calm / not showing); ?perf reads it. */
+export const noteCalmRule = (t) => { calmRuleNow = t; };
+export const calmRuleText = () => calmRuleNow;

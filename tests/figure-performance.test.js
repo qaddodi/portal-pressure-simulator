@@ -75,8 +75,28 @@ test('Lobule rec 6 (6 Nov 2026): a calm lobule draws its blood-only frames at 30
   delete globalThis.localStorage;
   // The lobule's loop takes it only once calm: anything moving, a hand included, resets calmAt and the gap is the glide's.
   const lz = src('lobule-zoom.js');
-  assert.match(lz, /const pace = now - calmAt > CALM_AFTER \? Math\.max\(paceMs\(\), calmFlowGapFor\(\)\) : paceMs\(\)/);
+  assert.match(lz, /const pace = calmNow \? Math\.max\(paceMs\(\), calmFlowGapFor\(cheap\)\) : paceMs\(\)/);
+  assert.match(lz, /cheap = calmNow && gl\?\.tubeStage\?\.\(\) === 3/);
   assert.match(lz, /handOn\(\) \|\| fade < 0\.98[^\n]*\) calmAt = now;/);
+});
+
+test('Tube speed plan P1 (10 Nov 2026): a calm lobule drawn by Tube stage 3 takes the blood at the screen\'s rate; saver and the other renderers keep their caps', async () => {
+  const { f } = await freshFrame();
+  assert.equal(f.calmFlowGapFor(), f.CALM_FLOW_MS, 'default: 30 Hz');
+  assert.equal(f.calmFlowGapFor(false), f.CALM_FLOW_MS, 'Classic, Mesh, Tube 1 and 2: 30 Hz');
+  assert.equal(f.calmFlowGapFor(true), 0, 'Tube stage 3: every frame');
+  assert.equal(f.frameGapFor('flow'), f.MOTION60_MS, 'the anatomy and the sinusoid are unchanged');
+  assert.equal(f.calmFlowRule(false), 'calm 30 Hz');
+  assert.equal(f.calmFlowRule(true), 'calm every frame (tube 3)');
+  f.setSaver(true);
+  assert.equal(f.calmFlowGapFor(true), f.SAVER_MS, 'Battery saver: 15 Hz either way');
+  assert.equal(f.calmFlowGapFor(false), f.SAVER_MS);
+  assert.match(f.calmFlowRule(true), /15 Hz/);
+  f.setSaver(false); f.setFigLab('motion60', false);
+  assert.equal(f.calmFlowGapFor(false), 0);
+  assert.equal(f.calmFlowRule(false), 'calm every frame (Motion at 60 off)');
+  f.noteCalmRule('calm 30 Hz'); assert.equal(f.calmRuleText(), 'calm 30 Hz'); f.noteCalmRule(''); assert.equal(f.calmRuleText(), '');
+  delete globalThis.localStorage;
 });
 
 test('Motion at 60 in the figure loop: off, the interval and the gate are as before; on, no phase is carried; view moves never wait', () => {

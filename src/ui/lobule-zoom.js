@@ -47,7 +47,7 @@ import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, 
 import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
 import { createSinusoidView } from './sinusoid-view.js';
-import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, frameCount, renderScale, onRenderScale, framePart, easeNow, inMotion } from './frame.js';
+import { frameFor, cancelFrame, noteDraw, saver, paceMs, calmFlowGapFor, calmFlowRule, noteCalmRule, frameCount, renderScale, onRenderScale, framePart, easeNow, inMotion } from './frame.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { FADE_MS, fadeAlpha } from './res-fade.js';
 import { createResCover, coverFollowInto } from './res-cover-gl.js';
@@ -2856,7 +2856,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let calmAt = 0;
   function loop(now) {
     raf = 0;
-    if (fade <= 0 || !model) return;
+    if (fade <= 0 || !model) { noteCalmRule(''); return; }
     // (Render-cost plan 1: under the presenter's black screen, the home screen or a hidden page nothing is drawn; looked at again four times a
     // second, and drawn as things stand then, the first frame stepping nothing.)
     if (stageCovered()) { last = 0; clearTimeout(sleepT); sleepT = setTimeout(sleepWake, 250); return; }
@@ -2869,7 +2869,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     // crossfade draw at once or at the glide's rate; once only the blood has moved for CALM_AFTER, it is drawn at the calm lobule's 30 Hz (frame.js calmFlowGapFor). On a
     // 120 Hz Mac the zoomed-in lobule drew every other screen frame for the blood alone (4 Nov 2026, Mohammad: 5-10 fps while zoomed).)
     if (viewVer !== pacedVer || rzMoving || lensFrom || gliding || handOn() || fade < 0.98 || diveScaled || sinU > 0 || sinTo || tissueFading(now) || inMotion() || !lastPaint) calmAt = now;
-    const pace = now - calmAt > CALM_AFTER ? Math.max(paceMs(), calmFlowGapFor()) : paceMs(), paced = !soft && pace > 0 && viewVer === pacedVer;
+    const calmNow = now - calmAt > CALM_AFTER, cheap = calmNow && gl?.tubeStage?.() === 3;   // (Tube speed plan P1: the Tube's stage 3 drew the last picture: its calm blood is cheap)
+    noteCalmRule(calmNow ? calmFlowRule(cheap) : '');   // (?perf says which rule paces the calm blood)
+    const pace = calmNow ? Math.max(paceMs(), calmFlowGapFor(cheap)) : paceMs(), paced = !soft && pace > 0 && viewVer === pacedVer;
     if (paced && now - lastPaint < pace) { raf = nextFrame(loop); return; }
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
