@@ -8,7 +8,7 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, Settings' blur effect off, reduced
 // transparency, or a browser without backdrop blur (whose solid card stays).
 
-import { shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js';
+import { BLOOD_BLUR_MS, shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js';
 import { glCap, fbComplete } from './gl-state.js';
 import { hold } from './gpu-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
@@ -1274,7 +1274,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     // zoom easing out, the deck's fade as it closes) changes what lies under the glasses with no new picture counted, and the kept blur then
     // showed the figure as it lay before, inside a card that had shrunk, until the camera rested and the glass blurred again. 5 Nov 2026.)
     const ck = camKey ? camKey() : -1, ring = ck >= 0 && ck === S.camAt && !zoomRide.riding() ? nT + 1 : 0;
-    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty || dirtyRects ? dirtyFn : null, keepFor(2 * nT + 3), pictureRects ? picDirtyFn : null, ring);   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
+    const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty || dirtyRects ? dirtyFn : null, keepFor(2 * nT + 3), pictureRects ? picDirtyFn : null, ring, performance.now(), look.blur === CARD.blur ? BLOOD_BLUR_MS : 0);   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
     const sr = S.reg || (S.reg = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the share's region record is made at its first blur
     sr.x = grid.x; sr.y = grid.y; sr.w = grid.w; sr.h = grid.h;
     // (In use in this frame, kept or made again: see the release below.)
@@ -1304,7 +1304,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     const ok = hostBlur(grid, plan.parts, B);
     G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, W2, H2);
     G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
-    if (ok) shareKeep(S); else shareForget(S);
+    if (ok) shareKeep(S, performance.now()); else shareForget(S);
     S.ok = !!ok;
     if (ok) { S.blurs++; counts.blur++; tally(counts.blurs, look.blur === CARD.blur ? 'cards' : look.blur === PANE.blur ? 'pane' : look.blur === GLASS.blur ? 'callouts' : S.look); S.camAt = ck; }   // (by look, for the frame panel: which glass blurs each frame)
     return S.ok;

@@ -3,6 +3,7 @@
 import { SPLEEN_CENTER } from './anatomy.js';
 import { pressureColor } from './colormap.js';
 import { diaphragmD, diaphragmLine } from './diaphragm.js';
+import { heldBin } from './idle-keys.js';
 import { fluidTarget } from './fluid-step.js';
 import { gpuProbe } from './gpu-probe.js';
 import { liverShrink, smooth01 } from './liver-morph.js';
@@ -13,7 +14,7 @@ import { store } from './store.js';
 import { clamp } from './util.js';
 
 export function createDiaphragm(st, live) {
-  const { EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, qP, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine } = st;
+  const { EI, NI, abdTo, caud, diaCut, drawAscites, findingHidden, gBackdrop, hidePlate, liveOn, liverTint, lv, morphLiver, normalSync, organEls, organG, platePoke, putA, recruitFrac, spleenMv, syncOrganMasks, syncSelFluid, syncSelLine } = st;
   // The diaphragm is drawn around the organs it covers, the way a plate shows it: one smooth dome a
   // little above the liver, the fundus and the spleen, bridging the dips between them, and down the
   // flanks on both sides (where diaMask fades it out). It runs along the top of their current outlines,
@@ -97,10 +98,10 @@ export function createDiaphragm(st, live) {
   }
   const lvTargets = [0, 0, 0];   // (read at once by its callers)
   // (What updateOrgans hands the probe's timed calls, kept: the calls are fixed functions that read these, so none is made in a frame.)
-  let orgMoving = false, orgPA2 = null, orgShrink = 1;
+  let orgMoving = false, orgPA2 = null, orgShrink = 1, caudBin = NaN;
   let pseEl = null;   // (the embolized spleen's infarct group, found once: stage.js detailFor)
   const orgMorphLiver = () => morphLiver(live.lvC, live.lvG, orgMoving);
-  const orgCaudate = () => caud.sync(pressureColor(qP(orgPA2[NI.IVCS] + 0.5)), live.caudK);
+  const orgCaudate = () => { caudBin = heldBin(caudBin, orgPA2[NI.IVCS] + 0.5); caud.sync(pressureColor(caudBin), live.caudK); };   // (the colour's bin held: a pressure breathing across a bin's edge must not flip the lobe's colour, and the organ layer with it)
   const orgMasks = () => syncOrganMasks(orgShrink, organG.spleen.getAttribute('transform'));
   const QUARTERS = ['0', '0.25', '0.5', '0.75', '1'];   // (String(n / 4) for n 0 … 4)
   // The congestion's shades stay hidden at no opacity (the glossy one aside), and all hide in the figure view.

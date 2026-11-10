@@ -77,6 +77,13 @@ export function netChanged(records) {
   return changed;
 }
 
+// A pressure colour's bin (0.5 mmHg) with hysteresis, for a colour the organ layer reads from the page (the caudate's lumen, the varices'
+// and gastric varices' --vx): the bin moves only once the value is 0.4 mmHg from the one shown. The beat-filtered pressure breathes
+// across a bin's edge, and the colour then flipped between the same two shades a few times a second, each flip a write the organ layer
+// painted again for. (The vessel ends already hold their bins this way: stage.js qHold.) `prev` NaN: no bin yet.
+export const BIN_HOLD = 0.4;
+export const heldBin = (prev, v) => (Math.abs(v - prev) < BIN_HOLD ? prev : Math.round(v * 2) / 2);
+
 // The attributes that can move or hide a card, sheet or bar the framing and labels keep clear of (on it, or on a parent).
 export const PLACE_ATTRS = ['class', 'hidden', 'style', 'data-safe', 'data-safe-pad', 'data-safe-rest', 'data-full-h', 'data-folding', 'open'];
 // The pieces watched: what the home framing (data-safe, the zoom pill), the labels (stage blockers, the slide's glass) and the

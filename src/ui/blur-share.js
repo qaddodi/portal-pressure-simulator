@@ -22,7 +22,7 @@ export function shareFor(map, gl, key) {
   // alloc-rare: a context's first glass of this look makes its share (once per look and context), never per frame
   if (!byLook) { byLook = new Map(); map.set(gl, byLook); }   // alloc-rare: once per context
   // alloc-rare: once per look and context
-  S = { look: key, reqs: [], phase: 'draw', ok: false, reg: null, t: null, blurs: 0, skips: 0, allocs: 0, boxBuf: [], partsOut: [], partsPool: [], snapOk: false, snap: newSnap(), cand: newSnap(), dBox: [null], dOut: [], dPool: [], rOut: [], rPool: [], rFull: [[0, 0, 0, 0]], plan: { parts: null, same: false } };
+  S = { look: key, reqs: [], phase: 'draw', ok: false, reg: null, t: null, blurs: 0, skips: 0, held: 0, keptAt: -1, allocs: 0, boxBuf: [], partsOut: [], partsPool: [], snapOk: false, snap: newSnap(), cand: newSnap(), dBox: [null], dOut: [], dPool: [], rOut: [], rPool: [], rFull: [[0, 0, 0, 0]], plan: { parts: null, same: false } };
   byLook.set(key, S);
   return S;
 }
@@ -88,7 +88,14 @@ export function sharePrep(S, req) {
 /** What the first draw on this picture blurs: the parts of the copy every request needs (null: all of it), and whether that, the grid and
  *  every request's picture are the same as the last blur kept (shareKeep): { parts, same } (a record kept in the share, read before the
  *  next call). blurInto(out, pool, boxes, ox, oy, t, bw, bh): glass-gl's blurBoxesInto. */
-export function sharePlan(S, grid, t, bw, bh, full, blurInto, dirtyFor = null, dirtyInto = null, picDirtyFor = null, ring = 0) {
+// A blur the moving blood alone calls for (the same picture under the glasses, the same grid and parts, only the blood drew over it) waits until
+// this long after the last blur kept: 28 ms is every second frame of a 60 Hz screen with 4 ms to spare for a late one (the same margin as the
+// lobule's calm gap), so a 60 Hz page blurs the blood under a card 30 times a second and the blood is on the glass a frame late at most.
+// Anything else (the view, the picture, a card's box) blurs at once. (Cards' glass at rest: 38 blurs a second, one for each of 57 composites.)
+export const BLOOD_BLUR_MS = 28;
+/** Whether a blur that only the blood calls for is held back: `now` (ms) is less than `gap` after the last blur kept. */
+export const bloodHeld = (keptAt, now, gap) => gap > 0 && keptAt >= 0 && now >= keptAt && now - keptAt < gap;
+export function sharePlan(S, grid, t, bw, bh, full, blurInto, dirtyFor = null, dirtyInto = null, picDirtyFor = null, ring = 0, now = -1, gap = 0) {
   const boxes = S.boxBuf;
   boxes.length = 0;
   for (const r of S.reqs) for (const b of r.boxes) boxes.push(b);
@@ -120,6 +127,9 @@ export function sharePlan(S, grid, t, bw, bh, full, blurInto, dirtyFor = null, d
     if (!vMoved && !fMoved) ok = false;
     for (let i = 0; ok && i < 5; i++) if (!sameNum(P.g[i], C.g[i])) ok = false;
     for (let i = 0; ok && i < C.fn * 4; i++) if (P.fp[i] !== C.fp[i]) ok = false;
+    // (Only the blood moved: the blur kept is current enough until the gap has passed. The snapshot stays, so the blur that follows covers every
+    // blood frame since it: dirtyFor takes the range from the snapshot's frame.)
+    if (ok && fMoved && !vMoved && now >= 0 && bloodHeld(S.keptAt, now, gap)) { S.plan.parts = null; S.plan.same = true; S.held++; return S.plan; }
     let d = null;
     if (ok) {
       const cat = S.dCat || (S.dCat = []);   // alloc-rare: the share's joined list is made at its first use
@@ -174,7 +184,7 @@ function sameSnap(a, b) {
   return true;
 }
 /** The blur just made from the plan is the one kept: the next plan that is the same needs none. */
-export function shareKeep(S) { const t = S.snap; S.snap = S.cand; S.cand = t; S.snapOk = true; }
+export function shareKeep(S, now = -1) { const t = S.snap; S.snap = S.cand; S.cand = t; S.snapOk = true; S.keptAt = now; }
 /** Nothing kept: the next picture blurs. */
 export function shareForget(S) { S.snapOk = false; }
 

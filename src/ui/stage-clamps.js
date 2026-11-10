@@ -5,6 +5,7 @@ import { SPLEEN_CENTER, SPLEEN_PSE_BADGE } from './anatomy.js';
 import { CLOT_EDGE, clotLayers, clotRadius, clotShift, clotSide, clotSpan, hashSeed } from './clot-shape.js';
 import { bandRing } from './band-ring.js';
 import { pressureColor } from './colormap.js';
+import { heldBin } from './idle-keys.js';
 import { D_SMALL } from './ease.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { restPass } from './rest-pass.js';
@@ -34,7 +35,7 @@ function pseFillD(x, y) {
 const CORONARY_TIE = 0.75;
 
 export function createClamps(st, live) {
-  const { E, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, qP, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
+  const { E, LIGATED, NI, N_SAMPLES, anastomoses, applyClampFs, clampA, clampD, clampFading, clampMv, clampShade, clampW, clampWOut, findingHidden, geo, ligature, markA, marksSync, mk, ov, placeClampLabels, pointAt, polyD, polysD, putMark, recruitFrac, rotDeg, stenosisAt, stentMesh, tubeOutline, updateLabels, venousSync, worldToLocalInto } = st;
   // How far a point's callout stands from its dot: clear of the stent's body, its leader 16 px at most.
   const colGap = (sid) => Math.min(16, ((E[sid]?.width || 4) * live.CTM.sc) / 2 + 7);
   // (The "60 %" is drawn in the figure's own units, in the labels' own name size on screen (fontPx 11.5: 12 px at least, the text size
@@ -181,12 +182,14 @@ export function createClamps(st, live) {
     if (!same) { okNext = okCur; okCur = o; ovInVer++; }
     return ovInVer;
   }
+  const vxBin = [NaN, NaN];   // (the bins --vx shows now: varices, gastric varices)
   const setVar = (el, k, v) => { const c = el._v || (el._v = {}); if (c[k] === v) return; c[k] = v; el.style.setProperty(k, v); };
   function updateOverlays(f, p, gain, t) {
     // Colors follow pressure continuously through CSS variables; geometry rebuilds only on change.
     const PM = f.Pf || f.P;
-    setVar(ov.varices, '--vx', pressureColor(qP(PM[NI.VAR])));
-    setVar(ov.gvarices, '--vx', pressureColor(qP(PM[NI.GV])));
+    vxBin[0] = heldBin(vxBin[0], PM[NI.VAR]); vxBin[1] = heldBin(vxBin[1], PM[NI.GV]);   // (held: a pressure breathing across a bin's edge must not flip the colour, and the organ layer with it)
+    setVar(ov.varices, '--vx', pressureColor(vxBin[0]));
+    setVar(ov.gvarices, '--vx', pressureColor(vxBin[1]));
     const key = overlayInputs(f, p, t);
     live.balloonStep(p, t < 0.5);
     venousSync(p, t < 0.5, key !== live.overlayKey);

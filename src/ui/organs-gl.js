@@ -135,6 +135,29 @@ const EMPTY_ORGANS = new Map();   // (never written: no live organs, no cuts)
 const numEq = (a, b) => a === b || (a !== a && b !== b);   // (equal as the numbers' text would be: NaN is NaN)
 /** A key record: the stack's version numbers, the view m (n numbers), the canvas size, and a clock reading while a view's picture fades in (-1: none). */
 const newKey = () => ({ ok: false, ver: 0, liveVer: 0, page: 0, n: 0, m: [0, 0, 0, 0, 0, 0], cw: 0, ch: 0, f: -1 });   // alloc-rare: a key record, made three times when a stack is made
+/** The view tolerance (device pixels): a camera that lies within it of the view last drawn, over the whole canvas, is that view. */
+export const VIEW_TOL = 1 / 64;
+/**
+ * How far (device px) the view `a` puts a point from where `b` puts it, the worst over the canvas cw × ch (b's device corners taken back
+ * to the world, then forward by a: the shift is affine, so its worst is at a corner). 0 for the same six numbers; Infinity when they cannot
+ * be compared (NaN, a flat b). The model's updates move the camera's matrix by the last digit while nothing moves.
+ */
+export function viewDrift(a, b, cw, ch) {
+  let same = true;
+  for (let i = 0; i < 6; i++) if (!numEq(a[i], b[i])) { same = false; break; }
+  if (same) return 0;
+  const det = b[0] * b[3] - b[1] * b[2];
+  if (!(Math.abs(det) > 1e-12)) return Infinity;
+  let worst = 0;
+  for (let c = 0; c < 4; c++) {
+    const X = c & 1 ? cw : 0, Y = c & 2 ? ch : 0, dx = X - b[4], dy = Y - b[5];
+    const wx = (b[3] * dx - b[2] * dy) / det, wy = (b[0] * dy - b[1] * dx) / det;
+    const ex = a[0] * wx + a[2] * wy + a[4] - X, ey = a[1] * wx + a[3] * wy + a[5] - Y;
+    const d = Math.sqrt(ex * ex + ey * ey);
+    if (!(d <= worst)) worst = d;   // (a NaN is kept: it fails the test below)
+  }
+  return worst === worst ? worst : Infinity;
+}
 function setView(k, ver, m, cw, ch) {
   k.ver = ver; k.n = m.length; k.cw = cw; k.ch = ch;
   for (let i = 0; i < m.length; i++) k.m[i] = m[i];
@@ -277,10 +300,14 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   const liveNow = () => !!(painter && (liveOrgans.size || cuts.size));   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   // The key of a render at view m: filled into `k` (kNow) and returned; the same as another when every part of it is.
   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  // (A camera within VIEW_TOL of the view last drawn is that view: its numbers are taken from the drawn key, so the strict compares below hold and no
+  // drift builds up: each is judged against the last drawing, never against the one before it. Nothing is made.)
+  const steady = (m, cw, ch) => (kDrawn.ok && kDrawn.n === 6 && m.length === 6 && kDrawn.cw === cw && kDrawn.ch === ch && viewDrift(m, kDrawn.m, cw, ch) <= VIEW_TOL ? kDrawn.m : m);   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const keyOf = (k, m, cw, ch) => {
     pull();
     setView(k, ver, m, cw, ch);
     k.liveVer = liveVer; k.page = watch ? pageVer : -1; k.f = pending() ? performance.now() : -1; k.ok = true;
+    if (steady(m, cw, ch) !== m) copyView(k.m, kDrawn.m);
     return k;
   };
   const sameKey = (a, b) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
@@ -740,6 +767,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
      * or null when nothing on it changed.
      */
     render(m, cw, ch) {
+      m = steady(m, cw, ch);   // (the last view drawn, when the camera lies within a 64th of a pixel of it)
       const key = keyOf(kNow, m, cw, ch), unchanged = sameKey(key, kDrawn);
       const settle = mvShown && performance.now() - mvAt >= MOVE_SETTLE_MS;
       if (unchanged && (watch || !liveNow()) && !settle) return null;
