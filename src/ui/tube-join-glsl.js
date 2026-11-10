@@ -19,10 +19,10 @@
 //
 // All the work is the vertex shader's, once a vertex, and flat to the fragment (10 Nov 2026, the planner: the first version read the trunk's points and radii from textures
 // for every fragment near an end and a second row's attributes where it blended, and cost the figure and the lobule most of their frame rate):
-//   vJ0, vJ1  (vec4, the start's and the end's)  an open end: the chord of the trunk about the sample, a to b, lengthened to at least JOIN_REACH radii each way;
-//                              a continuation: the end point and the plane's unit normal.
+//   vJ0, vJ1  (vec4, the start's and the end's)  an open end: the trunk's two arms from the sample, a to b (each at least JOIN_REACH radii of the trunk's own samples; the
+//                              knee, the sample's point, is in vC .yz), so the cut follows a bend of the trunk; a continuation: the end point and the plane's unit normal.
 //   vJK       (vec4: start's (r, mode), end's (r, mode))  r the trunk's radius there; mode 0 cut, 1 fade, 2 a continuation (valid), -1 none.
-//   vC0, vC1  (vec4, rgb: the other row's colour at its end: the trunk's at the sample, the partner's at its end sample)
+//   vC0, vC1  (vec4: x the other row's colour at its end packed as 8 bits a channel (the trunk's at the sample, the partner's at its end sample), yz an open end's knee, w the flag)
 // so a fragment does one point-to-segment distance (or one dot product) and a smoothstep or two, and reads nothing. A cut end and a continuation also blend their COLOUR
 // into the other row's over JOIN_COLOUR_R radii (at least JOIN_COLOUR_MIN world units) from the wall or the plane (a continuation takes half of it at the plane, so the two
 // rows meet at the mean): where a lens colours two rows differently there is no step at the join (Mohammad, 10 Nov). A fading branch needs none: the trunk's own
@@ -47,6 +47,8 @@ export const JOIN_MODE = { CUT: 0, FADE: 1, PLANE: 2 };
 
 /** vEnd's value for an open end on a trunk row at sample `sample`. */
 export const endTrunk = (row, sample) => row * END_BASE + sample;
+/** The fractions an open end's value carries when the trunk row runs on into another row at its start (END_THRU_START) or its end (END_THRU_END; both added: both): the trunk's chord then reaches on past that end, as one vessel. */
+export const END_THRU_START = 0.25, END_THRU_END = 0.5;
 /** vEnd's value for the continuation of `row` at its end sample `sample`. */
 export const endContinues = (row, sample) => -(2 + row * END_BASE + sample);
 /** Which kind a vEnd value is: 'none', 'trunk' or 'continues'. */
@@ -85,23 +87,38 @@ float joinPack(int row) {
   int fl = int(t2.z + 0.5);
   return float(int(t2.x + 0.5) + ((fl & ${JOIN_F_VEIL}) != 0 ? 32 : 0) + ((fl & ${JOIN_F_WHOLE}) != 0 ? 64 : 0) + 128 * int(clamp(t1.w, 0.0, 1.0) * 255.0 + 0.5));
 }
+float joinPackColour(vec3 c) { return dot(floor(clamp(c, 0.0, 1.0) * 255.0 + 0.5), vec3(65536.0, 256.0, 1.0)); }
+// A trunk's arm from its sample sm: len along its own samples (spacing sp) in direction dir, no further than its end unless the trunk runs on straight there (thru: then on in a line).
+vec2 joinArm(int tr, int sm, int dir, float sp, float len, bool thru) {
+  int lim = dir > 0 ? ${LAST} - sm : sm;
+  float have = float(lim) * sp;
+  float t = min(len, have) / sp;
+  int k = min(int(t), max(lim - 1, 0));
+  vec2 q = mix(PT(tr, sm + dir * k), PT(tr, sm + dir * min(k + 1, lim)), t - float(k));
+  if (thru && len > have) {
+    int en = sm + dir * lim;
+    vec2 e0 = PT(tr, en), o = e0 - PT(tr, clamp(en - dir * 2, 0, ${LAST}));
+    float lo = length(o);
+    q = e0 + (lo > 1e-6 ? o / lo : vec2(0.0)) * (len - have);
+  }
+  return q;
+}
 vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
   K = vec2(-1.0, -1.0);
-  C = vec4(0.0, 0.0, 0.0, -1.0);   // (w: a continuation's partner's tier, for the opacity ramp)
+  C = vec4(0.0, 0.0, 0.0, -1.0);   // (w: a continuation's partner's tier, for the opacity ramp; x the colour, packed; yz an open end's knee)
   if (e > -0.5) {
-    int ei = int(e + 0.5), tr = ei / ${END_BASE}, sm = ei % ${END_BASE};
+    int ei = int(e + 0.1), tr = ei / ${END_BASE}, sm = ei % ${END_BASE};
+    float fe = e - float(ei);   // (.25: the trunk runs on into another row at its start, .5: at its end, .75: both: its chord reaches on there)
+    bool tb = (fe > 0.2 && fe < 0.3) || fe > 0.7, tf = fe > 0.45;
     vec2 c = PT(tr, sm);
-    vec2 d = PT(tr, min(sm + 1, ${LAST})) - PT(tr, max(sm - 1, 0));
-    float ld = length(d);
+    int s0 = max(sm - 1, 0), s1 = min(sm + 1, ${LAST});
+    float sp = max(length(PT(tr, s1) - PT(tr, s0)) / float(max(s1 - s0, 1)), 1e-4);
     float r = max(texelFetch(rad, ivec2(sm, tr), 0).r, MIN_RADIUS);
-    d = ld > 1e-6 ? d / ld : vec2(1.0, 0.0);
-    float hl = max(0.5 * ld, ${f(JOIN_REACH)} * r);
-    // (The chord reaches no further than the trunk does: past the trunk's own end nothing of it is drawn, and a branch cut there leaves a black wedge, 10 Nov, the portal fork.)
-    float hb = min(hl, length(c - PT(tr, 0))), hf = min(hl, length(PT(tr, ${LAST}) - c));
+    float hl = max(sp, ${f(JOIN_REACH)} * r);
+    // (The arms reach no further than the trunk does: past the trunk's own end nothing of it is drawn, and a branch cut there leaves a black wedge, 10 Nov, the portal fork. They follow its samples, so a trunk that bends within the reach, as the Circuit's cava does, is cut where it is, not along its tangent.)
     K = vec2(r, texelFetch(tube, ivec2(2, id), 0).x > texelFetch(tube, ivec2(2, tr), 0).x + 0.5 ? 1.0 : 0.0);
-    C.rgb = joinColour(tr, float(sm) / ${LAST}.0);
-    C.w = sm == ${LAST} ? -2.0 : sm == 0 ? -3.0 : -1.0;   // (the trunk's own end: with its cap gone the chord ends flat there, so the branch is drawn beyond it)
-    return vec4(c - d * hb, c + d * hf);
+    C = vec4(joinPackColour(joinColour(tr, float(sm) / ${LAST}.0)), c, sm == ${LAST} && !tf ? -2.0 : sm == 0 && !tb ? -3.0 : -1.0);   // (w: the trunk's own end: with its cap gone the arms end flat there, so the branch is drawn beyond it)
+    return vec4(joinArm(tr, sm, -1, sp, hl, tb), joinArm(tr, sm, 1, sp, hl, tf));
   }
   if (e < -1.5) {
     int k = int(-e + 0.5) - 2, pr = k / ${END_BASE}, ps = k % ${END_BASE};
@@ -109,7 +126,7 @@ vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
     vec2 dO = E - PT(id, atStart ? 2 : ${LAST - 2});
     if (pr == id) {   // a trunk's own end that branches leave from, with no row carrying on: it ends flat, its round cap gone (the branches' own caps and the web make the fork)
       float l0 = length(dO);
-      if (l0 > 1e-6) { K = vec2(0.0, 2.0); C = vec4(joinColour(id, float(ps) / ${LAST}.0), joinPack(id)); return vec4(E, dO / l0); }
+      if (l0 > 1e-6) { K = vec2(0.0, 2.0); C = vec4(joinPackColour(joinColour(id, float(ps) / ${LAST}.0)), 0.0, 0.0, joinPack(id)); return vec4(E, dO / l0); }
       return vec4(0.0);
     }
     vec2 dP = PT(pr, ps) - PT(pr, ps == 0 ? 2 : ${LAST - 2});
@@ -120,7 +137,7 @@ vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
       if (lm > 1e-4) {
         vec2 f = -dP / lp, o = dO / lo;
         K = vec2(atan(o.x * f.y - o.y * f.x, dot(o, f)) + 0.0, 2.0);   // (K.x: the turn from this row's way out to the next row's way on, which the cel tones' light direction follows across the join)
-        C = vec4(joinColour(pr, float(ps) / ${LAST}.0), joinPack(pr));
+        C = vec4(joinPackColour(joinColour(pr, float(ps) / ${LAST}.0)), 0.0, 0.0, joinPack(pr));
         return vec4(E, m / lm);
       }
     }
@@ -167,6 +184,14 @@ export const tubeJoinFS = (N_SAMPLES) => {
   const LAST = N_SAMPLES - 1;
   return `// ---- a row's end on another row (tube-join-glsl.js): the decisions, from the vertex shader's flat data; no reads ----
 struct JoinEnd { bool drop; float fl; float fo; float wc; vec3 col; float pt; float rs; float rot; float tk; float tp; };   // wc: the share of the other row's colour col this pixel takes
+vec3 joinUnpackColour(float v) {
+  float r = floor(v / 65536.0), g = floor((v - r * 65536.0) / 256.0);
+  return vec3(r, g, v - r * 65536.0 - g * 256.0) / 255.0;
+}
+float joinSeg(vec2 p, vec2 a, vec2 b) {
+  vec2 ba = b - a;
+  return length(p - a - ba * clamp(dot(p - a, ba) / max(dot(ba, ba), 1e-8), 0.0, 1.0));
+}
 JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2 p, float R, float px) {
   JoinEnd j;
   j.drop = false; j.fl = 1.0; j.fo = 1.0; j.wc = 0.0; j.col = vec3(0.0); j.pt = -1.0; j.rs = 0.0; j.rot = 0.0; j.tk = 1.0; j.tp = 0.0;
@@ -176,9 +201,10 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
   vec2 K = atStart ? vJK.xy : vJK.zw;
   if (K.y < -0.5) return j;
   float cw = max(${f(JOIN_COLOUR_R)} * R, ${f(JOIN_COLOUR_MIN)});
-  j.col = (atStart ? vC0 : vC1).rgb;
+  vec4 CC = atStart ? vC0 : vC1;
+  j.col = joinUnpackColour(CC.x);
   if (K.y > 1.5) {
-    j.pt = (atStart ? vC0 : vC1).w;
+    j.pt = CC.w;
     float s = dot(p - J.xy, J.zw);
     if (s > ${f(JOIN_CUT)} * px) {
       // The outer corner of a bend is not the other row's: between this row's end line (across its way out) and the next row's start line (across its way on) lies a wedge
@@ -193,10 +219,9 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
     return j;
   }
   vec2 ba = J.zw - J.xy;
-  float h = clamp(dot(p - J.xy, ba) / max(dot(ba, ba), 1e-8), 0.0, 1.0);
-  float gap = length(p - J.xy - ba * h) - K.x;
-  // (A trunk's own end, its cap gone: past it the pixel is the branch's, whatever the chord's round end says.)
-  float fw = (atStart ? vC0 : vC1).w;
+  float gap = min(joinSeg(p, J.xy, CC.yz), joinSeg(p, CC.yz, J.zw)) - K.x;   // (the trunk about the sample: its two arms from the knee)
+  // (A trunk's own end, its cap gone: past it the pixel is the branch's, whatever the arms' round end says.)
+  float fw = CC.w;
   bool beyond = false;
   if (fw < -1.5) {
     vec2 dn = ba / max(length(ba), 1e-6);
@@ -237,6 +262,7 @@ const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t
 const mix = (a, b, t) => a * (1 - t) + b * t;
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
 const len = (a) => Math.hypot(a[0], a[1]);
+const segDist = (p, a, b) => { const bx = b[0] - a[0], by = b[1] - a[1], h = clamp(((p[0] - a[0]) * bx + (p[1] - a[1]) * by) / Math.max(bx * bx + by * by, 1e-8), 0, 1); return Math.hypot(p[0] - a[0] - bx * h, p[1] - a[1] - by * h); };
 
 /** joinPack in JS: tier, flags (the vessel flag bits), alpha 0..1 -> the packed float. */
 export const joinPackJS = (tier, flags, alpha) => tier + ((flags & JOIN_F_VEIL) !== 0 ? 32 : 0) + ((flags & JOIN_F_WHOLE) !== 0 ? 64 : 0) + 128 * Math.floor(clamp(alpha, 0, 1) * 255 + 0.5);
@@ -273,19 +299,32 @@ export function trunkGapJS(p, pts, rad, sample, segs = END_SEGS) {
   return best;
 }
 
+/** joinArm in JS: the trunk's arm from sample sm, reach along its own samples (spacing sp) in direction dir; past the end only if the trunk runs on straight there (thru). */
+export function joinArmJS(pts, sm, dir, sp, reach, thru) {
+  const last = END_BASE - 1, lim = dir > 0 ? last - sm : sm, have = lim * sp, t = Math.min(reach, have) / sp;
+  const k = Math.min(Math.floor(t), Math.max(lim - 1, 0)), A = pts[sm + dir * k], B = pts[sm + dir * Math.min(k + 1, lim)], f = t - k;
+  let q = [A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f];
+  if (thru && reach > have) {
+    const en = sm + dir * lim, e0 = pts[en], o = sub(e0, pts[clamp(en - dir * 2, 0, last)]), lo = len(o);
+    q = [e0[0] + (lo > 1e-6 ? o[0] / lo : 0) * (reach - have), e0[1] + (lo > 1e-6 ? o[1] / lo : 0) * (reach - have)];
+  }
+  return q;
+}
+
 /**
  * joinOne in JS: one end's data. o: { e (the vEnd value), atStart, own: { pts: [[x, y] x 64], tier }, rows: (row) => { pts, rad (a number a sample), tier } }.
- * Returns { J: [x0, y0, x1, y1], K: [r, mode], C: [r, g, b] } (K [-1, -1] for none). rows(row).colour(u), when given, is the row's colour along it.
+ * Returns { J: [x0, y0, x1, y1] (an open end: the trunk's arms a, b; Q the knee), K: [r, mode], C: [r, g, b] } (K [-1, -1] for none). rows(row).colour(u), when given, is the row's colour along it.
  */
 export function joinOneJS(o) {
   const { e, atStart } = o, last = END_BASE - 1, colOf = (row, u) => (o.rows(row).colour ? o.rows(row).colour(u) : [0, 0, 0]);
   if (e > -0.5) {
-    const ei = Math.floor(e + 0.5), tr = Math.floor(ei / END_BASE), sm = ei % END_BASE, T = o.rows(tr);
-    const c = T.pts[sm], d0 = sub(T.pts[Math.min(sm + 1, last)], T.pts[Math.max(sm - 1, 0)]), ld = len(d0);
-    const r = T.rad[sm];
-    const d = ld > 1e-6 ? [d0[0] / ld, d0[1] / ld] : [1, 0], hl = Math.max(0.5 * ld, JOIN_REACH * r);
-    const hb = Math.min(hl, len(sub(c, T.pts[0]))), hf = Math.min(hl, len(sub(T.pts[last], c)));
-    return { J: [c[0] - d[0] * hb, c[1] - d[1] * hb, c[0] + d[0] * hf, c[1] + d[1] * hf], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.FADE : JOIN_MODE.CUT], C: colOf(tr, sm / last), PT: sm === last ? -2 : sm === 0 ? -3 : -1 };
+    const ei = Math.floor(e + 0.1), tr = Math.floor(ei / END_BASE), sm = ei % END_BASE, T = o.rows(tr), fe = e - ei;
+    const tb = (fe > 0.2 && fe < 0.3) || fe > 0.7, tf = fe > 0.45;
+    const c = T.pts[sm], s0 = Math.max(sm - 1, 0), s1 = Math.min(sm + 1, last);
+    const sp = Math.max(len(sub(T.pts[s1], T.pts[s0])) / Math.max(s1 - s0, 1), 1e-4);
+    const r = T.rad[sm], hl = Math.max(sp, JOIN_REACH * r);
+    const a = joinArmJS(T.pts, sm, -1, sp, hl, tb), b = joinArmJS(T.pts, sm, 1, sp, hl, tf);
+    return { J: [a[0], a[1], b[0], b[1]], Q: [c[0], c[1]], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.FADE : JOIN_MODE.CUT], C: colOf(tr, sm / last), PT: sm === last && !tf ? -2 : sm === 0 && !tb ? -3 : -1 };
   }
   if (e < -1.5) {
     const k = Math.floor(-e + 0.5) - 2, pr = Math.floor(k / END_BASE), ps = k % END_BASE;
@@ -305,7 +344,7 @@ export function joinOneJS(o) {
 }
 
 /**
- * joinEnd in JS. o: { vI, J0, J1 (the vec4 as arrays), K [r0, mode0, r1, mode1], C0, C1 (the other rows' colours at the two ends), p, R (vRad), px (world per device pixel) }. Returns { drop, fl, fo, wc, col }: the GLSL's JoinEnd.
+ * joinEnd in JS. o: { vI, J0, J1 (the vec4 as arrays), Q0, Q1 (an open end's knee), PT0, PT1 (the flag / partner pack), K [r0, mode0, r1, mode1], C0, C1 (the other rows' colours at the two ends), p, R (vRad), px (world per device pixel) }. Returns { drop, fl, fo, wc, col }: the GLSL's JoinEnd.
  */
 export function joinEndJS(o) {
   const { vI, p, R, px } = o, last = END_BASE - 1;
@@ -332,8 +371,8 @@ export function joinEndJS(o) {
   const bx = J[2] - J[0], by = J[3] - J[1], qx = p[0] - J[0], qy = p[1] - J[1];
   const fw = (atStart ? o.PT0 : o.PT1) ?? -1, bl = Math.max(Math.hypot(bx, by), 1e-6);
   const beyond = fw < -1.5 && (fw < -2.5 ? qx * bx / bl + qy * by / bl < 0 : (p[0] - J[2]) * bx / bl + (p[1] - J[3]) * by / bl > 0);
-  const h = clamp((qx * bx + qy * by) / Math.max(bx * bx + by * by, 1e-8), 0, 1);
-  const gap = Math.hypot(qx - bx * h, qy - by * h) - K[0];
+  const Q = (atStart ? o.Q0 : o.Q1) ?? [(J[0] + J[2]) / 2, (J[1] + J[3]) / 2];   // (the knee; without one the arms are one straight chord)
+  const gap = Math.min(segDist(p, [J[0], J[1]], Q), segDist(p, Q, [J[2], J[3]])) - K[0];
   if (K[1] < 0.5) {
     if (gap < -0.5 * px && !beyond) { j.drop = true; return j; }
     const rk = smooth(0.3, 0.9, K[0] / Math.max(R, 1e-3)), rn = Math.min(R, K[0]);

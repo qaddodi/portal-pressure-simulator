@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { MAX_TIERS, TUBE_FLOATS } from '../src/ui/veins-mesh-data.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import { WEB_FLOATS } from '../src/ui/tube-joint.js';
-import { endTrunk, endContinues } from '../src/ui/tube-join-glsl.js';
+import { endTrunk, endContinues, END_THRU_START, END_THRU_END } from '../src/ui/tube-join-glsl.js';
 import { F_DOTTED, TUBE_ROW_FLOATS, TUBE_NO_END, tubeRows, tubeBuckets, rowIsExact, webInstances, websByTier } from '../src/ui/tube-data.js';
 import { scene, straight, ray } from './tube-web-helpers.js';
 
@@ -118,10 +118,47 @@ test('tubeRows: two rows meeting end to end, bent by 45 degrees at most, continu
   const back = (r, slot) => out.rows[r * 4 + slot];
   for (const [r, slot] of [[0, 2], [1, 1], [2, 2]]) {
     const v = back(r, slot);
-    if (v === TUBE_NO_END) continue;
+    if (v === TUBE_NO_END || v >= 0) continue;
     const code = -(v + 2), pr = Math.floor(code / N_SAMPLES), ps = code % N_SAMPLES;
     assert.equal(back(pr, ps === 0 ? 1 : 2), -(2 + r * N_SAMPLES + (slot === 1 ? 0 : N_SAMPLES - 1)), `row ${r} and its partner agree`);
   }
+  // (row 0's end, which the pair had taken from it, is no pair's but still ends on the row that runs on there; row 2 leaves row 1 at 17 degrees, more than THRU_DEG: its arm stops at the end)
+  assert.equal(back(0, 2), endTrunk(1, 0));
+});
+
+test('tubeRows: an end that meets a junction where two rows run on into each other ends on it, whichever entry comes first (the oesophageal collateral at the azygos arch, the varix strands)', () => {
+  // rows 0 and 1 run on into each other at the origin; row 2 arrives there from above, at a right angle, and a join lists each pair alone
+  const rows = () => [straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T), straight(0, -80, 0, 0, 1)];
+  const E = (members) => ({ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members });
+  for (const order of [[[0, 1], [1, 2], [0, 2]], [[2, 0], [1, 2], [0, 1]], [[1, 2], [0, 2], [0, 1]]]) {
+    const sc = scene(rows(), order.map(E));
+    const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
+    assert.equal(out.rows[0 * 4 + 2], endContinues(1, 0), 'the pair stays a pair');
+    assert.equal(out.rows[1 * 4 + 1], endContinues(0, N_SAMPLES - 1));
+    const v = out.rows[2 * 4 + 2];
+    assert.ok(v >= 0, `the third row's end is an open end on the pair's row (${JSON.stringify(order)})`);
+    assert.ok(Math.floor(v) === endTrunk(0, N_SAMPLES - 1) || Math.floor(v) === endTrunk(1, 0), `on one of the pair's two rows at the junction: ${v}`);
+    assert.ok(rowIsExact(out.rows, 2));
+  }
+});
+
+test('tubeRows: an open end on a trunk that runs on into another row at an end carries that in its value (END_THRU_START, END_THRU_END), so the chord reaches past it; a trunk that ends there does not', () => {
+  const sc = scene([straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T), straight(0, -80, 0, 0, 1), straight(300, -80, 300, 0, T), straight(200, 0, 300, 0, T)], [
+    { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }, { x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 2] },
+    { x: 300, y: 0, reach: 14, k: 0.4, fillet: 1, members: [4, 3.25] },
+  ]);
+  const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
+  assert.equal(out.rows[2 * 4 + 2], endTrunk(0, N_SAMPLES - 1) + END_THRU_END, 'row 0 runs on into row 1 at its end');
+  assert.equal(out.rows[4 * 4 + 2], endTrunk(3, N_SAMPLES - 1), 'row 4 ends on row 3, which ends there and nothing runs on (its end is its own: flat): no fraction');
+});
+
+test('tubeRows: a join entry the binning lists once for each cell it touches is read once (the same codes with every entry repeated)', () => {
+  const rows = () => [straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T), straight(0, -80, 0, 0, 1), straight(0, 80, 0, 0, 1)];
+  const E = (members) => ({ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members });
+  const list = [E([0, 1]), E([1, 2]), E([0, 2]), E([0, 3]), E([1, 3])];
+  const once = scene(rows(), list), many = scene(rows(), [...list, ...list, ...list, ...list]);
+  const a = tubeRows(once.tube, once.nRows, once.ent, {}, once.pts), b = tubeRows(many.tube, many.nRows, many.ent, {}, many.pts);
+  assert.deepEqual(Array.from(a.rows.subarray(0, 4 * once.nRows)), Array.from(b.rows.subarray(0, 4 * many.nRows)));
 });
 
 function tiers() {

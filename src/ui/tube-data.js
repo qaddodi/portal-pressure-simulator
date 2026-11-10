@@ -13,7 +13,7 @@
 import { N_SAMPLES, memberOf } from './veins-mesh.js';
 import { MAX_TIERS, TUBE_FLOATS } from './veins-mesh-data.js';
 import { WEB_FLOATS, WEB_MIN_DEG, WEB_MAX_DEG, legDirection } from './tube-joint.js';
-import { endTrunk, endContinues } from './tube-join-glsl.js';
+import { endTrunk, endContinues, END_THRU_START, END_THRU_END } from './tube-join-glsl.js';
 
 export const TUBE_ROW_FLOATS = 4;             // a row record: row, endStart, endEnd, kind + 2
 export const TUBE_NO_END = -1;
@@ -24,6 +24,9 @@ const TEXELS_ROW = N_SAMPLES / 2;
 const DEG = Math.PI / 180;
 const CLIP_EPS = 1e-6;
 const SNAP_SAMPLES = 12, SNAP_REACH = 0.3;
+let DEFER = new Int32Array(256);   // the join entries a first sweep found no trunk for (tubeRows)
+let SEEN = new Int32Array(1024);   // tubeRows' table of the distinct join entries met (an entry's index + 1)
+const BITS_F = new Float32Array(1), BITS_U = new Uint32Array(BITS_F.buffer);
 
 const tierOf = (tube, o) => { const t = Math.floor(tube[o + T_TIER] + 0.5); return t < 0 ? 0 : t >= MAX_TIERS ? MAX_TIERS - 1 : t; };
 const ptX = (pts, row, i) => pts[(row * TEXELS_ROW + (i >> 1)) * 4 + (i & 1) * 2];
@@ -52,6 +55,7 @@ function stubLength(pts, row, from, to) {
 /** A row's points flat (x0, y0, x1, y1 ...) as legDirection reads them, for one row, into `into` (N_SAMPLES * 2 floats). */
 function rowFlat(pts, row, into) { for (let i = 0; i < N_SAMPLES; i++) { into[2 * i] = ptX(pts, row, i); into[2 * i + 1] = ptY(pts, row, i); } return into; }
 const FLAT = new Float64Array(N_SAMPLES * 2), FLAT2 = new Float64Array(N_SAMPLES * 2);
+const THRU_DEG = 10;                          // a trunk's chord reaches on past an end only into a row that runs on straight (within this): the chord is a straight line, and past a bend it would leave the real trunk
 const CONT_DEG = 45;                          // two rows meeting end to end are one surface when they bend by no more than this
 
 /**
@@ -114,8 +118,32 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
   }
   if (pts) {
     const n = Math.floor(joinEntries.length / 8);
-    for (let e = 0; e < n; e++) {
+    let nDefer = 0;
+    // (An entry that repeats an earlier one — the binning lists a join once for each cell it touches — can change nothing: ends are only ever taken, so what the first did, the copy finds done. Each distinct entry once.)
+    let size = 16;
+    while (size < n * 2) size *= 2;
+    if (SEEN.length < size) SEEN = new Int32Array(size);   // alloc-rare: grown with the number of join entries
+    SEEN.fill(0, 0, size);
+    const mask = size - 1;
+    // Two sweeps: the second takes the entries the first found no trunk for (their ends may meet a junction another entry has made a continuation of: see `carrier` below).
+    for (let pass = 0; pass < 2; pass++) for (let k = 0, kn = pass === 0 ? n : nDefer; k < kn; k++) {
+      const e = pass === 0 ? k : DEFER[k];
       const q = e * 8;
+      if (pass === 0) {
+        let h = 0;
+        for (let m = 0; m < 8; m++) { BITS_F[0] = joinEntries[q + m]; h = Math.imul(h ^ BITS_U[0], 0x9e3779b1) >>> 0; h ^= h >>> 15; }
+        let slot = h & mask, dup = false;
+        for (;;) {
+          const w = SEEN[slot];
+          if (w === 0) { SEEN[slot] = e + 1; break; }
+          const o = (w - 1) * 8;
+          let same = true;
+          for (let m = 0; m < 8 && same; m++) same = joinEntries[o + m] === joinEntries[q + m];
+          if (same) { dup = true; break; }
+          slot = (slot + 1) & mask;
+        }
+        if (dup) continue;
+      }
       if (!(joinEntries[q + 2] > 0) || legsOf(joinEntries, q, pts, nRows) < 2) continue;
       const nl = S.n;
       const setEnd = (a, code) => {   // a: a leg that is an end of its row; the first end given wins
@@ -148,8 +176,23 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
         }
       }
       // The row the other ends in the join end on: the join's trunk if it marks one, else the member that runs through it, else (no row runs through) the pair's first row.
-      const t = marked >= 0 ? marked : interior >= 0 ? interior : pairA;
-      if (t < 0) continue;
+      let t = marked >= 0 ? marked : interior >= 0 ? interior : pairA;
+      if (t < 0) {
+        if (pass === 0) {
+          if (nDefer >= DEFER.length) { const g = new Int32Array(DEFER.length * 2); g.set(DEFER); DEFER = g; }   // alloc-rare: grown only when more entries than ever have no trunk of their own
+          DEFER[nDefer++] = e;
+          continue;
+        }
+        // No row runs through, and no two ends of this entry continue each other: the ends meet a junction other entries made (a vessel's end where two rows run on into
+        // each other, as a varix strand or the oesophageal collateral does at the azygos arch's bend). The row that runs on there is the trunk they end on: the first
+        // leg whose end continues another row.
+        for (let a = 0; a < nl && t < 0; a++) {
+          if (!isEnd(a)) continue;
+          const c = rows[S.row[a] * TUBE_ROW_FLOATS + (S.sample[a] === 0 ? 1 : 2)];
+          if (c <= -2 && Math.floor((-c - 2) / N_SAMPLES) !== S.row[a]) t = a;
+        }
+        if (t < 0) continue;
+      }
       const tRow = S.row[t], tSample = S.sample[t];
       let branches = 0;
       for (let a = 0; a < nl; a++) {
@@ -158,6 +201,21 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       }
       // A trunk whose own end the branches leave from, with no row carrying on, ends flat there and its round cap is gone (the arms' caps and the web make the fork; the cap showed as a disc, 10 Nov): its end code is itself.
       if (branches > 0 && t !== pairA && t !== pairB && isEnd(t)) setEnd(t, endContinues(tRow, tSample));
+    }
+    // A branch's trunk that runs on into another row at an end: the trunk's chord reaches on past that end (the two rows are one vessel there), so a branch at the seam is not cut where the first row stops.
+    const runsOn = (row, sl) => {
+      const c = rows[row * TUBE_ROW_FLOATS + sl];
+      if (c > -2) return false;
+      const k = -c - 2, q = Math.floor(k / N_SAMPLES), qs = k % N_SAMPLES;
+      if (q === row) return false;
+      const dA = legDirection(rowFlat(pts, row, FLAT), sl === 1 ? 0 : N_SAMPLES - 1, sl === 1 ? 1 : -1), dB = legDirection(rowFlat(pts, q, FLAT2), qs, qs === 0 ? 1 : -1);
+      return dA[0] * dB[0] + dA[1] * dB[1] <= -Math.cos(THRU_DEG * DEG);
+    };
+    for (let r = 0; r < nRows; r++) for (let sl = 1; sl <= 2; sl++) {
+      const b = r * TUBE_ROW_FLOATS + sl, c = rows[b];
+      if (c < 0) continue;
+      const tr = Math.floor(c / N_SAMPLES);
+      rows[b] = c + (runsOn(tr, 1) ? END_THRU_START : 0) + (runsOn(tr, 2) ? END_THRU_END : 0);
     }
   }
   let exact = 0, joinOnly = 0, ended = 0;

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, JOIN_FADE_IN, JOIN_FADE_OUT, JOIN_FADE_LINE, endTrunk, endContinues, endKind,
-  tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS, joinToneJS, joinTaperJS, JOIN_TAPER_R, joinPackJS, joinRampGLSL,
+  tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS, joinToneJS, joinTaperJS, JOIN_TAPER_R, joinPackJS, joinRampGLSL, END_THRU_START, END_THRU_END,
 } from '../src/ui/tube-join-glsl.js';
 import { lintGLSL } from './glsl-lint.js';
 import { ALONG_GLSL } from '../src/ui/comp-glsl.js';
@@ -41,6 +41,45 @@ test('an open end: the vertex shader\'s data is the trunk\'s chord about the sam
   assert.equal(joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 7 }, rows }).K[1], JOIN_MODE.CUT, 'the same tier: cut at the wall');
   assert.equal(joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 3 }, rows }).K[1], JOIN_MODE.CUT, 'a lower tier: cut');
   assert.deepEqual(joinOneJS({ e: -1, atStart: true, own: { pts: branch, tier: 3 }, rows }).K, [-1, -1], 'no end: none');
+});
+
+test('an open end on a trunk\'s end: the chord stops at the trunk\'s end (flat, the branch drawn beyond) unless the trunk runs on into another row there (END_THRU_*): then it reaches on, and nothing of the branch is drawn whole beyond the seam (the azygos arch\'s hooked tip at the SVC)', () => {
+  // a vertical trunk row 0 from y = 0 to y = 100, radius 6; a branch arriving at its end (0, 100) from the left, tier 16
+  const tr = line(0, 0, 0, 100), br = line(-60, 130, 0, 100);
+  const R6 = rowsOf({ 0: { pts: tr, rad: tr.map(() => 6), tier: 3, colour: () => [0.2, 0.8, 0.2] } });
+  const own = { pts: br, tier: 16 };
+  const alone = joinOneJS({ e: endTrunk(0, 63), atStart: false, own, rows: R6 });
+  assert.equal(alone.PT, -2, 'a trunk that ends there: flat');
+  assert.ok(Math.abs(alone.J[3] - 100) < 1e-9, `the forward arm ends at the trunk's end: ${alone.J[3]}`);
+  const thru = joinOneJS({ e: endTrunk(0, 63) + END_THRU_END, atStart: false, own, rows: R6 });
+  assert.equal(thru.PT, -1, 'a trunk that runs on: no flat end');
+  assert.ok(thru.J[3] > 100 + JOIN_REACH * 6 - 1e-6, `the chord reaches on past the end: ${thru.J[3]}`);
+  const start = joinOneJS({ e: endTrunk(0, 0) + END_THRU_START, atStart: false, own, rows: R6 });
+  assert.ok(start.J[1] < -JOIN_REACH * 6 + 1e-6 && start.PT === -1, 'and the other end the same way');
+  const both = joinOneJS({ e: endTrunk(0, 0) + END_THRU_START + END_THRU_END, atStart: false, own, rows: R6 });
+  assert.ok(both.J[1] < -JOIN_REACH * 6 + 1e-6 && both.J[3] > JOIN_REACH * 6 - 1e-6, 'both');
+  // a pixel of the branch's round end past the seam, inside the trunk's width: alone it is drawn whole; with the trunk running on it fades into the trunk
+  const at = (d, p) => joinEndJS({ vI: 62, J0: [0, 0, 0, 0], J1: d.J, K: [-1, -1, d.K[0], d.K[1]], C0: [0, 0, 0], C1: d.C, PT1: d.PT, p, R: 4, px: PX });
+  const p = [0.5, 103];
+  assert.equal(at(alone, p).fl, 1, 'alone: whole');
+  assert.ok(at(thru, p).fl < 0.5 || at(thru, p).drop, `running on: faded into the trunk (${at(thru, p).fl})`);
+});
+
+test('an open end follows a trunk that bends within its reach: the arms are the trunk\'s own samples about the knee, not the tangent\'s line (the Circuit\'s cava turns a corner where the hepatic veins arrive: its tangent cut dropped pixels outside it)', () => {
+  // an L: down x = 0 from y = 0 to y = 100, then along y = 100 to x = 100, radius 6; 64 samples by arc length
+  const corners = [[0, 0], [0, 100], [100, 100]], Ls = [0, 100, 200];
+  const pts = Array.from({ length: 64 }, (_, i) => { const s = (i / 63) * 200, k = s <= 100 ? 0 : 1, t = s <= 100 ? s : s - 100; return [corners[k][0] + (corners[k + 1][0] - corners[k][0]) * t / 100, corners[k][1] + (corners[k + 1][1] - corners[k][1]) * t / 100]; });
+  const sm = 31;   // just before the corner (the sample nearest arc length 100 is 31.5)
+  const Rr = rowsOf({ 0: { pts, rad: pts.map(() => 6), tier: 3, colour: () => [0.2, 0.8, 0.2] } });
+  const o = joinOneJS({ e: endTrunk(0, sm), atStart: false, own: { pts: line(-60, 100, 0, 100), tier: 3 }, rows: Rr });
+  assert.deepEqual(o.Q, pts[sm], 'the knee is the sample');
+  const at = (p) => joinEndJS({ vI: 62, J0: [0, 0, 0, 0], J1: o.J, Q1: o.Q, K: [-1, -1, o.K[0], o.K[1]], C1: o.C, PT1: o.PT, p, R: 4, px: PX });
+  // a pixel in the trunk's corner (inside the L's elbow, 3 right of the vertical and 3 above its turn): the trunk's; one beyond the corner outside the L (x -10): not the trunk's
+  assert.equal(at([3, 99]).drop, true, 'inside the elbow: the trunk\'s');
+  assert.equal(at([-10, 99]).drop, false, 'outside the L: not dropped (a tangent chord dropped it)');
+  const straightRows = rowsOf({ 0: { pts: line(0, 0, 0, 100), rad: Array(64).fill(6), tier: 3, colour: () => [0, 0, 0] } });
+  const sOne = joinOneJS({ e: endTrunk(0, 31), atStart: false, own: { pts: line(-60, 50, 0, 50), tier: 3 }, rows: straightRows });
+  assert.ok(Math.abs(sOne.J[0]) < 1e-6 && Math.abs(sOne.J[2]) < 1e-6 && sOne.J[1] < sOne.Q[1] && sOne.J[3] > sOne.Q[1], 'a straight trunk: the arms run one each way along it');
 });
 
 test('an open end in the fragment: a cut drops what lies in the trunk\'s lumen; a fade takes the branch\'s lumen and ink away between outside the wall and inside it', () => {
@@ -136,7 +175,9 @@ ${tubeJoinVS(64)}`;
   assert.ok(fs.includes(`j.fo = smoothstep(-${JOIN_FADE_LINE} * R, 0.0, gap);`));
   assert.ok(!/texelFetch|texture\(|vesAttrs|for \(/.test(fs), 'the fragment part reads nothing and loops over nothing');
   assert.match(vs, /int k = int\(-e \+ 0\.5\) - 2, pr = k \/ 64, ps = k % 64;/, 'a continuation: -(2 + row * 64 + sample)');
-  assert.match(vs, /int ei = int\(e \+ 0\.5\), tr = ei \/ 64, sm = ei % 64;/);
+  assert.match(vs, /int ei = int\(e \+ 0\.1\), tr = ei \/ 64, sm = ei % 64;/);
+  assert.match(vs, /return vec4\(joinArm\(tr, sm, -1, sp, hl, tb\), joinArm\(tr, sm, 1, sp, hl, tf\)\);/, 'the arms follow the trunk\'s samples; the knee is the sample');
+  assert.ok(fs.includes('float gap = min(joinSeg(p, J.xy, CC.yz), joinSeg(p, CC.yz, J.zw)) - K.x;'), 'the fragment measures to the two arms');
   assert.match(vs, /uniform int joinCut;/);
   assert.throws(() => tubeJoinVS(32), /N_SAMPLES|64/);
   assert.throws(() => tubeJoinFS(32), /N_SAMPLES|64/);

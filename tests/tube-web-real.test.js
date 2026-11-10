@@ -159,7 +159,7 @@ for (const [name, run] of sets) {
         if (v === TUBE_NO_END) continue;
         ends++;
         assert.ok(rows.rows[o + 3] > 2.5, `row ${r.id} has an end but is not exact`);   // (3, or 4: exact only for its end)
-        const cont = v <= -2, code = cont ? -(v + 2) : v, tRow = Math.floor(code / N_SAMPLES), tSample = code % N_SAMPLES;
+        const cont = v <= -2, code = cont ? -(v + 2) : Math.floor(v + 0.1), tRow = Math.floor(code / N_SAMPLES), tSample = code % N_SAMPLES;
         if (cont) {
           continues++;
           // the partner's end points back at this row, at this row's end sample
