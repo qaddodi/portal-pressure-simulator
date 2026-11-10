@@ -37,6 +37,8 @@ export const JOIN_RAMP_R = 3;                // radii before a continuation's pl
 export const JOIN_F_VEIL = 128, JOIN_F_WHOLE = 256;   // veins-gl.js's flag bits (not imported: veins-gl.js imports this module's callers)
 export const JOIN_TONE_R = 4;                // radii (at least JOIN_TONE_MIN world units) over which the cel tones' light direction turns from a row's own to the mean at a continuation's plane, and a cut branch's tones ease in from the trunk's wall
 export const JOIN_TONE_MIN = 16;
+export const JOIN_MOUTH_R = 1.2;            // radii (at least JOIN_MOUTH_MIN world units) over which a cut branch's tones ease in from the trunk's wall: short, as a long ease shows as a flat block with a straight seam across the mouth (10 Nov)
+export const JOIN_MOUTH_MIN = 3;
 export const JOIN_CUT = 0.25;                // device pixels: how far past the bisector plane a continuation still draws (so the two leave no hairline)
 export const JOIN_NONE = -1;
 export const JOIN_MODE = { CUT: 0, SOFT: 1, PLANE: 2 };   // (SOFT: a cut at the wall one device pixel soft: a branch in a higher tier than its trunk, drawn over it, 10 Nov)
@@ -229,7 +231,7 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
   // (A trunk much narrower than the branch — a small tributary the join happens to mark as its trunk — does not recolour or flatten the wide branch: the share rk, and the reach by the narrower of the two.)
   float rk = smoothstep(0.3, 0.9, K.x / max(R, 1e-3)), rn = min(R, K.x);
   j.wc = (1.0 - smoothstep(0.0, max(${f(JOIN_COLOUR_R)} * rn, ${f(JOIN_COLOUR_MIN / 2)}), gap)) * rk;
-  j.tk = mix(1.0, smoothstep(0.0, max(${f(JOIN_TONE_R)} * rn, ${f(JOIN_TONE_MIN / 2)}), gap), rk);
+  j.tk = mix(1.0, smoothstep(0.0, max(${f(JOIN_MOUTH_R)} * rn, ${f(JOIN_MOUTH_MIN)}), gap), rk);
   if (soft && !beyond) { j.fl = smoothstep(-px, 0.0, gap); j.fo = j.fl; }
   return j;
 }
@@ -363,7 +365,7 @@ export function joinEndJS(o) {
   if (gap < (soft ? -px : -0.5 * px) && !beyond) { j.drop = true; return j; }
   const rk = smooth(0.3, 0.9, K[0] / Math.max(R, 1e-3)), rn = Math.min(R, K[0]);
   j.wc = (1 - smooth(0, Math.max(JOIN_COLOUR_R * rn, JOIN_COLOUR_MIN / 2), gap)) * rk;
-  j.tk = mix(1, smooth(0, Math.max(JOIN_TONE_R * rn, JOIN_TONE_MIN / 2), gap), rk);
+  j.tk = mix(1, smooth(0, Math.max(JOIN_MOUTH_R * rn, JOIN_MOUTH_MIN), gap), rk);
   if (soft && !beyond) { j.fl = smooth(-px, 0, gap); j.fo = j.fl; }
   return j;
 }

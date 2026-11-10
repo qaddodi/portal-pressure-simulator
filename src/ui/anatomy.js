@@ -185,8 +185,8 @@ export const EDGE_PATH = {
   ILI_IVC: 'M620 880 L 620 650',
   EPI_ILI: 'M500 800 C 512 850 530 896 546 950',
   // Up the chest wall and in across the azygos (in front of it, at a right angle) to the SVC's
-  // side, below the arch, so the two never run together.
-  EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 396 106 476 84 540 80 C 576 78 598 76 612 72',
+  // side, below the arch, so the two never run together. It ends 3 units off the cava's axis, inside its wall at every caliber (it ended on the wall, at 612, and its round cap stood out of it: 10 Nov).
+  EPI_SVC: 'M500 800 C 420 780 340 680 334 520 C 318 410 318 260 360 170 C 396 106 476 84 540 80 C 576 78 598 76 617 71',
 
   // The coronary vein reaches the gastroesophageal junction; from there the varices climb the
   // esophageal wall as a braid of submucosal columns (see STRANDS) up to the varices node.
