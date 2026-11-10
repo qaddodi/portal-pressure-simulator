@@ -185,7 +185,9 @@ void main() {
   float wsel = grp == 1 ? aSel : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
   float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
   float lumA = aL * aA * tierAlpha[tt] * gf;
-  lumA *= je.fl;   // (a branch fading into its trunk: tube-join-glsl.js)
+  // (A continuation eases its opacity to its partner's tier's over the last JOIN_RAMP_R radii when the partner is the fainter, so the two tiers meet without a step.)
+  float jr = je.pt >= 0.0 ? mix(1.0, min(1.0, tierAlpha[int(je.pt + 0.5)] / max(tierAlpha[tt], 1e-3)), je.rs) : 1.0;
+  lumA *= je.fl * jr;   // (a branch fading into its trunk: tube-join-glsl.js)
   bool lum = lumA > 0.02 && !dotted;
   // The stream shown here: this lumen, with its place along and across for the compositor's blood.
   uint gId = 0u;
@@ -196,7 +198,7 @@ void main() {
     gId = uint(id + 1); gS = u * t5.z; gY = clamp(across / max(R, 1e-3), -1.0, 1.0); gW = lumA;
   }
   if (grp == 0) c *= 1.0 - occl * aOf;
-  c *= mix(je.fo, je.fl, aL);   // (the lumen's share fades with the branch, the outline's faster)
+  c *= mix(je.fo, je.fl, aL) * jr;   // (the lumen's share fades with the branch, the outline's faster)
   // (The lift: the selected vessel's own share, laid over the network.)
   if (mPass == ${MP.LIFT}) {
     vec4 lc = c * wsel;
@@ -269,10 +271,11 @@ export function tubeLeanJS(o) {
   const gf = grp === 0 ? 1 - occl * of : grp === 1 ? mix(netAlpha, 1, wsel) : 1;
   let lumA = aL * at.alpha * tierA * gf;
   const fl = jn ? jn.fl : 1, fo = jn ? jn.fo : 1;
-  lumA *= fl;
+  const jr = jn && jn.pt >= 0 ? mix(1, Math.min(1, (o.partnerAlpha ?? tierA) / Math.max(tierA, 1e-3)), jn.rs) : 1;   // (o.partnerAlpha: the partner's tier alpha)
+  lumA *= fl * jr;
   const lum = lumA > 0.02 && !dotted;
   if (grp === 0) c = c.map((v) => v * (1 - occl * of));
-  c = c.map((v) => v * mix(fo, fl, aL));
+  c = c.map((v) => v * mix(fo, fl, aL) * jr);
   if (o.lift) {
     const lc = c.map((v) => v * wsel);
     return lc[3] < 0.002 ? { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 } : { kind: 'draw', colour: lc, flow: null, dep: 0 };

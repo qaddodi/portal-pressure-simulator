@@ -132,7 +132,7 @@ ${tubeJoinVS(64)}`;
   assert.match(fs, /if \(!atStart && !\(vI > 55\.0\)\) return j;/);
   assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) { j.drop = true; return j; }`));
   assert.match(fs, /if \(gap < -0\.5 \* px\) \{ j\.drop = true; return j; \}/);
-  assert.ok(fs.includes(`j.fl = smoothstep(-${JOIN_FADE_IN}.0 * R, ${JOIN_FADE_OUT} * R, gap);`));
+  assert.ok(fs.includes(`j.fl = smoothstep(-${JOIN_FADE_IN} * R, ${JOIN_FADE_OUT} * R, gap);`));
   assert.ok(fs.includes(`j.fo = smoothstep(-${JOIN_FADE_LINE} * R, 0.0, gap);`));
   assert.ok(!/texelFetch|texture\(|vesAttrs|for \(/.test(fs), 'the fragment part reads nothing and loops over nothing');
   assert.match(vs, /int k = int\(-e \+ 0\.5\) - 2, pr = k \/ 64, ps = k % 64;/, 'a continuation: -(2 + row * 64 + sample)');
@@ -179,4 +179,30 @@ test('the join-only depth shader shares joinEnd\'s text with the lean and the lu
   const K = { F_DIFFUSE: 2, F_EDGE: 64, F_SHADOW: 4, F_SPEC: 32, F_VEIL: 128, F_WHOLE: 256, F_SEL: 1, F_DOTTED: 8, F_NOCASE: 16, LIFT_EASE_MAX: 1, LIFT_EASE_SHARE: 1, LUMEN2: 32768, ROW2_BITS: 11, VEIL_K: 0.6, EDGE: '', ENT_W: 2048, N_SAMPLES: 64, MAX_TIERS: 20, S_OFF: 96, ALONG_GLSL: '' };
   assert.ok(tubeLeanFS(K).includes(tubeJoinFS(64)));
   assert.equal(typeof tubeLumenFS, 'function');
+});
+
+test('a branch on the trunk\'s own end: the chord stops at the trunk\'s end (the capsule is the trunk\'s round cap), so no pixel beyond it is dropped for nothing (the portal fork\'s black wedges, 10 Nov)', () => {
+  const t = line(-100, 0, 0, 0), own = line(0, 0, 60, 40);
+  const R = 6, rw = rowsOf({ 0: { pts: t, rad: t.map(() => R), tier: 7, colour: () => [0, 0, 0] } });
+  const end = joinOneJS({ e: endTrunk(0, 63), atStart: true, own: { pts: own, tier: 7 }, rows: rw });
+  assert.ok(end.J[2] <= 1e-9, `the chord ends at the trunk's end: ${end.J[2]}`);
+  assert.ok(end.J[0] < -JOIN_REACH * R + 1e-9, 'and still reaches back into the trunk');
+  const at = (p) => joinEndJS({ vI: 2, J0: end.J, J1: [0, 0, 0, 0], K: [...end.K, -1, -1], C0: end.C, C1: [0, 0, 0], p, R, px: PX });
+  assert.equal(at([R + 2, 0]).drop, false, 'a pixel 2 beyond the trunk\'s cap is the branch\'s');
+  assert.equal(at([R + 6, 3]).drop, false, 'and one in the crotch');
+  assert.equal(at([R - 2, 0]).drop, true, 'inside the cap it is the trunk\'s');
+  assert.equal(at([-10, 0]).drop, true, 'and inside the trunk');
+  const near = joinOneJS({ e: endTrunk(0, 61), atStart: true, own: { pts: own, tier: 7 }, rows: rw });
+  assert.ok(near.J[2] <= 100 / 63 * 2 + 1e-9, `two samples from the end it reaches only to it: ${near.J[2]}`);
+});
+
+test('a continuation between two tiers: the more opaque row eases to the other\'s opacity over the last JOIN_RAMP_R radii (none when the partner is the more opaque, or the tier is the same)', () => {
+  const A = line(-100, 0, 0, 0), B = line(0, 0, 100, 0);
+  const rw = rowsOf({ 0: { pts: A, tier: 7, colour: () => [1, 1, 1] }, 1: { pts: B, tier: 3, colour: () => [1, 1, 1] } });
+  const d = joinOneJS({ e: endContinues(1, 0), atStart: false, own: { pts: A, tier: 7 }, rows: rw });
+  assert.equal(d.PT, 3, 'the partner\'s tier rides in the colour\'s w');
+  const R = 6, at = (x) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: d.J, K: [-1, -1, ...d.K], C0: [0, 0, 0], C1: d.C, PT1: d.PT, p: [x, 0], R, px: PX });
+  assert.equal(at(-50).rs, 0, 'far from the plane: whole');
+  assert.ok(Math.abs(at(0).rs - 1) < 1e-9, 'at the plane: all the way to the partner\'s opacity');
+  assert.ok(at(-9).rs > 0 && at(-9).rs < 1, 'between: eased');
 });

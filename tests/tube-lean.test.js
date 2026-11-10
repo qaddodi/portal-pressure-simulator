@@ -173,8 +173,8 @@ test('a branch fading into its trunk: the lumen\'s factor fl and the outline\'s 
   const ink = tubeLeanJS({ ...base, D: 0.5, attrs, join: { drop: false, fl: 1, fo: 0.25 } }), ink1 = tubeLeanJS({ ...base, D: 0.5, attrs, join: { drop: false, fl: 1, fo: 1 } });
   near([ink.colour[3] / ink1.colour[3]], [0.25], 'an outline pixel is scaled by fo', 1e-6);
   assert.equal(tubeLeanJS({ ...base, D: 0.5, attrs, join: { drop: false, fl: 1, fo: 0 } }).kind, 'discard', 'ink gone: nothing is drawn there');
-  assert.match(LEAN, /c \*= mix\(je\.fo, je\.fl, aL\);/);
-  assert.match(LEAN, /lumA \*= je\.fl;/);
+  assert.match(LEAN, /c \*= mix\(je\.fo, je\.fl, aL\) \* jr;/);
+  assert.match(LEAN, /lumA \*= je\.fl \* jr;/);
 });
 
 test('a web carries its owner\'s tier alpha and group (the lumen layer gives it the same), not those of the tier it is drawn in', () => {

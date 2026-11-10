@@ -31,11 +31,12 @@ export const END_BASE = 64;                  // vEnd's packing of a sample (the 
 export const END_SEGS = 2;                   // (the multi-segment reference trunkGapJS reads this many segments each side of the sample, for the tests)
 export const JOIN_WIN = 8;                   // samples from an end within which a pixel looks at it
 export const JOIN_REACH = 2;                 // radii: the trunk's chord reaches at least this far each way from the sample
-export const JOIN_FADE_IN = 1.0;             // radii inside the trunk's wall at which a fading branch's lumen is gone
-export const JOIN_FADE_OUT = 0.6;            // radii outside the wall at which it starts to go
-export const JOIN_FADE_LINE = 0.35;          // radii inside the wall at which its outline is gone
+export const JOIN_FADE_IN = 1.4;             // radii inside the trunk's wall at which a fading branch's lumen is gone
+export const JOIN_FADE_OUT = 0.9;            // radii outside the wall at which it starts to go
+export const JOIN_FADE_LINE = 0.5;          // radii inside the wall at which its outline is gone
 export const JOIN_COLOUR_R = 3;              // radii over which a row's colour blends into the other's at a cut end or a continuation (at least JOIN_COLOUR_MIN world units)
 export const JOIN_COLOUR_MIN = 8;
+export const JOIN_RAMP_R = 3;                // radii before a continuation's plane over which the more opaque row eases to the other's opacity (no step in the look where the tiers differ)
 export const JOIN_CUT = 0.25;                // device pixels: how far past the bisector plane a continuation still draws (so the two leave no hairline)
 export const JOIN_NONE = -1;
 export const JOIN_MODE = { CUT: 0, FADE: 1, PLANE: 2 };
@@ -68,15 +69,15 @@ uniform int joinCut;                   // 0: no row has an end (vEnd is -1) and 
 flat out vec4 vJ0;                     // the start's end data: an open end: the trunk's chord a, b; a continuation: the end point and the plane's unit normal
 flat out vec4 vJ1;                     // the end's
 flat out vec4 vJK;                     // the start's (trunk radius, mode), the end's (radius, mode): mode 0 cut, 1 fade, 2 plane, -1 none
-flat out vec4 vC0;                     // the other row's colour at the start's end (rgb)
+flat out vec4 vC0;                     // the other row's colour at the start's end (rgb), and a continuation's partner's tier (w; -1 otherwise)
 flat out vec4 vC1;                     // and at the end's
 ${JOIN_ALONG_GLSL}
 vec3 joinColour(int row, float u) {
   return mix(texelFetch(tube, ivec2(0, row), 0).rgb, texelFetch(tube, ivec2(1, row), 0).rgb, joinAlong(row, u));
 }
-vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec3 C) {
+vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
   K = vec2(-1.0, -1.0);
-  C = vec3(0.0);
+  C = vec4(0.0, 0.0, 0.0, -1.0);   // (w: a continuation's partner's tier, for the opacity ramp)
   if (e > -0.5) {
     int ei = int(e + 0.5), tr = ei / ${END_BASE}, sm = ei % ${END_BASE};
     vec2 c = PT(tr, sm);
@@ -85,9 +86,11 @@ vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec3 C) {
     float r = max(texelFetch(rad, ivec2(sm, tr), 0).r, MIN_RADIUS);
     d = ld > 1e-6 ? d / ld : vec2(1.0, 0.0);
     float hl = max(0.5 * ld, ${f(JOIN_REACH)} * r);
+    // (The chord reaches no further than the trunk does: past the trunk's own end nothing of it is drawn, and a branch cut there leaves a black wedge, 10 Nov, the portal fork.)
+    float hb = min(hl, length(c - PT(tr, 0))), hf = min(hl, length(PT(tr, ${LAST}) - c));
     K = vec2(r, texelFetch(tube, ivec2(2, id), 0).x > texelFetch(tube, ivec2(2, tr), 0).x + 0.5 ? 1.0 : 0.0);
-    C = joinColour(tr, float(sm) / ${LAST}.0);
-    return vec4(c - d * hl, c + d * hl);
+    C.rgb = joinColour(tr, float(sm) / ${LAST}.0);
+    return vec4(c - d * hb, c + d * hf);
   }
   if (e < -1.5) {
     int k = int(-e + 0.5) - 2, pr = k / ${END_BASE}, ps = k % ${END_BASE};
@@ -98,7 +101,7 @@ vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec3 C) {
     if (lo > 1e-6 && lp > 1e-6) {
       vec2 m = dO / lo - dP / lp;
       float lm = length(m);
-      if (lm > 1e-4) { K = vec2(0.0, 2.0); C = joinColour(pr, float(ps) / ${LAST}.0); return vec4(E, m / lm); }
+      if (lm > 1e-4) { K = vec2(0.0, 2.0); C = vec4(joinColour(pr, float(ps) / ${LAST}.0), texelFetch(tube, ivec2(2, pr), 0).x); return vec4(E, m / lm); }
     }
   }
   return vec4(0.0);
@@ -107,11 +110,11 @@ void joinOut(int id, vec2 ends) {
   vJ0 = vec4(0.0); vJ1 = vec4(0.0); vJK = vec4(-1.0); vC0 = vec4(0.0); vC1 = vec4(0.0);
   if (ends.x != -1.0 || ends.y != -1.0) {
     vec2 k0, k1;
-    vec3 c0, c1;
+    vec4 c0, c1;
     vJ0 = joinOne(id, ends.x, true, k0, c0);
     vJ1 = joinOne(id, ends.y, false, k1, c1);
     vJK = vec4(k0, k1);
-    vC0 = vec4(c0, 0.0); vC1 = vec4(c1, 0.0);
+    vC0 = c0; vC1 = c1;
   }
 }
 `;
@@ -142,10 +145,10 @@ export const tubeJoinFS = (N_SAMPLES) => {
   if (N_SAMPLES !== END_BASE) throw new Error('tube-join-glsl: vEnd packs a row as row * 64 + sample, so N_SAMPLES must be 64');
   const LAST = N_SAMPLES - 1;
   return `// ---- a row's end on another row (tube-join-glsl.js): the decisions, from the vertex shader's flat data; no reads ----
-struct JoinEnd { bool drop; float fl; float fo; float wc; vec3 col; };   // wc: the share of the other row's colour col this pixel takes
+struct JoinEnd { bool drop; float fl; float fo; float wc; vec3 col; float pt; float rs; };   // wc: the share of the other row's colour col this pixel takes
 JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2 p, float R, float px) {
   JoinEnd j;
-  j.drop = false; j.fl = 1.0; j.fo = 1.0; j.wc = 0.0; j.col = vec3(0.0);
+  j.drop = false; j.fl = 1.0; j.fo = 1.0; j.wc = 0.0; j.col = vec3(0.0); j.pt = -1.0; j.rs = 0.0;
   bool atStart = vI < ${JOIN_WIN}.0;
   if (!atStart && !(vI > ${LAST - JOIN_WIN}.0)) return j;
   vec4 J = atStart ? vJ0 : vJ1;
@@ -154,9 +157,11 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
   float cw = max(${f(JOIN_COLOUR_R)} * R, ${f(JOIN_COLOUR_MIN)});
   j.col = (atStart ? vC0 : vC1).rgb;
   if (K.y > 1.5) {
+    j.pt = (atStart ? vC0 : vC1).w;
     float s = dot(p - J.xy, J.zw);
     if (s > ${f(JOIN_CUT)} * px) { j.drop = true; return j; }
     j.wc = 0.5 * (1.0 - smoothstep(0.0, cw, -s));
+    j.rs = smoothstep(-${f(JOIN_RAMP_R)} * R, 0.0, s);
     return j;
   }
   vec2 ba = J.zw - J.xy;
@@ -210,7 +215,8 @@ export function joinOneJS(o) {
     const c = T.pts[sm], d0 = sub(T.pts[Math.min(sm + 1, last)], T.pts[Math.max(sm - 1, 0)]), ld = len(d0);
     const r = T.rad[sm];
     const d = ld > 1e-6 ? [d0[0] / ld, d0[1] / ld] : [1, 0], hl = Math.max(0.5 * ld, JOIN_REACH * r);
-    return { J: [c[0] - d[0] * hl, c[1] - d[1] * hl, c[0] + d[0] * hl, c[1] + d[1] * hl], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.FADE : JOIN_MODE.CUT], C: colOf(tr, sm / last) };
+    const hb = Math.min(hl, len(sub(c, T.pts[0]))), hf = Math.min(hl, len(sub(T.pts[last], c)));
+    return { J: [c[0] - d[0] * hb, c[1] - d[1] * hb, c[0] + d[0] * hf, c[1] + d[1] * hf], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.FADE : JOIN_MODE.CUT], C: colOf(tr, sm / last), PT: -1 };
   }
   if (e < -1.5) {
     const k = Math.floor(-e + 0.5) - 2, pr = Math.floor(k / END_BASE), ps = k % END_BASE;
@@ -219,10 +225,10 @@ export function joinOneJS(o) {
     const lo = len(dO), lp = len(dP);
     if (lo > 1e-6 && lp > 1e-6) {
       const m = [dO[0] / lo - dP[0] / lp, dO[1] / lo - dP[1] / lp], lm = len(m);
-      if (lm > 1e-4) return { J: [E[0], E[1], m[0] / lm, m[1] / lm], K: [0, JOIN_MODE.PLANE], C: colOf(pr, ps / last) };
+      if (lm > 1e-4) return { J: [E[0], E[1], m[0] / lm, m[1] / lm], K: [0, JOIN_MODE.PLANE], C: colOf(pr, ps / last), PT: o.rows(pr).tier ?? 0 };
     }
   }
-  return { J: [0, 0, 0, 0], K: [-1, -1], C: [0, 0, 0] };
+  return { J: [0, 0, 0, 0], K: [-1, -1], C: [0, 0, 0], PT: -1 };
 }
 
 /**
@@ -230,7 +236,7 @@ export function joinOneJS(o) {
  */
 export function joinEndJS(o) {
   const { vI, p, R, px } = o, last = END_BASE - 1;
-  const j = { drop: false, fl: 1, fo: 1, wc: 0, col: [0, 0, 0] };
+  const j = { drop: false, fl: 1, fo: 1, wc: 0, col: [0, 0, 0], pt: -1, rs: 0 };
   const atStart = vI < JOIN_WIN;
   if (!atStart && !(vI > last - JOIN_WIN)) return j;
   const J = atStart ? o.J0 : o.J1, K = atStart ? [o.K[0], o.K[1]] : [o.K[2], o.K[3]];
@@ -238,9 +244,11 @@ export function joinEndJS(o) {
   const cw = Math.max(JOIN_COLOUR_R * R, JOIN_COLOUR_MIN);
   j.col = (atStart ? o.C0 : o.C1) ?? [0, 0, 0];
   if (K[1] > 1.5) {
+    j.pt = (atStart ? o.PT0 : o.PT1) ?? -1;
     const s = (p[0] - J[0]) * J[2] + (p[1] - J[1]) * J[3];
     if (s > JOIN_CUT * px) { j.drop = true; return j; }
     j.wc = 0.5 * (1 - smooth(0, cw, -s));
+    j.rs = smooth(-JOIN_RAMP_R * R, 0, s);
     return j;
   }
   const bx = J[2] - J[0], by = J[3] - J[1], qx = p[0] - J[0], qy = p[1] - J[1];

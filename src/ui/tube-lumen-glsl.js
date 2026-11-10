@@ -182,7 +182,8 @@ void main() {
   float wsel = grp == 1 ? aSel : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
   float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
   float lumA = aL * aA * tierAlpha[ti] * gf;
-  lumA *= je.fl;   // (a branch fading into its trunk, as tubeLeanFS has it)
+  float jr = je.pt >= 0.0 ? mix(1.0, min(1.0, tierAlpha[int(je.pt + 0.5)] / max(tierAlpha[ti], 1e-3)), je.rs) : 1.0;   // (a continuation eases its opacity to the partner's, as tubeLeanFS)
+  lumA *= je.fl * jr;   // (a branch fading into its trunk, as tubeLeanFS has it)
   if (lumA <= ${LUM_MIN}) discard;
   // The place in the stream, as packFlow would have stored it and the compositor unpacked it: the arc length and the across.
   int sg = clamp(int(vI), 0, ${N_SAMPLES - 2});
