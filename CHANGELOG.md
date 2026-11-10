@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Tube: the lumen pass skips the webs' colour draw unless the origin colours or the dye are on.** (Tube speed, brief PL item 2, 10 Nov 2026.)
+  A web's lumen pixel is its plain fill, which the vessel layer already holds, so with those two off (the usual case) the webs stay in the lumen pass's depth prepass only: in the lobule that is 425 fewer instances through the blood shader every frame.
 - **Tube: the lumen layer is drawn at a share of the vessel layer's size in the lobule (and on phones).** (Tube speed, brief PL item 1, 10 Nov 2026: the lobule ran 21.5 fps on a Mac, held by the GPU.)
   The lumen pass shades every lumen pixel with the blood shader at the layer's full size. Its target is now `ceil(layer x share)`: 0.5 in the lobule, 1 for the figure on a Mac, 0.67 for the figure on a phone; `?lumenscale=0.25..1` overrides every instance and `?lumen=off` draws no lumen pass and no blood, to compare on a device. The pass draws the same picture smaller (the view, the pieces' scissors and shifts in the target's pixels), and the compositor's Tube builds read it filtered and keep it inside the vessel layer's own lumen at full size, with the layer's opacity, so blood never spills over an outline or past a wall. `?perf` shows the target's size in MP. A lobule target of 4.15 MP is 1.04 MP.
 - **Tube: vessels wholly outside the layer are not drawn.** (Tube speed plan P3/PD part 3, 10 Nov 2026.)

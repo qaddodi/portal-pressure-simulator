@@ -221,6 +221,8 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!/lumenDepth\.needs\(m, wo, la, lw0, lh0\)/.test(lf) || !/lumenDepth\.drawn\(m, wo, la, lw0, lh0\)/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth stamp is told the target\'s size');
     if (!/const SW = size \? size\[0\] : lumK \? lumK\.w : fboW/.test(vg)) errors.push('src/ui/veins-gl.js vesselSet: the layer\'s size uniforms are the target\'s while lumK is set');
     if (!/if \(lumK\) m = lumK\.m;/.test(vg)) errors.push('src/ui/veins-gl.js layerView: the cull\'s rectangle comes from the full view while the lumen pass draws at a share (the layer pass\'s rectangle)');
+    if (!/tubePass\.webColour = !!\(blood\.origin \|\| \(dyeAny && blood\.dye !== false\)\);/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen colour draw includes the webs only when the origin colours or the dye are on (tubePass.webColour; a web\'s lumen pixel is the plain fill otherwise)');
+    if (!/if \(w && tubePass\.webColour\) \{ webCall\(P3\.webLumen,/.test(text('src/ui/tube-pass.js'))) errors.push('src/ui/tube-pass.js tubeLumenPass: the webs\' colour draw follows tubePass.webColour; their depth prepass does not');
     const ep = slice(vg, 'function eachPiece(', '\n  }\n');
     if (!/lumenPiece\(AXX\[i \* 3\], AXX\[i \* 3 \+ 1\], K\.sx, PCX\)/.test(ep) || !/AXX\[2\] \* K\.sx/.test(ep)) errors.push('src/ui/veins-gl.js eachPiece: a lumen pass at a share scissors and shifts its pieces in the target\'s pixels (lumenPiece, times the share)');
   }

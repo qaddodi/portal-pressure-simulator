@@ -280,7 +280,7 @@ export function createTubePass(E) {
       if (TG[t] !== g || !has(t)) continue;
       const n = tb.count[t], w = FR.wb.count[t];
       if (n) { stripCall(P3.lumen, MP.SHAPE, t, BASES[t], H, px, look, D.stripVAO, D.rowBuf, 4, 16, tb.start[t], n); MG.lumStrips += n; }
-      if (w) { webCall(P3.webLumen, MP.SHAPE, t, BASES[t], H, px, look, FR.wb.start[t], w); MG.lumWebs += w; }
+      if (w && tubePass.webColour) { webCall(P3.webLumen, MP.SHAPE, t, BASES[t], H, px, look, FR.wb.start[t], w); MG.lumWebs += w; }
     }
     keyPre = 0;
     gl.disable(gl.DEPTH_TEST); gl.depthMask(true);
@@ -289,6 +289,9 @@ export function createTubePass(E) {
     return true;
   }
   tubePass.drew = 0;
+  // Whether the lumen pass's colour draw includes the webs (set by veins-gl.js lumenFrame): a web's lumen pixel is the plain fill unless the origin colours or the dye are on (the wall
+  // takes no streak, the lymph's dashes cover nothing there), which the layer already holds, so the webs stay in the depth prepass alone.
+  tubePass.webColour = true;
   tubePass.stage = () => stageNow().stage;
   tubePass.lumen = tubeLumenPass;
   // The lumen pass's counts for the ?perf panel (gpu-fence.js fenceLumen, on a sampled frame): out = [strips, webs, rows in the pass, exact rows, rows with a join end].

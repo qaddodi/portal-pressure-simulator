@@ -3958,6 +3958,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (LUM_OFF) return true;
     const scaled = lw0 !== fboW || lh0 !== fboH;
     if (scaled) { LK.sx = lw0 / fboW; LK.sy = lh0 / fboH; LK.w = lw0; LK.h = lh0; LK.m = m; lumK = LK; }
+    tubePass.webColour = !!(blood.origin || (dyeAny && blood.dye !== false));   // (the same two tests lumenBind makes for its origin and dyeOn uniforms)
     pM = scaled ? lumenView(m, LK.sx, LK.sy, LK.ms) : m; pLook = look; pMode = 5;
     pRedo = lumenDepth.needs(m, wo, la, lw0, lh0);
     eachPiece(la[0], la[1], fboW, fboH);

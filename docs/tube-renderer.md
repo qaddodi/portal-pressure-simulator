@@ -256,6 +256,13 @@ The lumen pass runs the blood shader on every lumen pixel of its target, so its 
 - **`?lumen=off`** draws no lumen pass and no blood: the target is one clear pixel, which the compositor reads as no lumen. **`?perf`** adds the `lumen layer` gauge (`lobule lumen layer`): the target's size in MP and its share of the layer's.
 - **Tests.** `tests/tube-lumen-scale.test.js` (the share, the size, the view, the pieces tile the target and each pixel is drawn through the piece holding its centre, the mask); `tests/comp-fs-tube.test.js`; rules in `scripts/rules-lint.mjs`.
 
+## No webs in the lumen colour pass when they add nothing (brief PL item 2, 10 Nov 2026)
+
+A web's lumen pixel is placed at the wall (`y = 1`, `tubeLumenFS`), where the blood's alpha factor `1 - smoothstep(.7, 1, |y|)` is zero and a lymph dash covers nothing, so with the origin colours and the dye off the
+lumen shader's colour on a web is its fill (`aCol`, the cel tones the layer's lean shader lays too), which the vessel layer already holds; and the compositor leaves the layer's own colour wherever the lumen layer is empty
+(its mix is at the share `L.a / v.a`, 0 there). So `lumenFrame` sets `tubePass.webColour` from the two tests `lumenBind` makes (`blood.origin`, `dyeAny && blood.dye !== false`), and when it is false the webs are left out of the
+lumen pass's colour draw. They stay in its depth prepass (so a web still hides the lumens it covers). `tests/tube-lumen-scale.test.js` pins the arithmetic (a web's `y` is 1, the wall factor 0) and the draw.
+
 ## The Anatomy to Circuit switch (10 Nov 2026)
 
 **What was slow.** The change between the views runs through morph sets (veins-sweep.js, six stretches made ahead). Each set change inside the change made `meshGeo()` derive the set's

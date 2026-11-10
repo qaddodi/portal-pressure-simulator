@@ -77,3 +77,36 @@ test('the mask: no blood where the vessel layer has no lumen, the layer\'s own o
   const col = 0.5 / 0.8, F = Math.min(0.1 / 0.1, 1);
   assert.ok(Math.abs(out[0] - (col + (F - col) * 0.5) * 0.8) < 1e-9, 'half toward the lumen colour');
 });
+
+// ---- PL item 2: the webs are drawn in the lumen pass's colour draw only when they add something ----
+import { makeHarness } from './tube-pass-harness.js';
+const progs = (log) => log.filter((c) => c.call === 'strips' || c.call === 'patch').map((c) => `${c.prog}:${c.n}${c.mask === false ? ' pre' : ' col'}`);
+
+test('without the origin colours or the dye the webs stay in the depth prepass and are left out of the lumen colour draw', () => {
+  const h = makeHarness({ withStage3: true });
+  h.tubePass.webColour = false;
+  assert.equal(h.runLumen(), true);
+  const seq = progs(h.log);
+  assert.ok(seq.some((x) => /^tubeWebDepth:\d+ pre$/.test(x)), 'the web depth is still drawn (the prepass)');
+  assert.ok(!seq.some((x) => x.startsWith('tubeWebLumen')), 'no web in the colour draw');
+  assert.ok(seq.some((x) => /^tubeLumen:3 col$/.test(x)), 'the strips still are');
+  assert.equal(h.MG.lumWebs, 0);
+});
+
+test('with them on (the default) the webs are drawn as before', () => {
+  const h = makeHarness({ withStage3: true });
+  assert.equal(h.tubePass.webColour, true);
+  h.runLumen();
+  assert.ok(progs(h.log).some((x) => /^tubeWebLumen:4 col$/.test(x)));
+});
+
+import { tubeLumenJS } from '../src/ui/tube-lumen-glsl.js';
+test('why the webs add nothing without origin or dye: a web pixel is placed at the wall (y = 1), where the blood\'s alpha factor (1 - smoothstep(.7, 1, |y|)) is zero', () => {
+  const px = tubeLumenJS({ vI: 10, vD: -1, vG: [0, 0], vRad: 4 * 3, ba: [1, 0], len: 100, R: 3, aa: 1 });   // vRad is 4 x a radius: a web's
+  assert.equal(px.web, true);
+  assert.equal(px.y, 1);
+  const smooth = (a, b, x) => { const t = Math.min(Math.max((x - a) / (b - a), 0), 1); return t * t * (3 - 2 * t); };
+  assert.equal(1 - smooth(0.7, 1, Math.abs(px.y)), 0, 'bloodAt\'s wall factor: no streak');
+  const strip = tubeLumenJS({ vI: 10, vD: -1, vG: [0, 1], vRad: 3, ba: [1, 0], len: 100, R: 3, aa: 1 });
+  assert.equal(strip.web, false);
+});
