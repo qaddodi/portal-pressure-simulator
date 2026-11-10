@@ -126,8 +126,8 @@ export function createStage2Data(gl, MG) {
     const n = MG.jl.n || 0;
     entries = new Float32Array(n * 8);   // alloc-rare: a new binning only (a geometry upload), sized by its joins
     joinEntriesInto(MG.ent, MG.jl.view, n, joinBase, entries);
-    webInstances(entries, tubeNow, G.pts, W);
-    tubeRows(tubeNow, nTubes, entries, R, G.pts);
+    webInstances(entries, tubeNow, G.pts.pts, W);
+    tubeRows(tubeNow, nTubes, entries, R, G.pts.pts);
     D.binnings++;
   }
   // True when a row has become dotted or clipped since the kinds were read (an exact row stays exact until the next binning: only slower).
@@ -140,7 +140,7 @@ export function createStage2Data(gl, MG) {
   D.frame = (G, tubeNow, nTubes, joinBase) => {
     if (!D.stripVAO) make();
     if (gen !== MG.gen || !R.rows) { gen = MG.gen; bin(G, tubeNow, nTubes, joinBase); }
-    else if (stale(tubeNow, nTubes)) tubeRows(tubeNow, nTubes, entries, R, G.pts);
+    else if (stale(tubeNow, nTubes)) tubeRows(tubeNow, nTubes, entries, R, G.pts.pts);
     tubeBuckets(tubeNow, G.pts.on, nTubes, R.rows, D.tb);
     websByTier(W.data, W.count, tubeNow, D.wb, G.pts.on);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);

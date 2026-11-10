@@ -37,7 +37,7 @@ export function createTubePass(E) {
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.vertexAttribPointer(1, size, gl.FLOAT, false, stride, first * stride);
     gl.drawElementsInstanced(gl.TRIANGLES, MG.tubeIndexN, gl.UNSIGNED_SHORT, 0, n);
-    MG.strips += n;
+    if (!keyPre) MG.strips += n;   // (counted once, in the colour draw: the prepass draws the same rows again)
   }
   // n webs of tier t from record `first` of the web buffer (stage 2).
   function webCall(P, pass, t, base, H, px, look, first, n) {
@@ -50,7 +50,7 @@ export function createTubePass(E) {
     gl.bindBuffer(gl.ARRAY_BUFFER, D.webBuf);
     for (let a = 1; a <= 3; a++) gl.vertexAttribPointer(a, 4, gl.FLOAT, false, WEB_FLOATS * 4, o + (a - 1) * 16);
     gl.drawElementsInstanced(gl.TRIANGLES, D.webIndexN, gl.UNSIGNED_SHORT, 0, n);
-    MG.webs += n;
+    if (!keyPre) MG.webs += n;
   }
   // Tier t's patches (stage 1's joins, and stage 2's with ?tubejoin=patch).
   function patchCall(pass, t, base, H) {
@@ -69,7 +69,7 @@ export function createTubePass(E) {
       UC.i1(u.tubePart, part);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, pb.count[t]);
     }
-    MG.patches += pb.count[t];
+    if (!keyPre) MG.patches += pb.count[t];
   }
   // One draw of tier t's strips (and its patches) for a pass, in the band that starts at base: stage 1's, and a glow's in stage 2 (the stage 1
   // strip program over the rows of the stage 2 buffer, read as one float a record). Sets no draw buffers.
@@ -88,9 +88,9 @@ export function createTubePass(E) {
   function draw2(pass, t, base, H, px, look, pre) {
     const tb = FR.tb, P = E.tube2, D = FR.D, n = tb.count[t], pl = tb.plain[t], s0 = tb.start[t];
     if (pre) {
-      if (pl) { stripCall(P.depth, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, pl); MG.plain += pl; }
+      if (pl) stripCall(P.depth, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, pl);
       if (n > pl) stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0 + pl, n - pl);
-    } else if (n) stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, n);
+    } else if (n) { stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, n); MG.plain += pl; }   // (the plain ones among them are the rows whose prepass cost no fragment work)
     if (FR.web) { if (FR.wb.count[t]) webCall(pre ? P.webDepth : P.web, pass, t, base, H, px, look, FR.wb.start[t], FR.wb.count[t]); }
     else if (FR.pb.count[t]) patchCall(pass, t, base, H);
     MG.passes++;
@@ -122,6 +122,8 @@ export function createTubePass(E) {
     if (bufs) gl.drawBuffers(ATTACH);
     gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
   }
+  // Whether tier t has anything to draw this frame (rows, patches or webs).
+  const has = (t) => FR.tb.count[t] > 0 || (FR.pb !== null && FR.pb.count[t] > 0) || (FR.two && FR.web && FR.wb.count[t] > 0);
   // A program's uniforms and textures for the pass: the vessel set, then the points (the figure's own texture, or the morph set's frame rows).
   function setProgram(P, m, look, px) {
     vesselSet(P, m, look, false, false);
@@ -180,7 +182,6 @@ export function createTubePass(E) {
     MG.kP = 0; MG.ref = 0;
     gl.drawBuffers(ATTACH);
     const TG = look.tierGroup, dim = look.netAlpha < 0.999;
-    const has = (t) => tb.count[t] > 0 || (pb !== null && pb.count[t] > 0) || (two && web && FR.wb.count[t] > 0);
     for (let g = 0; g < 3; g++) {
       let any = false, sel = false, up = false;
       for (let t = 0; t < MAX_TIERS; t++) if (TG[t] === g && has(t)) { any = true; if (tb.sel[t]) sel = true; if (tb.litUp[t]) up = true; }

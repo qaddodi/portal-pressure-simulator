@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Tube stage 2: lean strips, a depth-only prepass and joins made of webs.** (Mohammad, 10 Nov 2026: finish the whole Tube renderer.)
+  When the four stage 2 programs (`tubeLean`, `tubeDepth`, `tubeWeb`, `tubeWebDepth`) are ready the Tube's shape passes draw plain vessel rows in the prepass with no fragment work, exact rows with the short shader, and the joins as webs (the corner filled by a fan and an outlined skirt) in place of the patches; the figure and the lobule both. Stage 1 draws until then, and if any of the four fails to build. `?tube=1` keeps stage 1 and `?tubejoin=patch` keeps the patches, to compare on a device. `?perf` says `tube 2: N passes, N strips (N plain), N webs`, or `tube 1: <why>`. See docs/tube-renderer.md, "Stage 2".
 - **The lobule draws with the Tube renderer when Tube is chosen (Settings › Display › Vessel renderer › Tube).** (Mohammad, 10 Nov 2026: "plan the lobule so it's perfect, let's build it with the tube renderer".)
   The lobule's renderer instance makes the Tube programs when Tube is chosen (Mesh and Classic leave it classic); it has one tier, so each row's `z` orders what is in front (strip lumen level `zK` 1, `hK` 0.008, `hRef` 22) and the join patch writes its own depth per fragment: a lumen by its z, an outline under every lumen with the nearest wall nearest, on the figure a lumen over every strip lumen as before. Tests: `tests/tube-patch-depth.test.js`, `tests/tube-lobule-programs.test.js`; the plan is `docs/recommendations/tube-renderer-lobule-plan.md`.
 - **Tube joints, fault 1: no more pale discs where a vein ends on a see-through vessel.** (Mohammad, 10 Nov 2026, joints screenshots: the cava, hepatic veins and renal vein.)

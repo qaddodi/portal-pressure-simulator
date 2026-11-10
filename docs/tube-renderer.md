@@ -103,10 +103,50 @@ The stage 1 fragment shader ignores all four, so nothing in the picture changes 
   row, from the `R` of the vertex's own ring or sample (`tubeWidth(R, aaPad, selPad, selected)`). The old reach (casing x celK + the pass's `padU`) is gone from shape
   passes. A glow pass keeps the row's reach (`tubeGlowWidth`). Bevel and mitre decisions use the width of the vertex's own sample; a trapezium (whose four corners must
   agree on whether it is drawn) decides with the larger of its two ends' and reaches with each end's own.
-- **`aRow` is `vec4`** `(row, endStart, endEnd, kind + 2)`: `kind + 2` is 2 for a plain row and 3 for an exact one. Until the pass feeds a four-float buffer
-  (S2-D) it feeds one float a row and WebGL fills `(0, 0, 1)` for the rest: `w = 1` reads as "no ends" (`vEnd = aRow.w > 1.5 ? aRow.yz : vec2(-1.0)`).
+- **`aRow` is `vec4`** `(row, endStart, endEnd, kind + 2)`: `kind + 2` is 2 for a plain row and 3 for an exact one. Stage 1 and the glow passes feed one float a row (stage 2's shape passes feed four, S2-D) and WebGL fills `(0, 0, 1)` for the rest: `w = 1` reads as "no ends" (`vEnd = aRow.w > 1.5 ? aRow.yz : vec2(-1.0)`).
 - The JS twin: `tubeVarying(P, R, a, o)` returns `{ vI, vD, vG, vRad }`; `tubeVertex` still returns `[x, y, f]`. A shape pass is given `o.aaPad` (and `selPad`, `sel`);
   `o.w` alone is a fixed width (a glow pass, and any older caller).
+
+## Stage 2 (brief S2-D, 10 Nov 2026)
+
+What was built: the Tube's pass draws with four more programs when they are all ready, and the joins are webs. Code: `src/ui/tube-stage2.js` (the programs' start
+and finish, the choice, the data and buffers), `src/ui/tube-pass.js` (`draw2`, `webCall`, `stripCall`), and a few lines in `veins-gl.js` (the programs are started with
+the Tube's others and finished apart from them; `MG.gen` counts a binning).
+
+- **Programs** (each optional, started with the Tube's stage 1 programs, finished one by one with `finishProgram`; any one failing gives the other three back and leaves the
+  Tube at stage 1, never at the Mesh or the classic pass): `tubeLean` (`tubeStripVS` + `tubeLeanFS`), `tubeDepth` (`tubeStripVS` + `TUBE_DEPTH_FS`), `tubeWeb`
+  (`tubeWebVS` + `tubeLeanFS`), `tubeWebDepth` (`tubeWebVS` + `TUBE_DEPTH_FS`). `stage2Sources(K, ZOOM_VS)` builds their text, for the app and for the compile check
+  (`node scripts/glsl-compile.mjs`, all four link). The figure starts them at creation (in `later`, published when the driver is done with them), the lobule's
+  instance with its stage 1 programs when Tube is first chosen.
+- **The choice** (`tubeStage(ready, query)`, a pure function): stage 2 when the four are ready and `?tube=1` is not in the address, else stage 1; joins `'web'` in stage 2
+  unless `?tubejoin=patch`, else `'patch'` (stage 1 always draws patches). The address is read once, when `tube-stage2.js` loads. Both flags are in `scripts/rules-lint.mjs`'s list
+  of allowed switches (`KEEP`) with a note: they are comparison aids for a device, like `?perf`.
+- **Rows**: J's records (`tubeRows`, `tubeBuckets`), 4 floats a row, attribute 1 a `vec4`, each tier's plain rows first. A binning (`MG.gen`, bumped by `meshGeo`) reads the rows' ends
+  and the webs; a frame bins the rows by tier and the webs by tier and uploads both (grown to their largest, no allocation). A row that becomes dotted or clipped after the
+  binning turns exact at once (a cheap check each frame); an exact row stays exact until the next binning (slower, never wrong). Stage 1 keeps its own bucket call and
+  buffer, untouched; a stage 2 frame does not use them.
+- **A shape pair** of tier `t`, in its band: the prepass (colour masked, depth `LESS`) draws the plain rows with `tubeDepth` (no fragment work), the exact rows with `tubeLean`,
+  the webs with `tubeWebDepth` (or the patches, in their two parts, with `?tubejoin=patch`); the colour pass (depth `LEQUAL`, the stencil as before) draws all rows with
+  `tubeLean` and the webs with `tubeWeb`. The lift's colour pass is the same colour draw. A web is binned in the higher of its two rows' tiers and drawn there with `isWeb` 1
+  (the tier test of the lean shader is skipped for it, B, `e60bf08`); a strip has `isWeb` 0. **Glow pairs, the scratch layers and the draw buffers are exactly stage 1's**: the glow
+  uses the stage 1 strip program over the stage 2 row buffer read as one float a record (stride 16), depth `EQUAL`.
+- **The lobule** runs the same code (its own renderer instance, its own programs and data): its `zK`, `hK` and `hRef` from L-D, and it draws webs where it drew 127 patch groups.
+- **`?perf`** (the "vessel renderer" and "lobule vessel renderer" lines): `tube 2: N passes, N strips (N plain), N webs` (`N patches` with `?tubejoin=patch`), or `tube 1: <why>, N passes, N strips,
+  N patches drawn` with why = `compiling`, `<program> failed` or `set by ?tube=1`. Strips, webs and patches are counted in the colour draws (the prepass draws the same rows again); a pass is
+  one draw of a tier (prepass and colour pass each count); plain is the share of the strips whose prepass cost no fragment work.
+- **Expected gauge** (from the real captures through the real pass in node, the default view; the lobule is the blood-only layer):
+
+  | | passes | strips | plain | webs |
+  |---|---|---|---|---|
+  | figure, anatomy | 12 | 41 | 30 (73%) | 35 |
+  | figure, circuit | 12 | 56 | 33 (59%) | 41 |
+  | lobule | 2 | 156 | 156 (100%) | 310 |
+
+  More strips appear with more vessels shown; a selected vessel adds the lift's draw, a glow adds a pair.
+- **Known differences at joins** (the plan's three, on purpose): (1) inside a join a tributary's stream ends where the trunk's lumen is taller, on a curved line, and its streaks fade at
+  its end as `bloodAt` already fades them; there is no cross-fade of the two streams. (2) A web takes its trunk's colour and attributes (or the wider member's). (3) No second lumen anywhere
+  in the Tube.
+- Not in stage 2: the lumen layer and the compositor's Tube builds (stage 3, brief S3-D).
 
 ## Known differences from the plan's list and from Mesh
 
