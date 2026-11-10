@@ -127,7 +127,7 @@ test('the gauge text after the lumen pass: tube 3 with the layer pass\'s numbers
   const h = makeHarness({ withStage3: true });
   h.run();
   h.runLumen();
-  assert.equal(h.tubePass.gaugeText(), 'tube 3: 2 passes, 3 strips (1 plain), 4 webs, lumen pass 3 strips 4 webs');
+  assert.equal(h.tubePass.gaugeText(), 'tube 3: 2 passes, strips drawn 3 of 3 (not culled), 3 strip draws (1 plain), 4 webs, lumen pass 3 strips 4 webs');
   assert.equal(h.tubePass.stage(), 3);
 });
 

@@ -20,5 +20,5 @@ test('stage 2 with patch joins: lean and depth strips, patches in two parts, no 
   assert.ok(!d.some((c) => c.prog === 'tubeWeb' || c.prog === 'tubeWebDepth'), 'no web');
   assert.ok(d.some((c) => c.prog === 'tubeDepth') && d.some((c) => c.prog === 'tubeLean'));
   assert.deepEqual(d.filter((c) => c.call === 'patch').map((c) => `${c.prog}:${c.mask === false ? 'pre' : 'col'}`), ['tubePatch:pre', 'tubePatch:pre', 'tubePatch:col', 'tubePatch:col'], 'one group, two parts, in the prepass and in colour');
-  assert.match(h.gauges[0][1], /^tube 2: \d+ passes, \d+ strips \(\d+ plain\), \d+ patches$/);
+  assert.match(h.gauges[0][1], /^tube 2: \d+ passes, strips drawn \d+ of \d+( \(not culled\))?, \d+ strip draws \(\d+ plain\), \d+ patches$/);
 });

@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Tube: vessels wholly outside the layer are not drawn.** (Tube speed plan P3/PD part 3, 10 Nov 2026.)
+  Zoomed in (the lobule's dive, a zoomed Anatomy) most vessel rows lay off the screen and still went through the prepass, the shape, glow and lumen passes. Each row's world box is kept with its geometry set; the rows whose box, grown by the widest reach of any pass, misses the layer's rectangle are left out of the tier buckets for the layer pass and the lumen pass alike, and a pan or zoom that brings one in draws it that frame. Not culled: the joins' webs, and everything during the change between the views (the points move every frame). `?perf` shows `strips drawn N of M`.
 - **Tube: lit vessels' glow is drawn by a short glow shader.** (Tube speed plan P6/PD part 4, 10 Nov 2026.)
   The glow passes (the plain glow and the glow on top) draw their strips with the new `tubeGlow` program, the strip vertex shader over `tubeGlowFS`, which takes the pixel's distance from the vertex shader instead of searching the vessel's segments; every stage uses it. It is optional on its own: if it fails to compile or link the glow passes keep today's strip program and `?perf` names it. Not done by it: the cut of a lit vessel's glow inside another lit vessel's lumen (the plan accepts that).
 - **Tube: the blood pass keeps its depth between frames.** (Tube speed plan P2, 10 Nov 2026.)

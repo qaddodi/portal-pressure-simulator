@@ -146,6 +146,14 @@ export function createTubePass(E) {
     UC.f1(P.u.hRef, LV.hRef); UC.f1(P.u.aaPad, 2 * px);
     UC.f1(P.u.pxW, px);   // (the compositor's zoom numbers, ZOOM_VS, which the vertex shaders hand on as zoomA and zoomB: the world size of a device pixel)
   }
+  // Stage 2's data for this frame (tube-stage2.js createStage2Data): the rows by tier, the webs, the buffers. The rows wholly outside the layer (the view: veins-gl.js layerView)
+  // are left out of the buckets, so neither pass draws them (not while the change between the views moves the points).
+  const VIEW = { rect: new Float64Array(4), ok: false, pad: 0, rmax: null };
+  function frameD(m, look) {
+    const mj = E.geo.morph, D = FR.D ||= (MG.stage2 = createStage2Data(gl, MG));
+    D.frame(meshGeo(), E.tubeNow, E.nTubes, mj ? mj.joinBase : -1, E.layerView ? E.layerView(m, look, VIEW) : null);
+    return D;
+  }
   // The Tube's whole vessel pass into the layer (fbo bound, its viewport; the caller's scissor, if any, kept): false when it cannot draw, and the
   // classic pass draws instead.
   function tubePass(m, look) {
@@ -158,9 +166,7 @@ export function createTubePass(E) {
     let tb, pb = null;
     if (two) {
       // (Stage 2: J's rows by tier, plain first, and the webs by tier, into buffers of their own; the patches only when ?tubejoin=patch.)
-      const mj = E.geo.morph;
-      FR.D ||= (MG.stage2 = createStage2Data(gl, MG));
-      FR.D.frame(G, E.tubeNow, E.nTubes, mj ? mj.joinBase : -1);
+      frameD(m, look);
       tb = FR.D.tb; FR.wb = FR.D.wb;
       if (!web) pb = patchesByTier(G.patch.data, G.patch.count, E.tubeNow, G.pb, PG_W, PG_M);
     } else {
@@ -226,7 +232,7 @@ export function createTubePass(E) {
     if (gpuProbe.on) {
       gpuProbe.note('vessels: tube');
       // (tube 2: the passes, the strips (the plain ones among them, drawn by the depth program in a prepass), the webs; tube 1: why stage 2 is not drawing.)
-      const what = two ? `${MG.passes} passes, ${MG.strips} strips (${MG.plain} plain), ${web ? `${MG.webs} webs` : `${MG.patches} patches`}` : `${MG.passes} passes, ${MG.strips} strips, ${MG.patches} patches drawn`;
+      const what = two ? `${MG.passes} passes, strips drawn ${FR.D.cull.drawn} of ${FR.D.cull.total}${FR.D.cull.off ? ' (not culled)' : ''}, ${MG.strips} strip draws (${MG.plain} plain), ${web ? `${MG.webs} webs` : `${MG.patches} patches`}` : `${MG.passes} passes, ${MG.strips} strips, ${MG.patches} patches drawn`;
       const why = two ? '' : stage1Why(!!E.tube2, E.tube2Failed, !E.tube2 && !(E.tube2Failed && E.tube2Failed.length));
       const why3 = choice.stage === 2 && web && E.tube3Failed && E.tube3Failed.length ? `, stage 3: ${E.tube3Failed.join(', ')} failed` : '';
       const whyG = E.tubeGlowFailed && E.tubeGlowFailed.length ? `, ${E.tubeGlowFailed.join(', ')} failed (glow on the strip program)` : '';
@@ -243,10 +249,8 @@ export function createTubePass(E) {
   // leaves it out. Draws nothing in stages 1 and 2 (returns false).
   const BASES = new Float64Array(MAX_TIERS), ONE1 = new Float32Array([1]);
   function tubeLumenPass(m, look, redo = true) {
-    const G = meshGeo();
     if (stageNow().stage !== 3) return false;
-    const D = FR.D ||= (MG.stage2 = createStage2Data(gl, MG)), mj = E.geo.morph;
-    D.frame(G, E.tubeNow, E.nTubes, mj ? mj.joinBase : -1);
+    const D = frameD(m, look);
     FR.two = true; FR.web = true; FR.tb = D.tb; FR.wb = D.wb; FR.pb = null;
     const tb = D.tb, P = E.tube2, P3 = E.tube3, keep = MG.passes;
     const px = 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));

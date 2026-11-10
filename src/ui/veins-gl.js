@@ -57,7 +57,7 @@ import { STRIP_VS_GLSL, stripIndex, PATCH_QUAD } from './veins-mesh.js';
 import { tubeIndex, tubeStripVS } from './tube-geo.js';
 import { celGLSL } from './tube-cel-glsl.js';
 import { createTubePass } from './tube-pass.js';
-import { stage2Start, stage2Finish, STAGE2_PROGRAMS, glowStart, glowFinish, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, createDepthStamp, tubeStage, tubeJoinCut, stage2Prepare } from './tube-stage2.js';
+import { stage2Start, stage2Finish, STAGE2_PROGRAMS, glowStart, glowFinish, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, createDepthStamp, tubeStage, tubeJoinCut, stage2Prepare, layerRect } from './tube-stage2.js';
 import { STYLE_P } from './blood-particles.js';
 import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGroups, PG_W, PG_M } from './veins-mesh-data.js';
 import { createBloodTile, STYLE_D, STYLE_E } from './blood-tile.js';
@@ -3335,6 +3335,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const tubePass = createTubePass({
     lobule: who === 'lobule', gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_GLOW_BUF, MESH_COLOR_BUF, CLR_F, gpuProbe, nTubes, tubeNow,
     meshPad, meshKeyNext, meshRefNext, meshTargets, meshGeo, meshTarget, meshScratch, meshLay, vesselSet,
+    // The world rectangle the vessel layer covers and the widest reach of any pass past a lumen (glow, shadow, selection, outline, skirt), for the Tube's cull (tube-stage2.js cullUpdate).
+    layerView: (m, look, out) => {
+      const px = 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));
+      out.pad = Math.max(meshPad(MP.UP, look, px), meshPad(MP.SHADOW, look, px)) + 12 + 4 * px; out.rmax = rowMaxR;
+      return layerRect(m, la[0], la[1], fboW, fboH, out);
+    },
     get tubeS() { return tubeS; }, get tubePt() { return tubePt; }, get tube2() { return tube2; }, get tube2Failed() { return tube2Failed; }, get tube3() { return tube3; }, get tube3Failed() { return tube3Failed; }, get tubeGlow() { return tubeGlow; }, get tubeGlowFailed() { return tubeGlowFailed; }, lumenBind, get baseTex() { return baseTex; }, get geo() { return geo; },
   });
   // A one-pass build ready to draw: the vessel half's uniforms and textures, then the composite's textures (compBind), and the

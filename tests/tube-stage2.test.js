@@ -128,7 +128,7 @@ test('a strip is drawn with isWeb 0 and a web with isWeb 1', () => {
 test('the gauge: tube 2 with the passes, the strips (the plain among them) and the webs, counted in the colour draws', () => {
   const h = makeHarness();
   h.run();
-  assert.deepEqual(h.gauges, [['vessel renderer', 'tube 2: 2 passes, 3 strips (1 plain), 4 webs']]);
+  assert.deepEqual(h.gauges, [['vessel renderer', 'tube 2: 2 passes, strips drawn 3 of 3 (not culled), 3 strip draws (1 plain), 4 webs']]);
 });
 
 test('with the stage 2 programs not ready the Tube draws stage 1: its own programs and buffer, the patches, and the gauge says why', () => {

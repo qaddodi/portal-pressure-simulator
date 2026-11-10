@@ -200,6 +200,16 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!/const P = pass === MP\.GLOW \|\| pass === MP\.UP \? glowP : E\.tubeS;/.test(tp) || !/glowP = E\.tubeGlow \|\| E\.tubeS;/.test(tp)) errors.push('src/ui/tube-pass.js tubeDraw: the glow passes (MP.GLOW, MP.UP) draw with E.tubeGlow, else E.tubeS; no other pass uses the glow program');
     if ((tp.match(/glowP/g) || []).length !== 6) errors.push('src/ui/tube-pass.js: glowP is set once per frame and read by tubeDraw and the program set-up only');
   }
+  // The Tube's cull (brief PD part 3, 10 Nov 2026): rows wholly outside the vessel layer are left out of the stage 2 buckets (the buckets are built from the cull's mask in place of the rows with points),
+  // never while a stretch of the change between the views moves the points (joinBase >= 0), and the pad it grows the layer by is the widest pass's reach (glow and shadow), not a guess of one pass.
+  {
+    const vg = text('src/ui/veins-gl.js'), s2 = text('src/ui/tube-stage2.js'), tp = text('src/ui/tube-pass.js');
+    if (!/tubeBuckets\(tubeNow, C \? C\.mask : B\.pts\.on, nTubes, st\.R\.rows, D\.tb\);/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the rows by tier are bucketed from the cull\'s mask (C ? C.mask : B.pts.on)');
+    if (!/const C = view && view\.ok && joinBase < 0 \? cullUpdate\(B, nTubes, view\) : null/.test(s2)) errors.push('src/ui/tube-stage2.js frame: no row is culled during the change between the views (joinBase >= 0), nor without a usable view');
+    if (!/websByTier\(st\.W\.data, st\.W\.count, tubeNow, D\.wb, B\.pts\.on\)/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the joins\' webs are not culled (websByTier keeps B.pts.on)');
+    if (!/Math\.max\(meshPad\(MP\.UP, look, px\), meshPad\(MP\.SHADOW, look, px\)\)/.test(vg)) errors.push('src/ui/veins-gl.js layerView: the cull\'s pad is the larger of the glow pass\'s and the shadow pass\'s reach (meshPad)');
+    if ((tp.match(/D\.frame\(/g) || []).length !== 1) errors.push('src/ui/tube-pass.js: the stage 2 data is binned in frameD alone, with the layer\'s view, so the layer pass and the lumen pass cull the same rows');
+  }
   // The lumen layer keeps its depth (brief PD part 2, 10 Nov 2026): any draw of the vessel layer marks it stale, and the lumen pass never draws lumens over a depth marked stale: it draws the
   // depth again first (cleared, the prepasses), and a fresh depth is neither cleared nor invalidated.
   {

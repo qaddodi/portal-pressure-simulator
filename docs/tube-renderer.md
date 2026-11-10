@@ -225,6 +225,21 @@ glow program is the same strip vertex shader over `tubeGlowFS` (`src/ui/tube-glo
 - **`?perf`.** The vessel renderer gauge adds `, tubeGlow failed (glow on the strip program)` when it failed; otherwise it says nothing.
 - **Check.** `node scripts/glsl-compile.mjs tubeGlow` (in the list since P6). Tests: `tests/tube-glow-wiring.test.js`; rules in `scripts/rules-lint.mjs`.
 
+## Rows outside the layer are not drawn (brief PD part 3, 10 Nov 2026)
+
+Zoomed in (the lobule's dive, a zoomed Anatomy) most rows lie wholly off the vessel layer and went through both passes. `tube-cull.js` (P3) answers which; this wires it.
+- **The view.** `layerRect(m, x0, y0, w, h, out)` (`tube-stage2.js`) takes the layer's window on the screen (`la`, `fboW`, `fboH`: the wrap's window is the picture's, so a pan never moves it) one pixel out
+  back through the view `m` into a world rectangle. `layerView` (the Tube pass's `E`, veins-gl.js) adds the pad, the larger of the glow pass's and the shadow pass's reach (`meshPad`) plus 12 world units
+  (selection ring, casing, outline) and 4 device pixels, and `rowMaxR`. The rectangle is the whole layer's, not the piece being drawn, so a pan's strip or a marked cell's box draws every row that can reach it.
+- **Boxes and flags are kept with the geometry bundle** (`B.cu`, `cullUpdate`): the boxes are made again when the bundle was binned again (`B.gen`) or a row's widest lumen grew past what its box was given (a quarter more
+  and `MIN_RADIUS`), so a set change swaps references and makes nothing. Each frame checks the inside flags against the rectangle (a loop over the rows, nothing made); only a changed flag bumps `key`.
+- **The buckets** (`createStage2Data.frame`, given the view by `frameD` in `tube-pass.js`, the one place that bins, so the layer pass and the lumen pass cull the same rows) are built from the cull's mask in place of
+  the rows with points, and uploaded only when the mask, the bundle or the tube rows changed. The webs are not culled (a join is cheap); a tier whose rows are all outside has nothing to draw.
+- **Not during the change between the views** (`joinBase >= 0`: a morph set is in use and its points move every frame) and not when the view is unusable: no row is culled (the union boxes of `rowBoxesBetween` are not used).
+- **The lumen layer's depth** needs no new rule: the rectangle is a function of what the depth stamp already compares (the view, wrap, window and size), and any other change of the set comes with a layer draw, which marks it stale.
+- **`?perf`.** The vessel renderer gauge says `strips drawn N of M` (N the rows bucketed, M the rows with points; `(not culled)` when no row was left out for a reason above) and, apart, the strip draws.
+- **Tests.** `tests/tube-cull-wiring.test.js` (the rectangle, the flags and their key, the bundle's own record, the buckets and the upload, the morph case); rules in `scripts/rules-lint.mjs`.
+
 ## The Anatomy to Circuit switch (10 Nov 2026)
 
 **What was slow.** The change between the views runs through morph sets (veins-sweep.js, six stretches made ahead). Each set change inside the change made `meshGeo()` derive the set's

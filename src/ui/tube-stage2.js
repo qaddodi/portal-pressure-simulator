@@ -11,7 +11,8 @@ import { tubeLeanFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
 import { tubeLumenFS } from './tube-lumen-glsl.js';
 import { tubeGlowFS } from './tube-glow-glsl.js';
 import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS } from './tube-data.js';
-import { STRIP_VS_GLSL } from './veins-mesh.js';
+import { STRIP_VS_GLSL, MIN_RADIUS } from './veins-mesh.js';
+import { rowBoxes, rowsInside } from './tube-cull.js';
 
 /** The four programs, in the order stage2Start returns them and the gauge names them. */
 export const STAGE2_PROGRAMS = ['tubeLean', 'tubeDepth', 'tubeWeb', 'tubeWebDepth'];
@@ -253,6 +254,52 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase) {
 }
 
 /**
+ * The world rectangle the vessel layer covers, into out.rect ([minX, minY, maxX, maxY]), for the view m (world → device pixels, [a, b, c, d, e, f]) and the layer's window
+ * on the screen (x0, y0, w, h device pixels; the window of the wrap is the picture's, so a pan never moves it): the window's corners one pixel out, taken back through m.
+ * out.ok is false when m has no inverse or the layer has no size (no culling then). out is kept by the caller (rect a Float64Array(4)); nothing is made.
+ */
+export function layerRect(m, x0, y0, w, h, out) {
+  const det = m[0] * m[3] - m[1] * m[2], R = out.rect;
+  out.ok = false;
+  if (!(Math.abs(det) > 1e-12) || !(w > 0 && h > 0)) return out;
+  let lx = Infinity, ly = Infinity, hx = -Infinity, hy = -Infinity;
+  for (let i = 0; i < 4; i++) {
+    const X = (i & 1 ? x0 + w + 1 : x0 - 1) - m[4], Y = (i & 2 ? y0 + h + 1 : y0 - 1) - m[5];
+    const x = (m[3] * X - m[2] * Y) / det, y = (m[0] * Y - m[1] * X) / det;
+    if (x < lx) lx = x; if (x > hx) hx = x; if (y < ly) ly = y; if (y > hy) hy = y;
+  }
+  R[0] = lx; R[1] = ly; R[2] = hx; R[3] = hy;
+  out.ok = lx <= hx && ly <= hy;
+  return out;
+}
+
+/**
+ * Which rows lie inside the layer (tube-cull.js), kept with the geometry bundle B (B.cu), so a set change swaps references: the rows' boxes made again when B was binned again
+ * (B.gen) or a row's widest lumen has grown past what its box was given (view.rmax, veins-gl.js's rowMaxR; a box is given a quarter more and MIN_RADIUS), the inside flags checked
+ * against view.rect grown by view.pad (the widest thing any pass draws past a lumen). Returns B.cu: .mask (Uint8Array, 1 for a row with points that is inside: what tubeBuckets is
+ * given in place of B.pts.on), .key (bumped whenever the mask changed), .total (rows with points). Makes nothing in a frame (the arrays are made with the bundle or when it has
+ * more rows, alloc-rare).
+ */
+export function cullUpdate(B, nRows, view) {
+  const C = B.cu || (B.cu = { gen: -1, n: 0, key: 0, total: 0, boxes: {}, inside: null, mask: null, hr: null });   // alloc-rare: once per bundle
+  const rm = view.rmax, on = B.pts.on;
+  let again = C.gen !== B.gen || C.n !== nRows || !C.hr;
+  if (!again) for (let r = 0; r < nRows; r++) if ((rm[r] || 0) > C.hr[r]) { again = true; break; }
+  if (again) {
+    if (!C.hr || C.hr.length < nRows) { C.hr = new Float32Array(nRows); C.inside = new Uint8Array(nRows); C.mask = new Uint8Array(nRows); }   // alloc-rare: grown with the vessel rows
+    for (let r = 0; r < nRows; r++) C.hr[r] = (rm[r] || 0) * 1.25 + MIN_RADIUS;
+    rowBoxes(B.pts, null, C.hr, nRows, C.boxes);
+    C.inside.fill(2, 0, nRows);   // (neither 0 nor 1: the check below finds every row changed)
+    C.gen = B.gen; C.n = nRows; C.total = C.boxes.on;
+  }
+  if (rowsInside(C.boxes.boxes, nRows, view.rect, view.pad, C.inside) || again) {
+    for (let r = 0; r < nRows; r++) C.mask[r] = on[r] && C.inside[r] ? 1 : 0;
+    C.key++;
+  }
+  return C;
+}
+
+/**
  * The stage's GL objects for one renderer: MG is veins-gl.js's kept state (tubeVB, tubeIB: the strip's vertices; B = MG.B, the geometry bundle in use, or MG itself where
  * there is none).
  * frame(G, tubeNow, nTubes, joinBase) bins what a frame draws (the geometry's part only when the bundle has none yet, see stage2Prepare; a row that has become dotted or
@@ -261,9 +308,9 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase) {
  * bundle and binning) bins, buckets and uploads nothing.
  */
 export function createStage2Data(gl, MG) {
-  const D = { tb: {}, wb: {}, stripVAO: null, webVAO: null, rowBuf: null, webBuf: null, webIndexN: 0, rowCap: 0, webCap: 0, binnings: 0 };
+  const D = { tb: {}, wb: {}, stripVAO: null, webVAO: null, rowBuf: null, webBuf: null, webIndexN: 0, rowCap: 0, webCap: 0, binnings: 0, cull: { drawn: 0, total: 0, off: true } };
   const CHK = {}, extra = [];   // alloc-rare: made once; their arrays grow with the binning
-  let lastB = null, lastGen = -1, lastTv = -1, lastJ = -2;
+  let lastB = null, lastGen = -1, lastTv = -1, lastJ = -2, lastC = null, lastCk = -1;
   function make() {
     const T = webIndex();
     D.webIndexN = T.nIndex;
@@ -293,14 +340,17 @@ export function createStage2Data(gl, MG) {
     for (let r = 0; r < nTubes; r++) if (a[r * TUBE_ROW_FLOATS + 3] > NO_END && !(b[r * TUBE_ROW_FLOATS + 3] > NO_END)) return true;
     return false;
   }
-  D.frame = (G, tubeNow, nTubes, joinBase) => {
+  D.frame = (G, tubeNow, nTubes, joinBase, view) => {
     if (!D.stripVAO) make();
     const B = MG.B || MG, tv = MG.tv;
-    if (tv !== undefined && B === lastB && B.gen === lastGen && tv === lastTv && joinBase === lastJ && B.s2 && B.s2.gen === B.gen) return D;   // (nothing changed since the last call)
+    // (The rows outside the layer are left out of the buckets: not while a stretch of the change between the views moves the points (joinBase >= 0), nor when the view is not given.)
+    const C = view && view.ok && joinBase < 0 ? cullUpdate(B, nTubes, view) : null, ck = C ? C.key : -1;
+    if (tv !== undefined && B === lastB && B.gen === lastGen && tv === lastTv && joinBase === lastJ && C === lastC && ck === lastCk && B.s2 && B.s2.gen === B.gen) return D;   // (nothing changed since the last call)
     let st = B.s2;
     if (!st || st.gen !== B.gen || !st.R.rows) { st = stage2Prepare(B, tubeNow, nTubes, joinBase); D.binnings++; }
     else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
-    tubeBuckets(tubeNow, B.pts.on, nTubes, st.R.rows, D.tb);
+    tubeBuckets(tubeNow, C ? C.mask : B.pts.on, nTubes, st.R.rows, D.tb);
+    D.cull.off = !C; D.cull.drawn = D.tb.n; D.cull.total = C ? C.total : D.tb.n;
     websByTier(st.W.data, st.W.count, tubeNow, D.wb, B.pts.on, !B.noEnds);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);
     if (D.rowCap < D.tb.rows.length) { D.rowCap = D.tb.rows.length; gl.bufferData(gl.ARRAY_BUFFER, D.rowCap * 4, gl.DYNAMIC_DRAW); }
@@ -308,7 +358,7 @@ export function createStage2Data(gl, MG) {
     gl.bindBuffer(gl.ARRAY_BUFFER, D.webBuf);
     if (D.webCap < D.wb.data.length) { D.webCap = D.wb.data.length; gl.bufferData(gl.ARRAY_BUFFER, D.webCap * 4, gl.DYNAMIC_DRAW); }
     if (D.wb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, D.wb.data, 0, D.wb.n * WEB_FLOATS);
-    lastB = B; lastGen = B.gen; lastTv = tv; lastJ = joinBase;
+    lastB = B; lastGen = B.gen; lastTv = tv; lastJ = joinBase; lastC = C; lastCk = ck;
     return D;
   };
   D.dispose = () => {
