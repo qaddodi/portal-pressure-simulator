@@ -72,6 +72,7 @@ Size: **S** under a day, **M** one to three days, **L** several threads.
 | 23 | One quantity, one cue: particle count is flow | graphics | Honest | S |
 | 24 | Stepped-back vessels become line art, not see-through (Tube) | graphics, speed | Where | M |
 | 25 | Devices in the cel language (Tube) | graphics | Honest | S to M |
+| 26 | Three scales on one screen: anatomy with lobule and sinusoid cutouts (Mohammad's idea, 10 Nov) | feature | Why, Where | M to L |
 
 **If only three are built:** 1, 2 and 3. They are the three that change what a room understands, and each reuses pieces that
 exist.
@@ -530,6 +531,41 @@ shading. The visual style doc's D1 gives them one set of materials per look. In 
 highlight shape.
 
 **Size S to M.** Best built after D1, since D1 makes the device colours tokens.
+
+### 26. Three scales on one screen: anatomy with lobule and sinusoid cutouts
+
+Mohammad's idea (10 Nov). It is a stronger form of item 13: the locator puts the whole inside the deep view; this puts the deep
+views beside the whole.
+
+**Principle.** In this disease the cause is microscopic and the effect is whole-body. Scarred sinusoids raise the resistance, and
+the varices are what the room sees. Today a slide shows one scale at a time (the `scales` pill flips between them), so the room
+has to hold the other two in memory. With all three up, a change at one scale is seen arriving at the others.
+
+**What to add.** A slide field, for example `cutouts: ['lobule', 'sinusoid']`.
+
+- The anatomy stays the main figure. A round cutout of the lobule sits beside the liver, tied to it by two thin lines from a small
+  ring on the liver (a magnifier's cone). A second cutout of the sinusoid hangs off the lobule cutout the same way.
+- Each cutout is the real view, drawn from the same model state, so a drug or a `whatIf` drag moves all three together.
+- Tapping a cutout dives into it, with the cutout growing into the full view. That gives the dive its missing first frame.
+
+**Rules that keep it good.**
+
+- **One place moves at a time.** The slide names which scale is the point; that one runs its blood, and the others hold still or
+  run slowly. Three moving pictures split the eye.
+- **Only where it earns it.** Slides where cause and effect sit at different scales: what cirrhosis does, carvedilol against
+  propranolol, the HVPG wedge, MASLD, congestion in outflow disease. Not on every slide.
+- **Mac and iPad on its side only.** A phone has no room; there the `scales` pill stays.
+- **Cutouts are glass of one fixed size**, placed by the same free-space rule as cards, and the figure fits the room they leave.
+
+**Cost, said plainly.** This is the item's risk. The lobule alone sits near 21 to 33 fps at rest on the Tube renderer today. A
+cutout is far fewer pixels than the full view, which helps, but three live views in one frame is still the heaviest thing the app
+would draw. So: a cutout draws at its own small size, a still cutout is drawn once and kept, and only the scale the slide names
+redraws every frame. Build it after the lobule's speed work lands, and read `?perf` on the first slide before adding more.
+
+**Check first.** Whether the lobule and sinusoid views can draw into a target that is not the stage (they have their own caches
+and glass), and that a cutout uses the chosen renderer with no fallback to another.
+
+**Size M to L.** Mock one slide first.
 
 ---
 
