@@ -25,9 +25,18 @@ export function createVenous(st, live) {
   // page gets no new element while it unrolls. (The stented stretch is a quarter to three quarters of a hepatic vein or the IVC: it
   // never turns far enough that a piece still to come lies behind the front.)
   let vstN = 0;   // (each build's clip a name of its own: a clip put in under the name of one being taken out was not found by the page)
+  let vstKids = [];   // (the roots last handed to the layer, in order)
+  // A stent that is already standing is kept, not built again (10 Nov 2026, Mohammad: "when the TIPS stent appears it flickers"): the overlays are
+  // asked to rebuild whenever anything in their key moves, and the TIPS's own width eases for a long while after the shunt opens, so a rebuild came
+  // every few hundred ms through the unrolling. Each one took the old elements out of the page, and the painter, which reads a piece's frame and
+  // opacity from its element as it paints, drew the removed elements as the last frame left them until the layer was read again: the front of the
+  // mesh jumped back, then forward. Now a rebuild whose pieces are the same pieces (the same classes in the same order, the same clip) writes
+  // the new outlines into the elements it has: the painter reads an outline's `d` as it paints (stage-over.js needsReread), so nothing is
+  // read again and nothing leaves the page; and a rebuild whose mesh did not move (its signature) writes nothing at all.
   function venousDraw(p) {
-    const kids = []; late('kids', ov.venous, kids);
+    const kids = []; let fresh = false;
     for (const [id, v] of vst) {
+      const old = v.parts;
       v.parts = null;
       if (!(v.k > 0.002) || !E[id]?.vis || !geo[id]?.cur) continue;
       const L = geo[id].len;
@@ -35,17 +44,35 @@ export function createVenous(st, live) {
       const tips = id === 'TIPS', open = tips && v.k >= 1;   // (open: the whole stent in, so no front to clip it by: the circuit's lane turns back on itself, which a half-plane cannot follow)
       const R = meshR(id, p), d0 = tips ? 2 : VST_SPAN[1] * L, d1 = tips ? L - 2 : VST_SPAN[0] * L, r1 = R(d1);
       const far = Math.abs(d1 - d0) + 4 * r1 + 20;   // (the clip: the half of the plane behind the front, as far as the whole mesh reaches)
+      // (What the mesh is made from: its two ends and its middle on the vessel, its half-width at both ends and the middle, its bare stretch.)
+      const mid = (d0 + d1) / 2;
+      let sig = `${open ? 1 : 0}|${L.toFixed(1)}|${R(d0).toFixed(2)}|${R(mid).toFixed(2)}|${r1.toFixed(2)}|${tips ? tipsBare(id).toFixed(1) : 0}`;
+      for (const d of [d0, mid, d1]) { const q = frameAt(id, d); sig += `|${q.x.toFixed(1)},${q.y.toFixed(1)},${q.tx.toFixed(2)},${q.ty.toFixed(2)}`; }
+      if (old && old.open === open && old.far >= far && vstKids.includes(old.root)) {
+        if (old.sig === sig) { v.parts = old; venousMove(id, v); kids.push(old.root); continue; }
+        const next = meshPaths(id, p, d0, d1, 1, false, tips ? tipsBare(id) : 0);
+        const same = next.length === old.fade.length - 1 && next.every((el, i) => el.getAttribute('class') === old.fade[i].getAttribute('class'));
+        if (same) {
+          next.forEach((el, i) => putA(old.fade[i], 'd', el.getAttribute('d')));
+          putA(old.fade.at(-1), 'd', `M0 ${(-r1).toFixed(2)} L0 ${r1.toFixed(2)}`);
+          old.R = R; old.d0 = d0; old.d1 = d1; old.r1 = r1; old.sig = sig;
+          v.parts = old; venousMove(id, v); kids.push(old.root); continue;
+        }
+      }
+      fresh = true;
       // (An outline, not a rect: the overlays' GPU painter dropped a rect clip under a turned frame, 2 Nov 2026, and the mesh with it.)
-      const pieces = meshPaths(id, p, d0, d1, 1, false, tips ? tipsBare(id) : 0), markPath = s('path', { class: 'stent-mark', d: `M0 ${(-r1).toFixed(2)} L0 ${r1.toFixed(2)}` });
+      const pieces = meshPaths(id, p, d0, d1, 1, false, tips ? tipsBare(id) : 0), markPath = s('path', { class: tips ? 'stent-mark stent-mark-tips' : 'stent-mark', d: `M0 ${(-r1).toFixed(2)} L0 ${r1.toFixed(2)}` });
       const back = s('g', {}, ...pieces);
       const front = s('g', open ? {} : { 'clip-path': `url(#${cid})` }, back);
       const mark = s('g', {}, markPath);
       const clip = s('clipPath', { id: cid, clipPathUnits: 'userSpaceOnUse' }, s('path', { d: `M${(-far).toFixed(1)} ${(-far).toFixed(1)} L0 ${(-far).toFixed(1)} L0 ${far.toFixed(1)} L${(-far).toFixed(1)} ${far.toFixed(1)} Z` }));
       const root = s('g', {}, ...(open ? [] : [s('defs', {}, clip)]), front, mark);
-      v.parts = { root, front, back, mark, R, d0, d1, r1, open, fade: [...pieces, markPath] };
+      v.parts = { root, front, back, mark, R, d0, d1, r1, open, far, sig, fade: [...pieces, markPath] };
       venousMove(id, v);
       kids.push(root);
     }
+    // (The layer is handed the roots again only when one is new or one has gone: the same roots in the same order are what it holds.)
+    if (fresh || kids.length !== vstKids.length || kids.some((k, i) => k !== vstKids[i])) { vstKids = kids; late('kids', ov.venous, kids); }
   }
   // A rolled stent's frames at its k: the front at arc length d0 + (d1 − d0)·ease(k), its marker across the mesh there.
   function venousMove(id, v) {
