@@ -96,6 +96,20 @@ add('tube lean (tubeLeanFS)', {
 add('tube depth (TUBE_DEPTH_FS)', { '../src/ui/veins-gl.js': ['F_SEL'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/tube-geo.js': ['tubeStripVS'], '../src/ui/tube-lean-glsl.js': ['TUBE_DEPTH_FS'] },
   (g, mm, tg, lean) => ({ vs: tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL), fs: lean.TUBE_DEPTH_FS }));
 
+// The Tube's webs (brief S2-J): the web vertex shader over the lean fragment shader, and over the depth shader.
+add('tube web (tubeWebVS + tubeLeanFS)', {
+  '../src/ui/veins-gl.js': ['F_SEL', 'F_DIFFUSE', 'F_SHADOW', 'F_DOTTED', 'F_NOCASE', 'F_SPEC', 'F_EDGE', 'F_VEIL', 'F_WHOLE', 'VEIL_K', 'MAX_TIERS', 'N_SAMPLES', 'LUMEN2', 'ROW2_BITS'],
+  '../src/ui/edge.js': ['EDGE_GLSL'], '../src/ui/veins-bin.js': ['ENT_W'], '../src/ui/highlight-math.js': ['LIFT_EASE_SHARE', 'LIFT_EASE_MAX'],
+  '../src/ui/tube-lean-glsl.js': ['tubeLeanFS'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/tube-joint.js': ['tubeWebVS'],
+}, (g, edge, bin, hl, lean, mm, tj) => {
+  const K = { F_DIFFUSE: g.F_DIFFUSE, F_EDGE: g.F_EDGE, F_SHADOW: g.F_SHADOW, F_SPEC: g.F_SPEC, F_VEIL: g.F_VEIL, F_WHOLE: g.F_WHOLE, F_SEL: g.F_SEL, F_DOTTED: g.F_DOTTED,
+    F_NOCASE: g.F_NOCASE, LIFT_EASE_MAX: hl.LIFT_EASE_MAX, LIFT_EASE_SHARE: hl.LIFT_EASE_SHARE, LUMEN2: g.LUMEN2, ROW2_BITS: g.ROW2_BITS, VEIL_K: g.VEIL_K,
+    EDGE: edge.EDGE_GLSL, ENT_W: bin.ENT_W, N_SAMPLES: g.N_SAMPLES, MAX_TIERS: g.MAX_TIERS, S_OFF: 96, ALONG_GLSL: alongText(g.N_SAMPLES) };
+  return { vs: tj.tubeWebVS(mm.STRIP_VS_GLSL), fs: lean.tubeLeanFS(K) };
+});
+add('tube web depth (tubeWebVS + TUBE_DEPTH_FS)', { '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/tube-joint.js': ['tubeWebVS'], '../src/ui/tube-lean-glsl.js': ['TUBE_DEPTH_FS'] },
+  (mm, tj, lean) => ({ vs: tj.tubeWebVS(mm.STRIP_VS_GLSL), fs: lean.TUBE_DEPTH_FS }));
+
 // ---- later threads: add yours above this line, one line each ------------------------------------------------------------------------
 // (S2-A/B/J/D: tubeLean, the web, ...; S3-X: COMP_FS with its new last argument; S3-C: the lumen shader; L-A/L-D: the lobule's.)
 
