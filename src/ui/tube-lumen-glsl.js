@@ -169,13 +169,14 @@ void main() {
   vec2 q = vec2(gl_FragCoord.x, sizeF.y - gl_FragCoord.y) - lOff - tOff;
   vec2 p = vec2(invA.x * q.x + invA.z * q.y, invA.y * q.x + invA.w * q.y);
   // A row's end on another row (tube-join-glsl.js): the other row's pixels are dropped here as in tubeLeanFS, so this layer and the vessel layer agree.
-  JoinEnd je = joinEnd(vI, vJ0, vJ1, vJK, p, R, pxW);
+  JoinEnd je = joinEnd(vI, vJ0, vJ1, vJK, vC0, vC1, p, R, pxW);
   if (je.drop) discard;
   // The vessel's colour and opacity here, as tubeLeanFS gets them (its tier, flags, colour along it, alpha with the fades and the veil).
   float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * ${K.VEIL_K} * organK : 0.0;
   float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
   vec3 aCol, aEdge;
   vesAttrs(id, u, u, p, occl, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
+  aCol = mix(aCol, je.col, je.wc);   // (as tubeLeanFS: the colour blends into the other row's near a join)
   int ti = int(aTier + 0.5);
   int grp = tierGroup[ti];
   float wsel = grp == 1 ? aSel : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)

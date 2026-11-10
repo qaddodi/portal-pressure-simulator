@@ -122,7 +122,7 @@ void main() {
     discard;
   }
   // A row's end on another row (tube-join-glsl.js): a pixel inside the trunk the row ends on, or beyond a continuation's bisector plane, is the other row's.
-  JoinEnd je = joinEnd(vI, vJ0, vJ1, vJK, p, R, px);
+  JoinEnd je = joinEnd(vI, vJ0, vJ1, vJK, vC0, vC1, p, R, px);
   if (je.drop) {
     if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
     discard;
@@ -137,6 +137,7 @@ void main() {
   float aTier, aZ, aFlag, aWall, aOf, aHov, aSel, aA;
   vec3 aCol, aEdge;
   vesAttrs(id, u, u, p, occl, aTier, aZ, aFlag, aWall, aOf, aCol, aHov, aSel, aEdge, aA);
+  aCol = mix(aCol, je.col, je.wc);   // (a cut end and a continuation take on the other row's colour near the join)
   // (A web is drawn in tierNow, whichever tier its owner's row is in: its colour and the row's own opacity are the owner's, its tier alpha and group the tier it is drawn in.)
   int ti = int(aTier + 0.5);
   if (ti != tierNow && isWeb == 0) discard;
@@ -212,7 +213,7 @@ export function leanDistanceJS(o) {
 
 /**
  * main's arithmetic for one pixel. o carries what the varyings and the row give, and the row's attributes as vesAttrs returns them:
- *   D (vD), R (vRad), g (vG, not unit), u (vI / LAST), clip [from, to, length], dotted, join { drop, fl, fo } or null (a row's end on
+ *   D (vD), R (vRad), g (vG, not unit), u (vI / LAST), clip [from, to, length], dotted, join { drop, fl, fo, wc, col } or null (a row's end on
  *   another row: tube-join-glsl.js joinEndJS), attrs { tier, flags, wall, col, alpha, hov, sel, edge, of }, tierNow, tierAlpha, grp, netAlpha,
  *   occl, and what celShadeJS takes (px, aa as px * EDGE, light, fx, casing, ring, rimInk, paperInk, F_DIFFUSE, F_EDGE, F_VEIL, F_SEL, F_DOTTED, F_NOCASE),
  *   redraw, reach, lift, isWeb (true for the web program: the row may be in another tier than tierNow; `grp` and `tierAlpha` are those of the row's own tier, the web's owner, as in the lumen layer).
@@ -224,7 +225,7 @@ export function tubeLeanJS(o) {
   const none = redraw === 1 ? { kind: 'empty', colour: [0, 0, 0, 0], flow: null, dep: 0 } : { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   const D = leanDistanceJS({ D: o.D, R: o.R, u: o.u, clip, dotted: !!(at.flags & F_DOTTED) });
   if (D >= reach) return none;
-  // (A row's end on another row: `join` is joinEndJS's { drop, fl, fo }: the factors on the lumen and the outline of a branch fading into its trunk; a dropped pixel is the other row's.)
+  // (A row's end on another row: `join` is joinEndJS's { drop, fl, fo, wc, col }: the factors on the lumen and the outline of a branch fading into its trunk, and the share wc of the other row's colour col; a dropped pixel is the other row's.)
   const jn = o.join ?? null;
   if (jn && jn.drop) return none;
   if (!(o.lit && D - at.wall < 15.7) && D > 8.01 + 2 * px) return none;
@@ -236,7 +237,7 @@ export function tubeLeanJS(o) {
   const aa = o.aa;
   const aL = clamp(0.5 - D / aa, 0, 1);
   const dep = aL > 0 || !!o.glowOwn ? 1 : 0;
-  const cel = celShadeJS({ ...o, D, g, R: o.R, col: at.col, flags, sel: (flags & F_SEL) !== 0, cA, grp, vAt: o.u, hov: at.hov ?? 0, edge: at.edge ?? [0, 0, 0], kn: 0, kcas: 0, aa, aL });
+  const cel = celShadeJS({ ...o, D, g, R: o.R, col: jn && jn.wc > 0 ? at.col.map((v, i) => mix(v, jn.col[i], jn.wc)) : at.col, flags, sel: (flags & F_SEL) !== 0, cA, grp, vAt: o.u, hov: at.hov ?? 0, edge: at.edge ?? [0, 0, 0], kn: 0, kcas: 0, aa, aL });
   const tierA = o.tierAlpha ?? 1, scale = at.alpha * tierA;
   let c = cel.map((v) => v * scale);
   const wsel = grp === 1 ? (at.sel ?? 0) : 0;

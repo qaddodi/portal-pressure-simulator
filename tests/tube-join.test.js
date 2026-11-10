@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_MODE, JOIN_FADE_IN, JOIN_FADE_OUT, JOIN_FADE_LINE, endTrunk, endContinues, endKind,
+  END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, JOIN_FADE_IN, JOIN_FADE_OUT, JOIN_FADE_LINE, endTrunk, endContinues, endKind,
   tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS,
 } from '../src/ui/tube-join-glsl.js';
 import { lintGLSL } from './glsl-lint.js';
+import { ALONG_GLSL } from '../src/ui/comp-glsl.js';
 
 // A row's end on another row: the codes, the vertex shader's data for each end (joinOneJS, the twin of joinOne), the fragment's decisions (joinEndJS, the twin of
 // joinEnd: drop, the lumen's factor fl, the outline's fo) and the GLSL text. Node only; the shaders' own compile is scripts/glsl-compile.mjs.
@@ -28,7 +29,7 @@ test('the codes: a trunk is row * 64 + sample, a continuation -(2 + row * 64 + s
 
 // A horizontal trunk along y = 0, radius 6, tier 7; a branch coming down from y = 60 to its centreline at x = 0, ending on sample 32.
 const trunk = line(-100, 0, 100, 0), branch = line(0, 60, 0, 0);
-const rows = rowsOf({ 0: { pts: trunk, rad: trunk.map(() => 6), tier: 7 } });
+const rows = rowsOf({ 0: { pts: trunk, rad: trunk.map(() => 6), tier: 7, colour: () => [0.2, 0.8, 0.2] } });
 
 test('an open end: the vertex shader\'s data is the trunk\'s chord about the sample (at least JOIN_REACH radii each way), its radius and the mode (fade when the branch is in a higher tier)', () => {
   const hi = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 16 }, rows });
@@ -129,8 +130,8 @@ ${tubeJoinVS(64)}`;
   assert.deepEqual(lintGLSL(env(JOIN_IN_GLSL)), []);
   assert.match(fs, /bool atStart = vI < 8\.0;/);
   assert.match(fs, /if \(!atStart && !\(vI > 55\.0\)\) return j;/);
-  assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) j.drop = true;`));
-  assert.match(fs, /if \(gap < -0\.5 \* px\) j\.drop = true;/);
+  assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) { j.drop = true; return j; }`));
+  assert.match(fs, /if \(gap < -0\.5 \* px\) \{ j\.drop = true; return j; \}/);
   assert.ok(fs.includes(`j.fl = smoothstep(-${JOIN_FADE_IN}.0 * R, ${JOIN_FADE_OUT} * R, gap);`));
   assert.ok(fs.includes(`j.fo = smoothstep(-${JOIN_FADE_LINE} * R, 0.0, gap);`));
   assert.ok(!/texelFetch|texture\(|vesAttrs|for \(/.test(fs), 'the fragment part reads nothing and loops over nothing');
@@ -139,4 +140,30 @@ ${tubeJoinVS(64)}`;
   assert.match(vs, /uniform int joinCut;/);
   assert.throws(() => tubeJoinVS(32), /N_SAMPLES|64/);
   assert.throws(() => tubeJoinFS(32), /N_SAMPLES|64/);
+});
+
+test('colour: a cut end and a continuation blend into the other row\'s colour over JOIN_COLOUR_R radii (a continuation to the mean at the plane); a fading branch does not', () => {
+  const pale = [0.9, 0.9, 0.9], green = [0.2, 0.8, 0.2];
+  // an open end, same tier: cut at the wall, the branch takes the trunk's colour more the nearer its wall
+  const cut = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 7 }, rows });
+  assert.deepEqual(cut.C, green, 'the trunk\'s colour at the sample');
+  const at = (d, p, vI = 60) => joinEndJS({ vI, J0: [0, 0, 0, 0], J1: d.J, K: [-1, -1, d.K[0], d.K[1]], C0: [0, 0, 0], C1: d.C, p, R: 4, px: PX });
+  const wall = at(cut, [0, 6.2]), far = at(cut, [0, 6 + Math.max(JOIN_COLOUR_R * 4, JOIN_COLOUR_MIN) + 0.1]), mid = at(cut, [0, 6 + 0.5 * Math.max(JOIN_COLOUR_R * 4, JOIN_COLOUR_MIN)]);
+  assert.ok(wall.wc > 0.99 && far.wc === 0 && mid.wc > 0.3 && mid.wc < 0.7, `${wall.wc} ${mid.wc} ${far.wc}`);
+  assert.deepEqual(wall.col, green);
+  // a fading branch (a higher tier): no colour blend, the trunk shows through it
+  const fade = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 16 }, rows });
+  assert.equal(at(fade, [0, 6.2]).wc, 0);
+  // a continuation: half at the plane, none past the blend
+  const A = line(-100, 0, 0, 0), B = line(0, 0, 100, 0);
+  const rowsAB = rowsOf({ 0: { pts: A, tier: 3, colour: () => pale }, 1: { pts: B, tier: 3, colour: () => green } });
+  const dA = joinOneJS({ e: endContinues(1, 0), atStart: false, own: { pts: A, tier: 3 }, rows: rowsAB });
+  assert.deepEqual(dA.C, green, 'A takes B\'s colour at B\'s end sample');
+  const a = (p) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: dA.J, K: [-1, -1, ...dA.K], C0: [0, 0, 0], C1: dA.C, p, R: 6, px: PX });
+  assert.ok(Math.abs(a([0, 0]).wc - 0.5) < 1e-9, 'half at the plane: both rows meet at the mean');
+  assert.equal(a([-Math.max(JOIN_COLOUR_R * 6, JOIN_COLOUR_MIN) - 0.1, 0]).wc, 0);
+});
+
+test('joinAlong is comp-glsl.js\'s alongAt under another name', () => {
+  assert.equal(JOIN_ALONG_GLSL, ALONG_GLSL.trim().replace('alongAt', 'joinAlong'));
 });
