@@ -66,6 +66,36 @@ add('compositor COMP_FS()', { '../src/ui/veins-gl.js': ['COMP_FS'] }, (g) => ({ 
 add('compositor COMP_FS(plain)', { '../src/ui/veins-gl.js': ['COMP_FS'] }, (g) => ({ vs: g.COMP_VS ?? null, fs: g.COMP_FS(true), note: compNote(g) }));
 add('compositor COMP_FS(streak)', { '../src/ui/veins-gl.js': ['COMP_FS'] }, (g) => ({ vs: g.COMP_VS ?? null, fs: g.COMP_FS(false, true), note: compNote(g) }));
 
+// The Tube's stage 2 (brief S2-B): the short fragment shader over the strip's vertex shader, and the depth shader. Until S2-A's vertex shader writes the
+// contract's varyings (vD, vG, vRad, vEnd) the pair cannot link, so the entry takes the stand-in below; the entry switches to tubeStripVS by itself once it does.
+const alongText = (N) => `
+float alongAt(int id, float u) {
+  float ui = u * ${N - 1}.0;
+  int i0 = min(int(ui), ${N - 2});
+  vec2 a = texelFetch(rad, ivec2(i0, id), 0).ba;
+  return a.x < 0.0 ? u : mix(a.x, a.y, ui - float(i0));
+}`;
+const leanVaryings = `#version 300 es
+precision highp float;
+layout(location=0) in vec4 aV;
+layout(location=1) in float aRow;
+out float vI; flat out int vRow; out float vD; out vec2 vG; out float vRad; flat out vec2 vEnd;
+void main() { vI = aV.x; vRow = int(aRow); vD = aV.y; vG = aV.zw; vRad = aV.w; vEnd = aV.xy; gl_Position = vec4(aV.xy, 0.0, 1.0); }`;
+add('tube lean (tubeLeanFS)', {
+  '../src/ui/veins-gl.js': ['F_SEL', 'F_DIFFUSE', 'F_SHADOW', 'F_DOTTED', 'F_NOCASE', 'F_SPEC', 'F_EDGE', 'F_VEIL', 'F_WHOLE', 'VEIL_K', 'MAX_TIERS', 'N_SAMPLES', 'LUMEN2', 'ROW2_BITS'],
+  '../src/ui/edge.js': ['EDGE_GLSL'], '../src/ui/veins-bin.js': ['ENT_W'], '../src/ui/highlight-math.js': ['LIFT_EASE_SHARE', 'LIFT_EASE_MAX'],
+  '../src/ui/tube-lean-glsl.js': ['tubeLeanFS'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/tube-geo.js': ['tubeStripVS'],
+}, (g, edge, bin, hl, lean, mm, tg) => {
+  const K = { F_DIFFUSE: g.F_DIFFUSE, F_EDGE: g.F_EDGE, F_SHADOW: g.F_SHADOW, F_SPEC: g.F_SPEC, F_VEIL: g.F_VEIL, F_WHOLE: g.F_WHOLE, F_SEL: g.F_SEL, F_DOTTED: g.F_DOTTED,
+    F_NOCASE: g.F_NOCASE, LIFT_EASE_MAX: hl.LIFT_EASE_MAX, LIFT_EASE_SHARE: hl.LIFT_EASE_SHARE, LUMEN2: g.LUMEN2, ROW2_BITS: g.ROW2_BITS, VEIL_K: g.VEIL_K,
+    EDGE: edge.EDGE_GLSL, ENT_W: bin.ENT_W, N_SAMPLES: g.N_SAMPLES, MAX_TIERS: g.MAX_TIERS, S_OFF: 96, ALONG_GLSL: alongText(g.N_SAMPLES) };
+  const vs = tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL);
+  const real = /out float vD;/.test(vs) && /out vec2 vG;/.test(vs) && /out float vRad;/.test(vs) && /out vec2 vEnd;/.test(vs.replace('flat out vec2 vEnd', 'out vec2 vEnd'));
+  return { vs: real ? vs : leanVaryings, fs: lean.tubeLeanFS(K), note: real ? '' : 'linked with a stand-in vertex shader: tubeStripVS does not write vD, vG, vRad, vEnd yet (S2-A)' };
+});
+add('tube depth (TUBE_DEPTH_FS)', { '../src/ui/veins-gl.js': ['F_SEL'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/tube-geo.js': ['tubeStripVS'], '../src/ui/tube-lean-glsl.js': ['TUBE_DEPTH_FS'] },
+  (g, mm, tg, lean) => ({ vs: tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL), fs: lean.TUBE_DEPTH_FS }));
+
 // ---- later threads: add yours above this line, one line each ------------------------------------------------------------------------
 // (S2-A/B/J/D: tubeLean, the web, ...; S3-X: COMP_FS with its new last argument; S3-C: the lumen shader; L-A/L-D: the lobule's.)
 
