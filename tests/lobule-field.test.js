@@ -78,7 +78,7 @@ test('every zoom into the lobule draws it first, for where it lands, then zooms;
   assert.match(stage, /(?:live\.)?(?:live\.)?lz\.prewarm\((?:live\.)?(?:live\.)?diveLand\.r\);\n\s+(?:live\.)?(?:live\.)?lz\.stage\(\); {3}\/\/ the lobule is drawn now/);
   assert.ok(stage.indexOf('lz.stage();   //') < stage.indexOf('const t0 = easeNow();\n    live.lobOn = on;'), 'drawn before the zoom is timed');
   // The frame it starts to fade in draws nothing new when the framing still matches.
-  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ if \(!raf\) raf = nextFrame\(loop\); \} else \{ diveDrawn = false; snapState\(\); if \((?:live\.)?F\) update\((?:live\.)?F\); \}/);
+  assert.match(lz, /if \(staged && staged === api\.viewKey\(\) && model\) \{ lzLoop\.want\(\); \} else \{ diveDrawn = false; snapState\(\); if \((?:live\.)?F\) update\((?:live\.)?F\); \}/);
   // Its memory is given back when the zoom returns to the anatomy (never mid-zoom); the idle preparation keeps nothing.
   assert.match(lz, /if \(was > 0\) \{ if \(diveScaled\) relLater = true; else release\(\); \}/);
   assert.match(lz, /if \(!diveScaled && fade <= 0\) \{ staged = ''; if \(relLater\) \{ relLater = false; release\(\); \} \}/);

@@ -54,6 +54,7 @@ import { createResCover, coverFollowInto } from './res-cover-gl.js';
 import { leaderEnd, leaderEndRects, runInside } from './leader-end.js';
 import { LIGHT } from './light.js';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js';
+import { createLoopAsk } from './loop-ask.js';
 import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
 import { easeMove, carryRate, carried, createGlideTracker, cubicBezier, lobuleMs, LOBULE_MS_MAX, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
@@ -292,7 +293,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   const readAll = () => { const a = readBox(), b = readCards(); return a || b; };
   // (Laid out again, in the next frame, with what was read.)
-  const relayout = () => { layoutKey = ''; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); };   // (a size, not the camera: counted as the model's change)
+  const relayout = () => { layoutKey = ''; drawVersion++; lzLoop.want(fade > 0); };   // (a size, not the camera: counted as the model's change)
   function readRest() { restT = 0; if (readAll() && fade > 0) relayout(); }
   let restT = 0;
   function landedRead() { if (!restT) restT = restPass(readRest); }
@@ -505,7 +506,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (!occT) occT = restPass(onOcc);
   });
   // A new text size: the labels are laid out again at it, each at its new place in that frame (the GPU's names never glide: V-LBL-1).
-  addEventListener('pps:labelscale', () => { measureShown(); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
+  addEventListener('pps:labelscale', () => { measureShown(); syncLeaders(); drawVersion++; viewVer++; layoutKey = ''; lzLoop.want(fade > 0); });
   let pacedVer = -1, viewVer = 0;   // viewVer: a pan, zoom, resize or label change, drawn without waiting
   // (viewBumps: the bumps of drawVersion that only moved the camera: the model's own, drawVersion less these, is what the surface pass
   // in drawGL waits for when the model is paused.)
@@ -513,7 +514,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (frameBumps: the bumps that only say "a model frame came" (update, and the pressures' glide between frames, which never quite stops while
   // the model runs). While the model runs the surface pass is paced by its 80 ms clock, not by these; paused, they are what wakes it.)
   let frameBumps = 0;
-  const viewChanged = () => { drawVersion++; viewBumps++; viewVer++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); };
+  const viewChanged = () => { drawVersion++; viewBumps++; viewVer++; tissueKey = ''; layoutKey = ''; lzLoop.want(fade > 0); };
   // (A point to the screen and back, one number at a time: sX and sY, wX and wY make no array.)
   const wX = (x) => (x - V.x) / V.k, wY = (y) => (y - V.y) / V.k;
   const sX = (x) => x * V.k + V.x, sY = (y) => y * V.k + V.y;
@@ -739,12 +740,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     selFor = sl; selIdsC = idsFor(sl);
     return selIdsC;
   }
-  store.on('selection', () => { attrKey = ''; tissueKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });
+  store.on('selection', () => { attrKey = ''; tissueKey = ''; lzLoop.want(fade > 0); });
   // Pinning a moment puts the Then / Now / Change switch over the top: the lobule frames itself below it.
   store.on('compareSnap', () => nextFrame(() => { if (geo && fade > 0) { layoutKey = ''; refit(); } }));   // alloc-rare: only when a moment is pinned or let go (store compareSnap)
 
   // ── State ──
-  let F = null, fade = 0, raf = 0, last = 0, lastPaint = 0;
+  let F = null, fade = 0, last = 0, lastPaint = 0;
+  // (The frame loop, one at a time (loop-ask.js): a wake while it runs is noted and answered as the run ends, never a second copy of the loop.)
+  const lzLoop = createLoopAsk(nextFrame, cancelFrame, loopRun);
   // Figure resolution: taken up as the lobule opens and at once while it is hidden. A change made while it shows (30 Oct, Mohammad:
   // "when I check manual 25% for example the lobule doesn't change") waits (lzWant) for the lobule to stand still and whole (not
   // mid-dive, mid-rise or inside a sinusoid), then eases in: resSwap.
@@ -755,7 +758,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (fade <= 0) { lzK = k; lzWant = null; return; }
     lzWant = k === lzK ? null : k;
     if (lzWant != null) coverGL()?.prepare();   // (the cover's program compiles while the lobule comes to rest: res-cover-gl.js)
-    if (lzWant != null && !raf) raf = nextFrame(loop);
+    if (lzWant != null) lzLoop.want();
   });
   // (The model and the field's are two objects kept for the view and written in place by lobuleStateInto, so a frame makes none.)
   const modelBuf = {}, fsBuf = {};
@@ -770,7 +773,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // Any change may show in the lobule, except these, which never do (the model's frame arrives through update()).
   const UNSEEN = new Set(['frame', 'historyTick', 'details', 'found', 'presetLoading', 'presetList', 'lastHVPG', 'speed', 'lapse', 'tool', 'hiddenReadouts', 'hiddenEvents', 'booted']);
   const seen = (k) => !UNSEEN.has(k);
-  store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some(seen)) { drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); } });
+  store.on('*', (keys) => { if (!Array.isArray(keys) || keys.some(seen)) { drawVersion++; lzLoop.want(fade > 0); } });
   let lzYield = null;
   let surfCs = null, flowG = null, flowAt = -1;   // what the last surface pass and flow upload in drawGL were made for (see there)
   let gl = null, glTried = false, binKey = '', binReach = [], radKey = [], radAll = '', radCal = '', inkWas = [], attrKey = '', drawKey = '', glDirty = true, tissueKey = '', worldKey = '', layoutKey = '';
@@ -848,7 +851,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (handOn()) { frozenT = setTimeout(frozenEnd, 120); return; }
     if (!frozenDraw) return;
     idleDrawn = ''; drawVersion++; viewChanged();
-    if (!raf && fade > 0) raf = nextFrame(loop);
+    lzLoop.want(fade > 0);
   }
   // The map the lobule's texture is laid by (CSS px), written in place into shXf: p' = [a b; c d] p + (tx, ty).
   const shXf = { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 };
@@ -956,7 +959,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let glAsk = 0;
   function glNow() {
     if (glTried) return gl;
-    if (!glAsk) glAsk = restPass(() => { glAsk = 0; ensureGL(); drawVersion++; tissueKey = ''; layoutKey = ''; if (!raf && fade > 0) raf = nextFrame(loop); });   // alloc-rare: only the first frame that finds the GPU context not made yet (glAsk holds the one ask until ensureGL has run)
+    if (!glAsk) glAsk = restPass(() => { glAsk = 0; ensureGL(); drawVersion++; tissueKey = ''; layoutKey = ''; lzLoop.want(fade > 0); });   // alloc-rare: only the first frame that finds the GPU context not made yet (glAsk holds the one ask until ensureGL has run)
     return null;
   }
   // (Registered once: one per ensureGL would add another handler on every restore.)
@@ -1270,7 +1273,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     model.inks = readInks(styles());
     if (originOn() && (originsF !== f || originsPass !== passOn())) { originsPass = passOn(); origins = originFractionsInto(EDGES, NODES, f.Qf || f.Q, f.Pf || f.P, origins || new Float32Array(EDGES.length * ORIGIN_N), originsPass ? lobEnds : undefined, originsPass); originsF = f; }
     panel();
-    if (!raf) raf = nextFrame(loop);
+    lzLoop.want();
   }
   const originOn = () => !store.get().imaging && (store.get().colorMode === 'origin' || store.get().colorMode === 'firstpass');
   const passOn = () => store.get().colorMode === 'firstpass';
@@ -2854,15 +2857,14 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // ── Frame loop ──
   const CALM_AFTER = 600;   // (ms of only the blood moving before it is drawn at the flow's rate: the anatomy's CALM_AFTER_MS)
   let calmAt = 0;
-  function loop(now) {
-    raf = 0;
+  function loopRun(now) {
     if (fade <= 0 || !model) { noteCalmRule(''); return; }
     // (Render-cost plan 1: under the presenter's black screen, the home screen or a hidden page nothing is drawn; looked at again four times a
     // second, and drawn as things stand then, the first frame stepping nothing.)
     if (stageCovered()) { last = 0; clearTimeout(sleepT); sleepT = setTimeout(sleepWake, 250); return; }
     const soft = !!gl?.software;
-    if (soft && now - lastPaint < 110) { raf = nextFrame(loop); return; }
-    if (lzYield && !lzYield.ready(now, viewVer !== pacedVer)) { raf = nextFrame(loop); return; }   // (a pan or zoom: drawn now)
+    if (soft && now - lastPaint < 110) { lzLoop.again(); return; }
+    if (lzYield && !lzYield.ready(now, viewVer !== pacedVer)) { lzLoop.again(); return; }   // (a pan or zoom: drawn now)
     // The flow is drawn on every frame the screen offers, like the anatomy's blood. Battery saver alone paces it, to 15 a
     // second; a pan, zoom or any other change draws at once even then.
     // (The governor, frame.js (pure GPU plan C2, C4), which only the anatomy had: a hand, a glide, a caliber or colour easing, the dive or a
@@ -2872,7 +2874,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const calmNow = now - calmAt > CALM_AFTER, cheap = calmNow && gl?.tubeStage?.() === 3;   // (Tube speed plan P1: the Tube's stage 3 drew the last picture: its calm blood is cheap)
     noteCalmRule(calmNow ? calmFlowRule(cheap) : '');   // (?perf says which rule paces the calm blood)
     const pace = calmNow ? Math.max(paceMs(), calmFlowGapFor(cheap)) : paceMs(), paced = !soft && pace > 0 && viewVer === pacedVer;
-    if (paced && now - lastPaint < pace) { raf = nextFrame(loop); return; }
+    if (paced && now - lastPaint < pace) { lzLoop.again(); return; }
     const dt = Math.min(0.1, (now - (last || now)) / 1000); last = now; lastPaint = now;
     const st = store.get(), moving = st.running && !reduce.matches;
     if (moving) clock = (clock + dt) % 10000;
@@ -2893,10 +2895,10 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       clearTimeout(sleepT); sleepT = setTimeout(sleepWake, 250);
       return;
     }
-    raf = nextFrame(loop);
+    lzLoop.again();
   }
   let sleepT = 0;
-  function sleepWake() { if (!raf && fade > 0) raf = nextFrame(loop); }
+  function sleepWake() { lzLoop.want(fade > 0); }
   // A Figure resolution change made while the lobule shows: the layers are drawn once more as they stand (in this frame, so the GPU
   // ones can be read), stacked into one opaque picture laid over them (resCover, under the labels), and the loop then draws them at
   // the new share under it while it fades out over FADE_MS, the same smoothstep as the anatomy's (res-fade.js). The layers
@@ -3256,7 +3258,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (fade <= 0) return;
     const t = fieldTile(getComputedStyle(host), isDark(), tileLaterRd);
     quietCopy(t, stageBg(getComputedStyle(host), isDark()));
-    tissueKey = ''; drawVersion++; if (!raf) raf = nextFrame(loop);
+    tissueKey = ''; drawVersion++; lzLoop.want();
   }
   // (A tile is a picture recorded for the GPU (paint-gl.js), painted into a texture by each context that draws it: there is no canvas the
   // browser can leave blank. A copy the GPU could not make is retried after TILE_RETRY ms, as before.)
@@ -4291,7 +4293,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (The context given back after a loss (tissue-gl.js asks for it): everything on it was lost with it, so the tissue's GPU drawing is
   // made again on the same canvas the next time it is asked for.)
   // The lobule draws again (its tissue first): a bitmap came in, or the next one can be asked for.
-  function wake() { tissueKey = ''; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
+  function wake() { tissueKey = ''; idleDrawn = ''; lzLoop.want(fade > 0); }
   // Which of the two shows (in the frame it was drawn in, so the picture never goes missing between them).
   // The GPU's canvas taking over from the 2D one: the 2D canvas, which lies under it, stays whole and showing for HANDOFF_MS before it is
   // hidden and given back. Safari can show a WebGL canvas's new frame a frame or more after the page's (more so for a canvas just
@@ -4557,7 +4559,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const fxHostPart = () => fxHostGL.draw(fxArgs);
   function fxHostDraw() {
     if (!fxArgs || !fxHostGL) return;   // (a wide copy's tile lays it too: buildWideGL; the 2D tiles leave fxArgs empty)
-    if (!framePart('lz.fxGL', fxHostPart)) { fxHostBad = performance.now() + 250; fxArgs = null; fxVerN++; idleDrawn = ''; if (!raf && fade > 0) raf = nextFrame(loop); }
+    if (!framePart('lz.fxGL', fxHostPart)) { fxHostBad = performance.now() + 250; fxArgs = null; fxVerN++; idleDrawn = ''; lzLoop.want(fade > 0); }
   }
   function fxGLOn() {
     if (fxHosted()) {
@@ -4897,7 +4899,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     if (sl && (on ? sl.type === 'lobule' : sl.type === 'sinusoid')) store.set({ selection: null });   // alloc-rare: once per sinusoid-zoom gesture, clearing the selection
     // On the way out the lobule is drawn once in its present state, so it does not change when it lands.
     if (!on) { diveDrawn = false; drawVersion++; tissueKey = ''; layoutKey = ''; }
-    if (!raf && fade > 0) raf = nextFrame(loop);
+    lzLoop.want(fade > 0);
     // (Lite mode: no zoom into or out of the sinusoid; it fades in.)
     // (On the one clock rule, motion.js: the honest wall clock, easeNow, with the first two frames held to 40 ms each. A reversal mid-way
     // slews the zoom's velocity over D_FLIP, sinClock, instead of turning it round in one frame; the zoom's curve, easeIO, is a function of the position.)
@@ -4907,7 +4909,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const step = () => {   // alloc-rare: once per sinusoid-zoom gesture (its start); the frames of the zoom call this same function
       sinU = sinClock.tick(easeNow()); placeSinusoid();
       if (sinU !== to) sinRaf = nextFrame(step);
-      else if (!on) { sinDive = null; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); if (refitLater) refit(); }
+      else if (!on) { sinDive = null; drawVersion++; lzLoop.want(fade > 0); if (refitLater) refit(); }
     };
     sinRaf = nextFrame(step);
   }
@@ -4971,12 +4973,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       // (A copy built for a framing the dive no longer lands on is dropped: the layers are drawn again for the new one below.)
       if (fade > 0 && was === 0 && wide && !(staged && staged === api.viewKey() && model)) dropWide();
       if (fade > 0 && was === 0) { lzK = renderScale(); lzWant = null; }
-      if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { if (!raf) raf = nextFrame(loop); } else { diveDrawn = false; snapState(); if (F) update(F); } staged = ''; }
+      if (fade > 0 && was === 0) { flowA = 0; flowT = 0; resetView(); relLater = false; if (staged && staged === api.viewKey() && model) { lzLoop.want(); } else { diveDrawn = false; snapState(); if (F) update(F); } staged = ''; }
       // Leaving the lobule closes a part's card, so it is not waiting next time.
       if (was > 0.98 && fade <= 0.98) { stopInertia(); if (store.get().selection?.type === 'lobule') store.set({ selection: null }); }
       // (Mid-zoom out, the canvases are given back when the zoom ends: freeing them there is one more thing in a moving frame.)
       if (fade === 0 && was > 0) cap.hideAll();   // (the names go at once with the view, never left drawn, collapsed by the dive's scale; they fade in again, placed afresh, on the next visit)
-      if (fade === 0) { resCoverEnd(); cancelFrame(raf); raf = 0; last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
+      if (fade === 0) { resCoverEnd(); lzLoop.stop(); last = 0; if (was > 0) { if (diveScaled) relLater = true; else release(); } }
       // Out of the lobule: a presenter's aim is spent (the next way in frames the whole lobule).
       if (fade === 0 && was > 0) { aimed = null; heldFree = null; }
       // Leaving the lobule view from inside a sinusoid: the sinusoid fades out with it.
@@ -5168,12 +5170,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const z = on ? Math.max(1, Math.min(CARD.k, 3 / (base || 1))) : 1;
       if (z === zres) return;
       zres = z; glDirty = true; tissueKey = ''; drawKey = ''; idleDrawn = ''; drawVersion++;
-      if (!raf && fade > 0) raf = nextFrame(loop);
+      lzLoop.want(fade > 0);
     },
     zoomEnd() {
       if (!zbase) return;
       const sin = zbase.sin;
-      if (zres !== 1) { zres = 1; glDirty = true; tissueKey = ''; drawKey = ''; idleDrawn = ''; drawVersion++; if (!raf && fade > 0) raf = nextFrame(loop); }
+      if (zres !== 1) { zres = 1; glDirty = true; tissueKey = ''; drawKey = ''; idleDrawn = ''; drawVersion++; lzLoop.want(fade > 0); }
       sv.sharpen?.(false);
       zbase = null;
       if (sin) { sv.camera(1, 0, 0, 1); return; }
