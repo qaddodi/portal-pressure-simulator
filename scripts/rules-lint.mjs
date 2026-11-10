@@ -219,13 +219,14 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const lf = slice(vg, 'function lumenFrame(', '\n  }\n');
     if (!/lumK = LK; \}/.test(lf) || !/eachPiece\(la\[0\], la\[1\], fboW, fboH\);\n\s+pMode = 0; lumK = null;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: lumK is set only around the lumen pass\'s eachPiece and cleared straight after it');
     if (!/pM = scaled \? lumenView\(m, LK\.sx, LK\.sy, LK\.ms\) : m;/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen pass is given the view in the target\'s pixels (lumenView) when the target is smaller than the layer');
-    if (!/lumenDepth\.needs\(m, wo, la, lw0, lh0\)/.test(lf) || !/lumenDepth\.drawn\(m, wo, la, lw0, lh0\)/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth stamp is told the target\'s size');
+    if (!/lumenDepth\.needs\(m, wo, la, lw0, lh0, bx\)/.test(lf) || !/lumenDepth\.drawn\(m, wo, la, lw0, lh0, bx\)/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth stamp is told the target\'s size');
     if (!/const SW = size \? size\[0\] : lumK \? lumK\.w : fboW/.test(vg)) errors.push('src/ui/veins-gl.js vesselSet: the layer\'s size uniforms are the target\'s while lumK is set');
     if (!/if \(lumK\) m = lumK\.m;/.test(vg)) errors.push('src/ui/veins-gl.js layerView: the cull\'s rectangle comes from the full view while the lumen pass draws at a share (the layer pass\'s rectangle)');
     if (!/tubePass\.webColour = !!\(blood\.origin \|\| \(dyeAny && blood\.dye !== false\)\);/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen colour draw includes the webs only when the origin colours or the dye are on (tubePass.webColour; a web\'s lumen pixel is the plain fill otherwise)');
     if (!/if \(w && tubePass\.webColour\) \{ webCall\(P3\.webLumen,/.test(text('src/ui/tube-pass.js'))) errors.push('src/ui/tube-pass.js tubeLumenPass: the webs\' colour draw follows tubePass.webColour; their depth prepass does not');
+    if (!/const bx = !LUM_OFF && tubePass\.lumenBox\(m, look, LB\) \? LB : null;/.test(lf) || !/LUMC\.n = 0; LUMC\.all = !bx;/.test(lf) || !/LUMD\.all = LUMC\.all; LUMD\.n = LUMC\.n; LUMD\.r\.set\(LUMC\.r\);/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the lumen pass is cut to the box of the rows inside and their webs (PL item 3), clears what the last frame may have drawn in, and keeps the rects it drew in for the next clear');
     const ep = slice(vg, 'function eachPiece(', '\n  }\n');
-    if (!/lumenPiece\(AXX\[i \* 3\], AXX\[i \* 3 \+ 1\], K\.sx, PCX\)/.test(ep) || !/AXX\[2\] \* K\.sx/.test(ep)) errors.push('src/ui/veins-gl.js eachPiece: a lumen pass at a share scissors and shifts its pieces in the target\'s pixels (lumenPiece, times the share)');
+    if (!/lumenPiece\(x0, x1 - x0, kx, PCX\)/.test(ep) || !/AXX\[i \* 3 \+ 2\] \* kx/.test(ep)) errors.push('src/ui/veins-gl.js eachPiece: a lumen pass at a share scissors and shifts its pieces in the target\'s pixels (lumenPiece, times the share)');
   }
   // The lumen layer keeps its depth (brief PD part 2, 10 Nov 2026): any draw of the vessel layer marks it stale, and the lumen pass never draws lumens over a depth marked stale: it draws the
   // depth again first (cleared, the prepasses), and a fresh depth is neither cleared nor invalidated.
@@ -237,7 +238,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (iLumen < 0 || iStale < iLumen || iClear < iStale) errors.push('src/ui/veins-gl.js pieceFn: every draw of the vessel layer (every mode but the lumen layer\'s own) marks the lumen depth stale first (lumenDepth.stale() before the draw)');
     const lf = slice(vg, '  function lumenFrame(', '  // The composite\'s textures, each on its unit');
     const iNeeds = lf.indexOf('pRedo = lumenDepth.needs('), iEach = lf.indexOf('eachPiece('), iDrawn = lf.indexOf('if (pRedo) { lumenDepth.drawn(');
-    if (iNeeds < 0 || iEach < iNeeds || iDrawn < iEach || !/if \(T\.made !== made\) lumenDepth\.stale\(\);/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth is asked for (lumenDepth.needs) before the pieces, recorded as drawn after them, and a new or resized lumen target makes it stale');
+    if (iNeeds < 0 || iEach < iNeeds || iDrawn < iEach || !/if \(T\.made !== made\) \{ lumenDepth\.stale\(\); LUMD\.all = true; \}/.test(lf)) errors.push('src/ui/veins-gl.js lumenFrame: the depth is asked for (lumenDepth.needs) before the pieces, recorded as drawn after them, and a new or resized lumen target makes it stale');
     if (!/lost = true; lumenDepth\.stale\(\);/.test(vg)) errors.push('src/ui/veins-gl.js: a context loss marks the lumen depth stale');
     const lp = slice(tp, '  function tubeLumenPass(', '  tubePass.drew = 0;');
     const iRedo = lp.indexOf('if (redo) {'), iDepth = lp.indexOf('gl.clearBufferfv(gl.DEPTH'), iLum = lp.indexOf('stripCall(P3.lumen');

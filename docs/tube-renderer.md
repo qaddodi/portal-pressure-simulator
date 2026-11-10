@@ -263,6 +263,20 @@ lumen shader's colour on a web is its fill (`aCol`, the cel tones the layer's le
 (its mix is at the share `L.a / v.a`, 0 there). So `lumenFrame` sets `tubePass.webColour` from the two tests `lumenBind` makes (`blood.origin`, `dyeAny && blood.dye !== false`), and when it is false the webs are left out of the
 lumen pass's colour draw. They stay in its depth prepass (so a web still hides the lumens it covers). `tests/tube-lumen-scale.test.js` pins the arithmetic (a web's `y` is 1, the wall factor 0) and the draw.
 
+## The lumen pass only where the lobule is (brief PL item 3, 10 Nov 2026)
+
+The lumen pass cleared and drew the whole target though the rows the cull keeps (PD part 3) often fill a part of it.
+- **The box.** `createStage2Data.frame` makes `D.lumBox` whenever it buckets with the cull (`lumenBox`): the union of the kept rows' boxes and, for each web one of whose legs is a kept row, the squares round its two legs'
+  samples as far as a web reaches (5 radii of the larger leg's box growth and the join's reach). A web with neither leg a kept row is not drawn in the lumen colour (its rows are not drawn; it would add only a fillet at their
+  ends). Nothing is made after the first call; it is made again only when the buckets are.
+- **The cut.** `tubePass.lumenBox(m, look, out)` gives it as device pixels under the full view, a pixel out (`lumenRect`); `lumenFrame` keeps it in `lumBoxNow` while the pass draws, and `eachPiece` cuts each piece's scissor
+  to it (`lumenCut`: the piece's shift takes the screen box into the layer; floor and ceil, so none of the box is left out), then into the target's pixels (`lumenPiece`). No box (stage 2, no cull this frame, the change
+  between the views): the whole target, as before.
+- **The clear.** Everything outside the pixels the last frame drew in is clear already, so a frame clears only those (`LUMD`, at most four rects; the whole target after a new target, a frame with no box, `?lumen=off`) and keeps
+  the rects it draws in (`LUMC`) for the next. **The depth** the pass keeps between blood frames is drawn only inside the box, so the depth stamp holds the box (`needs`/`drawn` take it): another box makes it stale.
+- **`?perf`.** The lumen layer gauge ends `drawn in N MP (P%)` (the sum of the rects) or `all of it`.
+- **Tests.** `tests/tube-lumen-scale.test.js` (the box holds the kept rows and the webs' reach, the rect under a view, the cut over a wrapped layer's pieces holds every pixel of the box and no pixel outside the window, the stamp).
+
 ## The Anatomy to Circuit switch (10 Nov 2026)
 
 **What was slow.** The change between the views runs through morph sets (veins-sweep.js, six stretches made ahead). Each set change inside the change made `meshGeo()` derive the set's

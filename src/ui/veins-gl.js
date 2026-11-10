@@ -57,7 +57,7 @@ import { STRIP_VS_GLSL, stripIndex, PATCH_QUAD } from './veins-mesh.js';
 import { tubeIndex, tubeStripVS } from './tube-geo.js';
 import { celGLSL } from './tube-cel-glsl.js';
 import { createTubePass } from './tube-pass.js';
-import { stage2Start, stage2Finish, STAGE2_PROGRAMS, glowStart, glowFinish, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, createDepthStamp, lumenScale, lumenSize, lumenView, lumenPiece, lumenOff, tubeStage, tubeJoinCut, stage2Prepare, layerRect } from './tube-stage2.js';
+import { stage2Start, stage2Finish, STAGE2_PROGRAMS, glowStart, glowFinish, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, createDepthStamp, lumenScale, lumenSize, lumenView, lumenPiece, lumenCut, lumenOff, tubeStage, tubeJoinCut, stage2Prepare, layerRect } from './tube-stage2.js';
 import { STYLE_P } from './blood-particles.js';
 import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGroups, PG_W, PG_M } from './veins-mesh-data.js';
 import { createBloodTile, STYLE_D, STYLE_E } from './blood-tile.js';
@@ -2665,7 +2665,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const gA = [null, 0], oA = [null, 0];
   // The lumen layer at a share of the vessel layer's size (tube-stage2.js lumenScale): while the lumen pass draws, lumK holds the share (sx, sy), the target's size (w, h), the full view (m) and
   // the view in the target's pixels (ms); null otherwise, and when the target is the layer's size.
-  let lumK = null;
+  let lumK = null, lumBoxNow = null;
+  // The lumen target's pixels the last frame may have drawn in (rects of gl scissor arguments, at most the pieces' four), cleared at the next frame's start instead of the whole target; all: the whole target.
+  const LUMD = { all: true, n: 0, r: new Int32Array(16) }, LUMC = { all: true, n: 0, r: new Int32Array(16) }, LB = new Float64Array(4);   // alloc-rare: once per renderer
+  const lumNoteRect = (x, y, w, h) => { if (LUMC.n < 4) { const o = LUMC.n++ * 4; LUMC.r[o] = x; LUMC.r[o + 1] = y; LUMC.r[o + 2] = w; LUMC.r[o + 3] = h; } else LUMC.all = true; };
   const LK = { sx: 1, sy: 1, w: 0, h: 0, m: null, ms: new Float64Array(6) }, PCX = [0, 0], PCY = [0, 0];   // alloc-rare: once per renderer
   let lumPhone = false;
   try { lumPhone = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && (globalThis.devicePixelRatio || 1) >= 3; } catch (e) { caught('veins-gl:lumPhone', e); }
@@ -2685,8 +2688,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!(w > 0 && h > 0)) { lOffNow[0] = 0; lOffNow[1] = 0; return; }
     const W = fboW, H = fboH;
     const nx = axisPieces(x, w, wo[0] - la[0], W, AXX), ny = axisPieces(y, h, wo[1] - la[1], H, AXY);
-    const K = lumK;   // (the lumen pass at a share of the layer's size: the pieces' scissors and shifts in the target's pixels, lumenPiece)
-    if (!scissored && nx === 1 && ny === 1 && !AXX[0] && !AXY[0] && AXX[1] === W && AXY[1] === H) {
+    const K = lumK, BX = lumBoxNow;   // (the lumen pass at a share of the layer's size: the pieces' scissors and shifts in the target's pixels, lumenPiece; and in the box of what it draws: BX)
+    if (!scissored && !BX && nx === 1 && ny === 1 && !AXX[0] && !AXY[0] && AXX[1] === W && AXY[1] === H) {
       lOffNow[0] = K ? AXX[2] * K.sx : AXX[2]; lOffNow[1] = K ? AXY[2] * K.sy : AXY[2];
       pieceFn();
       lOffNow[0] = 0; lOffNow[1] = 0;
@@ -2695,10 +2698,20 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!scissored) gl.enable(gl.SCISSOR_TEST);
     for (let i = 0; i < nx; i++) {
       for (let j = 0; j < ny; j++) {
-        if (K) {
-          lumenPiece(AXX[i * 3], AXX[i * 3 + 1], K.sx, PCX); lumenPiece(AXY[j * 3], AXY[j * 3 + 1], K.sy, PCY);
-          gl.scissor(PCX[0], K.h - PCY[0] - PCY[1], PCX[1], PCY[1]);
-          lOffNow[0] = AXX[i * 3 + 2] * K.sx; lOffNow[1] = AXY[j * 3 + 2] * K.sy;
+        if (K || BX) {
+          // (This piece's part of the layer, in layer pixels, cut to the box (BX, in screen pixels; the piece's shift takes it into the layer), then in the target's pixels.)
+          let x0 = AXX[i * 3], x1 = x0 + AXX[i * 3 + 1], y0 = AXY[j * 3], y1 = y0 + AXY[j * 3 + 1];
+          if (BX) {
+            if (!lumenCut(x0, x1 - x0, AXX[i * 3 + 2], BX[0], BX[2], PCX)) continue;
+            x0 = PCX[0]; x1 = PCX[1];
+            if (!lumenCut(y0, y1 - y0, AXY[j * 3 + 2], BX[1], BX[3], PCY)) continue;
+            y0 = PCY[0]; y1 = PCY[1];
+          }
+          const kx = K ? K.sx : 1, ky = K ? K.sy : 1, th = K ? K.h : H;
+          lumenPiece(x0, x1 - x0, kx, PCX); lumenPiece(y0, y1 - y0, ky, PCY);
+          gl.scissor(PCX[0], th - PCY[0] - PCY[1], PCX[1], PCY[1]);
+          if (BX) lumNoteRect(PCX[0], th - PCY[0] - PCY[1], PCX[1], PCY[1]);
+          lOffNow[0] = AXX[i * 3 + 2] * kx; lOffNow[1] = AXY[j * 3 + 2] * ky;
         } else {
           gl.scissor(AXX[i * 3], H - AXY[j * 3] - AXY[j * 3 + 1], AXX[i * 3 + 1], AXY[j * 3 + 1]);
           lOffNow[0] = AXX[i * 3 + 2]; lOffNow[1] = AXY[j * 3 + 2];
@@ -3946,24 +3959,33 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (?lumen=off: no lumen pass; the target is one clear pixel, which the compositor reads as no lumen, so no blood is drawn.)
     const lw0 = LUM_OFF ? 1 : lumenSize(fboW, fboH, lumShare, LSZ)[0], lh0 = LUM_OFF ? 1 : LSZ[1];
     const made = lumTarget.made, T = lumTarget.ensure(lw0, lh0);
-    if (T.made !== made) lumenDepth.stale();
+    if (T.made !== made) { lumenDepth.stale(); LUMD.all = true; }
     if (gpuProbe.on && T.made !== made) noteAlloc(lw0 * lh0 * 7 / 1024);
-    if (gpuProbe.on) gpuProbe.gauge(who === 'lobule' ? 'lobule lumen layer' : 'lumen layer', LUM_OFF ? 'off (?lumen=off): no lumen pass, no blood' : `${lw0} x ${lh0} = ${(lw0 * lh0 / 1e6).toFixed(2)} MP at ${(lw0 / fboW).toFixed(2)} of the vessel layer's ${fboW} x ${fboH} (${(fboW * fboH / 1e6).toFixed(2)} MP)`);
     lumBlood = blood;
+    // (The box of what the pass draws, in screen pixels: the rows inside the layer and their webs; null: the whole target.)
+    const bx = !LUM_OFF && tubePass.lumenBox(m, look, LB) ? LB : null;
     gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
     gl.viewport(0, 0, lw0, lh0);
-    gl.disable(gl.SCISSOR_TEST);
     gl.colorMask(true, true, true, true);
-    gl.clearBufferfv(gl.COLOR, 0, CLR_F);
-    if (LUM_OFF) return true;
+    // (Cleared: the pixels the last frame may have drawn in, or all of them when it drew the whole target; everything else is clear already.)
+    if (LUMD.all) { gl.disable(gl.SCISSOR_TEST); gl.clearBufferfv(gl.COLOR, 0, CLR_F); }
+    else { gl.enable(gl.SCISSOR_TEST); for (let k = 0; k < LUMD.n; k++) { gl.scissor(LUMD.r[k * 4], LUMD.r[k * 4 + 1], LUMD.r[k * 4 + 2], LUMD.r[k * 4 + 3]); gl.clearBufferfv(gl.COLOR, 0, CLR_F); } gl.disable(gl.SCISSOR_TEST); }
+    LUMC.n = 0; LUMC.all = !bx;
+    if (LUM_OFF) { LUMD.all = true; if (gpuProbe.on) gpuProbe.gauge(who === 'lobule' ? 'lobule lumen layer' : 'lumen layer', 'off (?lumen=off): no lumen pass, no blood'); return true; }
     const scaled = lw0 !== fboW || lh0 !== fboH;
     if (scaled) { LK.sx = lw0 / fboW; LK.sy = lh0 / fboH; LK.w = lw0; LK.h = lh0; LK.m = m; lumK = LK; }
     tubePass.webColour = !!(blood.origin || (dyeAny && blood.dye !== false));   // (the same two tests lumenBind makes for its origin and dyeOn uniforms)
-    pM = scaled ? lumenView(m, LK.sx, LK.sy, LK.ms) : m; pLook = look; pMode = 5;
-    pRedo = lumenDepth.needs(m, wo, la, lw0, lh0);
+    pM = scaled ? lumenView(m, LK.sx, LK.sy, LK.ms) : m; pLook = look; pMode = 5; lumBoxNow = bx;
+    pRedo = lumenDepth.needs(m, wo, la, lw0, lh0, bx);
     eachPiece(la[0], la[1], fboW, fboH);
-    pMode = 0; lumK = null;
-    if (pRedo) { lumenDepth.drawn(m, wo, la, lw0, lh0); if (gpuProbe.on) gpuProbe.note('lumen depth redraws'); }
+    pMode = 0; lumK = null; lumBoxNow = null;
+    if (pRedo) { lumenDepth.drawn(m, wo, la, lw0, lh0, bx); if (gpuProbe.on) gpuProbe.note('lumen depth redraws'); }
+    LUMD.all = LUMC.all; LUMD.n = LUMC.n; LUMD.r.set(LUMC.r);
+    if (gpuProbe.on) {
+      let area = 0;
+      if (!LUMC.all) for (let k = 0; k < LUMC.n; k++) area += LUMC.r[k * 4 + 2] * LUMC.r[k * 4 + 3];
+      gpuProbe.gauge(who === 'lobule' ? 'lobule lumen layer' : 'lumen layer', `${lw0} x ${lh0} = ${(lw0 * lh0 / 1e6).toFixed(2)} MP at ${(lw0 / fboW).toFixed(2)} of the vessel layer's ${fboW} x ${fboH} (${(fboW * fboH / 1e6).toFixed(2)} MP); drawn in ${LUMC.all ? 'all of it' : `${(area / 1e6).toFixed(2)} MP (${Math.round(100 * area / (lw0 * lh0))}%)`}`);
+    }
     return true;
   }
   // The composite's textures, each on its unit (U: the program's uniforms; the flags: which of the layers it lays this frame).

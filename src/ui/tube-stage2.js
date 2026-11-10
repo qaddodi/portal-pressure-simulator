@@ -163,18 +163,20 @@ export function stage3Finish(gl, finishProgram, started) {
  * window or size differ from those it was drawn with); drawn(...) records that it was. A fresh depth is kept between blood frames and never invalidated.
  */
 export function createDepthStamp() {
-  const S = new Float64Array(12);
+  const S = new Float64Array(16);
   let fresh = false;
-  const put = (m, wo, la, w, h) => { for (let i = 0; i < 6; i++) S[i] = m[i]; S[6] = wo[0]; S[7] = wo[1]; S[8] = la[0]; S[9] = la[1]; S[10] = w; S[11] = h; };
+  // (box: the screen box the pass was scissored to, 4 numbers, or null for the whole target: a depth drawn in one box is no depth in another.)
+  const put = (m, wo, la, w, h, box) => { for (let i = 0; i < 6; i++) S[i] = m[i]; S[6] = wo[0]; S[7] = wo[1]; S[8] = la[0]; S[9] = la[1]; S[10] = w; S[11] = h; for (let i = 0; i < 4; i++) S[12 + i] = box ? box[i] : -1e30; };
   return {
     stale() { fresh = false; },
-    needs(m, wo, la, w, h) {
+    needs(m, wo, la, w, h, box = null) {
       if (!fresh) return true;
       for (let i = 0; i < 6; i++) if (S[i] !== m[i]) { fresh = false; return true; }
       if (S[6] !== wo[0] || S[7] !== wo[1] || S[8] !== la[0] || S[9] !== la[1] || S[10] !== w || S[11] !== h) { fresh = false; return true; }
+      for (let i = 0; i < 4; i++) if (S[12 + i] !== (box ? box[i] : -1e30)) { fresh = false; return true; }
       return false;
     },
-    drawn(m, wo, la, w, h) { put(m, wo, la, w, h); fresh = true; },
+    drawn(m, wo, la, w, h, box = null) { put(m, wo, la, w, h, box); fresh = true; },
     get fresh() { return fresh; },
   };
 }
@@ -216,6 +218,55 @@ export function lumenPiece(x, w, s, out) {
   const a = Math.round(x * s);
   out[0] = a; out[1] = Math.round((x + w) * s) - a;
   return out;
+}
+
+/**
+ * The world box of what the lumen pass can draw, into out [x0, y0, x1, y1] (x0 > x1 when there is nothing): the boxes of the rows the cull keeps (C.mask, C.boxes) and, for each web one of whose
+ * legs is such a row, the squares round its two legs' samples (pts, as meshGeo().pts.pts holds them) as far as a web reaches from a leg: WEB_FAR (4) radii of the larger leg and the join's reach, and a
+ * radius more. W: the webs of the binning (tube-data.js webInstances: data, count). A web with neither leg a kept row is left out: its rows are not drawn, and it adds only a fillet at their ends.
+ */
+export function lumenBox(C, nRows, W, pts, out) {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const b = C.boxes.boxes, mk = C.mask;
+  for (let r = 0; r < nRows; r++) {
+    if (!mk[r]) continue;
+    const o = r * 4;
+    if (b[o] < x0) x0 = b[o]; if (b[o + 1] < y0) y0 = b[o + 1]; if (b[o + 2] > x1) x1 = b[o + 2]; if (b[o + 3] > y1) y1 = b[o + 3];
+  }
+  const d = W && W.data;
+  for (let p = 0, n = d ? W.count : 0; p < n; p++) {
+    const q = p * WEB_FLOATS, ra = Math.floor(d[q] + 0.5), rb = Math.floor(d[q + 4] + 0.5);
+    if (!(ra >= 0 && ra < nRows && rb >= 0 && rb < nRows) || !(mk[ra] || mk[rb])) continue;
+    const e = 5 * Math.max(C.hr[ra], C.hr[rb]) + d[q + 9];
+    for (let l = 0; l < 2; l++) {
+      const row = l ? rb : ra, i = Math.floor(d[q + (l ? 5 : 1)] + 0.5), at = (row * 32 + (i >> 1)) * 4 + (i & 1) * 2, x = pts[at], y = pts[at + 1];
+      if (x - e < x0) x0 = x - e; if (x + e > x1) x1 = x + e; if (y - e < y0) y0 = y - e; if (y + e > y1) y1 = y + e;
+    }
+  }
+  out[0] = x0; out[1] = y0; out[2] = x1; out[3] = y1;
+  return out;
+}
+
+/** A world box [x0, y0, x1, y1] as the box of device pixels it covers under the view m, one pixel out each way, into out (screen px, the layer's mapping before the piece shifts); false when the box is empty. */
+export function lumenRect(m, box, out) {
+  if (!(box[0] <= box[2] && box[1] <= box[3])) return false;
+  let lx = Infinity, ly = Infinity, hx = -Infinity, hy = -Infinity;
+  for (let i = 0; i < 4; i++) {
+    const x = i & 1 ? box[2] : box[0], y = i & 2 ? box[3] : box[1], X = m[0] * x + m[2] * y + m[4], Y = m[1] * x + m[3] * y + m[5];
+    if (X < lx) lx = X; if (X > hx) hx = X; if (Y < ly) ly = Y; if (Y > hy) hy = Y;
+  }
+  out[0] = Math.floor(lx) - 1; out[1] = Math.floor(ly) - 1; out[2] = Math.ceil(hx) + 1; out[3] = Math.ceil(hy) + 1;
+  return true;
+}
+
+/**
+ * One axis of a piece cut to the box: the piece holds layer pixels [start, start + len) and shows the screen pixels that are `shift` less (layer = screen + shift); the box covers screen pixels
+ * [lo, hi]. Into out [a, b): the layer pixels of the piece the box covers (floor and ceil, so none of it is left out); false when there are none.
+ */
+export function lumenCut(start, len, shift, lo, hi, out) {
+  const a = Math.max(start, Math.floor(lo + shift)), b = Math.min(start + len, Math.ceil(hi + shift));
+  out[0] = a; out[1] = b;
+  return b > a;
 }
 
 /**
@@ -347,7 +398,7 @@ export function cullUpdate(B, nRows, view) {
  * bundle and binning) bins, buckets and uploads nothing.
  */
 export function createStage2Data(gl, MG) {
-  const D = { tb: {}, wb: {}, stripVAO: null, webVAO: null, rowBuf: null, webBuf: null, webIndexN: 0, rowCap: 0, webCap: 0, binnings: 0, cull: { drawn: 0, total: 0, off: true } };
+  const D = { tb: {}, wb: {}, stripVAO: null, webVAO: null, rowBuf: null, webBuf: null, webIndexN: 0, rowCap: 0, webCap: 0, binnings: 0, cull: { drawn: 0, total: 0, off: true }, lumBox: { b: new Float64Array(4), on: false } };
   const CHK = {}, extra = [];   // alloc-rare: made once; their arrays grow with the binning
   let lastB = null, lastGen = -1, lastTv = -1, lastJ = -2, lastC = null, lastCk = -1;
   function make() {
@@ -390,6 +441,8 @@ export function createStage2Data(gl, MG) {
     else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
     tubeBuckets(tubeNow, C ? C.mask : B.pts.on, nTubes, st.R.rows, D.tb);
     D.cull.off = !C; D.cull.drawn = D.tb.n; D.cull.total = C ? C.total : D.tb.n;
+    D.lumBox.on = !!C;   // (the box the lumen pass is scissored to: only with the cull, which says which rows are drawn)
+    if (C) lumenBox(C, nTubes, st.W, B.pts.pts, D.lumBox.b);
     websByTier(st.W.data, st.W.count, tubeNow, D.wb, B.pts.on, !B.noEnds);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);
     if (D.rowCap < D.tb.rows.length) { D.rowCap = D.tb.rows.length; gl.bufferData(gl.ARRAY_BUFFER, D.rowCap * 4, gl.DYNAMIC_DRAW); }

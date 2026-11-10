@@ -110,3 +110,76 @@ test('why the webs add nothing without origin or dye: a web pixel is placed at t
   const strip = tubeLumenJS({ vI: 10, vD: -1, vG: [0, 1], vRad: 3, ba: [1, 0], len: 100, R: 3, aa: 1 });
   assert.equal(strip.web, false);
 });
+
+// ---- PL item 3: the lumen pass only where the lobule is ----
+import { lumenBox, lumenRect, lumenCut, cullUpdate, createDepthStamp } from '../src/ui/tube-stage2.js';
+
+function rows3() {   // three straight rows (N_SAMPLES points each) along x at y = 10 r, from x = 100 r to 100 r + 50
+  const N = 64, pts = new Float32Array(3 * 32 * 4), on = new Uint8Array(3).fill(1);
+  for (let r = 0; r < 3; r++) for (let i = 0; i < N; i++) { const o = (r * 32 + (i >> 1)) * 4 + (i & 1) * 2; pts[o] = 100 * r + (50 * i) / (N - 1); pts[o + 1] = 10 * r; }
+  return { gen: 1, pts: { pts, on } };
+}
+
+test('lumenBox holds the boxes of the rows the cull keeps and nothing of the rows it leaves out', () => {
+  const B = rows3(), C = cullUpdate(B, 3, { rect: [120, -5, 160, 25], pad: 0, rmax: [1, 1, 1], ok: true });
+  assert.deepEqual([...C.mask.slice(0, 3)], [0, 1, 0]);
+  const out = new Float64Array(4);
+  lumenBox(C, 3, null, B.pts.pts, out);
+  const b = C.boxes.boxes;
+  assert.deepEqual([...out], [b[4], b[5], b[6], b[7]], 'row 1\'s box exactly');
+  C.mask.fill(0);
+  lumenBox(C, 3, null, B.pts.pts, out);
+  assert.ok(out[0] > out[2], 'nothing kept: an empty box');
+});
+
+test('lumenBox adds the squares round a kept row\'s webs\' legs, as far as a web reaches; a web of rows both left out adds nothing', () => {
+  const B = rows3(), C = cullUpdate(B, 3, { rect: [120, -5, 160, 25], pad: 0, rmax: [2, 2, 2], ok: true });
+  const W = { count: 2, data: new Float32Array(24) };
+  // web 0: legs on rows 1 (sample 63, at x 150) and 2 (sample 0, at x 200), reach 10; web 1: rows 0 and 2 (both left out)
+  W.data.set([1, 63, 1, 1, 2, 0, -1, -1, 0.3, 10, 2, 0], 0);
+  W.data.set([0, 0, 1, 1, 2, 0, -1, -1, 0.3, 10, 2, 0], 12);
+  const out = new Float64Array(4), plain = new Float64Array(4);
+  lumenBox(C, 3, null, B.pts.pts, plain);
+  lumenBox(C, 3, W, B.pts.pts, out);
+  const e = 5 * Math.max(C.hr[1], C.hr[2]) + 10;
+  assert.ok(Math.abs(out[2] - (200 + e)) < 1e-3, 'the leg on row 2 at x 200 reaches e further');
+  assert.ok(out[0] <= plain[0] && out[1] <= plain[1] && out[2] > plain[2] && out[3] >= plain[3]);
+  const one = { count: 1, data: W.data.slice(12, 24) };
+  lumenBox(C, 3, one, B.pts.pts, out);
+  assert.deepEqual([...out], [...plain], 'a web with no kept leg adds nothing');
+});
+
+test('lumenRect: the box of device pixels a world box covers under the view, a pixel out; none for an empty box', () => {
+  const o = new Float64Array(4);
+  assert.equal(lumenRect([2, 0, 0, 2, 10, 20], [1, 1, 0, 3], o), false, 'min over max: empty');
+  assert.equal(lumenRect([2, 0, 0, 2, 10, 20], [1, 1, 4.5, 3], o), true);
+  assert.deepEqual([...o], [Math.floor(12) - 1, Math.floor(22) - 1, Math.ceil(19) + 1, Math.ceil(26) + 1]);
+  lumenRect([0, 1, -1, 0, 0, 0], [0, 0, 10, 5], o);   // a quarter turn: still holds the four corners
+  for (const [x, y] of [[0, 0], [10, 0], [0, 5], [10, 5]]) { const X = -y, Y = x; assert.ok(o[0] <= X && X <= o[2] && o[1] <= Y && Y <= o[3]); }
+});
+
+test('the box cut to a wrapped layer\'s pieces holds every pixel of the box that the window shows, and no more than the pieces hold', () => {
+  const cut = [0, 0];
+  for (const [W, wo, la] of [[1000, 0, 0], [1000, 300, 0], [733, 700, 0], [640, 5, 20]]) {
+    // the window shows the screen pixels [la, la + W); the layer holds screen pixel x at layer pixel (x - la + wo) mod W: two pieces, [wo, W) shifted wo - la... (axisPieces)
+    const pieces = [{ start: wo, len: W - wo, shift: wo - la - 0 }, { start: 0, len: wo, shift: wo - la - W }].filter((p) => p.len > 0);
+    for (const [lo, hi] of [[la + 10, la + 50], [la + W - 30, la + W + 40], [la - 40, la + 5], [la + 300, la + 300.5], [la - 100, la + W + 100]]) {
+      const got = new Set();
+      for (const p of pieces) if (lumenCut(p.start, p.len, p.shift, lo, hi, cut)) for (let x = cut[0]; x < cut[1]; x++) { assert.ok(x >= p.start && x < p.start + p.len, 'inside the piece'); got.add(x - p.shift); }   // (back to a screen pixel)
+      for (let x = Math.max(Math.floor(lo), la); x < Math.min(Math.ceil(hi), la + W); x++) assert.ok(got.has(x), `${W}/${wo}: screen pixel ${x} of the box [${lo}, ${hi}] is cut out`);
+      for (const x of got) assert.ok(x >= Math.floor(lo) && x < Math.ceil(hi) && x >= la && x < la + W, `${W}/${wo}: screen pixel ${x} is outside the box or the window`);
+    }
+  }
+});
+
+test('the depth stamp takes the pass\'s box: a depth drawn in one box is stale in another, and in no box', () => {
+  const d = createDepthStamp(), M = [1, 0, 0, 1, 0, 0], WO = [0, 0], LA = [0, 0], A = [10, 20, 30, 40];
+  d.drawn(M, WO, LA, 64, 64, A);
+  assert.equal(d.needs(M, WO, LA, 64, 64, [10, 20, 30, 40]), false, 'the same box: kept');
+  d.drawn(M, WO, LA, 64, 64, A);
+  assert.equal(d.needs(M, WO, LA, 64, 64, [10, 20, 31, 40]), true);
+  d.drawn(M, WO, LA, 64, 64, A);
+  assert.equal(d.needs(M, WO, LA, 64, 64, null), true, 'no box is the whole target');
+  d.drawn(M, WO, LA, 64, 64);
+  assert.equal(d.needs(M, WO, LA, 64, 64), false);
+});

@@ -9,7 +9,7 @@ import { MP } from './veins-mesh-glsl.js';
 import { tierBuckets, patchesByTier, PG_W, PG_M } from './veins-mesh-data.js';
 import { CEL } from './tube-cel-glsl.js';
 import { WEB_FLOATS } from './tube-joint.js';
-import { tubeStage, stage1Why, createStage2Data, tubeJoinCut } from './tube-stage2.js';
+import { tubeStage, stage1Why, createStage2Data, tubeJoinCut, lumenRect } from './tube-stage2.js';
 
 /** Makes the pass for one renderer. E: gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_GLOW_BUF, MESH_COLOR_BUF, CLR_F, gpuProbe,
  *  nTubes, the functions meshPad, meshKeyNext, meshRefNext, meshTargets, meshGeo, meshTarget, meshScratch, meshLay, vesselSet, and the
@@ -294,6 +294,13 @@ export function createTubePass(E) {
   tubePass.webColour = true;
   tubePass.stage = () => stageNow().stage;
   tubePass.lumen = tubeLumenPass;
+  // The screen box (device pixels under the full view m, one out) the lumen pass need draw in, into out [x0, y0, x1, y1]: the rows the cull keeps and their webs. False when there is none to give
+  // (not stage 3, no cull this frame, nothing inside): the pass then draws the whole target.
+  tubePass.lumenBox = (m, look, out) => {
+    if (stageNow().stage !== 3) return false;
+    const D = frameD(m, look);
+    return D.lumBox.on && lumenRect(m, D.lumBox.b, out);
+  };
   // The lumen pass's counts for the ?perf panel (gpu-fence.js fenceLumen, on a sampled frame): out = [strips, webs, rows in the pass, exact rows, rows with a join end].
   tubePass.lumenCounts = (out) => {
     const D = FR.D, tb = D && D.tb, B = MG.B || MG, R = B.s2 && B.s2.R;

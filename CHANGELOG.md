@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Tube: the lumen pass clears and draws only where the rows inside the layer are.** (Tube speed, brief PL item 3, 10 Nov 2026.)
+  The pass is scissored, piece by piece, to the box of the rows the cull keeps and their webs (a pixel out), and each frame clears only the pixels the last one drew in. Zoomed in, or with the figure small in its window, a good part of the target is neither cleared nor drawn. `?perf` shows how much of the target the pass drew in.
 - **Tube: the lumen pass skips the webs' colour draw unless the origin colours or the dye are on.** (Tube speed, brief PL item 2, 10 Nov 2026.)
   A web's lumen pixel is its plain fill, which the vessel layer already holds, so with those two off (the usual case) the webs stay in the lumen pass's depth prepass only: in the lobule that is 425 fewer instances through the blood shader every frame.
 - **Tube: the lumen layer is drawn at a share of the vessel layer's size in the lobule (and on phones).** (Tube speed, brief PL item 1, 10 Nov 2026: the lobule ran 21.5 fps on a Mac, held by the GPU.)
