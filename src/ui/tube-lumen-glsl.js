@@ -22,11 +22,12 @@
 //           row's radius here, clamped to -1..1: packFlow's gY. The radius is radAt(id, s, len), what the compositor hands bloodAt; for a
 //           strip it is vRad (both are the rad texels' radius, floored at 0.3).
 //
-// A WEB (S2-J: a fan filling the concave corner of a join): its pixels lie OUTSIDE its members' lumens, so their offset from the member's
-// centreline is more than that member's radius and across / radius clamps to +-1. bloodAt's wall term `1 - smoothstep(0.7, 1.0, |y|)` is 0
-// there, and the glow along the axis (`glowCore * wall`) is 0 with it, so its alpha is 0 and a web's pixel comes out the plain lumen colour
-// (with the origin tint and the dye, which have no wall term, as the lumen next to it has). That is why across is divided by radAt and
-// not by vRad (a web's vRad is 4 x a radius, which would put its pixels inside the wall).
+// A WEB (S2-J: a fan filling the concave corner of a join): the brief expected its pixels to lie beyond the member's wall in across, but a web's
+// vG is not an offset from a centreline (it is the direction toward the fillet's centre, one unit long, tube-joint.js), so across / radius would
+// come out small and put a streak in the corner. A web is told by its vRad, which the contract makes 4 x its larger member's radius (a strip's
+// vRad is the radius radAt gives, to the float): vRad more than twice radAt's radius says "web", and its across is the wall (+1). bloodAt's wall
+// term `1 - smoothstep(0.7, 1.0, |y|)` is then 0, the glow along the axis (`glowCore * wall`) is 0 with it, so its alpha is 0 and a web's pixel
+// comes out the plain lumen colour, with the origin tint and the dye (which have no wall term) as the lumen beside it has.
 //
 // K: the constants tubeLeanFS takes (veins-gl.js passes the same object): the vessel flags, LIFT_EASE_MAX, LIFT_EASE_SHARE, LUMEN2,
 // ROW2_BITS, VEIL_K, EDGE (the edge softness's GLSL), ENT_W, N_SAMPLES (64), MAX_TIERS; K.PLAIN 1 for a build with no dye or origin colours.
@@ -48,6 +49,9 @@ function fnText(text, head) {
   }
   throw new Error(`tube-lumen-glsl: ${head} has no closing brace`);
 }
+
+/** A pixel is a web's when its vRad is more than this many times radAt's radius for its row (a web's is 4; a strip's is 1). */
+export const WEB_RATIO = 2;
 
 /** The lumen layer's own lower bound for a pixel to be drawn at all: lean's `lum` threshold (a lumen fainter than this wrote no stream). */
 export const LUM_MIN = 0.02;
@@ -135,7 +139,8 @@ void main() {
   float s1 = u * t5.z;
   float len1 = max(t5.z, 1.0);
   float R1 = radAt(id, s1, len1);
-  float y1 = clamp(across / R1, -1.0, 1.0);
+  bool web = vRad > ${WEB_RATIO}.0 * R1;   // (a web: its vRad is 4 x a radius; see the header)
+  float y1 = web ? 1.0 : clamp(across / R1, -1.0, 1.0);
   int id1 = id;
 
   // ---- the compositor's lumen section from here (COMP_FS main), for one lumen pixel with no second lumen ----
@@ -200,7 +205,7 @@ const LAST = COMP_N - 1;
  * The lumen shader's place and coverage arithmetic for one pixel (the GLSL's main up to the compositor's section).
  * o: { vI, vD, vG [x, y], vRad, ba [x, y] (the centreline segment at int(vI): the next point less this one), len (the row's length, tube texel 5 z),
  *      R (the radius radAt gives at s: default vRad), aa (pxW * EDGE), clip [from, to] (default [0, 1]), opacity (aA * tierAlpha * gf, default 1) }
- * Returns { u, s, across, y, D (after the clip), coverage (aL), lumA, drawn } where drawn is the shader's discard test (false: the pixel is discarded).
+ * Returns { u, s, across, y (+1 for a web's pixel), web, D (after the clip), coverage (aL), lumA, drawn } where drawn is the shader's discard test (false: the pixel is discarded).
  * Across is signed by the side of the centreline: positive where the offset lies to the left of the segment's direction (packFlow's gY, before packing).
  */
 export function tubeLumenJS(o) {
@@ -215,10 +220,11 @@ export function tubeLumenJS(o) {
   const [bx, by] = o.ba;
   const across = (bx * o.vG[1] - by * o.vG[0]) / Math.sqrt(Math.max(bx * bx + by * by, 1e-8));
   const s = u * len;
-  const R = Math.max(o.R ?? o.vRad, 1e-8);
-  const y = clamp(across / R, -1, 1);
+  const R = Math.max(o.R ?? o.vRad, 0.3);
+  const web = o.vRad > WEB_RATIO * R;
+  const y = web ? 1 : clamp(across / R, -1, 1);
   const lumA = coverage * opacity;
-  return { u, s, across, y, D, coverage, lumA, drawn: coverage > 0 && lumA > LUM_MIN };
+  return { u, s, across, y, web, D, coverage, lumA, drawn: coverage > 0 && lumA > LUM_MIN };
 }
 
 /** packFlow's arc and across, packed and unpacked in JS (the compositor's `float(g.y) / 16.0 - S_OFF` and `float(g.z) / 32767.5 - 1.0`). */

@@ -16,7 +16,7 @@ const { EDGE_GLSL } = await import('../src/ui/edge.js');
 const { ENT_W } = await import('../src/ui/veins-bin.js');
 const { LIFT_EASE_SHARE, LIFT_EASE_MAX } = await import('../src/ui/highlight-math.js');
 const { shadeGLSL } = await import('../src/ui/veins-mesh-glsl.js');
-const { tubeLumenFS, tubeLumenJS, packedPlaceJS, LUM_MIN } = await import('../src/ui/tube-lumen-glsl.js');
+const { tubeLumenFS, tubeLumenJS, packedPlaceJS, LUM_MIN, WEB_RATIO } = await import('../src/ui/tube-lumen-glsl.js');
 const { tubeLeanFS } = await import('../src/ui/tube-lean-glsl.js');
 const { programs } = await import('../scripts/glsl-compile-list.mjs');
 
@@ -196,20 +196,26 @@ test('past a vessel\'s clipped end the lumen ends in a round cap, as the vessel 
   assert.equal(near.coverage, 1);
 });
 
-test('a web\'s pixels (outside the member\'s wall, vRad 4 x a radius) keep across at the wall: no streak', () => {
+test('a web\'s pixels (vRad 4 x a radius, vG a unit direction) are told by their vRad and take the wall: no streak', () => {
   const R = 5;
-  for (const off of [1.05, 1.5, 2.2, 3.9]) {
-    const t = tubeLumenJS({ vI: 20, vD: -0.1, vG: [0, off * R], vRad: 4 * R, ba: [1, 0], len: 100, aa: 1, R });
-    assert.equal(Math.abs(t.y), 1, `offset ${off} R clamps to the wall`);
-    const wall = 1 - smoothstep(0.7, 1, Math.abs(t.y));   // bloodAt's wall term
-    assert.equal(wall, 0, 'bloodAt\'s wall term is 0 there');
+  for (const g of [[0, 1], [0.6, 0.8], [-1, 0], [0, 0]]) {
+    const t = tubeLumenJS({ vI: 20, vD: -0.1, vG: g, vRad: 4 * R, ba: [1, 0], len: 100, aa: 1, R });
+    assert.equal(t.web, true);
+    assert.equal(t.y, 1, 'across is the wall');
+    assert.equal(1 - smoothstep(0.7, 1, Math.abs(t.y)), 0, 'bloodAt\'s wall term is 0 there');
   }
-  // Dividing by the web's own vRad would have put these inside the wall: that is why the shader divides by the row's radius.
-  const wrong = clamp(1.5 * R / (4 * R), -1, 1);
-  assert.ok(1 - smoothstep(0.7, 1, wrong) > 0.9);
-  // ...and bloodAt's text is the one with that term, whose glow along the axis is multiplied by it.
+  // A strip is never taken for one: its vRad is the radius radAt gives (within the interpolation), from the axis to the wall.
+  for (const f of [0, 0.4, 0.99]) {
+    const t = tubeLumenJS({ vI: 20, vD: -(1 - f) * R, vG: [0, f * R], vRad: R * 1.05, ba: [1, 0], len: 100, aa: 1, R });
+    assert.equal(t.web, false);
+    assert.ok(Math.abs(t.y - f) < 1e-9);
+  }
+  // Without the rule, dividing the unit direction by the radius would have put the web's pixels on the axis, where the streaks are.
+  assert.ok(1 - smoothstep(0.7, 1, 1 / R) > 0.9);
+  // bloodAt's text is the one with that wall term, whose glow along the axis is multiplied by it, and the shader says what it does with a web.
   assert.ok(LUMEN.includes('float wall = 1.0 - smoothstep(0.7, 1.0, ay);'));
   assert.ok(/float a = clamp\(streak \* \(0\.32 \+ 0\.26 \* dens\) \+ glowCore, 0\.0, 0\.75\) \* wall/.test(LUMEN));
+  assert.ok(LUMEN.includes(`bool web = vRad > ${WEB_RATIO}.0 * R1;`));
 });
 function smoothstep(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
