@@ -742,6 +742,24 @@ export function setVesselMesh(on) {
 }
 /** Called with the new value each time the mesh vessel renderer is switched; returns the unsubscribe. */
 export function onVesselMesh(f) { meshSubs.add(f); return () => meshSubs.delete(f); }
+// Tube vessel renderer (10 Nov 2026; Settings › Display, after the Mesh row): the figure's vessels drawn as flat cartoon tubes with a
+// black outline, the blood as particles. OFF by default; stored in pps.vesselTube as '1' when on, the key removed when off. While on it is
+// used in place of the mesh renderer. The renderer reads vesselTube() and listens with onVesselTube() (it returns the unsubscribe).
+let tubeOn = false;
+try { tubeOn = localStorage.getItem('pps.vesselTube') === '1'; } catch (e) { caught('frame:vtube-r', e); /* storage unavailable */ }
+const tubeSubs = new Set();
+export const vesselTube = () => tubeOn;
+export function setVesselTube(on) {
+  on = !!on;
+  if (tubeOn === on) return;
+  tubeOn = on;
+  try { if (on) localStorage.setItem('pps.vesselTube', '1'); else localStorage.removeItem('pps.vesselTube'); } catch (e) { caught('frame:vtube-w', e); /* storage unavailable */ }
+  for (const f of tubeSubs) f(on);
+  // (And the figure is drawn again, as after a resolution change: the stage and the other views hear onRenderScale.)
+  for (const f of renderSubs) f(renderK);
+}
+/** Called with the new value each time the tube vessel renderer is switched; returns the unsubscribe. */
+export function onVesselTube(f) { tubeSubs.add(f); return () => tubeSubs.delete(f); }
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;
