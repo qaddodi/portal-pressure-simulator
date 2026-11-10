@@ -19,7 +19,8 @@ test('every entry has non-empty #version 300 es text, and names are unique', () 
     assert.ok(!names.has(p.name), `${p.name} is listed twice`);
     names.add(p.name);
     assert.equal(typeof p.fs, 'string', `${p.name}: fs`);
-    assert.ok(p.fs.startsWith('#version 300 es') && p.fs.length > 100, `${p.name}: fs is #version 300 es text`);
+    // 30, not 100: the depth prepass fragment shader is four lines (version, precision, an empty main).
+    assert.ok(p.fs.startsWith('#version 300 es') && p.fs.length > 30, `${p.name}: fs is #version 300 es text`);
     if (p.vs === null) assert.ok(p.note && p.note.includes('fragment only'), `${p.name}: a missing vertex shader says why`);
     else assert.ok(p.vs.startsWith('#version 300 es') && p.vs.length > 50, `${p.name}: vs is #version 300 es text`);
   }
