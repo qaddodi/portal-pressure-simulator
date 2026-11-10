@@ -27,7 +27,6 @@ const TILES_CHANGE = new Set([
   'hyperdynamic/loss>over',                                     // the hemoglobin and the volume join for the eight units: where they end is the point
   'ten-years/d365>carv', 'ten-years/rebleed>tips', 'ten-years/tips>he', // one patient over ten years: the tiles follow the event
   'variceal-bleed/tear>minutes',                                // "Shock before anemia": the hemoglobin to come joins, for that slide only
-  'encephalopathy/srs>plug',                                    // the Doppler tile joins for the stagnant portal vein, for that slide only
 ]);
 
 test('inside a section, consecutive slides with the same instrument keep the same tiles', () => {

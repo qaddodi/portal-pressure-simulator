@@ -79,7 +79,7 @@ export const SHUNTS = {
       ask: ['A woman with refractory ascites is sent for a TIPS. Which three systems do you check first?', 'The heart, the kidneys and the brain: heart failure, kidney function, and the encephalopathy history, with rifaximin considered.'],
     },
     {
-      id: 'play', lens: 'flow', cam: 'liver', labels: ['CONF'], procedure: { kind: 'tips', then: 'tipsgrad' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
+      id: 'play', lens: 'flow', cam: 'liver', labels: ['CONF'], procedure: { kind: 'tips', then: 'tipsgrad' }, tool: { kind: 'evgraph', title: 'PPG and sinusoidal flow after the stent' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'],
       kicker: 'The stent', site: 'sin', title: 'The catheter goes from the neck vein to the portal vein',
       line: 'The catheter enters the right jugular vein and reaches the right hepatic vein. A needle crosses to the right portal vein, and a covered stent holds the tract.',
       notes: 'A TIPS is a tunnel inside the liver between a hepatic vein and a branch of the portal vein. The catheter reaches it from the jugular vein, so there is no incision in the belly. A covered stent keeps the tunnel open: Baveno VIII names polytetrafluoroethylene-covered stents. When the stent opens, the portal pressure falls at once. (Baveno VIII 5.31.) Step 5 reads the gradient across the new stent: the same catheter measures the portal pressure through the stent, is drawn back to the IVC at the hepatic veins, and measures again. Under 12 mmHg, a beta-blocker is not required after the TIPS (AASLD 2024). The reading just after the procedure can be skewed by general anaesthesia and vasoactive drugs (Baveno VIII), so it may not be the long-term gradient.',

@@ -55,14 +55,14 @@ export const GASTRIC = {
       ask: ['A patient bleeds from an IGV1 varix and is Child–Pugh C 14. Does the chart send him to a TIPS?', 'No. A TIPS needs Child–Pugh C <14, age <75, creatinine <3 mg/dL and no heart failure. Transvenous obliteration, endoscopic or surgical options follow after a team discussion.'],
     },
     {
-      id: 'tips', preset: 'gastric-varix', params: { tips: { on: true } }, procedure: 'tips', cam: 'liver', terms: ['gv'], tool: { kind: 'flows' }, data: 'tiles', tiles: ['ppg', 'gv', 'liver'], graph: ['ppg', 'gv'], key: ['ppg'], delta: 'classes',
+      id: 'tips', preset: 'gastric-varix', params: { tips: { on: true } }, procedure: 'tips', cam: 'liver', terms: ['gv'], tool: { kind: 'evgraph', title: 'PPG and fundal varix after the stent' }, data: 'tiles', tiles: ['ppg', 'gv', 'liver'], graph: ['ppg', 'gv'], key: ['ppg'], delta: 'classes',
       kicker: 'After a bleed', site: 'sin', title: 'Glue stops the bleeding, a TIPS keeps it stopped',
       line: 'EUS-guided coils with glue, or glue alone, stop the bleeding. An early TIPS keeps it stopped: the PPG falls to {ppg} and the fundal varix to {gv}.',
       notes: 'Source: Baveno VIII 5.40, 5.41. Baveno VIII: conventional cyanoacrylate injection and EUS-guided therapy stop the bleeding about equally well; EUS-guided coils with glue may close more varices and cut late rebleeding in experienced centers. A TIPS, with or without embolization of the varix, as soon as possible, is the preferred definitive treatment. Embolizing the varix at the same time lowers rebleeding and encephalopathy (AASLD). The model shows why: the PPG falls well under 12 mmHg, but the fundal varix shrinks only a little, because it drains through its own gastrorenal shunt and fills at a lower pressure than esophageal varices; the shunt competes with the stent for the portal blood. Once the PPG is under 12 mmHg the beta-blocker is not needed. The price is the liver\'s portal blood: the sinusoidal flow tile falls to about a quarter of normal, the reason encephalopathy follows some shunts.',
       ask: ['After a TIPS that brings the PPG <12 mmHg, is a beta-blocker still needed?', 'No, according to AASLD.'],
     },
     {
-      id: 'brto', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], tool: { kind: 'flows' }, procedure: 'brto',
+      id: 'brto', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], tool: { kind: 'evgraph', title: 'PPG and fundal varix after the shunt is plugged' }, procedure: 'brto',
       data: 'tiles', tiles: ['gv', 'varix', 'ppg'], graph: ['ppg', 'gv'], key: ['gv'], delta: 'classes',
       kicker: 'After a bleed', site: 'sin', title: 'BRTO closes the shunt from below',
       line: 'When a TIPS does not suit, plugging the shunt shrinks the fundal varix to {gv}, but the PPG rises to {ppg}. Esophageal varices can grow to {varix}: scope again later.',
@@ -70,7 +70,7 @@ export const GASTRIC = {
       ask: ['A patient with encephalopathy bleeds from IGV1 that drains through a gastrorenal shunt. Which treatment fits, and what do you watch for afterwards?', 'BRTO; then worsening ascites and growing esophageal varices.'],
     },
     {
-      id: 'bato', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], tool: { kind: 'flows' }, procedure: 'bato',
+      id: 'bato', lens: 'flow', preset: 'gastric-varix', params: { occluded: { C5: true } }, cam: 'fundus', terms: ['gv'], tool: { kind: 'evgraph', title: 'PPG and fundal varix after the varices close' }, procedure: 'bato',
       data: 'tiles', tiles: ['gv', 'varix', 'ppg'], graph: ['ppg', 'gv'], key: ['gv'], delta: 'classes',
       kicker: 'After a bleed', site: 'sin', title: 'BATO closes it from above',
       line: 'Closed from the portal side, the fundal varix shrinks to {gv} as after BRTO. The PPG rises to {ppg} and esophageal varices can grow to {varix}.',

@@ -66,7 +66,7 @@ export const ENCEPHALOPATHY = {
       ask: ['Four admissions despite lactulose and rifaximin. What do you look for?', 'Missed precipitants first, then a large spontaneous shunt on contrast CT or MRI.'],
     },
     {
-      id: 'plug', params: { occluded: { C6: true } }, procedure: { kind: 'brto', target: 'C6' }, cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['ppg'], delta: 'srs',
+      id: 'plug', params: { occluded: { C6: true } }, procedure: { kind: 'brto', target: 'C6' }, cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, tool: { kind: 'evgraph', title: 'PPG and encephalopathy risk after the plug' }, data: 'tiles', tiles: ['he', 'ppg'], key: ['ppg'], delta: 'srs',
       kicker: 'Spontaneous shunts', site: 'sin', title: 'Embolization closes the splenorenal shunt',
       line: 'A catheter goes up the left renal vein into the shunt and plugs it. The PPG is {ppg} straight after, and the liver gets {liver} of normal flow.',
       notes: 'The shunt is closed from the left renal vein with coils, a plug or a sclerosant, here at the point where it joins the renal vein. Source: Baveno VIII 6.12 (strong). The next slide shows two months later.',
