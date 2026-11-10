@@ -179,3 +179,18 @@ settings tests, the as-built doc `docs/tube-renderer.md`.
 - A thread that finds its brief cannot work as written stops and asks. It does not substitute its own design.
 - D does not show the Settings row until the whole of stage 1 draws through `tubePass`.
 - Stage 3 does not start without Mohammad's word.
+
+## Round 2 (10 Nov, after Mohammad's first look at stage 1, `add659f`)
+
+His verdict on his Mac: Mesh still looks a little more elegant; the Tube outline is too thick; not enough streaks; two toggles that can
+both be ticked are confusing. From his two screenshots: the outline is a heavy black line whose weight changes between vessels, and the
+lumens are flat because at the fitted view every particle is under a pixel and the field has faded to its mean.
+
+Amendments (appended to the briefs in `/mnt/project-files/tube-renderer/briefs/`):
+
+- **B, amendment 2:** the outline 1.5 to 3 device pixels by caliber at any zoom; its colour a deep tone of the vessel's own colour on the
+  light looks (not black); the tone softer (0.88) and one crisp light line on the lit side.
+- **C, amendment 1:** a particle is never under 0.9 px and is always a dash, longer with speed; the fade to the mean goes by the cell's
+  size, so the blood reads as streaks at the fitted view.
+- **D, amendment 1:** one "Vessel renderer" choice (Classic, Mesh, Tube) in place of the two toggles; and a look at the round outlined
+  end where the renal vein meets the cava.
