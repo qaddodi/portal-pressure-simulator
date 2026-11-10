@@ -61,6 +61,8 @@ export function goalOf({ maxHz, ua }) {
 
 // The GPU fence names (veins-gl.js fencePart, gpu-fence.js phases) in plain words, and what usually cuts each one.
 const PLAIN = {
+  'organ overlay laid': ['the organ overlay (outlines, labels\' layer) laid over the copied figure', 'the overlay is blended over its box each frame: lay it only where it changed'],
+  'screen onto the canvas': ['the kept screen copied onto the browser\'s canvas at the frame\'s end (keep-screen.js)', 'a wait here, not the copy (8 MP is about 1 ms): the browser holding the canvas\'s buffers; see the frame interval beside it'],
   'present copy': ['kept figure picture copied onto the screen canvas', 'the copy writes every figure pixel each frame: no copy on frames where nothing in the figure changed, or copy only the changed area (lowering the FIG_OPTS cap broke the Mac picture on 2fc3302)'],
   'organ layer': ['live organs (liver, spleen, diaphragm) painted again at the figure\'s size', 'the organ layer is painted again on every change: see "organ layer painted" in the GPU section for how often and why, then paint only the changed box or less often'],
   'whole picture': ['whole figure picture drawn (vessels, blood, organs together)', 'a whole picture each frame: draw only the blood over the kept vessels (blood pass) where nothing else changed'],

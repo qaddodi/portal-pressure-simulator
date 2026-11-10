@@ -33,7 +33,7 @@
 
 import { glGet, glCap, glOkBefore, glOkAfter, fbComplete } from './gl-state.js';
 import { CHEV_GLSL } from './chevron-glsl.js';
-import { setFenceContext, fencePart, fenceLumen } from './gpu-fence.js';
+import { setFenceContext, fencePart, fenceAfter, fenceLumen } from './gpu-fence.js';
 import { LIGHT } from './light.js';
 import { EDGE_GLSL, EDGE_PX } from './edge.js';
 import { SLOT, DYE_BINS } from './blood.js';
@@ -1747,7 +1747,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // frame's end copies that onto the canvas once, whole. The canvas the browser shows gets one write a frame; nothing else ever touches it.)
   const askShow = frameFor('figure-canvas-shown');
   const noop = () => {};
-  const screenKeep = !KEEP_CANVAS && !share ? keepScreen(gl, canvas, { onEnd: onFrameEnd, ask: () => { if (!framePhase()) { try { askShow(noop); } catch (e) { caught('veins-gl:show', e); /* (no frames here: node) */ } } } }) : null;
+  // (?perf: the frame end's copy of the screen onto the canvas timed on a sampled frame, fenceAfter: it runs after the frame's last phase mark, so no step held it.)
+  const screenKeep = !KEEP_CANVAS && !share ? keepScreen(gl, canvas, { onEnd: onFrameEnd, copied: () => fenceAfter('screen onto the canvas'), ask: () => { if (!framePhase()) { try { askShow(noop); } catch (e) { caught('veins-gl:show', e); /* (no frames here: node) */ } } } }) : null;
   // The composite's per-frame uniforms are sent only when they changed (uniform-cache.js; laptop-heat Q2). They are set nowhere else.
   const UC = uniformCache(gl);
   // Settings › Figure performance › Sharper upscaling (frame.js upscale, off by default): the picture's own size, [w, h], when the stage
@@ -3542,8 +3543,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, up ? canvas.width : own.w, up ? canvas.height : own.h, gl.COLOR_BUFFER_BIT, up ? gl.LINEAR : gl.NEAREST);
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
-    overLay(true);
+    // (?perf, 10 Nov 2026: the copy timed alone, then the organ overlay laid over it: the Mac's 32 ms "present copy" at 8 MP held both, so it did not say which.)
     fencePart('present copy');
+    overLay(true);
+    fencePart('organ overlay laid');
     // (What is drawn over the figure in this canvas, the glasses: on every picture laid, as the overlays are.)
     if (top && tops.length) {
       runTops();

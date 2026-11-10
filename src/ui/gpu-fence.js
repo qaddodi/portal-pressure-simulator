@@ -53,7 +53,7 @@ export function fenceMark(i) {
 }
 // (Named steps inside a phase, for the sampled frame alone: veins-gl.js marks the blood pass, the heads, the present copy and the glasses and labels
 // over it, so a late phase of 26 ms (Mohammad's Mac, 8 Nov 2026) says which of its passes took it. STEP_MAX names, each a ring of KEEP waits.)
-const STEP_MAX = 12;
+const STEP_MAX = 16;
 const stepNames = [], stepWaits = new Float64Array(STEP_MAX * KEEP), stepN = new Int32Array(STEP_MAX), stepAt = new Int32Array(STEP_MAX);
 /** veins-gl.js: the commands of the step `name` have been issued (a sampled frame waits for them and keeps the wait under that name). */
 export function fencePart(name) {
@@ -64,6 +64,13 @@ export function fencePart(name) {
   const w = wait();
   stepWaits[i * KEEP + stepAt[i]] = w; stepAt[i] = (stepAt[i] + 1) % KEEP; if (stepN[i] < KEEP) stepN[i]++;
   if (ev) endEvent(w, name);
+}
+
+/** A step that runs after the frame's last phase mark (keep-screen.js's copy onto the canvas at the frame's end): timed when the frame that just ended was a sample. */
+export function fenceAfter(name) {
+  if (!sampled || sampling) return;
+  sampling = true;
+  try { fencePart(name); } finally { sampling = false; }
 }
 
 // ── The Tube's lumen pass, what it drew (R3, 10 Nov 2026). The pass runs on every blood frame as a second geometry pass; its time is the step

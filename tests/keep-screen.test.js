@@ -55,3 +55,14 @@ test('a framebuffer of its own is untouched, and the canvas colour invalidated m
   gl.invalidateFramebuffer(gl.DRAW_FRAMEBUFFER, [gl.COLOR]);
   assert.deepEqual(calls.filter((c) => c[0] === 'invalidateFramebuffer').at(-1)[2], [gl.COLOR_ATTACHMENT0]);
 });
+
+test('the copy onto the canvas calls copied() after it (the ?perf frame-end step), and only when it copied', () => {
+  const { gl } = fakeGL();
+  let end = null, n = 0;
+  keepScreen(gl, { width: 4, height: 4 }, { onEnd: (f) => { end = f; return () => {}; }, copied: () => { n++; } });
+  end();
+  assert.equal(n, 0, 'nothing drawn: no copy, no step');
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.drawArrays(5, 0, 4);
+  end();
+  assert.equal(n, 1);
+});

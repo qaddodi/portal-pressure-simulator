@@ -17,7 +17,7 @@ import { glOn } from './gl-state.js';
 
 /** Installs the screen on `gl` (the context object itself, so every host drawing in it is covered). `onEnd(fn)`: registers fn at the
  *  scheduler's frame end, returns its removal; `ask()`: asks for a frame. */
-export function keepScreen(gl, canvas, { onEnd = null, ask = null } = {}) {
+export function keepScreen(gl, canvas, { onEnd = null, ask = null, copied = null } = {}) {
   const bind = gl.bindFramebuffer.bind(gl);
   const blit = gl.blitFramebuffer.bind(gl);
   const st = { tex: null, fb: null, w: 0, h: 0, dirty: false, flushes: 0 };
@@ -94,6 +94,7 @@ export function keepScreen(gl, canvas, { onEnd = null, ask = null } = {}) {
     if (sc) gl.enable(gl.SCISSOR_TEST);
     if (rd) gl.enable(gl.RASTERIZER_DISCARD);
     st.flushes++;
+    if (copied) copied();   // (?perf: the copy's GPU wait, timed on a sampled frame)
   }
   const reset = () => { st.tex = st.fb = null; st.w = st.h = 0; st.dirty = false; boundR = boundD = null; };
   if (canvas && canvas.addEventListener) { canvas.addEventListener('webglcontextlost', reset); canvas.addEventListener('webglcontextrestored', reset); }
