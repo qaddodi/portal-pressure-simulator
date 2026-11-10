@@ -63,7 +63,7 @@ test('the mean over many cells matches the stated mean within 3 % (4 % sampled)'
   }
 });
 
-test('slow blood is a short dash, never a dot; fast blood is a long streak, to at most 0.4 of the cell, longer with the square root of the speed', () => {
+test('slow blood is a short dash, never a dot; fast blood is a long streak, to at most 0.46 of the cell, longer with the square root of the speed', () => {
   const cfg = CFG;
   for (const L of [P.FRONT, P.BACK]) {
     const r = pCellRand(7, 0, 1, L.seed);
@@ -71,13 +71,13 @@ test('slow blood is a short dash, never a dot; fast blood is a long streak, to a
     assert.ok(slow.hl >= P.DASH * slow.r0 - 1e-12, 'a dash even at rest: at least 2.2 radii of half-length');
     assert.ok(slow.r0 > 0);
     assert.ok(mid.hl >= slow.hl && fast.hl > mid.hl && huge.hl >= fast.hl);
-    assert.ok(Math.abs(huge.hl - (P.HL0 + P.HL1 * Math.sqrt(1.7)) * slow.cl) < 1e-9 && huge.hl <= P.HL_MAX * slow.cl, 'at most 0.4 of the cell (the speed is read up to 1.7 trunks)');
+    assert.ok(Math.abs(huge.hl - (P.HL0 + P.HL1 * Math.sqrt(1.7)) * slow.cl) < 1e-9 && huge.hl <= P.HL_MAX * slow.cl, 'at most 0.46 of the cell (the speed is read up to 1.7 trunks)');
     assert.ok(huge.hl + huge.r0 < 0.5 * slow.cl, 'and never longer than half a cell either side of its place');
     assert.ok(fast.hl > 1.8 * slow.hl, 'the healthy trunk runs a good deal longer than a dash at rest');
   }
 });
 
-test('the radius is 0.15 to 0.3 of the lane, and the streak with its soft edge stays inside the lane', () => {
+test('the radius is 0.1 to 0.2 of the lane, and the streak with its soft edge stays inside the lane', () => {
   const cfg = { laneW: 1.76 };
   for (const L of [P.FRONT, P.BACK]) {
     let lo = Infinity, hi = 0;

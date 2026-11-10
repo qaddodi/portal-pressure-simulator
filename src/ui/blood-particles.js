@@ -19,6 +19,9 @@
 // dash (at least 2.2 radii of half-length). The field fades to its exact mean coverage (density times the streak's area over the cell's
 // area) only where a whole cell is under 3 to 5 pixels long and cannot show one.
 //
+// Round 4 (Mohammad picked "D4, Mist with a glint" from a mock of variations): the streaks are now very long (cells 9 times longer), thin
+// (0.1 to 0.2 of the lane), very soft (SOFTE 0.8) with a slightly clearer head (HEAD0 0.2) and a little brighter (0.7 to 1).
+//
 // Round 3 (Mohammad, comparing with Mesh: "the Mesh streaks look significantly better"): Mesh's streaks are soft, long and faint; the
 // first particles were short and hard-edged, stamped on. Now a cell is LEN times longer along the flow (a layer's `len`), the half-length
 // follows the vessel's speed as Mesh's streak length does (the square root of the lane speed over the healthy trunk's 36), the width is a
@@ -31,20 +34,20 @@ export const STYLE_P = 3;
 /** The constants both the shader and its JS twin read. */
 export const P = {
   CYCLE: D_CYCLE,
-  WIDTH0: 0.15, WIDTH1: 0.15, // a streak's radius is (WIDTH0 + WIDTH1 h) of its lane's height
-  SOFTE: 0.6,                 // the soft edge: coverage falls over this share of the radius either side of the edge
-  HL0: 0.10, HL1: 0.22,       // half-length (share of the cell): HL0 + HL1 sqrt(lane speed / 36), the way Mesh's streak length follows speed
+  WIDTH0: 0.10, WIDTH1: 0.10, // a streak's radius is (WIDTH0 + WIDTH1 h) of its lane's height
+  SOFTE: 0.8,                 // the soft edge: coverage falls over this share of the radius either side of the edge
+  HL0: 0.15, HL1: 0.22,       // half-length (share of the cell): HL0 + HL1 sqrt(lane speed / 36), the way Mesh's streak length follows speed
   SPEED_REF: 36,              // the healthy portal trunk's display speed
-  HL_MAX: 0.40,
+  HL_MAX: 0.46,
   FLOOR_PX: 0.9,              // a streak is never narrower than this many pixels (radius)
   DASH: 2.2,                  // and its half-length is at least this many radii: always a dash
   MEAN_N: 8,                  // the mean's quadrature over the random size
-  BRIGHT0: 0.6, BRIGHT1: 0.4, // a streak's brightness 0.6 to 1
-  HEAD0: 0.15,                // the tail's share of the head's brightness
-  OCC: 0.9,                   // the share of cells that hold a streak at a dens of 1
+  BRIGHT0: 0.7, BRIGHT1: 0.3, // a streak's brightness 0.7 to 1
+  HEAD0: 0.2,                 // the tail's share of the head's brightness
+  OCC: 0.95,                  // the share of cells that hold a streak at a dens of 1
   SOFT: 6,                    // the thinning's slope: a streak fades over 1/6 of the random number's range
-  FRONT: { laneK: 1.6, sc: 1.0, len: 5.0, tsc: 1.0, bright: 1.0, seed: 0 },
-  BACK: { laneK: 1.0, sc: 0.7, len: 5.0, tsc: 0.72, bright: 0.7, seed: 0x5bd1e995 },   // (more, smaller lanes; slower; 0.7 of the brightness)
+  FRONT: { laneK: 1.4, sc: 1.0, len: 9.0, tsc: 1.0, bright: 1.0, seed: 0 },
+  BACK: { laneK: 1.0, sc: 0.7, len: 9.0, tsc: 0.72, bright: 0.7, seed: 0x5bd1e995 },   // (more, smaller lanes; slower; 0.7 of the brightness)
   CELL_PX: [3, 5],            // the cell's length in pixels: under the first the field is the mean, over the second the streaks are drawn
 };
 
