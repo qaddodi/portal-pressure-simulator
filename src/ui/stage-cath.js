@@ -76,6 +76,14 @@ export function createCath(st, live) {
     }
     return { P, raw, Rr, map, idx };
   }
+  /** A place on one treatment route as the same place on another (u, as setCatheter takes it: 0..1 of the way from the route's start to where its tip stops). The routes share
+   *  their way in, so the same distance along them is the same place: the reading that goes on from where the coils left the catheter. u when either route cannot be laid yet. */
+  function cathCarry(u, from, to) {
+    if (from === to) return u;
+    const a = procRoute(from), b = procRoute(to);
+    if (!a || !b) return u;
+    return Math.max(0, Math.min(0.999, (a.start + u * (a.free - a.start) - b.start) / (b.free - b.start || 1)));
+  }
   function cathRoute() {
     const kind = cath.st?.route || cath.kind || 'hvpg';
     if (kind !== 'hvpg') return procRoute(kind);
@@ -122,6 +130,7 @@ export function createCath(st, live) {
     eusglue: EUS_GLUE_ROUTE,   // (EUS-guided coils and glue: the same scope, on under the fundus to a station over the varix)
     // (The TIPS that coils the coronary vein: the TIPS's route on up the vein; coilAt, the vein's centreline round the tip where the coil is pushed out,
     // running on up the vein the way the catheter came, against the vein's drawn course.)
+    tipscoilin: { ...PROC_BASE.tipscoil, after: (r) => PROC_ROUTES.tipscoil.after(r) },   // (the same route and vein, through a stent that is already in)
     tipscoil: { ...PROC_BASE.tipscoil, after(r) { const q = r.parts.find((x) => x.name === 'coronary'); r.coilAt = { id: q.id, f: q.fb, rad: 0, path: lumenPath(geo[q.id].cur, q.fb, COIL_PATH_HALF), dir: -1 }; } },
   };
   const COIL_PATH_HALF = 16;   // (the vein's centreline each side of the coil's start, world units: the coil runs on inside it, eus-scope.js)
@@ -854,7 +863,7 @@ export function createCath(st, live) {
   // (The TIPS close-up, his ask, 5 Nov: the tract itself with a short stretch of the hepatic vein before it and of the right portal
   // vein after it, about twice as close as the hepatic vein to the trunk was; the wire runs on out of the frame into the trunk.)
   const TIPS_K_MAX = 9, TIPS_BEFORE = 26, TIPS_AFTER = 22;
-  const isTips = (r) => r.kind === 'tips' || r.kind === 'tipscoil';
+  const isTips = (r) => r.kind === 'tips' || r.kind === 'tipscoil' || r.kind === 'tipscoilin';
   // (The TIPS that coils: its 'coil' shot frames the coronary vein from a little before it leaves the portal trunk to the end of the coil, held still while the
   // catheter goes in, the coil is pushed out and the catheter comes back; up to TIPS_K_MAX, as the tract's close-up.)
   const COIL_BEFORE = 30, COIL_PAD = 14;
@@ -1050,5 +1059,5 @@ export function createCath(st, live) {
     if (!cath.ins || now - cath.insT > 250) { cath.ins = safeInsets(); cath.insT = now; }
     return cath.ins;
   }
-  return { NO_BLK, cathAt, cathFadeOut, cathFocus, cathFollow, cathLabelsNow, cathLabelsSoon, cathPaint, cathRadOf, cathRoom, cathRoute, procIn };
+  return { NO_BLK, cathAt, cathCarry, cathFadeOut, cathFocus, cathFollow, cathLabelsNow, cathLabelsSoon, cathPaint, cathRadOf, cathRoom, cathRoute, procIn };
 }

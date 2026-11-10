@@ -69,6 +69,15 @@ const tipsCoilT = () => {
   return { ...head, cv0, cv1, coil0, coil1, cvOut0, cvOut1, apply, back, end: back + 3000 };
 };
 const TIPS_COIL_T = tipsCoilT();
+// The same coils through a stent that is already in (the slide after the TIPS slide: the stent is not placed twice): the catheter goes in through the jugular vein, the hepatic vein and the stent to
+// the right portal vein in one leg, the wire runs on up the trunk and the coronary vein, the catheter follows it (cv0 to cv1), the coil, and back to the right portal vein and out.
+const tipsCoilInT = () => {
+  const travel1 = 300 + LEG.tips + LEG.tipsOver, wire0 = travel1 + 300, wire1 = wire0 + 900, cv0 = wire1 + 300, cv1 = cv0 + LEG.tipsCoil, coil0 = cv1 + 500, coil1 = coil0 + 2400;
+  const cvOut0 = coil1 + 700, cvOut1 = cvOut0 + LEG.tipsCoil, apply = cvOut1 + 100, back = apply + 600;
+  return { travel0: 300, travel1, wire0, wire1, cv0, cv1, coil0, coil1, cvOut0, cvOut1, apply, back, end: back + 3000 };
+};
+const TIPS_COIL_IN_T = tipsCoilInT();
+const TIPS_COIL_IN_STOPS = [TIPS_COIL_IN_T.travel1 + 600, TIPS_COIL_IN_T.end];
 const TIPS_COIL_STOPS = [TIPS_T.travel1 + 600, TIPS_T.over1 + 300, TIPS_T.inflate1 + 400, TIPS_COIL_T.coil1 + 500, TIPS_COIL_T.end];
 // How long a shot may glide (ms), as a slide's own camera does: it asks for the camera's own time for the move (cathFocus scale: stage-glide.js
 // camMs, 480 to 900 ms by how far it goes), this being the ceiling. The procedure waits for the glide to land, and a little more, at each new shot.
@@ -82,6 +91,7 @@ const OBLIT_SHOT_MS = { way: 1200, tip: 800, fill: 300, work: 1200 };   // motio
 export const PROCS = {
   tips: {
     name: 'TIPS', label: 'TIPS', balloonSpan: 'tract',
+    holdT: TIPS_T.back,   // (played with a reading to come, it holds here: the stent in, the balloon down, the catheter still in the right portal vein)
     // (Step 2, his ask, 5 Nov: the catheter parks in the hepatic vein, a needle runs out of it across the liver into the right
     // portal vein, a flash marks the portal hit, the wire runs on into the trunk, then the catheter slides over them into the
     // right portal vein. Mock: tips-needle-mock.html; design: the TIPS closer zoom and needle step doc.)
@@ -157,6 +167,9 @@ const GRAD_T = (() => {
   const ivRead0 = pull1 + 200, ivRead1 = ivRead0 + 2200, res0 = ivRead1 + 300, back = res0 + 3200;
   return { travel0: 300, travel1, pvRead0, pvRead1, pull0, pull1, ivRead0, ivRead1, res0, back, end: back + 3000 };
 })();
+// (The reading that goes on from a TIPS that holds its catheter in: the catheter is already in the right portal vein, so it goes on over the wire to the trunk from there
+// (GRAD_CARRY, ms, where the way in starts from the carried place), never in again from the neck.)
+const GRAD_CARRY = GRAD_T.travel1 - LEG.tipsOver;
 const GRAD_U_IVC = 0.4;   // (the IVC stretch's place on the route, u, when the stage has not given the route's stops)
 const GRAD_TARGET = 12;   // (mmHg: AASLD 2024, the gradient under which no beta-blocker is needed after a TIPS)
 const GRAD_PV = { key: 'w', at: 'tip', kicker: 'PORTAL VEIN', text: '', unit: 'mmHg', cls: 'pv' };
@@ -333,7 +346,7 @@ export const PLUGS = {
   // then the catheter goes on over the wire along the portal trunk and up the coronary vein, the varices' feeder, and coils fill it before the stent goes in.
   // The model takes the stent and the closed coronary vein together (occluded.C1a: the esophageal varices lose their feeder, engine.js varixObliterated).
   tipscoil: {
-    name: 'TIPS with coils', label: 'TIPS with coils', balloonSpan: 'tract', T: TIPS_COIL_T, stops: TIPS_COIL_STOPS,
+    name: 'TIPS with coils', label: 'TIPS with coils', balloonSpan: 'tract', T: TIPS_COIL_T, stops: TIPS_COIL_STOPS, holdT: TIPS_COIL_T.back,
     steps: [
       ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
       ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein. A wire goes through it into the portal trunk, and the catheter slides over them.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
@@ -348,16 +361,35 @@ export const PLUGS = {
     offered: () => true,
     before: { tips: { on: false }, occluded: { C1a: false } },
   },
+  // The coils through a stent that is already in (Baveno VIII 5.41; the variceal bleed deck's slide after the TIPS slide): { kind: 'tips', target: 'C1a', stented: true }. The model takes only the closed
+  // coronary vein; the stent stays as the slide before left it.
+  tipscoilin: {
+    name: 'Coils through the TIPS', label: 'Coils through the TIPS', balloonSpan: 'tract', T: TIPS_COIL_IN_T, stops: TIPS_COIL_IN_STOPS,
+    holdT: TIPS_COIL_IN_T.back,
+    steps: [
+      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein, and on through the stent into the portal vein.', 'In', 'way', 'TIPS', ['IVCS', 'RHV'], 0.5],
+      ['coil', 'Vein coiled', 'The catheter goes on along the portal trunk and up the coronary vein, the feeder of the varices. Coils fill it, so portal blood no longer reaches them.', 'Coils', 'coil', 'LGV_CONF', ['LGV'], 1 - COIL_B],
+    ],
+    can: (p) => (!p.tips?.on ? 'There is no TIPS yet to go through.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : ''),
+    apply: (p) => { p.occluded = { ...p.occluded, C1a: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
+    had: (p) => !!p.occluded?.C1a,
+    undo: (p) => { p.occluded = { ...p.occluded, C1a: false }; return p; },   // alloc-rare: once, going back past T.apply
+    offered: () => true,
+    before: { occluded: { C1a: false } },
+  },
 };
 // The targets of a play: the spec each one plays (BRTO's default, C5, is BRTO itself; a TIPS that coils the coronary vein, C1a, is its own).
 const PLUG_TARGETS = { brto: { C5: 'brto', C6: 'brtoC6' }, tips: { C1a: 'tipscoil' } };
+// (stented: true on the slide's procedure: the stent is in already, so only the coils are played, through it.)
+const PLUG_STENTED = { tipscoil: 'tipscoilin' };
 /** The spec a slide's `procedure` plays: 'brto', or { kind: 'brto', target: 'C6' } → 'brtoC6'. A target the kind does not take gives a name no spec has
  *  (so a deck test names it); null when the slide plays none. */
 export function procKindOf(proc) {
   const kind = typeof proc === 'string' ? proc : proc?.kind;
   if (!kind) return null;
   const t = typeof proc === 'object' ? proc.target : null;
-  return t == null ? kind : PLUG_TARGETS[kind]?.[t] || `${kind}:${t}`;
+  const k = t == null ? kind : PLUG_TARGETS[kind]?.[t] || `${kind}:${t}`;
+  return typeof proc === 'object' && proc.stented && PLUG_STENTED[k] ? PLUG_STENTED[k] : k;
 }
 /** A procedure's, a measurement's, a graft's or an endoscopic treatment's definition. */
 export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || ENDO[kind] || PLUGS[kind] || null;
@@ -421,16 +453,27 @@ export const stepMarks = (kind, i) => {
  * for the TIPS its tract ({ tract: [u0, u1] }); without them the tract sits where it usually does. into: a record to write it in (a
  * playing procedure keeps one for its frames), else a new one.
  */
-export function procFrame(kind, t, stops = null, into = null) {
+export function procFrame(kind, t, stops = null, into = null, from = 0) {
   const P = specOf(kind), T = P.T, back = cruise(k01(t, T.back, T.end - 400));   // (going out is a travel leg too)
   const opacity = 1 - k01(t, T.end - 800, T.end);
   const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
   if (kind === 'eus') return eusFrame(T, t, back, opacity, step, shot, into || {});
-  if (kind === 'tipsgrad') return gradFrame(T, t, back, opacity, step, shot, stops, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
+  if (kind === 'tipsgrad') return gradFrame(T, t, back, opacity, step, shot, stops, into || {}, from);   // alloc-rare: only a caller that gives no record (a test); the run passes its own
   if (kind === 'eusglue') return glueFrame(T, t, back, opacity, step, shot, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
   if (P.graft) {
     const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
     f.u = 0; f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
+    return f;
+  }
+  if (kind === 'tipscoilin') {
+    // The way in is one leg to the right portal vein over the stent's tract; the wire runs on ahead of the catheter up the trunk and the coronary vein, the catheter follows it and comes back.
+    const tr = stops?.tract || TRACT, rp = stops?.rpv || RPV, c = Math.max(tr[1], rp[0] + (rp[1] - rp[0]) * CATH_RPV);
+    const go = cruise(k01(t, T.cv0, T.cv1)) * (1 - cruise(k01(t, T.cvOut0, T.cvOut1)));
+    const u = (c * cruise(k01(t, T.travel0, T.travel1)) + (1 - c) * go) * (1 - back);
+    const wd = c + (1 - c) * ease(k01(t, T.wire0, T.wire1)), wire = t >= T.wire0 ? Math.max(u, wd - (wd - u) * Math.min(1, back * 3)) : 0;
+    const f = into || {};   // alloc-rare: only a caller that gives no record (a test, a pure read); the run passes its own
+    f.u = u; f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = shot; f.needle = 0; f.wire = wire > u ? wire : 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.read = 0;
+    f.coil = ease(k01(t, T.coil0, T.coil1));
     return f;
   }
   if (kind === 'tips' || kind === 'tipscoil') {
@@ -465,11 +508,14 @@ export function procFrame(kind, t, stops = null, into = null) {
  * portal trunk, then drawn back to the IVC at the hepatic veins (the end of the route's IVC stretch, a little short of it), then out; read,
  * 1 or 2 while the manometer reads the portal vein or the IVC (the tip's ripples). Nothing else is out: no needle, no wire, no balloon.
  */
-function gradFrame(T, t, back, opacity, step, shot, stops, f) {
+function gradFrame(T, t, back, opacity, step, shot, stops, f, from) {
   const iv = stops?.IVC_IS, uIV = iv ? iv[0] + (iv[1] - iv[0]) * 0.8 : GRAD_U_IVC;
-  const inward = cruise(k01(t, T.travel0, T.travel1)), pull = cruise(k01(t, T.pull0, T.pull1));
+  // (from: the place the catheter is already at, u, when the TIPS held it in: it goes on from there to the trunk over the wire that is still out, and a Back
+  // before that draws it back to the neck the way it came.)
+  const u0 = from > 0 && from < 1 ? from : 0, tS = GRAD_CARRY;
+  const inward = u0 ? (t < tS ? u0 * cruise(k01(t, T.travel0, tS)) : u0 + (1 - u0) * cruise(k01(t, tS, T.travel1))) : cruise(k01(t, T.travel0, T.travel1)), pull = cruise(k01(t, T.pull0, T.pull1));
   f.u = (t < T.pull0 ? inward : 1 + (uIV - 1) * pull) * (1 - back);
-  f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = t >= T.back ? '' : shot; f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0;   // (no shot once it comes out: the view stops following the tip and waits to go home)
+  f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = t >= T.back ? '' : shot; f.needle = 0; f.wire = u0 && t < T.pull0 && f.u < 1 ? 1 : 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0;   // (no shot once it comes out: the view stops following the tip and waits to go home)
   f.read = t >= T.pvRead0 && t < T.pvRead1 ? 1 : t >= T.ivRead0 && t < T.ivRead1 ? 2 : 0;
   return f;
 }
@@ -529,24 +575,27 @@ const BACK_SPEED = 1.6, AUTO_HOLD = 1600, LAND_MS = 160;   // motion-scale: own 
  * null once the procedure has gone. read(): the model frame now (a measurement reads its pressures from it as each callout comes). onFrame(frame, t): each frame. onEnd({ done, rewound }): it ended, played through or gone back to
  * before its start. Returns { next, back, to, stop({ home }), running, at, step }.
  */
-export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null, read = null } = {}) {
+export function playProcedure(stage, kind, { stepped = false, to = 0, apply = null, unapply = null, onFrame = null, onStep = null, onMark = null, onEnd = null, read = null, hold = false, onHold = null, from = 0 } = {}) {
   const P = specOf(kind), T = P.T, n = P.stops.length, rd = READS[kind];
+  // (hold: the last step stops where the stent is in and the balloon down, the catheter still in, for a reading to go on from there (release); from: the place, u,
+  // a reading goes on from.)
+  const stopAt = (k) => (hold && P.holdT && k === n - 1 ? P.holdT : P.stops[k]);
   if (rd) for (const k in rd) rd[k] = NaN;
   runs++;
-  let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = P.stops[at];
+  let at = stepped ? Math.max(0, Math.min(n - 1, to | 0)) : 0, goal = stopAt(at);
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
   const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0, coil: 0 };
   const cat = { route: P.route || kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
   // (The procedure's clock, in ms of the sequence, 1 ms a ms forward and BACK_SPEED back: a reversible clock, so Back or Next while a step is still
   // moving slows the catheter and turns it round over D_FLIP, never in one frame. It lands exactly on each stop; the steps hold there.)
-  const clock = createReversible({ ms: 1, min: 0, max: T.end, land: false, x: 0 });
-  let t = 0, raf = 0, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2, shownMark = -3;
+  const clock = createReversible({ ms: 1, min: 0, max: T.end, land: false, x: from > 0 && kind === 'tipsgrad' ? GRAD_CARRY : 0 });
+  let t = from > 0 && kind === 'tipsgrad' ? GRAD_CARRY : 0, raf = 0, held = false, last = performance.now(), shot = '', landT = 0, holdT = 0, applied = false, stops = null, over = false, step = -2, shownMark = -3;
   function wake() { if (!over && !raf) { last = performance.now(); raf = nextFrame(tick); } }
   function tick() {
     raf = 0;
     const now = performance.now(), dt = Math.min(64, now - last); last = now;
-    const f = procFrame(kind, t, stops, fr);
+    const f = procFrame(kind, t, stops, fr, from);
     if (f.step !== step && f.step >= 0) { step = f.step; onStep?.(step); }
     // (The callout: a step's word once its step has happened (his ask, 29 Oct: "the callout should show up AFTER the step happens"),
     // none while it plays.)
@@ -579,7 +628,9 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     if (at < 0 && t <= 0) { finish(true); return; }
     const t0 = t;
     if (!still && t !== goal) { clock.aim(goal, goal < t ? 1 / BACK_SPEED : 1); t = clock.step(dt); holdT = 0; }
-    else if (!still && !stepped && at < n - 1) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { at++; goal = P.stops[at]; holdT = 0; } }
+    else if (!still && !stepped && at < n - 1) { holdT ||= now; if (now - holdT >= AUTO_HOLD) { at++; goal = stopAt(at); holdT = 0; } }
+    // (Held at its last stop with the catheter in: the reading that goes on from here is asked for once, when this stop is reached and the camera has landed.)
+    if (hold && P.holdT && at === n - 1 && t === goal && !still && !held) { held = true; onHold?.(); if (over) return; }
     // (Held at a stop with the camera landed and its last frame drawn: no frames until Next, Back or a step's button asks.)
     if (still || t !== t0 || t !== goal || !stepped || at < 0) raf = nextFrame(tick);
   }
@@ -607,17 +658,25 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   wake();
   return {
     /** On to the next step's stop (false on the last: the caller moves on). */
-    next() { if (over || at >= n - 1) return false; at++; goal = P.stops[at]; holdT = 0; wake(); return true; },
+    next() { if (over || at >= n - 1) return false; at++; goal = stopAt(at); holdT = 0; held = false; wake(); return true; },
     /** Back to the stop before, running the step backwards; from the first, back to before the start, where it ends. */
-    back() { if (over) return false; at = at > 0 ? at - 1 : -1; goal = at < 0 ? 0 : P.stops[at]; holdT = 0; wake(); return true; },
+    back() { if (over) return false; at = at > 0 ? at - 1 : -1; goal = at < 0 ? 0 : stopAt(at); holdT = 0; held = false; wake(); return true; },
     /** To step k's stop, forward or back. */
-    to(k) { if (over) return false; at = Math.max(0, Math.min(n - 1, k | 0)); goal = P.stops[at]; holdT = 0; wake(); return true; },
+    to(k) { if (over) return false; at = Math.max(0, Math.min(n - 1, k | 0)); goal = stopAt(at); holdT = 0; held = false; wake(); return true; },
     stop,
+    /** Handing the catheter on to the reading that follows (it needs the run held at its last stop): this run is over without taking the catheter out or sending
+     *  the view home, and the place, u, the reading goes on from and the route it is on is returned (null when the run is not held there). */
+    release() {
+      if (over || !held) return null;
+      cancelFrame(raf); raf = 0; over = true; runs--;
+      return { u: fr.u, route: cat.route };
+    },
     /** The cards changed the room: the shot on show framed again (false when there is none yet). */
     // alloc-rare: only when the cards changed the room (a resize or a slide's change), not in a frame
     refit(ms = 700) { if (over || !shot) return false; stage.cathFocus(shot, ms, { steady: true }); return true; },   // (the cards moved: a slow frame at its start holds the glide back, stage animateVT)
     get running() { return !over; },
     get at() { return at; },
     get step() { return step; },
+    get held() { return held; },
   };
 }

@@ -123,8 +123,9 @@ test('the shots, the callouts and the model: the coil step has its own shot and 
 test('the slide: the variceal bleed talk plays it after the TIPS slide, on the state it lands in, with its graph', () => {
   const ids = BLEED.slides.map((x) => x.id), i = ids.indexOf('tipscoil'), s = BLEED.slides[i];
   assert.equal(ids[i - 1], 'tips');
-  assert.deepEqual(s.procedure, { kind: 'tips', target: 'C1a' });
-  assert.equal(procKindOf(s.procedure), K);
+  assert.deepEqual(s.procedure, { kind: 'tips', target: 'C1a', stented: true, then: 'tipsgrad' }, 'the stent is in from the slide before: only the coils are played, then the reading');
+  assert.equal(procKindOf(s.procedure), 'tipscoilin');
+  assert.equal(procKindOf({ kind: 'tips', target: 'C1a' }), K, 'without it, the TIPS and the coils together');
   assert.deepEqual(s.params, { tips: { on: true }, occluded: { C1a: true } }, 'where it ends: the stent in and the vein closed');
   assert.match(s.notes, /Baveno VIII 5\.41/);
   assert.ok(eventLines(s), 'the PPG and varix graph');

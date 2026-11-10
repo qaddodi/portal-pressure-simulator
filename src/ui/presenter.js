@@ -1373,24 +1373,28 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // The slide's own callouts and names, as it landed (a clot mark's words as the model now has them).
   const slideMarks = (i) => (markBase?.i === i ? markFocus(clotMarks(markBase.marks, store.get().params)) : null);
-  async function procPlay(s, i, to = 0, kind = procKind(s)) {
+  async function procPlay(s, i, to = 0, kind = procKind(s), from = 0) {
     const isThen = kind !== procKind(s), base = isThen ? specOf(procKind(s)).steps.length : 0, mine = () => !!deck && shown?.i === i && slides[i] === s;
-    if (!specOf(kind) || !mine() || cath.on || procWait) return;
+    const drop = () => { if (from) stage.setCatheter(null); };   // (a reading handed the catheter on: if it cannot start, the catheter goes with it)
+    if (!specOf(kind) || !mine() || cath.on || procWait) { drop(); return; }
     if (procRun) { procRun.to(to); return; }
     if (lapseOn) stopLapse();
     procWait = true; procPaint();
     try {
       await toAnatomy(null, () => !mine());
-      if (!mine()) return;
+      if (!mine()) { drop(); return; }
       if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(() => !mine(), stage); }
     } finally { procWait = false; }
-    if (!mine() || procRun) { procPaint(); return; }
+    if (!mine() || procRun) { if (!mine()) drop(); procPaint(); return; }
     const before = structuredClone(store.get().params), names = store.get().presentLabels || [];
     // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
     if (specOf(kind).had(before)) liveSet(s, i, specOf(kind).undo(structuredClone(before)));
     procRunKind = kind;
     const run = procRun = playProcedure(stage, kind, {
-      stepped: true, to,
+      stepped: true, to, from,
+      // (With a reading to follow, the run holds at its last step, the catheter still in the portal vein, and the reading goes on from there: nothing goes in twice.)
+      hold: !isThen && !!procThen(s),
+      onHold: () => { if (procRun === run && procQueued && mine()) procChain(); },
       apply: () => {
         if (procRun !== run || !mine() || procBlocked(kind, store.get().params, store.get().frame?.metrics)) return;
         liveSet(s, i, specOf(kind).apply(structuredClone(store.get().params)), evRun(s, i)); procCompare(s);
@@ -1432,7 +1436,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // the first step, a Next waits with it rather than leaving.)
   const procNext = () => {
     if (shown?.i !== want) return false;
-    if (procRun) return procRun.next() || procQueue();
+    if (procRun) return procRun.next() || procChain();
     if (procWait) return true;
     const s = slides[want];
     // (The stent is in and its reading is still to come: this Next plays it.)
@@ -1446,7 +1450,17 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     procPlay(s, want, 0);
     return true;
   };
-  // (A Next on the main run's last step, which goes on to its end by itself: the reading starts as it ends, not a Next lost to the next slide.)
+  // (A Next on the main run's last step: it holds there with the catheter in, and the reading goes on from the place it stands. A Next while it is still on its way to that
+  // stop waits for it, not a Next lost to the next slide.)
+  const procChain = () => {
+    const s = slides[want];
+    if (!procRun || !procThen(s) || procRunKind !== procKind(s) || shown?.i !== want) return false;
+    const c = procRun.release();
+    if (!c) return procQueue();
+    procRun = null; procQueued = false;
+    procPlay(s, want, 0, procThen(s), stage.cathCarry?.(c.u, c.route, specOf(procThen(s)).route || procThen(s)) ?? c.u);   // (the place on the reading's own route, which is longer or shorter than the one the coils were on)
+    return true;
+  };
   const procQueue = () => {
     const s = slides[want];
     if (!procRun || !procThen(s) || procRunKind !== procKind(s) || procQueued) return false;
