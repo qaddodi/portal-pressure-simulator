@@ -16,6 +16,7 @@ import { CEL } from './tube-cel-glsl.js';
 export function createTubePass(E) {
   const { gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_GLOW_BUF, MESH_COLOR_BUF, CLR_F, gpuProbe,
     meshPad, meshKeyNext, meshRefNext, meshTargets, meshGeo, meshTarget, meshScratch, meshLay, vesselSet } = E;
+  const PATCH_RING = (TUBE_LEVEL.CASE1 + TUBE_LEVEL.LUMEN0) / 2;   // a patch's outline: over every casing (to .20), under every lumen (from .30)
   let keyPre = 0;   // 1 while a glow's depth prepass runs (tubeKey: a lit vessel's own wall keeps its depth, so no other glow shows inside it)
   // One draw of tier t's strips (and its patches) for a pass, in the band that starts at base. Sets no draw buffers.
   function tubeDraw(pass, t, base, H, px, look, patches) {
@@ -36,14 +37,19 @@ export function createTubePass(E) {
       const u = PP.u;
       gl.useProgram(PP.p);
       UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, 0);
-      UC.f1(u.zU, 2 * (base + (1 - TUBE_LEVEL.PATCH) * H) - 1);
       gl.bindVertexArray(MG.patchVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, MG.patchBuf);
       const o = pb.start[t] * PG_W * 4;
       gl.vertexAttribPointer(1, 4, gl.FLOAT, false, PG_W * 4, o + 16);
       gl.vertexAttribPointer(2, 4, gl.FLOAT, false, PG_W * 4, o + 32);
       gl.vertexAttribPointer(3, 2, gl.FLOAT, false, PG_W * 4, o + 48);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, pb.count[t]);
+      // (Two draws: the patch's outline, at a depth under every lumen (over every casing), then its lumen, over them all: a join's outline never
+      // shows across another vessel's inside. tubePart in the shader keeps each pixel to one of them.)
+      for (let part = 0; part < 2; part++) {
+        UC.i1(u.tubePart, part);
+        UC.f1(u.zU, 2 * (base + (1 - (part ? TUBE_LEVEL.PATCH : PATCH_RING)) * H) - 1);
+        gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, pb.count[t]);
+      }
       MG.patches += pb.count[t];
     }
     MG.passes++;

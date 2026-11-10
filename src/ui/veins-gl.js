@@ -263,7 +263,7 @@ const MESH_GLSL = meshFS({ EDGE: EDGE_GLSL, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, V
 const MESH_FS_DECL = MESH_GLSL.decl, MESH_FS_KEY = MESH_GLSL.key, MESH_FS_OUT = MESH_GLSL.out;
 // The Tube's builds of the same parts (no gl_FragDepth: its depth comes from its vertices).
 const TUBE_GLSL = meshFS({ EDGE: EDGE_GLSL, F_DOTTED, F_NOCASE, F_SEL, F_VEIL, VEIL_K, tube: 1 });
-const TUBE_FS_KEY = TUBE_GLSL.key;
+const TUBE_FS_KEY = TUBE_GLSL.key, TUBE_FS_DECL = TUBE_GLSL.decl, TUBE_FS_OUT = TUBE_GLSL.out;
 // The Tube's shading (tube-cel-glsl.js): celShade, the cartoon look, in the signature of tubeShade; vesselFS(s, m, 1) puts it after SHADE_GLSL.
 const CEL_GLSL = celGLSL({ F_DIFFUSE, F_EDGE, F_VEIL });
 // Tube attributes, TUBE_TEXELS texels per vessel (row = vessel):
@@ -312,7 +312,7 @@ uniform highp sampler2D pjTex;         // (mesh patch) the patches' join entries
 #endif
 #endif
 #if MESH
-${MESH_FS_DECL}
+${tube ? TUBE_FS_DECL : MESH_FS_DECL}
 #endif
 uniform highp sampler2D ent;
 uniform highp sampler2D rad;
@@ -870,7 +870,7 @@ ${tube ? TUBE_FS_KEY : MESH_FS_KEY}
 #endif
   }
 #if MESH
-${MESH_FS_OUT}
+${tube ? TUBE_FS_OUT : MESH_FS_OUT}
 #endif
   if (topC.a > 0.0) {
     if (topGrp == 0) accB = over(topC, accB);

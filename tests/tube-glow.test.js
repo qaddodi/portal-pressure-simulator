@@ -27,7 +27,11 @@ test('the Tube strip build declares tubeKey and keeps a lit vessel\'s own wall i
   assert.ok(!mesh.decl.includes('tubeKey') && !mesh.out.includes('tubeKey'), 'the Mesh text is untouched');
   assert.match(mesh.out, /^\s*if \(lgm\.a <= 0\.0\) discard;$/m, 'the Mesh keeps its one discard line');
   assert.match(tube.out, /if \(lgm\.a <= 0\.0\) discard;/, 'and the Tube keeps the discard for the colour pass');
-  for (const src of [vesselFS(true, 1, 1), vesselFS(false, 2, 1)]) assert.deepEqual(lintGLSL(preprocess(src)), []);
+  // (In the shader the pass really runs: the build puts the Tube's parts in, not the Mesh's.)
+  const strip = vesselFS(true, 1, 1);
+  assert.ok(strip.includes('uniform int tubeKey;') && strip.includes('tubeKey == 1 && sd[0] < swall[0]'), 'the Tube strip build has tubeKey');
+  for (const src of [vesselFS(true, 1), vesselFS(false, 2)]) assert.ok(!src.includes('tubeKey'), 'the Mesh builds have none');
+  for (const src of [strip, vesselFS(false, 2, 1)]) assert.deepEqual(lintGLSL(preprocess(src)), []);
 });
 
 test('a glow skirt slopes up to the wall, and the lumen is nearer than any skirt (JS twin and vertex shader)', () => {

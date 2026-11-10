@@ -224,7 +224,10 @@ uniform float keyBase;                 // this pass's keys: keyBase + [0, 1) * k
 uniform float keyH;
 uniform float keyShape;                // (the ring) the shape pass's keyBase
 const float KEY_BIAS = ${KEY_BIAS};${tube ? `
-uniform int tubeKey;                   // (the Tube) 1 in a glow's depth prepass: a lit vessel's own wall keeps its depth there, so no other glow shows inside it`: ''}`;
+uniform int tubeKey;                   // (the Tube) 1 in a glow's depth prepass: a lit vessel's own wall keeps its depth there, so no other glow shows inside it
+#if MESH == 2
+uniform int tubePart;                  // (the Tube's patch) which part this draw is: 0 the outline's pixels (no lumen), 1 the lumen's, at two depths
+#endif`: ''}`;
 
   const key = `
   // ── The mesh pass: this fragment's key (lower wins) as its depth: the prepass keeps the lowest (depth LESS), and the pass draws only the
@@ -342,7 +345,10 @@ ${tube ? '' : `    gl_FragDepth = keyShape + 0.5 * (1.0 - T(id, 2).y + 1e-4) * k
     outColor = ditherOut(mSh, q); outDep = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u);
     return;
   }
-  if (mPass == MP_LIFT) {
+${tube ? `#if MESH == 2
+  if (mPass >= MP_SHAPE_K && (tubePart == 0) == mLum) discard;   // (the Tube's patch: its outline is drawn under every lumen, its lumen over them: each pixel in one draw)
+#endif
+` : ''}  if (mPass == MP_LIFT) {
     vec4 lc = mC * mWs;
     if (lc.a < 0.002) discard;
     outColor = ditherOut(lc, q); outDep = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u);
