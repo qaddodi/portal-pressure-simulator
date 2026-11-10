@@ -40,16 +40,19 @@ export function sheetPanes(el, gcs = getComputedStyle) {
   const b = zoomRide.box(el), bs = gcs(el, '::before'), as = gcs(el, '::after');
   const k = el.offsetWidth > 0 && b.width > 0 ? b.width / el.offsetWidth : 1;
   const rk = (r) => (k === 1 ? r : r.map((v) => v * k));
-  const shows = (s) => s && s.content !== 'none' && s.display !== 'none' && s.visibility !== 'hidden' && NUM(s.opacity) > 0.001;
-  const front = shows(bs) ? boxOf(b, es, bs, k) : null, back = shows(as) ? boxOf(b, es, as, k) : null;
+  // (A pane faded right out is still laid out, and kept: the glass follows its pseudo-element's fade each frame (glass-gl.js pseudoOf, pe), so
+  // a sheet read at the start of its fade in is drawn as it comes in, never left out until a later read (10 Nov 2026). The readings' card
+  // keeps the instrument card's cut whatever the instrument card's fade, as its CSS mask does.)
+  const laid = (s) => s && s.content !== 'none' && s.display !== 'none' && s.visibility !== 'hidden';
+  const front = laid(bs) ? boxOf(b, es, bs, k) : null, back = laid(as) ? boxOf(b, es, as, k) : null;
   const out = [];
   const fr = front ? rk(radii(bs, front.width / k, front.height / k)) : null;
   if (back) {
     const rad = rk(radii(as, back.width / k, back.height / k));
     // (Its own box, the instrument card's cut out of it the other way round, in its own coordinates.)
     const d = boxPath(0, 0, back.width, back.height, rad) + (front ? boxPath(front.left - back.left, front.top - back.top, front.width, front.height, fr, true) : '');
-    out.push({ r: back, d, a: Math.min(1, NUM(as.opacity)), tint: tintOf(as) });
+    out.push({ r: back, d, a: Math.min(1, NUM(as.opacity)), tint: tintOf(as), pe: '::after' });
   }
-  if (front) out.push({ r: front, rad: fr, a: Math.min(1, NUM(bs.opacity)), tint: tintOf(bs) });
+  if (front) out.push({ r: front, rad: fr, a: Math.min(1, NUM(bs.opacity)), tint: tintOf(bs), pe: '::before' });
   return out;
 }

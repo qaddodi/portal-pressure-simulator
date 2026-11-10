@@ -36,7 +36,7 @@
     "src/ui/callout.js": 3,
     "src/ui/chart.js": 3,
     "src/ui/face-split.js": 3,
-    "src/ui/sheet-glass.js": 3,
+    "src/ui/sheet-glass.js": 2,
     "src/ui/blur-gauge.js": 2,
     "src/ui/card-zoom.js": 2,
     "src/ui/readouts-pane.js": 2,

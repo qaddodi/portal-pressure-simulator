@@ -20,7 +20,7 @@ import { easeArrive, D_SURFACE } from './ease.js';
 import { caught } from './caught.js';
 import { glassForgetters } from './drop-label.js';
 import { booting, holdCover } from './quiet.js';
-import { viewSize } from './layout-snap.js';
+import { viewSize, readAnims } from './layout-snap.js';
 import { parseCssColor } from './css-color.js';
 import { driven, isDrivenAnimation, onMove } from './num-move.js';
 import { counts, tally } from './frame-counts.js';
@@ -580,7 +580,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // (A card faded right out (opacity 0, its glass not drawn) is held bare too, as it waits for its first frame, so the frame it starts to fade
   // in is never the solid card for a moment before its frost: it is invisible bare, and is drawn the frame it shows. fadedNow: the cards
   // the last read found so, set in readPanes. Mohammad, 2 Nov 2026: "a new data card shows as a plain solid card before its frost draws".)
-  let fadedNow = new Set();
+  // (10 Nov 2026, Mohammad: "the glass cards when they appear and they disappear still glitch". The page is read with every faded glass
+  // kept (readPanes keep0), so the read never found one faded and no card was ever held bare: each card at 0 went back to its solid fill,
+  // and the frame its fade began, or ended, could show that solid panel under the words before its frost. Now fadedNow is the frame's own:
+  // the cards every one of whose glasses this frame puts at 0 (nowGeo), so a card is held bare from the frame it fades out until the
+  // frame its glass is drawn again.)
+  const fadedNow = new Set(), litNow = new Set();
   const waiting = new Map(), WAIT_MS = 300, WAIT_PASSES = 3, WAIT_CAP = 2500;
   let waitT = 0;
   function unwait() { for (const g of waiting.keys()) g.removeAttribute('data-gl-wait'); waiting.clear(); gaveUp.clear(); wasDrawn.clear(); clearTimeout(waitT); waitT = 0; }
@@ -600,9 +605,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     want.clear();
     for (const p of list) if (!marked.has(p.g) && !wasDrawn.has(p.g)) want.add(p.g);   // (a card drawn here before and not now: solid at once)
     for (const g of gaveUp) if (!want.has(g)) gaveUp.delete(g);
-    if (wasDrawn.size) { inListSet.clear(); for (const p of list) inListSet.add(p.g); for (const g of wasDrawn) if (!inListSet.has(g)) wasDrawn.delete(g); }
+    inListSet.clear(); for (const p of list) inListSet.add(p.g);
+    if (wasDrawn.size) for (const g of wasDrawn) if (!inListSet.has(g)) wasDrawn.delete(g);
     for (const [g, w] of waiting) {
-      if (!want.has(g)) { if (w.faded && fadedNow.has(g)) continue; g.removeAttribute('data-gl-wait'); waiting.delete(g); }
+      // (A card held bare while faded that is now to be drawn stays bare until its glass is drawn, a first draw's wait from here: let go
+      // in this pass, a frame whose glass did not draw (its blur not made yet) showed its solid fill for that frame as it came in.)
+      if (!want.has(g) && !(w.faded && inListSet.has(g))) { if (w.faded && fadedNow.has(g)) continue; g.removeAttribute('data-gl-wait'); waiting.delete(g); }
       else { if (w.faded) { w.faded = false; w.at = t; w.n = 0; } w.n++; if (waitOver(w, t)) { g.removeAttribute('data-gl-wait'); waiting.delete(g); gaveUp.add(g); } }
     }
     for (const g of want) if (!waiting.has(g) && !gaveUp.has(g)) { waiting.set(g, { at: t, n: 0 }); g.setAttribute('data-gl-wait', ''); }   // alloc-rare: a card seen for the first time starts its wait (once per card)
@@ -690,7 +698,6 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // Each callout's glass as the page lays it out this frame (its fades, glides and the card's shadow included).
   function readPanes(list, keep0 = false) {
     fadeMemo = new Map();
-    fadedNow = new Set();
     const panes = [];
     const shows = (a) => keep0 || a > 0.001;   // (keep0: a glass faded right out is kept too, its fade put back each frame by the motion)
     for (const g of list) {
@@ -703,7 +710,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (q !== undefined) {
         for (const one of [].concat(q || [])) {
           if (!one || !shows(a * one.a) || !one.r.width || !one.r.height) { if (one && one.r.width && one.r.height) fadedNow.add(g); continue; }
-          panes.push({ g, el, oa: one.a, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });
+          panes.push({ g, el, oa: one.a, pe: one.pe || null, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });
         }
         continue;
       }
@@ -1419,11 +1426,59 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   }
   function track(e) {
     if (!e?.getAnimations) return;
-    const list = e.getAnimations();
+    const list = readAnims(e);
     for (const an of list) addAnim(e, an);
     // (One the page no longer lists has gone (cancelled, or ended with no fill): let go here, read outside any frame.)
     const m = anims.get(e);
     if (m) { for (const an of m.keys()) if (!list.includes(an)) m.delete(an); if (!m.size) anims.delete(e); }
+    if (pseudoHosts.has(e)) trackPseudo(e);
+  }
+  // (A glass that is a pseudo-element's (cards.read gives its pane a pe: the split readings sheet's two cards, ::before and ::after) fades by
+  // that pseudo-element's own transition (app.css .pz-sheet.pz-hide::before), which the element's getAnimations() does not list. Its fade was
+  // the opacity the page was read with, so the sheet came in as a solid card and turned to glass only when its fade ended (or stepped
+  // whenever a write made the page be read again), and went out as a whole frosted panel under words already gone, which then vanished:
+  // Mohammad, 10 Nov 2026, "the glass cards when they appear and they disappear still glitch". Its pseudo-elements' animations are taken
+  // here (getAnimations({ subtree }) filtered to this element's own pseudo-elements), timed once, and put back each frame (pseudoOf), as an
+  // element's are.)
+  const pseudoHosts = new WeakSet();
+  const panims = new Map();   // (element → Map(animation → { kf, c, pe }))
+  const pended = new Map();   // (element → Map(pe → the opacity an animation that has just finished left it at, until the page is read again))
+  const SUBTREE = { subtree: true };
+  function trackPseudo(e) {
+    let list;
+    try { list = readAnims(e, SUBTREE) || NONE; } catch { return; }
+    let m = panims.get(e);
+    for (const an of list) {
+      const ef = an.effect, pe = ef?.pseudoElement;
+      if (!pe || ef.target !== e) continue;
+      if (!m) panims.set(e, (m = new Map()));   // alloc-rare: once per sheet whose pane fades, outside any frame
+      if (!m.has(an)) { const rec = timeAnim(an); rec.pe = pe; m.set(an, rec); }
+    }
+    if (m) { for (const an of m.keys()) if (!list.includes(an)) m.delete(an); if (!m.size) panims.delete(e); }
+  }
+  // One pane's own fade now, from its pseudo-element's animations (null: none runs, its fade is the one the page was read with).
+  function pseudoOf(e, pe, flag) {
+    let o = null;
+    const m = panims.get(e);
+    if (m) {
+      for (const [an, rec] of m) {
+        if (rec.pe !== pe) continue;
+        const S = stateOf(an, rec), st = S.st;
+        if (st === 'idle' || (st === 'finished' && !S.fills)) {
+          m.delete(an); flag.ended = true;
+          if (st === 'finished') { AM.at = 1; if (motionAt(rec.kf, AM) && AM.hasO) { let q = pended.get(e); if (!q) pended.set(e, (q = new Map())); q.set(pe, AM.o); } }   // alloc-rare: an animation has just finished (once per animation), not per frame
+          continue;
+        }
+        if (S.bad) { flag.bad = true; continue; }
+        if (!S.has) continue;
+        AM.at = S.p;
+        if (!motionAt(rec.kf, AM)) { if (st !== 'finished') { flag.bad = true; if (st === 'running' && endsOf(an, rec)) flag.live = true; } continue; }
+        if (AM.hasO) o = AM.o;
+      }
+      if (!m.size) panims.delete(e);
+    }
+    if (o == null) { const q = pended.get(e); if (q?.has(pe)) o = q.get(pe); }
+    return o;
   }
   // (A script's animate() on a glass or on what holds it is followed from its first frame: no event announces one.)
   // (An element whose inline opacity a stylesheet's !important beats, as read at the last read of the page: the teaching card's shade keeps
@@ -1521,7 +1576,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   function measureGeo() {
     clearTimeout(geoT); geoT = 0;
     if (dead || lost) return;
-    ended.clear();
+    ended.clear(); pended.clear();
     const list = glassesOf();
     const tgt = host?.canvas;
     for (const g of list) for (const e of chainOf(g)) { track(e); hook(e); }
@@ -1536,7 +1591,9 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     const bgVar = bg[3] > 0 ? '' : ws.getPropertyValue('--stage-bg').trim() || ws.getPropertyValue('--bg').trim();
     resolveColour(bgVar);
     const prev = geo?.panes || [], tNow = performance.now();
-    const panes = readPanes(list, true).map((p) => {
+    const read = readPanes(list, true);
+    for (const p of read) if (p.pe && !pseudoHosts.has(p.g)) { pseudoHosts.add(p.g); trackPseudo(p.g); }   // (its pseudo-elements' fades, followed each frame: pseudoOf)
+    const panes = read.map((p) => {
       p.tint = p.tint.trim();   // (a frame looks the colour up by this string)
       resolveColour(p.tint);
       if (p.line) resolveColour(p.line);
@@ -1545,8 +1602,10 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       for (const e of chain) { const so = e.style?.opacity; if (so !== '' && so != null && ![...(anims.get(e) || [])].some(([an, rec]) => stateOf(an, rec).st === 'running') && Math.abs(fadeOf(e) - NUM(so)) > 0.01) inlineLoses.add(e); else inlineLoses.delete(e); }
       const mv = chainMove(chain, flag);
       // (The fade of what does not move, read now; what moves is put back each frame.)
-      let aS = p.oa ?? 1;
-      for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aS *= v; }   // (a missing or odd value is no fade)
+      // (aC: that fade without the pane's own (oa), which a pseudo-element's running fade stands for each frame: nowGeo.)
+      let aC = 1;
+      for (const e of chain) { if (moveOf(e, flag).o != null) continue; const v = fadeOf(e); if (v < 1) aC *= v; }   // (a missing or odd value is no fade)
+      const aS = (p.oa ?? 1) * aC;
       const back = [-mv.x, -mv.y];
       // (A card card-zoom.js moves: its box is the rest box, its motion the zoom's analytic one (zoomRide.of, put back each frame in nowGeo), so what is
       // read now, at the zoom it has, is taken back to where the card rests.)
@@ -1579,7 +1638,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         }
       }
       if (morph) liveUntil = Math.max(liveUntil, morph.t0 + morph.ms + 34);
-      return { ...p, chain, r0, er0, rz, erz, tr0, aS, morph, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };
+      return { ...p, chain, r0, er0, rz, erz, tr0, aS, aC, morph, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };
     });
     for (const p of panes) {
       // (What a frame writes its boxes and fade into: kept with the page read, so nowGeo makes nothing.)
@@ -1634,10 +1693,14 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     let cx = 0, cy = 0;
     if (G.tgt) { const m = moveOf(G.tgt, flag); cx = m.x; cy = m.y; }
     const cr = shiftInto(crLive, G.cr0, cx, cy);
+    fadedNow.clear(); litNow.clear();
     for (const p of G.panes) {
       if (!p.g.isConnected) continue;
-      const mv = chainMove(p.chain, flag), a = p.aS * mv.o;
-      if (!(a > 0.001)) continue;
+      const mv = chainMove(p.chain, flag);
+      let a = p.aS * mv.o;
+      if (p.pe) { const po = pseudoOf(p.g, p.pe, flag); if (po != null) a = p.aC * mv.o * po; }
+      if (!(a > 0.001)) { fadedNow.add(p.g); continue; }
+      litNow.add(p.g);
       const L = p.live;
       L.a = a;
       if (p.morph) { morphInto(L.r, p, performance.now(), mv.x, mv.y); copyRect(L.er, L.r); L.rad = p.rad; panes.push(L); continue; }
@@ -1652,6 +1715,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       shiftInto(L.r, p.r0, mv.x, mv.y); shiftInto(L.er, p.er0, mv.x, mv.y); L.rad = p.rad;
       panes.push(L);
     }
+    for (const g of litNow) fadedNow.delete(g);   // (faded: every glass of the card at 0 this frame, as the wait takes it)
     // (A move the motion cannot put back by itself (a card zoomed up: a scale, in a glide that ends): read again in the next frame's read phase, so its glass is
     // drawn where the card is in that frame, never left a frame or more behind at its old box, an empty panel (Mohammad, 2 Nov 2026, a
     // chart zoomed on HVPG 3).)
@@ -1684,17 +1748,20 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   function wake() { quiet = 0; ask(); }
   // (Any animation of a glass or of what holds it still running: no event says when a script's ends.)
   function moving() {
-    for (const [e, m] of anims) {
-      let keep = false;
-      for (const [an, rec] of m) {
-        const S = stateOf(an, rec);
-        if (S.st === 'running' && Number.isFinite(S.end)) return true;   // (one that never ends does not hold it awake)
-        if (S.st !== 'idle' && (S.st !== 'finished' || S.fills)) keep = true;
+    for (const M of MOVERS) {
+      for (const [e, m] of M) {
+        let keep = false;
+        for (const [an, rec] of m) {
+          const S = stateOf(an, rec);
+          if (S.st === 'running' && Number.isFinite(S.end)) return true;   // (one that never ends does not hold it awake)
+          if (S.st !== 'idle' && (S.st !== 'finished' || S.fills)) keep = true;
+        }
+        if (!keep) M.delete(e);
       }
-      if (!keep) anims.delete(e);
     }
     return false;
   }
+  const MOVERS = [anims, panims];   // (the elements' animations and their panes' pseudo-elements')
   const pollFn = () => { poll = 0; measureGeo(); };
   function settle(r) {
     shown = !!r;
