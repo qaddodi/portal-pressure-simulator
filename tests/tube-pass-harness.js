@@ -8,7 +8,7 @@ import { scene, ray, straight } from './tube-web-helpers.js';
 /** Programs by name: { p: { name }, u: any uniform name → { prog, name } }; the stand-in uniform cache records each set value as `sets`. */
 const prog = (name) => ({ p: { name }, u: new Proxy({}, { get: (t, k) => (typeof k === 'string' ? (t[k] ||= { prog: name, name: k }) : undefined) }) });
 
-export function makeHarness({ withStage2 = true, withStage3 = false, withGlow = false, glowFailed = null, rows, joins, tiers, tubeMutator, patches = false, capture = null } = {}) {
+export function makeHarness({ withStage2 = true, withStage3 = false, withGlow = false, glowFailed = null, rows, joins, tiers, tubeMutator, patches = false, capture = null, noEnds = false } = {}) {
   const log = [], sets = [], gauges = [];
   let cur = null, state = { mask: true, depthFunc: 'LESS', blend: false, stencil: false };
   const enums = new Map();
@@ -44,7 +44,7 @@ export function makeHarness({ withStage2 = true, withStage3 = false, withGlow = 
   const n = sc.nRows, nJoins = capture ? Math.floor(sc.ent.length / 8) : joins ? joins.length : 2;
   const tierOf = tiers ?? [];
   tierOf.forEach((t, i) => { sc.tube[i * TUBE_FLOATS + 8] = t; });
-  const MG = { tubeVB: { vb: 1 }, tubeIB: { ib: 1 }, tubeVAO: { vao: 1 }, rowBuf: { rb: 1 }, patchBuf: { pb: 1 }, patchVAO: { pv: 1 }, tubeIndexN: 24, rowCap: 0, patchCap: 0, tex: {}, pj: {},
+  const MG = { noEnds, tubeVB: { vb: 1 }, tubeIB: { ib: 1 }, tubeVAO: { vao: 1 }, rowBuf: { rb: 1 }, patchBuf: { pb: 1 }, patchVAO: { pv: 1 }, tubeIndexN: 24, rowCap: 0, patchCap: 0, tex: {}, pj: {},
     ent: sc.ent, jl: { n: nJoins, view: Int32Array.from({ length: nJoins }, (_, i) => i) },
     pts: { pts: sc.pts, on: new Uint8Array(n).fill(1) }, tb: {}, pb: {}, patch: patches ? { data: Float32Array.from([50, 0, 10, 0, 0, 1, -1, -1, -1, -1, -1, -1, 0, 1, 0, 0]), count: 1 } : { data: new Float32Array(0), count: 0 }, gen: 1,
     passes: 0, strips: 0, patches: 0, plain: 0, webs: 0, kP: 0, ref: 0 };

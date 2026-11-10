@@ -20,7 +20,7 @@
 //   ALONG_GLSL  the alongAt function (veins-gl.js)
 import { shadeGLSL, MP } from './veins-mesh-glsl.js';
 import { celGLSL, celShadeJS, CEL } from './tube-cel-glsl.js';
-import { tubeJoinGLSL, END_BASE, END_SEGS, trunkGapJS } from './tube-join-glsl.js';
+import { tubeJoinFS, JOIN_IN_GLSL, END_BASE, END_SEGS, trunkGapJS } from './tube-join-glsl.js';
 export { END_SEGS, trunkGapJS };
 
 /** The depth prepass for plain rows: no outputs, no work; drawn with the colour masked off. */
@@ -42,7 +42,7 @@ flat in int vRow;                      // the vessel row
 in float vD;                           // signed distance from the lumen's wall, world units: negative inside, positive in the outline's skirt
 in vec2 vG;                            // direction from the centreline to this point (not unit; (0, 0) on the centreline)
 in float vRad;                         // the lumen's radius here, world units
-flat in vec2 vEnd;                     // the vessel this row ends on at its start (x) and its end (y): trunk row * 64 + the trunk's sample, or -1
+${JOIN_IN_GLSL}
 uniform int mPass;                     // the pass (MP_*)
 uniform int tierNow;                   // the tier it draws
 uniform int isWeb;                     // 0 a strip; 1 a web: drawn in the higher of its two members' tiers, carrying its owner's row (often in the lower tier)
@@ -90,7 +90,7 @@ vec4 over(vec4 top, vec4 under) { return top + under * (1.0 - top.a); }
 ${shadeGLSL(K)}
 ${celGLSL(K)}
 
-${tubeJoinGLSL(N_SAMPLES)}
+${tubeJoinFS(N_SAMPLES)}
 void main() {
   // (Only the shape and its lift: a glow pass stays on the stage 1 program.)
   if (mPass < ${MP.SHAPE_K} || mPass > ${MP.LIFT}) discard;
@@ -122,7 +122,7 @@ void main() {
     discard;
   }
   // A row's end on another row (tube-join-glsl.js): a pixel inside the trunk the row ends on, or beyond a continuation's bisector plane, is the other row's.
-  JoinEnd je = joinEnd(id, vI, vEnd, p, R, px);
+  JoinEnd je = joinEnd(vI, vJ0, vJ1, vJK, p, R, px);
   if (je.drop) {
     if (redraw == 1) { outColor = vec4(0.0); outFlow = uvec4(0u); outFlow2 = uvec4(0u); outDep = vec4(0.0); return; }
     discard;
@@ -140,11 +140,8 @@ void main() {
   // (A web is drawn in tierNow, whichever tier its owner's row is in: its colour and the row's own opacity are the owner's, its tier alpha and group the tier it is drawn in.)
   int ti = int(aTier + 0.5);
   if (ti != tierNow && isWeb == 0) discard;
-  int tt = isWeb == 1 ? tierNow : ti;   // (the tier it is drawn in)
+  int tt = ti;   // (a web carries its owner's tier alpha and group too, as the lumen layer's shader gives it: a web beside a faded trunk is as faded as the trunk, 61523a4)
   int grp = tierGroup[tt];
-  // Near that end the row takes on the other row's colour and opacity (je.w), so the two meet at one look.
-  JoinLook jo = JoinLook(vec3(0.0), 0.0, 0.0);
-  if (je.w > 0.0) { jo = joinOther(je, p, occl); aCol = mix(aCol, jo.col, je.w); }
   // Whether a lumen colour reaches this pixel: through a lumen drawn here (aL > 0) or a glow in its own colour.
   bool dep = false;
   vec4 gc, ge;
@@ -163,10 +160,7 @@ void main() {
   float wsel = grp == 1 ? aSel : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
   float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
   float lumA = aL * aA * tierAlpha[tt] * gf;
-  float cOwn = aA * tierAlpha[tt] * (grp == 0 ? 1.0 - occl * aOf : 1.0), lOwn = aA * tierAlpha[tt] * gf;
-  float jc = 1.0, jl = 1.0;   // (the join's share of the other row's opacity: the colour's factor and the lumen's)
-  if (je.w > 0.0) { jc = mix(cOwn, jo.aC, je.w) / max(cOwn, 1e-3); jl = mix(lOwn, jo.aL, je.w) / max(lOwn, 1e-3); }
-  lumA *= jl;
+  lumA *= je.fl;   // (a branch fading into its trunk: tube-join-glsl.js)
   bool lum = lumA > 0.02 && !dotted;
   // The stream shown here: this lumen, with its place along and across for the compositor's blood.
   uint gId = 0u;
@@ -177,7 +171,7 @@ void main() {
     gId = uint(id + 1); gS = u * t5.z; gY = clamp(across / max(R, 1e-3), -1.0, 1.0); gW = lumA;
   }
   if (grp == 0) c *= 1.0 - occl * aOf;
-  c *= jc;
+  c *= mix(je.fo, je.fl, aL);   // (the lumen's share fades with the branch, the outline's faster)
   // (The lift: the selected vessel's own share, laid over the network.)
   if (mPass == ${MP.LIFT}) {
     vec4 lc = c * wsel;
@@ -201,11 +195,6 @@ void main() {
 const clamp = (x, a, b) => Math.min(Math.max(x, a), b);
 const mix = (a, b, t) => a * (1 - t) + b * t;
 
-/** Which end's vessel a pixel at sample position vI looks at (vEnd.x within 8 samples of the start, vEnd.y within 8 of the end), or -1: the GLSL's pick, in JS. */
-export function endOfJS(vI, vEnd, last = 63) {
-  return vI < 8 ? vEnd[0] : vI > last - 8 ? vEnd[1] : -1;
-}
-
 /** The distance past the wall after the row's clip and dotted rules (the GLSL's two blocks before the reach test). o: { D (vD), R (vRad), u (vI / LAST), clip [from, to, length], dotted }. */
 export function leanDistanceJS(o) {
   const { R, u, clip = [0, 1, 1], dotted = false } = o;
@@ -223,10 +212,10 @@ export function leanDistanceJS(o) {
 
 /**
  * main's arithmetic for one pixel. o carries what the varyings and the row give, and the row's attributes as vesAttrs returns them:
- *   D (vD), R (vRad), g (vG, not unit), u (vI / LAST), clip [from, to, length], dotted, join { drop, w, other { col, aC, aL } } or null (a row's end on
- *   another row: tube-join-glsl.js joinEndJS, and the other row's look when w > 0), attrs { tier, flags, wall, col, alpha, hov, sel, edge, of }, tierNow, tierAlpha, grp, netAlpha,
+ *   D (vD), R (vRad), g (vG, not unit), u (vI / LAST), clip [from, to, length], dotted, join { drop, fl, fo } or null (a row's end on
+ *   another row: tube-join-glsl.js joinEndJS), attrs { tier, flags, wall, col, alpha, hov, sel, edge, of }, tierNow, tierAlpha, grp, netAlpha,
  *   occl, and what celShadeJS takes (px, aa as px * EDGE, light, fx, casing, ring, rimInk, paperInk, F_DIFFUSE, F_EDGE, F_VEIL, F_SEL, F_DOTTED, F_NOCASE),
- *   redraw, reach, lift, isWeb (true for the web program: the row may be in another tier than tierNow; then `grp` and `tierAlpha` are those of tierNow, the tier it is drawn in).
+ *   redraw, reach, lift, isWeb (true for the web program: the row may be in another tier than tierNow; `grp` and `tierAlpha` are those of the row's own tier, the web's owner, as in the lumen layer).
  * Returns { kind: 'discard' | 'empty' | 'draw', colour [r, g, b, a] premultiplied, flow { id, s, y, w } or null, dep }.
  */
 export function tubeLeanJS(o) {
@@ -235,7 +224,7 @@ export function tubeLeanJS(o) {
   const none = redraw === 1 ? { kind: 'empty', colour: [0, 0, 0, 0], flow: null, dep: 0 } : { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 };
   const D = leanDistanceJS({ D: o.D, R: o.R, u: o.u, clip, dotted: !!(at.flags & F_DOTTED) });
   if (D >= reach) return none;
-  // (A row's end on another row: `join` is joinEndJS's { drop, w } with the other row's look { col, aC, aL } when w > 0; a dropped pixel is the other row's.)
+  // (A row's end on another row: `join` is joinEndJS's { drop, fl, fo }: the factors on the lumen and the outline of a branch fading into its trunk; a dropped pixel is the other row's.)
   const jn = o.join ?? null;
   if (jn && jn.drop) return none;
   if (!(o.lit && D - at.wall < 15.7) && D > 8.01 + 2 * px) return none;
@@ -247,19 +236,18 @@ export function tubeLeanJS(o) {
   const aa = o.aa;
   const aL = clamp(0.5 - D / aa, 0, 1);
   const dep = aL > 0 || !!o.glowOwn ? 1 : 0;
-  const cel = celShadeJS({ ...o, D, g, R: o.R, col: jn && jn.w > 0 && jn.other ? at.col.map((v, i) => mix(v, jn.other.col[i], jn.w)) : at.col, flags, sel: (flags & F_SEL) !== 0, cA, grp, vAt: o.u, hov: at.hov ?? 0, edge: at.edge ?? [0, 0, 0], kn: 0, kcas: 0, aa, aL });
+  const cel = celShadeJS({ ...o, D, g, R: o.R, col: at.col, flags, sel: (flags & F_SEL) !== 0, cA, grp, vAt: o.u, hov: at.hov ?? 0, edge: at.edge ?? [0, 0, 0], kn: 0, kcas: 0, aa, aL });
   const tierA = o.tierAlpha ?? 1, scale = at.alpha * tierA;
   let c = cel.map((v) => v * scale);
   const wsel = grp === 1 ? (at.sel ?? 0) : 0;
   const netAlpha = o.netAlpha ?? 1, occl = o.occl ?? 0, of = at.of ?? 1;
   const gf = grp === 0 ? 1 - occl * of : grp === 1 ? mix(netAlpha, 1, wsel) : 1;
   let lumA = aL * at.alpha * tierA * gf;
-  const cOwn = at.alpha * tierA * (grp === 0 ? 1 - occl * of : 1), lOwn = at.alpha * tierA * gf;
-  const jc = jn && jn.w > 0 && jn.other ? mix(cOwn, jn.other.aC, jn.w) / Math.max(cOwn, 1e-3) : 1, jl = jn && jn.w > 0 && jn.other ? mix(lOwn, jn.other.aL, jn.w) / Math.max(lOwn, 1e-3) : 1;
-  lumA *= jl;
+  const fl = jn ? jn.fl : 1, fo = jn ? jn.fo : 1;
+  lumA *= fl;
   const lum = lumA > 0.02 && !dotted;
   if (grp === 0) c = c.map((v) => v * (1 - occl * of));
-  c = c.map((v) => v * jc);
+  c = c.map((v) => v * mix(fo, fl, aL));
   if (o.lift) {
     const lc = c.map((v) => v * wsel);
     return lc[3] < 0.002 ? { kind: 'discard', colour: [0, 0, 0, 0], flow: null, dep: 0 } : { kind: 'draw', colour: lc, flow: null, dep: 0 };

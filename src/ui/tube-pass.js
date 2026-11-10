@@ -142,7 +142,7 @@ export function createTubePass(E) {
     UC.i1(P.u.pjTex, 9);
     UC.f1(P.u.celK, CEL.K);
     UC.f1(P.u.zK, LV.zK); UC.f1(P.u.hK, LV.hK);   // (an unset uniform is 0, so every program is given both)
-    UC.i1(P.u.joinCut, tubeJoinCut() ? 1 : 0);   // (0, the default: none of the join-end work in the fragment shaders, and no row is exact for an end; ?tubejoin=cut: on)
+    UC.i1(P.u.joinCut, tubeJoinCut() && !E.lobule ? 1 : 0);   // (0 in the lobule always: no row has an end, none of the join work runs and no row is exact for one; the figure has them unless ?tubejoin=off)
     UC.f1(P.u.hRef, LV.hRef); UC.f1(P.u.aaPad, 2 * px);
     UC.f1(P.u.pxW, px);   // (the compositor's zoom numbers, ZOOM_VS, which the vertex shaders hand on as zoomA and zoomB: the world size of a device pixel)
   }

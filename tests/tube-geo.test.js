@@ -600,7 +600,7 @@ test('the GLSL holds the numbers of the JS twin: levels, grid sizes, the depth f
   assert.ok(VS.includes(`bool glow = mPass <= ${MP.UP};`) && VS.includes(`mPass >= ${MP.UP_K}`) && VS.includes('gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return;'));
   assert.ok(VS.includes('float wr = texelFetch(tube, ivec2(0, id), 0).w * celK + sp + aaPad + padU;') && VS.includes('float sp = sel ? selPad : 0.0;'), 'a glow\'s width is the row\'s, as before');
   assert.ok(VS.includes('return clamp(0.14 * mRW(id, i, 0.0), 1.5 * px, 3.0 * px) + aaPad + sp;') && VS.includes('float px = 0.5 * aaPad;'), 'a shape\'s skirt is the outline plus aaPad (+ the selection\'s), from the vertex\'s own R');
-  assert.ok(VS.includes('vEnd = aRow.w > 1.5 ? aRow.yz : vec2(-1.0);') && VS.includes('int id = int(aRow.x + 0.5);'), 'aRow = (row, endStart, endEnd, kind + 2)');
+  assert.ok(VS.includes('vEnd = aRow.w > 1.5 && joinCut == 1 ? aRow.yz : vec2(-1.0);') && VS.includes('int id = int(aRow.x + 0.5);'), 'aRow = (row, endStart, endEnd, kind + 2)');
   assert.ok(VS.includes('vG = og; vD = length(og) - rw;') && VS.includes('vG = df.x * n; vD = abs(df.x) - rw;') && VS.includes('vG = o; vD = rr - rw;') && VS.includes('vG = o; vD = we;'));
   assert.ok(VS.includes('(int(texelFetch(tube, ivec2(2, id), 0).z + 0.5) & 1) != 0'));
   assert.ok(tubeStripVS(STRIP_VS_GLSL, 128).includes('& 128) != 0'));

@@ -269,18 +269,18 @@ export function webInstances(joinEntries, tubeData, pts, out) {
  * The webs grouped by tier (patchesByTier's way): a web is drawn in the higher of its two rows' tiers, once. A web is left out when either row is off (on[row] 0, when `on` is
  * given) or not drawn (alpha <= 0). out: { data (WEB_FLOATS a web, tier ascending), start[t], count[t] (Int32Array MAX_TIERS, in webs) }, out.n the webs in all.
  */
-export function websByTier(webData, count, tube, out, on = null) {
+export function websByTier(webData, count, tube, out, on = null, noMixed = false) {
   const nRows = Math.floor(tube.length / TUBE_FLOATS);
   if (!out.start) { out.start = new Int32Array(MAX_TIERS); out.count = new Int32Array(MAX_TIERS); out.cur = new Int32Array(MAX_TIERS); }   // alloc-rare: the per-tier arrays, once
   const { start, count: cnt, cur } = out;
   cnt.fill(0);
-  for (let p = 0; p < count; p++) { const t = webTier(webData, p, tube, nRows, on); if (t >= 0) cnt[t]++; }
+  for (let p = 0; p < count; p++) { const t = webTier(webData, p, tube, nRows, on, noMixed); if (t >= 0) cnt[t]++; }
   let at = 0;
   for (let t = 0; t < MAX_TIERS; t++) { start[t] = at; cur[t] = at; at += cnt[t]; }
   if (!out.data || out.data.length < at * WEB_FLOATS) out.data = new Float32Array(Math.max(at, 1) * WEB_FLOATS);   // alloc-rare: grown with the webs
   const data = out.data;
   for (let p = 0; p < count; p++) {
-    const t = webTier(webData, p, tube, nRows, on);
+    const t = webTier(webData, p, tube, nRows, on, noMixed);
     if (t < 0) continue;
     const o = cur[t]++ * WEB_FLOATS, q = p * WEB_FLOATS;
     for (let k = 0; k < WEB_FLOATS; k++) data[o + k] = webData[q + k];
@@ -289,11 +289,13 @@ export function websByTier(webData, count, tube, out, on = null) {
   return out;
 }
 /** The tier a web is drawn in, or -1 when it is not drawn. */
-function webTier(webData, p, tube, nRows, on) {
+function webTier(webData, p, tube, nRows, on, noMixed) {
   const q = p * WEB_FLOATS, ra = Math.floor(webData[q] + 0.5), rb = Math.floor(webData[q + 4] + 0.5);
   if (ra < 0 || ra >= nRows || rb < 0 || rb >= nRows) return -1;
   if (on && (!on[ra] || !on[rb])) return -1;
   const oa = ra * TUBE_FLOATS, ob = rb * TUBE_FLOATS;
   if (!(tube[oa + T_ALPHA] > 0) || !(tube[ob + T_ALPHA] > 0)) return -1;
-  return Math.max(tierOf(tube, oa), tierOf(tube, ob));
+  const ta = tierOf(tube, oa), tb = tierOf(tube, ob);
+  if (noMixed && ta !== tb) return -1;   // (two tiers: the branch fades into its trunk there, tube-join-glsl.js, and a web's corner would show as a fin)
+  return Math.max(ta, tb);
 }

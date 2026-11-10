@@ -165,9 +165,17 @@ test('a lit vessel\'s glow pair stays on the stage 1 strip program, EQUAL, over 
 });
 
 test('tiers: each tier gets its own pair, and a web is drawn in the higher tier of its two rows', () => {
-  const h = makeHarness({ tiers: [0, 1, 1] });
+  const h = makeHarness({ tiers: [0, 1, 1], noEnds: true });
   h.run();
   assert.ok(draws(h.log).length > 5);
   const tierSets = h.sets.filter((s) => s.name === 'tierNow').map((s) => s.v);
   assert.ok(tierSets.includes(0) && tierSets.includes(1));
+});
+
+test('with the join-end fade on (a bundle with ends), a web between rows of different tiers is not drawn: the branch fades into its trunk there', () => {
+  const on = makeHarness({ tiers: [0, 1, 1], noEnds: false }), off = makeHarness({ tiers: [0, 1, 1], noEnds: true });
+  on.run(); off.run();
+  const webs = (h) => draws(h.log).filter((c) => c.prog === 'tubeWeb').length;
+  assert.ok(webs(off) > 0, 'ends off: the web is drawn');
+  assert.ok(webs(on) < webs(off), 'ends on: the mixed-tier web is left out');
 });

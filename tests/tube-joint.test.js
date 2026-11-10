@@ -278,7 +278,7 @@ function runVertex(w, attr, { mPass = MP.SHAPE, base = 0.25, H = 0.1 } = {}) {
 }
 
 test('the interpreter reads the shader: its declarations and outputs', () => {
-  assert.deepEqual(prog.outs.sort(), ['vD', 'vEnd', 'vG', 'vI', 'vRad', 'vRow']);
+  assert.deepEqual(prog.outs.sort(), ['vD', 'vEnd', 'vG', 'vI', 'vJ0', 'vJ1', 'vJK', 'vRad', 'vRow']);
   assert.deepEqual(prog.attrs.sort(), ['aLegA', 'aLegB', 'aV', 'aWeb']);
 });
 

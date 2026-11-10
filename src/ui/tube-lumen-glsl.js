@@ -37,7 +37,7 @@
 // compLumenUniforms. The world size of a device pixel is pxW (the compositor's), not lean's `px`: the feed is the same number.
 import { shadeGLSL } from './veins-mesh-glsl.js';
 import { compLumenUniforms, compLumenFns, N_SAMPLES as COMP_N, S_OFF } from './comp-glsl.js';
-import { tubeJoinGLSL } from './tube-join-glsl.js';
+import { tubeJoinFS, JOIN_IN_GLSL } from './tube-join-glsl.js';
 import { celToneGLSL } from './tube-cel-glsl.js';
 
 /** The text of one top-level function in `text`: from its signature to its closing brace. */
@@ -86,7 +86,7 @@ flat in int vRow;                      // the vessel row
 in float vD;                           // signed distance from the lumen's wall, world units: negative inside, positive in the outline's skirt
 in vec2 vG;                            // offset from the centreline point to this point (world units; (0, 0) on the centreline)
 in float vRad;                         // the lumen's radius here, world units (a web: 4 x its larger member's radius)
-flat in vec2 vEnd;                     // the row this one ends on or continues (tube-join-glsl.js): a pixel that is the other row's is dropped, and near the end the look blends
+${JOIN_IN_GLSL}
 ${compLumenUniforms()}
 uniform int fx;                        // 1: shading (off in the figure view): the cel tones below
 uniform int blood;                     // 1: draw the blood
@@ -133,7 +133,7 @@ vec3 originHere(int id, float s, float y, float R, vec2 w) {
   return mix(c, other, 0.5 * (1.0 - smoothstep(0.0, e, u < 0.5 ? u : 1.0 - u)));
 }
 
-${tubeJoinGLSL(N_SAMPLES)}
+${tubeJoinFS(N_SAMPLES)}
 
 // (The cel tones of the vessel layer's fill, tube-cel-glsl.js: this layer's colour replaces the fill's, so the tones are laid on it, over the blood.)
 ${celToneGLSL()}
@@ -159,7 +159,7 @@ void main() {
   vec2 q = vec2(gl_FragCoord.x, sizeF.y - gl_FragCoord.y) - lOff - tOff;
   vec2 p = vec2(invA.x * q.x + invA.z * q.y, invA.y * q.x + invA.w * q.y);
   // A row's end on another row (tube-join-glsl.js): the other row's pixels are dropped here as in tubeLeanFS, so this layer and the vessel layer agree.
-  JoinEnd je = joinEnd(id, vI, vEnd, p, R, pxW);
+  JoinEnd je = joinEnd(vI, vJ0, vJ1, vJK, p, R, pxW);
   if (je.drop) discard;
   // The vessel's colour and opacity here, as tubeLeanFS gets them (its tier, flags, colour along it, alpha with the fades and the veil).
   float occl = useOrgan == 1 ? texture(organ, (p - organRect.xy) / organRect.zw).a * ${K.VEIL_K} * organK : 0.0;
@@ -171,13 +171,7 @@ void main() {
   float wsel = grp == 1 ? aSel : 0.0;   // (the network's vessels are faded as a group: the selected one's own share is laid on top)
   float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
   float lumA = aL * aA * tierAlpha[ti] * gf;
-  // Near that end the row takes on the other row's colour and opacity, as tubeLeanFS does.
-  if (je.w > 0.0) {
-    JoinLook jo = joinOther(je, p, occl);
-    float lOwn = aA * tierAlpha[ti] * gf;
-    lumA *= mix(lOwn, jo.aL, je.w) / max(lOwn, 1e-3);
-    aCol = mix(aCol, jo.col, je.w);
-  }
+  lumA *= je.fl;   // (a branch fading into its trunk, as tubeLeanFS has it)
   if (lumA <= ${LUM_MIN}) discard;
   // The place in the stream, as packFlow would have stored it and the compositor unpacked it: the arc length and the across.
   int sg = clamp(int(vI), 0, ${N_SAMPLES - 2});

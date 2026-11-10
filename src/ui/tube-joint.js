@@ -48,6 +48,7 @@
 import { N_SAMPLES, MIN_RADIUS } from './veins-mesh.js';
 import { MP } from './veins-mesh-glsl.js';
 import { TUBE_LEVEL } from './tube-geo.js';
+import { JOIN_WEB_OUT_GLSL, JOIN_WEB_SET_GLSL } from './tube-join-glsl.js';
 
 export const WEB_ARC = 6;                        // the arc's steps
 export const WEB_PTS = WEB_ARC + 1;              // its points
@@ -279,6 +280,7 @@ out float vD;
 out vec2 vG;
 out float vRad;
 flat out vec2 vEnd;
+${JOIN_WEB_OUT_GLSL}
 invariant gl_Position;
 struct WLeg { vec2 p; vec2 d; vec2 n; float r; float len; int seg; float over; };
 // The direction the leg leaves in: toward the first sample past i (in s) at least 1e-6 away, else (s, 0).
@@ -374,6 +376,7 @@ void main() {
   vRow = int((ownB ? aLegB.x : aLegA.x) + 0.5);${ZOOM_VS ? '\n  zoomOut();' : ''}
   vI = ownB ? aLegB.y : aLegA.y;
   vEnd = vec2(-1.0);
+  ${JOIN_WEB_SET_GLSL}
   vD = 0.0; vG = vec2(0.0);
   float Rm = max(A.r, B.r);
   vRad = 4.0 * Rm;

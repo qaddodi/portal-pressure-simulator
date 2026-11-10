@@ -26,6 +26,7 @@
 // their JS twins (veins-mesh.js keeps its own private), pinned to veins-mesh.js's stripVertex by tests/tube-geo.test.js.
 import { N_SAMPLES, N_QUADS, MITRE_LIMIT, MIN_RADIUS, TILT_MAX, SEG_EPS, bevelled } from './veins-mesh.js';
 import { MP } from './veins-mesh-glsl.js';
+import { tubeJoinVS } from './tube-join-glsl.js';
 
 export { N_SAMPLES };
 export const TUBE_CAP = 6;                         // cap rings past each end
@@ -296,7 +297,7 @@ out float vD;                          // signed distance from the lumen's wall 
 out vec2 vG;                           // the offset from the centreline point to this point (not unit)
 out float vRad;                        // the lumen's radius at this ring or sample
 flat out vec2 vEnd;                    // the vessel this row ends on at its start (x) and end (y): row * 64 + the sample there, or -1
-// The across offset d and the level f of across column ac, for a ring whose half tube has radius rc.
+${tubeJoinVS(N_SAMPLES)}// The across offset d and the level f of across column ac, for a ring whose half tube has radius rc.
 vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow, float zz) {
   if (ac == 0) return vec2(-(rc + w), glow ? L_GLOW0 : L_CASE0);
   if (ac == 1) return vec2(-rc, glow ? L_GLOW_WALL : L_CASE1);
@@ -401,7 +402,8 @@ float tubeFadeLevel(float f, float a) {
 void main() {
   int id = int(aRow.x + 0.5);
   vRow = id;${ZOOM_VS ? '\n  zoomOut();' : ''}
-  vEnd = aRow.w > 1.5 ? aRow.yz : vec2(-1.0);
+  vEnd = aRow.w > 1.5 && joinCut == 1 ? aRow.yz : vec2(-1.0);
+  joinOut(id, vEnd);
   int kind = int(aV.x + 0.5), ring = int(aV.y + 0.5);
   vI = kind == T_TRAP ? aV.y + aV.w : kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));
   bool glow = mPass <= ${MP.UP};
