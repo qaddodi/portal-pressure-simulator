@@ -44,7 +44,7 @@ test('a near-closed vessel never puts the whole drop on one sample', () => {
   assert.equal(ALONG_K_MIN, 0.1);
 });
 
-const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the per-vessel colour: veins-mesh-glsl.js vesAttrs)
+const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/comp-glsl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/veins-mesh-glsl.js', import.meta.url), 'utf8');   // (the per-vessel colour: veins-mesh-glsl.js vesAttrs)
 const stage = stageSource();
 
 test('the curve rides with the radii (−1 for a vessel without one) and both shaders mix the colour by it', () => {

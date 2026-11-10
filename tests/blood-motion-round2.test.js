@@ -28,7 +28,7 @@ test('B9: while the anatomy still shows during the lobule dive, its blood keeps 
 });
 
 test('atlas picks (18 Oct): smaller chevrons with a tinted dark core and softer streaks; vessels stay flat, organs keep their art', () => {
-  const gl = read('src/ui/veins-gl.js') + read('src/ui/veins-mesh-glsl.js');   // (the vessel shader's shading: veins-mesh-glsl.js)
+  const gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js') + read('src/ui/veins-mesh-glsl.js');   // (the vessel shader's shading: veins-mesh-glsl.js)
   // A1: 4–8 CSS px half-width, never over 0.8 of the lumen; the stage and the lobule both say how many canvas px a CSS px is.
   assert.match(gl, /float hw = min\(0\.8 \* R, clamp\(0\.5 \* R, 4\.0 \* cssPx \* pxW, 8\.0 \* cssPx \* pxW\)\)/);
   assert.match(gl, /vec3 ink = mix\(chevInk, vc \* 0\.3, 0\.2\);/);
@@ -53,7 +53,7 @@ test('A4: hover and selection glows are slim bands', () => {
 });
 
 test('B4: the streaks, chevrons and origin colours fade when switched, and a vessel drawing on carries its blood with it', () => {
-  const gl = read('src/ui/veins-gl.js');
+  const gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js');
   assert.match(gl, /uniform vec3 blendA;/);
   assert.match(gl, /col = mix\(col, oc, vis \* blendA\.z\);/);
   assert.match(gl, /clamp\(a \* vis \* flowA \* blendA\.x, 0\.0, 1\.0\)/);

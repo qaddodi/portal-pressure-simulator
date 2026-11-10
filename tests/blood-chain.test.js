@@ -191,7 +191,7 @@ test('a vessel drawn again after it went starts afresh, with no ease', () => {
 });
 
 const stage = stageSource();
-const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/comp-glsl.js', import.meta.url), 'utf8');
 
 test('stage: the links are written into the rows put() filled, by the model\'s mean speeds', () => {
   assert.match(stage, /if \(on\) \{[\s\S]{0,400}?else chainRows\(/);

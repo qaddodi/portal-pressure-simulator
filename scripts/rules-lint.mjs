@@ -177,16 +177,18 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   }
   need('src/ui/veins-gl.js', [
     [/heads: who === 'stage' \?/, 'the lobule is given no axes: its renderer keeps the composite heads'],
-    [/void lymphAt\(float s, float y, vec4 f0, float len, float R, out float cover, out float core\)/, 'the composite has a lymph dash function'],
     [/bool isLy = f1\.x < -0\.5;/, 'a lymph row is marked in the shader'],
     [/if \(blood == 1 && blendA\.x > 0\.0 && f1\.z > 0\.0 && !isLy\) \{/, 'blood streaks skip a lymph row'],
     [/chev == 1 && chevQuad == 0 && f1\.z > 0\.0 && !isLy/, 'arrowheads skip a lymph row'],
     [/if \(blood == 1 && isLy && f1\.z > 0\.0\) \{\n\s*float lc, lk;\n\s*lymphAt\(s1, y1, f0, len1, R1, lc, lk\);/, 'a lymph row draws its dashes'],
   ]);
-  const lymphFn = gl.slice(gl.indexOf('void lymphAt('), gl.indexOf('// Moving blood in one lumen at arc length s'));
-  if (!/fract\(\(s - f0\.x\) \/ pitch\)/.test(lymphFn)) errors.push('src/ui/veins-gl.js lymphAt: the dash phase runs along the channel in world units, so a pan or pinch cannot slide it');
-  if (!/ya = y \* R/.test(lymphFn)) errors.push('src/ui/veins-gl.js lymphAt: across the channel in world units');
-  if (/gl_FragCoord|\bFC\b/.test(lymphFn)) errors.push('src/ui/veins-gl.js lymphAt: no screen-space coordinate (the dashes would slide off their vessel)');
+  // (lymphAt moved to comp-glsl.js with the rest of the lumen text, 10 Nov 2026: the rule moved with it, as written.)
+  need('src/ui/comp-glsl.js', [[/void lymphAt\(float s, float y, vec4 f0, float len, float R, out float cover, out float core\)/, 'the composite has a lymph dash function']]);
+  const cg = text('src/ui/comp-glsl.js');
+  const lymphFn = cg.slice(cg.indexOf('void lymphAt('), cg.indexOf('// Moving blood in one lumen at arc length s'));
+  if (!/fract\(\(s - f0\.x\) \/ pitch\)/.test(lymphFn)) errors.push('src/ui/comp-glsl.js lymphAt: the dash phase runs along the channel in world units, so a pan or pinch cannot slide it');
+  if (!/ya = y \* R/.test(lymphFn)) errors.push('src/ui/comp-glsl.js lymphAt: across the channel in world units');
+  if (/gl_FragCoord|\bFC\b/.test(lymphFn)) errors.push('src/ui/comp-glsl.js lymphAt: no screen-space coordinate (the dashes would slide off their vessel)');
   need('src/ui/lobule-zoom.js', [
     [/const lyOn = lymphOn && !m\.hide;/, 'lymph rows only with the Lymph layer on'],
     [/blood\.on = \(bloodOn \|\| lyOn\) && flowA > 0\.002;/, 'the composite is on for lymph'],

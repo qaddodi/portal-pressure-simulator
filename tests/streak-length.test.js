@@ -18,7 +18,7 @@ globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 
 const { COMP_FS } = await import('../src/ui/veins-gl.js');
 const { displaySpeed } = await import('../src/ui/blood.js');
-const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8') + readFileSync(new URL('../src/ui/comp-glsl.js', import.meta.url), 'utf8');
 const stage = stageSource();
 const lobule = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
 

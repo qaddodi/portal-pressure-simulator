@@ -54,7 +54,7 @@ test('P6: the radius sync compares a copy element by element, with no joined key
 });
 
 test('P8: stepBlood keeps per-frame facts per model frame, syncEnds compares in place', () => {
-  const stage = stageSource().replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js');
+  const stage = stageSource().replace(/^\s*\/\/.*$/gm, ''), gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js');
   assert.match(stage, /if \(perF !== (?:live\.)?(?:live\.)?F \|\| perH !== H\) \{/);
   assert.match(stage, /advanceStreamAt\(streams\[k\], velQf, velQ, k, so\)/);
   assert.match(stage, /KEY_K\[k\] === 1 \|\| \(KEY_K\[k\] === 2 && keyChevron\(EDGES\[k\], laneOpen\)\)/);
@@ -132,14 +132,14 @@ test('B7: vessel colour bins hold until the value is 0.4 mmHg from the bin shown
 });
 
 test('B8: label keep-out boxes are taken after the glide, and cut the arrowheads with a pixel of antialiasing', () => {
-  const stage = stageSource(), gl = read('src/ui/veins-gl.js');
+  const stage = stageSource(), gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js');
   assert.ok(stage.indexOf('    labelGlide(out);\n') < stage.indexOf('    live.noChevBoxes = out.filter('));
   assert.match(gl, /c \*= smoothstep\(-pxW, pxW, length\(max\(q, 0\.0\)\) \+ min\(max\(q\.x, q\.y\), 0\.0\)\);/);
   assert.doesNotMatch(gl, /bool hole/);
 });
 
 test('B11: bleed jets and the ascites ripple run on clocks that stand still while paused; the dye front reads the caliber between samples', () => {
-  const stage = stageSource(), gl = read('src/ui/veins-gl.js');
+  const stage = stageSource(), gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js');
   assert.match(stage, /return fadeBleedShapes\(bleedShapes\((?:live\.)?(?:live\.)?sprayLast\.bleed, (?:live\.)?(?:live\.)?sprayLast\.rate, SITES\), (?:live\.)?(?:live\.)?sprayA\);/);   // (fading in and out: deck-review-bugs)
   assert.match(stage, /if \(run\) fluidPh = \(fluidPh \+ dt \/ 1\.1\) % \(20 \* Math\.PI\);/);
   assert.doesNotMatch(stage.replace(/^\s*\/\/.*$/gm, ''), /performance\.now\(\) \/ 1100/);

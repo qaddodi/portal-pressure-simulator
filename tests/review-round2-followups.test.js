@@ -43,7 +43,7 @@ test('BM9: the divisor has no step as a vessel narrows or the zoom changes', () 
 });
 
 test('BM9: the shader and the lobule read the same table, with no lane loop left', () => {
-  const gl = read('src/ui/veins-gl.js'), lob = read('src/ui/lobule-zoom.js');
+  const gl = read('src/ui/veins-gl.js') + read('src/ui/comp-glsl.js'), lob = read('src/ui/lobule-zoom.js');
   assert.match(gl, /const float LANE_K\[7\] = float\[7\]\(\$\{LANE_K/);
   assert.match(gl, /float sumK = mix\(LANE_K\[lk\], LANE_K\[lk \+ 1\], lc - float\(lk\)\);/);
   assert.doesNotMatch(gl, /sumK \+=/);
