@@ -35,7 +35,8 @@ import { sourceRegexTests } from './test-classes.mjs';
 import { inventory as chartInventory, countsOf as chartCounts } from './chart-looks-inventory.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v']);
+// (tube, tubejoin: the Tube's two stage aids, briefed with stage 2 (S2-D, 10 Nov 2026): ?tube=1 keeps stage 1, ?tubejoin=patch keeps the patches, to compare the stages on a device.)
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v', 'tube', 'tubejoin']);
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
@@ -174,6 +175,20 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!tubeDrawBody || /drawBuffers/.test(tubeDrawBody)) errors.push('src/ui/tube-pass.js tubeDraw: holds no gl.drawBuffers (the strip and the patch write the same four targets, so the draw buffers never change between them)');
     const tubePassBody = body('function tubePass(', 'return tubePass;');
     if (!tubePassBody || /MESH_NONE/.test(tubePassBody)) errors.push('src/ui/tube-pass.js tubePass: holds no MESH_NONE (the prepass masks the colour; it never turns the draw buffers off)');
+  }
+  // The Tube's stage 2 (brief S2-D, 10 Nov 2026): a failed stage 2 program leaves the Tube at stage 1, never the Mesh or the classic; patches are not drawn when the joins are webs.
+  {
+    const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const meshUseBody = slice(vg, 'const meshUse = () => {', '\n  };');
+    if (!meshUseBody || /tube2|tubeLean|stage2/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no stage 2 program (a Tube frame that stage 1 can draw is never drawn by the Mesh or the classic because a stage 2 program failed)');
+    const finishTubeBody = slice(vg, 'const finishTube = () => {', '\n  };');
+    if (!finishTubeBody || /tube2/i.test(finishTubeBody)) errors.push('src/ui/veins-gl.js finishTube: leaves stage 2 to finishTube2 (a failed stage 2 program must not take stage 1 down with it)');
+    if (!/if \(!web\) pb = patchesByTier\(/.test(tp)) errors.push('src/ui/tube-pass.js tubePass: bins the patches in stage 2 only when the joins are patches (if (!web) pb = patchesByTier(...))');
+    const draw2Body = slice(tp, 'function draw2(', '// A pass and its prepass for tier t');
+    if (!/if \(FR\.web\) \{[^\n]*webCall\([^\n]*\}\n\s*else if \(FR\.pb\.count\[t\]\) patchCall\(/.test(draw2Body)) errors.push('src/ui/tube-pass.js draw2: draws the webs when the joins are webs, else the patches (patchCall only in the else of if (FR.web))');
+    if ((tp.match(/patchCall\(/g) || []).length !== 3) errors.push('src/ui/tube-pass.js: patchCall is called from tubeDraw (stage 1 and the glows) and draw2 (the else of webs) only, and defined once');
+    if (/tubeStrip|tubePatch/.test(slice(vg, 'const finishTube2 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube2: finishes the four stage 2 programs only');
   }
   need('src/ui/veins-gl.js', [
     [/heads: who === 'stage' \?/, 'the lobule is given no axes: its renderer keeps the composite heads'],
