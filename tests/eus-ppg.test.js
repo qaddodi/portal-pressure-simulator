@@ -238,3 +238,19 @@ test('the target and pointOn agree with the course’s length', () => {
   const P = [[0, 0], [10, 0], [10, 10]];
   assert.deepEqual(pointOn(P, 0), [0, 0]); assert.deepEqual(pointOn(P, 0.5), [10, 0]); assert.deepEqual(pointOn(P, 1), [10, 10]);
 });
+
+test('the scope lies under the vessels, with a faint outline; the needle and the sector do not', () => {
+  const r = route();
+  const rgb = (c) => (String(c).includes('edge') ? [0, 0, 0] : [0.8, 0.8, 0.8]);
+  const f = procFrame('eus', T.travel1 + 4000);
+  const st = { ...f, ring: null, clock: 0, needle: 1, fan: 1, aim: 1, opacity: 1 };
+  const o = eusDraw(st, r, r.free, at, () => [0.5, 0.5, 0.5]);
+  const under = o.draws.filter((d) => d.under);
+  assert.ok(under.some((d) => d.mode === 2), 'its body is under');
+  assert.ok(under.some((d) => d.mode === 4), 'its rounded end is under');
+  for (const d of o.draws.filter((x) => x.mode === 9 || x.mode === 3)) assert.ok(!d.under, `mode ${d.mode} (the sector, the steel) stays over the vessels`);
+  for (const d of under.filter((x) => x.mode === 7)) assert.ok(d.alpha <= 0.3, 'the hairline is faint');
+  const o2 = eusDraw(st, r, r.free, at, rgb);
+  const hair = o2.draws.find((d) => d.under && d.mode === 7);
+  assert.ok(hair.col[0] > 0.1, 'its colour is moved toward the body, not the near-black edge');
+});

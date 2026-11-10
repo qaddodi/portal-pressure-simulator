@@ -883,7 +883,7 @@ ${tube ? TUBE_FS_OUT : MESH_FS_OUT}
 // picture with the same transform, so it moves with the anatomy on every frame of a pan or zoom.
 // Per vertex: the world position, a direction (a tube's across, a disc's axis) and local coords
 // (a tube: across −1..1 and the length along it; a disc: −1..1 on both axes).
-const CATH_VS = `#version 300 es
+export const CATH_VS = `#version 300 es
 layout(location=0) in vec2 pos;
 layout(location=1) in vec2 dir;
 layout(location=2) in vec2 uv;
@@ -898,8 +898,12 @@ void main() {
 }`;
 // mode 0: soft shadow · 1: still blood column · 2: catheter shaft · 3: marker band · 4: rounded tip
 // 5: balloon (translucent, lit at its rim) · 6: a reading ripple · 7, 8: a tube's, a disc's flat edge · 9: an ultrasound sector.
-const CATH_FS = `#version 300 es
+// (A draw with `under` set lies under the vessels, not on them: its alpha is taken down by the vessel layer's cover at the pixel (base's
+// alpha, read at the texel the composite reads it at), so the vessels show whole over it in the classic, the Mesh and the Tube pass alike:
+// 10 Nov 2026, the EUS scope.)
+export const CATH_FS = `#version 300 es
 precision highp float;
+precision highp int;
 in vec2 vDir;
 in vec2 vUV;
 uniform int mode;
@@ -908,7 +912,24 @@ uniform float alpha;
 uniform vec2 light;
 uniform vec2 fade;   // tubes: fade in over the first fade.x of the length, out over the last fade.y before len
 uniform float len;
+uniform int under;
+uniform sampler2D base;
+uniform ivec2 lA, lWrap, lSize;
+uniform vec2 lowS, lowT;
+uniform ivec2 lowSz;
+uniform int lH;
 out vec4 o;
+float vesselCover() {
+  ivec2 ip = ivec2(gl_FragCoord.xy);
+  ivec2 rel = ivec2(ip.x, lH - 1 - ip.y) - lA;
+  if (rel.x < 0 || rel.y < 0 || rel.x >= lSize.x || rel.y >= lSize.y) return 0.0;
+  ivec2 lt = rel + lWrap;
+  if (lt.x >= lSize.x) lt.x -= lSize.x;
+  if (lt.y >= lSize.y) lt.y -= lSize.y;
+  ivec2 lp = ivec2(lt.x, lSize.y - 1 - lt.y);
+  if (lowSz.x > 0) return texture(base, (vec2(lp) + 0.5) * lowS / max(lowT, vec2(1.0))).a;
+  return texelFetch(base, lp, 0).a;
+}
 void main() {
   vec3 L = normalize(vec3(light * 0.85, 0.95)), H = normalize(L + vec3(0.0, 0.0, 1.0));
   float a = alpha;
@@ -979,6 +1000,7 @@ void main() {
       a *= step(r, 1.0);
     }
   }
+  if (under == 1) a *= 1.0 - vesselCover();
   o = vec4(c * a, a);
 }`;
 // The streaks' numbers that follow the zoom alone (bloodAt: the lane spacing, the two parcel scales and the cross-fade between
@@ -1983,6 +2005,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);
   for (let i = 0; i < 3; i++) { gl.enableVertexAttribArray(i); gl.vertexAttribPointer(i, 2, gl.FLOAT, false, 24, i * 8); }
   gl.bindVertexArray(null);
+  let cathUnder = false;   // (a draw of the catheter lies under the vessels: the layer must hold them, so no one-pass zoom frame, whose layer is empty)
   let cath = null, cathWas = false, cathCap = 0, cathBase = null;   // cathCap: bytes the catheter's buffer holds (refilled in place while it fits); cathBase: the base it holds
   let cathAt = null;   // (the box the catheter was last drawn in, device px of the picture: [x0, y0, x1, y1], y down; see cathBox)
   let lineP = null;
@@ -2574,11 +2597,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     UC.m3(U.world, m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]));
     UC.f2(U.size, PW(), PH());
     UC.f2a(U.light, (cath.light || LIGHT));
+    // (The vessel layer, read where a draw lies under the vessels: bound as the composite binds it, a tier frame's small targets included.)
+    if (lowLive && !lw.fbo) lowLive = null;
+    const LO = lowLive ? lw.tex : null;
+    UC.i2(U.lA, la[0], la[1]); UC.i2(U.lWrap, wo[0], wo[1]); UC.i2(U.lSize, fboW, fboH); UC.i1(U.lH, PH());
+    UC.f2(U.lowS, LO ? lowLive[0] / fboW : 0, LO ? lowLive[1] / fboH : 0); UC.i2(U.lowSz, LO ? lowLive[0] : 0, LO ? lowLive[1] : 0); UC.f2(U.lowT, LO ? lw.w : 1, LO ? lw.h : 1);
+    bindUnit(U, 0, LO ? LO[0] : baseTex, 'base');
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(cathVAO);
     for (const d of cath.draws) {
       UC.i1(U.mode, d.mode);
+      UC.i1(U.under, d.under ? 1 : 0);
       UC.f3a(U.col, d.col);
       UC.f1(U.alpha, d.alpha);
       UC.f2a(U.fade, (d.fade || [0, 0]));
@@ -4568,7 +4598,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         return;
       }
       // A zoom or a turn with the one-pass builds (one-pass zoom frames): no vessel pass; the picture draws the vessels itself.
-      if (!pan && baseM && !sameLin(m, baseM) && fuseReady() && !meshUse() && bareOf(blood || NOBLOOD) && !gpuProbe.skipGL && !lost) {
+      if (!pan && baseM && !sameLin(m, baseM) && fuseReady() && !meshUse() && !cathUnder && bareOf(blood || NOBLOOD) && !gpuProbe.skipGL && !lost) {
         // (Pinch frame reuse, when on: this frame lays the last one-pass picture again, moved to the view now, if it covers the canvas.
         // The layer is left stale and baseM is the view now, so the next picture at this view (the pinch let go) is shaded whole.)
         if (reuseEvery && reuseOn && stale && reuseN % reuseEvery !== 0 && reuseDraw(m)) {
@@ -5252,7 +5282,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     setCath(spec) {
       cath = cathP && spec?.draws?.length ? spec : null;
+      cathUnder = false;
       if (!cath) return;
+      for (let i = 0; i < cath.draws.length; i++) if (cath.draws[i].under) { cathUnder = true; break; }
       const base = cath.base || null, at = base ? base.byteLength : 0, need = at + cath.verts.byteLength;
       if (gpuProbe.on) gpuProbe.note('uploaded: setCath', ((base && base !== cathBase ? at : 0) + cath.verts.byteLength) / 1024);
       gl.bindBuffer(gl.ARRAY_BUFFER, cathBuf);

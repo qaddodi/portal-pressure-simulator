@@ -47,6 +47,7 @@ const mods = new Map();
 const vesNote = (g) => (g.VESSEL_VS ? '' : 'fragment only: veins-gl.js does not export its vessel vertex shader (VS)');
 add('classic vessel (general) vesselFS(false)', { '../src/ui/veins-gl.js': ['vesselFS'] }, (g) => ({ vs: g.VESSEL_VS ?? null, fs: g.vesselFS(false), note: vesNote(g) }));
 add('classic vessel (one vessel) vesselFS(true)', { '../src/ui/veins-gl.js': ['vesselFS'] }, (g) => ({ vs: g.VESSEL_VS ?? null, fs: g.vesselFS(true), note: vesNote(g) }));
+add('catheter (EUS scope under the vessels)', { '../src/ui/veins-gl.js': ['CATH_VS', 'CATH_FS'] }, (g) => ({ vs: g.CATH_VS, fs: g.CATH_FS }));
 
 // The Mesh: a vessel's strip and the join patch.
 add('mesh strip', { '../src/ui/veins-gl.js': ['vesselFS', 'F_SEL'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/veins-mesh-glsl.js': ['meshStripVS'] },

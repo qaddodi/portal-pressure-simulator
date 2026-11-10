@@ -222,17 +222,21 @@ export const newTip = () => ({ c1: [0, 0], c2: [0, 0], a1: [0, 0], side: [0, 0],
 // hairline (light on the dark looks), the rigid tip's grey, the transducer's pale face, the port, the needle's steel, the catheter's dark
 // edge (the coil's), the coil's platinum and its pale fibres; the ultrasound sector is drawn in the Doppler's glow (--dop-glow), as its wedge is.
 // Read through rgb() once a call, written in place into MAT.
-const MAT = { scope: null, edge: null, tip: null, face: null, port: null, steel: null, ink: null, platinum: null, fibre: null, fan: null };
+const MAT = { soft: [0, 0, 0], scope: null, edge: null, tip: null, face: null, port: null, steel: null, ink: null, platinum: null, fibre: null, fan: null };
 function materials(rgb) {
   MAT.scope = rgb('var(--dev-scope)'); MAT.edge = rgb('var(--dev-scope-edge)'); MAT.tip = rgb('var(--dev-scope-tip)'); MAT.face = rgb('var(--dev-scope-face)');
   MAT.port = rgb('var(--dev-port)'); MAT.steel = rgb('var(--dev-steel)'); MAT.ink = rgb('var(--dev-poly-edge)'); MAT.platinum = rgb('var(--dev-platinum)');
   MAT.fibre = rgb('var(--dev-ptfe)'); MAT.fan = rgb('var(--dop-glow)');
+  // (The scope's hairline: its edge colour moved halfway to the body's own, so it reads as the scope's shading, not a drawn outline.)
+  for (let i = 0; i < 3; i++) MAT.soft[i] = MAT.edge[i] + (MAT.scope[i] - MAT.edge[i]) * EDGE_MIX;
   return MAT;
 }
+const EDGE_A = 0.26, EDGE_MIX = 0.55;   // (the scope's hairline: its strength, and how far its colour moves to the body's)
 const STEP = 2;   // (the shaft's samples, world units apart)
 
 // Kept between frames and written in place: the scope's centreline, its samples' directions and lengths, the vertices and the draws.
 let cx = new Float64Array(0), cy = new Float64Array(0), tx = new Float64Array(0), ty = new Float64Array(0), cl = new Float64Array(0);
+let UNDER = false;   // (the draws laid now lie under the vessels: veins-gl.js's catheter pass lets the vessel layer's cover hide them)
 const V = [], draws = [], TIP = newTip(), SPOT = [0, 0], TGT = [0, 0], FD = [0, 0];
 let n = 0;
 // (Grown keeping the samples already laid this frame: made anew empty, the scope's first part went to the figure's corner, 0, 0, for
@@ -296,27 +300,33 @@ export function eusDraw(st, r, tipD, at, rgb, px = 0) {
       put(cx[i], cy[i], -ty[i], tx[i], cl[i]); last = i;
     }
     if (last < 0) return;
-    draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: fade || [0, 0], len: b - a });
+    draws.push({ mode, first, count: V.length / 6 - first, col, alpha: alpha * op, fade: fade || [0, 0], len: b - a, under: UNDER });
   };
   const disc = (px, py, dx, dy, hx, hy, mode, col, alpha) => {
     const first = V.length / 6, nx = -dy, ny = dx;
     for (const [u, v] of CORNERS) V.push(px + dx * hx * u + nx * hy * v, py + dy * hx * u + ny * hy * v, dx, dy, u, v);
-    draws.push({ mode, first, count: 4, col, alpha: alpha * op });
+    draws.push({ mode, first, count: 4, col, alpha: alpha * op, under: UNDER });
   };
   // Its soft contact shadow, its hairline edge, the black insertion tube (fading in where it enters the figure), the rigid tip.
+  // (The scope lies under the vessels, not on them: its body, tip, transducer and port are drawn with the vessel layer's cover taken off
+  // their alpha (veins-gl.js, draw.under), in Classic, Mesh and Tube alike. Its outline is a faint, scope-coloured hairline: Mohammad,
+  // 10 Nov 2026: "the EUS scope should be under the blood vessels not on top; also i hate the prominent outline".)
   const ER = Math.max(R * 1.12, R + px);   // (its hairline is at least a device pixel wide)
+  const soft = M.soft;
+  UNDER = true;
   tube(0, total, R * 1.9, 0, M.ink, 0.2, [60, 0]);
-  tube(0, total, ER, 7, M.edge, 0.7, [60, 0]);
+  tube(0, total, ER, 7, soft, EDGE_A, [60, 0]);
   tube(0, total, R, 2, M.scope, 1, [60, 0]);
   tube(rigid0, total, R * 0.98, 2, M.tip, 1);
   // Its rounded end, and the curved array of the transducer on the side that faces the liver.
-  disc(g.end[0], g.end[1], g.a1[0], g.a1[1], ER, ER, 8, M.edge, 0.7);
+  disc(g.end[0], g.end[1], g.a1[0], g.a1[1], ER, ER, 8, soft, EDGE_A);
   disc(g.end[0], g.end[1], g.a1[0], g.a1[1], R, R, 4, M.tip, 1);
   const fx = g.end[0] - g.a1[0] * RIGID * 0.3 + g.side[0] * R * 0.52, fy = g.end[1] - g.a1[1] * RIGID * 0.3 + g.side[1] * R * 0.52;
-  disc(fx, fy, g.a1[0], g.a1[1], RIGID * 0.62, R * 0.5, 8, M.edge, 0.55);
+  disc(fx, fy, g.a1[0], g.a1[1], RIGID * 0.62, R * 0.5, 8, soft, EDGE_A * 0.8);
   disc(fx, fy, g.a1[0], g.a1[1], RIGID * 0.56, R * 0.42, 4, M.face, 1);
   // The working channel's port, where the needle leaves the scope.
   disc(g.exit[0], g.exit[1], g.a1[0], g.a1[1], R * PORT_R, R * PORT_R, 8, M.port, 0.9 * (st.aim || 0));
+  UNDER = false;
   // The needle: its steel from the port on to its bevelled point; the hit's rings at the target, and the
   // manometer's reading as two ripples there while it reads.
   const nl = (st.needle || 0) * g.len;
