@@ -1346,7 +1346,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A slide whose own patient has already had it (the BRTO slides show the shunt closed) plays it from just before: the live
   // model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back; going back to
   // before the first step puts the slide as it was. Leaving the slide stops it where it is; the next slide's camera takes over.
-  let procRun = null, procWait = false, procShown = -1, procDoneAt = -1, procThenAt = -1, procQueued = false, procRunKind = '';
+  let procRun = null, procWait = false, procShown = -1, procDoneAt = -1, procThenAt = -1, procQueued = false, procRunKind = '', procParked = null;
+  // (procParked: the run standing at its last stop since Back landed on the slide done, proc-anim.js park: it only shows the scope where the play-through left it and fades it when the slide moves on;
+  // it is not a run to step through, so Back from it leaves the slide as it did before, and a swipe back turns the slide.)
+  const procHeld = () => !!procRun && procRun !== procParked;
   // (A slide whose procedure is { kind: 'tips', then: 'tipsgrad' } plays a reading after it, as one more step on the same card: the TIPS catheter reads the
   // gradient across the new stent (proc-anim.js MEASURES.tipsgrad, TIPS step 5). procThenAt: the slide whose main run has played through with its reading
   // still to come; procQueued: a Next came while the main run was on its last step, so the reading starts as it ends.)
@@ -1373,7 +1376,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   }
   // The slide's own callouts and names, as it landed (a clot mark's words as the model now has them).
   const slideMarks = (i) => (markBase?.i === i ? markFocus(clotMarks(markBase.marks, store.get().params)) : null);
-  async function procPlay(s, i, to = 0, kind = procKind(s), from = 0) {
+  async function procPlay(s, i, to = 0, kind = procKind(s), from = 0, park = false) {
     const isThen = kind !== procKind(s), base = isThen ? specOf(procKind(s)).steps.length : 0, mine = () => !!deck && shown?.i === i && slides[i] === s;
     const drop = () => { if (from) stage.setCatheter(null); };   // (a reading handed the catheter on: if it cannot start, the catheter goes with it)
     if (!specOf(kind) || !mine() || cath.on || procWait) { drop(); return; }
@@ -1388,10 +1391,10 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!mine() || procRun) { if (!mine()) drop(); procPaint(); return; }
     const before = structuredClone(store.get().params), names = store.get().presentLabels || [];
     // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
-    if (specOf(kind).had(before)) liveSet(s, i, specOf(kind).undo(structuredClone(before)));
+    if (!park && specOf(kind).had(before)) liveSet(s, i, specOf(kind).undo(structuredClone(before)));
     procRunKind = kind;
     const run = procRun = playProcedure(stage, kind, {
-      stepped: true, to, from,
+      stepped: true, to, from, park,
       // (With a reading to follow, the run holds at its last step, the catheter still in the portal vein, and the reading goes on from there: nothing goes in twice.)
       hold: !isThen && !!procThen(s),
       onHold: () => { if (procRun === run && procQueued && mine()) procChain(); },
@@ -1424,6 +1427,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         if (procQueued && procThenAt === i && mine()) { procQueued = false; procPlay(s, i, 0, procThen(s)); }
       },
     });
+    if (park) procParked = run;
     procPaint();
   }
   // Whether the slide's procedure can play on the live patient (as its card shows it).
@@ -1467,7 +1471,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     procQueued = true;
     return true;
   };
-  const procBack = () => { procQueued = false; return !!procRun && shown?.i === want && procRun.back(); };
+  const procBack = () => { procQueued = false; return procHeld() && shown?.i === want && procRun.back(); };
   function procEl(s, i, st) {
     const kind = procKind(s), P = specOf(kind), p = st?.params || store.get().params, m = st ? null : store.get().frame?.metrics;
     // (BRTO and BATO only on a patient with gastric varices, or one who has had it already, so it plays from just before.)
@@ -2557,6 +2561,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       else if (s.lapse) figureHooks('lapse', s);   // (back or jumped to the slide: it shows where its days ended, the glow with it)
     } finally { playing = false; }
     if (s.procedure?.auto && !back && !cut()) procPlay(s, to);   // (like a time-lapse, it plays only going forward)
+    // (Back onto a played-through slide whose scope stays parked (eusglue): the scope stands over the varix as the play-through left it, his ask, 10 Nov 2026, eus-glue-steps item 5.)
+    else if (back && procDoneAt === to && specOf(procKind(s))?.parkMs && !procThen(s) && !cut()) procPlay(s, to, specOf(procKind(s)).stops.length - 1, procKind(s), 0, true);
   }
 
   // What a slide calls out on the figure once it has landed (or a scale's view of it, after a flip: flipMove): its marks, labels,
@@ -5630,8 +5636,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (Only a swipe that will change the slide moves the words: one that plays a procedure's next step, a beat of the figure, the rest of a
   // time-lapse or lifts a case card leaves them where they are, never following the finger and then springing back: Mohammad, 1 Nov, BRTO steps.)
   const turnsSlide = (dx) => dx < 0
-    ? !caseLift && !lapseOn && !procRun && !procWait && !slides[want]?.procedure && beat >= lastBeat(want) && want < slides.length - 1
-    : !procRun && !procWait && beat === 0 && want > 0;
+    ? !caseLift && !lapseOn && !procHeld() && !procWait && !slides[want]?.procedure && beat >= lastBeat(want) && want < slides.length - 1
+    : !procHeld() && !procWait && beat === 0 && want > 0;
   const pullCan = (dx) => turnsSlide(dx) && !!ui && !changing() && !caseCard && !zoomOn() && !ui.text.hidden && !!ui.text.childElementCount && !ui.text.classList.contains('pz-leave') && !ui.root.classList.contains('pz-prep');
   function pullTo(dx) {
     // (The page: the glass and the words follow as one card, transform and opacity only, nothing read from the layout.)

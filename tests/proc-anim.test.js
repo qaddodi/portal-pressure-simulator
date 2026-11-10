@@ -4,7 +4,7 @@ import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PROCS, PROC_KINDS, specOf, procKindOf, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
+import { PROCS, ENDO, PROC_KINDS, specOf, procKindOf, procBlocked, procOffered, procFrame, stepAt, stepMark, STEP_NUM, markAt, playProcedure, GV_MIN_MM } from '../src/ui/proc-anim.js';
 import { LABEL_VESSEL } from '../src/ui/anatomy.js';
 import { defaultParams } from '../src/engine/scenario.js';
 import { isOccluded } from '../src/engine/topology.js';
@@ -228,6 +228,35 @@ test('presented, it holds at each step until Next, waits for each shot to land, 
     assert.equal(R.moves.at(-1).mode, 'home'); assert.equal(marks.at(-1), null);
     assert.equal(R.cats.at(-1), null, 'the catheter is gone');
     void P;
+  } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
+});
+
+// Back onto a played-through eusglue slide (his ask, 10 Nov 2026, eus-glue-steps item 5): a parked run starts at the last stop, never calls apply, shows
+// the scope parked with its fan off, and still gives the change back (unapply) and rewinds if stepped back; stopping it fades the scope in place.
+test('park: a run started at its last stop shows the parked scope, applies nothing, fades on stop, and still rewinds', () => {
+  const saved = { p: globalThis.performance, r: globalThis.requestAnimationFrame, c: globalThis.cancelAnimationFrame };
+  try {
+    const P = ENDO.eusglue, last = P.stops.length - 1;
+    const R = rig(), steps = [], marks = [], ends = [];
+    let applied = 0, unapplied = 0;
+    const play = playProcedure(R.stage, 'eusglue', { stepped: true, to: last, park: true, apply: () => applied++, unapply: () => unapplied++, onStep: (k) => steps.push(k), onMark: (m) => marks.push(m && m.label), onEnd: (e) => ends.push(e) });
+    R.run(4000);
+    assert.equal(applied, 0, 'the model already has the change');
+    assert.equal(play.at, last); assert.deepEqual(steps, [last]); assert.equal(marks.at(-1), '5 No flow');
+    assert.deepEqual(R.moves.map((m) => m.mode), ['work']);
+    const c = R.cats.at(-1);
+    assert.equal(c.u, 1); assert.equal(c.fan, 0); assert.equal(c.needle, 0); assert.equal(c.opacity, 1); assert.equal(c.clock, P.stops[last]);
+    assert.ok(R.idle(), 'held, no frames running');
+    play.stop({ home: false });
+    R.run(900);
+    assert.equal(R.cats.at(-1), null, 'the scope fades out and goes');
+    assert.ok(R.cats.some((x) => x && x.opacity > 0 && x.opacity < 1 && x.u === 1), 'fading in place over the varix');
+    // Stepped back from there it runs the change back once, as any run does.
+    const R2 = rig(); let u2 = 0, a2 = 0;
+    const p2 = playProcedure(R2.stage, 'eusglue', { stepped: true, to: last, park: true, apply: () => a2++, unapply: () => u2++ });
+    R2.run(4000); p2.back(); R2.run(30000);
+    assert.equal(a2, 0); assert.equal(u2, 1);
+    p2.stop();
   } finally { Object.assign(globalThis, { performance: saved.p, requestAnimationFrame: saved.r, cancelAnimationFrame: saved.c }); }
 });
 
