@@ -214,6 +214,17 @@ differs from the ones it was drawn with. `lumenFrame` asks once a frame and hand
 - `?perf`: the note `lumen depth redraws` counts the frames that drew the depth (near 0 a second at rest, beside the `lumen layer` row).
 - Not stamped: the rows' alpha or tier changing with no layer draw (the layer redraws for those); a tier that gains rows without one would use a band its prepass never wrote.
 
+## The glow program (brief PD part 4, 10 Nov 2026)
+
+A lit vessel's glow (`MP.GLOW`) and a glow asked to lie on top (`MP.UP`, the Doppler's) used the stage 1 strip program, whose fragment shader searches the vessel's segments for the distance. The
+glow program is the same strip vertex shader over `tubeGlowFS` (`src/ui/tube-glow-glsl.js`), which takes the distance from the vertex shader (`vD`) and has no search, join, tier loop or shape.
+- **One program, optional on its own.** `glowStart` / `glowFinish` (`tube-stage2.js`) start and finish `tubeGlow` apart from stages 1, 2 and 3 (`started.tubeGlow`, the `later` entry `'tubeGlow'`,
+  `finishGlow`, the readers `E.tubeGlow` and `E.tubeGlowFailed`); the lobule's instance finishes it with its other Tube programs. A failure warns, deletes the program, and takes no stage down.
+- **Where it draws.** `tubeDraw` picks `glowP` (`E.tubeGlow`, else `E.tubeS`, read once a frame in `tubePass`) for the two glow passes only, in every stage, and the program is given the pass's uniforms
+  only when a tier is lit (stage 2) or always (stage 1). The shape passes, the lift and the webs keep the programs they had; the prepass of a glow (`tubeKey` 1) uses it too.
+- **`?perf`.** The vessel renderer gauge adds `, tubeGlow failed (glow on the strip program)` when it failed; otherwise it says nothing.
+- **Check.** `node scripts/glsl-compile.mjs tubeGlow` (in the list since P6). Tests: `tests/tube-glow-wiring.test.js`; rules in `scripts/rules-lint.mjs`.
+
 ## The Anatomy to Circuit switch (10 Nov 2026)
 
 **What was slow.** The change between the views runs through morph sets (veins-sweep.js, six stretches made ahead). Each set change inside the change made `meshGeo()` derive the set's

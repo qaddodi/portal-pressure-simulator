@@ -8,7 +8,7 @@ import { scene, ray, straight } from './tube-web-helpers.js';
 /** Programs by name: { p: { name }, u: any uniform name → { prog, name } }; the stand-in uniform cache records each set value as `sets`. */
 const prog = (name) => ({ p: { name }, u: new Proxy({}, { get: (t, k) => (typeof k === 'string' ? (t[k] ||= { prog: name, name: k }) : undefined) }) });
 
-export function makeHarness({ withStage2 = true, withStage3 = false, rows, joins, tiers, tubeMutator, patches = false, capture = null } = {}) {
+export function makeHarness({ withStage2 = true, withStage3 = false, withGlow = false, glowFailed = null, rows, joins, tiers, tubeMutator, patches = false, capture = null } = {}) {
   const log = [], sets = [], gauges = [];
   let cur = null, state = { mask: true, depthFunc: 'LESS', blend: false, stencil: false };
   const enums = new Map();
@@ -53,13 +53,13 @@ export function makeHarness({ withStage2 = true, withStage3 = false, rows, joins
   if (withStage2) tube2 = { lean: prog('tubeLean'), depth: prog('tubeDepth'), web: prog('tubeWeb'), webDepth: prog('tubeWebDepth') };
   let tube3 = null;
   if (withStage3) tube3 = { lumen: prog('tubeLumen'), webLumen: prog('tubeWebLumen'), comp: prog('compTube'), compCell: prog('compTubeCell'), plain: prog('plainTube'), plainCell: prog('plainTubeCell') };
-  const tubeS = prog('tubeStrip'), tubePt = prog('tubePatch');
+  const tubeS = prog('tubeStrip'), tubePt = prog('tubePatch'), tubeGlow = withGlow ? prog('tubeGlow') : null;
   let keyN = 0;
   const E = {
     lobule: false, gl, UC, MG, MAX_TIERS, ATTACH: ['A'], KEY_PASSES: 64, MESH_TWO: [null, null], MESH_DS: ['DS'], MESH_GLOW_BUF: ['GLOW'], MESH_COLOR_BUF: ['COLOR'], CLR_F: new Float32Array(4),
     gpuProbe: { on: true, note() {}, gauge: (k, v) => gauges.push([k, v]) }, nTubes: n, tubeNow: sc.tube,
     meshPad: () => 0, meshKeyNext: () => 1 - ++keyN / 64, meshRefNext: () => 1, meshTargets: () => true, meshGeo: () => MG, meshTarget() {}, meshScratch: () => ({}), meshLay() {}, vesselSet() {},
-    get tubeS() { return tubeS; }, get tubePt() { return tubePt; }, get tube2() { return tube2; }, get tube2Failed() { return withStage2 ? null : []; }, get tube3() { return tube3; }, get tube3Failed() { return tube3 || !withStage3 ? null : []; }, lumenBind(P) { log.push({ call: 'lumenBind', prog: P.p.name }); }, get baseTex() { return {}; }, get geo() { return { morph: null }; },
+    get tubeS() { return tubeS; }, get tubePt() { return tubePt; }, get tube2() { return tube2; }, get tube2Failed() { return withStage2 ? null : []; }, get tube3() { return tube3; }, get tube3Failed() { return tube3 || !withStage3 ? null : []; }, get tubeGlow() { return tubeGlow; }, get tubeGlowFailed() { return glowFailed; }, lumenBind(P) { log.push({ call: 'lumenBind', prog: P.p.name }); }, get baseTex() { return {}; }, get geo() { return { morph: null }; },
   };
   const tubePass = createTubePass(E);
   const look = { tierGroup: new Int32Array(MAX_TIERS), tierAlpha: new Float32Array(MAX_TIERS).fill(1), netAlpha: 1, reach: 11 };

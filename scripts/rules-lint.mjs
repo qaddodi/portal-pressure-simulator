@@ -190,6 +190,16 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if ((tp.match(/patchCall\(/g) || []).length !== 3) errors.push('src/ui/tube-pass.js: patchCall is called from tubeDraw (stage 1 and the glows) and draw2 (the else of webs) only, and defined once');
     if (/tubeStrip|tubePatch/.test(slice(vg, 'const finishTube2 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube2: finishes the four stage 2 programs only');
   }
+  // The Tube's glow program (brief PD part 4, 10 Nov 2026): optional on its own (a failure leaves the glow pairs on the strip program and takes no stage down); only the glow passes use it.
+  {
+    const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    const meshUseBody = slice(vg, 'const meshUse = () => {', '\n  };');
+    if (!meshUseBody || /tubeGlow/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no glow program (a Tube frame is never drawn by the Mesh or the classic because the glow program failed)');
+    if (/tubeStrip|tubePatch|tubeLean|tube2|tube3/.test(slice(vg, 'const finishGlow = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishGlow: finishes the glow program only');
+    if (!/const P = pass === MP\.GLOW \|\| pass === MP\.UP \? glowP : E\.tubeS;/.test(tp) || !/glowP = E\.tubeGlow \|\| E\.tubeS;/.test(tp)) errors.push('src/ui/tube-pass.js tubeDraw: the glow passes (MP.GLOW, MP.UP) draw with E.tubeGlow, else E.tubeS; no other pass uses the glow program');
+    if ((tp.match(/glowP/g) || []).length !== 6) errors.push('src/ui/tube-pass.js: glowP is set once per frame and read by tubeDraw and the program set-up only');
+  }
   // The lumen layer keeps its depth (brief PD part 2, 10 Nov 2026): any draw of the vessel layer marks it stale, and the lumen pass never draws lumens over a depth marked stale: it draws the
   // depth again first (cleared, the prepasses), and a fresh depth is neither cleared nor invalidated.
   {

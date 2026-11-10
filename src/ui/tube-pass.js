@@ -21,6 +21,7 @@ export function createTubePass(E) {
   // (What orders the surfaces of a tier: the anatomy by height (zK 0, hK 1, hRef 64); the lobule, one tier, by each row's z first and the height only to settle
   // a tie (zK 1, hK .008: under the smallest gap between two kinds' z, .01), hRef its largest radius, 21.42 (node scripts/lobule-joins.mjs), rounded up.)
   const LV = E.lobule ? { hRef: 22, zK: 1, hK: 0.008 } : { hRef: 64, zK: 0, hK: 1 };
+  let glowP = null;   // the program the glow pairs draw strips with this frame: E.tubeGlow, or E.tubeS (set by tubePass)
   let keyPre = 0;   // tubeKey: 1 while a glow's depth prepass runs (a lit vessel's own wall keeps its depth, so no other glow shows inside it), 2 while a shape's (a patch keeps the depth of the pixels inside its shape it leaves clear), else 0
   // What this frame draws from (set by tubePass): the stage and the joins, the rows and webs by tier, the stage 2 buffers.
   const FR = { two: false, web: false, tb: null, pb: null, wb: null, D: null };
@@ -79,8 +80,9 @@ export function createTubePass(E) {
   function tubeDraw(pass, t, base, H, px, look, patches) {
     const tb = FR.tb;
     if (tb.count[t]) {
-      if (FR.two) stripCall(E.tubeS, pass, t, base, H, px, look, MG.tubeVAO, FR.D.rowBuf, 1, 16, tb.start[t], tb.count[t]);
-      else stripCall(E.tubeS, pass, t, base, H, px, look, MG.tubeVAO, MG.rowBuf, 1, 4, tb.start[t], tb.count[t]);
+      const P = pass === MP.GLOW || pass === MP.UP ? glowP : E.tubeS;   // (a glow pair: the short glow program when it is ready, else the strip program)
+      if (FR.two) stripCall(P, pass, t, base, H, px, look, MG.tubeVAO, FR.D.rowBuf, 1, 16, tb.start[t], tb.count[t]);
+      else stripCall(P, pass, t, base, H, px, look, MG.tubeVAO, MG.rowBuf, 1, 4, tb.start[t], tb.count[t]);
     }
     if (patches && FR.pb && FR.pb.count[t]) patchCall(pass, t, base, H);
     MG.passes++;
@@ -177,14 +179,15 @@ export function createTubePass(E) {
     MG.passes = 0; MG.strips = 0; MG.patches = 0; MG.plain = 0; MG.webs = 0;
     const px = 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));
     // (The programs this frame draws with, each given the pass's uniforms and textures.)
+    glowP = E.tubeGlow || E.tubeS;
     let glowAny = false;
     for (let t = 0; t < MAX_TIERS; t++) if (tb.lit[t] || tb.litUp[t]) glowAny = true;
     if (two) {
       const P = E.tube2;
       setProgram(P.lean, m, look, px); setProgram(P.depth, m, look, px);
       if (web) { setProgram(P.web, m, look, px); setProgram(P.webDepth, m, look, px); } else setProgram(E.tubePt, m, look, px);
-      if (glowAny) setProgram(E.tubeS, m, look, px);
-    } else { setProgram(E.tubePt, m, look, px); setProgram(E.tubeS, m, look, px); }
+      if (glowAny) setProgram(glowP, m, look, px);
+    } else { setProgram(E.tubePt, m, look, px); setProgram(E.tubeS, m, look, px); if (glowP !== E.tubeS) setProgram(glowP, m, look, px); }
     gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, MG.pj);
     // (The depth and stencil, cleared within the caller's scissor.)
     gl.depthMask(true); gl.stencilMask(0xff);
@@ -226,7 +229,8 @@ export function createTubePass(E) {
       const what = two ? `${MG.passes} passes, ${MG.strips} strips (${MG.plain} plain), ${web ? `${MG.webs} webs` : `${MG.patches} patches`}` : `${MG.passes} passes, ${MG.strips} strips, ${MG.patches} patches drawn`;
       const why = two ? '' : stage1Why(!!E.tube2, E.tube2Failed, !E.tube2 && !(E.tube2Failed && E.tube2Failed.length));
       const why3 = choice.stage === 2 && web && E.tube3Failed && E.tube3Failed.length ? `, stage 3: ${E.tube3Failed.join(', ')} failed` : '';
-      lastText = `tube ${choice.stage}: ${why ? `${why}, ` : ''}${what}${why3}`;
+      const whyG = E.tubeGlowFailed && E.tubeGlowFailed.length ? `, ${E.tubeGlowFailed.join(', ')} failed (glow on the strip program)` : '';
+      lastText = `tube ${choice.stage}: ${why ? `${why}, ` : ''}${what}${why3}${whyG}`;
       gpuProbe.gauge(E.lobule ? 'lobule vessel renderer' : 'vessel renderer', lastText);
     }
     tubePass.drew = choice.stage;   // (the stage that drew the layer: veins-gl.js zeroes it before each layer draw, and its tubeStage() reads it)

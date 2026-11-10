@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Tube: lit vessels' glow is drawn by a short glow shader.** (Tube speed plan P6/PD part 4, 10 Nov 2026.)
+  The glow passes (the plain glow and the glow on top) draw their strips with the new `tubeGlow` program, the strip vertex shader over `tubeGlowFS`, which takes the pixel's distance from the vertex shader instead of searching the vessel's segments; every stage uses it. It is optional on its own: if it fails to compile or link the glow passes keep today's strip program and `?perf` names it. Not done by it: the cut of a lit vessel's glow inside another lit vessel's lumen (the plan accepts that).
 - **Tube: the blood pass keeps its depth between frames.** (Tube speed plan P2, 10 Nov 2026.)
   The lumen layer's depth is drawn again (cleared, every tier's prepass) only when the vessel layer was drawn, the lumen target or the view changed; blood frames at rest draw only the lumens. `?perf` counts `lumen depth redraws`. The Tube renderer also reports the stage that drew the last picture (`tubeStage()`, for the lobule's frame-rate rule).
 - **The Anatomy to Circuit switch no longer hitches in Tube.** (Mohammad, 10 Nov 2026: laggy in Tube, everything else smooth.)

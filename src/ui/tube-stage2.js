@@ -9,6 +9,7 @@ import { tubeStripVS } from './tube-geo.js';
 import { tubeWebVS, webIndex, WEB_FLOATS } from './tube-joint.js';
 import { tubeLeanFS, TUBE_DEPTH_FS } from './tube-lean-glsl.js';
 import { tubeLumenFS } from './tube-lumen-glsl.js';
+import { tubeGlowFS } from './tube-glow-glsl.js';
 import { tubeRows, tubeBuckets, webInstances, websByTier, TUBE_ROW_FLOATS } from './tube-data.js';
 import { STRIP_VS_GLSL } from './veins-mesh.js';
 
@@ -98,6 +99,27 @@ export function stage2Finish(gl, finishProgram, started) {
   });
   if (failed.length) { for (const d of done) if (d) gl.deleteProgram(d.p); return { P: null, failed }; }
   return { P: { lean: done[0], depth: done[1], web: done[2], webDepth: done[3] }, failed };
+}
+
+/** The glow program (PD part 4): the strip's vertex shader over tubeGlowFS, optional on its own (a failure leaves the glow passes on the stage 1 strip program). */
+export const GLOW_PROGRAMS = ['tubeGlow'];
+
+/** The glow program's shader text: { tubeGlow: { vs, fs } }. K, zoomVS: as stage2Sources. */
+export function glowSources(K, zoomVS) {
+  return { tubeGlow: { vs: tubeStripVS(STRIP_VS_GLSL, K.F_SEL, zoomVS), fs: tubeGlowFS(K) } };
+}
+
+/** Starts the glow program (startProgram: veins-gl.js's); see startAll. */
+export function glowStart(gl, startProgram, K, zoomVS, makeShader) {
+  return startAll(gl, startProgram, glowSources(K, zoomVS), GLOW_PROGRAMS, makeShader);
+}
+
+/** Finishes the started glow program: { P: the program or null, failed: ['tubeGlow'] or [] }. A failure is warned and leaves the glow passes on tubeS. */
+export function glowFinish(gl, finishProgram, started) {
+  try { return { P: finishProgram(gl, started[0]), failed: [] }; } catch (e) {
+    console.warn('Veins renderer: the Tube glow shader failed; the glow passes keep the strip program.', e);
+    gl.deleteProgram(started[0].p); return { P: null, failed: ['tubeGlow'] };
+  }
 }
 
 /** The stage 3 programs, in the order stage3Start returns them. */
