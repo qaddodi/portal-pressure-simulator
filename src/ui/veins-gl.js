@@ -56,6 +56,7 @@ import { shadeGLSL, meshFS, meshStripVS, meshPatchVS, MESH_LAY_FS, MP } from './
 import { STRIP_VS_GLSL, stripIndex, PATCH_QUAD } from './veins-mesh.js';
 import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGroups, PG_W, PG_M } from './veins-mesh-data.js';
 import { createBloodTile, D_GLSL, E_GLSL, STYLE_D, STYLE_E, TILE_V_PER_ROW } from './blood-tile.js';
+import { P_GLSL } from './blood-particles.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
 import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor, vesselMesh } from './frame.js';
@@ -1224,6 +1225,7 @@ vec4 mapAt(vec2 w) {
 float lnWb = 0.62, lnWf = 0.38, lnS = 1.0;
 ${D_GLSL}
 ${E_GLSL}
+${P_GLSL}
 // The caliber at arc length s, interpolated between its samples (not the nearest one), so nothing scaled by it steps along the vessel.
 ${ALONG_GLSL}
 ${ROWS_GLSL}
@@ -1340,6 +1342,27 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
       if (lf > 0.0) nc = mix(nc, eNoise(rid, se, qy, ch5.x, ay, cB, ch5.y, pxW / cB * bs), lf);
       nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
     }
+  } else if (bloodStyle == 3) {
+    // Style P (blood-particles.js pNoise): particles in eNoise's own pattern coordinates, so the chained stream, stasis and reversal work
+    // as in E. dens (computed below for every style, the same arithmetic again here) thins the cells through pDens; pLaneW and pInvR give the
+    // lanes' width and their distance from the axis. A chained child's particles stretch by its root's speed.
+    float laneW = max(0.55 * 1.6 * R / clamp(1.7 * R / Lg, 1.0, 7.0), 3.2 * pxW);
+    float cA = 5.12 * sA, cB = 5.12 * sB;
+    float sxP = zoomB.z, ovP = max(flux * sxP / (max(abs(vd), 2.0) * sumK), 1.0);
+    pLaneW = laneW; pInvR = 1.0 / max(R, 1e-3);
+    pDens = sqrt(clamp(max(min(1.0, flux * sxP / (max(abs(vd), 2.0) * sumK)), 0.6 * stasis), 0.0, 1.0)) * (1.0 + 0.35 * clamp(2.885 * (ovP - 1.0) / (ovP + 1.0), 0.0, 1.0));
+    if (cw < 1.0) {
+      nz = pNoise(id, s, qy, D, ay, cA, drift, pxW / cA, vd);
+      if (lf > 0.0) nz = mix(nz, pNoise(id, s, qy, D, ay, cB, drift, pxW / cB, vd), lf);
+    }
+    if (cw > 0.0) {
+      int rid = int(ch4.x + 0.5) - 1;
+      vec2 ch5 = rootDD(rid, texelFetch(flow, ivec2(5, id), 0).xy);
+      float se = ch4.y + ch4.z * s, bs = max(abs(ch4.z), 1e-3), vr = texelFetch(flow, ivec2(0, rid), 0).y;
+      float nc = pNoise(rid, se, qy, ch5.x, ay, cA, ch5.y, pxW / cA * bs, vr);
+      if (lf > 0.0) nc = mix(nc, pNoise(rid, se, qy, ch5.x, ay, cB, ch5.y, pxW / cB * bs, vr), lf);
+      nz = cw >= 1.0 ? nc : mix(nz, nc, cw);
+    }
   }
   float sx = zoomB.z;
   float p = max(min(1.0, flux * sx / (max(abs(vd), 2.0) * sumK)), 0.6 * stasis);   // (the density floor of stagnant blood: 0.45 until visual-style B6)
@@ -1354,6 +1377,7 @@ vec4 bloodAt(int id, float s, float y, vec3 col, vec4 f0, vec4 f1, float len, fl
   // Soft-edged and subdued, so up close the sheen reads as moving light, not as stripes painted on the tube;
   // a steady glow along the axis carries most of the brightness.
   float streak = smoothstep(0.46 - 0.08 * dens, 0.9, nz);
+  if (bloodStyle == 3) streak = nz;   // (style P: the particles' coverage as it is)
   float wall = 1.0 - smoothstep(0.7, 1.0, ay);
   float glowCore = 0.22 * (1.0 - ay * ay) * (1.0 - ay * ay);
   float a = clamp(streak * (0.32 + 0.26 * dens) + glowCore, 0.0, 0.75) * wall * ends * f1.z * mix(1.0, 0.76, stasis);   // (stagnant blood's alpha: 0.6 until visual-style B6)
