@@ -5,7 +5,6 @@
 //
 // The join entries are binVeins' own (writeJoin's layout, one per join entry the cells list, repeats included); P are the points the binning holds.
 import { register } from 'node:module';
-import { fileURLToPath } from 'node:url';
 
 const mode = process.argv[2], lymph = process.argv.includes('--lymph');
 const ROOT = new URL('../', import.meta.url).pathname;

@@ -309,3 +309,12 @@ test('the polyline helper agrees with a 2-point case (the test helpers themselve
   assert.equal(p.P.length, N_SAMPLES * 2);
   assert.ok(polyDist(p.P, 5, 3) <= 3.2 && polyDist(p.P, 5, 3) >= 2.8);
 });
+
+test('the web shader writes exactly the varyings the lean fragment shader reads (name, type, flat)', async () => {
+  const { tubeLeanFS } = await import('../src/ui/tube-lean-glsl.js');
+  const K = { F_DIFFUSE: 2, F_EDGE: 64, F_SHADOW: 4, F_SPEC: 32, F_VEIL: 128, F_WHOLE: 256, F_SEL: 1, F_DOTTED: 8, F_NOCASE: 16, LIFT_EASE_MAX: 1, LIFT_EASE_SHARE: 1, LUMEN2: 32768, ROW2_BITS: 11, VEIL_K: 0.6, EDGE: '', ENT_W: 2048, N_SAMPLES: 64, MAX_TIERS: 20, S_OFF: 96, ALONG_GLSL: '' };
+  const decl = (src, q) => [...src.matchAll(new RegExp(`^(flat )?${q} (\\w+) (\\w+);`, 'gm'))].map((m) => `${m[1] || ''}${m[2]} ${m[3]}`).sort();
+  const ins = decl(tubeLeanFS(K), 'in'), outs = decl(VS, 'out');
+  assert.ok(ins.length >= 6, `read ${ins}`);
+  assert.deepEqual(outs, ins);
+});
