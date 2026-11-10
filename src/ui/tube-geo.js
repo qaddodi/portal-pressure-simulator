@@ -1,0 +1,268 @@
+// The Tube vessel renderer's geometry (10 Nov 2026, docs/recommendations/tube-renderer-plan.md, brief A): pure JS plus GLSL strings, no GL calls here.
+// One vessel row is ONE instance of a fixed mesh (tubeIndex): a half tube whose every vertex carries a level f in 0..1 (higher is nearer),
+// which the vertex shader writes as depth, so the taller surface of a tier wins a pixel with no key prepass.
+//   - Rings along, vertices across, one grid for every row: TUBE_CAP rings of cap, the N_SAMPLES body rings, TUBE_CAP rings of cap.
+//   - Across a ring: skirt outer, skirt inner, TUBE_ARC arc vertices (a half circle of the lumen), skirt inner, skirt outer. The skirt is the
+//     casing (the outline): it lies below the lumen and widens by `w` (casing * celK + selection pad + aaPad + padU).
+//   - The caps are half spheres that carry on PAST the end point (pulling them inside the length gave pinched "sausage" joins).
+//   - Where the Mesh would bevel a joint (too tight for a mitre) the ring takes the plain average of the two normals and a dome (a fan of
+//     a centre and a hexagon) covers the outside of the turn; everywhere else the dome collapses to the sample's point (zero area).
+// Known limit (found by the coverage test, reported with brief A): the average-normal ring of a bevelled joint pulls the quad edge inside the
+// capsule's outside edge, and the dome only reaches rw + w round the sample. While the segments are no longer than about 0.6 x (rw + w) that
+// covers every point of a turn of any angle; with longer segments past a sharp turn (over about 100 degrees in one joint) a thin sliver along
+// the outside of the segment beside the joint is in no triangle (the Mesh adds a quad per segment for it). A mitred joint is covered at any length.
+// tubeVertex is the JS twin of tubePlace (GLSL below): same arithmetic in the same order; the tests run the JS one. The mitre and bevel
+// rules are the Mesh's own (STRIP_VS_GLSL: mSeg, mNrm, mMitreAB, mDiscOn), called with pad = w; segOf / nrmX / nrmY / mitreAB below are
+// their JS twins (veins-mesh.js keeps its own private), pinned to veins-mesh.js's stripVertex by tests/tube-geo.test.js.
+import { N_SAMPLES, N_QUADS, MITRE_LIMIT, MIN_RADIUS, TILT_MAX, SEG_EPS, bevelled } from './veins-mesh.js';
+import { MP } from './veins-mesh-glsl.js';
+
+export { N_SAMPLES };
+export const TUBE_CAP = 6;                         // cap rings past each end
+export const TUBE_ARC = 7;                         // arc vertices across the lumen
+export const TUBE_ACROSS = 11;                     // vertices a ring: skirt outer, skirt inner, arc x TUBE_ARC, skirt inner, skirt outer
+export const TUBE_RINGS = TUBE_CAP + N_SAMPLES + TUBE_CAP;   // 76
+export const TUBE_HEX = 6;                         // the sides of a dome's rim (circumscribed)
+export const TUBE_KIND = { GRID: 0, DOME: 1 };
+// Vertex attribute aV = (kind, ring-or-sample, across index, corner):
+//   GRID: (0, ring 0 .. TUBE_RINGS - 1, across 0 .. TUBE_ACROSS - 1, 0). Ring r: 0 .. TUBE_CAP - 1 the start cap (ring 0 is its tip),
+//         TUBE_CAP + i the body sample i, TUBE_CAP + N_SAMPLES + c - 1 the end cap's ring c (c = TUBE_CAP is the tip).
+//   DOME: (1, sample 1 .. N_SAMPLES - 2, 0 for the centre / 1 for a rim vertex, rim corner 0 .. TUBE_HEX - 1).
+export const GRID_VERTS = TUBE_RINGS * TUBE_ACROSS;               // 836
+export const DOME_VERTS = 1 + TUBE_HEX;                           // centre + hexagon
+export const DOME_BASE = GRID_VERTS;                              // sample i (1 .. N_SAMPLES - 2) at DOME_BASE + (i - 1) * DOME_VERTS
+export const TUBE_VERTS = DOME_BASE + (N_SAMPLES - 2) * DOME_VERTS;   // 1270
+export const TUBE_LEVEL = { GLOW0: 0.02, GLOW1: 0.08, CASE0: 0.10, CASE1: 0.20, LUMEN0: 0.30, LUMEN_H: 0.50, PATCH: 0.95 };
+const L = TUBE_LEVEL;
+
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+
+/** The static buffers, built once: per-vertex attributes (4 floats a vertex), the triangle index (CCW, as stripIndex's quads), and the row ids 0 .. maxRows - 1. */
+export function tubeIndex(maxRows) {
+  const attr = new Float32Array(TUBE_VERTS * 4);
+  const put = (v, kind, a, b, c) => { attr[v * 4] = kind; attr[v * 4 + 1] = a; attr[v * 4 + 2] = b; attr[v * 4 + 3] = c; };
+  for (let r = 0; r < TUBE_RINGS; r++) for (let a = 0; a < TUBE_ACROSS; a++) put(r * TUBE_ACROSS + a, TUBE_KIND.GRID, r, a, 0);
+  for (let i = 1; i < N_SAMPLES - 1; i++) {
+    const b = DOME_BASE + (i - 1) * DOME_VERTS;
+    put(b, TUBE_KIND.DOME, i, 0, 0);
+    for (let u = 0; u < TUBE_HEX; u++) put(b + 1 + u, TUBE_KIND.DOME, i, 1, u);
+  }
+  const tri = [];
+  for (let r = 0; r < TUBE_RINGS - 1; r++) {
+    for (let a = 0; a < TUBE_ACROSS - 1; a++) {
+      const A = r * TUBE_ACROSS + a, B = A + 1, C = A + TUBE_ACROSS, D = C + 1;   // A (ring r, left), B (ring r, right), C (next ring, left), D
+      tri.push(A, C, B, B, C, D);
+    }
+  }
+  for (let i = 1; i < N_SAMPLES - 1; i++) {
+    const b = DOME_BASE + (i - 1) * DOME_VERTS;
+    for (let u = 0; u < TUBE_HEX; u++) tri.push(b, b + 1 + u, b + 1 + (u + 1) % TUBE_HEX);
+  }
+  if (TUBE_VERTS >= 65536) throw new Error('tube-geo: the vertex count does not fit a Uint16Array index');
+  const rows = new Float32Array(maxRows);
+  for (let r = 0; r < maxRows; r++) rows[r] = r;
+  return { attr, index: Uint16Array.from(tri), nVerts: TUBE_VERTS, nIndex: tri.length, rows };
+}
+
+/** The body sample index the fragment shader gets as vI: 0 for the start cap's rings, N_SAMPLES - 1 for the end cap's, the sample for a body ring or a dome. */
+export function tubeSampleOf(kind, ring) {
+  return kind === TUBE_KIND.DOME ? ring : clamp(ring - TUBE_CAP, 0, N_SAMPLES - 1);
+}
+
+/** w: how far the skirt reaches past the lumen, in world units: casing * celK + (selected ? selPad : 0) + aaPad + padU (the vertex shader's order). */
+export function tubeWidth(casing, celK, selPad, aaPad, padU, selected) {
+  return casing * celK + (selected ? selPad : 0) + aaPad + padU;
+}
+
+// ---- JS twins of mSeg / mNrm / mMitreAB (STRIP_VS_GLSL), with pad = w ---------------------------------------------------------
+
+const rwAt = (R, i, pad) => Math.max(R[i], MIN_RADIUS) + pad;
+function dirRaw(P, j) { const dx = P[2 * j + 2] - P[2 * j], dy = P[2 * j + 3] - P[2 * j + 1]; return [dx, dy, Math.hypot(dx, dy)]; }
+function segOf(P, R, j, pad) {
+  let d = dirRaw(P, j);
+  const len = d[2];
+  if (!(len > SEG_EPS)) {
+    d = j > 0 ? dirRaw(P, j - 1) : [0, 0, 0];
+    if (!(d[2] > SEG_EPS) && j < N_QUADS - 1) d = dirRaw(P, j + 1);
+    if (!(d[2] > SEG_EPS)) d = [1, 0, 1];
+  }
+  const tilt = len > SEG_EPS ? clamp((rwAt(R, j, pad) - rwAt(R, j + 1, pad)) / len, -TILT_MAX, TILT_MAX) : 0;
+  return { tx: d[0] / d[2], ty: d[1] / d[2], L: len, tilt, c: Math.sqrt(1 - tilt * tilt) };
+}
+const nrmX = (g, s) => s * g.c * -g.ty + g.tilt * g.tx;
+const nrmY = (g, s) => s * g.c * g.tx + g.tilt * g.ty;
+function mitreAB(a, b, rw, s) {
+  const ax = nrmX(a, s), ay = nrmY(a, s), bx = nrmX(b, s), by = nrmY(b, s);
+  const sx = ax + bx, sy = ay + by, m2 = sx * sx + sy * sy;
+  if (m2 < 1e-12) return null;
+  const inv = 1 / Math.sqrt(m2), dx = sx * inv, dy = sy * inv;
+  const cosH = dx * ax + dy * ay;
+  if (cosH < 1 / MITRE_LIMIT) return null;
+  const mx = dx / cosH, my = dy / cosH;
+  if (Math.abs(rw * (mx * a.tx + my * a.ty)) > 0.5 * a.L || Math.abs(rw * (mx * b.tx + my * b.ty)) > 0.5 * b.L) return null;
+  return [mx, my];
+}
+
+/** The across offset d (world units, positive toward the left of travel) and the level f of across column ac, for a ring whose half tube has radius rc. */
+function acrossAt(ac, rc, w, hRef, glow) {
+  if (ac === 0) return [-(rc + w), glow ? L.GLOW0 : L.CASE0];
+  if (ac === 1) return [-rc, glow ? L.GLOW0 : L.CASE1];
+  if (ac === TUBE_ACROSS - 2) return [rc, glow ? L.GLOW0 : L.CASE1];
+  if (ac === TUBE_ACROSS - 1) return [rc + w, glow ? L.GLOW0 : L.CASE0];
+  const th = ((ac - 2) / (TUBE_ARC - 1) - 0.5) * Math.PI, h = rc * Math.cos(th);
+  return [rc * Math.sin(th), glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(h / hRef, 0, 1)];
+}
+
+/**
+ * Any vertex of the instance, the JS twin of tubePlace: returns [x, y, f]. P: the vessel's points flat (x0, y0, x1, y1 ... as veins-mesh
+ * flatPoints), R: its radii, a: the attribute (kind, ring-or-sample, across, corner), o: { w (see tubeWidth), hRef (world), glow (true in a glow pass) }.
+ */
+export function tubeVertex(P, R, a, o) {
+  const kind = Math.round(a[0]), r = Math.round(a[1]), ac = Math.round(a[2]), cn = Math.round(a[3]);
+  const w = o.w, hRef = o.hRef, glow = !!o.glow;
+  if (kind === TUBE_KIND.DOME) {
+    const px = P[2 * r], py = P[2 * r + 1], rw = rwAt(R, r, 0);
+    if (ac === 0) return [px, py, glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(rw / hRef, 0, 1)];
+    const lv = glow ? L.GLOW0 : L.CASE0;
+    if (!(bevelled(P, R, r - 1, w) || bevelled(P, R, r, w) || bevelled(P, R, r + 1, w))) return [px, py, lv];
+    const th = (2 * Math.PI * cn) / TUBE_HEX, rr = (rw + w) / Math.cos(Math.PI / TUBE_HEX);
+    return [px + rr * Math.cos(th), py + rr * Math.sin(th), lv];
+  }
+  let c = 0, i;
+  if (r < TUBE_CAP) { c = TUBE_CAP - r; i = 0; }
+  else if (r >= TUBE_CAP + N_SAMPLES) { c = r - (TUBE_CAP + N_SAMPLES) + 1; i = N_SAMPLES - 1; }
+  else i = r - TUBE_CAP;
+  const px = P[2 * i], py = P[2 * i + 1], rw = rwAt(R, i, 0);
+  if (c > 0) {
+    const ph = c / TUBE_CAP * Math.PI / 2, g = segOf(P, R, i === 0 ? 0 : N_QUADS - 1, w);
+    const nx = nrmX(g, 1), ny = nrmY(g, 1), ox = i === 0 ? -g.tx : g.tx, oy = i === 0 ? -g.ty : g.ty;
+    const rc = rw * Math.cos(ph), e = rw * Math.sin(ph);
+    const [d, f] = acrossAt(ac, rc, w, hRef, glow);
+    return [px + ox * e + d * nx, py + oy * e + d * ny, f];
+  }
+  const [d, f] = acrossAt(ac, rw, w, hRef, glow);
+  let nx, ny;
+  if (i === 0 || i === N_SAMPLES - 1) {
+    const g = segOf(P, R, i === 0 ? 0 : N_QUADS - 1, w);
+    nx = nrmX(g, 1); ny = nrmY(g, 1);
+  } else {
+    const sa = segOf(P, R, i - 1, w), sb = segOf(P, R, i, w), W = rwAt(R, i, w);
+    const mp = mitreAB(sa, sb, W, 1), mm = mp ? mitreAB(sa, sb, W, -1) : null;
+    if (mp && mm) { nx = mp[0]; ny = mp[1]; }
+    else {
+      const ax = nrmX(sa, 1), ay = nrmY(sa, 1), vx = 0.5 * (ax + nrmX(sb, 1)), vy = 0.5 * (ay + nrmY(sb, 1)), al = Math.hypot(vx, vy);
+      if (al < 1e-6) { nx = ax; ny = ay; } else { nx = vx / al; ny = vy / al; }
+    }
+  }
+  return [px + d * nx, py + d * ny, f];
+}
+
+// ---- The vertex shader: the same placement in GLSL ----------------------------------------------------------------------------
+
+const f = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
+/**
+ * The vertex shader of the Tube's strips. STRIP_VS_GLSL: veins-mesh.js's (PT, mRW, mSeg, mNrm, mMitreAB, mDiscOn). Interface as meshStripVS
+ * (attributes 0 aV, 1 aRow; uniforms world, size, lOff, tube, mPass, padU, selPad; outputs vI, vRow) plus tubeBase, tubeH (the pass pair's band
+ * of depth), hRef (world), celK (the outline's width as a multiple of the row's casing width), aaPad (world: 2 device pixels).
+ */
+export const tubeStripVS = (STRIP_VS_GLSL, F_SEL = 1) => `#version 300 es
+precision highp float;
+precision highp int;
+precision highp sampler2D;
+layout(location=0) in vec4 aV;         // (kind, ring or sample, across, corner): tube-geo.js tubeIndex
+layout(location=1) in float aRow;      // the vessel row (per instance)
+uniform mat3 world;                    // world → device pixels
+uniform vec2 size;
+uniform vec2 lOff;
+uniform highp sampler2D tube;
+uniform int mPass;
+uniform float padU;                    // world units past the casing the pass can draw (a glow pass: the glow's reach)
+uniform float selPad;                  // and more for a selected vessel
+uniform float tubeBase;                // this pass pair's band of depth: tubeBase + [0, 1) * tubeH
+uniform float tubeH;
+uniform float hRef;                    // the height (world) that is the top of the lumen's levels
+uniform float celK;                    // the outline's width, as a multiple of the row's casing width
+uniform float aaPad;                   // two device pixels, world
+${STRIP_VS_GLSL}
+const int T_CAP = ${TUBE_CAP};
+const int T_ARC = ${TUBE_ARC};
+const int T_ACROSS = ${TUBE_ACROSS};
+const int T_HEX = ${TUBE_HEX};
+const int T_DOME = ${TUBE_KIND.DOME};
+const float L_GLOW0 = ${f(L.GLOW0)};
+const float L_GLOW1 = ${f(L.GLOW1)};
+const float L_CASE0 = ${f(L.CASE0)};
+const float L_CASE1 = ${f(L.CASE1)};
+const float L_LUMEN0 = ${f(L.LUMEN0)};
+const float L_LUMEN_H = ${f(L.LUMEN_H)};
+const float L_PATCH = ${f(L.PATCH)};
+out float vI;
+flat out int vRow;
+// The across offset d and the level f of across column ac, for a ring whose half tube has radius rc.
+vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow) {
+  if (ac == 0) return vec2(-(rc + w), glow ? L_GLOW0 : L_CASE0);
+  if (ac == 1) return vec2(-rc, glow ? L_GLOW0 : L_CASE1);
+  if (ac == T_ACROSS - 2) return vec2(rc, glow ? L_GLOW0 : L_CASE1);
+  if (ac == T_ACROSS - 1) return vec2(rc + w, glow ? L_GLOW0 : L_CASE0);
+  float th = (float(ac - 2) / float(T_ARC - 1) - 0.5) * M_PI;
+  float h = rc * cos(th);
+  return vec2(rc * sin(th), glow ? L_GLOW1 : L_LUMEN0 + L_LUMEN_H * clamp(h / hr, 0.0, 1.0));
+}
+// Any vertex of the instance: (x, y) in world units, z the level.
+vec3 tubePlace(int id, vec4 a, float w, float hr, bool glow) {
+  int kind = int(a.x + 0.5), r = int(a.y + 0.5), ac = int(a.z + 0.5), cn = int(a.w + 0.5);
+  if (kind == T_DOME) {
+    vec2 p = PT(id, r);
+    float rw = mRW(id, r, 0.0);
+    if (ac == 0) return vec3(p, glow ? L_GLOW1 : L_LUMEN0 + L_LUMEN_H * clamp(rw / hr, 0.0, 1.0));
+    float lv = glow ? L_GLOW0 : L_CASE0;
+    if (!mDiscOn(id, r, w)) return vec3(p, lv);
+    float th = 2.0 * M_PI * float(cn) / float(T_HEX);
+    float rr = (rw + w) / cos(M_PI / float(T_HEX));
+    return vec3(p + rr * vec2(cos(th), sin(th)), lv);
+  }
+  int c = 0, i;
+  if (r < T_CAP) { c = T_CAP - r; i = 0; }
+  else if (r >= T_CAP + N_SAMPLES) { c = r - (T_CAP + N_SAMPLES) + 1; i = N_SAMPLES - 1; }
+  else i = r - T_CAP;
+  vec2 p = PT(id, i);
+  float rw = mRW(id, i, 0.0);
+  if (c > 0) {
+    float ph = float(c) / float(T_CAP) * M_PI / 2.0;
+    MSeg g = mSeg(id, i == 0 ? 0 : N_QUADS - 1, w);
+    vec2 n = mNrm(g, 1.0), o = i == 0 ? -g.t : g.t;
+    float rc = rw * cos(ph), e = rw * sin(ph);
+    vec2 df = tubeAcross(ac, rc, w, hr, glow);
+    return vec3(p + o * e + df.x * n, df.y);
+  }
+  vec2 df = tubeAcross(ac, rw, w, hr, glow);
+  vec2 n;
+  if (i == 0 || i == N_SAMPLES - 1) n = mNrm(mSeg(id, i == 0 ? 0 : N_QUADS - 1, w), 1.0);
+  else {
+    MSeg sa = mSeg(id, i - 1, w), sb = mSeg(id, i, w);
+    float W = mRW(id, i, w);
+    vec2 mp, mm;
+    if (mMitreAB(sa, sb, W, 1.0, mp) && mMitreAB(sa, sb, W, -1.0, mm)) n = mp;
+    else {
+      vec2 na = mNrm(sa, 1.0), av = 0.5 * (na + mNrm(sb, 1.0));
+      float al = length(av);
+      n = al < 1e-6 ? na : av / al;
+    }
+  }
+  return vec3(p + df.x * n, df.y);
+}
+void main() {
+  int id = int(aRow + 0.5);
+  vRow = id;
+  int kind = int(aV.x + 0.5), ring = int(aV.y + 0.5);
+  vI = kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));
+  bool glow = mPass <= ${MP.UP};
+  bool lit = texelFetch(tube, ivec2(10, id), 0).a > 0.0, up = texelFetch(tube, ivec2(11, id), 0).w > 5.0;
+  if (glow && (!lit || up != (mPass >= ${MP.UP_K}))) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  bool sel = (int(texelFetch(tube, ivec2(2, id), 0).z + 0.5) & ${F_SEL}) != 0;
+  float w = texelFetch(tube, ivec2(0, id), 0).w * celK + (sel ? selPad : 0.0) + aaPad + padU;
+  vec3 q = tubePlace(id, aV, w, hRef, glow);
+  vec3 d = world * vec3(q.xy, 1.0);
+  d.xy += lOff;
+  gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 2.0 * (tubeBase + (1.0 - q.z) * tubeH) - 1.0, 1.0);
+}`;
