@@ -103,6 +103,11 @@ const lumenK = (g, edge, bin, hl) => ({ F_DIFFUSE: g.F_DIFFUSE, F_EDGE: g.F_EDGE
 add('tubeLumen PLAIN (strip, no dye or origin)', { ...stage3Needs, '../src/ui/tube-geo.js': ['tubeStripVS'], '../src/ui/tube-lumen-glsl.js': ['tubeLumenFS'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'] },
   (g, edge, bin, hl, cg, t2, tg, lum, mm) => ({ vs: tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL, g.ZOOM_VS), fs: lum.tubeLumenFS({ ...lumenK(g, edge, bin, hl), PLAIN: 1 }), note: zoomNote }));
 
+// The Tube's glow shader (brief P6): the strip's vertex shader over the short glow fragment shader, for the passes MP.GLOW and MP.UP only.
+add('tubeGlow (strip + tubeGlowFS)', { ...stage2Needs, '../src/ui/tube-geo.js': ['tubeStripVS'], '../src/ui/tube-glow-glsl.js': ['tubeGlowFS'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'] },
+  (g, edge, bin, hl, cg, t2, tg, glow, mm) => ({ vs: tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL, g.ZOOM_VS),
+    fs: glow.tubeGlowFS({ ...lumenK(g, edge, bin, hl), S_OFF: cg.S_OFF, ALONG_GLSL: cg.ALONG_GLSL }), note: zoomNote }));
+
 // The compositor's Tube builds (brief S3-X, S3-D): COMP_FS with its last argument 1 (the lumen layer in place of the lumen section), linked with the compositor's vertex shaders as the app does.
 add('compositor Tube compTube (full)', { ...stage3Needs, '../src/ui/tube-stage2.js': ['stage3Sources'] }, stage3('compTube'));
 add('compositor Tube compTubeCell (full, cells)', { ...stage3Needs, '../src/ui/tube-stage2.js': ['stage3Sources'] }, stage3('compTubeCell'));
