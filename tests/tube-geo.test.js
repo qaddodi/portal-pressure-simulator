@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   TUBE_CAP, TUBE_ARC, TUBE_ACROSS, TUBE_RINGS, TUBE_HEX, TUBE_KIND, GRID_VERTS, DOME_VERTS, DOME_BASE, TRAP_BASE, TUBE_VERTS, TUBE_LEVEL,
-  tubeIndex, tubeVertex, tubeSampleOf, tubeWidth, tubeStripVS, TUBE_FADE, tubeAlpha, tubeFadeLevel,
+  tubeIndex, tubeVertex, tubeVarying, tubeSampleOf, tubeWidth, tubeGlowWidth, tubeOutline, tubeStripVS, TUBE_FADE, tubeAlpha, tubeFadeLevel,
 } from '../src/ui/tube-geo.js';
 import { N_SAMPLES, N_QUADS, MIN_RADIUS, STRIP_VS_GLSL, stripVertex, bevelled } from '../src/ui/veins-mesh.js';
 import { MP } from '../src/ui/veins-mesh-glsl.js';
@@ -218,31 +218,48 @@ test('a bevelled joint: the ring takes the plain average of the two normals, uni
   assert.ok(Math.abs(Vb[3 * v(rr, 10)] - B.P[64]) < 1e-9 && Math.abs(Vb[3 * v(rr, 10) + 1] - (B.P[65] + 3 + w)) < 1e-9, 'the first segment\'s normal');
 });
 
+/** Every point within `reach` of the polyline's samples near the joint, on a grid, lies inside a triangle (to 1e-6). */
+function checkCoverage(P, R, o, reach, ratio, label) {
+  const T = triangles(place(P, R, o));
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  const span = ratio <= 1 ? 8 : 3;   // (samples either side of the joint the grid covers)
+  for (let i = 32 - span; i <= 32 + span; i++) { x0 = Math.min(x0, P[2 * i]); x1 = Math.max(x1, P[2 * i]); y0 = Math.min(y0, P[2 * i + 1]); y1 = Math.max(y1, P[2 * i + 1]); }
+  const gs = Math.max(0.05, reach / (ratio <= 1 ? 24 : 14));
+  let n = 0;
+  for (let x = x0 - reach; x <= x1 + reach; x += gs) {
+    for (let y = y0 - reach; y <= y1 + reach; y += gs) {
+      let near = false;
+      for (let j = 31 - span; j < 33 + span && !near; j++) near = segDist(P, j, x, y) <= reach;
+      if (!near) continue;
+      n++;
+      assert.ok(covered(T, x, y, 1e-6), `uncovered point (${x.toFixed(2)}, ${y.toFixed(2)}): ${label}`);
+    }
+  }
+  assert.ok(n > 500, `the grid should hold points (${n})`);
+}
+
 test('coverage: bends and hairpins leave no point within rw + w - aaPad of the polyline outside the triangles, at segment lengths from 0.2 to 5 times rw + w', () => {
-  const casing = 0.8, celK = 1.6, aaPad = 0.3, w = tubeWidth(casing, celK, 0, aaPad, 0, false);
+  const casing = 0.8, celK = 1.6, aaPad = 0.3, w = tubeGlowWidth(casing, celK, 0, aaPad, 0, false);
   // Segment length as a multiple of rw + w (the half-width of the whole tube). A joint turned past what a mitre can take is bevelled: its ring takes
   // the average normal, a dome covers the outside of the turn and a quad on each segment's own normal covers the rest, at any segment length.
   const cases = [[17, 3, 3], [17, 6, 1], [17, 1, 3], [17, 1, 0.3], [17, 3, 5], [150, 3, 0.6], [150, 3, 0.5], [150, 3, 0.25], [150, 6, 0.6], [150, 6, 0.4], [150, 1.2, 0.6], [150, 1.2, 0.2], [150, 8, 0.6], [175, 3, 1], [175, 8, 1],
     ...[100, 120, 150].flatMap((t) => [2, 5].flatMap((k) => [1.2, 3, 8].map((rw) => [t, rw, k]))), [175, 3, 2], [175, 3, 5], [90, 3, 2], [60, 3, 5], [130, 5, 1.2], [140, 2, 3.3]];
   for (const [turn, rw, ratio] of cases) {
     const step = ratio * (rw + w), { P, R } = bent(step, rw, turn);
-    const T = triangles(place(P, R, OPT(w, rw)));
-    const reach = rw + w - aaPad;
-    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
-    const span = ratio <= 1 ? 8 : 3;   // (samples either side of the joint the grid covers)
-    for (let i = 32 - span; i <= 32 + span; i++) { x0 = Math.min(x0, P[2 * i]); x1 = Math.max(x1, P[2 * i]); y0 = Math.min(y0, P[2 * i + 1]); y1 = Math.max(y1, P[2 * i + 1]); }
-    const gs = Math.max(0.05, reach / (ratio <= 1 ? 24 : 14));
-    let n = 0;
-    for (let x = x0 - reach; x <= x1 + reach; x += gs) {
-      for (let y = y0 - reach; y <= y1 + reach; y += gs) {
-        let near = false;
-        for (let j = 31 - span; j < 33 + span && !near; j++) near = segDist(P, j, x, y) <= reach;
-        if (!near) continue;
-        n++;
-        assert.ok(covered(T, x, y, 1e-6), `uncovered point (${x.toFixed(2)}, ${y.toFixed(2)}): turn ${turn}, rw ${rw}, step ${step}`);
-      }
+    checkCoverage(P, R, OPT(w, rw), rw + w - aaPad, ratio, `turn ${turn}, rw ${rw}, step ${step}`);
+  }
+});
+
+test('coverage in a shape pass (the skirt is the outline, per vertex from its own R), at three zooms and with a tapering radius', () => {
+  for (const aaPad of [0.2, 0.5, 2]) {   // (zoomed in, 2 px = 0.2 world .. zoomed out, 2 px = 2 world)
+    for (const [turn, rw, ratio] of [[17, 3, 3], [150, 3, 0.6], [150, 8, 0.6], [150, 1.2, 0.4], [120, 3, 2], [175, 3, 1], [100, 5, 5]]) {
+      const w = tubeWidth(rw, aaPad, 0, false), step = ratio * (rw + w), { P, R } = bent(step, rw, turn);
+      checkCoverage(P, R, { w: 0, hRef: rw, aaPad }, rw + w - aaPad, ratio, `aaPad ${aaPad}, turn ${turn}, rw ${rw}, step ${step}`);
+      const taper = new Float64Array(R.map((r, i) => r * (1.4 - 0.8 * i / (N_SAMPLES - 1))));   // (the same joint, the radius falling 1.4 -> 0.6 times along)
+      let reach = Infinity;   // (the narrowest half-width among the samples the grid checks: the radius falls along the vessel)
+      for (let i = 32 - 9; i <= 32 + 9; i++) reach = Math.min(reach, taper[i] + tubeWidth(taper[i], aaPad, 0, false) - aaPad);
+      checkCoverage(P, taper, { w: 0, hRef: rw, aaPad }, reach, ratio, `taper, aaPad ${aaPad}, turn ${turn}, rw ${rw}`);
     }
-    assert.ok(n > 500, `the grid should hold points (${n})`);
   }
 });
 
@@ -420,17 +437,137 @@ test('z in the lumen level (brief L-A): the defaults are today\'s levels bit for
   assert.deepEqual(Array.from(place(P, R, { ...o(0.4), fade })), Array.from(zr));
 });
 
-test('tubeWidth: casing * celK + selection pad (selected rows only) + aaPad + padU', () => {
-  assert.equal(tubeWidth(0.8, 1.6, 4, 0.3, 2, false), 0.8 * 1.6 + 0.3 + 2);
-  assert.equal(tubeWidth(0.8, 1.6, 4, 0.3, 2, true), 0.8 * 1.6 + 4 + 0.3 + 2);
+test('tubeWidth: the outline (clamp(0.14 R, 1.5 px, 3 px), px = aaPad / 2) + aaPad + the selection pad on a selected row; tubeGlowWidth: the row\'s reach, as before', () => {
+  // three zooms of a radius-3 vessel: 1 px = 0.1, 0.25, 1 world (aaPad = 2 px)
+  for (const px of [0.1, 0.25, 1]) {
+    const aaPad = 2 * px, o = Math.min(Math.max(0.14 * 3, 1.5 * px), 3 * px);
+    assert.equal(tubeOutline(3, aaPad), o);
+    assert.equal(tubeWidth(3, aaPad, 4, false), o + aaPad);
+    assert.equal(tubeWidth(3, aaPad, 4, true), o + aaPad + 4);
+  }
+  assert.ok(Math.abs(tubeWidth(1.5, 0.2, 0, false) - (0.21 + 0.2)) < 1e-12, '0.14 R between 1.5 px and 3 px');
+  assert.ok(Math.abs(tubeWidth(0.3, 0.2, 0, false) - (0.15 + 0.2)) < 1e-12, 'a thin vessel: 1.5 px');
+  assert.ok(Math.abs(tubeWidth(30, 0.2, 0, false) - (0.3 + 0.2)) < 1e-12, 'a wide one: 3 px');
+  assert.equal(tubeGlowWidth(0.8, 1.6, 4, 0.3, 2, false), 0.8 * 1.6 + 0.3 + 2);
+  assert.equal(tubeGlowWidth(0.8, 1.6, 4, 0.3, 2, true), 0.8 * 1.6 + 4 + 0.3 + 2);
+});
+
+// A table taken from the twin BEFORE brief S2-A, on a curved, tapering vessel with a 140 degree turn at sample 40 (R = 4 - 0.02 i, step 5), w = 1.7, hRef = 6:
+// [kind, ring or sample, across, corner] -> [x, y, f], for a shape pass and a glow pass. The new varyings change no position and no level.
+const BEFORE_FIX = (() => {
+  const P = new Float64Array(N_SAMPLES * 2), R = new Float64Array(N_SAMPLES);
+  let x = 0, y = 0, h = 0;
+  for (let i = 0; i < N_SAMPLES; i++) { P[2 * i] = x; P[2 * i + 1] = y; R[i] = 4 - 0.02 * i; h += i === 40 ? 2.4 : 0.05 * Math.sin(i / 5); x += Math.cos(h) * 5; y += Math.sin(h) * 5; }
+  return { P, R };
+})();
+const BEFORE_ROWS = [[0, 0, 0, 0], [0, 0, 5, 0], [0, 1, 3, 0], [0, 3, 1, 0], [0, 5, 10, 0], [0, 6, 0, 0], [0, 6, 5, 0], [0, 20, 2, 0], [0, 20, 8, 0], [0, 45, 0, 0], [0, 46, 0, 0], [0, 46, 5, 0], [0, 46, 10, 0], [0, 47, 9, 0], [0, 69, 4, 0], [0, 73, 6, 0], [0, 75, 5, 0], [1, 40, 0, 0], [1, 40, 1, 0], [1, 40, 1, 3], [1, 10, 1, 2], [2, 39, 0, 0], [2, 39, 1, 1], [2, 40, 0, 1], [2, 40, 1, 1], [2, 10, 0, 0]];
+const BEFORE_SHAPE = [[-4.0068, -1.699986, 0.1], [-4, 0, 0.3], [-3.86729, -0.896568, 0.343137], [-2.839741, -2.828404, 0.2], [-1.013021, 5.563659, 0.1], [-0.0228, -5.699954, 0.1], [0, 0, 0.633333], [69.129343, 11.707511, 0.3], [65.694008, 18.307205, 0.3], [188.670152, 36.513881, 0.1], [197.239102, 42.034661, 0.1], [192.370969, 42.592589, 0.566667], [187.502837, 43.150518, 0.1], [186.521988, 42.057234, 0.2], [93.353877, 96.802179, 0.497742], [90.218602, 97.052751, 0.398871], [90.450048, 97.793293, 0.3], [192.370969, 42.592589, 0.566667], [198.029002, 42.592589, 0.1], [186.712937, 42.592589, 0.1], [49.238798, 6.689622, 0.1], [188.827004, 36.555213, 0.1], [191.126975, 47.332049, 0.1], [190.178173, 49.240991, 0.1], [185.663396, 40.58808, 0.1], [49.238798, 6.689622, 0.1]];
+const BEFORE_GLOW = [[-4.0068, -1.699986, 0.02], [-4, 0, 0.08], [-3.86729, -0.896568, 0.08], [-2.839741, -2.828404, 0.07], [-1.013021, 5.563659, 0.02], [-0.0228, -5.699954, 0.02], [0, 0, 0.08], [69.129343, 11.707511, 0.08], [65.694008, 18.307205, 0.08], [188.670152, 36.513881, 0.02], [197.239102, 42.034661, 0.02], [192.370969, 42.592589, 0.08], [187.502837, 43.150518, 0.02], [186.521988, 42.057234, 0.07], [93.353877, 96.802179, 0.08], [90.218602, 97.052751, 0.08], [90.450048, 97.793293, 0.08], [192.370969, 42.592589, 0.08], [198.029002, 42.592589, 0.02], [186.712937, 42.592589, 0.02], [49.238798, 6.689622, 0.02], [188.827004, 36.555213, 0.02], [191.126975, 47.332049, 0.02], [190.178173, 49.240991, 0.02], [185.663396, 40.58808, 0.02], [49.238798, 6.689622, 0.02]];
+
+test('positions and levels are those of before the varyings (a fixed width: a glow pass, and any caller that gives w), to 1e-5', () => {
+  for (const [glow, want] of [[false, BEFORE_SHAPE], [true, BEFORE_GLOW]]) {
+    BEFORE_ROWS.forEach((a, k) => {
+      const q = tubeVertex(BEFORE_FIX.P, BEFORE_FIX.R, a, { w: 1.7, hRef: 6, glow });
+      for (let m = 0; m < 3; m++) assert.ok(Math.abs(q[m] - want[k][m]) < 1e-5, `${glow ? 'glow' : 'shape'} vertex ${a}: ${q} vs ${want[k]}`);
+      assert.equal(q.length, 3);
+    });
+  }
+  // and a glow pass ignores the shape's width (aaPad, selPad, sel) whatever it is given
+  for (const a of BEFORE_ROWS) assert.deepEqual(tubeVertex(BEFORE_FIX.P, BEFORE_FIX.R, a, { w: 1.7, hRef: 6, glow: true, aaPad: 0.4, selPad: 4, sel: true }), tubeVertex(BEFORE_FIX.P, BEFORE_FIX.R, a, { w: 1.7, hRef: 6, glow: true }));
+});
+
+test('varyings: vD is 0 on the wall and -R on the centreline, for the grid, the caps, the domes and a trapezium\'s corner (+w)', () => {
+  const { P, R } = bent(3, 3, 0), o = { w: 1.5, hRef: 3 };
+  const vy = (kind, ring, ac, cn = 0, P2 = P, R2 = R, o2 = o) => tubeVarying(P2, R2, [kind, ring, ac, cn], o2);
+  for (const ring of [TUBE_CAP, TUBE_CAP + 20, TUBE_CAP + N_SAMPLES - 1]) {
+    for (const ac of [1, TUBE_ACROSS - 2]) assert.ok(Math.abs(vy(0, ring, ac).vD) < 1e-12, 'the wall');
+    assert.ok(Math.abs(vy(0, ring, 5).vD + 3) < 1e-12, 'the centreline');
+    for (const ac of [0, TUBE_ACROSS - 1]) assert.ok(Math.abs(vy(0, ring, ac).vD - 1.5) < 1e-12, 'the skirt\'s outer column: +w');
+    assert.deepEqual(vy(0, ring, 5).vG, [0, 0]);
+    assert.equal(vy(0, ring, 5).vRad, 3);
+  }
+  // the arc: (|a| - 1) R with a = sin of its angle
+  for (let ac = 2; ac < 2 + TUBE_ARC; ac++) {
+    const a = Math.sin(((ac - 2) / (TUBE_ARC - 1) - 0.5) * Math.PI);
+    assert.ok(Math.abs(vy(0, TUBE_CAP + 7, ac).vD - (Math.abs(a) - 1) * 3) < 1e-12, `arc column ${ac}`);
+  }
+  // a cap: the plan-view disc's own distance; its tip is on the wall
+  assert.ok(Math.abs(vy(0, 0, 5).vD) < 1e-9, 'the tip of the start cap is on the wall');
+  assert.ok(Math.abs(vy(0, TUBE_RINGS - 1, 5).vD) < 1e-9, 'and the end cap\'s');
+  // a dome: -R at the centre; its rim on the spokes (dist - R); and on a vessel bent past a mitre the rim is out
+  const B = bent(3, 3, 150), ob = { w: 1.5, hRef: 3 };
+  assert.equal(vy(1, 32, 0, 0, B.P, B.R, ob).vD, -3);
+  assert.deepEqual(vy(1, 32, 0, 0, B.P, B.R, ob).vG, [0, 0]);
+  for (let u = 0; u < TUBE_HEX; u++) {
+    const q = vy(1, 32, 1, u, B.P, B.R, ob), rr = (3 + 1.5) / Math.cos(Math.PI / TUBE_HEX);
+    assert.ok(Math.abs(Math.hypot(q.vG[0], q.vG[1]) - rr) < 1e-9);
+    assert.ok(Math.abs(q.vD - (rr - 3)) < 1e-9, 'dist - R');
+    assert.equal(q.vRad, 3);
+  }
+  // a trapezium at the turn: its corners are the skirt's outer edge, +w
+  for (const side of [0, 1]) for (const end of [0, 1]) {
+    const q = vy(2, 31, side, end, B.P, B.R, ob);
+    assert.ok(Math.abs(q.vD - 1.5) < 1e-9 && Math.abs(Math.hypot(q.vG[0], q.vG[1]) - 4.5) < 1e-9, `trap side ${side} end ${end}`);
+  }
+});
+
+test('varyings: length(vG) - vRad equals vD on the grid (body and caps) of a gentle vessel and along the spokes of a dome, to 1e-4; vI is the twin of tubeSampleOf', () => {
+  const rand = rng(31);
+  for (const [turn, k, o] of [[0, 3, { w: 1.2, hRef: 3 }], [10, 3, { w: 0.4, hRef: 3, aaPad: 0.4 }], [0, 0.5, { w: 0, hRef: 3, aaPad: 2, selPad: 4, sel: true }]]) {
+    const { P, R } = bent(k * 3, 3, turn);
+    for (let v0 = 0; v0 < GRID_VERTS; v0++) {
+      const a = M.attr.subarray(v0 * 4, v0 * 4 + 4), q = tubeVarying(P, R, a, o);
+      const len = Math.hypot(q.vG[0], q.vG[1]);
+      // (a mitred ring's vG is the mitre's, longer than the distance: vD is the perpendicular distance to both legs, the wall's)
+      if (M.attr[v0 * 4] === 0 && M.attr[v0 * 4 + 1] === TUBE_CAP + 32 && turn) assert.ok(len - q.vRad - q.vD > -1e-9 && len - q.vRad - q.vD <= 0.05 * len + 1e-9, `mitred ring vertex ${v0}`);
+      else assert.ok(Math.abs(len - q.vRad - q.vD) < 1e-4, `grid vertex ${v0}: ${len} - ${q.vRad} vs ${q.vD}`);
+    }
+    for (let v0 = 0; v0 < M.nVerts; v0++) assert.equal(tubeVarying(P, R, M.attr.subarray(v0 * 4, v0 * 4 + 4), o).vI, tubeSampleOf(M.attr[v0 * 4], M.attr[v0 * 4 + 1], M.attr[v0 * 4 + 3]));
+  }
+  const B = bent(3, 3, 150);
+  for (let i = 1; i < N_SAMPLES - 1; i++) {
+    for (let u = 0; u < TUBE_HEX; u++) {
+      const q = tubeVarying(B.P, B.R, [1, i, 1, u], { w: 1.5, hRef: 3 });
+      assert.ok(Math.abs(Math.hypot(q.vG[0], q.vG[1]) - q.vRad - q.vD) < 1e-4, `dome ${i} spoke ${u}`);
+    }
+  }
+  // a random radius and path: the centre vertices are (0, 0) and -R, always
+  const R2 = new Float64Array(N_SAMPLES).map(() => 0.1 + rand() * 6);
+  const P2 = new Float64Array(N_SAMPLES * 2).map((_, i) => (i >> 1) * 4 + rand());
+  for (const ring of [TUBE_CAP, TUBE_CAP + 17, TUBE_CAP + 63]) {
+    const q = tubeVarying(P2, R2, [0, ring, 5, 0], { w: 1, hRef: 6 });
+    assert.ok(Math.abs(q.vD + q.vRad) < 1e-9 && q.vG[0] === 0 && q.vG[1] === 0);
+    assert.equal(q.vRad, Math.max(R2[ring - TUBE_CAP], MIN_RADIUS));
+  }
+});
+
+test('the skirt in a shape pass: its outer edge is the outline\'s width at three zooms, per vertex from the vertex\'s own R, and a selected row adds selPad', () => {
+  const P = new Float64Array(N_SAMPLES * 2).map((_, i) => (i & 1 ? 0 : (i >> 1) * 4)), R = new Float64Array(N_SAMPLES).map((_, i) => 5 - 0.07 * i);   // a straight vessel, radius 5 down to 0.6
+  for (const aaPad of [0.2, 0.5, 2]) {
+    for (const i of [0, 10, 40, 63]) {
+      const o = { w: 0, hRef: 5, aaPad };
+      for (const ac of [0, TUBE_ACROSS - 1]) {
+        const q = tubeVarying(P, R, [0, TUBE_CAP + i, ac, 0], o), want = tubeWidth(R[i], aaPad, 4, false);
+        assert.ok(Math.abs(q.vD - want) < 1e-12, `sample ${i}, aaPad ${aaPad}: ${q.vD} vs ${want}`);
+        const pos = tubeVertex(P, R, [0, TUBE_CAP + i, ac, 0], o);
+        assert.ok(Math.abs(Math.hypot(pos[0] - P[2 * i], pos[1] - P[2 * i + 1]) - (R[i] + want)) < 1e-12, 'and the vertex is that far out');
+        const s = tubeVarying(P, R, [0, TUBE_CAP + i, ac, 0], { ...o, selPad: 4, sel: true });
+        assert.ok(Math.abs(s.vD - (want + 4)) < 1e-12, 'selected');
+        assert.ok(Math.abs(tubeVarying(P, R, [0, TUBE_CAP + i, ac, 0], { ...o, selPad: 4, sel: false }).vD - want) < 1e-12, 'a row that is not selected');
+      }
+    }
+  }
+  // the vessel's radii differ along it, so do the widths
+  const o = { w: 0, hRef: 5, aaPad: 0.2 };
+  assert.ok(tubeVarying(P, R, [0, TUBE_CAP, 0, 0], o).vD > tubeVarying(P, R, [0, TUBE_CAP + 63, 0, 0], o).vD);
 });
 
 // ---- The GLSL ----
 
-/** lintGLSL follows no directives: expand the one #define the strip text holds (ENT_W) the way the compiler would. */
+/** lintGLSL follows no directives: expand the one #define the strip text holds (ENT_W) the way the compiler would, and drop the `invariant gl_Position;` line it does not read. */
 function expanded(src) {
   const defs = [...src.matchAll(/^#define (\w+) (.*)$/gm)];
-  let out = src.replace(/^#define .*$/gm, '');
+  let out = src.replace(/^#define .*$/gm, '').replace(/^invariant gl_Position;/m, '');   // (the lint knows neither a directive nor `invariant`)
   for (const [, name, value] of defs) out = out.replace(new RegExp(`\\b${name}\\b`, 'g'), value);
   return out;
 }
@@ -440,8 +577,10 @@ test('the vertex shader lints clean, with the interface of meshStripVS and no un
   assert.deepEqual(lintGLSL(expanded(VS)), []);
   assert.deepEqual(lintGLSL(expanded(tubeStripVS(STRIP_VS_GLSL, 4))), []);
   assert.ok(VS.startsWith('#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n'));
-  assert.ok(VS.includes('layout(location=0) in vec4 aV;') && VS.includes('layout(location=1) in float aRow;'));
+  assert.ok(VS.includes('layout(location=0) in vec4 aV;') && VS.includes('layout(location=1) in vec4 aRow;'));
   assert.ok(VS.includes('out float vI;') && VS.includes('flat out int vRow;'));
+  assert.ok(VS.includes('out float vD;') && VS.includes('out vec2 vG;') && VS.includes('out float vRad;') && VS.includes('flat out vec2 vEnd;'), 'the plan\'s varyings');
+  assert.ok(VS.indexOf('invariant gl_Position;') > 0 && VS.indexOf('invariant gl_Position;') < VS.indexOf('layout(location=0)'), 'invariant gl_Position, first');
   const names = uniformsOf(VS);
   for (const u of ['world', 'size', 'lOff', 'tube', 'mPass', 'padU', 'selPad', 'tubeBase', 'tubeH', 'hRef', 'celK', 'aaPad', 'ent', 'rad', 'posBase']) {
     assert.equal(names.filter((n) => n === u).length, 1, `uniform ${u} is declared once`);
@@ -459,7 +598,10 @@ test('the GLSL holds the numbers of the JS twin: levels, grid sizes, the depth f
   assert.ok(VS.includes('d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0'));
   assert.ok(VS.includes('vec3 d = world * vec3(q.xy, 1.0);') && VS.includes('d.xy += lOff;'));
   assert.ok(VS.includes(`bool glow = mPass <= ${MP.UP};`) && VS.includes(`mPass >= ${MP.UP_K}`) && VS.includes('gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return;'));
-  assert.ok(VS.includes('texelFetch(tube, ivec2(0, id), 0).w * celK + (sel ? selPad : 0.0) + aaPad + padU'));
+  assert.ok(VS.includes('float wr = texelFetch(tube, ivec2(0, id), 0).w * celK + sp + aaPad + padU;') && VS.includes('float sp = sel ? selPad : 0.0;'), 'a glow\'s width is the row\'s, as before');
+  assert.ok(VS.includes('return clamp(0.14 * mRW(id, i, 0.0), 1.5 * px, 3.0 * px) + aaPad + sp;') && VS.includes('float px = 0.5 * aaPad;'), 'a shape\'s skirt is the outline plus aaPad (+ the selection\'s), from the vertex\'s own R');
+  assert.ok(VS.includes('vEnd = aRow.w > 1.5 ? aRow.yz : vec2(-1.0);') && VS.includes('int id = int(aRow.x + 0.5);'), 'aRow = (row, endStart, endEnd, kind + 2)');
+  assert.ok(VS.includes('vG = og; vD = length(og) - rw;') && VS.includes('vG = df.x * n; vD = abs(df.x) - rw;') && VS.includes('vG = o; vD = rr - rw;') && VS.includes('vG = o; vD = we;'));
   assert.ok(VS.includes('(int(texelFetch(tube, ivec2(2, id), 0).z + 0.5) & 1) != 0'));
   assert.ok(tubeStripVS(STRIP_VS_GLSL, 128).includes('& 128) != 0'));
   // the placement's arithmetic, in the order of the JS twin
@@ -469,11 +611,11 @@ test('the GLSL holds the numbers of the JS twin: levels, grid sizes, the depth f
   assert.ok(VS.includes('n = al < 1e-6 ? na : av / al;'));
   assert.ok(VS.includes('vI = kind == T_TRAP ? aV.y + aV.w : kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));'));
   assert.ok(VS.includes(`const int T_TRAP = ${TUBE_KIND.TRAP};`));
-  assert.ok(VS.includes('if (!(mBevelled(id, r, w) || mBevelled(id, r + 1, w))) return vec3(q, lv);'));
-  assert.ok(VS.includes('mRW(id, r + cn, w) * mNrm(mSeg(id, r, w), ac == 1 ? 1.0 : -1.0)'));
+  assert.ok(VS.includes('if (!(mBevelled(id, r, wd) || mBevelled(id, r + 1, wd))) { vG = vec2(0.0); vD = -rwe; return vec3(q, lv); }'));
+  assert.ok(VS.includes('mRW(id, e, we) * mNrm(mSeg(id, r, wd), ac == 1 ? 1.0 : -1.0)'));
   assert.ok(VS.includes(`const float L_FADE_A = ${TUBE_FADE.A};`) && VS.includes(`const float L_FADE0 = ${TUBE_FADE.L0};`) && VS.includes(`const float L_FADE_H = ${TUBE_FADE.H};`));
   assert.ok(VS.includes('if (!glow && !(zK > 0.0)) q.z = tubeFadeLevel(q.z, tubeAlpha(id, q.xy));'));
-  assert.ok(VS.includes('tubePlace(id, aV, w, hRef, glow, zK * texelFetch(tube, ivec2(2, id), 0).y)'));
+  assert.ok(VS.includes('tubePlace(id, aV, wr, sp, hRef, glow, zK * texelFetch(tube, ivec2(2, id), 0).y)'));
   assert.ok(VS.includes('uniform float zK;') && VS.includes('uniform float hK;'));
   assert.ok(VS.includes('L_LUMEN0 + L_LUMEN_H * clamp(zz + hK * clamp(h / hr, 0.0, 1.0), 0.0, 1.0)'));
   assert.ok(VS.includes('a *= v < t4.x ? mix(t4.y, t4.z, smoothstep(0.0, t4.x, v)) : mix(t4.z, 1.0, smoothstep(t4.x, 1.0, v));'));

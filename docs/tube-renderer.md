@@ -88,6 +88,26 @@ Under Tube the lobule's paths: a whole draw is the Tube pass; `drawRows` (the pu
 lower layer and the one-pass zoom frames are off while a geometry renderer draws (`!meshUse()` guards), so a zoom frame is a whole Tube draw; the kept picture and `keepBlood` read the layer and the flow
 targets (same encodings) and the composite's blood style P through `compBind`, which the half-size streak program and the wide copy's draws share.
 
+## The varyings and the exact skirt (brief S2-A, for stage 2)
+
+`tubeStripVS` now writes, for all three kinds of vertex (ring grid, dome, trapezium), the contract of `docs/recommendations/tube-renderer-stage2-3-plan.md`:
+`vD` (signed distance from the lumen's wall: -R on the centreline, 0 on the wall, + in the skirt), `vG` (offset from the centreline point to the vertex),
+`vRad` (the lumen radius at that ring or sample, floored at `MIN_RADIUS`) and `vEnd` (flat, from the instance). `invariant gl_Position;` heads the shader.
+The stage 1 fragment shader ignores all four, so nothing in the picture changes except the skirt below.
+
+- **Grid:** `vD = |d| - R` with `d` the across offset (the arc: `(|a| - 1) R`; skirt inner 0; skirt outer `+w`), `vG = d * n` (a mitred ring's `vG` is the mitre's,
+  longer than `vD` says: `vD` is the perpendicular distance to both legs, the wall's). A cap ring: `|vG| - R`, the plan-view disc's own distance.
+- **Dome:** `-R` at the centre, `dist - R` on the rim (so the wall falls at 0 along every spoke), `vG` corner minus centre. **Trapezium:** its corners are the skirt's
+  outer edge, `+w`. A collapsed dome or trapezium has `vG = (0, 0)` and `vD = -R`, and no area.
+- **The skirt's width in a shape pass** is exactly the outline's: `clamp(0.14 R, 1.5 px, 3 px) + aaPad` (`px = aaPad / 2`, `celShade`'s rule) plus `selPad` on a selected
+  row, from the `R` of the vertex's own ring or sample (`tubeWidth(R, aaPad, selPad, selected)`). The old reach (casing x celK + the pass's `padU`) is gone from shape
+  passes. A glow pass keeps the row's reach (`tubeGlowWidth`). Bevel and mitre decisions use the width of the vertex's own sample; a trapezium (whose four corners must
+  agree on whether it is drawn) decides with the larger of its two ends' and reaches with each end's own.
+- **`aRow` is `vec4`** `(row, endStart, endEnd, kind + 2)`: `kind + 2` is 2 for a plain row and 3 for an exact one. Until the pass feeds a four-float buffer
+  (S2-D) it feeds one float a row and WebGL fills `(0, 0, 1)` for the rest: `w = 1` reads as "no ends" (`vEnd = aRow.w > 1.5 ? aRow.yz : vec2(-1.0)`).
+- The JS twin: `tubeVarying(P, R, a, o)` returns `{ vI, vD, vG, vRad }`; `tubeVertex` still returns `[x, y, f]`. A shape pass is given `o.aaPad` (and `selPad`, `sel`);
+  `o.w` alone is a fixed width (a glow pass, and any older caller).
+
 ## Known differences from the plan's list and from Mesh
 
 - No contact shadow; no crossing ring. Same-tier crossings without a join merge (as the Mesh shows them with its ring off).

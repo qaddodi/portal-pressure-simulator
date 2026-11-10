@@ -9,6 +9,16 @@
 //     a centre and a hexagon) covers the outside of the turn; everywhere else the dome collapses to the sample's point (zero area).
 //   - Per segment one quad on the segment's own normal (the Mesh's K_TRAP), collapsed unless either end of the segment is bevelled: it covers
 //     what the average-normal rings and the domes leave bare beside a tight turn, whatever the segment's length.
+// Stage 2 (brief S2-A): the geometry also carries what the short fragment shader needs, as varyings written for all three kinds of vertex:
+//   vD    the signed distance from the lumen's wall, world units: -R on the centreline, 0 on the wall, + in the outline's skirt (grid: (|a| - 1) R
+//         across the arc, +w on the skirt's outer column; a dome: dist - R along each spoke; a trap corner: +w; a cap: |vG| - R, the plan-view disc's),
+//   vG    the offset from the centreline point to the vertex, world units ((0, 0) on the centreline),
+//   vRad  the lumen's radius at that ring or sample (MIN_RADIUS floored, as the Mesh's mRW),
+//   vEnd  flat, from the instance's attribute aRow = (row, endStart, endEnd, kind + 2): the vessel this row ends on at its start (x) and its end (y),
+//         or (-1, -1). `kind + 2` is 2 for a plain row and 3 for an exact one; until the pass feeds a four-float buffer (S2-D) it feeds ONE float a
+//         row, and WebGL then fills the other three with (0, 0, 1): w = 1 must read as "no ends", which `w > 1.5` gives.
+// The skirt's width in a shape pass is exactly the outline's: clamp(0.14 R, 1.5 px, 3 px) + aaPad (+ selPad on a selected row), px = aaPad / 2, from the
+// R of the vertex's own ring or sample (tubeWidth); a glow pass keeps the row's reach (tubeGlowWidth: casing * celK + selection + aaPad + padU).
 // tubeVertex is the JS twin of tubePlace (GLSL below): same arithmetic in the same order; the tests run the JS one. The mitre and bevel
 // rules are the Mesh's own (STRIP_VS_GLSL: mSeg, mNrm, mMitreAB, mDiscOn), called with pad = w; segOf / nrmX / nrmY / mitreAB below are
 // their JS twins (veins-mesh.js keeps its own private), pinned to veins-mesh.js's stripVertex by tests/tube-geo.test.js.
@@ -84,8 +94,14 @@ export function tubeSampleOf(kind, ring, corner = 0) {
   return kind === TUBE_KIND.DOME ? ring : clamp(ring - TUBE_CAP, 0, N_SAMPLES - 1);
 }
 
-/** w: how far the skirt reaches past the lumen, in world units: casing * celK + (selected ? selPad : 0) + aaPad + padU (the vertex shader's order). */
-export function tubeWidth(casing, celK, selPad, aaPad, padU, selected) {
+/** The outline's width in a shape pass, world units: clamp(0.14 R, 1.5 px, 3 px), px = aaPad / 2 (celShade's own rule). */
+export function tubeOutline(R, aaPad) { const px = aaPad / 2; return clamp(0.14 * R, 1.5 * px, 3 * px); }
+/** w in a shape pass: how far the skirt reaches past the lumen of radius R: the outline plus aaPad, plus selPad on a selected row. Per vertex, from that vertex's R. */
+export function tubeWidth(R, aaPad, selPad, selected) {
+  return tubeOutline(R, aaPad) + aaPad + (selected ? selPad : 0);
+}
+/** w in a glow pass (the row's, one for all its vertices): casing * celK + (selected ? selPad : 0) + aaPad + padU, the vertex shader's order. */
+export function tubeGlowWidth(casing, celK, selPad, aaPad, padU, selected) {
   return casing * celK + (selected ? selPad : 0) + aaPad + padU;
 }
 
@@ -157,42 +173,56 @@ export function tubeFadeLevel(f, a) {
   return mixf(TUBE_FADE.L0 + TUBE_FADE.H * k, f, s);
 }
 /**
- * Any vertex of the instance, the JS twin of tubePlace: returns [x, y, f]. P: the vessel's points flat (x0, y0, x1, y1 ... as veins-mesh
- * flatPoints), R: its radii, a: the attribute (kind, ring-or-sample, across, corner), o: { w (see tubeWidth), hRef (world), glow (true in a glow pass), z, zK, hK (the row's z and the lumen level's weights: LUMEN0 + LUMEN_H * clamp(zK * z + hK * clamp(h / hRef, 0, 1), 0, 1); defaults 0, 0, 1), fade (optional, see tubeAlpha: the row's fade, for the depth of a fading vessel) }.
+ * Any vertex of the instance, the JS twin of tubePlace: returns [x, y, f]. P: the vertex's points flat (x0, y0, x1, y1 ... as veins-mesh flatPoints), R: its radii, a: the attribute
+ * (kind, ring-or-sample, across, corner), o: { w: the skirt's width, fixed (a glow pass's, see tubeGlowWidth; or any, when `aaPad` is not given),
+ * aaPad, selPad, sel: a shape pass's skirt, per vertex from its own R (see tubeWidth; a glow pass ignores them), hRef (world), glow (true in a glow pass),
+ * z, zK, hK (the row's z and the lumen level's weights: LUMEN0 + LUMEN_H * clamp(zK * z + hK * clamp(h / hRef, 0, 1), 0, 1); defaults 0, 0, 1),
+ * fade (optional, see tubeAlpha: the row's fade, for the depth of a fading vessel) }.
  */
 export function tubeVertex(P, R, a, o) {
-  const q = tubeVertex0(P, R, a, o);
-  return o.fade && !o.glow && !(o.zK > 0) ? [q[0], q[1], tubeFadeLevel(q[2], tubeAlpha(o.fade, q[0], q[1]))] : q;
+  const q = place(P, R, a, o);
+  return o.fade && !o.glow && !(o.zK > 0) ? [q[0], q[1], tubeFadeLevel(q[2], tubeAlpha(o.fade, q[0], q[1]))] : [q[0], q[1], q[2]];
 }
-function tubeVertex0(P, R, a, o) {
+/** What the vertex shader writes besides the position: { vI, vD, vG: [x, y], vRad } for the same vertex (see the header), the JS twin of tubePlace's varyings. */
+export function tubeVarying(P, R, a, o) {
+  const q = place(P, R, a, o);
+  return { vI: tubeSampleOf(Math.round(a[0]), Math.round(a[1]), Math.round(a[3])), vD: q[3], vG: [q[4], q[5]], vRad: q[6] };
+}
+/** The skirt's width at a vertex whose ring or sample has the lumen radius rw. */
+function widthAt(o, rw) { return o.glow || o.aaPad === undefined ? o.w : tubeWidth(rw, o.aaPad, o.selPad ?? 0, !!o.sel); }
+/** [x, y, f, vD, gx, gy, rad] */
+function place(P, R, a, o) {
   const kind = Math.round(a[0]), r = Math.round(a[1]), ac = Math.round(a[2]), cn = Math.round(a[3]);
-  const w = o.w, hRef = o.hRef, glow = !!o.glow, hK = o.hK ?? 1, zz = (o.zK ?? 0) * (o.z ?? 0);
+  const hRef = o.hRef, glow = !!o.glow, hK = o.hK ?? 1, zz = (o.zK ?? 0) * (o.z ?? 0);
   if (kind === TUBE_KIND.TRAP) {
-    // segment r, side ac (1: left of travel), end cn: the segment's own normal at +-(rw + w), only where either end of it is bevelled
-    const lv = glow ? L.GLOW0 : L.CASE0, qx = P[2 * (r + cn)], qy = P[2 * (r + cn) + 1];
-    if (!(bevelled(P, R, r, w) || bevelled(P, R, r + 1, w))) return [qx, qy, lv];
-    const g = segOf(P, R, r, w), s = ac === 1 ? 1 : -1, r2 = rwAt(R, r + cn, w);
-    return [qx + r2 * nrmX(g, s), qy + r2 * nrmY(g, s), lv];
+    // segment r, side ac (1: left of travel), end cn: the segment's own normal at +-(rw + w), only where either end of it is bevelled. (The two ends may
+    // have different widths: the quad is decided as a whole, by the larger, and each corner reaches its own ring's.)
+    const e = r + cn, wa = widthAt(o, rwAt(R, r, 0)), wb = widthAt(o, rwAt(R, r + 1, 0)), wd = Math.max(wa, wb), we = cn === 0 ? wa : wb, rwe = rwAt(R, e, 0);
+    const lv = glow ? L.GLOW0 : L.CASE0, qx = P[2 * e], qy = P[2 * e + 1];
+    if (!(bevelled(P, R, r, wd) || bevelled(P, R, r + 1, wd))) return [qx, qy, lv, -rwe, 0, 0, rwe];
+    const g = segOf(P, R, r, wd), s = ac === 1 ? 1 : -1, r2 = rwAt(R, e, we), ox = r2 * nrmX(g, s), oy = r2 * nrmY(g, s);
+    return [qx + ox, qy + oy, lv, we, ox, oy, rwe];
   }
   if (kind === TUBE_KIND.DOME) {
-    const px = P[2 * r], py = P[2 * r + 1], rw = rwAt(R, r, 0);
-    if (ac === 0) return [px, py, glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(zz + hK * clamp(rw / hRef, 0, 1), 0, 1)];
+    const px = P[2 * r], py = P[2 * r + 1], rw = rwAt(R, r, 0), w = widthAt(o, rw);
+    if (ac === 0) return [px, py, glow ? L.GLOW1 : L.LUMEN0 + L.LUMEN_H * clamp(zz + hK * clamp(rw / hRef, 0, 1), 0, 1), -rw, 0, 0, rw];
     const lv = glow ? L.GLOW0 : L.CASE0;
-    if (!(bevelled(P, R, r - 1, w) || bevelled(P, R, r, w) || bevelled(P, R, r + 1, w))) return [px, py, lv];
-    const th = (2 * Math.PI * cn) / TUBE_HEX, rr = (rw + w) / Math.cos(Math.PI / TUBE_HEX);
-    return [px + rr * Math.cos(th), py + rr * Math.sin(th), lv];
+    if (!(bevelled(P, R, r - 1, w) || bevelled(P, R, r, w) || bevelled(P, R, r + 1, w))) return [px, py, lv, -rw, 0, 0, rw];
+    const th = (2 * Math.PI * cn) / TUBE_HEX, rr = (rw + w) / Math.cos(Math.PI / TUBE_HEX), ox = rr * Math.cos(th), oy = rr * Math.sin(th);
+    return [px + ox, py + oy, lv, rr - rw, ox, oy, rw];
   }
   let c = 0, i;
   if (r < TUBE_CAP) { c = TUBE_CAP - r; i = 0; }
   else if (r >= TUBE_CAP + N_SAMPLES) { c = r - (TUBE_CAP + N_SAMPLES) + 1; i = N_SAMPLES - 1; }
   else i = r - TUBE_CAP;
-  const px = P[2 * i], py = P[2 * i + 1], rw = rwAt(R, i, 0);
+  const px = P[2 * i], py = P[2 * i + 1], rw = rwAt(R, i, 0), w = widthAt(o, rw);
   if (c > 0) {
     const ph = c / TUBE_CAP * Math.PI / 2, g = segOf(P, R, i === 0 ? 0 : N_QUADS - 1, w);
     const nx = nrmX(g, 1), ny = nrmY(g, 1), ox = i === 0 ? -g.tx : g.tx, oy = i === 0 ? -g.ty : g.ty;
     const rc = rw * Math.cos(ph), e = rw * Math.sin(ph);
     const [d, f] = acrossAt(ac, rc, w, hRef, glow, zz, hK);
-    return [px + ox * e + d * nx, py + oy * e + d * ny, f];
+    const gx = ox * e + d * nx, gy = oy * e + d * ny;
+    return [px + gx, py + gy, f, Math.hypot(gx, gy) - rw, gx, gy, rw];
   }
   const [d, f] = acrossAt(ac, rw, w, hRef, glow, zz, hK);
   let nx, ny;
@@ -208,7 +238,7 @@ function tubeVertex0(P, R, a, o) {
       if (al < 1e-6) { nx = ax; ny = ay; } else { nx = vx / al; ny = vy / al; }
     }
   }
-  return [px + d * nx, py + d * ny, f];
+  return [px + d * nx, py + d * ny, f, Math.abs(d) - rw, d * nx, d * ny, rw];
 }
 
 // ---- The vertex shader: the same placement in GLSL ----------------------------------------------------------------------------
@@ -223,8 +253,9 @@ export const tubeStripVS = (STRIP_VS_GLSL, F_SEL = 1) => `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2D;
+invariant gl_Position;                 // (so the depth prepass and the colour pass agree exactly)
 layout(location=0) in vec4 aV;         // (kind, ring or sample, across, corner): tube-geo.js tubeIndex
-layout(location=1) in float aRow;      // the vessel row (per instance)
+layout(location=1) in vec4 aRow;       // per instance: (row, endStart, endEnd, kind + 2). A one-float buffer reads (row, 0, 0, 1): w = 1 is "no ends"
 uniform mat3 world;                    // world → device pixels
 uniform vec2 size;
 uniform vec2 lOff;
@@ -235,8 +266,8 @@ uniform float selPad;                  // and more for a selected vessel
 uniform float tubeBase;                // this pass pair's band of depth: tubeBase + [0, 1) * tubeH
 uniform float tubeH;
 uniform float hRef;                    // the height (world) that is the top of the lumen's levels
-uniform float celK;                    // the outline's width, as a multiple of the row's casing width
-uniform float aaPad;                   // two device pixels, world
+uniform float celK;                    // a glow's reach, as a multiple of the row's casing width
+uniform float aaPad;                   // two device pixels, world; a shape's skirt is the outline plus this
 uniform float zK;                      // the lumen level's weight on the row's z (0: the anatomy; 1: the lobule, ordered by z)
 uniform float hK;                      // and on the height (1: the anatomy; 0.008 in the lobule)
 ${STRIP_VS_GLSL}
@@ -259,6 +290,10 @@ const float L_FADE0 = ${f(TUBE_FADE.L0)};
 const float L_FADE_H = ${f(TUBE_FADE.H)};
 out float vI;
 flat out int vRow;
+out float vD;                          // signed distance from the lumen's wall (negative inside, 0 on the wall, positive in the skirt), world units
+out vec2 vG;                           // the offset from the centreline point to this point (not unit)
+out float vRad;                        // the lumen's radius at this ring or sample
+flat out vec2 vEnd;                    // the vessel this row ends on at its start (x) and end (y): row * 64 + the sample there, or -1
 // The across offset d and the level f of across column ac, for a ring whose half tube has radius rc.
 vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow, float zz) {
   if (ac == 0) return vec2(-(rc + w), glow ? L_GLOW0 : L_CASE0);
@@ -269,38 +304,57 @@ vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow, float zz) {
   float h = rc * cos(th);
   return vec2(rc * sin(th), glow ? L_GLOW1 : L_LUMEN0 + L_LUMEN_H * clamp(zz + hK * clamp(h / hr, 0.0, 1.0), 0.0, 1.0));
 }
-// Any vertex of the instance: (x, y) in world units, z the level.
-vec3 tubePlace(int id, vec4 a, float w, float hr, bool glow, float zz) {
+// The skirt's width at a vertex of a ring or sample with lumen radius rw: a shape pass's is the outline (celShade's rule) plus aaPad, plus the selection's;
+// a glow pass's is the row's (wr).
+float tubeW(int id, int i, bool glow, float wr, float sp) {
+  if (glow) return wr;
+  float px = 0.5 * aaPad;
+  return clamp(0.14 * mRW(id, i, 0.0), 1.5 * px, 3.0 * px) + aaPad + sp;
+}
+// Any vertex of the instance: (x, y) in world units, z the level; also writes vD, vG and vRad.
+vec3 tubePlace(int id, vec4 a, float wr, float sp, float hr, bool glow, float zz) {
   int kind = int(a.x + 0.5), r = int(a.y + 0.5), ac = int(a.z + 0.5), cn = int(a.w + 0.5);
   if (kind == T_TRAP) {
-    vec2 q = PT(id, r + cn);
+    int e = r + cn;
+    float wa = tubeW(id, r, glow, wr, sp), wb = tubeW(id, r + 1, glow, wr, sp), wd = max(wa, wb), we = cn == 0 ? wa : wb;
+    float rwe = mRW(id, e, 0.0);
+    vec2 q = PT(id, e);
     float lv = glow ? L_GLOW0 : L_CASE0;
-    if (!(mBevelled(id, r, w) || mBevelled(id, r + 1, w))) return vec3(q, lv);
-    return vec3(q + mRW(id, r + cn, w) * mNrm(mSeg(id, r, w), ac == 1 ? 1.0 : -1.0), lv);
+    vRad = rwe;
+    if (!(mBevelled(id, r, wd) || mBevelled(id, r + 1, wd))) { vG = vec2(0.0); vD = -rwe; return vec3(q, lv); }
+    vec2 o = mRW(id, e, we) * mNrm(mSeg(id, r, wd), ac == 1 ? 1.0 : -1.0);
+    vG = o; vD = we;
+    return vec3(q + o, lv);
   }
   if (kind == T_DOME) {
     vec2 p = PT(id, r);
-    float rw = mRW(id, r, 0.0);
-    if (ac == 0) return vec3(p, glow ? L_GLOW1 : L_LUMEN0 + L_LUMEN_H * clamp(zz + hK * clamp(rw / hr, 0.0, 1.0), 0.0, 1.0));
+    float rw = mRW(id, r, 0.0), w = tubeW(id, r, glow, wr, sp);
+    vRad = rw;
+    if (ac == 0) { vG = vec2(0.0); vD = -rw; return vec3(p, glow ? L_GLOW1 : L_LUMEN0 + L_LUMEN_H * clamp(zz + hK * clamp(rw / hr, 0.0, 1.0), 0.0, 1.0)); }
     float lv = glow ? L_GLOW0 : L_CASE0;
-    if (!mDiscOn(id, r, w)) return vec3(p, lv);
+    if (!mDiscOn(id, r, w)) { vG = vec2(0.0); vD = -rw; return vec3(p, lv); }
     float th = 2.0 * M_PI * float(cn) / float(T_HEX);
     float rr = (rw + w) / cos(M_PI / float(T_HEX));
-    return vec3(p + rr * vec2(cos(th), sin(th)), lv);
+    vec2 o = rr * vec2(cos(th), sin(th));
+    vG = o; vD = rr - rw;
+    return vec3(p + o, lv);
   }
   int c = 0, i;
   if (r < T_CAP) { c = T_CAP - r; i = 0; }
   else if (r >= T_CAP + N_SAMPLES) { c = r - (T_CAP + N_SAMPLES) + 1; i = N_SAMPLES - 1; }
   else i = r - T_CAP;
   vec2 p = PT(id, i);
-  float rw = mRW(id, i, 0.0);
+  float rw = mRW(id, i, 0.0), w = tubeW(id, i, glow, wr, sp);
+  vRad = rw;
   if (c > 0) {
     float ph = float(c) / float(T_CAP) * M_PI / 2.0;
     MSeg g = mSeg(id, i == 0 ? 0 : N_QUADS - 1, w);
     vec2 n = mNrm(g, 1.0), o = i == 0 ? -g.t : g.t;
     float rc = rw * cos(ph), e = rw * sin(ph);
     vec2 df = tubeAcross(ac, rc, w, hr, glow, zz);
-    return vec3(p + o * e + df.x * n, df.y);
+    vec2 og = o * e + df.x * n;
+    vG = og; vD = length(og) - rw;
+    return vec3(p + og, df.y);
   }
   vec2 df = tubeAcross(ac, rw, w, hr, glow, zz);
   vec2 n;
@@ -316,7 +370,8 @@ vec3 tubePlace(int id, vec4 a, float w, float hr, bool glow, float zz) {
       n = al < 1e-6 ? na : av / al;
     }
   }
-  return vec3(p + df.x * n, df.y);
+  vG = df.x * n; vD = abs(df.x) - rw;
+  return vec3(p + vG, df.y);
 }
 // The row's alpha at p, as vesAttrs reads it (its base alpha, then a dip, a radial fade or a linear one; the veil is the fragment shader's).
 float tubeAlpha(int id, vec2 p) {
@@ -342,16 +397,18 @@ float tubeFadeLevel(float f, float a) {
   return mix(L_FADE0 + L_FADE_H * k, f, s);
 }
 void main() {
-  int id = int(aRow + 0.5);
+  int id = int(aRow.x + 0.5);
   vRow = id;
+  vEnd = aRow.w > 1.5 ? aRow.yz : vec2(-1.0);
   int kind = int(aV.x + 0.5), ring = int(aV.y + 0.5);
   vI = kind == T_TRAP ? aV.y + aV.w : kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));
   bool glow = mPass <= ${MP.UP};
   bool lit = texelFetch(tube, ivec2(10, id), 0).a > 0.0, up = texelFetch(tube, ivec2(11, id), 0).w > 5.0;
   if (glow && (!lit || up != (mPass >= ${MP.UP_K}))) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   bool sel = (int(texelFetch(tube, ivec2(2, id), 0).z + 0.5) & ${F_SEL}) != 0;
-  float w = texelFetch(tube, ivec2(0, id), 0).w * celK + (sel ? selPad : 0.0) + aaPad + padU;
-  vec3 q = tubePlace(id, aV, w, hRef, glow, zK * texelFetch(tube, ivec2(2, id), 0).y);
+  float sp = sel ? selPad : 0.0;
+  float wr = texelFetch(tube, ivec2(0, id), 0).w * celK + sp + aaPad + padU;
+  vec3 q = tubePlace(id, aV, wr, sp, hRef, glow, zK * texelFetch(tube, ivec2(2, id), 0).y);
   if (!glow && !(zK > 0.0)) q.z = tubeFadeLevel(q.z, tubeAlpha(id, q.xy));
   vec3 d = world * vec3(q.xy, 1.0);
   d.xy += lOff;
