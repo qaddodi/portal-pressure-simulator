@@ -318,7 +318,9 @@ test('a segment quad: collapsed to the samples unless either end is bevelled, th
 
 test('a fading vessel\'s lumen sits below every opaque lumen and above its own casing, and never steps as the alpha changes', () => {
   const F = TUBE_FADE;
-  assert.ok(F.L0 > L.CASE1 && F.L0 + F.H < L.LUMEN0, 'the low band is between the casing and the lumens');
+  const patchRing = (L.CASE1 + L.LUMEN0) / 2;   // tube-pass.js PATCH_RING: a join patch's outline, drawn under every lumen
+  assert.ok(F.L0 > patchRing && F.L0 + F.H < L.LUMEN0, 'the low band is above a patch\'s outline and under the opaque lumens');
+  assert.ok(F.L0 > L.CASE1);
   // casing and glow levels are never moved; an opaque lumen is not moved
   for (const f of [L.GLOW0, L.GLOW_WALL, L.GLOW1, L.CASE0, L.CASE1]) for (const a of [0, 0.2, 0.7, 1]) assert.equal(tubeFadeLevel(f, a), f);
   for (const f of [L.LUMEN0, 0.45, L.LUMEN0 + L.LUMEN_H]) assert.equal(tubeFadeLevel(f, 1), f);

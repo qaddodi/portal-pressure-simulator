@@ -39,9 +39,10 @@ const L = TUBE_LEVEL;
 // A fading vessel's lumen sits BELOW every opaque vessel's lumen of its tier (and above its own casing), so where a faded branch overlaps its
 // trunk beyond the join's patch the trunk's lumen wins the pixel and is not thinned by the fade (the classic shader's rule: "a fading vein must
 // not thin the cava's lumen where it joins it"). FADE_A: the alpha at and under which the lumen is wholly in that low band; above it the levels
-// ease back to their own, so a vessel fading along its length never steps in depth. Off where the scene is ordered by z (zK > 0, the lobule):
+// ease back to their own, so a vessel fading along its length never steps in depth. The band lies above a join patch's outline (tube-pass.js
+// PATCH_RING, (CASE1 + LUMEN0) / 2 = .25: it is drawn under every lumen, so also under a faded one) and below .30. Off where the scene is ordered by z (zK > 0, the lobule):
 // there the row's z says what is in front, faded or not.
-export const TUBE_FADE = { A: 0.35, L0: 0.21, H: 0.08 };
+export const TUBE_FADE = { A: 0.35, L0: 0.26, H: 0.035 };
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 

@@ -56,8 +56,8 @@ chunk limit; it is given what it works on once, and reads the values that change
 
 Inside a tier the taller surface wins a pixel, so a faded branch that overlaps its trunk beyond the join's patch (where only strips draw) won
 the pixel wherever its half tube was the taller and thinned the trunk's lumen to the branch's alpha. The classic shader's rule is that a fade
-of the vessel joining it never thins the trunk's lumen. In `tubeStripVS` a lumen level is therefore eased into a low band (`TUBE_FADE`: .21 to
-.29, above every casing level and below every opaque lumen's .30) as the vessel's alpha at that vertex falls from 1 to `TUBE_FADE.A` (.35):
+of the vessel joining it never thins the trunk's lumen. In `tubeStripVS` a lumen level is therefore eased into a low band (`TUBE_FADE`: .26 to
+.295, above every casing level and a join patch's outline (.25, `PATCH_RING`) and below every opaque lumen's .30) as the vessel's alpha at that vertex falls from 1 to `TUBE_FADE.A` (.35):
 `tubeAlpha` reads the row's base alpha and its dip, radial or linear fade from texels 1, 3 and 4 as `vesAttrs` does (the organ veil stays the
 fragment shader's), and `tubeFadeLevel` is the ease, both with JS twins under test. Casing, glow and patch levels are not moved, an opaque
 vessel is not moved, and a vessel fading along its length never steps in depth. Not drawn in glow passes.
