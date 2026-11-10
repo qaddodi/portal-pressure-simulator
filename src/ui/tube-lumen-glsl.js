@@ -186,7 +186,7 @@ void main() {
   float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
   float lumA = aL * aA * tierAlpha[ti] * gf;
   float jr = joinRamp(je, aA * tierAlpha[ti] * gf, occl);   // (a continuation eases its opacity to its partner's: tube-join-glsl.js)
-  lumA *= je.fl * jr * joinTaper(je, u, max(t5.z, 1.0), R);   // (a branch fading into its trunk, as tubeLeanFS has it)
+  lumA *= je.fl * jr;   // (a branch fading into its trunk, as tubeLeanFS has it)
   if (lumA <= ${LUM_MIN}) discard;
   // The place in the stream, as packFlow would have stored it and the compositor unpacked it: the arc length and the across.
   int sg = clamp(int(vI), 0, ${N_SAMPLES - 2});

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, JOIN_FADE_IN, JOIN_FADE_OUT, JOIN_FADE_LINE, endTrunk, endContinues, endKind,
-  tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS, joinToneJS, joinTaperJS, JOIN_TAPER_R, joinPackJS, joinRampGLSL, END_THRU_START, END_THRU_END,
+  END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, endTrunk, endContinues, endKind,
+  tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS, joinToneJS, joinPackJS, joinRampGLSL, END_THRU_START, END_THRU_END,
 } from '../src/ui/tube-join-glsl.js';
 import { lintGLSL } from './glsl-lint.js';
 import { ALONG_GLSL } from '../src/ui/comp-glsl.js';
@@ -33,7 +33,7 @@ const rows = rowsOf({ 0: { pts: trunk, rad: trunk.map(() => 6), tier: 7, colour:
 
 test('an open end: the vertex shader\'s data is the trunk\'s chord about the sample (at least JOIN_REACH radii each way), its radius and the mode (fade when the branch is in a higher tier)', () => {
   const hi = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 16 }, rows });
-  assert.deepEqual(hi.K, [6, JOIN_MODE.FADE], 'a branch in tier 16 over a trunk in tier 7: it fades into it');
+  assert.deepEqual(hi.K, [6, JOIN_MODE.SOFT], 'a branch in tier 16 over a trunk in tier 7: cut at the wall, its edge a pixel soft');
   assert.ok(Math.abs(hi.J[1]) < 1e-9 && Math.abs(hi.J[3]) < 1e-9, 'the chord runs along the trunk');
   const half = Math.hypot(hi.J[2] - hi.J[0], hi.J[3] - hi.J[1]) / 2;
   assert.ok(half >= JOIN_REACH * 6 - 1e-9, `reaches ${JOIN_REACH} radii each way: ${half}`);
@@ -67,7 +67,7 @@ test('an open end on a trunk\'s end: the chord stops at the trunk\'s end (flat, 
 
 test('an open end follows a trunk that bends within its reach: the arms are the trunk\'s own samples about the knee, not the tangent\'s line (the Circuit\'s cava turns a corner where the hepatic veins arrive: its tangent cut dropped pixels outside it)', () => {
   // an L: down x = 0 from y = 0 to y = 100, then along y = 100 to x = 100, radius 6; 64 samples by arc length
-  const corners = [[0, 0], [0, 100], [100, 100]], Ls = [0, 100, 200];
+  const corners = [[0, 0], [0, 100], [100, 100]];
   const pts = Array.from({ length: 64 }, (_, i) => { const s = (i / 63) * 200, k = s <= 100 ? 0 : 1, t = s <= 100 ? s : s - 100; return [corners[k][0] + (corners[k + 1][0] - corners[k][0]) * t / 100, corners[k][1] + (corners[k + 1][1] - corners[k][1]) * t / 100]; });
   const sm = 31;   // just before the corner (the sample nearest arc length 100 is 31.5)
   const Rr = rowsOf({ 0: { pts, rad: pts.map(() => 6), tier: 3, colour: () => [0.2, 0.8, 0.2] } });
@@ -82,7 +82,7 @@ test('an open end follows a trunk that bends within its reach: the arms are the 
   assert.ok(Math.abs(sOne.J[0]) < 1e-6 && Math.abs(sOne.J[2]) < 1e-6 && sOne.J[1] < sOne.Q[1] && sOne.J[3] > sOne.Q[1], 'a straight trunk: the arms run one each way along it');
 });
 
-test('an open end in the fragment: a cut drops what lies in the trunk\'s lumen; a fade takes the branch\'s lumen and ink away between outside the wall and inside it', () => {
+test('an open end in the fragment: a cut drops what lies in the trunk\'s lumen; a higher-tier branch\'s cut is the same at the wall, one device pixel soft', () => {
   const at = (tier, p, vI = 60) => {
     const d = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier }, rows });
     return joinEndJS({ vI, J0: [0, 0, 0, 0], J1: d.J, K: [-1, -1, d.K[0], d.K[1]], p, R: 4, px: PX });
@@ -91,21 +91,17 @@ test('an open end in the fragment: a cut drops what lies in the trunk\'s lumen; 
   assert.equal(at(7, [0, 3]).drop, true, 'inside the trunk (3 from its centreline, radius 6): the trunk\'s pixel');
   assert.equal(at(7, [0, 6.2]).drop, false); assert.equal(at(7, [0, 6.2]).fl, 1);
   assert.equal(at(7, [0, 6.2]).fo, 1);
-  // fade
-  const far = at(16, [0, 6 + JOIN_FADE_OUT * 4 + 0.1]);
-  assert.deepEqual([far.drop, far.fl, far.fo], [false, 1, 1], 'past the fade: whole');
+  // soft cut (a higher tier): whole outside the wall, gone one device pixel inside it, one pixel of ramp between (lumen and ink together)
+  const far = at(16, [0, 6 + 0.1]);
+  assert.deepEqual([far.drop, far.fl, far.fo], [false, 1, 1], 'outside the wall: whole');
   const wall = at(16, [0, 6]);
-  assert.ok(wall.fl > 0.5 && wall.fl < 1, `at the wall the lumen is mostly there (${wall.fl})`);
-  assert.equal(wall.fo, 1, 'and the ink whole');
-  const inside = at(16, [0, 6 - 0.7]);
-  assert.ok(inside.fl < wall.fl && inside.fl > 0, 'inside the lumen goes on fading');
-  assert.ok(inside.fo < 1 && inside.fo > 0, 'the ink fades first');
-  assert.equal(at(16, [0, 6 - JOIN_FADE_LINE * 4 - 0.1]).fo, 0, 'ink gone');
-  assert.ok(at(16, [0, 0]).fl < 0.05, 'on the trunk\'s centreline (a radius of 6 inside the wall) the branch is all but gone');
-  assert.equal(at(16, [0, -0.5]).fo, 0, 'and its ink');
-  // monotone: the further in, the less of it
+  assert.deepEqual([wall.drop, wall.fl], [false, 1], 'at the wall: whole');
+  const band = at(16, [0, 6 - 0.5 * PX]);
+  assert.ok(band.fl > 0 && band.fl < 1 && band.fo === band.fl, `half a pixel in: partly there (${band.fl})`);
+  assert.equal(at(16, [0, 6 - 1.01 * PX]).drop, true, 'a pixel in: the trunk\'s');
+  assert.equal(at(7, [0, 6 - 0.4 * PX]).drop, false); assert.equal(at(7, [0, 6 - 0.6 * PX]).drop, true, 'a same-tier cut keeps its hard edge');
   let prev = 2;
-  for (let y = 12; y >= 0; y -= 0.5) { const j = at(16, [0, y]); assert.ok(j.fl <= prev + 1e-12, `fl falls going in (${y})`); prev = j.fl; }
+  for (let y = 7; y >= 6 - PX; y -= 0.05) { const j = at(16, [0, y]); assert.ok(j.fl <= prev + 1e-12, `fl falls going in (${y})`); prev = j.fl; }
   // the end window: only a pixel within JOIN_WIN samples of that end looks at it
   assert.equal(at(7, [0, 3], 63 - JOIN_WIN + 0.5).drop, true);
   assert.equal(at(7, [0, 3], 63 - JOIN_WIN - 0.5).drop, false, 'a pixel farther along the row than the window does not look');
@@ -170,9 +166,8 @@ ${tubeJoinVS(64)}`;
   assert.match(fs, /bool atStart = vI < 8\.0;/);
   assert.match(fs, /if \(!atStart && !\(vI > 55\.0\)\) return j;/);
   assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) {`));
-  assert.match(fs, /if \(gap < -0\.5 \* px && !beyond\) \{ j\.drop = true; return j; \}/);
-  assert.ok(fs.includes(`j.fl = smoothstep(-${JOIN_FADE_IN} * R, ${JOIN_FADE_OUT.toFixed(1)} * R, gap);`));
-  assert.ok(fs.includes(`j.fo = smoothstep(-${JOIN_FADE_LINE} * R, 0.0, gap);`));
+  assert.ok(fs.includes('if (gap < (soft ? -px : -0.5 * px) && !beyond) { j.drop = true; return j; }'));
+  assert.ok(fs.includes('if (soft && !beyond) { j.fl = smoothstep(-px, 0.0, gap); j.fo = j.fl; }'));
   assert.ok(!/texelFetch|texture\(|vesAttrs|for \(/.test(fs), 'the fragment part reads nothing and loops over nothing');
   assert.match(vs, /int k = int\(-e \+ 0\.5\) - 2, pr = k \/ 64, ps = k % 64;/, 'a continuation: -(2 + row * 64 + sample)');
   assert.match(vs, /int ei = int\(e \+ 0\.1\), tr = ei \/ 64, sm = ei % 64;/);
@@ -183,7 +178,7 @@ ${tubeJoinVS(64)}`;
   assert.throws(() => tubeJoinFS(32), /N_SAMPLES|64/);
 });
 
-test('colour: a cut end and a continuation blend into the other row\'s colour over JOIN_COLOUR_R radii (a continuation to the mean at the plane); a fading branch does not', () => {
+test('colour: a cut end and a continuation blend into the other row\'s colour over JOIN_COLOUR_R radii (a continuation to the mean at the plane); a higher-tier branch takes it as a cut does', () => {
   const pale = [0.9, 0.9, 0.9], green = [0.2, 0.8, 0.2];
   // an open end, same tier: cut at the wall, the branch takes the trunk's colour more the nearer its wall
   const cut = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 7 }, rows });
@@ -192,9 +187,9 @@ test('colour: a cut end and a continuation blend into the other row\'s colour ov
   const wall = at(cut, [0, 6.2]), far = at(cut, [0, 6 + Math.max(JOIN_COLOUR_R * 4, JOIN_COLOUR_MIN) + 0.1]), mid = at(cut, [0, 6 + 0.5 * Math.max(JOIN_COLOUR_R * 4, JOIN_COLOUR_MIN)]);
   assert.ok(wall.wc > 0.99 && far.wc === 0 && mid.wc > 0.3 && mid.wc < 0.7, `${wall.wc} ${mid.wc} ${far.wc}`);
   assert.deepEqual(wall.col, green);
-  // a fading branch (a higher tier): no colour blend, the trunk shows through it
-  const fade = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 16 }, rows });
-  assert.equal(at(fade, [0, 6.2]).wc, 0);
+  // a higher-tier branch: the same blend into the trunk's colour at the wall (no step at the mouth)
+  const soft = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 16 }, rows });
+  assert.ok(at(soft, [0, 6.2]).wc > 0.99);
   // a continuation: half at the plane, none past the blend
   const A = line(-100, 0, 0, 0), B = line(0, 0, 100, 0);
   const rowsAB = rowsOf({ 0: { pts: A, tier: 3, colour: () => pale }, 1: { pts: B, tier: 3, colour: () => green } });
@@ -271,7 +266,7 @@ test('a trunk whose own end the branches leave from, with no row carrying on, en
   assert.equal(plane.drop, true, 'and the trunk draws nothing past its end');
 });
 
-test('one tone field over a join: at a bent continuation the cel tones\' direction turns halfway to the next row\'s at the plane (each row by half, in opposite senses, so they meet); a cut branch\'s tones ease in from the trunk\'s wall; a fading branch\'s lumen rises from nothing at its own end', () => {
+test('one tone field over a join: at a bent continuation the cel tones\' direction turns halfway to the next row\'s at the plane (each row by half, in opposite senses, so they meet); a cut branch\'s tones ease in from the trunk\'s wall; a fading branch\'s ', () => {
   const A = line(-100, 0, 0, 0), B = line(0, 0, 86.6, 50), R = 6;
   const rw = rowsOf({ 0: { pts: A, tier: 3, colour: () => [1, 1, 1] }, 1: { pts: B, tier: 3, colour: () => [1, 1, 1] } });
   const dA = joinOneJS({ e: endContinues(1, 0), atStart: false, own: { pts: A, tier: 3 }, id: 0, rows: rw });
@@ -291,12 +286,6 @@ test('one tone field over a join: at a bent continuation the cel tones\' directi
   const cut = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: br, tier: 7 }, rows: rt });
   const c = (y) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: cut.J, K: [-1, -1, ...cut.K], C0: [0, 0, 0], C1: cut.C, p: [0, y], R: 4, px: PX });
   assert.ok(c(6.2).tk < 0.05 && c(60).tk === 1, 'flat at the trunk\'s wall, whole far off');
-  const fade = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: br, tier: 16 }, rows: rt });
-  const f = joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: fade.J, K: [-1, -1, ...fade.K], C0: [0, 0, 0], C1: fade.C, p: [0, 3], R: 4, px: PX });
-  assert.equal(f.tp, 1, 'a fading branch at its end tapers at the end');
-  assert.equal(joinTaperJS(f, 1, 60, 4), 0, 'nothing at its own end point (its round cap is the end)');
-  assert.equal(joinTaperJS(f, 1 - (JOIN_TAPER_R * 4 + 1) / 60, 60, 4), 1, 'whole beyond the taper');
-  assert.equal(joinTaperJS({ tp: 0 }, 1, 60, 4), 1, 'and none for a row with no fading end');
 });
 
 test('the outer corner of a bend is round, not notched: past the bisector plane a row still draws the wedge between its own end line and the next row\'s start line (the two end caps are one circle there); the inner side and the straight on are the other row\'s', () => {

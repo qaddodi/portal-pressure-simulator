@@ -165,7 +165,7 @@ test('a row\'s end on another row: a dropped pixel (inside the trunk, lumen or o
   assert.ok(trunkGapJS([50, 4], pts, rad, 0) > 0, 'far along the trunk: not inside it');
 });
 
-test('a branch fading into its trunk: the lumen\'s factor fl and the outline\'s fo scale what is drawn, the lumen\'s share by fl and the ink by fo', () => {
+test('a branch cut soft at its trunk\'s wall: the lumen\'s factor fl and the outline\'s fo scale what is drawn, the lumen\'s share by fl and the ink by fo', () => {
   const own = tubeLeanJS({ ...base, D: -2, join: { drop: false, fl: 1, fo: 1 } });
   const half = tubeLeanJS({ ...base, D: -2, join: { drop: false, fl: 0.5, fo: 0 } });
   near([half.colour[3] / own.colour[3]], [0.5], 'a lumen pixel is scaled by fl', 1e-6);
@@ -175,8 +175,8 @@ test('a branch fading into its trunk: the lumen\'s factor fl and the outline\'s 
   const ink = tubeLeanJS({ ...base, D: 0.5, attrs, join: { drop: false, fl: 1, fo: 0.25 } }), ink1 = tubeLeanJS({ ...base, D: 0.5, attrs, join: { drop: false, fl: 1, fo: 1 } });
   near([ink.colour[3] / ink1.colour[3]], [0.25], 'an outline pixel is scaled by fo', 1e-6);
   assert.equal(tubeLeanJS({ ...base, D: 0.5, attrs, join: { drop: false, fl: 1, fo: 0 } }).kind, 'discard', 'ink gone: nothing is drawn there');
-  assert.match(LEAN, /c \*= mix\(je\.fo, je\.fl, aL\) \* jr \* jt;/);
-  assert.match(LEAN, /lumA \*= je\.fl \* jr \* jt;/);
+  assert.match(LEAN, /c \*= mix\(je\.fo, je\.fl, aL\) \* jr;/);
+  assert.match(LEAN, /lumA \*= je\.fl \* jr;/);
 });
 
 test('a web carries its owner\'s tier alpha and group (the lumen layer gives it the same), not those of the tier it is drawn in', () => {

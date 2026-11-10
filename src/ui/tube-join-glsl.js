@@ -31,19 +31,15 @@ export const END_BASE = 64;                  // vEnd's packing of a sample (the 
 export const END_SEGS = 2;                   // (the multi-segment reference trunkGapJS reads this many segments each side of the sample, for the tests)
 export const JOIN_WIN = 8;                   // samples from an end within which a pixel looks at it
 export const JOIN_REACH = 2;                 // radii: the trunk's chord reaches at least this far each way from the sample
-export const JOIN_FADE_IN = 1.8;             // radii inside the trunk's wall at which a fading branch's lumen is gone
-export const JOIN_FADE_OUT = 1.0;            // radii outside the wall at which it starts to go
-export const JOIN_FADE_LINE = 0.7;          // radii inside the wall at which its outline is gone
 export const JOIN_COLOUR_R = 3;              // radii over which a row's colour blends into the other's at a cut end or a continuation (at least JOIN_COLOUR_MIN world units)
 export const JOIN_COLOUR_MIN = 8;
 export const JOIN_RAMP_R = 3;                // radii before a continuation's plane over which the more opaque row eases to the other's opacity (no step in the look where the tiers differ)
 export const JOIN_F_VEIL = 128, JOIN_F_WHOLE = 256;   // veins-gl.js's flag bits (not imported: veins-gl.js imports this module's callers)
 export const JOIN_TONE_R = 4;                // radii (at least JOIN_TONE_MIN world units) over which the cel tones' light direction turns from a row's own to the mean at a continuation's plane, and a cut branch's tones ease in from the trunk's wall
 export const JOIN_TONE_MIN = 16;
-export const JOIN_TAPER_R = 1.2;             // radii: a fading branch's lumen rises from nothing at its own end point over this far, so its round end cap leaves no ghost inside the trunk
 export const JOIN_CUT = 0.25;                // device pixels: how far past the bisector plane a continuation still draws (so the two leave no hairline)
 export const JOIN_NONE = -1;
-export const JOIN_MODE = { CUT: 0, FADE: 1, PLANE: 2 };
+export const JOIN_MODE = { CUT: 0, SOFT: 1, PLANE: 2 };   // (SOFT: a cut at the wall one device pixel soft: a branch in a higher tier than its trunk, drawn over it, 10 Nov)
 
 /** vEnd's value for an open end on a trunk row at sample `sample`. */
 export const endTrunk = (row, sample) => row * END_BASE + sample;
@@ -183,7 +179,7 @@ export const tubeJoinFS = (N_SAMPLES) => {
   if (N_SAMPLES !== END_BASE) throw new Error('tube-join-glsl: vEnd packs a row as row * 64 + sample, so N_SAMPLES must be 64');
   const LAST = N_SAMPLES - 1;
   return `// ---- a row's end on another row (tube-join-glsl.js): the decisions, from the vertex shader's flat data; no reads ----
-struct JoinEnd { bool drop; float fl; float fo; float wc; vec3 col; float pt; float rs; float rot; float tk; float tp; };   // wc: the share of the other row's colour col this pixel takes
+struct JoinEnd { bool drop; float fl; float fo; float wc; vec3 col; float pt; float rs; float rot; float tk; };   // wc: the share of the other row's colour col this pixel takes
 vec3 joinUnpackColour(float v) {
   float r = floor(v / 65536.0), g = floor((v - r * 65536.0) / 256.0);
   return vec3(r, g, v - r * 65536.0 - g * 256.0) / 255.0;
@@ -194,7 +190,7 @@ float joinSeg(vec2 p, vec2 a, vec2 b) {
 }
 JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2 p, float R, float px) {
   JoinEnd j;
-  j.drop = false; j.fl = 1.0; j.fo = 1.0; j.wc = 0.0; j.col = vec3(0.0); j.pt = -1.0; j.rs = 0.0; j.rot = 0.0; j.tk = 1.0; j.tp = 0.0;
+  j.drop = false; j.fl = 1.0; j.fo = 1.0; j.wc = 0.0; j.col = vec3(0.0); j.pt = -1.0; j.rs = 0.0; j.rot = 0.0; j.tk = 1.0;
   bool atStart = vI < ${JOIN_WIN}.0;
   if (!atStart && !(vI > ${LAST - JOIN_WIN}.0)) return j;
   vec4 J = atStart ? vJ0 : vJ1;
@@ -227,30 +223,20 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
     vec2 dn = ba / max(length(ba), 1e-6);
     beyond = fw < -2.5 ? dot(p - J.xy, dn) < 0.0 : dot(p - J.zw, dn) > 0.0;
   }
-  if (K.y < 0.5) {
-    if (gap < -0.5 * px && !beyond) { j.drop = true; return j; }
-    // (A trunk much narrower than the branch — a small tributary the join happens to mark as its trunk — does not recolour or flatten the wide branch: the share rk, and the reach by the narrower of the two.)
-    float rk = smoothstep(0.3, 0.9, K.x / max(R, 1e-3)), rn = min(R, K.x);
-    j.wc = (1.0 - smoothstep(0.0, max(${f(JOIN_COLOUR_R)} * rn, ${f(JOIN_COLOUR_MIN / 2)}), gap)) * rk;
-    j.tk = mix(1.0, smoothstep(0.0, max(${f(JOIN_TONE_R)} * rn, ${f(JOIN_TONE_MIN / 2)}), gap), rk);
-  } else if (beyond) {
-    return j;
-  } else {
-    j.tp = atStart ? 2.0 : 1.0;
-    j.fl = smoothstep(-${f(JOIN_FADE_IN)} * R, ${f(JOIN_FADE_OUT)} * R, gap);
-    j.fo = smoothstep(-${f(JOIN_FADE_LINE)} * R, 0.0, gap);
-    if (gap < -${f(JOIN_FADE_IN)} * R) j.drop = true;
-  }
+  // (K.y 1: a branch in a higher tier than its trunk is cut at the wall as any other, but its edge is one device pixel soft, and the trunk shows through that pixel: it lies in its own tier's pass.)
+  bool soft = K.y > 0.5;
+  if (gap < (soft ? -px : -0.5 * px) && !beyond) { j.drop = true; return j; }
+  // (A trunk much narrower than the branch — a small tributary the join happens to mark as its trunk — does not recolour or flatten the wide branch: the share rk, and the reach by the narrower of the two.)
+  float rk = smoothstep(0.3, 0.9, K.x / max(R, 1e-3)), rn = min(R, K.x);
+  j.wc = (1.0 - smoothstep(0.0, max(${f(JOIN_COLOUR_R)} * rn, ${f(JOIN_COLOUR_MIN / 2)}), gap)) * rk;
+  j.tk = mix(1.0, smoothstep(0.0, max(${f(JOIN_TONE_R)} * rn, ${f(JOIN_TONE_MIN / 2)}), gap), rk);
+  if (soft && !beyond) { j.fl = smoothstep(-px, 0.0, gap); j.fo = j.fl; }
   return j;
 }
 // The cel tones' direction across the vessel, turned toward the next row's across a continuation and eased flat toward a trunk's wall at a cut branch's mouth: one tone field over the join.
 vec2 joinTone(vec2 g, JoinEnd j) {
   float c = cos(j.rot), s = sin(j.rot);
   return vec2(c * g.x - s * g.y, s * g.x + c * g.y) * j.tk;
-}
-// A fading branch's lumen from nothing at its own end point (u 0-1 along it, L its length, R its radius here).
-float joinTaper(JoinEnd j, float u, float L, float R) {
-  return j.tp < 0.5 ? 1.0 : smoothstep(0.0, ${f(JOIN_TAPER_R)} * R, (j.tp > 1.5 ? u : 1.0 - u) * L);
 }
 `;
 };
@@ -324,7 +310,7 @@ export function joinOneJS(o) {
     const sp = Math.max(len(sub(T.pts[s1], T.pts[s0])) / Math.max(s1 - s0, 1), 1e-4);
     const r = T.rad[sm], hl = Math.max(sp, JOIN_REACH * r);
     const a = joinArmJS(T.pts, sm, -1, sp, hl, tb), b = joinArmJS(T.pts, sm, 1, sp, hl, tf);
-    return { J: [a[0], a[1], b[0], b[1]], Q: [c[0], c[1]], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.FADE : JOIN_MODE.CUT], C: colOf(tr, sm / last), PT: sm === last && !tf ? -2 : sm === 0 && !tb ? -3 : -1 };
+    return { J: [a[0], a[1], b[0], b[1]], Q: [c[0], c[1]], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.SOFT : JOIN_MODE.CUT], C: colOf(tr, sm / last), PT: sm === last && !tf ? -2 : sm === 0 && !tb ? -3 : -1 };
   }
   if (e < -1.5) {
     const k = Math.floor(-e + 0.5) - 2, pr = Math.floor(k / END_BASE), ps = k % END_BASE;
@@ -348,7 +334,7 @@ export function joinOneJS(o) {
  */
 export function joinEndJS(o) {
   const { vI, p, R, px } = o, last = END_BASE - 1;
-  const j = { drop: false, fl: 1, fo: 1, wc: 0, col: [0, 0, 0], pt: -1, rs: 0, rot: 0, tk: 1, tp: 0 };
+  const j = { drop: false, fl: 1, fo: 1, wc: 0, col: [0, 0, 0], pt: -1, rs: 0, rot: 0, tk: 1 };
   const atStart = vI < JOIN_WIN;
   if (!atStart && !(vI > last - JOIN_WIN)) return j;
   const J = atStart ? o.J0 : o.J1, K = atStart ? [o.K[0], o.K[1]] : [o.K[2], o.K[3]];
@@ -373,19 +359,12 @@ export function joinEndJS(o) {
   const beyond = fw < -1.5 && (fw < -2.5 ? qx * bx / bl + qy * by / bl < 0 : (p[0] - J[2]) * bx / bl + (p[1] - J[3]) * by / bl > 0);
   const Q = (atStart ? o.Q0 : o.Q1) ?? [(J[0] + J[2]) / 2, (J[1] + J[3]) / 2];   // (the knee; without one the arms are one straight chord)
   const gap = Math.min(segDist(p, [J[0], J[1]], Q), segDist(p, Q, [J[2], J[3]])) - K[0];
-  if (K[1] < 0.5) {
-    if (gap < -0.5 * px && !beyond) { j.drop = true; return j; }
-    const rk = smooth(0.3, 0.9, K[0] / Math.max(R, 1e-3)), rn = Math.min(R, K[0]);
-    j.wc = (1 - smooth(0, Math.max(JOIN_COLOUR_R * rn, JOIN_COLOUR_MIN / 2), gap)) * rk;
-    j.tk = mix(1, smooth(0, Math.max(JOIN_TONE_R * rn, JOIN_TONE_MIN / 2), gap), rk);
-  } else if (beyond) {
-    return j;
-  } else {
-    j.tp = atStart ? 2 : 1;
-    j.fl = smooth(-JOIN_FADE_IN * R, JOIN_FADE_OUT * R, gap);
-    j.fo = smooth(-JOIN_FADE_LINE * R, 0, gap);
-    if (gap < -JOIN_FADE_IN * R) j.drop = true;
-  }
+  const soft = K[1] > 0.5;
+  if (gap < (soft ? -px : -0.5 * px) && !beyond) { j.drop = true; return j; }
+  const rk = smooth(0.3, 0.9, K[0] / Math.max(R, 1e-3)), rn = Math.min(R, K[0]);
+  j.wc = (1 - smooth(0, Math.max(JOIN_COLOUR_R * rn, JOIN_COLOUR_MIN / 2), gap)) * rk;
+  j.tk = mix(1, smooth(0, Math.max(JOIN_TONE_R * rn, JOIN_TONE_MIN / 2), gap), rk);
+  if (soft && !beyond) { j.fl = smooth(-px, 0, gap); j.fo = j.fl; }
   return j;
 }
 
@@ -393,9 +372,4 @@ export function joinEndJS(o) {
 export function joinToneJS(g, j) {
   const rot = j.rot ?? 0, tk = j.tk ?? 1, c = Math.cos(rot), s = Math.sin(rot);
   return [(c * g[0] - s * g[1]) * tk, (s * g[0] + c * g[1]) * tk];
-}
-/** joinTaper in JS: u 0-1 along the row, L its length, R its radius here. */
-export function joinTaperJS(j, u, L, R) {
-  const tp = j.tp ?? 0;
-  return tp < 0.5 ? 1 : smooth(0, JOIN_TAPER_R * R, (tp > 1.5 ? u : 1 - u) * L);
 }
