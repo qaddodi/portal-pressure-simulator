@@ -130,7 +130,7 @@ add('tubeLumen (strip + tubeLumenFS)', { ...lumenNeeds, '../src/ui/tube-geo.js':
 add('tubeLumen PLAIN (strip, no dye or origin)', { ...lumenNeeds, '../src/ui/tube-geo.js': ['tubeStripVS'] }, (g, edge, bin, hl, lum, mm, tg) => ({
   vs: stripLumenVS(g, mm, tg), fs: lum.tubeLumenFS({ ...lumenK(g, edge, bin, hl), PLAIN: 1 }), note: zoomNote(g) }));
 add('tubeWebLumen (web + tubeLumenFS)', { ...lumenNeeds, '../src/ui/tube-joint.js': ['tubeWebVS'] }, (g, edge, bin, hl, lum, mm, tj) => ({
-  vs: withZoom(tj.tubeWebVS(mm.STRIP_VS_GLSL, g.F_SEL)), fs: lum.tubeLumenFS(lumenK(g, edge, bin, hl)), note: 'zoomA and zoomB written in main here (see above)' }));
+  vs: g.ZOOM_VS ? tj.tubeWebVS(mm.STRIP_VS_GLSL, g.F_SEL, g.ZOOM_VS) : withZoom(tj.tubeWebVS(mm.STRIP_VS_GLSL, g.F_SEL)), fs: lum.tubeLumenFS(lumenK(g, edge, bin, hl)), note: zoomNote(g) }));
 
 // ---- later threads: add yours above this line, one line each ------------------------------------------------------------------------
 // (S2-A/B/J/D: tubeLean, the web, ...; S3-X: COMP_FS with its new last argument; S3-C: the lumen shader; L-A/L-D: the lobule's.)

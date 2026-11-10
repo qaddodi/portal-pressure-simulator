@@ -154,8 +154,12 @@ const f = (x) => (Number.isInteger(x) ? x.toFixed(1) : String(x));
  * The vertex shader of the Tube's webs. STRIP_VS_GLSL: veins-mesh.js's (PT, mRW, N_SAMPLES, M_PI). Uniforms as tubeStripVS has them, so one draw feeds both
  * (a web reads world, size, lOff, ent, rad, posBase, mPass, tubeBase, tubeH, aaPad; the others are declared and unused). Attributes: 0 aV, then the instance
  * record as 1 aLegA, 2 aLegB, 3 aWeb. Outputs are the plan's contract: vI, vRow, vD, vG, vRad, vEnd.
+ * ZOOM_VS (optional, the host's text, as tubeStripVS takes it): included before `out float vI;`, and zoomOut() is called right after vRow is written (before
+ * any early return), so zoomA and zoomB are written exactly as the strip writes them; given none the text is unchanged. F_SEL is accepted so the call matches the
+ * strip's (a web has no selection). A web's vG is a unit direction, not an offset (the strip's is the offset), and thread C's lumen shader tells a web by
+ * vRad over twice the radius (a web writes vRad = 4 Rm); both stay as they are.
  */
-export const tubeWebVS = (STRIP_VS_GLSL) => `#version 300 es
+export const tubeWebVS = (STRIP_VS_GLSL, F_SEL = 1, ZOOM_VS = '') => `#version 300 es
 precision highp float;
 precision highp int;
 precision highp sampler2D;
@@ -191,7 +195,7 @@ const float W_MIN = ${f(WEB_MIN_DEG * DEG)};
 const float W_MAX = ${f(WEB_MAX_DEG * DEG)};
 const float W_FAR = ${f(WEB_FAR)};
 const float W_CUT = ${f(WEB_CUT)};
-out float vI;
+${ZOOM_VS ? `${ZOOM_VS}\n` : ''}out float vI;
 flat out int vRow;
 out float vD;
 out vec2 vG;
@@ -227,7 +231,7 @@ void main() {
   int kind = int(aV.x + 0.5), k = int(aV.y + 0.5);
   WLeg A = wLeg(aLegA), B = wLeg(aLegB);
   bool ownB = aWeb.z > 1.5 ? B.r > A.r : aWeb.z > 0.5;
-  vRow = int((ownB ? aLegB.x : aLegA.x) + 0.5);
+  vRow = int((ownB ? aLegB.x : aLegA.x) + 0.5);${ZOOM_VS ? '\n  zoomOut();' : ''}
   vI = ownB ? aLegB.y : aLegA.y;
   vEnd = vec2(-1.0);
   vD = 0.0; vG = vec2(0.0);

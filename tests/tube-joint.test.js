@@ -249,6 +249,17 @@ test('the shader text: lints clean (the strip text it includes, too), declares t
   assert.ok(VS.includes(`mPass < ${MP.SHAPE_K}`));
 });
 
+test('the zoom numbers: tubeWebVS given the host\'s ZOOM_VS includes it and calls zoomOut() right after vRow, before any early return; given none its text is unchanged', () => {
+  const ZOOM = 'precision highp float;\nuniform float pxW;\nflat out vec4 zoomA;\nflat out vec3 zoomB;\nvoid zoomOut() {\n  zoomA = vec4(pxW);\n  zoomB = vec3(pxW);\n}';
+  const z = tubeWebVS(STRIP_VS_GLSL, 1, ZOOM);
+  assert.ok(z.includes(ZOOM) && z.indexOf(ZOOM) < z.indexOf('out float vI;') && z.indexOf('void main() {') > z.indexOf('zoomOut() {'));
+  assert.ok(/vRow = int\(\(ownB \? aLegB\.x : aLegA\.x\) \+ 0\.5\);\n  zoomOut\(\);\n/.test(z), 'written before any early return');
+  assert.ok(z.indexOf('zoomOut();') < z.indexOf('return;'));
+  assert.deepEqual(lintGLSL(expanded(z)), []);
+  assert.equal(tubeWebVS(STRIP_VS_GLSL, 1, ''), VS);
+  assert.ok(!VS.includes('zoomOut') && !VS.includes('zoomA'));
+});
+
 // A stand-in for what STRIP_VS_GLSL gives (the constants; PT and mRW come from the harness), so the interpreter runs the web's own code.
 const STUB = 'const int N_SAMPLES = 64;\nconst float M_PI = 3.14159265358979;\n';
 const prog = compileVS(tubeWebVS(STUB));
