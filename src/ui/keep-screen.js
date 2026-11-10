@@ -12,23 +12,15 @@
 // does. Once a frame, at its very end (the scheduler's frame end, right before the browser shows the canvas), the screen is copied whole
 // onto the canvas in one blit: the only write the shown surface gets, and a whole one. A write outside a frame asks for one (ask), so it is
 // shown at that frame's end. All on the GPU: nothing is read back.
-//
-// Direct (opt-in, ?present=direct, 10 Nov 2026: Mohammad's Mac at 8 MP, 27 fps at rest with the "present copy" 32 ms, "why are we even copying
-// at all"): the screen is a second whole copy of every frame (the kept figure picture onto the screen, then the screen onto the canvas). With
-// `direct`, the renderer lays its whole present straight onto the canvas once, at the frame's end, inside through(fn): there a bind of the canvas
-// binds the canvas itself, and a write marks the canvas laid for this frame. The rule the screen was made for still holds, one whole write of
-// the shown surface a frame and nothing else: a write outside through(fn) still lands on the screen, which the frame's end then does not copy;
-// it calls stray() instead (the renderer lays its present whole, in through), so the shown surface is never written in part. The shown surface
-// is never invalidated (ebb62bb: that lost the copy on Safari's Metal).
 
 import { glOn } from './gl-state.js';
 
 /** Installs the screen on `gl` (the context object itself, so every host drawing in it is covered). `onEnd(fn)`: registers fn at the
  *  scheduler's frame end, returns its removal; `ask()`: asks for a frame. */
-export function keepScreen(gl, canvas, { onEnd = null, ask = null, direct = false, stray = null } = {}) {
+export function keepScreen(gl, canvas, { onEnd = null, ask = null } = {}) {
   const bind = gl.bindFramebuffer.bind(gl);
   const blit = gl.blitFramebuffer.bind(gl);
-  const st = { tex: null, fb: null, w: 0, h: 0, dirty: false, flushes: 0, thru: 0, laid: false, lays: 0, strays: 0 };
+  const st = { tex: null, fb: null, w: 0, h: 0, dirty: false, flushes: 0 };
   let boundR = null, boundD = null;   // (what the context really has bound: the screen's fb where the code bound the canvas)
   function size() {
     const w = Math.max(1, canvas.width | 0), h = Math.max(1, canvas.height | 0);
@@ -48,7 +40,7 @@ export function keepScreen(gl, canvas, { onEnd = null, ask = null, direct = fals
     return st.fb;
   }
   gl.bindFramebuffer = function bindFramebuffer(t, fb) {
-    const real = fb === null ? (st.thru ? null : size()) : fb;
+    const real = fb === null ? size() : fb;
     if (t === gl.FRAMEBUFFER || t === gl.READ_FRAMEBUFFER) boundR = real;
     if (t === gl.FRAMEBUFFER || t === gl.DRAW_FRAMEBUFFER) boundD = real;
     bind(t, real);
@@ -59,7 +51,6 @@ export function keepScreen(gl, canvas, { onEnd = null, ask = null, direct = fals
     const one = [0];
     gl.invalidateFramebuffer = function invalidateFramebuffer(t, list) {
       const fb = t === gl.READ_FRAMEBUFFER ? boundR : boundD;
-      if (fb === null && st.thru) return undefined;   // (direct: the shown surface itself, never invalidated)
       if (fb && fb === st.fb && list && list.length === 1 && list[0] === gl.COLOR) { one[0] = gl.COLOR_ATTACHMENT0; return inv(t, one); }
       return inv(t, list);
     };
@@ -69,8 +60,7 @@ export function keepScreen(gl, canvas, { onEnd = null, ask = null, direct = fals
     if (typeof f !== 'function') return;
     const call = f.bind(gl);
     gl[name] = function written(a, b, c, d, e, g, h, i, j, k) {
-      if (st.thru) { if (boundD === null) st.laid = true; }
-      else if (!st.dirty && st.fb && boundD === st.fb) { st.dirty = true; if (ask) ask(); }
+      if (!st.dirty && st.fb && boundD === st.fb) { st.dirty = true; if (ask) ask(); }
       switch (arguments.length) {   // (the call with exactly its own arguments: no array made in a frame)
         case 0: return call();
         case 1: return call(a);
@@ -85,23 +75,7 @@ export function keepScreen(gl, canvas, { onEnd = null, ask = null, direct = fals
   };
   for (const n of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced', 'drawRangeElements', 'clear', 'clearBufferfv', 'clearBufferiv', 'clearBufferuiv', 'clearBufferfi', 'blitFramebuffer']) mark(n);
   /** The screen onto the canvas, whole, in one blit, when anything was written on it since the last. */
-  // (The frame's end. Direct: the canvas laid whole in this frame is what shows; anything written on the screen beside it is not copied over it.
-  // Written on the screen alone: the renderer lays its present whole instead (stray), so no part write ever reaches the shown surface.)
-  function atEnd() {
-    if (direct) {
-      const laid = st.laid;
-      st.laid = false;
-      if (laid) { st.dirty = false; return; }
-      if (st.dirty && stray) { st.dirty = false; st.strays++; stray(); st.laid = false; return; }
-    }
-    copy();
-  }
-  // (A reader's flush (capture, snapshot). Direct: the reader's present was laid on the canvas itself, in through: nothing to copy.)
   function flush() {
-    if (direct) return;
-    copy();
-  }
-  function copy() {
     if (!st.dirty || !st.fb) return;
     st.dirty = false;
     if (gl.isContextLost && gl.isContextLost()) return;
@@ -121,25 +95,11 @@ export function keepScreen(gl, canvas, { onEnd = null, ask = null, direct = fals
     if (rd) gl.enable(gl.RASTERIZER_DISCARD);
     st.flushes++;
   }
-  /** Direct: fn's binds of the canvas bind the canvas itself (fn lays the whole picture); the frame's end then copies nothing. Elsewhere fn runs as is. */
-  function through(fn) {
-    if (!direct || (gl.isContextLost && gl.isContextLost())) return fn();
-    st.thru++;
-    try { bind(gl.FRAMEBUFFER, null); boundR = boundD = null; return fn(); } finally {
-      st.thru--;
-      if (!st.thru) { st.lays++; if (boundR === null || boundD === null) { bind(gl.FRAMEBUFFER, size()); boundR = boundD = st.fb; } }
-    }
-  }
-  const reset = () => { st.tex = st.fb = null; st.w = st.h = 0; st.dirty = false; st.thru = 0; st.laid = false; boundR = boundD = null; };
+  const reset = () => { st.tex = st.fb = null; st.w = st.h = 0; st.dirty = false; boundR = boundD = null; };
   if (canvas && canvas.addEventListener) { canvas.addEventListener('webglcontextlost', reset); canvas.addEventListener('webglcontextrestored', reset); }
-  const off = onEnd ? onEnd(atEnd) : null;
+  const off = onEnd ? onEnd(flush) : null;
   return {   // alloc-rare: once per context
     flush,
-    through,
-    get direct() { return direct; },
-    get inside() { return st.thru > 0; },
-    get lays() { return st.lays; },
-    get strays() { return st.strays; },
     get fb() { return st.fb; },
     get flushes() { return st.flushes; },
     dispose() { if (off) off(); },

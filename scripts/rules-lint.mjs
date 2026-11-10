@@ -38,8 +38,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // (lumen, lumenscale: the lumen layer's device A/B, brief PL 10 Nov 2026: ?lumen=off draws no lumen pass and no blood, ?lumenscale=<0.25..1> sets the lumen layer's share of the vessel layer's size.)
 // (tube, tubejoin: the Tube's two stage aids, briefed with stage 2 (S2-D, 10 Nov 2026): ?tube=1 keeps stage 1, ?tubejoin=patch keeps the patches, to compare the stages on a device.)
 // (rest: rest pacing on touch devices, brief H1 10 Nov 2026: ?rest=off turns the slow-down at rest off, to compare on a device.)
-// (present: ?present=direct lays the figure's present straight onto the canvas once a frame (keep-screen.js through), 10 Nov 2026, to compare with the screen texture on his Mac.)
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v', 'tube', 'tubejoin', 'lumen', 'lumenscale', 'rest', 'present']);
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v', 'tube', 'tubejoin', 'lumen', 'lumenscale', 'rest']);
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
