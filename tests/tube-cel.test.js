@@ -48,12 +48,16 @@ test('celShade has the parameters of tubeShade, and none of the 3D shading', () 
   assert.ok(!/#version|void main/.test(CEL_TEXT), 'no #version and no main');
 });
 
-// One pixel: the lit side faces the light; a lumen of radius R 10 units, the casing 1 unit, a device pixel 0.5 unit, aa 0.5.
+// One pixel: the lit side faces the light; a lumen of radius R 10 units, a device pixel 0.5 unit (so R is 20 device px), aa 0.5.
 const light = [1, 0];
 const FILL = [0.8, 0.3, 0.3];
 const base = { ...F, R: 10, wall: 1, col: FILL, g: [1, 0], flags: F.F_DIFFUSE, sel: false, cA: 1, aa: 0.5, aL: 1, px: 0.5, light, fx: 1 };
 const near = (got, want, msg) => { assert.equal(got.length, want.length, msg); got.forEach((v, i) => assert.ok(Math.abs(v - want[i]) < 1e-9, `${msg}: ${got} vs ${want}`)); };
-const INK = CEL.INK;
+// The outline's width in world units: 14 % of the radius, held between 1.5 and 3 device px.
+const wlOf = (R, px) => Math.min(Math.max(CEL.LINE_R * R, CEL.LINE_MIN * px), CEL.LINE_MAX * px);
+// The light looks' outline: a deep tone of the vessel's own colour, eased a quarter toward the near-black.
+const deepOf = (col) => col.map((v, i) => v * 0.34 * 0.75 + CEL.INK[i] * 0.25);
+const DEEP = deepOf(FILL);
 
 test('deep inside a lumen on the lit side, the result is the fill colour exactly', () => {
   near(celShadeJS({ ...base, D: -9 }), [...FILL, 1], 'lit side');
@@ -67,43 +71,78 @@ test('on the far side past BAND, the fill is darkened by TONE; before BAND it is
   near(celShadeJS({ ...far, D: -2, flags: 0 }), [...FILL, 1], 'no diffuse flag: flat');
 });
 
-test('between the lumen edge and wall * K it is the ink at alpha 1; a pixel (aa) past that it is empty', () => {
-  const wl = base.wall * CEL.K;
+test('the outline is 1.5 device px on a hairline and 3 on a wide vessel, at any px', () => {
+  for (const px of [0.25, 0.5, 2]) {
+    const out = { ...base, aL: 0, px };
+    // A hairline (R 0.2 px): 1.5 px. The ink fills up to there and is gone an aa beyond.
+    const thin = { ...out, R: 0.2 * px };
+    assert.equal(wlOf(thin.R, px), 1.5 * px);
+    near(celShadeJS({ ...thin, D: 1.5 * px - 0.5 * base.aa - 1e-9 }).slice(3), [1], 'hairline: inside 1.5 px');
+    near(celShadeJS({ ...thin, D: 1.5 * px + base.aa }), [0, 0, 0, 0], 'hairline: nothing past 1.5 px');
+    // A wide vessel (R 100 px): 3 px, not 14 % of 100.
+    const wide = { ...out, R: 100 * px };
+    assert.equal(wlOf(wide.R, px), 3 * px);
+    near(celShadeJS({ ...wide, D: 3 * px - 0.5 * base.aa - 1e-9 }).slice(3), [1], 'wide: inside 3 px');
+    near(celShadeJS({ ...wide, D: 3 * px + base.aa }), [0, 0, 0, 0], 'wide: nothing past 3 px');
+    // Between the two it follows the caliber: R 15 px is 2.1 px.
+    assert.ok(Math.abs(wlOf(15 * px, px) - 2.1 * px) < 1e-12);
+    near(celShadeJS({ ...out, R: 15 * px, D: 2.1 * px + base.aa }), [0, 0, 0, 0], 'caliber: nothing past 2.1 px');
+  }
+});
+
+test('between the lumen edge and the outline it is the ink at alpha 1; an aa past that it is empty', () => {
+  const wl = wlOf(base.R, base.px);
   const out = { ...base, aL: 0 };
-  near(celShadeJS({ ...out, D: wl / 2 }), [...INK, 1], 'inside the outline');
+  near(celShadeJS({ ...out, D: wl / 2 }), [...DEEP, 1], 'inside the outline');
   near(celShadeJS({ ...out, D: wl + base.aa }), [0, 0, 0, 0], 'past the outline');
-  // A thin casing never goes under 1.25 device pixels.
-  near(celShadeJS({ ...out, wall: 0.1, D: 0.3 }), [...INK, 1], 'the floor: 1.25 px = 0.625');
-  near(celShadeJS({ ...out, wall: 0.1, D: 0.625 + base.aa }), [0, 0, 0, 0], 'and no wider');
 });
 
 test('a veiled vessel keeps half its outline; an F_EDGE vessel keeps its own colour', () => {
   const out = { ...base, aL: 0, D: 0.5 };
-  near(celShadeJS({ ...out, flags: F.F_VEIL }), [...INK.map((v) => v * 0.5), 0.5], 'veiled: half');
+  near(celShadeJS({ ...out, flags: F.F_VEIL }), [...DEEP.map((v) => v * 0.5), 0.5], 'veiled: half');
   const edge = [0.1, 0.5, 0.9];
   near(celShadeJS({ ...out, flags: F.F_EDGE, edge }), [...edge.map((v) => v * 0.92), 0.92], 'its own edge colour');
 });
 
-test('the outline follows the look: a dark casing gives the near-black ink, a light casing its own colour, always opaque', () => {
+test('the outline follows the look: a dark casing gives the deep tone of the vessel, a light casing its own colour, always opaque', () => {
   const out = { ...base, aL: 0, D: 0.5 };
-  near(celShadeJS({ ...out, casing: [0.1, 0.1, 0.12, 0.6] }), [...INK, 1], 'dark casing');
+  near(celShadeJS({ ...out, casing: [0.1, 0.1, 0.12, 0.6] }), [...DEEP, 1], 'dark casing: the deep tone of the fill');
+  // The deep tone is of the vessel's own colour: another fill, another ink; and never lighter than the fill.
+  const blue = [0.2, 0.4, 0.9];
+  near(celShadeJS({ ...out, col: blue }), [...deepOf(blue), 1], 'a blue vessel, a deep blue line');
+  assert.ok(DEEP.every((v, i) => v < FILL[i]), 'darker than the fill');
   const pale = [0.85, 0.8, 0.9];
   near(celShadeJS({ ...out, casing: [...pale, 0.3] }), [...pale, 1], 'light casing, its alpha not used');
-  assert.match(CEL_TEXT, /vec3 ink = mix\(CEL_INK, casing\.rgb, smoothstep\(0\.25, 0\.45, cY\)\);/);
+  assert.match(CEL_TEXT, /vec3 deep = mix\(col \* 0\.34, CEL_INK, 0\.25\);/);
+  assert.match(CEL_TEXT, /vec3 ink = mix\(deep, casing\.rgb, smoothstep\(0\.25, 0\.45, cY\)\);/);
 });
 
-test('a hairline has no band', () => {
-  // R / aa = 1.2 < 1.5: far side, deep in the lumen's band, still the plain fill.
-  const hair = { ...base, R: 0.6, g: [-1, 0], D: -0.1 };
-  near(celShadeJS(hair), [...FILL, 1], 'hairline');
+test('one crisp light line on the lit side only, at about half way to the wall', () => {
+  const R = base.R;
+  const at = (rho, o = {}) => celShadeJS({ ...base, D: -R * (1 - rho), ...o });
+  const white = FILL.map((v) => v * (1 - CEL.LIGHT) + CEL.LIGHT);
+  near(at(0.52), [...white, 1], 'on the line');
+  near(at(0.2), [...FILL, 1], 'inside it: the plain fill');
+  near(at(0.52 + 0.045 + 2 * (base.aa / R)), [...FILL, 1], 'outside it: the plain fill');
+  near(at(0.52, { g: [-1, 0] }), [...FILL, 1], 'not on the far side');
+  near(at(0.52, { g: [0, 1] }), [...FILL, 1], 'not where the light runs along the vessel');
+  near(at(0.52, { flags: 0 }), [...FILL, 1], 'not without the diffuse flag');
+});
+
+test('a hairline has no band and no light line', () => {
+  // R / aa = 1.2 < 1.5: far side, deep in the lumen's band, still the plain fill; lit side at the line's place too.
+  near(celShadeJS({ ...base, R: 0.6, g: [-1, 0], D: -0.1 }), [...FILL, 1], 'hairline, far side');
+  near(celShadeJS({ ...base, R: 0.6, D: -0.6 * 0.48 }), [...FILL, 1], 'hairline, lit side');
+  // R / aa = 2: the band is out (needs 1.5 to 3.5 to come in), the light line needs 2.5 to 4.5.
+  near(celShadeJS({ ...base, R: 1, D: -0.48 }), [...FILL, 1], 'a narrow vessel: no line yet');
 });
 
 test('a selected vessel has the ring outside the outline', () => {
   const ring = [0.2, 0.6, 1, 0.8];
-  const wl = base.wall * CEL.K;
+  const wl = wlOf(base.R, base.px);
   const sel = { ...base, aL: 0, sel: true, ring };
   near(celShadeJS({ ...sel, D: wl + 2 }), [ring[0] * 0.8, ring[1] * 0.8, ring[2] * 0.8, 0.8], 'ring beyond the outline');
-  near(celShadeJS({ ...sel, D: wl / 2 }), [...INK, 1], 'the outline over the ring');
+  near(celShadeJS({ ...sel, D: wl / 2 }), [...DEEP, 1], 'the outline over the ring');
   near(celShadeJS({ ...sel, D: wl + 4 + 2 * base.aa }), [0, 0, 0, 0], 'nothing past the ring');
 });
 
@@ -113,5 +152,10 @@ test('the constants in the GLSL text are the ones in CEL', () => {
   assert.deepEqual(ink[1].split(',').map(Number), CEL.INK);
   assert.equal(Number(/const float CEL_BAND = ([\d.]+);/.exec(CEL_TEXT)[1]), CEL.BAND);
   assert.equal(Number(/const float CEL_TONE = ([\d.]+);/.exec(CEL_TEXT)[1]), CEL.TONE);
-  assert.deepEqual(CEL, { K: 1.6, INK: [0.07, 0.06, 0.06], BAND: 0.62, TONE: 0.8 });
+  const wl = /float wl = clamp\(([\d.]+) \* R, ([\d.]+) \* px, ([\d.]+) \* px\);/.exec(CEL_TEXT);
+  assert.ok(wl, 'the outline width line');
+  assert.deepEqual(wl.slice(1).map(Number), [CEL.LINE_R, CEL.LINE_MIN, CEL.LINE_MAX]);
+  assert.equal(Number(/lum = mix\(lum, vec3\(1\.0\), ([\d.]+) \* lineA\);/.exec(CEL_TEXT)[1]), CEL.LIGHT);
+  assert.deepEqual(CEL, { K: 1.6, INK: [0.07, 0.06, 0.06], BAND: 0.62, TONE: 0.88, LINE_MIN: 1.5, LINE_MAX: 3, LINE_R: 0.14, LIGHT: 0.3 });
+  assert.ok(/uniform float celK;/.test(CEL_TEXT), 'celK stays declared');
 });
