@@ -15,8 +15,10 @@
 // dens thins the cells by a hash against it (the cell's own random number against 0.78 * dens, the mock's 78 % at a dens of 1), with a
 // short soft edge so a change of dens fades particles in and out instead of popping them. The same expression feeds the mean.
 //
-// Where a particle is under about a pixel the field fades to its exact mean coverage (density times the capsule's area over the
-// cell's area), so nothing shimmers at the fitted view; where it is over one and a half pixels it is drawn.
+// Amendment 1 (10 Nov, after the first look at the fitted view, "not enough streaks"): a particle is never under 0.9 px across and is
+// always a dash (at least 2.2 radii of half-length), longer with speed, so the blood reads as streaks at the fitted view. The field
+// fades to its exact mean coverage (density times the capsule's area over the cell's area) only where a whole cell is under 3 to 5
+// pixels long and cannot show a dash.
 import { D_CYCLE } from './blood-tile.js';
 
 export const STYLE_P = 3;
@@ -27,15 +29,18 @@ export const P = {
   UNIT: 9,                    // the mock's cell length; a layer's cell here is the composite's cell (cellA), so one mock unit = cell / UNIT
   SIZE0: 0.34, SIZE1: 0.2,    // particle radius = (SIZE0 + SIZE1 h) mock units, kept to CAP of the lane's height
   CAP: 0.3,
-  TAIL: 0.075,                // half-length per unit of display speed (world units), kept to HL_MAX of the cell
-  HL_MAX: 0.22,
+  TAIL: 0.12,                 // half-length per unit of display speed (world units), kept to HL_MAX of the cell
+  HL_MAX: 0.34,
+  FLOOR_PX: 0.9,              // a particle is never narrower than this many pixels (radius)
+  DASH: 2.2,                  // and its half-length is at least this many radii: always a dash
+  MEAN_N: 8,                  // the mean's quadrature over the random size
   BRIGHT0: 0.6, BRIGHT1: 0.4, // a particle's brightness 0.6 to 1
   HEAD0: 0.4,                 // the tail's share of the head's brightness
   OCC: 0.78,                  // the share of cells that hold a particle at a dens of 1
   SOFT: 6,                    // the thinning's slope: a particle fades over 1/6 of the random number's range
   FRONT: { laneK: 2.0, sc: 1.0, tsc: 1.0, bright: 1.0, seed: 0 },
   BACK: { laneK: 1.25, sc: 0.7, tsc: 0.72, bright: 0.7, seed: 0x5bd1e995 },   // (more, smaller lanes: 5 against 8; slower; 0.7 of the brightness)
-  FADE_LO: 1.0, FADE_HI: 1.5, // the mean below this many pixels of the layer's largest particle, the particle above this many
+  CELL_PX: [3, 5],            // the cell's length in pixels: under the first the field is the mean, over the second the dashes are drawn
 };
 
 const f = (x) => (Number.isInteger(x) ? `${x}.0` : String(x));
@@ -66,8 +71,9 @@ float pLayer(int id, float s, float qw, float f, float cell, float drift, float 
   float u = ((s - g * f * P_CYCLE * tsc) / cell + drift) / sc + lo;
   float i = floor(u), fr = u - i;
   float dir = vd < 0.0 ? -1.0 : 1.0;
-  float hl = min(abs(vd) * g * 0.5 * tsc * ${f(P.TAIL)}, ${f(P.HL_MAX)} * cl);
-  float reach = (hl + ${f(P.SIZE0 + P.SIZE1)} * kr) / cl;   // (how far a particle reaches from its place, in cells; the largest it can be)
+  float hl0 = min(abs(vd) * g * 0.5 * tsc * ${f(P.TAIL)}, ${f(P.HL_MAX)} * cl);   // (the speed's half-length; a dash is never shorter than its radii, below)
+  float rb = max(${f(P.SIZE0 + P.SIZE1)} * kr, ${f(P.FLOOR_PX)} * px);
+  float reach = (min(max(hl0, ${f(P.DASH)} * rb), ${f(P.HL_MAX)} * cl) + rb) / cl;   // (how far a particle reaches from its place, in cells; the largest it can be)
   float a = 0.0;
   for (int k = -1; k <= 1; k++) {
     if (k == -1 && fr >= reach - 0.28) continue;   // (a place is 0.28 to 0.72 along its cell: the neighbour on either side is drawn only where it can reach)
@@ -77,6 +83,8 @@ float pLayer(int id, float s, float qw, float f, float cell, float drift, float 
     float hx = float(h1 & 0xffffu) / 65536.0, hy = float(h1 >> 16) / 65536.0;
     float hz = float(h2 & 0x7ffu) / 2048.0, hw = float((h2 >> 11) & 0x7ffu) / 2048.0, hb = float(h2 >> 22) / 1024.0;
     float r0 = min((${f(P.SIZE0)} + ${f(P.SIZE1)} * hz) * kr, ${f(P.CAP)} * laneH);
+    r0 = max(r0, ${f(P.FLOOR_PX)} * px);                                   // (never under 0.9 px across at the fitted view)
+    float hl = min(max(hl0, ${f(P.DASH)} * r0), ${f(P.HL_MAX)} * cl);   // (always a dash)
     float dx = (fr - float(k) - (0.28 + 0.44 * hx)) * cl;
     float dy = qw - qc - (hy - 0.5) * (laneH - 2.0 * r0) * 0.85;
     float d = length(vec2(max(abs(dx) - hl, 0.0), dy)) - r0;
@@ -86,15 +94,19 @@ float pLayer(int id, float s, float qw, float f, float cell, float drift, float 
   return a;
 }
 // A layer's mean coverage: the share of cells holding a particle, its mean brightness (0.8) and head ramp (0.7), times the capsule's mean
-// area (pi r^2 + 4 hl r, with r = the smaller of its random size and the lane's cap) over the cell's.
-float pMean(float cell, float ay, float vd, float t, float laneK, float sc, float tsc) {
+// area (pi r^2 + 4 hl r) over the cell's. The radius and half-length are the drawn ones, floored and dashed as pLayer has them; the mean over
+// the random size is taken at MEAN_N midpoints.
+float pMean(float cell, float ay, float vd, float t, float laneK, float sc, float tsc, float px) {
   float laneH = laneK * pLaneW, cl = cell * sc, kr = cl / ${f(P.UNIT)};
   float cap = ${f(P.CAP)} * laneH, a = ${f(P.SIZE0)} * kr, b = ${f(P.SIZE1)} * kr;
-  float hs = clamp((cap - a) / b, 0.0, 1.0), top = a + b * hs;
-  float er = a * hs + 0.5 * b * hs * hs + (1.0 - hs) * cap;
-  float er2 = (top * top * top - a * a * a) / (3.0 * b) + (1.0 - hs) * cap * cap;
-  float hl = min(abs(vd) * pLaneG(ay) * 0.5 * tsc * ${f(P.TAIL)}, ${f(P.HL_MAX)} * cl);
-  return pOnMean(t) * ${f(P.BRIGHT0 + P.BRIGHT1 * 0.5)} * ${f((1 + P.HEAD0) / 2)} * (3.14159265 * er2 + 4.0 * hl * er) / (cl * laneH);
+  float hl0 = min(abs(vd) * pLaneG(ay) * 0.5 * tsc * ${f(P.TAIL)}, ${f(P.HL_MAX)} * cl);
+  float area = 0.0;
+  for (int j = 0; j < ${P.MEAN_N}; j++) {
+    float r = max(min(a + b * (float(j) + 0.5) / ${f(P.MEAN_N)}, cap), ${f(P.FLOOR_PX)} * px);
+    float hl = min(max(hl0, ${f(P.DASH)} * r), ${f(P.HL_MAX)} * cl);
+    area += 3.14159265 * r * r + 4.0 * hl * r;
+  }
+  return min(pOnMean(t) * ${f(P.BRIGHT0 + P.BRIGHT1 * 0.5)} * ${f((1 + P.HEAD0) / 2)} * area / (${f(P.MEAN_N)} * cl * laneH), 1.0);   // (a lane under a few pixels across is full)
 }
 // The blood as particles: the coverage 0 to 1 at arc length s and across qy (lanes), in eNoise's own arguments. vd: the display speed.
 float pNoise(int id, float s, float qy, float D, float ay, float cell, float drift, float pxCell, float vd) {
@@ -102,11 +114,10 @@ float pNoise(int id, float s, float qy, float D, float ay, float cell, float dri
   float t = clamp(${f(P.OCC)} * pDens, 0.0, 1.0) * ${f(1 + 1 / P.SOFT)};
   float f0 = fract(D / P_CYCLE), f1 = fract(f0 + 0.5);
   float w0 = 1.0 - abs(1.0 - 2.0 * f0), w1 = 1.0 - abs(1.0 - 2.0 * f1);
-  float mF = pMean(cell, ay, vd, t, ${f(P.FRONT.laneK)}, ${f(P.FRONT.sc)}, ${f(P.FRONT.tsc)});
-  float mB = pMean(cell, ay, vd, t, ${f(P.BACK.laneK)}, ${f(P.BACK.sc)}, ${f(P.BACK.tsc)});
-  float rF = min(${f(P.SIZE0 + P.SIZE1)} * cell * ${f(P.FRONT.sc)} / ${f(P.UNIT)}, ${f(P.CAP * P.FRONT.laneK)} * pLaneW);
-  float rB = min(${f(P.SIZE0 + P.SIZE1)} * cell * ${f(P.BACK.sc)} / ${f(P.UNIT)}, ${f(P.CAP * P.BACK.laneK)} * pLaneW);
-  float kF = smoothstep(${f(P.FADE_LO)}, ${f(P.FADE_HI)}, rF / px), kB = smoothstep(${f(P.FADE_LO)}, ${f(P.FADE_HI)}, rB / px);
+  float mF = pMean(cell, ay, vd, t, ${f(P.FRONT.laneK)}, ${f(P.FRONT.sc)}, ${f(P.FRONT.tsc)}, px);
+  float mB = pMean(cell, ay, vd, t, ${f(P.BACK.laneK)}, ${f(P.BACK.sc)}, ${f(P.BACK.tsc)}, px);
+  // (The mean only where a whole cell is under a few pixels long and cannot show a dash.)
+  float kF = smoothstep(${f(P.CELL_PX[0])}, ${f(P.CELL_PX[1])}, cell * ${f(P.FRONT.sc)} / px), kB = smoothstep(${f(P.CELL_PX[0])}, ${f(P.CELL_PX[1])}, cell * ${f(P.BACK.sc)} / px);
   float F = mF, B = mB;
   if (kF > 0.0) {
     float c = 0.0;
@@ -149,11 +160,11 @@ export function pCellRand(i, lane, id, seed) {
   return { hx: (h1 & 0xffff) / 65536, hy: (h1 >>> 16) / 65536, hz: (h2 & 0x7ff) / 2048, hw: ((h2 >>> 11) & 0x7ff) / 2048, hb: (h2 >>> 22) / 1024 };
 }
 /** One cell's particle, in world units relative to its lane: where it sits (cx along from the cell's start, cy across from the lane's centre), its radius and half-length. */
-export function pParticle(r, cell, vd, cfg, L, lane = 0, ay = 0) {
+export function pParticle(r, cell, vd, cfg, L, lane = 0, ay = 0, px = 0) {
   const laneH = L.laneK * cfg.laneW, cl = cell * L.sc, kr = cl / P.UNIT;
   const g = pLaneG(ay);
-  const r0 = Math.min((P.SIZE0 + P.SIZE1 * r.hz) * kr, P.CAP * laneH);
-  const hl = Math.min(Math.abs(vd) * g * 0.5 * L.tsc * P.TAIL, P.HL_MAX * cl);
+  const r0 = Math.max(Math.min((P.SIZE0 + P.SIZE1 * r.hz) * kr, P.CAP * laneH), P.FLOOR_PX * px);
+  const hl = Math.min(Math.max(Math.min(Math.abs(vd) * g * 0.5 * L.tsc * P.TAIL, P.HL_MAX * cl), P.DASH * r0), P.HL_MAX * cl);
   return { cx: (0.28 + 0.44 * r.hx) * cl, cy: (r.hy - 0.5) * (laneH - 2 * r0) * 0.85, r0, hl, laneH, lane };
 }
 function pLayerJS(id, s, qw, fph, cell, drift, vd, px, t, L, cfg) {
@@ -164,14 +175,16 @@ function pLayerJS(id, s, qw, fph, cell, drift, vd, px, t, L, cfg) {
   const u = ((s - g * fph * P.CYCLE * L.tsc) / cell + drift) / L.sc + lo;
   const i = Math.floor(u), fr = u - i;
   const dir = vd < 0 ? -1 : 1;
-  const hl = Math.min(Math.abs(vd) * g * 0.5 * L.tsc * P.TAIL, P.HL_MAX * cl);
-  const reach = (hl + (P.SIZE0 + P.SIZE1) * kr) / cl;
+  const hl0 = Math.min(Math.abs(vd) * g * 0.5 * L.tsc * P.TAIL, P.HL_MAX * cl);
+  const rb = Math.max((P.SIZE0 + P.SIZE1) * kr, P.FLOOR_PX * px);
+  const reach = (Math.min(Math.max(hl0, P.DASH * rb), P.HL_MAX * cl) + rb) / cl;
   let a = 0;
   for (let k = -1; k <= 1; k++) {
     if (k === -1 && fr >= reach - 0.28) continue;
     if (k === 1 && fr <= 1.28 - reach) continue;
     const r = pCellRand(i + k, lane, id, L.seed);
-    const r0 = Math.min((P.SIZE0 + P.SIZE1 * r.hz) * kr, P.CAP * laneH);
+    const r0 = Math.max(Math.min((P.SIZE0 + P.SIZE1 * r.hz) * kr, P.CAP * laneH), P.FLOOR_PX * px);
+    const hl = Math.min(Math.max(hl0, P.DASH * r0), P.HL_MAX * cl);
     const dx = (fr - k - (0.28 + 0.44 * r.hx)) * cl;
     const dy = qw - qc - (r.hy - 0.5) * (laneH - 2 * r0) * 0.85;
     const d = Math.hypot(Math.max(Math.abs(dx) - hl, 0), dy) - r0;
@@ -181,14 +194,17 @@ function pLayerJS(id, s, qw, fph, cell, drift, vd, px, t, L, cfg) {
   return a;
 }
 /** A layer's mean coverage (pMean). */
-export function pMeanJS(cell, ay, vd, t, L, cfg) {
+export function pMeanJS(cell, ay, vd, t, L, cfg, px) {
   const laneH = L.laneK * cfg.laneW, cl = cell * L.sc, kr = cl / P.UNIT;
   const cap = P.CAP * laneH, a = P.SIZE0 * kr, b = P.SIZE1 * kr;
-  const hs = clamp((cap - a) / b, 0, 1), top = a + b * hs;
-  const er = a * hs + 0.5 * b * hs * hs + (1 - hs) * cap;
-  const er2 = (top ** 3 - a ** 3) / (3 * b) + (1 - hs) * cap * cap;
-  const hl = Math.min(Math.abs(vd) * pLaneG(ay) * 0.5 * L.tsc * P.TAIL, P.HL_MAX * cl);
-  return pOnMean(t) * (P.BRIGHT0 + P.BRIGHT1 * 0.5) * ((1 + P.HEAD0) / 2) * (Math.PI * er2 + 4 * hl * er) / (cl * laneH);
+  const hl0 = Math.min(Math.abs(vd) * pLaneG(ay) * 0.5 * L.tsc * P.TAIL, P.HL_MAX * cl);
+  let area = 0;
+  for (let j = 0; j < P.MEAN_N; j++) {
+    const r = Math.max(Math.min(a + b * (j + 0.5) / P.MEAN_N, cap), P.FLOOR_PX * px);
+    const hl = Math.min(Math.max(hl0, P.DASH * r), P.HL_MAX * cl);
+    area += Math.PI * r * r + 4 * hl * r;
+  }
+  return Math.min(pOnMean(t) * (P.BRIGHT0 + P.BRIGHT1 * 0.5) * ((1 + P.HEAD0) / 2) * area / (P.MEAN_N * cl * laneH), 1);
 }
 /** The thinning threshold for a dens (pNoise's t). */
 export const pThreshold = (dens) => clamp(P.OCC * dens, 0, 1) * (1 + 1 / P.SOFT);
@@ -198,9 +214,8 @@ export function pNoiseJS(id, s, qy, D, ay, cell, drift, pxCell, vd, cfg) {
   const f0 = fract(D / P.CYCLE), f1 = fract(f0 + 0.5);
   const w0 = 1 - Math.abs(1 - 2 * f0), w1 = 1 - Math.abs(1 - 2 * f1);
   const layer = (L) => {
-    const m = pMeanJS(cell, ay, vd, t, L, cfg);
-    const rMax = Math.min((P.SIZE0 + P.SIZE1) * cell * L.sc / P.UNIT, P.CAP * L.laneK * cfg.laneW);
-    const k = smoothstep(P.FADE_LO, P.FADE_HI, rMax / px);
+    const m = pMeanJS(cell, ay, vd, t, L, cfg, px);
+    const k = smoothstep(P.CELL_PX[0], P.CELL_PX[1], cell * L.sc / px);
     if (!(k > 0)) return m;
     let c = 0;
     if (w0 > 0) c += w0 * pLayerJS(id, s, qw, f0, cell, drift, vd, px, t, L, cfg);
@@ -211,7 +226,7 @@ export function pNoiseJS(id, s, qy, D, ay, cell, drift, pxCell, vd, cfg) {
   return clamp(1 - (1 - F) * (1 - P.BACK.bright * B), 0, 1);
 }
 /** The mean of the whole field (union of the two layers' means, as pNoise gives it where the particles are too small to draw). */
-export function pFieldMean(cell, ay, vd, cfg) {
+export function pFieldMean(cell, ay, vd, cfg, px) {
   const t = pThreshold(cfg.dens);
-  return 1 - (1 - pMeanJS(cell, ay, vd, t, P.FRONT, cfg)) * (1 - P.BACK.bright * pMeanJS(cell, ay, vd, t, P.BACK, cfg));
+  return 1 - (1 - pMeanJS(cell, ay, vd, t, P.FRONT, cfg, px)) * (1 - P.BACK.bright * pMeanJS(cell, ay, vd, t, P.BACK, cfg, px));
 }

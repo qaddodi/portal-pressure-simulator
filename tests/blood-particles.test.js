@@ -39,47 +39,47 @@ test('coverage is 0 to 1 everywhere, at every speed, direction and density', () 
   }
 });
 
-test('the mean over many cells matches the stated mean within 2 %', () => {
+test('the mean over many cells matches the stated mean within 3 % (4 % sampled)', () => {
   // (a) The closed form against the particles themselves: every cell of a long patch, its capsule's area, its brightness and head ramp.
-  for (const vd of [0, 6, 36]) for (const dens of [0.5, 1, 1.35]) for (const L of [P.FRONT, P.BACK]) {
-    const cfg = { ...CFG, dens }, t = pThreshold(dens), cl = CELL * L.sc, laneH = L.laneK * cfg.laneW;
+  for (const [vd, dens, px] of [[0, 0.5, 0.01], [6, 1, 0.01], [36, 1.35, 0.01], [0, 1, 0.55], [6, 0.8, 0.55], [36, 1, 0.55], [0, 1, 1.4]]) for (const L of [P.FRONT, P.BACK]) {
+    const cfg = { ...CFG, dens, laneW: Math.max(LANE_W, 3.2 * px) }, t = pThreshold(dens), cl = CELL * L.sc, laneH = L.laneK * cfg.laneW;   // (a lane is never under 3.2 px: bloodAt's laneW)
     let sum = 0, n = 0;
     for (let lane = 0; lane < 12; lane++) for (let i = 0; i < 8000; i++) {
-      const r = pCellRand(i, lane, 2, L.seed), p = pParticle(r, CELL, vd, cfg, L);
+      const r = pCellRand(i, lane, 2, L.seed), p = pParticle(r, CELL, vd, cfg, L, lane, 0, px);
       const on = Math.min(Math.max((t - r.hw) * P.SOFT, 0), 1);
       sum += on * (P.BRIGHT0 + P.BRIGHT1 * r.hb) * ((1 + P.HEAD0) / 2) * (Math.PI * p.r0 * p.r0 + 4 * p.hl * p.r0) / (cl * laneH); n++;
     }
-    const want = pMeanJS(CELL, 0, vd, t, L, cfg), got = sum / n;
-    assert.ok(Math.abs(got - want) / want < 0.02, `layer ${L.sc} vd ${vd} dens ${dens}: ${got} against ${want}`);
+    const want = pMeanJS(CELL, 0, vd, t, L, cfg, px), got = sum / n;
+    assert.ok(Math.abs(got - want) / want < 0.03, `layer ${L.sc} vd ${vd} dens ${dens} px ${px}: ${got} against ${want}`);
   }
   // (b) The field itself, sampled at fixed random points, against the same mean (looser: a thousand particles' worth of sampling noise).
   let seed = 12345;
   const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
-  for (const [vd, dens] of [[0, 1], [36, 0.5], [6, 1.35]]) {
-    const cfg = { ...CFG, dens }, want = pFieldMean(CELL, 0, vd, cfg), N = 600000;
+  for (const [vd, dens, px] of [[0, 1, 0.01], [36, 0.5, 0.01], [6, 1.35, 0.01], [6, 1, 0.55], [36, 1, 0.55]]) {
+    const cfg = { ...CFG, dens, laneW: Math.max(LANE_W, 3.2 * px) }, want = pFieldMean(CELL, 0, vd, cfg, px), N = 600000;
     let sum = 0;
-    for (let k = 0; k < N; k++) sum += pNoiseJS(2, rnd() * 1500 * CELL, (rnd() - 0.5) * 10, 16 * (k % 4) + rnd() * 3, 0, CELL, 0, 0.002, vd, cfg);
-    assert.ok(Math.abs(sum / N - want) / want < 0.03, `field vd ${vd} dens ${dens}: ${sum / N} against ${want}`);
+    for (let k = 0; k < N; k++) sum += pNoiseJS(2, rnd() * 1500 * CELL, (rnd() - 0.5) * 10, 16 * (k % 4) + rnd() * 3, 0, CELL, 0, px / CELL, vd, cfg);
+    assert.ok(Math.abs(sum / N - want) / want < 0.04, `field vd ${vd} dens ${dens} px ${px}: ${sum / N} against ${want}`);
   }
 });
 
-test('slow particles are round; fast ones stretch along the flow, to at most 0.22 of the cell', () => {
+test('slow blood is a short dash, never a dot; fast blood is a long streak, to at most 0.34 of the cell', () => {
   const cfg = CFG;
   for (const L of [P.FRONT, P.BACK]) {
     const r = pCellRand(7, 0, 1, L.seed);
     const slow = pParticle(r, CELL, 0.0, cfg, L), mid = pParticle(r, CELL, 10, cfg, L), fast = pParticle(r, CELL, 36, cfg, L), huge = pParticle(r, CELL, 4000, cfg, L);
-    assert.equal(slow.hl, 0, 'the same extent along and across at rest');
+    assert.ok(slow.hl >= P.DASH * slow.r0 - 1e-12, 'a dash even at rest: at least 2.2 radii of half-length');
     assert.ok(slow.r0 > 0);
-    assert.ok(mid.hl > 0 && fast.hl > mid.hl && huge.hl >= fast.hl);
-    assert.ok(Math.abs(huge.hl - P.HL_MAX * CELL * L.sc) < 1e-9, 'capped at 0.22 of the cell');
-    assert.ok(huge.hl + huge.r0 < 0.28 * CELL * L.sc + 1e-9 * 0 + 0.06 * CELL * L.sc, 'and never past its cell');
+    assert.ok(mid.hl >= slow.hl && fast.hl > mid.hl && huge.hl >= fast.hl);
+    assert.ok(Math.abs(huge.hl - P.HL_MAX * CELL * L.sc) < 1e-9, 'capped at 0.34 of the cell');
+    assert.ok(huge.hl + huge.r0 < 0.5 * CELL * L.sc, 'and never longer than half a cell either side of its place');
   }
 });
 
 test('the radius is 0.34 to 0.54 of the mock unit, kept inside the lane', () => {
   const unit = CELL / P.UNIT;
   let lo = Infinity, hi = 0;
-  for (let i = 0; i < 4000; i++) { const p = pParticle(pCellRand(i, 0, 1, 0), CELL, 0, { laneW: 100 }, P.FRONT); lo = Math.min(lo, p.r0 / unit); hi = Math.max(hi, p.r0 / unit); }
+  for (let i = 0; i < 4000; i++) { const p = pParticle(pCellRand(i, 0, 1, 0), CELL, 0, { laneW: 100 }, P.FRONT, 0, 0, 0); lo = Math.min(lo, p.r0 / unit); hi = Math.max(hi, p.r0 / unit); }
   assert.ok(lo >= 0.34 - 1e-9 && lo < 0.345 && hi <= 0.54 && hi > 0.535, `${lo} ${hi}`);
   for (let i = 0; i < 200; i++) { const p = pParticle(pCellRand(i, 0, 1, 0), CELL, 0, { laneW: 0.5 }, P.FRONT); assert.ok(p.r0 <= P.CAP * p.laneH + 1e-12); }
 });
@@ -90,7 +90,7 @@ function row(vd, cell = 0) {
   // Find a cell whose front particle is present and sits at the lane's centre line (any cell will do: take the row through its centre).
   let k = cell;
   for (; k < cell + 100; k++) { const r = pCellRand(k, 0, id, 0); if (r.hw < 0.5) break; }
-  const r = pCellRand(k, 0, id, 0), p = pParticle(r, CELL, vd, cfg, P.FRONT);
+  const r = pCellRand(k, 0, id, 0), p = pParticle(r, CELL, vd, cfg, P.FRONT, 0, 0, 5e-4);
   const qy = (p.cy + 0.5 * p.laneH) / cfg.laneW;   // (lane 0 spans qw 0 to laneH; its centre is laneH / 2)
   const out = [];
   // D = 0: phase 0 has weight 0, phase 1 (f1 = 0.5) has weight 1, shifted by g * 0.5 * cycle = 1 * 32 world units at the axis speed; unshift by it.
@@ -103,30 +103,59 @@ function row(vd, cell = 0) {
   return { out, p };
 }
 
-test('the along and across extents: equal at rest, longer along at speed, the head the brighter end, reversed with the flow', () => {
-  const rest = row(0), fast = row(36), back = row(-36);
+test('the along extent: a dash at rest, longer at speed, the head the brighter end, reversed with the flow', () => {
+  const rest = row(0), fast = row(36), back = row(-36);   // (rest is a dash already, not a dot: see the test above)
   const extent = (o) => { const on = o.out.filter((s) => s.c > 0.5 * Math.max(...o.out.map((q) => q.c))); return on.length ? on[on.length - 1].x - on[0].x : 0; };
   assert.ok(extent(rest) > 0);
   assert.ok(extent(fast) > extent(rest) * 1.2, 'stretched along the flow');
+  assert.ok(extent(rest) > 2.5 * 2 * rest.p.r0 * 0.9, 'a dash at rest: its length well over its width');
   assert.ok(extent(fast) <= 2 * (P.HL_MAX * CELL) + 2 * rest.p.r0 + 0.05, 'capped');
   const brightEnd = (o) => { const xs = o.out.filter((s) => s.c > 0.05); const mid = (xs[0].x + xs[xs.length - 1].x) / 2; const hi = xs.filter((s) => s.x > mid).reduce((a, s) => a + s.c, 0), lo = xs.filter((s) => s.x < mid).reduce((a, s) => a + s.c, 0); return hi > lo ? 1 : -1; };
   assert.equal(brightEnd(fast), 1, 'downstream (+s) is the head when the flow runs +s');
   assert.equal(brightEnd(back), -1, 'and the other end when it reverses');
 });
 
-test('when a particle is under a pixel the field is its exact mean: no variance', () => {
-  const cfg = { ...CFG, dens: 1 };
-  const px = 1.2 * P.SIZE0 * CELL / P.UNIT * 2;   // (a pixel wider than the largest particle: the fade is over)
+test('where a whole cell is under 3 pixels long the field is its exact mean: no variance; between 3 and 5 it blends', () => {
+  const px = CELL / 2.5;   // (a cell 2.5 pixels long: it cannot show a dash)
+  const cfg = { ...CFG, dens: 1, laneW: 3.2 * px };
   const vals = [];
   for (let k = 0; k < 500; k++) vals.push(pNoiseJS(k % 4, k * 0.91, (k % 7) * 0.5 - 1.5, k * 3.7, 0, CELL, 0.2, px / CELL, 20, cfg));
   const m = vals.reduce((a, v) => a + v, 0) / vals.length;
   assert.ok(vals.every((v) => Math.abs(v - m) < 1e-12), 'every sample the same');
-  assert.ok(Math.abs(m - pFieldMean(CELL, 0, 20, cfg)) < 1e-12, 'and it is the mean');
-  // Between a pixel and a pixel and a half it blends: not yet the mean, not yet the full detail.
+  assert.ok(Math.abs(m - pFieldMean(CELL, 0, 20, cfg, px)) < 1e-12, 'and it is the mean');
+  const pxMid = CELL / 4;   // (4 pixels: half way through the fade)
+  cfg.laneW = 3.2 * pxMid;
   const mid = [];
-  const pxMid = (P.SIZE0 + P.SIZE1) * CELL / P.UNIT / 1.25;
   for (let k = 0; k < 500; k++) mid.push(pNoiseJS(1, k * 0.13, (k % 7) * 0.5 - 1.5, 0, 0, CELL, 0.2, pxMid / CELL, 20, cfg));
-  assert.ok(Math.max(...mid) - Math.min(...mid) > 0, 'the particles are on their way in');
+  assert.ok(Math.max(...mid) - Math.min(...mid) > 0, 'the dashes are on their way in');
+});
+
+test('at a typical fitted view (cell 5.12, a pixel 0.55 world units) the blood is streaks, not flat: a dash is at least 1.8 px wide and 4 px long', () => {
+  const px = 0.55, cfg = { laneW: 3.2 * px, invR: 0.4, dens: 1 };
+  for (const vd of [0, 4, 36]) {
+    // The field: well above zero variance, along a lane and across the vessel.
+    const vals = [];
+    for (let k = 0; k < 4000; k++) vals.push(pNoiseJS(3, k * 0.37, ((k * 7) % 11) * 0.3 - 1.6, 8 + (k % 5), 0.3, CELL, 0.1, px / CELL, vd, cfg));
+    const mean = vals.reduce((a, v) => a + v, 0) / vals.length, variance = vals.reduce((a, v) => a + (v - mean) ** 2, 0) / vals.length;
+    assert.ok(variance > 0.002 && Math.max(...vals) > 0.5, `vd ${vd}: variance ${variance}, peak ${Math.max(...vals)}`);
+    // Every particle, front and back layer: at least 1.8 px across and 4 px long.
+    for (const L of [P.FRONT, P.BACK]) for (let i = 0; i < 400; i++) {
+      const p = pParticle(pCellRand(i, 0, 3, L.seed), CELL, vd, cfg, L, 0, 0, px);
+      assert.ok(2 * p.r0 >= 1.8 * px - 1e-12, `width ${2 * p.r0 / px} px`);
+      assert.ok(2 * (p.hl + p.r0) >= 4 * px, `length ${2 * (p.hl + p.r0) / px} px`);
+    }
+  }
+  // And the drawn field shows it: along a lane's centre, a run of coverage at least 4 px long.
+  const cfgL = { laneW: 100, invR: 0, dens: 1.35 };
+  let longest = 0;
+  for (let k = 0; k < 6; k++) {
+    let run = 0;
+    for (let x = 0; x < 6 * CELL; x += px / 8) {
+      const c = pNoiseJS(1, x + k * 41.3, 0.5 * P.FRONT.laneK, 0, 0, CELL, 0, px / CELL, 0, cfgL);
+      if (c > 0.3) { run += px / 8; longest = Math.max(longest, run); } else run = 0;
+    }
+  }
+  assert.ok(longest >= 4 * px, `a dash ${longest / px} px long`);
 });
 
 test('it is carried, not re-rolled: a whole flow-map cycle of D later is the same field, and between, the pattern slides with D at the lane speed', () => {
@@ -166,5 +195,5 @@ test('the thinning: dens 0 holds no particle, a dens high enough holds one in ev
   assert.equal(pOnMean(pThreshold(0)), 0);
   assert.ok(Math.abs(pOnMean(pThreshold(2)) - 1) < 1e-12);
   let last = 0;
-  for (let d = 0; d <= 1.35; d += 0.05) { const m = pFieldMean(CELL, 0, 10, { ...CFG, dens: d }); assert.ok(m >= last); last = m; }
+  for (let d = 0; d <= 1.35; d += 0.05) { const m = pFieldMean(CELL, 0, 10, { ...CFG, dens: d }, PXC * CELL); assert.ok(m >= last); last = m; }
 });
