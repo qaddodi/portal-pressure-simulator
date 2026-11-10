@@ -177,14 +177,41 @@ export function joinEntriesInto(ent, list, n, joinBase, out) {
 }
 
 /**
- * The stage's data and GL objects for one renderer: MG is veins-gl.js's kept state (tubeVB, tubeIB: the strip's vertices; gen: counts its binnings).
- * frame(G, tubeNow, nTubes, joinBase) bins what a frame draws (the geometry's part only when MG.gen changed or a row has become dotted or clipped)
- * and uploads it: returns this object, with tb (the rows by tier, plain first), wb (the webs by tier) and the vertex arrays stripVAO, webVAO.
+ * The geometry part of the stage's data for one geometry bundle B (veins-gl.js: the figure's own binning, or a morph set's; B.ent, B.jl, B.pts, B.gen): the rows' kinds and
+ * ends and the join instances (the webs), made ONE record B.s2, once per binning of B. A bundle's record is kept with it, so a set change swaps references and bins nothing;
+ * veins-gl.js calls this when it makes a morph set (a free moment) and createStage2Data.frame calls it for a bundle that has none. Whatever replaces the webs builds its
+ * records here and nowhere else. joinBase: the morph set's join rows (-1 for the figure's own).
+ */
+export function stage2Prepare(B, tubeNow, nTubes, joinBase) {
+  const st = B.s2 || (B.s2 = { gen: -1, entries: NO_JOINS, R: {}, W: {}, joinBase: -1, n: 0 });   // alloc-rare: once per bundle
+  if (st.gen === B.gen && st.R.rows) return st;
+  // (The entries a cell lists: the same entry is listed by every cell it reaches, so a swept set lists it tens of times; each once here, in first-listed order.)
+  const list = B.jl.view, n0 = B.jl.n || 0;
+  if (!st.seen || st.seen.length < B.ent.length / 8) st.seen = new Uint8Array(Math.ceil(B.ent.length / 8));   // alloc-rare: a new binning only
+  else st.seen.fill(0);
+  if (!st.uniq || st.uniq.length < n0) st.uniq = new Int32Array(n0);   // alloc-rare: grown with the joins
+  let n = 0;
+  for (let k = 0; k < n0; k++) { const e = list[k]; if (!st.seen[e]) { st.seen[e] = 1; st.uniq[n++] = e; } }
+  st.entries = new Float32Array(n * 8);   // alloc-rare: a new binning only, sized by its joins
+  joinEntriesInto(B.ent, st.uniq, n, joinBase, st.entries);
+  webInstances(st.entries, tubeNow, B.pts.pts, st.W);
+  tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts);
+  st.gen = B.gen; st.joinBase = joinBase; st.n = n;
+  return st;
+}
+
+/**
+ * The stage's GL objects for one renderer: MG is veins-gl.js's kept state (tubeVB, tubeIB: the strip's vertices; B = MG.B, the geometry bundle in use, or MG itself where
+ * there is none).
+ * frame(G, tubeNow, nTubes, joinBase) bins what a frame draws (the geometry's part only when the bundle has none yet, see stage2Prepare; a row that has become dotted or
+ * clipped is read again) and uploads the frame's buckets (the rows and webs of each tier, in the order the live tiers give): returns this object, with tb (the rows by
+ * tier, plain first), wb (the webs by tier) and the vertex arrays stripVAO, webVAO. A second call in a frame with nothing changed (MG.tv, the tube rows' stamp; the same
+ * bundle and binning) bins, buckets and uploads nothing.
  */
 export function createStage2Data(gl, MG) {
   const D = { tb: {}, wb: {}, stripVAO: null, webVAO: null, rowBuf: null, webBuf: null, webIndexN: 0, rowCap: 0, webCap: 0, binnings: 0 };
-  let gen = -1, entries = NO_JOINS;
-  const R = {}, CHK = {}, W = {}, extra = [];   // alloc-rare: made once; their arrays grow with the binning
+  const CHK = {}, extra = [];   // alloc-rare: made once; their arrays grow with the binning
+  let lastB = null, lastGen = -1, lastTv = -1, lastJ = -2;
   function make() {
     const T = webIndex();
     D.webIndexN = T.nIndex;
@@ -207,34 +234,29 @@ export function createStage2Data(gl, MG) {
     for (let a = 1; a <= 3; a++) { gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a, 4, gl.FLOAT, false, WEB_FLOATS * 4, (a - 1) * 16); gl.vertexAttribDivisor(a, 1); }
     gl.bindVertexArray(null);
   }
-  // A binning's part: the rows' kinds and ends, the webs.
-  function bin(G, tubeNow, nTubes, joinBase) {
-    const n = MG.jl.n || 0;
-    entries = new Float32Array(n * 8);   // alloc-rare: a new binning only (a geometry upload), sized by its joins
-    joinEntriesInto(MG.ent, MG.jl.view, n, joinBase, entries);
-    webInstances(entries, tubeNow, G.pts.pts, W);
-    tubeRows(tubeNow, nTubes, entries, R, G.pts.pts);
-    D.binnings++;
-  }
   // True when a row has become dotted or clipped since the kinds were read (an exact row stays exact until the next binning: only slower).
-  function stale(tubeNow, nTubes) {
+  function stale(st, tubeNow, nTubes) {
     tubeRows(tubeNow, nTubes, NO_JOINS, CHK, null);
-    const a = CHK.rows, b = R.rows;
+    const a = CHK.rows, b = st.R.rows;
     for (let r = 0; r < nTubes; r++) if (a[r * TUBE_ROW_FLOATS + 3] > NO_END && !(b[r * TUBE_ROW_FLOATS + 3] > NO_END)) return true;
     return false;
   }
   D.frame = (G, tubeNow, nTubes, joinBase) => {
     if (!D.stripVAO) make();
-    if (gen !== MG.gen || !R.rows) { gen = MG.gen; bin(G, tubeNow, nTubes, joinBase); }
-    else if (stale(tubeNow, nTubes)) tubeRows(tubeNow, nTubes, entries, R, G.pts.pts);
-    tubeBuckets(tubeNow, G.pts.on, nTubes, R.rows, D.tb);
-    websByTier(W.data, W.count, tubeNow, D.wb, G.pts.on);
+    const B = MG.B || MG, tv = MG.tv;
+    if (tv !== undefined && B === lastB && B.gen === lastGen && tv === lastTv && joinBase === lastJ && B.s2 && B.s2.gen === B.gen) return D;   // (nothing changed since the last call)
+    let st = B.s2;
+    if (!st || st.gen !== B.gen || !st.R.rows) { st = stage2Prepare(B, tubeNow, nTubes, joinBase); D.binnings++; }
+    else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts);
+    tubeBuckets(tubeNow, B.pts.on, nTubes, st.R.rows, D.tb);
+    websByTier(st.W.data, st.W.count, tubeNow, D.wb, B.pts.on);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);
     if (D.rowCap < D.tb.rows.length) { D.rowCap = D.tb.rows.length; gl.bufferData(gl.ARRAY_BUFFER, D.rowCap * 4, gl.DYNAMIC_DRAW); }
     if (D.tb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, D.tb.rows, 0, D.tb.n * TUBE_ROW_FLOATS);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.webBuf);
     if (D.webCap < D.wb.data.length) { D.webCap = D.wb.data.length; gl.bufferData(gl.ARRAY_BUFFER, D.webCap * 4, gl.DYNAMIC_DRAW); }
     if (D.wb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, D.wb.data, 0, D.wb.n * WEB_FLOATS);
+    lastB = B; lastGen = B.gen; lastTv = tv; lastJ = joinBase;
     return D;
   };
   D.dispose = () => {

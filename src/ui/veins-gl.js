@@ -57,7 +57,7 @@ import { STRIP_VS_GLSL, stripIndex, PATCH_QUAD } from './veins-mesh.js';
 import { tubeIndex, tubeStripVS } from './tube-geo.js';
 import { celGLSL } from './tube-cel-glsl.js';
 import { createTubePass } from './tube-pass.js';
-import { stage2Start, stage2Finish, STAGE2_PROGRAMS, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget } from './tube-stage2.js';
+import { stage2Start, stage2Finish, STAGE2_PROGRAMS, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, tubeStage, stage2Prepare } from './tube-stage2.js';
 import { STYLE_P } from './blood-particles.js';
 import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGroups, PG_W, PG_M } from './veins-mesh-data.js';
 import { createBloodTile, STYLE_D, STYLE_E } from './blood-tile.js';
@@ -2988,6 +2988,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (meshPick === vesselMesh() && tubePick === vesselTube()) return;
     meshPick = vesselMesh(); tubePick = vesselTube(); fboOK = false;
     if (tubePick) startLobuleTube();
+    queuePrep();   // (the morph sets are made again for the renderer now chosen)
     // (Both off, the layer's framebuffer gives its depth and stencil back: the classic passes would carry them through each of theirs.)
     if (!meshPick && !tubePick && meshStOn) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
@@ -2995,11 +2996,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
   };
-  const MG = { ent: null, morph: null, dirty: true, pts: {}, jl: {}, patch: {}, tb: {}, pb: {}, tex: null, pj: null, texRows: 0,
+  const MG = { ent: null, morph: null, B: null, tv: 0, patchOk: false, pts: {}, jl: {}, patch: {}, tb: {}, pb: {}, tex: null, pj: null, texRows: 0,
     stripVAO: null, patchVAO: null, layVAO: null, rowBuf: null, patchBuf: null, rowCap: 0, patchCap: 0, nIndex: 0,
     tubeVAO: null, tubeVB: null, tubeIB: null, tubeIndexN: 0,
     w: 0, h: 0, ok: false, scrN: null, scrT: null, sw: 0, sh: 0, kP: 0, ref: 0,
-    passes: 0, strips: 0, patches: 0, plain: 0, webs: 0, lumStrips: 0, lumWebs: 0, gen: 0, stage2: null };   // alloc-rare: made once per renderer
+    passes: 0, strips: 0, patches: 0, plain: 0, webs: 0, lumStrips: 0, lumWebs: 0, stage2: null };   // alloc-rare: made once per renderer
   const MESH_TWO = [null, null], MESH_DS = [gl.DEPTH_STENCIL_ATTACHMENT];   // (the mesh programs a pass sets up, kept)
   const ONE1 = new Float32Array([1]), ONE8 = new Float32Array(8), ZERO1I = new Int32Array([0]);
   const MESH_GLOW_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.COLOR_ATTACHMENT3], MESH_COLOR_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.NONE];
@@ -3019,26 +3020,66 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (MG.ok === null) return false;   // (its targets could not be made: meshWhy says why)
     return true;
   };
-  // The mesh's own data for the binning in use: each row's points (a texture, the figure's own binning; between the views the morph set's
-  // frame rows), the rows that have any, and the joins' patches. Made again when the binning is.
-  function meshGeo() {
-    if (!MG.dirty && MG.ent === entCPU && MG.morph === geo.morph) return MG;
-    pointsFromEntries(entCPU, cellsCPU, nCells, nTubes, MG.pts);
-    const list = joinEntryList(cellsCPU, nCells, MG.jl);
-    patchGroups(entCPU, list, MG.patch, geo.morph ? geo.morph.joinBase : -1);
-    // (The patches' join entries, a texel row each: A, B.)
-    if (!MG.pj) MG.pj = dataTex(gl);
-    gl.bindTexture(gl.TEXTURE_2D, MG.pj);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 2, Math.max(1, MG.patch.j.length / 8), 0, gl.RGBA, gl.FLOAT, MG.patch.j.length ? MG.patch.j : ONE8, 0);
-    if (!geo.morph) {
+  // The geometry renderers' data for a binning, a geometry BUNDLE B: each row's points (the figure's own binning also as a texture; between the views the morph set's
+  // frame rows), the rows that have any, the joins' list, the joins' patches (only where a renderer draws them) and the Tube's stage 2 record (B.s2, tube-stage2.js
+  // stage2Prepare). The figure's own binning has one bundle (mainB, made again when it is: B.dirty); each morph set keeps its own (S.derived), made when the set is
+  // (prepareSet), so a set change inside the switch swaps references and builds nothing. MG's fields point into the bundle in use.
+  const newBundle = () => ({ ent: null, morph: null, dirty: true, gen: 0, pts: {}, jl: {}, patch: {}, pj: null, patchOk: false, s2: null });   // alloc-rare: one a binning kind
+  const mainB = newBundle();
+  // Whether the Tube joins its vessels with webs (stage 2 or 3, no ?tubejoin=patch): then no patch is built or uploaded.
+  let wjA = null, wjB = null, wjV = false;
+  const webJoins = () => {
+    if (!tubePick) return false;
+    if (tube2 !== wjA || tube3 !== wjB) { wjA = tube2; wjB = tube3; wjV = tubeStage(tube2, undefined, !!tube3).joins === 'web'; }
+    return wjV;
+  };
+  const patchesWanted = () => !webJoins();
+  const deriveBundle = (B, ent, cells, n, morph) => {
+    pointsFromEntries(ent, cells, n, nTubes, B.pts);
+    joinEntryList(cells, n, B.jl);
+    B.ent = ent; B.morph = morph; B.dirty = false; B.gen++; B.patchOk = false; B.s2 = null;
+    if (!morph) {
       if (!MG.tex) MG.tex = dataTex(gl);
       gl.bindTexture(gl.TEXTURE_2D, MG.tex);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, MG.pts.rows, 0, gl.RGBA, gl.FLOAT, MG.pts.pts, 0);
-      if (gpuProbe.on) gpuProbe.note('uploaded: mesh points', MG.pts.rows * ENT_W * 16 / 1024);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, ENT_W, B.pts.rows, 0, gl.RGBA, gl.FLOAT, B.pts.pts, 0);
+      if (gpuProbe.on) gpuProbe.note('uploaded: mesh points', B.pts.rows * ENT_W * 16 / 1024);
     }
-    MG.ent = entCPU; MG.morph = geo.morph; MG.dirty = false; MG.gen++;
+  };
+  // (The patches' join entries, a texel row each: A, B.)
+  const deriveJoinPatches = (B) => {
+    patchGroups(B.ent, B.jl.view, B.patch, B.morph ? B.morph.joinBase : -1);
+    if (!B.pj) B.pj = dataTex(gl);
+    gl.bindTexture(gl.TEXTURE_2D, B.pj);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 2, Math.max(1, B.patch.j.length / 8), 0, gl.RGBA, gl.FLOAT, B.patch.j.length ? B.patch.j : ONE8, 0);
+    B.patchOk = true;
+  };
+  function meshGeo() {
+    const B = geoCur ? (geoCur.derived ||= newBundle()) : mainB;
+    if (MG.B === B && B.ent === entCPU && !B.dirty && (B.patchOk || !patchesWanted())) return MG;
+    if (B.dirty || B.ent !== entCPU) deriveBundle(B, entCPU, cellsCPU, nCells, geo.morph);
+    if (!B.patchOk && patchesWanted()) deriveJoinPatches(B);
+    MG.B = B; MG.ent = B.ent; MG.morph = B.morph; MG.pts = B.pts; MG.jl = B.jl; MG.patch = B.patch; MG.pj = B.pj; MG.patchOk = B.patchOk;
     return MG;
   }
+  // A morph set's bundle, made (or made again after the Tube's joins mode changed) away from the switch's frames: the set need not be the one in use.
+  const prepKey = () => (tubePick ? (webJoins() ? 'web' : 'patch') : meshPick ? 'mesh' : '');
+  function prepareSet(S) {
+    if (lost || !S.entCPU) return;
+    S.prepKey = prepKey();
+    if (!S.prepKey) return;
+    const B = (S.derived ||= newBundle());
+    if (B.ent !== S.entCPU) deriveBundle(B, S.entCPU, S.cellsCPU, S.nCells, S.morph);
+    if (patchesWanted() && !B.patchOk) deriveJoinPatches(B);
+    if (webJoins()) stage2Prepare(B, tubeNow, nTubes, S.morph.joinBase);
+  }
+  // The sets made under another mode than the one now are made again, one a free moment, never while a set is in use.
+  const prepTask = { done: () => true, run() {
+    if (geoCur) { freeTasks.push(prepTask); return; }
+    const key = prepKey();
+    for (const S of morphSets) if (S.prepKey !== key) { prepareSet(S); break; }
+    for (const S of morphSets) if (S.prepKey !== key) { freeTasks.push(prepTask); break; }
+  } };
+  const queuePrep = () => { if (morphSets.size && !freeTasks.includes(prepTask)) freeTasks.push(prepTask); };
   // The mesh's buffers (made once) and targets (the layer's size): the prepass's depth (read back as a texture), the stencil that lets one
   // fragment draw a pixel once, and the scratch layers (made when first needed).
   function meshTargets() {
@@ -3985,8 +4026,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       else if (k === 'fused') { finishFuse(); if (fuseGen) warm('fused'); }
       else if (k === 'mesh') { finishMesh(); if (meshL) fboOK = false; }
       else if (k === 'tube') { finishTube(); if (tubePt) fboOK = false; }
-      else if (k === 'tube2') { finishTube2(); if (tube2) fboOK = false; }
-      else if (k === 'tube3') { finishTube3(); if (tube3) fboOK = false; }
+      else if (k === 'tube2') { finishTube2(); if (tube2) { fboOK = false; queuePrep(); } }
+      else if (k === 'tube3') { finishTube3(); if (tube3) { fboOK = false; queuePrep(); } }
       else { finishSimple(); if (simpleP) { warm('simple'); uploadCells(); fboOK = false; } }
     }
     if (!later.length) freeShaders();
@@ -4041,6 +4082,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (geoCur === S) useMorphSet(null);
     if (!morphSets.delete(S) || lost) return;
     gl.deleteTexture(S.entTex);
+    if (S.derived?.pj) gl.deleteTexture(S.derived.pj);
+    if (MG.B === S.derived) MG.B = null;
     for (const b of [S.cellBuf, S.simpleBuf, S.bloodBuf]) gl.deleteBuffer(b);
     for (const v of [S.vao, S.oneVAO, S.bloodVAO]) gl.deleteVertexArray(v);
   }
@@ -4079,6 +4122,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       uploadCells();
       uploadBlood(bins);
       useMorphSet(was);
+      prepareSet(S);   // (its geometry data and the Tube's stage 2 record, here at the free moment, not in the change's frames)
       return S;
     },
     /** Draws from a morph set (null: the figure's own binning again). */
@@ -4107,7 +4151,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       uploadCells();
       uploadBlood(bins);
       cellsCPU = bins.cells; entCPU = bins.ent; rowCells = null; fboOK = false; movedAll = true; patchMark = null; patchK = 0;
-      MG.dirty = true;
+      mainB.dirty = true;
     },
     /**
      * Uploads a binning patched in place (binVeins' `patch`: the spans of rows [r0, r1] of the entries that changed; the
@@ -4124,7 +4168,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // drawn again whole with them (patchMark), and the joins' members as moved (the blood's own pass). A coiling collateral had made
       // every frame of its coil a whole redraw of the vessel layer: with no join (a01bbff9), and then with its joins too, which ease
       // with the widths (his Mac readouts on the catheter slide, 30 Oct: every frame "no kept layer").
-      MG.dirty = true;
+      mainB.dirty = true;
       if (bins.patchTubes && bins.cells === cellsCPU && bins.ent === entCPU) {
         for (const r of bins.patchTubes) { radRows.add(r); moved[r] = 1; }
         // (Cells whose lists were written in place, a vessel having left or entered them (binVeins relay): drawn again whole, their
@@ -4200,7 +4244,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       figVer++;
       tubesNew = true;
       markRows(data, tubeNow, ROW_W);
-      tubeNow.set(data.length > tubeNow.length ? data.subarray(0, tubeNow.length) : data);
+      tubeNow.set(data.length > tubeNow.length ? data.subarray(0, tubeNow.length) : data); MG.tv++;   // (the stamp the Tube's stage 2 reads: nothing is bucketed or uploaded again while it stands)
       gl.bindTexture(gl.TEXTURE_2D, tubeTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TUBE_TEXELS, nTubes, gl.RGBA, gl.FLOAT, data);
     },
@@ -5240,7 +5284,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const v of [vao, oneVAO, bloodVAO, halfSet.va, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
         for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP, meshS, meshPt, meshL, tubeS, tubePt]) if (x) gl.deleteProgram(x.p);
-        for (const t of [MG.tex, MG.pj, MG.scrN, MG.scrT]) if (t) gl.deleteTexture(t);
+        for (const t of [MG.tex, mainB.pj, MG.scrN, MG.scrT, ...[...morphSets].map((S) => S.derived?.pj)]) if (t) gl.deleteTexture(t);
         if (meshSt) gl.deleteRenderbuffer(meshSt);
         MG.stage2?.dispose(); lumTarget?.dispose();
         for (const v of [MG.stripVAO, MG.patchVAO, MG.layVAO, MG.tubeVAO]) if (v) gl.deleteVertexArray(v);

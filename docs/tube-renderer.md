@@ -202,6 +202,30 @@ pass over the same geometry on every blood frame; its cost is the `lumen layer` 
 draw buffers, nothing of stage 3 in stages 1 and 2), and `scripts/rules-lint.mjs` (in stage 3 the compositor program is a Tube build and the lumen pass runs before it on every blood frame; in stages 1 and 2 nothing of
 stage 3 runs). The compile check lists all six programs (and the heads build, linked with its own vertex shader): 23 programs ok.
 
+## The Anatomy to Circuit switch (10 Nov 2026)
+
+**What was slow.** The change between the views runs through morph sets (veins-sweep.js, six stretches made ahead). Each set change inside the change made `meshGeo()` derive the set's
+data in that frame (points, the join list, the patch groups and the patch texture), and the Tube's stage 2 `bin()` then binned the rows and webs again (a swept set lists 19k to 59k join
+entries, 7k at rest). Measured in node with the stage trace (real JS on the do-nothing GL; the sweep worker run on the same thread so the stretches are ready): 7 set changes a switch,
+each about 30 ms in `meshGeo` and about 135 ms in the binning (210 to 240 ms and 930 to 1050 ms a switch); the frames that held them cost 250 to 450 ms against about 25. No program is
+compiled or linked during the switch (0 calls in either direction).
+
+**What it is now.** The geometry renderers' derived data is a *bundle* (`newBundle` in veins-gl.js), one for the figure's own binning (`mainB`, made again when `dirty`) and one for each
+morph set (`S.derived`), made by `prepareSet(S)` in `makeMorphSet`, at the free moment the set is made. A bundle holds `pts`, `jl`, `patch` and `pj` (the patch texture), and `s2`, the
+Tube's stage 2 record: **one opaque record** made by one call, `stage2Prepare(B, tubeNow, nTubes, joinBase)` in tube-stage2.js (the rows' kinds and ends, the join instances and
+whatever replaces them). `meshGeo()` only swaps `MG.pts / jl / patch / pj / B` to the bundle in use; a set change builds and uploads nothing (the node trace: 6 swaps at 0 ms, and
+only the final return to the figure's own binning derives, about 2 ms and 15 to 35 ms for the record). The frame's buckets (`D.tb`, `D.wb`) and their two small buffers stay per renderer:
+they are the live tiers' order, a few KB, and are rebuilt only when the bundle, its binning or the tube rows' stamp (`MG.tv`, bumped by `setTubes`) changed, so the layer pass, the
+lumen pass and each piece of a frame share one bucketing and one upload.
+
+- **Patches only where drawn.** `patchGroups` and the `pj` upload run only while `patchesWanted()` (Mesh, or the Tube without web joins: stage 1, `?tube=1`, `?tubejoin=patch`). With web
+  joins neither is built for any bundle. If the mode changes (a stage 2 or 3 program finishes, the renderer is switched, the query is fixed per page) `queuePrep()` makes the sets
+  again, one per free moment and never while a set is in use (`prepKey` on each set: `web`, `patch`, `mesh`); a bundle that still lacks something is made in its first frame, as before.
+- **Entries listed once.** A cell lists every join entry it reaches, so a swept set lists the same entry tens of times. `stage2Prepare` reads each entry index once, in first-listed order
+  (the result is the same: repeats were skipped by the readers).
+- **Whatever replaces the webs** builds its records in `stage2Prepare` (or the call that replaces it) and nowhere else; nothing in the bundle or the set names webs. Its budget is the numbers
+  above: it runs once per morph set (6 a switch) and once for the figure's own binning, over up to about 59k listed entries (a few hundred distinct), and must finish in a free moment.
+
 ## Known differences from the plan's list and from Mesh
 
 - No contact shadow; no crossing ring. Same-tier crossings without a join merge (as the Mesh shows them with its ring off).

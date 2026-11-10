@@ -190,6 +190,19 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if ((tp.match(/patchCall\(/g) || []).length !== 3) errors.push('src/ui/tube-pass.js: patchCall is called from tubeDraw (stage 1 and the glows) and draw2 (the else of webs) only, and defined once');
     if (/tubeStrip|tubePatch/.test(slice(vg, 'const finishTube2 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube2: finishes the four stage 2 programs only');
   }
+  // The geometry bundle per binning (10 Nov 2026, the Anatomy to Circuit switch): a morph set's derived data (points, join list, patches, the Tube's stage 2 record) is made when the set is
+  // (prepareSet from makeMorphSet, a free moment), never inside meshGeo for a set that has it, and the patches only where a renderer draws them (not for the Tube's web joins).
+  {
+    const vg = text('src/ui/veins-gl.js'), ts = text('src/ui/tube-stage2.js');
+    const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
+    if (!/useMorphSet\(was\);\n\s+prepareSet\(S\);/.test(slice(vg, '    makeMorphSet(bins) {', '    /** Draws from a morph set'))) errors.push('src/ui/veins-gl.js makeMorphSet: ends with prepareSet(S) (the set\'s geometry data is made with the set, not in the change\'s frames)');
+    const meshGeoBody = slice(vg, '  function meshGeo() {', '  // A morph set\'s bundle, made');
+    if (/pointsFromEntries\(|joinEntryList\(|patchGroups\(|stage2Prepare\(/.test(meshGeoBody) || !/deriveBundle\(B, entCPU/.test(meshGeoBody)) errors.push('src/ui/veins-gl.js meshGeo: derives through deriveBundle / deriveJoinPatches only, for the bundle in use');
+    if ((vg.match(/patchGroups\(/g) || []).length !== 1 || (vg.match(/deriveJoinPatches\(B\)/g) || []).length !== 2) errors.push('src/ui/veins-gl.js: patchGroups is called once, in deriveJoinPatches (plus its import), and deriveJoinPatches is defined once and called from meshGeo and prepareSet only');
+    if (!/if \(!B\.patchOk && patchesWanted\(\)\) deriveJoinPatches\(B\);/.test(meshGeoBody) || !/if \(patchesWanted\(\) && !B\.patchOk\) deriveJoinPatches\(B\);/.test(slice(vg, '  function prepareSet(S) {', '  // The sets made under another mode'))) errors.push('src/ui/veins-gl.js: the joins\' patches are built only where patchesWanted() (not for the Tube\'s web joins)');
+    if (!/if \(webJoins\(\)\) stage2Prepare\(B, tubeNow, nTubes, S\.morph\.joinBase\);/.test(vg) || (vg.match(/stage2Prepare\(/g) || []).length !== 1) errors.push('src/ui/veins-gl.js: the Tube\'s stage 2 record of a morph set is made by prepareSet, for web joins only (stage2Prepare is called there alone)');
+    if (!/if \(!st \|\| st\.gen !== B\.gen \|\| !st\.R\.rows\) \{ st = stage2Prepare\(/.test(ts)) errors.push('src/ui/tube-stage2.js frame: bins only through stage2Prepare, and only for a bundle with no current record');
+  }
   // The Tube's stage 3 (brief S3-D, 10 Nov 2026): the lumen layer. In stage 3 the compositor program is a Tube build and the lumen pass runs before it on every blood frame;
   // in stages 1 and 2 nothing of stage 3 runs (the old builds, the second flow target and the half-size streaks are as they were); a failed stage 3 program leaves stage 2.
   {

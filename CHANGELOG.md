@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **The Anatomy to Circuit switch no longer hitches in Tube.** (Mohammad, 10 Nov 2026: laggy in Tube, everything else smooth.)
+  Each change of geometry set inside the switch made the renderer derive the set's points, join list, patch groups and patch texture in that frame, and the Tube bin its rows and webs again (about 165 ms a set change in node, seven a switch). The data is now kept per geometry set, made when the set is (a free moment), and a set change swaps references; patches are not built where the joins are webs; the repeated join entries a swept set lists are read once; and the layer pass and the lumen pass share one bucketing and upload. See `docs/tube-renderer.md` "The Anatomy to Circuit switch".
 - **Tube stage 3: the blood, the dye and the origin tint are drawn by the tubes into a lumen layer the compositor reads.** (Mohammad, 10 Nov 2026: finish the whole Tube renderer.)
   When the six stage 3 programs (`tubeLumen`, `tubeWebLumen` and the compositor's Tube builds) are ready and stage 2 is drawing webs, the Tube draws a lumen layer on every frame that shows blood (all tiers' depth prepasses, then all tiers' lumens, through the vessel layer's own pieces), and the compositor reads it in place of its lumen section: no second flow target is written, no half-size streak pass runs. `?tube=2` keeps stage 2, `?tube=1` stage 1; a stage 3 program that fails leaves stage 2. `?perf` shows `tube 3: ..., lumen pass N strips N webs` and the pass as its own `lumen layer` row. See `docs/tube-renderer.md` "Stage 3" (and its known differences).
 - **Tube stage 2: lean strips, a depth-only prepass and joins made of webs.** (Mohammad, 10 Nov 2026: finish the whole Tube renderer.)
