@@ -19,6 +19,13 @@ export const STAGE2_PROGRAMS = ['tubeLean', 'tubeDepth', 'tubeWeb', 'tubeWebDept
 export const TUBE_QUERY = typeof location !== 'undefined' ? location.search || '' : '';
 const ONE_Q = /[?&]tube=1(?=[&#]|$)/, PATCH_Q = /[?&]tubejoin=patch(?=[&#]|$)/;
 
+const CUT_Q = /[?&]tubejoin=cut(?=[&#]|$)/;
+/**
+ * Whether the Tube's fragment shaders do the join-end work (tube-join-glsl.js: a row's end cut at its trunk and blended into its look). Off by default in every
+ * instance (10 Nov 2026, the planner: it cost the figure and the lobule most of their frame rate); `?tubejoin=cut` turns it on, to see the look on a device.
+ */
+export const tubeJoinCut = (query = TUBE_QUERY) => CUT_Q.test(query);
+
 // (The four answers, kept: the choice is read each frame and makes nothing.)
 const STAGE_1 = { stage: 1, joins: 'patch' }, STAGE_2_WEB = { stage: 2, joins: 'web' }, STAGE_2_PATCH = { stage: 2, joins: 'patch' }, STAGE_3 = { stage: 3, joins: 'web' };
 const TWO_Q = /[?&]tube=2(?=[&#]|$)/;
@@ -217,7 +224,7 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase) {
   st.entries = new Float32Array(n * 8);   // alloc-rare: a new binning only, sized by its joins
   joinEntriesInto(B.ent, st.uniq, n, joinBase, st.entries);
   webInstances(st.entries, tubeNow, B.pts.pts, st.W);
-  tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts);
+  tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
   st.gen = B.gen; st.joinBase = joinBase; st.n = n;
   return st;
 }
@@ -269,7 +276,7 @@ export function createStage2Data(gl, MG) {
     if (tv !== undefined && B === lastB && B.gen === lastGen && tv === lastTv && joinBase === lastJ && B.s2 && B.s2.gen === B.gen) return D;   // (nothing changed since the last call)
     let st = B.s2;
     if (!st || st.gen !== B.gen || !st.R.rows) { st = stage2Prepare(B, tubeNow, nTubes, joinBase); D.binnings++; }
-    else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.pts.pts);
+    else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
     tubeBuckets(tubeNow, B.pts.on, nTubes, st.R.rows, D.tb);
     websByTier(st.W.data, st.W.count, tubeNow, D.wb, B.pts.on);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);

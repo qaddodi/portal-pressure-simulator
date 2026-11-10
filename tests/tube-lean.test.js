@@ -70,7 +70,8 @@ test('every uniform it declares is declared with the same type in the Tube strip
   assert.ok(lean.size > 25, 'the uniforms were found');
   // (isWeb is new: 0 for the strips, 1 for the web program, which D sets; the strip build has no such thing.)
   assert.equal(lean.get('isWeb'), 'int');
-  for (const [name, type] of lean) if (name !== 'isWeb') assert.equal(strip.get(name), type, `${name}: ${type} (the strip build has ${strip.get(name)})`);
+  assert.equal(lean.get('joinCut'), 'int');   // (joinCut too: 0 for the lobule, 1 for the figure; set by tube-pass.js setProgram)
+  for (const [name, type] of lean) if (name !== 'isWeb' && name !== 'joinCut') assert.equal(strip.get(name), type, `${name}: ${type} (the strip build has ${strip.get(name)})`);
   // (The shared text it takes in whole is the strip's: the alongAt text and the constants are the strip build's.)
   assert.ok(STRIP.includes(ALONG_GLSL), 'the alongAt text matches veins-gl.js');
   assert.ok(STRIP.includes('const float S_OFF = 96.0;') && STRIP.includes('const float LAST = 63.0;'));

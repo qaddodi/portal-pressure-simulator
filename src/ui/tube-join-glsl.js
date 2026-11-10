@@ -35,6 +35,7 @@ export const tubeJoinGLSL = (N_SAMPLES) => {
   if (N_SAMPLES !== END_BASE) throw new Error('tube-join-glsl: vEnd packs a row as row * 64 + sample, so N_SAMPLES must be 64');
   const LAST = N_SAMPLES - 1;
   return `// ---- a row's end on another row (tube-join-glsl.js) ----
+uniform int joinCut;   // 0: none of this runs (the lobule: a row's ends carry no trunk; 1 the figure)
 // How far p lies inside (negative) or outside the trunk's lumen the row ends on: the distance to its centreline over the ${END_SEGS * 2} segments about its sample,
 // less its radius there. e: trunk row * ${END_BASE} + sample.
 float trunkGap(vec2 p, int e) {
@@ -53,6 +54,7 @@ struct JoinEnd { bool drop; float w; int row; float u; };   // drop: the pixel i
 JoinEnd joinEnd(int id, float vI, vec2 vEnd, vec2 p, float R, float px) {
   JoinEnd j;
   j.drop = false; j.w = 0.0; j.row = 0; j.u = 0.0;
+  if (joinCut == 0) return j;
   float e = vI < ${JOIN_WIN}.0 ? vEnd.x : vI > ${LAST - JOIN_WIN}.0 ? vEnd.y : -1.0;
   if (e > -0.5) {
     int ei = int(e + 0.5);

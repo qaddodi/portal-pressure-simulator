@@ -240,6 +240,8 @@ lumen pass and each piece of a frame share one bucketing and one upload.
 
 ## Seamless joins at a row's end (10 Nov 2026, after Mohammad's device shots of 138d637)
 
+**OFF by default (10 Nov 2026, 05:56, the planner):** e5eccf7's per-fragment join-end work cost the figure and the lobule most of their frame rate (19 fps). `uniform int joinCut` is 0 in every instance unless the address has `?tubejoin=cut` (`tubeJoinCut()` in tube-stage2.js; tube-pass.js `setProgram` feeds it): with 0 `joinEnd` returns at once (no trunkGap, no bisector math, no second vesAttrs) and `tubeRows` is given no points, so no row is exact for an end. The look comes back by default when the ends are worked out once per vertex (step 2).
+
 Two faults the webs could not fix: (1) a branch's round end (its lumen, not only its outline) lay inside the trunk it ends on, so where the trunk is faded (a tier
 alpha, the organ veil: the cava behind the liver) and the branch opaque, the end showed through as a capsule; (2) two rows meeting end to end drew a round cap each
 over the other, a ring wherever their opacities differ. `src/ui/tube-join-glsl.js` is the one GLSL text both fragment shaders (`tubeLeanFS`, `tubeLumenFS`) include

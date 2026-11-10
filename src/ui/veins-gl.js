@@ -57,7 +57,7 @@ import { STRIP_VS_GLSL, stripIndex, PATCH_QUAD } from './veins-mesh.js';
 import { tubeIndex, tubeStripVS } from './tube-geo.js';
 import { celGLSL } from './tube-cel-glsl.js';
 import { createTubePass } from './tube-pass.js';
-import { stage2Start, stage2Finish, STAGE2_PROGRAMS, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, createDepthStamp, tubeStage, stage2Prepare } from './tube-stage2.js';
+import { stage2Start, stage2Finish, STAGE2_PROGRAMS, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, createDepthStamp, tubeStage, tubeJoinCut, stage2Prepare } from './tube-stage2.js';
 import { STYLE_P } from './blood-particles.js';
 import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGroups, PG_W, PG_M } from './veins-mesh-data.js';
 import { createBloodTile, STYLE_D, STYLE_E } from './blood-tile.js';
@@ -2999,7 +2999,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
   };
-  const MG = { ent: null, morph: null, B: null, tv: 0, patchOk: false, pts: {}, jl: {}, patch: {}, tb: {}, pb: {}, tex: null, pj: null, texRows: 0,
+  const MG = { noEnds: !tubeJoinCut(), ent: null, morph: null, B: null, tv: 0, patchOk: false, pts: {}, jl: {}, patch: {}, tb: {}, pb: {}, tex: null, pj: null, texRows: 0,
     stripVAO: null, patchVAO: null, layVAO: null, rowBuf: null, patchBuf: null, rowCap: 0, patchCap: 0, nIndex: 0,
     tubeVAO: null, tubeVB: null, tubeIB: null, tubeIndexN: 0,
     w: 0, h: 0, ok: false, scrN: null, scrT: null, sw: 0, sh: 0, kP: 0, ref: 0,
@@ -3027,7 +3027,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // frame rows), the rows that have any, the joins' list, the joins' patches (only where a renderer draws them) and the Tube's stage 2 record (B.s2, tube-stage2.js
   // stage2Prepare). The figure's own binning has one bundle (mainB, made again when it is: B.dirty); each morph set keeps its own (S.derived), made when the set is
   // (prepareSet), so a set change inside the switch swaps references and builds nothing. MG's fields point into the bundle in use.
-  const newBundle = () => ({ ent: null, morph: null, dirty: true, gen: 0, pts: {}, jl: {}, patch: {}, pj: null, patchOk: false, s2: null });   // alloc-rare: one a binning kind
+  const newBundle = () => ({ ent: null, morph: null, dirty: true, gen: 0, pts: {}, jl: {}, patch: {}, pj: null, patchOk: false, s2: null, noEnds: !tubeJoinCut() });   // alloc-rare: one a binning kind (noEnds: its rows carry no join ends unless ?tubejoin=cut, tube-join-glsl.js)
   const mainB = newBundle();
   // Whether the Tube joins its vessels with webs (stage 2 or 3, no ?tubejoin=patch): then no patch is built or uploaded.
   let wjA = null, wjB = null, wjV = false;
