@@ -286,7 +286,7 @@ each about 30 ms in `meshGeo` and about 135 ms in the binning (210 to 240 ms and
 compiled or linked during the switch (0 calls in either direction).
 
 **What it is now.** The geometry renderers' derived data is a *bundle* (`newBundle` in veins-gl.js), one for the figure's own binning (`mainB`, made again when `dirty`) and one for each
-morph set (`S.derived`), made by `prepareSet(S)` in `makeMorphSet`, at the free moment the set is made. A bundle holds `pts`, `jl`, `patch` and `pj` (the patch texture), and `s2`, the
+morph set (`S.derived`), made by `prepareSet(S)` at the free moment after the set is made (with MS2: `api.prepareMorphSet(S)`; making a set puts `figVer`, `fboOK` and `movedAll` back, so it never causes a whole vessel redraw). A bundle holds `pts`, `jl`, `patch` and `pj` (the patch texture), and `s2`, the
 Tube's stage 2 record: **one opaque record** made by one call, `stage2Prepare(B, tubeNow, nTubes, joinBase)` in tube-stage2.js (the rows' kinds and ends, the join instances and
 whatever replaces them). `meshGeo()` only swaps `MG.pts / jl / patch / pj / B` to the bundle in use; a set change builds and uploads nothing (the node trace: 6 swaps at 0 ms, and
 only the final return to the figure's own binning derives, about 2 ms and 15 to 35 ms for the record). The frame's buckets (`D.tb`, `D.wb`) and their two small buffers stay per renderer:

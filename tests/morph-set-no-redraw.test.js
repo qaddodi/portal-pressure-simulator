@@ -1,0 +1,83 @@
+// Making a view-switch piece (makeMorphSet) draws nothing and leaves the set in use as it was, so the next frame is not a whole redraw of the vessel layer (10 Nov 2026, his
+// Mac: a 139 ms frame as the last piece was made); a real set change (useMorphSet) still is one. Run against the module with a stand-in GL.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+
+globalThis.ResizeObserver ??= class { observe() {} };
+globalThis.MutationObserver ??= class { observe() {} };
+globalThis.window ??= globalThis;
+globalThis.Element ??= class {};
+globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, addListener() {} });
+globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty() {} } }, addEventListener() {}, createElement: () => ({ getContext: () => ({}) }) };
+globalThis.addEventListener ??= () => {};
+globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
+const store = new Map();
+globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+
+function fakeGL() {
+  const enums = new Map();
+  let nextObj = 1;
+  return new Proxy({}, {
+    get(_, k) {
+      if (typeof k !== 'string') return undefined;
+      if (/^[A-Z0-9_]+$/.test(k)) { if (!enums.has(k)) enums.set(k, 0x10000 + enums.size); return enums.get(k); }
+      return (...a) => {
+        if (k === 'getShaderParameter') return true;
+        if (k === 'getProgramParameter') return a[1] === enums.get('ACTIVE_UNIFORMS') ? 0 : true;
+        if (k === 'getExtension') return null;
+        if (k === 'getParameter') return 'stand-in';
+        if (k === 'checkFramebufferStatus') return enums.get('FRAMEBUFFER_COMPLETE') ?? 0;
+        if (k.startsWith('create')) return { obj: nextObj++, kind: k };
+        return undefined;
+      };
+    },
+  });
+}
+const frame = await import('../src/ui/frame.js');
+const mod = await import('../src/ui/veins-gl.js');
+const { gpuProbe, COUNTED } = await import('../src/ui/gpu-probe.js');
+const { binSwept } = await import('../src/ui/veins-sweep.js');
+
+const line = (y) => Array.from({ length: mod.N_SAMPLES }, (_, i) => [40 + i * 10, y]);
+const swept = () => binSwept([{ id: 0, reach: 30, path: [line(100)] }, { id: 1, reach: 30, path: [line(300)] }], [{ path: [[[200, 100]]], reach: 20, k: 0.3, fillet: 1, members: [0, 1], trunk: 0 }], { rows: 2, samples: mod.N_SAMPLES });
+const M = [1, 0, 0, 1, 0, 0];
+const LOOK = { shOff: [0, 0], light: [0, -1], reach: 11, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierGroup: new Array(24).fill(0), tierAlpha: new Array(24).fill(1) };
+const BLOOD = { on: false };
+
+function figure(renderer) {
+  frame.setVesselRenderer(renderer);
+  const canvas = { width: 800, height: 600, getContext: () => fakeGL(), addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
+  const g = mod.createVeinsGL(canvas, { tubes: 2, force: true, who: 'lobule' });
+  g.setGeometry(mod.binVeins([{ id: 0, pts: line(100), reach: 30 }, { id: 1, pts: line(300), reach: 30 }], []));
+  return g;
+}
+// What the next draw does: 'whole' (the vessel layer drawn again whole) or 'kept' (the kept layer reused, shifted or left as it was).
+function drawKind(g) {
+  gpuProbe.on = true; gpuProbe.takeNotes();
+  g.draw(M, LOOK, BLOOD);
+  const n = gpuProbe.takeNotes();
+  gpuProbe.on = false;
+  return (n[COUNTED.whole]?.[0] || 0) > 0 ? 'whole' : 'kept';
+}
+const settle = (g) => { for (let i = 0; i < 4; i++) drawKind(g); return drawKind(g); };
+
+for (const renderer of ['mesh', 'tube']) {
+  test(`${renderer}: making a morph set leaves the next draw as it was (not a whole redraw); a real set change is one`, () => {
+    const g = figure(renderer);
+    assert.equal(settle(g), 'kept', 'at rest the kept layer is reused');
+    const S = g.makeMorphSet(swept());
+    assert.ok(S);
+    assert.equal(drawKind(g), 'kept', 'making a set: no whole redraw');
+    g.useMorphSet(S);
+    assert.equal(drawKind(g), 'whole', 'a real set change draws the layer again');
+    // A set made while another is in use: the one in use stays as it was.
+    settle(g);
+    const T = g.makeMorphSet(swept());
+    assert.equal(drawKind(g), 'kept', 'making a second set while one is in use');
+    g.useMorphSet(null);
+    assert.equal(drawKind(g), 'whole', 'and the change back is one');
+    g.dropMorphSet(S); g.dropMorphSet(T);
+    frame.setVesselRenderer('mesh');
+  });
+}
+

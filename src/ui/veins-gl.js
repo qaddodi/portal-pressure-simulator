@@ -4168,6 +4168,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     makeMorphSet(bins) {
       if (lost) return null;
       const was = geoCur;
+      // (Each swap below loads a geometry (geoLoad), which marks the vessel layer as changed so the next frame draws it whole. Making a set draws nothing and the
+      // set in use on entry is the one in use on exit, so what the layer shows is untouched: the three marks are put back after the swap back (10 Nov 2026,
+      // his Mac: a 139 ms frame as the last view-switch piece was made, every piece upload had made the next frame a whole redraw). The lumen layer's depth
+      // stamp and the Tube's stage 2 record are not touched by a swap: the stamp is staled by a draw of the layer only, the record belongs to a set's bundle.)
+      const keptVer = figVer, keptOK = fboOK, keptAll = movedAll;
       useMorphSet(null);
       const v = gl.createVertexArray(), cb = gl.createBuffer();
       gl.bindVertexArray(v);
@@ -4191,6 +4196,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       uploadCells();
       uploadBlood(bins);
       useMorphSet(was);
+      figVer = keptVer; fboOK = keptOK; movedAll = keptAll;
       prepareSet(S);   // (its geometry data and the Tube's stage 2 record, here at the free moment, not in the change's frames)
       return S;
     },

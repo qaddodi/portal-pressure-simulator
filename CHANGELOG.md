@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Tube / Mesh: making a view-switch piece no longer makes the next frame a whole vessel redraw.** (Morph set job part 1, 10 Nov 2026: his Mac, a 139 ms frame as the last piece finished.)
+  `makeMorphSet` swaps the geometry three times (to the figure's own, to the new set, back), and each swap marked the vessel layer as changed (`figVer`, `fboOK`, `movedAll`), so every piece of the six was followed by a whole redraw of what nothing had changed. The three marks are now put back after the swap back; a real `useMorphSet` still redraws. The lumen depth stamp and the stage 2 record are not touched by a swap. Node proof: `tests/morph-set-no-redraw.test.js`.
 - **Tube: the lumen pass clears and draws only where the rows inside the layer are.** (Tube speed, brief PL item 3, 10 Nov 2026.)
   The pass is scissored, piece by piece, to the box of the rows the cull keeps and their webs (a pixel out), and each frame clears only the pixels the last one drew in. Zoomed in, or with the figure small in its window, a good part of the target is neither cleared nor drawn. `?perf` shows how much of the target the pass drew in.
 - **Tube: the lumen pass skips the webs' colour draw unless the origin colours or the dye are on.** (Tube speed, brief PL item 2, 10 Nov 2026.)
