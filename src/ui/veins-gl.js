@@ -2249,7 +2249,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let layerK = 1;
   const lo = { tex: null, fbo: null, w: 0, h: 0 };
   // (The tests kept, so a frame makes no closure to ask whether the outlines, the glow or the warm glow have a draw.)
-  const isGlowDraw = (d) => d.soft && !d.warm, isHardDraw = (d) => !d.soft, isWarmDraw = (d) => d.warm;
+  // (An organ's outline (a draw marked `under`, 11 Nov 2026: "the liver outline should be below the vessels") is a hard line, but it lives in the warm
+  // layer, which the composite lays over the organs and under the vessels, so a vessel crossing an organ's edge covers the outline: it is not a
+  // draw of the outline layer, which lies over the vessels, where the vessel marks (a stent's mesh, the sutures) and the circuit's station dots stay.)
+  const isGlowDraw = (d) => d.soft && !d.warm, isHardDraw = (d) => !d.soft && !d.under, isWarmDraw = (d) => d.warm || d.under;
   const hasSoft = () => !!lines?.draws.some(isGlowDraw), hasHard = () => !!lines?.draws.some(isHardDraw), hasWarm = () => !!lines?.draws.some(isWarmDraw);
   function renderLayer(L, m, soft, warm = false) {
     if (layerK < 1 && L !== lineLayer) { renderLayerLow(L, m, soft, warm); return; }
@@ -2264,6 +2267,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.viewport(0, 0, L.w, L.h);
     gl.clearBufferfv(gl.COLOR, 0, [0, 0, 0, 0]);
     drawLines(m, soft, warm);
+    if (warm) drawLines(m, false, false, true);   // (the organ outlines, over the warm glow they share the layer with)
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
   }
   function renderLayerLow(L, m, soft, warm) {
@@ -2292,6 +2296,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, L.fbo);
     gl.disable(gl.SCISSOR_TEST);
     gl.blitFramebuffer(0, 0, w, h, 0, 0, L.w, L.h, gl.COLOR_BUFFER_BIT, gl.LINEAR);
+    if (warm) {   // (the organ outlines, at the layer's own size and not stretched: a line stays as sharp as it was drawn)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, L.fbo);
+      gl.viewport(0, 0, L.w, L.h);
+      drawLines(m, false, false, true);
+    }
     gl.bindFramebuffer(gl.READ_FRAMEBUFFER, SCR());
     gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCR());
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
@@ -2302,7 +2311,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindTexture(gl.TEXTURE_2D, L.tex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
   }
-  function drawLines(m, soft, warm = false) {
+  function drawLines(m, soft, warm = false, under = false) {
     const U = lineP.u;
     gl.useProgram(lineP.p);
     UC.m3(U.world, m3put(SCRATCH.world, m[0], m[1], m[2], m[3], m[4], m[5]));
@@ -2314,7 +2323,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (warm) { gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE); } else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.bindVertexArray(lineVAO);
     for (const d of lines.draws) {
-      if (d.alpha <= 0 || !!d.soft !== !!soft || !!d.warm !== warm) continue;
+      if (d.alpha <= 0 || !!d.soft !== !!soft || !!d.warm !== warm || !!d.under !== under) continue;
       UC.f4(U.col, d.col[0], d.col[1], d.col[2], d.alpha);
       UC.f2(U.endFade, d.endFade ? d.endFade[0] : 0, d.endFade ? d.endFade[1] : 0);
       gl.drawArrays(d.tri ? gl.TRIANGLES : gl.TRIANGLE_STRIP, d.first, d.count);
@@ -5389,10 +5398,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (Each layer's draws as numbers in a kept list (sigPut), compared with the list kept from the last call: no string is built.)
       SIG_N[0] = SIG_N[1] = SIG_N[2] = 0;
       for (const d of lines.draws) {
-        const i = d.warm ? 2 : d.soft ? 1 : 0, c = d.col;
+        const i = d.warm || d.under ? 2 : d.soft ? 1 : 0, c = d.col;
         sigPut(i, d.first); sigPut(i, d.count); sigPut(i, d.alpha); sigPut(i, c.length);
         for (let k = 0; k < c.length; k++) sigPut(i, c[k]);
-        sigPut(i, d.tri ? 1 : 0); sigPut(i, d.endFade ? 1 : 0);
+        sigPut(i, d.tri ? 1 : 0); sigPut(i, d.endFade ? 1 : 0); sigPut(i, d.under ? 1 : 0);
       }
       for (let i = 0; i < 3; i++) {
         let same = SIG_N[i] === SIG_KN[i];

@@ -504,8 +504,10 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   let olDrawN = 0, olFadeN = 0, olSpecI = 0;
   function olDraw(first, count, col, alpha, soft, warm) {
     let d = olDrawPool[olDrawN++];
-    if (!d) olDrawPool.push(d = { first: 0, count: 0, col: null, alpha: 0, soft: undefined, warm: undefined, endFade: 0 });
-    d.first = first; d.count = count; d.col = col; d.alpha = alpha; d.soft = soft; d.warm = warm; d.endFade = RECTUM_FADE;
+    if (!d) olDrawPool.push(d = { first: 0, count: 0, col: null, alpha: 0, soft: undefined, warm: undefined, under: undefined, endFade: 0 });
+    // (An organ's line, a hard draw that is neither a glow nor the warm glow, is laid under the vessels: the vessels that cross an organ's
+    // edge cover its outline. Mohammad, 11 Nov 2026: "the liver outline should be below the vessels. That reads better.")
+    d.first = first; d.count = count; d.col = col; d.alpha = alpha; d.soft = soft; d.warm = warm; d.under = !soft && !warm ? true : undefined; d.endFade = RECTUM_FADE;
     return d;
   }
   // A mark's draw at its fade's amount (a copy: the mark's own keeps its full alpha).

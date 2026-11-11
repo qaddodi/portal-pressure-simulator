@@ -158,11 +158,19 @@ test('the framing, the labels\' card boxes and the credit\'s poll go by the watc
   for (const s of ['[data-safe]', '.stage-blocker', '.pz-shade', '#zoomPill']) assert.ok(PLACED.includes(s), s);
 });
 
+test('an organ outline is laid under the vessels: a draw marked under lives in the warm layer, the marks stay in the outline layer (11 Nov 2026)', () => {
+  const gl = src('veins-gl.js'), ol = src('stage-outlines.js');
+  assert.match(gl, /isHardDraw = \(d\) => !d\.soft && !d\.under, isWarmDraw = \(d\) => d\.warm \|\| d\.under;/);
+  assert.match(gl, /if \(warm\) drawLines\(m, false, false, true\);/);
+  assert.match(gl, /!!d\.under !== under/);
+  assert.match(ol, /d\.under = !soft && !warm \? true : undefined;/);
+});
+
 test('an outline change redraws the outline layer alone, a glow change its glow layer alone', () => {
   const gl = src('veins-gl.js');
   // (External review, 21 Oct: one outline's opacity redrew all three layers.)
   // (The signatures are lists of numbers kept between calls, not strings.)
-  assert.match(gl, /const i = d\.warm \? 2 : d\.soft \? 1 : 0, c = d\.col;/);
+  assert.match(gl, /const i = d\.warm \|\| d\.under \? 2 : d\.soft \? 1 : 0, c = d\.col;/);
   assert.match(gl, /if \(fresh \|\| !same\) \{[^}]*SIG_KN\[i\] = SIG_N\[i\]; lineVers\[i\]\+\+; \}/);
   assert.match(gl, /lineVers\[0\] !== lineKV \|\| viewId !== lineKI/);
   assert.match(gl, /if \(lineVers\[1\] !== glowKV \|\| viewId !== glowKI\)/);
