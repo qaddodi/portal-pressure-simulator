@@ -192,6 +192,7 @@ export const ADOPTED = {
   'landmark-trials/transfusion-arms': ['cite'],
   'landmark-trials/rifaximin-arms': ['cite'],
   'landmark-trials/covered-arms': ['cite'],
+  'day/strain': ['strain'],
   'day/meal': ['cite', 'kind:flowtime'],
   'tipping/injury': ['kind:criteria'],
   'tipping/infection': ['cite'],

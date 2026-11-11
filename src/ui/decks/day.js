@@ -1,5 +1,5 @@
 // Presenter talk: what moves the portal pressure in hours, not years. One man with CSPH is followed through a meal, a litre of saline,
-// quiet and deep breathing, and a strain (the strain slide waits for the hold-to-strain button).
+// quiet and deep breathing, and a strain (the hold-to-strain button).
 //
 // Sources, checked against guidelines/baveno-viii-2026.pdf on 11 Nov 2026: 1.4 is the only statement about the time of day:
 // liver stiffness should always be measured under fasting conditions. Neither guideline file says what a meal, a litre of fluid or a
@@ -13,11 +13,12 @@ const BEATS = { kind: 'trace', range: 'beats' };
 
 export const DAY = {
   id: 'day', level: 'core', title: 'A day in the portal vein', minutes: 6,
-  sections: [['Before breakfast', ['Before breakfast']], ['After eating', ['After eating', 'Fluid']], ['Breathing and straining', ['Breathing']]],
+  sections: [['Before breakfast', ['Before breakfast']], ['After eating', ['After eating']], ['Breathing and straining', ['Breathing and straining']]],
   objectives: [
     'Say how a meal changes portal flow, portal pressure and liver stiffness',
     'Explain why a litre of saline moves the portal and caval pressures together and leaves the HVPG unchanged',
     'Describe how breathing moves the portal pressure from beat to beat',
+    'Say what a strain does to the portal vein pressure and the MAP',
     'State why liver stiffness is measured fasting',
   ],
   summary: 'What moves the portal pressure in hours: a meal, a litre of saline, deep breathing. One man with CSPH, and why stiffness is measured fasting.',
@@ -56,6 +57,13 @@ export const DAY = {
       line: 'With deep breathing, the portal pressure swings with every breath. The mean stays {pv}, and the HVPG stays {hvpg}.',
       notes: 'Breathing changes the pressure in the chest and in the abdomen with every breath. The portal pressure swings with it, around the same mean, and the model\'s HVPG, which is read from the mean pressures, does not move. The strip on the trace is a schematic rhythm timed to the model\'s heartbeat, not a modelled ECG. In the clinic the HVPG is read from the mean over a stretch of tracing for the same reason.',
       ask: ['Why does breathing not change the HVPG?', 'It makes the pressure swing around the same mean, and the HVPG is read from the mean pressures.'],
+    },
+    {
+      id: 'strain', preset: 'csph', params: {}, cam: 'fit', strain: true, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'],
+      kicker: 'Breathing and straining', site: 'sin', title: 'Straining pushes the portal pressure up for as long as it lasts',
+      line: 'While he strains, the pressure in his chest and belly rises: the portal vein pressure climbs and the MAP falls. Let go, and both come back.',
+      notes: 'A strain against a closed airway (a Valsalva) presses on the chest and the belly at once. In the model, held, it builds over 1.5 seconds and the portal vein pressure and the right atrial pressure rise together while the MAP falls. The HVPG reads lower during the strain, because the same pressure presses on the veins it is measured across. Letting go brings everything back in a few seconds. The model does not keep a trace of the strain. Neither guideline file says what a strain does to the portal pressure, so these numbers are the model\'s. A strain is the lesson in the second stage of labor, and in the cough or the heave of a patient with a hernia.',
+      ask: ['What does a strain do to the portal vein pressure and the MAP?', 'It raises the portal vein pressure, because the chest and belly press on the veins, and it lowers the MAP. Both return when the strain ends.'],
     },
     {
       id: 'summary', visual: 'table', cols: ['pv', 'hvpg', 'pvFlow', 'lsm'], asc: false, vs: 'first', rowHead: 'State',

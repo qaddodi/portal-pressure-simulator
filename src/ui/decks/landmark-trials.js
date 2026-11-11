@@ -45,7 +45,7 @@ export const LANDMARK_TRIALS = {
       ask: ['Which patients did PREDESCI enroll?', 'Patients with compensated cirrhosis and CSPH who had no high-risk varices.'],
     },
     {
-      id: 'predesci-arms', params: { drugs: { carvedilol: true } }, cam: 'fit', data: 'tiles', tiles: ['hvpg', 'map'], key: ['hvpg'], delta: 'predesci',
+      id: 'predesci-arms', params: { drugs: { carvedilol: true } }, cam: 'fit', tool: { kind: 'trial', id: 'predesci' }, data: 'tiles', tiles: ['hvpg', 'map'], key: ['hvpg'], delta: 'predesci',
       compare: [{ label: 'Placebo', slide: 'predesci' }, { label: 'Beta-blocker', own: true }],
       kicker: 'Preventing decompensation', site: 'sin', title: 'The model shows what the beta-blocker does; the trial shows what it prevents', cite: 'Baveno VIII 3.15',
       line: 'On carvedilol, the model lowers his HVPG from {hvpg@predesci} to {hvpg}. The card gives the trial\'s result.',
@@ -61,7 +61,7 @@ export const LANDMARK_TRIALS = {
       ask: ['Which patients did the 2010 early TIPS trial enroll?', 'Patients with a variceal bleed that drugs and banding had controlled, at high risk of failure: Child-Pugh class C, or class B with active bleeding.'],
     },
     {
-      id: 'earlytips-arms', preset: 'cirr-decomp', params: TIPS8, cam: 'liver', data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'earlytips',
+      id: 'earlytips-arms', preset: 'cirr-decomp', params: TIPS8, cam: 'liver', tool: { kind: 'trial', id: 'earlytips' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'earlytips',
       compare: [{ label: 'Drugs and banding', short: 'Standard', slide: 'earlytips' }, { label: 'Early TIPS', own: true }],
       kicker: 'Acute bleeding', site: 'sin', title: 'In the model an early TIPS lowers the PPG at the cost of liver flow', cite: 'Baveno VIII 5.31',
       line: 'A covered stent lowers his PPG from {ppg@earlytips} to {ppg} and cuts the liver\'s flow from {liver@earlytips} to {liver}. The card gives the trial\'s result.',
@@ -77,7 +77,7 @@ export const LANDMARK_TRIALS = {
       ask: ['What did the second early TIPS trial add to the first?', 'It enrolled patients in Child-Pugh class B as well as C, and again compared an early covered TIPS with standard care.'],
     },
     {
-      id: 'lvtips-arms', params: TIPS8, cam: 'liver', data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'lvtips',
+      id: 'lvtips-arms', params: TIPS8, cam: 'liver', tool: { kind: 'trial', id: 'lvtips' }, data: 'tiles', tiles: ['ppg', 'liver'], key: ['ppg'], delta: 'lvtips',
       compare: [{ label: 'Standard care', short: 'Standard', slide: 'lvtips' }, { label: 'Early TIPS', own: true }],
       kicker: 'Acute bleeding', site: 'sin', title: 'The model again lowers the PPG; the trial measured survival without a transplant', cite: 'Baveno VIII 5.31',
       line: 'Early TIPS takes his PPG from {ppg@lvtips} to {ppg}, as in the first trial. The card gives the result in survival without a transplant.',
@@ -101,7 +101,7 @@ export const LANDMARK_TRIALS = {
       ask: ['Why does giving red cells raise the portal pressure?', 'The blood adds volume to the veins, so the pressure inside them rises, while the resistance of the liver is unchanged.'],
     },
     {
-      id: 'transfusion-arms', preset: 'cirr-decomp', action: [BLEED, UNIT, UNIT, UNIT], cam: 'fit', data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: 'transfusion-res',
+      id: 'transfusion-arms', preset: 'cirr-decomp', action: [BLEED, UNIT, UNIT, UNIT], cam: 'fit', tool: { kind: 'trial', id: 'transfusion' }, data: 'tiles', tiles: ['pv', 'map'], key: ['pv'], delta: 'transfusion-res',
       compare: [{ label: 'Restrictive: one unit', short: 'Restrictive', slide: 'transfusion-res' }, { label: 'Liberal: three units', short: 'Liberal', own: true }],
       kicker: 'Acute bleeding', site: 'sin', title: 'A liberal transfusion pushes the portal pressure higher', cite: 'Baveno VIII 5.4',
       line: 'Three units bring his MAP to {map} and his portal vein pressure to {pv}, against {pv@transfusion-res} after one. The card gives the trial\'s survival.',
@@ -117,7 +117,7 @@ export const LANDMARK_TRIALS = {
       ask: ['When was rifaximin started in the trial?', '14 days before the TIPS, and it was continued for 168 days after it.'],
     },
     {
-      id: 'rifaximin-arms', params: TIPS8, cam: 'liver', data: 'tiles', tiles: ['shunt', 'he'], key: ['he'], delta: 'rifaximin',
+      id: 'rifaximin-arms', params: TIPS8, cam: 'liver', tool: { kind: 'trial', id: 'rifaximin' }, data: 'tiles', tiles: ['shunt', 'he'], key: ['he'], delta: 'rifaximin',
       compare: [{ label: 'Before the TIPS', short: 'Before', slide: 'rifaximin' }, { label: 'After the TIPS', short: 'After', own: true }],
       kicker: 'After a TIPS', site: 'sin', title: 'The model shows the risk the stent adds; rifaximin is only on the card', cite: 'Baveno VIII 6.16',
       line: 'After the stent, {shunt} of his portal blood bypasses the liver and the model\'s encephalopathy risk rises from {he@rifaximin} to {he}. The model has no rifaximin.',
@@ -133,7 +133,7 @@ export const LANDMARK_TRIALS = {
       ask: ['What did the trial compare in recurrent ascites?', 'A covered TIPS against repeated large-volume paracentesis with albumin.'],
     },
     {
-      id: 'covered-arms', preset: 'cirr-decomp', params: { ...REFRACTORY, ...TIPS8 }, days: 120, ramp: { albumin: [2.8, 2.5] }, cam: 'liver', data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'], delta: 'covered',
+      id: 'covered-arms', preset: 'cirr-decomp', params: { ...REFRACTORY, ...TIPS8 }, days: 120, ramp: { albumin: [2.8, 2.5] }, cam: 'liver', tool: { kind: 'trial', id: 'covered' }, data: 'tiles', tiles: ['asc', 'ppg'], key: ['asc'], delta: 'covered',
       compare: [{ label: 'Taps with albumin', short: 'Taps', slide: 'covered' }, { label: 'Covered TIPS', short: 'TIPS', own: true }],
       kicker: 'Ascites', site: 'sin', title: 'In the model the stent clears the ascites that taps only drain', cite: 'Baveno VIII 6.3',
       line: 'Without the stent, her ascites is {asc@covered} and comes back after every tap. With it, the ascites falls to {asc}.',
