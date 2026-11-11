@@ -57,11 +57,18 @@ its blood runs only for the subject (`flowA`). `stage.plateLobule(win, run)` ope
 `presenter.js layout()` reserves the column in `--pz-r` (the figure frames itself in what is left, as it does for cards) and places the window
 from `plateRects`. Mac and iPad landscape only, never while the lobule itself is open or diving.
 
+Phase 2b, the frame (`src/ui/cutout-frame-gl.js`): the ring round the lobule's window (with its soft shadow), the ring on the liver and the
+cone's two lines are one pass of the figure's present (`top.add`, order -4: over the lobule's window, under the ink and every glass), a
+fullscreen triangle scissored to the frame's box with the shapes as distance fields in the fragment shader. The liver's spot is kept in world
+units and put through each frame's camera (`stage.figureXform`), so it rides a pan, zoom or glide in the same present as the figure. No DOM
+shapes, no canvas. `presenter.js platePlace` only sets the plan; the `data-safe` strip that reserves the column stays a DOM element (it is
+read, never drawn). Shader check: `node scripts/glsl-compile.mjs "cutout frame (plate ring, spot, cone)"`.
+
 Not built yet:
 
 - the sinusoid window (the sinusoid is a pass turned out of the lobule by `sinU`; it needs its own framing record and its own lay through a window),
 - the anatomy's blood stopping when the subject is a window,
-- the ring on the liver, the cone and the window frame (a small `svg-gl` model), and the tap that dives into a window with the corner windows,
+- the tap that dives into a window with the corner windows,
 - the windows' names and readings (the labels thread).
 
 Findings that hold for them:
@@ -76,8 +83,7 @@ Findings that hold for them:
    slide before widening.
 6. **Room.** The anatomy fits the room the windows leave the way it does for cards (`--pz-r`/`--right-occ`, `stage-fit.js`):
    `plateRects(...).anatomy` gives the rect.
-7. **Rings, cones and frames** are a small model drawn by `svg-gl` (as the lobule's leaders are), not new SVG. The windows' names and
-   readings go through the labels thread.
+7. **Rings, cones and frames** are the GPU pass above. The windows' names and readings go through the labels thread.
 8. **A tap on a window** runs the existing dive for the lobule; for the sinusoid the existing `diveSinusoid`. The corner windows of the
    scales left behind are the same lay with the corner map from `plateRects(free, kinds, view)`.
 

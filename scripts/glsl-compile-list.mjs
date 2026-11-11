@@ -126,6 +126,9 @@ add('compositor COMP_FS(heads)', headsNeeds, (g, cg, bh) => ({ vs: headsVS(g, cg
 // The Doppler spectrum's line shader (doppler-synth.js), with the stent's clean filled look.
 add('doppler spectrum synth', { '../src/ui/doppler-synth.js': ['SYNTH_VS', 'SYNTH_FS'] }, (d) => ({ vs: d.SYNTH_VS, fs: d.SYNTH_FS }));
 
+// The plate's frame (Three scales on one plate): the ring on the lobule's window, the ring on the liver and the cone's lines.
+add('cutout frame (plate ring, spot, cone)', { '../src/ui/cutout-frame-gl.js': ['FRAME_VS', 'FRAME_FS'] }, (p) => ({ vs: p.FRAME_VS, fs: p.FRAME_FS }));
+
 // ---- later threads: add yours above this line, one line each ------------------------------------------------------------------------
 // (S2-A/B/J/D: tubeLean, the web, ...; S3-X: COMP_FS with its new last argument; S3-C: the lumen shader; L-A/L-D: the lobule's.)
 

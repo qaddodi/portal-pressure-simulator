@@ -1871,13 +1871,6 @@ button.finding { cursor: pointer; }
 .pz-safe { position: absolute; left: 0; top: 0; bottom: 0; width: 0; opacity: 0; pointer-events: none; }
 .pz-safe-r { left: auto; right: 0; }
 /* Three scales on one plate (docs/cutouts.md): the ring round a window, the ring on the liver and the magnifier's cone. Static shapes, set in a rest pass; only their opacity changes. */
-.pz-plate { position: absolute; inset: 0; pointer-events: none; }
-.pz-plate > i { position: absolute; display: block; }
-.pz-plate-ring { border-radius: 50%; box-shadow: 0 0 0 2.5px var(--text), 0 0 0 7px color-mix(in srgb, var(--text) 12%, transparent), 0 10px 34px rgb(var(--shadow-rgb) / 0.4); }
-.pz-plate-spot { width: 28px; height: 28px; border-radius: 50%; box-shadow: 0 0 0 2px var(--text); background: color-mix(in srgb, var(--text) 10%, transparent); }
-.pz-plate-l { height: 0; border-top: 1.6px solid color-mix(in srgb, var(--text) 70%, transparent); transform-origin: 0 0; }
-.pz-plate-cone { inset: 0; background: color-mix(in srgb, var(--text) 8%, transparent); }
-.pz-plate > i[hidden] { display: none; }
 .pz.stack .pz-safe { right: 0; top: auto; bottom: 0; width: auto; }
 /* (Cards and sheets are contained, layout and style: a write inside one card (its words, a reading, a chart's numbers) or a card moving never
    restyles or re-lays the figure or the other cards. Not paint: a card's tab, its glass and its text-shadow reach past its box, and a
