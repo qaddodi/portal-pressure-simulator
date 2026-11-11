@@ -36,9 +36,8 @@ import { inventory as chartInventory, countsOf as chartCounts } from './chart-lo
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 // (lumen, lumenscale: the lumen layer's device A/B, brief PL 10 Nov 2026: ?lumen=off draws no lumen pass and no blood, ?lumenscale=<0.25..1> sets the lumen layer's share of the vessel layer's size.)
-// (tube, tubejoin: the Tube's two stage aids, briefed with stage 2 (S2-D, 10 Nov 2026): ?tube=1 keeps stage 1, ?tubejoin=patch keeps the patches, to compare the stages on a device.)
 // (rest: rest pacing on touch devices, brief H1 10 Nov 2026: ?rest=off turns the slow-down at rest off, to compare on a device.)
-const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v', 'tube', 'tubejoin', 'lumen', 'lumenscale', 'rest']);
+const KEEP = new Set(['perf', 'offgpu', 'fps', 'budget', 'inputs', 'script', 'slide', 'preset', 'home', 'back', 'presenter-view', 'v', 'lumen', 'lumenscale', 'rest']);
 const walk = (p) => (statSync(p).isDirectory() ? readdirSync(p).flatMap((f) => walk(join(p, f))) : [p]);
 const files = [...walk(join(ROOT, 'src')).filter((f) => f.endsWith('.js')), join(ROOT, 'index.html'), join(ROOT, 'sw.js')];
 
@@ -168,7 +167,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
   if (!(comp.indexOf('if (quads) drawHeads(m, false, glow, warm, useStack, false);') < comp.indexOf("gpuProbe.time(gl, 'catheter', cathT);"))) errors.push('src/ui/veins-gl.js composite(): the heads are drawn again, in a catheter box, before the catheter timing');
   // The Tube vessel renderer (10 Nov 2026, docs/tube-renderer.md): no hybrid, and the draw buffers set once.
   need('src/ui/veins-gl.js', [
-    ['if ((pMode === 0 || pMode >= 3) && meshUse() && (tubePick ? tubePass(pM, pLook) : meshPass(pM, pLook))) return;', 'Tube chosen never reaches meshPass (no hybrid: when it is not ready, meshUse() is false and the classic pass draws)'],
+    ['if ((pMode === 0 || pMode >= 3) && meshUse() && tubePass(pM, pLook)) return;', 'the Tube pass is the only geometry pass (no Mesh: when it is not ready, meshUse() is false and the classic pass draws)'],
   ]);
   {
     const tp = text('src/ui/tube-pass.js');
@@ -178,7 +177,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const tubePassBody = body('function tubePass(', 'return tubePass;');
     if (!tubePassBody || /MESH_NONE/.test(tubePassBody)) errors.push('src/ui/tube-pass.js tubePass: holds no MESH_NONE (the prepass masks the colour; it never turns the draw buffers off)');
   }
-  // The Tube's stage 2 (brief S2-D, 10 Nov 2026): a failed stage 2 program leaves the Tube at stage 1, never the Mesh or the classic; patches are not drawn when the joins are webs.
+  // The Tube's stage 2 (brief S2-D, 10 Nov 2026): a failed stage 2 program leaves the Tube at stage 1, never the classic; patches are not drawn when the joins are webs.
   {
     const vg = text('src/ui/veins-gl.js'), tp = text('src/ui/tube-pass.js');
     const slice = (t, from, to) => t.slice(t.indexOf(from), t.indexOf(to, t.indexOf(from)));
@@ -186,10 +185,9 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!meshUseBody || /tube2|tubeLean|stage2/i.test(meshUseBody)) errors.push('src/ui/veins-gl.js meshUse: names no stage 2 program (a Tube frame that stage 1 can draw is never drawn by the Mesh or the classic because a stage 2 program failed)');
     const finishTubeBody = slice(vg, 'const finishTube = () => {', '\n  };');
     if (!finishTubeBody || /tube2/i.test(finishTubeBody)) errors.push('src/ui/veins-gl.js finishTube: leaves stage 2 to finishTube2 (a failed stage 2 program must not take stage 1 down with it)');
-    if (!/if \(!web\) pb = patchesByTier\(/.test(tp)) errors.push('src/ui/tube-pass.js tubePass: bins the patches in stage 2 only when the joins are patches (if (!web) pb = patchesByTier(...))');
     const draw2Body = slice(tp, 'function draw2(', '// A pass and its prepass for tier t');
-    if (!/if \(FR\.web\) \{[^\n]*webCall\([^\n]*\}\n\s*else if \(FR\.pb\.count\[t\]\) patchCall\(/.test(draw2Body)) errors.push('src/ui/tube-pass.js draw2: draws the webs when the joins are webs, else the patches (patchCall only in the else of if (FR.web))');
-    if ((tp.match(/patchCall\(/g) || []).length !== 3) errors.push('src/ui/tube-pass.js: patchCall is called from tubeDraw (stage 1 and the glows) and draw2 (the else of webs) only, and defined once');
+    if (!/webCall\(/.test(draw2Body) || /patchCall\(/.test(draw2Body)) errors.push('src/ui/tube-pass.js draw2: stage 2 draws the webs, never the patches (no ?tubejoin=patch since 11 Nov 2026)');
+    if ((tp.match(/patchCall\(/g) || []).length !== 2) errors.push('src/ui/tube-pass.js: patchCall is called from tubeDraw (stage 1 and the glows) only, and defined once');
     if (/tubeStrip|tubePatch/.test(slice(vg, 'const finishTube2 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube2: finishes the four stage 2 programs only');
   }
   // The Tube's glow program (brief PD part 4, 10 Nov 2026): optional on its own (a failure leaves the glow pairs on the strip program and takes no stage down); only the glow passes use it.
@@ -269,7 +267,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const finishTubeBody = slice(vg, 'const finishTube = () => {', '\n  };');
     if (!finishTubeBody || /tube3/i.test(finishTubeBody)) errors.push('src/ui/veins-gl.js finishTube: leaves stage 3 to finishTube3');
     if (/tubeStrip|tubePatch|tubeLean|tube2/.test(slice(vg, 'const finishTube3 = () => {', '\n'))) errors.push('src/ui/veins-gl.js finishTube3: finishes the six stage 3 programs only');
-    if (!/const stage3 = !!tube3 && tubePick && meshUse\(\) && tubePass\.stage\(\) === 3;/.test(vg)) errors.push('src/ui/veins-gl.js composite: stage 3 is the Tube chosen and drawing, tube3 ready and the pass at stage 3 (const stage3 = ...)');
+    if (!/const stage3 = !!tube3 && meshUse\(\) && tubePass\.stage\(\) === 3;/.test(vg)) errors.push('src/ui/veins-gl.js composite: stage 3 is the Tube chosen and drawing, tube3 ready and the pass at stage 3 (const stage3 = ...)');
     if (!/const halfOn = !stage3 && /.test(vg)) errors.push('src/ui/veins-gl.js composite: the half-size streak pass is not run in stage 3 (const halfOn = !stage3 && ...)');
     const prgLine = (vg.match(/\n[^\n]*const prg = [^\n]*/) || [''])[0];
     if (!/stage3 \? tube3\.compCell : compCell/.test(prgLine) || !/stage3 \? tube3\.plainCell : plainCell/.test(prgLine) || !/const cPlain = stage3 \? tube3\.plain : plain, cFull = stage3 \? tube3\.comp : comp;/.test(vg)) errors.push('src/ui/veins-gl.js composite: in stage 3 the compositor program is a Tube build (tube3.comp, compCell, plain, plainCell), and the old builds in stages 1 and 2');

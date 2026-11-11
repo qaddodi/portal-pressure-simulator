@@ -28,7 +28,7 @@ test('every entry has non-empty #version 300 es text, and names are unique', () 
 
 test('the list names the stage 1 programs the devices already run', () => {
   const names = programs().map((p) => p.name);
-  for (const w of ['mesh strip', 'mesh patch', 'tube strip', 'tube patch', 'COMP_FS()']) assert.ok(names.some((n) => n.includes(w)), `${w} is in the list`);
+  for (const w of ['tube strip', 'tube patch', 'COMP_FS()']) assert.ok(names.some((n) => n.includes(w)), `${w} is in the list`);
 });
 
 test('numbered() shows the failing line of a shader log with its neighbours', () => {

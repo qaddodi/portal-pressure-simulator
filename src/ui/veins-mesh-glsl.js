@@ -399,37 +399,6 @@ ${tube ? `#if MESH == 2
   return { decl, key, out };
 };
 
-// The strip's vertex shader: one instance a vessel row, its vertices placed from the textures (veins-mesh.js STRIP_VS_GLSL meshWorld),
-// widened by the pass's reach past the vessel's casing (padU). A glow pass draws only the rows lit for it (the others fold to nothing).
-export const meshStripVS = (STRIP_VS_GLSL, F_SEL = 1) => `#version 300 es
-precision highp float;
-precision highp int;
-precision highp sampler2D;
-layout(location=0) in vec4 aV;         // (kind, sample, side, corner): veins-mesh.js stripIndex
-layout(location=1) in float aRow;      // the vessel row (per instance)
-uniform mat3 world;                    // world → device pixels
-uniform vec2 size;
-uniform vec2 lOff;
-uniform highp sampler2D tube;
-uniform int mPass;
-uniform float padU;                    // world units past the casing the pass can draw
-uniform float selPad;                  // and more for a selected vessel (its ring, 4 past its wall), in the passes that draw it
-${STRIP_VS_GLSL}
-out float vI;
-flat out int vRow;
-void main() {
-  int id = int(aRow + 0.5);
-  vRow = id;
-  vI = aV.y + (int(aV.x + 0.5) == K_TRAP ? aV.w : 0.0);
-  bool lit = texelFetch(tube, ivec2(10, id), 0).a > 0.0, up = texelFetch(tube, ivec2(11, id), 0).w > 5.0;
-  if (mPass <= ${MP.UP} && (!lit || up != (mPass >= ${MP.UP_K}))) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
-  bool sel = (int(texelFetch(tube, ivec2(2, id), 0).z + 0.5) & ${F_SEL}) != 0;
-  vec2 w = meshWorld(id, aV, texelFetch(tube, ivec2(0, id), 0).w + padU + (sel ? selPad : 0.0));
-  vec3 d = world * vec3(w, 1.0);
-  d.xy += lOff;
-  gl_Position = vec4(d.x / size.x * 2.0 - 1.0, 1.0 - d.y / size.y * 2.0, 0.0, 1.0);
-}`;
-
 // The patch's vertex shader: one quad a join over its reach (between the views, the join as the frame has it: JT()), and for each member the
 // stretch of its segments that come within that reach (so the fragment reads those alone).
 export const meshPatchVS = (STRIP_VS_GLSL) => `#version 300 es

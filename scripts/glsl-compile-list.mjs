@@ -50,12 +50,6 @@ add('classic vessel (one vessel) vesselFS(true)', { '../src/ui/veins-gl.js': ['v
 add('lobule window lay (top.lay with a win: a rounded window)', { '../src/ui/veins-gl.js': ['REUSE_VS', 'LAYW_FS'] }, (g) => ({ vs: g.REUSE_VS, fs: g.LAYW_FS }));
 add('catheter (EUS scope under the vessels)', { '../src/ui/veins-gl.js': ['CATH_VS', 'CATH_FS'] }, (g) => ({ vs: g.CATH_VS, fs: g.CATH_FS }));
 
-// The Mesh: a vessel's strip and the join patch.
-add('mesh strip', { '../src/ui/veins-gl.js': ['vesselFS', 'F_SEL'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/veins-mesh-glsl.js': ['meshStripVS'] },
-  (g, mm, mg) => ({ vs: mg.meshStripVS(mm.STRIP_VS_GLSL, g.F_SEL), fs: g.vesselFS(true, 1) }));
-add('mesh patch', { '../src/ui/veins-gl.js': ['vesselFS'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/veins-mesh-glsl.js': ['meshPatchVS'] },
-  (g, mm, mg) => ({ vs: mg.meshPatchVS(mm.STRIP_VS_GLSL), fs: g.vesselFS(false, 2) }));
-
 // The Tube (stage 1): its strip and its patch.
 add('tube strip', { '../src/ui/veins-gl.js': ['vesselFS', 'F_SEL'], '../src/ui/veins-mesh.js': ['STRIP_VS_GLSL'], '../src/ui/tube-geo.js': ['tubeStripVS'] },
   (g, mm, tg) => ({ vs: tg.tubeStripVS(mm.STRIP_VS_GLSL, g.F_SEL), fs: g.vesselFS(true, 1, 1) }));

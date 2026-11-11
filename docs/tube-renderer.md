@@ -1,29 +1,30 @@
-# The Tube vessel renderer, as built (stage 1, 10 Nov 2026)
+# The Tube vessel renderer, as built (stage 1, 10 Nov 2026; the only vessel renderer from 11 Nov 2026)
 
-Settings › Display › **Vessel renderer**: one choice of Classic, Mesh (the default) or Tube (round 2, 10 Nov 2026: it replaced the two switches, Mesh and Tube, which could both be on).
-`frame.js` keeps one value, `vesselRenderer()` (`'classic' | 'mesh' | 'tube'`, `pps.vesselRenderer`, key removed for the default), with `vesselMesh()` and `vesselTube()` as readers that are true for their own choice only; a tester's earlier switches are carried over once. Mohammad's brief (10 Nov): the depth tube
+**The Tube is the only vessel renderer (owner, 11 Nov 2026).** The Classic and Mesh renderers' choice, the Settings › Display › Vessel renderer row, `pps.vesselRenderer`
+(and the two switches before it), `vesselRenderer()` / `vesselMesh()` / `vesselTube()` in `frame.js`, the Mesh's strip and patch programs and its pass (`meshPass`, `meshDraw`,
+`meshPair`, `meshColour`, `meshRing`), and the addresses `?tube=1`, `?tube=2` and `?tubejoin=patch|web|off` are gone. The whole earlier state is on the branch
+`shelf/classic-mesh-renderers` (66c893f), as the vector renderer is on `shelf/vector-renderer`. What is below still describes the Tube; where it speaks of "when Tube is
+chosen", "Mesh chosen" or the flags above, read it as history. What remains of the old names in `veins-gl.js` is shared with the Tube and not renamed: `meshUse()` (a geometry
+pass can draw), `meshTargets`, `meshGeo`, `meshKeyNext`, `meshPad`, `meshL` (the lay program), `MG`. `frame.js` only drops a tester's old stored choice, once.
+The stages (1 patches, 2 webs, 3 lumen pass) stay, by which programs are ready alone: a failed stage 3 program leaves stage 2, a failed stage 2 program leaves stage 1.
+The classic vessel pass is not a choice: it draws only while the Tube is not ready (still compiling, software GL, no depth and stencil, a shader failed), see `tubeWhy` in `?perf`.
+
+Mohammad's brief (10 Nov): the depth tube
 option of `docs/recommendations/tubes-and-particles-first-principles.md` with smoothed joints, a cel-shaded cartoon look and a black outline.
 The plan is `docs/recommendations/tube-renderer-plan.md`; this file says what was built. Built by four threads: A `src/ui/tube-geo.js`
 (the geometry and the strip's vertex shader), B `src/ui/tube-cel-glsl.js` (`celShade`), C `src/ui/blood-particles.js` (blood style 3, P),
-D (the rest: the setting, the builds of the shared shader text, the pass `src/ui/tube-pass.js`, the picking in `veins-gl.js`).
+D (the rest: the builds of the shared shader text, the pass `src/ui/tube-pass.js`, the picking in `veins-gl.js`).
 
 ## The seam
 
-Tube is a third renderer beside Classic and Mesh and **never a hybrid**. While it is chosen it is used in place of the Mesh row's renderer:
-
-- `frame.js`: `vesselRenderer()`, `setVesselRenderer(v)`, `onVesselRenderer(f)`; a change draws the figure again (the render subscribers hear it).
-- `veins-gl.js` keeps `tubePick` beside `meshPick` (`meshSync` follows both; a change makes the next picture a whole draw, and the depth and
-  stencil buffer is given back only when both are off). `meshUse()` is "a geometry renderer draws": with Tube chosen it needs `tubeS`, `tubePt`
-  and `meshL` (otherwise false, and `tubeWhy` says why), else the Mesh's rule as before. The software, lost and targets checks stay for both.
-  So every `meshUse()` branch in `draw` (no `lowPass`, no `fuse`, no `rowParts` tint, `meshCellsPass` for partial redraws) does the right thing for Tube.
-- `pieceFn`: `meshUse() && (tubePick ? tubePass(...) : meshPass(...))`. Tube chosen and not ready means `meshUse()` is false and the classic
-  pass draws; it never tries the Mesh. `scripts/rules-lint.mjs` holds that line.
+- `veins-gl.js`: `meshUse()` is "the geometry renderer draws": it needs `tubeS`, `tubePt` and `meshL` (otherwise false, and `tubeWhy` says why), not software GL, and the targets.
+  So every `meshUse()` branch in `draw` (no `lowPass`, no `fuse`, no `rowParts` tint, `meshCellsPass` for partial redraws) does the right thing for the Tube.
+- `pieceFn`: `meshUse() && tubePass(...)`. Tube not ready means `meshUse()` is false and the classic pass draws. `scripts/rules-lint.mjs` holds that line.
 - `?perf`: gauge `vessel renderer` says `tube: N passes, N strips, N patches drawn`, or `classic: tube compiling` / `shader failed` /
   `software GL` / `no depth and stencil` / `no lay program`. The probe note is `vessels: tube`.
-- The blood style uniform is 3 (`STYLE_P`) while Tube chosen and `meshUse()` (the condition `pieceFn` uses), else exactly as before.
-- Programs: `tubeStrip` (`tubeStripVS` over `vesselFS(true, 1, 1)`) and `tubePatch` (`meshPatchVS` over `vesselFS(false, 2, 1)`), started
-  beside the Mesh's for the stage's figure only, in their own `try`, finished into `tubeS` and `tubePt` as the optional builds are
-  (`later` key `'tube'`, `startsOf`, the deletion list). The lay program `meshL` is the Mesh's.
+- The blood style uniform is 3 (`STYLE_P`) while `meshUse()` (the condition `pieceFn` uses), else exactly as before.
+- Programs: `tubeStrip` (`tubeStripVS` over `vesselFS(true, 1, 1)`), `tubePatch` (`meshPatchVS` over `vesselFS(false, 2, 1)`) and the lay program `meshL`, started at the figure's
+  creation (and the lobule's right after it, `startLobuleTube`), in their own `try`, finished together into `tubeS`, `tubePt` and `meshL` (`later` key `'tube'`, `startsOf`, the deletion list).
 
 ## The Tube builds of the shader text
 

@@ -35,7 +35,6 @@ function fakeGL() {
   });
   return { gl, sources };
 }
-const frame = await import('../src/ui/frame.js');
 const mod = await import('../src/ui/veins-gl.js');
 const tubeSources = (src) => src.filter((s) => s.includes('celShade(') && s.includes('#define MESH '));
 const leanSources = (src) => src.filter((s) => s.includes('uniform int isWeb;') && !s.includes('uniform int blood;'));   // (stage 2's lean fragment shader: one object, shared by the strip's program and the web's)
@@ -51,32 +50,16 @@ function lobule() {
   return { g, f, look };
 }
 
-test('the lobule makes no Tube program while Mesh or Classic is chosen, and makes them (strip and patch builds) when Tube is', () => {
-  for (const choice of ['mesh', 'classic']) {
-    frame.setVesselRenderer(choice);
-    const { g, f, look } = lobule();
-    g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-    assert.equal(tubeSources(f.sources).length, 0, `${choice}: no Tube shader text`);
-    assert.equal(leanSources(f.sources).length, 0, `${choice}: no stage 2 shader text`);
-    assert.equal(lumenSources(f.sources).length, 0, `${choice}: no stage 3 shader text`);
-    frame.setVesselRenderer('tube');
-    g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-    const t = tubeSources(f.sources);
-    assert.equal(t.length, 2, `${choice} then tube: the strip's and the patch's builds, once`);
-    assert.ok(t.some((s) => s.includes('#define MESH 1')) && t.some((s) => s.includes('#define MESH 2')));
-    assert.equal(leanSources(f.sources).length, 1, `${choice} then tube: stage 2's lean shader, once for the strip and the web`);
-    assert.equal(lumenSources(f.sources).length, 1, `${choice} then tube: stage 3's lumen shader, once for the strip and the web`);
-    g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
-    assert.equal(tubeSources(f.sources).length, 2, 'not made again');
-    assert.equal(leanSources(f.sources).length, 1, 'stage 2 not made again');
-    assert.equal(lumenSources(f.sources).length, 1, 'stage 3 not made again');
-  }
-  frame.setVesselRenderer('mesh');
+test('the lobule makes the Tube programs (strip and patch builds, stage 2 and stage 3) with it, once', () => {
+  const { g, f, look } = lobule();
+  const t = tubeSources(f.sources);
+  assert.equal(t.length, 2, 'the strip\'s and the patch\'s builds');
+  assert.ok(t.some((s) => s.includes('#define MESH 1')) && t.some((s) => s.includes('#define MESH 2')));
+  assert.equal(leanSources(f.sources).length, 1, 'stage 2\'s lean shader, once for the strip and the web');
+  assert.equal(lumenSources(f.sources).length, 1, 'stage 3\'s lumen shader, once for the strip and the web');
+  g.draw([1, 0, 0, 1, 0, 0], look, { on: false });
+  assert.equal(tubeSources(f.sources).length, 2, 'not made again');
+  assert.equal(leanSources(f.sources).length, 1, 'stage 2 not made again');
+  assert.equal(lumenSources(f.sources).length, 1, 'stage 3 not made again');
 });
 
-test('Tube chosen before the lobule is made: its Tube programs are made with it', () => {
-  frame.setVesselRenderer('tube');
-  const { f } = lobule();
-  assert.equal(tubeSources(f.sources).length, 2);
-  frame.setVesselRenderer('mesh');
-});

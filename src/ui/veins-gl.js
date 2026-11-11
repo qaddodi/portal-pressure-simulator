@@ -52,19 +52,19 @@ import { createShapeGL, flattenPath, ellipsePoly, polyMeshInto } from './shape-g
 import { createOrganStack, prestartOrganStack, prestartLayer } from './organs-gl.js';
 import { warmFade } from './res-fade-gl.js';
 import { fusedVS, fusedFS } from './veins-fuse.js';
-import { shadeGLSL, meshFS, meshStripVS, meshPatchVS, MESH_LAY_FS, MP } from './veins-mesh-glsl.js';
-import { STRIP_VS_GLSL, stripIndex, PATCH_QUAD } from './veins-mesh.js';
+import { shadeGLSL, meshFS, meshPatchVS, MESH_LAY_FS, MP } from './veins-mesh-glsl.js';
+import { STRIP_VS_GLSL, PATCH_QUAD } from './veins-mesh.js';
 import { tubeIndex, tubeStripVS } from './tube-geo.js';
 import { celGLSL } from './tube-cel-glsl.js';
 import { createTubePass } from './tube-pass.js';
-import { stage2Start, stage2Finish, STAGE2_PROGRAMS, glowStart, glowFinish, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, createDepthStamp, lumenScale, lumenSize, lumenView, lumenPiece, lumenCut, lumenOff, tubeStage, tubeJoinCut, stage2Prepare, layerRect } from './tube-stage2.js';
+import { stage2Start, stage2Finish, STAGE2_PROGRAMS, glowStart, glowFinish, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget, createDepthStamp, lumenScale, lumenSize, lumenView, lumenPiece, lumenCut, lumenOff, tubeStage, stage2Prepare, layerRect } from './tube-stage2.js';
 import { STYLE_P } from './blood-particles.js';
-import { pointsFromEntries, joinEntryList, tierBuckets, patchesByTier, patchGroups, PG_W, PG_M } from './veins-mesh-data.js';
+import { pointsFromEntries, joinEntryList, patchGroups, PG_W } from './veins-mesh-data.js';
 import { createBloodTile, STYLE_D, STYLE_E } from './blood-tile.js';
 import { N_SAMPLES, ORIGIN_GREY, S_OFF, LANE_K, ALONG_GLSL, ROWS_GLSL, COMP_U, compBasics, compConsts, compBloodFns, compBendFn, compDyeFns, compTubeUniform, compTubeRowFns, compTubeHead, compTubeSection, compChevPart } from './comp-glsl.js';
 import { headVS, headMain, createHeadList } from './blood-heads.js';
 import { softwareGL } from './sw-yield.js';
-import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor, vesselMesh, vesselTube } from './frame.js';
+import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor } from './frame.js';
 import { keepScreen } from './keep-screen.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
@@ -1906,14 +1906,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const PW = () => (up ? up[0] : canvas.width), PH = () => (up ? up[1] : canvas.height);
   const pcx = gl.getExtension('KHR_parallel_shader_compile');
   let started;
-  // The Tube's programs (the Mesh's patch vertex shader and the Tube's strip, over the Tube builds of the vessel shader; and for the lobule the lay program,
-  // which its instance has no Mesh programs to bring): the figure starts them at creation, the lobule's instance when Tube is chosen (startLobuleTube).
+  // The Tube's programs (the patch vertex shader and the Tube's strip, over the Tube builds of the vessel shader, and the lay program that lays a scratch
+  // layer): the figure starts them at creation, the lobule's instance right after (startLobuleTube).
   // Their own try: a Tube that fails leaves the others as they are.
   const startTubeProgs = () => {
     try {
       started.tubeStrip = startProgram(gl, tubeStripVS(STRIP_VS_GLSL, F_SEL, ZOOM_VS), vesselFS(true, 1, 1)); started.tubePatch = startProgram(gl, meshPatchVS(STRIP_VS_GLSL), vesselFS(false, 2, 1));
-      if (who === 'lobule') started.meshLay = startProgram(gl, REUSE_VS, MESH_LAY_FS);
-    } catch (e) { console.warn('Veins renderer: the tube vessel shaders could not be made; the classic vessel pass draws when Tube is chosen.', e); delete started.tubeStrip; delete started.tubePatch; if (who === 'lobule') delete started.meshLay; }
+      started.meshLay = startProgram(gl, REUSE_VS, MESH_LAY_FS);
+    } catch (e) { console.warn('Veins renderer: the tube vessel shaders could not be made; the classic vessel pass draws.', e); delete started.tubeStrip; delete started.tubePatch; delete started.meshLay; }
     // (Stage 2's four and stage 3's six (the lumen programs and the compositor's Tube builds), tube-stage2.js: each set in its own try, a failure leaves the stage below.)
     const K = { F_DIFFUSE, F_EDGE, F_SHADOW, F_SPEC, F_VEIL, F_WHOLE, F_SEL, F_DOTTED, F_NOCASE, LIFT_EASE_MAX, LIFT_EASE_SHARE, LUMEN2, ROW2_BITS, VEIL_K, EDGE: EDGE_GLSL, ENT_W, N_SAMPLES, MAX_TIERS, S_OFF, ALONG_GLSL };
     const mk = (type, text) => shader(gl, type, text);
@@ -1942,10 +1942,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       prog: startProgram(gl, vesVS, vesselFS(false)), simple: startProgram(gl, vesVS, vesselFS(true)), comp: startProgram(gl, compVS, compFS), compCell: startProgram(gl, compCellVS, compFS), streak: streakFS ? startProgram(gl, compVS, streakFS) : null, streakCell: streakFS ? startProgram(gl, compCellVS, streakFS) : null,
       // (The arrowheads' quads (blood-heads.js): the stage's figure only, the one renderer given the vessels' axes.)
       heads: who === 'stage' ? startProgram(gl, headVS({ zoom: ZOOM_VS, along: ALONG_GLSL, rows: ROWS_GLSL, orange: CHEV_ORANGE_GLSL, nSamples: N_SAMPLES }), COMP_FS(false, false, true)) : null, plain: startProgram(gl, compVS, plainFS), plainCell: startProgram(gl, compCellVS, plainFS), cath: startProgram(gl, CATH_VS, CATH_FS), line: startProgram(gl, LINE_VS, LINE_FS) };
-    // (The mesh vessel renderer's programs, the stage's figure only: a strip a vessel, a patch a join, and the scratch layers' laying. Not
-    // needed to draw: until they are published, or if they fail, the classic vessel pass draws.)
-    if (who === 'stage') { try { started.meshStrip = startProgram(gl, meshStripVS(STRIP_VS_GLSL, F_SEL), vesselFS(true, 1)); started.meshPatch = startProgram(gl, meshPatchVS(STRIP_VS_GLSL), vesselFS(false, 2)); started.meshLay = startProgram(gl, REUSE_VS, MESH_LAY_FS); } catch (e) { console.warn('Veins renderer: the mesh vessel shaders could not be made; the classic vessel pass draws.', e); delete started.meshStrip; delete started.meshPatch; delete started.meshLay; } }
-    if (who === 'stage') startTubeProgs();   // (the Tube's, the figure's own; the lobule's when Tube is chosen)
+    if (who === 'stage') startTubeProgs();   // (the Tube's, the figure's own; the lobule's by startLobuleTube)
   } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); return null; }
   // Every other program this context will draw with, started now beside these, before any is read (GPU practice §2, docs/gpu-practices.md;
   // ?shaderwarm=0: each compiled where it is first made or drawn, as before): the organs' stack, painter and shapes (taken up just below,
@@ -1958,9 +1955,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // frame can be drawn by the general ones. With KHR_parallel_shader_compile they are left compiling here and published by
   // prepare() once the driver says they are done, never waited on (addendum §10.1); until then the general ones draw, the
   // same picture. Without the extension they are finished here with the rest, as before.
-  const later = pcx ? [...(started.simple ? ['simple'] : []), 'plain', ...(started.streak ? ['streak'] : []), ...(started.fuseGen ? ['fused'] : []), ...(started.heads ? ['heads'] : []), ...(started.meshStrip && started.meshLay ? ['mesh'] : []), ...(started.tubePatch ? ['tube'] : []), ...(started.tubeLean ? ['tube2'] : []), ...(started.tubeLumen ? ['tube3'] : []), ...(started.tubeGlow ? ['tubeGlow'] : [])] : [];
+  const later = pcx ? [...(started.simple ? ['simple'] : []), 'plain', ...(started.streak ? ['streak'] : []), ...(started.fuseGen ? ['fused'] : []), ...(started.heads ? ['heads'] : []), ...(started.tubePatch ? ['tube'] : []), ...(started.tubeLean ? ['tube2'] : []), ...(started.tubeLumen ? ['tube3'] : []), ...(started.tubeGlow ? ['tubeGlow'] : [])] : [];
   // (Each optional build's programs, by its name in `later`.)
-  const startsOf = (k) => (k === 'mesh' ? [started.meshStrip, started.meshPatch, started.meshLay] : k === 'tube' ? [started.tubeStrip, started.tubePatch] : k === 'tube2' ? STAGE2_PROGRAMS.map((n) => started[n]) : k === 'tube3' ? STAGE3_PROGRAMS.map((n) => started[n]) : k === 'tubeGlow' ? [started.tubeGlow] : k === 'heads' ? [started.heads] : k === 'streak' ? [started.streak, started.streakCell] : k === 'plain' ? [started.plain, started.plainCell] : k === 'fused' ? [started.fuseGen, started.fuseOne].filter(Boolean) : [started.simple]);
+  const startsOf = (k) => (k === 'tube' ? [started.tubeStrip, started.tubePatch, started.meshLay] : k === 'tube2' ? STAGE2_PROGRAMS.map((n) => started[n]) : k === 'tube3' ? STAGE3_PROGRAMS.map((n) => started[n]) : k === 'tubeGlow' ? [started.tubeGlow] : k === 'heads' ? [started.heads] : k === 'streak' ? [started.streak, started.streakCell] : k === 'plain' ? [started.plain, started.plainCell] : k === 'fused' ? [started.fuseGen, started.fuseOne].filter(Boolean) : [started.simple]);
   let prog;
   try { prog = finishProgram(gl, started.prog); } catch (e) { console.warn('Veins renderer: WebGL2 shaders failed, keeping the SVG tubes.', e); freeShaders(); return null; }
   // The one-vessel build (see vesselFS): null when it failed, and every cell keeps the general program.
@@ -1997,28 +1994,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     try { headP = finishProgram(gl, started.heads); } catch (e) { console.warn('Veins renderer: the arrowheads\' quad shader failed; the composite keeps drawing them.', e); gl.deleteProgram(started.heads.p); headP = null; }
   };
   if (started.heads && !later.includes('heads')) finishHeads();
-  // The mesh vessel renderer's programs (Settings › Display › Mesh vessel renderer): all three or none. meshWhy: why the classic pass draws.
-  let meshS = null, meshPt = null, meshL = null, meshWhy = who === 'stage' ? 'compiling' : 'not the figure';
-  const finishMesh = () => {
-    try { meshS = finishProgram(gl, started.meshStrip); meshPt = finishProgram(gl, started.meshPatch); meshL = finishProgram(gl, started.meshLay); meshWhy = ''; } catch (e) {
-      console.warn('Veins renderer: the mesh vessel shaders failed; the figure keeps the classic vessel pass.', e);
-      for (const st of startsOf('mesh')) gl.deleteProgram(st.p);
-      meshS = meshPt = meshL = null; meshWhy = 'shader failed';
-    }
-  };
-  if (started.meshLay && !later.includes('mesh')) finishMesh();
-  // The Tube vessel renderer's programs: both or neither. tubeWhy: why the classic pass draws while Tube is chosen.
-  let tubeS = null, tubePt = null, tubeWhy = who === 'stage' ? 'compiling' : 'not chosen yet';
+  // The Tube vessel renderer's programs (strip, patch and the lay program): all three or none. tubeWhy: why the classic pass draws.
+  let tubeS = null, tubePt = null, meshL = null, tubeWhy = who === 'stage' ? 'compiling' : 'not made yet';
   const finishTube = () => {
-    try { tubeS = finishProgram(gl, started.tubeStrip); tubePt = finishProgram(gl, started.tubePatch); tubeWhy = ''; } catch (e) {
-      console.warn('Veins renderer: the tube vessel shaders failed; the figure keeps the classic vessel pass while Tube is chosen.', e);
+    try { tubeS = finishProgram(gl, started.tubeStrip); tubePt = finishProgram(gl, started.tubePatch); meshL = finishProgram(gl, started.meshLay); tubeWhy = ''; } catch (e) {
+      console.warn('Veins renderer: the tube vessel shaders failed; the figure keeps the classic vessel pass.', e);
       for (const st of startsOf('tube')) gl.deleteProgram(st.p);
-      tubeS = tubePt = null; tubeWhy = 'shader failed';
+      tubeS = tubePt = meshL = null; tubeWhy = 'shader failed';
     }
   };
   if (started.tubePatch && !later.includes('tube')) finishTube();
   else if (!started.tubePatch && who === 'stage') tubeWhy = 'shader failed';
-  // Stage 2's four programs (tube-stage2.js): all or none, finished apart from stage 1's, so a failure leaves the Tube at stage 1 (never the Mesh or the classic).
+  // Stage 2's four programs (tube-stage2.js): all or none, finished apart from stage 1's, so a failure leaves the Tube at stage 1.
   let tube2 = null, tube2Failed = null;
   const finishTube2 = () => { ({ P: tube2, failed: tube2Failed } = stage2Finish(gl, finishProgram, startsOf('tube2'))); };
   if (started.tubeLean && !later.includes('tube2')) finishTube2();
@@ -2033,16 +2020,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const finishGlow = () => { ({ P: tubeGlow, failed: tubeGlowFailed } = glowFinish(gl, finishProgram, startsOf('tubeGlow'))); };
   if (started.tubeGlow && !later.includes('tubeGlow')) finishGlow();
   else if (!started.tubeGlow && who === 'stage') tubeGlowFailed = ['tubeGlow'];
-  // (The lobule's instance: its Tube programs and lay program made, and finished at once, when Tube is first chosen; Mesh chosen leaves its lobule classic.)
+  // (The lobule's instance: its Tube programs and lay program made, and finished at once, at its creation.)
   const startLobuleTube = () => {
     if (who !== 'lobule' || started.tubeStrip || tubeWhy === 'shader failed') return;
     startTubeProgs();
-    try { if (!started.tubePatch) throw new Error('no tube programs'); meshL = finishProgram(gl, started.meshLay); finishTube(); } catch (e) { tubeWhy = 'shader failed'; }
+    if (started.tubePatch) finishTube(); else tubeWhy = 'shader failed';
     if (started.tubeLean) finishTube2(); else tube2Failed = ['stage 2 shaders'];
     if (started.tubeLumen) finishTube3(); else tube3Failed = ['stage 3 shaders'];
     if (started.tubeGlow) finishGlow(); else tubeGlowFailed = ['tubeGlow'];
   };
-  if (vesselTube()) startLobuleTube();
+  startLobuleTube();
   function halfReady(rebind) {
     const w = Math.ceil(PW() / 2), h = Math.ceil(PH() / 2);
     if (!half.tex) { half.tex = dataTex(gl, gl.LINEAR); half.fbo = gl.createFramebuffer(); }
@@ -2838,7 +2825,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (The geometry renderer, when it is on and can draw: the Tube's when Tube is chosen (never the Mesh's then), else the mesh's: a whole draw, a
     // pan's strip or a changed rows' box (4), through the same scissor; a box it cannot draw is drawn whole there by the classic pass.)
     tubePass.drew = 0;
-    if ((pMode === 0 || pMode >= 3) && meshUse() && (tubePick ? tubePass(pM, pLook) : meshPass(pM, pLook))) return;
+    if ((pMode === 0 || pMode >= 3) && meshUse() && tubePass(pM, pLook)) return;
     if (pMode === 1 || pMode === 2) { gA[0] = partVAO; gA[1] = partG; oA[0] = partSVAO; oA[1] = partS; vesselPass(pM, pLook, gA, oA, true, pMode === 2); }
     else { gA[0] = vao; gA[1] = nGen; oA[0] = oneVAO; oA[1] = nSimple; vesselPass(pM, pLook, gA, oA); }
   };
@@ -3170,63 +3157,38 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, rmaxTex); UC.i1(u.rmax, 4);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, tint ? depTex : depNone); UC.i1(u.depL, 5);
   }
-  // ── The mesh vessel renderer (Settings › Display › Mesh vessel renderer; docs/veins-mesh-plan.md) ──
-  // Each vessel a strip of triangles placed from the textures (veins-mesh.js), each join a patch, drawn tier by tier as the classic shader
-  // composites them (by group: behind the organs, the network, lifted): per tier its glows, its shadow, its shape, the selected vessel's lift
-  // and the rings where its vessels cross, each pass but the last two over a prepass that keeps the fragment that draws each pixel
-  // (veins-mesh-glsl.js). The four targets are written in the classic encodings. Only the figure, only on a GPU; whole draws and pans' strips
-  // (a partial redraw, a recolour and a one-pass zoom frame are whole mesh draws; the pinch's lower layer stays classic).
-  // (The switch as this renderer last read it: a change makes the next picture a whole draw, frame.js telling the views to draw again.)
-  // (And the Tube vessel renderer's, which is used in place of the mesh renderer while it is chosen: the same depth and stencil, the same
-  // buckets and buffers, its own programs and geometry; docs/tube-renderer.md.)
-  let meshPick = vesselMesh(), tubePick = vesselTube();
-  const meshSync = () => {
-    if (meshPick === vesselMesh() && tubePick === vesselTube()) return;
-    meshPick = vesselMesh(); tubePick = vesselTube(); fboOK = false;
-    if (tubePick) startLobuleTube();
-    queuePrep();   // (the morph sets are made again for the renderer now chosen)
-    // (Both off, the layer's framebuffer gives its depth and stencil back: the classic passes would carry them through each of theirs.)
-    if (!meshPick && !tubePick && meshStOn) {
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
-      gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, null); meshStOn = false;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
-    }
-  };
-  const MG = { noEnds: !tubeJoinCut() || who === 'lobule', ent: null, morph: null, B: null, tv: 0, patchOk: false, pts: {}, jl: {}, patch: {}, tb: {}, pb: {}, tex: null, pj: null, texRows: 0,
-    stripVAO: null, patchVAO: null, layVAO: null, rowBuf: null, patchBuf: null, rowCap: 0, patchCap: 0, nIndex: 0,
+  // ── The vessel geometry (docs/tube-renderer.md) ──
+  // Each vessel a strip of triangles placed from the textures, each join a web (or a patch in stage 1), drawn tier by tier as the composite
+  // layers them (by group: behind the organs, the network, lifted): per tier its glows, its shadow, its shape and the selected vessel's lift, each over
+  // a prepass that keeps the fragment that draws each pixel. The four targets are written in the composite's encodings. Only the figure and the
+  // lobule, only on a GPU. The Tube is the only vessel renderer (11 Nov 2026); the classic pass draws only while it is not ready.
+  const MG = { noEnds: who === 'lobule', ent: null, morph: null, B: null, tv: 0, patchOk: false, pts: {}, jl: {}, patch: {}, tb: {}, pb: {}, tex: null, pj: null, texRows: 0,
+    patchVAO: null, layVAO: null, rowBuf: null, patchBuf: null, rowCap: 0, patchCap: 0,
     tubeVAO: null, tubeVB: null, tubeIB: null, tubeIndexN: 0,
     w: 0, h: 0, ok: false, scrN: null, scrT: null, sw: 0, sh: 0, kP: 0, ref: 0,
     passes: 0, strips: 0, patches: 0, plain: 0, webs: 0, lumStrips: 0, lumWebs: 0, stage2: null };   // alloc-rare: made once per renderer
-  const MESH_TWO = [null, null], MESH_DS = [gl.DEPTH_STENCIL_ATTACHMENT];   // (the mesh programs a pass sets up, kept)
+  const MESH_TWO = [null, null], MESH_DS = [gl.DEPTH_STENCIL_ATTACHMENT];   // (the programs a pass sets up, kept)
   const ONE1 = new Float32Array([1]), ONE8 = new Float32Array(8), ZERO1I = new Int32Array([0]);
   const MESH_GLOW_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.COLOR_ATTACHMENT3], MESH_COLOR_BUF = [gl.COLOR_ATTACHMENT0, gl.NONE, gl.NONE, gl.NONE];
-  const MESH_RING_BUF = [gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.NONE, gl.NONE];
-  // A geometry renderer draws: the Tube's when it is chosen (and then never the Mesh's: no hybrid), else the Mesh's when it is.
+  // The Tube draws (otherwise the classic pass does, and tubeWhy says why).
   const meshUse = () => {
-    if (tubePick) {
-      if (!tubeS || !tubePt) return false;   // (tubeWhy says why)
-      if (!meshL) { tubeWhy = 'no lay program'; return false; }
-      if (software) { tubeWhy = 'software GL'; return false; }
-    } else {
-      if (!meshPick) return false;
-      if (!meshL || !meshS || !meshPt) return false;   // (the lobule's instance has the lay program alone once Tube has been chosen: Mesh chosen leaves it classic)
-      if (software) { meshWhy = 'software GL'; return false; }
-    }
+    if (!tubeS || !tubePt) return false;
+    if (!meshL) { tubeWhy = 'no lay program'; return false; }
+    if (software) { tubeWhy = 'software GL'; return false; }
     if (lost || !entCPU || !cellsCPU) return false;
-    if (MG.ok === null) return false;   // (its targets could not be made: meshWhy says why)
+    if (MG.ok === null) return false;   // (its targets could not be made: tubeWhy says why)
     return true;
   };
   // The geometry renderers' data for a binning, a geometry BUNDLE B: each row's points (the figure's own binning also as a texture; between the views the morph set's
   // frame rows), the rows that have any, the joins' list, the joins' patches (only where a renderer draws them) and the Tube's stage 2 record (B.s2, tube-stage2.js
   // stage2Prepare). The figure's own binning has one bundle (mainB, made again when it is: B.dirty); each morph set keeps its own (S.derived), made when the set is
   // (prepareSet), so a set change inside the switch swaps references and builds nothing. MG's fields point into the bundle in use.
-  const newBundle = () => ({ ent: null, morph: null, dirty: true, gen: 0, pts: {}, jl: {}, patch: {}, pj: null, patchOk: false, s2: null, noEnds: !tubeJoinCut() || who === 'lobule' });   // alloc-rare: one a binning kind (noEnds: its rows carry no join ends with ?tubejoin=off or in the lobule, tube-join-glsl.js)
+  const newBundle = () => ({ ent: null, morph: null, dirty: true, gen: 0, pts: {}, jl: {}, patch: {}, pj: null, patchOk: false, s2: null, noEnds: who === 'lobule' });   // alloc-rare: one a binning kind (noEnds: its rows carry no join ends with ?tubejoin=off or in the lobule, tube-join-glsl.js)
   const mainB = newBundle();
-  // Whether the Tube joins its vessels with webs (stage 2 or 3, no ?tubejoin=patch): then no patch is built or uploaded.
+  // Whether the Tube joins its vessels with webs (stage 2 or 3): then no patch is built or uploaded.
   let wjA = null, wjB = null, wjV = false;
   const webJoins = () => {
-    if (!tubePick) return false;
-    if (tube2 !== wjA || tube3 !== wjB) { wjA = tube2; wjB = tube3; wjV = tubeStage(tube2, undefined, !!tube3).joins === 'web'; }
+    if (tube2 !== wjA || tube3 !== wjB) { wjA = tube2; wjB = tube3; wjV = tubeStage(tube2, !!tube3).joins === 'web'; }
     return wjV;
   };
   const patchesWanted = () => !webJoins();
@@ -3258,7 +3220,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return MG;
   }
   // A morph set's bundle, made (or made again after the Tube's joins mode changed) away from the switch's frames: the set need not be the one in use.
-  const prepKey = () => (tubePick ? (webJoins() ? 'web' : 'patch') : meshPick ? 'mesh' : '');
+  const prepKey = () => (webJoins() ? 'web' : 'patch');
   function prepareSet(S) {
     if (lost || !S.entCPU) return;
     S.prepKey = prepKey();
@@ -3279,17 +3241,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // The mesh's buffers (made once) and targets (the layer's size): the prepass's depth (read back as a texture), the stencil that lets one
   // fragment draw a pixel once, and the scratch layers (made when first needed).
   function meshTargets() {
-    if (!MG.stripVAO) {
-      const S = stripIndex(1);
-      MG.nIndex = S.nIndex;
-      MG.stripVAO = gl.createVertexArray(); MG.rowBuf = gl.createBuffer();
-      gl.bindVertexArray(MG.stripVAO);
-      const vb = gl.createBuffer(), ib = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, S.attr, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 0, 0);
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, S.index, gl.STATIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, MG.rowBuf);
-      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 4, 0); gl.vertexAttribDivisor(1, 1);
+    if (!MG.rowBuf) {
+      MG.rowBuf = gl.createBuffer();
       MG.patchVAO = gl.createVertexArray(); MG.patchBuf = gl.createBuffer();
       gl.bindVertexArray(MG.patchVAO);
       const qb = gl.createBuffer();
@@ -3307,7 +3260,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       meshSt = gl.createRenderbuffer();
     }
     // (The Tube's strip, made once when it is first chosen: the attribute layout of the Mesh's strip, the same row buffer.)
-    if (tubePick && !MG.tubeVAO) {
+    if (!MG.tubeVAO) {
       const T = tubeIndex(1);
       MG.tubeIndexN = T.nIndex;
       MG.tubeVAO = gl.createVertexArray();
@@ -3333,10 +3286,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     meshStOn = okS;
     if (!okS) gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_STENCIL_ATTACHMENT, gl.RENDERBUFFER, null);
     MG.ok = okS ? true : null;
-    if (!MG.ok) { meshWhy = tubeWhy = 'no depth and stencil'; console.warn(`Veins renderer: the ${tubePick ? 'tube' : 'mesh'} vessel renderer has ${meshWhy}; the classic vessel pass draws.`); }
+    if (!MG.ok) { tubeWhy = 'no depth and stencil'; console.warn(`Veins renderer: the tube vessel renderer has ${tubeWhy}; the classic vessel pass draws.`); }
     return !!MG.ok;
   }
-  const MESH_NONE = [gl.NONE, gl.NONE, gl.NONE, gl.NONE];
   function meshScratch(k) {
     if (MG.sw !== fboW || MG.sh !== fboH) {
       MG.sw = fboW; MG.sh = fboH;
@@ -3371,77 +3323,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (pass <= MP.SHADOW) return Math.hypot(look.shOff[0], look.shOff[1]) + 2.4 * 1.4 + aa + 2 * px;
     return aa + 2.5 * px + 2 * px;   // (the selection ring's 4 past the wall: selPad, on the selected rows alone)
   }
-  // One draw of tier t's strips (and its patches) for a pass.
-  function meshDraw(pass, t, base, H, shapeBase, px, look, patches) {
-    const tb = MG.tb, pb = MG.pb, pad = meshPad(pass, look, px), SP = meshS, PP = meshPt;
-    if (tb.count[t]) {
-      const u = SP.u;
-      gl.useProgram(SP.p);
-      UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, shapeBase); UC.f1(u.padU, pad); UC.f1(u.selPad, pass >= MP.SHAPE_K ? 4 : 0);
-      gl.bindVertexArray(MG.stripVAO);
-      gl.bindBuffer(gl.ARRAY_BUFFER, MG.rowBuf);
-      gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 4, tb.start[t] * 4);
-      // (A strip writes no second lumen: its pixels' second-lumen target is left as it stands, as the one-vessel build leaves it.)
-      if (pass === MP.SHAPE) gl.drawBuffers(ATTACH_ONE);
-      gl.drawElementsInstanced(gl.TRIANGLES, MG.nIndex, gl.UNSIGNED_SHORT, 0, tb.count[t]);
-      MG.strips += tb.count[t];
-    }
-    if (patches && pb.count[t]) {
-      const u = PP.u;
-      gl.useProgram(PP.p);
-      UC.i1(u.mPass, pass); UC.i1(u.tierNow, t); UC.f1(u.keyBase, base); UC.f1(u.keyH, H); UC.f1(u.keyShape, shapeBase);
-      gl.bindVertexArray(MG.patchVAO);
-      gl.bindBuffer(gl.ARRAY_BUFFER, MG.patchBuf);
-      const o = pb.start[t] * PG_W * 4;
-      gl.vertexAttribPointer(1, 4, gl.FLOAT, false, PG_W * 4, o + 16);
-      gl.vertexAttribPointer(2, 4, gl.FLOAT, false, PG_W * 4, o + 32);
-      gl.vertexAttribPointer(3, 2, gl.FLOAT, false, PG_W * 4, o + 48);
-      if (pass === MP.SHAPE) gl.drawBuffers(ATTACH);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, pb.count[t]);
-      MG.patches += pb.count[t];
-    }
-    MG.passes++;
-  }
-  // The key unit's texture: the prepass's depth when a pass reads it, a texture no framebuffer holds while the prepass writes it.
-  // A prepass and its pass for tier t, in the layer's framebuffer: the prepass writes no colour, only its keys as depth (LESS keeps the
-  // lowest); returns the keys' base the pass drew with.
-  function meshPair(kp, cp, t, px, look, patches, bufs) {
-    const base = meshKeyNext(), H = 0.999 / KEY_PASSES;
-    gl.drawBuffers(MESH_NONE);
-    gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST);
-    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.depthMask(true);
-    meshDraw(kp, t, base, H, 0, px, look, patches);
-    meshColour(cp, t, base, H, 0, px, look, patches, bufs);
-    return base;
-  }
-  // A pass that draws over the kept keys (depth EQUAL: only the fragment whose key was kept), blended premultiplied, each pixel once.
-  function meshColour(cp, t, base, H, shapeBase, px, look, patches, bufs) {
-    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.EQUAL); gl.depthMask(false);
-    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.STENCIL_TEST); gl.stencilFunc(gl.NOTEQUAL, meshRefNext(), 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); gl.stencilMask(0xff);
-    gl.drawBuffers(bufs);
-    meshDraw(cp, t, base, H, shapeBase, px, look, patches);
-    gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
-  }
-  // The crossing ring of tier t: a mark pass sets the stencil (to M) where the tier's shape kept a lumen (its key under the lumens' top, depth
-  // GREATER), then the ring draws where it is marked and the kept lumen's z is under the crossing vessel's (depth LESS), each pixel once (INCR).
-  function meshRing(t, sb, px, look) {
-    const H = 0.999 / KEY_PASSES;
-    if (MG.ref >= 253) { gl.stencilMask(0xff); gl.clearBufferiv(gl.STENCIL, 0, ZERO1I); MG.ref = 0; }
-    const M = ++MG.ref;
-    MG.ref++;   // (M + 1: what a ringed pixel becomes, kept from every later pass's reference)
-    gl.drawBuffers(MESH_NONE);
-    gl.disable(gl.BLEND);
-    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.GREATER); gl.depthMask(false);
-    gl.enable(gl.STENCIL_TEST); gl.stencilFunc(gl.ALWAYS, M, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); gl.stencilMask(0xff);
-    meshDraw(MP.MARK, t, sb, H, sb, px, look, false);
-    gl.depthFunc(gl.LESS);
-    gl.stencilFunc(gl.EQUAL, M, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);
-    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.drawBuffers(MESH_RING_BUF);
-    meshDraw(MP.RING, t, sb, H, sb, px, look, false);
-    gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
-  }
   // A scratch layer laid over the layer's colour, weighed by k.
   function meshLay(tex, k) {
     gl.drawBuffers(MESH_COLOR_BUF);
@@ -3451,70 +3332,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindVertexArray(MG.layVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     MG.passes++;
-  }
-  // The mesh's whole vessel pass into the layer (fbo bound, its viewport; the caller's scissor, if any, kept): false when it cannot draw, and
-  // the classic pass draws instead.
-  function meshPass(m, look) {
-    if (!meshTargets()) return false;
-    const G = meshGeo();
-    const tb = tierBuckets(tubeNow, G.pts.on, nTubes, G.tb), pb = patchesByTier(G.patch.data, G.patch.count, tubeNow, G.pb, PG_W, PG_M);
-    // (The rows and patches by tier, into buffers kept at their largest.)
-    gl.bindBuffer(gl.ARRAY_BUFFER, MG.rowBuf);
-    if (MG.rowCap < tb.rows.length) { MG.rowCap = tb.rows.length; gl.bufferData(gl.ARRAY_BUFFER, MG.rowCap * 4, gl.DYNAMIC_DRAW); }
-    if (tb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, tb.rows, 0, tb.n);
-    gl.bindBuffer(gl.ARRAY_BUFFER, MG.patchBuf);
-    if (MG.patchCap < pb.n * PG_W) { MG.patchCap = Math.max(pb.n * PG_W, PG_W); gl.bufferData(gl.ARRAY_BUFFER, MG.patchCap * 4, gl.DYNAMIC_DRAW); }
-    if (pb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, pb.data, 0, pb.n * PG_W);
-    MG.passes = 0; MG.strips = 0; MG.patches = 0;
-    // (Both programs' uniforms and textures as the classic pass's, then the points: the figure's own texture, or the morph set's frame rows.)
-    MESH_TWO[0] = meshPt; MESH_TWO[1] = meshS;
-    for (const P of MESH_TWO) {
-      vesselSet(P, m, look, false, false);
-      if (!geo.morph) { UC.i1(P.u.posBase, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, MG.tex); }
-      UC.f1(P.u.reachU, look.reach);
-      UC.i1(P.u.pjTex, 9);
-    }
-    gl.activeTexture(gl.TEXTURE9); gl.bindTexture(gl.TEXTURE_2D, MG.pj);
-    const px = 1 / Math.max(1e-6, Math.hypot(m[0], m[1]));
-    // (The depth and stencil, cleared within the caller's scissor.)
-    gl.depthMask(true); gl.stencilMask(0xff);
-    gl.clearBufferfi(gl.DEPTH_STENCIL, 0, 1, 0);
-    MG.kP = 0; MG.ref = 0;
-    const TG = look.tierGroup, dim = look.netAlpha < 0.999, ring = !!look.fx && (look.paper?.[3] || 0) > 0;
-    for (let g = 0; g < 3; g++) {
-      let any = false, sel = false, up = false;
-      for (let t = 0; t < MAX_TIERS; t++) if (TG[t] === g && (tb.count[t] || pb.count[t])) { any = true; if (tb.sel[t]) sel = true; if (tb.litUp[t]) up = true; }
-      if (!any) continue;
-      // (The network while a vessel is focused: drawn apart and laid faded as one, so its vessels do not show through one another; the
-      // selected vessel's lift drawn apart too, laid over the network.)
-      const toN = g === 1 && dim, lift = g === 1 && sel;
-      if (lift || toN) gl.drawBuffers(ATTACH);
-      if (lift) { meshTarget(meshScratch(1)); gl.clearBufferfv(gl.COLOR, 0, CLR_F); meshTarget(baseTex); }
-      if (toN) { meshTarget(meshScratch(0)); gl.clearBufferfv(gl.COLOR, 0, CLR_F); }
-      for (let t = 0; t < MAX_TIERS; t++) {
-        if (TG[t] !== g || !(tb.count[t] || pb.count[t])) continue;
-        if (tb.lit[t]) meshPair(MP.GLOW_K, MP.GLOW, t, px, look, false, MESH_GLOW_BUF);
-        if (look.fx && tb.shadow[t]) meshPair(MP.SHADOW_K, MP.SHADOW, t, px, look, true, MESH_COLOR_BUF);
-        const sb = meshPair(MP.SHAPE_K, MP.SHAPE, t, px, look, true, ATTACH);
-        if (lift && tb.sel[t]) { meshTarget(MG.scrT); meshColour(MP.LIFT, t, sb, 0.999 / KEY_PASSES, sb, px, look, true, MESH_COLOR_BUF); meshTarget(toN ? MG.scrN : baseTex); }
-        if (ring && tb.count[t] > 1) meshRing(t, sb, px, look);
-      }
-      if (up) for (let t = 0; t < MAX_TIERS; t++) if (TG[t] === g && tb.litUp[t]) meshPair(MP.UP_K, MP.UP, t, px, look, false, MESH_GLOW_BUF);
-      if (toN) { meshTarget(baseTex); meshLay(MG.scrN, look.netAlpha); }
-      if (lift) meshLay(MG.scrT, 1);
-    }
-    gl.disable(gl.BLEND); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST);
-    gl.drawBuffers(ATTACH);
-    gl.bindVertexArray(null);
-    gl.depthMask(true);
-    // (The keys and the stencil are not wanted after the draw (the next one clears them): a tiled GPU need not write them out.)
-    gl.invalidateFramebuffer(gl.FRAMEBUFFER, MESH_DS);
-    gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, null);
-    if (gpuProbe.on) {
-      gpuProbe.note('vessels: mesh');
-      gpuProbe.gauge('vessel renderer', `mesh: ${MG.passes} passes, ${MG.strips} strips, ${MG.patches} patches drawn`);
-    }
-    return true;
   }
   // The Tube vessel renderer's pass (tube-pass.js, docs/tube-renderer.md), given what it works on once; what changes it reads here each time.
   const tubePass = createTubePass({
@@ -4188,7 +4005,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (U.lumenL) { bindUnit(U, 8, lumTarget ? lumTarget.tex() : baseTex, 'lumenL'); UC.f1(U.lumSc, lumTarget && lumTarget.w && (lumTarget.w !== fboW || lumTarget.h !== fboH) ? 1 : 0); }
     // (Look D: the baked tile on the noise unit, set by composite. Until it is baked the streaks are look E's sines, which read no texture.)
     if (tileNow) bindUnit(U, 15, tileNow, 'noiseT');
-    UC.i1(U.bloodStyle, tubePick && meshUse() ? STYLE_P : !styleE && tileNow ? 1 : 2);   // (style P, the Tube's particles, while the Tube pass draws: the condition pieceFn uses)
+    UC.i1(U.bloodStyle, meshUse() ? STYLE_P : !styleE && tileNow ? 1 : 2);   // (style P, the Tube's particles, while the Tube pass draws: the condition pieceFn uses)
   }
 
   // ── The optional builds published when the driver has them ready (addendum §10.1) ──
@@ -4268,7 +4085,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       else if (k === 'heads') finishHeads();
       else if (k === 'plain') { finishPlain(); if (plainCell) warm('plain'); }
       else if (k === 'fused') { finishFuse(); if (fuseGen) warm('fused'); }
-      else if (k === 'mesh') { finishMesh(); if (meshL) fboOK = false; }
       else if (k === 'tube') { finishTube(); if (tubePt) fboOK = false; }
       else if (k === 'tube2') { finishTube2(); if (tube2) { fboOK = false; queuePrep(); } }
       else if (k === 'tube3') { finishTube3(); if (tube3) { fboOK = false; queuePrep(); } }
@@ -4697,7 +4513,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     draw(m, look, blood, rows = null) {
       flushRadii();
-      meshSync();
       counts.draw++;
       for (let i = 0; i < 6; i++) OVER[i] = m[i];
       overM = OVER;
@@ -4793,7 +4608,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
       fboOK = true; stale = false;
       if (gpuProbe.on) gpuProbe.gauge('vessel cells, one-vessel program', simpleP ? `${nSimple} of ${nCells}` : 'off');
-      if (gpuProbe.on && !meshUse()) gpuProbe.gauge(who === 'lobule' ? 'lobule vessel renderer' : 'vessel renderer', tubePick ? `classic: tube ${tubeWhy || 'not ready'}` : `classic: ${!meshPick ? 'switched off in Settings' : meshWhy || 'not ready'}`);
+      if (gpuProbe.on && !meshUse()) gpuProbe.gauge(who === 'lobule' ? 'lobule vessel renderer' : 'vessel renderer', `classic: tube ${tubeWhy || 'not ready'}`);
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
       this.composite(look, blood, true);
     },
@@ -4808,7 +4623,6 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
      */
     drawRows(m, look, blood, rows, full = false) {
       flushRadii();
-      meshSync();
       for (let i = 0; i < 6; i++) OVER[i] = m[i];
       overM = OVER;
       m = whole(m, WM);
@@ -5120,7 +4934,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // wide. Frames with no wide lumen, no streaks or a one-pass frame draw as they always did (halfOn 0).
       const rebind = () => gl.bindFramebuffer(gl.FRAMEBUFFER, own ? (direct ? null : own.fbo) : SCR());
       // (Stage 3 of the Tube: the compositor's Tube builds, which read the lumen layer (lumenFrame, below) and need no half-size streak pass or second flow target.)
-      const stage3 = !!tube3 && tubePick && meshUse() && tubePass.stage() === 3;
+      const stage3 = !!tube3 && meshUse() && tubePass.stage() === 3;
       const halfOn = !stage3 && !!streakP && !!blood.on && (blood.streakA ?? 1) > 0 && !fused && rMaxAll() * Math.hypot(m[0], m[1]) >= 0.9 * HALF_R && halfReady(rebind);
       const cPlain = stage3 ? tube3.plain : plain, cFull = stage3 ? tube3.comp : comp;
       const prg = full ? (bare ? cPlain : cFull) : (bare ? (stage3 ? tube3.plainCell : plainCell) : (stage3 ? tube3.compCell : compCell));
@@ -5552,11 +5366,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         for (const b of [quad, cellBuf, simpleBuf, bloodBuf, partBuf, partSBuf, fluidBuf, poolBuf, dirtBuf, cathBuf, lineBuf]) gl.deleteBuffer(b);
         for (const v of [vao, oneVAO, bloodVAO, halfSet.va, partVAO, partSVAO, fluidVAO, poolVAO, dirtVAO, compVAO, cathVAO, lineVAO, headVAO]) gl.deleteVertexArray(v);
         gl.deleteBuffer(headBuf); if (axisTex) gl.deleteTexture(axisTex);
-        for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP, meshS, meshPt, meshL, tubeS, tubePt, tubeGlow]) if (x) gl.deleteProgram(x.p);
+        for (const x of [prog, simpleP, comp, compCell, plain, plainCell, streakP, streakCellP, headP, fuseGen, fuseOne, cathP, lineP, meshL, tubeS, tubePt, tubeGlow]) if (x) gl.deleteProgram(x.p);
         for (const t of [MG.tex, mainB.pj, MG.scrN, MG.scrT, ...[...morphSets].map((S) => S.derived?.pj)]) if (t) gl.deleteTexture(t);
         if (meshSt) gl.deleteRenderbuffer(meshSt);
         MG.stage2?.dispose(); lumTarget?.dispose();
-        for (const v of [MG.stripVAO, MG.patchVAO, MG.layVAO, MG.tubeVAO]) if (v) gl.deleteVertexArray(v);
+        for (const v of [MG.patchVAO, MG.layVAO, MG.tubeVAO]) if (v) gl.deleteVertexArray(v);
         for (const b of [MG.rowBuf, MG.patchBuf, MG.tubeVB, MG.tubeIB]) if (b) gl.deleteBuffer(b);
         if (half.tex) { gl.deleteTexture(half.tex); gl.deleteFramebuffer(half.fbo); }
         over?.dispose(); stack?.dispose(); tileGPU?.dispose();

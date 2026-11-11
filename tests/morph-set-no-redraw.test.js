@@ -34,7 +34,6 @@ function fakeGL() {
     },
   });
 }
-const frame = await import('../src/ui/frame.js');
 const mod = await import('../src/ui/veins-gl.js');
 const { gpuProbe, COUNTED } = await import('../src/ui/gpu-probe.js');
 const { binSwept } = await import('../src/ui/veins-sweep.js');
@@ -45,8 +44,7 @@ const M = [1, 0, 0, 1, 0, 0];
 const LOOK = { shOff: [0, 0], light: [0, -1], reach: 11, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierGroup: new Array(24).fill(0), tierAlpha: new Array(24).fill(1) };
 const BLOOD = { on: false };
 
-function figure(renderer) {
-  frame.setVesselRenderer(renderer);
+function figure() {
   const canvas = { width: 800, height: 600, getContext: () => fakeGL(), addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
   const g = mod.createVeinsGL(canvas, { tubes: 2, force: true, who: 'lobule' });
   g.setGeometry(mod.binVeins([{ id: 0, pts: line(100), reach: 30 }, { id: 1, pts: line(300), reach: 30 }], []));
@@ -62,9 +60,9 @@ function drawKind(g) {
 }
 const settle = (g) => { for (let i = 0; i < 4; i++) drawKind(g); return drawKind(g); };
 
-for (const renderer of ['mesh', 'tube']) {
-  test(`${renderer}: making a morph set leaves the next draw as it was (not a whole redraw); a real set change is one`, () => {
-    const g = figure(renderer);
+{
+  test(`making a morph set leaves the next draw as it was (not a whole redraw); a real set change is one`, () => {
+    const g = figure();
     assert.equal(settle(g), 'kept', 'at rest the kept layer is reused');
     const S = g.makeMorphSet(swept());
     assert.ok(S);
@@ -80,12 +78,11 @@ for (const renderer of ['mesh', 'tube']) {
     g.useMorphSet(null);
     assert.equal(drawKind(g), 'whole', 'and the change back is one');
     g.dropMorphSet(S); g.dropMorphSet(T);
-    frame.setVesselRenderer('mesh');
   });
 }
 
 test('a set is ready once uploaded and prepared; a switch that needs an unprepared set prepares it at once', () => {
-  const g = figure('tube');
+  const g = figure();
   const S = g.makeMorphSet(swept());
   assert.equal(g.morphSetReady(S), false, 'uploaded only');
   g.prepareMorphSet(S);
@@ -100,5 +97,4 @@ test('a set is ready once uploaded and prepared; a switch that needs an unprepar
   assert.equal(g.morphSetReady(S), true);
   g.dropMorphSet(S);
   assert.equal(g.morphSetReady(S), false, 'a dropped set is not ready');
-  frame.setVesselRenderer('mesh');
 });

@@ -35,7 +35,6 @@ function fakeGL() {
   });
   return { gl, uploads };
 }
-const frame = await import('../src/ui/frame.js');
 const mod = await import('../src/ui/veins-gl.js');
 const { binSwept } = await import('../src/ui/veins-sweep.js');
 
@@ -50,33 +49,16 @@ function lobule() {
 const swept = () => binSwept([{ id: 0, reach: 30, path: [line(100)] }, { id: 1, reach: 30, path: [line(300)] }], [{ path: [[[200, 100]]], reach: 20, k: 0.3, fillet: 1, members: [0, 1], trunk: 0 }], { rows: 2, samples: mod.N_SAMPLES });
 const patchTexUploads = (f) => f.uploads.filter((u) => u.w === 2).length;
 
-test('Mesh chosen: a morph set\'s patch texture is made with the set, and using the set makes none', () => {
-  frame.setVesselRenderer('mesh');
-  const { g, f } = lobule();
-  const before = patchTexUploads(f);
-  const S = g.makeMorphSet(swept());
-  assert.ok(S);
-  assert.equal(patchTexUploads(f), before, 'uploading the set makes no patch texture: preparing it does');
-  g.prepareMorphSet(S);
-  assert.equal(patchTexUploads(f), before + 1, 'made with the set, in its own slice');
-  g.useMorphSet(S); g.useMorphSet(null); g.useMorphSet(S); g.useMorphSet(null);
-  assert.equal(patchTexUploads(f), before + 1, 'a set change builds and uploads nothing');
-  frame.setVesselRenderer('mesh');
-});
-
-test('Tube chosen with webs for joins: no patch texture is made for a morph set', () => {
-  frame.setVesselRenderer('tube');
+test('Joins are webs (the Tube): no patch texture is made for a morph set', () => {
   const { g, f } = lobule();
   const before = patchTexUploads(f);
   const S = g.makeMorphSet(swept());
   assert.ok(S);
   g.prepareMorphSet(S);
   assert.equal(patchTexUploads(f), before, 'no patch built or uploaded where the joins are webs');
-  frame.setVesselRenderer('mesh');
 });
 
-test('tubeStage() is a number the Tube\'s stage fills in: 0 before the vessel layer is drawn and while the classic or Mesh pass draws it', () => {
-  frame.setVesselRenderer('mesh');
+test('tubeStage() is a number the Tube\'s stage fills in: 0 before the vessel layer is drawn and while the classic pass draws it', () => {
   const { g } = lobule();
   assert.equal(g.tubeStage(), 0);
   g.draw([1, 0, 0, 1, 0, 0], { shOff: [0, 0], light: [0, -1], reach: 11, organs: 0, casing: [0, 0, 0, 1], shadow: [0, 0, 0, 0], sheen: [1, 1, 1, 0], shade: [0, 0, 0, 0], ring: [0, 0, 0, 0], netAlpha: 1, fx: true, tierGroup: new Array(24).fill(0), tierAlpha: new Array(24).fill(1) }, { on: false });

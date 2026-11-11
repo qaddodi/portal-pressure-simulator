@@ -43,11 +43,9 @@ function fakeGL() {
   });
   return { gl, calls, srcOf: (p) => (progs.get(p) || []).map((s) => s.src).join('\n'), cur: () => cur };
 }
-const frame = await import('../src/ui/frame.js');
 const mod = await import('../src/ui/veins-gl.js');
 
 function figure() {
-  frame.setVesselRenderer('mesh');
   const f = fakeGL();
   const canvas = { width: 800, height: 600, getContext: () => f.gl, addEventListener() {}, removeEventListener() {}, toDataURL: () => 'data:' };
   const g = mod.createVeinsGL(canvas, { tubes: 2, force: true });
