@@ -98,6 +98,10 @@ export const PRESETS = [
     summary: 'Left-sided portal hypertension: isolated fundal varices via short gastric veins with a normal portal pressure.' },
   { id: 'schisto', group: 'Presinusoidal', label: 'Schistosomiasis / NCPH', apply: P({ fibrosis: { R: { pre: 70, sin: 2.5 }, L: { pre: 70, sin: 2.5 } } }), days: 365,
     summary: 'Presinusoidal resistance: high portal pressure but a near-normal wedged pressure, so HVPG is normal or mildly raised. Varices yes, ascites rare.' },
+  // Porto-sinusoidal vascular disorder: the portal venules narrow and vanish with no cirrhosis (Baveno VIII 8.40 to 8.44), so the resistance sits before the sinusoids as in
+  // schistosomiasis, a little less: a high portal pressure, a normal HVPG and stiffness, a big spleen. The deck's second presinusoidal patient.
+  { id: 'psvd', group: 'Presinusoidal', label: 'Porto-sinusoidal vascular disorder', apply: P({ fibrosis: { R: { pre: 50, sin: 2.2 }, L: { pre: 50, sin: 2.2 } } }), days: 365,
+    summary: 'Narrowed portal venules and no cirrhosis: portal pressure and spleen up, a near-normal wedged pressure and stiffness, so HVPG is normal or mildly raised. Varices yes, ascites rare.' },
   { id: 'cirr-comp', group: 'Sinusoidal', label: 'Compensated cirrhosis', apply: P({ cirrhosis: 0.4 }), days: 365,
     summary: 'Mild sinusoidal portal hypertension (HVPG 6–9). No varices yet.' },
   { id: 'csph', group: 'Sinusoidal', label: 'Clinically significant PH', apply: P({ cirrhosis: 0.6 }), days: 365,

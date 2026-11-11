@@ -61,7 +61,7 @@ Full guide: section 6 (words), section 9 (house rules).
 
 ## Choosing the patient
 
-- `preset: 'cirr-decomp'` loads a patient fresh. There are 18, from healthy to Budd–Chiari.
+- `preset: 'cirr-decomp'` loads a patient fresh. There are 19, from healthy to Budd–Chiari.
 - `params: { drugs: { carvedilol: true } }` changes only what you name.
 - `action: { kind: 'band' }` is a one-off event, such as banding, paracentesis or a bleed.
 - `days: 90` lets the disease run on, and `ramp: { cirrhosis: [0.5, 0.6] }` moves a setting across those days.

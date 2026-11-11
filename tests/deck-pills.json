@@ -30,6 +30,10 @@
   "varices",
   "{hvpg}"
  ],
+ "circulation/path-ladder": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
  "circulation/relation": [
   "{hvpg}"
  ],
@@ -57,6 +61,7 @@
  ],
  "sites/post": [
   "right atrium",
+  "caudate lobe",
   "{ra}"
  ],
  "sites/cardiac": [
@@ -78,7 +83,8 @@
   "sinusoids"
  ],
  "hvpg/hvpg": [
-  "{hvpg}"
+  "{hvpg}",
+  "{>=10 mmHg}"
  ],
  "hvpg/presin": [
   "portal tracts",
@@ -90,6 +96,10 @@
   "portal vein",
   "sinusoids",
   "{ppg}"
+ ],
+ "hvpg/eus": [
+  "{ppg}",
+  "{hvpg}"
  ],
  "hvpg/heart": [
   "Wedged",
@@ -138,6 +148,9 @@
  ],
  "ascites/refractory": [
   "{asc}"
+ ],
+ "ascites/path-hold": [
+  "{84 mmHg}"
  ],
  "ascites/tips": [
   "{ppg}"
@@ -193,7 +206,8 @@
   "{pvFlow}"
  ],
  "treatment/terli": [
-  "{pvFlow}"
+  "{pvFlow}",
+  "{rpp}"
  ],
  "treatment/vs": [
   "{ppg}"
@@ -219,6 +233,21 @@
   "{spleen}",
   "{plt}"
  ],
+ "stiffness/ssm": [
+  "spleen",
+  "{ssm}",
+  "{hvpg}",
+  "{>55 kPa}",
+  "{<40 kPa}"
+ ],
+ "stiffness/path": [
+  "{lsm}",
+  "{plt}"
+ ],
+ "stiffness/aasld": [
+  "{lsm}",
+  "{plt}"
+ ],
  "stiffness/a1": [
   "{lsm}",
   "{plt}"
@@ -232,13 +261,17 @@
   "{plt}"
  ],
  "stiffness/a4": [
-  "{lsm}"
+  "{lsm}",
+  "{ssm}"
  ],
  "stiffness/a5": [
   "{lsm}",
   "{spleen}"
  ],
  "stiffness/heart": [
+  "(a value)"
+ ],
+ "stiffness/reliable": [
   "(a value)"
  ],
  "stiffness/relation": [
@@ -280,11 +313,23 @@
  "lobule/zones": [
   "zone 3"
  ],
+ "lobule/schisto": [
+  "portal venules",
+  "sinusoids",
+  "{pv}",
+  "{hvpg}"
+ ],
  "lobule/cirr": [
   "space of disse",
   "fenestrae",
   "stellate cells",
   "sinusoid"
+ ],
+ "lobule/sos": [
+  "central veins",
+  "sinusoids",
+  "{hvpg}",
+  "{pv}"
  ],
  "lobule/cong": [
   "zone 3",
@@ -292,6 +337,9 @@
   "sinusoids",
   "{pv}",
   "{hvpg}"
+ ],
+ "shunts/srs": [
+  "{pvVel}"
  ],
  "shunts/tips": [
   "portal vein",
@@ -307,7 +355,13 @@
   "{ppg}",
   "{liver}"
  ],
+ "shunts/occl": [
+  "{ppg}"
+ ],
  "shunts/dsrs": [
+  "{ppg}"
+ ],
+ "shunts/menu": [
   "{ppg}"
  ],
  "doppler/probe": [
@@ -318,6 +372,7 @@
   "(a value)"
  ],
  "doppler/slow": [
+  "{pvVel}",
   "{<15 cm/s}"
  ],
  "doppler/normal": [
@@ -390,6 +445,7 @@
   "left portal vein"
  ],
  "tips-doppler/narrow": [
+  "{asc}",
   "{>190 cm/s}",
   "{<90 cm/s}",
   "{ppg}"
@@ -414,6 +470,9 @@
   "portal pressure",
   "superior mesenteric vein"
  ],
+ "prehepatic/path-pvtocc": [
+  "{>=50%}"
+ ],
  "prehepatic/cath": [
   "{hvpg}",
   "{ppg}"
@@ -425,7 +484,8 @@
   "cavernoma"
  ],
  "prehepatic/liver": [
-  "{lsm}"
+  "{lsm}",
+  "{ssm}"
  ],
  "prehepatic/base": [
   "portal vein",
@@ -469,6 +529,10 @@
  ],
  "variceal-bleed/tips": [
   "{ppg}"
+ ],
+ "variceal-bleed/tipscoil": [
+  "{ppg}",
+  "{varix}"
  ],
  "variceal-bleed/controlled": [
   "{hr}",
@@ -539,12 +603,25 @@
   "{hvpg}",
   "{ppg}"
  ],
+ "ncph/eus": [
+  "{ppg}",
+  "{hvpg}"
+ ],
  "ncph/stiff": [
   "liver",
   "{lsm}"
  ],
  "ncph/psvd": [
   "portal venules"
+ ],
+ "ncph/path-psvdscope": [
+  "{ssm}",
+  "{<40 kPa}",
+  "{<1 mg/dL}"
+ ],
+ "ncph/path-psvdscore": [
+  "{ssm}",
+  "{>=5 points}"
  ],
  "ncph/relation": [
   "spleen",
@@ -577,7 +654,8 @@
   "central veins"
  ],
  "outflow/soswedge": [
-  "{hvpg}"
+  "{hvpg}",
+  "{>=10 mmHg}"
  ],
  "outflow/recover": [
   "central veins",
@@ -611,6 +689,10 @@
   "{hvpg}",
   "{>=10 mmHg}"
  ],
+ "recompensation/path-ladder": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
  "recompensation/ascites": [
   "{hvpg}",
   "{asc}"
@@ -621,6 +703,14 @@
  "recompensation/cure": [
   "{salb}",
   "{hvpg}"
+ ],
+ "recompensation/path-recomp": [
+  "{salb}"
+ ],
+ "recompensation/path-stopcarv": [
+  "{hvpg}",
+  "{>=10 mmHg}",
+  "{lsm}"
  ],
  "recompensation/relation": [
   "{lsm}",
@@ -671,6 +761,9 @@
   "{hvpg}",
   "{hr}"
  ],
+ "pregnancy/delivery": [
+  "{hvpg}"
+ ],
  "pregnancy/after": [
   "{bv}",
   "{hvpg}"
@@ -679,6 +772,10 @@
   "{shunt}"
  ],
  "encephalopathy/srs": [
+  "{liver}"
+ ],
+ "encephalopathy/plug": [
+  "{ppg}",
   "{liver}"
  ],
  "encephalopathy/embolize": [
@@ -710,16 +807,30 @@
   "{<10 kPa}",
   "{plt}"
  ],
+ "cause-treated/path-stopcarv": [
+  "{lsm}",
+  "{<10 kPa}"
+ ],
  "cause-treated/high": [
   "{hvpg}"
  ],
  "cause-treated/high2": [
+  "{lsm}",
   "{hvpg}",
   "{>=10 mmHg}"
  ],
  "cause-treated/masld": [
   "{lsm}",
   "{plt}"
+ ],
+ "cause-treated/alcohol": [
+  "{hvpg}",
+  "{lsm}"
+ ],
+ "cause-treated/allpatients": [
+  "{hvpg@high}",
+  "{>=10 mmHg}",
+  "{<10 mmHg}"
  ],
  "cause-treated/relation": [
   "{hvpg@before}",
@@ -733,6 +844,9 @@
   "varices",
   "{varix}",
   "{hvpg}"
+ ],
+ "next-bleed/gastric": [
+  "varix"
  ],
  "next-bleed/bands": [
   "varices",
@@ -843,6 +957,10 @@
   "{hr}",
   "{pv}"
  ],
+ "hyperdynamic/over": [
+  "{pv}",
+  "{pv@full}"
+ ],
  "hyperdynamic/relation": [
   "{hvpg}",
   "{co}",
@@ -852,6 +970,7 @@
   "{ppg}"
  ],
  "choose-treatment/a2": [
+  "{asc}",
   "{liver}"
  ],
  "choose-treatment/a3": [
@@ -866,7 +985,15 @@
   "{ppg}",
   "{asc}"
  ],
+ "choose-treatment/menu": [
+  "{ppg}"
+ ],
  "ten-years/d0": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
+ "ten-years/path-ladder": [
+  "{lsm}",
   "{hvpg}",
   "{>=10 mmHg}"
  ],
@@ -914,5 +1041,175 @@
   "{hvpg@carv}",
   "{hvpg@rebleed}",
   "{hvpg@tips}"
+ ],
+ "meso-rex/child": [
+  "{spleen}",
+  "{plt}"
+ ],
+ "meso-rex/cavernoma": [
+  "{pv}"
+ ],
+ "meso-rex/gradients": [
+  "{hvpg}",
+  "{ppg}"
+ ],
+ "meso-rex/stiff": [
+  "{lsm}",
+  "{ssm}"
+ ],
+ "meso-rex/bypass": [
+  "{ppg}"
+ ],
+ "meso-rex/flows": [
+  "{liver}",
+  "{shunt}"
+ ],
+ "meso-rex/months": [
+  "{spleen}",
+  "{plt}"
+ ],
+ "meso-rex/alternative": [
+  "{ppg}",
+  "{shunt}"
+ ],
+ "masld/under": [
+  "{hvpg}",
+  "{ppg}"
+ ],
+ "masld/parts": [
+  "{ppg}",
+  "{hvpg}"
+ ],
+ "masld/still": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
+ "masld/bmi": [
+  "{lsm}",
+  "{plt}"
+ ],
+ "masld/start": [
+  "{lsm}",
+  "{plt}"
+ ],
+ "masld/regress": [
+  "{lsm@start}",
+  "{lsm}"
+ ],
+ "kidney/arteries": [
+  "{hr}",
+  "{co}",
+  "{map}"
+ ],
+ "kidney/pressure": [
+  "{map}",
+  "{rpp}"
+ ],
+ "kidney/tense": [
+  "{asc}",
+  "{rpp@pressure}",
+  "{rpp}"
+ ],
+ "kidney/tap": [
+  "{asc}",
+  "{rpp}"
+ ],
+ "kidney/carv": [
+  "{map}",
+  "{rpp}",
+  "{>=60 mmHg}"
+ ],
+ "kidney/path-carv": [
+  "{map}",
+  "{<65 mmHg}"
+ ],
+ "kidney/hold": [
+  "{map}",
+  "{rpp}"
+ ],
+ "kidney/terli": [
+  "{2 to 3 mg/24 h}",
+  "{map}"
+ ],
+ "tipping/stable": [
+  "{hvpg}",
+  "{>=10 mmHg}"
+ ],
+ "tipping/injury": [
+  "sinusoids",
+  "{hvpg}",
+  "{asc}"
+ ],
+ "tipping/infection": [
+  "{hr}",
+  "{map}",
+  "{hvpg}"
+ ],
+ "tipping/surgery": [
+  "{>=16 mmHg}"
+ ],
+ "tipping/antibiotic": [
+  "{asc}"
+ ],
+ "day/fasting": [
+  "portal vein",
+  "{pv}",
+  "{pvVel}"
+ ],
+ "day/meal": [
+  "{pvFlow}",
+  "{pv}",
+  "{lsm}"
+ ],
+ "day/fluid": [
+  "ivc",
+  "{pv}",
+  "{ivc}",
+  "{hvpg}"
+ ],
+ "day/breath": [
+  "{pv}",
+  "{hvpg}"
+ ],
+ "landmark-trials/predesci": [
+  "{hvpg}"
+ ],
+ "landmark-trials/predesci-arms": [
+  "{hvpg@predesci}",
+  "{hvpg}"
+ ],
+ "landmark-trials/earlytips-arms": [
+  "{ppg@earlytips}",
+  "{ppg}",
+  "{liver@earlytips}",
+  "{liver}"
+ ],
+ "landmark-trials/lvtips-arms": [
+  "{ppg@lvtips}",
+  "{ppg}"
+ ],
+ "landmark-trials/transfusion": [
+  "{<7 g/dL}",
+  "{<9 g/dL}"
+ ],
+ "landmark-trials/transfusion-res": [
+  "{map@transfusion}",
+  "{map}",
+  "{pv@transfusion}",
+  "{pv}"
+ ],
+ "landmark-trials/transfusion-arms": [
+  "{map}",
+  "{pv}",
+  "{pv@transfusion-res}"
+ ],
+ "landmark-trials/rifaximin-arms": [
+  "{shunt}",
+  "{he@rifaximin}",
+  "{he}"
+ ],
+ "landmark-trials/covered-arms": [
+  "{asc@covered}",
+  "{asc}"
  ]
 }

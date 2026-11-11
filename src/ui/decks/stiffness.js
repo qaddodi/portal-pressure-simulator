@@ -143,6 +143,16 @@ export const STIFFNESS = {
       ask: ['Stiffness 32 kPa and a raised jugular venous pressure. What is going on?', 'Congestion from the right heart, not cirrhosis.'],
     },
     {
+      // (Baveno VIII 1.4, 1.10 and 2.3: how to take and read the number. The patient is a compensated one at a repeat scan.)
+      id: 'reliable', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
+      tool: { kind: 'criteria', title: 'Trusting a stiffness reading', short: 'Trust the reading', ticks: false, lead: 'Before you act on the number.', rule: 'Baveno VIII 1.4, 1.10, 2.3',
+        rows: ['Measure it **fasting**', 'Index reading **≥10 kPa**: repeat it or add a second test', 'Act on the **most recent** reading', 'In alcohol-related disease, a confirmed change of **≥30%** matters'] },
+      kicker: 'Where stiffness misleads', site: 'sin', title: 'A stiffness reading is only as good as how it was taken',
+      line: 'Measure fasting, repeat or confirm a reading ≥10 kPa, and act on the latest value. In alcohol-related disease, a confirmed change of ≥30% matters.',
+      notes: 'Baveno VIII 1.4: liver stiffness is always measured fasting, for the diagnosis of cACLD and of CSPH alike. When the index reading is ≥10 kPa, repeat it, or add another validated test for advanced fibrosis to confirm cACLD. 1.10: changes in stiffness carry prognostic information, but the most recent value should guide the decision. 2.3: in alcohol-related cACLD, a confirmed relative change of ≥30% goes with a matching change in the risk of liver-related events. Congestion and body size are the other two ways a number misleads, on the slides before. The model gives a single stiffness for the patient; it does not show the spread between repeated readings.',
+      ask: ['A FibroScan done after breakfast reads 22 kPa. What do you do?', 'Repeat it fasting. Stiffness is always measured fasting, and a reading ≥10 kPa is repeated or confirmed with a second test (Baveno VIII 1.4).'],
+    },
+    {
       id: 'relation', preset: 'schisto', cam: 'liver', glow: ['liver', 'spleen'],
       // (The relation chart before the summary: the model's cirrhosis from none to severe, each point settled for a year, read
       // stiffness against the HVPG and the platelets. Case 5 is the ring; no case dots (Mohammad, 11 Nov: "remove the cases").)

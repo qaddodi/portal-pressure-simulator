@@ -556,7 +556,7 @@ for fairness) in the worker when the user asks. Cache the result until the state
 | Cardiac | **Right heart failure / TR** | Contractility ↓, TR ↑ | RA ↑↑, FHVP and WHVP both ↑, **HVPG normal**, **pulsatile PV**, high-protein ascites |
 | Cardiac | **Constrictive pericarditis** | Pericardial constraint ↑ | Similar to RHF, with a respiratory pattern |
 
-The app has 18 presets (`src/engine/scenario.js`, listed in `docs/deck-authoring-guide.md` 8.1). Beyond this table: end-stage cirrhosis with hepatofugal flow, MASLD cirrhosis (HVPG under-reads), cirrhosis with a gastrorenal shunt (isolated fundal varices), and cirrhosis in pregnancy.
+The app has 19 presets (`src/engine/scenario.js`, listed in `docs/deck-authoring-guide.md` 8.1). Beyond this table (the porto-sinusoidal patient is a second presinusoidal one, beside schistosomiasis): end-stage cirrhosis with hepatofugal flow, MASLD cirrhosis (HVPG under-reads), cirrhosis with a gastrorenal shunt (isolated fundal varices), and cirrhosis in pregnancy.
 
 ### 10.2 Interventions library
 

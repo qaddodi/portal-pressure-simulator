@@ -116,6 +116,16 @@ export const PREHEPATIC = {
       ask: ['Which variceal prophylaxis suits a patient about to start anticoagulation?', 'Carvedilol, if tolerated: it treats the portal hypertension, and banding ulcers could bleed on the anticoagulant.'],
     },
     {
+      // (Baveno VIII 9.22 and 9.25 to 9.28 on the same partial clot when no anticoagulant is given or it fails; the figure is the slide before's.)
+      id: 'untreated', cam: 'portal', terms: ['pv'], data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'],
+      tool: { kind: 'criteria', title: 'A clot that is not treated', short: 'Untreated clot', ticks: false, lead: 'In cirrhosis, when no anticoagulant is given.', rule: 'Baveno VIII 9.22, 9.26, 9.27',
+        rows: ['**Scan again** within 6 weeks, then every 3 months', 'If the clot **grows**, start anticoagulation', '**TIPS** for a main trunk clot that does not improve', '**TIPS first** if anticoagulation is not safe'], verdict: 'After a TIPS: no routine anticoagulant (9.28).' },
+      kicker: 'Before anticoagulation', site: 'pre', title: 'A clot left untreated is watched, then treated or bypassed',
+      line: 'Without an anticoagulant, scan again within 6 weeks, then every 3 months. A growing clot gets anticoagulation; a main trunk clot that does not improve may need a TIPS.',
+      notes: 'Baveno VIII 9.22: in cirrhosis with a portal vein clot that is not treated, repeat the imaging within 6 weeks of diagnosis to look for progression, then every 3 months if it has not progressed, especially in patients listed for transplant. If it progresses, anticoagulation is indicated (weak recommendation). 9.26: a TIPS can be considered for a main portal vein clot that does not improve on anticoagulation, in a patient who has complications of portal hypertension or is a transplant candidate. 9.27: a TIPS may be considered first when complications of portal hypertension come with a contraindication to anticoagulation (weak). 9.28: after a TIPS, routine anticoagulation is not recommended. If an anticoagulant is chosen, 9.25 names no preferred DOAC, and 9.23 says to weigh age, frailty, kidney function, decompensation and platelets <50,000/µL case by case. If the patient bleeds with a clot in place, treat the bleed as in patients without a clot; a TIPS with recanalization is for selected patients with ascites, documented progression or a transplant plan (5.45).',
+      ask: ['A patient with cirrhosis has a new portal vein clot and is not anticoagulated. When is the next scan?', 'Within 6 weeks of diagnosis, then every 3 months if the clot has not grown. If it grows, anticoagulation is indicated (Baveno VIII 9.22).'],
+    },
+    {
       id: 'pvt-anticoag', lens: 'velocity', tick: 'Anticoagulation', params: { anticoag: true }, days: 180, lapse: { seconds: 8 }, cam: 'portal', terms: ['pv'],
       tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'gradients',
       kicker: 'Anticoagulation', site: 'sin', title: 'Months of anticoagulation reopen the vein',

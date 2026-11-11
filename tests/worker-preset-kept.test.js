@@ -1,7 +1,7 @@
 // A deck loads the same patient on many slides (encephalopathy loads cirr-decomp 5 times). The worker keeps the snapshot a load
 // leaves, per (preset, days, seed), and restores it: a chain's later loads cost nothing. The healthy reference the load measured
 // against comes back with it (without it, restoring into another model differed from the load by 1.7e-4 mmHg), so a restored
-// patient, settled as every slide of a chain is, is the loaded one: no drift measured for any of the 18 presets after two other
+// patient, settled as every slide of a chain is, is the loaded one: no drift measured for any of the 19 presets after two other
 // patients (and after a TIPS slide), and TOL here
 // is only float noise.
 import './dom-shim.js';

@@ -139,6 +139,16 @@ export const TEN_YEARS = {
       ask: ['When is the stent narrowed for encephalopathy after a TIPS?', 'Only when it persists or recurs despite removing the trigger and giving lactulose and rifaximin.'],
     },
     {
+      // (Baveno VIII 7.8: his TIPS stopped the bleeding, which on its own is not recompensation. The figure is the slide before's.)
+      id: 'tips-recomp', tick: 'Not recompensated', cam: 'liver', data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'], delta: 'he',
+      tool: { kind: 'criteria', title: 'Recompensation after a TIPS', short: 'After a TIPS', ticks: false, lead: 'The TIPS alone does not decide it.', rule: 'Baveno VIII 7.4, 7.8',
+        rows: ['**Ascites** cleared by the TIPS alone: not enough', '**No rebleed** after the TIPS alone: not enough', 'Every **7.4 criterion** is still needed'], verdict: 'Not recompensated: he is on lactulose for encephalopathy.' },
+      kicker: 'Year 9', site: 'sin', title: 'A TIPS that ends the bleeding is not recompensation',
+      line: 'A TIPS that ends the bleeding is not recompensation (7.8). That also takes the cause removed, no events off treatment for >6 months, and Child–Pugh A.',
+      notes: 'Baveno VIII 7.8: a patient with a TIPS can recompensate, provided every criterion in 7.4 is met. Ascites cleared by the TIPS alone, or no recurrent variceal bleeding alone, is not evidence of recompensation. 7.7 adds that a patient free of encephalopathy only because of lactulose or rifaximin has not recompensated either. This man has had no rebleed since the stent, but he needed treatment for encephalopathy, and the criteria ask for no events off treatment for more than 6 months.',
+      ask: ['His TIPS has stopped the bleeding for a year. Has he recompensated?', 'Not on that alone. After a TIPS, every 7.4 criterion must still be met, and no rebleeding by itself does not count (Baveno VIII 7.8).'],
+    },
+    {
       id: 'list', tick: 'Year 10', milestone: 'Transplant', cam: 'liver', data: 'tiles', tiles: ['liver', 'ppg'], key: ['liver'],
       tool: { kind: 'criteria', title: 'Further decompensation', short: 'Decompensation', ticks: false, rule: 'Baveno VIII 4.1, 6.1', rows: [{ text: '≥2 events: ascites, bleeding, encephalopathy, jaundice', note: 'Three kinds', met: true, lit: true },
         'Or a **rebleed**, repeat **encephalopathy**, or **≥3** large taps in a year'], verdict: 'He meets the first: the listing decision is due now.' },

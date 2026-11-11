@@ -3,7 +3,7 @@
 // of decks.js).
 
 export const NCPH = {
-  id: 'ncph', level: 'core', title: 'Presinusoidal portal hypertension', minutes: 7,
+  id: 'ncph', level: 'core', title: 'Presinusoidal portal hypertension', minutes: 8,
   objectives: [
     'Recognize portal hypertension with a working liver: varices, a big spleen, normal stiffness',
     'Explain why the HVPG is near normal in presinusoidal resistance',
@@ -57,9 +57,9 @@ export const NCPH = {
       ask: ['Stiffness 6 kPa with large varices. Does that rule out portal hypertension?', 'No: it argues against cirrhosis. Portal hypertension with a normal stiffness points to a non-cirrhotic cause.'],
     },
     {
-      id: 'psvd', preset: 'schisto', cam: 'lobule:triad', terms: { 'portal venules': 'lobule:triad' }, data: 'tiles', tiles: ['hvpg', 'lsm'],
+      id: 'psvd', preset: 'psvd', cam: 'lobule:triad', terms: { 'portal venules': 'lobule:triad' }, data: 'tiles', tiles: ['hvpg', 'lsm'],
       kicker: 'Another patient', site: 'presin', title: 'Porto-sinusoidal vascular disorder narrows the portal venules',
-      vignette: 'A 34-year-old man who has never left Europe has a large spleen and platelets of 71,000/µL. His liver tests are normal, his liver stiffness is 6 kPa, and he takes no drugs.',
+      vignette: 'A 34-year-old man who has never left Europe has a large spleen and platelets of 76,000/µL. His liver tests are normal, his liver stiffness is 6 kPa, and he takes no drugs.',
       line: 'In another patient, with no schistosomes, the same picture comes from portal venules that narrow and vanish. A liver biopsy makes the diagnosis.',
       causesHead: 'Linked to', causes: ['Immune disorders', 'Thiopurines, oxaliplatin', 'HIV, didanosine', 'Thrombophilia'],
       notes: 'Porto-sinusoidal vascular disorder replaces older names such as idiopathic non-cirrhotic portal hypertension and hepatoportal sclerosis. It is linked to immune disorders and immunodeficiency, to thiopurines, oxaliplatin and didanosine, to HIV and to thrombophilia. The biopsy shows no cirrhosis, with obliterative portal venopathy, nodular regenerative hyperplasia or incomplete septal fibrosis. A new patient starts here, because schistosomiasis with hepatosplenic disease excludes the diagnosis (Baveno VIII Table S2). As in schistosomiasis, the HVPG and the stiffness are lower than the portal hypertension suggests. Portal vein thrombosis can coexist (8.40), so Doppler ultrasound is advised every 6 months once there are signs of portal hypertension (8.50).',
@@ -84,6 +84,16 @@ export const NCPH = {
       line: 'A spleen stiffness of {ssm} is a specific sign, worth 3. A minor lesion on the biopsy adds 2: a total of {>=5 points} is a definite diagnosis.',
       notes: 'This is the diagnostic score of Baveno VIII (Fig. 4, 8.42 to 8.44). It applies only when cirrhosis has been ruled out on an adequate liver biopsy (a specimen of 15 mm or more with a fragment of 10 mm or more, or one an expert pathologist finds adequate, 8.41) and no exclusion criterion is present. Clinical signs of portal hypertension score 3 if specific (medium or large esophageal varices, gastric varices, spontaneous portosystemic collaterals, or a spleen stiffness >40 kPa without a myeloproliferative neoplasm), 2 if non-specific (clinical ascites, small esophageal varices, platelets <150 × 10⁹/L, splenomegaly) and 0 if there is none. Histology scores 5 for a major lesion (nodular regenerative hyperplasia, muscularized portal venules, or stenosis of the portal venules in 50% or more of the portal tracts), 2 for a minor lesion (an abnormal distribution of the vascular structures, stenosis in 25% to 49% of the tracts, or regenerative changes without clear nodules) and 0 if normal; all three minor criteria together count as a major one (8.43). A condition known to be associated with PSVD adds 1, and a concomitant cause of cirrhosis takes away 1. A total of 5 or more is a definite PSVD or NCPF; 3 or 4 is possible, which calls for further tests such as a new biopsy or a stiffness, referral to an expert center in vascular liver disease and follow-up for new signs. On the slide the model gives the spleen stiffness; the biopsy and the associated conditions are the case\'s own facts.',
       ask: ['A patient has small varices and platelets of 120 × 10⁹/L, and his biopsy shows a major lesion. Is the diagnosis definite?', 'Yes. Non-specific signs score 2 and a major lesion 5, a total of 7, which is ≥5. A score of 3 or 4 would be only possible.'],
+    },
+    {
+      // (Baveno VIII 8.12, 8.13, 8.49, 8.50 and 8.53: what is done for the PSVD patient of the slide before.)
+      id: 'psvd-care', cam: 'liver', glow: ['liver'], data: 'tiles', tiles: ['ssm', 'plt'], key: ['ssm'],
+      tool: { kind: 'criteria', title: 'Caring for PSVD', short: 'PSVD care', ticks: false, lead: 'After the diagnosis.', rule: 'Baveno VIII 8.12, 8.13, 8.49, 8.53',
+        rows: ['A bleed: **same care** as in cirrhosis', '**TIPS** for bleeding that recurs or will not stop', '**Imaging** of the portal veins at diagnosis', '**Transplant** for severe, refractory complications'], verdict: 'Every 6 months: Doppler for a clot (8.50).' },
+      kicker: 'Another patient', site: 'presin', title: 'If a PSVD varix bleeds, care follows the cirrhosis rules',
+      line: 'If he bleeds, acute care and prevention follow the cirrhosis rules. A TIPS is for bleeding that recurs or will not stop, and a transplant for severe complications.',
+      notes: 'Baveno VIII 8.12: in vascular liver disease with acute portal-hypertensive bleeding, the first care and the secondary prophylaxis follow the guidelines for cirrhosis. 8.8 and 8.9: there is no evidence to favor banding over a beta-blocker, or carvedilol over another non-selective beta-blocker. 8.13: a TIPS should be considered for bleeding that is refractory or recurrent. 8.14: there are no data for a pre-emptive TIPS. 8.49: at diagnosis, contrast-enhanced cross-sectional imaging shows the portal veins, any collaterals or hepatic veno-venous communications and any nodules. 8.50: with signs of portal hypertension, a Doppler every 6 months looks for a portal vein clot. 8.53: consider a transplant for severe, refractory complications of portal hypertension, hepatopulmonary syndrome, liver cancer or advanced liver dysfunction, discussed in a center with vascular liver disease expertise.',
+      ask: ['A man with PSVD bleeds from varices again despite a beta-blocker and banding. What comes next?', 'A TIPS should be considered for bleeding that recurs or is refractory (Baveno VIII 8.13).'],
     },
     {
       // (The relation chart before the summary: the model's cirrhosis from none to severe, each point settled for a year, the PPG and the spleen

@@ -73,7 +73,7 @@ conservation, determinism, stability). They are listed in the app under *Menu â€
 ## Using it
 
 The **menu** (top left, named after the current patient) has two tabs: *Present* (the
-presentation decks, by topic, and your own scripts and imported decks) and *Patients* (18 patients
+presentation decks, by topic, and your own scripts and imported decks) and *Patients* (19 patients
 from healthy to constrictive pericarditis, grouped by where the resistance sits: prehepatic,
 presinusoidal, sinusoidal, postsinusoidal, posthepatic and cardiac).
 

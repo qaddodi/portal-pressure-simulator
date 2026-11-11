@@ -13,7 +13,7 @@ const PLANE = { kind: 'plane', plane: { base: 'hvpg-ppg', diag: { label: 'HVPG =
 const GAPS = 'The two gradients', STIFF = 'Stiffness and weight', MORE = 'Drugs and alcohol';
 
 export const MASLD = {
-  id: 'masld', level: 'advanced', title: 'Fatty liver and the portal pressure', minutes: 8,
+  id: 'masld', level: 'advanced', title: 'Fatty liver and the portal pressure', minutes: 9,
   sections: [[GAPS, [GAPS]], [STIFF, [STIFF]], [MORE, [MORE]]],
   objectives: [
     'Explain why the HVPG can read below the portal gradient in obese MASLD cirrhosis, and why an HVPG ≥10 mmHg still counts',
@@ -76,6 +76,15 @@ export const MASLD = {
       line: 'A year on, his stiffness has fallen from {lsm@start} to {lsm}. A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.',
       notes: 'In MASLD-related cACLD, a weight loss of 10% or more goes with a fall in stiffness of 30% or more (Baveno VIII 2.13). In patients without CSPH, a confirmed relative fall of 30% or more may indicate fibrosis regression of at least one stage (2.6), and combining it with an improving second test such as the ELF score makes the call more accurate (2.7). Baveno VIII prefers to read these changes as a change in the risk of liver-related events, not as a fibrosis stage (2.8, 2.9). In the model the scar eases evenly over the year; in patients the course is less regular. The 12% is the slide\'s own figure.',
       ask: ['His stiffness falls from 15 to 10 kPa on two scans, and he has no CSPH. What may that mean?', 'A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.'],
+    },
+    {
+      // (Baveno VIII 2.14 to 2.16 on the flow-and-pressure plane: three of the model's patients, as they stand, from no CSPH to decompensated.)
+      id: 'surgery', cam: 'fit', visual: 'plane', plane: 'flow-ppg',
+      of: [{ preset: 'cirr-comp', name: 'No CSPH', short: 'No CSPH' }, { preset: 'masld-csph', name: 'CSPH', short: 'CSPH' }, { preset: 'cirr-decomp', name: 'Decompensated', short: 'Decomp.' }],
+      kicker: STIFF, title: 'Weight-loss surgery gets riskier as the portal pressure rises', cite: 'Baveno VIII 2.14, 2.15, 2.16',
+      line: 'Surgery adds only a modest risk without CSPH, needs an expert center with CSPH, and is generally contraindicated once the cirrhosis has decompensated.',
+      notes: 'Baveno VIII 2.14: in MASLD-related cACLD without CSPH, metabolic and bariatric surgery adds only a modest risk of complications and may improve histology and liver-related events. That makes MASLD cACLD an obesity-associated condition that justifies considering surgery at a lower BMI threshold. 2.15: complications are more frequent with CSPH, so a patient with features of CSPH who is being considered for surgery goes to a multidisciplinary team in an expert center. 2.16: surgery is generally contraindicated in decompensated cirrhosis, except in highly specialized settings such as together with a liver transplant, and again the team and the center matter. The three dots are the model\'s patients on the flow-and-pressure plane as they stand; the plane does not predict surgical risk.',
+      ask: ['A woman with MASLD cirrhosis and a BMI of 38 has varices and an HVPG of 12 mmHg. Can she have bariatric surgery?', 'Only after a multidisciplinary team in an expert center weighs it. Complications are more frequent with CSPH (Baveno VIII 2.15).'],
     },
     {
       id: 'drugs', cam: 'liver',

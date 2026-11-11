@@ -159,6 +159,14 @@ export const ASCITES = {
       ask: ['A man with ascites is admitted with confusion. What is the first test?', 'A diagnostic tap, to rule out spontaneous bacterial peritonitis and other infection.'],
     },
     {
+      // (Baveno VIII 4.16 to 4.18: a short card about the patient, not the pressure. The figure is the slide before's.)
+      id: 'frailty', cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc'], key: ['asc'], cite: 'Baveno VIII 4.16, 4.17, 4.18',
+      kicker: 'Complications', site: 'sin', title: 'Frailty, muscle loss and poor nutrition shorten survival with ascites',
+      line: 'Frailty, malnutrition and muscle loss shorten survival in decompensated cirrhosis. Every patient gets a nutrition assessment, a plan and advice on regular exercise.',
+      notes: 'Baveno VIII 4.16: frailty, malnutrition, sarcopenia and myosteatosis affect survival in patients with decompensated cirrhosis, and they should be assessed with a standardized tool. 4.17: every patient with decompensated cirrhosis gets a structured nutritional assessment, an individual nutrition plan and counseling on regular physical activity. 4.18: when a patient is frail or sarcopenic, add targeted interventions to that counseling, because muscle can improve and outcomes with it; whether they change the course of further decompensation is not yet known. The model has no muscle or diet, so the figure only shows the abdomen.',
+      ask: ['A man with ascites has lost muscle and weight. What does Baveno VIII advise?', 'A standardized frailty and nutrition assessment, an individual nutrition plan and exercise counseling, with targeted interventions if he is frail or sarcopenic (4.16 to 4.18).'],
+    },
+    {
       // (The Baveno VIII rule for carvedilol, from the complications slide: a low pressure or HRS-AKI. The kidney talk has the same chart beside the MAP.)
       id: 'path-hold', cam: 'fit',
       tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: false, sbp: 84, hrs: true } },
@@ -168,10 +176,10 @@ export const ASCITES = {
       ask: ['A man with ascites on carvedilol develops HRS-AKI. What do you do with the carvedilol, and when does it restart?', 'Reduce the dose or stop it. Restart and re-titrate once the HRS-AKI has resolved and the pressure has recovered.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: BELLY, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'pv', 'he'], key: ['asc', 'he'], delta: 'tense', cite: 'Baveno VIII 6.3, 6.5, 6.16',
+      id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: BELLY, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'pv', 'he'], key: ['asc', 'he'], delta: 'tense', cite: 'Baveno VIII 6.3, 6.5, 6.16; Bureau, Gastroenterology 2017',
       kicker: 'Refractory ascites', site: 'sin', title: 'TIPS for refractory ascites',
       line: 'A TIPS lowers the gradient to {ppg} and the sinusoidal pressure with it, and the ascites clears over weeks. The price is encephalopathy, so rifaximin is considered beforehand.',
-      notes: 'Less lymph forms, and in exchange the liver gets less portal blood. In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients (Baveno VIII 6.3), with a stent dilated only as far as it needs to be (6.5). The usual exclusions are recurrent encephalopathy, heart failure, pulmonary hypertension and advanced liver failure. Before the stent the history of overt encephalopathy and the medicines for it are reviewed (6.14), a prior episode is not an absolute contraindication (6.15), and rifaximin should be considered to prevent encephalopathy (6.16, strong). The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target.',
+      notes: 'Less lymph forms, and in exchange the liver gets less portal blood. In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients (Baveno VIII 6.3). In Bureau\'s trial (Gastroenterology 2017, 62 patients with recurrent ascites), one-year transplant-free survival was 93% with a covered TIPS and 52% with paracentesis and albumin, with a stent dilated only as far as it needs to be (6.5). The usual exclusions are recurrent encephalopathy, heart failure, pulmonary hypertension and advanced liver failure. Before the stent the history of overt encephalopathy and the medicines for it are reviewed (6.14), a prior episode is not an absolute contraindication (6.15), and rifaximin should be considered to prevent encephalopathy (6.16, strong). The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target.',
       ask: ['Name a reason not to place a TIPS for ascites.', 'Recurrent encephalopathy, heart failure or pulmonary hypertension, or advanced liver failure.'],
     },
     {

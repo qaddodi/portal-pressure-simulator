@@ -4,7 +4,7 @@
 const BELLY = { kind: 'abdomen' };
 
 export const RECOMPENSATION = {
-  id: 'recompensation', level: 'advanced', title: 'Decompensation and recompensation', minutes: 9,
+  id: 'recompensation', level: 'advanced', title: 'Decompensation and recompensation', minutes: 11,
   objectives: [
     'Define decompensation and name its three events',
     'Treat the first ascites with salt restriction and diuretics',
@@ -77,6 +77,16 @@ export const RECOMPENSATION = {
       ask: ['Which criterion is still open for him?', 'The time: no ascites, encephalopathy or rebleed off treatment must last >6 consecutive months, and he is at 60 days.'],
     },
     {
+      // (Baveno VIII 7.6 to 7.8: three ways to look recompensated without being so. The figure is the slide before's.)
+      id: 'traps', cam: 'fit', data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'],
+      tool: { kind: 'criteria', title: 'Not recompensation on its own', short: 'Not enough', ticks: false, lead: 'None of these counts by itself.', rule: 'Baveno VIII 7.6, 7.7, 7.8',
+        rows: ['Ascites gone **on diuretics**', 'No encephalopathy **on lactulose or rifaximin**', 'Ascites cleared or no rebleed **after a TIPS alone**'], verdict: 'Next step: consider stopping the drug (7.6, 7.7).' },
+      kicker: 'Recompensation', site: 'sin', title: 'Ascites that clears on treatment is not recompensation',
+      line: 'Ascites cleared by diuretics, confusion held off by lactulose, or a TIPS that stops the bleeding do not count alone. Recompensation means the disease behaves as compensated off treatment.',
+      notes: 'Baveno VIII 7.6: ascites that has resolved while the patient is still on diuretics is not evidence of recompensation. Once the cause is cured or controlled, the ascites is gone and the liver tests are back to Child–Pugh A, consider withdrawing the diuretics; that is the test. 7.7 says the same for encephalopathy: no episodes on lactulose, rifaximin or LOLA is not evidence, and the drug should be considered for withdrawal once the cause is controlled, the encephalopathy has resolved and the liver tests are back to Child–Pugh A. 7.8: a patient with a TIPS can recompensate if every criterion in 7.4 is met, but ascites cleared by the TIPS alone, or no rebleeding after it, is not enough. These are three ways to call a patient recompensated too early.',
+      ask: ['His ascites has cleared on spironolactone and furosemide. Has he recompensated?', 'Not yet. Ascites gone on diuretics is not recompensation (Baveno VIII 7.6). Withdrawal of the diuretics is considered once the cause is controlled and the liver is back to Child–Pugh A.'],
+    },
+    {
       // (The next question once recompensated: the beta-blocker. His HVPG is the model's, 11.4 mmHg; he has never taken carvedilol, so any HVPG of his is off it.
       // The stiffness and spleen stiffness are the model's, over the case's HVPG. tool-path.js.)
       id: 'path-stopcarv', cam: 'fit',
@@ -85,6 +95,16 @@ export const RECOMPENSATION = {
       line: 'Stopping carvedilol takes proof that CSPH has gone. His HVPG is {hvpg}, which is {>=10 mmHg}, and his stiffness is {lsm}: CSPH persists, so the drug stays.',
       notes: 'Source: Baveno VIII 7.15 to 7.19. CSPH may resolve over time in a recompensated patient (7.15), but carvedilol may be stopped only if the resolution is confirmed (7.18, weak). It is confirmed by an HVPG under 10 mmHg measured off carvedilol (7.16). Without a catheter, a stiffness under 10 kPa, or under 15 kPa with a spleen stiffness under 25 kPa, may rule CSPH out, and over 25 kPa may rule it in (7.19). Varices and collaterals may stay after CSPH resolves, so they prove nothing either way (7.17). He has never taken carvedilol, so his HVPG of 11.4 mmHg is already an off-drug reading, and it shows that CSPH persists. His stiffness of 23.5 kPa and spleen stiffness of about 49 kPa do not rule it out. Carvedilol is the drug for him to start, and to keep. The chart that follows shows why the pressure stays up.',
       ask: ['An HVPG measured off carvedilol is 7 mmHg. May the drug stop?', 'Yes: an HVPG <10 mmHg off carvedilol confirms that CSPH has resolved (7.16, 7.18). Varices that remain do not argue against it.'],
+    },
+    {
+      // (Baveno VIII 7.9 to 7.14: who recompensates, and what goes on after. The figure is the slide before's.)
+      id: 'who', cam: 'fit', data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'],
+      tool: { kind: 'criteria', title: 'Who recompensates, and then', short: 'Who, and then', ticks: false, lead: 'What helps, and what goes on.', rule: 'Baveno VIII 7.9, 7.10, 7.11, 7.13, 7.14',
+        rows: ['**Milder** liver disease and portal hypertension at decompensation', '**Sooner** treatment of the cause after decompensation', '**Hepatologist** every 6 months', 'Liver cancer **surveillance** goes on'] },
+      kicker: 'Recompensation', site: 'sin', title: 'Early treatment of the cause makes recompensation likelier',
+      line: 'Milder disease and earlier treatment of the cause make recompensation likelier. The risk does not end: see a hepatologist every 6 months and keep up liver cancer surveillance.',
+      notes: 'Baveno VIII 7.9: a higher Child–Pugh or MELD score at decompensation, or a further decompensation, makes recompensation less likely. 7.10: so do high-risk varices (portal hypertension that is more severe). 7.11: a shorter time from decompensation to treating the cause may raise the chance. 7.12: the type and number of events may matter. 7.13: a recompensated patient is still at risk and stays under a hepatologist every 6 months. 7.14: the risk of liver cancer is lower than in decompensated patients but not gone, so surveillance goes on. None of these makes recompensation a cure.',
+      ask: ['A recompensated patient asks whether he can stop his 6-monthly visits and cancer scans. What do you say?', 'No. He stays under a hepatologist every 6 months, and liver cancer surveillance continues (Baveno VIII 7.13, 7.14).'],
     },
     {
       id: 'course', cam: 'fit', tool: { kind: 'trace', range: 'talk', title: 'Two years on one chart', style: 'milestones', bands: ['diuretics'] },
