@@ -178,7 +178,22 @@ export function createVessels(st, live) {
     let s = 0;
     while (s < pc.ts.length - 2 && t > pc.ts[s + 1]) s++;
     morphS = s;
-    return frameFrom(pc, items, sOfMorph, morphMiss);
+    if (!frameFrom(pc, items, sOfMorph, morphMiss)) return false;
+    // (Landed, the figure goes back to a binning of its own once the page is quiet, as after a coil's ease (easeRest): left on the piece at rest, every model
+    // frame's colour update was refused as a partial draw ('switch piece', 6a768ab) and drew the whole vessel layer again, 6 a second, "no kept layer"
+    // (his Mac ?perf, 11 Nov 2026: 25 fps at rest, the GPU 29 ms a frame).)
+    stageScope.clear(mt.restT);
+    mt.restT = stageScope.timer(pieceRest, 1000);
+    return true;
+  }
+  function pieceRest() {
+    mt.restT = 0;
+    if (!mt.using) return;
+    if (live.easeHeld) return;   // (held for a check: binned when it asks, rebinNow)
+    if (live.morph !== live.morphTarget || live.coilEasing || inMotion() || live.inUpdate) { mt.restT = stageScope.timer(pieceRest, 600); return; }
+    morphOff();
+    live.vBinKey = ''; live.binShown = null; live.bendShown = null;
+    syncVeins(easeInOut(live.morph));
   }
   // A frame drawn from a stretch's binning (pc), when its vessels fit it, with `sOf(it)` the moments its course lies between: every point
   // within the slack of where it went between its two (the cells and the circles were swept over the hull of each piece of a vessel at

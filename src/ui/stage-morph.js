@@ -20,7 +20,7 @@ export function createMorph(st, live) {
   const MORPH_PIECES = [[0, 1 / 6], [1 / 6, 1 / 3], [1 / 3, 0.5], [0.5, 2 / 3], [2 / 3, 5 / 6], [5 / 6, 1]];
   const MORPH_NEAR = 10;   // (and a pair's every contact, veinJoins)
   const MORPH_STEPS = 12, MORPH_SLACK = 6, MORPH_JSLACK = 30, MORPH_JSUB = 3;
-  const mt = { key: '', parts: null, firstAt: null, build: null, pieces: null, using: null, gen: 0, reach: [null, null], landAt: 0,
+  const mt = { key: '', parts: null, firstAt: null, build: null, pieces: null, using: null, gen: 0, reach: [null, null], landAt: 0, restT: 0,
     stats: { gpu: 0, cpu: 0, builds: 0, miss: {}, restart: null, last: null, units: {}, over: 0, coilKept: 0 }, coilCheck: null };
   const morphMiss = (why) => { mt.stats.miss[why] = (mt.stats.miss[why] || 0) + 1; return false; };
   function morphOff() {
