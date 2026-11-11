@@ -910,16 +910,35 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const m = shareMap();
     return m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1 && m.tx === 0 && m.ty === 0;
   }
+  // (What the lobule's passes laid on the stage canvas, as numbers: the field's strength and map, the lobule's map and fade, the plate's window, the wide
+  // copy's fade. Any change turns layN, which the cards' glass keys its blur on while the lobule is not laid plain (lobule-glass-seq.js laySeq): through a
+  // dive the lobule and its field were laid at a new scale and strength every frame with no new picture counted, and the frost kept the pale field it
+  // had blurred as the dive set off, brighter than the lobule now under it, until the landing blurred it again in one step (Mohammad, 11 Nov 2026,
+  // the iPad: "Watch how the tint of the card glass changes after the lobule zoom").)
+  const LAY = new Float64Array(24);
+  let layN = 0, layCh = false, wideFade = () => 0;   // (wideFade: set where the wide copy's state is declared, below)
+  const lk = (i, v) => { if (LAY[i] !== v) { LAY[i] = v; layCh = true; } };
+  const layDone = () => { if (layCh) { layCh = false; layN++; } };
   function layShared() {
     const t = shareTop;
     if (!t || !gl || gl.lost) return;
+    layOnce(t);
+    layDone();
+  }
+  function layOnce(t) {
     const r = (t.canvas.width || 1) / (shW || 1);   // (the stage canvas's pixels per CSS px)
+    lk(0, plate ? 1 : 0); lk(1, r); lk(22, wideFade());   // (the wide copy's fade, laid in the same present: wideGLOn)
     if (plate) { layWindow(t); return; }
-    if (fieldOp > 0.002 && fieldGL?.target) { const f = fieldGL.target; if (cardOn()) t.lay(f.tex, CARD.k, 0, 0, CARD.k, CARD.x * r, CARD.y * r, fieldOp); else t.lay(f.tex, 1, 0, 0, 1, 0, 0, fieldOp); }
-    if (fade <= 0 || el.style.visibility === 'hidden') return;
+    const fOn = fieldOp > 0.002 && fieldGL?.target, cOn = !!fOn && cardOn();
+    lk(2, fOn ? fieldOp : 0); lk(3, cOn ? CARD.k : 1); lk(4, cOn ? CARD.x : 0); lk(5, cOn ? CARD.y : 0);
+    if (fOn) { const f = fieldGL.target; if (cOn) t.lay(f.tex, CARD.k, 0, 0, CARD.k, CARD.x * r, CARD.y * r, fieldOp); else t.lay(f.tex, 1, 0, 0, 1, 0, 0, fieldOp); }
+    const shows = !(fade <= 0 || el.style.visibility === 'hidden');
+    lk(6, shows ? fade : 0);
+    if (!shows) return;
     const tg = gl.target;
     if (!tg?.w) return;
     const m = shareMap();
+    lk(7, m.a); lk(8, m.b); lk(9, m.c); lk(10, m.d); lk(11, m.tx); lk(12, m.ty);
     t.lay(tg.tex, m.a, m.b, m.c, m.d, m.tx * r, m.ty * r, fade);
   }
   // The plate's window: the lobule's texture (drawn for the stage, the lobule framed whole in the room the cards leave) laid so the lobule's
@@ -933,6 +952,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const R = geo.R * V.k, s = R > 0 ? (PLATE_FILL * plate.w / 2) / R : 1;
     const cx = V.x + geo.cx * V.k, cy = V.y + geo.cy * V.k, wx = plate.x + plate.w / 2, wy = plate.y + plate.h / 2;
     plateWin.x = plate.x * r; plateWin.y = plate.y * r; plateWin.w = plate.w * r; plateWin.h = plate.h * r; plateWin.r = (plate.r == null ? plate.w / 2 : plate.r) * r;
+    lk(13, s); lk(14, wx - s * cx); lk(15, wy - s * cy); lk(16, fade); lk(17, plateWin.x); lk(18, plateWin.y); lk(19, plateWin.w); lk(20, plateWin.h); lk(21, plateWin.r);
     t.lay(tg.tex, s, 0, 0, s, (wx - s * cx) * r, (wy - s * cy) * r, fade, plateWin);
   }
   const plateWin = { x: 0, y: 0, w: 0, h: 0, r: 0 };
@@ -3126,6 +3146,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // to another), and through the zoom the copy stands in for their whole picture (their replace), the canvas unscaled; fading out
   // over the landed layers, it is laid over them (a top) at its opacity (wideA). Made again with the vessels' renderer.
   let wideHostFor = null, wideHostOff = null, wideView = null, wideA = 1;
+  wideFade = () => (wideView && wideA > 0 && wideA < 1 ? wideA : 0);
   const wideShow = (a) => { const v = wideView; if (v && wideGL) wideGL.draw(v.W, v.H, v.dpr, v.box, v.k, v.x, v.y, v.tx, v.ty, a); };
   function wideGLOn() {
     if (!glTried) glNow();
@@ -5075,6 +5096,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     get shared() { return shared; },
     /** Counts the pictures the lobule laid (shared: with the figure's, the glass over both blurs again when it changes). */
     drawSeq: () => gl?.drawSeq ?? 0,
+    /** Counts the changes in how the lobule's passes lay it on the stage canvas (its map, fade, field, plate window, wide copy): with no new picture, a
+     *  different picture on the canvas all the same (the glass over it, lobule-glass-seq.js). */
+    laySeq: () => layN,
     /** Whether the lobule's picture lies on the stage's canvas pixel for pixel now: shared, landed, no hand, dive, card zoom, turn or field, the target the
      *  canvas's size. Only then are `pictureRects` boxes the canvas's own (lobule lag rec 8, 6 Nov 2026). */
     plain: () => glassPlain(),
