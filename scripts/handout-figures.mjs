@@ -2,7 +2,7 @@
 // audience sees it, without its words (the handout prints those as text): the figure with its labels,
 // the pressure chart or tiles, or the slide's table or chart. Written to brand/handout/<deck>/<slide id>.webp
 // (light theme, 720 px wide; 1200 px for a figure with its data card beside it). Run it after adding a deck or
-// changing the look: tests/handout.test.js fails while a slide has no figure. The outline and the quick check print
+// changing the look: tests/handout.test.js warns while a slide has no figure. The outline and the quick check print
 // as text only (handout.js NO_FIGURE).
 //
 //   node scripts/handout-figures.mjs            every deck
