@@ -27,10 +27,13 @@ export function createEusPpg() {
   const stepEls = EUS.steps.map(([id, title, , short]) => h('li', { 'data-step': id, title }, h('span', {}, short)));
   const caption = h('p', { class: 'ctl-sub hvpg-caption', 'aria-live': 'polite' }, IDLE);
   let capT = IDLE;
-  const btn = h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': 'Play EUS-PPG on the anatomy', onclick: () => play(),
+  const btn = h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': 'Play EUS-PPG on the anatomy', title: IDLE, onclick: () => play(),
     onpointerup: (e) => { if (e.pointerType !== 'mouse' && !btn.disabled) play(); } }, icon('play'), h('span', {}, 'EUS-PPG'));
   const row = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'EUS-guided portal pressure gradient' }, h('span', { class: 'hvpg-procs-k' }, 'Watch'), btn);
-  const el = h('div', { class: 'eus-ppg', 'data-eus': '' }, row, kv, h('ol', { class: 'hvpg-steps' }, stepEls), caption);
+  // (The readings, the steps and the words are one panel, .eus-panel: styles/scope-card.css lays it over the foot of the scope's picture on the side card while a run is on
+  // or done, so the picture keeps all the room; elsewhere it adds no box. Its state, idle, run or done, is data-state.)
+  const panel = h('div', { class: 'eus-panel' }, kv, h('ol', { class: 'hvpg-steps' }, stepEls), caption);
+  const el = h('div', { class: 'eus-ppg', 'data-eus': '', 'data-state': 'idle' }, row, panel);
 
   let run = null, step = -1, playT = 0, done = false;
   function play() {
@@ -62,6 +65,7 @@ export function createEusPpg() {
     const cap = step >= 0 ? EUS.steps[step][2] : done && Number.isFinite(rd.ppg) ? `${SEV_WORD[hvpgSev(rd.ppg)]}. EUS-PPG = PV − HV = ${word(rd.pv)} − ${word(rd.hv)} = ${word(rd.ppg)} mmHg.` : IDLE;
     // (Written between frames: a step changes inside the procedure's frame.)
     if (cap !== capT) { capT = cap; propSoon(caption.firstChild, 'nodeValue', cap); }
+    dataSoon(el, 'state', run ? 'run' : done ? 'done' : 'idle');
     propSoon(btn, 'disabled', !!run); attrSoon(btn, 'aria-pressed', String(!!run));
   }
   return {
