@@ -1599,7 +1599,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (p.line) resolveColour(p.line);
       for (const d of p.drops || []) resolveColour(d.c);
       const chain = chainOf(p.g);
-      for (const e of chain) { const so = e.style?.opacity; if (so !== '' && so != null && ![...(anims.get(e) || [])].some(([an, rec]) => stateOf(an, rec).st === 'running') && Math.abs(fadeOf(e) - NUM(so)) > 0.01) inlineLoses.add(e); else inlineLoses.delete(e); }
+      // (Only a running animation of the opacity makes the inline value and the computed one differ for a moment: one that moves the element and
+      // leaves its opacity alone does not. The shade's slide out with .pz-leave (a transform transition) let the inline '1' layout writes for the
+      // next slide stand for its fade until the slide ended, while .pz-leave held the card at 0: an empty glass panel at full strength, sliding
+      // off, on the way from the outline to a deck's first slide (Mohammad, 11 Nov 2026: "see when i transition to first slide how the teaching
+      // card flickers").)
+      for (const e of chain) { const so = e.style?.opacity; if (so !== '' && so != null && ![...(anims.get(e) || [])].some(([an, rec]) => (!rec.kf || rec.kf.hasO || rec.kf.bad) && stateOf(an, rec).st === 'running') && Math.abs(fadeOf(e) - NUM(so)) > 0.01) inlineLoses.add(e); else inlineLoses.delete(e); }
       const mv = chainMove(chain, flag);
       // (The fade of what does not move, read now; what moves is put back each frame.)
       // (aC: that fade without the pane's own (oa), which a pseudo-element's running fade stands for each frame: nowGeo.)
