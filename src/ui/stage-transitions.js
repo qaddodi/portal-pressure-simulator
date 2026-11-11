@@ -273,19 +273,11 @@ export function createTransitions(st, live) {
     return out;
   }
   // The TIPS stent's bare stretch at its portal end, as drawn length (the 2 cm of the shunt's 8): the covered stent venousDraw unrolls.
-  // The stretch of a stent's course the mesh covers: from the wall of the vein it leaves to the wall of the one it enters, not to their centre lines (the rails and
-  // the end bars lay half-width R either side of the node, over the vein's far wall and out of its side: Mohammad, 11 Nov 2026, "the ends are very very bad").
-  // The wall is taken as a vein's half-width straight across; never more than 30 % of the course, never less than the 2 units it always kept.
-  function stentSpan(id) {
-    const L = geo[id].len, x0 = E[id], e = x0.e;
-    const wall = (n) => { let r = 0; for (const y of EV) if (y !== x0 && y.vis && y.e.kind === 'vein' && (y.e.from === n || y.e.to === n)) r = Math.max(r, (y.width || 0) / 2); return Math.max(2, Math.min(0.3 * L, r)); };
-    return [wall(e.from), L - wall(e.to)];
-  }
-  const tipsBare = (id) => { const [a, b] = stentSpan(id); return bareOf(b - a, E[id].e.len); };
+  const tipsBare = (id) => bareOf(geo[id].len - 4, E[id].e.len);
   // TIPS, DIPS and the shunts drawn with the stent tool: the whole drawn shunt, in place at once (the vessel itself draws on).
   function stentMesh(id, p) {
     if (id === 'TIPS') return;   // (the covered stent unrolls on its own clock, with the veins' stents: stage-venous.js)
-    { const [a, b] = stentSpan(id); putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, a, b)); }
+    putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2));
   }
   function putMark(host, key, vessel, els, anatOnly = false) {
     const g = s('g', { 'data-mk': key });
@@ -294,7 +286,7 @@ export function createTransitions(st, live) {
     markA.hold(key, g);
     host.append(g);
   }
-  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, stentSpan, tipsBare }, live);
+  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, tipsBare }, live);
   // Surgical shunts: a row of sutures across each anastomosis.
   function anastomoses(id) {
     const x = E[id], L = geo[id].len;

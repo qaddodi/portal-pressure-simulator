@@ -54,6 +54,7 @@ export function stentMeshD(f, R0, A, k = 1, ends = true, bare = 0) {
     cover = 'M' + [...edge(1), ...edge(-1).reverse()].map(P).join(' L') + ' Z';
   }
   if (three && e >= bare) ring = `M${P(f(bare, 1))} L${P(f(bare, -1))}`;
-  for (const a of k > 0.02 && ends ? [0, e] : [0]) marks += `M${P(f(a, 1))} L${P(f(a, -1))} `;
+  // (The covered TIPS stent has no bar across its mouth: a branch that runs into a vein shows no square end, 11 Nov 2026; the ring where the cover begins is its one band.)
+  if (!three) for (const a of k > 0.02 && ends ? [0, e] : [0]) marks += `M${P(f(a, 1))} L${P(f(a, -1))} `;
   return { struts: S[0], covStruts: S[1], rails, cover, marks, ring };
 }

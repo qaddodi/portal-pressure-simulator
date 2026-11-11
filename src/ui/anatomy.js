@@ -243,10 +243,12 @@ export const EDGE_PATH = {
   // clear below the epigastric vein where that crosses the trunk at y 79. tests/ascending-lumbar-route.test.js holds these.
   C9: 'M620 566 C 578 544.9 534 470 532 410 C 529.6 342.4 523 272.5 527 205 C 529 169.1 531 135.1 562.9 108',
 
-  // (It runs up the right lobe in one gentle curve, clear of the middle hepatic vein's start (548 282), and ends where the right hepatic vein
-  // begins (500 246), the stent's own node: its end is a join of the model's node, with the vein's run-on and the sinusoids' outflow into it,
-  // not a tube laid across the middle of the vein, whose wall it showed through as a round blob. 11 Nov 2026.)
-  TIPS: 'M505 398 C 504 352 497 296 500 246',
+  // (A curve, never a straight run (Mohammad, 11 Nov 2026): it leaves the right portal vein heading up and a little to the left, 39 degrees off the vein's own run, and bows
+  // out into the parenchyma before it comes back to meet the right hepatic vein from the lower left, 23 degrees off the vein's upstream stretch and 44 off the vein itself: a branch
+  // that runs into a vein at a shallow angle, not a tube laid across it (109116f3e's straight one, and 7 Nov's, which ended at 540 240, 15 units from the middle hepatic vein's
+  // start (548 282), so that join took it in). It ends on the right hepatic vein's own course 8 units on from its start (500 246), more than 14.5 from C9, which passes behind the liver
+  // there (tests/ascending-lumbar-route.test.js), and well clear of the middle hepatic vein's start. tests/tips-course.test.js holds the numbers.)
+  TIPS: 'M505 398 C 478 350 487 286 508 245',
   // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe in one gentle curve (no
   // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
