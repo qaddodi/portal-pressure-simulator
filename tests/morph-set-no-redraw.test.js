@@ -52,9 +52,9 @@ function figure() {
   return g;
 }
 // What the next draw does: 'whole' (the vessel layer drawn again whole) or 'kept' (the kept layer reused, shifted or left as it was).
-function drawKind(g) {
+function drawKind(g, m = M) {
   gpuProbe.on = true; gpuProbe.takeNotes();
-  g.draw(M, LOOK, BLOOD);
+  g.draw(m, LOOK, BLOOD);
   const n = gpuProbe.takeNotes();
   gpuProbe.on = false;
   return (n[COUNTED.whole]?.[0] || 0) > 0 ? 'whole' : 'kept';
@@ -123,5 +123,27 @@ test('a morph frame with the same rows as the last one keeps the layer; changed 
   g.useMorphSet(null); drawKind(g); g.useMorphSet(S);
   g.setMorphFrame(frame);
   assert.equal(drawKind(g), 'whole', 'a set change is still one');
+  g.dropMorphSet(S);
+});
+
+// Under a view-switch piece the kept layer stands only as drawn: a frame that would shift it (a pan) draws it whole instead (11 Nov 2026, Mohammad's iPhone:
+// shapes left at the wrong place while switching Anatomy and Circuit, once 17b5315 kept the layer between repeated frames). On the figure's own binning a pan
+// still shifts the kept layer.
+test('a pan under a morph set draws the layer whole; on the figure\'s own binning it shifts the kept one', () => {
+  const g = figure();
+  const P = [1, 0, 0, 1, 3, 0], Q = [1, 0, 0, 1, 6, 0];
+  settle(g);
+  assert.equal(drawKind(g, P), 'kept', 'own binning: a pan shifts the kept layer');
+  drawKind(g, M); settle(g);
+  const b = swept(), S = g.makeMorphSet(b);
+  g.prepareMorphSet(S);
+  g.useMorphSet(S);
+  const frame = new Float32Array((b.rows - Math.floor(b.posBase / ENT_W)) * ENT_W * 4).fill(1);
+  g.setMorphFrame(frame);
+  assert.equal(settle(g), 'kept', 'a piece at rest: kept');
+  assert.equal(drawKind(g, P), 'whole', 'a pan under the piece: whole');
+  g.setMorphFrame(frame);
+  assert.equal(drawKind(g, Q), 'whole', 'the same rows and a pan: whole');
+  assert.equal(drawKind(g, Q), 'kept', 'then still: kept');
   g.dropMorphSet(S);
 });

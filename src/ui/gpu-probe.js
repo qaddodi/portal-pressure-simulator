@@ -56,7 +56,7 @@ export const WHY = ['no kept layer', 'radii changed', 'look changed', 'moved too
 export const BY = ['frame', 'resize', 'plate hidden', 'tab hidden', 'plate shown', 'plate landed', 'check', 'lobule', 'stage, outside a draw call'];
 /** Why the lobule's tissue bitmap was painted again (lobule-zoom.js paintTissue), as counted with its size: a fixed list. */
 export const TISSUE_WHY = ['first', 'state changed', 'zoomed in', 'zoomed out'];
-export const ROWS_REFUSED = ['no kept layer', 'context lost', 'size changed', 'moved', 'radii not listed', 'mesh renderer', 'most cells'];
+export const ROWS_REFUSED = ['no kept layer', 'context lost', 'size changed', 'moved', 'radii not listed', 'mesh renderer', 'most cells', 'switch piece'];
 export const gpuProbe = {
   on: false,
   // Script time only (the ?perf readout, perf-readout.js): no wait for the GPU, so the page runs as it does for everyone.

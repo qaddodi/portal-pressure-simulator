@@ -4571,6 +4571,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // 17 of them "same place"): a draw asked for with nothing the layer reads changed (its kept layer, size, whole-pixel view, look, tubes
       // and radii as checked here) keeps the layer and draws only the rows named, as drawRows would; the part of a pixel the view moved is
       // laid in the composite (overM), not in the layer. shiftLayer moves nothing for (0, 0).)
+      // (Under a view-switch piece (a morph set) the kept layer stands only whole, as drawn: a frame that would move it or draw some of its cells again draws it
+      // whole. The shift and the partial draws are made for the figure's own binning; on a piece's swept cells they left parts of an earlier frame in the layer
+      // (11 Nov 2026, Mohammad's iPhone on a8484c22: shapes flickering at the wrong place during a switch, after 17b5315 kept the layer for repeated frames).)
+      if (geoCur && fboOK && (dx || dy || tubesNew || radRows.size || patchK || rows?.length)) fboOK = false;
       const panAt = fboOK && radCovered(rows) && lkSame && near && sameLin(m, baseM);
       if (panAt && !meshUse() && (rows?.length || patchK)) { parts = rowParts(rows || NONE); if (parts.part.k > nCells * 0.6) parts = null; }
       // (The mesh renderer the same way, as its drawRows does (9 Nov 2026, Mohammad's MacBook Air M5: "tubes changed" whole mesh redraws four
@@ -4665,6 +4669,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       overM = OVER;
       m = whole(m, WM);
       if (!fboOK || !baseM) return refuse('no kept layer');
+      if (geoCur) return refuse('switch piece');   // (a view-switch piece's layer is kept only whole: see draw)
       if (lost) return refuse('context lost');
       if (fboPW !== PW() || fboPH !== PH()) return refuse('size changed');
       if (!sameLin(m, baseM) || m[4] !== baseM[4] || m[5] !== baseM[5]) return refuse('moved');
