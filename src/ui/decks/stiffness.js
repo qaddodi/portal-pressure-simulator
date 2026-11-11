@@ -153,13 +153,5 @@ export const STIFFNESS = {
       notes: 'The lines are the model\'s cirrhosis from none to severe, each point settled for a year: stiffness on the x axis, the HVPG and the platelets against it. In cirrhosis the three move together, which is why stiffness and platelets can stand in for the catheter at a first visit. The HVPG climbs faster above about 25 kPa, where stiffness has stopped tracking the gradient closely (AASLD 2024: above an HVPG of 10 mmHg, spleen stiffness follows it better than liver stiffness). Cases 1 and 2 sit on the line. Case 5, the ring, has a soft liver with low platelets and large varices: the resistance lies before the sinusoids, so neither line describes him (EASL 2025: stiffness is normal or only slightly raised in PSVD and chronic portal vein thrombosis). The heart failure patient has a stiff liver with a normal HVPG, because congestion stiffens it. (Baveno VIII 1.6, 1.15, 1.16; AASLD 2024 statement 7.) One model patient per point; real patients vary far more.',
       ask: ['Why does case 5 sit so far below the platelet line?', 'His resistance is before the sinusoids: the portal pressure and the spleen are high, but the liver is soft.'],
     },
-    {
-      id: 'summary', cam: 'fit', visual: 'plane', plane: 'csph',
-      of: [{ id: 'a1', name: 'Case 1, hepatitis C', short: 'Case 1' }, { id: 'a2', name: 'Case 2, alcohol', short: 'Case 2' }, { id: 'a3', name: 'Case 3, MASH, BMI 27', short: 'Case 3' }, { id: 'a4', name: 'Case 4, MASH, BMI 36', short: 'Case 4' }],
-      kicker: 'Summary', title: 'The zone is only half of the decision',
-      line: 'Cases 2 and 4 share a zone but not a rule; the BMI decides which. Case 5 is left off: a soft liver with portal hypertension is another disease.',
-      notes: 'Case 1 is ruled out and returns in a year. Case 2 is ruled in and starts carvedilol. Case 3 is in the indeterminate zone, where a model or a spleen stiffness decides, and he has a screening endoscopy meanwhile. Case 4 reads like case 2, but at a BMI of 36 the 25 kPa rule does not apply. Case 5 is left off the plane, because the zones were drawn for compensated advanced chronic liver disease. Congestion from the right heart is the other way a stiffness can mislead. (Baveno VIII 1.15, 1.16.)',
-      ask: ['Two patients have a stiffness of 27 kPa and platelets of 90,000/µL. One has alcohol-associated cirrhosis, the other MASH with a BMI of 36. What differs?', 'The first has CSPH ruled in. For the second the 25 kPa rule does not apply, and ANTICIPATE-NASH decides.'],
-    },
   ],
 };

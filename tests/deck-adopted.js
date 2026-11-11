@@ -189,7 +189,6 @@ export const ADOPTED = {
   'stiffness/a3': ['kind:plane', 'caseQ'],
   'stiffness/a4': ['kind:plane', 'caseQ'],
   'stiffness/a5': ['kind:plane', 'caseQ'],
-  'stiffness/summary': ['visual', 'plane', 'of'],
   'ten-years/d0': ['kind:plane', 'milestone', 'cite'],
   'ten-years/carv': ['hvpgResp', 'milestone', 'cite'],
   'ten-years/ascites': ['milestone'],
