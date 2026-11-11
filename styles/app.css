@@ -757,14 +757,16 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
    .stent-px: struts and rails never thinner than one device pixel (a non-scaling stroke). */
 .stent-cover { fill: var(--dev-ptfe); fill-opacity: .24; stroke: none; }
 .stent-strut-cov { stroke-opacity: .3; }
-.stent-ring { fill: none; stroke: var(--dev-platinum); stroke-width: 1.8; stroke-linecap: round; stroke-opacity: .6; }
+.stent-ring { fill: none; stroke: var(--tips-mesh, #2A3650); stroke-width: 2; stroke-linecap: round; stroke-opacity: .8; }
 .stent-px { vector-effect: non-scaling-stroke; }
-.stent-strut.stent-px { stroke-width: 1; }
-.stent-rail.stent-px { stroke-width: 1.2; }
+.stent-strut.stent-px { stroke-width: 1.4; }
+.stent-rail.stent-px { stroke-width: 2; }
 /* (10 Nov 2026, Mohammad: "the stent itself is too prominent". The covered TIPS stent sits in the figure as part of the vessel: its cover a faint wash, its struts and
    rails a good deal fainter than a plain stent's, its ring and front marker thinner and softer. A plain stent's own look, --stent-alpha, is untouched.) */
-.stent-strut.stent-px, .stent-rail.stent-px { stroke-opacity: calc(var(--stent-alpha, 1) * .6); }
-.stent-strut-cov.stent-px { stroke-opacity: .16; }
+.stent-strut.stent-px, .stent-rail.stent-px { stroke: var(--tips-mesh, #2A3650); stroke-opacity: .85; }
+.stent-strut-cov.stent-px { stroke-opacity: .6; }
+/* (11 Nov 2026, Mohammad, iPhone: "make the tips mesh more visible contrast wise, I can't see it". The mesh was the stent's pale metal at 0.3 to 0.16 over a pale blue vein, on every look:
+   the veins are light in all of them, so the TIPS mesh is a dark navy ink, one colour for every look, strong enough to read at phone size.) */
 .stent-mark-tips { stroke-width: 2; stroke-opacity: calc(var(--stent-alpha, 1) * .7); }
 .target-glow { fill: none; stroke: var(--accent); stroke-opacity: .35; stroke-linecap: round; }
 
