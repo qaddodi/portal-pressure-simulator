@@ -90,6 +90,7 @@ test('no slide needs its frame grown past the limit to hold what it points at (n
 const ROOMED = {
   'ascites/bc': 'the sinusoids label hangs from the lower liver, at the bottom edge of the hepatic region',
   'choose-treatment/a5': 'the IVC and right atrium labels sit above the DIPS region',
+  'doppler/a3': 'the right atrium label hangs above the liver region, which the caudate lobe and its callout need',
   'doppler/normal': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',
   'doppler/probe': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',
   'gastric-varices/shunt': 'the left renal vein label hangs at the left edge of the fundus region',

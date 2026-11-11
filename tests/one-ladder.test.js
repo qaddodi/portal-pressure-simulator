@@ -36,7 +36,7 @@ test('the presenter has no old ladder left: no five-station drawing, strip, lege
 
 test('every slide that had the old ladder shows the Gut to heart chart, or keeps its instrument with the readings as tiles', () => {
   const was = { 'circulation.js': ['ladder', 'define'], 'circuit.js': ['where'], 'hvpg.js': ['presin', 'ppg', 'heart'], 'lobule.js': ['wedge'],
-    'treatment.js': ['target', 'oct', 'vs'], 'cause-treated.js': ['high', 'high2'],
+    'treatment.js': ['target', 'oct', 'vs'], 'cause-treated.js': ['high'],   // (high2 shows the stiffness and platelets plane with its trail since 11 Nov 2026)
     'recompensation.js': ['csph'], 'ncph.js': ['wedge'], 'outflow.js': ['soswedge'],
     'prehepatic.js': ['cath', 'gradients'], 'where.js': ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'] };
   for (const [f, ids] of Object.entries(was)) for (const id of ids) assert.equal(at(f, id)?.tool?.kind, 'profile', `${f} ${id}`);
@@ -61,7 +61,7 @@ test('the earlier line keeps its name: Before TIPS and Year 8 on Ten years\' pro
 });
 
 test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tiles beside the heart chart, the catheter tracing in the data card of its own slides', () => {
-  const heart = at('hvpg.js', 'heart'); assert.equal(heart.data, 'tiles'); assert.deepEqual(heart.tiles, ['whvp', 'fhvp']);
+  const heart = at('hvpg.js', 'heart'); assert.equal(heart.data, 'tiles'); assert.deepEqual(heart.tiles, ['whvp', 'fhvp', 'ra']);
   // (The catheter slide reads the two on the tracing in its data card and gives the equation in its words; it carries no chart, tiles or buttons
   // of its own: D5, 25 Oct. The tracing moved from the teaching card to the data card on 26 Oct, and follows the figure's catheter.)
   const cath = at('hvpg.js', 'hvpg');

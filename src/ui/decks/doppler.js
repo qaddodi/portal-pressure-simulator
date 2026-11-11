@@ -83,7 +83,7 @@ export const DOPPLER = {
       ask: ['The trace is empty with the angle and gain set right. What does that suggest?', 'No flow in the vein: an occlusive clot.'],
     },
     {
-      id: 'a3', terms: ['hv', 'caudate'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], marks: [{ edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, { organ: 'caudate', label: 'Caudate lobe', kind: 'note' }], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pvVel'], key: ['pvVel'],
+      id: 'a3', terms: ['hv', 'caudate'], preset: 'budd-chiari', cam: 'liver', labels: ['RHV', 'RA'], marks: [{ edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, { organ: 'caudate', label: 'Caudate lobe', kind: 'note' }], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pvVel'], key: ['pvVel'],
       vignette: 'A 29-year-old woman who takes an OCP has had 6 weeks of right upper quadrant pain and a growing abdomen. Her liver is large and tender.',
       caseQ: 'What will her right hepatic vein trace show?',
       kicker: 'Outflow', site: 'post', title: 'No waves in the hepatic veins: Budd–Chiari syndrome',
