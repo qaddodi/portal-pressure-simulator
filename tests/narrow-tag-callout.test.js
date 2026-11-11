@@ -37,7 +37,9 @@ test(`the Narrowing tag stands off every vessel, on a leader (${process.env.NARR
   const sn = st.labelSnapshot(), V = st.labelVessels();
   const d = sn.items.find((x) => /^focus/.test(x.key));
   assert.ok(d && d.a > 0.9, 'the tag is shown');
-  const b = [d.x - 8, d.y - 4, d.x + d.w + 8, d.y + d.h + 4];   // (its pill: the words and their padding)
+  // (Its pill as drawn: the label layer's picture of it, its padding included. It had been taken as the words alone and padded again, 8 px a
+  // side, which counted a tag 9 px off the azygos as on it once the TIPS stent's move (109116f) brought the site near it: 11 Nov 2026.)
+  const b = [d.x, d.y, d.x + d.w, d.y + d.h];
   // How far each vessel (its half width taken off) is from the pill; below zero the pill is on it.
   const gapTo = (sg) => { let m = 1e9; for (let u = 0; u <= 1; u += 1 / 80) { const px = sg[0] + (sg[2] - sg[0]) * u, py = sg[1] + (sg[3] - sg[1]) * u; m = Math.min(m, Math.hypot(Math.max(b[0] - px, 0, px - b[2]), Math.max(b[1] - py, 0, py - b[3]))); } return m - sg[4]; };
   const near = [...new Set(V.segs.filter((sg) => gapTo(sg) < 6).map((sg) => sg[5]))];
