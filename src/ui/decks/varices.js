@@ -17,7 +17,13 @@ export const VARICES = {
   ],
   slides: [
     {
-      id: 'collat', lens: 'flow', preset: 'csph', cam: 'fit', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix'],
+      id: 'collat', lens: 'flow', preset: 'csph', cam: 'gej', glow: [{ id: 'lgv', soft: true }], data: 'tiles', tiles: ['hvpg', 'varix'],
+      // (Four sites, three views: the junction, then the three below it, then all four on the whole plate, which a jump or Back opens on.)
+      marks: [{ edges: ['C1a', 'C1b'], label: 'Gastroesophageal junction', kind: 'note' }],
+      beats: [
+        { cam: { on: ['C3', 'C4', 'C7'] }, marks: [{ edges: ['C3'], label: 'Umbilicus', kind: 'note' }, { edges: ['C4'], label: 'Rectum', kind: 'note' }, { edges: ['C7'], label: 'Retroperitoneum', kind: 'note' }] },
+        { cam: 'fit', marks: [{ edges: ['C1a', 'C1b'], label: 'Gastroesophageal junction', kind: 'note' }, { edges: ['C3'], label: 'Umbilicus', kind: 'note' }, { edges: ['C4'], label: 'Rectum', kind: 'note' }, { edges: ['C7'], label: 'Retroperitoneum', kind: 'note' }] },
+      ],
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals open where portal and systemic veins meet',
       vignette: 'A 59-year-old man with alcohol-associated cirrhosis keeps drinking. His platelets are 90,000/µL, and endoscopy shows small esophageal varices.',
       line: 'Collaterals open at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, some by reopening old channels and some as new vessels.',
@@ -68,7 +74,8 @@ export const VARICES = {
       ask: ['How do the abdominal wall veins tell portal hypertension from IVC obstruction?', 'In portal hypertension the flow radiates away from the umbilicus; in IVC obstruction it runs upward below it.'],
     },
     {
-      id: 'nograd', preset: 'rhf', cam: 'varices', labels: ['AZY'], glow: ['azy'], data: 'tiles', tiles: ['ppg', 'varix'], key: ['ppg'],
+      id: 'nograd', preset: 'rhf', cam: 'varices', labels: ['AZY'], glow: ['azy'], tool: { kind: 'profile' }, data: 'tiles', tiles: ['varix'], key: ['ppg'],
+      compare: [{ label: 'Heart failure', short: 'Heart', own: true }, { label: 'Budd–Chiari', short: 'Budd–Chiari', preset: 'budd-chiari' }],
       kicker: 'Heart failure', site: 'cardiac', title: 'Why varices are rare in heart failure',
       vignette: 'A 73-year-old man with severe TR has ascites, leg edema and a raised JVP. Screening endoscopy shows no varices.',
       line: 'Collaterals need a gradient from the portal to the systemic veins, and in heart failure both are high, so the PPG is {ppg} and varices are rare.',

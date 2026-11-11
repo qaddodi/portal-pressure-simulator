@@ -105,6 +105,7 @@ export const ADOPTED = {
   'varices/lapse': ['calipers'],
   'varices/eso': ['spot'],
   'varices/umbilical': ['kind:flows'],
+  'varices/nograd': ['kind:profile'],
   'treatment/prop': ['hvpgResp'],
   'treatment/carv': ['question', 'hvpgResp', 'lens:since', 'since', 'sinceLabel'],
   'treatment/carv-sin': ['hvpgResp'],
@@ -147,8 +148,7 @@ export const ADOPTED = {
   // One chart everywhere (Mohammad, 21 Oct: "Gut to heart is good, unify it"): every slide that had the old ladder card.
   'circulation/ladder': ['scales', 'kind:profile'],
   'circulation/define': ['kind:profile'],
-  'circulation/lobule': ['kind:profile'],
-  'circulation/wall': ['kind:profile'],
+  'circulation/wall': ['kind:fluid'],
   'hvpg/presin': ['kind:profile'],
   'hvpg/ppg': ['kind:profile'],
   'hvpg/heart': ['kind:profile'],
