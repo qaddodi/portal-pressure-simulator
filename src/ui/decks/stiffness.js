@@ -60,7 +60,7 @@ export const STIFFNESS = {
     {
       id: 'rules', preset: 'healthy', cam: 'liver', glow: ['liver'],
       tool: { kind: 'criteria', title: 'Baveno VIII at a first visit', short: 'First visit', ticks: false, lead: 'Fasting LSM + CBC.', rule: 'Baveno VIII 1.15, 1.16, 1.19', zones: 'first-visit', key: [
-        { text: '**No screening EGD** if NSBB-ineligible', swatch: 'hatch' },
+        { text: '**Hatched:** can skip EGD', swatch: 'hatch' },
         '**Indeterminate:** ANTICIPATE ≥75% or SSM >55 kPa = CSPH',
         '**MASLD, BMI ≥30:** ANTICIPATE-NASH, not 25 kPa'] },
       kicker: 'The rules', title: 'Stiffness and platelets sort most patients at a first visit',

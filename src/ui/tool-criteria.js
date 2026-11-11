@@ -38,7 +38,7 @@ import { chartCtx } from './chart-ctx.js';
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */
 export const ZONES = {
-  // Baveno VIII 1.15, 1.16, 1.19: CSPH ruled out at ≤15 kPa with PLT ≥150K, ruled in at ≥25 kPa, the indeterminate zone between; a patient ineligible for an NSBB needs no screening EGD at <20 kPa with PLT ≥150K (the hatched area).
+  // Baveno VIII 1.15, 1.16, 1.19: CSPH ruled out at ≤15 kPa with PLT ≥150K, ruled in at ≥25 kPa, the indeterminate zone between; an NSBB-ineligible patient can skip the screening EGD at <20 kPa with PLT ≥150K (the hatched area); on an NSBB nobody needs one (3.18).
   'first-visit': {
     x: [5, 35], y: [50, 250],
     zones: [
