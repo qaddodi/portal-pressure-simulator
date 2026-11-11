@@ -4242,6 +4242,16 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     setMorphFrame(data) {
       const M = geo.morph;
       if (!M || lost) return;
+      // (The rows this set was last sent, bit for bit the same: its texture holds them and the layer drawn from them stands, so nothing is sent and the layer is
+      // kept. 11 Nov 2026, Mohammad's Mac, "FPS 5" switching Anatomy and Circuit: every frame of the second after a switch lands, and the first frames of the next,
+      // sent the same points and drew every vessel again whole, "no kept layer", about 107 ms of GPU each; in node that was 331 of 737 switch frames.)
+      const S = geoCur;
+      if (S && S.sent && S.sent.length === data.length) {
+        let same = true;
+        for (let i = 0, n = data.length; i < n; i++) if (S.sent[i] !== data[i]) { same = false; break; }
+        if (same) return;
+      }
+      if (S) (S.sent && S.sent.length === data.length ? S.sent : (S.sent = new Float32Array(data.length))).set(data);   // alloc-rare: once per set (its frame rows' size is fixed)
       gl.bindTexture(gl.TEXTURE_2D, entTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, M.entRows, ENT_W, M.rows - M.entRows, gl.RGBA, gl.FLOAT, data);
       if (gpuProbe.on) gpuProbe.note('uploaded: morph frame', data.byteLength / 1024);

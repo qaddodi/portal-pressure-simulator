@@ -37,6 +37,7 @@ function fakeGL() {
 const mod = await import('../src/ui/veins-gl.js');
 const { gpuProbe, COUNTED } = await import('../src/ui/gpu-probe.js');
 const { binSwept } = await import('../src/ui/veins-sweep.js');
+const { ENT_W } = await import('../src/ui/veins-bin.js');
 
 const line = (y) => Array.from({ length: mod.N_SAMPLES }, (_, i) => [40 + i * 10, y]);
 const swept = () => binSwept([{ id: 0, reach: 30, path: [line(100)] }, { id: 1, reach: 30, path: [line(300)] }], [{ path: [[[200, 100]]], reach: 20, k: 0.3, fillet: 1, members: [0, 1], trunk: 0 }], { rows: 2, samples: mod.N_SAMPLES });
@@ -97,4 +98,30 @@ test('a set is ready once uploaded and prepared; a switch that needs an unprepar
   assert.equal(g.morphSetReady(S), true);
   g.dropMorphSet(S);
   assert.equal(g.morphSetReady(S), false, 'a dropped set is not ready');
+});
+
+// A frame of the switch that sends a set the very rows it was last sent leaves the kept layer as it is (11 Nov 2026, Mohammad's Mac, "FPS 5" switching Anatomy
+// and Circuit: the second after a switch lands sent the same points every frame, each a whole redraw of every vessel, "no kept layer"); new rows are still one.
+test('a morph frame with the same rows as the last one keeps the layer; changed rows draw it again', () => {
+  const g = figure();
+  const b = swept(), S = g.makeMorphSet(b);
+  g.prepareMorphSet(S);
+  g.useMorphSet(S);
+  const frame = new Float32Array((b.rows - Math.floor(b.posBase / ENT_W)) * ENT_W * 4).fill(1);
+  assert.ok(frame.length > 0);
+  g.setMorphFrame(frame);
+  assert.equal(drawKind(g), 'whole', 'the first frame of the set');
+  assert.equal(settle(g), 'kept');
+  g.setMorphFrame(frame);
+  assert.equal(drawKind(g), 'kept', 'the same rows again: kept');
+  frame[3] = 2;
+  g.setMorphFrame(frame);
+  assert.equal(drawKind(g), 'whole', 'a point moved: drawn again');
+  g.setMorphFrame(frame.slice());
+  assert.equal(drawKind(g), 'kept', 'the same values in another buffer: kept');
+  // Back on the figure's own binning and onto the set again: the swap draws it again, whatever was sent before.
+  g.useMorphSet(null); drawKind(g); g.useMorphSet(S);
+  g.setMorphFrame(frame);
+  assert.equal(drawKind(g), 'whole', 'a set change is still one');
+  g.dropMorphSet(S);
 });
