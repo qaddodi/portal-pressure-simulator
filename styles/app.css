@@ -5745,6 +5745,13 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz:not(.stack):not(.low) .pz-data.col.pz-beside > * { zoom: var(--pz-z, 1); }
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="fibroscan"] .fibroscan-box { flex: 1 0 auto; height: calc(var(--fh, 78cqi) * var(--pz-fit, 1)); aspect-ratio: auto; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside:is([data-tn="3"], [data-tn="4"]) .pz-tool[data-kind="fibroscan"] .fibroscan-box { --fh: 92cqi; }
+/* A data card whose instrument is not beside tiles (the readings are in its header: Mac and iPad landscape): the picture gives its height way to the card,
+   as the stacked card's does (the rules above and below). It had a fixed 250-480 px, never shortened by the card's fit (--pz-fit) or its block step (--pz-dk),
+   so a card the fit had squeezed to its smallest zoom ran the FibroScan's map, its organ name and its time row out past the card's bottom edge
+   (Mohammad, 11 Nov 2026, iPad, Spleen stiffness follows the portal pressure). Never under what the map needs to draw its words (the canvas paints from 80 px). */
+.pz:not(.stack):not(.low) .pz-data.has-tool:not(.pz-beside) .pz-tool[data-kind="fibroscan"] .fibroscan-box { height: max(110px, calc(clamp(250px, calc(42 * var(--pzh)), 480px) * var(--pz-dk, 1) * var(--pz-fit, 1))); }
+.pz:not(.stack):not(.low) .pz-data.has-tool .pz-tool[data-kind="vitals"] .vitals-box { height: max(96px, calc(clamp(170px, calc(26 * var(--pzh)), 300px) * var(--pz-dk, 1) * var(--pz-fit, 1))); }
+.pz:not(.stack):not(.low) .pz-data.has-tool .pz-tool .pz-mon .hvpg-box { height: max(132px, calc(clamp(150px, calc(24 * var(--pzh)), 280px) * var(--pz-dk, 1) * var(--pz-fit, 1))); }
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime { flex: 1 1 auto; align-content: center; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside .pz-tool[data-kind="flowtime"] .pz-flowtime svg { width: 100%; justify-self: center; }
 .pz:not(.stack):not(.low) .pz-data.pz-beside > .pz-tool > .pz-inst { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
