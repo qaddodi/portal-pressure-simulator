@@ -1175,12 +1175,13 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // painter's, and as the lowest group they kept every overlay above them (stents, balloons, plugs) on SVG. 2 Nov 2026.)
   const clampW = s('g'), clampWOut = s('g');
   gOver.append(gFx, gFxC, clampWOut, clampW);
-  // The caudate lobe and its veins (CAUDATE): shown only while a slide is about them (pinOrgans 'caudate'), eased in
-  // and out (.caud.on), under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
+  // The caudate lobe and its veins (CAUDATE): on the plate all the time (11 Nov 2026), the lobe alone while a stent runs through it
+  // (the DIPS) or a slide pins only the lobe (pinOrgans 'caudate-lobe'), eased in and out with the view (.caud.on, off in the circuit),
+  // under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
   // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
   const caud = (() => {
     const [ax, ay] = CAUDATE.anchor, W = CAUDATE.wall;
-    const g = s('g', { class: 'caud gone', style: `transform-origin:${ax}px ${ay}px` });
+    const g = s('g', { class: 'caud on', style: `transform-origin:${ax}px ${ay}px` });
     let defsHtml = '<radialGradient id="caudDome"><stop offset="0" class="caud-d0"/><stop offset=".55" class="caud-d1"/><stop offset="1" class="caud-d2"/></radialGradient>'
       + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 1}" y1="0" x2="${W + 4}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
       + `<mask id="caudMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudFade)"/></mask>`;
@@ -1213,20 +1214,38 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     g.insertAdjacentHTML('afterbegin', `<defs>${defsHtml}</defs>`);
     const lumens = [...veinsG.querySelectorAll('.caud-lumen')];
     g.append(lobe, veinsG);
+    // Where the lobe was, and which way it grew (Mohammad's pick B, 11 Nov 2026): its normal outline dashed, and an arrow out of it at the top
+    // and bottom. Not in the grown group (it stays at the normal size) and shown by the enlargement only: its opacity follows how far the
+    // lobe has grown (sync), under the same on / gone / circuit rules as the lobe. No label on the dashed line.
+    const gm = s('g', { class: 'caud caud-m on' });
+    const mk = s('g', { class: 'caud-mk', style: 'opacity:0' });
+    mk.append(s('path', { d: CAUDATE.outline, class: 'caud-norm' }));
+    for (const [x1, y1, x2, y2] of CAUDATE.arrows) {
+      const a = Math.atan2(y2 - y1, x2 - x1), H = 5.5, q = (d) => `${(x2 - H * Math.cos(a + d)).toFixed(2)} ${(y2 - H * Math.sin(a + d)).toFixed(2)}`;
+      mk.append(s('path', { d: `M${x1} ${y1} L ${x2} ${y2}`, class: 'caud-arw' }), s('path', { d: `M${x2} ${y2} L ${q(0.45)} L ${q(-0.45)} Z`, class: 'caud-arwh' }));
+    }
+    gm.append(mk);
+    gOver.prepend(gm);
     gOver.prepend(g);
-    let cols = '', grow = '', goneT = 0, growKq = NaN;
+    let cols = '', grow = '', goneT = 0, growKq = NaN, markK = -1, pinVeins = true, stented = false;
+    const lobeOnly = () => g.classList.toggle('lobe-only', !pinVeins || stented);
     return {
       // (Once faded out, hidden, its veins' mask is off (.gone): a hidden group's mask is still built on every repaint.)
       show(on, veins) {
-        g.classList.toggle('on', !!on); if (on) g.classList.toggle('lobe-only', !veins);
+        g.classList.toggle('on', !!on); gm.classList.toggle('on', !!on);
+        if (on) { pinVeins = !!veins; lobeOnly(); }
         stageScope.clear(goneT);
         if (on) g.classList.remove('gone'); else goneT = stageScope.timer(() => g.classList.add('gone'), 760);
       },
+      // A stent through the lobe (the DIPS) takes its short veins' place: the lobe is shown alone, as on the DIPS slides.
+      stented(on) { if (on === stented) return; stented = on; lobeOnly(); },
       // Colored from the pressure they drain at (the IVC's: the lobe keeps its outflow); sized by its share of it.
       sync(c, kq) {
         if (c !== cols) { cols = c; for (const el of lumens) el.setAttribute('fill', c); }
         if (kq === growKq) return;   // (the same size gives the same text)
         growKq = kq;
+        const mo = kq > 0.04 ? Math.round(kq * 100) / 100 : 0;   // (the marks come in as the lobe grows and are gone once it is back to size)
+        if (mo !== markK) { markK = mo; mk.style.opacity = String(mo); }
         const v = `scale(${(1 + CAUDATE.grow[0] * kq).toFixed(3)}, ${(1 + CAUDATE.grow[1] * kq).toFixed(3)})`;
         if (v !== grow) { grow = v; g.style.transform = v; }
       },

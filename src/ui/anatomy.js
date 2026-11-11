@@ -33,20 +33,25 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   // The stomach's own drainage into the coronary vein is modeled, not drawn: a branch across the
   // stomach body only cluttered the lesser curvature.
   'V_STO', 'V_STO_SG',
-  // The caudate lobe veins are modeled but set aside in both views for now (the drawing, its
-  // tributaries and Budd–Chiari collaterals are kept below for later).
-  'CAUD']);
-// The caudate lobe and its short veins (anatomic view), drawn only on a slide about them (presenter target 'caudate')
-// and eased in and out: the lobe is a soft, slightly lighter dome of the liver's own tone with no outline (`lobe`:
+  // (The caudate veins are drawn in the circuit, as a lane of their own, and in the anatomy as the three short veins of CAUDATE
+  // below, not as a vessel: ANAT_HIDDEN.)
+  ]);
+// The caudate lobe and its short veins (anatomic view), always on the plate (11 Nov 2026: "the caudate lobe has no dedicated
+// drainage"; a slide about the DIPS shows the lobe alone), eased in and out with the view: the lobe is a soft, slightly lighter dome of the liver's own tone with no outline (`lobe`:
 // ellipses [cx, cy, rx, ry, degrees], the body and its papillary process), between the hepatic vein confluence above,
 // the portal bifurcation below and the IVC, whose left wall (`wall`, x) the veins merge into below the hepatic veins.
 // `veins`: [course, caliber at the IVC]; each tapers from nothing inside the lobe. In the model they are the CAUD edge,
 // which is not drawn as a vessel. The lobe grows about `anchor` by up to `grow` ([x, y]) as its veins take over the
 // liver's outflow (Budd–Chiari), keeping clear of the azygos line beside it (x 564).
+// `outline`: the lobe at its normal size, the two ellipses' outer edge as one dashed line; `arrows`: [x1, y1, x2, y2], from that edge out
+// to where the grown lobe's edge lies (top and bottom, where it gains most). Both show only while the lobe is enlarged, as it eases to
+// its grown size (stage.js caud.sync): the dashed line is where it was, the arrows say it grew (Mohammad's pick B, 11 Nov 2026: no label on the line).
 export const CAUDATE = {
   lobe: [[594, 358, 20, 60, -4], [587, 401, 14, 16, 0]],
   veins: [['M588 334 Q 601 332 613 327', 3], ['M582 368 Q 598 365 613 359', 3.6], ['M590 398 Q 602 395 613 389', 2.8]],
   wall: 613, anchor: [612, 362], grow: [0.12, 0.2],
+  outline: 'M578.5 388 C 579 384.1 576.6 379.8 575.9 375.6 C 575.2 371.4 574.7 367.2 574.3 363 C 574 358.8 573.7 354.5 573.6 350.3 C 573.6 346.1 573.6 341.8 573.9 337.6 C 574.2 333.4 574.5 329.1 575.2 325 C 575.9 320.8 576.7 316.5 578.1 312.6 C 579.6 308.7 581.1 303.5 583.9 301.4 C 586.8 299.3 592.1 298.5 595.2 299.9 C 598.4 301.3 600.9 306.2 602.9 309.9 C 605 313.5 606.3 317.6 607.7 321.6 C 609 325.6 610 329.8 610.9 333.9 C 611.7 338.1 612.4 342.3 613 346.5 C 613.5 350.7 613.9 354.9 614.1 359.1 C 614.3 363.3 614.4 367.6 614.4 371.8 C 614.3 376 614.1 380.3 613.6 384.5 C 613.2 388.7 612.6 392.9 611.6 397 C 610.6 401.1 609.7 405.6 607.6 409.1 C 605.5 412.5 602.4 416.4 599 417.8 C 595.5 419.1 590.7 418.1 586.9 417 C 583.1 415.9 578.5 414.1 576.2 411.2 C 573.9 408.2 572.7 403 573.1 399.1 C 573.5 395.3 578 391.9 578.5 388 Z',
+  arrows: [[594, 297, 594, 281], [590, 418, 590, 434]],
 };
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'SVD']);
 // Systemic veins drawn quietly: they matter only as the places collaterals drain to.
@@ -57,7 +62,8 @@ export const CONTEXT_EDGES = new Set(['V_UP', 'SVC_RA', 'AZY_SVC', 'ILI_IVC', 'E
 // (they still drain into it in the model and the circuit).
 // The left-lobe central veins reach the middle hepatic vein in the model; drawn, they would need a second
 // vein into the cava beside the left hepatic vein, so the plate shows them draining through that one.
-export const ANAT_HIDDEN = new Set(['POST_L_MHV']);
+// (The caudate vein CAUD is drawn in the circuit only: the plate shows the lobe and its short veins instead, CAUDATE.)
+export const ANAT_HIDDEN = new Set(['POST_L_MHV', 'CAUD']);
 export const ANAT_HIDDEN_NODES = new Set(['ILI']);
 // Drawn only once the paraumbilical collateral has opened.
 export const NEEDS_C3 = new Set(['EPI_ILI', 'EPI_SVC']);
@@ -352,7 +358,14 @@ export function route(pts, r = 16) {
 
 export const CIRCUIT_PATH = {
   // hepatic arterial supply and the intrahepatic bypasses stay gentle curves
-  CAUD: route([[900, 303], [940, 252], [1086, 252], [1120, 290], [1120, 345]], 18),
+  // The caudate veins: out of the right lobe's central-vein station straight up to a lane of their own (y 269, between the TIPS lane
+  // above, 23 away as the lane rule needs (tests/shunt-routes.test.js), and the right hepatic vein below, 13), and into the IVC from the
+  // north, the one side nothing else reaches it from (the hepatic veins come from the left, the cava from below). It crosses the TIPS and
+  // DIPS lanes once each, which are drawn only while open. It leaves the station by a 3-unit step to the left, so its first stretch lies on
+  // the joint's own centre (x 897, where the sinusoid branches end): left at x 900 the web between it and those thin branches left a fin
+  // (tests/tube-web-real.test.js). Its last corner is square: a rounded one swings past the DIPS diagonal and the lane rule reads that as running
+  // along it. (Its old lane ran 6 units under the TIPS lane. 11 Nov 2026: mocks Circuit A, which had it at y 264.)
+  CAUD: route([[900, 303], [897, 300], [897, 269], [1120, 269], [1120, 345]], 0),
   // The hepatic artery enters the liver on its midline (y 345), in the gap between the two lobes' trees, and its two stubs join the
   // first channel of each tree where the portal venules reach the sinusoids: it crosses no lane.
   A_HEP: 'M636 345 L 774 345',

@@ -148,6 +148,7 @@ export function createDiaphragm(st, live) {
       const hq = store.get().healthy?.Q?.[EI.CAUD], PA2 = f.Pf || f.P;
       live.caudK = stepHeld(live.caudK, hq ? clamp((Math.abs((f.Qf || f.Q)[EI.CAUD] / hq) - 2) / 2, 0, 1) : 0, 0.05);
       orgPA2 = PA2;
+      caud.stented(!!p.dips?.on);
       gpuProbe.time(null, 'organs: caudate', orgCaudate);
     }
     const c3 = recruitFrac('C3', f);
