@@ -44,10 +44,9 @@ export const ALBUMIN_DECK = {
     },
     {
       id: 'tap', action: { kind: 'paracentesis', mL: 5100 }, params: { albumin: 2.74 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['salb'], delta: 'ind',
-      compare: [{ label: 'No albumin', short: 'None', params: { albumin: 2.4 } }, { label: 'With albumin', short: 'Albumin', own: true, params: { albumin: 2.74 } }],
       kicker: 'Large-volume paracentesis', site: 'sin', title: 'A large-volume tap comes with albumin',
       line: 'The tap drains the abdomen to {asc}. Albumin goes with it, and his serum albumin reads {salb}. Without it, a large tap can lower the effective blood volume.',
-      notes: 'Source: Baveno VIII Table 3. Albumin guards the effective blood volume after a large drain. Without it the splanchnic vessels dilate further over the next days, which can bring kidney injury, a low sodium and a faster return of the ascites (post-paracentesis circulatory dysfunction). The model has no kidneys, and its circulatory dysfunction needs a tap of more than 5 L without albumin, so the two buttons differ in the serum albumin only. Neither guideline file gives the dose.',
+      notes: 'Source: Baveno VIII Table 3. Albumin guards the effective blood volume after a large drain. Without it the splanchnic vessels dilate further over the next days, which can bring kidney injury, a low sodium and a faster return of the ascites (post-paracentesis circulatory dysfunction). The model has no kidneys, and its circulatory dysfunction needs a tap of more than 5 L without albumin, so it shows the drain and the serum albumin but no kidney injury. The guideline step is to give albumin with the tap. Neither guideline file gives the dose.',
       ask: ['Why does albumin go with a large-volume tap?', 'It protects the effective blood volume and the kidneys after a large drain (Baveno VIII Table 3).'],
     },
     {
