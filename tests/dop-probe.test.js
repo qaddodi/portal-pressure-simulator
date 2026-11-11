@@ -808,7 +808,9 @@ test('the hepatic artery\'s gate stands toward the fork, well clear of where the
   const [a, b, c, d] = nums(EDGE_PATH.C3).slice(0, 4).map((p) => p), vein = []; // (C3 starts 'M x y C x1 y1 x2 y2 x y')
   for (let t = 0; t <= 1; t += 0.005) { const m = 1 - t; vein.push([m ** 3 * a[0] + 3 * m * m * t * b[0] + 3 * m * t * t * c[0] + t ** 3 * d[0], m ** 3 * a[1] + 3 * m * m * t * b[1] + 3 * m * t * t * c[1] + t ** 3 * d[1]]); }
   const away = (u) => Math.min(...vein.map((p) => Math.hypot(p[0] - at(u)[0], p[1] - at(u)[1])));
-  assert.ok(away(0.5) < 6, 'the middle is where the vein crosses it (the reason for the move)');
+  // (11 Nov 2026: the vein now crosses the artery near its start, at the trunk's far end, not in the middle: the gate keeps clear of the crossing wherever it is.)
+  const crossU = [...Array(101).keys()].map((i) => i / 100).reduce((b, u) => (away(u) < away(b) ? u : b), 0);
+  assert.ok(away(crossU) < 6, 'the vein crosses the artery somewhere along it');
   assert.ok(away(GATE_FRAC.A_HEP) > 20, `the gate stands ${away(GATE_FRAC.A_HEP).toFixed(1)} units from the vein`);
   // The circuit's artery is a straight lane to the fork at its far end: the same fraction stands short of it.
   const [c0, c1] = nums(CIRCUIT_PATH.A_HEP);

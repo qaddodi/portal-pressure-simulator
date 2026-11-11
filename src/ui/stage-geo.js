@@ -3,6 +3,7 @@
 import { EDGES, NODES } from '../engine/topology.js';
 import { CIRCUIT_PATH, CIRCUIT_TREES, EDGE_PATH, FEEDERS, HIDDEN_NODES, IVC_EDGES, NODE_POS, SIN_EDGES, VB_CIRC, fanFeeders, metroPath, route as metroRoute } from './anatomy.js';
 import { createRouter } from './circuit-router.js';
+import { CUSTOM_SHUNT_PATH } from './custom-shunt-paths.js';
 import { peelRanks } from './flow-peel.js';
 import { store } from './store.js';
 import { clamp } from './util.js';
@@ -37,7 +38,9 @@ export function createGeo(st, live) {
   }
   for (const e of ALL_EDGES) {
     const a = NODE_POS[e.from], b = NODE_POS[e.to];
-    const dA = EDGE_PATH[e.id] || defaultPath(a[0], b[0], false);
+    // (A custom shunt's anatomic course is a smooth curve found to keep off the other vessels, custom-shunt-paths.js; a straight line between its two
+    // stations ran along the cava and the hepatic artery for most of its length.)
+    const dA = EDGE_PATH[e.id] || CUSTOM_SHUNT_PATH[e.id] || defaultPath(a[0], b[0], false);
     const dC = CIRCUIT_PATH[e.id] || (e.shunt === 'custom' ? bypassPath(a[1], b[1]) : defaultPath(a[1], b[1], true));
     // A spontaneous shunt (gastrorenal, splenorenal) is one large vein, drawn like one.
     const A = (e.kind === 'collateral' && !e.spontaneous) || e.kind === 'shunt' ? sample(dA) : meander(sample(dA), e.id);

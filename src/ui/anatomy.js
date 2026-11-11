@@ -199,24 +199,30 @@ export const EDGE_PATH = {
   // Mohammad, 6 Nov, "too straight"), bowing right over the stomach, and arches over into the fundal varices heading left, the
   // way the gastrorenal shunt (C5) leaves them, so the two read as one rounded loop there, not a hairpin.
   // (It still leaves the splenic vein at the angle it did, so the IMV below runs on into the splenic vein, not into it.)
-  C2: 'M880 505 C 884 489.6 885.3 476 886 462 C 887 441 905.4 424.8 918 408 C 929.4 392.8 930.9 370.8 928.5 352 C 925 324 908 300 876 302',
-  C3: 'M688 378 C 668 440 646 520 620 600 C 590 690 540 760 500 800',
+  C2: 'M880 505 C 889 490 896 475 902 458 C 908 440 913 424 922 408 C 931 393 931 371 928.5 352 C 925 324 908 300 876 302',
+  // (It runs down the right of the cava, in the clear corridor between the cava and the mesenteric trunk, and crosses the cava low, below the
+  // renal and mesocaval levels, at about 45 degrees, in one sweep to the umbilicus: it ran into the cava at y 600 at under 20 degrees,
+  // along it for 80 units, among the ends of the portocaval and renal veins. 11 Nov 2026.)
+  C3: 'M688 378 C 676 440 666 500 660 560 C 654 620 650 660 640 684 C 628 712 600 724 570 748 C 540 772 515 785 500 800',
   // Superior rectal veins: down beside the sigmoid to the anorectum, where they break up into
   // submucosal anorectal varices (see STRANDS) and fade out toward the pelvis.
-  C4: 'M932 690 C 944 770 922 828 874 856 C 840 872 806 886 786 928',
+  C4: 'M932 690 C 922 748 898 806 862 840 C 834 866 806 892 786 928',
   // Leaves the fundus heading left, as its feeder (C2) arrives, and bends down in a wide arc (radius about 30; it turned 72° at
   // the node and met C2 in a sharp hairpin: Mohammad, 6 Nov), then runs down clear of the coronary vein, easing into
   // the left renal vein.
-  C5: 'M876 302 C 850 303.6 853 336 852 380 C 850 460 852 560 858 596 C 860 606 861 612 862 618',
+  C5: 'M876 302 C 856 303 868 336 868 380 C 868 450 864 540 860 596 C 860 606 861 612 862 618',
   // The splenorenal shunts leave the splenic vein halfway between the spleen and the IMV junction (SVD)
   // and drop to the renal vein just below, right of the IMV, so they never cross it. They bow left, clear of the
   // descending colon (which had run alongside, touching, and read as a huge outline round the shunt), and ease into
   // the renal vein heading the way it flows, toward the cava, instead of meeting it at a right angle. They end just short of its centreline (fork-joins.js sideEndScale).
-  C6: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 618',
+  // (Spontaneous and Warren shunts can both be open: the spontaneous one bows to the right, the Warren one stays to its left, 17 apart in the
+  // corridor between the inferior mesenteric vein and the descending colon (50 clear of the colon, 25 of the vein), and they fan out from the
+  // shared stations instead of lying on one another. 11 Nov 2026.)
+  C6: 'M962 448 C 970 490 968 536 967 572 C 967 594 960 612 953 618',
   // The retroperitoneal collateral leaves the SMV well below the mesocaval origin, on the lower trunk,
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
-  C8: 'M700 556 C 706 506 668 462 602 442',
+  C8: 'M700 556 C 730 510 690 446 602 442',
   // Ascending lumbar veins → the ascending azygos. In the body it runs up the posterior abdominal wall beside the spine, behind
   // the liver, and through the diaphragm's crus into the azygos, so it is drawn that way (Mohammad, 31 Oct, Budd–Chiari: the
   // flank route over the dome read as a detour, and a route in front crossed the hepatic veins; "I like behind the liver fade"):
@@ -229,7 +235,7 @@ export const EDGE_PATH = {
   // way a tributary meets a vein, not a long sliver beside it). Only the azygos runs on from there to the arch, so the
   // esophageal varices (C1b), which drain into the arch at its node, end on the azygos, never on this collateral. It stays
   // clear below the epigastric vein where that crosses the trunk at y 79. tests/ascending-lumbar-route.test.js holds these.
-  C9: 'M620 566 C 574.7 544.9 528.1 470 526 410 C 523.6 342.4 517.3 272.5 522 205 C 524.5 169.1 528.2 135.1 562.9 108',
+  C9: 'M620 566 C 578 544.9 534 470 532 410 C 529.6 342.4 523 272.5 527 205 C 529 169.1 531 135.1 562.9 108',
 
   // (It runs up the right lobe in one gentle curve, clear of the middle hepatic vein's start (548 282), and ends where the right hepatic vein
   // begins (500 246), the stent's own node: its end is a join of the model's node, with the vein's run-on and the sinusoids' outflow into it,
@@ -238,7 +244,7 @@ export const EDGE_PATH = {
   // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe in one gentle curve (no
   // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
-  DIPS: 'M602 442 C 582 392 595 318 620 302',
+  DIPS: 'M602 442 C 566 414 572 336 620 304',
   // (An end-to-side portocaval shunt meets the cava above the renal veins: it ended at the iliac confluence's node, below the left
   // renal vein, crossing it. It ends on the cava's wall, as the renal vein does, a side join on the IVC.)
   S_PC: 'M700 556 C 682 568 652 582 625 590',
@@ -388,10 +394,13 @@ export const CIRCUIT_PATH = {
   S_PC: route([[480, 345], [480, 446], [1088, 446], [1120, 478]], 24),
   S_MC: route([[320, 394], [350, 424], [350, 478], [1120, 478]], 16),
   // The Meso-Rex bypass: a bypass round the clotted trunk, from the superior mesenteric station straight to the left portal vein.
-  REX: route([[320, 394], [336, 410], [656, 410], [680, 387]], 14),
+  // (Its lane is the middle of the gap between the portal vein's run below the spine (y 394) and the portocaval lane (y 446), 26 from each: at y 410
+  // it ran 16 below the portal vein's first stretch for 100 units. 11 Nov 2026.)
+  REX: route([[320, 394], [346, 420], [648, 420], [680, 388]], 14),
   // The splenorenal shunts leave the splenic vein midway (SVD), left of the IMV's junction.
   C6: route([[200, 261], [200, 510], [970, 510], [1000, 540]], 16),
-  S_DSR: route([[200, 261], [184, 277], [184, 570], [970, 570], [1000, 540]], 16),
+  // (Its column is 30 left of the spontaneous shunt's: both ran 16 apart for 250 units. 11 Nov 2026.)
+  S_DSR: route([[200, 261], [170, 291], [170, 570], [970, 570], [1000, 540]], 16),
   C7: route([[320, 394], [320, 600], [1120, 600]], 24),
   C3: route([[680, 387], [680, 640], [960, 640]], 24),
   C4: route([[240, 310], [240, 670], [1090, 670], [1120, 640]]),
