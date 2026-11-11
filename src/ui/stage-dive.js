@@ -1,6 +1,6 @@
 // The lobule dive and rise: one continuous zoom from a spot in the liver (the camera's compositor scale, the field's bloom, the layers hidden and given back), setLobule and its waits.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { D_SMALL } from './ease.js';
+import { D_SMALL, D_SURFACE, easeArrive } from './ease.js';
 import { cancelFrame, easeNow } from './frame.js';
 import { reduceMotionMQ as reduceMotion, settleAt, smooth01, DIVE_MS, RISE_MS } from './motion.js';
 import { fadeStop } from './res-fade.js';
@@ -106,7 +106,36 @@ export function createDive(st, live) {
     if (!live.veins || live.veins.lost) return;
     const sx = vCanvas.width / (live.boxW || vCanvas.width || 1), sy = vCanvas.height / (live.boxH || vCanvas.height || 1);
     // (Landed in the lobule drawn in this renderer's own context: the figure under it is not laid at all, as #veins was hidden before.)
-    live.veins.setCameraRec(DIVEC.k, DIVEC.x * sx, DIVEC.y * sy, live.lobIn ? 0 : live.camDive * live.camShow);
+    live.veins.setCameraRec(DIVEC.k, DIVEC.x * sx, DIVEC.y * sy, live.lobIn ? 0 : live.camDive * live.camShow * dipA);
+  }
+  // The figure's dip in a talk (presenter.js: #stageView.pz-out, as a case card comes up and while a new patient is swapped in under it): the
+  // canvas's share is an alpha in its present, as camShow is, eased over the same D_SURFACE and curve app.css gives the rest of the stage view's
+  // layers. It was the whole view's CSS opacity, which dimmed the canvas with every glass drawn in it: the case card's glass (and the teaching
+  // card's) came up at a fifth of its strength, the figure sharp through it, and turned to glass in one step as the figure came back (Mohammad,
+  // 11 Nov 2026: "notice how the glass changes blur or tint or something when the case card appears"). Here the figure dips under the glass
+  // and the glass stays as it is.
+  const FIG_DIP = 0.22;   // (app.css .app.presenting #stageView.pz-out > :not(#veins))
+  let dipA = 1, dipFrom = 1, dipTo = 1, dipT0 = 0, dipRaf = 0;
+  function dipStep(now) {
+    dipRaf = 0;
+    const u = Math.min(1, (now - dipT0) / D_SURFACE);
+    dipA = dipFrom + (dipTo - dipFrom) * easeArrive(u);
+    pushCam();
+    if (u < 1) dipRaf = drawFrame(dipStep);
+  }
+  const app = wrap.closest?.('.app') || null;
+  function dipSync() {
+    const to = wrap.classList.contains('pz-out') && !wrap.classList.contains('unframed') && !!app?.classList.contains('presenting') ? FIG_DIP : 1;
+    if (to === dipTo) return;
+    dipFrom = dipA; dipTo = to; dipT0 = performance.now();
+    if (dipRaf) { cancelFrame(dipRaf); dipRaf = 0; }
+    if (reduceMotion.matches) { dipA = to; pushCam(); return; }
+    dipRaf = drawFrame(dipStep);
+  }
+  if (typeof MutationObserver === 'function' && wrap?.nodeType === 1) {   // (the page's view; a stand-in without one in the tests watches nothing)
+    const dipMo = new MutationObserver(dipSync);
+    dipMo.observe(wrap, { attributes: true, attributeFilter: ['class'] });
+    if (app) dipMo.observe(app, { attributes: true, attributeFilter: ['class'] });
   }
   function camShowStep(now) {
     live.camShowRaf = 0;

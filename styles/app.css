@@ -1793,7 +1793,12 @@ button.finding { cursor: pointer; }
 .app.presenting .projector-exit,
 .app.presenting #stageCenter { display: none; }
 .app.presenting #stageView { z-index: 0; transition: opacity var(--d-surface) var(--ease); }   /* its own layer, so the slide's shade can lie over it and under the credit */
-.app.presenting #stageView.pz-out { opacity: .22; transition-duration: var(--d-surface); }
+/* The figure's dip as a case card comes up (presenter.js pz-out): every layer of the stage view but the canvas, whose share dips as an alpha in its
+   present (stage-dive.js dipSync, the same .22, D_SURFACE and curve), so the glass drawn in the canvas keeps its strength. (The view's own opacity
+   dimmed the cards' glass with the figure: 11 Nov 2026.) */
+.app.presenting #stageView.pz-out:not(.unframed) > :not(#veins) { opacity: .22; }
+.app.presenting #stageView > #overlay { transition: opacity var(--d-surface) var(--ease); }
+@media (prefers-reduced-motion: reduce) { .app.presenting #stageView > #overlay { transition: none; } }
 .app.presenting #labels .lb.focus .lb-bg { fill: var(--danger); }
 .app.presenting #labels .leader.focus { stroke: var(--danger); }
 /* Marks by kind (a slide's marks: [{ kind }]): block is the danger red above, treat the accent, note plain ink (their vessels glow in stage.js). */
