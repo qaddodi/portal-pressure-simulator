@@ -1564,6 +1564,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setLobule(true);
   }
   let lobuleRetryT = 0;
+  let plateWant = null;   // (the plate's lobule window asked for, kept for the lobule's code that has not arrived: plateLobule)
   function lobuleRetry(tries) { if (store.get().lobule) openLobule(tries); }   // (the count rides on the timer: no closure carries it)
   const lobuleArrived = () => { lzWaiting = false; if (store.get().lobule) openLobule(); };
   const LOBULE_OFF_BOTH = { lobule: false, sinusoid: false }, LOBULE_OFF = { lobule: false };   // (patches the store reads and does not keep)
@@ -3281,6 +3282,14 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleGlCheck: () => lz?.glCheck() ?? null, lobuleLabelLayouts: () => lz?.labelLayouts() ?? 0,
     /** The lobule's outline in client px while it fills the view (see lobule-zoom ring), else null. */
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
+    /** Three scales on one plate (cutouts.js): the lobule in a round window ({ x, y, w, h, r }, CSS px of the figure's box) beside the anatomy, its blood running when run; null closes it. Not while the lobule itself is open or diving. */
+    plateLobule(win, run = false) {
+      plateWant = win ? { win, run } : null;
+      if (!win) { lz?.plateOff(); return; }
+      if (lobuleOn || diveT > 0 || store.get().lobule) return;
+      if (lz) { lz.plateOn(win, run); return; }
+      lobuleReady().then(() => { if (plateWant && !lobuleOn && !store.get().lobule) lz.plateOn(plateWant.win, plateWant.run); }, () => { /* the lobule's code did not arrive: no window */ });
+    },
     /** The vessels as the corner credit counts them (credit.js), in world units: each course drawn (a vessel's own, and in the anatomy its
      *  strands' and drawn trunks'), its hit width w, its box, and ver (a new ver: the list changed). */
     vesselShapes,

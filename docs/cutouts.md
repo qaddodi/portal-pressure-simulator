@@ -47,17 +47,25 @@ main figure is already a small scale.
 
 ## What is built, and what is next
 
-Built (phase 1): the field, its rules, the layouts, the cone, the blood rule, the deck slides, the tests.
+Phase 1 (8dc6cca): the field, its rules, the layouts, the cone, the blood rule, the deck slides, the tests.
 
-Not built yet (phase 2, the drawing). Findings from reading the code, for whoever builds it:
+Phase 2a, the lobule window: `lobule-zoom.js` gets a plate mode (`plateOn(win, run)`, `plateOff`). The lobule is drawn as it is for the stage
+(framed whole in the room the cards leave, at half the pixels) and its texture is laid through the window with `top.lay(..., win)` (thread D,
+77f03b8), so the hexagon fills a round window and nothing outside it is written. In plate mode nothing outside the lobule sees it as open or
+shown (`isOpen`, `isShown`, `covers` say no), its pass is not solo (the figure's picture stays under it), its names and leaders are off, and
+its blood runs only for the subject (`flowA`). `stage.plateLobule(win, run)` opens it, loading the lobule's code if it has not arrived;
+`presenter.js layout()` reserves the column in `--pz-r` (the figure frames itself in what is left, as it does for cards) and places the window
+from `plateRects`. Mac and iPad landscape only, never while the lobule itself is open or diving.
 
-1. **The lobule's picture is already a texture the figure's present lays through an affine map** (`lobule-zoom.js` `layShared`:
-   `top.lay(tex, a, b, c, d, tx, ty, alpha)`, `veins-gl.js` `layTex`, LAYT_FS). The dive and the rise scale it that way. A window is the
-   same lay with the window's map and a circular (rounded) mask: a new `layWin` beside `layTex`. That is in `veins-gl.js`, thread D's file.
-2. **The lobule view is one object** (`createLobuleZoom`, made once in `stage.js`), with the store, the camera records
-   (`cams.lobule.*`), the dive, `fade` and `freeRect()` as singletons. A window needs it open at its framing (`lobule:fit`) while the
-   anatomy is still drawn: `covers()` (true once the lobule or the field covers the anatomy) must say false, and `freeRect()` must be the
-   window's square. No second instance: it would double every store listener and camera record.
+Not built yet:
+
+- the sinusoid window (the sinusoid is a pass turned out of the lobule by `sinU`; it needs its own framing record and its own lay through a window),
+- the anatomy's blood stopping when the subject is a window,
+- the ring on the liver, the cone and the window frame (a small `svg-gl` model), and the tap that dives into a window with the corner windows,
+- the windows' names and readings (the labels thread).
+
+Findings that hold for them:
+
 3. **The sinusoid is not independent of the lobule.** `sinU` (0 to 1) turns the lobule view into the sinusoid view, a pass laid over the
    lobule's. Showing both at once means the sinusoid pass is laid through its own window by its own map, with its own framing record, and
    `sinU` no longer meaning "the lobule is gone". `sinusoid-view.js` and the sinusoid parts of `lobule-zoom.js` carry that.

@@ -27,6 +27,7 @@ import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { sinusoidSupported } from './gl-support.js';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js';
+import { offeredCutouts, cutoutSubject, plateRects, columnOf } from './cutouts.js';
 import { CIRC_REGIONS, isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js';
 import { runSoon } from './class-soon.js';
 import { NODE_POS } from './anatomy.js';
@@ -4331,6 +4332,24 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (was) ui.shade.classList.add('pz-tabs-tight');
     return Math.max(16, tabH + 8);
   };
+  // The plate the slide shown lays out (null: none): the windows' rects in the figure's box, the room they take, who runs blood. Mac and iPad landscape only.
+  const appN = (name) => parseFloat(app.style.getPropertyValue(name)) || 0;
+  function cutoutPlan(s, p, W, H, l, rBase) {
+    if (!s || p || W < 900 || H < 520) return null;
+    const kinds = offeredCutouts(s, { landscape: true, lens: slideLens(s), sinusoid: sinusoidSupported() });
+    if (!kinds.length) return null;
+    const free = { l: 12 + l, t: appN('--top-safe') + appN('--cmp-h') + 8, r: W - rBase - 12, b: H - (appN('--bot-occ') || 100) - 8 };
+    if (free.r - free.l < 420 || free.b - free.t < 260) return null;
+    return { kinds, free, rects: plateRects(free, kinds, 'plate'), take: columnOf(free, kinds).colW + 16, subject: cutoutSubject(s) };
+  }
+  // The windows the plan names are shown in the figure, and hidden when it names none (a slide with none, a phone, a deck that closes).
+  let plateKey = '';
+  function plateApply(plan) {
+    const key = plan ? `${plan.kinds}|${plan.subject}|${Object.values(plan.rects.lobule || {}).map(Math.round)}` : '';
+    if (key === plateKey) return;
+    plateKey = key;
+    stage.plateLobule?.(plan?.rects.lobule || null, !!plan && plan.subject === 'lobule');
+  }
   function layout() {
     if (!ui) return;
     if (zoomHeld()) return;   // (the zoomed card is not where it rests: it is laid out once it is back, zoomSettled)
@@ -4693,7 +4712,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     const set = (k, v) => { const px = `${Math.max(0, Math.round(v))}px`; insets.put(k, px); };
     set('--pz-l', frameL);
-    set('--pz-r', !p && d ? W - (readMetric(ui.data, 'offsetLeft') + dock.to * dv[0]) * k + 8 : 0);   // (where the card comes to rest: past its entry shift, at its dock)
+    const rBase = !p && d ? W - (readMetric(ui.data, 'offsetLeft') + dock.to * dv[0]) * k + 8 : 0;   // (where the card comes to rest: past its entry shift, at its dock)
+    // Three scales on one plate (slide field cutouts, docs/cutouts.md): the windows take a column beside the data card, and the figure frames in what is left.
+    const plan = cutoutPlan(at ? slides[at.i] : null, p, W, H, frameL, rBase);
+    set('--pz-r', rBase + (plan ? plan.take : 0));
+    plateApply(plan);
     set('--pz-t', p && d ? (readMetric(ui.data, 'offsetTop') + readMetric(ui.data, 'offsetHeight') + (lipOn(ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) { dockPaint(); placeLip(); }   // (the edge's place, read here at rest: a glide's frames only move it)
@@ -6371,7 +6394,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (pageHeld) { clearTimeout(pageHeld.t); pageHeld = null; }
     pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); evDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); evDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; plateApply(null); app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     insets.reset();   // (and a room held through the last slide change is never written back after the talk: inset-hold.js)
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)
