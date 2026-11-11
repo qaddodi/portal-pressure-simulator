@@ -29,6 +29,7 @@ uniform float nBin;      // the noise's frequency bin, px
 uniform int nRun;        // how many columns share one noise line
 uniform float noiseA;    // the noise's share (1 on the grey spectrum, 0.3 under the colour modes)
 uniform vec2 wall;       // the wall filter's band: the baseline's row from the top, its half height (px)
+uniform float rule;      // the baseline's own thin line (0 for none: a stent's clean background shows the baseline by it)
 out vec4 o;
 // The noise floor, worked out here where it was a texture built on the CPU (a log and a pow for each of 2 M pixels, at every size change):
 // exponential power, one draw for each noise line (a few columns) and frequency bin, smooth over the bins, log-compressed.
@@ -55,7 +56,8 @@ void main() {
   vec3 n = floorAt(nOff + ivec2(lx, ly));
   vec3 col = min(vec3(1.0), r + n * noiseA);
   float a = wall.y > 0.0 ? 0.9 * max(0.0, 1.0 - abs(float(ly) + 0.5 - wall.x) / wall.y) : 0.0;
-  o = vec4(col * (1.0 - a), 1.0);
+  float ln = rule * max(0.0, 1.0 - abs(float(ly) + 0.5 - wall.x));
+  o = vec4(min(vec3(1.0), col * (1.0 - a) + ln * vec3(0.27, 0.28, 0.30)), 1.0);
 }`;
 
 /**
@@ -76,7 +78,7 @@ export function createDopplerGL({ onReady = null } = {}) {
   let rw = 0, rh = 0;
   const tex = () => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); return t; };
   // (Kept for the life of the drawer, so publishing the program and drawing make no objects: the uniforms' places, and the 1 × 1 texel of the warm-up draw.)
-  const UNI = { ring: null, nBin: null, nRun: null, size: null, org: null, p: null, nOff: null, noiseA: null, wall: null };
+  const UNI = { ring: null, nBin: null, nRun: null, size: null, org: null, p: null, nOff: null, noiseA: null, wall: null, rule: null };
   const DOT = new Uint8Array([0, 0, 0, 255]);
   const oneTexel = (t) => { gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, DOT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); };
   // What the drawer's context holds for this monitor: the program (started now, published once the driver has finished it, gl-compile.js;
@@ -130,7 +132,7 @@ export function createDopplerGL({ onReady = null } = {}) {
       prog = checkProgram(gl, started);
       U = UNI;
       U.ring = gl.getUniformLocation(prog, 'ring'); U.nBin = gl.getUniformLocation(prog, 'nBin'); U.nRun = gl.getUniformLocation(prog, 'nRun'); U.size = gl.getUniformLocation(prog, 'size'); U.org = gl.getUniformLocation(prog, 'org');
-      U.p = gl.getUniformLocation(prog, 'p'); U.nOff = gl.getUniformLocation(prog, 'nOff'); U.noiseA = gl.getUniformLocation(prog, 'noiseA'); U.wall = gl.getUniformLocation(prog, 'wall');
+      U.p = gl.getUniformLocation(prog, 'p'); U.nOff = gl.getUniformLocation(prog, 'nOff'); U.noiseA = gl.getUniformLocation(prog, 'noiseA'); U.wall = gl.getUniformLocation(prog, 'wall'); U.rule = gl.getUniformLocation(prog, 'rule');
       const d0 = gl.createTexture();
       oneTexel(d0);
       // alloc-rare: once for a program, as it is published (a frame comes here only while no program is published; the guard at the top returns after)
@@ -263,7 +265,7 @@ export function createDopplerGL({ onReady = null } = {}) {
         gl.uniform1i(SU.colA, 2); gl.uniform1i(SU.colB, 3);
         gl.uniform1f(SU.rBase, G.rBase); gl.uniform1f(SU.rPxPerV, G.rPxPerV); gl.uniform1f(SU.fade, G.fade); gl.uniform1f(SU.wfV, G.wfV);
         gl.uniform1f(SU.spkPx, G.spkPx); gl.uniform1f(SU.spkMix, G.spkMix); gl.uniform1f(SU.span, G.span); gl.uniform1f(SU.uK, G.uK);
-        gl.uniform1i(SU.venous, G.venous ? 1 : 0); gl.uniform1i(SU.mode, G.mode); gl.uniform1ui(SU.seed, SEED);
+        gl.uniform1i(SU.venous, G.venous ? 1 : 0); gl.uniform1i(SU.stent, G.stent ? 1 : 0); gl.uniform1i(SU.mode, G.mode); gl.uniform1ui(SU.seed, SEED);
         const M = dopplerMap();
         gl.uniform3fv(SU.cToward, M.TOWARD); gl.uniform3fv(SU.cAway, M.AWAY);
         gl.uniform3fv(SU.cVarT0, M.VAR_TOWARD[0]); gl.uniform3fv(SU.cVarT1, M.VAR_TOWARD[1]);
@@ -279,7 +281,7 @@ export function createDopplerGL({ onReady = null } = {}) {
      * the left, the noise view at (nx, ny) added with share noiseA, and the wall filter's band about the baseline (base px from the trace's
      * top, half height wf px). Only the trace's rectangle is drawn, opaque; the drawer's margins and words are laid by the monitor, round it.
      */
-    render({ W, H, dx, dy, RW, RH, p, nx, ny, noiseA, base, wf, nBin, nRun }) {
+    render({ W, H, dx, dy, RW, RH, p, nx, ny, noiseA, rule, base, wf, nBin, nRun }) {
       // (Review pass 2, item 2: a frame that comes while the shader is still compiling does not publish it, where reading its status
       // waits for the driver inside the frame. It draws nothing (the trace stays black, as for a lost context), the poller publishes
       // the program the moment the driver is done, and onReady asks the monitor to draw again. ?shaderready=0: published here, as before.)
@@ -298,7 +300,7 @@ export function createDopplerGL({ onReady = null } = {}) {
         gl.uniform2i(U.size, RW, RH);
         gl.uniform1i(U.p, p);
         gl.uniform2i(U.nOff, nx, ny);
-        gl.uniform1f(U.noiseA, noiseA);
+        gl.uniform1f(U.noiseA, noiseA); gl.uniform1f(U.rule, rule || 0);
         gl.uniform2f(U.wall, base, wf);
         gl.bindVertexArray(vao);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

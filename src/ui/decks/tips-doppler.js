@@ -50,13 +50,14 @@ export const TIPS_DOPPLER = {
       ask: ['Where along the stent is the velocity measured?', 'At the portal end (proximal), in the middle (mid) and at the hepatic vein end (distal).'],
     },
     {
-      // Aliasing (Ferraioli, EFSUMB; Meola et al., J Vasc Access 2021): the scale is fixed at 80 cm/s each way, the Nyquist
-      // limit, below this working stent's velocity, so the top of its spectrum wraps round to the other side of the baseline.
+      // Aliasing (Ferraioli, EFSUMB; Meola et al., J Vasc Access 2021): the scale is fixed at 130 cm/s each way, the Nyquist
+      // limit, below this working stent's peak (150 to 215 cm/s), so the top of its spectrum wraps round to the other side of the baseline.
+      // The baseline down reaches 0.85 × 260 = 221 cm/s above it, so the whole spectrum then fits.
       // The button moves the baseline in place (the instrument's own option), not the model.
-      id: 'alias', cam: 'liver', tool: { kind: 'doppler', vessel: 'TIPS', scale: 80 },
+      id: 'alias', cam: 'liver', tool: { kind: 'doppler', vessel: 'TIPS', scale: 130 },
       compare: [{ label: 'As scanned', own: true }, { label: 'Baseline down', tool: { baseline: 0.85 } }],
       kicker: 'A working TIPS', title: 'Flow faster than the scale wraps round',
-      line: 'The scale reaches 80 cm/s each way and the stent\'s flow is faster, so the top of the spectrum wraps below the baseline. That is aliasing, not reversed flow.',
+      line: 'The scale reaches 130 cm/s each way and the stent\'s flow is faster, so the top of the spectrum wraps below the baseline. That is aliasing, not reversed flow.',
       notes: 'Pulsed Doppler samples the echoes in bursts, so it can measure a velocity only up to half its pulse repetition frequency, the Nyquist limit, which the scanner shows as the velocity scale. Faster flow is drawn on the other side of the baseline, as if it ran the other way. In a TIPS, where flow is fast, aliasing can look like reversed flow and hides the true peak. Tap Baseline down: moving the baseline gives the direction of flow more of the scale without changing the Nyquist limit, so the whole spectrum fits above it. Raising the scale, a higher pulse repetition frequency, lifts the limit itself, and a lower frequency transducer helps too. Read the peak velocity only once the whole spectrum fits.',
       ask: ['Name two ways to remove aliasing from a spectral trace.', 'Move the baseline away from the direction of flow, or raise the velocity scale.'],
     },
