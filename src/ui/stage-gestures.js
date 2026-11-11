@@ -327,7 +327,7 @@ export function createGestures(st, live) {
           return;
         }
         lastTap = { t: now, x: ev.clientX, y: ev.clientY, sel: store.get().selection };
-        if (live.tapHook?.(ev.clientX, ev.clientY)) return;   // (the scope view's ring takes its own tap: scope-lens.js)
+        if (live.tapHook?.(ev.clientX, ev.clientY) || live.plateTap?.(ev.clientX, ev.clientY)) return;   // (the scope view's ring takes its own tap: scope-lens.js)
         if (d.label) { d.label.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
         pick(d.id, ev);
         return;

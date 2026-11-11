@@ -64,6 +64,12 @@ units and put through each frame's camera (`stage.figureXform`), so it rides a p
 shapes, no canvas. `presenter.js platePlace` only sets the plan; the `data-safe` strip that reserves the column stays a DOM element (it is
 read, never drawn). Shader check: `node scripts/glsl-compile.mjs "cutout frame (plate ring, spot, cone)"`.
 
+Phase 2c (Mohammad, 11 Nov, Liver stiffness 3/17): the liver's spot sits on the open right lobe, between the portal branches and the hepatic
+veins (`PLATE_SPOT` in `presenter.js`, fractions of the liver's box). The window closes like the scope view: a round x on its rim, and it
+opens again by a tap on the spot (`stage.onPlateTap`, `cutout-frame-gl.js hit`, as the scope's ring is tapped). Shut, the window gives
+its room back and the figure frames itself in it; the spot stays, a little fuller, as the way back. A new slide opens its windows again.
+Unlike the scope view, a tap elsewhere on the figure does not close it (the tap on a window will dive into it).
+
 Not built yet:
 
 - the sinusoid window (the sinusoid is a pass turned out of the lobule by `sinU`; it needs its own framing record and its own lay through a window),

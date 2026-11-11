@@ -57,7 +57,8 @@ void main() {
   if (uFlags.y > 0.5) c = over(ink(1.0 - smoothstep(R + ${RING_PX.toFixed(2)} - 0.5, R + ${RING_PX.toFixed(2)} + 0.5, len)) * out_, c);
   if (uP.w > 0.5) {
     float sp = length(px - uP.xy);
-    c = over(ink(0.10 * clamp(uP.z + 0.5 - sp, 0.0, 1.0)), c);
+    c = over(ink((0.10 + 0.10 * (1.0 - uFlags.y)) * clamp(uP.z + 0.5 - sp, 0.0, 1.0)), c);   // (a closed window leaves the spot a little fuller: the way to open it)
+    c = over(ink(clamp(3.5 - sp, 0.0, 1.0)), c);
     c = over(ink(clamp(${(SPOT_RING / 2 + 0.5).toFixed(2)} - abs(sp - uP.z - ${(SPOT_RING / 2).toFixed(2)}), 0.0, 1.0)), c);
   }
   o = c * uFlags.z;
@@ -73,12 +74,12 @@ const shadowRgb = () => {
  * The plate's frame for the figure.
  *   top()     the figure's context (veins-gl top: { gl, canvas, screen, add, present }), or null where there is none
  *   xform(o)  writes the figure's affine { a, b, c, d, e, f } in stage px (world → stage) into o and returns its kind ('w' while the anatomy is on show)
- * Returns { set(plan), dispose() }. plan: null (no frame), or { win: { x, y, w, h } (the lobule's window, stage px), free: { l, t, r, b },
+ * Returns { set(plan), hit(x, y), dispose() }. plan: null (no frame), or { win: { x, y, w, h } (the lobule's window, stage px), free: { l, t, r, b },
  * spot: [x, y] | null (the liver's spot, in the figure's coordinates) }.
  */
 export function createCutoutFrame({ top, xform }) {
   let key = '', gl = null, topOf = null, offPass = null, h = null, prog = null, vao = null, dead = false, plan = null, ask = 0, stopTheme = null, watched = null;
-  const cam = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }, tan = { a: [0, 0], b: [0, 0] }, p = [0, 0], c = [0, 0];
+  const seen = { on: false, x: 0, y: 0 }, cam = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }, tan = { a: [0, 0], b: [0, 0] }, p = [0, 0], c = [0, 0];
   const ink = [0.1, 0.1, 0.1, 1], shadow = [0.18, 0.09, 0.13];
   const colours = () => { const t = VAR('--text', ink); ink[0] = t[0]; ink[1] = t[1]; ink[2] = t[2]; const s = shadowRgb(); shadow[0] = s[0]; shadow[1] = s[1]; shadow[2] = s[2]; };
 
@@ -137,12 +138,15 @@ export function createCutoutFrame({ top, xform }) {
     c[0] = win.x + R; c[1] = win.y + win.h / 2;
     // (The liver's spot, through the camera now; it shows only while it lies in the room left of the windows.)
     let spot = 0, cone = 0;
+    const open = plan.open !== false;
+    seen.on = false;
     if (plan.spot && xform(cam) === 'w') {
       p[0] = cam.a * plan.spot[0] + cam.c * plan.spot[1] + cam.e; p[1] = cam.b * plan.spot[0] + cam.d * plan.spot[1] + cam.f;
-      if (p[0] >= plan.free.l && p[0] <= win.x - 10 && p[1] >= 0 && p[1] <= H) { spot = 1; cone = coneTangents(p, c, R, tan) ? 1 : 0; }
+      if (p[0] >= plan.free.l && p[0] <= (open ? win.x - 10 : W) && p[1] >= 0 && p[1] <= H) { spot = 1; seen.on = true; seen.x = p[0]; seen.y = p[1]; cone = open && coneTangents(p, c, R, tan) ? 1 : 0; }
     }
     // (The box the frame fills, in canvas px; a scissor takes the rest of the triangle away.)
     let x0 = c[0] - R - 50, y0 = c[1] - R - 50, x1 = c[0] + R + 50, y1 = c[1] + R + 70;
+    if (!open) { x0 = p[0]; y0 = p[1]; x1 = p[0]; y1 = p[1]; if (!spot) return; }
     if (spot) { x0 = Math.min(x0, p[0] - 24); y0 = Math.min(y0, p[1] - 24); x1 = Math.max(x1, p[0] + 24); y1 = Math.max(y1, p[1] + 24); }
     const sx = Math.max(0, Math.floor(x0 * dpr)), sy = Math.max(0, Math.floor(ch - y1 * dpr)), sw = Math.min(cw, Math.ceil(x1 * dpr)) - sx, sh = Math.min(ch, Math.ceil(ch - y0 * dpr)) - sy;
     if (sw <= 0 || sh <= 0) return;
@@ -156,7 +160,7 @@ export function createCutoutFrame({ top, xform }) {
     gl.uniform3f(u.uWin, c[0], c[1], R);
     gl.uniform4f(u.uP, p[0], p[1], SPOT_R, spot);
     gl.uniform4f(u.uAB, tan.a[0], tan.a[1], tan.b[0], tan.b[1]);
-    gl.uniform4f(u.uFlags, cone, 1, 1, 0);
+    gl.uniform4f(u.uFlags, cone, open ? 1 : 0, 1, 0);
     gl.uniform4f(u.uInk, ink[0], ink[1], ink[2], 1); gl.uniform3f(u.uShadow, shadow[0], shadow[1], shadow[2]);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null); gl.disable(gl.SCISSOR_TEST);
@@ -166,11 +170,13 @@ export function createCutoutFrame({ top, xform }) {
   return {
     /** Sets the frame (see above), or takes it away (null). */
     set(next) {
-      const k = next ? `${next.win.x}|${next.win.y}|${next.win.w}|${next.free.l}|${next.spot ? next.spot[0].toFixed(1) + next.spot[1].toFixed(1) : ''}` : '';
+      const k = next ? `${next.open}|${next.win.x}|${next.win.y}|${next.win.w}|${next.free.l}|${next.spot ? next.spot[0].toFixed(1) + next.spot[1].toFixed(1) : ''}` : '';
       if (k === key) return;
       key = k; plan = next || null;
       if (plan) again(); else sync();
     },
+    /** Whether a point (stage px) is on the liver's spot as last drawn, with a finger's margin. */
+    hit(x, y) { return seen.on && Math.hypot(x - seen.x, y - seen.y) <= Math.max(SPOT_R + 8, 22); },
     dispose() { plan = null; key = ''; unpass(); stopTheme?.(); stopTheme = null; watch(null); clearAsk(); rehost(); },
   };
   function clearAsk() { ask = 0; }

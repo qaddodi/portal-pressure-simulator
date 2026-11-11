@@ -143,7 +143,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // <stage-split live>
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
-    scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null,
+    scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null, plateTap: null,
     // (A vessel's display speed now, signed along its drawn course: the blood's own stream, which the model's flow drives and eases to a stop. The EUS scope's color Doppler reads it each frame, stage-cath.js: 10 Nov 2026.)
     flowVd(id) { const sm = streams[EI[id]]; return sm && sm.vd != null ? sm.vd : 0; },
     get abdomenEl() { return abdomenEl; },
@@ -2907,6 +2907,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scopeRingAt() { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && F?.metrics ? scopeRingOn(worldToLocal, live.CTM || (refreshCTM(), live.CTM), live.wrapRect) : null; },
     /** The ring's centre and radius now, written into `o` (x, y, r: stage px): asked for on each step of a camera move, so it makes nothing. false: not on this view. */
     scopeRingInto(o) { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && !!F?.metrics && scopeRingInto(o, worldToLocalInto, live.CTM || (refreshCTM(), live.CTM), SCOPE_TMP); },
+    /** The cutouts plate's tap (cutout-frame-gl.js hit): the liver's spot opens and shuts the lobule window; null takes it away. */
+    onPlateTap(tap) { live.plateTap = tap || null; },
     onScopeView(view, tap) { live.viewHook = view || null; live.tapHook = tap || null; },
     /** Idle rest: true eases the blood to a stop and lets the figure sleep; false brings the motion back from this frame. */
     rest(on) {
