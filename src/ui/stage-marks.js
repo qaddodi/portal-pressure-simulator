@@ -204,6 +204,9 @@ export function createMarks(st) {
     for (const key in ov) {
       const g = ov[key];
       for (const el of g.querySelectorAll('path, circle, ellipse, rect')) {
+        // (Nothing inside a <defs>, <clipPath> or <mask> is a mark: the stent's clip is a plain path with no class, so the painter drew it as a solid black rectangle at the
+        // origin of the figure, stuck to it, 11 Nov 2026, Mohammad's TIPS shots.)
+        if (el.closest('defs, clipPath, mask, pattern, marker')) continue;
         let cs = getComputedStyle(el), op = 1, M = null, ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
         for (let e = el; ok && e && e !== gOver; e = e.parentNode) {
           const c = e === el ? cs : getComputedStyle(e);

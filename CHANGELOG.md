@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Fix: a solid black rectangle stuck to the figure when a stent is placed.** (Mohammad's screenshots of the preview, 11 Nov: "as soon as i placed the TIPS the black box showed up", it zooms and pans with the figure.) The stent unrolls behind a clip, a plain path in a `<clipPath>`; the GPU marks painter (`marksBuild`, `src/ui/stage-marks.js`) took every path under the overlays for a mark, so the clip's rectangle was drawn as a filled black shape at the figure's origin while the stent was still unrolling. The painter now leaves out anything inside `<defs>`, `<clipPath>`, `<mask>`, `<pattern>` or `<marker>`. `tests/stent-clip-not-drawn.test.js` runs the TIPS unroll on the real stage and fails when the clip's path gets the GPU's mark, and checks every stent coordinate and transform is a finite number.
+
 - **The caudate lobe is drawn like the other organs, and its veins fade in and join the cava.** (Mohammad's screenshots, 11 Nov: a thin pale outline with a notch, veins as spikes.)
   The lobe is one smooth closed curve (the hull of its two ellipses, so no notch) with the tissue's gradient, volume, lit inner edge and the same thin outline as the organs. Each vein comes up out of the lobe's tissue (faded in over its first 18 units, no end to see), takes its caliber in a short run and runs on past the cava's wall, fading out over the wall. `tests/caudate-redraw.test.js` checks it on the real stage in Node (no render was allowed): nothing of it is on with no slide, all of it is while a slide pins the caudate, the outline turns one way all round, and each vein is narrow at its start and reaches past the wall.
 
