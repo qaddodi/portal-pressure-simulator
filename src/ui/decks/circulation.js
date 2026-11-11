@@ -11,9 +11,9 @@ export const CIRCULATION = {
   ],
   slides: [
     {
-      id: 'inflow', reveal: true, lens: 'origin', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF', 'IMV'], tint: ['imv'], terms: ['sv', 'smv', 'pv'], glow: [{ id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flows', of: 'inflow' }, data: 'tiles', tiles: ['pvFlow', 'pv'],
+      id: 'inflow', lens: 'origin', preset: 'healthy', cam: 'portal', labels: ['SMV', 'SV', 'CONF', 'IMV'], tint: ['imv'], terms: ['sv', 'smv', 'pv'], glow: [{ id: 'imv', soft: true }, { id: 'lgv', soft: true }], tool: { kind: 'flows', of: 'inflow' }, data: 'tiles', tiles: ['pvFlow', 'pv'],
       kicker: 'The portal circulation', title: 'Portal blood comes from the gut and spleen',
-      line: 'The splenic and superior mesenteric veins join behind the pancreas | to form the portal vein, | which brings the liver about three quarters of its blood.',
+      line: 'The splenic and superior mesenteric veins join behind the pancreas to form the portal vein, which brings the liver about three quarters of its blood.',
       notes: 'Portal blood drains the gut from the lower esophagus to the upper rectum, and the spleen, pancreas and gallbladder. It carries absorbed nutrients, toxins and bacterial products to the liver first. The inferior mesenteric vein most often joins the splenic vein. Portal flow is about 1 to 1.2 L a minute, three quarters of the liver\'s blood; the hepatic artery brings the rest, and about half of the liver\'s oxygen. On the figure, colored by origin, each vein keeps its source’s color, and the colors run side by side into the portal vein.',
       ask: ['Which veins form the portal vein?', 'The superior mesenteric vein and the splenic vein, behind the neck of the pancreas.'],
     },
@@ -32,9 +32,9 @@ export const CIRCULATION = {
       ask: ['What is the normal portal pressure gradient?', '≤5 mmHg, because healthy sinusoids barely resist the flow.'],
     },
     {
-      id: 'lobule', reveal: true, pill: false, terms: { 'portal venules': 'lobule:triad', 'hepatic arterioles': 'lobule:arteriole', sinusoids: 'lobule:sinusoid', 'central vein': 'lobule:central' }, cam: 'lobule:fit',
+      id: 'lobule', pill: false, terms: { 'portal venules': 'lobule:triad', 'hepatic arterioles': 'lobule:arteriole', sinusoids: 'lobule:sinusoid', 'central vein': 'lobule:central' }, cam: 'lobule:fit',
       kicker: 'Inside the liver', title: 'Blood crosses the lobule from portal tract to central vein',
-      line: 'Portal venules and hepatic arterioles enter at the corners of this hexagon, about 1 mm across, | cross the sinusoids | and drain to the central vein.',
+      line: 'Portal venules and hepatic arterioles enter at the corners of this hexagon, about 1 mm across, cross the sinusoids and drain to the central vein.',
       notes: 'The classic lobule is a hexagon about a millimeter across, with a portal tract at each corner and a central vein (terminal hepatic venule) in the middle. Each portal tract holds a portal venule, a hepatic arteriole and a bile ductule, with lymphatics, in connective tissue; bile leaves through the ductule, against the direction of blood flow. Plates of liver cells, one cell thick, line the sinusoids. Central veins join into sublobular veins and then the three hepatic veins (right, middle and left), which open into the IVC just below the right atrium. The caudate lobe drains straight into the IVC by its own small veins, which is why it enlarges in Budd–Chiari syndrome. In the acinus, zone 1 lies near the portal tract and gets the most oxygen; zone 3, around the central vein, gets the least and is the first injured by congestion and low flow. Presinusoidal diseases (schistosomiasis, porto-sinusoidal vascular disorder) raise resistance in the portal venules, upstream of the sinusoids, and a high right atrial pressure passes back through the hepatic veins into the sinusoids.',
       ask: ['Which liver cells see the blood last, and so get the least oxygen?', 'Those around the central vein: blood enters at the portal tracts and leaves by the central vein. A portal tract holds a portal venule, a hepatic arteriole and a bile ductule.'],
     },

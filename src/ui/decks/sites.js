@@ -23,7 +23,7 @@ export const SITES = {
   ],
   slides: [
     {
-      id: 'overview', reveal: true, preset: 'healthy', lens: 'system', cam: 'fit', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], rail: 'all',
+      id: 'overview', preset: 'healthy', lens: 'system', cam: 'fit', labels: ['CONF', 'SIN_R', 'RHV', 'RA'], rail: 'all',
       glow: [['V_INT', 'V_SPL', 'V_IMV'], ['PVH_R', 'PVH_L'], ['SIN_RR', 'SIN_LL'], ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], 'IVCS_RA'], glowSeq: 550, steps: true,   // (1: the gut and spleen's veins; 2: the portal vein into both lobes; 3: both lobes' sinusoids; 4: the three hepatic veins)
       kicker: 'Portal hypertension', title: 'Portal hypertension is named for the site of resistance',
       line: 'Blood runs from the gut {#1} through the portal veins {#2} and the liver\'s sinusoids {#3} to the systemic veins {#4} and the heart {#5}. Resistance at any point raises the pressure upstream of it.',

@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **Teaching cards show all their text at once, with no graph: `reveal: true` and the `dilate` card graph removed.** (Mohammad's card rules, via the deck review.)
+  The five built-in slides that revealed their line clause by clause (Circulation "inflow" and "lobule", Circuit "ohm", Hyperdynamic "forward", Sites "overview") now show the whole line from the start, with the lit terms as before and the `|` clause marks gone from their words. Hyperdynamic "dilate" no longer draws the arterial pressure and output graph on its teaching card (`graph: false`); its vitals monitor stays. `reveal: true` stays available to an imported deck.
+
 - **Deck card choices 29-32 (deck content review, 11 Nov 2026).**
   Shunts: the TIPS slide keeps the Doppler and the stent width slider; the portal blood split moves to the next slide (the stent's mark, calipers and spotlight are off it). Ten years: the confusion slide uses the first-pass colors with the portal blood bar and the encephalopathy tile. Treatment: propranolol and carvedilol get a Response to the drug slider (`nsbbGain`, a non-responder to a strong one), and terlipressin shows the pressure profile. Pregnancy: the portal inflow slide shows the portal blood bar. Outflow: constrictive pericarditis gets a Breathing depth slider (`respDepth`). `respDepth` and `nsbbGain` join the settings an imported deck may drag (`import-safety.js`).
 

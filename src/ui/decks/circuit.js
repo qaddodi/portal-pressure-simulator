@@ -38,7 +38,7 @@ export const CIRCUIT = withPoints({
   summary: 'Portal hypertension as a circuit: more flow, more resistance, collaterals in parallel and TIPS, each read as ΔP = Q × R.',
   slides: [
     {
-      id: 'ohm', reveal: true, preset: 'healthy', view: C, cam: 'series', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'],
+      id: 'ohm', preset: 'healthy', view: C, cam: 'series', sites: R, span: [{ from: 'CONF', to: 'IVCS', label: 'PPG {ppg}' }], data: 'tiles', tiles: ['pvFlow', 'ppg'],
       kicker: K, title: 'Pressure falls in proportion to flow and resistance',
       eq: [dP + mo('=') + mi('Q') + mo('×') + '<mi class="eq-wedge">R</mi>', 'ΔP pressure drop · Q flow · R resistance'],
       line: 'The pressure drop across a segment equals its flow times its resistance (ΔP = Q × R). Across the liver it rises when flow or resistance rises, usually both.',

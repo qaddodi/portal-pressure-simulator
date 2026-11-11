@@ -34,7 +34,7 @@ export const HYPERDYNAMIC = {
       ask: ['If the cardiac output rises and the mean arterial pressure falls, what has happened to the systemic resistance?', 'It has fallen, by more than the output rose.'],
     },
     {
-      id: 'dilate', preset: 'cirr-comp', params: {}, days: 365, ramp: { cirrhosis: [0.4, 0.85] }, lapse: { seconds: 10, from: 'Compensated', to: 'Large varices' }, graph: ['map', 'co'], cam: 'fit', lens: 'flow', tool: VITALS,
+      id: 'dilate', preset: 'cirr-comp', params: {}, days: 365, ramp: { cirrhosis: [0.4, 0.85] }, lapse: { seconds: 10, from: 'Compensated', to: 'Large varices' }, graph: false, cam: 'fit', lens: 'flow', tool: VITALS,
       kicker: 'Cirrhosis', site: 'sin', title: 'Cirrhosis opens the arteries',
       line: 'Nitric oxide and other vasodilators open the arteries. A year on, the heart beats at {hr} and pumps {co}, yet the mean arterial pressure has fallen to {map}.',
       notes: 'In cirrhosis the gut and the systemic arteries make and meet more vasodilators, nitric oxide first among them, and respond less to vasoconstrictors. The arterial pressure falls, the baroreflex speeds the heart, and the cardiac output rises: the hyperdynamic circulation that AASLD describes once portal hypertension is clinically significant. Colored by flow, the figure shows more blood moving through the wide gut arteries. (AASLD 2024.)',
@@ -56,10 +56,10 @@ export const HYPERDYNAMIC = {
       ask: ['Why does the blood volume rise in cirrhosis although the arteries seem underfilled?', 'The kidneys keep sodium and water in answer to the low effective arterial volume, but the extra fluid sits in the wide splanchnic bed and the peritoneum.'],
     },
     {
-      id: 'forward', reveal: true, cam: 'portal', terms: ['pv'], tool: { kind: 'causes', metric: 'pv' }, data: 'tiles', tiles: ['bv', 'pv'], key: ['pv'], delta: 'rest',
+      id: 'forward', cam: 'portal', terms: ['pv'], tool: { kind: 'causes', metric: 'pv' }, data: 'tiles', tiles: ['bv', 'pv'], key: ['pv'], delta: 'rest',
       whatIf: { label: 'Gut arteriole tone', param: 'splanchnicTone', min: 0.6, max: 1.6, step: 0.05, ends: ['Dilated', 'Constricted'] },
       kicker: 'Cirrhosis', site: 'sin', title: 'Wide gut arteries keep the portal pressure up',
-      line: 'Wide gut arteries pour more blood into the [portal vein](pv) | and hold its pressure at {pv}. | Tighter arteries lower it, as beta-blockers do.',
+      line: 'Wide gut arteries pour more blood into the [portal vein](pv) and hold its pressure at {pv}. Tighter arteries lower it, as beta-blockers do.',
       notes: 'The slider tightens or widens them. Portal pressure is portal inflow times the resistance it meets. The resistance rises first, in the scarred liver; once the gradient reaches about 10 mmHg, collaterals and splanchnic vasodilation follow, and the extra inflow pushes the pressure higher still (AASLD 2024, Figure 2). The slider changes the tone of the gut arterioles: dilated adds inflow, constricted takes it away. The waterfall starts at the healthy portal pressure. The scar is the largest step to the right, the wide gut arteries and the extra blood volume add inflow, and the collaterals take some pressure off again, a step to the left. The last bar is the portal pressure in the tile.',
       ask: ['Two parts make the portal pressure. Name them.', 'The resistance to portal flow (the liver and the collaterals) and the portal inflow from the gut arteries.'],
     },
