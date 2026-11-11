@@ -17,6 +17,7 @@ import { endTrunk, endContinues, END_THRU_START, END_THRU_END } from './tube-joi
 
 export const TUBE_ROW_FLOATS = 4;             // a row record: row, endStart, endEnd, kind + 2
 export const TUBE_NO_END = -1;
+export const F_SHUNT = 1024;                  // a shunt's row (the TIPS, the DIPS, the surgical and the stent-tool shunts: veins-gl.js's flag, pinned by a test): its corners get webs across tiers
 export const F_DOTTED = 8;                    // the flags (tube texel 2, z) of veins-gl.js: dotted. Kept here so this file imports no GL code (a test pins the value)
 const T_ALPHA = 7, T_TIER = 8, T_FLAGS = 10, T_GLOW = 43, T_GLOW_W = 47, T_SEL = 48, T_CLIP0 = 20, T_CLIP1 = 21;
 const F_SHADOW = 4, UP_GLOW = 5;
@@ -380,6 +381,9 @@ function webTier(webData, p, tube, nRows, on, noMixed) {
   const oa = ra * TUBE_FLOATS, ob = rb * TUBE_FLOATS;
   if (!(tube[oa + T_ALPHA] > 0) || !(tube[ob + T_ALPHA] > 0)) return -1;
   const ta = tierOf(tube, oa), tb = tierOf(tube, ob);
-  if (noMixed && ta !== tb) return -1;   // (two tiers: the branch fades into its trunk there, tube-join-glsl.js, and a web's corner would show as a fin)
+  // (Two tiers: the branch fades into its trunk there, tube-join-glsl.js, and a web's corner would show as a fin. A shunt's corners are the exception, 11 Nov 2026, Mohammad's TIPS close-ups:
+  // the TIPS is drawn in front of the hepatic veins, and the vein it leaves on one side (the right portal vein's run-on, the right hepatic vein's downstream stretch) lies in another tier, so
+  // without a web there was a brown wedge between the shunt and the vein. Every other mixed-tier corner is as it was.)
+  if (noMixed && ta !== tb && !(((Math.floor(tube[oa + T_FLAGS] + 0.5) | Math.floor(tube[ob + T_FLAGS] + 0.5)) & F_SHUNT) !== 0)) return -1;
   return Math.max(ta, tb);
 }

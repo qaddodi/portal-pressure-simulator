@@ -130,8 +130,8 @@ export const EDGE_PATH = {
   // artery's course, so the GPU joins it there as a branch (vein-joins.js: an end on a course); its end lies under the vein, which
   // is drawn over the artery tier. (They used to copy the artery's run and hook into the vein at a right angle: a parallel stub
   // with a square elbow, 6 Nov.)
-  AP_R: 'M583.4 422.3 C 573.8 418.2 561.6 425 552 420.8',
-  AP_L: 'M642.4 424.7 C 649.9 419.1 649.2 405.9 656.8 400.4',
+  AP_R: 'M583.4 422.3 C 576 412 560 432 552 420.8',
+  AP_L: 'M642.4 424.7 C 654 426 640 400 656.8 400.4',
   A_HL: 'M621 443.5 L627.2 436.2 L634.8 430.4 L642.4 424.7 L649.9 419.1 L657.4 413.6 L664.8 408.2 L672.2 402.8 L679.6 397.5 L687 392.2 L694.4 387',
 
   V_INT: 'M756 800 C 752 758 700 716 690 660',
@@ -255,9 +255,9 @@ export const EDGE_PATH = {
   DIPS: 'M602 442 C 566 414 572 336 620 304',
   // (An end-to-side portocaval shunt meets the cava above the renal veins: it ended at the iliac confluence's node, below the left
   // renal vein, crossing it. It ends on the cava's wall, as the renal vein does, a side join on the IVC.)
-  S_PC: 'M700 556 C 682 568 652 582 625 590',
-  S_DSR: 'M962 448 C 958 490 948 536 954 576 C 958 600 960 612 953 618',
-  S_MC: 'M690 660 C 672 650 645 648 620 650',
+  S_PC: 'M700 556 C 692 584 654 570 625 590',
+  S_DSR: 'M962 448 C 932 490 926 536 946 574 C 957 600 960 612 953 618',
+  S_MC: 'M690 660 C 676 678 646 634 620 650',
   // The Meso-Rex bypass: from the superior mesenteric vein below the confluence, up round the patient's left of the clotted
   // trunk (crossing the splenic vein and the coronary vein's loop on the way, as the graft lies in front of them), and on
   // to the left portal vein at its umbilical part (the Rex recess), arriving from below and the right, the way the vein

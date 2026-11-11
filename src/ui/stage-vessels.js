@@ -23,7 +23,7 @@ import { frontKey, fronted } from './collateral-front.js';
 import { beadRadius } from './varix-bead.js';
 import { LOOK_SITE } from './varix-look.js';
 import { newJoinStore, runOnSamples, smoothRunOn as smoothPass, veinJoins as joinsPass } from './vein-joins.js';
-import { F_DIFFUSE, F_DOTTED, F_NOCASE, F_SHADOW, F_SPEC, F_VEIL, F_WHOLE, TUBE_TEXELS, binVeins } from './veins-gl.js';
+import { F_DIFFUSE, F_DOTTED, F_NOCASE, F_SHADOW, F_SHUNT, F_SPEC, F_VEIL, F_WHOLE, TUBE_TEXELS, binVeins } from './veins-gl.js';
 import { writeJoinNow, writePoints } from './veins-sweep.js';
 import { chainsOf, planChainInto } from './vessel-taper.js';
 
@@ -746,7 +746,7 @@ export function createVessels(st, live) {
       const shade = (!x.isArt || x.tube) && !ghost;
       const veil = IVC_EDGES.has(id) && !ivcOn, whole = IVC_EDGES.has(id) && ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= SPEC_MIN_W;
-      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0);
+      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0) | (x.e.kind === 'shunt' && x.e.shunt !== 'ap' ? F_SHUNT : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
       const k = colFollow.step(it.row, colT, colDt, !!live.lensFrom || reduceMotion.matches || live.themeSnap);

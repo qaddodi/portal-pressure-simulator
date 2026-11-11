@@ -2,6 +2,24 @@
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { gpuProbe } from './gpu-probe.js';
 import { darkMQ } from './look.js';
+import { transformOf } from './svg-gl.js';
+
+/**
+ * The matrix [a b c d e f] that takes an element's own coordinates to the overlay's: the transforms of the element and of every group above it, outer first, up to `stop`.
+ * A transform the browser's computed style does not give (a browser that leaves an SVG transform attribute out of it: Safari showed the TIPS stent's front marker at the
+ * figure's origin, a thin bar stuck to the figure, 11 Nov 2026) is read from the attribute. null: no transform on the way. `cs`: the element's computed style, read by the caller.
+ */
+export function markMatrix(el, stop, cs) {
+  let M = null;
+  for (let e = el; e && e !== stop; e = e.parentNode) {
+    const c = e === el && cs ? cs : getComputedStyle(e), t = c.transform;
+    let q = null;
+    if (t && t !== 'none') q = t.match(/-?[\d.]+(?:e-?\d+)?/g).map(Number);
+    else if (e.getAttribute?.('transform')) q = transformOf(e.getAttribute('transform'));
+    if (q) M = M ? [q[0] * M[0] + q[2] * M[1], q[1] * M[0] + q[3] * M[1], q[0] * M[2] + q[2] * M[3], q[1] * M[2] + q[3] * M[3], q[0] * M[4] + q[2] * M[5] + q[4], q[1] * M[4] + q[3] * M[5] + q[5]] : q;
+  }
+  return M;
+}
 
 export function createMarks(st) {
   const { gOver, glLines, ov, svg, themeKey, toRGB, wrapCls } = st;
@@ -207,14 +225,13 @@ export function createMarks(st) {
         // (Nothing inside a <defs>, <clipPath> or <mask> is a mark: the stent's clip is a plain path with no class, so the painter drew it as a solid black rectangle at the
         // origin of the figure, stuck to it, 11 Nov 2026, Mohammad's TIPS shots.)
         if (el.closest('defs, clipPath, mask, pattern, marker')) continue;
-        let cs = getComputedStyle(el), op = 1, M = null, ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
+        let cs = getComputedStyle(el), op = 1, ok = cs.display !== 'none' && cs.strokeDasharray === 'none';
         for (let e = el; ok && e && e !== gOver; e = e.parentNode) {
           const c = e === el ? cs : getComputedStyle(e);
           if (c.display === 'none' || (e !== el && (e.getAttribute('clip-path') || e.getAttribute('mask')))) ok = false;
           op *= Number(c.opacity);
-          const t = c.transform;
-          if (t && t !== 'none') { const q = t.match(/-?[\d.]+(?:e-?\d+)?/g).map(Number); M = M ? [M[0] * q[0] + M[2] * q[1], M[1] * q[0] + M[3] * q[1], M[0] * q[2] + M[2] * q[3], M[1] * q[2] + M[3] * q[3], M[0] * q[4] + M[2] * q[5] + M[4], M[1] * q[4] + M[3] * q[5] + M[5]] : q; }
         }
+        const M = markMatrix(el, gOver, cs);
         if (!(ok && shapeRings(el))) continue;
         const nR = mkRingN;
         mkFade = el.classList.contains('clamp') || el.classList.contains('clamp-out') ? el.dataset.id : el.closest('[data-mk]')?.dataset.mk;

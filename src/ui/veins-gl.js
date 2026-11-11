@@ -266,7 +266,7 @@ const m3put = (dst, a, b, c, d, e, f) => { dst[0] = a; dst[1] = b; dst[2] = 0; d
 // Flags (tube texel 2, z).
 // Stream flags (tube texel 5, w): the stream runs on at the upstream / downstream end; reversed flow.
 export const F_UP = 1, F_DN = 2, F_REV = 4;
-export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128, F_WHOLE = 256;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ; F_WHOLE: a vessel behind the organs shown whole (the cava, selected or spotlit): the organs do not fade it, yet it stays in its tier, behind every vessel of the network
+export const F_SEL = 1, F_DIFFUSE = 2, F_SHADOW = 4, F_DOTTED = 8, F_NOCASE = 16, F_SPEC = 32, F_EDGE = 64, F_VEIL = 128, F_WHOLE = 256, F_SHUNT = 1024;   // F_EDGE: the casing takes its own color (texel 6) and is opaque; F_VEIL: faded along its whole course as if behind an organ; F_WHOLE: a vessel behind the organs shown whole (the cava, selected or spotlit): the organs do not fade it, yet it stays in its tier, behind every vessel of the network
 // How much an organ fades a vessel behind it (and a veiled vessel along its course): to 1 − VEIL_K of full. 0.5 read as a
 // translucent organ with vessels inside it; 0.6 leaves the lumen's ghost and says "behind" (looks review, vessels behind organs, 31 Oct).
 export const VEIL_K = 0.6;
