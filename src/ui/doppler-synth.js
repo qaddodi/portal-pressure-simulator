@@ -43,12 +43,12 @@ float power(float u, float P, float L, float sigHi, float sigLo) {
   if (u >= L) {
     float f = (u - L) / max(1e-6, P - L), S;
     if (venous == 1) { float q = (0.88 - f) / 0.16; S = min(1.0, 0.05 + 0.1 * f + 0.9 * exp(-(q * q))); }
-    else if (stent == 1) S = 0.62 + 0.38 * f;
+    else if (stent == 1) { float q = (1.0 - f) / 0.1; S = 0.02 + 0.98 * pow(f, 1.8) + 0.5 * exp(-q * q); }   // a stent: dim at the band's low edge, bright to a clear envelope
     else S = 0.16 + 0.84 * pow(f, 1.3);
     if (u > P - fade) { float z = (u - P + fade) / fade; return S * (1.0 - 0.985 * sqrt(z)); }
     return S;
   }
-  if (u > 0.0) { float z = (L - u) / sigLo; return 0.16 * exp(-z * z); }
+  if (u > 0.0) { float z = (L - u) / sigLo; return (stent == 1 ? 0.03 : 0.16) * exp(-z * z); }
   return 0.0;
 }
 vec3 shade(vec3 c, float t, float cover) {

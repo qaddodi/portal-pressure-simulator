@@ -52,7 +52,7 @@ test('the talk uses two lenses, velocity and direction, and the slides name the 
   assert.deepEqual(TIPS_DOPPLER.slides.filter((s) => s.lens === 'direction').map((s) => s.id), ['left', 'warn'], 'direction on the two branch slides only');
   assert.equal(slide('left').tool.vessel, 'PVH_L');
   assert.equal(slide('warn').whatIf.param, 'stenosis.TIPS');
-  assert.deepEqual(slide('alias').compare.map((o) => o.tool?.baseline ?? null), [null, 0.85], 'the aliasing button moves the baseline in place');
+  assert.deepEqual(slide('alias').compare.map((o) => o.tool?.baseline ?? null), [null, 0.88], 'the aliasing button moves the baseline in place');
   assert.ok(!slide('alias').compare.some((o) => o.params), 'and does not touch the model');
 });
 
