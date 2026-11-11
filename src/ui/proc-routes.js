@@ -24,7 +24,7 @@ export function procSpecs(geo, radOf) {
     // as wide as the stent will be) into the right portal vein, and the wire on into the portal trunk.
     B.vessel('RHV_IVC', { rev: true, near: geo.TIPS.cur[geo.TIPS.cur.length - 1], name: 'hv' });
     B.vessel('TIPS', { rev: true, name: 'tract', r: radOf('PVH_R', 0.5) * 0.8 });
-    B.vessel('PVH_R', { rev: true, name: 'rpv' });
+    B.vessel('PVH_R', { rev: true, from: geo.TIPS.cur[0], name: 'rpv' });   // (on from where the tract meets the portal vein, mid-run: not from the vein's far end)
   };
   return {
     tips: { ids: TIPS_IDS, start: 0.55, tip: ['trunk', 0.45], focus: ['hv', 'trunk'],
@@ -91,13 +91,14 @@ export function rawRoute(spec, geo) {
   const pts = [], marks = [], parts = [];
   const B = {
     pts(list, id, f, name = 'lead') { marks.push(pts.length); parts.push({ name }); for (const q of list) pts.push(q); },
-    vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, name = id } = {}) {
+    vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, from = null, name = id } = {}) {
       const P0 = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P0), n = c[c.length - 1] || 1;
       if (near) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - near[0], q[1] - near[1]); if (dd < best) { best = dd; b = c[i] / n; } }); }
+      if (from) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - from[0], q[1] - from[1]); if (dd < best) { best = dd; a = c[i] / n; } }); }
       if (until) { const i = P0.findIndex((q, k) => k > 0 && until(q)); if (i > 0) b = c[i - 1] / n; }
       const seg = cutLen(P0, c, a * n, b * n);
       marks.push(pts.length); parts.push({ name });
-      for (let i = a === 0 && pts.length ? 1 : 0; i < seg.length; i++) pts.push(seg[i]);
+      for (let i = (a === 0 || from) && pts.length ? 1 : 0; i < seg.length; i++) pts.push(seg[i]);
     },
   };
   spec.build(B);

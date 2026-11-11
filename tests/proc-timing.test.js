@@ -109,8 +109,8 @@ test('each procedure’s table is built from the timing table', () => {
   assert.equal(D(ENDO.eusglue.T, 'travel0', 'travel1'), 3500, 'the glue’s way in: 3.5 s, not the steady leg’s legMs(ROUTE_LEN.eusglue) = 6200 (his ask, 10 Nov 2026; faster through the esophagus)');
   assert.equal(D(HT, 'travel0', 'travel1'), legMs(ROUTE_LEN.hvpg));
   assert.equal(D(HT, 'inflate', 'wedge'), BALLOON_IN_MS, 'the HVPG’s fill');
-  // The old and the new, ms: the legs stay close to what they were but for BATO’s long route.
-  assert.deepEqual([legMs(ROUTE_LEN.tips), legMs(ROUTE_LEN.tipsOver), legMs(ROUTE_LEN.brto), legMs(ROUTE_LEN.bato), legMs(ROUTE_LEN.eus), legMs(ROUTE_LEN.eusglue), legMs(ROUTE_LEN.hvpg)], [4000, 2500, 6200, 9100, 5200, 6200, 3400]);
+  // The old and the new, ms: the legs stay close to what they were but for BATO’s long route (and the TIPS's, shorter since its tract starts mid-vein).
+  assert.deepEqual([legMs(ROUTE_LEN.tips), legMs(ROUTE_LEN.tipsOver), legMs(ROUTE_LEN.brto), legMs(ROUTE_LEN.bato), legMs(ROUTE_LEN.eus), legMs(ROUTE_LEN.eusglue), legMs(ROUTE_LEN.hvpg)], [3100, 2600, 6200, 9100, 5200, 6200, 3400]);   // (the TIPS's way in is 0.9 s shorter, 11 Nov: it now stops at the middle of the right hepatic vein, not at its node)
   // BRTO’s and BATO’s sequence after the way in is the one Mohammad has watched (7 Nov): the gaps are the same.
   assert.deepEqual(Object.fromEntries(Object.entries(PROCS.brto.T).map(([k, v]) => [k, v - PROCS.brto.T.travel1])), { travel0: -6200, travel1: 0, inflate0: 900, inflate1: 2500, fill0: 3700, fill1: 8700, apply: 10000, fillOut: 10000, deflate: 11200, back: 12400, end: 15500 });
   // Stops stay in order, each step's events inside it, whatever the legs.

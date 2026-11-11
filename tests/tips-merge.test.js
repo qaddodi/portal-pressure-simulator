@@ -1,72 +1,67 @@
-// The TIPS merges into the two veins it joins: at each end the tube renderer finds no corner to fill (Mohammad, 11 Nov 2026, his pick of "bend the TIPS so it leaves and enters
-// each vein under 20 degrees"): every pair of legs at its two joins is under WEB_MIN_DEG apart (the plain union of the two tubes is the join: no wedge of liver between them) or a
-// straight run (WEB_MAX_DEG and over), so webInstances makes no web with the TIPS in it. The rows are the figure's real courses (anatomy.js) and radii (as captured from the stage,
-// 11 Nov: right portal vein 11.4, its run on 2, the right hepatic vein's two stretches 3.9 and 2.7, the TIPS 4 narrowing to 2.2), with the joins the stage has (a three-leg join at each end).
+// The TIPS is a side branch of two veins, and of nothing else (Mohammad, 11 Nov 2026, 21:19: "the TIPS has to be from the vein to the vein, not to the sinusoid, middle of the RPV to middle of the
+// RHV, not end to end"). The joins pass the renderer blends by (vein-joins.js) on the figure's real courses (anatomy.js) with the radii the stage gives them (right portal vein 11.4, its run on 2,
+// the right hepatic vein's two stretches 3.9 and 2.7, the middle hepatic vein's two stretches the same, the TIPS 4 narrowing to 2.2, and 6 at its widest, a 12 mm stent): the TIPS has exactly two joins,
+// its start on the right portal vein's course and its end on the right hepatic vein's, the vein the trunk of each; none with the middle hepatic vein it crosses, none at a node.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EDGE_PATH } from '../src/ui/anatomy.js';
-import { webInstances } from '../src/ui/tube-data.js';
-import { WEB_FLOATS, WEB_MAX_DEG, WEB_MIN_DEG, webGeometry } from '../src/ui/tube-joint.js';
-import { polyline, scene } from './tube-web-helpers.js';
+import { veinJoins, newJoinStore } from '../src/ui/vein-joins.js';
 
-function bez(d, per = 60) {
-  const t = d.match(/[MC]|-?[\d.]+/g), out = [];
+const N = 64;
+function course(d) {   // the path's text as N points along it
+  const t = d.match(/[MC]|-?[\d.]+/g), dense = [];
   let i = 0, cur = null;
   while (i < t.length) {
     const c = t[i++];
-    if (c === 'M') { cur = [+t[i++], +t[i++]]; out.push(cur); } else {
+    if (c === 'M') { cur = [+t[i++], +t[i++]]; dense.push(cur); } else {
       const p1 = [+t[i++], +t[i++]], p2 = [+t[i++], +t[i++]], p3 = [+t[i++], +t[i++]];
-      for (let k = 1; k <= per; k++) { const s = k / per, u = 1 - s; out.push([0, 1].map((a) => u * u * u * cur[a] + 3 * u * u * s * p1[a] + 3 * u * s * s * p2[a] + s * s * s * p3[a])); }
+      for (let k = 1; k <= 200; k++) { const s = k / 200, u = 1 - s; dense.push([0, 1].map((a) => u * u * u * cur[a] + 3 * u * u * s * p1[a] + 3 * u * s * s * p2[a] + s * s * s * p3[a])); }
       cur = p3;
     }
   }
+  const cum = [0];
+  for (let k = 1; k < dense.length; k++) cum.push(cum[k - 1] + Math.hypot(dense[k][0] - dense[k - 1][0], dense[k][1] - dense[k - 1][1]));
+  const out = [];
+  for (let n = 0, k = 1; n < N; n++) {
+    const s = (cum.at(-1) * n) / (N - 1);
+    while (k < dense.length - 1 && cum[k] < s) k++;
+    const u = (s - cum[k - 1]) / (cum[k] - cum[k - 1] || 1);
+    out.push([dense[k - 1][0] + (dense[k][0] - dense[k - 1][0]) * u, dense[k - 1][1] + (dense[k][1] - dense[k - 1][1]) * u]);
+  }
   return out;
 }
-const TIER_NET = 16, TIER_FRONT = 17, F_SHUNT = 1024;
-const figure = () => scene([
-  { ...polyline(bez(EDGE_PATH.PVH_R), 11.4), tier: TIER_FRONT },
-  { ...polyline(bez(EDGE_PATH.PRE_R), 2), tier: TIER_NET },
-  { ...polyline(bez(EDGE_PATH.POST_R_RHV), 3.9), tier: TIER_NET },
-  { ...polyline(bez(EDGE_PATH.RHV_IVC), 2.7), tier: TIER_NET },
-  { ...polyline(bez(EDGE_PATH.TIPS), (i) => 4 - (1.8 * i) / 63), tier: TIER_FRONT, flags: F_SHUNT },
-], [
-  { x: 505, y: 398, reach: 22, k: 3.6, fillet: 1, members: [0, 1, 4], trunk: 0 },
-  { x: 502.8, y: 246.5, reach: 27, k: 3.6, fillet: 1, members: [2, 3, 4], trunk: 2 },
-]);
-const TIPS = 4;
-const websOf = (sc) => {
-  const w = webInstances(sc.ent, sc.tube, sc.pts, {}), list = [];
-  for (let p = 0; p < w.count; p++) list.push(Array.from(w.data.subarray(p * WEB_FLOATS, (p + 1) * WEB_FLOATS)));
-  return { w, list };
-};
+const VEINS = [   // [id, from node, to node, radius at each sample]
+  ['PVH_R', 'PVH', 'RPV', () => 11.4], ['PRE_R', 'RPV', 'SIN_R', () => 2], ['POST_R_RHV', 'CV_R', 'RHV', () => 3.9], ['RHV_IVC', 'RHV', 'IVCS', () => 2.7],
+  ['POST_R_MHV', 'CV_R', 'MHV', () => 3.9], ['MHV_IVC', 'MHV', 'IVCS', () => 2.7],
+];
+function figure(tipsR0) {
+  const items = [];
+  const add = (id, from, to, rad) => {
+    const glR = Float64Array.from({ length: N }, (_, i) => rad(i));
+    items.push({ x: { isArt: false, e: { id, from, to } }, obj: { glR, glMaxR: Math.max(...glR) }, row: items.length, kind: 'v', pts: course(EDGE_PATH[id]) });
+  };
+  for (const [id, from, to, rad] of VEINS) add(id, from, to, rad);
+  add('TIPS', 'RPV', 'RHV', (i) => tipsR0 - ((tipsR0 - 2.2) * i) / (N - 1));
+  return items;
+}
+const ROW = Object.fromEntries([...VEINS.map((v) => v[0]), 'TIPS'].map((id, i) => [id, i]));
 
-test('at both of its joins the TIPS makes no corner with a vein: every pair of legs is under 20 degrees apart or a straight run', () => {
-  const sc = figure(), { w, list } = websOf(sc);
-  assert.ok(w.joins >= 2, `the two joins are read (${w.joins})`);
-  const mine = list.filter((i) => i[0] === TIPS || i[4] === TIPS);
-  assert.equal(mine.length, 0, `${mine.length} corner webs have the TIPS in them (legs ${mine.map((i) => `${i[0]}/${i[4]}`).join(', ')}): a wedge of liver between the shunt and the vein`);
-  // the corner between the hepatic vein's two stretches is its own (a bend), unchanged
-  assert.ok(list.some((i) => (i[0] === 2 && i[4] === 3) || (i[0] === 3 && i[4] === 2)), 'the right hepatic vein\'s own bend still has its web');
-});
+for (const r0 of [4, 6]) {
+  test(`the TIPS (${r0 * 2} mm at its start) has two joins: its start on the right portal vein, its end on the right hepatic vein, each vein the trunk`, () => {
+    const items = figure(r0), J = veinJoins(items, N, newJoinStore());
+    const mine = J.filter((j) => j.members.includes(ROW.TIPS));
+    assert.equal(mine.length, 2, `joins with the TIPS: ${mine.map((j) => j.members.join('+') + '@' + Math.round(j.x) + ',' + Math.round(j.y)).join(' ')}`);
+    const at = (row) => mine.find((j) => j.members.includes(row));
+    const p = at(ROW.PVH_R), h = at(ROW.RHV_IVC);
+    assert.ok(p && h, 'one join on each of the two veins');
+    assert.equal(p.trunk, ROW.PVH_R, 'the portal vein is the trunk at the start');
+    assert.equal(h.trunk, ROW.RHV_IVC, 'the hepatic vein is the trunk at the end');
+    assert.ok(Math.hypot(p.x - 560.8, p.y - 424.6) < 1 && Math.hypot(h.x - 578.4, h.y - 230.5) < 1, 'the joins lie at the two ends of the tract');
+    for (const j of mine) assert.equal(j.members.length, 2, 'a plain side join: the TIPS and its trunk, no third vessel');
+  });
+}
 
-test('the same joins with the old, steep TIPS (39 degrees off the portal run, 44 off the hepatic vein) do make corners: the test would have seen the wedge', () => {
-  const steep = scene([
-    { ...polyline(bez(EDGE_PATH.PVH_R), 11.4), tier: TIER_FRONT }, { ...polyline(bez(EDGE_PATH.PRE_R), 2), tier: TIER_NET },
-    { ...polyline(bez(EDGE_PATH.POST_R_RHV), 3.9), tier: TIER_NET }, { ...polyline(bez(EDGE_PATH.RHV_IVC), 2.7), tier: TIER_NET },
-    { ...polyline(bez('M505 398 C 478 350 487 286 508 245'), (i) => 4 - (1.8 * i) / 63), tier: TIER_FRONT, flags: F_SHUNT },
-  ], [
-    { x: 505, y: 398, reach: 22, k: 3.6, fillet: 1, members: [0, 1, 4], trunk: 0 },
-    { x: 502.8, y: 246.5, reach: 27, k: 3.6, fillet: 1, members: [2, 3, 4], trunk: 2 },
-  ]);
-  const { list } = websOf(steep);
-  assert.ok(list.filter((i) => i[0] === TIPS || i[4] === TIPS).length >= 2, 'the steep TIPS has corner webs');
-});
-
-test('the renderer\'s own decision at those corners, by the join geometry: no corner has an angle in the fillet range', () => {
-  const sc = figure(), { list } = websOf(sc);
-  for (const inst of list) {
-    if (inst[0] !== TIPS && inst[4] !== TIPS) continue;
-    const g = webGeometry(sc.P[inst[0]], sc.R[inst[0]], sc.P[inst[4]], sc.R[inst[4]], inst, 0.6), deg = (g.theta * 180) / Math.PI;
-    assert.ok(deg < WEB_MIN_DEG || deg >= WEB_MAX_DEG || g.empty, `a corner of ${deg.toFixed(0)} degrees`);
-  }
+test('no vein ends on the TIPS, and the TIPS ends on no vein\'s node: none of the middle hepatic vein, the run on or the upstream stretch is in a join with it', () => {
+  const items = figure(6), J = veinJoins(items, N, newJoinStore());
+  for (const id of ['POST_R_MHV', 'MHV_IVC', 'PRE_R', 'POST_R_RHV']) assert.ok(!J.some((j) => j.members.includes(ROW.TIPS) && j.members.includes(ROW[id])), `${id} is in a join with the TIPS`);
 });

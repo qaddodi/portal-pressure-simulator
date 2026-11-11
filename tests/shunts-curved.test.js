@@ -18,9 +18,10 @@ function sample(d) {
   }
   return out;
 }
-// The two ends each course starts and ends on (the vessels' nodes: moving one would unjoin the shunt).
+// The two ends each course starts and ends on (the vessels' nodes: moving one would unjoin the shunt; the TIPS's are mid-vein stations, on the centre line of the right portal vein's run and of the
+// right hepatic vein's, Mohammad 11 Nov 2026: "from the middle of the RPV to the middle of the RHV", tests/tips-course.test.js).
 const ENDS = {
-  TIPS: [[505, 398], [503, 246.5]], DIPS: [[602, 442], [620, 304]],
+  TIPS: [[560.8, 424.6], [578.4, 230.5]], DIPS: [[602, 442], [620, 304]],
   S_PC: [[700, 556], [625, 590]], S_DSR: [[962, 448], [953, 618]], S_MC: [[690, 660], [620, 650]],
   AP_R: [[583.4, 422.3], [552, 420.8]], AP_L: [[642.4, 424.7], [656.8, 400.4]],
 };

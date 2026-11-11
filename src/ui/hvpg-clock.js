@@ -22,7 +22,7 @@ export const BALLOON_IN_MS = 1600, BALLOON_OUT_MS = 1200;
  * hvpg: the HVPG catheter's (stage-cath.js cathRoute); tips: the TIPS catheter to where the tract leaves the hepatic vein, tipsOver: on over
  * the wire into the right portal vein, tipsCoil: from there on to where the TIPS that coils pushes its coil out in the coronary vein; brto, bato: to the balloon's place; eus, eusglue: the scope to its station.
  */
-export const ROUTE_LEN = { hvpg: 274, tips: 317, tipsOver: 196, tipsCoil: 211, brto: 494, brtoC6: 555, bato: 728, eus: 414, eusglue: 499 };
+export const ROUTE_LEN = { hvpg: 274, tips: 246, tipsOver: 209, tipsCoil: 170, brto: 494, brtoC6: 555, bato: 728, eus: 414, eusglue: 499 };
 /**
  * A travel leg's progress at t (0..1 of its time): the speed ramps up over the first r of the time, holds steady, then ramps down over the
  * last r, on cosine ramps so speed and acceleration both stay continuous. At r = 0.2 the peak speed is 1.25 times the mean (the cubic

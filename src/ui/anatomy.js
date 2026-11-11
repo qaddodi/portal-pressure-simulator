@@ -243,11 +243,15 @@ export const EDGE_PATH = {
   // clear below the epigastric vein where that crosses the trunk at y 79. tests/ascending-lumbar-route.test.js holds these.
   C9: 'M620 566 C 578 544.9 534 470 532 410 C 529.6 342.4 523 272.5 527 205 C 529 169.1 531 135.1 562.9 108',
 
-  // (A curve, never a straight run (Mohammad, 11 Nov 2026), and it merges into each vein instead of butting on it (his pick of 11 Nov, 20:47): it leaves the right portal vein along the
-  // vein's own run on (1 degree off the portal venules' course, so the join is a plain union with no wedge between the shunt and the vein), bows away to the left through the
-  // parenchyma, and comes in on the right hepatic vein at its bend along the vein's own run (3 degrees off the upstream stretch, 18 off the downstream one: under the 20 degrees under
-  // which the tube renderer makes no corner web, WEB_MIN_DEG). It ends on the bend's node (502.8 246.5). tests/tips-course.test.js holds these numbers.)
-  TIPS: 'M505 398 C 466 382 477 262 503 246.5',
+  // (A gentle curve, never a straight run (Mohammad, 11 Nov 2026), from the MIDDLE of the right portal vein to the MIDDLE of the right hepatic vein, side to side (his ask of 11 Nov, 21:19:
+  // "the TIPS has to be from the vein to the vein, not to the sinusoid, not end to end"). It starts on the centre line of PVH_R at 0.42 of its run (560.8 424.6; the vein's middle, a little
+  // clear of the arterioportal shunt AP_R, which lands at 0.5) and ends 1.4 off the centre line of RHV_IVC (inside its wall, on the side it comes from) at 0.65 of its run (the point 579.1 228.8, the wide stretch that carries the vein's name, not the thin
+  // POST_R_RHV tributary or the node where they meet). Each end lies on a vein's course, not at an end of one, so the join is the one a tributary makes on its trunk (vein-joins.js: an end on
+  // another course), with a fillet on both sides. It leaves the portal vein 34 degrees off its run, bows 0.104 of its length to the left, and comes into the hepatic vein 52 degrees off its run.
+  // It stays right of the collateral C9 (x 527-532 where they share the liver) and crosses the middle hepatic vein once, on MHV_IVC, 14 units from its node, over it
+  // (the hepatic veins' chain from the caudate to the cava lies between the two veins: no way from the portal vein to the right hepatic vein is clear of it).
+  // tests/tips-course.test.js holds these numbers.)
+  TIPS: 'M560.8 424.6 C 534.2 388.3 547.8 301.4 578.4 230.5',
   // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe in one gentle curve (no
   // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.

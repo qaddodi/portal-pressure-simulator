@@ -17,7 +17,9 @@ const named = EDGES.filter((e) => (e.kind === 'collateral' || (e.kind === 'shunt
 // What a drawn course may still do, with the reason: the periportal collateral is a plexus braided round the portal trunk and its artery
 // (anatomy.js STRANDS); the ascending lumbar collateral is a ghost behind the liver, passing the TIPS at 25+ units.
 // The two splenorenal shunts (both can be open) share their stations and fan out in the corridor between the inferior mesenteric vein and the colon.
-const ALLOW_ANAT = { C8: { par: 90 }, C6: { on: 100, par: 100 }, S_DSR: { on: 100, par: 100 } };
+// The TIPS now runs between the middles of the right portal and right hepatic veins (11 Nov 2026, Mohammad), through the one corridor the plate leaves there, between the ascending lumbar ghost
+// (C9, x 527-532, behind the liver) and the DIPS: it passes the ghost at 15-28 units for about 115 (and the ghost the stent), and the DIPS at 5 for a few units where both leave the portal vein.
+const ALLOW_ANAT = { C8: { par: 90 }, C6: { on: 100, par: 100 }, S_DSR: { on: 100, par: 100 }, C9: { par: 130 }, TIPS: { par: 130 } };
 
 test('anatomy: the named shunts and collaterals do not run on top of other vessels, and keep clear beside them', () => {
   const L = anatomyLines();

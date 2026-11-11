@@ -30,7 +30,7 @@ test('a stent that is still unrolling has its clip left out of the marks, and ev
       if (!n || n.length < 2) continue;
       const x = (M ? M[0] * n[0] + M[2] * n[1] + M[4] : n[0]), y = (M ? M[1] * n[0] + M[3] * n[1] + M[5] : n[1]);
       if (!el.closest('g[transform], g[clip-path]')) continue;   // (the stent's own groups; other overlay marks are other tests')
-      assert.ok(x > 420 && x < 580 && y > 190 && y < 460, `a mark of the stent (${el.getAttribute('class')}) would be painted at ${x.toFixed(0)},${y.toFixed(0)}, away from the TIPS course (frame ${i})`);
+      assert.ok(x > 420 && x < 640 && y > 190 && y < 460, `a mark of the stent (${el.getAttribute('class')}) would be painted at ${x.toFixed(0)},${y.toFixed(0)}, away from the TIPS course (frame ${i})`);
     }
     for (const c of document.querySelectorAll('clipPath')) {
       for (const el of c.querySelectorAll('*')) {
@@ -41,6 +41,11 @@ test('a stent that is still unrolling has its clip left out of the marks, and ev
     }
   }
   assert.ok(sawClip, 'the test saw the stent while its clip was in the page');
+  // (And once it has unrolled to the end, the front's marker is off: a stent that came in by unrolling kept its marker, a thin pale bar across the hepatic vein, until the page was rebuilt, 11 Nov 2026,
+  // seen in the headless shots; it is hidden at k = 1 whether the stent was built whole or not.)
+  const marks = [...document.querySelectorAll('.stent-mark-tips')];
+  assert.ok(marks.length, 'the front marker exists');
+  for (const el of marks) assert.equal(el.getAttribute('opacity'), '0', 'the front marker of a whole covered stent is not drawn');
   for (const el of document.querySelectorAll('.stent-mark, .stent-cover, .stent-strut, .stent-rail, .stent-ring')) {
     for (const n of (el.getAttribute('d') || '').match(/-?[\d.]+(?:e-?\d+)?|NaN|Infinity/g) || []) assert.ok(Number.isFinite(Number(n)), `${el.getAttribute('class')} has a coordinate that is not a number: ${n}`);
     for (let e = el; e && e.tagName !== 'BODY'; e = e.parentNode) assert.ok(!/NaN|Infinity/.test(e.getAttribute?.('transform') || ''), 'a stent transform is a number');

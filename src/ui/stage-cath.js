@@ -147,14 +147,15 @@ export function createCath(st, live) {
       // Loose points (a lead-in from outside the plate), with the lumen radius of vessel id at f; the last one is where the next leg starts.
       pts(list, id, f, name = 'lead') { marks.push(pts.length); parts.push({ id: null, name }); for (const q of list) { pts.push(q); rad.push(at(id, f)); } },
       // A vessel, whole or in part, the way the catheter travels it (rev: against its drawn course): from a to b of the
-      // way, or until a point meets until(q), or to the point nearest `near`. r: a fixed lumen radius instead of its caliber.
-      vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, name = id, r = 0 } = {}) {
+      // way, or until a point meets until(q), or to the point nearest `near`, or from the point nearest `from`. r: a fixed lumen radius instead of its caliber.
+      vessel(id, { rev = false, a = 0, b = 1, until = null, near = null, from = null, name = id, r = 0 } = {}) {
         const P0 = rev ? geo[id].cur.slice().reverse() : geo[id].cur, c = lenTo(P0), n = c[c.length - 1] || 1;
         if (near) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - near[0], q[1] - near[1]); if (dd < best) { best = dd; b = c[i] / n; } }); }
+        if (from) { let best = Infinity; P0.forEach((q, i) => { const dd = Math.hypot(q[0] - from[0], q[1] - from[1]); if (dd < best) { best = dd; a = c[i] / n; } }); }   // (from: start at the point nearest it: a tract that leaves a vein mid-run)
         if (until) { const i = P0.findIndex((q, k) => k > 0 && until(q)); if (i > 0) b = c[i - 1] / n; }
         const seg = cutLen(P0, c, a * n, b * n), own = (f) => (rev ? 1 - f : f);
         marks.push(pts.length); parts.push({ id, name, fa: own(a), fb: own(b) });
-        for (let i = a === 0 && pts.length ? 1 : 0, run = a * n; i < seg.length; i++) {
+        for (let i = (a === 0 || from) && pts.length ? 1 : 0, run = a * n; i < seg.length; i++) {
           if (i) run += Math.hypot(seg[i][0] - seg[i - 1][0], seg[i][1] - seg[i - 1][1]);
           if (r) { const rs = r.toFixed(3), fid = '=' + rs; PROC_FIXED.set(fid, +rs); pts.push(seg[i]); rad.push(at(fid, 0)); } else { pts.push(seg[i]); rad.push(at(id, own(run / n))); }
         }
