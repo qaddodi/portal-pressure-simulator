@@ -72,7 +72,7 @@ import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt, vesselRenderer, setVesselRenderer } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
@@ -1035,19 +1035,6 @@ function bloodItems() {
     menuSection('Labels', labelLevelSeg()),
   ];
 }
-// Which renderer draws the vessels (frame.js vesselRenderer): one of three, so Mesh and Tube cannot both be on.
-function vesselRendererSeg() {
-  const cur = vesselRenderer();
-  const TITLE = { classic: 'The per-pixel renderer', mesh: 'The vessels as meshes, which cost the GPU less', tube: 'Flat cartoon tubes with an outline, the blood as particles' };
-  return h('div', { class: 'seg full menu-seg', role: 'group', 'aria-label': 'Vessel renderer' }, [['classic', 'Classic'], ['mesh', 'Mesh'], ['tube', 'Tube']].map(([v, l]) => {
-    const b = h('button', { 'aria-pressed': String(cur === v), 'data-renderer': v, title: TITLE[v] }, l);
-    b.addEventListener('click', () => {
-      setVesselRenderer(v);
-      b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-    });
-    return b;
-  }));
-}
 // Which stations are labelled: the key ones (portal vein, the HVPG pair, what is abnormal; everything once
 // zoomed in), all of them at every zoom, or none.
 function labelLevelSeg() {
@@ -1301,8 +1288,6 @@ function openSettings(anchor, withSearch = false) {
       }),
       h('div', { class: 'menu-title' }, 'Figure size (megapixels)'),
       figureMpControl(),
-      h('div', { class: 'menu-title' }, 'Vessel renderer'),
-      vesselRendererSeg(),
       menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Draw the figure at full resolution during a pan or zoom, even if frames run long', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
     // (What the model shows and how far it goes has its own heading; none of it is in a talk.)
     ...(talk ? [] : [menuSection('Model',

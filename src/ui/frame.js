@@ -732,36 +732,9 @@ export function setFigLab(k, v) {
 }
 /** Called with (key, value) each time one of the Figure performance switches changes. */
 export function onFigLab(f) { labSubs.add(f); return () => labSubs.delete(f); }
-// Vessel renderer (Settings › Display, after Figure size): which renderer draws the figure's vessels, one choice of three: 'classic' (the per-pixel
-// shader), 'mesh' (vessels as meshes, 8 Nov 2026; the default) or 'tube' (flat cartoon tubes with an outline and particle blood, 10 Nov 2026). Stored in
-// pps.vesselRenderer, the key removed for the default. A tester's earlier choice is carried over once from the two switches this replaced
-// (pps.vesselTube '1' gave tube; else pps.vesselMesh '0' gave classic), and those keys are removed. The renderer reads vesselMesh() and vesselTube()
-// (each true only for its own choice) and listens with onVesselRenderer() (it returns the unsubscribe); this file only keeps the choice.
-export const VESSEL_RENDERERS = ['classic', 'mesh', 'tube'];
-let rendererNow = 'mesh', rendererKept = false;
-try { const r = localStorage.getItem('pps.vesselRenderer'); if (VESSEL_RENDERERS.includes(r)) { rendererNow = r; rendererKept = true; } } catch (e) { caught('frame:vrend-r', e); /* storage unavailable */ }
-if (!rendererKept) {
-  try {
-    rendererNow = localStorage.getItem('pps.vesselTube') === '1' ? 'tube' : localStorage.getItem('pps.vesselMesh') === '0' ? 'classic' : 'mesh';
-    if (rendererNow !== 'mesh') localStorage.setItem('pps.vesselRenderer', rendererNow);
-    localStorage.removeItem('pps.vesselTube');
-    localStorage.removeItem('pps.vesselMesh');
-  } catch (e) { caught('frame:vrend-m', e); /* storage unavailable */ }
-}
-const rendererSubs = new Set();
-export const vesselRenderer = () => rendererNow;
-export const vesselMesh = () => rendererNow === 'mesh';
-export const vesselTube = () => rendererNow === 'tube';
-export function setVesselRenderer(v) {
-  if (!VESSEL_RENDERERS.includes(v) || rendererNow === v) return;
-  rendererNow = v;
-  try { if (v === 'mesh') localStorage.removeItem('pps.vesselRenderer'); else localStorage.setItem('pps.vesselRenderer', v); } catch (e) { caught('frame:vrend-w', e); /* storage unavailable */ }
-  for (const f of rendererSubs) f(v);
-  // (And the figure is drawn again, as after a resolution change: the stage and the other views hear onRenderScale.)
-  for (const f of renderSubs) f(renderK);
-}
-/** Called with the new choice ('classic', 'mesh' or 'tube') each time the vessel renderer is switched; returns the unsubscribe. */
-export function onVesselRenderer(f) { rendererSubs.add(f); return () => rendererSubs.delete(f); }
+// Vessel renderer: the Tube is the only one (owner, 11 Nov 2026), so there is nothing to choose and nothing kept. Classic and Mesh are shelved on the
+// branch shelf/classic-mesh-renderers. A tester's earlier choice (pps.vesselRenderer, and the two switches it replaced) is dropped once.
+try { for (const k of ['pps.vesselRenderer', 'pps.vesselTube', 'pps.vesselMesh']) localStorage.removeItem(k); } catch (e) { caught('frame:vrend-x', e); /* storage unavailable */ }
 // (Motion at 60: a frame of steady motion is skipped when the last was drawn under 10 ms ago. A 120 Hz screen's frames come 8.3 ms
 // apart, so every other one is drawn; a 60 Hz screen's 16.7 ms, so all of them, as before; a 90 Hz screen's 11.1 ms, all of them.)
 export const MOTION60_MS = 10;
