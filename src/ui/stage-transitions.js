@@ -261,10 +261,13 @@ export function createTransitions(st, live) {
   // ends: false leaves out the far end's marker (a stent unrolled by its front, venousDraw, carries that marker on the front).
   // bare > 0: the covered TIPS stent (stent-mesh.js): that much bare from d0, a PTFE cover over the rest, a ring where they meet. Its struts and
   // rails take a floor of one device pixel (.stent-px: a non-scaling stroke), so the lattice does not thin out of sight when the figure is small.
-  function meshPaths(id, p, d0, d1, k = 1, ends = true, bare = 0) {
+  // cap > 0: both ends are rounded off over that length (the half-width follows a quarter circle down to nothing), so a stent that meets a vein ends in a soft tip inside the
+  // lumen, not a square edge across the mouth (the TIPS, 11 Nov 2026).
+  function meshPaths(id, p, d0, d1, k = 1, ends = true, bare = 0, cap = 0) {
     const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0);
     const R = meshR(id, p);
-    const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
+    const round = (u) => (u >= 1 ? 1 : u <= 0 ? 0 : Math.sqrt(1 - (1 - u) * (1 - u)));
+    const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d) * (cap > 0 ? Math.min(round(a / cap), round((A - a) / cap)) : 1); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
     const m = stentMeshD(f, R(d0), A, k, ends, bare), px = bare > 0 ? ' stent-px' : '';
     // (Cover first, under the struts; the ring last. One site makes every piece.)
     const parts = [['stent-cover', m.cover], ['stent-strut' + px, m.struts], ['stent-strut stent-strut-cov' + px, m.covStruts], ['stent-rail' + px, m.rails], ['stent-rail-glint', m.rails], ['stent-mark', m.marks], ['stent-ring', m.ring]];

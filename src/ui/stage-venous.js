@@ -33,6 +33,38 @@ export function createVenous(st, live) {
   // mesh jumped back, then forward. Now a rebuild whose pieces are the same pieces (the same classes in the same order, the same clip) writes
   // the new outlines into the elements it has: the painter reads an outline's `d` as it paints (stage-over.js needsReread), so nothing is
   // read again and nothing leaves the page; and a rebuild whose mesh did not move (its signature) writes nothing at all.
+  // How far along the TIPS from each end its stent starts: the first place where the stent's rounded tip, with its own half width, lies clear of the lumen of the vein it starts in
+  // (the right portal vein and its run-on) or ends in (the right hepatic vein, both stretches): inside a vein the lumen is the vein's own, and a mesh laid over it is a box over
+  // the vein (11 Nov 2026). The tip is a quarter circle 1.2 half widths long (meshPaths). Kept between 4 and a third of the shunt.
+  const TIPS_PARENT = [['PVH_R', 'PRE_R'], ['POST_R_RHV', 'RHV_IVC']];
+  const tipsCourse = [];   // alloc-rare: the parents' sampled courses, rebuilt only when the overlay is (a stent build, not a frame)
+  function tipsExits(id, L, R) {
+    const out = [2, 2];
+    for (let i = 0; i < 2; i++) {
+      tipsCourse.length = 0;
+      for (const pid of TIPS_PARENT[i]) {
+        const g = geo[pid];
+        if (!g?.cur || !E[pid]) continue;
+        const hw = E[pid].width / 2 + (E[pid].wallPx || 1);
+        for (let u = 0; u <= 24; u++) { const q = frameAt(pid, (g.len * u) / 24); tipsCourse.push(q.x, q.y, hw); }
+      }
+      if (!tipsCourse.length) continue;
+      const clear = (d, r) => {   // (a circle of radius r at arc d of the TIPS lies outside every parent's lumen)
+        const q = frameAt(id, i ? L - d : d), x = q.x, y = q.y;
+        for (let k = 0; k < tipsCourse.length; k += 3) if (Math.hypot(tipsCourse[k] - x, tipsCourse[k + 1] - y) < tipsCourse[k + 2] + r) return false;
+        return true;
+      };
+      let e = L / 3;
+      for (let d = 4; d <= L / 3; d += 1) {
+        const c = 1.2 * R(d);
+        let ok = true;
+        for (let u = 0; ok && u <= 1.001; u += 0.2) ok = clear(d + u * c, R(d + u * c) * Math.sqrt(1 - (1 - u) * (1 - u)));   // (the tip's half width there: meshPaths)
+        if (ok) { e = d; break; }
+      }
+      out[i] = e;
+    }
+    return out;
+  }
   function venousDraw(p) {
     const kids = []; let fresh = false;
     for (const [id, v] of vst) {
@@ -42,7 +74,9 @@ export function createVenous(st, live) {
       const L = geo[id].len;
       const cid = `vstClip-${id}-${++vstN}`;
       const tips = id === 'TIPS', open = tips && v.k >= 1;   // (open: the whole stent in, so no front to clip it by: the circuit's lane turns back on itself, which a half-plane cannot follow)
-      const R = meshR(id, p), d0 = tips ? 2 : VST_SPAN[1] * L, d1 = tips ? L - 2 : VST_SPAN[0] * L, r1 = R(d1);
+      // (The TIPS stent runs from where its tract leaves the portal vein's lumen to where it enters the hepatic vein's: inside a vein it is the vein's own lumen, and a mesh laid over it
+      // is a box over the vein, 11 Nov 2026. Its two ends are rounded off, see meshPaths.)
+      const R = meshR(id, p), ex = tips ? tipsExits(id, L, R) : null, d0 = tips ? ex[0] : VST_SPAN[1] * L, d1 = tips ? L - ex[1] : VST_SPAN[0] * L, r1 = R(d1);
       const far = Math.abs(d1 - d0) + 4 * r1 + 20;   // (the clip: the half of the plane behind the front, as far as the whole mesh reaches)
       // (What the mesh is made from: its two ends and its middle on the vessel, its half-width at both ends and the middle, its bare stretch.)
       const mid = (d0 + d1) / 2;
@@ -50,7 +84,7 @@ export function createVenous(st, live) {
       for (const d of [d0, mid, d1]) { const q = frameAt(id, d); sig += `|${q.x.toFixed(1)},${q.y.toFixed(1)},${q.tx.toFixed(2)},${q.ty.toFixed(2)}`; }
       if (old && old.open === open && old.far >= far && vstKids.includes(old.root)) {
         if (old.sig === sig) { v.parts = old; venousMove(id, v); kids.push(old.root); continue; }
-        const next = meshPaths(id, p, d0, d1, 1, false, tips ? tipsBare(id) : 0);
+        const next = meshPaths(id, p, d0, d1, 1, false, tips ? tipsBare(id) : 0, tips ? Math.min(R(d0), (d1 - d0) / 4) * 1.2 : 0);
         const same = next.length === old.fade.length - 1 && next.every((el, i) => el.getAttribute('class') === old.fade[i].getAttribute('class'));
         if (same) {
           next.forEach((el, i) => putA(old.fade[i], 'd', el.getAttribute('d')));
@@ -61,7 +95,7 @@ export function createVenous(st, live) {
       }
       fresh = true;
       // (An outline, not a rect: the overlays' GPU painter dropped a rect clip under a turned frame, 2 Nov 2026, and the mesh with it.)
-      const pieces = meshPaths(id, p, d0, d1, 1, false, tips ? tipsBare(id) : 0), markPath = s('path', { class: tips ? 'stent-mark stent-mark-tips' : 'stent-mark', d: `M0 ${(-r1).toFixed(2)} L0 ${r1.toFixed(2)}` });
+      const pieces = meshPaths(id, p, d0, d1, 1, false, tips ? tipsBare(id) : 0, tips ? Math.min(R(d0), (d1 - d0) / 4) * 1.2 : 0), markPath = s('path', { class: tips ? 'stent-mark stent-mark-tips' : 'stent-mark', d: `M0 ${(-r1).toFixed(2)} L0 ${r1.toFixed(2)}` });
       const back = s('g', {}, ...pieces);
       const front = s('g', open ? {} : { 'clip-path': `url(#${cid})` }, back);
       const mark = s('g', {}, markPath);
