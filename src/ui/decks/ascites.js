@@ -98,7 +98,7 @@ export const ASCITES = {
       ask: ['SAAG 0.6, protein 4.2 g/dL and weight loss. What is likely, and what next?', 'Peritoneal cancer or tuberculous peritonitis: cytology, adenosine deaminase, peritoneal biopsy.'],
     },
     {
-      id: 'tense', preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', terms: { 'renal veins': 'lrv' }, tool: BELLY, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'],
+      id: 'tense', preset: 'cirr-decomp', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] }, cam: 'fit', terms: { 'renal veins': 'lrv' }, tool: BELLY, data: 'tiles', tiles: ['asc', 'rpp'], key: ['asc'],
       kicker: 'Tense ascites', site: 'sin', title: 'Grade 3 ascites presses on the kidneys',
       vignette: 'A 61-year-old man with alcohol-associated cirrhosis stopped his diuretics 4 months ago. His abdomen is now tense, and he is short of breath lying flat. His albumin is 2.4 g/dL.',
       line: 'Tense ascites raises the pressure inside the abdomen, which presses on the renal veins and the kidneys.',
@@ -168,7 +168,7 @@ export const ASCITES = {
       ask: ['A man with ascites on carvedilol develops HRS-AKI. What do you do with the carvedilol, and when does it restart?', 'Reduce the dose or stop it. Restart and re-titrate once the HRS-AKI has resolved and the pressure has recovered.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: BELLY, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense', cite: 'Baveno VIII 6.3, 6.5, 6.16',
+      id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: BELLY, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'pv', 'he'], key: ['asc', 'he'], delta: 'tense', cite: 'Baveno VIII 6.3, 6.5, 6.16',
       kicker: 'Refractory ascites', site: 'sin', title: 'TIPS for refractory ascites',
       line: 'A TIPS lowers the gradient to {ppg} and the sinusoidal pressure with it, and the ascites clears over weeks. The price is encephalopathy, so rifaximin is considered beforehand.',
       notes: 'Less lymph forms, and in exchange the liver gets less portal blood. In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients (Baveno VIII 6.3), with a stent dilated only as far as it needs to be (6.5). The usual exclusions are recurrent encephalopathy, heart failure, pulmonary hypertension and advanced liver failure. Before the stent the history of overt encephalopathy and the medicines for it are reviewed (6.14), a prior episode is not an absolute contraindication (6.15), and rifaximin should be considered to prevent encephalopathy (6.16, strong). The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target.',

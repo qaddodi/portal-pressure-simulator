@@ -24,7 +24,7 @@ export const CHOOSE_TREATMENT = {
   summary: 'Five cases, one slide each: a variceal bleed, refractory ascites, a portal vein clot in cirrhosis, a recent portal vein clot without it and Budd–Chiari syndrome, each with the choice the guidelines make and why.',
   slides: [
     {
-      id: 'a1', preset: 'cirr-decomp', action: BAND, params: CARV, cam: 'liver', labels: ['CONF', 'VAR'], data: 'tiles',
+      id: 'a1', preset: 'cirr-decomp', action: BAND, params: CARV, cam: 'varices', labels: ['VAR'], data: 'tiles',
       vignette: 'A 61-year-old woman with alcohol-associated cirrhosis vomited blood yesterday. One band stopped it, with no active bleeding at endoscopy. She is Child–Pugh B 8.',
       caseQ: 'Does she meet the criteria for a pre-emptive TIPS?',
       tool: { kind: 'criteria', title: 'Pre-emptive TIPS', lead: 'Any one of these is enough.', rule: 'Baveno VIII 5.31',

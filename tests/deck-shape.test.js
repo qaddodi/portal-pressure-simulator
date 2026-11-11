@@ -21,7 +21,6 @@ const TILES_CHANGE = new Set([
   'doppler/hepatic>meal',                                       // each Doppler slide shows the reading it is about
   'tips-doppler/narrow>warn', 'tips-doppler/backup>fix',
   'outflow/normal>tr', 'outflow/tr>pulse', 'outflow/pulse>constrict',
-  'cause-treated/high>high2',                                   // a second patient with her own pair of tiles
   'gastric-varices/tips>brto',                                  // the gastric varix tile replaces the liver tile
   'gastric-varices/svt>eusglue',                                // the glued varix's Doppler keeps only the varix tile (the portal pressure does not move: 10 Nov 2026)
   'hyperdynamic/resist>volume',                                 // the vitals monitor, then the volume tiles
@@ -55,6 +54,7 @@ const THREE_TILES = new Set([
   'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/bato', 'gastric-varices/svt',
   'variceal-bleed/minutes',   // (the point is the third: the hemoglobin has not moved, and where it is heading)
   'encephalopathy/srs',       // (the point is the third: the portal vein barely moves in a large splenorenal shunt)
+  'ascites/tips',             // (the price of the stent is the third: the encephalopathy tile beside the ascites it clears and the portal pressure)
   'hyperdynamic/over',        // (eight units is more than anyone gives: the hemoglobin and the volume show where it ends)
 ]);
 

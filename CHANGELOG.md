@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **Deck card choices 20-24 (deck content review, 11 Nov 2026).**
+  Ascites: Tense ascites swaps the portal pressure tile for the kidney pressure tile, and TIPS adds the encephalopathy tile (three tiles, listed in `tests/deck-shape.test.js`). Cause treated: "Two years after cure, CSPH persists" shows the stiffness and platelets plane with a trail from the slide before, as the first patient's does, and its line says stiffness cannot settle it alone. Choose the treatment: the banding case frames the varices. Item 22 (albumin after a tap): the model's belly never holds more than about 5.4 L, so a bigger tap is impossible, and its response is left as it is pending Mohammad's choice.
+
 - **Checks: the redundant and dead ones removed.** (Mohammad, 11 Nov 2026: "go over all lint tests make sure nothing is redundant or not needed".)
   Out: two test files with no test in them (`blur-setting-in-talks`, `circuit-zoom-labels`), the one test that was skipped on every run (the Mover heap test needed `--expose-gc`, which `npm test` never passes), five scripts nothing calls (`deck-sweep-summary`, `glitch-sweep-summary`, `reveal-probe`, `tap-zoom-probe`, `zoom-probe`), and every unused import, variable and stand-in in `tests/` and `scripts/` (0 lint warnings there now). Removing a test's unused source read moved four tests off the source-regex list (`scripts/source-regex-tests.json`). `tests/frame-costs-glow.test.js` follows the glow memo's new `varixFade` field. The wiring assertions of `collateral-front`, `lobule-cut-vessels` and `spleen-caliper-reveal` (new source-regex tests) moved to rules in `scripts/source-shapes/e.mjs`; `label-move-fade` stays on the source-regex list (it runs `moveFade`, a closure function of `label-gl.js`, from its text).
 - **Deck card choices 16-19 (deck content review, 11 Nov 2026; Mohammad picked all but 40 and 43).**

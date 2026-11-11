@@ -166,7 +166,7 @@ export const ADOPTED = {
   'where-resistance/a5': ['caseQ', 'kind:profile'],
   'where-resistance/a6': ['caseQ', 'kind:profile'],
   'cause-treated/high': ['caseQ', 'kind:profile'],
-  'cause-treated/high2': ['kind:profile'],
+  'cause-treated/high2': ['kind:plane'],
   'next-bleed/slough': ['question'],
   'next-bleed/nsbb': ['hvpgResp', 'cite'],
   'varices/predesci': ['hvpgResp'],

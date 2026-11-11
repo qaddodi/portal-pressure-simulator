@@ -76,9 +76,9 @@ export const CAUSE_TREATED = {
       ask: ['Ascites seen only on ultrasound: is she decompensated?', 'No: only clinically evident ascites marks decompensation, though even a little fluid on ultrasound carries a worse outlook.'],
     },
     {
-      id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', key: ['hvpg'], tiles: ['lsm', 'varix'], delta: 'high',
+      id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', tool: { ...PLANE, trail: [{ slide: 'high', name: 'Before cure' }] }, data: 'tiles', key: ['hvpg'], tiles: ['hvpg', 'lsm'], delta: 'high',
       kicker: HIGH, site: 'sin', title: 'Two years after cure, CSPH persists',
-      line: 'The HVPG is still {hvpg}, which is {>=10 mmHg}, so CSPH persists and she keeps carvedilol.',
+      line: 'Her stiffness, {lsm}, sits in the indeterminate zone and cannot settle it alone. The HVPG is {hvpg}, which is {>=10 mmHg}: CSPH persists and she keeps carvedilol.',
       notes: 'When the HVPG starts well above 10 mmHg, CSPH often persists after cure, and so does the risk of decompensation. She keeps carvedilol and liver cancer surveillance every 6 months. Her stiffness, still in the indeterminate zone, cannot tell on its own whether CSPH has gone.',
       ask: ['Should she stop carvedilol now that the virus is gone?', 'No: CSPH persists, so carvedilol continues.'],
     },
