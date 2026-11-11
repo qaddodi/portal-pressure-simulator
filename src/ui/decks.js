@@ -148,6 +148,9 @@ import { TEN_YEARS } from './decks/ten-years.js';
 import { MESO_REX } from './decks/rex.js';
 import { MASLD } from './decks/masld.js';
 import { KIDNEY } from './decks/kidney.js';
+import { TIPPING } from './decks/tipping.js';
+import { DAY } from './decks/day.js';
+import { LANDMARK_TRIALS } from './decks/landmark-trials.js';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -223,6 +226,9 @@ DECKS.push(TEN_YEARS);
 DECKS.push(MESO_REX);
 DECKS.push(MASLD);
 DECKS.push(KIDNEY);
+DECKS.push(TIPPING);
+DECKS.push(DAY);
+DECKS.push(LANDMARK_TRIALS);
 
 // Old links and bookmarks: a talk that was merged into another, or renamed, still opens by its old id (?script=<old id>, a shared
 // c/deck-<old id>.html page), at slide 1 of the deck that took its slides. The self-running tour became the Sites presentation, the
@@ -245,6 +251,9 @@ export const TOPICS = [
     ['endoscopy', 'The varix and insufflation', 'Insufflation'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years'], ['kidney', 'The kidney in cirrhosis', 'Kidney'],
     ['masld', 'Fatty liver and portal pressure', 'Fatty liver'],
     ['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['choose-treatment', 'Choose the treatment', 'Choose treatment'], ['cause-treated', 'Treating the cause', 'Treating the cause'], ['shunts', 'TIPS and shunts', 'TIPS and shunts'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler'],
-    ['meso-rex', 'Children with a portal vein clot', 'Rex bypass']]],
+    ['meso-rex', 'Children with a portal vein clot', 'Rex bypass'],
+    ['tipping', 'What tips a patient over', 'Tipping point'],
+    ['day', 'A day in the portal vein', 'Portal day'],
+    ['landmark-trials', 'Landmark trials replayed', 'Landmark trials']]],
 ];
 for (const [topic, , list] of TOPICS) for (const [id, short, head] of list) { const d = DECKS.find((x) => x.id === id); if (d) Object.assign(d, { topic, short, head }); }
