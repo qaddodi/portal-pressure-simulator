@@ -69,7 +69,7 @@ test('the plate: the anatomy left, round windows in a column right, the sinusoid
   for (const k of ['lobule', 'sinusoid']) {
     assert.ok(r[k].x >= FREE.l && r[k].x + r[k].w <= FREE.r && r[k].y >= FREE.t && r[k].y + r[k].h <= FREE.b, k);
   }
-  assert.ok(col.colW >= 140 && col.colW <= 320);
+  assert.ok(col.colW >= 140 && col.colW <= 560);
   // (a lone window takes the lobule's place, at its size)
   const one = plateRects(FREE, ['sinusoid']);
   assert.deepEqual(Object.keys(one), ['anatomy', 'sinusoid']);

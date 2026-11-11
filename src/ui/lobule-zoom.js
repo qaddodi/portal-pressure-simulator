@@ -924,7 +924,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   // The plate's window: the lobule's texture (drawn for the stage, the lobule framed whole in the room the cards leave) laid so the lobule's
   // hexagon fills the window's circle, and only inside it (top.lay's window): the anatomy under it stays as it is.
-  const PLATE_FILL = 0.74;   // (the hexagon's corners reach this share of the window's radius, the surround of tissue fills the rest)
+  const PLATE_FILL = 0.84;   // (the hexagon's corners reach this share of the window's radius, the surround of tissue fills the rest)
   function layWindow(t) {
     if (!plate || fade <= 0 || !geo || !gl || gl.lost) return;
     const tg = gl.target;
@@ -936,6 +936,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     t.lay(tg.tex, s, 0, 0, s, (wx - s * cx) * r, (wy - s * cy) * r, fade, plateWin);
   }
   const plateWin = { x: 0, y: 0, w: 0, h: 0, r: 0 };
+  // The density the lobule is drawn at for a window: the window shows it at s times its size, so s times the screen's density is one texel per pixel
+  // (a little more, 1.3, keeps its lines crisp); drawn at the stage's own density it would be shrunk three to one, unfiltered, and read as mush.
+  function plateK() {
+    if (!plate || !geo) return 0.5;
+    const R = geo.R * V.k;
+    return R > 0 ? clamp(1.3 * (PLATE_FILL * plate.w / 2) / R, 0.25, 1) : 0.5;
+  }
   function shareDown() {
     shareOff?.(); shareOff = null;
     if (shareTop) { try { shareTop.canvas.removeEventListener('webglcontextrestored', onFigureBack); } catch { /* gone */ } }
@@ -3028,7 +3035,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     diveDrawn = scaled;
     const [W, H] = hostSize();
     ensureGeo(W, H);
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale() * zres * (plate ? 0.5 : 1);   // (Battery saver: one pixel per CSS pixel; a plate's window is a third of the screen: half the pixels)
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale() * zres * (plate ? plateK() : 1);   // (Battery saver: one pixel per CSS pixel; a plate's window shows the lobule shrunk, so it is drawn at the density it is shown at)
     const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     // (The picture it last drew, kept as numbers and compared in place: idleDrawn is '' when no paused picture stands.)

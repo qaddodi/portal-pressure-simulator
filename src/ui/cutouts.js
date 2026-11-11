@@ -75,7 +75,7 @@ const circle = (x, y, d) => shape(x, y, d, d, d / 2);
  *  window and the sinusoid's. */
 export function columnOf(free, kinds) {
   const W = free.r - free.l, H = free.b - free.t;
-  const colW = clamp(Math.round(W * COL), 140, 320);
+  const colW = clamp(Math.round(W * 0.36), 140, 560);
   const both = kinds.length > 1;
   const d1 = Math.round(Math.min(colW, H * (both ? 0.5 : 0.62)));
   return { colW, lobule: kinds.includes('lobule') ? d1 : 0, sinusoid: kinds.includes('sinusoid') ? Math.round(kinds.includes('lobule') ? d1 * SIN_RATIO : d1) : 0 };
@@ -88,11 +88,14 @@ export function plateRects(free, kinds, view = 'plate') {
   const W = free.r - free.l, H = free.b - free.t, col = columnOf(free, kinds);
   const right = free.r - EDGE, top = free.t + EDGE;
   const plate = { anatomy: shape(free.l, free.t, W - col.colW - GAP_X, H, FIG_R) };
-  let y = top;
+  // (The windows stand in the open space beside the figure, the column centred on the room's height, never tucked under the top bar.)
+  const gap = Math.round((col.lobule || col.sinusoid) * GAP_Y);
+  const block = kinds.reduce((n, k, i) => n + col[k] + (i ? gap : 0), 0);
+  let y = Math.max(top, free.t + Math.round((H - block) / 2));
   for (const k of kinds) {
     const d = col[k];
     plate[k] = circle(right - d, y, d);
-    y += d + Math.round(col.lobule * GAP_Y);
+    y += d + gap;
   }
   if (view === 'plate' || !plate[view]) return plate;
   const full = shape(free.l + 8, free.t + 8, W - 16, H - 16, FIG_R);
