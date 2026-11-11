@@ -113,6 +113,12 @@ export const DEMO_ALL = {
         "r-resp",
         "r-strain"
       ]
+    ],
+    [
+      "Trial card",
+      [
+        "g-trial"
+      ]
     ]
   ],
   "slides": [
@@ -2131,6 +2137,15 @@ export const DEMO_ALL = {
       "title": "Straining raises the pressure in the portal vein",
       "line": "Hold the button to strain against a closed glottis. The portal vein pressure climbs to {pv} while you hold, and falls back when you let go.",
       "notes": "strain: true puts a button on the card that works only while it is held. Pressed, the engine's Valsalva builds over 1.5 s to 30 mmHg; let go, it falls back over 1.5 s."
+    },
+    {
+      "id": "g-trial",
+      "preset": "cirr-comp",
+      "cam": "fit",
+      "tool": { "kind": "trial", "id": "predesci" },
+      "kicker": "Trial",
+      "title": "A beta-blocker before the first decompensation",
+      "line": "In PREDESCI, patients with clinically significant portal hypertension had fewer events on a beta-blocker than on placebo. The bars show the share of each arm with an event."
     }
   ]
 };

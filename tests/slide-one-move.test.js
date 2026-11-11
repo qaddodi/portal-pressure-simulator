@@ -79,7 +79,7 @@ test('words out: cards already out or on their way out make the move wait only f
 });
 
 test('an instrument that only reads the model rides the change under the glide; one that records or plays on arrival still waits', () => {
-  assert.match(src, /const RIDES_MODEL = new Set\(\['profile', 'curve', 'flows', 'plane', 'criteria', 'path', 'trace'\]\);/);
+  assert.match(src, /const RIDES_MODEL = new Set\(\['profile', 'curve', 'flows', 'plane', 'criteria', 'path', 'trace', 'trial'\]\);/);
   assert.match(src, /const underTool = \(t\) => !t \|\| \(RIDES_MODEL\.has\(t\.kind\) && !\(t\.kind === 'trace' && t\.range === 'beats'\)\);/);
   // (none of the recording instruments, nor the catheter's, is on the list)
   const list = /const RIDES_MODEL = new Set\(\[([^\]]*)\]\)/.exec(src)[1];

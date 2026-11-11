@@ -12,6 +12,7 @@ import { plateletText } from './glue.js';
 import { citeText } from './teach-extras.js';
 import { cleanEq } from './import-safety.js';
 import { plainLine } from './reveal.js';
+import { trialOf, trialLines } from './trials.js';
 
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const slug = (t) => t.replace(/[^\w-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
@@ -118,6 +119,7 @@ function slideBlock(d, base, s, i, fp, at) {
     ${s.notes ? `<div class="notes"><p class="cap">Notes</p><p>${esc(s.notes)}</p></div>` : ''}
     ${s.checks ? `<ol class="checks">${s.checks.map(([cq, ca]) => `<li><p>${esc(cq)}</p><p class="a"><b>Answer:</b> ${esc(ca)}</p></li>`).join('')}</ol>` : ''}
     ${s.tool?.kind === 'criteria' && (Array.isArray(s.tool.rows) || Array.isArray(s.tool.key)) ? `<div class="notes"><p class="cap">${esc(s.tool.title || 'Criteria')}</p><ul>${(Array.isArray(s.tool.rows) ? s.tool.rows : s.tool.key).map((r) => (typeof r === 'string' ? r : Array.isArray(r) ? r[0] : r?.text)).filter(Boolean).map((t) => t.replace(/\*\*/g, '')).map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
+    ${s.tool?.kind === 'trial' && trialOf(s.tool.id) ? `<div class="notes"><p class="cap">${esc(trialOf(s.tool.id).name)}</p><ul>${trialLines(trialOf(s.tool.id)).map((t) => `<li>${esc(t)}</li>`).join('')}</ul></div>` : ''}
     ${q ? `<div class="ask"><p class="cap">Ask the room</p><p>${esc(q)}</p>${a ? `<p class="a"><b>Answer:</b> ${esc(a)}</p>` : ''}</div>` : ''}
   </div>
 </article>`;
