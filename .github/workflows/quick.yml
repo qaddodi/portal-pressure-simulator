@@ -1,4 +1,4 @@
-name: Quick checks (lint, unit tests, static)
+name: Quick checks (lint, unit tests, static, storage tidy)
 
 # Lint and the unit tests on every push to the preview branch, beside the deploy (pages.yml) and never blocking it:
 # a red run here is fixed in a follow-up push. A newer push cancels the run before it.
@@ -46,3 +46,18 @@ jobs:
       - name: Static checks (conflict markers; the app and the worker bundle)
         if: success() || failure()
         run: npm run check:static
+
+  # Actions storage (caches and artifacts share one 0.5 GB allowance): keeps the newest cache of each kind per branch and drops
+  # old artifacts, and lists what is held in the job summary. See scripts/tidy-actions-storage.sh.
+  tidy-storage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Tidy caches and artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/tidy-actions-storage.sh
