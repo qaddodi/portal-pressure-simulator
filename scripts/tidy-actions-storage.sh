@@ -37,3 +37,4 @@ while read -r id size key; do echo "cache $key ($(mb "$size"))" >> "$out"; del "
 jq -r --argjson now "$now" '.[] | select(($now - (.created_at | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)) > 86400) | "\(.id) \(.size_in_bytes) \(.name)"' <<<"$arts" |
 while read -r id size name; do echo "artifact $name ($(mb "$size"))" >> "$out"; del "repos/$R/actions/artifacts/$id"; done
 echo "Done." >> "$out"
+[ -n "${GITHUB_STEP_SUMMARY:-}" ] && cat "$GITHUB_STEP_SUMMARY"
