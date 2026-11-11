@@ -181,30 +181,53 @@ export function layWinCoverage(px, py, win) {
   const t = Math.min(1, Math.max(0, sd + 0.5));
   return 1 - t * t * (3 - 2 * t);
 }
-// Sharper upscaling: the picture (uSrc px) onto the canvas (uDst px), each pixel a Catmull-Rom of the picture's 4 × 4 around it, in five
-// filtered reads (the corner taps left out, their weights folded away), then held within the four picture pixels nearest it so an
-// edge never rings. Premultiplied in and out. (Both framebuffers run y up, so no flip.)
-const UP_FS = `#version 300 es
+// The picture (uSrc px) onto the canvas (uDst px), the pass that lays a picture smaller than the canvas. Sharper upscaling (uCR on): each pixel a
+// Catmull-Rom of the picture's 4 × 4 around it, in five filtered reads (the corner taps left out, their weights folded away); off, one filtered
+// read. Then held within the four picture pixels nearest it so an edge never rings. Premultiplied in and out. (Both framebuffers run y up, so no flip.)
+// uOff: the pan's rest in picture px (x right, y down): the figure is drawn at whole picture pixels and this moves it to its place, so the labels
+// and glass drawn in the canvas are not moved by the canvas's own translate (stage-res.js subPixel).
+// Edge steepen (quarter-mp-big-screen-tricks 2): a vessel's outer edge is a ramp of alpha about one picture pixel wide, a short signed distance
+// field. Stretched by k it would be a k-pixel blur, so the alpha is steepened about half of the local plateau (the largest alpha of the four pixels
+// nearest) by k, and the colour scaled with it. Only where the four differ much (an edge): a glow or a fade, which ramps slowly, is left as it is.
+// Dither (4): about one 8-bit step of interleaved gradient noise on the colour and on a partial alpha, so the soft shadows and glows, whose bands
+// would be k pixels wide, show none. (A clear pixel stays clear.)
+export const UP_FS = `#version 300 es
 precision mediump float;
 uniform sampler2D uT;
-uniform highp vec2 uSrc, uDst;
+uniform highp vec2 uSrc, uDst, uOff;
+uniform float uCR;
 out vec4 o;
 void main() {
-  highp vec2 p = gl_FragCoord.xy * uSrc / uDst, tc = p - 0.5, b = floor(tc) + 0.5;
-  vec2 f = fract(tc);
-  vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f)), w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
-  vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f)), w3 = f * f * (-0.5 + 0.5 * f);
-  vec2 w12 = w1 + w2;
-  highp vec2 t0 = (b - 1.0) / uSrc, t3 = (b + 2.0) / uSrc, t12 = (b + w2 / w12) / uSrc;
-  float a = w12.x * w0.y, bb = w0.x * w12.y, c = w12.x * w12.y, d = w3.x * w12.y, e = w12.x * w3.y;
-  vec4 col = texture(uT, vec2(t12.x, t0.y)) * a + texture(uT, vec2(t0.x, t12.y)) * bb + texture(uT, t12) * c
-           + texture(uT, vec2(t3.x, t12.y)) * d + texture(uT, vec2(t12.x, t3.y)) * e;
-  col /= a + bb + c + d + e;
+  highp vec2 p = gl_FragCoord.xy * uSrc / uDst + vec2(-uOff.x, uOff.y), tc = p - 0.5, b = floor(tc) + 0.5;
+  vec4 col;
+  if (uCR > 0.5) {
+    vec2 f = fract(tc);
+    vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f)), w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f)), w3 = f * f * (-0.5 + 0.5 * f);
+    vec2 w12 = w1 + w2;
+    highp vec2 t0 = (b - 1.0) / uSrc, t3 = (b + 2.0) / uSrc, t12 = (b + w2 / w12) / uSrc;
+    float a = w12.x * w0.y, bb = w0.x * w12.y, c = w12.x * w12.y, d = w3.x * w12.y, e = w12.x * w3.y;
+    col = texture(uT, vec2(t12.x, t0.y)) * a + texture(uT, vec2(t0.x, t12.y)) * bb + texture(uT, t12) * c
+        + texture(uT, vec2(t3.x, t12.y)) * d + texture(uT, vec2(t12.x, t3.y)) * e;
+    col /= a + bb + c + d + e;
+  } else {
+    col = texture(uT, p / uSrc);
+  }
   ivec2 q = ivec2(floor(tc)), mx = ivec2(uSrc) - 1;
   vec4 n0 = texelFetch(uT, clamp(q, ivec2(0), mx), 0), n1 = texelFetch(uT, clamp(q + ivec2(1, 0), ivec2(0), mx), 0);
   vec4 n2 = texelFetch(uT, clamp(q + ivec2(0, 1), ivec2(0), mx), 0), n3 = texelFetch(uT, clamp(q + ivec2(1, 1), ivec2(0), mx), 0);
-  col = clamp(col, min(min(n0, n1), min(n2, n3)), max(max(n0, n1), max(n2, n3)));
-  o = vec4(min(col.rgb, vec3(col.a)), col.a);
+  vec4 hi = max(max(n0, n1), max(n2, n3)), lo = min(min(n0, n1), min(n2, n3));
+  col = clamp(col, lo, hi);
+  float am = max(hi.a, 1e-4), k = clamp(uDst.x / uSrc.x, 1.0, 8.0);
+  float edge = smoothstep(0.35, 0.75, (hi.a - lo.a) / am);
+  float a2 = am * clamp((min(col.a / am, 1.0) - 0.5) * k + 0.5, 0.0, 1.0);
+  a2 = mix(col.a, a2, edge);
+  if (col.a > 1e-4) col.rgb *= a2 / col.a;
+  col.a = a2;
+  highp float nz = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+  float dn = (nz - 0.5) / 255.0;
+  if (col.a > 0.002) { col.rgb += dn; if (col.a < 0.998) col.a += dn; }
+  o = vec4(clamp(col.rgb, vec3(0.0), vec3(col.a)), col.a);
 }`;
 /** Device px now → device px in the picture drawn with `then` (both world → device [a, b, c, d, e, f]): then ∘ now⁻¹, or null. */
 export function reuseMap(then, now, out = [0, 0, 0, 0, 0, 0]) {   // (`out`: where the answer is written; a frame passes a kept one)
@@ -1872,7 +1895,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   // draws the figure under Full into a buffer of its own and the canvas stays at Full (setPicture); null otherwise, and then the picture
   // is the canvas, as ever. Every size inside reads PW() and PH().
   const UP_SIZE = [0, 0];
-  let up = null, upLin = false;   // (upLin: the picture upscaled by a plain filtered copy, not Sharper upscaling's filter: setPicture)
+  let up = null, upLin = false;   // (upLin: the picture upscaled by one filtered read, not Sharper upscaling's Catmull-Rom: setPicture)
+  let restX = 0, restY = 0;   // (the pan's rest in picture px, x right and y down: the stage's setRest; the upscale pass moves the picture by it)
   // (overM: the figure's transform as last given to draw or drawRows, before whole(): the overlays are drawn at it.)
   let overM = null, overCss = 1, overSnap = false;   // (overCss: device px per CSS px, set by the stage: overlay.cssPx; overSnap: overlay.snap)
   // What is drawn over the figure in this canvas at each present (the frosted glasses, glass-gl.js host: round 2, 2.1), in their order:
@@ -3509,8 +3533,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     let laidUnder = false;
     if (camOn() && camDraw(own.tex, false)) { /* (laid: the kept picture under the camera and alpha) */ }
     else if (!up && under && under.on() && underLay()) laidUnder = true;   // (laid: the under picture, the kept one over it)
-    else if (!(up && !upLin && upDraw())) {
-      // (A picture under the canvas's size with the plain upscale: filtered, as the page's compositor scales a smaller canvas up.)
+    else if (!(up && upDraw())) {
+      // (A picture under the canvas's size while the upscale shader is still compiling: a filtered copy, as the page's compositor scales a smaller canvas up.)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCR());
       if (up || (own.w === canvas.width && own.h === canvas.height)) noLoad(gl.DRAW_FRAMEBUFFER, true);   // (the copy covers the whole canvas)
@@ -3646,8 +3670,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (Only the box the overlays' shapes lie in is laid and blended, and nothing when it is empty: the texture is clear elsewhere.)
     if (ob) {
       const kx = canvas.width / PW(), ky = canvas.height / PH();
-      OB[0] = Math.max(0, Math.floor(ob[0] * kx) - 1); OB[2] = Math.min(canvas.width, Math.ceil(ob[2] * kx) + 1);
-      OB[1] = Math.max(0, canvas.height - Math.ceil(ob[3] * ky) - 1); OB[3] = Math.min(canvas.height, canvas.height - Math.floor(ob[1] * ky) + 1);
+      const pad = 1 + (up ? Math.ceil(Math.max(Math.abs(restX * kx), Math.abs(restY * ky))) : 0);   // (a picture moved by the pan's rest lands that far out)
+      OB[0] = Math.max(0, Math.floor(ob[0] * kx) - pad); OB[2] = Math.min(canvas.width, Math.ceil(ob[2] * kx) + pad);
+      OB[1] = Math.max(0, canvas.height - Math.ceil(ob[3] * ky) - pad); OB[3] = Math.min(canvas.height, canvas.height - Math.floor(ob[1] * ky) + pad);
       if (!(OB[2] > OB[0] && OB[3] > OB[1])) return;
       ovBox = OB;
     }
@@ -3709,7 +3734,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     UC.i1(camP.u.uT, 0);
     UC.f2(camP.u.uDst, canvas.width, canvas.height);
-    UC.f3(camP.u.uCam, k, ex, eyUp);
+    // (A picture under the canvas's size is moved by the pan's rest first, as upDraw moves it: p' = k (p + r) + e, r in canvas px, y down.)
+    UC.f3(camP.u.uCam, k, up ? ex + k * restX * canvas.width / PW() : ex, up ? eyUp - k * restY * canvas.height / PH() : eyUp);
     UC.f1(camP.u.uA, a);
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -3783,6 +3809,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     UC.i1(upP.u.uT, 0);
     UC.f2(upP.u.uSrc, own.w, own.h);
     UC.f2(upP.u.uDst, canvas.width, canvas.height);
+    UC.f2(upP.u.uOff, restX, restY);
+    UC.f1(upP.u.uCR, upLin ? 0 : 1);
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
@@ -4681,6 +4709,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (every) auxStart('reuse');   // (compiling from now, published before the next pinch)
       if (!every && rz.w && !lost) { rz.w = rz.h = 0; gl.bindTexture(gl.TEXTURE_2D, rz.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); }
     },
+    /** The pan's rest (stage-res.js subPixel): how far, in picture px (x right, y down), the figure drawn at whole picture pixels is from its place. The pass that lays a picture under the canvas's size moves it by that. */
+    setRest(x, y) { restX = +x || 0; restY = +y || 0; },
     /**
      * Sharper upscaling: `size` [w, h], the picture's own size under the canvas's, or null (the picture is the canvas). On, the picture
      * is drawn into a buffer of its own (made here when the renderer has none) and upscaled onto the canvas; off, that buffer
@@ -4692,7 +4722,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if ((has === !!up && (!has || (size[0] === up[0] && size[1] === up[1])) && !!linear === upLin) || lost) return;
       if (has) { UP_SIZE[0] = size[0]; UP_SIZE[1] = size[1]; up = UP_SIZE; } else up = null;
       upLin = !!linear;
-      if (up && !upLin) auxStart('up');   // (compiling from now: the plain copy until it is published)
+      if (up) auxStart('up');   // (compiling from now: the plain copy until it is published)
+      if (!up) { restX = 0; restY = 0; }
       if (up && !own) own = makeOwn();
       if (!up && own && !ownBuf) { gl.deleteTexture(own.tex); gl.deleteFramebuffer(own.fbo); if (own.rb) gl.deleteRenderbuffer(own.rb); own = null; }
       fboOK = false; rz.m = null;

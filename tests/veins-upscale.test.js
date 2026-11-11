@@ -107,13 +107,20 @@ test('off again: the kept picture stays (the canvas keeps none of its own) and t
   assert.deepEqual(binds(f, n1).at(-1), ['bindFramebuffer', f.gl.FRAMEBUFFER, null]);
 });
 
-test('the upscale filter: Catmull-Rom in five reads, held within the four nearest pixels, premultiplied', () => {
+test('the upscale pass: Catmull-Rom in five reads (or one), held within the four nearest pixels, edge steepened, dithered, premultiplied', () => {
   const v = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
   const fs = v.slice(v.indexOf('const UP_FS = `'), v.indexOf('}`;', v.indexOf('const UP_FS = `')));
-  assert.equal((fs.match(/texture\(uT/g) || []).length, 5);
+  assert.equal((fs.match(/texture\(uT/g) || []).length, 6, 'five for Catmull-Rom, one for the plain upscale');
   assert.equal((fs.match(/texelFetch\(uT/g) || []).length, 4);
-  assert.match(fs, /col = clamp\(col, min\(min\(n0, n1\), min\(n2, n3\)\), max\(max\(n0, n1\), max\(n2, n3\)\)\);/);
-  assert.match(fs, /o = vec4\(min\(col\.rgb, vec3\(col\.a\)\), col\.a\);/);
+  assert.match(fs, /vec4 hi = max\(max\(n0, n1\), max\(n2, n3\)\), lo = min\(min\(n0, n1\), min\(n2, n3\)\);\n\s+col = clamp\(col, lo, hi\);/);
+  // (Rec 2: the alpha steepened about half the local plateau by the stretch, only where the four nearest pixels differ much; the colour scaled with it.)
+  assert.match(fs, /float edge = smoothstep\(0\.35, 0\.75, \(hi\.a - lo\.a\) \/ am\);/);
+  assert.match(fs, /float a2 = am \* clamp\(\(min\(col\.a \/ am, 1\.0\) - 0\.5\) \* k \+ 0\.5, 0\.0, 1\.0\);\n\s+a2 = mix\(col\.a, a2, edge\);/);
+  assert.match(fs, /if \(col\.a > 1e-4\) col\.rgb \*= a2 \/ col\.a;/);
+  // (Rec 4: about one 8-bit step of interleaved gradient noise; a clear pixel stays clear.)
+  assert.match(fs, /52\.9829189/);
+  assert.match(fs, /if \(col\.a > 0\.002\) \{ col\.rgb \+= dn; if \(col\.a < 0\.998\) col\.a \+= dn; \}/);
+  assert.match(fs, /o = vec4\(clamp\(col\.rgb, vec3\(0\.0\), vec3\(col\.a\)\), col\.a\);/);
   // (The weights of a Catmull-Rom spline sum to 1 at every phase.)
   for (const t of [0, 0.25, 0.5, 0.9]) {
     const w0 = t * (-0.5 + t * (1 - 0.5 * t)), w1 = 1 + t * t * (-2.5 + 1.5 * t), w2 = t * (0.5 + t * (2 - 1.5 * t)), w3 = t * t * (-0.5 + 0.5 * t);
@@ -130,7 +137,7 @@ test('the stage: off, the canvas and its early return are as before; on, the can
   assert.match(fn, /if \(pic \|\| (?:live\.)?picNow\) \{ if \(pic\) \{ picKept\[0\] = pic\[0\]; picKept\[1\] = pic\[1\]; (?:live\.)?picNow = picKept; \} else (?:live\.)?picNow = null; (?:live\.)?picLin = lin; (?:live\.)?veins\?\.setPicture\?\.\(pic, lin\); \}/, 'off: never called');
   // (The overlays on the GPU, wherever the GPU draws them: the canvas at the screen's density, the picture upscaled by a plain filtered copy.)
   // (At most the pixel budget since 1 Nov 2026: capDensity, gpu-fallback-guards.test.js.)
-  assert.match(fn, /let full = (?:live\.)?veins\?\.overlay && \(!(?:live\.)?SOFTWARE \|\| OVER_ASK\) \? devicePixelRatio \|\| 1 : 0;\n[\s\S]*?full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+let lin = false;\n\s+if \(full && (?:live\.)?vdpr < full - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* full\)\); bh = Math\.max\(1, Math\.round\(r\.height \* full\)\); lin = !figLab\('upscale'\); \}/);
+  assert.match(fn, /let full = (?:live\.)?veins\?\.overlay && \(!(?:live\.)?SOFTWARE \|\| OVER_ASK\) \? devicePixelRatio \|\| 1 : 0;\n[\s\S]*?const fullFloor = full \? capDensity\(Math\.min\(1, full\), r\.width, r\.height, 8\) : 0;\n\s+full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+if \(full && figOpt\('cap'\) > 0\) full = Math\.max\(full, fullFloor\);\n\s+let lin = false;\n\s+if \(full && (?:live\.)?vdpr < full - 1e-9\) \{ bw = Math\.max\(1, Math\.round\(r\.width \* full\)\); bh = Math\.max\(1, Math\.round\(r\.height \* full\)\); lin = !figLab\('upscale'\); \}/);
   assert.doesNotMatch(stage, /OVER_GPU|stageover=svg/);
   assert.match(stage, /if \((?:live\.)?picNow\) (?:live\.)?veins\?\.setPicture\?\.\((?:live\.)?picNow, (?:live\.)?picLin\);/, 'a restored context draws at the same share');
   assert.match(stage, /const roomW = (?:live\.)?picNow \? (?:live\.)?picNow\[0\] : vCanvas\.width, roomH = (?:live\.)?picNow \? (?:live\.)?picNow\[1\] : vCanvas\.height;/, 'the organ picture sized for the picture, not the larger canvas');

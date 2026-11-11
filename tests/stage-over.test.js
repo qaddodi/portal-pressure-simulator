@@ -198,7 +198,7 @@ test('the stage: off unless asked for; the painted groups\' SVG hidden by an emp
   assert.match(vg, /const om = overSnap \? whole\(overM, WO\) : overM;[\s\S]*?for \(let i = 0; i < 6; i\+\+\) OV_M\[i\] = om\[i\];/);
   assert.match(vg, /stack\.painter\.cssPx = overCss \* PW\(\) \/ canvas\.width;\n\s+if \(over\.stale\(m, PW\(\), PH\(\)\)\) over\.render/);
   // (Below Full the canvas is moved by the vessels' sub-pixel rest: the overlays go at whole pixels with the vessels, in the check and the paint.)
-  assert.match(st, /if \((?:live\.)?(?:live\.)?veins\?\.overlay\) (?:live\.)?(?:live\.)?veins\.overlay\.snap = (?:live\.)?(?:live\.)?vdpr < (?:live\.)?(?:live\.)?vBase - 1e-9;/);
+  assert.match(st, /if \((?:live\.)?(?:live\.)?veins\?\.overlay\) (?:live\.)?(?:live\.)?veins\.overlay\.snap = !!(?:live\.)?(?:live\.)?picNow \|\| (?:live\.)?(?:live\.)?vdpr < (?:live\.)?(?:live\.)?vBase - 1e-9;/);
   assert.equal((vg.match(/overSnap \? whole\(overM, WO\) : overM/g) || []).length, 1, 'one view for the check and the paint');
   assert.equal((vg.match(/overView\(\)/g) || []).length, 3);
   assert.match(vg, /set snap\(v\) \{ overSnap = !!v; \}/);

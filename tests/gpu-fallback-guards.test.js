@@ -91,7 +91,8 @@ test('Pixel budget (8 MP until 11 Nov 2026, now 2 MP, 1 on an iPhone): the defau
   for (const [w, h, k] of [[390, 844, 3], [1024, 1366, 2], [1728, 1117, 2]]) assert.equal(capDensity(k, w, h, 8), k);
   assert.equal(capDensity(2, 2560, 1440, 0), 2);
   const st = stageSource();
-  assert.match(st, /full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);/);
+  // (Figure size caps the picture, not the canvas, since 11 Nov 2026: the canvas keeps at least 1 device px per CSS px, within the 8 MP budget; quarter-mp-big-screen-tricks rec 1.)
+  assert.match(st, /const fullFloor = full \? capDensity\(Math\.min\(1, full\), r\.width, r\.height, 8\) : 0;\n\s+full = capDensity\(full, r\.width, r\.height, figOpt\('cap'\)\);\n\s+if \(full && figOpt\('cap'\) > 0\) full = Math\.max\(full, fullFloor\);/);
   assert.match(st, /const cap = figOpt\('cap'\) \* 1e6, px = w \* h \* \(base \* k\) \*\* 2;\n\s*if \(cap > 0 && px > cap\) k \*= Math\.sqrt\(cap \/ px\);/);
 });
 

@@ -233,17 +233,25 @@ test('Adapt learns the screen again: after a few moves at 60 a second, 60 is the
   assert.ok(n <= 4);
 });
 
-test('Below Full the canvas is moved by the part of a canvas pixel the renderer rounds off; at Full nothing is set', () => {
+test('Below Full the canvas is moved by the part of a canvas pixel the renderer rounds off; at Full nothing is set; under a larger canvas the upscale pass takes the rest', () => {
   const stage = stageSource().replace(/\blive\./g, '');   // (the stage's shared lets read live.x in a part; judged here by their names)
   const body = stage.slice(stage.indexOf('function subPixel('), stage.indexOf('function easeRes('));
-  const veins = { overlay: { snap: null } };
-  const run = (vdpr, vBase, T) => { const vCanvas = { style: { translate: '' } }; new Function('vdpr', 'vBase', 'vCanvas', 'veins', `${body}; subPixel(T);`.replace('subPixel(T);', 'subPixel(arguments[4]);'))(vdpr, vBase, vCanvas, veins, T); return vCanvas.style.translate; };
+  const veins = { overlay: { snap: null }, rest: null, setRest(x, y) { this.rest = [x, y]; } };
+  const run = (vdpr, vBase, T, picNow = null, v = veins) => { const vCanvas = { style: { translate: '' } }; new Function('vdpr', 'vBase', 'vCanvas', 'veins', 'picNow', `${body}; subPixel(T);`.replace('subPixel(T);', 'subPixel(arguments[5]);'))(vdpr, vBase, vCanvas, v, picNow, T); return vCanvas.style.translate; };
   assert.equal(run(2, 2, [1, 0, 0, 1, 10.4, 3.25]), '', 'Full: as on the live site');
   assert.equal(veins.overlay.snap, false, 'Full: the overlays at the figure\'s own transform');
   run(0.5, 2, [1, 0, 0, 1, 10.4, 3.25]);
   assert.equal(veins.overlay.snap, true, 'below Full: the overlays at whole pixels, moved with the vessels');
   assert.equal(run(0.5, 2, [1, 0, 0, 1, 10.4, 3.25]), '0.800px 0.500px', 'the rest of a canvas pixel, in CSS px');
   assert.equal(run(0.5, 2, [1, 0, 0, 1, 10, 3]), '');
+  assert.deepEqual(veins.rest, [0, 0], 'the picture is the canvas: no rest for the upscale pass');
+  // (A picture under the canvas's size (rec 1, 11 Nov 2026): the canvas is not moved, so the labels and glass drawn in it stay where the layout puts them; the picture is moved by the rest in the upscale pass.)
+  assert.equal(run(0.5, 2, [1, 0, 0, 1, 10.25, 3.5], [100, 80]), '', 'the canvas stays');
+  assert.deepEqual(veins.rest, [0.25, -0.5], 'the rest, in picture px');
+  assert.equal(veins.overlay.snap, true);
+  assert.equal(run(2, 2, [1, 0, 0, 1, 10.25, 3], [100, 80]), '', 'also at the picture\'s Full: the canvas is larger than it');
+  assert.ok(Math.abs(veins.rest[0] - 0.25) < 1e-9);
+  assert.equal(run(0.5, 2, [1, 0, 0, 1, 10.4, 3.25], [100, 80], { overlay: { snap: null } }), '0.800px 0.500px', 'a renderer with no setRest keeps the canvas move');
   assert.match(stage, /subPixel\(T\);\n/);
 });
 

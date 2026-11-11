@@ -95,14 +95,14 @@ test('A2: the blood\'s own frame keeps the kept picture it repaints in part: no 
   assert.equal(inv.length, 0, 'a dirty-row composite keeps its load');
 });
 
-test('A2: Sharper upscaling\'s whole-canvas draw and the plain upscale copy invalidate the canvas', () => {
+test('A2: Sharper upscaling\'s whole-canvas draw and the plain upscale draw invalidate the canvas', () => {
   for (const lin of [false, true]) {
     const { g, f, look } = renderer();
     g.setPicture([400, 300], lin);
     const n0 = f.calls.length;
     g.draw([0.5, 0, 0, 0.5, 0, 0], look, { on: false });
     const inv = invals(f, n0).filter(([c]) => c[2][0] === f.gl.COLOR);
-    assert.equal(inv.length, 1, lin ? 'the filtered copy' : 'the upscale draw');
+    assert.equal(inv.length, 1, lin ? 'the upscale draw, one filtered read' : 'the upscale draw');
     assert.equal(boundAt(f, inv[0][1], inv[0][0][1]), null);
   }
 });

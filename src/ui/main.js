@@ -1301,8 +1301,10 @@ function openSettings(anchor, withSearch = false) {
 // While presenting: no extra settings for now (panel width and high contrast were taken out of slides).
 function presenterSettings() { return []; }
 // Settings › Figure size (Mohammad, 8 Nov 2026: "an option to change the megapixels in settings", "even small small ones"): the figure
-// canvas's pixel budget (frame.js figOpt('cap'), stage-res.js figShare), from a quarter of a megapixel to Full (the screen's own density,
-// up to 2x). Fewer pixels: every GPU pass of the figure costs less, the figure is softer; the labels, cards and readings stay sharp.
+// picture's pixel budget (frame.js figOpt('cap'), stage-res.js figShare), from a quarter of a megapixel to Full (the screen's own density,
+// up to 2x). Fewer pixels: every GPU pass of the figure's picture costs less and the picture is softer; the canvas the labels, leaders and
+// glass are drawn in stays at 1 device px per CSS px at least (stage-res.js resizeCanvas), the picture upscaled onto it with its edges
+// steepened (veins-gl.js UP_FS), and the cards and readings stay sharp.
 // Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (2 on a Mac and an iPad, 1 on an iPhone).
 const MP_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 0];
 function figureMpControl() {

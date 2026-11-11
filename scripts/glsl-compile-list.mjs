@@ -48,6 +48,7 @@ const vesNote = (g) => (g.VESSEL_VS ? '' : 'fragment only: veins-gl.js does not 
 add('classic vessel (general) vesselFS(false)', { '../src/ui/veins-gl.js': ['vesselFS'] }, (g) => ({ vs: g.VESSEL_VS ?? null, fs: g.vesselFS(false), note: vesNote(g) }));
 add('classic vessel (one vessel) vesselFS(true)', { '../src/ui/veins-gl.js': ['vesselFS'] }, (g) => ({ vs: g.VESSEL_VS ?? null, fs: g.vesselFS(true), note: vesNote(g) }));
 add('lobule window lay (top.lay with a win: a rounded window)', { '../src/ui/veins-gl.js': ['REUSE_VS', 'LAYW_FS'] }, (g) => ({ vs: g.REUSE_VS, fs: g.LAYW_FS }));
+add('upscale pass (a picture smaller than the canvas: edge steepen, dither, pan rest)', { '../src/ui/veins-gl.js': ['REUSE_VS', 'UP_FS'] }, (g) => ({ vs: g.REUSE_VS, fs: g.UP_FS }));
 add('catheter (EUS scope under the vessels)', { '../src/ui/veins-gl.js': ['CATH_VS', 'CATH_FS'] }, (g) => ({ vs: g.CATH_VS, fs: g.CATH_FS }));
 
 // The Tube (stage 1): its strip and its patch.
