@@ -58,9 +58,12 @@ const cards = [
   el('sheet', rect(20, 640, 500, 140), 'rgba(252, 249, 243, 0.8)', true),
   el('toast', rect(560, 20, 280, 60), 'rgba(252, 249, 243, 0.7)', true),
   el('high-contrast bar', rect(900, 700, 200, 40), 'rgba(252, 249, 243, 0.92)', true),
+  el('menu', rect(980, 60, 180, 220), 'rgba(252, 249, 243, 0.76)', true),
+  el('top bar pill', rect(980, 300, 120, 36), 'rgba(252, 249, 243, 0.42)', true),
 ];
-const menu = el('menu', rect(980, 60, 180, 220), 'rgba(252, 249, 243, 0.76)', false);
-const all = [...cards, menu];
+// (The tooltip is not: its glass is the dark one its words are drawn for (menu-glass.js), so the check sees a declared tint when one is drawn.)
+const tip = el('tooltip', rect(980, 360, 140, 30), 'rgba(30, 29, 27, 0.8)', false);
+const all = [...cards, tip];
 for (const e of all) e.parentElement = stage;
 const look = (e) => ({ display: 'block', visibility: 'visible', opacity: '1', filter: 'none', boxShadow: 'none', borderTopLeftRadius: '16px', borderTopRightRadius: '16px', borderBottomRightRadius: '16px', borderBottomLeftRadius: '16px',
   getPropertyValue: (k) => (k === '--gl-glass' ? '1' : k === '--gl-tint' ? e.tint : k === '--surface' ? SURFACE : '') });
@@ -68,7 +71,7 @@ globalThis.getComputedStyle = (e) => (all.includes(e) ? look(e) : { backgroundCo
 const source = { addEventListener() {}, removeEventListener() {}, width: 2400, height: 1600, getBoundingClientRect: () => rect(0, 0, 1200, 800), getAnimations: () => [], style: {}, parentElement: null, nodeType: 1 };
 
 const F = await import('../src/ui/frame.js');
-const { createGlassGL, CARD } = await import('../src/ui/glass-gl.js');
+const { createGlassGL, CARD, GLASS } = await import('../src/ui/glass-gl.js');
 
 const tops = [];
 const add = (t) => { tops.push(t); tops.sort((a, b) => a.order - b.order); return () => { const i = tops.indexOf(t); if (i >= 0) tops.splice(i, 1); }; };
@@ -100,7 +103,7 @@ function lay() {
 }
 for (let i = 0; i < 20; i++) await frame();
 
-test('every card is drawn with one glass: the same tint and saturation, whatever its own --gl-tint declares', () => {
+test('every card, menu, pill and callout is drawn with one glass: the same tint and saturation, whatever its own --gl-tint declares', () => {
   const draws = lay();
   assert.equal(draws.length, all.length, `every glass drawn: ${draws.length} of ${all.length}`);
   const [r, g, b] = [0xfc / 255, 0xf9 / 255, 0xf3 / 255], a = CARD.tint;
@@ -112,8 +115,9 @@ test('every card is drawn with one glass: the same tint and saturation, whatever
   }
   assert.equal(CARD.tint, 0.66, 'the card glass is the surface at 66 % (app.css --pz-frost)');
   assert.equal(CARD.blur, 22, 'the card glass blurs 22 px');
-  // (The menu is not a card: its own tint, so the check above does see a declared tint when one is drawn.)
-  assert.equal(draws.at(-1).tint[3], 0.76);
+  assert.equal(draws.at(-1).tint[3], 0.8, 'the tooltip keeps its own');
+  // (The callouts' glass is a renderer of its own (stage.js, glass.add callouts), the same look.)
+  assert.deepEqual([GLASS.blur, GLASS.sat, GLASS.tint], [CARD.blur, CARD.sat, CARD.tint], 'the callouts\' glass is the cards\'');
 });
 
 test('the figure dipped under a case card: the glass frosts the figure as it stands, the same as undipped', () => {

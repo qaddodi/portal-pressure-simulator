@@ -15,7 +15,7 @@ test('the GPU glass draws the CSS glass\'s own blur, saturation and tint', () =>
   const m = /\.cl-glass \{[^}]*background: color-mix\(in srgb, var\(--surface\) (\d+)%, transparent\);/.exec(CSS);
   assert.ok(m, 'the CSS glass');
   assert.equal(+m[1] / 100, GLASS.tint);
-  assert.equal(GLASS.blur, 16);
+  assert.equal(GLASS.blur, 22, 'the one glass: the cards\' 22 px (16 px before 11 Nov 2026)');
   assert.equal(GLASS.sat, 1.15);
 });
 

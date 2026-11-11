@@ -3301,7 +3301,7 @@ button.finding { cursor: pointer; }
    its pointer (down to the tip, or up to the wedged vein, for the reading ahead of it) with its 2 px outline.
    The fades run on the label's children, not the label: a faded ancestor would stop the glass seeing the figure behind it. */
 .cath-label > * { opacity: var(--lo); transition: opacity var(--d-surface) var(--ease); }
-.cl-glass { position: absolute; z-index: -1; pointer-events: none; background: color-mix(in srgb, var(--surface) 58%, transparent); }
+.cl-glass { position: absolute; z-index: -1; pointer-events: none; background: color-mix(in srgb, var(--surface) 66%, transparent); }
 .cl-glass path { fill: none; stroke: var(--rg); stroke-width: 4; stroke-linejoin: miter; }
 /* The printed tag (callout.js): the path is stroked 2 px and clipped to its inside, so 1 px shows; the border
    colour carries a fifth of the reading's colour, enough to tell a free tag from a wedged one at the edge without a ring. */
