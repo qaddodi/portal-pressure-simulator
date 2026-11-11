@@ -65,3 +65,15 @@ export const needsLeader = (region, gapPx, hadLeader) => !region && (gapPx > LEA
 export const boxGap = (b, x, y) => Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1));
 // The two costs a leader pays in a placement: free up to SHORT_LEAD px, dearer to LONG_LEAD, never beyond.
 export const SHORT_LEAD = 45, LONG_LEAD = 140;
+// How far (x, y) is from the triangle: 0 inside it.
+function triSide(a, b, x, y) { return (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]); }
+export function triDist(x, y, tri) {
+  const s0 = triSide(tri[0], tri[1], x, y), s1 = triSide(tri[1], tri[2], x, y), s2 = triSide(tri[2], tri[0], x, y);
+  if ((s0 >= 0 && s1 >= 0 && s2 >= 0) || (s0 <= 0 && s1 <= 0 && s2 <= 0)) return 0;
+  let m = Infinity;
+  for (let k = 0; k < 3; k++) {
+    const a = tri[k], b = tri[(k + 1) % 3], ex = b[0] - a[0], ey = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * ex + (y - a[1]) * ey) / (ex * ex + ey * ey || 1)));
+    m = Math.min(m, Math.hypot(x - a[0] - ex * t, y - a[1] - ey * t));
+  }
+  return m;
+}

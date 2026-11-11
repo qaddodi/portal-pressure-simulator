@@ -452,6 +452,7 @@ export function createLabelItems(st, live) {
       const rowFrom = n;
       for (let i = 0; i < line.length; i++) {
         const r = line[i];
+        if (r.sfx) continue;   // (the heart's reading after a label is not what its leader aims at: heart-label.js)
         const f = fontPx(r.size), tr = r.track || 0, w = textW(r.t, f, r.weight, tr);
         if (i) x += (r.gap ?? 3) * live.labelK;
         let from = 0;

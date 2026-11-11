@@ -149,7 +149,9 @@ test('the figure hook hands the stage a slide\'s callouts, fills them as the mod
   F.figure[0].clear();
   assert.equal(got.at(-1), null);
   F.figure[0].show({ ...ctx, slide: { title: 'Plain' } });
-  assert.equal(got.at(-1), null, 'a slide with none of the fields asks for nothing');
+  assert.equal(got.at(-1)?.heart, true, 'a figure slide with none of the fields still carries the heart\'s rate and output (heart-label.js)');
+  F.figure[0].show({ ...ctx, slide: { title: 'Plain', noHeartReading: true } });
+  assert.equal(got.at(-1), null, 'a slide with none of the fields and no heart reading asks for nothing');
 });
 
 test('a reading\'s pill stands 12 px inside the stage, clear of drawn shapes by its gap, and faces out past a caliper\'s end', () => {

@@ -4,6 +4,7 @@ import { EDGES } from '../engine/topology.js';
 import { CHIP_NODES } from './anatomy.js';
 import { afterMotion, cancelFrame, cancelMay, frameFor, inMotion, mayTask } from './frame.js';
 import { COUNTED, gpuProbe } from './gpu-probe.js';
+import { HEART_KEY, addHeart } from './heart-label.js';
 import { store } from './store.js';
 
 export function createLabelDriver(st, live) {
@@ -334,9 +335,11 @@ export function createLabelDriver(st, live) {
   function refreshValues(f) {
     const next = refreshNext;
     next.length = 0;
+    const heartOn = live.labelSol.get(HEART_KEY)?.on;
     for (const it of live.labelShown) {
       const [kind, id, mode, compact] = it.src;
-      const n = kind === 'fx' ? fxBuild.get(id)?.() : kind === 'res' ? resItem(id) : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      const n = kind === 'hz' ? { ...it, lines: it.lines.slice(0, 1) } : kind === 'fx' ? fxBuild.get(id)?.() : kind === 'res' ? resItem(id) : kind === 'vel' ? velItem(id, f, mode) : kind === 'scan' ? scanItem() : nodeItem(id, f, mode, compact);
+      if (n && heartOn?.has(it.key)) addHeart(n, f);   // (the heart's rate and output the last solve gave this label: heart-label.js)
       if (!n) return false;   // (a slide's callout gone: lay out again)
       if (it.short || it.abbr) shortenTo(n, it.short || 0, it.abbr);
       if (n.lines.length !== it.lines.length || Math.abs(n.w - it.w) > 0.5 || Math.abs(n.h - it.h) > 0.5) return false;

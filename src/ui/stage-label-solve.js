@@ -5,8 +5,9 @@ import { ATLAS_COLUMNS, ATLAS_LABELS, CHIP_NODES, CIRCUIT_LABELS, CIRCUIT_ZONES,
 import { SPAN_TICK, besideLine, clearOf, insideBy, organAnchor, spanOf, stepGroups } from './callout-math.js';
 import { bareDots } from './circuit-nodes.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
+import { heartPass } from './heart-label.js';
 import { HOVER_LINK } from './hover-link.js';
-import { RING_DIRS, boxGap, crosses, hits, needsLeader, offset, within } from './label-place.js';
+import { RING_DIRS, boxGap, crosses, hits, needsLeader, offset, triDist, within } from './label-place.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { NAME_BREAK, nameSpots } from './organ-names.js';
 import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
@@ -124,18 +125,6 @@ export function createLabelSolve(st, live) {
     return out;
   }
   function boxOfEl(el, m = 2) { const b = boxOfElInto(BOX_TMP, el, m); return b && { x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 }; }
-  // How far (x, y) is from the triangle: 0 inside it.
-  function triSide(a, b, x, y) { return (b[0] - a[0]) * (y - a[1]) - (b[1] - a[1]) * (x - a[0]); }
-  function triDist(x, y, tri) {
-    const s0 = triSide(tri[0], tri[1], x, y), s1 = triSide(tri[1], tri[2], x, y), s2 = triSide(tri[2], tri[0], x, y);
-    if ((s0 >= 0 && s1 >= 0 && s2 >= 0) || (s0 <= 0 && s1 <= 0 && s2 <= 0)) return 0;
-    let m = Infinity;
-    for (let k = 0; k < 3; k++) {
-      const a = tri[k], b = tri[(k + 1) % 3], ex = b[0] - a[0], ey = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * ex + (y - a[1]) * ey) / (ex * ex + ey * ey || 1)));
-      m = Math.min(m, Math.hypot(x - a[0] - ex * t, y - a[1] - ey * t));
-    }
-    return m;
-  }
   // (The layout itself, a generator: a solve yields between labels once its slice is spent (sliceOver); run whole, it never yields.)
   function* layoutLabelsGen(f, solve, dry = false) {
     live.frameNo++;
@@ -1381,6 +1370,8 @@ export function createLabelSolve(st, live) {
     // Leader lines and anchor dots, for the labels showing. (Every line goes down before any dot, so no leader runs over a dot.)
     // (A stent's point: its dot sits on a solid disc of the stage's colour, and every leader that ends there, its own or the slide's
     // mark's, stops 2 px outside the disc; one left shorter than 4 px is not drawn: Review 15 Oct.)
+    // The heart's rate and output, after every label is placed, only where it fits beside its label (heart-label.js).
+    heartPass(out, { f, solve, circuit, on: !!live.fx?.heart, sol: nextSol, was: prevSol, lineW, LINE_H, lineHits: useLines ? lineHits : null, obstacles, view: (it) => viewOf(it, S), boxOf, rectOf, leaderEnd });
     labelGlide(out);
     // No flow arrowhead runs under a reading that has to sit on its vessel (veins-gl.js noChev; world boxes, 3 px of air: its halo's reach).
     // (Taken where the label is drawn this frame, after its glide, not where it is going: the boxes ran ahead of a gliding

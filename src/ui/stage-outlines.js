@@ -366,7 +366,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   }
   const fxWide = new Map(), fxBuild = new Map(), fxEls = new Map();
   function setCallouts(sp) {
-    const sig = sp ? JSON.stringify([Object.keys(sp.live || {}), (sp.organs || []).map((o) => o.organ + o.kind), (sp.calipers || []).map((c) => c.id), sp.steps, (sp.spans || []).map((x) => x.from + x.to), sp.zone]) : '';
+    const sig = sp ? JSON.stringify([Object.keys(sp.live || {}), (sp.organs || []).map((o) => o.organ + o.kind), (sp.calipers || []).map((c) => c.id), sp.steps, (sp.spans || []).map((x) => x.from + x.to), sp.zone, !!sp.heart]) : '';
     if (!sp || sig !== live.fxSig) { fxWide.clear(); for (const [k, b] of live.pool) if (k.startsWith('fxs:')) b.fxIn = false; }
     live.fx = sp ? { live: {}, organs: [], calipers: [], steps: null, spans: [], zone: -1, ...sp } : null; live.fxSig = sig;
     const band = live.fx && zoneBand(live.fx.zone);
