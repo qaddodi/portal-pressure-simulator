@@ -165,7 +165,7 @@ export function createHvpgProcedure() {
       t = performance.now() - t0;
       if (!result && !blocked && t >= T.result) finish();
       figure();
-      paintSide(); draw();
+      paintSide(); sweeping = true; draw(); sweeping = false;
       if (t < tEnd()) raf = nextFrame(step);
       else { raf = 0; stageRef?.setCatheter(null); logAction('hvpg', blocked ? 'aborted' : 'measured'); }
     };
@@ -308,7 +308,8 @@ export function createHvpgProcedure() {
   // ── The tracing ──────────────────────────────────
   const drawSt = { ph: '', t: 0, v: null, blocked: false, running: false, wave: null };   // (what the tracing is handed: kept, written in place, read at once)
   const wave = newWave();   // (the model's beat and breath, which the trace's waves follow: hvpg-clock.js syncWave)
-  const draw = () => { drawSt.ph = phase(); drawSt.t = t; drawSt.v = values(); drawSt.blocked = blocked; drawSt.running = t0 != null; drawSt.wave = syncWave(wave, now(), t, performance.now()); drawTrace(cv, drawSt, gpu); };
+  let sweeping = false;   // (a sweep frame is being drawn: the one draw that moves the waves on)
+  const draw = () => { drawSt.ph = phase(); drawSt.t = t; drawSt.v = values(); drawSt.blocked = blocked; drawSt.running = t0 != null; if (sweeping || !wave.on) syncWave(wave, now(), t, performance.now()); drawSt.wave = wave; drawTrace(cv, drawSt, gpu); };   // (the waves follow the model's clock only while the sweep runs; at rest, a resize or a context restore redraws the trace with the waves it was last drawn with)
 
   function update(f) {
     frame = f;
@@ -356,7 +357,8 @@ export function createHvpgMonitor() {
   const phase = () => (t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
   const drawSt = { ph: '', t: 0, v: null, blocked: false, running: true, wave: null };   // (what the tracing is handed: kept, written in place, read at once)
   const wave = newWave();   // (the model's beat and breath, which the trace's waves follow: hvpg-clock.js syncWave)
-  const draw = () => { drawSt.ph = phase(); drawSt.t = t; drawSt.v = live(); drawSt.wave = syncWave(wave, store.get().frame, t, performance.now()); drawTrace(cv, drawSt, gpu); };
+  let sweeping = false;   // (a sweep frame is being drawn: the one draw that moves the waves on)
+  const draw = () => { drawSt.ph = phase(); drawSt.t = t; drawSt.v = live(); if (sweeping || !wave.on) syncWave(wave, store.get().frame, t, performance.now()); drawSt.wave = wave; drawTrace(cv, drawSt, gpu); };   // (as the procedure's: the waves move on only in a sweep frame, so the card zoomed open or shut redraws the very trace it had)
   // The balloon is the clock for the pressure's rise: the trace climbs exactly as far as the balloon is filled, so it
   // waits at the free level until the balloon starts to fill, holds its plateau once it is up, and comes back down
   // with it. Past the wedge (balloon up) the trace runs on its own clock again.
@@ -368,7 +370,7 @@ export function createHvpgMonitor() {
     else if (mode === 'free' && t >= T.inflate) t = SPAN.free[0];   // the balloon is down: the free trace sweeps in afresh
     else if (rising()) t = bal > 0 ? timeOfBalloon(bal) : Math.min(t + dt, T.inflate);
     else t = Math.min(t1, t + dt);
-    draw();
+    sweeping = true; draw(); sweeping = false;
     // (The sweep runs to its end even while its card is off the page a moment (zoomed open, moved as a slide settles): it is drawn there
     // once the card is back. Only the balloon's rise and fall wait for the card.)
     raf = t < t1 || (el.isConnected && (falling() || rising())) ? nextFrame(step) : 0;
