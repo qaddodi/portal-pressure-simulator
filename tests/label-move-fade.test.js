@@ -16,17 +16,17 @@ const take = (head) => {
 function rig() {
   const state = { ghosts: [], xfNew: 1, xfOld: 1, frameSeq: 0, reduce: false };
   const make = new Function('state', 'D_SMALL', 'easeMove', `
-    const pinLast = new WeakMap(); const MOVE_PX = 3;
+    const pinLast = new WeakMap(); const MOVE_PX = 3; const dpr = 1;
     const newPinRec = ${SRC.match(/const newPinRec = (.*);\n/)[1]};
     const REDUCE = { get matches() { return state.reduce; } };
     const ghosts = state.ghosts;
     const frameSeq_ = () => state.frameSeq;
-    ${take('function moveFade(g, ox, oy, now)').replace(/\bxfNew\b/g, 'state.xfNew').replace(/\bxfOld\b/g, 'state.xfOld').replace(/\bframeSeq\b/g, 'state.frameSeq')}
+    ${take('function moveFade(g, ox, oy, now, st)').replace(/\bxfNew\b/g, 'state.xfNew').replace(/\bxfOld\b/g, 'state.xfOld').replace(/\bframeSeq\b/g, 'state.frameSeq')}
     return { moveFade, pinLast };`);
   const { moveFade, pinLast } = make(state, D_SMALL, easeMove);
   const g = { dataset: { key: 'n:portal' } };
   // (one drawn frame: the sequence number goes up, then the label is placed)
-  const frame = (ox, oy, now, grp = g) => { state.frameSeq++; return moveFade(grp, ox, oy, now); };
+  const frame = (ox, oy, now, grp = g, st) => { state.frameSeq++; return moveFade(grp, ox, oy, now, st); };
   return { state, frame, g, pinLast };
 }
 
@@ -75,5 +75,16 @@ test('during a view change (ghosts, or the change\'s own crossfade) and with Red
   frame(10, 10, 48);
   state.reduce = true;
   assert.equal(frame(80, 80, 64).on, false, 'Reduce Motion: instant');
+});
+test('a move that leaves the old and the new box overlapping, or of a label whose picture changed, is taken at once (no words drawn twice)', () => {
+  const { frame } = rig();
+  const st = { w: 90, h: 20, key: 'SMV 9.9' };
+  frame(10, 10, 0, undefined, st);
+  assert.equal(frame(17, 10, 16, undefined, st).on, false, '7 px on a 90 px label: a digit rolled over, the boxes overlap');
+  assert.equal(frame(17, 29, 32, undefined, st).on, false, '19 px down on a 20 px label: still overlapping');
+  assert.equal(frame(17, 49, 48, undefined, st).on, true, 'a whole label height away: another place, fades');
+  const t = rig();
+  t.frame(10, 10, 0, undefined, { w: 90, h: 20, key: 'a' });
+  assert.equal(t.frame(300, 10, 16, undefined, { w: 90, h: 20, key: 'b' }).on, false, 'the picture is not the one that stood there');
 });
 // (The draw's fade assertions on label-gl.js are rules in scripts/source-shapes/b.mjs.)

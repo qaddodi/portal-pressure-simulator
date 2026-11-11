@@ -798,7 +798,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // leader and dot it had, the frame it was drawn in, and a fade to the new offset while one runs: mf (0 to 1, the new place's share), mx and
   // my (where it stood), mw (what it had), mt (when the fade began), ms (the frame the share was worked out in).)
   const pinLast = new WeakMap();   // group -> record, made once
-  const newPinRec = (key) => ({ key, ox: 0, oy: 0, want: 0, seq: -9, on: false, mf: 1, mx: 0, my: 0, mw: 0, mt: 0, ms: -1 });
+  const newPinRec = (key) => ({ key, pk: '', ox: 0, oy: 0, want: 0, seq: -9, on: false, mf: 1, mx: 0, my: 0, mw: 0, mt: 0, ms: -1 });
   // (A label with a world anchor (pwv set: step 3, every figure label) is pinned by that world point, taken to the stage under the camera of this frame;
   // a station's is named by its id. Either way the label is its point now plus its layout's offset.)
   const pinOf = (s) => {
@@ -829,13 +829,18 @@ void main() { o = texture(uT, vUV) * uA; }`;
   }
   // (A pinned label's place this frame against the one it was drawn at last frame, offset ox, oy: a move of more than MOVE_PX, with nothing else
   // moving the labels, begins a fade from the old place to the new. Returns the label's record, its fade worked out for this frame (on, mf, mx, my).)
-  function moveFade(g, ox, oy, now) {
+  // (11 Nov 2026, Mohammad's screenshot: "SMV 9.9" drawn twice, overlapping. A label whose number changes width (9.9, 10.0) is laid out again by a few pixels at
+  // each rollover, and a fade over so short a move draws its words twice, a few pixels apart, for a quarter of a second. The fade is for a label put in another
+  // place: a move that leaves the old and the new box overlapping is taken at once, and so is the move of a label whose picture is not the one that stood there.)
+  function moveFade(g, ox, oy, now, st) {
     const key = g.dataset?.key || '';
     let pr = pinLast.get(g);
     if (!pr || pr.key !== key) pinLast.set(g, pr = newPinRec(key));   // alloc-rare: one per pinned label (a new one when the pool gives the group to another label)
     const calm = !ghosts.length && xfNew >= 1 && xfOld >= 1 && !REDUCE?.matches;
+    const same = !st || pr.pk === st.key, apart = !st || !(st.w > 0) || Math.abs(ox - pr.ox) * dpr >= st.w || Math.abs(oy - pr.oy) * dpr >= st.h;
+    if (st) pr.pk = st.key;
     if (!calm) pr.on = false;
-    else if (pr.seq === frameSeq - 1 && (Math.abs(ox - pr.ox) > MOVE_PX || Math.abs(oy - pr.oy) > MOVE_PX)) {
+    else if (same && apart && pr.seq === frameSeq - 1 && (Math.abs(ox - pr.ox) > MOVE_PX || Math.abs(oy - pr.oy) > MOVE_PX)) {
       // (Begun from where it stands drawn: a fade already running lets go of its old place, which was only a part shown.)
       pr.on = true; pr.mx = pr.ox; pr.my = pr.oy; pr.mw = pr.want; pr.mt = now;
     }
@@ -1644,7 +1649,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
         pinOff(s);
         const ox = OFF[0], oy = OFF[1];
         st.pox = ox; st.poy = oy; st.pin = true; st.ppx = PIN[0]; st.ppy = PIN[1];
-        pr = moveFade(g, ox, oy, now);
+        pr = moveFade(g, ox, oy, now, st);
         if (pr.on) moving = true;
         pinDev(st); x = PD[2]; y = PD[3];
       } else if (rideM) {
