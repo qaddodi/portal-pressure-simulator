@@ -8,7 +8,7 @@ Kept here so every statement number in `src/ui/decks/` can be checked against th
 
 ## Asked for, not in the folder yet
 
-Both were asked for on 8 Nov 2026. The cloud sandbox that builds the app cannot reach PubMed, EASL or the journals' sites, so the PDFs have to be added by hand. Until they are here, no deck cites them, and anything that rests on them (items 5, 34 and 35 of the 11 Nov content review: ascites albumin doses, an albumin deck, a Budd–Chiari deck) waits.
+Both were asked for on 8 Nov 2026. The cloud sandbox that builds the app cannot reach PubMed, EASL or the journals' sites, so the PDFs have to be added by hand. Until they are here, a statement cited to either one cannot be checked against a file in the folder, so say in the deck's notes that it was not.
 
 - `easl-2025-vascular-liver-diseases.pdf`: EASL Clinical Practice Guidelines on vascular diseases of the liver, Journal of Hepatology 2025 (to be cited as "EASL 2025").
 - `aasld-2021-ascites.pdf`: Biggins et al., *Diagnosis, evaluation, and management of ascites, spontaneous bacterial peritonitis and hepatorenal syndrome: 2021 practice guidance by the AASLD*, Hepatology 2021 (to be cited as "AASLD 2021").
