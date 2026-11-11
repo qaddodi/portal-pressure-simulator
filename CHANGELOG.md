@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Fix: the caudate lobe and its short veins were drawn in the normal view after all.** (Mohammad's screenshot of the preview, 11 Nov.) The lobe's group started switched on, and it was only switched off when a slide arrived or left, so a figure that opened with no slide kept it on screen. It now starts off, as it did before the 11 Nov changes.
+
 - **The circuit's caudate vein lane is hidden in the normal view too.** (Mohammad, 11 Nov.) It shows only while a slide is about the caudate, like the lobe and its short veins on the plate.
 
 - **The caudate lobe and its short veins show only on a slide about them again, and the veins taper to a point.** (Mohammad, 11 Nov: not in the normal views; his screenshot showed stubs with rounded caps and no visible lobe.)

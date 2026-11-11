@@ -1172,7 +1172,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
   const caud = (() => {
     const [ax, ay] = CAUDATE.anchor, W = CAUDATE.wall;
-    const g = s('g', { class: 'caud on', style: `transform-origin:${ax}px ${ay}px` });
+    const g = s('g', { class: 'caud gone', style: `transform-origin:${ax}px ${ay}px` });
     let defsHtml = '<radialGradient id="caudDome"><stop offset="0" class="caud-d0"/><stop offset=".55" class="caud-d1"/><stop offset="1" class="caud-d2"/></radialGradient>'
       + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 1}" y1="0" x2="${W + 4}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
       + `<mask id="caudMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudFade)"/></mask>`;
@@ -1207,7 +1207,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Where the lobe was, and which way it grew (Mohammad's pick B, 11 Nov 2026): its normal outline dashed, and an arrow out of it at the top
     // and bottom. Not in the grown group (it stays at the normal size) and shown by the enlargement only: its opacity follows how far the
     // lobe has grown (sync), under the same on / gone / circuit rules as the lobe. No label on the dashed line.
-    const gm = s('g', { class: 'caud caud-m on' });
+    const gm = s('g', { class: 'caud caud-m gone' });   // (off until a slide pins the caudate: pinOrgans calls show only on a slide's arrival or exit, so a figure that opens with none must start off)
     const mk = s('g', { class: 'caud-mk', style: 'opacity:0' });
     mk.append(s('path', { d: CAUDATE.outline, class: 'caud-norm' }));
     for (const [x1, y1, x2, y2] of CAUDATE.arrows) {
