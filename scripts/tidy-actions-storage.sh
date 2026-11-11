@@ -27,13 +27,13 @@ arts=$(gh api --paginate "repos/$R/actions/artifacts?per_page=100" -q '.artifact
 
 # Caches: every entry but the newest of its kind and branch, and anything idle for two days.
 jq -r --argjson now "$now" '
-  map(. + {kind: (.key | sub("-[^-]*$"; "")), used: (.last_accessed_at | fromdateiso8601)})
+  map(. + {kind: (.key | sub("-[^-]*$"; "")), used: (.last_accessed_at | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)})
   | group_by([.kind, .ref])
   | map(sort_by(.used) | reverse | to_entries | map(select(.key > 0 or ($now - .value.used) > 172800) | .value))
   | flatten | .[] | "\(.id) \(.size_in_bytes) \(.key)"' <<<"$caches" |
 while read -r id size key; do echo "cache $key ($(mb "$size"))" >> "$out"; del "repos/$R/actions/caches/$id"; done
 
 # Artifacts older than a day.
-jq -r --argjson now "$now" '.[] | select(($now - (.created_at | fromdateiso8601)) > 86400) | "\(.id) \(.size_in_bytes) \(.name)"' <<<"$arts" |
+jq -r --argjson now "$now" '.[] | select(($now - (.created_at | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601)) > 86400) | "\(.id) \(.size_in_bytes) \(.name)"' <<<"$arts" |
 while read -r id size name; do echo "artifact $name ($(mb "$size"))" >> "$out"; del "repos/$R/actions/artifacts/$id"; done
 echo "Done." >> "$out"
