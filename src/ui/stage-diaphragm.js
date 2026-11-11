@@ -99,6 +99,7 @@ export function createDiaphragm(st, live) {
   const lvTargets = [0, 0, 0];   // (read at once by its callers)
   // (What updateOrgans hands the probe's timed calls, kept: the calls are fixed functions that read these, so none is made in a frame.)
   let orgMoving = false, orgPA2 = null, orgShrink = 1, caudBin = NaN;
+  let caputK = null;   // (the caput medusae's held share, updateOrgans)
   let pseEl = null;   // (the embolized spleen's infarct group, found once: stage.js detailFor)
   const orgMorphLiver = () => morphLiver(live.lvC, live.lvG, orgMoving);
   const orgCaudate = () => { caudBin = heldBin(caudBin, orgPA2[NI.IVCS] + 0.5); caud.sync(pressureColor(caudBin), live.caudK); };   // (the colour's bin held: a pressure breathing across a bin's edge must not flip the lobe's colour, and the organ layer with it)
@@ -151,13 +152,17 @@ export function createDiaphragm(st, live) {
       caud.stented(!!p.dips?.on);
       gpuProbe.time(null, 'organs: caudate', orgCaudate);
     }
-    const c3 = recruitFrac('C3', f);
-    abdTo((clamp((c3 - 0.1) / 0.4, 0, 1) * 0.9 * k).toFixed(2));
-    // The umbilicus is a landmark only for the paraumbilical vein that runs to it: with that vein closed, it was a lone ring
+    // The caput medusae: one value for everything that belongs to it (the skin's tint around the navel, the navel's ring, the epigastric
+    // veins and the paraumbilical vein, stage-frame edgeVisible and stage-tubes), from the vein's recruitment (0 closed, 1 as wide as it
+    // grows): it starts at 15% and is whole at 45%, and a finding the view keeps hidden takes all of it away. Held in steps of 5%, so a
+    // wobble in the model never moves it; the tint then eases to each new step (stage.js abdTo).
+    caputK = stepHeld(caputK, findingHidden('coll') ? 0 : clamp((recruitFrac('C3', f) - 0.15) / 0.3, 0, 1), 0.05);
+    abdTo((caputK * 0.9 * k).toFixed(2));
+    // The navel is a landmark only for the paraumbilical vein that runs to it: with that vein closed, it was a lone ring
     // in the empty abdomen beside the gut (sweep batches 02–04). It fades in as the vein opens, as the caput's veins do, in
     // quarter steps (the organs' raster is drawn again at each step: plateStateKey).
     if (organEls.umbilicus) {
-      const op = QUARTERS[Math.round(4 * (findingHidden('coll') ? 0 : clamp((c3 - 0.15) / 0.3, 0, 1)))];
+      const op = QUARTERS[Math.round(4 * caputK)];
       if (organEls.umbilicus.getAttribute('opacity') !== op) organEls.umbilicus.setAttribute('opacity', op);
     }
     const sc = f.slow.spleen / 11;

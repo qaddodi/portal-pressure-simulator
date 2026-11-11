@@ -13,6 +13,7 @@ import { recordLayer } from './over-records.js';
 import { lerpVT } from './cam-arc.js';
 import { VIEW_CHANGE_S, viewXfCamU } from './view-xf.js';
 import { easeArrive, easeMove, createGlideTracker, CAM_MS_MAX, D_SURFACE } from './ease.js';
+import { createSoftFade } from './soft-fade.js';
 import { spleenMotion } from './spleen-motion.js';
 import { segHitsBox, lineIndex, lineIndexBuf, indexHits } from './seg-hits.js';
 import { COLON_ART, BOWEL_ART, DUO_CLIPS, DUO_B } from './organ-art.js';
@@ -936,20 +937,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   gOver.before(abdWall);
   // The abdominal wall's fade, eased here a frame at a time (its opacity attribute, which the overlays' GPU painter reads at each paint),
   // not by a CSS transition: one the browser eases is invisible to the painter, so while it ran the wall and every overlay above it
-  // went back to the SVG (stage-over.js).
-  const abdE = { from: 0, to: 0, t0: 0, raf: 0 };
-  const abdStep = (now) => {
-    abdE.raf = 0;
-    const k = Math.min(1, (now - abdE.t0) / D_SURFACE), v = abdE.from + (abdE.to - abdE.from) * easeArrive(k);
-    putA(abdWall, 'opacity', k >= 1 ? abdE.to.toFixed(2) : v.toFixed(3));
-    if (k < 1) abdE.raf = drawFrame(abdStep);
-  };
-  function abdTo(v) {
-    if (reduceMotion.matches) { if (abdE.raf) cancelFrame(abdE.raf); abdE.raf = 0; abdE.to = +v; putA(abdWall, 'opacity', v); return; }
-    if (+v === abdE.to) return;
-    abdE.from = parseFloat(abdWall.getAttribute('opacity')) || 0; abdE.to = +v; abdE.t0 = performance.now();
-    if (!abdE.raf) abdE.raf = drawFrame(abdStep);
-  }
+  // went back to the SVG (stage-over.js). Soft and slow, and it bends when its target moves again (soft-fade.js).
+  const abdFade = createSoftFade({ write: (v) => putA(abdWall, 'opacity', v), frame: drawFrame, cancel: cancelFrame, reduced: () => reduceMotion.matches, now: () => performance.now() });
+  const abdTo = abdFade.to;
   const ascitesPath = s('path', { class: 'ascites-fill', d: '', fill: 'url(#fluid)' });
   const ascitesLine = s('path', { class: 'ascites-line', d: '' });
   gAscites.append(ascitesPath, ascitesLine);
