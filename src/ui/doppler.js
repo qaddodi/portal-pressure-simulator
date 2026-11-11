@@ -1022,6 +1022,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
   }
   function drawWith({ ctx, w, h: hh }, now) {
     labBusy = false;
+    // (A box too small to hold a trace draws nothing, and so hands over a clear picture: the opaque black below was laid before the size
+    // guard further down, so a box measured under 60 px for a frame, a card still laying out or easing in, was handed over as a flat black
+    // rectangle at its place. 11 Nov 2026, Mohammad's iPad: "a black rectangle at the top left".)
+    if (w < 60 || hh < 60) { traceBox = null; return; }
     const z = canvasSize(cv), CW = z.W, CH = z.H, dpr = CW / Math.max(1, w), onPen = ctx.onGPU === true;
     ctx.fillStyle = cssVar('--black');
     gpu?.attach(onPen ? ctx.gpu : null);   // (the drawer's context this frame is drawn in: the trace is drawn there, doppler-gl.js)
