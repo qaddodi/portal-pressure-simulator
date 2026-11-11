@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **The caudate lobe is drawn like the other organs, and its veins fade in and join the cava.** (Mohammad's screenshots, 11 Nov: a thin pale outline with a notch, veins as spikes.)
+  The lobe is one smooth closed curve (the hull of its two ellipses, so no notch) with the tissue's gradient, volume, lit inner edge and the same thin outline as the organs. Each vein comes up out of the lobe's tissue (faded in over its first 18 units, no end to see), takes its caliber in a short run and runs on past the cava's wall, fading out over the wall. `tests/caudate-redraw.test.js` checks it on the real stage in Node (no render was allowed): nothing of it is on with no slide, all of it is while a slide pins the caudate, the outline turns one way all round, and each vein is narrow at its start and reaches past the wall.
+
 - **Fix: a figure label drawn twice, overlapping ("SMV 9.9").** (Mohammad's screenshot, 11 Nov.) A pinned label whose number changes width is laid out again by a few pixels at each rollover, and the fade a pinned label does when a layout moves it drew its words twice, a few pixels apart, for a quarter of a second. `moveFade` (label-gl.js) now fades only a label put in another place, one whose old and new boxes do not overlap, and never a label whose picture changed; a smaller move is taken at once (`tests/label-move-fade.test.js`).
 
 - **The TIPS stent's mesh ends at the walls of the veins, not at their centre lines.** (Mohammad, 11 Nov: "the ends are very very bad".) The rails, the cover and the end bars were laid half the stent's width either side of the node in the middle of each vein, so at the hepatic vein they stuck out over its far wall and its side. `stentSpan` (stage-transitions.js) now starts the mesh at the wall of the vein the stent leaves and stops it at the wall of the one it enters (a vein's half-width, never more than 30 % of the course); the bare stretch and the DIPS and stent-tool shunts use it too.

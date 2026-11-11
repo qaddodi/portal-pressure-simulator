@@ -1179,32 +1179,38 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const [ax, ay] = CAUDATE.anchor, W = CAUDATE.wall;
     const g = s('g', { class: 'caud gone', style: `transform-origin:${ax}px ${ay}px` });
     let defsHtml = '<radialGradient id="caudDome"><stop offset="0" class="caud-d0"/><stop offset=".55" class="caud-d1"/><stop offset="1" class="caud-d2"/></radialGradient>'
-      + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 1}" y1="0" x2="${W + 4}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+      + `<linearGradient id="caudFade" gradientUnits="userSpaceOnUse" x1="${W - 3}" y1="0" x2="${W + 9}" y2="0"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>`
       + `<mask id="caudMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudFade)"/></mask>`;
-    const lobe = s('g', { class: 'caud-lobe' });
-    for (const [cx, cy, rx, ry, a] of CAUDATE.lobe) {
-      const at = { cx, cy, rx, ry, transform: `rotate(${a} ${cx} ${cy})` };
-      lobe.append(s('ellipse', { ...at, fill: 'url(#caudDome)' }), s('ellipse', { ...at, fill: 'url(#caudDome)' }));   // (twice: one pass was too faint to see on the liver's own tone)
-    }
-    lobe.append(s('path', { d: CAUDATE.outline, class: 'caud-rim' }));   // (a soft rim, so the lobe reads as a shape)
+    // The lobe is drawn as the organs are (stage-organs.js): a soft dome, the tissue's own gradient and volume, a lit inner edge and the
+    // one thin outline in the tissue's darker tone, all on one smooth curve (CAUDATE.outline). It carries the liver's three tones.
+    const lobe = s('g', { class: 'caud-lobe tone-liver' });
+    defsHtml += `<clipPath id="caudClip"><path d="${CAUDATE.outline}"/></clipPath>`;
+    for (const [cx, cy, rx, ry, a] of CAUDATE.lobe) lobe.append(s('ellipse', { cx, cy, rx, ry, transform: `rotate(${a} ${cx} ${cy})`, fill: 'url(#caudDome)' }));
+    lobe.append(s('path', { d: CAUDATE.outline, class: 'caud-fill', fill: 'url(#og-liver)' }), s('path', { d: CAUDATE.outline, class: 'caud-form', fill: 'url(#ogVol)' }),
+      s('path', { d: CAUDATE.outline, class: 'org-rimlight', 'clip-path': 'url(#caudClip)', transform: 'translate(2 3)' }), s('path', { d: CAUDATE.outline, class: 'caud-line' }));
     const veinsG = s('g', { mask: 'url(#caudMask)', class: 'caud-veins' });
     CAUDATE.veins.forEach(([d, w], i) => {
-      const n = d.match(/-?\d+(?:\.\d+)?/g).map(Number), P0 = [n[0], n[1]], C = [n[2], n[3]], P1 = [n[4] + 3, n[5] - 1.5];   // (on into the wall, where it fades)
+      const n = d.match(/-?\d+(?:\.\d+)?/g).map(Number), P0 = [n[0], n[1]], C = [n[2], n[3]], P1 = [n[4] + 8, n[5] - 2];   // (on into the cava, where it fades out)
       const bez = (t, j) => (1 - t) ** 2 * P0[j] + 2 * (1 - t) * t * C[j] + t * t * P1[j];   // (the curve's x (j 0) or y (j 1) at t)
-      // The outline of a tube that grows from nothing inside the lobe (a point, not a rounded cap) and flares a little into the cava.
+      // Each vein comes up out of the lobe's own tissue (a mask that fades it in over its first 18 units, so it has no end to see) and takes
+      // its caliber in a short run, then flares a little into the cava's wall.
+      defsHtml += `<linearGradient id="caudmaskg${i}" gradientUnits="userSpaceOnUse" x1="${P0[0]}" y1="0" x2="${P0[0] + 18}" y2="0"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#fff"/></linearGradient>`
+        + `<mask id="caudIn${i}" maskUnits="userSpaceOnUse" x="0" y="0" width="${VIEW.w}" height="${VIEW.h}"><rect x="0" y="0" width="${VIEW.w}" height="${VIEW.h}" fill="url(#caudmaskg${i})"/></mask>`;
       const tube = (pad) => {
         const L = [], R = [];
         for (let k = 0; k <= 20; k++) {
           const t = k / 20, tq = Math.min(1, t + 0.01), tr = Math.max(0, t - 0.01);
           const px = bez(t, 0), py = bez(t, 1), qy = bez(tq, 1), qx = bez(tq, 0), ry = bez(tr, 1), rx = bez(tr, 0);
           let nx = -(qy - ry), ny = qx - rx; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
-          const h = ((w / 2) * Math.min(1, t / 0.8) ** 0.85 * (1 + 0.25 * Math.max(0, (t - 0.75) / 0.25) ** 2) + pad * Math.min(1, t / 0.3)) * (t > 0 ? 1 : 0);
+          const h = (w / 2) * (0.4 + 0.6 * Math.min(1, t / 0.6)) * (1 + 0.35 * Math.max(0, (t - 0.7) / 0.3) ** 2) + pad;
           L.push([px + nx * h, py + ny * h]); R.push([px - nx * h, py - ny * h]);
         }
         return 'M' + [...L, ...R.reverse()].map((v) => v[0].toFixed(2) + ' ' + v[1].toFixed(2)).join(' L') + ' Z';
       };
-      veinsG.append(s('path', { d: tube(0.45), class: 'caud-wall' }), s('path', { d: tube(0), class: 'caud-lumen' }),
+      const vg = s('g', { mask: `url(#caudIn${i})` });
+      vg.append(s('path', { d: tube(0.45), class: 'caud-wall' }), s('path', { d: tube(0), class: 'caud-lumen' }),
         s('path', { d: `M${bez(0.35, 0)} ${bez(0.35, 1)} Q ${C.join(' ')} ${P1.join(' ')}`, class: 'caud-sheen', 'stroke-width': (w * 0.22).toFixed(2) }));
+      veinsG.append(vg);
     });
     g.insertAdjacentHTML('afterbegin', `<defs>${defsHtml}</defs>`);
     const lumens = [...veinsG.querySelectorAll('.caud-lumen')];

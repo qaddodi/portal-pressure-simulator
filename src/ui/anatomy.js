@@ -43,14 +43,14 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
 // `veins`: [course, caliber at the IVC]; each grows from a point inside the lobe (no rounded cap). In the model they are the CAUD edge,
 // which is not drawn as a vessel. The lobe grows about `anchor` by up to `grow` ([x, y]) as its veins take over the
 // liver's outflow (Budd–Chiari), keeping clear of the azygos line beside it (x 564).
-// `outline`: the lobe at its normal size, the two ellipses' outer edge as one dashed line; `arrows`: [x1, y1, x2, y2], from that edge out
+// `outline`: the lobe at its normal size as one smooth closed curve (the convex hull of the two ellipses, so no notch where they meet): its own outline, drawn like the other organs', and the dashed line of its normal size; `arrows`: [x1, y1, x2, y2], from that edge out
 // to where the grown lobe's edge lies (top and bottom, where it gains most). Both show only while the lobe is enlarged, as it eases to
 // its grown size (stage.js caud.sync): the dashed line is where it was, the arrows say it grew (Mohammad's pick B, 11 Nov 2026: no label on the line).
 export const CAUDATE = {
   lobe: [[594, 358, 20, 60, -4], [587, 401, 14, 16, 0]],
   veins: [['M588 334 Q 601 332 613 327', 3], ['M582 368 Q 598 365 613 359', 3.6], ['M590 398 Q 602 395 613 389', 2.8]],
   wall: 613, anchor: [612, 362], grow: [0.12, 0.2],
-  outline: 'M578.5 388 C 579 384.1 576.6 379.8 575.9 375.6 C 575.2 371.4 574.7 367.2 574.3 363 C 574 358.8 573.7 354.5 573.6 350.3 C 573.6 346.1 573.6 341.8 573.9 337.6 C 574.2 333.4 574.5 329.1 575.2 325 C 575.9 320.8 576.7 316.5 578.1 312.6 C 579.6 308.7 581.1 303.5 583.9 301.4 C 586.8 299.3 592.1 298.5 595.2 299.9 C 598.4 301.3 600.9 306.2 602.9 309.9 C 605 313.5 606.3 317.6 607.7 321.6 C 609 325.6 610 329.8 610.9 333.9 C 611.7 338.1 612.4 342.3 613 346.5 C 613.5 350.7 613.9 354.9 614.1 359.1 C 614.3 363.3 614.4 367.6 614.4 371.8 C 614.3 376 614.1 380.3 613.6 384.5 C 613.2 388.7 612.6 392.9 611.6 397 C 610.6 401.1 609.7 405.6 607.6 409.1 C 605.5 412.5 602.4 416.4 599 417.8 C 595.5 419.1 590.7 418.1 586.9 417 C 583.1 415.9 578.5 414.1 576.2 411.2 C 573.9 408.2 572.7 403 573.1 399.1 C 573.5 395.3 578 391.9 578.5 388 Z',
+  outline: 'M573.0 401.0 C571.7 395.7 573.1 389.5 573.2 383.7 C573.3 377.9 573.3 372.2 573.4 366.4 C573.5 360.6 573.4 354.9 573.6 349.1 C573.7 343.3 573.7 337.5 574.4 331.8 C575.0 326.1 575.6 320.1 577.4 314.8 C579.3 309.5 581.9 301.5 585.6 299.9 C589.4 298.2 596.3 301.5 599.9 304.9 C603.6 308.3 605.4 315.1 607.3 320.5 C609.2 325.9 610.4 331.6 611.5 337.3 C612.6 342.9 613.3 348.7 613.8 354.4 C614.3 360.2 614.5 365.9 614.4 371.7 C614.2 377.5 614.0 383.3 613.1 388.9 C612.2 394.6 611.6 400.9 609.1 405.7 C606.5 410.6 602.7 416.2 598.0 417.9 C593.3 419.5 585.1 418.3 581.0 415.4 C576.8 412.6 574.3 406.3 573.0 401.0 Z',
   arrows: [[594, 297, 594, 281], [590, 418, 590, 434]],
 };
 export const HIDDEN_NODES = new Set(['AO', 'UPPV', 'LOWV', 'KID_R', 'RRV', 'SVD']);
