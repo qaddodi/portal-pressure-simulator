@@ -266,7 +266,9 @@ export function createCath(st, live) {
     }
     const tk = !tint ? '' : r.parts ? Object.entries(tint).map(([k, v]) => (Array.isArray(v) ? `${k}:${v.map((x) => x.toFixed(3))}` : k === 'col' ? v : '')).join('|')
       : `${tint.col}|${tint.RHV_IVC.map((v) => v.toFixed(3))}|${tint.POST_R_RHV?.[0].toFixed(3) ?? ''}`;
-    if (tk !== cath.tintKey) { cath.tintKey = tk; live.cathTint = tint; if (!live.inUpdate) syncVeins(easeInOut(live.morph)); }
+    // The esophageal varices fade while the EUS-PPG scope is in the esophagus (his ask, 11 Nov 2026), in 50ths: the rows are written again, and sent, only as it steps.
+    const vf = Math.round(clamp(st.fade || 0, 0, 1) * 50) / 50;
+    if (tk !== cath.tintKey || vf !== live.varixFade) { cath.tintKey = tk; live.cathTint = tint; live.varixFade = vf; if (!live.inUpdate) syncVeins(easeInOut(live.morph)); }
     if (gpu) (r.scope ? eusGL : cathGL)(st, r, tipD, rc);
     else cathSVG(st, r, tipD, rc * 2, Rf * 2);
     live.cathVer++; live.stageWake();

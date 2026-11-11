@@ -146,7 +146,8 @@ const EUS_MOVE = [[5000, LEG.eus - 4900]];
 const EUS_T = retime({ travel0: 300, travel1: 5200, aim0: 5000, aim1: 6300, fan0: 5600, fan1: 6600,
   pv0: 7000, pv1: 8800, pvFlash0: 8700, pvFlash1: 9500, pvRead0: 9400, pvRead1: 11300, pvOut0: 11700, pvOut1: 12600,
   move0: 12800, move1: 14400, hv0: 14800, hv1: 16600, hvFlash0: 16500, hvFlash1: 17300, hvRead0: 17200, hvRead1: 19100,
-  hvOut0: 19500, hvOut1: 20400, apply: 20500, fanOut0: 20400, fanOut1: 21200, back: 21300, end: 25600 }, EUS_MOVE);
+  hvOut0: 19500, hvOut1: 20400, apply: 20500, fanOut0: 20400, fanOut1: 21200, back: 21300, end: 25600,
+  varix0: 300, varix1: 1500, varixOut0: 20400, varixOut1: 21700 }, EUS_MOVE);   // (the esophageal varices fade away as the scope goes in and come back as it leaves, eusFrame)
 const r1 = (v) => Math.round(v * 10) / 10;
 const EUS_MARK_T = [...retime([6800, 11400, 19200], EUS_MOVE), EUS_T.apply], EUS_SUM_OFF = 400;
 // (The readings the scope's labels show, kept and written in place: the portal vein's at the PV target (at 'ahead'), the hepatic vein's at
@@ -565,6 +566,7 @@ function eusFrame(T, t, back, opacity, step, shot, f) {
   f.needle = needle; f.wire = 0; f.flash = t > fl0 && t < fl1 ? k01(t, fl0, fl1) : 0;
   f.read = t >= T.pvRead0 && t < T.pvRead1 ? 1 : t >= T.hvRead0 && t < T.hvRead1 ? 2 : 0;
   f.fan = ease(k01(t, T.fan0, T.fan1)) * (1 - ease(k01(t, T.fanOut0, T.fanOut1)));
+  f.fade = ease(k01(t, T.varix0, T.varix1)) * (1 - ease(k01(t, T.varixOut0, T.varixOut1))) * (1 - back);   // (the esophageal varices in front of the scope fade away: 0 none, 1 faded)
   return f;
 }
 
@@ -616,8 +618,8 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
   park = park && stepped;
   // (One record for the frame and one for the catheter, kept for the whole run and written in place: the stage reads the catheter's as it
   // is given, and holds it only to read it again, so the last frame's values are what it keeps.)
-  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0, coil: 0 };
-  const cat = { route: P.route || kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
+  const fr = { u: 0, balloon: 0, column: 0, opacity: 0, step: 0, shot: '', needle: 0, wire: 0, flash: 0, aim: 0, tgt: 0, fan: 0, read: 0, coil: 0, fade: 0 };
+  const cat = { route: P.route || kind, u: 0, needle: 0, wire: 0, flash: 0, coil: 0, balloon: 0, balloonSpan: P.balloonSpan, column: 0, columnColor: kind === 'eusglue' ? 'var(--dev-glue)' : 'var(--tr-scler)', aim: 0, tgt: 0, fan: 0, read: 0, fade: 0, ring: null, clock: 0, opacity: 0, labels: [], keep: true, follow: false };
   // (The procedure's clock, in ms of the sequence, 1 ms a ms forward and BACK_SPEED back: a reversible clock, so Back or Next while a step is still
   // moving slows the catheter and turns it round over D_FLIP, never in one frame. It lands exactly on each stop; the steps hold there.)
   const t00 = park ? goal : from > 0 && kind === 'tipsgrad' ? GRAD_CARRY : 0;   // (a parked run starts at its stop)
@@ -640,7 +642,7 @@ export function playProcedure(stage, kind, { stepped = false, to = 0, apply = nu
     }
     // (The view follows the tip in on the first step, once its shot has landed; a measurement's, its work as well.)
     cat.u = f.u; cat.needle = f.needle; cat.wire = f.wire; cat.flash = f.flash; cat.balloon = f.balloon; cat.column = f.column; cat.clock = t; cat.opacity = f.opacity;
-    cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; cat.coil = f.coil || 0; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? (P.ring2 || 'var(--tr-hv)') : null;
+    cat.aim = f.aim; cat.tgt = f.tgt; cat.fan = f.fan; cat.read = f.read; cat.coil = f.coil || 0; cat.fade = f.fade || 0; if (rd) cat.ring = f.read === 1 ? 'var(--tr-pv)' : f.read === 2 ? (P.ring2 || 'var(--tr-hv)') : null;
     if (P.labels) P.labels(t, rd, read?.(), cat.labels);
     // (A measurement's scope is followed at its work too, from one station to the next: its shot names which, 'way' or 'tip'.)
     // (BRTO and BATO's 'fill': the view follows the sclerosant's front.)

@@ -16,6 +16,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { alongCurve } from './pressure-along.js';
 import { sinceInput } from './quiet.js';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js';
+const VARIX_FADE_TO = 0.88;   // how much of the esophageal varices fades while the EUS-PPG scope is in front of them (a faint ghost of them stays)
 import { createSweepClient } from './sweep-client.js';
 import { clamp } from './util.js';
 import { frontKey, fronted } from './collateral-front.js';
@@ -410,7 +411,7 @@ export function createVessels(st, live) {
   const smoothRunOn = (items, st = live.glStore) => smoothPass(items, live.glStraight, st);
   // (The memo is one kept object written in place by each whole sync, with its widths list and its classes buffer; glowBits' second slot is the
   // scratch the glow-only check compares against. The buffers grow when a sync has more items than they hold.)
-  const glowMemoObj = { items: null, t: 0, netA: 0, cs: null, mode: '', origin: false, cath: null, F: null, geo: 0, plate: false, cls: '', bits: null, reach: 0, selK: '', wide: [] };
+  const glowMemoObj = { items: null, t: 0, netA: 0, vf: 0, cs: null, mode: '', origin: false, cath: null, F: null, geo: 0, plate: false, cls: '', bits: null, reach: 0, selK: '', wide: [] };
   const glowBitsBuf = [new Uint8Array(512), new Uint8Array(512)];
   const IVC_LIST = [...IVC_EDGES];
   // Each item's classes the whole sync reads (selected, hovered, ghost; on its own and the cava's upper stretch), and the cava's.
@@ -449,7 +450,7 @@ export function createVessels(st, live) {
     const m = live.glowMemo;
     if (!m || !live.veins || live.veins.lost || !live.vLook || live.tubesNew || live.lensFrom || live.colEasing || !live.tubesShown || live.tubesShown.length !== tubeData.length) return false;
     if (m.t !== t || m.F !== live.F || m.geo !== live.geometryVersion || m.netA !== live.netA || m.cs !== wrapCS() || m.mode !== layerMode() || m.origin !== live.originOn()) return false;
-    if (m.selK !== selAKey() || m.cath !== live.cathTint || m.plate !== live.veins.hasPlate(0) || m.cls !== wrapCls() || m.reach !== (glow.lit.size ? 20 : 11)) return false;
+    if (m.selK !== selAKey() || m.cath !== live.cathTint || m.vf !== live.varixFade || m.plate !== live.veins.hasPlate(0) || m.cls !== wrapCls() || m.reach !== (glow.lit.size ? 20 : 11)) return false;
     const b = glowBits(m.items, 1), nb = m.items.length + IVC_LIST.length;   // (the buffer may be longer than the items it holds)
     for (let i = 0; i < nb; i++) if (b[i] !== m.bits[i] || b[i] & 64) return false;   // (a vessel drawing on changes with the clock: whole syncs)
     return true;
@@ -744,6 +745,8 @@ export function createVessels(st, live) {
       live.shownCol.set(it.row, pair);
       // The sinusoids' strands are drawn faint and fine (sin-perfusion.js).
       if (sinStrand) alpha *= SIN_PERFUSION.fade;
+      // The esophageal varices stand aside while the EUS-PPG scope works in the esophagus (a ghost of them stays, so the anatomy still reads).
+      if (live.varixFade && id === 'C1a') alpha *= 1 - VARIX_FADE_TO * live.varixFade;
       // (The portal tree carries a slightly heavier casing than the systemic side, PORTAL_CASING: how an atlas separates the system
       // it is about from the rest without colour. Looks review, 31 Oct.)
       tubeData[o] = s0[0]; tubeData[o + 1] = s0[1]; tubeData[o + 2] = s0[2]; tubeData[o + 3] = x.isArt && !x.tube ? 0 : x.wallPx * (x.front ? PORTAL_CASING : 1);
@@ -966,7 +969,7 @@ export function createVessels(st, live) {
     }
     live.tubesNew = false;
     const gm = glowMemoObj;
-    gm.items = items; gm.t = t; gm.netA = live.netA; gm.cs = cs; gm.mode = mode; gm.origin = cpOrigin; gm.cath = live.cathTint; gm.F = live.F; gm.geo = live.geometryVersion;
+    gm.items = items; gm.t = t; gm.netA = live.netA; gm.cs = cs; gm.mode = mode; gm.origin = cpOrigin; gm.cath = live.cathTint; gm.vf = live.varixFade; gm.F = live.F; gm.geo = live.geometryVersion;
     gm.plate = live.veins.hasPlate(0); gm.cls = wrapCls(); gm.bits = glowBits(items, 0); gm.reach = live.vLook.reach;
     gm.selK = selAKey();   // (the selection's ease sets the vessels' alpha, which the glow-only sync does not write)
     gm.wide.length = items.length;   // (the sheen's width: syncRadiiOnly)

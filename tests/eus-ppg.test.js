@@ -254,3 +254,14 @@ test('the scope lies under the vessels, with a faint outline; the needle and the
   const hair = o2.draws.find((d) => d.under && d.mode === 7);
   assert.ok(hair.col[0] > 0.1, 'its colour is moved toward the body, not the near-black edge');
 });
+
+test('the esophageal varices fade as the scope goes in, stay faded through the work, and are back before the run ends', () => {
+  let prev = 0;
+  for (const t of times) { const f = procFrame('eus', t).fade; assert.ok(f >= 0 && f <= 1, `fade in range at ${t}`); if (t <= T.varix1) assert.ok(f >= prev - 1e-9, `fade only grows going in (${t})`); prev = f; }
+  assert.equal(procFrame('eus', 0).fade, 0);
+  assert.equal(procFrame('eus', (T.varix1 + T.pv0) / 2).fade, 1, 'faded while the scope is in the esophagus');
+  assert.equal(procFrame('eus', T.hvRead0).fade, 1, 'still faded while the needle reads');
+  assert.equal(procFrame('eus', T.varixOut1).fade, 0, 'back as the scope leaves');
+  assert.equal(procFrame('eus', T.end).fade, 0);
+  assert.equal(procFrame('eusglue', 9000).fade || 0, 0, 'the glue slide leaves the varices as they are');
+});

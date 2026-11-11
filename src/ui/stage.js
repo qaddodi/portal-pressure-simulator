@@ -201,6 +201,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get cathLabelsSoon() { return cathLabelsSoon; },
     get cathRadOf() { return cathRadOf; },
     get cathTint() { return cathTint; }, set cathTint(v) { cathTint = v; },
+    get varixFade() { return varixFade; }, set varixFade(v) { varixFade = v; },
     get cathVer() { return cathVer; }, set cathVer(v) { cathVer = v; },
     get caudK() { return caudK; }, set caudK(v) { caudK = v; },
     get chevHoles() { return chevHoles; }, set chevHoles(v) { chevHoles = v; },
@@ -1780,6 +1781,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   const tubeData = veins ? new Float32Array(GL_ROWS * TUBE_TEXELS * 4) : null;
   let cathTint = null;   // the HVPG's wedged vein, recolored (see cathPaint)
+  let varixFade = 0;   // the esophageal varices' fade (0..1) while the EUS-PPG scope is in the esophagus (cathPaint, colPass)
   const ORIGIN_LUMEN = [ORIGIN_GREY, ORIGIN_GREY, ORIGIN_GREY];   // the lumen while the blood is colored by origin (the GPU paints the streams on it)
   const binMemo = new Map();
   // (Its cells' lists keep room, so a vessel that leaves or enters a cell is written there alone.)
@@ -2973,7 +2975,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         if (hide) cathHidAt = performance.now(); else if (F) { labelKey = null; updateLabels(F); }
       }
       if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
-      if (!st) { cath.rc = 0; cath.route = null; cath.blk = null; cath.shaft = null; cath.room = null; cath.ins = null; cathVer++; if (cathTint) { cathTint = null; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
+      if (!st) { cath.rc = 0; cath.route = null; cath.blk = null; cath.shaft = null; cath.room = null; cath.ins = null; cathVer++; if (cathTint || varixFade) { cathTint = null; varixFade = 0; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
       cathPaint();
     },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they
