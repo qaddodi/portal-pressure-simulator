@@ -36,11 +36,11 @@ export const HIDDEN_EDGES = new Set(['A_SMA', 'A_IMA', 'A_SPL', 'A_LGA', 'A_REN_
   // (The caudate veins are drawn in the circuit, as a lane of their own, and in the anatomy as the three short veins of CAUDATE
   // below, not as a vessel: ANAT_HIDDEN.)
   ]);
-// The caudate lobe and its short veins (anatomic view), always on the plate (11 Nov 2026: "the caudate lobe has no dedicated
-// drainage"; a slide about the DIPS shows the lobe alone), eased in and out with the view: the lobe is a soft, slightly lighter dome of the liver's own tone with no outline (`lobe`:
+// The caudate lobe and its short veins (anatomic view), drawn only on a slide about them (11 Nov 2026: Mohammad does not want them in
+// the normal views; a slide about the DIPS shows the lobe alone), eased in and out with the view: the lobe is a soft, lighter dome of the liver's own tone with a faint rim (`lobe`:
 // ellipses [cx, cy, rx, ry, degrees], the body and its papillary process), between the hepatic vein confluence above,
 // the portal bifurcation below and the IVC, whose left wall (`wall`, x) the veins merge into below the hepatic veins.
-// `veins`: [course, caliber at the IVC]; each tapers from nothing inside the lobe. In the model they are the CAUD edge,
+// `veins`: [course, caliber at the IVC]; each grows from a point inside the lobe (no rounded cap). In the model they are the CAUD edge,
 // which is not drawn as a vessel. The lobe grows about `anchor` by up to `grow` ([x, y]) as its veins take over the
 // liver's outflow (Budd–Chiari), keeping clear of the azygos line beside it (x 564).
 // `outline`: the lobe at its normal size, the two ellipses' outer edge as one dashed line; `arrows`: [x1, y1, x2, y2], from that edge out

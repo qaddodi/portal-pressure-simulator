@@ -1175,7 +1175,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // painter's, and as the lowest group they kept every overlay above them (stents, balloons, plugs) on SVG. 2 Nov 2026.)
   const clampW = s('g'), clampWOut = s('g');
   gOver.append(gFx, gFxC, clampWOut, clampW);
-  // The caudate lobe and its veins (CAUDATE): on the plate all the time (11 Nov 2026), the lobe alone while a stent runs through it
+  // The caudate lobe and its veins (CAUDATE): only on a slide about it (11 Nov 2026), the lobe alone while a stent runs through it
   // (the DIPS) or a slide pins only the lobe (pinOrgans 'caudate-lobe'), eased in and out with the view (.caud.on, off in the circuit),
   // under the stents and other overlays. Each vein is a tapered tube (a wall, its lumen colored
   // from its pressures like the vessels, a sheen) that fades into the IVC's wall instead of ending on it.
@@ -1188,27 +1188,26 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     const lobe = s('g', { class: 'caud-lobe' });
     for (const [cx, cy, rx, ry, a] of CAUDATE.lobe) {
       const at = { cx, cy, rx, ry, transform: `rotate(${a} ${cx} ${cy})` };
-      lobe.append(s('ellipse', { ...at, fill: 'url(#caudDome)' }));
+      lobe.append(s('ellipse', { ...at, fill: 'url(#caudDome)' }), s('ellipse', { ...at, fill: 'url(#caudDome)' }));   // (twice: one pass was too faint to see on the liver's own tone)
     }
+    lobe.append(s('path', { d: CAUDATE.outline, class: 'caud-rim' }));   // (a soft rim, so the lobe reads as a shape)
     const veinsG = s('g', { mask: 'url(#caudMask)', class: 'caud-veins' });
     CAUDATE.veins.forEach(([d, w], i) => {
       const n = d.match(/-?\d+(?:\.\d+)?/g).map(Number), P0 = [n[0], n[1]], C = [n[2], n[3]], P1 = [n[4] + 3, n[5] - 1.5];   // (on into the wall, where it fades)
       const bez = (t, j) => (1 - t) ** 2 * P0[j] + 2 * (1 - t) * t * C[j] + t * t * P1[j];   // (the curve's x (j 0) or y (j 1) at t)
-      // The outline of a tube that widens from a rounded start inside the lobe and flares a little into the cava.
-      const h0 = (pad) => (w / 2) * 0.45 + pad;
+      // The outline of a tube that grows from nothing inside the lobe (a point, not a rounded cap) and flares a little into the cava.
       const tube = (pad) => {
         const L = [], R = [];
         for (let k = 0; k <= 20; k++) {
           const t = k / 20, tq = Math.min(1, t + 0.01), tr = Math.max(0, t - 0.01);
           const px = bez(t, 0), py = bez(t, 1), qy = bez(tq, 1), qx = bez(tq, 0), ry = bez(tr, 1), rx = bez(tr, 0);
           let nx = -(qy - ry), ny = qx - rx; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l;
-          const h = (w / 2) * (0.45 + 0.55 * Math.min(1, t / 0.75)) * (1 + 0.25 * Math.max(0, (t - 0.75) / 0.25) ** 2) + pad;
+          const h = ((w / 2) * Math.min(1, t / 0.8) ** 0.85 * (1 + 0.25 * Math.max(0, (t - 0.75) / 0.25) ** 2) + pad * Math.min(1, t / 0.3)) * (t > 0 ? 1 : 0);
           L.push([px + nx * h, py + ny * h]); R.push([px - nx * h, py - ny * h]);
         }
         return 'M' + [...L, ...R.reverse()].map((v) => v[0].toFixed(2) + ' ' + v[1].toFixed(2)).join(' L') + ' Z';
       };
-      veinsG.append(s('path', { d: tube(0.45), class: 'caud-wall' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0.45), class: 'caud-wall' }),
-        s('path', { d: tube(0), class: 'caud-lumen' }), s('circle', { cx: P0[0], cy: P0[1], r: h0(0), class: 'caud-lumen' }),
+      veinsG.append(s('path', { d: tube(0.45), class: 'caud-wall' }), s('path', { d: tube(0), class: 'caud-lumen' }),
         s('path', { d: `M${bez(0.35, 0)} ${bez(0.35, 1)} Q ${C.join(' ')} ${P1.join(' ')}`, class: 'caud-sheen', 'stroke-width': (w * 0.22).toFixed(2) }));
     });
     g.insertAdjacentHTML('afterbegin', `<defs>${defsHtml}</defs>`);
