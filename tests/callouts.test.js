@@ -138,7 +138,7 @@ test('the figure hook hands the stage a slide\'s callouts, fills them as the mod
   const sp = got.at(-1);
   assert.deepEqual(Object.keys(sp.live), ['C1a|note']);
   assert.equal(sp.live['C1a|note'].label, 'Varix 8.1 mm');
-  assert.deepEqual(sp.organs.map((o) => [o.organ, o.kind, o.label]), [['kidney-l', 'note', 'Left kidney']]);
+  assert.deepEqual(sp.organs.map((o) => [o.organ, o.kind, o.label]), [['kidney-l', 'note', 'Left kidney'], ['heart', 'note', 'Heart … · …']]);
   assert.deepEqual(sp.calipers.map((c) => [c.id, c.label]), [['spleen', '14.8 cm'], ['TIPS', '10 mm']]);
   assert.deepEqual(sp.steps.map((p) => [p.n, p.at, p.ids]), [[1, 0, ['V_INT']], [2, 400, ['PV_TRUNK']]]);
   assert.equal(sp.spans[0].label, 'PPG 13.2 mmHg');
@@ -148,7 +148,7 @@ test('the figure hook hands the stage a slide\'s callouts, fills them as the mod
   assert.equal(got.at(-1).spans[0].runs.at(-1).tone, '--ok', 'after TIPS, PPG under 12 is green');
   F.figure[0].clear();
   assert.equal(got.at(-1), null);
-  F.figure[0].show({ ...ctx, slide: { title: 'Plain' } });
+  F.figure[0].show({ ...ctx, slide: { title: 'Plain', noHeartReading: true } });
   assert.equal(got.at(-1), null, 'a slide with none of the fields asks for nothing');
 });
 
@@ -182,4 +182,37 @@ test('clot mark: the portal vein clots talk\'s gradients slide names the clot li
   const src = fs.readFileSync(new URL('../src/ui/decks/prehepatic.js', import.meta.url), 'utf8');
   assert.match(src, /mark: \{ edges: \['PV_TRUNK'\], clot: true \}/);
   assert.doesNotMatch(src, /label: 'Partial clot'/);
+});
+
+test('every figure slide reads the heart\'s rate and output on the heart, unless it already says them', () => {
+  const got = [];
+  const stage = { callouts: (sp) => got.push(sp) };
+  const ctx = (slide, fp = { hr: 72, co: 5 }) => ({ slide, stage, fp, params: {}, shown: () => true });
+  F.figure[0].show(ctx({ id: 'a', cam: 'fit' }));
+  assert.deepEqual(got.at(-1).organs.map((o) => [o.organ, o.kind, o.auto, o.label]), [['heart', 'note', true, 'Heart 72 /min · 5.0 L/min']], 'a slide with no marks still shows the heart\'s readings');
+  assert.equal(got.at(-1).organs[0].runs.filter((r) => r.tone !== undefined)[1].tone, '--ok', 'in the tiles\' rating colours');
+  F.figure[0].update({ hr: 132, co: 3.1 });
+  assert.equal(got.at(-1).organs[0].label, 'Heart 132 /min · 3.1 L/min', 'and they follow the model');
+  F.figure[0].show(ctx({ id: 'b', tiles: ['hr', 'pv'] }));
+  assert.equal(got.at(-1), null, 'a slide whose tile already holds the rate is not told twice');
+  F.figure[0].show(ctx({ id: 'c', mark: { organ: 'heart', label: 'Right atrium' } }));
+  assert.deepEqual(got.at(-1).organs.map((o) => o.label), ['Right atrium'], 'nor one that marks the heart itself');
+  F.figure[0].show(ctx({ id: 'd', visual: 'outline' }));
+  assert.equal(got.at(-1), null, 'nor a slide that is a whole panel');
+});
+
+test('a slide shows the heart when its camera has it in frame', async () => {
+  const { showsHeart } = await import('../src/ui/heart-reading.js');
+  const { REGIONS } = await import('../src/ui/decks.js');
+  const yes = (s) => showsHeart(s, REGIONS);
+  assert.ok(yes({}) && yes({ cam: 'fit' }), 'the whole figure');
+  assert.ok(yes({ cam: 'route' }) && yes({ cam: 'heart' }) && yes({ cam: 'hepatic' }) && yes({ cam: 'varices' }), 'regions that hold it');
+  assert.ok(!yes({ cam: 'portal' }) && !yes({ cam: 'spleen' }) && !yes({ cam: 'gut' }) && !yes({ cam: 'liver' }), 'regions that do not');
+  assert.ok(!yes({ cam: 'lobule' }) && !yes({ cam: 'sinusoid' }), 'the liver\'s close-ups');
+  assert.ok(yes({ cam: { on: ['PV_TRUNK'] } }) && !yes({ cam: { on: ['spleen'], near: 'spleen' } }), 'a by-name camera: its near region, or the route');
+  assert.ok(yes({ view: 'circuit', cam: 'fit' }) && yes({ view: 'circuit', cam: 'heart' }) && !yes({ view: 'circuit', cam: 'portal' }), 'the circuit\'s regions');
+  assert.ok(!yes({ visual: 'outline' }) && !yes({ cols: ['pv'] }), 'a whole-panel slide has no figure');
+  let shown = 0;
+  for (const d of DECKS) for (const s of d.slides) if (yes(s)) shown++;
+  assert.ok(shown > 40, `most slides show it (${shown})`);
 });

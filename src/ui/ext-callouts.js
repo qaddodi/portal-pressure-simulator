@@ -11,12 +11,19 @@
 //   zone: 'liver'                                      on the circuit view, one of its five zone bands lit softly (V25)
 import { EDGES } from '../engine/topology.js';
 import { SETS } from './highlight-math.js';
+import { REGIONS } from './decks.js';
+import { showsHeart, HEART_WORDS } from './heart-reading.js';
 import { parseLive, liveRuns, widestRuns, runsText, ORGAN_MARKS, ORGAN_ANCHOR, caliperOf, caliperText, stepPlan, zoneIndex, spanOf } from './callout-math.js';
 
 const EI = new Map(EDGES.map((e, i) => [e.id, i]));
 const list = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
 const expand = (ids) => list(ids).flatMap((g) => (typeof g === 'string' && g[0] === '@' ? SETS[g.slice(1)] || [] : [g]));
 const marksOf = (s) => list(s.marks || s.mark).filter((m) => m && typeof m === 'object');
+// The heart's own readings (11 Nov 2026, Mohammad: the heart stays still and its rate and output show as labels on it, on any slide that
+// shows the heart). Every figure slide carries them unless it already names the heart in a mark or already holds the rate or output as
+// a tile. `auto` marks it as the figure's own reading, not the slide's.
+const heartTiles = (s) => [...list(s.tiles), ...list(s.key)].some((k) => k === 'hr' || k === 'co');
+const wantsHeart = (s, marks) => !s.noHeartReading && showsHeart(s, REGIONS) && !heartTiles(s) && !marks.some((m) => m.organ === 'heart');
 
 // The slide on screen: its live words, organ marks, calipers, spans and zone, read once as it lands; each new reading
 // (a what-if slider, a compare button, a time-lapse's days) fills the same words again.
@@ -28,6 +35,7 @@ function plan(s) {
     if (m.organ && ORGAN_MARKS.includes(m.organ)) organs.push({ organ: m.organ === 'kidney' ? 'kidney-l' : m.organ, kind: m.kind || 'note', runs: runs || [{ t: String(m.label || ''), sp: false }] });
     else if (runs) { const e = expand(m.edges)[0]; if (e) live.push({ edge: e, kind: m.kind || 'block', runs }); }
   }
+  if (wantsHeart(s, marksOf(s))) organs.push({ organ: 'heart', kind: 'note', auto: true, runs: parseLive(HEART_WORDS) });
   for (const sp of list(s.span)) { const at = sp && spanOf(sp.from, sp.to); if (at) spans.push({ from: sp.from, to: sp.to, runs: parseLive(sp.label) || [{ t: String(sp.label || ''), sp: false }] }); }
   const calipers = [...new Set(list(s.calipers).filter((x) => typeof x === 'string'))].map(caliperOf).filter((c) => c.organ || EI.has(c.edge));
   // (The glow as the presenter lights it: each '@set' stands for its vessels, each lit one step after the one before.)
@@ -41,7 +49,7 @@ function spec(p, fp, params) {
   const tips = !!params?.tips?.on;
   return {
     live: Object.fromEntries(p.live.map((m) => [`${m.edge}|${m.kind}`, words(m.runs, fp, tips)])),
-    organs: p.organs.map((m) => ({ organ: m.organ, kind: m.kind, ...words(m.runs, fp, tips) })),
+    organs: p.organs.map((m) => ({ organ: m.organ, kind: m.kind, ...(m.auto ? { auto: true } : null), ...words(m.runs, fp, tips) })),
     calipers: p.calipers.map((c) => { const t = caliperText(c, fp, params, EI.get(c.edge) ?? -1); return { id: c.id, organ: c.organ || null, edge: c.edge || null, runs: [{ t, sp: false, tone: null }], wide: widestRuns([{ t, sp: false, tone: null }]), label: t }; }),
     steps: p.steps,
     spans: p.spans.map((sp) => ({ from: sp.from, to: sp.to, ...words(sp.runs, fp, tips) })),
