@@ -1,7 +1,8 @@
 // Hold or restart carvedilol in decompensation: Baveno VIII 4.6 and 4.7. Reduce the dose or stop it for persistently low pressure
 // (systolic <90 or mean <65 mmHg) and/or HRS-AKI; restart and re-titrate once the HRS-AKI has resolved and/or the pressure has recovered.
-// Patient { held, sbp, hrs, map? }: map (mean arterial pressure, mmHg) is optional; a slide that gives none is judged on the systolic alone.
-import { MAP_BETA_CUT } from '../../engine/kidney-cuts.js';
+// Patient { held, sbp, hrs, map? }: a slide that types sbp or map is judged on what it types (a story the model's patient does not show); one that
+// types neither reads the model's own blood pressure (engine.js bpNow), so a bleed or a drug moves the path.
+import { MAP_BETA_CUT, SBP_BETA_CUT } from '../../engine/kidney-cuts.js';
 import { inheritTone } from './helpers.js';
 
 const tree = inheritTone({
@@ -13,7 +14,7 @@ const tree = inheritTone({
 }, 'n');
 
 const DEFAULT = { held: false, sbp: 84, hrs: true };
-const lowSbp = (p) => p.sbp < 90;
+const lowSbp = (p) => p.sbp < SBP_BETA_CUT;
 const lowMap = (p) => Number.isFinite(p.map) && p.map < MAP_BETA_CUT;
 const bad = (p) => lowSbp(p) || lowMap(p) || !!p.hrs;
 
@@ -42,10 +43,12 @@ export default {
     return { head: 'Carry on', tone: 'ok', stmt: '4.6', why: `Systolic pressure ${p.sbp} mmHg is ≥90${Number.isFinite(p.map) ? `, mean pressure ${p.map} mmHg is ≥65` : ''} and there is no HRS-AKI.`, next: 'Watch pressure and kidney at every review.' };
   },
   chips: (p) => [p.held ? 'Carvedilol held' : 'On carvedilol', `SBP ${p.sbp}`, Number.isFinite(p.map) && `MAP ${p.map}`, p.hrs ? 'HRS-AKI' : 'No HRS-AKI'].filter(Boolean),
-  patientFor(tool) {
-    const b = { ...DEFAULT, ...(tool?.patient || {}) };
-    const p = { held: !!b.held, sbp: Number.isFinite(b.sbp) ? b.sbp : DEFAULT.sbp, hrs: !!b.hrs };
-    if (Number.isFinite(b.map)) p.map = b.map;
+  patientFor(tool, fp, shown = (k, v) => v) {
+    const t = tool?.patient || {}, b = { ...DEFAULT, ...t };
+    const typed = Number.isFinite(t.sbp) || Number.isFinite(t.map), live = !typed && fp && Number.isFinite(fp.sbp) && Number.isFinite(fp.map);
+    const p = { held: !!b.held, sbp: live ? Math.round(shown('sbp', fp.sbp)) : Number.isFinite(b.sbp) ? b.sbp : DEFAULT.sbp, hrs: !!b.hrs };
+    if (live) p.map = Math.round(shown('map', fp.map));
+    else if (Number.isFinite(b.map)) p.map = b.map;
     return p;
   },
   worst: { held: true, sbp: 140, hrs: false, map: 100 },

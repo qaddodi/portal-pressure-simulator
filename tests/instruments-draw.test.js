@@ -122,7 +122,7 @@ test('the vitals monitor draws the strip and its readings from a live frame, the
     runFrames();
     const ts = cv.rec.texts;
     assert.ok(ts.includes('EKG'), 'the strip is named');
-    assert.ok(ts.includes('HR') && ts.includes('MAP'), `readings named: ${ts}`);
+    assert.ok(ts.includes('HR') && ts.includes('BP'), `readings named: ${ts}`);
     assert.ok(ts.some((s) => /^\d+$/.test(s)), 'a heart rate is written');
     assert.deepEqual(cv.rec.bad, [], 'every number handed to the GPU is finite');
     assert.ok(cv.rec.sizes.every((px) => px >= 12), 'no lettering under 12 px');

@@ -150,8 +150,8 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | The esophagus through a scope | `tool: { kind: 'scope' }` | varix size or banding |
 | The scope ring on the varices (tap: the live scope view beside the figure) | automatic on varix slides; `scopeLens: true` / `false` | any slide that shows the varices, leaving the data card free |
 | A FibroScan reading | `tool: { kind: 'fibroscan' }` (`organ: 'spleen'` for the spleen probe) | liver or spleen stiffness |
-| A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, pressure, output or hemoglobin, with an EKG strip |
-| The MAP hold line | `tool: { kind: 'vitals', show: ['hr', 'map', 'co'], hold: true }` | a drug that is held when the pressure is low: a rail under the numbers with the line at 65 mmHg and a dot for the patient |
+| A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, blood pressure (BP 118/72 (88)), output or hemoglobin, with an EKG strip |
+| The carvedilol hold lines | `tool: { kind: 'vitals', show: ['hr', 'map', 'co'], hold: true }` | a drug that is held when the pressure is low: a rail under the numbers with both Baveno VIII 4.6 lines (systolic 90, mean 65 mmHg), the patient's pressure as a bar from diastolic to systolic and a dot at the mean |
 | The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured, free pressure to wedge to result |
 | The same tracing following the catheter on the figure | `tool: { kind: 'hvpg', catheter: true }` with `cath: 'free'`, `'wedge'` or `'result'` | the catheter steps with the tracing beside them, one card kept across the steps |
 | HVPG and pressures across the talk | `tool: { kind: 'trace', range: 'talk' }` | a patient followed over months |

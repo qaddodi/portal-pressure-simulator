@@ -29,7 +29,7 @@ test('the systemic values carry their data card tile\'s bar, scale, cut-offs, wo
   for (const id of ['map', 'hr', 'co', 'ra', 'hb']) assert.ok(SCALE[id] && SCALE[id][2].length && RATE[id], `${id} has its tile's scale and rating`);
   assert.match(pane, /import \{ SCALE, RATE \} from '\.\/table-marks\.js/);
   assert.match(pane, /const S = SCALE\[v\.id\];/);
-  assert.match(pane, /RATE\[x\.v\.id\]\(shownOf\(r\.v, x\.v\.d\), \{\}\)/, 'the word and colour are the tile\'s, judging the number as shown');
+  assert.match(pane, /RATE\[x\.v\.id\]\(shownOf\(r\.v, x\.v\.d\), x\.v\.s \? \{ sbp: x\.r\?\.s \} : \{\}\)/, 'the word and colour are the tile\'s, judging the number as shown (the blood pressure by its systolic too)');
   assert.match(pane, /h\('span', \{ class: 'rb', 'aria-hidden': 'true' \}, fill, S\[2\]\.map/, 'a bar with a tick at each cut-off, as the other readouts have');
 });
 

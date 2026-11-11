@@ -70,6 +70,43 @@ function meanOf(fn) { let s = 0; const n = 2000; for (let i = 0; i < n; i++) s +
 const G_MEAN = meanOf(RAW_G), H_MEAN = meanOf(RAW_H);
 export const fillShape = (ph) => RAW_G(ph) / G_MEAN;
 export const systoleShape = (ph) => RAW_H(ph) / H_MEAN;
+/** The arterial side of the beat (systolic-diastolic-pressure recs 1 to 5). The heart's one pump takes blood from the right atrium as
+ *  the ventricles fill (fillShape); it reaches the aorta only in systole. Between the two it passes the lungs, a store that empties
+ *  with time constant `lungTau` (pulmonary blood volume over its venous outflow: a breath's swing in right-heart output reaches the left
+ *  ventricle damped and two to three beats late), then the ventricle, which ejects in the next systole what it filled over the last beat
+ *  (Frank-Starling: this beat's stroke volume is the last beat's filling), shaped by systoleShape. The aorta and its branches are a
+ *  compliance (topology AO, 1.8 mL/mmHg; total arterial compliance in an adult is about 1 to 2 mL/mmHg) drained by the arteriolar
+ *  resistance (a Windkessel). The pressure an arm cuff reads adds the root's characteristic impedance `Zc` (mmHg·s/mL) times the flow
+ *  being ejected (a three-element Windkessel), which lifts systolic without lowering diastolic. The MAP stays the true mean of the aortic
+ *  pressure over the beat; systolic and diastolic are its peak (at the root) and its trough. Healthy about 119/78 (92), decompensated
+ *  cirrhosis about 114/68 (82): the hyperdynamic circulation's low resistance lets the diastolic fall further between beats.
+ *  (The aorta's compliance is the one it always had: a smaller one moved its share of the blood volume to the veins and every calibrated
+ *  patient's pressures with it. Arterial compliance is reported raised in cirrhosis, Henriksen and colleagues, Am J Physiol 2001; it is not
+ *  modelled, as it would move the same volume.) */
+export const ARTERY = { Zc: 0.05, lungTau: 2.2 };
+
+/** Systolic and diastolic (mmHg) for a mean aortic pressure `map` when no beat is running: the periodic solution of the same
+ *  three-element Windkessel the beat runs, a stroke volume `sv` (mL) ejected by systoleShape every 60/hr s into compliance `C` (mL/mmHg)
+ *  drained by conductance `G` (mL/s/mmHg), its mean set to `map`. Exact for a steady beat (no breath, linear compliance). */
+const PULSE_N = 96;
+const PULSE_OUT = { sbp: NaN, dbp: NaN };
+export function pulseOf(map, sv, hr, C, G, Zc = ARTERY.Zc, out = PULSE_OUT) {
+  if (!(sv > 0) || !(hr > 0) || !(C > 0) || !(G > 0)) { out.sbp = map; out.dbp = map; return out; }
+  const T = 60 / hr, h = T / PULSE_N, k = Math.exp(-h * G / C), q = sv / T;
+  // x: the aortic pressure above the arterioles' far end; one beat from x = 0 gives the periodic start x0 = x(T) / (1 - e^(-T/tau)).
+  let x = 0;
+  for (let i = 0; i < PULSE_N; i++) { const u = q * systoleShape((i + 0.5) / PULSE_N); x = x * k + (u / G) * (1 - k); }
+  x = x / (1 - Math.pow(k, PULSE_N));
+  let hi = -Infinity, lo = Infinity, sum = 0;
+  for (let i = 0; i < PULSE_N; i++) {
+    const u = q * systoleShape((i + 0.5) / PULSE_N);
+    x = x * k + (u / G) * (1 - k);
+    sum += x; if (x + Zc * u > hi) hi = x + Zc * u; if (x < lo) lo = x;
+  }
+  const mean = sum / PULSE_N;
+  out.sbp = map + hi - mean; out.dbp = map + lo - mean;
+  return out;
+}
 /** RA external-pressure modulation (x descent, a wave). */
 export const raWave = (ph) => -2.5 * Math.exp(-(((ph - 0.2) / 0.07) ** 2)) + 2.5 * Math.exp(-(((ph - 0.88) / 0.04) ** 2));
 

@@ -267,10 +267,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const val = h('b', {}, '—');
     // (A vital with somewhere to head, the hemoglobin after a bleed: an arrow and the number it is heading to, shown while the two differ.)
     const toNum = v.to ? h('em', {}, '') : null;
+    // (The blood pressure: its systolic/diastolic before the mean and the bracket after it, BP 120/80 (93), written when the whole numbers change.)
+    const pre = v.s ? h('b', { class: 'v-bp' }, '') : null, post = v.s ? h('b', { class: 'v-bp' }, '') : null;
     const el = h(v.why ? 'button' : 'div', { class: 'vital', title: `${v.title} (${v.u})${v.to ? '\nThe arrow: where it is heading once the plasma has refilled (a day or so after a bleed).' : ''}${v.why ? '\nClick for what is driving it.' : ''}` },
-      h('span', {}, v.k), val, toNum ? h('i', { class: 'v-to', 'aria-hidden': 'true' }, '→', toNum) : null);
+      h('span', {}, v.k), pre, val, post, toNum ? h('i', { class: 'v-to', 'aria-hidden': 'true' }, '→', toNum) : null);
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
-    return { v, el, val, toNum, toV: null, toUp: false, kBar: 'bar:' + v.id, fkOn: false, fkS: NaN, fkH: false, fkB: false };
+    return { v, el, val, pre, post, preT: null, bs: NaN, bd: NaN, toNum, toV: null, toUp: false, kBar: 'bar:' + v.id, fkOn: false, fkS: NaN, fkH: false, fkB: false };
   });
   row.append(h('div', { class: 'ro-group ro-systemic', 'data-group': 'systemic', role: 'group', 'aria-label': 'Systemic' },
     h('span', { class: 'ro-cap', 'aria-hidden': 'true' }, 'Systemic'), h('div', { class: 'vb-grid' }, vitEls.map((x) => x.el))));
@@ -340,7 +342,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     }
     for (const x of vitEls) {
       const r = vitalReading(x, m, st0.running, now);
-      x.bad = r.bad;
+      x.bad = r.bad; x.bs = r.s; x.bd = r.d;
       if (x.toNum) { x.toV = vitalHeading(x, m); x.toUp = x.toV != null && x.toV > r.v; }
       x.shown = shownState.set(x.kBar, r.v, followOpts(x.v.d, !st0.running));
     }
@@ -446,8 +448,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (unseen) { x.fkOn = false; continue; }
       const hid = !!hidden?.has(x.v.hideKey);
       if (follow) x.shown = shownState.or(x.kBar, x.shown);
-      if (follow) { if (x.fkOn && x.fkS === x.shown && x.fkH === hid && x.fkB === !!x.bad) continue; x.fkOn = true; x.fkS = x.shown; x.fkH = hid; x.fkB = !!x.bad; } else x.fkOn = false;
+      if (follow) { if (x.fkOn && x.fkS === x.shown && x.fkH === hid && x.fkB === !!x.bad && Object.is(x.fkPs, x.bs) && Object.is(x.fkPd, x.bd)) continue; x.fkOn = true; x.fkS = x.shown; x.fkH = hid; x.fkB = !!x.bad; x.fkPs = x.bs; x.fkPd = x.bd; } else x.fkOn = false;
       COUNT.eased = st0.running; countTo(x.val, hid ? null : x.shown, x.v.d, COUNT);
+      if (x.pre) {
+        const t = hid || !Number.isFinite(x.bs) || !Number.isFinite(x.bd) || x.shown == null ? '' : `${Math.round(x.bs)}/${Math.round(x.bd)} (`;
+        if (t !== x.preT) { x.preT = t; putText(x.pre, t); putText(x.post, t ? ')' : ''); }
+      }
       classSoon(x.el, 'bad', !hid && x.bad);
       if (x.toNum) {
         const on = !hid && x.toV != null;

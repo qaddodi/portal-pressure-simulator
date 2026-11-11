@@ -47,6 +47,7 @@ import { createPresenterLink } from './presenter-view.js';
 import { noteResume, resumeFor } from './resume.js';
 import { parseDeckSource, checkDeck } from './deck-source.js';
 import { cleanEq } from './import-safety.js';
+import { bpText } from './vital-read.js';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, LIVE_MAX, shownSig, sameHead, headOf, cutDp } from './table-marks.js';
 import { frameFor, cancelFrame, holdMotion, easeNow } from './frame.js';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
@@ -532,7 +533,8 @@ function wedgeColumn() {
   if (!glyphsReady()) loadGlyphs().then(() => restPass(() => fitted.forEach((c) => c.svg === svg && (c.fs = null, fitNow(c)))));
   return svg;
 }
-const tileVal = (k, v) => (v == null ? '—' : fmt(v * (tileOf(k)?.x ?? 1), tileOf(k)?.d ?? 1));
+// (The blood pressure tile prints systolic/diastolic (mean), 120/80 (93), from f's sbp and dbp: TILE.map.bp.)
+const tileVal = (k, v, f = null) => (v == null ? '—' : tileOf(k)?.bp && f ? bpText(f.sbp, f.dbp, v) : fmt(v * (tileOf(k)?.x ?? 1), tileOf(k)?.d ?? 1));
 // The live model's numbers in the fingerprint's terms (a time-lapse plays on the live figure): the same function the worker builds a slide's
 // state with. It has no starling() here, so the lymph's overflow, take-back and net stay null and the fluid card follows the live frames.
 const liveFp = (fr) => fingerprintOf(fr.metrics, { P: fr.Pf || fr.P, Q: fr.Qf || fr.Q, D: fr.D, params: store.get().params });
@@ -762,7 +764,7 @@ function bigTiles() {
     // (A tile's number and bar mark from the value shown now, v (the model's units): painted by a write at once, and by paintShown in each display
     // frame while the follower is on the way. Always .set on a header reading, never .now: a kept GPU number is redrawn by set alone.)
     const putNum = (p, v) => {
-      const hs = p.none ? '—' : tileVal(p.k, v);
+      const hs = p.none ? '—' : tileVal(p.k, v, p.bp);
       vSet(p, hs);
       if (p.hi) { if (!p.hw) setT(p.hv, hs); else p.hw.set(hs); }
     };
@@ -783,8 +785,10 @@ function bigTiles() {
       for (const p of parts) {
         if (p.pic || !p.on) continue;
         const v = ts.get(p.k, p.sv), v0 = p.hasRef ? ts.get(p.k, p.sr, true) : p.sr;
-        if (v === p.sv && v0 === p.sr) continue;
+        const bs = p.bp ? ts.get('map.s', p.bp.sbp) : 0, bd = p.bp ? ts.get('map.d', p.bp.dbp) : 0;
+        if (v === p.sv && v0 === p.sr && (!p.bp || (bs === p.bp.sbp && bd === p.bp.dbp))) continue;
         p.sv = v; p.sr = v0;
+        if (p.bp) { p.bp.sbp = bs; p.bp.dbp = bd; }
         putNum(p, v); putBar(p, v, v0);
       }
     };
@@ -799,6 +803,12 @@ function bigTiles() {
       p.sv = on ? ts.set(p.k, f[p.k], p.sm, go) : f[p.k];
       p.sr = ok ? ts.set(p.k, r0, p.sm, go, true) : r0;
       if (!on) ts.drop(p.k);
+      // (The blood pressure's systolic and diastolic follow beside its mean, for its words: 120/80 (93).)
+      if (p.T.bp) {
+        const b = p.bp || (p.bp = { sbp: NaN, dbp: NaN });   // alloc-rare: once per pressure tile
+        b.sbp = on ? ts.set('map.s', f.sbp, p.sm, go) : f.sbp; b.dbp = on ? ts.set('map.d', f.dbp, p.sm, go) : f.dbp;
+        if (!on) { ts.drop('map.s'); ts.drop('map.d'); }
+      }
       putNum(p, p.sv);
       p.u.hidden = none || !p.T.u;
       setT(p.r, word);
@@ -900,11 +910,11 @@ function bigTiles() {
       el.dataset.keys = ks.join();
       parts.forEach((p) => { p.tile.classList.toggle('key', key.includes(p.k)); p.hi?.classList.toggle('key', key.includes(p.k)); });
       paintBands(f);
-      const to = Object.fromEntries([...ks, 'asc'].map((k) => [k, f[k]]));
+      const to = Object.fromEntries([...ks, 'asc', ...(ks.includes('map') ? ['sbp', 'dbp'] : [])].map((k) => [k, f[k]]));
       if (ks.includes('scope')) to.varix = f.varix;   // (the endoscopic view follows the varix's size)
       if (ref) for (const k of ks) to['ref_' + k] = ref[k];
       if (ks.includes('hvpgFall')) Object.assign(to, { respFrom: f.respFrom, respAt: f.respAt });
-      for (const p of parts) p.fin = tileVal(p.k, to[p.k]);
+      for (const p of parts) p.fin = tileVal(p.k, to[p.k], to);
       if (!tileGlide(to, ms)) draw.go(to, ms);
       // (Fitted again only when a number's shape changed, its final text or the length of the one shown: measuring the tiles forced a
       // layout on every model frame, with the same answer. A tile's own size change still refits through the observer below.)
@@ -3353,7 +3363,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const perRow = rows.some((r) => r.vs), rel = s.vs === 'first' || perRow;
     const notes = s.note ? [s.note].flat() : [];
     // Pressures always in whole mmHg (the model is not that precise); litres, kPa and flow keep their decimal.
-    const val = (k, f) => { const v = fpv(k, f); return v == null ? '—' : PRESS.has(k) ? fmt(v, 0) : k === 'res' ? fmt(v, 1) : tileVal(k, v); };
+    const val = (k, f) => { const v = fpv(k, f); return v == null ? '—' : k === 'map' ? bpText(f?.sbp, f?.dbp, v) : PRESS.has(k) ? fmt(v, 0) : k === 'res' ? fmt(v, 1) : tileVal(k, v); };
     const first = rows[0]?.f;
     // A row's 'vs' names a slide, or the key of a patient row no slide shows (the same liver without collaterals).
     const vsRow = (r) => rows.find((x) => x.key === r.vs || (x.i >= 0 && slides[x.i]?.id === r.vs));
@@ -6669,7 +6679,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     settings: () => ({ width: pzWidth, setWidth: setPanelWidth, contrast: hiCon, setContrast, stacked: phone() }),
     // For the browser checks: the time-lapse slides, and the card's tiles as the slide shown should read them at its start and end.
     probe: () => {
-      const txt = (k, f) => (rateOf(k, f)[0] == null && (k === 'saag' || k === 'tp') ? '—' : tileVal(k, f[k]));   // (as bigTiles shows it)
+      const txt = (k, f) => (rateOf(k, f)[0] == null && (k === 'saag' || k === 'tp') ? '—' : tileVal(k, f[k], f));   // (as bigTiles shows it)
       const i = shown?.i ?? -1, s = slides[i], ks = s ? tileKeys(s) : [], end = s && states[stateOf[i]], start = s?.lapse && i > 0 ? end?.start || states[stateOf[i - 1]] : end;
       return { i, lapses: slides.flatMap((x, j) => (x.lapse && j > 0 && x.data ? [j] : [])), charts: slides.flatMap((x, j) => (x.lapse && j > 0 && x.tool?.kind === 'flowtime' ? [j] : [])), playing: lapseOn, keys: ks,
         start: start ? ks.map((k) => txt(k, respFp(s, start.fp))) : null, end: end ? ks.map((k) => txt(k, respFp(s, end.fp))) : null };

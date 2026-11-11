@@ -14,7 +14,7 @@
 
 export const NODES = [
   // id, label, P, C, ext, kind
-  ['AO', 'Aorta', 93, 1.8, 'none', 'artery'],
+  ['AO', 'Aorta', 93, 1.8, 'none', 'artery'],   // (arterial compliance, physiology.js ARTERY)
   ['HA', 'Hepatic artery', 88, 0.05, 'none', 'artery'],
 
   ['INT', 'Intestinal capillary bed', 12, 8, 'abd', 'bed'],

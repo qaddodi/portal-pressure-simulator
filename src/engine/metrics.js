@@ -138,6 +138,9 @@ export function computeMetrics(eng, out = null) {
   if (eng.bleed.active) { bleeding = spareOf(r).bleed; bleeding.site = eng.bleed.site; bleeding.rate = eng.Qbleed * 60; bleeding.total = eng.bleed.total; }
   const vt = part(r, 'vitals');
   vt.co = eng.vitM?.[0] ?? co; vt.map = eng.vitM?.[1] ?? map; vt.hr = eng.vitM?.[2] ?? eng.hr; vt.ra = eng.vitM?.[3] ?? ra;
+  // (Systolic and diastolic, engine bpNow: the arm cuff's reading, beside the MAP, which stays the true mean.)
+  const bp = eng.bpNow ? eng.bpNow(spareOf(r).bp || (spareOf(r).bp = { sbp: NaN, dbp: NaN })) : { sbp: NaN, dbp: NaN };
+  vt.sbp = eng.vitM?.[5] ?? bp.sbp; vt.dbp = eng.vitM?.[6] ?? bp.dbp;
 
   r.t = eng.t; r.day = eng.day;
   // (The gradients are the difference of the two readings as every screen shows them, at one decimal: WHVP 16.6 and
@@ -167,7 +170,7 @@ export function computeMetrics(eng, out = null) {
   r.varix = vx; r.gastricVarix = gx; r.ascites = ax; r.spleen = sp;
   // (Kidney pressure: the mean arterial pressure less the abdomen's, kidney-cuts.js. A pressure, not a filtration rate: the model has no kidneys.)
   r.rpp = map - ax.iap;
-  r.map = map; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
+  r.map = map; r.sbp = vt.sbp; r.dbp = vt.dbp; r.co = co; r.hr = eng.hr; r.svr = (map - ra) / Math.max(0.5, co);
   r.heRisk = he; r.blood = bl; r.bleeding = bleeding;
   r.habr = eng.habr; r.baro = eng.baro; r.splTone = eng.slow.splTone;
   return r;

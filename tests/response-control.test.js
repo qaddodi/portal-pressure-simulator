@@ -56,7 +56,7 @@ test('a slide with response gets its buttons when the deck is opened, and each i
 
 test('the hold rail: the line stands at the MAP cut-off on a scale that holds the usual pressures, and hold changes no vital', () => {
   assert.ok(railAt(MAP_BETA_CUT) > 0.2 && railAt(MAP_BETA_CUT) < 0.4 && railAt(RAIL_LO - 10) === 0 && railAt(RAIL_HI + 10) === 1);
-  assert.ok(railAt(80) > railAt(MAP_BETA_CUT) && railAt(120) === 1, 'a MAP of 80 stands to the right of the line');
+  assert.ok(railAt(80) > railAt(MAP_BETA_CUT) && railAt(RAIL_HI) === 1, 'a MAP of 80 stands to the right of the line');
   assert.deepEqual(vitalsShown({ show: ['hr', 'map'], hold: true }), ['hr', 'map']);
 });
 

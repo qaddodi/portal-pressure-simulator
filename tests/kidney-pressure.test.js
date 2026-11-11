@@ -88,8 +88,8 @@ test('no file but the module writes the kidney pressure cut-off as a number', ()
 test('the kidney talk types the same two rules as the module (a deck is one file with no imports)', async () => {
   const { DECKS } = await import('../src/ui/decks.js');
   const d = DECKS.find((x) => x.id === 'kidney'), text = JSON.stringify(d);
-  const hold = d.slides.find((s) => s.id === 'hold'), live = hold.tool.rows.find((r) => Array.isArray(r));
-  assert.deepEqual(live.slice(1), ['map', '<', KIDNEY_CUTS.mapBeta], 'the live MAP row is the beta-blocker line');
+  const hold = d.slides.find((s) => s.id === 'hold'), live = hold.tool.rows.filter((r) => Array.isArray(r));
+  assert.deepEqual(live.map((r) => r.slice(1)), [['sbp', '<', KIDNEY_CUTS.sbpBeta], ['map', '<', KIDNEY_CUTS.mapBeta]], 'the live rows are the beta-blocker lines, systolic and mean');
   assert.ok(text.includes(`MAP <${KIDNEY_CUTS.mapBeta} mmHg`));
   assert.ok(d.slides.find((s) => s.id === 'carv').line.includes(`{>=${KIDNEY_CUTS.rpp} mmHg}`), 'the carvedilol slide\'s rule pill is the tile\'s line');
   assert.ok(!/\b(GFR|creatinine)\b/i.test(JSON.stringify(d.slides.map((s) => s.line))), 'no line claims kidney function');

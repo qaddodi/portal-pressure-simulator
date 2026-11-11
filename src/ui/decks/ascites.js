@@ -167,6 +167,7 @@ export const ASCITES = {
     },
     {
       // (The Baveno VIII rule for carvedilol, from the complications slide: a low pressure or HRS-AKI. The kidney talk has the same chart beside the MAP.)
+      // (The systolic of 84 is typed, not read from the model: this man's own pressure is not low, and the case needs a low one with HRS-AKI.)
       id: 'path-hold', cam: 'fit',
       tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: false, sbp: 84, hrs: true } },
       kicker: 'Complications', site: 'sin', title: 'Carvedilol is cut back when the pressure falls or the kidneys fail',

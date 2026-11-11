@@ -473,6 +473,8 @@ div.vital { cursor: default; }
 .vital b { font-weight: 600; color: var(--text); font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
 .vital b { transition: none; }
 .vital.bad b { color: var(--danger-ink); }
+/* The blood pressure, BP 120/80 (93): its systolic/diastolic and the bracket sit against the mean, with no gap (vital-read.js bpText). */
+.vital .v-bp { margin: 0 -4px 0 0; } .vital b + .v-bp { margin: 0 0 0 -4px; } .vital .v-bp:empty { display: none; }
 /* Where the hemoglobin is heading once the plasma refills (vital-read.js `to`): amber after a bleed, green after a unit. */
 .vital .v-to { display: none; font-style: normal; font-size: var(--fs-12); color: var(--caution-ink); } .vital .v-to em { font-style: normal; font-weight: 600; margin-left: 2px; } .vital.heading .v-to { display: inline; } .vital.heading-up .v-to { color: var(--ok-ink); }
 @media (hover: hover) { button.vital:hover b { text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; } }

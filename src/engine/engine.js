@@ -4,7 +4,7 @@
 import { NODES, EDGES, dopplerK, dMinOf, edgePresent, isOccluded, PORTOSYSTEMIC_EDGES, SPLANCHNIC_ARTERIES } from './topology.js';
 import {
   clamp, tubeResistanceFactor, tubeArea, volumeOf, ptmOf, complianceAt, stenosisFactor,
-  heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng,
+  heartFlow, fillShape, systoleShape, raWave, iapFromAscites, makeRng, ARTERY, pulseOf,
 } from './physiology.js';
 import { defaultParams, DRUGS, PRESETS, deepMerge, MEAL_TONE, MEAL_BLUNT, gastricUp } from './scenario.js';
 import { detectEvents } from './events.js';
@@ -224,6 +224,8 @@ export class Engine {
     // Beat-to-beat waveform switched on by the UI while a waveform instrument is on screen,
     // without touching the patient's parameters (links and undo stay unchanged).
     this.beat = false;
+    // The lungs and the ventricle between the pump and the aorta while the beat runs (physiology.js ARTERY; lvStep): null until it first runs.
+    this.lv = null;
     this.bands = 0;
     for (let i = 0; i < this.N; i++) {
       const [Pk, Ps] = this.nodeK[i];
@@ -372,6 +374,8 @@ export class Engine {
   bloodVolume() {
     let s = 0;
     for (let i = 0; i < this.N; i++) s += this.V[i] - this.Vbase[i];
+    // (The lungs' and the ventricle's share of the beat, lvStep: blood out of the nodes, a few mL either way.)
+    if (this.lv) s += this.lv.vp + this.lv.vv;
     return BLOOD_BASE + s - (this.blood.shift || 0);
   }
   viscosity() { return clamp(1 + 1.6 * (this.hctEq() - HCT_BASE), 0.5, 1.6); }
@@ -604,6 +608,8 @@ export class Engine {
     }
     const [Qh0, dQh0] = heartFlow(P[RA] - this.ext[RA], hs.cap, P[RA] - this.ext[this.ni.SVC]);
     const Qh = Qh0 * m, dQh = dQh0 * m;
+    // With the beat on, the aorta takes the ventricle's ejection (a flow source, lvEject) rather than the pump's flow at the same instant.
+    const ej = this.pulsing() ? this.lvEject(Qh0, hs.hr) : -1;
     const a0 = Qh - dQh * P[RA];
     // Bleeding sink
     let gb = 0, bi = -1;
@@ -653,7 +659,8 @@ export class Engine {
         A[f * N + t] -= g; A[t * N + f] -= g;
       }
       A[RA * N + RA] += dQh; b[RA] -= a0;
-      A[AO * N + RA] -= dQh; b[AO] += a0;
+      if (ej >= 0) b[AO] += ej;
+      else { A[AO * N + RA] -= dQh; b[AO] += a0; }
       if (gb > 0) { A[bi * N + bi] += gb; b[bi] += gb * this.ext[bi]; }
       b[UP] += inf;
 
@@ -701,7 +708,8 @@ export class Engine {
     }
     const qh = a0 + dQh * Pn[RA];
     this.Qheart = qh;
-    net[RA] -= qh; net[AO] += qh;
+    net[RA] -= qh;
+    if (ej >= 0) { net[AO] += ej; this.lvStep(qh, ej, dt); } else net[AO] += qh;
     let qb = 0;
     if (gb > 0) { qb = Math.max(0, gb * (Pn[bi] - this.ext[bi])); net[bi] -= qb; }
     this.Qbleed = qb;
@@ -730,6 +738,7 @@ export class Engine {
     this.controllers(dt);
     if (!this.quiet) this.fastProcesses(dt);
     if (this.pulsing()) this.trackPulsatility();
+    else if (this.lv) this.lv.gap += dt;
   }
 
   pulsing() { return (this.params.pulsatile || this.beat) && !this.quiet; }
@@ -749,6 +758,50 @@ export class Engine {
   liverStiff(i) {
     const k = NODES[i].kind;
     return (k === 'liver') ? 1 - 0.6 * this.params.cirrhosis : 1;
+  }
+
+  /** The flow (mL/s) the ventricle ejects into the aorta at this moment of the beat: the stroke volume it filled over the last beat, by
+   *  systoleShape. The first beat (or the first after quiet steps, a slider's relax or the disease clock) starts the lungs at the pump's
+   *  flow and the ventricle at the stroke volume that flow gives, and keeps what the two hold, so the blood is conserved. */
+  lvEject(Qmean, hr) {
+    let lv = this.lv;
+    const ph = this.phase();
+    if (!lv || lv.gap > 0.5) {
+      const sv = Qmean * 60 / hr;
+      lv = this.lv = { vp: lv?.vp || 0, vv: lv?.vv || 0, y: Qmean, sv, fill: ph * sv, lastPh: ph, hi: -Infinity, lo: Infinity, sbp: NaN, dbp: NaN, beats: 0, gap: 0 };
+    }
+    lv.gap = 0;
+    lv.ej = lv.sv * hr / 60 * systoleShape(ph);
+    return lv.ej;
+  }
+  /** One step of the lungs and the ventricle: the pump's flow `qh` in, the lungs' outflow (a first-order store, ARTERY.lungTau) fills the
+   *  ventricle, `ej` leaves it. At each new beat the filling becomes the next stroke volume, and the beat's peak (at the root, with Zc)
+   *  and trough of the aortic pressure become its systolic and diastolic. */
+  lvStep(qh, ej, dt) {
+    const lv = this.lv, y = lv.y, P = this.P[this.ni.AO];
+    lv.vp += (qh - y) * dt; lv.vv += (y - ej) * dt; lv.fill += y * dt;
+    lv.y += (qh - y) * (1 - Math.exp(-dt / ARTERY.lungTau));
+    const root = P + ARTERY.Zc * ej;
+    if (root > lv.hi) lv.hi = root;
+    if (P < lv.lo) lv.lo = P;
+    const ph = this.phase();
+    if (ph < lv.lastPh) {
+      lv.sv = lv.fill; lv.fill = 0;
+      if (lv.beats++ > 0) { lv.sbp = lv.hi; lv.dbp = lv.lo; }
+      lv.hi = -Infinity; lv.lo = Infinity;
+    }
+    lv.lastPh = ph;
+  }
+  /** Systolic and diastolic (mmHg) now: the last whole beat's while the beat runs, else the periodic Windkessel about the MAP (pulseOf),
+   *  the stroke volume the pump's mean flow gives at this heart rate. */
+  bpNow(out = { sbp: NaN, dbp: NaN }) {
+    const lv = this.lv;
+    if (this.pulsing() && lv && lv.gap === 0 && Number.isFinite(lv.sbp)) { out.sbp = lv.sbp; out.dbp = lv.dbp; return out; }
+    const AO = this.ni.AO;
+    let G = 0;
+    for (let k = 0; k < this.E; k++) if (this.edgeF[k] === AO) G += this.G[k];
+    const q = this.COf ?? this.Qheart ?? 83.3, C = this.nodeC[AO] * this.liverStiff(AO);
+    return pulseOf(this.MAPf, q * 60 / this.hr, this.hr, C, G, ARTERY.Zc, out);
   }
 
   controllers(dt) {
@@ -774,7 +827,9 @@ export class Engine {
     // (Two 4 s stages: one leaves the output wandering ±0.07 L/min, right across its 6.5 cut-off in that patient.)
     // (The fifth is the esophageal varix's wall index: the breath swings the pressure around it by a third in schistosomiasis,
     // so the red-wale flag (events.js) reads this mean, as the vitals' flags do, and fires once.)
-    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA], this.refP ? this.varix('VAR').ratio : NaN], av4 = Math.min(1, dt / 4);
+    // (The sixth and seventh are the systolic and diastolic, bpNow: the last whole beat's, or the Windkessel's about the MAP.)
+    const bp = this.bpNow(this._bp || (this._bp = { sbp: NaN, dbp: NaN }));
+    const vNow = [this.COf * 0.06, this.MAPf, this.hr, this.P[this.ni.RA], this.refP ? this.varix('VAR').ratio : NaN, bp.sbp, bp.dbp], av4 = Math.min(1, dt / 4);
     if (!this.vitM || !this.vitM.every(Number.isFinite)) { this.vitM = vNow; this.vitM1 = [...vNow]; }
     else for (let i = 0; i < vNow.length; i++) { this.vitM1[i] += (vNow[i] - this.vitM1[i]) * av4; this.vitM[i] += (this.vitM1[i] - this.vitM[i]) * av4; }
     const def = this.volumeDeficit();
@@ -1442,6 +1497,7 @@ export class Engine {
       params: this.paramsTarget(), V: Array.from(this.V), P: Array.from(this.P), Q: Array.from(this.Q), t: this.t, day: this.day,
       baro: this.baro, MAPf: this.MAPf, habr: this.habr, hr: this.hr, slow: this.slow, blood: this.blood,
       cyc: this.cyc || 0, COf: this.COf,   // (EXT-ENG-1: the beat's phase and the cardiac-output filter belong to the moment too)
+      lv: this.lv,   // (the lungs' and ventricle's share of the beat, lvStep)
       bleed: this.bleed, infusions: this.infusions, bands: this.bands, rng: this.rng.state(), iap: this.iap,
       valsalva: this.valsalva, evState: this.evState,
     });
@@ -1455,6 +1511,7 @@ export class Engine {
     // EXT-ENG-1: the moment's own beat phase and cardiac-output filter. A snapshot made before they were kept has neither: the beat then starts
     // at phase 0 and the filter at the first step's output, not the later moment's values this engine happened to hold.
     this.cyc = Number.isFinite(c.cyc) ? c.cyc : 0; this.COf = Number.isFinite(c.COf) ? c.COf : undefined;
+    this.lv = c.lv || null;
     this.evAvg = null;   // (the events' breath average, events.js, starts over from the restored state)
     this.rng.setState(c.rng);
     // A snapshot from before the bleeding reflexes: the volume it holds is the patient's own.

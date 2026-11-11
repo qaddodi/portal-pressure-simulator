@@ -2,6 +2,7 @@
 // unit tests can load them (review/deck-visuals-recs.md §9). Nothing here touches the page.
 import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js';
 import { plateletText } from './glue.js';
+import { bpText } from './vital-read.js';
 import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES, CAUDATE } from './anatomy.js';
 
 // (util.js fmt, which needs the page to load: a value to d decimals, with a true minus and never "−0".)
@@ -32,6 +33,7 @@ export function valueText(k, fp) {
   const T = TILE[k], v = fp?.[k];
   if (!T || v == null || !Number.isFinite(v)) return '…';
   if (k === 'plt') return plateletText(v);
+  if (T.bp) return `${bpText(fp.sbp, fp.dbp, v)} ${T.u}`;   // (the blood pressure as the bedside writes it: 120/80 (93) mmHg)
   return `${fmt(v * (T.x || 1), T.d ?? 1)}${T.u === '%' ? '%' : T.u ? ` ${T.u}` : ''}`;
 }
 // A reading's rating colour, as its tile's bar shows it (and the line's pill: presenter valTone): green, amber or red; after TIPS

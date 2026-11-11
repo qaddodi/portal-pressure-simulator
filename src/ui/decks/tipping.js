@@ -61,7 +61,7 @@ export const TIPPING = {
     {
       id: 'infection', preset: 'csph', params: { splanchnicTone: 0.6, systemicTone: 0.6 }, cam: 'fit', tool: VITALS, data: 'tiles', tiles: ['hvpg', 'map'], key: ['map'], delta: 'stable',
       kicker: 'Infection', site: 'sin', title: 'An infection widens the arteries and raises the portal pressure', cite: 'Baveno VIII 3.10',
-      line: 'Back in the first man, an infection widens his arteries. His heart rate climbs to {hr}, the MAP falls to {map} and the HVPG rises to {hvpg}.',
+      line: 'Back in the first man, an infection widens his arteries. His heart rate climbs to {hr}, his blood pressure falls to {map} and the HVPG rises to {hvpg}.',
       notes: 'Baveno VIII 3.10: a bacterial infection in compensated cirrhosis with CSPH can precipitate decompensation or ACLF, and so worsen the natural history. An infection widens the splanchnic and systemic arteries. The gut sends more blood into the portal vein, the heart speeds up to keep the pressure, and the HVPG rises. The model has no infection and no inflammation: it shows only the wider arteries, drawn as a lower arterial tone, and the reflexes in the model hold the MAP above 65 mmHg. A real infection can take the MAP lower than this and injure the kidneys, which the model does not show.',
       ask: ['What does a bacterial infection do to the circulation of a man with CSPH?', 'It widens the arteries, so the heart speeds up, the MAP falls and the portal inflow and the HVPG rise.'],
     },

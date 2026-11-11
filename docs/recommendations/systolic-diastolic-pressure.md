@@ -1,8 +1,12 @@
 # Systolic and diastolic pressure: can the model do it, and where it goes
 
-Status (11 Nov 2026): recommendations only, nothing built. Asked by Mohammad: "We should probably add systolic and diastolic since
+Status (11 Nov 2026): BUILT, all 14 recs. Shown everywhere as Sys/Dia (MAP), e.g. 119/78 (92) (Mohammad: "Sys/Dia (MAP) is usually how
+clinically we write it"). Two changes from the recs: the arterial compliance stays 1.8 and there is no cirrhosis compliance rise (both moved
+blood volume and broke the calibrated cases), and the hepatic artery compliance stays 0.05 (HA RI now 0.70 healthy, 0.74 decompensated).
+Built numbers: healthy 119/78 (92), compensated 115/76 (89), CSPH 113/72 (85), decompensated 114/68 (82). Guard tests:
+`tests/arterial-pressure.test.js`. Asked by Mohammad: "We should probably add systolic and diastolic since
 we're able to model it right? And calculate the MAP subsequently?" Opened by the features thread's Systolic 90 card (item 41): the
-vitals rail draws only the MAP 65 hold line because the model has no systolic pressure.
+vitals rail now draws both hold lines, the MAP's at 65 and the systolic's at 90.
 
 ## Short answer
 

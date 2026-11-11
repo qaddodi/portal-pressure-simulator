@@ -1,9 +1,9 @@
 // Presenter talk: one drug followed through every stage of cirrhosis (the slide fields are described at the top of decks.js). A woman with MASH
 // cirrhosis has no CSPH and no carvedilol; two years on the stiffness rules CSPH in and carvedilol starts; she needs no screening scope on it;
-// with ascites and large varices it stays; a bleed takes the MAP under 65 mmHg and it is held, then restarted; banding joins it after the bleed;
+// with ascites and large varices it stays; a bleed takes the pressure under its lines (systolic 90, mean 65 mmHg) and it is held, then restarted; banding joins it after the bleed;
 // a rebleed brings a TIPS; and in another patient the cause is gone, the HVPG off carvedilol is under 10 mmHg and it may stop.
-// The model has a MAP and no systolic pressure and no HRS-AKI, so those two facts of the hold rule are typed into the chart (tool.patient), as
-// the Kidney talk does. The beta-blocker response control (a stronger or weaker responder) joins this talk when that feature is built.
+// The model has a blood pressure (systolic/diastolic and its mean) but no HRS-AKI, so that fact of the hold rule is typed into the chart
+// (tool.patient), as the Kidney talk does. The beta-blocker response control (a stronger or weaker responder) joins this talk when that feature is built.
 //
 // Sources, checked 11 Nov 2026 against the guideline files in guidelines/:
 // - Baveno VIII (J Hepatol 2026) 3.15 (NSBBs, particularly carvedilol, at CSPH to prevent decompensation and improve survival; LoE 2, strong),
@@ -28,7 +28,7 @@ export const CARVEDILOL = {
   objectives: [
     'Say when carvedilol starts, and why not before CSPH',
     'Say who needs no screening endoscopy while on it',
-    'Cut it back for a MAP <65 mmHg or HRS-AKI, and restart it',
+    'Cut it back for a systolic <90, a MAP <65 or HRS-AKI, and restart it',
     'Say when it may stop after recompensation',
   ],
   checks: [
@@ -81,25 +81,26 @@ export const CARVEDILOL = {
     {
       id: 'mapbleed', action: { kind: 'hemorrhage', mL: 1300 }, cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',
       tool: { kind: 'vitals', show: ['map', 'hr'], hold: true },
-      kicker: 'Low pressure', site: 'sin', title: 'A large bleed takes the MAP below the hold line',
-      line: 'After 1.3 L of blood loss her MAP is {map} and her heart rate rises. The rail marks {<65 mmHg}, where Baveno VIII 4.6 cuts back carvedilol.',
-      notes: 'Source: Baveno VIII 4.6. The rail shows the mean arterial pressure against 65 mmHg. The model has no systolic pressure, so the other half of the rule (systolic <90 mmHg) and HRS-AKI come on the next slide. Carvedilol is still on in the model here. Infection and over-diuresis cross the same line.',
-      ask: ['Where is the line for holding carvedilol on the MAP?', '65 mmHg (Baveno VIII 4.6).'],
+      kicker: 'Low pressure', site: 'sin', title: 'A large bleed takes the pressure below the hold lines',
+      line: 'After 1.3 L of blood loss her blood pressure is {map} and her heart rate rises. The rail marks Baveno VIII 4.6\'s two lines: systolic {<90 mmHg}, mean {<65 mmHg}.',
+      notes: 'Source: Baveno VIII 4.6. The rail shows her pressure as a bar from diastolic to systolic with a dot at the mean, against both lines: a systolic of 90 and a mean of 65 mmHg. Either one is enough. A bleed narrows the gap between systolic and diastolic as the stroke volume falls. HRS-AKI comes on the next slide. Carvedilol is still on in the model here. Infection and over-diuresis cross the same line.',
+      ask: ['Where are the lines for holding carvedilol?', 'A systolic <90 mmHg or a MAP <65 mmHg (Baveno VIII 4.6).'],
     },
     {
-      id: 'low', action: { kind: 'hemorrhage', mL: 1300 }, cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',
-      tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: false, sbp: 84, hrs: false, map: 61 } },
-      kicker: 'Low pressure', site: 'sin', title: 'A MAP <65 mmHg stops carvedilol for now',
-      line: 'A large bleed takes her MAP to {map}. A MAP {<65 mmHg}, a systolic pressure {<90 mmHg} or HRS-AKI means carvedilol is cut back or stopped.',
-      notes: 'Source: Baveno VIII 4.6; AASLD 2024. Carvedilol is dose-reduced or stopped when the blood pressure stays low (systolic under 90 mmHg or mean under 65 mmHg) and/or there is HRS-AKI. Any one of the three is enough. A bleed is one way to get there; infection and over-diuresis are others. The model has a MAP and a kidney pressure but no systolic pressure and no HRS-AKI, so the chart takes a systolic pressure of 84 mmHg and no HRS-AKI as the facts of the case, with the MAP from the figure. Carvedilol is still on in the model on this slide, which is the state that triggers the rule.',
-      ask: ['She bleeds and her MAP falls to 61 mmHg while she takes carvedilol. What do you do with the drug?', 'Reduce the dose or stop it. The MAP is <65 mmHg.'],
+      // (No action of its own: the bleed is the last slide's. A second 1.3 L here took her mean to 15 mmHg, and the next slide's four units gave back only one.)
+      id: 'low', cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',
+      tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: false, hrs: false } },
+      kicker: 'Low pressure', site: 'sin', title: 'A low pressure stops carvedilol for now',
+      line: 'A large bleed takes her blood pressure to {map}. A systolic {<90 mmHg}, a mean {<65 mmHg} or HRS-AKI means carvedilol is cut back or stopped.',
+      notes: 'Source: Baveno VIII 4.6; AASLD 2024. Carvedilol is dose-reduced or stopped when the blood pressure stays low (systolic under 90 mmHg or mean under 65 mmHg) and/or there is HRS-AKI. Any one of the three is enough. A bleed is one way to get there; infection and over-diuresis are others. The chart reads her blood pressure from the model; the model has no kidneys, so it takes no HRS-AKI as a fact of the case. Carvedilol is still on in the model on this slide, which is the state that triggers the rule.',
+      ask: ['She bleeds and her blood pressure falls to 78/56 (62) mmHg while she takes carvedilol. What do you do with the drug?', 'Reduce the dose or stop it. The systolic is <90 mmHg and the mean is <65 mmHg.'],
     },
     {
       id: 'restart', action: [UNIT, UNIT, UNIT, UNIT], cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',
-      tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: true, sbp: 104, hrs: false, map: 78 } },
+      tool: { kind: 'path', of: 'holdcarv', short: 'Carvedilol path', patient: { held: true, hrs: false } },
       kicker: 'Low pressure', site: 'sin', title: 'Carvedilol restarts once the pressure has recovered',
-      line: 'With the blood replaced, her MAP is back to {map} and the kidney pressure to {rpp}. She has no HRS-AKI, so the chart says restart and re-titrate.',
-      notes: 'Source: Baveno VIII 4.7. Carvedilol is restarted and re-titrated once the HRS-AKI has resolved and/or the blood pressure has recovered. A patient whose drug is held and who still has a low pressure or HRS-AKI stays off it. The four units of red cells give back the 1.3 L of the last slide, and the tiles compare with the state before the bleed. The model keeps carvedilol on throughout, so these numbers show the pressure on the drug; the chart takes the held drug and a systolic pressure of 104 mmHg as the case\'s own facts.',
+      line: 'With the blood replaced, her blood pressure is back to {map} and the kidney pressure to {rpp}. She has no HRS-AKI, so the chart says restart and re-titrate.',
+      notes: 'Source: Baveno VIII 4.7. Carvedilol is restarted and re-titrated once the HRS-AKI has resolved and/or the blood pressure has recovered. A patient whose drug is held and who still has a low pressure or HRS-AKI stays off it. The four units of red cells give back the 1.3 L of the last slide, and the tiles compare with the state before the bleed. The model keeps carvedilol on throughout, so these numbers show the pressure on the drug; the chart takes the held drug as the case\'s own facts.',
       ask: ['She had HRS-AKI and carvedilol was stopped. The AKI has resolved and her pressure is back. What next?', 'Restart carvedilol and re-titrate to the dose she tolerates (Baveno VIII 4.7).'],
     },
     {

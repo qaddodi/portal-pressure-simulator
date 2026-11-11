@@ -49,16 +49,19 @@ test('a stenosis\'s "60 %" is measured in the tabular figures it is drawn in, so
 
 test('the vitals monitor: the unit and the alarm patch stand in one place whatever the number is (99 to 100, any digit)', async () => {
   const mon = readFileSync(new URL('../src/ui/vitals-monitor.js', import.meta.url), 'utf8');
-  assert.match(mon, /rw = textWidth\(c\.d \? '88\.8' : '888', 700, big\)/);
-  assert.match(mon, /textAt\(nt\+\+, val, 700, big, x \+ rw - nw, by,/, 'the number flush to the right of its box');
-  assert.match(mon, /textAt\(nt\+\+, c\.u, 500, 12, x \+ rw \+ 5, by,/, 'the unit after the box, not after the number');
-  assert.match(mon, /rectAt\(nr\+\+, x - 5, by - big \* 0\.78 - 4, rw \+ 10,/, 'the alarm patch the box wide');
+  assert.match(mon, /rw = textWidth\(bar >= 0 \? '888\/88' : c\.d \? '88\.8' : '888', 700, big\), mw = mean \? textWidth\('\(88\)', 700, small\) \+ 4 : 0/);
+  assert.match(mon, /textAt\(nt\+\+, main, 700, big, x \+ rw - nw, by,/, 'the number flush to the right of its box');
+  assert.match(mon, /textAt\(nt\+\+, mean, 700, small, x \+ rw \+ 4, by,/, 'the mean after the box (blood pressure: 120/78 (92))');
+  assert.match(mon, /textAt\(nt\+\+, c\.u, 500, 12, x \+ rw \+ mw \+ 5, by,/, 'the unit after the box and the mean, not after the number');
+  assert.match(mon, /rectAt\(nr\+\+, x - 5, by - big \* 0\.78 - 4, rw \+ mw \+ 10,/, 'the alarm patch the box wide');
   const { textWidth } = await import('../src/ui/vitals-gl.js');
   for (const big of [22, 34, 46]) {
     const rw = textWidth('888', 700, big);
     for (const v of ['0', '9', '72', '99', '100', '188', '111']) assert.ok(textWidth(v, 700, big) <= rw + 1e-9, `${v} fits its box at ${big}`);
     const rw1 = textWidth('88.8', 700, big);
     for (const v of ['0.0', '9.9', '12.3', '88.8', '−3.1']) assert.ok(textWidth(v, 700, big) <= rw1 + 1e-9, `${v} fits its box at ${big}`);
+    const rw2 = textWidth('888/88', 700, big);
+    for (const v of ['120/78', '88/52', '199/99', '60/40']) assert.ok(textWidth(v, 700, big) <= rw2 + 1e-9, `${v} fits its box at ${big}`);
   }
 });
 

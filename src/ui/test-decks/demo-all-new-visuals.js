@@ -2122,7 +2122,7 @@ export const DEMO_ALL = {
       "site": "sin",
       "title": "Not every patient answers carvedilol the same way",
       "line": "Pick how well his portal pressure answers it. The HVPG is {hvpg} on the usual response. The MAP stays clear of the {<65 mmHg} line.",
-      "notes": "response: true puts the three buttons on the card (nsbbGain 0, 1 and 1.6). The vitals tool's hold: true draws the MAP hold line. The model has no systolic pressure, so the systolic <90 half of Baveno VIII 4.6 is not drawn."
+      "notes": "response: true puts the three buttons on the card (nsbbGain 0, 1 and 1.6). The vitals tool's hold: true draws both hold lines of Baveno VIII 4.6, systolic <90 and mean <65 mmHg, and the pressure as a bar from diastolic to systolic with a dot at the mean."
     },
     {
       "id": "r-strain",
