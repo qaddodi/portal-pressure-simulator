@@ -158,6 +158,9 @@ import { KIDNEY } from './decks/kidney.js';
 import { TIPPING } from './decks/tipping.js';
 import { DAY } from './decks/day.js';
 import { LANDMARK_TRIALS } from './decks/landmark-trials.js';
+import { CARVEDILOL } from './decks/carvedilol.js';
+import { ALBUMIN_DECK } from './decks/albumin.js';
+import { BUDD_CHIARI } from './decks/budd-chiari.js';
 
 // Regions of the anatomy plate the camera frames (world units, x 300-1120, y 0-920).
 export const REGIONS = {
@@ -237,6 +240,9 @@ DECKS.push(KIDNEY);
 DECKS.push(TIPPING);
 DECKS.push(DAY);
 DECKS.push(LANDMARK_TRIALS);
+DECKS.push(CARVEDILOL);
+DECKS.push(ALBUMIN_DECK);
+DECKS.push(BUDD_CHIARI);
 
 // Old links and bookmarks: a talk that was merged into another, or renamed, still opens by its old id (?script=<old id>, a shared
 // c/deck-<old id>.html page), at slide 1 of the deck that took its slides. The self-running tour became the Sites presentation, the
@@ -256,7 +262,7 @@ export const TOPICS = [
   ['more', 'More talks', [
     ['two-inflows', 'The liver\'s two inflows', 'Two inflows'], ['hyperdynamic', 'The circulation in cirrhosis', 'Hyperdynamic'],
     ['prehepatic', 'Portal vein clots', 'Portal vein clots'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['outflow', 'After the sinusoids', 'After the sinusoids'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance'],
-    ['endoscopy', 'The varix and insufflation', 'Insufflation'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years'], ['kidney', 'The kidney in cirrhosis', 'Kidney'],
+    ['endoscopy', 'The varix and insufflation', 'Insufflation'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years'], ['kidney', 'The kidney in cirrhosis', 'Kidney'], ['carvedilol', 'Carvedilol, start to finish', 'Carvedilol'], ['albumin', 'Albumin: when to give it', 'Albumin'], ['budd-chiari', 'Budd–Chiari syndrome', 'Budd–Chiari'],
     ['masld', 'Fatty liver and portal pressure', 'Fatty liver'],
     ['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['choose-treatment', 'Choose the treatment', 'Choose treatment'], ['cause-treated', 'Treating the cause', 'Treating the cause'], ['shunts', 'TIPS and shunts', 'TIPS and shunts'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler'],
     ['meso-rex', 'Children with a portal vein clot', 'Rex bypass'],
