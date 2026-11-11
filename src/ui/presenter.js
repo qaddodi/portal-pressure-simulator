@@ -68,7 +68,7 @@ import { causeFit } from './cause-fit.js';
 import { anchorsOf, roomFor } from './cam-room.js';
 import { beatCount, beatView } from './slide-beats.js';
 import { clausesOf, revealCount, shownLine } from './reveal.js';
-import { COMPACT, WIDE } from './card-type.js';
+import { COMPACT, WIDE, SIDEWAYS_MAX_H, sidewaysWords } from './card-type.js';
 import { createFlowTime, flowTimeHeight, trailKeys } from './flow-time.js';
 import { lapseGraphOf, graphTrail } from './lapse-graph.js';
 import { createEventGraph, eventGraphOf } from './event-graph.js';
@@ -3483,7 +3483,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // the full-height glass panel at the left edge). (An upright phone keeps its words' panel at the foot either way.)
   const TEXT_CARD = true;
   const SHORT_H = 860;   // (a wider screen this tall or less takes the compact layout, .pz.short: css px)
-  const SIDEWAYS_WORDS = [[0.62, 0.8], [0.58, 0.72], [0.54, 0.64], [0.5, 0.58]];   // (the words' card's extra steps on a phone held sideways: title and words scales, below Compact)
   const LOW_M = 10;   // (a phone held sideways: its teaching card's margin from the top and bottom, css px; styles/app.css .pz.low)
   // (auto: closed by the layout, a slide whose card does not fit beside the words and the figure; autoKey: the slide it closed on.
   // A card the reader closed stays closed from slide to slide; one the layout closed opens again on the next slide that fits.)
@@ -4649,7 +4648,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         // makes the rest fit its room.)
         // (A phone held sideways, 3 Nov 2026, Mohammad: "the instrument card should look good even if the text of the teaching card is smaller": the instrument
         // keeps its size and the words' card shrinks further, the title and the words a few steps below Compact, until the pair stands in the 390 px.)
-        if (!below && H <= 500 * k) { trim = 2; for (const [tk, bk] of SIDEWAYS_WORDS) { if (below) break; below = put(tk, bk); } }
+        // (The words' extra steps, card-type.js sidewaysWords: a step is kept only while the card's smallest lettering stays 12 px on the
+        // screen (minText), and where none fits the pair the words stay at the last step kept, never back up at Compact, which left the
+        // data card the rest: Doppler 3 on an iPhone on its side had a strip of spectrum under 5 lines of words, 11 Nov 2026.)
+        if (!below && H <= SIDEWAYS_MAX_H * k) {
+          trim = 2;
+          if (!sidewaysWords(put, () => minText(ui.text)).last) put(WIDE.title, WIDE.words);   // (not even the first step keeps 12 px: Compact, as before)
+          below = true;
+        }
         if (!below) { put(WIDE.title, WIDE.words); below = true; }
       }
       if (dk < 1) dd.style.setProperty('--pz-dk', dk); else dd.style.removeProperty('--pz-dk');
