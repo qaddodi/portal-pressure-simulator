@@ -18,6 +18,7 @@ import { sinceInput } from './quiet.js';
 import { SIN_PERFUSION, sinStrandRadius } from './sin-perfusion.js';
 import { createSweepClient } from './sweep-client.js';
 import { clamp } from './util.js';
+import { frontKey, fronted } from './collateral-front.js';
 import { beadRadius } from './varix-bead.js';
 import { LOOK_SITE } from './varix-look.js';
 import { newJoinStore, runOnSamples, smoothRunOn as smoothPass, veinJoins as joinsPass } from './vein-joins.js';
@@ -483,7 +484,7 @@ export function createVessels(st, live) {
     const { x, kind } = it, o = it.obj;
     let c, k1, k2 = 0, k3 = 0;
     if (kind === 'v' && it.ra) { c = 1; k1 = x.shadeVer | 0; k2 = it.ra.shadeVer | 0; k3 = Math.round(it.f * 1e4); }
-    else if (kind === 'v' && !x.isArt) { c = 2; k1 = x.shadeVer | 0; }
+    else if (kind === 'v' && !x.isArt) { c = 2; k1 = x.shadeVer | 0; k2 = frontKey(x, performance.now()); }   // (a collateral's front of width runs with the clock: collateral-front.js)
     else {
       // (As itemRadii: the esophageal balloon squeezes the varices' strands, a varix strand is beaded, a sinusoid strand narrows.)
       const r = (kind === 'v' ? Math.max(0.5, x.width / 2) : kind === 's' ? Math.max(1.6, x.width * o.k) / 2 : o.w / 2) * (kind === 's' && x.e.id === 'C1a' ? live.balloonSqueeze : 1);
@@ -769,7 +770,7 @@ export function createVessels(st, live) {
       // The drawn stretch: a vessel drawing on (or retracting) grows along its flow. A tributary's arc length is its own
       // (not its trunk's), or its chevrons and streaks would run along it many times too fast and bunch into ticks.
       let lo = 0, hi = 1;
-      if (x.reveal && kind !== 'f' && kind !== 'c') {
+      if (x.reveal && kind !== 'f' && kind !== 'c' && !fronted(x)) {   // (a collateral keeps its whole length: its front is a width, radFill)
         const r = x.reveal, u = clamp((now - r.t0) / r.dur, 0, 1), off = r.out ? easeInOut(u) : 1 - easeInOut(u);
         if (r.dir > 0) hi = 1 - off; else lo = off;
       }

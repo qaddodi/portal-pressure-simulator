@@ -3,6 +3,7 @@
 import { EDGES } from '../engine/topology.js';
 import { ABDOMEN_FLOOR, NEEDS_C3, abdomenOutline, cavityHalfWidths, flankPath } from './anatomy.js';
 import { createReversalHold } from './blood.js';
+import { FRONT_MS } from './collateral-front.js';
 import { fluidBase, fluidFloorAt, fluidLevel, poolFade } from './fluid-step.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { fluidSpring, fluidSpringFor } from './organ-ease.js';
@@ -44,7 +45,7 @@ export function createTransitions(st, live) {
       const open = x.vis && !x.ghost && !x.reveal?.out;
       const was = track[e.id];
       track[e.id] = open;
-      if (was === false && open && canFade(x) && !quiet) setReveal(x, revealOf(x, now, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : 1500, q >= 0 ? 1 : -1, false));
+      if (was === false && open && canFade(x) && !quiet) setReveal(x, revealOf(x, now, e.shunt === 'rex' ? REX_GROW_MS : e.kind === 'shunt' ? 900 : e.kind === 'collateral' ? FRONT_MS : 1500, q >= 0 ? 1 : -1, false));
     }
   }
   // The vessels that come and go with the disease (collaterals, shunts, the epigastric veins that
@@ -52,7 +53,7 @@ export function createTransitions(st, live) {
   const canFade = (x) => !x.isArt && (x.e.kind === 'collateral' || x.e.kind === 'shunt' || NEEDS_C3.has(x.e.id));
   function startExit(x, f) {
     const q = f.Qf ? f.Qf[EI[x.e.id]] : f.Q[EI[x.e.id]];
-    setReveal(x, revealOf(x, live.fxAt ?? performance.now(), x.e.shunt === 'rex' ? 1200 : x.e.kind === 'shunt' ? 700 : 1100, q >= 0 ? 1 : -1, true));
+    setReveal(x, revealOf(x, live.fxAt ?? performance.now(), x.e.shunt === 'rex' ? 1200 : x.e.kind === 'shunt' ? 700 : x.e.kind === 'collateral' ? FRONT_MS : 1100, q >= 0 ? 1 : -1, true));
   }
   // When the retraction ends: hide the vessel, or leave the dotted outline of a closed collateral.
   function finishExit(x) {

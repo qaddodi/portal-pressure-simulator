@@ -21,6 +21,7 @@ import { fluidSpringFor } from './organ-ease.js';
 import { booting, holdCover, sinceInput } from './quiet.js';
 import { store } from './store.js';
 import { clamp, lerp } from './util.js';
+import { FRONT_CHAIN, chainS, frontP, frontS, frontScale, fronted } from './collateral-front.js';
 import { BEAD_LAMBDA_FUNDAL, BEAD_SITE, beadLambda, beadRadius, varixBead, varixWale } from './varix-bead.js';
 import { LOOK_SITE, varixHold, varixOpacity, varixSize, varixSpreadK, varixWidthK } from './varix-look.js';
 import { TUBE_TEXELS } from './veins-gl.js';
@@ -725,6 +726,17 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // The tube's N_SAMPLES radii in one loop (tubeRadius at each sample, the same arithmetic); with `ra` the cava drawn as one: the first
   // share f of the samples along x, the rest along ra. Nothing is handed back from a call, so no number is boxed per sample.
   function tubeFill(x, ra, f, R) {
+    // (A collateral opening or closing: a front of width runs down it from its high-pressure end, collateral-front.js.)
+    const fr = !ra && fronted(x) ? x.reveal : null, fp = fr ? frontP(fr, performance.now()) : 0;
+    let order = -1, wFirst = 1;   // (a vessel that runs on into another that opens or closes with it: the front runs through both, FRONT_CHAIN)
+    if (fr) {
+      const ch = FRONT_CHAIN[x.e.id], o = ch && E[ch[0]];
+      if (o && fronted(o) && o.reveal.out === fr.out && o.reveal.dir === fr.dir) {
+        const la = geo[x.e.id]?.len || 1, lb = geo[ch[0]]?.len || 1;
+        order = (ch[1] === 0) === (fr.dir > 0) ? 0 : 1;   // (this one's place in the topology, so its place in the flow)
+        wFirst = order === 0 ? la / (la + lb) : lb / (la + lb);
+      }
+    }
     for (let i = 0; i < N_SAMPLES; i++) {
       const u = i / (N_SAMPLES - 1);
       let v = u, q = x;
@@ -732,14 +744,14 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const a = q.rA, w = q.rW, b = q.rB, h0 = q.rH0, h1 = q.rH1, fn = q.stenF, L = q.rL, bd = q.rBd;
       const r = v < 0.3 ? lerp(a, w, smooth(v / 0.3)) : v > 0.7 ? lerp(w, b, smooth((v - 0.7) / 0.3)) : w;
       const side = (h0 ? sideEndScale(v * L, h0) : 1) * (h1 ? sideEndScale((1 - v) * L, h1) : 1);
-      R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side * (bd ? beadRadius(1, bd, v, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1));
+      R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side * (bd ? beadRadius(1, bd, v, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1) * (fr ? frontScale(fp, fr.out, order < 0 ? frontS(fr, u) : chainS(frontS(fr, u), order, wFirst)) : 1));
     }
   }
   function renderTube(x, p, t, J) {
     const g = geo[x.e.id], id = x.e.id, w = x.width, wallPx = x.wallPx;
     const v = live.isImaging() ? 0 : p.stenosis[id] || 0;
     const sten = v > 0.01;
-    const stroked = x.ghost || !!x.reveal || (t >= 0.5 && !sten);
+    const stroked = x.ghost || (!!x.reveal && !fronted(x)) || (t >= 0.5 && !sten);   // (a collateral opening or closing is the whole shaded tube with a front of width, not a stroke drawing on)
     x.sten = sten; x.stroked = stroked;
     const lim = x.e.kind === 'collateral' ? 1.3 : 1.7;
     // A large shunt tapers into the smaller vein it drains into instead of butting onto it.
