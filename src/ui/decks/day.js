@@ -17,8 +17,7 @@ export const DAY = {
   objectives: [
     'Say how a meal changes portal flow, portal pressure and liver stiffness',
     'Explain why a litre of saline moves the portal and caval pressures together and leaves the HVPG unchanged',
-    'Describe how breathing moves the portal pressure from beat to beat',
-    'Say what a strain does to the portal vein pressure and the MAP',
+    'Describe how breathing and a strain move the portal vein pressure and the MAP',
     'State why liver stiffness is measured fasting',
   ],
   summary: 'What moves the portal pressure in hours: a meal, a litre of saline, deep breathing. One man with CSPH, and why stiffness is measured fasting.',
