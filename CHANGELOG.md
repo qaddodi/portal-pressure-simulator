@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **Pregnancy delivery slide no longer says the strain raises the varix pressure.** (A held strain lowers the pressure across a varix wall in the model.)
+  The line now says repeated pushing is thought to raise the bleeding risk, so the second stage is kept short; its notes say the model does not show this risk.
+
 - **Teaching cards show all their text at once, with no graph: `reveal: true` and the `dilate` card graph removed.** (Mohammad's card rules, via the deck review.)
   The five built-in slides that revealed their line clause by clause (Circulation "inflow" and "lobule", Circuit "ohm", Hyperdynamic "forward", Sites "overview") now show the whole line from the start, with the lit terms as before and the `|` clause marks gone from their words. Hyperdynamic "dilate" no longer draws the arterial pressure and output graph on its teaching card (`graph: false`); its vitals monitor stays. `reveal: true` stays available to an imported deck.
 
