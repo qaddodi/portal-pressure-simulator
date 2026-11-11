@@ -6,7 +6,7 @@ const tree = inheritTone({
   id: 'root', t: 'cACLD suspected', s: 'Fasting liver stiffness (LSM) and platelet count.', tone: 'n', kids: [
     { id: 'b1', t: 'LSM <10 kPa', r: 'Rules cACLD out', s: 'Consider PSVD if portal hypertension.', stmt: '1.3', tone: 'n', sh: 'LSM <10', kids: [act('a1', 'Repeat NITs by cause')] },
     { id: 'b2', t: 'LSM ≤15 kPa and platelets ≥150', r: 'Rules CSPH out', stmt: '1.15', tone: 'ok', sh: 'LSM ≤15, PLT ≥150', kids: [act('a2', 'Repeat LSM in 12 months')] },
-    { id: 'b3', t: 'LSM 15–25 kPa, or platelets <150', r: 'Gray zone', stmt: '1.17', tone: 'warn', sh: 'Gray zone', kids: [
+    { id: 'b3', t: 'LSM 15–25 kPa, or platelets <150', r: 'Indeterminate zone', stmt: '1.17', tone: 'warn', sh: 'Indeterminate zone', kids: [
       { id: 'g1', t: 'ANTICIPATE ≥75%', r: 'Rules CSPH in', s: 'Or NICER ≥75%, SSM >55 kPa.', stmt: '1.14, 1.16', tone: 'bad', sh: 'Model or SSM', kids: [act('a3', 'Start NSBB, carvedilol preferred')] },
       { id: 'g2', t: 'No test rules it in', r: 'CSPH still open', stmt: '1.17', tone: 'warn', sh: 'Neither', kids: [act('a4', 'Repeat NITs in 12 months, or add SSM', { s: 'No NSBB? Scope unless LSM <20 & PLT ≥150, or SSM <40.', stmt: '1.19' })] }] },
     { id: 'b4', t: 'LSM ≥25 kPa', r: 'Rules CSPH in', s: 'Viral, alcohol, non-obese MASLD.', stmt: '1.16b', tone: 'bad', sh: 'LSM ≥25', kids: [act('a6', 'Start NSBB, carvedilol preferred')] }] }, 'n');
@@ -19,7 +19,7 @@ export default {
   cite: 'Fig. 1',
   tree,
   mapWords: {
-    b1: ['LSM', '<10'], b2: ['LSM ≤15', 'PLT ≥150'], b3: ['Gray', 'zone'], b4: ['LSM', '≥25'], g1: ['Model or', 'SSM'], g2: ['Neither'],
+    b1: ['LSM', '<10'], b2: ['LSM ≤15', 'PLT ≥150'], b3: ['Indeterminate', 'zone'], b4: ['LSM', '≥25'], g1: ['Model or', 'SSM'], g2: ['Neither'],
     a1: ['Repeat', 'NITs'], a2: ['Repeat LSM', '12 months'], a3: ['Start', 'carvedilol'], a4: ['Repeat or', 'add SSM'], a6: ['Start', 'carvedilol'],
   },
   /** The nodes lit for a first-visit patient { lsm, plt, bmi, ant, ssm }: lsm in kPa, plt in ×10⁹/L, ant: ANTICIPATE (or -NASH) ≥75%, ssm: spleen stiffness >55 kPa, bmi: BMI ≥30. */

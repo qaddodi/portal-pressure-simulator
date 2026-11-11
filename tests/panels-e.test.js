@@ -79,7 +79,7 @@ test('the model\'s compensated patients fall where the stiffness deck says', asy
 });
 
 test('words fit whole or not at all, and names never overlap one another or leave the plot', () => {
-  assert.deepEqual(fitWords('Gray zone', 200, 13), ['Gray zone']);
+  assert.deepEqual(fitWords('Indeterminate zone', 200, 13), ['Indeterminate zone']);
   assert.deepEqual(fitWords('No screening scope', 80, 13), ['No', 'screening', 'scope']);
   assert.equal(fitWords('Unbreakableveryveryverylongword', 60, 13), null);
   const fr = frame(360, 260);

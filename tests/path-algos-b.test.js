@@ -164,14 +164,14 @@ test('aasld: the live LSM and platelets, as the tiles print them, over the slide
   assert.deepEqual(aasld.patientFor({ of: 'aasld', patient: { lsm: 18, plt: 140 } }, { lsm: 20.76, plt: 160.4, ssm: 35 }, shown), { lsm: 20.8, plt: 160.4 });
   assert.deepEqual(aasld.patientFor({ of: 'aasld', patient: { lsm: 18, plt: 140 } }, { ssm: 35 }, shown), { lsm: 18, plt: 140 });
   assert.deepEqual(aasld.patientFor({ of: 'aasld' }, null, shown), { lsm: 22, plt: 130 }, 'defaults, never NaN');
-  assert.equal(aasld.compare({ lsm: 22, plt: 130 }), 'Baveno VIII, same patient: gray zone');
+  assert.equal(aasld.compare({ lsm: 22, plt: 130 }), 'Baveno VIII, same patient: indeterminate zone');
   assert.equal(aasld.compare({ lsm: 28, plt: 200 }), 'Baveno VIII, same patient: rules CSPH in');
   assert.equal(aasld.compare({ lsm: 25, plt: 90 }), 'Baveno VIII, same patient: rules CSPH in');
   assert.equal(aasld.compare({ lsm: 12, plt: 190 }), 'Baveno VIII, same patient: rules CSPH out');
   assert.equal(aasld.compare({ lsm: 8, plt: 190 }), 'Baveno VIII, same patient: rules cACLD out');
   assert.equal(aasld.compare({ lsm: 15, plt: 150 }), 'Baveno VIII, same patient: rules CSPH out', 'Baveno VIII: ≤15 and ≥150');
   assert.equal(out(aasld, { lsm: 15, plt: 150 }), 'gray', 'while AASLD needs <15: the two differ at exactly 15');
-  assert.equal(aasld.compare({ lsm: 14.9, plt: 149 }), 'Baveno VIII, same patient: gray zone');
+  assert.equal(aasld.compare({ lsm: 14.9, plt: 149 }), 'Baveno VIII, same patient: indeterminate zone');
 });
 
 test('the widest patient prints the longest chips and readings, so the card never changes size', () => {

@@ -60,8 +60,8 @@ test('Stiffness, the first visit: a graph of distinct zones, the EGD area hatche
   const s = DECKS.find((d) => d.id === 'stiffness').slides.find((x) => x.id === 'rules');
   assert.equal(s.tool.zones, 'first-visit');
   const z = ZONES['first-visit'];
-  // Baveno VIII 1.15, 1.16, 1.19: ruled out ≤15 kPa with PLT ≥150K, ruled in ≥25 kPa, the gray zone between; the EGD skipped at <20 kPa with PLT ≥150K.
-  assert.deepEqual(z.zones.filter((a) => a.name).map((a) => [a.name, a.x, a.y]), [['No CSPH', [5, 15], [150, 250]], ['Gray', [15, 25], [50, 250]], ['CSPH', [25, 35], [50, 250]]]);
+  // Baveno VIII 1.15, 1.16, 1.19: ruled out ≤15 kPa with PLT ≥150K, ruled in ≥25 kPa, the indeterminate zone between; the EGD skipped at <20 kPa with PLT ≥150K.
+  assert.deepEqual(z.zones.filter((a) => a.name).map((a) => [a.name, a.x, a.y]), [['No CSPH', [5, 15], [150, 250]], ['Indeterminate', [15, 25], [50, 250]], ['CSPH', [25, 35], [50, 250]]]);
   assert.deepEqual([z.hatch.x, z.hatch.y], [[5, 20], [150, 250]], 'the EGD area: <20 kPa with PLT ≥150K');
   assert.deepEqual(z.xTicks, [15, 20, 25]);
   const keys = s.tool.key.map(keyLine);
@@ -69,7 +69,7 @@ test('Stiffness, the first visit: a graph of distinct zones, the EGD area hatche
   for (const k of keys) {
     assert.doesNotMatch(k.plain, /\bscope\b|more than|or more|at least/i, `"${k.plain}": EGD and symbols`);
   }
-  assert.ok(keys.some((k) => /ANTICIPATE ≥75% or SSM >55 kPa = CSPH/.test(k.plain)), 'what the gray zone tests mean: CSPH');
+  assert.ok(keys.some((k) => /ANTICIPATE ≥75% or SSM >55 kPa = CSPH/.test(k.plain)), 'what the indeterminate zone tests mean: CSPH');
   assert.ok(keys.some((k) => /BMI ≥30/.test(k.plain)), 'the BMI exception to the 25 kPa rule');
   const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
   const blk = css.slice(css.indexOf('/* A zones card'), css.indexOf('.pzc-sw {'));   // (to the hatch's swatch, now a plain block: tool-criteria.js)

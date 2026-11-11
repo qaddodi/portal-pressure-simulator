@@ -6,7 +6,7 @@
 //
 // Checked on the PDFs in guidelines/ (Baveno VIII, J Hepatol 2026):
 //   first visit  Fig. 1 and 1.3, 1.14 to 1.17, 1.19: LSM <10 kPa rules cACLD out; LSM ≤15 kPa with platelets ≥150 ×10⁹/L rules CSPH out;
-//                LSM ≥25 kPa rules CSPH in (viral, alcohol, non-obese MASLD); between, or with platelets <150, is the gray zone, where an
+//                LSM ≥25 kPa rules CSPH in (viral, alcohol, non-obese MASLD); between, or with platelets <150, is the indeterminate zone, where an
 //                ANTICIPATE (ANTICIPATE-NASH at a BMI ≥30) or NICER probability ≥75%, or an SSM >55 kPa rules CSPH in (the figure prints
 //                ≥55; the statement, 1.16c, and SSM_CUTS use >55). With nothing ruling it in: repeat the tests at 12 months or add SSM, and
 //                a patient who cannot take a beta-blocker has the screening scope unless LSM <20 kPa with platelets ≥150, or SSM <40 kPa.

@@ -198,7 +198,7 @@ const VAL = String.raw`(?:[<>≥≤]\s?)?\d+(?:\.\d+)?(?:\s(?:to|or)\s\d+(?:\.\d
 const TERMS = ['CSPH', 'SAAG', 'WHVP', 'FHVP', 'central vein', 'portal tracts?', 'fenestrae', 'space of Disse',
   'basement membrane', 'capillarization', 'wedged pressure', 'free pressures?', 'sinusoidal pressure', 'caput medusae',
   'gastrorenal shunt', 'stellate cells?', 'encephalopathy', 'periportal fibrosis', 'intrahepatic resistance', 'hepatopetal', 'hepatofugal',
-  'cavernoma', 'a wave', 'pulsatility', 'reflection coefficient', 'Laplace', 'congestion index', 'gray zone', 'red wale marks'];
+  'cavernoma', 'a wave', 'pulsatility', 'reflection coefficient', 'Laplace', 'congestion index', 'indeterminate zone', 'red wale marks'];
 // A tile's words in a line (the slide's key tiles are its key terms).
 const KEYWORDS = { hvpg: 'HVPG', ppg: 'PPG', pv: 'portal pressure', whvp: 'WHVP|wedged pressure', fhvp: 'FHVP|free pressure', ra: 'right atrial pressure|right atrium',
   ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', rpp: 'kidney pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', ssm: 'spleen stiffness|SSM', spleen: 'spleen',

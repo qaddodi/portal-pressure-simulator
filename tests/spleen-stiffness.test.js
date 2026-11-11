@@ -18,7 +18,7 @@ test('a healthy spleen reads about 17 kPa, under every rule-out', () => {
   assert.equal(ssmZone(m.ssm), 'spare');
 });
 
-test('in cirrhosis it climbs with the HVPG, across the gray zone into the rule-in', () => {
+test('in cirrhosis it climbs with the HVPG, across the indeterminate zone into the rule-in', () => {
   let prev = 0;
   for (const c of [0, 0.3, 0.5, 0.6, 0.7, 0.8, 1]) {
     const e = patch(new Engine(), { cirrhosis: c }); e.advanceDays(365);
@@ -55,6 +55,6 @@ test('the tile reads the same cut-offs as the card and the decks', () => {
   assert.ok(TILE.ssm && SCALE.ssm);
   assert.deepEqual(SCALE.ssm[2], [SSM_CUTS.resolved, SSM_CUTS.spareScope, SSM_CUTS.ruleIn]);
   assert.equal(RATE.ssm(SSM_CUTS.ruleIn + 0.1)[1], 'CSPH');
-  assert.equal(RATE.ssm(SSM_CUTS.ruleIn)[1], 'Gray zone');
+  assert.equal(RATE.ssm(SSM_CUTS.ruleIn)[1], 'Indeterminate');
   assert.equal(RATE.ssm(SSM_CUTS.spareScope - 0.1)[0], 'ok');
 });

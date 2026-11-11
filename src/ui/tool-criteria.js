@@ -23,10 +23,10 @@
 // words with **...** (ink in quiet words); a lead that only reads after its list goes in verdict, at the foot.
 // The card never changes size with the reading: each reading's slot is as wide as its widest number, the marks cross-fade.
 // Zones (27 Oct, his pick G2, review/first-visit-card-ideas/graph): zones: 'first-visit' draws a rule as regions on a graph in place
-// of rows (a rule whose cut-offs overlap, such as the EGD's <20 kPa inside the 15–25 gray zone, reads as distinct regions there):
+// of rows (a rule whose cut-offs overlap, such as the EGD's <20 kPa inside the 15–25 indeterminate zone, reads as distinct regions there):
 // the zones in the tiles' band colours on a rounded plot the card's full width, a hatched area for a second question laid over them,
 // and the axis numbers inside the plot on the lines they mark, white with a dark outline as the FibroScan readings. key: lines under
-// the graph, centred ('**Gray:** ...', or { text, swatch: 'hatch' } for the hatched area's line). The plot's height follows its width
+// the graph, centred ('**Indeterminate:** ...', or { text, swatch: 'hatch' } for the hatched area's line). The plot's height follows its width
 // only, so the card never changes size with the case.
 
 import { h, fmt } from './util.js';
@@ -38,13 +38,12 @@ import { chartCtx } from './chart-ctx.js';
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */
 export const ZONES = {
-  // Baveno VIII 1.15, 1.16, 1.19: CSPH ruled out at ≤15 kPa with PLT ≥150K, ruled in at ≥25 kPa, the gray zone between; with no
-  // carvedilol the EGD can be skipped at <20 kPa with PLT ≥150K (the hatched area).
+  // Baveno VIII 1.15, 1.16, 1.19: CSPH ruled out at ≤15 kPa with PLT ≥150K, ruled in at ≥25 kPa, the indeterminate zone between; a patient ineligible for an NSBB needs no screening EGD at <20 kPa with PLT ≥150K (the hatched area).
   'first-visit': {
     x: [5, 35], y: [50, 250],
     zones: [
       { rate: 'ok', x: [5, 15], y: [150, 250], name: 'No CSPH', at: [10, 190] },
-      { rate: 'mid', x: [15, 25], y: [50, 250], name: 'Gray', at: [20, 112] },
+      { rate: 'mid', x: [15, 25], y: [50, 250], name: 'Indeterminate', at: [20, 112] },
       { rate: 'mid', x: [5, 15], y: [50, 150] },
       { rate: 'hi', x: [25, 35], y: [50, 250], name: 'CSPH', at: [30, 150] },
     ],
@@ -55,7 +54,7 @@ export const ZONES = {
 // (2 Nov 2026: the zones graph is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const svg = svgModel;
 let zoneN = 0;
-/** A key line as written ('**Gray:** ...' or { text, swatch }), read into its words (bold parts) and swatch; null if it has no words. */
+/** A key line as written ('**Indeterminate:** ...' or { text, swatch }), read into its words (bold parts) and swatch; null if it has no words. */
 export function keyLine(k) {
   const o = typeof k === 'string' ? { text: k } : k && typeof k === 'object' ? k : null;
   const t = str(o?.text);

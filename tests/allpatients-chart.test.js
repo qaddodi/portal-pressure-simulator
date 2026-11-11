@@ -112,9 +112,9 @@ test('the platelets do not dip in the first three months: the MASLD and alcohol 
     for (let i = 1; i < plt.length; i++) assert.ok(plt[i] >= plt[i - 1] - 0.5, `${name}: the platelets only rise as the scar eases (month ${p.pts[i].m}: ${plt[i - 1].toFixed(1)} to ${plt[i].toFixed(1)})`);
     assert.ok(p.pts.every((q, i) => !i || q.hvpg <= p.pts[i - 1].hvpg + 1e-6 && q.lsm <= p.pts[i - 1].lsm + 1e-6), `${name}: and the HVPG and the stiffness only fall`);
   }
-  // (The slide's own opening is that state too, not the preset's: its words quote the stiffness in the gray zone and the platelets under 150.)
+  // (The slide's own opening is that state too, not the preset's: its words quote the stiffness in the indeterminate zone and the platelets under 150.)
   const masld = ser.find((x) => x.name === 'MASLD');
-  assert.ok(at(masld, 0, 'lsm') > 14 && at(masld, 0, 'lsm') < 16, 'MASLD opens in the gray zone, near the 15 kPa of her vignette');
+  assert.ok(at(masld, 0, 'lsm') > 14 && at(masld, 0, 'lsm') < 16, 'MASLD opens in the indeterminate zone, near the 15 kPa of her vignette');
   assert.ok(at(masld, 0, 'plt') < 150, 'with platelets under 150');
   // The table's before rows are the same settled states.
   const masld0 = DECK.slides.find((s) => s.visual === 'table').of.find((o) => o.key === 'masld0');

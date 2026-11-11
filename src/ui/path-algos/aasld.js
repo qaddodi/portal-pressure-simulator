@@ -43,7 +43,7 @@ function patientFor(tool, fp, shown = (k, v) => v) {
 
 /** The Baveno VIII verdict for the same patient, as one line in plain words. */
 export function compare(p) {
-  const bv = p.lsm < 10 ? 'rules cACLD out' : p.lsm <= 15 && p.plt >= 150 ? 'rules CSPH out' : p.lsm >= 25 ? 'rules CSPH in' : 'gray zone';
+  const bv = p.lsm < 10 ? 'rules cACLD out' : p.lsm <= 15 && p.plt >= 150 ? 'rules CSPH out' : p.lsm >= 25 ? 'rules CSPH in' : 'indeterminate zone';
   return `Baveno VIII, same patient: ${bv}`;
 }
 
@@ -57,5 +57,5 @@ export default {
   outcomes: ['in', 'gray', 'out'],
   outcomeOf, reading, chips, patientFor, compare,
   worst: { lsm: 99.9, plt: 1000 },
-  notes: 'The AASLD 2024 guidance (Fig. 3, guidance statement 7) uses liver stiffness by transient elastography with the platelet count, the rule of five. CSPH is presumed at LSM ≥25 kPa whatever the platelets, at 20–25 kPa with platelets <150, or at 15–20 kPa with platelets <110 (×10⁹/L). It is excluded at LSM <15 kPa with platelets ≥150. Between them lies a gray zone, where spleen stiffness or HVPG can decide. Baveno VIII draws its first-visit rules differently: it rules CSPH out at LSM ≤15 kPa with platelets ≥150 and in at LSM ≥25 kPa, so the two differ at exactly 15 kPa. Take care in obesity with MASLD, ALT >3 times the upper limit, and primary sclerosing cholangitis with a dominant stricture, where the rule is less well calibrated.',
+  notes: 'The AASLD 2024 guidance (Fig. 3, guidance statement 7) uses liver stiffness by transient elastography with the platelet count, the rule of five. CSPH is presumed at LSM ≥25 kPa whatever the platelets, at 20–25 kPa with platelets <150, or at 15–20 kPa with platelets <110 (×10⁹/L). It is excluded at LSM <15 kPa with platelets ≥150. Between them lies an indeterminate zone, where spleen stiffness or HVPG can decide. Baveno VIII draws its first-visit rules differently: it rules CSPH out at LSM ≤15 kPa with platelets ≥150 and in at LSM ≥25 kPa, so the two differ at exactly 15 kPa. Take care in obesity with MASLD, ALT >3 times the upper limit, and primary sclerosing cholangitis with a dominant stricture, where the rule is less well calibrated.',
 };

@@ -7149,7 +7149,7 @@ body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var
 .pz.stack .pze-plot.pze-incard.pze-ownwords { height: calc(min(clamp(210px, 66cqi, 300px) * var(--pz-fit, 1), max(150px, var(--pz-ph, 9999px))) + 1.3em + 6px); }
 .pz.low .pze-plot.pze-incard.pze-ownwords { height: calc(132px + 1.3em + 6px); }
 .pze-plot :is(svg, .ic) { position: absolute; inset: 0; display: block; overflow: visible; }
-/* (The gray zone, "CSPH unclear", in a stronger amber than the other zones' tints, so it reads as its own band in both themes.) */
+/* (The indeterminate zone, "CSPH unclear", in a stronger amber than the other zones' tints, so it reads as its own band in both themes.) */
 /* A scatter's axes (a plane with no zones, visual-plane.js axesFrame and axesMarks): the app's chart panel under hairline gridlines at the
    numbers, an axis line on the left and along the foot with a short tick at each number, the diagonal a step stronger than the grid so
    it still reads as the line that matters. Inside it the halos round words are the panel's own tone, as in every chart panel. */

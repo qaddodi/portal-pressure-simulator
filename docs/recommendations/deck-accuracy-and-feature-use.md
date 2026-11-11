@@ -159,7 +159,7 @@ shunts decks fall back on `liver` or `shunt` to teach stent width. See section 4
   pulse and the pressure.
 - **The `hvpg-ppg` plane** (`diag: WHVP = portal`). It is the natural chart for `masld.js:30` and `:39` (`under`, `still`): plot
   `masld-csph` against `cirr-comp` and `csph`, so the gap between the HVPG and the PPG is visible. The **`csph` plane** fits
-  `masld.js:47` (`bmi`, gray zone, LSM 22.2) as it does `ten-years` `d0`.
+  `masld.js:47` (`bmi`, indeterminate zone, LSM 22.2) as it does `ten-years` `d0`.
 - **Doppler on more vessels.** In each of these the line describes a flow that no Doppler card shows:
   - `shunts.js:45` (`srs`): `PV_TRUNK`, which reads −4.1 cm/s (hepatofugal). The line says flow may reverse.
   - `gastric-varices.js:81` (`svt`): the splenic vein at the clot (no flow).

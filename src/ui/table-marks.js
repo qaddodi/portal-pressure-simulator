@@ -41,7 +41,7 @@ const T_hi_Low = tup('hi', 'Low');
 const T_hi_CSPH = tup('hi', 'CSPH');
 const T_mid_Borderline = tup('mid', 'Borderline');
 const T_mid_cACLD = tup('mid', 'cACLD');
-const T_mid_Gray = tup('mid', 'Gray zone');
+const T_mid_Indeterminate = tup('mid', 'Indeterminate');
 const T_info_Slow = tup('info', 'Slow');
 const T_hi_Fast = tup('hi', 'Fast');
 const T_hi_Complete = tup('hi', 'Complete');
@@ -83,12 +83,12 @@ export const RATE = {
   map: (v) => (v < KIDNEY_CUTS.mapBeta ? T_hi_Low : T_ok_Normal),
   // Kidney pressure (MAP less the abdomen's, kidney-cuts.js): a pressure, not kidney function. Red below the MAP line of Baveno VIII 4.6 carried over to it.
   rpp: (v) => (rppSev(v) === 'danger' ? T_hi_Low : T_ok_Normal),
-  // Liver stiffness (Baveno VIII): under 10 kPa normal, 10 to 15 suggests cACLD, 15 to 25 borderline (the gray zone), 25 or more
+  // Liver stiffness (Baveno VIII): under 10 kPa normal, 10 to 15 suggests cACLD, 15 to 25 borderline (the indeterminate zone), 25 or more
   // CSPH (all suggestive, not proof: the slides' words say "likely").
   lsm: (v) => (v >= 25 ? T_hi_CSPH : v >= 15 ? T_mid_Borderline : v >= 10 ? T_mid_cACLD : T_ok_Normal),
   // Spleen stiffness (Baveno VIII, the 100 Hz probe; ssm-cuts.js): over 55 kPa CSPH, under 40 low (the screening scope can be spared
-  // without a beta-blocker), the gray zone between. (A healthy spleen reads about 17; the bar's tick at 25 is the resolution cut-off.)
-  ssm: (v) => (v > SSM_CUTS.ruleIn ? T_hi_CSPH : v >= SSM_CUTS.spareScope ? T_mid_Gray : T_ok_Low),
+  // without a beta-blocker), the indeterminate zone between. (A healthy spleen reads about 17; the bar's tick at 25 is the resolution cut-off.)
+  ssm: (v) => (v > SSM_CUTS.ruleIn ? T_hi_CSPH : v >= SSM_CUTS.spareScope ? T_mid_Indeterminate : T_ok_Low),
   ra: (v) => (v > 8 ? T_hi_High : T_ok_Normal),
   salb: (v) => (v < 3.5 ? T_mid_Low : T_ok_Normal),
   // (A slow rate is no warning on its own: beta-blocked patients aim for 55 to 60, so its band is plain gray.)

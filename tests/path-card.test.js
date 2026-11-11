@@ -27,12 +27,12 @@ test('first visit: the lit path follows Baveno VIII 1.3, 1.15, 1.16 and 1.17', (
   assert.equal(lit({ lsm: 8 }), 'a1', 'LSM <10 rules cACLD out');
   assert.equal(lit({ lsm: 12, plt: 160 }), 'a2', 'LSM ≤15 and PLT ≥150 rules CSPH out');
   assert.equal(lit({ lsm: 15, plt: 150 }), 'a2', 'both limits are inclusive');
-  assert.equal(lit({ lsm: 12, plt: 149 }), 'a4', 'PLT <150 is the gray zone');
-  assert.equal(lit({ lsm: 20 }), 'a4', '15–25 is the gray zone');
+  assert.equal(lit({ lsm: 12, plt: 149 }), 'a4', 'PLT <150 is the indeterminate zone');
+  assert.equal(lit({ lsm: 20 }), 'a4', '15–25 is the indeterminate zone');
   assert.equal(lit({ lsm: 20, ant: true }), 'a3', 'ANTICIPATE ≥75% rules CSPH in');
   assert.equal(lit({ lsm: 20, ssm: true }), 'a3', 'SSM >55 rules CSPH in');
   assert.equal(lit({ lsm: 25 }), 'a6', 'LSM ≥25 rules CSPH in');
-  assert.equal(lit({ lsm: 30, bmi: true }), 'a4', 'at a BMI ≥30 the 25 kPa rule does not hold: the gray zone');
+  assert.equal(lit({ lsm: 30, bmi: true }), 'a4', 'at a BMI ≥30 the 25 kPa rule does not hold: the indeterminate zone');
   assert.equal(lit({ lsm: 30, bmi: true, ant: true }), 'a3');
   assert.deepEqual([...litFirst({ lsm: 20, plt: 200, ant: true })].sort(), ['a3', 'b3', 'g1', 'root']);
   assert.deepEqual([...litFirst({})], ['root'], 'no reading: only the start is lit');

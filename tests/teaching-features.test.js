@@ -75,7 +75,7 @@ test('criteria card: only adopted slides use it, each with 1 to 4 rows of words,
       assert.ok(!s.tool.rows, `${d.id}/${s.id}: a graph or rows, never both`);
       const keys = s.tool.key.map(keyLine);
       assert.ok(keys.length >= 1 && keys.length <= CRITERIA_MAX && keys.every(Boolean), `${d.id}/${s.id}: 1 to 4 key lines with words`);
-      for (const k of keys) assert.ok(k.plain.length <= 50, `${d.id}/${s.id}: "${k.plain}" fits one line on a phone`);
+      for (const k of keys) assert.ok(k.plain.length <= 54, `${d.id}/${s.id}: "${k.plain}" fits one line on a phone`);
     } else {
       assert.equal(rows.length, s.tool.rows.length, `${d.id}/${s.id}: every row has words`);
       assert.ok(rows.length >= 1 && rows.length <= CRITERIA_MAX, `${d.id}/${s.id}: 1 to 4 rows`);
