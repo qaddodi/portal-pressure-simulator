@@ -2,7 +2,7 @@
 // unit tests can load them (review/deck-visuals-recs.md §9). Nothing here touches the page.
 import { TILE, rateShown, tileShown, tipsGoal } from './table-marks.js';
 import { plateletText } from './glue.js';
-import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES } from './anatomy.js';
+import { ORGANS, NODE_POS, SPLEEN_CENTER, CIRCUIT_ZONES, CAUDATE } from './anatomy.js';
 
 // (util.js fmt, which needs the page to load: a value to d decimals, with a true minus and never "−0".)
 const fmt = (v, d = 1) => { if (v == null || !Number.isFinite(v)) return '—'; const t = v.toFixed(d); return /^-0(\.0+)?$/.test(t) ? t.slice(1) : t.replace('-', '−'); };
@@ -72,11 +72,17 @@ export const ORGAN_ANCHOR = (() => {
   }
   // (The ascites pools low in the belly, under the bowel.)
   out.ascites = { at: [700, 880], half: [60, 30] };
+  // (The caudate lobe is drawn on a slide about it, not as an outlined organ: its anchor is the middle of the lobe's two ellipses,
+  // [cx, cy, rx, ry, degrees] in anatomy.js CAUDATE.)
+  const lx0 = Math.min(...CAUDATE.lobe.map((e) => e[0] - e[2])), lx1 = Math.max(...CAUDATE.lobe.map((e) => e[0] + e[2]));
+  const ly0 = Math.min(...CAUDATE.lobe.map((e) => e[1] - e[3])), ly1 = Math.max(...CAUDATE.lobe.map((e) => e[1] + e[3]));
+  out.caudate = { at: [(lx0 + lx1) / 2, (ly0 + ly1) / 2], half: [(lx1 - lx0) / 2, (ly1 - ly0) / 2] };
   out.kidney = out['kidney-l'];
   return out;
 })();
-// (The organs a mark may name: the outlined organs, the kidney under its target's name, and the ascites.)
-export const ORGAN_MARKS = ['liver', 'spleen', 'heart', 'stomach', 'esophagus', 'bowel', 'colon', 'duodenum', 'kidney', 'kidney-l', 'ascites'];
+// (The organs a mark may name: the outlined organs, the kidney under its target's name, the ascites, and the caudate lobe, which a
+// slide shows by naming it in `terms`.)
+export const ORGAN_MARKS = ['liver', 'spleen', 'heart', 'stomach', 'esophagus', 'bowel', 'colon', 'duodenum', 'kidney', 'kidney-l', 'ascites', 'caudate'];
 // (The spleen's scaled anchor is one kept object, rewritten by each call: a caller reads it at once, as the stored ones are read.)
 const SPLEEN_AT = { at: null, half: [0, 0] };
 /** An organ's anchor at the spleen's drawn scale (the spleen grows about its centre; nothing else changes size here). */

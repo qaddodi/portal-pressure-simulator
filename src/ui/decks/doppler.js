@@ -83,7 +83,7 @@ export const DOPPLER = {
       ask: ['The trace is empty with the angle and gain set right. What does that suggest?', 'No flow in the vein: an occlusive clot.'],
     },
     {
-      id: 'a3', terms: ['hv'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, tool: { kind: 'doppler', vessel: 'RHV_IVC' },
+      id: 'a3', terms: ['hv', 'caudate'], preset: 'budd-chiari', cam: 'hepatic', labels: ['RHV', 'RA'], marks: [{ edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], label: 'Clot in hepatic veins', free: true }, { organ: 'caudate', label: 'Caudate lobe', kind: 'note' }], tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pvVel'], key: ['pvVel'],
       vignette: 'A 29-year-old woman who takes an OCP has had 6 weeks of right upper quadrant pain and a growing abdomen. Her liver is large and tender.',
       caseQ: 'What will her right hepatic vein trace show?',
       kicker: 'Outflow', site: 'post', title: 'No waves in the hepatic veins: Budd–Chiari syndrome',
@@ -101,7 +101,7 @@ export const DOPPLER = {
       ask: ['A pulsing portal vein with a normal HVPG: where is the resistance?', 'Beyond the liver, in the heart: a high right atrial pressure reaches back through the sinusoids.'],
     },
     {
-      id: 'a5', lens: 'direction', preset: 'cirr-decomp', params: STENT, days: 180, cam: 'liver', labels: ['LPV'], mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'PVH_L' },
+      id: 'a5', lens: 'direction', preset: 'cirr-decomp', params: STENT, days: 180, cam: 'liver', labels: ['LPV'], mark: { edges: ['TIPS'], label: 'Narrowing', seg: 'site' }, tool: { kind: 'doppler', vessel: 'PVH_L' }, data: 'tiles', tiles: ['ppg', 'asc'], key: ['ppg'],
       vignette: 'A 60-year-old man had a covered TIPS for refractory ascites six months ago. Over the last month his ascites has come back.',
       caseQ: 'Which way will his left portal vein flow?',
       kicker: 'After TIPS', site: 'sin', title: 'Toward the liver again: the stent has narrowed',

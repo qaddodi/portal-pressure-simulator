@@ -1167,7 +1167,7 @@ export function createLabelSolve(st, live) {
       if (!circuit) live.fx.organs.forEach((m, i) => {
         // A mark on an organ: off the organ's box, on a leader to its middle (the spleen's box grows with it).
         const a = organAnchor(m.organ, (f.slow?.spleen ?? 11) / 11);
-        if (!a || (m.organ !== 'ascites' && !organEls[m.organ]) || (m.organ === 'spleen' && (f.viewParams || st.params)?.splenicRx === 2)) return;
+        if (!a || (m.organ !== 'ascites' && m.organ !== 'caudate' && !organEls[m.organ]) || (m.organ === 'spleen' && (f.viewParams || st.params)?.splenicRx === 2)) return;
         const key = `focusO${i}`, cls = `focus k-${m.kind}`, it = fxPill(key, m, cls, m.kind === 'note');
         const [ax, ay] = worldToLocal(...a.at), gx = a.half[0] * k + 12, gy = a.half[1] * k + 12, gd = Math.min(gx, gy);
         Object.assign(it, { mk: m.kind, ax, ay, src: ['fx', key] });

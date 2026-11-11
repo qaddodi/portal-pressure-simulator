@@ -51,7 +51,7 @@ export const RECOMPENSATION = {
       ask: ['What are the maximum daily doses of spironolactone and furosemide?', '400 mg of spironolactone and 160 mg of furosemide.'],
     },
     {
-      id: 'cure', lens: 'since', since: 'ascites', sinceLabel: 'the first ascites', tick: 'Cause removed', days: 365, ramp: { cirrhosis: [0.85, 0.6], albumin: [2.8, 3.8] }, lapse: { seconds: 10 }, cam: 'liver', tool: { kind: 'hvpg' }, milestone: 'Abstinence', data: 'tiles', tiles: ['salb', 'asc'], key: ['salb'], delta: 'diuretics',
+      id: 'cure', lens: 'since', since: 'ascites', sinceLabel: 'the first ascites', tick: 'Cause removed', days: 365, ramp: { cirrhosis: [0.85, 0.6], albumin: [2.8, 3.8] }, lapse: { seconds: 10 }, cam: 'liver', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'salb'], title: 'HVPG and albumin over the year' }, milestone: 'Abstinence', data: 'tiles', tiles: ['hvpg', 'salb'], key: ['salb'], delta: 'diuretics',
       kicker: 'Recompensation', site: 'sin', title: 'Stopping alcohol lowers the portal pressure',
       line: 'A year of abstinence: the albumin rises to {salb}, the ascites clears and the HVPG falls to {hvpg}.',
       notes: 'Removing the cause, by stopping alcohol, curing hepatitis C or suppressing hepatitis B, is the most effective long-term treatment of portal hypertension. Inflammation settles and some scar regresses, so the resistance in the liver and the HVPG fall over months to years. The fall is often incomplete: many patients keep CSPH, and they keep the beta-blocker. The vessels are colored by their change since the first ascites.',

@@ -57,7 +57,7 @@ export const KIDNEY = {
       ask: ['Why is the MAP low in decompensated cirrhosis although the cardiac output is high?', 'The arteries are wide, so the resistance has fallen by more than the output has risen.'],
     },
     {
-      id: 'pressure', cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'],
+      id: 'pressure', cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'rpp'], key: ['rpp'],
       eq: [sub(mi('P'), 'kidney') + mo('=') + mi('MAP') + mo('−') + sub(mi('P'), 'abdomen'), 'Kidney pressure: the mean arterial pressure less the pressure inside the abdomen'],
       caveat: 'The model shows a pressure, not filtration: it has no GFR, creatinine or urine.',
       kicker: 'Kidney pressure', site: 'sin', title: 'The kidneys are fed at the MAP less the abdomen\'s pressure',
@@ -110,19 +110,11 @@ export const KIDNEY = {
     },
     {
       id: 'terli', params: { drugs: { carvedilol: false, terlipressin: true } }, action: [UNIT, UNIT, UNIT, UNIT, ALBUMIN], cam: 'fit', tool: VITALS, data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'carv',
-      kicker: 'HRS-AKI', site: 'sin', title: 'Terlipressin with albumin lifts the MAP in HRS-AKI', cite: 'Baveno VIII 6.18, 6.19',
-      line: 'Once the bleed is replaced, consider terlipressin with albumin for HRS-AKI, preferably as a continuous infusion starting at {2 to 3 mg/24 h}. The MAP rises to {map}.',
-      notes: 'Baveno VIII 6.18: in HRS-AKI, treatment with terlipressin and albumin should be considered (LoE 1, strong). 6.19: terlipressin is preferably given as a continuous intravenous infusion, starting at 2 to 3 mg/24 h, to reduce adverse events. Terlipressin narrows the splanchnic and systemic arteries, so the MAP rises; the albumin fills the circulation. HRS-AKI is not blood loss, so the 1.3 L bleed of the last slide is replaced first, with four units of red cells, and the tiles compare with the state before the bleed. Carvedilol is on hold in this state, which is why the heart rate is a little faster than on carvedilol. The model shows the rise in the MAP and the kidney pressure and cannot show the kidney recovering.',
+      compare: [{ label: 'Terlipressin', short: 'Terli.', own: true }, { label: 'Norepinephrine', short: 'Norepi.', params: { drugs: { carvedilol: false, terlipressin: false } } }],
+      kicker: 'HRS-AKI', site: 'sin', title: 'Terlipressin with albumin lifts the MAP in HRS-AKI', cite: 'Baveno VIII 6.18, 6.19, 6.20',
+      line: 'Terlipressin with albumin is considered for HRS-AKI, preferably as an infusion from {2 to 3 mg/24 h}, and the MAP rises to {map}. Norepinephrine is the alternative, not modelled.',
+      notes: 'Baveno VIII 6.18: in HRS-AKI, treatment with terlipressin and albumin should be considered (LoE 1, strong). 6.19: terlipressin is preferably given as a continuous intravenous infusion, starting at 2 to 3 mg/24 h, to reduce adverse events. Terlipressin narrows the splanchnic and systemic arteries, so the MAP rises; the albumin fills the circulation. HRS-AKI is not blood loss, so the 1.3 L bleed of the last slide is replaced first, with four units of red cells, and the tiles compare with the state before the bleed. Carvedilol is on hold in this state, which is why the heart rate is a little faster than on carvedilol. Baveno VIII 6.20: norepinephrine is the alternative if terlipressin is unavailable, contraindicated or not tolerated (LoE 1, strong). The model has terlipressin but no norepinephrine, so the Norepinephrine button leaves the numbers where they stood before the drug; it is the rule, not a result. The model shows the rise in the MAP and the kidney pressure and cannot show the kidney recovering.',
       ask: ['How is terlipressin given in HRS-AKI, and what goes with it?', 'Preferably as a continuous infusion, starting at 2 to 3 mg/24 h, with albumin.'],
-    },
-    {
-      id: 'norepi', cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'],
-      tool: { kind: 'criteria', title: 'If terlipressin cannot be used', short: 'Instead of terlipressin', ticks: false, lead: 'Any one of these.', rule: 'Baveno VIII 6.20',
-        rows: ['**Unavailable**', '**Contraindicated**', '**Not tolerated**'], verdict: 'Norepinephrine is the alternative.' },
-      kicker: 'HRS-AKI', site: 'sin', title: 'Norepinephrine stands in when terlipressin cannot be used',
-      line: 'Norepinephrine is the alternative if terlipressin is unavailable, contraindicated or not tolerated. The model has no norepinephrine, so its numbers stay as they were.',
-      notes: 'Baveno VIII 6.20: norepinephrine can be used as an alternative to terlipressin if terlipressin is unavailable, contraindicated or not tolerated (LoE 1, strong). The model has terlipressin but no norepinephrine, so this slide gives the rule and the tiles keep the last state. Baveno VIII lists the titration of terlipressin by the mean arterial pressure as a question for research, so the rise in the MAP on the last slide is not a target.',
-      ask: ['When is norepinephrine used for HRS-AKI?', 'As the alternative to terlipressin, when terlipressin is unavailable, contraindicated or not tolerated.'],
     },
     {
       id: 'staging', cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'],

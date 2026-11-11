@@ -3,7 +3,7 @@
 // of its fields is unchanged:
 //   mark: { edges: ['C1a'], label: 'Varix {varix}' }   a mark's words carry live readings, in their rating colour, as the model moves (V8)
 //   mark: { organ: 'spleen', label: 'Spleen {spleen}' } a mark on an organ (liver, spleen, heart, stomach, esophagus, bowel, colon,
-//                                                       duodenum, kidney, or the ascites) (V8)
+//                                                       duodenum, kidney, the ascites or the caudate lobe) (V8)
 //   calipers: ['spleen'], ['varix'], ['TIPS']          a dimension line across the spleen, a varix or a vessel, with its reading (V9)
 //   steps: true (beside glowSeq)                       each step of the glow's order keeps its number (V10)
 //   glow: [['V_INT', 'V_SPL', 'V_IMV'], 'PV_TRUNK']    with steps: a list in the glow is one step, its number on a leader to each

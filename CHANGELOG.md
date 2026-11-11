@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **Deck card choices 25-28 (deck content review, 11 Nov 2026).**
+  Doppler: the Budd–Chiari case shows the portal velocity tile and a callout on the caudate lobe (a mark can now name `organ: 'caudate'`, shown when the slide has `terms: ['caudate']`: `callout-math.js` anchor, `stage-label-solve.js`), and the narrowed-TIPS case shows the PPG and ascites tiles. Measuring HVPG: the HVPG slide's line keeps one idea (CSPH); the 16 mmHg surgery point and the MASLD under-read stay in its notes, and the heart-failure slide adds the right atrial pressure tile. Kidney: the norepinephrine slide is folded into the terlipressin slide as a Norepinephrine button (the model has none, so it leaves the numbers as they were before the drug, and the line says so), and the kidney pressure slide shows the abdomen window. Recompensation: the cure year is drawn as an HVPG and albumin time graph instead of the catheter tracing.
+
 - **Deck card choices 20-24 (deck content review, 11 Nov 2026).**
   Ascites: Tense ascites swaps the portal pressure tile for the kidney pressure tile, and TIPS adds the encephalopathy tile (three tiles, listed in `tests/deck-shape.test.js`). Cause treated: "Two years after cure, CSPH persists" shows the stiffness and platelets plane with a trail from the slide before, as the first patient's does, and its line says stiffness cannot settle it alone. Choose the treatment: the banding case frames the varices. Item 22 (albumin after a tap): the model's belly never holds more than about 5.4 L, so a bigger tap is impossible, and its response is left as it is pending Mohammad's choice.
 

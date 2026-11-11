@@ -18,7 +18,7 @@ test('a talk uses at most two lenses (the lens buttons on a slide are not counte
 const TILES_CHANGE = new Set([
   'ascites/tense>lvp', 'ascites/lvp>back',                      // the albumin tile appears for the paracentesis and leaves with it
   'stiffness/measure>fibrosis',                                 // FibroScan reads in its own picture; the tiles arrive with the lesson
-  'doppler/hepatic>meal',                                       // each Doppler slide shows the reading it is about
+  'doppler/hepatic>meal', 'doppler/a3>a4',     // each Doppler slide shows the reading it is about
   'tips-doppler/narrow>warn', 'tips-doppler/backup>fix',
   'outflow/normal>tr', 'outflow/tr>pulse', 'outflow/pulse>constrict',
   'gastric-varices/tips>brto',                                  // the gastric varix tile replaces the liver tile
@@ -54,6 +54,7 @@ const THREE_TILES = new Set([
   'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/bato', 'gastric-varices/svt',
   'variceal-bleed/minutes',   // (the point is the third: the hemoglobin has not moved, and where it is heading)
   'encephalopathy/srs',       // (the point is the third: the portal vein barely moves in a large splenorenal shunt)
+  'hvpg/heart',               // (the point is the third: the right atrial pressure that holds the other two up)
   'ascites/tips',             // (the price of the stent is the third: the encephalopathy tile beside the ascites it clears and the portal pressure)
   'hyperdynamic/over',        // (eight units is more than anyone gives: the hemoglobin and the volume show where it ends)
 ]);
