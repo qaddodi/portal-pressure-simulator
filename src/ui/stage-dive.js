@@ -400,5 +400,8 @@ export function createDive(st, live) {
     // (A turn takes D_FLIP and a landing a little longer: the backstop lands it only once it stops moving, frames having stopped.)
     live.lobEnd = stageScope.timer(lobuleBackstop, ms * Math.abs(to - from) + 250);
   }
-  return { anatCovered, camShowTo_, diveFrame, prepRise, pushCam, riseReady, setDiveScale, setLobule };
+  // (The dip the figure's present is laid with now (1 while the lobule is laid in its place, the figure not laid at all): the cards' glass
+  // frosts the figure as it stands undipped, so a card's glass is the same with the figure dipped or not (glass-gl.js option dip).)
+  const figDip = () => (live.lobIn ? 1 : dipA);
+  return { anatCovered, camShowTo_, diveFrame, figDip, prepRise, pushCam, riseReady, setDiveScale, setLobule };
 }

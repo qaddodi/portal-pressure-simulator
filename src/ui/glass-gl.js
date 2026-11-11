@@ -33,8 +33,12 @@ export const PANE = { blur: 9, sat: 1.2 };
 /** The Present cards' frost (Mohammad, 2 Nov 2026, on the iPhone: "the blur sucks now it's just transparent"): the callouts' 16 px blur
  *  left the vessels and organs readable through a card; 30 px under a 74 % tint (70ca81f6) read muddy, "not clean". A card is blurred at 22 px
  *  (sigma 22 px), on a grid of 8 CSS px a texel (2.75 texels, inside the 12 taps), from 3 sigmas of figure around it;
- *  its tint, app.css --pz-frost (66 % of the surface, 58 % before), is read from --gl-tint as before. */
-export const CARD = { blur: 22, sat: 1.15, scale: 8, margin: 66 };
+ *  its tint, app.css --pz-frost (66 % of the surface, 58 % before), was read from each card's --gl-tint.
+ *  tint: since 11 Nov 2026 (Mohammad: "Tint and blur of glass should be the same EVERYWHERE") every card (glass.add's `card`: the talk's
+ *  teaching, case, data, readings and key cards and its bar, the phone's sheets, the toasts) is drawn with this one glass, the surface at
+ *  this strength, whatever its own --gl-tint says (the sheets' 80 %, the toasts' 70 %, the high-contrast bar's 92 %). Its own --gl-tint still
+ *  says whether it is drawn here at all (a tint that does not read, or none: the browser's glass, as before): paneTint. */
+export const CARD = { blur: 22, sat: 1.15, scale: 8, margin: 66, tint: 0.66 };
 /** A rounded rectangle's outline (w × h, corner radius r), as an SVG path. */
 export function roundPath(w, h, r) {
   const f = (n) => +n.toFixed(2), q = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -281,6 +285,7 @@ uniform vec2 uMS;           // the share of the mask the glass fills
 uniform vec4 uReg;          // the blurred copy's place (device px)
 uniform sampler2D uScene, uMask;
 uniform vec3 uBg;
+uniform float uUn;          // 1 / the figure's dip the blurred copy was taken at (1: none): the frost is of the figure undipped
 uniform vec4 uTint;         // premultiplied
 uniform float uSat, uA;
 uniform vec4 uBB;           // the card's border box (device px: left, top, right, bottom)
@@ -334,6 +339,9 @@ void main() {
   }
   if (m <= 0.0) { if (sa <= 0.001) discard; o = vec4(sc * sa, sa) * uA; return; }
   vec4 s = texture(uScene, clamp((p - uReg.xy) / uReg.zw, 0.0, 1.0));
+  // (The figure dipped under a case card was laid at a fifth of its alpha: taken back to its own, so the glass frosts the figure as it stands
+  // and looks the same dipped or not. Never past whole: what was laid whole, not dipped (a label, the lobule), stays as it is.)
+  s *= min(uUn, 1.0 / max(s.a, 0.0001));
   vec3 c = s.rgb + uBg * (1.0 - s.a);
   float k = uSat;
   mat3 M = mat3(0.213 + 0.787 * k, 0.213 - 0.213 * k, 0.213 - 0.213 * k,
@@ -357,7 +365,7 @@ void main() {
 function uniformsOf(gl, bprog, pprog) {
   const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
   const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW', 'uN']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
-  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
+  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uUn', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
   return { bprog, pprog, BU, PU };   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
 }
 // Shader warm-up for the glass drawn in the figure's canvas (GPU practice, MDN "WebGL best practices": compile and link early, read the
@@ -421,6 +429,8 @@ function readWarm(gl, e) {
 // A mask's fill (fillMask): the triangles of a callout's outline (mask px, y down) turn each pixel they cover over, 0 to 1 and back
 // (blend: one minus the destination), so a pixel inside the outline is turned an odd number of times and shows; the texture's row 0 is
 // the mask's top, as the glass samples it.
+/** The glass's vertex shader and its two fragment shaders (the blur, the glass laid), for the shader compile check (scripts/glsl-compile-list.mjs). */
+export { QVS as GLASS_VS, BFS as GLASS_BLUR_FS, PFS as GLASS_FS };
 const MVS = `#version 300 es
 in vec2 aP;
 uniform vec2 uS;
@@ -519,7 +529,7 @@ export function dropsOf(v) {
   }
   return out;
 }
-export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, camKey = null, full = false, onHoles = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, camKey = null, full = false, onHoles = null, dip = null } = {}) {
   if (reblur > 0) fresh = null;
   // (cards.callouts: the figure's callouts, a glass.add region of their own (stage.js): the cards' machinery, with the callouts' own ways kept: no
   // wait for a first draw, no html[data-cardgl], one turn ('all') between the cards' two, one over-list, their shadow and tint strength, the parent's box.)
@@ -553,13 +563,14 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const colours = new Map();
   function resolveColour(str) {
     const k = (str || '').trim();
-    if (!k || colours.has(k)) return;
+    if (!k || (colours.has(k) && colours.has(str))) return;
     let v = parseColour(k);
     // (CSS Color 4 in script, css-color.js: color-mix(), names, oklab, lab, hsl. No probe element is made, written to or read back, so no
     // frame of a slide change writes the page's DOM or style to find a colour out; the same sRGB the browser's own CSS gives.)
     if (!(v[3] > 0) && k !== 'transparent' && !/^#|^rgba?\(|^color\(srgb/i.test(k)) v = parseCssColor(k) || v;
     if (colours.size > 256) colours.clear();
     colours.set(k, v);
+    if (str !== k) colours.set(str, colours.get(k));   // (and by the string as read, untrimmed: a card's surface, paneTint)
   }
   // (A frame only looks a colour up by the string the page was read with, already trimmed there (readPanes, measureGeo); a string not read yet is
   // parsed in colourMiss, and no colour at all is the clear one.)
@@ -708,9 +719,10 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       // (none shows); undefined reads the card as usual. The lobule's pills and the split sheet's cards, pseudo-elements; d: a mask path.)
       const q = cards?.read ? cards.read(g) : undefined;
       if (q !== undefined) {
+        const cd = !!cards.region?.(g)?.card, sf = cd ? cs.getPropertyValue('--surface') : '';   // (a card's pieces, the split sheet's: the one card glass)
         for (const one of [].concat(q || [])) {
           if (!one || !shows(a * one.a) || !one.r.width || !one.r.height) { if (one && one.r.width && one.r.height) fadedNow.add(g); continue; }
-          panes.push({ g, el, oa: one.a, pe: one.pe || null, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1 });
+          panes.push({ g, el, oa: one.a, pe: one.pe || null, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1, card: cd, sf });
         }
         continue;
       }
@@ -735,8 +747,9 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         if (shp === false) continue;
         // (outer: the card this glass belongs to (its parent): its box bounds the glass's shadow and its box-shadow is the glass's soft shadow, the callouts'.)
         const outer = reg?.outer ? g.parentElement : null;
+        const cd = !!reg?.card, sf = cd ? cs.getPropertyValue('--surface') : '';   // (a card: the one card glass, drawn from its look's surface; paneTint)
         const tn = reg?.tint ? (typeof reg.tint === 'function' ? reg.tint(g, cs) : reg.tint) : cs.getPropertyValue('--gl-tint');
-        panes.push({ g, el, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er: outer ? outer.getBoundingClientRect() : r, shadow: outer && reg.shadow ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, drops, line, cut });
+        panes.push({ g, el, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er: outer ? outer.getBoundingClientRect() : r, shadow: outer && reg.shadow ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
@@ -778,9 +791,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   }
   // Each glass over the blurred copy (bound on unit 0, the glass's program in use and its view set), in context G at k device px per
   // CSS px, marked as it is drawn; a mark no longer drawn is given back.
+  // (A glass's tint as drawn: a card's (glass.add's card) is the one card glass, its look's surface at CARD.tint, whatever its own --gl-tint;
+  // 11 Nov 2026, Mohammad: "Tint and blur of glass should be the same EVERYWHERE". Its own still says whether it is drawn here: drawPanes.)
+  const paneTint = (p) => colour(p.card ? p.sf : p.tint, 'transparent');
   function drawPanes(G, U, panes, cr, k, maskFor, now, final = true) {
     for (const p of panes) {
-      const t = colour(p.tint, 'transparent'), ta = t[3] * p.k;
+      const own = colour(p.tint, 'transparent')[3] * p.k, t = paneTint(p), ta = own > 0 ? t[3] * (p.card ? CARD.tint : p.k) : 0;
       // (A card whose tint did not read as a colour (a browser that does not register custom properties): not drawn, and left to the
       // browser's glass, which still shows its declared background.)
       if (cards && !(ta > 0)) continue;
@@ -1267,6 +1283,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     dirtyBox.x = dirtyDev[0] / k; dirtyBox.y = dirtyDev[1] / k; dirtyBox.w = (dirtyDev[2] - dirtyDev[0]) / k; dirtyBox.h = (dirtyDev[3] - dirtyDev[1]) / k;
     return dirtyBox;
   }
+  // (A dip under 1/20 is taken as 1/20: a copy laid that faint has too few levels left to be taken back whole.)
+  const figureDip = () => { const d = dip ? +dip() : 1; return d >= 1 || !(d > 0) ? 1 : Math.max(0.05, d); };
   let cr0 = null;
   function runShare(S, cr) {
     cr0 = cr;
@@ -1281,6 +1299,10 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     // zoom easing out, the deck's fade as it closes) changes what lies under the glasses with no new picture counted, and the kept blur then
     // showed the figure as it lay before, inside a card that had shrunk, until the camera rested and the glass blurred again. 5 Nov 2026.)
     const ck = camKey ? camKey() : -1, ring = ck >= 0 && ck === S.camAt && !zoomRide.riding() ? nT + 1 : 0;
+    // (The figure's dip this picture was laid with (a case card's, stage-dive.js): a blur kept from another dip is not this picture's, and every
+    // part the glasses read is blurred again, so the whole copy is of one dip, the one the glass takes back out (uUn).)
+    const dp = figureDip();
+    if (S.dipAt !== dp) shareForget(S);
     const plan = sharePlan(S, grid, grid.T / k, bw, bh, full, keepFor(nT + 2), dirty || dirtyRects ? dirtyFn : null, keepFor(2 * nT + 3), pictureRects ? picDirtyFn : null, ring, performance.now(), look.blur === CARD.blur ? BLOOD_BLUR_MS : 0);   // (the parts grown by the taps this sigma has, one for the glass's sampling between two texels, one spare)
     const sr = S.reg || (S.reg = { x: 0, y: 0, w: 0, h: 0 });   // alloc-rare: the share's region record is made at its first blur
     sr.x = grid.x; sr.y = grid.y; sr.w = grid.w; sr.h = grid.h;
@@ -1313,7 +1335,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
     if (ok) shareKeep(S, performance.now()); else shareForget(S);
     S.ok = !!ok;
-    if (ok) { S.blurs++; counts.blur++; tally(counts.blurs, look.blur === CARD.blur ? 'cards' : look.blur === PANE.blur ? 'pane' : look.blur === GLASS.blur ? 'callouts' : S.look); S.camAt = ck; }   // (by look, for the frame panel: which glass blurs each frame)
+    if (ok) { S.blurs++; counts.blur++; tally(counts.blurs, look.blur === CARD.blur ? 'cards' : look.blur === PANE.blur ? 'pane' : look.blur === GLASS.blur ? 'callouts' : S.look); S.camAt = ck; S.dipAt = dp; }   // (by look, for the frame panel: which glass blurs each frame)
     return S.ok;
   }
   // (pass: 'low', 'high' or 'all'; the last turn of the frame ('high', 'all') gives back the marks of the glasses not drawn.)
@@ -1360,6 +1382,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.uniform2f(U.uView, W2, H2); G.uniform1i(U.uScene, 0); G.uniform1i(U.uMask, 1); G.uniform1f(U.uSat, look.sat);
     G.uniform4f(U.uReg, R.x * k, R.y * k, R.w * k, R.h * k);
     G.uniform3f(U.uBg, hf.base[0], hf.base[1], hf.base[2]);
+    G.uniform1f(U.uUn, 1 / ((hk.share && hk.share.dipAt) || 1));
     G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, hk.share ? hk.share.t.blurred : hk.blurred);
     drawPanes(G, U, panes, cr, k, maskFromKit, frameMarks, final);
     noteSeen(panes, final);
@@ -1596,6 +1619,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     const panes = read.map((p) => {
       p.tint = p.tint.trim();   // (a frame looks the colour up by this string)
       resolveColour(p.tint);
+      if (p.card) resolveColour(p.sf);
       if (p.line) resolveColour(p.line);
       for (const d of p.drops || []) resolveColour(d.c);
       const chain = chainOf(p.g);
@@ -1966,6 +1990,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
  *   el      an element, or a function that returns the live list of them (toasts come and go)
  *   blur    CSS px of blur (default CARD.blur); regions of the same blur share one renderer and one blur of the figure
  *   tint    a CSS colour, or (el, computedStyle) => colour; else the element's --gl-tint
+ *   card    true: a card, drawn with the one card glass (CARD's blur, its look's surface at CARD.tint) whatever its own tint or --gl-tint says
  *   shape   { d, w, h } or (el, box) => { d, w, h }: an SVG path in the box's own px; else the box's rounded corners
  *   k       the tint's strength (default 1); outer  true: the glass's parent is the card it belongs to, whose box bounds the glass's shadow;
  *           shadow  true: that card's box-shadow is drawn with the glass; callouts / pane  true: the figure's callouts' or the liver pane's renderer (own turn and over-list); scale  CSS px a texel of the blur; margin, sat  its own
@@ -1999,7 +2024,7 @@ export function glassRegions(make, wrap) {
     const key = `${o.blur ?? CARD.blur}${o.callouts ? 'c' : ''}${o.pane ? 'p' : ''}`;
     const grp = groups.get(key) || (() => { const n = { blur: o.blur ?? CARD.blur, scale: o.scale, margin: o.margin, sat: o.sat, callouts: !!o.callouts, pane: !!o.pane, recs: new Set(), out: [], g: null, tries: 0, t: 0 }; groups.set(key, n); return n; })();
     const rec = {
-      el, before: o.before || (typeof el === 'function' ? wrap : el), tint: o.tint, shape: o.shape, k: o.k, outer: o.outer, shadow: o.shadow, read: o.read, shift: o.shift, cut: o.cut, low: o.low,
+      el, before: o.before || (typeof el === 'function' ? wrap : el), tint: o.tint, card: !!o.card, shape: o.shape, k: o.k, outer: o.outer, shadow: o.shadow, read: o.read, shift: o.shift, cut: o.cut, low: o.low,
       items: () => (typeof el === 'function' ? el() : [el]),
       roots: () => (o.watch ? [].concat(o.watch) : typeof el === 'function' ? [] : [el.parentElement || el]).filter(Boolean),
     };

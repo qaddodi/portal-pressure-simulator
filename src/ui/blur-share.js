@@ -22,7 +22,7 @@ export function shareFor(map, gl, key) {
   // alloc-rare: a context's first glass of this look makes its share (once per look and context), never per frame
   if (!byLook) { byLook = new Map(); map.set(gl, byLook); }   // alloc-rare: once per context
   // alloc-rare: once per look and context
-  S = { look: key, reqs: [], phase: 'draw', ok: false, reg: null, t: null, blurs: 0, skips: 0, held: 0, keptAt: -1, allocs: 0, boxBuf: [], partsOut: [], partsPool: [], snapOk: false, snap: newSnap(), cand: newSnap(), dBox: [null], dOut: [], dPool: [], rOut: [], rPool: [], rFull: [[0, 0, 0, 0]], plan: { parts: null, same: false } };
+  S = { look: key, dipAt: 1, reqs: [], phase: 'draw', ok: false, reg: null, t: null, blurs: 0, skips: 0, held: 0, keptAt: -1, allocs: 0, boxBuf: [], partsOut: [], partsPool: [], snapOk: false, snap: newSnap(), cand: newSnap(), dBox: [null], dOut: [], dPool: [], rOut: [], rPool: [], rFull: [[0, 0, 0, 0]], plan: { parts: null, same: false } };
   byLook.set(key, S);
   return S;
 }

@@ -1897,7 +1897,7 @@ function sheetGlass() {
   if (!els.length) return;
   const plates = () => els.filter((el) => !el.hidden && el.classList.contains('has-plate') && (!el.classList.contains('action-card') || el.classList.contains('docked'))).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
   // (glass.add asks again by itself while the figure's canvas is not made yet.)
-  sheetGL = stage?.glass?.add(plates, { watch: els, before: els[0], cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
+  sheetGL = stage?.glass?.add(plates, { card: true, watch: els, before: els[0], cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
 }
 // The toasts wear the same frosted GPU glass (Mohammad, 3 Nov 2026: "100% GPU", "CARDS ARE GLASS"): each card's tint, edge and shadow are drawn
 // in the figure's canvas, the words and buttons by the toast's own GPU picture (toast-gl.js). The card's box is read like any card's, and
@@ -1907,7 +1907,7 @@ function toastGlass() {
   if (toastGL) return;
   const wrap = $('#toasts');
   if (!wrap) return;
-  toastGL = stage?.glass?.add(() => TOASTS, { watch: wrap, before: wrap }) || null;
+  toastGL = stage?.glass?.add(() => TOASTS, { card: true, watch: wrap, before: wrap }) || null;
 }
 // The figure's own chrome wears the same frosted GPU glass (Mohammad, 4 Nov 2026, "Use the glass for all the menus", "Including UI elements", "Like timeline
 // and stuff"): the top bar's pills (the patient, the view switcher, the Blood/Layers/colour key pill, Treat/Tests/History/Settings/Search), the zoom
