@@ -108,20 +108,24 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
     if (same) return lay;
     // (8 Nov 2026, "the vital signs card is taller than it needs to be": the numbers are sized from the width first, and the strip takes what
     // is left of the box, up to 110 px, so the card's own height ends at the numbers (styles/app.css .vitals-box max-height: 214 = 14 + 110 + 12 + 18 + 46 + 14, the strip and the numbers at their full size).)
-    const pad = 14, ew = w - 2 * pad, cw = ew / cells.length, top = pad;
+    const pad = 14, ew = w - 2 * pad, top = pad;
     const cl = [];   // alloc-rare: only when the size or the cells' words change
-    let bigMax = 22;
-    for (let i = 0; i < cells.length; i++) {
+    // (11 Nov 2026, Mohammad: "the numbers for pulse, BP and CI should all be distributed so they're all kinda same size". Every reading is
+    // drawn at one size on one baseline; the columns share the width by what each needs at that size (the pressure, "888/88" with its mean
+    // "(88)" after it and the unit, takes more than a heart rate), and the room left over is split evenly between them.)
+    const small = (b) => Math.max(12, Math.round(b * 0.55));
+    const need = (c, b) => (c.id === 'map' ? textWidth('888/88', 700, b) + textWidth('(88)', 700, small(b)) + 4 : textWidth(c.d ? '88.8' : '888', 700, b)) + textWidth(c.u, 500, 12) + 16;
+    const needAll = (b) => { let n = 0; for (let i = 0; i < cells.length; i++) n += need(cells[i], b); return n; };
+    let big = Math.round(clamp(Math.min((ew / cells.length) * 0.42, 46), 22, 46));
+    while (!(needAll(big) <= ew || big <= 14)) big -= 2;
+    const spare = Math.max(0, ew - needAll(big)) / cells.length;
+    for (let i = 0, x = pad; i < cells.length; i++) {
       const c = cells[i];
-      let big = Math.round(clamp(Math.min(cw * 0.42, 46), 22, 46));
-      // (The pressure is "888/88" with its mean, "(88)", after it at half the size, then the unit.)
-      const bp = c.id === 'map', uw = textWidth(c.u, 500, 12);
-      const need = (b) => (bp ? textWidth('888/88', 700, b) + textWidth('(88)', 700, Math.max(12, Math.round(b * 0.55))) + 4 : textWidth('88.8', 700, b)) + uw + 10;
-      while (!(need(big) <= cw - 6 || big <= 14)) big -= 2;
-      cl.push({ x: pad + i * cw, big });   // alloc-rare: only when the size or the cells' words change
-      if (big > bigMax) bigMax = big;
+      cl.push({ x, big });   // alloc-rare: only when the size or the cells' words change
+      x += need(c, big) + spare;
       layK[i] = c.k; layU[i] = c.u;
     }
+    const bigMax = big, cw = ew / cells.length;
     const rl = rail ? RAIL_H : 0;   // (the rail takes its height from the strip's, so the card keeps its size)
     const eh = Math.round(clamp(hh - pad - (12 + 18 + bigMax + pad) - rl, 34, 110)), bot = pad + eh, y0 = bot + 12, rh = hh - pad - y0;
     layW = w; layH = hh; layN = cells.length; layRail = rail;
