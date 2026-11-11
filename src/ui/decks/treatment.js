@@ -23,7 +23,7 @@ export const TREATMENT = {
       kicker: 'Lowering portal pressure', site: 'sin', title: 'A patient with decompensated cirrhosis',
       vignette: 'A 58-year-old woman with MASH cirrhosis has ascites controlled on spironolactone and furosemide. A surveillance EGD shows large esophageal varices. She has never bled.',
       line: 'In this case the HVPG is {hvpg}, with large varices and ascites. Treatment lowers the inflow or the resistance, or bypasses the liver.',
-      notes: 'Portal pressure is flow times resistance. Non-selective beta-blockers and the vasoactive drugs used in bleeding cut the inflow; carvedilol also lowers the resistance inside the liver; TIPS goes around it. Banding treats the varix, not the pressure. Removing the cause (stopping alcohol, treating hepatitis) lowers the resistance over months to years. On drugs, the aim after a bleed is an HVPG fall of 20% or more, or to below 12 mmHg; in compensated patients a fall of 10% already helps.',
+      notes: 'Portal pressure is flow times resistance. Non-selective beta-blockers and the vasoactive drugs used in bleeding cut the inflow; carvedilol also lowers the resistance inside the liver; TIPS goes around it. Banding treats the varix, not the pressure. Removing the cause (stopping alcohol, treating hepatitis) lowers the resistance over months to years. On a beta-blocker, an HVPG fall of 10% or more, or to 12 mmHg or less, counts as a response (Baveno VIII Table 3).',
       ask: ['Name a treatment that cuts the inflow and one that lowers the resistance.', 'Inflow: propranolol, octreotide, terlipressin. Resistance: carvedilol, treating the cause; TIPS goes around it.'],
     },
     {

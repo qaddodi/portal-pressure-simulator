@@ -70,7 +70,7 @@ export const DOPPLER = {
       caseQ: 'Which way will his portal blood run?',
       kicker: 'Portal inflow', site: 'sin', title: 'Below the baseline: the portal vein has reversed',
       line: 'The spectrum sits below the baseline: portal blood runs away from the liver, out through a splenorenal shunt. Hepatofugal flow signals a large shunt and a worse outlook.',
-      notes: 'Hepatofugal flow appears in advanced cirrhosis, in about 8% of patients, usually with large spontaneous shunts, when the liver resists more than the collaterals do. The liver then depends on the hepatic artery. It raises the risk of portal vein thrombosis and of encephalopathy, and it is a warning before a TIPS. To-and-fro flow is the step before full reversal. Colored by direction, the portal and splenic veins show the reversed flow draining away through the splenorenal shunt. On the color map the reversed vein reads blue, the color of flow away from the probe.',
+      notes: 'Hepatofugal flow appears in advanced cirrhosis, usually with large spontaneous shunts, when the liver resists more than the collaterals do. The liver then depends on the hepatic artery. It raises the risk of portal vein thrombosis and of encephalopathy, and it is a warning before a TIPS. To-and-fro flow is the step before full reversal. Colored by direction, the portal and splenic veins show the reversed flow draining away through the splenorenal shunt. On the color map the reversed vein reads blue, the color of flow away from the probe.',
       ask: ['What does hepatofugal portal flow tell you about the liver?', 'Its resistance is higher than the collaterals\', so portal blood leaves through them: advanced cirrhosis.'],
     },
     {

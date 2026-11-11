@@ -10,8 +10,8 @@ const SINCE = { kind: 'trace', range: 'talk', since: 'after' };
 // (A time-lapse slide plots its lapse day by day instead: the varix and the HVPG over the ten months, flow-time.js.)
 const MONTHS = { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over ten months' };
 const NONE = { drugs: { propranolol: false, carvedilol: false } };
-// (nsbbGain: this man is a clear responder, his HVPG falling about a quarter on carvedilol, so the slide shows a response by the
-// after-a-bleed target of 20% or more; the model's usual patient falls about 19%, a near miss, which the notes say is common.)
+// (nsbbGain: this man is a clear responder, his HVPG falling about a quarter on carvedilol, so the slide shows a clear response
+// (Baveno VIII Table 3: a fall of 10% or more, or to 12 mmHg or less); the model's usual patient falls about 19%.)
 const PROP = { drugs: { propranolol: true, carvedilol: false }, nsbbGain: 1.3 };
 const CARV = { drugs: { propranolol: false, carvedilol: true }, nsbbGain: 1.3 };
 const BANDED = { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' };
@@ -27,7 +27,7 @@ export const NEXT_BLEED = {
   checks: [
     ['Four banding sessions cleared the varices, yet a year later they are back. Why?', 'Banding closes the varix but leaves the portal pressure behind it as it was, so new varices form as the bands slough. Endoscopy 3 to 6 months after eradication, then every 6 to 12 months, finds them and bands them again.'],
     ['What is first-line prevention after a first esophageal variceal bleed?', 'A non-selective beta-blocker with banding, carvedilol preferred over propranolol (Baveno VIII 4.8).'],
-    ['On carvedilol the HVPG falls from 18 to 15 mmHg. Is that a response?', 'Not after a bleed: 17% is <20%, and 15 mmHg is still >12.'],
+    ['On carvedilol the HVPG falls from 18 to 17 mmHg. Is that a response?', 'No: 6% is <10%, and 17 mmHg is still >12. A fall of ≥10%, or to ≤12 mmHg, counts (Baveno VIII Table 3).'],
     ['He bleeds again despite carvedilol and banding. What comes next?', 'A covered TIPS, with rifaximin considered beforehand to lower the risk of encephalopathy.'],
   ],
   summary: 'After a first variceal bleed: why bands alone let the varices return, how carvedilol lowers the pressure behind them, why the two together are first line, and the TIPS that follows when they fail.',
@@ -68,9 +68,9 @@ export const NEXT_BLEED = {
     {
       id: 'nsbb', preset: 'cirr-decomp', params: CARV, action: BAND, cam: 'varices', labels: ['VAR'], tool: SINCE, data: 'tiles', tiles: ['hvpg', 'hr'], hvpgResp: 'after', key: ['hvpg'], delta: 'after', cite: 'Baveno VIII 4.8, Table 3',
       kicker: 'Carvedilol', site: 'sin', title: 'Carvedilol lowers the pressure behind the varices',
-      line: 'Once titrated, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the pulse to {hr}. After a bleed, a fall of ≥20%, or to {<=12 mmHg}, is a response.',
-      notes: 'Carvedilol starts at 6.25 mg a day and rises to 12.5 mg a day if the blood pressure allows. It cuts the portal inflow, as propranolol does, and also relaxes the resistance inside the liver, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. The 10% fall is the response before any bleed (Baveno VIII Table 3, primary prophylaxis); after a bleed the target is a fall of 20% or more, or to 12 mmHg or less. About half of patients reach that response, so a near miss is common; this man responds clearly, by about a quarter. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops. (Baveno VIII 4.8, Table 3.) The response tile is the third tile on this slide because the fall is the point of it. A beta-blocker does not shrink the varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
-      ask: ['What fall in HVPG marks a response to a beta-blocker?', 'After a bleed, a fall of ≥20% from baseline, or to ≤12 mmHg.'],
+      line: 'Once titrated, carvedilol lowers the HVPG from {hvpg@after} to {hvpg} and the pulse to {hr}. A fall of ≥10%, or to {<=12 mmHg}, is a response.',
+      notes: 'Carvedilol starts at 6.25 mg a day and rises to 12.5 mg a day if the blood pressure allows. It cuts the portal inflow, as propranolol does, and also relaxes the resistance inside the liver, so it lowers the HVPG more; Baveno VIII prefers it after a bleed. A response is a fall in HVPG of at least 10% from baseline, or to 12 mmHg or less (Baveno VIII Table 3, which states it for primary prophylaxis; the guidelines in the folder give no separate, stricter target after a bleed, so the same rule is used here). This man responds clearly, by about a quarter; many patients fall less than that. HVPG is rarely measured in practice, so the response is usually assumed. Reduce or stop carvedilol if the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or kidney injury develops. (Baveno VIII 4.8, Table 3.) The response tile is the third tile on this slide because the fall is the point of it. A beta-blocker does not shrink the varices within days, so the varix is not shown here; in the model it follows the pressure at once.',
+      ask: ['What fall in HVPG marks a response to a beta-blocker?', 'A fall of ≥10% from baseline, or to ≤12 mmHg (Baveno VIII Table 3).'],
     },
     {
       // (The chart of Baveno VIII 4.8 to 4.10 for the same man: his ascites is a second decompensating event, so the third branch is lit. Which treatments he can

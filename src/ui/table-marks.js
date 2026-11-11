@@ -48,9 +48,8 @@ const T_hi_Complete = tup('hi', 'Complete');
 const T_hi_Partial = tup('hi', 'Partial');
 const T_mid_Minimal = tup('mid', 'Minimal');
 const T_ok_Low = tup('ok', 'Low');
-const T_ok_20 = tup('ok', '≥20%');
+const T_ok_10 = tup('ok', '≥10%');
 const T_ok_12_mmHg = tup('ok', '≤12 mmHg');
-const T_mid_10 = tup('mid', '≥10%');
 const T_hi_10 = tup('hi', '<10%');
 const HVPG_T = { hi: tup('hi', 'CSPH'), mid: tup('mid', 'Mild'), ok: tup('ok', 'Normal') };
 const PPG_T = { hi: tup('hi', 'Bleed risk'), mid: tup('mid', 'High'), ok: tup('ok', 'Normal') };
@@ -109,10 +108,10 @@ export const RATE = {
   // The model's encephalopathy risk index (metrics.heRisk: the shunted share of the portal blood and the liver's lost perfusion, weighted by cirrhosis, 0 to 1): Low under 0.2,
   // Moderate under 0.45, High from there. It is the model's own index, not a clinical score, and its tile says so.
   he: (v) => (v < 0.2 ? T_ok_Low : v < 0.45 ? T_mid_Moderate : T_hi_High),
-  // The HVPG response (slide field hvpgResp): the fall from a named slide's HVPG, in percent. A fall of 10% or more marks a response
-  // before any bleed, 20% or more, or to 12 mmHg or less, after one (AASLD 2024; the Baveno meetings).
+  // The HVPG response (slide field hvpgResp): the fall from a named slide's HVPG, in percent. A fall of 10% or more, or to 12 mmHg or less,
+  // marks a response (Baveno VIII Table 3, stated there for primary prophylaxis; no file in guidelines/ gives a stricter 20% after a bleed).
   // (respAt: the HVPG now, as its tile prints it; the bar's bands read the fall alone.)
-  hvpgFall: (v, f) => (v >= 20 ? T_ok_20 : f?.respAt != null && f.respAt <= 12 ? T_ok_12_mmHg : v >= 10 ? T_mid_10 : T_hi_10),
+  hvpgFall: (v, f) => (v >= 10 ? T_ok_10 : f?.respAt != null && f.respAt <= 12 ? T_ok_12_mmHg : T_hi_10),
 };
 // Each tile: its name (n: a short one for a narrow tile, three in a row on a tablet or phone), what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
 // (−1 lower, 1 higher) for the colour of a change.
@@ -184,7 +183,7 @@ export const SCALE = {
   // drop them within 8 px). A pregnancy's 7.1 L rests against the end, as a platelet count of 380 does.)
   bv: [4.1, 7, [4.5, 5.5]], co: [2, 11, [4, 8]],
   he: [0, 1, [0.2, 0.45]],
-  hvpgFall: [0, 40, [10, 20]],
+  hvpgFall: [0, 40, [10]],
 };
 // A bar's bands: each from a to b (shown units), and m, its middle in the model's units (what the rating reads).
 export const bandsOf = (k) => {

@@ -175,14 +175,14 @@ test('every content slide of a built-in deck has a question for the handout', ()
   for (const d of DECKS) for (const s of d.slides) if (!s.visual) assert.ok(Array.isArray(s.ask) || typeof s.ask === 'string', `${d.id}/${s.id}: has an ask`);
 });
 
-test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a named slide, with 10% and 20% marks', async () => {
+test('HVPG response tile: hvpgResp adds a live percent fall in the HVPG from a named slide, with one 10% mark', async () => {
   const { RATE, TILE, DERIVED_TILE, SCALE } = await import('../src/ui/table-marks.js');
-  assert.deepEqual(SCALE.hvpgFall, [0, 40, [10, 20]]);
+  assert.deepEqual(SCALE.hvpgFall, [0, 40, [10]]);
   assert.equal(DERIVED_TILE.hvpgFall.u, '%');
   assert.equal(TILE.hvpgFall, undefined, 'worked out by the presenter, not read from the fingerprint');
-  assert.deepEqual(RATE.hvpgFall(25, {}), ['ok', '≥20%']);
-  assert.deepEqual(RATE.hvpgFall(15, { respAt: 14 }), ['mid', '≥10%']);
-  assert.deepEqual(RATE.hvpgFall(15, { respAt: 12 }), ['ok', '≤12 mmHg'], 'to 12 mmHg or less is a response too');
+  assert.deepEqual(RATE.hvpgFall(25, {}), ['ok', '≥10%']);
+  assert.deepEqual(RATE.hvpgFall(15, { respAt: 14 }), ['ok', '≥10%']);
+  assert.deepEqual(RATE.hvpgFall(8, { respAt: 12 }), ['ok', '≤12 mmHg'], 'to 12 mmHg or less is a response too');
   assert.deepEqual(RATE.hvpgFall(5, {}), ['hi', '<10%']);
   const used = slidesUsing('hvpgResp');
   assert.ok(used.length >= 4);
