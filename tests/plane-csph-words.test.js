@@ -27,7 +27,7 @@ test('the three zones carry his words, and the readout under the card uses them'
   // (The cut-offs only where two zones meet, so the amber reads as one L: 15 kPa above 150, 25 kPa all the way, 150 left of 15.)
   const fr = { L: 40, R: 440, T: 10, B: 310 }, { X, Y } = scaler(pl, fr);
   const segs = cutSegs(pl, X, Y, fr).map((c) => [c.x1, Math.min(c.y1, c.y2), c.x2, Math.max(c.y1, c.y2)].map(Math.round));
-  assert.deepEqual(segs, [[190, 10, 190, 160], [290, 10, 290, 310], [40, 160, 190, 160]]);
+  assert.deepEqual(segs, [[173, 10, 173, 160], [307, 10, 307, 310], [40, 160, 173, 160]]);
   assert.equal(cutSegs(planeOf('hvpg-ppg'), X, Y, fr).length, 4, 'the HVPG against PPG plane keeps its whole lines');
 });
 

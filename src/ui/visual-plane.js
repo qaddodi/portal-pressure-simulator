@@ -31,7 +31,7 @@ import { h, fmt, clamp } from './util.js';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js';
 import { TILE, tileShown } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
-import { BAVENO, BAVENO_AXES, bavenoRects, zoneArt } from './baveno-zones.js';
+import { BAVENO, BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight, hatchKey } from './baveno-zones.js';
 import { frameFor, easeNow } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
@@ -74,11 +74,13 @@ export const PLANES = {
     // (11 Nov 2026, Mohammad: this plane and the guideline card's graph show the same zones, so they look alike: the one geometry, tint, type and axis
     // writing of baveno-zones.js. look: 'guide' draws the zones as the muted non-overlapping tints, no dashed lines, the words in the outlined type;
     // the axes are written as the guideline card writes them, 15 20 25 along the foot, 150K up the left, LSM kPa and PLT (only: the one form).)
-    x: { key: 'lsm', min: 0, max: 40, ticks: BAVENO_AXES.xTicks, name: 'Liver stiffness, kPa', short: 'Stiffness, kPa', abbr: BAVENO_AXES.xName, only: 'abbr' },
-    y: { key: 'plt', min: 0, max: 300, ticks: [BAVENO_AXES.yTick[0]], name: 'Platelets, ×10³/µL', short: 'Platelets', abbr: BAVENO_AXES.yName, only: 'abbr' },
+    x: { key: 'lsm', min: BAVENO_AXES.x[0], max: BAVENO_AXES.x[1], ticks: BAVENO_AXES.xTicks, name: 'Liver stiffness, kPa', short: 'Stiffness, kPa', abbr: BAVENO_AXES.xName, only: 'abbr' },
+    y: { key: 'plt', min: BAVENO_AXES.y[0], max: BAVENO_AXES.y[1], ticks: [BAVENO_AXES.yTick[0]], name: 'Platelets, ×10³/µL', short: 'Platelets', abbr: BAVENO_AXES.yName, only: 'abbr' },
     look: 'guide',
     tickText: { [BAVENO_AXES.yTick[0]]: BAVENO_AXES.yTick[1] },
+    // (12 Nov 2026, Mohammad: "the same Baveno chart, the smaller one, just plot on it ... one unified size": the ranges, the proportions and the hatch of the guideline card's graph.)
     rectsOf: bavenoRects,
+    hatchOf: bavenoHatch,
     // (Mohammad's three words, 19 Oct: "No CSPH", "CSPH" and "Indeterminate", each on its own zone and no key. at: the middle of
     // the zone's largest open part, the amber L's lower band; edges: its cut-offs only where zones meet.)
     zones: [
@@ -819,6 +821,8 @@ export function planePlot(pl, { card = false } = {}) {
     // again then. It was left undrawn before, and the plot came back at the same size showing the slide before's case.)
     let W = el.clientWidth, H = el.clientHeight;
     if (!W || !H) [W, H] = lastSize;
+    // (A plane that shares the guideline card's graph is drawn at that graph's proportions, whatever the card gives it: one size for every case.)
+    if (card && W && pl.look === 'guide') { const ph = plotHeight(W); if (H !== ph) { el.style.height = `${ph}px`; H = ph; } }
     if (!W || !H) return;
     lastSize = [W, H];
     size = `${W}x${H}`;
@@ -1104,7 +1108,7 @@ export function createPlaneTool() {
         sig = k; pl = p; had = '';
         if (!pl) { el.replaceChildren(); plot = null; return; }
         plot = planePlot(pl, { card: true });
-        el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), read].filter(Boolean));
+        el.replaceChildren(...[plot.el, pl.key === 'never' ? null : planeCardKey(pl), pl.hatchOf ? hatchKey() : null, read].filter(Boolean));
         if (last) this.pin(last);
       }
       if (tr) { want = tr; wantCtx = ctx || null; had = 'y'; trailFrom(); } else if (had) { want = null; had = ''; plot.trail([]); }

@@ -34,7 +34,7 @@ import { TILE } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
-import { BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt } from './baveno-zones.js';
+import { BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt, plotHeight } from './baveno-zones.js';
 
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */
@@ -43,9 +43,9 @@ export const ZONES = {
   // 2026): CSPH ruled out at ≤15 kPa with PLT ≥150K, ruled in at ≥25 kPa, the indeterminate zone between; an NSBB-ineligible patient can skip the
   // screening EGD at <20 kPa with PLT ≥150K (the hatched area); on an NSBB nobody needs one (3.18).
   'first-visit': {
-    x: [5, 35], y: [50, 250],
-    zones: bavenoRects([5, 35], [50, 250]).map((z, i) => ({ ...z, ...[{ name: 'No CSPH', at: [10, 190] }, { name: 'Indeterminate', at: [20, 112] }, {}, { name: 'CSPH', at: [30, 150] }][i] })),
-    hatch: bavenoHatch([5, 35], [50, 250]),
+    x: BAVENO_AXES.x, y: BAVENO_AXES.y,
+    zones: bavenoRects(BAVENO_AXES.x, BAVENO_AXES.y).map((z, i) => ({ ...z, ...[{ name: 'No CSPH', at: [10, 190] }, { name: 'Indeterminate', at: [20, 112] }, {}, { name: 'CSPH', at: [30, 150] }][i] })),
+    hatch: bavenoHatch(BAVENO_AXES.x, BAVENO_AXES.y),
     xTicks: BAVENO_AXES.xTicks, yTick: BAVENO_AXES.yTick, xName: BAVENO_AXES.xName, yName: BAVENO_AXES.yName,
   },
 };
@@ -116,7 +116,7 @@ export function createCriteria() {
     let host = 14;
     try { const cx = chartCtx(plot); delete cx.svk; gl.setCtx(cx); host = gl.hostSize(); } catch { /* (no card round it yet: the sizes as they stand) */ }
     const fs = Math.max(12, Math.min(14, host * 0.93)), sm = 12;
-    const ph = Math.round(W * (W < 420 ? 0.46 : 0.34));
+    const ph = plotHeight(W);
     const X = (k) => ((k - fig.x[0]) / (fig.x[1] - fig.x[0])) * W, Y = (p) => ((fig.y[1] - p) / (fig.y[1] - fig.y[0])) * ph;
     const box = (a) => ({ x: X(a.x[0]), y: Y(a.y[1]), width: X(a.x[1]) - X(a.x[0]), height: Y(a.y[0]) - Y(a.y[1]) });
     const word = (x, y, t, cls, anchor = 'middle', size = fs) => svg('text', { x, y, class: `pzz-w ${cls || ''}`, 'data-look': 'crit.word', 'text-anchor': anchor, 'font-size': size }, t);

@@ -10,10 +10,12 @@
 // tool-criteria.js (the guideline card) and visual-plane.js (the data card's plane and the summary) both read this file; a second
 // copy of a cut-off or a colour is what let the two drift (tests/baveno-zones.test.js pins them).
 
+import { h } from './util.js';
+
 /** The cut-offs, in kPa and ×10³/µL. */
 export const BAVENO = { out: 15, in: 25, egd: 20, plt: 150 };
-/** The axis writing both charts share: the numbers along the foot, the one up the left, the two axes' names. */
-export const BAVENO_AXES = { xTicks: [15, 20, 25], yTick: [BAVENO.plt, '150K'], xName: 'LSM kPa', yName: 'PLT' };
+/** The axis writing both charts share (and the ranges they draw, so 15 kPa stands at the same place on both): the numbers along the foot, the one up the left, the two axes' names. */
+export const BAVENO_AXES = { x: [5, 35], y: [50, 250], xTicks: [15, 20, 25], yTick: [BAVENO.plt, '150K'], xName: 'LSM kPa', yName: 'PLT' };
 
 /** The zones as plain rectangles that never overlap, each out to the ends of the ranges x = [lo, hi] (kPa) and y = [lo, hi] (platelets):
  *  [{ rate: 'ok' | 'mid' | 'hi', x: [a, b], y: [c, d] }]. */
@@ -40,3 +42,8 @@ export function zoneArt(sv, { rects, hatch = null, box }) {
   const defs = hatch ? [sv('pattern', { id, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, sv('rect', { width: 2, height: 7, class: 'pzz-hl', 'data-look': 'crit.hatch' }))] : [];
   return { defs, g: [...tint, hatch ? sv('rect', { ...box(hatch), fill: `url(#${id})` }) : null].filter(Boolean) };
 }
+
+/** The plot's height for a width, the same on every chart of these zones: a taller one under 420 px (a phone), a flatter one above. */
+export const plotHeight = (W) => Math.round(W * (W < 420 ? 0.46 : 0.34));
+/** The hatch's key line under a card that draws it (the guideline card's own, tool-criteria.js): the swatch and "Hatched: can skip EGD". */
+export const hatchKey = () => h('div', { class: 'pzc-key' }, h('p', { class: 'pzc-kl' }, h('span', { class: 'pzc-sw', 'aria-hidden': 'true' }), h('span', {}, h('b', {}, 'Hatched:'), ' can skip EGD')));
