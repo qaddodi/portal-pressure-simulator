@@ -70,3 +70,22 @@ export function nameSpots(name) {
   kept.set(name, out);
   return out;
 }
+
+// (Other organs: a name keeps off them where it can, RIGHT ATRIUM off the esophagus that runs behind the heart, iPhone with the Tests card
+// open, 11 Nov. A family shares one outline set: the heart's chamber and grooves are the heart's. The thin bands with no ring (the
+// duodenum, the appendix) and the marks on the liver are left out.)
+/** How far from its anchor a name steps to get off another organ, world units (KIDNEY, under its kidney on the colon, has no such spot near: it stays). */
+export const OFF_NEAR = 48;
+const OTHER = ['esophagus', 'heart', 'bowel', 'colon', 'kidney-l', 'spleen', 'stomach', 'liver'];
+const famOf = (id) => id.split('-')[0];
+const boxOn = (rings, x0, y0, x1, y1) => {
+  for (const P of rings) for (let i = 0; i < P.length; i++) if (P[i][0] > x0 && P[i][0] < x1 && P[i][1] > y0 && P[i][1] < y1) return true;   // (an edge through the box: the rings are flattened every 2 units)
+  for (let i = 0; i <= 4; i++) for (let j = 0; j <= 2; j++) if (inside(rings, x0 + ((x1 - x0) * i) / 4, y0 + ((y1 - y0) * j) / 2)) return true;
+  return false;
+};
+/** Whether a caption's box (world units) lies on an organ other than its own. */
+export function onOtherOrgan(name, x0, y0, x1, y1) {
+  const own = famOf(NAME_ORGAN[name] || '');
+  for (const id of OTHER) if (famOf(id) !== own && boxOn(outlineOf(id), x0, y0, x1, y1)) return true;
+  return false;
+}

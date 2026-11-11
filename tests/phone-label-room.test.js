@@ -5,6 +5,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { DOT_ROOM, spreadDots } from '../src/ui/label-dots.js';
+import { OFF_NEAR, nameSpots, onOtherOrgan } from '../src/ui/organ-names.js';
+import { ORGAN_LABELS } from '../src/ui/anatomy.js';
 import { bootGL, pump } from './stage-gl-boot.js';
 
 test('a dot too near another slides along its own vessel, the lower ranked one, and only as far as it must', () => {
@@ -18,6 +20,16 @@ test('a dot too near another slides along its own vessel, the lower ranked one, 
   const stuck = { key: 'n:X', ax: 100, ay: 104, pri: 1 };
   spreadDots([pv, stuck], () => null, at);
   assert.deepEqual([stuck.ax, stuck.ay, stuck.au], [100, 104, undefined], 'a dot that cannot slide stays');
+});
+
+test('an organ name knows when it lies on another organ, and has a spot near its own place off them (RIGHT ATRIUM off the esophagus)', () => {
+  const [ex, ey] = [788, 60];   // (on the esophagus's strip, anatomy.js ORGANS: x 776 to 800 up there)
+  const box = (x, y) => [x - 27, y - 18, x + 27, y + 18];   // (about RIGHT ATRIUM's two lines, world units)
+  assert.equal(onOtherOrgan('Right atrium', ...box(ex, ey)), true, 'on the esophagus: another organ');
+  assert.equal(onOtherOrgan('Esophagus', ...box(ex, ey)), false, 'its own organ is not');
+  assert.equal(onOtherOrgan('Right atrium', 2000, 2000, 2010, 2010), false, 'nothing out there');
+  const [, rx, ry] = ORGAN_LABELS.find((q) => q[0] === 'Right atrium');
+  assert.ok(nameSpots('Right atrium').some(([x, y]) => Math.hypot(x - rx, y - ry) <= OFF_NEAR && !onOtherOrgan('Right atrium', ...box(x, y))), 'a spot near its place clear of the esophagus');
 });
 
 const H = 844, CARD = 380;
