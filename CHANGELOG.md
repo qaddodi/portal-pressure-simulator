@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Fix: broken joints where two vessel pieces meet, and the TIPS stent.** (Mohammad's screenshots of the preview, 11 Nov.) Two rows that touch end to end are one vessel, but when the join's node lay more than about a third of its reach short of where they touch, the row's last stretch counted as a vessel running on through the node, so it kept a round cap with an outline inside the next row: the dashed half-moon and dark seam on the SMV and on the hepatic vein by the sinusoid fan. A row end that lies on another row's end now ends there, so the pair continues with no cap (`legsOf`, tube-data.js; `tests/tube-data.test.js`). The TIPS and DIPS stents are drawn in the portal tree's tier instead of the network's: the middle hepatic vein no longer draws through the TIPS where they cross, and the stent's end on the right portal vein is a same-tier join (it was a lower-tier branch, whose trunk's outline crossed its mouth; at the hepatic vein it is a higher-tier branch the Tube fades into the vein).
+
 - **Fix: the caudate lobe and its short veins were drawn in the normal view after all.** (Mohammad's screenshot of the preview, 11 Nov.) The lobe's group started switched on, and it was only switched off when a slide arrived or left, so a figure that opened with no slide kept it on screen. It now starts off, as it did before the 11 Nov changes.
 
 - **The circuit's caudate vein lane is hidden in the normal view too.** (Mohammad, 11 Nov.) It shows only while a slide is about the caudate, like the lobe and its short veins on the plate.

@@ -95,6 +95,19 @@ test('tubeRows: a branch ends on the row that runs through its join whether or n
   assert.ok(rowIsExact(out.rows, 1) && !rowIsExact(out.rows, 0));
 });
 
+test('tubeRows: rows touching end to end continue each other even when the join node lies well short of where they touch (the SMV and hepatic vein seams, 11 Nov)', () => {
+  // the node 8 units back along row 0 (past SNAP_REACH of the reach), the rows' end points one point: row 0's last stretch is a stub, not a vessel running on
+  const sc = scene([straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T)], [{ x: -8, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }]);
+  const out = tubeRows(sc.tube, sc.nRows, sc.ent, {}, sc.pts);
+  assert.equal(out.rows[0 * 4 + 2], endContinues(1, 0), 'row 0 ends where row 1 starts, so no round cap is left inside row 1');
+  assert.equal(out.rows[1 * 4 + 1], endContinues(0, N_SAMPLES - 1), 'and row 1 starts where row 0 ends');
+  // a row that really does run on through the node (its end is nowhere near the other row's end) keeps its two legs
+  const through = scene([straight(-100, 0, 100, 0, T), straight(-8, 0, -8, 80, T)], [{ x: -8, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1], trunk: 0 }]);
+  const o2 = tubeRows(through.tube, through.nRows, through.ent, {}, through.pts);
+  assert.equal(o2.rows[0 * 4 + 1], TUBE_NO_END);
+  assert.equal(o2.rows[0 * 4 + 2], TUBE_NO_END);
+});
+
 test('tubeRows: two rows meeting end to end, bent by 45 degrees at most, continue each other (mutually); a sharper bend, a third row or a taken end does not', () => {
   const straightPair = scene([straight(-100, 0, 0, 0, T), straight(0, 0, 100, 0, T)], [{ x: 0, y: 0, reach: 14, k: 0.4, fillet: 1, members: [0, 1] }]);
   let out = tubeRows(straightPair.tube, straightPair.nRows, straightPair.ent, {}, straightPair.pts);

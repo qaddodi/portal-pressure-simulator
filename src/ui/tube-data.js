@@ -38,6 +38,8 @@ const hasPoints = (pts, row) => pts.length >= (row * TEXELS_ROW + TEXELS_ROW) * 
 
 // Scratch for one join (at most 4 members, 2 legs each), kept: nothing is made while joins are read.
 const LEG_MAX = 8;
+const M_ROW = new Int32Array(4), M_I = new Int32Array(4), M_MARK = new Float32Array(4);   // legsOf's members
+const COINCIDE = 0.05;                        // two rows' end points closer than this share of the join's reach are one point (they touch end to end)
 const S = { row: new Int32Array(LEG_MAX), sample: new Int32Array(LEG_MAX), dir: new Int8Array(LEG_MAX), mark: new Float32Array(LEG_MAX), ang: new Float64Array(LEG_MAX), order: new Int8Array(LEG_MAX), n: 0 };
 
 function nearestSample(pts, row, x, y, from = 0, to = N_SAMPLES - 1) {
@@ -66,26 +68,45 @@ const CONT_DEG = 45;                          // two rows meeting end to end are
  */
 function legsOf(ent, q, pts, nRows) {
   const x = ent[q], y = ent[q + 1];
-  let n = 0;
+  const reach = ent[q + 2];
+  let m0 = 0;
   for (let m = 0; m < 4; m++) {
     const mem = memberOf(ent[q + 4 + m]);
     if (!mem || mem.row < 0 || mem.row >= nRows || !hasPoints(pts, mem.row)) continue;
     let dup = false;
-    for (let a = 0; a < n; a++) if (S.row[a] === mem.row) dup = true;
+    for (let a = 0; a < m0; a++) if (M_ROW[a] === mem.row) dup = true;
     if (dup) continue;
     const row = mem.row;
     let i = nearestSample(pts, row, x, y);
     // (A nearest sample close to an end, the stretch from that end to it shorter than SNAP_REACH of the join's reach, is that end: the join's node lies a little
     // past where two rows touch, and the row's stub beyond it is not a vessel running on.)
-    const reach = ent[q + 2];
     if (i > 0 && i <= SNAP_SAMPLES && stubLength(pts, row, 0, i) <= SNAP_REACH * reach) i = 0;
     else if (i < N_SAMPLES - 1 && i >= N_SAMPLES - 1 - SNAP_SAMPLES && stubLength(pts, row, N_SAMPLES - 1, i) <= SNAP_REACH * reach) i = N_SAMPLES - 1;
+    M_ROW[m0] = row; M_I[m0] = i; M_MARK[m0++] = mem.mark;
+  }
+  // (Two rows that touch end to end are one vessel, however far the join's node lies from where they touch (10 to 30 percent of its reach was enough to leave
+  // SNAP_REACH short: 11 Nov, the broken joints on the SMV and the hepatic vein): a member whose nearest sample is a few samples short of its end, and whose
+  // end point lies on another member's end point, ends there. Without it the row's stub past the node drew a round cap with an outline inside the other row.)
+  for (let pass = 0; pass < 2; pass++) for (let a = 0; a < m0; a++) {
+    const i = M_I[a];
+    if (i === 0 || i === N_SAMPLES - 1) continue;
+    const e = i <= SNAP_SAMPLES ? 0 : i >= N_SAMPLES - 1 - SNAP_SAMPLES ? N_SAMPLES - 1 : -1;
+    if (e < 0) continue;
+    const ex = ptX(pts, M_ROW[a], e), ey = ptY(pts, M_ROW[a], e);
+    for (let b = 0; b < m0; b++) {
+      if (b === a || (M_I[b] !== 0 && M_I[b] !== N_SAMPLES - 1)) continue;
+      if (Math.hypot(ptX(pts, M_ROW[b], M_I[b]) - ex, ptY(pts, M_ROW[b], M_I[b]) - ey) <= COINCIDE * reach) { M_I[a] = e; break; }
+    }
+  }
+  let n = 0;
+  for (let a = 0; a < m0; a++) {
+    const i = M_I[a], row = M_ROW[a];
     // (A member whose nearest sample is interior runs on through the join, whether or not the join marks it the trunk: the lobule's vessels do, and so do some
     // of the figure's, a vessel meeting a node part-way along: two legs. One whose nearest sample is an end ends there: one leg, leaving inward.)
-    if (i === 0 || i === N_SAMPLES - 1) { S.row[n] = row; S.sample[n] = i; S.dir[n] = i === 0 ? 1 : -1; S.mark[n++] = mem.mark; }
+    if (i === 0 || i === N_SAMPLES - 1) { S.row[n] = row; S.sample[n] = i; S.dir[n] = i === 0 ? 1 : -1; S.mark[n++] = M_MARK[a]; }
     else {
-      S.row[n] = row; S.sample[n] = i; S.dir[n] = 1; S.mark[n++] = mem.mark;
-      S.row[n] = row; S.sample[n] = i; S.dir[n] = -1; S.mark[n++] = mem.mark;
+      S.row[n] = row; S.sample[n] = i; S.dir[n] = 1; S.mark[n++] = M_MARK[a];
+      S.row[n] = row; S.sample[n] = i; S.dir[n] = -1; S.mark[n++] = M_MARK[a];
     }
   }
   S.n = n;

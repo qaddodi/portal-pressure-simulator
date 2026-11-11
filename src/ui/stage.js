@@ -991,6 +991,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // Draw order within each tier: the portal tree in front (it lies anterior to the IVC).
   for (const x of EV) if (!x.isArt && (x.e.kind === 'vein' && PORTAL_TERRITORY.has(x.e.to) && PORTAL_TERRITORY.has(x.e.from || '') || ['PV_TRUNK', 'PVH_R', 'PVH_L', 'SMV_CONF', 'SV_CONF'].includes(x.e.id))) x.front = true;
   for (const id of BACK_EDGES) if (E[id]) E[id].back = true;
+  // The stents through the liver (TIPS, DIPS) are drawn with the portal tree, in front of the network: they cross the hepatic veins (the middle one went through the TIPS
+  // when both were one tier: a crossing in one tier is a union, the wider lumen wins), and they end on the portal vein, whose tier a lower-tier stent's end cannot match (the
+  // portal vein's outline crossed its mouth; tube-renderer.md, 'Not handled'). Its end on a hepatic vein is a branch in a higher tier, which the Tube fades into the vein.
+  // (11 Nov 2026, Mohammad's TIPS shots. Not x.front: that also widens the casing, PORTAL_CASING.)
+  for (const id of ['TIPS', 'DIPS']) if (E[id]) E[id].over = true;
 
   // Translucent vessels (the context veins, collaterals) are drawn by the GPU in tiers, one per opacity level (levelTier), beneath the
   // opaque network: a tier is faded once, as a whole, so where two of its vessels meet their overlap is a union, not a darker disc.
@@ -1774,7 +1779,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const TIER_ALPHA = Array.from({ length: MAX_TIERS }, (_, i) => (i < TIER_BACK ? LEVELS[i] : i >= TIER_MID0 && i < TIER_NET ? LEVELS[i - TIER_MID0] : 1));
   const levelTier = (x) => {
     const l = x.level ?? 1;
-    if (l >= 1) return x.back ? TIER_BACK : x.front ? TIER_FRONT : TIER_NET;
+    if (l >= 1) return x.back ? TIER_BACK : x.front || x.over ? TIER_FRONT : TIER_NET;
     return (x.back ? TIER_BACK0 : TIER_MID0) + Math.max(0, LEVELS.indexOf(l));
   };
   // Rows of the per-vessel textures: the model's vessels, then every strand, tributary and liver branch.
