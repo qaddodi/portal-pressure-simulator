@@ -6,7 +6,7 @@ import { bootGL, pump } from './stage-gl-boot.js';
 import { PLUGS } from '../src/ui/proc-anim.js';
 
 test('the coils hold with the catheter in, and the reading goes on from the same place on its own route (stage-cath.js cathCarry)', async () => {
-  const { st, page } = await bootGL({ w: 1200, h: 800, labels: 'none' });
+  const { st } = await bootGL({ w: 1200, h: 800, labels: 'none' });
   const { store } = await import('../src/ui/store.js');
   const { playProcedure } = await import('../src/ui/proc-anim.js');
   const { createCore } = await import('../src/worker-core.js');

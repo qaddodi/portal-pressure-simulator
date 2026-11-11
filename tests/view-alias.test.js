@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 // The stage's view (vt: zoom and place) is replaced, never changed in place. The first fit sets the view, the home framing (homeAt) and the
 // glide's target (vtTarget) outright; when they were one object, the first zoom changed all three, the home look (followHome) then took the

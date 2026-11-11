@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // retry no longer gives up after forty tries (4.8 s), which left the lobule wanted in the store and never opened (gate views stage, 3 Nov 2026).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const js = stageSource();
 

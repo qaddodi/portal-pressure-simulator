@@ -2,9 +2,8 @@
 // never carried to another slide, the sinusoid only on pressure-lens slides, and only the adopted built-in slides using it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { DECKS, REGIONS } from '../src/ui/decks.js';
-import { homeScale, offeredScales, scaleCam, scaleView, pickedScale, scalesProblems } from '../src/ui/scale-switch.js';
+import { homeScale, offeredScales, scaleCam, scaleView, scalesProblems } from '../src/ui/scale-switch.js';
 import { adopted } from './deck-adopted.js';
 // (as presenter.js slideLens reads a slide's lens: pressure when it names none)
 const slideLens = (s) => s.lens || 'pressure';

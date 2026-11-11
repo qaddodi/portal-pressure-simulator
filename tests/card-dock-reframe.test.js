@@ -1,7 +1,5 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 // Opening or closing the phone's data card (a tap on its handle, a pull, a push) re-frames the slide in the room the cards leave: the
 // camera counts the card where its glide ends, not where it stands 60 ms in, so the focus sits in the middle of the room between the
@@ -15,9 +13,6 @@ globalThis.document ??= { documentElement: { dataset: {}, style: { setProperty()
 globalThis.addEventListener ??= () => {};
 globalThis.DOMRect ??= class { constructor(x, y, width, height) { Object.assign(this, { x, y, width, height, left: x, top: y, right: x + width, bottom: y + height }); } };
 const { parseTranslate, translateRest } = await import('../src/ui/util.js');
-
-const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
-const presenter = read('src/ui/presenter.js'), stage = stageSource();
 
 test('a translate value reads as x and y px', () => {
   assert.deepEqual(parseTranslate('none'), [0, 0]);

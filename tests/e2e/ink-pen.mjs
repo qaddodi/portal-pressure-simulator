@@ -18,7 +18,7 @@ const ok = (c, m) => { console.log(`${c ? 'ok  ' : 'FAIL'} ${m}`); if (!c) faile
 const app = await openApp({ device: dev, theme: 'light', query: `?script=${script}&slide=${process.env.INK_SLIDE || 3}`, dir, timeout: 600000 });
 const page = app.page; page.setDefaultTimeout(600000);
 await page.waitForFunction(CARDS_LANDED, null, { timeout: 600000 }).catch(() => {});
-await page.evaluate(() => { for (const c of document.querySelectorAll('canvas')) { const orig = c.getContext; if (!c.__chk) c.__chk = 1; } });
+await page.evaluate(() => { for (const c of document.querySelectorAll('canvas')) { if (!c.__chk) c.__chk = 1; } });
 
 // the stage's free spot to draw in: the middle of the figure view, off the cards
 const box = await page.evaluate(() => { const r = document.getElementById('stageView').getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; });
@@ -100,11 +100,6 @@ await page.mouse.move(hx + 5, hy + 5, { steps: 3 });
 await page.waitForFunction(() => (window.pps.presenter.ink().snapshot().spot?.a || 0) > 0.95, null, { timeout: 60000 }).catch(() => {});
 const sp = await page.evaluate(() => window.pps.presenter.ink().snapshot().spot);
 ok(!!sp && sp.a > 0.95, `spotlight on at ${sp ? Math.round(sp.x) + ',' + Math.round(sp.y) : 'none'} (alpha ${sp?.a})`);
-const px = async (x, y) => page.evaluate(async ([png64, x, y]) => {
-  const img = new Image(); img.src = 'data:image/png;base64,' + png64; await img.decode();
-  const c = new OffscreenCanvas(img.width, img.height), g = c.getContext('2d'); g.drawImage(img, 0, 0);
-  return Array.from(g.getImageData(Math.round(x), Math.round(y), 1, 1).data);
-}, [(await shot()).toString('base64'), x, y]);
 await page.keyboard.up('l');
 await page.waitForFunction(() => !window.pps.presenter.ink().snapshot().spot, null, { timeout: 60000 }).catch(() => {});
 const off = await page.evaluate(() => window.pps.presenter.ink().snapshot().spot);

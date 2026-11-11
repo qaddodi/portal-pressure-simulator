@@ -14,6 +14,5 @@ test('the lobule tissue canvas is see-through, never an opaque black sheet', () 
 });
 
 test('a lost tissue context is put aside at once, and a restored one is drawn on again', () => {
-  const lz = src('src/ui/lobule-zoom.js');
   // (Made again only when asked for: tissueGLOn creates it when it is undefined.)
 });

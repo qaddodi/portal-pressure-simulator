@@ -121,7 +121,7 @@ test('the small map: every node is on it, words and dots stay inside the card, a
     assert.equal(m.paths.size, edgesOf(T).length);
     for (const [id, p] of m.nodes) { assert.ok(p.x >= 20 && p.x <= W - 20, `${id} at ${W}`); assert.ok(p.y + (p.words ? 19 + p.words.length * 12.5 : 0) <= m.H, `${id} words inside the height`); }
     const row = new Map();
-    for (const [id, p] of m.nodes) if (p.words) (row.get(p.y) || row.set(p.y, []).get(p.y)).push([p.x, Math.max(...p.words.map((w) => w.length)) * 6.3]);
+    for (const p of m.nodes.values()) if (p.words) (row.get(p.y) || row.set(p.y, []).get(p.y)).push([p.x, Math.max(...p.words.map((w) => w.length)) * 6.3]);
     for (const r of row.values()) { r.sort((a, b) => a[0] - b[0]); if (W >= 346) for (let i = 1; i < r.length; i++) assert.ok(r[i][0] - r[i - 1][0] >= (r[i][1] + r[i - 1][1]) / 2 - 2, `words of a row clear each other at ${W}`); }
   }
 });

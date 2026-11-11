@@ -4,7 +4,6 @@ import { stageSource } from './stage-src.js';
 // The overlays' boxes follow the camera by arithmetic; only a part that changed is read again.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const st = stageSource();
 const read = st.slice(st.indexOf('  function frostOverRead(level) {'), st.indexOf('  return { blurWhy, frostHosts, frostOver,'));

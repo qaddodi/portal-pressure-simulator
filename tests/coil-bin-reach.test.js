@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // a NaN reach spoils binVeins' bounds and no vessel draws at all (the outflow talk on 18 Oct).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { binVeins } from '../src/ui/veins-bin.js';
 
 const stage = stageSource();

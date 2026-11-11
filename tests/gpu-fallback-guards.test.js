@@ -113,7 +113,6 @@ test('every WebGL2 surface rebuilds after a lost context (or is a probe or a sec
   // (The ones that read an existing context: the anatomy's and the lobule's vessels restore through their owner.)
   assert.match(stageSource(), /vCanvas\.addEventListener\('webglcontextrestored'/);
   // (Lobule section 7: the tissue made again on restore, the field rebuilt in place, the sinusoid in place with its epoch so a paused view draws again.)
-  const lz = src('src/ui/lobule-zoom.js');
   assert.match(src('src/ui/sinusoid-gl.js'), /const onBack = \(\) => \{ if \(gone\) return; epoch\+\+; tgt = null; sent\.clear\(\); ok = null; skipped = true; startLater\(\); \};\s*evCv\.addEventListener\('webglcontextrestored', onBack\);/);
   assert.match(src('src/ui/sinusoid-view.js'), /gpu\.epoch/);
   // (Glass and labels: in place.)

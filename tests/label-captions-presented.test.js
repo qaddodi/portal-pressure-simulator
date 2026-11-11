@@ -145,7 +145,6 @@ test('disposing a layer that never presented fires no lost', () => {
 });
 
 // ── The swap is atomic: the page's names are made clear in the task that handed the GPU's picture over ──
-import { readFileSync } from 'node:fs';
 test('onPresented runs inside the frame that handed the picture over, so a view can write its class in that same task', () => {
   const R = rig();
   let seenEnds = -1;

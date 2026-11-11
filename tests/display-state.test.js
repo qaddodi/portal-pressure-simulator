@@ -1,14 +1,10 @@
-import { stageSource } from './stage-src.js';
 // What the figure shows between the model's frames (combined plan M1): one critically damped filter for the vessels' widths and
 // the lumens' colours (display-state.js), so nothing steps when the model does.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { follow2, createColourFollow } from '../src/ui/display-state.js';
 
-const stage = stageSource();
 const TAU = 0.2;
-
 test('follow2 is the widths\' old cascade, number for number', () => {
   // (stage.js followWidth before M1, written out.)
   const old = (v, w, T, dt) => {

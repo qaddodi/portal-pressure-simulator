@@ -6,7 +6,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { refreshOf, intervalStats, intervalLine, surfaceLine } from '../src/ui/perf-readout.js';
 import { onlyClasses, classOnly, createLayoutWatch, GESTURE_LOOK, GESTURE_MOVE_FREE } from '../src/ui/idle-keys.js';
-import { COUNTED, TWICE } from '../src/ui/gpu-probe.js';
 
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 

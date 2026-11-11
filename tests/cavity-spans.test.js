@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { abdomenOutline, cavityHalfWidths, CAVITY_LOW } from '../src/ui/anatomy.js';
 
 // The GPU fills the ascites inside the peritoneal cavity from its half-width per row (cavityHalfWidths), where it once took a

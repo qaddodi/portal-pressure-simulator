@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { MAX_TIERS, TUBE_FLOATS } from '../src/ui/veins-mesh-data.js';
 import { N_SAMPLES } from '../src/ui/veins-mesh.js';
 import { WEB_FLOATS } from '../src/ui/tube-joint.js';
-import { endTrunk, endContinues, END_THRU_START, END_THRU_END } from '../src/ui/tube-join-glsl.js';
+import { endTrunk, endContinues, END_THRU_END } from '../src/ui/tube-join-glsl.js';
 import { F_DOTTED, TUBE_ROW_FLOATS, TUBE_NO_END, tubeRows, tubeBuckets, rowIsExact, webInstances, websByTier } from '../src/ui/tube-data.js';
 import { scene, straight, ray } from './tube-web-helpers.js';
 

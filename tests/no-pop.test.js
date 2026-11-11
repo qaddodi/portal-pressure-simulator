@@ -7,7 +7,7 @@ import { unsnap } from './unsnap.js';
 
 const read = (p) => unsnap(readFileSync(new URL(`../${p}`, import.meta.url), 'utf8'));
 const css = read('styles/app.css'), tokens = read('styles/tokens.css'), util = read('src/ui/util.js');
-const card = read('src/ui/card.js'), dock = read('src/ui/dock.js'), stageSrc = stageSource();
+const dock = read('src/ui/dock.js'), stageSrc = stageSource();
 
 test('there is one exit curve, gentle at its start', () => {
   assert.match(tokens, /--ease-in: cubic-bezier\(\.4, 0, 1, 1\);/);

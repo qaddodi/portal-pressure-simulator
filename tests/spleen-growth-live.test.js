@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { spleenMotion, SPLEEN_STILL } from '../src/ui/spleen-motion.js';
 
 // A spleen growing through a time-lapse stood still under the organs' picture, jumped bigger, waited and jumped again, while

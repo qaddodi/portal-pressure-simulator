@@ -102,13 +102,6 @@ export function judgeRows(rows, { W = 1e9, H = 1e9 } = {}) {
   return { issues, frames: rows.filter((r) => r.L.length).length };
 }
 
-// At rest: is each point on a vessel? A shot with the labels hidden; the ring 2-4 px round each point must be mostly vessel (lighter or
-// more coloured than the stage's background there, sampled 30 px away).
-async function pointsOnVessels(page, tag) {
-  const pts = await page.evaluate(() => window.pps.stage.labelSnapshot().items.filter((d) => /^n:/.test(d.key) && d.a > 0.5).map((d) => { const a = window.pps.stage.labelAnchorOf(d.key.slice(2)); return a && a.mid ? { key: d.key, x: a.x, y: a.y } : null; }).filter(Boolean));
-  return pts.length ? { pts, tag } : null;
-}
-
 async function settle(page, ms = 4000) {
   // (Until two drawn frames in a row show the same labels: a headless frame takes seconds.)
   let a = '', same = 0;

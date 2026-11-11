@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 // A pan starts where the finger is once it has moved past the slop (8 px touch, 4 px mouse): the figure does not jump the
 // slop in its first frame (review item 22). The start point is taken once; later moves keep it.

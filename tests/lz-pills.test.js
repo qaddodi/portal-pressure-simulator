@@ -2,7 +2,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readPills, ringOf } from '../src/ui/lz-pills.js';
-import { readFileSync as readSrc } from 'node:fs';
 
 test('an inset ring is read in either order the browsers serialise it', () => {
   assert.deepEqual(ringOf('rgb(10, 20, 30) 0px 0px 0px 2px inset'), { w: 2, colour: 'rgb(10, 20, 30)' });

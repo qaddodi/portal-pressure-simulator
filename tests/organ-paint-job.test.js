@@ -150,7 +150,6 @@ test("the painter's targets stay within the room the canvas gives them, however 
 });
 
 test("the view's sharp picture keeps its sides within the painter's room beside the canvas", async () => {
-  const { readFileSync } = await import('node:fs');
   const src = stageSource();
   // (The picture's size: the canvas's, or under Sharper upscaling the smaller picture drawn under it.)
   assert.match(src, /const roomW = (?:live\.)?(?:live\.)?picNow \? (?:live\.)?(?:live\.)?picNow\[0\] : vCanvas\.width, roomH = (?:live\.)?(?:live\.)?picNow \? (?:live\.)?(?:live\.)?picNow\[1\] : vCanvas\.height;[^\n]*\n\s+const room = targetRoom\(roomW, roomH\);/);

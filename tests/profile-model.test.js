@@ -4,7 +4,6 @@
 // pills), glides to a new state and arrives, and that a frame of the glide makes no new piece (code only: nobody has looked on screen).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const Txt = (text) => ({ text, nodeType: 3, data: text, children: [], attributes: [], getAttribute: () => null });
 class El {

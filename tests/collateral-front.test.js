@@ -1,7 +1,6 @@
 // A collateral opens from its high-pressure end and closes from its systemic end (first-principles item 22): the arithmetic, and the wiring.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { FRONT_CHAIN, FRONT_FLOOR, FRONT_MS, chainS, frontKey, frontOpen, frontP, frontS, frontScale, fronted } from '../src/ui/collateral-front.js';
 
 test('an opening starts closed everywhere and ends open everywhere', () => {
@@ -48,14 +47,4 @@ test('two collaterals that run on into one another share one front through their
   assert.ok(frontScale(0.2, false, chainS(0.9, 1, 0.5)) < frontScale(0.2, false, chainS(0.1, 0, 0.5)) + 1e-12);
   for (const [a, [b, place]] of Object.entries(FRONT_CHAIN)) assert.equal(FRONT_CHAIN[b][0], a, `${a} and ${b} name each other`), assert.notEqual(place, FRONT_CHAIN[b][1]);
 });
-test('the figure draws the front as a width, in the one radii path every renderer reads', () => {
-  const tubes = readFileSync(new URL('../src/ui/stage-tubes.js', import.meta.url), 'utf8');
-  const vessels = readFileSync(new URL('../src/ui/stage-vessels.js', import.meta.url), 'utf8');
-  const trans = readFileSync(new URL('../src/ui/stage-transitions.js', import.meta.url), 'utf8');
-  assert.match(tubes, /frontScale\(fp, fr\.out/, 'tubeFill scales the radii by the front');
-  assert.match(vessels, /frontKey\(x, performance\.now\(\)\)/, 'the radii key follows the clock');
-  assert.match(vessels, /!fronted\(x\)/, 'a collateral keeps its whole length (no stretch cut)');
-  assert.match(trans, /FRONT_MS/, 'a collateral opens and closes over the front time');
-  // no shader and no renderer is touched: a hybrid would need one
-  for (const f of ['veins-gl.js', 'veins-mesh-glsl.js', 'tube-pass.js', 'tube-geo.js']) assert.ok(!readFileSync(new URL('../src/ui/' + f, import.meta.url), 'utf8').includes('collateral-front'), f);
-});
+// (The wiring of the front into the figure is a rule in scripts/source-shapes/e.mjs.)

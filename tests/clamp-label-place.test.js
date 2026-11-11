@@ -5,7 +5,6 @@ import { stageSource } from './stage-src.js';
 // old spot. One rule now places it, whoever asks, and a label that has to stand off from its arrows is joined to them by a leader.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const stage = stageSource();
 const body = (from, to) => stage.slice(stage.indexOf(from), stage.indexOf(to, stage.indexOf(from)));

@@ -13,23 +13,6 @@ import './dom-shim.js';
 const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 const strip = (t) => t.replace(/\/\/.*$/gm, '');
 
-// A WebGL2 stand-in that counts every object it is asked to create.
-class W2 {}
-globalThis.WebGL2RenderingContext = W2;
-function fakeGL() {
-  const made = { n: 0 };
-  const gl = new Proxy(Object.create(W2.prototype), {
-    get(t, k) {
-      if (k in t) return t[k];
-      if (k === 'isContextLost') return () => false;
-      if (k === 'getExtension') return () => null;
-      if (typeof k === 'string' && /^(create|new)/.test(k)) return () => { made.n++; return {}; };
-      if (typeof k === 'string' && /^[A-Z_0-9]+$/.test(k)) return 1;
-      return () => 1;
-    },
-  });
-  return { gl, made };
-}
 
 test('B29: a disposed vitals monitor builds nothing in the pool, gives back what it made, and its chart drawer goes with it', () => {
   const t = strip(src('vitals-gl.js'));

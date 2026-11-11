@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { chainsOf, monotoneSlopes, planTaper, taperAt, slopesInto, planChainInto } from '../src/ui/vessel-taper.js';
 
 // Vessels that run on into one another narrow or widen as one continuous taper (Mohammad, 1 Nov: "those paths aren't smoothly

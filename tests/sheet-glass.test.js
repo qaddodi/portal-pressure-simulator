@@ -3,8 +3,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const main = readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8');
-const glass = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 
 test('the plate asks for GPU glass, loses its paper once drawn, and shows none while its first frame comes in', () => {

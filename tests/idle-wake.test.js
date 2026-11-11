@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 // The figure's idle loop (review item 27): its safety look comes once a second, its still-key reads the blood setting's text
 // only after a store write, and every organ picture that lands outside a frame wakes it, so nothing waits on the look.

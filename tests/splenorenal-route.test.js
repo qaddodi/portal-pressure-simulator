@@ -96,7 +96,6 @@ test('splenorenal shunts keep clear of the descending colon and ease into the re
     const k = kid.reduce((m, p) => (Math.hypot(p[0] - b[0], p[1] - b[1]) < Math.hypot(m[0] - b[0], m[1] - b[1]) ? p : m));
     assert.ok(Math.hypot(k[0] - b[0], k[1] - b[1]) < 3, `${id} ends on the renal vein's centre line`);
   }
-  const fs = await import('node:fs');
   const stage = stageSource();
   assert.match(stage, /if \(e\.id === 'C6' && mode !== 'flow' && EI\.V_SPL != null\) w = Math\.min\(w, /);
 });

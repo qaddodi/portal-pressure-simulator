@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const rd = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
-const util = rd('util.js'), words = rd('gl-words.js'), trace = rd('trace-gl.js'), svg = rd('svg-gl.js'), throwJs = rd('card-throw.js');
+const util = rd('util.js'), words = rd('gl-words.js'), throwJs = rd('card-throw.js');
 
 test('B01: once a wrapper exists putText routes every update through it, and the flush lands through it (no textContent over its canvas)', () => {
   assert.match(util, /if \(w\?\.disposed\) \{ wordsOfEl\.delete\(el\); w = null; \}/);

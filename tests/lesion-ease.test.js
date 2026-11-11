@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // updateInner, stepWidths, stepOrgans).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { lesionEase, LESION_TAU, LESION_SNAP } from '../src/ui/lesion-ease.js';
 
 const P = (stenosis = {}, thrombus = {}) => ({ stenosis, thrombus, tips: { on: false } });

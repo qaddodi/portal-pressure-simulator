@@ -694,7 +694,6 @@ test('the labels keep off the faded wedge, past the vessel too (After the sinuso
 
 // ── The probe swings out of the view round the target instead of fading in place (2 Nov 2026, Mohammad: "I want the Doppler probe to rotate";
 // "the point the Doppler targets cannot move"; "also the angle of the thing") ──
-const pts = (d) => (d.match(/-?[\d.]+/g) || []).map(Number);
 const angDiff = (a, b) => ((((a - b) % 360) + 540) % 360) - 180;
 // The probe as the layer draws it, in stage px: where the gate (the target) is, where the face is, where the flow axis points in the world.
 const drawnAt = (gate, place, o, r = 10) => {

@@ -16,7 +16,6 @@ const ALGOS = [gastric, ascites, stopcarv, holdcarv, secprop];
 const TONES = ['n', 'ok', 'warn', 'bad'];
 const nodes = (a) => flat(a.tree).map((x) => x.n);
 const lit = (a, p) => a.lit(a.patientFor({ of: a.id, patient: p }, null));
-const out = (a, p) => a.outcomeOf(lit(a, p));
 const sorted = (L) => [...L].sort();
 
 test('every module has the contract\'s shape, unique ids and node ids', () => {

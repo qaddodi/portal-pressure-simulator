@@ -1,9 +1,8 @@
-import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
-import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, SHUT_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
+import { zoomPlan, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
 import { EASE_ARRIVE, easeArrive } from '../src/ui/ease.js';
 import { zoomRide } from '../src/ui/scene-cam.js';
 
@@ -11,7 +10,7 @@ import { zoomRide } from '../src/ui/scene-cam.js';
 // instrument card to display it bigger when clicking on it directly; however it shouldn't like make the text smaller. the camera should like zoom
 // on the card to display it centered large in middle of the screen". Code only: the controller is run against stand-in elements.
 const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
-const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css'), util = read('../src/ui/util.js'), stage = stageSource();
+const zoomSrc = read('../src/ui/card-zoom.js'), js = read('../src/ui/presenter.js'), css = read('../styles/app.css');
 
 test('the card grows to the screen\'s room and goes to its middle, never past the most, and not at all when it is large already', () => {
   const area = { left: 0, top: 0, width: 1440, height: 900 };
@@ -280,7 +279,6 @@ test('the card zooms while a time-lapse plays or its answer eases in: the slide 
 
 // (The zoom's transform as written: translate(x, y) scale(s), in the card's own px.)
 const parseT = (t) => { const m = /translate\((-?[\d.]+)px, (-?[\d.]+)px\) scale\(([\d.]+)\)/.exec(t); return { dx: +m[1], dy: +m[2], s: +m[3] }; };
-const last = (el) => el.anims.at(-1);
 const settle = async (w) => { fl.run(); await new Promise((r) => setTimeout(r, 0)); };
 
 test('zoom: the readings come out above the zoomed card and the zoom is fitted again to the whole stack, in the middle and inside the margin', async () => {
@@ -337,7 +335,7 @@ test('zoom: the stack that is out as the card zooms is fitted as it tucks, large
 });
 
 test('zoom: the readings move only once the glide in has ended, and not on its way back', async () => {
-  const w = world(), { z, card } = w; const back = stands();
+  const w = world(), { z } = w; const back = stands();
   try {
     z.open(); assert.equal(z.follow(10, 10), false);
     await settle(w); assert.equal(z.follow(10, 10), true);

@@ -183,14 +183,14 @@ test("each step's callout is a treatment mark on a vessel of its own route, and 
 // A stand-in for the stage and the frame clock: playProcedure on a clock the test moves by hand.
 function rig() {
   const q = [];
-  let now = 0, gl = 0;
+  let now = 0;
   globalThis.performance = { now: () => now };
   globalThis.requestAnimationFrame = (fn) => { q.push(fn); return q.length; };
   globalThis.cancelAnimationFrame = () => {};
   const moves = [], cats = [];
   const stage = {
     setCatheter: (st) => cats.push(st && { ...st }),   // (the run writes one record in place each frame: a copy keeps this frame's) cathStops: () => null, gliding: () => now < gl,
-    cathFocus: (mode, ms) => { moves.push({ mode, at: now, ms }); gl = now + ms; return true; },
+    cathFocus: (mode, ms) => { moves.push({ mode, at: now, ms }); return true; },
   };
   const run = (ms, step = 16) => { for (let t = 0; t < ms; t += step) { now += step; const f = q.splice(0); for (const fn of f) fn(now); } };
   return { stage, run, moves, cats, idle: () => q.length === 0, now: () => now };

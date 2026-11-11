@@ -563,7 +563,7 @@ export function scan({ root = ROOT } = {}) {
           if (R && d) for (const id of d.type === 'ArrayPattern' ? d.elements : [d]) if (id?.type === 'Identifier') note(mod.alias, aliasKey(f0, id.name), R);
         }
         if (n.type === 'CallExpression') {
-          const c = n.callee, cn0 = calleeName(n);
+          const c = n.callee;
           // callbacks of forEach/map/... over a registry
           if (c.type === 'MemberExpression' && !c.computed && /^(forEach|map|some|every|find|filter)$/.test(c.property.name) && isFn(n.arguments[0])) {
             const R = baseName(c.object);

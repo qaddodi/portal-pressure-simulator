@@ -142,7 +142,6 @@ test('let go: its page-wide listeners go with it', () => {
 });
 
 test('what lies between the figure and a glass (stage.js frostOver) is kept until something there may have moved', async () => {
-  const { readFileSync } = await import('node:fs');
   const st = stageSource();
   const f = st.slice(st.indexOf('  function frostOver(level) {'), st.indexOf('  function frostOverRead(level) {'));
   assert.doesNotMatch(st, /FROST_KEEP|glassreads=/);

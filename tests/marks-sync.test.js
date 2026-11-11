@@ -1,7 +1,6 @@
 import { stageSource } from './stage-src.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 // The marks on the vessels (stents, band rings, clamps, clots, plugs, balloons) are drawn on the GPU, and their SVG copies are hidden
 // (data-gl) once they are read. A rebuilt mark is a new SVG shape without data-gl, shown until it is read; the frame loop reads it, but

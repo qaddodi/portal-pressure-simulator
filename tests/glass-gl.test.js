@@ -1,12 +1,10 @@
-import { stageSource } from './stage-src.js';
 // The callouts' frosted glass drawn on the GPU (glass-gl.js, his "GPU glass" pick of 25 Oct): the same blur, saturation and tint
 // as the CSS glass it stands in for, the browser's glass kept wherever this cannot run.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { GLASS, PANE, roundPath, parseShadow, gaussTaps, glassWanted } from '../src/ui/glass-gl.js';
+import { GLASS, parseShadow, gaussTaps, glassWanted } from '../src/ui/glass-gl.js';
 
-const STAGE = stageSource();
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const SRC = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
 

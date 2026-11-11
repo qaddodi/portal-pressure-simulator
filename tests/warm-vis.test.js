@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // loops hidden under the pile too, an orange tangle, and ticked along his drawn outline).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { warmVisible, ringGrid, inGrid } from '../src/ui/warm-vis.js';
 
 const line = (x0, y0, x1, y1, step = 4) => { const n = Math.round(Math.hypot(x1 - x0, y1 - y0) / step); return Array.from({ length: n + 1 }, (_, i) => [x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n]); };

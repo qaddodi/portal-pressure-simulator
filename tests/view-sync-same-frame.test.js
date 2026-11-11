@@ -5,7 +5,6 @@ import { stageSource } from './stage-src.js';
 // there is run first by the figure's draw pass.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const STAGE = stageSource();
 

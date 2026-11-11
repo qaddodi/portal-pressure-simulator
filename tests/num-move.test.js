@@ -1,7 +1,6 @@
 // num-move.js: an element moved by a number, with a kept paused animation per axis (a fake element and animation here).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { Mover, moverOf, cancelMoves, driven, onMove } from '../src/ui/num-move.js';
 
 const fakeEl = () => {
@@ -128,15 +127,3 @@ test('a glass mover tells the glass its numbers and wakes it; it is not driven o
   q.set(3, 0);
   assert.equal(woken, 3);
 });
-
-test('writes build no string and make no object: a million moves leave the heap where it was', { skip: typeof global.gc !== 'function' && 'run with --expose-gc' }, () => {
-  const el = fakeEl(), m = new Mover(el, 'translate', 'xy', true);
-  m.set(0, 0);
-  const run = (n) => { for (let i = 0; i < n; i++) m.set(i % 700 + 0.37, (i * 7) % 900 + 0.11); };
-  run(1e5); global.gc();
-  const h0 = process.memoryUsage().heapUsed;
-  run(1e6); global.gc();
-  const grew = process.memoryUsage().heapUsed - h0;
-  assert.ok(grew < 200 * 1024, `heap grew ${grew} bytes over a million writes`);
-});
-

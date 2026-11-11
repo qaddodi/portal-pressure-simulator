@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // in a frame, while the layout is the last frame's, and the writes that follow them run in the same frame.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 test('read callbacks run before every other callback of their frame, and what they ask for runs in that frame', async () => {
   const cbs = [];

@@ -23,7 +23,7 @@ await main.keyboard.press('p');
 const win = await popup; win.setDefaultTimeout(30000);
 win.on('console', (m) => console.log('win:', m.text().slice(0, 200))); win.on('pageerror', (e) => console.log('winerr:', String(e).slice(0, 300))); await win.waitForSelector('.pv-title', { timeout: 60000 }).catch(async () => { console.log((await win.content()).slice(-1500)); throw new Error('no title'); });
 const text = (p, s) => p.locator(s).first().innerText();
-const gl = await win.evaluate(() => { const c = document.createElement('canvas'); return { canvases: document.querySelectorAll('canvas').length }; });
+const gl = await win.evaluate(() => ({ canvases: document.querySelectorAll('canvas').length }));
 ok(gl.canvases === 0, 'presenter window draws text only (no canvas, no app)');
 ok(await text(win, '.pv-title') === plain(slides[0].title), 'window shows slide 1 title');
 for (const n of [1, 2]) {

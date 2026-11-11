@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // from the widths (stepWidths); anything else under way takes the full update, so the picture is the same frame for frame.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const STAGE = stageSource();
 const body = (name) => {

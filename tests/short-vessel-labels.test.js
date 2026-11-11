@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // name comes back once a zoom makes room (Mohammad, 18 Oct). No abbreviation ends in a full stop (17 Oct design review).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { SHORT, ABBR } from '../src/ui/anatomy.js';
 
 const stage = stageSource();

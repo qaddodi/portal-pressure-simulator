@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // the lobule before it zooms out (Mohammad, 20 Oct).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { riseAnchor, riseCentre } from '../src/ui/rise-path.js';
 
 const close = (a, b, eps = 1e-6) => Math.abs(a - b) <= eps;

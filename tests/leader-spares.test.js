@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // figure still, nothing else lays them out, and the circuit's leaders never came in (2 Nov 2026).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 
 const st = stageSource();
 

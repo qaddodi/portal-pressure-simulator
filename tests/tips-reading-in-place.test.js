@@ -39,7 +39,7 @@ test('the TIPS that has a reading to come holds at "Stent in" with the catheter 
 });
 
 test('on the stage: the TIPS holds with its catheter in, and the reading goes on from there without the catheter leaving', async () => {
-  const { st, page } = await bootGL({ w: 1200, h: 800, labels: 'none' });
+  const { st } = await bootGL({ w: 1200, h: 800, labels: 'none' });
   const { store } = await import('../src/ui/store.js');
   const { playProcedure } = await import('../src/ui/proc-anim.js');
   const { createCore } = await import('../src/worker-core.js');

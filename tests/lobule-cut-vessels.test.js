@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { lintGLSL } from './glsl-lint.js';
 import { shadeGLSL, F_RING } from '../src/ui/veins-mesh-glsl.js';
 import { celGLSL, celShadeJS, celRingJS, celDiscJS, ringOpenJS, CEL } from '../src/ui/tube-cel-glsl.js';
@@ -11,20 +10,11 @@ import { celGLSL, celShadeJS, celRingJS, celDiscJS, ringOpenJS, CEL } from '../s
 
 const FLAGS = { F_DIFFUSE: 2, F_EDGE: 64, F_VEIL: 128, F_SHADOW: 4, F_SPEC: 32, F_WHOLE: 256, LIFT_EASE_MAX: 60, LIFT_EASE_SHARE: 0.35, LUMEN2: 32768, ROW2_BITS: 11, VEIL_K: 0.6 };
 const near = (a, b, m) => a.forEach((v, i) => assert.ok(Math.abs(v - b[i]) < 1e-9, `${m}: ${a} vs ${b}`));
-const src = (f) => readFileSync(new URL(`../src/ui/${f}`, import.meta.url), 'utf8');
 
 test('F_RING is its own bit, clear of the other vessel flags', () => {
   assert.equal(F_RING, 512);
   for (const [k, v] of Object.entries(FLAGS)) if (k.startsWith('F_')) assert.equal(v & F_RING, 0, k);
   assert.equal(F_RING & 0xff, 0, 'above the bits the shaders test with narrow masks');
-});
-
-test('the lobule sets F_RING, the mouths and the ink on the four end-on kinds, and only on them', () => {
-  const z = src('lobule-zoom.js');
-  assert.match(z, /const endOn = t\.kind === 'cv' \|\| t\.kind === 'pv' \|\| t\.kind === 'ha' \|\| t\.kind === 'bd';/);
-  assert.match(z, /\(endOn \? F_RING : 0\)/);
-  assert.match(z, /if \(endOn\) \{[\s\S]*G\.mouths\.get\(t\.id\)[\s\S]*tubeData\[o \+ 16 \+ i\]/);
-  assert.match(z, /akLook === lookSig/, 'a new look makes the attributes again (the ink follows the casing)');
 });
 
 test('tubeShade (Classic and Mesh) breaks the band at a mouth, and the cel shade (Tube) calls celDisc with the mask and the row ink', () => {
@@ -37,13 +27,7 @@ test('tubeShade (Classic and Mesh) breaks the band at a mouth, and the cel shade
   assert.deepEqual(lintGLSL(host), []);
 });
 
-test('the Tube lumen layer lays celDisc last, over the blood, with the same mask and ink', () => {
-  const t = src('tube-lumen-glsl.js');
-  assert.ok(t.indexOf('col = celDisc(') > t.indexOf('col = celTones('), 'after the tones');
-  assert.ok(t.indexOf('col = celDisc(') < t.indexOf('outColor = ditherOut('), 'before the output');
-  assert.match(t, /ringOpen\(T\(id, 3\)\.xyz,/);
-  assert.match(t, /T\(id, 4\)\.rgb/);
-});
+// (The lobule's and the lumen layer's wiring of the ring are rules in scripts/source-shapes/e.mjs.)
 
 // The mouth mask: 72 bins of 5 degrees from -180 (atan(g.y, g.x)), bit b % 24 of word b / 24.
 const bins = (list) => { const w = [0, 0, 0]; for (const b of list) w[Math.floor(b / 24)] |= 1 << (b % 24); return w; };

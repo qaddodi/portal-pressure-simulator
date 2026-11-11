@@ -12,7 +12,7 @@
 // A rule counts when a selector in its list names a class with one of the chart's prefixes AND its body sets a look property.
 // Rules for HTML elements that share a prefix (.ab-*, .pze-key, label leaders) are counted too: the migration PR names the ones it keeps.
 import { readFileSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');

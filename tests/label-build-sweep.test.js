@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // newer one, and a label's new pieces land in the task that moves it (2 Nov 2026, code sweep for glitches).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createLateQueue } from '../src/ui/late-queue.js';
 import { dropLabel } from '../src/ui/drop-label.js';
 

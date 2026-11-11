@@ -3,7 +3,6 @@ import { stageSource } from './stage-src.js';
 // place instead of made again whole: 11 whole binnings and 4 MB uploads each in one Varices slide change (motion budget, 2 Nov 2026).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { binVeins } from '../src/ui/veins-bin.js';
 
 const line = (x, y, n, dx, dy) => Array.from({ length: n }, (_, i) => [x + i * dx, y + i * dy]);
