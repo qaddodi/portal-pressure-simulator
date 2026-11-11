@@ -354,25 +354,21 @@ export default async function register({ check, device, leaderFrames, open, pick
     await page.waitForTimeout(1500);
     await look('diving into the lobule', 2600, () => page.evaluate(() => document.querySelector('#viewSeg [data-view="lobule"]').click()));
     await page.waitForFunction(() => [...document.querySelectorAll('.lz.on .lz-lab')].some((e) => !e.hidden));
-    await look('text size 150 %', 1200, () => page.evaluate(() => window.pps.stage.setLabelScale(1.5)));
-    await look('text size back to 100 %', 1200, () => page.evaluate(() => window.pps.stage.setLabelScale(1)));
     await look('rising out of the lobule', 2400, () => page.evaluate(() => document.querySelector('#viewSeg [data-view="anatomic"]').click()));
     await page.waitForTimeout(800);
     await look('zooming in on the anatomy', 2400, async () => { for (let i = 0; i < 4; i++) { await page.evaluate(() => document.getElementById('zoomIn').click()); await page.waitForTimeout(250); } });
     await look('zoomed in', 600);
-    // A label the slide's words light: its leader stops on the pill's rounded outline, at 100 % and 200 % text.
+    // A label the slide's words light: its leader stops on the pill's rounded outline.
     await open(page, '?script=hvpg&slide=6');
     await page.waitForFunction(() => window.pps.stage.lobuleSettled?.() && [...document.querySelectorAll('.lz.on .lz-lab')].some((e) => !e.hidden) && +getComputedStyle(document.querySelector('.lz-call.on') || document.body).opacity > 0.9 && !!document.querySelector('.lz-call.on'), null, { timeout: 60000 });
     await page.waitForTimeout(1200);
     if (!(await page.evaluate(() => (document.getElementById('app').dataset.lit || '').includes('lobule:')))) throw new Error('HVPG slide 6 lights no lobule label');
     await look('a lit label (HVPG slide 6)', 800);
-    await look('a lit label at 200 % text', 2000, () => page.evaluate(() => window.pps.stage.setLabelScale(2)));
     // At rest no leader is hidden for a label passing over it: a label's own pill once hid its leader (it counted
     // the pill's square corner as another label).
     await page.waitForTimeout(800);
     const hid = await page.evaluate(() => [...document.querySelectorAll('.lz-leaders line.leader.lz-hid')].filter((l) => l.style.display !== 'none' && !l.classList.contains('ld-gone')).map((l) => l.dataset.target));
-    if (hid.length) bad.push(`at rest, 200 % text: the ${hid.join(', ')} leader is hidden`);
-    await page.evaluate(() => window.pps.stage.setLabelScale(1));
+    if (hid.length) bad.push(`at rest: the ${hid.join(', ')} leader is hidden`);
     if (bad.length) throw new Error(bad.slice(0, 8).join('; '));
   });
 }

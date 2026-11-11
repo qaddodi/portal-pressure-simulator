@@ -42,7 +42,6 @@ import { glideNow } from './seg-glide.js';
 import './focus-ring.js';
 import { knownLook, currentLook, isDarkLook, lastDarkLook, applyLookAttrs } from './looks.js';
 import { lookChooser } from './look-chooser.js';
-import { TEXT_STEPS } from './type-scale.js';
 import { moverOf, cancelMoves } from './num-move.js';
 
 const EI = Object.fromEntries(EDGES.map((e, i) => [e.id, i]));
@@ -1273,7 +1272,7 @@ const fpsOn = () => { try { return localStorage.getItem('pps.fps') === '1'; } ca
 setFpsCounter(fpsOn());
 function openSettings(anchor, withSearch = false) {
   const cur = currentLook() || 'system';
-  // While presenting, only what changes how the talk looks (appearance, full screen, text size, blur effect), and Send feedback.
+  // While presenting, only what changes how the talk looks (appearance, full screen, blur effect), and Send feedback.
   const talk = presenter.active();
   // Settings is sorted by what a row does, one titled group each (the revamp, 4 Nov 2026): the one-shot actions first, then how it looks, the
   // display switches, the model, the measuring aids, and Reset last. ("Accessibility" had held Blur effect and the two measuring aids.)
@@ -1288,9 +1287,7 @@ function openSettings(anchor, withSearch = false) {
       fullscreenControl()),
     menuSection('Appearance',
       lookChooser(cur, (v) => switchTheme(v === 'system' ? null : v, v === 'system')),
-      ...(talk ? presenterSettings() : []),
-      h('div', { class: 'menu-title' }, 'Text size on the figure'),
-      textSizeControl()),
+      ...(talk ? presenterSettings() : [])),
     // (The figure's resolution choices and performance switches (frame.js) are not in Settings (premium-feel R14, 31 Oct): what a build stored for them is cleared at
     // start (index.html), so they stay at their defaults: Full, and off. Their code stays.)
     // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
@@ -1318,26 +1315,6 @@ function openSettings(anchor, withSearch = false) {
 }
 // While presenting: no extra settings for now (panel width and high contrast were taken out of slides).
 function presenterSettings() { return []; }
-// Text size: smaller and larger in even steps, and the middle shows the size and resets it.
-// (100 % is the design size; the steps only go up, so no text drops under 11 px. src/ui/type-scale.js)
-function textSizeControl() {
-  const at = () => TEXT_STEPS.reduce((b, v, i) => (Math.abs(v - stage.labelScale()) < Math.abs(TEXT_STEPS[b] - stage.labelScale()) ? i : b), 0);
-  const smaller = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Smaller text', title: 'Smaller text' }, 'A');
-  const reset = h('button', { class: 'ts-reset', 'aria-label': 'Reset text size', title: 'Reset text size' });
-  const larger = h('button', { class: 'ts-a ts-lg', 'aria-label': 'Larger text', title: 'Larger text' }, 'A');
-  const paint = () => {
-    const i = at();
-    smaller.disabled = i === 0; larger.disabled = i === TEXT_STEPS.length - 1;
-    reset.textContent = `${Math.round(stage.labelScale() * 100)}%`;
-    reset.setAttribute('aria-pressed', String(i === TEXT_STEPS.indexOf(1)));
-  };
-  const step = (d) => { stage.setLabelScale(TEXT_STEPS[Math.max(0, Math.min(TEXT_STEPS.length - 1, at() + d))]); paint(); };
-  smaller.addEventListener('click', () => step(-1));
-  larger.addEventListener('click', () => step(1));
-  reset.addEventListener('click', () => { stage.setLabelScale(1); paint(); });
-  paint();
-  return h('div', { class: 'seg full menu-seg text-size', role: 'group', 'aria-label': 'Text size on the figure' }, smaller, reset, larger);
-}
 // Settings › Figure size (Mohammad, 8 Nov 2026: "an option to change the megapixels in settings", "even small small ones"): the figure
 // canvas's pixel budget (frame.js figOpt('cap'), stage-res.js figShare), from a quarter of a megapixel to Full (the screen's own density,
 // up to 2x). Fewer pixels: every GPU pass of the figure costs less, the figure is softer; the labels, cards and readings stay sharp.

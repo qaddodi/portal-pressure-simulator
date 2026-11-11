@@ -343,7 +343,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get labelPainted() { return labelPainted; }, set labelPainted(v) { labelPainted = v; },
     get labelPassOff() { return labelPassOff; }, set labelPassOff(v) { labelPassOff = v; },
     get labelRider() { return labelRider; }, set labelRider(v) { labelRider = v; },
-    get labelScale() { return labelScale; }, set labelScale(v) { labelScale = v; },
+    get labelScale() { return labelScale; },
     get labelSettleT() { return labelSettleT; }, set labelSettleT(v) { labelSettleT = v; },
     get labelShown() { return labelShown; }, set labelShown(v) { labelShown = v; },
     get labelSol() { return labelSol; }, set labelSol(v) { labelSol = v; },
@@ -2256,19 +2256,12 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const labelGlAdd = (b) => { if (b.pos && b.pos.view === morphTarget && b.g.style.display !== 'none') labelGlA.push(b.pos); };   // (a label gone (display none) is not handed on: its point may be gone with its slide)
   const labelGlSync = () => { if (!labelGL || glSuppress) return;
     const t = labelGlA; labelGlA = labelGlB; labelGlB = t; labelGlA.length = 0; pool.forEach(labelGlAdd); labelGL.sync(labelGlA); };
-  const { CIRCUIT_LABEL_K, LABEL_MAX, LABEL_MIN, TURN_DIR, deskK, deskMQ, textW } = createLabelText({ updateLabels }, live);
+  const { CIRCUIT_LABEL_K, TURN_DIR, deskK, deskMQ, textW } = createLabelText({ updateLabels }, live);
 
-  let labelScale = (() => {
-    try {
-      let v = parseFloat(localStorage.getItem('pps.labelScale'));
-      // A size saved before that desktop baseline keeps a raised size where it was, and is never below the new 100 %.
-      if (localStorage.getItem('pps.labelScaleV') !== '2') {
-        if (v && deskMQ.matches) { v = Math.max(1, Math.round((v / 1.5) * 100) / 100); localStorage.setItem('pps.labelScale', String(v)); }
-        localStorage.setItem('pps.labelScaleV', '2');
-      }
-      return clamp(v || 1, LABEL_MIN, LABEL_MAX);
-    } catch { return 1; }
-  })();
+  // The figure's text is at its one size (Mohammad, 11 Nov 2026: the "Text size on the figure" setting removed everywhere): 100 %, with a
+  // desktop's baseline (deskK). A size an older build saved is dropped, so it can never apply again.
+  const labelScale = 1;
+  try { localStorage.removeItem('pps.labelScale'); localStorage.removeItem('pps.labelScaleV'); } catch (e) { caught('stage:labelScale', e); /* storage unavailable */ }
   // Every label on a figure (the lobule's too) reads the same scale.
   document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
   let labelK = labelScale * deskK();
@@ -3049,13 +3042,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
      *  stent, the figure calls out all three points it is sampled at, the sampled one named in the Doppler's green. */
     pinDoppler(id, { points = false } = {}) { dop.pin = id; dop.points = !!id && points; dopApply(); },   // (false: no probe drawn at all, stage-glow.js dopApply)
     setScanProbe,
-    setLabelScale(v) {
-      labelScale = clamp(Math.round(v * 100) / 100, LABEL_MIN, LABEL_MAX);
-      try { localStorage.setItem('pps.labelScale', String(labelScale)); } catch (e) { caught('stage:13721', e); /* storage unavailable */ }
-      if (!projecting) document.documentElement.style.setProperty('--label-k', String(labelScale * deskK())); document.documentElement.style.setProperty('--label-scale', String(labelScale)); document.documentElement.style.setProperty('--ts', String(labelScale));
-      dispatchEvent(new Event('pps:labelscale'));
-      if (F) updateLabels(F);
-    },
     setProjection(on) { projecting = typeof on === 'number' ? on : !!on; if (F) updateLabels(F); },
     labelLayer: () => labelSvg,
     /** The treatment marks and how much of each shows now (for tests; mark-fade.js). */
