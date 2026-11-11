@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **The circuit's caudate vein lane is hidden in the normal view too.** (Mohammad, 11 Nov.) It shows only while a slide is about the caudate, like the lobe and its short veins on the plate.
+
 - **The caudate lobe and its short veins show only on a slide about them again, and the veins taper to a point.** (Mohammad, 11 Nov: not in the normal views; his screenshot showed stubs with rounded caps and no visible lobe.)
   The Budd–Chiari dashed outline and arrows come with the lobe, so they too appear only on those slides. Each vein now grows from a point inside the lobe, and the lobe has a double dome and a faint rim so it reads as a shape. The circuit lane for the caudate vein is unchanged.
 

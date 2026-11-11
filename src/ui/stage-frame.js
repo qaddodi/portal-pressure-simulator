@@ -16,6 +16,7 @@ export function createFrame(st, live) {
   function edgeVisible(x, f) {
     const e = x.e, p = f.viewParams || store.get().params;
     if (ANAT_HIDDEN.has(e.id) && live.morph < 0.5) return false;
+    if (e.id === 'CAUD' && !live.caudPin) return false;   // (the caudate's own vein is drawn only while a slide is about the caudate, Mohammad 11 Nov 2026)
     if (NEEDS_C3.has(e.id)) return !findingHidden('coll') && recruitFrac('C3', f) > 0.15;
     if (e.kind === 'collateral') {
       if (!edgePresent(e, p)) return false;

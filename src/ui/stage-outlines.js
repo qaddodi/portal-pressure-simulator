@@ -314,7 +314,8 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     if (!more) pinList = list || [];
     const items = [...pinList, ...(more || [])].map((o) => (typeof o === 'string' ? { id: o } : o)).map((o) => ({ id: PIN_ID(o.id), tone: o.tone || null, glow: !!o.glow, warm: !!o.warm, fade: o.fade || 0 }));
     const ids = items.map((o) => o.id);
-    caud.show(ids.includes('caudate') || ids.includes('caudate-lobe'), ids.includes('caudate'));   // (only a slide about the caudate draws it: the lobe with its veins, or the lobe alone)
+    live.caudPin = ids.includes('caudate') || ids.includes('caudate-lobe');   // (the circuit's caudate lane follows it: stage-frame.js edgeVisible)
+    caud.show(live.caudPin, ids.includes('caudate'));   // (only a slide about the caudate draws it: the lobe with its veins, or the lobe alone)
     const want = new Map(items.filter((o) => organEls[o.id]).map((o) => [o.id, o]));
     const cs = getComputedStyle(svg), col = (tone) => (tone ? [...toRGB(`var(${tone.startsWith('--') ? tone : `--tr-${tone}`})`, cs)].slice(0, 3) : null);
     for (const o of live.olList) if (o.kind === 'pin' && !want.has(o.id)) o.on = false;   // (it keeps its own fade on the way out)
