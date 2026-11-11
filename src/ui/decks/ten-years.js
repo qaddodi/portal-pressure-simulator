@@ -123,10 +123,10 @@ export const TEN_YEARS = {
       ask: ['What does a TIPS cost the liver?', 'Most of its portal blood, which now bypasses it through the stent. The hepatic artery dilates and makes up part of the loss.'],
     },
     {
-      id: 'he', lens: 'since', since: 'tips', sinceLabel: 'the TIPS', tick: 'Confusion', days: 60, cam: 'liver', tool: { kind: 'profile' }, data: 'tiles', tiles: ['shunt', 'ppg'], key: ['shunt'], delta: 'tips',
+      id: 'he', lens: 'firstpass', tick: 'Confusion', days: 60, cam: 'liver', tool: { kind: 'flows' }, data: 'tiles', tiles: ['he', 'shunt'], key: ['he'], delta: 'tips',
       kicker: 'Year 9', site: 'sin', title: 'Two months after the TIPS he is confused',
       line: 'He sleeps by day and is slow to answer. {shunt} of the portal blood now bypasses the liver.',
-      notes: 'The stent comes last; narrowing the stent costs some PPG. Overt encephalopathy is a known price of the TIPS: more portal blood reaches the brain without passing through the liver. The first move is not the stent. The narrower stent lowers the shunted share but raises the portal pressure again, which brings the risk of bleeding back. The model has no ammonia or brain; the share of portal blood that skips the liver stands in for the risk. The vessels are colored by their change since the stent went in.',
+      notes: 'The stent comes last; narrowing the stent costs some PPG. Overt encephalopathy is a known price of the TIPS: more portal blood reaches the brain without passing through the liver. The first move is not the stent. The narrower stent lowers the shunted share but raises the portal pressure again, which brings the risk of bleeding back. The model has no ammonia or brain; the share of portal blood that skips the liver stands in for the risk. The vessels show the first pass: gut blood that skips the liver stays raw.',
       ask: ['What is the downside of narrowing the stent?', 'The portal pressure rises again, so varices and bleeding come back.'],
     },
     {

@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **Deck card choices 29-32 (deck content review, 11 Nov 2026).**
+  Shunts: the TIPS slide keeps the Doppler and the stent width slider; the portal blood split moves to the next slide (the stent's mark, calipers and spotlight are off it). Ten years: the confusion slide uses the first-pass colors with the portal blood bar and the encephalopathy tile. Treatment: propranolol and carvedilol get a Response to the drug slider (`nsbbGain`, a non-responder to a strong one), and terlipressin shows the pressure profile. Pregnancy: the portal inflow slide shows the portal blood bar. Outflow: constrictive pericarditis gets a Breathing depth slider (`respDepth`). `respDepth` and `nsbbGain` join the settings an imported deck may drag (`import-safety.js`).
+
 - **Deck card choices 25-28 (deck content review, 11 Nov 2026).**
   Doppler: the Budd–Chiari case shows the portal velocity tile and a callout on the caudate lobe (a mark can now name `organ: 'caudate'`, shown when the slide has `terms: ['caudate']`: `callout-math.js` anchor, `stage-label-solve.js`), and the narrowed-TIPS case shows the PPG and ascites tiles. Measuring HVPG: the HVPG slide's line keeps one idea (CSPH); the 16 mmHg surgery point and the MASLD under-read stay in its notes, and the heart-failure slide adds the right atrial pressure tile. Kidney: the norepinephrine slide is folded into the terlipressin slide as a Norepinephrine button (the model has none, so it leaves the numbers as they were before the drug, and the line says so), and the kidney pressure slide shows the abdomen window. Recompensation: the cure year is drawn as an HVPG and albumin time graph instead of the catheter tracing.
 

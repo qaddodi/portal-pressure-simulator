@@ -86,7 +86,7 @@ export const SHUNTS = {
       ask: ['Which kind of stent does Baveno VIII name for a pre-emptive TIPS?', 'A polytetrafluoroethylene (PTFE) covered stent.'],
     },
     {
-      id: 'tips', lens: 'flow', terms: ['pv', 'hv'], params: { tips: { on: true, d: 8 } }, days: 30, whatIf: WIDTH, cam: 'liver', sites: ['split'], mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, calipers: ['TIPS'], spot: ['TIPS', 'PV_TRUNK', 'PVH_R', 'RHV_IVC'],
+      id: 'tips', lens: 'flow', terms: ['pv', 'hv'], params: { tips: { on: true, d: 8 } }, days: 30, whatIf: WIDTH, cam: 'liver',   // (Doppler and the width slider only: the portal blood split moved to the next slide, and the stent's mark, calipers and spotlight are gone)
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], delta: 'reasons',
       kicker: 'The stent', site: 'sin', title: 'A TIPS brings the PPG <12 mmHg',
       line: 'A covered stent, 8 to 10 mm, from a hepatic vein to the portal vein. The PPG falls to {ppg} (<12 mmHg).',
@@ -94,7 +94,7 @@ export const SHUNTS = {
       ask: ['What does Doppler show in a working TIPS?', 'Steady flow toward the heart along the whole stent, at a velocity close to the last scan.'],
     },
     {
-      id: 'heart', lens: 'flow', cam: 'liver', tool: { kind: 'profile', from: 'reasons', fromLabel: 'Before' }, data: 'tiles', tiles: ['co', 'ra'], key: ['co'], delta: 'reasons',
+      id: 'heart', lens: 'flow', cam: 'liver', sites: ['split'], tool: { kind: 'profile', from: 'reasons', fromLabel: 'Before' }, data: 'tiles', tiles: ['co', 'ra'], key: ['co'], delta: 'reasons',
       // (No Before/With buttons: the chart's Before trace and the {co@reasons} tile deltas already show the earlier state; the slide shows the stent.)
       kicker: 'The stent', site: 'sin', title: 'The stent gives the heart more to do',
       line: 'The cardiac output rises from {co@reasons} to {co} and the right atrial pressure to {ra}. A healthy heart copes; a failing one may not, so heart failure comes first.',

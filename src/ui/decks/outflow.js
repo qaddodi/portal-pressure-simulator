@@ -95,11 +95,11 @@ export const OUTFLOW = {
       ask: ['A pulsatile portal vein on ultrasound. Where do you look next?', 'The right heart: tricuspid regurgitation or a raised right atrial pressure.'],
     },
     {
-      id: 'constrict', lens: 'heat', preset: 'constrictive', cam: 'heart', labels: ['RHV', 'RA'], tool: { kind: 'doppler', vessel: 'RHV_IVC', waves: true }, data: 'tiles', tiles: ['ra'], key: ['ra'],
+      id: 'constrict', lens: 'heat', preset: 'constrictive', cam: 'heart', labels: ['RHV', 'RA'], whatIf: { label: 'Breathing depth', param: 'respDepth', min: 0, max: 3, step: 0.25, ends: ['Shallow', 'Deep'] }, tool: { kind: 'doppler', vessel: 'RHV_IVC', waves: true }, data: 'tiles', tiles: ['ra'], key: ['ra'],
       kicker: 'Constrictive pericarditis', site: 'cardiac', title: 'Constriction congests the liver with a normal-sized heart',
       vignette: 'A 58-year-old man who had mediastinal radiation for Hodgkin lymphoma 20 years ago has a swollen abdomen and fatigue. His JVP is raised and rises further on inspiration.',
       line: 'The heart cannot fill, and the [right atrial pressure](ra) rises to {ra}. Ascites often forms before the legs swell.',
-      notes: 'Constriction follows tuberculosis, cardiac surgery, radiotherapy or viral pericarditis. It is often first seen as ascites or a stiff liver and mistaken for cirrhosis; the liver stiffness rises with the congestion. The neck veins are high and rise on inspiration (Kussmaul sign); there may be a pericardial knock. On Doppler the hepatic vein reversal grows in expiration. Echocardiography, CT or MRI of the pericardium and right heart catheterization make the diagnosis; pericardiectomy treats it.',
+      notes: 'Constriction follows tuberculosis, cardiac surgery, radiotherapy or viral pericarditis. It is often first seen as ascites or a stiff liver and mistaken for cirrhosis; the liver stiffness rises with the congestion. The neck veins are high and rise on inspiration (Kussmaul sign); there may be a pericardial knock. On Doppler the hepatic vein reversal grows in expiration; drag the breathing depth to see the trace swing with each breath. Echocardiography, CT or MRI of the pericardium and right heart catheterization make the diagnosis; pericardiectomy treats it.',
       ask: ['Ascites with a high SAAG and high protein, a JVP that rises on inspiration and a normal ejection fraction. What is the likely cause, and how do you confirm it?', 'Constrictive pericarditis: a thick pericardium on CT or MRI.'],
     },
     {

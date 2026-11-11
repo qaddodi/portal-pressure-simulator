@@ -5,6 +5,7 @@
 
 const PROP = { drugs: { propranolol: true, carvedilol: false } };
 const CARV = { drugs: { propranolol: false, carvedilol: true } };
+const RESPONSE = { label: 'Response to the drug', param: 'nsbbGain', min: 0, max: 2, step: 0.1, ends: ['Non-responder', 'Strong responder'] };
 
 export const TREATMENT = {
   id: 'treatment', level: 'advanced', title: 'Lowering portal pressure', minutes: 10,
@@ -28,14 +29,14 @@ export const TREATMENT = {
     },
     {
       id: 'prop', lens: 'flow', params: PROP, cam: [380, 110, 930, 710],   // (the portal system and the hepatic vein the catheter in the tracing's card sits in)
-       labels: ['SMV', 'CONF'], tool: { kind: 'hvpg' }, data: 'tiles', key: ['hvpgFall'], tiles: [], delta: 'target', hvpgResp: 'target',
+       labels: ['SMV', 'CONF'], tool: { kind: 'hvpg' }, data: 'tiles', key: ['hvpgFall'], tiles: [], delta: 'target', hvpgResp: 'target', whatIf: RESPONSE,
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Propranolol lowers portal inflow',
       line: 'At a starting dose, β1 blockade lowers cardiac output and β2 blockade lets the gut arterioles constrict. Portal inflow falls to {pvFlow}, the HVPG to {hvpg}.',
       notes: 'Propranolol (or nadolol) is titrated to a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg. It prevents a first bleed from large varices and, with banding, a second one. About a third to a half of patients reach a protective fall in HVPG. In refractory ascites with low blood pressure or kidney injury the dose is reduced or stopped. The model shows a starting dose: the heart rate falls to about 73 a minute, and titration would take it on to 55 to 60. Colored by flow, the gut veins and the portal vein thin. The tile shows the percent fall from the untreated patient: 10% or more marks a response.',
       ask: ['How is propranolol titrated?', 'To a resting heart rate of 55 to 60 a minute, keeping systolic pressure >90 mmHg.'],
     },
     {
-      id: 'carv', question: 'Which lever does carvedilol pull?', lens: 'since', since: 'prop', sinceLabel: 'propranolol', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver', glow: ['liver'], tool: { kind: 'hvpg' }, data: 'tiles', key: ['hvpgFall'], tiles: [], delta: 'target', hvpgResp: 'target',
+      id: 'carv', question: 'Which lever does carvedilol pull?', lens: 'since', since: 'prop', sinceLabel: 'propranolol', params: { drugs: { propranolol: false, carvedilol: true } }, cam: 'liver', glow: ['liver'], tool: { kind: 'hvpg' }, data: 'tiles', key: ['hvpgFall'], tiles: [], delta: 'target', hvpgResp: 'target', whatIf: RESPONSE,
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Carvedilol also lowers resistance in the liver',
       line: 'Its α1 blockade is thought to relax the sinusoids: the HVPG falls further, to {hvpg}, the blood pressure to {map}. Cut the dose if the systolic stays <90 mmHg.',
       notes: 'Carvedilol 6.25 to 12.5 mg a day. Its α1 blockade relaxes the contracted stellate cells and lowers the resistance inside the liver, so it lowers HVPG more than propranolol and brings about half of propranolol non-responders to a protective fall. Baveno VIII recommends a non-selective beta-blocker, preferably carvedilol, in compensated cirrhosis with clinically significant portal hypertension, to prevent decompensation. Watch the blood pressure, especially with ascites. Both levers move: the inflow falls as with propranolol, and the resistance falls as well.',
@@ -57,7 +58,7 @@ export const TREATMENT = {
       ask: ['How does octreotide lower the portal pressure, and why is the effect modest?', 'It cuts splanchnic inflow; the effect is small and partly transient.'],
     },
     {
-      id: 'terli', lens: 'flow', params: { drugs: { octreotide: false, terlipressin: true } }, cam: 'portal', labels: ['SMV', 'CONF'], data: 'tiles', key: ['map'], tiles: ['map', 'rpp', 'pvFlow'], delta: 'target',
+      id: 'terli', lens: 'flow', params: { drugs: { octreotide: false, terlipressin: true } }, cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'profile' }, data: 'tiles', key: ['map'], tiles: ['map', 'rpp', 'pvFlow'], delta: 'target',
       compare: [{ label: 'Octreotide', params: { drugs: { octreotide: true, terlipressin: false } } }, { label: 'Terlipressin', own: true, params: { drugs: { octreotide: false, terlipressin: true } } }],
       kicker: 'Terlipressin', site: 'sin', title: 'Terlipressin: a bleed drug and the HRS-AKI drug',
       line: 'This vasopressin analogue constricts the dilated splanchnic arterioles. Portal inflow falls to {pvFlow}, which helps in a bleed; with albumin, the kidney pressure rises to {rpp} in HRS-AKI.',

@@ -44,7 +44,7 @@ export const PREGNANCY_DECK = {
       ask: ['By how much does blood volume rise in pregnancy?', 'By 30 to 50 percent, with its peak around 32 weeks.'],
     },
     {
-      id: 'inflow', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], lens: 'flow',
+      id: 'inflow', cam: 'portal', labels: ['SMV', 'SV', 'CONF'], lens: 'flow', tool: { kind: 'flows' },
       data: 'tiles', tiles: ['pvFlow', 'hvpg'], key: ['pvFlow', 'hvpg'], delta: 'before',
       kicker: 'Pregnancy', site: 'sin', title: 'More portal inflow meets a stiff liver',
       line: 'Portal flow rises to {pvFlow}, and through the scarred liver the HVPG rises to {hvpg}.',
