@@ -230,8 +230,8 @@ DECKS.push(KIDNEY);
 // Doppler of the portal system, the portal vein clot in cirrhosis the portal vein clots talk, the right heart and the liver the one after the sinusoids, the first visit the stiffness one, A TIPS from start to finish the TIPS and shunts one, a year of compensated cirrhosis the first year of the ten-year patient, Paracentesis and albumin the ascites one, the spleen talk the stiffness one (its splenectomy slide lives in Gastric varices), Doppler after a liver transplant the Doppler one.
 export const DECK_ALIAS = { 'where-block': 'sites', bleed: 'treatment', 'refractory-bleed': 'variceal-bleed', 'blood-volume': 'hyperdynamic', 'beta-blockers': 'treatment', 'read-doppler': 'doppler', 'pvt-cirrhosis': 'prehepatic', 'right-heart': 'outflow', 'tips-journey': 'shunts', 'first-visit': 'stiffness', 'one-year': 'ten-years', tap: 'ascites', spleen: 'stiffness', 'transplant-doppler': 'doppler' };
 
-// The unified menu lists the eleven core presentations by topic, in teaching order, and the other seventeen under "More talks", by topic
-// order; search still finds all 28. Each has a short title (32 characters or fewer); the third name is the deck's short name in the tab
+// The unified menu lists the eleven core presentations by topic, in teaching order, and the other twenty under "More talks", by topic
+// order; search still finds all 31. Each has a short title (32 characters or fewer); the third name is the deck's short name in the tab
 // at each slide card's top right corner (presenter.js deckTab; 20 or fewer).
 export const TOPICS = [
   ['foundations', 'Foundations', [['circulation', 'The portal circulation', 'Circulation'], ['circuit', 'Portal pressure as a circuit', 'Circuit']]],

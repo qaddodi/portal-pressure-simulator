@@ -1,4 +1,4 @@
-// The vessel mesh renderer's geometry (8 Nov 2026, docs/veins-mesh-plan.md, Phase 1): pure JS plus GLSL strings, no GL calls here.
+// The vessel mesh renderer's geometry (8 Nov 2026, the deleted docs/veins-mesh-plan.md, Phase 1): pure JS plus GLSL strings, no GL calls here.
 // One vessel row is drawn as ONE instance of a fixed mesh (stripIndex), placed by the vertex shader from the row's points and radii:
 //   - the strip: N_SAMPLES samples, two vertices each (vertex k: sample i = k >> 1, side s = (k & 1) ? +1 : -1), 63 quads, with
 //     the corner of each joint at the averaged (mitre) offset;

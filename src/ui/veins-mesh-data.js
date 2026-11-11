@@ -1,4 +1,4 @@
-// The vessel mesh renderer's data builders (8 Nov 2026, docs/veins-mesh-plan.md): pure JS, no GL. They turn what the vessel renderer
+// The vessel mesh renderer's data builders (8 Nov 2026, the deleted docs/veins-mesh-plan.md): pure JS, no GL. They turn what the vessel renderer
 // already holds (the binned segment entries, the tube attributes, the join patches) into what the mesh passes draw from: each row's
 // centreline points, the rows grouped by tier with the tier's flags, and the join patches grouped by tier.
 // None of them allocates on a repeated call: every output is an object or typed array the caller keeps (`out`), made on the first call and

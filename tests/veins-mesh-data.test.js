@@ -5,7 +5,7 @@ import { N_SAMPLES, N_QUADS, patchInstances } from '../src/ui/veins-mesh.js';
 import { ENT_W } from '../src/ui/veins-bin.js';
 import { binSwept, writePoints } from '../src/ui/veins-sweep.js';
 
-// The mesh renderer's data builders (docs/veins-mesh-plan.md): pure JS, hand-built inputs, plus one round trip through the real binning.
+// The mesh renderer's data builders (the deleted docs/veins-mesh-plan.md): pure JS, hand-built inputs, plus one round trip through the real binning.
 
 const pt = (row, i) => [row * 10 + i * 0.5, row * 3 - i * 0.25];   // exactly representable in float32
 const pointsOf = (row) => Array.from({ length: N_SAMPLES }, (_, i) => pt(row, i));

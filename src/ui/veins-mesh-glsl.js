@@ -1,5 +1,5 @@
 // The vessel shader's shading, shared by the classic vessel pass (veins-gl.js vesselFS) and the mesh passes (veins-mesh-glsl.js mesh
-// shaders, docs/veins-mesh-plan.md section 3): moved out of vesselFS unchanged (the same arithmetic in the same order), so the two paths
+// shaders, the deleted docs/veins-mesh-plan.md section 3): moved out of vesselFS unchanged (the same arithmetic in the same order), so the two paths
 // cannot drift apart. The text needs the host shader's declarations: the samplers ent, rad, tube, organ; the uniforms the classic
 // shader declares (organK, useOrgan, tierGroup, px, fx, the inks, casing, shadow, ring, light, paperInk, rimInk); T(), alongAt(), over(),
 // LAST and S_OFF. K: the renderer's constants (flags, VEIL_K, the lift's ease, LUMEN2, ROW2_BITS, the edge softness's GLSL).
@@ -227,7 +227,7 @@ uvec4 packFlow2(uint gId2, float gS2, float gY2) {
 }
 `;
 
-// ── The mesh vessel passes (docs/veins-mesh-plan.md, Phase 2.2) ──────────────────────────────────────────────────────────────────────
+// ── The mesh vessel passes (the deleted docs/veins-mesh-plan.md, Phase 2.2) ──────────────────────────────────────────────────────────────────────
 // The mesh shaders are the vessel shader's own text (veins-gl.js vesselFS(simple, mesh)): MESH 1, a vessel's strip (one vessel, no join),
 // MESH 2, a join's patch (its members, its one join). In place of the cell's search they take their vessels from the instance, and the
 // tier loop stops at the pass's tier (tierNow), whose part of the picture the pass lays: its glows, its shadow, its shape (casing, lumen,

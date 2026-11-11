@@ -1,7 +1,7 @@
-// The Tube vessel renderer's pass (Settings › Display › Tube vessel renderer; docs/tube-renderer.md): meshPass (veins-gl.js) with these
+// The Tube vessel renderer's pass (the only vessel renderer, docs/tube-renderer.md): meshPass (veins-gl.js) with these
 // differences only (docs/recommendations/tube-renderer-plan.md, "Draw order"): half tubes whose vertices carry the depth (tube-geo.js), a
 // prepass that is the same program with the colour masked off in place of a key pass, no shadow and no ring, and the draw buffers set once
-// (changed only around a glow, the lift and the laying of a scratch layer). The Mesh's buckets, patches and buffers are shared.
+// (changed only around a glow, the lift and the laying of a scratch layer). The buckets, patches and buffers kept from the removed Mesh renderer (the names meshTargets, meshGeo, MG) are the Tube's own now.
 // It lives in a file of its own so veins-gl.js stays under the build's chunk limit. veins-gl.js gives it what it works on, once, in E: the
 // context, the kept state (MG) and the Mesh helpers by name; the values that change (the two programs, the layer's texture, the rows'
 // attributes, the frame's morph) are read through E each time, never copied.
@@ -56,7 +56,7 @@ export function createTubePass(E) {
     gl.drawElementsInstanced(gl.TRIANGLES, D.webIndexN, gl.UNSIGNED_SHORT, 0, n);
     if (!keyPre) MG.webs += n;
   }
-  // Tier t's patches (stage 1's joins, and stage 2's with ?tubejoin=patch).
+  // Tier t's patches (stage 1's joins; stage 2 makes its joins from geometry).
   function patchCall(pass, t, base, H) {
     const pb = FR.pb, u = E.tubePt.u;
     gl.useProgram(E.tubePt.p);

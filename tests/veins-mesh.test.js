@@ -16,7 +16,7 @@ globalThis.addEventListener ??= () => {};
 globalThis.getComputedStyle ??= () => ({ getPropertyValue: () => '' });
 const GL = await import('../src/ui/veins-gl.js');
 
-// The vessel mesh renderer's geometry (docs/veins-mesh-plan.md, Phase 1). Node only: the mesh is built from the same functions the GLSL
+// The vessel mesh renderer's geometry (the deleted docs/veins-mesh-plan.md, Phase 1). Node only: the mesh is built from the same functions the GLSL
 // twin mirrors, so the coverage is judged on the JS placement of every vertex, for random centrelines (smooth, wiggly, hairpins, zigzags,
 // loops, scatter, very short vessels), radii constant and tapering, and a pad from nothing to a wide casing + glow.
 

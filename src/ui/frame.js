@@ -783,7 +783,7 @@ export function frameGapFor(reason = frameReason()) {
 // 8.3 ms so every 4th, a 90 Hz screen's 11.1 ms so every 3rd; no phase is carried.)
 export const CALM_FLOW_MS = 28;
 // (Tube speed plan P1, 10 Nov 2026: where the lobule's vessel renderer draws Tube stage 3 its blood pass is far cheaper than the old full-screen
-// blood, so its calm blood is drawn at the screen's rate; Classic, Mesh and Tube stages 1 and 2 keep the 30 Hz cap, Battery saver its 15 Hz.)
+// blood, so its calm blood is drawn at the screen's rate; the classic safety net and Tube stages 1 and 2 keep the 30 Hz cap, Battery saver its 15 Hz.)
 /** The least ms between two blood-only frames of a calm lobule: 30 Hz; Battery saver's 15 Hz; every frame where Motion at 60 is off, or where `cheapBlood` (the Tube's stage 3 drew the lobule). */
 export function calmFlowGapFor(cheapBlood = false) {
   if (saverOn) return SAVER_MS;

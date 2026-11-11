@@ -69,7 +69,7 @@ export const tubeJoinVS = (N_SAMPLES) => {
   if (N_SAMPLES !== END_BASE) throw new Error('tube-join-glsl: vEnd packs a row as row * 64 + sample, so N_SAMPLES must be 64');
   const LAST = N_SAMPLES - 1;
   return `// ---- a row's end on another row, worked out once a vertex (tube-join-glsl.js) ----
-uniform int joinCut;                   // 0: no row has an end (vEnd is -1) and none of the join work runs; 1: the figure unless ?tubejoin=off
+uniform int joinCut;                   // 0: no row has an end (vEnd is -1) and none of the join work runs; 1: the figure
 flat out vec4 vJ0;                     // the start's end data: an open end: the trunk's chord a, b; a continuation: the end point and the plane's unit normal
 flat out vec4 vJ1;                     // the end's
 flat out vec4 vJK;                     // the start's (trunk radius, mode), the end's (radius, mode): mode 0 cut, 1 fade, 2 plane, -1 none
