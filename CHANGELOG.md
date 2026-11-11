@@ -2,6 +2,7 @@
 
 ## November 2026
 
+- **Ascites tap slide: the With/No albumin buttons are gone.** The model has no renin, sodium or kidney value, so the buttons changed only the albumin tile. The slide now gives the rule on the card (6 to 8 g per liter after more than 5 L) and its notes say what the model does and does not show.
 - **Pregnancy delivery slide no longer says the strain raises the varix pressure.** (A held strain lowers the pressure across a varix wall in the model.)
   The line now says repeated pushing is thought to raise the bleeding risk, so the second stage is kept short; its notes say the model does not show this risk.
 
