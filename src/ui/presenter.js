@@ -27,7 +27,7 @@ import { createVisuals } from './presenter-visuals.js';
 import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { sinusoidSupported } from './gl-support.js';
-import { SCALE_NAME, offeredScales, scaleView, pickedScale } from './scale-switch.js';
+import { SCALE_NAME, offeredScales, scaleView, pickedScale, scaleCentre } from './scale-switch.js';
 import { offeredCutouts, cutoutSubject, plateRects, columnOf } from './cutouts.js';
 import { createCutoutFrame } from './cutout-frame-gl.js';
 // The spot of the liver the windows are taken from: the open right lobe, between the portal branches and the hepatic veins (fractions of the liver's box in the figure's units).
@@ -5343,7 +5343,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
         el.style.setProperty('--pzs-b', `${Math.max(0, (wr.bottom - r.top) / k + 8).toFixed(1)}px`);
         // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
-        el.style.setProperty('--pzs-cx', `${((r.left + r.width / 2 - wr.left) / k).toFixed(1)}px`);
+        // (restRect's `left` is the milliseconds its entry has left, not an edge: used as one it pushed the pill right by that many px while the cards came in, off an upright iPad.)
+        el.style.setProperty('--pzs-cx', `${scaleCentre({ right: r.right, width: r.width, wrapLeft: wr.left, k, pill: readMetric(el, 'offsetWidth'), wrapW: readMetric(wrap, 'clientWidth') }).toFixed(1)}px`);
       }
     // alloc-rare: the card layout and fit: run on a slide, resize, fold or dock change, in a rest pass between frames, never per frame
     } else if (readMetric(ui.bar, 'offsetWidth')) el.style.setProperty('--pzs-r', `${readMetric(ui.bar, 'offsetWidth')}px`);
