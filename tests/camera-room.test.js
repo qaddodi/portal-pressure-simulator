@@ -95,7 +95,6 @@ const ROOMED = {
   'doppler/normal': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',
   'doppler/probe': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',
   'gastric-varices/shunt': 'the left renal vein label hangs at the left edge of the fundus region',
-  'outflow/dips': 'the portal vein label hangs below the DIPS region and the IVC label above it',
   'pregnancy/inflow': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',
   'sites/cardiac': 'the sinusoids word lights the sinusoids and their label, below the heart region',
   'sites/pvt': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',

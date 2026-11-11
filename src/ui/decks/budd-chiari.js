@@ -38,6 +38,7 @@ export const BUDD_CHIARI = {
   slides: [
     {
       id: 'bcs', preset: 'budd-chiari', cam: 'hepatic', terms: ['hv', 'ivc'], mark: { edges: HVS, clot: true }, tool: BELLY, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'],
+      whatIf: { label: 'Right hepatic vein clot', param: 'thrombus.RHV_IVC', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] },
       vignette: 'A 34-year-old man with polycythemia vera has had 3 weeks of right upper quadrant pain and a swelling abdomen. His liver is large and tender.',
       kicker: 'What it is', site: 'post', title: 'In Budd–Chiari syndrome the liver cannot drain',
       line: 'The [hepatic veins](hv) are blocked, so blood backs up in the liver. The portal pressure rises to {pv}, and {asc} of ascites forms.',

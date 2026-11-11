@@ -75,9 +75,6 @@ test('every summary-table arrow matches its row\'s model state', async () => {
 });
 
 test('tables that cannot be measured or have no organ say so', async () => {
-  const { OUTFLOW } = await import(new URL('outflow.js', DIR));
-  const t = OUTFLOW.slides.find((s) => s.visual === 'table');
-  assert.deepEqual(t.of.find((o) => o.id === 'bcs').blank, ['whvp', 'fhvp', 'hvpg'], 'clotted hepatic veins cannot be wedged');
   const { DOPPLER } = await import(new URL('doppler.js', DIR));
   for (const o of DOPPLER.slides.find((s) => s.visual === 'table').of) assert.ok([o.note].flat().every(Boolean), `Doppler row ${o.title} has an empty cell`);
 });

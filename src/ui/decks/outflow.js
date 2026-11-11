@@ -1,54 +1,21 @@
-// Presenter talk: resistance to outflow after the sinusoids: in the hepatic veins (Budd–Chiari syndrome), in the central veins
-// (sinusoidal obstruction syndrome), in the heart and in the IVC, what the catheter and the Doppler read in each, and how the outflow is
-// reopened (the slide fields are described at the top of decks.js).
+// Presenter talk: resistance to outflow after the sinusoids: in the central veins (sinusoidal obstruction syndrome), in the heart and
+// in the IVC, what the catheter and the Doppler read in each (the slide fields are described at the top of decks.js). Budd–Chiari
+// syndrome has its own talk (budd-chiari.js).
 
 export const OUTFLOW = {
-  id: 'outflow', level: 'advanced', title: 'After the sinusoids: hepatic veins and the heart', minutes: 14,
-  sections: [['Hepatic veins', ['Hepatic veins', 'Opening the outflow']], ['Sinusoidal obstruction', ['Sinusoidal obstruction']], ['The heart and the IVC', ['Normal heart', 'Heart failure', 'Constrictive pericarditis', 'The IVC']]],
+  id: 'outflow', level: 'advanced', title: 'After the sinusoids: central veins and the heart', minutes: 14,
+  sections: [['Sinusoidal obstruction', ['Sinusoidal obstruction']], ['The heart', ['Normal heart', 'Heart failure', 'Constrictive pericarditis']], ['The IVC', ['The IVC']]],
   objectives: [
-    'Name the causes of hepatic vein thrombosis and of sinusoidal obstruction',
-    'Explain why the wedge works in sinusoidal obstruction but not with clotted hepatic veins',
-    'Outline the stepwise treatment of hepatic vein thrombosis',
+    'Name the causes of sinusoidal obstruction',
+    'Explain why the wedge works in sinusoidal obstruction',
     'Tell heart failure, constriction and an IVC web apart on Doppler and the right atrial pressure',
   ],
   checks: [
     ['Why can the HVPG be measured in sinusoidal obstruction syndrome?', 'The hepatic veins are open, and the resistance sits upstream of the free reading, so the wedged pressure rises.'],
-    ['What drains the liver when no hepatic vein can be opened?', 'A DIPS: a shunt from the portal vein through the caudate lobe into the IVC.'],
     ['Which reading separates an IVC web from heart failure?', 'The right atrial pressure: normal with a web, high in heart failure and constriction.'],
-    ['A stent opens the clotted right hepatic vein and the ascites starts to clear. Which lever moved?', 'Outflow resistance fell, so the sinusoid pressure dropped and less lymph leaks into the belly.'],
   ],
-  summary: 'Budd–Chiari syndrome, sinusoidal obstruction syndrome, heart failure, constriction and an IVC web: a liver that cannot drain, what the catheter and the Doppler read in each, and how the outflow is reopened.',
+  summary: 'Sinusoidal obstruction syndrome, heart failure, constriction and an IVC web: a liver that cannot drain, and what the catheter and the Doppler read in each.',
   slides: [
-    {
-      id: 'bcs', cutouts: ['lobule'], lens: 'heat', terms: ['ivc', 'ra'], preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], clot: true }, tool: { kind: 'abdomen' },
-      whatIf: { label: 'Right hepatic vein clot', param: 'thrombus.RHV_IVC', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] },
-      kicker: 'Hepatic veins', site: 'post', title: 'In Budd–Chiari syndrome the hepatic veins clot',
-      vignette: 'A 31-year-old woman with antiphospholipid syndrome stopped warfarin 3 months ago. She has had RUQ pain for 2 months and now has tense ascites.',
-      line: 'Resistance from the small [hepatic veins](hv) to where the IVC enters the right atrium traps blood in the liver: portal pressure rises to {pv} and ascites forms.',
-      notes: 'Source: Baveno VIII 8.21, 8.24. Budd–Chiari syndrome is raised resistance to hepatic venous outflow anywhere from the small hepatic veins to the entry of the IVC into the right atrium, without heart disease (8.21). The diagnosis is considered in any patient with acute, acute-on-chronic or chronic liver disease (8.24). It presents with abdominal pain, a large tender liver and ascites, suddenly or over months. Most patients have at least one prothrombotic condition, often more than one: a myeloproliferative neoplasm (the commonest), antiphospholipid syndrome, inherited thrombophilia, paroxysmal nocturnal hemoglobinuria, pregnancy or oral contraceptive (OCP) use; and JAK2 is tested even when the blood count is normal.',
-      ask: ['A young woman has a tender liver and sudden ascites. Her blood count is normal. Which test still looks for the commonest cause?', 'JAK2 V617F, then CALR if it is negative: a myeloproliferative neoplasm is the commonest cause even with a normal count.'],
-    },
-    {
-      id: 'nowedge', lens: 'heat', terms: ['hv', 'caudate'], cam: 'liver', tool: { kind: 'doppler', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'],
-      kicker: 'Hepatic veins', site: 'post', title: 'No hepatic vein to wedge',
-      line: 'Doppler shows absent or reversed hepatic vein flow and a big caudate lobe; the veins cannot be entered at venography, so there is no HVPG, and portal pressure is {pv}.',
-      notes: 'Doppler ultrasound is the first test: absent or reversed flow in the hepatic veins, intrahepatic collaterals and a large caudate lobe. The caudate lobe drains through several short veins directly into the IVC, below the clots, so it keeps its outflow and enlarges over weeks while the rest of the liver shrinks; a large caudate can in turn compress the IVC. CT or MR shows the extent and the state of the IVC. At venography the hepatic veins either cannot be entered or show a spider-web pattern of collaterals, so the HVPG cannot be measured in the usual way.',
-      ask: ['What is the first imaging test for suspected Budd–Chiari syndrome?', 'Doppler ultrasound of the hepatic veins and the IVC: it is quick, at the bedside, and shows absent or reversed flow.'],
-    },
-    {
-      id: 'open', lens: 'heat', terms: ['hv'], params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7 }, cam: 'hepatic', mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, stented: ['RHV_IVC'], tool: { kind: 'lumen', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
-      kicker: 'Opening the outflow', site: 'post', title: 'One open hepatic vein is enough',
-      line: 'Anticoagulation comes first; then a stent reopens a short narrowing of the right hepatic vein. Two months later, faster than in most patients, the portal pressure is {pv}.',
-      notes: 'Source: Baveno VIII 8.28 to 8.34. Treatment is stepwise: anticoagulation, recanalization by interventional radiology with or without a stent, TIPS, and transplantation (8.31). Therapeutic anticoagulation starts as soon as possible after the diagnosis and continues long term, including after transplant (8.32). Clinicians look for venous stenoses that suit percutaneous recanalization and treat them (8.33): a short narrowing of a hepatic vein or of the IVC is opened by angioplasty, usually with a stent, and in the model one good hepatic vein can drain the whole liver, as here. When medical treatment is not enough and recanalization is not an option or has failed, TIPS is the next step (8.34). In chronic Budd–Chiari syndrome hepatic nodules are frequent and mostly benign, but HCC occurs, so periodic imaging and AFP are advised, and every 6 months can be proposed (8.28, 8.29).',
-      ask: ['When is angioplasty enough, and when is a shunt chosen?', 'Angioplasty, with a stent if the vein narrows again, for a short stenosis; a TIPS or DIPS when no vein can be opened or the patient does not improve (Baveno VIII 8.33, 8.34). Anticoagulation continues long term (8.32).'],
-    },
-    {
-      id: 'dips', lens: 'flow', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', compare: [{ label: 'TIPS', preset: 'budd-chiari', params: { tips: { on: true }, dips: { on: false } }, days: 60 }, { label: 'DIPS', own: true }], terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, tool: { kind: 'flows' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['pv'], delta: 'bcs',
-      kicker: 'Opening the outflow', site: 'post', title: 'When no vein opens, a DIPS drains the liver into the IVC',
-      line: 'When no hepatic vein can be entered, the shunt is made from the IVC: a DIPS runs from the portal vein through the caudate lobe; portal pressure falls to {pv}.',
-      notes: 'A standard TIPS runs from a hepatic vein to the portal vein, so when all three hepatic veins are clotted the stent is placed from the IVC through the liver to the portal vein instead (a direct intrahepatic portosystemic shunt). The portal vein becomes the liver\'s outflow, and the congestion and ascites resolve: two months on, the portal pressure has fallen to about half and the ascites has nearly gone. In the model a TIPS changes nothing here, because there is no hepatic vein for it to drain into. Like any shunt it diverts portal blood from the liver, so encephalopathy is watched for. Baveno VIII 8.34 makes TIPS the next step when medical treatment is not enough and recanalization is not an option or has failed. On the figure, colored by flow, the shunt carries most of the liver’s outflow.',
-      ask: ['Why can a standard TIPS not be placed when all three hepatic veins are clotted?', 'It needs a hepatic vein to start from; the stent goes from the IVC instead.'],
-    },
     {
       id: 'sos', lens: 'heat', preset: 'sos', cam: 'lobule:central', callout: { at: 'cv', label: 'Resistance' }, terms: { 'central veins': 'lobule:central' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'],
       kicker: 'Sinusoidal obstruction', site: 'postsin', title: 'Chemotherapy injures the sinusoid lining',
@@ -125,11 +92,10 @@ export const OUTFLOW = {
     },
     {
       id: 'summary', visual: 'table', cols: ['pv', 'whvp', 'fhvp', 'ra', 'hvpg', 'ppg'], asc: false, rowHead: 'Patient',
-      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'bcs', kicker: 'Hepatic veins', title: 'Hepatic vein clots', blank: ['whvp', 'fhvp', 'hvpg'] }, { id: 'open', kicker: 'Hepatic veins', title: 'One vein stented' },
-        { id: 'dips', kicker: 'Hepatic veins', title: 'DIPS' }, { id: 'sos', kicker: 'Central veins', title: 'Sinusoidal obstruction' }, { id: 'recover', kicker: 'Central veins', title: 'Recovered' },
+      of: [{ preset: 'healthy', kicker: 'Reference', title: 'Healthy', ref: true }, { id: 'sos', kicker: 'Central veins', title: 'Sinusoidal obstruction' }, { id: 'recover', kicker: 'Central veins', title: 'Recovered' },
         { id: 'tr', kicker: 'Cardiac', title: 'Heart failure with TR' }, { id: 'constrict', kicker: 'Cardiac', title: 'Constriction' }, { id: 'web', kicker: 'Post-hepatic', title: 'IVC web' }],
       kicker: 'Summary', title: 'What the HVPG shows after the sinusoids',
-      line: 'Clotted hepatic veins cannot be wedged, and sinusoidal obstruction raises the HVPG. Heart failure and constriction raise every pressure together, so the HVPG stays normal.',
+      line: 'Sinusoidal obstruction raises the HVPG. Heart failure and constriction raise every pressure together, so the HVPG stays normal.',
       notes: 'With clotted hepatic veins the wedged and free readings are taken behind the same resistance, so the HVPG is meaningless; the PPG and imaging make the diagnosis. With resistance in the central veins the hepatic veins are open, the resistance sits between the two readings, and the HVPG is raised. Reopening one hepatic vein, or a shunt to the IVC, drains the liver. Each of the cardiac causes congests the liver from above: the stiffness rises and the ascites is rich in protein, while the HVPG stays normal. The right atrial pressure and the jugular vein tell the heart from resistance in the IVC or the hepatic veins. Doppler adds the waveform: reversal in tricuspid regurgitation and a pulsatile portal vein when the right atrium is high.',
       ask: ['Which bedside sign separates heart failure from an IVC web?', 'The jugular venous pressure: high in heart failure, normal with a web.'],
     },

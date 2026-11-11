@@ -56,8 +56,8 @@ test('Variceal bleed: no drug, octreotide and terlipressin on the slide that sta
   assert.ok(oct.pv < none.pv && terli.pv < none.pv, `each drug lowers the portal pressure (${none.pv} → ${oct.pv}, ${terli.pv})`);
 });
 
-test('Outflow: the right hepatic vein clot slider shows that one open vein drains the liver', async () => {
-  const w = slide('outflow', 'bcs').whatIf;
+test('Budd–Chiari: the right hepatic vein clot slider shows that one open vein drains the liver', async () => {
+  const w = slide('budd-chiari', 'bcs').whatIf;
   assert.equal(w.param, 'thrombus.RHV_IVC');
   const [clot, open] = (await runSteps([{ preset: 'budd-chiari' }, { params: patchOf(w, w.min) }])).map(pick);
   assert.equal(w.max, 1);

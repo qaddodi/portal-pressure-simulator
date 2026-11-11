@@ -118,8 +118,6 @@ export const ADOPTED = {
   'prehepatic/anticoag': ['kind:lumen'],
   'prehepatic/cavernoma': ['kind:lumen'],
   'prehepatic/summary': ['cols.wave', 'wave'],
-  'outflow/open': ['kind:lumen'],
-  'outflow/dips': ['kind:flows'],
   'outflow/soswedge': ['kind:profile'],
   'ncph/patient': ['calipers', 'normalOutline'],
   'ncph/wedge': ['kind:profile'],
@@ -297,7 +295,6 @@ export const ADOPTED = {
   'masld/drugs': ['kind:criteria'],
   'stiffness/fibrosis': ['cutouts'],
   'hvpg/wedge': ['cutouts'],
-  'outflow/bcs': ['cutouts'],
 };
 
 /** Whether the slide d/s may use the field. */

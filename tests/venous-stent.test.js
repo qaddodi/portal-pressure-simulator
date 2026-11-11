@@ -54,8 +54,8 @@ test('every vein a slide stents is a vein of the model, and the slide shows it (
   assert.ok(seen >= 1);
 });
 
-test('the Budd–Chiari "One open hepatic vein" slide stents the right hepatic vein, and its cross-section is the same vein', () => {
-  const s = DECKS.find((d) => d.id === 'outflow').slides.find((x) => x.id === 'open');
+test('the Budd–Chiari stent slide stents the right hepatic vein, and its cross-section is the same vein', () => {
+  const s = DECKS.find((d) => d.id === 'budd-chiari').slides.find((x) => x.id === 'stent');
   assert.deepEqual(s.stented, ['RHV_IVC']);
   assert.equal(s.tool.kind, 'lumen');
   assert.equal(s.tool.vessel, 'RHV_IVC');

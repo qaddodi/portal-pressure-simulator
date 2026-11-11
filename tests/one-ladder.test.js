@@ -41,7 +41,7 @@ test('every slide that had the old ladder shows the Gut to heart chart, or keeps
     'prehepatic.js': ['cath', 'gradients'], 'where.js': ['a1', 'a2', 'a3', 'a4', 'a5', 'a6'] };
   for (const [f, ids] of Object.entries(was)) for (const id of ids) assert.equal(at(f, id)?.tool?.kind, 'profile', `${f} ${id}`);
   // (A card holds one instrument, and a phone has no room for a Doppler and the chart: there the chart's numbers are tiles.)
-  assert.deepEqual(at('outflow.js', 'nowedge').tiles, ['pv', 'ppg']);
+  assert.deepEqual(at('budd-chiari.js', 'dx').tiles, ['pv', 'ppg']);
   // (Each card that had tiles beside the ladder keeps them.)
   for (const s of slides) if (s.tiles?.length && s.tool) assert.equal(s.data, 'tiles', `${s.f} ${s.id}: its tiles show`);
 });

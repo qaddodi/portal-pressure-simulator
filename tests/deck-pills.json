@@ -629,27 +629,6 @@
   "{spleen}",
   "{lsm}"
  ],
- "outflow/bcs": [
-  "hepatic veins",
-  "ivc",
-  "right atrium",
-  "{pv}"
- ],
- "outflow/nowedge": [
-  "hepatic vein",
-  "caudate lobe",
-  "{pv}"
- ],
- "outflow/open": [
-  "hepatic vein",
-  "{pv}"
- ],
- "outflow/dips": [
-  "portal vein",
-  "ivc",
-  "caudate lobe",
-  "{pv}"
- ],
  "outflow/sos": [
   "central veins"
  ],

@@ -42,7 +42,6 @@ Each is an anatomy-main slide where the cause and the effect sit at different sc
 | ascites / fill | lobule, sinusoid | pressure in the sinusoids, lymph overrun, fluid in the belly |
 | hvpg / wedge | sinusoid | the wedge reads the sinusoids; the catheter stays on the anatomy |
 | lobule / wedge | sinusoid | schistosomiasis: portal vein high, sinusoids not, so the wedge stays normal |
-| outflow / bcs | lobule | heat lens, so lobule only: congestion of zone 3 behind the clotted veins |
 
 Not given the field, and why. `treatment / carv` is a question slide (the windows would answer it). `treatment / carv-sin` (carvedilol
 relaxes the sinusoids) opens inside the sinusoid; it can take the field only once its main figure is the anatomy (cam `liver`, subject
