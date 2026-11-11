@@ -28,7 +28,7 @@ Impact is how much better it looks at 0.25 MP on a big screen. Cost is GPU time 
 |---|-----|--------|----------|-------|---------------------|
 | 1 | Canvas at 1x CSS density; Figure size caps only the figure picture | Very high | Low | Small | stage-res.js (none), D told |
 | 2 | Sharpen the vessels' outer edge from the picture's own alpha in the upscale pass | High | Almost none | Small | D (UP_FS in veins-gl.js) |
-| 3 | Organ plate baked at canvas density at rest | High | One bake per settle | Small | stage-plate.js |
+| 3 | Organs laid at canvas density under the vessel picture (see correction) | High | One bake per settle | Medium | X (COMP_FS) + present path |
 | 4 | Dither in the upscale pass | Medium (dark looks, glows) | Almost none | Tiny | D |
 | 5 | Edge distance channel so outlines are rebuilt at screen width | High | Low | Medium | X (COMP_FS) + D |
 | 6 | Sharpen at rest with jittered frames and exact 2D reprojection | Very high at rest | Bounded burst after each move | Large | D + X + stage-res.js |
@@ -82,6 +82,13 @@ Organ outlines are the longest edges on the screen, and they are simple filled s
 only once a view settles. During a pan the old plate is laid as now.
 
 Cost: one bake after each settle, a bigger texture (about 8 MB at 1.9 MP). Nothing per frame.
+
+**Correction (11 Nov, from the build thread):** as written this does not work. The plate textures are read inside the vessel composite
+(COMP_FS), which draws at the picture's size, so a denser plate is sampled back down to 0.25 MP and the organ outlines come out no
+sharper. The version that works takes the organs out of the composite and lays them at canvas density onto the canvas, in the present,
+with the upscaled vessel picture over them (the `under` hook, which today is skipped when the picture is smaller than the canvas).
+The vessel tiers drawn over the organs then need their own pass, or the organs' covers still have to fade the tiers behind them. That
+means changing COMP_FS (thread X's code) and the present path, so it is a medium build, not small. It is on hold until thread X takes it.
 
 ## 4. Dither in the upscale pass (medium, almost free)
 
