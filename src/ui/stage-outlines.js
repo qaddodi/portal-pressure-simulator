@@ -365,9 +365,17 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     live.olDirty = true; live.olLast = performance.now(); live.stageWake();
   }
   const fxWide = new Map(), fxBuild = new Map(), fxEls = new Map();
+  // A slide's spleen caliper comes whole, in one reveal: while the patient is still morphing to the slide's state (the spleen grows or
+  // shrinks to its length, a second or so) a caliper not yet drawn waits, and neither its line nor its reading is made; the frame
+  // the morph ends makes both at the landed length. (Mohammad, 11 Nov 2026: "when the spleen caliper appears it only half appears then
+  // it shows up fully": it was made at the spleen's size mid-way and grew with it.) One already drawn keeps following the spleen,
+  // as a time-lapse's does.
+  const capShown = new Set();   // (the caliper ids drawn since the slide's callouts were set)
+  let capWas = false;   // (a caliper was waiting at the last frame)
+  const capHolds = (c, f) => !!f.morphing && !capShown.has(c.id);
   function setCallouts(sp) {
     const sig = sp ? JSON.stringify([Object.keys(sp.live || {}), (sp.organs || []).map((o) => o.organ + o.kind), (sp.calipers || []).map((c) => c.id), sp.steps, (sp.spans || []).map((x) => x.from + x.to), sp.zone, !!sp.heart]) : '';
-    if (!sp || sig !== live.fxSig) { fxWide.clear(); for (const [k, b] of live.pool) if (k.startsWith('fxs:')) b.fxIn = false; }
+    if (!sp || sig !== live.fxSig) { capShown.clear(); capWas = false; fxWide.clear(); for (const [k, b] of live.pool) if (k.startsWith('fxs:')) b.fxIn = false; }
     live.fx = sp ? { live: {}, organs: [], calipers: [], steps: null, spans: [], zone: -1, ...sp } : null; live.fxSig = sig;
     const band = live.fx && zoneBand(live.fx.zone);
     if (band) { MAP.fxX[0] = band[0]; MAP.fxX[1] = band[1]; }
@@ -427,9 +435,10 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   function caliperAt(c, f) {
     if (c.organ) {
       const p = f.viewParams || store.get().params;
-      if (p?.splenicRx === 2 || !organEls.spleen) return null;
+      if (p?.splenicRx === 2 || !organEls.spleen || capHolds(c, f)) return null;
       const [a, b] = spleenCaliper((f.slow?.spleen ?? 11) / 11);
       capG.a = a; capG.b = b;
+      capShown.add(c.id);
       return capG;
     }
     const x = E[c.edge], cur = geo[c.edge]?.cur;
@@ -454,6 +463,11 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
   }
   function fxSync(f, t) {
     for (const el of fxEls.values()) el.seen = false;
+    // (A caliper that waited for the morph is let in: the labels are solved again for its reading, which a changed `live.fx` asks for.)
+    let capWait = false;
+    if (live.fx) for (const c of live.fx.calipers) if (c.organ && capHolds(c, f)) capWait = true;
+    if (capWas && !capWait && live.fx) { live.fx = { ...live.fx }; live.stageWake(); }   // alloc-rare: once, as a held caliper is let in
+    capWas = capWait;
     if (live.fx && t < 0.5) for (const c of live.fx.calipers) {
       const g = caliperSegs(c, f);
       if (!g) continue;
