@@ -1,5 +1,10 @@
 # Making a 0.25 MP figure look good on a big screen (recs only, 11 Nov 2026)
 
+> **Status (11 Nov 2026).** Mohammad picked recs 1 to 4. Built in `eccbe15`: rec 1 (canvas at 1x CSS density, Figure size caps only the
+> picture), rec 2 (vessel silhouette steepened from the picture's own alpha) and rec 4 (a dither in the upscale pass). Rec 3 (organ plate
+> baked at canvas density) is on hold for the compositor thread. Recs 5 to 10 are not built. The earlier list on the same question is
+> `sharp-at-quarter-megapixel.md`; this file is the one the build follows, and its recs overlap that file's items 1, 4 and 8.
+
 Asked by Mohammad: cheap tricks that make even the 0.25 MP Figure size look good on a big screen. Independent take, from first
 principles and from the code on the preview branch at 0bd884f. Nothing here is built. Everything listed is drawn on the GPU.
 

@@ -1,8 +1,12 @@
 # Three scales on one plate (`cutouts`)
 
 11 Nov 2026. Item 1 of `docs/recommendations/first-principles-next.md`; approved mock: the "Fourteen mocks from the next-moves list"
-artifact (item 1). Mohammad's rules: everything on the GPU, each window uses the chosen vessel renderer (never a hybrid), only the
+artifact (item 1). Mohammad's rules: everything on the GPU, each window uses the Tube vessel renderer (the only one since 11 Nov; never a hybrid), only the
 subject runs blood, Mac and iPad landscape only, labels and tags through the labels thread, `veins-gl.js` through thread D.
+
+**Status (11 Nov 2026):** the field, its rules, the layouts, the lobule window, the GPU frame (ring, spot, cone) and the close and reopen
+are built and used by 8 built-in slides. The sinusoid window, the anatomy's blood stopping, the dive into a window and the window labels
+are not built yet (see the end).
 
 ## What a slide says
 

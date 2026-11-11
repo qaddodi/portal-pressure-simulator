@@ -1,16 +1,26 @@
 # The Tube vessel renderer, as built (stage 1, 10 Nov 2026; the only vessel renderer from 11 Nov 2026)
 
-**The Tube is the only vessel renderer (owner, 11 Nov 2026).** The Classic and Mesh renderers' choice, the Settings › Display › Vessel renderer row, `pps.vesselRenderer`
-(and the two switches before it), `vesselRenderer()` / `vesselMesh()` / `vesselTube()` in `frame.js`, the Mesh's strip and patch programs and its pass (`meshPass`, `meshDraw`,
-`meshPair`, `meshColour`, `meshRing`), and the addresses `?tube=1`, `?tube=2` and `?tubejoin=patch|web|off` are gone. The whole earlier state is on the branch
-`shelf/classic-mesh-renderers` (66c893f), as the vector renderer is on `shelf/vector-renderer`. What is below still describes the Tube; where it speaks of "when Tube is
-chosen", "Mesh chosen" or the flags above, read it as history. What remains of the old names in `veins-gl.js` is shared with the Tube and not renamed: `meshUse()` (a geometry
-pass can draw), `meshTargets`, `meshGeo`, `meshKeyNext`, `meshPad`, `meshL` (the lay program), `MG`. `frame.js` only drops a tester's old stored choice, once.
-The stages (1 patches, 2 webs, 3 lumen pass) stay, by which programs are ready alone: a failed stage 3 program leaves stage 2, a failed stage 2 program leaves stage 1.
-The classic vessel pass is not a choice: it draws only while the Tube is not ready (still compiling, software GL, no depth and stencil, a shader failed), see `tubeWhy` in `?perf`.
+**The Tube is the only vessel renderer (owner, 11 Nov 2026).** There is no choice of renderer, no Settings › Display › Vessel renderer row and no address that picks one. Gone: the Classic
+and Mesh renderers' choice, `pps.vesselRenderer` (and the two switches before it), `vesselRenderer()` / `vesselMesh()` / `vesselTube()` in `frame.js`, the Mesh's strip and patch
+programs and its pass (`meshPass`, `meshDraw`, `meshPair`, `meshColour`, `meshRing`; commit 0bd884f), and the addresses `?tube=1`, `?tube=2` and `?tubejoin=patch|web|off` (8c51b6a).
+The Vector renderer was shelved earlier and removed. The whole earlier state is on the branch `shelf/classic-mesh-renderers` (66c893f), as the vector renderer is on `shelf/vector-renderer`.
+Where the text below speaks of "when Tube is chosen", "Mesh chosen" or the flags above, read it as history. What remains of the old names in `veins-gl.js` is shared with the Tube and
+not renamed: `meshUse()` (a geometry pass can draw), `meshTargets`, `meshGeo`, `meshKeyNext`, `meshPad`, `meshL` (the lay program), `MG`, and the files `veins-mesh.js`,
+`veins-mesh-glsl.js`, `veins-mesh-data.js`. `frame.js` only drops a tester's old stored choice, once.
 
-Mohammad's brief (10 Nov): the depth tube
-option of `docs/recommendations/tubes-and-particles-first-principles.md` with smoothed joints, a cel-shaded cartoon look and a black outline.
+**The stage follows which programs are ready, and nothing else** (`tubeStage(ready, ready3)` in `tube-stage2.js`): 1 (patches) until the stage 2 programs are finished, 2 (webs) then, 3 (the
+lumen pass) when its programs are finished too. A failed stage 3 program leaves stage 2, a failed stage 2 program leaves stage 1.
+
+**The hidden classic safety net.** The classic vessel pass (`vesselFS(false)` / `vesselFS(true)`, the program `prog` / `simple`) has no setting and no flag. It draws only while `meshUse()` is
+false: the Tube's programs still compiling, a Tube shader failed (`tubeWhy` `shader failed`), software GL (`software GL`), no depth and stencil target (`no depth and stencil`), or no lay program.
+`?perf` says which (gauge `vessel renderer`, `classic: tube <why>`). A device that draws it shows the old flat shading, not the Tube's look; it is there so the figure never shows nothing, not as a choice.
+
+**Why a tube** (the idea of the 10 Nov brief, `docs/recommendations/tube-renderer-plan.md`). A vessel is drawn as a half tube whose vertices carry a real depth, so the depth buffer joins vessels
+(the nearer surface wins a pixel) in place of key prepasses, a stencil and join patches; the blood is drawn in the tube's own shader. Changing `gl.drawBuffers` inside a draw splits a Metal render
+pass in Safari's ANGLE (a 9 Nov analysis of the Mesh pass, a model and not a timing), so the Tube sets them once and changes them only around a glow, the lift and a scratch layer.
+The depth and stencil are one DEPTH24_STENCIL8 buffer on the layer's own framebuffer, so every pass of a draw goes to the same framebuffer (a framebuffer switch stores and loads the whole layer on a tiled GPU; found on the Mesh, 9 Nov 2026).
+
+Mohammad's brief (10 Nov): that depth tube with smoothed joints, a cel-shaded cartoon look and a black outline.
 The plan is `docs/recommendations/tube-renderer-plan.md`; this file says what was built. Built by four threads: A `src/ui/tube-geo.js`
 (the geometry and the strip's vertex shader), B `src/ui/tube-cel-glsl.js` (`celShade`), C `src/ui/blood-particles.js` (blood style 3, P),
 D (the rest: the builds of the shared shader text, the pass `src/ui/tube-pass.js`, the picking in `veins-gl.js`).
@@ -32,7 +42,7 @@ D (the rest: the builds of the shared shader text, the pass `src/ui/tube-pass.js
 (`tests/vessel-fs-old-builds.test.js` keeps four hashes). Every difference is JS in the template. The Tube builds differ from the Mesh builds in:
 
 1. `celGLSL(...)` (B) after `shadeGLSL`; the tier loop's two `tubeShade(` calls are `celShade(` (the `tubeShade` definition stays in the shared text).
-2. `meshFS({ ..., tube: 1 })`: the key block keeps every line and every `discard`, without `gl_FragDepth = kd;` and the return after it.
+2. `meshFS({ ..., tube: 1 })` (veins-mesh-glsl.js; the Mesh's own build of it is gone, the Tube's stays): the key block keeps every line and every `discard`, without `gl_FragDepth = kd;` and the return after it.
    **Also left out of the Tube builds, because no Tube build may contain `gl_FragDepth`:** the crossing ring's `gl_FragDepth = keyShape ...`
    line (in the key block) and `if (mPass == MP_MARK) { gl_FragDepth = ...; return; }`. Both belong to passes the Tube never draws (`RING`, `MARK`).
 3. The strip build declares `layout(location=2) out uvec4 outFlow2;` so the strip and the patch write the same four targets.
@@ -40,7 +50,7 @@ D (the rest: the builds of the shared shader text, the pass `src/ui/tube-pass.js
 
 ## The pass (`src/ui/tube-pass.js`, `createTubePass`)
 
-`meshPass` with these differences only: the strip is `MG.tubeVAO` (`tubeIndex`, same attribute layout and row buffer as the Mesh's strip);
+Written as the Mesh's `meshPass` (deleted, 0bd884f) with these differences, now the only pass: the strip is `MG.tubeVAO` (`tubeIndex`, the attribute layout and row buffer the Mesh's strip had);
 a pass pair takes one band of depth from `meshKeyNext()` (`H = 0.999 / KEY_PASSES`); the **prepass** is the same program with the colour
 masked off (depth LESS, write on, no blend, no stencil), the **colour pass** draws with depth EQUAL, write off, blend `ONE, ONE_MINUS_SRC_ALPHA`
 and the stencil `NOTEQUAL ref / REPLACE`. Depth comes from the vertices: levels in `TUBE_LEVEL` (glow .02 to .08, casing .10 to .20, lumen
@@ -48,8 +58,7 @@ and the stencil `NOTEQUAL ref / REPLACE`. Depth comes from the vertices: levels 
 A patch does not draw where it leaves a pixel clear, but in a shape pair's prepass (`tubeKey` 2) it keeps the depth of the pixels inside its shape (`mD < 0`) that it leaves clear: where a higher tier's copy replaces a see-through vessel (`keep` 0) the vessel's own strips, which see no join, must not draw it whole under the copy (the Mesh's key pass does the same). The colour pass discards them.
 
 `gl.drawBuffers` is `ATTACH` for the whole pass except around a glow pair's colour pass (`MESH_GLOW_BUF`), the lift (`MESH_COLOR_BUF`) and
-the laying of a scratch layer (then back to `ATTACH`). Per tier: glow pair if lit (strips only), shape pair (strips and patches), the lift as
-the Mesh has it; the up-glows after the group's tiers; the network laid from the scratch target when dimmed. Per pass: `celK = CEL.K` on
+the laying of a scratch layer (then back to `ATTACH`). Per tier: glow pair if lit (strips only), shape pair (strips and patches), the lift; the up-glows after the group's tiers; the network laid from the scratch target when dimmed. Per pass: `celK = CEL.K` on
 both programs, `hRef = 64` and `aaPad = 2 px` on the strip. The module is separate because `veins-gl.js` alone filled the build's 200 KB
 chunk limit; it is given what it works on once, and reads the values that change (programs, layer texture, frame morph) through getters.
 
@@ -81,8 +90,8 @@ program of the same names as the strip's vertex uniforms, set together: the figu
 
 ## The lobule on the Tube (brief L-D)
 
-The lobule's renderer instance (`who: 'lobule'`) makes the Tube's strip and patch programs and the lay program when Tube is first chosen (`startLobuleTube`, veins-gl.js;
-at its creation if Tube is already the choice), never for Mesh or Classic: its lobule stays classic then (`meshUse()` needs the Mesh programs for Mesh). It has one tier, so what is in front
+The lobule's renderer instance (`who: 'lobule'`) makes the Tube's strip and patch programs and the lay program at its creation (`startLobuleTube`, veins-gl.js, right after the figure's). Until they
+are finished, and on software GL, its vessels are the classic pass (`meshUse()` false, gauge `lobule vessel renderer`). It has one tier, so what is in front
 is each row's `z`: `zK` 1, `hK` 0.008, `hRef` 22 (the largest radius, 21.42, `node scripts/lobule-joins.mjs`) in `tube-pass.js` (`E.lobule`).
 `?perf`: `vessels: tube` and the gauge `lobule vessel renderer`. `tests/tube-lobule-programs.test.js`.
 Under Tube the lobule's paths: a whole draw is the Tube pass; `drawRows` (the pulse and every recolour) draws the changed rows' cells by `meshCellsPass` (most cells: a whole draw); the pinch's
@@ -110,30 +119,31 @@ The stage 1 fragment shader ignores all four, so nothing in the picture changes 
 
 ## Stage 2 (brief S2-D, 10 Nov 2026)
 
-What was built: the Tube's pass draws with four more programs when they are all ready, and the joins are webs. Code: `src/ui/tube-stage2.js` (the programs' start
+What was built: the Tube's pass draws with more programs when they are all ready, and the joins are webs. Code: `src/ui/tube-stage2.js` (the programs' start
 and finish, the choice, the data and buffers), `src/ui/tube-pass.js` (`draw2`, `webCall`, `stripCall`), and a few lines in `veins-gl.js` (the programs are started with
 the Tube's others and finished apart from them; `MG.gen` counts a binning).
 
-- **Programs** (each optional, started with the Tube's stage 1 programs, finished one by one with `finishProgram`; any one failing gives the other three back and leaves the
-  Tube at stage 1, never at the Mesh or the classic pass): `tubeLean` (`tubeStripVS` + `tubeLeanFS`), `tubeDepth` (`tubeStripVS` + `TUBE_DEPTH_FS`), `tubeWeb`
-  (`tubeWebVS` + `tubeLeanFS`), `tubeWebDepth` (`tubeWebVS` + `TUBE_DEPTH_FS`). `stage2Sources(K, ZOOM_VS)` builds their text, for the app and for the compile check
-  (`node scripts/glsl-compile.mjs`, all four link). The figure starts them at creation (in `later`, published when the driver is done with them), the lobule's
+- **Programs** (`STAGE2_PROGRAMS`, each optional, started with the Tube's stage 1 programs, finished one by one with `finishProgram`; any one failing gives the others back and leaves the
+  Tube at stage 1, never at the classic pass): `tubeLean` (`tubeStripVS` + `tubeLeanFS`), `tubeDepth` (`tubeStripVS` + `TUBE_DEPTH_FS`), `tubeWeb`
+  (`tubeWebVS` + `tubeLeanFS`), `tubeWebDepth` (`tubeWebVS` + `TUBE_DEPTH_FS`), and `tubeJoinDepth` (`tubeStripVS` + `tubeJoinDepthFS`, the cheap prepass for a row that is exact only for a join end,
+  added with the seamless joins below). `stage2Sources(K, ZOOM_VS)` builds their text, for the app and for the compile check
+  (`node scripts/glsl-compile.mjs`). The figure starts them at creation (in `later`, published when the driver is done with them), the lobule's
   instance with its stage 1 programs when Tube is first chosen.
-- **The choice** (`tubeStage(ready, query)`, a pure function): stage 2 when the four are ready and `?tube=1` is not in the address, else stage 1; joins `'web'` in stage 2
-  unless `?tubejoin=patch`, else `'patch'` (stage 1 always draws patches). The address is read once, when `tube-stage2.js` loads. Both flags are in `scripts/rules-lint.mjs`'s list
-  of allowed switches (`KEEP`) with a note: they are comparison aids for a device, like `?perf`.
+- **The choice** (`tubeStage(ready, ready3)`, a pure function of which programs are finished): stage 2 with joins `'web'` when the stage 2 programs are ready, else stage 1 with joins `'patch'`.
+  (Until 11 Nov 2026 `?tube=1` kept stage 1 and `?tubejoin=patch` kept patches in stage 2; both are gone, and `scripts/rules-lint.mjs` fails stage 2 drawing patches.) Stage 1 is the
+  fallback while the stage 2 programs compile or when one failed; stage 2's patches code (`patchCall`) is the stage 1 path only.
 - **Rows**: J's records (`tubeRows`, `tubeBuckets`), 4 floats a row, attribute 1 a `vec4`, each tier's plain rows first. A binning (`MG.gen`, bumped by `meshGeo`) reads the rows' ends
   and the webs; a frame bins the rows by tier and the webs by tier and uploads both (grown to their largest, no allocation). A row that becomes dotted or clipped after the
   binning turns exact at once (a cheap check each frame); an exact row stays exact until the next binning (slower, never wrong). Stage 1 keeps its own bucket call and
   buffer, untouched; a stage 2 frame does not use them.
 - **A shape pair** of tier `t`, in its band: the prepass (colour masked, depth `LESS`) draws the plain rows with `tubeDepth` (no fragment work), the exact rows with `tubeLean`,
-  the webs with `tubeWebDepth` (or the patches, in their two parts, with `?tubejoin=patch`); the colour pass (depth `LEQUAL`, the stencil as before) draws all rows with
+  the webs with `tubeWebDepth`; the colour pass (depth `LEQUAL`, the stencil as before) draws all rows with
   `tubeLean` and the webs with `tubeWeb`. The lift's colour pass is the same colour draw. A web is binned in the higher of its two rows' tiers and drawn there with `isWeb` 1
   (the tier test of the lean shader is skipped for it, B, `e60bf08`); a strip has `isWeb` 0. **Glow pairs, the scratch layers and the draw buffers are exactly stage 1's**: the glow
   uses the stage 1 strip program over the stage 2 row buffer read as one float a record (stride 16), depth `EQUAL`.
 - **The lobule** runs the same code (its own renderer instance, its own programs and data): its `zK`, `hK` and `hRef` from L-D, and it draws webs where it drew 127 patch groups.
-- **`?perf`** (the "vessel renderer" and "lobule vessel renderer" lines): `tube 2: N passes, N strips (N plain), N webs` (`N patches` with `?tubejoin=patch`), or `tube 1: <why>, N passes, N strips,
-  N patches drawn` with why = `compiling`, `<program> failed` or `set by ?tube=1`. Strips, webs and patches are counted in the colour draws (the prepass draws the same rows again); a pass is
+- **`?perf`** (the "vessel renderer" and "lobule vessel renderer" lines): `tube 2: N passes, strips drawn N of M, N strip draws (N plain), N webs`, or `tube 1: <why>, N passes, N strips,
+  N patches drawn` with why = `compiling`, `<program> failed` or `not ready`. Strips, webs and patches are counted in the colour draws (the prepass draws the same rows again); a pass is
   one draw of a tier (prepass and colour pass each count); plain is the share of the strips whose prepass cost no fragment work.
 - **Expected gauge** (from the real captures through the real pass in node, the default view; the lobule is the blood-only layer):
 
@@ -147,15 +157,14 @@ the Tube's others and finished apart from them; `MG.gen` counts a binning).
 - **Known differences at joins** (the plan's three, on purpose): (1) inside a join a tributary's stream ends where the trunk's lumen is taller, on a curved line, and its streaks fade at
   its end as `bloodAt` already fades them; there is no cross-fade of the two streams. (2) A web takes its trunk's colour and attributes (or the wider member's). (3) No second lumen anywhere
   in the Tube.
-- Not in stage 2: the lumen layer and the compositor's Tube builds (stage 3, below).
+- Not in stage 2: the lumen layer and the compositor's Tube builds (stage 3, below). (The gauge counts above are the 10 Nov captures; the strip and web counts move with the vessels shown. Not re-verified on 11 Nov.)
 
 ## Stage 3: the lumen layer (brief S3-D, 10 Nov 2026)
 
 **What it is.** Stage 3 is stage 2 plus a lumen layer: the blood, the dye and the origin tint are drawn by the Tube's own lumen programs into a texture of their
 own, and the compositor reads that texture (`lumenL`) in place of its lumen section, the second flow target (`gbuf2`) and the half-size streak pass. The Tube
-is at stage 3 when stage 2 is drawing webs, the six stage 3 programs are ready, and neither `?tube=1` nor `?tube=2` is set (`tubeStage(ready, query, ready3)` in
-`tube-stage2.js`; `?tube=2` keeps stage 2 to compare the two on a device; `?tubejoin=patch` keeps stage 2 with patches). A failed stage 3 program leaves stage 2,
-never Mesh or Classic (`finishTube3` is separate from `finishTube2` and from `finishTube`; `meshUse` names none of them).
+is at stage 3 when stage 2 is drawing webs and the six stage 3 programs are ready (`tubeStage(ready, ready3)` in `tube-stage2.js`; no address keeps stage 2 any more, `?tube=2` is gone).
+A failed stage 3 program leaves stage 2, never the classic pass (`finishTube3` is separate from `finishTube2` and from `finishTube`; `meshUse` names none of them).
 
 **Programs** (`stage3Sources`, `stage3Start`, `stage3Finish` in `tube-stage2.js`, started with the stage 2 four, one compile for the strip's and the web's lumen fragment
 shader, the shader objects shared by text): `tubeLumen` (`tubeStripVS` + `tubeLumenFS`), `tubeWebLumen` (`tubeWebVS` + `tubeLumenFS`), and the compositor's Tube builds
@@ -199,9 +208,9 @@ still-lumen signature includes the stage so a lumen drawn the other way is drawn
 streak pass in Tube. Where a see-through vessel of a later tier lies over a lumen, the lumen under it shows no moving blood (only the surface in front draws blood). The lumen layer is a second
 pass over the same geometry on every blood frame; its cost is the `lumen layer` row.
 
-**Tests.** `tests/tube-stage3.test.js`, `tests/tube-stage3-two.test.js` (the stage choice as a pure function, the programs' start and finish, the target, the lumen pass's draw order, the
+**Tests.** `tests/tube-stage3.test.js` (the stage choice as a pure function, the programs' start and finish, the target, the lumen pass's draw order, the
 draw buffers, nothing of stage 3 in stages 1 and 2), and `scripts/rules-lint.mjs` (in stage 3 the compositor program is a Tube build and the lumen pass runs before it on every blood frame; in stages 1 and 2 nothing of
-stage 3 runs). The compile check lists all six programs (and the heads build, linked with its own vertex shader): 23 programs ok.
+stage 3 runs). The compile check lists all six programs (and the heads build, linked with its own vertex shader); the list has since grown, and the count printed is the check's, not this file's.
 
 ## The lumen layer keeps its depth (brief PD part 2, 10 Nov 2026)
 
@@ -294,8 +303,8 @@ only the final return to the figure's own binning derives, about 2 ms and 15 to 
 they are the live tiers' order, a few KB, and are rebuilt only when the bundle, its binning or the tube rows' stamp (`MG.tv`, bumped by `setTubes`) changed, so the layer pass, the
 lumen pass and each piece of a frame share one bucketing and one upload.
 
-- **Patches only where drawn.** `patchGroups` and the `pj` upload run only while `patchesWanted()` (Mesh, or the Tube without web joins: stage 1, `?tube=1`, `?tubejoin=patch`). With web
-  joins neither is built for any bundle. If the mode changes (a stage 2 or 3 program finishes, the renderer is switched, the query is fixed per page) `queuePrep()` makes the sets
+- **Patches only where drawn.** `patchGroups` and the `pj` upload run only while `patchesWanted()` (the Tube without web joins, which is stage 1). With web
+  joins neither is built for any bundle. If the mode changes (a stage 2 or 3 program finishes) `queuePrep()` makes the sets
   again, one per free moment and never while a set is in use (`prepKey` on each set: `web`, `patch`, `mesh`); a bundle that still lacks something is made in its first frame, as before.
 - **Entries listed once.** A cell lists every join entry it reaches, so a swept set lists the same entry tens of times. `stage2Prepare` reads each entry index once, in first-listed order
   (the result is the same: repeats were skipped by the readers).
@@ -304,7 +313,7 @@ lumen pass and each piece of a frame share one bucketing and one upload.
 
 ## Seamless joins at a row's end (10 Nov 2026, after Mohammad's device shots of 138d637)
 
-**Step 2 (10 Nov 2026, after the planner's perf finding on e5eccf7, which cost 19 fps):** the ends are worked out once a vertex (tube-join-glsl.js `joinOne`, in the strip's vertex shader) and reach the fragment shaders as three flat varyings `vJ0, vJ1, vJK`; a fragment does one point-to-segment distance (or one dot product) and a smoothstep, and reads no texture. A branch in a higher tier than its trunk FADES out into it (its lumen and colour between 0.6 radii outside the wall and a radius inside, its outline faster) instead of being cut; every other open end is cut at the wall; a continuation is cut at the bisector plane, so there is no cap. Webs between rows of different tiers are left out (the mouth is the fade); a web carries its owner's tier alpha and group (as the lumen layer's shader had it). `uniform int joinCut` (strip vertex shader) is 1 in the figure and 0 in the lobule, which never has ends (`?tubejoin=off` turns it off in the figure too; `tubeJoinCut()` in tube-stage2.js).
+**Step 2 (10 Nov 2026, after the planner's perf finding on e5eccf7, which cost 19 fps):** the ends are worked out once a vertex (tube-join-glsl.js `joinOne`, in the strip's vertex shader) and reach the fragment shaders as three flat varyings `vJ0, vJ1, vJK`; a fragment does one point-to-segment distance (or one dot product) and a smoothstep, and reads no texture. A branch in a higher tier than its trunk FADES out into it (its lumen and colour between 0.6 radii outside the wall and a radius inside, its outline faster) instead of being cut; every other open end is cut at the wall; a continuation is cut at the bisector plane, so there is no cap. Webs between rows of different tiers are left out (the mouth is the fade); a web carries its owner's tier alpha and group (as the lumen layer's shader had it). `uniform int joinCut` (strip vertex shader) is 1 in the figure and 0 in the lobule, which never has ends (`tube-pass.js` sets it; the `?tubejoin=off` switch that turned it off in the figure is gone).
 
 Two faults the webs could not fix: (1) a branch's round end (its lumen, not only its outline) lay inside the trunk it ends on, so where the trunk is faded (a tier
 alpha, the organ veil: the cava behind the liver) and the branch opaque, the end showed through as a capsule; (2) two rows meeting end to end drew a round cap each
@@ -324,22 +333,22 @@ lumen layer agree. A web keeps its owner's look (known difference 3). Not handle
 trunk's outline still crosses the branch's mouth; 1 end in the anatomy, 5 in the circuit), bends over 45 degrees and joins of three rows or more with no row through
 them (they keep caps and webs).
 
-## Known differences from the plan's list and from Mesh
+## Known differences from the plan's list and from the old Mesh renderer (deleted)
 
 - No contact shadow; no crossing ring. Same-tier crossings without a join merge (as the Mesh shows them with its ring off).
-- The outline is 1.6 times the casing width and still grows with zoom (the "weight that holds when zoomed" rule is stage 2). Its colour is
+- The outline is 1.6 times the casing width and still grows with zoom (the "weight that holds when zoomed" rule was planned for stage 2 and is not built). Its colour is
   near-black on the light looks and the look's own line colour on the dark ones (`celShade`).
-- Blood is particles in Tube and streaks in Mesh and Classic.
-- The lobule and software GL keep the classic pass (as with Mesh).
+- Blood is particles in the Tube and streaks in the classic safety-net pass.
+- Software GL keeps the classic pass (the Tube needs a GPU); the lobule's vessels are the Tube whenever its own Tube programs are finished (they were classic while the Mesh was the default).
 
 ## What stage 1 leaves out
 
-Stage 2: the short strip shader (along and across from the geometry, no nearest-segment search), a depth-only prepass without fragment
-work for plain rows, the zoom line-weight rule, the lobule. Stage 3 is built (above). The shaders are compiled and linked by the compile check below in a software driver; the first real compile on a device is still the test.
+Stage 2 (built above): the short strip shader (along and across from the geometry, no nearest-segment search), a depth-only prepass without fragment
+work for plain rows, the lobule. Stage 3 is built (above). Still open from the plan: the zoom line-weight rule (the outline still grows with zoom). The shaders are compiled and linked by the compile check below in a software driver; the first real compile on a device is still the test.
 
 ## Tests
 
-`tests/vessel-renderer-setting.test.js` (the one choice and the carry-over), `tests/vessel-fs-old-builds.test.js` (the old builds' hashes), `tests/vessel-fs-tube.test.js`
+`tests/vessel-renderer-tube-only.test.js` (no choice, no setting, an old stored choice dropped), `tests/vessel-fs-old-builds.test.js` (the old builds' hashes), `tests/vessel-fs-tube.test.js`
 (both Tube fragment builds and `meshPatchVS` linted through `tests/glsl-pp.js`, no `gl_FragDepth` in the strip build and the patch's two, `celShade(` used), plus A's, B's and C's own.
 
 ## The shader compile check (brief S0-K, 10 Nov 2026)

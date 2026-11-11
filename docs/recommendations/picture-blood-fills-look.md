@@ -1,7 +1,14 @@
 # The picture, the blood and the fills: look suggestions (9 Nov 2026)
 
+**Status (11 Nov 2026).** A dated record of look suggestions; only item 9 is known to be built.
+- Built: item 9, cut vessels in the lobule drawn as cut tubes with a wall ring (`tests/lobule-cut-vessels.test.js` names this file; `F_RING` in `veins-mesh-glsl.js`, `celRingJS` / `celDiscJS` in `tube-cel-glsl.js`).
+- Superseded or changed by the Tube (the only vessel renderer since 11 Nov 2026): items 1, 3, 6 and 7 were written against the Mesh and composite blood (`tubeShade`, `bloodAt`, blood styles D and E). The Tube draws its own cel look (`celShade`: outline 1.6 x the casing, opaque, no contact shadow), its blood is style P (particles, `blood-particles.js`), and its glow is the `tubeGlow` program. Item 3 (line weights that hold when zoomed) is still open for the Tube (`docs/tube-renderer.md`, "Known differences"). The old pale-ink blend of item 1 (`pale = smoothstep(0.58, 0.66, ...)`) is still in `comp-glsl.js`; whether the Tube's blood has the same dead band is not verified.
+- Not verified: items 2, 4, 5, 6, 8, 10, 11 (nothing found in `src/` that does them; organ outlines moved under the vessels in f445406, which is not item 5).
+- The companion `mesh-renderer-beautiful-fast.md` was deleted on 11 Nov 2026 (the Mesh renderer is gone). Its item 3 is the line-weight item above. The screenshots this file rests on were of the Mesh and Vector builds; nothing from their vessel shapes is claimed.
+
+
 Docs only. Nothing here is built. Every item changes the picture, so every item is Mohammad's pick. Read at `cecc020` on
-`claude/settings-topbar-icon-flvft1`. A companion to `mesh-renderer-beautiful-fast.md` (speed and structure); this file is only about how it looks.
+`claude/settings-topbar-icon-flvft1`. A companion to `mesh-renderer-beautiful-fast.md` (speed and structure; deleted 11 Nov 2026); this file is only about how it looks.
 
 Everything stays drawn by the GPU. Labels keep the one label style, glass stays real glass. Not reopened: the textbook shading with a faint
 contact shadow, the portal tree's heavier casing, streaks not dots, the arrowheads' spacing, true Black, the pressure ramp's hues.
@@ -160,7 +167,7 @@ the point of the picture.
 
 ## 3. Line weights that hold when zoomed
 
-Item 3 of `mesh-renderer-beautiful-fast.md`, unchanged, listed here because it is the largest single change to the picture: the casing
+Item 3 of `mesh-renderer-beautiful-fast.md` (deleted 11 Nov 2026), unchanged, listed here because it is the largest single change to the picture: the casing
 goes from 1.3 px at fit to 8 px at 6x today, and the shadow from 5 px away to 28 px away. Items 2, 5 and 6 above assume it.
 
 ## What this file does not claim

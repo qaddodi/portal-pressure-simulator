@@ -1,8 +1,14 @@
 # The Tube vessel renderer: build plan (10 Nov 2026)
 
-Plan only. Nothing here is built. Read at `363a81c` on `claude/settings-topbar-icon-flvft1`.
+**Status (11 Nov 2026).** Built, and now the only vessel renderer. `docs/tube-renderer.md` is the as-built reference; this file is the 10 Nov plan, kept as history.
+- Built (checked against `src/ui/tube-geo.js`, `tube-cel-glsl.js`, `tube-pass.js`, `blood-particles.js`, `veins-gl.js`): stage 1 as planned, then stages 2 and 3 (`tube-renderer-stage2-3-plan.md`), the lobule (`tube-renderer-lobule-plan.md`) and the speed work (`tube-renderer-speed-plan.md`).
+- Superseded: everything here that treats Classic, Mesh or Vector as live renderers, the Settings row "Tube vessel renderer" (default off), the "Round 2" single "Vessel renderer" choice, "Tube is Tube, never a fall-back" as a choice rule, and the lobule and software GL "keep the classic pass" lines. Commits 8f501f6 (setting removed), 8c51b6a (`?tube=`, `?tubejoin=` removed) and 0bd884f (Mesh removed) made the Tube the only renderer. The classic pass is now a hidden safety net that draws only while the Tube is not ready (`tubeWhy` in `?perf`); the lobule runs the Tube.
+- Still open: the outline weight rule when zoomed (the outline still grows with zoom, `docs/tube-renderer.md` "Known differences").
+- The `tubes-and-particles-first-principles.md` recommendation this plan builds on was deleted on 11 Nov 2026; its idea (half tubes, joins by depth, blood in the tube's shader) is summarised at the top of `docs/tube-renderer.md`.
 
-Mohammad's brief (10 Nov): build the depth tube option of `tubes-and-particles-first-principles.md` (mock: "Depth tube mock",
+Plan only. Nothing here is built. Read at `363a81c` on `claude/settings-topbar-icon-flvft1`. (Written before the build; "nothing here is built" is the 10 Nov state.)
+
+Mohammad's brief (10 Nov): build the depth tube option of `tubes-and-particles-first-principles.md` (deleted 11 Nov; mock: "Depth tube mock",
 source kept at `/mnt/project-files/tube-renderer/depth-tubes-mock.html`) with three changes:
 
 1. **The joints are smoothed** (not the hard weld of the mock).

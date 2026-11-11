@@ -1,5 +1,12 @@
 # Visual style recommendations (8 Nov 2026)
 
+**Status (11 Nov 2026).** A dated review (8 Nov 2026); line numbers and shader names (`veins-gl.js`, `tubeShade`) are of that day. The vessel renderer is now the Tube only (cel shading, `docs/tube-renderer.md`); the vessel items below that name `tubeShade` or the Mesh apply to the hidden classic pass, and the Tube has its own `celShade`.
+- Built (checked in the code): C1 (the dark looks' own `--ramp-pressure`, `theme-tokens.js` line 277, and the colour table rebuilt on a look change, `onTheme` in `colormap.js`); C2 (Linen's pale end `#B8D5ED 0, #85B6E9 5`, with Oat keeping the old end); V3's red wale on the figure's esophageal strands (`stage-tubes.js`, "The red wale on the esophageal strands (V3)"); the TIPS stent redrawn as its own tube (commit 109116f, `stent-mesh.js`; whether this is D4's covered stent is not verified).
+- Decided against: V2, the paper knock-out where same-tier vessels cross, is parked on every look (`tests/vessel-knock-look.test.js`: `vessel-knock-a` is 0); the Tube draws no crossing ring.
+- Likely done: C3 (the "Soft keeps the Light values ... 57 tokens pinned" note is gone from `theme-tokens.js`); not checked against Oat contrast.
+- Not verified: V1 (the Tube's outline uses the look's own light line colour on the dark looks, which meets its intent), V4, V5, B1 to B6, D1 to D11, S1 to S5, C4, C5. No commit among the recent ~30 does them and I did not find them in the code; treat them as open until checked.
+
+
 Read at `2bde649` on `claude/settings-topbar-icon-flvft1` (EUS line numbers checked again at `013ee7d`, which moved the coils and the port). This is a review only: no app code was changed.
 
 How it was done. The code was read, not run: no app, no headless browser, no screenshots (the owner's rule). Contrast is the WCAG luminance ratio and ΔE is OKLab distance × 100, both computed from the token values in `src/ui/theme-tokens.js` and `styles/tokens.css` against each look's ground (Light "Linen" #F1EBE0, Soft "Oat" #DDD0B9, Dark #1A1917, Navy #0E1422, Black #000000). Where this file says what something looks like, that is read from the shader or the style and is marked as inferred where it matters. Every change proposed here stays drawn by the GPU.

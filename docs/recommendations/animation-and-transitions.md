@@ -1,5 +1,11 @@
 # Animation and transition recommendations (8 Nov 2026)
 
+**Status (11 Nov 2026).** A dated review (8 Nov 2026, line numbers of 2bde649). Parts are built; the rest is open or not checked.
+- Built, from code evidence: item 1 (the labels' crossfade now runs on the change's own progress: `label-gl.js` "Both opacities are the change's own progress (1 - 2t and 2t - 1), never a timer", `dropGhosts` in `stage-view.js`); item 3 (`presenter.js`: "the change landed, not 700 ms: it takes VIEW_CHANGE_S", `viewSettled`, and a camera that travels once on the change's clock).
+- Open or not verified: items 2, 4 to 16, 18 to 24. Item 17 (a `box-shadow` on `.cath-label`) is still in `styles/app.css` as an opacity-faded `::before`; whether that settles it is not verified. The 700 ms `smooth(cut, ms = 700)` default and a `waitCut(..., 700)` remain in `presenter.js`.
+- Not changed by the renderer work: the Mesh, Classic and Tube renderers are not part of this review. `scripts/off-gpu-scan.mjs` and `docs/off-gpu-inventory.md` are the current source for item 17-type questions.
+
+
 Read from the code of `claude/settings-topbar-icon-flvft1` at 2bde649. Nothing in the app was changed and nothing was run in a browser:
 five readers each took one part (CSS and menus, slide changes and cards, camera and view change, instruments and blood, labels and
 glass), and every finding ranked P1 or P2 below was then read again line by line. Line numbers are for 2bde649.

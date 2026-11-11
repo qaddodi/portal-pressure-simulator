@@ -1,5 +1,19 @@
 # Tube renderer: the speed plan and blood that shows trouble (10 Nov 2026)
 
+**Status (11 Nov 2026).** Most of it is built; no gain was measured on a device in this repo (not verified).
+- P1 built: `lobule-zoom.js` passes `cheap` (the Tube at stage 3 drew the last picture) to `calmFlowGapFor` / `calmFlowRule` in `frame.js` ("calm every frame (tube 3)").
+- P2 built: `createDepthStamp` in `tube-stage2.js` (the lumen layer keeps its depth; `tests/tube-lumen-depth.test.js`).
+- P3 built: `src/ui/tube-cull.js` wired in `tube-stage2.js` / `tube-pass.js` (`tests/tube-cull.test.js`, `tube-cull-wiring.test.js`).
+- P5 built: `BACK_PX0` / `BACK_PX1` in `blood-particles.js` (a narrow lumen runs no back layer).
+- P6 built: `tubeGlow` program, `src/ui/tube-glow-glsl.js` (`tests/tube-glow-wiring.test.js`).
+- V7 built: `src/ui/blood-trouble.js`, called from `tube-lumen-glsl.js` (`tests/blood-trouble.test.js`). The TIPS swirl that waited for the join quads is not verified.
+- P7 (find why some Anatomy views sit at 33 fps): a report, no code; whether it was written and what it found is not verified.
+- P4 (one pass pair for all tiers): not built, on purpose, as the table says.
+- Later work that is not in this plan: the lumen layer at a share of the vessel layer's size, no webs in the lumen colour pass, the lumen pass only where the lobule is (`docs/tube-renderer.md`, "brief PL").
+- Superseded: the stage 2 and 3 safety rules that name `?tube=` and `?tubejoin=` are history (flags removed 11 Nov 2026).
+
+
+
 Mohammad, 10 Nov: "Plan all performance gains so coordinator can parallelize them in sonnet threads. New features apart from number 1
 I like 7 so plan it." On his iPhone the lobule and some Anatomy views sit at 33 fps, the rest at 56 to 59. This follows
 `docs/recommendations/tube-renderer-stage2-3-plan.md`; its safety rules hold here too (every new program optional, no text another

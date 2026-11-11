@@ -1,5 +1,12 @@
 # Decks and slides: accuracy and feature use
 
+**Status (11 Nov 2026).** A dated review (8 Nov 2026, deck text of 2bde649). Spot-checked against the decks now; the rest is open or not verified.
+- Fixed in the decks (grep): fix 4 (`variceal-bleed.js` now says ceftriaxone "for up to 5 days (AASLD 2024), stopping at discharge if that comes sooner"); fix 7 (`varices.js` now says "6-week mortality of about 10 to 15% (AASLD 2024)").
+- Changed, correctness not re-checked: fix 2 (`ten-years.js` now builds the sentence from tokens: "meets the {>=25 kPa} rule, and with platelets of {plt} CSPH is ruled in"); fix 5 (the quoted "Child–Pugh 14 or more, or a MELD above 30 ..." wording is no longer in `variceal-bleed.js`); fix 15 (`where.js` no longer has the quoted sentence).
+- Still present: fix 1 (`prehepatic.js` still calls Factor V Leiden "a permanent, major risk factor").
+- Not verified: the other numbered fixes, the sections on themes, feature use and deck by deck (the deck count and slide numbers have since moved: 343 slides at 2bde649; the stiffness deck lost its summary slide in 624f82d). Re-check a row against the deck before acting on it.
+
+
 8 Nov 2026. Recommendations only: no app code, deck or test was changed, and nothing was run in a browser.
 
 **What I read.** All 31 decks in `src/ui/decks/` (343 slides) on `claude/settings-topbar-icon-flvft1` at 2bde649, then the

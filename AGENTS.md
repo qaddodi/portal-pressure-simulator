@@ -136,4 +136,6 @@ open on it, and never touches the other copy's.
 `guides/beta-start-guide.pdf` (Letter) and `guides/beta-start-guide-iphone.pdf` (iPhone) are the beta testers'
 start guides, served at `/guides/` and `/preview/guides/` under stable names that testers get as links.
 When a change alters anything a guide shows or says (buttons, Settings rows, Send feedback, the first steps),
-regenerate both PDFs in the same push and keep the file names.
+update both PDFs in the same push and keep the file names. The repo holds no generator for them: edit the pictures and text in
+place (for example with pypdf) and keep the layout. Their Settings pictures and rows must match the app's Settings sheet (Appearance:
+Light, Soft, Dark, Navy, Black, System; Display: Blur effect, Figure size, Sharp while moving).

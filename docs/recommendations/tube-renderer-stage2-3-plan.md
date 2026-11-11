@@ -1,5 +1,12 @@
 # Tube renderer, stages 2 and 3: the plan (10 Nov 2026)
 
+**Status (11 Nov 2026).** Built; `docs/tube-renderer.md` is the as-built reference ("The varyings", "Stage 2", "Stage 3", "Seamless joins", "The compositor's lumen text") and this file is the 10 Nov plan, kept as history.
+- Built (checked in `src/ui/tube-stage2.js`, `tube-lean-glsl.js`, `tube-joint.js`, `tube-data.js`, `tube-lumen-glsl.js`, `comp-glsl.js`, `scripts/glsl-compile.mjs`): the shared varyings, the lean and depth programs, webs for joins, the lumen layer and the compositor's Tube builds, the compile check. One program more than the table: `tubeJoinDepth`.
+- Superseded: safety rule 4 (the escape hatches `?tube=1`, `?tube=2`, `?tubejoin=patch`) was carried out as planned: they were removed on 11 Nov 2026 (8c51b6a), and the stage now follows which programs are ready. Where this plan says Classic or Mesh "draw for it as today", read: only the hidden classic safety net draws, while the Tube is not ready. "Patches are drawn only with `?tubejoin=patch` or when the web programs failed" now reads: patches only in stage 1.
+- Open: "Glow pairs keep the stage 1 program" was changed by the glow program (`tubeGlow`, speed plan P6). The "Known differences" below still hold.
+
+
+
 Mohammad, 10 Nov: "let's start stage 2 and 3 and do this right; do everything in parallel and make it perfect", then "finish the
 entire renderer ... no mistakes". Stage 1 is `docs/tube-renderer.md` (as built) and `docs/recommendations/tube-renderer-plan.md`;
 the lobule is `docs/recommendations/tube-renderer-lobule-plan.md`. This plan adds to both and changes neither's rules, except where

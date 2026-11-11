@@ -1,5 +1,7 @@
 # AI humanizer: turning AI-sounding text into plain, human wording
 
+Checked 11 Nov 2026 against the authoring guide (rules 13, 17 and 24) and the cut-off values in `src/engine/pressure-cuts.js`.
+
 Use this whenever you write or revise words a learner will read: teaching card text, titles,
 pills, tile labels, tooltips, README and changelog prose. It rewrites text that sounds
 machine-made into the way a good clinician-teacher would say it at the bedside.
@@ -83,6 +85,8 @@ risk climbs gradually and does not switch on at a cutoff.
 - Define a term the first time it appears on a slide (HVPG, PPG, WHVP, FHVP), then use it plainly.
 - Lead with the mechanism or the clinical consequence, then the number. "Resistance rises in the sinusoids, so portal pressure climbs: HVPG 14 mmHg."
 - Use the same word for the same thing across all decks (portal vein, not "main portal conduit").
+- Say "resistance" for where pressure is lost, not "block" or "obstruction" (guide rule 13). Say "colored by velocity", never "lens", and keep the coloring's name out of a built-in slide's line: the key on the figure names it.
+- Words only on the teaching card. A chart, trace or table goes in the data card; show all of the card's text at once.
 - Comparisons are symbols, never words (Mohammad, 26 Oct): `>` `<` `≥` `≤` with no space, "≥150,000/µL", "<20 kPa", "≥6 months", "BMI ≥30". Not "more than", "or more", "at least", "over", "under", "above", "below" with a number, and never a trailing plus ("150,000+"). Do not put a word beside a cut-off pill (no "above {>=5 mmHg}"). A comparative with no number ("carvedilol lowers the HVPG more than propranolol") and a duration ("over 3 weeks") stay words.
 - Keep thresholds as rising risk, as in the app: HVPG 5 mmHg (amber) and 10 mmHg (red); PPG 6 mmHg (amber) and 12 mmHg (red).
 - Numbers: whole numbers only on the "Pressure, portal vein to heart" ladder card; one decimal everywhere else. Any HVPG or PPG must equal the difference of the readings shown.

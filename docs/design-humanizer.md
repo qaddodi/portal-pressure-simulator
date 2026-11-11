@@ -1,5 +1,7 @@
 # Design humanizer: making the interface look drawn by a person
 
+Checked 11 Nov 2026 against the app: the looks are Light (Linen), Soft (Oat), Dark, Navy, Black and System; the vessels are drawn by the Tube renderer; figure labels are one style.
+
 Use this whenever you add or change anything a learner sees that is not the organ art itself: cards, tiles,
 pills, labels, figure callouts, keys, buttons, menus, icons, colours and motion. It is the visual partner of
 `docs/ai-humanizer.md`, which covers the words. Generated interfaces share a look: tinted chips on every noun,
@@ -75,7 +77,7 @@ a glow, a badge). Prefer the first.
 | Machine-made look | Why it gives itself away | Human |
 |---|---|---|
 | Framework default colours (blue-500 `#3B82F6`, slate-900 navy `#0F172A`, indigo or violet accents) | Recognisable as the defaults of popular UI kits | Colours chosen for this subject: the plate's tissue tones, the lens ramps, ink and paper |
-| Dark theme as navy with neon accents and mint "success" green | The "dark SaaS dashboard" palette | A dark that suits a reading room or a monitor: near-neutral ink, accents drawn from the figure |
+| Dark theme as navy with neon accents and mint "success" green | The "dark SaaS dashboard" palette | A dark that suits a reading room or a monitor: near-neutral ink, accents drawn from the figure. (The Navy look is the owner's chosen option beside Dark and Black; do not add neon to it.) |
 | One accent colour doing every job (links, progress, selection, labels, highlights) | A theme token applied everywhere, so the accent no longer means anything | Accent only on the control the learner is touching; everything else in ink |
 | Purple-to-blue or pink-to-orange gradients | The generic "AI" gradient | Flat colour; a ramp only where it encodes a scale |
 | Every state its own hue; traffic lights on everything | Colour as decoration | Colour where it carries a clinical meaning (normal, raised, dangerous), the same three hues everywhere |
@@ -109,7 +111,7 @@ a glow, a badge). Prefer the first.
 | A stock slider (white thumb with a coloured ring and a drop shadow, inside its own box) | Form-kit control dropped into a teaching card | The tiles' scale bar made draggable: the same 6 px track, a solid dot for now, a ring where the slide started |
 | A scale bar with no labels, or labels that look like readings | Decoration that only looks like data | Bands at the real cut-offs with their numbers, or no numbers at all |
 | A legend far from what it explains | Template layout | Label the thing directly, with a short leader if needed (atlas style) |
-| Labels with heavy outlines or halos everywhere | Meme-caption look | A thin halo only where a label crosses art; otherwise plain text on a clear spot |
+| Labels in boxes or pills, or with a thick outline that differs from one label to the next | Meme-caption look, and a one-off style on every label | One label style on the figure: outlined text with no box, the same thin outline everywhere, on a clear spot where one exists |
 
 ## What already reads as human here
 
@@ -124,14 +126,17 @@ Keep these when you change anything near them:
 
 These look like items in the tables above but are the owner's recorded choices. Leave them as they are
 unless he changes them; you may point out the tension, but do not "fix" them on your own.
-- Frosted glass on every card, nav pill and key, with its edge highlight; no more opaque glass (C3 declined, 17 Oct).
+- Frosted glass on every card, menu, top-bar pill, nav pill, key and callout, with its edge highlight, and one tint and one blur everywhere (11 Nov: one card glass, the same dipped or not); no more opaque glass (C3 declined, 17 Oct). Everything is drawn on the GPU, not by CSS blur.
+- One label style on the figure: outlined text, no boxes (11 Nov).
+- The vessels are tubes: a half tube with smoothed joints, cel-shaded, with a black outline (the Tube renderer, 10 Nov). Do not add a second vessel style.
+- Six looks in Settings › Appearance: Light (Linen), Soft (Oat), Dark, Navy, Black and System.
 - Disease names in violet in body text; titles in one colour (17 Oct).
 - View names ("colored by" lenses) as pills in the view's own colour (16 Oct); outlined pills for rule numbers (#14, 15 Oct).
 - Site tags as small coloured pills above the title, in decks covering more than one site.
 - The deck's short name as a darker corner tab (e9c1844).
 - Tiles with a scale bar: bands at the real cut-offs, a dot for now and a ring for the start (17890fe); tile status words (0fc8c43).
 - Red diagonal hatching for the resistance site on the ladder and the site rail.
-- The white glow on the vessel being Dopplered (ink on the light themes) and the small probe with its sample gate, the olive cavernoma glow, the soft glow on a selected vessel, the heart glow behind the liver.
+- The white glow on the vessel being Dopplered (ink on the light looks; on a stent, the lit third in the stent's own colour) and the small probe with its sample gate, the olive cavernoma glow, the soft glow on a selected vessel, the heart glow behind the liver.
 - The FibroScan reading in white with a dark outline inside the map (M4 declined); black monitors in every theme (I22 declined).
 - Live callouts that follow the model (4bded44).
 
@@ -167,7 +172,7 @@ unless he changes them; you may point out the tension, but do not "fix" them on 
 6. No framework-default colour, no navy-and-neon, no gradient that does not encode a scale.
 7. No icon beside a word that already says it; no emoji.
 8. Words left-aligned, numbers aligned, centring only for single short items.
-9. The element matches its siblings on every device and theme.
+9. The element matches its siblings on every device and look.
 10. No recorded decision was overridden.
 
 ## Prompt to hand to a model

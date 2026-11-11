@@ -1,5 +1,11 @@
 # Implicit state machines: recommendations (8 Nov 2026)
 
+**Status (11 Nov 2026).** A dated review (8 Nov 2026, line numbers of f56992f). Mostly open.
+- Built, from code evidence: M7's `viewKey()` / `setViewKey` (`src/ui/store.js`); the pure "is the view moving" helper `src/ui/view-moving.js` (rollout item 2, M2; whether it covers pinch, wheel and fling as the review asks is not verified).
+- Not built: rollout item 1, `src/ui/machine.js` and `tests/machine.test.js` (neither file exists), and with it the trace registry the later items use; `cameraMode()`, `takeCamera(owner)` and `?motionrec` (no match in `src/`).
+- Not verified: the other rollout items (M3 to M6, M8 to M22). The renderer work of 10 to 11 Nov (Tube only, removal of the Mesh, Vector and the renderer setting) does not touch any machine here, but `veins-gl.js` and `frame.js` line numbers in this file have moved.
+
+
 I read the code of `claude/settings-topbar-icon-flvft1` at f56992f. Nothing in the app was changed and nothing was run in a browser. Line
 numbers are for f56992f. Every claim marked **(code)** was traced line by line. Every claim marked **(guess)** is a reading of how the code
 would behave, and nobody has seen it on a device.

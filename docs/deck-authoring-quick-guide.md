@@ -1,6 +1,6 @@
 # Writing a deck: the short guide
 
-This guide is for people. It explains what a deck can show, gives one small example of each feature and says when to use it. Each section ends with a pointer to the full guide, `docs/deck-authoring-guide.md`, which lists every option, value and rule. When the two disagree, the full guide and the code win. Both were checked against the app on 22 Oct 2026.
+This guide is for people. It explains what a deck can show, gives one small example of each feature and says when to use it. Each section ends with a pointer to the full guide, `docs/deck-authoring-guide.md`, which lists every option, value and rule. When the two disagree, the full guide and the code win. Both were last checked against the app on 11 Nov 2026 (31 built-in decks).
 
 ## How a deck works
 
@@ -43,7 +43,7 @@ Full guide: sections 1 to 3, the template in section 10 and a complete example i
 Each slide has a `title` that stands on its own and a `line` of 30 words or fewer. Write for a learner, in full sentences, the way a clinician teaches on rounds. Run every line through `docs/ai-humanizer.md`.
 
 - **Live numbers.** Write `{hvpg}`, `{ppg}`, `{pv}` and the app fills in the patient's value in a coloured pill. Use these instead of typing a number, so the words always match the figure. `{ppg@before}` reads the value at the slide whose `id` is `before`.
-- **Cut-offs.** Write `{>=10 mmHg}` and the app draws an outlined pill reading "10 mmHg". Put the words around it: "above {>=10 mmHg}". A filled pill is the patient; an outlined pill is the rule.
+- **Cut-offs.** Write `{>=10 mmHg}` and the app draws an outlined pill reading "10 mmHg". Write no comparison word beside it (no "above"): the pill carries the symbol. A filled pill is the patient; an outlined pill is the rule.
 - **Words that point at the figure.** Write `[portal vein](pv)` and the words become a pill in the portal vein's colour, and the vein lights up on the figure.
 - **Step numbers.** On a `steps: true` slide, `{#1}`, `{#2}` after the words that name each numbered site draw the figure's circle in the text. Same number, same site; name every step once.
 - **Causes.** `causes: ['Cirrhosis', 'MASH']` adds up to four short items after the line.
@@ -61,7 +61,7 @@ Full guide: section 6 (words), section 9 (house rules).
 
 ## Choosing the patient
 
-- `preset: 'cirr-decomp'` loads a patient fresh. There are 17, from healthy to Budd–Chiari.
+- `preset: 'cirr-decomp'` loads a patient fresh. There are 18, from healthy to Budd–Chiari.
 - `params: { drugs: { carvedilol: true } }` changes only what you name.
 - `action: { kind: 'band' }` is a one-off event, such as banding, paracentesis or a bleed.
 - `days: 90` lets the disease run on, and `ramp: { cirrhosis: [0.5, 0.6] }` moves a setting across those days.
@@ -117,6 +117,7 @@ These are optional extras. Each shows only on the slides that ask for it.
 - **Scale switch (Anatomy / Lobule / Sinusoid pill).** `scales` lets the presenter flip the figure to other scales of the same patient and back. Short form: `scales: ['lobule', 'anatomy:fit']`. Full form: one view per scale, with its own camera and callouts:
   `scales: { anatomy: { cam: 'liver', labels: ['CONF'], glow: ['PV_TRUNK'], mark: {...} }, lobule: { cam: 'lobule:triad', zoom: 2.6, glow: ['lobule:triad'], callout: { at: 'triad', label: 'Resistance' } } }`.
   The slide's own scale shows the slide as written. Another scale shows only its own view (cam, zoom, kMax, clear, labels, mark/marks, sites, glow, callout, layers). Every slide opens on its own scale, again on Next, Back and jump, because a flip is never remembered. Sinusoid only on pressure-lens slides. Never on question, catheter, Doppler, calipers or Circuit slides. The pill sits left of the slide counter on Mac and iPad landscape, and centred above the teaching card on phone and upright iPad. Adopt runs of slides together and list built-in ones in `tests/deck-adopted.js`. Full details: guide 5.10.
+- **Three scales on one plate.** `cutouts: ['lobule', 'sinusoid']` lays the lobule and the sinusoid in round windows beside the anatomy, drawn live from the same patient, with a ring on the liver and a cone to each window. Use it where the cause and the effect sit at different scales (scarring and the varices). Mac and iPad on its side only; never on a question, `visual` or Circuit slide. `cutoutSubject` picks the one scale whose blood runs. Guide 5.11, `docs/cutouts.md`.
 - **Gut glow in a time-lapse.** `lapseGlow: ['bowel']` on a slide with `lapse` glows those organs from the days' start and keeps them lit while the slide is up, easing in and out. Use `cam: 'gut'` so the bowel is in frame.
 - **Pressure ripple.** `ripple: true` makes the vessels whose pressure moved glow warm or cool for a moment as the slide lands. Use it on the slide where a drug or a TIPS starts.
 - **Live numbers in a callout.** A mark's label can hold a live value: `mark: { organ: 'spleen', label: 'Spleen {spleen}' }`.
@@ -148,7 +149,7 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | Spectral Doppler in one vessel | `tool: { kind: 'doppler', vessel: 'PV_TRUNK' }` | flow direction, speed or wave shape is the point |
 | The esophagus through a scope | `tool: { kind: 'scope' }` | varix size or banding |
 | The scope ring on the varices (tap: the live scope view beside the figure) | automatic on varix slides; `scopeLens: true` / `false` | any slide that shows the varices, leaving the data card free |
-| A FibroScan reading | `tool: { kind: 'fibroscan' }` | liver stiffness |
+| A FibroScan reading | `tool: { kind: 'fibroscan' }` (`organ: 'spleen'` for the spleen probe) | liver or spleen stiffness |
 | A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, pressure, output or hemoglobin, with an EKG strip |
 | The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured, free pressure to wedge to result |
 | The same tracing following the catheter on the figure | `tool: { kind: 'hvpg', catheter: true }` with `cath: 'free'`, `'wedge'` or `'result'` | the catheter steps with the tracing beside them, one card kept across the steps |
@@ -176,6 +177,9 @@ Full guide: section 7.2.
 | Two-reading plane | `tool: { kind: 'plane', plane: 'csph' }` | the case as a dot on stiffness against platelets, with the Baveno VIII zones | ruling CSPH in or out without a catheter |
 | Cross-section | `tool: { kind: 'lumen' }` | the vessel cut across, with how much is open, clotted or stented | a clot, a web or a narrowed stent |
 | Fluid balance | `tool: { kind: 'fluid', window: true }` | the day's lymph made split into what the lymphatics carry, what the belly reabsorbs and what builds as ascites, on one strip | how ascites builds and what treatment changes |
+| Guideline path | `tool: { kind: 'path', of: 'first-visit', patient: { lsm: 18, plt: 120 } }` | a Baveno VIII flowchart with the patient's own path lit from the model's readings; `of` also takes `bleed`, `gastric`, `ascites`, `stopcarv`, `holdcarv`, `secprop`, `psvdscope`, `pvtocc`, `pvtdur`, `aasld`, `psvdscore`, `recomp`, `pvtgrid`, `ladder` | a guideline's decision tree is the lesson |
+| Procedure graph | `tool: { kind: 'evgraph' }` on a `procedure` slide | what a TIPS, BRTO or BATO changes, drawn live after the stent as it plays (the lines come from the slide's `graph`) | a procedure whose effect is the point; graphs go in the data card, not the teaching card |
+| Treatment menu | `tool: { kind: 'menu' }` | every treatment the patient could get, run on the slide's state, each a dot at the PPG it reaches against the liver flow it costs | choosing among treatments |
 | Criteria card | `tool: { kind: 'criteria', title: 'Who gets a pre-emptive TIPS', rows: [..] }` | a guideline's rules as up to four rows; a row read from the model (`['HVPG ≥20 mmHg', 'hvpg', '>=', 20]`) shows its reading with a tick or a dash; `note` gives the case's own value and `lit: true` sets the row that applies in full-white words; `ticks: false` for a classification; opt-in `lead`, `rule` (a pill, only when the notes cite it), `verdict`, `ordered: true` (1, 2, 3 for "In this order"), and per row `cut` and `met`; a list with no cut-offs gets a ring per row, filled on the row that applies, and `**key words**` in ink | the rules are the lesson (pre-emptive TIPS, recompensation, the Sarin classes): a phone never shows the causes line, but it shows the card |
 
 A few details worth knowing:
@@ -183,7 +187,7 @@ A few details worth knowing:
 - The portal blood bar is one bar across the card with a dashed Healthy bracket over it; a route too narrow to carry its name is named in a pill under the bar, so the card has no leaders and nothing off to one side.
 - A profile with `from: true` adds a dotted line for the slide before.
 - A curve with `against: { label: 'Carvedilol', params: { drugs: { carvedilol: true } } }` draws a second line for a drug on the same scale. An `against` sweep with `of: 'varix'` draws another reading on that scale (the esophageal varix with the shunt closed beside the fundal varix), and `reading: 'Varix'` names the card, the key row and the cut-offs.
-- Every deck has a relation chart just before its summary, with kicker `'Summary'` and id `'relation'`. It is a curve with a reading on the x axis, e.g. `tool: { kind: 'curve', x: 'lsm', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0, to: 1, step: 0.1, days: 365, lines: ['hvpg', 'plt'], xCuts: [15, 25], dots: [{ slide: 'a1', name: 'Case 1' }] }`. `days` settles each point for that many model days, `patient` draws the line on a patient of its own, `dots` adds other slides as named points, and `oneScale: true` puts both lines on one scale. `against: [{ label, params, pair: true }, …]` with `zone: { fall: 10, under: 12, label: 'Response' }` draws a drug against the HVPG before it. A plane with `diag: { label }` draws its equal line, and a plane row's `from: { preset }` draws where that patient started as a ring joined to the point (before and after a treatment). `param: 'scope.air'` with `lines: ['seen', 'across']` runs a curve over the scope's air. The source goes in the notes, and the words quote the ring's own values as `{key}` pills. Full guide: 7.2.
+- Most decks (25 of 31) have a relation chart just before their summary, with kicker `'Summary'` and id `'relation'`. It is a curve with a reading on the x axis, e.g. `tool: { kind: 'curve', x: 'lsm', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0, to: 1, step: 0.1, days: 365, lines: ['hvpg', 'plt'], xCuts: [15, 25], dots: [{ slide: 'a1', name: 'Case 1' }] }`. `days` settles each point for that many model days, `patient` draws the line on a patient of its own, `dots` adds other slides as named points, and `oneScale: true` puts both lines on one scale. `against: [{ label, params, pair: true }, …]` with `zone: { fall: 10, under: 12, label: 'Response' }` draws a drug against the HVPG before it. A plane with `diag: { label }` draws its equal line, and a plane row's `from: { preset }` draws where that patient started as a ring joined to the point (before and after a treatment). `param: 'scope.air'` with `lines: ['seen', 'across']` runs a curve over the scope's air. The source goes in the notes, and the words quote the ring's own values as `{key}` pills. Full guide: 7.2.
 - A year chart with `style: 'milestones'` shows the HVPG line alone and names the slides that set `milestone: 'Dx'`. `since: 'dx'` starts the chart at that slide, and `bands: ['carvedilol']` shades the time a drug was on.
 - A cross-section of a stent takes `site: 'mid'` to say where it is cut.
 - These charts use the model's own numbers. Do not quote their shares in the words without a checked source.
@@ -215,7 +219,7 @@ Full guide: section 7.3.
 - **Short labels.** Any button can carry `short`, a compact name (`'Prop.'`) that a phone uses when the full names would wrap.
 - **A what-if slider.** `whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, ends: ['None', 'Occluded'] }` lets the room drag one setting and watch everything follow. `whatIf: { label: 'Esophageal air pressure', tool: 'air', min: 0, max: 20, unit: 'mmHg' }` drags a scope option instead (the air's pressure round a varix) and leaves the model alone.
 
-Put buttons and sliders on key slides only. 32 of the 40 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
+Put buttons and sliders on key slides only. 21 of the 31 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
 
 ### A catheter treatment
 
@@ -259,7 +263,7 @@ Full guide: sections 12 and 13.
 
 ## The rules that matter most
 
-- One idea a slide, and a line of 30 words or fewer. `tests/deck-shape.test.js` also keeps a talk to two lenses, the same tiles on neighbouring slides with one instrument, two tiles a slide, no `cite`, and a `caveat` only on the TIPS Doppler jet slide (put sources and small print in `notes`). A short screen (an iPad on its side) keeps every card's text at 12 px or more, so a slide with too many words fails a browser check. Shorten the words, never the text size.
+- One idea a slide, and a line of 30 words or fewer. `tests/deck-shape.test.js` also keeps a talk to two lenses, the same tiles on neighbouring slides with one instrument, two tiles a slide, a `cite` only where `tests/deck-adopted.js` lists it, and a `caveat` only on the TIPS Doppler jet, kidney pressure and Meso-Rex child slides (put sources and small print in `notes`). A short screen (an iPad on its side) keeps every card's text at 12 px or more, so a slide with too many words fails the local browser check (`tests/e2e/`). Shorten the words, never the text size.
 - HVPG is WHVP minus FHVP (amber 5, red 10). PPG is portal vein minus IVC (amber 6, red 12).
 - Say numbers through live values, never typed.
 - Say "resistance" for where pressure is lost, not "block" or "obstruction".

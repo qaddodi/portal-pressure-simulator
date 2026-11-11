@@ -12,6 +12,19 @@ Tags on each rule:
 
 Rule ids (`V-SLIDE-3`) are stable, so commits, gates and the ledger can cite them.
 
+**Status, 11 Nov 2026.** This file stays the target for a glitch-free talk; most rules still stand. What has changed since 3 Nov:
+
+- Tucking and untucking were removed on 7 Nov (section 5). An instrument card is one fixed size; its readings are in its header row.
+- The browser gates, the pixel comparison and the frame-time gates were retired from CI on 4 Nov. Their scripts stay as local tools, so the
+  "Check" lines below say how a rule could be proved by hand or in a local run, not what CI blocks. `scripts/gate-interrupt.mjs` (V-GEST-1)
+  was never written. A real device is the judge.
+- The Tube is the only vessel renderer; figure labels are one style (outlined text, no boxes); every card, menu and callout takes the one
+  card glass. Nothing here depends on the vessel renderer.
+- Built from section 13: N1 (the presenter view, key P), N2 (the laser spotlight on L, and the pen) and N3 (`reveal: true`). N7 and N10
+  are not being built; the others have not been checked against the code in this pass.
+- Owner rules since: everything GPU-rendered; teaching cards carry words (graphs go in the instrument or data card); a card's text is
+  shown whole, at once.
+
 ## 1. Principles
 
 1. **The figure is the stage, and nothing on it ever lies.** What is drawn in a frame belongs to one slide, one view and one camera.
@@ -427,4 +440,5 @@ Each is asked as a clickable card in the project thread. Answers are written bac
 | Charts | `frame-gate.mjs` | trace scroll evenness (V-CHART-3) |
 
 A rule is done when its check exists, passes on the Mac and iPhone profiles headless (software GL named as a GPU), and fails on a
-fixture that breaks it. Headless is not a device test; say so when reporting.
+fixture that breaks it. Headless is not a device test; say so when reporting. Since 4 Nov 2026 these checks are local tools, not CI gates
+(`AGENTS.md`); the unit tests that pin the numbers in this file still run on every push.

@@ -1,5 +1,11 @@
 # Physics clock vs. render clock: how they run together, and how to make it smoother
 
+**Status (11 Nov 2026).** A dated analysis (8 Nov 2026). Its description of the two clocks was not re-checked; of the options, only the first has started.
+- Started: option 1 (instrument). `src/worker-core.js` keeps counters (`wstat.frames`, `wstat.params`); whether the HUD shows ticks, posts, bypass posts and "radii changed" per second is not verified (`frame-hud.js` lists "radii changed" as a cause).
+- Not built, from code evidence: option 2 (`lapseDays` and `bedsideStep` in `worker-core.js` still set `paramsDirty = true` unthrottled; only the morph is throttled by `MORPH_PARAMS_MS`, 250 ms).
+- Not verified: options 3 to 8. The Tube renderer work (10 to 11 Nov) does not change the physics side.
+
+
 8 Nov 2026. For Mohammad. Code reading plus a short Node measurement of the worker core (no browser run). Line numbers are for
 branch `claude/settings-topbar-icon-flvft1`. Anything I did not check in code is marked **(guess)**.
 

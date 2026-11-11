@@ -1,5 +1,10 @@
 # EUS coils and glue: how the steps are shown (10 Nov 2026)
 
+**Status (11 Nov 2026).** Recs 1 to 3 are built; the rest is open or not verified.
+- Built (checked in `src/ui/proc-anim.js` `GLUE_STEPS`, `src/ui/presenter.js`, `styles/app.css`, `src/ui/decks/gastric-varices.js`): rec 1 (each step has a short line, `.pz-proc-line`, hidden on the stacked phone card); rec 2 (the words are now "Varix found" and "No flow"); rec 3 (the slide's tool is `{ kind: 'doppler', vessel: 'C2', probe: 'scope' }`).
+- Not verified: recs 4 to 10 (the Doppler colour in the fan, step 5 as the Doppler check with the scope parked, a shorter way in, the callout targets, glue setting on the coil first, fading the shaft, the transcrural approach). Commit d179d9a reworked the scope card, and 59aef58 fades the esophageal varices while the scope works there; neither is one of these recs.
+
+
 Docs only. Nothing was built and no app code changed. Mohammad picks what gets built.
 
 Mohammad asked for a first-principles look at how the steps of the EUS-guided coils and glue are displayed (Gastric varices,

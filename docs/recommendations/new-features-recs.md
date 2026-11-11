@@ -1,5 +1,11 @@
 # New features to add: recommendations
 
+**Status (11 Nov 2026).** A dated list (8 Nov 2026). One item is marked BUILT in the text (P1, plug a spontaneous shunt); the rest is open or not verified.
+- Files named in the build order exist: `src/ui/visual-plane.js` and `src/ui/chart-looks/plane.js` (C1), `src/ui/hvpg-proc.js` and `src/ui/tool-hvpg.js` (I2). Whether they do what C1 and I2 describe is not verified.
+- Not found in the code: K2 (an "After the transplant" deck: none in `src/ui/decks/`), the case runner (L1) and the first-pass lens (A1).
+- Not verified: I1, I3, I4, C2, P2 to P5, K1, K3, S1 to S3, A2, L2. The deck count (31) and slide numbers have since moved (the stiffness deck lost its summary slide in 624f82d). The Settings and renderer changes of 10 to 11 Nov do not affect any item here.
+
+
 8 Nov 2026. Recommendations only; no app code was changed. I read `claude/settings-topbar-icon-flvft1` at 2bde649: the engine
 (`src/engine/`), all 31 decks and the slide schema (`src/ui/decks.js`), the 19 data-card tool kinds, the 6 procedure plays
 (`src/ui/proc-anim.js`), the Tests and Treat cards, the free sim's vessel actions, and the two guideline PDFs in `guidelines/`

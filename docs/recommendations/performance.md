@@ -1,5 +1,11 @@
 # Performance recommendations
 
+**Status (11 Nov 2026).** A dated review (8 Nov 2026, line numbers of 2bde649). Much of Part A (the figure's present) is stale: the vessel pass is now the Tube (`docs/tube-renderer.md`), the Mesh path it measured is deleted, and `veins-gl.js` has changed.
+- Built, from code evidence: A1 switch 2, the one present a frame (`PRES_FOLD` in `veins-gl.js` is now `true`; at 2bde649 it was `false`); `invalidateFramebuffer` calls exist in `veins-gl.js`, `tube-pass.js`, `organs-gl.js`, `paint-gl.js` and `keep-screen.js` (A2 partly; which passes are covered is not verified); `trimDeep` exists in `organ-paint.js` (D2 partly, not verified).
+- Still open, from code evidence: A1 switch 1 (`preserveDrawingBuffer: KEEP_CANVAS` is still in `veins-gl.js`).
+- Not verified: every other item. Items about the Mesh's passes and draw buffers (A2 to A5 as they apply to the Mesh) are superseded by the Tube pass, which sets its draw buffers once. `docs/PERFORMANCE.md` is the current performance document.
+
+
 Thread "Recommend performance improvements", 8 Nov 2026. Read from `claude/settings-topbar-icon-flvft1` at `2bde649`.
 
 These are recommendations only. No app code was changed. The owner's rules hold throughout: every fix stays on the GPU (no canvas 2D,

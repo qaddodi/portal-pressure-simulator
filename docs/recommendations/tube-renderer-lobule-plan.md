@@ -1,5 +1,12 @@
 # The lobule on the Tube renderer: build plan (10 Nov 2026)
 
+**Status (11 Nov 2026).** Built; `docs/tube-renderer.md` ("The lobule on the Tube", "Stage 2") is the as-built reference and this file is the 10 Nov plan, kept as history.
+- Built (checked in `src/ui/tube-pass.js` `LV`, `tube-geo.js`, `veins-gl.js` `startLobuleTube`, `tests/tube-lobule*.test.js`, `scripts/lobule-joins.mjs`): the `z` rule (`zK` 1, `hK` 0.008, `hRef` 22), the patch's fragment depth, the lobule's own Tube programs, the redraw of the pulse's cells through `meshCellsPass`. Stage 2 later gave the lobule webs in place of its patch groups (the "next build" this plan names).
+- Superseded: "only when Tube is the choice", "Mesh chosen leaves the lobule classic" and "With Tube chosen" in the acceptance list. The lobule makes its Tube programs at its creation, there is no choice, and the classic pass draws it only while those programs are not finished or on software GL. The "Honest expectation on speed" section is the 10 Nov estimate for patches; webs and the lumen pass changed it (not re-timed on a device; not verified).
+- Open: the device acceptance list below (Mohammad's Mac and iPhone) is the owner's; nothing in the code records it as passed (not verified).
+
+
+
 Plan only. Read at `d78a694` on `claude/settings-topbar-icon-flvft1`. Mohammad's brief (10 Nov): "plan the lobule so it's perfect,
 let's build it with the tube renderer". Briefs: `/mnt/project-files/tube-renderer/briefs/L-*.md`. Each thread builds its brief exactly
 as written and asks before deviating. This plan extends `tube-renderer-plan.md`; where the two differ on the points below, this one wins.

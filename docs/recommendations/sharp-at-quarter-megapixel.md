@@ -1,5 +1,10 @@
 # A sharp figure from a 0.25 MP picture (recommendations, 11 Nov 2026)
 
+> **Status (11 Nov 2026).** The first of two lists on the 0.25 MP question; the second, `quarter-mp-big-screen-tricks.md`, is the one being
+> built (its recs 1, 2 and 4 are in `eccbe15`). Items here that the second list does not repeat (3 blood layer at an in-between size, 6
+> arrowheads and 7 paper grain at screen resolution, 9 sharp when still) are not built. Item 5 (Mesh) is void: the Mesh renderer is gone
+> and Tube is the only vessel renderer.
+
 Mohammad's ask (11 Nov): "making even 0.25MP view look good ... there may be a way that's cheap and makes even 0.25MP look good big screen".
 
 Nothing is built. This file is a numbered list to pick from. Everything in it stays on the GPU.
