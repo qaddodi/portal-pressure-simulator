@@ -145,9 +145,9 @@ export const STIFFNESS = {
     {
       id: 'relation', preset: 'schisto', cam: 'liver', glow: ['liver', 'spleen'],
       // (The relation chart before the summary: the model's cirrhosis from none to severe, each point settled for a year, read
-      // stiffness against the HVPG and the platelets. Cases 1 and 2 and the heart failure patient are points; case 5 is the ring.)
+      // stiffness against the HVPG and the platelets. Case 5 is the ring; no case dots (Mohammad, 11 Nov: "remove the cases").)
       tool: { kind: 'curve', x: 'lsm', patient: { preset: 'healthy' }, param: 'cirrhosis', from: 0, to: 1, step: 0.1, days: 365, lines: ['hvpg', 'plt'],
-        xCuts: [15, 25], dots: [{ slide: 'a1', name: 'Case 1' }, { slide: 'a2', name: 'Case 2' }, { slide: 'heart', name: 'Heart failure' }] },
+        xCuts: [15, 25] },
       kicker: 'Summary', title: 'Stiffness follows the HVPG only in cirrhosis',
       line: 'Along the line, stiffness climbs with the HVPG as the platelets fall. Case 5 sits far off it: {lsm} with platelets of {plt}.',
       notes: 'The lines are the model\'s cirrhosis from none to severe, each point settled for a year: stiffness on the x axis, the HVPG and the platelets against it. In cirrhosis the three move together, which is why stiffness and platelets can stand in for the catheter at a first visit. The HVPG climbs faster above about 25 kPa, where stiffness has stopped tracking the gradient closely (AASLD 2024: above an HVPG of 10 mmHg, spleen stiffness follows it better than liver stiffness). Cases 1 and 2 sit on the line. Case 5, the ring, has a soft liver with low platelets and large varices: the resistance lies before the sinusoids, so neither line describes him (EASL 2025: stiffness is normal or only slightly raised in PSVD and chronic portal vein thrombosis). The heart failure patient has a stiff liver with a normal HVPG, because congestion stiffens it. (Baveno VIII 1.6, 1.15, 1.16; AASLD 2024 statement 7.) One model patient per point; real patients vary far more.',
