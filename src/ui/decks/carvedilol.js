@@ -55,10 +55,10 @@ export const CARVEDILOL = {
       ask: ['Her stiffness was 12 kPa two years ago and is now 26 kPa. What changed?', 'CSPH is now ruled in (LSM ≥25 kPa in non-obese MASLD), so carvedilol starts.'],
     },
     {
-      id: 'start', params: CARV, cath: 'result', cam: 'liver', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['map'], key: ['hvpgFall'], delta: 'rise', hvpgResp: 'rise',
+      id: 'start', params: CARV, cath: 'result', cam: 'liver', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['map'], key: ['hvpgFall'], delta: 'rise', hvpgResp: 'rise', response: true,
       kicker: 'Starting', site: 'sin', title: 'Carvedilol starts at CSPH, before anything has gone wrong',
       line: 'Carvedilol lowers her HVPG from {hvpg@rise} to {hvpg}. Baveno VIII recommends it at CSPH to prevent decompensation and to improve survival.',
-      notes: 'Source: Baveno VIII 3.15, Table 3; AASLD 2024. Carvedilol is the preferred non-selective beta-blocker. AASLD 2024 gives 6.25 to 12.5 mg a day, started low and raised if the pressure allows. It lowers the portal inflow and relaxes the resistance inside the liver, so it lowers the HVPG more than propranolol. Here the HVPG is measured to show the fall; in practice carvedilol starts on the stiffness result without a catheter. Baveno VIII Table 3 counts a fall of 10% or more as a response before any bleed.',
+      notes: 'Source: Baveno VIII 3.15, Table 3; AASLD 2024. Carvedilol is the preferred non-selective beta-blocker. AASLD 2024 gives 6.25 to 12.5 mg a day, started low and raised if the pressure allows. It lowers the portal inflow and relaxes the resistance inside the liver, so it lowers the HVPG more than propranolol. Here the HVPG is measured to show the fall; in practice carvedilol starts on the stiffness result without a catheter. Baveno VIII Table 3 counts a fall of 10% or more as a response before any bleed. The three buttons set how strongly her pressure answers the drug: with a non-responder the HVPG falls about 7%, with a usual responder about 19% and with a strong responder about 27% (model values on a decompensated patient).',
       ask: ['When does Baveno VIII start carvedilol in compensated cirrhosis?', 'When CSPH is present, to prevent decompensation and improve survival.'],
     },
     {
@@ -77,6 +77,14 @@ export const CARVEDILOL = {
       line: 'Four years on she has {asc} of ascites and varices of {varix}. Baveno VIII keeps carvedilol to prevent a first bleed and to lower the risk of ascites complications.',
       notes: 'Source: Baveno VIII 4.4; AASLD 2024. In patients with ascites and varices carvedilol is recommended to prevent a first bleed and to lower the risk of ascites-related complications, and it is preferred over the other non-selective beta-blockers. AASLD 2024 adds that these drugs are safe and probably helpful in ascites, but a systolic pressure under 90 mmHg may take away the survival benefit, so the pressure is watched at every visit. Ascites is her first decompensation, and from here she should also be considered for a transplant (Baveno VIII 4.3).',
       ask: ['Does ascites stop carvedilol?', 'No. With ascites and varices it is still recommended, and the dose is cut back only for a low blood pressure or HRS-AKI.'],
+    },
+    {
+      id: 'mapbleed', action: { kind: 'hemorrhage', mL: 1300 }, cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',
+      tool: { kind: 'vitals', show: ['map', 'hr'], hold: true },
+      kicker: 'Low pressure', site: 'sin', title: 'A large bleed takes the MAP below the hold line',
+      line: 'After 1.3 L of blood loss her MAP is {map} and her heart rate rises. The rail marks {<65 mmHg}, where Baveno VIII 4.6 cuts back carvedilol.',
+      notes: 'Source: Baveno VIII 4.6. The rail shows the mean arterial pressure against 65 mmHg. The model has no systolic pressure, so the other half of the rule (systolic <90 mmHg) and HRS-AKI come on the next slide. Carvedilol is still on in the model here. Infection and over-diuresis cross the same line.',
+      ask: ['Where is the line for holding carvedilol on the MAP?', '65 mmHg (Baveno VIII 4.6).'],
     },
     {
       id: 'low', action: { kind: 'hemorrhage', mL: 1300 }, cam: 'fit', data: 'tiles', tiles: ['map', 'rpp'], key: ['map'], delta: 'ascites',

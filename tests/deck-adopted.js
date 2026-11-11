@@ -48,7 +48,7 @@ export const ADOPTED = {
   'kidney/path-carv': ['kind:path', 'tool.patient'],
   'carvedilol/first': ['kind:path'],
   'carvedilol/rise': ['kind:path'],
-  'carvedilol/start': ['hvpgResp'],
+  'carvedilol/start': ['hvpgResp','response'], 'carvedilol/mapbleed': ['tool.hold'],
   'carvedilol/scope': ['kind:criteria'],
   'carvedilol/low': ['kind:path', 'tool.patient'],
   'carvedilol/restart': ['kind:path', 'tool.patient'],
