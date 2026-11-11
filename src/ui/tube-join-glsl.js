@@ -40,6 +40,7 @@ export const JOIN_TONE_MIN = 16;
 export const JOIN_MOUTH_R = 1.2;            // radii (at least JOIN_MOUTH_MIN world units) over which a cut branch's tones ease in from the trunk's wall: short, as a long ease shows as a flat block with a straight seam across the mouth (10 Nov)
 export const JOIN_MOUTH_MIN = 3;
 export const JOIN_CUT = 0.25;                // device pixels: how far past the bisector plane a continuation still draws (so the two leave no hairline)
+export const JOIN_CUT_IN = 4;                // device pixels: how far inside its trunk's wall a same-tier branch still draws. The cut follows the trunk's samples in two straight arms, the wall is curved, so a cut at the wall itself leaves a one-pixel crack where the arms run short of it, and the trunk's dark outline shows through it as a hairline across the mouth (the TIPS ends, 11 Nov 2026); the branch's pixels there are the trunk's own colour (wc)
 export const JOIN_NONE = -1;
 export const JOIN_MODE = { CUT: 0, SOFT: 1, PLANE: 2 };   // (SOFT: a cut at the wall one device pixel soft: a branch in a higher tier than its trunk, drawn over it, 10 Nov)
 
@@ -246,7 +247,7 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
   }
   // (K.y 1: a branch in a higher tier than its trunk is cut at the wall as any other, but its edge is one device pixel soft, and the trunk shows through that pixel: it lies in its own tier's pass.)
   bool soft = K.y > 0.5;
-  if (gap < (soft ? -px : -0.5 * px) && !beyond) { j.drop = true; return j; }
+  if (gap < (soft ? -px : -${f(JOIN_CUT_IN)} * px) && !beyond) { j.drop = true; return j; }
   // (A trunk much narrower than the branch — a small tributary the join happens to mark as its trunk — does not recolour or flatten the wide branch: the share rk, and the reach by the narrower of the two.)
   float rk = smoothstep(0.3, 0.9, K.x / max(R, 1e-3)), rn = min(R, K.x);
   j.wc = (1.0 - smoothstep(0.0, max(${f(JOIN_COLOUR_R)} * rn, ${f(JOIN_COLOUR_MIN / 2)}), gap)) * rk;
@@ -381,7 +382,7 @@ export function joinEndJS(o) {
   const Q = (atStart ? o.Q0 : o.Q1) ?? [(J[0] + J[2]) / 2, (J[1] + J[3]) / 2];   // (the knee; without one the arms are one straight chord)
   const gap = Math.min(segDist(p, [J[0], J[1]], Q), segDist(p, Q, [J[2], J[3]])) - K[0];
   const soft = K[1] > 0.5;
-  if (gap < (soft ? -px : -0.5 * px) && !beyond) { j.drop = true; return j; }
+  if (gap < (soft ? -px : -JOIN_CUT_IN * px) && !beyond) { j.drop = true; return j; }
   const rk = smooth(0.3, 0.9, K[0] / Math.max(R, 1e-3)), rn = Math.min(R, K[0]);
   j.wc = (1 - smooth(0, Math.max(JOIN_COLOUR_R * rn, JOIN_COLOUR_MIN / 2), gap)) * rk;
   j.tk = mix(1, smooth(0, Math.max(JOIN_MOUTH_R * rn, JOIN_MOUTH_MIN), gap), rk);

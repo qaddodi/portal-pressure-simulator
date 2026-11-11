@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, endTrunk, endContinues, endKind,
+  END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_CUT_IN, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, endTrunk, endContinues, endKind,
   tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS, joinToneJS, joinPackJS, joinRampGLSL, END_THRU_START, END_THRU_END,
 } from '../src/ui/tube-join-glsl.js';
 import { lintGLSL } from './glsl-lint.js';
@@ -99,7 +99,7 @@ test('an open end in the fragment: a cut drops what lies in the trunk\'s lumen; 
   const band = at(16, [0, 6 - 0.5 * PX]);
   assert.ok(band.fl > 0 && band.fl < 1 && band.fo === band.fl, `half a pixel in: partly there (${band.fl})`);
   assert.equal(at(16, [0, 6 - 1.01 * PX]).drop, true, 'a pixel in: the trunk\'s');
-  assert.equal(at(7, [0, 6 - 0.4 * PX]).drop, false); assert.equal(at(7, [0, 6 - 0.6 * PX]).drop, true, 'a same-tier cut keeps its hard edge');
+  assert.equal(at(7, [0, 6 - (JOIN_CUT_IN - 0.1) * PX]).drop, false, 'a same-tier cut reaches JOIN_CUT_IN pixels inside the wall (the arms run short of a curved wall: no crack)'); assert.equal(at(7, [0, 6 - (JOIN_CUT_IN + 0.1) * PX]).drop, true, 'and keeps its hard edge there');
   let prev = 2;
   for (let y = 7; y >= 6 - PX; y -= 0.05) { const j = at(16, [0, y]); assert.ok(j.fl <= prev + 1e-12, `fl falls going in (${y})`); prev = j.fl; }
   // the end window: only a pixel within JOIN_WIN samples of that end looks at it
@@ -166,7 +166,7 @@ ${tubeJoinVS(64)}`;
   assert.match(fs, new RegExp(`bool atStart = vI < ${JOIN_WIN}\\.0;`));
   assert.match(fs, new RegExp(`if \\(!atStart && !\\(vI > ${63 - JOIN_WIN}\\.0\\)\\) return j;`));
   assert.ok(fs.includes(`if (s > ${JOIN_CUT} * px) {`));
-  assert.ok(fs.includes('if (gap < (soft ? -px : -0.5 * px) && !beyond) { j.drop = true; return j; }'));
+  assert.ok(fs.includes(`if (gap < (soft ? -px : -${JOIN_CUT_IN}.0 * px) && !beyond) { j.drop = true; return j; }`));
   assert.ok(fs.includes('if (soft && !beyond) { j.fl = smoothstep(-px, 0.0, gap); j.fo = j.fl; }'));
   assert.ok(!/texelFetch|texture\(|vesAttrs|for \(/.test(fs), 'the fragment part reads nothing and loops over nothing');
   assert.match(vs, /int k = int\(-e \+ 0\.5\) - 2, pr = k \/ 64, ps = k % 64;/, 'a continuation: -(2 + row * 64 + sample)');
@@ -226,7 +226,7 @@ test('a branch on the trunk\'s own end: the chord stops at the trunk\'s end (the
   const at = (p) => joinEndJS({ vI: 2, J0: end.J, J1: [0, 0, 0, 0], K: [...end.K, -1, -1], C0: end.C, C1: [0, 0, 0], p, R, px: PX });
   assert.equal(at([R + 2, 0]).drop, false, 'a pixel 2 beyond the trunk\'s cap is the branch\'s');
   assert.equal(at([R + 6, 3]).drop, false, 'and one in the crotch');
-  assert.equal(at([R - 2, 0]).drop, true, 'inside the cap it is the trunk\'s');
+  assert.equal(at([R - 2 - JOIN_CUT_IN * PX, 0]).drop, true, 'inside the cap it is the trunk\'s');
   assert.equal(at([-10, 0]).drop, true, 'and inside the trunk');
   const near = joinOneJS({ e: endTrunk(0, 61), atStart: true, own: { pts: own, tier: 7 }, rows: rw });
   assert.ok(near.J[2] <= 100 / 63 * 2 + 1e-9, `two samples from the end it reaches only to it: ${near.J[2]}`);

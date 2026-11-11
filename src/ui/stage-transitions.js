@@ -256,21 +256,23 @@ export function createTransitions(st, live) {
   function meshR(id, p) {
     const x = E[id], L = geo[id].len;
     const v = live.isImaging() ? 0 : p.stenosis[id] || 0, wf = v > 0.01 ? waist(id, v, L, x.width, p) : null;
+    if (id === 'TIPS' && x.glR?.length > 1) {   // (The TIPS stent is as wide as the tube it sits in, which narrows along its run, and stays inside its wall: its ends fit the veins they enter, not a stub wider than the tube, 11 Nov 2026)
+      const g = x.glR, n = g.length - 1;
+      return (d) => { const t = Math.min(1, Math.max(0, d / (L || 1))) * n, i = Math.min(Math.floor(t), n - 1); return Math.max(1.2, g[i] + (g[i + 1] - g[i]) * (t - i) - 0.25); };
+    }
     return (d) => (x.width / 2) * (wf ? wf(d / (L || 1)) : 1) + (x.wallPx || 1) + 1.2;
   }
   // ends: false leaves out the far end's marker (a stent unrolled by its front, venousDraw, carries that marker on the front).
   // bare > 0: the covered TIPS stent (stent-mesh.js): that much bare from d0, a PTFE cover over the rest, a ring where they meet. Its struts and
   // rails take a floor of one device pixel (.stent-px: a non-scaling stroke), so the lattice does not thin out of sight when the figure is small.
-  // cap > 0: both ends are rounded off over that length (the half-width follows a quarter circle down to nothing), so a stent that meets a vein ends in a soft tip inside the
-  // lumen, not a square edge across the mouth (the TIPS, 11 Nov 2026).
-  function meshPaths(id, p, d0, d1, k = 1, ends = true, bare = 0, cap = 0) {
+  // (A covered stent ends square, with a ring across each end, as a real one does: stent-mesh.js. The rounded tips of 11 Nov read as stubs.)
+  function meshPaths(id, p, d0, d1, k = 1, ends = true, bare = 0) {
     const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0);
     const R = meshR(id, p);
-    const round = (u) => (u >= 1 ? 1 : u <= 0 ? 0 : Math.sqrt(1 - (1 - u) * (1 - u)));
-    const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d) * (cap > 0 ? Math.min(round(a / cap), round((A - a) / cap)) : 1); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
+    const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
     const m = stentMeshD(f, R(d0), A, k, ends, bare), px = bare > 0 ? ' stent-px' : '';
     // (Cover first, under the struts; the ring last. One site makes every piece.)
-    const parts = [['stent-cover', m.cover], ['stent-strut' + px, m.struts], ['stent-strut stent-strut-cov' + px, m.covStruts], ['stent-rail' + px, m.rails], ['stent-rail-glint', m.rails], ['stent-mark', m.marks], ['stent-ring', m.ring]];
+    const parts = [['stent-cover', m.cover], ['stent-strut' + px, m.struts], ['stent-strut stent-strut-cov' + px, m.covStruts], ['stent-rail' + px, m.rails], ['stent-rail-glint', m.rails], ['stent-mark', m.marks], ['stent-ring', m.ring], ['stent-ring', m.crowns]];
     const out = [];
     for (const [cls, d] of parts) if (d) out.push(s('path', { class: cls, d }));
     return out;

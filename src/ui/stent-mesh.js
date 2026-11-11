@@ -16,7 +16,7 @@ export const bareOf = (drawn, lenCm, max = 0.4) => drawn * Math.min(max, BARE_CM
  * f(a, side): the mesh's point at arc length a from its start, on side 1 or -1 of the vessel ([x, y]). R0: the mesh's half-width at its
  * start (the lattice's cell). A: its whole length. k: how much is drawn. ends: the marker at the far end too. bare: the uncovered stretch
  * from the start (0: a plain mesh, nothing covered).
- * Returns { struts (the bare stretch's, or all of them), covStruts (the covered stretch's, '' for a plain mesh), rails, cover, marks, ring }.
+ * Returns { struts (the bare stretch's, or all of them), covStruts (the covered stretch's, '' for a plain mesh), rails, cover, marks, ring, crowns (a covered stent's ring across each end) }.
  */
 export function stentMeshD(f, R0, A, k = 1, ends = true, bare = 0) {
   const e = A * k, cell = Math.max(6, R0 * 1.7), three = bare > 0 && bare < A;
@@ -54,7 +54,9 @@ export function stentMeshD(f, R0, A, k = 1, ends = true, bare = 0) {
     cover = 'M' + [...edge(1), ...edge(-1).reverse()].map(P).join(' L') + ' Z';
   }
   if (three && e >= bare) ring = `M${P(f(bare, 1))} L${P(f(bare, -1))}`;
-  // (The covered TIPS stent has no bar across its mouth: a branch that runs into a vein shows no square end, 11 Nov 2026; the ring where the cover begins is its one band.)
+  // (The covered TIPS stent ends square in each vein, a ring across each end, as a real stent's crown: 11 Nov 2026, "the ends should look like stent, not weird stubs". The front's own marker stays off for it.)
+  let crowns = '';
+  if (three) for (const a of k >= 1 ? [0, e] : [0]) crowns += `M${P(f(a, 1))} L${P(f(a, -1))} `;
   if (!three) for (const a of k > 0.02 && ends ? [0, e] : [0]) marks += `M${P(f(a, 1))} L${P(f(a, -1))} `;
-  return { struts: S[0], covStruts: S[1], rails, cover, marks, ring };
+  return { struts: S[0], covStruts: S[1], rails, cover, marks, ring, crowns };
 }

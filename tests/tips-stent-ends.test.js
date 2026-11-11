@@ -1,6 +1,6 @@
 // The covered TIPS stent runs the whole tract, vein to vein (Mohammad, 11 Nov 2026, 21:19: "it has to extend all the way including the stent"): on the real stage with the stent whole, its two
-// rounded tips lie at the two ends of the tract, which are on the centre lines of the right portal vein and the right hepatic vein, so the stent stands inside both veins; it narrows to a point at
-// each end (not the width of a stent: no square end, no bar across a mouth), and it is one stent from end to end, nothing of it floating off the tract.
+// square ends (a ring across each, as a stent's crown: "the ends should look like stent, not weird stubs", 22:10) lie at the two ends of the tract, which are on the centre lines of the right portal
+// vein and the right hepatic vein, so the stent stands inside both veins; it is as wide as the tube it sits in (the hepatic end no wider than the right hepatic vein), and it is one stent from end to end.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { bootGL, pump } from './stage-gl-boot.js';
@@ -17,7 +17,7 @@ function dist(segs, x, y) {   // the nearest of the segments [x0, y0, x1, y1, hw
   return best;
 }
 
-test('with the TIPS whole, its stent runs the whole tract and ends in a tip on the centre line of each vein', async () => {
+test('with the TIPS whole, its stent runs the whole tract and ends square, inside each vein, as wide as the tube', async () => {
   const { st } = await bootGL({ w: 1200, h: 800, labels: 'none' });
   const { store } = await import('../src/ui/store.js');
   const { createCore } = await import('../src/worker-core.js');
@@ -53,12 +53,14 @@ test('with the TIPS whole, its stent runs the whole tract and ends in a tip on t
     let tip = null;
     for (const v of V) if (!tip || Math.hypot(v[0] - end[0], v[1] - end[1]) < Math.hypot(tip[0] - end[0], tip[1] - end[1])) tip = v;
     const gap = Math.hypot(tip[0] - end[0], tip[1] - end[1]);
-    assert.ok(gap <= 3, `the ${name} tip stands ${gap.toFixed(1)} short of the tract's end: the stent does not reach the vein`);
+    assert.ok(gap <= 7, `the ${name} tip stands ${gap.toFixed(1)} short of the tract's end: the stent does not reach the vein`);
     const [d, hw] = nearest(list, tip[0], tip[1]);
     assert.ok(d <= hw, `the ${name} tip is ${d.toFixed(1)} off the vein's centre line, outside its half width ${hw.toFixed(1)}: the stent is not inside the vein`);
-    const near = V.filter((v) => Math.hypot(v[0] - tip[0], v[1] - tip[1]) < 3);
-    assert.ok(near.length >= 2, 'the tip is a point');
-    const wide = V.filter((v) => Math.hypot(v[0] - tip[0], v[1] - tip[1]) < 1.5).map((v) => Math.hypot(v[0] - tip[0], v[1] - tip[1]));
-    assert.ok(Math.max(...wide, 0) < 1.5, 'the stent is a point there, not the width of a stent');
+    // the square end: every point of the stent nearest the end (the ring's two corners, a stent's width apart) lies inside the vein's lumen
+    const near = V.filter((v) => Math.hypot(v[0] - end[0], v[1] - end[1]) < gap + 0.6);
+    assert.ok(near.length >= 2, 'the end is drawn');
+    for (const v of near) { const [dv, hv] = nearest(list, v[0], v[1]); assert.ok(dv <= hv + 0.3, `a point of the ${name} end is ${dv.toFixed(1)} off the vein's centre line, outside its half width ${hv.toFixed(1)}: a stub wider than the vein`); }
+    const wide = Math.max(...near.map((a) => Math.max(...near.map((b) => Math.hypot(a[0] - b[0], a[1] - b[1])))));
+    assert.ok(wide > 1, `the ${name} end is a point (${wide.toFixed(1)} across), not the width of a stent`);
   }
 });

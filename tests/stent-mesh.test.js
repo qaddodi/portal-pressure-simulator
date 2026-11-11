@@ -64,3 +64,10 @@ test('the bare stretch is 2 cm of the shunt, never more than two fifths of it', 
   assert.equal(bareOf(100, 4), 40, 'a short shunt keeps some cover');
   assert.equal(bareOf(100, 0), 25, 'an unknown length is the usual 8 cm');
 });
+
+test('a covered stent ends square: a ring across each end once it is whole, only the start while it unrolls (the far end carries the front\'s marker)', () => {
+  const m = stentMeshD(f, 4, A, 1, true, bare);
+  assert.equal(m.crowns, `M0.0 4.0 L0.0 -4.0 M${A.toFixed(1)} 4.0 L${A.toFixed(1)} -4.0 `);
+  assert.equal(stentMeshD(f, 4, A, 0.6, true, bare).crowns, 'M0.0 4.0 L0.0 -4.0 ');
+  assert.equal(stentMeshD(f, 4, A, 1, true).crowns, '', 'a plain mesh has none');
+});
