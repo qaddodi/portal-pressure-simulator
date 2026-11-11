@@ -41,7 +41,7 @@ const state = {
   hiddenReadouts: null,       // Set of hidden metrics
   hiddenEvents: null,         // Set of event ids kept out of the story (model-only knowledge)
   hvpgMeasured: false,        // Explore: the HVPG catheter procedure has run for this patient (the live HVPG shows)
-  showHvpg: (() => { try { return localStorage.getItem('pps.showHvpg') !== '0'; } catch { return true; } })(),   // Settings: show the HVPG without measuring it (on unless turned off)
+  showHvpg: (() => { try { localStorage.removeItem('pps.showHvpg'); } catch { /* storage unavailable */ } return true; })(),   // The HVPG always shows without measuring it (Settings switch removed 11 Nov 2026; an old saved choice is dropped)
   presenting: false,          // a Presenter script or the tour is running
   dopGate: 'mid',             // where along a stent the Doppler samples: proximal | mid | distal | site (its narrowing)
 };

@@ -275,7 +275,7 @@ export default async function register({ check, device, leaderFrames, open, pick
     // Pulsatile is on by default, so compare with its value before the instrument opens, not with false.
     const pulsatileBefore = await page.evaluate(() => window.pps.store.get().params.pulsatile);
     await tapTool(page, '#tabInstruments');
-    // Settings › Always show HVPG is on by default; turn it off to check the unmeasured state.
+    // The HVPG always shows now; set the store flag off to check the unmeasured state.
     await page.evaluate(() => window.pps.store.set({ showHvpg: false }));
     await page.evaluate(() => window.pps.dock.show('scope'));
     if (await page.evaluate(() => window.pps.store.get().params.pulsatile) !== pulsatileBefore) throw new Error('opening an instrument changed the patient parameters');

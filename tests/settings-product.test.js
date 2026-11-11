@@ -13,8 +13,12 @@ const main = read('src/ui/main.js');
 const html = read('index.html');
 const settings = main.slice(main.indexOf('function openSettings('), main.indexOf('function presenterSettings('));
 
+test('Settings has no Always show HVPG switch (the HVPG always shows)', () => {
+  assert.ok(!main.includes("'Always show HVPG'"));
+});
+
 test('R14 Settings keeps what a learner understands and none of the experiments', () => {
-  for (const t of ["'Appearance'", "'Text size on the figure'", "'Blur effect'", "'Always show HVPG'", "'Send feedback'", "'Advanced physiology'"]) assert.ok(settings.includes(t), `${t} stays`);
+  for (const t of ["'Appearance'", "'Text size on the figure'", "'Blur effect'", "'Send feedback'", "'Advanced physiology'"]) assert.ok(settings.includes(t), `${t} stays`);
   for (const t of ["'Figure resolution'", "'Auto’s lowest resolution'", "'Resolution while moving'", "'Glow resolution'", "'Figure size cap'", "'Adapt to frame rate'", "'Figure performance'",
     "'Motion at 60'", "'Callout glass kept'", "'Credit check in talks'", "'Sharper upscaling'", "'Lymph redrawn where it moves'", "'Lighter organ art'", "'Vessels lower while pinching'", "'Pinch frame reuse'"]) {
     assert.ok(!main.includes(t), `${t} is gone from the menu`);

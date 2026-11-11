@@ -4842,10 +4842,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .topbar .stage-bar.top { transition: opacity var(--d-small) var(--ease), transform var(--d-small) var(--ease), visibility var(--d-small); }   /* (visibility last, so the fade-out finishes before it flips) */
 .app.figure-focus .topbar.two-rows .stage-bar.top { opacity: 0; visibility: hidden; transform: translateY(-8px); pointer-events: none; transition: opacity var(--d-flip) var(--ease-in), transform var(--d-flip) var(--ease-in), visibility var(--d-flip); }   /* (a leave: the step below, on the leaving curve) */
 
-/* Turning "Always show HVPG" on or off: its readouts fade to the new state (opacity only). */
-body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev,
-body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: crossfade var(--d-surface) var(--ease) both; }
-@media (prefers-reduced-motion: reduce) { body.hvpg-swap .metric[data-id="hvpg"] > :not(.k), body.hvpg-swap .pt canvas, body.hvpg-swap .pt-hero .pt-v, body.hvpg-swap .pt-hero .pt-sev, body.hvpg-swap canvas[aria-label^="Pressure profile"] { animation: none; } }
 /* Phone: a slimmer card header. The title is centred on the row; the close button sits in the
    right corner with a 44px tap area inside the header row, clear of the tabs under it;
    a quiet status (e.g. "2 running") sits in the left corner. The Tests row never scrolls. */
