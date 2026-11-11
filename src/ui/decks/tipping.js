@@ -68,7 +68,7 @@ export const TIPPING = {
     {
       id: 'nocsph', cam: 'fit', data: 'tiles', tiles: ['hvpg', 'map'], key: ['hvpg'],
       tool: { kind: 'criteria', title: 'Infection and cirrhosis', short: 'Infection', ticks: false, lead: 'It depends on the portal pressure.', rule: 'Baveno VIII 3.10, 3.11',
-        rows: [['**With CSPH**: infection can precipitate decompensation or ACLF', 'hvpg', '>=', 10], '**Without CSPH**: the effect of infection on the course is unclear'],
+        rows: [{ text: '**With CSPH**: infection can precipitate decompensation or ACLF', key: 'hvpg', op: '>=', value: 10, cut: '≥10 mmHg' }, '**Without CSPH**: the effect of infection on the course is unclear'],
         verdict: 'He has CSPH, so an infection can tip him over.' },
       kicker: 'Infection', site: 'sin', title: 'Infection is known to tip patients with CSPH, and unclear without it',
       line: 'Baveno VIII ties infection to decompensation in patients with CSPH. In compensated cirrhosis without CSPH, its effect on the course is unclear.',
@@ -78,9 +78,9 @@ export const TIPPING = {
     {
       id: 'surgery', preset: 'csph', params: {}, cam: 'fit', data: 'tiles', tiles: ['hvpg', 'map'], key: ['hvpg'],
       whatIf: { label: 'Cirrhosis', param: 'cirrhosis', min: 0.5, max: 0.8, step: 0.05, ends: ['Milder', 'Worse'] },
-      tool: { kind: 'criteria', title: 'Before abdominal surgery', short: 'Before surgery', lead: 'The higher the HVPG, the higher the risk.', rule: 'Baveno VIII 3.13, 3.20',
-        rows: [['**HVPG** at non-hepatic abdominal surgery', 'hvpg', '>=', 16], '**Major surgery** can precipitate decompensation or ACLF'],
-        verdict: 'A preoperative TIPS may be considered before major surgery (weak).' },
+      tool: { kind: 'criteria', title: 'Before abdominal surgery', short: 'Before surgery', lead: 'The risk after surgery rises with the HVPG.', rule: 'Baveno VIII 3.13, 3.20',
+        rows: [{ text: '**HVPG**: higher short-term mortality after non-hepatic abdominal surgery', key: 'hvpg', op: '>=', value: 16, cut: '≥16 mmHg' }, '**Major surgery** can precipitate decompensation or ACLF'],
+        verdict: 'Before major surgery: a preoperative TIPS may be considered, to lower the risk of decompensation (weak).' },
       kicker: 'Surgery', site: 'sin', title: 'The higher the HVPG, the riskier the surgery',
       line: 'Surgery, especially major surgery, can tip him over. After abdominal surgery, short-term mortality is higher once the HVPG is {>=16 mmHg}.',
       notes: 'Baveno VIII 3.13: surgery, especially major surgery, can precipitate decompensation or ACLF in compensated cirrhosis with CSPH, and the risk rises with the severity of portal hypertension. Table 3 (a statement of an earlier report that remains valid): in candidates for non-hepatic abdominal surgery, an HVPG of 16 mmHg or more goes with a higher short-term mortality after the operation. Baveno VIII 3.20, part b: a preoperative TIPS may be considered before major surgery to reduce the risk of postoperative decompensation (low-quality evidence, weak recommendation). The slider makes the scar worse, so the HVPG climbs toward the 16 mmHg line; it also brings on some ascites, as it does in the patients.',

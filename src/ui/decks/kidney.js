@@ -101,7 +101,7 @@ export const KIDNEY = {
     {
       id: 'hold', action: BLEED, cam: 'fit', data: 'tiles', tiles: TILES, key: ['rpp'], delta: 'carv',
       tool: { kind: 'criteria', title: 'Carvedilol: cut back, then restart', short: 'Carvedilol', lead: 'Any one of these.', rule: 'Baveno VIII 4.6, 4.7',
-        rows: [['**Systolic pressure**', 'sbp', '<', 90], ['**Mean arterial pressure**', 'map', '<', 65], '**HRS-AKI**'],
+        rows: [{ text: '**Systolic pressure**', key: 'sbp', op: '<', value: 90, cut: '<90 mmHg' }, { text: '**Mean arterial pressure**', key: 'map', op: '<', value: 65, cut: '<65 mmHg' }, '**HRS-AKI**'],
         verdict: 'Restart: once the HRS-AKI has resolved or the pressure has recovered.' },
       kicker: 'Carvedilol', site: 'sin', title: 'Cut back carvedilol when the MAP is <65 mmHg',
       line: 'A large bleed takes his blood pressure to {map} and the kidney pressure to {rpp}. Carvedilol is cut back or stopped, then restarted once the pressure recovers.',
