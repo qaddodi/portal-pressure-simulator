@@ -440,7 +440,45 @@ const ownList = () => LISTS[ld++] || (LISTS[ld - 1] = []);   // alloc-rare: a li
 const DEFS_RE = /^(defs|clipPath|mask|pattern|linearGradient|radialGradient|symbol|marker|style|title|desc|metadata)$/, META_RE = /^(title|desc|metadata)$/;
 const CAPS = { butt: 0, round: 1, square: 2 };
 const CSS_OK = { cssTransforms: true };
-const MITER_RE = /[LlHhVvZz]/;
+// (A stroke the GPU lays with round joins only: a path whose straight pieces meet at a corner (two or more pieces in one subpath, one of them
+// straight, or a closed one) is refused unless the page joins it round too. A lone straight piece has no join at all: the TIPS stent's ring
+// across the mesh (M a L b) was refused for it, which kept the stents' overlay group and every one above it in the SVG, drawn over the cards'
+// glass (Mohammad, 11 Nov 2026: "Tips stent (or maybe others too) appears on top of cards and glass").)
+// (Read a character at a time, with nothing made: the path's commands and how many numbers each has had.)
+const ARGS = new Int8Array(128), MITER_RE = /[LlHhVvZz]/;   // (MITER_RE: the straight pieces and closes the refusal looked for before, kept as its first test so nothing it let through is refused now)
+for (const [k, n] of [['M', 2], ['L', 2], ['H', 1], ['V', 1], ['C', 6], ['S', 4], ['Q', 4], ['T', 2], ['A', 7]]) { ARGS[k.charCodeAt(0)] = n; ARGS[k.toLowerCase().charCodeAt(0)] = n; }
+/** Whether path data `d` has a join a miter could show at: a closed subpath, or a subpath of two or more pieces with a straight one among them. */
+export function miterJoins(d) {
+  if (!d) return false;
+  let n = 0, cmd = 0, nums = 0, pieces = 0, straight = false, line = false, inNum = false, dot = false, ex = false;
+  for (let i = 0; i < d.length; i++) {
+    const ch = d.charCodeAt(i) | 32;   // (lower case for the letters)
+    const c = d.charCodeAt(i);
+    if (c === 90 || c === 122) return true;   // (Z: closed)
+    if (c >= 65 && c <= 122 && ch !== 101) {   // (a command; e is a number's exponent)
+      inNum = false;
+      n = ARGS[c] || 0; cmd = ch;
+      if (ch === 109) { pieces = 0; straight = false; }
+      line = ch === 109 || ch === 108 || ch === 104 || ch === 118;   // (m, l, h, v)
+      nums = 0;
+      continue;
+    }
+    let starts = false;
+    if (c >= 48 && c <= 57) { if (!inNum) starts = true; }
+    else if (c === 46) { if (!inNum || dot || ex) { starts = true; } dot = true; }
+    else if (c === 45 || c === 43) { const p = d.charCodeAt(i - 1) | 32; if (!(inNum && p === 101)) starts = true; }
+    else if (ch === 101 && inNum) { ex = true; continue; }
+    else { inNum = false; continue; }
+    if (!starts) continue;
+    inNum = true; dot = c === 46; ex = false;
+    if (!n || ++nums % n) continue;
+    if (cmd === 109 && nums === 2) continue;   // (the move itself; pairs after it are straight pieces)
+    pieces++;
+    if (line) straight = true;
+    if (pieces > 1 && straight) return true;
+  }
+  return false;
+}
 function fail(c, r, el) { c.ok = false; lastFail = [r, el]; }   // alloc-rare: a refusal ends the reading and the caller gives that group up (the picture or the SVG stays); it is read again only when a change is seen, never in a frame
 /** The ops of a list, as the array they were last handed out in where they are the same ones. */
 function settle(prev, list) {
@@ -586,7 +624,7 @@ function walkEl(c, el, m, alpha, clip, vis, chain, out, a0) {
     dash = readDash(cs);
     if (!dash) { fail(c, 'dash', el); return; }
   }
-  if (c.strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && MITER_RE.test(el.getAttribute('d'))) { fail(c, 'miter join', el); return; }
+  if (c.strict && geom.d && cs.stroke && cs.stroke !== 'none' && (cs.strokeLinejoin || 'miter') !== 'round' && MITER_RE.test(el.getAttribute('d')) && miterJoins(el.getAttribute('d'))) { fail(c, 'miter join', el); return; }
   const eo = (cs.fillRule || 'nonzero') === 'evenodd';
   const fill = readPaintValue(doc, cs.fill), stroke = readPaintValue(doc, cs.stroke);
   if (fill === false || stroke === false) { fail(c, `paint ${fill === false ? cs.fill : cs.stroke}`, el); return; }   // alloc-rare: a refusal, as fail

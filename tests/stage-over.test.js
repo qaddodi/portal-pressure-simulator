@@ -144,6 +144,16 @@ test('a strict reading takes visibility as the page computes it, and refuses a m
     const r = tree((mk) => mk('g', {}, {}, [mk('path', { d: 'M0 0 L 5 5 L 10 0' }, { stroke: 'rgb(0, 0, 0)', fill: 'none', strokeLinejoin: 'round' })]));
     globalThis.getComputedStyle = r.cs;
     assert.equal(readGroup(r.root, { strict: true }).ops.length, 1, 'round joins: as the painter draws them');
+    // (A lone straight piece has no join: the TIPS stent's ring across its mesh, which kept the stents and every overlay above them in the SVG,
+    // drawn over the cards' glass. Mohammad, 11 Nov 2026: "Tips stent (or maybe others too) appears on top of cards and glass".)
+    const one = tree((mk) => mk('g', {}, {}, [mk('path', { d: 'M12.0 3.5 L14.2 9.8' }, { stroke: 'rgb(0, 0, 0)', fill: 'none', strokeLinecap: 'round' }), mk('path', { d: 'M0-5L0 5 M3 0 L4 4' }, { stroke: 'rgb(0, 0, 0)', fill: 'none' })]));
+    globalThis.getComputedStyle = one.cs;
+    assert.equal(readGroup(one.root, { strict: true })?.ops.length, 2, 'single straight pieces: no corner to mitre');
+    for (const d of ['M0 0 L1 1 Z', 'M0 0 L1 1 2 0', 'M0 0 H4 V4', 'M0 0 L1 1 C1 2 3 4 5 6']) {
+      const m = tree((mk) => mk('g', {}, {}, [mk('path', { d }, { stroke: 'rgb(0, 0, 0)', fill: 'none' })]));
+      globalThis.getComputedStyle = m.cs;
+      assert.equal(readGroup(m.root, { strict: true }), null, `${d}: a corner, stays in the SVG`);
+    }
     const c = tree((mk) => mk('g', {}, {}, [mk('path', { d: 'M0 0 C 1 1 2 2 3 3' }, { stroke: 'rgb(0, 0, 0)', fill: 'none' })]));
     globalThis.getComputedStyle = c.cs;
     assert.equal(readGroup(c.root, { strict: true }).ops.length, 1, 'a curve with no corner: its joins never show');
