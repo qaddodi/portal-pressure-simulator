@@ -106,6 +106,13 @@ export const DEMO_ALL = {
       [
         "scales"
       ]
+    ],
+    [
+      "Hands-on",
+      [
+        "r-resp",
+        "r-strain"
+      ]
     ]
   ],
   "slides": [
@@ -2094,6 +2101,36 @@ export const DEMO_ALL = {
       "kicker": "Catheter animation",
       "title": "BATO closes the varices from the portal side",
       "line": "Tap Play BATO. The catheter crosses the liver into the portal vein and runs along the splenic vein into the short gastric veins, where a balloon stops the inflow and sclerosant fills the varices."
+    },
+    {
+      "id": "r-resp",
+      "preset": "cirr-decomp",
+      "params": { "drugs": { "carvedilol": true } },
+      "cam": "fit",
+      "response": true,
+      "tool": { "kind": "vitals", "show": ["hr", "map", "co"], "hold": true },
+      "data": "tiles",
+      "tiles": ["hvpg", "map"],
+      "key": ["hvpg"],
+      "kicker": "Beta-blocker response",
+      "site": "sin",
+      "title": "Not every patient answers carvedilol the same way",
+      "line": "Pick how well his portal pressure answers it. The HVPG is {hvpg} on the usual response. The MAP stays clear of the {<65 mmHg} line.",
+      "notes": "response: true puts the three buttons on the card (nsbbGain 0, 1 and 1.6). The vitals tool's hold: true draws the MAP hold line. The model has no systolic pressure, so the systolic <90 half of Baveno VIII 4.6 is not drawn."
+    },
+    {
+      "id": "r-strain",
+      "preset": "cirr-decomp",
+      "cam": "portal",
+      "strain": true,
+      "data": "tiles",
+      "tiles": ["pv", "map"],
+      "key": ["pv"],
+      "kicker": "Straining",
+      "site": "sin",
+      "title": "Straining raises the pressure in the portal vein",
+      "line": "Hold the button to strain against a closed glottis. The portal vein pressure climbs to {pv} while you hold, and falls back when you let go.",
+      "notes": "strain: true puts a button on the card that works only while it is held. Pressed, the engine's Valsalva builds over 1.5 s to 30 mmHg; let go, it falls back over 1.5 s."
     }
   ]
 };

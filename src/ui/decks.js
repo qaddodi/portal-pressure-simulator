@@ -93,6 +93,12 @@
 //                            (a dotted path, e.g. 'tips.d', or an array of paths moved together, e.g. both lobes' fibrosis)
 //                            of the live model; the figure and the data card follow it. With tool in place of param ({ label, tool: 'air', min, max, step?, unit? })
 //                            it moves one option of the slide's instrument (the scope's air pressure) and the model is left alone
+//   response                 true (opt-in, tests/deck-adopted.js): three buttons on the teaching card (Non-responder, Usual responder, Strong responder) that change how strongly this
+//                            patient's portal pressure answers a beta-blocker on the live model (nsbbGain 0, 1, 1.6; nsbb-response.js). The drug comes from the slide's params; the
+//                            slide's own nsbbGain (none, 1 or 1.6) marks its button. Not with compare; pair it with hvpgResp to show the fall
+//   strain                   true or { label?: 'Hold to strain' } (opt-in, tests/deck-adopted.js): a button on the teaching card that works only while it is held: pressed, the
+//                            engine's Valsalva builds (30 mmHg of chest and belly pressure over 1.5 s); let go, it falls back over 1.5 s and the data card follows. It lets go on
+//                            leaving the slide, and by itself after 30 s. Never with a time-lapse, a procedure or a catheter on the slide
 //   procedure                'tips' | 'brto' | 'bato' | 'rex', or { kind, auto: true, target }: (target: { kind: 'brto', target: 'C6' } plugs the splenorenal shunt in place of the gastrorenal one, Baveno VIII 6.12; { kind: 'tips', target: 'C1a' } coils the coronary vein before the stent, Baveno VIII 5.41) a Play button on the teaching card plays that catheter
 //                            procedure (or, for 'rex', the Meso-Rex graft, which grows along its path) on the figure (proc-anim.js; auto: as the slide lands, going forward), and the live model takes
 //                            the change when it ends, as a compare button does. Opt-in: a built-in slide uses it only when
@@ -117,6 +123,7 @@
 // Every deck opens with an "Outline and objectives" slide built from its kicker groups and objectives
 // (withOverview below); a deck never writes that slide itself.
 
+import { responseButtons } from './nsbb-response.js';
 import { CIRCULATION } from './decks/circulation.js';
 import { SITES } from './decks/sites.js';
 import { HVPG } from './decks/hvpg.js';
@@ -186,7 +193,8 @@ export function withOverview(d) {
   const groups = [...new Set(d.slides.map((s) => s.kicker).filter((k) => k && k !== 'Summary'))];
   const secs = d.sections || (groups.length >= 3 && groups.length <= 5 ? groups.map((g) => [g, [g]]) : null);
   const outline = secs ? secs.map(([n]) => n) : d.slides.filter((s) => s.kicker !== 'Summary').map((s) => s.title);
-  const place = (s) => { const k = secs ? secs.findIndex(([, ks]) => ks.includes(s.kicker) || (s.id && ks.includes(s.id))) : -1; return k >= 0 ? { ...s, sec: [k + 1, secs.length] } : s; };
+  const withResponse = (s) => (s.response && !s.compare ? { ...s, compare: responseButtons(s) } : s);   // (the beta-blocker response control: nsbb-response.js)
+  const place = (s0) => { const s = withResponse(s0); const k = secs ? secs.findIndex(([, ks]) => ks.includes(s.kicker) || (s.id && ks.includes(s.id))) : -1; return k >= 0 ? { ...s, sec: [k + 1, secs.length] } : s; };
   const open = { id: 'outline', visual: 'outline', outline, objectives: d.objectives || [], kicker: d.title, title: 'Outline and objectives',
     notes: 'Set out the plan of the talk and what the audience should be able to do by the end.',
     ...(keep ? Object.fromEntries(MODEL.filter((k) => first[k] !== undefined).map((k) => [k, first[k]])) : {}) };

@@ -15,6 +15,7 @@ const EXT_OVERRIDE = { IVC_IS: 'abd', CAUD: 'none' };
 
 // The drugs that lower the portal pressure within seconds (holdVarices: they do not regrade a varix until it has remodelled).
 const VASO_DRUGS = ['propranolol', 'carvedilol', 'terlipressin', 'octreotide'];
+const STRAIN_RISE = 1.5, STRAIN_FALL = 1.5, STRAIN_MAX = 30;   // (seconds: a strain builds, lets go and is held at most this long)
 export const VARIX = { Tcrit: 150, r0Healthy: 1.0, rMax: 6.0, w0: 1.0, open: 7.0, k: 0.35, kGV: 0.4, openGV: 5.0, mature: 0.3, tauRegress: 60, tauCut: 90, tauFall: 45 };
 // (tauRegress: days for a held grade size to remodel to the varix now, holdVarices; tauCut: days for the esophageal varices to shrink once a Warren shunt has cut their feeder, varixTarget.)
 // (tauFall: the time constant, in days of the disease clock, of the FALL of a varix's resting size. The size the pressure sets still
@@ -432,10 +433,7 @@ export class Engine {
       iapResp = 1 * p.respDepth * s;
     }
     let vals = 0;
-    if (t < this.valsalva.until && !this.quiet) {
-      const u = Math.min(1, (t - this.valsalva.start) / 1.5);
-      vals = 30 * u;
-    }
+    if (t < this.valsalva.until && !this.quiet) vals = 30 * this.strainLevel(t);
     this.iap = iapFromAscites(this.slow.ascites) + PREGNANCY.iap * uterusLevel(p.gestation) + iapResp + vals;
     const iapDev = this.iap - 5;
     const pplDev = ppl + vals;
@@ -1229,6 +1227,25 @@ export class Engine {
   hemorrhageSilent(mL) { const l = this.blood.lost; this.hemorrhage(mL); this.blood.lost = l; this.blood.held = (this.blood.held || 0) + mL; }
 
   startValsalva(sec = 10) { this.valsalva = { start: this.t, until: this.t + sec }; }
+
+  /** How far the strain has built, 0 to 1 (1 is the Valsalva's 30 mmHg of chest and belly pressure): it rises over STRAIN_RISE s while held and, once
+   *  let go (a hold's `rel`) or timed out (`max`), falls back over STRAIN_FALL s. The timed 10 s strain (startValsalva) has neither and stops at its end. */
+  strainLevel(t = this.t) {
+    const v = this.valsalva;
+    if (!(t < v.until)) return 0;
+    const rel = v.rel >= 0 ? v.rel : v.max > 0 && t >= v.max ? v.max : -1;
+    const held = rel >= 0 ? rel : t;
+    return Math.min(1, Math.max(0, held - v.start) / STRAIN_RISE) * (rel >= 0 ? Math.max(0, 1 - (t - rel) / STRAIN_FALL) : 1);
+  }
+  /** A momentary strain (a deck slide's hold-to-strain button): on starts it and holds it, off lets go and it falls back over STRAIN_FALL s. A hold
+   *  lets go by itself after STRAIN_MAX s, as nobody holds a strain for long. Pressed again on the way down, it rises from where it is. */
+  holdStrain(on) {
+    const v = this.valsalva, t = this.t, held = v.max > 0 && t < v.max && !(v.rel >= 0);
+    if (on) {
+      if (held) return;
+      this.valsalva = { start: t - this.strainLevel(t) * STRAIN_RISE, until: t + STRAIN_MAX + STRAIN_FALL, max: t + STRAIN_MAX, rel: -1 };
+    } else if (held) this.valsalva = { start: v.start, until: t + STRAIN_FALL, max: v.max, rel: t };
+  }
 
   pushEvent(ev) {
     const e = { ...ev, t: this.t, day: this.day, key: `${ev.id}-${this.eventCount++}` };

@@ -151,6 +151,7 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | The scope ring on the varices (tap: the live scope view beside the figure) | automatic on varix slides; `scopeLens: true` / `false` | any slide that shows the varices, leaving the data card free |
 | A FibroScan reading | `tool: { kind: 'fibroscan' }` (`organ: 'spleen'` for the spleen probe) | liver or spleen stiffness |
 | A bedside monitor | `tool: { kind: 'vitals', show: ['hr', 'map', 'hb'] }` | the patient's heart rate, pressure, output or hemoglobin, with an EKG strip |
+| The MAP hold line | `tool: { kind: 'vitals', show: ['hr', 'map', 'co'], hold: true }` | a drug that is held when the pressure is low: a rail under the numbers with the line at 65 mmHg and a dot for the patient |
 | The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured, free pressure to wedge to result |
 | The same tracing following the catheter on the figure | `tool: { kind: 'hvpg', catheter: true }` with `cath: 'free'`, `'wedge'` or `'result'` | the catheter steps with the tracing beside them, one card kept across the steps |
 | HVPG and pressures across the talk | `tool: { kind: 'trace', range: 'talk' }` | a patient followed over months |
@@ -218,6 +219,9 @@ Full guide: section 7.3.
 - **Instrument buttons.** `{ label: 'No red signs', tool: { red: false } }` changes the options of the slide's scope (here, hides the red wale marks), the model untouched; the slide's own button, `{ label: 'Red signs', own: true }`, puts them back. The Doppler's aliasing slide does the same with `{ label: 'Baseline down', tool: { baseline: 0.85 } }`.
 - **Short labels.** Any button can carry `short`, a compact name (`'Prop.'`) that a phone uses when the full names would wrap.
 - **A what-if slider.** `whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, ends: ['None', 'Occluded'] }` lets the room drag one setting and watch everything follow. `whatIf: { label: 'Esophageal air pressure', tool: 'air', min: 0, max: 20, unit: 'mmHg' }` drags a scope option instead (the air's pressure round a varix) and leaves the model alone.
+
+- **Beta-blocker response.** `response: true` puts three buttons on the card: Non-responder, Usual responder and Strong responder. Each changes how strongly this patient's portal pressure answers the beta-blocker, live, and the drug stays whatever the slide set. On carvedilol in a decompensated patient the HVPG falls about 7%, 19% and 27%. A fall under 10% is a non-response by Baveno VIII Table 3. Put the drug in the slide's `params`, add `hvpgResp` to show the fall, and add `hold: true` to a vitals tool to draw the hold line. Do not use it with `compare`. Full guide: 7.4.
+- **Hold to strain.** `strain: true` (or `strain: { label: 'Push' }`) puts a button on the card that works only while it is held. Holding it starts the model's Valsalva: the pressure in the chest and belly builds over 1.5 seconds. Letting go brings it back over 1.5 seconds, and the data card follows. Use it where straining is the point (the second stage of labor). In the model, a held strain raises the portal vein pressure and lowers the MAP; the pressure across a varix wall falls, so do not write that it rises. Do not use it with a time-lapse, a procedure or a catheter. Full guide: 7.4.
 
 Put buttons and sliders on key slides only. 21 of the 31 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
 

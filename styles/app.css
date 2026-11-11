@@ -2171,6 +2171,7 @@ button.finding { cursor: pointer; }
 /* Each option is its own outlined button, so it reads as something to tap; the chosen one is in full ink with an accent edge, the others grey.
    No shared track and no filled pill, an iOS switch's look (DG4, 17 Oct). */
 .pz-abb[aria-pressed="true"] { color: var(--text); border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
+.pz-strain-b { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; min-width: 11em; }   /* (hold-to-strain: a long press on a phone must not select, scroll or open a menu) */
 /* A procedure's steps (presenter.js procEl): a line of words, each after the slides' own step circle, progress only (Next plays
    them). The step on show takes the text colour and an accent circle, the rest stay quiet; only colours change, so the line never
    reflows. */

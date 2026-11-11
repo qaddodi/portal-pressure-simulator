@@ -460,6 +460,7 @@ export function createCore(post) {
       case 'band': e.band(); break;
       case 'paracentesis': e.paracentesis(a.mL, a.albumin); break;
       case 'valsalva': e.startValsalva(a.sec || 10); break;
+      case 'strain': e.holdStrain(!!a.on); break;
       case 'rupture': e.rupture(a.site || 'VAR', a.tear || 0.6); break;
       case 'stopBleed': e.stopBleed('clot'); break;
     }

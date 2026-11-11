@@ -13,6 +13,7 @@
 // Enter jumps, G the slide list, Home End, B or . black screen, F full screen, ? the Guide, Esc. (The Guide lists them: PRESENT_KEYS in
 // main.js.) On a touch screen a sideways swipe anywhere on the slide goes on or back.
 
+import { isResponse } from './nsbb-response.js';
 import { store, replaceParams } from './store.js';
 import { download } from './download.js';
 import { freshPatient } from './slide-motion.js';
@@ -1731,6 +1732,56 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       w.unit ? out.el : null);
   }
   function stopLapse() { if (!lapseOn) return; lapseOn = false; host.send({ type: 'lapse', days: 0 }); shownState = -1; paintChrome(); }
+  // A hold-to-strain button (strain: true, or { label }; Mohammad's pick, features item 42, 11 Nov 2026): a button that works only while it is held.
+  // Pressed, it starts the engine's Valsalva (the chest and belly pressure builds over 1.5 s to 30 mmHg); let go, it falls back over 1.5 s, and
+  // the readings follow the live model all the while, as a what-if slider's do. The press ends with the slide: leaving it, a lost pointer, a blur
+  // or a hidden page lets go, so the model is never left straining. The engine lets go by itself after 30 s.
+  const STRAIN_ON = { type: 'action', action: { kind: 'strain', on: true } }, STRAIN_OFF = { type: 'action', action: { kind: 'strain', on: false } };
+  let strainHeld = false, strainGen = 0;
+  function strainHold(s, i, on) {
+    if (on === strainHeld || !deck || shown?.i !== i || slides[i] !== s) return;
+    strainHeld = on;
+    if (!on) { host.send(STRAIN_OFF); return; }
+    // (A treatment button's rule: two clocks must not drive the model, so a time-lapse or a procedure in play ends first.)
+    if (lapseOn) stopLapse();
+    procStop(true);
+    liveOff = true; handOn = true;
+    host.send(LIVE_RUN); host.send(STRAIN_ON);
+    strainFollow(s, i);
+  }
+  // The data card follows the model while the button is held, and until the readings have rested after it is let go (liveSet's rule).
+  async function strainFollow(s, i) {
+    const g = ++strainGen, ref = refOf(s, i), keys = liveKeys(s), mine = () => g === strainGen && shown?.i === i && !!deck;
+    let sig = null, still = performance.now(), freed = 0;
+    for (const t0 = performance.now(); mine();) {
+      await waitCut(150, () => !mine());
+      const fr = store.get().frame, now = performance.now();
+      if (fr?.metrics && mine()) {
+        const f = liveFp(fr), k = shownSig(f, keys);
+        dataTo(s, f, ref, 280);
+        if (k !== sig) { sig = k; still = now; }
+      }
+      if (strainHeld) { freed = 0; continue; }
+      if (!freed) freed = now;
+      if (liveSettled(now - freed, now - still)) break;
+    }
+    if (mine()) abSlow();
+  }
+  const onHidden = () => { if (document.hidden) strainStop(); };
+  function strainStop() { if (strainHeld) { strainHeld = false; host.send(STRAIN_OFF); } }
+  function strainEl(s, i) {
+    const label = typeof s.strain?.label === 'string' && s.strain.label.trim() ? s.strain.label.trim() : 'Hold to strain';
+    const b = h('button', { type: 'button', class: 'pz-abb pz-strain-b', 'aria-pressed': 'false', 'aria-label': `${label}: press and hold, let go to recover`, title: 'Press and hold' }, label);
+    let down = false;
+    const press = () => { if (down) return; down = true; b.setAttribute('aria-pressed', 'true'); strainHold(s, i, true); };
+    const release = () => { if (!down) return; down = false; b.setAttribute('aria-pressed', 'false'); strainHold(s, i, false); };
+    b.addEventListener('pointerdown', (e) => { if (e.button) return; try { b.setPointerCapture(e.pointerId); } catch { /* (no capture: the leave and cancel events below let go) */ } press(); });
+    for (const ev of ['pointerup', 'pointercancel', 'lostpointercapture', 'blur']) b.addEventListener(ev, release);
+    b.addEventListener('contextmenu', (e) => e.preventDefault());   // (a long press on a phone must not open a menu while the button is held)
+    b.addEventListener('keydown', (e) => { if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); press(); } });
+    b.addEventListener('keyup', (e) => { if (e.key === ' ' || e.key === 'Enter') release(); });
+    return h('div', { class: 'pz-ab pz-strain', role: 'group', 'aria-label': 'Strain on the live model' }, b);
+  }
   // Next during a time-lapse runs the days that are left in about 600 ms (the clock speeds up, the ramp is unchanged) and stops on its end.
   function skipLapse() {
     if (!lapseOn || lapseLeft < 1) return;
@@ -2407,7 +2458,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!s.visual) { const lens = slideLens(s); if (store.get().colorMode !== lens) store.set({ colorMode: lens }); }
     if (!hushed) delete app.dataset.lit;   // (hushed, the lit set goes straight to the next slide's: a label on both keeps its pill)
     // (Back onto a procedure's slide from the next lands on it done, so Next moves on.)
-    stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1; procThenAt = -1; procQueued = false;
+    strainStop(); stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1; procThenAt = -1; procQueued = false;
     if (outMs) await waitCut(Math.max(0, outMs - (performance.now() - outAt)), cut);
     if (throwDir) await throwsOut();   // (thrown: until the old cards are out of sight on the eases' clock, never mid-flight: card-throw.js)
     // (Nothing in the liver changes until its labels are gone.)
@@ -2977,11 +3028,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       if (bare) for (const a of readAnims(text)) a.finish();   // (the old words' leave is finished before the new words go in: the box never shows them mid-fade)
       text.replaceChildren(...[head, s.eq ? equation(s.eq) : null, s.monitor ? monitorFor(s, i) : null,
           line, s.caveat ? h('p', { class: 'pz-caveat' }, s.caveat) : null, citeEl(s),
-          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : 'Switch treatment on the live model' },
+          s.compare ? h('div', { class: 'pz-ab', role: 'group', 'aria-label': lensButtons(s) ? 'Color the vessels by' : gateButtons(s) ? 'Sample the stent at' : toolButtons(s) ? 'Change the instrument\'s view' : s.compare.some((o) => o.params && 'fenestrae' in o.params) ? 'Open or close the fenestrae on the live model' : isResponse(s.compare) ? 'Change how well the beta-blocker works on the live model' : 'Switch treatment on the live model' },
             s.compare.map((o, k) => h('button', { type: 'button', class: 'pz-abb', 'aria-pressed': String(!!o.own), ...(o.short ? { 'data-full': o.label, 'data-short': o.short, 'aria-label': o.label, title: o.label } : {}), onclick: () => abPick(s, i, k) }, o.label))) : null,
           s.procedure ? eventGraph(s, i, st) : null,
           s.procedure ? procEl(s, i, st) : null,
           s.whatIf ? whatIfEl(s, i, st) : null,
+          s.strain ? strainEl(s, i) : null,
           s.column ? wedgeColumn() : null,
           s.lapse && i > 0 ? lapseGraph(s) : null,
           s.lapse && i > 0 ? lapseRow(s) : null,
@@ -6407,6 +6459,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     setLabels();
     prepare();
     addEventListener('resize', onResize);
+    document.addEventListener('visibilitychange', onHidden);   // (a held strain lets go with the page)
     inkOf();   // (N2: the pen and spotlight listen from the talk's start, so a press and hold on the iPad finds them)
     sizeSeen = sizeNow();
     wrapRO ||= typeof ResizeObserver === 'function' ? new ResizeObserver(() => { if (ui && sizeNow() !== sizeSeen) onResize({ type: 'resize' }); }) : null;
@@ -6438,13 +6491,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     pview.end();
     sess?.dispose(); sess = null; colT = refitT = reframeT = turnT = glassT = 0; swapNow = false;   // (R03: this talk's timers stop with it, none left to act on the next)
     if (cover) coverDown(true);
-    stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
+    strainStop(); stopLapse(); procStop(); cathStop(); abSlow(); liveOff = false; handOn = false;   // (before deck is cleared: stopping a time-lapse repaints the bar)
     txn?.end(); txn = null;
     slidePrep.cancel(); clearTimeout(prepT); prepT = 0;   // (recs §6: the preparation stops with the deck; nothing it started publishes after)
     deck = null; shown = null; entering = null; want = 0; gen++;   // (gen: a slide move still in flight is cut where it is, even if another talk starts before it notices)
     for (const w of waiters) w.res(null);
     waiters = [];
     removeEventListener('resize', onResize);
+    document.removeEventListener('visibilitychange', onHidden);
     wrapRO?.disconnect();
     document.fonts?.removeEventListener('loadingdone', onFonts);
     fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelRest(fitRaf); cancelRest(paneRaf);

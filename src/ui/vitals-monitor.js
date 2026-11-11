@@ -3,6 +3,8 @@
 // hr, map, co, hb). The numbers are the model's own mean over a breath, a slide's settled ones once pinned, so they read as the slide's tiles do.
 // A reading past its cut-off takes the monitor's alarm colour, held and cleared as the bottom bar's are (vitalReading), so a patient sitting on a
 // cut-off does not flicker. The model has no systolic and diastolic pressure, so the pressure is the mean arterial pressure, named MAP.
+// hold: true adds a rail under the numbers when the MAP is shown (features item 41): a scale from RAIL_LO to RAIL_HI mmHg with the carvedilol hold line
+// at the MAP cut-off (Baveno VIII 4.6) and a dot for the patient's MAP. The model has no systolic pressure, so the systolic <90 half of that rule is not drawn.
 // The strip is a schematic rhythm, not a modelled ECG. A recording kind: a new patient starts its strip over (card-keep.js records).
 // While the model's own clock stands still (a disease time-lapse runs a year in ten seconds with the beat parked, and a state easing in
 // parks it for a moment) the monitor goes on: the strip scrolls on this card's clock and lays beats at the heart rate shown, closing in as the
@@ -12,6 +14,7 @@ import { h, fmt, canvasSize, clamp, cssVar } from './util.js';
 import { createVitalsGL, colorOf, textWidth } from './vitals-gl.js';
 import { frameFor, cancelFrame, paceMs, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { VITALS, vitalReading } from './vital-read.js';
+import { MAP_BETA_CUT } from '../engine/kidney-cuts.js';
 import { createBeatClock, ekgSeries, beatWalk, walkBeats, seedBeats } from './ekg.js';
 import { olderThan, inFront } from './backfill.js';
 import { dropFrontNums } from './drop-front.js';
@@ -20,6 +23,9 @@ import { restPass } from './rest-pass.js';
 const nextFrame = frameFor('vitals-monitor');
 
 export const VITALS_DEFAULT = ['hr', 'map', 'hb'];
+export const RAIL_LO = 40, RAIL_HI = 120, RAIL_H = 26;   // (the hold rail's scale in mmHg, and the height it takes under the numbers)
+/** Where a MAP stands on the rail, 0 to 1. */
+export const railAt = (v) => clamp((v - RAIL_LO) / (RAIL_HI - RAIL_LO), 0, 1);
 // The monitor on the GPU (vitals-gl.js: rounded rectangles, the strip as a line of capsules, words and digits from one glyph atlas); no
 // 2D canvas is drawn while the strip scrolls.
 const SPAN_S = 6, LAG_S = 0.12, EASE_S = 0.3, JUMP_S = 0.3, STEP_S = 0.004;   // (JUMP_S: more than this ahead of the last sample is a clock that was set, not the next frame)
@@ -65,7 +71,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   const clock = createBeatClock();
   const WALK_TO = { ph: NaN, left: NaN };   // (walkBeats reads it as it is called)
   const raw = { t: [], ph: [] };   // (the (time, phase) samples the beat clock was made from: a history goes in front of them and the clock is made again)
-  let ids = VITALS_DEFAULT, frame = null, pinned = null, wallAt = 0, lastT = -Infinity, firstT = Infinity;
+  let ids = VITALS_DEFAULT, holdLine = false, frame = null, pinned = null, wallAt = 0, lastT = -Infinity, firstT = Infinity;
   // (synth: the strip on its own clock while the model's stands still, { w: the beat walk, at: when it was last moved on }; off: the model's
   // time plus off is the strip's, which the walk moves on from; synthed: it has run since the strip was last cleared)
   let synth = null, off = 0, synthed = false;
@@ -92,8 +98,11 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   // pts: the strip's points, kept from frame to frame.)
   let lay = null, layW = -1, layH = -1, layN = -1, pts = new Float32Array(512);
   const layK = [], layU = [];   // (the cells' words the layout was found for)
+  let layRail = false;
+  const railOn = (cells) => holdLine && cells.some((c) => c.id === 'map');
   function layout(w, hh, cells) {
-    let same = lay && w === layW && hh === layH && cells.length === layN;
+    const rail = railOn(cells);
+    let same = lay && w === layW && hh === layH && cells.length === layN && rail === layRail;
     for (let i = 0; same && i < cells.length; i++) if (layK[i] !== cells[i].k || layU[i] !== cells[i].u) same = false;
     if (same) return lay;
     // (8 Nov 2026, "the vital signs card is taller than it needs to be": the numbers are sized from the width first, and the strip takes what
@@ -110,9 +119,10 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
       if (big > bigMax) bigMax = big;
       layK[i] = c.k; layU[i] = c.u;
     }
-    const eh = Math.round(clamp(hh - pad - (12 + 18 + bigMax + pad), 34, 110)), bot = pad + eh, y0 = bot + 12, rh = hh - pad - y0;
-    layW = w; layH = hh; layN = cells.length;
-    lay = { pad, ew, eh, top, bot, y0, rh, cw, cells: cl };   // alloc-rare: only when the size or the cells' words change
+    const rl = rail ? RAIL_H : 0;   // (the rail takes its height from the strip's, so the card keeps its size)
+    const eh = Math.round(clamp(hh - pad - (12 + 18 + bigMax + pad) - rl, 34, 110)), bot = pad + eh, y0 = bot + 12, rh = hh - pad - y0;
+    layW = w; layH = hh; layN = cells.length; layRail = rail;
+    lay = { pad, ew, eh, top, bot, y0, rh, cw, cells: cl, rail: rail ? y0 + 12 + 6 + bigMax + 8 : 0 };   // alloc-rare: only when the size or the cells' words change
     return lay;
   }
   // The pictures' lists for the GPU, kept and written in place (vitals-gl.js draw reads them as it is called): a rectangle or a word is one
@@ -236,6 +246,15 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
           textAt(nt++, val, 700, big, x + rw - nw, by, c.bad ? bg : ink);
           textAt(nt++, c.u, 500, 12, x + rw + 5, by, c.bad ? alarm : text);
         }
+        // The hold rail: the scale, the hold line at the MAP cut-off and the patient's dot (the dot's place is the printed MAP, so it moves when the number does).
+        const mi = L.rail ? cells.findIndex((c) => c.id === 'map') : -1;
+        if (mi >= 0) {
+          const ry = L.rail, vm = parseFloat(valS[mi]), cutX = pad + railAt(MAP_BETA_CUT) * ew, bad = cells[mi].bad;
+          rectAt(nr++, pad, ry + 4, ew, 3, 1.5, grid);
+          rectAt(nr++, cutX - 1, ry, 2, 11, 1, alarm);
+          if (Number.isFinite(vm)) rectAt(nr++, pad + railAt(vm) * ew - 5, ry + 0.5, 10, 10, 5, bad ? alarm : art);
+          textAt(nt++, `Hold <${MAP_BETA_CUT} mmHg`, 500, 12, cutX + 7, ry + 22, text);
+        }
       }
       RECTS.length = nr; TEXTS.length = nt;
     }
@@ -349,7 +368,7 @@ export function createVitalsMonitor({ gpu = true, makeGL = createVitalsGL } = {}
   }
   return {
     id: 'vitals', label: 'Vital signs', el,
-    configure(t) { ids = vitalsShown(t); },
+    configure(t) { ids = vitalsShown(t); holdLine = t?.hold === true; lay = null; },
     update(f) { ingest(f); wake(); if (!ticking) draw(); },
     pin(fp) { pinned = fp || null; if (frame || pinned) draw(); },
     /** A new patient: the strip starts over, its numbers wait for the new state's own. */
