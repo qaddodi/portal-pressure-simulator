@@ -1278,7 +1278,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // the jugular route with the camera following, the tip close up, the balloon up and the still column, the
   // readings; each step eases on from wherever the last one left it, and it slides out with its slides.
   const CC = { free: 'var(--mon-free)', wedge: 'var(--mon-wedge)', bad: 'var(--mon-alarm)' };   // the procedure's own colours
-  const cath = { on: false, raf: 0, t0: 0, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null };
+  const cath = { on: false, raf: 0, t0: 0, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null, keep: false, beside: false };
   // The still column is shaded in the catheter's wedge colour (the WHVP callout's), so it reads as the catheter's
   // column of still blood, not as one more pressure on the map.
   // (Read through the token cache, which a theme change clears: read afresh, it made every catheter frame restyle the page.)
@@ -1288,7 +1288,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (cath.fp is a new fingerprint); the wedge reading's words are written into its kept object as the column rises, and the list handed
   // to the stage is one array written in place. The stage reads them in the frame and keeps none of these lists.)
   // (The catheter's state handed to the stage each frame is one kept object, written in place.)
-  const cathSt = { u: 0, balloon: 0, column: 0, columnColor: '', ring: null, pulse: 0, clock: 0, opacity: 1, labels: null, ostium: false, probe: 0, follow: false };
+  const cathSt = { u: 0, balloon: 0, column: 0, columnColor: '', ring: null, pulse: 0, clock: 0, opacity: 1, labels: null, ostium: false, probe: 0, follow: false, keep: false };
   const NO_LABELS = [], cathMemo = { fp: null, fh: NaN, wh: NaN, hv: NaN, L: null, wedge: null, wv: NaN, out: [] };
   function cathLabels() {
     const f = cath.fp, v = cath.v, m = cathMemo;
@@ -1331,6 +1331,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const st = cathSt;
     st.u = v.u; st.balloon = v.balloon; st.column = v.column; st.columnColor = wedgeInk(); st.ring = cath.ring;
     st.pulse = 0.5 + 0.5 * Math.sin((now - cath.t0) / 170); st.clock = now - cath.t0; st.opacity = v.opacity; st.labels = cathLabels(); st.ostium = cath.ostium; st.probe = probe;
+    st.keep = cath.keep;
     st.follow = cath.follow;
     stage.setCatheter(st);   // (the view drifts after the tip as the stage lays out this frame: catheter, camera, readings)
     mon?.balloon(v.balloon);   // the monitor's trace rides the same balloon value
@@ -1340,7 +1341,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   function cathStop() {
     cancelFrame(cath.raf);
     if (cath.on) { stage.setCatheter(null); stage.cathForget(); }
-    Object.assign(cath, { on: false, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null });
+    Object.assign(cath, { on: false, v: { u: 0, balloon: 0, column: 0, opacity: 1 }, tr: {}, show: [], ring: null, ostium: false, probeT0: 0, follow: false, cam: null, fp: null, keep: false, beside: false });
   }
   // ── A slide's procedure (proc-anim.js): TIPS, BRTO or BATO played on the live figure, guided by Next (his ask, 29 Oct): on the
   // slide, the first Next puts the catheter in, each Next after it plays the next step, and the Next after the last moves on;
@@ -1499,6 +1500,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // Out: the readings go, the balloon goes down and the catheter fades (at once when the figure is fading anyway).
   async function cathOut(fading, cut) {
     if (!cath.on) return;
+    cath.beside = false;   // (the tracing no longer sets the balloon: it goes down with the catheter)
     if (!fading) {
       cath.show = []; cath.ring = null; cath.follow = false; cath.probeT0 = 0;
       cathTrack('balloon', 0, 400); cathTrack('column', 0, 400); cathTrack('opacity', 0, 650);
@@ -1506,10 +1508,31 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     } else await figureOut(cut);
     cathStop();
   }
+  // ── The catheter beside a tracing card. A slide whose data card is the HVPG catheter's tracing (tool: { kind: 'hvpg' }) with no catheter of its own
+  // (no cath: step, so the slide's camera stays where it is) shows the catheter on the figure all the same, in the right hepatic vein, with its balloon
+  // up while the tracing says "balloon up" (wedge pressure) and down for the free pressure: the card's own balloon (tool-hvpg.js watch) is the figure's.
+  // The figure's labels stay on (keep) and the readings stay on the card, so nothing here touches a label. A slide in the lobule has no hepatic vein in view.
+  const beside = (s) => s?.tool?.kind === 'hvpg' && !s.tool.catheter && !s.cath && !s.visual && !LOBULE_CAM.test(s.cam || '') && (s.view || 'anatomic') === 'anatomic';
+  function cathBeside(b) {
+    if (!cath.beside) {
+      if (cath.on) return;   // (a procedure's or a catheter slide's own catheter is on the figure)
+      cath.on = true; cath.beside = true; cath.keep = true; cath.t0 = performance.now(); cath.fp = null; cath.show = []; cath.cam = null;
+      Object.assign(cath.v, { u: 0, balloon: 0, column: 0, opacity: 0 }); cath.ring = CC.free;
+      cathFrame();
+      cathTrack('opacity', 1, 400); cathTrack('u', 1, 1800);   // (in from the neck along the route, as it does on the catheter slides, the view where it is)
+    }
+    const v = cath.v;
+    v.balloon = b;
+    if (b >= 0.999) { cath.ring = CC.wedge; if (v.column < 1 && !cath.tr.column) cathTrack('column', 1, 1400); }   // (the still column fills once the balloon is up)
+    else { cath.ring = CC.free; delete cath.tr.column; v.column = 0; }
+  }
+  // (What the tools hand a tracing card of a slide that has the catheter beside it: the card's balloon moves the figure's, and a card stood up starts the catheter.)
+  const besideHook = { move: (v) => { if (cath.beside) cathBeside(v); }, start: (v) => { if (cath.beside || !cath.on) cathBeside(v); } };
   async function cathTo(mode, fp, cut) {
     await toAnatomy(null, cut);
     if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(cut, stage); }
     if (cut()) return;
+    cath.beside = false; cath.keep = false;   // (a catheter kept from a tracing card's slide is this slide's own now)
     if (!cath.on) { cath.on = true; cath.t0 = performance.now(); cath.ostium = mode === 'blocked'; cathFrame(); }
     cath.fp = fp;
     const v = cath.v, ms = (m) => (reduce.matches ? 0 : m);
@@ -3024,7 +3047,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     holdEase = answerAfter(s, i);
     holdAnswer(!s.visual && (!!s.hold || holdEase), true);
   }
-  const showTool = (s, i, lap = false, forward = false) => ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], forward, chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i), balloon: s.cath ? cath.v.balloon : null });
+  const showTool = (s, i, lap = false, forward = false) => ui.tools.show(s.tool, { slide: i, stateKey: stateOf[i], forward, chain: chainTo(i, s.tool.kind === 'trace' ? s.tool.since : null), trail: states[stateOf[i]]?.trail ?? null, reveal: lap ? 0 : 1, ctx: ctxOf(s, i), balloon: s.cath ? cath.v.balloon : null, figure: beside(s) ? besideHook : null });
 
   // ── Cards that stay between slides ──
   // A slide change used to fade both cards out and build both again. When the next slide's data card is the same (the same instrument

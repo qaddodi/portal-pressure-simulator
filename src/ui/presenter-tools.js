@@ -27,7 +27,8 @@
 //
 //   tool: { kind: 'vitals', show?: ['hr', 'map', 'hb'] }
 //                                                   a black bedside monitor: the EKG strip over up to three of hr, map, co, hb as large numbers
-//   tool: { kind: 'hvpg' }                          the HVPG catheter's tracing on the card (no catheter on the figure): it plays free, wedge and
+//   tool: { kind: 'hvpg' }                          the HVPG catheter's tracing on the card, the catheter in the hepatic vein on the figure beside it (the slide's own camera; its balloon is
+//                                                   the tracing's, up for the wedge, down for the free; none on a slide in the lobule): it plays free, wedge and
 //                                                   result going forward onto the slide, then holds the result and eases with the model
 //   tool: { kind: 'hvpg', catheter: true }          the same tracing following the figure's catheter (the slide's cath: 'free', 'wedge' or 'result'):
 //                                                   the balloon sets the pressure's rise, and the card stays up from one such slide to the next
@@ -136,8 +137,9 @@ export function createTools({ host, stage }) {
      *  trail, reveal: for the flow-time chart, its series and how far along to draw it (see progress).
      *  ctx: the slide's context for an instrument's configure(t, ctx) (the presenter's ctxOf; slide-ext.js).
      *  forward: the slide is stepped onto from the one before it (an instrument that plays on arrival, arrive()).
-     *  balloon: the catheter's balloon on the figure now, for a tracing that follows it (balloon()). */
-    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null, forward = false, balloon = null } = {}) {
+     *  balloon: the catheter's balloon on the figure now, for a tracing that follows it (balloon()).
+     *  figure: { move, start } for a tracing card with the catheter on the figure beside it: told the card's own balloon (tool-hvpg.js watch). */
+    show(t, { slide = null, stateKey = null, chain = [], trail = null, reveal = 1, ctx = null, forward = false, balloon = null, figure = null } = {}) {
       const k = keyOf(t), inst = make(k);
       if (!inst) { this.hide(); return; }
       if (k !== 'doppler') stage?.pinDoppler?.(null);
@@ -156,7 +158,9 @@ export function createTools({ host, stage }) {
       inst.configure?.(t, ctx);   // (an instrument's own options on this slide: a deck visuals package's, slide-ext.js)
       lastTool = t; lastCtx = ctx;
       if (balloon != null) inst.balloon?.(balloon);   // (a tracing that follows the catheter starts from the balloon as it stands)
-      inst.arrive?.({ forward, again: cur === inst });   // (the HVPG tracing plays going forward onto its slide, once, and is finished otherwise)
+      inst.arrive?.({ forward, again: cur === inst });
+      // (figure: { move, start }, a slide whose figure has the catheter beside this tracing card (presenter.js cathBeside): its balloon is the card's.)
+      if (k === 'hvpg') { const b = inst.watch?.(figure ? figure.move : null); if (figure) figure.start(b); }   // (the HVPG tracing plays going forward onto its slide, once, and is finished otherwise)
       if (cur !== inst || slide !== lastSlide) inst.autoWindow?.();   // (a new slide chooses its Doppler window again from the width it is drawn at)
       lastSlide = slide;
       // A new patient clears a recording trace; so does an instrument coming back after another one showed (it missed the frames between).

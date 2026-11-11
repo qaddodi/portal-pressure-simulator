@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **Every slide with the HVPG tracing card now shows the catheter on the figure.** (Mohammad, 11 Nov 2026, Varices 6/11 "Carvedilol at CSPH": "you should at least have the catheter right there and the balloon inflated when we're measuring.")
+  A slide with `tool: { kind: 'hvpg' }` and no `cath:` step of its own (Varices 6, Treatment propranolol and carvedilol, Recompensation cure) puts the HVPG catheter in the right hepatic vein, in from the neck along the route, with the slide's own camera kept. Its balloon is the tracing's own (`tool-hvpg.js` `watch`, presenter `cathBeside`): down while the free pressure sweeps, inflating as the tracing says "balloon up", the still column filling after it, held up with the result, down as the slide leaves. The figure's labels stay on (`keep`). Treatment propranolol's camera widens to take in the hepatic vein. The sinusoid slide (Treatment carvedilol, lobule zoom) has no hepatic vein in view, so it has none.
+
 - **Settings: "Text size on the figure" is gone, everywhere.** (Mohammad, 11 Nov 2026: "Remove the text size on the figure option completely from settings everywhere.")
   The row (smaller, the size, larger) is out of Settings in the app and in talks, on every device. The figure's text is fixed at its default, 100 % (a desktop keeps its own baseline), and a size an older build saved (`pps.labelScale`, `pps.labelScaleV`) is deleted at start, so it can never apply again. The stage's `setLabelScale` is gone; the browser checks that drove it (`tests/e2e/smoke-04`, `-05`, `-09`, local tools since 4 Nov) no longer step the size.
 - **The heart's rate and output: a quiet reading on the heart's own label, shown only where it fits.** (Mohammad, 11 Nov 2026, after the pill: "They should just be a label on the heart label, discrete and ok to hide if not important but can show if can fit with the label.")

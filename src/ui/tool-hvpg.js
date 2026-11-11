@@ -1,7 +1,7 @@
 // The HVPG catheter's tracing as a slide's data card (tool: { kind: 'hvpg' }): the monitor of the HVPG procedure (hvpg-proc.js
-// createHvpgMonitor) with no catheter on the figure. Going forward onto the slide it sweeps the free pressure, inflates the balloon and
+// createHvpgMonitor), the catheter on the figure beside it (presenter.js cathBeside) driven by this card's balloon. Going forward onto the slide it sweeps the free pressure, inflates the balloon and
 // climbs to the wedge, then holds the result, all on the procedure's own clock (hvpg-clock.js); the balloon is driven here from that clock
-// since there is no catheter to read it from. Jumped to or gone back to, it shows the finished tracing at once. When the model changes on
+// (and handed to the figure's catheter, watch: it inflates as the tracing says "balloon up"). Jumped to or gone back to, it shows the finished tracing at once. When the model changes on
 // the slide (a drug, a button, a time-lapse) the free and wedged levels and the HVPG ease to the new numbers. The HVPG it prints is the
 // difference of the two readings as shown (tenthGap), so WHVP minus FHVP reads exactly.
 //
@@ -32,6 +32,10 @@ export function createHvpgCard() {
   const el = mon.el;
   let target = null, cur = null, pending = 'result', token = 0, raf = 0, last = 0, done = false;
   let step = null, shown = false;   // (step: the catheter step this card follows, null when it plays on its own clock; shown: the card is on a slide now)
+  // (The balloon this card's own tracing has up, 0 down … 1 wedged, and who is told of it: the presenter's catheter on the figure beside the card
+  // (watch). The figure's balloon is the tracing's own, so the catheter inflates exactly as the card says "balloon up" and is down while it is free.)
+  let bal = 0, watcher = null;
+  const tell = (b) => { bal = b; if (watcher) watcher(b); };
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   // (A sweep ends when another starts or the card leaves its slide (park), never because the card is off the page a moment: a card zoomed
   // open, or moved as its slide settles, is put back, and a sweep that gave up there left the tracing stopped at "balloon up" for good.)
@@ -69,7 +73,7 @@ export function createHvpgCard() {
       const tick = (now) => {
         if (gone(my)) { fin(); return; }
         const k = k01(now - t0, 0, T.wedge - T.inflate);
-        mon.balloon(ease(k));
+        mon.balloon(ease(k)); tell(ease(k));
         if (k < 1) nextFrame(tick); else fin();
       };
       nextFrame(tick);
@@ -84,19 +88,21 @@ export function createHvpgCard() {
     token++;
     cur = { ...target }; curWOn = false;
     done = false;
-    if (how === 'sweep' && !REDUCED()) sweep(token);
-    else { done = true; mon.set('result', cur, 1, true); }
+    if (how === 'sweep' && !REDUCED()) { tell(0); sweep(token); }
+    else { done = true; mon.set('result', cur, 1, true); tell(1); }
   }
   return {
     id: 'hvpg', label: 'HVPG, catheter tracing', el,
     /** The slide's options: with catheter: true, the step of the slide's catheter (cath) is the one the card shows. */
     configure(t, ctx) { step = t?.catheter && STEPS.includes(ctx?.slide?.cath) ? ctx.slide.cath : null; shown = true; },
     /** The card has left the screen (another slide's instrument, or none): it draws nothing more. */
-    park() { shown = false; },
+    park() { shown = false; watcher = null; },
+    /** Tell fn the tracing's balloon each time it moves (the catheter on the figure beside this card, presenter.js cathBeside); null stops. Returns the balloon now. */
+    watch(fn) { watcher = typeof fn === 'function' ? fn : null; return bal; },
     /** The catheter's balloon (0 down … 1 wedged), every frame the figure moves it: the trace rides it. */
     balloon(b) { if (step && shown) mon.balloon(b); },
     /** The slide is shown: forward onto it from the slide before (and the card was not already this one's), the tracing plays; otherwise it is finished. */
-    arrive({ forward = false, again = false } = {}) { pending = forward && !again ? 'sweep' : 'result'; },
+    arrive({ forward = false, again = false } = {}) { pending = forward && !again ? 'sweep' : 'result'; if (!step) bal = pending === 'sweep' ? 0 : 1; },
     /** The slide's settled readings (the tiles' numbers, eased as the model changes): the levels take them. */
     pin(fp) {
       const lv = levelsOf(fp);

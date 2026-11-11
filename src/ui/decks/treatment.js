@@ -27,7 +27,8 @@ export const TREATMENT = {
       ask: ['Name a treatment that cuts the inflow and one that lowers the resistance.', 'Inflow: propranolol, octreotide, terlipressin. Resistance: carvedilol, treating the cause; TIPS goes around it.'],
     },
     {
-      id: 'prop', lens: 'flow', params: PROP, cam: 'portal', labels: ['SMV', 'CONF'], tool: { kind: 'hvpg' }, data: 'tiles', key: ['hvpgFall'], tiles: [], delta: 'target', hvpgResp: 'target',
+      id: 'prop', lens: 'flow', params: PROP, cam: [380, 110, 930, 710],   // (the portal system and the hepatic vein the catheter in the tracing's card sits in)
+       labels: ['SMV', 'CONF'], tool: { kind: 'hvpg' }, data: 'tiles', key: ['hvpgFall'], tiles: [], delta: 'target', hvpgResp: 'target',
       kicker: 'Non-selective beta-blocker', site: 'sin', title: 'Propranolol lowers portal inflow',
       line: 'At a starting dose, β1 blockade lowers cardiac output and β2 blockade lets the gut arterioles constrict. Portal inflow falls to {pvFlow}, the HVPG to {hvpg}.',
       notes: 'Propranolol (or nadolol) is titrated to a resting heart rate of 55 to 60 a minute, keeping systolic pressure above 90 mmHg. It prevents a first bleed from large varices and, with banding, a second one. About a third to a half of patients reach a protective fall in HVPG. In refractory ascites with low blood pressure or kidney injury the dose is reduced or stopped. The model shows a starting dose: the heart rate falls to about 73 a minute, and titration would take it on to 55 to 60. Colored by flow, the gut veins and the portal vein thin. The tile shows the percent fall from the untreated patient: 10% or more marks a response.',
