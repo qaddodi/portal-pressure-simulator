@@ -1,10 +1,10 @@
-// The heart's rate and output as words on the heart (11 Nov 2026, Mohammad: the heart stays still, and its heart rate and cardiac output
-// show only as labels on it, on any deck slide that shows the heart). No DOM: the sums that say which slides those are, so a unit test
-// can load them. The words themselves are an organ mark of ext-callouts.js ('Heart {hr} · {co}'), drawn by the label layer.
+// The heart's rate and output as a quiet word on the heart's own label (11 Nov 2026, Mohammad: the heart stays still; its heart rate and
+// cardiac output ride on the existing heart label, not in a pill: discreet, and hidden when there is no room). No DOM: the sums that say
+// which slides carry it, so a unit test can load them. The label layer draws the words (a suffix on the right atrium's label in the
+// Anatomy, a second line under the Heart title in the Circuit).
 import { regionBox, isCamOn, CIRC_REGIONS } from './cam-frame.js';
 import { ORGAN_ANCHOR } from './callout-math.js';
 
-export const HEART_WORDS = 'Heart {hr} · {co}';
 const inside = (b, p) => p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3];
 const circHeart = [(CIRC_REGIONS.heart[0] + CIRC_REGIONS.heart[2]) / 2, (CIRC_REGIONS.heart[1] + CIRC_REGIONS.heart[3]) / 2];
 
@@ -19,4 +19,11 @@ export function showsHeart(s, regions) {
   if (circ) { const b = regionBox(cam, CIRC_REGIONS); return !b || inside(b, circHeart); }   // (a name the circuit lacks is the fit)
   const b = regionBox(isCamOn(cam) ? cam.near : cam, regions) || regions.route;
   return !!b && inside(b, ORGAN_ANCHOR.heart.at);
+}
+
+const list = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
+/** Whether a slide's heart label carries the rate and output: the heart is in frame, the slide does not opt out (`noHeartReading`), and its
+ *  tiles do not already hold the rate or the output. */
+export function heartReadingOn(s, regions) {
+  return !!s && !s.noHeartReading && showsHeart(s, regions) && ![...list(s.tiles), ...list(s.key)].some((k) => k === 'hr' || k === 'co');
 }
