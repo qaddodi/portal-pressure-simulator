@@ -167,7 +167,7 @@ test('the panel\'s foot follows the name: 1.7 em under the axis on the row, 3.1 
 test('a flow-time chart with treatments keeps their names and bars inside the panel, which runs to the chart\'s foot', () => {
   const ft = read('../src/ui/flow-time.js');
   assert.match(ft, /plotPanel\(sv, 0, G\.keyH \+ 0\.1 \* f, G\.w, G\.h - \(G\.keyH \+ 0\.1 \* f\)\)/);
-  assert.match(ft, /bandRoom = \(f\) => \(rx\.length \? \(1\.4 \+ 0\.32 \* rx\.length\) \* f : 0\)/);
+  assert.match(ft, /bandRoom = \(rxN, f\) => \(rxN \? \(1\.4 \+ 0\.32 \* rxN\) \* f : 0\)/);
   assert.match(ft, /--band-room', `\$\{rx\.length \? 1\.4 \+ 0\.32 \* rx\.length : 0\}em`/, 'the stylesheet\'s room is the same');
   // (The last bar ends 0.42 em over the foot: as far above it as the clock's numbers are over the foot with no treatments.)
   for (const n of [1, 2, 3]) assert.ok(1.4 + 0.32 * n - (2.8 - 1.7 + (n - 1) * 0.32 + 0.2) >= 0.4, `${n} bars: room under the last`);

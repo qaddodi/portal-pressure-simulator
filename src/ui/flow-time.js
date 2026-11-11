@@ -24,6 +24,7 @@ import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
 import { headStep, HEAD_DT0 } from './display-state.js';
 import { fittedType, tokName } from './chart-ctx.js';
+import { cw, placeStarts } from './flow-time-labels.js';
 const nextFrame = frameFor('flow-time');
 
 // (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
@@ -124,7 +125,6 @@ const sv = svgModel;
 // The plot, drawn at the chart's own size in pixels with the card's small type (f): both lines over the plot's full height, the
 // clock under it. Each axis's numbers sit on its own side (the lower line's left, the upper's right), in its line's colour; the
 // legend names the two lines (with their units) over the plot, on one row when it fits, else two.
-const cw = (t, f, b) => t.length * f * (b ? 0.6 : 0.56);   // (a text's width, near enough: the chart is laid out before it is drawn)
 let legendKeys = null, legendF = 0, legendOut = null;
 // (The legend's entries for these lines in this type size, kept: asked again for the same lines and size, the same list is handed back.)
 function legendOf(keys, f) {
@@ -159,6 +159,59 @@ export function headLeft(hx, hy, tw, f, w, boxes = NO_BOXES) {
   return false;
 }
 
+const yOf = (band, sc) => (v) => band[1] - (band[1] - band[0]) * clamp((v - sc.min) / (sc.max - sc.min), 0, 1);
+// (The treatments under the clock: their names on one row, then a thin bar each. The chart is that much taller
+// (styles/app.css .pz-flowtime.has-bands sets the same room, in em), so the plot keeps the height it has without them.)
+const bandRoom = (rxN, f) => (rxN ? (1.4 + 0.32 * rxN) * f : 0);
+const rxGap = (rxN, f) => (rxN ? Math.max(3, f * 0.3) + 2 : 0);   // (the left numbers stand clear of the treatment bars' start too)
+/** The geometry for a chart w × h px in type f px. The plot has an inner padding all round (11 Nov 2026: the numbers stood on the rings, the
+ *  clock's numbers on the lines, the lowest value under the box's edge): the lines run ix px inside the plot's two sides, so the axis
+ *  numbers in the margins stand clear of every start ring and head dot, and iy px above its foot, so the clock's own band under the plot
+ *  keeps its numbers off the lines. The gridlines and the axis still run the plot's whole width. */
+export function flowGeo(ser, clock, keys, rxN, w, h, f) {
+  const meal = clock !== 'days', keysL = legendOf(keys, f), ax = ser.ax;
+  const oneRow = keysL[0].w + keysL[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow ? 1 : 2) * rowH;
+  const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmt(v, dec(sc)), f)));
+  // (Right of the plot: the upper line's numbers, and the clock's unit in capitals after half its last number.)
+  // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js: the numbers stand inside its edge, 8 px in from it.)
+  const half = cw(`+${ax.end}`, f) / 2 + 6, L = Math.ceil(tw(ser.pScale) + 14 + rxGap(rxN, f)), R = Math.floor(w - Math.max(tw(ser.fScale) + 14, half + (meal ? 3 : 4) * f * 0.78 + 10));
+  // (Room over the plot for the "Fasting" and "Meal" row, else for the upper line's value over its head.)
+  const T = legH + 1.9 * f, B = h - 1.7 * f - bandRoom(rxN, f), ph = Math.max(2 * f, B - T), ix = Math.max(4, f * 0.42) + 5, iy = 0.55 * f;
+  return { w, h, f, half, meal, keysL, oneRow, rowH, keyH: legH, L, R, T, B, ix, iy, FB: [T, T + ph - iy], PB: [T, T + ph - iy] };   // (both axes the plot's full height: the lines may overlap)
+}
+/** Minute m's x on the plot (inside its sides by ix). */
+export const xAt = (G, ax, m) => G.L + G.ix + (G.R - G.L - 2 * G.ix) * (m - ax.from) / (ax.end - ax.from);
+// Each band's gridlines, numbered on its own side in its line's colour: every line when they are 1.3 lines of type
+// apart or more, else the ends only (else the top alone).
+const showsOf = (sc, Y, f) => {
+  const gap = Math.abs(Y(sc.ticks[0]) - Y(sc.ticks.at(-1))) / Math.max(1, sc.ticks.length - 1);
+  return (j) => gap >= 1.3 * f || j === sc.ticks.length - 1 || (j === 0 && gap * (sc.ticks.length - 1) >= 1.3 * f);
+};
+/** The boxes [x0, x1, y0, y1] of a band's shown gridline numbers: on the left of the plot (side 0) or the right (side 1). */
+function numberBoxes(G, sc, Y, side, rxN) {
+  const show = showsOf(sc, Y, G.f), x = side ? G.R + 6 : G.L - 6 - rxGap(rxN, G.f);
+  return sc.ticks.flatMap((v, j) => { if (!show(j)) return []; const t = cw(fmt(v, dec(sc)), G.f), y = Y(v); return [[side ? x : x - t, side ? x + t : x, y - 0.45 * G.f, y + 0.55 * G.f]]; });
+}
+/** Everything the chart's first values and head labels keep clear of, and where the first values stand: { lines (each: Y, first y), starts
+ *  ([{ x, y, txt }] per line, wholly inside the panel above the clock's band), rings, right (the upper band's numbers, for headLeft) }.
+ *  LINES: linesOf(keys). One call per chart made. */
+export function startPlan(G, ser, LINES, rxN) {
+  const f = G.f, ax = ser.ax, rs = Math.max(3, f * 0.3) + 2, rd = Math.max(4, f * 0.42) + 2;
+  const ls = LINES.map(([k, s, , , , unit, d]) => ({ k, unit, d, Y: yOf(k === 'flow' ? G.FB : G.PB, ser[s]) }));
+  const left = numberBoxes(G, ser.pScale, ls[0].Y, 0, rxN), right = numberBoxes(G, ser.fScale, ls[1].Y, 1, rxN);
+  const x0 = xAt(G, ax, ax.from), x1 = xAt(G, ax, ax.end), xm = xAt(G, ax, 0), rects = [...left, ...right], soft = [];
+  const lines = ls.map((l) => ser.min.map((m, j) => [xAt(G, ax, m), l.Y(ser[l.k][j])]));
+  if (G.meal) {
+    const fw = cw('Fasting', f, 1), mw = cw('Meal', f, 1), ty = G.T - 0.6 * f;
+    rects.push([(x0 + xm) / 2 - fw / 2, (x0 + xm) / 2 + fw / 2, ty - 0.78 * f, ty + 0.25 * f], [xm + 6, xm + 6 + mw, ty - 0.78 * f, ty + 0.25 * f]);
+    soft.push([xm - 1, xm + 1, G.T - 1.5 * f, G.B]);
+  }
+  const own = ls.map((l) => [x0, l.Y(ser[l.k][0]), rs]), circles = [...own, ...ls.map((l) => [x1, l.Y(ser[l.k].at(-1)), rd])];
+  const txt = ls.map((l) => withUnit(ser[l.k][0], l.d, l.unit));
+  const at = placeStarts({ f, area: [3, G.w - 3, G.keyH + 0.1 * f + 3, G.B - 1], texts: txt, own, circles, lines, rects, soft });
+  return { ls, own, circles, right, pts: lines, starts: at.map((a, i) => ({ x: a.x, y: a.y, box: a.box, txt: txt[i], r: rs })), left, rects };
+}
+
 export function createFlowTime() {
   const reduceMQ = reduceMotionMQ;   // (one query, read each frame: a new one was made every frame)
   const el = document.createElement('div');
@@ -168,55 +221,26 @@ export function createFlowTime() {
   let ser = null, parts = null, shown = 0, goal = 0, raf = 0, lastT = 0, sig = '', clock = 'meal', keys = MEAL_LINES, given = null, LINES = linesOf(keys);
   let rx = [];   // (the treatments on through the slide's time-lapse that its tool shades, rx-bands.js; none on a built-in deck)
   const ax = () => ser?.ax || MINUTES;
-  const Yof = (band, sc) => (v) => band[1] - (band[1] - band[0]) * clamp((v - sc.min) / (sc.max - sc.min), 0, 1);
+  const Yof = yOf;
   const val = (arr, m) => { const j = clamp(Math.floor(m - ax().from), 0, arr.length - 2); return arr[j] + (arr[j + 1] - arr[j]) * clamp(m - ax().from - j, 0, 1); };
   let G = null;
-  // (The treatments under the clock: their names on one row, then a thin bar each. The chart is that much taller
-  // (styles/app.css .pz-flowtime.has-bands sets the same room, in em), so the plot keeps the height it has without them.)
-  const bandRoom = (f) => (rx.length ? (1.4 + 0.32 * rx.length) * f : 0);
-  // The geometry for a chart w × h px in type f px.
-  function geo(w, h, f) {
-    const meal = clock !== 'days', keysL = legendOf(keys, f);
-    const oneRow = keysL[0].w + keysL[1].w + 2 * f <= w, rowH = 1.5 * f, legH = (oneRow ? 1 : 2) * rowH;
-    const tw = (sc) => Math.max(...sc.ticks.map((v) => cw(fmt(v, dec(sc)), f)));
-    // (Right of the plot: the upper line's numbers, and the clock's unit in capitals after half its last number.)
-    // (On a slide with treatment bars the left numbers stand clear of the start ring too.)
-    // (The plot is one rounded panel the chart's full width, his G2 look, plot-look.js: the numbers stand inside its edge, 8 px in from it.)
-    const half = cw(`+${ax().end}`, f) / 2 + 6, L = Math.ceil(tw(ser.pScale) + 14 + (rx.length ? Math.max(3, f * 0.3) + 2 : 0)), R = Math.floor(w - Math.max(tw(ser.fScale) + 14, half + (meal ? 3 : 4) * f * 0.78 + 10));
-    // (Room over the plot for the "Fasting" and "Meal" row, else for the upper line's value over its head.)
-    const T = legH + (meal ? 1.9 * f : 1.9 * f), B = h - 1.7 * f - bandRoom(f), ph = Math.max(4 * f, B - T);
-    return { w, h, f, half, meal, keysL, oneRow, rowH, keyH: legH, L, R, T, B, FB: [T, T + ph], PB: [T, T + ph] };   // (both axes the plot's full height: the lines may overlap)
-  }
-  const X = (m) => G.L + (G.R - G.L) * (m - ax().from) / (ax().end - ax().from);
+  const geo = (w, h, f) => flowGeo(ser, clock, keys, rx.length, w, h, f);
+  const X = (m) => xAt(G, ax(), m);
   function build() {
     const { f, L, R, T, B, FB, PB, meal } = G;
     const lines = LINES.map(([k, s, , c, , unit, d]) => ({ k, unit, d, c, Y: Yof(k === 'flow' ? FB : PB, ser[s]),
       path: sv('path', { class: 'ptk-line', 'data-look': 'plot.line', 'data-p-c': tokName(c) }),
       dot: sv('circle', { class: 'pft-dot', 'data-look': 'ft.dot', 'data-p-c': tokName(c), r: Math.max(4, f * 0.42) }),
       val: sv('text', { class: 'pft-v', 'data-look': 'ft.v', 'data-p-c': tokName(c) }) }));
-    // The first values at the start, each under its line (a line that rises runs away from it, never through it). Where the
-    // value under the start would run onto the axis or onto its own line (a line that falls, or starts on the axis), it sits over it.
-    const at0 = lines.map((l) => { const v = ser[l.k][0], y = l.Y(v), x0 = X(ax().from) + 4, x1 = x0 + cw(withUnit(v, l.d, l.unit), f);
-      const hits = (by) => by + 0.25 * f > B || ser.min.some((m, j) => X(m) > x0 - 2 && X(m) < x1 + 2 && l.Y(ser[l.k][j]) > by - 1.1 * f && l.Y(ser[l.k][j]) < by + 0.55 * f);
-      const under = y + 1.35 * f, over = y - 0.7 * f;
-      return { l, v, y, x0, ys: hits(under) ? [over, under] : [under, over] }; });
-    // (Two lines that start close together: their first values are placed as a pair, each under or over its own start, so they
-    // never land on each other (the varices' 3.8 mm was drawn over the HVPG's 11.6 mmHg on a phone, Varices 3). Each keeps its
-    // own choice when that is clear of the other's.)
-    const clear = (a, b) => Math.abs(a - b) >= 1.15 * f;
-    const pick = at0.length === 2 ? [[0, 0], [0, 1], [1, 0], [1, 1]].find(([i, j]) => clear(at0[0].ys[i], at0[1].ys[j]) && at0[0].ys[i] - 0.8 * f > T - 1.5 * f && at0[1].ys[j] - 0.8 * f > T - 1.5 * f) || [0, 0] : at0.map(() => 0);
-    const start = at0.map(({ l, v, y, x0, ys }, i) => [sv('circle', { class: 'pft-start', 'data-look': 'ft.start', 'data-p-c': tokName(l.c), cx: X(ax().from), cy: y, r: Math.max(3, f * 0.3) }),
-      sv('text', { class: 'pft-v0', 'data-look': 'ft.v0', 'data-p-c': tokName(l.c), x: x0, y: ys[pick[i]] }, withUnit(v, l.d, l.unit))]);
+    // The first values at the start, each placed clear of both rings, both lines, the axis numbers and each other, wholly inside the
+    // panel (flow-time-labels.js: over its ring, under it, or beside it, whichever is nearest and clear).
+    const plan = startPlan(G, ser, LINES, rx.length);
+    const start = plan.starts.map(({ x, y, txt }, i) => [sv('circle', { class: 'pft-start', 'data-look': 'ft.start', 'data-p-c': tokName(lines[i].c), cx: plan.own[i][0], cy: plan.own[i][1], r: Math.max(3, f * 0.3) }),
+      sv('text', { class: 'pft-v0', 'data-look': 'ft.v0', 'data-p-c': tokName(lines[i].c), x, y }, txt)]);
     const [lp, lf] = lines;
-    // Each band's gridlines, numbered on its own side in its line's colour: every line when they are 1.3 lines of type
-    // apart or more, else the ends only (else the top alone).
-    const shows = (sc, Y) => {
-      const gap = Math.abs(Y(sc.ticks[0]) - Y(sc.ticks.at(-1))) / Math.max(1, sc.ticks.length - 1);
-      return (j) => gap >= 1.3 * f || j === sc.ticks.length - 1 || (j === 0 && gap * (sc.ticks.length - 1) >= 1.3 * f);
-    };
     // (The two axes share their steps, so one set of gridlines serves both: the left axis draws them, the right one only its numbers.)
     const grid = (sc, Y, x, anchor, c, rules = true) => {
-      const show = shows(sc, Y);
+      const show = showsOf(sc, Y, f);
       return sc.ticks.map((v, j) => sv('g', { class: 'ptk-grid' }, rules ? sv('line', { 'data-look': 'plot.grid.line', x1: L, x2: R, y1: Y(v), y2: Y(v) }) : null,
         show(j) ? sv('text', { 'data-look': 'time.grid.text', 'data-p-c': tokName(c), x, y: Y(v) + 0.35 * f, 'text-anchor': anchor }, fmt(v, dec(sc))) : null));
     };
@@ -228,9 +252,7 @@ export function createFlowTime() {
           right ? [sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, `${k.unit} `), sv('tspan', { 'data-look': 'time.span' }, k.name)] : [sv('tspan', { 'data-look': 'time.span' }, k.name), sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, ` ${k.unit}`)])); });
     const mins = [], step = meal ? 10 : niceStep(ax().end / Math.max(2, Math.min(4, Math.floor((R - L) / (4 * f)))));
     for (let m = ax().from; m <= ax().end + 1e-9; m += step) mins.push(m);
-    // (The upper band's numbers shown in the right margin, as boxes a line's value keeps clear of.)
-    const showF = shows(ser.fScale, lf.Y);
-    const boxes = ser.fScale.ticks.flatMap((v, j) => (showF(j) ? [[R + 6, R + 6 + cw(fmt(v, dec(ser.fScale)), f), lf.Y(v) - 0.45 * f, lf.Y(v) + 0.55 * f]] : []));
+    const boxes = plan.right;   // (the upper band's numbers shown in the right margin: boxes a line's value keeps clear of)
     // Each treatment on through the whole time-lapse (it runs on the slide's own params): its name in its colour on one row
     // under the clock, then a thin bar each in the same order and colour, over the plot's whole time, so every bar starts
     // where the treatment does and no line, value or number can run into them.
@@ -241,10 +263,10 @@ export function createFlowTime() {
     // clock stand inside it; with none, the foot is 1.7 em under the axis, under the clock's numbers.)
     const panel = plotPanel(sv, 0, G.keyH + 0.1 * f, G.w, G.h - (G.keyH + 0.1 * f));
     const svg = sv('svg', { viewBox: `0 0 ${G.w} ${G.h}`, width: G.w, height: G.h, role: 'img', style: `font-size: ${G.f.toFixed(2)}px` },
-      sv('defs', {}, panel.clip), panel.back, bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c, false), grid(ser.pScale, lp.Y, L - 6 - (rx.length ? Math.max(3, f * 0.3) + 2 : 0), 'end', lp.c), legend,
+      sv('defs', {}, panel.clip), panel.back, bandEls, grid(ser.fScale, lf.Y, R + 6, 'start', lf.c, false), grid(ser.pScale, lp.Y, L - 6 - rxGap(rx.length, f), 'end', lp.c), legend,
       sv('line', { class: 'pft-x', 'data-look': 'time.axis.line', x1: L, x2: R, y1: B, y2: B }),
       mins.map((m) => sv('text', { class: 'pft-tk', 'data-look': 'time.tk', x: X(m), y: B + 1.25 * f, 'text-anchor': 'middle' }, m > 0 ? `+${m}` : m < 0 ? `−${-m}` : '0')),
-      sv('text', { class: 'ptk-ax', 'data-look': 'plot.ax', x: R + G.half, y: B + 1.25 * f }, meal ? 'min' : 'days'),
+      sv('text', { class: 'ptk-ax', 'data-look': 'plot.ax', x: X(ax().end) + G.half, y: B + 1.25 * f }, meal ? 'min' : 'days'),
       // Fasting, then the meal: a dashed line at 0 min.
       meal ? [sv('text', { class: 'pft-t', 'data-look': 'ft.t', x: (X(MINUTES.from) + X(0)) / 2, y: T - 0.6 * f, 'text-anchor': 'middle' }, 'Fasting'),
         sv('line', { class: 'pft-meal', 'data-look': 'ft.meal', x1: X(0), x2: X(0), y1: T - 1.5 * f, y2: B }),
@@ -289,7 +311,7 @@ export function createFlowTime() {
     }
     // (Two heads close together, the bands short on a phone: the lower band's value goes under its head, clear of the other.)
     const a = YV[0], b = YV[1];
-    if (Math.abs(a - b) < 1.4 * G.f) { const j = a > b ? 0 : 1; setGeo(ls[j].val, 'y', fix1(CY[j] + 1.5 * G.f)); }
+    if (Math.abs(a - b) < 1.4 * G.f) { const j = a > b ? 0 : 1; setGeo(ls[j].val, 'y', fix1(Math.min(CY[j] + 1.5 * G.f, G.B - 0.25 * G.f))); }   // (never under the plot, onto the clock's numbers)
     if (printed) {
       // alloc-rare: only when a printed number changed
       let label = `${LINES[0][4]} and ${LINES[1][4].toLowerCase()} ${clock === 'days' ? `over ${ax().end} days` : 'around a meal'}: `;

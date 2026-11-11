@@ -59,9 +59,9 @@ test('the ghost copies of the back veins are hidden while the GPU draws the vess
 });
 
 test('flow-time start values are placed as a pair so two lines starting close never overlap', () => {
-  const src = readFileSync(new URL('../src/ui/flow-time.js', import.meta.url), 'utf8');
-  assert.match(src, /const clear = \(a, b\) => Math\.abs\(a - b\) >= 1\.15 \* f/);
-  assert.match(src, /y: ys\[pick\[i\]\]/);
+  const src = readFileSync(new URL('../src/ui/flow-time.js', import.meta.url), 'utf8'), lab = readFileSync(new URL('../src/ui/flow-time-labels.js', import.meta.url), 'utf8');
+  assert.match(src, /placeStarts\(\{ f, area:/);
+  assert.match(lab, /for \(const o of chosen\) if \(hits\(c\.box, o\.box, gap\)\) extra \+= BAD;/);   // (the layout itself is pinned in flow-time-layout.test.js)
 });
 
 test('the beat card on a phone keeps "17.1 WHVP" inside its edge, and its top number gives way to the unit over it', async () => {
