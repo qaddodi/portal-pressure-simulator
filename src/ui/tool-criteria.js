@@ -34,26 +34,23 @@ import { TILE } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
 import { createSvgGL, svgModel } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
+import { BAVENO_AXES, bavenoRects, bavenoHatch, zoneArt } from './baveno-zones.js';
 
 export const CRITERIA_MAX = 4;
 /** The graphs a criteria card can draw (zones), in their own units: x and y ranges, the zones, the hatched area and the axis marks. */
 export const ZONES = {
-  // Baveno VIII 1.15, 1.16, 1.19: CSPH ruled out at ≤15 kPa with PLT ≥150K, ruled in at ≥25 kPa, the indeterminate zone between; an NSBB-ineligible patient can skip the screening EGD at <20 kPa with PLT ≥150K (the hatched area); on an NSBB nobody needs one (3.18).
+  // Baveno VIII 1.15, 1.16, 1.19, drawn from the one geometry and look every chart of these zones shares (baveno-zones.js; Mohammad, 11 Nov
+  // 2026): CSPH ruled out at ≤15 kPa with PLT ≥150K, ruled in at ≥25 kPa, the indeterminate zone between; an NSBB-ineligible patient can skip the
+  // screening EGD at <20 kPa with PLT ≥150K (the hatched area); on an NSBB nobody needs one (3.18).
   'first-visit': {
     x: [5, 35], y: [50, 250],
-    zones: [
-      { rate: 'ok', x: [5, 15], y: [150, 250], name: 'No CSPH', at: [10, 190] },
-      { rate: 'mid', x: [15, 25], y: [50, 250], name: 'Indeterminate', at: [20, 112] },
-      { rate: 'mid', x: [5, 15], y: [50, 150] },
-      { rate: 'hi', x: [25, 35], y: [50, 250], name: 'CSPH', at: [30, 150] },
-    ],
-    hatch: { x: [5, 20], y: [150, 250] },
-    xTicks: [15, 20, 25], xName: 'LSM kPa', yTick: [150, '150K'], yName: 'PLT',
+    zones: bavenoRects([5, 35], [50, 250]).map((z, i) => ({ ...z, ...[{ name: 'No CSPH', at: [10, 190] }, { name: 'Indeterminate', at: [20, 112] }, {}, { name: 'CSPH', at: [30, 150] }][i] })),
+    hatch: bavenoHatch([5, 35], [50, 250]),
+    xTicks: BAVENO_AXES.xTicks, yTick: BAVENO_AXES.yTick, xName: BAVENO_AXES.xName, yName: BAVENO_AXES.yName,
   },
 };
 // (2 Nov 2026: the zones graph is a model drawn on the GPU, svg-gl.js: the same tree, of plain elements, never painted by the browser.)
 const svg = svgModel;
-let zoneN = 0;
 /** A key line as written ('**Indeterminate:** ...' or { text, swatch }), read into its words (bold parts) and swatch; null if it has no words. */
 export function keyLine(k) {
   const o = typeof k === 'string' ? { text: k } : k && typeof k === 'object' ? k : null;
@@ -111,7 +108,6 @@ export function createCriteria() {
   const key = h('div', { class: 'pzc-key' });
   const el = h('div', { class: 'pz-crit' }, top, list, plot, key, verdict);
   let rows = [], parts = [], fig = null, drawnW = 0;
-  const id = `pzz${++zoneN}`;
   // The zones graph at the card's width: drawn again only when the width changes.
   function drawZones() {
     const W = Math.round(plot.clientWidth);
@@ -122,14 +118,14 @@ export function createCriteria() {
     const fs = Math.max(12, Math.min(14, host * 0.93)), sm = 12;
     const ph = Math.round(W * (W < 420 ? 0.46 : 0.34));
     const X = (k) => ((k - fig.x[0]) / (fig.x[1] - fig.x[0])) * W, Y = (p) => ((fig.y[1] - p) / (fig.y[1] - fig.y[0])) * ph;
-    const box = (a, extra = {}) => svg('rect', { x: X(a.x[0]), y: Y(a.y[1]), width: X(a.x[1]) - X(a.x[0]), height: Y(a.y[0]) - Y(a.y[1]), ...extra });
+    const box = (a) => ({ x: X(a.x[0]), y: Y(a.y[1]), width: X(a.x[1]) - X(a.x[0]), height: Y(a.y[0]) - Y(a.y[1]) });
     const word = (x, y, t, cls, anchor = 'middle', size = fs) => svg('text', { x, y, class: `pzz-w ${cls || ''}`, 'data-look': 'crit.word', 'text-anchor': anchor, 'font-size': size }, t);
     const panel = plotPanel(svg, 0, 0, W, ph, { fill: false });   // (the shared rounded plot, plot-look.js)
-    const g = svg('g', { 'clip-path': panel.url }, ...fig.zones.map((z) => box(z, { class: 'pzz-z', 'data-look': 'crit.zone', 'data-rate': z.rate })), fig.hatch ? box(fig.hatch, { fill: `url(#${id}h)` }) : null);
+    const art = zoneArt(svg, { rects: fig.zones, hatch: fig.hatch, box });   // (the zones and the hatch: baveno-zones.js, one look for every chart of them)
+    const g = svg('g', { 'clip-path': panel.url }, ...art.g);
     const by = ph - 8;
     gl.show(svg('svg', { width: W, height: ph, viewBox: `0 0 ${W} ${ph}`, role: 'img', 'aria-label': fig.label || '' },
-      svg('defs', {}, panel.clip,
-        svg('pattern', { id: `${id}h`, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' }, svg('rect', { width: 2, height: 7, class: 'pzz-hl', 'data-look': 'crit.hatch' }))),
+      svg('defs', {}, panel.clip, ...art.defs),
       g,
       ...fig.zones.filter((z) => z.name).map((z) => word(X(z.at[0]), Y(z.at[1]) + fs * 0.36, z.name, 'n')),
       ...fig.xTicks.map((k) => word(X(k), by, String(k), 'v', 'middle', sm)),

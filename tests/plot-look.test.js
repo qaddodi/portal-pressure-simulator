@@ -71,15 +71,15 @@ test('the numbers stand on the plot: inside it, apart from each other, the names
 test('a number never sits on a point: a box kept off takes the number out, the axes\' names stay', () => {
   // (The CSPH plane keeps its axes' names; the HVPG against PPG plane's numbers are its cut-offs alone.)
   const pl = planeOf('csph'), fr = frame(800, 450), { X, Y } = scaler(pl, fr), fs = 16;
-  const all = plotNumbers(pl, fr, X, Y, fs), at100 = all.find((n) => n.text === '100' && n.anchor === 'start');
-  assert.ok(at100, 'the y 100 is on the plot with nothing in the way');
-  // (A point at the plot's left edge level with the 100, 8 px round it and its halo.)
-  const p = { x: X(1), y: Y(101) }, keep = [[p.x - 12, p.y - 12, p.x + 12, p.y + 12]];
+  const all = plotNumbers(pl, fr, X, Y, fs), at150 = all.find((n) => n.text === '150K' && n.anchor === 'start');
+  assert.ok(at150, 'the y 150K is on the plot with nothing in the way (11 Nov: written as the guideline card writes it)');
+  // (A point at the plot's left edge level with the 150K, 8 px round it and its halo.)
+  const p = { x: at150.box[0] + 4, y: (at150.box[1] + at150.box[3]) / 2 }, keep = [[p.x - 12, p.y - 12, p.x + 12, p.y + 12]];
   const some = plotNumbers(pl, fr, X, Y, fs, keep);
   assert.ok(!some.some((n) => touch(n.box, keep[0])), 'none touches the point');
-  assert.ok(!some.some((n) => n.text === '100' && n.anchor === 'start'), 'the y 100 beside it is left out');
+  assert.ok(!some.some((n) => n.text === '150K' && n.anchor === 'start'), 'the y 150K beside it is left out');
   assert.equal(some.filter((n) => n.cls === 'pze-ax').length, 2, 'the names stay');
-  assert.ok(some.some((n) => n.text === '150' && n.anchor === 'start'), 'the y 150, clear of it, stays');
+  assert.ok(some.some((n) => n.text === '20'), 'the x 20, clear of it, stays');
   // (The same on the HVPG against PPG plane: both axes named (2 Nov: "tough to know HVPG PPG"), and a point by the 12 takes only that number out.)
   const hp = planeOf('hvpg-ppg'), hf = frame(800, 450), h = scaler(hp, hf), hk = [[h.X(0.4) - 12, h.Y(12.3) - 12, h.X(0.4) + 12, h.Y(12.3) + 12]];
   const hs = plotNumbers(hp, hf, h.X, h.Y, fs, hk);

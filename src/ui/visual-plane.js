@@ -31,6 +31,7 @@ import { h, fmt, clamp } from './util.js';
 import { HVPG_CUTS, PPG_CUTS } from '../engine/pressure-cuts.js';
 import { TILE, tileShown } from './table-marks.js';
 import { plotPanel } from './plot-look.js';
+import { BAVENO, BAVENO_AXES, bavenoRects, zoneArt } from './baveno-zones.js';
 import { frameFor, easeNow } from './frame.js';
 import { easeArrive, D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { createSvgGL, svgModel, setPts, moveAt } from './svg-gl.js';
@@ -70,16 +71,22 @@ export function rangeOf(when, key, min, max) {
 // TIPS under 12 mmHg), so each line is named for its own meaning.
 export const PLANES = {
   csph: {
-    x: { key: 'lsm', min: 0, max: 40, ticks: [0, 10, 15, 20, 25, 40], name: 'Liver stiffness, kPa', short: 'Stiffness, kPa', abbr: 'LSM kPa' },
-    y: { key: 'plt', min: 0, max: 300, ticks: [0, 100, 150, 300], name: 'Platelets, ×10³/µL', short: 'Platelets', abbr: 'PLT' },
+    // (11 Nov 2026, Mohammad: this plane and the guideline card's graph show the same zones, so they look alike: the one geometry, tint, type and axis
+    // writing of baveno-zones.js. look: 'guide' draws the zones as the muted non-overlapping tints, no dashed lines, the words in the outlined type;
+    // the axes are written as the guideline card writes them, 15 20 25 along the foot, 150K up the left, LSM kPa and PLT (only: the one form).)
+    x: { key: 'lsm', min: 0, max: 40, ticks: BAVENO_AXES.xTicks, name: 'Liver stiffness, kPa', short: 'Stiffness, kPa', abbr: BAVENO_AXES.xName, only: 'abbr' },
+    y: { key: 'plt', min: 0, max: 300, ticks: [BAVENO_AXES.yTick[0]], name: 'Platelets, ×10³/µL', short: 'Platelets', abbr: BAVENO_AXES.yName, only: 'abbr' },
+    look: 'guide',
+    tickText: { [BAVENO_AXES.yTick[0]]: BAVENO_AXES.yTick[1] },
+    rectsOf: bavenoRects,
     // (Mohammad's three words, 19 Oct: "No CSPH", "CSPH" and "Indeterminate", each on its own zone and no key. at: the middle of
     // the zone's largest open part, the amber L's lower band; edges: its cut-offs only where zones meet.)
     zones: [
-      { when: [['lsm', '>=', 25]], t: 'CSPH', tone: 'hi', at: [32.5, 225], note: '≥25 kPa (not in obese MASLD)' },
-      { when: [['lsm', '<=', 15], ['plt', '>=', 150]], t: 'No CSPH', tone: 'ok', at: [7.5, 225], note: '≤15 kPa with platelets ≥150' },
+      { when: [['lsm', '>=', BAVENO.in]], t: 'CSPH', tone: 'hi', at: [32.5, 225], note: '≥25 kPa (not in obese MASLD)' },
+      { when: [['lsm', '<=', BAVENO.out], ['plt', '>=', BAVENO.plt]], t: 'No CSPH', tone: 'ok', at: [7.5, 225], note: '≤15 kPa with platelets ≥150' },
       { t: 'Indeterminate', tone: 'mid', at: [12.5, 75], note: 'A model or spleen stiffness decides' },
     ],
-    cuts: { x: [15, 25], y: [150] },
+    cuts: { x: [BAVENO.out, BAVENO.in], y: [BAVENO.plt] },
     source: 'Baveno VIII 1.15, 1.16',
     key: 'never',
     edges: true,
@@ -195,17 +202,18 @@ export function plotNumbers(pl, fr, X, Y, fs, keepOff = [], part = 'all') {
     out.push({ text, x, y, anchor, cls, box });
   };
   const foot = H - PAD - fs * 0.25 - 3, cut = (a, v) => (pl.cuts?.[a] || []).includes(v), ticks = [];
+  const tx = (v) => pl.tickText?.[v] ?? String(v);   // (a number's own writing: 150 as 150K)
   for (const v of pl.x.ticks || [pl.x.min ?? 0, pl.x.max]) {
-    const x = X(v), w = est(String(v), fs, 0.62), left = x - w / 2 < PAD + 2, right = x + w / 2 > W - PAD - 2;
-    ticks.push([cut('x', v), String(v), left ? PAD + 3 : right ? W - PAD - 3 : x, foot, left ? 'start' : right ? 'end' : 'middle']);
+    const x = X(v), w = est(tx(v), fs, 0.62), left = x - w / 2 < PAD + 2, right = x + w / 2 > W - PAD - 2;
+    ticks.push([cut('x', v), tx(v), left ? PAD + 3 : right ? W - PAD - 3 : x, foot, left ? 'start' : right ? 'end' : 'middle']);
   }
-  for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), String(v), PAD + 3, Math.max(cut('y', v) && part === 'all' ? Y(v) - fs * 0.25 - 3 : Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);   // (a cut-off's number in the card stands just over its line, never on it)
+  for (const v of (pl.y.ticks || [pl.y.min ?? 0, pl.y.max]).filter((t) => t > (pl.y.min ?? 0))) ticks.push([cut('y', v), tx(v), PAD + 3, Math.max(cut('y', v) && part === 'all' ? Y(v) - fs * 0.25 - 3 : Y(v) + fs * 0.35, PAD + 3 + fs * 0.8), 'start']);   // (a cut-off's number in the card stands just over its line, never on it)
   ticks.sort((a, b) => b[0] - a[0]);
   const marks = ticks.filter((t) => t[0]), rest = ticks.filter((t) => !t[0]);
   if (part !== 'names') for (const [, text, x, y, anchor] of marks) put(text, x, y, anchor, 'pze-t on');
   // (A name in the longest form that touches nothing standing; the shortest where every form does.)
   const name = (a, x, y, anchor, room) => {
-    const forms = [...new Set([a.fullFrom > W ? null : a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);   // (fullFrom: the full name only on a plot this wide)
+    const forms = [...new Set(a.only ? [a[a.only]] : [a.fullFrom > W ? null : a.name, a.short, a.abbr, a.key].filter(Boolean))].filter((t) => est(t, fs, 0.62) <= room);   // (fullFrom: the full name only on a plot this wide)
     const ok = forms.find((t) => !taken.some((o) => hit(boxOf(t, x, y, anchor), o)));
     put(ok ?? forms.at(-1) ?? a.key, x, y, anchor, 'pze-ax', true);
   };
@@ -830,11 +838,15 @@ export function planePlot(pl, { card = false } = {}) {
     // Zones, the rest of the plane first, the first listed last (on top), as zoneOf reads them: out to the element's edge where they end at
     // the plot's, the whole of them one rounded shape (plot-look.js, his G2 look).
     const panel = plotPanel(sv, 0, 0, W, H, { fill: axed });
-    const fills = [...pl.zones].reverse().map((z) => {
+    // (look: 'guide', the plane the guideline card's graph is the same as: the shared tints, laid side by side and never over each other, baveno-zones.js.)
+    const guide = pl.look === 'guide' && typeof pl.rectsOf === 'function';
+    const rr = (a) => { const b = bleed({ x1: X(a.x[0]), x2: X(a.x[1]), y1: Y(a.y[1]), y2: Y(a.y[0]) }, fr, W, H); return { x: b.x1, y: b.y1, width: b.x2 - b.x1, height: b.y2 - b.y1 }; };
+    const art = guide ? zoneArt(sv, { rects: pl.rectsOf([pl.x.min ?? 0, pl.x.max], [pl.y.min ?? 0, pl.y.max]), hatch: pl.hatchOf ? pl.hatchOf([pl.x.min ?? 0, pl.x.max], [pl.y.min ?? 0, pl.y.max]) : null, box: rr }) : null;
+    const fills = art ? art.g : [...pl.zones].reverse().map((z) => {
       const [x0, x1, y0, y1] = zoneRect(pl, z), b = bleed({ x1: X(x0), x2: X(x1), y1: Y(y1), y2: Y(y0) }, fr, W, H);
       return sv('rect', { class: 'pze-zone', 'data-look': 'plane.zone', 'data-tone': z.tone || 'none', x: b.x1, y: b.y1, width: b.x2 - b.x1, height: b.y2 - b.y1 });
     });
-    kids.push(sv('defs', {}, panel.clip), axed ? panel.back : sv('g', { 'clip-path': panel.url }, fills));
+    kids.push(sv('defs', {}, panel.clip, ...(art?.defs || [])), axed ? panel.back : sv('g', { 'clip-path': panel.url }, fills));
     const ax = axed ? axesMarks(pl, fr, X, Y, fs, W) : null;
     if (ax) for (const g of ax.grid) kids.push(sv('line', { class: 'pze-grid', 'data-look': 'plane.grid', ...g }));
     // The patients' names first, so every point keeps its name; the zones' words then take what room is left (the key names
@@ -856,12 +868,12 @@ export function planePlot(pl, { card = false } = {}) {
       kids.push(sv('rect', { class: 'pze-box', 'data-look': 'plane.box', x: X(x0), y: Y(y1), width: X(x1) - X(x0), height: Y(y0) - Y(y1) }));
     }
     for (const w of words) {
-      kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-look': 'plane.zt', 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, 'font-size': fs }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
+      kids.push(sv('text', { class: 'pze-zt ' + w.cls, 'data-look': guide ? 'plane.gzt' : 'plane.zt', 'data-tone': w.z.tone || 'none', x: w.x, y: w.y, 'text-anchor': w.anchor, 'font-size': fs }, w.lines.map((l, i) => sv('tspan', { x: w.x, dy: i ? fs * 1.2 : null }, l))));
     }
     // The cut-off lines, the axes and their ticks.
     // (Broken 4 px clear of a name that sits across one, and of a number a line runs to: the numbers carry no outline to hide it, which
     // smeared them on a light card.)
-    for (const c of gapSegs(cutSegs(pl, X, Y, fr, true), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', 'data-look': 'plane.cut', ...bleed(c, fr, W, H) }));
+    for (const c of guide ? [] : gapSegs(cutSegs(pl, X, Y, fr, true), [...names.filter((n) => n?.across).map((n) => n.box), ...nums.map((n) => n.box)])) kids.push(sv('line', { class: 'pze-cut', 'data-look': 'plane.cut', ...bleed(c, fr, W, H) }));
     for (const l of lines) kids.push(sv('text', { class: 'pze-ln', 'data-look': 'plane.ln', x: l.x, y: l.y, 'text-anchor': l.anchor, 'font-size': fs }, l.text));
     const dg = diagOf(pl, X, Y, fs);
     if (dg) kids.push(sv('line', { class: 'pze-diag', 'data-look': 'plane.diag', ...dg.seg }), dg.label ? sv('text', { class: 'pze-dt', 'data-look': 'plane.dt', x: dg.label.x, y: dg.label.y, 'text-anchor': dg.label.anchor, 'font-size': fs }, dg.label.text) : null);
@@ -870,7 +882,7 @@ export function planePlot(pl, { card = false } = {}) {
     // The axes: their lines and ticks over the diagonal's start, the numbers and names beside them.
     if (ax) for (const l of [...ax.axes, ...ax.ticks]) kids.push(sv('line', { class: 'pze-axis', 'data-look': 'plane.axis', ...l }));
     // The numbers and the axes' names on the plot (a plane with zones: no axis lines, the shape's edge is the axis).
-    for (const n of nums) kids.push(sv('text', { class: n.cls, 'data-look': n.cls === 'pze-ax' ? 'plane.ax' : 'plane.t', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': fs }, n.text));
+    for (const n of nums) kids.push(sv('text', { class: guide && n.cls === 'pze-ax' ? `${n.cls} q` : n.cls, 'data-look': guide ? 'crit.word' : n.cls === 'pze-ax' ? 'plane.ax' : 'plane.t', x: n.x, y: n.y, 'text-anchor': n.anchor, 'font-size': fs }, n.text));
     // The patients: a point each, its name beside it.
     at.forEach((p, i) => {
       const n = names[i];
@@ -902,7 +914,7 @@ export function planePlot(pl, { card = false } = {}) {
         let t = cardWords.get(w.z);
         const pos = `translate(${w.x.toFixed(1)}px, ${w.y.toFixed(1)}px)`, body = w.lines.join('\n') + '|' + w.fs;
         if (!t) {
-          t = sv('text', { class: 'pze-zt pze-zw', 'data-look': 'plane.zt', 'data-tone': w.z.tone || 'none', 'text-anchor': 'middle' });
+          t = sv('text', { class: 'pze-zt pze-zw', 'data-look': guide ? 'plane.gzt' : 'plane.zt', 'data-tone': w.z.tone || 'none', 'text-anchor': 'middle' });
           t.style.transform = pos; t.dataset.pos = pos;
           cardWords.set(w.z, t); wordsG.append(t);
         } else if (t.dataset.pos !== pos) {
