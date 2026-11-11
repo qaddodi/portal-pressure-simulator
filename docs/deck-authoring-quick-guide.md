@@ -54,7 +54,7 @@ Each slide has a `title` that stands on its own and a `line` of 30 words or fewe
 - **Puzzle first.** End the slide before a reveal on the paradox as a plain statement ("A meal is about to raise the portal flow by half."), and let the next slide resolve it.
 - **One coloring a line, and a title that names the finding.** Never write "Colored by …" in a line: the key already names each coloring, so say the finding the color shows. Title a slide "A clotted hepatic artery starves the bile ducts", not "Hepatic artery thrombosis".
 - **Say when the patient changes.** "In another patient with CSPH, …" for a new one, and "Back in the first patient, …" for a return (that slide then carries its own `preset`, `days` and `ramp`).
-- **Name the setting of a source.** Baveno VIII Table 3's HVPG response (a fall of 10% or more, or to 12 mmHg or less) is stated for primary prophylaxis. EASL 2025's recanalization is about 4 in 10 without cirrhosis and 7 in 10 with it. Check a claim against `/mnt/project-files/guidelines/` and leave out what no file supports.
+- **Name the setting of a source.** Baveno VIII Table 3's HVPG response (a fall of 10% or more, or to 12 mmHg or less) is stated for primary prophylaxis. EASL 2025's recanalization is about 4 in 10 without cirrhosis and 7 in 10 with it. Check a claim against the files in `guidelines/` in the repo (Baveno VIII, AASLD 2024, EASL 2025, AASLD 2021 ascites, AASLD 2020 vascular) and leave out what no file supports.
 - **Taking a slide out.** Delete its handout figure and its `tests/deck-adopted.js` entries, fix `sections` and `objectives`, then run `UPDATE=1 node --test tests/deck-terms.test.js` once, after reading the diff.
 
 Full guide: section 6 (words), section 9 (house rules).
