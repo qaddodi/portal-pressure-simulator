@@ -102,7 +102,7 @@ float glowAmt(int id, float d, float wall, float vAt, float aIn, out vec4 gc, ou
   float ends = (ge.x > 0.0 ? smoothstep(0.0, ge.x, vAt * Lh) : 1.0) * (ge.y > 0.0 ? smoothstep(0.0, ge.y, (1.0 - vAt) * Lh) : 1.0);
   // A stretch (a stent's third): its two ends come as −(1 + u) along the vessel; the glow fades in and out over a few units there.
   if (ge.x < 0.0) {
-    float x = vAt * Lh, a = (-ge.x - 1.0) * Lh, b = (-ge.y - 1.0) * Lh, w = min(6.0, 0.08 * Lh);
+    float x = vAt * Lh, a = (-ge.x - 1.0) * Lh, b = (-ge.y - 1.0) * Lh, w = min(14.0, 0.2 * Lh);
     ends = (a > 0.5 ? smoothstep(a - w, a + w, x) : 1.0) * (b < Lh - 0.5 ? 1.0 - smoothstep(b - w, b + w, x) : 1.0);
   }
   bool up = ge.w > 5.0;

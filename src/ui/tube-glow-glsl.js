@@ -157,7 +157,7 @@ export function glowAmtJS({ d, wall, vAt, Lh = 1, aIn = 1, gc, ge }) {
   const e = d - wall, L = Math.max(Lh, 1);
   let ends = (ge[0] > 0 ? smoothstep(0, ge[0], vAt * L) : 1) * (ge[1] > 0 ? smoothstep(0, ge[1], (1 - vAt) * L) : 1);
   if (ge[0] < 0) {
-    const x = vAt * L, a = (-ge[0] - 1) * L, b = (-ge[1] - 1) * L, w = Math.min(6, 0.08 * L);
+    const x = vAt * L, a = (-ge[0] - 1) * L, b = (-ge[1] - 1) * L, w = Math.min(14, 0.2 * L);
     ends = (a > 0.5 ? smoothstep(a - w, a + w, x) : 1) * (b < L - 0.5 ? 1 - smoothstep(b - w, b + w, x) : 1);
   }
   const up = ge[3] > 5;

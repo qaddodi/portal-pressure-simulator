@@ -136,7 +136,9 @@ export function createGlow(st, live) {
     // probe showed before the zoom, went with it and came back after (Doppler 2, Mohammad, 20 Oct). animateVT lets it go.)
     if (id && store.get().presenting) live.dprHold();
     // (On top of every vessel it crosses, as a glow should lie (18f2e33): the stent's lit third over the hepatic vein above it, Review 15 Oct.)
-    if (id) { dopGlow.id = id; dopGlow.span = seg ? STENT_SPANS[seg] : null; }
+    // (A stent's lit third takes the stent's own colour, soft and slim, its ends easing out over a fifth of the stent: the white halo round the gate
+    // read as a bright round blob with fringed edges (Mohammad, 11 Nov). Any other vessel keeps the Doppler's white.)
+    if (id) { dopGlow.id = id; dopGlow.span = seg ? STENT_SPANS[seg] : null; dopGlow.col = seg ? null : 'var(--dop-glow)'; dopGlow.amt = seg ? 0.85 : 1.1; dopGlow.wide = seg ? 0.6 : 0.8; }
     setGlowSrc('dop', id ? dopGlowList : noGlows);
     live.dprobePaint();
   }
