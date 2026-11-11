@@ -70,7 +70,7 @@ test('the figure unrolls and rolls back a stented vein on its own clock, and the
   assert.ok(move.length > 0 && !/meshPaths|s\('/.test(move), 'an unrolling stent builds nothing per frame');
   assert.match(move, /(?:live\.)?putA\(P\.front, 'transform'/, 'it moves the front');
   assert.match(stage, /meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole mesh, built once');
-  assert.match(stage, /putMark\(ov\.stents, `stent:\$\{id\}`, id, meshPaths\(id, p, 2, geo\[id\]\.len - 2\)\)/, 'the DIPS and the stent tool\'s shunts: the whole drawn shunt, faded in and out');
+  assert.match(stage, /const \[a, b\] = stentSpan\(id\); putMark\(ov\.stents, `stent:\$\{id\}`, id, meshPaths\(id, p, a, b\)\)/, 'the DIPS and the stent tool\'s shunts: the whole drawn shunt, faded in and out');
   assert.match(stage, /if \(id === 'TIPS'\) return;/, 'the TIPS is the covered stent, unrolled with the veins\' (D4)');
   assert.match(stage, /venousSync\(p, t < 0\.5, key !== (?:live\.)?overlayKey\)/, 'followed on every overlay update');
   assert.match(stage, /(?:live\.)?easeInOut\(v\.k\)/, 'it eases, never snaps');

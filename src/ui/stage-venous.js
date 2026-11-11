@@ -6,7 +6,7 @@ import { store } from './store.js';
 import { s } from './util.js';
 
 export function createVenous(st, live) {
-  const { E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, tipsBare } = st;
+  const { E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, stentSpan, tipsBare } = st;
   // A vein a slide shows stented (store.stented: a hepatic vein or the IVC, which the model has no device for): the same mesh over
   // the stretch VST_SPAN of the vein, unrolled from its heart end (where a transjugular catheter comes from) while it fades in, and
   // rolled back the same way when the slide leaves it. It eases on its own clock, so the figure is never waiting on the model.
@@ -42,7 +42,7 @@ export function createVenous(st, live) {
       const L = geo[id].len;
       const cid = `vstClip-${id}-${++vstN}`;
       const tips = id === 'TIPS', open = tips && v.k >= 1;   // (open: the whole stent in, so no front to clip it by: the circuit's lane turns back on itself, which a half-plane cannot follow)
-      const R = meshR(id, p), d0 = tips ? 2 : VST_SPAN[1] * L, d1 = tips ? L - 2 : VST_SPAN[0] * L, r1 = R(d1);
+      const span = tips ? stentSpan(id) : null, R = meshR(id, p), d0 = tips ? span[0] : VST_SPAN[1] * L, d1 = tips ? span[1] : VST_SPAN[0] * L, r1 = R(d1);
       const far = Math.abs(d1 - d0) + 4 * r1 + 20;   // (the clip: the half of the plane behind the front, as far as the whole mesh reaches)
       // (What the mesh is made from: its two ends and its middle on the vessel, its half-width at both ends and the middle, its bare stretch.)
       const mid = (d0 + d1) / 2;
