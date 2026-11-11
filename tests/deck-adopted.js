@@ -49,8 +49,8 @@ export const ADOPTED = {
   'endoscopy/flat': ['question'],
   'circuit/parallel': ['kind:flows'],
   'circuit/tips': ['kind:causes'],   // (the waterfall: the stent as the step back, beside its width slider)
-  'cause-treated/year2': ['kind:plane'],
-  'cause-treated/year1': ['lens:since'],
+  'cause-treated/year2': ['kind:plane', 'cutouts'],
+  'cause-treated/year1': ['lens:since', 'cutouts'],
   'prehepatic/carv': ['ripple'],
   'prehepatic/pvt-anticoag': ['kind:lumen'],
   'prehepatic/course': ['tool.bands'],
@@ -90,7 +90,7 @@ export const ADOPTED = {
   'ascites/start': ['scales', 'kind:fluid'],
   'encephalopathy/firstpass': ['scales', 'kind:flows'],
   'ascites/lymph': ['scales', 'kind:fluid'],
-  'ascites/fill': ['scales', 'kind:fluid', 'mark.organ'],
+  'ascites/fill': ['scales', 'kind:fluid', 'mark.organ', 'cutouts'],
   'ascites/diuretics': ['kind:fluid'],
   'prehepatic/cath': ['kind:profile'],
   'prehepatic/anticoag': ['kind:lumen'],
@@ -156,7 +156,7 @@ export const ADOPTED = {
   'treatment/oct': ['kind:profile'],
   'lobule/cirr': ['scales'],
   'lobule/cong': ['scales'],
-  'lobule/wedge': ['kind:profile'],
+  'lobule/wedge': ['kind:profile', 'cutouts'],
   'prehepatic/gradients': ['kind:profile', 'question'],
   'recompensation/csph': ['kind:profile', 'cite'],
   'where-resistance/a1': ['caseQ', 'kind:profile'],
@@ -253,9 +253,12 @@ export const ADOPTED = {
   'masld/still': ['kind:plane', 'cite'],
   'masld/bmi': ['cite'],
   'masld/start': ['cite'],
-  'masld/regress': ['cite'],
+  'masld/regress': ['cite', 'cutouts'],
   'masld/alcohol': ['cite'],
   'masld/drugs': ['kind:criteria'],
+  'stiffness/fibrosis': ['cutouts'],
+  'hvpg/wedge': ['cutouts'],
+  'outflow/bcs': ['cutouts'],
 };
 
 /** Whether the slide d/s may use the field. */

@@ -70,7 +70,7 @@ export const MASLD = {
       ask: ['Which patients does the regression statement cover?', 'Patients with MASLD-related cACLD without CSPH.'],
     },
     {
-      id: 'regress', days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Diet starts', to: 'One year later' }, cam: 'liver',
+      id: 'regress', cutouts: ['lobule', 'sinusoid'], days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Diet starts', to: 'One year later' }, cam: 'liver',
       tool: { kind: 'flowtime', clock: 'days', lines: ['wt', 'lsm'], given: { wt: 12 }, title: 'Body weight and stiffness over the year' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
       kicker: STIFF, site: 'sin', title: 'Losing 12% of his weight can lower the stiffness by 30%', cite: 'Baveno VIII 2.13, 2.6',
       line: 'A year on, his stiffness has fallen from {lsm@start} to {lsm}. A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.',

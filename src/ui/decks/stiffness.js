@@ -32,7 +32,7 @@ export const STIFFNESS = {
       ask: ['What does a FibroScan actually time?', 'A shear wave crossing the liver: the faster it goes, the stiffer the tissue.'],
     },
     {
-      id: 'fibrosis', preset: 'cirr-comp', cam: 'liver', glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'measure',
+      id: 'fibrosis', preset: 'cirr-comp', cam: 'liver', cutouts: ['lobule', 'sinusoid'], glow: ['liver'], tool: { kind: 'fibroscan' }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'measure',
       whatIf: { label: 'Scarring', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] },
       kicker: 'Liver stiffness', site: 'sin', title: 'Fibrosis stiffens the liver',
       vignette: 'A 50-year-old man with chronic hepatitis B, lost to follow-up for years, is referred for staging. He feels well, and his platelets are 159,000/µL.',

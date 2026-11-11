@@ -39,7 +39,7 @@ export const CAUSE_TREATED = {
       ask: ['Why start carvedilol now, if the virus will soon be cured?', 'The portal pressure falls only slowly after cure, and carvedilol lowers the risk of decompensation in the meantime.'],
     },
     {
-      id: 'year1', lens: 'since', days: 365, ramp: { cirrhosis: [0.6, 0.45] }, lapse: { seconds: 8, from: 'Cure', to: 'One year later' }, cam: 'liver',
+      id: 'year1', cutouts: ['lobule'], lens: 'since', days: 365, ramp: { cirrhosis: [0.6, 0.45] }, lapse: { seconds: 8, from: 'Cure', to: 'One year later' }, cam: 'liver',
       tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'varix'], title: 'HVPG and varix over the year' }, data: 'tiles', tiles: ['hvpg', 'varix', 'lsm', 'plt'], key: ['lsm'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'A year after cure, the pressure and the stiffness fall',
       line: 'The stiffness reads {lsm}, the platelets have risen to {plt} and the HVPG has fallen to {hvpg}.',
@@ -47,7 +47,7 @@ export const CAUSE_TREATED = {
       ask: ['The stiffness falls fast in the first year after cure. Has the fibrosis regressed as fast?', 'No: much of the early fall is inflammation settling, so the stiffness overstates the regression.'],
     },
     {
-      id: 'year2', days: 365, ramp: { cirrhosis: [0.45, 0.32] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver',
+      id: 'year2', cutouts: ['lobule', 'sinusoid'], days: 365, ramp: { cirrhosis: [0.45, 0.32] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver',
       // (His trail on the plane: where he stood before cure and a year after, a line on to the dot as it moves. Mohammad, 1 Nov, mock B.)
       tool: { ...PLANE, trail: [{ slide: 'before', name: 'Before cure' }, { slide: 'year1', name: '1 year' }] },
       data: 'tiles', tiles: ['hvpg', 'ssm'], key: ['hvpg'], delta: 'before',

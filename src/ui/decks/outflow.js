@@ -20,7 +20,7 @@ export const OUTFLOW = {
   summary: 'Budd–Chiari syndrome, sinusoidal obstruction syndrome, heart failure, constriction and an IVC web: a liver that cannot drain, what the catheter and the Doppler read in each, and how the outflow is reopened.',
   slides: [
     {
-      id: 'bcs', lens: 'heat', terms: ['ivc', 'ra'], preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], clot: true }, tool: { kind: 'abdomen' },
+      id: 'bcs', cutouts: ['lobule'], lens: 'heat', terms: ['ivc', 'ra'], preset: 'budd-chiari', cam: 'hepatic', mark: { edges: ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'], clot: true }, tool: { kind: 'abdomen' },
       whatIf: { label: 'Right hepatic vein clot', param: 'thrombus.RHV_IVC', min: 0, max: 1, step: 0.05, ends: ['None', 'Occlusive'] },
       kicker: 'Hepatic veins', site: 'post', title: 'In Budd–Chiari syndrome the hepatic veins clot',
       vignette: 'A 31-year-old woman with antiphospholipid syndrome stopped warfarin 3 months ago. She has had RUQ pain for 2 months and now has tense ascites.',

@@ -31,7 +31,7 @@ export const HVPG = {
       ask: ['Why subtract the free pressure rather than the right atrial pressure?', 'The free pressure carries the same abdominal and venous pressure as the wedge, so subtracting it cancels them.'],
     },
     {
-      id: 'wedge', cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
+      id: 'wedge', cutouts: ['sinusoid'], cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', title: 'The wedged pressure reads the sinusoids',
       terms: { sinusoids: 'whvp' },
       line: 'Inflating the balloon stops flow, so the blood ahead settles at the pressure of the feeding sinusoids. Record it once the tracing is stable, after ≥1 minute.',
