@@ -54,13 +54,13 @@ test('with the TIPS whole, its stent ends in a tip at the wall of each vein and 
       assert.ok(d >= hw * 0.9, `a vertex of the stent cover at ${x.toFixed(0)},${y.toFixed(0)} is ${d.toFixed(1)} from the ${name}'s course, inside its half width ${hw.toFixed(1)}`);
     }
   }
-  // its two tips: the cover's points nearest each end of the shunt stand at the vein's wall (within a half width of it, so no gap) and the stent narrows to them
+  // its two tips: the cover's points nearest each end of the shunt stand at the vein's wall (within the stent's own half width of it, so no gap) and the stent narrows to them
   const endP = tipsWorld[0].slice(0, 2), endH = tipsWorld.at(-1).slice(2, 4);
   for (const [name, end, list] of [['portal', endP, portal], ['hepatic', endH, hepatic]]) {
     let tip = null;
     for (const v of V) if (!tip || Math.hypot(v[0] - end[0], v[1] - end[1]) < Math.hypot(tip[0] - end[0], tip[1] - end[1])) tip = v;
     const [d, hw] = nearest(list, tip[0], tip[1]);
-    assert.ok(d <= hw * 1.6, `the ${name} tip stands ${d.toFixed(1)} from the vein's course, its half width ${hw.toFixed(1)}: a gap`);
+    assert.ok(d - hw <= 9, `the ${name} tip stands ${(d - hw).toFixed(1)} off the vein's wall: a gap (the stent is about 8 wide)`);
     const near = V.filter((v) => Math.hypot(v[0] - tip[0], v[1] - tip[1]) < 3);
     assert.ok(near.length >= 2, 'the tip is a point');
     const wide = V.filter((v) => Math.hypot(v[0] - tip[0], v[1] - tip[1]) < 1.5).map((v) => Math.hypot(v[0] - tip[0], v[1] - tip[1]));

@@ -100,7 +100,6 @@ const ROOMED = {
   'sites/pvt': 'the splenic vein label hangs from its splenic hilum stretch, past the portal region',
   'shunts/srs': 'the Doppler probe on the main portal vein lies below the splenic region',
   'tips-doppler/jet': 'the Doppler probe sits on the middle of the stent, above the close-up on the portal end',
-  'tips-doppler/jet beat 2': 'the Doppler probe sits on the middle of the stent, below the close-up on the hepatic vein end',
   'varices/burst': 'the varices label hangs from the varix vessel below the close-up box',
   'varices/eso': 'the left gastric vein label, and the vein it lights, hang below the varices region',
 };

@@ -35,12 +35,15 @@ test('the TIPS is a curve, not a straight run, and so is the DIPS', () => {
   }
 });
 
-test('the TIPS leaves the right portal vein and meets the right hepatic vein at shallow angles, both ends on the veins\' own courses', () => {
-  const t0 = unit(TIPS[0], TIPS[4]), t1 = unit(TIPS.at(-5), last);
+test('the TIPS merges into each vein: under 20 degrees off its run at both ends (the tube renderer makes no corner web under 20, so no wedge), both ends on the veins\' own courses', () => {
+  // (The directions over the first eighth of each course, as the join reads a leg's direction over its first samples: the vein's own curve is part of it. tests/tips-merge.test.js asks the renderer itself.)
+  const t0 = unit(TIPS[0], TIPS[6]), t1 = unit(TIPS.at(-7), last);
   assert.ok(near([RPV.at(-1)], first) < 1 && near([RPV_ON[0]], first) < 1, 'it starts on the right portal vein, where its two stretches (PVH_R, PRE_R) meet');
-  assert.ok(deg(t0, unit(RPV.at(-7), RPV.at(-1))) <= 45, `it leaves ${deg(t0, unit(RPV.at(-7), RPV.at(-1))).toFixed(0)} degrees off the portal vein's run into the node`);
-  assert.ok(deg(t1, unit(RHV_UP.at(-7), RHV_UP.at(-1))) <= 35, `it arrives ${deg(t1, unit(RHV_UP.at(-7), RHV_UP.at(-1))).toFixed(0)} degrees off the hepatic vein's upstream stretch`);
-  assert.ok(deg(t1, unit(RHV[0], RHV[6])) <= 60, `and ${deg(t1, unit(RHV[0], RHV[6])).toFixed(0)} off the vein itself`);
+  const out = [['the portal vein\'s run into the node', deg(t0, unit(RPV.at(-7), RPV.at(-1)))], ['the portal venules\' run on', deg(t0, unit(RPV_ON[0], RPV_ON[6]))],
+    ['the hepatic vein\'s upstream stretch', deg(t1, unit(RHV_UP.at(-7), RHV_UP.at(-1)))]];
+  // (The hepatic vein's downstream stretch is not asked here: it leaves the node in a bend of the vein's own, which has its own web (tests/tips-merge.test.js), and the TIPS runs into the upstream stretch at the angle above.)
+  // (Against the veins' stretches that run toward the TIPS the angle is the straight chord's; the stretches that curve away over their first eighth read wider here than the renderer sees them: the bound is 30 there. The renderer's own decision is tests/tips-merge.test.js.)
+  for (const [what, a] of out) assert.ok(a < (/run on/.test(what) ? 30 : 20), `the TIPS meets ${what} at ${a.toFixed(0)} degrees: a corner the tube renderer fillets, with a wedge of liver between`);
   assert.ok(near(RHV, last) <= 3, `its end is ${near(RHV, last).toFixed(1)} off the right hepatic vein's centre line (inside its wall, under half its width)`);
   assert.ok(Math.hypot(last[0] - 500, last[1] - 246) <= 25, 'and within the reach of the vein\'s node, so the join takes it in');
 });
@@ -49,5 +52,5 @@ test('the TIPS stays clear of the middle hepatic vein\'s start (its join took th
   const MHV_START = [548, 282];
   assert.ok(near(TIPS, MHV_START) >= 40, `${near(TIPS, MHV_START).toFixed(1)} from the middle hepatic vein's start`);
   assert.ok(near(sample(EDGE_PATH.MHV_IVC), last) >= 30, 'and from the vein after it');
-  assert.ok(near(RHV_UP, TIPS[Math.floor(TIPS.length * 0.5)]) >= 15, 'and from the right hepatic vein\'s upstream stretch until it meets it');
+  assert.ok(near(RHV_UP, TIPS[Math.floor(TIPS.length * 0.5)]) >= 15, 'and from the right hepatic vein\'s upstream stretch until it merges into it');
 });

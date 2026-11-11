@@ -20,7 +20,7 @@ function sample(d) {
 }
 // The two ends each course starts and ends on (the vessels' nodes: moving one would unjoin the shunt).
 const ENDS = {
-  TIPS: [[505, 398], [508, 245]], DIPS: [[602, 442], [620, 304]],
+  TIPS: [[505, 398], [503, 246.5]], DIPS: [[602, 442], [620, 304]],
   S_PC: [[700, 556], [625, 590]], S_DSR: [[962, 448], [953, 618]], S_MC: [[690, 660], [620, 650]],
   AP_R: [[583.4, 422.3], [552, 420.8]], AP_L: [[642.4, 424.7], [656.8, 400.4]],
 };

@@ -41,7 +41,7 @@ export const TIPS_DOPPLER = {
     },
     {
       // The gate moves along the stent with the buttons; its third glows (white on the dark themes) and the probe's gate sits on it.
-      id: 'jet', params: STENT, days: 30, cam: { on: ['PVH_R'] }, beats: [{ cam: { on: ['RHV_IVC'] } }, { cam: 'liver' }], lens: 'velocity', tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid', points: true },
+      id: 'jet', params: STENT, days: 30, cam: { on: ['PVH_R'] }, beats: [{ cam: { on: ['RHV_IVC', 'TIPS'] } }, { cam: 'liver' }], lens: 'velocity', tool: { kind: 'doppler', vessel: 'TIPS', gate: 'mid', points: true },
       compare: [{ label: 'Proximal', gate: 'proximal' }, { label: 'Mid', gate: 'mid', own: true }, { label: 'Distal', gate: 'distal' }],
       kicker: 'A working TIPS', title: 'The stent is sampled at three points',
       line: 'The stent drops the PPG from {ppg@before} to {ppg}. Read it at three points: {<90 cm/s} or {>190 cm/s} at any one suggests narrowing.',

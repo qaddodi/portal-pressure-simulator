@@ -243,12 +243,11 @@ export const EDGE_PATH = {
   // clear below the epigastric vein where that crosses the trunk at y 79. tests/ascending-lumbar-route.test.js holds these.
   C9: 'M620 566 C 578 544.9 534 470 532 410 C 529.6 342.4 523 272.5 527 205 C 529 169.1 531 135.1 562.9 108',
 
-  // (A curve, never a straight run (Mohammad, 11 Nov 2026): it leaves the right portal vein heading up and a little to the left, 39 degrees off the vein's own run, and bows
-  // out into the parenchyma before it comes back to meet the right hepatic vein from the lower left, 23 degrees off the vein's upstream stretch and 44 off the vein itself: a branch
-  // that runs into a vein at a shallow angle, not a tube laid across it (109116f3e's straight one, and 7 Nov's, which ended at 540 240, 15 units from the middle hepatic vein's
-  // start (548 282), so that join took it in). It ends on the right hepatic vein's own course 8 units on from its start (500 246), more than 14.5 from C9, which passes behind the liver
-  // there (tests/ascending-lumbar-route.test.js), and well clear of the middle hepatic vein's start. tests/tips-course.test.js holds the numbers.)
-  TIPS: 'M505 398 C 478 350 487 286 508 245',
+  // (A curve, never a straight run (Mohammad, 11 Nov 2026), and it merges into each vein instead of butting on it (his pick of 11 Nov, 20:47): it leaves the right portal vein along the
+  // vein's own run on (1 degree off the portal venules' course, so the join is a plain union with no wedge between the shunt and the vein), bows away to the left through the
+  // parenchyma, and comes in on the right hepatic vein at its bend along the vein's own run (3 degrees off the upstream stretch, 18 off the downstream one: under the 20 degrees under
+  // which the tube renderer makes no corner web, WEB_MIN_DEG). It ends on the bend's node (502.8 246.5). tests/tips-course.test.js holds these numbers.)
+  TIPS: 'M505 398 C 466 382 477 262 503 246.5',
   // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe in one gentle curve (no
   // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
