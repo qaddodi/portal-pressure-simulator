@@ -15,6 +15,7 @@
 
 import { store, replaceParams } from './store.js';
 import { download } from './download.js';
+import { freshPatient } from './slide-motion.js';
 import { controlOwnsKey } from './key-owner.js';
 import { glWords } from './gl-words.js';
 import { h, toast, svgIcon, icon, fmt, clamp, openModal, closeModal, isModalOpen, confirmDialog, askText, popoverOpen, restBox, paintRange, cssVar, swapText, setCanvasBoost, odoOn, STACK_MQ, SHORT_SIDE_MQ, TABLET_UP_MQ, themeChanged } from './util.js';
@@ -1903,6 +1904,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (A case may end on one short question of its own, caseQ, on its own line under the case: the card already holds the talk until it is
     // lifted, so the room has the pause to think.)
     const card = cardUp('Case', h('p', { class: 'pz-case-p' }, nb(s.vignette)), s.caseQ ? h('p', { class: 'pz-case-p pz-case-q' }, nb(s.caseQ)) : null);
+    // (The figure dips as the card comes up, and stays dim while the camera backs out and the new patient is swapped in unseen: a dip, never a morph between two people.
+    // Not figureOut: its loading arc would turn over the card's words. The way back is figureIn, below.)
+    if (!own) view.classList.add('pz-out');
     await waitCut(card.ms, cut);
     if (cut()) return false;
     // The leaving slide's cards (faded out, still in place) no longer count for the framing: the wide view is the whole patient
@@ -1921,7 +1925,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     }
     // Then, the camera still, the new patient eases in.
     liveOff = false; shownState = -1;
-    if (!await morphTo(st, cut, reduce.matches ? 0 : 1200)) return false;
+    // (A time-lapse's own start eases in as before, the days playing on from it; a new patient is swapped in under the dip and the figure comes back.)
+    if (own) { if (!await morphTo(st, cut, reduce.matches ? 0 : 1200)) return false; }
+    else { applyState(st); await drawn(st); if (cut()) return false; figureIn(); }
     shownState = own ? -1 : si;   // (a time-lapse's own start is not a slide's state: the live figure plays the days from it)
     // (The fit follows what the new patient draws, a growing ascites or spleen: once the organs are back on their GPU copy, one
     // short ease takes it in, and none when it already fits.)
@@ -2394,7 +2400,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // The catheter leaves with its slides. (Only a new patient on the first slide or with reduced motion fades the figure, which takes
     // it; otherwise the patient eases in after (morphTo) and the figure never dims, so the catheter retracts and fades on its own.)
     tx?.phase('cath-out');
-    if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches), cut); if (cut()) return; }
+    if (cath.on && (!ct || si !== shownState)) { await cathOut(si !== shownState && shownState >= 0 && (booting || reduce.matches || freshPatient(s, lap, pre)), cut); if (cut()) return; }
     tx?.phase('to-anatomy');
     if (outNow) { await toAnatomy(inAnatomy ? riseFor(cam, fv) : null, cut); if (cut()) return; slideLayers(s); if (cut()) return; }
     // (A patient still being computed off screen: after a short wait the arc shows.)
@@ -2429,7 +2435,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     ui?.tools.hold(swap && !booting);
     // On screen the change eases (morphTo): after the camera has landed and before the cards come in, or for a catheter slide
     // (its cards come in at once) right here. Only the first slide, or with reduced motion, does the figure dim while it changes.
-    const glide = swap && !booting && !reduce.matches, later = glide && !ct && !!ui;
+    const dip = swap && !booting && !reduce.matches && !own && freshPatient(s, lap, pre), glide = swap && !booting && !reduce.matches && !dip, later = glide && !ct && !!ui;
     if (swap) {
       liveOff = false;
       tx?.phase('morph');

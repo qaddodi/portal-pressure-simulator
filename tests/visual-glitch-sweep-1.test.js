@@ -26,7 +26,7 @@ test('the hover tip unit is not under 12 px', () => {
 });
 
 test('a catheter leaving for a new patient fades on its own unless the figure itself fades', () => {
-  assert.match(pres, /await cathOut\(si !== shownState && shownState >= 0 && \(booting \|\| reduce\.matches\), cut\)/);
+  assert.match(pres, /await cathOut\(si !== shownState && shownState >= 0 && \(booting \|\| reduce\.matches \|\| freshPatient\(s, lap, pre\)\), cut\)/);
 });
 
 test('leaving the lobule here, its layers change only once it is left', () => {
