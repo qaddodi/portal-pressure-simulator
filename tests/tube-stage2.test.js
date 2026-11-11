@@ -5,21 +5,16 @@ import assert from 'node:assert/strict';
 import { tubeStage, stage1Why, stage2Start, stage2Finish, STAGE2_PROGRAMS, joinEntriesInto, createStage2Data } from '../src/ui/tube-stage2.js';
 import { makeHarness } from './tube-pass-harness.js';
 
-test('the stage and the joins are a pure function of (the four programs ready, the query)', () => {
-  const cases = [
-    [false, '', 1, 'patch'], [true, '', 2, 'web'], [true, '?perf', 2, 'web'], [true, '?tube=1', 1, 'patch'], [true, '?perf&tube=1', 1, 'patch'], [true, '?tube=1&perf', 1, 'patch'],
-    [true, '?tubejoin=patch', 2, 'patch'], [true, '?a=1&tubejoin=patch&b', 2, 'patch'], [false, '?tubejoin=patch', 1, 'patch'], [true, '?tube=12', 2, 'web'], [true, '?tube=1&tubejoin=patch', 1, 'patch'],
-    [true, '?tubejoin=web', 2, 'web'], [null, '?perf', 1, 'patch'], [{ lean: 1 }, '#x', 2, 'web'],
-  ];
-  for (const [ready, q, stage, joins] of cases) assert.deepEqual({ ...tubeStage(ready, q) }, { stage, joins }, `${JSON.stringify(ready)} ${q}`);
+test('the stage and the joins are a pure function of (the stage 2 programs ready, the stage 3 programs ready): no address changes them', () => {
+  const cases = [[false, 1, 'patch'], [null, 1, 'patch'], [true, 2, 'web'], [{ lean: 1 }, 2, 'web']];
+  for (const [ready, stage, joins] of cases) assert.deepEqual({ ...tubeStage(ready) }, { stage, joins }, `${JSON.stringify(ready)}`);
 });
 
 test('the gauge says why the Tube is at stage 1', () => {
-  assert.equal(stage1Why(true, null, false, ''), '');
-  assert.equal(stage1Why(true, null, false, '?tube=1'), 'set by ?tube=1');
-  assert.equal(stage1Why(false, ['tubeWeb'], false, ''), 'tubeWeb failed');
-  assert.equal(stage1Why(false, ['tubeWeb', 'tubeLean'], false, ''), 'tubeWeb, tubeLean failed');
-  assert.equal(stage1Why(false, null, true, ''), 'compiling');
+  assert.equal(stage1Why(true, null, false), '');
+  assert.equal(stage1Why(false, ['tubeWeb'], false), 'tubeWeb failed');
+  assert.equal(stage1Why(false, ['tubeWeb', 'tubeLean'], false), 'tubeWeb, tubeLean failed');
+  assert.equal(stage1Why(false, null, true), 'compiling');
 });
 
 const K = (() => { const k = { F_SEL: 1, F_DIFFUSE: 2, F_SHADOW: 4, F_DOTTED: 8, F_NOCASE: 16, F_SPEC: 32, F_EDGE: 64, F_VEIL: 128, F_WHOLE: 256, LIFT_EASE_MAX: 1, LIFT_EASE_SHARE: 0.5, LUMEN2: 0x8000, ROW2_BITS: 11, VEIL_K: 0.6, EDGE: 'const float EDGE = 1.0;', ENT_W: 2048, N_SAMPLES: 64, MAX_TIERS: 24, S_OFF: 96, ALONG_GLSL: 'float alongAt(int id, float u) { return u; }' }; return k; })();

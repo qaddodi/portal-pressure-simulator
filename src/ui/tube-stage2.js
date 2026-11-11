@@ -19,39 +19,27 @@ export const STAGE2_PROGRAMS = ['tubeLean', 'tubeDepth', 'tubeWeb', 'tubeWebDept
 
 /** The page's query, read once here (the other debug flags are read the same way, where they are used). */
 export const TUBE_QUERY = typeof location !== 'undefined' ? location.search || '' : '';
-const ONE_Q = /[?&]tube=1(?=[&#]|$)/, PATCH_Q = /[?&]tubejoin=patch(?=[&#]|$)/;
 
-const NOJOIN_Q = /[?&]tubejoin=off(?=[&#]|$)/;
-/**
- * Whether the Tube's join-end work runs in the figure (tube-join-glsl.js: a row's end cut at its trunk or faded into it, a continuation made one surface). On by
- * default since step 2 (10 Nov 2026: the ends are worked out once a vertex and flat to the fragment, which reads nothing); `?tubejoin=off` turns it off. The lobule
- * never has it (tube-pass.js, veins-gl.js: its one tier has no faded trunk, and it carries no ends).
- */
-export const tubeJoinCut = (query = TUBE_QUERY) => !NOJOIN_Q.test(query);
-
-// (The four answers, kept: the choice is read each frame and makes nothing.)
-const STAGE_1 = { stage: 1, joins: 'patch' }, STAGE_2_WEB = { stage: 2, joins: 'web' }, STAGE_2_PATCH = { stage: 2, joins: 'patch' }, STAGE_3 = { stage: 3, joins: 'web' };
-const TWO_Q = /[?&]tube=2(?=[&#]|$)/;
+// (The three answers, kept: the choice is read each frame and makes nothing.)
+const STAGE_1 = { stage: 1, joins: 'patch' }, STAGE_2_WEB = { stage: 2, joins: 'web' }, STAGE_3 = { stage: 3, joins: 'web' };
 
 /**
- * The stage and the joins the Tube draws with. ready: the four stage 2 programs are finished (a truthy value); query: the page's query string; ready3: the
+ * The stage and the joins the Tube draws with, from which programs are finished. ready: the stage 2 programs are finished (a truthy value); ready3: the
  * stage 3 programs (the two lumen programs and the compositor's Tube builds) are finished too.
- * Stage 2 when the four are ready and `?tube=1` is not set, else stage 1 (which draws patches). Joins are 'web' in stage 2 unless `?tubejoin=patch`.
- * Stage 3 when stage 2 is drawing webs, the stage 3 programs are ready and neither `?tube=1` nor `?tube=2` is set.
+ * Stage 2 (webs) when the stage 2 programs are ready, else stage 1 (which draws patches); stage 3 when stage 2 is drawing and the stage 3 programs are ready too.
+ * (No address can pick a stage or the joins any more: ?tube= and ?tubejoin= went with the Classic and Mesh renderers, 11 Nov 2026.)
  */
-export function tubeStage(ready, query = TUBE_QUERY, ready3 = false) {
-  if (!ready || ONE_Q.test(query)) return STAGE_1;
-  if (PATCH_Q.test(query)) return STAGE_2_PATCH;
-  return ready3 && !TWO_Q.test(query) ? STAGE_3 : STAGE_2_WEB;
+export function tubeStage(ready, ready3 = false) {
+  if (!ready) return STAGE_1;
+  return ready3 ? STAGE_3 : STAGE_2_WEB;
 }
 
 /**
- * Why the Tube is in stage 1, for the `?perf` gauge: '' in stage 2; 'set by ?tube=1'; the programs that failed ('tubeWeb failed'); or 'compiling'.
+ * Why the Tube is in stage 1, for the `?perf` gauge: '' in stage 2; the programs that failed ('tubeWeb failed'); or 'compiling'.
  * failed: the names stage2Finish gave (an empty array: none failed); compiling: the programs are not finished yet.
  */
-export function stage1Why(ready, failed, compiling, query = TUBE_QUERY) {
-  if (ready && !ONE_Q.test(query)) return '';
-  if (ONE_Q.test(query)) return 'set by ?tube=1';
+export function stage1Why(ready, failed, compiling) {
+  if (ready) return '';
   if (failed && failed.length) return `${failed.join(', ')} failed`;
   return compiling ? 'compiling' : 'not ready';
 }

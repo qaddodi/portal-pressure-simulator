@@ -9,7 +9,7 @@ import { MP } from './veins-mesh-glsl.js';
 import { tierBuckets, patchesByTier, PG_W, PG_M } from './veins-mesh-data.js';
 import { CEL } from './tube-cel-glsl.js';
 import { WEB_FLOATS } from './tube-joint.js';
-import { tubeStage, stage1Why, createStage2Data, tubeJoinCut, lumenRect } from './tube-stage2.js';
+import { tubeStage, stage1Why, createStage2Data, lumenRect } from './tube-stage2.js';
 
 /** Makes the pass for one renderer. E: gl, UC, MG, MAX_TIERS, ATTACH, KEY_PASSES, MESH_TWO, MESH_DS, MESH_GLOW_BUF, MESH_COLOR_BUF, CLR_F, gpuProbe,
  *  nTubes, the functions meshPad, meshKeyNext, meshRefNext, meshTargets, meshGeo, meshTarget, meshScratch, meshLay, vesselSet, and the
@@ -89,7 +89,6 @@ export function createTubePass(E) {
   }
   // Stage 2's draw of tier t for a shape pass or the lift: the prepass (pre) draws the plain rows with the depth program (no fragment work), the exact rows
   // with the lean program, the webs with the web depth program; the colour pass draws all rows with the lean program and the webs with the web program.
-  // With ?tubejoin=patch the patches are drawn in the webs' place, as stage 1 draws them.
   function draw2(pass, t, base, H, px, look, pre) {
     const tb = FR.tb, P = E.tube2, D = FR.D, n = tb.count[t], pl = tb.plain[t], s0 = tb.start[t];
     const en = tb.ends ? tb.ends[t] : 0;
@@ -98,8 +97,7 @@ export function createTubePass(E) {
       if (en) stripCall(P.joinDepth || P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0 + pl, en);   // (the rows exact only for a join end: the join-only depth program)
       if (n > pl + en) stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0 + pl + en, n - pl - en);
     } else if (n) { stripCall(P.lean, pass, t, base, H, px, look, D.stripVAO, D.rowBuf, 4, 16, s0, n); MG.plain += pl + en; }   // (the plain ones among them, and the rows exact only for a join end, are the rows whose prepass cost next to no fragment work)
-    if (FR.web) { if (FR.wb.count[t]) webCall(pre ? P.webDepth : P.web, pass, t, base, H, px, look, FR.wb.start[t], FR.wb.count[t]); }
-    else if (FR.pb.count[t]) patchCall(pass, t, base, H);
+    if (FR.wb.count[t]) webCall(pre ? P.webDepth : P.web, pass, t, base, H, px, look, FR.wb.start[t], FR.wb.count[t]);
     MG.passes++;
   }
   // A pass and its prepass for tier t, in the layer's framebuffer, in a band of depth of its own (later bands are nearer). The prepass is the
@@ -133,7 +131,7 @@ export function createTubePass(E) {
   const has = (t) => FR.tb.count[t] > 0 || (FR.pb !== null && FR.pb.count[t] > 0) || (FR.two && FR.web && FR.wb.count[t] > 0);
   // The stage this frame draws with (memoised on the programs, so the answer is read from the address once).
   const stageNow = () => {
-    if (E.tube2 !== lastP || E.tube3 !== lastP3) { lastP = E.tube2; lastP3 = E.tube3; choice = tubeStage(lastP, undefined, !!lastP3); }
+    if (E.tube2 !== lastP || E.tube3 !== lastP3) { lastP = E.tube2; lastP3 = E.tube3; choice = tubeStage(lastP, !!lastP3); }
     return choice;
   };
   // A program's uniforms and textures for the pass: the vessel set, then the points (the figure's own texture, or the morph set's frame rows).
@@ -144,7 +142,7 @@ export function createTubePass(E) {
     UC.i1(P.u.pjTex, 9);
     UC.f1(P.u.celK, CEL.K);
     UC.f1(P.u.zK, LV.zK); UC.f1(P.u.hK, LV.hK);   // (an unset uniform is 0, so every program is given both)
-    UC.i1(P.u.joinCut, tubeJoinCut() && !E.lobule ? 1 : 0);   // (0 in the lobule always: no row has an end, none of the join work runs and no row is exact for one; the figure has them unless ?tubejoin=off)
+    UC.i1(P.u.joinCut, E.lobule ? 0 : 1);   // (0 in the lobule always: no row has an end, none of the join work runs and no row is exact for one)
     UC.f1(P.u.hRef, LV.hRef); UC.f1(P.u.aaPad, 2 * px);
     UC.f1(P.u.pxW, px);   // (the compositor's zoom numbers, ZOOM_VS, which the vertex shaders hand on as zoomA and zoomB: the world size of a device pixel)
   }
@@ -161,16 +159,15 @@ export function createTubePass(E) {
   function tubePass(m, look) {
     if (!meshTargets()) return false;
     const G = meshGeo();
-    // (The stage: 2 when the four lean programs are ready and ?tube=1 is not set, else 1; the joins: webs in stage 2 unless ?tubejoin=patch.)
+    // (The stage: 2 when the lean programs are ready, else 1; the joins: webs in stage 2.)
     stageNow();
     const two = choice.stage >= 2, web = choice.joins === 'web';
     AT = choice.stage === 3 ? A3 : ATTACH;
     let tb, pb = null;
     if (two) {
-      // (Stage 2: J's rows by tier, plain first, and the webs by tier, into buffers of their own; the patches only when ?tubejoin=patch.)
+      // (Stage 2: J's rows by tier, plain first, and the webs by tier, into buffers of their own.)
       frameD(m, look);
       tb = FR.D.tb; FR.wb = FR.D.wb;
-      if (!web) pb = patchesByTier(G.patch.data, G.patch.count, E.tubeNow, G.pb, PG_W, PG_M);
     } else {
       tb = tierBuckets(E.tubeNow, G.pts.on, E.nTubes, G.tb); pb = patchesByTier(G.patch.data, G.patch.count, E.tubeNow, G.pb, PG_W, PG_M);
       // (The rows by tier, into the buffer kept at its largest.)

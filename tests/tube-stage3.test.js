@@ -5,13 +5,9 @@ import assert from 'node:assert/strict';
 import { tubeStage, stage3Start, stage3Finish, STAGE3_PROGRAMS, createLumenTarget } from '../src/ui/tube-stage2.js';
 import { makeHarness } from './tube-pass-harness.js';
 
-test('the stage is a pure function of (stage 2 ready, the query, stage 3 ready): 3 needs both, webs, and neither ?tube=1 nor ?tube=2', () => {
-  const cases = [
-    [true, '', true, 3, 'web'], [true, '?perf', true, 3, 'web'], [true, '?tube=2', true, 2, 'web'], [true, '?perf&tube=2&x', true, 2, 'web'], [true, '?tube=1', true, 1, 'patch'],
-    [true, '?tubejoin=patch', true, 2, 'patch'], [true, '', false, 2, 'web'], [false, '', true, 1, 'patch'], [false, '', false, 1, 'patch'], [true, '?tube=3', true, 3, 'web'],
-    [true, '?tube=21', true, 3, 'web'], [true, '?tube=2&tubejoin=web', true, 2, 'web'],
-  ];
-  for (const [ready, q, ready3, stage, joins] of cases) assert.deepEqual({ ...tubeStage(ready, q, ready3) }, { stage, joins }, `${ready} ${q} ${ready3}`);
+test('the stage is a pure function of (stage 2 ready, stage 3 ready): 3 needs both, and the joins are webs from stage 2 on', () => {
+  const cases = [[true, true, 3, 'web'], [true, false, 2, 'web'], [false, true, 1, 'patch'], [false, false, 1, 'patch']];
+  for (const [ready, ready3, stage, joins] of cases) assert.deepEqual({ ...tubeStage(ready, ready3) }, { stage, joins }, `${ready} ${ready3}`);
 });
 
 const K = { F_SEL: 1, F_DIFFUSE: 2, F_SHADOW: 4, F_DOTTED: 8, F_NOCASE: 16, F_SPEC: 32, F_EDGE: 64, F_VEIL: 128, F_WHOLE: 256, LIFT_EASE_MAX: 1, LIFT_EASE_SHARE: 0.5, LUMEN2: 0x8000, ROW2_BITS: 11, VEIL_K: 0.6, EDGE: 'const float EDGE = 1.0;', ENT_W: 2048, N_SAMPLES: 64, MAX_TIERS: 24, S_OFF: 96, ALONG_GLSL: 'float alongAt(int id, float u) { return u; }' };
