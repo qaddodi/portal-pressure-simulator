@@ -674,13 +674,21 @@ export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.de
 // The figure's further resolution options (30 Oct, experiments, all off until chosen; the anatomy's canvas only, stage.js):
 // move: the share while the view moves (a pinch, a pan, a glide), Full again once it has settled; 1 = off.
 // glow: the share the glow layers (an organ's soft glow, a lit organ's warm edge) are drawn at, the vessels and organs at Full.
-// cap: the most megapixels the canvas holds (a big screen draws fewer, a phone is under it); 0 = off. 8 by default since 1 Nov 2026 (the
-//   GPU move, step 4: a pixel budget): every laptop, iPad and phone is under it, a 16-inch MacBook's whole screen too (7.7), so none of
-//   them changes; only a large external screen (a 5K one, 14.7) draws fewer pixels than its full density, and its heat with them.
+// cap: the most megapixels the canvas holds (a big screen draws fewer); 0 = off. The default is per device since 11 Nov 2026 (Mohammad:
+//   "Default Mac to 2MP, iPad to 2MP and iPhone to 1MP for now"): 2 on a Mac and an iPad, 1 on an iPhone (capDefault below). It was 8
+//   since 1 Nov 2026 (the GPU move, step 4: a pixel budget). Settings › Figure size still picks any step; a choice is stored (pps.fig.cap),
+//   and only the device's own default stores nothing.
 // floor: the lowest share Auto goes to (10%, 25% or 50%).
 // adapt: after each move, one step lower if the frames came slowly, one step back up when they came at the screen's pace.
 export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
-const figOpts = { move: 1, glow: 1, cap: 8, adapt: false, floor: 0.1 };
+// The cap's default for this device: an iPhone (or any phone) 1 MP, a Mac, an iPad and anything else 2 MP.
+const capDefault = (() => {
+  const nav = typeof navigator !== 'undefined' ? navigator : null, ua = nav?.userAgent || '';
+  return /iPhone|iPod|Android.*Mobile/.test(ua) ? 1 : 2;
+})();
+/** The value a figure option has when nothing is chosen: the first of FIG_OPTS[k], but the cap's is the device's (capDefault). */
+export const figDefault = (k) => (k === 'cap' ? capDefault : FIG_OPTS[k][0]);
+const figOpts = { move: 1, glow: 1, cap: capDefault, adapt: false, floor: 0.1 };
 for (const k of Object.keys(figOpts)) {
   try { const t = localStorage.getItem(`pps.fig.${k}`), v = t === 'true' ? true : +t; if (t != null && FIG_OPTS[k].includes(v)) figOpts[k] = v; } catch (e) { caught('frame:602', e); /* storage unavailable */ }
 }
@@ -688,7 +696,7 @@ export const figOpt = (k) => figOpts[k];
 export function setFigOpt(k, v) {
   if (!FIG_OPTS[k]?.includes(v) || figOpts[k] === v) return;
   figOpts[k] = v;
-  try { if (v === FIG_OPTS[k][0]) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:608', e); /* storage unavailable */ }
+  try { if (v === figDefault(k)) localStorage.removeItem(`pps.fig.${k}`); else localStorage.setItem(`pps.fig.${k}`, String(v)); } catch (e) { caught('frame:608', e); /* storage unavailable */ }
   for (const f of renderSubs) f(renderK);
 }
 // Figure performance (30 Oct, Round 3 of the review, each off until chosen; Settings › Figure performance). Unlike the options above,

@@ -73,7 +73,7 @@ import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, noteInput, setRestTalk, setFramePump, figOpt, setFigOpt, vesselRenderer, setVesselRenderer } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt, vesselRenderer, setVesselRenderer } from './frame.js';
 import { restPass } from './rest-pass.js';
 import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
@@ -1341,23 +1341,24 @@ function textSizeControl() {
 // Settings › Figure size (Mohammad, 8 Nov 2026: "an option to change the megapixels in settings", "even small small ones"): the figure
 // canvas's pixel budget (frame.js figOpt('cap'), stage-res.js figShare), from a quarter of a megapixel to Full (the screen's own density,
 // up to 2x). Fewer pixels: every GPU pass of the figure costs less, the figure is softer; the labels, cards and readings stay sharp.
-// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to 8.
+// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (2 on a Mac and an iPad, 1 on an iPhone).
 const MP_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 0];
 function figureMpControl() {
   const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));
   const less = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Fewer megapixels', title: 'Fewer megapixels (softer, faster)' }, '−');
-  const now = h('button', { class: 'ts-reset', 'aria-label': 'Figure size: back to 8 megapixels', title: 'Back to 8 megapixels' });
+  const dflt = figDefault('cap');
+  const now = h('button', { class: 'ts-reset', 'aria-label': `Figure size: back to ${dflt} megapixels`, title: `Back to ${dflt} megapixels` });
   const more = h('button', { class: 'ts-a ts-lg', 'aria-label': 'More megapixels', title: 'More megapixels (sharper, slower)' }, '+');
   const paint = () => {
     const i = at(), v = MP_STEPS[i];
     less.disabled = i === 0; more.disabled = i === MP_STEPS.length - 1;
     now.textContent = v ? `${v} MP` : 'Full';
-    now.setAttribute('aria-pressed', String(v === 8));
+    now.setAttribute('aria-pressed', String(v === dflt));
   };
   const step = (d) => { setFigOpt('cap', MP_STEPS[Math.max(0, Math.min(MP_STEPS.length - 1, at() + d))]); paint(); };
   less.addEventListener('click', () => step(-1));
   more.addEventListener('click', () => step(1));
-  now.addEventListener('click', () => { setFigOpt('cap', 8); paint(); });
+  now.addEventListener('click', () => { setFigOpt('cap', dflt); paint(); });
   paint();
   return h('div', { class: 'seg full menu-seg text-size fig-mp', role: 'group', 'aria-label': 'Figure size in megapixels' }, less, now, more);
 }
