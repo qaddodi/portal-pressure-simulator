@@ -318,7 +318,8 @@ test('a spotlit vessel fades toward every end that meets no other lifted vessel'
   assert.match(STAGE, /tubeData\[o \+ 49\] = selEnd\(id, x\.e\.from, false\); tubeData\[o \+ 50\] = selEnd\(id, x\.e\.to, true\);/);
 });
 
-// Two lit vessels that share a node in the model need not meet in the picture. TIPS and shunts 8/14: the TIPS (505 398 → 540 240)
+// Two lit vessels that share a node in the model need not meet in the picture. TIPS and shunts 8/14 (the fixture is the TIPS's course of 7 Nov, before it
+// was moved to end on the vein's start, 11 Nov; the rule it holds is the same for any pair like it): the TIPS (505 398 → 540 240)
 // leaves the right hepatic vein (500 246 → 616 206) 40 units in from its blunt end, which ran on at full into nothing and stopped in
 // a hard cut-off (Mohammad, 7 Nov). A lit neighbour keeps an end at full only where it is drawn there.
 test('a lit neighbour that is not drawn at a vessel\'s end leaves that end to ease back into the network', () => {

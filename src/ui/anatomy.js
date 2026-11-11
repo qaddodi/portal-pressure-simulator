@@ -231,7 +231,10 @@ export const EDGE_PATH = {
   // clear below the epigastric vein where that crosses the trunk at y 79. tests/ascending-lumbar-route.test.js holds these.
   C9: 'M620 566 C 574.7 544.9 528.1 470 526 410 C 523.6 342.4 517.3 272.5 522 205 C 524.5 169.1 528.2 135.1 562.9 108',
 
-  TIPS: 'M505 398 C 498 356 536 298 540 240',   // one gentle curve through the parenchyma, portal → hepatic vein
+  // (It runs up the right lobe in one gentle curve, clear of the middle hepatic vein's start (548 282), and ends where the right hepatic vein
+  // begins (500 246), the stent's own node: its end is a join of the model's node, with the vein's run-on and the sinusoids' outflow into it,
+  // not a tube laid across the middle of the vein, whose wall it showed through as a round blob. 11 Nov 2026.)
+  TIPS: 'M505 398 C 504 352 497 296 500 246',
   // DIPS: a short tract from the portal bifurcation (PVH), up through the caudate lobe in one gentle curve (no
   // bend sharper than about 15° per stretch), meeting the IVC from the side just below the hepatic vein
   // confluence. It stops at the IVC's left wall (x 609) and does not run along the cava or enter its lumen.
