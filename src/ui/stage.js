@@ -2737,7 +2737,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (viewMoved || forceDraw || drawOnce || restOn || restU !== 1) busyAt = now;
     const calm = now - busyAt > CALM_AFTER_MS;
     const base = m60 ? frameGapFor('glide') : paceOf(quality);   // (the governor, frame.js: 60 Hz while something moves; the calm 30 Hz below is its 'flow')
-    const interval = calm ? Math.max(base, CALM_MS, restGapFor(now, busyAt)) : base;   // (touch devices only: rest pacing, frame.js restGapFor, after 4 s of only the blood)
+    const interval = calm ? Math.max(base, CALM_MS, restGapFor(now, busyAt)) : base;   // (rest pacing, every device: frame.js restGapFor, after 4 s of only the blood)
     if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { askAnimate(); return; }
     flowGate = interval && (!m60 || calm) ? now - ((now - flowGate) % interval) : now;
     const dt = Math.min(0.1, (now - lastT) / 1000);

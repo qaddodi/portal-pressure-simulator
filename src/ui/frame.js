@@ -795,18 +795,19 @@ export function calmFlowRule(cheapBlood = false) {
   if (!figLabs.motion60) return 'calm every frame (Motion at 60 off)';
   return cheapBlood ? 'calm every frame (tube 3)' : 'calm 30 Hz';
 }
-// ── Rest pacing on touch devices (brief H1, 10 Nov 2026; Mohammad: his iPhone gets very hot while he plays) ──
-// A phone or tablet left alone slows its blood: after REST_AFTER_MS (4 s) with no input and nothing moving, a frame of blood alone is drawn
+// ── Rest pacing on every device (brief H1, 10 Nov 2026, touch devices; 12 Nov 2026 the Mac too, heat recs H1 picked by Mohammad) ──
+// A screen left alone slows its blood: after REST_AFTER_MS (4 s) with no input and nothing moving, a frame of blood alone is drawn
 // every 28 ms (30 a second); after IDLE_AFTER_MS (30 s) every 62 ms (15 a second), but never in a talk (Mohammad, 5 Nov 2026: "no slide
 // should stop anymore"; a talk holds 30 at the lowest). The blood moves on its own clock in the shader (bT), so a held frame only skips
-// pictures. It is for touch devices only: a whole-app 30 Hz step flickered on Mohammad's Mac on 4 Nov, so a fine pointer always gets 0 and
-// the Mac's pacing is byte for byte as before. Sharpness is unchanged and any input brings the full rate back on the next frame.
+// pictures. (Until 12 Nov it was for touch devices only: a whole-app 30 Hz step flickered on Mohammad's Mac on 4 Nov, while the shown canvas
+// was still drawn on part-way through a frame. Since keepScreen (8 Nov) the shown canvas gets one whole copy a frame and nothing else, so a
+// frame that draws nothing leaves the last whole picture; this is blood-only frames at rest, never the whole app.) Sharpness is unchanged and
+// any input brings the full rate back on the next frame. ?rest=off turns it off for comparing.
 export const REST_AFTER_MS = 4000, REST_MS = 28, IDLE_AFTER_MS = 30000, IDLE_MS = 62;
-let restTouch = false, restOff = false, restTalk = null;
-try { restTouch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches; } catch (e) { caught('frame:rest-t', e); /* no media query */ }   // (read once, at load: no media read in a frame)
+let restTouch = true, restOff = false, restTalk = null;   // (restTouch: rest pacing on; every device since 12 Nov 2026, the name kept for the tests' hook)
 try { restOff = typeof location !== 'undefined' && new URLSearchParams(location.search).get('rest') === 'off'; } catch (e) { caught('frame:rest-o', e); /* no address */ }   // (?rest=off: for comparing)
 let restInputAt = wall(), restMotionAt = 0, restRuleNow = '', restRuleAt = -1e9;
-/** Sets whether this is a touch device (a coarse primary pointer); the page reads it once at load, tests set it. */
+/** Turns rest pacing on or off for this page (on for every device since 12 Nov 2026; tests set it). */
 export function setRestTouch(on) { restTouch = !!on; }
 /** ?rest=off (or a test): rest pacing off. */
 export function setRestOff(off) { restOff = !!off; }
@@ -815,7 +816,7 @@ export function setRestTalk(fn) { restTalk = fn; }
 /** An input of any kind (a pointer, touch, wheel or key event, scroll, focus, the page shown again: idle-rest.js hears them all) restarts the rest clock. */
 export function noteInput(t = wall()) { if (t > restInputAt) restInputAt = t; }
 /**
- * The least ms between two drawn frames of blood alone, for rest: 0 (not a touch device, ?rest=off, or the last input, motion or change of
+ * The least ms between two drawn frames of blood alone, for rest: 0 (pacing off, ?rest=off, or the last input, motion or change of
  * `activeAt` less than REST_AFTER_MS ago), REST_MS, then IDLE_MS (REST_MS in a talk). `activeAt` is the caller's own last busy stamp (the
  * figure's and the sinusoid's busyAt, the lobule's calmAt): a camera move, glide, dive, view switch, slide change, time-lapse step, card or
  * model change stamps it. A transition in flight (inMotion) counts as motion too. Battery saver's own gap wins when larger.

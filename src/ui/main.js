@@ -203,7 +203,7 @@ async function main() {
     after: REST_AFTER_MS,
     canRest: () => { const st = store.get(), f = st.frame; return st.mode === 'explore' && !presenter.active() && !st.lapse && !!f && !f.lapseDay && !f.morphing && !f.settling && !f.jump; },
     onRest: () => { setPageRest(true); stage.rest(true); host.send({ type: 'visibility', visible: false }); },
-    onInput: noteInput,   // (the touch devices' rest pacing, frame.js restGapFor: any input brings the full rate back on the next frame)
+    onInput: noteInput,   // (the rest pacing, frame.js restGapFor: any input brings the full rate back on the next frame)
     onWake: () => { setPageRest(false); host.send({ type: 'visibility', visible: !document.hidden }); stage.rest(false); },
   });
   setRestTalk(() => presenter.active());   // (a talk at rest holds 30 a second at the lowest, never 15: frame.js restGapFor)

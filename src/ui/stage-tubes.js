@@ -589,7 +589,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     return gpuProbe.time(null, 'radius sync (script)', syncRadiiOnlyInner, t);
   }
   function syncRadiiOnlyInner(t) {
-    if (live.glowSync || live.plateEasing() || !glowOnlyOk(t)) return false;
+    if (live.glowSync || live.plateEasing() || live.gestureOn?.() || !glowOnlyOk(t)) return false;   // (a hand on the camera: the whole sync, which waits for it to let go: stage-vessels.js syncVeins)
     const m = live.glowMemo, items = m.items;
     for (let i = 0; i < items.length; i++) if ((items[i].x.width >= 3.4) !== m.wide[i]) return false;
     sendRadii(items);

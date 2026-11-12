@@ -399,7 +399,7 @@ export function startFrameHud() {
     const w = watchdogStats();
     L.push(`  watchdog ${w.mode}, carried over ${w.shed}${w.governor == null || w.governor < 0 ? '' : `; governor ${['all run', 'P3 yielding', 'P2+P3 yielding'][w.governor]}, ${w.yielded} chart frames yielded, over budget ${w.streak} in a row`}`);
     if (calmRuleText()) L.push(`  lobule's calm blood: ${calmRuleText()}`);
-    if (restRuleText()) L.push(`  blood pacing (touch device, untouched): ${restRuleText()}`);
+    if (restRuleText()) L.push(`  blood pacing (untouched): ${restRuleText()}`);
     const may = mayStats();
     if (may) L.push(`  may tasks: ${may.ran} run, ${may.waited} waits for budget, ${may.aged} run past their wait, ${may.queued} queued`);
     const cut = tNow - 10000;

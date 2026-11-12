@@ -214,11 +214,13 @@ test('H1: a loop\'s own busy stamp (a camera move, glide, view switch, slide cha
   assert.equal(g.restGapFor(now + 90000), g.IDLE_MS);
 });
 
-test('H1: a fine pointer (the Mac, any desktop) always gets 0, whatever the idle time; ?rest=off turns it off', async () => {
+test('H1: rest pacing is on for every device by default (the Mac too, 12 Nov 2026); turned off it is 0; ?rest=off turns it off', async () => {
+  const { f: d } = await freshFrame();
+  d.noteInput(0);
+  assert.equal(d.restGapFor(5000), d.REST_MS, 'on by default, whatever the pointer');
   const f = await freshRest(false);
   f.noteInput(0);
-  for (const t of [1, 4000, 29999, 30000, 1e6]) assert.equal(f.restGapFor(t), 0, `fine pointer at ${t}`);
-  assert.equal(f.restRuleText(), '');
+  for (const t of [1, 4000, 29999, 30000, 1e6]) assert.equal(f.restGapFor(t), 0, `pacing off at ${t}`);
   const g = await freshRest(true);
   g.noteInput(0);
   assert.equal(g.restGapFor(5000), g.REST_MS);

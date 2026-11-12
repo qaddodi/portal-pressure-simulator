@@ -10,7 +10,7 @@ const INPUTS = ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart', 
  * createIdleRest({ after, canRest, onRest, onWake, target, now, setTimer, clearTimer }): { resting(), poke(), dispose() }.
  * after: ms of no input before resting, or a function giving it (asked each time).
  * canRest(): whether resting is allowed now (asked when the time is up, and again every 5 s while it says no).
- * onInput(): called at every input, before anything else (frame.js noteInput: the touch devices' rest pacing restarts its clock from it, H1).
+ * onInput(): called at every input, before anything else (frame.js noteInput: the rest pacing restarts its clock from it, H1).
  * target: where the inputs are listened for (window); now/setTimer/clearTimer: the clock (tests pass their own).
  */
 export function createIdleRest({ after = REST_AFTER_MS, canRest = () => true, onRest = () => {}, onWake = () => {}, onInput = () => {}, target = globalThis.window,

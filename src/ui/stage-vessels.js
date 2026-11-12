@@ -837,7 +837,29 @@ export function createVessels(st, live) {
       }
     }
   }
-  function syncVeins(t) { return gpuProbe.time(null, 'vessel sync (script)', syncVeinsNow, t); }
+  function syncVeins(t) {
+    // (Heat and pan recs S2, 12 Nov 2026, Mohammad picked it: while a hand moves the camera, the vessels' own changes (a model frame's
+    // colours and widths, an ease) wait, and are taken together HAND_HOLD_MS after the hand lets go. Each one drew cells again on top
+    // of the pan's shift, or the whole layer, in the frames of the pan. Not before the first sync, nor for a new binning or a view change.)
+    if (handHolds()) { live.veinsSyncOwed = true; if (!handHoldT) handHoldT = stageScope.timer(handHoldWait, HAND_HOLD_MS); return; }
+    live.veinsSyncOwed = false;
+    return gpuProbe.time(null, 'vessel sync (script)', syncVeinsNow, t);
+  }
+  const HAND_HOLD_MS = 150;
+  let handHoldT = 0, handAt = -1e9;
+  function handHolds() {
+    if (!live.veins || live.veins.lost || !live.vLook || !live.tubesShown || live.tubesNew || live.morph !== live.morphTarget || live.lobuleOn) return false;
+    const now = performance.now();
+    if (live.gestureOn?.()) handAt = now;
+    return now - handAt < HAND_HOLD_MS;
+  }
+  function handHoldWait() {
+    handHoldT = 0;
+    if (!live.veinsSyncOwed) return;
+    if (handHolds()) { handHoldT = stageScope.timer(handHoldWait, 50); return; }
+    syncVeins(easeInOut(live.morph));
+    live.stageWake?.();
+  }
   // The binning's key (the layout's version and the rows drawn, in order), built again only when one of them changed: it was a
   // string joined from every row on every sync (2 Nov 2026). The same string as before, so every reset to '' still re-bins.
   let binKeyRows = new Int32Array(64), binKeyN = -1, binKeyGeo = -1, binKeyStr = '';
