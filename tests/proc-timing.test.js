@@ -3,7 +3,7 @@
 // clock, and the catheter's fade-out driven by one value.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cruise, legMs, TRAVEL_SPEED, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS, T as HT, balloonAt, timeOfBalloon, pressureAt, venousAt, newWave, syncWave, cathFadeAlpha, A_WAVE_PHASE, BREATH_S } from '../src/ui/hvpg-clock.js';
+import { cruise, legMs, TRAVEL_SPEED, ROUTE_LEN, BALLOON_IN_MS, BALLOON_OUT_MS, T as HT, balloonAt, timeOfBalloon, pressureAt, venousAt, WAVE_GAIN, newWave, syncWave, cathFadeAlpha, A_WAVE_PHASE, BREATH_S } from '../src/ui/hvpg-clock.js';
 import { PROCS, MEASURES, ENDO, procFrame, playProcedure } from '../src/ui/proc-anim.js';
 import { procSpecs, rawRoute } from '../src/ui/proc-routes.js';
 import { EUS_ROUTE, EUS_GLUE_ROUTE } from '../src/ui/eus-scope.js';
@@ -80,6 +80,8 @@ test('ROUTE_LEN is what the routes measure on the figure’s outlines', () => {
   within(travel(S.brto), ROUTE_LEN.brto, 0.03, 'BRTO');
   within(travel(S.bato), ROUTE_LEN.bato, 0.03, 'BATO');
   within(travel(S.brtoC6), ROUTE_LEN.brtoC6, 0.03, 'BRTO into the splenorenal shunt');
+  within(travel(S.ivcread), ROUTE_LEN.ivc, 0.03, 'the IVC reading (PPG by IR)');
+  within(travel(S.ppgperc), ROUTE_LEN.perc, 0.03, 'the direct portal reading through the skin (PPG by IR)');
   within(travel(EUS_ROUTE), ROUTE_LEN.eus, 0.03, 'EUS scope');
   within(travel(EUS_GLUE_ROUTE), ROUTE_LEN.eusglue, 0.03, 'EUS glue');
   // The HVPG catheter's: the neck, the SVC, the IVC, the right hepatic vein, to the tip's reading place (stage-cath.js cathRoute).
@@ -193,15 +195,15 @@ test('the trace’s beat is the model’s: the a wave lands where the right atri
   syncWave(w, frame(10, 0.88), 3000, 5000);
   // At the head the venous phase is 0: the a wave, whatever the procedure’s time is.
   const free = { fhvp: 5, whvp: 17 };
-  const head = pressureAt(3000, free, w) - 5, a0 = venousAt(0) + Math.sin((10 / BREATH_S) * 2 * Math.PI) * 0.45;
+  const head = pressureAt(3000, free, w) - 5, a0 = (venousAt(0) + Math.sin((10 / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN;
   assert.ok(Math.abs(head - a0) < 1e-9, 'the head is on the model’s beat and breath');
   // One beat earlier (1 s at 60/min) the trace shows the same point of the beat, and a quarter beat earlier a different one.
   const prevBeat = pressureAt(2000, free, w) - 5;
-  assert.ok(Math.abs(prevBeat - (venousAt(0) + Math.sin(((10 - 1) / BREATH_S) * 2 * Math.PI) * 0.45)) < 1e-9);
-  assert.ok(Math.abs(pressureAt(2750, free, w) - pressureAt(3000, free, w)) > 0.05);
+  assert.ok(Math.abs(prevBeat - (venousAt(0) + Math.sin(((10 - 1) / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9);
+  assert.ok(Math.abs(pressureAt(2750, free, w) - pressureAt(3000, free, w)) > 0.05 * WAVE_GAIN);
   // A faster heart packs more beats into the same stretch: the spacing follows the model’s rate.
   const w2 = newWave(); syncWave(w2, frame(10, 0.88, { metrics: { hr: 120 } }), 3000, 5000);
-  assert.ok(Math.abs(pressureAt(2500, free, w2) - 5 - (venousAt(0) + Math.sin(((10 - 0.5) / BREATH_S) * 2 * Math.PI) * 0.45)) < 1e-9, 'a beat each half second at 120');
+  assert.ok(Math.abs(pressureAt(2500, free, w2) - 5 - (venousAt(0) + Math.sin(((10 - 0.5) / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9, 'a beat each half second at 120');
 });
 
 test('the breath is the model’s 4 s sine, and is off while the model does not breathe', () => {
@@ -209,9 +211,9 @@ test('the breath is the model’s 4 s sine, and is off while the model does not 
   syncWave(w, frame(1, 0.88), 1000, 0);
   const free = { fhvp: 5, whvp: 5 };
   // 1 s of a 4 s sine is its peak: head = venous a wave + the full swing.
-  assert.ok(Math.abs(pressureAt(1000, free, w) - 5 - (venousAt(0) + 0.45)) < 1e-9);
+  assert.ok(Math.abs(pressureAt(1000, free, w) - 5 - (venousAt(0) + 0.45) * WAVE_GAIN) < 1e-9);
   const dry = newWave(); syncWave(dry, frame(1, 0.88, { resp: false }), 1000, 0);
-  assert.ok(Math.abs(pressureAt(1000, free, dry) - 5 - venousAt(0)) < 1e-9);
+  assert.ok(Math.abs(pressureAt(1000, free, dry) - 5 - venousAt(0) * WAVE_GAIN) < 1e-9);
 });
 
 test('the waves are on model time: a rewind of the procedure’s clock never plays them backwards, and a held model lets them go on', () => {
@@ -221,22 +223,22 @@ test('the waves are on model time: a rewind of the procedure’s clock never pla
   const before = pressureAt(5000, free, w) - 5;
   syncWave(w, frame(20.1, 0.6), 3000, 1100);
   const after = pressureAt(3000, free, w) - 5;
-  assert.ok(Math.abs(after - (venousAt(0.6 - A_WAVE_PHASE) + Math.sin((20.1 / BREATH_S) * 2 * Math.PI) * 0.45)) < 1e-9, 'the head is where the model is');
-  assert.ok(Math.abs(before - (venousAt(0.5 - A_WAVE_PHASE) + Math.sin((20 / BREATH_S) * 2 * Math.PI) * 0.45)) < 1e-9);
+  assert.ok(Math.abs(after - (venousAt(0.6 - A_WAVE_PHASE) + Math.sin((20.1 / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9, 'the head is where the model is');
+  assert.ok(Math.abs(before - (venousAt(0.5 - A_WAVE_PHASE) + Math.sin((20 / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9);
   // Between two model frames the beat is carried on at the model’s rate, so a draw does not wait for the next frame.
   const f = frame(30, 0.2), w3 = newWave();
   syncWave(w3, f, 1000, 5000);
   const at0 = pressureAt(1000, free, w3);
   syncWave(w3, f, 1100, 5100);   // (the same frame, 100 ms later: the model is 0.1 s on, a tenth of a beat at 60/min)
   assert.ok(Math.abs(w3.cyc - 0.3) < 1e-9 && Math.abs(w3.m - 30.1) < 1e-9);
-  assert.ok(Math.abs(pressureAt(1100, free, w3) - 5 - (venousAt(0.3 - A_WAVE_PHASE) + Math.sin((30.1 / BREATH_S) * 2 * Math.PI) * 0.45)) < 1e-9);
+  assert.ok(Math.abs(pressureAt(1100, free, w3) - 5 - (venousAt(0.3 - A_WAVE_PHASE) + Math.sin((30.1 / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9);
   void at0;
   // Held model (paused): the last alignment stays and the waves go on by the procedure’s clock, as they did.
   const w4 = newWave(); syncWave(w4, frame(5, 0.4), 1000, 0);
   const pausedFrame = frame(5, 0.4, { running: false });
   syncWave(w4, pausedFrame, 1500, 500);
   assert.equal(w4.t, 1000, 'not re-aligned while paused');
-  assert.ok(Math.abs(pressureAt(1500, free, w4) - 5 - (venousAt(0.4 - A_WAVE_PHASE + 0.5) + Math.sin(((5 + 0.5) / BREATH_S) * 2 * Math.PI) * 0.45)) < 1e-9);
+  assert.ok(Math.abs(pressureAt(1500, free, w4) - 5 - (venousAt(0.4 - A_WAVE_PHASE + 0.5) + Math.sin(((5 + 0.5) / BREATH_S) * 2 * Math.PI) * 0.45) * WAVE_GAIN) < 1e-9);
   // Long frames are not carried far: at most 250 ms of the model’s clock between two of its frames.
   const f5 = frame(5, 0), w5 = newWave(); syncWave(w5, f5, 0, 0); syncWave(w5, f5, 100, 9000);
   assert.ok(Math.abs(w5.m - 5.25) < 1e-9);

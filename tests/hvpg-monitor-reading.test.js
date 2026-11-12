@@ -8,10 +8,11 @@ import { T, pressureAt } from '../src/ui/hvpg-clock.js';
 
 const src = readFileSync(new URL('../src/ui/hvpg-proc.js', import.meta.url), 'utf8');
 
-test('the trace wavers around the mean, so the trace height is not the reading', () => {
+test('the free baseline is steady: a faint tremor around the mean, never a heave (12 Nov 2026), and still not exactly the reading', () => {
   const v = { fhvp: 4.8, whvp: 16.6 };
   const off = Math.max(...Array.from({ length: 200 }, (_, i) => Math.abs(pressureAt(T.free + i * 15, v) - v.fhvp)));
-  assert.ok(off > 0.3, `the free trace wavers by ${off.toFixed(2)} mmHg`);
+  assert.ok(off > 0.02, `the free trace still carries a pulse: ${off.toFixed(2)} mmHg`);
+  assert.ok(off < 0.45, `the free baseline stays within ${off.toFixed(2)} mmHg of its level`);
 });
 
 test('the monitor and the callouts print the mean FHVP and WHVP, not the trace height', () => {

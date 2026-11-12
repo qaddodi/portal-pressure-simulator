@@ -57,6 +57,23 @@ export function procSpecs(geo, radOf) {
         B.vessel('ILI_IVC'); B.vessel('IVC_IS', { until: (q) => q[1] <= lrv[1] + 4 });
         B.vessel('LRV_IVC', { rev: true, name: 'lrv' }); B.vessel('V_KID_L', { rev: true, near: c6, name: 'renal' }); B.vessel('C6', { rev: true, name: 'shunt' });
       } },
+    // The PPG by interventional radiology, in its two parts (proc-anim.js MEASURES.irivc and irpv). The transjugular catheter that reads the IVC: the neck, the SVC, the right
+    // atrium and the IVC down to the level where the right hepatic vein opens into it, the tip's reading place.
+    ivcread: { ids: ['SVC_RA', 'IVCS_RA', 'IVC_IS', 'RHV_IVC'], start: 0.55, tip: ['ivc', 1], focus: ['ivc', 'ivc'],
+      build(B) {
+        const top = geo.SVC_RA.cur[0], ost = geo.RHV_IVC.cur[geo.RHV_IVC.cur.length - 1];
+        B.pts([[top[0] - 6, top[1] - 150], [top[0] - 2, top[1] - 60], top], 'SVC_RA', 0);
+        B.vessel('SVC_RA'); B.vessel('IVCS_RA', { rev: true });
+        B.vessel('IVC_IS', { rev: true, until: (q) => q[1] >= ost[1] - 4, name: 'ivc' });
+      } },
+    // The direct portal reading, through the skin and the liver (percutaneous transhepatic, the way BATO reaches the portal vein): in from outside the plate through the liver into
+    // the right portal vein and on to the middle of the portal trunk, where it reads.
+    ppgperc: { ids: ['PVH_R', 'PV_TRUNK'], start: 0.1, tip: ['trunk', 0.45], focus: ['rpv', 'trunk'],
+      build(B) {
+        const rpv = geo.PVH_R.cur[geo.PVH_R.cur.length - 1];
+        B.pts([[rpv[0] - 215, rpv[1] + 34], [rpv[0] - 120, rpv[1] + 16], rpv], 'PVH_R', 1);
+        B.vessel('PVH_R', { rev: true, name: 'rpv' }); B.vessel('PV_TRUNK', { rev: true, b: 0.6, name: 'trunk' });
+      } },
     bato: { ids: ['PVH_R', 'PV_TRUNK', 'SV_CONF', 'C2'], start: 0.1, tip: ['feeder', 0.35], focus: ['splenic', 'feeder'],
       build(B) {
         const rpv = geo.PVH_R.cur[geo.PVH_R.cur.length - 1];

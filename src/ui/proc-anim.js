@@ -35,7 +35,7 @@ const nextFrame = frameFor('proc-anim');
 // a balloon BALLOON_IN_MS up and BALLOON_OUT_MS down on easeMove, a shot the camera's own camMs. What was written out per procedure is laid
 // out from it below; the gaps between events are the ones the tables always had. Old and new travel times, ms: TIPS in 3700 -> 3600, its
 // catheter over the wire 1400 -> 2400, BRTO 6200 -> 6200, BATO 6200 -> 9100, EUS scope 4900 -> 5200, glue 5700 -> 6200, HVPG 4000 -> 3400.)
-const LEG = { tips: legMs(ROUTE_LEN.tips), tipsOver: legMs(ROUTE_LEN.tipsOver), tipsCoil: legMs(ROUTE_LEN.tipsCoil), brto: legMs(ROUTE_LEN.brto), brtoC6: legMs(ROUTE_LEN.brtoC6), bato: legMs(ROUTE_LEN.bato), eus: legMs(ROUTE_LEN.eus), eusglue: legMs(ROUTE_LEN.eusglue) };
+const LEG = { tips: legMs(ROUTE_LEN.tips), tipsOver: legMs(ROUTE_LEN.tipsOver), tipsCoil: legMs(ROUTE_LEN.tipsCoil), brto: legMs(ROUTE_LEN.brto), brtoC6: legMs(ROUTE_LEN.brtoC6), bato: legMs(ROUTE_LEN.bato), eus: legMs(ROUTE_LEN.eus), eusglue: legMs(ROUTE_LEN.eusglue), ivc: legMs(ROUTE_LEN.ivc), perc: legMs(ROUTE_LEN.perc) };
 /** A table of event times (ms) with the events at or after each `at` moved by `d`, for each [at, d] of moves, in the table as first written. */
 const retime = (T, moves) => {
   const at = (x) => { let d = 0; for (let i = 0; i < moves.length; i++) if (x >= moves[i][0]) d += moves[i][1]; return x + d; };
@@ -171,15 +171,16 @@ const GRAD_T = (() => {
 // (The reading that goes on from a TIPS that holds its catheter in: the catheter is already in the right portal vein, so it goes on over the wire to the trunk from there
 // (GRAD_CARRY, ms, where the way in starts from the carried place), never in again from the neck.)
 const GRAD_CARRY = GRAD_T.travel1 - LEG.tipsOver;
-// IR PPG (a direct portal vein reading by the transjugular route, no stent): the catheter in to where the tract leaves the right hepatic vein, the needle across
-// the liver into the right portal vein (a flash marks the hit), the wire on, the catheter over them into the portal vein, where the manometer reads; the wire
-// comes out and the catheter is drawn back to the IVC at the hepatic veins, where it reads again; the gradient stands while it waits, then out. The needle's and
-// the wire's gaps are the TIPS's (tipsT); the pull back is the TIPS gradient's.
-const IR_T = (() => {
-  const travel1 = 300 + LEG.tips, needle0 = travel1 + 900, needle1 = needle0 + 1600, flash0 = needle1 - 100, flash1 = flash0 + 800, wire0 = flash0 + 500, wire1 = wire0 + 900;
-  const over0 = wire1 + 200, over1 = over0 + LEG.tipsOver, pvRead0 = over1 + 300, pvRead1 = pvRead0 + 2200, wireOut0 = pvRead1 + 300, wireOut1 = wireOut0 + 700;
-  const pull0 = wireOut1 + 100, pull1 = pull0 + LEG.tips, ivRead0 = pull1 + 200, ivRead1 = ivRead0 + 2200, res0 = ivRead1 + 1400, back = res0 + 3200;
-  return { travel0: 300, travel1, needle0, needle1, flash0, flash1, wire0, wire1, over0, over1, pvRead0, pvRead1, wireOut0, wireOut1, pull0, pull1, ivRead0, ivRead1, res0, back, end: back + 3000 };
+// The PPG by interventional radiology comes in two parts, each a catheter of its own on its own route: the transjugular catheter that reads the IVC (irivc), and the
+// direct portal vein reading through the skin and the liver (irpv, percutaneous transhepatic: the way BATO reaches the portal vein). The portal reading less the IVC reading
+// is the PPG. Each is the way in, a reading taken with the tip still, the result standing a while, then out.
+const IR_IVC_T = (() => {
+  const travel1 = 300 + LEG.ivc, read0 = travel1 + 900, read1 = read0 + 2200, back = read1 + 1400;
+  return { travel0: 300, travel1, read0, read1, back, end: back + 3000 };
+})();
+const IR_PV_T = (() => {
+  const travel1 = 300 + LEG.perc, read0 = travel1 + 900, read1 = read0 + 2200, res0 = read1 + 1400, back = res0 + 3200;
+  return { travel0: 300, travel1, read0, read1, res0, back, end: back + 3000 };
 })();
 const GRAD_U_IVC = 0.4;   // (the IVC stretch's place on the route, u, when the stage has not given the route's stops)
 const GRAD_TARGET = 12;   // (mmHg: AASLD 2024, the gradient under which no beta-blocker is needed after a TIPS)
@@ -262,41 +263,57 @@ export const MEASURES = {
     },
     can: (p) => (p.tips?.on ? '' : 'There is no TIPS yet to measure through.'), apply: (p) => p, had: () => false, undo: (p) => p, before: {},
   },
-  // The PPG by interventional radiology (Baveno VIII Table 3: the portal pressure gradient is the portal vein less the IVC or right atrial pressure): a direct portal
-  // vein reading by the transjugular route. The TIPS's way in with no stent: the catheter in to the right hepatic vein, a needle across the liver into the right
-  // portal vein, the wire and the catheter over it into the portal vein, where it reads; drawn back to the IVC at the hepatic veins, it reads again. The gradient is the
-  // portal vein less the IVC, the PPG the tiles show. It changes nothing in the model. It travels the TIPS route.
-  irppg: {
-    name: 'PPG by IR', label: 'PPG by IR', measure: true, route: 'tips', ring2: 'var(--tr-ivc)', T: IR_T,
-    stops: [IR_T.travel1 + 600, IR_T.pvRead1 + 300, IR_T.ivRead1 + 100, IR_T.end],
-    markT: [IR_T.travel1 + 500, IR_T.pvRead1 + 100, IR_T.ivRead1 + 100, IR_T.res0],
+  // The PPG by interventional radiology, part 1 (AASLD 2024: the portal pressure gradient is the portal vein pressure less the IVC pressure; Baveno VIII Table 3 adds the right
+  // atrial pressure): the transjugular catheter reads the IVC. In through the neck, down the SVC and through the right atrium to the IVC at the hepatic veins, and the tip reads
+  // there. It changes nothing in the model.
+  irivc: {
+    name: 'IVC reading', label: 'IVC reading', measure: true, route: 'ivcread', readAs: 2, ring2: 'var(--tr-ivc)', T: IR_IVC_T,
+    stops: [IR_IVC_T.travel1 + 600, IR_IVC_T.end],
+    markT: [IR_IVC_T.travel1 + 500, IR_IVC_T.read1 + 100],
     steps: [
-      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein, the way a TIPS goes.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
-      ['pv', 'Portal vein', 'A needle crosses the liver from the hepatic vein into the right portal vein. A wire follows, and the catheter slides over it. The manometer reads the portal vein pressure once it settles.', 'Portal vein', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
-      ['ivc', 'IVC', 'The wire comes out and the catheter is drawn back to the IVC at the hepatic veins. A second reading there, level with the right atrium, is the other half of the gradient.', 'IVC', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
-      ['done', 'PPG', 'PPG = portal vein \u2212 IVC pressure, read directly in one session. It uses the PPG cut-offs: ≥6 mmHg is portal hypertension, ≥12 mmHg carries the bleeding risk.', 'PPG', 'way', 'RHV_IVC', ['RHV'], 0.5],
+      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and through the right atrium into the IVC.', 'In', 'way', 'IVC_IS', ['IVCS'], 0.5],
+      ['ivc', 'IVC', 'The tip rests in the IVC at the level of the hepatic veins and reads the pressure there once it settles. The right atrial pressure can be read from the same catheter.', 'IVC', 'way', 'IVC_IS', ['IVCS'], 0.5],
     ],
-    // The readings, taken as each callout comes: the portal vein's pressure with the catheter in it, the IVC's after the pull back, and the gradient as the tiles show it.
+    capture(i, rd, f) { const m = f?.metrics; if (i === 1) rd.iv = m ? r1(m.ivc) : NaN; },
+    marks: () => NO_MARKS,
+    // The IVC's pressure beside the tip as it settles, and once read the reading taken; it stands while the catheter waits and goes as it comes out.
+    labels(t, rd, f, out) {
+      out.length = 0;
+      const T = IR_IVC_T, m = f?.metrics;
+      if (t >= T.read0 && t < T.back) { IR_IV.text = mmHg(t >= markAt('irivc', 1) && Number.isFinite(rd.iv) ? rd.iv : m ? r1(m.ivc) : NaN); out.push(IR_IV); }
+      return out;
+    },
+    can: () => '', apply: (p) => p, had: () => false, undo: (p) => p, before: {},
+  },
+  // The PPG by interventional radiology, part 2: the portal vein reached directly through the skin (percutaneous transhepatic, under ultrasound), a needle through the liver
+  // into a branch of the right portal vein, a wire and a catheter on into the portal trunk, where the tip reads. The gradient is this reading less the IVC reading of part 1,
+  // the PPG the tiles show. It changes nothing in the model.
+  irpv: {
+    name: 'Direct portal reading', label: 'Direct portal reading', measure: true, route: 'ppgperc', readAs: 1, T: IR_PV_T,
+    stops: [IR_PV_T.travel1 + 600, IR_PV_T.read1 + 300, IR_PV_T.end],
+    markT: [IR_PV_T.travel1 + 500, IR_PV_T.read1 + 100, IR_PV_T.res0],
+    steps: [
+      ['enter', 'Needle in', 'Under ultrasound a needle goes through the skin and the liver into a branch of the right portal vein. A wire and a catheter follow it into the main portal vein.', 'In', 'way', 'PVH_R', ['RPV', 'CONF'], 0.5],
+      ['pv', 'Portal vein', 'The catheter reads the pressure in the portal vein directly once it settles.', 'Portal vein', 'way', 'PV_TRUNK', ['CONF'], 0.5],
+      ['done', 'PPG', 'PPG = portal vein \u2212 IVC pressure: this reading less the IVC reading of the first approach. It uses the PPG cut-offs: \u22656 mmHg is portal hypertension, \u226512 mmHg carries the bleeding risk.', 'PPG', 'way', 'PV_TRUNK', ['CONF'], 0.5],
+    ],
+    // The readings, taken as each callout comes: the portal vein's pressure, then the gradient with the IVC's pressure the first approach read, as the tiles show them.
     capture(i, rd, f) {
       const m = f?.metrics;
       if (i === 1) rd.pv = m ? r1(m.pv) : NaN;
-      if (i === 2) rd.iv = m ? r1(m.ivc) : NaN;
-      if (i === 3) rd.ppg = m ? tenthGap(m.pv, m.ivc, m.ppg) : NaN;
+      if (i === 2) { rd.iv = m ? r1(m.ivc) : NaN; rd.ppg = m ? tenthGap(m.pv, m.ivc, m.ppg) : NaN; }
     },
     marks: () => NO_MARKS,
-    // The reading beside the catheter's tip: the portal vein's as it settles and once read, the IVC's, then the gradient, which stands while the catheter waits and goes as it comes out.
+    // The portal vein's pressure beside the tip as it settles and once read, then the gradient, which stands while the catheter waits and goes as it comes out.
     labels(t, rd, f, out) {
       out.length = 0;
-      const T = IR_T, m = f?.metrics;
+      const T = IR_PV_T, m = f?.metrics;
       if (t >= T.back) return out;
-      if (t >= T.res0 && Number.isFinite(rd.ppg)) {
-        IR_RES.text = mmHg(rd.ppg); IR_RES.cls = IR_RESULT_CLS[ppgSev(rd.ppg)]; out.push(IR_RES);
-      } else if (t >= T.ivRead0 && t < T.res0) { IR_IV.text = mmHg(t >= markAt('irppg', 2) && Number.isFinite(rd.iv) ? rd.iv : m ? r1(m.ivc) : NaN); out.push(IR_IV); }
-      else if (t >= T.pvRead0 && t < T.wireOut1) { IR_PV.text = mmHg(t >= markAt('irppg', 1) && Number.isFinite(rd.pv) ? rd.pv : m ? r1(m.pv) : NaN); out.push(IR_PV); }
+      if (t >= T.res0 && Number.isFinite(rd.ppg)) { IR_RES.text = mmHg(rd.ppg); IR_RES.cls = IR_RESULT_CLS[ppgSev(rd.ppg)]; out.push(IR_RES); }
+      else if (t >= T.read0 && t < T.res0) { IR_PV.text = mmHg(t >= markAt('irpv', 1) && Number.isFinite(rd.pv) ? rd.pv : m ? r1(m.pv) : NaN); out.push(IR_PV); }
       return out;
     },
-    can: (p) => (p.tips?.on ? 'A TIPS is in place: read the gradient across the stent.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is clotted, so the catheter has no route.' : ''),
-    apply: (p) => p, had: () => false, undo: (p) => p, before: {},
+    can: (p) => ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so there is no pressure to read through it.' : ''), apply: (p) => p, had: () => false, undo: (p) => p, before: {},
   },
 };
 // A bypass graft is a surgical procedure: no catheter, no route to follow. The graft itself is the thing played (the Meso-Rex bypass:
@@ -472,7 +489,7 @@ export function procKindOf(proc) {
 /** A procedure's, a measurement's, a graft's or an endoscopic treatment's definition. */
 export const specOf = (kind) => PROCS[kind] || MEASURES[kind] || GRAFTS[kind] || ENDO[kind] || PLUGS[kind] || null;
 // The readings each kind's last run took (its callouts and its card read them): { pv, hv, ppg } for EUS-PPG.
-export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN }, tipsgrad: { pv: NaN, iv: NaN, ppg: NaN }, irppg: { pv: NaN, iv: NaN, ppg: NaN } };
+export const READS = { eus: { pv: NaN, hv: NaN, ppg: NaN }, tipsgrad: { pv: NaN, iv: NaN, ppg: NaN }, irivc: { iv: NaN }, irpv: { pv: NaN, iv: NaN, ppg: NaN } };
 // (No params at all: the checks below only read, so one empty record stands in, not a new one each call.)
 const NO_PARAMS = Object.freeze({});
 // (A callout names no stations: one empty list, never written to.)
@@ -536,7 +553,7 @@ export function procFrame(kind, t, stops = null, into = null, from = 0) {
   const opacity = 1 - k01(t, T.end - 800, T.end);
   const step = t >= T.end ? -1 : stepAt(kind, t), shot = step >= 0 ? P.steps[step][4] : '';
   if (kind === 'eus') return eusFrame(T, t, back, opacity, step, shot, into || {});
-  if (kind === 'irppg') return irFrame(T, t, back, opacity, step, shot, stops, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
+  if (P.readAs) return reachFrame(P, T, t, back, opacity, step, shot, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
   if (kind === 'tipsgrad') return gradFrame(T, t, back, opacity, step, shot, stops, into || {}, from);   // alloc-rare: only a caller that gives no record (a test); the run passes its own
   if (kind === 'eusglue') return glueFrame(T, t, back, opacity, step, shot, into || {});   // alloc-rare: only a caller that gives no record (a test); the run passes its own
   if (P.graft) {
@@ -600,21 +617,13 @@ function gradFrame(T, t, back, opacity, step, shot, stops, f, from) {
 }
 
 /**
- * The PPG by IR at t ms (pure): u, how far in the catheter is (0..1 of the TIPS route: to where the tract leaves the hepatic vein, over the wire into the right portal
- * vein, then drawn back to the IVC at the hepatic veins, then out); needle and wire, their tips as u (0: not out); flash, the portal hit's rings; read, 1 or 2 while
- * the manometer reads the portal vein or the IVC. No balloon, no stent.
+ * The PPG by IR's two catheters at t ms (pure): u, how far in the catheter is (0..1 of its route: the neck to the IVC, or the skin through the liver to the portal trunk); read,
+ * the P.readAs ring (1 portal vein, 2 IVC) while the manometer reads. Nothing else is out: no needle, wire, balloon or scope.
  */
-function irFrame(T, t, back, opacity, step, shot, stops, f) {
-  const tr = stops?.tract || TRACT, a = tr[0], b = tr[1], rp = stops?.rpv || RPV, c = Math.max(b, rp[0] + (rp[1] - rp[0]) * CATH_RPV);
-  const iv = stops?.IVC_IS, uIV = iv ? iv[0] + (iv[1] - iv[0]) * 0.8 : GRAD_U_IVC;
-  const tip = t < T.pull0 ? (t < T.over0 ? a * cruise(k01(t, T.travel0, T.travel1)) : a + (c - a) * cruise(k01(t, T.over0, T.over1))) : c + (uIV - c) * cruise(k01(t, T.pull0, T.pull1));
-  const u = tip * (1 - back);
-  const nd = a + (Math.min(c, b + 0.01) - a) * ease(k01(t, T.needle0, T.needle1));
-  const wd = nd + (1 - nd) * ease(k01(t, T.wire0, T.wire1)), wire = t >= T.wire0 ? wd - (wd - u) * ease(k01(t, T.wireOut0, T.wireOut1)) : 0;
-  f.u = u; f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = t >= T.back ? '' : shot;
-  f.needle = t >= T.needle0 && t < T.over1 && nd > tip ? nd : 0; f.wire = wire > u + 1e-4 ? wire : 0;
-  f.flash = t > T.flash0 && t < T.flash1 ? k01(t, T.flash0, T.flash1) : 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.coil = 0;
-  f.read = t >= T.pvRead0 && t < T.pvRead1 ? 1 : t >= T.ivRead0 && t < T.ivRead1 ? 2 : 0;
+function reachFrame(P, T, t, back, opacity, step, shot, f) {
+  f.u = cruise(k01(t, T.travel0, T.travel1)) * (1 - back); f.balloon = 0; f.column = 0; f.opacity = opacity; f.step = step; f.shot = t >= T.back ? '' : shot;
+  f.needle = 0; f.wire = 0; f.flash = 0; f.aim = 0; f.tgt = 0; f.fan = 0; f.coil = 0;
+  f.read = t >= T.read0 && t < T.read1 ? P.readAs : 0;
   return f;
 }
 

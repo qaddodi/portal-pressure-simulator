@@ -1,86 +1,79 @@
-// The PPG by interventional radiology (proc-anim.js MEASURES.irppg): a direct portal vein reading by the transjugular route with no stent. The catheter goes in
-// to the right hepatic vein, a needle crosses the liver into the right portal vein, the wire and the catheter follow, the manometer reads; the catheter is drawn
-// back to the IVC and reads again; the gradient is the PPG the tiles show.
+// The PPG by interventional radiology (proc-anim.js MEASURES.irivc and irpv): two approaches, each a catheter of its own. A transjugular catheter reads the IVC; then the portal
+// vein is reached directly through the skin and the liver (percutaneous transhepatic) and read there. The gradient is the portal reading less the IVC reading, the PPG the tiles show.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Engine } from '../src/engine/engine.js';
 import { computeMetrics } from '../src/engine/metrics.js';
 import { MEASURES, PROCS, PROC_KINDS, READS, specOf, procFrame, stepAt, stepMarks, markAt, procBlocked, procOffered } from '../src/ui/proc-anim.js';
+import { legMs, ROUTE_LEN } from '../src/ui/hvpg-clock.js';
 
-const M = MEASURES.irppg, T = M.T;
-const times = Array.from({ length: Math.ceil(T.end / 20) + 1 }, (_, i) => i * 20);
-const STOPS = { SVC_RA: [-0.5, -0.1], IVCS_RA: [-0.1, 0.1], IVC_IS: [0.1, 0.45], hv: [0.45, 0.6], tract: [0.6, 0.85], rpv: [0.85, 0.93], trunk: [0.93, 1] };
+const A = MEASURES.irivc, B = MEASURES.irpv;
 const live = (preset) => { const e = new Engine(); e.loadPreset(preset); e.settle(); return { metrics: computeMetrics(e) }; };
+const times = (T) => Array.from({ length: Math.ceil(T.end / 20) + 1 }, (_, i) => i * 20);
 
-test('a reading, not a treatment: offered always, blocked by a clotted hepatic vein or a stent already in, the model left as it was', () => {
-  assert.ok(!PROC_KINDS.includes('irppg') && !PROCS.irppg, 'not among the HVPG card’s treatment buttons');
-  assert.equal(specOf('irppg'), M); assert.equal(M.measure, true); assert.equal(M.route, 'tips', 'it travels the TIPS route');
-  assert.equal(procOffered('irppg', {}), true);
-  assert.equal(procBlocked('irppg', {}), '');
-  assert.match(procBlocked('irppg', { thrombus: { RHV_IVC: 1 } }), /clotted/);
-  assert.match(procBlocked('irppg', { tips: { on: true } }), /TIPS/);
-  const p = {};
-  assert.equal(M.apply(p), p); assert.equal(M.had(p), false);
-});
-
-test('in to the tract, the needle across and the wire on, the catheter over them into the portal vein, back to the IVC, out', () => {
-  let prev = null;
-  for (const t of times) {
-    const f = procFrame('irppg', t, STOPS);
-    for (const k of ['u', 'opacity', 'needle', 'wire']) assert.ok(f[k] >= 0 && f[k] <= 1, `${k} at ${t}: ${f[k]}`);
-    if (prev) assert.ok(Math.abs(f.u - prev.u) < 0.06, `u jumps at ${t} ms`);
-    assert.equal(f.balloon + f.column + f.fan + f.aim, 0, `no balloon, stent or scope at ${t}`);
-    if (f.needle) assert.ok(f.needle > f.u, `the needle is ahead of the catheter at ${t}`);
-    prev = f;
+test('two readings, not treatments: offered always, each on a route of its own, the model left as it was; the old TIPS-route reading is gone', () => {
+  for (const [k, P, route] of [['irivc', A, 'ivcread'], ['irpv', B, 'ppgperc']]) {
+    assert.ok(!PROC_KINDS.includes(k) && !PROCS[k], `${k}: not among the HVPG card’s treatment buttons`);
+    assert.equal(specOf(k), P); assert.equal(P.measure, true); assert.equal(P.route, route);
+    assert.equal(procOffered(k, {}), true); assert.equal(procBlocked(k, {}), '');
+    const p = {}; assert.equal(P.apply(p), p); assert.equal(P.had(p), false);
   }
-  const at = (t) => procFrame('irppg', t, STOPS);
-  assert.equal(at(0).u, 0);
-  assert.ok(Math.abs(at(T.travel1).u - STOPS.tract[0]) < 1e-9, 'parked where the tract leaves the hepatic vein');
-  assert.ok(at(T.needle1).needle > STOPS.tract[1], 'the needle reaches the right portal vein');
-  assert.ok(at(T.flash0 + 100).flash > 0 && at(T.flash1 + 50).flash === 0, 'the portal hit flashes once');
-  assert.ok(at(T.wire1).wire > at(T.wire1).u, 'the wire runs on ahead of the catheter');
-  assert.ok(at(T.pvRead0).u > STOPS.rpv[0] && at(T.pvRead0).u <= STOPS.rpv[1], 'the catheter reads inside the right portal vein');
-  assert.equal(at(T.pvRead0).needle, 0, 'the needle is back in the catheter by then');
-  assert.equal(at(T.pull0).wire, 0, 'the wire is out before the catheter is drawn back');
-  const iv = at(T.ivRead0).u;
-  assert.ok(iv > STOPS.IVC_IS[0] && iv < STOPS.IVC_IS[1], 'drawn back into the IVC stretch');
-  assert.equal(at(T.ivRead1).u, iv, 'it waits there while it reads');
-  assert.ok(at(T.ivRead0).needle === 0 && at(T.ivRead0).wire === 0, 'only the catheter is out');
-  assert.ok(procFrame('irppg', T.ivRead0, null).u > 0, 'without the stage’s stops it still has a place');
-  const end = at(T.end);
-  assert.equal(end.opacity, 0); assert.equal(end.u, 0); assert.equal(end.step, -1);
+  assert.notEqual(A.route, B.route, 'two separate approaches');
+  assert.equal(specOf('irppg'), null);
+  assert.match(procBlocked('irpv', { thrombus: { PV_TRUNK: 1 } }), /clotted/);
+  assert.equal(procBlocked('irivc', { thrombus: { PV_TRUNK: 1 } }), '', 'the IVC reading does not need the portal vein');
+  assert.equal(legMs(ROUTE_LEN.ivc), A.T.travel1 - A.T.travel0); assert.equal(legMs(ROUTE_LEN.perc), B.T.travel1 - B.T.travel0);
 });
 
-test('four steps in order; each reading is taken still; the result stands while the catheter waits and goes as it comes out', () => {
-  assert.equal(M.steps.length, 4); assert.equal(M.stops.length, 4); assert.equal(M.markT.length, 4);
-  for (let i = 1; i < 4; i++) assert.ok(M.stops[i] > M.stops[i - 1]);
-  assert.equal(M.stops.at(-1), T.end); assert.ok(M.stops[0] > T.travel1);
-  assert.ok(T.travel1 < T.needle0 && T.needle1 < T.over0 && T.over1 < T.pvRead0 && T.pvRead1 < T.wireOut0 && T.wireOut1 < T.pull0 && T.pull1 < T.ivRead0 && T.ivRead1 < T.res0 && T.res0 < T.back && T.back < T.end);
-  assert.equal(stepAt('irppg', T.needle0), 1); assert.equal(stepAt('irppg', T.pvRead0), 1); assert.equal(stepAt('irppg', T.ivRead0), 2); assert.equal(stepAt('irppg', T.res0), 3);
-  assert.ok(markAt('irppg', 1) >= T.pvRead1 && markAt('irppg', 1) <= M.stops[1]);
-  assert.ok(markAt('irppg', 2) >= T.ivRead1 && markAt('irppg', 2) <= M.stops[2]);
-  assert.ok(markAt('irppg', 3) > M.stops[2] && markAt('irppg', 3) < T.back);
-  for (const t of times) {
-    const f = procFrame('irppg', t, STOPS);
-    assert.equal(f.read, t >= T.pvRead0 && t < T.pvRead1 ? 1 : t >= T.ivRead0 && t < T.ivRead1 ? 2 : 0, `read at ${t}`);
+test('each catheter goes in, waits still while it reads, and goes out; nothing else is out', () => {
+  for (const [k, P] of [['irivc', A], ['irpv', B]]) {
+    const T = P.T; let prev = null;
+    for (const t of times(T)) {
+      const f = procFrame(k, t);
+      for (const q of ['u', 'opacity']) assert.ok(f[q] >= 0 && f[q] <= 1, `${k} ${q} at ${t}: ${f[q]}`);
+      if (prev) assert.ok(Math.abs(f.u - prev.u) < 0.06, `${k}: u jumps at ${t} ms`);
+      assert.equal(f.needle + f.wire + f.flash + f.balloon + f.column + f.fan + f.aim, 0, `${k}: only the catheter at ${t}`);
+      assert.equal(f.read, t >= T.read0 && t < T.read1 ? P.readAs : 0, `${k}: read at ${t}`);
+      if (f.read) assert.equal(f.u, 1, `${k}: still, all the way in, while it reads`);
+      prev = f;
+    }
+    assert.equal(procFrame(k, 0).u, 0); assert.equal(procFrame(k, T.travel1).u, 1);
+    const end = procFrame(k, T.end); assert.equal(end.opacity, 0); assert.equal(end.u, 0); assert.equal(end.step, -1);
+    assert.ok(T.travel1 < T.read0 && T.read1 < T.back && T.back < T.end);
   }
-  for (let i = 0; i < 4; i++) assert.equal(stepMarks('irppg', i).length, 0, `step ${i}: no mark on the vessels`);
+  assert.equal(A.readAs, 2, 'the IVC reading’s ring is the IVC’s'); assert.equal(B.readAs, 1, 'the portal reading’s ring is the portal vein’s');
 });
 
-test('the callouts read the live frame, then the readings taken: portal vein, IVC, then the PPG the tiles show', () => {
-  const f = live('csph'), m = f.metrics, rd = READS.irppg, L = [];
-  for (const k in rd) rd[k] = NaN;
-  assert.equal(M.labels(0, rd, f, L).length, 0, 'none while the catheter travels');
-  M.labels(T.pvRead0 + 50, rd, f, L);
-  assert.deepEqual(L.map((x) => x.kicker), ['PORTAL VEIN']); assert.equal(L[0].text, (Math.round(m.pv * 10) / 10).toFixed(1));
-  M.capture(1, rd, f); M.capture(2, rd, f); M.capture(3, rd, f);
-  assert.equal(rd.pv, Math.round(m.pv * 10) / 10); assert.equal(rd.iv, Math.round(m.ivc * 10) / 10);
-  assert.ok(Number.isFinite(rd.ppg) && Math.abs(rd.ppg - (rd.pv - rd.iv)) < 0.11, 'the PPG is the portal vein less the IVC at one decimal');
-  M.labels(T.ivRead0 + 50, rd, f, L);
-  assert.deepEqual(L.map((x) => x.kicker), ['IVC']);
-  M.labels(markAt('irppg', 3) + 10, rd, f, L);
-  assert.deepEqual(L.map((x) => x.kicker), ['PPG']); assert.equal(L[0].text, rd.ppg.toFixed(1));
+test('steps in order, each reading taken still; the portal slide ends on the gradient, which stands while the catheter waits', () => {
+  assert.equal(A.steps.length, 2); assert.equal(B.steps.length, 3);
+  for (const [k, P] of [['irivc', A], ['irpv', B]]) {
+    assert.equal(P.stops.length, P.steps.length); assert.equal(P.markT.length, P.steps.length);
+    for (let i = 1; i < P.stops.length; i++) assert.ok(P.stops[i] > P.stops[i - 1]);
+    assert.equal(P.stops.at(-1), P.T.end); assert.ok(P.stops[0] > P.T.travel1, `${k}: the first step holds once the way in is over`);
+    assert.equal(stepAt(k, P.T.read0), 1, `${k}: the reading is step 2`);
+    for (let i = 0; i < P.steps.length; i++) assert.equal(stepMarks(k, i).length, 0, `${k} step ${i}: no mark on the vessels`);
+  }
+  assert.ok(markAt('irivc', 1) >= A.T.read1 && markAt('irivc', 1) < A.T.back);
+  assert.ok(markAt('irpv', 1) >= B.T.read1 && markAt('irpv', 1) <= B.stops[1]);
+  assert.ok(markAt('irpv', 2) > B.stops[1] && markAt('irpv', 2) < B.T.back);
+  assert.equal(stepAt('irpv', B.T.res0), 2);
+});
+
+test('the callouts read the live frame, then the readings taken: the IVC, then the portal vein and the PPG the tiles show', () => {
+  const f = live('csph'), m = f.metrics, L = [], rd = READS.irivc, rp = READS.irpv, one = (x) => (Math.round(x * 10) / 10).toFixed(1);
+  for (const k in rd) rd[k] = NaN; for (const k in rp) rp[k] = NaN;
+  assert.equal(A.labels(0, rd, f, L).length, 0, 'none while the catheter travels');
+  A.labels(A.T.read0 + 50, rd, f, L);
+  assert.deepEqual(L.map((x) => x.kicker), ['IVC']); assert.equal(L[0].text, one(m.ivc));
+  A.capture(1, rd, f); assert.equal(rd.iv, Math.round(m.ivc * 10) / 10);
+  A.labels(A.T.back + 10, rd, f, L); assert.equal(L.length, 0, 'gone as the catheter comes out');
+  B.labels(B.T.read0 + 50, rp, f, L);
+  assert.deepEqual(L.map((x) => x.kicker), ['PORTAL VEIN']); assert.equal(L[0].text, one(m.pv));
+  B.capture(1, rp, f); B.capture(2, rp, f);
+  assert.equal(rp.pv, Math.round(m.pv * 10) / 10);
+  assert.ok(Number.isFinite(rp.ppg) && Math.abs(rp.ppg - (rp.pv - rp.iv)) < 0.11, 'the PPG is the portal vein less the IVC at one decimal');
+  B.labels(markAt('irpv', 2) + 10, rp, f, L);
+  assert.deepEqual(L.map((x) => x.kicker), ['PPG']); assert.equal(L[0].text, rp.ppg.toFixed(1));
   assert.match(L[0].cls, /danger/, 'csph: a PPG over 12 mmHg is red on the PPG cut-offs');
-  M.labels(T.back + 10, rd, f, L);
-  assert.equal(L.length, 0, 'gone as the catheter comes out');
+  B.labels(B.T.back + 10, rp, f, L); assert.equal(L.length, 0);
 });

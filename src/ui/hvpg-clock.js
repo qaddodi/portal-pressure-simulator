@@ -22,7 +22,7 @@ export const BALLOON_IN_MS = 1600, BALLOON_OUT_MS = 1200;
  * hvpg: the HVPG catheter's (stage-cath.js cathRoute); tips: the TIPS catheter to where the tract leaves the hepatic vein, tipsOver: on over
  * the wire into the right portal vein, tipsCoil: from there on to where the TIPS that coils pushes its coil out in the coronary vein; brto, bato: to the balloon's place; eus, eusglue: the scope to its station.
  */
-export const ROUTE_LEN = { hvpg: 274, tips: 246, tipsOver: 209, tipsCoil: 170, brto: 494, brtoC6: 555, bato: 728, eus: 414, eusglue: 499 };
+export const ROUTE_LEN = { hvpg: 274, tips: 246, tipsOver: 209, tipsCoil: 170, brto: 494, brtoC6: 555, bato: 728, eus: 414, eusglue: 499, ivc: 154, perc: 346 };
 /**
  * A travel leg's progress at t (0..1 of its time): the speed ramps up over the first r of the time, holds steady, then ramps down over the
  * last r, on cosine ramps so speed and acceleration both stay continuous. At r = 0.2 the peak speed is 1.25 times the mean (the cubic
@@ -78,6 +78,8 @@ const BEAT_MS = 850, BREATH_MS = 3600;
 /** The model's breath is a 4 s sine (engine.js computeExt), and its right atrium contracts, the a wave, at cardiac phase 0.88 (physiology.js raWave). */
 export const BREATH_S = 4, A_WAVE_PHASE = 0.88;
 const BREATH_AMP = 0.45;
+/** How much of the venous pulse and the breath the trace shows (Mohammad, 12 Nov 2026: the free baseline "is bouncing", it should be steady): a quiet tremor on a level line, not a heaving one. 1 is the full wave, 0 a ruler-flat line. */
+export const WAVE_GAIN = 0.3;
 
 /**
  * The trace's waves on the model's own clock (item 9), so the trace, the EKG and the Doppler pulse together. The waves belong to model time,
@@ -116,5 +118,5 @@ export function pressureAt(tt, v, w = null) {
     wave = venousAt(w.cyc - A_WAVE_PHASE - (age * w.hr) / 60) + Math.sin(((w.m - age) / BREATH_S) * 2 * Math.PI) * BREATH_AMP * w.breath;
   } else wave = venousAt(tt / BEAT_MS) + Math.sin(tt / BREATH_MS * 2 * Math.PI) * BREATH_AMP;
   const b = balloonAt(tt);
-  return v.fhvp + (v.whvp - v.fhvp) * b + wave * (1 - 0.85 * b);
+  return v.fhvp + (v.whvp - v.fhvp) * b + wave * WAVE_GAIN * (1 - 0.85 * b);
 }
