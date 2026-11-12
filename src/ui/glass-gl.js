@@ -8,7 +8,7 @@
 // Off (the browser's glass, as before): no WebGL2, a software renderer, Settings' blur effect off, reduced
 // transparency, or a browser without backdrop blur (whose solid card stays).
 
-import { BLOOD_BLUR_MS, shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js';
+import { BLOOD_BLUR_MS, shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareShift, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js';
 import { glCap, fbComplete } from './gl-state.js';
 import { hold } from './gpu-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
@@ -530,7 +530,7 @@ export function dropsOf(v) {
   }
   return out;
 }
-export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, camKey = null, full = false, onHoles = null, dip = null } = {}) {
+export function createGlassGL(wrap, source, layers, { software = false, live = () => true, pane = null, cards = null, version = null, capture = null, onFigure = null, keep = null, due = null, reblur = 0, fresh = null, dirty = null, dirtyRects = null, pictureRects = null, camKey = null, full = false, onHoles = null, dip = null, pan = null, panning = null } = {}) {
   if (reblur > 0) fresh = null;
   // (cards.callouts: the figure's callouts, a glass.add region of their own (stage.js): the cards' machinery, with the callouts' own ways kept: no
   // wait for a first draw, no html[data-cardgl], one turn ('all') between the cards' two, one over-list, their shadow and tint strength, the parent's box.)
@@ -914,8 +914,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const shareId = {};   // (this instance, as a user of its context's shared blurs: blur-share.js)
   const freeShare = (G) => (t) => {   // alloc-rare: a shared blur is let go (a lost context, the budget's release, the last user out), never per frame
     if (G.isContextLost()) return;
-    for (const x of [t.copy, t.pass, t.blurred, ...(t.steps || []).map((st) => st.t)]) if (x) G.deleteTexture(x);   // alloc-rare: a shared blur is let go, never per frame
-    for (const fb of [t.fbCopy, t.fbPass, t.fbOut, ...(t.steps || []).map((st) => st.fb)]) if (fb) G.deleteFramebuffer(fb);   // alloc-rare: a shared blur is let go, never per frame
+    for (const x of [t.copy, t.pass, t.blurred, t.spare, ...(t.steps || []).map((st) => st.t)]) if (x) G.deleteTexture(x);   // alloc-rare: a shared blur is let go, never per frame
+    for (const fb of [t.fbCopy, t.fbPass, t.fbOut, t.fbSpare, ...(t.steps || []).map((st) => st.fb)]) if (fb) G.deleteFramebuffer(fb);   // alloc-rare: a shared blur is let go, never per frame
   };
   const crosses = (p, rs) => {
     if (!rs?.length) return false;
@@ -1083,6 +1083,50 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.T = T; G.k = k; G.X0 = X0; G.X1 = X1; G.Y0 = Y0; G.Y1 = Y1; G.x = X0 / k; G.y = (H2 - Y1) / k; G.w = (X1 - X0) / k; G.h = (Y1 - Y0) / k;
     return G;
   }
+  // The share's grid held to the figure (option pan): the whole canvas, its texels starting where the figure's own translation (canvas px, rounded) falls
+  // on the grid, so a pan of whole texels moves the figure by whole texels of the copy and a blur moved with it is the blur of the figure moved; between
+  // texels the glass samples its blur where the figure is (uReg), less than half a canvas pixel off. The same number of texels at any pan (no target is
+  // made again as the figure moves): T - 1 canvas px may be left at an edge, inside the blur's own clamp at the canvas's edge. m null: held at 0.
+  // PG: the grid's anchor in texels (ax, ay: the copy's column and row, y down, of the figure's origin, give or take a constant), read before the next call.
+  const PG = { ax: 0, ay: 0 };
+  function panGrid(m, k, W2, H2) {
+    const T = 2 ** Math.max(0, Math.ceil(Math.log2(SCALE * k) - 1e-9));
+    const ex = m ? Math.round(m[4] * k) : 0, ey = m ? Math.round(m[5] * k) : 0;
+    const X0 = ((ex % T) + T) % T, Y0 = ((-ey % T) + T) % T;
+    const bw = Math.floor((W2 - T + 1) / T), bh = Math.floor((H2 - T + 1) / T);
+    if (!(bw > 0 && bh > 0)) return null;
+    const G = GRID, X1 = X0 + bw * T, Y1 = Y0 + bh * T;
+    G.T = T; G.k = k; G.X0 = X0; G.X1 = X1; G.Y0 = Y0; G.Y1 = Y1; G.x = X0 / k; G.y = (H2 - Y1) / k; G.w = bw * T / k; G.h = bh * T / k;
+    PG.ax = (ex - X0) / T; PG.ay = (ey + Y0) / T;
+    return G;
+  }
+  // A kept blur moved (sx, sy) texels (y down) with the figure: its copy, its pass and its blur each laid into the spare target that far over and swapped
+  // with it, so every texel holds the figure it held, moved; what the move uncovers is old and outside the parts kept (blur-share.js shareShift). Three
+  // blits of the blur's small targets (a canvas pixel in T × T), in place of the halvings and both passes of all the glasses read.
+  function shiftBlur(B, sx, sy, bw, bh) {
+    const G = B.G;
+    if (!B.spare || B.spareSize !== B.size) {
+      if (!B.spare) { B.spare = texOf(G, G.LINEAR); B.fbSpare = G.createFramebuffer(); B.allocs = (B.allocs || 0) + 1; }   // alloc-rare: the spare target is made at a share's first pan
+      G.bindTexture(G.TEXTURE_2D, B.spare);
+      G.texImage2D(G.TEXTURE_2D, 0, G.RGBA, bw, bh, 0, G.RGBA, G.UNSIGNED_BYTE, null);
+      G.bindFramebuffer(G.FRAMEBUFFER, B.fbSpare);
+      G.framebufferTexture2D(G.FRAMEBUFFER, G.COLOR_ATTACHMENT0, G.TEXTURE_2D, B.spare, 0);
+      const ok = complete(G, 'glass-spare', bw, bh);   // alloc-rare: the spare target is checked once for its size
+      G.bindFramebuffer(G.FRAMEBUFFER, null);
+      if (!ok) { B.spareSize = ''; return false; }
+      B.spareSize = B.size;
+    }
+    G.disable(G.SCISSOR_TEST);
+    for (let i = 0; i < 3; i++) {
+      const fb = i === 0 ? B.fbCopy : i === 1 ? B.fbPass : B.fbOut, tex = i === 0 ? B.copy : i === 1 ? B.pass : B.blurred;
+      G.bindFramebuffer(G.READ_FRAMEBUFFER, fb); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, B.fbSpare);
+      G.blitFramebuffer(0, 0, bw, bh, sx, sy, bw + sx, bh + sy, G.COLOR_BUFFER_BIT, G.NEAREST);
+      if (i === 0) { B.copy = B.spare; B.fbCopy = B.fbSpare; } else if (i === 1) { B.pass = B.spare; B.fbPass = B.fbSpare; } else { B.blurred = B.spare; B.fbOut = B.fbSpare; }
+      B.spare = tex; B.fbSpare = fb;
+    }
+    G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null);
+    return true;
+  }
   // hostBlur for some parts of the copy only (blurBoxes): each halving and the turn into the copy blit each part's pixels alone, from the
   // same pixels to the same texels as the blit of the whole region (each part starts and ends on the grid of every step, so each step
   // is still an exact 2 × 2 average), and the two passes are cut to the parts (scissor). Texels outside the parts keep whatever they
@@ -1091,7 +1135,9 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.bindFramebuffer(G.FRAMEBUFFER, fb); G.bindTexture(G.TEXTURE_2D, tex); G.uniform2f(B.BU.uDir, dx, dy);
     for (const r of parts) { G.scissor(r[0], r[1], r[2] - r[0], r[3] - r[1]); G.drawArrays(G.TRIANGLE_STRIP, 0, 4); }
   }
-  function partBlur(g, parts, bw, bh, B = hk) {
+  // (copy: the parts the halvings copy from the canvas, when fewer than those the passes run on (sharePlan's copy: the rest of the copy is kept); else all.)
+  function partBlur(g, parts, bw, bh, B = hk, copy = null) {
+    const cp = copy || parts;
     const G = B.G;
     let t = g.T, ox = g.X0, oy = g.Y0, src = null;
     // (A part's pixels at t device px to a texel, from (ox, oy), y up: the copy's top row is the region's top.)
@@ -1099,13 +1145,13 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       const nt = t / 2, st = step(i, bw * nt, bh * nt, B);
       if (!st.ok) { G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null); return false; }
       G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, st.fb);
-      for (const r of parts) {
+      for (const r of cp) {
         G.blitFramebuffer(ox + r[0] * t, oy + (bh - r[3]) * t, ox + r[2] * t, oy + (bh - r[1]) * t, r[0] * nt, (bh - r[3]) * nt, r[2] * nt, (bh - r[1]) * nt, G.COLOR_BUFFER_BIT, G.LINEAR);
       }
       src = st.fb; ox = 0; oy = 0; t = nt;
     }
     G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, B.fbCopy);
-    for (const r of parts) {
+    for (const r of cp) {
       G.blitFramebuffer(ox + r[0] * t, oy + (bh - r[3]) * t, ox + r[2] * t, oy + (bh - r[1]) * t, r[0], r[3], r[2], r[1], G.COLOR_BUFFER_BIT, G.LINEAR);
     }
     G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null);
@@ -1122,7 +1168,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     return true;
   }
   // (parts: blurBoxes' parts of the copy to make, or null for all of it.)
-  function hostBlur(g, parts = null, B = hk) {
+  function hostBlur(g, parts = null, B = hk, copy = null) {
     const G = B.G, { T, k } = g;
     let x0 = g.X0, y0 = g.Y0, w = g.X1 - g.X0, h = g.Y1 - g.Y0;
     const bw = w / T, bh = h / T;
@@ -1141,7 +1187,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     }
     if (gpuProbe.on) gpuProbe.note(COUNTED.glassCopy);
     let src = null;
-    if (parts) return partBlur(g, parts, bw, bh, B);
+    if (parts) return partBlur(g, parts, bw, bh, B, copy);
     for (let i = 0; w > bw * 2 || h > bh * 2; i++) {
       const nw = w / 2, nh = h / 2, st = step(i, nw, nh, B);
       if (!st.ok) { G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null); return false; }
@@ -1172,6 +1218,26 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const SHARED = !(reblur > 0);
   const SKEY = `${look.blur}|${SCALE}`;   // (this look's name among the context's shared blurs)
   const shareReq = { id: shareId, boxes: [], v: 0, f: '' }, boxPool = [];   // (this glass's request for the picture, kept and written each time)
+  // A hand panning the figure (heat recs H2b, 12 Nov 2026): every frame of a pan was a new picture, and the glasses blurred all they read in every one.
+  // The figure moves whole under them, and a blur moved with it is the blur of the figure moved (runShare: the share's grid is held to the figure, its
+  // targets moved with it, shiftBlur), so while a hand pans at one scale the glass takes the pictures it had when the pan set off, and the blood's count,
+  // and blurs only the strips the pan brings under the glasses. Refreshed every BLOOD_BLUR_MS, as the blood is at rest, so the model's changes reach
+  // the glass 4 times a second; at the hand's let go, or any zoom or camera, the pictures as they are, blurred at once. (pan(): the figure's matrix,
+  // world to canvas CSS px, [a, b, c, d, e, f], or null where the figure is not what the canvas shows; panning(): a hand is on the figure.)
+  const PANL = new Float64Array(4), LASTL = new Float64Array(4);
+  let panAt = -1, panV = 0, panF = '', lastV = 0, lastF = '', lastOk = false;
+  const linIs = (L, m) => L[0] === m[0] && L[1] === m[1] && L[2] === m[2] && L[3] === m[3];
+  const linSet = (L, m) => { L[0] = m[0]; L[1] = m[1]; L[2] = m[2]; L[3] = m[3]; };
+  function panHold(v, f) {
+    const m = pan ? pan() : null, now = performance.now();
+    const can = !!m && !!panning?.() && (camKey ? camKey() >= 0 : true) && !zoomRide.riding();
+    if (can && (panAt >= 0 ? linIs(PANL, m) : lastOk && linIs(LASTL, m))) {
+      if (panAt < 0) { panV = lastV; panF = lastF; panAt = now; linSet(PANL, m); }   // (the pictures the last blur was of, as the pan sets off)
+      else if (now - panAt >= BLOOD_BLUR_MS) { panV = v; panF = f; panAt = now; }
+      shareReq.v = panV; shareReq.f = panF;
+    } else { panAt = -1; shareReq.v = v; shareReq.f = f; }
+    lastV = v; lastF = f; lastOk = !!m; if (m) linSet(LASTL, m);
+  }
   function prepInto() {
     frameMarks.clear(); blurOK = false;
     if (hk) hk.share = null;
@@ -1199,7 +1265,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         b.x = p.r.left - cr.left; b.y = p.r.top - cr.top; b.w = p.r.width; b.h = p.r.height;
         bx[i] = b;
       }
-      shareReq.v = version ? version() : performance.now(); shareReq.f = fresh ? fresh() : '';
+      const v = version ? version() : performance.now(), f = fresh ? fresh() : '';
+      panHold(v, f);
       sharePrep(S, shareReq);
       shareUse(S, shareId);
       hk.share = S; hk.k = k; blurOK = true;
@@ -1294,9 +1361,19 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     if (!shareTurn(S)) return S.ok;
     const G = hk.G, W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
     S.ok = false;
-    const grid = hostGrid(0, 0, cr.width, cr.height, k, W2, H2);
+    const pm = pan ? pan() : null;
+    const grid = pan ? panGrid(pm, k, W2, H2) : hostGrid(0, 0, cr.width, cr.height, k, W2, H2);
     if (!grid) { shareForget(S); return false; }
     const bw = (grid.X1 - grid.X0) / grid.T, bh = (grid.Y1 - grid.Y0) / grid.T;
+    // (The figure moved whole at the same scale since the blur kept: its targets are moved the whole texels the figure moved on the grid held to it,
+    // and the plan below finds the parts still inside current. Anything else that moved (the scale, the grid, too far) is no move: blurred as ever.)
+    if (pm && S.t && S.snapOk && S.panT === grid.T && S.panW === bw && S.panH === bh && linIs(S.panL, pm)) {
+      const sx = PG.ax - S.panX, sy = PG.ay - S.panY, P = S.snap;
+      // (Less than a texel moved: the grid alone follows the figure, the targets stay; the snapshot takes the grid it is now on.)
+      const moved = sx || sy || P.g[0] !== grid.X0 || P.g[1] !== grid.Y0 || P.g[2] !== grid.X1 || P.g[3] !== grid.Y1;
+      if (moved && !(Math.abs(sx) < bw && Math.abs(sy) < bh && (!(sx || sy) || shiftBlur(S.t, sx, sy, bw, bh)) && shareShift(S, sx, sy, grid, bw, bh))) shareForget(S);
+    }
+    if (pm) { S.panL || (S.panL = new Float64Array(4)); linSet(S.panL, pm); S.panX = PG.ax; S.panY = PG.ay; S.panT = grid.T; S.panW = bw; S.panH = bh; }   // alloc-rare: the share's matrix record, made once
     const nT = tapN(look.blur * grid.k / grid.T);
     // (3d, a glass moved over a figure standing still, only with no camera on and none changed since the kept blur: a camera's change (a card's
     // zoom easing out, the deck's fade as it closes) changes what lies under the glasses with no new picture counted, and the kept blur then
@@ -1333,7 +1410,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     const B = S.t;
     B.G = G; B.bprog = hk.bprog; B.BU = hk.BU; B.vao = hk.vao;
     G.disable(G.SCISSOR_TEST); G.disable(G.STENCIL_TEST);
-    const ok = hostBlur(grid, plan.parts, B);
+    const ok = hostBlur(grid, plan.parts, B, plan.copy);
     G.bindFramebuffer(G.FRAMEBUFFER, null); G.viewport(0, 0, W2, H2);
     G.bindTexture(G.TEXTURE_2D, null); G.useProgram(null); G.bindVertexArray(null);
     if (ok) shareKeep(S, performance.now()); else shareForget(S);

@@ -2069,13 +2069,17 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // figure sharp through it (Mohammad, 2 Nov 2026, HVPG 6 in the lobule: "CARDS ARE GLASS"), as the anatomy's overlay boxes, kept from
   // before the lobule covered it, still crossed it there. The labels the GPU draws are under every card's glass; the
   // card's own words lie over whatever else does.)
+  // (Heat recs H2b: the glass's blur moved with the figure while a hand pans it (glass-gl.js pan): the matrix the vessels were drawn in (glM, world to stage
+  // CSS px), while the figure is what the canvas shows: not the lobule or the sinusoid in it, nor the liver's own canvas, nor a dive or a card's zoom.)
+  const framePan = () => (frostLiver || lzInFigure() || diveT > 0 || live.drawCam ? null : glM);
+  const handPan = () => { try { return gestureOn() || wrap.classList.contains('panning'); } catch { return false; } };   // (gestureOn is made below, with the gestures)
   const NO_OVER = [], noOver = () => NO_OVER;   // (no box lies over a card's glass: a list read by the glass, never written)
   const cardGlass = (cards) => {
     if (!veins?.top) return null;
     // (The figure's callouts (cards.callouts): the same renderer with the callouts' own ways: drawn while the figure is on, from the figure's own
     // pictures and blood, in the turn between the cards' two, over what lies over the callouts, and their holes in the labels under 'callouts'.)
     if (cards.callouts) {
-      const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: heldPictures(), fresh: thirdSeq(), dirty: (a, b, o) => veins.bloodDirty(a, b, o), dirtyRects: (a, b, o, p) => veins.bloodDirtyRects?.(a, b, o, p) ?? -1, pictureRects: (a, b, o, p) => veins.pictureDirtyRects?.(a, b, o, p) ?? -1, camKey: () => veins.camKey ?? -1, dip: () => (frostLiver ? 1 : figDip()), onFigure: (f) => veins.onPicture(f), onHoles: frostHoles('callouts') });
+      const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => wrap.classList.contains('gl-on'), version: heldPictures(), fresh: thirdSeq(), dirty: (a, b, o) => veins.bloodDirty(a, b, o), dirtyRects: (a, b, o, p) => veins.bloodDirtyRects?.(a, b, o, p) ?? -1, pictureRects: (a, b, o, p) => veins.pictureDirtyRects?.(a, b, o, p) ?? -1, camKey: () => veins.camKey ?? -1, dip: () => (frostLiver ? 1 : figDip()), pan: framePan, panning: handPan, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles('callouts') });
       if (!g) { wrap.dataset.glass = 'css'; return null; }
       hostFrost(g, { order: 2, over: () => frostOver('callouts') });
       glassGL = g;
@@ -2086,7 +2090,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     cards.holesWhile = () => diveT > 0;   // (glass-gl.js: while the dive has the glass off the figure's canvas, the labels still leave the cards' places out)
     const shade = cards.low;
     const key = {};
-    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzShares() || (!anatCovered() && !(diveT > 0)))), version: frostVersion, fresh: frostFresh, dirty: frostBloodBox, dirtyRects: frostBloodRects, pictureRects: lzGlass.rects, camKey: () => veins.camKey ?? -1, dip: () => (frostLiver ? 1 : figDip()), onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
+    const g = createGlassGL(wrap, vCanvas, [], { software: SOFTWARE, cards, live: () => !!frostLiver || (wrap.classList.contains('gl-on') && (lzShares() || (!anatCovered() && !(diveT > 0)))), version: frostVersion, fresh: frostFresh, dirty: frostBloodBox, dirtyRects: frostBloodRects, pictureRects: lzGlass.rects, camKey: () => veins.camKey ?? -1, dip: () => (frostLiver ? 1 : figDip()), pan: framePan, panning: handPan, onFigure: (f) => veins.onPicture(f), onHoles: frostHoles(key) });
     if (!g) return null;
     hostFrost(g, { order: { low: 1, high: 3 }, active: () => !frostWhy(true), why: () => frostWhy(true), over: noOver, low: (el) => el === shade || !!cards.isLow?.(el) || el?.dataset?.ghost === 'shade' });
     cardGLs.add(g);
