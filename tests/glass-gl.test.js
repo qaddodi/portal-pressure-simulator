@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { GLASS, parseShadow, gaussTaps, glassWanted } from '../src/ui/glass-gl.js';
+import { GLASS, SMOOTH, parseShadow, glassWanted } from '../src/ui/glass-gl.js';
 
 const CSS = readFileSync(new URL('../styles/app.css', import.meta.url), 'utf8');
 const SRC = readFileSync(new URL('../src/ui/glass-gl.js', import.meta.url), 'utf8');
@@ -17,12 +17,10 @@ test('the GPU glass draws the CSS glass\'s own blur, saturation and tint', () =>
   assert.equal(GLASS.sat, 1.15);
 });
 
-test('its blur weights are a Gaussian summing to one', () => {
-  const w = gaussTaps(4);
-  assert.equal(w.length, 13);
-  assert.ok(Math.abs(w[0] + 2 * w.slice(1).reduce((a, b) => a + b, 0) - 1) < 1e-9);
-  assert.ok(w.every((v, i) => !i || v < w[i - 1]), 'falling off from the middle');
-  assert.ok(w[12] < w[0] * 0.02, 'three sigmas wide');
+test('its filter is the field (12 Nov 2026, his F4): 72 px cells over a copy averaged at 64 px a texel, its reads inside the parts made', () => {
+  assert.deepEqual([SMOOTH.scale, SMOOTH.cell], [64, 72]);
+  // (The parts are each glass's box grown by two texels (sharePlan's keep, with no blur taps): a bilinear read within one texel of the box stays inside.)
+  assert.ok(SMOOTH.reach <= SMOOTH.scale, 'reads held within a texel of the glass');
 });
 
 test('a callout\'s shadow is read from its computed style', () => {

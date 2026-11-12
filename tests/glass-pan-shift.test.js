@@ -83,34 +83,33 @@ function lay() {
 }
 for (let i = 0; i < 20; i++) await frame();
 
-test('a hand pans the figure under a card: the blur kept is moved with it, and only the strip the pan brings in is blurred', () => {
-  const rest = lay();   // (a picture at rest: all the card reads, blurred)
-  assert.ok(rest.px > 0 && rest.cut > 0, 'at rest a new picture blurs at once');
+test('a hand pans the figure under a card: the copy kept is moved with it, and only the strip the pan brings in is copied', () => {
+  const rest = lay();   // (a picture at rest: all the card reads, copied)
+  assert.ok(rest.px > 0, 'at rest a new picture is copied at once');
   hand = true;
   const per = [];
-  // 8 CSS px a frame to the right: one texel of the copy (2 canvas px a CSS px, 16 canvas px a texel).
-  for (let i = 0; i < 10; i++) { M[4] += 8; per.push(lay()); }
+  // 64 CSS px a frame to the right: one texel of the field's copy (2 canvas px a CSS px, 128 canvas px a texel: SMOOTH, 12 Nov 2026).
+  for (let i = 0; i < 6; i++) { M[4] += 64; per.push(lay()); }
   for (const p of per.slice(1)) {
-    assert.deepEqual(p.moves, [[1, 0], [1, 0], [1, 0]], 'the copy, its pass and the blur each moved one texel right, with the figure');
-    assert.ok(p.px < rest.px * 0.1, `only the strip copied from the canvas: ${p.px} canvas px against ${rest.px} at rest`);
-    assert.ok(p.cut < rest.cut * 0.7, `the passes on the strip and its ring: ${p.cut} texels against ${rest.cut} at rest`);
+    assert.deepEqual(p.moves, [[1, 0]], 'the copy moved one texel right, with the figure (no blur passes to move since the field)');
+    assert.ok(p.px < rest.px * 0.4, `only the strip copied from the canvas: ${p.px} canvas px against ${rest.px} at rest`);
   }
   // The glass is laid from where the figure is: the region it samples follows the pan, a texel at a time on the grid held to it.
   assert.equal(per.at(-1).reg[0], per[0].reg[0], 'the grid held to the figure: the same phase every whole texel');
-  // Half a texel (4 CSS px): the grid alone follows; nothing is moved or blurred whole.
-  M[4] += 4;
+  // Half a texel (32 CSS px): the grid alone follows; nothing is moved or copied whole.
+  M[4] += 32;
   const half = lay();
   assert.deepEqual(half.moves, [], 'under a texel: the targets stay');
-  assert.ok(half.px < rest.px * 0.1, 'and no whole blur');
-  assert.ok(Math.abs(half.reg[0] - (per.at(-1).reg[0] + 8)) < 1e-9, 'the region moved the half texel the figure did (8 canvas px)');
+  assert.ok(half.px < rest.px * 0.4, 'and no whole copy');
+  assert.ok(Math.abs(half.reg[0] - (per.at(-1).reg[0] + 64)) < 1e-9, 'the region moved the half texel the figure did (64 canvas px)');
 });
 
 test('the pictures held through a pan are taken again 4 times a second, and at the let go', () => {
-  hand = false; lay(); M[4] += 8;
+  hand = false; lay(); M[4] += 64;
   const rest = lay();   // (a whole blur: a new picture at rest)
   hand = true;
   let whole = 0;
-  for (let i = 0; i < 30; i++) { M[4] += 8; const p = lay(); if (p.px > rest.px * 0.5) whole++; }   // (30 frames, 500 ms)
+  for (let i = 0; i < 30; i++) { M[4] += i % 2 ? 64 : -64; const p = lay(); if (p.px > rest.px * 0.5) whole++; }   // (30 frames, 500 ms, a texel back and forth)
   assert.ok(whole >= 1 && whole <= 3, `${whole} whole blurs in 500 ms of pan`);
   hand = false;
   const off = lay();
@@ -123,7 +122,7 @@ test('a zoom under the hand is no pan: blurred at once', () => {
   M[0] = M[3] = 1.1;
   const z = lay();
   assert.deepEqual(z.moves, []);
-  assert.ok(z.px > 0 && z.cut > 0, 'a new scale: all the card reads, blurred');
+  assert.ok(z.px > 0, 'a new scale: all the card reads, copied');
   M[0] = M[3] = 1; hand = false; lay();
 });
 

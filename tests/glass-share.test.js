@@ -40,7 +40,8 @@ function fakeGL(name) {
       if (k === 'useProgram') return (p) => { prog = p; };
       return (...a) => {
         n.calls.push([k, ...a]);
-        if (k === 'drawArrays' && a[0] !== 'TRIANGLES') { if (prog?.n % 2 === 0) n.draw++; else n.blur++; }   // (the glass's program is the second of each pair; a mask's fill, TRIANGLES, apart)
+        if (k === 'drawArrays' && a[0] !== 'TRIANGLES') n.draw++;   // (the glass's one program since 12 Nov 2026 (the field): no blur passes; a mask's fill, TRIANGLES, apart)
+        if (k === 'blitFramebuffer' && a[5] > a[7]) n.blur++;   // (a copy made: its last blit, turned over (the copy's top row the region's top), one a part)
         if (k === 'blitFramebuffer') n.blit++;
         if (k === 'clear') n.clear++;
         if (k.startsWith('delete')) n.deleted++;
@@ -98,7 +99,7 @@ test('two glasses of one look: one blur a picture, not one each', async () => {
   assert.equal(A.hosted && B.hosted, true);
   const b = fig.n.blur, d = fig.n.draw;
   await blood(5);
-  assert.equal(fig.n.blur - b, 10, 'two passes a picture, for both glasses together');
+  assert.equal(fig.n.blur - b, 5, 'one copy a picture, for both glasses together');
   assert.equal(fig.n.draw - d, 10, 'each glass drawn on each picture');
   const s = Object.values(shareStats(fig.gl));
   assert.equal(s.length, 1, 'one share for the look');

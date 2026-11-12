@@ -260,7 +260,7 @@ export function shareBytes(S) {
   const t = S?.t;
   if (!t) return 0;
   const [w, h] = String(t.size || '0x0').split('x').map(Number);
-  let b = (w * h || 0) * 4 * (t.spare ? 4 : 3);   // (the copy, its pass, the blur, and the spare a pan's move goes through)
+  let b = (w * h || 0) * 4 * (t.spare ? 2 : 1);   // (the averaged copy, and the spare a pan's move goes through)
   for (const st of t.steps || []) b += (st.w * st.h || 0) * 4;
   return b;
 }

@@ -18,7 +18,7 @@ test('Settings has no Always show HVPG switch (the HVPG always shows)', () => {
 });
 
 test('R14 Settings keeps what a learner understands and none of the experiments', () => {
-  for (const t of ["'Appearance'", "'Glass effect'", "'Send feedback'", "'Advanced physiology'"]) assert.ok(settings.includes(t), `${t} stays`);
+  for (const t of ["'Appearance'", "'Blur effect'", "'Send feedback'", "'Advanced physiology'"]) assert.ok(settings.includes(t), `${t} stays`);
   for (const t of ["'Text size on the figure'", "'Figure resolution'", "'Auto’s lowest resolution'", "'Resolution while moving'", "'Glow resolution'", "'Figure size cap'", "'Adapt to frame rate'", "'Figure performance'",
     "'Motion at 60'", "'Callout glass kept'", "'Credit check in talks'", "'Sharper upscaling'", "'Lymph redrawn where it moves'", "'Lighter organ art'", "'Vessels lower while pinching'", "'Pinch frame reuse'"]) {
     assert.ok(!main.includes(t), `${t} is gone from the menu`);

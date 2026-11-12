@@ -36,7 +36,8 @@ const fig = new Proxy({}, {
     if (k === 'createProgram') return () => ({ n: ++progs });
     if (k === 'useProgram') return (p) => { prog = p; };
     return (...a) => {
-      if (k === 'drawArrays') { if (prog?.n % 2 === 0) n.draw++; else n.blur++; }
+      if (k === 'drawArrays') n.draw++;   // (the glass's one program since 12 Nov 2026 (the field): no blur passes)
+      if (k === 'blitFramebuffer' && a[5] > a[7]) n.blur++;   // (a copy made: its last blit, turned over)
       if (k === 'blitFramebuffer') n.blit++;
       return k.startsWith('create') || k === 'getUniformLocation' ? {} : a.length ? undefined : undefined;
     };
@@ -90,7 +91,7 @@ test('hosted: two turns around the callouts\', one blur taken before any glass i
   assert.ok(tops[0].prep && !tops[2].prep, 'the blur once, in the first turn');
   await frames(2);
   assert.equal(G.hosted, true);
-  assert.equal(n.blur, 2, 'blurred in two passes');
+  assert.equal(n.blur, 1, 'one averaged copy (the field: no blur passes since 12 Nov 2026)');
   assert.equal(n.draw, 2, 'each card drawn once');
   assert.ok(shade.attrs.has('data-gl') && data.attrs.has('data-gl'));
   assert.deepEqual(seen.at(-1), [true, false], 'the shade is drawn before the callouts\' turn, the data card after it');
@@ -100,9 +101,9 @@ test('hosted: two turns around the callouts\', one blur taken before any glass i
 test('the blood moving under it: the blur taken again from each new picture; a picture of the same figure keeps it', async () => {
   const b = n.blur, d = n.draw;
   seq++; present();
-  assert.equal(n.blur - b, 2); assert.equal(n.draw - d, 2);
+  assert.equal(n.blur - b, 1); assert.equal(n.draw - d, 2);
   present();
-  assert.equal(n.blur - b, 2, 'kept'); assert.equal(n.draw - d, 4);
+  assert.equal(n.blur - b, 1, 'kept'); assert.equal(n.draw - d, 4);
 });
 
 test('a card growing by part of a texel keeps the blur already taken: the region stands on a fixed grid of the canvas\'s pixels', async () => {

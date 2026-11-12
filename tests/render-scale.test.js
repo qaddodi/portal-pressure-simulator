@@ -329,12 +329,11 @@ test('the figure size default is per device: 0.5 MP on a phone, 1.5 MP on a Mac 
   }
 });
 
-test('Glass effect at load: Off when stored Off (or the old Blur effect off), Off on a phone that never chose (12 Nov 2026), Blur when stored on or never chosen elsewhere', async () => {
+test('Blur effect at load: off when stored off, on everywhere else, phones too (12 Nov 2026: "default to on")', async () => {
   const { glassAtLoad, storedGlassMode } = await import('../src/ui/glass-mode.js');
   const root = () => { const a = new Set(); return { a, setAttribute: (k) => a.add(k), removeAttribute: (k) => a.delete(k), hasAttribute: (k) => a.has(k), has: () => a.has('data-noglass') }; };
-  const cases = [[null, true, true], [null, false, false], ['1', false, true], ['1', true, true], ['0', true, false], ['0', false, false]];
-  for (const [noGlass, phone, off] of cases) {
+  for (const [noGlass, off] of [[null, false], ['1', true], ['0', false]]) {
     const r = root(), stored = storedGlassMode((k) => (k === 'pps.noGlass' ? noGlass : null));
-    assert.equal(glassAtLoad(r, { stored, phone }) === 'off', off, `${noGlass} ${phone}`); assert.equal(r.has(), off);
+    assert.equal(glassAtLoad(r, { stored }) === 'off', off, `${noGlass}`); assert.equal(r.has(), off);
   }
 });

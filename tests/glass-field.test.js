@@ -1,8 +1,8 @@
-// Settings › Glass effect (Mohammad, 12 Nov 2026: "let's add M1 and F4 as options for the blur/cards and the entirity of the UI, not just
-// cards; anywhere where we're using glass effect, make this universal switch change between OFF -> Blur -> M1 -> F4"). One choice for every
-// glass the GPU draws; the three live modes keep the one glass's tint and saturation (11 Nov: "Tint and blur of glass should be the same
-// EVERYWHERE"), only how the figure under it is smoothed changes. A node replay through the real glass-gl.js, glass-mode.js and frame.js
-// (the page and the WebGL context faked, every uniform the glass sets recorded).
+// Settings › Blur effect (Mohammad, 12 Nov 2026, after trying Off, Blur, M1 and F4 on every glass: "No more real blur or mesh. Field or Off.
+// default to field. Call it “Blur” still. And make it on off toggle default to on."). On, every glass the GPU draws is the field (his F4: a cubic
+// B-spline over the figure averaged in 72 px cells) under the one glass's tint and saturation (11 Nov: "Tint and blur of glass should be the same
+// EVERYWHERE"); off, none. A node replay through the real glass-gl.js, glass-mode.js and frame.js (the page and the WebGL context faked, every
+// uniform the glass sets and every shader it compiles recorded).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 const rafs = [];
@@ -91,109 +91,79 @@ async function frame() {
   for (const cb of rafs.splice(0)) cb(clock);
   await settle();
 }
-// One picture laid: each glass's tint, saturation and mode as the glass set them, the blur passes run (uDir), and what each glass read from.
+// One picture laid: each glass's tint and saturation as the glass set them, the field's cells and reach, and the draws made.
 function lay() {
   set.length = 0; draws.length = 0; seq++;
   present();
   const out = [];
-  let sat = null, gm = null, cell = null, reach = null, passes = 0;
+  let sat = null, cell = null, reach = null, dir = 0;
   for (const u of set) {
     if (u.name === 'uSat') sat = u.v;
-    if (u.name === 'uGM') gm = u.v;
     if (u.name === 'uCell') cell = u.v;
     if (u.name === 'uReach') reach = u.v;
-    if (u.name === 'uDir') passes++;
-    if (u.name === 'uTint') out.push({ tint: u.v.map((x) => +x.toFixed(4)), sat, gm });
+    if (u.name === 'uDir') dir++;
+    if (u.name === 'uTint') out.push({ tint: u.v.map((x) => +x.toFixed(4)), sat });
   }
-  return { glasses: out, passes, cell, reach, read: draws.at(-1) };
+  return { glasses: out, dir, cell, reach, draws: draws.length };
 }
 for (let i = 0; i < 20; i++) await frame();
 
-test('Settings › Glass effect: Blur, Mesh (M1) and Field (F4) draw every glass with the same tint and saturation; only the filter changes', async () => {
-  const by = {};
-  for (const m of ['blur', 'mesh', 'field']) {
-    M.setGlassMode(root, m);
-    assert.equal(M.glassMode(), m);
-    assert.equal(root.hasAttribute('data-noglass'), false, `${m}: a glass is drawn`);
-    assert.equal(root.getAttribute('data-glass'), m === 'blur' ? null : m, `${m}: html[data-glass]`);
-    for (let i = 0; i < 3; i++) await frame();
-    by[m] = lay();
-    assert.equal(by[m].glasses.length, all.length, `${m}: every glass drawn (${by[m].glasses.length} of ${all.length})`);
-    for (const g of by[m].glasses) assert.equal(g.gm, { blur: 0, mesh: 1, field: 2 }[m], `${m}: the shader told its mode`);
-  }
+test('Blur effect on: every glass is the field (F4), with the one glass\'s tint and saturation, and no blur pass', () => {
+  const L = lay();
+  assert.equal(L.glasses.length, all.length, `every glass drawn: ${L.glasses.length} of ${all.length}`);
   const [r, g, b] = [0xfc / 255, 0xf9 / 255, 0xf3 / 255], a = CARD.tint, one = [r * a, g * a, b * a, a].map((x) => +x.toFixed(4));
-  for (const m of ['blur', 'mesh', 'field']) {
-    for (let i = 0; i < cards.length; i++) {
-      assert.deepEqual(by[m].glasses[i].tint, one, `${m}, ${cards[i].name}: the one card glass's tint`);
-      assert.equal(by[m].glasses[i].sat, CARD.sat, `${m}, ${cards[i].name}: the one card glass's saturation`);
-    }
-    assert.deepEqual(by[m].glasses.map((x) => x.tint), by.blur.glasses.map((x) => x.tint), `${m}: every glass's tint the same as Blur's`);
+  for (let i = 0; i < cards.length; i++) {
+    assert.deepEqual(L.glasses[i].tint, one, `${cards[i].name}: the one card glass's tint`);
+    assert.equal(L.glasses[i].sat, CARD.sat, `${cards[i].name}: the one card glass's saturation`);
   }
-  // (The field's cells and the reads' reach, at the canvas's 2 device px a CSS px.)
-  assert.equal(SMOOTH.cell, 72, 'F4: 72 px cells');
-  assert.equal(by.field.cell, SMOOTH.cell * 2);
-  assert.equal(by.mesh.reach, SMOOTH.reach * 2);
+  assert.equal(L.dir, 0, 'no blur pass: "No more real blur or mesh"');
+  assert.equal(L.draws, all.length, 'one draw a glass and nothing else (no pass of a blur)');
+  // (The field's cells and its reads' reach, at the canvas's 2 device px a CSS px.)
+  assert.deepEqual([SMOOTH.cell, SMOOTH.scale], [72, 64], 'F4: 72 px cells over the figure averaged at 64 px a texel');
+  assert.equal(L.cell, SMOOTH.cell * 2);
+  assert.equal(L.reach, SMOOTH.reach * 2);
+  assert.deepEqual(Object.keys(shareStats(fig)).map((k) => k.split('|')[0]), ['field'], 'one shared copy, the field\'s');
+  // (The glass's shader is the field and nothing else: no blur program, no mesh.)
+  assert.equal(sources.filter((x) => x.includes('uniform float uW[13]')).length, 0, 'no blur shader compiled');
+  assert.ok(sources.some((x) => x.includes('vec4 bsw(float t)')), 'the cubic B-spline\'s weights');
 });
 
-test('Mesh and Field run no blur passes and have a share of their own; going back to Blur blurs again', async () => {
-  M.setGlassMode(root, 'field');
-  for (let i = 0; i < 3; i++) await frame();
-  lay();
-  // (A new picture: the averaged copy made again, never blurred.)
-  seq++;
-  let L = lay();
-  assert.equal(L.passes, 0, 'Field: no blur pass');
-  assert.ok(Object.keys(shareStats(fig)).some((k) => k.startsWith('field|')), `Field's own share: ${Object.keys(shareStats(fig))}`);
-  assert.ok(!Object.keys(shareStats(fig)).some((k) => !k.startsWith('field|')), 'the Blur share let go once no glass uses it');
-  M.setGlassMode(root, 'mesh');
-  L = lay();
-  assert.equal(L.passes, 0, 'Mesh: no blur pass');
-  assert.deepEqual(Object.keys(shareStats(fig)).map((k) => k.split('|')[0]), ['mesh']);
-  M.setGlassMode(root, 'blur');
-  L = lay();
-  assert.ok(L.passes >= 2, `Blur: its two passes (${L.passes})`);
-  assert.deepEqual(Object.keys(shareStats(fig)), [`${CARD.blur}|${CARD.scale}`]);
-});
-
-test('Off draws no glass: html[data-noglass], the solid look', async () => {
-  M.setGlassMode(root, 'off');
+test('Blur effect off draws no glass (html[data-noglass], the solid look), and on again draws the field', async () => {
+  assert.equal(M.setGlassMode(root, 'off'), true, 'off came: the labels take the glass\'s look');
   assert.equal(root.hasAttribute('data-noglass'), true);
-  assert.equal(root.getAttribute('data-glass'), null);
   G.redraw();   // (the page's observer on html's attributes, faked here)
   clock += 300;
   for (let i = 0; i < 5; i++) await frame();
   assert.equal(lay().glasses.length, 0, 'no glass drawn');
-  M.setGlassMode(root, 'mesh');
+  assert.equal(M.setGlassMode(root, 'field'), true);
+  assert.equal(root.hasAttribute('data-noglass'), false);
   G.redraw();
   clock += 300;
   for (let i = 0; i < 5; i++) await frame();
-  const L = lay();
-  assert.equal(L.glasses.length, all.length, 'back on, in the mode chosen');
-  for (const g of L.glasses) assert.equal(g.gm, 1);
+  assert.equal(lay().glasses.length, all.length, 'back on');
 });
 
-test('the choice at load: stored, else the old Blur effect switch, else Off on a phone and Blur elsewhere', () => {
+test('at load: on everywhere, phones too, unless turned off; the old four-way choices and the old switch carry over', () => {
   const get = (o) => (k) => (k in o ? o[k] : null);
-  assert.equal(M.storedGlassMode(get({ 'pps.glassMode': 'field' })), 'field');
-  assert.equal(M.storedGlassMode(get({ 'pps.noGlass': '1' })), 'off');
-  assert.equal(M.storedGlassMode(get({ 'pps.noGlass': '0' })), 'blur');
-  assert.equal(M.storedGlassMode(get({ 'pps.glassMode': 'nonsense', 'pps.noGlass': '1' })), 'off');
   assert.equal(M.storedGlassMode(get({})), null);
+  for (const m of ['blur', 'mesh', 'field']) assert.equal(M.storedGlassMode(get({ 'pps.glassMode': m })), 'field', `${m} was on`);
+  assert.equal(M.storedGlassMode(get({ 'pps.glassMode': 'off' })), 'off');
+  assert.equal(M.storedGlassMode(get({ 'pps.noGlass': '1' })), 'off');
+  assert.equal(M.storedGlassMode(get({ 'pps.noGlass': '0' })), 'field');
   const fresh = () => { const a = new Map(); return { a, hasAttribute: (k) => a.has(k), getAttribute: (k) => a.get(k) ?? null, setAttribute: (k, v = '') => a.set(k, v), removeAttribute: (k) => a.delete(k) }; };
-  for (const [stored, phone, mode] of [[null, true, 'off'], [null, false, 'blur'], ['off', false, 'off'], ['blur', true, 'blur'], ['mesh', true, 'mesh'], ['field', false, 'field']]) {
+  for (const [stored, mode] of [[null, 'field'], ['field', 'field'], ['off', 'off']]) {
     const r = fresh();
-    assert.equal(M.glassAtLoad(r, { stored, phone }), mode, `${stored} ${phone}`);
+    assert.equal(M.glassAtLoad(r, { stored }), mode, `${stored}`);
     assert.equal(r.hasAttribute('data-noglass'), mode === 'off');
-    assert.equal(r.getAttribute('data-glass'), mode === 'mesh' || mode === 'field' ? mode : null);
   }
   // (?noglass=1 set it before: kept, whatever was stored.)
   const q = fresh(); q.setAttribute('data-noglass', '');
-  M.glassAtLoad(q, { stored: 'field', phone: false });
+  M.glassAtLoad(q, { stored: 'field' });
   assert.equal(q.hasAttribute('data-noglass'), true);
-  // (A pick is stored with the old switch's key kept in step, for the blur guard.)
+  // (A turn of the switch is stored with the old switch's key kept in step, for the blur guard.)
   const st = new Map();
-  M.storeGlassMode((k, v) => st.set(k, v), 'mesh');
-  assert.deepEqual(Object.fromEntries(st), { 'pps.glassMode': 'mesh', 'pps.noGlass': '0' });
+  M.storeGlassMode((k, v) => st.set(k, v), 'field');
+  assert.deepEqual(Object.fromEntries(st), { 'pps.glassMode': 'field', 'pps.noGlass': '0' });
   M.storeGlassMode((k, v) => st.set(k, v), 'off');
   assert.deepEqual(Object.fromEntries(st), { 'pps.glassMode': 'off', 'pps.noGlass': '1' });
 });

@@ -41,7 +41,8 @@ function fakeGL(name) {
       if (k === 'useProgram') return (p) => { prog = p; };
       return (...a) => {
         n.calls.push([k, ...a]);
-        if (k === 'drawArrays' && a[0] !== 'TRIANGLES') { if (prog?.n % 2 === 0) n.draw++; else n.blur++; }   // (the glass's program is the second of each pair; a mask's fill, TRIANGLES, apart)
+        if (k === 'drawArrays' && a[0] !== 'TRIANGLES') n.draw++;   // (the glass's one program since 12 Nov 2026 (the field): no blur passes; a mask's fill, TRIANGLES, apart)
+        if (k === 'blitFramebuffer' && a[5] > a[7]) n.blur++;   // (a copy made: its last blit, turned over (the copy's top row the region's top), one a part)
         if (k === 'blitFramebuffer') n.blit++;
         if (k === 'clear') n.clear++;
         if (k.startsWith('delete')) n.deleted++;
@@ -99,13 +100,14 @@ test('with one, the next frame draws it into the figure\'s picture, from that pi
   await frames(2);
   assert.equal(G.hosted, true);
   assert.ok(presents > p, 'the picture laid again at once, with the glass');
-  assert.ok(fig.n.blit >= 2 && fig.n.blur === 2 && fig.n.draw === 1, `taken from the picture, blurred, drawn (${fig.n.blit}, ${fig.n.blur}, ${fig.n.draw})`);
+  assert.ok(fig.n.blit >= 2 && fig.n.blur === 1 && fig.n.draw === 1, `taken from the picture, averaged, drawn (${fig.n.blit}, ${fig.n.blur}, ${fig.n.draw})`);
   assert.ok(glass.attrs.has('data-gl'), 'still marked: the browser\'s blur never shows with it');
   await frames(4);
   const first = fig.n.calls.find((c) => c[0] === 'blitFramebuffer');
-  // (Shared blur, blur-share.js: the copy lies on the whole canvas's grid, so the part made is the callout's box and BLUR_KEEP (14) texels
-  // of 4 CSS px around it (56 px), no longer cut at its 48 px margin: 8 CSS px (16 device px) more each side than the old region's.)
-  assert.deepEqual(first.slice(1, 5), [Math.round(52 * 2) - 16, 1200 - Math.round(228 * 2) - 16, Math.round(348 * 2) + 16, 1200 - Math.round(52 * 2) + 16], 'the region around the callout, in the canvas\'s own rows');
+  // (Shared copy, blur-share.js, on the whole canvas's grid of 128 device px a texel (the field's 64 CSS px, SMOOTH, since 12 Nov 2026): the part
+  // made is the callout's box (104..696 × 104..456 device px) grown by two texels and held in the copy: columns 0..7, rows 0..5 from its top,
+  // which in the canvas's own rows (y up, the copy's top at 1152) is 512 up to 1152.)
+  assert.deepEqual(first.slice(1, 5), [0, 1152 - 5 * 128, 7 * 128, 1152], 'the region around the callout, in the canvas\'s own rows');
   const flip = fig.n.calls.filter((c) => c[0] === 'blitFramebuffer').at(-1);
   assert.ok(flip[6] > flip[8], 'turned over on its last step');
 });
@@ -114,7 +116,7 @@ test('the blood moving under it: each picture blurs again, with no frame of the 
   await frames(4);
   const b = fig.n.blur, d = fig.n.draw, r = rafs.length;
   await blood(5);
-  assert.equal(fig.n.blur - b, 10, 'two passes a picture');
+  assert.equal(fig.n.blur - b, 5, 'a copy a picture');
   assert.equal(fig.n.draw - d, 5);
   assert.equal(r, 0); assert.equal(rafs.length, 0, 'asleep: the figure does not wake it');
 });
