@@ -46,7 +46,9 @@ export const GRADIENTS = {
       ask: ['A resistance lies in the portal vein trunk, before the liver. Which gradient does it raise?', 'The PPG only. The HVPG spans the sinusoids and EUS-PPG starts inside the liver, so both lie beyond it.'],
     },
     {
-      id: 'how-hvpg-free', preset: 'csph', cath: 'free', tool: { kind: 'hvpg', catheter: true },
+      // (The how-slides carry no preset of their own: they stand on the opening slide's patient, so a slide with a catheter keeps it from one step to the next. A preset on each
+      // made every slide a new state, and the catheter went out and in again on each Next.)
+      id: 'how-hvpg-free', cath: 'free', tool: { kind: 'hvpg', catheter: true },
       kicker: 'How HVPG is read', title: 'HVPG, step 1: the free pressure in an open hepatic vein',
       terms: { 'hepatic vein': 'hv' },
       line: 'A balloon catheter from the neck sits in the right hepatic vein. With the balloon down, its tip reads the free pressure, {fhvp}.',
@@ -54,7 +56,7 @@ export const GRADIENTS = {
       ask: ['What does the free pressure read, and how close should it lie to the IVC pressure?', 'The pressure of the open hepatic vein, within about 2 mmHg of the IVC.'],
     },
     {
-      id: 'how-hvpg-wedge', preset: 'csph', cutouts: ['sinusoid'], cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
+      id: 'how-hvpg-wedge', cutouts: ['sinusoid'], cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
       kicker: 'How HVPG is read', site: 'sin', title: 'HVPG, step 2: with the balloon up, the wedged pressure reads the sinusoids',
       terms: { sinusoids: 'whvp' },
       line: 'The balloon stops the flow, so the still blood ahead settles at the pressure of the feeding sinusoids. The wedged pressure is {whvp}.',
@@ -62,7 +64,7 @@ export const GRADIENTS = {
       ask: ['What does the balloon change, and what does the catheter then read?', 'It stops the flow, so the still blood ahead settles at the sinusoidal pressure.'],
     },
     {
-      id: 'how-hvpg', preset: 'csph', cath: 'result', tool: { kind: 'hvpg', catheter: true },
+      id: 'how-hvpg', cath: 'result', tool: { kind: 'hvpg', catheter: true },
       kicker: 'How HVPG is read', site: 'sin', title: 'HVPG, step 3: the wedged pressure less the free pressure',
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
       line: 'The drop across the sinusoids is the difference of the two readings. Here the HVPG is {hvpg}.',
@@ -70,21 +72,21 @@ export const GRADIENTS = {
       ask: ['Why subtract the free pressure rather than the right atrial pressure?', 'The free pressure carries the same abdominal and venous pressure as the wedge, so subtracting it cancels them.'],
     },
     {
-      id: 'how-eus', preset: 'csph', procedure: 'eus', cam: 'liver', data: 'tiles', tiles: ['eus', 'ppg'], key: ['eus'],
+      id: 'how-eus', procedure: 'eus', cam: 'liver', data: 'tiles', tiles: ['eus', 'ppg'], key: ['eus'],
       kicker: 'How EUS-PPG is read', site: 'sin', title: 'EUS-PPG: one needle through the stomach, into two veins',
       line: 'An echoendoscope in the stomach guides a needle into the left portal vein, then the left hepatic vein. EUS-PPG is {eus}.',
       notes: 'Press Next to step through it: the scope in, the portal vein, the hepatic vein, and the gradient. A linear echoendoscope in the proximal stomach images the left lobe through the wall. A 25-gauge needle crosses into the left portal vein and a compact manometer on its hub reads the pressure once it settles (the mean of three). The needle comes back into the scope and crosses the left lobe into the left hepatic vein for the second reading. EUS-PPG is the portal minus the hepatic vein pressure, from one needle in one session, and it is read on the HVPG\'s cut-offs. EASL 2025 says it needs general anesthesia, which probably makes the estimate less reliable, and Baveno VIII lists the EUS-guided gradient in PSVD and NCPF as a research question (RA8.18, RA8.24). It is done in expert centers and is not a standard test.',
       ask: ['Which two veins does the EUS needle enter, and from where?', 'The left portal vein, then the left hepatic vein, both through the wall of the stomach.'],
     },
     {
-      id: 'how-ir-ivc', preset: 'csph', procedure: 'irivc', cam: 'liver', data: 'tiles', tiles: ['ivc'], key: ['ivc'],
+      id: 'how-ir-ivc', procedure: 'irivc', cam: 'liver', data: 'tiles', tiles: ['ivc'], key: ['ivc'],
       kicker: 'How PPG is read', title: 'PPG by IR, step 1: a catheter from the neck reads the IVC',
       line: 'A catheter goes in through the neck, down the SVC and through the right atrium into the IVC at the hepatic veins. The IVC pressure is {ivc}.',
       notes: 'Press Next to step through it: the catheter in, then the IVC reading. Through the right internal jugular vein the catheter goes down the SVC and through the right atrium into the IVC, to the level where the hepatic veins open into it. The tip reads the IVC pressure once it settles. Baveno VIII Table 3 advises measuring the right atrial pressure to rule out a post-hepatic component, and the same catheter can read it a little higher up. This reading is the second half of the PPG, which is the portal vein pressure less the IVC pressure (AASLD 2024).',
       ask: ['Why does the PPG need an IVC reading?', 'The PPG is the portal vein pressure less the IVC pressure, so the IVC reading is the half that is subtracted.'],
     },
     {
-      id: 'how-ir-pv', preset: 'csph', procedure: 'irpv', cam: 'liver', data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'],
+      id: 'how-ir-pv', procedure: 'irpv', cam: 'liver', data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'],
       kicker: 'How PPG is read', site: 'sin', title: 'PPG by IR, step 2: a needle through the skin reads the portal vein directly',
       eq: [mi('PPG') + mo('=') + '<msub class="eq-pv"><mi>P</mi><mtext>portal vein</mtext></msub>' + mo('−') + '<msub class="eq-ivc"><mi>P</mi><mtext>IVC</mtext></msub>'],
       line: 'Under ultrasound a needle crosses the skin and the liver into the portal vein, and a catheter reads it. The PPG is {ppg}.',

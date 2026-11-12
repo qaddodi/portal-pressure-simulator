@@ -31,6 +31,7 @@ export function createHvpgCard() {
   const mon = createHvpgMonitor();
   const el = mon.el;
   let target = null, cur = null, pending = 'result', token = 0, raf = 0, last = 0, done = false;
+  let reached = false, kept = null;   // (reached: the catheter on the figure is parked in the hepatic vein, presenter.js; kept: the slide's readings, held until it is, so nothing is recorded before)
   let step = null, shown = false;   // (step: the catheter step this card follows, null when it plays on its own clock; shown: the card is on a slide now)
   // (The balloon this card's own tracing has up, 0 down … 1 wedged, and who is told of it: the presenter's catheter on the figure beside the card
   // (watch). The figure's balloon is the tracing's own, so the catheter inflates exactly as the card says "balloon up" and is down while it is free.)
@@ -99,6 +100,12 @@ export function createHvpgCard() {
     park() { shown = false; watcher = null; },
     /** Tell fn the tracing's balloon each time it moves (the catheter on the figure beside this card, presenter.js cathBeside); null stops. Returns the balloon now. */
     watch(fn) { watcher = typeof fn === 'function' ? fn : null; return bal; },
+    /** The catheter on the figure is parked in the hepatic vein (true) or on its way / gone (false): the tracing starts only then (a trace already begun carries on). */
+    reach(b) {
+      if (b === reached) return;
+      reached = b;
+      if (step && shown && b && kept && !mon.started()) mon.set(step, kept);
+    },
     /** The catheter's balloon (0 down … 1 wedged), every frame the figure moves it: the trace rides it. */
     balloon(b) { if (step && shown) mon.balloon(b); },
     /** The slide is shown: forward onto it from the slide before (and the card was not already this one's), the tracing plays; otherwise it is finished. */
@@ -107,7 +114,7 @@ export function createHvpgCard() {
     pin(fp) {
       const lv = levelsOf(fp);
       if (!lv) return;
-      if (step) { if (shown) mon.set(step, fp); return; }   // (the catheter sets the pace; the readings are the slide's, as its callouts print them)
+      if (step) { kept = fp; if (shown) { if (reached || mon.started()) mon.set(step, fp); else mon.hold(); } return; }   // (the catheter sets the pace; the readings are the slide's, as its callouts print them)
       target = lv;
       if (pending) { const how = pending; pending = null; start(how); return; }
       follow();

@@ -1347,6 +1347,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     stage.setCatheter(st);   // (the view drifts after the tip as the stage lays out this frame: catheter, camera, readings)
     mon?.balloon(v.balloon);   // the monitor's trace rides the same balloon value
     ui?.tools.balloon(v.balloon);   // (and the data card's tracing, on a slide whose tool follows the catheter)
+    ui?.tools.reach(v.u >= 0.999 && cath.show.length > 0);   // (which starts only once the tip is parked in the vein: Mohammad, 12 Nov 2026)
     cath.raf = nextFrame(cathFrame);
   }
   function cathStop() {

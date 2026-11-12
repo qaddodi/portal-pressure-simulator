@@ -337,8 +337,9 @@ export function createHvpgMonitor() {
   // its band, in mmHg. Written when the phase changes and once the numbers have held still, never with every frame of the sweep.
   const said = h('p', { class: 'sr-only' });
   const el = h('div', { class: 'pz-mon' }, h('div', { class: 'chart-box hvpg-box' }, cv), h('div', { class: 'sr-only', role: 'group', 'aria-label': 'Catheter pressure readings' }, said));
-  const gpu = createTraceGL(cv, { redraw: () => { if (mode) draw(); } });   // (the tracing drawn by the GPU, trace-gl.js)
+  const gpu = createTraceGL(cv, { redraw: () => { if (mode || waiting) draw(); } });   // (the tracing drawn by the GPU, trace-gl.js)
   let mode = null, t = 0, t1 = 0, last = 0, raf = 0, fp = null, bal = 0, sayT = 0;
+  let waiting = false;   // (the catheter is not in the hepatic vein yet: the axes and a note, no trace, nothing recorded: Mohammad, 12 Nov 2026)
   // The slide's own readings (the catheter's callouts and the tiles show the same), else the live model's.
   // (Written into one object that its caller reads at once: a frame makes none.)
   const liveV = { fhvp: 0, whvp: 0, hvpg: 0 };
@@ -358,7 +359,7 @@ export function createHvpgMonitor() {
   const drawSt = { ph: '', t: 0, v: null, blocked: false, running: true, wave: null };   // (what the tracing is handed: kept, written in place, read at once)
   const wave = newWave();   // (the model's beat and breath, which the trace's waves follow: hvpg-clock.js syncWave)
   let sweeping = false;   // (a sweep frame is being drawn: the one draw that moves the waves on)
-  const draw = () => { drawSt.ph = phase(); drawSt.t = t; drawSt.v = live(); if (sweeping || !wave.on) syncWave(wave, store.get().frame, t, performance.now()); drawSt.wave = wave; drawTrace(cv, drawSt, gpu); };   // (as the procedure's: the waves move on only in a sweep frame, so the card zoomed open or shut redraws the very trace it had)
+  const draw = () => { drawSt.ph = waiting && !mode ? 'idle' : phase(); drawSt.t = t; drawSt.v = live(); if (sweeping || !wave.on) syncWave(wave, store.get().frame, t, performance.now()); drawSt.wave = wave; drawTrace(cv, drawSt, gpu); };   // (as the procedure's: the waves move on only in a sweep frame, so the card zoomed open or shut redraws the very trace it had)
   // The balloon is the clock for the pressure's rise: the trace climbs exactly as far as the balloon is filled, so it
   // waits at the free level until the balloon starts to fill, holds its plateau once it is up, and comes back down
   // with it. Past the wedge (balloon up) the trace runs on its own clock again.
@@ -380,7 +381,7 @@ export function createHvpgMonitor() {
   // (instant: the finished tracing at once, a slide jumped to or gone back to; a card with no catheter on the figure.)
   function set(m, f = null, b = bal, instant = false) {
     const span = SPAN[m];
-    fp = f; bal = b;
+    fp = f; bal = b; waiting = false;
     saySoon();
     if (!span || (m === mode && (raf || t >= t1))) { if (!raf) draw(); return; }
     const fwd = mode && ORDER.indexOf(m) > ORDER.indexOf(mode);
@@ -401,8 +402,10 @@ export function createHvpgMonitor() {
     if (mode && el.isConnected) { const now = performance.now(); if (!raf) last = now; cancelFrame(raf); raf = 0; step(now); }
   }
   // (A new size redraws it; the animation loop paints while it runs.)
-  new ResizeObserver(() => { if (!raf && mode) draw(); }).observe(cv);
-  return { el, set, balloon };
+  new ResizeObserver(() => { if (!raf && (mode || waiting)) draw(); }).observe(cv);
+  /** The catheter has not reached the hepatic vein: the monitor stands empty (a trace already begun is left alone). Returns whether it is empty now. */
+  function hold() { if (mode) return false; waiting = true; if (!raf) draw(); return true; }
+  return { el, set, balloon, hold, started: () => !!mode };
 }
 
 // ── The tracing: the monitor in the IR suite, dark in both themes ──
@@ -507,9 +510,12 @@ function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running, wave }) {
     const yp = Y(pAt(T.callout, v));
     drawCallout(ctx, calloutText(mkW, 'Wedge', v.whvp), X(T.callout), yp, sideFor(yp, -1, top, bot), C.wedge, C.bg, dropK(t - T.callout), 1, L, R, top, bot, FS);
   }
-  ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-  ctx.fillText('balloon up', X(T.inflate), bot + FS + 3);
-  ctx.fillStyle = C.line; ctx.fillRect(X(T.inflate) - 0.5, bot, 1, 4);
+  // (The balloon's tick and its words come with the balloon, not before: Mohammad, 12 Nov 2026.)
+  if (t >= T.inflate) {
+    ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('balloon up', X(T.inflate), bot + FS + 3);
+    ctx.fillStyle = C.line; ctx.fillRect(X(T.inflate) - 0.5, bot, 1, 4);
+  }
 }
 
 // The trace from a to b (ms on the procedure's clock), swept as far as tNow. (Drawn with the axes traceOn set: Y, X.)

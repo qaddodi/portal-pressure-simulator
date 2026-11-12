@@ -168,8 +168,12 @@ test('an HVPG card that follows the catheter shows the slide\'s step, rides the 
   let clock = performance.now();
   const play = (frames = 500) => { for (let i = 0; i < frames && frameQueue.length; i++) runFrames(clock += 16); };
   const step = (cath, balloon) => { card.configure({ kind: 'hvpg', catheter: true }, { slide: { cath } }); card.balloon(balloon); card.arrive({ forward: true, again: false }); card.pin(fp); };
-  // Free: stepped onto going forward, it would sweep on its own clock; following the catheter it shows the free pressure and waits.
+  // Nothing is recorded until the catheter is parked in the hepatic vein (the presenter says so each frame, reach): the monitor stands empty, with its note, and no reading.
   fresh(cv); step('free', 0); play();
+  assert.ok(!texts(cv).includes('8.2') && !texts(cv).includes('FHVP'), `no trace and no reading before the tip is in: ${texts(cv)}`);
+  assert.ok(!texts(cv).includes('balloon up'), 'and no balloon tick');
+  // Free: stepped onto going forward, it would sweep on its own clock; following the catheter it shows the free pressure and waits (once the tip is in).
+  fresh(cv); card.reach(true); play();
   assert.ok(texts(cv).includes('FHVP') && texts(cv).includes('8.2'), `the free pressure: ${texts(cv)}`);
   assert.ok(!texts(cv).includes('WHVP') && !texts(cv).includes('11.4'), 'nothing climbs without the balloon');
   // Wedge: the next slide keeps the card; the trace waits at the free level until the figure's balloon starts to fill.
