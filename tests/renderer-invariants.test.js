@@ -108,6 +108,14 @@ test('a resize notice that leaves the backing size and ratio as they were neithe
   assert.ok(fn.indexOf('return;', guard) < fn.indexOf("drawVeins(false, 'resize')"), 'and returns before the same-task draw');
 });
 
+test('a resize that clears the shown canvas lays the figure drawn again onto it in the same task (no blank paint between the observer and the next frame end)', () => {
+  const src = stageSource().replace(/\blive\./g, '');
+  const fn = src.slice(src.indexOf('function resizeCanvas()'), src.indexOf('new ResizeObserver(resizeCanvas)'));
+  assert.ok(fn.indexOf("drawVeins(false, 'resize'); veins?.showNow?.();") > 0, 'showNow follows the same-task draw');
+  const gl = readFileSync(new URL('../src/ui/veins-gl.js', import.meta.url), 'utf8');
+  assert.match(gl, /showNow\(\) \{ if \(screenKeep && !lost\) screenKeep\.flush\(\); \}/);
+});
+
 test('the shared clock runs each surface once per frame and the late ones last, from one browser frame', async () => {
   const frames = [];
   globalThis.requestAnimationFrame = (cb) => frames.push(cb);

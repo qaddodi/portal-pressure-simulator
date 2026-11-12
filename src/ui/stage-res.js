@@ -159,7 +159,11 @@ export function createRes(st, live) {
     // Resizing clears the canvas, and the organs (the plate) and vessels drawn on it with it: draw
     // them again in the same task. A pinch or a layout change can land after this frame's draw
     // (Safari delivers touches outside the frame loop), and the figure would vanish for a frame.
-    if (live.resizeReady && live.F && !live.inUpdate && !(live.lz?.isOpen() || live.lz?.covers())) { live.veinsDirty = true; drawVeins(false, 'resize'); }
+    if (live.resizeReady && live.F && !live.inUpdate && !(live.lz?.isOpen() || live.lz?.covers())) { live.veinsDirty = true; drawVeins(false, 'resize'); live.veins?.showNow?.(); }
+    // (The renderer keeps the canvas itself and copies it onto the shown surface once a frame, at the frame's end (keep-screen.js). This runs from the
+    // resize observer, after that copy and before the paint: the width assigned above has cleared the shown surface, and the picture just drawn again
+    // would reach it only at the next frame's end, so the paint between showed the figure gone for one frame (Mohammad's iPhone, 12 Nov 2026, the Doppler
+    // card open: the figure blank for a frame, the cards and charts whole). showNow lays it in this task.)
   }
   new ResizeObserver(resizeCanvas).observe(wrap);
   // (A change that leaves the canvas's size as it is (Glows alone) still draws the figure again, its glow layers remade.)

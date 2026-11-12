@@ -5349,6 +5349,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     clear() { clearAll(); },
     /** How many times the kept screen was copied onto the canvas (keep-screen.js; 0 where the browser keeps the canvas). */
     get screenShows() { return screenKeep ? screenKeep.flushes : 0; },
+    /** The kept screen onto the canvas now, whole, when anything was drawn on it since the last copy (a no-op where the browser keeps the canvas).
+     *  For a canvas the page itself just cleared outside a frame (stage-res.js resizeCanvas, from the resize observer, after the frame's own copy): the figure
+     *  drawn again in that task is shown in this paint, not after one blank frame. */
+    showNow() { if (screenKeep && !lost) screenKeep.flush(); },
     /** The current picture as a PNG data URL (call right after draw, in the same task). */
     snapshot() { if (share) return null; const c = { ...cam }; cam.k = 1; cam.ex = cam.ey = 0; cam.a = 1; try { present(false); screenKeep?.flush(); const url = canvas.toDataURL('image/png'); Object.assign(cam, c); if (tops.length || camOn()) present(); return url; } finally { Object.assign(cam, c); } },   // (the figure alone; then laid again whole, as it shows)
     /**
