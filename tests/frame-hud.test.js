@@ -190,3 +190,38 @@ test('R3: WHY picks the lumen pass when it is the largest GPU step, and says pla
   const none = diagnose({ st: st({ fps: 30, p50: 33, s50: 2 }), goal: chrome, gpu: gpuOf([['blood pass', 0.5]]), surfaces: [['stage', 1]] });
   assert.doesNotMatch(none.head, /Safari/); assert.match(none.fix, /power saving/);   // (a small step is no cause: the browser advice stands)
 });
+
+test('view switch frames are sampled on the GPU apart from the rest (1 in BURST_EVERY while one runs), and the readout names their largest step (12 Nov 2026)', () => {
+  const gl = fakeGl();
+  fence.setFenceContext(gl); fence.setFences(true);
+  let switching = false;
+  fence.setFenceBurst(() => switching);
+  const run = (frame, organMs) => {
+    fence.fenceFrame(frame);
+    gl.gpuMs = organMs; fence.fencePart('organ layer');
+    for (let i = 1; i <= 4; i++) fence.fenceMark(i);
+  };
+  run(30, 1);                                   // (a rest sample: 1 in 30)
+  assert.equal(fence.fenceBurstSummary(), null, 'no switch frame sampled yet');
+  run(31, 50);                                  // (not a sample: neither 1 in 30 nor a switch)
+  switching = true;
+  run(32, 40); run(33, 40); run(34, 60);        // (32 and 34 are burst samples; 33 is not)
+  switching = false;
+  const b = fence.fenceBurstSummary(), r = fence.fenceSummary();
+  assert.equal(b.n, 2); assert.equal(b.every, fence.BURST_EVERY);
+  assert.ok(b.steps[0].name === 'organ layer' && b.steps[0].max >= 59, JSON.stringify(b.steps));
+  assert.ok(b.maxTotal >= 59 && b.maxTotal < 200, `worst ${b.maxTotal}`);
+  assert.equal(r.n, 1, 'the rest keeps its own sample');
+  assert.ok(r.steps[0].med < 20, 'the rest\'s numbers are not the switch\'s');
+  const sw = { frames: 40, gaps: 4000, worst: 268, ended: 1000, c: { draw: 1, composite: 2, whole: 0, organ: 0, blur: 0, why: {}, organWhy: {} }, d: { draw: 41, composite: 42, whole: 40, organ: 40, blur: 0, why: { 'no kept layer': 39 }, organWhy: { 'view moved': 40 } } };
+  const t = hud.switchText(b, sw, 3000).join('\n');
+  assert.match(t, /last view switch \(2\.0 s ago\): 40 frames in 4000\.0 ms, 100\.0 ms a frame, worst 268\.0 ms/);
+  assert.match(t, /vessel draws 40 \(whole: no kept layer 39\)/);
+  assert.match(t, /organ layer painted 40 \(view moved 40\)/);
+  assert.match(t, /view switch frames on the GPU \(2 sampled, 1 in 2 while a switch runs\)/);
+  assert.match(t, /largest steps: .*organ layer/);
+  assert.match(hud.switchText(null, sw, 3000).join('\n'), /none sampled yet/);
+  assert.deepEqual(hud.switchText(null, null, 0), []);
+  fence.setFenceBurst(null); fence.setFences(false); fence.setFenceContext(null);
+  assert.equal(fence.fenceBurstSummary(), null);
+});

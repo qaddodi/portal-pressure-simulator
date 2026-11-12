@@ -6,6 +6,7 @@
 // phase it is that phase's own passes. (First built as fences polled between frames, 787f66b: on that Mac the fence calls themselves waited,
 // 25 ms a frame over five of them, so the readout measured its own waits and the page under ?perf ran a frame behind. Sampled, one frame in
 // thirty waits; the rest run as they do for everyone, and the readout leaves the sampled frame out of its script and interval numbers.)
+// While a view switch runs, every second frame is a sample too, kept apart (setFenceBurst, 12 Nov 2026: see fenceBurstSummary).
 // Nothing runs while the readout is off: no fence, no record. Fences are planted in the figure's context alone (setFenceContext, veins-gl.js).
 
 export const SAMPLE_EVERY = 30;
@@ -20,7 +21,7 @@ const cur = new Float64Array(PHASES);
 /** The figure's context, where the fences are planted (veins-gl.js, when the renderer is made; null when it goes). */
 export function setFenceContext(g) { gl = g; }
 /** Whether the readout wants the samples (frame-hud.js turns them on while it shows). */
-export function setFences(v) { on = !!v; if (!on) { sampling = sampled = false; n = 0; at = 0; stepN.fill(0); stepAt.fill(0); ev = null; lumenSeen[0] = lumenSeen[1] = 0; } }
+export function setFences(v) { on = !!v; if (!on) { sampling = sampled = burstNow = false; n = 0; at = 0; stepN.fill(0); stepAt.fill(0); bN = 0; bAt = 0; bStepN.fill(0); bStepAt.fill(0); ev = null; lumenSeen[0] = lumenSeen[1] = 0; } }
 export const fencesOn = () => on;
 /** Whether the frame running now (or the one that just ended) is a sample, whose script time is the GPU's wait: the readout leaves it out. */
 export const fenceSampling = () => sampling || sampled;
@@ -35,7 +36,11 @@ export function fenceFrame(frame) {
   // (A whole draw asked for outside a frame (a resize, a timer) is measured at the next frame's start: everything since it is its own.)
   if (ev) endEvent(wait(), 'the next frame\'s start (asked outside a frame)', false);
   sampled = false;
-  sampling = on && !!gl && frame % SAMPLE_EVERY === 0;
+  let burst = false;
+  if (on && gl && burstFn) try { burst = !!burstFn(); } catch { burst = false; }
+  sampling = on && !!gl && (frame % SAMPLE_EVERY === 0 || (burst && frame % BURST_EVERY === 0));
+  burstNow = sampling && burst;
+  curSteps = 0;
   if (sampling) { cur.fill(0); cur[0] = wait(); }
 }
 /** frame.js: the commands of phase `i` (1 early, 2 late, 3 final, 4 the frame's end) have been issued. */
@@ -47,7 +52,12 @@ export function fenceMark(i) {
   cur[i] += w;
   if (ev) endEvent(w, PHASE_NAMES[i]);
   if (i === PHASES - 1) {
-    waits.set(cur, at * PHASES); at = (at + 1) % KEEP; if (n < KEEP) n++;
+    if (burstNow) {
+      let t = curSteps;
+      for (let k = 1; k < PHASES; k++) t += cur[k];
+      bWaits.set(cur, bAt * PHASES); bTotal[bAt] = t; bAt = (bAt + 1) % KEEP; if (bN < KEEP) bN++;
+    }
+    else { waits.set(cur, at * PHASES); at = (at + 1) % KEEP; if (n < KEEP) n++; }
     sampling = false; sampled = true;
   }
 }
@@ -62,9 +72,27 @@ export function fencePart(name) {
   let i = stepNames.indexOf(name);
   if (i < 0) { if (stepNames.length >= STEP_MAX) return; i = stepNames.length; stepNames.push(name); }   // alloc-rare: a step's name is kept the first time it is seen
   const w = wait();
-  stepWaits[i * KEEP + stepAt[i]] = w; stepAt[i] = (stepAt[i] + 1) % KEEP; if (stepN[i] < KEEP) stepN[i]++;
+  const W = burstNow ? bStepWaits : stepWaits, N = burstNow ? bStepN : stepN, A = burstNow ? bStepAt : stepAt;
+  W[i * KEEP + A[i]] = w; A[i] = (A[i] + 1) % KEEP; if (N[i] < KEEP) N[i]++;
+  curSteps += w;
+  if (sampled && burstNow) bTotal[(bAt + KEEP - 1) % KEEP] += w;   // (fenceAfter: a step after the frame's last mark, added to the burst sample just kept)
   if (ev) endEvent(w, name);
 }
+
+// ── The frames of a view switch, sampled apart (12 Nov 2026). Mohammad's Mac readout that day: Anatomy/Circuit switch frames of 100 to 268 ms,
+// nearly all "not in script: GPU or browser", while the whole vessel redraws timed inside them were 5 ms median; the one frame in thirty
+// sampled had all fallen at rest, so nothing said which pass took the rest. While a burst runs (setFenceBurst: frame-hud.js asks it while a
+// view switch is under way), every BURST_EVERY-th frame is a sample too, kept in rings of its own (the same phases and named steps), so the
+// rest's numbers stay the rest's and the switch's are read on their own (fenceBurstSummary). Only while the readout shows, as every fence.
+export const BURST_EVERY = 2;
+let burstFn = null, burstNow = false;
+const bWaits = new Float64Array(KEEP * PHASES), bStepWaits = new Float64Array(STEP_MAX * KEEP), bStepN = new Int32Array(STEP_MAX), bStepAt = new Int32Array(STEP_MAX);
+const bTotal = new Float64Array(KEEP);   // (each burst sample's own GPU work: its phases and steps, the backlog apart)
+let bAt = 0, bN = 0, curSteps = 0;
+/** frame-hud.js: `fn()` true while a burst should run (a view switch under way); null stops it. Read once at each frame's start. */
+export function setFenceBurst(fn) { burstFn = typeof fn === 'function' ? fn : null; }
+/** Whether the sample running now (or the frame that just ended) belongs to a burst. */
+export const fenceBursting = () => burstNow;
 
 /** A step that runs after the frame's last phase mark (keep-screen.js's copy onto the canvas at the frame's end): timed when the frame that just ended was a sample. */
 export function fenceAfter(name) {
@@ -137,27 +165,40 @@ export const wholeSeq = () => evSeq;
 /** The waits this frame made for the readout outside a sample (the whole redraws measured): ms of its script that were the GPU's. */
 export const forcedWait = () => forcedMs;
 const sortBuf = new Float64Array(KEEP);
-function stepMedian(i) {
-  for (let k = 0; k < stepN[i]; k++) sortBuf[k] = stepWaits[i * KEEP + k];
-  sortBuf.fill(Infinity, stepN[i]); sortBuf.sort();
-  return sortBuf[stepN[i] >> 1];
+// (Each over a ring: W the waits, cnt or N the samples kept; the rest's rings by default, a burst's when given.)
+function stepMedian(i, W = stepWaits, N = stepN) {
+  for (let k = 0; k < N[i]; k++) sortBuf[k] = W[i * KEEP + k];
+  sortBuf.fill(Infinity, N[i]); sortBuf.sort();
+  return sortBuf[N[i] >> 1];
 }
-function median(i) {
-  for (let k = 0; k < n; k++) sortBuf[k] = waits[k * PHASES + i];
-  sortBuf.fill(Infinity, n); sortBuf.sort();
-  return sortBuf[n >> 1];
+function median(i, W = waits, cnt = n) {
+  for (let k = 0; k < cnt; k++) sortBuf[k] = W[k * PHASES + i];
+  sortBuf.fill(Infinity, cnt); sortBuf.sort();
+  return sortBuf[cnt >> 1];
 }
-function phaseMax(i) { let m = 0; for (let k = 0; k < n; k++) m = Math.max(m, waits[k * PHASES + i]); return m; }
-function stepMax(i) { let m = 0; for (let k = 0; k < stepN[i]; k++) m = Math.max(m, stepWaits[i * KEEP + k]); return m; }
+function phaseMax(i, W = waits, cnt = n) { let m = 0; for (let k = 0; k < cnt; k++) m = Math.max(m, W[k * PHASES + i]); return m; }
+function stepMax(i, W = stepWaits, N = stepN) { let m = 0; for (let k = 0; k < N[i]; k++) m = Math.max(m, W[i * KEEP + k]); return m; }
 /** The samples kept as numbers, for the frame panel's plain words (frame-hud.js): each phase's and each named step's median and
  * largest wait (ms), how many samples, and the sampled frame's GPU total (the phases and steps, the backlog apart). null with none. */
 export function fenceSummary() {
   if (!on || !n) return null;
+  return summaryOf(waits, n, stepWaits, stepN, SAMPLE_EVERY);
+}
+/** The same for the burst's samples (the frames of view switches, 1 in BURST_EVERY while one runs), with `maxTotal` (the worst sampled
+ * frame's own GPU work, its phases and steps); null with none. */
+export function fenceBurstSummary() {
+  if (!on || !bN) return null;
+  const s = summaryOf(bWaits, bN, bStepWaits, bStepN, BURST_EVERY);
+  let mx = 0; for (let k = 0; k < bN; k++) mx = Math.max(mx, bTotal[k]);
+  s.maxTotal = mx;
+  return s;
+}
+function summaryOf(W, cnt, SW, SN, every) {
   const phases = [], steps = [];   // alloc-rare: once a second, for the readout
   let total = 0;
-  for (let i = 0; i < PHASES; i++) { const med = median(i); phases.push({ name: PHASE_NAMES[i], med, max: phaseMax(i) }); if (i) total += med; }
-  for (let i = 0; i < stepNames.length; i++) if (stepN[i]) { const med = stepMedian(i); total += med; steps.push({ name: stepNames[i], med, max: stepMax(i), n: stepN[i] }); }
-  return { n, every: SAMPLE_EVERY, phases, steps, total, backlog: phases[0].med };
+  for (let i = 0; i < PHASES; i++) { const med = median(i, W, cnt); phases.push({ name: PHASE_NAMES[i], med, max: phaseMax(i, W, cnt) }); if (i) total += med; }
+  for (let i = 0; i < stepNames.length; i++) if (SN[i]) { const med = stepMedian(i, SW, SN); total += med; steps.push({ name: stepNames[i], med, max: stepMax(i, SW, SN), n: SN[i] }); }
+  return { n: cnt, every, phases, steps, total, backlog: phases[0].med };
 }
 /** The samples kept, oldest first: [backlog, early, late, final, end] ms each. For the tests and the console. */
 export function fenceReport() {

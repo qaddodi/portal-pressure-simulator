@@ -19,7 +19,7 @@ import { watchFrames, perf, refreshHz, refreshMaxHz, frameBudget, targetHz, watc
 import { restPass } from './rest-pass.js';
 import { sharedStats, transfersBy } from './trace-gl.js';
 import { caught } from './caught.js';
-import { setFences, fenceText, fenceSampling, fenceSummary, lumenSummary, forcedWait, wholeEvents, wholeSeq, wholeTally, EVENT_GAP_MS, SAMPLE_EVERY } from './gpu-fence.js';
+import { setFences, setFenceBurst, fenceText, fenceSampling, fenceSummary, fenceBurstSummary, lumenSummary, forcedWait, wholeEvents, wholeSeq, wholeTally, EVENT_GAP_MS, SAMPLE_EVERY, BURST_EVERY } from './gpu-fence.js';
 
 const RING = 1024;          // (frames kept: about 8 s at 120 Hz, 17 s at 60)
 const STATS_MS = 2000, WORST_MS = 5000, WORST_N = 8;
@@ -223,6 +223,27 @@ export function physicsText(p, got) {
   ].filter(Boolean);
 }
 
+/**
+ * The readout's rows for the view switches (12 Nov 2026): `b` the switch frames sampled on the GPU (gpu-fence.js fenceBurstSummary, or null), `sw` the
+ * last switch's record (frames, their intervals, the figure's counts at its start `c` and end `d`), `now` the time. Plain lines; none when neither is there.
+ */
+export function switchText(b, sw, now) {
+  const f = (x) => x.toFixed(1), L = [];   // alloc-rare: once a second, for the readout
+  if (sw) {
+    const dc = (k) => (sw.d[k] || 0) - (sw.c[k] || 0);
+    const by = (k) => Object.keys(sw.d[k]).map((w) => [w, sw.d[k][w] - (sw.c[k][w] || 0)]).filter(([, v]) => v > 0).map(([w, v]) => `${w} ${v}`).join(', ');
+    const wh = by('why'), ow = by('organWhy');
+    L.push(`  last view switch (${f((now - sw.ended) / 1000)} s ago): ${sw.frames} frames in ${f(sw.gaps)} ms, ${f(sw.gaps / Math.max(1, sw.frames))} ms a frame, worst ${f(sw.worst)} ms; vessel draws ${dc('draw')}${wh ? ` (whole: ${wh})` : ''}, composites ${dc('composite')} (whole picture ${dc('whole')}), organ layer painted ${dc('organ')}${ow ? ` (${ow})` : ''}, glass blurs ${dc('blur')}`);
+  }
+  if (b) {
+    const top = b.steps.slice().sort((x, y) => y.med - x.med).slice(0, 4);
+    L.push(`  view switch frames on the GPU (${b.n} sampled, 1 in ${b.every} while a switch runs): ${f(b.total)} ms a frame (median), worst ${f(b.maxTotal)} ms; ${f(b.backlog)} ms still queued from the frame before at its start (max ${f(b.phases[0].max)})`);
+    if (top.length) L.push(`    largest steps: ${top.map((s) => `${plainStep(s.name)} ${f(s.med)} ms (max ${f(s.max)})`).join('; ')}`);
+    L.push(`    phases outside the steps: ${b.phases.slice(1).map((p) => `${p.name} ${f(p.med)} (max ${f(p.max)})`).join(', ')} ms`);
+  } else if (sw) L.push(`  view switch frames on the GPU: none sampled yet (1 frame in ${BURST_EVERY} while a switch runs, with this panel open)`);
+  return L;
+}
+
 export function startFrameHud() {
   // (One record per frame the scheduler ran, written in place: the stats, the worst frames and their causes come from here.)
   const ring = Array.from({ length: RING }, () => ({ at: 0, frame: 0, gap: 0, script: 0, wait: 0, act: 0, sampled: false, p: ['', '', ''], pm: [0, 0, 0] }));   // alloc-rare: made once as the panel starts
@@ -254,6 +275,16 @@ export function startFrameHud() {
     } catch (e) { caught('frame-hud:act', e); }
     return b;
   };
+  // (The last view switch, whole (12 Nov 2026): its frames and the figure's work counted from its first frame to its last, so a readout taken
+  // after it still says what it did. The per-second rows lose a switch two seconds old. One record kept, its counts copied at the switch's start.)
+  let swRun = null, lastSwitch = null;
+  const copyCounts = () => ({ ...counts, why: { ...counts.why }, organWhy: { ...counts.organWhy } });   // alloc-rare: once at a view switch's start and end, under ?perf only
+  const noteSwitch = (r, now) => {
+    const on = !!(r.act & ACT.viewSwitch);
+    if (on && !swRun) swRun = { since: now, frames: 0, gaps: 0, worst: 0, c: copyCounts() };   // alloc-rare: once a view switch, under ?perf only
+    if (on) { swRun.frames++; swRun.gaps += r.gap; if (r.gap > swRun.worst) swRun.worst = r.gap; return; }
+    if (swRun) { lastSwitch = { ...swRun, ended: now, d: copyCounts() }; swRun = null; }   // alloc-rare: once a view switch, under ?perf only
+  };
   watchFrames((fr) => {
     if (dead) return;
     const spansHidden = hiddenAt >= 0 && hiddenAt >= fr.now - fr.gap - 1;
@@ -263,6 +294,7 @@ export function startFrameHud() {
     // (A sampled frame's script is the GPU's wait (gpu-fence.js), and a measured whole redraw's waits are too: taken out of the page's numbers.)
     r.sampled = fenceSampling(); r.wait = forcedWait(); r.script = Math.max(0, fr.script - r.wait);
     r.act = actNow();
+    noteSwitch(r, fr.now);
     // (Its three largest parts, by time: the frame's own callbacks and the named pieces inside them. The surfaces' sums, for the PAGE row,
     // from the callbacks alone, sampled frames left out, and the readout's own GPU wait taken off the callback it ran in: the largest.)
     r.p[0] = r.p[1] = r.p[2] = ''; r.pm[0] = r.pm[1] = r.pm[2] = 0;
@@ -360,6 +392,7 @@ export function startFrameHud() {
     const ms = window.pps?.stage?.morphStats?.();
     const pieces = ms && ms.of ? { ready: ms.ready, of: ms.of } : null;
     // (Each worst frame's causes: its whole redraws and their GPU time, its largest script parts, what was going on.)
+    const burst = fenceBurstSummary(), bTop = burst?.steps.reduce((a, x) => (!a || x.med > a.med ? x : a), null);
     const causeOf = (r) => {
       const ev = byFrame.get(r.frame), c = [];   // alloc-rare: once a second, for the readout
       let fix = '';
@@ -367,7 +400,7 @@ export function startFrameHud() {
       if (r.pm[0] >= 0.5) c.push(`script ${f(r.script)} ms: ${r.p.map((p, j) => (p && r.pm[j] >= 0.3 ? `${p} ${f(r.pm[j])}` : '')).filter(Boolean).join(', ')}`);
       else c.push(`script ${f(r.script)} ms`);
       if (r.wait >= 0.5) c.push(`(+${f(r.wait)} ms this readout waited on the GPU)`);
-      if (!ev && r.gap > r.script + r.wait + goal.ms) c.push(`${f(r.gap - r.script - r.wait)} ms not in script: GPU or browser`);
+      if (!ev && r.gap > r.script + r.wait + goal.ms) c.push(`${f(r.gap - r.script - r.wait)} ms not in script: GPU or browser${(r.act & ACT.viewSwitch) && burst ? ` (switch frames sampled: GPU ${f(burst.total)} ms median, worst ${f(burst.maxTotal)}${bTop ? `, largest step ${bTop.name} ${f(bTop.med)}` : ''})` : ''}`);
       return { text: `${c.join('; ')} [${activityText(r.act, r.act & ACT.viewSwitch ? pieces : null)}]`, fix: fix || (r.pm[0] > r.gap * 0.5 && r.p[0] ? `cut the "${r.p[0]}" script` : '') };
     };
     const worst = worstAll.filter((r) => r.gap > goal.ms * 1.5).sort((a, b) => b.gap - a.gap).slice(0, WORST_N);
@@ -424,6 +457,7 @@ export function startFrameHud() {
       for (const s of gpu.steps) L.push(`  step  ${plainStep(s.name)}: ${f(s.med)} ms, max ${f(s.max)} (${s.n} samples)`);
       for (let k = 1; k < gpu.phases.length; k++) { const p = gpu.phases[k]; L.push(`  phase ${plainStep(p.name)}: ${f(p.med)} ms, max ${f(p.max)}`); }
     }
+    for (const t of switchText(burst, lastSwitch, performance.now())) L.push(t);
     {
       const lu = lumenSummary(), stepOf = (n) => gpu?.steps.find((x) => x.name === n)?.med ?? null;
       L.push(lumenText('figure', lu.figure, stepOf('lumen pass')));
@@ -458,11 +492,12 @@ export function startFrameHud() {
     askPhysics();
   };
   setFences(true);   // (the GPU fences run only while the panel shows)
+  setFenceBurst(() => !!stage()?.viewChanging?.());   // (and every second frame of a view switch: switchText)
   for (const [k, v] of Object.entries(wholeTally)) tally0[k] = [v[0], v[1]];
   const tick = () => { if (dead) return; if (!document.hidden) restPass(write); setTimeout(tick, 1000); };
   setTimeout(tick, 1000);
   askPhysics();
   if (window.pps) window.pps.hud = () => fullText;
-  el.stop = () => { dead = true; setFences(false); el.remove(); };   // (Settings › Show frame breakdown, off)
+  el.stop = () => { dead = true; setFenceBurst(null); setFences(false); el.remove(); };   // (Settings › Show frame breakdown, off)
   return el;
 }
