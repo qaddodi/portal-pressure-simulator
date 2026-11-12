@@ -1923,7 +1923,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   const kept = { on: false, pic: -1, gen: -1, v1: -1, v2: -1, v3: -1 };
   // (ks: tex, w, h: the tissue's picture; v1, v2, v3: the tissue's, the overlay's and the ductules' version numbers; dyn: something else is
   // drawn into the picture and moves; ducts, view, lum, cell, edge, nuc, width, alpha: the overlay's ductules, as fx-gl.js takes them.)
-  const KS = { tex: null, w: 0, h: 0, v1: 0, v2: 0, v3: 0, dyn: false, ducts: null, view: null, lum: null, cell: null, edge: null, nuc: null, width: 0, alpha: 0 };
+  const KS = { tex: null, w: 0, h: 0, v1: 0, v2: 0, v3: 0, dyn: false, ducts: null, plug: null, view: null, lum: null, cell: null, edge: null, nuc: null, width: 0, alpha: 0 };
   // What stands in for the whole picture while it shows (the lobule's wide copy through a station dive, wide-gl.js host): { on(), draw() }.
   // While on(), each present clears the canvas and draws only it (the canvas's own size need not match the kept picture's then).
   let replace = null;

@@ -4279,6 +4279,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       const a = fxArgs;
       ks.dyn = !!(wideView && wideA > 0 && wideA < 1) || !!(a && a.lymph);
       ks.ducts = a ? a.ducts : null;
+      ks.plug = a ? a.plug : null;
       if (a) { ks.view = a.view; ks.lum = a.duct.lum; ks.cell = a.duct.cell; ks.edge = a.duct.edge; ks.nuc = a.duct.nuc; ks.width = a.duct.width; ks.alpha = a.duct.alpha; }
       return true;
     },
@@ -4719,6 +4720,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // lymph's drops are the vessel composite's dashes now, veins-gl.js lymphAt: nothing here moves with them.)
   // How far the scar fills the central vein's lumen at full growth (its share of the wall's radius).
   const CV_FILL = 0.55;
+  // How solid the scar inside the vein draws: 30% (faded by 70%, Mohammad 12 Nov), so the lumen and the blood show through it.
+  const CV_SCAR_ALPHA = 0.3;
   const fxMovesArg = { lymph: false, flat: false, hide: false, flow: undefined };
   const fxDc = ['', '', '', ''], fxKNow = [], fxKWas = [];
   const fxLymph = { drops: null, beadRings: null, erase: null, eraseAdd: 0, ringHalf: 0, line: null, colours: { ly: [0, 0, 0, 0], ring: [0, 0, 0, 0], bead: [0, 0, 0, 0], line: [0, 0, 0, 0] } }, fxNone = new Float32Array(0);
@@ -4770,7 +4773,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     args.ducts = m.hide ? null : fxDuct().nums;
     const PL = args.plug;
     PL.on = plugOn && plugGrow > 0.01; PL.x = G.cx; PL.y = G.cy; PL.wall = plugWall; PL.open = plugOpen; PL.grow = plugGrow;
-    if (PL.on) { const pc = rgbaOf(plugTok); PL.col[0] = pc[0]; PL.col[1] = pc[1]; PL.col[2] = pc[2]; PL.col[3] = 0.92; }
+    if (PL.on) { const pc = rgbaOf(plugTok); PL.col[0] = pc[0]; PL.col[1] = pc[1]; PL.col[2] = pc[2]; PL.col[3] = CV_SCAR_ALPHA; }
     const D = args.duct;
     D.lum = rgbaOf(dc[0]); D.cell = rgbaOf(dc[1]); D.edge = rgbaOf(dc[2]); D.nuc = rgbaOf(dc[3]); D.width = Math.max(0.3, G.R * 0.0013);
     // (Hosted: laid by the vessels' present, which follows in this frame's drawGL.)

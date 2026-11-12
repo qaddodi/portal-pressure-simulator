@@ -17,7 +17,7 @@
 
 import { startProgram, compileDone, checkProgram } from './gl-compile.js';
 import { uniformCache } from './uniform-cache.js';
-import { MAX_DUCTS } from './fx-gl.js';
+import { MAX_DUCTS, PLUG_GLSL } from './fx-gl.js';
 
 // The blood's squares (the composite's cell vertex shader without its zoom numbers): the same device corners, so the pass lands on the
 // pixels the blood's own pass drew.
@@ -68,9 +68,12 @@ uniform int uND;                       // ductules
 uniform vec4 uD0[${MAX_DUCTS}], uD1[${MAX_DUCTS}];
 uniform vec4 uCLum, uCCell, uCEdge, uCNuc;
 uniform float uEdge, uAlpha;
+uniform int uPOn;                      // SOS: the scar inside the central vein (fx-gl.js plugAt), laid over everything
+uniform vec4 uP, uPCol; uniform float uPG;
 out vec4 o;
 const float TAU = 6.283185307179586, NC = 16.0;
 vec4 over(vec4 c, vec4 col, float a) { a *= col.a; return vec4(col.rgb * a + c.rgb * (1.0 - a), a + c.a * (1.0 - a)); }
+${PLUG_GLSL}
 void main() {
   ivec2 ip = ivec2(gl_FragCoord.xy);
   vec4 v = texelFetch(uOwn, ip, 0);
@@ -82,10 +85,15 @@ void main() {
     vec4 c = vec4(0.0);${DUCT_GLSL}
     r = c + r * (1.0 - c.a);   // (the ductules laid over that, premultiplied)
   }
+  if (uPOn > 0) {   // (then the scar over the vein, as fx-gl.js lays it after the ductules)
+    vec2 fc = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y);
+    vec4 pl = plugAt((fc / uView.w - uView.yz) / uView.x, uView.x * uView.w, uP, uPCol, uPG);
+    r = pl + r * (1.0 - pl.a);
+  }
   o = r;
 }`;
 
-const NAMES = ['world', 'size', 'cell', 'uOwn', 'uTis', 'uView', 'uSize', 'uND', 'uD0', 'uD1', 'uCLum', 'uCCell', 'uCEdge', 'uCNuc', 'uEdge', 'uAlpha'];
+const NAMES = ['world', 'size', 'cell', 'uOwn', 'uTis', 'uView', 'uSize', 'uND', 'uD0', 'uD1', 'uCLum', 'uCCell', 'uCEdge', 'uCNuc', 'uEdge', 'uAlpha', 'uPOn', 'uP', 'uPCol', 'uPG'];
 
 /** The pass, made for a context. start() begins the program's compile; ready() is true once it has finished (never waited on: false
  *  means the frame is laid whole); draw() paints the squares. */
@@ -132,6 +140,13 @@ export function createKeep(gl) {
         UC.fv4(U.uD0, D0); UC.fv4(U.uD1, D1);
         UC.fv4(U.uCLum, ks.lum); UC.fv4(U.uCCell, ks.cell); UC.fv4(U.uCEdge, ks.edge); UC.fv4(U.uCNuc, ks.nuc);
         UC.f1(U.uEdge, ks.width); UC.f1(U.uAlpha, ks.alpha);
+      }
+      const pl = ks.plug, plOn = !!(pl && pl.on && ks.view);
+      UC.i1(U.uPOn, plOn ? 1 : 0);
+      if (plOn) {
+        const v = ks.view;
+        UC.f4(U.uView, v[0], v[1], v[2], v[3]); UC.f2(U.uSize, w, h);   // (the view is the overlay's, set for the scar even with no ductule listed)
+        UC.f4(U.uP, pl.x, pl.y, pl.wall, pl.open); UC.fv4(U.uPCol, pl.col); UC.f1(U.uPG, pl.grow);
       }
       gl.bindVertexArray(vao);
       gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);

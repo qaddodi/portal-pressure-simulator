@@ -153,46 +153,51 @@ void main() {
   vec2 d = ((uP.xy + (c * 2.0 - 1.0) * r) * uView.x + uView.yz) * uView.w;
   gl_Position = vec4(d.x / uSize.x * 2.0 - 1.0, 1.0 - d.y / uSize.y * 2.0, 0.0, 1.0);
 }`;
-const plugFS = `#version 300 es
-precision highp float;
-uniform vec4 uView; uniform vec2 uSize; uniform vec4 uP, uCol;
-uniform float uG;
-out vec4 o;
-const float TAU = 6.283185307179586;
-float hash(float n) { return fract(sin(n * 127.1 + 311.7) * 43758.5453); }
-void main() {
-  vec2 fc = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y);
-  vec2 p = (fc / uView.w - uView.yz) / uView.x;
-  float s = uView.x * uView.w;
+// The scar's pixel, premultiplied: p (world), s (device px per world unit), uP (x, y, wall, open), uCol (rgba), uG (growth). One function for this
+// pass and for the lobule's kept picture (lobule-keep.js), which repaints the blood's squares and so must lay the scar over them too.
+export const PLUG_GLSL = `
+const float PTAU = 6.283185307179586;
+float phash(float n) { return fract(sin(n * 127.1 + 311.7) * 43758.5453); }
+vec4 plugAt(vec2 p, float s, vec4 uP, vec4 uCol, float uG) {
   vec2 q = p - uP.xy;
   float d = length(q), a = atan(q.y, q.x);
   float wall = uP.z - 2.5 / s;
   float th = max(uP.z - uP.w, 1e-3);
   float ro = uP.w * (1.0 + 0.07 * sin(3.0 * a + 0.8) + 0.05 * sin(7.0 * a + 2.1) + 0.03 * sin(13.0 * a + 0.3));
-  float cw = clamp(0.5 - (d - wall) * s, 0.0, 1.0);
-  float ci = clamp(0.5 + (d - ro) * s * 0.7, 0.0, 1.0);
-  float cov = cw * ci;
-  if (cov <= 0.0) discard;
+  float cov = clamp(0.5 - (d - wall) * s, 0.0, 1.0) * clamp(0.5 + (d - ro) * s * 0.7, 0.0, 1.0);
+  if (cov <= 0.0) return vec4(0.0);
   // Wavy bundles running round the vein, in bands of their own strength.
   float sp = th * 0.16;
   float f = (d + th * 0.07 * sin(a * 5.0 + d / th * 6.0) + th * 0.05 * sin(a * 11.0 + 1.3)) / sp;
   float band = floor(f);
   float x = abs(fract(f) - 0.5) * 2.0;
-  float line = 1.0 - smoothstep(0.18, 0.18 + max(0.3, 2.0 * fwidth(f)), x);
-  float str = 0.45 + 0.55 * hash(band + floor(a * 1.4) * 7.0);
+  float line = 1.0 - smoothstep(0.18, 0.18 + max(0.3, 2.0 / (sp * s)), x);
+  float str = 0.45 + 0.55 * phash(band + floor(a * 1.4) * 7.0);
   vec3 pale = mix(uCol.rgb, vec3(1.0), 0.38), dark = uCol.rgb * 0.72;
-  vec3 c = mix(uCol.rgb, mix(dark, pale, step(0.5, hash(band * 3.1))), line * str);
+  vec3 c = mix(uCol.rgb, mix(dark, pale, step(0.5, phash(band * 3.1))), line * str);
   // Fibroblast nuclei: a few small dark spindles lying along the bundles.
   float nu = 0.0;
   for (int i = 0; i < 8; i++) {
-    float k = float(i), aa = hash(k + 2.0) * TAU, rr = mix(ro, uP.z, 0.2 + 0.6 * hash(k + 17.0));
+    float k = float(i), aa = phash(k + 2.0) * PTAU, rr = mix(ro, uP.z, 0.2 + 0.6 * phash(k + 17.0));
     vec2 e = q - rr * vec2(cos(aa), sin(aa)), t = vec2(-sin(aa), cos(aa)), n = vec2(cos(aa), sin(aa));
     float ln = max(th * 0.22, 1.5 / s);
     nu = max(nu, 1.0 - smoothstep(0.6, 1.0, length(vec2(dot(e, t) / ln, dot(e, n) / (ln * 0.3)))));
   }
   c = mix(c, uCol.rgb * 0.45, nu * 0.55);
   float al = cov * uCol.a * clamp(uG * 2.5, 0.0, 1.0);
-  o = vec4(c * al, al);
+  return vec4(c * al, al);
+}`;
+const plugFS = `#version 300 es
+precision highp float;
+uniform vec4 uView; uniform vec2 uSize; uniform vec4 uP, uCol;
+uniform float uG;
+out vec4 o;
+${PLUG_GLSL}
+void main() {
+  vec2 fc = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y);
+  vec4 c = plugAt((fc / uView.w - uView.yz) / uView.x, uView.x * uView.w, uP, uCol, uG);
+  if (c.a <= 0.0) discard;
+  o = c;
 }`;
 
 // (Through gl-compile.js: both programs started before either is read, so the driver compiles them side by side, and only the link's

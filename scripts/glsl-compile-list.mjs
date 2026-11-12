@@ -124,6 +124,7 @@ add('doppler spectrum synth', { '../src/ui/doppler-synth.js': ['SYNTH_VS', 'SYNT
 // The plate's frame (Three scales on one plate): the ring on the lobule's window, the ring on the liver and the cone's lines.
 add('cutout frame (plate ring, spot, cone)', { '../src/ui/cutout-frame-gl.js': ['FRAME_VS', 'FRAME_FS'] }, (p) => ({ vs: p.FRAME_VS, fs: p.FRAME_FS }));
 
+add('lobule kept picture (blood squares repainted, with the ductules and the SOS scar over them)', { '../src/ui/lobule-keep.js': ['KEEP_VS', 'keepFS'] }, (k) => ({ vs: k.KEEP_VS, fs: k.keepFS() }));
 add('lobule overlay: scar inside the central vein (SOS)', { '../src/ui/fx-gl.js': ['fxShaders'] }, (f) => ({ vs: f.fxShaders.plugVS, fs: f.fxShaders.plugFS }));
 add('glass laid (cards, callouts, panes: the field, F4; the dip taken back out, uUn)', { '../src/ui/glass-gl.js': ['GLASS_VS', 'GLASS_FS'] }, (g) => ({ vs: g.GLASS_VS, fs: g.GLASS_FS }));
 // ---- later threads: add yours above this line, one line each ------------------------------------------------------------------------
