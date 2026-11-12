@@ -89,10 +89,11 @@ export function sharePrep(S, req) {
  *  every request's picture are the same as the last blur kept (shareKeep): { parts, same } (a record kept in the share, read before the
  *  next call). blurInto(out, pool, boxes, ox, oy, t, bw, bh): glass-gl's blurBoxesInto. */
 // A blur the moving blood alone calls for (the same picture under the glasses, the same grid and parts, only the blood drew over it) waits until
-// this long after the last blur kept: 28 ms is every second frame of a 60 Hz screen with 4 ms to spare for a late one (the same margin as the
-// lobule's calm gap), so a 60 Hz page blurs the blood under a card 30 times a second and the blood is on the glass a frame late at most.
-// Anything else (the view, the picture, a card's box) blurs at once. (Cards' glass at rest: 38 blurs a second, one for each of 57 composites.)
-export const BLOOD_BLUR_MS = 28;
+// this long after the last blur kept. It was 28 ms, every second frame of a 60 Hz screen: the blood under a card blurred 30 times a second at
+// rest, for streaks a 22 px blur leaves nothing of (heat recs H2, 12 Nov 2026: the phone and the Mac warm at rest). 250 ms: the blood in the
+// glass is refreshed 4 times a second. Anything else (the view, the picture, a card's box) blurs at once, as before; the tint and blur are
+// the same glass, only how often the blood in it is taken again changed.
+export const BLOOD_BLUR_MS = 250;
 /** Whether a blur that only the blood calls for is held back: `now` (ms) is less than `gap` after the last blur kept. */
 export const bloodHeld = (keptAt, now, gap) => gap > 0 && keptAt >= 0 && now >= keptAt && now - keptAt < gap;
 export function sharePlan(S, grid, t, bw, bh, full, blurInto, dirtyFor = null, dirtyInto = null, picDirtyFor = null, ring = 0, now = -1, gap = 0) {

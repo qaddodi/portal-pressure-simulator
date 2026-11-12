@@ -111,8 +111,10 @@ const card = { x: 1500, y: 300, w: 400, h: 300 };
 const under = [{ x: 1600, y: 400, w: 60, h: 60 }];   // (blood drawn under the card)
 
 test('the gap holds only a blur the blood alone calls for', () => {
+  assert.equal(BLOOD_BLUR_MS, 250, 'the blood in the glass at 4 Hz (heat recs H2)');
   assert.equal(bloodHeld(1000, 1010, BLOOD_BLUR_MS), true);
-  assert.equal(bloodHeld(1000, 1030, BLOOD_BLUR_MS), false);
+  assert.equal(bloodHeld(1000, 1200, BLOOD_BLUR_MS), true);
+  assert.equal(bloodHeld(1000, 1250, BLOOD_BLUR_MS), false);
   assert.equal(bloodHeld(-1, 5, BLOOD_BLUR_MS), false, 'no blur kept yet');
   assert.equal(bloodHeld(1000, 1010, 0), false, 'no gap, no hold');
 });
@@ -133,7 +135,7 @@ test('blood under a card in a frame the gap holds is not blurred; the next blur 
   assert.equal(S.snap.f[0], 10, 'the snapshot stays at the blur kept: the next range starts from it');
   S.phase = 'draw';
   sharePrep(S, { id: 'a', boxes: [card], v: 5, f: 12 });
-  const p = sharePlan(S, grid, t, bw, bh, false, keep(11), () => under, keep(23), null, 0, 1033, BLOOD_BLUR_MS);
+  const p = sharePlan(S, grid, t, bw, bh, false, keep(11), () => under, keep(23), null, 0, 1000 + BLOOD_BLUR_MS + 1, BLOOD_BLUR_MS);
   assert.equal(p.same, false, 'past the gap it blurs');
   assert.ok(p.parts && p.parts.length, 'the part the blood reached');
 });
@@ -150,7 +152,7 @@ test('the picture, the card or the grid moving blurs at once, whatever the gap',
   assert.equal(sharePlan(S, grid, t, bw, bh, false, keep(11), () => under, keep(23), null, 0, 1005, BLOOD_BLUR_MS).same, false, 'box');
 });
 
-test('at rest on a 60 Hz page the blood under a card blurs 30 times a second, not 60', () => {
+test('at rest on a 60 Hz page the blood under a card blurs 4 times a second, not 30 or 60', () => {
   const S = shareFor(new Map(), {}, 'k');
   prime(S);
   let blurs = 0, f = 10;
@@ -162,5 +164,5 @@ test('at rest on a 60 Hz page the blood under a card blurs 30 times a second, no
     if (!p.same) { blurs++; shareKeep(S, now); }
     S.phase = 'draw';
   }
-  assert.ok(blurs >= 55 && blurs <= 65, `${blurs} blurs in 120 frames`);
+  assert.ok(blurs >= 7 && blurs <= 9, `${blurs} blurs in 120 frames`);
 });
