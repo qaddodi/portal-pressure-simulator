@@ -771,7 +771,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     queueRefresh();
     resizeSoon();
   }
-  const canSplit = () => (isSide() ? readMetric(stageWrap, 'clientHeight') - css('--top-safe') - css('--vdock-h') >= 620 : readMetric(body, 'clientWidth') >= 1000 || readMetric(workspace, 'clientWidth') >= 1000) || state === 'focus';
+  const canSplit = () => (isSide() ? readMetric(stageWrap, 'clientHeight') - css('--top-safe') - css('--vdock-h') >= 620 && readMetric(body, 'clientHeight') >= 600 : readMetric(body, 'clientWidth') >= 1000 || readMetric(workspace, 'clientWidth') >= 1000) || state === 'focus';   // (the side card is one short height: two tests never share it)
   // Pressure and Over time read as one story: where the card is roomy (desktop, iPad landscape) they open
   // together, stacked, with no switch; elsewhere the Pressure tab keeps its Along the circuit / Over time switch.
   const PAIR = ['profile', 'scope'];

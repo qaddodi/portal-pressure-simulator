@@ -4258,12 +4258,27 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .instrument-workspace.side { top: calc(var(--top-safe) + 2px); bottom: calc(var(--vdock-h) + 14px); }
 }
-/* The card on the right (a Mac, an iPad held sideways) is one height for every test, never taller (Mohammad, 12 Nov 2026, "perfect height, same height all
-   of them"): 710 px holds the tallest test (Readouts needs 691 with its head, FibroScan 645), and a shorter window takes the room there is. It no longer
-   stretches from the top bar to the vitals dock, which left a Readouts grid ending halfway down an empty card. */
-@media not all and (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
-  .instrument-workspace.side:not([data-state="peek"]) { bottom: auto; height: min(710px, calc(100% - var(--top-safe) - 4px - var(--vdock-h) - var(--gap) - 8px)); }
+/* The card on the right (a Mac, an iPad held sideways) is one height for every test and never changes (Mohammad, 12 Nov 2026: "like half that size ...
+   fit one of the charts, and have the option to open the other one"): 400 px, or the room there is in a shorter window. Each test shows its one chart or
+   its main part, and a switch inside it (Pressure: Along the circuit / Over time; Readouts: a group at a time) opens the rest. */
+.instrument-workspace.side:not([data-state="peek"]) { --ws-h: min(400px, calc(100% - var(--top-safe) - 4px - var(--vdock-h) - var(--gap) - 8px)); bottom: auto; height: var(--ws-h); }
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .instrument-workspace.side:not([data-state="peek"]) { --ws-h: auto; bottom: calc(var(--vdock-h) + 14px); height: auto; }   /* (a phone held sideways keeps the card from the top bar to the dock) */
 }
+/* On that short card each test's picture takes the room left and its notes give way: a roomier top and foot, the Doppler's spectrum a wide strip (its
+   readings and range stay under it), and Readouts one group at a time (its switch, readouts-pane.js; the groups are all shown elsewhere). */
+.instrument-workspace.side .dock-pane { padding-top: 10px; padding-bottom: 12px; }
+.instrument-workspace.side .instrument-view.dop .dop-box { --ar: 3.6; }
+.instrument-workspace.side .dop-report > .dop-note { display: none; }
+.instrument-workspace.side .instrument-view.wall-view .endo-stage { --stage-min: 96px; }
+.instrument-workspace.side .instrument-view.wall-view { gap: 8px; }
+.rp-switch { display: none; }
+.instrument-workspace.side .rp-switch { display: flex; }
+.instrument-workspace.side .instrument-view[data-pane="readouts"] .rp-cap { display: none; }
+.instrument-workspace.side .instrument-view[data-pane="readouts"][data-show="pressure"] .rp-group:not([data-group="pressure"]),
+.instrument-workspace.side .instrument-view[data-pane="readouts"][data-show="flow"] .rp-group:not([data-group="flow"]),
+.instrument-workspace.side .instrument-view[data-pane="readouts"][data-show="effects"] .rp-group:not([data-group="effects"]),
+.instrument-workspace.side .instrument-view[data-pane="readouts"][data-show="systemic"] .rp-group:not([data-group="systemic"]) { display: none; }
 
 /* Labels: no box; the station, then its pressure with the unit and the change from healthy; a bar in
    the pressure's color on the side facing the vessel, as on the anatomy. */
@@ -6421,7 +6436,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .instrument-workspace .dock-head.tabbed:has(> .instr-tabs:not([hidden])) > :is(.dock-title, .workspace-live) { display: none; }
 .instrument-workspace .dock-head.tabbed > .dock-title { flex: 1 1 auto; }
 .instrument-workspace .dock-head.tabbed > .instr-tabs { flex: 1 1 auto; min-width: 0; margin: 0; }
-.instrument-workspace .dock-head.tabbed .card-close.card-close { position: static; transform: none; flex: none; width: 36px; height: 36px; margin-left: auto; }
+.instrument-workspace .dock-head.tabbed .card-close.card-close { position: relative; transform: none; flex: none; width: 36px; height: 36px; margin-left: auto; }
 .instrument-workspace .dock-head .ws-tabs.tight .instr-tab, .instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] { flex: 1 1 auto; flex-direction: row; gap: 0; height: 34px; min-width: 0; padding: 0 8px; }
 .instrument-workspace .dock-head .ws-tabs.tight .it-t { max-width: 0; margin-left: 0; opacity: 0; overflow: hidden; transition: opacity var(--d-flip) var(--ease); }   /* (the name takes its room at once and fades; the tabs slide by translate: dock.js) */
 .instrument-workspace .dock-head .ws-tabs.tight .instr-tab[aria-selected="true"] .it-t { max-width: 120px; margin-left: 5px; opacity: 1; }
@@ -6828,7 +6843,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 /* (The monitor's size-contained box counts as empty when the grid sizes its rows, so where the card is too short to fit its content
    (a phone held sideways) the rows gave it only its 100 px floor and the range bar and the tiles were laid over its lower half.
    Its rows now hold its real height, the card's width at the 1.6 shape; the card scrolls to the tiles.) */
-#app .instrument-workspace.side .instrument-view.dop .dop-box { min-height: calc(100cqi / 1.6) !important; }
+#app .instrument-workspace.side .instrument-view.dop .dop-box { min-height: calc(100cqi / var(--ar)) !important; }
 #app .instrument-workspace.side .instrument-view.dop .dop-report { grid-area: 1 / 1 / 6 / 2; display: grid; grid-template-rows: subgrid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; column-gap: calc(.6em * var(--dop-k, 1)); row-gap: 0; margin: 0; padding: 0 12px 0 12px; min-width: 0; }
 #app .instrument-workspace.side .instrument-view.dop .dop-velrow { display: contents; }
 #app .instrument-workspace.side .instrument-view.dop :is(.dop-vel, .dop-dir, .dop-pattern) { grid-row: 1; align-self: start; position: relative; z-index: 1; padding-top: 8px; margin: 0; white-space: nowrap; pointer-events: none; color: var(--white); text-shadow: 0 0 2px var(--black), 0 0 3px var(--black); }

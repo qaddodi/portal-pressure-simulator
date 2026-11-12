@@ -66,6 +66,15 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     groups.map(([g, label]) => section(g, label, tiles.filter((t) => t.group === g).map(tile))),
     section('systemic', 'Systemic', SYSTEMIC.map(([id, name, short]) => vital(byId[id], name, short))));
 
+  // On the short side card (Mac, iPad sideways) the readings show one group at a time under this switch (app.css .rp-switch; elsewhere it is hidden and all show).
+  const NAMES = [...groups, ['systemic', 'Systemic']];
+  el.dataset.show = NAMES[0][0];
+  const head = h('div', { class: 'pressure-switch rp-switch', role: 'group', 'aria-label': 'Readout group' },
+    NAMES.map(([g, label]) => h('button', { type: 'button', class: 'ps-btn', 'data-view': g, 'aria-pressed': String(g === NAMES[0][0]), onclick: () => {
+      el.dataset.show = g;
+      for (const b of head.children) b.setAttribute('aria-pressed', String(b.dataset.view === g));
+    } }, label)));
+
   function trendOf(x, v, now) {
     const hs = x.hist;
     if (!hs.length || now - hs[hs.length - 1][0] > 500) { hs.push([now, v]); while (hs.length && now - hs[0][0] > TREND_S * 1000 + 600) hs.shift(); }
@@ -188,5 +197,5 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
     return n ? `${n} abnormal` : 'All normal';
   }
 
-  return { id: 'readouts', label: 'Readouts', el, update, summary };
+  return { id: 'readouts', label: 'Readouts', el, head, update, summary };
 }

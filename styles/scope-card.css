@@ -18,7 +18,7 @@
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) { grid-template-rows: auto auto auto; }
 
 /* The picture: the whole width of the card, as tall as the card allows (its square is the least of the two, endo-stage in app.css). */
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { --stage-min: 140px; grid-column: 1 / -1; grid-row: 1; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { --stage-min: 122px; grid-column: 1 / -1; grid-row: 1; }   /* (122: the picture fits the card's one short height, app.css .instrument-workspace.side) */
 
 /* The readings: a slim row of five tiles, a name over its value. A card too narrow for five takes three and two. */
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 1 / -1; grid-row: 2; align-self: stretch; width: 100%; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
