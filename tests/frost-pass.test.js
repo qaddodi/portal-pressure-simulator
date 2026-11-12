@@ -26,7 +26,7 @@ globalThis.Path2D = class {};
 let copies = 0, made = 0;
 globalThis.createImageBitmap = () => { copies++; return Promise.resolve({ close() {} }); };
 const n = { draw: 0, blur: 0, blit: 0 };
-let prog = null, progs = 0;
+let progs = 0;
 const fig = new Proxy({}, {
   get(_, k) {
     if (typeof k !== 'string') return undefined;
@@ -34,7 +34,7 @@ const fig = new Proxy({}, {
     if (k === 'isContextLost') return () => false;
     if (k === 'getProgramParameter') return () => true;
     if (k === 'createProgram') return () => ({ n: ++progs });
-    if (k === 'useProgram') return (p) => { prog = p; };
+    if (k === 'useProgram') return () => {};
     return (...a) => {
       if (k === 'drawArrays') n.draw++;   // (the glass's one program since 12 Nov 2026 (the field): no blur passes)
       if (k === 'blitFramebuffer' && a[5] > a[7]) n.blur++;   // (a copy made: its last blit, turned over)

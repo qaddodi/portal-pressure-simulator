@@ -10,6 +10,7 @@
 
 import { BLOOD_BLUR_MS, shareFor, sharePrep, sharePlan, shareKeep, shareForget, shareShift, shareTurn, shareUse, shareRelease, shareBytes } from './blur-share.js';
 import { glCap, fbComplete } from './gl-state.js';
+import { glassCover } from './glass-cover.js';
 import { hold } from './gpu-budget.js';
 import { gpuProbe, COUNTED } from './gpu-probe.js';
 import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteDraw } from './frame.js';
@@ -568,7 +569,22 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     return colours.get(k) || parseColour(k || fb);
   }
   const markOf = new WeakMap();
-  const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); unwait(); };
+  const unmark = () => { for (const g of marked) g.removeAttribute('data-gl'); marked.clear(); unwait(); cover.clear(); };
+  // (A card over a card of the same region hides it whole, its words too: the lower one is cut where the upper lies, glass-cover.js. Only the
+  // cards' glass: a callout or the pane covers none. cssClip: each card's own clip-path as its page read gives it (one it has is never cut).)
+  const cover = glassCover(), cssClip = new WeakMap(), coverOrder = [];
+  const coverGroup = (a, b) => cards.region(a) === cards.region(b);
+  const coverOwn = (g) => { const c = cssClip.get(g); return !!c && c !== 'none'; };
+  function coverNow() {
+    if (!cards || co || !cards.region) return;
+    coverOrder.length = 0;
+    if (hf && blurOK) {
+      // (In the order they are drawn: the low turn's (the teaching card's shade) first, then the others.)
+      for (const p of hf.panes) if (host.low?.(p.g)) coverOrder.push(p);
+      for (const p of hf.panes) if (!host.low?.(p.g)) coverOrder.push(p);
+    }
+    cover.apply(coverOrder, coverGroup, coverOwn);
+  }
   // (A card about to have its glass drawn here for the first time (data-gl-wait) shows no solid card for that frame or two (app.css), so
   // it never flashes solid then frost. Only such a card: one held out of this canvas (past its edge, crossing a label), or not drawn here
   // for any reason, keeps the solid card (the browser's glass), never a bare one. Mohammad, 2 Nov 2026, iPhone, HVPG 6: both cards bare,
@@ -737,7 +753,8 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         const outer = reg?.outer ? g.parentElement : null;
         const cd = isCard(reg, g), sf = cd ? cs.getPropertyValue('--surface') : '';   // (a card: the one card glass, drawn from its look's surface; paneTint)
         const tn = reg?.tint ? (typeof reg.tint === 'function' ? reg.tint(g, cs) : reg.tint) : cs.getPropertyValue('--gl-tint');
-        panes.push({ g, el, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er: outer ? outer.getBoundingClientRect() : r, shadow: outer && reg.shadow ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
+        cssClip.set(g, cs.clipPath);
+        panes.push({ g, el, box: true, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er: outer ? outer.getBoundingClientRect() : r, shadow: outer && reg.shadow ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
@@ -1412,6 +1429,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (pass === 'all') panes = hf.panes;
       else { panes = passPanes; panes.length = 0; for (const p of hf.panes) if (!!host.low?.(p.g) === (pass === 'low')) panes.push(p); }
     }
+    if (final) coverNow();
     if (!panes.length) { if (final) { noteSeen(panes, true); settleMarks(frameMarks); } return; }
     const W2 = host.canvas.width, H2 = host.canvas.height, k = hk.k;
     noteDraw(cards && !co ? 'glass-cards' : paneKind ? 'glass-pane' : 'glass');

@@ -29,7 +29,7 @@ globalThis.Path2D = class {};
 globalThis.createImageBitmap = () => Promise.resolve({ close() {} });
 function fakeGL(name) {
   const n = { draw: 0, blur: 0, blit: 0, clear: 0, deleted: 0, calls: [] };
-  let progs = 0, prog = null;
+  let progs = 0;
   const gl = new Proxy({}, {
     get(_, k) {
       if (typeof k !== 'string') return undefined;
@@ -38,7 +38,7 @@ function fakeGL(name) {
       if (k === 'isContextLost') return () => false;
       if (k === 'getProgramParameter') return () => true;
       if (k === 'createProgram') return () => ({ n: ++progs, name });
-      if (k === 'useProgram') return (p) => { prog = p; };
+      if (k === 'useProgram') return () => {};
       return (...a) => {
         n.calls.push([k, ...a]);
         if (k === 'drawArrays' && a[0] !== 'TRIANGLES') n.draw++;   // (the glass's one program since 12 Nov 2026 (the field): no blur passes; a mask's fill, TRIANGLES, apart)
