@@ -88,7 +88,15 @@ export function createDiaphragm(st, live) {
     const tT = live.isImaging() ? 0 : live.lvTT * 0.5;
     const hp = store.get().healthy?.P;
     const cvUp = hp ? Math.max(PA[NI.CV_R] - hp[NI.CV_R], PA[NI.CV_L] - hp[NI.CV_L]) : 0;
-    live.lvGT = stepHeld(live.lvGT, clamp((cvUp - 4) / 10, 0, 1), 0.03);
+    // (The congestion's target from the venous pressure with the breath taken out (12 Nov 2026, his Mac at rest: the organ layer painted again twice a
+    // second, "page changed: liver g.organ transform"): the beat-filtered pressure still breathes, about 0.4 mmHg in a congested liver, more than
+    // the 0.3 mmHg the hold below allows, so the target flipped a step each breath, the liver eased to it and back, and its outline and scale were
+    // written again over and over with nothing visible changing. Low-passed over BREATH_TAU first; a jump of a real change (a slide, a TIPS) is taken at once.)
+    const gRaw = clamp((cvUp - 4) / 10, 0, 1), gNow = performance.now();
+    if (gLow === null || Math.abs(gRaw - gLow) > G_JUMP) gLow = gRaw;
+    else gLow += (gRaw - gLow) * -Math.expm1(-(gNow - gLowAt) / BREATH_TAU);
+    gLowAt = gNow;
+    live.lvGT = stepHeld(live.lvGT, gLow, 0.03);
     const cT = Math.min(1, p.cirrhosis), gT = live.lvGT;
     if (live.lvC === null || reduceMotion.matches || !live.figureShown) { live.lvC = cT; live.lvG = gT; live.lvT = tT; }   // under the loading screen nothing is seen easing
     else { live.lvC = easeTo(live.lvC, cT, dt); live.lvG = easeTo(live.lvG, gT, dt); live.lvT = easeTo(live.lvT, tT, dt); }
@@ -97,6 +105,9 @@ export function createDiaphragm(st, live) {
     return lvTargets;
   }
   const lvTargets = [0, 0, 0];   // (read at once by its callers)
+  // (The congestion's breath-free pressure, easeLiver: low-passed over BREATH_TAU ms; a change past G_JUMP is taken whole.)
+  const BREATH_TAU = 3000, G_JUMP = 0.12;
+  let gLow = null, gLowAt = 0;
   // (What updateOrgans hands the probe's timed calls, kept: the calls are fixed functions that read these, so none is made in a frame.)
   let orgMoving = false, orgPA2 = null, orgShrink = 1, caudBin = NaN;
   let caputK = null;   // (the caput medusae's held share, updateOrgans)

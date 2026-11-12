@@ -200,6 +200,12 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (!/const P = pass === MP\.GLOW \|\| pass === MP\.UP \? glowP : E\.tubeS;/.test(tp) || !/glowP = E\.tubeGlow \|\| E\.tubeS;/.test(tp)) errors.push('src/ui/tube-pass.js tubeDraw: the glow passes (MP.GLOW, MP.UP) draw with E.tubeGlow, else E.tubeS; no other pass uses the glow program');
     if ((tp.match(/glowP/g) || []).length !== 6) errors.push('src/ui/tube-pass.js: glowP is set once per frame and read by tubeDraw and the program set-up only');
   }
+  // The liver's congestion at rest (12 Nov 2026, his Mac: the organ layer painted twice a second, "page changed: liver g.organ transform"): its target is
+  // held on the venous pressure with the breath low-passed out, so a breath never tips it a step and the liver is not rewritten at rest.
+  {
+    const dg = text('src/ui/stage-diaphragm.js');
+    if (!/live\.lvGT = stepHeld\(live\.lvGT, gLow, 0\.03\);/.test(dg) || !/gLow \+= \(gRaw - gLow\) \* -Math\.expm1\(-\(gNow - gLowAt\) \/ BREATH_TAU\);/.test(dg)) errors.push('src/ui/stage-diaphragm.js easeLiver: the congestion target is held on the breath-free venous pressure (gLow, BREATH_TAU)');
+  }
   // The Tube's cull (brief PD part 3, 10 Nov 2026): rows wholly outside the vessel layer are left out of the stage 2 buckets (the buckets are built from the cull's mask in place of the rows with points),
   // never while a stretch of the change between the views moves the points (joinBase >= 0), and the pad it grows the layer by is the widest pass's reach (glow and shadow), not a guess of one pass.
   {
