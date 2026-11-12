@@ -72,7 +72,8 @@ import { FIRSTPASS, ORIGINS } from './blood.js';
 import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
-import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt } from './frame.js';
+import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt, isPhone as isPhoneDevice } from './frame.js';
+import { blurAtLoad } from './blur-guard.js';
 import { restPass } from './rest-pass.js';
 import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
@@ -155,6 +156,7 @@ async function main() {
   startReport(() => { const st = store.get(), pos = presenter.position(); return pos ? `${pos.id} slide ${pos.at + 1}` : `${st.mode} ${st.lobule ? (st.sinusoid ? 'sinusoid' : 'lobule') : st.view}`; });   // (PR-03: the ring, the reload count and the heartbeat, before anything else can fail)
   const savedTheme = readLS('pps.theme');
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
+  blurAtLoad(document.documentElement, { stored: readLS('pps.noGlass'), phone: isPhoneDevice() });   // (Settings › Blur effect as stored; a phone that never chose starts with it off, 12 Nov 2026)
   startLMS();
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
   try { localStorage.removeItem('pps.role'); } catch (e) { caught('main:122', e); /* storage unavailable */ }
@@ -1305,7 +1307,7 @@ function presenterSettings() { return []; }
 // up to 2x). Fewer pixels: every GPU pass of the figure's picture costs less and the picture is softer; the canvas the labels, leaders and
 // glass are drawn in stays at 1 device px per CSS px at least (stage-res.js resizeCanvas), the picture upscaled onto it with its edges
 // steepened (veins-gl.js UP_FS), and the cards and readings stay sharp.
-// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (2 on a Mac and an iPad, 1 on an iPhone).
+// Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (1.5 on a Mac and an iPad, 0.5 on a phone, 12 Nov 2026).
 const MP_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 0];
 function figureMpControl() {
   const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));

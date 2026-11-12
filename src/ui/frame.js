@@ -675,17 +675,17 @@ export function onRenderScale(f) { renderSubs.add(f); return () => renderSubs.de
 // move: the share while the view moves (a pinch, a pan, a glide), Full again once it has settled; 1 = off.
 // glow: the share the glow layers (an organ's soft glow, a lit organ's warm edge) are drawn at, the vessels and organs at Full.
 // cap: the most megapixels the canvas holds (a big screen draws fewer); 0 = off. The default is per device since 11 Nov 2026 (Mohammad:
-//   "Default Mac to 2MP, iPad to 2MP and iPhone to 1MP for now"): 2 on a Mac and an iPad, 1 on an iPhone (capDefault below). It was 8
+//   "Default Mac to 2MP, iPad to 2MP and iPhone to 1MP for now"); since 12 Nov 2026 ("default phone 0.5MP and default Mac 1.5MP", for heat)
+//   1.5 on a Mac and an iPad (iPad Safari names itself a Mac), 0.5 on a phone (capDefault below). It was 8
 //   since 1 Nov 2026 (the GPU move, step 4: a pixel budget). Settings › Figure size still picks any step; a choice is stored (pps.fig.cap),
 //   and only the device's own default stores nothing.
 // floor: the lowest share Auto goes to (10%, 25% or 50%).
 // adapt: after each move, one step lower if the frames came slowly, one step back up when they came at the screen's pace.
 export const FIG_OPTS = { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] };
-// The cap's default for this device: an iPhone (or any phone) 1 MP, a Mac, an iPad and anything else 2 MP.
-const capDefault = (() => {
-  const nav = typeof navigator !== 'undefined' ? navigator : null, ua = nav?.userAgent || '';
-  return /iPhone|iPod|Android.*Mobile/.test(ua) ? 1 : 2;
-})();
+/** Whether this device is a phone (an iPhone, an iPod, an Android phone), by its user agent: the figure's size and the blur default by it. */
+export const isPhone = () => /iPhone|iPod|Android.*Mobile/.test((typeof navigator !== 'undefined' && navigator?.userAgent) || '');
+// The cap's default for this device: a phone 0.5 MP, a Mac, an iPad and anything else 1.5 MP (12 Nov 2026).
+const capDefault = isPhone() ? 0.5 : 1.5;
 /** The value a figure option has when nothing is chosen: the first of FIG_OPTS[k], but the cap's is the device's (capDefault). */
 export const figDefault = (k) => (k === 'cap' ? capDefault : FIG_OPTS[k][0]);
 const figOpts = { move: 1, glow: 1, cap: capDefault, adapt: false, floor: 0.1 };

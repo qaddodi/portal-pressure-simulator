@@ -106,8 +106,16 @@ test('Motion at 60 in the figure loop: off, the interval and the gate are as bef
   // (Since the frame governor, 4 Nov 2026: the base gap is the governor's 'glide' gap (MOTION60_MS) on, paceOf(quality) off; a calm frame
   // (only the blood moving) is held to CALM_MS at least.)
   assert.match(fn, /const base = m60 \? frameGapFor\('glide'\) : paceOf\(quality\);/);
-  assert.match(fn, /const interval = calm \? Math\.max\(base, CALM_MS, restGapFor\(now, busyAt\)\) : base;/);
-  assert.match(fn, /if \(interval && !viewMoved && !forceDraw && now - flowGate < interval\) \{ askAnimate\(\); return; \}/);
+  // (Rest pacing counts from restAt, which the model's own vessel updates do not stamp, and holds frames whether or not the figure is calm, 12 Nov 2026.)
+  assert.match(fn, /const restGap = restGapFor\(now, restAt\);/);
+  assert.match(fn, /const interval = calm \? Math\.max\(base, CALM_MS, restGap\) : Math\.max\(base, restGap\);/);
+  assert.match(fn, /if \(viewMoved \|\| forceDraw \|\| drawOnce \|\| restOn \|\| restU !== 1\) busyAt = restAt = now;/);
+  // (A held frame at rest waits on a timer (parkFor) instead of asking every screen frame, 12 Nov 2026; any other held frame asks the next one.)
+  assert.match(fn, /if \(interval && !viewMoved && !forceDraw && now - flowGate < interval\) \{ if \(restGap && parkFor\(interval - \(now - flowGate\)\)\) return; askAnimate\(\); return; \}/);
+  assert.match(stage, /const parkFor = \(left\) => \{ if \(left < 18\) return false; if \(!parkT\) parkT = stageScope\.timer\(parkWake, left - 8\); return true; \};/);
+  assert.match(stage, /if \(!\(restGap && restAt !== now && parkFor\(interval\)\)\) askAnimate\(\);/);
+  const restLine = stage.split('\n').find((l) => l.includes('restAt = now;   // (motion of the figure itself'));
+  assert.ok(restLine && !/veinsRows|widthEasing|colEasing|veinsDirty|glowSync/.test(restLine), 'the model\'s own vessel updates never stamp restAt');
   assert.match(fn, /flowGate = interval && \(!m60 \|\| calm\) \? now - \(\(now - flowGate\) % interval\) : now;/);
   // (Off: m60 false, so the gate is `interval ? … : now`, the old line exactly. On and not calm: no phase is carried.)
   const gate = (m60, interval, now, flowGate, calm = false) => (interval && (!m60 || calm) ? now - ((now - flowGate) % interval) : now);

@@ -542,6 +542,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get sprayA() { return sprayA; }, set sprayA(v) { sprayA = v; },
     get sprayLast() { return sprayLast; }, set sprayLast(v) { sprayLast = v; },
     get stageWake() { return stageWake; }, set stageWake(v) { stageWake = v; },
+    unpark: () => unpark(),
     get stats() { return stats; },
     get STENT_CALM_MS() { return STENT_CALM_MS; },
     get stentCalm() { return stentCalm; },
@@ -1319,6 +1320,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // update: a view change schedules one coalesced sync per animation frame.
   let viewRaf = 0, viewVersion = 0, CTM = null, wrapRect = null;
   let organMorphA = 1, organDimA = 1;   // the organs' fade with the morph and their dim (syncOrganDim), as the groups' opacity
+  let parkT = 0;   // (a rest frame waiting on its timer, parkFor below: declared up here, as a wake may come while the stage is being made)
   let drawOnce = false;   // draw the vessels once through the dive's freeze: the camera moved while hidden
   let stageWake = () => {};   // set once the frame loop exists: anything that may need a redraw calls it
   let resizeReady = false, forceDraw = false;   // forceDraw: the vessel canvas was just resized (and so cleared): the next frame draws it at once
@@ -2520,7 +2522,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // (The calm blood's pace, and how long nothing else may have moved before it counts: see animate.)
   // (CALM_MS 32 -> 0, 4 Nov 2026: the calm 30 Hz blood is taken out while the figure flicker is chased; the steady motion's 60 stands.)
   const CALM_MS = 0, CALM_AFTER_MS = 600;   // motion-scale: not a move (a wait before the calm blood)
-  let busyAt = 0;
+  let busyAt = 0, restAt = 0;   // (restAt: the last frame something other than the model's own vessel updates moved: what rest pacing counts from)
   // On a software renderer only (WebGL drawn on the CPU), a vessel frame waits for the last to finish on the GPU and gives the
   // page as long again (see sw-yield.js); on a GPU there is no yield (null) and the loop below is unchanged.
   let swYield = softwareYield(SOFTWARE, SOFTWARE ? vCanvas.getContext('webgl2') : null);
@@ -2704,6 +2706,11 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   }
   // The figure's pass is one owned request (animRaf): however many paths ask for it (its own loop, a wake), it is drawn once a frame.
   let animRaf = 0;
+  // (A held rest frame's wait: the next frame asked a little before it is due, so it lands on the screen frame it would have; false when too near to wait.)
+  const parkWake = () => { parkT = 0; askAnimate(); };
+  // (Anything that asks the figure to redraw (stage-idle.js wake: a camera move, a change) while a rest frame waits: drawn on the next screen frame.)
+  function unpark() { if (!parkT) return; stageScope.clear(parkT); parkT = 0; askAnimate(); }
+  const parkFor = (left) => { if (left < 18) return false; if (!parkT) parkT = stageScope.timer(parkWake, left - 8); return true; };
   const askAnimate = () => { if (!animRaf) animRaf = drawFrame(animate); };
   function animate(now) {
     animRaf = 0;
@@ -2741,11 +2748,19 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // Calm (pure GPU plan C2): nothing but the blood has moved for CALM_AFTER_MS (no camera, glide, ease, redraw of the vessel layer, input
     // or idle-rest change), so the flow alone is drawn, at 30 Hz: the shader steps it on the blood's clock (uClock), so it reads the same.
     // Anything else (busyAt) takes the full rate on its own frame, and the first moving frame after a calm one waits at most CALM_MS.
-    if (viewMoved || forceDraw || drawOnce || restOn || restU !== 1) busyAt = now;
+    if (viewMoved || forceDraw || drawOnce || restOn || restU !== 1) busyAt = restAt = now;
     const calm = now - busyAt > CALM_AFTER_MS;
     const base = m60 ? frameGapFor('glide') : paceOf(quality);   // (the governor, frame.js: 60 Hz while something moves; the calm 30 Hz below is its 'flow')
-    const interval = calm ? Math.max(base, CALM_MS, restGapFor(now, busyAt)) : base;   // (rest pacing, every device: frame.js restGapFor, after 4 s of only the blood)
-    if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { askAnimate(); return; }
+    // (Rest pacing, every device (frame.js restGapFor, after 4 s with no input and nothing moving), counted from restAt, not busyAt: the running
+    // model's own vessel updates (a colour or a width easing, a few rows drawn again, about twice a second) stamp busyAt, so the figure was never
+    // calm for 4 s and rest pacing never began while the model ran: 57 frames a second drawn at rest on Mohammad's Mac and about 51 on his iPhone,
+    // 12 Nov 2026. Those updates are drawn on the paced frames at rest, within a gap of 28 or 62 ms.)
+    const restGap = restGapFor(now, restAt);
+    const interval = calm ? Math.max(base, CALM_MS, restGap) : Math.max(base, restGap);
+    // (At rest the held frames are not asked for one by one (12 Nov 2026, Mohammad's iPhone hot at 0.5 MP with the blur off): the loop asked the
+    // browser for every screen frame, 60 a second, to draw 30 or 15, so the page woke 60 times a second for nothing and the frame counter read 51.
+    // Under the rest gap it waits on a timer for the next drawn frame instead; a wake, an input or a change asks the frame at once (askAnimate).)
+    if (interval && !viewMoved && !forceDraw && now - flowGate < interval) { if (restGap && parkFor(interval - (now - flowGate))) return; askAnimate(); return; }
     flowGate = interval && (!m60 || calm) ? now - ((now - flowGate) % interval) : now;
     const dt = Math.min(0.1, (now - lastT) / 1000);
     // (On a software renderer a frame waits its turn for up to 2 s: the fluid's ease catches up on the time that passed, so it
@@ -2813,6 +2828,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     if (glowSync && !syncGlowOnly(easeInOut(morph))) syncVeins(easeInOut(morph));
     olStep(now);
     if (fluidMoved || morph !== morphTarget || rotU !== rotTarget || widthEasing || bloodEasing || plateEasing() || veinsDirty || veinsRows.size > 0 || glowSync || sprayFading() || bolus.active || lensFrom || colEasing || !!veins?.organs?.fading) busyAt = now;
+    if (morph !== morphTarget || rotU !== rotTarget || sprayFading() || bolus.active || lensFrom || plateEasing() || !!veins?.organs?.fading) restAt = now;   // (motion of the figure itself, not the model's own updates)
     if (drawVeins(fluidMoved)) { busyAt = now; noteDraw('stage'); swYield?.drew(now); }
     else if (veins && !veins.lost && vLook && F && veins.composite(vLook, bloodLook(), fluidMoved) !== false) { noteDraw('stage'); swYield?.drew(now); }
     overAlone(overAt);
@@ -2821,7 +2837,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     // (The pinned labels drawn with the figure, in its frame, whenever its camera or its shape moved: label-gl.js pinDraw.)
     if (labelGL && (CTM !== lastDrawCTM || morph !== pinMorph || !CTM)) { if (!CTM) refreshCTM(); pinMorph = morph; labelGL.pinDraw(); }
     lastDrawF = F; lastDrawCTM = CTM; lastAnim = anim || bolus.active || dyeShown;
-    askAnimate();
+    // (A drawn rest frame waits for the next on a timer too: the screen frames between two drawn ones are never asked for.)
+    if (!(restGap && restAt !== now && parkFor(interval))) askAnimate();
   }
   askAnimate();
   // The overlays changed and the frame's draw laid no picture (`at`: how many pictures had been laid when the frame began): laid alone.

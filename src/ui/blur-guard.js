@@ -9,6 +9,15 @@ import { themeChanged } from './label-theme.js';
 
 export const SW_BLUR = typeof location !== 'undefined' && /[?&]swblur=1\b/.test(location.search || '');
 
+/** Settings › Blur effect at load (12 Nov 2026, Mohammad: "default on phone blur off"): off when it was stored off (pps.noGlass '1'), or on a
+ *  phone that never chose (the default there, for heat); on when it was stored on ('0') or never chosen elsewhere. A chosen value is kept as it was.
+ *  Sets html[data-noglass] (a person's choice, not data-noglass-auto) before the first card or glass is drawn. Returns whether the blur is off. */
+export function blurAtLoad(root, { stored, phone }) {
+  const off = stored === '1' || (stored == null && phone);
+  if (off) root.setAttribute('data-noglass', '');
+  return off;
+}
+
 /** Sets or takes back the automatic no-blur on `root` (document.documentElement): `low` is a software renderer or Battery saver,
  *  `asked` the stored Blur effect choice ('0' on, '1' off, null never chosen). Returns whether the page is without blur now. */
 export function guardBlur(root, { low, asked, keep = SW_BLUR }) {

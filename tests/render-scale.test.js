@@ -113,20 +113,20 @@ test('res-fade: the opacity eases 1 → 0 with no step at either end', async () 
   assert.ok(!/style\.opacity/.test(rf), 'the canvas is never hidden: the mix is made in its own presents');
 });
 
-test('the further options: all off by default but the per-device megapixel budget (2, or 1 on an iPhone), stored, and each one heard', async () => {
+test('the further options: all off by default but the per-device megapixel budget (1.5, or 0.5 on a phone), stored, and each one heard', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const f = await import(`../src/ui/frame.js?t=opts${Date.now()}`);
   assert.deepEqual(f.FIG_OPTS, { move: [1, 0.75, 0.5, 0.25], glow: [1, 0.5, 0.25], cap: [8, 0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 6], adapt: [false, true], floor: [0.1, 0.25, 0.5] });
-  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 2, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default (a Mac or an iPad: 2 MP)`);
-  assert.equal(f.figDefault('cap'), 2); assert.equal(f.figDefault('move'), 1);
+  for (const [k, v] of Object.entries({ move: 1, glow: 1, cap: 1.5, adapt: false, floor: 0.1 })) assert.equal(f.figOpt(k), v, `${k} at its default (a Mac or an iPad: 1.5 MP)`);
+  assert.equal(f.figDefault('cap'), 1.5); assert.equal(f.figDefault('move'), 1);
   let heard = 0;
   f.onRenderScale(() => heard++);
   f.setFigOpt('move', 0.5); f.setFigOpt('glow', 0.25); f.setFigOpt('cap', 4); f.setFigOpt('adapt', true);
   f.setFigOpt('move', 0.3); f.setFigOpt('nope', 1); f.setFigOpt('cap', 4);   // (not choices, or no change: not heard)
   assert.equal(heard, 4);
   assert.deepEqual(['move', 'glow', 'cap', 'adapt'].map((k) => store.get(`pps.fig.${k}`)), ['0.5', '0.25', '4', 'true']);
-  f.setFigOpt('adapt', false); f.setFigOpt('cap', 2);
+  f.setFigOpt('adapt', false); f.setFigOpt('cap', 1.5);
   assert.ok(!store.has('pps.fig.adapt') && !store.has('pps.fig.cap'), 'the default stores nothing');
   f.setFigOpt('cap', 8);
   assert.equal(store.get('pps.fig.cap'), '8', 'the old default, 8, is now a choice, stored');
@@ -302,7 +302,7 @@ test('Full with every option off and the 8-megapixel budget chosen: the canvas a
   assert.match(stage, /if \(renderSetting\(\) !== 'auto' && (?:live\.)?autoK === 1 && !(?:live\.)?moveLow && !figOpt\('adapt'\) && (?:live\.)?adaptK === 1\) return;/);
 });
 
-test('the figure size default is per device: 1 MP on an iPhone, 2 MP on a Mac and an iPad (11 Nov 2026)', async () => {
+test('the figure size default is per device: 0.5 MP on a phone, 1.5 MP on a Mac and an iPad (12 Nov 2026)', async () => {
   const store = new Map();
   globalThis.localStorage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const was = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
@@ -312,19 +312,26 @@ test('the figure size default is per device: 1 MP on an iPhone, 2 MP on a Mac an
   };
   try {
     const phone = await as('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148', 5, 'p');
-    assert.equal(phone.figOpt('cap'), 1); assert.equal(phone.figDefault('cap'), 1);
+    assert.equal(phone.figOpt('cap'), 0.5); assert.equal(phone.figDefault('cap'), 0.5); assert.equal(phone.isPhone(), true);
     const pad = await as('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', 5, 'i');
-    assert.equal(pad.figOpt('cap'), 2);
+    assert.equal(pad.figOpt('cap'), 1.5);
     const mac = await as('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15', 0, 'm');
-    assert.equal(mac.figOpt('cap'), 2);
+    assert.equal(mac.figOpt('cap'), 1.5); assert.equal(mac.isPhone(), false);
     // a stored choice wins on any device, and the phone's own default stores nothing
     store.set('pps.fig.cap', '4');
     assert.equal((await as('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148', 5, 'c')).figOpt('cap'), 4);
     store.clear();
     phone.setFigOpt('cap', 2); assert.equal(store.get('pps.fig.cap'), '2', 'a choice other than the phone default is stored');
-    phone.setFigOpt('cap', 1); assert.ok(!store.has('pps.fig.cap'), 'the phone default stores nothing');
+    phone.setFigOpt('cap', 0.5); assert.ok(!store.has('pps.fig.cap'), 'the phone default stores nothing');
   } finally {
     if (was) Object.defineProperty(globalThis, 'navigator', was); else delete globalThis.navigator;
     delete globalThis.localStorage;
   }
+});
+
+test('Blur effect at load: off when stored off, off on a phone that never chose (12 Nov 2026), on when stored on or never chosen elsewhere', async () => {
+  const { blurAtLoad } = await import('../src/ui/blur-guard.js');
+  const root = () => { const a = new Set(); return { a, setAttribute: (k) => a.add(k), has: () => a.has('data-noglass') }; };
+  const cases = [[null, true, true], [null, false, false], ['1', false, true], ['1', true, true], ['0', true, false], ['0', false, false]];
+  for (const [stored, phone, off] of cases) { const r = root(); assert.equal(blurAtLoad(r, { stored, phone }), off, `${stored} ${phone}`); assert.equal(r.has(), off); }
 });
