@@ -10,13 +10,10 @@ const read = (p) => unsnap(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const dock = read('../src/ui/dock.js'), doppler = read('../src/ui/doppler.js'), instruments = read('../src/ui/instruments.js');
 const readouts = read('../src/ui/readouts-pane.js'), css = read('../styles/app.css');
 
-test('every tab but Pressure and Wall mechanics is fitted to its content', () => {
-  const fit = dock.match(/const FIT = \[([^\]]*)\]/)[1];
-  for (const id of ['abdomen', 'hvpg', 'fibroscan', 'doppler', 'endoscopy', 'readouts']) assert.ok(fit.includes(`'${id}'`), `${id} is fitted`);
-  assert.match(dock, /!\(open\[0\] === 'endoscopy' && endoSub === 'wall'\)/, 'Wall mechanics keeps the full card');
-  assert.match(dock, /function setEndoSub[\s\S]*?fitHeight\(\);\n {2}\}/, 'switching Scope view / Wall mechanics refits the card');
-  // the measure counts everything the pane stacks (Scope's switch above its view), not the view alone
-  assert.match(dock, /\[\.\.\.view\.parentElement\.children\]\.filter\(\(c\) => c\.offsetHeight > 0\)/);
+test('no tab fits the card to its content: the card keeps its height when the test changes (12 Nov 2026)', () => {
+  assert.doesNotMatch(dock, /function setFit\(/);
+  assert.doesNotMatch(dock, /setProperty\('--fit-h'/);
+  assert.match(dock, /function fitHeight\(\) \{\n\s+for \(const o of FIT\) fitView\(o\)\.classList\.remove\('nat'\);/, 'what a fit left behind is let go');
 });
 
 test('fitted pictures take their own size, and the fitted scope view is one column', () => {

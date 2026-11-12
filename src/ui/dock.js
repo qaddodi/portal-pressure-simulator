@@ -14,18 +14,18 @@ import { sheetDockVars } from './dock-vars.js';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js';
 import { createReadoutsPane } from './readouts-pane.js';
 import { frameFor } from './frame.js';
-import { glideCall, glideStop } from './script-glide.js';
+import { glideStop } from './script-glide.js';
 import { glWords } from './gl-words.js';
 import { restPass } from './rest-pass.js';
 import { dropFrontNums } from './drop-front.js';
-import { classSoon, classHas, classNow } from './class-soon.js';
+import { classSoon, classHas, classNow, runSoon } from './class-soon.js';
 import { vitalReading, vitalHeading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
 import { tenthGap } from '../engine/gap.js';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked } from '../engine/pressure-cuts.js';
 import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../engine/kidney-cuts.js';
 import { compareRows } from './idle-keys.js';
-import { releaseSpeed, carryCurve, cubicBezier, easeArrive, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE, EASE_MOVE } from './ease.js';
+import { releaseSpeed, carryCurve, cubicBezier, D_FLIP, D_SMALL, EASE_IN, EASE_ARRIVE, EASE_MOVE } from './ease.js';
 import { readAnims, readBox, readMetric, readStyle, scrollInto } from './layout-snap.js';
 import { attrSoon, dataSoon } from './class-soon.js';
 import { caught } from './caught.js';
@@ -747,94 +747,18 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     workspace.style.setProperty('--instrument-h', `${sheetHeight(H, max)}px`);
     attrSoon(divider, 'aria-valuenow', String(Math.round(sheetRatio() * 100)));
   }
-  // A tab whose picture keeps its own shape (Ascites has none to stretch; HVPG and FibroScan are boxes of a fixed
-  // aspect) has nothing to fill a tall card with, so its card is only as tall as its content: the height eases to
-  // fit, and eases back for any other tab. A sheet the learner has resized keeps their height, and when the content would not fit even the full card its picture shrinks as it always did.
-  // Doppler, the scope view and Readouts fit too: on a Mac the card ends under its content instead of running empty to the
-  // play bar (the Wall mechanics view keeps the full card). The scope's view is its second child, after the Scope view / Wall switch.
+  // The card never changes height when the test changes (Mohammad, 12 Nov 2026: "Card goes out. New one comes in. No change in card height ever."):
+  // it was once fitted to each tab's content and glided between heights. Now every tab fills the card as it stands; fitHeight only lets go of
+  // anything a fit left behind (the tab views' natural-height measuring class, the fit class and its scale), and stays for the callers that ask.
   const FIT = ['abdomen', 'hvpg', 'fibroscan', 'doppler', 'endoscopy', 'readouts'];
   const fitView = (id) => (id === 'endoscopy' ? endoscopy.el : byId[id].el.querySelector(':scope > .instrument-view') || byId[id].el.firstElementChild);   // (the view, after its switch row where it has one)
-  let fitTimer = 0, fitKids = [];
   function fitHeight() {
-    const id = open.length === 1 && FIT.includes(open[0]) && state === 'open' && !(open[0] === 'endoscopy' && endoSub === 'wall') ? open[0] : null;
-    // Over the thumb dock (a phone, an upright iPad) the dock sheet owns the card's height (dock-sheet.js): the fit lets go of it at once,
-    // with no glide, no timer and nothing measured, so there is one owner of that height (Menu system plan W3, 4 Nov 2026).
-    if (app.classList.contains('thumb')) {
-      for (const o of FIT) fitView(o).classList.remove('nat');
-      if (classHas(workspace, 'fit')) {
-        clearTimeout(fitTimer); glideStop(workspace); workspace.style.transform = '';
-        for (const c of fitKids) c.style.transform = '';
-        fitKids = [];
-        classSoon(workspace, 'fit', false);
-      }
-      return;
+    for (const o of FIT) fitView(o).classList.remove('nat');
+    if (classHas(workspace, 'fit')) {
+      glideStop(workspace); workspace.style.transform = '';
+      classSoon(workspace, 'fit', false);
     }
-    for (const o of FIT) if (o !== id) fitView(o).classList.remove('nat');
-    const view = id ? fitView(id) : null;
-    let fits = !!view && !sidewaysMQ.matches && (isSide() || heightRatio == null) && matchMedia('(min-width: 768px)').matches;
-    if (view) view.classList.toggle('nat', fits);   // nat: the view at its natural height, to measure it
-    fits = fits && readMetric(view, 'offsetHeight') > 0;
-    const on = classHas(workspace, 'fit');
-    if (!fits && !on) return;
-    clearTimeout(fitTimer);
-    if (!readMetric(workspace, 'offsetParent')) return;   // the dock is closed (display: none): nothing to fit
-    const cs = readStyle(workspace);
-    const full = isSide() ? readMetric(readMetric(workspace, 'offsetParent'), 'clientHeight') - parseFloat(cs.top) - parseFloat(cs.bottom) : parseFloat(workspace.style.getPropertyValue('--instrument-h')) || readMetric(workspace, 'offsetHeight');
-    let need = 0;
-    if (fits) {
-      const pcs = readStyle(view.parentElement);
-      // (everything the pane shows, stacked: the view, and on Scope the switch above it)
-      const kids = [...view.parentElement.children].filter((c) => readMetric(c, 'offsetHeight') > 0);
-      const measure = () => Math.ceil(readMetric(workspace, 'offsetHeight') - readMetric(body, 'clientHeight') + parseFloat(pcs.paddingTop) + parseFloat(pcs.paddingBottom)
-        + kids.reduce((a, c) => a + readMetric(c, 'offsetHeight'), 0) + (parseFloat(pcs.rowGap) || 0) * (kids.length - 1));
-      need = measure();
-      // too tall for the card (a short window): leave it to scale as it always did
-      if (need > full + 1 && id !== 'abdomen') { view.classList.remove('nat'); fits = false; }
-    }
-    const h0 = readMetric(workspace, 'offsetHeight');
-    if (!on) { workspace.style.setProperty('--fit-h', `${h0}px`); classNow(workspace, 'fit', true); }
-    if (!fits) {
-      setFit(h0, Math.round(full));
-      fitTimer = setTimeout(() => classSoon(workspace, 'fit', false), 400);
-      return;
-    }
-    setFit(h0, Math.round(Math.min(full, Math.max(140, need))));
   }
-  // The card takes its new height at once, and its free edge glides there from where it stood: the card scaled from its anchored edge (the foot
-  // over the figure, the top on the side), each part inside scaled back by as much about that edge, so the words and charts keep their size and
-  // place. The scales are worked out on the arrival curve and written by the frames (script-glide.js glideCall), in the frame the glass over the
-  // card reads them in (3 Nov 2026, cards trailing: a compositor animation can stand a display frame off it), so the inverse is exact.
-  // (Was a CSS height transition: the card and everything in it laid out again in every frame of the ease.)
-  function setFit(h0, h1) {
-    if (workspace.style.getPropertyValue('--fit-h') === `${h1}px`) return;
-    glideStop(workspace);
-    workspace.style.transform = '';
-    for (const c of fitKids) c.style.transform = '';
-    fitKids = [];
-    workspace.style.setProperty('--fit-h', `${h1}px`);
-    if (!(h0 > 0) || Math.abs(h1 - h0) < 1 || reduceFit.matches) return;
-    const top = isSide();
-    workspace.style.transformOrigin = top ? '50% 0' : '50% 100%';
-    // alloc-rare: a fit begins (the card's height changed): the parts' list and the frame's writer, once for each fit
-    const kids = [];
-    for (const c of workspace.children) {
-      if (c.classList.contains('sheet-plate') || c.hidden) continue;
-      c.style.transformOrigin = `50% ${top ? -readMetric(c, 'offsetTop') : h1 - readMetric(c, 'offsetTop')}px`;
-      kids.push(c);
-    }
-    fitKids = kids;
-    const write = (e) => {
-      if (e >= 1) { workspace.style.transform = ''; for (const c of kids) c.style.transform = ''; return; }
-      const k = (h0 + (h1 - h0) * e) / h1;
-      workspace.style.transform = `scaleY(${k.toFixed(5)})`;
-      const back = `scaleY(${(1 / k).toFixed(5)})`;
-      for (const c of kids) c.style.transform = back;
-    };
-    glideCall(workspace, D_SMALL, easeArrive, write);
-  }
-  const reduceFit = reduceMotionMQ;
-  const fitWatch = new ResizeObserver(() => fitHeight());
-  for (const id of FIT) fitWatch.observe(fitView(id));
   function setState(next) {
     state = next;
     workspace.dataset.state = state;
@@ -945,8 +869,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const s = stage;
     if (!s) return;
     stage = null; clearTimeout(s.timer);
-    s.p.el.classList.remove('staging');
-    if (!open.includes(s.p.id)) { s.p.el.classList.remove('active'); s.p.shown?.(false); }
+    classSoon(s.p.el, 'staging', false);
+    if (!open.includes(s.p.id)) { classSoon(s.p.el, 'active', false); s.p.shown?.(false); }
   }
   const canStage = (target) => open.length === 1 && open[0] !== target && state === 'open' && !picking && isVisible() && isDisplayed() && !!frame && !sw?.on && !!byId[target] && !byId[target].need?.();
   function stageIn(target, commit) {
@@ -966,7 +890,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       commit();
     };
     s.timer = setTimeout(go, afterMs(STAGE_MAX));
-    nextFrame(() => { if (stage !== s) return; feed(target); nextFrame(go); });
+    const swap = () => runSoon(go);   // (the swap is written in a task of its own, never inside a frame: class-soon.js)
+    nextFrame(() => { if (stage !== s) return; feed(target); nextFrame(swap); });
   }
   function openGrid(anchor, { alongside = false } = {}) {
     closePopover();

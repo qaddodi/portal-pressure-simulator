@@ -7,7 +7,7 @@ export default [
   { file: 'src/ui/dock.js', need: [/if \(!opts\.alongside && open\.length === 1 && !open\.includes\(id\)\) stageIn\(id, \(\) => showCommit\(id, opts\)\)/, 'a menu or button that opens another test stages it too'] },
   { file: 'src/ui/dock.js', need: [/el\.classList\.add\('active', 'staging'\)/, 'the staged pane is laid out where it will stand, hidden'] },
   { file: 'src/ui/dock.js', need: [/p\.shown\?\.\(true\)/, "its GPU context starts before it is shown"] },
-  { file: 'src/ui/dock.js', need: [/nextFrame\(\(\) => \{ if \(stage !== s\) return; feed\(target\); nextFrame\(go\); \}\)/, 'fed again a frame on and swapped a frame after'] },
+  { file: 'src/ui/dock.js', need: [/const swap = \(\) => runSoon\(go\);[^\n]*\n\s+nextFrame\(\(\) => \{ if \(stage !== s\) return; feed\(target\); nextFrame\(swap\); \}\)/, 'fed again a frame on and swapped after it, in a task of its own'] },
   { file: 'src/ui/dock.js', need: [/s\.timer = setTimeout\(go, afterMs\(STAGE_MAX\)\)/, 'a time limit ends the wait'] },
   { file: 'src/ui/dock.js', need: [/const on = open\.includes\(p\.id\) \|\| stage\?\.p === p;/, 'layout keeps a staged pane up'] },
   { file: 'src/ui/dock.js', need: [/cancelStage\(\);\n\s+sw\.on = true;/, 'a swipe ends the staging'] },
