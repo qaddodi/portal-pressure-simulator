@@ -713,7 +713,9 @@ export function createLabelSolve(st, live) {
           // Prefer a spot touching no vessel at all, near first; only then accept one that crosses a vessel.
           const near = 8 + it.vw / 2, far = 24 + it.vw / 2;
           if (it.minor) { placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }]); continue; }
-          if (placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, { gap: near, leader: false }, { gap: far, leader: true }])) continue;
+          // (One a slide names or the reader selected keeps a spot on a vessel when it has none clear: first, farther out on a leader. "SMV" on Variceal bleed 5, 11 Nov.)
+          const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : [];
+          if (placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, ...wide, { gap: near, leader: false }, { gap: far, leader: true }])) continue;
           // (A sampled stent point, or the jet, with no room by its third tries again farther out, once the slide's mark has its place.)
           if (it.point) { later.unshift(it); continue; }
           if (it.sel) { place(it, ['C'], 0, false) || (out.push(Object.assign(it, { x: it.ax + 8, y: it.ay - it.h / 2 })), true); }
@@ -733,9 +735,7 @@ export function createLabelSolve(st, live) {
           it.w = Math.max(...it.lines.map(lineW)); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0);
           // (Nor under a card or on a leader, left off if all its spots are: SPLEEN under the Mac's Tests card, PV's leader through LIVER, 11 Nov. And off other
           // organs first where it can be, never left off for it: RIGHT ATRIUM on the esophagus, the same day; organ-names.js onOtherOrgan.)
-          const spot = { gap: 0, leader: false, clear: true, unblocked: true }, off = { ...spot, offOrgans: txt };
-          const at = nameSpots(txt).map(([sx, sy]) => { const [bx, by] = worldToLocal(sx, sy); return [bx - ax, by - ay, Math.hypot(sx - x, sy - y) <= OFF_NEAR]; });
-          placeMulti(it, ['C'], [off, ...at.filter((a) => a[2]).map((a) => ({ ...off, at: a })), spot, ...at.map((a) => ({ ...spot, at: a })), { gap: 0, leader: false, unblocked: true }]);
+          const spot = { gap: 0, leader: false, clear: true, unblocked: true }, off = { ...spot, offOrgans: txt }; const at = nameSpots(txt).map(([sx, sy]) => { const [bx, by] = worldToLocal(sx, sy); return [bx - ax, by - ay, Math.hypot(sx - x, sy - y) <= OFF_NEAR]; }); placeMulti(it, ['C'], [off, ...at.filter((a) => a[2]).map((a) => ({ ...off, at: a })), spot, ...at.map((a) => ({ ...spot, at: a })), { gap: 0, leader: false, unblocked: true }]);
         }
       }
     } else {
