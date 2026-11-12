@@ -68,6 +68,7 @@ import { frameCount, framePhase, onFrameFinal, onFrameEnd, frameFor } from './fr
 import { keepScreen } from './keep-screen.js';
 import { caught } from './caught.js';
 import { counts, tally } from './frame-counts.js';
+import { morphLowK, morphLowSize } from './morph-low.js';
 const ORGAN_MESH = { tri: null, seg: null, nTri: 0, nSeg: 0 };   // alloc-rare: made once (the organ texture's shapes are meshed into it one at a time, each released after its draw)
 
 export { binVeins };
@@ -2649,6 +2650,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   let fboOK = false;
   let lowLive = null;
   const LOWLIVE = [0, 0];   // (the tier's [w, h] while lowLive holds it)
+  // The view switch drawn lower (morph-low.js, 12 Nov 2026, Mohammad's Mac at Figure size Full): while the figure morphs, a picture of more than a few MP is drawn into the lower-left
+  // corner (ownLow: [w, h]) of the layer's own targets and of the lumen target, which are kept at their full size, so a frame allocates nothing and the compositor reads the corner
+  // as it reads a tier frame's small targets (compBind: lowS, lowSz, lowT; COMP_FS is not touched). mlWant: the stage says the figure is morphing (setMorphLow). The first draw after
+  // it lands is whole at Full. ownLow is cleared by every draw that is not a lowered one and set only by lowTubeDraw.
+  let mlWant = false, ownLow = false, lowTubeNow = false;
+  const OWNLOW = [0, 0], OWNTEX = [null, null, null], MLSZ = [0, 0];
   // The layer at w × h for the picture as it is now (its targets made again only when w or h changed).
   // (The mesh renderer's stencil, attached to the layer while it is the layer's size: see meshTargets. A layer made again at another size
   // takes it off first, as attachments of two sizes leave the framebuffer incomplete.)
@@ -2716,9 +2723,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     UC.f2a(U.light, (cath.light || LIGHT));
     // (The vessel layer, read where a draw lies under the vessels: bound as the composite binds it, a tier frame's small targets included.)
     if (lowLive && !lw.fbo) lowLive = null;
-    const LO = lowLive ? lw.tex : null;
+    let LO = lowLive ? lw.tex : null, LS = lowLive, LT0 = lw.w, LT1 = lw.h;
+    if (ownLow) { OWNTEX[0] = baseTex; LO = OWNTEX; LS = OWNLOW; LT0 = fboW; LT1 = fboH; }   // (a lowered view switch frame: the layer's corner)
     UC.i2(U.lA, la[0], la[1]); UC.i2(U.lWrap, wo[0], wo[1]); UC.i2(U.lSize, fboW, fboH); UC.i1(U.lH, PH());
-    UC.f2(U.lowS, LO ? lowLive[0] / fboW : 0, LO ? lowLive[1] / fboH : 0); UC.i2(U.lowSz, LO ? lowLive[0] : 0, LO ? lowLive[1] : 0); UC.f2(U.lowT, LO ? lw.w : 1, LO ? lw.h : 1);
+    UC.f2(U.lowS, LO ? LS[0] / fboW : 0, LO ? LS[1] / fboH : 0); UC.i2(U.lowSz, LO ? LS[0] : 0, LO ? LS[1] : 0); UC.f2(U.lowT, LO ? LT0 : 1, LO ? LT1 : 1);
     bindUnit(U, 0, LO ? LO[0] : baseTex, 'base');
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -2901,7 +2909,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   function layoutFor(m) {
     const out = LAY, pw = PW(), ph = PH();
     out[0] = 0; out[1] = 0; out[2] = 0; out[3] = 0; out[4] = false; out[5] = false;
-    if (lowK || !cellBox) { out[0] = pw; out[1] = ph; return out; }
+    if (lowK || lowTubeNow || !cellBox) { out[0] = pw; out[1] = ph; return out; }   // (a lowered morph frame: the layer is the picture's, its corner drawn)
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     for (let i = 0; i < 4; i++) {
       const x = cellBox[(i & 1) * 2], y = cellBox[1 + (i >> 1) * 2];
@@ -3954,12 +3962,41 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.deleteFramebuffer(lw.fbo);
     lw.fbo = lw.tex = null; lw.w = lw.h = 0;
   }
+  // ── The view switch drawn lower (morph-low.js) ──
+  // The share a morph frame is drawn at now, 0 for a whole draw: only while the stage says the figure is morphing and a morph set draws, for the figure's Tube at a lumen share of 1 (the
+  // lumen target is the layer's size, and its corner is read as the layer's is), and only above morph-low.js's TRIGGER_MP (the default sizes are never lowered).
+  function morphLowNow() {
+    if (!mlWant || !geoCur || who === 'lobule' || lost || LUM_OFF || lumShare < 1 || !meshUse()) return 0;
+    return morphLowK(PW() * PH());
+  }
+  // The layer's colour is read filtered while its corner stands for the layer (the tier frames' small targets are filtered the same way); the integer targets are read at the nearest texel.
+  function setOwnLow(on) {
+    if (ownLow === on) return;
+    ownLow = on;
+    gl.bindTexture(gl.TEXTURE_2D, baseTex);
+    const f = on ? gl.LINEAR : gl.NEAREST;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, f); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, f);
+  }
+  // The Tube's whole layer pass at share k of the picture, into the corner of the cleared layer (bound, whole viewport): the lumen layer's own scaled mapping (lumK), so the view, `size`, the pieces'
+  // shifts and the cull are the corner's. What the corner holds is read back by compBind as lowLive's contract says.
+  function lowTubeDraw(m, look, k) {
+    morphLowSize(fboW, fboH, k, MLSZ);
+    const w = MLSZ[0], h = MLSZ[1];
+    LK.sx = w / fboW; LK.sy = h / fboH; LK.w = w; LK.h = h; LK.m = m; lumK = LK;
+    gl.viewport(0, 0, w, h);
+    pM = lumenView(m, LK.sx, LK.sy, LK.ms); pLook = look; pMode = 0;
+    eachPiece(la[0], la[1], fboW, fboH);
+    lumK = null;
+    OWNLOW[0] = w; OWNLOW[1] = h;
+    setOwnLow(true);
+    if (gpuProbe.on) gpuProbe.gauge('view switch layer', `drawn lower: ${w} x ${h} = ${(w * h / 1e6).toFixed(2)} MP at ${k.toFixed(2)} of the picture's ${fboW} x ${fboH} (${(fboW * fboH / 1e6).toFixed(2)} MP)`);
+  }
   // A texture on its unit, and the unit named in the program's uniform.
   function bindUnit(U, unit, tex, name) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tex); UC.i1(U[name], unit); }
   // ── The Tube's stage 3 lumen layer (tube-stage2.js, tube-pass.js tubeLumenPass; docs/tube-renderer.md "Stage 3") ──
   // The blood's look of the frame being composited, for the lumen programs: the compositor's uniforms of the same names, set from the same values as composite sets
   // them, and the textures the lumen text reads on units the vessel set (units 0 to 5) leaves free.
-  let lumTarget = null, lumBlood = NOBLOOD;
+  let lumTarget = null, lumBlood = NOBLOOD, lumCorner = false;
   function lumenBind(P) {
     const U = P.u, blood = lumBlood;
     gl.useProgram(P.p);
@@ -3990,9 +4027,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (!meshTargets()) return false;
     if (!lumTarget) lumTarget = createLumenTarget(gl);
     // (?lumen=off: no lumen pass; the target is one clear pixel, which the compositor reads as no lumen, so no blood is drawn.)
-    const lw0 = LUM_OFF ? 1 : lumenSize(fboW, fboH, lumShare, LSZ)[0], lh0 = LUM_OFF ? 1 : LSZ[1];
-    const made = lumTarget.made, T = lumTarget.ensure(lw0, lh0);
+    // (A lowered view switch frame (ownLow; the lumen share is 1 then, see morphLowNow): the pass draws into the corner of the full-size target, as the layer's was drawn, and the compositor reads it
+    // by the same corner (compBind). The target is cleared whole when the corner starts or ends, so nothing outside it is left from a frame of the other size.)
+    const lowC = ownLow && !LUM_OFF && lumShare >= 1;
+    const lw0 = LUM_OFF ? 1 : lowC ? OWNLOW[0] : lumenSize(fboW, fboH, lumShare, LSZ)[0], lh0 = LUM_OFF ? 1 : lowC ? OWNLOW[1] : LSZ[1];
+    const made = lumTarget.made, T = lowC ? lumTarget.ensure(fboW, fboH) : lumTarget.ensure(lw0, lh0);
     if (T.made !== made) { lumenDepth.stale(); LUMD.all = true; }
+    if (lowC !== lumCorner) { lumCorner = lowC; lumenDepth.stale(); LUMD.all = true; }
     if (gpuProbe.on && T.made !== made) noteAlloc(lw0 * lh0 * 7 / 1024);
     lumBlood = blood;
     // (The box of what the pass draws, in screen pixels: the rows inside the layer and their webs; null: the whole target.)
@@ -4027,9 +4068,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     // (R10: while the layer is a tier frame's small targets (lowLive), the composite reads them, scaled, in place of the layer.)
     // (Every composite build (COMP_FS) reads lowS; a program without it (the builds' warm-up draw, whose picture is thrown away) is
     // given the layer itself.)
+    // (A lowered view switch frame (ownLow): the corner of the layer's own targets, which are as large as the layer: lowT is their size.)
     if (lowLive && !lw.fbo) lowLive = null;
-    const L = lowLive && U.lowSz ? lw.tex : null;
-    UC.f2(U.lowS, L ? lowLive[0] / fboW : 0, L ? lowLive[1] / fboH : 0); UC.i2(U.lowSz, L ? lowLive[0] : 0, L ? lowLive[1] : 0); UC.f2(U.lowT, L ? lw.w : 1, L ? lw.h : 1);
+    let L = lowLive && U.lowSz ? lw.tex : null, LS = lowLive, LT0 = lw.w, LT1 = lw.h;
+    if (ownLow && U.lowSz) { OWNTEX[0] = baseTex; OWNTEX[1] = gTex; OWNTEX[2] = gTex2; L = OWNTEX; LS = OWNLOW; LT0 = fboW; LT1 = fboH; }
+    UC.f2(U.lowS, L ? LS[0] / fboW : 0, L ? LS[1] / fboH : 0); UC.i2(U.lowSz, L ? LS[0] : 0, L ? LS[1] : 0); UC.f2(U.lowT, L ? LT0 : 1, L ? LT1 : 1);
     bindUnit(U, 0, L ? L[0] : baseTex, 'base'); bindUnit(U, 1, L ? L[1] : gTex, 'gbuf'); bindUnit(U, 2, flowTex, 'flow'); bindUnit(U, 3, radTex, 'rad'); bindUnit(U, 4, tubeTex, 'tube');
     bindUnit(U, 5, dyeTex, 'dye'); bindUnit(U, 6, plates[0]?.tex || baseTex, 'plate0'); bindUnit(U, 7, useStack ? stack.texture : plates[1]?.tex || baseTex, 'plate1'); bindUnit(U, 8, L ? L[2] : gTex2, 'gbuf2'); bindUnit(U, 9, fluidTex, 'fluidMask');
     bindUnit(U, 10, lineLayer.tex, 'lineL'); UC.i1(U.lineOn, layer ? 1 : 0);
@@ -4573,6 +4616,11 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       reused = false; soft = false;
       lastLook = look;
       if (fboPW !== PW() || fboPH !== PH()) fboOK = false;   // (the picture's size changed: the layer is laid out again below)
+      // (The view switch drawn lower, morph-low.js: a change between drawing the layer lowered and whole leaves the kept layer not the one wanted, so it is drawn again; a layer left whole, the
+      // corner no longer stands for it. Nothing here allocates.)
+      const lowK2 = morphLowNow();
+      lowTubeNow = lowK2 > 0;
+      if (lowTubeNow !== ownLow) { fboOK = false; if (!lowTubeNow) setOwnLow(false); }
       const lkSame = lookNow(look);
       const dx = baseM ? m[4] - baseM[4] : 0, dy = baseM ? m[5] - baseM[5] : 0;
       // A pan at the same scale, with nothing else changed since the layer was drawn whole: the layer is moved by those
@@ -4658,9 +4706,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         layOut(layoutFor(m));
         gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); lowLive = null;
         gl.viewport(0, 0, fboW, fboH);
-        clearLayer();
-        pM = m; pLook = look; pMode = 0;
-        eachPiece(la[0], la[1], fboW, fboH);
+        clearLayer();   // (the whole layer, a lowered frame too: the filtered read at the corner's edge sees clear texels beyond it)
+        if (lowTubeNow) lowTubeDraw(m, look, lowK2);
+        else { pM = m; pLook = look; pMode = 0; eachPiece(la[0], la[1], fboW, fboH); }
       }
       setBase(m); keepLook(); tubesNew = false; clearMarks(); drawnNow();
       fboOK = true; stale = false;
@@ -4845,6 +4893,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     get lowMade() { return lowMade; },
     /** Whether the last draw drew the layer lower (Vessels lower while pinching): the next one at that view has to draw it whole. */
     get soft() { return soft; },
+    /**
+     * The view switch drawn lower (morph-low.js): `on` while the figure morphs between the views (the stage knows; the renderer does not). A picture of more than a few MP is then drawn into a corner
+     * of the layer and lumen targets, and the first draw after it ends is whole at Full. Off: the kept corner is not the layer any more, so the next draw is whole (lowKept says the stage to ask for one).
+     */
+    setMorphLow(on) {
+      on = !!on;
+      if (on === mlWant) return;
+      mlWant = on;
+      if (!on && ownLow) { fboOK = false; figVer++; }
+    },
+    /** Whether the layer now kept is a lowered view switch frame (the stage then asks for a draw once the change has landed). */
+    get lowKept() { return ownLow; },
     /** The last drawRows call's outcome: 'drawn', or why it was refused (gpu-probe.js ROWS_REFUSED); '' before any. */
     get rowsStatus() { return rowsStatus; },
     /** Cells redrawn by drawRows so far (whole, and recoloured only), and the cells of the whole layer (for the checks). */
@@ -5404,7 +5464,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
         else if (t === gTex2) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG16UI, 1, 1, 0, gl.RG_INTEGER, gl.UNSIGNED_SHORT, null);
         else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16UI, 1, 1, 0, gl.RGBA_INTEGER, gl.UNSIGNED_SHORT, null);
       }
-      fboW = fboH = 0; baseM = null; fboOK = false; wrapNone(); lowLive = null;
+      fboW = fboH = 0; baseM = null; fboOK = false; wrapNone(); lowLive = null; setOwnLow(false);
       freeLayer(lineLayer); freeLayer(glowLayer); freeLayer(warmLayer); lineKV = glowKV = warmKV = -1;
       // (The quality tiers' targets, the streaks' half-size target and, shared, the host's texture for this picture: given back too. The tiers'
       // are made again by the stage a moment after the figure is shown (stage-res lowWarm), the others by the next draw that needs them.)

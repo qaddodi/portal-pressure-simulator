@@ -1,6 +1,6 @@
 // The vessels on the GPU: coil and varix-spread ease, the morph frame, colours, radii, colour pass, syncVeins and drawVeins.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
-import { TIERS_ON, TIER_TOP, motionK, tierK } from './adapt-tier.js';
+import { TIERS_ON, TIER_TOP, motionK, sharpMoving, tierK } from './adapt-tier.js';
 import { CONTEXT_EDGES, FEEDERS, IVC_EDGES, SIN_EDGES, VIEW } from './anatomy.js';
 import { cssColor8 } from './css-color.js';
 import { createColourFollow } from './display-state.js';
@@ -1037,6 +1037,12 @@ export function createVessels(st, live) {
     const dc = live.drawCam, S = dc ? dc[0] : 1, tx = dc ? dc[4] : 0, ty = dc ? dc[5] : 0;
     T[0] = live.vdpr * S * m.a; T[1] = live.vdpr * S * m.b; T[2] = live.vdpr * S * m.c; T[3] = live.vdpr * S * m.d; T[4] = live.vdpr * (S * (m.e - live.wrapRect.left) + tx); T[5] = live.vdpr * (S * (m.f - live.wrapRect.top) + ty);
     subPixel(T);
+    // (The view switch drawn lower, morph-low.js (12 Nov 2026, Mohammad's Mac at Figure size Full: a switch at 12 fps, every frame a whole Tube draw of a 9 MP layer): while the figure morphs between the
+    // views, veins-gl draws a big picture's layer and lumen in a corner of their targets and the compositor reads the corner. The draw after the change lands is whole at Full: asked for here, in the
+    // first frame the stage sees it landed, and the page woken for it. Settings > Sharp while moving keeps the switch whole, as it does a pan.)
+    const lowMorph = live.morph !== live.morphTarget && !sharpMoving();
+    live.veins.setMorphLow?.(lowMorph);
+    if (!lowMorph && live.veins.lowKept) { live.veinsDirty = true; live.stageWake?.(); }
     // (R04: the view the layer was drawn in is kept as numbers (thousandths) and compared one by one; a new view gets a new number
     // as its key. Nothing is joined into a string on a camera frame.)
     const key = viewSame(T, vCanvas.width, vCanvas.height) ? live.veinsDrawKey : ++live.viewKeyN;
