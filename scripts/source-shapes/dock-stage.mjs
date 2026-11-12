@@ -17,4 +17,5 @@ export default [
   { file: 'src/ui/dock-sheet.js', need: [/\.dock-pane\.active:not\(\.staging\)/, "the sheet's pull grows the open pane, not the staged one"] },
   { file: 'styles/app.css', need: [/\.dock-body > \.dock-pane\.active\.staging:not\(\.landed\) \{ grid-area: 1 \/ 1; opacity: 0; pointer-events: none; animation: none; \}/, 'the staged pane shares the open pane\'s cell, unseen and untouchable'] },
   { file: 'styles/app.css', need: [/\.dock-body:has\(\.staging\) > \.dock-pane\.active \{ grid-area: 1 \/ 1; \}/, 'the open pane stays in that cell'] },
+  { file: 'styles/app.css', need: [/\.instrument-workspace\.side:not\(\[data-state="peek"\]\) \{ bottom: auto; height: min\(710px, calc\(100% - var\(--top-safe\) - 4px - var\(--vdock-h\) - var\(--gap\) - 8px\)\); \}/, 'the side card (Mac, iPad sideways) is one height, 710 px (the tallest test, Readouts, needs 691), or the room there is, never stretched to the window'] },
 ];

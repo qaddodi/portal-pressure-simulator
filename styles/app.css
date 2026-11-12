@@ -4258,6 +4258,12 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 @media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
   .instrument-workspace.side { top: calc(var(--top-safe) + 2px); bottom: calc(var(--vdock-h) + 14px); }
 }
+/* The card on the right (a Mac, an iPad held sideways) is one height for every test, never taller (Mohammad, 12 Nov 2026, "perfect height, same height all
+   of them"): 710 px holds the tallest test (Readouts needs 691 with its head, FibroScan 645), and a shorter window takes the room there is. It no longer
+   stretches from the top bar to the vitals dock, which left a Readouts grid ending halfway down an empty card. */
+@media not all and (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  .instrument-workspace.side:not([data-state="peek"]) { bottom: auto; height: min(710px, calc(100% - var(--top-safe) - 4px - var(--vdock-h) - var(--gap) - 8px)); }
+}
 
 /* Labels: no box; the station, then its pressure with the unit and the change from healthy; a bar in
    the pressure's color on the side facing the vessel, as on the anatomy. */
