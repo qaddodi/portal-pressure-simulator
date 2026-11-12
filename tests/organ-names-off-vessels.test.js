@@ -61,8 +61,8 @@ test('a name anchored inside its organ stays inside it; one beside its organ sta
 
 test('the label solver tries the anchor first, then those spots, then the anchor over any vessel', () => {
   assert.match(stage, /import \{ NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan \} from '\.\/organ-names\.js';/);
-  // (Every one of them off the shown leaders too, unled: phone-label-room.test.js; and each tried first off the other organs, offOrgans.)
-  assert.match(stage, /const spot = \{ gap: 0, leader: false, clear: true, unled: true \}, off = \{ \.\.\.spot, offOrgans: txt \};\s*const at = nameSpots\(txt\)\.map\(\(\[sx, sy\]\) => \{ const \[bx, by\] = worldToLocal\(sx, sy\); return \[bx - ax, by - ay, Math\.hypot\(sx - x, sy - y\) <= OFF_NEAR\]; \}\);\s*placeMulti\(it, \['C'\], \[off, \.\.\.at\.filter\(\(a\) => a\[2\]\)\.map\(\(a\) => \(\{ \.\.\.off, at: a \}\)\), spot, \.\.\.at\.map\(\(a\) => \(\{ \.\.\.spot, at: a \}\)\), \{ gap: 0, leader: false, unled: true \}\]\);/);
+  // (Every one of them off the cards and shown leaders too, unblocked: phone-label-room.test.js; and each tried first off the other organs, offOrgans.)
+  assert.match(stage, /const spot = \{ gap: 0, leader: false, clear: true, unblocked: true \}, off = \{ \.\.\.spot, offOrgans: txt \};\s*const at = nameSpots\(txt\)\.map\(\(\[sx, sy\]\) => \{ const \[bx, by\] = worldToLocal\(sx, sy\); return \[bx - ax, by - ay, Math\.hypot\(sx - x, sy - y\) <= OFF_NEAR\]; \}\);\s*placeMulti\(it, \['C'\], \[off, \.\.\.at\.filter\(\(a\) => a\[2\]\)\.map\(\(a\) => \(\{ \.\.\.off, at: a \}\)\), spot, \.\.\.at\.map\(\(a\) => \(\{ \.\.\.spot, at: a \}\)\), \{ gap: 0, leader: false, unblocked: true \}\]\);/);
   assert.doesNotMatch(stage, /it\.h = (?:live\.)?LINE_H\(it\.lines\[0\]\);\s*place\(it, \['C'\], 0, false\);/, 'no organ name is placed by the old single pass');
 });
 

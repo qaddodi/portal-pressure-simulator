@@ -364,9 +364,9 @@ export function createLabelSolve(st, live) {
     // The width a label reserves only grows (a value ticking from 9.9 to 10.0, or a change gaining a
     // digit, would otherwise tip it to another side of its station and back).
     const place = (it, dirs, gap, leader, clear) => placeMulti(it, dirs, (Array.isArray(gap) ? gap : [gap]).map((g, gi) => ({ gap: g, leader, clear, bias: gi * 6 })));
-    // (Whether the box r lies on an organ other than the name's; whether a shown label's leader, its point to its words, runs through r.)
+    // (Whether the box r lies on an organ other than the name's; whether a card (10 px off it, as an organ name is hidden) or a shown label's leader is in r's way.)
     const onOrgans = (name, r) => { const [x0, y0] = localToWorld(r.x0, r.y0), [x1, y1] = localToWorld(r.x1, r.y1); return onOtherOrgan(name, Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)); };
-    const ledOver = (r) => out.some((o) => { if (!o.leader || o.live || o.hide || !Number.isFinite(o.ax)) return false; const e = leaderEnd(rectOf(o), o.ax, o.ay); return segHitsBox({ x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }, r, 1); });
+    const blocked = (r) => obstacles.some((o) => !o.zone && hits(r, { x0: o.x0 - 10, y0: o.y0 - 10, x1: o.x1 + 10, y1: o.y1 + 10 })) || out.some((o) => { if (!o.leader || o.live || o.hide || !Number.isFinite(o.ax)) return false; const e = leaderEnd(rectOf(o), o.ax, o.ay); return segHitsBox({ x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }, r, 1); });
     // (from, to: only those passes are searched this round; a round that is not final gives up without shortening or dropping.)
     const placeMulti = (it, dirs, passes, from = 0, to = passes.length, final = true, maxShort = final ? 2 : 0) => {
       const prev = prevSol.get(it.key);
@@ -417,7 +417,7 @@ export function createLabelSolve(st, live) {
         const ax = atOld ? kx : it.ax, ay = atOld ? ky : it.ay;
         const r = rectOf({ ...probe, x: ax + prev.dx, y: ay + prev.dy });
         if (within(r, V) && !placed.some((p) => hits(r, p)) && !obstacles.some((o) => hits(r, o)) && !callouts.some((b) => hits(r, b))
-          && !(creditBox && hits(r, creditBox)) && !(useLines && !prev.onv && lineHits(r, 0, true)) && !passes[prev.pi]?.skip && !(passes[prev.pi]?.unled && ledOver(r)) && !(passes[prev.pi]?.offOrgans && onOrgans(passes[prev.pi].offOrgans, r))) {
+          && !(creditBox && hits(r, creditBox)) && !(useLines && !prev.onv && lineHits(r, 0, true)) && !passes[prev.pi]?.skip && !(passes[prev.pi]?.unblocked && blocked(r)) && !(passes[prev.pi]?.offOrgans && onOrgans(passes[prev.pi].offOrgans, r))) {
           best = { cost: 0, dx: prev.dx, dy: prev.dy, r, dir: prev.dir, pi: prev.pi, leader: prev.leader };
           if (atOld) { it.ax = ax; it.ay = ay; if (prev.au != null) it.au = prev.au; }
         }
@@ -460,7 +460,7 @@ export function createLabelSolve(st, live) {
         const V = viewOf(it, S), inside = within(r, V), held = !moved && !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
         // (edge: px inside the stage it keeps; avoid: drawn shapes (an organ, a lit outline) it keeps off, by pad px.)
         if ((ps.edge && !insideBy(r, V, ps.edge)) || (ps.avoid && !clearOf(r, ps.avoid, ps.pad ?? 0))) return;
-        if ((ps.unled && ledOver(r)) || (ps.offOrgans && onOrgans(ps.offOrgans, r))) return;
+        if ((ps.unblocked && blocked(r)) || (ps.offOrgans && onOrgans(ps.offOrgans, r))) return;
         // (fans: the targets of a numbered step's group, V10. Each of its leaders, from its target to the box, runs through no label and
         // crosses no other leader, a group's own included.)
         if (ps.fans) {
@@ -731,11 +731,11 @@ export function createLabelSolve(st, live) {
           // varices at its right, so it lay on the cava whatever its spot. Mac and iPhone, decompensated cirrhosis, 1 Nov.)
           const it = { key: 'o:' + txt, cls: 'organ', lines: up.split(NAME_BREAK.has(txt) ? ' ' : '\u0000').map((t) => [{ t, size: 9.5, weight: 600, cls: 'lb-organ', track: 0.06 }]), align: 'middle', padX: 2, padY: 1, ax, ay };
           it.w = Math.max(...it.lines.map(lineW)); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0);
-          // (Nor on a leader, left off if all its spots are crossed: PV's through LIVER, iPhone with the Tests card open, 11 Nov. And off other
+          // (Nor under a card or on a leader, left off if all its spots are: SPLEEN under the Mac's Tests card, PV's leader through LIVER, 11 Nov. And off other
           // organs first where it can be, never left off for it: RIGHT ATRIUM on the esophagus, the same day; organ-names.js onOtherOrgan.)
-          const spot = { gap: 0, leader: false, clear: true, unled: true }, off = { ...spot, offOrgans: txt };
+          const spot = { gap: 0, leader: false, clear: true, unblocked: true }, off = { ...spot, offOrgans: txt };
           const at = nameSpots(txt).map(([sx, sy]) => { const [bx, by] = worldToLocal(sx, sy); return [bx - ax, by - ay, Math.hypot(sx - x, sy - y) <= OFF_NEAR]; });
-          placeMulti(it, ['C'], [off, ...at.filter((a) => a[2]).map((a) => ({ ...off, at: a })), spot, ...at.map((a) => ({ ...spot, at: a })), { gap: 0, leader: false, unled: true }]);
+          placeMulti(it, ['C'], [off, ...at.filter((a) => a[2]).map((a) => ({ ...off, at: a })), spot, ...at.map((a) => ({ ...spot, at: a })), { gap: 0, leader: false, unblocked: true }]);
         }
       }
     } else {
