@@ -15,21 +15,23 @@
 // overcome this, but it needs general anesthesia, which probably makes the estimate less reliable.
 // The model's own results (not a guideline statement) are named in the notes: the needle's left portal vein lies beyond a main portal vein clot.
 
+const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 const TRIO = ['hvpg', 'eus', 'ppg'];   // the three readings, on every patient's data card
 const PROFILE = { kind: 'profile', spans: TRIO };   // the pressure from gut to heart, with a bracket and a pill for each gradient so the pair it subtracts can be seen
 const CLOT = ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'];
 
 export const GRADIENTS = {
-  id: 'gradients', level: 'advanced', title: 'HVPG, PPG and EUS-PPG compared', minutes: 12,
-  summary: 'The HVPG, the PPG and the EUS-PPG in seven patients: cirrhosis, MASLD, schistosomiasis, a portal vein clot, Budd–Chiari, heart failure and after a TIPS.',
-  sections: [['Three readings', ['Three readings']], ['Where they agree and miss', ['They agree', 'HVPG misses']], ['When a reading fails', ['Reading fails', 'After a TIPS']], ['Which to read', ['Which to read', 'Summary']]],
+  id: 'gradients', level: 'advanced', title: 'HVPG, PPG and EUS-PPG compared', minutes: 15,
+  summary: 'How the HVPG, the PPG and the EUS-PPG are measured, then the three in seven patients: cirrhosis, MASLD, schistosomiasis, a portal vein clot, Budd–Chiari, heart failure and after a TIPS.',
+  sections: [['Three readings', ['Three readings']], ['How each is read', ['How HVPG is read', 'How EUS-PPG is read', 'How PPG is read']], ['Where they agree and miss', ['They agree', 'HVPG misses']], ['When a reading fails', ['Reading fails', 'After a TIPS']], ['Which to read', ['Which to read', 'Summary']]],
   objectives: [
-    'Say which two pressures each gradient subtracts',
+    'Describe how each gradient is measured and which two pressures it subtracts',
     'Predict which gradient misses the resistance in each patient',
     'Say when no gradient helps: Budd–Chiari and heart failure',
     'Choose the reading that answers the question',
   ],
   checks: [
+    ['Which two pressures does each of the three gradients subtract, and how is each read?', 'HVPG: wedged minus free hepatic vein, by a balloon catheter from the neck. EUS-PPG: left portal vein minus left hepatic vein, by one needle through the stomach. PPG: portal vein minus IVC, by a needle and catheter from the hepatic vein across the liver.'],
     ['A patient with varices has an HVPG of 3 mmHg and a PPG of 16 mmHg. Where does the resistance lie, and what would EUS-PPG read?', 'Before the sinusoids, as in schistosomiasis or porto-sinusoidal vascular disorder. EUS-PPG would read close to the PPG, because the needle sits in the portal vein.'],
     ['A portal vein clot leaves both the HVPG and the EUS-PPG near normal. Why?', 'Both read beyond the clot: the wedge reads the sinusoids and the needle reads the left portal vein inside the liver. Only a reading upstream of the clot shows the pressure.'],
     ['The HVPG, EUS-PPG and PPG are all <2 mmHg, yet the portal vein pressure is 20 mmHg. What do you read next?', 'The IVC and right atrial pressures. In right heart failure every station is high, so the gradients cancel it out.'],
@@ -42,6 +44,29 @@ export const GRADIENTS = {
       line: 'HVPG spans the sinusoids, from wedged to free. EUS-PPG spans the liver, from the left portal vein to the left hepatic vein. PPG spans the portal vein to the IVC.',
       notes: 'HVPG is the wedged minus the free hepatic vein pressure: the drop across the sinusoids (AASLD 2024 Box 2). PPG is the portal vein minus the IVC, so it takes in everything between the confluence and the heart; it is measured directly during a TIPS or by a transhepatic or transjugular needle into a portal branch. EUS-PPG is the pressure in the left portal vein minus the pressure in the left hepatic vein, read by one needle through the stomach wall: it spans the portal tracts, the sinusoids and the central veins of the left lobe, but not the portal vein outside the liver. A resistance that lies outside a gradient\'s two readings does not change that gradient. All three are read here on the same patient, who has cirrhosis with clinically significant portal hypertension. The cut-offs are the HVPG\'s 5 and 10 mmHg for HVPG and EUS-PPG, and 6 and 12 mmHg for the PPG.',
       ask: ['A resistance lies in the portal vein trunk, before the liver. Which gradient does it raise?', 'The PPG only. The HVPG spans the sinusoids and EUS-PPG starts inside the liver, so both lie beyond it.'],
+    },
+    {
+      id: 'how-hvpg', preset: 'csph', cath: 'result', tool: { kind: 'hvpg', catheter: true },
+      kicker: 'How HVPG is read', site: 'sin', title: 'HVPG: a balloon catheter in a hepatic vein, free then wedged',
+      eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
+      line: 'The tip reads the free pressure in the open vein. With the balloon up, the still column reads the sinusoids. Here the HVPG is {hvpg}.',
+      notes: 'A balloon catheter goes in through the right internal jugular vein, down the SVC and the IVC into a hepatic vein, usually the right. The tip 2 to 4 cm from the IVC reads the free hepatic venous pressure. The balloon is then inflated: flow stops, and the blood ahead of it settles at the pressure of the sinusoids that feed that vein, the wedged hepatic venous pressure. The HVPG is the wedged minus the free pressure, the drop across the sinusoids (AASLD 2024 Box 2). Each reading is taken once the tracing is stable, in triplicate, and deep sedation is avoided because it disturbs the readings. The free pressure should lie within about 2 mmHg of the IVC pressure. This is the same patient as the other slides in this talk, who has cirrhosis with clinically significant portal hypertension.',
+      ask: ['What does the balloon change, and what does the catheter then read?', 'It stops the flow, so the still blood ahead settles at the sinusoidal pressure. The free reading, taken before the balloon goes up, is subtracted from it.'],
+    },
+    {
+      id: 'how-eus', preset: 'csph', procedure: 'eus', cam: 'liver', data: 'tiles', tiles: ['eus', 'ppg'], key: ['eus'],
+      kicker: 'How EUS-PPG is read', site: 'sin', title: 'EUS-PPG: one needle through the stomach, into two veins',
+      line: 'An echoendoscope in the stomach guides a needle into the left portal vein, then the left hepatic vein. EUS-PPG is {eus}.',
+      notes: 'Press Next to step through it: the scope in, the portal vein, the hepatic vein, and the gradient. A linear echoendoscope in the proximal stomach images the left lobe through the wall. A 25-gauge needle crosses into the left portal vein and a compact manometer on its hub reads the pressure once it settles (the mean of three). The needle comes back into the scope and crosses the left lobe into the left hepatic vein for the second reading. EUS-PPG is the portal minus the hepatic vein pressure, from one needle in one session, and it is read on the HVPG\'s cut-offs. EASL 2025 says it needs general anesthesia, which probably makes the estimate less reliable, and Baveno VIII lists the EUS-guided gradient in PSVD and NCPF as a research question (RA8.18, RA8.24). It is done in expert centers and is not a standard test.',
+      ask: ['Which two veins does the EUS needle enter, and from where?', 'The left portal vein, then the left hepatic vein, both through the wall of the stomach.'],
+    },
+    {
+      id: 'how-ir', preset: 'csph', procedure: 'irppg', cam: 'liver', data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'],
+      kicker: 'How PPG is read', site: 'sin', title: 'PPG by IR: across the liver into the portal vein',
+      eq: [mi('PPG') + mo('=') + '<msub class="eq-pv"><mi>P</mi><mtext>portal vein</mtext></msub>' + mo('−') + '<msub class="eq-ivc"><mi>P</mi><mtext>IVC</mtext></msub>'],
+      line: 'From the hepatic vein a needle crosses the liver into the portal vein, and the catheter reads it. Drawn back to the IVC, it reads again. The PPG is {ppg}.',
+      notes: 'Press Next to step through it: the catheter in, the portal vein, the IVC, and the gradient. The route is the one a TIPS takes. Through the right internal jugular vein the catheter reaches the right hepatic vein. A needle crosses the liver into the right portal vein, a wire follows it, and the catheter slides over the wire into the portal vein, where the manometer reads the portal pressure directly. The wire comes out and the catheter is drawn back to the IVC at the hepatic veins, level with the right atrium, for the second reading. The PPG is the portal vein minus the IVC pressure, so it takes in everything between the confluence and the heart, and it does not depend on the sinusoids being the site of the resistance. Baveno VIII Table 3 advises measuring the right atrial pressure to rule out a post-hepatic component; the right atrial pressure can be read in the same session. A PPG ≥6 mmHg is portal hypertension and ≥12 mmHg carries the bleeding risk. The immediate reading is best taken in a stable, non-sedated patient (Baveno VIII Table 3). This is a stand-alone reading with no stent; the same catheter reads the gradient across a TIPS.',
+      ask: ['Why does the catheter read the IVC after the portal vein?', 'The PPG is the portal vein pressure less the IVC pressure, so the second reading is the other half of the subtraction.'],
     },
     {
       id: 'agree', lens: 'drop', terms: ['sin'], cam: 'liver', tool: PROFILE, data: 'tiles', tiles: TRIO, key: TRIO,

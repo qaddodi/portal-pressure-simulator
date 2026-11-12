@@ -60,6 +60,8 @@ export const ADOPTED = {
   'albumin/ind': ['kind:criteria'],
   'albumin/path': ['kind:path', 'tool.patient'],
   'gradients/span': ['kind:profile', 'tool.spans'],
+  'gradients/how-eus': ['procedure'],
+  'gradients/how-ir': ['procedure'],
   'gradients/agree': ['kind:profile', 'tool.spans'],
   'gradients/masld': ['kind:profile', 'tool.spans'],
   'gradients/presin': ['kind:profile', 'tool.spans'],
