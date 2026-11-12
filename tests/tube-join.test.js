@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_CUT_IN, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, endTrunk, endContinues, endKind,
+  END_BASE, JOIN_WIN, JOIN_REACH, JOIN_CUT, JOIN_CUT_IN, JOIN_FADE_N, JOIN_COLOUR_R, JOIN_COLOUR_MIN, JOIN_ALONG_GLSL, JOIN_MODE, endTrunk, endContinues, endKind,
   tubeJoinVS, tubeJoinFS, JOIN_IN_GLSL, trunkGapJS, joinOneJS, joinEndJS, joinToneJS, joinPackJS, joinRampGLSL, END_THRU_START, END_THRU_END,
 } from '../src/ui/tube-join-glsl.js';
 import { lintGLSL } from './glsl-lint.js';
@@ -309,4 +309,29 @@ test('the outer corner of a bend is round, not notched: past the bisector plane 
   const straight = joinOneJS({ e: endContinues(1, 0), atStart: false, own: { pts: A, tier: 3 }, id: 0, rows: rowsOf({ 0: { pts: A, tier: 3 }, 1: { pts: line(0, 0, 100, 0), tier: 3 } }) });
   const s = (x, y) => joinEndJS({ vI: 60, J0: [0, 0, 0, 0], J1: straight.J, K: [-1, -1, ...straight.K], C0: [0, 0, 0], C1: [0, 0, 0], p: [x, y], R, px: PX });
   assert.equal(s(2, -4).drop, true, 'a straight continuation has no wedge');
+});
+
+test('a branch that ends on a fainter trunk eases its opacity to the trunk\'s over its last JOIN_FADE_N samples (12 Nov 2026: "the end of the vein should fade smoothly to become as faded as the vein it connects to")', () => {
+  const faint = rowsOf({ 0: { pts: trunk, rad: trunk.map(() => 6), tier: 3, alpha: 0.4, flags: 0, colour: () => [0.2, 0.8, 0.2] } });
+  const d = joinOneJS({ e: endTrunk(0, 32), atStart: false, own: { pts: branch, tier: 16 }, rows: faint });
+  assert.equal(d.PK, joinPackJS(3, 0, 0.4), 'the trunk\'s pack rides with the end');
+  const at = (vI) => joinEndJS({ vI, J0: [0, 0, 0, 0], J1: d.J, Q1: d.Q, K: [-1, -1, d.K[0], d.K[1]], C1: d.C, PT1: d.PT, PK1: d.PK, p: [0, 20], R: 4, px: PX });
+  assert.equal(at(63).pt, d.PK);
+  assert.equal(at(63).rs, 1, 'at the end: as faint as the trunk');
+  assert.equal(at(63 - JOIN_FADE_N).rs, 0, 'JOIN_FADE_N samples in: its own');
+  assert.equal(at(63 - JOIN_FADE_N - 3).rs, 0);
+  const mid = at(63 - JOIN_FADE_N / 2).rs;
+  assert.ok(mid > 0.4 && mid < 0.6, `halfway: ${mid}`);
+  let prev = -1;
+  for (let i = JOIN_FADE_N; i >= 0; i--) { const r = at(63 - i).rs; assert.ok(r >= prev - 1e-12, 'rises toward the end'); prev = r; }
+  const start = joinEndJS({ vI: 0, J0: d.J, Q0: d.Q, K: [d.K[0], d.K[1], -1, -1], C0: d.C, PT0: d.PT, PK0: d.PK, J1: [0, 0, 0, 0], p: [0, 20], R: 4, px: PX });
+  assert.equal(start.rs, 1, 'and at a start');
+  assert.equal(joinEndJS({ vI: 63, J0: [0, 0, 0, 0], J1: d.J, K: [-1, -1, d.K[0], d.K[1]], p: [0, 20], R: 4, px: PX }).pt, -1, 'no trunk pack: no fade');
+});
+
+test('the GLSL carries the trunk\'s pack in the end\'s flag and eases over JOIN_FADE_N samples', () => {
+  const vs = tubeJoinVS(64), fs = tubeJoinFS(64);
+  assert.ok(vs.includes('-(fk + 4.0 * (joinPack(tr, c) + 1.0))'));
+  assert.ok(fs.includes('float wq = -CC.w, pk = floor(wq / 4.0) - 1.0'));
+  assert.ok(fs.includes(`j.rs = 1.0 - smoothstep(0.0, ${JOIN_FADE_N}.0, atStart ? vI : 63.0 - vI);`));
 });

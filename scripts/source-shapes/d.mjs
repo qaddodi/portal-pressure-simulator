@@ -77,5 +77,5 @@ export default [
   { file: CSS, need: [/\.stent-px \{ vector-effect: non-scaling-stroke; \}/, 'a pixel floor for struts and rails'] },
   { file: VENOUS, need: [/meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole covered mesh, built once'] },
   { file: VENOUS, need: [/d0 = tips \? ex\[0\] : /, 'unrolled from the portal end'] },
-  { file: STAGE, need: [/for \(const id of \['TIPS', 'DIPS', 'C6', 'S_DSR'\]\) if \(E\[id\]\) E\[id\]\.over = true;/, 'the splenorenal shunts are in the splenic vein\'s tier, so its wall is not drawn across their mouth (12 Nov 2026)'] },
+  { file: STAGE, need: [/for \(const id of \['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC'\]\) if \(E\[id\]\) E\[id\]\.over = true;/, 'the splenorenal and portocaval shunts are in the portal tree\'s tier, so its wall is not drawn across their mouth (12 Nov 2026)'] },
 ];

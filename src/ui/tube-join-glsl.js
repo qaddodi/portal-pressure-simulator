@@ -41,6 +41,7 @@ export const JOIN_MOUTH_R = 1.2;            // radii (at least JOIN_MOUTH_MIN wo
 export const JOIN_MOUTH_MIN = 3;
 export const JOIN_CUT = 0.25;                // device pixels: how far past the bisector plane a continuation still draws (so the two leave no hairline)
 export const JOIN_CUT_IN = 4;                // device pixels: how far inside its trunk's wall a same-tier branch still draws. The cut follows the trunk's samples in two straight arms, the wall is curved, so a cut at the wall itself leaves a one-pixel crack where the arms run short of it, and the trunk's dark outline shows through it as a hairline across the mouth (the TIPS ends, 11 Nov 2026); the branch's pixels there are the trunk's own colour (wc)
+export const JOIN_FADE_N = 14;               // samples (of the row's 64, 22%): over the last this many of a branch that ends on a fainter trunk, the branch's opacity eases to the trunk's, so it does not stop at the wall as a brighter vessel against a faded one (Mohammad, 12 Nov 2026: "the end of the vein should fade smoothly to become as faded as the vein it connects to, apply everywhere")
 export const JOIN_NONE = -1;
 export const JOIN_MODE = { CUT: 0, SOFT: 1, PLANE: 2 };   // (SOFT: a cut at the wall one device pixel soft: a branch in a higher tier than its trunk, drawn over it, 10 Nov)
 
@@ -135,7 +136,8 @@ vec4 joinOne(int id, float e, bool atStart, out vec2 K, out vec4 C) {
     float hl = max(sp, ${f(JOIN_REACH)} * r);
     // (The arms reach no further than the trunk does: past the trunk's own end nothing of it is drawn, and a branch cut there leaves a black wedge, 10 Nov, the portal fork. They follow its samples, so a trunk that bends within the reach, as the Circuit's cava does, is cut where it is, not along its tangent.)
     K = vec2(r, texelFetch(tube, ivec2(2, id), 0).x > texelFetch(tube, ivec2(2, tr), 0).x + 0.5 ? 1.0 : 0.0);
-    C = vec4(joinPackColour(joinColour(tr, float(sm) / ${LAST}.0)), c, sm == ${LAST} && !tf ? -2.0 : sm == 0 && !tb ? -3.0 : -1.0);   // (w: the trunk's own end: with its cap gone the arms end flat there, so the branch is drawn beyond it)
+    float fk = sm == ${LAST} && !tf ? 2.0 : sm == 0 && !tb ? 3.0 : 1.0;
+    C = vec4(joinPackColour(joinColour(tr, float(sm) / ${LAST}.0)), c, -(fk + 4.0 * (joinPack(tr, c) + 1.0)));   // (w: minus the flag (1: none, 2: the trunk's own end, 3: its start) plus four times (the trunk's pack + 1): the trunk's opacity, for the branch's fade into a fainter trunk)   // (w: the trunk's own end: with its cap gone the arms end flat there, so the branch is drawn beyond it)
     return vec4(joinArm(tr, sm, -1, sp, hl, tb), joinArm(tr, sm, 1, sp, hl, tf));
   }
   if (e < -1.5) {
@@ -239,7 +241,7 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
   vec2 ba = J.zw - J.xy;
   float gap = min(joinSeg(p, J.xy, CC.yz), joinSeg(p, CC.yz, J.zw)) - K.x;   // (the trunk about the sample: its two arms from the knee)
   // (A trunk's own end, its cap gone: past it the pixel is the branch's, whatever the arms' round end says.)
-  float fw = CC.w;
+  float wq = -CC.w, pk = floor(wq / 4.0) - 1.0, fw = -(wq - 4.0 * floor(wq / 4.0));   // (the flag, and the trunk's pack: see joinOne)
   bool beyond = false;
   if (fw < -1.5) {
     vec2 dn = ba / max(length(ba), 1e-6);
@@ -253,6 +255,9 @@ JoinEnd joinEnd(float vI, vec4 vJ0, vec4 vJ1, vec4 vJK, vec4 vC0, vec4 vC1, vec2
   j.wc = (1.0 - smoothstep(0.0, max(${f(JOIN_COLOUR_R)} * rn, ${f(JOIN_COLOUR_MIN / 2)}), gap)) * rk;
   j.tk = mix(1.0, smoothstep(0.0, max(${f(JOIN_MOUTH_R)} * rn, ${f(JOIN_MOUTH_MIN)}), gap), rk);
   if (soft && !beyond) { j.fl = smoothstep(-px, 0.0, gap); j.fo = j.fl; }
+  // (A branch on a fainter trunk eases its opacity to the trunk's over its last JOIN_FADE_N samples: joinRamp, in the lean and the lumen shaders, takes j.pt and j.rs.)
+  j.pt = pk;
+  j.rs = 1.0 - smoothstep(0.0, ${f(JOIN_FADE_N)}, atStart ? vI : ${LAST}.0 - vI);
   return j;
 }
 // The cel tones' direction across the vessel, turned toward the next row's across a continuation and eased flat toward a trunk's wall at a cut branch's mouth: one tone field over the join.
@@ -332,7 +337,7 @@ export function joinOneJS(o) {
     const sp = Math.max(len(sub(T.pts[s1], T.pts[s0])) / Math.max(s1 - s0, 1), 1e-4);
     const r = T.rad[sm], hl = Math.max(sp, JOIN_REACH * r);
     const a = joinArmJS(T.pts, sm, -1, sp, hl, tb), b = joinArmJS(T.pts, sm, 1, sp, hl, tf);
-    return { J: [a[0], a[1], b[0], b[1]], Q: [c[0], c[1]], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.SOFT : JOIN_MODE.CUT], C: colOf(tr, sm / last), PT: sm === last && !tf ? -2 : sm === 0 && !tb ? -3 : -1 };
+    return { J: [a[0], a[1], b[0], b[1]], Q: [c[0], c[1]], K: [r, (o.own.tier ?? 0) > (T.tier ?? 0) + 0.5 ? JOIN_MODE.SOFT : JOIN_MODE.CUT], C: colOf(tr, sm / last), PT: sm === last && !tf ? -2 : sm === 0 && !tb ? -3 : -1, PK: joinPackJS(T.tier ?? 0, T.flags ?? 0, (T.alpha ?? 1) * (T.fadeAt ? T.fadeAt(c) : 1)) };
   }
   if (e < -1.5) {
     const k = Math.floor(-e + 0.5) - 2, pr = Math.floor(k / END_BASE), ps = k % END_BASE;
@@ -352,7 +357,7 @@ export function joinOneJS(o) {
 }
 
 /**
- * joinEnd in JS. o: { vI, J0, J1 (the vec4 as arrays), Q0, Q1 (an open end's knee), PT0, PT1 (the flag / partner pack), K [r0, mode0, r1, mode1], C0, C1 (the other rows' colours at the two ends), p, R (vRad), px (world per device pixel) }. Returns { drop, fl, fo, wc, col }: the GLSL's JoinEnd.
+ * joinEnd in JS. o: { vI, J0, J1 (the vec4 as arrays), Q0, Q1 (an open end's knee), PT0, PT1 (the flag / partner pack), PK0, PK1 (an open end's trunk pack), K [r0, mode0, r1, mode1], C0, C1 (the other rows' colours at the two ends), p, R (vRad), px (world per device pixel) }. Returns { drop, fl, fo, wc, col }: the GLSL's JoinEnd.
  */
 export function joinEndJS(o) {
   const { vI, p, R, px } = o, last = END_BASE - 1;
@@ -387,6 +392,8 @@ export function joinEndJS(o) {
   j.wc = (1 - smooth(0, Math.max(JOIN_COLOUR_R * rn, JOIN_COLOUR_MIN / 2), gap)) * rk;
   j.tk = mix(1, smooth(0, Math.max(JOIN_MOUTH_R * rn, JOIN_MOUTH_MIN), gap), rk);
   if (soft && !beyond) { j.fl = smooth(-px, 0, gap); j.fo = j.fl; }
+  j.pt = (atStart ? o.PK0 : o.PK1) ?? -1;
+  j.rs = 1 - smooth(0, JOIN_FADE_N, atStart ? vI : last - vI);
   return j;
 }
 
