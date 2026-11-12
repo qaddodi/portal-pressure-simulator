@@ -7,12 +7,12 @@
 //
 // Every glass of every region and renderer is on one board (the deck's cards, the sheets, Settings and the menus, the top bar's pills, the colour
 // key, the toasts, the callouts, the liver's pane). Which one lies above is the page's own stacking (stackOf, read with the page: its stacking
-// contexts, z-index and order), never the order the regions were made in. A card the page cuts with a clip-path of its own is never cut here, nor a
-// card and a part of it. A clip is written only when what covers a card changed (a card sliding over another cuts it again each frame of the
+// contexts, z-index and order), never the order the regions were made in. A card the page cuts with a clip-path of its own keeps it, and its parts (its children) are
+// cut instead; a card and a part of it never cut each other. A card the page already clips itself keeps its clip, and its parts are cut instead. A clip is written only when what covers a card changed (a card sliding over another cuts it again each frame of the
 // slide), and taken off once nothing covers it.
 //
 //   const part = glassCover();          // one renderer's place on the board
-//   part.apply(panes, ownClip)          // its glasses as drawn: { g, r (client px), rad ([tl, tr, br, bl] px) | null, box, st, cv, cvo, a }
+//   part.apply(panes, ownClip)          // its glasses as drawn: { g, r (client px), rad ([tl, tr, br, bl] px) | null, box, st, cv, cvo, kids, a }
 //   part.clear()                        // its glasses off the board, every cut they made taken off
 import { readStyle } from './layout-snap.js';
 
@@ -170,29 +170,46 @@ export function coverBoard() {
     tr.width = tr.right - tr.left; tr.height = tr.bottom - tr.top;
     return tr;
   }
+  // (One element cut where every glass above glass i lies: el (the card, or a part of it, kid) at box r; g the card it belongs to.)
+  function cutOne(i, el, r, g) {
+    if (now.has(el) || !r.width || !r.height) return;
+    holes.length = 0;
+    for (let j = 0; j < all.length; j++) {
+      const q = all[j];
+      if (j === i || q.g === all[i].g || !(q.a == null || q.a >= UP) || !meets(r, q.r)) continue;
+      const qt = targetOf(q);
+      if (qt === g || g.contains?.(q.g) || q.g.contains?.(g) || g.contains?.(qt) || qt.contains?.(g) || !above(j, i)) continue;
+      holes.push(hole(holes.length, q));
+    }
+    if (!holes.length) return;
+    merge(holes);
+    now.add(el);
+    if (same(el, r) && wrote.has(el)) return;
+    set(el, coverClip(r, holes));
+  }
+  // (A part's box this frame: kid.o px off the glass's own box.)
+  function kidBox(p, k) {
+    const r = p.r, o = k.o;
+    tr.left = r.left + o[0]; tr.top = r.top + o[1]; tr.right = r.right + o[2]; tr.bottom = r.bottom + o[3];
+    tr.width = tr.right - tr.left; tr.height = tr.bottom - tr.top;
+    return tr;
+  }
   function run() {
     all.length = 0; allPart.length = 0; allOwn.length = 0;
     for (const [id, P] of parts) for (let i = 0; i < P.panes.length; i++) { all.push(P.panes[i]); allPart.push(id); allOwn.push(P.ownClip); }
     now.clear();
     for (let i = 0; i < all.length; i++) {
       const p = all[i], g = targetOf(p);
-      if (!p.box || !p.r.width || !p.r.height || now.has(g)) continue;
-      if (!wrote.has(g) && allOwn[i]?.(g)) continue;
-      const r = boxOf(p);
-      if (!r.width || !r.height) continue;
-      holes.length = 0;
-      for (let j = 0; j < all.length; j++) {
-        const q = all[j];
-        if (j === i || q.g === p.g || !(q.a == null || q.a >= UP) || !meets(r, q.r)) continue;
-        const qt = targetOf(q);
-        if (qt === g || g.contains?.(q.g) || q.g.contains?.(g) || g.contains?.(qt) || qt.contains?.(g) || !above(j, i)) continue;
-        holes.push(hole(holes.length, q));
+      if (!p.box || !p.r.width || !p.r.height) continue;
+      // (A card the page already cuts with a clip of its own (a phone's dock sheet, sinking under the tab row; an app menu under its bar) keeps
+      // that clip: its parts (kids: { el, o, own }, its children as read with the page) are cut instead, each at its own box. A part with a clip
+      // of its own is left.)
+      if (!wrote.has(g) && allOwn[i]?.(g)) {
+        const K = p.kids;
+        if (K) for (let k = 0; k < K.length; k++) if (!K[k].own) cutOne(i, K[k].el, kidBox(p, K[k]), g);
+        continue;
       }
-      if (!holes.length) continue;
-      merge(holes);
-      now.add(g);
-      if (same(g, r) && wrote.has(g)) continue;
-      set(g, coverClip(r, holes));
+      cutOne(i, g, boxOf(p), g);
     }
     for (const g of wrote.keys()) if (!now.has(g)) take(g);
     all.length = 0; allPart.length = 0; allOwn.length = 0;
@@ -206,6 +223,8 @@ export function coverBoard() {
         apply(panes, ownClip) { const P = parts.get(id); if (P) { P.panes = panes; P.ownClip = ownClip; } else parts.set(id, { panes, ownClip }); run(); },   // alloc-rare: a renderer's first glasses on the board
         clear() { if (parts.delete(id)) run(); },
         get cut() { return wrote.size; },
+        /** Whether el's clip-path is one this board wrote (a read of the page then finds ours, not the page's). */
+        mine: (el) => wrote.has(el),
       };
     },
     clear() { parts.clear(); for (const g of [...wrote.keys()]) take(g); },   // alloc-rare: the board let go

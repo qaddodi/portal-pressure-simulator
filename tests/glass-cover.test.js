@@ -180,3 +180,20 @@ test('a glass whose words lie in another element (a sheet\'s paper, a callout\'s
   assert.equal(shows(c, 50, 25), false, 'under the card: hidden');
   assert.equal(shows(c, 50, 75), true, 'below it: shows');
 });
+
+test('a card the page clips itself (a dock sheet, an app menu) keeps its clip, and its parts are cut instead', () => {
+  const sheet = el('sheet'), head = el('head'), body = el('body'), own = el('own'), card = el('card');
+  const C = coverBoard().part();
+  // (The sheet: 0..400 × 0..400, its head the top 100 px, its body the rest, a part with its own clip in the body; the card over its top half.)
+  const kids = [{ el: head, o: [0, 0, 0, -300] }, { el: body, o: [0, 100, 0, 0] }, { el: own, o: [0, 100, 0, 0], own: true }];
+  C.apply([{ g: sheet, box: true, r: rect(0, 0, 400, 400), kids }, { g: card, box: true, r: rect(0, 0, 400, 200) }], (g) => g === sheet);
+  assert.equal(sheet.clip(), '', 'its own clip is left as it is');
+  assert.ok(head.clip() && body.clip(), 'its parts are cut');
+  assert.equal(own.clip(), '', 'a part with a clip of its own is left');
+  assert.equal(shows(head.clip(), 50, 50), false, 'the head, all under the card: hidden');
+  assert.equal(shows(body.clip(), 50, 25), false, 'the body\'s top third (y 175), under the card: hidden');
+  assert.equal(shows(body.clip(), 50, 75), true, 'its foot (y 325): shows');
+  C.apply([{ g: sheet, box: true, r: rect(0, 0, 400, 400), kids }], (g) => g === sheet);
+  assert.equal(head.clip(), '', 'the card gone: the cuts taken off');
+  assert.equal(body.clip(), '');
+});

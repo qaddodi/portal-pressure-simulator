@@ -576,6 +576,19 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // cssClip: each card's own clip-path as its page read gives it (one it has is never cut).)
   const cover = glassCover(), cssClip = new WeakMap(), coverOrder = [];
   const coverOwn = (g) => { const c = cssClip.get(g); return !!c && c !== 'none'; };
+  // (A clipped card's parts: its children with a box, each { el, o (px off the glass's box r), own (a clip of its own) }; at most KIDS of them.)
+  const KIDS = 32;
+  function kidsOf(t, g, r) {
+    const out = [];   // alloc-rare: read with the page, never in a frame
+    for (const k of t.children) {
+      if (k === g || out.length >= KIDS) continue;
+      const b = readBox(k);
+      if (!b || !b.width || !b.height) continue;
+      const c = readStyle(k).clipPath;
+      out.push({ el: k, o: [b.left - r.left, b.top - r.top, b.right - r.right, b.bottom - r.bottom], own: !!c && c !== 'none' && !cover.mine(k) });   // alloc-rare: read with the page, never in a frame
+    }
+    return out.length ? out : null;
+  }
   function coverNow() {
     coverOrder.length = 0;
     if (hf && blurOK) {
@@ -756,9 +769,12 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         // (cv: the element its words are in, when that is not the glass itself (a callout's body, a sheet's paper): that one is cut, its box cvo px
         // off the glass's. cards.cover(g) names it; a callout's is its card, outer.)
         const er = outer ? outer.getBoundingClientRect() : r, cv = cards.cover?.(g) || outer || null, tb = cv ? (cv === outer ? er : readBox(cv)) : null;
-        cssClip.set(cv || g, cv ? readStyle(cv).clipPath : cs.clipPath);
+        const tc = cv ? readStyle(cv).clipPath : cs.clipPath;
+        cssClip.set(cv || g, tc);
         const cvo = tb ? [tb.left - r.left, tb.top - r.top, tb.right - r.right, tb.bottom - r.bottom] : null;   // alloc-rare: read with the page, never in a frame
-        panes.push({ g, el, box: true, cv, cvo, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er, shadow: outer && reg.shadow ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
+        // (A card with a clip of its own (not one the cover wrote): its parts, which the cover cuts in its place, glass-cover.js.)
+        const kids = tc && tc !== 'none' && !cover.mine(cv || g) ? kidsOf(cv || g, g, r) : null;
+        panes.push({ g, el, box: true, cv, cvo, kids, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er, shadow: outer && reg.shadow ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);
