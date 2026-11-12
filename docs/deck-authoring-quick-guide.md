@@ -1,6 +1,6 @@
 # Writing a deck: the short guide
 
-This guide is for people. It explains what a deck can show, gives one small example of each feature and says when to use it. Each section ends with a pointer to the full guide, `docs/deck-authoring-guide.md`, which lists every option, value and rule. When the two disagree, the full guide and the code win. Both were last checked against the app on 11 Nov 2026 (37 built-in decks).
+This guide is for people. It explains what a deck can show, gives one small example of each feature and says when to use it. Each section ends with a pointer to the full guide, `docs/deck-authoring-guide.md`, which lists every option, value and rule. When the two disagree, the full guide and the code win. Both were last checked against the app on 12 Nov 2026 (38 built-in decks).
 
 ## How a deck works
 
@@ -131,7 +131,7 @@ Full guide: section 5.9.
 ### Ladder and tiles
 
 - `tool: { kind: 'profile' }` shows the pressure ladder, the Gut to heart chart. It has three tinted zones (pre-hepatic, intrahepatic, post-hepatic), the HVPG and PPG brackets with the two readings as pills at the top right, and a red block wherever the pressure falls steeply, so the chart shows where the resistance is. (An old `data: 'ladder'` is read as this chart.)
-- `data: 'tiles', tiles: ['hvpg', 'plt']` shows readout tiles. Each tile has a coloured scale with a dot for now and a ring for where it started.
+- `data: 'tiles', tiles: ['hvpg', 'plt']` shows readout tiles. `'eus'` is the EUS-PPG (left portal vein minus left hepatic vein); the HVPG, EUS-PPG and PPG side by side are in the HVPG, PPG and EUS-PPG compared deck (`gradients`). Each tile has a coloured scale with a dot for now and a ring for where it started.
 - `key: ['hvpg']` highlights a tile and bolds its name in the words.
 - `delta: true` shows each tile's change from the slide before.
 - `tool: { kind: 'profile', from: 'norx', fromLabel: 'No Rx' }` draws an earlier state as a faint dotted line on the chart, to show what a treatment changed.
@@ -226,7 +226,7 @@ Full guide: section 7.3.
 - **Beta-blocker response.** `response: true` puts three buttons on the card: Non-responder, Usual responder and Strong responder. Each changes how strongly this patient's portal pressure answers the beta-blocker, live, and the drug stays whatever the slide set. On carvedilol in a decompensated patient the HVPG falls about 7%, 19% and 27%. A fall under 10% is a non-response by Baveno VIII Table 3. Put the drug in the slide's `params`, add `hvpgResp` to show the fall, and add `hold: true` to a vitals tool to draw the hold line. Do not use it with `compare`. Full guide: 7.4.
 - **Hold to strain.** `strain: true` (or `strain: { label: 'Push' }`) puts a button on the card that works only while it is held. Holding it starts the model's Valsalva: the pressure in the chest and belly builds over 1.5 seconds. Letting go brings it back over 1.5 seconds, and the data card follows. Use it where straining is the point (the second stage of labor). In the model, a held strain raises the portal vein pressure and lowers the MAP; the pressure across a varix wall falls, so do not write that it rises. Do not use it with a time-lapse, a procedure or a catheter. Full guide: 7.4.
 
-Put buttons and sliders on key slides only. 27 of the 37 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
+Put buttons and sliders on key slides only. 27 of the 38 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
 
 ### A catheter treatment
 

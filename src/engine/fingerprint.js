@@ -45,6 +45,7 @@ export function fingerprintOf(m, { P = null, Q = null, D = null, copy = false, p
   // alloc-rare: a state's fingerprint is a new record by design (callers keep it, e.g. cath.fp): one per slide state in the worker, in the presenter only while a time-lapse or what-if plays, polled every 150 ms (wait(150)), never per frame
   return {
     pv: m.pv, whvp: m.whvp, fhvp: m.fhvp, hvpg: tenthGap(m.whvp, m.fhvp, m.hvpg), ra: m.vitals?.ra ?? m.ra, ivc: m.ivc, ppg: tenthGap(m.pv, m.ivc, m.ppg),
+    eus: P ? tenthGap(P[NI.LPV], P[NI.LHV], P[NI.LPV] - P[NI.LHV]) : null,
     asc: a.volume, saag: a.saag, tp: a.totalProtein, aalb: a.albumin, salb: params?.albumin, sigma: a.lymphSigma, hepLymph: a.hepLymph, splLymph: a.splLymph,
     sin: P ? P[NI.SIN_R] : null, cv: P ? P[NI.CV_R] : null, int: P ? P[NI.INT] : null, varix: m.varix.d, varixAir: m.varix.air, wall: m.varix.ratioShown, gv: m.gastricVarix.d, spleen: m.spleen.length, plt: m.spleen.platelets,
     pvFlow: m.pvFlowMean, shunt: m.shuntFraction, he: m.heRisk?.index, liver: m.liverPerfPct, lsm: m.lsm, ssm: m.ssm, pvVel: m.pvVelMean, map: m.map, sbp: m.sbp, dbp: m.dbp, rpp: m.rpp, hr: m.hr, hb: m.blood?.hb, hbTo: m.blood?.hbSettled, co: m.co, bv: m.blood?.volume,

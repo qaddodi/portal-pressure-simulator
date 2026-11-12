@@ -1190,5 +1190,37 @@
  "landmark-trials/covered-arms": [
   "{asc@covered}",
   "{asc}"
+ ],
+ "gradients/agree": [
+  "sinusoids",
+  "{hvpg}",
+  "{eus}",
+  "{ppg}"
+ ],
+ "gradients/masld": [
+  "{hvpg}",
+  "{eus}",
+  "{ppg}"
+ ],
+ "gradients/presin": [
+  "{hvpg}",
+  "{eus}",
+  "{ppg}"
+ ],
+ "gradients/pvt": [
+  "{eus}",
+  "{hvpg}",
+  "{ppg}"
+ ],
+ "gradients/bc": [
+  "{ppg}"
+ ],
+ "gradients/rhf": [
+  "{ra}"
+ ],
+ "gradients/tips": [
+  "{ppg}",
+  "{hvpg}",
+  "{eus}"
  ]
 }

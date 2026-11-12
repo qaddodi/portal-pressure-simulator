@@ -26,6 +26,7 @@ const TILES_CHANGE = new Set([
   'hyperdynamic/resist>volume',                                 // the vitals monitor, then the volume tiles
   'hyperdynamic/loss>over',                                     // the hemoglobin and the volume join for the eight units: where they end is the point
   'ten-years/d365>carv', // one patient over ten years: the tiles follow the event
+  'gradients/bc>rhf',                                           // the Budd–Chiari slide cannot show the HVPG or EUS-PPG tiles (no catheter or needle can enter), so they come back with the next patient
   'variceal-bleed/tear>minutes',                                // "Shock before anemia": the hemoglobin to come joins, for that slide only
 ]);
 
@@ -54,6 +55,7 @@ const THREE_TILES = new Set([
   'gastric-varices/tips', 'gastric-varices/brto', 'gastric-varices/bato', 'gastric-varices/svt',
   'variceal-bleed/minutes',   // (the point is the third: the hemoglobin has not moved, and where it is heading)
   'encephalopathy/srs',       // (the point is the third: the portal vein barely moves in a large splenorenal shunt)
+  'gradients/span', 'gradients/agree', 'gradients/masld', 'gradients/presin', 'gradients/pvt', 'gradients/rhf', 'gradients/tips',   // (the point is the three gradients side by side: HVPG, EUS-PPG and PPG for one patient)
   'hvpg/heart',               // (the point is the third: the right atrial pressure that holds the other two up)
   'ascites/tips',             // (the price of the stent is the third: the encephalopathy tile beside the ascites it clears and the portal pressure)
   'hyperdynamic/over',        // (eight units is more than anyone gives: the hemoglobin and the volume show where it ends)
