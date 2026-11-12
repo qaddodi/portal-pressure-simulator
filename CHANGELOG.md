@@ -2,6 +2,9 @@
 
 ## November 2026
 
+- **The Gut to heart chart can draw the EUS-PPG.** (Mohammad, 12 Nov: "we should probably be able to add EUS-PPG to the chart too ... keep it an option for other slides; usually PPG and HVPG is default".)
+  A slide's profile chart takes a new `spans` option, such as `spans: ['hvpg', 'eus', 'ppg']`, and draws a bracket and a header pill for each reading it names, the EUS-PPG between the HVPG and the PPG, tinted on the HVPG's cut-offs. The HVPG and PPG pair stays the default on every other slide. The "HVPG, PPG and EUS-PPG compared" talk turns it on for all its chart slides. It is drawn by the GPU chart as the other two are: the pieces are built once per size and a frame only writes numbers. Documented in both deck author guides.
+
 - **New talk: HVPG, PPG and EUS-PPG compared.** (Mohammad, 12 Nov: "do we have a deck that shows HVPG vs PPG vs EUS-PPG, in different scenarios?")
   A 12-minute talk under More talks runs the three gradients through seven patients: cirrhosis, obese MASLD cirrhosis, schistosomiasis, a portal vein clot, Budd–Chiari, right heart failure and a patient after a TIPS. One idea runs through it: a gradient sees only the resistance between its two readings. HVPG misses resistance before the wedge, EUS-PPG misses a clot before its needle, and neither can be taken in Budd–Chiari. The talk ends with a table of all seven patients and a card on which gradient to read. The data cards gain an EUS-PPG tile (left portal vein minus left hepatic vein, rated on the HVPG's cut-offs) and the summary tables an EUS-PPG column. The sources are AASLD 2024, Baveno VIII and EASL 2025.
 

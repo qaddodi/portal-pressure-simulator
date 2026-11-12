@@ -15,8 +15,8 @@
 // overcome this, but it needs general anesthesia, which probably makes the estimate less reliable.
 // The model's own results (not a guideline statement) are named in the notes: the needle's left portal vein lies beyond a main portal vein clot.
 
-const PROFILE = { kind: 'profile' };   // the pressure from gut to heart, so the pair each gradient subtracts can be seen
 const TRIO = ['hvpg', 'eus', 'ppg'];   // the three readings, on every patient's data card
+const PROFILE = { kind: 'profile', spans: TRIO };   // the pressure from gut to heart, with a bracket and a pill for each gradient so the pair it subtracts can be seen
 const CLOT = ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'];
 
 export const GRADIENTS = {

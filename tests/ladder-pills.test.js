@@ -76,7 +76,7 @@ test('the pills are drawn over the chart, tinted as the brackets rate them, glid
   // (Rated by the table's own cut-offs, as the brackets are.)
   assert.match(prof, /class: 'ppf-pill', 'data-rate': rate, 'data-k': k, opacity: 0/);
   assert.match(prof, /toneOf\(RATES\[k\]\(v\)\)/);
-  assert.match(prof, /const RATES = \[hvpgRate, ppgRate\]/);
+  assert.match(prof, /RATES = \[hvpgRate, ppgRate\]/);   // (the default pair; a slide's `spans` option sets the chart's own, in its brackets' order)
   assert.match(prof, /setWords\(q\.val, numWords\(v, 0\)\)/);
   // (Over the brackets in the picture's stack, so nothing hides them.)
   const at = (re) => prof.search(re);

@@ -134,6 +134,7 @@ Full guide: section 5.9.
 - `data: 'tiles', tiles: ['hvpg', 'plt']` shows readout tiles. `'eus'` is the EUS-PPG (left portal vein minus left hepatic vein); the HVPG, EUS-PPG and PPG side by side are in the HVPG, PPG and EUS-PPG compared deck (`gradients`). Each tile has a coloured scale with a dot for now and a ring for where it started.
 - `key: ['hvpg']` highlights a tile and bolds its name in the words.
 - `delta: true` shows each tile's change from the slide before.
+- `tool: { kind: 'profile', spans: ['hvpg', 'eus', 'ppg'] }` adds the EUS-PPG (left portal vein − left hepatic vein) as a third bracket and pill, between the HVPG and the PPG. Leave `spans` out and the chart draws the HVPG and PPG, as every other slide does.
 - `tool: { kind: 'profile', from: 'norx', fromLabel: 'No Rx' }` draws an earlier state as a faint dotted line on the chart, to show what a treatment changed.
 
 - A data card that is the same on the next slide (same `tool` and options, same tiles) stays on screen while the words change, and its numbers ease to the new slide's. Different tiles or instrument options build it afresh.
