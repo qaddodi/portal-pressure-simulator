@@ -108,6 +108,11 @@ One-time settings the owner made on GitHub (repo Settings), needed for deploys t
   tags" with rules `main` and `claude/*` (single `*`: it does not match `/`, so `claude/**`
   is rejected; branch names are one level deep, `claude/<name>`).
 
+**Branch-based Pages (12 Nov 2026, to save Actions storage).** Every deploy also force-pushes the built site as one orphan commit to the `gh-pages`
+branch (no history). When Settings > Pages > Source is "Deploy from a branch" (`gh-pages`, `/ (root)`), `pages.yml` sees it (`build_type: legacy`) and skips
+the artifact upload and `deploy-pages`; GitHub's own "pages build and deployment" run then serves the branch. `gh-pages` must be allowed under
+Environments > github-pages > Deployment branches. To go back, set Source to "GitHub Actions": nothing in the workflow changes.
+
 If a deploy fails:
 - A run that fails in about 2 seconds with no steps and the annotation "Branch ... is not
   allowed to deploy to github-pages due to environment protection rules" is the environment
