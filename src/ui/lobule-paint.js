@@ -376,7 +376,7 @@ export function paintLobule(c, P) {
   // Central vein wall: wavy collagen bundles, continuous with the portal-central bridges.
   if (m.fibPost > 0.05) {
     const growth = scarGrowth(m.fibPost), inner = P.cvIn;
-    const outer = inner + G.rcv0 * (0.1 + 0.85 * growth);
+    const outer = Math.max(inner, P.cvOut || 0) + G.rcv0 * (0.1 + 0.85 * growth);
     fibrousCuff(c, cx, cy, inner, outer, COL, growth);
   }
 }

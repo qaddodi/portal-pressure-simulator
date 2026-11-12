@@ -245,7 +245,7 @@ function cuff(x, y, inner, outer, rgb, fib) {
 
 /** Every band, tract disc and collar of the collagen in the order paintLobule lays them (the septa, then each portal tract's disc, its
  *  bands and its collar, then the central vein's collar), from the same geometry fibrousBand draws (bandGeom, bandFibre, bandNucleus).
- *  m: the tissue values; o: { col (the septa's and the central collar's colour), dark, cvIn (the central vein's inner radius) }.
+ *  m: the tissue values; o: { col (the septa's and the central collar's colour), dark, cvIn (the central vein's open lumen), cvOut (its wall: the collagen collar starts there and the fibrosis fills in from it to cvIn) }.
  *  An item: { type 0 band, 1 disc fill, 2 annulus fill; rgb, a; clip: [kind 0 none / 1 disc / 2 annulus, x, y, r, r2]; shadow (blur, px);
  *  band: { P, N (x, y pairs), Wd } in the world, fibres, nuclei }. Septa that have just begun, and the like, ease in rather than pop.
  *  The list is one kept by this module and written over by each call that has something new to make (it carries `ver`, moved each
@@ -254,14 +254,14 @@ export function buildItems(shape, m, o) {
   // (The same shape, strengths, colour and theme as the last call give the list back as it is: the items do not depend on the sinusoids'
   // radii, which move on every frame of a caliber ease and are what asks for them again. They are made again when one of these changes.)
   const h = LAST_ITEMS, c = o.col;
-  if (h.valid && h.shape === shape && h.su === m.septU && h.pre === m.fibPre && h.post === m.fibPost && h.dark === o.dark && h.cvIn === o.cvIn && h.c0 === c?.[0] && h.c1 === c?.[1] && h.c2 === c?.[2]) return ITEMS;
-  h.valid = true; h.shape = shape; h.su = m.septU; h.pre = m.fibPre; h.post = m.fibPost; h.dark = o.dark; h.cvIn = o.cvIn; h.c0 = c?.[0]; h.c1 = c?.[1]; h.c2 = c?.[2];
+  if (h.valid && h.shape === shape && h.su === m.septU && h.pre === m.fibPre && h.post === m.fibPost && h.dark === o.dark && h.cvIn === o.cvIn && h.cvOut === o.cvOut && h.c0 === c?.[0] && h.c1 === c?.[1] && h.c2 === c?.[2]) return ITEMS;
+  h.valid = true; h.shape = shape; h.su = m.septU; h.pre = m.fibPre; h.post = m.fibPost; h.dark = o.dark; h.cvIn = o.cvIn; h.cvOut = o.cvOut; h.c0 = c?.[0]; h.c1 = c?.[1]; h.c2 = c?.[2];
   ITEMS.length = 0; nUsed = 0;
   ITEMS.ver = (ITEMS.ver || 0) + 1;
   fillItems(shape, m, o);
   return ITEMS;
 }
-const LAST_ITEMS = { valid: false, shape: null, su: 0, pre: 0, post: 0, dark: false, cvIn: 0, c0: 0, c1: 0, c2: 0 };
+const LAST_ITEMS = { valid: false, shape: null, su: 0, pre: 0, post: 0, dark: false, cvIn: 0, cvOut: 0, c0: 0, c1: 0, c2: 0 };
 function fillItems(shape, m, o) {
   const { R, cx, cy, rcv0, lobules } = shape, crn = lobules[0].corners, COL = o.col;
   const PRE = o.dark ? PRE_DARK : PRE_LIGHT;
@@ -317,7 +317,7 @@ function fillItems(shape, m, o) {
     cuff(x, y, rt * 0.62, rt * 1.08, PRE, gp);
   }
   if (m.fibPost > 0.05) {
-    const growth = scarGrowth(m.fibPost), inner = o.cvIn, outer = inner + rcv0 * (0.1 + 0.85 * growth);
+    const growth = scarGrowth(m.fibPost), inner = o.cvIn, outer = Math.max(inner, o.cvOut || 0) + rcv0 * (0.1 + 0.85 * growth);
     cuff(cx, cy, inner, outer, COL, growth);
   }
 }
