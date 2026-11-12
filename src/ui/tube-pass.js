@@ -151,7 +151,7 @@ export function createTubePass(E) {
   const VIEW = { rect: new Float64Array(4), ok: false, pad: 0, rmax: null };
   function frameD(m, look) {
     const mj = E.geo.morph, D = FR.D ||= (MG.stage2 = createStage2Data(gl, MG));
-    D.frame(meshGeo(), E.tubeNow, E.nTubes, mj ? mj.joinBase : -1, E.layerView ? E.layerView(m, look, VIEW) : null);
+    D.frame(meshGeo(), E.tubeNow, E.nTubes, mj ? mj.joinBase : -1, E.layerView ? E.layerView(m, look, VIEW) : null, mj && mj.joins ? mj.joins : null);
     return D;
   }
   // The Tube's whole vessel pass into the layer (fbo bound, its viewport; the caller's scissor, if any, kept): false when it cannot draw, and the

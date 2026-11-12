@@ -4207,7 +4207,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const sb = gl.createBuffer(), bb = gl.createBuffer(), bv = gl.createVertexArray();
       bloodVAOOf(bv, bb);
       const S = { owner: api, entTex: dataTex(gl), vao: v, cellBuf: cb, simpleBuf: sb, oneVAO: cellVAO(sb), bloodVAO: bv, bloodBuf: bb, nGen: 0, nSimple: 0, simpleOf: null, nBlood: 0, bloodCell: CELL, bloodCPU: null, cellsCPU: null, entCPU: null, nCells: 0, cellBox: null, rowCells: null, patchMark: null, patchK: 0,
-        morph: { posBase: bins.posBase, joinBase: bins.joinBase, entRows: bins.entRows, rows: bins.rows, tight: !!bins.tight } };
+        morph: { posBase: bins.posBase, joinBase: bins.joinBase, entRows: bins.entRows, rows: bins.rows, tight: !!bins.tight, nJoins: bins.nJoins | 0, joins: null } };
       morphSets.add(S);
       useMorphSet(S);
       gl.bindTexture(gl.TEXTURE_2D, entTex);
@@ -4254,6 +4254,13 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (S) (S.sent && S.sent.length === data.length ? S.sent : (S.sent = new Float32Array(data.length))).set(data);   // alloc-rare: once per set (its frame rows' size is fixed)
       gl.bindTexture(gl.TEXTURE_2D, entTex);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, M.entRows, ENT_W, M.rows - M.entRows, gl.RGBA, gl.FLOAT, data);
+      // (Which of the set's joins this frame has (a reach of 0 or more; the rest are sent with -1): the Tube draws only their webs, tube-stage2.js D.frame.)
+      if (M.nJoins > 0) {
+        const J = M.joins || (M.joins = { on: new Uint8Array(M.nJoins), ver: 0 }), jb = (M.joinBase - M.entRows * ENT_W) * 4;   // alloc-rare: once per set
+        let ch = false;
+        for (let u = 0; u < M.nJoins; u++) { const v = data[jb + u * 4 + 2] >= 0 ? 1 : 0; if (J.on[u] !== v) { J.on[u] = v; ch = true; } }
+        if (ch) J.ver++;
+      }
       if (gpuProbe.on) gpuProbe.note('uploaded: morph frame', data.byteLength / 1024);
       figVer++; fboOK = false; movedAll = true;
     },

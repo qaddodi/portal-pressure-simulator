@@ -324,6 +324,10 @@ export function stage2Prepare(B, tubeNow, nTubes, joinBase) {
   let n = 0;
   for (let k = 0; k < n0; k++) { const e = list[k]; if (!st.seen[e]) { st.seen[e] = 1; st.uniq[n++] = e; } }
   st.entries = new Float32Array(n * 8);   // alloc-rare: a new binning only, sized by its joins
+  // (Between the views, each entry's join (its index among the set's joins, which the entry's x holds before its place is filled in): a web is drawn only
+  // while its join is one of the frame's, joinsOn below.)
+  st.ji = new Int32Array(n);   // alloc-rare: a new binning only, sized by its joins
+  for (let k = 0; k < n; k++) st.ji[k] = joinBase >= 0 ? Math.round(B.ent[st.uniq[k] * 8]) : -1;
   joinEntriesInto(B.ent, st.uniq, n, joinBase, st.entries);
   webInstances(st.entries, tubeNow, B.pts.pts, st.W);
   tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
@@ -418,12 +422,25 @@ export function createStage2Data(gl, MG) {
     for (let r = 0; r < nTubes; r++) if (a[r * TUBE_ROW_FLOATS + 3] > NO_END && !(b[r * TUBE_ROW_FLOATS + 3] > NO_END)) return true;
     return false;
   }
-  D.frame = (G, tubeNow, nTubes, joinBase, view) => {
+  // The webs a frame between the views draws: only those whose join is one of this frame's (12 Nov 2026, Mohammad's Mac ?perf: Anatomy/Circuit switch
+  // frames 87 ms of GPU each, the whole picture 57 of it). A view-switch piece lists every join of every moment of its stretch, and the frame sends the
+  // joins it has (veins-gl setMorphFrame, a reach of -1 for the rest), but every web was drawn at its legs' points all the same: 8 to 28 times the webs
+  // of a frame at rest (18 in node; 144 to 498 through a switch), each with the join's blend in its fragments, in the layer pass and the lumen pass.
+  // joins: { on (Uint8Array by join index), ver } or null (every web, as at rest).
+  let webOn = null, lastJv = -1;
+  function websLive(st, joins) {
+    const W = st.W, n = W.count || 0;
+    if (!webOn || webOn.length < n) webOn = new Uint8Array(Math.max(n, 1));   // alloc-rare: grown with the webs, only on a new binning
+    for (let p = 0; p < n; p++) { const j = st.ji[W.e[p]]; webOn[p] = j < 0 || j >= joins.on.length || joins.on[j] ? 1 : 0; }
+    return webOn;
+  }
+  D.frame = (G, tubeNow, nTubes, joinBase, view, joins = null) => {
     if (!D.stripVAO) make();
     const B = MG.B || MG, tv = MG.tv;
     // (The rows outside the layer are left out of the buckets: not while a stretch of the change between the views moves the points (joinBase >= 0), nor when the view is not given.)
     const C = view && view.ok && joinBase < 0 ? cullUpdate(B, nTubes, view) : null, ck = C ? C.key : -1;
-    if (tv !== undefined && B === lastB && B.gen === lastGen && tv === lastTv && joinBase === lastJ && C === lastC && ck === lastCk && B.s2 && B.s2.gen === B.gen) return D;   // (nothing changed since the last call)
+    const jv = joinBase >= 0 && joins ? joins.ver : -1;
+    if (tv !== undefined && B === lastB && B.gen === lastGen && tv === lastTv && joinBase === lastJ && C === lastC && ck === lastCk && jv === lastJv && B.s2 && B.s2.gen === B.gen) return D;   // (nothing changed since the last call)
     let st = B.s2;
     if (!st || st.gen !== B.gen || !st.R.rows) { st = stage2Prepare(B, tubeNow, nTubes, joinBase); D.binnings++; }
     else if (stale(st, tubeNow, nTubes)) tubeRows(tubeNow, nTubes, st.entries, st.R, B.noEnds ? null : B.pts.pts);
@@ -431,14 +448,14 @@ export function createStage2Data(gl, MG) {
     D.cull.off = !C; D.cull.drawn = D.tb.n; D.cull.total = C ? C.total : D.tb.n;
     D.lumBox.on = !!C;   // (the box the lumen pass is scissored to: only with the cull, which says which rows are drawn)
     if (C) lumenBox(C, nTubes, st.W, B.pts.pts, D.lumBox.b);
-    websByTier(st.W.data, st.W.count, tubeNow, D.wb, B.pts.on, !B.noEnds);
+    websByTier(st.W.data, st.W.count, tubeNow, D.wb, B.pts.on, !B.noEnds, jv >= 0 && st.ji ? websLive(st, joins) : null);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.rowBuf);
     if (D.rowCap < D.tb.rows.length) { D.rowCap = D.tb.rows.length; gl.bufferData(gl.ARRAY_BUFFER, D.rowCap * 4, gl.DYNAMIC_DRAW); }
     if (D.tb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, D.tb.rows, 0, D.tb.n * TUBE_ROW_FLOATS);
     gl.bindBuffer(gl.ARRAY_BUFFER, D.webBuf);
     if (D.webCap < D.wb.data.length) { D.webCap = D.wb.data.length; gl.bufferData(gl.ARRAY_BUFFER, D.webCap * 4, gl.DYNAMIC_DRAW); }
     if (D.wb.n) gl.bufferSubData(gl.ARRAY_BUFFER, 0, D.wb.data, 0, D.wb.n * WEB_FLOATS);
-    lastB = B; lastGen = B.gen; lastTv = tv; lastJ = joinBase; lastC = C; lastCk = ck;
+    lastB = B; lastGen = B.gen; lastTv = tv; lastJ = joinBase; lastC = C; lastCk = ck; lastJv = jv;
     return D;
   };
   D.dispose = () => {

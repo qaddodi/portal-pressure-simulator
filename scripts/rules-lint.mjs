@@ -206,7 +206,9 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     const vg = text('src/ui/veins-gl.js'), s2 = text('src/ui/tube-stage2.js'), tp = text('src/ui/tube-pass.js');
     if (!/tubeBuckets\(tubeNow, C \? C\.mask : B\.pts\.on, nTubes, st\.R\.rows, D\.tb\);/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the rows by tier are bucketed from the cull\'s mask (C ? C.mask : B.pts.on)');
     if (!/const C = view && view\.ok && joinBase < 0 \? cullUpdate\(B, nTubes, view\) : null/.test(s2)) errors.push('src/ui/tube-stage2.js frame: no row is culled during the change between the views (joinBase >= 0), nor without a usable view');
-    if (!/websByTier\(st\.W\.data, st\.W\.count, tubeNow, D\.wb, B\.pts\.on, !B\.noEnds\)/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the joins\' webs are not culled (websByTier keeps B.pts.on)');
+    if (!/websByTier\(st\.W\.data, st\.W\.count, tubeNow, D\.wb, B\.pts\.on, !B\.noEnds[,)]/.test(s2)) errors.push('src/ui/tube-stage2.js frame: the joins\' webs are not culled (websByTier keeps B.pts.on)');
+    // (12 Nov 2026: a frame between the views draws only the webs of the joins it has, the morph set's joins.on, not every join of the stretch.)
+    if (!/websByTier\([^\n]*jv >= 0 && st\.ji \? websLive\(st, joins\) : null\)/.test(s2)) errors.push('src/ui/tube-stage2.js frame: between the views the webs are those of the frame\'s own joins (websLive)');
     if (!/Math\.max\(meshPad\(MP\.UP, look, px\), meshPad\(MP\.SHADOW, look, px\)\)/.test(vg)) errors.push('src/ui/veins-gl.js layerView: the cull\'s pad is the larger of the glow pass\'s and the shadow pass\'s reach (meshPad)');
     if ((tp.match(/D\.frame\(/g) || []).length !== 1) errors.push('src/ui/tube-pass.js: the stage 2 data is binned in frameD alone, with the layer\'s view, so the layer pass and the lumen pass cull the same rows');
   }

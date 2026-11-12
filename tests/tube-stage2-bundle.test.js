@@ -67,3 +67,34 @@ test('a second call in a frame with the tube rows\' stamp unchanged buckets and 
   D.frame({}, h.E.tubeNow, h.E.nTubes, -1);
   assert.equal(calls(h, 'bufferSubData'), first * 3, 'another bundle: uploaded again');
 });
+
+test('between the views a frame draws only the webs of the joins it has (12 Nov 2026: the switch drew every join of every moment)', () => {
+  const h = makeHarness();
+  const nJ = h.MG.jl.n, base = h.MG.ent.length / 4;   // (the join rows after the entries, as a view-switch piece lays them)
+  const ent = new Float32Array(h.MG.ent.length + nJ * 4);
+  ent.set(h.MG.ent);
+  for (let u = 0; u < nJ; u++) {
+    const q = u * 8;
+    ent.set([h.MG.ent[q], h.MG.ent[q + 1], h.MG.ent[q + 2], h.MG.ent[q + 3]], (base + u) * 4);   // (the join's place and reach in its row)
+    ent[q] = u; ent[q + 1] = 0;                                                                // (an entry names its join by index)
+  }
+  const B = { ent, jl: h.MG.jl, pts: h.MG.pts, gen: 1, s2: null };
+  const st = stage2Prepare(B, h.E.tubeNow, h.E.nTubes, base);
+  assert.deepEqual(Array.from(st.ji), Array.from({ length: nJ }, (_, u) => u));
+  h.MG.B = B;
+  const D = createStage2Data(h.E.gl, h.MG);
+  D.frame({}, h.E.tubeNow, h.E.nTubes, base, null, null);
+  const all = D.wb.n;
+  assert.ok(all >= 2, `webs of both joins: ${all}`);
+  const joins = { on: new Uint8Array(nJ).fill(1), ver: 1 };
+  D.frame({}, h.E.tubeNow, h.E.nTubes, base, null, joins);
+  assert.equal(D.wb.n, all, 'every join on: every web');
+  joins.on[1] = 0; joins.ver++;
+  D.frame({}, h.E.tubeNow, h.E.nTubes, base, null, joins);
+  assert.ok(D.wb.n > 0 && D.wb.n < all, `the second join's webs left out: ${D.wb.n} of ${all}`);
+  joins.on.fill(0); joins.ver++;
+  D.frame({}, h.E.tubeNow, h.E.nTubes, base, null, joins);
+  assert.equal(D.wb.n, 0, 'no join in this frame: no web');
+  D.frame({}, h.E.tubeNow, h.E.nTubes, -1, null, joins);
+  assert.equal(D.wb.n, all, 'the figure\'s own binning: the joins record is not read');
+});

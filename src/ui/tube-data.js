@@ -308,6 +308,7 @@ export function webInstances(joinEntries, tubeData, pts, out) {
   if (!out.data || out.data.length < nj * 8 * WEB_FLOATS) out.data = new Float32Array(nj * 8 * WEB_FLOATS);   // alloc-rare: grown with the joins (up to 8 legs, 8 webs, a join), only on a new binning
   if (!out.at || out.at.length < nj * 8 * 2) out.at = new Float32Array(nj * 8 * 2);   // alloc-rare: grown with the joins, only on a new binning
   if (!out.kinds) out.kinds = new Int32Array(LEG_MAX + 1);   // alloc-rare: once
+  if (!out.e || out.e.length < nj * 8) out.e = new Int32Array(nj * 8);   // alloc-rare: grown with the joins, only on a new binning (each web's join entry: out.e[web])
   out.kinds.fill(0);
   const seen = new Set();   // alloc-rare: geometry upload: once per binning, sized by the joins, never on a steady frame
   const data = out.data;
@@ -339,7 +340,7 @@ export function webInstances(joinEntries, tubeData, pts, out) {
       data[o] = S.row[la]; data[o + 1] = S.sample[la]; data[o + 2] = S.dir[la]; data[o + 3] = 1;
       data[o + 4] = S.row[lb]; data[o + 5] = S.sample[lb]; data[o + 6] = S.dir[lb]; data[o + 7] = -1;
       data[o + 8] = rho0; data[o + 9] = joinEntries[q + 2];
-      out.at[count * 2] = x0; out.at[count * 2 + 1] = y0;
+      out.at[count * 2] = x0; out.at[count * 2 + 1] = y0; out.e[count] = e;
       const ta = S.mark[la] > 0.1, tb = S.mark[lb] > 0.1;
       data[o + 10] = ta !== tb ? (ta ? 0 : 1) : 2; data[o + 11] = 0;
       count++;
@@ -354,18 +355,18 @@ export function webInstances(joinEntries, tubeData, pts, out) {
  * The webs grouped by tier (patchesByTier's way): a web is drawn in the higher of its two rows' tiers, once. A web is left out when either row is off (on[row] 0, when `on` is
  * given) or not drawn (alpha <= 0). out: { data (WEB_FLOATS a web, tier ascending), start[t], count[t] (Int32Array MAX_TIERS, in webs) }, out.n the webs in all.
  */
-export function websByTier(webData, count, tube, out, on = null, noMixed = false) {
+export function websByTier(webData, count, tube, out, on = null, noMixed = false, webOn = null) {
   const nRows = Math.floor(tube.length / TUBE_FLOATS);
   if (!out.start) { out.start = new Int32Array(MAX_TIERS); out.count = new Int32Array(MAX_TIERS); out.cur = new Int32Array(MAX_TIERS); }   // alloc-rare: the per-tier arrays, once
   const { start, count: cnt, cur } = out;
   cnt.fill(0);
-  for (let p = 0; p < count; p++) { const t = webTier(webData, p, tube, nRows, on, noMixed); if (t >= 0) cnt[t]++; }
+  for (let p = 0; p < count; p++) { const t = webOn && !webOn[p] ? -1 : webTier(webData, p, tube, nRows, on, noMixed); if (t >= 0) cnt[t]++; }
   let at = 0;
   for (let t = 0; t < MAX_TIERS; t++) { start[t] = at; cur[t] = at; at += cnt[t]; }
   if (!out.data || out.data.length < at * WEB_FLOATS) out.data = new Float32Array(Math.max(at, 1) * WEB_FLOATS);   // alloc-rare: grown with the webs
   const data = out.data;
   for (let p = 0; p < count; p++) {
-    const t = webTier(webData, p, tube, nRows, on, noMixed);
+    const t = webOn && !webOn[p] ? -1 : webTier(webData, p, tube, nRows, on, noMixed);
     if (t < 0) continue;
     const o = cur[t]++ * WEB_FLOATS, q = p * WEB_FLOATS;
     for (let k = 0; k < WEB_FLOATS; k++) data[o + k] = webData[q + k];
