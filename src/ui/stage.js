@@ -995,7 +995,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // when both were one tier: a crossing in one tier is a union, the wider lumen wins), and they end on the portal vein, whose tier a lower-tier stent's end cannot match (the
   // portal vein's outline crossed its mouth; tube-renderer.md, 'Not handled'). Its end on a hepatic vein is a branch in a higher tier, which the Tube fades into the vein.
   // (11 Nov 2026, Mohammad's TIPS shots. Not x.front: that also widens the casing, PORTAL_CASING.)
-  for (const id of ['TIPS', 'DIPS']) if (E[id]) E[id].over = true;
+  // The splenorenal shunts (the spontaneous C6 and the Warren shunt S_DSR) leave the splenic vein, which is in the portal tree's tier: a lower-tier end runs under the vein's wall, and the
+  // wall's dark outline crosses the shunt's mouth, a line between the two (12 Nov 2026, Mohammad: "should be connected at its ends, not separated by lines"). In the vein's own tier
+  // the join cuts the shunt at the wall and the wall is not drawn over its mouth.
+  for (const id of ['TIPS', 'DIPS', 'C6', 'S_DSR']) if (E[id]) E[id].over = true;
 
   // Translucent vessels (the context veins, collaterals) are drawn by the GPU in tiers, one per opacity level (levelTier), beneath the
   // opaque network: a tier is faded once, as a whole, so where two of its vessels meet their overlap is a union, not a darker disc.
