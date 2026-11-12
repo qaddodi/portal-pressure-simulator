@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createCore } from '../src/worker-core.js';
 import { readdirSync } from 'node:fs';
 await import('./dom-shim.js');   // (the chart draws on the GPU, svg-gl.js, which loads only with a page)
-const { LINE, flowTimeSeries, modelLines } = await import('../src/ui/flow-time.js');
+const { flowTimeSeries, modelLines } = await import('../src/ui/flow-time.js');
 const { graphLines, lapseGraphOf, graphTrail } = await import('../src/ui/lapse-graph.js');
 
 const decks = (await Promise.all(readdirSync(new URL('../src/ui/decks/', import.meta.url)).map((f) => import(`../src/ui/decks/${f}`))))
@@ -14,18 +14,11 @@ const decks = (await Promise.all(readdirSync(new URL('../src/ui/decks/', import.
 const unique = [...new Map(decks.map((d) => [d.id, d])).values()];
 const lapses = unique.flatMap((d) => d.slides.map((s, i) => ({ d, s, i })).filter(({ s, i }) => s.lapse && i > 0 && !s.visual));
 
-test('a time-lapse slide with no chart of its own gets a graph of two known readings', () => {
-  const bare = lapses.filter(({ s }) => s.tool?.kind !== 'flowtime' && s.graph !== false);
-  assert.ok(bare.length >= 13, `at least 13 time-lapse slides carry a graph on their words (found ${bare.length}; the rest took theirs up into the instrument card, 10 and 12 Nov 2026)`);
-  const none = bare.filter(({ s }) => !graphLines(s)).map(({ d, s }) => `${d.id}/${s.id}`);
-  assert.deepEqual(none, [], 'every one of them plots two readings');
-  for (const { d, s } of bare) {
-    const g = lapseGraphOf(s), name = `${d.id}/${s.id}`;
-    assert.equal(g.lines.length, 2, `${name}: two lines`);
-    for (const k of g.lines) assert.ok(LINE[k] && !LINE[k][5]?.given, `${name}: ${k} is a line the model keeps`);
-    assert.equal(LINE[g.lines[0]][1] === 'mmHg' || LINE[g.lines[1]][1] !== 'mmHg', true, `${name}: a pressure takes the lower place`);
-    assert.deepEqual(graphTrail(s), modelLines(g.lines), `${name}: the worker keeps those two`);
-  }
+test('every time-lapse slide carries its chart in the instrument card, none on the teaching card', () => {
+  // (Mohammad, 12 Nov 2026: the chart is the instrument. A slide whose own instrument matters shows the chart first and the instrument on the
+  // slide after it, so no time-lapse carries a second graph on its words any more. The teaching card's graph code stays for a slide that names `graph`.)
+  const bare = lapses.filter(({ s }) => s.tool?.kind !== 'flowtime' && s.graph !== false).map(({ d, s }) => `${d.id}/${s.id}`);
+  assert.deepEqual(bare, [], 'every time-lapse slide with no chart of its own is a Doppler, a vitals monitor or a record of its own');
 });
 
 test('a time-lapse slide never keeps the ascites dial or a FibroScan in the instrument card over its own chart', () => {

@@ -55,8 +55,10 @@ test('every vein a slide stents is a vein of the model, and the slide shows it (
 });
 
 test('the Budd–Chiari stent slide stents the right hepatic vein, and its cross-section is the same vein', () => {
-  const s = DECKS.find((d) => d.id === 'budd-chiari').slides.find((x) => x.id === 'stent');
+  const slides = DECKS.find((d) => d.id === 'budd-chiari').slides;
+  const s = slides.find((x) => x.id === 'stent-lumen');   // (the time-lapse before it carries the chart, 12 Nov 2026; this one shows the cross-section)
   assert.deepEqual(s.stented, ['RHV_IVC']);
+  assert.deepEqual(slides.find((x) => x.id === 'stent').stented, ['RHV_IVC']);
   assert.equal(s.tool.kind, 'lumen');
   assert.equal(s.tool.vessel, 'RHV_IVC');
 });

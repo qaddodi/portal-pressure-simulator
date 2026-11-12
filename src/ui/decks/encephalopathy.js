@@ -73,11 +73,18 @@ export const ENCEPHALOPATHY = {
       ask: ['Where does the catheter close the splenorenal shunt?', 'From the left renal vein, with coils, a plug or a sclerosant, at the point where the shunt joins it (Baveno VIII 6.12).'],
     },
     {
-      id: 'embolize', params: { occluded: { C6: true } }, days: 60, lapse: { seconds: 7, from: 'Shunt closed', to: 'Two months later' }, cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['ppg'], delta: 'srs',
+      id: 'embolize', params: { occluded: { C6: true } }, days: 60, lapse: { seconds: 7, from: 'Shunt closed', to: 'Two months later' }, cam: 'fit', lens: 'flow', mark: { edges: ['C6'], label: 'Splenorenal shunt', kind: 'note' }, tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'he'], keepTiles: true, title: 'PPG and encephalopathy risk over two months' }, data: 'tiles', tiles: ['he', 'ppg'], key: ['ppg'], delta: 'srs',
       kicker: 'Spontaneous shunts', site: 'sin', title: 'Closing the shunt brings the portal pressure back',
       line: 'Once the shunt is embolized, portal blood returns to the liver. Ascites or varices can return; here, two months on, the PPG is {ppg} and {asc} of ascites has formed.',
       notes: 'In the model the varices fill as soon as the shunt closes and the ascites gathers within days; in patients the varices grow over weeks to months and the ascites builds more slowly. Embolization closes the shunt from the left renal vein with coils, a plug or a sclerosant. Source: Baveno VIII 6.12 (strong): in recurrent or persistent encephalopathy despite optimal drug treatment, embolization of large portosystemic shunts should be considered, along with a discussion of transplant, particularly when liver function is preserved. Closing a large shunt raises the portal pressure. In some patients new or larger varices or ascites follow, and some bleed. An endoscopy and an ultrasound follow the embolization, and varices that grow are treated as in any cirrhosis.',
       ask: ['Who is a good candidate for embolization, and what do you check afterwards?', 'Recurrent or persistent encephalopathy despite optimal drug treatment, a large shunt on imaging and preserved liver function; transplant is discussed as well (Baveno VIII 6.12). Afterwards, varices on endoscopy and ascites on ultrasound, because the portal pressure rises.'],
+    },
+    {
+      id: 'embolize-flows', lens: 'flow', cam: 'fit', tool: FLOWS, data: 'tiles', tiles: ['he', 'ppg'], key: ['ppg'], delta: 'srs',
+      kicker: 'Spontaneous shunts', site: 'sin', title: 'Closing the shunt sends portal blood back to the liver',
+      line: 'The flow split shows more portal blood reaching the liver and less leaving by shunts.',
+      notes: 'The same patient as the slide before, two months after the shunt was closed. The card splits the portal blood into what reaches the liver and what bypasses it through shunts.',
+      ask: ['After the shunt closes, where does the extra portal blood go?', 'To the liver, so the encephalopathy risk falls and the portal pressure rises.'],
     },
     {
       id: 'tips', preset: 'cirr-decomp', params: { tips: { on: true, d: 8 } }, cam: 'liver', lens: 'firstpass', sites: ['split'], mark: STENT, tool: FLOWS,

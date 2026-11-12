@@ -78,11 +78,18 @@ export const BUDD_CHIARI = {
       ask: ['A pregnant woman with Budd–Chiari syndrome needs an oral anticoagulant. Is a DOAC the choice?', 'No. Pregnancy is one of the four exceptions (Baveno VIII 8.6); LMWH is used instead (8.16).'],
     },
     {
-      id: 'stent', params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7, from: 'Before the stent', to: 'Two months on' }, cam: 'hepatic', terms: ['hv'], mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, stented: ['RHV_IVC'], tool: { kind: 'lumen', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
+      id: 'stent', params: { thrombus: { RHV_IVC: 0 } }, days: 60, lapse: { seconds: 7, from: 'Before the stent', to: 'Two months on' }, cam: 'hepatic', terms: ['hv'], mark: { edges: ['RHV_IVC'], label: 'Stent', kind: 'treat' }, stented: ['RHV_IVC'], tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'], keepTiles: true, title: 'Portal pressure and ascites over two months' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
       kicker: 'Stepwise care', site: 'post', title: 'A stent in one short narrowing can drain the whole liver',
       line: 'Clinicians look for a short stenosis that a catheter can open. A stent in the right hepatic vein brings the portal pressure to {pv} and the ascites to {asc}.',
       notes: 'Source: Baveno VIII 8.33, 8.31. Clinicians actively look for venous stenoses that suit percutaneous recanalization and treat them. A short narrowing of a hepatic vein or of the IVC is opened by angioplasty, usually with a stent, and anticoagulation goes on. In the model one good hepatic vein can drain the whole liver, as here, and it does so faster than in most patients.',
       ask: ['What does the team look for after the diagnosis, before a shunt?', 'Venous stenoses that a catheter can open, with or without a stent (Baveno VIII 8.33).'],
+    },
+    {
+      id: 'stent-lumen', cam: 'hepatic', terms: ['hv'], stented: ['RHV_IVC'], tool: { kind: 'lumen', vessel: 'RHV_IVC' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['asc'], delta: 'bcs',
+      kicker: 'Stepwise care', site: 'post', title: 'The stent holds the narrowing open',
+      line: 'In cross-section the right hepatic vein is open through the stent, so blood leaves the liver freely.',
+      notes: 'Source: Baveno VIII 8.33, 8.31. The same patient as the slide before, two months after the stent. The card shows the right hepatic vein in cross-section.',
+      ask: ['What does the stent change inside the right hepatic vein?', 'It holds the short narrowing open, so blood drains from the liver and the portal pressure and ascites fall.'],
     },
     {
       id: 'shunt', preset: 'budd-chiari', params: { dips: { on: true } }, days: 60, cam: 'dips', terms: ['pv', 'ivc', 'caudateLobe'], mark: { edges: ['DIPS'], label: 'DIPS', kind: 'treat' }, lens: 'flow',

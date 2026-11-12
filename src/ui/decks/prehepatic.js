@@ -50,12 +50,19 @@ export const PREHEPATIC = {
     },
     {
       id: 'anticoag', lens: 'velocity', preset: 'pvt-acute', params: { anticoag: true }, days: 180, lapse: { seconds: 8 }, cam: 'portal', labels: ['CONF'],
-      tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'], delta: 'clot',
+      tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'ppg'], keepTiles: true, title: 'Portal pressure and PPG over six months' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'], delta: 'clot',
       compare: [{ label: 'Anticoagulation', own: true }, { label: 'No anticoagulation', short: 'None', preset: 'pvt-acute', params: {}, days: 180 }],
       kicker: 'Acute thrombosis', site: 'pre', title: 'Early anticoagulation can reopen the portal vein',
       line: 'Anticoagulation starts at once and continues for ≥6 months; here the vein reopens, flow returns and the PPG falls to {ppg}.',
       notes: 'Source: Baveno VIII 9.6, 9.8. In recent portal vein thrombosis without cirrhosis, a clot rarely resolves by itself and recanalization follows early treatment, so anticoagulation starts as soon as possible at a therapeutic dose (9.6, strong) and continues for at least six months (9.8, strong). The workup for a thrombophilia should not delay it. Neither Baveno VIII nor AASLD 2024 gives a recanalization rate, so the slide quotes none. In the model the clot clears completely over six months; with no treatment it stays, and within six months the varices grow, the spleen enlarges and the platelets fall, the cavernoma of the next slide.',
       ask: ['How long is anticoagulation continued for a recent portal vein clot without cirrhosis?', '≥6 months, started as soon as possible (Baveno VIII 9.6, 9.8); long term when a permanent major risk factor remains (9.10).'],
+    },
+    {
+      id: 'anticoag-lumen', lens: 'velocity', cam: 'portal', labels: ['CONF'], tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['ppg'], delta: 'clot',
+      kicker: 'Acute thrombosis', site: 'pre', title: 'Six months on, the clot has cleared from the lumen',
+      line: 'In cross-section the main portal vein has its full channel back, with no clot left.',
+      notes: 'Source: Baveno VIII 9.6, 9.8. The same patient as the slide before, six months after anticoagulation started. The card shows the main portal vein in cross-section. In the model the clot clears completely; neither Baveno VIII nor AASLD 2024 quotes a recanalization rate.',
+      ask: ['What does the cross-section show after six months of early anticoagulation in the model?', 'A fully open lumen: the clot has cleared. Real recanalization rates are not quoted.'],
     },
     {
       // (Six months on from the anticoagulation slide, the vein open: the chart of how long to treat a recent clot, Baveno VIII 9.6 to 9.10. Her homozygous factor V Leiden is a
@@ -127,11 +134,18 @@ export const PREHEPATIC = {
     },
     {
       id: 'pvt-anticoag', lens: 'velocity', tick: 'Anticoagulation', params: { anticoag: true }, days: 180, lapse: { seconds: 8 }, cam: 'portal', terms: ['pv'],
-      tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'gradients',
+      tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'ppg'], keepTiles: true, title: 'Portal pressure and PPG over six months' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'gradients',
       kicker: 'Anticoagulation', site: 'sin', title: 'Months of anticoagulation reopen the vein',
       line: 'Anticoagulation can reopen the portal vein in cirrhosis; here it reopens over six months and its pressure falls to {pv}, faster than in patients.',
       notes: 'Source: Baveno VIII 9.18 to 9.21. Baveno VIII advises anticoagulation for transplant candidates with any portal vein clot (9.18), and considers it for a recent partial (<50% remnant lumen) or complete clot of the main portal vein and for any clot that causes symptoms (9.19). Candidates continue it until the operation; everyone else has at least six months and long-term use is considered whether or not the vein reopens (9.20). If it is stopped, imaging at 1 month and then every 3 months looks for recurrence or progression (9.21). Neither Baveno VIII nor AASLD 2024 gives a recanalization rate for cirrhosis, so the slide quotes none.',
       ask: ['The portal vein has reopened after six months of anticoagulation in cirrhosis. Does the anticoagulant have to stop?', 'No. Baveno VIII 9.20: continue at least six months, and consider long-term use whether or not the vein reopens; transplant candidates continue until surgery.'],
+    },
+    {
+      id: 'pvt-anticoag-lumen', lens: 'velocity', cam: 'portal', terms: ['pv'], tool: { kind: 'lumen', vessel: 'PV_TRUNK' }, data: 'tiles', tiles: ['pv', 'ppg'], key: ['pv'], delta: 'gradients',
+      kicker: 'Anticoagulation', site: 'sin', title: 'The portal vein lumen is open again',
+      line: 'In cross-section the clot is gone from the main portal vein after six months of anticoagulation.',
+      notes: 'Source: Baveno VIII 9.18 to 9.21. The same patient as the slide before. In the model the clot clears completely, faster than it does in most patients with cirrhosis; neither Baveno VIII nor AASLD 2024 quotes a recanalization rate for cirrhosis.',
+      ask: ['The lumen is open again after six months. Does the anticoagulant stop?', 'Not by itself. Continue at least six months, and consider long-term use whether or not the vein reopens (Baveno VIII 9.20).'],
     },
     {
       id: 'course', cam: 'fit', tool: { kind: 'trace', range: 'talk', since: 'base', title: 'The course on one chart', bands: ['carvedilol', 'anticoag'], gap: 'clot' },

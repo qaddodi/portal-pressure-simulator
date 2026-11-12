@@ -47,11 +47,18 @@ export const CARVEDILOL = {
       ask: ['A woman with compensated cirrhosis has a stiffness of 12 kPa and platelets of 160,000/µL. Does she need carvedilol?', 'No. CSPH is ruled out, so a beta-blocker has nothing to prevent. Repeat the stiffness in 12 months.'],
     },
     {
-      id: 'rise', days: 730, ramp: { cirrhosis: [0.4, 0.66] }, lapse: { seconds: 8, from: 'First visit', to: 'Two years on' }, cam: 'liver', tool: { kind: 'path', of: 'first-visit', short: 'First-visit path' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], graph: ['hvpg', 'lsm'], delta: 'first',
+      id: 'rise', days: 730, ramp: { cirrhosis: [0.4, 0.66] }, lapse: { seconds: 8, from: 'First visit', to: 'Two years on' }, cam: 'liver', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'lsm'], keepTiles: true, title: 'HVPG and stiffness over two years' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], graph: ['hvpg', 'lsm'], delta: 'first',
       kicker: 'First visit', site: 'sin', title: 'Two years on, the stiffness rules CSPH in',
-      line: 'Her stiffness is now {lsm}, which meets {>=25 kPa}, with platelets of {plt}. CSPH is ruled in without a catheter, and the chart says to start carvedilol.',
+      line: 'Her stiffness is now {lsm}, which meets {>=25 kPa}, with platelets of {plt}. CSPH is ruled in without a catheter, and carvedilol starts. The next slide shows the path.',
       notes: 'Source: Baveno VIII 1.16. In non-obese MASLD, as here (BMI under 30), a stiffness of 25 kPa or more rules CSPH in. With obesity the rule does not apply and a model that includes the BMI decides. Over two years the model\'s HVPG has passed 12 mmHg. Stiffness and platelets are cheap and repeatable, which is why they are used to follow patients between catheter studies.',
       ask: ['Her stiffness was 12 kPa two years ago and is now 26 kPa. What changed?', 'CSPH is now ruled in (LSM ≥25 kPa in non-obese MASLD), so carvedilol starts.'],
+    },
+    {
+      id: 'rise-path', cam: 'liver', tool: { kind: 'path', of: 'first-visit', short: 'First-visit path' }, data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'], delta: 'first',
+      kicker: 'First visit', site: 'sin', title: 'On the first-visit path, this stiffness starts carvedilol',
+      line: 'On the first-visit path, a stiffness of {lsm} rules CSPH in and leads to carvedilol.',
+      notes: 'Source: Baveno VIII 1.16. The same woman as the slide before, two years on. The first-visit path starts from her stiffness and platelets: in non-obese MASLD a stiffness of 25 kPa or more rules CSPH in without a catheter, and carvedilol starts.',
+      ask: ['Where does a stiffness of 26 kPa lead on the first-visit path?', 'CSPH is ruled in (LSM ≥25 kPa in non-obese MASLD), so carvedilol starts.'],
     },
     {
       id: 'start', params: CARV, cath: 'result', cam: 'liver', tool: { kind: 'hvpg', catheter: true }, data: 'tiles', tiles: ['map'], key: ['hvpgFall'], delta: 'rise', hvpgResp: 'rise', response: true,

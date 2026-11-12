@@ -49,12 +49,19 @@ export const CAUSE_TREATED = {
     {
       id: 'year2', cutouts: ['lobule', 'sinusoid'], days: 365, ramp: { cirrhosis: [0.45, 0.32] }, lapse: { seconds: 8, from: 'One year', to: 'Two years after cure' }, cam: 'liver',
       // (His trail on the plane: where he stood before cure and a year after, a line on to the dot as it moves. Mohammad, 1 Nov, mock B.)
-      tool: { ...PLANE, trail: [{ slide: 'before', name: 'Before cure' }, { slide: 'year1', name: '1 year' }] },
+      tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'ssm'], keepTiles: true, title: 'HVPG and spleen stiffness over the year' },
       data: 'tiles', tiles: ['hvpg', 'ssm'], key: ['hvpg'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'Two years after cure, CSPH has resolved',
       line: 'The stiffness reads {lsm}, which is {<10 kPa}, and the platelets {plt}: by Baveno VIII, CSPH has resolved.',
       notes: 'After treating the cause, Baveno VIII advises reassessing CSPH, and counts it as resolved when the HVPG is under 10 mmHg, the stiffness under 10 kPa, or the stiffness under 15 kPa with a spleen stiffness under 25 kPa; his spleen stiffness tile, the model\'s, has fallen below 25 kPa with the pressure and the smaller spleen. Liver cancer surveillance every 6 months continues, because cirrhosis was present before the cure. Recheck the stiffness and the platelets if a new cause of liver injury appears.',
       ask: ['Does he still need liver cancer surveillance?', 'Yes, every 6 months: cirrhosis was present before the cure, and the cancer risk remains.'],
+    },
+    {
+      id: 'year2-plane', cam: 'liver', tool: { ...PLANE, trail: [{ slide: 'before', name: 'Before cure' }, { slide: 'year1', name: '1 year' }] }, data: 'tiles', tiles: ['hvpg', 'ssm'], key: ['hvpg'], delta: 'before',
+      kicker: HCV, site: 'sin', title: 'On the CSPH plane, the trail ends where CSPH has resolved',
+      line: 'The trail runs from before the cure, through one year, to two years after it.',
+      notes: 'The same man as the slide before, two years after the cure. The plane marks where he stood before the cure, at one year and now, against the CSPH criteria.',
+      ask: ['What does the trail across the plane show?', 'The pressure and stiffness fall after the cure, until CSPH has resolved.'],
     },
     {
       // (The same man, on carvedilol since the cure: his stiffness is under 10 kPa, so the chart for stopping it lights Resolved. Baveno VIII 7.15 to 7.19 are written
@@ -76,11 +83,18 @@ export const CAUSE_TREATED = {
       ask: ['Ascites seen only on ultrasound: is she decompensated?', 'No: only clinically evident ascites marks decompensation, though even a little fluid on ultrasound carries a worse outlook.'],
     },
     {
-      id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', tool: { ...PLANE, trail: [{ slide: 'high', name: 'Before cure' }] }, data: 'tiles', key: ['hvpg'], tiles: ['hvpg', 'ssm'], delta: 'high',
+      id: 'high2', days: 730, ramp: { cirrhosis: [0.75, 0.57] }, lapse: { seconds: 10, from: 'Cure', to: 'Two years later' }, cam: 'liver', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'ssm'], keepTiles: true, title: 'HVPG and spleen stiffness over two years' }, data: 'tiles', key: ['hvpg'], tiles: ['hvpg', 'ssm'], delta: 'high',
       kicker: HIGH, site: 'sin', title: 'Two years after cure, CSPH persists',
       line: 'Her stiffness, {lsm}, sits in the indeterminate zone and cannot settle it alone. The HVPG is {hvpg}, which is {>=10 mmHg}: CSPH persists and she keeps carvedilol.',
       notes: 'When the HVPG starts well above 10 mmHg, CSPH often persists after cure, and so does the risk of decompensation. She keeps carvedilol and liver cancer surveillance every 6 months. Her stiffness, still in the indeterminate zone, cannot tell on its own whether CSPH has gone.',
       ask: ['Should she stop carvedilol now that the virus is gone?', 'No: CSPH persists, so carvedilol continues.'],
+    },
+    {
+      id: 'high2-plane', cam: 'liver', tool: { ...PLANE, trail: [{ slide: 'high', name: 'Before cure' }] }, data: 'tiles', tiles: ['hvpg', 'ssm'], key: ['hvpg'], delta: 'high',
+      kicker: HIGH, site: 'sin', title: 'On the CSPH plane, the trail stays inside the CSPH region',
+      line: 'The trail runs from before the cure to two years later and does not leave the CSPH region, so carvedilol continues.',
+      notes: 'The same woman as the slide before, two years after the cure. The plane marks where she stood before the cure and now, against the CSPH criteria.',
+      ask: ['What does the trail across the plane show for her?', 'The pressure falls after the cure but stays in the CSPH region, so CSPH persists.'],
     },
     {
       id: 'masld', preset: 'cirr-comp', params: { cirrhosis: 0.45 }, relax: RELAX, days: 365, ramp: { cirrhosis: [0.45, 0.35] }, lapse: { seconds: 8, from: 'Weight loss starts', to: 'One year later' }, cam: 'liver',

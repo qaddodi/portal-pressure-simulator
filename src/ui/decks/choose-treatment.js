@@ -38,7 +38,7 @@ export const CHOOSE_TREATMENT = {
     },
     {
       // (He starts as the ascites and kidney talks build him: diuretics off, 200 days, 5.2 L. The TIPS goes in on the first day of the lapse: a ramp from 0 to 1 on tips.on is on from day 1.)
-      id: 'a2', preset: 'cirr-decomp', params: { diuretics: false, albumin: 2.5 }, relax: 200, days: 28, ramp: { 'tips.on': [0, 1] }, lapse: { seconds: 7, from: 'Before the stent', to: 'Four weeks later' }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'fluid', window: true }, data: 'tiles', tiles: ['asc', 'liver'], key: ['asc'],
+      id: 'a2', preset: 'cirr-decomp', params: { diuretics: false, albumin: 2.5 }, relax: 200, days: 28, ramp: { 'tips.on': [0, 1] }, lapse: { seconds: 7, from: 'Before the stent', to: 'Four weeks later' }, cam: 'liver', mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'liver'], keepTiles: true, title: 'Ascites and sinusoidal flow over four weeks' }, data: 'tiles', tiles: ['asc', 'liver'], key: ['asc'],
       vignette: 'A 57-year-old man with MASH cirrhosis needs a 5 L paracentesis every two weeks despite full-dose diuretics. His bilirubin is 1.8 mg/dL and he has no encephalopathy.',
       caseQ: 'What stops ascites that keeps coming back?',
       kicker: 'Ascites', site: 'sin', title: 'TIPS for recurrent ascites',
@@ -47,9 +47,16 @@ export const CHOOSE_TREATMENT = {
       ask: ['What lowers the risk of encephalopathy after a TIPS for ascites?', 'The smallest stent diameter that controls the ascites (6.5), and rifaximin, which Baveno VIII says to consider before every elective TIPS (6.16, strong). Past encephalopathy is reviewed first, but it does not by itself rule a TIPS out (6.14, 6.15).'],
     },
     {
+      id: 'a2-fluid', cam: 'liver', tool: { kind: 'fluid', window: true }, data: 'tiles', tiles: ['asc', 'liver'], key: ['asc'],
+      kicker: 'Ascites', site: 'sin', title: 'After the TIPS, the lymphatics keep up',
+      line: 'With the sinusoidal pressure lower, the liver makes less lymph than the lymphatics can carry. Almost nothing leaks, so the ascites stops building.',
+      notes: 'The same man as the slide before, four weeks after the TIPS. The fluid card splits the lymph made into what the lymphatics carry and what leaks past them. After the stent the lymph made falls within the lymphatics\' capacity, so nothing builds up in the belly and the tap is no longer needed. These are the model\'s own terms.',
+      ask: ['Why does a TIPS stop the ascites from coming back?', 'It lowers the sinusoidal pressure, so the liver makes less lymph than the lymphatics can carry.'],
+    },
+    {
       // (A recent clot in cirrhosis, found on the 6-monthly scan: the commoner portal vein clot in clinic. The clot is partial, over half the
       // trunk; the start is the preset with the clot, and anticoagulation lyses it over the days, as the model always does.)
-      id: 'a3', preset: 'csph', params: { drugs: { carvedilol: true }, thrombus: { PV_TRUNK: 0.6 }, anticoag: true }, days: 180, lapse: { seconds: 8, from: 'Anticoagulation starts', to: '6 months later' }, cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
+      id: 'a3', preset: 'csph', params: { drugs: { carvedilol: true }, thrombus: { PV_TRUNK: 0.6 }, anticoag: true }, days: 180, lapse: { seconds: 8, from: 'Anticoagulation starts', to: '6 months later' }, cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'pvFlow'], keepTiles: true, title: 'PPG and portal flow over six months' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
       vignette: 'A 62-year-old man with MASH cirrhosis and CSPH, Child–Pugh A 6, takes carvedilol. His 6-monthly ultrasound shows no tumor but a new clot filling over half the portal vein. He has no pain.',
       caseQ: 'Does this clot need treatment?',
       kicker: 'Clots', site: 'pre', title: 'A recent portal vein clot in cirrhosis: anticoagulate',
@@ -58,13 +65,27 @@ export const CHOOSE_TREATMENT = {
       ask: ['Which portal vein clots in cirrhosis are anticoagulated?', 'Any clot in a transplant candidate; otherwise a recent clot that is complete or leaves under half of the main vein open, a symptomatic clot, or a non-tumoral clot with liver cancer.'],
     },
     {
-      id: 'a4', preset: 'pvt-acute', params: { anticoag: true }, days: 180, lapse: { seconds: 8, from: 'Anticoagulation starts', to: '6 months later' }, cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
+      id: 'a3-lumen', cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
+      kicker: 'Clots', site: 'pre', title: 'Six months on, the portal vein lumen is open',
+      line: 'In cross-section the clot that filled over half of the vein is gone.',
+      notes: 'The same man as the slide before, six months after anticoagulation started. The card shows the main portal vein in cross-section.',
+      ask: ['After six months of anticoagulation the lumen is open again. Does the anticoagulant stop?', 'Not by itself. Continue at least six months, and consider long-term use whether or not the vein reopens (Baveno VIII 9.20).'],
+    },
+    {
+      id: 'a4', preset: 'pvt-acute', params: { anticoag: true }, days: 180, lapse: { seconds: 8, from: 'Anticoagulation starts', to: '6 months later' }, cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'flowtime', clock: 'days', lines: ['ppg', 'pvFlow'], keepTiles: true, title: 'PPG and portal flow over six months' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
       vignette: 'A 39-year-old woman with homozygous factor V Leiden who takes an OCP has had 4 days of constant periumbilical pain. CT shows a fresh clot in the portal vein. Her liver is normal.',
       caseQ: 'What treatment reopens the vein?',
       kicker: 'Clots', site: 'pre', title: 'Anticoagulate at once, for ≥6 months',
       line: 'The earlier anticoagulation starts, the likelier the vein reopens; here it does. Six months on, portal flow is back to {pvFlow} and the PPG is {ppg}.',
       notes: 'A recent portal vein clot without cirrhosis threatens the bowel, through spreading clot in the mesenteric veins, and the liver\'s portal supply. The OCP is stopped. Baveno VIII advises a workup for permanent and reversible risk factors, because several often coexist (9.5). A recent clot rarely clears on its own and the vein reopens more often the earlier anticoagulation starts, so it starts at diagnosis at a therapeutic dose (9.6) and continues for at least 6 months (9.8). When the clot reaches the SMV the bowel is assessed for ischemia (9.7); endovascular treatment is considered, in experienced centers, only if ischemia persists or worsens after 24 to 48 hours of anticoagulation (9.14). Neither thrombolysis nor a TIPS comes first. Her factor V Leiden is homozygous, a permanent major risk factor, so anticoagulation then continues long term at a therapeutic dose (9.10a, Fig. 5); the next slide shows the chart. In the model the clot always dissolves on anticoagulation; in patients the vein reopens in only some. (Baveno VIII 9.5 to 9.10, 9.14.)',
       ask: ['How long is anticoagulation given after a recent portal vein clot?', '≥6 months (Baveno VIII 9.8), and long term when a permanent major risk factor is found (9.10).'],
+    },
+    {
+      id: 'a4-lumen', cam: 'portal', labels: ['CONF', 'SMV'], tool: { kind: 'lumen' }, data: 'tiles', tiles: ['ppg', 'pvFlow'], key: ['ppg'],
+      kicker: 'Clots', site: 'pre', title: 'Six months on, the lumen is open',
+      line: 'In cross-section the fresh clot is gone and the vein is fully open.',
+      notes: 'The same woman as the slide before, six months after anticoagulation started. The card shows the main portal vein in cross-section.',
+      ask: ['Why does a recent clot reopen more often when anticoagulation starts early?', 'A recent clot rarely clears on its own, and the vein reopens more often the earlier anticoagulation starts (Baveno VIII 9.6).'],
     },
     {
       // (Fig. 5 of Baveno VIII, lit for the same woman as the slide before: a reversible factor (the OCP) and a permanent major one (homozygous factor V Leiden).

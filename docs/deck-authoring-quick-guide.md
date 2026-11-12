@@ -158,7 +158,7 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | The belly and its ascites | `tool: { kind: 'abdomen' }` | ascites and wall collaterals |
 | The varix wall | `tool: { kind: 'wall' }` | why a large varix bursts |
 | Pressure and flow around a meal | `tool: { kind: 'flowtime' }` | a time-lapse with a meal |
-| Two readings over a time-lapse's days | `tool: { kind: 'flowtime', clock: 'days', lines: [..], keepTiles: true, title }` | any time-lapse slide: the chart is the instrument card, not a graph on the teaching card |
+| Two readings over a time-lapse's days | `tool: { kind: 'flowtime', clock: 'days', lines: [..], keepTiles: true, title }` | any time-lapse slide: the chart is the instrument card, not a graph on the teaching card; to keep another instrument, show it on the next slide |
 
 Doppler has extra options. `mode: 'color'` shows a colour Doppler map. `calipers: true` marks peak and trough and gives the pulsatility index. `pair: true` adds a slim second trace (a hepatic vein under a portal vein). `scale: 60` fixes the velocity scale so a fast jet wraps round, which shows aliasing, and `baseline: 0.3` moves the baseline to make room. On a stent, `gate: 'distal'` picks the third that is sampled and `points: true` calls out the velocity at all three.
 
