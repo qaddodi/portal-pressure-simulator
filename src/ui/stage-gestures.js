@@ -213,7 +213,7 @@ export function createGestures(st, live) {
   const clearPress = () => { stageScope.clear(pressT); pressT = 0; };
   // A finger (or the mouse) that lands on a label starts the same gesture as one on the figure: the labels cover
   // much of a phone's figure, and a pinch that began on one used to go unnoticed. A tap on a label still opens it.
-  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, lb); });
+  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, live.plateAt?.(ev.clientX, ev.clientY) ? null : lb); });   // (a press on the plate's ring is the ring's, whatever label stands over it)
   svg.addEventListener('pointerdown', (ev) => onDown(ev, null));
   function onDown(ev, label) {
     if (systemEdge(ev)) return;

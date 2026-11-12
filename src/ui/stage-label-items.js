@@ -282,6 +282,7 @@ export function createLabelItems(st, live) {
   // that begins ends any other first. The probe's boxes are copies, from a pool made once, as many as the probe's own lists hold.)
   const calloutBuf = [], PROBE_BOXES = [];
   for (let i = 0; i < 1600; i++) PROBE_BOXES.push({ x0: 0, y0: 0, x1: 0, y1: 0, probe: true });
+  const PLATE_BOX = { x0: 0, y0: 0, x1: 0, y1: 0 };
   function calloutBoxes() {
     const out = calloutBuf;
     let n = 0;
@@ -295,6 +296,7 @@ export function createLabelItems(st, live) {
         out[n++] = c;
       }
     }
+    if (live.plateBox?.(PLATE_BOX)) out[n++] = PLATE_BOX;   // (the cutouts plate's ring on the liver, a button: no label covers it)
     out.length = n;
     return out;
   }
@@ -315,6 +317,7 @@ export function createLabelItems(st, live) {
     let h = 2166136261;
     for (const el of sites.made.values()) h = sigFoldEl(h, el);
     if (cath.made && !cath.labels.hidden) for (const el of cath.made.values()) h = sigFoldEl(h, el);
+    if (live.plateBox) h = sigFold(h, 77);   // (the plate stands: its ring is a box the labels keep clear of; where it is, a solve reads afresh)
     if (dpr.on && dpr.box) h = sigFold(sigFold(sigFold(h, 100), Math.round((dpr.box.x1 - dpr.box.x0) / 8)), Math.round((dpr.box.y1 - dpr.box.y0) / 8));
     return h;
   };

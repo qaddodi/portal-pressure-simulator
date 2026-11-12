@@ -128,6 +128,14 @@ export function createCutoutFrame({ top, xform }) {
     if (!offPass) offPass = t.add({ order: FRAME_ORDER, draw: pass });
     try { t.present(); } catch (e) { caught('cutout-frame:present', e); }
   }
+  /** The liver's spot through the camera now, into p and `seen`; true while it shows (inside the room left of the windows). */
+  function spotNow(W, H, win, open) {
+    seen.on = false;
+    if (!plan?.spot || xform(cam) !== 'w') return false;
+    p[0] = cam.a * plan.spot[0] + cam.c * plan.spot[1] + cam.e; p[1] = cam.b * plan.spot[0] + cam.d * plan.spot[1] + cam.f;
+    if (p[0] >= plan.free.l && p[0] <= (open ? win.x - 10 : W) && p[1] >= 0 && p[1] <= H) { seen.on = true; seen.x = p[0]; seen.y = p[1]; return true; }
+    return false;
+  }
   /** The pass itself, inside each present of the figure: the spot through this frame's camera, the cone from it to the window. */
   function pass() {
     if (dead || !gl || !prog || !plan || gl.isContextLost()) return;
@@ -139,11 +147,7 @@ export function createCutoutFrame({ top, xform }) {
     // (The liver's spot, through the camera now; it shows only while it lies in the room left of the windows.)
     let spot = 0, cone = 0;
     const open = plan.open !== false;
-    seen.on = false;
-    if (plan.spot && xform(cam) === 'w') {
-      p[0] = cam.a * plan.spot[0] + cam.c * plan.spot[1] + cam.e; p[1] = cam.b * plan.spot[0] + cam.d * plan.spot[1] + cam.f;
-      if (p[0] >= plan.free.l && p[0] <= (open ? win.x - 10 : W) && p[1] >= 0 && p[1] <= H) { spot = 1; seen.on = true; seen.x = p[0]; seen.y = p[1]; cone = open && coneTangents(p, c, R, tan) ? 1 : 0; }
-    }
+    if (spotNow(W, H, win, open)) { spot = 1; cone = open && coneTangents(p, c, R, tan) ? 1 : 0; }
     // (The box the frame fills, in canvas px; a scissor takes the rest of the triangle away.)
     let x0 = c[0] - R - 50, y0 = c[1] - R - 50, x1 = c[0] + R + 50, y1 = c[1] + R + 70;
     if (!open) { x0 = p[0]; y0 = p[1]; x1 = p[0]; y1 = p[1]; if (!spot) return; }
@@ -178,6 +182,14 @@ export function createCutoutFrame({ top, xform }) {
     },
     /** Whether a point (stage px) is on the liver's spot as last drawn, with a finger's margin. */
     hit(x, y) { return seen.on && Math.hypot(x - seen.x, y - seen.y) <= Math.max(SPOT_R + 8, 22); },
+    /** The spot's box (stage px, its ring and the finger's margin) through the camera now, written into o; false while it is not shown. The labels keep clear of it. */
+    box(o) {
+      const b = stageBox(); if (!plan || !b) return false;
+      if (!spotNow(Math.max(1, Math.round(b.width || b.sw || 1)), Math.max(1, Math.round(b.height || b.sh || 1)), plan.win, plan.open !== false)) return false;
+      const r = Math.max(SPOT_R + 8, 22);
+      o.x0 = p[0] - r; o.y0 = p[1] - r; o.x1 = p[0] + r; o.y1 = p[1] + r;
+      return true;
+    },
     dispose() { plan = null; key = ''; unpass(); stopTheme?.(); stopTheme = null; watch(null); clearAsk(); rehost(); },
   };
   function clearAsk() { ask = 0; }

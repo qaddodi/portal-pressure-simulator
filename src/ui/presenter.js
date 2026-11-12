@@ -4443,7 +4443,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       plateKey = key;
       stage.plateLobule?.(plan?.open ? plan.rects.lobule || null : null, !!plan && plan.subject === 'lobule');
     }
-    stage.onPlateTap?.(plan ? plateTap : null);
+    stage.onPlateTap?.(plan ? plateTap : null, plan ? plateAt : null, plan ? plateBox : null);
     platePlace(plan);
     // (The camera may still be gliding to the liver's place: the ring is put where the liver is once it has landed.)
     if (plan) stimer(() => { if (ui) platePlace(platePlan); }, 1700);
@@ -4476,6 +4476,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     plateOpen = open;
     layout();
   }
+  // (The spot's ring is a button: what a press there is, the label over it never wins (stage-gestures), and the labels keep clear of its box (stage-label-items calloutBoxes).)
+  function plateAt(cx, cy) {
+    const r = stageBox();
+    return !!(platePlan && plateGL && r && plateGL.hit(cx - r.left, cy - r.top));
+  }
+  const plateBox = (o) => !!(platePlan && plateGL && plateGL.box(o));
   function plateTap(cx, cy) {
     const r = stageBox();
     if (!platePlan || !plateGL || !r || !plateGL.hit(cx - r.left, cy - r.top)) return false;
