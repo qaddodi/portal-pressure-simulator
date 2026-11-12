@@ -105,7 +105,7 @@ export function createLabelItems(st, live) {
     const withUnit = (t) => (selStation(id) ? [{ ...unit, t }] : []);
     if (lm === 'oxygen') {
       const sat = oxygenFor(EDGES, NODES, f).node[NI[id]];
-      return { runs: [{ ...big, t: fmt(sat * 100, 0) }, ...withUnit('% O₂')], color: oxygenColor(sat) };
+      return { runs: [{ ...big, t: fmt(sat * 100, 0), pad: 3 }, ...withUnit('% O₂')], color: oxygenColor(sat) };
     }
     if (lm === 'flow') {
       const v = throughput(f.Qf || f.Q, id);
@@ -134,7 +134,7 @@ export function createLabelItems(st, live) {
     // A microvascular bed has no single velocity; a station whose only vessels are closed
     // collaterals carries no flow at all (not stasis in an open vessel).
     if (!tubes) return { runs: [{ ...unit, t: bed ? 'microcirculation' : 'collaterals closed', gap: 0 }], color: 'var(--lens-neutral)' };
-    const runs = [{ ...big, t: fmt(best, 0) }, { ...unit, t: 'cm/s' }];
+    const runs = [{ ...big, t: fmt(best, 0), pad: 3 }, { ...unit, t: 'cm/s' }];   // (pad: laid out as wide as three digits, stage-label-size.js lineW)
     // (Named as the Doppler names it: velNormal.js judgeFlow, under 1 cm/s no flow, under 9 stasis.)
     const jf = judgeFlow(best, null, null);
     if (jf.none || jf.stasis) runs.push({ t: jf.none ? 'no flow' : 'stasis', size: 10.5, weight: 650, cls: 'lb-alert', gap: 6 });
@@ -251,7 +251,7 @@ export function createLabelItems(st, live) {
     // (c8e89a6), drawn toward the text colour (--vel-ink) so it reads on the label's halo, 4.5:1 at least on the light stage; the point sampled is named in bold: Review 15 Oct.)
     const nv = point ? velNormal(EI[sid], f) : null, tint = nv && !none ? `color-mix(in srgb, ${velocityColor(vel, nv)} var(--vel-ink), var(--text))` : '';
     it.lines = [[{ ...it.lines[0][0], t: name, ...(sampled ? { weight: 750, cls: 'lb-name lb-gate' } : {}) }, ...(none ? [{ t: 'No flow', size: 14, weight: 650, cls: 'lb-val', gap: 4 }]
-      : [{ t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4, ...(tint ? { fill: tint } : {}) }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }])]];
+      : [{ t: fmt(vel, 0), size: 14, weight: 650, cls: 'lb-val', gap: 4, pad: 3, ...(tint ? { fill: tint } : {}) }, { size: 10, weight: 500, cls: 'lb-unit', gap: 2.5, t: 'cm/s' }])]];
     it.key = point ? `n:${sid}:${point}` : `n:${sid}`; it.src = ['vel', sid, point]; it.node = undefined; it.sel = false; it.swatch = null;
     it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
     it.label = (none ? `${sid}${seg}: no flow` : `${sid}${seg}: ${fmt(vel, 0)} centimeters per second`) + (sampled ? ', sampled by the Doppler' : '');

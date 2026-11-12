@@ -371,7 +371,7 @@ export function createLabelLayer(st, live) {
     // a point the layout chose by other rules, is not pinned and moves as before.)
     const pk = it.aPk, pin = pk > 0;   // (taken in the layout's frame: stampAnchor)
     const px0 = +it.x.toFixed(1), py0 = +(it.rot ? it.y + it.w : it.y).toFixed(1);
-    // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera, so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (zone titles, lanes, the scan, the stage) and not between views. An organ's name is a region name (leader rule L1): its point is where it is drawn, so it never stands off its own anchor.)
+    // (Every other figure label gets a world anchor (step 3 of the rigid-labels plan): its point as laid out, taken back to the world under this layout's camera, so the GPU keeps it on that point through any pan, pinch or zoom. Not the screen's furniture (the scan, the stage; a Circuit lane's caption is anchored at its lane point, L1 12 Nov) and not between views. An organ's name is a region name (leader rule L1): its point is where it is drawn, so it never stands off its own anchor.)
     const gw = it.aGw;
     const look = lookOf(b, it);
     // (A lean label's look id changing is a change of its pieces' classes or colours, which its record does not carry: label-gl reads it again.

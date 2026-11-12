@@ -8,7 +8,7 @@ import { HEART_KEY, addHeart } from './heart-label.js';
 import { store } from './store.js';
 
 export function createLabelDriver(st, live) {
-  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
+  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideNow, rideStart, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
   const JOB_NOW = { maxWait: 0 };
   const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
@@ -124,7 +124,7 @@ export function createLabelDriver(st, live) {
     if (live.blockerBoxes) for (let i = 0; i < live.blockerBoxes.length; i++) { const o = live.blockerBoxes[i]; h = sigFold(sigFold(sigFold(sigFold(h, Math.round(o.x0 / 8)), Math.round(o.y0 / 8)), Math.round(o.x1 / 8)), Math.round(o.y1 / 8)); }   // (and the cards' boxes, which can arrive a frame after the insets)
     return h || 1;
   };
-  const stats = { layouts: 0, skips: 0, values: 0, ms: 0, jobs: 0, slices: 0, drops: 0 };
+  const stats = { layouts: 0, skips: 0, values: 0, ms: 0, jobs: 0, slices: 0, drops: 0, solves: 0 };   // (solves: the layouts that searched afresh, not carried)
   function solCacheKey(sig, sc, th, b, csig, ins) {
     if (live.morph !== 1 || live.morphTarget !== 1 || live.xfSolving || live.viewXf || !(sc > 0)) return null;
     return [sig, Math.round(Math.log2(sc) * 4), Math.round(th * 100), Math.round(live.CTM.e / (b.width / 4)), Math.round(live.CTM.f / (b.height / 4)), b.width, b.height, live.rotU > 0.5, live.labelFonts, csig, ins].join('|');
@@ -169,7 +169,7 @@ export function createLabelDriver(st, live) {
     const moving = live.gestureOn() || live.vtGliding || live.drifting || !!live.zoomBase;
     if (moving && live.solvedFor && restView && !live.lobuleOn && !live.lz?.isOpen() && !(live.diveT > 0)) {
       if (!live.handRide) { rideKeyInto(rideKeyA, st); live.handRide = true; labelJobDrop(); handRideWatch(); }
-      if (rideKeyHeld(st)) { stats.skips++; stats.ms += performance.now() - t0; return; }
+      if (rideKeyHeld(st)) { handCarry(); stats.skips++; stats.ms += performance.now() - t0; return; }
       handRideEnd(); live.labelKey = null;
     } else if (live.handRide) { handRideEnd(); live.labelKey = null; }
     // (Labels are never hidden for a zoom: the anchored ones ride the camera on the GPU (world anchors), the rest are carried and solved as it goes. Mohammad, 4 Nov: "after I zoom there is like 2-3 s until labels show up in the Circuit" was this hide, lifted by a 3 s poll.)
@@ -204,7 +204,7 @@ export function createLabelDriver(st, live) {
       const solved = solve || layoutLabels(f, false) === false;
       live.carryReslot = false;
       if (solved) {
-        live.carryClear = false;
+        live.carryClear = false; stats.solves++;
         // (Written into whichever of two kept records is not the one standing: a solve in slices holds its record until it lands.)
         const sf = live.solvedFor === SOLVED_A ? SOLVED_B : SOLVED_A;
         sf.sig = sig; sf.sc = sc; sf.th = th; sf.csig = csig; sf.ins = ins; sf.view = live.morphTarget;
@@ -242,10 +242,27 @@ export function createLabelDriver(st, live) {
   function handRideWait() {
     if (!live.handRide) return;
     if (live.drag || live.glide || live.gestureOn() || live.vtGliding || live.drifting || live.zoomBase) { live.handRideT = nextFrame(handRideWait); return; }
-    live.handRideT = 0; live.handRide = false;
+    live.handRideT = 0; live.handRide = false; handCarryEnd();
     if (live.F && !live.camMove && !live.lz?.isOpen()) { live.labelKey = null; updateLabels(live.F); }
   }
-  function handRideEnd() { if (!live.handRide) return; live.handRide = false; cancelFrame(live.handRideT); live.handRideT = 0; }
+  function handRideEnd() { if (!live.handRide) return; live.handRide = false; cancelFrame(live.handRideT); live.handRideT = 0; handCarryEnd(); }
+  // (L1, 12 Nov 2026: a hand's pan, pinch or wheel carries the labels that are still unpinned (one laid out mid-change or hidden at its layout,
+  // a station whose point the figure cannot give this frame) by the camera, as a glide's ride does; the pinned ones keep to their points, label-gl
+  // pinOf. Started once the camera has left where the labels were laid out (a tap that does not move starts none), from that camera, and ended
+  // at the settle, before the labels are laid out again. A card's zoom that starts meanwhile owns the ride from then on.)
+  let handOwn = false;
+  function handCarry() {
+    if (handOwn && (!live.rideCTM || live.zoomBase)) handOwn = false;
+    if (!handOwn) {
+      const L = live.layCTM, n = live.CTM, w = live.wrapRect;
+      if (live.rideCTM || live.zoomBase || !live.gestureOn() || !L || !n || !w) return;
+      if (Math.abs(n.a - L[0]) < 1e-4 && Math.abs(n.b - L[1]) < 1e-4 && Math.abs(n.e - w.left - L[4]) < 0.5 && Math.abs(n.f - w.top - L[5]) < 0.5) return;
+      if (!rideStart(L)) return;
+      handOwn = true;
+    }
+    rideNow();
+  }
+  function handCarryEnd() { if (!handOwn) return; handOwn = false; if (live.rideCTM && !live.zoomBase) rideStop(); }
   // (What every layout of the labels ends with, a carried, a skipped or a sliced one too: the callouts and probes painted, then the GPU's copy.)
   function labelTail() {
     if (sites.list) sitesPaint();

@@ -204,7 +204,7 @@ export function createLabelSolve(st, live) {
     // checks below decide whether it is still free. Held to the Anatomy at the solved scale, every Circuit landing and every pinch's landing placed
     // all again, and labels swapped sides as the hand let go. The view and the turn still have to match.)
     const keepSlots = solve && !dry && !!live.solvedFor && live.solvedFor.view === live.morphTarget && (live.morph === 0 || live.morph === 1)
-      && Math.abs(Math.atan2(live.CTM.b, live.CTM.a) - live.solvedFor.th) < 0.01;
+      && Math.abs(Math.atan2(live.CTM.b, live.CTM.a) - live.solvedFor.th) < 0.01, settle = !solve && !dry && !live.gestureOn() && !live.drifting && !live.vtGliding && !live.zoomBase && (live.morph === 0 || live.morph === 1);   // (settle: a carry with the camera at rest, L2 below)
     const out = [];
     const leaders = [];   // { k, tag, at }: every line, then every dot (paintLeaders)
     let useLines = false, rings = [], ringXY = [];   // rings: the Circuit's stations with a reading (see placeMulti); ringXY: their dots
@@ -366,11 +366,10 @@ export function createLabelSolve(st, live) {
     const place = (it, dirs, gap, leader, clear) => placeMulti(it, dirs, (Array.isArray(gap) ? gap : [gap]).map((g, gi) => ({ gap: g, leader, clear, bias: gi * 6 })));
     // (Whether the box r lies on an organ other than the name's; whether a card (10 px off it, as an organ name is hidden) or a shown label's leader is in r's way.)
     const onOrgans = (name, r) => { const [x0, y0] = localToWorld(r.x0, r.y0), [x1, y1] = localToWorld(r.x1, r.y1); return onOtherOrgan(name, Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1)); };
-    const blocked = (r) => obstacles.some((o) => !o.zone && hits(r, { x0: o.x0 - 10, y0: o.y0 - 10, x1: o.x1 + 10, y1: o.y1 + 10 })) || out.some((o) => { if (!o.leader || o.live || o.hide || !Number.isFinite(o.ax)) return false; const e = leaderEnd(rectOf(o), o.ax, o.ay); return segHitsBox({ x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }, r, 1); });
-    // (from, to: only those passes are searched this round; a round that is not final gives up without shortening or dropping.)
-    const placeMulti = (it, dirs, passes, from = 0, to = passes.length, final = true, maxShort = final ? 2 : 0) => {
+    const carded = (r) => obstacles.some((o) => !o.zone && hits(r, { x0: o.x0 - 10, y0: o.y0 - 10, x1: o.x1 + 10, y1: o.y1 + 10 })), blocked = (r) => carded(r) || out.some((o) => { if (!o.leader || o.live || o.hide || !Number.isFinite(o.ax)) return false; const e = leaderEnd(rectOf(o), o.ax, o.ay); return segHitsBox({ x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }, r, 1); });
+    const placeMulti = (it, dirs, passes, from = 0, to = passes.length, final = true, maxShort = final ? 2 : 0) => {   // (from, to: only those passes are searched this round; a round that is not final gives up without shortening or dropping.)
       const prev = prevSol.get(it.key);
-      let reslot = false;
+      let reslot = false, replace = null;
       if (!solve) {
         // Carry: the label goes where it was put, relative to the figure point it names.
         if (!prev) { stale = true; return false; }
@@ -378,7 +377,7 @@ export function createLabelSolve(st, live) {
         if ((prev.short || prev.abbr) && it.canShort) shortenTo(it, +prev.short || 0, prev.abbr);
         if (prev.one) oneLine(it);
         if (it.w > prev.w + 0.5 || it.h > prev.h + 0.5) { stale = true; return false; }
-        const [ax, ay] = worldToLocal(prev.wx, prev.wy);
+        const [ax, ay] = worldToLocal(prev.wx, prev.wy), ax0 = it.ax, ay0 = it.ay;   // (ax0, ay0: the point the caller gave, a lane's spot along it)
         it.ax = ax; it.ay = ay; it.au = prev.au; it.dir = prev.dir; it.leader = prev.leader; it.onVessel = !!prev.onv;
         const slack = it.rot ? 0 : prev.w - it.w;
         // (Its gap widened or narrowed with its vessel's width on the screen since it was solved: carried as a solve at this zoom would put it.)
@@ -396,11 +395,11 @@ export function createLabelSolve(st, live) {
           if (!useLines) { useLines = true; buildSegs(); }
         }
         if (!reslot) {
-          // (Carried past the usual 5 % by a hand's zoom: a label that would come onto another, or onto a slide's callout, is solved again.)
           const box = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it);   // (a turned caption's box is turned too, as when it was solved)
-          if (live.carryClear && (placed.some((p) => !p.dot && hits(box, p)) || callouts.some((b) => hits(box, b)))) { stale = true; return false; }
-          placed.push(box); out.push(it);
-          return true;
+          if (live.carryClear && (placed.some((p) => !p.dot && hits(box, p)) || callouts.some((b) => hits(box, b)))) { stale = true; return false; }   // (carried past the usual 5 % by a hand's zoom: a label that would come onto another, or onto a slide's callout, is solved again)
+          // (L2, 12 Nov 2026: at rest after a pan, a label the pan carried past the stage's edge or onto a card is placed again by itself, 10 px clear of any card; every other keeps its offset, and no solve of all of them runs. None that fits: it stays as carried, hidden or pulled in as before.)
+          const V = viewOf(it, S); if (!settle || it.live || it.point || /^(focus|z:)/.test(it.key) || !(it.ax >= V.x0 && it.ax <= V.x1 && it.ay >= V.y0 && it.ay <= V.y1) || (within(box, V) && !obstacles.some((o) => !o.zone && hits(box, o)))) { placed.push(box); out.push(it); return true; }
+          replace = { x: it.x, y: it.y, ax: it.ax, ay: it.ay, dir: it.dir, leader: it.leader, onVessel: it.onVessel, box }; if (!useLines) { useLines = true; buildSegs(); } if (it.cls === 'lane') { it.ax = ax0; it.ay = ay0; }   // (a lane's caption is tried at each spot along its lane its caller gives, then on its lane)
         }
       }
       // (Not a rescued slot's width (pi -1, below): the reading takes its usual spots at its own width again.)
@@ -460,7 +459,7 @@ export function createLabelSolve(st, live) {
         const V = viewOf(it, S), inside = within(r, V), held = !moved && !!prev && !prev.drop && prev.dir === dir && prev.pi === pi && (inside || !within({ x0: it.ax, y0: it.ay, x1: it.ax, y1: it.ay }, V));
         // (edge: px inside the stage it keeps; avoid: drawn shapes (an organ, a lit outline) it keeps off, by pad px.)
         if ((ps.edge && !insideBy(r, V, ps.edge)) || (ps.avoid && !clearOf(r, ps.avoid, ps.pad ?? 0))) return;
-        if ((ps.unblocked && blocked(r)) || (ps.offOrgans && onOrgans(ps.offOrgans, r))) return;
+        if ((ps.unblocked && blocked(r)) || (ps.offOrgans && onOrgans(ps.offOrgans, r)) || (replace && (!inside || carded(r)))) return;
         // (fans: the targets of a numbered step's group, V10. Each of its leaders, from its target to the box, runs through no label and
         // crosses no other leader, a group's own included.)
         if (ps.fans) {
@@ -553,6 +552,7 @@ export function createLabelSolve(st, live) {
       const named = st.presenting && (!circuit || (Array.isArray(st.presentLabels) && st.presentLabels.includes(it.node)));
       if (best && best.onLine > 0 && it.key.startsWith('n:') && !it.sel && !named && !(it.node === 'HA' && it.abbr)) best = null;   // (the hepatic artery always shows: once it reads "HA" it keeps its spot)
       if (reslot && (!best || lineHits(best.r, 2) || callouts.some((b) => hits(best.r, b)))) { stale = true; return false; }
+      if (replace && !best) { if (it.cls === 'lane' && dirs[0] !== 'C') return false; it.ax = replace.ax; it.ay = replace.ay; it.x = replace.x; it.y = replace.y; it.dir = replace.dir; it.leader = replace.leader; it.onVessel = replace.onVessel; placed.push(replace.box); out.push(it); return true; }
       if (!best) {
         // No room with the value: try it without its units and change, then the name alone (up to maxShort), before giving the label up.
         // (A reading with no unit left to drop goes straight to the name alone: where that is more than this round allows (a rescue's
@@ -578,7 +578,7 @@ export function createLabelSolve(st, live) {
       nextSol.set(it.key, { wx: LW_XY[0], wy: LW_XY[1], dx: best.dx, dy: best.dy, dir, pi: best.pi, w: wRes, h: it.h, leader: it.leader, lead, short: it.short || 0, abbr: !!it.abbr, au: it.au, vh: it.vw > 0 ? it.vw / 2 : null });
       it._r = best.r; placed.push(best.r); out.push(it);
       // (Within 3 px of a vessel it takes the solid halo, as a solved one does.)
-      if (reslot) { it.onVessel = lineHits(best.r, 3) > 0; nextSol.get(it.key).onv = it.onVessel; live.reslotted = true; }
+      if (reslot || replace) { it.onVessel = lineHits(best.r, 3) > 0; nextSol.get(it.key).onv = it.onVessel; if (reslot) live.reslotted = true; }
       return true;
     };
 
