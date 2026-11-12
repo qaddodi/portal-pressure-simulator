@@ -624,24 +624,3 @@ test('with the shader covering the picture the bitmap is not painted ahead, not 
   const pt = lz.slice(lz.indexOf('function paintTissue('), lz.indexOf('\n  }\n', lz.indexOf('function paintTissue(')));
   assert.match(pt, /let sc = Math\.min\(2 \*\* \(Math\.ceil\(Math\.log2\(Math\.max\(0\.05, dpr \* V\.k\)\) \* 2\) \/ 2\), worldCap\(G, dpr\)\);/, 'the scale is the zoom\'s own, shader or not');
 });
-
-test('SOS: the central vein\'s collagen collar runs from the narrowed lumen out past the vein wall, and moves when the wall does', async () => {
-  const { buildItems } = await import('../src/ui/lobule-live.js');
-  const sh = { ...shape, rt: 14, rcv0: 12, septaPC: [] };
-  const m = { septU: 0, fibPre: 0, fibPost: 0.8 };
-  const collar = (o) => { const it = buildItems(sh, m, o).filter((i) => i.type === 2).at(-1); return { clip: [...it.clip] }; };   // (the list is kept and written in place: copy what is read)
-  const wallOnly = collar({ col: [0.8, 0.7, 0.5], dark: false, cvIn: 9 });
-  const filled = collar({ col: [0.8, 0.7, 0.5], dark: false, cvIn: 6, cvOut: 12 });
-  assert.equal(filled.clip[4], 6, 'the collar starts at the open lumen');
-  assert.ok(filled.clip[3] > wallOnly.clip[3] - 1e-9 && filled.clip[3] > 12, 'and ends beyond the wall, so the fibrosis fills the vein from inside');
-  assert.ok(filled.clip[3] - filled.clip[4] > wallOnly.clip[3] - wallOnly.clip[4], 'a thicker collar: the intraluminal fibrosis');
-  assert.notEqual(collar({ col: [0.8, 0.7, 0.5], dark: false, cvIn: 6, cvOut: 14 }).clip[3], filled.clip[3], 'a new wall radius makes the items again');
-});
-
-test('SOS: the central vein\'s lumen narrows with scar growth, never below what the sinusoids end at', () => {
-  const src = readFileSync(new URL('../src/ui/lobule-zoom.js', import.meta.url), 'utf8');
-  assert.match(src, /case 'cv': return Math\.max\(cvWallOf\(m, R\) \* \(1 - CV_FILL \* scarGrowth\(m\.fibPost\)\), g\.rcv0 \* CV_LUMEN_MIN\)/);
-  const fill = +/CV_FILL = ([\d.]+)/.exec(src)[1], floor = +/CV_LUMEN_MIN = ([\d.]+)/.exec(src)[1];
-  assert.ok(fill >= 0.5, 'a real narrowing');
-  assert.ok(floor >= 0.55, 'the third-generation sinusoids end at 0.55 of the healthy radius: the lumen stays over them');
-});

@@ -3516,15 +3516,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     for (const [ci, [x, y]] of centres.entries()) {
       const P = Ps[ci];
       // Central vein, with a soft rim (a collagen cuff with central fibrosis).
-      // (SOS: the fibrosis also grows inward from the wall, so the lumen the blood fills is narrower: the same collagen, inside the vein.)
-      const cvWall = R * 0.075 * (1 + 0.4 * fs.cong), cvOpen = fs.post > 0 ? cvWall * (1 - 0.45 * scarGrowth(fs.post)) : cvWall;
       if (fs.post > 0) {
-        const growth = scarGrowth(fs.post);
+        const growth = scarGrowth(fs.post), inner = R * 0.075 * (1 + 0.4 * fs.cong);
         c.globalAlpha = 1;
-        fibrousCuff(c, x, y, cvOpen, cvWall + R * 0.07 * (0.1 + 0.85 * growth), COLa, growth);
+        fibrousCuff(c, x, y, inner, inner + R * 0.07 * (0.1 + 0.85 * growth), COLa, growth);
       }
       c.globalAlpha = 0.35; c.fillStyle = cvc; c.beginPath(); c.arc(x, y, R * 0.12, 0, TAU); c.fill();
-      c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, cvOpen, 0, TAU); c.fill();
+      c.globalAlpha = 0.85; c.beginPath(); c.arc(x, y, R * 0.075 * (1 + 0.4 * fs.cong), 0, TAU); c.fill();
       // Triads, in a collagen tract that grows with portal fibrosis.
       for (const [px, py] of P) {
         if (home(Math.round(px / (R / 2)), Math.round(py / (S3 * R / 2)))) continue;
@@ -3757,10 +3755,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     }
     return mv;
   }
-  // The central vein's wall (where the vein ends and the collagen cuff begins), and how far fibrosis fills the lumen from inside it:
-  // up to CV_FILL of the wall's radius at full scar growth, but never below CV_LUMEN_MIN of the healthy radius (the sinusoids end at 0.55 of it).
-  const CV_FILL = 0.6, CV_LUMEN_MIN = 0.58;
-  const cvWallOf = (m, R) => R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost);
   function radiusAt(t, i) {
     const m = rzOf(), g = geo, R = g.R;
     const z3 = 1 - smooth(0.24, 0.56, t.rho[i]);
@@ -3772,7 +3766,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       case 'an': return rs * 0.68;
       case 'in': return lerp(R * 0.015, R * 0.009, i / (N - 1)) / (1 + 0.45 * m.fibPre);
       case 'pv': return R * 0.042 / (1 + 0.35 * m.fibPre);
-      case 'cv': return Math.max(cvWallOf(m, R) * (1 - CV_FILL * scarGrowth(m.fibPost)), g.rcv0 * CV_LUMEN_MIN);   // the open lumen: the wall's own radius, less what the subendothelial fibrosis has filled (SOS)
+      case 'cv': return R * (0.07 + 0.05 * m.congU) * (1 - 0.3 * m.fibPost);
       case 'ha': return Math.max(1.6, R * 0.0115 * clamp(m.art, 0.6, 2.2) ** 0.3);   // (the triad's smallest vessel: 0.014 read as a big red bulb, 6 Nov)
       case 'bd': return Math.max(1.6, R * 0.0145);
       // The arteriole's twig into zone 1 is a fine, faint thread (6 Nov: at 0.0055 it read as a thick red bar; see TW_ALPHA).
@@ -4336,8 +4330,8 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // What liveArgs keeps between frames, so a frame makes none of it: the arguments object (written in place), the radii the shader's
   // texels were made from, the model values and colours they were made for, and the colours the shader reads (liveColours, remade
   // only when the colours it is made from, listed in LIVE_TOK, or the theme change).
-  let dynVal = null, dynRad = null, dynSep = NaN, dynPre = NaN, dynPost = NaN, dynDark = null, dynCv = NaN, dynCvOut = NaN, dynRgb = null;
-  const ITEM_O = { col: null, dark: false, cvIn: 0, cvOut: 0 };   // (buildItems' options, written over each time)
+  let dynVal = null, dynRad = null, dynSep = NaN, dynPre = NaN, dynPost = NaN, dynDark = null, dynCv = NaN, dynRgb = null;
+  const ITEM_O = { col: null, dark: false, cvIn: 0 };   // (buildItems' options, written over each time)
   const FIBV = { sin: 0, act: 0, fibSin: 0, actV: 0 };   // (liveFibreInto's, written over each call)
   const liveOut = { shape: null, data: null, dyn: null, fib: FIBV, rs0: 0, share: 0, cu: 0, sj: 0, zones: false, dark: false, cen: [0, 0, 0], col: null };
   const LIVE_TOK = ['--lz-plate-line', '--lz-nodule-ink', '--lz-zone-line', '--lz-nodule-shadow', '--lz-shade', '--lz-hsc-body', '--lz-hsc-nucleus', '--lz-nutmeg', '--lz-zone-1', '--lz-zone-2', '--lz-zone-3'];
@@ -4356,13 +4350,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     let data = liveData.get(S);
     const sinT = sinTubesOf(geo);
     if (!data) { data = buildLive({ ...S, sin: sinT.map((t) => ({ pts: t.pts })) }); liveData.set(S, data); }   // alloc-once: the shader's shapes, built once for each new shape (geometry)
-    const rgbW = worldRgb(cs), cvIn = m.fibPost > 0.05 ? radiusAt(geo.cv, 0) : 0, cvOut = m.fibPost > 0.05 ? cvWallOf(rzOf(), geo.R) : 0;
+    const rgbW = worldRgb(cs), cvIn = m.fibPost > 0.05 ? radiusAt(geo.cv, 0) : 0;
     if (!dynRad || dynRad.length !== sinT.length) { dynRad = new Float64Array(sinT.length); dynVal = null; }   // alloc-rare: only when the geometry has another count of sinusoids
-    let moved = !dynVal || dynVal.S !== S || dynSep !== m.septU || dynPre !== m.fibPre || dynPost !== m.fibPost || dynDark !== dark || dynCv !== cvIn || dynCvOut !== cvOut || dynRgb !== rgbW;
+    let moved = !dynVal || dynVal.S !== S || dynSep !== m.septU || dynPre !== m.fibPre || dynPost !== m.fibPost || dynDark !== dark || dynCv !== cvIn || dynRgb !== rgbW;
     for (let i = 0; i < sinT.length; i++) { const r = radiusAt(sinT[i], N >> 1); if (dynRad[i] !== r) { moved = true; dynRad[i] = r; } }
     if (moved) {
-      dynSep = m.septU; dynPre = m.fibPre; dynPost = m.fibPost; dynDark = dark; dynCv = cvIn; dynCvOut = cvOut; dynRgb = rgbW;
-      ITEM_O.col = rgbW.col; ITEM_O.dark = dark; ITEM_O.cvIn = cvIn; ITEM_O.cvOut = cvOut;
+      dynSep = m.septU; dynPre = m.fibPre; dynPost = m.fibPost; dynDark = dark; dynCv = cvIn; dynRgb = rgbW;
+      ITEM_O.col = rgbW.col; ITEM_O.dark = dark; ITEM_O.cvIn = cvIn;
       dynVal = buildDyn(S, dynRad, buildItems(S, m, ITEM_O)); dynVal.S = S;
     }
     let colMoved = !colVal || colRgb !== rgbW || colDark !== dark;
@@ -4607,7 +4601,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       rgb: worldRgb(cs),
       sin: m.fibSin > 0.05 ? sinTubesOf(G).map((t) => ({ pts: t.pts, r: radiusAt(t, N >> 1) })) : [],   // alloc-rare: once per painting of the bitmap
       cvIn: m.fibPost > 0.05 ? radiusAt(G.cv, 0) : 0,
-      cvOut: m.fibPost > 0.05 ? cvWallOf(rzOf(), G.R) : 0,
     };
   }
   // ── Overlay: lymph droplets; without WebGL2, the red cells too ──
