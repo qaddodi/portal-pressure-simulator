@@ -60,7 +60,7 @@ export const ADOPTED = {
   'albumin/ind': ['kind:criteria'],
   'albumin/path': ['kind:path', 'tool.patient'],
   'gradients/span': ['kind:profile', 'tool.spans'],
-  'gradients/how-hvpg-wedge': ['cutouts'],
+  'gradients/how-hvpg': ['procedure'],
   'gradients/how-eus': ['procedure'],
   'gradients/how-ir-ivc': ['procedure'],
   'gradients/how-ir-pv': ['procedure'],

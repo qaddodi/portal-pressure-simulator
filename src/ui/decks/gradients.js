@@ -46,30 +46,13 @@ export const GRADIENTS = {
       ask: ['A resistance lies in the portal vein trunk, before the liver. Which gradient does it raise?', 'The PPG only. The HVPG spans the sinusoids and EUS-PPG starts inside the liver, so both lie beyond it.'],
     },
     {
-      // (The how-slides carry no preset of their own: they stand on the opening slide's patient, so a slide with a catheter keeps it from one step to the next. A preset on each
-      // made every slide a new state, and the catheter went out and in again on each Next.)
-      id: 'how-hvpg-free', cath: 'free', tool: { kind: 'hvpg', catheter: true },
-      kicker: 'How HVPG is read', title: 'HVPG, step 1: the free pressure in an open hepatic vein',
-      terms: { 'hepatic vein': 'hv' },
-      line: 'A balloon catheter from the neck sits in the right hepatic vein. With the balloon down, its tip reads the free pressure, {fhvp}.',
-      notes: 'A balloon catheter goes in through the right internal jugular vein, down the SVC and the IVC into a hepatic vein, usually the right. With the tip free in the vein, 2 to 4 cm from the IVC, it reads the free hepatic venous pressure (FHVP), once the tracing is stable and in triplicate. Deep sedation is avoided because it disturbs the readings. The free pressure should lie within about 2 mmHg of the IVC pressure (AASLD 2024 Box 2). This is the same patient as the other slides in this talk, who has cirrhosis with clinically significant portal hypertension.',
-      ask: ['What does the free pressure read, and how close should it lie to the IVC pressure?', 'The pressure of the open hepatic vein, within about 2 mmHg of the IVC.'],
-    },
-    {
-      id: 'how-hvpg-wedge', cutouts: ['sinusoid'], cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
-      kicker: 'How HVPG is read', site: 'sin', title: 'HVPG, step 2: with the balloon up, the wedged pressure reads the sinusoids',
-      terms: { sinusoids: 'whvp' },
-      line: 'The balloon stops the flow, so the still blood ahead settles at the pressure of the feeding sinusoids. The wedged pressure is {whvp}.',
-      notes: 'With the balloon inflated, flow in the hepatic vein stops and the still column of blood carries the pressure of the sinusoids that feed it, the wedged hepatic venous pressure (WHVP). A little contrast confirms the wedge: it stays still with no washout through collaterals. The WHVP is read once the tracing is stable, after at least 1 minute. In cirrhosis the sinusoids no longer communicate freely with each other, so the WHVP closely matches the portal pressure.',
-      ask: ['What does the balloon change, and what does the catheter then read?', 'It stops the flow, so the still blood ahead settles at the sinusoidal pressure.'],
-    },
-    {
-      id: 'how-hvpg', cath: 'result', tool: { kind: 'hvpg', catheter: true },
-      kicker: 'How HVPG is read', site: 'sin', title: 'HVPG, step 3: the wedged pressure less the free pressure',
+      // (The how-slides carry no preset of their own: they stand on the opening slide's patient. A preset on each made every slide a new state, and the catheter went out and in again on each Next.)
+      id: 'how-hvpg', procedure: 'hvpgcath', cam: 'liver', data: 'tiles', tiles: ['hvpg'], key: ['hvpg'],
+      kicker: 'How HVPG is read', site: 'sin', title: 'HVPG: the wedged pressure less the free pressure',
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],
-      line: 'The drop across the sinusoids is the difference of the two readings. Here the HVPG is {hvpg}.',
-      notes: 'The HVPG is the wedged minus the free hepatic venous pressure, the drop across the sinusoids (AASLD 2024 Box 2). Subtracting the free pressure, not the right atrial one, cancels the abdominal pressure that tense ascites adds to both readings. A reading of 1 to 5 mmHg is normal, 6 to 9 is subclinical portal hypertension, and ≥10 mmHg is clinically significant portal hypertension (AASLD 2024 statement 4).',
-      ask: ['Why subtract the free pressure rather than the right atrial pressure?', 'The free pressure carries the same abdominal and venous pressure as the wedge, so subtracting it cancels them.'],
+      line: 'A balloon catheter from the neck reads the hepatic vein free, then wedged with the balloon up. The drop between them is the HVPG, {hvpg}.',
+      notes: 'Press Next to step through it: the catheter in, the free pressure, the wedged pressure, and the HVPG. A balloon catheter goes in through the right internal jugular vein, down the SVC and the IVC into a hepatic vein, usually the right. With the tip free in the vein, 2 to 4 cm from the IVC, it reads the free hepatic venous pressure (FHVP) once the tracing is stable, in triplicate; the FHVP should lie within about 2 mmHg of the IVC pressure. Deep sedation is avoided because it disturbs the readings. With the balloon inflated, flow stops and the still column of blood carries the pressure of the sinusoids that feed it, the wedged pressure (WHVP), read after at least 1 minute once the tracing is stable. A little contrast confirms the wedge. The HVPG is the wedged minus the free pressure, the drop across the sinusoids (AASLD 2024 Box 2). Subtracting the free pressure, not the right atrial one, cancels the abdominal pressure that tense ascites adds to both readings. A reading of 1 to 5 mmHg is normal, 6 to 9 is subclinical portal hypertension, and ≥10 mmHg is clinically significant portal hypertension (AASLD 2024 statement 4). This is the same patient as the other slides in this talk, who has cirrhosis with clinically significant portal hypertension.',
+      ask: ['What does the balloon change, and why subtract the free pressure rather than the right atrial one?', 'It stops the flow, so the still blood ahead settles at the sinusoidal pressure. The free pressure carries the same abdominal and venous pressure as the wedge, so subtracting it cancels them.'],
     },
     {
       id: 'how-eus', procedure: 'eus', cam: 'liver', data: 'tiles', tiles: ['eus', 'ppg'], key: ['eus'],
