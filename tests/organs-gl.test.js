@@ -136,7 +136,8 @@ test('the live organs are read once per state; the painter reads the eased value
 test('the live organs are described again only after a write to what the painter reads', () => {
   const gl = readFileSync(new URL('../src/ui/organs-gl.js', import.meta.url), 'utf8');
   const stage = stageSource();
-  assert.match(gl, /const pull = \(\) => \{ if \(!watch\) return; const rs = watch\.takeRecords\(\); if \(rs\.length && netChanged\(rs\)\) pageVer\+\+; \};/);
+  assert.match(gl, /const pull = \(\) => \{ if \(!watch\) return; const rs = watch\.takeRecords\(\); if \(rs\.length\) changedNow\(rs\); \};/);
+  assert.match(gl, /const changedNow = \(rs\) => \{ if \(!netChanged\(rs\)\) return; pageVer\+\+;/, 'a net change, and only one, moves pageVer');
   const els = gl.slice(gl.indexOf('const elsOf = '), gl.indexOf('function watchLive()'));
   for (const k of ['out.add(spec.root)', 'out.add(op.el)', 'out.add(op.geom?.el)', 'for (const e of op.chain || []) out.add(e)', 'out.add(op.clip.geom?.el)', 'for (const e of op.clip.chain || []) out.add(e)', 'elsOf(spec.mask, out)']) assert.ok(els.includes(k), k);
   assert.match(gl, /for \(const list of liveOrgans\.values\(\)\) for \(const o of list\) \{ elsOf\(o\.spec, els\); els\.add\(o\.el\); \}/);

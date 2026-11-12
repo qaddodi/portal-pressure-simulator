@@ -247,7 +247,7 @@ export function switchText(b, sw, now) {
 export function startFrameHud() {
   // (One record per frame the scheduler ran, written in place: the stats, the worst frames and their causes come from here.)
   const ring = Array.from({ length: RING }, () => ({ at: 0, frame: 0, gap: 0, script: 0, wait: 0, act: 0, sampled: false, p: ['', '', ''], pm: [0, 0, 0] }));   // alloc-rare: made once as the panel starts
-  let rn = 0, dead = false, c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs }, organWhy: { ...counts.organWhy } };
+  let rn = 0, dead = false, c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs }, organWhy: { ...counts.organWhy }, present: { ...counts.present } };
   // (Who handed the pictures over, busiest first, with the buffer size of the last one: the next lag names its own layer.)
   const byText = () => { const l = [...transfersBy].sort((a, b) => b[1].n - a[1].n).slice(0, 6).map(([k, r]) => `${k} ${r.n} (${r.w}x${r.h})`).join(', '); transfersBy.clear(); return l; };   // alloc-rare: once a second, with ?perf on
   let last = perf().totals, lastFrames = last.frames, workerHz = 0, lastCharts = { ...sharedStats };
@@ -474,6 +474,7 @@ export function startFrameHud() {
     const cn = { draw: counts.draw - c0.draw, composite: counts.composite - c0.composite, whole: counts.whole - c0.whole, blur: counts.blur - c0.blur, organ: counts.organ - c0.organ };
     L.push(`  per second: vessel draws ${cn.draw}, composites ${cn.composite} (whole picture ${cn.whole}), glass blurs ${cn.blur}${cn.blur ? ` (${wh(counts.blurs, c0.blurs)})` : ''}`);
     L.push(`  organ layer painted: ${cn.organ}${cn.organ ? ` (${wh(counts.organWhy, c0.organWhy)})` : ''}`);
+    { const pw = wh(counts.present, c0.present); if (pw) L.push(`  figure laid on the screen: ${pw}; ${counts.presentSize}`); }
     L.push(`  row draws refused: ${wh(counts.refused, c0.refused) || 'none'}`);
     if (ms && ms.gpu + ms.cpu > 0) L.push(`  view switch frames since the page opened: ${ms.gpu} from pieces made ahead, ${ms.cpu} binned on the CPU${Object.keys(ms.miss).length ? ` (${Object.entries(ms.miss).map(([k, v]) => `${k} ${v}`).join(', ')})` : ''}; pieces ready ${ms.ready} of ${ms.of}${ms.failed?.length ? ` (failed: ${ms.failed.join(', ')})` : ''}`);
     else if (pieces) L.push(`  view switch pieces ready ${pieces.ready} of ${pieces.of}${ms.failed?.length ? ` (failed: ${ms.failed.join(', ')})` : ''}`);
@@ -487,7 +488,7 @@ export function startFrameHud() {
     fullText = L.join('\n');
     show();
     if (copyB.textContent !== 'Copy') copyB.textContent = 'Copy';   // (a 'Copied' shown until the next write)
-    c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs }, organWhy: { ...counts.organWhy } };
+    c0 = { ...counts, why: { ...counts.why }, refused: { ...counts.refused }, blurs: { ...counts.blurs }, organWhy: { ...counts.organWhy }, present: { ...counts.present } };
     last = now; lastFrames = now.frames; lastCharts = { ...sharedStats };
     askPhysics();
   };

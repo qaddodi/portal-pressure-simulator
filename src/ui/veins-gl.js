@@ -3530,10 +3530,12 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     fencePart('organ layer');   // (?perf: the live organ layer's repaint, timed apart from the copy below)
     gl.disable(gl.SCISSOR_TEST);
     presents++;
-    let laidUnder = false;
-    if (camOn() && camDraw(own.tex, false)) { /* (laid: the kept picture under the camera and alpha) */ }
-    else if (!up && under && under.on() && underLay()) laidUnder = true;   // (laid: the under picture, the kept one over it)
-    else if (!(up && upDraw())) {
+    let laidUnder = false, how = PRES_HOW[0];
+    if (camOn() && camDraw(own.tex, false)) { how = PRES_HOW[1]; /* (laid: the kept picture under the camera and alpha) */ }
+    else if (!up && under && under.on() && underLay()) { laidUnder = true; how = PRES_HOW[2]; }   // (laid: the under picture, the kept one over it)
+    else if (up && upDraw()) how = PRES_HOW[3];
+    else {
+      if (up) how = PRES_HOW[4];
       // (A picture under the canvas's size while the upscale shader is still compiling: a filtered copy, as the page's compositor scales a smaller canvas up.)
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, own.fbo);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, SCR());
@@ -3541,6 +3543,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl.blitFramebuffer(0, 0, own.w, own.h, 0, 0, up ? canvas.width : own.w, up ? canvas.height : own.h, gl.COLOR_BUFFER_BIT, up ? gl.LINEAR : gl.NEAREST);
       gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     }
+    // (?perf, 12 Nov 2026: how each present laid the picture and at what sizes, beside the copy's time: his Mac's 20 ms "present copy" at rest gave neither.)
+    tally(counts.present, how);
+    if (psW !== own.w || psH !== own.h || psCw !== canvas.width || psCh !== canvas.height) { psW = own.w; psH = own.h; psCw = canvas.width; psCh = canvas.height; counts.presentSize = `picture ${psW}x${psH} onto the screen ${psCw}x${psCh}`; }   // alloc-rare: only when a size changes
     // (?perf, 10 Nov 2026: the copy timed alone, then the organ overlay laid over it: the Mac's 32 ms "present copy" at 8 MP held both, so it did not say which.)
     fencePart('present copy');
     overLay(true);
@@ -3698,6 +3703,9 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     } finally { gl.disable(gl.SCISSOR_TEST); ovBox = null; }
   }
   const OB = [0, 0, 0, 0], CB = [0, 0, 0, 0];
+  // (How a present laid the kept picture, for ?perf's present line (counts.present), and the sizes it last laid at.)
+  const PRES_HOW = ['copy', 'camera', 'under picture', 'upscale', 'filtered copy (upscale compiling)'];
+  let psW = 0, psH = 0, psCw = 0, psCh = 0;
   // The overlay bounds `ob` as the box camDraw lays them in: into CB (camLayBox).
   function camBox(ob) {
     const k = cam.k * scn.k;

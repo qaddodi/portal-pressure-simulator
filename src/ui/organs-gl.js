@@ -116,7 +116,7 @@ export function marginViewTo(o, m, cw, ch) {
 import { createShapeGL } from './shape-gl.js';
 import { createOrganPaint, mul, mulTo, invTo, prestartOrganPaint } from './organ-paint.js';
 import { prestart, linkProgram, exerciseDraw } from './gl-compile.js';
-import { netChanged } from './idle-keys.js';
+import { netChanged, netWho } from './idle-keys.js';
 import { uniformCache } from './uniform-cache.js';
 import { easeMove, D_SURFACE } from './ease.js';
 import { counts, tally } from './frame-counts.js';
@@ -253,8 +253,32 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
   // synchronously at each check (takeRecords), so a write made in the same task as the composite is seen by that composite.
   // (No MutationObserver: every render describes, as before.)
   let pageVer = 0;
-  const watch = typeof MutationObserver === 'function' ? new MutationObserver((rs) => { if (netChanged(rs)) pageVer++; }) : null;   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
-  const pull = () => { if (!watch) return; const rs = watch.takeRecords(); if (rs.length && netChanged(rs)) pageVer++; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  // (pageWho, 12 Nov 2026: what the last such write was, the organ, the element and the attribute, as ?perf's "organ layer painted" line names it: his Mac
+  // at rest on a deck slide painted the layer 17 times a second, "page changed", and nothing said which write. One name per element and attribute, kept.)
+  let pageWho = '';
+  const whoNames = new WeakMap(), whyNames = new Map();   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const whoName = (el, key) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+    if (!el || el.nodeType !== 1) return key;
+    let m = whoNames.get(el);
+    if (!m) { m = new Map(); whoNames.set(el, m); }   // alloc-rare: once per element watched
+    let n = m.get(key);
+    if (n === undefined) {
+      const g = el.closest?.('[class*="organ-"]'), og = g ? (/organ-([\w-]+)/.exec(g.getAttribute('class') || '')?.[1] || '') : '';
+      const cl = (el.getAttribute('class') || '').split(' ')[0];
+      n = `${og ? og + ' ' : ''}${el.tagName.toLowerCase()}${el.id ? '#' + el.id : cl ? '.' + cl : ''} ${key}`;   // alloc-rare: once per element and attribute
+      m.set(key, n);
+    }
+    return n;
+  };
+  const changedNow = (rs) => { if (!netChanged(rs)) return; pageVer++; pageWho = whoName(netWho.target, netWho.key); netWho.target = null; };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const whyOf = (why) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+    if (why !== 'page changed' || !pageWho) return why;
+    let w = whyNames.get(pageWho);
+    if (!w) { w = `page changed: ${pageWho}`; whyNames.set(pageWho, w); }   // alloc-rare: once per element and attribute
+    return w;
+  };
+  const watch = typeof MutationObserver === 'function' ? new MutationObserver(changedNow) : null;   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
+  const pull = () => { if (!watch) return; const rs = watch.takeRecords(); if (rs.length) changedNow(rs); };   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
   const elsOf = (spec, out) => {   // alloc-rare: built once when the stack is made (once per GL context), never in a frame
     if (!spec) return;
     out.add(spec.root);
@@ -772,7 +796,7 @@ export function createOrganStack(gl, { painter: shared = null, moves = !shared }
       const settle = mvShown && performance.now() - mvAt >= MOVE_SETTLE_MS;
       if (unchanged && (watch || !liveNow()) && !settle) return null;
       lastWhy = settle ? 'camera settled' : !unchanged ? whyKey(key, kDrawn) : 'live, read from the page';
-      counts.organ++; tally(counts.organWhy, lastWhy);   // (?perf's "organ layer painted" line, by reason: a render past here paints)
+      counts.organ++; tally(counts.organWhy, whyOf(lastWhy));   // (?perf's "organ layer painted" line, by reason: a render past here paints)
       const ck = contentKey(cw, ch);
       // (Landed back on the camera the move set off from, its content unchanged: the copy taken as the move began (mvS) is that exact
       // picture, so it is put back and nothing is painted from shapes. A view change that returns to the framing it left, Anatomy to

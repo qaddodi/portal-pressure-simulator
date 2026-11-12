@@ -225,3 +225,15 @@ test('view switch frames are sampled on the GPU apart from the rest (1 in BURST_
   fence.setFenceBurst(null); fence.setFences(false); fence.setFenceContext(null);
   assert.equal(fence.fenceBurstSummary(), null);
 });
+
+// 12 Nov 2026 (his Mac at rest: "present copy" 20 ms, "organ layer painted: 17 (page changed 17)"): the readout names which write made the
+// organ layer paint again (netWho: the element and attribute netChanged found changed).
+test('netChanged says which element and attribute changed', async () => {
+  const { netChanged, netWho } = await import('../src/ui/idle-keys.js');
+  const el = { nodeType: 1, getAttribute: (k) => (k === 'transform' ? 'scale(1.1)' : null) };
+  assert.equal(netChanged([{ type: 'attributes', target: el, attributeName: 'transform', oldValue: 'scale(1)' }]), true);
+  assert.equal(netWho.target, el); assert.equal(netWho.key, 'transform');
+  netWho.target = null;
+  assert.equal(netChanged([{ type: 'attributes', target: el, attributeName: 'transform', oldValue: 'scale(1.1)' }]), false);
+  assert.equal(netWho.target, null, 'a write that left the value as it was names nobody');
+});
