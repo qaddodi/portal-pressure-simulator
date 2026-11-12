@@ -31,8 +31,11 @@ scheduler, layout reads through `layout-snap.js`) are in `AGENTS.md`. Related fi
   in Safari every `gl.*` call is a message to the GPU process.
 - **The glass** is drawn in the figure's canvas, blurred again on every picture laid (since 1 Nov 2026,
   so a card never shows a stale blur). No `backdrop-filter` is declared anywhere; `?perf` lists any
-  blur that is not a glass of the figure. Settings › Display › Blur effect turns the frost off
-  (the page then runs cooler), stored as `pps.noGlass`.
+  blur that is not a glass of the figure. Settings › Display › Glass effect picks one glass for
+  every card, bar, pill, menu, callout and pane: Off (solid, runs coolest), Blur (the frost), Mesh (M1: each
+  glass's corners and centre blended) or Field (F4: a cubic B-spline over the figure averaged in 72 px cells).
+  Mesh and Field run no blur passes, only the averaged copy (`glass-gl.js` `SMOOTH`, `glass-mode.js`).
+  Stored as `pps.glassMode`, with `pps.noGlass` kept in step for the blur guard.
 - **Still layers** (`still-layer.js`): the parts of a chart that do not move (the panel, each lane's
   grid and numbers, the cut-off lines, the vitals panel and names) are drawn once into a picture and
   laid down with one `drawImage` while their key holds (`tests/still-layer.test.js`).

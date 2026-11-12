@@ -25,6 +25,7 @@ import { parseCssColor } from './css-color.js';
 import { driven, isDrivenAnimation, onMove } from './num-move.js';
 import { counts, tally } from './frame-counts.js';
 import { zoomRide, onZoomFrame as onSceneZoomFrame } from './scene-cam.js';
+import { glassMode } from './glass-mode.js';
 
 /** The callouts' glass: since 11 Nov 2026 the cards' own (CARD: 22 px, saturate 1.15, 66 % of --surface; it was 16 px over 58 %), as every
  *  glass is ("Tint and blur of glass should be the same EVERYWHERE"); app.css .cl-glass, the solid fill where there is no GPU glass, at 66 % too. */
@@ -40,6 +41,15 @@ export const PANE = { blur: 9, sat: 1.2 };
  *  this strength, whatever its own --gl-tint says (the sheets' 80 %, the toasts' 70 %, the high-contrast bar's 92 %). Its own --gl-tint still
  *  says whether it is drawn here at all (a tint that does not read, or none: the browser's glass, as before): paneTint. */
 export const CARD = { blur: 22, sat: 1.15, scale: 8, margin: 66, tint: 0.66 };
+/** Settings › Glass effect's two smooth modes (Mohammad, 12 Nov 2026: "OFF -> Blur -> M1 -> F4"; glass-mode.js), in place of the blur: no blur
+ *  passes, only the figure averaged to one texel each `scale` CSS px (the halvings the blur's copy already makes: a texel is the mean of its
+ *  square, and a read between texels a tent of two, as the mocks' mipmap was). mesh (M1): each glass's four corners and its centre read there and
+ *  blended across it (smoothstep, the centre's weight a Gaussian); field (F4): a cubic B-spline over the averages at `cell` CSS px cells laid
+ *  from each glass's corner. `margin`: CSS px of figure taken around a glass (the non-shared path), past the `reach` its reads are held in.
+ *  The tint, saturation, shadows, edge and the dip's undo are the blur's, so every glass is the same glass in each mode. */
+export const SMOOTH = { scale: 64, cell: 72, reach: 64, margin: 192 };
+const GL_MODE = { blur: 0, mesh: 1, field: 2 };
+const MODE_NAME = { blur: 'blur', mesh: 'M1 mesh', field: 'F4 field' };
 /** A rounded rectangle's outline (w × h, corner radius r), as an SVG path. */
 export function roundPath(w, h, r) {
   const f = (n) => +n.toFixed(2), q = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -300,7 +310,39 @@ uniform vec4 uD0B, uD1B;    // their boxes (device px: left, top, right, bottom;
 uniform vec2 uDS;           // their sigmas (device px)
 uniform vec4 uLine;         // a card's own 1 px edge (its --gl-line), straight; .a 0: none
 uniform float uLW;          // its width (device px)
+uniform int uGM;            // Settings › Glass effect: 0 blur (uScene the blurred copy), 1 mesh (M1), 2 field (F4) (uScene the averaged copy: SMOOTH)
+uniform float uCell;        // field: its cells (device px)
+uniform float uReach;       // mesh, field: how far past the glass its reads go at most (device px), inside the copy's parts
 out vec4 o;
+// The averaged copy at q (device px), held within uReach of the glass, so a read never leaves the parts made for it.
+vec4 avgAt(vec2 q) {
+  q = clamp(q, uBox.xy - uReach, uBox.xy + uBox.zw + uReach);
+  return texture(uScene, clamp((q - uReg.xy) / uReg.zw, 0.0, 1.0));
+}
+// The cubic B-spline's four weights at t (0..1).
+vec4 bsw(float t) { float t2 = t * t, t3 = t2 * t; return vec4((1.0 - t) * (1.0 - t) * (1.0 - t), 3.0 * t3 - 6.0 * t2 + 4.0, -3.0 * t3 + 3.0 * t2 + 3.0 * t + 1.0, t3) / 6.0; }
+// The figure under the glass at p, as the mode has it (premultiplied, as the copy is).
+vec4 sceneAt(vec2 p) {
+  if (uGM == 1) {
+    // (M1: the four corners and the centre, each the figure averaged there, a smoothstep sheet between the corners and the centre laid over it.)
+    vec2 u = clamp((p - uBox.xy) / uBox.zw, 0.0, 1.0), f = u * u * (3.0 - 2.0 * u);
+    vec4 m = mix(mix(avgAt(uBox.xy), avgAt(uBox.xy + vec2(uBox.z, 0.0)), f.x), mix(avgAt(uBox.xy + vec2(0.0, uBox.w)), avgAt(uBox.xy + uBox.zw), f.x), f.y);
+    vec2 d = (u - 0.5) * vec2(1.4, 2.2);
+    return mix(m, avgAt(uBox.xy + uBox.zw * 0.5), exp(-dot(d, d) * 5.0) * 0.7);
+  }
+  if (uGM == 2) {
+    // (F4: a cubic B-spline over the averages at the cells' centres, cells laid from the glass's corner: C2 smooth, so no cell edge shows.)
+    vec2 g = (p - uBox.xy) / uCell - 0.5, i = floor(g), f = g - i;
+    vec4 wx = bsw(f.x), wy = bsw(f.y), acc = vec4(0.0);
+    for (int y = 0; y < 4; y++) {
+      vec4 row = vec4(0.0);
+      for (int x = 0; x < 4; x++) row += avgAt(uBox.xy + (i + vec2(float(x - 1), float(y - 1)) + 0.5) * uCell) * wx[x];
+      acc += row * wy[y];
+    }
+    return acc;
+  }
+  return texture(uScene, clamp((p - uReg.xy) / uReg.zw, 0.0, 1.0));
+}
 // A rounded box's coverage at p (device px from its top left; wh its size): 1 inside, 0 outside, across one pixel at its edge, each
 // corner with its own radius (the signed distance to the box with that corner's radius; the CSS clips a backdrop to the border box).
 float boxCover(vec2 p, vec2 wh, vec4 rad) {
@@ -339,7 +381,7 @@ void main() {
     sc = sa > 0.0 ? (uD0C.rgb * d0 * (1.0 - d1) + uD1C.rgb * d1) / sa : vec3(0.0);
   }
   if (m <= 0.0) { if (sa <= 0.001) discard; o = vec4(sc * sa, sa) * uA; return; }
-  vec4 s = texture(uScene, clamp((p - uReg.xy) / uReg.zw, 0.0, 1.0));
+  vec4 s = sceneAt(p);
   // (The figure dipped under a case card was laid at a fifth of its alpha: taken back to its own, so the glass frosts the figure as it stands
   // and looks the same dipped or not. Never past whole: what was laid whole, not dipped (a label, the lobule), stays as it is.)
   s *= min(uUn, 1.0 / max(s.a, 0.0001));
@@ -366,7 +408,7 @@ void main() {
 function uniformsOf(gl, bprog, pprog) {
   const uni = (p, ks) => Object.fromEntries(ks.map((k) => [k, gl.getUniformLocation(p, k)]));   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
   const BU = uni(bprog, ['uBox', 'uView', 'uT', 'uDir', 'uW', 'uN']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
-  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uUn', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
+  const PU = uni(pprog, ['uBox', 'uView', 'uMS', 'uReg', 'uScene', 'uMask', 'uBg', 'uUn', 'uTint', 'uSat', 'uA', 'uBB', 'uShC', 'uShB', 'uShS', 'uRad', 'uMode', 'uGrow', 'uD0C', 'uD1C', 'uD0B', 'uD1B', 'uDS', 'uLine', 'uLW', 'uGM', 'uCell', 'uReach']);   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
   return { bprog, pprog, BU, PU };   // alloc-rare: a context's two programs are linked once (setHost, a restored context), never per frame
 }
 // Shader warm-up for the glass drawn in the figure's canvas (GPU practice, MDN "WebGL best practices": compile and link early, read the
@@ -536,7 +578,9 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   // wait for a first draw, no html[data-cardgl], one turn ('all') between the cards' two, one over-list, their shadow and tint strength, the parent's box.)
   const co = !!(cards?.callouts || cards?.pane), paneKind = !!(pane || cards?.pane);   // (cards.pane: the liver label's pane, likewise)
   const look = pane ? PANE : cards ? (cards.look ? { ...CARD, ...cards.look } : CARD) : GLASS;   // (cards.look: a region's own blur, sat, scale, margin: glassRegions below)
-  const SCALE = look.scale || SCALE0, MARGIN = look.margin || MARGIN0;
+  const SCALE_B = look.scale || SCALE0, MARGIN_B = look.margin || MARGIN0;
+  // (Settings › Glass effect's mode, taken at each picture's prep (takeMode): Mesh and Field read a coarser copy (SMOOTH) with no blur passes.)
+  let MODE = 'blur', SCALE = SCALE_B, MARGIN = MARGIN_B;
   // (While the cards' glass is drawn in the figure's canvas (html[data-cardgl]), a card not yet marked as drawn there shows no solid card
   // (app.css): a card coming in showed the solid fallback for its first frame or two, before its glass's first draw, a flash of solid then
   // frost (Mohammad, 2 Nov 2026: "the blur flickers when new card opens").)
@@ -910,7 +954,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const heldWakeFn = () => { heldWake = 0; ask(); };
   const hfSet = { panes: NONE, cr: null, base: CLEAR4 };
   let keyNow = newKey(), keyHf = newKey();
-  let host = null, hk = null, hostOn = false, hf = null, hostTops = [], hostMo = null;
+  let host = null, hk = null, hostOn = false, hf = null, hfMode = '', hostTops = [], hostMo = null;
   const shareId = {};   // (this instance, as a user of its context's shared blurs: blur-share.js)
   const freeShare = (G) => (t) => {   // alloc-rare: a shared blur is let go (a lost context, the budget's release, the last user out), never per frame
     if (G.isContextLost()) return;
@@ -1032,7 +1076,9 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       hostOn = true; hf = null; gen++;
       if (cards && !co) document.documentElement?.setAttribute?.('data-cardgl', '');
     }
-    if (hf && sameKey(keyNow, keyHf)) return panes.length ? 'same' : false;
+    // (Settings › Glass effect changed with nothing else: drawn again in the new mode now, not at the figure's next picture.)
+    if (hf && sameKey(keyNow, keyHf) && hfMode === glassMode()) return panes.length ? 'same' : false;
+    hfMode = glassMode();
     { const t = keyHf; keyHf = keyNow; keyNow = t; }
     hf = hfSet;
     hf.panes = panes; hf.cr = cr; hf.base = bg[3] > 0 ? bg : colour(bgVar, 'transparent');
@@ -1155,6 +1201,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       G.blitFramebuffer(ox + r[0] * t, oy + (bh - r[3]) * t, ox + r[2] * t, oy + (bh - r[1]) * t, r[0], r[3], r[2], r[1], G.COLOR_BUFFER_BIT, G.LINEAR);
     }
     G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null);
+    if (MODE !== 'blur') return true;   // (Mesh, Field: the averaged copy is what they read)
     G.useProgram(B.bprog); G.bindVertexArray(B.vao); G.disable(G.BLEND);
     G.viewport(0, 0, bw, bh);
     G.uniform4f(B.BU.uBox, 0, 0, bw, bh); G.uniform2f(B.BU.uView, bw, bh); G.uniform1i(B.BU.uT, 0);
@@ -1199,6 +1246,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.bindFramebuffer(G.READ_FRAMEBUFFER, src); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, B.fbCopy);
     G.blitFramebuffer(x0, y0, x0 + w, y0 + h, 0, bh, bw, 0, G.COLOR_BUFFER_BIT, G.LINEAR);
     G.bindFramebuffer(G.READ_FRAMEBUFFER, null); G.bindFramebuffer(G.DRAW_FRAMEBUFFER, null);
+    if (MODE !== 'blur') return true;   // (Mesh, Field: the averaged copy is what they read)
     G.useProgram(B.bprog); G.bindVertexArray(B.vao); G.disable(G.BLEND);
     G.viewport(0, 0, bw, bh);
     G.uniform4f(B.BU.uBox, 0, 0, bw, bh); G.uniform2f(B.BU.uView, bw, bh); G.uniform1i(B.BU.uT, 0);
@@ -1216,7 +1264,18 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const frameMarks = new Set(), passPanes = [];
   let blurOK = false;
   const SHARED = !(reblur > 0);
-  const SKEY = `${look.blur}|${SCALE}`;   // (this look's name among the context's shared blurs)
+  let SKEY = `${look.blur}|${SCALE}`;   // (this look's name among the context's shared blurs; Mesh and Field's own: takeMode)
+  // (The mode as Settings has it now. A change lets go of this glass's share of the old one (the last user out frees it) and draws again from
+  // a share of the new: a copy of one mode is never read as another's.)
+  function takeMode() {
+    const m = glassMode();
+    if (m === MODE) return;
+    MODE = m;
+    const sm = m !== 'blur';
+    SCALE = sm ? SMOOTH.scale : SCALE_B; MARGIN = sm ? SMOOTH.margin : MARGIN_B;
+    SKEY = sm ? `${m}|${look.blur}|${SCALE}` : `${look.blur}|${SCALE}`;   // alloc-rare: a mode change in Settings, never per frame
+    if (hk && !hk.G.isContextLost()) { hk.share = null; shareRelease(shares, hk.G, shareId, freeShare(hk.G)); hk.key = ''; }
+  }
   const shareReq = { id: shareId, boxes: [], v: 0, f: '' }, boxPool = [];   // (this glass's request for the picture, kept and written each time)
   // A hand panning the figure (heat recs H2b, 12 Nov 2026): every frame of a pan was a new picture, and the glasses blurred all they read in every one.
   // The figure moves whole under them, and a blur moved with it is the blur of the figure moved (runShare: the share's grid is held to the figure, its
@@ -1240,6 +1299,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   }
   function prepInto() {
     frameMarks.clear(); blurOK = false;
+    takeMode();
     if (hk) hk.share = null;
     // (The panes as the page and the motion have them now, before this picture lays them: a picture laid with the last frame's panes was
     // laid again in the glass's final phase with these, two whole pictures and every card's glass twice a frame while cards moved (Mohammad's
@@ -1374,7 +1434,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       if (moved && !(Math.abs(sx) < bw && Math.abs(sy) < bh && (!(sx || sy) || shiftBlur(S.t, sx, sy, bw, bh)) && shareShift(S, sx, sy, grid, bw, bh))) shareForget(S);
     }
     if (pm) { S.panL || (S.panL = new Float64Array(4)); linSet(S.panL, pm); S.panX = PG.ax; S.panY = PG.ay; S.panT = grid.T; S.panW = bw; S.panH = bh; }   // alloc-rare: the share's matrix record, made once
-    const nT = tapN(look.blur * grid.k / grid.T);
+    const nT = MODE === 'blur' ? tapN(look.blur * grid.k / grid.T) : 0;   // (Mesh, Field: no blur passes; their reads held within SMOOTH.reach)
     // (3d, a glass moved over a figure standing still, only with no camera on and none changed since the kept blur: a camera's change (a card's
     // zoom easing out, the deck's fade as it closes) changes what lies under the glasses with no new picture counted, and the kept blur then
     // showed the figure as it lay before, inside a card that had shrunk, until the camera rested and the glass blurred again. 5 Nov 2026.)
@@ -1463,7 +1523,9 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
     G.uniform4f(U.uReg, R.x * k, R.y * k, R.w * k, R.h * k);
     G.uniform3f(U.uBg, hf.base[0], hf.base[1], hf.base[2]);
     G.uniform1f(U.uUn, 1 / ((hk.share && hk.share.dipAt) || 1));
-    G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, hk.share ? hk.share.t.blurred : hk.blurred);
+    const gm = GL_MODE[MODE] || 0, src = hk.share ? hk.share.t : hk;
+    G.uniform1i(U.uGM, gm); G.uniform1f(U.uCell, SMOOTH.cell * k); G.uniform1f(U.uReach, SMOOTH.reach * k);
+    G.activeTexture(G.TEXTURE0); G.bindTexture(G.TEXTURE_2D, gm ? src.copy : src.blurred);
     drawPanes(G, U, panes, cr, k, maskFromKit, frameMarks, final);
     noteSeen(panes, final);
     // (The figure's context left as its other passes expect to find it.)
@@ -1903,7 +1965,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   for (const l of watched) mo.observe(l, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['style', 'class', 'data-at', 'hidden'] });
   const again = () => measureEarly();
   const observers = [mo, new MutationObserver(again), new MutationObserver(again)];
-  observers[1].observe(document.documentElement, { attributes: true, attributeFilter: ['data-noglass', 'data-theme', 'data-palette', 'class'] });
+  observers[1].observe(document.documentElement, { attributes: true, attributeFilter: ['data-noglass', 'data-glass', 'data-theme', 'data-palette', 'class'] });
   observers[2].observe(wrap, { attributes: true, attributeFilter: ['class'] });   // (the GPU figure on or off: live(); the stage's look)
   // (What can move the glasses, the canvas or the figure with no write in the layers: a style, class or hidden on any of their parents, a
   // size change, a scroll, a font come in. A parent's glide or fade above the layers is read again too: the motion follows only what lies
@@ -2029,7 +2091,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       const n = glassesOf().length;
       if (!n) return null;
       if (lost || dead) return { on: 'fallback', via: `browser blur, ${n}`, why: dead ? 'its GPU drawing could not be made again' : 'context lost' };
-      if (hostOn) return { on: 'gpu', via: `in the figure's canvas, ${n}` };
+      if (hostOn) return { on: 'gpu', via: `${MODE_NAME[MODE] || MODE} in the figure's canvas, ${n}` };
       return { on: 'fallback', via: `browser blur, ${n}`, why: !host ? 'no figure canvas to draw into' : whyAll || 'not drawn in the figure\'s canvas yet' };
     },
     /** Let go of it: its frames, timers, observers, listeners and GPU objects, and its canvas; the browser's glass shows again. */

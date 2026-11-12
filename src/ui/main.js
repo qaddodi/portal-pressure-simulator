@@ -73,7 +73,7 @@ import { parseShare, cleanShare } from './share-link.js';
 import { deepMerge, sanitizeParams } from '../engine/scenario.js';
 import { createPaintGate } from './paint-gate.js';
 import { frameFor, cancelFrame, perf as framePerf, framePart, inMotion, mayTask, setPageRest, noteInput, setRestTalk, setFramePump, figOpt, figDefault, setFigOpt, isPhone as isPhoneDevice } from './frame.js';
-import { blurAtLoad } from './blur-guard.js';
+import { GLASS_MODES, glassAtLoad, setGlassMode, storeGlassMode, storedGlassMode } from './glass-mode.js';
 import { restPass } from './rest-pass.js';
 import { createScope } from './scope.js';
 import { classSoon, runSoon } from './class-soon.js';
@@ -156,7 +156,7 @@ async function main() {
   startReport(() => { const st = store.get(), pos = presenter.position(); return pos ? `${pos.id} slide ${pos.at + 1}` : `${st.mode} ${st.lobule ? (st.sinusoid ? 'sinusoid' : 'lobule') : st.view}`; });   // (PR-03: the ring, the reload count and the heartbeat, before anything else can fail)
   const savedTheme = readLS('pps.theme');
   applyTheme(knownLook(savedTheme));   // an unknown saved theme falls back to the device's
-  blurAtLoad(document.documentElement, { stored: readLS('pps.noGlass'), phone: isPhoneDevice() });   // (Settings › Blur effect as stored; a phone that never chose starts with it off, 12 Nov 2026)
+  glassAtLoad(document.documentElement, { stored: storedGlassMode(readLS), phone: isPhoneDevice() });   // (Settings › Glass as stored; a phone that never chose starts with it Off, 12 Nov 2026)
   startLMS();
   // The Student role was removed (to come back later): an old saved role is dropped, everyone gets the full app.
   try { localStorage.removeItem('pps.role'); } catch (e) { caught('main:122', e); /* storage unavailable */ }
@@ -1279,15 +1279,10 @@ function openSettings(anchor, withSearch = false) {
       ...(talk ? presenterSettings() : [])),
     // (The figure's resolution choices and performance switches (frame.js) are not in Settings (premium-feel R14, 31 Oct): what a build stored for them is cleared at
     // start (index.html), so they stay at their defaults: Full, and off. Their code stays.)
-    // (Blur effect is one setting for the app and the talks: the same switch and the same stored value in both.)
+    // (Glass effect is one setting for the app and the talks: the same choice and the same stored value in both.)
     menuSection('Display',
-      menuToggle(!document.documentElement.hasAttribute('data-noglass'), 'layers', 'Blur effect', 'Frosted glass on cards and labels. Off runs cooler', (on) => {
-        toggleStored('pps.noGlass', 'main:1038')(!on);   // (stored inverted: 1 means the blur is off)
-        const was = document.documentElement.hasAttribute('data-noglass');
-        document.documentElement.toggleAttribute('data-noglass', !on);
-        document.documentElement.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
-        if (was === on) themeChanged();   // (the labels drawn on the GPU take the glass's look: label-theme.js)
-      }),
+      h('div', { class: 'menu-title' }, 'Glass effect'),
+      glassModeSeg(),
       h('div', { class: 'menu-title' }, 'Figure size (megapixels)'),
       figureMpControl(),
       menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Draw the figure at full resolution during a pan or zoom, even if frames run long', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
@@ -1309,6 +1304,24 @@ function presenterSettings() { return []; }
 // steepened (veins-gl.js UP_FS), and the cards and readings stay sharp.
 // Kept across reloads (pps.fig.cap) and applied at once (the stage hears onRenderScale and sizes the canvas again). The middle resets to the device's default (1.5 on a Mac and an iPad, 0.5 on a phone, 12 Nov 2026).
 const MP_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 0];
+// Settings › Glass effect (Mohammad, 12 Nov 2026: "OFF -> Blur -> M1 -> F4"): one choice for every glass, glass-mode.js. Mesh is his M1, Field his F4.
+const GLASS_TITLE = { off: 'Solid cards and bars, no glass. Runs coolest', blur: 'Frosted glass: the figure blurred under every card and bar',
+  mesh: 'M1: each card blends the colours at its four corners and centre', field: 'F4: a smooth colour cloud of the figure, in 72 px cells' };
+const GLASS_NAME = { off: 'Off', blur: 'Blur', mesh: 'Mesh', field: 'Field' };
+function glassModeSeg() {
+  const root = document.documentElement, cur = root.hasAttribute('data-noglass') ? 'off' : (root.getAttribute('data-glass') || 'blur');
+  return h('div', { class: 'seg full menu-seg glass-mode', role: 'group', 'aria-label': 'Glass effect' }, GLASS_MODES.map((v) => {
+    const b = h('button', { 'aria-pressed': String(cur === v), 'data-glass-mode': v, title: GLASS_TITLE[v] }, GLASS_NAME[v]);
+    b.addEventListener('click', () => {
+      try { storeGlassMode((k, x) => localStorage.setItem(k, x), v); } catch (e) { caught('main:glassMode', e); /* storage unavailable */ }
+      const flip = setGlassMode(root, v);
+      root.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
+      if (flip) themeChanged();   // (the labels drawn on the GPU take the glass's look: label-theme.js)
+      b.parentElement.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    });
+    return b;
+  }));
+}
 function figureMpControl() {
   const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));
   const less = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Fewer megapixels', title: 'Fewer megapixels (softer, faster)' }, '−');

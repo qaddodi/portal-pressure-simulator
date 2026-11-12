@@ -243,7 +243,9 @@ export function shareRelease(map, gl, id, free) {
   const byLook = map.get(gl);
   if (!byLook) return 0;
   let n = 0;
-  for (const [k, S] of [...byLook]) {
+  // (Over the keys as they are: a key deleted while walking them is a Map's own, safe, and nothing is made for the walk.)
+  for (const k of byLook.keys()) {
+    const S = byLook.get(k);
     if (!S.users?.delete(id) || S.users.size) continue;
     byLook.delete(k); n++;
     S.hold?.drop(); S.hold = null;

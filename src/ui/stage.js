@@ -1693,10 +1693,10 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   wrap.dataset.quality = String(quality);
   wrap.dataset.renderer = SOFTWARE ? 'software' : 'gpu';
   // A software renderer or Battery saver never turns the browser's blur on by itself (blur-guard.js): the cards go solid, as with
-  // Settings › Blur effect off, unless that switch was turned on.
+  // Settings › Glass effect Off, unless a glass was chosen there.
   // (Glass is glass (Mohammad, 2 Nov 2026: "glass is glass and it doesn't suddenly become solid when there is movement"; his Mac's ?perf
   // showed every card "solid, no blur"): the cards' frost is drawn by the GPU in the figure's own frame, so Battery saver no longer turns it
-  // solid, nor does a stored Blur effect off (index.html: only ?noglass=1 does).)
+  // solid, nor does a stored Glass effect Off (index.html: only ?noglass=1 does).)
   const blurGuard = () => { let asked = null; try { asked = localStorage.getItem('pps.noGlass'); } catch (e) { caught('stage:2879', e); /* storage unavailable */ } guardBlur(document.documentElement, { low: SOFTWARE, asked: asked === '1' ? null : asked }); };
   blurGuard();
   // Figure resolution › Auto: zoomed in past the home framing the canvas is drawn at 1/zoom of its pixels (each part of the figure
@@ -2261,7 +2261,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     });
     const glassRow = (g, none) => () => {
       if (!anatOn()) return null;
-      if (document.documentElement.hasAttribute('data-noglass')) return sr('fallback', 'solid, no blur', document.documentElement.hasAttribute('data-noglass-auto') ? 'blur off by itself on a software renderer or Battery saver' : 'Settings › Blur effect off');
+      if (document.documentElement.hasAttribute('data-noglass')) return sr('fallback', 'solid, no blur', document.documentElement.hasAttribute('data-noglass-auto') ? 'glass off by itself on a software renderer or Battery saver' : 'Settings › Glass effect Off');
       const gl = g();
       return gl ? gl.state() : none();
     };
