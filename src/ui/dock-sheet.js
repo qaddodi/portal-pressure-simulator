@@ -146,7 +146,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
   // The pull begins: where the parts are laid out now is read before the box is made taller (growLaid reads the rest once it is).
   const growBegin = () => {
     if (gr || !growOK()) return false;
-    const pane = el.querySelector('.dock-body .dock-pane.active');
+    const pane = el.querySelector('.dock-body .dock-pane.active:not(.staging)');
     if (!pane || readMetric(pane, 'scrollTop') > 0) return false;   // (a pane scrolled down is held at its size, as before)
     gr = { pane, half0: el.classList.contains('sheet-half'), A: placesOf(pane), hA: readMetric(el, 'offsetHeight'), pending: true, items: null, hH: 0, hF: 0, last: NaN };   // alloc-rare: once for each gesture
     return true;

@@ -15,7 +15,8 @@ test('the endoscope makes its shader context when shown and gives it back when i
   const i = src('instruments.js');
   assert.match(i, /let gl = null, wasGl = false,/);
   assert.match(i, /gl\.dispose\(\); gl = null; glId = 0; glGone = true;/);
-  assert.match(src('dock.js'), /p\.shown\?\.\(open\.includes\(p\.id\)\)/);
+  assert.match(src('dock.js'), /const on = open\.includes\(p\.id\) \|\| stage\?\.p === p;[^\n]*p\.shown\?\.\(on\)/);   // (a staged pane's context starts before the swap; cancelStage gives it back)
+  assert.match(src('dock.js'), /s\.p\.el\.classList\.remove\('active'\); s\.p\.shown\?\.\(false\);/);
 });
 
 test('the support question asks the figure\'s context first and gives a probe back at once', () => {

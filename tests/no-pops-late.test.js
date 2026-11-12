@@ -20,7 +20,7 @@ test('Reduce Motion takes the movement out but keeps the fades (P3)', () => {
 });
 
 test('a tapped Tests tab crossfades; a swiped one does not replay (P13)', () => {
-  assert.match(dock, /!now\.classList\.contains\('landed'\) && was\.animate\) paneOut\(was, top\)/);
+  assert.match(dock, /!swiped && was\.animate\) paneOut\(was, top\)/);
   assert.match(css, /\.instrument-workspace \.dock-pane\.pane-out:not\(\.active\) \{ display: flex;[^}]*position: absolute; inset: 0;/);
 });
 

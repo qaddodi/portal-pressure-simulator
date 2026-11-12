@@ -4176,6 +4176,9 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .instrument-workspace .dock-body.stack .dock-pane + .dock-pane { border-left: 0; border-top: 1px solid var(--hairline); }
 .instrument-workspace .dock-pane.active { animation: fade-rise var(--d-flip) var(--ease); }
 .instrument-workspace .dock-pane.active.landed { animation: none; }   /* (swiped in: already in place, dock.js endSwipe) */
+/* (A test's pane being built before the card swaps to it, dock.js stageIn: laid out in the open pane's cell, drawn by the GPU as usual, but unseen and untouchable.) */
+.instrument-workspace .dock-body:has(.staging) > .dock-pane.active { grid-area: 1 / 1; }
+.instrument-workspace .dock-pane.active.staging { grid-area: 1 / 1; opacity: 0; pointer-events: none; animation: none !important; }
 /* (A test's pane scrolls up and down only, never sideways (Mohammad, 6 Nov, iPhone: "the test cards are scrolling right and left within the same card"): a little
    overflow in the pane made it a sideways scroller, swipe.js ownsSideways then left a sideways swipe to the browser instead of the tab swipe, and the pane slid off
    to the left. overflow-x hidden and touch-action pan-y keep it to the card's width; a box inside it that scrolls sideways on purpose (a table, the chips) keeps its own.) */
@@ -4882,7 +4885,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .pressure-switch.seg-glide::before { border-radius: 7px; box-shadow: 0 1px 2px rgb(var(--night-rgb) / .12), 0 0 0 .5px var(--hairline); }
 @media (forced-colors: none) { .pressure-switch.seg-glide .ps-btn[aria-pressed="true"] { background: transparent; box-shadow: none; } }
 @media (pointer: coarse) { .ps-btn { position: relative; } .ps-btn::after { content: ''; position: absolute; inset: -6px -1px; } }   /* (26 px tall: the invisible ring makes 38, inside the pane's 16 px padding) */
-.instrument-workspace .dock-pane.active:is([data-pane="profile"], [data-pane="scope"]) { animation: crossfade var(--d-small) var(--ease); }
+.instrument-workspace .dock-pane.active:not(.landed):is([data-pane="profile"], [data-pane="scope"]) { animation: crossfade var(--d-small) var(--ease); }
 
 /* Treat's Drugs / Fluids / Procedures tabs reuse the Tests card's tab row (.instr-tabs); the pane under it needs no extra top gap. */
 .treat-card .instr-tab { flex: 1 1 0; }

@@ -206,7 +206,7 @@ test('the dock holds the two panes, loads them when the card opens, a tab is tou
   assert.match(dock, /lazyPane\(\{ id: 'fibroscan', label: 'FibroScan', handle: lazy\.fibroscan, onReady: \(\) => \{ fitHeight\(\); queueRefresh\(\); \} \}\)/);
   assert.match(dock, /for \(const id of open\) byId\[id\]\.need\?\.\(\);/, 'an instrument left open comes in with the dock');
   assert.match(dock, /const afterLoad = holdUntilLoaded\(\(id\) => byId\[id\]\);/);
-  assert.match(dock, /function pick\(id\) \{\s*\n\s*if \(!afterLoad\(id, \(\) => pickNow\(id\)\)\) pickNow\(id\);/, 'a tapped or swiped-to tab waits for its instrument');
+  assert.match(dock, /function pick\(id, swiped = false\) \{\s*\n\s*if \(!afterLoad\(id, \(\) => pickNow\(id, swiped\)\)\) pickNow\(id, swiped\);/, 'a tapped or swiped-to tab waits for its instrument');
   assert.match(dock, /if \(!afterLoad\(id, \(\) => showNow\(id, opts\)\)\) showNow\(id, opts\);/, 'so does show() (a button, the palette, a card)');
   assert.match(dock, /!byId\[TABS\[j\]\]\.need\?\.\(\) \? paneFor\(TABS\[j\]\) : null/, 'a swipe does not slide an unfinished pane in');
   assert.match(dock, /if \(!preloaded && isVisible\(\)\) \{ preloaded = true; load\(\); \}/, 'asked for as the card opens');

@@ -613,7 +613,8 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // nothing jumps by what was left to go.)
       sw.carry = resting && settle ? shiftX(resting) : 0;
       settle?.();
-      sw.on = true; sw.cur = body.querySelector('.dock-pane.active'); sw.i = TABS.indexOf(tabOf(open[0])); sw.w = bodyW;
+      cancelStage();
+      sw.on = true; sw.cur = body.querySelector('.dock-pane.active:not(.staging)'); sw.i = TABS.indexOf(tabOf(open[0])); sw.w = bodyW;
     }
     if (e.cancelable) e.preventDefault();
     const tdx = dx + sw.carry, d = tdx < 0 ? 1 : -1, j = sw.i + d;
@@ -640,7 +641,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       // (The pane that slid in is already in place: it must not play its entrance again once the drag's classes go, a blink.)
       if (go) s.nb?.classList.add('landed');
       clearSwipe(s.cur, s.nb);
-      if (go) { pick(TABS[s.j]); scrollInto(tabEls[TABS[s.j]].b, { block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
+      if (go) { pick(TABS[s.j], true); scrollInto(tabEls[TABS[s.j]].b, { block: 'nearest', inline: 'nearest', behavior: scrollBehavior() }); }
     };
     const timer = setTimeout(done, afterMs(D_SMALL));
     settle = done; resting = go ? s.nb : s.cur;
@@ -861,7 +862,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     else if (wanted && open.length === 1 && canSplit()) { open = wanted; wanted = null; }
     else if (open.length === 1 && tabOf(open[0]) === 'profile' && roomy()) open = [...PAIR];
     else if (open.length > 1 && tabOf(open[0]) === tabOf(open[1]) && !roomy()) open = open.slice(0, 1);
-    for (const p of panes) { p.el.classList.toggle('active', open.includes(p.id)); p.shown?.(open.includes(p.id)); }
+    for (const p of panes) { const on = open.includes(p.id) || stage?.p === p; p.el.classList.toggle('active', on); p.shown?.(on); }   // (a pane being built beside the open one stays up, hidden: stageIn)
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && (isPair() || (isSide() && state !== 'focus')));
     body.classList.toggle('pair', isPair());
@@ -906,23 +907,66 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     const done = () => { if (readAnims(el).includes(a)) a.cancel(); el.classList.remove('pane-out'); };
     a.finished.then(done, () => el.classList.remove('pane-out'));
   }
-  function pick(id) {
-    if (!afterLoad(id, () => pickNow(id))) pickNow(id);
+  function pick(id, swiped = false) {
+    if (!afterLoad(id, () => pickNow(id, swiped))) pickNow(id, swiped);
   }
-  function pickNow(id) {
+  function pickNow(id, swiped = false) {
     if (picking && id !== tabOf(open[0])) { open = [open[0], id]; endPick(); layout(); return; }
     endPick();
+    // A tapped tab builds its pane first, hidden in place, and swaps once it is drawn (a swiped one slid in already built).
+    if (swiped) { cancelStage(); pickCommit(id, true); } else stageIn(open.find((x) => tabOf(x) === id) || id, () => pickCommit(id, false));
+  }
+  function pickCommit(id, swiped) {
     // A tab shows that instrument alone (the Pressure tab keeps the view it was on).
-    const was = open.length === 1 ? body.querySelector('.dock-pane.active') : null, top = readMetric(was, 'scrollTop') || 0;
+    const was = open.length === 1 ? byId[open[0]].el : null, top = readMetric(was, 'scrollTop') || 0;
     open = [open.find((x) => tabOf(x) === id) || id];
     if (state === 'peek') setState('open');
     layout();
-    // A tapped tab crossfades: the pane it leaves stays where it was and fades out over the new one fading in (P13). A pane
+    // A tapped tab crossfades: the pane it leaves stays where it was and fades out over the new one, already drawn beneath it (P13). A pane
     // swiped into place (.landed) has already slid the old one away.
-    const now = body.querySelector('.dock-pane.active');
-    if (was && now && now !== was && !was.classList.contains('active') && !now.classList.contains('landed') && was.animate) paneOut(was, top);
+    const now = byId[open[0]].el;
+    if (was && now !== was && !was.classList.contains('active') && !swiped && was.animate) paneOut(was, top);
     for (const p of workspace.querySelectorAll('.dock-pane.landed:not(.active)')) p.classList.remove('landed');
     workspace.querySelector('.dock-body')?.scrollTo?.(0, 0);
+  }
+  // ── Building the next pane before it is shown ──
+  // A test switched by a tap or a menu used to appear first and fill in after (the charts sized and drew, the GPU numbers measured and wrote,
+  // the endoscope's context started): everything popped. Now the pane is laid out where it will stand, hidden (opacity 0, ignoring touches),
+  // is fed the current frame and given two frames to size and draw, and only then does the card swap: the old pane fades out over it. A swipe
+  // keeps its own way (the neighbour is built beside the finger, endSwipe). The latest ask wins; a swipe, a close or STAGE_MAX ends the wait.
+  const STAGE_MAX = 320;
+  let stage = null;   // { p, timer }
+  const feed = (id) => {
+    if (!frame) return;
+    const p = byId[id];
+    if (id === 'scope' || id === 'doppler') p.redraw(); else if (id === 'endoscopy' && endoSub === 'wall') wall.update(frame); else p.update(frame);
+  };
+  function cancelStage() {
+    const s = stage;
+    if (!s) return;
+    stage = null; clearTimeout(s.timer);
+    s.p.el.classList.remove('staging');
+    if (!open.includes(s.p.id)) { s.p.el.classList.remove('active'); s.p.shown?.(false); }
+  }
+  const canStage = (target) => open.length === 1 && open[0] !== target && state === 'open' && !picking && isVisible() && isDisplayed() && !!frame && !sw?.on && !!byId[target] && !byId[target].need?.();
+  function stageIn(target, commit) {
+    cancelStage();
+    if (!canStage(target)) { commit(); return; }
+    const p = byId[target], el = p.el, s = { p, timer: 0 };
+    stage = s;
+    el.classList.add('active', 'staging');
+    el.classList.remove('landed');
+    p.shown?.(true);
+    feed(target);
+    const go = () => {
+      if (stage !== s) return;
+      clearTimeout(s.timer); stage = null;
+      el.classList.add('landed');   // (it is already drawn: no entrance of its own, the old pane fades out over it)
+      el.classList.remove('staging');
+      commit();
+    };
+    s.timer = setTimeout(go, afterMs(STAGE_MAX));
+    nextFrame(() => { if (stage !== s) return; feed(target); nextFrame(go); });
   }
   function openGrid(anchor, { alongside = false } = {}) {
     closePopover();
@@ -938,7 +982,12 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     if (!byId[id]) return;
     if (!afterLoad(id, () => showNow(id, opts))) showNow(id, opts);
   }
-  function showNow(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
+  function showNow(id, opts = {}) {
+    endPick();
+    if (!opts.alongside && open.length === 1 && !open.includes(id)) stageIn(id, () => showCommit(id, opts));
+    else { cancelStage(); showCommit(id, opts); }
+  }
+  function showCommit(id, { open: doOpen = true, reveal = false, alongside = false } = {}) {
     endPick();
     if (alongside && open.length === 1 && tabOf(open[0]) !== tabOf(id) && canSplit()) open = [open[0], id];
     else if (!open.includes(id)) open = [id];
@@ -949,7 +998,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     queueRefresh();
   }
   function close() {
-    endPick(); app.classList.remove('instrument-focus');
+    cancelStage(); endPick(); app.classList.remove('instrument-focus');
     onClose();
     onLayout?.();
     document.getElementById('tabInstruments')?.focus();
