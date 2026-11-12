@@ -141,13 +141,67 @@ void main() {
   o = c;
 }`;
 
+// SOS: the fibrous collagen INSIDE the central vein (the vessels' own lumen is the blood; this lays the scar over it). One quad over the vein's
+// disc: a ring of wavy collagen bundles and spindle nuclei, from the wall in to an irregular open lumen. The same pale collagen the collar outside
+// the wall is made of (lobule-paint.js fibrousBand), drawn here because the vessels lie over the tissue's shader and this lies over the vessels.
+// uP: x, y, the wall's radius, the open lumen's radius (world); uCol: the collagen colour (rgba); uG: the scar's growth (0-1).
+const plugVS = `#version 300 es
+uniform vec4 uView; uniform vec2 uSize; uniform vec4 uP;
+void main() {
+  vec2 c = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));
+  float r = uP.z + 3.0 / (uView.x * uView.w);
+  vec2 d = ((uP.xy + (c * 2.0 - 1.0) * r) * uView.x + uView.yz) * uView.w;
+  gl_Position = vec4(d.x / uSize.x * 2.0 - 1.0, 1.0 - d.y / uSize.y * 2.0, 0.0, 1.0);
+}`;
+const plugFS = `#version 300 es
+precision highp float;
+uniform vec4 uView; uniform vec2 uSize; uniform vec4 uP, uCol;
+uniform float uG;
+out vec4 o;
+const float TAU = 6.283185307179586;
+float hash(float n) { return fract(sin(n * 127.1 + 311.7) * 43758.5453); }
+void main() {
+  vec2 fc = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y);
+  vec2 p = (fc / uView.w - uView.yz) / uView.x;
+  float s = uView.x * uView.w;
+  vec2 q = p - uP.xy;
+  float d = length(q), a = atan(q.y, q.x);
+  float wall = uP.z - 2.5 / s;
+  float th = max(uP.z - uP.w, 1e-3);
+  float ro = uP.w * (1.0 + 0.07 * sin(3.0 * a + 0.8) + 0.05 * sin(7.0 * a + 2.1) + 0.03 * sin(13.0 * a + 0.3));
+  float cw = clamp(0.5 - (d - wall) * s, 0.0, 1.0);
+  float ci = clamp(0.5 + (d - ro) * s * 0.7, 0.0, 1.0);
+  float cov = cw * ci;
+  if (cov <= 0.0) discard;
+  // Wavy bundles running round the vein, in bands of their own strength.
+  float sp = th * 0.16;
+  float f = (d + th * 0.07 * sin(a * 5.0 + d / th * 6.0) + th * 0.05 * sin(a * 11.0 + 1.3)) / sp;
+  float band = floor(f);
+  float x = abs(fract(f) - 0.5) * 2.0;
+  float line = 1.0 - smoothstep(0.18, 0.18 + max(0.3, 2.0 * fwidth(f)), x);
+  float str = 0.45 + 0.55 * hash(band + floor(a * 1.4) * 7.0);
+  vec3 pale = mix(uCol.rgb, vec3(1.0), 0.38), dark = uCol.rgb * 0.72;
+  vec3 c = mix(uCol.rgb, mix(dark, pale, step(0.5, hash(band * 3.1))), line * str);
+  // Fibroblast nuclei: a few small dark spindles lying along the bundles.
+  float nu = 0.0;
+  for (int i = 0; i < 8; i++) {
+    float k = float(i), aa = hash(k + 2.0) * TAU, rr = mix(ro, uP.z, 0.2 + 0.6 * hash(k + 17.0));
+    vec2 e = q - rr * vec2(cos(aa), sin(aa)), t = vec2(-sin(aa), cos(aa)), n = vec2(cos(aa), sin(aa));
+    float ln = max(th * 0.22, 1.5 / s);
+    nu = max(nu, 1.0 - smoothstep(0.6, 1.0, length(vec2(dot(e, t) / ln, dot(e, n) / (ln * 0.3)))));
+  }
+  c = mix(c, uCol.rgb * 0.45, nu * 0.55);
+  float al = cov * uCol.a * clamp(uG * 2.5, 0.0, 1.0);
+  o = vec4(c * al, al);
+}`;
+
 // (Through gl-compile.js: both programs started before either is read, so the driver compiles them side by side, and only the link's
 // status read (?shaderwarm=0: one after the other, each shader's status first, as before).)
 // alloc-rare: built once per program start (createFxGL setup), not per frame
 const startOf = (gl, vs, fs, attrs = []) => startProgram(gl, vs, fs, attrs.map((n, i) => [n, i]));
 // (The colour masks of the coverage channels, one array each, shared: a layer is drawn into one channel.)
 const M_R = [true, false, false, false], M_G = [false, true, false, false], M_B = [false, false, true, false], M_A = [false, false, false, true];
-export const fxShaders = { capVS, capFS, boxVS, compFS, ductVS, ductFS };   // (for the shader checks in the unit tests)
+export const fxShaders = { capVS, capFS, boxVS, compFS, ductVS, ductFS, plugVS, plugFS };   // (for the shader checks in the unit tests)
 
 /** host ({ gl, canvas }: the lobule's vessel renderer's top, veins-gl.js): no canvas or context of its own; each draw lays the overlay
  *  over what is in the host's canvas (it is called at the end of each picture the host lays), and leaves the context as the host's
@@ -175,15 +229,17 @@ export function createFxGL(canvas, { host = null } = {}) {
   let linArr = null, lineBoxFor = null;
   function build() {
     // alloc-rare: built once per context (createFxGL / restore), not per frame
-    const hc = startOf(gl, capVS, capFS, ['a', 'b']), hk = startOf(gl, boxVS, compFS), hd = startOf(gl, ductVS, ductFS);
-    const cap = checkProgram(gl, hc), comp = checkProgram(gl, hk), duct = checkProgram(gl, hd);
+    const hc = startOf(gl, capVS, capFS, ['a', 'b']), hk = startOf(gl, boxVS, compFS), hd = startOf(gl, ductVS, ductFS), hp = startOf(gl, plugVS, plugFS);
+    const cap = checkProgram(gl, hc), comp = checkProgram(gl, hk), duct = checkProgram(gl, hd), plug = checkProgram(gl, hp);
     // alloc-rare: built once per context (createFxGL / restore), not per frame
-    for (const x of [...hc.sh, ...hk.sh, ...hd.sh]) gl.deleteShader(x);
+    for (const x of [...hc.sh, ...hk.sh, ...hd.sh, ...hp.sh]) gl.deleteShader(x);
     // alloc-rare: built once per context (createFxGL / restore), not per frame
     const loc = (p, names) => Object.fromEntries(names.map((n) => [n, gl.getUniformLocation(p, n)]));
     // alloc-rare: built once per context (createFxGL / restore), not per frame
     P = {
-      cap, comp, duct,
+      cap, comp, duct, plug,
+      // alloc-rare: built once per context (createFxGL / restore), not per frame
+      PU: loc(plug, ['uView', 'uSize', 'uP', 'uCol', 'uG']),
       // alloc-rare: built once per context (createFxGL / restore), not per frame
       CU: loc(cap, ['uView', 'uSize', 'uAdd', 'uRing']),
       // alloc-rare: built once per context (createFxGL / restore), not per frame
@@ -246,10 +302,10 @@ export function createFxGL(canvas, { host = null } = {}) {
     /** Gives back the coverage targets and the canvas's memory (the overlay is not shown). */
     release() { if (cov) { gl.deleteFramebuffer(cov.fbo); gl.deleteTexture(cov.tex); cov = null; } if (lin) { gl.deleteFramebuffer(lin.fbo); gl.deleteTexture(lin.tex); lin = null; linArr = null; } },
     /** One frame. W, H: the canvas (device px); view: [k, x, y, dpr]; ducts: Float32Array of 8 per ductule (x, y, rin, rout, rm, nr,
-     *  phase, 0) with its colours { lum, cell, edge, nuc } (rgba 0–1), edge (world) and alpha; lymph: null, or { drops, beadRings, erase,
+     *  phase, 0) with its colours { lum, cell, edge, nuc } (rgba 0–1), edge (world) and alpha; plug: null, or { on, x, y, wall, open, col (rgba 0–1), grow }: the scar inside the central vein; lymph: null, or { drops, beadRings, erase,
      *  eraseAdd, ringHalf, line, colours { ly, ring, bead, line } } (instances of 6 floats: x0, y0, x1, y1, r, 0; line: null for
      *  none). False when it could not draw (the 2D canvas draws that frame). */
-    draw({ W, H, view, ducts, duct, lymph }) {
+    draw({ W, H, view, ducts, duct, lymph, plug }) {
       if (this.lost) return false;
       if (!ucache) ucache = uniformCache(gl);
       // (Hosted: over the whole of the host's canvas, as its owner sized it. The view places the overlay from the canvas's top left,
@@ -317,6 +373,13 @@ export function createFxGL(canvas, { host = null } = {}) {
         ucache.fv4(T.uCLum, duct.lum); ucache.fv4(T.uCCell, duct.cell); ucache.fv4(T.uCEdge, duct.edge); ucache.fv4(T.uCNuc, duct.nuc);
         ucache.f1(T.uEdge, duct.width); ucache.f1(T.uAlpha, duct.alpha);
         gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nd);
+      }
+      if (plug && plug.on) {   // (SOS: the scar inside the central vein, over the vessels)
+        gl.useProgram(P.plug);
+        const T = P.PU;
+        ucache.f4(T.uView, view[0], view[1], view[2], view[3]); ucache.f2(T.uSize, W, H);
+        ucache.f4(T.uP, plug.x, plug.y, plug.wall, plug.open); ucache.fv4(T.uCol, plug.col); ucache.f1(T.uG, plug.grow);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       }
       const lineOn = !!lymph?.line && !!lin && lymph.line.length > 0;
       if (dropsOn || lineOn) {

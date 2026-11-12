@@ -4717,11 +4717,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // What fxOnGPU keeps between frames, so a frame makes none of it: the effects layer's arguments (written in place; fx-gl reads them within
   // the draw, and the hosted draw later in the same frame), the lymph's lining, the colours and the key of a still frame as numbers. (The
   // lymph's drops are the vessel composite's dashes now, veins-gl.js lymphAt: nothing here moves with them.)
+  // How far the scar fills the central vein's lumen at full growth (its share of the wall's radius).
+  const CV_FILL = 0.55;
   const fxMovesArg = { lymph: false, flat: false, hide: false, flow: undefined };
   const fxDc = ['', '', '', ''], fxKNow = [], fxKWas = [];
   const fxLymph = { drops: null, beadRings: null, erase: null, eraseAdd: 0, ringHalf: 0, line: null, colours: { ly: [0, 0, 0, 0], ring: [0, 0, 0, 0], bead: [0, 0, 0, 0], line: [0, 0, 0, 0] } }, fxNone = new Float32Array(0);
   const fxLineCol = [0, 0, 0, 0];
-  const fxArgsKept = { W: 0, H: 0, view: [0, 1, 0, 1], lymph: null, ducts: null, duct: { lum: null, cell: null, edge: null, nuc: null, width: 0, alpha: 0.72 } };
+  const fxArgsKept = { W: 0, H: 0, view: [0, 1, 0, 1], lymph: null, plug: { on: false, x: 0, y: 0, wall: 0, open: 0, col: [0, 0, 0, 1], grow: 0 }, ducts: null, duct: { lum: null, cell: null, edge: null, nuc: null, width: 0, alpha: 0.72 } };
   let fxTg = null;
   const fx2D = () => { if (fx.width) { free(fx); } };
   const fxDrawPart = () => fxTg.draw(fxArgsKept);
@@ -4732,6 +4734,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const hosted = g === fxHostGL, vk = hosted ? dpr * (gl.software ? 0.5 : 1) : dpr;
     const fw = hosted ? Math.max(1, Math.round(W * vk)) : canvasPx(W, dpr), fh = hosted ? Math.max(1, Math.round(H * vk)) : canvasPx(H, dpr), G = geo, m = model;
     fxMovesArg.hide = m.hide; fxMovesArg.flow = store.get().layers?.flow;
+    // SOS: the fibrosis inside the central vein. The vein keeps its wall (where the sinusoids end); the scar fills in from it, so the open lumen narrows.
+    const zP = rzOf(), plugOn = !m.hide && m.fibPost > 0.05, plugGrow = plugOn ? scarGrowth(zP.fibPost) : 0;
+    const plugWall = plugOn ? radiusAt(G.cv, 0) : 0, plugOpen = plugWall * (1 - CV_FILL * plugGrow), plugTok = plugOn ? tk('--lz-septum') : '';
     const moving = fxMoves(fxMovesArg), seal = lymphOn && !m.hide ? lySeal(m) : 0;
     fxDc[0] = tk('--lz-duct-lumen'); fxDc[1] = tk('--lz-duct-cell'); fxDc[2] = tk('--lz-duct-edge'); fxDc[3] = tk('--lz-duct-nucleus');
     const dc = fxDc;
@@ -4743,6 +4748,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       let ki = 0;
       K[ki++] = fw; K[ki++] = fh; K[ki++] = dpr; K[ki++] = dark; K[ki++] = m.hide; K[ki++] = m.hide ? '' : fxDuct().key; K[ki++] = V.k; K[ki++] = V.x; K[ki++] = V.y;
       K[ki++] = dc[0]; K[ki++] = dc[1]; K[ki++] = dc[2]; K[ki++] = dc[3]; K[ki++] = seal > 0.02 ? Math.round(seal * 1000) : -1; K[ki++] = seal > 0.02 ? tk('--lz-collagen') : '';
+      K[ki++] = plugOn ? Math.round(plugWall * 1000) : -1; K[ki++] = plugOn ? Math.round(plugOpen * 1000) : -1; K[ki++] = plugOn ? Math.round(plugGrow * 1000) : -1; K[ki++] = plugOn ? Math.round(G.cx * 100) + Math.round(G.cy * 100) * 1e5 : -1; K[ki++] = plugOn ? plugTok : '';
       same = fxGLKey !== '';
       for (let i = 0; same && i < ki; i++) if (!Object.is(K[i], fxKWas[i])) same = false;
     }
@@ -4762,6 +4768,9 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const args = fxArgsKept;
     args.W = fw; args.H = fh; args.view[0] = V.k; args.view[1] = V.x; args.view[2] = V.y; args.view[3] = vk; args.lymph = lymph;
     args.ducts = m.hide ? null : fxDuct().nums;
+    const PL = args.plug;
+    PL.on = plugOn && plugGrow > 0.01; PL.x = G.cx; PL.y = G.cy; PL.wall = plugWall; PL.open = plugOpen; PL.grow = plugGrow;
+    if (PL.on) { const pc = rgbaOf(plugTok); PL.col[0] = pc[0]; PL.col[1] = pc[1]; PL.col[2] = pc[2]; PL.col[3] = 0.92; }
     const D = args.duct;
     D.lum = rgbaOf(dc[0]); D.cell = rgbaOf(dc[1]); D.edge = rgbaOf(dc[2]); D.nuc = rgbaOf(dc[3]); D.width = Math.max(0.3, G.R * 0.0013);
     // (Hosted: laid by the vessels' present, which follows in this frame's drawGL.)
