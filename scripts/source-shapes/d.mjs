@@ -73,7 +73,7 @@ export default [
 
   // ── stent-mesh ──
   { file: CSS, need: [/\.stent-cover \{[^}]*var\(--dev-ptfe\)/, 'the PTFE wash'] },
-  { file: CSS, need: [/\.stent-ring \{[^}]*var\(--dev-platinum\)/, 'the radiopaque ring'] },
+  { file: CSS, need: [/\.stent-ring \{[^}]*var\(--dev-tips-mesh\)/, 'the radiopaque ring and the end rings, in the TIPS mesh ink (a device material token)'] },
   { file: CSS, need: [/\.stent-px \{ vector-effect: non-scaling-stroke; \}/, 'a pixel floor for struts and rails'] },
   { file: VENOUS, need: [/meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole covered mesh, built once'] },
   { file: VENOUS, need: [/d0 = tips \? ex\[0\] : /, 'unrolled from the portal end'] },

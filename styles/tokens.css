@@ -307,6 +307,7 @@
   --dev-platinum: #8E949E;
   --dev-glue: #3B4E6B;
   --dev-ptfe: #D9DEE5;
+  --dev-tips-mesh: #2A3650;
   --s1: #2a78d6;
   --s2: #eb6834;
   --s3: #1baf7a;
@@ -575,6 +576,7 @@
     --dev-platinum: #A8ADB8;
     --dev-glue: #C9D6EC;
     --dev-ptfe: #C9D0DA;
+    --dev-tips-mesh: #2A3650;
     --thrombus: #8C3442;
     --thrombus-edge: #D49AA0;
     --lv-sep: #E8C4AE;
@@ -808,6 +810,7 @@
   --dev-platinum: #A8ADB8;
   --dev-glue: #C9D6EC;
   --dev-ptfe: #C9D0DA;
+  --dev-tips-mesh: #2A3650;
   --thrombus: #8C3442;
   --thrombus-edge: #D49AA0;
   --lv-sep: #E8C4AE;

@@ -129,7 +129,7 @@ export const TOKENS = {
     'dev-poly': '#9AA9BC', 'dev-poly-edge': '#2A303B',
     'dev-scope': '#2B2E33', 'dev-scope-tip': '#5C5E66', 'dev-scope-face': '#C7C9CC', 'dev-scope-edge': '#0B0D12', 'dev-port': '#0D0D0F',
     'dev-latex': '#DDB262', 'dev-latex-edge': '#8F6A33', 'dev-latex-a': '.45', 'dev-nylon': '#C9D9EE',
-    'dev-steel': '#7C8696', 'dev-platinum': '#8E949E', 'dev-glue': '#3B4E6B', 'dev-ptfe': '#D9DEE5',
+    'dev-steel': '#7C8696', 'dev-platinum': '#8E949E', 'dev-glue': '#3B4E6B', 'dev-ptfe': '#D9DEE5', 'dev-tips-mesh': '#2A3650',
     // ── END device materials ──
     // chart series (validated categorical order, light)
     's1': '#2a78d6', 's2': '#eb6834', 's3': '#1baf7a', 's4': '#eda100', 's5': '#e87ba4', 's6': '#008300', 's7': '#4a3aa7', 's8': '#e34948',
@@ -306,7 +306,7 @@ export const TOKENS = {
     // ── BEGIN device materials, dark looks (visual-style D1, D6, D9; Navy and Black take these) ──
     'dev-poly': '#F0F0ED', 'dev-poly-edge': '#1C212B', 'dev-scope-edge': '#C9CED6',
     'dev-latex': '#FCE6B3', 'dev-latex-edge': '#B08A59', 'dev-latex-a': '.34', 'dev-nylon': '#E5EDF7',
-    'dev-steel': '#B3B8C2', 'dev-platinum': '#A8ADB8', 'dev-glue': '#C9D6EC', 'dev-ptfe': '#C9D0DA',
+    'dev-steel': '#B3B8C2', 'dev-platinum': '#A8ADB8', 'dev-glue': '#C9D6EC', 'dev-ptfe': '#C9D0DA', 'dev-tips-mesh': '#2A3650',
     'thrombus': '#8C3442', 'thrombus-edge': '#D49AA0',   // (a wine clot on a wine lumen needs a lighter body and a pale edge)
     // ── END device materials, dark looks ──
     'lv-sep': '#E8C4AE', 'lv-nod': '#6E4428',
