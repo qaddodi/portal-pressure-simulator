@@ -166,7 +166,8 @@ export function createCutoutFrame({ top, xform }) {
     gl.bindVertexArray(null); gl.disable(gl.SCISSOR_TEST);
   }
 
-  colours(); stopTheme = onTheme(() => restPass(() => { colours(); if (plan) again(); }));
+  restPass(() => { colours(); if (plan) again(); });   // (the tokens are read in a rest pass, between frames, never in the frame that made this)
+  stopTheme = onTheme(() => restPass(() => { colours(); if (plan) again(); }));
   return {
     /** Sets the frame (see above), or takes it away (null). */
     set(next) {

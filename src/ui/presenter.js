@@ -4435,7 +4435,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // The windows the plan names are shown in the figure, and hidden when it names none (a slide with none, a phone, a deck that closes).
   let plateKey = '', platePlan = null, plateGL = null, plateSlide = null, plateOpen = true;
   function plateApply(plan) {
+    const was = !!platePlan;
     platePlan = plan;
+    { const cur = shown || entering; if (was !== !!plan && ui && cur) paintScales(slides[cur.i], cur.i); }   // (the pill goes while the windows stand, and comes back where they do not)
     const key = plan ? `${plan.kinds}|${plan.subject}|${plan.open}|${Object.values(plan.rects.lobule || {}).map(Math.round)}` : '';
     if (key !== plateKey) {
       plateKey = key;
@@ -4454,7 +4456,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     ui.psafe.hidden = !plan?.open;
     const win = plan?.rects.lobule;
     ui.pshut.hidden = !plan?.open || !win;
+    ui.pshow.hidden = !plan || plan.open || !win;
     if (!plan || !win) return;
+    // (A shut window leaves a small chip where it stood, a second way to open it beside the liver's spot.)
+    ui.pshow.style.left = `${(win.x + win.w).toFixed(1)}px`;
+    ui.pshow.style.top = `${(win.y + win.h / 2 - 15).toFixed(1)}px`;
+    ui.pshow.textContent = plan.kinds.includes('lobule') ? 'Lobule' : 'Sinusoid';
     ui.psafe.style.width = `${plan.reach.toFixed(0)}px`;
     // (The close control sits on the window's rim at the upper right, a tap target and nothing more: a static button, put where it goes at rest.)
     ui.pshut.style.left = `${(win.x + win.w / 2 + (win.w / 2) * Math.SQRT1_2 - 14).toFixed(1)}px`;
@@ -5298,7 +5305,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // its own scale (transitionRun clears the pick). Mac and iPad landscape: in the counter's row, 8 px left of it. A phone and an
   // upright iPad: centred 8 px above the teaching card, where the camera keeps clear of it.
   let scalePick = null, flipping = false;
-  const scalesOf = (s) => offeredScales(s, { lens: slideLens(s), sinusoid: sinusoidSupported() });
+  // (Where the plate stands for the slide (Mac and iPad landscape: the lobule and sinusoid are windows beside the anatomy), the pill is not drawn: cutouts.js.)
+  const scalesOf = (s) => (platePlan && s === plateSlide ? [] : offeredScales(s, { lens: slideLens(s), sinusoid: sinusoidSupported() }));
   function paintScales(s, i) {
     if (!ui) return;
     const el = ui.scl, ks = s && !s.visual ? scalesOf(s) : [];
@@ -6313,6 +6321,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
     // (Three scales on one plate: the room the windows' column takes on the right, which the figure frames itself clear of, and the plate's frame: the ring, the spot and the cone are the GPU's: cutout-frame-gl.js.)
     const psafe = h('div', { class: 'pz-safe pz-safe-r', 'data-safe': 'right', 'aria-hidden': 'true', hidden: true });
+    const pshow = h('button', { type: 'button', class: 'pz-plate-show', 'aria-label': 'Show the lobule window', hidden: true, onclick: (e) => { e.stopPropagation(); plateSet(true); } }, 'Lobule');
     const pshut = h('button', { type: 'button', class: 'pz-lens-x', 'aria-label': 'Close the lobule window', hidden: true, onclick: (e) => { e.stopPropagation(); plateSet(false); } }, '×');
     // (Once faded out, its spinner stops (idle) until it is shown again: it had turned, unseen, for the whole talk.)
     const idle = (e) => { if (e.target === load && e.propertyName === 'opacity' && !load.classList.contains('on')) load.classList.add('idle'); };
@@ -6342,7 +6351,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     tapTracker(text, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle('text') });   // (a tap on the teaching card is the same zoom as on the data card: both come into view together, 5 Nov 2026)
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
-    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say, psafe, pshut);
+    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say, psafe, pshut, pshow);
     root.classList.add('pz-page'); shade.classList.add('pz-page');   // (the teaching card as one page: card-page.js)
     root.classList.add('pz-throw'); shade.classList.add('pz-throw');   // (Next and Back throw the cards: app.css .pz-throw)
     veil.after(pscrim);   // (above the page's veil, under everything else)
@@ -6367,7 +6376,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens.)
     // alloc-rare: a card is built or tapped open: once per tap, not per frame
     const glass = stage.glass?.add(() => [shade, data, vcase, bar, scl, fk], { card: true, watch: [root, shade], before: shade, low: (e) => e === shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), shift: riseShift }) || null;
-    return { root, shade, safe, psafe, pshut, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, zscrim, fscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say, scope };
+    return { root, shade, safe, psafe, pshut, pshow, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, zscrim, fscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say, scope };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
