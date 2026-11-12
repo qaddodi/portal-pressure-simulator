@@ -5305,8 +5305,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // its own scale (transitionRun clears the pick). Mac and iPad landscape: in the counter's row, 8 px left of it. A phone and an
   // upright iPad: centred 8 px above the teaching card, where the camera keeps clear of it.
   let scalePick = null, flipping = false;
-  // (Where the plate stands for the slide (Mac and iPad landscape: the lobule and sinusoid are windows beside the anatomy), the pill is not drawn: cutouts.js.)
-  const scalesOf = (s) => (platePlan && s === plateSlide ? [] : offeredScales(s, { lens: slideLens(s), sinusoid: sinusoidSupported() }));
+  // (No pill on any slide, Mohammad 12 Nov: "Remove the pill anyways." The lobule and sinusoid are windows on the plate, cutouts.js; the field `scales` stays for the views a slide names.)
+  const scalesOf = () => [];
   function paintScales(s, i) {
     if (!ui) return;
     const el = ui.scl, ks = s && !s.visual ? scalesOf(s) : [];
