@@ -1,0 +1,20 @@
+// A test switched by a tap or a menu is built before it is shown (dock.js stageIn): laid out hidden in the open pane's cell, fed the frame,
+// given two frames to size and draw, then swapped under the old pane's fade. A swipe keeps its own path. (12 Nov 2026)
+export default [
+  { file: 'src/ui/dock.js', need: [/else stageIn\(open\.find\(\(x\) => tabOf\(x\) === id\) \|\| id, \(\) => pickCommit\(id, false\)\)/, 'a tapped tab stages its pane first'] },
+  { file: 'src/ui/dock.js', need: [/if \(swiped\) \{ cancelStage\(\); pickCommit\(id, true\); \}/, 'a swiped-in pane is already built: no staging'] },
+  { file: 'src/ui/dock.js', need: [/pick\(TABS\[s\.j\], true\)/, 'endSwipe says the pane was swiped in'] },
+  { file: 'src/ui/dock.js', need: [/if \(!opts\.alongside && open\.length === 1 && !open\.includes\(id\)\) stageIn\(id, \(\) => showCommit\(id, opts\)\)/, 'a menu or button that opens another test stages it too'] },
+  { file: 'src/ui/dock.js', need: [/el\.classList\.add\('active', 'staging'\)/, 'the staged pane is laid out where it will stand, hidden'] },
+  { file: 'src/ui/dock.js', need: [/p\.shown\?\.\(true\)/, "its GPU context starts before it is shown"] },
+  { file: 'src/ui/dock.js', need: [/nextFrame\(\(\) => \{ if \(stage !== s\) return; feed\(target\); nextFrame\(go\); \}\)/, 'fed again a frame on and swapped a frame after'] },
+  { file: 'src/ui/dock.js', need: [/s\.timer = setTimeout\(go, afterMs\(STAGE_MAX\)\)/, 'a time limit ends the wait'] },
+  { file: 'src/ui/dock.js', need: [/const on = open\.includes\(p\.id\) \|\| stage\?\.p === p;/, 'layout keeps a staged pane up'] },
+  { file: 'src/ui/dock.js', need: [/cancelStage\(\);\n\s+sw\.on = true;/, 'a swipe ends the staging'] },
+  { file: 'src/ui/dock.js', need: [/function close\(\) \{\n\s+cancelStage\(\);/, 'closing the card ends the staging'] },
+  { file: 'src/ui/dock.js', need: [/const was = open\.length === 1 \? byId\[open\[0\]\]\.el : null/, 'the pane left is the open one, never the staged one a query could find'] },
+  { file: 'src/ui/dock.js', need: [/sw\.cur = body\.querySelector\('\.dock-pane\.active:not\(\.staging\)'\)/, 'a swipe moves the open pane, not the staged one'] },
+  { file: 'src/ui/dock-sheet.js', need: [/\.dock-pane\.active:not\(\.staging\)/, "the sheet's pull grows the open pane, not the staged one"] },
+  { file: 'styles/app.css', need: [/\.dock-body > \.dock-pane\.active\.staging:not\(\.landed\) \{ grid-area: 1 \/ 1; opacity: 0; pointer-events: none; animation: none; \}/, 'the staged pane shares the open pane\'s cell, unseen and untouchable'] },
+  { file: 'styles/app.css', need: [/\.dock-body:has\(\.staging\) > \.dock-pane\.active \{ grid-area: 1 \/ 1; \}/, 'the open pane stays in that cell'] },
+];
