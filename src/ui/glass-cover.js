@@ -1,16 +1,20 @@
-// A card over a card hides it whole (Mohammad, 12 Nov 2026: "what happens when two cards are on top of each other?" ... "why can't the text be
-// covered too?"). The glass of every card is drawn in the figure's canvas, the later card over the earlier (glass-gl.js drawPanes), so the top
-// card's glass already covers the lower card's glass. The lower card's words, lines and buttons are the page's, above that canvas, and showed
-// through the top card. Here the lower card is cut (its clip-path, which the compositor applies) to leave out the top card's shape: the top card
-// then hides everything of the one under it, as one sheet of glass would.
+// Any glass over any glass hides it whole (Mohammad, 12 Nov 2026: "what happens when two cards are on top of each other?" ... "why can't the text be
+// covered too?" ... then, of the colour key's pill showing through the Settings sheet: "not just settings", "EVERY CARD", "should be able to cover
+// other cards", "multiple too"). Every glass is drawn in the figure's canvas, below all of the page, so the top glass covers the lower glass there,
+// but the lower card's words, lines and buttons are the page's, above that canvas, and showed through the top card. Here the lower card is cut (its
+// clip-path, which the compositor applies) to leave out the shape of every glass above it: the top one then hides everything of the ones under it,
+// as one sheet of glass would, however many lie stacked.
 //
-// Only cards of one glass.add region cover each other (the deck's cards: teaching, case, data, readings), whose draw order is their page order;
-// a card the page cuts with a clip-path of its own is never cut here. A clip is written only when what covers a card changed (a card sliding
-// over another cuts it again each frame of the slide), and taken off once nothing covers it.
+// Every glass of every region and renderer is on one board (the deck's cards, the sheets, Settings and the menus, the top bar's pills, the colour
+// key, the toasts, the callouts, the liver's pane). Which one lies above is the page's own stacking (stackOf, read with the page: its stacking
+// contexts, z-index and order), never the order the regions were made in. A card the page cuts with a clip-path of its own is never cut here, nor a
+// card and a part of it. A clip is written only when what covers a card changed (a card sliding over another cuts it again each frame of the
+// slide), and taken off once nothing covers it.
 //
-//   const cover = glassCover();
-//   cover.apply(panes, sameGroup)   // panes in draw order: { g, r (client px), rad ([tl, tr, br, bl] px) | null, box (r is g's own box) }
-//   cover.clear()                   // every clip written taken off (the glass let go)
+//   const part = glassCover();          // one renderer's place on the board
+//   part.apply(panes, ownClip)          // its glasses as drawn: { g, r (client px), rad ([tl, tr, br, bl] px) | null, box, st, cv, cvo, a }
+//   part.clear()                        // its glasses off the board, every cut they made taken off
+import { readStyle } from './layout-snap.js';
 
 const ARC = 4;   // (segments a rounded corner of the cut is laid with)
 const OUT = 400;   // (CSS px the clip reaches past the card's box all round: its own shadow and anything it lays outside its box stay)
@@ -50,16 +54,67 @@ export function coverClip(r, holes) {
   return out;
 }
 
+// ── Stacking (read with the page, never in a frame) ──
+// An element's place in the page's paint order: its chain of stacking contexts from the outermost down, ending with what it is painted as in the
+// innermost (itself, or the nearest positioned element it is painted with). Each entry: { el, rank } (rank: its z-index where it has one; 0 for a
+// positioned element or a context without one; -0.5 for one painted in the flow, under the positioned ones).
+const nonNone = (v) => !!v && v !== 'none';
+function entryOf(e, memo) {
+  let s = memo.get(e);
+  if (s) return s;
+  const cs = readStyle(e), pos = cs.position, placed = !!pos && pos !== 'static', zi = cs.zIndex;
+  const z = !zi || zi === 'auto' ? null : parseInt(zi, 10) || 0, o = parseFloat(cs.opacity);
+  // (What makes a stacking context, as the browser's CSS has it. A clip-path or a mask does too, but not here: the cut this file writes is one.)
+  const ctx = pos === 'fixed' || pos === 'sticky' || (placed && z !== null) || o < 1 || nonNone(cs.transform) || nonNone(cs.translate) || nonNone(cs.scale) || nonNone(cs.rotate)
+    || nonNone(cs.filter) || nonNone(cs.backdropFilter) || cs.isolation === 'isolate' || (!!cs.mixBlendMode && cs.mixBlendMode !== 'normal')
+    || /transform|opacity|filter|translate|scale|rotate/.test(cs.willChange || '') || /paint|layout|strict|content/.test(cs.contain || '');
+  s = { el: e, rank: placed && z !== null ? z : placed || ctx ? 0 : -0.5, placed, ctx };   // alloc-rare: once per element per read of the page
+  memo.set(e, s);
+  return s;
+}
+/** The stacking chain of `el` (outermost first). memo: a Map kept for one read of the page, so shared ancestors are read once. */
+export function stackOf(el, memo = new Map()) {   // alloc-rare: read with the page
+  const out = [], root = el?.ownerDocument?.documentElement || null;   // alloc-rare: read with the page, never in a frame
+  let leaf = null;
+  for (let e = el; e && e !== root; e = e.parentElement) {
+    const s = entryOf(e, memo);
+    if (!leaf) {
+      // (Painted in the flow of the context it is in: itself, under that context's positioned ones.)
+      if (s.ctx && e !== el) { leaf = { el, rank: -0.5 }; out.push(leaf, s); continue; }   // alloc-rare: read with the page
+      if (s.placed || s.ctx) { leaf = s; out.push(s); }
+      continue;
+    }
+    if (s.ctx) out.push(s);
+  }
+  if (!leaf) out.push({ el, rank: -0.5 });   // alloc-rare: read with the page
+  return out.reverse();
+}
+/** > 0 when chain A paints above chain B, < 0 below, 0 when one holds the other (or either is unknown). */
+export function stackCmp(A, B) {
+  if (!A || !B) return 0;
+  const n = Math.min(A.length, B.length);
+  let i = 0;
+  while (i < n && A[i].el === B[i].el) i++;
+  if (i >= n) return 0;
+  const a = A[i], b = B[i];
+  if (a.rank !== b.rank) return a.rank - b.rank;
+  const at = a.el.compareDocumentPosition?.(b.el) || 0;
+  return at & 4 ? -1 : at & 2 ? 1 : 0;   // (4: b comes after a, so b is above; a descendant comes after its ancestor)
+}
+
 let diff = false;
 const put = (a, k, v) => { if (a[k] !== v) diff = true; a[k] = v; };
 const meets = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+const UP = 0.5;   // (a glass covers the ones under it once it shows at least half: a card fading in or out cuts them at the middle of its fade)
 
-/** The cuts for one glass's cards. */
-export function glassCover() {
+/** A board: every renderer's glasses together (coverBoard() is one; the page has one, BOARD, which glassCover() places a renderer on). */
+export function coverBoard() {
+  const parts = new Map();   // (owner → { panes (its own kept list, in its draw order), ownClip })
   const wrote = new Map();   // (element → the clip written on it)
-  const own = new WeakMap();   // (element → its page's own clip-path, read before any of ours: a card with one is never cut)
+  const own = new WeakMap();   // (element → its page's own inline clip-path, read before any of ours)
   const now = new Set(), holes = [], holePool = [];
   const sigs = new Map();   // (element → the numbers its clip was made from: a frame with the same writes nothing and makes no string)
+  const all = [], allPart = [], allOwn = [], tr = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
   function same(g, r) {
     let a = sigs.get(g);
     const n = 4 + holes.length * 8;
@@ -100,29 +155,65 @@ export function glassCover() {
     if (was) g.style.setProperty('clip-path', was); else g.style.removeProperty('clip-path');
     wrote.delete(g); sigs.delete(g);
   }
-  return {
-    /** panes in draw order; sameGroup(a, b): whether two elements' cards cover each other; ownClip(g): whether the page cuts g itself. */
-    apply(panes, sameGroup, ownClip) {
-      now.clear();
-      for (let i = 0; i < panes.length; i++) {
-        const p = panes[i];
-        if (!p.box || !p.r.width || !p.r.height || now.has(p.g)) continue;
-        if (!wrote.has(p.g) && ownClip?.(p.g)) continue;
-        holes.length = 0;
-        for (let j = i + 1; j < panes.length; j++) {
-          const q = panes[j];
-          if (q.g === p.g || !meets(p.r, q.r) || !sameGroup(p.g, q.g) || p.g.contains?.(q.g) || q.g.contains?.(p.g)) continue;
-          holes.push(hole(holes.length, q));
-        }
-        if (!holes.length) continue;
-        merge(holes);
-        now.add(p.g);
-        if (same(p.g, p.r) && wrote.has(p.g)) continue;
-        set(p.g, coverClip(p.r, holes));
+  // (Whether glass j lies above glass i: the page's stacking; for glasses whose stacking was not read, the later of one renderer's.)
+  const above = (j, i) => {
+    const q = all[j], p = all[i];
+    if (q.st && p.st) return stackCmp(q.st, p.st) > 0;
+    return allPart[j] === allPart[i] && j > i;
+  };
+  // (The element a glass's words are in, and its box this frame: the glass's own, or the card it is the paper of (cv, its box cvo px off the glass's).)
+  const targetOf = (p) => p.cv || p.g;
+  function boxOf(p) {
+    const r = p.r, o = p.cv && p.cvo;
+    if (!o) return r;
+    tr.left = r.left + o[0]; tr.top = r.top + o[1]; tr.right = r.right + o[2]; tr.bottom = r.bottom + o[3];
+    tr.width = tr.right - tr.left; tr.height = tr.bottom - tr.top;
+    return tr;
+  }
+  function run() {
+    all.length = 0; allPart.length = 0; allOwn.length = 0;
+    for (const [id, P] of parts) for (let i = 0; i < P.panes.length; i++) { all.push(P.panes[i]); allPart.push(id); allOwn.push(P.ownClip); }
+    now.clear();
+    for (let i = 0; i < all.length; i++) {
+      const p = all[i], g = targetOf(p);
+      if (!p.box || !p.r.width || !p.r.height || now.has(g)) continue;
+      if (!wrote.has(g) && allOwn[i]?.(g)) continue;
+      const r = boxOf(p);
+      if (!r.width || !r.height) continue;
+      holes.length = 0;
+      for (let j = 0; j < all.length; j++) {
+        const q = all[j];
+        if (j === i || q.g === p.g || !(q.a == null || q.a >= UP) || !meets(r, q.r)) continue;
+        const qt = targetOf(q);
+        if (qt === g || g.contains?.(q.g) || q.g.contains?.(g) || g.contains?.(qt) || qt.contains?.(g) || !above(j, i)) continue;
+        holes.push(hole(holes.length, q));
       }
-      for (const g of wrote.keys()) if (!now.has(g)) take(g);
+      if (!holes.length) continue;
+      merge(holes);
+      now.add(g);
+      if (same(g, r) && wrote.has(g)) continue;
+      set(g, coverClip(r, holes));
+    }
+    for (const g of wrote.keys()) if (!now.has(g)) take(g);
+    all.length = 0; allPart.length = 0; allOwn.length = 0;
+  }
+  return {
+    /** One renderer's place on the board. */
+    part() {
+      const id = {};   // alloc-rare: once per renderer
+      return {
+        /** panes: its glasses as drawn (kept by the board until the next apply or clear: the renderer's own list); ownClip(el): whether the page cuts el itself. */
+        apply(panes, ownClip) { const P = parts.get(id); if (P) { P.panes = panes; P.ownClip = ownClip; } else parts.set(id, { panes, ownClip }); run(); },   // alloc-rare: a renderer's first glasses on the board
+        clear() { if (parts.delete(id)) run(); },
+        get cut() { return wrote.size; },
+      };
     },
-    clear() { for (const g of [...wrote.keys()]) take(g); },   // alloc-rare: the glass let go
+    clear() { parts.clear(); for (const g of [...wrote.keys()]) take(g); },   // alloc-rare: the board let go
     get cut() { return wrote.size; },
   };
 }
+
+// (The page's one board: every renderer of glass-gl.js puts its glasses on it.)
+const BOARD = coverBoard();
+/** A renderer's place on the page's board: { apply(panes, ownClip), clear(), cut }. */
+export const glassCover = () => BOARD.part();
