@@ -1,7 +1,6 @@
 // Presenter talk: one patient over two years, from CSPH to the first ascites and back to recompensation once the
 // cause is removed (the slide fields are described at the top of decks.js).
 
-const BELLY = { kind: 'abdomen' };
 
 export const RECOMPENSATION = {
   id: 'recompensation', level: 'advanced', title: 'Decompensation and recompensation', minutes: 11,
@@ -37,14 +36,14 @@ export const RECOMPENSATION = {
       ask: ['What separates the two stages of compensated cirrhosis?', 'Whether clinically significant portal hypertension (CSPH) is present: an HVPG ≥10 mmHg, or a stiffness ≥25 kPa, varices or collaterals (Baveno VIII 3.2).'],
     },
     {
-      id: 'ascites', tick: 'First ascites', days: 365, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: BELLY, milestone: 'Ascites', data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'csph',
+      id: 'ascites', tick: 'First ascites', days: 365, ramp: { cirrhosis: [0.6, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over the year' }, milestone: 'Ascites', data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'csph',
       kicker: 'Decompensation', site: 'sin', title: 'Ascites: the first decompensation',
       line: 'A year of ongoing injury: the HVPG climbs to {hvpg}, the albumin falls, and {asc} of ascites gathers.',
       notes: 'Decompensation is the first episode of ascites, variceal bleeding or overt encephalopathy, and ascites is the commonest first event. It changes the outlook: median survival falls from more than a decade to about two years. Every new ascites needs a diagnostic tap for the SAAG, the protein and the neutrophil count.',
       ask: ['Name the three events that define decompensation.', 'Ascites, variceal bleeding and overt hepatic encephalopathy.'],
     },
     {
-      id: 'diuretics', tick: 'Diuretics', params: { diuretics: true }, days: 30, lapse: { seconds: 6 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'ascites',
+      id: 'diuretics', tick: 'Diuretics', params: { diuretics: true }, days: 30, lapse: { seconds: 6 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over the month' }, data: 'tiles', tiles: ['asc', 'hvpg'], key: ['asc'], delta: 'ascites',
       kicker: 'Decompensation', site: 'sin', title: 'Salt restriction and diuretics',
       line: 'Spironolactone, furosemide and moderate salt restriction bring the ascites down to {asc} in a month.',
       notes: 'A moderate sodium restriction, about 2 g of sodium (5 g of salt) a day, with spironolactone and furosemide treats grade 2 ascites; the doses rise stepwise to at most 400 mg of spironolactone and 160 mg of furosemide. Weight loss should stay under about 0.5 kg a day without leg edema. Watch the sodium, the potassium and the creatinine. A beta-blocker, carvedilol preferred, is also advised with ascites and varices, but this case leaves it out. Baveno VIII advises reducing the dose or stopping it when the systolic pressure stays below 90 mmHg (or the mean below 65 mmHg) or acute kidney injury develops, and restarting it when these resolve.',

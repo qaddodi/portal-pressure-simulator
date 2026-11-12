@@ -50,7 +50,7 @@ export const ALBUMIN_DECK = {
       ask: ['Why does albumin go with a large-volume tap?', 'It protects the effective blood volume and the kidneys after a large drain (Baveno VIII Table 3).'],
     },
     {
-      id: 'long', params: { diuretics: true, albumin: 3.6 }, days: 56, lapse: { seconds: 7, from: 'After the tap', to: 'Eight weeks on' }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'tap',
+      id: 'long', params: { diuretics: true, albumin: 3.6 }, days: 56, lapse: { seconds: 7, from: 'After the tap', to: 'Eight weeks on' }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'salb'], keepTiles: true, title: 'Ascites and albumin over eight weeks' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'tap',
       compare: [{ label: 'No albumin', short: 'None', params: { albumin: 2.7 } }, { label: 'Long-term albumin', short: 'Albumin', own: true, params: { albumin: 3.6 } }],
       kicker: 'Long-term albumin', site: 'sin', title: 'A higher serum albumin holds the fluid back',
       line: 'Say his ascites keeps returning and he cannot have a TIPS. With long-term albumin his serum albumin stays at {salb} and the ascites settles at {asc}.',

@@ -16,7 +16,7 @@ const lapses = unique.flatMap((d) => d.slides.map((s, i) => ({ d, s, i })).filte
 
 test('a time-lapse slide with no chart of its own gets a graph of two known readings', () => {
   const bare = lapses.filter(({ s }) => s.tool?.kind !== 'flowtime' && s.graph !== false);
-  assert.ok(bare.length >= 18, `at least 18 time-lapse slides carry a graph on their words (found ${bare.length}; the rest took theirs up into the instrument card, 10 Nov 2026)`);
+  assert.ok(bare.length >= 13, `at least 13 time-lapse slides carry a graph on their words (found ${bare.length}; the rest took theirs up into the instrument card, 10 and 12 Nov 2026)`);
   const none = bare.filter(({ s }) => !graphLines(s)).map(({ d, s }) => `${d.id}/${s.id}`);
   assert.deepEqual(none, [], 'every one of them plots two readings');
   for (const { d, s } of bare) {
@@ -26,6 +26,13 @@ test('a time-lapse slide with no chart of its own gets a graph of two known read
     assert.equal(LINE[g.lines[0]][1] === 'mmHg' || LINE[g.lines[1]][1] !== 'mmHg', true, `${name}: a pressure takes the lower place`);
     assert.deepEqual(graphTrail(s), modelLines(g.lines), `${name}: the worker keeps those two`);
   }
+});
+
+test('a time-lapse slide never keeps the ascites dial or a FibroScan in the instrument card over its own chart', () => {
+  // (Mohammad, 12 Nov 2026: where a slide has a timeline, the chart is the instrument card and replaces the less important instrument; the belly's
+  // ascites dial and the stiffness scan only repeat a reading the chart plots. A guideline card, a lumen, a plane or the flow split stays.)
+  const left = lapses.filter(({ s }) => ['abdomen', 'fibroscan'].includes(s.tool?.kind) && graphLines(s)).map(({ d, s }) => `${d.id}/${s.id}`);
+  assert.deepEqual(left, []);
 });
 
 test('a slide with a chart of its own, or no time-lapse, carries no second graph', () => {

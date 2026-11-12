@@ -67,7 +67,7 @@ export const KIDNEY = {
     },
     {
       id: 'tense', params: { diuretics: false }, days: 120, ramp: { albumin: [2.8, 2.4] }, lapse: { seconds: 8, from: 'On diuretics', to: 'Four months off' },
-      cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'rpp'], key: ['rpp'], delta: 'pressure',
+      cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['rpp', 'asc'], keepTiles: true, title: 'Kidney pressure and ascites over four months' }, data: 'tiles', tiles: ['asc', 'rpp'], key: ['rpp'], delta: 'pressure',
       kicker: 'Kidney pressure', site: 'sin', title: 'A tense abdomen takes pressure from the kidneys',
       line: 'He stops his diuretics. Four months on, {asc} of fluid fills the abdomen, and the kidney pressure falls from {rpp@pressure} to {rpp}.',
       notes: 'The pressure inside the abdomen rises with the volume of ascites, and faster once the belly is tense. The MAP falls only a little, so most of the fall in the kidney pressure comes from the abdomen. In patients a tense abdomen also compresses the renal veins and cuts the urine output. The model keeps to the pressure and has no urine. The serum albumin falls over the four months, as it did in the Ascites talk.',

@@ -62,7 +62,7 @@ export const BUDD_CHIARI = {
       ask: ['In what order are the treatments for Budd–Chiari syndrome added?', 'Anticoagulation, recanalization with or without a stent, TIPS, then liver transplant (Baveno VIII 8.31).'],
     },
     {
-      id: 'anticoag', params: { anticoag: true }, days: 60, lapse: { seconds: 7, from: 'Diagnosis', to: 'Two months on' }, cam: 'liver', terms: ['hv'], tool: BELLY, data: 'tiles', tiles: ['pv', 'asc'], key: ['pv'], delta: 'bcs',
+      id: 'anticoag', params: { anticoag: true }, days: 60, lapse: { seconds: 7, from: 'Diagnosis', to: 'Two months on' }, cam: 'liver', terms: ['hv'], tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'], keepTiles: true, title: 'Portal pressure and ascites over two months' }, data: 'tiles', tiles: ['pv', 'asc'], key: ['pv'], delta: 'bcs',
       kicker: 'Stepwise care', site: 'post', title: 'Anticoagulation comes first and continues long term',
       line: 'Anticoagulation starts as soon as the diagnosis is made. In the model it lowers the portal pressure to {pv}, but {asc} of ascites remains.',
       notes: 'Source: Baveno VIII 8.32, 8.10. Therapeutic anticoagulation starts as soon as possible after the diagnosis and continues long term, including after a liver transplant (8.32). It should not be postponed to wait for endoscopic prophylaxis of variceal bleeding (8.10). In the model anticoagulation stops new clot and lowers the pressure a little; it does not reopen the three clotted veins, which is why the next step is a stent.',

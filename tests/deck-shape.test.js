@@ -16,7 +16,7 @@ test('a talk uses at most two lenses (the lens buttons on a slide are not counte
 // These pairs change them on purpose: an instrument that carries its own reading (the Doppler monitor, FibroScan), a patient
 // switch, or a tile that appears when the slide is about it.
 const TILES_CHANGE = new Set([
-  'ascites/tense>lvp', 'ascites/lvp>back',                      // the albumin tile appears for the paracentesis and leaves with it
+  'ascites/tense>lvp',                                           // the albumin tile appears for the paracentesis and leaves with it
   'stiffness/measure>fibrosis',                                 // FibroScan reads in its own picture; the tiles arrive with the lesson
   'doppler/hepatic>meal', 'doppler/a3>a4',     // each Doppler slide shows the reading it is about
   'tips-doppler/narrow>warn', 'tips-doppler/backup>fix',

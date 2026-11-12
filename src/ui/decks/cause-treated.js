@@ -96,7 +96,7 @@ export const CAUSE_TREATED = {
     {
       // (Alcohol stopped: the scar eases back over the year as the inflammation settles. Carvedilol stays out of the params, as for the others.)
       id: 'alcohol', preset: 'csph', params: { cirrhosis: 0.7 }, relax: RELAX, days: 365, ramp: { cirrhosis: [0.7, 0.55] }, lapse: { seconds: 8, from: 'Last drink', to: 'One year sober' }, cam: 'liver',
-      tool: SCAN, data: 'tiles', tiles: ['hvpg', 'lsm'], key: ['hvpg'],
+      tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'lsm'], keepTiles: true, title: 'HVPG and stiffness over the year' }, data: 'tiles', tiles: ['hvpg', 'lsm'], key: ['hvpg'],
       kicker: ALC, site: 'sin', title: 'A year without alcohol lowers the pressure',
       vignette: 'A 49-year-old man with alcohol-associated cirrhosis and CSPH, Child–Pugh A 6, stops drinking after his first clinic visit. He has medium esophageal varices and no ascites.',
       line: 'A year sober, his HVPG has fallen to {hvpg} and his stiffness to {lsm}. Drinking again would push the pressure back up.',

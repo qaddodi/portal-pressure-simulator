@@ -62,6 +62,6 @@ test('every deck slide that shows the probe pins a stiffness the model gives', a
       for (const s of d.slides) if (s.tool?.kind === 'fibroscan') seen.push(`${d.id}/${s.id}`);
     }
   }
-  assert.ok(seen.length >= 12, `found the probe slides (${seen.length})`);
+  assert.ok(seen.length >= 11, `found the probe slides (${seen.length})`);
   for (const id of ['masld/bmi', 'masld/start', 'stiffness/measure', 'meso-rex/stiff', 'cause-treated/before']) assert.ok(seen.includes(id), id);
 });

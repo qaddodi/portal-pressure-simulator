@@ -18,7 +18,6 @@
 
 const BAND = { kind: 'band' };
 const UNIT = { kind: 'infuse', fluid: 'prbc' };
-const BELLY = { kind: 'abdomen' };
 const CARV = { drugs: { carvedilol: true } };
 const SCOPE = { edges: ['C1a', 'C1b'], label: 'Banded varices', kind: 'treat' };
 
@@ -72,7 +71,7 @@ export const CARVEDILOL = {
       ask: ['A patient with CSPH cannot take a beta-blocker. His stiffness is 18 kPa and his platelets are 170,000/µL. Does he need a screening endoscopy?', 'No. Stiffness <20 kPa with platelets ≥150,000/µL spares the scope (Baveno VIII 1.19).'],
     },
     {
-      id: 'ascites', days: 1460, ramp: { cirrhosis: [0.66, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10, from: 'Two years on', to: 'Six years on' }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'varix'], key: ['varix'], delta: 'start',
+      id: 'ascites', days: 1460, ramp: { cirrhosis: [0.66, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10, from: 'Two years on', to: 'Six years on' }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'varix'], keepTiles: true, title: 'Ascites and varix over four years' }, data: 'tiles', tiles: ['asc', 'varix'], key: ['varix'], delta: 'start',
       kicker: 'Ascites and varices', site: 'sin', title: 'With ascites and large varices, carvedilol stays',
       line: 'Four years on she has {asc} of ascites and varices of {varix}. Baveno VIII keeps carvedilol to prevent a first bleed and to lower the risk of ascites complications.',
       notes: 'Source: Baveno VIII 4.4; AASLD 2024. In patients with ascites and varices carvedilol is recommended to prevent a first bleed and to lower the risk of ascites-related complications, and it is preferred over the other non-selective beta-blockers. AASLD 2024 adds that these drugs are safe and probably helpful in ascites, but a systolic pressure under 90 mmHg may take away the survival benefit, so the pressure is watched at every visit. Ascites is her first decompensation, and from here she should also be considered for a transplant (Baveno VIII 4.3).',
@@ -119,7 +118,7 @@ export const CARVEDILOL = {
       ask: ['After a TIPS her portosystemic gradient is 9 mmHg. Does she still need carvedilol for variceal bleeding?', 'Not by AASLD 2024: a beta-blocker is not required once the gradient is <12 mmHg.'],
     },
     {
-      id: 'cure', preset: 'cirr-decomp', params: CARV, days: 730, ramp: { cirrhosis: [0.85, 0.45], albumin: [2.8, 3.9] }, lapse: { seconds: 9, from: 'Still drinking', to: 'Two years abstinent' }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['hvpg', 'asc'], key: ['hvpg'],
+      id: 'cure', preset: 'cirr-decomp', params: CARV, days: 730, ramp: { cirrhosis: [0.85, 0.45], albumin: [2.8, 3.9] }, lapse: { seconds: 9, from: 'Still drinking', to: 'Two years abstinent' }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['hvpg', 'asc'], keepTiles: true, title: 'HVPG and ascites over two years' }, data: 'tiles', tiles: ['hvpg', 'asc'], key: ['hvpg'],
       vignette: 'A 49-year-old man with alcohol-associated cirrhosis, ascites and varices, on carvedilol. He stopped drinking two years ago. The ascites cleared off diuretics, and his albumin is 3.9 g/dL.',
       kicker: 'Stopping', site: 'sin', title: 'On carvedilol the HVPG understates the pressure',
       line: 'In another man, two years without alcohol, the HVPG is {hvpg} on carvedilol. Baveno VIII asks for the HVPG off the drug, so this reading cannot confirm resolution.',

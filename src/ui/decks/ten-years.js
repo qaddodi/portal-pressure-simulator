@@ -10,7 +10,6 @@
 // encephalopathy that persists).
 
 const BAND = { kind: 'band' };
-const BELLY = { kind: 'abdomen' };
 const CARV = { drugs: { carvedilol: true } };
 const ramp = (a, b) => ({ cirrhosis: [a, b] });
 
@@ -70,7 +69,7 @@ export const TEN_YEARS = {
       ask: ['When does Baveno VIII start carvedilol in compensated cirrhosis?', 'When CSPH is present, to prevent decompensation and improve survival.'],
     },
     {
-      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1460, ramp: { cirrhosis: [0.66, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
+      id: 'ascites', tick: 'Year 6', milestone: 'Ascites', days: 1460, ramp: { cirrhosis: [0.66, 0.85], albumin: [4, 2.8] }, lapse: { seconds: 10 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'salb'], keepTiles: true, title: 'Ascites and albumin over four years' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'carv',
       compare: [{ label: 'Carvedilol alone', short: 'Carv.', own: true, params: { diuretics: false } }, { label: 'Add diuretics', short: 'Diuretics', params: { diuretics: true } }],
       kicker: 'Year 6', site: 'sin', title: 'Year 6: the first ascites',
       line: 'Four more years of injury: the HVPG is {hvpg}, the albumin {salb}, and {asc} of ascites has gathered despite carvedilol. Refer him for transplant assessment now.',
@@ -78,7 +77,7 @@ export const TEN_YEARS = {
       ask: ['What is the first decompensation in this case?', 'Ascites at year 6.'],
     },
     {
-      id: 'diuretics', tick: 'Diuretics', params: { diuretics: true }, days: 30, lapse: { seconds: 6 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'ascites',
+      id: 'diuretics', tick: 'Diuretics', params: { diuretics: true }, days: 30, lapse: { seconds: 6 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['asc', 'salb'], keepTiles: true, title: 'Ascites and albumin over the month' }, data: 'tiles', tiles: ['asc', 'salb'], key: ['asc'], delta: 'ascites',
       kicker: 'Year 6', site: 'sin', title: 'Diuretics and salt limit, carvedilol stays',
       line: 'Spironolactone, furosemide and a moderate salt limit bring the ascites down to {asc}. Carvedilol continues unless the systolic pressure stays <90 mmHg or the kidneys fail.',
       notes: 'Ascites with varices is a reason to keep carvedilol, not to stop it: Baveno VIII 4.4 recommends it to prevent a first bleed and to lower the risk of ascites complications. It is cut or stopped if the systolic pressure stays below 90 mmHg, the mean pressure below 65 mmHg, or a hepatorenal acute kidney injury develops, and restarted when they recover. (Baveno VIII 4.4, 4.6.)',

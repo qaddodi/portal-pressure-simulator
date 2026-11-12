@@ -115,7 +115,7 @@ export const ASCITES = {
       ask: ['Why give albumin rather than saline after a 5 L tap, and how much?', 'It prevents post-paracentesis circulatory dysfunction better: less kidney injury, less hyponatremia, slower return. About 30 to 40 g, 6 to 8 g for each liter.'],
     },
     {
-      id: 'back', days: 14, lapse: { seconds: 7 }, cam: 'fit', tool: BELLY, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense',
+      id: 'back', days: 14, lapse: { seconds: 7 }, cam: 'fit', tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'], keepTiles: true, title: 'Portal pressure and ascites over two weeks' }, data: 'tiles', tiles: ['asc', 'pv'], key: ['asc'], delta: 'tense',
       kicker: 'Two weeks later', site: 'sin', title: 'Ascites returns in two weeks',
       line: 'Sinusoidal pressure and the kidneys\' sodium retention have not changed, so without diuretics the fluid refills the abdomen to {asc}.',
       notes: 'The liver and gut still make more lymph than the lymphatics carry. The sinusoidal pressure and the kidneys\' sodium retention are unchanged, so lymph keeps weeping from the liver. Here he has had no diuretics at all.',
@@ -176,7 +176,7 @@ export const ASCITES = {
       ask: ['A man with ascites on carvedilol develops HRS-AKI. What do you do with the carvedilol, and when does it restart?', 'Reduce the dose or stop it. Restart and re-titrate once the HRS-AKI has resolved and the pressure has recovered.'],
     },
     {
-      id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: BELLY, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'pv', 'he'], key: ['asc', 'he'], delta: 'tense', cite: 'Baveno VIII 6.3, 6.5, 6.16; Bureau, Gastroenterology 2017',
+      id: 'tips', params: { tips: { on: true } }, days: 28, lapse: { seconds: 7 }, cam: 'liver', tool: { kind: 'flowtime', clock: 'days', lines: ['pv', 'asc'], keepTiles: true, title: 'Portal pressure and ascites over four weeks' }, mark: { edges: ['TIPS'], label: 'Covered stent', kind: 'treat' }, data: 'tiles', tiles: ['asc', 'pv', 'he'], key: ['asc', 'he'], delta: 'tense', cite: 'Baveno VIII 6.3, 6.5, 6.16; Bureau, Gastroenterology 2017',
       kicker: 'Refractory ascites', site: 'sin', title: 'TIPS for refractory ascites',
       line: 'A TIPS lowers the gradient to {ppg} and the sinusoidal pressure with it, and the ascites clears over weeks. The price is encephalopathy, so rifaximin is considered beforehand.',
       notes: 'Less lymph forms, and in exchange the liver gets less portal blood. In recurrent or refractory ascites, a covered TIPS improves survival over repeated paracentesis in selected patients (Baveno VIII 6.3). In Bureau\'s trial (Gastroenterology 2017, 62 patients with recurrent ascites), one-year transplant-free survival was 93% with a covered TIPS and 52% with paracentesis and albumin, with a stent dilated only as far as it needs to be (6.5). The usual exclusions are recurrent encephalopathy, heart failure, pulmonary hypertension and advanced liver failure. Before the stent the history of overt encephalopathy and the medicines for it are reviewed (6.14), a prior episode is not an absolute contraindication (6.15), and rifaximin should be considered to prevent encephalopathy (6.16, strong). The ascites clears over weeks to months, diuretics continued at first. The model clears it faster. No target gradient is agreed for ascites; below 12 mmHg is the bleeding target.',
