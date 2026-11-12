@@ -61,7 +61,7 @@ export function createEndoscopy({ onAction }) {
   const view = 'eso'; // the esophageal variceal view only
   // The position is a caption under the view, never over it.
   const stage = h('div', { class: 'endo-stage' }, box, h('span', { class: 'endo-pos' }, 'Distal esophagus · 36 cm'));
-  const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band a column (EVL)');
+  const bandBtn = h('button', { class: 'btn primary', onclick: () => onAction({ kind: 'band' }) }, icon('band'), 'Band ', h('span', { class: 'band-more' }, 'a column '), '(EVL)');   // (the middle words drop out where two buttons share a row, styles/scope-card.css)
   // The readings: the bands placed lead, then the grade, size and wall side by side,
   // and the stigmata as a chip. Built once; each frame only changes text, widths and states.
   const dd = (cls) => h('dd', { class: cls });
@@ -351,7 +351,8 @@ export function createEndoscopy({ onAction }) {
     const air = clamp(+t?.air || 0, 0, 20), red = typeof t?.red === 'boolean' ? t.red : null, readings = !!t?.readings;
     const changed = air !== opt.air || red !== opt.red || readings !== opt.readings;
     Object.assign(opt, { air, red, readings });
-    eus.el.hidden = !t?.eus;
+    eus.el.hidden = false;   // (a slide's compact card always has EUS-PPG's play button; a slide that asks for the panel (t.eus) shows its readings instead, the deck plays it)
+    el.toggleAttribute('data-eus-slide', !!t?.eus);
     if (readings) { if (pRows[0].parentNode !== stats) stats.lastElementChild.before(...pRows); } else for (const r of pRows) r.remove();
     el.toggleAttribute('data-readings', readings);   // (a slide's card lays them out in a row of their own, styles/app.css)
     if (changed && last) update(last.f);
