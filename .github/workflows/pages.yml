@@ -2,7 +2,9 @@ name: Pages (live site + preview)
 
 # Publishes two production builds (npm run build) to GitHub Pages:
 #   /          the tip of main (the live site)
-#   /preview/  the commit that triggered the run (the preview branch, or main after a merge)
+#   /preview/  the preview branch's head. A push to it deploys that commit. A main run (slow: it waits for lint and the unit tests) deploys the branch's head too while the
+#              branch has commits main does not, so a main deploy that lands after a newer branch deploy never puts an older build over it (Mohammad, 13 Nov 2026: "Keep preview
+#              on the branch head"); once the branch is merged, /preview/ is main, badged "PREVIEW · main <commit>".
 # On main, lint and unit tests (validate) still run and report, but a red result no longer blocks the deploy (7 Nov, Mohammad); the build is strict (BUILD_STRICT: a chunk over the size limit fails it).
 # On the preview branch the deploy starts at once and an oversized chunk only warns; lint and unit tests run beside it in quick.yml.
 # On the preview branch a new push cancels every older run of this workflow, waiting or running: only the newest commit deploys.
@@ -56,13 +58,32 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url || steps.deployment-retry.outputs.page_url }}
     steps:
+      # What /preview/ is built from: the commit that triggered the run, except on main, where it is the preview branch's head if that has commits main does not.
+      # If the API cannot say, main's own commit (the earlier behaviour).
+      - name: Preview source
+        id: pv
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
+          PREVIEW_BRANCH: claude/settings-topbar-icon-flvft1
+        run: |
+          pv_branch="$BRANCH"; pv_sha="$SHA"
+          if [ "$BRANCH" = 'main' ]; then
+            ahead=$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${PREVIEW_BRANCH}" -q .ahead_by 2>/dev/null || echo 0)
+            head=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${PREVIEW_BRANCH}" -q .sha 2>/dev/null || echo '')
+            if [ "${ahead:-0}" -gt 0 ] && [ -n "$head" ]; then pv_branch="$PREVIEW_BRANCH"; pv_sha="$head"; fi
+          fi
+          echo "branch=$pv_branch" >> "$GITHUB_OUTPUT"
+          echo "sha=$pv_sha" >> "$GITHUB_OUTPUT"
+          echo "Preview built from $pv_branch @ $pv_sha"
       - uses: actions/checkout@v5
         with:
           ref: main
           path: live
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ steps.pv.outputs.sha }}
           path: preview
 
       # Main's build is kept per main commit, so a preview deploy rebuilds only the preview.
@@ -89,17 +110,18 @@ jobs:
       - name: Build
         env:
           LIVE_KEPT: ${{ steps.live-dist.outputs.cache-hit }}
-          STRICT: ${{ github.ref_name == 'main' && '1' || '' }}
+          STRICT: ${{ steps.pv.outputs.branch == 'main' && '1' || '' }}
+          LIVE_STRICT: ${{ github.ref_name == 'main' && '1' || '' }}   # (a main run's own build is strict, whatever /preview/ is built from)
         run: |
           ready() { grep -q 'pages-build' "$1/scripts/build.mjs" 2>/dev/null; }
           build() { (cd "$1" && npm ci --no-audit --no-fund && npm run build); }
-          if [ "$LIVE_KEPT" != 'true' ] && ready live; then build live; fi
+          if [ "$LIVE_KEPT" != 'true' ] && ready live; then BUILD_STRICT="$LIVE_STRICT" build live; fi
           if ready preview; then BUILD_STRICT="$STRICT" build preview; fi
 
       - name: Assemble the site
         env:
-          BRANCH: ${{ github.ref_name }}
-          SHA: ${{ github.sha }}
+          BRANCH: ${{ steps.pv.outputs.branch }}
+          SHA: ${{ steps.pv.outputs.sha }}
         run: |
           copy() { if [ -f "$1/dist/index.html" ]; then rsync -a "$1/dist/" "$2/"; else rsync -a --exclude .git --exclude .github --exclude node_modules "$1/" "$2/"; fi; }
           mkdir site

@@ -109,8 +109,7 @@ const NEVER = () => false;   // (a wait nothing cuts: a caller with no change of
 import { reduceMotionMQ as reduce, easeMove, COUNT_MS } from './motion.js';
 import { createScopeLens } from './scope-lens.js';
 import { createWaits } from './wait-cut.js';
-import { createPatience } from './proc-patience.js';
-const WAIT_PATIENCE_MS = 8000, QUEUE_PATIENCE_MS = 14000;   // motion-scale: not a move (the longest a Next is swallowed: the figure's turn to the anatomy, the IVC reading's play-out)
+import { procNavPlan } from './proc-nav.js';
 import { VIEW_CHANGE_MS } from './view-xf.js';
 const ease = easeMove;   // (the tweens and glides of the data card: the one in-out curve, motion.js)
 // Waits a newer press can cut (wait-cut.js): waitCut(ms, cut) ends at ms or the first frame in which cut() holds; until(fn, ms) is the same asked the other way.
@@ -1379,7 +1378,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   let procRun = null, procRunBase = 0, procWait = false, procShown = -1, procShownAt = -1, procRing = -1, procRingAt = -1, procDoneAt = -1, procThenAt = -1, procQueued = false, procRunKind = '', procParked = null;
   // (procParked: the run standing at its last stop since Back landed on the slide done, proc-anim.js park: it only shows the scope where the play-through left it and fades it when the slide moves on;
   // it is not a run to step through, so Back from it leaves the slide as it did before, and a swipe back turns the slide.)
-  const waitPatience = createPatience(WAIT_PATIENCE_MS), queuePatience = createPatience(QUEUE_PATIENCE_MS);
   const procHeld = () => !!procRun && procRun !== procParked;
   // (A slide whose procedure is { kind: 'tips', then: 'tipsgrad' } plays a reading after it, as one more step on the same card: the TIPS catheter reads the
   // gradient across the new stent (proc-anim.js MEASURES.tipsgrad, TIPS step 5). procThenAt: the slide whose main run has played through with its reading
@@ -1419,20 +1417,20 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (procRun) { procRun.to(to); return; }
     if (lapseOn) stopLapse();
     // (A run that starts fresh lights nothing yet, or, for a reading after the stent, still the stent's last step: never the step another slide ended on.)
-    if (!park) { procShown = base - 1; procShownAt = i; procRing = base; procRingAt = i; }
-    procWait = true; waitPatience.reset(); procPaint();
+    if (!park) { procShown = base - 1; procShownAt = i; procRing = procRingAt === i ? Math.max(base, procRing) : base; procRingAt = i; }   // (the ring is where the presses have counted to: a run that was a while starting begins there)
+    procWait = true; procPaint();
     try {
       await toAnatomy(null, () => !mine());
       if (!mine()) { drop(); return; }
       if (store.get().view !== 'anatomic') { store.set({ view: 'anatomic' }); await viewSettled(() => !mine(), stage); }
-    } finally { procWait = false; waitPatience.reset(); }
+    } finally { procWait = false; }
     if (!mine() || procRun) { if (!mine()) drop(); procPaint(); return; }
     const before = structuredClone(store.get().params), names = store.get().presentLabels || [];
     // (Through liveSet as the change itself is: the slide's own state comes back whenever it is shown again.)
     if (!park && specOf(kind).had(before)) liveSet(s, i, specOf(kind).undo(structuredClone(before)));
     procRunKind = kind; procRunBase = base;
     const run = procRun = playProcedure(stage, kind, {
-      stepped: true, to, from, park,
+      stepped: true, to: park ? to : Math.max(to, Math.min(specOf(kind).stops.length - 1, (procRingAt === i ? procRing : base) - base)), from, park,
       // (With a reading to follow, the run holds at its last step, the catheter still in the portal vein, and the reading goes on from there: nothing goes in twice.)
       hold: !isThen && !!procThen(s),
       onHold: () => { if (procRun === run && procQueued && mine()) procChain(); },
@@ -1478,22 +1476,33 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // Next and Back on a procedure's slide (true: they did a step; false: the slide moves on). Next starts it (the catheter goes
   // in), then plays each next step; once it has played through, Next moves on. (While the figure turns to the anatomy before
   // the first step, a Next waits with it rather than leaving.)
+  // (Counted by the ring, never by the animation, his ask, 13 Nov 2026, the direct PPG slide, three reports of "I keep hitting next and it's stuck at 3": every press moves the
+  // ring exactly one step, 1 to the last, and the press after the last moves on, whatever the catheter is doing. The animation is told where to go and catches up, by a jump
+  // if it must (run.to), or starts at that step if it has not begun; a run that cannot start or never lands its shot never holds a press back: proc-nav.js.)
   const procNext = () => {
     if (shown?.i !== want) return false;
-    if (procRun) { const ok = procRun.next(); if (ok) procTarget(); return ok || procChain(); }
-    if (procWait) return waitPatience.ok(performance.now());   // (swallowed while the figure turns, never for ever)
     const s = slides[want];
-    // (The stent is in and its reading is still to come: this Next plays it.)
-    if (procThenAt === want && procThen(s) && !cath.on) {
-      const k = procThen(s);
-      if (procBlocked(k, store.get().params, store.get().frame?.metrics)) { procThenAt = -1; procDoneAt = want; return false; }
-      procPlay(s, want, 0, k);
-      if (!procRun && !procWait) { procThenAt = -1; procDoneAt = want; return false; }   // (it could not start: this Next moves on, never swallowed by a run that is not there)
-      return true;
+    if (!s?.procedure || procDoneAt === want || (procRun && procRun === procParked)) return false;
+    const main = procKind(s), nMain = specOf(main).steps.length, thenK = procThen(s), ring0 = procRingOf(want);
+    const plan = procNavPlan({ ring: ring0, steps: procSteps(s).length, nMain, hasThen: !!thenK, waiting: procWait, readingPending: procThenAt === want,
+      run: procRun ? { reading: procRunKind !== main, at: procRun.at } : null });
+    if (plan.to < 0) return false;   // (the last step has been reached: this Next moves on)
+    const ring = () => { procRing = plan.to; procRingAt = want; procPaint(); };
+    if (plan.how === 'wait') { if (plan.queue) procQueued = true; ring(); return true; }   // (a run is still starting: the press counts and the run starts where the ring is)
+    if (plan.how === 'jump') { ring(); procRun.to(plan.at); return true; }
+    if (plan.how === 'chain') { ring(); if (procRun.at < plan.at) procRun.to(plan.at); procChain(); ring(); return true; }   // (the run's last step first, then the reading that goes on from it)
+    // (Nothing running: the main run's first step, or, with the stent in and its reading still to come, the reading.)
+    const kind = plan.reading ? thenK : main;
+    if (cath.on) return false;
+    if (plan.reading && procBlocked(kind, store.get().params, store.get().frame?.metrics)) { procThenAt = -1; procDoneAt = want; return false; }
+    if (!plan.reading && !procCan(s)) return false;
+    ring();
+    procPlay(s, want, plan.at, kind);
+    if (!procRun && !procWait) {   // (it could not start: this Next moves on, never swallowed by a run that is not there)
+      procRing = ring0; procRingAt = want; procPaint();
+      if (plan.reading) { procThenAt = -1; procDoneAt = want; }
+      return false;
     }
-    if (!s?.procedure || procDoneAt === want || cath.on || !procCan(s)) return false;
-    procPlay(s, want, 0);
-    if (!procRun && !procWait) return false;   // (it could not start: this Next moves on)
     return true;
   };
   // (A Next on the main run's last step: it holds there with the catheter in, and the reading goes on from the place it stands. A Next while it is still on its way to that
@@ -1512,10 +1521,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const procQueue = () => {
     const s = slides[want];
     if (!procRun || !procRun.running || !procThen(s) || procRunKind !== procKind(s)) return false;   // (a run that is over holds nothing back: a Next never waits on it)
-    if (!procQueued) { procQueued = true; queuePatience.reset(); procRing = specOf(procKind(s)).steps.length; procRingAt = want; procPaint(); }
+    if (!procQueued) { procQueued = true; procRing = specOf(procKind(s)).steps.length; procRingAt = want; procPaint(); }
     procRun.rush();   // (the reading plays out at speed and waits for no camera: Mohammad, 13 Nov 2026, "it's refusing to go to step 4 or 5": the ten seconds of the IVC's own withdrawal swallowed every Next)
-    if (queuePatience.ok(performance.now())) return true;
-    procQueued = false; return false;   // (the reading did not start in time: this Next moves on, never swallowed for ever)
+    return true;
   };
   const procBack = () => { procQueued = false; if (!procHeld() || shown?.i !== want || !procRun.back()) return false; procTarget(); return true; };
   // (A slide's steps: the procedure's, then its reading's if it has one, one more step on the same card.)
@@ -2289,6 +2297,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // (R05: the cards that show stay where they are until the slide going in is prepared (slide-prep.js ready: its state, glyphs, data card
   // and shaders), so the new card never comes in empty; at most PREP_MS, so a Next is still answered at once. A newer press takes over.)
   const PREP_MS = 160;   // motion-scale: not a move (a budget for a slide's preparation)
+  // (A talk opening has nothing to answer: its cover is up, so the first slide waits for its preparation up to PREP_BOOT_MS, not PREP_MS. On Mohammad's
+  // iPhone the lap of 13 Nov 2026 showed the opening slide unprepared ("prep-preparing"): its data card and shaders needed more than 160 ms.)
+  const PREP_BOOT_MS = 1500;   // motion-scale: not a move (a budget for the opening slide's preparation, under the cover)
   let prepT = 0;
   // (R05: a slide shown before its preparation or its instrument's window was complete says so: the root's data-pz-degraded names what was
   // missing ('prep-preparing', 'prep-failed', 'prep-unprepared', 'window') until the next press, and degraded() counts them. The time limit
@@ -2297,9 +2308,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const degrade = (why) => { degraded.n++; degraded.last = why; if (ui) ui.root.dataset.pzDegraded = why; };
   function prepHold(i, then) {
     clearTimeout(prepT);
-    const t0 = performance.now(), tx = txn;
+    const t0 = performance.now(), tx = txn, budget = booting ? PREP_BOOT_MS : PREP_MS;
     txn?.onRelease(() => { clearTimeout(prepT); prepT = 0; });
-    const look = () => { prepT = 0; if (!deck || want !== i || !txnLive(tx)) return; if (slidePrep.ready(i)) then(); else if (performance.now() - t0 >= PREP_MS) { const st = slidePrep.state(i); degrade('prep-' + st); if (st !== 'preparing') slidePrep.aim(i, turn, tx ? tx.live : undefined); then(); } else prepT = setTimeout(look, 16); };
+    const look = () => { prepT = 0; if (!deck || want !== i || !txnLive(tx)) return; if (slidePrep.ready(i)) then(); else if (performance.now() - t0 >= budget) { const st = slidePrep.state(i); degrade('prep-' + st); if (st !== 'preparing') slidePrep.aim(i, turn, tx ? tx.live : undefined); then(); } else prepT = setTimeout(look, 16); };
     prepT = setTimeout(look, 16);
   }
   // (Mohammad, 2 Nov 2026: "when i hit next it takes time to move out of the way. it should all be responsive". A Next while the last

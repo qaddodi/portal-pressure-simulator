@@ -825,7 +825,7 @@ export function createTraceGL(host, { redraw = null, under = null, lose = null, 
     /** Starts a frame over a chart w × h CSS px, drawn at Wd × Hd device px. False: the GPU cannot draw now (the 2D canvas draws the chart). */
     begin(w, h, Wd, Hd) {
       if (!api.ready || w < 1 || h < 1) { api.hide(); return false; }
-      if (!bigNoted && bigLayer(Wd, Hd)) { bigNoted = true; caught('trace-gl:big-layer', new Error(`a chart layer of ${Wd} x ${Hd} device px went through the shared pool: every hand-over copies the whole buffer`)); }   // alloc-rare: once per page
+      if (!bigNoted && bigLayer(Wd, Hd)) { bigNoted = true; caught('trace-gl:big-layer', new Error(`a chart layer of ${Wd} x ${Hd} device px (${name || host.parentElement?.className?.split?.(' ')[0] || '?'}) went through the shared pool: every hand-over copies the whole buffer`)); }   // alloc-rare: once per page
       if (shown) {
         // (Another chart's frame still open in the shared context is finished first: its picture handed over before this one starts.)
         if (shared.active && shared.active !== api) shared.active.end();

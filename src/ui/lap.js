@@ -22,7 +22,7 @@ import { currentLook } from './looks.js';
 import { heldGL } from './gl-state.js';
 
 /** The route: name, what it does (sync or async; a failure is written down and the lap goes on), and how long to hold still after it (ms). */
-export const HOLD = { rest: 8000, view: 5000, patient: 6000, card: 5000, slide: 5000, tail: 3000 };
+export const HOLD = { lead: 5000, rest: 8000, view: 5000, patient: 6000, card: 5000, slide: 5000, tail: 3000 };
 
 const sum = (o) => Object.values(o || {}).reduce((a, b) => a + (+b || 0), 0);
 const pad = (s, n) => String(s).padEnd(n);
@@ -119,13 +119,17 @@ export function deviceInfo() {
     const gl = heldGL(), ri = gl?.getExtension('WEBGL_debug_renderer_info');
     renderer = gl ? String(gl.getParameter(ri ? ri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : 'no WebGL2 context held';
   } catch { /* a device that will not say */ }
-  const root = document.documentElement;
+  // (The stage wrap carries the renderer and the quality step, not the root.)
+  const tag = document.querySelector('[data-renderer]');
   const badge = document.getElementById('preview-badge');
+  const st = store.get();
+  let cap = '';
+  try { const c = window.pps?.fig?.cap; cap = c == null ? '' : `, figure detail ${typeof c === 'function' ? c() : c}`; } catch { /* not readable */ }
   return {
     release: RELEASE, preview: badge ? badge.textContent.trim().replace(/\s+/g, ' ') : '', when: new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC',
     ua: navigator.userAgent, screen: `${innerWidth}x${innerHeight}`, dpr: devicePixelRatio, hz: 0, renderer,
-    look: `renderer ${root.dataset.renderer || '?'}, quality ${root.dataset.quality ?? '?'}, look ${currentLook()}`,
-    mode: `mode ${store.get().mode}, view ${store.get().lobule ? 'lobule' : store.get().view}, patient ${store.get().presetId || '?'}`,
+    look: `stage ${tag?.dataset.renderer || '?'}, quality step ${tag?.dataset.quality ?? '?'}, look ${currentLook() || 'System (follows the device)'}${cap}`,
+    mode: `mode ${st.mode}, view ${st.lobule ? 'lobule' : st.view}, patient ${st.presetId || '?'}, model ${st.running ? 'running' : 'paused'}, blood ${st.layers?.flow ? 'on' : 'off'}`,
   };
 }
 
@@ -143,6 +147,8 @@ export async function runSteps(steps, { sleep, now, read = readCounts, newRecord
       if (stopped()) break;
       const st = steps[i];
       onStep(st.name, i, steps.length);
+      // (A rest step waits first: rest pacing begins 4 s after the last touch (frame.js REST_AFTER_MS), and the lap's own tap or the step before it was one.)
+      if (st.lead) await sleep(st.lead);
       rec = newRecorder();
       const t0 = now(), a = read();
       let failed = '';
@@ -166,7 +172,7 @@ export function buildRoute(pps, back) {
   const testsOpen = () => document.getElementById('app')?.classList.contains('dock-open');
   const slides = [0, 1, 2, 3, 4, 5];
   return [
-    { name: 'rest, start', hold: HOLD.rest },
+    { name: 'rest, start', lead: HOLD.lead, hold: HOLD.rest },
     { name: 'Anatomy to Circuit', run: () => setViewKey('circuit'), hold: HOLD.view },
     { name: 'Circuit to Anatomy', run: () => setViewKey('anatomy'), hold: HOLD.view },
     { name: 'Anatomy to Lobule', run: () => setViewKey('lobule'), hold: HOLD.view },
@@ -178,7 +184,7 @@ export function buildRoute(pps, back) {
     ...slides.slice(1).map((i) => ({ name: `talk: slide ${i + 1}`, run: () => pps.presenter.go(i), hold: HOLD.slide })),
     { name: 'talk closed', run: () => pps.presenter.stop(), hold: HOLD.tail },
     { name: 'put back', run: () => back(), hold: 2000 },
-    { name: 'rest, end', hold: HOLD.rest - 2000 },
+    { name: 'rest, end', lead: HOLD.lead, hold: HOLD.rest - 2000 },
   ];
 }
 
@@ -200,7 +206,7 @@ export function startLap() {
   go.style.cssText = copy.style.cssText = stop.style.cssText = BTN;
   go.textContent = 'Start the lap'; copy.textContent = 'Copy'; stop.textContent = 'Stop';
   copy.hidden = stop.hidden = true;
-  head.textContent = 'Device lap: about 90 seconds. Put the device down and leave it alone once you tap Start. It changes the patient and view and opens a talk, then puts them back. When it ends, tap Copy and paste the result into the chat.';
+  head.textContent = 'Device lap: about 100 seconds. Put the device down and leave it alone once you tap Start. It changes the patient and view and opens a talk, then puts them back. When it ends, tap Copy and paste the result into the chat.';
   bar.append(go, stop, copy);
   el.append(head, bar, out);
   document.body.append(el);

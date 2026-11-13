@@ -205,7 +205,7 @@ function monOn({ ctx, w, h: hh }, S, st) {
     const yLo = Math.min((lo === 0 ? yA : yB) + sep, hh - 16), yHi = Math.min((lo === 0 ? yB : yA) - sep, yLo - SEP);
     // (Each level's line is faded and dashed, from the end of its own trace to the right axis where its label stands, not a solid rule across the whole screen: Mohammad, 13 Nov 2026.)
     const sa = on0 ? stubAt(S, L0, tNow) : 0, sb = on1 ? stubAt(S, L1, tNow) : 0;
-    if (on0 && on1) joinLevels(ctx, S, v, wave, L0, L1, a, tNow, sa);
+    if (on0 && on1) joinLevels(ctx, S, v, wave, L0, L1, tNow);
     if (on0) level(ctx, a, C[L0[2]], L0[3], both ? (lo === 0 ? yLo : yHi) : Math.min(yA, hh - 16), !tags, R, cLv0, sa);
     if (on1) level(ctx, b, C[L1[2]], L1[3], both ? (lo === 1 ? yLo : yHi) : Math.min(yB, hh - 16), !tags, R, cLv1, sb);
   }
@@ -299,23 +299,23 @@ function stubAt(S, lv, tNow) {
   const i = segOfLevel(S, lv);
   return Math.max(axL, X(Math.min(i < 0 ? lv[0] : S.segs[i][1], tNow))) + 3;
 }
-/** Two readings taken apart in time (the needle out between them: a gap between their traces): a very faint grey dashed curve from the end of the first level's
- *  dashes to where the second trace begins, laid down as the sweep crosses the gap. Smoothstep, so it leaves and arrives level, with no corner. A visual aid only. */
-function joinLevels(ctx, S, v, wave, L0, L1, a, tNow, x0) {
+/** Two readings taken apart in time (the needle out between them: a gap between their traces): one faint, solid, smooth curve from the last point of the first trace to the
+ *  first point of the second, laid down as the sweep crosses the gap. Smoothstep, so it leaves and arrives level, with no corner, and it starts and ends exactly on the
+ *  traces' own ends so nothing is left between them (Mohammad, 13 Nov 2026: "the line that bridges the gap is glitched"). A visual aid only. */
+function joinLevels(ctx, S, v, wave, L0, L1, tNow) {
   const i = segOfLevel(S, L0), j = segOfLevel(S, L1);
   if (i < 0 || j < 0 || i === j) return;
   const e1 = S.segs[i][1], s2 = S.segs[j][0];
   if (s2 - e1 < 60 || tNow <= e1) return;   // (traces that run on into each other need none)
-  const p2 = S.at(s2 + 1, v, wave);
-  if (!Number.isFinite(p2) || !Number.isFinite(a)) return;
-  const xa = Math.min(x0 + STUB_PX, X(e1) + 0.3 * (X(s2) - X(e1))), xb = X(s2), xe = Math.min(X(tNow), xb), ya = Math.round(Y(a)) + 0.5, yb = Y(p2);
-  if (xb - xa < 6 || xe <= xa) return;
-  ctx.save(); ctx.fillStyle = C.text; ctx.globalAlpha = 0.3; ctx.beginPath();
-  let px = xa, py = ya, d = 0;
-  for (let xx = xa + 2; ; xx += 2) {
+  const p1 = S.at(e1, v, wave), p2 = S.at(s2, v, wave);
+  if (!Number.isFinite(p1) || !Number.isFinite(p2)) return;
+  const xa = X(e1), xb = X(s2), ya = Y(p1), yb = Y(p2), xe = Math.min(X(tNow), xb);
+  if (xb - xa < 4 || xe <= xa) return;
+  ctx.save(); ctx.fillStyle = C.text; ctx.globalAlpha = 0.45; ctx.beginPath();
+  let px = xa, py = ya;
+  for (let xx = xa + 1.5; ; xx += 1.5) {
     const xc = Math.min(xx, xe), u = (xc - xa) / (xb - xa), y = ya + (yb - ya) * u * u * (3 - 2 * u);
-    d += Math.hypot(xc - px, y - py);
-    if (d % (DASH + DASH_GAP) < DASH) inkSeg(ctx, px, py, xc, y, 1.2);
+    inkSeg(ctx, px, py, xc, y, 1.6);
     px = xc; py = y;
     if (xc >= xe) break;
   }

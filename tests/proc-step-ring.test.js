@@ -27,9 +27,9 @@ test('each mark belongs to its slide and shows on the live card and on a card bu
 test('the fill follows the animation, the ring follows the taps', () => {
   assert.match(src, /onStep: \(k\) => \{ if \(procRun === run\) \{ procShown = base \+ k; procShownAt = i; procPaint\(\); \} \}/, 'the fill: the step the catheter is on');
   assert.match(src, /const procTarget = \(\) => \{ if \(!procHeld\(\)\) return; procRing = procRunBase \+ procRun\.at; procRingAt = want; procPaint\(\); \};/, 'the ring: the run\'s target step');
-  assert.match(src, /if \(procRun\) \{ const ok = procRun\.next\(\); if \(ok\) procTarget\(\); return ok \|\| procChain\(\); \}/, 'Next rings its step at once');
+  assert.match(src, /const ring = \(\) => \{ procRing = plan\.to; procRingAt = want; procPaint\(\); \};/, 'Next rings its step at once, counted by the ring, not by the run');
   assert.match(src, /!procRun\.back\(\)\) return false; procTarget\(\); return true;/, 'Back moves the ring back at once');
-  assert.match(src, /if \(!park\) \{ procShown = base - 1; procShownAt = i; procRing = base; procRingAt = i; \}/, 'a run that starts rings its first step and fills none yet, never the step another slide ended on');
+  assert.match(src, /if \(!park\) \{ procShown = base - 1; procShownAt = i; procRing = procRingAt === i \? Math\.max\(base, procRing\) : base; procRingAt = i; \}/, 'a run that starts rings the step the presses counted to (its first when none) and fills none yet, never the step another slide ended on');
 });
 
 test('Back to the start, a reading, a slide opened forward or back onto a played-through one, a stopped run: both marks agree with the slide', () => {
@@ -39,18 +39,9 @@ test('Back to the start, a reading, a slide opened forward or back onto a played
   assert.match(src, /procRun = null; procShown = -1; procShownAt = -1; procRing = -1; procRingAt = -1; procPaint\(\);/, 'stopping a run at home clears both');
 });
 
-test('a Next on the last step of a run that plays out before its reading (the IVC, then the direct portal pressure) waits for it, rings the reading\'s first step and swallows another Next', () => {
+test('a Next on the IVC run\'s last step rings the reading\'s first step and rushes the run; nothing is swallowed', () => {
   const q = src.match(/const procQueue = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(q, /if \(!procQueued\) \{ procQueued = true; queuePatience\.reset\(\); procRing = specOf\(procKind\(s\)\)\.steps\.length; procRingAt = want; procPaint\(\); \}\n\s+procRun\.rush\(\);[^\n]*\n\s+if \(queuePatience\.ok\(performance\.now\(\)\)\) return true;/, 'it rings the reading\'s first step and plays the IVC out at speed');
-  assert.doesNotMatch(q, /procQueued\) return false/, 'a second Next while it waits never leaves the slide');
-});
-
-test('(never stuck) every place procNext swallows a Next is bounded or checked: the figure\'s turn, the IVC reading\'s play-out, a run that could not start', () => {
-  assert.match(src, /if \(procWait\) return waitPatience\.ok\(performance\.now\(\)\);/);
-  assert.match(src, /procWait = true; waitPatience\.reset\(\); procPaint\(\);/);
-  assert.match(src, /\} finally \{ procWait = false; waitPatience\.reset\(\); \}/);
-  const q = src.match(/const procQueue = \(\) => \{[\s\S]*?\n {2}\};/)[0];
-  assert.match(q, /if \(queuePatience\.ok\(performance\.now\(\)\)\) return true;\n\s+procQueued = false; return false;/);
-  assert.match(src, /procPlay\(s, want, 0, k\);\n\s+if \(!procRun && !procWait\) \{ procThenAt = -1; procDoneAt = want; return false; \}/, 'the reading after a run: if it did not start, this Next moves on');
-  assert.match(src, /procPlay\(s, want, 0\);\n\s+if \(!procRun && !procWait\) return false;/, 'a procedure that did not start: this Next moves on');
+  assert.match(q, /if \(!procQueued\) \{ procQueued = true; procRing = specOf\(procKind\(s\)\)\.steps\.length; procRingAt = want; procPaint\(\); \}\n\s+procRun\.rush\(\);[^\n]*\n\s+return true;/);
+  assert.match(src, /if \(plan\.how === 'wait'\) \{ if \(plan\.queue\) procQueued = true; ring\(\); return true; \}/, 'a press while a run starts counts and rings');
+  assert.match(src, /procPlay\(s, want, plan\.at, kind\);\n\s+if \(!procRun && !procWait\) \{[^\n]*\n\s+procRing = ring0;/, 'a run that could not start: the ring goes back and this Next moves on');
 });
