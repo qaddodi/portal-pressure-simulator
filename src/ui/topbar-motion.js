@@ -10,6 +10,7 @@
 import { D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js';
 import { removeSoon } from './class-soon.js';
 import { reduceMotionMQ } from './motion.js';
+import { morphGlass, gpuGlass } from './glass-morph.js';
 
 const ITEMS = '.tb-id, .tb-id > *, .sb-left, .sb-right, #viewSeg, #viewSeg > button, .sb-right > :not(.tb-face), .top-right, .top-right > *';
 // Pills that grow reveal their new width from the old one instead of snapping wide.
@@ -119,7 +120,8 @@ export function initTopbarMotion() {
           // wider plate fading behind them.
           const face = el.querySelector(':scope > .tb-face');
           if (face) plateGlide(face, 0, s.w, n.w, { duration: MOVE_MS, easing: EASE_MOVE });
-          else if (!face) ghost(el, s, { own, tot, next }, true);
+          else if (gpuGlass(el)) morphGlass(el, MOVE_MS, true);   // (its own glass, drawn by the GPU: it narrows itself, instead of an old wider plate fading behind it)
+          else ghost(el, s, { own, tot, next }, true);
         }
         if (t.dw > 2 && el.matches(GROW)) growPill(el, s, n, next);
       }
@@ -135,6 +137,10 @@ export function initTopbarMotion() {
   // they are always one pill with both ends round. The face itself sits at its new width under them, hidden by an opacity hold
   // until they land. A glide caught by the next takes over from the snapshot, as the width did.
   function plateGlide(face, x0, w0, w1, timing) {
+    // (A face whose glass the GPU draws has no page fill to copy: the glass itself changes size in view, from where it is drawn to its new box, glass-morph.js.
+    // The copies below are for a face the page draws.)
+    const gl = morphGlass(face, timing.duration, timing.easing === EASE_MOVE);
+    if (gl) return null;
     // (Read before the ghosts are taken off and the glide is cancelled: a read after a write lays the bar out again. The faces are absolute and only
     // transform and opacity are cancelled, so nothing read changes.)
     const anims = face.getAnimations(), p = Math.min(w0, w1), h = face.offsetHeight;
@@ -183,7 +189,8 @@ export function initTopbarMotion() {
   function growPill(el, s, n, next) {
     const timing = { duration: MOVE_MS, easing: EASE_MOVE };
     let face = el.querySelector(':scope > .tb-face:not([data-ghost])'), lent = null;
-    if (!face) {
+    if (!face && gpuGlass(el)) morphGlass(el, MOVE_MS, true);   // (a pill whose own glass the GPU draws: it grows itself, nothing is lent)
+    else if (!face) {
       const cs = getComputedStyle(el);
       const paints = !/^(transparent|rgba\(0, 0, 0, 0\))$/.test(cs.backgroundColor) || cs.backgroundImage !== 'none' || cs.boxShadow !== 'none';
       if (paints) {

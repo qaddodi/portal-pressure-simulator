@@ -5,8 +5,9 @@
 // a fixed size laid out once, keeps only its outer edge's hairline and shadow (a still clip cuts the rest), and rides one eased
 // translate and scale, all on the same curve, so together they are always one rounded plate from the old box to the new. Nothing
 // is laid out or painted again per frame: the compositor carries every piece. The box takes its own glass back as they land.
-import { D_FLIP, D_SURFACE, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { D_FLIP, D_SURFACE, EASE_ARRIVE, EASE_IN, EASE_MOVE } from './ease.js';
 import { reduceMotionMQ } from './motion.js';
+import { morphGlass } from './glass-morph.js';
 
 const O = 64;   // (room each piece keeps for its shadow on its outer sides)
 const PIECES = [
@@ -38,6 +39,16 @@ export function glidePlate(host, from, to, opts) { return glidePlateOn(host, pla
 
 /** glidePlate on pieces made beforehand (platePieces, called as the host is set up), for a glide that starts in a frame. */
 export function glidePlateOn(host, made, from, to, { R = 16, duration = D_SURFACE, easing = EASE_ARRIVE, done } = {}) {
+  // (A box whose glass the GPU draws has no page fill for nine pieces to carry: it asks that glass to change size in view instead, from where it is drawn to
+  // the new box on this glide's length and its curve, ring and shadow with it (glass-morph.js). Its stand-in below is for a glass the page draws.)
+  const gpu = morphGlass(host, duration, easing === EASE_MOVE);
+  if (gpu) {
+    const stop = () => { gpu(); done?.(); };
+    let over = false;
+    const end = () => { if (over) return; over = true; clearTimeout(t); stop(); };
+    const t = setTimeout(end, duration + 160);
+    return end;
+  }
   R = Math.max(0, Math.min(R, from.w / 2, from.h / 2, to.w / 2, to.h / 2));
   const bw = Math.max(1, to.w - 2 * R), bh = Math.max(1, to.h - 2 * R);   // (the stretching pieces' laid-out length: the new box's)
   const pieces = made;

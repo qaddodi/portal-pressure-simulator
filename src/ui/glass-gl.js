@@ -17,7 +17,7 @@ import { finalFrameFor, readFrameFor, framePhase, frameCount, cancelFrame, noteD
 import { startProgram, checkProgram, compileDone, exerciseDraw, SHADER_WARM } from './gl-compile.js';
 import { Inline, inlineShift, inlineTranslate, Motion, compileKeyframes, motionAt, movesOnly, clockOf, clockAt } from './glass-motion.js';
 import { pathPolys, fanTriangles } from './path-poly.js';
-import { easeArrive, D_SURFACE } from './ease.js';
+import { easeArrive, easeMove, D_SURFACE } from './ease.js';
 import { caught } from './caught.js';
 import { glassForgetters } from './drop-label.js';
 import { booting, holdCover } from './quiet.js';
@@ -131,7 +131,7 @@ function morphInto(o, q, t, tx, ty) {
   const M = q.morph, b = q.r0;
   const u = M ? Math.min(1, Math.max(0, (t - M.t0) / M.ms)) : 1;
   if (u >= 1) return shiftInto(o, b, tx, ty);
-  const e = easeArrive(u), a = M.from, L = a.left + (b.left - a.left) * e, T = a.top + (b.top - a.top) * e;
+  const e = M.move ? easeMove(u) : easeArrive(u), a = M.from, L = a.left + (b.left - a.left) * e, T = a.top + (b.top - a.top) * e;
   const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
   o.left = L + tx; o.top = T + ty; o.right = L + W + tx; o.bottom = T + H + ty; o.width = W; o.height = H;
   return o;
@@ -143,17 +143,32 @@ export function morphAt(q, t) {
   if (!M) return q.r0;
   const u = Math.min(1, Math.max(0, (t - M.t0) / M.ms));
   if (u >= 1) return q.r0;
-  const e = easeArrive(u), a = M.from, b = q.r0, L = a.left + (b.left - a.left) * e, T = a.top + (b.top - a.top) * e;
+  const e = M.move ? easeMove(u) : easeArrive(u), a = M.from, b = q.r0, L = a.left + (b.left - a.left) * e, T = a.top + (b.top - a.top) * e;
   const W = a.width + (b.width - a.width) * e, H = a.height + (b.height - a.height) * e;
   return { left: L, top: T, right: L + W, bottom: T + H, width: W, height: H };
 }
-/** The size change a card's glass plays now (null: none). q: the pane as last read ({ r0, morph }), r0: the box it has now, asked: the page asks for
- *  its glass to change size in view (data-gl-morph). A change already under way to this same box carries on (a read made part way through it, which the fold's
- *  own ghost leaving or a poll makes, never starts it over from where it has got to: that was an ease that never arrived); a new box starts from where
- *  the glass is drawn now. */
-export function morphFor(q, t, r0, asked) {
+/** What data-gl-morph asks: its length in ms (a number in the value) and its curve ("move": the move curve, else the arrive curve), { ms, move }; a plain
+ *  attribute is the surface length on the arrive curve (the fold of the view pill). null: not asked. Kept records, so a read makes nothing. */
+const ASK_SURFACE = { ms: D_SURFACE, move: false };
+const asks = new Map();
+export function morphAsk(v) {
+  if (v == null) return null;
+  if (!v) return ASK_SURFACE;
+  let a = asks.get(v);
+  if (!a) { a = { ms: parseFloat(v) > 0 ? parseFloat(v) : D_SURFACE, move: /\bmove\b/.test(v) }; asks.set(v, a); }   // alloc-rare: one record per distinct value of the attribute, read with the page
+  return a;
+}
+/** The size change a card's glass plays now (null: none). q: the pane as last read ({ r0, morph, mx, my }, mx and my the motion it was last drawn
+ *  with), r0: the box it has now, asked: what the page asks (morphAsk of data-gl-morph), dx, dy: the motion it has now. A change already under way to this
+ *  same box carries on (a read made part way through it, which a ghost leaving or a poll makes, never starts it over from where it has got to: that was
+ *  an ease that never arrived); a new box starts from where the glass was drawn, on the screen: the page may have moved it by a glide of its own (FLIP: a
+ *  pill that grows moves its whole box back by a translate), which is added to the box each frame, so it is taken off the start here. */
+export function morphFor(q, t, r0, asked, dx = 0, dy = 0) {
   if (q.morph && t - q.morph.t0 < q.morph.ms && sameBox(q.r0, r0)) return q.morph;
-  if (asked && !sameBox(morphAt(q, t), r0)) return { from: morphAt(q, t), t0: t, ms: D_SURFACE };
+  if (asked && !sameBox(morphAt(q, t), r0)) {
+    const c = morphAt(q, t), sx = (q.mx || 0) - dx, sy = (q.my || 0) - dy;
+    return { from: { left: c.left + sx, top: c.top + sy, right: c.right + sx, bottom: c.bottom + sy, width: c.width, height: c.height }, t0: t, ms: asked.ms, move: asked.move };
+  }
   return null;
 }
 /** Shared, read-only: a clear colour, and no glasses. Handed out in a frame in place of a fresh [0, 0, 0, 0] or []. */
@@ -1789,10 +1804,10 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       let morph = null;
       if (p.rad && !p.d && !za) {
         const q = prev.find((x) => x.g === p.g && x.rad && !x.d);
-        if (q) morph = morphFor(q, tNow, r0, p.g.hasAttribute('data-gl-morph'));
+        if (q) morph = morphFor(q, tNow, r0, morphAsk(p.g.hasAttribute('data-gl-morph') ? p.g.getAttribute('data-gl-morph') : null), mv.x, mv.y);
       }
       if (morph) liveUntil = Math.max(liveUntil, morph.t0 + morph.ms + 34);
-      return { ...p, chain, r0, er0, rz, erz, tr0, aS, aC, morph, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };
+      return { ...p, chain, r0, er0, rz, erz, tr0, aS, aC, morph, mx: 0, my: 0, zoomed: !!za, rad0: za && p.rad ? p.rad.map((v) => v / za.s) : p.rad };
     });
     // (Drawn as the page stacks them, the lowest first, so a card the page lays above another has its glass above that one's too (a key's pill under
     // the Settings sheet was drawn over it, the region it belongs to having been made later); one the stacking cannot place keeps its order.)
@@ -1861,6 +1876,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       litNow.add(p.g);
       const L = p.live;
       L.a = a;
+      p.mx = mv.x; p.my = mv.y;   // (the motion it is drawn with: a morph that starts later leaves from here, morphFor)
       if (p.morph) { morphInto(L.r, p, performance.now(), mv.x, mv.y); copyRect(L.er, L.r); L.rad = p.rad; panes.push(L); continue; }
       if (p.zoomed) {
         const za = zoomRide.of(p.g);
