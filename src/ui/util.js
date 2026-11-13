@@ -1016,7 +1016,7 @@ export function closePopover() {
     const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => { if (!el.dataset.swiped) el.classList.remove('pulling'); el.classList.add('leaving'); };
     if (el.dataset.swiped) leave(); else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     if (scrim) leaveFromHere(scrim, () => scrim.classList.add('out'));
-    el.inert = true; markGone(el.dataset.swiped ? 0 : ms, el); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL : ms + 10);
+    el.inert = true; markGone(el.dataset.swiped ? 0 : ms, el); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL + 20 : ms + 10);   // (a swiped sheet: once its let-go has landed behind the dock, never in its last frames)
   } else { openMenu.plate?.dispose(); if (openMenu.scrim) restRemove(openMenu.scrim); }
   restAttr(openMenu.anchor, 'aria-expanded', 'false'); openMenu.cleanup();
   lastMenu.anchor = openMenu.anchor; lastMenu.t = performance.now();   // (the one record, written in place)
@@ -1118,7 +1118,7 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
       const here = easing && !easing.over ? pullAt(easing) : s.shift;
       s.on = true; s.y = e.clientY - here; s.t = performance.now();
       classSoon(panel, 'pulling', true);   // (the stylesheet's entrance, if it is still playing, gives way to the finger: a class, written between frames, app.css .pulling)
-      s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y');   // (no cut of its own: the sheet layer cuts it on the dock's line, sheet-layer.js)   // (num-move.js: one paused animation, its clock the finger's distance)
+      s.pull = moverOf(panel, s.thumb ? 'translate' : 'transform', 'y', true);   // (glass: the sheet's GPU glass reads the finger's number, num-move driven(); without it the glass held the pull's paused animation at its first clock and drew the frost where the sheet no longer was: 13 Nov 2026)   // (no cut of its own: the sheet layer cuts it on the dock's line, sheet-layer.js)   // (num-move.js: one paused animation, its clock the finger's distance)
       s.pull.set(0, here);
       pullStop(easing); easing = null;
       panel.setPointerCapture?.(e.pointerId);

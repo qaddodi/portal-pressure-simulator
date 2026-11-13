@@ -22,6 +22,7 @@ import { caught } from './caught.js';
 import { glassForgetters } from './drop-label.js';
 import { booting, holdCover } from './quiet.js';
 import { viewSize, readAnims, readStyle, readBox } from './layout-snap.js';
+import { resolveKeyframes } from './kf-resolve.js';
 import { parseCssColor } from './css-color.js';
 import { driven, isDrivenAnimation, onMove } from './num-move.js';
 import { counts, tally } from './frame-counts.js';
@@ -1506,7 +1507,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
   const stateOf = clockState;
   function timeAnim(an) {
     const rec = { kf: null, c: null };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame
-    try { rec.kf = compileKeyframes(an.effect?.getKeyframes?.() || null); } catch { rec.kf = null; }   // (its keyframes as numbers, once: motionAt reads them each frame and builds nothing)
+    try { rec.kf = compileKeyframes(resolveKeyframes(an.effect?.getKeyframes?.() || null, an.effect?.target)); } catch { rec.kf = null; }   // (a move written against the element's own size or a custom property, in pixels: kf-resolve.js)   // (its keyframes as numbers, once: motionAt reads them each frame and builds nothing)
     const c = rec.c = clockOf(an, tlNow());
     if (!c) return rec;
     const stop = (done) => () => { if (done) c.done = true; else c.idle = true; wake(); measureSoon(); };   // alloc-rare: an animation is timed once, the first time it is seen (trackSoon/measureGeo), never per frame

@@ -404,6 +404,9 @@ html.chip-open :is(.chip-btn, .lens-btn)[aria-expanded="true"] { background: var
    (--sheet-h), a phone's chart sheet (--panel-h) and a stacked presenter card. Only a full-screen menu, popover or dialog
    passes over it while open. Decorative and non-interactive. */
 .stage-credit { position: absolute; left: 0; top: 0; translate: var(--cx, 24px) var(--cy, 24px); z-index: var(--z-figure); font-size: var(--fs-12); font-weight: 500; line-height: 1.4; letter-spacing: .01em; white-space: nowrap; color: color-mix(in srgb, var(--text) 45%, transparent); pointer-events: none; user-select: none; }
+/* (13 Nov 2026) Over the thumb dock a menu sheet or the Search sheet has no fill of its own (its frost is drawn in the figure's canvas, under the page),
+   so the credit, which is page text over the figure, showed through the Search list. It steps out while any of them is up. */
+html.thumb-ui:has(.sheet-layer > :is(.menu, .umenu, .why-pop.show), body > .pal-back:not([hidden])) .stage-credit { visibility: hidden; }
 
 /* ── Readouts: the live monitor under the figure ─────
    One fixed set in teaching order: pressure → flow → consequences → systemic. Nothing joins or
@@ -1561,7 +1564,8 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 /* (13 Nov 2026, menu recs P3) Over the thumb dock (an upright phone or iPad) Search is a sheet like the tabs beside it: it rests 8 px above the dock,
    or on the keyboard when it is up (--pal-kb, palette.js), rises from behind the dock and sinks back in 240 ms, has a close button, dims nothing
    (the dock and the figure stay as they are, like the other sheets), and keeps one height while it is open. The dock below it stays live. */
-html.thumb-ui .pal-back { bottom: max(0px, calc(var(--thumb-occ, 0px) - 8px)); align-items: flex-end; overflow: hidden; animation: none;
+html.thumb-ui .pal-back { bottom: max(0px, calc(var(--thumb-occ, 0px) - 8px)); align-items: flex-end; overflow: clip; animation: none;   /* (clip, not hidden: a hidden box is still a scroller, and the focus in the tap scrolled it 117 px to show the field while the sheet rose, then it snapped back as it landed) */
+ 
   padding: calc(8px + var(--safe-top)) calc(6px + env(safe-area-inset-right, 0px)) max(8px, calc(var(--pal-kb, 0px) + 16px - var(--thumb-occ, 0px))) calc(6px + env(safe-area-inset-left, 0px)); }
 html.thumb-ui .pal { --pal-veil: 0 0 0 0 transparent; width: 100%; animation: dock-sheet-in var(--d-small) var(--ease) backwards; }
 html.thumb-ui .pal-back.leaving { animation: none; }
@@ -4049,7 +4053,11 @@ html.thumb-ui .sheet-layer { clip-path: inset(0 0 max(0px, calc(var(--sheet-foot
    It used to rest on the screen's foot, over the play bar, the timeline and the tabs, and slid down over them with no cut. */
 html.thumb-ui .umenu.sheet { left: calc(env(safe-area-inset-left, 0px) + 6px) !important; right: calc(env(safe-area-inset-right, 0px) + 6px); bottom: max(var(--menu-kb, 0px), var(--thumb-occ, 0px)); height: min(var(--menu-h, 88dvh), calc(100dvh - var(--thumb-occ, 0px) - max(72px, var(--thumb-top, 0px) + 8px))); border-radius: var(--r-sheet); padding-bottom: 6px; }
 .umenu.sheet .um-grab { display: block; flex: none; height: 16px; position: relative; touch-action: none; }
-html.thumb-ui .umenu.sheet .um-grab { display: none; }   /* (no grabber on a sheet over the thumb dock, as the cards and menus have none: menu recs P2) */
+html.thumb-ui .umenu.sheet .um-grab { display: none; }
+/* (13 Nov 2026, iPhone: "menus cannot be flying on top of" the timeline and the tab row) Over the thumb dock the sheet rests 8 px above the dock's
+   top line, so it travels its height and those 8 px: it starts and ends wholly behind the line. By its height alone an 8 px strip of it stood over
+   the dock as it began to come in and was left there at the end of its exit, and then blinked away. */
+html.thumb-ui .umenu.sheet { --edge-y: calc(100% + 8px); }   /* (no grabber on a sheet over the thumb dock, as the cards and menus have none: menu recs P2) */
 .umenu.sheet .um-grab::before { content: ''; position: absolute; left: 50%; top: 6px; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
 .umenu.sheet .um-top { padding: 2px 10px 10px 14px; touch-action: none; }
 .umenu.sheet .um-search { height: 40px; }
@@ -6531,7 +6539,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    (4 Nov, Mohammad) The dock is never covered: the play bar, the timeline, the readouts and the tab row stay up and live, and every card
    and menu rests 8 px above the dock's top (--sheet-foot). Only the view pill, which floats in that slot, steps aside. It comes back
    a beat late (.3 s), so between two cards, while one has gone and the next is yet to rise, it does not blink in and out.) */
-.app.thumb:is(.dock-open, .panel-open, .menu-sheet-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(.sheet-layer > .menu:not(.leaving), .sheet-layer > .why-pop.as-sheet.show, body > .pal-back:not([hidden]):not(.leaving)) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
+.app.thumb:is(.dock-open, .panel-open, .menu-sheet-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(.sheet-layer > .menu, .sheet-layer > .why-pop.as-sheet.show, body > .pal-back:not([hidden])) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: none; }   /* (13 Nov 2026: gone at once. The pill lies above the sheets, in the dock, so a fade let its words show over a sheet already rising past it; the sheet's top passes it in its first few frames) */
 .app.thumb .vdock:not(.mini) > .nb-views { transition: opacity var(--d-small) var(--ease) .3s, translate var(--d-small) var(--ease) .3s; }
 /* (Open, the tab row's top hairline is its edge ring on the outer edge, as on a card: its own top border goes, with 1 px more padding, so no fill shows above the line.) */
 @media (prefers-reduced-motion: no-preference) { .app.thumb .vdock:not(.mini) { --bar-sink: 6px; } }   /* (the rise; with reduced motion the bar only fades) */

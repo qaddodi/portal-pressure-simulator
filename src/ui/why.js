@@ -1,5 +1,6 @@
 // "Why?" popover (blueprint §9.3): one causal sentence, a contribution waterfall and the formula.
 
+import { cancelMoves } from './num-move.js';
 import { classSoon } from './class-soon.js';
 import { host } from './host.js';
 import { h, fmt, svgIcon, announce, claimSurface, releaseSurface, placeAt, swipeSheet, STACK_MQ } from './util.js';
@@ -39,6 +40,7 @@ export function createWhy(pop) {
     const sheet = sheetMQ.matches;
     // (A card put away by a swipe was left drawn off the screen: that, and its swiped mark, are cleared before it comes in again.)
     for (const a of pop.getAnimations()) a.cancel();
+    cancelMoves(pop);   // (and the swipe's held number, so its glass is not drawn off by the last let-go: num-move.js)
     delete pop.dataset.swiped; pop.style.translate = ''; pop.style.transform = '';
     pop.classList.toggle('as-sheet', sheet); placedTop = 0;
     if (sheet && !scrim) { scrim = h('div', { class: 'um-scrim why-scrim' }); sheetLayer().append(scrim); }

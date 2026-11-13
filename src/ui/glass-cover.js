@@ -131,6 +131,9 @@ export function coverBoard() {
   function hole(i, p) {
     const h = holePool[i] || (holePool[i] = { left: 0, top: 0, right: 0, bottom: 0, rad: null });   // alloc-rare: the pool grows to the most cards that cover one
     h.left = p.r.left; h.top = p.r.top; h.right = p.r.right; h.bottom = p.r.bottom; h.rad = p.rad || null;
+    // (A glass cut at a still foot (a phone sheet sliding up from behind the dock: the sheet layer's clip, p.cut) covers only what is drawn of it,
+    // above that foot. Uncut, a sheet still rising covered the whole dock, its play bar, timeline and tabs blanked while it rose: 13 Nov 2026.)
+    if (p.cut && p.cut.bottom < h.bottom) { h.bottom = p.cut.bottom; if (h.rad) h.rad = null; }
     return h;
   }
   // (Overlapping holes would cancel each other under even-odd: taken as one box, their bounds.)
@@ -176,7 +179,7 @@ export function coverBoard() {
     holes.length = 0;
     for (let j = 0; j < all.length; j++) {
       const q = all[j];
-      if (j === i || q.g === all[i].g || !(q.a == null || q.a >= UP) || !meets(r, q.r)) continue;
+      if (j === i || q.g === all[i].g || !(q.a == null || q.a >= UP) || !meets(r, q.r) || (q.cut && q.cut.bottom <= Math.max(r.top, q.r.top))) continue;   // (one still wholly below its foot covers nothing)
       const qt = targetOf(q);
       if (qt === g || g.contains?.(q.g) || q.g.contains?.(g) || g.contains?.(qt) || qt.contains?.(g) || !above(j, i)) continue;
       holes.push(hole(holes.length, q));

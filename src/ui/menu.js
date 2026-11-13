@@ -144,7 +144,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
     } else if (leaveFromHere(panel, () => { panel.classList.remove('pulling'); panel.classList.add('out'); })) gone?.leaveAlong();   // (.pulling, left by an earlier pull, would hold off the exit: menu recs C1)   // (the plate under it follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     // (Inert from the first frame of its exit, as the popovers are; a menu opened again before it has gone leaves it fading, below.)
     panel.inert = true;
-    setTimeout(done, sheet || o.dragged ? D_SMALL : D_FLIP);
+    setTimeout(done, afterMs(sheet || o.dragged ? D_SMALL : D_FLIP));   // (after the exit or the let-go has landed, never in its last frames: 13 Nov 2026)
   };
   // Typing while the menu is open (and focus is elsewhere) goes to its search.
   const typed = (e) => {
@@ -551,14 +551,22 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
   let openAt = -1e9;
   function groupsIn(panel) {
     const since = performance.now() - openAt;
-    if (reduce.matches || !panel.animate || since > 40 + 5 * 30 + D_SMALL) return;
+    // (Not on a sheet: it rises whole from behind the dock, and rows rising inside a rising sheet were a second motion on top of the
+    // first (13 Nov 2026, iPhone: "opening and closing menus is glitchy"). The floating menu on a Mac keeps the top-down reveal.)
+    if (reduce.matches || !panel.animate || panel.classList.contains('sheet') || since > 40 + 5 * 30 + D_SMALL) return;
     const col = panel.querySelector(`.um-col[data-col="${tab}"]`) || panel.querySelector('.um-col');
     const gs = [...(col?.children || [])].filter((g) => g.classList.contains('um-g') && g.getClientRects().length).slice(0, 6);
     gs.forEach((g, i) => g.animate([{ opacity: 0, transform: `translateY(${RISE_PX}px)` }, { opacity: 1, transform: 'none' }],
       { duration: D_SMALL, easing: EASE_ARRIVE, delay: 40 + i * 30 - since, fill: 'backwards' }));
   }
+  let renderT = 0;
   function render() {
+    clearTimeout(renderT); renderT = 0;
     if (!el) return;
+    // (The panel is made again whole, at rest (.still). Made again while it is still coming in, the first open after a load when the talks
+    // arrive 100 ms in, it jumped to its resting place mid-slide: 13 Nov 2026, iPhone. It waits for the entrance to end.)
+    const left = openAt + D_SMALL + 16 - performance.now();
+    if (left > 0 && !reduce.matches) { renderT = setTimeout(render, left); return; }
     const lib = libraryNow(), keep = el.querySelector('.um-cols')?.scrollTop, focus = document.activeElement?.classList.contains('um-q') ? 'q' : document.activeElement?.dataset?.k, sheet = el.classList.contains('sheet');
     const next = build(lib);
     if (sheet) next.classList.add('sheet');
@@ -711,18 +719,30 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       if (!s?.on) return;
       const v = releaseSpeed(s.trail, performance.now());   // (the finger's, px per ms to the right: the lists carry it on)
       const go = !!s.nb && pageGo(s.dx, performance.now() - s.t, s.w, v);
-      const d = s.dx < 0 ? 1 : -1, curve = carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL), ease = `transform ${D_SMALL}ms ${curve}`;   // alloc-rare: once as a swipe is let go, never per frame   // (past the end the list moves a third of the finger)
-      s.cur.style.transition = ease; if (s.nb) s.nb.style.transition = ease;
-      s.cur.style.transform = go ? `translateX(${-d * s.w}px)` : '';   // alloc-rare: once as a swipe is let go, never per frame
-      if (s.nb) s.nb.style.transform = go ? 'translateX(0)' : `translateX(${d * s.w}px)`;   // alloc-rare: once as a swipe is let go, never per frame
-      // (The held numbers go in this same task: the transition starts from where the lists were drawn, as it did from their inline transform.)
+      const d = s.dx < 0 ? 1 : -1, curve = carryCurve(s.nb ? v : v / 3, (go ? -d * s.w : 0) - s.dx, D_SMALL);   // alloc-rare: once as a swipe is let go, never per frame   // (past the end the list moves a third of the finger)
+      // (13 Nov 2026, iPhone: "swiping between patients and decks is glitchy". The let-go was a CSS transition started in the same task as the
+      // finger's held animation was cancelled, so its start was whatever the browser took as the style before: Safari could take the list's
+      // resting place and the list snapped back for a frame before it slid. Now each list's let-go is one animation from the number it was
+      // drawn at to where it lands, written in this task, and its end (not a timer) hands the lists over, so nothing jumps at either end.)
+      const toC = go ? -d * s.w : 0, fromN = s.dx + d * s.w, toN = go ? 0 : d * s.w;
+      s.cur.style.transition = ''; if (s.nb) s.nb.style.transition = '';
+      s.cur.style.transform = toC ? `translateX(${toC}px)` : '';   // alloc-rare: once as a swipe is let go, never per frame
+      if (s.nb) s.nb.style.transform = `translateX(${toN}px)`;   // alloc-rare: once as a swipe is let go, never per frame
+      const opt = { duration: D_SMALL, easing: curve };   // alloc-rare: once as a swipe is let go, never per frame
+      const ac = s.cur.animate ? s.cur.animate([{ transform: `translateX(${s.dx}px)` }, { transform: `translateX(${toC}px)` }], opt) : null;   // alloc-rare: once as a swipe is let go, never per frame
+      const an = s.nb?.animate ? s.nb.animate([{ transform: `translateX(${fromN}px)` }, { transform: `translateX(${toN}px)` }], opt) : null;   // alloc-rare: once as a swipe is let go, never per frame
+      // (The held numbers go in this same task, after the let-go's animations are made: no frame is drawn between the two.)
       s.mc.cancel(); s.mn?.cancel();
       const done = () => {   // alloc-rare: one per swipe, made as it is let go
         clearTimeout(timer); settle = null;
-        clear(s.cur); clear(s.nb);
-        if (go) { setTab(TABS[s.j], false, true); cols.scrollTop = 0; }
+        if (ac) { ac.onfinish = null; ac.cancel(); }
+        if (an) { an.onfinish = null; an.cancel(); }
+        // (The list that lands and the one that leaves change places in one task: the tab, the peer class and the scroll together.)
+        if (go) { s.cur.style.transform = ''; s.nb.style.transform = ''; s.nb.style.top = ''; s.nb.style.height = ''; s.cur.style.top = ''; s.cur.style.height = ''; classNow(s.nb, 'um-peer', false); classNow(s.cur, 'um-peer', false); setTab(TABS[s.j], false, true); cols.scrollTop = 0; }
+        else { clear(s.cur); clear(s.nb); if (s.nb) classNow(s.nb, 'um-peer', false); }
       };
-      const timer = setTimeout(done, afterMs(D_SMALL));
+      if (ac) ac.onfinish = done;
+      const timer = setTimeout(done, afterMs(D_SMALL));   // (a fallback only: the let-go's own end runs it, first)
       settle = done; resting = go ? s.nb : s.cur;
       easing = { el: resting, from: go ? s.dx + d * s.w : s.dx, to: 0, t0: performance.now(), f: cssCurve(curve) };
     };

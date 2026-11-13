@@ -89,7 +89,9 @@ const live = () => {
 // drawn in the figure's canvas under the dock, is cut there too. A menu's own inset clip-path (a dock menu's sink) cuts it higher where it does.
 // In client px, read with the box.
 const cut = (e) => {
-  const line = inSheetLayer(e) ? dockLine() : null;
+  // (The Search sheet over the thumb dock is not in the layer (it is the palette's own back, cut on the same line by its own box, app.css
+  // html.thumb-ui .pal-back): its glass is cut there too. Uncut, its frost and shadow rose over the timeline and the tab row: 13 Nov 2026.)
+  const line = inSheetLayer(e) || e.classList.contains('pal') ? dockLine() : null;
   let own = null;
   const c = getComputedStyle(e).clipPath;
   if (c && c !== 'none' && c.startsWith('inset(')) {
