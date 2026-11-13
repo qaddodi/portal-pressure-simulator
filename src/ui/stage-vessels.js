@@ -741,9 +741,6 @@ export function createVessels(st, live) {
             c0 = mix3To(cpMixA, a, b, clamp(((q0[0] - A[0]) * dx + (q0[1] - A[1]) * dy) / L2, 0, 1));
             c1 = mix3To(cpMixB, a, b, clamp(((q1[0] - A[0]) * dx + (q1[1] - A[1]) * dy) / L2, 0, 1));
           }
-        } else if (kind === 's' && obj.tie) {
-          // (A strand that runs only a stretch of its vessel (the cavernoma's fine channel, in two halves) takes the vessel's gradient over that stretch, so the halves meet in one colour.)
-          c0 = mix3To(cpMixA, a, b, obj.tie[0]); c1 = mix3To(cpMixB, a, b, obj.tie[1]);
         } else { c0 = a; c1 = ra ? toRGB(ra.col ? ra.col[1] : NEUTRAL, cs) : b; }
         // Coloring the blood by origin: the lumen steps back to a quiet grey so the parcels' colors read.
         if (originMode) c0 = c1 = ORIGIN_LUMEN;

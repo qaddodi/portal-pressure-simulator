@@ -288,11 +288,11 @@ export const EDGE_PATH = {
 // the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
   // (The cavernoma's strands keep the main channel's plateau (STRAND_PLATEAU): [offset from the main channel, 1 to ride its serpentine or 0 to keep
-  // the trunk's course, caliber]. The main channel lies 10.5 to the patient's right of the clotted trunk. The first strand runs on the left of the
-  // trunk, 7.6 off its centreline: the hepatic artery hugs the trunk there, 12 off it, and leaves room only for a fine channel on the trunk's own
-  // course, between the vein's wall and the artery's. The second lies outside the main channel, 18.5 right, and rides its serpentine. First listed
-  // grows in first.)
-  C8: [[17.1, 0, 0.5], [17.1, 0, 0.5], [-9, 1, 0.7], [-18, 1, 0.6], [-27, 1, 0.5]],
+  // the trunk's course, caliber]. The main channel lies 10.5 to the patient's right of the clotted trunk's centreline; the one strand lies on the other side, 6.5 off it:
+  // the hepatic artery hugs the trunk there, 12 off it, and leaves room only for one fine channel between the vein's wall and the artery's (a second outside the artery
+  // would cross it where it leaves the stump and where it reaches the hilum). So the plexus is the two channels, one on each side of the clot, never more on one side
+  // than the other. The coronary vein crosses over the strand and ends on the trunk, joined to neither (JOIN_REFUSED).)
+  C8: [[17.1, 0, 0.5]],
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
@@ -315,21 +315,20 @@ export const STRAND_SOFT = new Set(['C8']);
 // (13 Nov 2026, Mohammad's shot of 257136bf: strands on their own waves crossed in X's, and ended in the hilum's node in a torn patch).
 export const STRAND_PLATEAU = { C8: 0.169 };
 // The cavernoma's serpentine is gentle: its channels lie a few units from the clot, the hepatic artery and each other.
-// The two halves of the fine channel on the hepatic artery's side (the first two strands of C8): each runs from an open stump to a point 4.5 units back along the
-// coronary vein's last stretch (0.365 of the chord, 14.13 off the main channel's chord: 3.6 past the trunk's centreline) and ends there, under the vein, which is drawn
-// over it: the vein meets the fine channel as a T from each side and crosses nothing, and no end of either half is seen.
-// [from, to, offset at the end, share of the chord over which it eases onto that offset].
-export const STRAND_TIE = { C8: [[0, 0.365, 14.13, 0.05], [0.365, 1, 14.13, 0.05]] };
 export const WIG_CAP = { C8: 2.4 };
-// The cavernoma's strands wind about their course and part and meet again (a network that anastomoses, not parallel tubes): [amplitude, cycles along the
+// The cavernoma's strands may wind about their course (none does now: the one strand lies in the narrow lane between the clot and the artery): [amplitude, cycles along the
 // course, phase, and the share of the course over which it rises to its offset (the same for all, so a farther channel is never overtaken by a nearer one while they swing out)], one row per strand of STRANDS, added to the strand's offset inside its plateau (so each still leaves and rejoins the open stumps on the
 // main channel's ends). Neighbours take opposite phases, so a pair draws together and parts as the next pair does: a braid, and no two centre lines meet
 // (tests/cavernoma-plexus.test.js keeps their gap). 13 Nov 2026, Mohammad: more collaterals, smooth and winding, not straight tubes.
-export const STRAND_WAVE = { C8: [[0, 0, 0], [0, 0, 0], [3.2, 2.5, 0, 0.32], [3.2, 2.5, Math.PI, 0.32], [3.2, 2.5, 0, 0.32]] };
+export const STRAND_WAVE = { C8: [[0, 0, 0]] };
 // The vessels whose ends are drawn onto another vessel's course and may join only those courses (the vessels' own strands aside): the cavernoma's two ends
 // lie on the open stumps of the portal trunk, and its upper end lies over the IVC in the picture, which it must not be joined to (it was cut into the cava
 // there, a torn gap beside the stump: 13 Nov 2026).
 export const END_HOSTS = { C8: ['PV_TRUNK'] };
+// The vessels no other vessel's end may join: they are passed over and passed under, never opened into. The cavernoma's channels run beside the coronary vein's last stretch
+// and the vein's end lay within the join reach of them, so it was joined to a channel (a fillet, a shared lumen: "the cavernoma connects to the coronary vein", 13 Nov 2026).
+// The cavernoma's own ends join the trunk, as END_HOSTS says; and that is all that joins it.
+export const JOIN_REFUSED = new Set(['C8']);
 export const STRAND_HOLD = 0.1;   // (and they hold to it, their serpentine too, for the first and last tenth: all the ends at a node leave it as one)
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
 export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };

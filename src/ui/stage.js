@@ -5,7 +5,7 @@ import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
 import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
-import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_TIE, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
+import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
 import { store, setViewKey } from './store.js';
 import { s, clamp, lerp, toast, loadFailed, UPRIGHT_MQ } from './util.js';
@@ -968,7 +968,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   for (const e of ALL_EDGES) {
     const isArt = e.kind === 'arteriole' || e.kind === 'artery' || (e.kind === 'shunt' && e.shunt === 'ap');
     // Extra channels of a braided collateral (cavernoma): drawn under the main tube, each picked as part of its vessel.
-    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub], i) => ({ off, ph, k, span: ua != null ? [ua, ub] : null, wave: STRAND_WAVE[e.id]?.[i] || null, tie: STRAND_TIE[e.id]?.[i] || null })) : null;
+    const strands = !isArt && STRANDS[e.id] ? STRANDS[e.id].map(([off, ph, k, ua, ub], i) => ({ off, ph, k, span: ua != null ? [ua, ub] : null, wave: STRAND_WAVE[e.id]?.[i] || null })) : null;
     // (fadeMask: a tributary that sinks into a retroperitoneal vein fades into it, FEEDER_FADE_Y, unless its trunk is carried on.)
     const feeders = !isArt && feedGeo[e.id] ? feedGeo[e.id].map(({ pts: cur, k: fk, fan, when, src, out }, i) => ({ cur, fk, fan, when, src, out, len: arcLen(cur), ph: i * 0.37, fadeMask: !!FEEDER_FADE_Y[e.id] })) : null;
     // A vein that ends in the organ it drains fades out over its first stretch (TIP_FADE, drawn by the GPU from `line`): none in the circuit.
