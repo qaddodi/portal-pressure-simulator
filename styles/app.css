@@ -714,7 +714,8 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 /* (The circuit's map (its dot grid in --map-dot, its tinted zones in --text at .028, a slide's lit zone in --accent at .09) and its station
    dots (--stage-bg under a 1.6 ring in --text) are drawn by the GPU from the tokens: stage.js MAP, syncMapInk; veins-gl.js mapAt.) */
 .stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
-.tied-off { fill: none; stroke: var(--text); stroke-opacity: .42; stroke-linecap: butt; stroke-linejoin: round; }   /* (butt ends: a round cap lay over the vein it joins as a pale blob) */
+/* (the grey of a tied-off vein: a filled shape tapering to a point at each end) */
+.tied-off { fill: var(--text); fill-opacity: .42; stroke: none; }
 .ligature { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .suture-thread { fill: none; stroke: var(--suture-thread); stroke-width: .75; stroke-linecap: round; stroke-linejoin: round; }
 .suture-halo { fill: none; stroke: var(--suture-edge); stroke-width: 1.9; stroke-opacity: .4; stroke-linecap: round; stroke-linejoin: round; }   /* (a thin dark edge under the thread, so it reads on any vessel colour) */
