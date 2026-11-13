@@ -2196,9 +2196,11 @@ button.finding { cursor: pointer; }
 .pz-proc .pz-step { transition: none; }
 .pz-proc.on { color: var(--text); }
 .pz-proc.on .pz-step { background: var(--accent); color: var(--on-accent); }
-/* The step the last Next or Back reached is ringed as well as filled: a thin ring in the accent, a hair outside the circle. An outline, so no layout moves and nothing
-   animates (the ring jumps with the fill: transition none above); it follows the circle's pill radius. */
-.pz-proc.on .pz-step { outline: 1.5px solid var(--accent); outline-offset: 1px; }
+/* Two marks (his ask, 13 Nov 2026): the fill, above, is the step the animation is on; the ring is the step Next or Back has navigated to, a thin accent ring a hair outside
+   its circle. An outline, so no layout moves and nothing animates (transition none above). The words' card clips at its own edge (overflow: clip, no padding), so the row starts
+   a ring's width in (--pz-ring) and has 2px below the last row: the ring of a step that opens a row, or sits on the last row, is whole, on the first line and on every wrapped one. */
+.pz-procs { --pz-ring: 3px; padding: 0 0 2px var(--pz-ring); }
+.pz-proc.at .pz-step { outline: 1.5px solid var(--accent); outline-offset: 1px; }
 .pz-procs[data-why] { opacity: .5; }
 /* EUS coils and glue lists its steps (presenter.js procEl, a short line on each): one row each, number, word, its line, all on the card from the
    start at its full size (his ask, 10 Nov 2026). The steps played stay in full ink (.done) and the one on show is lit (.on), colours only, so the

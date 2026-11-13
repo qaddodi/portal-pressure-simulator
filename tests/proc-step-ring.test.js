@@ -1,6 +1,6 @@
-// The step a procedure slide's Next or Back last reached is ringed on the card's numbered steps (Mohammad, 13 Nov 2026: "a small circle outside
-// the current step ... so I know where I skipped to"). presenter.js keeps the step and the slide it belongs to (procShown, procShownAt), paints
-// it on the live card (procPaint) and on a card built afresh (procEl); styles/app.css draws the ring.
+// A procedure slide's numbered steps carry two marks (Mohammad, 13 Nov 2026): the fill is the step the animation is on (it follows the catheter or the
+// scope and catches up); the ring is the step Next or Back has navigated to (set at once). presenter.js keeps each with the slide it belongs to
+// (procShown/procShownAt, procRing/procRingAt), paints them on the live card (procPaint) and on a card built afresh (procEl); styles/app.css draws them.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,29 +8,33 @@ import { readFileSync } from 'node:fs';
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 const src = read('../src/ui/presenter.js'), css = read('../styles/app.css');
 
-test('the ringed step is the lit one: an outline in the accent a hair outside the circle, nothing animated', () => {
-  const rule = css.match(/\n\.pz-proc\.on \.pz-step \{ outline:([^}]*)\}/)?.[1] || '';
-  assert.match(rule, /1\.5px solid var\(--accent\)/);
-  assert.match(rule, /outline-offset: 1px/);
-  assert.doesNotMatch(css.match(/\n\.pz-proc \.pz-step \{([^}]*)\}/)?.[1] || '', /outline|box-shadow/, 'the ring has no transition: it moves with the fill');
+test('the ring is an outline in the accent a hair outside the circle, nothing animated, and the row starts a ring in so the card\'s clip never cuts it', () => {
+  assert.match(css, /\n\.pz-proc\.at \.pz-step \{ outline: 1\.5px solid var\(--accent\); outline-offset: 1px; \}/);
+  assert.match(css, /\n\.pz-procs \{ --pz-ring: 3px; padding: 0 0 2px var\(--pz-ring\); \}/, 'the words\' card clips at its own edge: a step that opens a row needs the ring\'s width, the last row 2px below');
+  assert.match(css, /\n\.pz-proc\.on \.pz-step \{ background: var\(--accent\); color: var\(--on-accent\); \}/, 'the fill is the step the animation is on');
+  assert.doesNotMatch(css.match(/\n\.pz-proc \.pz-step \{([^}]*)\}/)?.[1] || '', /outline|box-shadow/, 'no transition: the ring moves with a tap');
 });
 
-test('a step is lit only on the slide it belongs to, on the live card and on a card built afresh', () => {
-  assert.match(src, /const procAtOf = \(i\) => \(procShownAt === i \? procShown : -1\);/);
-  assert.match(src, /const cur = procAtOf\(want\);\n\s+ui\?\.text\.querySelectorAll\('\.pz-proc'\)/, 'procPaint reads the step of the slide on show');
-  assert.match(src, /const steps = procSteps\(s\), cur = procAtOf\(i\);/, 'a card rebuilt (a resize, a theme) keeps the ring');
-  assert.match(src, /class: `pz-proc\$\{k === cur \? ' on' : ''\}\$\{k < cur \? ' done' : ''\}`/);
-  assert.doesNotMatch(src, /procRun && k === procShown/, 'the ring does not depend on a run in flight: it stays on the last step once played through');
+test('each mark belongs to its slide and shows on the live card and on a card built afresh', () => {
+  assert.match(src, /const procAtOf = \(i\) => \(procShownAt === i \? procShown : -1\), procRingOf = \(i\) => \(procRingAt === i \? procRing : -1\);/);
+  assert.match(src, /const cur = procAtOf\(want\), ring = procRingOf\(want\);/);
+  assert.match(src, /b\.classList\.toggle\('at', k === ring\); if \(k === ring\) b\.setAttribute\('aria-current', 'step'\)/);
+  assert.match(src, /const steps = procSteps\(s\), cur = procAtOf\(i\), ring = procRingOf\(i\);/, 'a card rebuilt (a resize, a theme) keeps both');
+  assert.match(src, /class: `pz-proc\$\{k === cur \? ' on' : ''\}\$\{k < cur \? ' done' : ''\}\$\{k === ring \? ' at' : ''\}`/);
+  assert.doesNotMatch(src, /procRun && k === procShown/, 'neither depends on a run in flight: both stay on the last step once played through');
 });
 
-test('every move of the step sets its slide: Next, Back to the start, a reading, a slide opened forward or back onto a played-through one', () => {
-  assert.match(src, /onStep: \(\) => \{ if \(procRun === run\) \{ procShown = base \+ run\.at; procShownAt = i; procPaint\(\); \} \}/, 'the run\'s target step, not the one the catheter is passing');
-  assert.match(src, /const procTarget = \(\) => \{ if \(!procHeld\(\)\) return; procShown = procRunBase \+ procRun\.at; procShownAt = want; procPaint\(\); \};/);
+test('the fill follows the animation, the ring follows the taps', () => {
+  assert.match(src, /onStep: \(k\) => \{ if \(procRun === run\) \{ procShown = base \+ k; procShownAt = i; procPaint\(\); \} \}/, 'the fill: the step the catheter is on');
+  assert.match(src, /const procTarget = \(\) => \{ if \(!procHeld\(\)\) return; procRing = procRunBase \+ procRun\.at; procRingAt = want; procPaint\(\); \};/, 'the ring: the run\'s target step');
   assert.match(src, /if \(procRun\) \{ const ok = procRun\.next\(\); if \(ok\) procTarget\(\); return ok \|\| procChain\(\); \}/, 'Next rings its step at once');
   assert.match(src, /!procRun\.back\(\)\) return false; procTarget\(\); return true;/, 'Back moves the ring back at once');
-  assert.match(src, /if \(rewound && mine\(\) && isThen\) \{ procThenAt = i; procShown = base - 1; procShownAt = i; \}/);
-  assert.match(src, /procShown = -1; procShownAt = -1; procDoneAt = -1; \}/, 'Back past the first step rings none');
-  assert.match(src, /if \(!park\) \{ procShown = base - 1; procShownAt = i; \}/, 'a run that starts never lights the step another slide ended on');
-  assert.match(src, /procShown = procDoneAt === to \? procSteps\(s\)\.length - 1 : -1; procShownAt = procDoneAt === to \? to : -1;/, 'Back onto a played-through slide rings its last step; forward rings none');
-  assert.match(src, /procRun = null; procShown = -1; procShownAt = -1; procPaint\(\);/, 'stopping a run at home clears it');
+  assert.match(src, /if \(!park\) \{ procShown = base - 1; procShownAt = i; procRing = base; procRingAt = i; \}/, 'a run that starts rings its first step and fills none yet, never the step another slide ended on');
+});
+
+test('Back to the start, a reading, a slide opened forward or back onto a played-through one, a stopped run: both marks agree with the slide', () => {
+  assert.match(src, /if \(rewound && mine\(\) && isThen\) \{ procThenAt = i; procShown = base - 1; procShownAt = i; procRing = base - 1; procRingAt = i; \}/);
+  assert.match(src, /procShown = -1; procShownAt = -1; procRing = -1; procRingAt = -1; procDoneAt = -1; \}/, 'Back past the first step marks none');
+  assert.match(src, /procShown = procRing = procDoneAt === to \? procSteps\(s\)\.length - 1 : -1; procShownAt = procRingAt = procDoneAt === to \? to : -1;/, 'Back onto a played-through slide marks its last step; forward marks none');
+  assert.match(src, /procRun = null; procShown = -1; procShownAt = -1; procRing = -1; procRingAt = -1; procPaint\(\);/, 'stopping a run at home clears both');
 });

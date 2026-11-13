@@ -1367,7 +1367,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A slide whose own patient has already had it (the BRTO slides show the shunt closed) plays it from just before: the live
   // model takes it back first (the shunt opens again while the catheter travels), then the procedure puts it back; going back to
   // before the first step puts the slide as it was. Leaving the slide stops it where it is; the next slide's camera takes over.
-  let procRun = null, procRunBase = 0, procWait = false, procShown = -1, procShownAt = -1, procDoneAt = -1, procThenAt = -1, procQueued = false, procRunKind = '', procParked = null;
+  let procRun = null, procRunBase = 0, procWait = false, procShown = -1, procShownAt = -1, procRing = -1, procRingAt = -1, procDoneAt = -1, procThenAt = -1, procQueued = false, procRunKind = '', procParked = null;
   // (procParked: the run standing at its last stop since Back landed on the slide done, proc-anim.js park: it only shows the scope where the play-through left it and fades it when the slide moves on;
   // it is not a run to step through, so Back from it leaves the slide as it did before, and a swipe back turns the slide.)
   const procHeld = () => !!procRun && procRun !== procParked;
@@ -1383,17 +1383,16 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (!procRun) return;
     const r = procRun;
     if (home) r.stop({ home }); else { procRun = null; r.stop({ home }); stage.cathForget(); }
-    procRun = null; procShown = -1; procShownAt = -1; procPaint();
+    procRun = null; procShown = -1; procShownAt = -1; procRing = -1; procRingAt = -1; procPaint();
   }
-  // (The step on show is the pressed one, ringed (styles/app.css .pz-proc.on): the one the last Next or Back reached. After it has played through, the last stays
-  // pressed until the slide changes, so a lecturer sees at a glance that the next Next moves on. procShownAt is the slide it belongs to: a step is never lit on another slide's card.)
-  const procAtOf = (i) => (procShownAt === i ? procShown : -1);
-  // (The ring is on the step a Next or Back is heading for, at once, not the one the catheter is passing: tap Next three times and it is on step 4 while the scope is still on its way,
-  // so the lecturer sees the next Next will move on. run.at is the run's target step.)
-  const procTarget = () => { if (!procHeld()) return; procShown = procRunBase + procRun.at; procShownAt = want; procPaint(); };
+  // (Two marks on the steps (his ask, 13 Nov 2026). The fill is the step the animation is on: it follows the catheter or the scope and catches up. The ring is the step Next or Back
+  // has navigated to, set at once, so after three quick Nexts the ring is on step 4 while the fill is still on its way; the ring on the last step says the next Next moves on.
+  // After the play-through the two are one. Each belongs to a slide (procShownAt, procRingAt): a step is never marked on another slide's card.)
+  const procAtOf = (i) => (procShownAt === i ? procShown : -1), procRingOf = (i) => (procRingAt === i ? procRing : -1);
+  const procTarget = () => { if (!procHeld()) return; procRing = procRunBase + procRun.at; procRingAt = want; procPaint(); };
   function procPaint() {
-    const cur = procAtOf(want);
-    ui?.text.querySelectorAll('.pz-proc').forEach((b, k) => { b.classList.toggle('on', k === cur); b.classList.toggle('done', k < cur); if (k === cur) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
+    const cur = procAtOf(want), ring = procRingOf(want);
+    ui?.text.querySelectorAll('.pz-proc').forEach((b, k) => { b.classList.toggle('on', k === cur); b.classList.toggle('done', k < cur); b.classList.toggle('at', k === ring); if (k === ring) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
   }
   // (The slide's treatment buttons press the one that now matches the live model.)
   function procCompare(s) {
@@ -1410,7 +1409,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (procRun) { procRun.to(to); return; }
     if (lapseOn) stopLapse();
     // (A run that starts fresh lights nothing yet, or, for a reading after the stent, still the stent's last step: never the step another slide ended on.)
-    if (!park) { procShown = base - 1; procShownAt = i; }
+    if (!park) { procShown = base - 1; procShownAt = i; procRing = base; procRingAt = i; }
     procWait = true; procPaint();
     try {
       await toAnatomy(null, () => !mine());
@@ -1432,7 +1431,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         liveSet(s, i, specOf(kind).apply(structuredClone(store.get().params)), evRun(s, i)); procCompare(s);
       },
       unapply: () => { if (procRun === run && mine()) { evBack(s); liveSet(s, i, specOf(kind).undo(structuredClone(store.get().params))); procCompare(s); } },
-      onStep: () => { if (procRun === run) { procShown = base + run.at; procShownAt = i; procPaint(); } },   // (the target step, procTarget: the ring does not trail the catheter)
+      onStep: (k) => { if (procRun === run) { procShown = base + k; procShownAt = i; procPaint(); } },   // (the fill follows the catheter; the ring is the target, procTarget)
       // (Each frame's clock, for a tracing card that draws the reading as the procedure takes it: tool { kind: 'reading' }, tool-reading.js.)
       onFrame: (f, t) => { if (procRun === run || procParked === run) ui?.tools.proc(kind, t); },
       // (The step's callout stands in for the slide's marks while it plays; its names join the slide's. Then the slide's come back:
@@ -1450,8 +1449,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
         if (procRun !== run) return;
         procRun = null;
         // (The reading changes nothing in the model: going back from its start only leaves the stent done, its steps lit to the last.)
-        if (rewound && mine() && isThen) { procThenAt = i; procShown = base - 1; procShownAt = i; }
-        else if (rewound && mine()) { evBack(s); liveSet(s, i, before); procCompare(s); procShown = -1; procShownAt = -1; procDoneAt = -1; }
+        if (rewound && mine() && isThen) { procThenAt = i; procShown = base - 1; procShownAt = i; procRing = base - 1; procRingAt = i; }
+        else if (rewound && mine()) { evBack(s); liveSet(s, i, before); procCompare(s); procShown = -1; procShownAt = -1; procRing = -1; procRingAt = -1; procDoneAt = -1; }
         else if (mine() && done && !isThen && procThen(s)) procThenAt = i;   // (the reading comes next)
         else if (mine()) procDoneAt = i;   // (played through: the next Next moves on)
         procPaint();
@@ -1513,14 +1512,14 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // The steps as a line of words, each after its number in the slides' own step circle ({#n}, as the Circulation slides number
     // theirs), the one on show lit: progress, never buttons (his ask, 29 Oct: Next plays them). The callout on the figure carries the
     // same number. One the patient cannot have shows dimmed with why.
-    const steps = procSteps(s), cur = procAtOf(i);
+    const steps = procSteps(s), cur = procAtOf(i), ring = procRingOf(i);
     // (A procedure whose steps carry a short line, st0[8] (EUS coils and glue), lists them all at once, one under the other: number, word and its line, the
     // steps played at full ink and the one on show lit. His ask, 10 Nov 2026, "do it except 10": nobody hovers in a lecture, so the sentence is on the card
     // from the start, at its full size. The long caption stays the title. On a phone's stacked card (.pz.stack) it is the one-line row again with the
     // lines hidden, so that card does not grow; TIPS, BRTO and BATO have none and keep the row.)
     const list = steps.length > 0 && steps.every((x) => x[8]);
     return h('p', { class: `pz-procs${list ? ' pz-procs-list' : ''}`, role: 'list', 'aria-label': `${P?.name || kind}, step by step: Next plays each step`, ...(why ? { 'data-why': why, title: why } : {}) },
-      ...steps.flatMap((st0, k) => [k ? ' ' : null, h('span', { class: `pz-proc${k === cur ? ' on' : ''}${k < cur ? ' done' : ''}`, role: 'listitem', 'aria-label': `Step ${k + 1}: ${st0[1]}${list ? `, ${st0[8]}` : ''}`, title: why || st0[2] },
+      ...steps.flatMap((st0, k) => [k ? ' ' : null, h('span', { class: `pz-proc${k === cur ? ' on' : ''}${k < cur ? ' done' : ''}${k === ring ? ' at' : ''}`, role: 'listitem', 'aria-label': `Step ${k + 1}: ${st0[1]}${list ? `, ${st0[8]}` : ''}`, title: why || st0[2] },
         h('span', { class: 'pz-step', 'aria-hidden': 'true' }, String(k + 1)), nb(` ${st0[1]}`),
         list ? h('span', { class: 'pz-proc-line' }, ` ${st0[8]}`) : null)]).filter(Boolean));
   }
@@ -2487,7 +2486,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (Back onto a procedure's slide from the next lands on it done, so Next moves on.)
     strainStop(); stopLapse(); procStop(); abSlow(); handOn = false; procDoneAt = done && s.procedure ? to : -1; procThenAt = -1; procQueued = false;
     // (Landed on done, the last step is the one on show, as it stands after the play-through; a slide arrived at forward shows none until its first Next.)
-    procShown = procDoneAt === to ? procSteps(s).length - 1 : -1; procShownAt = procDoneAt === to ? to : -1;
+    procShown = procRing = procDoneAt === to ? procSteps(s).length - 1 : -1; procShownAt = procRingAt = procDoneAt === to ? to : -1;
     if (outMs) await waitCut(Math.max(0, outMs - (performance.now() - outAt)), cut);
     if (throwDir) await throwsOut();   // (thrown: until the old cards are out of sight on the eases' clock, never mid-flight: card-throw.js)
     // (Nothing in the liver changes until its labels are gone.)
