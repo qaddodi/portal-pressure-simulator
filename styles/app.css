@@ -2196,6 +2196,9 @@ button.finding { cursor: pointer; }
 .pz-proc .pz-step { transition: none; }
 .pz-proc.on { color: var(--text); }
 .pz-proc.on .pz-step { background: var(--accent); color: var(--on-accent); }
+/* The step the last Next or Back reached is ringed as well as filled: a thin ring in the accent, a hair outside the circle. An outline, so no layout moves and nothing
+   animates (the ring jumps with the fill: transition none above); it follows the circle's pill radius. */
+.pz-proc.on .pz-step { outline: 1.5px solid var(--accent); outline-offset: 1px; }
 .pz-procs[data-why] { opacity: .5; }
 /* EUS coils and glue lists its steps (presenter.js procEl, a short line on each): one row each, number, word, its line, all on the card from the
    start at its full size (his ask, 10 Nov 2026). The steps played stay in full ink (.done) and the one on show is lit (.on), colours only, so the
