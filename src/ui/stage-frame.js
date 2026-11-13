@@ -4,7 +4,7 @@ import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
 import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_PLATEAU, STRAND_SOFT, VB_ANAT, VB_CIRC, WIG_CAP } from './anatomy.js';
 import { smooth01 } from './motion.js';
 import { tiedStrand } from './cavernoma-strand.js';
-import { peelAt } from './flow-peel.js';
+import { chordPointInto, peelAt, reverses } from './flow-peel.js';
 import { reduceMotionMQ as reduceMotion, easeMove } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
 import { store, varixGrowth } from './store.js';
@@ -77,6 +77,54 @@ export function createFrame(st, live) {
     if (live.svgOver) setG(live.svgOver, 'viewBox', txt, live.svgOver.classList.contains(OVER_ALL) ? undefined : false);
     applyVT();
   }
+  // ── One sample of a vessel at t of the change, as vesselAt moves it (for the labels' anchors and a pinned end's host) ──
+  const LP = [0, 0], E0 = [0, 0], E1 = [0, 0], H0 = [0, 0], H1 = [0, 0], PS = [0, 0], PIN_FALL = 0.4;
+  // Whether a vessel's course turns more than 120 degrees between the views, for the circuit as it is laid out now (kept per turn).
+  function revOf(g, T) {
+    const rr = T.on ? T.rr : 0;
+    if (g.revRR !== rr) {
+      const A = g.A, C = g.C, n = C.length, cdx = C[n - 1][0] - C[0][0], cdy = C[n - 1][1] - C[0][1], tc = T.on ? T.c : 1, ts = T.on ? T.s : 0;
+      g.revRR = rr; g.rev = !!g.sA && n === A.length && n > 2 && reverses(A, tc * cdx - ts * cdy, ts * cdx + tc * cdy);
+    }
+    return g.rev;
+  }
+  function lerpPt(g, i, t, T, out) {
+    const A = g.A[i], C = g.C[i], w = peelAt(t, g.rk[i]);
+    let cx = C[0], cy = C[1];
+    if (T.on) { const dx = cx - CIRC_C[0], dy = cy - CIRC_C[1]; cx = CIRC_C[0] + T.c * dx - T.s * dy; cy = CIRC_C[1] + T.s * dx + T.c * dy; }
+    out[0] = lerp(A[0], cx, w); out[1] = lerp(A[1], cy, w);
+    return out;
+  }
+  function rawPt(g, i, t, T, out) {
+    lerpPt(g, i, t, T, out);
+    const n = g.A.length;
+    if (i > 0 && i < n - 1 && revOf(g, T)) { lerpPt(g, 0, t, T, E0); lerpPt(g, n - 1, t, T, E1); chordPointInto(out, g.sA, g.sC, i, peelAt(t, g.rk[i]), E0[0], E0[1], E1[0], E1[1]); }
+    return out;
+  }
+  // How far a pinned end is moved at t: to its host's point (the host's share along its course eased from the anatomy's to the circuit's),
+  // less what lay between them at rest.
+  function pinShift(g, pin, t, T, out) {
+    const h = geo[pin.host], w = peelAt(t, g.rk[pin.k]), f = lerp(pin.fA, pin.fC, w), nh = h.A.length, i = Math.min(nh - 2, Math.floor(f)), u = f - i;
+    rawPt(h, i, t, T, H0); rawPt(h, i + 1, t, T, H1); rawPt(g, pin.k, t, T, LP);
+    const tc = T.on ? T.c : 1, ts = T.on ? T.s : 0, rcx = tc * pin.dC[0] - ts * pin.dC[1], rcy = ts * pin.dC[0] + tc * pin.dC[1];
+    out[0] = lerp(H0[0], H1[0], u) - LP[0] - lerp(pin.dA[0], rcx, w);
+    out[1] = lerp(H0[1], H1[1], u) - LP[1] - lerp(pin.dA[1], rcy, w);
+    return out;
+  }
+  /** Sample i of the vessel at t (eased share of the change), into out: the point vesselAt draws (its chord frame and its pinned ends). */
+  function morphPtInto(id, i, t, out) {
+    const g = geo[id], n = g.A.length;
+    if (t <= 0) { out[0] = g.A[i][0]; out[1] = g.A[i][1]; return out; }
+    const T = circTurn(t);
+    if (t >= 1 && !T.on) { out[0] = g.C[i][0]; out[1] = g.C[i][1]; return out; }
+    rawPt(g, i, t, T, out);
+    if (g.pins) for (const pin of g.pins) {
+      const j = pin.end ? n - 1 - i : i, kf = smooth01(1 - j / (PIN_FALL * (n - 1)));
+      if (kf <= 0) continue;
+      pinShift(g, pin, t, T, PS); out[0] += PS[0] * kf; out[1] += PS[1] * kf;
+    }
+    return out;
+  }
   // A vessel's course at t of the change between the views (eased: 0 the anatomy, 1 the circuit), as updateGeometry draws it; and its
   // strands' (strandAt). Pure: the GPU morph (morphTrack) asks for moments ahead of the one drawn.
   const vesOut = { pts: null, base: null, u0: 0 };   // (the answer, written in place: every caller reads it at once, before the next ask)
@@ -86,22 +134,33 @@ export function createFrame(st, live) {
     const g = geo[x.e.id];
     let pts;
     if (t === 0) pts = g.A; else if (t === 1) pts = g.C;
-    else if (frame) {
+    else {
       const A = g.A, C = g.C, n = A.length;
-      const mix = g.mix ||= [null, null];   // alloc-rare: made once for the vessel
-      g.mixI ^= 1;
-      let m = mix[g.mixI];
-      if (!m || m.length !== n) { m = mix[g.mixI] = Array.from({ length: n }, () => [0, 0]); }   // alloc-rare: made once for the vessel (and again if its sampling changes)
+      let m;
+      if (frame) {
+        const mix = g.mix ||= [null, null];   // alloc-rare: made once for the vessel
+        g.mixI ^= 1;
+        m = mix[g.mixI];
+        if (!m || m.length !== n) { m = mix[g.mixI] = Array.from({ length: n }, () => [0, 0]); }   // alloc-rare: made once for the vessel (and again if its sampling changes)
+      } else m = Array.from({ length: n }, () => [0, 0]);   // alloc-rare: a moment ahead of the one drawn (the morph pieces' build, between frames)
       const T = circTurn(t), cx = CIRC_C[0], cy = CIRC_C[1], tc = T.c, ts = T.s, rk = g.rk;
       // (Each point on its own share of the change, later the further downstream it lies: the flow peel, flow-peel.js.)
       if (T.on) for (let i = 0; i < n; i++) { const q = m[i], w = peelAt(t, rk[i]), dx = C[i][0] - cx, dy = C[i][1] - cy; q[0] = lerp(A[i][0], cx + tc * dx - ts * dy, w); q[1] = lerp(A[i][1], cy + ts * dx + tc * dy, w); }
       else for (let i = 0; i < n; i++) { const q = m[i], w = peelAt(t, rk[i]); q[0] = lerp(A[i][0], C[i][0], w); q[1] = lerp(A[i][1], C[i][1], w); }
+      // (A vessel whose course runs the other way in the circuit: its ends as above, its shape carried in its chord's frame, so it never folds
+      // and never leaves the vessels it joins: flow-peel.js chordShape.)
+      if (n > 2 && revOf(g, T)) {
+        const x0 = m[0][0], y0 = m[0][1], x1 = m[n - 1][0], y1 = m[n - 1][1];
+        for (let i = 1; i < n - 1; i++) chordPointInto(m[i], g.sA, g.sC, i, peelAt(t, rk[i]), x0, y0, x1, y1);
+      }
+      // (An end pinned to the vessel it joins part-way along: stage-geo.js pinEnds.)
+      if (g.pins) for (const pin of g.pins) {
+        pinShift(g, pin, t, T, PS);
+        const dx = PS[0], dy = PS[1], reach = PIN_FALL * (n - 1);
+        if (dx === 0 && dy === 0) continue;
+        for (let j = 0; j < n; j++) { const kf = smooth01(1 - j / reach); if (kf <= 0) break; const q = m[pin.end ? n - 1 - j : j]; q[0] += dx * kf; q[1] += dy * kf; }
+      }
       pts = m;
-    } else {
-      const T = circTurn(t), cx = CIRC_C[0], cy = CIRC_C[1], tc = T.c, ts = T.s, rk = g.rk;
-      pts = T.on
-        ? g.A.map((p, i) => { const w = peelAt(t, rk[i]), dx = g.C[i][0] - cx, dy = g.C[i][1] - cy; return [lerp(p[0], cx + tc * dx - ts * dy, w), lerp(p[1], cy + ts * dx + tc * dy, w)]; })
-        : g.A.map((p, i) => { const w = peelAt(t, rk[i]); return [lerp(p[0], g.C[i][0], w), lerp(p[1], g.C[i][1], w)]; });
     }
     const base = pts;
     const u0 = STRAND_FROM[x.e.id] || 0;
@@ -180,5 +239,5 @@ export function createFrame(st, live) {
   // (The change between the views, the label layer's glide, the callouts' room glide and the dive's lobule share all run on the camera's curve, the
   // quintic easeMove: the quadratic in-out it replaces had its acceleration flip from +4 to -4 at the midpoint, a catch in the longest move there is.)
   const easeInOut = easeMove;
-  return { collOpen, easeInOut, edgeVisible, findingHidden, recruitFrac, setViewBox, shownFrac, strandAt, updateGeometry, varixHeld, vesselAt };
+  return { collOpen, easeInOut, edgeVisible, morphPtInto, findingHidden, recruitFrac, setViewBox, shownFrac, strandAt, updateGeometry, varixHeld, vesselAt };
 }

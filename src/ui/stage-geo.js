@@ -4,7 +4,7 @@ import { EDGES, NODES } from '../engine/topology.js';
 import { CIRCUIT_PATH, CIRCUIT_TREES, EDGE_PATH, FEEDERS, HIDDEN_NODES, IVC_EDGES, NODE_POS, SIN_EDGES, VB_CIRC, fanFeeders, metroPath, route as metroRoute } from './anatomy.js';
 import { createRouter } from './circuit-router.js';
 import { CUSTOM_SHUNT_PATH } from './custom-shunt-paths.js';
-import { peelRanks } from './flow-peel.js';
+import { chordShape, peelRanks } from './flow-peel.js';
 import { store } from './store.js';
 import { clamp } from './util.js';
 import { clearArc } from './suture-marks.js';
@@ -24,19 +24,8 @@ export function createGeo(st, live) {
     return `M${x1} ${y1} Q ${(mx + nx * k).toFixed(1)} ${(my + ny * k).toFixed(1)} ${x2} ${y2}`;
   };
   const geo = {};
-  // Whether a vessel's direction reverses between the views (its chord, end to end, turns more than 120 degrees), for the wide circuit and
-  // the upright one (C turned a quarter turn counter-clockwise: the chord (dx, dy) becomes (dy, -dx)). Such a vessel draws out toward its
-  // downstream end over the first half of the change and draws in from its upstream end over the second, instead of shrinking to a point
-  // and flipping (vessel-transition-recs v3.4; the mask is the tube's drawn stretch, stage-vessels.js).
-  const FLIP_COS = Math.cos((120 * Math.PI) / 180);
-  function flipOf(g) {
-    const A = g.A, C = g.C, n = A.length, m = C.length;
-    const ax = A[n - 1][0] - A[0][0], ay = A[n - 1][1] - A[0][1], cx = C[m - 1][0] - C[0][0], cy = C[m - 1][1] - C[0][1];
-    const la = Math.hypot(ax, ay), lc = Math.hypot(cx, cy);
-    if (!(la > 1e-6 && lc > 1e-6)) { g.flip = null; return; }
-    const w = (ax * cx + ay * cy) / (la * lc) < FLIP_COS, u = (ax * cy - ay * cx) / (la * lc) < FLIP_COS;
-    g.flip = w || u ? [w, u] : null;
-  }
+  // Each course in the frame of its own chord, for a vessel that reverses between the views (flow-peel.js chordShape; vesselAt).
+  function chordsOf(g) { g.sA = chordShape(g.A); g.sC = chordShape(g.C); }
   for (const e of ALL_EDGES) {
     const a = NODE_POS[e.from], b = NODE_POS[e.to];
     // (A custom shunt's anatomic course is a smooth curve found to keep off the other vessels, custom-shunt-paths.js; a straight line between its two
@@ -46,9 +35,51 @@ export function createGeo(st, live) {
     // A spontaneous shunt (gastrorenal, splenorenal) is one large vein, drawn like one.
     const A = (e.kind === 'collateral' && !e.spontaneous) || e.kind === 'shunt' ? sample(dA) : meander(sample(dA), e.id);
     const C = sample(dC);
-    geo[e.id] = { dA, dC, A, C, rk: peelRanks(C), flip: null, cur: null, mix: null, mixI: 0, len: 0, wig: 0, lit: Array.from({ length: N_SAMPLES }, () => [0, 0, 0]) };   // (lit: the lit normals, one triple a sample, written in place by litNormals)
+    geo[e.id] = { dA, dC, A, C, rk: peelRanks(C), sA: null, sC: null, cur: null, mix: null, mixI: 0, len: 0, wig: 0, lit: Array.from({ length: N_SAMPLES }, () => [0, 0, 0]) };   // (lit: the lit normals, one triple a sample, written in place by litNormals)
   }
-  for (const e of ALL_EDGES) flipOf(geo[e.id]);
+  for (const e of ALL_EDGES) chordsOf(geo[e.id]);
+  pinEnds();
+  // ── An end that joins another vessel part-way along it in one view and at a station in the other (13 Nov 2026) ──
+  // The left gastric vein ends on the portal trunk's side in the anatomy and at the confluence in the circuit. Lerped on its own, its end
+  // left the trunk through the change and stood alone beside it, a stub with a cut end (Mohammad's frames, about 0.6 s into the change).
+  // Such an end is pinned (g.pins) to its host: the vessel sharing its station that it lies on in both views, at the host's share along
+  // its course in each (fA, fC: fractional sample index), with what was left between them at rest (dA, dC). vesselAt moves the end with
+  // that point of the host, the shift fading out along the vessel (PIN_FALL of its samples), so at either end of the change it is the
+  // course as drawn.
+  function nearOn(P, q) {
+    let best = Infinity, f = 0;
+    for (let i = 1; i < P.length; i++) {
+      const a = P[i - 1], b = P[i], dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy || 1;
+      const u = clamp(((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / L, 0, 1), ex = a[0] + dx * u - q[0], ey = a[1] + dy * u - q[1], d = ex * ex + ey * ey;
+      if (d < best) { best = d; f = i - 1 + u; }
+    }
+    return { d: Math.sqrt(best), f };
+  }
+  function ptAt(P, f) { const i = Math.min(P.length - 2, Math.floor(f)), u = f - i; return [P[i][0] + (P[i + 1][0] - P[i][0]) * u, P[i][1] + (P[i + 1][1] - P[i][1]) * u]; }
+  function pinEnds() {
+    const PIN_TOL = 4, art = (e) => e.kind === 'artery' || e.kind === 'arteriole';
+    for (const e of ALL_EDGES) {
+      const g = geo[e.id], n = g.A.length;
+      g.pins = null;
+      if (g.C.length !== n) continue;
+      for (const end of [0, 1]) {
+        const node = end ? e.to : e.from, k = end ? n - 1 : 0, qa = g.A[k], qc = g.C[k];
+        let best = null;
+        for (const h of ALL_EDGES) {
+          if (h === e || art(h) !== art(e) || (h.from !== node && h.to !== node)) continue;
+          const hg = geo[h.id];
+          if (!hg || hg.A.length !== n || hg.C.length !== n) continue;
+          const a = nearOn(hg.A, qa), c = nearOn(hg.C, qc);
+          if (a.d > PIN_TOL || c.d > PIN_TOL) continue;
+          // (Only a side join in either view: an end that meets its host's end in both moves with it already.)
+          const side = (f) => f > 0.5 && f < n - 1.5;
+          if (!side(a.f) && !side(c.f)) continue;
+          if (!best || a.d + c.d < best.d) { const pa = ptAt(hg.A, a.f), pc = ptAt(hg.C, c.f); best = { d: a.d + c.d, end, k, host: h.id, fA: a.f, fC: c.f, dA: [pa[0] - qa[0], pa[1] - qa[1]], dC: [pc[0] - qc[0], pc[1] - qc[1]] }; }
+        }
+        if (best) (g.pins ||= []).push(best);
+      }
+    }
+  }
   // Tributaries and feeders (anatomic only), sampled once, with a vein's gentle meander (a
   // feeder that is a collateral gets a serpentine instead).
   const feedGeo = {};
@@ -172,11 +203,12 @@ export function createGeo(st, live) {
       const g = geo[id];
       g.dC = metroRoute(pts, 16);
       g.C = sample(g.dC); g.rk = peelRanks(g.C);
-      flipOf(g);
+      chordsOf(g);
       router.addLine(g.C, true);
       customRoutes.set(id, pts);
     }
     scratchG.remove();
+    pinEnds();   // (a new circuit course: its ends' hosts found again)
     return true;
   }
   routeCustomShunts(store.get().params);

@@ -11,12 +11,17 @@ import { VIEW_CHANGE_MS } from './motion.js';
 //   - whole by the half: the two cross over the second half, as the figure's own progress (1 - 2p, 2p - 1);
 //   - whole after the half: they cross over what is left of the change from that frame, so the new labels are whole as the figure lands;
 //   - whole once the figure has landed (landAt >= 1): the swap is this frame.
+const XF_OUT = 0.55, XF_IN = 0.45, smooth = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 export function viewXfMix(p, landAt, out = { o: 1, n: 0 }) {
   let n;
   if (landAt == null) n = 0;
   else if (landAt >= 1) n = 1;
   else { const from = landAt > 0.5 ? landAt : 0.5; n = (p - from) / (1 - from); n = n < 0 ? 0 : n > 1 ? 1 : n; }
-  out.o = 1 - n; out.n = n;
+  // (Handed over, not mixed: the old labels are gone by a little past the crossover's middle and the new ones come in from a little before it.
+  // A linear mix had both sets at half strength over the same stretch of figure, a station's two names on top of each other (the iPhone's
+  // Anatomy -> Circuit, 13 Nov 2026: "RHV 4.7" over "Right sinusoids 7.4", "PV" over "Hepatic artery"). The overlap left is under 3 % each.)
+  out.o = n >= XF_OUT ? 0 : 1 - smooth(n / XF_OUT);
+  out.n = n <= XF_IN ? 0 : smooth((n - XF_IN) / (1 - XF_IN));
   return out;
 }
 

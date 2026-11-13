@@ -10,7 +10,7 @@ import { VIEW_CHANGE_MS, viewXfLeftMs, viewXfMix, viewXfRetarget } from './view-
 import { createGlideLabels } from './glide-labels.js';
 
 export function createView(st, live) {
-  const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, endWidth, geo, handRideEnd, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
+  const { CIRC_C, EV, VB_CIRC_R, applyVT, circTurn, circWhole, defaultVT, driftEnd, edgeVisible, endWidth, geo, handRideEnd, morphPtInto, labelJobDrop, labelJobStep, labelKeyNow, labelSig, labelSliceRun, labelTail, layoutLabels, layoutLabelsGen, refreshCTM, rotEase, sameView, sitesPaint, stageBox, updateLabels, vbBox, vesselAt, visAt, worldToLocalInto } = st;
   const xfVis = [null, null];
   function viewXfP() { const x = live.viewXf, t = live.easeInOut(live.morph); return x.tT === x.t0 ? 1 : clamp((t - x.t0) / (x.tT - x.t0), 0, 1); }
   // (The label layers the GPU does not draw (the SVG's own) come in with the new labels. Written on the layer's two groups, never on the #labels
@@ -49,21 +49,22 @@ export function createView(st, live) {
     }
     return best || MA_NONE;
   }
+  const MA_P = [0, 0];   // (morphPtInto's answer, read at once)
   function morphAnchorAt(wx, wy, view, out, s) {
     let r = s ? s.mA : null;
     if (!r) { r = view === 1 && s?.pid?.startsWith('z:') ? MA_NONE : resolveMorphAnchor(wx, wy, view); if (s) s.mA = r; }
     let x = wx, y = wy;
     if (!r.id && view === 1) { const T = circTurn(live.morph); if (T.on) { const dx = wx - CIRC_C[0], dy = wy - CIRC_C[1]; x = CIRC_C[0] + T.c * dx - T.s * dy; y = CIRC_C[1] + T.s * dx + T.c * dy; } }
     if (r.id) {
-      const g = geo[r.id], t = live.easeInOut(live.morph), a0 = g.A[r.i], a1 = g.A[r.i + 1], c0 = g.C[r.i], c1 = g.C[r.i + 1];
+      const g = geo[r.id], t = live.easeInOut(live.morph);
       // (Each of the two points on its own share of the change, as vesselAt moves them: the flow peel, flow-peel.js.)
       const w0 = peelAt(t, g.rk[r.i]), w1 = peelAt(t, g.rk[r.i + 1]), wf = lerp(w0, w1, r.f), w = view === 0 ? 1 - wf : wf;
       // (Mid-change on an upright circuit the CTM carries no turn: the circuit's side is laid out already turned about CIRC_C (circ-turn.js),
       // so its point, and a circuit label's offset from it, are turned here the same way, or the ghosts would drift off the figure.)
-      const T = circTurn(live.morph), tc = T.on ? T.c : 1, ts = T.on ? T.s : 0, cx = CIRC_C[0], cy = CIRC_C[1];
-      const p0x = c0[0] - cx, p0y = c0[1] - cy, p1x = c1[0] - cx, p1y = c1[1] - cy;
-      const q0x = lerp(a0[0], cx + tc * p0x - ts * p0y, w0), q0y = lerp(a0[1], cy + ts * p0x + tc * p0y, w0);
-      const q1x = lerp(a1[0], cx + tc * p1x - ts * p1y, w1), q1y = lerp(a1[1], cy + ts * p1x + tc * p1y, w1);
+      const T = circTurn(live.morph), tc = T.on ? T.c : 1, ts = T.on ? T.s : 0;
+      // (The two samples as vesselAt draws them: a reversing vessel in its chord's frame, a pinned end with its host. stage-frame.js morphPtInto.)
+      morphPtInto(r.id, r.i, t, MA_P); const q0x = MA_P[0], q0y = MA_P[1];
+      morphPtInto(r.id, r.i + 1, t, MA_P); const q1x = MA_P[0], q1y = MA_P[1];
       const ox = view === 0 ? r.dx : tc * r.dx - ts * r.dy, oy = view === 0 ? r.dy : ts * r.dx + tc * r.dy;
       x = q0x + (q1x - q0x) * r.f + ox * w;
       y = q0y + (q1y - q0y) * r.f + oy * w;
