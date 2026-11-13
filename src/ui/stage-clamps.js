@@ -276,7 +276,7 @@ export function createClamps(st, live) {
     }
     for (const id of ['TIPS', 'DIPS', 'S_PC', 'S_DSR', 'S_MC', 'REX', ...Object.keys(p.customShunts || {})]) {
       if (!E[id].vis || E[id].reveal) continue;
-      if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id, p); else anastomoses(id);
+      if (id === 'TIPS' || id === 'DIPS' || id.startsWith('X_')) stentMesh(id, p); else anastomoses(id, anat);
     }
     // The stump of the vessel each surgical shunt divides, a clear gap past where the shunt leaves it.
     // (A side-to-side portocaval shunt divides nothing: the trunk stays whole and untied.)

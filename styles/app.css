@@ -716,6 +716,11 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
 .tied-off { fill: none; stroke: var(--text); stroke-opacity: .42; stroke-linecap: round; stroke-linejoin: round; }
 .ligature { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.suture-thread { fill: none; stroke: var(--suture-thread); stroke-width: 1.1; stroke-opacity: .92; stroke-linecap: round; stroke-linejoin: round; }
+.suture-back { fill: none; stroke: var(--suture-thread); stroke-width: 1; stroke-opacity: .3; stroke-linecap: round; stroke-linejoin: round; }
+.suture-seam { fill: none; stroke: var(--text); stroke-width: .8; stroke-opacity: .2; stroke-linecap: round; stroke-linejoin: round; }
+.suture-ridge { fill: none; stroke: var(--white); stroke-width: .8; stroke-opacity: .22; stroke-linecap: round; stroke-linejoin: round; }
+.suture-knot { fill: none; stroke: var(--suture-thread); stroke-width: 2.6; stroke-linecap: round; }   /* (a dot: a path of nearly no length with round caps, so the marks' painter draws it as a disc) */
 .suture { fill: none; stroke: var(--text); stroke-opacity: .7; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
 .clamp, .clamp-out { fill: var(--text); fill-opacity: .82; }
 .clamp-label, .clamp-label-out, .guide-label { font: 600 var(--fs-12) var(--font-ui); fill: var(--text); paint-order: stroke; stroke: var(--stage-bg); stroke-width: 4px; stroke-linejoin: round; }

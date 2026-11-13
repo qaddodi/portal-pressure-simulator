@@ -20,6 +20,7 @@ import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { fluidSpringFor } from './organ-ease.js';
 import { booting, holdCover, sinceInput } from './quiet.js';
 import { store } from './store.js';
+import { stumpCentre, stumpPinch } from './suture-marks.js';
 import { clamp, lerp } from './util.js';
 import { FRONT_CHAIN, chainS, frontP, frontS, frontScale, fronted } from './collateral-front.js';
 import { BEAD_LAMBDA_FUNDAL, BEAD_SITE, beadLambda, beadRadius, varixBead, varixWale } from './varix-bead.js';
@@ -718,10 +719,10 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   }
   // The tube's radius at u along it, from the numbers renderTube kept on the vessel (no closure made when they change).
   function tubeRadius(x, u) {
-    const a = x.rA, w = x.rW, b = x.rB, h0 = x.rH0, h1 = x.rH1, f = x.stenF, L = x.rL, bd = x.rBd;
+    const a = x.rA, w = x.rW, b = x.rB, h0 = x.rH0, h1 = x.rH1, f = x.stenF, L = x.rL, bd = x.rBd, pc = x.rPc;
     const r = u < 0.3 ? lerp(a, w, smooth(u / 0.3)) : u > 0.7 ? lerp(w, b, smooth((u - 0.7) / 0.3)) : w;
     const side = (h0 ? sideEndScale(u * L, h0) : 1) * (h1 ? sideEndScale((1 - u) * L, h1) : 1);
-    return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side * (bd ? beadRadius(1, bd, u, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1));
+    return Math.max(0.35, (r / 2) * (f ? f(u) : 1) * side * (pc ? stumpPinch(u * L, pc) : 1) * (bd ? beadRadius(1, bd, u, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1));
   }
   // The tube's N_SAMPLES radii in one loop (tubeRadius at each sample, the same arithmetic); with `ra` the cava drawn as one: the first
   // share f of the samples along x, the rest along ra. Nothing is handed back from a call, so no number is boxed per sample.
@@ -741,10 +742,10 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       const u = i / (N_SAMPLES - 1);
       let v = u, q = x;
       if (ra) { if (u < f) v = u / f; else { v = (u - f) / (1 - f); q = ra; } }
-      const a = q.rA, w = q.rW, b = q.rB, h0 = q.rH0, h1 = q.rH1, fn = q.stenF, L = q.rL, bd = q.rBd;
+      const a = q.rA, w = q.rW, b = q.rB, h0 = q.rH0, h1 = q.rH1, fn = q.stenF, L = q.rL, bd = q.rBd, pc = q.rPc;
       const r = v < 0.3 ? lerp(a, w, smooth(v / 0.3)) : v > 0.7 ? lerp(w, b, smooth((v - 0.7) / 0.3)) : w;
       const side = (h0 ? sideEndScale(v * L, h0) : 1) * (h1 ? sideEndScale((1 - v) * L, h1) : 1);
-      R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side * (bd ? beadRadius(1, bd, v, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1) * (fr ? frontScale(fp, fr.out, order < 0 ? frontS(fr, u) : chainS(frontS(fr, u), order, wFirst)) : 1));
+      R[i] = Math.max(0.35, (r / 2) * (fn ? fn(v) : 1) * side * (pc ? stumpPinch(v * L, pc) : 1) * (bd ? beadRadius(1, bd, v, L, BEAD_PHASE_V, 0, BEAD_LAMBDA_FUNDAL) : 1) * (fr ? frontScale(fp, fr.out, order < 0 ? frontS(fr, u) : chainS(frontS(fr, u), order, wFirst)) : 1));
     }
   }
   function renderTube(x, p, t, J) {
@@ -769,18 +770,21 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     keep(x, 'kh0', tubeHostR(id, 0, stroked), qw); keep(x, 'kh1', tubeHostR(id, 1, stroked), qw);
     // (What the radii are made from, kept as numbers and compared one by one: a joined string per vessel per call was garbage on every
     // frame a width eased. A change takes a new version, shadeVer, which the radii keys follow.)
+    // (A divided vein's stump narrows a little at its tie, suture-marks.js stumpCentre: the arc length of the tie, or 0.)
+    let pcQ = 0;
+    for (let q = 0; q < LIGATED.length; q++) if (LIGATED[q][1] === id) { const dl = divideLen(id); if (dl > 0) pcQ = Math.round(stumpCentre(dl, g.len || 1) * 10) / 10; }
     const bdQ = x.bead && !stroked ? x.bead : 0;   // (the beaded shunt, C5: none once drawn as a stroke)
     const wallQ = Math.round(wallPx * 100), vQ = sten ? Math.round(v * 1000) : -1, atQ = sten ? stenosisAt(id, p) : 0;
-    const same = x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === live.lastMorph && x.skStroked === stroked && x.skBd === bdQ;
+    const same = x.skKw === x.kw && x.skKa === x.ka && x.skKb === x.kb && x.skH0 === x.kh0 && x.skH1 === x.kh1 && x.skWall === wallQ && x.skV === vQ && x.skAt === atQ && x.skMorph === live.lastMorph && x.skStroked === stroked && x.skBd === bdQ && x.skPc === pcQ;
     if (same && x.shadeOk) return;
     x.shadeOk = true;
     if (!same) {
-      x.skKw = x.kw; x.skKa = x.ka; x.skKb = x.kb; x.skH0 = x.kh0; x.skH1 = x.kh1; x.skWall = wallQ; x.skV = vQ; x.skAt = atQ; x.skMorph = live.lastMorph; x.skStroked = stroked; x.skBd = bdQ;
+      x.skKw = x.kw; x.skKa = x.ka; x.skKb = x.kb; x.skH0 = x.kh0; x.skH1 = x.kh1; x.skWall = wallQ; x.skV = vQ; x.skAt = atQ; x.skMorph = live.lastMorph; x.skStroked = stroked; x.skBd = bdQ; x.skPc = pcQ;
       x.shadeVer = (x.shadeVer | 0) + 1;
     }
     const f = sten ? waist(id, v, g.len, w, p) : null;
     x.stenF = f;   // (its caliber factor along it: the GPU's colour follows the resistance it adds, sendRadii alongOf)
-    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1; x.rBd = bdQ;
+    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1; x.rBd = bdQ; x.rPc = pcQ;
     // (Kept as the function the radii are read through; it reads the numbers above, which this call has just set.)
     if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }

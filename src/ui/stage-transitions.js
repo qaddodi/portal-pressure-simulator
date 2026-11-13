@@ -15,6 +15,7 @@ import { createOutlines } from './stage-outlines.js';
 import { createVenous } from './stage-venous.js';
 import { bareOf, stentLookD } from './stent-mesh.js';
 import { store } from './store.js';
+import { distToLine, runningStitch, seamTable, stumpCentre, woundTie } from './suture-marks.js';
 import { clamp, s } from './util.js';
 
 // Where the cross sits on a vein the Warren shunt has tied off and greyed out, as a share of its course (Mohammad, 7 Nov: about half way).
@@ -301,16 +302,48 @@ export function createTransitions(st, live) {
     host.append(g);
   }
   const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, tipsBare }, live);
-  // Surgical shunts: a row of sutures across each anastomosis.
-  function anastomoses(id) {
-    const x = E[id], L = geo[id].len;
-    const R = x.width / 2 + (x.wallPx || 1) + 2;
+  // Surgical shunts: a running stitch round each join (S1 of the suture mocks, 13 Nov 2026), the seam following the host vein's wall.
+  // Where the shunt's end is in no host vein, and in the circuit (no walls to follow), the old three ticks stay.
+  // (The Warren shunt's start is the splenic vein turning down, and the end-to-side portocaval shunt's the portal vein itself: nothing is sewn
+  // there, so those ends carry no stitches.)
+  function sutureHost(id, px, py) {
+    let host = null, bu = 0;
+    for (const v of EV) {
+      const k = v.e.kind;
+      if (!v.vis || v.isArt || v.e.id === id || !(k === 'vein' || k === 'collateral' || k === 'liver') || !geo[v.e.id]?.cur) continue;
+      const u = v.width / 2 + (v.wallPx || 1) - distToLine(geo[v.e.id].cur, px, py);
+      if (u > bu) { bu = u; host = v; }
+    }
+    return host;
+  }
+  const sutureRunsOn = (id, end) => end === 'start' && (id === 'S_DSR' || (id === 'S_PC' && !store.get().params.portocavalSide));
+  function sutureTicks(id, c, R) {
     let d = '';
-    for (const c of [Math.min(10, L * 0.1), Math.max(L - 10, L * 0.9)]) for (const o of [-3.5, 0, 3.5]) {
+    for (const o of [-3.5, 0, 3.5]) {
       const q = frameAt(id, c + o);
       d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
     }
-    putMark(ov.stents, `suture:${id}`, id, [s('path', { class: 'suture', d })]);
+    return sutureEls([['suture', d]]);
+  }
+  // (One site makes every suture shape: a [class, path data] list in, the marks' paths out.)
+  const sutureEls = (list) => list.map(([cls, d]) => s('path', { class: cls, d }));
+  function anastomoses(id, anat = true) {
+    const x = E[id], L = geo[id].len;
+    const R = x.width / 2 + (x.wallPx || 1), els = [];
+    for (const end of ['start', 'end']) {
+      if (anat && sutureRunsOn(id, end)) continue;
+      const atEnd = end === 'end', e = frameAt(id, atEnd ? L : 0), host = anat ? sutureHost(id, e.x, e.y) : null;
+      let tab = null;
+      const pt = (sl, a) => { const q = frameAt(id, atEnd ? L - sl : sl); return [q.x + q.nx * R * a, q.y + q.ny * R * a]; };
+      if (anat && host) {
+        const hc = geo[host.e.id].cur, hr = host.width / 2 + (host.wallPx || 1);
+        tab = seamTable(pt, (px, py) => hr - distToLine(hc, px, py), Math.min(60, L * 0.45));
+      }
+      if (!tab) { els.push(...sutureTicks(id, atEnd ? Math.max(L - 10, L * 0.9) : Math.min(10, L * 0.1), R + 2)); continue; }
+      const j = runningStitch(pt, tab, Math.max(2, Math.min(4, R * 0.4)));
+      els.push(...sutureEls([['suture-seam', j.seam], ['suture-ridge', j.ridge], ['suture-back', j.back], ['suture-thread', j.front]]));
+    }
+    putMark(ov.stents, `suture:${id}`, id, els);
   }
   // A vessel divided at surgery (the splenic vein in a Warren shunt, the portal trunk in a portocaval
   // shunt): two suture ties across its tied-off stump, a little apart, just behind the stump's rounded end.
@@ -318,18 +351,15 @@ export function createTransitions(st, live) {
   // the whole vein out as clotted, and puts the plug's cross halfway along it: the coronary vein in a Warren shunt.)
   function ligature(id, shunt, at) {
     const x = E[id], c = at != null ? geo[id].len * at : Math.min(divideLen(id) + 5, geo[id].len * 0.6);
-    const R = x.width / 2 + (x.wallPx || 1) + 3;
-    let d = '';
+    const R = x.width / 2 + (x.wallPx || 1);
     if (at != null) {
       let w = '';
       geo[id].cur.forEach((q, i) => { w += `${i ? 'L' : 'M'}${q[0].toFixed(1)} ${q[1].toFixed(1)} `; });
       putMark(ov.stents, `tieGrey:${id}`, shunt, [s('path', { class: 'tied-off', d: w, 'stroke-width': (x.width + 2 * (x.wallPx || 1)).toFixed(1) })]);
     }
-    for (const o of [-3.5, 3.5]) {
-      const q = frameAt(id, c + o);
-      d += `M${(q.x + q.nx * R).toFixed(1)} ${(q.y + q.ny * R).toFixed(1)} L${(q.x - q.nx * R).toFixed(1)} ${(q.y - q.ny * R).toFixed(1)} `;
-    }
-    putMark(ov.stents, `tie:${id}`, shunt, [s('path', { class: 'ligature', d })]);
+    // (A wound tie, S1 of the suture mocks: five turns of thin thread, the far half faint, a knot and two short tails. On a divided vein it sits a little in from the cut end.)
+    const w = woundTie((u) => frameAt(id, u), at != null ? c : stumpCentre(divideLen(id), geo[id].len), R, 1.9, 5, at != null ? 0 : 1);
+    putMark(ov.stents, `tie:${id}`, shunt, sutureEls([['suture-back', w.back], ['suture-thread', w.front], ['suture-thread', w.tails], ['suture-knot', `M${w.knot.x.toFixed(1)} ${w.knot.y.toFixed(1)} L${(w.knot.x + 0.4).toFixed(1)} ${w.knot.y.toFixed(1)}`]]));
     if (at == null) return;
     const m = frameAt(id, geo[id].len * TIED_X);
     putMark(ov.plugs, `tieX:${id}`, shunt, [s('circle', { cx: m.x, cy: m.y, r: 7, fill: 'var(--surface)', stroke: 'var(--danger)', 'stroke-width': 2 }),

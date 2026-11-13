@@ -384,3 +384,7 @@ needs `#define PLAIN 0|1` before it. `tests/comp-fs-old-builds.test.js` holds th
   `flow` column test is made (no second row). The arrowheads the compositor draws itself (`chevQuad` 0) keep their text and read `gbuf` for the row, arc,
   across and share. So `gbuf` is read once, only for those two uses.
 - `streak` is ignored with `tube` (the Tube has no half-size pass); `heads` ignores `tube` (the quads read `gbuf` and `gbuf2` and draw the same heads).
+
+## Surgical sutures (13 Nov 2026, S1 of the suture mocks)
+
+A surgical shunt's join (`anastomoses` in `stage-transitions.js`) is a running stitch in `src/ui/suture-marks.js`: the seam is found by walking in from the shunt's end until the host vein's wall (`sutureHost`: the visible vein, collateral or liver vessel the end lies most inside) crosses it, so it is a slanted curve, and 13 slanting strokes go round it, the far half faint. A divided vein's tie (`ligature`) is five wound turns, a knot and two tails, and the stump narrows 20 % there (`stumpPinch`, applied in `stage-tubes.js` `tubeRadius` / `tubeFill`, keyed by `skPc`). The Warren shunt's start and the end-to-side portocaval shunt's start (the vein itself turning into the shunt) are not sewn, and the circuit and a shunt end with no host keep the old three ticks. The marks are SVG shapes the marks' painter reads into GPU strokes (`stage-marks.js`), like every other mark. Not built from the mock: the flare of the shunt's mouth (the existing side-end narrowing to the host's caliber, `tubeHostW`, runs the other way).
