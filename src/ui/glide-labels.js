@@ -82,8 +82,9 @@ export function createGlideLabels(st, live) {
     }
     const m = viewXfMix(u, x.landAt, GLIDE_MIX);
     if (m.n > x.n) x.n = m.n;
+    if (!(m.o >= (x.o ?? 1))) x.o = m.o;   // (the old set handed over as the new comes in, view-xf.js viewXfMix; never taken back either)
     xfLayer(x.n);
-    live.labelGL.crossfade(1 - x.n, x.n);
+    live.labelGL.crossfade(x.o ?? 1, x.n);
   }
   // (The camera is at rest (camSettle, or the glide cut short): a solve still running goes on at rest and the ghosts stay till it lands (labelTail,
   // xfRelease); a whole one takes over in full and the ghosts go.)

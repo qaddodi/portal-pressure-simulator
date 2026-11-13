@@ -64,8 +64,8 @@ test('the crossfade follows the glide\'s own progress, and the landing gives the
   assert.equal(live.layerOp, 0, "the layers the GPU does not draw wait for the new set too");
   const at = (u) => { v.glideXfStep(u); return log.at(-1); };
   assert.deepEqual(at(0.25), ['xf', 1, 0]);
-  assert.deepEqual(at(0.75), ['xf', 0.5, 0.5]);
-  assert.deepEqual(at(0.6), ['xf', 0.5, 0.5], 'a retarget that starts its progress over never takes the new labels back');
+  assert.deepEqual(at(0.75), ['xf', 0.023, 0.023], 'handed over at the middle, never both strong');
+  assert.deepEqual(at(0.6), ['xf', 0.023, 0.023], 'a retarget that starts its progress over never takes the new labels back');
   assert.deepEqual(at(1), ['xf', 0, 1]);
   v.glideXfEnd();
   assert.deepEqual(log.at(-1), ['drop'], 'landed: the ghosts go');
@@ -87,7 +87,7 @@ test('a solve longer than its first slice runs a slice a frame at the glide\'s e
   assert.ok(log.some((e) => e[0] === 'tail' && e[1].k === TO.k), 'its tail ran at the end camera');
   assert.deepEqual(log.at(-1), ['xf', 1, 0]);
   v.glideXfStep(0.8);
-  assert.deepEqual(log.at(-1), ['xf', 0.5, 0.5]);
+  assert.deepEqual(log.at(-1), ['xf', 0.023, 0.023]);
 });
 
 test('a glide that lands with its solve still running holds the ghosts until it lands at rest', () => {
