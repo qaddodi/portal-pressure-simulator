@@ -422,6 +422,8 @@ export function createBlood(st, live) {
       const Qm = breathQ.mean;
       for (let k = 0; k < EDGES.length; k++) { velQf[k] = velOf(k, Qm[k]); velQ[k] = velOf(k, live.F.Q[k]); }
     }
+    // (A vein closed by its clot carries no blood, so it shows no chevrons: one faint mark ran over the chronic PVT's clot, 13 Nov 2026.)
+    const thr = store.get().params?.thrombus;
     for (let k = 0; k < EDGES.length; k++) {
       // One signal turns both: the reversed colour and the way the blood and its chevrons run (isReversed, held: B3).
       const rt = revHold[k];
@@ -431,7 +433,7 @@ export function createBlood(st, live) {
       qSlow[k] = qSlow[k] === qSlow[k] && !still ? qSlow[k] + (qa - qSlow[k]) * aQ : qa;
       anchorStream(sm, so, bReset);
       sm.rev = sm.rev == null ? rt : eased(sm.rev, rt, ease);
-      const ct = !key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
+      const ct = thr && thr[EDGES[k].id] >= 0.95 ? 0 : !key || KEY_K[k] === 1 || (KEY_K[k] === 2 && keyChevron(EDGES[k], laneOpen)) || (glow.lit.get(EDGES[k].id)?.to || 0) > 0 ? 1 : 0;
       sm.chevK = sm.chevK == null ? ct : eased(sm.chevK, ct, ease);
     }
     // The streaks, the chevrons and the origin colours fade in and out (0.15 s) when switched, by their toggles, the catheter

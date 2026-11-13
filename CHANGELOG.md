@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Chronic PVT, at the clotted trunk: no chevron over the clot, no lump where the coronary vein joins, and the fine channel no longer bows out.** (13 Nov 2026.)
+  A vein closed by its clot (thrombus 0.95 or more) shows no flow chevrons (stage-blood.js): one faint mark ran over the clot. The coronary vein's drawn end overshot the trunk's meandered centreline by 1.8 units, and its round end showed through the far wall as a lump; it now stops 1.5 short of it, on its own side. The cavernoma's plateau strands read their plateau by how far along the chord each sample lies, not by their share of the channel's length, which the channel's sideways run at each end takes up: the fine channel bowed out above the confluence.
 - **Circuit slide 4 on a phone: "IVC" no longer lands on the liver's zigzag.** (13 Nov 2026, headless shot.) A reading pulled out from under the top card was pulled onto the zigzag; now one pulled onto a zigzag hides, a ring's nudge never takes it onto one, a label carried onto one at rest is solved again, and a zoom's step that widens the teeth lays the labels out again.
 
 - **TIPS Doppler slide 3: the stent's three point callouts no longer throw.** (13 Nov 2026, reported by the unification thread.) A point callout's key (`n:TIPS:mid`) was taken for a station's and pinned by `nodePos`, which has no such node: the page threw every frame and the three callouts did not show. `stampAnchor` now pins only a station's key; a point keeps its world anchor.

@@ -148,7 +148,9 @@ export const EDGE_PATH = {
   SV_CONF: 'M880 505 C 830 525 765 545 700 556',
   // (It joins the portal trunk itself, about halfway up, merging at a shallow angle with the flow, instead of ending in the knot at the
   // confluence: Mohammad, 6 Nov. The model still drains it into CONF; only the drawing ends on the trunk, so no pressure moves.)
-  LGV_CONF: 'M821 318 C 829 348 835 384 833 412 C 831 436 812 470 770 492 C 736 508 696 516 660.1 505.7',
+  // (Its end lies 1.5 units short of the trunk's drawn, meandered centreline, on its own side: at 1.8 past it its round end showed through the far wall
+  // of a thin trunk as a lump, 13 Nov 2026.)
+  LGV_CONF: 'M821 318 C 829 348 835 384 833 412 C 831 436 812 470 770 492 C 736 508 696 516 662.5 503.5',
   PV_TRUNK: 'M700 556 C 675 522 638 478 602 442',
   PVH_R: 'M602 442 C 568 428 535 414 505 398',
   PVH_L: 'M602 442 C 632 418 660 398 688 378',

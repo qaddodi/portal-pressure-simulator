@@ -45,7 +45,7 @@ const base = sample(EDGE_PATH.C8), pv = meander(sample(EDGE_PATH.PV_TRUNK), 'PV_
 const main = wiggle(base, WIG_CAP.C8, 'C8'.length);
 const strandOf = (off, ride) => {
   const A = base[0], B = base[N - 1], cl = Math.hypot(B[0] - A[0], B[1] - A[1]), nx = -(B[1] - A[1]) / cl, ny = (B[0] - A[0]) / cl, pa = STRAND_PLATEAU.C8;
-  return base.map((p, i) => { const v = i / (N - 1), o = off * sm(v / pa) * sm((1 - v) / pa); return [p[0] + nx * o + ride * (main[i][0] - p[0]), p[1] + ny * o + ride * (main[i][1] - p[1])]; });
+  return base.map((p) => { const v = Math.max(0, Math.min(1, ((p[0] - A[0]) * ny - (p[1] - A[1]) * nx) / cl)), o = off * sm(v / pa) * sm((1 - v) / pa); return [p[0] + nx * o + ride * (main[base.indexOf(p)][0] - p[0]), p[1] + ny * o + ride * (main[base.indexOf(p)][1] - p[1])]; });
 };
 const strands = STRANDS.C8.map(([off, ride]) => strandOf(off, ride));
 const channels = [main, ...strands];
