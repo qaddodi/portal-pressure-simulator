@@ -732,9 +732,10 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
       const q = cards?.read ? cards.read(g) : undefined;
       if (q !== undefined) {
         const cd = isCard(cards.region?.(g), g), sf = cd ? cs.getPropertyValue('--surface') : '';   // (a card's pieces, the split sheet's: the one card glass)
+        const pl = cd ? cs.getPropertyValue('--glass-edge').trim() : '', pd = cd ? dropsOf(cs.getPropertyValue('--glass-shadow')) : null;   // (the one glass's edge and shadow)
         for (const one of [].concat(q || [])) {
           if (!one || !shows(a * one.a) || !one.r.width || !one.r.height) { if (one && one.r.width && one.r.height) fadedNow.add(g); continue; }
-          panes.push({ g, el, oa: one.a, pe: one.pe || null, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1, card: cd, sf });
+          panes.push({ g, el, oa: one.a, pe: one.pe || null, a: a * one.a, r: one.r, d: one.d || null, rad: one.d ? null : one.rad, lw: one.r.width, lh: one.r.height, er: one.r, shadow: null, tint: one.tint, k: 1, card: cd, sf, drops: pd, line: pl });
         }
         continue;
       }
@@ -751,7 +752,10 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         const zk = zoomRide.scale(g);   // (a zoomed card's scale: its corners grow with it)
         // (A card's own edge and drop shadows, drawn here with its glass where its CSS names them (--gl-line, --gl-drop): the page's own
         // are taken off while it is drawn here ([data-gl="edge"]), so the card is one GPU shape that may change size in view.)
-        const drops = dropsOf(cs.getPropertyValue('--gl-drop')), line = cs.getPropertyValue('--gl-line').trim();
+        // (A card's (every glass of the app since 13 Nov 2026, Mohammad: "Everything should have same glass parameters. Every UI. ... No types."):
+        // the one glass's edge and shadow, app.css --glass-edge and --glass-shadow, whatever the element itself declares; its tint is the one too, paneTint.)
+        const cdl = isCard(reg, g);
+        const drops = dropsOf(cs.getPropertyValue(cdl ? '--glass-shadow' : '--gl-drop')), line = cs.getPropertyValue(cdl ? '--glass-edge' : '--gl-line').trim();
         // (cut: the still box a glass that slides is cut off at (a phone sheet's paper sliding below its resting foot, which the sheet's
         // own clip hides on the page): { bottom } in client px, from cards.cut(g), kept where it is while the glass moves.)
         const cut = cards.cut ? cards.cut(g) || null : null;
@@ -769,7 +773,7 @@ export function createGlassGL(wrap, source, layers, { software = false, live = (
         const cvo = tb ? [tb.left - r.left, tb.top - r.top, tb.right - r.right, tb.bottom - r.bottom] : null;   // alloc-rare: read with the page, never in a frame
         // (A card with a clip of its own (not one the cover wrote): its parts, which the cover cuts in its place, glass-cover.js.)
         const kids = tc && tc !== 'none' && !cover.mine(cv || g) ? kidsOf(cv || g, g, r) : null;
-        panes.push({ g, el, box: true, cv, cvo, kids, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er, shadow: outer && reg.shadow ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
+        panes.push({ g, el, box: true, cv, cvo, kids, oa: 1, a, r, d: shp?.d || null, rad: shp?.d ? null : zk > 1.001 || zk < 0.999 ? radiiOf(cs).map((v) => v * zk) : radiiOf(cs), lw: shp?.d ? shp.w : r.width, lh: shp?.d ? shp.h : r.height, er, shadow: outer && reg.shadow && !cdl ? parseShadow(getComputedStyle(outer).boxShadow) : null, tint: tn, k: reg?.k ?? 1, card: cd, sf, drops, line, cut });
         continue;
       }
       const r = g.getBoundingClientRect(), lw = NUM(g.style.width), lh = NUM(g.style.height);

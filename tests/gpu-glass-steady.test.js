@@ -28,7 +28,7 @@ test('the sheet\'s tint comes from its CSS custom property, which the GPU\'s mar
   const gcs = (e, p) => (p ? e.ps[p] : { borderLeftWidth: '0px', borderTopWidth: '0px', borderRightWidth: '0px', borderBottomWidth: '0px', getPropertyValue: () => '0' });
   for (const pane of sheetPanes(el, gcs)) assert.equal(pane.tint, 'rgba(250, 250, 250, 0.58)');
   assert.match(CSS, /pz-sheet::after \{ content: ''; --gl-tint: var\(--glass-tint\);/);
-  assert.match(CSS, /:root, \.stage-wrap\.cmap \{ --glass-tint: color-mix\(in srgb, var\(--surface\) var\(--pz-frost, 66%\), transparent\); \}/, 'the one glass tint: the surface at --pz-frost');
+  assert.match(CSS, /:root, \.stage-wrap\.cmap \{ --glass-tint: color-mix\(in srgb, var\(--surface\) var\(--pz-frost, 66%\), transparent\); --glass-edge: var\(--hairline\); --glass-shadow: none; \}/, 'the one glass: the surface at --pz-frost, a hairline edge, no drop shadow');
 });
 
 test('only the part of a glass on the screen counts against the canvas\'s edge; every glass decides alone, at rest', () => {

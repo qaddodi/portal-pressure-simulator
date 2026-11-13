@@ -460,7 +460,7 @@ const PART_MAX = 1500;   // (lines: no part passes it unless size-budget.json li
     if (/shown \+= \(goal - shown\)/.test(src)) errors.push(`src/ui/${f}.js: shown += (goal - shown) * k per frame is faster at 120 Hz than at 60: use headStep`);
   }
   const css = readFileSync(join(ROOT, 'styles/app.css'), 'utf8');
-  if (!/\.cath-label::before \{[^}]*box-shadow: var\(--shadow-cath-label\)[^}]*transition: opacity/.test(css)) errors.push('styles/app.css: the catheter label\'s shadow is its ::before, faded by opacity');
+  if (!/\.cath-label::before \{[^}]*box-shadow: var\(--(?:shadow-cath-label|glass-shadow)\)[^}]*transition: opacity/.test(css)) errors.push('styles/app.css: the catheter label\'s shadow is its ::before, faded by opacity');
   for (const l of css.split('\n')) if (/\.cath-label/.test(l) && /transition[^;}]*box-shadow/.test(l)) errors.push(`styles/app.css: a catheter label transition lists box-shadow (fade the ::before's opacity): ${l.trim().slice(0, 90)}`);
 }
 
