@@ -51,7 +51,7 @@ import { parseDeckSource, checkDeck } from './deck-source.js';
 import { cleanEq } from './import-safety.js';
 import { bpText } from './vital-read.js';
 import { NO_ASC, TILE, cutText, tileOf, SCALE, bandsOf, rateOf, COLS, CUT, PRESS, fpv, dirAbs, dirRel, rateAbs, effOf, rateShown, tileShown, tipsGoal, liveSettled, LIVE_MAX, shownSig, sameHead, headOf, cutDp } from './table-marks.js';
-import { frameFor, cancelFrame, holdMotion, easeNow } from './frame.js';
+import { frameFor, cancelFrame, holdMotion, easeNow, inMotion } from './frame.js';
 import { loadGlyphs, glyphsReady, textWidth } from './text-gl.js';
 import { restPass, cancelRest } from './rest-pass.js';
 import { createSlidePrep } from './slide-prep.js';
@@ -2228,7 +2228,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // slide-prep.js.)
   // (recs-production-120hz §6: the tool's warm is returned, so its completion is awaited; the manifests belong to this deck, this
   // presentation's states and this look: identity.)
-  const slidePrep = createSlidePrep({ count: () => slides.length, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}|${glEpoch()}`, steps: {
+  const slidePrep = createSlidePrep({ count: () => slides.length, calm: () => !inMotion() && !busy && !prepT, identity: () => `${deck?.id ?? ''}|${slides.length}|${prepRev}|${document.documentElement.dataset.theme || ''}/${document.documentElement.dataset.palette || ''}|${glEpoch()}`, steps: {
     state: (i) => stateReady(i),
     glyphs: () => loadGlyphs(),
     tool: (i) => { const s = slides[i]; return s ? warmOf(s, ctxOf(s, i)) : null; },   // (B16: a throw or rejection reaches slide-prep, which marks the manifest failed; safe() would have turned it into null = ready)

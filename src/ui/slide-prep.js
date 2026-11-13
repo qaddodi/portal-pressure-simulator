@@ -3,8 +3,9 @@
 // glyphs loaded and every shader program that has finished compiling published (gl-compile.js prepareShaders, R10). aim(i, dir) is
 // called on each Next, Back or jump: it starts a new generation, so every job of the one before (a slide the person has gone past, or
 // a direction just reversed) stops at its next step and publishes nothing; then it prepares the slide going in, at once, and the one
-// after it in the direction of travel, then the one behind, in idle time between frames (never in a frame of motion). At most three
-// manifests are kept (the slide and its two neighbours); one further away is dropped.
+// after it in the direction of travel, then the one after that, then the one behind, in idle time between frames: a neighbour waits until
+// nothing moves (calm(): no transition, no slide change under way; 13 Nov 2026, "prepare ahead, never while anything moves"), then takes
+// its turn. Five manifests are kept at most (two either side of the slide); one further away is dropped.
 // (recs-production-120hz §6, 2 Nov 2026: readiness is an awaited, versioned contract. A tool's warm returns its completion and is
 // awaited; manifests are keyed by the deck's identity (identity(): deck id, revision, look, context generation) as well as the slide,
 // so deck B's slide 0 never inherits deck A's; a shader step that still waits resumes when a program is published (whenShadersMove),
@@ -24,9 +25,11 @@ const SHADER_MS = 4, SHADER_TRIES = 8;
 /**
  * steps: { state(i) → Promise, tool(i) → Promise, glyphs() → Promise, shaders(ms) → waiting } — the presenter's own preparation calls,
  * each optional. count(): the number of slides. identity(): what the manifests belong to (a change drops them all).
+ * ahead, behind: how many slides past the one aimed at, in the direction of travel and against it, are prepared in the quiet (the rest are
+ * kept for a turn the other way). calm(): nothing is moving; a neighbour's preparation waits for it (the slide going in never does).
  * Returns { aim, ready, manifest, state, cancel, stats }.
  */
-export function createSlidePrep({ count, steps = {}, keep = 3, identity = () => '' }) {
+export function createSlidePrep({ count, steps = {}, ahead = 2, behind = 1, identity = () => '', calm = () => true }) {
   let gen = 0, idNow = null;
   const made = new Map();   // i → { state, tool, glyphs, shaders, done, failed, id }
   const live = new Set();   // (the jobs of this generation, cancelled by the next)
@@ -60,9 +63,17 @@ export function createSlidePrep({ count, steps = {}, keep = 3, identity = () => 
     if (!m.shaders) m.failed = true;
     yield () => { m.done = !m.failed && m.state && m.glyphs && m.tool && m.shaders; };
   }
+  // (Kept: two either side, whichever way the person is going, so a turn the other way finds its slide ready.)
+  const KEEP_AROUND = Math.max(ahead, behind);
   function trim(i) {
-    for (const k of [...made.keys()]) if (Math.abs(k - i) > (keep >> 1)) made.delete(k);
+    for (const k of [...made.keys()]) if (Math.abs(k - i) > KEEP_AROUND) made.delete(k);
   }
+  // (A neighbour waits here until nothing moves, looking every CALM_LOOK_MS; the wait ends at once when its generation has gone.)
+  const CALM_LOOK_MS = 120;
+  const whenCalm = (ok) => {
+    if (calm()) return null;
+    return new Promise((res) => { const look = () => { if (!ok() || calm()) res(); else setTimeout(look, CALM_LOOK_MS); }; setTimeout(look, CALM_LOOK_MS); });
+  };
   // (The deck, its revision, the look or the GL context changed: every manifest is someone else's now.)
   function own() {
     const id = String(identity() ?? '');
@@ -89,12 +100,22 @@ export function createSlidePrep({ count, steps = {}, keep = 3, identity = () => 
     const sf0 = steps.shadersFailed?.() ?? 0;
     // (The slide going in first, now: its shaders published in the press's own task, before its first frame, within the budget.)
     try { steps.shaders?.(shaderMs()); } catch (e) { caught('slide-prep:70', e); /* next time */ }
-    const order = (dir === 'back' ? [i, i - 1, i + 1] : [i, i + 1, i - 1]).filter((k) => k >= 0 && k < count());
+    // (The slide going in, then those ahead in the direction of travel, then those behind.)
+    const step = dir === 'back' ? -1 : 1, order = [i];
+    for (let n = 1; n <= ahead; n++) order.push(i + step * n);
+    for (let n = 1; n <= behind; n++) order.push(i - step * n);
+    const inDeck = order.filter((k) => k >= 0 && k < count());
     const mOf = (at) => { let m = made.get(at); if (!m || m.failed) made.set(at, (m = { state: false, tool: false, glyphs: false, shaders: false, done: false, failed: false, id: idNow, sf0 })); return m; };
     // (One job, the slide going in first, then the one ahead, then the one behind: each a list of small steps. B19: a slide that failed
     // is counted, the job goes on to the next slide, and it is never counted as a completed job.)
     let bad = 0;
-    function* all() { for (const at of order) if (!made.get(at)?.done) { const m = mOf(at); yield* plan(at, m, at === i ? okIn : ok); if (m.failed) bad++; } }
+    function* all() {
+      for (const at of inDeck) {
+        if (made.get(at)?.done) continue;
+        if (at !== i) { yield () => whenCalm(ok); if (!ok()) return; }   // (a neighbour waits for the quiet)
+        const m = mOf(at); yield* plan(at, m, at === i ? okIn : ok); if (m.failed) bad++;
+      }
+    }
     const j = prepJob('slide-prep', all(), { alive: ok, onFail: () => { bad++; } });
     live.add(j); st.jobs++;
     j.done.then((fin) => { live.delete(j); if (fin && !bad) st.done++; else if (bad) st.failed++; });

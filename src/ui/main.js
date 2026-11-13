@@ -1240,6 +1240,7 @@ function wireTopbar() {
   if (new URLSearchParams(location.search).has('perf')) import('./frame-hud.js').then(({ startFrameHud }) => startFrameHud()).catch(() => { /* a measuring aid only */ });
   // High Refresh (high-refresh.js): on a touch screen the first tap goes full screen, past the browser's 60 Hz hold for pages.
   import('./high-refresh.js').then(({ startHighRefresh }) => startHighRefresh()).catch(() => { /* full screen is a bonus */ });
+  if (/[?&]lap\b/.test(location.search)) import('./lap.js').then(({ startLap }) => startLap()).catch(() => { /* a measuring aid only */ });
   if (new URLSearchParams(location.search).has('perf')) import('./perf-readout.js').then(({ startPerfReadout }) => startPerfReadout({ zoom: () => stage.zoomLevel() })).catch(() => { /* a measuring aid only */ });
   // ?offgpu=1 in the address: the live count of work off the GPU, flashing red when it happens during motion (offgpu-overlay.js). Without it, never loaded.
   if (/[?&]offgpu=1\b/.test(location.search)) import('./offgpu-overlay.js').then(({ startOffGpuOverlay }) => startOffGpuOverlay()).catch(() => { /* a measuring aid only */ });

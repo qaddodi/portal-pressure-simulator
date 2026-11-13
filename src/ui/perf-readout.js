@@ -11,7 +11,8 @@ import { textSoon } from './class-soon.js';
 import { perf, watchFrames, finalFrameFor } from './frame.js';
 // (The readout's own loop: through the app's one frame scheduler, last in each frame, not a requestAnimationFrame of its own.)
 const nextFrame = finalFrameFor('perf readout');
-import { createFrameRecorder, longFrameLine, LONG_FRAME_MS } from './frame-stats.js';
+import { createFrameRecorder } from './frame-stats.js';
+import { surfaceLine, longFramesText, inputsText } from './perf-text.js';
 import { scanBlurs, blurText } from './blur-gauge.js';
 import { budget as gpuBudget, budgetText as gpuBudgetText } from './gpu-budget.js';
 import { surfaceRows, surfacesText } from './gpu-surfaces.js';
@@ -19,7 +20,7 @@ import { motionBudget, budgetText } from './motion-budget.js';
 import { caught } from './caught.js';
 import { contextText } from './gl-contexts.js';
 
-const WINDOW = 2000, KEEP = 5, GAP_LINES = 40, LONG_LINES = 15;
+const WINDOW = 2000, KEEP = 5, GAP_LINES = 40;
 // The display's own refresh, as the browser offers it, from the frame intervals the readout sees (30 Oct, review 6a: a list of gaps
 // over 20 ms could never show a missed frame at 120 Hz, whose frames are 8.3 ms apart, a missed one 16.7 ms). The rates screens run
 // at; the measured one is the nearest to the lower quartile of the last 600 intervals (about 10 s, calm frames among them). Not the
@@ -56,41 +57,7 @@ export function intervalLine(s) {
   const [on, one, two, more] = s.bins;
   return `  frame intervals at ${s.hz} Hz (${s.per.toFixed(1)} ms): on time ${on}, 1 missed ${one}, 2 missed ${two}, 3+ missed ${more}; p50 ${s.p50.toFixed(1)}, p95 ${s.p95.toFixed(1)}, p99 ${s.p99.toFixed(1)} ms`;
 }
-/** Each surface's callbacks and the frames it really drew (frame.js noteDraw) over a window, from two readings of perf().totals. */
-const sKeys = [], sCount = [], sDraw = [];   // (the surfaces that asked, their callbacks and draws, kept and written over)
-export function surfaceLine(a, b) {
-  let n = 0;
-  for (const k of Object.keys(b.asks)) {   // alloc-rare: once as a gesture's window closes
-    const c = b.asks[k] - (a.asks[k] || 0);
-    if (c > 0) { sKeys[n] = k; sCount[n] = c; sDraw[n] = k in b.drawn ? b.drawn[k] - (a.drawn[k] || 0) : null; n++; }
-  }
-  if (!n) return '';
-  // (Most callbacks first; those with as many keep the order they came in.)
-  for (let i = 1; i < n; i++) {
-    const k = sKeys[i], c = sCount[i], d = sDraw[i];
-    let j = i - 1;
-    while (j >= 0 && sCount[j] < c) { sKeys[j + 1] = sKeys[j]; sCount[j + 1] = sCount[j]; sDraw[j + 1] = sDraw[j]; j--; }
-    sKeys[j + 1] = k; sCount[j + 1] = c; sDraw[j + 1] = d;
-  }
-  let text = '  surfaces (callbacks / draws): ';
-  for (let i = 0; i < n; i++) text += (i ? ', ' : '') + sKeys[i] + ' ' + sCount[i] + (sDraw[i] == null ? '' : ' / ' + sDraw[i]);   // alloc-rare: once as a gesture's window closes; the report's text
-  return text;
-}
-/** The long-frame log as text (premium-feel recs P4): every frame whose interval or script time passed LONG_FRAME_MS, the newest
- *  `n` of them, each with the surfaces that ran in it (surface, phase, ms) and what the scheduler does not account for. Times are
- *  seconds since the page opened. One line to paste instead of an afternoon of guessing. */
-export function longFramesText(long, n = LONG_LINES) {
-  if (!long.length) return `Long frames (over ${LONG_FRAME_MS} ms): none`;
-  const shown = long.slice(-n);
-  return [`Long frames (over ${LONG_FRAME_MS} ms; the newest ${shown.length} of ${long.length}, seconds since the page opened):`, ...shown.map((f) => longFrameLine(f))].join('\n');
-}
-/** The input-to-first-change measure (frame.js perf().inputToPaint, input-latency.js) as text: counts, p50, p95, the slowest. */
-export function inputsText(api) {
-  const s = api?.summary();
-  if (!s || !s.n) return `Inputs (a tap, press or key to the frame the page first changed): none answered yet${s?.ignored ? `, ${s.ignored} with no change` : ''}`;
-  const slow = api.slowest(4).map((d) => `${d.kind} ${d.target} ${d.ms.toFixed(0)} ms`).join(', ');
-  return [`Inputs (a tap, press or key to the frame the page first changed; the last ${Math.min(s.n, 200)} of ${s.n}${s.ignored ? `, ${s.ignored} with no change` : ''}): p50 ${s.p50.toFixed(0)}, p95 ${s.p95.toFixed(0)}, worst ${s.worst.toFixed(0)} ms`, `  slowest: ${slow}`].join('\n');
-}
+export { surfaceLine, longFramesText, inputsText };   // (kept here too: the tests and the lap's older readers name them here)
 const HIDES = ['', 'no live organs', 'no figure SVG', 'no labels', 'no GPU picture'];
 // (What each leaves out, by CSS: the page then neither lays out nor paints it.)
 const HIDE_CSS = {

@@ -626,7 +626,7 @@ function inputMeasure() {
 
 // (Asked for in the address, ?perf or ?inputs, it is made now, at load, before the presenter and the rest add their own window key
 // listeners: a key one of them uses stops at its listener (stopImmediatePropagation), and a tracker made later never sees it.)
-if (typeof location !== 'undefined' && /[?&](perf|inputs)(?=[=&#]|$)/.test(location.search || '')) inputMeasure();
+if (typeof location !== 'undefined' && /[?&](perf|inputs|lap)(?=[=&#]|$)/.test(location.search || '')) inputMeasure();
 
 // Frame recording (recs R5): perf().frames.start() records every frame the scheduler runs; .stop() returns the recording's raw
 // numbers (frame-stats.js: intervals, script times, each surface's ms in each frame it ran in, each phase's) and the long frames.

@@ -22,6 +22,7 @@ import { join, dirname, resolve, relative, basename, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 import { execSync } from 'node:child_process';
+import { gzipSync } from 'node:zlib';
 import { withCsp } from './csp.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -148,6 +149,7 @@ for (let round = 0; round < 60; round++) {
   }
 }
 const app = await build({ ...appOpts(), write: true });
+if (process.env.PPS_META) writeFileSync(process.env.PPS_META, JSON.stringify(app.metafile));   // (the size breakdown by source module: scripts/first-load.mjs reads it)
 // (No shipped file may still start a worker from its source address: the bundle has no such file, the worker fails to load, and its
 // callers fall back to the main thread without a word. Always refused, preview builds too.)
 for (const f of Object.keys(app.metafile.outputs).filter((x) => x.endsWith('.js'))) {
@@ -265,6 +267,39 @@ self.addEventListener('fetch', (e) => {
     .catch(() => caches.match(req).then((hit) => hit || (req.mode === 'navigate' ? caches.match('./') : Response.error()))));
 });
 `);
+
+// First load (P3, 13 Nov 2026): what a person's first visit must fetch before the first picture: the entry and every chunk it imports
+// statically (all preloaded in the page's head), the style sheet, the picture and glyph data the head preloads and the fonts it preloads.
+// Raw and gzip (GitHub Pages serves gzip). The target, under 1 MB of script and 150 KB of CSS as sent (gzip), is the ceiling the build holds
+// (scripts/size-budget.json firstLoad; the raw ceilings sit just above today's and only come down): over one, a warning, and an error where
+// BUILD_STRICT is set.
+{
+  const gz = (f) => gzipSync(readFileSync(join(OUT, f)), { level: 6 }).length;
+  const sum = (list) => list.reduce((a, f) => ({ raw: a.raw + statSync(join(OUT, f)).size, gz: a.gz + gz(f) }), { raw: 0, gz: 0 });
+  const script = sum([`assets/${appFile}`, ...staticChunks.map((c) => `assets/${c}`)]);
+  const style = sum([`assets/${cssFile}`]);
+  const data = sum(['organ-art', 'liver-geo-data', 'glyphs-inter', 'glyphs-inter-display', 'glyphs-inter-png', 'glyphs-inter-display-png'].filter((n) => dataOut.has(n)).map((n) => `assets/${dataOut.get(n)}`));
+  const fonts = sum([interLatin, serifLatin, monoLatin].filter(Boolean).map((f) => `assets/${f}`));
+  const k = (n) => (n / 1024).toFixed(0);
+  const line = (what, v, n) => `${what.padEnd(24)} ${k(v.raw).padStart(6)} KB raw, ${k(v.gz).padStart(6)} KB gzip${n ? `  (${n})` : ''}`;
+  const firstLoad = { script, style, data, fonts, modules: staticChunks.length + 1 };
+  writeFileSync(join(OUT, 'first-load.json'), JSON.stringify(firstLoad));
+  console.log('first load (before the first picture):');
+  console.log('  ' + line('script', script, `${staticChunks.length + 1} files preloaded`));
+  console.log('  ' + line('style sheet', style));
+  console.log('  ' + line('picture + glyph data', data));
+  console.log('  ' + line('fonts', fonts));
+  const budget = JSON.parse(readFileSync(join(ROOT, 'scripts/size-budget.json'), 'utf8')).firstLoad;
+  if (budget) {
+    const over = [['script (raw KB)', script.raw / 1024, budget.scriptKB], ['script (gzip KB)', script.gz / 1024, budget.scriptGzKB], ['style sheet (raw KB)', style.raw / 1024, budget.cssKB],
+      ['style sheet (gzip KB)', style.gz / 1024, budget.cssGzKB], ['preloaded files', staticChunks.length + 1, budget.preloads]].filter(([, v, max]) => max && v > max);
+    for (const [what, v, max] of over) {
+      const msg = `first load: ${what} is ${v.toFixed(0)}, over its ceiling of ${max} in scripts/size-budget.json (firstLoad): load it later, or lower something else first`;
+      if (process.env.BUILD_STRICT) throw new Error(msg);
+      console.warn(`::warning title=First load::${msg}`);
+    }
+  }
+}
 
 // Report.
 const size = (f) => statSync(join(OUT, f)).size;
