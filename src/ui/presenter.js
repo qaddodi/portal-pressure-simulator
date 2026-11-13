@@ -29,12 +29,7 @@ import { createSvgGL, svgModel, viewMap, noteLoop } from './svg-gl.js';
 import { chartCtx } from './chart-ctx.js';
 import { sinusoidSupported } from './gl-support.js';
 import { SCALE_NAME, offeredScales, scaleView, pickedScale, scaleCentre } from './scale-switch.js';
-import { offeredCutouts, cutoutSubject, plateRects, columnOf } from './cutouts.js';
-import { createRingTap } from './plate-ring-tap.js';
-import { createCutoutFrame } from './cutout-frame-gl.js';
 // The spot of the liver the windows are taken from: the open right lobe, between the portal branches and the hepatic veins (fractions of the liver's box in the figure's units).
-const PLATE_SPOT = [0.32, 0.5];
-const PLATE_CHIP_W = 104;   // (the shut window's chip: styles/app.css .pz-plate-show)
 import { CIRC_REGIONS, isCamOn, unionBox, regionBox, growBox, camNames } from './cam-frame.js';
 import { runSoon } from './class-soon.js';
 import { NODE_POS } from './anatomy.js';
@@ -4481,79 +4476,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (was) ui.shade.classList.add('pz-tabs-tight');
     return Math.max(16, tabH + 8);
   };
-  // The plate the slide shown lays out (null: none): the windows' rects in the figure's box, the room they take, who runs blood. Mac and iPad landscape only.
-  const appN = (name) => parseFloat(app.style.getPropertyValue(name)) || 0;
-  function cutoutPlan(s, p, W, H, l, rBase) {
-    if (s !== plateSlide) { plateSlide = s; plateOpen = true; }   // (a new slide opens its windows)
-    if (!s || p || W < 900 || H < 520) return null;
-    const kinds = offeredCutouts(s, { landscape: true, lens: slideLens(s), sinusoid: sinusoidSupported() });
-    if (!kinds.length) return null;
-    const free = { l: 12 + l, t: Math.max(64, appN('--top-safe') + appN('--cmp-h') + 8), r: W - rBase - 12, b: H - Math.max(90, appN('--bot-occ') || 100) - 8 };
-    if (free.r - free.l < 420 || free.b - free.t < 260) return null;
-    const col = columnOf(free, kinds);
-    // (Shut by its x or by a tap on the liver's spot, a window gives its room back to the figure, which frames itself in it; the spot stays, to open it again.)
-    return { kinds, free, rects: plateRects(free, kinds, 'plate'), open: plateOpen, take: plateOpen ? col.colW + 16 : 0, reach: rBase + 18 + col.colW + 16, subject: cutoutSubject(s) };
-  }
-  // The windows the plan names are shown in the figure, and hidden when it names none (a slide with none, a phone, a deck that closes).
-  let plateKey = '', platePlan = null, plateGL = null, plateSlide = null, plateOpen = true, plateRing = null, plateToggles = 0;
-  function plateApply(plan) {
-    const was = !!platePlan;
-    platePlan = plan;
-    { const cur = shown || entering; if (was !== !!plan && ui && cur) paintScales(slides[cur.i], cur.i); }   // (the pill goes while the windows stand, and comes back where they do not)
-    const key = plan ? `${plan.kinds}|${plan.subject}|${plan.open}|${Object.values(plan.rects.lobule || {}).map(Math.round)}` : '';
-    if (key !== plateKey) {
-      plateKey = key;
-      stage.plateLobule?.(plan?.open ? plan.rects.lobule || null : null, !!plan && plan.subject === 'lobule');
-    }
-    stage.onPlateTap?.(plan ? plateTap : null, plan ? plateAt : null, plan ? plateBox : null);
-    // (The ring is also pressed by a listener of its own on the figure, plate-ring-tap.js, for a press the gesture code did not turn into a tap.)
-    if (plan && !plateRing && view) plateRing = createRingTap({ target: view, at: plateAt, toggles: () => plateToggles, toggle: () => plateSet(!plateOpen) });
-    else if (!plan && plateRing) { plateRing.dispose(); plateRing = null; }
-    platePlace(plan);
-    // (The camera may still be gliding to the liver's place: the ring is put where the liver is once it has landed.)
-    if (plan) stimer(() => { if (ui) platePlace(platePlan); }, 1700);
-  }
-  // The plate's frame: the room the figure frames itself clear of (a DOM strip the camera reads), and the ring round the lobule's window, the ring on the liver and
-  // the cone's two lines, which the GPU draws in the figure's own present (cutout-frame-gl.js: the liver's spot is kept in world units and put through each frame's camera).
-  function platePlace(plan) {
-    if (!plan || !plan.rects.lobule || !ui) plateGL?.set(null);   // (also when the deck closes: the frame leaves the figure's present)
-    if (!ui) return;
-    ui.psafe.hidden = !plan?.open;
-    const win = plan?.rects.lobule;
-    ui.pshut.hidden = !plan?.open || !win;
-    ui.pshow.hidden = !plan || plan.open || !win;
-    if (!plan || !win) return;
-    // (A shut window leaves a small chip where it stood, a second way to open it beside the liver's spot.)
-    // (Its right edge on the window's own right edge, by its left and a width of its own, never a shift by its own width: it cannot stand past the room the plate has.)
-    ui.pshow.style.left = `${(win.x + win.w - PLATE_CHIP_W).toFixed(1)}px`;
-    ui.pshow.style.top = `${(win.y + win.h / 2 - 15).toFixed(1)}px`;
-    ui.pshow.textContent = plan.kinds.includes('lobule') ? 'Lobule' : 'Sinusoid';
-    ui.psafe.style.width = `${plan.reach.toFixed(0)}px`;
-    // (The close control sits on the window's rim at the upper right, a tap target and nothing more: a static button, put where it goes at rest.)
-    ui.pshut.style.left = `${(win.x + win.w / 2 + (win.w / 2) * Math.SQRT1_2 - 14).toFixed(1)}px`;
-    ui.pshut.style.top = `${(win.y + win.h / 2 - (win.w / 2) * Math.SQRT1_2 - 14).toFixed(1)}px`;
-    const b = stage.focusBox?.({ organs: ['liver'] });
-    plateGL ??= createCutoutFrame({ top: () => stage.figureTop?.() ?? null, xform: (o) => stage.figureXform(o) });
-    plateGL.set({ win, free: plan.free, open: plan.open, spot: b ? [b[0] + (b[2] - b[0]) * PLATE_SPOT[0], b[1] + (b[3] - b[1]) * PLATE_SPOT[1]] : null });
-  }
-  // (Shut or opened again: by the x, or by a tap on the liver's spot, as the scope view's ring is tapped. The figure frames itself again in the room that is left.)
-  function plateSet(open) {
-    if (plateOpen === open || !platePlan) return;
-    plateOpen = open; plateToggles++;
-    layout();
-  }
-  // (The spot's ring is a button: what a press there is, the label over it never wins (stage-gestures), and the labels keep clear of its box (stage-label-items calloutBoxes).)
-  function plateAt(cx, cy) {
-    const r = stageBox();
-    return !!(platePlan && plateGL && r && plateGL.hit(cx - r.left, cy - r.top));
-  }
-  const plateBox = (o) => !!(platePlan && plateGL && plateGL.box(o));
-  function plateTap(cx, cy) {
-    const r = stageBox();
-    if (!platePlan || !plateGL || !r || !plateGL.hit(cx - r.left, cy - r.top)) return false;
-    plateSet(!plateOpen);
-    return true;
-  }
   function layout() {
     if (!ui) return;
     if (zoomHeld()) return;   // (the zoomed card is not where it rests: it is laid out once it is back, zoomSettled)
@@ -4924,10 +4846,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const set = (k, v) => { const px = `${Math.max(0, Math.round(v))}px`; insets.put(k, px); };
     set('--pz-l', frameL);
     const rBase = !p && d ? W - (readMetric(ui.data, 'offsetLeft') + dock.to * dv[0]) * k + 8 : 0;   // (where the card comes to rest: past its entry shift, at its dock)
-    // Three scales on one plate (slide field cutouts, docs/cutouts.md): the windows take a column beside the data card, and the figure frames in what is left.
-    const plan = cutoutPlan(at ? slides[at.i] : null, p, W, H, frameL, rBase);
-    set('--pz-r', rBase + (plan ? plan.take : 0));
-    plateApply(plan);
+    set('--pz-r', rBase);
     set('--pz-t', p && d ? (readMetric(ui.data, 'offsetTop') + readMetric(ui.data, 'offsetHeight') + (lipOn(ui.data) ? LIP : 0) + dv[1] * dock.to) * k + 4 : 0);   // (offsets: a card coming in is still shifted by its entry transform)
     set('--pz-b', p && t ? B + 34 : 0);
     if (!dock.drag) { dockPaint(); placeLip(); }   // (the edge's place, read here at rest: a glide's frames only move it)
@@ -5377,7 +5296,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // its own scale (transitionRun clears the pick). Mac and iPad landscape: in the counter's row, 8 px left of it. A phone and an
   // upright iPad: centred 8 px above the teaching card, where the camera keeps clear of it.
   let scalePick = null, flipping = false;
-  // (No pill on any slide, Mohammad 12 Nov: "Remove the pill anyways." The lobule and sinusoid are windows on the plate, cutouts.js; the field `scales` stays for the views a slide names.)
+  // (No pill on any slide, Mohammad 12 Nov: "Remove the pill anyways." To show something in the lobule or the sinusoid, a slide dives into it: its own cam, 'lobule:...' or 'sinusoid'.)
   const scalesOf = () => [];
   function paintScales(s, i) {
     if (!ui) return;
@@ -6394,10 +6313,6 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const shade = h('div', { class: 'pz-shade' }, deckTab(), h('span', { class: 'pz-sitetab', hidden: true }), h('span', { class: 'pz-cred', 'aria-hidden': 'true' }, wrap.querySelector('.stage-credit')?.textContent.trim() || ''));
     // What the figure frames itself clear of: the words, the glass and its shadow.
     const safe = h('div', { class: 'pz-safe', 'aria-hidden': 'true', hidden: true });
-    // (Three scales on one plate: the room the windows' column takes on the right, which the figure frames itself clear of, and the plate's frame: the ring, the spot and the cone are the GPU's: cutout-frame-gl.js.)
-    const psafe = h('div', { class: 'pz-safe pz-safe-r', 'data-safe': 'right', 'aria-hidden': 'true', hidden: true });
-    const pshow = h('button', { type: 'button', class: 'pz-plate-show', 'aria-label': 'Show the lobule window', hidden: true, onclick: (e) => { e.stopPropagation(); plateSet(true); } }, 'Lobule');
-    const pshut = h('button', { type: 'button', class: 'pz-lens-x', 'aria-label': 'Close the lobule window', hidden: true, onclick: (e) => { e.stopPropagation(); plateSet(false); } }, '×');
     // (Once faded out, its spinner stops (idle) until it is shown again: it had turned, unseen, for the whole talk.)
     const idle = (e) => { if (e.target === load && e.propertyName === 'opacity' && !load.classList.contains('on')) load.classList.add('idle'); };
     const load = h('div', { class: 'pz-load idle', 'aria-hidden': 'true', ontransitionend: idle, ontransitioncancel: idle }, h('i'));
@@ -6426,7 +6341,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     tapTracker(data, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle() });
     tapTracker(text, { ok: () => zoomReady() || zoom.up, onTap: () => zoomToggle('text') });   // (a tap on the teaching card is the same zoom as on the data card: both come into view together, 5 Nov 2026)
     tapTracker(panel, { ok: () => cellReady() || zoom.up, onTap: cellTap });
-    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say, psafe, pshut, pshow);
+    const root = h('div', { class: 'pz' }, safe, veil, load, fk, text, zscrim, data, lip, panel, vcase, prog, scl, bar, jump, blackEl, say);
     root.classList.add('pz-page'); shade.classList.add('pz-page');   // (the teaching card as one page: card-page.js)
     root.classList.add('pz-throw'); shade.classList.add('pz-throw');   // (Next and Back throw the cards: app.css .pz-throw)
     veil.after(pscrim);   // (above the page's veil, under everything else)
@@ -6451,7 +6366,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // layer of its own throughout, so the swap that lost its picture on an iPhone no longer happens.)
     // alloc-rare: a card is built or tapped open: once per tap, not per frame
     const glass = stage.glass?.add(() => [shade, data, vcase, bar, scl, fk], { card: true, watch: [root, shade], before: shade, low: (e) => e === shade, read: (g) => (g === data || g.dataset?.ghost === 'data' ? sheetPanes(g) : undefined), with: (g) => (g === shade ? [text] : null), bare: () => [panel], shift: riseShift }) || null;
-    return { root, shade, safe, psafe, pshut, pshow, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, zscrim, fscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say, scope };
+    return { root, shade, safe, load, text, data, lip, lipRO, lipMO, shadeMO, cardTouch, setFold, zoom, zbtn, pscrim, zscrim, fscrim, partOf, vcase, fk, figKey, glass, dhT, tiles, tools, veil, panel, prog, scl, bar, black: blackEl, jump, say, scope };
   }
   // The start's cover (see start). While it is up (booting) the camera cuts instead of gliding.
   let cover = null, booting = false, coverT = 0, noCase = false;   // (noCase: the slide a start lands on, a reload's included, does not play its case card)
@@ -6616,7 +6531,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (pageHeld) { clearTimeout(pageHeld.t); pageHeld = null; }
     pull = null; pageForce = false; bare = false; throwDir = ''; throwD = 0;
     dataOn = textOn = null; keepNow = NO_KEEP; keepSnap = null; keepBad = []; keepArgs = null;
-    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); evDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; plateApply(null); app.classList.remove('pz-blacked');
+    pillW = 0; ui?.zoom.reset(); ui?.tools.dispose(); lgDrop(); evDrop(); ui?.scope?.dispose(); ui?.tiles?.dispose(); ui?.figKey.dispose(); ui?.glass?.remove(); ui?.lipRO?.disconnect(); ui?.lipMO?.disconnect(); ui?.shadeMO?.disconnect(); ui?.root.remove(); ui?.shade.remove(); ui?.fscrim.remove(); ui = null; app.classList.remove('pz-blacked');
     view.classList.remove('pz-out');
     insets.reset();   // (and a room held through the last slide change is never written back after the talk: inset-hold.js)
     stage.lobuleHold?.(false);   // (a way out of the lobule left unfinished: the lobule follows the free space again)

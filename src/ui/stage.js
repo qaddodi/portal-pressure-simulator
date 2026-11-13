@@ -145,7 +145,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The stage's shared lets (and consts made after a part), read at the moment of use by the part files: never copied, so a part cannot draw a frame late.
   const live = {
     caudPin: false,   // (a slide is about the caudate: its circuit lane shows, stage-outlines.js pinOrgans)
-    scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null, plateTap: null, plateAt: null, plateBox: null,
+    scopeRing: { on: false, open: false, cone: null, cv: 0 }, scopeRingRefresh: null, viewHook: null, tapHook: null,
     // (A vessel's display speed now, signed along its drawn course: the blood's own stream, which the model's flow drives and eases to a stop. The EUS scope's color Doppler reads it each frame, stage-cath.js: 10 Nov 2026.)
     flowVd(id) { const sm = streams[EI[id]]; return sm && sm.vd != null ? sm.vd : 0; },
     get abdomenEl() { return abdomenEl; },
@@ -1587,7 +1587,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     setLobule(true);
   }
   let lobuleRetryT = 0;
-  let plateWant = null;   // (the plate's lobule window asked for, kept for the lobule's code that has not arrived: plateLobule)
   function lobuleRetry(tries) { if (store.get().lobule) openLobule(tries); }   // (the count rides on the timer: no closure carries it)
   const lobuleArrived = () => { lzWaiting = false; if (store.get().lobule) openLobule(); };
   const LOBULE_OFF_BOTH = { lobule: false, sinusoid: false }, LOBULE_OFF = { lobule: false };   // (patches the store reads and does not keep)
@@ -2947,12 +2946,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     scopeRingAt() { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && F?.metrics ? scopeRingOn(worldToLocal, live.CTM || (refreshCTM(), live.CTM), live.wrapRect) : null; },
     /** The ring's centre and radius now, written into `o` (x, y, r: stage px): asked for on each step of a camera move, so it makes nothing. false: not on this view. */
     scopeRingInto(o) { return live.scopeRing.on && morph === 0 && morphTarget === 0 && !lobuleOn && !!F?.metrics && scopeRingInto(o, worldToLocalInto, live.CTM || (refreshCTM(), live.CTM), SCOPE_TMP); },
-    /** The cutouts plate's tap (cutout-frame-gl.js hit): the liver's spot opens and shuts the lobule window; null takes it away. */
-    onPlateTap(tap, at, box) {
-      const had = !!live.plateBox;
-      live.plateTap = tap || null; live.plateAt = at || null; live.plateBox = box || null;
-      if (had !== !!box) nextFrame(() => { if (F && !lobuleOn) { labelKey = null; solveAsked = true; updateLabels(F); } });   // (the ring is a keep-clear box for the labels while the plate stands: they are laid again when it comes or goes)
-    },
     onScopeView(view, tap) { live.viewHook = view || null; live.tapHook = tap || null; },
     /** Idle rest: true eases the blood to a stop and lets the figure sleep; false brings the motion back from this frame. */
     rest(on) {
@@ -3325,14 +3318,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     lobuleGlCheck: () => lz?.glCheck() ?? null, lobuleLabelLayouts: () => lz?.labelLayouts() ?? 0,
     /** The lobule's outline in client px while it fills the view (see lobule-zoom ring), else null. */
     lobuleRing: () => (lobuleOn && diveT >= 1 ? lz?.ring() ?? null : null),
-    /** Three scales on one plate (cutouts.js): the lobule in a round window ({ x, y, w, h, r }, CSS px of the figure's box) beside the anatomy, its blood running when run; null closes it. Not while the lobule itself is open or diving. */
-    plateLobule(win, run = false) {
-      plateWant = win ? { win, run } : null;
-      if (!win) { lz?.plateOff(); return; }
-      if (lobuleOn || diveT > 0 || store.get().lobule) return;
-      if (lz) { lz.plateOn(win, run); return; }
-      lobuleReady().then(() => { if (plateWant && !lobuleOn && !store.get().lobule) lz.plateOn(plateWant.win, plateWant.run); }, () => { /* the lobule's code did not arrive: no window */ });
-    },
     /** The vessels as the corner credit counts them (credit.js), in world units: each course drawn (a vessel's own, and in the anatomy its
      *  strands' and drawn trunks'), its hit width w, its box, and ver (a new ver: the list changed). */
     vesselShapes,

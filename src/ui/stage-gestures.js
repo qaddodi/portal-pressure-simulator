@@ -213,7 +213,7 @@ export function createGestures(st, live) {
   const clearPress = () => { stageScope.clear(pressT); pressT = 0; };
   // A finger (or the mouse) that lands on a label starts the same gesture as one on the figure: the labels cover
   // much of a phone's figure, and a pinch that began on one used to go unnoticed. A tap on a label still opens it.
-  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, live.plateAt?.(ev.clientX, ev.clientY) ? null : lb); });   // (a press on the plate's ring is the ring's, whatever label stands over it)
+  labelSvg.addEventListener('pointerdown', (ev) => { const lb = ev.target.closest?.('.lb'); if (lb) onDown(ev, lb); });
   svg.addEventListener('pointerdown', (ev) => onDown(ev, null));
   function onDown(ev, label) {
     if (systemEdge(ev)) return;
@@ -327,7 +327,7 @@ export function createGestures(st, live) {
           return;
         }
         lastTap = { t: now, x: ev.clientX, y: ev.clientY, sel: store.get().selection };
-        if (live.tapHook?.(ev.clientX, ev.clientY) || live.plateTap?.(ev.clientX, ev.clientY)) return;   // (the scope view's ring takes its own tap: scope-lens.js)
+        if (live.tapHook?.(ev.clientX, ev.clientY)) return;   // (the scope view's ring takes its own tap: scope-lens.js)
         if (d.label) { d.label.dispatchEvent(new MouseEvent('click', { bubbles: true })); return; }
         pick(d.id, ev);
         return;

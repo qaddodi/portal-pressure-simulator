@@ -172,7 +172,6 @@ For preparing a class, `window.pps` in the browser console exposes `loadPreset`,
 | [docs/off-gpu-inventory.md](docs/off-gpu-inventory.md) | Generated list of everything still off the GPU (`npm run offgpu`) |
 | [docs/stage-map.md](docs/stage-map.md), [docs/test-classes.md](docs/test-classes.md) | Generated maps of `stage.js` and of the tests |
 | [docs/scheduling.md](docs/scheduling.md) | Who owns a timer |
-| [docs/cutouts.md](docs/cutouts.md) | The lobule and sinusoid windows beside the anatomy |
 | [docs/recommendations/](docs/recommendations/) | Dated recommendation lists and build plans, each with a status line at its top |
 | [docs/LMS.md](docs/LMS.md) | Deep links and SCORM packaging |
 | [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md) | WCAG 2.2 AA self-assessment |

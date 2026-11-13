@@ -81,14 +81,6 @@
 //                            callout, layers }, sinusoid: {} }: where its camera goes and what it calls out (the slide's own call-outs stay at
 //                            its own scale). Sinusoid only on a pressure-lens slide; never on a question, catheter, Doppler, calipers or Circuit
 //                            slide (scale-switch.js; guide 5.10). Built-in slides list it in tests/deck-adopted.js
-//   cutouts                  three scales on one plate: ['lobule', 'sinusoid'] lays the slide out as an atlas plate, the anatomy the main figure
-//                            and a round window beside it for each scale named, the real lobule and sinusoid views drawn from the one model
-//                            state, a ring on the figure and a cone to each window. Use it where the cause and the effect sit at different
-//                            scales (scarring and the varices, a drug and the sinusoid, the wedge and the sinusoids it reads). Mac and iPad on its
-//                            side only (a phone keeps the scale pill); the anatomy must be the slide's main figure (no lobule or sinusoid cam),
-//                            never on a question, visual or Circuit slide; the sinusoid only on a pressure-lens slide (cutouts.js; docs/cutouts.md).
-//                            Built-in slides list it in tests/deck-adopted.js
-//   cutoutSubject            'anatomy' (default), 'lobule' or 'sinusoid': the one scale that runs its blood; the others hold still
 //   caveat                   one short sentence in small print under the line, where the model differs from patients
 //   notes, ask               speaker notes, and [question, expected answer] for the room
 //   whatIf                   { label, param, min, max, step?, ends?: [low, high], unit? }: a slider that drags one parameter

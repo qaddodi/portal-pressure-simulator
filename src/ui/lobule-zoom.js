@@ -160,10 +160,6 @@ export const LZ_UNDER_GLASS = -10;
 
 export function createLobuleZoom({ host, styles = () => getComputedStyle(host), before = null, binAway = null, figure = null }) {
   const reduce = reduceMotionMQ;
-  // Three scales on one plate (docs/cutouts.md): the lobule drawn as it stands for the stage, laid through a round window beside the anatomy
-  // instead of over it (plateOn). { x, y, w, h, r (CSS px of the host: the window), run (its blood runs) } or null. The window shows the lobule
-  // framed whole, the way it is framed when it opens; the anatomy stays on screen, and nothing outside sees the lobule as open or shown.
-  let plate = null;
   const tissue = h('canvas', { class: 'lz-canvas', role: 'img', 'aria-label': 'Liver lobule microcirculation' });
   const glCv = h('canvas', { class: 'lz-canvas lz-gl', 'aria-hidden': 'true' });
   const fx = h('canvas', { class: 'lz-canvas lz-fx', 'aria-hidden': 'true' });
@@ -181,7 +177,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (Nor while the lobule is shut (fade 0): a slide's class change, the captions' presented/lost and the glasses' holes each asked this
   // full-screen layer for a frame through a pan of the figure, a picture no one could see (8 Nov 2026, svg-gl through a pan, 30 fps at best).
   // The lobule's first frame back paints it again: setFade.)
-  leadGL.skip = () => fade <= 0 || !!plate || (leadersBox.classList.contains('cap-lead') && !classHas(callRing, 'on'));
+  leadGL.skip = () => fade <= 0 || (leadersBox.classList.contains('cap-lead') && !classHas(callRing, 'on'));
   if (typeof MutationObserver === 'function') new MutationObserver(() => leadGL.paint()).observe(leaders, { subtree: true, childList: true, attributes: true, attributeFilter: ['x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'viewBox', 'style', 'transform'] });
   // (What a slide lights is a class on the app: the leaders' looks are read again when it changes.)
   { const app = document.querySelector('.app') || document.getElementById('app'); if (app && typeof MutationObserver === 'function') new MutationObserver(() => { syncDim(); leadGL.relook(); mirrorAll(); }).observe(app, { attributes: true, attributeFilter: ['data-lit', 'class'] }); }
@@ -883,7 +879,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // figure's kept picture, which the stage's present then does not lay under it. Conservative: any doubt says no.
   function shareOpaque() {
     const t = shareTop;
-    if (!t || !gl || gl.lost || plate) return false;
+    if (!t || !gl || gl.lost) return false;
     // (Z3, perf review 4 Nov 2026: the dive's field, whole, covers the canvas by itself (covers() counts it so), so the kept picture is not laid
     // under it while the lobule's own texture is still fading in. Laid by layShared as one map over the canvas: no card zoom, or one that only
     // scales up about the top left.)
@@ -903,13 +899,13 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // (Lobule lag rec 8: true while the lobule's texture is laid on the stage canvas as it is, so a box in the texture is the same box on the canvas.)
   function glassPlain() {
     const t = shareTop;
-    if (!shared || !t || !gl || gl.lost || plate || fade < 0.999 || el.style.visibility === 'hidden' || fieldOp > 0.002 || diveScaled || sinU !== 0 || sinTo || wide || staging) return false;
+    if (!shared || !t || !gl || gl.lost || fade < 0.999 || el.style.visibility === 'hidden' || fieldOp > 0.002 || diveScaled || sinU !== 0 || sinTo || wide || staging) return false;
     const tg = gl.target;
     if (!tg?.w || tg.w !== t.canvas.width || tg.h !== t.canvas.height) return false;
     const m = shareMap();
     return m.a === 1 && m.b === 0 && m.c === 0 && m.d === 1 && m.tx === 0 && m.ty === 0;
   }
-  // (What the lobule's passes laid on the stage canvas, as numbers: the field's strength and map, the lobule's map and fade, the plate's window, the wide
+  // (What the lobule's passes laid on the stage canvas, as numbers: the field's strength and map, the lobule's map and fade, the wide
   // copy's fade. Any change turns layN, which the cards' glass keys its blur on while the lobule is not laid plain (lobule-glass-seq.js laySeq): through a
   // dive the lobule and its field were laid at a new scale and strength every frame with no new picture counted, and the frost kept the pale field it
   // had blurred as the dive set off, brighter than the lobule now under it, until the landing blurred it again in one step (Mohammad, 11 Nov 2026,
@@ -926,8 +922,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   }
   function layOnce(t) {
     const r = (t.canvas.width || 1) / (shW || 1);   // (the stage canvas's pixels per CSS px)
-    lk(0, plate ? 1 : 0); lk(1, r); lk(22, wideFade());   // (the wide copy's fade, laid in the same present: wideGLOn)
-    if (plate) { layWindow(t); return; }
+    lk(1, r); lk(22, wideFade());   // (the wide copy's fade, laid in the same present: wideGLOn)
     const fOn = fieldOp > 0.002 && fieldGL?.target, cOn = !!fOn && cardOn();
     lk(2, fOn ? fieldOp : 0); lk(3, cOn ? CARD.k : 1); lk(4, cOn ? CARD.x : 0); lk(5, cOn ? CARD.y : 0);
     if (fOn) { const f = fieldGL.target; if (cOn) t.lay(f.tex, CARD.k, 0, 0, CARD.k, CARD.x * r, CARD.y * r, fieldOp); else t.lay(f.tex, 1, 0, 0, 1, 0, 0, fieldOp); }
@@ -939,28 +934,6 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     const m = shareMap();
     lk(7, m.a); lk(8, m.b); lk(9, m.c); lk(10, m.d); lk(11, m.tx); lk(12, m.ty);
     t.lay(tg.tex, m.a, m.b, m.c, m.d, m.tx * r, m.ty * r, fade);
-  }
-  // The plate's window: the lobule's texture (drawn for the stage, the lobule framed whole in the room the cards leave) laid so the lobule's
-  // hexagon fills the window's circle, and only inside it (top.lay's window): the anatomy under it stays as it is.
-  const PLATE_FILL = 0.84;   // (the hexagon's corners reach this share of the window's radius, the surround of tissue fills the rest)
-  function layWindow(t) {
-    if (!plate || fade <= 0 || !geo || !gl || gl.lost) return;
-    const tg = gl.target;
-    if (!tg?.w) return;
-    const r = (t.canvas.width || 1) / (snap.hostWH ? snap.hostWH[0] : (shW || 1));   // (the stage canvas's pixels per CSS px)
-    const R = geo.R * V.k, s = R > 0 ? (PLATE_FILL * plate.w / 2) / R : 1;
-    const cx = V.x + geo.cx * V.k, cy = V.y + geo.cy * V.k, wx = plate.x + plate.w / 2, wy = plate.y + plate.h / 2;
-    plateWin.x = plate.x * r; plateWin.y = plate.y * r; plateWin.w = plate.w * r; plateWin.h = plate.h * r; plateWin.r = (plate.r == null ? plate.w / 2 : plate.r) * r;
-    lk(13, s); lk(14, wx - s * cx); lk(15, wy - s * cy); lk(16, fade); lk(17, plateWin.x); lk(18, plateWin.y); lk(19, plateWin.w); lk(20, plateWin.h); lk(21, plateWin.r);
-    t.lay(tg.tex, s, 0, 0, s, (wx - s * cx) * r, (wy - s * cy) * r, fade, plateWin);
-  }
-  const plateWin = { x: 0, y: 0, w: 0, h: 0, r: 0 };
-  // The density the lobule is drawn at for a window: the window shows it at s times its size, so s times the screen's density is one texel per pixel
-  // (a little more, 1.3, keeps its lines crisp); drawn at the stage's own density it would be shrunk three to one, unfiltered, and read as mush.
-  function plateK() {
-    if (!plate || !geo) return 0.5;
-    const R = geo.R * V.k;
-    return R > 0 ? clamp(1.3 * (PLATE_FILL * plate.w / 2) / R, 0.25, 1) : 0.5;
   }
   function shareDown() {
     shareOff?.(); shareOff = null;
@@ -988,12 +961,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
       shareTop = fig; shared = true;
       fig.canvas.addEventListener('webglcontextrestored', onFigureBack);
       const lzTop = { order: LZ_UNDER_GLASS - 5, solo: true, on: () => !!gl && !gl.lost && (fieldOp > 0.002 || (fade > 0 && el.style.visibility !== 'hidden')), opaque: shareOpaque, draw: layShared };   // (on: it shows now; left in the list once the lobule closes)
-      Object.defineProperty(lzTop, 'solo', { get: () => !plate });   // (a plate's window stands beside the anatomy: it never takes the canvas, the figure's picture stays under it)
       shareOff = fig.add(lzTop);
       host.classList.add('lz-shared');
       // The names and their leaders are a pass of the same present (L1, docs/gpu-two-contexts-plan.md): over the lobule's overlay and the wide copy, under every
       // glass, so the cards frost them and no hole is cut. The layer's own fades (the camera's, the dive's, a hush) are followed by layer-alpha.js.
-      cap.attach({ top: fig, order: LZ_UNDER_GLASS + 2, near: el, active: () => shared && shareTop === fig && !plate, scale: () => (fig.canvas.width || 1) / (shW || 1) });
+      cap.attach({ top: fig, order: LZ_UNDER_GLASS + 2, near: el, active: () => shared && shareTop === fig, scale: () => (fig.canvas.width || 1) / (shW || 1) });
     } else { glTried = false; return null; }   // (no figure context now: nothing is drawn and the picture stays; asked for again between frames)
     restAttr(el, 'data-vessels', gl ? 'webgl2' : 'flat');
     // (A software renderer only: each lobule frame waits for the last to finish on the GPU and gives the page as long again,
@@ -3014,7 +2986,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   let flowA = 1, flowT = 0;
   function stepFlowA() {
     const now = performance.now(), dtm = Math.min(100, now - (flowT || now)); flowT = now;
-    const open = fade > 0.98 && !diveScaled && sinU === 0 && !(plate && !plate.run);   // (a window of the plate holds still unless it is the subject)
+    const open = fade > 0.98 && !diveScaled && sinU === 0;
     flowA = open ? Math.min(1, flowA + dtm / 300) : Math.max(0, flowA - dtm / 300);
   }
 
@@ -3037,7 +3009,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     diveDrawn = scaled;
     const [W, H] = hostSize();
     ensureGeo(W, H);
-    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale() * zres * (plate ? plateK() : 1);   // (Battery saver: one pixel per CSS pixel; a plate's window shows the lobule shrunk, so it is drawn at the density it is shown at)
+    const dpr = Math.min(saver() ? 1 : 2, devicePixelRatio || 1) * lzScale() * zres;   // (Battery saver: one pixel per CSS pixel)
     const dark = isDark();
     // Keep watching for view/theme/size changes, but leave a settled paused picture alone.
     // (The picture it last drew, kept as numbers and compared in place: idleDrawn is '' when no paused picture stands.)
@@ -5040,12 +5012,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     /** 0 = hidden, 1 = fully in the lobule. It fades in where it stands, over the dive's field. */
     setFade(u) {
       const was = fade;
-      fade = plate ? 1 : clamp(u, 0, 1);
+      fade = clamp(u, 0, 1);
       el.style.opacity = fade.toFixed(3);
       el.classList.toggle('lz-live', fade > 0);   // (its compositor layer only while it is shown)
       // The tissue first, then its labels and card (and on the way out, those go first).
       applyChrome();
-      el.classList.toggle('on', fade > 0.98 && !plate);
+      el.classList.toggle('on', fade > 0.98);
       if (fade > 0.98 && was <= 0.98) sinOnLanding();
       if (fade > 0 && was <= 0) { cap.paint(); leadGL.paint(); }   // (the names are placed in the frames they are drawn in: none was while the view was out)
       restAttr(el, 'aria-hidden', String(fade < 0.98));
@@ -5090,7 +5062,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     get shared() { return shared; },
     /** Counts the pictures the lobule laid (shared: with the figure's, the glass over both blurs again when it changes). */
     drawSeq: () => gl?.drawSeq ?? 0,
-    /** Counts the changes in how the lobule's passes lay it on the stage canvas (its map, fade, field, plate window, wide copy): with no new picture, a
+    /** Counts the changes in how the lobule's passes lay it on the stage canvas (its map, fade, field, wide copy): with no new picture, a
      *  different picture on the canvas all the same (the glass over it, lobule-glass-seq.js). */
     laySeq: () => layN,
     /** Whether the lobule's picture lies on the stage's canvas pixel for pixel now: shared, landed, no hand, dive, card zoom, turn or field, the target the
@@ -5162,7 +5134,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     },
     prewarm, warm, stage: () => framePart('lz.stage', stage), stageRise: () => framePart('lz.stageRise', stageRise), paintAhead, preparePieces, prepareRun,
     /** True once the dive's field (or the lobule) covers the anatomy, which then need not be drawn. */
-    covers: () => !plate && (fade > 0.98 || fieldOp >= 0.999),
+    covers: () => fade > 0.98 || fieldOp >= 0.999,
     /** During the dive: the tissue (not its card) still zooming in, by k (≤ 1) about the stage point x, y. */
     setDiveZoom(k, x, y, tx = x, ty = y, out = false) {
       if (k < 0.9999) resCoverEnd();
@@ -5309,38 +5281,12 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
     },
     /** For the checks: how many times the labels have been placed in full (a pan should only carry them along). */
     labelLayouts: () => layoutN,
-    /** Three scales on one plate: the lobule shown in a round window of the host ({ x, y, w, h, r } CSS px) beside the anatomy, its blood running when run. */
-    plateOn(win, run = false) {
-      if (!win || !(win.w > 0)) return;
-      const was = !!plate;
-      plate = { x: win.x, y: win.y, w: win.w, h: win.h, r: win.r, run: !!run };
-      el.classList.add('lz-plate');
-      if (!was) { api.landing(); api.setFade(1); } else { drawVersion++; lzLoop.want(); }
-      shareTop?.present();
-    },
-    /** The window moved or resized, or its blood started or stopped. */
-    plateMove(win, run = false) {
-      if (!plate || !win) return;
-      const ran = plate.run;
-      plate = { x: win.x, y: win.y, w: win.w, h: win.h, r: win.r, run: !!run };
-      if (ran !== plate.run) { drawVersion++; lzLoop.want(); }
-      shareTop?.present();
-    },
-    /** The window closes: the lobule is hidden again. */
-    plateOff() {
-      if (!plate) return;
-      plate = null;
-      el.classList.remove('lz-plate');
-      api.setFade(0);
-      shareTop?.present();
-    },
-    plateShown: () => !!plate,
-    isOpen: () => fade > 0.98 && !plate,
+    isOpen: () => fade > 0.98,
     /** A presenter's or a button's glide of the lobule's view is moving now (false once it has landed: the presenter waits on this, not on a number). */
     glideBusy: () => gliding,
     /** The open view's figure → stage px as an affine { a, b, c, d, e, f } (the ink's, ink-gl.js), written into o: the sinusoid's while it shows, else the lobule's; false when neither rests open. */
     xform(o) { if (sv.isOpen()) return sv.xform(o); if (fade <= 0.98) return false; o.a = V.k; o.b = 0; o.c = 0; o.d = V.k; o.e = V.x; o.f = V.y; return true; },
-    isShown: () => fade > 0 && !plate,
+    isShown: () => fade > 0,
     /** The lobule's outline in client px while the view is wholly the lobule (not the sinusoid), else null: the corner credit keeps off it. */
     /** For the checks: the lobule's vessel canvas as it stands, then after a whole redraw at the same view (see stage veinsCheck). */
     glCheck() {

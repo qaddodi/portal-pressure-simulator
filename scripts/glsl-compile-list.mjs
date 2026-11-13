@@ -47,7 +47,6 @@ const mods = new Map();
 const vesNote = (g) => (g.VESSEL_VS ? '' : 'fragment only: veins-gl.js does not export its vessel vertex shader (VS)');
 add('classic vessel (general) vesselFS(false)', { '../src/ui/veins-gl.js': ['vesselFS'] }, (g) => ({ vs: g.VESSEL_VS ?? null, fs: g.vesselFS(false), note: vesNote(g) }));
 add('classic vessel (one vessel) vesselFS(true)', { '../src/ui/veins-gl.js': ['vesselFS'] }, (g) => ({ vs: g.VESSEL_VS ?? null, fs: g.vesselFS(true), note: vesNote(g) }));
-add('lobule window lay (top.lay with a win: a rounded window)', { '../src/ui/veins-gl.js': ['REUSE_VS', 'LAYW_FS'] }, (g) => ({ vs: g.REUSE_VS, fs: g.LAYW_FS }));
 add('upscale pass (a picture smaller than the canvas: edge steepen, dither, pan rest)', { '../src/ui/veins-gl.js': ['REUSE_VS', 'UP_FS'] }, (g) => ({ vs: g.REUSE_VS, fs: g.UP_FS }));
 add('catheter (EUS scope under the vessels)', { '../src/ui/veins-gl.js': ['CATH_VS', 'CATH_FS'] }, (g) => ({ vs: g.CATH_VS, fs: g.CATH_FS }));
 
@@ -122,7 +121,6 @@ add('compositor COMP_FS(heads)', headsNeeds, (g, cg, bh) => ({ vs: headsVS(g, cg
 add('doppler spectrum synth', { '../src/ui/doppler-synth.js': ['SYNTH_VS', 'SYNTH_FS'] }, (d) => ({ vs: d.SYNTH_VS, fs: d.SYNTH_FS }));
 
 // The plate's frame (Three scales on one plate): the ring on the lobule's window, the ring on the liver and the cone's lines.
-add('cutout frame (plate ring, spot, cone)', { '../src/ui/cutout-frame-gl.js': ['FRAME_VS', 'FRAME_FS'] }, (p) => ({ vs: p.FRAME_VS, fs: p.FRAME_FS }));
 
 add('lobule kept picture (blood squares repainted, with the ductules and the SOS scar over them)', { '../src/ui/lobule-keep.js': ['KEEP_VS', 'keepFS'] }, (k) => ({ vs: k.KEEP_VS, fs: k.keepFS() }));
 add('lobule overlay: scar inside the central vein (SOS)', { '../src/ui/fx-gl.js': ['fxShaders'] }, (f) => ({ vs: f.fxShaders.plugVS, fs: f.fxShaders.plugFS }));

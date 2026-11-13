@@ -31,7 +31,7 @@ export const HVPG = {
       ask: ['Why subtract the FHVP rather than the right atrial pressure?', 'The FHVP carries the same intra-abdominal and extrahepatic venous pressure as the wedged pressure, so subtracting it cancels them.'],
     },
     {
-      id: 'wedge', cutouts: ['sinusoid'], cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
+      id: 'wedge', cath: 'wedge', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', title: 'The wedged pressure reflects sinusoidal pressure',
       terms: { sinusoids: 'whvp' },
       line: 'Balloon inflation stops flow, so the static column of blood equilibrates with the pressure of the upstream sinusoids. Record it once the tracing is stable, after ≥1 minute.',

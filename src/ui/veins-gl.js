@@ -151,37 +151,6 @@ void main() {
   highp vec2 uv = vec2(s.x / uDst.x, 1.0 - s.y / uDst.y);
   o = (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.0) : texture(uT, uv) * uA;
 }`;
-// The same laying, only inside a window (a rounded rect or circle: top.lay's `win`, canvas px, y down): uWin = (x, y, w, h), uWr its corner radius (half the shorter side: a circle).
-// The picture is weighed by the window's coverage, a smoothstep over the signed distance to its edge (about a pixel), premultiplied as LAYT_FS; outside it nothing is written
-// (blended, so what the canvas holds stays), and the draw is scissored to the window's box.
-export const LAYW_FS = `#version 300 es
-precision highp float;
-uniform sampler2D uT;
-uniform highp vec2 uDst;
-uniform highp vec4 uM;
-uniform highp vec2 uTr;
-uniform highp vec4 uWin;
-uniform highp float uWr;
-uniform float uA;
-out vec4 o;
-void main() {
-  highp vec2 p = vec2(gl_FragCoord.x, uDst.y - gl_FragCoord.y);
-  highp vec2 q = abs(p - (uWin.xy + 0.5 * uWin.zw)) - 0.5 * uWin.zw + uWr;
-  highp float sd = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - uWr;
-  highp float cov = 1.0 - smoothstep(-0.5, 0.5, sd);
-  highp vec2 dd = p - uTr;
-  highp vec2 s = vec2(uM.x * dd.x + uM.y * dd.y, uM.z * dd.x + uM.w * dd.y);
-  highp vec2 uv = vec2(s.x / uDst.x, 1.0 - s.y / uDst.y);
-  o = (cov <= 0.0 || uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) ? vec4(0.0) : texture(uT, uv) * (uA * cov);
-}`;
-/** JS twin of LAYW_FS's coverage: how much of the pixel at canvas point (px, py) the window win = { x, y, w, h, r } covers, 0 to 1 (r is clamped to half the shorter side). */
-export function layWinCoverage(px, py, win) {
-  const r = Math.min(Math.max(win.r || 0, 0), win.w / 2, win.h / 2);
-  const qx = Math.abs(px - (win.x + win.w / 2)) - win.w / 2 + r, qy = Math.abs(py - (win.y + win.h / 2)) - win.h / 2 + r;
-  const sd = Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
-  const t = Math.min(1, Math.max(0, sd + 0.5));
-  return 1 - t * t * (3 - 2 * t);
-}
 // The picture (uSrc px) onto the canvas (uDst px), the pass that lays a picture smaller than the canvas. Sharper upscaling (uCR on): each pixel a
 // Catmull-Rom of the picture's 4 × 4 around it, in five filtered reads (the corner taps left out, their weights folded away); off, one filtered
 // read. Then held within the four picture pixels nearest it so an edge never rings. Premultiplied in and out. (Both framebuffers run y up, so no flip.)
@@ -3791,30 +3760,18 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     return true;
   }
   // A shared renderer's texture laid over the canvas as p' = M p + t (see LAYT_FS): top.lay.
-  let lyP = null, lyW = null;
-  // (win: { x, y, w, h, r } in canvas px, y down: the picture is laid only inside that rounded rect (r = half the shorter side: a circle), its edge about a pixel soft, by LAYW_FS; outside it
-  // the canvas is left as it is. Without win, LAYT_FS as ever.)
-  function layTex(tex, a, b, c, d, tx, ty, alpha, win = null) {
+  let lyP = null;
+  function layTex(tex, a, b, c, d, tx, ty, alpha) {
     if (lyP === null) {
       try { lyP = finishProgram(gl, startProgram(gl, REUSE_VS, LAYT_FS)); } catch (e) { console.warn('Veins renderer: the lobule\'s laying shader could not be made.', e); lyP = false; }
     }
-    if (win && lyW === null) {
-      try { lyW = finishProgram(gl, startProgram(gl, REUSE_VS, LAYW_FS)); } catch (e) { console.warn('Veins renderer: the windowed laying shader could not be made.', e); lyW = false; }
-    }
-    const P = win ? lyW : lyP;
+    const P = lyP;
     if (!P || !(alpha > 0)) return false;
     const det = a * d - b * c;
     if (!det) return false;
-    if (win && !(win.w > 0 && win.h > 0)) return false;
     gl.bindFramebuffer(gl.FRAMEBUFFER, SCR());
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST);
-    if (win) {   // (the draw is scissored to the window's box, a pixel out; the canvas is not cleared)
-      const x0 = Math.max(0, Math.floor(win.x) - 1), x1 = Math.min(canvas.width, Math.ceil(win.x + win.w) + 1);
-      const y0 = Math.max(0, Math.floor(canvas.height - win.y - win.h) - 1), y1 = Math.min(canvas.height, Math.ceil(canvas.height - win.y) + 1);
-      if (x1 <= x0 || y1 <= y0) return false;
-      gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
-    }
     gl.enable(gl.BLEND); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.useProgram(P.p);
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -3823,15 +3780,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     UC.f4(P.u.uM, d / det, -b / det, -c / det, a / det);
     UC.f2(P.u.uTr, tx, ty);
     UC.f1(P.u.uA, alpha);
-    if (win) {
-      UC.f4(P.u.uWin, win.x, win.y, win.w, win.h);
-      UC.f1(P.u.uWr, Math.min(Math.max(win.r || 0, 0), win.w / 2, win.h / 2));
-    }
     gl.bindVertexArray(compVAO);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindVertexArray(null);
     gl.disable(gl.BLEND);
-    if (win) gl.disable(gl.SCISSOR_TEST);
     return true;
   }
   // Sharper upscaling: the kept picture onto the whole canvas by UP_FS (Catmull-Rom, held within its four nearest pixels). False when
@@ -4868,10 +4820,8 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       gl, canvas,
       /** The framebuffer the canvas stands in as (null; shared, the texture's): what a pass laid on this renderer's picture binds. */
       screen: SCR,
-      /** Lays a texture over the canvas (blended, premultiplied) as p' = M p + t (M = [a b; c d], t = (tx, ty) in canvas px, y down), weighed by alpha: a shared renderer's picture.
-       *  `win` ({ x, y, w, h, r }, canvas px, y down; r = half the shorter side for a circle): lays it only inside that rounded rect, its edge about a pixel soft, and leaves the canvas as it is outside it
-       *  (no clear). A picture smaller than the canvas (a window-sized lobule target) is laid with a = w / canvas width, d = h / canvas height, (tx, ty) = the window's corner. */
-      lay(tex, a, b, c, d, tx, ty, alpha = 1, win = null) { if (!lost) layTex(tex, a, b, c, d, tx, ty, alpha, win); },
+      /** Lays a texture over the canvas (blended, premultiplied) as p' = M p + t (M = [a b; c d], t = (tx, ty) in canvas px, y down), weighed by alpha: a shared renderer's picture. */
+      lay(tex, a, b, c, d, tx, ty, alpha = 1) { if (!lost) layTex(tex, a, b, c, d, tx, ty, alpha); },
       /** Presents the canvas again with everything on it (a shared renderer's picture changed), at once. */
       present: () => present(true, true),
       /** A host's ask (the labels', the glasses'): the same present, folded into the end of the frame it is made in unless a picture with the

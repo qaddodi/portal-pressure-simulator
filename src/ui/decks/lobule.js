@@ -67,7 +67,7 @@ export const LOBULE = {
       ask: ['Why is the HVPG normal in congestive hepatopathy although the portal pressure is high?', 'The WHVP and FHVP rise together with the right atrial pressure.'],
     },
     {
-      id: 'wedge', cutouts: ['sinusoid'], preset: 'schisto', cath: 'wedge', tool: { kind: 'profile' }, key: ['hvpg'], column: true,
+      id: 'wedge', preset: 'schisto', cath: 'wedge', tool: { kind: 'profile' }, key: ['hvpg'], column: true,
       kicker: 'Measuring', site: 'presin', title: 'The wedged pressure reflects the sinusoids',
       line: 'In cirrhosis sinusoidal pressure approximates portal pressure, so the wedged pressure (WHVP) estimates it. In schistosomiasis the portal pressure is high but sinusoidal pressure is not: the WHVP stays normal.',
       notes: 'Wedging the catheter, or inflating its balloon, stops flow in that hepatic vein. The static column of blood upstream of the tip then equilibrates with the pressure where it next meets flowing blood: the sinusoids. In cirrhosis sinusoidal pressure is about equal to portal pressure, so the wedged pressure is a surrogate for it. In schistosomiasis, shown here, the portal pressure is high but sinusoidal pressure is not, so the wedged pressure, and the HVPG, are normal. Only a direct portal pressure measurement or the PPG shows presinusoidal resistance.',
