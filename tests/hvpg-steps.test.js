@@ -15,7 +15,7 @@ test('a reading, not a treatment: offered always, on the HVPG catheter’s own r
   assert.ok(!PROC_KINDS.includes('hvpgcath') && !PROCS.hvpgcath);
   assert.equal(specOf('hvpgcath'), P); assert.equal(P.measure, true); assert.equal(P.route, 'hvpg');
   assert.equal(procOffered('hvpgcath', {}), true); assert.equal(procBlocked('hvpgcath', {}), '');
-  assert.match(procBlocked('hvpgcath', { thrombus: { RHV_IVC: 1 } }), /clotted/);
+  assert.match(procBlocked('hvpgcath', { thrombus: { RHV_IVC: 1 } }), /thrombosed/);
   const p = {}; assert.equal(P.apply(p), p); assert.equal(P.had(p), false);
   assert.equal(legMs(ROUTE_LEN.hvpg), T.travel1 - T.travel0);
 });

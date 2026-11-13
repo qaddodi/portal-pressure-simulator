@@ -176,7 +176,7 @@ export function createProfile() {
     h('span', {}, h('i', { style: { borderColor: 'var(--text-3)', borderTopStyle: 'dashed' } }), 'Healthy'),
     h('span', { class: 'lg-compare', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--s1)', borderTopStyle: 'dotted' } }), 'Snapshot A'),
     h('span', { class: 'lg-pred', style: { display: 'none' } }, h('i', { style: { borderColor: 'var(--accent)', borderTopStyle: 'dashed' } }), 'Your prediction'));
-  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. Where the line drops steeply, that is where the resistance is highest. The spans along the bottom show HVPG (wedged − free hepatic vein) and PPG (portal vein − IVC).');
+  const note = h('div', { class: 'sub' }, 'Pressure from gut to heart. The steepest drop marks the site of highest resistance. The spans along the bottom show the HVPG (WHVP − FHVP) and the PPG (portal vein − IVC pressure).');
   // (The note under the profile changes with the drawing: drawn on the GPU while it changes, gl-words.js, never written in a frame.)
   const offscale = h('div', { class: 'ctl-sub', id: 'profileOffscale' }), offscaleW = glWords(offscale);
   const side = h('div', { class: 'chart-side' }, legend, note, offscale);

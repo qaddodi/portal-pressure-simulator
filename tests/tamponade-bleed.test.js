@@ -190,8 +190,8 @@ test('the balloon slide fills the gastric balloon, the first step, and the rescu
   assert.ok(!bridge.params.balloonEso, 'the esophageal balloon is the second step, filled only if the first does not hold');
   assert.equal(rescue.params.balloonGas, false);
   assert.equal(rescue.params.balloonEso, false);
-  assert.match(bridge.line, /gastric balloon goes up first/);
-  assert.match(bridge.notes, /esophageal balloon is filled only if the bleeding goes on/);
+  assert.match(bridge.line, /gastric balloon is inflated first/);
+  assert.match(bridge.notes, /esophageal balloon is inflated only if bleeding continues/);
 });
 
 test('the balloon slide frames the whole of the gastric balloon, the tube to its tip and the traction arrow', () => {

@@ -136,7 +136,7 @@ test('breathing is off on the first beat-trace slide of each run, and the Dopple
     assert.equal(s.tool?.kind, 'trace');
     assert.equal(s.tool.range, 'beats');
     assert.equal(s.params?.respiration, false, `${deck}/${id}: breathing off`);
-    assert.match(s.notes, /schematic rhythm timed to the model.s heartbeat, not a modelled ECG/, `${deck}/${id}: says what the strip is`);
+    assert.match(s.notes, /schematic rhythm timed to the model.s heartbeat, not a model(?:l)?ed ECG/, `${deck}/${id}: says what the strip is`);
   }
   // (Only those three runs: any other deck that turns breathing off is a Doppler slide that reads its own waveform.)
   const off = DECKS.flatMap((d) => d.slides.filter((s) => s.params?.respiration === false).map((s) => `${d.id}/${s.id}`));

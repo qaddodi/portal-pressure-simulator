@@ -718,8 +718,8 @@ export const LANE_CAPTIONS = {
 // The pressure-profile chart follows one path, gut → liver → heart, with plain station names;
 // `liver` marks the stations inside the liver (portal venule to central vein).
 export const PROFILE_PATHS = [
-  { id: 'main', label: 'Gut → liver → heart', nodes: ['INT', 'CONF', 'RPV', 'SIN_R', 'CV_R', 'RHV', 'IVCS', 'RA'],
-    names: { INT: 'Gut', CONF: 'Portal vein', RPV: 'Portal venule', SIN_R: 'Sinusoid', CV_R: 'Central vein', RHV: 'Hepatic vein', IVCS: 'IVC', RA: 'RA' },
+  { id: 'main', label: 'Intestine → liver → heart', nodes: ['INT', 'CONF', 'RPV', 'SIN_R', 'CV_R', 'RHV', 'IVCS', 'RA'],
+    names: { INT: 'Intestine', CONF: 'Portal vein', RPV: 'Portal venule', SIN_R: 'Sinusoid', CV_R: 'Central vein', RHV: 'Hepatic vein', IVCS: 'IVC', RA: 'RA' },
     liver: ['RPV', 'CV_R'],
     // Gradients drawn as spans under the line, with the same values and cut-offs as the readout
     // tiles: HVPG = WHVP − FHVP (wedged − free hepatic vein) and PPG = portal vein − IVC.
@@ -730,7 +730,7 @@ export const PROFILE_PATHS = [
 // Figure callouts name each station in full, without abbreviations that end in a full stop (17 Oct design review: "Varices", not
 // "Esoph. varices"; "Right sinusoids", not "Sinusoids R"). SMV, IMV, IVC and SVC stay as the clinical names they are.
 export const SHORT = {
-  AO: 'Aorta', HA: 'Hepatic artery', INT: 'Gut bed', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic vein',
+  AO: 'Aorta', HA: 'Hepatic artery', INT: 'Bowel', COL: 'Colon', SPL: 'Spleen', STO: 'Stomach', SMV: 'SMV', IMV: 'IMV', SV: 'Splenic vein',
   LGV: 'Left gastric vein', CONF: 'Portal vein', PVH: 'Hilar portal vein', RPV: 'Right portal vein', LPV: 'Left portal vein', VAR: 'Varices', GV: 'Fundal varices',
   SIN_R: 'Right sinusoids', SIN_L: 'Left sinusoids', CV_R: 'Right central vein', CV_L: 'Left central vein', W_R: 'Right wedge', W_M: 'Middle wedge', W_L: 'Left wedge',
   RHV: 'Right hepatic vein', MHV: 'Middle hepatic vein', LHV: 'Left hepatic vein', IVCI: 'Lower IVC', IVCS: 'IVC', RA: 'Right atrium', SVC: 'SVC', AZY: 'Azygos', UPPV: 'Upper body',

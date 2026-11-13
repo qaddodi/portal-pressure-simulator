@@ -5,7 +5,7 @@ import { inheritTone } from './helpers.js';
 
 const num = (v, d) => (v != null && Number.isFinite(+v) ? +v : d);
 const tree = inheritTone({
-  id: 'root', t: 'Portal vein clot on CT or MRI', r: 'Remnant lumen (RL)', s: 'Against the widest diameter, in a plane perpendicular to the main portal vein.', stmt: '9.3', tone: 'n', kids: [
+  id: 'root', t: 'Portal vein thrombosis on CT or MRI', r: 'Remnant lumen (RL)', s: 'Against the widest diameter, in a plane perpendicular to the main portal vein.', stmt: '9.3', tone: 'n', kids: [
     { id: 'min', t: 'RL ≥50%', r: 'Minimal occlusion', tone: 'ok', sh: 'Minimal', stmt: '9.3' },
     { id: 'par', t: 'RL <50%, not 0%', r: 'Partial occlusion', tone: 'warn', sh: 'Partial', stmt: '9.3' },
     { id: 'com', t: 'RL = 0%', r: 'Complete occlusion', tone: 'bad', sh: 'Complete', stmt: '9.3' }] }, 'n');
@@ -16,9 +16,9 @@ const outcomeOf = (L) => ['min', 'par', 'com'].find((k) => L.has(k)) || null;
 const how = 'Measured against the widest diameter of the vein, in a plane perpendicular to it.';
 
 function reading(key, p) {
-  if (key === 'min') return { head: 'Minimal occlusion', tone: 'ok', stmt: '9.3', why: `${p.rl}% of the lumen is left, which is ≥50%.`, next: how };
-  if (key === 'par') return { head: 'Partial occlusion', tone: 'warn', stmt: '9.3', why: `${p.rl}% of the lumen is left, which is <50% but not 0%.`, next: how };
-  return { head: 'Complete occlusion', tone: 'bad', stmt: '9.3', why: 'No lumen is left: RL is 0%.', next: how };
+  if (key === 'min') return { head: 'Minimal occlusion', tone: 'ok', stmt: '9.3', why: `Remnant lumen ${p.rl}% is ≥50%.`, next: how };
+  if (key === 'par') return { head: 'Partial occlusion', tone: 'warn', stmt: '9.3', why: `Remnant lumen ${p.rl}% is <50% but not 0%.`, next: how };
+  return { head: 'Complete occlusion', tone: 'bad', stmt: '9.3', why: 'No remnant lumen: RL is 0%.', next: how };
 }
 
 const chips = (p) => [`Remnant lumen ${p.rl}%`];

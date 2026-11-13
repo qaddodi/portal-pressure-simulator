@@ -39,7 +39,7 @@ const SHUT_MS = D_SMALL;
  * in (the presenter's layer over the figure, the stage's own corner as 0, 0); avoid(): the elements the lens keeps clear of (the cards, the bar).
  */
 export function createScopeLens({ stage, store, root, avoid = () => [] }) {
-  const shut = h('button', { type: 'button', class: 'pz-lens-x', 'aria-label': 'Close the scope view', onclick: (e) => { e.stopPropagation(); close(); } }, '×');
+  const shut = h('button', { type: 'button', class: 'pz-lens-x', 'aria-label': 'Close the endoscopic view', onclick: (e) => { e.stopPropagation(); close(); } }, '×');
   const disc = h('div', { class: 'pz-lens-disc', role: 'img', 'aria-label': 'Endoscopic view of the esophagus, live' });
   const cap = h('span', { class: 'pz-lens-cap' });
   const el = h('div', { class: 'pz-lens', hidden: '' }, disc, shut, cap);

@@ -17,7 +17,7 @@ const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default {
   id: 'pvtgrid',
-  label: 'Portal vein clot, no cirrhosis: long-term anticoagulation',
+  label: 'PVT without cirrhosis: long-term anticoagulation',
   kind: 'grid',
   source: 'Baveno VIII',
   cite: 'Fig. 5',

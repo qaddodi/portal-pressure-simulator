@@ -65,7 +65,7 @@ export function run() {
     const nx = el('p', 'pv-next'); nx.append('Next: ', ...(next ? [el('b', '', next.title)] : ['the end']));
     main.append(nx);
     if (cur.notes) { main.append(el('p', 'pv-cap', 'Notes'), el('p', 'pv-notes', cur.notes)); }
-    if (cur.ask) { const a = el('div', 'pv-ask'); a.append(el('p', 'q', cur.ask[0])); if (cur.ask[1]) a.append(el('p', 'a', cur.ask[1])); main.append(el('p', 'pv-cap', 'Ask the room'), a); }
+    if (cur.ask) { const a = el('div', 'pv-ask'); a.append(el('p', 'q', cur.ask[0])); if (cur.ask[1]) a.append(el('p', 'a', cur.ask[1])); main.append(el('p', 'pv-cap', 'Discussion question'), a); }
     tick();
   }
   if (ch) ch.onmessage = (e) => { const m = e.data; if (m?.t === 'state') { st = m; paint(); } else if (m?.t === 'end') { st = null; paint(); } };

@@ -98,7 +98,7 @@ export function geo(w, h, f, dots, base, steps = false, baseLabel = '') {
   // (The scale runs on nice numbers round the dots, from zero only when they come near it: a patient whose dots lie between 20 and 60 gets that stretch, not the first third empty.)
   const [x0, x1] = xDomain(xs);
   // (Under the key row, the caption of the dots' size; on a card too narrow for it beside the reading's name, a row of its own.)
-  const read = 'PPG, mmHg', size = 'Dot size: blood bypassing the liver', two = cw(read, f, 1) + cw(size, f, 1) + 4 * f > w, keyH = (two ? 2 : 1) * rowH + 0.2 * f;
+  const read = 'PPG, mmHg', size = 'Dot size: portosystemic shunt fraction', two = cw(read, f, 1) + cw(size, f, 1) + 4 * f > w, keyH = (two ? 2 : 1) * rowH + 0.2 * f;
   const stepKey = steps ? stepKeyOf(dots, w, f, base ? baseLabel : '') : null, stepH = stepKey?.rows ? stepKey.rows * rowH + 0.3 * f : 0;
   const most = clamp(Math.floor((h - 3.3 * f - stepH - keyH - 2 * f) / (1.6 * f)) + 1, 3, 7), sL = leftScale('ppg', ys, most, [12]);
   const ax = { name: 'Sinusoidal flow, % of normal', unit: '%', d: 0, k: 'liver' };

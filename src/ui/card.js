@@ -656,7 +656,7 @@ export function createCard({ view, stage, ctx, onWhy, onDetails }) {
       go._acRun = 1; actionable.push(go);
       return h('div', P_DRAIN,
         h('div', P_CTLTOP, h('span', P_LABEL, svgIcon('needle', 'ac-ic'), 'Paracentesis'), volLbl), volWrap,
-        h('div', P_DRAINROW, h('label', P_CHECKROW, alb, 'Albumin 8 g/L'), go));
+        h('div', P_DRAINROW, h('label', P_CHECKROW, alb, 'Albumin 8 g per liter removed'), go));
     }
     return null;
   }

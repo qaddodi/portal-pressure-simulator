@@ -40,7 +40,7 @@ const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 // a frame that shows a number it has shown before builds nothing.
 const intCache = (make) => { const c = []; return (n) => c[n] ?? (c[n] = make(n)); };
 const intTxt = intCache((n) => String(n));   // alloc-rare: the first time that number is shown
-const tearTxt = intCache((n) => `${n}% of the tear point`);   // alloc-rare: the first time that percent is shown
+const tearTxt = intCache((n) => `${n}% of the rupture point`);   // alloc-rare: the first time that percent is shown
 const slideTxt = intCache((k) => `${k / 10 - 100}% 0px`);   // alloc-rare: the first time that fill is set (slid in from the left inside its track, by tenths of a percent)
 const riseTxt = intCache((p) => `0px ${100 - p}%`);   // alloc-rare: the first time that height is set (risen by sliding up inside the belly, by whole percents)
 // A reading's words: fmt(v, d) then a suffix, rebuilt only when the number it shows changes (a cell is { k, s }, one for each place that prints).
@@ -75,15 +75,15 @@ export function createEndoscopy({ onAction }) {
   // The three pressures of a lesson slide (the readings option, configure below): they join the list after the wall, in the same tiles.
   const pIn = dd('endo-num'), pLum = dd('endo-num'), pAcross = dd('endo-num');
   const pRows = [
-    h('div', { class: 'endo-tile endo-pr', title: 'The pressure inside the varix.' }, h('dt', {}, 'In the varix'), pIn),
-    h('div', { class: 'endo-tile endo-pr', title: 'The pressure of the air in the esophagus around the varix (simulated).' }, h('dt', {}, 'Lumen'), pLum),
-    h('div', { class: 'endo-tile endo-pr', title: 'The pressure inside the varix less the pressure in the lumen: what stretches the wall.' }, h('dt', {}, 'Across the wall'), pAcross)];
+    h('div', { class: 'endo-tile endo-pr', title: 'Intravariceal pressure.' }, h('dt', {}, 'Intravariceal'), pIn),
+    h('div', { class: 'endo-tile endo-pr', title: 'Intraluminal esophageal pressure around the varix, set by insufflation (simulated).' }, h('dt', {}, 'Intraluminal'), pLum),
+    h('div', { class: 'endo-tile endo-pr', title: 'Transmural pressure = intravariceal − intraluminal pressure: the pressure that distends the varix wall.' }, h('dt', {}, 'Transmural'), pAcross)];
   const stats = h('dl', { class: 'endo-read' },
     item('endo-chip', h('dt', {}, 'Bands', h('span', { class: 'endo-dt-x' }, ' placed')), bands),
     h('div', { class: 'endo-g', title: 'Small, <5 mm; Large, ≥5 mm.' }, h('dt', {}, 'Grade'), grade),
     item('endo-tile', h('dt', {}, 'Diameter'), diam),
     item('endo-tile', h('dt', {}, 'Wall', h('span', { class: 'endo-dt-x' }, ' thickness')), wall),
-    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry spots show once the wall stress passes 70% of its tear point.' }, h('dt', {}, 'Stigmata'), red));
+    h('div', { class: 'endo-chip endo-red', title: 'In the model, red wale marks and cherry-red spots appear once the wall stress exceeds 70% of the rupture point.' }, h('dt', {}, 'Stigmata'), red));
   // EUS-PPG, played on the anatomy from here (eus-ppg.js): in Tests › Scope, not on a slide's card unless the slide asks (configure).
   const eus = createEusPpg();
   const side = h('div', { class: 'chart-side' }, stats, bandBtn, eus.el);
@@ -376,7 +376,7 @@ export function createEndoscopy({ onAction }) {
 // ── Varix wall cross-section (L3) ───────────────────
 // Scope's Wall mechanics tab: a cross-section of the esophagus with the varix in its wall, and Laplace's
 // law as readings in the same tiles and meter as the scope view.
-const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near tear', critical: 'Rupture risk' };
+const WALL_SEV = { ok: 'Low', caution: 'High', danger: 'Near rupture', critical: 'Rupture risk' };
 // The meter's four states by the stress's share of the tear point (one rule, read by the bar, the readout and the rim of the varix drawn below).
 const wallState = (r) => (r > 1 ? 'critical' : r > 0.7 ? 'danger' : r > 0.4 ? 'caution' : 'ok');
 const RIM_INK = { ok: '--ok', caution: '--caution', danger: '--danger', critical: '--critical' };
@@ -434,7 +434,7 @@ export function createVarixWall() {
   const name = (long, short) => h('dt', {}, h('span', { class: 'wall-long' }, long), h('span', { class: 'wall-short' }, short));
   const ptm = num('mmHg'), rad = num('mm'), wal = num('mm'), idx = num('');
   // A slide's screen reads the stress as one number top left and its state top right (the pane keeps its sentence).
-  const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of tear point'))), wSev = h('span', { class: 'wall-sev' });
+  const wPct = h('span'), wBig = h('b', { class: 'wall-big' }, wPct, h('small', {}, '%', h('span', { class: 'wall-of' }, ' of rupture point'))), wSev = h('span', { class: 'wall-sev' });
   const stats = h('dl', { class: 'endo-read' },
     item('endo-g wall-law', h('dt', {}, 'Laplace’s law'), h('dd', { class: 'wall-formula' }, 'σ = ΔP · r / w')),
     item('endo-stress', name('Wall stress (model)', 'Wall stress'), stressTxt, wBig, wSev, stressBar),
@@ -461,7 +461,7 @@ export function createVarixWall() {
     const v = f.metrics.varix;
     const wr = wallRead(v);   // (the index is worked out from the shown ΔP, r and w, so the tiles multiply out)
     set(ptm.v, wr.ptm); set(rad.v, wr.r); set(wal.v, wr.w); set(idx.v, wr.index);
-    set(stressTxt, v.ratioShown > 1 ? 'above the tear point' : tearTxt(Math.round(v.ratioShown * 100)));
+    set(stressTxt, v.ratioShown > 1 ? 'above the rupture point' : tearTxt(Math.round(v.ratioShown * 100)));
     const sev = wallState(v.ratioShown);
     dataSoon(stressBar, 'sev', sev);
     // (The stress swings with each beat and each breath: the number is its mean over the last several breaths, a plain
@@ -640,7 +640,7 @@ const GRADE_TIP = ['No free fluid', 'Grade 1: seen on ultrasound only', 'Grade 2
 const IAP_MAX = 30, IAP_BANDS = [[0, 12, 'ok'], [12, 20, 'caution'], [20, 30, 'danger']];
 const iapSev = (v) => (v >= 20 ? 'danger' : v >= 12 ? 'caution' : 'ok');
 const IAP_WORD = { ok: 'Normal', caution: 'High', danger: 'Very high' };
-const IAP_SAY = ['· normal', '· high', '· compartment syndrome'];   // (the words beside the abdominal pressure's number, by band: below 12, to 20, from 20)
+const IAP_SAY = ['· normal', '· IAH', '· compartment syndrome'];   // (the words beside the abdominal pressure's number, by band: below 12, to 20, from 20)
 const iapAria = intCache((n) => `Intra-abdominal pressure ${n} mmHg, ${IAP_WORD[iapSev(Math.min(n, IAP_MAX))].toLowerCase()}`);   // alloc-rare: the first time that whole mmHg is set
 const r1 = (x) => Math.round(x * 10) / 10;
 // (On the GPU, 2 Nov 2026, "Move everything to GPU": the dial is a model (svg-gl svgModel, never SVG the page paints) drawn by createSvgGL
@@ -671,7 +671,7 @@ function iapDial() {
   const num = s('text', { class: 'ab-dial-n', 'data-look': 'inst.dial.n', x: TX, y: 70 }, '—'), word = s('text', { class: 'ab-dial-w', 'data-look': 'inst.dial.w', 'font-size': 9, x: TX }, '');
   const key = s('text', { class: 'ab-dial-k', 'data-look': 'inst.dial.k', 'font-size': 8.5, x: TX, y: 43 }, 'IAP'), unit = s('text', { class: 'ab-dial-u', 'data-look': 'inst.dial.u', 'font-size': 8.5, x: TX }, 'mmHg');
   svg.append(knob, key, num, unit, word);
-  const el = h('div', { class: 'ab-dial-box svg-gl-box', title: 'Intra-abdominal pressure. 12 mmHg and above: intra-abdominal hypertension. 20 mmHg and above: abdominal compartment syndrome.' }, svg);
+  const el = h('div', { class: 'ab-dial-box svg-gl-box', title: 'Intra-abdominal pressure (IAP). IAP ≥12 mmHg: intra-abdominal hypertension (IAH). IAP ≥20 mmHg: abdominal compartment syndrome.' }, svg);
   const gl = createSvgGL(el, { host: 'dock' });
   gl.show(svg, false);
   // The small words are 12 px on screen at least, however small the dial is drawn (sweep batch 04: the ticks at about 7 px,
@@ -786,8 +786,8 @@ export function createAbdomen({ onAction }) {
   let L = 5;
   const volOut = stepOut('L', { 'aria-live': 'polite' });
   const setL = (x) => { L = +clamp(x, 1, 10).toFixed(1); paintVol(); };
-  const volMinus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Liters to drain: less', onclick: () => setL(L - 0.5) }, '−');
-  const volPlus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Liters to drain: more', onclick: () => setL(L + 0.5) }, '+');
+  const volMinus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Decrease volume to drain', onclick: () => setL(L - 0.5) }, '−');
+  const volPlus = h('button', { class: 'ab-dp-sb', 'aria-label': 'Increase volume to drain', onclick: () => setL(L + 0.5) }, '+');
   const drain = h('button', { class: 'ab-drain', onclick: () => onAction({ kind: 'paracentesis', mL: L * 1000, albumin: albOn() }) });
   function paintVol() {
     const warn = L > 5 && !albOn();
@@ -799,14 +799,14 @@ export function createAbdomen({ onAction }) {
     if (albS._kind !== albKind) { albS._kind = albKind; swapText(albS, albTxt); } else putText(albS, albTxt);
     classSoon(albS, 'ab-warn', warn);
     classSoon(alb, 'ab-warn', warn);
-    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per liter drained) to protect the kidneys.` : 'Albumin 8 g per liter drained: advised for >5 L, optional for ≤5 L.';   // alloc-rare: the same, paintVol runs only on a change
-    swapText(drain, hasFluid ? 'Drain' : 'No fluid');
+    alb.title = warn ? `For >5 L, give albumin (${Math.round(L * 8)} g, 8 g per liter removed) to prevent post-paracentesis circulatory dysfunction.` : 'Albumin 8 g per liter removed: advised for >5 L, optional for ≤5 L.';   // alloc-rare: the same, paintVol runs only on a change
+    swapText(drain, hasFluid ? 'Drain' : 'No ascites');
     propSoon(drain, 'disabled', !hasFluid);
   }
   paintVol();
   // Diuretics drives the same parameter as the Treatments chip.
   const diu = toggle('pill', h('b', {}, 'Diuretics'), h('small', {}, 'Spironolactone 100 mg + furosemide 40 mg'),
-    'Spironolactone + furosemide: renal sodium and water loss mobilizes ascites. Keep the 100 : 40 mg ratio (5 : 2).',
+    'Spironolactone + furosemide: natriuresis mobilizes ascites. Keep the 100:40 mg ratio.',
     () => updateParams((p) => { p.diuretics = !p.diuretics; return p; }, { label: 'Diuretics' }));
   // Serum albumin is a patient input that drives ascites (oncotic pull back into the vessels) and the SAAG.
   const sa = stepper('Serum albumin', 'g/dL', 1.5, 5, 0.1, 1, 4, (v) => updateParams((p) => { p.albumin = v; return p; }, { label: 'Serum albumin' }));
@@ -832,11 +832,11 @@ export function createAbdomen({ onAction }) {
   gauge.append(dial.el);
   const dp = h('div', { class: 'ab-dp', role: 'group', 'aria-label': 'Paracentesis' },
     h('div', { class: 'ab-dp-k' }, 'Drain'),
-    h('div', { class: 'ab-dp-vol', role: 'group', 'aria-label': 'Liters to drain' }, volMinus, volOut, volPlus),
+    h('div', { class: 'ab-dp-vol', role: 'group', 'aria-label': 'Volume to drain, liters' }, volMinus, volOut, volPlus),
     alb, drain);
   // Abdominal pressure as one slim bar, 0–30 mmHg, ticked at 12 (IAH) and 20 (ACS).
   const iapFill = h('i', { class: 'ab-iap-fill' }), iapNum = h('b'), iapWord = h('span', { class: 'ab-w' });
-  const iapBar = h('div', { class: 'ab-iap-bar', role: 'img', title: '12 mmHg: intra-abdominal hypertension · 20 mmHg: compartment syndrome' }, iapFill,
+  const iapBar = h('div', { class: 'ab-iap-bar', role: 'img', title: '≥12 mmHg: intra-abdominal hypertension · ≥20 mmHg: abdominal compartment syndrome' }, iapFill,
     h('i', { class: 'ab-iap-mark', style: { left: '40%' } }), h('i', { class: 'ab-iap-mark', style: { left: '66.7%' } }));
   // The tap, g/dL: three flat tiles, SAAG first. With no result, one quiet line takes their place (same height).
   const lab = (k) => { const v = h('span', { class: 'ab-n' }, '—'); return [h('dl', { class: 'ab-tile' }, h('dt', {}, k), h('dd', {}, v, h('span', { class: 'ab-u' }, 'g/dL'))), v]; };
@@ -845,7 +845,7 @@ export function createAbdomen({ onAction }) {
   const tiles = h('div', { class: 'ab-tiles' }, saagEl, tpEl, albEl, why);
   const read = h('div', { class: 'ab-read' },
     h('div', { class: 'ab-vol' }, h('div', { class: 'ab-vol-l' }, trendEl), gauge, dp),
-    h('div', { class: 'ab-iap' }, h('div', { class: 'ab-kv' }, h('span', {}, 'Abdominal pressure'), h('span', { class: 'ab-v' }, iapNum, iapWord)), iapBar),
+    h('div', { class: 'ab-iap' }, h('div', { class: 'ab-kv' }, h('span', {}, 'Intra-abdominal pressure'), h('span', { class: 'ab-v' }, iapNum, iapWord)), iapBar),
     tiles);
   const ctl = h('div', { class: 'ab-ctl' },
     h('div', { class: 'ab-row' }, icon('drop'), h('span', { class: 'ab-txt' }, h('b', {}, 'Serum albumin')), h('span', { class: 'ab-end' }, sa.el)),
@@ -883,7 +883,7 @@ export function createAbdomen({ onAction }) {
     setData(iapWord, 'sev', sev); setData(iapFill, 'sev', sev);
     const iw = slideTxt(Math.round(clamp(a.iap / 30, 0, 1) * 1000));   // (slid in from the left inside its track: app.css .ab-iap-fill)
     if (iapFill.style.translate !== iw) iapFill.style.translate = iw;
-    setAttr(iapBar, 'aria-label', shownNum(cIapAria, a.iap, 0, ' mmHg', 'Abdominal pressure '));
+    setAttr(iapBar, 'aria-label', shownNum(cIapAria, a.iap, 0, ' mmHg', 'Intra-abdominal pressure '));
     // SAAG from the rounded parts, so serum − ascitic always adds up on screen.
     const tapped = a.volume > 150;
     const saag = r1(r1(p.albumin) - r1(a.albumin));
@@ -893,17 +893,17 @@ export function createAbdomen({ onAction }) {
       const ka = r1(p.albumin), kb = r1(a.albumin);   // (the two parts as the line prints them, to a tenth)
       if (!Object.is(cTip.a, ka) || !Object.is(cTip.b, kb)) {
         cTip.a = ka; cTip.b = kb;
-        cTip.s = `SAAG ${fmt(ka, 1)} − ${fmt(kb, 1)} = ${fmt(saag, 1)} g/dL. ≥ 1.1 means portal hypertension.`;   // alloc-rare: only when either albumin, to a tenth, changes
+        cTip.s = `SAAG ${fmt(ka, 1)} − ${fmt(kb, 1)} = ${fmt(saag, 1)} g/dL. SAAG ≥1.1 g/dL indicates portal hypertension.`;   // alloc-rare: only when either albumin, to a tenth, changes
       }
       tip = cTip.s;
     }
     setAttr(saagEl, 'title', tip);
-    setText(why, a.volume < 1 ? 'No fluid to tap' : 'Too little fluid to tap');
+    setText(why, a.volume < 1 ? 'No ascites to sample' : 'Too little ascites to sample');
     setAttr(tiles, 'data-empty', tapped ? null : '');
     if (hasFluid !== a.volume > 150) { hasFluid = a.volume > 150; paintVol(); }
     // Whole percents only: rewriting the height every frame would keep restarting its ease.
     const bh = riseTxt(Math.round(a.volume > 150 ? 15 + clamp(a.volume / 8000, 0, 1) * 70 : 0));   // (risen by sliding up inside the belly: app.css .ab-belly-fill)
     if (bellyFill.style.translate !== bh) bellyFill.style.translate = bh;
   }
-  return { id: 'abdomen', label: 'Ascites & paracentesis', el, update };
+  return { id: 'abdomen', label: 'Ascites and paracentesis', el, update };
 }

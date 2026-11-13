@@ -86,16 +86,16 @@ const MAX_PTS = 41;
 
 // The settings a curve knows by name: the axis's words, its unit, its decimals and a scale on the model's value.
 export const PARAM = {
-  'thrombus.PV_TRUNK': ['Portal vein clot', '%', 0, 100], 'stenosis.TIPS': ['Stent narrowing', '%', 0, 100], habrStrength: ['Arterial buffer', '%', 0, 100],
+  'thrombus.PV_TRUNK': ['Portal vein thrombus', '%', 0, 100], 'stenosis.TIPS': ['TIPS stenosis', '%', 0, 100], habrStrength: ['Hepatic arterial buffer', '%', 0, 100],
   'tips.d': ['TIPS diameter', 'mm', 0], 'dips.d': ['DIPS diameter', 'mm', 0],
   cirrhosis: ['Cirrhosis', '%', 0, 100], gestation: ['Weeks pregnant', 'weeks', 0], albumin: ['Serum albumin', 'g/dL', 1],
-  splanchnicTone: ['Splanchnic tone', '×', 2], systemicTone: ['Systemic tone', '×', 2], contractility: ['Right heart contractility', '×', 2],
-  'scope.air': ['Air in the esophagus', 'mmHg', 0],
+  splanchnicTone: ['Splanchnic tone', '×', 2], systemicTone: ['Systemic tone', '×', 2], contractility: ['RV contractility', '×', 2],
+  'scope.air': ['Esophageal insufflation', 'mmHg', 0],
   tr: ['Tricuspid regurgitation', '%', 0, 100], pericardial: ['Pericardial constraint', '%', 0, 100], apShunt: ['Arterioportal shunting', '%', 0, 100],
 };
 // Readings a chart can draw that have no tile: the varix wall's stress, as a share of the point where it tears; and on a curve
 // over the scope's air (param 'scope.air'), the varix's diameter as the scope sees it and the pressure across its wall.
-const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of tear', x: 100, d: 0 }, seen: { t: 'Varix seen', u: 'mm', d: 1 }, across: { t: 'Across the wall', u: 'mmHg', d: 1 } };
+const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of rupture', x: 100, d: 0 }, seen: { t: 'Varix diameter seen', u: 'mm', d: 1 }, across: { t: 'Transmural pressure', u: 'mmHg', d: 1 } };
 // A line's colour by reading (the app's trace colours); any other reading takes its place's.
 // (Platelets are cyan, --tr-ivc, not the place's blue: beside the HVPG's violet the blue read as one colour (normal-vision ΔE 28, deuteranopia 4); cyan keeps ΔE 29 or more in every vision and stays clear of the amber and coral cut-off lines.)
 const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--s7', whvp: '--s7', plt: '--tr-ivc', sin: '--tr-wedge', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', seen: '--tr-var', wall: '--tr-cav', across: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };

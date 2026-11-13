@@ -26,7 +26,7 @@ test('procedures in place: TIPS, DIPS, surgical shunt, BRTO and the balloons say
 });
 
 test('fluids say what they do and answer a press; a narrow card puts one per row', () => {
-  assert.match(chart, /fluid\('1 L crystalloid', 'crystalloid', 'about 25% stays in the vessels'\)/);
+  assert.match(chart, /fluid\('1 L crystalloid', 'crystalloid', 'about 25% stays intravascular'\)/);
   assert.match(chart, /b\.dataset\.given = ''/);
   assert.match(css, /@container treatpane \(max-width: 440px\) \{\s*\.treat-pane > \.order-grid\.three \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 });

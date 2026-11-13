@@ -140,7 +140,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   chips.append(ekgChip, laneChipBtn);
   // Display only: averages away the heartbeat and breathing swings; the simulation is untouched.
   let smooth = false;
-  const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and breathing variation', onclick: () => {
+  const smoothBtn = h('button', { class: 'pt-chip pt-smooth', 'aria-pressed': 'false', title: 'Show the mean: hide beat-to-beat and respiratory variation', onclick: () => {
     smooth = !smooth; yr.pressure = yr.hvpg = null; smoothBtn.setAttribute('aria-pressed', String(smooth)); draw();
   } }, 'Smooth');
   // Smooth and the range switch sit with the trace pills under the chart, together at the right end of the pills' last line.

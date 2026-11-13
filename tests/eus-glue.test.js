@@ -88,7 +88,7 @@ test('every value eases, the steps run in order, and the needle is out only with
 
 // His ask, 10 Nov 2026 (recs/eus-glue-steps.md item 1): every step has one short line for the teaching card's list, about eight words.
 test('each step has a short line of about eight words for the teaching card, the words and lines as drafted', () => {
-  assert.deepEqual(G.steps.map((s) => s[8]), ['Doppler finds it through the stomach wall', 'a 19-gauge needle enters the varix', 'they curl inside and hold the glue', 'cyanoacrylate casts the varix', 'Doppler confirms the varix is closed']);
+  assert.deepEqual(G.steps.map((s) => s[8]), ['color Doppler shows flow in the varix', 'a 19-gauge needle enters the varix', 'coils scaffold the glue', 'cyanoacrylate obliterates the varix', 'Doppler confirms the varix is occluded']);
   for (const s of G.steps) assert.ok(s[8].split(' ').length <= 8 && s[2].length > s[8].length, `short: ${s[8]}`);
   // (The other procedures carry none, so their card keeps the inline row.)
   for (const k of ['tips', 'brto', 'bato']) assert.ok(PROCS[k].steps.every((s) => !s[8]), `${k}: no short lines`);

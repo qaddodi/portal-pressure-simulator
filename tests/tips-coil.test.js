@@ -114,7 +114,7 @@ test('the shots, the callouts and the model: the coil step has its own shot and 
   assert.equal(q.tips.on, true); assert.equal(q.occluded.C1a, true); assert.equal(P.had(q), true);
   assert.match(procBlocked(K, q), /already in place/);
   assert.match(procBlocked(K, { tips: { on: false }, occluded: { C1a: true } }), /coronary vein is already closed/);
-  assert.match(procBlocked(K, { thrombus: { RHV_IVC: 1 } }), /clotted/);
+  assert.match(procBlocked(K, { thrombus: { RHV_IVC: 1 } }), /thrombosed/);
   const u = P.undo(structuredClone(q));
   assert.equal(u.tips.on, false); assert.equal(u.occluded.C1a, false); assert.equal(P.had(u), false);
   assert.deepEqual(P.before, { tips: { on: false }, occluded: { C1a: false } }, 'the slide opens with no stent and the vein open');

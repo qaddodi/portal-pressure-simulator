@@ -6,7 +6,7 @@ export const DISEASES = ['cardiac cirrhosis', 'cirrhosis', 'cirrhotic', 'portal 
   'hepatic artery thrombosis', 'HRS(?:-AKI)?', 'pancreatic cancer', 'liver cancer', 'Budd[–-]⁠?Chiari(?: syndrome)?',
   'right heart failure', 'heart failure', 'MASLD', 'hepatitis [BC]', 'alcohol-associated hepatitis', 'tricuspid regurgitation', 'constrictive pericarditis',
   'hepatorenal syndrome', 'spontaneous bacterial peritonitis', 'SBP', 'hepatic encephalopathy', 'congestive hepatopathy', 'nodular regenerative hyperplasia',
-  'hepatoportal sclerosis', 'hepatic fibrosis', 'hepatocellular carcinoma', 'pancreatitis', 'sarcoidosis', 'primary biliary cholangitis'];
+  'hepatoportal sclerosis', 'hepatic fibrosis', 'hepatocellular carcinoma', 'HCC', 'pancreatitis', 'sarcoidosis', 'primary biliary cholangitis'];
 
 // A name may open a sentence, so its first letter takes either case (an abbreviation keeps its capitals).
 const ci = (w) => w.replace(/^([a-z])/, (c) => `[${c}${c.toUpperCase()}]`);

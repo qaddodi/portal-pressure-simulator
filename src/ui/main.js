@@ -98,14 +98,14 @@ const FP_CSS = ['var(--fp-raw)', 'var(--fp-clear)', 'var(--origin-artery)', 'var
 const LENSES = {
   pressure: ['Pressure', 'Venous pressure in each vessel', () => gradientCss('to right', 30)],
   delta: ['Change', 'Higher or lower than healthy', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))'],
-  heat: ['Congestion', 'Where pressure has backed up', () => heatCss('to right')],
-  drop: ['Pressure drop', 'Where the resistance lives', () => dropCss('to right')],
+  heat: ['Congestion', 'Venous pressure above the reference', () => heatCss('to right')],
+  drop: ['Pressure drop', 'Where pressure is lost across resistance', () => dropCss('to right')],
   flow: ['Flow volume', 'Width shows how much blood flows', () => flowCss('to right')],
   velocity: ['Velocity', 'Against each vessel\u2019s own normal', () => velocityCss('to right')],
   direction: ['Flow direction', 'Toward the liver or away', () => 'linear-gradient(to right, var(--flow-normal) 50%, var(--flow-reversed) 50%)'],
   oxygen: ['Oxygen', 'How much oxygen the blood carries', () => oxygenCss('to right')],
   origin: ['Blood origin', 'Where each vessel\u2019s blood comes from', () => `linear-gradient(to right, ${ORIGIN_CSS.map((c, i) => `${c} ${i * 20}% ${(i + 1) * 20}%`).join(', ')})`],
-  firstpass: ['First pass', 'Gut blood cleaned by the liver', () => `linear-gradient(to right, ${FP_CSS.map((c, i) => `${c} ${i * 25}% ${(i + 1) * 25}%`).join(', ')})`],
+  firstpass: ['First pass', 'Hepatic first-pass extraction', () => `linear-gradient(to right, ${FP_CSS.map((c, i) => `${c} ${i * 25}% ${(i + 1) * 25}%`).join(', ')})`],
 };
 const COLOR_MODES = { pressure: 'Pressure', delta: 'Change', heat: 'Congestion', drop: 'Pressure drop', flow: 'Flow volume', velocity: 'Velocity', direction: 'Flow direction', oxygen: 'Oxygen', origin: 'Blood origin', firstpass: 'First pass' };
 
@@ -754,7 +754,7 @@ function doAction(a) {
   const tlLabel = typeof tl === 'object' ? tl[a.fluid] : tl;
   if (tlLabel) timeline.recordAction(tlLabel);
   const msgs = { infuse: { crystalloid: '1 L crystalloid running (≈25% stays intravascular).', prbc: '1 unit of packed red cells running.', albumin: 'Albumin given: plasma oncotic pressure rises.' },
-    valsalva: 'Valsalva: intrathoracic and abdominal pressure up for 10 s.' };
+    valsalva: 'Valsalva: intrathoracic and intra-abdominal pressures rise for 10 s.' };
   const m = typeof msgs[a.kind] === 'object' ? msgs[a.kind][a.fluid] : msgs[a.kind];
   if (a.kind === 'paracentesis') toast(`Paracentesis: up to ${(a.mL / 1000).toFixed(1)} L drained${a.albumin ? ' with albumin' : ' without albumin'}.`);
   else if (m) toast(m);
@@ -880,7 +880,7 @@ const LG_TITLE = { class: 'lg-title' }, LG_CAP = { class: 'lg-cap', 'aria-hidden
 const LG_BAR_STYLE = { background: '' }, LG_BAR = { class: 'lg-bar', style: LG_BAR_STYLE };   // (the bar's colours are written into the one style before each build)
 const LG_DOT = { normal: { style: { background: 'var(--flow-normal)' } }, reversed: { style: { background: 'var(--flow-reversed)' } }, portal: { style: { background: 'var(--vein-portal)' } }, systemic: { style: { background: 'var(--vein-systemic)' } } };
 const LG_ORIGIN_ORDER = [0, 1, 2, 4, 3];
-const LG_FP_DOTS = { class: 'lg-cats lg-dots', title: 'Gut blood by the path it took: raw before the liver, clear after its sinusoids. Not an ammonia level' };
+const LG_FP_DOTS = { class: 'lg-cats lg-dots', title: 'Splanchnic blood by its route: Raw has not passed the sinusoids, Clear has. Not an ammonia level' };
 const LG_FIRSTPASS = FIRSTPASS.map((o, i) => ({ span: { title: o[3] }, dot: { style: { background: FP_CSS[i] } }, name: o[2] }));
 const LG_ORIGIN = ORIGINS.map((o, i) => ({ span: { title: o[3] }, dot: { style: { background: ORIGIN_CSS[i] } }, name: o[2] }));
 // (Every number is centred on its tick; the scale stands in from its neighbours by half its end numbers' width (ch: a digit,
@@ -980,7 +980,7 @@ function renderLegend() {
     const cats = h('div', LG_FP_DOTS);
     for (let k = 0; k < LG_FIRSTPASS.length; k++) { const o = LG_FIRSTPASS[k]; cats.append(h('span', o.span, h('i', o.dot), h('b', NOATTR, o.name))); }
     lgPut(el, same, cats);
-    el.setAttribute('aria-label', 'Legend: gut blood colored by whether it has been through the liver. Orange Raw: gut blood that has not passed the sinusoids, including blood that took a collateral, a shunt or a stent. Teal Clear: gut blood after the sinusoids. Crimson HA: hepatic artery blood. Slate blue Sys: blood from the rest of the body. This shows the path the blood took, not an ammonia level');
+    el.setAttribute('aria-label', 'Legend: splanchnic blood colored by whether it has passed through the liver. Orange Raw: splanchnic blood that has not passed the sinusoids, including blood that took a collateral, a shunt or a stent. Teal Clear: splanchnic blood after the sinusoids. Crimson HA: hepatic artery blood. Slate blue Sys: systemic venous blood. This shows the route the blood took, not an ammonia level');
   } else if (m === 'neutral') {
     lgPut(el, same, h('div', LG_CATS, h('span', NOATTR, h('i', LG_DOT.portal), 'Portal veins'), h('span', NOATTR, h('i', LG_DOT.systemic), 'Systemic veins'),
       h('span', LG_NOTE, svgIcon('info'), 'Pressures unmeasured')));
@@ -2320,7 +2320,7 @@ function openHelp(section) {
     h('ul', {},
       h('li', {}, 'Veins are colored by mean pressure on a perceptually uniform scale (0–30 mmHg), and the legend names the unit once. A label gives a station’s value. Select the station, color by Change or compare with an earlier moment to see ▲ / ▼, the change from healthy, shown from 5 mmHg. Arteries are thinner, in a fixed red.'),
       h('li', {}, 'Streaks of blood move downstream, brighter where flow is greater, faster where velocity is higher, fastest along the axis (laminar flow); chevrons (Blood menu) point the way. Smoke marks stagnant blood in a large vein. Coloring the vessels by blood origin shows where blood comes from. Tap a vessel and use Inject dye on its card (or press J; hold for longer) to watch dye travel and split. Dotted vessel outlines are closed potential collaterals.'),
-      h('li', {}, 'Line width follows vessel diameter (compressed, so the cavae don’t drown the portal tree). Watch collaterals and varices swell.'),
+      h('li', {}, 'Line width follows vessel diameter (compressed, so the venae cavae do not dwarf the portal tree). Watch collaterals and varices swell.'),
       h('li', {}, 'The circuit view is a transit map: pressure falls from left to right; collaterals and shunts run in their own lanes as bypasses.')),
     h('h3', {}, 'Thresholds & references'),
     h('p', { class: 'sub' }, 'Baveno VIII consensus on portal hypertension (2026), building on Baveno VII (2022); AASLD guidance on risk stratification and management of portal hypertension and varices in cirrhosis (2024). Thresholds apply to gradients (HVPG, direct portal–systemic gradient), never to the pressure at a single vessel. Physiology after Guyton; Lautt (hepatic arterial buffer response); Bosch & Groszmann (HVPG).'),
@@ -2351,9 +2351,9 @@ function openAbout(section) {
       h('thead', {}, h('tr', {}, CUT_HEADS.map((x, i) => h('th', {}, i ? h('span', { class: 'cut-h', 'data-sev': CUT_SEV[i] }, x) : x)))),
       // (On a phone each row stacks, its readout over four labelled lines, and an empty band is left out: five columns did not fit and the table scrolled sideways, cut off at the edge.)
       h('tbody', {}, CUTOFFS.map((r) => h('tr', {}, r.map((c, i) => h('td', i ? { 'data-label': CUT_HEADS[i], 'data-sev': CUT_SEV[i], class: c === '—' ? 'none' : '' } : {}, c))))))),
-    h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥ 10 mmHg is clinically significant portal hypertension in cirrhosis. HVPG ≥ 20 mmHg matters as a prognostic finding when measured during an acute variceal bleed. 12 mmHg is not a bleeding threshold: varices can bleed below it, and it is only a usual post-TIPS target for the direct gradient.'),
+    h('p', { class: 'sub' }, 'Thresholds belong to gradients, not to the color of a vessel. HVPG ≥10 mmHg is clinically significant portal hypertension (CSPH) in cirrhosis. HVPG ≥20 mmHg is prognostic when measured during acute variceal bleeding. An HVPG of 12 mmHg is not a bleeding threshold: varices can bleed below it. 12 mmHg is the usual post-TIPS target for the directly measured portosystemic gradient.'),
     h('h3', {}, 'Reference review'),
-    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for pre-emptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
+    h('p', {}, 'The presentations follow Baveno VIII (J Hepatol, August 2026), with AASLD guidance where US practice differs (octreotide). Baveno VIII changed the recompensation criteria (>6 months, Child–Pugh A), the indeterminate zone for stiffness (ANTICIPATE probability ≥75%, or spleen stiffness >55 kPa on the 100 Hz probe), the window for preemptive TIPS and anticoagulation for portal vein thrombosis. Baveno VIII statements were taken from published summaries; a line-by-line check against the full text is still pending.'),
     h('h3', {}, 'Clinical review'),
     h('p', {}, 'Presentation and patient content follows the guidance below. An external clinical advisory review with named reviewers is pending; their sign-off will be listed here.'),
     h('h3', { 'data-sec': 'refs' }, 'References'),

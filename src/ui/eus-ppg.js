@@ -22,7 +22,7 @@ const EUS = MEASURES.eus, NOT = '—';
 const NI = Object.fromEntries(NODES.map((n, i) => [n.id, i]));
 const SLIDE = { procedure: 'eus' };   // (the monitor's measurement: the EUS-PPG, as on a slide that plays it)
 const r1 = (v) => Math.round(v * 10) / 10;
-const IDLE = 'Watch the echoendoscope measure the portal pressure gradient from the stomach, with one needle.';
+const IDLE = 'EUS-guided portal pressure gradient: portal and hepatic vein pressures measured transgastrically with one needle.';
 const word = (v) => (Number.isFinite(v) ? v.toFixed(1) : NOT);
 // (Read on the HVPG's cut-offs, as EUS-PPG series do: 5 and over portal hypertension, 10 and over clinically significant.)
 const SEV_WORD = { ok: 'Normal', caution: 'Portal hypertension', danger: 'Clinically significant portal hypertension (CSPH)' };
@@ -52,7 +52,7 @@ export function createEusPpg() {
     // (A touch plays it on the lift; the click that follows is ignored. One catheter or scope on the figure at a time.)
     if (performance.now() - playT < 600 || run || !stageRef) return;
     playT = performance.now();
-    if (procRunning() || stageRef.cathBoxes?.().length) { toast('A procedure is on the figure. Wait for it to finish.'); return; }
+    if (procRunning() || stageRef.cathBoxes?.().length) { toast('A procedure is in progress on the figure. Wait for it to finish.'); return; }
     const st = store.get();
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });

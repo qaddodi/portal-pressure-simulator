@@ -57,10 +57,10 @@ function scaleKey(sc, rows) {
 /** SAAG against ascites protein: the four quadrants numbered on the plot in reading order (1 top left to 4 bottom
  *  right) and named beside it, the model's patients as points (two close together share a point, names stacked). */
 const QUADS = [
-  { n: 1, x: 0, y: 1, t: 'Not portal: the peritoneum leaks', c: 'Peritoneal cancer · tuberculosis · pancreatic ascites' },
-  { n: 2, x: 1, y: 1, t: 'Portal hypertension, open sinusoids', c: 'Heart failure · constrictive pericarditis · early Budd–Chiari' },
-  { n: 3, x: 0, y: 0, t: 'Not portal, protein-poor', c: 'Nephrotic syndrome · protein-losing enteropathy' },
-  { n: 4, x: 1, y: 0, t: 'Portal hypertension, sealed sinusoids', c: 'Cirrhosis · late Budd–Chiari · massive liver metastases' },
+  { n: 1, x: 0, y: 1, t: 'Non-portal: peritoneal disease', c: 'Peritoneal cancer · tuberculosis · pancreatic ascites' },
+  { n: 2, x: 1, y: 1, t: 'Portal hypertension, fenestrated sinusoids', c: 'Heart failure · constrictive pericarditis · early Budd–Chiari' },
+  { n: 3, x: 0, y: 0, t: 'Non-portal, low protein', c: 'Nephrotic syndrome · protein-losing enteropathy' },
+  { n: 4, x: 1, y: 0, t: 'Portal hypertension, capillarized sinusoids', c: 'Cirrhosis · late Budd–Chiari · massive liver metastases' },
 ];
 function quadrantVisual(rows) {
   // The plot's margins and height follow its lettering (lay): the axis names and ticks take the room they need, and a
@@ -78,12 +78,12 @@ function quadrantVisual(rows) {
   const cuts = [sv('line', { class: 'pzq-cut', 'data-look': 'card.quad.cut' }), sv('line', { class: 'pzq-cut', 'data-look': 'card.quad.cut' })], axes = [sv('line', { class: 'pzq-axis', 'data-look': 'card.quad.axis' }), sv('line', { class: 'pzq-axis', 'data-look': 'card.quad.axis' })];
   const xt = [[0, '0'], [1.1, '1.1'], [2, '2'], [3, '3']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 1.1 ? ' on' : ''), 'data-look': 'card.quad.t', 'text-anchor': 'middle' }, t) }));
   const yt = [[0, '0'], [2.5, '2.5'], [5, '5']].map(([v, t]) => ({ v, el: sv('text', { class: 'pzq-t' + (v === 2.5 ? ' on' : ''), 'data-look': 'card.quad.t', 'text-anchor': 'end' }, t) }));
-  const axX = sv('text', { class: 'pzq-ax', 'data-look': 'card.quad.ax', 'text-anchor': 'middle' }, 'SAAG, g/dL'), axY = sv('text', { class: 'pzq-ax', 'data-look': 'card.quad.ax', x: 0, y: 0, 'text-anchor': 'middle' }, 'Ascites protein, g/dL');
+  const axX = sv('text', { class: 'pzq-ax', 'data-look': 'card.quad.ax', 'text-anchor': 'middle' }, 'SAAG, g/dL'), axY = sv('text', { class: 'pzq-ax', 'data-look': 'card.quad.ax', x: 0, y: 0, 'text-anchor': 'middle' }, 'Ascitic fluid protein, g/dL');
   const dots = pts.map((p, i) => {
     const circle = sv('circle', { 'data-look': 'card.quad.dot', r: 15 }), names = p.names.map((nm) => sv('text', { 'data-look': 'card.quad.name' }, nm));
     return { p, circle, names, g: sv('g', { class: 'pzq-pt', 'data-look': 'card.quad.pt', 'data-site': p.site || 'none', 'data-i': String(i) }, circle, names) };
   });
-  const label = 'SAAG against ascites protein: ' + pts.map((p) => `${p.names.join(' and ')}, SAAG ${fmt(p.saag, 1)}, protein ${fmt(p.tp, 1)}`).join('; ');
+  const label = 'SAAG against ascitic fluid protein: ' + pts.map((p) => `${p.names.join(' and ')}, SAAG ${fmt(p.saag, 1)}, protein ${fmt(p.tp, 1)}`).join('; ');
   const model = sv('svg', { 'data-look': 'card.root', viewBox: `0 0 ${W} 640`, 'aria-label': label },
     quads.map((q) => q.g), cuts, axes, xt.map((t) => t.el), yt.map((t) => t.el), axX, axY, dots.map((d) => d.g));
   const svg = glBox('pz-quad', model, { role: 'img', 'aria-label': label, style: `aspect-ratio: ${W} / 640` }, 'quad');
@@ -95,7 +95,7 @@ function quadrantVisual(rows) {
     L = ax + 0.3 * a + 8 + est('2.5', t) + 14 + 0.3 * t;   // (the y ticks stand 0.3 letter further out, so the two 0s at the corner never touch at 200 %)
     // (The rotated axis name never stretches the plot to fit long words: in a height-capped box that shrinks the whole chart,
     // which grows the lettering again and never settles. A name too long for the plot drops to its short form.)
-    const yName = est('Ascites protein, g/dL', a) + 24 <= 524 ? 'Ascites protein, g/dL' : 'Protein, g/dL';
+    const yName = est('Ascitic fluid protein, g/dL', a) + 24 <= 524 ? 'Ascitic fluid protein, g/dL' : 'Protein, g/dL';
     if (axY.textContent !== yName) axY.textContent = yName;
     B = T + Math.max(524, est(yName, a) + 24);
     const H = B + 20 + t + 12 + 0.75 * a + 0.3 * a + 6;
@@ -159,8 +159,8 @@ function wallsVisual() {
       ? [0, 1, 2, 3, 4, 5].map((k) => sv('rect', { class: 'pzw-wall', 'data-look': 'card.walls.wall', x: 20 + k * 98, y: yW, width: 70, height: 14, rx: 7 }))
       : [sv('rect', { class: 'pzw-wall', 'data-look': 'card.walls.wall', x: 20, y: yW, width: 560, height: 14, rx: 7 }), sv('rect', { class: 'pzw-bm', 'data-look': 'card.walls.bm', x: 20, y: yW - 9, width: 560, height: 6, rx: 3 })];
     // A band's name, placed in lay: [text, band top, band height, centred in the band].
-    const names = sin ? [[sv('text', { class: 'pzw-l', 'data-look': 'card.walls.l', x: 34 }, 'Liver cells'), 108, 42, true], [sv('text', { class: 'pzw-l', 'data-look': 'card.walls.l', x: 34 }, 'Space of Disse: lymph'), 154, 74, false]]
-      : [[sv('text', { class: 'pzw-l', 'data-look': 'card.walls.l', x: 34 }, 'Tissue fluid: little'), 108, 120, false]];
+    const names = sin ? [[sv('text', { class: 'pzw-l', 'data-look': 'card.walls.l', x: 34 }, 'Hepatocytes'), 108, 42, true], [sv('text', { class: 'pzw-l', 'data-look': 'card.walls.l', x: 34 }, 'Space of Disse: lymph'), 154, 74, false]]
+      : [[sv('text', { class: 'pzw-l', 'data-look': 'card.walls.l', x: 34 }, 'Interstitial fluid: little'), 108, 120, false]];
     const dotsG = sv('g', { class: 'pzw-dots', 'data-look': 'card.g' }, dots);
     const model = sv('svg', { 'data-look': 'card.root', viewBox: '0 100 600 276' },
       sin ? [sv('rect', { class: 'pzw-hep', 'data-look': 'card.walls.hep', x: 20, y: 108, width: 560, height: 42, rx: 12 }), sv('rect', { class: 'pzw-disse', 'data-look': 'card.walls.disse', x: 20, y: 154, width: 560, height: 74, rx: 8 })]
@@ -180,13 +180,13 @@ function wallsVisual() {
       op: (k) => (k < 0.25 ? seg(k, 0, 0.25, eA) : k < 0.75 ? 1 : 1 - seg(k, 0.75, 1, eA)), xy: still ? null : (k) => [0, 40 - 84 * eA(k)] });
     fitChart(draw, (fs) => { for (const [t, y, hgt, mid] of names) { t.setAttribute('y', (mid ? y + hgt / 2 + 0.36 * fs.cap : y + 8 + 0.75 * fs.cap).toFixed(1)); fsOf(t, fs.cap); } }, () => draw._svgGL.paint());
     return h('div', { class: 'pzw-panel' + (sin ? ' sin' : '') },
-      h('div', { class: 'pzw-t' }, sin ? 'Liver sinusoid' : 'Gut capillary'),
-      h('div', { class: 'pzw-s' }, sin ? 'Open pores, no basement membrane' : 'Continuous wall, basement membrane'),
+      h('div', { class: 'pzw-t' }, sin ? 'Hepatic sinusoid' : 'Intestinal capillary'),
+      h('div', { class: 'pzw-s' }, sin ? 'Fenestrated, no basement membrane' : 'Continuous wall, basement membrane'),
       draw,
-      h('p', { class: 'pzw-c' }, sin ? 'Protein crosses: nothing holds the fluid back' : 'Protein stays in: its pull holds the fluid back'),
-      h('p', { class: 'pzw-c2' }, sin ? 'A rise in pressure becomes lymph at once' : 'A rise in pressure makes little fluid'));
+      h('p', { class: 'pzw-c' }, sin ? 'Protein crosses: no oncotic gradient opposes filtration' : 'Protein retained: its oncotic gradient opposes filtration'),
+      h('p', { class: 'pzw-c2' }, sin ? 'A pressure rise raises lymph flow at once' : 'A pressure rise filters little fluid'));
   };
-  return h('div', { class: 'pz-visual pz-walls', role: 'img', 'aria-label': 'The gut capillary wall holds protein back; the liver sinusoid lets it through' }, panel(false), panel(true));
+  return h('div', { class: 'pz-visual pz-walls', role: 'img', 'aria-label': 'The intestinal capillary wall retains protein; the hepatic sinusoid lets it through' }, panel(false), panel(true));
 }
 
 // ── The off-screen engine ──────────────────────────

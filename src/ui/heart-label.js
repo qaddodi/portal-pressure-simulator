@@ -25,7 +25,7 @@ export function heartRuns(f, look, gap, wide = false) {
 }
 /** What a screen reader hears of it. */
 export function heartWords(f) {
-  const fp = fpOf(f), say = (t) => t.replace(' L/min', ' litres a minute').replace(' /min', ' a minute');
+  const fp = fpOf(f), say = (t) => t.replace(' L/min', ' liters per minute').replace(' /min', ' per minute');
   return `heart rate ${say(valueText('hr', fp))}, cardiac output ${say(valueText('co', fp))}`;
 }
 const zoneOf = (it) => it.key.startsWith('z:');

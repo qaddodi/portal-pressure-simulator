@@ -14,7 +14,7 @@ export const side = (p) => {
 };
 
 const tree = inheritTone({
-  id: 'root', t: 'Compensated, stiffness and platelets', r: 'Is CSPH present?', stmt: 'Fig. 3', tone: 'n', kids: [
+  id: 'root', t: 'Compensated, LSM and platelets', r: 'Is CSPH present?', stmt: 'Fig. 3', tone: 'n', kids: [
     { id: 'in', t: 'Rule of five met', r: 'CSPH presumed', s: 'LSM ≥25, or 20–25 with platelets <150, or 15–20 with platelets <110.', stmt: 'Fig. 3', tone: 'bad', sh: 'Presumed' },
     { id: 'gray', t: 'Neither', r: 'Not settled', s: 'Spleen stiffness or HVPG can decide.', stmt: 'Fig. 3', tone: 'warn', sh: 'Not settled' },
     { id: 'out', t: 'LSM <15 and platelets ≥150', r: 'CSPH excluded', stmt: 'Fig. 3', tone: 'ok', sh: 'Excluded' }] }, 'n');
@@ -29,7 +29,7 @@ function reading(key, p) {
     const band = p.lsm >= 25 ? `LSM ${p.lsm} kPa is ≥25, whatever the platelets (${p.plt}).` : p.lsm >= 20 ? `LSM ${p.lsm} kPa is 20–25 and platelets ${p.plt} are <150.` : `LSM ${p.lsm} kPa is 15–20 and platelets ${p.plt} are <110.`;
     return { head: 'CSPH presumed', tone: 'bad', stmt: 'Fig. 3, guidance 7 and 12', why: band, next: 'Carvedilol can be considered to prevent decompensation.' };
   }
-  if (key === 'out') return { head: 'CSPH excluded', tone: 'ok', stmt: 'Fig. 3', why: `LSM ${p.lsm} kPa is <15 and platelets ${p.plt} are ≥150.`, next: 'The same values also rule out varices needing treatment, so no screening scope.' };
+  if (key === 'out') return { head: 'CSPH excluded', tone: 'ok', stmt: 'Fig. 3', why: `LSM ${p.lsm} kPa is <15 and platelets ${p.plt} are ≥150.`, next: 'The same values rule out varices needing treatment, so screening endoscopy can be avoided.' };
   return { head: 'Not settled', tone: 'warn', stmt: 'Fig. 3', why: `${both} meets neither side.`, next: 'Spleen stiffness or HVPG can settle it.' };
 }
 
@@ -49,7 +49,7 @@ export function compare(p) {
 
 export default {
   id: 'aasld',
-  label: 'Rule of five: stiffness and platelets',
+  label: 'Rule of five: LSM and platelets',
   kind: 'tree',
   source: 'AASLD 2024',
   cite: 'Fig. 3',
@@ -57,5 +57,5 @@ export default {
   outcomes: ['in', 'gray', 'out'],
   outcomeOf, reading, chips, patientFor, compare,
   worst: { lsm: 99.9, plt: 1000 },
-  notes: 'The AASLD 2024 guidance (Fig. 3, guidance statement 7) uses liver stiffness by transient elastography with the platelet count, the rule of five. CSPH is presumed at LSM ≥25 kPa whatever the platelets, at 20–25 kPa with platelets <150, or at 15–20 kPa with platelets <110 (×10⁹/L). It is excluded at LSM <15 kPa with platelets ≥150. Between them lies an indeterminate zone, where spleen stiffness or HVPG can decide. Baveno VIII draws its first-visit rules differently: it rules CSPH out at LSM ≤15 kPa with platelets ≥150 and in at LSM ≥25 kPa, so the two differ at exactly 15 kPa. Take care in obesity with MASLD, ALT >3 times the upper limit, and primary sclerosing cholangitis with a dominant stricture, where the rule is less well calibrated.',
+  notes: 'The AASLD 2024 guidance (Fig. 3, guidance statement 7) combines liver stiffness measurement (LSM) by vibration-controlled transient elastography with the platelet count: the rule of five. CSPH is presumed at LSM ≥25 kPa whatever the platelets, at 20–25 kPa with platelets <150,000/µL, or at 15–20 kPa with platelets <110,000/µL. It is excluded at LSM <15 kPa with platelets ≥150,000/µL. Between them lies an indeterminate zone, where spleen stiffness or HVPG can decide. Baveno VIII draws its first-visit rules differently: it rules CSPH out at LSM ≤15 kPa with platelets ≥150,000/µL and in at LSM ≥25 kPa, so the two differ at exactly 15 kPa. Interpret it with caution in obesity with MASLD, ALT >3 × ULN, and primary sclerosing cholangitis with a dominant stricture, where it is less well validated.',
 };

@@ -131,7 +131,7 @@ test('Warren shunt ties off the coronary vein: no flow in it, sutures, a cross a
   assert.match(stage, /tiedOff\(f\.viewParams \|\| st\.params, id\)/, 'the station label reads —');
   assert.match(fs.readFileSync(new URL('../src/ui/main.js', import.meta.url), 'utf8'), /tiedOff\(store\.get\(\)\.params, info\.id\)\) \{ vals\[0\] = '—'/, 'the tooltip reads —');
   const { SHUNTS } = await import('../src/ui/decks/shunts.js');
-  assert.match(SHUNTS.slides.find((x) => x.id === 'dsrs').line, /coronary vein is tied off/);
+  assert.match(SHUNTS.slides.find((x) => x.id === 'dsrs').line, /coronary vein ligated/);
 });
 
 // Mohammad, 8 Nov: "should some varices stay after a Warren shunt? tie off the coronary vein and follow physiology, whatever happens in real life".

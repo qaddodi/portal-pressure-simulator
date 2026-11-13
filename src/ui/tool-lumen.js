@@ -220,7 +220,7 @@ export function createLumen() {
   let ariaOcc = -1, ariaThr = -1, ariaSte = -1, ariaStent = false, ariaAsk = 0;
   const writeAria = () => {
     ariaAsk = 0;
-    pic.setAttribute('aria-label', `${lumenName(id)} in cross-section${ariaStent ? ' with a stent' : ''}: ${ariaOcc}% of the lumen filled, clot ${ariaThr}%, narrowing ${ariaSte}%`);
+    pic.setAttribute('aria-label', `${lumenName(id)} in cross-section${ariaStent ? ' with a stent' : ''}: ${ariaOcc}% of the lumen occluded, thrombus ${ariaThr}%, stenosis ${ariaSte}%`);
   };
   // (Opacity is held on the piece as a number, the picture reads it from there: set once so its look is read as a strength the chart moves.)
   for (const e of [clot, tissue, inNum, inWord]) setGeo(e, 'opacity', e === tissue || e === clot ? 0 : 1);

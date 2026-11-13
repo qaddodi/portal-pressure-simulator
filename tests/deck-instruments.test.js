@@ -84,7 +84,7 @@ test('V27: made minus drained is the ascites made, from the fingerprint and from
   }
   const [cirr, , healthy] = st.map((m) => fluidOf(m.fp));
   assert.ok(cirr.over > 0 && healthy.over === 0 && healthy.spare > 0, 'cirrhosis overflows its lymphatics; health has room to spare');
-  assert.match(fluidWords(healthy), /^No ascites builds.*\.$/);
+  assert.match(fluidWords(healthy), /^No ascites: .*\.$/);
   for (const f of [cirr, healthy]) assert.match(fluidWords(f), /\.$/, 'a sentence, with its full stop');
   assert.equal(fluidOf({ pv: 10 }), null, 'a live fingerprint without the fluid terms gives no bars');
 });

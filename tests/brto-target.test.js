@@ -63,7 +63,7 @@ test('it plays like BRTO: four steps on the same timing, its callouts on C6 and 
 });
 
 test('the slide\'s graph names the closing, as BRTO\'s does', () => {
-  assert.equal(EVENT_WORD.brtoC6, 'Shunt closed');
+  assert.equal(EVENT_WORD.brtoC6, 'Shunt occluded');
   const s = { procedure: { kind: 'brto', target: 'C6' }, tiles: ['ppg', 'liver'] };
   assert.deepEqual(eventLines(s), ['ppg', 'liver']);
   assert.equal(eventGraphOf(s).kind, 'brtoC6');

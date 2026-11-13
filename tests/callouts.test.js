@@ -173,11 +173,11 @@ test('clot mark: words follow the cross-section card, gone with no clot', async 
   assert.equal(clotWords(0), null);
   assert.equal(clotWords(undefined), null);
   assert.equal(clotWords(0.004), null);
-  assert.equal(clotWords(0.05), 'Nonocclusive clot');
-  assert.equal(clotWords(0.6), 'Nonocclusive clot');
-  assert.equal(clotWords(0.99), 'Nonocclusive clot');
-  assert.equal(clotWords(0.995), 'Occlusive clot');
-  assert.equal(clotWords(1), 'Occlusive clot');
+  assert.equal(clotWords(0.05), 'Nonocclusive thrombus');
+  assert.equal(clotWords(0.6), 'Nonocclusive thrombus');
+  assert.equal(clotWords(0.99), 'Nonocclusive thrombus');
+  assert.equal(clotWords(0.995), 'Occlusive thrombus');
+  assert.equal(clotWords(1), 'Occlusive thrombus');
 });
 test('clot mark: the portal vein clots talk\'s gradients slide names the clot live, never "partial"', async () => {
   const fs = await import('node:fs');

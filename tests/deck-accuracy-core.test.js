@@ -84,7 +84,7 @@ test('Sites: the three liver levels carry the scale switch, the caudate lobe is 
 test('HVPG: 16 mmHg is named with its setting, in the notes (the line keeps the one idea, CSPH); the schistosomiasis case card sits where the patient first appears', () => {
   const h = slide('hvpg', 'hvpg');
   assert.doesNotMatch(h.line, /16 mmHg|MASLD/);
-  assert.match(h.notes, /Before non-hepatic abdominal surgery, an HVPG of 16 mmHg or more/);
+  assert.match(h.notes, /Before nonhepatic abdominal surgery, an HVPG ≥16 mmHg/);
   assert.match(h.notes, /Baveno VIII Table 3/);
   assert.ok(slide('hvpg', 'presin').vignette && !slide('hvpg', 'eus').vignette);
   assert.match(slide('hvpg', 'route').vignette, /90,000\/µL/);

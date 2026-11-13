@@ -73,12 +73,12 @@ test('one the patient cannot have says why', () => {
   const p = defaultParams();   // (no gastrorenal shunt by default)
   assert.equal(procBlocked('tips', p), '');
   assert.match(procBlocked('tips', { ...p, tips: { on: true, d: 8 } }), /already/);
-  assert.match(procBlocked('tips', { ...p, thrombus: { RHV_IVC: 1 } }), /clotted/);
+  assert.match(procBlocked('tips', { ...p, thrombus: { RHV_IVC: 1 } }), /thrombosed/);
   assert.match(procBlocked('brto', p), /no gastrorenal shunt/);
   const grs = { ...p, spontaneous: { C5: true, C6: false } };
   assert.equal(procBlocked('brto', grs), ''); assert.equal(procBlocked('bato', grs), '');
   assert.match(procBlocked('brto', { ...grs, occluded: { C5: true } }), /already closed/);
-  assert.match(procBlocked('bato', { ...grs, thrombus: { PV_TRUNK: 1 } }), /portal vein is clotted/);
+  assert.match(procBlocked('bato', { ...grs, thrombus: { PV_TRUNK: 1 } }), /portal vein is thrombosed/);
   assert.ok(procBlocked('nope', p));
 });
 
@@ -214,7 +214,7 @@ test('presented, it holds at each step until Next, waits for each shot to land, 
     assert.ok(play.next());
     R.run(30000);
     assert.deepEqual(R.moves.map((m) => m.mode), ['way', 'tip']);
-    assert.equal(steps.at(-1), 1); assert.equal(marks.at(-1), '2 Balloon up');
+    assert.equal(steps.at(-1), 1); assert.equal(marks.at(-1), '2 Balloon inflated');
     assert.ok(play.next()); R.run(30000);
     assert.equal(applied, 0, 'the shunt stays open through the sclerosant step: it closes (and its X shows) only at step 4');
     assert.ok(PROCS.brto.T.apply > P.stops[2] && PROCS.bato.T.apply > PROCS.bato.stops[2] && PROCS.brto.T.apply < P.stops[3], 'BRTO and BATO close at step 4');

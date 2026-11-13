@@ -144,14 +144,14 @@ test('a percentage is "75%" everywhere a person reads it: the cards, the Why bar
   }
   assert.match(src('src/ui/actions.js'), /const pct = \(v\) => `\$\{Math\.round\(v \* 100\)\}%`;/);
   assert.match(src('src/ui/inspector.js'), /sub: '40% compensated · 60% CSPH · 85% decompensated'/);
-  // (a unit phrase keeps its space: "liver blood flow in % of normal")
-  assert.match(src('src/ui/presenter.js'), /liver blood flow in % of normal/);
+  // (a unit phrase keeps its space: "hepatic blood flow in % of normal")
+  assert.match(src('src/ui/presenter.js'), /hepatic blood flow in % of normal/);
 });
 
 test('the drug class is "beta-blocker" on the Treat card, the Why card and the slides alike', () => {
-  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/engine/scenario.js']) assert.doesNotMatch(src(f), /'(Non-selective )?[βΒ]-blocker/, f);
-  assert.match(src('src/ui/actions.js'), /propranolol: 'Non-selective beta-blocker', carvedilol: 'Beta-blocker \+ α1 blockade'/);
-  assert.match(src('src/ui/decks/treatment.js'), /kicker: 'Non-selective beta-blocker'/);
+  for (const f of ['src/ui/actions.js', 'src/ui/inspector.js', 'src/engine/scenario.js']) assert.doesNotMatch(src(f), /'(Non-?selective )?[βΒ]-blocker/, f);
+  assert.match(src('src/ui/actions.js'), /propranolol: 'Nonselective beta-blocker', carvedilol: 'Beta-blocker \+ α1 blockade'/);
+  assert.match(src('src/ui/decks/treatment.js'), /kicker: 'Nonselective beta-blocker'/);
 });
 
 test('US spelling in what a reader sees: liters, center, favors, color', () => {
@@ -178,9 +178,9 @@ test('where pressure is lost is "resistance", never a "block" (cards, About and 
 
 test('the bleed-risk event is named for what it means, not as a threshold (12 is not a cut-off; the number sits in its line)', () => {
   const ev = src('src/engine/events.js');
-  assert.match(ev, /title: 'Bleeding more likely', detail: 'HVPG ≥ 12 mmHg\. The risk rises with the gradient, but 12 is not a threshold/);
+  assert.match(ev, /title: 'Bleeding more likely', detail: 'HVPG ≥12 mmHg\. Bleeding risk climbs with the gradient from about 12 mmHg, but varices can bleed below it/);
   assert.doesNotMatch(ev, /title: 'HVPG ≥ 12 mmHg'/);
-  assert.match(ev, /15–30% blood volume lost/);
+  assert.match(ev, /15–30% of blood volume lost/);
   // event sentences read aloud: 'below', not a '<' sign, and a percent hugs its number
   assert.match(ev, /Doppler velocity below 9 cm\/s:/);
   assert.match(ev, /Total sinusoidal flow is below 60% of normal\./);
@@ -289,7 +289,7 @@ test('the Patients and Present previews opened by the (i) on touch scroll their 
 });
 
 test('the Patients preview names what its curve plots and its scale', () => {
-  assert.match(src('src/ui/menu.js'), /class: 'hp-cap' \}, 'Pressure, gut to right atrium \(0 to 30 mmHg\)'/);
+  assert.match(src('src/ui/menu.js'), /class: 'hp-cap' \}, 'Pressure, splanchnic bed to right atrium \(0 to 30 mmHg\)'/);
   assert.match(css, /\.um-pv-in \.hp-cap \{ display: block;[^}]*font-size: var\(--fs-12\)/);
 });
 
@@ -325,7 +325,7 @@ test('History says a put-away change as what is off: acronyms keep their case, v
 });
 
 test('the PPG tile names the gradient as the rest of the app does (portal pressure gradient)', () => {
-  assert.match(dock, /id: 'ppg'[^\n]*title: 'Portal pressure gradient: portal confluence/);
+  assert.match(dock, /id: 'ppg'[^\n]*title: 'Portal pressure gradient: PPG = portal vein pressure − IVC pressure/);
   assert.doesNotMatch(dock, /Portosystemic pressure gradient/);
 });
 

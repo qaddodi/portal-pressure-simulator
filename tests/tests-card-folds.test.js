@@ -40,7 +40,7 @@ test('HVPG steps, the Ascites albumin and Drain words crossfade, and the gastric
   assert.match(proc, /swapText\(note, n\)/);
   assert.match(instr, /swapText\(albS, albTxt\)/);
   assert.match(instr, /putText\(albS, albTxt\)/, 'the grams count on within one kind');
-  assert.match(instr, /swapText\(drain, hasFluid \? 'Drain' : 'No fluid'\)/);
+  assert.match(instr, /swapText\(drain, hasFluid \? 'Drain' : 'No ascites'\)/);
   assert.match(css, /\.hvpg-proc-btn:not\(\[hidden\]\) \{ animation: crossfade/);
 });
 

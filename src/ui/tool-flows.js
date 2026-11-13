@@ -438,7 +438,7 @@ export function createFlowsTool() {
   function apply() {
     const { geo, mark } = memo, inflow = of === 'inflow', say = (ps) => barOrder(ps, of).map((p) => `${p.name} ${p.pct}%`).join(', ');
     const br = flowView(goal, of).bracket;
-    model.root.setAttribute('aria-label', `${inflow ? 'The liver\'s inflow' : 'Where the portal blood goes'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}`);
+    model.root.setAttribute('aria-label', `${inflow ? 'Hepatic inflow' : 'Distribution of portal venous flow'}, ${memo.hide ? `healthy, and now the same: ${say(goal)}` : `now: ${say(goal)}${br ? `; ${br[0]} ${br[1]}%` : ''}${hGoal ? `; healthy: ${say(hGoal)}` : ''}`}`);
     setGeo(model.clipRect, 'height', geo.barH); setGeo(model.clipRect, 'rx', Math.min(6, geo.barH / 2));
     setWords(model.mkText, mark ? mark.text : '');
     if (mark) setGeo(model.mkText, 'x', (mark.L + mark.R) / 2);

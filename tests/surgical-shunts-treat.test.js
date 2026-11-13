@@ -57,7 +57,7 @@ test('the Warren shunt ties the coronary vein and divides the splenic vein, and 
 
 test('the Meso-Rex bypass keeps the slides’ rule: only for a clotted trunk with an open left portal vein', () => {
   const rex = SURGICAL_BY_ID.rex;
-  assert.match(rex.blocked(defaultParams()), /trunk is open/);
+  assert.match(rex.blocked(defaultParams()), /trunk is patent/);
   assert.equal(rex.blocked(made('pvt-chronic').params), '');
 });
 
@@ -83,7 +83,7 @@ test('placing makes the shunt, names it in the timeline and shows its vessel; a 
 test('a Meso-Rex bypass on an open trunk is refused with the reason, and made on a clotted one', () => {
   const r = rig(defaultParams());
   assert.equal(r.verbs.placeShunt('rex'), false);
-  assert.equal(r.st.params.rex, false); assert.match(r.toasts.at(-1), /trunk is open/);
+  assert.equal(r.st.params.rex, false); assert.match(r.toasts.at(-1), /trunk is patent/);
   const c = rig(made('pvt-chronic').params);
   assert.equal(c.verbs.placeShunt('rex'), true);
   assert.equal(c.st.params.rex, true); assert.deepEqual(c.sels.at(-1), { type: 'edge', id: 'REX' });

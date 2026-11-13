@@ -42,7 +42,7 @@ export function createWhy(pop) {
     delete pop.dataset.swiped; pop.style.translate = ''; pop.style.transform = '';
     pop.classList.toggle('as-sheet', sheet); placedTop = 0;
     if (sheet && !scrim) { scrim = h('div', { class: 'um-scrim why-scrim' }); sheetLayer().append(scrim); }
-    pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Working out what drives it…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
+    pop.replaceChildren(head('Why?'), h('div', { class: 'sub' }, 'Calculating the contributions…'), h('div', { class: 'skeleton', style: { width: '90%' } }), h('div', { class: 'skeleton', style: { width: '70%' } }), h('div', { class: 'skeleton', style: { width: '80%' } }));
     pop.classList.add('show');
     claimSurface(me);
     place(anchor);
@@ -50,7 +50,7 @@ export function createWhy(pop) {
     if (anchor.matches?.(':focus-visible')) pop.querySelector('button')?.focus({ preventScroll: true });
     let r = null;
     try { ({ result: r } = await host.request('explain', { metric })); }
-    catch { if (openFor === metric) swap(head('Why?'), h('div', { class: 'sub' }, 'The model could not work this out right now.')); return; }
+    catch { if (openFor === metric) swap(head('Why?'), h('div', { class: 'sub' }, 'The model could not calculate this right now.')); return; }
     if (openFor !== metric || !r) return;
     announce(`${r.label}. ${r.sentence}`);
     const maxAbs = Math.max(1e-6, ...r.contributions.map((c) => Math.abs(c.delta)), Math.abs(r.total));
@@ -72,7 +72,7 @@ export function createWhy(pop) {
       head(r.label),
       h('div', { class: 'sentence' }, r.sentence),
       rows.length ? h('div', { class: 'waterfall' }, h('div', { class: 'overline', style: { marginBottom: '2px' } }, `Contribution of each change · ${r.unit}`), ...rows,
-        h('div', { class: 'ctl-sub', style: { marginTop: '2px' } }, 'Estimated by reverting each change on its own. Red raises the value, blue lowers it, gray is what they add together.')) : null,
+        h('div', { class: 'ctl-sub', style: { marginTop: '2px' } }, 'Estimated by reverting each change on its own. Red raises the value, blue lowers it, gray is the interaction between changes and other effects.')) : null,
       r.formula ? h('div', { class: 'formula' }, r.formula) : null,
     );
     place(anchor);

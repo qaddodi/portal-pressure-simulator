@@ -74,9 +74,9 @@ const SURF_LOST = { on: 'fallback', via: 'none', why: 'context lost' }, SURF_NON
 // The sentences that name a stent, made once for each of the two (the stent is 'TIPS' or 'DIPS'), and the resistive index's words for each hundredth.
 const NOTE_BACK = {}, NOTE_SLOW = {}, NOTE_NOT_EXPECTED = {};
 for (const st of ['TIPS', 'DIPS']) {
-  NOTE_BACK[st] = `Expected with a ${st}: flow runs back toward the stent.`;
-  NOTE_SLOW[st] = `Slower than expected with a ${st}: it suggests the stent is narrowing.`;
-  NOTE_NOT_EXPECTED[st] = `With a ${st}, flow toward the liver here is not expected: it suggests the stent is narrowing.`;
+  NOTE_BACK[st] = `Expected with a ${st}: flow is directed retrograde toward the stent.`;
+  NOTE_SLOW[st] = `Slower than expected with a ${st}: suggests stent stenosis.`;
+  NOTE_NOT_EXPECTED[st] = `With a ${st}, hepatopetal flow here is not expected: suggests stent stenosis.`;
 }
 const RI_TEXT = [];
 for (let i = 0; i <= 100; i++) RI_TEXT.push(`Resistive index ${fmt(i / 100, 2)}`);
@@ -435,7 +435,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     let dir, sev, pattern, note;
     if (j.none && big < 2 && p.kind !== 'collateral') {
       dir = 'No flow'; sev = 'critical'; pattern = 'No signal';
-      note = p.kind === 'tips' ? 'No flow in the stent: occluded.' : 'No detectable flow: a clot, or flow too slow to detect.';
+      note = p.kind === 'tips' ? 'No flow in the stent: occluded.' : 'No detectable flow: thrombosis, or flow below the detection limit.';
     } else if (p.kind === 'portal') {
       // A stent draws the intrahepatic branches toward it: the left branch (and with a DIPS, which leaves the bifurcation,
       // the right too) runs back toward it, often slowly, so slow reversed flow there is still a direction, not stasis.
@@ -454,13 +454,13 @@ export function createDoppler({ onProbe, pickGate = true }) {
       else if (r.mean < 0) { dir = 'Hepatofugal'; sev = 'critical'; }
       else { dir = 'Hepatopetal'; sev = j.slow ? 'caution' : 'ok'; }
       pattern = pi > 0.5 ? 'Pulsatile' : pi > 0.15 ? 'Phasic' : 'Monophasic';
-      note = dir === 'Hepatofugal' ? 'Flow runs away from the liver: portal blood is leaving through collaterals.'
-        : dir === 'To-and-fro' ? 'Flow swings both ways each cycle, on the way to reversal.'
-        : dir === 'Stasis' ? 'Almost no net flow: a setting for portal vein thrombosis.'
-        : pattern === 'Pulsatile' ? 'A pulsatile portal vein suggests right-heart pressure transmitted back (heart failure, tricuspid regurgitation) or an arterioportal shunt.'
-        : j.slow ? (stent ? NOTE_SLOW[stent] : 'Toward the liver but slow: typical of portal hypertension.')
-        : pattern === 'Monophasic' ? 'Normal: toward the liver, steady.'
-        : 'Normal: toward the liver with gentle phasicity.';
+      note = dir === 'Hepatofugal' ? 'Hepatofugal flow: portal blood exits through portosystemic collaterals.'
+        : dir === 'To-and-fro' ? 'Bidirectional flow each cycle, preceding flow reversal.'
+        : dir === 'Stasis' ? 'Near-zero net flow: stasis predisposes to portal vein thrombosis.'
+        : pattern === 'Pulsatile' ? 'A pulsatile portal vein suggests transmitted right heart pressure (heart failure, tricuspid regurgitation) or an arterioportal shunt.'
+        : j.slow ? (stent ? NOTE_SLOW[stent] : 'Hepatopetal but slow: typical of portal hypertension.')
+        : pattern === 'Monophasic' ? 'Normal: hepatopetal, continuous.'
+        : 'Normal: hepatopetal with mild phasicity.';
       // Flow toward the liver in a branch that a working stent would reverse: the stent no longer draws it, as when it narrows.
       if (branch && dir === 'Hepatopetal') { sev = 'caution'; note = NOTE_NOT_EXPECTED[stent]; }
     } else if (p.kind === 'hepatic') {
@@ -470,10 +470,10 @@ export function createDoppler({ onProbe, pickGate = true }) {
       pattern = backflow ? 'Large reversal' : r.vminMean < -1 ? 'Triphasic' : pi > 0.3 ? 'Biphasic' : 'Monophasic';
       if (pattern === 'Monophasic') sev = sev === 'ok' ? 'caution' : sev;
       if (backflow) sev = 'danger';
-      note = backflow ? 'Blood surges back toward the liver each beat: tricuspid regurgitation or a high right atrial pressure.'
+      note = backflow ? 'A large retrograde wave toward the liver with each beat: tricuspid regurgitation or elevated right atrial pressure.'
         : pattern === 'Triphasic' ? 'Normal: the atrial a-wave briefly reverses flow each beat.'
         : pattern === 'Biphasic' ? 'Damped: the a-wave no longer reverses flow.'
-        : 'Flat: a stiff liver (cirrhosis) or outflow resistance damps the cardiac waveform.';
+        : 'Flat: reduced hepatic compliance (cirrhosis) or outflow resistance damps the cardiac waveform.';
     } else if (p.kind === 'artery') {
       dir = r.mean < 0 ? 'Reversed' : 'Antegrade'; sev = r.mean < 0 ? 'danger' : 'ok';
       const ri = r.vmax > 0.5 ? (r.vmax - Math.max(0, r.vmin)) / r.vmax : 0;
@@ -1082,7 +1082,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     if (buf.length < 2) {
       tDisp = null;
       ctx.textAlign = 'center'; ctx.fillStyle = cssAlpha('--white', .55);
-      ctx.fillText(frame?.clock === 'disease' ? 'Doppler samples at the bedside: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
+      ctx.fillText(frame?.clock === 'disease' ? 'Doppler sampling needs real time: return to the seconds clock.' : 'Acquiring…', w / 2, hh / 2);
       return;
     }
     // Scale: the peak fills about 85% of its side, on the scanner's own velocity steps. Like a

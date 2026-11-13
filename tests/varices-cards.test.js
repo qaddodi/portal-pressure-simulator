@@ -19,7 +19,7 @@ test('Collaterals open and Esophageal varices: the flow colours run over the fir
   assert.deepEqual(['collat', 'lapse', 'eso', 'burst'].map((id) => slide(id).lens), ['flow', 'flow', 'flow', undefined]);
   for (const id of ['collat', 'lapse', 'eso', 'burst']) assert.deepEqual(slide(id).tiles, ['hvpg', 'varix'], `${id}: the HVPG and the varix are the two tiles`);
   assert.equal(slide('burst').dataTitle, 'Wall stress');
-  assert.match(slide('burst').line, /^Wall stress rises with the pressure across the wall/);
+  assert.match(slide('burst').line, /^Wall stress rises with transmural pressure/);
   const lenses = new Set(VARICES.slides.map((s) => s.lens).filter(Boolean));
   assert.deepEqual([...lenses], ['flow'], 'one lens besides the home pressure colours');
 });

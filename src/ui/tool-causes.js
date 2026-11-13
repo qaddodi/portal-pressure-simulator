@@ -55,7 +55,7 @@ export function groupOf(label) {
 }
 // (A step's words: the cause without the size it already shows as a length.)
 export const shortLabel = (label) => label.replace(/^(Extra blood volume|Blood loss) [+\d].*$/, '$1').replace(/^Chronic splanchnic vasodilation$/, 'Splanchnic vasodilation')
-  .replace(/^Serum albumin .*$/, 'Low serum albumin').replace(/^Right-heart contractility$/, 'Weak right heart');
+  .replace(/^Serum albumin .*$/, 'Low serum albumin').replace(/^Right-heart contractility$/, 'Low RV contractility');
 // (What the causes add only together: pressure is flow times resistance, so two causes raise it more than each alone; the
 // smaller causes left out fold in too.)
 export const OTHER = 'Causes together';
@@ -314,7 +314,7 @@ export function createCauses({ host } = {}) {
     { const d0 = list.length ? domainOf(list, metricOf(t)) : null; domGoal.lo = d0 ? d0.lo : 0; domGoal.hi = d0 ? d0.hi : 1; }
     const m = TILE[metricOf(t)]?.t || 'The reading';
     parts.svg.setAttribute('aria-label', data ? `${m}: healthy ${fmt(data.baseShown, data.digits)}, now ${fmt(data.currentShown, data.digits)} ${data.unit}. `
-      + list.filter((s) => s.kind === 'step').map((s) => `${s.label} ${signed(s.shown, data.digits)}`).join(', ') : `${m}: what raises it, being worked out`);
+      + list.filter((s) => s.kind === 'step').map((s) => `${s.label} ${signed(s.shown, data.digits)}`).join(', ') : `${m}: calculating what raises it`);
     parts.svg.dataset.bars = String(data ? data.bars.length : 0);   // (the browser checks read it)
     if (!raf) raf = nextFrame(tick);
   }

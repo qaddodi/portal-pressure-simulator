@@ -98,12 +98,12 @@ export const PROCS = {
     T: TIPS_T,
     stops: TIPS_STOPS,
     steps: [
-      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
-      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein. A wire goes through it into the portal trunk, and the catheter slides over them.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
-      ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
-      ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
+      ['enter', 'Catheter in', 'Right internal jugular access: the catheter passes through the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
+      ['needle', 'Needle across', 'A needle is passed through the liver parenchyma from the hepatic vein into the right portal vein. A guidewire is advanced into the portal trunk, and the catheter follows over it.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['dilate', 'Tract dilated', 'Balloon angioplasty dilates the parenchymal tract to the stent diameter.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['done', 'Stent in', 'A covered stent keeps the tract patent: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
-    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is clotted, so a TIPS has no route.' : ''),
+    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
     apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; return p; },   // alloc-rare: runs once, when the sequence passes T.apply: the model takes the change (a new params record)
     had: (p) => !!p.tips?.on,
     undo: (p) => { p.tips = { ...p.tips, on: false }; return p; },
@@ -112,10 +112,10 @@ export const PROCS = {
   brto: {
     name: 'BRTO', label: 'BRTO', T: OBLIT_TS.brto, stops: OBLIT_STOPS.brto, shotMs: OBLIT_SHOT_MS, holdEnd: true,
     steps: [
-      ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'C5', ['IVCI', 'LRV'], 0.8],
-      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C5', ['LRV'], 0.84],
-      ['fill', 'Sclerosant', 'Sclerosant fills the shunt back up to the fundal varices, and they clot.', 'Fill', 'fill', 'C5', ['LRV'], 0.35],
-      ['done', 'Shunt closed', 'The shunt and the varices are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'work', 'C5', ['LRV'], 0.5],
+      ['enter', 'Catheter in', 'Right femoral venous access: the catheter passes through the IVC and the left renal vein into the gastrorenal shunt.', 'In', 'way', 'C5', ['IVCI', 'LRV'], 0.8],
+      ['balloon', 'Balloon inflated', 'An occlusion balloon is inflated in the shunt near the renal vein, so the sclerosant cannot wash out into the systemic circulation.', 'Balloon', 'tip', 'C5', ['LRV'], 0.84],
+      ['fill', 'Sclerosant', 'Sclerosant is injected retrograde through the shunt into the fundal varices, which thrombose.', 'Fill', 'fill', 'C5', ['LRV'], 0.35],
+      ['done', 'Shunt occluded', 'The shunt and the varices are obliterated. Their flow is diverted back into the portal circulation, so the portal pressure rises.', 'Closed', 'work', 'C5', ['LRV'], 0.5],
     ],
     can: oblitCan,
     apply: oblitApply, had: oblitHad, undo: oblitUndo, before: { occluded: { C5: false } },
@@ -123,12 +123,12 @@ export const PROCS = {
   bato: {
     name: 'BATO', label: 'BATO', T: OBLIT_TS.bato, stops: OBLIT_STOPS.bato, shotMs: OBLIT_SHOT_MS, holdEnd: true,
     steps: [
-      ['enter', 'Catheter in', 'Through the liver into the right portal vein, then along the portal and splenic veins into the short gastric veins.', 'In', 'way', 'C2', ['CONF', 'SV'], 0.35],
-      ['balloon', 'Balloon up', 'The balloon blocks the feeding vein, so the inflow to the varices stops.', 'Balloon', 'tip', 'C2', ['SV'], 0.31],
-      ['fill', 'Sclerosant', 'Sclerosant fills the varices from the portal side, and they clot.', 'Fill', 'fill', 'C2', ['SV'], 0.7],
-      ['done', 'Varices closed', 'The varices and their gastrorenal shunt are closed. Their blood stays in the portal system, so the portal pressure rises.', 'Closed', 'work', 'C2', ['SV'], 0.5],
+      ['enter', 'Catheter in', 'Transhepatic access to the right portal vein, then along the portal and splenic veins into the short gastric veins.', 'In', 'way', 'C2', ['CONF', 'SV'], 0.35],
+      ['balloon', 'Balloon inflated', 'An occlusion balloon is inflated in the afferent vein, stopping inflow to the varices.', 'Balloon', 'tip', 'C2', ['SV'], 0.31],
+      ['fill', 'Sclerosant', 'Sclerosant is injected antegrade from the portal side, and the varices thrombose.', 'Fill', 'fill', 'C2', ['SV'], 0.7],
+      ['done', 'Varices obliterated', 'The varices and their gastrorenal shunt are obliterated. Their flow is diverted back into the portal circulation, so the portal pressure rises.', 'Closed', 'work', 'C2', ['SV'], 0.5],
     ],
-    can: (p, m) => oblitCan(p, m) || ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so BATO has no route.' : ''),
+    can: (p, m) => oblitCan(p, m) || ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is thrombosed, so there is no route for BATO.' : ''),
     apply: oblitApply, had: oblitHad, undo: oblitUndo, before: { occluded: { C5: false } },
   },
 };
@@ -213,10 +213,10 @@ export const MEASURES = {
     // scope comes out.)
     markT: EUS_MARK_T,
     steps: [
-      ['enter', 'Scope in', 'A linear echoendoscope goes down the esophagus into the stomach. From the proximal stomach it images the left lobe of the liver through the wall; color Doppler finds the left portal vein, the left hepatic vein, and a path to each through the liver with no other vessel in the way.', 'Scope', 'way', null, [], 0.5],
-      ['pv', 'Portal vein', 'A 25-gauge needle, primed with heparinized saline, crosses the stomach wall and the left lobe into the umbilical part of the left portal vein. A compact manometer on its hub reads the pressure once it settles: the mean of three readings.', 'PV', 'tip', 'PVH_L', ['LPV'], 0.9],
-      ['hv', 'Hepatic vein', 'The needle comes back into the scope. The scope draws back to the cardia and the elevator raises the needle toward the dome, and it crosses the left lobe into the left hepatic vein (the middle hepatic vein, or the IVC, serve as well): again the mean of three readings.', 'HV', 'tip', 'LHV_IVC', ['LPV', 'LHV'], 0.6],
-      ['done', 'EUS-PPG', 'EUS-PPG = portal vein \u2212 hepatic vein, both read by one needle in one session. It is read on the HVPG\u2019s cut-offs: 5 mmHg or more is portal hypertension, 10 or more clinically significant. It is still being validated against the HVPG, which stays the reference.', 'PPG', 'work', 'PVH_L', ['LPV', 'LHV'], 0.9],
+      ['enter', 'Echoendoscope in', 'A linear echoendoscope is advanced through the esophagus into the stomach. From the proximal stomach it images the left hepatic lobe transgastrically; color Doppler identifies the left portal vein, the left hepatic vein and a needle path to each with no intervening vessel.', 'Scope', 'way', null, [], 0.5],
+      ['pv', 'Portal vein', 'A 25-gauge needle, primed with heparinized saline, is passed through the gastric wall and the left lobe into the umbilical portion of the left portal vein. A compact manometer on its hub records the pressure once it is stable: the mean of three readings.', 'PV', 'tip', 'PVH_L', ['LPV'], 0.9],
+      ['hv', 'Hepatic vein', 'The needle is withdrawn into the echoendoscope, which is pulled back to the cardia. The elevator angles the needle toward the dome, and it is passed through the left lobe into the left hepatic vein (the middle hepatic vein or the IVC can be used instead): again the mean of three readings.', 'HV', 'tip', 'LHV_IVC', ['LPV', 'LHV'], 0.6],
+      ['done', 'EUS-PPG', 'EUS-PPG = portal vein pressure \u2212 hepatic vein pressure, both measured with one needle in one session. It is interpreted on the HVPG cut-offs: \u22655 mmHg is portal hypertension and \u226510 mmHg is clinically significant. It is still being validated against the HVPG, which remains the reference standard.', 'PPG', 'work', 'PVH_L', ['LPV', 'LHV'], 0.9],
     ],
     // The readings, taken once each callout comes (read: the model frame; its node pressures P): the portal vein at the left portal
     // vein's node, the hepatic vein at the left hepatic vein's, and their difference as every screen shows it, at one decimal.
@@ -256,7 +256,7 @@ export const MEASURES = {
     name: 'TIPS gradient', label: 'TIPS gradient', measure: true, route: 'tips', ring2: 'var(--tr-ivc)', T: GRAD_T, stops: [GRAD_T.end],
     markT: [GRAD_T.res0],
     steps: [
-      ['gradient', 'Gradient', 'The same catheter goes on through the new stent into the portal vein and reads the pressure there. It is drawn back to the IVC at the hepatic veins (the right atrium’s level) and reads again. The portal reading less the IVC reading is the portosystemic gradient: under 12 mmHg means no beta-blocker is needed after the TIPS.', 'Gradient', 'way', 'TIPS', ['RHV', 'RPV'], 0.5],
+      ['gradient', 'Gradient', 'The same catheter is advanced through the new stent into the portal vein to record the portal pressure, then pulled back to the IVC at the level of the hepatic veins, just below the right atrium, for a second reading. The portal pressure minus the IVC pressure is the portosystemic pressure gradient: <12 mmHg means no NSBB is needed after the TIPS.', 'Gradient', 'way', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
     // The readings, taken when the result comes: the portal vein's and the IVC's pressure as the tiles show them, and the gradient as they show it.
     capture(i, rd, f) {
@@ -284,9 +284,9 @@ export const MEASURES = {
     stops: [HV_T.travel1 + 600, HV_T.free1 + 300, HV_T.wedge1 + 300, HV_T.end],
     markT: [HV_T.travel1 + 500, HV_T.free1 + 100, HV_T.wedge1 + 100, HV_T.sum0],
     steps: [
-      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC, through the right atrium and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
-      ['free', 'Free pressure', 'With the balloon down, the tip reads the free hepatic venous pressure (FHVP) once it settles.', 'Free', 'tip', 'RHV_IVC', ['RHV'], 0.5],
-      ['wedge', 'Wedged pressure', 'The balloon inflates just behind the tip and blocks the vein. The still blood ahead settles at the pressure of the feeding sinusoids, the wedged pressure (WHVP).', 'Wedged', 'tip', 'RHV_IVC', ['RHV'], 0.5],
+      ['enter', 'Catheter in', 'Right internal jugular access: the balloon catheter passes through the SVC, the right atrium and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
+      ['free', 'FHVP', 'With the balloon deflated, the catheter tip records the free hepatic venous pressure (FHVP) once it is stable.', 'Free', 'tip', 'RHV_IVC', ['RHV'], 0.5],
+      ['wedge', 'WHVP', 'The balloon is inflated just proximal to the tip and occludes the vein. The static column of blood beyond it equilibrates with the upstream sinusoidal pressure: the wedged hepatic venous pressure (WHVP).', 'Wedged', 'tip', 'RHV_IVC', ['RHV'], 0.5],
       ['done', 'HVPG', 'HVPG = WHVP \u2212 FHVP, the pressure drop across the sinusoids. Normal <5 mmHg; \u226510 mmHg is clinically significant portal hypertension.', 'HVPG', 'tip', 'RHV_IVC', ['RHV'], 0.5],
     ],
     // The readings, taken as each callout comes: the free pressure, the wedged pressure, and the HVPG as the tiles show it.
@@ -317,18 +317,18 @@ export const MEASURES = {
       if (t >= markAt('hvpgcath', 2)) { HV_WEDGE.text = mmHg(Number.isFinite(rd.wh) ? rd.wh : m ? r1(m.whvp) : NaN); out.push(HV_WEDGE); }
       return out;
     },
-    can: (p) => (hvBlocked(p) ? 'The hepatic veins are clotted, so the catheter cannot enter and no HVPG can be read.' : ''), apply: (p) => p, had: () => false, undo: (p) => p, before: {},
+    can: (p) => (hvBlocked(p) ? 'The hepatic veins are thrombosed, so they cannot be catheterized and no HVPG can be measured.' : ''), apply: (p) => p, had: () => false, undo: (p) => p, before: {},
   },
   // The PPG by interventional radiology, part 1 (AASLD 2024: the portal pressure gradient is the portal vein pressure less the IVC pressure; Baveno VIII Table 3 adds the right
   // atrial pressure): the transjugular catheter reads the IVC. In through the neck, down the SVC and through the right atrium to the IVC at the hepatic veins, and the tip reads
   // there. It changes nothing in the model.
   irivc: {
-    name: 'IVC reading', label: 'IVC reading', measure: true, route: 'ivcread', readAs: 2, ring2: 'var(--tr-ivc)', T: IR_IVC_T,
+    name: 'IVC pressure', label: 'IVC pressure', measure: true, route: 'ivcread', readAs: 2, ring2: 'var(--tr-ivc)', T: IR_IVC_T,
     stops: [IR_IVC_T.travel1 + 600, IR_IVC_T.end],
     markT: [IR_IVC_T.travel1 + 500, IR_IVC_T.read1 + 100],
     steps: [
-      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and through the right atrium into the IVC.', 'In', 'way', 'IVC_IS', ['IVCS'], 0.5],
-      ['ivc', 'IVC', 'The tip rests in the IVC at the level of the hepatic veins and reads the pressure there once it settles. The right atrial pressure can be read from the same catheter.', 'IVC', 'way', 'IVC_IS', ['IVCS'], 0.5],
+      ['enter', 'Catheter in', 'Right internal jugular access: the catheter passes through the SVC and the right atrium into the IVC.', 'In', 'way', 'IVC_IS', ['IVCS'], 0.5],
+      ['ivc', 'IVC', 'The tip sits in the IVC at the level of the hepatic veins and records the pressure once it is stable. The right atrial pressure can be measured with the same catheter.', 'IVC', 'way', 'IVC_IS', ['IVCS'], 0.5],
     ],
     capture(i, rd, f) { const m = f?.metrics; if (i === 1) rd.iv = m ? r1(m.ivc) : NaN; },
     marks: () => NO_MARKS,
@@ -345,13 +345,13 @@ export const MEASURES = {
   // into a branch of the right portal vein, a wire and a catheter on into the portal trunk, where the tip reads. The gradient is this reading less the IVC reading of part 1,
   // the PPG the tiles show. It changes nothing in the model.
   irpv: {
-    name: 'Direct portal reading', label: 'Direct portal reading', measure: true, route: 'ppgperc', readAs: 1, T: IR_PV_T,
+    name: 'Direct portal pressure', label: 'Direct portal pressure', measure: true, route: 'ppgperc', readAs: 1, T: IR_PV_T,
     stops: [IR_PV_T.travel1 + 600, IR_PV_T.read1 + 300, IR_PV_T.end],
     markT: [IR_PV_T.travel1 + 500, IR_PV_T.read1 + 100, IR_PV_T.res0],
     steps: [
-      ['enter', 'Needle in', 'Under ultrasound a needle goes through the skin and the liver into a branch of the right portal vein. A wire and a catheter follow it into the main portal vein.', 'In', 'way', 'PVH_R', ['RPV', 'CONF'], 0.5],
-      ['pv', 'Portal vein', 'The catheter reads the pressure in the portal vein directly once it settles.', 'Portal vein', 'way', 'PV_TRUNK', ['CONF'], 0.5],
-      ['done', 'PPG', 'PPG = portal vein \u2212 IVC pressure: this reading less the IVC reading of the first approach. It uses the PPG cut-offs: \u22656 mmHg is portal hypertension, \u226512 mmHg carries the bleeding risk.', 'PPG', 'way', 'PV_TRUNK', ['CONF'], 0.5],
+      ['enter', 'Needle in', 'Under ultrasound guidance, a needle is passed percutaneously through the liver into a branch of the right portal vein. A guidewire and a catheter follow into the main portal vein.', 'In', 'way', 'PVH_R', ['RPV', 'CONF'], 0.5],
+      ['pv', 'Portal vein', 'The catheter records the portal venous pressure directly once it is stable.', 'Portal vein', 'way', 'PV_TRUNK', ['CONF'], 0.5],
+      ['done', 'PPG', 'PPG = portal vein pressure \u2212 IVC pressure: this reading minus the IVC pressure from the first approach. On the PPG cut-offs, \u22656 mmHg is portal hypertension and \u226512 mmHg carries a risk of variceal bleeding.', 'PPG', 'way', 'PV_TRUNK', ['CONF'], 0.5],
     ],
     // The readings, taken as each callout comes: the portal vein's pressure, then the gradient with the IVC's pressure the first approach read, as the tiles show them.
     capture(i, rd, f) {
@@ -369,7 +369,7 @@ export const MEASURES = {
       else if (t >= T.read0 && t < T.res0) { IR_PV.text = mmHg(t >= markAt('irpv', 1) && Number.isFinite(rd.pv) ? rd.pv : m ? r1(m.pv) : NaN); out.push(IR_PV); }
       return out;
     },
-    can: (p) => ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is clotted, so there is no pressure to read through it.' : ''), apply: (p) => p, had: () => false, undo: (p) => p, before: {},
+    can: (p) => ((p.thrombus?.PV_TRUNK || 0) >= 0.8 ? 'The portal vein is thrombosed, so no portal pressure can be measured through it.' : ''), apply: (p) => p, had: () => false, undo: (p) => p, before: {},
   },
 };
 // A bypass graft is a surgical procedure: no catheter, no route to follow. The graft itself is the thing played (the Meso-Rex bypass:
@@ -388,13 +388,13 @@ export const GRAFTS = {
     T: { apply: 2300, back: 7000, end: 8000 },
     stops: [2000, 5000, 6500, 8000],
     steps: [
-      ['expose', 'Expose', 'The surgeon exposes the superior mesenteric vein below the clot, and the left portal vein where it turns up into the liver (the Rex recess).', 'Expose', '', 'SMV_CONF', ['SMV'], 0.25],
-      ['graft', 'Graft', 'A vein graft is sewn to the superior mesenteric vein and runs up, past the clotted trunk, toward the liver.', 'Graft', '', 'REX', ['SMV'], 0.45],
-      ['sew', 'Sewn to the liver', 'Its other end is sewn to the left portal vein in the Rex recess.', 'Sewn', '', 'REX', ['SMV', 'LPV'], 0.9],
-      ['done', 'Flow to the liver', 'The gut\u2019s blood now runs through the graft into the left portal vein and the liver, not into the veins of the body.', 'Flow', '', 'REX', ['LPV'], 0.5],
+      ['expose', 'Expose', 'The superior mesenteric vein is exposed below the thrombus, and the left portal vein at the Rex recess, where it enters the liver.', 'Expose', '', 'SMV_CONF', ['SMV'], 0.25],
+      ['graft', 'Graft', 'A vein graft is anastomosed to the superior mesenteric vein and routed past the thrombosed portal trunk toward the liver.', 'Graft', '', 'REX', ['SMV'], 0.45],
+      ['sew', 'Rex anastomosis', 'Its other end is anastomosed to the left portal vein in the Rex recess.', 'Sewn', '', 'REX', ['SMV', 'LPV'], 0.9],
+      ['done', 'Hepatopetal flow', 'Splanchnic venous blood now flows through the graft into the left portal vein and the liver instead of into the systemic circulation.', 'Flow', '', 'REX', ['LPV'], 0.5],
     ],
-    can: (p) => (p.rex ? 'A Meso-Rex bypass is already in place.' : occludedAt(p, 'PV_TRUNK') < 0.8 ? 'The portal trunk is open: a Meso-Rex bypass is for a clotted trunk.'
-      : occludedAt(p, 'PVH_L') >= 0.8 ? 'The left portal vein is clotted: there is no open Rex recess to join.' : ''),
+    can: (p) => (p.rex ? 'A Meso-Rex bypass is already in place.' : occludedAt(p, 'PV_TRUNK') < 0.8 ? 'The portal trunk is patent: a Meso-Rex bypass is for a thrombosed trunk.'
+      : occludedAt(p, 'PVH_L') >= 0.8 ? 'The left portal vein is thrombosed: there is no patent Rex recess for the anastomosis.' : ''),
     offered: rexSuitable,
     apply: (p) => { p.rex = true; return p; },
     had: (p) => !!p.rex,
@@ -447,11 +447,11 @@ const GLUE_F = 0.8, GLUE_F_AHEAD = 0.7, GLUE_F_COIL_END = GLUE_F + 9 / 246.6;
 // The step's word (the callout and the list), its caption (the title and the notes), the callout's short word, its shot, its vessel, its
 // stations, its point along the vessel, and one short line for the teaching card's list (about 8 words; his ask, 10 Nov 2026, items 1 and 2).
 const GLUE_STEPS = [
-  ['enter', 'Varix found', 'A linear echoendoscope goes down the esophagus, through the cardia and on under the fundus. From there it images the fundal varix through the stomach wall, and color Doppler shows the blood running through it.', 'Scope', 'way', 'C2', [], GLUE_F_AHEAD, 'Doppler finds it through the stomach wall'],
-  ['needle', 'Needle in', 'The transducer faces the varix. A 19-gauge needle, raised square to the scope, crosses the stomach wall into the varix.', 'Needle', 'tip', 'C2', ['GV'], GLUE_F, 'a 19-gauge needle enters the varix'],
-  ['coils', 'Coils', 'Coils are pushed through the needle and curl inside the varix. They hold the glue that follows, so less of it washes away into the shunt.', 'Coils', 'tip', 'C2', ['GV'], GLUE_F_COIL_END, 'they curl inside and hold the glue'],
-  ['glue', 'Glue', 'Cyanoacrylate is injected over the coils. It sets in seconds and casts the varix from inside.', 'Glue', 'tip', 'C2', ['GV'], GLUE_F, 'cyanoacrylate casts the varix'],
-  ['done', 'No flow', 'The Doppler check: the needle is out, and the flow in the varix slows and stops. The gastrorenal shunt stays open, and the clotted splenic vein is still there, so the spleen is treated next.', 'Closed', 'work', 'C2', ['GV'], GLUE_F, 'Doppler confirms the varix is closed'],
+  ['enter', 'Varix found', 'A linear echoendoscope is advanced through the esophagus and the cardia and positioned below the fundus. It images the fundal varix transgastrically, and color Doppler shows flow within it.', 'Scope', 'way', 'C2', [], GLUE_F_AHEAD, 'color Doppler shows flow in the varix'],
+  ['needle', 'Needle in', 'With the transducer facing the varix, a 19-gauge needle is passed perpendicular to the echoendoscope through the gastric wall into the varix.', 'Needle', 'tip', 'C2', ['GV'], GLUE_F, 'a 19-gauge needle enters the varix'],
+  ['coils', 'Coils', 'Coils are deployed through the needle and curl within the varix. They act as a scaffold for the cyanoacrylate that follows, reducing glue embolization through the shunt.', 'Coils', 'tip', 'C2', ['GV'], GLUE_F_COIL_END, 'coils scaffold the glue'],
+  ['glue', 'Glue', 'Cyanoacrylate is injected onto the coils. It polymerizes within seconds and obliterates the varix lumen.', 'Glue', 'tip', 'C2', ['GV'], GLUE_F, 'cyanoacrylate obliterates the varix'],
+  ['done', 'No flow', 'After the needle is withdrawn, color Doppler shows flow in the varix slowing and stopping. The gastrorenal shunt remains patent and the splenic vein thrombosis persists, so the spleen is treated next.', 'Closed', 'work', 'C2', ['GV'], GLUE_F, 'Doppler confirms the varix is occluded'],
 ];
 // (Every step has its callout, the first too: "1 Varix found" shows once the scope is in place; his report, 8 Nov 2026: step 1's number never showed.
 // The last comes with the X, as the model closes the varix (markT), not as the scope leaves.)
@@ -463,8 +463,8 @@ export const ENDO = {
     markT: [...GLUE_STOPS.slice(0, -1), GLUE_T.apply], parkMs: 600,   // (the last callout at apply, with the X; parkMs: the parked scope's fade when the slide moves on)
     steps: GLUE_STEPS,
     marks: (i) => GLUE_MARKS[i] || GLUE_MARKS[0],
-    can: (p, m) => (p.spontaneous?.C5 === false ? 'This patient has no fundal varices.' : p.occluded?.C2 || p.occluded?.C5 ? 'The fundal varices are already closed.'
-      : !hasGastricVarices(m) ? 'This patient has no gastric varices to treat.' : ''),
+    can: (p, m) => (p.spontaneous?.C5 === false ? 'There are no fundal varices.' : p.occluded?.C2 || p.occluded?.C5 ? 'The fundal varices are already closed.'
+      : !hasGastricVarices(m) ? 'There are no gastric varices to treat.' : ''),
     apply: (p) => { p.occluded = { ...p.occluded, C2: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
     had: glueHad,
     undo: (p) => { p.occluded = { ...p.occluded, C2: false }; return p; },   // alloc-rare: once, going back past T.apply
@@ -475,15 +475,15 @@ export const ENDO = {
 // the same route, up from the femoral vein and the left renal vein, but into the spontaneous splenorenal shunt, C6, in place of the
 // gastrorenal one, C5. A slide asks for it with procedure: { kind: 'brto', target: 'C6' } (procKindOf). It stays out of PROCS (the HVPG
 // card's treatment buttons), and the default BRTO is unchanged.
-const plugCan = (p) => (!p.spontaneous?.C6 ? 'This patient has no splenorenal shunt.' : p.occluded?.C6 ? 'The splenorenal shunt is already closed.' : '');
+const plugCan = (p) => (!p.spontaneous?.C6 ? 'There is no splenorenal shunt.' : p.occluded?.C6 ? 'The splenorenal shunt is already closed.' : '');
 export const PLUGS = {
   brtoC6: {
     name: 'Shunt embolization', label: 'Shunt embolization', T: OBLIT_TS.brtoC6, stops: OBLIT_STOPS.brtoC6, shotMs: OBLIT_SHOT_MS, holdEnd: true,
     steps: [
       ['enter', 'Catheter in', 'Up from the right femoral vein, through the IVC and the left renal vein into the splenorenal shunt.', 'In', 'way', 'C6', ['IVCI', 'LRV'], 0.85],
-      ['balloon', 'Balloon up', 'The balloon blocks the shunt near the renal vein, so nothing washes out into it.', 'Balloon', 'tip', 'C6', ['LRV'], 0.8],
-      ['fill', 'Embolic', 'A plug or coils, or a sclerosant, fill the shunt back up from the renal vein until no blood passes.', 'Fill', 'fill', 'C6', ['LRV'], 0.45],
-      ['done', 'Shunt closed', 'The shunt is closed. The splenic blood goes back through the liver, so the portal pressure rises and less gut blood bypasses it.', 'Closed', 'work', 'C6', ['LRV'], 0.5],
+      ['balloon', 'Balloon inflated', 'An occlusion balloon is inflated in the shunt near the renal vein, so the sclerosant cannot wash out into the systemic circulation.', 'Balloon', 'tip', 'C6', ['LRV'], 0.8],
+      ['fill', 'Embolic', 'A vascular plug, coils or sclerosant occlude the shunt from the renal vein side until flow stops.', 'Fill', 'fill', 'C6', ['LRV'], 0.45],
+      ['done', 'Shunt occluded', 'The shunt is occluded. Splenic venous flow returns through the liver, so the portal pressure rises and less splanchnic blood bypasses the liver.', 'Closed', 'work', 'C6', ['LRV'], 0.5],
     ],
     can: plugCan,
     apply: (p) => { p.occluded = { ...p.occluded, C6: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
@@ -499,13 +499,13 @@ export const PLUGS = {
   tipscoil: {
     name: 'TIPS with coils', label: 'TIPS with coils', balloonSpan: 'tract', T: TIPS_COIL_T, stops: TIPS_COIL_STOPS, holdT: TIPS_COIL_T.back,
     steps: [
-      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
-      ['needle', 'Needle across', 'A needle crosses the liver from the hepatic vein into the right portal vein. A wire goes through it into the portal trunk, and the catheter slides over them.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
-      ['dilate', 'Tract dilated', 'A balloon opens the tract through the liver to the width of the stent.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
-      ['coil', 'Vein coiled', 'The catheter goes on along the portal trunk and up the coronary vein, the feeder of the varices. Coils fill it, so portal blood no longer reaches them.', 'Coils', 'coil', 'LGV_CONF', ['LGV'], 1 - COIL_B],
-      ['done', 'Stent in', 'A covered stent holds the tract open: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
+      ['enter', 'Catheter in', 'Right internal jugular access: the catheter passes through the SVC and the IVC into the right hepatic vein.', 'In', 'way', 'RHV_IVC', ['IVCS', 'RHV'], 0.5],
+      ['needle', 'Needle across', 'A needle is passed through the liver parenchyma from the hepatic vein into the right portal vein. A guidewire is advanced into the portal trunk, and the catheter follows over it.', 'Needle', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['dilate', 'Tract dilated', 'Balloon angioplasty dilates the parenchymal tract to the stent diameter.', 'Balloon', 'tip', 'TIPS', ['RHV'], 0.5],
+      ['coil', 'Vein coiled', 'The catheter is advanced along the portal trunk into the coronary (left gastric) vein, the feeder of the varices. Coils occlude it, so portal blood no longer reaches the varices.', 'Coils', 'coil', 'LGV_CONF', ['LGV'], 1 - COIL_B],
+      ['done', 'Stent in', 'A covered stent keeps the tract patent: portal blood now reaches the hepatic vein without crossing the sinusoids.', 'Stent', 'tip', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
-    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is clotted, so a TIPS has no route.' : ''),
+    can: (p) => (p.tips?.on ? 'A TIPS is already in place.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : (p.thrombus?.RHV_IVC || 0) >= 0.8 ? 'The right hepatic vein is thrombosed, so there is no route for a TIPS.' : ''),
     apply: (p) => { p.tips = { ...p.tips, on: true, d: p.tips?.d || 8 }; p.occluded = { ...p.occluded, C1a: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
     had: (p) => !!p.tips?.on && !!p.occluded?.C1a,
     undo: (p) => { p.tips = { ...p.tips, on: false }; p.occluded = { ...p.occluded, C1a: false }; return p; },   // alloc-rare: once, going back past T.apply
@@ -518,10 +518,10 @@ export const PLUGS = {
     name: 'Coils through the TIPS', label: 'Coils through the TIPS', balloonSpan: 'tract', T: TIPS_COIL_IN_T, stops: TIPS_COIL_IN_STOPS,
     holdT: TIPS_COIL_IN_T.back,
     steps: [
-      ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC and the IVC into the right hepatic vein, and on through the stent into the portal vein.', 'In', 'way', 'TIPS', ['IVCS', 'RHV'], 0.5],
-      ['coil', 'Vein coiled', 'The catheter goes on along the portal trunk and up the coronary vein, the feeder of the varices. Coils fill it, so portal blood no longer reaches them.', 'Coils', 'coil', 'LGV_CONF', ['LGV'], 1 - COIL_B],
+      ['enter', 'Catheter in', 'Right internal jugular access: the catheter passes through the SVC and the IVC into the right hepatic vein, then through the stent into the portal vein.', 'In', 'way', 'TIPS', ['IVCS', 'RHV'], 0.5],
+      ['coil', 'Vein coiled', 'The catheter is advanced along the portal trunk into the coronary (left gastric) vein, the feeder of the varices. Coils occlude it, so portal blood no longer reaches the varices.', 'Coils', 'coil', 'LGV_CONF', ['LGV'], 1 - COIL_B],
     ],
-    can: (p) => (!p.tips?.on ? 'There is no TIPS yet to go through.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : ''),
+    can: (p) => (!p.tips?.on ? 'There is no TIPS in place yet.' : p.occluded?.C1a ? 'The coronary vein is already closed.' : ''),
     apply: (p) => { p.occluded = { ...p.occluded, C1a: true }; return p; },   // alloc-rare: once, as the sequence passes T.apply
     had: (p) => !!p.occluded?.C1a,
     undo: (p) => { p.occluded = { ...p.occluded, C1a: false }; return p; },   // alloc-rare: once, going back past T.apply
@@ -558,8 +558,8 @@ const CATH_RPV = 0.28;
 export const GV_MIN_MM = 2.4;
 export const hasGastricVarices = (m) => !m?.gastricVarix || (m.gastricVarix.d || 0) >= GV_MIN_MM;
 function oblitCan(p, m) {
-  return p.spontaneous?.C5 === false ? 'This patient has no gastrorenal shunt.' : p.occluded?.C5 ? 'The gastrorenal shunt is already closed.'
-    : !hasGastricVarices(m) ? 'This patient has no gastric varices to treat.' : '';
+  return p.spontaneous?.C5 === false ? 'There is no gastrorenal shunt.' : p.occluded?.C5 ? 'The gastrorenal shunt is already closed.'
+    : !hasGastricVarices(m) ? 'There are no gastric varices to treat.' : '';
 }
 // (The model's occlusion of the gastrorenal shunt closes its short gastric feeder too: topology.js isOccluded.)
 function oblitApply(p) { p.occluded = { ...p.occluded, C5: true }; return p; }

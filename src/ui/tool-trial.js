@@ -61,16 +61,16 @@ export function trialLayout(t, W, f, meas) {
     }
     return y;
   };
-  const keys = ['Who', 'Counted', 'Followed', 'Effect', 'Caveat'];
+  const keys = ['Patients', 'Endpoint', 'Follow-up', 'Effect', 'Caveat'];
   const kw = Math.max(...keys.map((k) => meas(k, `500 ${f}px Inter`)));
   const vx = Math.ceil(kw + f), vw = Math.max(40, W - vx);
-  let y = fields([['Who', t.setting, 'trial.v', TRIAL_LINES], ['Counted', t.endpoint, 'trial.v', TRIAL_LINES], ['Followed', t.followUp, 'trial.v', TRIAL_LINES]], 0, vx, vw);
+  let y = fields([['Patients', t.setting, 'trial.v', TRIAL_LINES], ['Endpoint', t.endpoint, 'trial.v', TRIAL_LINES], ['Follow-up', t.followUp, 'trial.v', TRIAL_LINES]], 0, vx, vw);
   y += gap;
   // The two arms: its name and people over a bar on a 0 to 100% track, the percent on the bar's end or just past it.
   const bh = Math.round(f * 1.7), pad = f * 0.5;
   for (const a of t.arms) {
     say(0, y + f, a.label, 'trial.arm');
-    if (a.n) say(W, y + f, `${a.n} people`, 'trial.n', 'end');
+    if (a.n) say(W, y + f, `n = ${a.n}`, 'trial.n', 'end');
     const by = y + f * 1.45, bw = Math.max(2, (W * a.rate) / 100), pct = `${a.rate}%`, pw = meas(pct, `700 ${f}px Inter`);
     rects.push({ x: 0, y: by, w: W, h: bh, r: bh / 2, look: 'trial.track' });
     rects.push({ x: 0, y: by, w: bw, h: bh, r: bh / 2, look: 'trial.bar', tone: TONE[a.side] || 'text-3' });

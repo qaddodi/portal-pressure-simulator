@@ -246,9 +246,9 @@ export function keyChevron(e, open = NEVER) {
 export const ORIGINS = [
   ['smv', 'SMV', 'SMV', 'Superior mesenteric vein (and the coronary vein)'],
   ['imv', 'IMV', 'IMV', 'Inferior mesenteric vein'],
-  ['spleen', 'Splenic vein', 'SV', 'Splenic blood'],
-  ['artery', 'Hepatic artery', 'HA', 'Arterial blood through the liver'],
-  ['systemic', 'Systemic', 'Sys', 'Blood from the rest of the body'],
+  ['spleen', 'Splenic vein', 'SV', 'Splenic venous blood'],
+  ['artery', 'Hepatic artery', 'HA', 'Hepatic arterial blood'],
+  ['systemic', 'Systemic', 'Sys', 'Systemic venous blood'],
 ];
 const SOURCE = { A_SMA: 0, A_LGA: 0, A_IMA: 1, A_SPL: 2, A_HEP: 3 };
 /** Named sources (the rest is systemic): the channels of originFractions. */
@@ -261,10 +261,10 @@ export const ORIGIN_N = 4;
 // stent keeps channel 0. It is the path the blood took, not a clearance: no ammonia, no extraction fraction (the key says so).
 // Colours follow the shader's originCol slots: 0 raw, 1 cleared, 2 (unused), 3 artery, 4 systemic.
 export const FIRSTPASS = [
-  ['raw', 'Gut blood, not yet through the liver', 'Raw', 'Gut blood that has not passed the sinusoids: it keeps this color in a collateral, a shunt or a stent'],
-  ['clear', 'Gut blood cleared by the liver', 'Clear', 'Gut blood after the sinusoids'],
-  ['artery', 'Hepatic artery', 'HA', 'Arterial blood through the liver'],
-  ['systemic', 'Systemic', 'Sys', 'Blood from the rest of the body'],
+  ['raw', 'Splanchnic blood, not yet through the liver', 'Raw', 'Splanchnic blood that has not passed the sinusoids: it keeps this color in a collateral, a shunt or a stent'],
+  ['clear', 'Splanchnic blood cleared by the liver', 'Clear', 'Splanchnic blood after the sinusoids'],
+  ['artery', 'Hepatic artery', 'HA', 'Hepatic arterial blood'],
+  ['systemic', 'Systemic', 'Sys', 'Systemic venous blood'],
 ];
 const SOURCE_PASS = { A_SMA: 0, A_LGA: 0, A_IMA: 0, A_SPL: 0, A_HEP: 3 };
 let SRC = SOURCE, PASS = false;   // (the table and the lens of the call being worked: set at the top of originFractionsInto)

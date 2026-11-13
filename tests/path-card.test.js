@@ -66,7 +66,7 @@ test('every outcome has a reading in words, and the Child–Pugh class is the po
   assert.deepEqual(['A5', 'A6', 'B7', 'B9', 'C10', 'C15'].map((s) => cpClass(+s.slice(1)) + s.slice(1)), ['A5', 'A6', 'B7', 'B9', 'C10', 'C15']);
   assert.match(readingFor('bleed', 'ptips', p2).why, /Child–Pugh C10 is C 10–13/);
   assert.match(readingFor('bleed', 'ptips', { ...p2, cp: 8, active: true }).why, /B8 with active bleeding/);
-  assert.match(readingFor('bleed', 'ptips', { ...p2, cp: 6, hvpg: 22 }).why, /HVPG 22 is ≥20/);
+  assert.match(readingFor('bleed', 'ptips', { ...p2, cp: 6, hvpg: 22 }).why, /HVPG 22 mmHg is ≥20/);
   assert.match(readingFor('first-visit', 'a3', { ...p1, bmi: true }).why, /ANTICIPATE-NASH/);
   assert.deepEqual(chipsOf('first-visit', p1), ['LSM 31 kPa', 'Platelets 120', 'ANTICIPATE ≥75%']);
   assert.ok(!chipsOf('bleed', p2).some((c) => /HVPG/.test(c)), 'a slide that gives no HVPG shows none');

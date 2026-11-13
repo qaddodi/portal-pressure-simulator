@@ -12,7 +12,7 @@ export function createResistors(st, live) {
   // A resistor's reading is a figure label (label-gl, the one style): "R liver ×2.3", at the middle of its own zigzag, world-anchored like
   // every figure label, so it moves with the figure through every pan, pinch and zoom. resMask: which readings have a value (the labels'
   // signature); RES_LABEL: its words; the key ("vs healthy liver") rides once, on the outermost reading.
-  const RES_BIT = { rGut: 1, rColl: 2, rLiver: 4 }, RES_LABEL = { rLiver: 'R liver', rColl: 'R collaterals', rGut: 'R gut' }, RES_FULL = { rLiver: 'Liver resistance', rColl: 'Collateral resistance', rGut: 'Gut arteriole resistance' };
+  const RES_BIT = { rGut: 1, rColl: 2, rLiver: 4 }, RES_LABEL = { rLiver: 'R liver', rColl: 'R collaterals', rGut: 'R splanchnic' }, RES_FULL = { rLiver: 'Intrahepatic resistance', rColl: 'Collateral resistance', rGut: 'Splanchnic arteriolar resistance' };
   const resKeyOn = () => (live.resMask & 1 ? 'rGut' : live.resMask & 2 ? 'rColl' : live.resMask & 4 ? 'rLiver' : null);
   function resItem(k) {
     const d = SITE_DEF[k], ratio = d?.res ? resRatio(d.res) : null;

@@ -15,50 +15,50 @@ const VESSEL = {
   V_COL: 'Drain the colon into the inferior mesenteric vein.',
   V_IMV: 'Drains the left colon and rectum into the splenic vein. Its rectal branches meet systemic veins: a portosystemic crossroads.',
   SV_MID: 'The splenic vein midway, where a splenorenal shunt leaves it.',
-  V_SPL: 'Drains the spleen. In portal hypertension the spleen congests and enlarges.',
+  V_SPL: 'Drains the spleen. Portal hypertension causes congestive splenomegaly.',
   V_STO: 'Drain the stomach toward the coronary vein.',
   SMV_CONF: 'Carries blood from the small bowel and right colon: the largest share of portal inflow.',
-  SV_CONF: 'Carries spleen, stomach and (via the IMV) left colon blood to the portal confluence.',
+  SV_CONF: 'Carries splenic, gastric and (via the IMV) left colonic venous blood to the portal confluence.',
   LGV_CONF: 'The coronary vein: drains the stomach into the portal vein. In portal hypertension it reverses and feeds esophageal varices.',
-  PV_TRUNK: 'Formed behind the pancreas by the superior mesenteric and splenic veins; brings about three quarters of the liver’s blood, at low pressure.',
+  PV_TRUNK: 'Formed behind the pancreas by the superior mesenteric and splenic veins; supplies about three quarters of hepatic blood flow, at low pressure.',
   PVH_R: 'The portal vein’s branch to the right lobe, which takes most of the portal flow.',
   PVH_L: 'The portal vein’s branch to the left lobe; the paraumbilical vein leaves it.',
-  CAUD: 'Short veins from the caudate lobe straight into the IVC: they survive hepatic-vein occlusion, so the caudate lobe enlarges in Budd–Chiari.',
-  RHV_IVC: 'Drains the right lobe into the IVC just below the heart. A balloon catheter wedged here measures HVPG.',
+  CAUD: 'Short veins from the caudate lobe straight into the IVC: they are spared in hepatic vein occlusion, so the caudate lobe hypertrophies in Budd–Chiari syndrome.',
+  RHV_IVC: 'Drains the right lobe into the IVC just below the heart. A balloon catheter wedged here measures the WHVP for the HVPG.',
   MHV_IVC: 'Drains the middle of the liver into the IVC.',
   LHV_IVC: 'Drains the left lobe into the IVC.',
   IVC_IS: 'The inferior vena cava below the liver: returns blood from the legs, kidneys and pelvis.',
-  IVCS_RA: 'The last stretch of the IVC into the right atrium: right heart pressure reaches the liver through it.',
+  IVCS_RA: 'The last stretch of the IVC into the right atrium: right atrial pressure is transmitted to the hepatic veins through it.',
   ILI_IVC: 'The iliac veins joining to form the IVC.',
-  LRV_IVC: 'The left renal vein: a common landing site for spontaneous splenorenal and gastrorenal shunts.',
+  LRV_IVC: 'The left renal vein: the usual outflow of spontaneous splenorenal and gastrorenal shunts.',
   RRV_IVC: 'The right renal vein.',
-  V_KID_L: 'The left kidney’s venules.', V_KID_R: 'The right kidney’s venules.',
-  V_LOW: 'Valved veins of the legs: they let blood go only toward the heart.',
+  V_KID_L: 'Left renal venules.', V_KID_R: 'Right renal venules.',
+  V_LOW: 'Valved veins of the lower extremities: flow runs only toward the heart.',
   EPI_ILI: 'Abdominal-wall veins draining down to the iliac veins. With the paraumbilical vein open they form the caput medusae.',
   EPI_SVC: 'Abdominal-wall veins draining up to the superior vena cava.',
-  V_UP: 'Bring the upper body’s blood to the superior vena cava.',
+  V_UP: 'Drain the upper body to the superior vena cava.',
   AZY_SVC: 'The azygos arch: where esophageal varices and the lumbar collaterals drain into the superior vena cava.',
-  SVC_RA: 'Returns the upper body’s blood (and the azygos) to the right atrium.',
+  SVC_RA: 'Returns venous blood from the upper body (and the azygos) to the right atrium.',
   C1a: 'The coronary vein running up into the esophageal wall: in portal hypertension it fills the esophageal varices.',
   C1b: 'Esophageal varices draining into the azygos system: the classic portosystemic route, and the one that bleeds.',
-  C2: 'Short and posterior gastric veins from the spleen to the fundus: they feed fundal varices, alone in splenic vein thrombosis.',
-  C3: 'The paraumbilical vein: a remnant reopened from the left portal vein to the abdominal wall (caput medusae). It decompresses the liver, not the varices.',
+  C2: 'Short and posterior gastric veins from the spleen to the fundus: they feed fundal varices, the isolated gastric varices of splenic vein thrombosis.',
+  C3: 'The paraumbilical vein: a recanalized remnant from the left portal vein to the abdominal wall (caput medusae). It decompresses the liver, not the varices.',
   C4: 'Rectal veins joining the portal (superior) and systemic (middle and inferior) sides: anorectal varices.',
-  C5: 'A spontaneous gastrorenal shunt from fundal varices to the left renal vein; BRTO plugs it.',
-  C6: 'A spontaneous splenorenal shunt: decompresses the portal system into the left renal vein, at the cost of encephalopathy.',
+  C5: 'A spontaneous gastrorenal shunt from fundal varices to the left renal vein; BRTO occludes it.',
+  C6: 'A spontaneous splenorenal shunt: decompresses the portal system into the left renal vein, at the risk of hepatic encephalopathy.',
   C7: 'Retroperitoneal (Retzius) veins from the mesenteric veins to the IVC.',
   C9: 'The ascending lumbar veins: a caval collateral to the azygos when the IVC is occluded.',
   C8: 'Periportal collaterals that form around a thrombosed portal vein: a cavernoma.',
   AP_R: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.', AP_L: 'An arterioportal shunt: arterial blood straight into the portal vein, raising its pressure.',
   TIPS: 'A stent through the liver from a portal branch to a hepatic vein: bypasses the sinusoids and lowers portal pressure at once.',
   DIPS: 'A stent through the caudate lobe from the right portal vein into the intrahepatic IVC, below the hepatic veins. Used when the hepatic veins are occluded and the cava is open.',
-  S_PC: 'A surgical portocaval shunt: the portal vein joined to the IVC. End-to-side divides the portal vein at the liver (total diversion); side-to-side keeps it, so the liver drains back out through it too.',
+  S_PC: 'A surgical portocaval shunt: the portal vein joined to the IVC. End-to-side divides the portal vein at the liver (total diversion); side-to-side keeps it, so the portal trunk can also carry hepatofugal outflow from the liver.',
   S_DSR: 'The Warren distal splenorenal shunt: decompresses the varices through the splenic vein while keeping some portal flow to the liver.',
   S_MC: 'A surgical mesocaval shunt from the superior mesenteric vein to the IVC.',
-  REX: 'The Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein at the Rex recess, past a clotted portal trunk. It returns the gut\u2019s blood to the liver instead of to the veins of the body.',
+  REX: 'The Meso-Rex bypass: a vein graft from the superior mesenteric vein to the left portal vein at the Rex recess, past a thrombosed main portal vein. It restores splanchnic venous inflow to the liver instead of diverting it to the systemic veins.',
 };
 // A stent between two portal-system veins (13 Nov 2026): the blood stays in the portal system, so it bypasses a segment of the portal system, not the liver.
-const PORTAL_LINK = 'A stent between two veins of the portal system. It bypasses the segment between them, and its blood stays in the portal system and still reaches the liver.';
+const PORTAL_LINK = 'A stent between two veins of the portal system. It bypasses the segment between them, and its flow stays hepatopetal: portal blood still reaches the liver.';
 const BY_KIND = {
   artery: 'An artery: oxygen-rich blood at high pressure, unaffected by portal pressure.',
   arteriole: 'An artery: oxygen-rich blood at high pressure, unaffected by portal pressure.',
@@ -108,15 +108,15 @@ export function aboutVessel(e, f, st) {
   if (m.lines && m.has === !!f && m.still === still && m.rev === rev && m.rec === rec && m.clot === clot && m.sten === sten && m.rise === rise) return m.lines;
   m.has = !!f; m.still = still; m.rev = rev; m.rec = rec; m.clot = clot; m.sten = sten; m.rise = rise;
   const out = [];
-  const first = VESSEL[e.id] || (e.kind === 'arteriole' && e.id === 'A_HR' ? 'The right hepatic artery: a quarter of the liver’s blood and most of its oxygen.' : e.portal ? PORTAL_LINK : BY_KIND[e.kind] || '');
+  const first = VESSEL[e.id] || (e.kind === 'arteriole' && e.id === 'A_HR' ? 'The right hepatic artery: a quarter of hepatic blood flow and most of the liver’s oxygen supply.' : e.portal ? PORTAL_LINK : BY_KIND[e.kind] || '');
   if (first) out.push(first);
   if (f) {
-    if (still) out.push('Flow here has almost stopped: stagnant blood can clot.');
-    else if (rev) out.push(e.kind === 'collateral' ? 'Blood runs the other way from usual in this collateral.' : 'Flow is reversed (hepatofugal for a portal vein): blood leaves the way it normally comes in.');
-    if (rec > 0) out.push(`Recruited to ${rec}% of its maximum width by the pressure behind it.`);
+    if (still) out.push('Flow here has almost stopped: stasis predisposes to thrombosis.');
+    else if (rev) out.push(e.kind === 'collateral' ? 'Flow in this collateral is reversed.' : 'Flow is reversed (hepatofugal for a portal vein): blood leaves the way it normally comes in.');
+    if (rec > 0) out.push(`Recruited to ${rec}% of its maximum width by the upstream pressure.`);
     else if (rec === -1) out.push('Still closed: portal pressure is not high enough to open it.');
-    if (clot) out.push(`A clot fills ${clot}% of the lumen.`);
-    if (sten) out.push(`Narrowed by ${sten}%: resistance rises with the fourth power of the radius.`);
+    if (clot) out.push(`Thrombus occludes ${clot}% of the lumen.`);
+    if (sten) out.push(`Narrowed by ${sten}%: resistance varies inversely with the fourth power of the radius.`);
     if (rise) out.push(`Pressure is ${rise} mmHg above normal here.`);
   }
   m.lines = out;
@@ -124,20 +124,20 @@ export function aboutVessel(e, f, st) {
 }
 
 const ORGAN_TEXT = {
-  heart: Object.freeze(['The right heart receives all venous return; its pressure is the floor every vein drains against. When it rises (failure, tricuspid regurgitation, constriction) the liver congests from behind.']),
+  heart: Object.freeze(['The right heart receives all venous return; right atrial pressure is the downstream pressure for every vein. When it rises (right heart failure, tricuspid regurgitation, constrictive pericarditis), the liver becomes congested.']),
   varices: Object.freeze(['Dilated submucosal veins in the lower esophagus, fed by the coronary vein and draining to the azygos. Modeled wall stress rises with pressure and diameter: past a threshold they rupture.']),
   gastric: Object.freeze(['Fundal varices, fed by the short and posterior gastric veins and often draining through a gastrorenal shunt. They bleed less often but more heavily than esophageal varices.']),
-  abdomen: Object.freeze(['Ascites forms when sinusoidal pressure pushes more lymph out of the liver than the lymphatics can carry away, with sodium retention and low albumin adding to it.']),
+  abdomen: Object.freeze(['Ascites forms when sinusoidal pressure drives hepatic lymph formation beyond lymphatic drainage capacity, with sodium retention and hypoalbuminemia contributing.']),
 };
 const NO_TEXT = Object.freeze([]);
-const LIVER_LEAD = 'Receives portal blood (three quarters) and hepatic arterial blood, filters it through the sinusoids and returns it by the hepatic veins. Zoom into a lobule to see where resistance builds.';
-const SPLEEN_LEAD = 'Drains through the splenic vein into the portal system: portal hypertension congests it, it enlarges and traps platelets.';
+const LIVER_LEAD = 'Receives portal blood (three quarters) and hepatic arterial blood, perfuses the sinusoids and drains through the hepatic veins. Zoom into a lobule to see where resistance builds.';
+const SPLEEN_LEAD = 'Drains through the splenic vein into the portal system: portal hypertension causes congestive splenomegaly and platelet sequestration.';
 const LIVER_STAGE = [
   [0.4, 'Early fibrosis: resistance is starting to rise in the sinusoids.'],
   [0.6, 'Compensated cirrhosis: sinusoidal resistance raises portal pressure.'],
   [0.85, 'Clinically significant portal hypertension: collaterals and varices form.'],
 ];
-const LIVER_LAST = 'Decompensated cirrhosis: ascites, bleeding and encephalopathy become likely.';
+const LIVER_LAST = 'Decompensated cirrhosis: ascites, variceal bleeding and hepatic encephalopathy become likely.';
 // The liver's and the spleen's words say a number: made again only when it moves (the same list comes back until then; do not write into it).
 const LIVER_MEMO = { c: -1, hv: null, lines: null }, SPLEEN_MEMO = { len: null, lines: null };
 
@@ -155,7 +155,7 @@ export function aboutOrgan(id, f, st) {
         for (let i = 0; i < LIVER_STAGE.length; i++) if (c < LIVER_STAGE[i][0]) { w = LIVER_STAGE[i][1]; break; }
         out.push(w);
       }
-      if (hv != null) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal <5, varices ≥10).`);
+      if (hv != null) out.push(`HVPG ${fmt(m.hvpg, 1)} mmHg (normal <5, CSPH ≥10).`);
       M.c = c; M.hv = hv; M.lines = out;
       return out;
     }

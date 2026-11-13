@@ -259,7 +259,7 @@ export function createCourse() {
     const keys = G.keyRow ? sv('g', { class: 'pft-key', transform: `translate(0 ${2.25 * f})` }, G.keys.map((k) => sv('g', { transform: `translate(${k.x.toFixed(1)} 0)` },
       sv('line', { 'data-look': 'time.key.line', 'data-p-c': tokName(k.c), x1: 0, x2: 16, y1: 0, y2: 0 }), sv('text', { 'data-look': 'time.key.text', 'data-p-c': tokName(k.c), x: 22, y: 0.36 * f }, k.name)))) : null;
     const word = (cls, look, text, p, c) => (p ? sv('text', { class: cls, 'data-look': look, 'data-p-c': c ? tokName(c) : null, x: p.x.toFixed(1), y: p.y.toFixed(1), 'text-anchor': p.anchor }, text) : null);
-    let data = null, label = `${c.words.label}: being worked out`;
+    let data = null, label = `${c.words.label}: calculating`;
     if (ser) {
       const xd = X(-G.lead), yd = Y(ser.before), headPx = ser.head.map(([d, v]) => [X(d), Y(v)]);
       const dot = (x, y, col) => sv('circle', { class: 'pcv-dot', 'data-look': 'cv.dot', 'data-p-c': tokName(col), cx: x.toFixed(1), cy: y.toFixed(1), r });

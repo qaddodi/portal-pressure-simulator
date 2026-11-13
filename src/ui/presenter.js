@@ -143,9 +143,9 @@ const citeEl = (s) => (citeText(s.cite) ? h('p', { class: 'pz-cite' }, citeText(
 // Pressure is the default and needs no key.
 const LENS_KEY = {
   velocity: ['velocity', [['--vel-slow', 'Slow'], ['--vel-fast', 'Fast']]],
-  flow: ['flow volume', () => flowCss('to right'), 'Little', 'Much'],
-  direction: ['direction', [['--flow-normal', 'Usual'], ['--flow-reversed', 'Reversed']]],
-  heat: ['congestion', () => heatCss('to right'), 'None', 'Backed up'],
+  flow: ['flow volume', () => flowCss('to right'), 'Low', 'High'],
+  direction: ['direction', [['--flow-normal', 'Hepatopetal'], ['--flow-reversed', 'Reversed']]],
+  heat: ['congestion', () => heatCss('to right'), 'None', 'High'],
   drop: ['pressure drop', () => dropCss('to right'), 'Low', 'High'],
   delta: ['change', () => 'linear-gradient(to right, var(--delta-low), var(--delta-mid), var(--delta-high))', 'Lower', 'Higher'],
   oxygen: ['oxygen', () => oxygenCss('to right'), 'Low', 'High'],
@@ -209,7 +209,7 @@ const TERMS = ['CSPH', 'SAAG', 'WHVP', 'FHVP', 'central vein', 'portal tracts?',
   'cavernoma', 'a wave', 'pulsatility', 'reflection coefficient', 'Laplace', 'congestion index', 'indeterminate zone', 'red wale marks'];
 // A tile's words in a line (the slide's key tiles are its key terms).
 const KEYWORDS = { hvpg: 'HVPG', eus: 'EUS-PPG', ppg: 'PPG', pv: 'portal pressure', whvp: 'WHVP|wedged pressure', fhvp: 'FHVP|free pressure', ra: 'right atrial pressure|right atrium',
-  ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'blood pressure', rpp: 'kidney pressure', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', ssm: 'spleen stiffness|SSM', spleen: 'spleen',
+  ivc: 'IVC', varix: 'varix|varices', hr: 'heart rate', map: 'mean arterial pressure|MAP|blood pressure', rpp: 'renal perfusion pressure|RPP', asc: 'ascites', plt: 'platelets?', lsm: 'stiffness', ssm: 'spleen stiffness|SSM', spleen: 'spleen',
   liver: 'liver blood flow', shunt: 'shunt', sin: 'sinusoidal pressure', saag: 'SAAG', tp: 'protein', hb: 'hemoglobin', hbTo: 'hemoglobin to come', pvFlow: 'portal flow', pvVel: 'portal vein velocity', clot: 'clot',
   co: 'cardiac output', bv: 'blood volume', he: 'encephalopathy risk|HE risk' };
 // alloc-rare: slide arrival or a camera framing: once per slide change or card grab, never per frame
@@ -236,7 +236,7 @@ const TARGETS = {
   // The circuit's resistors (its zigzags): lit in a station colour, not outlined.
   rLiver: { res: 'rLiver', tone: 'wedge', words: 'resistance' },
   rColl: { res: 'rColl', tone: 'var', words: 'collaterals' },
-  rGut: { res: 'rGut', site: 'rGut', tone: 'smv', words: 'gut arterioles' },
+  rGut: { res: 'rGut', site: 'rGut', tone: 'smv', words: 'splanchnic arterioles|gut arterioles' },
   // The hepatic artery (both views): one word lights it, in the artery's colour, as the lobule's arterioles are.
   ha: { node: 'HA', edges: ['A_HEP', 'A_HR', 'A_HL'], tone: '--artery', words: 'hepatic arter(?:y|ies)' },
   lpv: { node: 'LPV', edges: ['PVH_L'], tone: 'pv', words: 'left portal vein' },
@@ -1849,7 +1849,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     evg = { ft, spec: g, s, i };
     return h('div', { class: 'pz-timegraph pz-evtime', role: 'group', 'aria-label': `What the ${specOf(g.kind)?.name || 'procedure'} changes, second by second` }, ft.el);
   }
-  // The same graph as the data card's instrument (tool { kind: 'evgraph' }, Mohammad 8 Nov 2026: the pre-emptive TIPS slide's chart moves up into the
+  // The same graph as the data card's instrument (tool { kind: 'evgraph' }, Mohammad 8 Nov 2026: the preemptive TIPS slide's chart moves up into the
   // instrument card where the indications table was): the card's instrument is the chart, driven here exactly as the one on the words.
   function evAdopt(s, i, st) {
     const g = eventGraphOf(s), ft = ui?.tools.current('evgraph');
@@ -3355,8 +3355,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   const WORD = { 2: 'well above normal', 1: 'above normal', 0: 'normal', '-1': 'below normal', '-2': 'well below normal' };
   const WORDREL = { 2: 'much higher', 1: 'higher', 0: 'unchanged', '-1': 'lower', '-2': 'much lower' };
   const unitOf = (k) => (k === 'varix' || k === 'gv' ? ' mm' : k === 'asc' ? ' L' : k === 'liver' || k === 'shunt' ? '%' : k === 'hr' ? '/min' : k === 'res' ? ' mmHg per L/min' : PRESS.has(k) ? ' mmHg' : TILE[k]?.u ? ` ${TILE[k].u}` : '');
-  const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix in mm', gv: 'fundal varix in mm', asc: 'ascites in liters', liver: 'liver blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10³/µL',
-    lsm: 'stiffness in kPa', ssm: 'spleen stiffness in kPa', hr: 'heart rate in beats/min', pvFlow: 'portal flow in L/min', res: 'liver resistance in mmHg per L/min', spleen: 'spleen in cm', co: 'cardiac output in L/min', bv: 'blood volume in L' };
+  const UNIT_WORDS = { press: 'pressures in mmHg', varix: 'varix diameter in mm', gv: 'fundal varix diameter in mm', asc: 'ascites in liters', liver: 'hepatic blood flow in % of normal', shunt: 'shunted blood in %', plt: 'platelets × 10³/µL',
+    lsm: 'liver stiffness in kPa', ssm: 'spleen stiffness in kPa', hr: 'heart rate in beats/min', pvFlow: 'portal flow in L/min', res: 'intrahepatic resistance in mmHg per L/min', spleen: 'spleen length in cm', co: 'cardiac output in L/min', bv: 'blood volume in L' };
   const colExt = (k) => (!COLS[k] && Object.hasOwn(EXT.columns, k) ? EXT.columns[k] : null);
   // How wide a table wants to be, in em of its body text: the row names, each value column, a Doppler trace's column, the ascites pair
   // and each note column. The wide card is this wide (never wider than the reading width), so the columns stand close to their content.
@@ -3432,11 +3432,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // (notecols: few enough columns that an upright tablet keeps each note in a column of its own under its heading, as on its side)
     const noteCols = notes.length && cols.length + (ascCols ? 2 : 0) + notes.length <= 4;
     // (A row under one with the same heading in the same site's colour is a continued row (pz-cont): the heading is printed once, over the first of
-    // them, and the rest follow it under a lighter rule, so the learner reads "Non-selective beta-blocker" once, not twice. It stays in the
+    // them, and the rest follow it under a lighter rule, so the learner reads "Nonselective beta-blocker" once, not twice. It stays in the
     // row for a screen reader (the phone's compact rows show the heading over the name in words too, no stroke). table-continued-rows.test.js)
     const el = h('div', { class: 'pz-table' + (rows.length >= 7 ? ' long' : '') + (noteCols ? ' notecols' : '') + (focus ? ' pzv-focused' : '') }, h('table', { style: { '--nc': String(cols.length + (ascCols ? 2 : 0)), '--nn': String(notes.length), '--asc-w': '0px' } },
       h('thead', {}, h('tr', {}, h('th', {}, s.rowHead || 'Level'), cols.map((k) => cutTh(k, COLS[k] || colExt(k)?.heading || k, CUT[k] ?? colExt(k)?.cut)),
-        ascCols ? [cutTh('saag', h('abbr', { title: 'Serum−ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascites protein' }, 'Prot.'), CUT.tp)] : null,
+        ascCols ? [cutTh('saag', h('abbr', { title: 'Serum-ascites albumin gradient' }, 'SAAG'), CUT.saag), cutTh('tp', h('abbr', { title: 'Ascitic fluid total protein' }, 'Prot.'), CUT.tp)] : null,
         notes.map((x) => h('th', { class: 'nh' }, x)))),
       h('tbody', {}, rows.map((r, n) => h('tr', { ...(r.i >= 0 ? { tabindex: '0', onclick: go1(r), onkeydown: go1(r), 'aria-label': `${r.title}: go to this slide` } : {}),
           class: [r.i >= 0 ? '' : 'static', focus && (r.key === focus || (r.i >= 0 && slides[r.i]?.id === focus)) ? 'pzv-focus' : '', sameHead(rows[n - 1], r) ? 'pz-cont' : ''].filter(Boolean).join(' ') || null,

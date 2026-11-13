@@ -97,13 +97,13 @@ function patientPreview(p) {
   return h('div', { class: 'um-pv-in pt' },
     h('span', { class: 'um-pv-meta' }, `${p.group} · ${GROUP_WHERE[p.group] || ''}`),
     h('h3', {}, p.label),
-    s ? h('span', { class: 'hp-cap' }, 'Pressure, gut to right atrium (0 to 30 mmHg)') : null,   // (the curve had no words: what it plots, and its scale)
+    s ? h('span', { class: 'hp-cap' }, 'Pressure, splanchnic bed to right atrium (0 to 30 mmHg)') : null,   // (the curve had no words: what it plots, and its scale)
     s ? profile(s) : null,
     s ? h('span', { class: 'hp-facts' },
       h('span', { class: 'hp-chip ' + sev(HVPG_CUTS, shownOf(s.hvpg)), title: 'Hepatic venous pressure gradient' }, 'HVPG ', h('b', {}, one(s.hvpg))),
       fp?.ppg != null ? h('span', { class: 'hp-chip ' + sev(PPG_CUTS, shownOf(fp.ppg)), title: 'Portal pressure gradient (portal vein − IVC)' }, 'PPG ', h('b', {}, one(fp.ppg))) : null,
       h('span', { class: 'hp-chip', title: 'Portal vein pressure' }, 'PV ', h('b', {}, fmt(s.pv, 1))),
-      s.pvFlow < -0.05 ? h('span', { class: 'hp-chip rev', title: 'Portal flow runs away from the liver' }, 'Hepatofugal') : null) : null,
+      s.pvFlow < -0.05 ? h('span', { class: 'hp-chip rev', title: 'Portal flow is reversed, away from the liver' }, 'Hepatofugal') : null) : null,
     h('p', {}, p.summary || ''));
 }
 
@@ -191,7 +191,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
       h('button', { class: r ? 'btn sm' : 'btn sm primary', onclick: () => { close(); lib.start(d.id); } }, svgIcon('play', 'mi-ic'), r ? 'From the start' : 'Present'),
       lib.startView ? h('button', { class: 'btn ghost sm', title: 'Present with notes, the next slide and clocks in a second window (P while presenting)', onclick: () => { lib.startView(d.id, r?.at); close(); } }, svgIcon('projector', 'mi-ic'), 'Presenter view') : null,
       h('button', { class: 'btn ghost sm', onclick: () => lib.shareDeck(d) }, svgIcon('share', 'mi-ic'), 'Copy link'),
-      h('button', { class: 'btn ghost sm', title: 'Speaker notes and questions for the room, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
+      h('button', { class: 'btn ghost sm', title: 'Speaker notes and discussion questions, one row per slide', onclick: () => lib.notes(d) }, svgIcon('print', 'mi-ic'), 'Print notes')));
   const scriptPreview = (s, lib) => h('div', { class: 'um-pv-in' },
     h('span', { class: 'um-pv-meta' }, `${s.test ? 'Test deck, preview only' : s.deck ? 'Your deck' : 'Your script'} · ${(s.steps || s.deck.slides).length} slides`),
     h('h3', {}, s.title), h('p', {}, s.summary || ''),

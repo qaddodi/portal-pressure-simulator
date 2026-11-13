@@ -128,9 +128,9 @@ function rrect(ctx, x, y, w, h2, r) {
 const C = SSM_CUTS;
 const ORGAN = {
   liver: { key: 'lsm', aria: 'Simulated FibroScan elastography panel, liver, live', name: 'LIVER · 50 Hz', widest: '88.8', lo: [20, 10, 8], hi: [220, 126, 64],
-    rows: [['Normal', '~5 kPa'], ['cACLD unlikely', '<10'], ['cACLD suggested · likely', '10–15 · >15'], ['No CSPH, with platelets ≥150', '≤15'], ['CSPH (BMI <30)', '≥25']] },
+    rows: [['Normal', '~5 kPa'], ['cACLD unlikely', '<10'], ['cACLD suggested · likely', '10–15 · >15'], ['No CSPH, with platelets ≥150,000', '≤15'], ['CSPH (BMI <30)', '≥25']] },
   spleen: { key: 'ssm', aria: 'Simulated FibroScan elastography panel, spleen, live', name: 'SPLEEN · 100 Hz', widest: '100.0', lo: [16, 8, 26], hi: [168, 104, 220],
-    rows: [['Normal (the model)', `~${C.normal} kPa`], ['Can skip EGD', `<${C.spareScope}`], ['Indeterminate zone', `${C.spareScope}–${C.ruleIn}`], ['CSPH', `>${C.ruleIn}`],
+    rows: [['Normal (model value)', `~${C.normal} kPa`], ['EGD can be avoided', `<${C.spareScope}`], ['Indeterminate zone', `${C.spareScope}–${C.ruleIn}`], ['CSPH', `>${C.ruleIn}`],
       [`No CSPH, recompensated, with LSM <${C.resolvedLsm}`, `<${C.resolved}`]] },
 };
 const ORGAN_WORDS = [['liver', 'Liver'], ['spleen', 'Spleen']];

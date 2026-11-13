@@ -31,12 +31,12 @@ export function setHvpgStage(stage) { stageRef = stage; }
 // A thrombosed hepatic vein (Budd–Chiari): the tip reaches the ostium, probes it a few times, then the
 // procedure is aborted and the catheter withdrawn. No reading, so HVPG stays unmeasured.
 const TB = { probe0: T.zoom + 300, probe1: T.zoom + 3900, abort: T.zoom + 3900, back: T.zoom + 5300, end: T.zoom + 8700 };   // (from the end of the catheter's way in, as it was: 4600, 8200, 8200, 9600, 13000)
-const ABORT_MSG = 'Unable to cannulate hepatic vein — procedure aborted';
+const ABORT_MSG = 'Unable to cannulate the hepatic vein: procedure aborted';
 const STEPS = [
-  ['enter', 'Catheter in', 'In through the right internal jugular vein, down the SVC, through the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
-  ['free', 'Free pressure (FHVP)', 'The vein is open: the tip reads the pressure where the liver drains.', 'Free'],
-  ['wedge', 'Wedged pressure (WHVP)', 'The balloon inflates just behind the tip and blocks the vein. Once the pressure settles, the still vein in front of it reads the sinusoids.', 'Wedged'],
-  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal <5 mmHg; ≥10 is clinically significant portal hypertension.', 'HVPG'],
+  ['enter', 'Catheter in', 'Right internal jugular access: the balloon catheter passes through the SVC, the right atrium and the IVC into the right hepatic vein.', 'Catheter'],
+  ['free', 'Free pressure (FHVP)', 'With the balloon deflated, the tip records the hepatic venous outflow pressure.', 'Free'],
+  ['wedge', 'Wedged pressure (WHVP)', 'The balloon is inflated just proximal to the tip and occludes the vein. Once the pressure is stable, the static column beyond it reflects the sinusoidal pressure.', 'Wedged'],
+  ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal <5 mmHg; ≥10 mmHg is clinically significant portal hypertension.', 'HVPG'],
 ];
 // The tracing is the one monitor (monitor.js), dark in both themes; its colours are the figure's rings' too.
 const sevOf = hvpgSev;
@@ -54,7 +54,7 @@ const KEYS3 = ['fhvp', 'whvp', 'hvpg'], KEYS2 = ['fhvp', 'whvp'];
 const cF = cell(), cW = cell(), cH = cell();   // (the figure's callouts' numbers: fm1, monitor.js)
 const SHOT_NEAR = { near: true }, SHOT_FAR = { near: false };   // (cathFocus's options, made once: only the route shot keeps the view near the tip)
 const HEADS = ['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'];
-const NOTE_PROBE = ['Probing the ostium: the vein will not take the catheter.', 'The vein will not take the catheter.'];
+const NOTE_PROBE = ['Probing the ostium: the vein cannot be cannulated.', 'The vein cannot be cannulated.'];
 const NOTE_IDLE = ['The tracing starts once the tip is in the hepatic vein.', 'Starts once the tip is in the hepatic vein.', 'Starts in the hepatic vein.'];
 const NOTE_WAIT = ['Waiting for the hepatic vein.'];
 
@@ -253,9 +253,9 @@ export function createHvpgProcedure() {
     let cur = 1;
     if (ph !== 'abort') { cur = -1; for (let i = 0; i < STEPS.length; i++) if (STEPS[i][0] === ph) { cur = i; break; } }
     for (let i = 0; i < stepEls.length; i++) { const v2 = ph === 'idle' ? '' : ph === 'abort' ? (i === 0 ? 'done' : '') : i < cur || ph === 'result' ? 'done' : i === cur ? 'now' : ''; dataSoon(stepEls[i], 'state', v2); }
-    const cap = ph === 'idle' ? 'A balloon catheter via the right internal jugular vein reads the free, then the wedged, hepatic vein pressure.'
+    const cap = ph === 'idle' ? 'Via the right internal jugular vein, a balloon catheter records free, then wedged, hepatic venous pressure.'
       : ph === 'abort' ? ABORT_CAP
-      : blocked && t >= TB.probe0 ? 'The tip is at the hepatic vein ostium, but the vein is thrombosed: it will not advance.'
+      : blocked && t >= TB.probe0 ? 'The tip is at the hepatic vein ostium, but the vein is thrombosed: the catheter cannot be advanced.'
       : ph === 'result' ? RESULT_CAP[hvpgSev(v.hvpg)] : STEPS[cur][2];
     // (A treatment playing tells its own step instead.)
     const say = proc ? PROCS[procKind].steps[Math.max(0, procStep)][2] : cap;
@@ -275,7 +275,7 @@ export function createHvpgProcedure() {
     const lbl = t0 != null && t < tEnd() ? 'Measuring…' : result ? 'Measure again' : 'Measure HVPG';
     btnW.set(lbl);
     const n = st.mode === 'explore' && !st.presenting
-      ? (st.showHvpg ? 'The HVPG readouts are always shown.' : st.hvpgMeasured ? 'Measured: the HVPG readouts are live for this patient until a new one.' : 'The HVPG readouts stay hidden until it is measured here.')
+      ? (st.showHvpg ? 'The HVPG readouts are always shown.' : st.hvpgMeasured ? 'Measured: the HVPG readouts stay live until a new patient is loaded.' : 'The HVPG readouts stay hidden until the HVPG is measured here.')
       : 'The same numbers as the HVPG tile.';
     swapText(note, n);
   }
@@ -324,9 +324,9 @@ export function createHvpgMonitor() {
     const m = fp || store.get().frame?.metrics, v = live(), mm = (x) => `${fmt(x, 1)} mmHg`;
     const say = !mode ? ''
       : !(Number.isFinite(m?.fhvp) && Number.isFinite(m?.whvp)) ? 'No pressure can be read. HVPG is not measurable.'
-      : mode === 'free' ? `Free hepatic venous pressure (FHVP) ${mm(v.fhvp)}. The tracing runs level at the free pressure. ${STEPS[1][2]}`
-      : mode === 'wedge' ? `Balloon up. Wedged hepatic venous pressure (WHVP) ${mm(v.whvp)}; free pressure (FHVP) ${mm(v.fhvp)}. The tracing rises with the balloon and holds a steady plateau. ${STEPS[2][2]}`
-      : `HVPG ${mm(v.hvpg)}: the wedged pressure (WHVP) ${mm(v.whvp)} minus the free pressure (FHVP) ${mm(v.fhvp)}. ${sevWord(v.hvpg)}.`;
+      : mode === 'free' ? `Free hepatic venous pressure (FHVP) ${mm(v.fhvp)}. The tracing is flat at the FHVP. ${STEPS[1][2]}`
+      : mode === 'wedge' ? `Balloon inflated. Wedged hepatic venous pressure (WHVP) ${mm(v.whvp)}; FHVP ${mm(v.fhvp)}. The tracing rises with balloon occlusion and holds a stable plateau. ${STEPS[2][2]}`
+      : `HVPG ${mm(v.hvpg)}: WHVP ${mm(v.whvp)} minus FHVP ${mm(v.fhvp)}. ${sevWord(v.hvpg)}.`;
     if (said.textContent !== say) said.textContent = say;
   };
   const saySoon = () => { clearTimeout(sayT); sayT = setTimeout(sayNow, 400); };

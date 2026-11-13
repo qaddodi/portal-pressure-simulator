@@ -57,7 +57,7 @@ export function build(W, ser, small = []) {
   const axis = [sv('line', { class: 'pft-x', 'data-look': 'time.axis.line', x1: L, x2: R, y1: B, y2: B }),
     ...G.xt.map(([m, s]) => sv('text', { class: 'pft-tk', 'data-look': 'time.tk', ...t(X(m), B + 1.1 * f), 'text-anchor': 'middle' }, s))];
   const caption = sv('g', { class: 'pft-key' }, sv('text', { 'data-look': 'time.key.text', 'data-p-c': 'text-2', ...t(0, 0.8 * f) }, sv('tspan', { 'data-look': 'time.span' }, 'HVPG'), sv('tspan', { class: 'pft-u', 'data-look': 'time.key.unit' }, ', mmHg')));
-  let data = null, label = 'HVPG over two years, four patients: being worked out';
+  let data = null, label = 'HVPG over two years, four patients: calculating';
   if (ser) {
     const pxOf = (p, from, to) => p.pts.filter((q) => q.m >= from && q.m <= to).map((q) => [X(q.m), Y(q.hvpg)]);
     const lines = ser.flatMap((p) => {

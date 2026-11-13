@@ -60,8 +60,8 @@ test('the tile is rated from the cut-off module alone: red below the MAP line ca
   assert.deepEqual(bandsOf('rpp').map((z) => rateOf('rpp', { rpp: z.m })[0]), ['hi', 'ok']);
   assert.equal(RATE.map(KIDNEY_CUTS.mapBeta)[0], 'ok');
   assert.equal(RATE.map(KIDNEY_CUTS.mapBeta - 1)[0], 'hi');
-  assert.equal(TILE.rpp.t, 'Kidney pressure');
-  assert.equal(TILE.rpp.s, 'MAP − abdomen');
+  assert.equal(TILE.rpp.t, 'Renal perfusion pressure');
+  assert.equal(TILE.rpp.s, 'MAP − IAP');
   assert.ok(COLS.rpp && CUT.rpp);
   assert.ok(METRICS.rpp, 'the Why? explanation covers it');
 });

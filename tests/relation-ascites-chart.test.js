@@ -178,8 +178,8 @@ test('before the days are there: the zones, the numbers, the axes and the captio
   assert.equal(r.rects.filter((x) => x.cls === 'pco-z').length, 4, 'the four zones');
   assert.equal(r.paths.filter((p) => /ptk-line/.test(p.cls)).length, 0);
   assert.equal(r.circles.length, 0);
-  assert.ok(r.texts.some((t) => t.txt === 'Grade 3') && r.texts.some((t) => t.txt === '5 L') && r.texts.some((t) => t.txt === 'Weeks after the tap'));
-  assert.ok(!r.texts.some((t) => t.txt === 'Tense belly' || t.txt === 'Diuretics'), 'no name of a line that is not drawn');
+  assert.ok(r.texts.some((t) => t.txt === 'Grade 3') && r.texts.some((t) => t.txt === '5 L') && r.texts.some((t) => t.txt === 'Weeks after LVP'));
+  assert.ok(!r.texts.some((t) => t.txt === 'Tense ascites' || t.txt === 'Diuretics'), 'no name of a line that is not drawn');
   assert.ok(go, 'and the days were asked for');
 });
 
@@ -210,8 +210,8 @@ test('the grades are the plot\'s zones, each named on its own band, with liters 
 test('the x axis is in weeks, the tap named at 0, and says what it is; the caption says liters', async () => {
   for (const [W, H, f] of SIZES) {
     const r = await draw(W, H, f), ticks = r.texts.filter((x) => /pft-tk/.test(x.cls)), ax = r.texts.find((x) => /pcv-ax/.test(x.cls));
-    assert.deepEqual(ticks.map((x) => x.txt), ['Tap', '2', '4', '6'], `${W} px`);
-    assert.equal(ax.txt, 'Weeks after the tap');
+    assert.deepEqual(ticks.map((x) => x.txt), ['LVP', '2', '4', '6'], `${W} px`);
+    assert.equal(ax.txt, 'Weeks after LVP');
     assert.ok(ax.y > Math.max(...ticks.map((x) => x.y)) + f, `${W} px: the name is under the numbers, not among them`);
     assert.ok(r.texts.some((x) => x.txt === 'Ascites, liters' && x.y < 1.6 * f), `${W} px: Ascites, liters at the top`);
     // (The ticks are the weeks: day 14, 28 and 42 sit at 2, 4 and 6.)
@@ -239,7 +239,7 @@ test('the three lines and their dots: the tense belly in grey, diuretics and diu
 test('the lines are named at their ends and the first dot on its own, the upright line says where treatment starts', async () => {
   const r = await draw(440, 250, 14), say = (c) => r.texts.filter((t) => c.test(t.cls)).map((t) => t.txt).sort();
   assert.deepEqual(say(/pcv-name/), ['Diuretics', 'Diuretics + TIPS']);
-  assert.deepEqual(say(/pcv-dname/), ['Refills', 'Tense belly', 'Treatment starts']);
+  assert.deepEqual(say(/pcv-dname/), ['Refills', 'Tense ascites', 'Treatment starts']);
   assert.equal(r.lines.filter((l) => /pcv-at/.test(l.cls)).length, 1, 'one upright line');
   const up = r.lines.find((l) => /pcv-at/.test(l.cls)), ticks = r.texts.filter((x) => /pft-tk/.test(x.cls));
   near(up.x1, ticks[1].x, 0.5, 'standing on the 2 weeks');
@@ -265,7 +265,7 @@ test('no word touches another word, a line, a dot, or leaves the chart, at any c
     // (Every size names both treatments, by their ends or in a key.)
     const names = r.texts.filter((t) => /pcv-name|pft-key/.test(t.cls) || ['Diuretics', 'Diuretics + TIPS'].includes(t.txt)).map((t) => t.txt);
     assert.ok(names.includes('Diuretics') && names.includes('Diuretics + TIPS'), `${W} × ${H}: both treatments are named`);
-    assert.ok(r.texts.some((t) => t.txt === 'Tense belly'), `${W} × ${H}: the first dot is named`);
+    assert.ok(r.texts.some((t) => t.txt === 'Tense ascites'), `${W} × ${H}: the first dot is named`);
   }
 });
 
@@ -297,8 +297,8 @@ test('the days are worked out once for a deck, on the presenter\'s worker, and k
 test('the course is registered with its words, and asks the worker for nothing extra', () => {
   const k = model.tools.course;
   assert.equal(typeof k.make, 'function'); assert.equal(typeof k.warm, 'function');
-  assert.equal(k.title(tool), 'Ascites after the tap');
-  assert.equal(k.short(tool), 'After the tap');
+  assert.equal(k.title(tool), 'Ascites after LVP');
+  assert.equal(k.short(tool), 'After LVP');
   assert.equal(stepExtra({ tool }), null);
 });
 

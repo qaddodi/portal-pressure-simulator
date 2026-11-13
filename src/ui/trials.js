@@ -32,16 +32,16 @@ export const TRIALS = {
     note: null, status: 'checked',
   },
   earlytips: {
-    id: 'earlytips', name: 'Early TIPS after a bleed', journal: 'N Engl J Med', year: 2010, firstAuthor: 'García-Pagán', pmid: null, n: 63,
-    setting: 'Cirrhosis with a variceal bleed, high risk of rebleeding (Child-Pugh C, or B with active bleeding)',
+    id: 'earlytips', name: 'Early TIPS after variceal bleeding', journal: 'N Engl J Med', year: 2010, firstAuthor: 'García-Pagán', pmid: null, n: 63,
+    setting: 'Cirrhosis with acute variceal bleeding at high risk of treatment failure (Child–Pugh C, or B with active bleeding)',
     followUp: 'Median 16 months', endpoint: 'Alive at 1 year', better: 'higher',
-    arms: [{ label: 'Early TIPS', rate: 86, n: 32, side: 'treat' }, { label: 'Drug plus banding', rate: 61, n: 31, side: 'control' }],
-    effect: 'Free of rebleeding or failure at 1 year: 97% against 50%',
+    arms: [{ label: 'Early TIPS', rate: 86, n: 32, side: 'treat' }, { label: 'Drugs plus EVL', rate: 61, n: 31, side: 'control' }],
+    effect: 'Free of rebleeding or failure at 1 year: 97% vs 50%',
     note: null, status: 'checked',
   },
   lvtips: {
     id: 'lvtips', name: 'Early TIPS, covered stents', journal: 'Lancet Gastroenterol Hepatol', year: 2019, firstAuthor: 'Lv', pmid: '31153882', n: 132,
-    setting: 'Cirrhosis (Child-Pugh B or C) with an acute variceal bleed treated with drugs and endoscopy',
+    setting: 'Cirrhosis (Child–Pugh B or C) with acute variceal bleeding treated with vasoactive drugs and endoscopy',
     followUp: '1 year', endpoint: 'Alive and not transplanted at 1 year', better: 'higher',
     arms: [{ label: 'Early TIPS', rate: 86, side: 'treat' }, { label: 'Standard care', rate: 73, side: 'control' }],
     effect: 'HR 0.50 (0.25–0.98)',
@@ -53,19 +53,19 @@ export const TRIALS = {
     followUp: '6 weeks', endpoint: 'Alive at 6 weeks', better: 'higher',
     arms: [{ label: 'Restrictive (Hb 7 g/dL)', rate: 95, side: 'treat' }, { label: 'Liberal (Hb 9 g/dL)', rate: 91, side: 'control' }],
     effect: 'HR for death 0.55 (0.33–0.92)',
-    note: 'In patients with cirrhosis the benefit held in Child-Pugh A and B, not in C, and was not significant for all of them together.', status: 'checked',
+    note: 'In patients with cirrhosis, the survival benefit held in Child–Pugh A and B but not C, and was not significant for the cirrhosis subgroup as a whole.', status: 'checked',
   },
   rifaximin: {
     id: 'rifaximin', name: 'Rifaximin before TIPS', journal: 'Ann Intern Med', year: 2021, firstAuthor: 'Bureau', pmid: '33524293', n: 197,
-    setting: 'Cirrhosis, having an elective TIPS',
-    followUp: '168 days after the TIPS', endpoint: 'Overt encephalopathy', better: 'lower',
+    setting: 'Cirrhosis, undergoing elective TIPS',
+    followUp: '168 days after the TIPS', endpoint: 'Overt hepatic encephalopathy', better: 'lower',
     arms: [{ label: 'Rifaximin', rate: 34, n: 93, side: 'treat' }, { label: 'Placebo', rate: 53, n: 93, side: 'control' }],
     effect: 'OR 0.48 (0.27–0.87)',
-    note: 'Started 14 days before the TIPS.', status: 'checked',
+    note: 'Started 14 days before TIPS.', status: 'checked',
   },
   covered: {
     id: 'covered', name: 'Covered TIPS for recurrent ascites', journal: 'Gastroenterology', year: 2017, firstAuthor: 'Bureau', pmid: '27663604', n: 62,
-    setting: 'Cirrhosis with ascites that came back after at least two large-volume paracenteses',
+    setting: 'Cirrhosis with recurrent ascites after ≥2 large-volume paracenteses',
     followUp: '1 year', endpoint: 'Alive and not transplanted at 1 year', better: 'higher',
     arms: [{ label: 'Covered TIPS', rate: 93, n: 29, side: 'treat' }, { label: 'Large-volume paracentesis', rate: 52, n: 33, side: 'control' }],
     effect: 'P = .003',
@@ -84,8 +84,8 @@ export const trialSource = (t) => `${t.journal} ${t.year} · ${t.firstAuthor}`;
  *  trial not yet read against its paper, a line that says so. */
 export function trialLines(t) {
   return [
-    `Who: ${t.setting}`, `Counted: ${t.endpoint}`, `Followed: ${t.followUp}`,
-    ...t.arms.map((a) => `${a.label}: ${a.rate}%${a.n ? ` (${a.n} people)` : ''}`),
+    `Patients: ${t.setting}`, `Endpoint: ${t.endpoint}`, `Follow-up: ${t.followUp}`,
+    ...t.arms.map((a) => `${a.label}: ${a.rate}%${a.n ? ` (n = ${a.n})` : ''}`),
     t.effect ? `Effect: ${t.effect}` : null, t.note ? `Caveat: ${t.note}` : null,
     `${trialSource(t)} · ${t.n} randomized`, t.status === 'checked' ? null : 'Not yet checked against the paper',
   ].filter(Boolean);

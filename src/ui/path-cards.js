@@ -293,7 +293,7 @@ function drawLadder(spec, W, compact, p, H) {
   }
   if (s >= 2) {
     y += 12;
-    const f = fl(H, [[{ text: rc ? 'Back to compensated. ' : 'The way back. ', face: 'bb' }, { text: spec.back, face: 'bk' }]], W - 20);
+    const f = fl(H, [[{ text: rc ? 'Recompensated. ' : 'Reversible. ', face: 'bb' }, { text: spec.back, face: 'bk' }]], W - 20);
     ops.push(rect('path.back', 0.5, y + 0.5, W - 1, f.h + 14, 10, rc, TOKEN.ok));
     put(ops, f.items, 10, y + 7, rc, TOKEN.ok);
     y += f.h + 14;

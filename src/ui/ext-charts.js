@@ -21,11 +21,11 @@ import { createMenu, warmMenu } from './tool-menu.js';
 export default {
   tools: {
     profile: { make: () => createProfileTool(), title: () => 'Pressure, gut to heart', short: () => 'Gut to heart' },
-    menu: { make: () => createMenu(), warm: (t, ctx) => warmMenu(t, ctx), title: () => 'Every treatment for this patient', short: () => 'Treatment menu' },
+    menu: { make: () => createMenu(), warm: (t, ctx) => warmMenu(t, ctx), title: () => 'Every treatment option in this case', short: () => 'Treatment menu' },
     flows: {
       make: () => createFlowsTool(),
-      title: (t) => (t.of === 'inflow' ? 'Blood into the liver' : 'Where the portal blood goes'),
-      short: (t) => (t.of === 'inflow' ? 'Liver inflow' : 'Portal blood'),
+      title: (t) => (t.of === 'inflow' ? 'Hepatic inflow' : 'Portal flow distribution'),
+      short: (t) => (t.of === 'inflow' ? 'Hepatic inflow' : 'Portal flow'),
     },
   },
 };

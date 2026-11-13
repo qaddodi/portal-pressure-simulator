@@ -103,7 +103,7 @@ export function organAnchor(id, spleenScale = 1) {
 /** The words for a clot that fills v (0..1) of its vessel, or null when there is none to point at. */
 export function clotWords(v) {
   const n = Math.round(Math.min(1, Math.max(0, +v || 0)) * 100);
-  return n <= 0 ? null : n >= 100 ? 'Occlusive clot' : 'Nonocclusive clot';
+  return n <= 0 ? null : n >= 100 ? 'Occlusive thrombus' : 'Nonocclusive thrombus';
 }
 
 // ── V9: calipers ──

@@ -68,8 +68,8 @@ test('every summary-table arrow matches its row\'s model state', async () => {
   assert.deepEqual(bad, []);
   // Pinned by name.
   assert.ok(cells['circuit/Healthy, after a meal/pvFlow'] > 0, 'a meal raises portal flow above the fasting range');   // (Circuit holds the meal since the deck rebuild)
-  assert.equal(cells['two-inflows/Hepatic artery clot/liver'], -1, 'a hepatic artery clot lowers liver blood flow');
-  assert.equal(cells['two-inflows/Portal vein clot/pvFlow'], -2, 'a portal vein clot stops portal flow');
+  assert.equal(cells['two-inflows/Hepatic artery thrombosis/liver'], -1, 'a hepatic artery clot lowers liver blood flow');
+  assert.equal(cells['two-inflows/Portal vein thrombosis/pvFlow'], -2, 'a portal vein clot stops portal flow');
   assert.ok(cells['circuit/With collaterals/ppg'] < 0, 'against the same liver, collaterals lower the gradient');
   assert.equal(cells['circuit/With collaterals/res'], 0, 'collaterals leave the liver\'s own resistance alone');
 });

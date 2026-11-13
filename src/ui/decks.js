@@ -200,7 +200,7 @@ export function withOverview(d) {
   const withResponse = (s) => (s.response && !s.compare ? { ...s, compare: responseButtons(s) } : s);   // (the beta-blocker response control: nsbb-response.js)
   const place = (s0) => { const s = withResponse(s0); const k = secs ? secs.findIndex(([, ks]) => ks.includes(s.kicker) || (s.id && ks.includes(s.id))) : -1; return k >= 0 ? { ...s, sec: [k + 1, secs.length] } : s; };
   const open = { id: 'outline', visual: 'outline', outline, objectives: d.objectives || [], kicker: d.title, title: 'Outline and objectives',
-    notes: 'Set out the plan of the talk and what the audience should be able to do by the end.',
+    notes: 'The outline of the talk and its learning objectives.',
     ...(keep ? Object.fromEntries(MODEL.filter((k) => first[k] !== undefined).map((k) => [k, first[k]])) : {}) };
   // A first slide that opens with a case keeps its patient too, so it loads that patient afresh behind the case card.
   const firstNow = keep && !first.vignette ? Object.fromEntries(Object.entries(first).filter(([k]) => !MODEL.includes(k))) : first;
@@ -262,13 +262,13 @@ export const TOPICS = [
   ['complications', 'Complications', [['varices', 'Collaterals and varices', 'Varices'], ['variceal-bleed', 'Acute variceal bleeding', 'Variceal bleed'], ['ascites', 'Ascites and its treatment', 'Ascites'], ['encephalopathy', 'Encephalopathy and shunting', 'Encephalopathy']]],
   ['treatment', 'Treatment', [['next-bleed', 'Preventing the next bleed', 'Next bleed']]],
   ['more', 'More talks', [
-    ['two-inflows', 'The liver\'s two inflows', 'Two inflows'], ['hyperdynamic', 'The circulation in cirrhosis', 'Hyperdynamic'],
-    ['prehepatic', 'Portal vein clots', 'Portal vein clots'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['outflow', 'After the sinusoids', 'After the sinusoids'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance'],
+    ['two-inflows', 'Dual hepatic blood supply', 'Dual supply'], ['hyperdynamic', 'The circulation in cirrhosis', 'Hyperdynamic'],
+    ['prehepatic', 'Portal vein thrombosis', 'PVT'], ['ncph', 'Presinusoidal PH', 'Presinusoidal PH'], ['outflow', 'Postsinusoidal and posthepatic', 'Postsinusoidal'], ['lobule', 'Inside the lobule', 'Lobule'], ['where-resistance', 'Where is the resistance?', 'Find the resistance'],
     ['endoscopy', 'The varix and insufflation', 'Insufflation'], ['gastric-varices', 'Gastric varices', 'Gastric varices'], ['recompensation', 'Decompensation and recovery', 'Recompensation'], ['pregnancy', 'Cirrhosis in pregnancy', 'Pregnancy'], ['ten-years', 'One patient, ten years', 'Ten years'], ['kidney', 'The kidney in cirrhosis', 'Kidney'], ['carvedilol', 'Carvedilol, start to finish', 'Carvedilol'], ['albumin', 'Albumin: when to give it', 'Albumin'], ['budd-chiari', 'Budd–Chiari syndrome', 'Budd–Chiari'],
-    ['masld', 'Fatty liver and portal pressure', 'Fatty liver'],
+    ['masld', 'MASLD and portal hypertension', 'MASLD'],
     ['treatment', 'Lowering portal pressure', 'Lowering pressure'], ['choose-treatment', 'Choose the treatment', 'Choose treatment'], ['cause-treated', 'Treating the cause', 'Treating the cause'], ['shunts', 'TIPS and shunts', 'TIPS and shunts'], ['tips-doppler', 'Doppler after TIPS', 'TIPS Doppler'],
-    ['meso-rex', 'Children with a portal vein clot', 'Rex bypass'],
-    ['tipping', 'What tips a patient over', 'Tipping point'],
+    ['meso-rex', 'Pediatric PVT: Meso-Rex bypass', 'Rex bypass'],
+    ['tipping', 'Precipitants of decompensation', 'Precipitants'],
     ['day', 'A day in the portal vein', 'Portal day'],
     ['landmark-trials', 'Landmark trials replayed', 'Landmark trials'],
     ['gradients', 'HVPG, PPG and EUS-PPG compared', 'Compare gradients']]],

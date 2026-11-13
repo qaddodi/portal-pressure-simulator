@@ -8,11 +8,11 @@
 import { inheritTone } from './helpers.js';
 
 const tree = inheritTone({
-  id: 'root', t: 'Recent portal vein clot', r: 'Anticoagulate now, full dose', s: 'If it reaches the SMV, look for bowel ischaemia.', stmt: '9.6, 9.7', tone: 'n', kids: [
-    { id: 'stop', t: 'At 3 months: fully recanalised, reversible factor gone, no permanent one', r: 'Stopping can be considered', stmt: '9.8', tone: 'ok', sh: 'Can stop' },
+  id: 'root', t: 'Recent portal vein thrombosis', r: 'Anticoagulate now, full dose', s: 'If it extends to the SMV, assess for intestinal ischemia.', stmt: '9.6, 9.7', tone: 'n', kids: [
+    { id: 'stop', t: 'At 3 months: fully recanalized, reversible factor gone, no permanent one', r: 'Stopping can be considered', stmt: '9.8', tone: 'ok', sh: 'Can stop' },
     { id: 'cont', t: 'Otherwise', r: 'Anticoagulate ≥6 months', stmt: '9.8', tone: 'warn', sh: '6 months', kids: [
-      { id: 'lt', t: 'At 6 months: recanalised, or no extension', r: 'Long-term plan by risk factors', s: 'See the risk-factor grid.', stmt: '9.10', tone: 'ok', sh: 'Long-term' },
-      { id: 'ext', t: 'At 6 months: SMV or splenic extension, not recanalised', r: '6 more months, full dose', s: 'Late recanalisation can still happen.', stmt: '9.9', tone: 'bad', sh: '6 more' }] }] }, 'n');
+      { id: 'lt', t: 'At 6 months: recanalized, or no extension', r: 'Long-term plan by risk factors', s: 'See the risk-factor grid.', stmt: '9.10', tone: 'ok', sh: 'Long-term' },
+      { id: 'ext', t: 'At 6 months: SMV or splenic extension, not recanalized', r: '6 more months, full dose', s: 'Late recanalization can still occur.', stmt: '9.9', tone: 'bad', sh: '6 more' }] }] }, 'n');
 
 const mapWords = { stop: ['Can', 'stop'], cont: ['6 months'], lt: ['Long-term', 'plan'], ext: ['6 more'] };
 
@@ -26,13 +26,13 @@ const outcomeOf = (L) => ['stop', 'ext', 'lt', 'cont'].find((k) => L.has(k)) || 
 const outcomes = ['stop', 'cont', 'lt', 'ext'];
 
 function reading(key, p) {
-  if (key === 'stop') return { head: 'Stopping can be considered', tone: 'ok', stmt: '9.8', why: 'At 3 months the vein is fully open, the reversible factor is gone and there is no permanent factor.', next: 'This is a weak recommendation.' };
-  if (key === 'ext') return { head: '6 more months, full dose', tone: 'bad', stmt: '9.9', why: 'The clot reached the SMV or splenic vein and the vein is still blocked at 6 months.', next: 'Delayed recanalisation can still occur. This is a weak recommendation.' };
-  if (key === 'lt') return { head: 'Long-term plan by risk factors', tone: 'ok', stmt: '9.10', why: p.rec ? 'The 6 months are done and the vein is open.' : 'The 6 months are done. The vein is still blocked, but the clot did not extend into the SMV or splenic vein.', next: 'Whether to continue depends on the risk factors: see the risk-factor grid.' };
-  return { head: 'Anticoagulate ≥6 months', tone: 'warn', stmt: '9.8', why: 'The conditions to stop early are not all met: the vein is not fully open, a reversible factor is still there or a permanent one is present.', next: 'Keep full-dose anticoagulation to 6 months, then review.' };
+  if (key === 'stop') return { head: 'Stopping can be considered', tone: 'ok', stmt: '9.8', why: 'At 3 months the vein is fully recanalized, the reversible factor has resolved and there is no permanent factor.', next: 'This is a weak recommendation.' };
+  if (key === 'ext') return { head: '6 more months, full dose', tone: 'bad', stmt: '9.9', why: 'The thrombus extended into the SMV or splenic vein, and the vein is not recanalized at 6 months.', next: 'Delayed recanalization can still occur. This is a weak recommendation.' };
+  if (key === 'lt') return { head: 'Long-term plan by risk factors', tone: 'ok', stmt: '9.10', why: p.rec ? 'Six months of anticoagulation are complete and the vein is recanalized.' : 'Six months of anticoagulation are complete. The vein is not recanalized, but the thrombus did not extend into the SMV or splenic vein.', next: 'Whether to continue depends on the risk factors: see the risk-factor grid.' };
+  return { head: 'Anticoagulate ≥6 months', tone: 'warn', stmt: '9.8', why: 'The conditions to stop early are not all met: the vein is not fully recanalized, a reversible factor persists or a permanent one is present.', next: 'Keep full-dose anticoagulation to 6 months, then review.' };
 }
 
-const chips = (p) => [`At ${p.at} months`, p.rec ? 'Recanalised' : 'Not recanalised', p.rev && 'Reversible factor gone', p.perm && 'Permanent factor', p.ext && 'SMV or splenic extension'].filter(Boolean);
+const chips = (p) => [`At ${p.at} months`, p.rec ? 'Recanalized' : 'Not recanalized', p.rev && 'Reversible factor resolved', p.perm && 'Permanent factor', p.ext && 'SMV or splenic extension'].filter(Boolean);
 
 function patientFor(tool) {
   const b = tool?.patient || {};
@@ -41,12 +41,12 @@ function patientFor(tool) {
 
 export default {
   id: 'pvtdur',
-  label: 'Recent portal vein clot: how long to anticoagulate',
+  label: 'Recent PVT: how long to anticoagulate',
   kind: 'tree',
   source: 'Baveno VIII',
   cite: '',
   tree, mapWords, lit,
   outcomes, outcomeOf, reading, chips, patientFor,
   worst: { at: '6', rec: false, rev: true, perm: true, ext: true },
-  notes: 'A recent portal vein thrombosis rarely resolves on its own, and recanalisation follows early anticoagulation, so treatment starts at once at a therapeutic dose (9.6). If the clot has reached the superior mesenteric vein, look for clinical and radiological signs of intestinal ischaemia (9.7). Anticoagulate for ≥6 months (9.8, strong); stopping may be considered, as a weak recommendation, when the vein is fully recanalised at 3 months, the reversible risk factor has resolved and there is no permanent risk factor. If the clot extends into the SMV or splenic vein and the vein is not recanalised at 6 months, full-dose treatment may continue for 6 more months, because late recanalisation can still happen (9.9, weak). The long-term plan then depends on the type of risk factor (9.10, Fig. 5).',
+  notes: 'A recent portal vein thrombosis rarely resolves on its own, and recanalization follows early anticoagulation, so treatment starts at once at a therapeutic dose (9.6). If the clot has reached the superior mesenteric vein, look for clinical and radiological signs of intestinal ischemia (9.7). Anticoagulate for ≥6 months (9.8, strong); stopping may be considered, as a weak recommendation, when the vein is fully recanalized at 3 months, the reversible risk factor has resolved and there is no permanent risk factor. If the clot extends into the SMV or splenic vein and the vein is not recanalized at 6 months, full-dose treatment may continue for 6 more months, because late recanalization can still occur (9.9, weak). The long-term plan then depends on the type of risk factor (9.10, Fig. 5).',
 };

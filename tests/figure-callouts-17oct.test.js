@@ -45,7 +45,7 @@ test('the circuit\'s readings follow one unit rule: where one drops its unit for
 test('the resistors are named in full, and "vs healthy liver" is said once, in their key', () => {
   assert.match(stage, /rLiver: \{ kicker: 'Liver resistance', cls: 'res', unit: '',/);
   assert.match(stage, /rColl: \{ kicker: 'Collateral resistance', cls: 'res coll', unit: '',/);
-  assert.match(stage, /rGut: \{ kicker: 'Gut arteriole resistance', cls: 'res gut', unit: '',/);
+  assert.match(stage, /rGut: \{ kicker: 'Splanchnic arteriolar resistance', cls: 'res gut', unit: '',/);
   assert.doesNotMatch(stage, /unit: 'vs healthy liver'/);
   // (The key is a second line of the outermost reading's label, resItem: 'vs healthy liver'.)
   assert.match(stage, /'vs healthy liver'/);

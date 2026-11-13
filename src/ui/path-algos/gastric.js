@@ -4,9 +4,9 @@
 import { inheritTone, cpClass } from './helpers.js';
 
 const tree = inheritTone({
-  id: 'root', t: 'Suspected variceal bleed', r: 'GOV2 or IGV1', s: 'High risk. Two phases, started together or kept close.', stmt: '5.39', tone: 'bad', kids: [
-    { id: 'acute', t: 'Acute phase', r: 'Stop the bleeding', s: 'EUS-guided coil + cyanoacrylate in experienced centres. Else cyanoacrylate injection.', stmt: '5.40', tone: 'warn', sh: 'Stop bleeding' },
-    { id: 'tipsg', t: 'Definitive phase, TIPS suitable', r: 'TIPS ± embolisation', s: 'As soon as possible. Child–Pugh C <14, age <75, creatinine <3, no heart failure.', stmt: '5.41', tone: 'bad', sh: 'TIPS' },
+  id: 'root', t: 'Suspected variceal bleeding', r: 'GOV2 or IGV1', s: 'High risk. Two phases, started together or in close succession.', stmt: '5.39', tone: 'bad', kids: [
+    { id: 'acute', t: 'Acute phase', r: 'Stop the bleeding', s: 'EUS-guided coil + cyanoacrylate in experienced centers. Otherwise cyanoacrylate injection.', stmt: '5.40', tone: 'warn', sh: 'Stop bleeding' },
+    { id: 'tipsg', t: 'Definitive phase, TIPS suitable', r: 'TIPS ± embolization', s: 'As soon as possible. Child–Pugh C <14, age <75, creatinine <3, no heart failure.', stmt: '5.41', tone: 'bad', sh: 'TIPS' },
     { id: 'mdt', t: 'Definitive phase, TIPS not possible', r: 'Other definitive options', s: 'Transvenous obliteration, endoscopic (also EUS-guided) or surgical, after MDT discussion.', stmt: '5.41', tone: 'warn', sh: 'MDT' },
   ],
 }, 'n');
@@ -31,11 +31,11 @@ export default {
   outcomeOf: (L) => (L.has('tipsg') ? 'tipsg' : L.has('mdt') ? 'mdt' : null),
   reading(key, p) {
     const cls = cpClass(cpOf(p)) + cpOf(p);
-    if (key === 'tipsg') return { head: 'Two phases, in parallel', tone: 'bad', stmt: '5.39', why: 'A GOV2 or IGV1 bleed is high risk.', next: 'Stop the bleeding now: EUS-guided coil with cyanoacrylate, else cyanoacrylate injection. Then TIPS ± embolisation as soon as possible.' };
-    return { head: 'Two phases, in parallel', tone: 'bad', stmt: '5.39', why: 'A GOV2 or IGV1 bleed is high risk.', next: `Stop the bleeding now: EUS-guided coil with cyanoacrylate, else cyanoacrylate injection. TIPS is not an option (${cpOf(p) > 13 ? `Child–Pugh ${cls}` : 'not fit'}): transvenous obliteration, endoscopic or surgical options after MDT discussion.` };
+    if (key === 'tipsg') return { head: 'Two phases, in parallel', tone: 'bad', stmt: '5.39', why: 'A GOV2 or IGV1 bleed is high risk.', next: 'Achieve hemostasis now: EUS-guided coil with cyanoacrylate, otherwise cyanoacrylate injection. Then TIPS ± embolization as soon as possible.' };
+    return { head: 'Two phases, in parallel', tone: 'bad', stmt: '5.39', why: 'A GOV2 or IGV1 bleed is high risk.', next: `Achieve hemostasis now: EUS-guided coil with cyanoacrylate, otherwise cyanoacrylate injection. TIPS is not an option (${cpOf(p) > 13 ? `Child–Pugh ${cls}` : 'not a candidate'}): transvenous obliteration, endoscopic or surgical options after MDT discussion.` };
   },
   chips(p) {
-    return ['GOV2 or IGV1', `Child–Pugh ${cpClass(cpOf(p))}${cpOf(p)}`, p?.fit === false && 'Not fit for TIPS'].filter(Boolean);
+    return ['GOV2 or IGV1', `Child–Pugh ${cpClass(cpOf(p))}${cpOf(p)}`, p?.fit === false && 'Not a TIPS candidate'].filter(Boolean);
   },
   patientFor(tool) {
     const base = { ...DEFAULT, ...(tool?.patient || {}), src: 'gv' };
@@ -44,5 +44,5 @@ export default {
     return base;
   },
   worst: { src: 'gv', cp: 13, fit: false },
-  notes: 'A bleed from a gastric varix of type GOV2 or IGV1 is a high-risk event that needs rapid, structured team management (5.39). Treatment has two phases that may start in parallel; if they are staged, the gap between them should be as short as possible. The acute phase is haemostasis, with conventional cyanoacrylate injection or, where available in experienced centres, EUS-guided coil plus cyanoacrylate (5.40, weak). The definitive phase is TIPS, with or without variceal embolisation, as soon as possible (5.41). Figure 3 limits it to Child–Pugh C <14 (so A and B too), age <75 years, creatinine <3 mg/dL and no heart failure. When TIPS is contraindicated, other definitive options after a team discussion are transvenous obliteration and endoscopic (including EUS-guided) or surgical approaches.',
+  notes: 'A bleed from a gastric varix of type GOV2 or IGV1 is a high-risk event that needs rapid, structured team management (5.39). Treatment has two phases that may start in parallel; if they are staged, the gap between them should be as short as possible. The acute phase is hemostasis, with conventional cyanoacrylate injection or, where available in experienced centers, EUS-guided coil plus cyanoacrylate (5.40, weak). The definitive phase is TIPS, with or without variceal embolization, as soon as possible (5.41). Figure 3 limits it to Child–Pugh C <14 (so A and B too), age <75 years, creatinine <3 mg/dL and no heart failure. When TIPS is contraindicated, other definitive options after a team discussion are transvenous obliteration and endoscopic (including EUS-guided) or surgical approaches.',
 };

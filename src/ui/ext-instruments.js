@@ -21,6 +21,6 @@ import { createFluid } from './tool-fluid.js';
 export default {
   tools: {
     lumen: { make: () => createLumen(), title: (t) => `The ${lumenName(t.vessel || 'PV_TRUNK')}, in cross-section`, short: () => 'Cross-section' },
-    fluid: { make: () => createFluid(), title: (t) => (t?.window ? 'Fluid balance · mL/day' : 'Fluid balance: lymph made and drained'), short: (t) => (t?.window ? 'Fluid balance · mL/day' : 'Fluid balance') },
+    fluid: { make: () => createFluid(), title: (t) => (t?.window ? 'Fluid balance · mL/day' : 'Fluid balance: lymph formation and drainage'), short: (t) => (t?.window ? 'Fluid balance · mL/day' : 'Fluid balance') },
   },
 };

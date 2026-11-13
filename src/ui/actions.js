@@ -306,7 +306,7 @@ function buildVarixVerbs(site) {
 }
 const VARIX_ESO = buildVarixVerbs('eso'), VARIX_GAS = buildVarixVerbs('gas');
 
-const SPLEEN_ABOUT = ['Partial embolization closes branches of the splenic artery and infarcts part of the spleen; splenectomy removes it. Both cut splenic inflow, so portal pressure and flow to the varices fall (splenectomy more than embolization).'];
+const SPLEEN_ABOUT = ['Partial embolization closes branches of the splenic artery and infarcts part of the spleen; splenectomy removes it. Both reduce splenic inflow, so portal pressure and variceal inflow fall (splenectomy more than embolization).'];
 const SPLEEN_RX = ['Spleen untreated', 'Partial splenic embolization', 'Splenectomy'];
 const REMOVED = { v: 'Removed', u: '' };
 const FMT1 = (x) => fmt(x, 1);
@@ -320,7 +320,7 @@ function buildOrganCard(id) {
       value: (f, lens, ref) => readP(h, (f.Pf || f.P)[NI.SIN_R], ref?.[NI.SIN_R], 'mmHg sinusoids'),
       verbs: [
         { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
-          sub: '40% compensated · 60% CSPH · 85% decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
+          sub: '40% compensated · 60% CSPH · 85% decompensated', info: 'Sinusoidal fibrosis, capillarization, higher liver stiffness and arterioportal shunting. Jump months ahead on the timeline to watch collaterals open.' },
         { type: 'button', id: 'lobule', label: 'Open the lobule view', icon: 'explore', run: () => CTX.zoomLobule(), note: () => 'Fibrosis of the portal tract, sinusoids or central vein is set there, on each part’s card.' },
         stat('HVPG', (f, c) => (hiddenNow()?.has('trueHVPG') ? 'Not measured' : fixedText(c, f.metrics.hvpg, 'mmHg'))),
       ],
@@ -333,7 +333,7 @@ function buildOrganCard(id) {
       key: 'o:heart', sel, kicker: 'Organ', title: 'Right heart', why: 'ra',
       value: (f, lens, ref) => readP(h, (f.Pf || f.P)[NI.RA], ref?.[NI.RA], 'mmHg RA'),
       verbs: [
-        sl('contractility', 'contractility', 'Contractility', 0.15, 1.6, 1, 'Right-ventricular pump strength (Frank–Starling).'),
+        sl('contractility', 'contractility', 'Contractility', 0.15, 1.6, 1, 'Right ventricular contractility (Frank–Starling).'),
         sl('tr', 'tr', 'Tricuspid regurgitation', 0, 1, 0, 'Systolic backflow into the right atrium: large v-waves reach the liver.'),
         sl('pericardial', 'pericardial', 'Pericardial constraint', 0, 1, 0, 'Constrictive pericarditis limits filling.'),
         // On every patient's heart card; it starts at Not pregnant (0 weeks), so no patient changes until it is moved.
@@ -374,8 +374,8 @@ function buildOrganCard(id) {
         stat('Platelets (illustrative)', (f, c) => memoKey(c, Math.round(f.metrics.spleen.platelets), f.metrics.spleen.platelets, PLATELETS)),
         { type: 'seg', label: 'Treat the spleen', options: [[0, 'None'], [1, 'Embolize'], [2, 'Splenectomy']], get: () => store.get().params.splenicRx | 0, set: (val) => updateParams((p) => { p.splenicRx = val; return p; }, { label: SPLEEN_RX[val] }) },
         { type: 'about', text: () => SPLEEN_ABOUT },
-        { type: 'slider', id: 'clot', key: 'thrombus', label: 'Clot the splenic vein', icon: 'clot', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.thrombus.SV_CONF || 0,
-          set: (p, v) => { if (v <= 0.004) delete p.thrombus.SV_CONF; else p.thrombus.SV_CONF = +v.toFixed(2); }, hist: 'Splenic vein thrombus', info: 'Sinistral (left-sided) portal hypertension: the spleen drains through the short gastric veins.' },
+        { type: 'slider', id: 'clot', key: 'thrombus', label: 'Splenic vein thrombosis', icon: 'clot', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.thrombus.SV_CONF || 0,
+          set: (p, v) => { if (v <= 0.004) delete p.thrombus.SV_CONF; else p.thrombus.SV_CONF = +v.toFixed(2); }, hist: 'Splenic vein thrombus', info: 'Sinistral (left-sided) portal hypertension: splenic outflow decompresses through the short gastric veins.' },
         { type: 'link', label: 'Splenic vein', run: () => CTX.select({ type: 'edge', id: 'SV_CONF' }) },
       ],
     };
@@ -385,14 +385,14 @@ function buildOrganCard(id) {
 
 // ── The lobule's parts (the lobule view selects them) ────────────────────
 const CIRRHOSIS = { type: 'slider', id: 'cirrhosis', key: 'cirrhosis', label: 'Cirrhosis', icon: 'liver', min: 0, max: 1, step: 0.01, def: 0, format: pct, get: (p) => p.cirrhosis, set: (p, v) => { p.cirrhosis = v; }, hist: 'Cirrhosis',
-  sub: '40% compensated · 60% CSPH · 85% decompensated', info: 'Sinusoidal fibrosis, capillarization, a stiffer liver and arterioportal shunting.' };
+  sub: '40% compensated · 60% CSPH · 85% decompensated', info: 'Sinusoidal fibrosis, capillarization, higher liver stiffness and arterioportal shunting.' };
 const ZONE_NAME = { pre: 'portal tract', sin: 'sinusoids', post: 'central vein' };
 /** Fibrosis in one zone of every lobule (both lobes: one lobule stands for the liver). */
 const fibrosisVerb = (z) => ({ type: 'slider', id: 'fibrosis', key: 'fibrosis', label: `Fibrosis · ${ZONE_NAME[z]}`, icon: 'fibrosis', min: 1, max: 80, step: 0.5, def: 1, format: mult,
   get: (p) => Math.max(p.fibrosis.R[z], p.fibrosis.L[z]), set: (p, v) => { p.fibrosis.R[z] = v; p.fibrosis.L[z] = v; }, hist: `Fibrosis · ${ZONE_NAME[z]}`,
-  info: { pre: 'Resistance before the sinusoids, as in schistosomiasis: portal pressure rises, the wedged pressure does not.', sin: 'Collagen in the space of Disse and closing fenestrae: resistance in the sinusoids themselves, read by HVPG.', post: 'Resistance at the central veins, as in sinusoidal obstruction syndrome: the sinusoids congest from the outflow side.' }[z] });
+  info: { pre: 'Resistance before the sinusoids, as in schistosomiasis: portal pressure rises, the WHVP does not.', sin: 'Collagen in the space of Disse and closing fenestrae: resistance in the sinusoids themselves, measured by the HVPG.', post: 'Resistance at the central veins, as in sinusoidal obstruction syndrome: the sinusoids congest from the outflow side.' }[z] });
 const FIB_PRE = fibrosisVerb('pre'), FIB_SIN = fibrosisVerb('sin'), FIB_POST = fibrosisVerb('post');
-const ZONE_TEXT = ['Zone 1 (periportal) gets blood first, richest in oxygen and nutrients: the first to regenerate, the last to die in ischemia.', 'Zone 2 lies between: intermediate oxygen.', 'Zone 3 (centrilobular) gets blood last, poorest in oxygen: first to suffer in congestion, shock and drug toxicity (acetaminophen).'];
+const ZONE_TEXT = ['Zone 1 (periportal) gets blood first, richest in oxygen and nutrients: the first to regenerate, the last to undergo necrosis in ischemia.', 'Zone 2 lies between: intermediate oxygen.', 'Zone 3 (centrilobular) gets blood last, poorest in oxygen: first injured in congestion, shock and drug toxicity (acetaminophen).'];
 
 // The lobule's portal flow runs backward (the same dead band as every other reversed-flow sentence: velNormal.js flowReversed).
 const portalBack = (m) => flowReversed(m.portalQ, m.portalRef);
@@ -423,21 +423,21 @@ const TRIAD_FIB = (x) => `Portal fibrosis (resistance ×${fmt(x, 1)}) narrows th
 const TRIAD_BACK = 'Portal flow is reversed: blood leaves the liver through the portal venules (hepatofugal flow).';
 const IN_A = 'A branch of the portal venule running along the lobule’s border, feeding the sinusoids it passes.';
 const IN_BACK = 'Flow here runs backwards (orange): arterial blood that entered the sinusoids drains out through the portal venules.';
-const AN_A = 'A cross-link between sinusoids: blood can go around a local resistance, so one narrowed sinusoid does not starve the cells beyond it.';
+const AN_A = 'A cross-link between sinusoids: blood can go around a local resistance, so one narrowed sinusoid does not leave the hepatocytes beyond it ischemic.';
 const SIN_A = 'A leaky capillary lined by fenestrated endothelium, between plates of hepatocytes one cell thick. Sinusoids merge toward the central vein, so blood speeds up as it goes; the highlighted path runs to the central vein.';
 const SIN_FIB = 'Capillarization: the fenestrae close and collagen fills the space of Disse (pale sleeve), raising sinusoidal resistance: this is what raises HVPG in cirrhosis.';
-const SIN_CONG = 'Zone 3 sinusoids are dilated and packed with blood: the outflow is backing up.';
+const SIN_CONG = 'Zone 3 sinusoids are dilated and engorged: hepatic venous outflow congestion.';
 const CV_A = 'Collects the sinusoids and drains into the hepatic veins. Zone 3 around it gets the least oxygen.';
 const CV_FIB = (x) => `Fibrosis around the central vein (×${fmt(x, 1)}) makes the resistance post-sinusoidal.`;
-const CV_CONG = 'Raised outflow pressure congests zone 3 first: dilated sinusoids and dying cells give the “nutmeg” liver.';
+const CV_CONG = 'Raised outflow pressure congests zone 3 first: sinusoidal dilation and hepatocyte necrosis give the “nutmeg” liver.';
 const HA_A = 'Oxygen-rich blood that empties into the first stretch of the sinusoids (zone 1).';
 const HA_BUFFER = (x) => `Hepatic arterial buffer response: with less portal flow, less adenosine is washed out and the arteriole dilates (arterial flow ×${fmt(x, 1)}).`;
 const BD_A = 'Bile made by hepatocytes flows in canaliculi between them, toward the triad: against the blood. Not part of the circulation, but it marks the portal tract.';
 const LV_A = 'Lymph is plasma that leaks from the sinusoids into the space of Disse, drains out through the tissue to the portal tract and leaves the liver in its lymphatics. It carries the protein that escapes the sinusoids, and returns the fluid to the blood through the thoracic duct.';
-const LV_UP = 'Higher sinusoidal pressure forces more fluid out: lymph flow rises to compensate. Past the lymphatics’ capacity the rest weeps off the liver surface as ascites.';
+const LV_UP = 'Higher sinusoidal pressure forces more fluid out: lymph flow rises to compensate. Beyond lymphatic capacity, the excess transudes from the liver surface as ascites.';
 const LV_DOWN = 'Less filtration than the comparison: lymph flow has fallen.';
 const SEPTUM_A = 'Bands of collagen laid down by activated stellate cells bridge triad to triad and triad to central vein, cutting the lobules into regenerative nodules and distorting the vessels.';
-const HEP_CONG = 'Here the outflow is backing up: congestion and cell dropout around the central vein.';
+const HEP_CONG = 'Hepatic venous outflow congestion: sinusoidal dilation and hepatocyte dropout around the central vein.';
 const BILE = { v: 'Bile', u: 'flows out to the triad' };
 const PLUS_MM = (x) => `+${fmt(x, 1)} mmHg`;
 const SINUSOID_NOTE = 'Its wall up close: fenestrae, the space of Disse, a stellate cell and the hepatocytes.';
@@ -547,4 +547,4 @@ export function shuntable(id) {
 }
 
 // ── Clinical orders (the Treat section and the command palette) ────────────
-export const DRUG_NOTE = { propranolol: 'Non-selective beta-blocker', carvedilol: 'Beta-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };
+export const DRUG_NOTE = { propranolol: 'Nonselective beta-blocker', carvedilol: 'Beta-blocker + α1 blockade', terlipressin: 'Vasopressin analogue', octreotide: 'Somatostatin analogue' };

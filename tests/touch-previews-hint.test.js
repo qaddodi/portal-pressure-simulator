@@ -31,5 +31,5 @@ test('no slide says varices bleed from a set HVPG of 12', () => {
     const s = readFileSync(new URL(f, dir), 'utf8');
     assert.doesNotMatch(s, /can bleed once the HVPG|From what HVPG can varices bleed|from 12 (mmHg )?varices can bleed|(At|Above) 12 (or more|mmHg),? varices can bleed|12 or more: varices can bleed/i, f);
   }
-  assert.match(read('src/ui/decks/varices.js'), /title: 'Bleeding risk rises steeply from an HVPG of about 12'/);
+  assert.match(read('src/ui/decks/varices.js'), /title: 'Bleeding risk rises steeply from an HVPG of about 12( mmHg)?'/);
 });

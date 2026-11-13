@@ -95,7 +95,7 @@ export function createPalette({ ctx }) {
     add('App', 'Home', () => ctx.home(), { kw: 'start' });
     add('App', 'Reset everything', () => ctx.reset(), { kw: 'reset reload refresh clear start over' });
     add('App', 'Light / dark theme', () => ctx.theme(), { kw: 'appearance' });
-    for (const l of LOOKS) add('App', `Appearance: ${l.name}`, () => ctx.look(l.id), { kw: `theme look colour palette ${l.theme} ${l.palette || ''}` });   // (Settings > Appearance, by name: "navy" finds Navy)
+    for (const l of LOOKS) add('App', `Appearance: ${l.name}`, () => ctx.look(l.id), { kw: `theme look color colour palette ${l.theme} ${l.palette || ''}` });   // (Settings > Appearance, by name: "navy" finds Navy)
     add('App', 'Guide & shortcuts', () => ctx.help(), { kw: 'help keyboard' });
     add('App', 'Copy share link', () => ctx.share(), { kw: 'url' });
     return cmds;

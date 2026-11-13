@@ -29,7 +29,7 @@ function wordsOf(a) {
   const out = [a.label, a.source, a.cite];
   if (a.kind === 'score') { for (const r of a.rows) out.push(r.n, r.d || '', ...r.o.map((o) => o[0])); for (const z of a.zones) out.push(zoneText(z, a.allOf)); }
   if (a.kind === 'grid') { for (const r of a.rowsH) out.push(r[1], r[2]); for (const c of a.colsH) out.push(c[1]); for (const c of Object.values(a.cells)) out.push(c[0], c[1]); }
-  if (a.kind === 'ladder') { for (const s of a.steps) out.push(s[0], s[1], s[2]); out.push(a.back, 'Patient is here', 'The way back.', 'Back to compensated.'); }
+  if (a.kind === 'ladder') { for (const s of a.steps) out.push(s[0], s[1], s[2]); out.push(a.back, 'Patient is here', 'Reversible.', 'Recompensated.'); }
   for (const p of patientsOf(a)) {
     for (const k of a.outcomes) { const r = a.reading(k, a.patientFor({ patient: p })); if (a.lit(p).has(`${k}`) || a.outcomeOf(a.lit(p)) === k) out.push(r.head, r.next); }
     out.push(...a.chips(p));
@@ -84,7 +84,7 @@ test('the patient\'s shape is the mock\'s, the defaults are the mock\'s, a slide
   assert.deepEqual(Object.keys(patientFor({ of: 'recomp' })).sort(), ['ca', 'ev', 'lf']);
   // the mock's presets are in the data
   assert.deepEqual(psvdscore.presets.map((x) => x[0]), ['Ascites and a minor lesion', 'Varices and a major lesion', 'Splenomegaly only']);
-  assert.deepEqual(recomp.presets.map((x) => x[0]), ['All three met', 'Events not yet 6 months', 'Cause still active']);
+  assert.deepEqual(recomp.presets.map((x) => x[0]), ['All three met', 'Events not yet 6 months', 'Etiology still active']);
   assert.deepEqual(pvtgrid.presets.map((x) => x[0]), ['Provoked, nothing permanent', 'Unprovoked', 'Major permanent factor']);
   assert.deepEqual(ladder.presets.map((x) => x[0]), ['Compensated, CSPH', 'First ascites', 'Further events', 'Recompensated']);
 });
@@ -116,7 +116,7 @@ test('psvdscore: Baveno VIII 8.44 totals 0-2 no PSVD or NCPF, 3-4 possible, 5 or
   for (const z of psvdscore.zones) assert.ok(z[0] <= z[1]);
   for (const p of patientsOf(psvdscore)) { const { t, v } = scoreState(psvdscore, p), z = psvdscore.zones[v.z]; assert.ok(t >= z[0] && t <= z[1] || t < 0, `${JSON.stringify(p)}: ${t} in zone ${v.z}`); assert.equal(v.tone, z[3]); }
   const r = readingFor('psvdscore', 'z1', psvdscore.defaults);
-  assert.match(r.next, /More investigations \(biopsy, stiffness\), refer to an expert vascular liver centre, and follow for new signs\./);
+  assert.match(r.next, /Further investigation \(biopsy, elastography\), referral to an expert vascular liver center, and follow-up for new signs\./);
   assert.equal(readingFor('psvdscore', 'z2', P['Varices and a major lesion']).next, '', 'definite has no next step in the mock');
   assert.match(readingFor('psvdscore', 'z2', P['Varices and a major lesion']).why, /^Score 8\./);
   assert.deepEqual(chipsOf('psvdscore', psvdscore.defaults), [], 'the verdict row carries the score: no chips');
@@ -129,13 +129,13 @@ test('recomp: all three criteria together (7.15); one missing is not recompensat
   const at = (p) => { const q = patientFor({ of: 'recomp', patient: p }), { t, v } = scoreState(recomp, q); return { t, v, key: outcomeOf('recomp', litOf('recomp', q)) }; };
   const a = at({ ca: 0, ev: 0, lf: 0 });
   assert.deepEqual([a.t, a.v.head, a.v.tone, a.v.z, a.key], [3, 'Recompensated', 'ok', 1, 'z1']);
-  assert.match(a.v.next, /CSPH may also resolve in time/);
+  assert.match(a.v.next, /CSPH may also resolve with time/);
   const b = at({ ca: 0, ev: 1, lf: 0 });
   assert.deepEqual([b.t, b.v.head, b.v.tone, b.v.z, b.key], [2, 'Not recompensated yet', 'warn', 0, 'z0']);
   assert.equal(b.v.next, 'All three are needed. Missing: no events off treatment for ≥6 months.');
   const c = at({ ca: 1, ev: 1, lf: 1 });
   assert.deepEqual([c.t, c.v.z], [0, 0]);
-  assert.equal(c.v.next, 'All three are needed. Missing: the cause is cured, controlled or suppressed; no events off treatment for ≥6 months; liver function has improved.');
+  assert.equal(c.v.next, 'All three are needed. Missing: the etiology is cured, controlled or suppressed; no events off treatment for ≥6 months; liver function has improved.');
   assert.equal(at({ ca: 1, ev: 0, lf: 0 }).t, 2, 'each criterion is one point');
   for (const p of patientsOf(recomp)) assert.equal(scoreState(recomp, p).v.z === 1, p.ca === 0 && p.ev === 0 && p.lf === 0, JSON.stringify(p));
   assert.equal(patientsOf(recomp).length, 8);

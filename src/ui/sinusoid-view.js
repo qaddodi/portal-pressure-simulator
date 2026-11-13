@@ -73,8 +73,8 @@ export function createSinusoidView({ host, before = null, share = null }) {
   const szOf = (R) => (R ? cap.measure(R.key, R.lines || NO_LINES) : ZERO2);
   // Tap a name to explain it (N4, label-explain.js): the tapped name takes one more line, what the part is. The page's lit term is set by the lobule view (lobule-zoom.js explainSet).
   let exKey = null;
-  const SV_NOTE = { fen: 'pores: plasma passes to the space of Disse', disse: 'where plasma meets the liver cells', lymph: 'carries filtered fluid and protein away',
-    hep: 'liver cells: take up and process what plasma brings', hsc: 'stores vitamin A; lays down scar when activated', kup: 'resident macrophage of the sinusoid', sin: 'blood from the portal tract and the hepatic artery mixes here',
+  const SV_NOTE = { fen: 'pores: plasma passes to the space of Disse', disse: 'perisinusoidal space between the endothelium and the hepatocytes', lymph: 'drains filtered fluid and protein',
+    hep: 'hepatocytes: uptake and metabolism of plasma solutes', hsc: 'stores vitamin A; deposits collagen when activated', kup: 'resident macrophage of the sinusoid', sin: 'blood from the portal tract and the hepatic artery mixes here',
     in: 'blood arrives from the portal venule', out: 'blood leaves to the central vein' };
   const SV_TARGET = { fen: 'fenestrae', hsc: 'stellate', kup: 'kupffer', hep: 'hepatocyte', sin: 'lumen', in: 'in', out: 'out' };
   // Page writes asked for inside a frame (a caption made, its words, the fenestrae's share) land between frames (rest-pass.js), in the
@@ -1255,10 +1255,10 @@ export function createSinusoidView({ host, before = null, share = null }) {
     const m = model;
     const parts = [`A sinusoid, cut along its length${m.hide ? '' : `, at ${fmt(m.P2, 1)} millimeters of mercury`}.`]; // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)
     parts.push(S.por > 0.75 ? 'Its lining is fenestrated: plasma and its proteins pass through the open pores into the space of Disse.'
-      : S.por > 0.25 ? 'Many of its fenestrae have closed: less protein gets through.' : 'Its fenestrae have closed: the wall is sealed, and protein is turned back.');
+      : S.por > 0.25 ? 'Many of its fenestrae have closed: less protein crosses into the space of Disse.' : 'Its fenestrae have closed (capillarization): protein no longer crosses the wall.');
     if (!m.hide) parts.push(`Hepatic lymph ${fmt(m.lymph, 1)} milliliters per minute, flowing back along the space of Disse toward the portal triad, with ${Math.round(m.lyProt * 100)} percent of plasma protein.`); // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)
     if (S.col > 0.15) parts.push('Collagen fills the space of Disse and the hepatocytes have lost their microvilli.');
-    parts.push(S.act > 0.4 ? 'The stellate cell is activated: no vitamin A droplets, contracted, laying down collagen.' : 'The stellate cell is quiescent, full of vitamin A droplets.');
+    parts.push(S.act > 0.4 ? 'The stellate cell is activated: no vitamin A droplets, contracted, depositing collagen.' : 'The stellate cell is quiescent, full of vitamin A droplets.');
     return parts.join(' '); // alloc-rare: the screen-reader sentence is built only when the numbers it names change (descChanged)
   }
   // Drawn on every frame the screen offers, like the lobule's flow (15 a second in Battery saver); the zoom from the

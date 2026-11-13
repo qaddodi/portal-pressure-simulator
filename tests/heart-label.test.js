@@ -16,13 +16,13 @@ test('the reading is the tiles\' words, quieter than the label\'s value, and not
   assert.deepEqual(r.map((x) => x.t), ['72 /min', '·', '5.0 L/min']);
   assert.ok(r.every((x) => x.sfx && x.cls === 'lb-unit' && x.size < 14 && x.weight < 650), 'smaller and lighter than the value, in the units\' ink');
   assert.deepEqual(heartRuns(F, HEART_LOOK.node, 6, true).map((x) => x.t), ['88 /min', '·', '88.8 L/min'], 'fitted at its widest');
-  assert.equal(heartWords(F), 'heart rate 72 a minute, cardiac output 5.0 litres a minute');
+  assert.equal(heartWords(F), 'heart rate 72 per minute, cardiac output 5.0 liters per minute');
   const it = station();
   addHeart(it, F); addHeart(it, { metrics: { hr: 81, co: 4.2 } });
   assert.equal(it.lines[0].filter((x) => x.sfx).length, 3, 'put on again, it replaces the one it had');
   assert.equal(it.lines[0][2].t, '81 /min');
   assert.equal(it.w, 90, 'the label\'s box is its own');
-  assert.equal(it.label, 'Right atrium: 3 millimeters of mercury, heart rate 81 a minute, cardiac output 4.2 litres a minute');
+  assert.equal(it.label, 'Right atrium: 3 millimeters of mercury, heart rate 81 per minute, cardiac output 4.2 liters per minute');
   const s = heartStrip(station(), F, lineW, LINE_H);
   assert.equal(s.x0, 100 + lineW(station().lines[0]), 'after the value');
   assert.equal(heartStrip({ ...station(), align: 'end' }, F, lineW, LINE_H), null, 'a label set from its end has no room after it that keeps it still');
@@ -68,7 +68,7 @@ test('on the figure the heart\'s label takes the reading where it fits, and noth
     assert.doesNotMatch(aria(key), /heart rate/);
     st.callouts(fx(true)); await run(40);
     const on = box(key);
-    assert.match(aria(key), /heart rate \d+ a minute, cardiac output [\d.]+ litres a minute/i, `${view}: it reads the rate and output`);
+    assert.match(aria(key), /heart rate \d+ per minute, cardiac output [\d.]+ liters per minute/i, `${view}: it reads the rate and output`);
     // (The Circuit's line is centred under its title: the picture is as wide as the wider of the two, about the same middle.)
     const mid = (b) => b.x + b.w / 2;
     if (view === 'anatomy') assert.equal(on.x, off.x, `${view}: the label stands where it stood`); else assert.ok(Math.abs(mid(on) - mid(off)) < 1, `${view}: the title stands where it stood`);

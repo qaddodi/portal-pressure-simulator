@@ -20,7 +20,7 @@ test('two readings, not treatments: offered always, each on a route of its own, 
   }
   assert.notEqual(A.route, B.route, 'two separate approaches');
   assert.equal(specOf('irppg'), null);
-  assert.match(procBlocked('irpv', { thrombus: { PV_TRUNK: 1 } }), /clotted/);
+  assert.match(procBlocked('irpv', { thrombus: { PV_TRUNK: 1 } }), /thrombosed/);
   assert.equal(procBlocked('irivc', { thrombus: { PV_TRUNK: 1 } }), '', 'the IVC reading does not need the portal vein');
   assert.equal(legMs(ROUTE_LEN.ivc), A.T.travel1 - A.T.travel0); assert.equal(legMs(ROUTE_LEN.perc), B.T.travel1 - B.T.travel0);
 });

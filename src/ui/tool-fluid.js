@@ -69,9 +69,9 @@ export function fluidBars(f) {
 /** The line under the bars. */
 export function fluidWords(f) {
   const d = Math.round(Math.abs(f.perDay) / 10) * 10;
-  if (f.net > 0 && d >= 10) return `Ascites builds by about ${d} mL a day.`;
-  if (f.net < 0 && d >= 10) return `Ascites shrinks by about ${d} mL a day.`;
-  return f.over > 0.005 ? 'Ascites holds steady: the belly takes back the overflow.' : 'No ascites builds: the lymphatics carry it all.';
+  if (f.net > 0 && d >= 10) return `Ascites accumulates at about ${d} mL/day.`;
+  if (f.net < 0 && d >= 10) return `Ascites decreases by about ${d} mL/day.`;
+  return f.over > 0.005 ? 'Ascites is stable: peritoneal reabsorption matches transudation.' : 'No ascites: lymphatic drainage matches lymph formation.';
 }
 
 /** The day strip's numbers (window: true), per day: each part rounded to 10 mL from the model's mL/min, then the
@@ -90,11 +90,11 @@ export const mlInt = (v) => Math.round(Math.max(0, v)).toLocaleString('en-US');
 /** The day card's words (window: true) for a day's numbers (fluidDay): the answer in a sentence, the one line under it on what leaked and
  *  what the belly took back, the lymphatics' limit (with "full" once they can carry no more) and the day's change as its number. */
 export function dayWords(d) {
-  const title = d.net > 0 ? 'Ascites builds' : d.net < 0 ? 'Ascites shrinks' : d.over > 0 ? 'Ascites holds steady' : 'No ascites builds';
+  const title = d.net > 0 ? 'Ascites accumulating' : d.net < 0 ? 'Ascites decreasing' : d.over > 0 ? 'Ascites stable' : 'No ascites';
   const detail = d.over > 0
-    ? (d.back > 0 ? `${mlInt(d.over)} leaks; the belly takes back ${mlInt(d.back)}.` : `${mlInt(d.over)} leaks and none is taken back.`)
-    : d.back > 0 ? `Nothing leaks; the belly takes back ${mlInt(d.back)}.` : 'The lymphatics carry it all. Nothing leaks.';
-  return { title, detail, limit: d.room > 0 ? `Limit ${mlInt(d.limit)}` : `Limit ${mlInt(d.limit)} · full`,
+    ? (d.back > 0 ? `Transudation ${mlInt(d.over)}; peritoneal reabsorption ${mlInt(d.back)}.` : `Transudation ${mlInt(d.over)}; no peritoneal reabsorption.`)
+    : d.back > 0 ? `No transudation; peritoneal reabsorption ${mlInt(d.back)}.` : 'Lymphatic drainage matches lymph formation.';
+  return { title, detail, limit: d.room > 0 ? `Capacity ${mlInt(d.limit)}` : `Capacity ${mlInt(d.limit)} · saturated`,
     net: d.net > 0 ? `▲ ${mlInt(d.net)}` : d.net < 0 ? `▼ ${mlInt(-d.net)}` : '0', dir: d.net > 0 ? 'up' : d.net < 0 ? 'down' : '' };
 }
 
@@ -211,7 +211,7 @@ const bandPts = (buf, x0, y0, x1, y1, t) => {
     buf[r] = x; buf[r + 1] = (c0 + c1) * (y0 + t) + (c2 + c3) * (y1 + t);
   }
 };
-const NAMES = { liver: 'Liver', gut: 'Gut', carried: 'Lymphatics', back: 'Taken back', build: 'Ascites' };
+const NAMES = { liver: 'Liver', gut: 'Bowel', carried: 'Lymphatics', back: 'Reabsorbed', build: 'Ascites' };
 const FILL = { liver: 'gf-liver', gut: 'gf-gut', carried: 'gf-carried', back: 'gf-back', build: 'gf-build' };
 
 // One part of a strip (a coloured part, the dashed room left, an arrow of the tug) is a piece of a model the GPU draws (svg-gl.js), the
@@ -290,7 +290,7 @@ export function createFluid() {
   // ease. The gauges are models the GPU draws over their slots (gaugeParts has the sizes).
   const num = () => h('b', {}, '');
   const sMade = num(), sLimit = h('span', { class: 'gc-foot' }, ''), sNet = num(), sTitle = h('span', {}), sDetail = h('p', { class: 'gc-detail' }, '');
-  const wNum = num(), wUnit = h('small', {}, 'mmHg out'), wFoot = h('span', { class: 'gc-foot' }, '');
+  const wNum = num(), wUnit = h('small', {}, 'mmHg outward'), wFoot = h('span', { class: 'gc-foot' }, '');
   const segCar = span('fluid.seg.car', 'gs-seg gs-car', [0.25, 0.25]), segOver = span('fluid.seg.build', 'gs-seg gs-over', [0.25, 0.25]);
   const limitTick = svgModel('path', { class: 'gs-tick', 'data-look': 'fluid.tick', opacity: '0' }), tickBuf = new Float64Array(4);
   const stripModel = svgModel('svg', { class: 'gs-svg', 'aria-hidden': 'true' }, segCar, segOver, limitTick);
@@ -300,8 +300,8 @@ export function createFluid() {
   const glStrip = createSvgGL(plate, { host: 'fluid' });
   glStrip.cv.setAttribute('aria-hidden', 'true'); glStrip.cv.removeAttribute('role');   // (the card's own label says it; the picture is a drawing of it)
   const wallHost = h('div', { class: 'gc-tugbox' });
-  const lyTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Lymph made'), h('div', { class: 'gc-n' }, sMade, h('small', {}, 'mL')), plate, sLimit);
-  const wallTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Across the wall'), h('div', { class: 'gc-n' }, wNum, wUnit), wallHost, wFoot);
+  const lyTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Lymph formation'), h('div', { class: 'gc-n' }, sMade, h('small', {}, 'mL')), plate, sLimit);
+  const wallTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Net filtration'), h('div', { class: 'gc-n' }, wNum, wUnit), wallHost, wFoot);
   const tiles = h('div', { class: 'gc-tiles' }, lyTile, wallTile);
   const ansRow = h('div', { class: 'gc-ans' }, h('span', { class: 'gc-t' }, sTitle), sNet);
   const win = h('div', { class: 'gs gc' }, tiles, ansRow, sDetail);
@@ -314,7 +314,7 @@ export function createFluid() {
   const tug = h('div', { class: 'gs-trk gs-tug' }, tugModel);
   const glTug = createSvgGL(tug, { host: 'fluid' });
   glTug.cv.setAttribute('aria-hidden', 'true'); glTug.cv.removeAttribute('role');
-  const forces = h('div', { class: 'gs-forces' }, h('div', { class: 'gs-fcap' }, h('span', {}, 'Across the sinusoid wall · mmHg'), h('span', {}, fNet)), tug);
+  const forces = h('div', { class: 'gs-forces' }, h('div', { class: 'gs-fcap' }, h('span', {}, 'Sinusoidal Starling forces · mmHg'), h('span', {}, fNet)), tug);
   const el = h('div', { class: 'gf', role: 'img' }, win, flowBox, unit, words, forces, caveat);
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
   // (A part goes where its points are written: span() above; the wall is a line.)
@@ -362,8 +362,8 @@ export function createFluid() {
     if (sizeSig !== `${tw}|${fw}` || !em) { sizeSig = `${tw}|${fw}`; em = hostEm(); }
     if (fGoal && fw && !opts.window) {   // (the words in the arrows: the strip under the flow picture; the day card's tile has none)
       const T = tugParts(fGoal.out, fGoal.pull, fw), pad = em * 0.7;
-      fit(lPush, [`Pushing out ${fmt(fGoal.out, 1)}`, fmt(fGoal.out, 1)], T.push.w - pad, em);
-      fit(lPull, [`Pulling in ${fmt(fGoal.pull, 1)}`, fmt(fGoal.pull, 1)], T.pull.w - pad, em);
+      fit(lPush, [`Hydrostatic ${fmt(fGoal.out, 1)}`, fmt(fGoal.out, 1)], T.push.w - pad, em);
+      fit(lPull, [`Oncotic ${fmt(fGoal.pull, 1)}`, fmt(fGoal.pull, 1)], T.pull.w - pad, em);
     }
   }
   function draw() {
@@ -477,11 +477,11 @@ export function createFluid() {
       Object.assign(goal, { dCar: d.carried, dOver: d.over, dBack: d.back, dRoom: Math.max(0, d.room) });
       set(sMade, mlInt(d.made)); set(sLimit, sw.limit); set(sTitle, sw.title); set(sNet, sw.net); set(sDetail, sw.detail);
       sNet.dataset.dir = sw.dir;
-      el.setAttribute('aria-label', `Fluid balance, mL a day: ${sw.title}${d.net ? `, ${mlInt(Math.abs(d.net))}` : ''}. ${mlInt(d.made)} of lymph made (liver ${mlInt(d.liver)}, gut ${mlInt(d.gut)}); the lymphatics carry ${mlInt(d.carried)} of the ${mlInt(d.limit)} they can${d.room > 0 ? `, ${mlInt(d.room)} to spare` : ''}. ${sw.detail}`);
+      el.setAttribute('aria-label', `Fluid balance, mL/day: ${sw.title}${d.net ? `, ${mlInt(Math.abs(d.net))}` : ''}. Lymph formation ${mlInt(d.made)} (hepatic ${mlInt(d.liver)}, splanchnic ${mlInt(d.gut)}); thoracic duct and lymphatic drainage ${mlInt(d.carried)}, capacity ${mlInt(d.limit)}${d.room > 0 ? `, ${mlInt(d.room)} unused` : ''}. ${sw.detail}`);
       labels(); kick();
       return;
     }
-    el.setAttribute('aria-label', `Fluid balance: ${mlMin(f.made)} mL/min of lymph made (liver ${mlMin(f.hep)}, gut ${mlMin(f.spl)}); the lymphatics carry ${mlMin(f.carried)} of the ${mlMin(f.cap)} they can, the belly takes back ${mlMin(f.back)}. ${fluidWords(f)}`);
+    el.setAttribute('aria-label', `Fluid balance, mL/min: lymph formation ${mlMin(f.made)} (hepatic ${mlMin(f.hep)}, splanchnic ${mlMin(f.spl)}); thoracic duct and lymphatic drainage ${mlMin(f.carried)}, capacity ${mlMin(f.cap)}; peritoneal reabsorption ${mlMin(f.back)}. ${fluidWords(f)}`);
     kick();
   }
   // (Live, the push swings with each breath, as the belly's pressure does: eased over a few seconds, so it reads the
@@ -498,8 +498,8 @@ export function createFluid() {
       fo = fAvg;
     }
     const net = fo.out - fo.pull;
-    set(fNet, `${fmt(Math.max(0, fo.out), 1)} out − ${fmt(fo.pull, 1)} in = net ${fmt(Math.abs(net), 1)} ${net >= 0 ? 'out' : 'in'}`);
-    set(wNum, fmt(Math.abs(net), 1)); set(wUnit, net >= 0 ? 'mmHg out' : 'mmHg in'); set(wFoot, `Push ${fmt(Math.max(0, fo.out), 1)} · Pull ${fmt(fo.pull, 1)}`);   // (the two forces' values live here, in the page's own words: the bars' words sit inside only when they fit)
+    set(fNet, `Hydrostatic ${fmt(Math.max(0, fo.out), 1)} − oncotic ${fmt(fo.pull, 1)} = net ${fmt(Math.abs(net), 1)} ${net >= 0 ? 'outward' : 'inward'}`);
+    set(wNum, fmt(Math.abs(net), 1)); set(wUnit, net >= 0 ? 'mmHg outward' : 'mmHg inward'); set(wFoot, `ΔP ${fmt(Math.max(0, fo.out), 1)} − σΔπ ${fmt(fo.pull, 1)}`);   // (the two forces' values live here, in the page's own words: the bars' words sit inside only when they fit)
     fGoal = { out: Math.max(0, fo.out), pull: fo.pull }; labels(); kick();
   }
   return {

@@ -11,7 +11,7 @@
 //                ≥55; the statement, 1.16c, and SSM_CUTS use >55). With nothing ruling it in: repeat the tests at 12 months or add SSM, and
 //                a patient who cannot take a beta-blocker has the screening scope unless LSM <20 kPa with platelets ≥150, or SSM <40 kPa.
 //   acute bleed  Fig. 3 and 5.4, 5.16, 5.18, 5.20, 5.31, 5.35 to 5.37, 5.39 to 5.41: a bleed from an oesophageal varix or GOV1 is banded;
-//                controlled, a pre-emptive TIPS within 72 h (ideally 24) for Child–Pugh C 10–13, or B 8–9 with active bleeding at endoscopy,
+//                controlled, a preemptive TIPS within 72 h (ideally 24) for Child–Pugh C 10–13, or B 8–9 with active bleeding at endoscopy,
 //                or HVPG ≥20 mmHg, with age <75, creatinine <3 mg/dL and no heart failure; otherwise carvedilol with banding every 2–4
 //                weeks. Not controlled: a covered stent as a bridge, then salvage TIPS. GOV2 or IGV1: two phases in parallel, the acute one
 //                (EUS-guided coil with cyanoacrylate, else cyanoacrylate) and the definitive one, TIPS ± embolisation as soon as possible
@@ -47,7 +47,7 @@ export const FIRST_VISIT = first.tree;
 export const BLEED = bleed.tree;
 export { leavesOf, cpClass };
 /** The short name in a slide's tab. */
-const SHORT = { 'first-visit': 'First-visit path', bleed: 'Bleed path', gastric: 'Gastric bleed path', ascites: 'Ascites path', stopcarv: 'Stop carvedilol?', holdcarv: 'Hold carvedilol?', secprop: 'Next-bleed path', psvdscope: 'PSVD scope?', pvtocc: 'Clot occlusion', pvtdur: 'Clot duration', aasld: 'Rule of five', psvdscore: 'PSVD score', recomp: 'Recompensated?', pvtgrid: 'Clot anticoagulation', ladder: 'Cirrhosis stages' };
+const SHORT = { 'first-visit': 'First-visit path', bleed: 'Bleed path', gastric: 'Gastric bleed path', ascites: 'Ascites path', stopcarv: 'Stop carvedilol?', holdcarv: 'Hold carvedilol?', secprop: 'Rebleeding path', psvdscope: 'PSVD endoscopy?', pvtocc: 'PVT occlusion', pvtdur: 'PVT duration', aasld: 'Rule of five', psvdscore: 'PSVD score', recomp: 'Recompensated?', pvtgrid: 'PVT anticoagulation', ladder: 'Cirrhosis stages' };
 /** What the card needs of an algorithm by name: its tree, the pill's words, the foot, the screen-reader name. A kind that is not a tree ('score' | 'grid' | 'ladder')
  *  has no tree: the card draws its own rows, zones, cells or steps (algo, path-cards.js). */
 export const PATHS = Object.fromEntries(Object.values(ALGOS).map((a) => [a.id, { tree: a.tree, algo: a, kick: a.source, foot: a.cite, label: a.label, short: SHORT[a.id] || a.label, kind: a.kind }]));

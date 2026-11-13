@@ -23,7 +23,7 @@ const approxW = (f) => (t) => t.length * f * 0.58;
 test('package B registers its two tools, and no built-in deck uses them or the bands', () => {
   assert.equal(EXT.owner.tools.profile, 'B');
   assert.equal(EXT.owner.tools.flows, 'B');
-  assert.equal(EXT.tools.flows.title({ of: 'inflow' }), 'Blood into the liver');
+  assert.equal(EXT.tools.flows.title({ of: 'inflow' }), 'Hepatic inflow');
   assert.equal(EXT.tools.profile.short({}), 'Gut to heart');
   for (const d of DECKS) for (const s of d.slides) {
     assert.ok(!['profile', 'flows'].includes(s.tool?.kind) || adopted(d, s, `kind:${s.tool.kind}`), `${d.id}/${s.id}`);

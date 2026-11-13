@@ -41,14 +41,14 @@ const W = 300, ORDER = ['car', 'over'];
 
 test('the card\'s words: the answer, one line on what leaked, the limit with "full" once it is reached', () => {
   const w = (st) => dayWords(fluidDay(perMin(st)));
-  assert.deepEqual(w(STATES.healthy), { title: 'No ascites builds', detail: 'The lymphatics carry it all. Nothing leaks.', limit: 'Limit 3,600', net: '0', dir: '' });
-  assert.equal(w(STATES.schisto).limit, 'Limit 3,600');
-  assert.deepEqual(w(STATES.day60), { title: 'Ascites builds', detail: '1,020 leaks; the belly takes back 860.', limit: 'Limit 4,340 · full', net: '▲ 160', dir: 'up' });
-  assert.deepEqual(w(STATES.diuretics), { title: 'Ascites shrinks', detail: '1,020 leaks; the belly takes back 2,160.', limit: 'Limit 4,340 · full', net: '▼ 1,140', dir: 'down' });
+  assert.deepEqual(w(STATES.healthy), { title: 'No ascites', detail: 'Lymphatic drainage matches lymph formation.', limit: 'Capacity 3,600', net: '0', dir: '' });
+  assert.equal(w(STATES.schisto).limit, 'Capacity 3,600');
+  assert.deepEqual(w(STATES.day60), { title: 'Ascites accumulating', detail: 'Transudation 1,020; peritoneal reabsorption 860.', limit: 'Capacity 4,340 · saturated', net: '▲ 160', dir: 'up' });
+  assert.deepEqual(w(STATES.diuretics), { title: 'Ascites decreasing', detail: 'Transudation 1,020; peritoneal reabsorption 2,160.', limit: 'Capacity 4,340 · saturated', net: '▼ 1,140', dir: 'down' });
   // (a day with nothing leaking while the belly gives fluid back, and one that leaks with nothing taken back)
-  assert.equal(dayWords({ over: 0, back: 300, net: -300, room: 850, limit: 3000 }).detail, 'Nothing leaks; the belly takes back 300.');
-  assert.equal(dayWords({ over: 580, back: 0, net: 580, room: -580, limit: 3000 }).detail, '580 leaks and none is taken back.');
-  assert.equal(dayWords({ over: 500, back: 500, net: 0, room: -500, limit: 3000 }).title, 'Ascites holds steady');
+  assert.equal(dayWords({ over: 0, back: 300, net: -300, room: 850, limit: 3000 }).detail, 'No transudation; peritoneal reabsorption 300.');
+  assert.equal(dayWords({ over: 580, back: 0, net: 580, room: -580, limit: 3000 }).detail, 'Transudation 580; no peritoneal reabsorption.');
+  assert.equal(dayWords({ over: 500, back: 500, net: 0, room: -500, limit: 3000 }).title, 'Ascites stable');
   for (const st of Object.values(STATES)) for (const t of Object.values(w(st))) assert.doesNotMatch(String(t), /—|\?/, 'no em-dash and no question in a learner line');
 });
 
@@ -118,7 +118,7 @@ test('only the Testing deck\'s four fluid slides draw the day card, with their r
   const ext = readFileSync(new URL('../src/ui/ext-instruments.js', import.meta.url), 'utf8');
   assert.match(ext, /'Fluid balance · mL\/day'/, 'the title carries the unit');
   const src = readFileSync(new URL('../src/ui/tool-fluid.js', import.meta.url), 'utf8');
-  assert.match(src, /'Lymph made'/); assert.match(src, /'Across the wall'/); assert.match(src, /set\(sDetail, sw\.detail\)/); assert.match(src, /set\(sTitle, sw\.title\)/);
+  assert.match(src, /'Lymph formation'/); assert.match(src, /'Net filtration'/); assert.match(src, /set\(sDetail, sw\.detail\)/); assert.match(src, /set\(sTitle, sw\.title\)/);
   assert.doesNotMatch(src, /'Leaked '|'Reabsorbed '|'Each day'/, 'the legend rows of the old strip are gone: one sentence says what leaked and what was taken back');
   assert.doesNotMatch(src, /taken back:|mL a day · model rates/, 'no "taken back:" words and no model sentence on the card');
 });
