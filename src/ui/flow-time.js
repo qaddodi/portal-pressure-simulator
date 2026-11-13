@@ -40,7 +40,7 @@ export const MINUTES = { from: -10, rise: 30, end: 40 };
 // and below it, 8% by default). A chart's lines are [lower, upper]: the lower on the left axis, the upper on the right, both fitted.
 export const LINE = {
   pv: ['Portal pressure', 'mmHg', 1, '--tr-pv'], ppg: ['PPG', 'mmHg', 1, '--tr-pv'], pvFlow: ['Portal flow', 'L/min', 1, '--tr-hv'],
-  sin: ['Sinusoids', 'mmHg', 1, '--tr-wedge'], asc: ['Ascites', 'L', 1, '--tr-hv', 0.001],
+  sin: ['Sinusoids', 'mmHg', 1, '--tr-sin'], asc: ['Ascites', 'L', 1, '--tr-hv', 0.001],
   hvpg: ['HVPG', 'mmHg', 1, '--tr-wedge'], varix: ['Varix', 'mm', 1, '--tr-var'],
   wt: ['Body weight', '% of start', 0, '--tr-cav', 1, { given: true, base: 100, scale: [84, 100, 4] }], lsm: ['Stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }],
   // (The readings the teaching card's own time graph carries on a time-lapse slide, lapse-graph.js: each is one of the slide's tiles.)

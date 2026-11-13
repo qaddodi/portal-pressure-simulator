@@ -336,6 +336,7 @@
   --grid: #E2DACB;
   --tr-pv: #B01E62;
   --tr-wedge: #A52DA9;
+  --tr-sin: #A52DA9;
   --tr-hv: #2A78D6;
   --tr-ra: #5B6270;
   --tr-ivc: #059bae;
@@ -555,6 +556,7 @@
     --axis: #4A4641;
     --tr-pv: #F0649E;
     --tr-wedge: #DA7EDD;
+    --tr-sin: #DA7EDD;
     --tr-hv: #5CA4F2;
     --tr-ra: #B7B1A8;
     --tr-ivc: #4CC2D6;
@@ -795,6 +797,7 @@
   --axis: #4A4641;
   --tr-pv: #F0649E;
   --tr-wedge: #DA7EDD;
+  --tr-sin: #DA7EDD;
   --tr-hv: #5CA4F2;
   --tr-ra: #B7B1A8;
   --tr-ivc: #4CC2D6;

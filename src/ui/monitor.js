@@ -17,9 +17,10 @@ import { fitPen } from './trace-gl.js';
 import { traceRoom, TRACE_MIN } from './trace-room.js';
 import { drawCallout, dropK, sideFor, calloutCell, calloutText, inkSeg } from './trace-callouts.js';
 
-// The monitor's colours, dark in both themes (theme-tokens.js --mon-*).
-export const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
-  free: '--mon-free', wedge: '--mon-wedge', pv: '--mon-pv', ivc: '--mon-ivc', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
+// The monitor's colours, dark in both themes (theme-tokens.js --mon-*; a reading's are the dark looks' trace colours, theme-tokens.js DARK_TRACE).
+export const MON_TOKENS = { bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
+  free: '--mon-free', wedge: '--mon-wedge', pv: '--mon-pv', ivc: '--mon-ivc', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' };
+export const C = Object.defineProperties({}, Object.fromEntries(Object.entries(MON_TOKENS).map(([k, n]) => [k, { get: () => cssVar(n) }])));
 // The HVPG catheter's words on the monitor: its header, longest form first, and its notes before the tip is in, while it waits for the hepatic vein and while it
 // probes a thrombosed ostium. One table for Measure › HVPG (hvpg-proc.js) and the procedure slide's card (tool-reading.js): unification audit, finding 1.
 export const HVPG_TEXT = {
