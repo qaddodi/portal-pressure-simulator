@@ -8,7 +8,7 @@ cost at 9 MP is arithmetic on those counts.
 
 ## The short answer
 
-At rest the app still draws the figure about 30 times a second (a talk never drops below that), and at his Figure size (Full,
+At rest the app still draws the figure about 30 times a second (in a talk, 20 after a slide is left 30 s: built later the same day), and at his Figure size (Full,
 3840 x 2346 = 9.0 MP) every one of those frames moves the whole 9 MP canvas around two or three times. Three things made it worse than it
 had to be:
 
@@ -18,8 +18,8 @@ had to be:
    bar, dock, cards) treated each frame as a new picture to blur again. The 4 Hz blood-in-glass rule from 12 Nov never got a chance to act.
 2. **The labels ask for extra whole-canvas presents between the figure's frames** (measured 7 a second with nothing on screen, 11 a second
    with a TIPS shown). Each one is a full 9 MP lay of the picture plus the glass and labels. Label code, so a brief, not built.
-3. **The 30 Hz floor in a talk times 9 MP.** At rest the figure draws 30 frames a second in a talk forever (15 Hz only outside a talk,
-   after 30 s). At Full that is about 0.8 to 1 gigapixel a second of whole-canvas copies before any shading. Figure size is his choice;
+3. **The 30 Hz floor in a talk times 9 MP.** At rest the figure drew 30 frames a second in a talk forever (15 Hz only outside a talk,
+   after 30 s; since 6a3c9394 a talk steps to 20 after 30 s untouched). At Full that is about 0.8 to 1 gigapixel a second of whole-canvas copies before any shading. Figure size is his choice;
    the 1.5 MP default is six times less work on every one of these passes.
 
 The source fix the 12 Nov readout called for ("skip the picture-version bump when the pixels don't change") had landed for one writer
@@ -73,13 +73,13 @@ the evidence, not the cost, which is always an estimate.
 
 | Rank | Cause | Evidence | Cost on his 9 MP Mac | Fix | Status |
 |---|---|---|---|---|---|
-| 1 | Every rest frame was a new picture: all lumens repainted, the glass re-blurred about 10 times a second | Measured: 30 of 30 composites a second bumped `pictureSeq`, signature entries 26 and 212 changed every time; `stage-vessels.js:1033`, `stage-transitions.js:226`, `veins-gl.js:4566`, `veins-gl.js:1383` | Large: the full `COMP_FS` over about 1.8 MP 30 times a second, plus about 10 glass re-blurs of 2 to 4 MP a second (inferred) | Hand the bowel's float to the stack only when it moves (or after a setLive); hand the ripple's phase on only while the fluid shows | Built in 6ff0b2ed (`tests/heat-rest-picture.test.js`) |
-| 2 | The 30 Hz floor in a talk, at Figure size Full | Code: `frame.js:829` (no 15 Hz in a talk), `stage.js:2758`; Figure size Full = 9.0 MP against the 1.5 MP Mac default | Largest single multiplier: every canvas pass is 6 times what it is at 1.5 MP. About 1 Gpx/s of copies at 30 presents a second | Options for him: Figure size 1.5 MP or "Auto at rest"; or let a talk step to 20 Hz after 30 s untouched (blood moves on its own clock, so speeds do not change) | Needs his pick (a talk at 15 Hz was ruled out on 5 Nov; a whole-app 30 Hz cap flickered on 4 Nov, so this would be rest pacing through `restGapFor`, not a cap) |
+| 1 | Every rest frame was a new picture: all lumens repainted, the glass re-blurred about 10 times a second | Measured: 30 of 30 composites a second bumped `pictureSeq`, signature entries 26 and 212 changed every time; `stage-vessels.js:1033`, `stage-transitions.js:226`, `veins-gl.js:4566`, `veins-gl.js:1383` | Large: the full `COMP_FS` over about 1.8 MP 30 times a second, plus about 10 glass re-blurs of 2 to 4 MP a second (inferred) | Hand the bowel's float to the stack only when it moves (or after a setLive); hand the ripple's phase on only while the fluid shows | Built in abb71b27 (`tests/heat-rest-picture.test.js`) |
+| 2 | The 30 Hz floor in a talk, at Figure size Full | Code: `frame.js:829` (no 15 Hz in a talk), `stage.js:2758`; Figure size Full = 9.0 MP against the 1.5 MP Mac default | Largest single multiplier: every canvas pass is 6 times what it is at 1.5 MP. About 1 Gpx/s of copies at 30 presents a second | Options for him: Figure size 1.5 MP or "Auto at rest"; or let a talk step to 20 Hz after 30 s untouched (blood moves on its own clock, so speeds do not change) | He picked the 20 Hz step. Built in 6a3c9394 (`tests/talk-rest-20hz.test.js`): rest pacing through `restGapFor`, not a cap (a whole-app 30 Hz cap flickered on 4 Nov); 30 Hz from 4 to 30 s, then 20 Hz (46 ms gap), never 15; Full sharpness kept |
 | 3 | Labels ask for an extra whole present between the figure's paced frames | Measured: 37 presents a second against 30 composites (healthy), 41 against 30 with a TIPS; stack: `label-gl.js:2631` sync calls `ask()` after every layout, `label-gl.js:1553` againTick asks the host next frame, `veins-gl.js:3453` presentAsk lays a whole present when no picture was laid that frame | About 20 to 30% more whole presents: 7 to 11 a second times about 27 MP of copies, 0.2 to 0.3 Gpx/s, plus the glass and labels drawn each time | Brief L-H1 below | Brief for the label thread (and D for the host side) |
 | 4 | Model frames redraw vessel rows and re-run the whole update | Measured: row redraws ("part") 7/s healthy, 9/s decompensated cirrhosis, 18/s SOS, each a new picture; full update 10/s; width steps 20/s that re-render every moving vein's tube (`stage-tubes.js` stepWidthsInner) | Medium: each row redraw is a new picture for the glass (now the only one at rest); CPU on the main thread (inferred, node cannot time it) | Drop changes below what shows before they reach the renderer, and refresh reading text at 4 Hz (heat-speed-label-lock H4) | Brief for D (veins-gl and stage-vessels) and the stage owner |
 | 5 | The Tube's lumen layer is drawn for every blood frame over 45% of the layer | Measured gauge: "drawn in 0.67 MP (45%)" at 1.5 MP; `veins-gl.js:5204` | Medium: about 4 MP a frame at 9 MP, 120 MP/s at 30 Hz | Brief D-1 below | Brief for D |
 | 6 | An ascites ripple makes every frame a new picture on ascites slides | Measured: with cirrhosis decompensated, signature entry 26 changes every frame (correct: the surface moves) | Medium on ascites slides: the cards' glass re-blurs the fluid's region about 10 times a second | Brief D-2 below | Brief for D |
-| 7 | The Doppler, the pressure strip and the vitals strip draw at 60 Hz, never rest-paced | Code: `doppler.js:1463` paces by `paceMs()` only; `pressure-time.js:446`, `vitals-monitor.js:305` the same | Small GPU (own small canvases), but it keeps the page at 60 wakes a second while a scope or the dock is open | Pace them by `restGapFor` too (30 Hz at rest) | Needs his pick (the sweep would step 30 times a second at rest) |
+| 7 | The Doppler, the pressure strip and the vitals strip draw at 60 Hz, never rest-paced | Code: `doppler.js:1463` paces by `paceMs()` only; `pressure-time.js:446`, `vitals-monitor.js:305` the same | Small GPU (own small canvases), but it keeps the page at 60 wakes a second while a scope or the dock is open | Pace them by `restGapFor` too (30 Hz at rest) | He picked it. Built in 56ba6406 (`tests/instruments-rest-pace.test.js`): 30 steps a second at rest, 20 in a talk left 30 s, a timer between frames instead of 60 wakes; the sweep is drawn from the clock, so its speed is unchanged |
 
 Checked and not a cause now (measured or read):
 
@@ -135,7 +135,7 @@ and the glass is a separate owner.
 
 ## What was built
 
-6ff0b2ed, stage code only (no veins-gl, glass, label or compositor shader change):
+abb71b27 (6ff0b2ed before the rebase), stage code only (no veins-gl, glass, label or compositor shader change):
 
 - `stage-vessels.js` drawVeinsNow: the bowel's float is handed to the live organ stack only when it moved, or when a `setLive` since made new
   cuts (`stage-plate.js` sets `bowelAt` back to NaN at every setLive and setLiveAll). The stack ignored the repeats anyway, so no pixel changes.
@@ -149,5 +149,47 @@ How he can feel it on the Mac: on a still slide with cards, or in Explore with t
 should come on later and the Mac stay cooler after a few minutes left alone. The picture should look exactly the same: the glass, the blood,
 an ascites ripple and the bowel's float on a filling abdomen all move as before. Nothing is asked of him beyond using it.
 
-Checks at 6ff0b2ed: `npm run lint` clean (0 errors), `npm run check:static` passed, `npm test` 4875 of 4876 pass. The one failure,
+## Built after his picks (13 Nov, rows 2 and 7)
+
+6a3c9394, a talk left on one slide steps to 20 Hz (row 2):
+
+- `frame.js` restGapFor: in a talk, 30 s with no input and nothing moving gives `TALK_IDLE_MS` (46 ms: every 3rd frame of a 60 Hz screen,
+  every 6th of a 120 Hz one, so 20 a second). From 4 to 30 s it is 30 a second as before, and a talk never goes to 15. Outside a talk the
+  15 Hz idle step is unchanged. It is rest pacing, not a cap: any input, a camera, view or figure move, or a slide change (the loops' own
+  busy stamps) gives the full rate back on the next frame. Figure size and sharpness are not touched.
+- The blood and the eases step by the time that passed (capped at 0.1 s, above a 50 ms frame), so nothing moves slower; fewer pictures are drawn.
+- ?perf: the blood pacing line reads "talk idle 20 Hz, one slide left 30 s (sharpness unchanged)" while it is on.
+- `tests/talk-rest-20hz.test.js` (node): the steps (0, 28, 46 ms), about 20 drawn a second on 60, 90, 120 and 144 Hz screens, the full rate
+  after an input, a busy stamp or a running move, Battery saver and ?rest=off still winning. The wiring (main.js, the dt caps, ?perf) is
+  pinned in `scripts/rules-lint.mjs`, as new source checks may not live in tests.
+
+56ba6406, the Doppler, the pressure strip and the vitals strip are rest-paced (row 7):
+
+- Each loop now paces by `Math.max(paceMs(), restGapFor(now))`: 30 steps a second after 4 s untouched, 20 in a talk left 30 s. Between its
+  frames each waits on a timer (`frame.js` restPark, the same 8 ms early wake the figure's loop uses), so an open scope or dock no longer
+  wakes the page 60 times a second. Each lets its timer go on dispose.
+- The sweeps were already drawn from the clock (the Doppler's newest column is `floor(clockNow * columns a second)`, the strips' head is the
+  wall clock since the last sample), so only the step rate changes, never the speed. A Doppler change while paused, or the lab's own
+  drawing, is still drawn at once.
+- `tests/instruments-rest-pace.test.js` (node, fake clock and timers, the real worker's frames): the vitals and pressure strips draw about 60
+  a second when touched, 30 at rest with about 30 wakes on a 60 Hz screen (at most 62 on a 120 Hz one, against 120), 20 in a talk after
+  30 s, the full rate again after an input, and nothing left running once let go. The vitals strip drawn at 30 a second puts its trace
+  in exactly the same place as at 60 on every frame both draw. The Doppler's loop shape is pinned in `scripts/rules-lint.mjs`.
+
+How he can feel it on the Mac: in a talk, leave one slide alone for half a minute at Figure size Full; the figure then draws a third fewer
+frames than before, so the fan should come on later on long slides. Touching anything, or Next, gives the full rate at once. With a
+Doppler, the pressure strip or the vitals strip open, after 4 s untouched the traces step 30 times a second; they move at the same speed,
+and at most a careful eye sees slightly coarser steps. ?perf, if he looks, names the rule on the blood pacing line.
+
+Checks at 56ba6406: `npm run lint` clean (0 errors), `npm run check:static` passed, `npm test` 4923 of 4925 pass. The two failures,
+`tests/proc-anim.test.js` "presented, Next drives it" and `tests/slide-beats.test.js` "Next goes through a slide's beats", fail the same
+way at 6f6eeef8 before this work (presenter.js source checks, not heat). The deck-shape failure noted below is gone upstream.
+
+Shots (headless, software GL, `scripts/shoot.mjs`, Mac, light): Explore healthy (bowel and organs in place) and decompensated cirrhosis
+(the fluid band and the floated bowel as at a62ddf58, the commit before abb71b27); the Doppler deck's probe slide paused and with the model
+running (the spectrum whole and unbroken after more than 2 minutes untouched in a talk, so on the 20 Hz step); the hyperdynamic deck's
+vitals strip paused and running (whole, scrolled on); the portal day deck's beat-by-beat pressure strip. Nothing blank, stale or half
+drawn. The pressure strip's slide never settles in a shot (its strip runs on its own while the model is held); it does the same at 6f6eeef8.
+
+Checks at 6ff0b2ed (now abb71b27): `npm run lint` clean (0 errors), `npm run check:static` passed, `npm test` 4875 of 4876 pass. The one failure,
 `tests/deck-shape.test.js` "every slide line is 30 words or fewer", fails the same way at `bab345fd` before this work (deck text, not heat).
