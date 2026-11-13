@@ -34,7 +34,7 @@ test('hold: the presenter sets it out of sight and lets the answer slide ease it
   assert.match(p, /paintOverlays\(fv, to, st\);\n\s*if \(holdEase\) \{ holdEase = false; holdAnswer\(false\); \}/);
   assert.match(src('presenter-tools.js'), /holdAnswer\(on, instant = false\) \{ cur\?\.hold\?\.\(!!on, instant\); \}/);
   const prof = src('tool-profile.js');
-  assert.match(prof, /new Set\(held \? \[\] : blocksOf\(goal, healthy\(\)\)\)/, 'held, the chart asks for no red blocks (they fade out as any block does)');
+  assert.match(prof, /new Set\(held \? \[\] : blocksOf\(own \|\| goal, healthy\(\)\)\)/, 'held, the chart asks for no red blocks (they fade out as any block does)');
   assert.match(prof, /if \(row && hk >= 0\.005\) \{/, 'held, the brackets ease out');
   // (CSS: the rating words, the Doppler's words and the figure's alerts fade, never snap.)
   assert.match(css, /\.pz-data\[data-held\] \.pzt-r, \.pz-data\[data-held\] \.pz-tool :is\(\.dop-dir, \.dop-pattern, \.dop-note\) \{ opacity: 0; \}/);

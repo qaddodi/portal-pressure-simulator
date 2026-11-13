@@ -73,7 +73,7 @@ test('the HVPG deck still names the wedged and free readings: WHVP and FHVP tile
 });
 
 test('an older deck\'s ladder slide, an imported deck or a script, shows the Gut to heart chart too', () => {
-  assert.match(pres, /ask: st\.ask, tool: \{ kind: 'profile' \}, key: st\.key \|\| \[\],/, 'an instructor\'s script');
+  assert.match(pres, /ask: st\.ask, tool: Array\.isArray\(st\.spans\) \? \{ kind: 'profile', spans: st\.spans \} : \{ kind: 'profile' \}, key: st\.key \|\| \[\],/, 'an instructor\'s script');
   // (The test decks still written with the old field come out as the built-in slides do.)
   const demo = readFileSync(new URL('../src/ui/test-decks/demo-all-new-visuals.js', import.meta.url), 'utf8');
   assert.match(demo, /"data": "ladder"/);

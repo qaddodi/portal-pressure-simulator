@@ -26,6 +26,7 @@
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
 const TRIO = ['hvpg', 'eus', 'ppg'];   // the three readings: the ladder's brackets and its card's header row (card-tiles.js headKeys)
 const PROFILE = { kind: 'profile', spans: TRIO };   // the pressure ladder from gut to heart (pre-, intra- and postsinusoidal), with a bracket for each gradient, all in one band under the plot
+const RAW_LADDER = { kind: 'profile', spans: [] };   // the same ladder with no bracket and no WHVP or FHVP tag on the figure: the opening slide has students read the pressures before the gradients are named (Mohammad, 13 Nov 2026)
 const TRACE = { kind: 'reading' };   // the tracing card: the slide's measurement drawn as it is taken
 const CLOT = ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'];
 
@@ -48,7 +49,7 @@ export const GRADIENTS = {
   ],
   slides: [
     {
-      id: 'where', preset: 'csph', lens: 'drop', cam: 'route', labels: ['CONF', 'LPV', 'RHV', 'LHV', 'IVCS'], tool: PROFILE,
+      id: 'where', preset: 'csph', lens: 'drop', cam: 'route', labels: ['CONF', 'LPV', 'RHV', 'LHV', 'IVCS'], tool: RAW_LADDER,
       kicker: 'Three readings', title: 'Each gradient is the difference between two pressures measured at different sites',
       line: 'HVPG spans the sinusoids. EUS-PPG spans the liver, from the left portal vein to the left hepatic vein. PPG spans the portal vein to the IVC.',
       notes: 'HVPG is the wedged hepatic venous pressure (WHVP) minus the free hepatic venous pressure (FHVP): the pressure drop across the sinusoids (AASLD 2024 Box 2). EUS-PPG is the left portal vein minus the left hepatic vein pressure, measured with one EUS-guided needle through the gastric wall: it spans the portal tracts, the sinusoids and the central veins of the left lobe, but not the extrahepatic portal vein. PPG is the portal vein minus the IVC pressure, so it includes all resistance between the portal vein and the heart. A resistance outside a gradient\'s two measurement points does not change that gradient. The card shows the five measurement sites, and each gradient as a bracket between its two; the drops along the way appear once the pressures are measured. In this case the patient has cirrhosis with clinically significant portal hypertension (CSPH), and the next four slides measure him. The cut-offs are the HVPG\'s 5 and 10 mmHg for HVPG and EUS-PPG, and 6 and 12 mmHg for the PPG.',

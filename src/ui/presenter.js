@@ -65,7 +65,7 @@ import { flowCss, heatCss, dropCss, gradientCss, oxygenCss } from './colormap.js
 import { EXT, expandIds, stepExtra, markLabel, figureHooks, safe, warmOf } from './slide-ext.js';
 import { clotWords } from './callout-math.js';
 import { citeText, focusOf, oneLadder } from './teach-extras.js';
-import { createProfileTool, createProfileStrip, pillReadings, chartScale } from './tool-profile.js';
+import { createProfileTool, createProfileStrip, pillReadings, chartScale, spansOf } from './tool-profile.js';
 import { causeFit } from './cause-fit.js';
 import { anchorsOf, roomFor } from './cam-room.js';
 import { beatCount, beatView } from './slide-beats.js';
@@ -980,7 +980,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     if (s.deck) return { ...s.deck, id: s.id, title: s.title, level: 'yours', mine: true, full: true, slides: withOverview(s.deck).slides };
     return { ...s, level: 'yours', mine: true, slides: (s.steps || []).map((st) => ({
       preset: st.preset, presetDays: st.presetDays, params: st.params, action: st.action, days: st.days, view: st.view, cam: st.view === 'circuit' ? 'fit' : st.cam || 'fit',
-      kicker: st.kicker || s.title, title: st.title || 'Step', line: st.line || '', causes: st.causes, site: st.site, notes: st.notes || st.tell || '', ask: st.ask, tool: { kind: 'profile' }, key: st.key || [],
+      kicker: st.kicker || s.title, title: st.title || 'Step', line: st.line || '', causes: st.causes, site: st.site, notes: st.notes || st.tell || '', ask: st.ask, tool: Array.isArray(st.spans) ? { kind: 'profile', spans: st.spans } : { kind: 'profile' }, key: st.key || [],
     })) };
   }
 
@@ -2699,7 +2699,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       markBase = { i: to, marks };
       marks = clotMarks(marks, st?.params || store.get().params);
       store.set({ presentLabels: [...new Set([...(s.labels || []), ...tg.labels])], presentTerms: tg.terms || null,
-        presentNames: s.tool?.kind === 'profile' || !!s.cath, presentFp: st?.fp || null,
+        presentNames: s.tool?.kind === 'profile' || !!s.cath, presentGrads: s.tool?.kind === 'profile' ? spansOf(s.tool.spans).map(([k]) => k).join() : null, presentFp: st?.fp || null,
         focus: markFocus(marks), stented: stentedOf(s), lobuleCallout: !s.callout ? null : { kind: 'block', ...s.callout } });
       // (The glows and outlines are the figure's decoration: one that cannot be drawn, as on a device without WebGL2 once, leaves the slide
       // without it rather than half-changed with its cards never in.)
@@ -6561,7 +6561,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     wrapRO?.disconnect();
     document.fonts?.removeEventListener('loadingdone', onFonts);
     fitRO?.disconnect(); clearRO?.disconnect(); fitKids = []; clearFor = null; clearTimeout(clearT); cancelRest(fitRaf); cancelRest(paneRaf);
-    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, focus: null, stented: [], lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
+    store.set({ presenting: false, presentLabels: null, presentTerms: null, presentNames: false, presentGrads: null, focus: null, stented: [], lobuleCallout: null, presentFp: null }); stage.setSites(null); stage.setGlow(null); stage.pinOrgans(null); delete app.dataset.lit;
     figureHooks('clear');
     hushed = false; lastCam = null; clearTimeout(hushInT); app.classList.remove('pz-hush', 'pz-hush-in', 'pz-held'); heldNow = false; holdEase = false;
     cancelFrame(slip.raf); slip.d = null; slip.h0 = null; stage.followEnd?.();

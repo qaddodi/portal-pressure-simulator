@@ -6,13 +6,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GRADIENTS } from '../src/ui/decks/gradients.js';
 import { runSteps, deckStates } from './deck-states.js';
-import { SPANS, spansOf, profileOf, profileGeo, numberSides, placePills, placeBrackets, bracketBox, BR_PAD, pillSize } from '../src/ui/tool-profile.js';
+import { SPANS, NO_SPANS, spansOf, profileOf, profileGeo, numberSides, placePills, placeBrackets, bracketBox, BR_PAD, pillSize } from '../src/ui/tool-profile.js';
 
 const tw = (t, wt) => t.length * (wt >= 700 ? 7.4 : 6.8);
 
 test('spansOf: none named is HVPG and PPG; any subset comes back in the chart\'s order, the same list each time', () => {
   assert.equal(spansOf(undefined), SPANS);
-  assert.equal(spansOf([]), SPANS);
+  assert.equal(spansOf([]), NO_SPANS, 'an empty list is no bracket at all: the raw pressures');
+  assert.equal(spansOf(['nonsense']), SPANS);
   assert.deepEqual(SPANS.map(([k]) => k), ['hvpg', 'ppg']);
   const three = spansOf(['ppg', 'hvpg', 'eus']);
   assert.deepEqual(three.map(([k]) => k), ['hvpg', 'eus', 'ppg']);
@@ -21,7 +22,7 @@ test('spansOf: none named is HVPG and PPG; any subset comes back in the chart\'s
 });
 
 test('the gradients deck draws all three brackets on every profile slide, the other decks keep two', () => {
-  for (const s of GRADIENTS.slides) if (s.tool?.kind === 'profile') assert.deepEqual(spansOf(s.tool.spans).map(([k]) => k), ['hvpg', 'eus', 'ppg'], s.id);
+  for (const s of GRADIENTS.slides) if (s.tool?.kind === 'profile') assert.deepEqual(spansOf(s.tool.spans).map(([k]) => k), s.id === 'where' ? [] : ['hvpg', 'eus', 'ppg'], s.id);   // (the opening slide draws none: Mohammad, 13 Nov 2026)
 });
 
 test('three brackets in the plot (or the band at its foot) keep apart, and each pill has its own place, at the sizes the chart is drawn at', async () => {
@@ -53,4 +54,12 @@ test('without the option the chart is the two-bracket chart it was', () => {
   const g = profileGeo(420, 260, 12, tw, true);
   assert.equal(g.spans, SPANS);
   assert.equal(pillSize(g, tw).w.length, 2);
+});
+
+test('a ladder with no bracket keeps no band for them and every height is a number', () => {
+  const G = profileGeo(400, 260, 12, tw, false, NO_SPANS), H = profileGeo(400, 260, 12, tw, false, SPANS);
+  assert.equal(G.Z, G.B, 'no band at the plot\'s foot');
+  assert.ok(H.Z < H.B, 'the two-bracket ladder keeps its band');
+  for (const k of ['T', 'B', 'Z', 'need']) assert.ok(Number.isFinite(G[k]), k);
+  assert.ok(G.need < H.need, 'the chart takes less room without them');
 });

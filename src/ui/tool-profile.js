@@ -49,10 +49,14 @@ export const SPANS = [['hvpg', 'HVPG', 'SIN_R', 'RHV'], ['ppg', 'PPG', 'CONF', '
 // vein to the left hepatic vein, which the chart's PV and HV stations stand for. A slide asks for it with the tool's `spans` option; HVPG and PPG stay the
 // default. The brackets and pills stand narrowest first (HVPG over EUS-PPG over PPG), so each nests inside the next.
 const SPAN_ALL = [SPANS[0], ['eus', 'EUS-PPG', 'CONF', 'RHV'], SPANS[1]], SPAN_SETS = new Map([['hvpg,ppg', SPANS]]);
-/** The brackets a slide's `spans` option names (['hvpg', 'eus', 'ppg'] in any order, any subset), in the chart's order; SPANS where it names none. The same
- *  list for the same names, so a chart can tell a changed set by identity. */
+/** No bracket at all (a slide's `spans: []`): the raw pressures alone, for a slide that has students read them before the gradients are named
+ *  (Mohammad, 13 Nov 2026). Its own list, so a chart can tell it from the default by identity. */
+export const NO_SPANS = [];
+/** The brackets a slide's `spans` option names (['hvpg', 'eus', 'ppg'] in any order, any subset, or [] for none), in the chart's order; SPANS (HVPG and
+ *  PPG) where the slide sets no `spans`. The same list for the same names, so a chart can tell a changed set by identity. */
 export function spansOf(keys) {
   const want = SPAN_ALL.filter(([k]) => Array.isArray(keys) && keys.includes(k)), id = want.map(([k]) => k).join(',');
+  if (Array.isArray(keys) && !keys.length) return NO_SPANS;
   if (!want.length) return SPANS;
   if (!SPAN_SETS.has(id)) SPAN_SETS.set(id, want);
   return SPAN_SETS.get(id);
@@ -216,10 +220,10 @@ export function profileGeo(w, h, f, tw, inside = false, spans = SPANS) {
   const T = 0.2 * f + hdr, nameH = fit.rows * 1.25 * f + 0.4 * f;
   const brFit = spans.map(([, name, a, b]) => bracketFit(slot * (STATIONS.indexOf(b) - STATIONS.indexOf(a)), name, tw, f));
   const brMode = brFit.map((q) => q.mode), brFs = brFit.map((q) => q.fs);
-  const half = brMode.map((m) => (m === 'stack' ? 0.91 : 0.36) * f + 1), bandH = (spans.length + 1) * BR_PAD + 2 * half.reduce((a, b) => a + b, 0), band = inside ? 0 : bandH;
+  const half = brMode.map((m) => (m === 'stack' ? 0.91 : 0.36) * f + 1), bandH = spans.length ? (spans.length + 1) * BR_PAD + 2 * half.reduce((a, b) => a + b, 0) : 0, band = inside ? 0 : bandH;   // (no brackets: no band)
   // (The liver's brace and its name under the names: the brace 0.55 em deep, its name's baseline 1 em under its tip.)
   const braceH = 1.85 * f;
-  const B = Math.max(T + 3 * f + band, h - nameH - braceH - 0.5 * f), n = spans.length, yLast = B - BR_PAD - half[n - 1];
+  const B = Math.max(T + 3 * f + band, h - nameH - braceH - 0.5 * f), n = spans.length, yLast = n ? B - BR_PAD - half[n - 1] : B;
   const x = (i) => L + slot * (i + 0.5);
   return { w, h, f, L, R, T, B, Z: B - band, slot, x, fit, brMode, brFs, inside, spans, zone, zb, hdr, need: T + 3 * f + bandH + nameH + braceH + 0.5 * f,
     braceY: B + nameH - 0.1 * f,
@@ -835,7 +839,7 @@ export function createProfileTool() {
     for (const c of ['hl', 'bf']) m.nameOn[c] = false;
     for (const n of plan.names || []) { m.nameOn[n.c] = true; setWords(m.nameEl[n.c], n.t); }
     const labels = goal.v.map(whole);
-    restAttr(m.svg, 'aria-label', `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg. ${spans.map(([k, name]) => `${name} ${whole(goal[k])}`).join(', ')}.`);
+    restAttr(m.svg, 'aria-label', `Pressure from gut to heart: ${STATIONS.map((n, i) => `${SPOKEN[n]} ${labels[i]}`).join(', ')} mmHg.${spans.length ? ` ${spans.map(([k, name]) => `${name} ${whole(goal[k])}`).join(', ')}.` : ''}`);
     void tw;
   }
   // The pieces of the chart at its size, once (never in a frame): the tree a frame writes its numbers into.
@@ -1084,7 +1088,10 @@ export function createProfileTool() {
     goal = { ...p, top: axisTop(p, healthy(), ref) };
     // (The first state is shown at once; the goals after it are glided to.)
     if (!shown) { shown = shownO; shownW = shownWo; copyGoal(shown, goal); copyGoal(shownW, goal); tickAt = 0; }
-    const want = new Set(held ? [] : blocksOf(goal, healthy())), t = performance.now();
+    // (Until the slide has landed, its blocks are those of its own state, not of the patient as he eases there: the chart comes in with its blocks
+    // and they fade in with it, never after it (Mohammad, 13 Nov 2026: "the chart shows up without it, and then it kind of just pops in".)
+    const own = ctx0?.fp && ctx0.shown && !ctx0.shown() ? profileOf(ctx0.fp) : null;
+    const want = new Set(held ? [] : blocksOf(own || goal, healthy())), t = performance.now();
     for (let i = 0; i < NS; i++) {
       const a = want.has(i) ? 1 : 0, b = blkLive[i] ? blkS[i] : null;
       if (!b || b.a !== a) { blkS[i].from = reduceMQ.matches ? a : b ? blkOp(b, t) : 0; blkS[i].a = a; blkS[i].t0 = t; blkLive[i] = 1; }
@@ -1106,7 +1113,12 @@ export function createProfileTool() {
     // popping in a moment later (Mohammad, 2 Nov 2026, "this arrived empty then flashed the graph").)
     configure(t, ctx) { if (!sz0) measure0(); else if (!measuring) measuring = restPass(() => { measuring = 0; if (el.isConnected) measure0(); });
       // (The brackets the slide asks for; a changed set is planned and built afresh.)
-      const sp = spansOf(t?.spans); if (sp !== spans) { spans = sp; RATES = sp.map(([k]) => RATE_OF[k]); plan = null; S = null; rows.fill(null); pillAt.fill(null); }
+      const sp = spansOf(t?.spans);
+      if (sp !== spans) {
+        // (Brackets after a slide with none (the raw ladder, then the gradients named) ease in, never pop.)
+        if (spans === NO_SPANS && !held && !reduceMQ.matches) Object.assign(heldK, { a: 1, from: 0, t0: performance.now() });
+        spans = sp; RATES = sp.map(([k]) => RATE_OF[k]); plan = null; S = null; rows.fill(null); pillAt.fill(null);
+      }
       cfg = { from: t?.from ?? null, fromLabel: typeof t?.fromLabel === 'string' && t.fromLabel.trim() ? t.fromLabel.trim() : 'Before' }; ctx0 = ctx || null; if (ctx?.fp) aim(ctx.fp); },
     /** The numbers the slide's tiles show: the slide's state, or a what-if slider's or a compare button's. */
     pin(fp) { if (el.isConnected && fp) aim(fp); },

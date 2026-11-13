@@ -155,7 +155,7 @@ test('the talk: the monitor on every measurement slide, the ladder on every comp
   for (const s of GRADIENTS.slides) if (s.procedure) assert.equal(s.tool?.kind, 'reading', `${s.id}: a measurement draws its monitor`);
   for (const s of GRADIENTS.slides) if (s.tool?.kind === 'reading') assert.ok(scriptOf(s.procedure), `${s.id}: the card follows its procedure`);
   // (The comparisons draw the pressure ladder with all three gradients, the span ruler gone: Mohammad, 13 Nov 2026, "I like the ladder card ... Just add EUS PPG to it".)
-  for (const id of ['where', 'agree', 'masld', 'psvd', 'bc']) { assert.equal(by[id].tool?.kind, 'profile', id); assert.deepEqual(by[id].tool.spans, ['hvpg', 'eus', 'ppg'], id); }
+  for (const id of ['where', 'agree', 'masld', 'psvd', 'bc']) { assert.equal(by[id].tool?.kind, 'profile', id); assert.deepEqual(by[id].tool.spans, id === 'where' ? [] : ['hvpg', 'eus', 'ppg'], id); }   // (the opening slide draws no bracket: the raw pressures first, Mohammad, 13 Nov 2026)
   assert.ok(!GRADIENTS.slides.some((s) => s.tool?.kind === 'spans'));
   const states = await deckStates(GRADIENTS);
   const at = (id) => states[GRADIENTS.slides.findIndex((s) => s.id === id)];

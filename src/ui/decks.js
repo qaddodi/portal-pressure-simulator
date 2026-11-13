@@ -35,7 +35,9 @@
 //   data                     'tiles': the tiles (tiles: which, key: what to highlight, delta: true or a slide id to show each
 //                            tile's change from that state; a slide that changes the same patient (no preset) counts from the
 //                            slide before unless it says delta: false). The pressure chart is tool { kind: 'profile' }, Gut to heart,
-//                            the one chart on every card; an older deck's data: 'ladder' (with brackets, block, ladderFrom and
+//                            the one chart on every card; its brackets are the tool's `spans` option, on any slide of any deck: any of 'hvpg', 'eus',
+//                            'ppg' ([] draws none, with no WHVP or FHVP tag on the figure's labels either, so students read the raw pressures
+//                            before the gradients are named; left out: HVPG and PPG, as before); an older deck's data: 'ladder' (with brackets, block, ladderFrom and
 //                            ladderFromLabel) shows that profile instead (teach-extras.js oneLadder)
 //   tool                     an instrument in the data card, reading the live model (presenter-tools.js): { kind: 'doppler',
 //                            vessel, gate?, points? } (gate: on a stent, the third it samples, 'proximal' | 'mid' (default) | 'distal' | 'site';

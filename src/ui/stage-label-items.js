@@ -197,7 +197,9 @@ export function createLabelItems(st, live) {
     }
     let name = mode === 'atlas' ? (meta?.name || NODES[NI[id]].label) : (SHORT[id] || id);
     // On a presenter's ladder and catheter slides, the stations the ladder names carry its name too (one vocabulary).
-    if (st.presenting && st.presentNames && LADDER_TAG[id]) name += ` · ${LADDER_TAG[id]}`;
+    // (The WHVP and FHVP tags name the HVPG, so they stand only where the slide's ladder draws that bracket: a slide that has students read the
+    // raw pressures first (tool spans: []) shows the plain names, nothing that gives the gradient away.)
+    if (st.presenting && st.presentNames && LADDER_TAG[id] && (st.presentGrads == null || st.presentGrads.split(',').includes('hvpg'))) name += ` · ${LADDER_TAG[id]}`;
     // On a small screen an inline label is one quiet line (name, value) on a text halo, not a
     // two-line card: it covers as little of the anatomy as it can.
     const one = mode === 'inline';   // one line, no box, on every screen (as on a phone)
