@@ -38,3 +38,9 @@ test('Back to the start, a reading, a slide opened forward or back onto a played
   assert.match(src, /procShown = procRing = procDoneAt === to \? procSteps\(s\)\.length - 1 : -1; procShownAt = procRingAt = procDoneAt === to \? to : -1;/, 'Back onto a played-through slide marks its last step; forward marks none');
   assert.match(src, /procRun = null; procShown = -1; procShownAt = -1; procRing = -1; procRingAt = -1; procPaint\(\);/, 'stopping a run at home clears both');
 });
+
+test('a Next on the last step of a run that plays out before its reading (the IVC, then the direct portal pressure) waits for it, rings the reading\'s first step and swallows another Next', () => {
+  const q = src.match(/const procQueue = \(\) => \{[\s\S]*?\n {2}\};/)[0];
+  assert.match(q, /if \(!procQueued\) \{ procQueued = true; procRing = specOf\(procKind\(s\)\)\.steps\.length; procRingAt = want; procPaint\(\); \}\n\s+return true;/);
+  assert.doesNotMatch(q, /procQueued\) return false/, 'a second Next while it waits never leaves the slide');
+});

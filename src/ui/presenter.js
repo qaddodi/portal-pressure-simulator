@@ -1495,10 +1495,12 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     procPlay(s, want, 0, procThen(s), stage.cathCarry?.(c.u, c.route, specOf(procThen(s)).route || procThen(s)) ?? c.u);   // (the place on the reading's own route, which is longer or shorter than the one the coils were on)
     return true;
   };
+  // (A run with no stop to hold at (the IVC reading, which ends in its own withdrawal) plays out before the reading starts: a Next on its last step waits for that, the ring
+  // already on the reading's first step, and a Next while it waits is swallowed, never the slide moving on: Mohammad, 13 Nov 2026, the direct PPG slide, "1, 2, then it just moves to the next slide".)
   const procQueue = () => {
     const s = slides[want];
-    if (!procRun || !procThen(s) || procRunKind !== procKind(s) || procQueued) return false;
-    procQueued = true;
+    if (!procRun || !procThen(s) || procRunKind !== procKind(s)) return false;
+    if (!procQueued) { procQueued = true; procRing = specOf(procKind(s)).steps.length; procRingAt = want; procPaint(); }
     return true;
   };
   const procBack = () => { procQueued = false; if (!procHeld() || shown?.i !== want || !procRun.back()) return false; procTarget(); return true; };
