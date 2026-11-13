@@ -2188,7 +2188,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (ripple) markWorld(T, fluidW[0], fluidW[1], fluidW[2], fluidW[3], m);
     if (cathRect) T.add(cathRect[0], cathRect[1], cathRect[2], cathRect[3]);
   }
-  function bloodMark(seq, cells, n, m, size) {
+  function bloodMark(seq, cells, n, m, size, extra = null) {   // (extra: a world rect [x0, y0, x1, y1] this frame drew besides the cells: the ascites ripple's band)
     const i = seq % BD_N, r = i * 4;
     bdSeq[i] = seq;
     if (!cells || !m || !PW() || !PH()) { bdKnown[i] = 0; bdTiles.unknown(seq); return; }
@@ -2201,6 +2201,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       const ly = Math.min(y, y + b, y + d, y + b + d), hy = Math.max(y, y + b, y + d, y + b + d);
       if (lx < x0) x0 = lx; if (hx > x1) x1 = hx; if (ly < y0) y0 = ly; if (hy > y1) y1 = hy;
       bdTiles.add(lx - 1, ly - 1, hx + 1, hy + 1);   // (render-cost plan 3a: each square's own tiles, a pixel wider for the edge)
+    }
+    if (extra) {
+      let lx = Infinity, ly = Infinity, hx = -Infinity, hy = -Infinity;
+      for (let q = 0; q < 4; q++) {
+        const wx = q & 1 ? extra[2] : extra[0], wy = q & 2 ? extra[3] : extra[1], x = m[0] * wx + m[2] * wy + m[4], y = m[1] * wx + m[3] * wy + m[5];
+        if (x < lx) lx = x; if (x > hx) hx = x; if (y < ly) ly = y; if (y > hy) hy = y;
+      }
+      bdTiles.add(lx - 1, ly - 1, hx + 1, hy + 1);
+      if (lx < x0) x0 = lx; if (hx > x1) x1 = hx; if (ly < y0) y0 = ly; if (hy > y1) y1 = hy;
     }
     bdKnown[i] = 1;
     // (A pixel wider each side for the edge; an empty union, no square on the canvas, is a rect with no area.)
@@ -4568,7 +4577,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       setLiveAll(organs) { texVer++; const r = stack.setLiveAll(organs); notePlate(); return r; },
       setOrder: (names) => { texVer++; return stack.setOrder(names); },
       /** A layer gathered under a live mask now at dy world units down (the bowel's float on the ascites). */
-      shift: (name, dy) => { const moved = stack.shift(name, dy); if (moved) texVer++; return moved; },   // (the picture's signature changes only when a layer moved: 13 Nov 2026, heat D-2)
+      shift: (name, dy) => { const did = stack.shift(name, dy); if (did) texVer++; return did; },   // (the picture's signature changes only when a layer moved: 13 Nov 2026, heat D-2)
     },
     /**
      * The arrowheads' own run per vessel row (blood-heads.js, stage-blood.js chainRows): nTubes × 2 floats, the offset added to the run's
@@ -5165,7 +5174,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // the clock, the one uniform left out here), when every uniform above and every texture under a lumen is the last picture's.
       sn = 0;
       sg(m); sigNow[sn++] = +(PW()) || 0; sigNow[sn++] = +(PH()) || 0; sigNow[sn++] = +(pm) || 0; sigNow[sn++] = +(plate?.alpha ?? 0) || 0; sigNow[sn++] = +(plate?.sat ?? 1) || 0; sg(plates[0]?.rect || R_UNIT); sg(plates[1]?.rect || R_UNIT);
-      sg(fluidRect || R_UNIT); sg(fl?.s || V4_ZERO); sg(fl ? fl.ink : V4_ZERO); sg(fl?.lv || LV_DEF);
+      sg(fluidRect || R_UNIT); const phaseAt = sn + 3; sg(fl?.s || V4_ZERO); sg(fl ? fl.ink : V4_ZERO); sg(fl?.lv || LV_DEF);   // (phaseAt: the ripple's phase, the fourth of fluidS)
       sigNow[sn++] = +(blood.on) || 0; sigNow[sn++] = +(blood.chev) || 0; sigNow[sn++] = +(blood.still) || 0; sigNow[sn++] = +(blood.alpha ?? 1) || 0; sigNow[sn++] = +(blood.streakA ?? 1) || 0; sigNow[sn++] = +(blood.chevA ?? 1) || 0; sigNow[sn++] = +(blood.originA ?? 1) || 0;
       sg(blood.chevInk || CHEV_INK); sg(blood.chevLight || CHEV_LIGHT); sigNow[sn++] = +(blood.vdpr || 1) || 0; sigNow[sn++] = +(blood.origin) || 0; sigNow[sn++] = +(dyeAny && blood.dye !== false) || 0;
       sigNow[sn++] = +(blood.streakLen) || 0;   // (the blood's clock is left out: the rows that carry blood are marked moved below when it moved)
@@ -5181,7 +5190,10 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       if (btNow !== btLast && (blood.on || blood.chev || blood.origin)) for (let r = 0; r < nTubes; r++) if (bloodRow[r]) moved[r] = 1;
       btLast = btNow;
       let same = !!stillSig && sn === stillN && sn < sigNow.length;
+      // (sameRipple: every uniform the last picture's but the ascites ripple's phase, which moves with every frame the fluid shows: heat D-3, 13 Nov 2026.)
       for (let i = 0; same && i < sn; i++) if (sigNow[i] !== stillSig[i]) same = false;
+      let sameRipple = same;
+      if (!same && fl?.ripple && nFluid && !!stillSig && sn === stillN && sn < sigNow.length) { sameRipple = true; for (let i = 0; sameRipple && i < sn; i++) if (i !== phaseAt && sigNow[i] !== stillSig[i]) sameRipple = false; }
       const still = !full && !movedAll && !bl.length && same;
       // Nothing to show that the canvas does not already: every uniform the last picture's, no row, texture or layer changed since,
       // nothing that moves by itself (a ripple, a pool, a bleed, the catheter, a one-pass frame) and no cells drawn again. The frame
@@ -5196,10 +5208,14 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (Drawn on: counted for the glass unless it is the blood's own frame alone, the lumens repainted with every uniform as last time.)
       const figNew = figVer !== figAt;
       figAt = figVer;
-      const bloodAlone = !full && !part && !dirt && !pool && !(fl?.ripple && nFluid) && !cath && bare && same && !figNew;
+      // (A frame where only the ascites ripple moved besides the blood is the blood's kind too: it draws the blood's cells and the fluid's band and nothing else, so the glass takes it at the
+      // blood's pace, over the cells' tiles and the band's (heat D-3, 13 Nov 2026, his Mac: the ripple made every frame of an ascites slide a new picture and the cards' glass blurred again ten times a second).)
+      const rippling = !!(fl?.ripple && nFluid);
+      const bloodAlone = !full && !part && !dirt && !pool && !cath && bare && !figNew && (rippling ? sameRipple && fluidW[2] > fluidW[0] : same);
       const picWas = picKnownM;
       pictured(bloodAlone);
-      if (bloodAlone) { bloodMark(bloodSeq, fused || up || camOn() ? null : bloodCPU, nBlood, m, bloodCell); if (fused || up || camOn()) picKnownM = false; }
+      if (gpuProbe.on) gpuProbe.gauge('picture counted as', bloodAlone ? (rippling ? 'the blood\'s, with the ripple\'s band' : 'the blood\'s') : `a new picture: ${full ? 'drawn whole' : part ? 'rows drawn again' : figNew ? 'geometry or tubes changed' : dirt || pool || cath ? 'organ box, pool or catheter' : !bare ? 'dye, origin colours or a bleed' : 'uniforms changed'}`);
+      if (bloodAlone) { bloodMark(bloodSeq, fused || up || camOn() ? null : bloodCPU, nBlood, m, bloodCell, rippling ? fluidW : null); if (fused || up || camOn()) picKnownM = false; }
       else {
         // (What lies under the figure in this canvas is the same picture as at the last counted one, when its host says so (under.ver: the lobule's tissue, 6 Nov 2026,
         // lobule lag rec 8): a part of this picture drawn again then changes the canvas only inside its tiles, which the glass over it blurs again alone. A host
