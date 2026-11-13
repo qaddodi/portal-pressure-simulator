@@ -1576,13 +1576,13 @@ function giveFocusBack(card, to) {
 }
 let panelOpener = null;
 /** Opens the patient chart; or the instruments when named. */
-// A finger's wide screen (an iPad held sideways) sets its right-hand cards side by side: Details, Tests (380 px, or 38% of a 1200+ screen),
+// A wide screen (a Mac, or an iPad held sideways: one rule for both, U3 13 Nov 2026) sets its right-hand cards side by side: Details, Tests (500 px),
 // Treat or History (400 px), 12 px apart. A vessel card needs 300 px beside them (316 with its margin). Where the open cards and the one
 // opening would leave less, the others give way one at a time, Treat or History first, then Tests, then Details, each easing out, until it
 // fits: on a 1024 iPad that is one card at a time. (opening: 'treat', 'dock' or 'panel'.)
 function rightShort(opening) {
   // (A maximised Tests card fills the screen and the figure is hidden: there is no vessel card to leave a strip for, and the stretched card is not its fixed 500 px.)
-  if (isPhone() || !matchMedia('(pointer: coarse)').matches || app.classList.contains('instrument-focus')) return false;
+  if (isPhone() || app.classList.contains('instrument-focus')) return false;
   const dock = $('#dock'), onPanel = opening === 'panel' || panelShown(), onDock = opening === 'dock' || (app.classList.contains('dock-open') && dock.classList.contains('side')), onTreat = opening === 'treat' || treatOpen() || historyOpen();
   // (The cards' widths as the browser last reported them, geom.js: none is laid out to ask.)
   const pw = sizeOf($('#panel'))?.w, dw = sizeOf(dock)?.w;
@@ -1648,14 +1648,10 @@ function setPanelTab(tab) {
   if (instr && !was) dockSheet?.open();
   if (!instr && was) dockSheet?.closed();
   if (was !== instr) {
-    // Opening Tests frames the figure into the space left. Closing it (any way) fits again only a view that was fitted;
-    // one the learner zoomed or panned stays where it is, and a refit still pending from the open is dropped (Mohammad, 17 Oct).
-    // (Opening Tests keeps the camera where it is, outside a slide, which frames itself: stage.keepView, Mohammad 20 Oct.)
-    if (instr && !app.classList.contains('presenting')) { stage?.keepView(true); clearTimeout(refitT); }
-    else {
-      stage?.keepView(false);
-      if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
-    }
+    // Opening Tests frames the figure into the space left, as every other card does (U3, 13 Nov 2026: it used to keep the camera where it
+    // was, under the card too, which hid the spleen and the kidney on a Mac). Closing it fits again only a view that was fitted; one the
+    // learner zoomed or panned stays where it is, and a refit still pending from the open is dropped (Mohammad, 17 Oct).
+    if (instr || stage?.closeView()) refitStage(); else clearTimeout(refitT);
     const f = store.get().frame; if (f && instr) { dockFrame = f; nextFrame(dockUpdate); }
     setTimeout(fireResize, 320);
   }

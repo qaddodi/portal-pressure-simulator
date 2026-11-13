@@ -2072,7 +2072,7 @@ void main() { o = texture(uT, vUV) * uA; }`;
   // height), the same for every view. False when the point lies inside the letters (no leader).
   const LG_BOX = { x0: 0, y0: 0, x1: 0, y1: 0, r: 0 };
   function leaderGeom(px, py, lx, ly, w, h, dotR) {
-    const m = 2 * dpr, v = h * 0.2;
+    const m = 2 * dpr, v = Math.min(h * 0.2, 4 * dpr);   // (the room above and below the letters is a fifth of a one-line label's height, 4 px at most: a two-line label's leader had stopped 10 px inside it, on the small name's letters: A15, "Spleen")
     LG_BOX.x0 = lx + m; LG_BOX.x1 = lx + w - m; LG_BOX.y0 = ly + v; LG_BOX.y1 = ly + h - v;
     const e = leaderEnd(LG_BOX, px, py);
     if (!e) return false;

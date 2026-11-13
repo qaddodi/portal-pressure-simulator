@@ -171,8 +171,7 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
     // Three tabs, styled as the Tests card's, so the cards read as one set; the last tab is kept.
     const panes = [['drugs', 'Drugs', drugs], ['fluids', 'Fluids', fluids], ['procs', 'Procedures', procs]];
     const tabs = h('div', { class: 'instr-tabs treat-tabs', role: 'tablist', 'aria-label': 'Treatments' });
-    // All three panes share one grid cell, the others hidden but still laid out, so the card is as tall as the tallest
-    // tab on every tab and never changes height when a tab is picked (review #20).
+    // All three panes share one grid cell so one tab fades out as the next rises in; the pane's height is set to the shown one's below.
     const body = h('div', { class: 'treat-pane' }, panes.map((x) => x[2]));
     const show = (id) => {
       treatTab = id;
@@ -180,16 +179,14 @@ export function createChart({ onWhy, flash, onScenarios, action, startShunt, sel
       for (const [pid, , el] of panes) { const off = pid !== id; el.classList.toggle('tp-off', off); el.inert = off; el.setAttribute('aria-hidden', String(off)); }
       if (body.isConnected) spare();
     };
-    // The spare room under a shorter tab goes to the card's foot, under Changes, rather than sitting as a band between
-    // the orders and Changes (sweep, 16 Oct): the pane is as tall as the tab shown, and the card's body is padded by
-    // what the tallest tab needs more, so the card's frame still holds still from tab to tab.
+    // The card is as tall as the tab shown (U3, 13 Nov 2026: it was as tall as the tallest tab, with the spare room under Changes, which left
+    // the Drugs tab's card half empty): the pane takes the shown tab's height and the card follows it.
     const spare = () => {
       if (!body.isConnected) { ro?.disconnect(); return; }
       const on = panes.find((x) => x[0] === treatTab)?.[2];
-      const tall = Math.max(...panes.map((x) => x[2].offsetHeight)), own = on?.offsetHeight ?? tall, cs = getComputedStyle(body);
+      const own = on?.offsetHeight ?? Math.max(...panes.map((x) => x[2].offsetHeight)), cs = getComputedStyle(body);
       const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
       body.style.height = `${own + pad}px`;
-      body.parentElement?.style.setProperty('--tp-spare', `${tall - own}px`);
     };
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(spare) : null;
     for (const x of panes) ro?.observe(x[2]);

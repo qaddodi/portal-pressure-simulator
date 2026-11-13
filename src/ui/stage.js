@@ -331,7 +331,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get islOn() { return islOn; }, set islOn(v) { islOn = v; },
     get islSrc() { return islSrc; }, set islSrc(v) { islSrc = v; },
     get JOB_NOW() { return JOB_NOW; },
-    get keptSpace() { return keptSpace; }, set keptSpace(v) { keptSpace = v; },
     get keyInto() { return keyInto; },
     get keyStops() { return keyStops; }, set keyStops(v) { keyStops = v; },
     get labelBase() { return labelBase; },
@@ -1388,13 +1387,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   const { ANCHOR_W, NO_ANCHOR, animZoomAt, applyClampFs, applyVT, clientToVB, clientToWorld, flushVT, freeCentre, localToWorldInto, refreshCTM, saSides, stageBox, syncView, worldToLocal, worldToLocalInto, zoomAt } = createCamera({ CIRC_C, DOT_MIN_PX, animateVT, clampGs, clientToVBFast, flushGeo, geoHeld, haloEls, mapTurn, nd, nextFrame, nodeVerts, onViewChange, placeClampLabels, readFrame, rotDeg, safeInsets, sitesPaint, svg, syncSemantic, updateLabels, vbBox, world, wrap }, live);
     let fitKept = 0;
     let circFit = null;
-    // The Tests card opening leaves the camera where it is (Mohammad, 20 Oct): the pan and zoom stay as they were, under the card too.
-  // keepView(true) is called as the card opens and notes the space the other pieces leave (the card itself not counted); the
-  // refits that follow the card (the open's, the sheet settling, a tool's card changing height) and the home framing's own
-  // look then leave the view alone for as long as only the Tests card has changed that space. Another card coming or going,
-  // a turn of the device or a resize changes it, and the framing follows as ever; so do the Fit button and a slide's own
-  // framing (not kept while presenting).
-  let keptSpace = null;
     // A card or sheet opened or closed: glide to the framing for the space that is now free (not in the lobule, which refits itself).
   // (circAgain: lookHome has it take the circuit's last kind of framing again, for a new shape, instead of the close-up.)
   let circAgain = false;
@@ -1403,7 +1395,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // free space, which stays where it is on screen.
   let rotHold = null;
     let rotWhole = null, rotGlide = null;
-  const { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, keptNow, markCirc, refit, reveal, rotStep, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, spaceSig, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
+  const { cardSpace, cardSpaceRead, circAt, circVB, circWhole, closeView, defaultVT, fit, flag, holdView, markCirc, refit, reveal, rotStep, safeInsets: safeInsets$, sameView, setCircuitRotated, snapFresh, unreveal, unseenCard } = createFit({ CIRC_C, EV, VB_CIRC_R, anchorFor, animateVT, applyVT, clientToWorld, driftEnd, gAscites, gBackdrop, gOrgans, geo, gutKids, readFrame, refreshCTM, rotDeg, rotEase, setViewBox, stageBox, svg, vbBox, watch, wrap }, live);
   function safeInsets(...a) { return safeInsets$(...a); }   // <stage-split stub>
 
 
@@ -1774,7 +1766,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   let fx = null, fxSig = '';
     let blockerBoxes = null, blockersAt = -1e9, blockersStale = true;
     let blockersAsk = 0;
-  const { W_TAU, edgeQ, endWidth: endWidth$, holdHome, keep, riseFitRead: riseFitRead$, stepOrgans, stepWidths, tubeFill, update: update$, widthMoving } = createTubes({ E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, keptNow, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap }, live);
+  const { W_TAU, edgeQ, endWidth: endWidth$, holdHome, keep, riseFitRead: riseFitRead$, stepOrgans, stepWidths, tubeFill, update: update$, widthMoving } = createTubes({ E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap }, live);
   function endWidth(...a) { return endWidth$(...a); }   // (a vessel's width once the view change has landed: the labels' solve at a tap, stage-view.js)
   function update(...a) { return update$(...a); }   // <stage-split stub>
   function riseFitRead(...a) { return riseFitRead$(...a); }   // <stage-split stub>
@@ -3152,7 +3144,6 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
       const c = freeCentre(); animZoomAt(c[0], c[1], 1 / 1.4);
     },
     fit, refit, closeView,
-    keepView(on) { keptSpace = on ? spaceSig() : null; },
     reveal, unreveal,
     /** Changes whenever what is drawn where changes (a pan, a zoom, the morph): a cheap key for "did anything move". */
     layoutKey: () => `${viewVersion}|${geometryVersion}` + (lz?.isOpen() ? '|' + lz.viewKey() : ''),

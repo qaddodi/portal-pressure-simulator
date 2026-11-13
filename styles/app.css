@@ -4860,14 +4860,12 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .treat-tabs .tt-l { position: relative; }
 .treat-tabs .tt-n { position: absolute; left: calc(100% + 5px); top: 50%; translate: 0 -50%; font: 600 12px/1 var(--font-ui); color: var(--accent-ink); opacity: 0; transition: opacity var(--d-small) var(--ease); }
 .treat-tabs .tt-n.on { opacity: 1; }   /* (Drugs / Fluids / Procedures were 28 px high, the only way to change them) */
-.treat-pane { padding-top: 4px; display: grid; }
+.treat-pane { padding-top: 4px; display: grid; overflow: clip; overflow-clip-margin: 6px; }   /* (the pane is the shown tab's height: a taller tab fading out is cut at it, not scrolled into the card's body) */
 .treat-pane > * { grid-area: 1 / 1; align-self: start; opacity: 1; translate: 0 0;
   transition: opacity var(--d-small) var(--ease-arrive) var(--d-flip), translate var(--d-small) var(--ease-arrive) var(--d-flip), visibility 0s; }   /* (1 Nov: a tab's list used to swap with the next at once; the old one fades first and sinks a little, then the new one rises in, the card's frame holding still) */
 .treat-pane > .tp-off { visibility: hidden; opacity: 0; translate: 0 var(--rise-y);
   transition: opacity var(--d-flip) var(--ease-in), translate var(--d-flip) var(--ease-in), visibility 0s linear var(--d-flip); }
 @media (prefers-reduced-motion: reduce) { .treat-pane > *, .treat-pane > .tp-off { translate: none; } }
-/* The tallest tab's spare room, measured in chart.js, sits under Changes at the card's foot, not between the orders and Changes. */
-.tc-body:has(> .treat-pane) { padding-bottom: calc(16px + var(--tp-spare, 0px)); }
 /* A wide Treat card lays the procedures out three or four to a row, as many as keep every name on one line (about
    180 px each): fewer rows, so the one height every tab shares leaves a far smaller blank band under the drugs and
    fluids (sweep, 16 Oct: 106 px above Changes on an upright iPad). The narrow card (Mac, iPhone) keeps two. */

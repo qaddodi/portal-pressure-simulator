@@ -382,7 +382,6 @@
  "teaching-features.test.js",
  "teardown-leaks.test.js",
  "term-tone-token.test.js",
- "tests-card-keeps-view.test.js",
  "tests-close-keeps-view.test.js",
  "text-glue.test.js",
  "theme-resize-3nov.test.js",

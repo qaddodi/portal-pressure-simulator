@@ -13,8 +13,8 @@ const read = (f) => unsnap(readFileSync(join(root, f), 'utf8'));
 test('every way a right-hand card opens asks the others to give way when the vessel card would have no strip', () => {
   const main = read('src/ui/main.js');
   const short = main.slice(main.indexOf('function rightShort(opening)'), main.indexOf('function openPanel('));
-  assert.match(short, /!matchMedia\('\(pointer: coarse\)'\)\.matches \|\| app\.classList\.contains\('instrument-focus'\)\) return false/, 'a mouse screen is untouched, and so is a maximised Tests card (no figure, no vessel card)');
-  assert.match(short, /isPhone\(\) \|\|/, 'a phone has its own rules');
+  assert.match(short, /isPhone\(\) \|\| app\.classList\.contains\('instrument-focus'\)\) return false/, 'a phone has its own rules, and a maximised Tests card has no figure and no vessel card');
+  assert.doesNotMatch(short, /pointer: coarse/, 'a Mac too (13 Nov 2026: one rule for every wide screen)');
   assert.match(short, /n > 1 && innerWidth - sum - \(n \+ 1\) \* 12 < 316/);
   assert.match(short, /const GIVE_ORDER = \['treat', 'dock', 'panel'\];/, 'Treat or History first, then Tests, then Details');
   assert.match(short, /for \(const k of GIVE_ORDER\)/);

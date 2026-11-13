@@ -32,7 +32,7 @@ import { stageScope } from './stage-scope.js';
 // 0.8 still read as a branch, 6 Nov). Its lumen is fainter too (stage-vessels.js colPass).
 const AP_FINE = 0.6;
 export function createTubes(st, live) {
-  const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, keptNow, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
+  const { E, EI, EV, FEEDER_CONNECTOR, GPU_EASE, LIGATED, NI, N_SAMPLES, REVERSAL_WATCH, SEL_FADE, SIDE_HOSTS, SIDE_INSIDE, STRAIGHT_COLL, anatCovered, animateVT, anyReveal, applyVT, blockersRead, camShowTo_, circAt, collOpen, defaultVT, divideLen, dopApply, drawVeins, driftEnd, easeInOut, edgeVisible, flag, geo, glowOnlyOk, holdReversals, layerMode, lobuleCode, lobuleReady, nearestLevel, nextFrame, pushCam, qHold, qP, readFrame, recruitFrac, refit, refreshCTM, revShown, sameView, sendRadii, setGlowSrc, setLevel, shownFrac, snapFresh, stageBox, startExit, stenosisAt, stepReveals, syncLift, syncVeins, trackChanges, updateGeometry, updateLabels, updateNodesCircuit, varixHeld, vesselPx, vh, waist, watch, wrap } = st;
   let glAtUpdate = false;   // (whether the GPU drew the figure at the last full update: the steps between take only that state)
   // A patient has arrived and none is on its way (opening one from Home, the first frames are still the last one's).
   const patientArrived = () => ((store.get().historyTick || 0) > 0 || !!store.get().booted) && !store.get().presetLoading;
@@ -158,7 +158,6 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   function homeLookRead() {
     snapFresh();   // (the cards' boxes as they stand now, if anything placed changed since the last snapshot)
     homeAsk = 0;
-    if (keptNow()) return;   // (the Tests card alone has changed the space: see keepView)
     const d = defaultVT(false), at = live.homeAt;
     // (Moved there in the frame's own phase, after every read: and only if the view is still at the home it was looked from.)
     nextFrame(() => { if (live.homeAt === at && !homeHeld && (sameView(live.vt, live.homeAt) || (live.vtGliding && sameView(live.vtTarget, live.homeAt)))) homeGo(d); });

@@ -13,6 +13,7 @@ import { NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan } from './organ-names.js'
 import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
 import { elBoxInto } from './shape-gl.js';
 import { store } from './store.js';
+const ZONE_AIR = 8;   // (px a circuit reading keeps clear of a zone header's words, A15)
 import { spreadDots } from './label-dots.js';
 
 const STEP_LEAD_GAP = 10;   // (how near its point a step number may stand, px: room for its dot's ring and a leader to the chip)
@@ -785,7 +786,7 @@ export function createLabelSolve(st, live) {
         if (b - a > it.w + 6) {
           // (On a slide the readings keep out of the whole header row over the zone, not just the title's box: a reading and its
           // leader had crossed "Portal veins", and the resistances had sat in the row: 17 Oct design review.)
-          if (solve) { const zb = zoneAt((v0 + v1) / 2, by), y1 = Math.max(zb.y1, zoneAt((v0 + v1) / 2, Math.max(14, by)).y1); placed.push(st.presenting ? { x0: a, y0: -1e4, x1: b, y1: y1 + 2, zone: true } : { ...zb, zone: true }); }
+          if (solve) { const zb = zoneAt((v0 + v1) / 2, by), y1 = Math.max(zb.y1, zoneAt((v0 + v1) / 2, Math.max(14, by)).y1); placed.push(st.presenting ? { x0: a, y0: -1e4, x1: b, y1: y1 + 2, zone: true } : { x0: zb.x0 - ZONE_AIR, y0: zb.y0 - 2, x1: zb.x1 + ZONE_AIR, y1: zb.y1 + 4, zone: true }); }   // (a reading keeps ZONE_AIR clear of a header's words, not flush: "Varices 18.2" beside "Portal veins", A15)
           const zy = Math.max(14, by), zlo = v0 + it.w / 2 + 3, zhi = v1 - it.w / 2 - 3;
           const zc = zoneKeep(it.key, zlo, zhi, (v0 + v1) / 2, false, zy), zr = zoneAt(zc, zy);
           it._slide = { at: (c) => zoneAt(c, zy), c: zc, lo: zlo, hi: zhi };
