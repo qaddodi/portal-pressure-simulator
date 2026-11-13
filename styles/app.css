@@ -693,7 +693,6 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .abd-wall { pointer-events: none; }   /* (stage.js abdTo eases its opacity, so the overlays' GPU painter sees each step) */
 .flank { fill: none; stroke: var(--organ-body-line); stroke-width: 1.4; stroke-opacity: .8; stroke-linecap: round; }
 .thrombus-edge { fill: none; stroke: var(--thrombus-edge); stroke-opacity: .5; stroke-width: .6; stroke-linecap: round; stroke-linejoin: round; }
-.stent-rail-glint { fill: none; stroke: var(--light-ink); stroke-opacity: var(--stent-glint, .5); stroke-width: .5; stroke-linejoin: round; transform: translate(-.4px, -.4px); }
 #organs, #ascites, #overlays, #guides, #focus { pointer-events: none; }
 .stage-view.gl-on #overlays [data-gl] { visibility: hidden; }   /* drawn on the GPU with the vessels (stage.js marksBuild) */
 #organs { transition: opacity var(--d-surface) var(--ease); }
@@ -714,8 +713,6 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .lit-lo { stop-color: var(--lit-lo-ink); stop-opacity: var(--lit-lo); }
 /* (The circuit's map (its dot grid in --map-dot, its tinted zones in --text at .028, a slide's lit zone in --accent at .09) and its station
    dots (--stage-bg under a 1.6 ring in --text) are drawn by the GPU from the tokens: stage.js MAP, syncMapInk; veins-gl.js mapAt.) */
-.stent-rail { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-rail-w, 1.4); stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
-.stent-strut { fill: none; stroke: var(--stent-metal); stroke-width: var(--stent-strut-w, 1); stroke-linejoin: round; stroke-opacity: var(--stent-alpha, .95); }
 .stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
 .tied-off { fill: none; stroke: var(--text); stroke-opacity: .42; stroke-linecap: round; stroke-linejoin: round; }
 .ligature { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -752,21 +749,14 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
    group above it, on SVG (2 Nov 2026, "Move everything to GPU"). Their segments are single strokes or smooth curves: nothing shows.) */
 .stent-guide { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: 6 4; stroke-linecap: round; stroke-linejoin: round; }
 .stent-guide.invalid { stroke: var(--danger); }
-/* The TIPS stent is covered (stent-mesh.js, visual-style D4): a pale PTFE wash over the lumen under fainter struts, a bare stretch of open struts at the portal
-   end, and one radiopaque ring where they meet. --dev-ptfe and --dev-platinum are the device materials (theme-tokens.js, set in every look).
-   .stent-px: struts and rails never thinner than one device pixel (a non-scaling stroke). */
-.stent-cover { fill: var(--dev-ptfe); fill-opacity: .24; stroke: none; }
-.stent-strut-cov { stroke-opacity: .3; }
-.stent-ring { fill: none; stroke: var(--dev-tips-mesh); stroke-width: 2; stroke-linecap: round; stroke-opacity: .8; }
-.stent-px { vector-effect: non-scaling-stroke; }
-.stent-strut.stent-px { stroke-width: 1.4; }
-.stent-rail.stent-px { stroke-width: 2; }
-/* (10 Nov 2026, Mohammad: "the stent itself is too prominent". The covered TIPS stent sits in the figure as part of the vessel: its cover a faint wash, its struts and
-   rails a good deal fainter than a plain stent's, its ring and front marker thinner and softer. A plain stent's own look, --stent-alpha, is untouched.) */
-.stent-strut.stent-px, .stent-rail.stent-px { stroke: var(--dev-tips-mesh); stroke-opacity: .85; }
-.stent-strut-cov.stent-px { stroke-opacity: .6; }
-/* (11 Nov 2026, Mohammad, iPhone: "make the tips mesh more visible contrast wise, I can't see it". The mesh was the stent's pale metal at 0.3 to 0.16 over a pale blue vein, on every look:
-   the veins are light in all of them, so the TIPS mesh is a dark navy ink, one colour for every look, strong enough to read at phone size.) */
+/* The stent as a device (look T2, 13 Nov 2026, stent-mesh.js stentLookD): gold wires placed round the tube (their widths and the far half's
+   opacity are on each path, in world units), a white ePTFE graft cut into fills by light level (each fill's opacity on its path: white where
+   the light falls, nearly clear on the shaded side), a bright core along the lit part of each near wire, and the gold marker band and tab.
+   No opacity or width here: the paths carry them, and a rule would override them. */
+.stent-wire { fill: none; stroke: var(--dev-stent-wire); stroke-linecap: round; stroke-linejoin: round; }
+.stent-glint { fill: none; stroke: var(--dev-stent-glint); stroke-linecap: round; stroke-linejoin: round; }
+.stent-gold { fill: none; stroke: var(--dev-stent-gold); stroke-linecap: round; stroke-linejoin: round; }
+.stent-graft { fill: var(--dev-graft); stroke: none; }
 .stent-mark-tips { stroke-width: 2; stroke-opacity: calc(var(--stent-alpha, 1) * .7); }
 .target-glow { fill: none; stroke: var(--accent); stroke-opacity: .35; stroke-linecap: round; }
 

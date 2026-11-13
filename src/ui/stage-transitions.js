@@ -13,7 +13,7 @@ import { createHalos } from './stage-halos.js';
 import { createMarks } from './stage-marks.js';
 import { createOutlines } from './stage-outlines.js';
 import { createVenous } from './stage-venous.js';
-import { bareOf, stentMeshD } from './stent-mesh.js';
+import { bareOf, stentLookD } from './stent-mesh.js';
 import { store } from './store.js';
 import { clamp, s } from './util.js';
 
@@ -247,34 +247,43 @@ export function createTransitions(st, live) {
     return q;
   }
   const frameKept = { x: 0, y: 0, tx: 0, ty: 0, nx: 0, ny: 0 };
-  // A self-expanding metal stent over the lumen (two rails, a diamond lattice of struts, radiopaque markers at both
-  // ends), so a shunt or a stented vein reads as a device, not a vessel. It runs from d0 to d1 along the vessel's drawn
-  // path (either way round) and is drawn k of the way (0 to 1) from d0, the lattice anchored there, so a growing stent
-  // unrolls instead of stretching. A narrowed stent pinches with its lumen (the same waist, in the segment its card names).
+  // A self-expanding stent in the lumen, so a shunt or a stented vein reads as a device, not a vessel. It runs from d0 to d1 along the
+  // vessel's drawn path (either way round) and is drawn k of the way (0 to 1) from d0, anchored there, so a growing stent unrolls
+  // instead of stretching. A narrowed stent pinches with its lumen (the same waist, in the segment its card names).
   // Returns the paths, to append where the mesh belongs.
-  // The mesh's half-width at arc length d (its lumen's, a narrowed stent's waist included, plus the wall and the struts' own).
+  // The stent's half-width at arc length d (the tube's own where the tube renderer has it, else the lumen's with a narrowed stent's waist, to the wall's middle).
   function meshR(id, p) {
     const x = E[id], L = geo[id].len;
     const v = live.isImaging() ? 0 : p.stenosis[id] || 0, wf = v > 0.01 ? waist(id, v, L, x.width, p) : null;
-    if (id === 'TIPS' && x.glR?.length > 1) {   // (The TIPS stent is as wide as the tube it sits in, which narrows along its run, and stays inside its wall: its ends fit the veins they enter, not a stub wider than the tube, 11 Nov 2026)
+    if (x.glR?.length > 1) {   // (A stent is as wide as the tube it sits in, which narrows along its run, and stays inside its wall: its ends fit the veins they enter, not a stub wider than the tube, 11 Nov 2026; every stent since 13 Nov)
       const g = x.glR, n = g.length - 1;
       return (d) => { const t = Math.min(1, Math.max(0, d / (L || 1))) * n, i = Math.min(Math.floor(t), n - 1); return Math.max(1.2, g[i] + (g[i + 1] - g[i]) * (t - i) - 0.25); };
     }
-    return (d) => (x.width / 2) * (wf ? wf(d / (L || 1)) : 1) + (x.wallPx || 1) + 1.2;
+    return (d) => (x.width / 2) * (wf ? wf(d / (L || 1)) : 1) + (x.wallPx || 1) * 0.5;   // (on the wall, not outside it: the stent is a tube in the vessel, 13 Nov 2026)
   }
-  // ends: false leaves out the far end's marker (a stent unrolled by its front, venousDraw, carries that marker on the front).
-  // bare > 0: the covered TIPS stent (stent-mesh.js): that much bare from d0, a PTFE cover over the rest, a ring where they meet. Its struts and
-  // rails take a floor of one device pixel (.stent-px: a non-scaling stroke), so the lattice does not thin out of sight when the figure is small.
-  // (A covered stent ends square, with a ring across each end, as a real one does: stent-mesh.js. The rounded tips of 11 Nov read as stubs.)
+  // The stent as a device (look T2, Mohammad 13 Nov 2026, from the Viatorr photos; stent-mesh.js stentLookD): rings placed on the tube, so they
+  // bend away at the edges and the far half shows through; the TIPS and the DIPS (both Viatorr stents) covered by a white graft, white where the
+  // light falls and nearly clear on the shaded side, with an open stretch at the portal end ending in round crowns and a gold band where the
+  // graft starts; every other stent (the veins', the stent tool's shunts) the open stretch alone, end to end. Wire widths are world units (a
+  // twelfth of the stent's half-width each), so the stent keeps its proportions as the figure zooms; the painter keeps a stroke one device pixel at least.
+  // ends: kept for its callers (the front marker of a stent unrolled by its front is venousDraw's own). bare > 0: that much open from d0.
   function meshPaths(id, p, d0, d1, k = 1, ends = true, bare = 0) {
     const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0);
     const R = meshR(id, p);
+    if (id === 'DIPS' && !(bare > 0)) bare = tipsBare(id);   // (the DIPS is a covered Viatorr too, its open end at the portal vein: its drawn path runs from there)
     const f = (a, side) => { const d = d0 + sg * a, q = frameAt(id, d), r = R(d); return [q.x + q.nx * r * side, q.y + q.ny * r * side]; };
-    const m = stentMeshD(f, R(d0), A, k, ends, bare), px = bare > 0 ? ' stent-px' : '';
-    // (Cover first, under the struts; the ring last. One site makes every piece.)
-    const parts = [['stent-cover', m.cover], ['stent-strut' + px, m.struts], ['stent-strut stent-strut-cov' + px, m.covStruts], ['stent-rail' + px, m.rails], ['stent-rail-glint', m.rails], ['stent-mark', m.marks], ['stent-ring', m.ring], ['stent-ring', m.crowns]];
+    const m = stentLookD(f, A, bare > 0 ? bare : A, k), u = R(d0) / 12;
+    // (The far half first, under the graft; the graft's fills, lowest light level first; the near half; the bright cores; the gold last.)
     const out = [];
-    for (const [cls, d] of parts) if (d) out.push(s('path', { class: cls, d }));
+    const wire = (cls, d, w, op) => { if (d) out.push(s('path', op < 1 ? { class: cls, d, 'stroke-width': (w * u).toFixed(3), 'stroke-opacity': op } : { class: cls, d, 'stroke-width': (w * u).toFixed(3) })); };
+    wire('stent-wire', m.backBare, 1.25, 0.5);
+    wire('stent-wire', m.backCov, 1, 0.12);
+    for (const [d, op] of m.graft) out.push(s('path', { class: 'stent-graft', d, 'fill-opacity': op }));
+    wire('stent-wire', m.frontBare, 1.4, 1);
+    wire('stent-wire', m.frontCov, 1.1, 0.92);
+    wire('stent-glint', m.glint, 0.5, 0.7);
+    wire('stent-gold', m.band, 3, 1);
+    wire('stent-gold', m.tab, 2.2, 1);
     return out;
   }
   // The TIPS stent's bare stretch at its portal end, as drawn length (the 2 cm of the shunt's 8): the covered stent venousDraw unrolls.

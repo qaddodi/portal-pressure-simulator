@@ -29,7 +29,7 @@ export default async function register({ DEVICES, TEXT_MAX, TEXT_MIN, check, dev
       await page.evaluate(() => { window.pps.host.send({ type: 'action', action: { kind: 'band' } }); window.pps.host.send({ type: 'action', action: { kind: 'band' } }); });
       await page.waitForFunction(() => document.querySelectorAll('.band-ring[data-gl]').length >= 2, null, { timeout: 30000 });
       await page.evaluate(() => window.pps.updateParams({ tips: { on: true, d: 8 } }));
-      await page.waitForFunction(() => document.querySelectorAll('.stent-rail[data-gl]').length > 0, null, { timeout: 30000 });
+      await page.waitForFunction(() => document.querySelectorAll('.stent-wire[data-gl]').length > 0, null, { timeout: 30000 });
       await page.waitForTimeout(900);
       const frames = (n = 2) => page.evaluate((n) => new Promise((r) => { const f = () => (n-- ? requestAnimationFrame(f) : r()); f(); }), n);
       await frames(3);

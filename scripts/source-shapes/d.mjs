@@ -72,9 +72,9 @@ export default [
   { file: STAGE, need: [/const \{ autoNow, easeRes, lowWarm, moveGaps,/, 'D1: the stage takes lowWarm from its parts'] },
 
   // ── stent-mesh ──
-  { file: CSS, need: [/\.stent-cover \{[^}]*var\(--dev-ptfe\)/, 'the PTFE wash'] },
-  { file: CSS, need: [/\.stent-ring \{[^}]*var\(--dev-tips-mesh\)/, 'the radiopaque ring and the end rings, in the TIPS mesh ink (a device material token)'] },
-  { file: CSS, need: [/\.stent-px \{ vector-effect: non-scaling-stroke; \}/, 'a pixel floor for struts and rails'] },
+  { file: CSS, need: [/\.stent-graft \{[^}]*var\(--dev-graft\)/, 'the ePTFE graft, a device material token (look T2)'] },
+  { file: CSS, need: [/\.stent-wire \{[^}]*var\(--dev-stent-wire\)[^}]*stroke-linejoin: round/, 'the wires, round-joined for the GPU painter'] },
+  { file: CSS, need: [/\.stent-gold \{[^}]*var\(--dev-stent-gold\)/, 'the gold marker band and tab'] },
   { file: VENOUS, need: [/meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole covered mesh, built once'] },
   { file: VENOUS, need: [/d0 = tips \? ex\[0\] : /, 'unrolled from the portal end'] },
   { file: STAGE, need: [/for \(const id of \['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC'\]\) if \(E\[id\]\) E\[id\]\.over = true;/, 'the splenorenal and portocaval shunts are in the portal tree\'s tier, so its wall is not drawn across their mouth (12 Nov 2026)'] },

@@ -17,7 +17,7 @@ function dist(segs, x, y) {   // the nearest of the segments [x0, y0, x1, y1, hw
   return best;
 }
 
-test('with the TIPS whole, its stent runs the whole tract and ends square, inside each vein, as wide as the tube', async () => {
+test('with the TIPS whole, its stent runs the whole tract and ends in crowns inside each vein, as wide as the tube', async () => {
   const { st } = await bootGL({ w: 1200, h: 800, labels: 'none' });
   const { store } = await import('../src/ui/store.js');
   const { createCore } = await import('../src/worker-core.js');
@@ -31,7 +31,7 @@ test('with the TIPS whole, its stent runs the whole tract and ends square, insid
   store.set({ params: core.engine().params });
   for (let i = 0; i < 140; i++) { pump(48); const f = q.at(-1); q = []; if (f) lastF = f; if (lastF) st.update(lastF); await tasks(); await tasks(); }
   // every point of the stent's drawing: its cover, rails, struts and ring (one stent)
-  const parts = [...document.querySelectorAll('.stent-cover, .stent-rail, .stent-strut, .stent-ring')];
+  const parts = [...document.querySelectorAll('.stent-graft, .stent-wire, .stent-gold')];
   assert.ok(parts.length >= 4, 'the stent is drawn');
   const V = [];
   for (const e of parts) { const n = num(e.getAttribute('d')); for (let i = 0; i + 1 < n.length; i += 2) V.push([n[i], n[i + 1]]); }
@@ -56,8 +56,9 @@ test('with the TIPS whole, its stent runs the whole tract and ends square, insid
     assert.ok(gap <= 7, `the ${name} tip stands ${gap.toFixed(1)} short of the tract's end: the stent does not reach the vein`);
     const [d, hw] = nearest(list, tip[0], tip[1]);
     assert.ok(d <= hw, `the ${name} tip is ${d.toFixed(1)} off the vein's centre line, outside its half width ${hw.toFixed(1)}: the stent is not inside the vein`);
-    // the square end: every point of the stent nearest the end (the ring's two corners, a stent's width apart) lies inside the vein's lumen
-    const near = V.filter((v) => Math.hypot(v[0] - end[0], v[1] - end[1]) < gap + 0.6);
+    // the crowned end (look T2, 13 Nov 2026: round crowns at the portal end, the graft's scallop at the hepatic end): every point of the stent near the end (its crowns, spread round
+    // the tube) lies inside the vein's lumen
+    const near = V.filter((v) => Math.hypot(v[0] - end[0], v[1] - end[1]) < gap + 3);
     assert.ok(near.length >= 2, 'the end is drawn');
     for (const v of near) { const [dv, hv] = nearest(list, v[0], v[1]); assert.ok(dv <= hv + 0.3, `a point of the ${name} end is ${dv.toFixed(1)} off the vein's centre line, outside its half width ${hv.toFixed(1)}: a stub wider than the vein`); }
     const wide = Math.max(...near.map((a) => Math.max(...near.map((b) => Math.hypot(a[0] - b[0], a[1] - b[1])))));

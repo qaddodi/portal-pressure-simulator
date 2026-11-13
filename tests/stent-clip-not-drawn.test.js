@@ -24,7 +24,7 @@ test('a stent that is still unrolling has its clip left out of the marks, and ev
     // every shape the marks painter took for a mark sits at the stent: its first point, carried to the figure by its own and its groups' transforms (the attribute when the
     // browser's computed style leaves it out: here, as in Safari), lies inside the bounds of the TIPS course (a thin bar at the figure's origin was the stent's front marker, 11 Nov 2026)
     for (const el of document.querySelectorAll('[data-gl]')) {
-      if (!el.closest('#overlays') || !el.closest('.stent-mark, .stent-cover, .stent-strut, .stent-rail, .stent-ring, g')) continue;
+      if (!el.closest('#overlays') || !el.closest('.stent-mark, .stent-graft, .stent-wire, .stent-glint, .stent-gold, g')) continue;
       const root = el.closest('#overlays'), M = markMatrix(el, root, getComputedStyle(el));
       const n = (el.getAttribute('d') || '').match(/-?[\d.]+/g)?.map(Number);
       if (!n || n.length < 2) continue;
@@ -46,7 +46,7 @@ test('a stent that is still unrolling has its clip left out of the marks, and ev
   const marks = [...document.querySelectorAll('.stent-mark-tips')];
   assert.ok(marks.length, 'the front marker exists');
   for (const el of marks) assert.equal(el.getAttribute('opacity'), '0', 'the front marker of a whole covered stent is not drawn');
-  for (const el of document.querySelectorAll('.stent-mark, .stent-cover, .stent-strut, .stent-rail, .stent-ring')) {
+  for (const el of document.querySelectorAll('.stent-mark, .stent-graft, .stent-wire, .stent-glint, .stent-gold')) {
     for (const n of (el.getAttribute('d') || '').match(/-?[\d.]+(?:e-?\d+)?|NaN|Infinity/g) || []) assert.ok(Number.isFinite(Number(n)), `${el.getAttribute('class')} has a coordinate that is not a number: ${n}`);
     for (let e = el; e && e.tagName !== 'BODY'; e = e.parentNode) assert.ok(!/NaN|Infinity/.test(e.getAttribute?.('transform') || ''), 'a stent transform is a number');
   }

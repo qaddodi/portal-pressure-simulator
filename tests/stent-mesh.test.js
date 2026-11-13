@@ -1,61 +1,71 @@
-// The covered TIPS stent's geometry (visual-style D4, stent-mesh.js): bare struts at the portal end, a PTFE cover over the rest, one ring
-// where they meet; a plain mesh (DIPS, the stent tool's shunts, the veins') is exactly what it was.
+// The stent as a device (look T2, Mohammad 13 Nov 2026, stent-mesh.js stentLookD): rings placed on the tube, a white graft over the covered
+// stretch (white where the light falls, nearly clear on the shaded side), an open stretch at the portal end ending in round crowns, a gold
+// band where the graft starts; the veins' and the stent tool's stents the open stretch alone.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BARE_CM, bareOf, stentMeshD } from '../src/ui/stent-mesh.js';
+import { BARE_CM, GRAFT_LEVELS, bareOf, graftAlpha, stentLookD } from '../src/ui/stent-mesh.js';
 
-// A straight vessel along +x, half-width 4: f(a, side) = [a, 4 * side].
-const f = (a, side) => [a, 4 * side];
-const nums = (d) => (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
-const xs = (d) => nums(d).filter((_, i) => i % 2 === 0);
-const A = 100, bare = 25;
+// A straight vessel along +x, half-width 12 (so the mocks' unit is 1): f(a, v) = [a, 12 v]. The light comes from the top left, so the
+// side at -y is the lit one.
+const R = 12, f = (a, v) => [a, R * v];
+const pts = (d) => { const n = (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number), out = []; for (let i = 0; i + 1 < n.length; i += 2) out.push([n[i], n[i + 1]]); return out; };
+const A = 300, bare = 80;
 
-test('a plain mesh has one set of struts, no cover and no ring', () => {
-  const m = stentMeshD(f, 4, A, 1, true);
-  assert.equal(m.covStruts, '');
-  assert.equal(m.cover, '');
-  assert.equal(m.ring, '');
-  assert.ok(m.struts.startsWith('M0.0 4.0') && m.rails.startsWith('M0.0 4.0'));
-  assert.equal(m.marks, 'M0.0 4.0 L0.0 -4.0 M100.0 4.0 L100.0 -4.0 ');
-  assert.equal(stentMeshD(f, 4, A, 1, false).marks, 'M0.0 4.0 L0.0 -4.0 ', 'ends: false leaves the far marker to the front');
+test('an all-bare stent (the veins\', the stent tool\'s): open rings end to end, no graft, no band', () => {
+  const m = stentLookD(f, A, A);
+  assert.equal(m.graft.length, 0);
+  assert.equal(m.band, '');
+  assert.equal(m.frontCov, '');
+  const P = pts(m.frontBare + m.backBare);
+  assert.ok(P.length > 100);
+  for (const [x, y] of P) { assert.ok(x >= -0.01 && x <= A + 0.01, `inside its length: ${x}`); assert.ok(Math.abs(y) <= R + 1e-6, `on the tube: ${y}`); }
+  assert.ok(Math.max(...P.map((p) => p[0])) > A - 20, 'it runs to the far end');
 });
 
-test('a bare length of 0 or the whole stent draws the plain mesh', () => {
-  const plain = stentMeshD(f, 4, A, 1, true);
-  assert.deepEqual(stentMeshD(f, 4, A, 1, true, 0), plain);
-  assert.deepEqual(stentMeshD(f, 4, A, 1, true, A), plain);
+test('the portal end finishes in round crowns, not a straight cut', () => {
+  const m = stentLookD(f, A, bare);
+  const P = pts(m.frontBare), x0 = Math.min(...P.map((p) => p[0]));
+  assert.ok(x0 >= 0 && x0 < 2, `the tips reach the end: ${x0}`);
+  // the points at the very end are crown tips, a few across the width, not a line across it
+  const tips = P.filter((p) => p[0] < x0 + 0.5);
+  const ys = tips.map((p) => p[1]);
+  assert.ok(tips.length >= 2 && tips.length < P.filter((p) => p[0] < 12).length / 2, 'a few tips, the rest of the first ring curving away');
+  assert.ok(Math.max(...ys) - Math.min(...ys) > R / 2, 'crowns spread round the tube');
+  // a crown is round: just past its tip the wire turns back slowly (cos), so points within 1 of the tip are close to it across
+  assert.ok(!/ L0\.00 /.test(m.frontBare.replace(/M0\.00 [^L]*/g, '')), 'no stroke straight across at the end');
 });
 
-test('the covered stent: bare struts to the ring, covered struts and the cover beyond it', () => {
-  const m = stentMeshD(f, 4, A, 1, true, bare);
-  assert.ok(Math.max(...xs(m.struts)) <= bare + 0.05, 'the bare struts stop at the ring');
-  assert.ok(Math.min(...xs(m.covStruts)) >= bare - 0.05 && Math.max(...xs(m.covStruts)) > A - 7, 'the covered struts run on from it to the far end');
-  assert.equal(m.ring, `M${bare.toFixed(1)} 4.0 L${bare.toFixed(1)} -4.0`, 'one ring across the mesh where the two meet');
-  assert.ok(m.cover.endsWith('Z') && m.cover.startsWith('M'), 'the cover is a closed outline');
-  assert.ok(Math.min(...xs(m.cover)) >= bare - 0.05 && Math.max(...xs(m.cover)) >= A - 0.05, 'the cover spans the ring to the far end, and not the bare stretch');
-  const ys = nums(m.cover).filter((_, i) => i % 2 === 1);
-  assert.ok(Math.max(...ys) === 4 && Math.min(...ys) === -4, 'between the rails');
-  // The lattice is continuous across the cut: the strut that crosses the ring ends one path and starts the other at the same point.
-  const lastBare = nums(m.struts).slice(-2), firstCov = nums(m.covStruts).slice(0, 2);
-  assert.ok(Math.abs(firstCov[0] - bare) < 0.05 || Math.abs(lastBare[0] - bare) < 0.05);
+test('the covered stent: the graft runs from the band to a scalloped far end, inside the tube', () => {
+  const m = stentLookD(f, A, bare);
+  assert.ok(m.graft.length >= 3, 'fills by light level');
+  const G = m.graft.flatMap(([d]) => pts(d));
+  for (const [x, y] of G) { assert.ok(x >= bare - 0.01 && x <= A + 0.01, `the graft between the band and the end: ${x}`); assert.ok(Math.abs(y) <= R + 1e-6); }
+  // the far end follows the last ring's crowns: the base fill's end points are spread along x, not all at one x
+  const base = pts(m.graft[0][0]), far = base.filter((p) => p[0] > A - 20);
+  assert.ok(Math.max(...far.map((p) => p[0])) - Math.min(...far.map((p) => p[0])) > 4, 'a scalloped end');
+  const B = pts(m.band);
+  assert.ok(B.length > 10 && B.every(([x]) => x >= bare - 0.01 && x <= bare + 4.01), 'the gold band at the graft\'s start, bowed with the tube');
+  assert.ok(m.tab, 'the gold tab near the far end');
+  assert.ok(pts(m.frontCov).every(([x]) => x > bare && x <= A + 0.01), 'the covered rings start past the band');
 });
 
-test('the same lattice either way: the three parts together draw the plain mesh\'s struts', () => {
-  const count = (d) => (d.match(/L/g) || []).length;
-  const plain = stentMeshD(f, 4, A, 1, true), three = stentMeshD(f, 4, A, 1, true, bare);
-  // (a strut cut at the ring adds one point to each side of the cut, per way across)
-  assert.equal(count(three.struts) + count(three.covStruts), count(plain.struts) + 2);
+test('the graft is white where the light falls and nearly clear on the shaded side', () => {
+  const m = stentLookD(f, A, bare);
+  const ops = m.graft.map(([, o]) => o);
+  assert.ok(Math.abs(ops[0] - graftAlpha(0)) < 0.002 && ops[0] < 0.1, 'the whole graft: a tenth of its white');
+  let c = 0;
+  for (const o of ops) c = 1 - (1 - c) * (1 - o);
+  assert.ok(c > 0.8 && c < 0.87, `the lit side builds up to the graft's white: ${c.toFixed(3)}`);
+  // each light level's fill lies on the lit side (-y), the highest one most of all
+  const top = pts(m.graft.at(-1)[0]), meanY = top.reduce((s, p) => s + p[1], 0) / top.length;
+  assert.ok(meanY < -2, `the brightest fill is on the lit side: ${meanY.toFixed(2)}`);
+  assert.equal(GRAFT_LEVELS.length + 1, 6);
 });
 
-test('unrolled from the start: nothing past the front is drawn, and the ring and cover wait for it', () => {
-  const early = stentMeshD(f, 4, A, 0.2, true, bare);   // front at a = 20, before the ring
-  assert.equal(early.cover, '');
-  assert.equal(early.ring, '');
-  assert.equal(early.covStruts, '');
-  assert.ok(Math.max(...xs(early.struts)) <= 20.05 && Math.max(...xs(early.rails)) <= 20.05);
-  const late = stentMeshD(f, 4, A, 0.6, true, bare);
-  assert.ok(late.ring && late.cover && late.covStruts);
-  assert.ok(Math.max(...xs(late.cover)) <= 60.05 && Math.max(...xs(late.covStruts)) <= 60.05, 'cover and struts end at the front');
+test('unrolled part of the way, nothing past the front is drawn', () => {
+  const m = stentLookD(f, A, bare, 0.5);
+  for (const d of [m.frontBare, m.backBare, m.frontCov, m.backCov, ...m.graft.map((g) => g[0])]) for (const [x] of pts(d)) assert.ok(x <= A / 2 + 0.01, `past the front: ${x}`);
+  assert.equal(stentLookD(f, A, bare, 0.1).graft.length, 0, 'no graft before the front reaches it');
 });
 
 test('the bare stretch is 2 cm of the shunt, never more than two fifths of it', () => {
@@ -63,11 +73,4 @@ test('the bare stretch is 2 cm of the shunt, never more than two fifths of it', 
   assert.equal(bareOf(100, 8), 25);
   assert.equal(bareOf(100, 4), 40, 'a short shunt keeps some cover');
   assert.equal(bareOf(100, 0), 25, 'an unknown length is the usual 8 cm');
-});
-
-test('a covered stent ends square: a ring across each end once it is whole, only the start while it unrolls (the far end carries the front\'s marker)', () => {
-  const m = stentMeshD(f, 4, A, 1, true, bare);
-  assert.equal(m.crowns, `M0.0 4.0 L0.0 -4.0 M${A.toFixed(1)} 4.0 L${A.toFixed(1)} -4.0 `);
-  assert.equal(stentMeshD(f, 4, A, 0.6, true, bare).crowns, 'M0.0 4.0 L0.0 -4.0 ');
-  assert.equal(stentMeshD(f, 4, A, 1, true).crowns, '', 'a plain mesh has none');
 });
