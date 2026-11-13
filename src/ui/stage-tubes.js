@@ -703,9 +703,13 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   // (renderTube's three little helpers, as functions of their own that take what they read, in place of three closures made for each vessel
   // on each update.)
   const tubeEndW = (J, n, id, stroked, w, lo, lim) => (J[n] && !stroked && GPU_EASE[id] === n ? clamp(J[n], w * lo, w * lim) : w);
+  // (The portocaval shunt's end sinks into the side of the cava, as the Warren shunt's does into the renal vein: narrowed inside it and flared toward its wall. Not
+  // in SIDE_HOSTS, whose blood hand-off (stage-blood.js) is for veins the shunt's own node meets. 13 Nov 2026.)
+  const SINK = { S_PC: [null, ['IVC_IS', 'ILI_IVC']] };
+  const FLARED = new Set(['S_DSR', 'S_PC']);
   let tubeHosts = 0;   // (how many of a side end's host veins are shown: set by tubeHostMax)
   function tubeHostMax(id, i) {
-    const list = SIDE_HOSTS[id]?.[i];
+    const list = SIDE_HOSTS[id]?.[i] || SINK[id]?.[i];
     let m = -Infinity;
     tubeHosts = 0;
     if (list) for (let k = 0; k < list.length; k++) { const h = list[k]; if (E[h]?.vis) { m = Math.max(m, E[h].width); tubeHosts++; } }
@@ -713,7 +717,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
   }
   function tubeHostW(id, i, w) { const m = tubeHostMax(id, i); return tubeHosts ? clamp(m, w * 0.4, w) : null; }
   function tubeHostR(id, i, stroked) {
-    if (stroked || !SIDE_INSIDE[id]?.[i]) return 0;
+    if (stroked || !(SIDE_INSIDE[id]?.[i] || (SINK[id] && SINK[id][i]))) return 0;
     const m = tubeHostMax(id, i);
     return tubeHosts ? m / 2 : 0;
   }
@@ -784,7 +788,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
     }
     const f = sten ? waist(id, v, g.len, w, p) : null;
     x.stenF = f;   // (its caliber factor along it: the GPU's colour follows the resistance it adds, sendRadii alongOf)
-    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1; x.rBd = bdQ; x.rPc = pcQ; x.rFl = id === 'S_DSR';   // (the Warren shunt's renal end flares: fork-joins.js flareScale)
+    x.rA = a; x.rW = w; x.rB = b; x.rH0 = x.kh0; x.rH1 = x.kh1; x.rL = g.len || 1; x.rBd = bdQ; x.rPc = pcQ; x.rFl = FLARED.has(id);   // (the Warren shunt's renal end flares: fork-joins.js flareScale)
     // (Kept as the function the radii are read through; it reads the numbers above, which this call has just set.)
     if (!x.rOf) x.rOf = (u) => tubeRadius(x, u);   // alloc-once: the vessel's first draw
   }

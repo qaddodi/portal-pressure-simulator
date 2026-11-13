@@ -20,7 +20,7 @@
 //   ALONG_GLSL  the alongAt function (veins-gl.js)
 import { shadeGLSL, MP } from './veins-mesh-glsl.js';
 import { celGLSL, celShadeJS, CEL } from './tube-cel-glsl.js';
-import { tubeJoinFS, joinRampGLSL, joinToneJS, JOIN_IN_GLSL, END_BASE, END_SEGS, trunkGapJS } from './tube-join-glsl.js';
+import { tubeJoinFS, joinRampGLSL, joinToneJS, JOIN_IN_GLSL, JOIN_F_NOFADE, END_BASE, END_SEGS, trunkGapJS } from './tube-join-glsl.js';
 export { END_SEGS, trunkGapJS };
 
 /** The depth prepass for plain rows: no outputs, no work; drawn with the colour masked off. */
@@ -187,7 +187,7 @@ void main() {
   float gf = grp == 0 ? 1.0 - occl * aOf : grp == 1 ? mix(netAlpha, 1.0, wsel) : 1.0;
   float lumA = aL * aA * tierAlpha[tt] * gf;
   // (A continuation eases its opacity to its partner's tier's over the last JOIN_RAMP_R radii when the partner is the fainter, so the two tiers meet without a step.)
-  float jr = joinRamp(je, aA * tierAlpha[tt] * gf, occl);   // (a continuation eases its opacity to its partner's: tube-join-glsl.js)
+  float jr = (flags & ${JOIN_F_NOFADE}) != 0 ? 1.0 : joinRamp(je, aA * tierAlpha[tt] * gf, occl);   // (a continuation eases its opacity to its partner's: tube-join-glsl.js)
   lumA *= je.fl * jr;   // (a branch fading into its trunk: tube-join-glsl.js)
   bool lum = lumA > 0.02 && !dotted;
   // The stream shown here: this lumen, with its place along and across for the compositor's blood.

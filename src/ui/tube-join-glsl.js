@@ -34,6 +34,7 @@ export const JOIN_REACH = 2;                 // radii: the trunk's chord reaches
 export const JOIN_COLOUR_R = 3;              // radii over which a row's colour blends into the other's at a cut end or a continuation (at least JOIN_COLOUR_MIN world units)
 export const JOIN_COLOUR_MIN = 8;
 export const JOIN_RAMP_R = 3;                // radii before a continuation's plane over which the more opaque row eases to the other's opacity (no step in the look where the tiers differ)
+export const JOIN_F_NOFADE = 2048;          // (a row whose end keeps its own opacity at a join: no ease to the trunk's, joinRamp skipped; the surgical shunts, 13 Nov 2026: the portocaval shunt's last stretch went grey toward the faint cava, a shading line along it)
 export const JOIN_F_VEIL = 128, JOIN_F_WHOLE = 256;   // veins-gl.js's flag bits (not imported: veins-gl.js imports this module's callers)
 export const JOIN_TONE_R = 4;                // radii (at least JOIN_TONE_MIN world units) over which the cel tones' light direction turns from a row's own to the mean at a continuation's plane, and a cut branch's tones ease in from the trunk's wall
 export const JOIN_TONE_MIN = 16;
