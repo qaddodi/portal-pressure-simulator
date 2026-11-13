@@ -69,6 +69,7 @@
 
 import { TILE, SCALE, RATE } from './table-marks.js';
 import { HVPG_CUTS, HVPG_WORDS } from '../engine/pressure-cuts.js';
+import { READING_COLOUR } from './reading-colours.js';
 import { frameFor } from './frame.js';
 import { minusFixed as fmt, clamp } from './num.js';   // (a true minus; −0.0 and toFixed's NaN kept as this chart has always printed them)
 import { restPass, restClass } from './rest-pass.js';
@@ -100,7 +101,7 @@ const LINE_ONLY = { wall: { t: 'Wall stress', u: '% of rupture', x: 100, d: 0 },
 // (Platelets are cyan, --tr-ivc, not the place's blue: beside the HVPG's violet the blue read as one colour (normal-vision ΔE 28, deuteranopia 4); cyan keeps ΔE 29 or more in every vision and stays clear of the amber and coral cut-off lines.)
 // (A reading wears its one colour on every chart and monitor: the WHVP orchid, the FHVP blue, the portal vein magenta, the IVC cyan (theme-tokens.js tr-*; the monitor's
 // mon-* are the same values). The sinusoidal pressure has its own token, tr-sin, so the WHVP's colour means the WHVP alone. Unification audit, finding 2.)
-const COLOR = { ppg: '--tr-pv', pv: '--tr-pv', hvpg: '--s7', whvp: '--tr-wedge', plt: '--tr-ivc', sin: '--tr-sin', fhvp: '--tr-hv', ivc: '--tr-ivc', ra: '--tr-ra', varix: '--tr-var', seen: '--tr-var', wall: '--tr-cav', across: '--tr-cav', liver: '--tr-hv', pvFlow: '--tr-hv', shunt: '--tr-cav' };
+const COLOR = READING_COLOUR;   // (one table for every chart, reading-colours.js: a reading with no entry fell back to its place in the chart, which is how two lines came out the same colour)
 const PLACE = ['--tr-pv', '--tr-hv'];
 
 export { pathOf, getAt, patchOf };

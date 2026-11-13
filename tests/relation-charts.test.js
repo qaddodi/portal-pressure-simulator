@@ -136,7 +136,7 @@ test('a second sweep may draw another reading (of): the fundal varix open, then 
     against: [{ label: 'Fundal, shunt closed', params: { occluded: { C5: true } }, own: 'Fundal, shunt open' }, { label: 'Esophageal', of: 'varix', params: { occluded: { C5: true } } }] };
   assert.deepEqual(againstsOf(t).map((a) => a.of), [null, 'varix']);
   assert.deepEqual(againstsOf({ ...t, against: [{ label: 'x', params: {}, of: 'nonsense' }] }).map((a) => a.of), [null], 'a reading the card does not know is ignored');
-  assert.deepEqual(drawnLines(t).map((l) => [l.k, l.name, l.c]), [['gv', 'Fundal, shunt open', '--tr-pv'], ['gv', 'Fundal, shunt closed', '--tr-hv'], ['varix', 'Esophageal', '--tr-cav']]);
+  assert.deepEqual(drawnLines(t).map((l) => [l.k, l.name, l.c]), [['gv', 'Fundal, shunt open', '--tr-var'], ['gv', 'Fundal, shunt closed', '--tr-hv'], ['varix', 'Esophageal', '--tr-cav']]);
   assert.equal(readingName(t), 'Varix');
   assert.equal(readingName({ ...t, reading: undefined }), 'Gastric varix', 'without a reading of its own the key keeps the first reading\'s name');
   assert.equal(curveSteps(t).length, 6);
@@ -164,7 +164,7 @@ test('a curve over the scope\'s air: the varix seen and the pressure across its 
 
 test('the HVPG and the platelets are two clearly different colours, and neither is a cut-off line\'s', () => {
   const h = lineMeta('hvpg', 0), p = lineMeta('plt', 1);
-  assert.equal(h.c, '--s7', 'the HVPG stays violet, as everywhere else');
+  assert.equal(h.c, '--tr-hvpg', 'the HVPG stays violet, as everywhere else (its one token, reading-colours.js: Light\'s violet as it was, a deeper one on the dark looks)');
   assert.equal(p.c, '--tr-ivc', 'the platelets are cyan: blue beside violet read as one colour (deuteranopia ΔE 4)');
   assert.notEqual(p.c, '--tr-hv');
   assert.ok(![p.c, h.c].some((c) => ['--caution', '--danger'].includes(c)), 'the amber and coral cut-off lines keep their colours to themselves');

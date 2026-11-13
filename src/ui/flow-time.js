@@ -25,9 +25,10 @@ import { reduceMotionMQ } from './motion.js';
 import { headStep, HEAD_DT0 } from './display-state.js';
 import { fittedType, tokName } from './chart-ctx.js';
 import { cw, placeStarts } from './flow-time-labels.js';
+import { READING_COLOUR as RC } from './reading-colours.js';
 const nextFrame = frameFor('flow-time');
 
-// (No imports: the series and scales load in Node for the unit tests. Every value here is positive.)
+// (The series and scales load in Node for the unit tests. Every value here is positive.)
 // alloc-rare: a printed number's text, made only when the printed number changes (paint) or a chart is built
 const fmt = (v, d) => v.toFixed(d);
 const FT_MIN = 12;   // (px on the screen: the smallest the chart's words are drawn)
@@ -39,14 +40,14 @@ export const MINUTES = { from: -10, rise: 30, end: 40 };
 // scale (a lower line's fixed scale [min, max, step] in place of a fitted one) and pad (a share of a line's range kept clear above
 // and below it, 8% by default). A chart's lines are [lower, upper]: the lower on the left axis, the upper on the right, both fitted.
 export const LINE = {
-  pv: ['Portal pressure', 'mmHg', 1, '--tr-pv'], ppg: ['PPG', 'mmHg', 1, '--tr-pv'], pvFlow: ['Portal flow', 'L/min', 1, '--tr-hv'],
-  sin: ['Sinusoids', 'mmHg', 1, '--tr-sin'], asc: ['Ascites', 'L', 1, '--tr-hv', 0.001],
-  hvpg: ['HVPG', 'mmHg', 1, '--tr-wedge'], varix: ['Varix', 'mm', 1, '--tr-var'],
-  wt: ['Body weight', '% of start', 0, '--tr-cav', 1, { given: true, base: 100, scale: [84, 100, 4] }], lsm: ['Stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }],
+  pv: ['Portal pressure', 'mmHg', 1, RC.pv], ppg: ['PPG', 'mmHg', 1, RC.ppg], pvFlow: ['Portal flow', 'L/min', 1, RC.pvFlow],
+  sin: ['Sinusoids', 'mmHg', 1, RC.sin], asc: ['Ascites', 'L', 1, RC.asc, 0.001],
+  hvpg: ['HVPG', 'mmHg', 1, RC.hvpg], varix: ['Varix', 'mm', 1, RC.varix],
+  wt: ['Body weight', '% of start', 0, RC.wt, 1, { given: true, base: 100, scale: [84, 100, 4] }], lsm: ['Stiffness', 'kPa', 1, RC.lsm, 1, { pad: 0.15 }],
   // (The readings the teaching card's own time graph carries on a time-lapse slide, lapse-graph.js: each is one of the slide's tiles.)
-  ssm: ['Spleen stiffness', 'kPa', 1, '--tr-scler', 1, { pad: 0.15 }], salb: ['Albumin', 'g/dL', 1, '--tr-ivc', 1, { pad: 0.2 }],
-  rpp: ['Renal perfusion pressure', 'mmHg', 0, '--tr-cav'], he: ['Encephalopathy risk', 'index', 2, '--tr-var', 1, { pad: 0.2 }],
-  gv: ['Fundal varix', 'mm', 1, '--tr-var'], liver: ['Sinusoidal flow', '%', 0, '--tr-hv', 1, { pad: 0.2 }], map: ['Mean arterial pressure', 'mmHg', 0, '--tr-pv'], co: ['Cardiac output', 'L/min', 1, '--tr-hv', 1, { pad: 0.2 }],
+  ssm: ['Spleen stiffness', 'kPa', 1, RC.ssm, 1, { pad: 0.15 }], salb: ['Albumin', 'g/dL', 1, RC.salb, 1, { pad: 0.2 }],
+  rpp: ['Renal perfusion pressure', 'mmHg', 0, RC.rpp], he: ['Encephalopathy risk', 'index', 2, RC.he, 1, { pad: 0.2 }],
+  gv: ['Fundal varix', 'mm', 1, RC.gv], liver: ['Sinusoidal flow', '%', 0, RC.liver, 1, { pad: 0.2 }], map: ['Mean arterial pressure', 'mmHg', 0, RC.map], co: ['Cardiac output', 'L/min', 1, RC.co, 1, { pad: 0.2 }],
 };
 export const MEAL_LINES = ['pv', 'pvFlow'];
 const opt = (k) => LINE[k]?.[5] || {};

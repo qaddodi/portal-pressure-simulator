@@ -150,9 +150,10 @@ export const TOKENS = {
     's1': '#2a78d6', 's2': '#eb6834', 's3': '#1baf7a', 's4': '#eda100', 's5': '#e87ba4', 's6': '#008300', 's7': '#4a3aa7', 's8': '#e34948',
     'grid': '#E2DACB',
     // pressure-over-time traces: the plate's own vessel hues (portal magenta, wedged orchid,
-    // hepatic blue), then quieter inks for the rest. tr-sin is the sinusoidal pressure's own line (the curve, the flow-time chart), not the WHVP's: today the
+    // hepatic blue), then quieter inks for the rest. tr-ppg (gold) and tr-hvpg (violet) are the PPG's and the HVPG's lines on a chart: each reading has one colour on every
+    // chart (reading-colours.js), and the portal pressure's magenta is no longer shared with the PPG (13 Nov 2026). tr-sin is the sinusoidal pressure's own line (the curve, the flow-time chart), not the WHVP's: today the
     // same orchid, kept a token of its own so a reading's colour means one reading (unification audit, finding 2)
-    'tr-pv': '#B01E62', 'tr-wedge': '#A52DA9', 'tr-sin': '#A52DA9', 'tr-hv': '#2A78D6', 'tr-ra': '#5B6270', 'tr-ivc': '#059bae', 'tr-var': '#ee5d26', 'tr-cav': '#7a933f', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#9a5505',
+    'tr-pv': '#B01E62', 'tr-ppg': '#8F6A00', 'tr-hvpg': '#4a3aa7', 'tr-wedge': '#A52DA9', 'tr-sin': '#A52DA9', 'tr-hv': '#2A78D6', 'tr-ra': '#5B6270', 'tr-ivc': '#059bae', 'tr-var': '#ee5d26', 'tr-cav': '#7a933f', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#9a5505',
     'axis': '#B9AE98',
     'shadow-menu': 'calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / .1), calc(1px * var(--light-slant)) 1px 3px rgb(var(--shadow-rgb) / .06)',
     'shadow-dialog': 'calc(18px * var(--light-slant)) 18px 48px rgb(var(--shadow-rgb) / .16), calc(4px * var(--light-slant)) 4px 12px rgb(var(--shadow-rgb) / .08)',
@@ -247,6 +248,7 @@ export const TOKENS = {
     'tile-edge': 'rgba(110, 82, 46, .12)',
     'inst-panel': '#F5EFE2',
     'tr-ra': '#526074',
+    'tr-ppg': '#7F5E00',   // (a shade deeper than Light's gold: the Soft orange --tr-var is nearer it, ΔE 15 at Light's)
     'tr-ivc': '#188ea1',
     'tr-var': '#dd5610',
     'tr-cav': '#678a2b',
@@ -320,7 +322,7 @@ export const TOKENS = {
     'artery': '#E4606C', 'casing-rgb': '14 11 9', 'casing-a': '.3', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'ascites': '#F0C67A', 'ascites-a': '.24', 'stage-grid': 'rgba(255, 240, 220, .05)', 'leader': 'rgba(236, 228, 214, .42)', 'vein-portal': 'var(--tour-portal)', 'vein-systemic': 'var(--tour-sys)', 'arrow-ink': 'rgba(238, 235, 229, .82)', 'label-halo': 'rgba(26, 25, 23, .9)', 'label-panel': 'rgba(26, 25, 23, .72)', 'doppler': '#3EE0A5', 'dop-glow': '#F4F6FF', 'dop-face': '#F1ECE2', 'dop-head-rim': '#FFFFFF', 'dop-head-ink': '#000000', 'vel-ink': '72%',
     's1': '#3987e5', 's2': '#d95926', 's3': '#199e70', 's4': '#c98500', 's5': '#d55181', 's6': '#17A317', 's7': '#9085e9', 's8': '#e66767',
     'grid': '#2B2926', 'axis': '#4A4641',
-    'tr-pv': DARK_TRACE.pv, 'tr-wedge': DARK_TRACE.wedge, 'tr-sin': '#DA7EDD', 'tr-hv': DARK_TRACE.hv, 'tr-ra': '#B7B1A8', 'tr-ivc': DARK_TRACE.ivc, 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
+    'tr-pv': DARK_TRACE.pv, 'tr-ppg': '#FFD166', 'tr-hvpg': '#8466E8', 'tr-wedge': DARK_TRACE.wedge, 'tr-sin': '#DA7EDD', 'tr-hv': DARK_TRACE.hv, 'tr-ra': '#B7B1A8', 'tr-ivc': DARK_TRACE.ivc, 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
     'shadow-1': '0 0 0 1px var(--hairline)', 'shadow-2': 'var(--shadow-menu)', 'shadow-3': 'var(--shadow-dialog)',
     'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'vessel-knock-a': '0', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // ── BEGIN device materials, dark looks (visual-style D1, D6, D9; Navy and Black take these) ──
