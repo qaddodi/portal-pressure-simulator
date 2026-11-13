@@ -24,12 +24,12 @@ test('the host size is the card\'s 12 px text, drawn at 12 or more (the strip is
   assert.equal(HOSTS.fluid({ scale: { fs12: 12 }, fit: 0.8, dk: 0.5 }), 12, 'no boost by the fit or the block step');
   assert.equal(P('fluid.in').size, 12.5, 'a word in a part is 1em of it');
 });
-test('the strip\'s lymph is the lymph green, 55 % of it in a dark look; the carried part and the spare room follow it', () => {
+test('the gauge\'s lymph is the lymph green, 55 % of it in a dark look; the limit\'s tick follows the text', () => {
   const light = P('fluid.seg.car'), dark = P('fluid.seg.car', {}, ctx({ theme: 'dark', dark: true }));
   assert.notEqual(light.fill, dark.fill);
   assert.deepEqual(colourOf(light.fill).slice(0, 3).map((x) => Math.round(x * 255)), [0xD1, 0xE3, 0xBD], 'the plain --sv-gl-lymph-hi');
-  assert.notEqual(P('fluid.seg.ghost').stroke, P('fluid.seg.ghost', {}, ctx({ theme: 'dark', dark: true })).stroke);
-  assert.deepEqual(P('fluid.seg.ghost').dash, [3, 2.5]);
+  assert.notEqual(P('fluid.tick').stroke, P('fluid.tick', {}, ctx({ theme: 'dark', dark: true })).stroke);
+  assert.equal(P('fluid.tick').width, 2);
 });
 test('the flow bands are as strong as .55 and ease their strength; the build-up node is edged', () => {
   for (const k of ['carried', 'back', 'build']) { const p = P(`fluid.band.${k}`); assert.equal(p.opacity, 0.55); assert.equal(p.ease.opacity.ms, 240); }

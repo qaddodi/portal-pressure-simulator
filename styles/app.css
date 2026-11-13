@@ -7265,45 +7265,42 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .gf-words { margin: 2px 0; font: 600 var(--bs, 16px)/1.3 var(--font-ui); color: var(--text); }
 .gf-caveat { margin: 0; font-size: var(--fs-12); color: var(--text-3); }
 .gf-caveat[hidden] { display: none; }
-/* window: true, the day strip (tool-fluid.js; "One strip", 21 Oct): the day's change first, then the lymph made and its sources, then
-   one strip that splits the day on one scale: what the lymphatics carry (named inside), what the belly reabsorbs, what builds, a
-   bracket over what leaked and the room the lymphatics have left as a dashed outline; under it, the forces as one strip too. The
-   sizes are em, from one text size, so the card scales as one: that size is the card's 12 px at least, drawn so on the screen
-   (the strip is not zoomed by the card). */
+/* window: true, the day card (tool-fluid.js; Mohammad's pick "C, Two tiles", 13 Nov 2026, after the day strip had too many rows at once): two
+   quiet tiles, the lymph made against what the lymphatics can carry and the pressure across the sinusoid wall, each a number and one thin
+   gauge the GPU draws; under them the answer in a sentence and one line on what leaked. Every row is one line, so the card keeps one size.
+   The sizes are em, from one text size: the card's 12 px at least, drawn so on the screen (the card is not zoomed by the fit). */
 .pz-tool[data-kind="fluid"] .gf { --gs-fs: var(--fs-12); font-size: var(--gs-fs);
-  --gs-lymph: var(--sv-gl-lymph-hi); --gs-carried: var(--gs-lymph); --gs-back: color-mix(in srgb, var(--vein-systemic) 80%, var(--surface)); --gs-build: var(--caution);
-  --gs-slot: color-mix(in srgb, var(--text) 7%, transparent);
-  --gs-dash: color-mix(in srgb, var(--gs-lymph) 40%, var(--text-2)); --gs-bar: 1.25em; }
+  --gs-lymph: var(--sv-gl-lymph-hi); --gs-slot: color-mix(in srgb, var(--text) 8%, transparent); --gs-bar: .5em; }
 :root[data-theme="dark"] .pz-tool[data-kind="fluid"] .gf { --gs-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]):not([data-theme="soft"]) .pz-tool[data-kind="fluid"] .gf { --gs-lymph: color-mix(in srgb, var(--sv-gl-lymph-hi) 55%, var(--surface)); } }
-.gs { display: flex; flex-direction: column; gap: .3em; min-width: 0; position: relative; color: var(--text-2); font: 500 var(--gs-fs)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; }
+.gs { display: flex; flex-direction: column; gap: .3em; min-width: 0; position: relative; color: var(--text-2); font: 500 var(--gs-fs)/1.3 var(--font-ui); font-variant-numeric: tabular-nums; }
 .gs[hidden], .gs-forces[hidden] { display: none; }
 .gs b, .gs-forces b { color: var(--text); font-weight: 600; }
 .gs i, .gs-forces i { font-style: normal; }
-.gs-hero, .gs-cap, .gs-fcap { display: flex; justify-content: space-between; align-items: baseline; gap: .6em; white-space: nowrap; }
-.gs-hero { padding-bottom: .3em; border-bottom: 1px solid var(--border); }
-.gs-hero > b { font-size: 1.5em; line-height: 1; transition: none; }
-.gs-hero > b[data-dir="up"] { color: var(--caution-ink); } .gs-hero > b[data-dir="down"] { color: var(--ok-ink); }
-.gs-word, .gs-dim { color: var(--text-3); }
-.gs-cap { margin-bottom: .28em; }
-/* (the bracket's line sits under the Leaked words; its length and place are set from the strip's parts) */
-.gs-brkrow { position: relative; height: 1.6em; }
-.gs-brkrow > span { position: absolute; right: 0; top: 0; white-space: nowrap; }
-.gs-trk { position: relative; height: var(--gs-bar); border-radius: .4em; background: var(--gs-slot); }
-/* (The plate holds the bracket's row and the track; the parts, the bracket and the words in them are a model the GPU draws over it:
-   tool-fluid.js span(). The track here is only its slot and its size. The dashed outline is the room the lymphatics have left, its
-   strength set by its width, so it fades, never pops.) */
-.gs-plate { position: relative; display: flex; flex-direction: column; gap: .3em; }
+.gs-trk { position: relative; height: var(--gs-bar); border-radius: .3em; background: var(--gs-slot); }
+.gs-forces .gs-trk { --gs-bar: 1.25em; border-radius: .4em; }
+/* (The plate holds the lymph gauge's slot, with a little air above and below it for the limit's tick; the parts and the tick are a
+   model the GPU draws over it: tool-fluid.js span(). The slot here is only its place and its size.) */
+.gs-plate { position: relative; padding-block: .18em; }
 .gs-svg { display: none; }
-/* (the Leaked bracket: a line over what leaked with a short tick down at each end) */
-.gs-lab { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: .1em .8em; }
-.gs-lab > span { white-space: nowrap; }
-.gs-gap { margin-left: 1em; }
-.gs-sw { display: inline-block; box-sizing: border-box; width: .72em; height: .72em; margin-right: .35em; border-radius: .22em; vertical-align: -.02em; }
-.gs-sw-car { background: var(--gs-carried); } .gs-sw-back { background: var(--gs-back); } .gs-sw-build { background: var(--gs-build); } .gs-sw-build.down { background: var(--ok); }
-.gs-sw.none { background: none; border: 1.5px dashed var(--gs-dash); }
+.gc-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: .6em; }
+.gc-tiles.solo { grid-template-columns: 1fr; }
+.gc-tile { min-width: 0; display: flex; flex-direction: column; gap: .1em; padding: .6em .7em .65em; border-radius: .75em; background: color-mix(in srgb, var(--text) 5.5%, transparent); }
+.gc-tile[hidden] { display: none; }
+.gc-cap { color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc-n { color: var(--text); font-size: 1.7em; line-height: 1.15; white-space: nowrap; }
+.gc-n > b { font-weight: 500; }
+.gc-n > small { margin-left: .3em; font-size: .6em; font-weight: 500; color: var(--text-3); }
+.gc-tugbox { padding-block: .18em; }
+.gc-tugbox .gs-trk { --gs-bar: .5em; }
+.gc-foot { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gc-ans { display: flex; justify-content: space-between; align-items: baseline; gap: .6em; margin-top: .35em; white-space: nowrap; }
+.gc-t { color: var(--text); font-size: 1.1em; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.gc-ans > b { font-size: 1.2em; font-weight: 600; }
+.gc-ans[data-dir="up"] .gc-ans > b[data-dir="up"] { color: var(--caution-ink); } .gc-ans > b[data-dir="down"] { color: var(--ok-ink); }
+.gc-detail { margin: 0; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gs-forces { display: flex; flex-direction: column; gap: .3em; margin-top: .1em; color: var(--text-3); font: 500 var(--gs-fs)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; }
-.gs-fcap { border-top: 1px solid var(--border); padding-top: .3em; flex-wrap: wrap; }
+.gs-fcap { display: flex; justify-content: space-between; align-items: baseline; gap: .6em; white-space: nowrap; border-top: 1px solid var(--border); padding-top: .3em; flex-wrap: wrap; }
 /* (the push and the pull are arrows meeting at the wall: a point on each, drawn in the tug's model) */
 
 /* ── Package G: end ── */

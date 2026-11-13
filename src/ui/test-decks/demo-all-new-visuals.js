@@ -1935,7 +1935,7 @@ export const DEMO_ALL = {
       ],
       "kicker": "Fluid balance",
       "title": "In health the lymphatics carry all the lymph",
-      "line": "The liver and gut make lymph, and the lymphatics carry it all away. The dashed part of the strip is the room they still have to spare, so no ascites builds."
+      "line": "The liver and gut make lymph, and the lymphatics carry it all away. They stay far below their limit, so no ascites builds."
     },
     {
       "id": "fill",

@@ -63,7 +63,7 @@ export const ASCITES = {
       id: 'balance', glow: ['liver'], cam: 'fit', tool: FLUID, data: 'tiles', tiles: ['sin', 'asc'], key: ['asc'], delta: 'start',
       kicker: 'Ascites', site: 'sin', title: 'The fluid the lymphatics cannot carry stays in the belly',
       line: 'After two months the liver makes more lymph than the lymphatics can carry. What leaks past them, less what the belly takes back, adds to the ascites every day.',
-      notes: 'The same patient as the slide before, held at two months. The card splits the lymph made (liver and gut) into what the lymphatics carry, up to their capacity, and what leaks past them. The belly takes some of that leak back, and the difference, in amber, is the ascites that builds each day. The strip below it shows the Starling forces across the sinusoid wall: the pressure pushing fluid out against the pull of the protein. These are the model\'s own terms.',
+      notes: 'The same patient as the slide before, held at two months. The first tile shows the lymph made (liver and gut) against what the lymphatics can carry; what leaks past that limit is the amber part of its gauge. The belly takes some of that leak back, and the difference is the ascites that builds each day, the number under the tiles. The second tile shows the net force across the sinusoid wall: the pressure pushing fluid out minus the pull of the protein. These are the model\'s own terms.',
       ask: ['Why does ascites keep building when the belly takes some of the fluid back?', 'The leak past the lymphatics is larger than what the belly reabsorbs, so the difference stays behind each day.'],
     },
     {

@@ -87,47 +87,34 @@ export function fluidDay(f) {
 /** A whole number of mL with its thousands comma (5,360), as the platelets print theirs. */
 export const mlInt = (v) => Math.round(Math.max(0, v)).toLocaleString('en-US');
 
-/** The day strip's words (window: true) for a day's numbers: the carried part's label (with "full" once the lymphatics can carry
- *  no more), the room they have left, what the day's change is called, and the name of its swatch. */
-export function stripWords(d) {
-  const carried = `Carried ${mlInt(d.carried)}`;
-  return { carried: [d.room > 0 ? carried : `${carried} · full`, carried], spare: d.room > 0 ? `${mlInt(d.room)} to spare` : '',
-    day: d.net > 0 ? 'ascites builds' : d.net < 0 ? 'ascites shrinks' : d.over > 0 ? 'steady' : 'no ascites', net: d.net < 0 ? 'Shrinks' : 'Builds' };
+/** The day card's words (window: true) for a day's numbers (fluidDay): the answer in a sentence, the one line under it on what leaked and
+ *  what the belly took back, the lymphatics' limit (with "full" once they can carry no more) and the day's change as its number. */
+export function dayWords(d) {
+  const title = d.net > 0 ? 'Ascites builds' : d.net < 0 ? 'Ascites shrinks' : d.over > 0 ? 'Ascites holds steady' : 'No ascites builds';
+  const detail = d.over > 0
+    ? (d.back > 0 ? `${mlInt(d.over)} leaks; the belly takes back ${mlInt(d.back)}.` : `${mlInt(d.over)} leaks and none is taken back.`)
+    : d.back > 0 ? `Nothing leaks; the belly takes back ${mlInt(d.back)}.` : 'The lymphatics carry it all. Nothing leaks.';
+  return { title, detail, limit: d.room > 0 ? `Limit ${mlInt(d.limit)}` : `Limit ${mlInt(d.limit)} · full`,
+    net: d.net > 0 ? `▲ ${mlInt(d.net)}` : d.net < 0 ? `▼ ${mlInt(-d.net)}` : '0', dir: d.net > 0 ? 'up' : d.net < 0 ? 'down' : '' };
 }
 
-/** The day strip's parts, as px of a track W wide, from the day's numbers in mL (continuous ones: the eased values while it moves):
- *  carried (what the lymphatics carry), then what the belly reabsorbs of what leaked (blue), what it reabsorbs beyond that (shrink:
- *  the ascites going down) and what stays (build: the ascites going up); the dashed room (what the lymphatics could still carry)
- *  follows them. The strip is the day's flow on one scale: carried + the larger of leaked and reabsorbed + the room. A part with
- *  anything in it shows at least STRIP_MARK px (so 10 mL a day is still a mark), continuous in its value, so an eased value never
- *  makes a step; STRIP_GAP px keep the parts apart. The bracket spans what leaked, from where the carried part ends.
- *  Returns px: car, blue, shrink, build and room ({ x, w }; room also op, its opacity, which follows its width) and brk ({ x, w, op }). */
-export const STRIP_GAP = 2, STRIP_MARK = 2.5;
-const STRIP_ORDER = ['car', 'blue', 'shrink', 'build', 'room'];
-/** A set of strip parts to write into (stripPartsInto): kept by the caller, so a frame makes none. */
-export const newStripParts = () => ({ car: { x: 0, w: 0 }, blue: { x: 0, w: 0 }, shrink: { x: 0, w: 0 }, build: { x: 0, w: 0 }, room: { x: 0, w: 0, op: 0 }, brk: { x: 0, w: 0, op: 0 } });
-const STRIP_W = { car: 0, blue: 0, shrink: 0, build: 0, room: 0 };   // (scratch: each part's full length)
-const mark = (v, k) => { const px = v * k; return px + STRIP_MARK * clamp(px / 0.5, 0, 1); };
-/** stripParts into `out` (from newStripParts()), the day's numbers read from g in place. Returns out. */
-export function stripPartsInto(out, g, W) {
-  const carried = Math.max(0, g.carried), over = Math.max(0, g.over), back = Math.max(0, g.back), room = Math.max(0, g.room);
-  const k = W / Math.max(carried + Math.max(back, over) + room, 1), w = STRIP_W;
-  w.blue = mark(Math.min(back, over), k); w.shrink = mark(Math.max(0, back - over), k); w.build = mark(Math.max(0, over - back), k); w.room = room * k;
-  w.car = Math.max(0, Math.min(carried * k, W - w.blue - w.shrink - w.build - w.room));
-  // (the parts run end to end, each drawn short of the next by the gap once anything follows it)
-  let x = 0;
-  for (let i = 0; i < STRIP_ORDER.length; i++) {
-    const id = STRIP_ORDER[i];
-    let after = 0;
-    for (let j = i + 1; j < STRIP_ORDER.length; j++) after += w[STRIP_ORDER[j]];
-    out[id].x = x; out[id].w = Math.max(0, w[id] - (id === 'room' ? 0 : STRIP_GAP * clamp(after / (STRIP_MARK + STRIP_GAP), 0, 1)));
-    x += w[id];
-  }
-  out.room.op = clamp(w.room / 12, 0, 1);
-  out.brk.x = w.car; out.brk.w = w.blue + w.build; out.brk.op = clamp(over * k / 0.5, 0, 1);
+/** The lymph gauge's parts, as px of a track W wide, from the day's numbers in mL (continuous ones: the eased values while it moves):
+ *  what the lymphatics carry (the lymph green) and, past their limit, what leaks (the ascites amber), on one scale with the room the
+ *  lymphatics have left: carried + leaked + room. The limit is a tick where the carried part ends, drawn only while something leaks.
+ *  A part with anything in it shows at least GAUGE_MARK px (so 10 mL a day is still a mark), continuous in its value, so an eased value
+ *  never makes a step; GAUGE_GAP px keep the two parts apart. Returns px: car and over ({ x, w }) and tick ({ x, op }). */
+export const GAUGE_GAP = 2, GAUGE_MARK = 2.5;
+/** A set of gauge parts to write into (gaugePartsInto): kept by the caller, so a frame makes none. */
+export const newGaugeParts = () => ({ car: { x: 0, w: 0 }, over: { x: 0, w: 0 }, tick: { x: 0, op: 0 } });
+export function gaugePartsInto(out, g, W) {
+  const carried = Math.max(0, g.carried), over = Math.max(0, g.over), room = Math.max(0, g.room), k = W / Math.max(carried + over + room, 1);
+  const px = over * k, ow = px + GAUGE_MARK * clamp(px / 0.5, 0, 1), cw = Math.max(0, Math.min(carried * k, W - ow));
+  out.car.x = 0; out.car.w = Math.max(0, cw - GAUGE_GAP * clamp(ow / (GAUGE_MARK + GAUGE_GAP), 0, 1));
+  out.over.x = cw; out.over.w = ow;
+  out.tick.x = cw; out.tick.op = clamp(px / 6, 0, 1);   // (fades in over its first 6 px of overflow, so it makes no step)
   return out;
 }
-export const stripParts = (g, W) => stripPartsInto(newStripParts(), g, W);
+export const gaugeParts = (g, W) => gaugePartsInto(newGaugeParts(), g, W);
 
 /** The forces strip's parts, as px of a track W wide: the push from the blood's side and the pull from the tissue's side as two
  *  arrows meeting at the wall, each as long as its pressure (their sum is the track). */
@@ -254,11 +241,13 @@ export function partPts(b, x, w, y0, y1, eL, eR, kL, kR) {
   return n;
 }
 function span(look, cls, ends = [0.4, 0.4], kinds = [END_ROUND, END_ROUND], inset = 0, hid = false) {
+  const shape = { ends, kinds };   // (el._shape(ends, kinds) changes them: the thin gauges of the day card are rounded, the old arrows were pointed)
   const el = svgModel('path', hid ? { class: cls, 'data-look': look, opacity: '0' } : { class: cls, 'data-look': look });
   const buf = new Float64Array(PART_PTS);
+  el._shape = (e, k) => { shape.ends = e; shape.kinds = k; };
   el._at = (x, w, y0, y1, em) => {
     if (!em) return;
-    setPts(el, buf, partPts(buf, x + inset, w - 2 * inset, y0 + inset, y1 - inset, ends[0] * em, ends[1] * em, kinds[0], kinds[1]), true);
+    setPts(el, buf, partPts(buf, x + inset, w - 2 * inset, y0 + inset, y1 - inset, shape.ends[0] * em, shape.ends[1] * em, shape.kinds[0], shape.kinds[1]), true);
   };
   return el;
 }
@@ -294,32 +283,28 @@ export function createFluid() {
   const unit = h('span', { class: 'gf-unit' }, 'mL/min');
   const words = h('p', { class: 'gf-words' });
   const caveat = h('p', { class: 'gf-caveat' }, 'Model rates, not clinical figures.');
-  // The day strip (window: true; Mohammad's pick "One strip", 21 Oct): the answer first (what the day's change is, in the ascites
-  // colour), then the lymph made and its two sources, then one strip that splits the day on one scale: what the lymphatics carry
-  // (named inside, "full" once they can carry no more), what the belly reabsorbs, what builds; a bracket over what leaked. A part
-  // with nothing in it is a dashed swatch and a dashed outline of the room the lymphatics have left, so nothing pops in or out
-  // and a number never floats without its mark. The numbers swap in place; the strip's parts ease (stripParts has the sizes).
+  // The day card (window: true; Mohammad's pick "C, Two tiles", 13 Nov 2026: the day strip of 21 Oct had too many rows at once): two quiet
+  // tiles side by side, the lymph made against what the lymphatics can carry and the net pressure across the sinusoid wall, each a number
+  // and one thin gauge; under them the answer in a sentence with the day's change, and one line on what leaked and what the belly took
+  // back. Every row is one line, so the card keeps one size whatever the model does; the numbers and words swap in place and the gauges
+  // ease. The gauges are models the GPU draws over their slots (gaugeParts has the sizes).
   const num = () => h('b', {}, '');
-  const sNet = num(), sWord = h('span', { class: 'gs-word' }), sMadeN = num(), sCarN = num(), sLiv = num(), sGut = num(), sLeak = num(), sBack = num(), sBuildN = num();
-  const swCar = h('i', { class: 'gs-sw gs-sw-car' }), swBack = h('i', { class: 'gs-sw gs-sw-back' }), swBuild = h('i', { class: 'gs-sw gs-sw-build' }), nBuild = h('span', {}, 'Builds ');
-  // (The strip's parts, the bracket and the words in the parts are a model the GPU draws over the plate: the bracket's row and the track.
-  // The plate is BRK_H + GAP + BAR em tall, the track at its foot; the words of the bracket's row are the page's.)
-  const lCar = inWord(0.55), lSpare = inWord(0.55);
-  const segCar = span('fluid.seg.car', 'gs-seg gs-car'), segBlue = span('fluid.seg.blue', 'gs-seg gs-blue'), segShrink = span('fluid.seg.shrink', 'gs-seg gs-shrink'), segBuild = span('fluid.seg.build', 'gs-seg gs-build');
-  const segRoom = span('fluid.seg.ghost', 'gs-ghost', [0.4, 0.4], [END_ROUND, END_ROUND], 0.75, true);
-  const brk = svgModel('path', { class: 'gs-brk', 'data-look': 'fluid.brk', opacity: '0' }), brkBuf = new Float64Array(8);
-  const stripModel = svgModel('svg', { class: 'gs-svg', 'aria-hidden': 'true' }, brk, segCar, segBlue, segShrink, segBuild, segRoom, lCar.el, lSpare.el);
+  const sMade = num(), sLimit = h('span', { class: 'gc-foot' }, ''), sNet = num(), sTitle = h('span', {}), sDetail = h('p', { class: 'gc-detail' }, '');
+  const wNum = num(), wUnit = h('small', {}, 'mmHg out'), wFoot = h('span', { class: 'gc-foot' }, '');
+  const segCar = span('fluid.seg.car', 'gs-seg gs-car', [0.25, 0.25]), segOver = span('fluid.seg.build', 'gs-seg gs-over', [0.25, 0.25]);
+  const limitTick = svgModel('path', { class: 'gs-tick', 'data-look': 'fluid.tick', opacity: '0' }), tickBuf = new Float64Array(4);
+  const stripModel = svgModel('svg', { class: 'gs-svg', 'aria-hidden': 'true' }, segCar, segOver, limitTick);
   const trk = h('div', { class: 'gs-trk' });
   // (The model is in its box before the picture is made, as the flow picture's is: a piece added after would start a look read of its own.)
-  const plate = h('div', { class: 'gs-plate' }, h('div', { class: 'gs-brkrow' }, h('span', {}, 'Leaked ', sLeak)), trk, stripModel);
+  const plate = h('div', { class: 'gs-plate' }, trk, stripModel);
   const glStrip = createSvgGL(plate, { host: 'fluid' });
   glStrip.cv.setAttribute('aria-hidden', 'true'); glStrip.cv.removeAttribute('role');   // (the card's own label says it; the picture is a drawing of it)
-  const legCar = h('span', {}, swCar, 'Carried ', sCarN);
-  const lab = h('div', { class: 'gs-lab' }, legCar, h('span', {}, swBack, 'Reabsorbed ', sBack, h('span', { class: 'gs-gap' }, swBuild, nBuild, sBuildN)));
-  const win = h('div', { class: 'gs' },
-    h('div', { class: 'gs-hero' }, h('span', {}, 'Each day', sWord), sNet),
-    h('div', { class: 'gs-cap' }, h('span', {}, 'Lymph made ', sMadeN), h('span', { class: 'gs-dim' }, 'Liver ', sLiv, ' + Gut ', sGut)),
-    plate, lab);
+  const wallHost = h('div', { class: 'gc-tugbox' });
+  const lyTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Lymph made'), h('div', { class: 'gc-n' }, sMade, h('small', {}, 'mL')), plate, sLimit);
+  const wallTile = h('div', { class: 'gc-tile' }, h('div', { class: 'gc-cap' }, 'Across the wall'), h('div', { class: 'gc-n' }, wNum, wUnit), wallHost, wFoot);
+  const tiles = h('div', { class: 'gc-tiles' }, lyTile, wallTile);
+  const ansRow = h('div', { class: 'gc-ans' }, h('span', { class: 'gc-t' }, sTitle), sNet);
+  const win = h('div', { class: 'gs gc' }, tiles, ansRow, sDetail);
   // The forces across the sinusoid wall (forces: true): a line naming the wall and the net, over one strip: the push from the
   // blood's side and the pull from the tissue's side as two arrows meeting at the wall, each as long as its pressure, named inside.
   const fNet = h('b'), lPush = inWord(0.6), lPull = inWord(1.1);
@@ -334,14 +319,15 @@ export function createFluid() {
   const set = (n, t) => { if (n.textContent === t) return false; n.textContent = t; return true; };
   // (A part goes where its points are written: span() above; the wall is a line.)
   let em = 0;   // (the strip's type size, px: read with the labels' fit)
-  // (The plate: the bracket's row, BRK_ROW em tall (its line in the last .3em), then GAP em, then the track, BAR em tall. The tug is its track alone.)
-  const BRK_ROW = 1.6, BRK_TICK = 0.3, GAP = 0.3, BAR = 1.25;
-  const place = (n, p, top) => n._at(p.x, p.w, top, top + BAR * em, em);
+  // (The day card's plate is its track with TICK_OUT em of air above and below it; the forces strip's tug is its track alone.)
+  const BAR = 1.25, GAUGE = 0.5, TICK_OUT = 0.18;   // (the bar of the forces strip, in em; the day card's thin gauges, and how far the limit's tick stands out of one)
+  let bar = BAR;
+  const place = (n, p, top) => n._at(p.x, p.w, top, top + bar * em, em);
   let W = 0, TW = 0, FW = 0, goal = null, shown = null, fGoal = null, fShown = null, raf = 0, last = 0, day = null, labSig = '';
   // (What a frame writes into: kept, so it makes none.)
   const goalO = {}, shownO = {}, fShownO = { out: 0, pull: 0 };
   const dayO = { carried: 0, over: 0, back: 0, room: 0 };
-  const stripP = newStripParts(), tugP = newTugParts(), flowL = newFlows();
+  const gaugeP = newGaugeParts(), tugP = newTugParts(), flowL = newFlows();
   const NODE_IDS = Object.keys(NAMES), shownNode = {}, flowKeys = Object.keys(bandEls);   // (which node pieces are on, which band pieces drew: kept)
   // (everything eases: the drawn values follow the goal over about half a second; the numbers swap in place)
   const KEYS = ['hep', 'spl', 'made', 'cap', 'carried', 'spare', 'back', 'net', 'perDay'], GKEYS = KEYS.concat(['dCar', 'dOver', 'dBack', 'dRoom']);
@@ -374,14 +360,7 @@ export function createFluid() {
     if (sig === labSig) return;
     labSig = sig;
     if (sizeSig !== `${tw}|${fw}` || !em) { sizeSig = `${tw}|${fw}`; em = hostEm(); }
-    if (opts.window && day && tw) {
-      const P = stripParts(dayOf(goal), tw), sw = stripWords(day);
-      const seen = fit(lCar, sw.carried, P.car.w, em);
-      // (the Carried swatch in the line under the strip only while its name does not fit inside the part)
-      legCar.style.display = seen ? 'none' : ''; lab.style.justifyContent = seen ? 'flex-end' : 'space-between';
-      if (day.room > 0) fit(lSpare, [sw.spare], P.room.w - 4, em); else lSpare.on = false;
-    }
-    if (fGoal && fw) {
+    if (fGoal && fw && !opts.window) {   // (the words in the arrows: the strip under the flow picture; the day card's tile has none)
       const T = tugParts(fGoal.out, fGoal.pull, fw), pad = em * 0.7;
       fit(lPush, [`Pushing out ${fmt(fGoal.out, 1)}`, fmt(fGoal.out, 1)], T.push.w - pad, em);
       fit(lPull, [`Pulling in ${fmt(fGoal.pull, 1)}`, fmt(fGoal.pull, 1)], T.pull.w - pad, em);
@@ -392,15 +371,12 @@ export function createFluid() {
     if (opts.window) {
       const tw = TW;   // (the widths as the observer last read them: a glide's frame reads no layout)
       if (shown && tw > 0 && 'dCar' in shown) {
-        const P = stripPartsInto(stripP, dayOf(shown), tw), top = (BRK_ROW + GAP) * em, cy = top + BAR * em / 2;
-        place(segCar, P.car, top); place(segBlue, P.blue, top); place(segShrink, P.shrink, top); place(segBuild, P.build, top); place(segRoom, P.room, top);
-        setGeo(segRoom, 'opacity', P.room.op);
-        lCar.at(P.car.x, P.car.w, cy, em); lSpare.at(P.room.x, P.room.w, cy, em);
-        // (the bracket over what leaked: a line with a tick down at each end, the stroke's half width in from the part's edges)
-        const bx = P.brk.x + 0.75, bw = P.brk.w - 1.5, bt = (BRK_ROW - BRK_TICK) * em + 0.75, bb = BRK_ROW * em;
-        if (bw > 0.01) { brkBuf[0] = bx; brkBuf[1] = bb; brkBuf[2] = bx; brkBuf[3] = bt; brkBuf[4] = bx + bw; brkBuf[5] = bt; brkBuf[6] = bx + bw; brkBuf[7] = bb; }
-        setPts(brk, brkBuf, bw > 0.01 ? 4 : 0, false);
-        setGeo(brk, 'opacity', P.brk.op);
+        const P = gaugePartsInto(gaugeP, dayOf(shown), tw), top = TICK_OUT * em, gh = GAUGE * em;   // (the plate has TICK_OUT em of air above and below the track, for the tick)
+        place(segCar, P.car, top); place(segOver, P.over, top);
+        // (the limit: a short line across the gauge where the carried part ends, standing out of it a little above and below)
+        tickBuf[0] = P.tick.x; tickBuf[1] = top - TICK_OUT * em; tickBuf[2] = P.tick.x; tickBuf[3] = top + gh + TICK_OUT * em;
+        setPts(limitTick, tickBuf, 2, false);
+        setGeo(limitTick, 'opacity', P.tick.op);
         glStrip.paint();
       }
     } else if (shown && W > 0) {
@@ -436,11 +412,11 @@ export function createFluid() {
     }
     const fw = FW;
     if (fShown && fw > 0) {
-      const T = tugPartsInto(tugP, fShown.out, fShown.pull, fw), cy = BAR * em / 2;
+      const T = tugPartsInto(tugP, fShown.out, fShown.pull, fw), cy = bar * em / 2;
       place(segPush, T.push, 0); place(segPull, T.pull, 0);
       lPush.at(T.push.x, T.push.w, cy, em); lPull.at(T.pull.x, T.pull.w, cy, em);
-      wallBuf[0] = T.wall + 0.75; wallBuf[1] = 0; wallBuf[2] = T.wall + 0.75; wallBuf[3] = BAR * em;
-      setPts(wall, wallBuf, 2, false);
+      wallBuf[0] = T.wall + 0.75; wallBuf[1] = 0; wallBuf[2] = T.wall + 0.75; wallBuf[3] = bar * em;
+      setPts(wall, wallBuf, opts.window ? 0 : 2, false);   // (the day card's tile has no dashed line at the wall: the gap between the two parts is the wall)
       glTug.paint();
     }
   }
@@ -472,8 +448,6 @@ export function createFluid() {
       for (let i = 0; i < 2; i++) { const k = i ? 'pull' : 'out', d = fGoal[k] - fShown[k]; if (Math.abs(d) > 1e-3) { fShown[k] += a * d; moving = true; } else fShown[k] = fGoal[k]; }
     }
     let fading = false;
-    if (fadeWord(lCar, a)) fading = true;
-    if (fadeWord(lSpare, a)) fading = true;
     if (fadeWord(lPush, a)) fading = true;
     if (fadeWord(lPull, a)) fading = true;
     draw();
@@ -498,17 +472,12 @@ export function createFluid() {
     set(textEls.build.v, f.net < 0 ? `−${mlMin(-f.net)}` : mlMin(Math.max(0, into - Math.min(f.back, into))));
     set(words, fluidWords(f));
     if (opts.window) {
-      const d = fluidDay(f), sw = stripWords(d);
+      const d = fluidDay(f), sw = dayWords(d);
       day = d;
       Object.assign(goal, { dCar: d.carried, dOver: d.over, dBack: d.back, dRoom: Math.max(0, d.room) });
-      set(sNet, d.net === 0 ? '0' : `${d.net > 0 ? '▲' : '▼'} ${mlInt(Math.abs(d.net))}`);
-      sNet.dataset.dir = d.net > 0 ? 'up' : d.net < 0 ? 'down' : '';
-      set(sWord, ` · ${sw.day}`);
-      set(sMadeN, mlInt(d.made)); set(sCarN, mlInt(d.carried)); set(sLiv, mlInt(d.liver)); set(sGut, mlInt(d.gut));
-      set(sLeak, mlInt(d.over)); set(sBack, mlInt(d.back)); set(sBuildN, mlInt(Math.abs(d.net))); set(nBuild, `${sw.net} `);
-      // (a swatch is dashed while its part is empty; the day's change is green while the ascites shrinks)
-      swBack.classList.toggle('none', d.back <= 0); swBuild.classList.toggle('none', d.net === 0); swBuild.classList.toggle('down', d.net < 0);
-      el.setAttribute('aria-label', `Fluid balance, mL a day: ${mlInt(d.made)} of lymph made (liver ${mlInt(d.liver)}, gut ${mlInt(d.gut)}); the lymphatics carry ${mlInt(d.carried)} of the ${mlInt(d.limit)} they can${d.room > 0 ? `, ${mlInt(d.room)} to spare` : ', full'}. Ascites: ${mlInt(d.over)} leaked, ${mlInt(d.back)} reabsorbed: ${d.net === 0 ? 'no change' : `${d.net > 0 ? 'builds' : 'shrinks'} by ${mlInt(Math.abs(d.net))}`} a day.`);
+      set(sMade, mlInt(d.made)); set(sLimit, sw.limit); set(sTitle, sw.title); set(sNet, sw.net); set(sDetail, sw.detail);
+      sNet.dataset.dir = sw.dir;
+      el.setAttribute('aria-label', `Fluid balance, mL a day: ${sw.title}${d.net ? `, ${mlInt(Math.abs(d.net))}` : ''}. ${mlInt(d.made)} of lymph made (liver ${mlInt(d.liver)}, gut ${mlInt(d.gut)}); the lymphatics carry ${mlInt(d.carried)} of the ${mlInt(d.limit)} they can${d.room > 0 ? `, ${mlInt(d.room)} to spare` : ''}. ${sw.detail}`);
       labels(); kick();
       return;
     }
@@ -529,7 +498,8 @@ export function createFluid() {
       fo = fAvg;
     }
     const net = fo.out - fo.pull;
-    set(fNet, `${fmt(Math.max(0, fo.out), 1)} out − ${fmt(fo.pull, 1)} in = net ${fmt(Math.abs(net), 1)} ${net >= 0 ? 'out' : 'in'}`);   // (the two forces' values live here, in the page's own words: the bars' words sit inside only when they fit)
+    set(fNet, `${fmt(Math.max(0, fo.out), 1)} out − ${fmt(fo.pull, 1)} in = net ${fmt(Math.abs(net), 1)} ${net >= 0 ? 'out' : 'in'}`);
+    set(wNum, fmt(Math.abs(net), 1)); set(wUnit, net >= 0 ? 'mmHg out' : 'mmHg in'); set(wFoot, `Push ${fmt(Math.max(0, fo.out), 1)} · Pull ${fmt(fo.pull, 1)}`);   // (the two forces' values live here, in the page's own words: the bars' words sit inside only when they fit)
     fGoal = { out: Math.max(0, fo.out), pull: fo.pull }; labels(); kick();
   }
   return {
@@ -545,7 +515,7 @@ export function createFluid() {
     // set once for the slide, so the card keeps its size while a button is pressed.)
     configure(t, ctx) {
       opts = t || {};
-      forces.hidden = !opts.forces;
+      forces.hidden = !opts.forces || !!opts.window;   // (the day card has its wall pressure in a tile of its own)
       const cav = !!(opts.caveat || ctx?.params?.diuretics || ctx?.slide?.compare?.some?.((c) => c?.params?.diuretics));
       // (window: true draws the day strip in place of the flow picture; its title carries the unit, and it has no caveat line:
       // Mohammad removed it, 20 Oct)
@@ -554,6 +524,14 @@ export function createFluid() {
       win.hidden = !wo; flowBox.hidden = wo;
       unit.hidden = words.hidden = wo;
       caveat.hidden = wo || !cav;
+      // (the day card: the lymph tile alone where the slide has no forces, or both side by side; the forces' track stands in the wall tile
+      // as a thin gauge, rounded and without words, and goes back under the flow picture otherwise)
+      wallTile.hidden = !(wo && opts.forces); tiles.classList.toggle('solo', !(wo && opts.forces));
+      (wo && opts.forces ? wallHost : forces).append(tug);
+      bar = wo ? GAUGE : BAR;
+      segPush._shape(wo ? [0.25, 0.25] : [0.4, 0.7], wo ? [END_ROUND, END_ROUND] : [END_ROUND, END_POINT]);
+      segPull._shape(wo ? [0.25, 0.25] : [0.7, 0.4], wo ? [END_ROUND, END_ROUND] : [END_POINT, END_ROUND]);
+      lPush.on = lPull.on = false; lPush.v = lPull.v = 0;
       labSig = '';
       if (pinned) paint(pinned);
     },
