@@ -75,7 +75,7 @@ export function forkJoinsInto(dirs, n, out) {
 // strand there, as it was, so its round end never shows through a lumen as a stub; the vessels' groups come first (a cell of
 // the shader reads only the first six joins it meets).
 //
-// ends: for each of the first n ends at the node, { dir (as forkJoins', or null), strand }. Writes forkJoinsInto's answer, the indexes those of `ends`.
+// ends: for each of the first n ends at the node, { dir (as forkJoins', or null), strand, soft (a strand that leaves the node held to its channel: STRAND_SOFT) }. Writes forkJoinsInto's answer, the indexes those of `ends`.
 // (Kept lists the pass sorts the ends into, written again each call; used inside one call, which the answer does not alias.)
 const LEAD = [], STRANDS = [], LEAD_DIRS = [];
 export function nodeJoinsInto(ends, n, out) {
@@ -99,8 +99,10 @@ export function nodeJoinsInto(ends, n, out) {
   const total = nl + ns;
   for (let a = 0; a < total; a++) {
     for (let b = Math.max(a + 1, nl); b < total; b++) {
-      const g = nextGroup(out);
-      g.members.push(a < nl ? LEAD[a] : STRANDS[a - nl], STRANDS[b - nl]); g.fillet = 1; g.strand = true;
+      const g = nextGroup(out), ea = a < nl ? LEAD[a] : STRANDS[a - nl], eb = STRANDS[b - nl];
+      // (A soft strand, the cavernoma's, leaves the node held to its channel and is inside the channel's mouth there: it gets no fillet, so no web of its own
+      // beside the channel's, and its pairs are the plain union of the tubes. 13 Nov 2026.)
+      g.members.push(ea, eb); g.fillet = ends[ea].soft || ends[eb].soft ? 0 : 1; g.strand = true;
     }
   }
   return out;

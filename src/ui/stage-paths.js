@@ -1,6 +1,7 @@
 // Path builders (sample on the scratch path, meander, then the pure ones): polyline text, arc length, point and tangent at a fraction, wiggle, braid, tube outline and arc midpoint.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { LIGHT } from './light.js';
+import { smooth01 } from './motion.js';
 import { clamp, lerp, s } from './util.js';
 import { wiggleAt } from './wiggle-math.js';
 
@@ -83,7 +84,8 @@ export function createPaths(st) {
   }
   // Tortuous collateral: a smooth serpentine (wavelength ≈ 64 units) along the centerline,
   // tapered to zero at both ends so the vessel still meets its nodes.
-  function wiggle(pts, amp, seed) {
+  // (With `hold`, the wave stays off for the first and last `hold` of the course and comes in over the next 1.4 of it: a strand that must leave its channel and join it as one vessel.)
+  function wiggle(pts, amp, seed, hold = 0) {
     if (amp < 0.3) return pts;
     const cum = [0];
     for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
@@ -95,7 +97,8 @@ export function createPaths(st) {
       let nx = -(b[1] - a[1]), ny = b[0] - a[0];
       const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
       const u = cum[i] / L;
-      const env = Math.min(1, u * 6, (1 - u) * 6);
+      let env = Math.min(1, u * 6, (1 - u) * 6);
+      if (hold) env *= smooth01((u - hold) / (1.4 * hold)) * smooth01((1 - u - hold) / (1.4 * hold));
       const w = wiggleAt(amp, env, cum[i], k, seed);
       return [p[0] + nx * w, p[1] + ny * w];
     });

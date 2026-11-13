@@ -232,7 +232,7 @@ export const EDGE_PATH = {
   // The retroperitoneal collateral leaves the SMV well below the mesocaval origin, on the lower trunk,
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
-  C8: 'M700 556 C 730 510 690 446 602 442',
+  C8: 'M700 556 C 687 512 650 468 602 442',
   // Ascending lumbar veins → the ascending azygos. In the body it runs up the posterior abdominal wall beside the spine, behind
   // the liver, and through the diaphragm's crus into the azygos, so it is drawn that way (Mohammad, 31 Oct, Budd–Chiari: the
   // flank route over the dome read as a detour, and a route in front crossed the hepatic veins; "I like behind the liver fade"):
@@ -281,7 +281,7 @@ export const EDGE_PATH = {
 // large vein, not a plexus.) In the anatomic view these get extra strands that leave and rejoin
 // the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
-  C8: [[-11, 1.1, 0.7], [-55, 5.2, 0.75], [-21, 3.9, 0.75], [-68, 2.4, 0.7], [14, 0.3, 0.6]],
+  C8: [[-41, 1.1, 0.7], [14, 5.2, 0.75], [-28, 3.9, 0.75], [28, 2.4, 0.7], [-55, 0.3, 0.6]],
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
@@ -299,6 +299,7 @@ export const SIN_EDGES = new Set(['SIN_RR', 'SIN_LL']);
 // The strands that leave and join their vessel tangent to it (the offset eases in as the square of the sine, not the sine): the periportal plexus grows out of the
 // confluence and into the hilum as one vessel that parts into channels, not as a fan of round ends that start at one point at an angle (13 Nov 2026).
 export const STRAND_SOFT = new Set(['C8']);
+export const STRAND_HOLD = 0.1;   // (and they hold to it, their serpentine too, for the first and last tenth: all the ends at a node leave it as one)
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
 export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };
 

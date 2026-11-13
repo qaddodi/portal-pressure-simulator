@@ -7,6 +7,7 @@
 // (Written first with a fresh array, Map and Set for every node and every join; tests/vein-joins.test.js holds a copy of that code
 // and checks this against it on random figures, join for join and point for point.)
 import { nodeJoinsInto, newJoinAnswer } from './fork-joins.js';
+import { STRAND_SOFT } from './anatomy.js';
 
 /** The courses redrawn smooth where two vessels run on into each other. Read as `get(row)`: the course, or undefined for a vessel left as drawn. */
 class RowCourses {
@@ -132,8 +133,9 @@ function addJoin(st, nn, cx, cy, trunk, N) {
   for (let u = 0; u < nu; u++) {
     const it = UIT[u], i = UI[u];
     let e = PEND[u];
-    if (!e) { e = { dir: null, d: [0, 0], strand: false }; PEND[u] = e; }   // alloc-rare: an end's record, made the first time a join has that many ends
+    if (!e) { e = { dir: null, d: [0, 0], strand: false, soft: false }; PEND[u] = e; }   // alloc-rare: an end's record, made the first time a join has that many ends
     e.strand = it.kind === 's';
+    e.soft = e.strand && STRAND_SOFT.has(it.x?.e?.id);
     if (i < 0) { e.dir = null; continue; }
     const P = it.pts, n = P.length, a = i ? P[n - 1] : P[0], b = i ? P[Math.max(0, n - 4)] : P[Math.min(n - 1, 3)], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
     e.d[0] = (b[0] - a[0]) / L; e.d[1] = (b[1] - a[1]) / L;

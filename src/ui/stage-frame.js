@@ -1,7 +1,7 @@
 // The frame state: the latest frame, its readout and the plain reads of it.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
-import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_SOFT, VB_ANAT, VB_CIRC } from './anatomy.js';
+import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_SOFT, VB_ANAT, VB_CIRC } from './anatomy.js';
 import { peelAt } from './flow-peel.js';
 import { reduceMotionMQ as reduceMotion, easeMove } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
@@ -113,7 +113,9 @@ export function createFrame(st, live) {
     const g = geo[x.e.id];
     // (The varices' strands fan out as far as their varix is big: g.spr, eased, see varix-look.js.)
     const fan = sd.off * (1 - t) * (g.spr ?? 1);
-    let sp = sd.span ? braid(base, fan, 0, sd.span, sd.ph) : wiggle(braid(base, fan, u0, null, 0, STRAND_SOFT.has(x.e.id)), (0.8 * g.wig + 3) * (1 - t), sd.ph);
+    const soft = STRAND_SOFT.has(x.e.id);
+    // (A soft strand is braided off the channel as drawn and holds to it, its serpentine too, for the first and last tenth: it leaves the node as the channel does.)
+    let sp = sd.span ? braid(base, fan, 0, sd.span, sd.ph) : soft ? wiggle(braid(pts, fan, u0, null, 0, true), (0.8 * g.wig + 3) * (1 - t), sd.ph, STRAND_HOLD) : wiggle(braid(base, fan, u0), (0.8 * g.wig + 3) * (1 - t), sd.ph);
     if (u0) sp = blendFrom(pts, sp, u0);
     return sp;
   }

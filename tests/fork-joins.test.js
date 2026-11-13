@@ -128,6 +128,21 @@ test('strands at a node leave the run-on to the vessels, and are each joined who
   assert.deepEqual(r.groups.slice(0, 6).map((g) => g.members.join('-')), ['0-1', '0-2', '0-3', '0-4', '0-5', '0-6']);
 });
 
+test('a soft strand (the cavernoma\'s, held to its channel at the node) has no fillet with any end: no web of its own, only the plain union', () => {
+  const up = unit(0, -1), down = unit(0, 1), left = unit(-1, 0);
+  const soft = () => ({ dir: up, strand: true, soft: true });
+  const r = nodeJoins([vessel(down), vessel(left), vessel(up), strand(up), soft(), soft()]);
+  const pairs = r.groups.filter((g) => g.strand);
+  assert.equal(pairs.length, 6 * 5 / 2 - 3, 'every pair that holds a strand, once');
+  for (const g of pairs) {
+    const holdsSoft = g.members.some((m) => m >= 4);
+    assert.equal(g.fillet, holdsSoft ? 0 : 1, `pair ${g.members} has fillet ${g.fillet}`);
+  }
+  assert.ok(pairs.some((g) => g.fillet === 1), 'an ordinary strand keeps its fillet');
+  // (The vessels' own groups are those of the vessels alone, as for any strands.)
+  assert.deepEqual(r.groups.filter((g) => !g.strand), nodeJoins([vessel(down), vessel(left), vessel(up)]).groups);
+});
+
 test('a node with no strands, or only one vessel, is as forkJoins gives it', () => {
   const dirs = [unit(0, -1), unit(0, 1), unit(1, 0.2)];
   assert.deepEqual(nodeJoins(dirs.map(vessel)), forkJoins(dirs));
