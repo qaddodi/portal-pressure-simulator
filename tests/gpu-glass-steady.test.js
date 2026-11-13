@@ -31,7 +31,8 @@ test('the sheet\'s and the pills\' tint come from their CSS custom property, whi
   const lab = { hidden: false, getBoundingClientRect: () => box(100, 100, 80, 30) };
   const pill = { content: '""', display: 'block', visibility: 'visible', opacity: '1', left: '-4px', top: '-5px', right: '-4px', bottom: '-5px', borderTopLeftRadius: '12px', backgroundColor: 'rgba(0, 0, 0, 0)', boxShadow: 'none', getPropertyValue: (k) => (k === '--gl-pill' ? 'rgba(1, 2, 3, 0.4)' : '') };
   assert.equal(pillOf(lab, (e, p) => (p ? pill : { borderLeftWidth: '0px', borderTopWidth: '0px', borderRightWidth: '0px', borderBottomWidth: '0px' })).tint, 'rgba(1, 2, 3, 0.4)');
-  assert.match(CSS, /pz-sheet::after \{ content: ''; --gl-tint: color-mix\(in srgb, var\(--surface\) var\(--pz-frost, 66%\), transparent\);/);
+  assert.match(CSS, /pz-sheet::after \{ content: ''; --gl-tint: var\(--glass-tint\);/);
+  assert.match(CSS, /:root, \.stage-wrap\.cmap \{ --glass-tint: color-mix\(in srgb, var\(--surface\) var\(--pz-frost, 66%\), transparent\); \}/, 'the one glass tint: the surface at --pz-frost');
   assert.match(CSS, /--gl-pill: color-mix\(in srgb, var\(--term-c, var\(--accent\)\) 18%, color-mix\(in srgb, var\(--surface\) 35%, transparent\)\); background: var\(--gl-pill\);/);
 });
 
