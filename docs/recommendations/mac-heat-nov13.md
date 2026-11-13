@@ -193,3 +193,99 @@ drawn. The pressure strip's slide never settles in a shot (its strip runs on its
 
 Checks at 6ff0b2ed (now abb71b27): `npm run lint` clean (0 errors), `npm run check:static` passed, `npm test` 4875 of 4876 pass. The one failure,
 `tests/deck-shape.test.js` "every slide line is 30 words or fewer", fails the same way at `bab345fd` before this work (deck text, not heat).
+
+## Round 3: savings at rest that leave the image exactly as it is (13 Nov)
+
+Measured in node on the real stage (`tests/stage-gl-boot.js`, fake clock, GL stub with every call counted), 4 s windows at rest after a
+warm-up, Explore with labels on, on 141f5626. The rule for this round: no softening, no lower resolution, no slower motion.
+
+### (a) Model row redraws and width steps: are any of them below what the eye could see?
+
+- Row redraws at rest: 8.3 to 8.7 a second healthy, 13.7 decompensated, 20.3 in an SOS patient.
+- Every one of them carries a real change: a colour step of at least 1/255 (the largest seen were 1.2 to 2 8-bit steps in the tube colours)
+  or a radius step of at least 1/3 device px. The changes below that are already held back before the renderer (`stage-vessels.js`
+  tubeMoved at 1/255, sendRadii at 1/3 px, `stage-tubes.js` width edges at 0.1 px).
+- No width steps at rest in a healthy patient.
+- So none can be dropped without changing the image. Nothing to build here.
+
+### (b) Whole-canvas passes per present at 9 MP
+
+- None runs twice in a frame: one lay blit (the kept picture onto the screen texture) and one flush blit (onto the canvas) per presented frame.
+- Presents with no new picture, asked by the labels (drawIn, flushPresent): about 4.3 to 5 a second healthy, 2 decompensated, 7.7 SOS.
+  Each still copies the whole canvas twice. See the brief D-5 below.
+
+### (c) Uploads and uniforms each frame for nothing
+
+- `setTubes` uploads the whole tube texture (58 KB) on each of those 8 to 18 row redraws a second, for 1 to 16 changed rows. See D-4.
+- Uniforms: about 2700 calls a second, of which only about 155 set the value already there. Too small to be worth a change.
+- Label buffers: about 176 KB a second of bufferSubData, and 10.7 a second of bufferData for the label badges (shape-gl). For the label thread.
+
+### (d) Main-thread CPU per rest frame
+
+The biggest costs, healthy, labels on, 240 frames:
+
+| | Before | After this round |
+|---|---|---|
+| Rest window (240 frames) | 1653 ms, 6.9 ms a frame | 1319 ms, 5.5 ms a frame (20% less) |
+| Frame flush, all it calls | 1169 ms | 854 ms |
+| `arcMid` (middle of a vessel course) | 258 ms | 1.6 ms |
+| Garbage made in 4 s | 102.8 MB | 79.6 MB (23% less) |
+| of it by `arcMid` | 19.4 MB | 0 |
+| of it by the overlay group reads | 3.4 MB | 0 |
+
+The GL calls, bytes and draws are the same, call for call, before and after.
+
+### What was built
+
+5b5df482, stage code only (no veins-gl, compositor shader, label, glass or sharePlan change):
+
+- `stage-paths.js` arcMid: the labels' pins asked for the middle of the same unchanged vessel course on every present, which walked the
+  course and made a new array each time. The answer is now kept per course and walked again only when a point moved, was added or the
+  share asked changed. The kept answer is the same numbers as the walk.
+- `stage-clamps.js` updateOverlays: the varices' `--vx` colour was written into two overlay groups that are always kept empty (the varices
+  are drawn by their channels), and nothing reads `--vx`. Each write still made the GPU overlays read the group again and the glass look
+  at its boxes again, about 1.7 times a second at rest. It is now written only while a group holds something.
+- `tests/heat-rest-cpu.test.js`: arcMid gives the same numbers as the walk, asked again, after a point moved in place, a point added,
+  another share, a course of no length and one with a hole in it.
+- `tests/varices-vx-quiet.test.js` (node, the real stage): no `--vx` writes at rest into the empty groups over 180 frames.
+
+How he can feel it on the Mac: a fifth less main-thread work on every rest frame and less garbage collection, so the fan should come on a
+little later. The image is unchanged: the same draws, and the shots before and after match.
+
+### D-4, for D (veins-gl.js): upload only the tube rows that changed
+
+`setTubes` (about line 4432) uploads the whole tube texture on every row redraw. `setFlow` (about line 4592) already uploads only the
+changed span. The same for tubes: track the lowest and highest changed row and upload that span with texSubImage2D. At rest that is 1 to
+16 rows of the texture instead of all of it, 8 to 18 times a second. Same pixels.
+
+### D-5, for D and the labels: a present with no new picture copies only what changed
+
+On a present the labels asked for (no new picture), the lay blit and the flush blit still copy the whole canvas (9 MP at Full). With the
+frame's dirty rectangle (the labels' boxes that changed), both could be scissored to it, keeping the rest of the screen texture as it was.
+Needs preserved contents on the screen texture, which it already is. Same pixels.
+
+### D-6, for D: bloodMark and markCells kept when nothing changed
+
+`bloodMark` (about line 2191), `markCells` (about 2155) and the dirty tiles take about 12% of the rest CPU and make about 20 MB of garbage
+in 4 s. When the cells and the matrix are the same as last time, the last answer can be kept, as arcMid now is. Same pixels.
+
+### For other owners
+
+- Labels: arcMid is now kept per course, so the pins cost almost nothing. The extra presents in (b) and the badge bufferData in (c) are theirs.
+- Glass: `stage-glass.js` frostWatch does `document.querySelector('.stage-credit')` on every frostOver call; it could keep the element.
+- Stage view (SOS): `stage-view.js` atTargetStage (from preSlice and preStep) writes and puts back the clamp, halo and label sizes about
+  once a second, and each write makes the styles be worked out again.
+- `stage-vessels.js` near line 979: the loop reads the `live.tubesShown` getter on every pass (about 7 ms in 4 s); reading it once is enough.
+
+The same picture, checked two ways:
+
+- Every GL call per frame (the method and its arguments, uniform values and uploaded bytes by content) hashed over 300 frames in node
+  on the fake clock, labels on, before (40793cbf) and after: the same, frame for frame, for healthy, decompensated cirrhosis and SOS
+  (801,061 calls in the decompensated run). Two runs of the same code also hash the same, so the check would see a change.
+- Checks at 5b5df482: `npm run lint` clean (0 errors), `npm run check:static` passed, `npm test` 4925 of 4925 pass.
+
+Shots (headless, software GL, `scripts/shoot.mjs`, Mac, light), Explore healthy and decompensated cirrhosis, before and after: the same
+figure, vessels, organs, glass and labels. What differs is only what moves with the model's time (the clock, the readings and the vessel
+colours at that moment of the breath), and in decompensated cirrhosis where the labels land. Where the labels land also differs between two
+shots of the code before the change (the Varices and HA labels moved, the History badge came and went), so it is the shot's timing, not
+this change.
