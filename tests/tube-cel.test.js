@@ -55,13 +55,13 @@ test('celShade has the parameters of tubeShade, and none of the 3D shading', () 
 // One pixel: the lit side faces the light (the top left, CEL.DIR); a lumen of radius R 10 units, a device pixel 0.5 unit (so R is 20 device px), aa 0.5.
 const LIT_G = CEL.DIR, FAR_G = CEL.DIR.map((v) => -v), ALONG_G = [-CEL.DIR[1], CEL.DIR[0]];   // (across the vessel toward the light, away from it, and along the light's own cross: no lit side)
 const FILL = [0.8, 0.3, 0.3];
-const base = { ...F, R: 10, wall: 1, col: FILL, g: LIT_G, flags: F.F_DIFFUSE, sel: false, cA: 1, aa: 0.5, aL: 1, px: 0.5, fx: 1 };
+const INKC = [0.23, 0.17, 0.13];   // the look's one outline ink (--casing-rgb)
+const base = { ...F, casing: [...INKC, 0.64], R: 10, wall: 1, col: FILL, g: LIT_G, flags: F.F_DIFFUSE, sel: false, cA: 1, aa: 0.5, aL: 1, px: 0.5, fx: 1 };
 const near = (got, want, msg) => { assert.equal(got.length, want.length, msg); got.forEach((v, i) => assert.ok(Math.abs(v - want[i]) < 1e-9, `${msg}: ${got} vs ${want}`)); };
 // The outline's width in world units: 14 % of the radius, held between 1.5 and 3 device px.
 const wlOf = (R, px) => Math.min(Math.max(CEL.LINE_R * R, CEL.LINE_MIN * px), CEL.LINE_MAX * px);
-// The light looks' outline: a deep tone of the vessel's own colour, eased a quarter toward the near-black.
-const deepOf = (col) => col.map((v, i) => v * 0.34 * 0.75 + CEL.INK[i] * 0.25);
-const DEEP = deepOf(FILL);
+// The outline: the look's one ink, whatever the vessel's colour (Mohammad, 13 Nov 2026, outlines A).
+const DEEP = INKC;
 
 test('deep inside a lumen on the lit side, the result is the fill colour exactly', () => {
   near(celShadeJS({ ...base, D: -9 }), [...FILL, 1], 'lit side');
@@ -152,17 +152,13 @@ test('a veiled vessel keeps half its outline; an F_EDGE vessel keeps its own col
   near(celShadeJS({ ...out, flags: F.F_EDGE, edge }), [...edge.map((v) => v * 0.92), 0.92], 'its own edge colour');
 });
 
-test('the outline follows the look: a dark casing gives the deep tone of the vessel, a light casing its own colour, always opaque', () => {
+test('the outline is the look\'s one ink for every vessel, always opaque', () => {
   const out = { ...base, aL: 0, D: 0.5 };
-  near(celShadeJS({ ...out, casing: [0.1, 0.1, 0.12, 0.6] }), [...DEEP, 1], 'dark casing: the deep tone of the fill');
-  // The deep tone is of the vessel's own colour: another fill, another ink; and never lighter than the fill.
-  const blue = [0.2, 0.4, 0.9];
-  near(celShadeJS({ ...out, col: blue }), [...deepOf(blue), 1], 'a blue vessel, a deep blue line');
-  assert.ok(DEEP.every((v, i) => v < FILL[i]), 'darker than the fill');
+  near(celShadeJS(out), [...INKC, 1], 'the ink, its alpha not used');
+  near(celShadeJS({ ...out, col: [0.2, 0.4, 0.9] }), [...INKC, 1], 'a blue vessel: the same ink');
   const pale = [0.85, 0.8, 0.9];
-  near(celShadeJS({ ...out, casing: [...pale, 0.3] }), [...pale, 1], 'light casing, its alpha not used');
-  assert.match(CEL_TEXT, /vec3 deep = mix\(col \* 0\.34, CEL_INK, 0\.25\);/);
-  assert.match(CEL_TEXT, /vec3 ink = mix\(deep, casing\.rgb, smoothstep\(0\.25, 0\.45, cY\)\);/);
+  near(celShadeJS({ ...out, casing: [...pale, 0.3] }), [...pale, 1], 'another look, its own ink');
+  assert.match(CEL_TEXT, /vec3 ink = casing\.rgb;/);
 });
 
 test('a hairline has no tones', () => {

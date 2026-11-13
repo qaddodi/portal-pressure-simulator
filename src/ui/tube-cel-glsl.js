@@ -1,6 +1,6 @@
 // The Tube renderer's cel shading (docs/recommendations/tube-renderer-plan.md, thread B): a flat fill in the vessel's own colour in
 // exactly three tones lit from the top left (lit, base and shadow: a faint lift on the side facing the light, the plain fill, one darker step toward the far wall,
-// each edge about one pixel soft), and a fine opaque outline (a deep tone of the vessel's own colour on the light looks, the look's own line colour on the dark ones), the way a cartoon or an anatomy book draws a vessel.
+// each edge about one pixel soft), and a fine opaque outline (one ink for every vessel, the look's own: --casing-rgb), the way a cartoon or an anatomy book draws a vessel.
 // `celShade` is `tubeShade` (veins-mesh-glsl.js) with the same parameters in the same order, the same premultiplied result and the same host
 // declarations (the samplers and T(), over(), and the uniforms px, fx, casing, ring, rimInk, paperInk, light), so the Tube's strips and
 // patches call it where Mesh calls tubeShade. Only these lines differ from tubeShade: no contact shadow, the outline's width and colour,
@@ -78,9 +78,7 @@ vec4 celShade(float D, float Ds, float R, float wall, vec3 col, vec2 g, int flag
   // (A veiled vessel keeps half its outline: behind an organ the wall's line is the first thing to go.)
   if ((flags & ${F_VEIL}) != 0) cA *= 0.5;
   float lumY = dot(col, vec3(0.299, 0.587, 0.114));
-  float cY = dot(casing.rgb, vec3(0.299, 0.587, 0.114));
-  vec3 deep = mix(col * 0.34, CEL_INK, 0.25);
-  vec3 ink = mix(deep, casing.rgb, smoothstep(0.25, 0.45, cY));   // a dark casing (the light looks): a deep tone of the vessel's own colour; a light casing (the dark looks): the look's own line colour
+  vec3 ink = casing.rgb;   // one ink for every vessel, the look's own (--casing-rgb: a warm sepia on the light looks, the ground's near-black on the dark ones; Mohammad, 13 Nov 2026, outlines A)
   c = (flags & ${F_EDGE}) != 0 ? over(vec4(edge, 1.0) * (0.92 * aC), c) : over(vec4(ink, 1.0) * (cA * aC), c);
   vec3 lum = col;
   if (fx == 1 && (flags & ${F_DIFFUSE}) != 0 && aL > 0.0) lum = celTones(lum, D, R, g, aa);
@@ -162,9 +160,7 @@ export function celShadeJS(o) {
   if (sel) { const ar = ring[3] * clamp(0.5 - (D - wl - 4) / aa, 0, 1); c = over([ring[0] * ar, ring[1] * ar, ring[2] * ar, ar], c); }
   if ((flags & F_VEIL) !== 0) cA *= 0.5;
   const lumY = col[0] * 0.299 + col[1] * 0.587 + col[2] * 0.114;
-  const cY = casing[0] * 0.299 + casing[1] * 0.587 + casing[2] * 0.114;
-  const deep = mix3(col.map((v) => v * 0.34), CEL.INK, 0.25);
-  const ink = mix3(deep, casing.slice(0, 3), smoothstep(0.25, 0.45, cY));
+  const ink = casing.slice(0, 3);
   c = (flags & F_EDGE) !== 0 ? over([...edge.map((v) => v * (0.92 * aC)), 0.92 * aC], c) : over([...ink.map((v) => v * (cA * aC)), cA * aC], c);
   let lum = col.slice();
   if (fx === 1 && (flags & F_DIFFUSE) !== 0 && aL > 0) lum = celTonesJS(lum, D, R, g, aa);

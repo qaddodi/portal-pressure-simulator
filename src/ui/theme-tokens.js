@@ -97,7 +97,8 @@ export const TOKENS = {
     'organ-tint': '18%',
     'diaphragm': '#886b59',
     'artery': '#c91f36',
-    'casing-rgb': '30 24 40', 'casing-a': '.64', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))',
+    'casing-rgb': '59 44 34', 'casing-a': '.64',   // (the Tube's one outline ink: a warm sepia, #3B2C22; Mohammad, 13 Nov 2026, outlines A: the vessels' own deep tone read navy on the paper)
+    'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))',
     'ascites': '#E0C677', 'ascites-a': '.4',   // a faint pale-straw wash, translucent so the organs read through
     'stage-grid': 'rgba(100, 72, 36, .06)',
     'leader': 'rgba(44, 38, 30, .5)',
@@ -243,7 +244,7 @@ export const TOKENS = {
     // data card tiles and the FibroScan panel share one warm cream with a warm edge
     // The organs, re-derived from Linen's (C3, 8 Nov): each tone keeps Linen's hue and chroma and sits the same OKLab step (ΔE) from Oat that Linen's sits from Linen.
     // (The old pins were tuned for the near-white paper; the lit faces were ΔE 3 to 10 from Oat, Linen's are 6 to 21.) Edge strength: casing-a .66 (Linen .64); the knock-out is Oat itself.
-    'knockout': 'rgba(221, 208, 185, .75)', 'casing-a': '.66', 'tube-shade': '.2',
+    'knockout': 'rgba(221, 208, 185, .75)', 'casing-rgb': '51 37 26', 'casing-a': '.66', 'tube-shade': '.2',
     'leader': 'rgba(40, 42, 52, .42)', 'og-dark': 'rgba(60, 22, 18, .22)',
     'og-liver-1': '#c89e8e', 'og-liver-2': '#ab6955', 'og-liver-3': '#7d3a28',
     'og-stomach-1': '#d2b4a8', 'og-stomach-2': '#be8773', 'og-stomach-3': '#8a513d',
@@ -297,7 +298,7 @@ export const TOKENS = {
     'organ-body': '#262421', 'organ-body-line': '#3A3733',
     'organ-liver': '#A88C82', 'organ-spleen': '#93889A', 'organ-gut': '#A8948A', 'organ-stomach': '#A99088', 'organ-heart': '#AE8387',
     'organ-kidney': '#A07E8E', 'organ-lung': '#6E7A8C', 'organ-pancreas': '#AFA286', 'organ-gb': '#8C9A7E', 'organ-aorta': '#6E6470', 'organ-a': '.3', 'organ-tint': '20%', 'diaphragm': '#9C8C84',
-    'artery': '#E4606C', 'casing-rgb': '10 8 8', 'casing-a': '.3', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'ascites': '#F0C67A', 'ascites-a': '.24', 'stage-grid': 'rgba(255, 240, 220, .05)', 'leader': 'rgba(236, 228, 214, .42)', 'vein-portal': 'var(--tour-portal)', 'vein-systemic': 'var(--tour-sys)', 'arrow-ink': 'rgba(238, 235, 229, .82)', 'label-halo': 'rgba(26, 25, 23, .9)', 'label-panel': 'rgba(26, 25, 23, .72)', 'doppler': '#3EE0A5', 'dop-glow': '#F4F6FF', 'dop-face': '#F1ECE2', 'dop-head-rim': '#FFFFFF', 'dop-head-ink': '#000000', 'vel-ink': '72%',
+    'artery': '#E4606C', 'casing-rgb': '14 11 9', 'casing-a': '.3', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'ascites': '#F0C67A', 'ascites-a': '.24', 'stage-grid': 'rgba(255, 240, 220, .05)', 'leader': 'rgba(236, 228, 214, .42)', 'vein-portal': 'var(--tour-portal)', 'vein-systemic': 'var(--tour-sys)', 'arrow-ink': 'rgba(238, 235, 229, .82)', 'label-halo': 'rgba(26, 25, 23, .9)', 'label-panel': 'rgba(26, 25, 23, .72)', 'doppler': '#3EE0A5', 'dop-glow': '#F4F6FF', 'dop-face': '#F1ECE2', 'dop-head-rim': '#FFFFFF', 'dop-head-ink': '#000000', 'vel-ink': '72%',
     's1': '#3987e5', 's2': '#d95926', 's3': '#199e70', 's4': '#c98500', 's5': '#d55181', 's6': '#17A317', 's7': '#9085e9', 's8': '#e66767',
     'grid': '#2B2926', 'axis': '#4A4641',
     'tr-pv': '#F0649E', 'tr-wedge': '#DA7EDD', 'tr-hv': '#5CA4F2', 'tr-ra': '#B7B1A8', 'tr-ivc': '#4CC2D6', 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
@@ -359,7 +360,7 @@ export const TOKENS = {
     'og-light': 'rgba(255, 235, 225, .14)', 'og-dark': 'rgba(0, 0, 0, .35)', 'og-ao': 'rgba(0, 0, 0, .3)',
     'organ-body': '#1A2238', 'organ-body-line': '#2C3756',
     'organ-lung': '#5A6E90',
-    'casing-rgb': '214 222 246', 'casing-a': '.34',
+    'casing-rgb': '6 10 20', 'casing-a': '.34',   // (the ground's own near-black, 13 Nov 2026: the pale blue-white line read as a halo)
     'stage-grid': 'rgba(160, 180, 255, .05)', 'leader': 'rgba(200, 212, 240, .42)', 'arrow-ink': 'rgba(233, 237, 246, .82)', 'label-halo': 'rgba(11, 17, 32, .9)', 'label-panel': 'rgba(14, 20, 34, .72)',
     'grid': '#1F2840', 'axis': '#34405E',
     'tr-ra': '#A9B2C7',

@@ -254,7 +254,7 @@
   --organ-tint: 18%;
   --diaphragm: #886b59;
   --artery: #c91f36;
-  --casing-rgb: 30 24 40;
+  --casing-rgb: 59 44 34;
   --casing-a: .64;
   --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
   --ascites: #E0C677;
@@ -511,7 +511,7 @@
     --organ-tint: 20%;
     --diaphragm: #9C8C84;
     --artery: #E4606C;
-    --casing-rgb: 10 8 8;
+    --casing-rgb: 14 11 9;
     --casing-a: .3;
     --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
     --ascites: #F0C67A;
@@ -751,7 +751,7 @@
   --organ-tint: 20%;
   --diaphragm: #9C8C84;
   --artery: #E4606C;
-  --casing-rgb: 10 8 8;
+  --casing-rgb: 14 11 9;
   --casing-a: .3;
   --vessel-casing: rgb(var(--casing-rgb) / var(--casing-a));
   --ascites: #F0C67A;
@@ -941,6 +941,7 @@
   --info: #3155D1;
   color-scheme: light;
   --knockout: rgba(221, 208, 185, .75);
+  --casing-rgb: 51 37 26;
   --casing-a: .66;
   --tube-shade: .2;
   --leader: rgba(40, 42, 52, .42);
@@ -1160,7 +1161,7 @@
   --organ-body: #1A2238;
   --organ-body-line: #2C3756;
   --organ-lung: #5A6E90;
-  --casing-rgb: 214 222 246;
+  --casing-rgb: 6 10 20;
   --casing-a: .34;
   --stage-grid: rgba(160, 180, 255, .05);
   --leader: rgba(200, 212, 240, .42);

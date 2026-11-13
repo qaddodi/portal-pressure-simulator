@@ -44,7 +44,6 @@ import { createSvgGL, svgModel, setGeo, geoOf } from './svg-gl.js';
 import { pressureColor, deltaColor, dropColor, flowColor, velocityColor, heatColor, oxygenColor } from './colormap.js';
 import { NODES, EDGES } from '../engine/topology.js';
 import { F_RING } from './veins-mesh-glsl.js';
-import { CEL } from './tube-cel-glsl.js';
 import { createVeinsGL, binVeins, laneSum, N_SAMPLES, TUBE_TEXELS, FLOW_TEXELS, MAX_TIERS, F_SEL, F_DIFFUSE, F_SHADOW, F_SPEC, F_EDGE, ORIGIN_GREY } from './veins-gl.js';
 import { SLOT, PERIOD, originFractionsInto, ORIGIN_N, DRIFT_PERIOD, DRIFT_RATE } from './blood.js';
 import { STYLE_D } from './blood-tile.js';
@@ -4057,11 +4056,11 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
           tubeData[o + 3] = WALL[t.kind]; tubeData[o + 7] = alpha; tubeData[o + 8] = 1; tubeData[o + 9] = Z_OF[t.kind]; tubeData[o + 10] = flags; tubeData[o + 11] = 0;
           if (endOn) {
             // The disc's mouths (texel 3, xyz; the dip's texels, unused here: texel 4's w stays 0) and the ink of its line (texel 4, xyz): its own edge colour where it has one,
-            // else the cel outline's rule (tube-cel-glsl.js celShade): a deep tone of its fill, or the look's own casing colour where that is light.
+            // else the cel outline's ink (tube-cel-glsl.js celShade): the look's own casing colour.
             const mk = G.mouths.get(t.id);
             if (mk) { tubeData[o + 12] = mk[0]; tubeData[o + 13] = mk[1]; tubeData[o + 14] = mk[2]; }
-            const cc = lookNow.casing, kc = smooth(0.25, 0.45, cc[0] * 0.299 + cc[1] * 0.587 + cc[2] * 0.114);
-            for (let i = 0; i < 3; i++) tubeData[o + 16 + i] = edge ? edge[i] : (tubeData[o + i] * 0.34 * 0.75 + CEL.INK[i] * 0.25) * (1 - kc) + cc[i] * kc;
+            const cc = lookNow.casing;
+            for (let i = 0; i < 3; i++) tubeData[o + 16 + i] = edge ? edge[i] : cc[i];
           }
           tubeData[o + 20] = 0; tubeData[o + 21] = 1; tubeData[o + 22] = t.len; tubeData[o + 23] = 0;
           if (edge) { put3(o + 24, edge); tubeData[o + 27] = 0; }

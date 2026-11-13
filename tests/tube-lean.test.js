@@ -82,13 +82,15 @@ test('every uniform it declares is declared with the same type in the Tube strip
 
 // ---- the twin, one pixel at a time ----
 const FILL = [0.8, 0.3, 0.3];
+const INKC = [0.23, 0.17, 0.13];
 const attrs = { tier: 1, flags: gl.F_DIFFUSE, wall: 1, col: FILL, alpha: 1, hov: 0, sel: 0, edge: [0, 0, 0], of: 1 };
 const base = {
-  ...K, D: -9, R: 10, g: [1, 0], u: 0.5, clip: [0, 1, 100], attrs, tierNow: 1, grp: 1, px: 0.5, aa: 0.5, light: [1, 0], fx: 1, tierAlpha: 1, row: 7, lit: false,
+  ...K, D: -9, R: 10, g: [1, 0], u: 0.5, clip: [0, 1, 100], attrs, tierNow: 1, grp: 1, px: 0.5, aa: 0.5, light: [1, 0], fx: 1, tierAlpha: 1, row: 7, lit: false, casing: [...INKC, 0.64],
 };
 const near = (got, want, msg) => { assert.equal(got.length, want.length, msg); got.forEach((v, i) => assert.ok(Math.abs(v - want[i]) < 1e-9, `${msg}: ${got} vs ${want}`)); };
 const wlOf = (R, px) => Math.min(Math.max(CEL.LINE_R * R, CEL.LINE_MIN * px), CEL.LINE_MAX * px);
-const deepOf = (col) => col.map((v, i) => v * 0.34 * 0.75 + CEL.INK[i] * 0.25);
+// The outline: the look's one ink (--casing-rgb, INKC), whatever the vessel's colour (13 Nov 2026, outlines A).
+const deepOf = () => INKC;
 
 test('the centre of a lumen gives the fill, the outline band the ink, and past it nothing', () => {
   const lumen = tubeLeanJS(base);
