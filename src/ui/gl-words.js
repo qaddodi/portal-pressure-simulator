@@ -158,7 +158,12 @@ function measureReadNow(S) {
   const k = devicePixelRatio || 1, asc = -textBox('0', 0, 0, { weight: L.weight, size: L.size, k }).y;
   const sAsc = small ? -textBox('0', 0, 0, { weight: U.weight, size: U.size, k }).y : 0;
   const at = { sm: !!small && !small.hidden, L, U, align, w: box.width / sx, h: box.height / sx, y: (tr.top - box.top) / sx + asc, uy: small ? (small.getBoundingClientRect().top - box.top) / sx + sAsc : 0,
-    x0: (all.left - box.left) / sx, x1: (all.right - box.left) / sx };
+    x0: (all.left - box.left) / sx, x1: (all.right - box.left) / sx,
+    // (inl: an inline box hugs its words, and a ResizeObserver never reports an inline box's size, so new words of another width (the play
+    // bar's clock turning 9:59 into 10:00) widened the box under a picture measured for the old one, stretched and shifted: the clock read
+    // "1100:3300" from then on, 13 Nov 2026. Words of another width in such a box are the page's, and measure it again; wm, the width measured.)
+    inl: (host === el ? cs : readStyle(host)).display === 'inline' };
+  at.wm = at.x1 - at.x0;
   // (Room past the box on every side, so a longer number than the one laid out is drawn whole, never cut at the box's edge; but never
   // past an ancestor that clips or scrolls, where the picture would count as overflow and a card's fit would shrink the card for it.)
   const most = Math.ceil(L.size * 3);
@@ -265,6 +270,7 @@ function draw(S, t, u) {
   // (measured again at the same time), never a cut number.)
   const pd = at.pad;
   if (pd && (x < -pd.l - 0.5 || x + w > at.w + pd.r + 0.5)) { S.stale = true; return false; }
+  if (at.inl && Math.abs(w - at.wm) > 0.25) { S.stale = true; return false; }   // (an inline box that will change width with them: see measureReadNow)
   const rv = glyphRun(tt, x, L, runV).glyphs, ru = u ? glyphRun(uu, x + wv + sp, U, runU).glyphs : (runU.length = 0, runU);
   if (S.vSlots && rv.length <= S.vSlots.length && ru.length <= S.uSlots.length) {
     if (geoOf(S.vPath, 'd')) setGeo(S.vPath, 'd', '');
