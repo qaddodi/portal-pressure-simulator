@@ -45,7 +45,7 @@ export const WHERE = {
       kicker: 'Case 3', site: 'cardiac', title: 'Case 3: ascites, and a JVP that rises on inspiration',
       line: 'Constrictive pericarditis. The noncompliant pericardium raises the [right atrial pressure](ra), and every venous pressure upstream rises with it.',
       notes: 'Tap Pressure drop: nothing lights up, because no vessel between the splanchnic bed and the heart carries the resistance. Diastolic filling is restricted, so the right atrial pressure is high and the liver is congested. The ascites is protein-rich. Varices are rare, because the portal and systemic venous pressures are both high.',
-      ask: ['Why are varices rare in this case?', 'Varices require a portosystemic gradient, and both pressures are high.'],
+      ask: ['Why are varices rare in this case?', 'Varices require a portal pressure gradient, and both pressures are high.'],
     },
     {
       id: 'a4', preset: 'sos', cam: 'lobule:central', terms: { 'central veins': 'lobule:central' }, compare: LENS, tool: { kind: 'profile' }, key: ['whvp', 'hvpg'], rail: true,

@@ -27,7 +27,7 @@ export const VARICES = {
       kicker: 'Collaterals', site: 'sin', title: 'Collaterals open where portal and systemic veins meet',
       vignette: 'A 59-year-old man with alcohol-associated cirrhosis continues to drink. His platelet count is 90,000/µL, and EGD shows small esophageal varices.',
       line: 'Collaterals open at the gastroesophageal junction, the umbilicus, the rectum and the retroperitoneum, some by recanalization of existing channels and some by neoangiogenesis.',
-      notes: 'Portosystemic collaterals open where the portal and systemic venous beds meet: at the gastroesophageal junction (left gastric and short gastric veins to the azygos), the umbilicus (paraumbilical veins), the rectum (superior to middle and inferior rectal veins), the retroperitoneum (veins of Retzius), and through splenorenal and gastrorenal shunts. They form by recanalization of existing channels and by neoangiogenesis, driven by the portosystemic gradient. Even large collaterals do not relieve portal hypertension, because splanchnic inflow rises to fill them. On the flow view, vessels that carry little blood in health fill as the collaterals open.',
+      notes: 'Portosystemic collaterals open where the portal and systemic venous beds meet: at the gastroesophageal junction (left gastric and short gastric veins to the azygos), the umbilicus (paraumbilical veins), the rectum (superior to middle and inferior rectal veins), the retroperitoneum (veins of Retzius), and through splenorenal and gastrorenal shunts. They form by recanalization of existing channels and by neoangiogenesis, driven by the portal pressure gradient. Even large collaterals do not relieve portal hypertension, because splanchnic inflow rises to fill them. On the flow view, vessels that carry little blood in health fill as the collaterals open.',
       ask: ['Name four places where portosystemic collaterals form.', 'The gastroesophageal junction, the umbilicus, the rectum, the retroperitoneum (and splenorenal and gastrorenal shunts).'],
     },
     {
@@ -76,9 +76,9 @@ export const VARICES = {
     {
       id: 'nograd', preset: 'rhf', cam: 'varices', labels: ['AZY'], glow: ['azy'], tool: { kind: 'profile' }, data: 'tiles', tiles: ['varix'], key: ['ppg'],
       compare: [{ label: 'Heart failure', short: 'Heart', own: true }, { label: 'Budd–Chiari', short: 'Budd–Chiari', preset: 'budd-chiari' }],
-      kicker: 'Heart failure', site: 'cardiac', title: 'Varices are rare in heart failure because there is no portosystemic gradient',
+      kicker: 'Heart failure', site: 'cardiac', title: 'Varices are rare in heart failure because there is no portal pressure gradient',
       vignette: 'A 73-year-old man with severe TR has ascites, leg edema and an elevated JVP. Screening EGD shows no varices.',
-      line: 'Collaterals need a portosystemic gradient, and in heart failure portal and systemic venous pressures are both high, so the PPG is {ppg} and varices are rare.',
+      line: 'Collaterals need a portal pressure gradient, and in heart failure portal and systemic venous pressures are both high, so the PPG is {ppg} and varices are rare.',
       notes: 'Portosystemic collaterals open only where portal pressure exceeds systemic venous pressure. In right heart failure and constrictive pericarditis systemic venous pressure is as high as portal pressure, so there is no gradient to drive collateral flow. In Budd–Chiari syndrome the resistance lies between the liver and the heart: portal pressure is high, while the systemic veins that receive collateral flow (the azygos, the right atrium) stay at normal pressure, so a gradient forms and varices develop.',
       ask: ['Why do varices form in Budd–Chiari syndrome but rarely in heart failure?', 'In Budd–Chiari the resistance lies between the liver and the heart, so the systemic veins that receive collateral flow (the azygos, the right atrium) stay at normal pressure and a gradient forms; in heart failure their pressure is high too.'],
     },
