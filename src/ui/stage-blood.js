@@ -278,7 +278,10 @@ export function createBlood(st, live) {
           const slow = Math.abs(eSlow) * HEAD_FAST <= Math.abs(eFast) * rS, e = slow ? eSlow : eFast;
           const c = (slow ? HEAD_CATCH : HEAD_FAST) * ad * Math.min(1, Math.abs(e) / (0.1 * M));
           let dJ = f + (Math.abs(e) <= c || Math.abs(e) < 1e-3 ? e : Math.sign(e) * c);
-          if (Math.abs(dJ) > HEAD_J * ad) dJ = Math.sign(dJ) * HEAD_J * ad;   // (and never more than HEAD_J faster: no head races)
+          // (Slowed: the whole move held under HEAD_J of the step, so a head still moves forward. Sped up: HEAD_FAST past the parent's own
+          // move, so a branch closes its gap while its parent still closes one; never more than twice the stream's speed.)
+          const hi = HEAD_J * ad, lo = -Math.min(1, Math.max(0, -f * sd / ad) + HEAD_FAST) * ad;
+          if (dJ * sd > hi) dJ = sd * hi; else if (dJ * sd < lo) dJ = sd * lo;
           hA[row] += dJ;
         }
       }
