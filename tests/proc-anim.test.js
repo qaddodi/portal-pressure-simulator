@@ -354,8 +354,15 @@ test('a TIPS is placed step by step only where a slide teaches the placement; el
   assert.deepEqual([...guided].sort(), ['gastric-varices/tips', 'shunts/play', 'ten-years/tips', 'variceal-bleed/tips']);
   // (Three of them, and the coil slide after the TIPS slide, go on to read the gradient across the new stent as step 5: MEASURES.tipsgrad.)
   const thens = [];
-  for (const d of DECKS) for (const s of d.slides) if (s.procedure?.then) { thens.push(`${d.id}/${s.id}`); assert.equal(s.procedure.then, 'tipsgrad'); assert.ok(specOf(s.procedure.then)?.measure, 'a reading'); }
+  // (The one other chain is a measurement's second reading: the PPG by IR, the IVC then the portal vein, on one slide of the gradients talk.)
+  const reads = [];
+  for (const d of DECKS) for (const s of d.slides) if (s.procedure?.then) {
+    assert.ok(specOf(s.procedure.then)?.measure, 'a reading');
+    if (s.procedure.kind === 'irivc') { reads.push(`${d.id}/${s.id}`); assert.equal(s.procedure.then, 'irpv'); continue; }
+    thens.push(`${d.id}/${s.id}`); assert.equal(s.procedure.then, 'tipsgrad');
+  }
   assert.deepEqual(thens.sort(), ['shunts/play', 'ten-years/tips', 'variceal-bleed/tips', 'variceal-bleed/tipscoil']);
+  assert.deepEqual(reads, ['gradients/how-ppg']);
   for (const d of DECKS) {
     assert.ok(d.slides.filter((s) => procKindOf(s.procedure) === 'tips').length <= 1, `${d.id}: one guided TIPS at most`);
     for (const s of d.slides) if (s.procedure) assert.ok(!s.lapse && !s.cath && !s.question, `${d.id}/${s.id}: no time-lapse, catheter or question with it`);

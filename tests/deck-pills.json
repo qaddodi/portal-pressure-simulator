@@ -1202,16 +1202,6 @@
   "{eus}",
   "{ppg}"
  ],
- "gradients/presin": [
-  "{hvpg}",
-  "{eus}",
-  "{ppg}"
- ],
- "gradients/pvt": [
-  "{eus}",
-  "{hvpg}",
-  "{ppg}"
- ],
  "gradients/bc": [
   "{ppg}"
  ],
@@ -1219,8 +1209,11 @@
   "{ra}"
  ],
  "gradients/tips": [
-  "{ppg}",
+  "{<12 mmHg}"
+ ],
+ "gradients/psvd": [
   "{hvpg}",
-  "{eus}"
+  "{eus}",
+  "{ppg}"
  ]
 }

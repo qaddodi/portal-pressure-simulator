@@ -91,7 +91,7 @@
   --path-congestion: #6B2432; --path-nutmeg: #5A2230;
   --red-wale: #E8404A; --laser: #FF2B3A;
   /* instruments drawn as their machines are, dark in both themes */
-  --scope-bg: #05070D; --mon-bg: #07090C; --mon-grid: #1C2128; --mon-line: #2A3038; --mon-text: #9AA4B2; --mon-alarm: #FF7A85;
+  --scope-bg: #05070D;
   /* endoscopy and FibroScan screens (both themes): balloon glare, blood pool and jet, the scope's rim */
   --scope-balloon-hi: rgba(255, 250, 225, .55); --scope-balloon-lo: rgba(235, 215, 160, .35); --scope-blood-pool: rgba(40, 0, 7, .97); --scope-blood-pool-edge: #780014;
   --scope-blood-jet: rgba(165, 8, 28, .92); --scope-blood-fresh: rgb(214, 30, 42); --scope-blood-pool-top: rgba(122, 4, 20, .95);
@@ -105,7 +105,6 @@
   /* colour Doppler (both themes): velocity map toward and away, variance map laminar to turbulent, the spectrum's bright end */
   --dop-toward: rgb(224, 90, 48); --dop-away: #5072E0; --dop-var-toward: rgb(240, 138, 40); --dop-var-toward-turb: rgb(255, 232, 48);
   --dop-var-away: rgb(107, 88, 168); --dop-var-away-turb: rgb(46, 154, 92); --dop-bright: rgb(236, 240, 250);
-  --mon-bright: #E8EDF4; --mon-ecg: #43D98B; --mon-art: #FF6E62; --mon-free: #5CA4F2; --mon-wedge: #DA7EDD; --mon-ok: #34C38F; --mon-caution: #F0B43C;   /* (free and wedge: the dark theme's --tr-hv and --tr-wedge; ecg and art: a bedside monitor's green ECG and red arterial line) */
   /* pure inks: shadows, glass edges and sheens take these with an alpha (rgb(var(--black-rgb) / .2)) */
   --white: #FFFFFF; --black: #000000; --white-rgb: 255 255 255; --black-rgb: 0 0 0; --night-rgb: 20 22 30;
   --scrim-panel: var(--scrim); --scrim-menu: var(--scrim);
@@ -190,6 +189,20 @@
   --critical: #85190F;
   --info: #2E4BB8;
   --disease: #8A3FB5;
+  --mon-bg: #07090C;
+  --mon-grid: #1C2128;
+  --mon-line: #2A3038;
+  --mon-text: #9AA4B2;
+  --mon-alarm: #FF7A85;
+  --mon-bright: #E8EDF4;
+  --mon-ecg: #43D98B;
+  --mon-art: #FF6E62;
+  --mon-free: #5CA4F2;
+  --mon-wedge: #DA7EDD;
+  --mon-ok: #34C38F;
+  --mon-caution: #F0B43C;
+  --mon-pv: #F0649E;
+  --mon-ivc: #4CC2D6;
   --flow-normal: #16988F;
   --flow-reversed: #EC7424;
   --ramp-pressure: #B8D5ED 0, #85B6E9 5, #6787E8 10, #925CDD 12, #A4216E 20, #680C2F 30;

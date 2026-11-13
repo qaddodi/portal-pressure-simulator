@@ -50,6 +50,12 @@ export const TOKENS = {
     'info': '#2E4BB8',
     'disease': '#8A3FB5',   // a disease name in a teaching card (pz-dz)
 
+    // the bedside monitor's panel and traces: one look in every theme (a monitor is dark on any paper). Free and wedge are the dark theme's --tr-hv and
+    // --tr-wedge, pv and ivc its --tr-pv and --tr-ivc (the measurement tracing card, tool-reading.js); ecg and art a bedside monitor's green ECG and red arterial line.
+    'mon-bg': '#07090C', 'mon-grid': '#1C2128', 'mon-line': '#2A3038', 'mon-text': '#9AA4B2', 'mon-alarm': '#FF7A85',
+    'mon-bright': '#E8EDF4', 'mon-ecg': '#43D98B', 'mon-art': '#FF6E62', 'mon-free': '#5CA4F2', 'mon-wedge': '#DA7EDD', 'mon-ok': '#34C38F', 'mon-caution': '#F0B43C',
+    'mon-pv': '#F0649E', 'mon-ivc': '#4CC2D6',
+
     // flow semantics
     'flow-normal': '#16988F',
     'flow-reversed': '#EC7424',

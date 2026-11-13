@@ -216,6 +216,8 @@ export function createTools({ host, stage }) {
     holdAnswer(on, instant = false) { cur?.hold?.(!!on, instant); },
     /** The catheter's balloon on the figure (0 down … 1 wedged), every frame it moves: the tracing on the card, if it follows the catheter, rides it. */
     balloon(b) { cur?.balloon?.(b); },
+    /** A slide's measurement playing (presenter.js procPlay): its kind and its clock, t ms, each frame it runs; the tracing card follows it (tool-reading.js). */
+    proc(kind, t) { cur?.procAt?.(kind, t); },
     /** The slide's catheter is parked in the hepatic vein (true) or not yet (false): a tracing that follows it starts only then. */
     reach(b) { cur?.reach?.(b); },
     hide() { stage?.pinDoppler?.(null); stage?.setScanProbe?.(false); fibroReading.pinned = null; cur?.park?.(); cur = null; kind = null; lastSlide = null; lastTool = null; lastCtx = null; delete box.dataset.kind; },

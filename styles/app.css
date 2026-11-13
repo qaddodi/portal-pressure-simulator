@@ -2356,6 +2356,9 @@ button.finding { cursor: pointer; }
 .pz-table td.dir { text-align: center; }
 .pz-table td.dir:not([data-rate]) { color: var(--text-2); }
 .pz-table td.dir.zero { color: var(--text-3); }
+/* A gradient that misses this patient's resistance (a row's miss / missPart, the Gradients talk's summary): the arrow quiet, an outlined tag beside it. */
+.pz-table td.dir.miss > :first-child { opacity: .45; }
+.pz-table .pz-miss { display: inline-block; margin-left: .4em; padding: .1em .45em; border-radius: 999px; box-shadow: inset 0 0 0 1.2px var(--text-3); color: var(--text-2); font-size: .78em; font-weight: 600; line-height: 1.3; white-space: nowrap; vertical-align: .1em; }
 .pz-table td.asc.dir { text-align: left; }
 .pz-arr { display: inline-block; line-height: 0; vertical-align: -.14em; }
 .pz-arr .pz-ag { position: relative; display: flex; height: 1.05em; width: .79em; }
@@ -7371,6 +7374,8 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    cross-fade and keep their size, so the card never changes size with the reading. A cut-off column on a wide card only. */
 .pz-crit { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; font-size: max(12px, var(--bs, 14px)); }   /* (the card's full width: shrunk to its content, a phone centred it and pushed the case column out) */
 .pz-crit [hidden] { display: none; }
+.pz-spans { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; }   /* (the span ruler, tool-spans.js: the card's full width; its height is the picture's, set from its width) */
+.pz-reading { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; }   /* (the tracing card, tool-reading.js: the card's full width; its height follows its width, 220 for 360) */
 .pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: .35em .8em; margin: 0 0 .55em; }   /* (centred like the first-visit graph's, 27 Oct: the lead and the rule's source as one group, each on its own centred line where they do not fit together) */
 .pzc-lead { flex: 0 1 auto; min-width: 0; margin: 0; text-align: center; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
 .pzc-rule { flex: none; margin: 0; font-size: max(12px, .86em); }

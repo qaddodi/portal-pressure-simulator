@@ -1086,7 +1086,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // A chart or gauge that only reads the model as it eases (the pressure profile, a relation curve, the flows, the talk's trace, the criteria,
   // the plane) comes in over the change, riding it: its numbers and curve travel with the vessels, as a kept card's do. An instrument that
   // records the patient's flow (Doppler, beat by beat, vitals), plays on arrival, or is a deck package's own, still waits for the slide's state.
-  const RIDES_MODEL = new Set(['profile', 'curve', 'flows', 'plane', 'criteria', 'path', 'trace', 'trial']);
+  const RIDES_MODEL = new Set(['profile', 'curve', 'flows', 'plane', 'criteria', 'path', 'trace', 'trial', 'spans']);
   const underTool = (t) => !t || (RIDES_MODEL.has(t.kind) && !(t.kind === 'trace' && t.range === 'beats'));
   // The same patient over the plate: the slide's labels, glows and marks start once the cards are in sight (their last small step still
   // running, at the arrival curve about 95 percent of the way), not after the title's last frame, which was most of half a second of
@@ -1422,6 +1422,8 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       },
       unapply: () => { if (procRun === run && mine()) { evBack(s); liveSet(s, i, specOf(kind).undo(structuredClone(store.get().params))); procCompare(s); } },
       onStep: (k) => { if (procRun === run) { procShown = base + k; procPaint(); } },
+      // (Each frame's clock, for a tracing card that draws the reading as the procedure takes it: tool { kind: 'reading' }, tool-reading.js.)
+      onFrame: (f, t) => { if (procRun === run || procParked === run) ui?.tools.proc(kind, t); },
       // (The step's callout stands in for the slide's marks while it plays; its names join the slide's. Then the slide's come back:
       // on the BRTO slides the last step's "Shunt closed" is the slide's own mark, so it stays where it is.)
       // (false: no callout while the catheter travels in, the names for its way kept.)
@@ -3255,7 +3257,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       const [i, k] = rowAt(o), sl = i >= 0 ? slides[i] : null, x = typeof o === 'object' ? o : {};
       if (k == null || k < 0) return null;
       const title = x.title ?? sl?.title ?? '';
-      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, short: x.short, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [] };
+      return { i, k, f: states[k]?.fp, kicker: x.kicker ?? sl?.kicker ?? '', title, name: x.name || title, short: x.short, site: x.site ?? sl?.site, note: x.note, blank: x.blank || [], miss: x.miss || [], missPart: x.missPart || [], ref: !!x.ref, vs: x.vs, key: x.key, calm: x.calm || [] };
     }).filter(Boolean);
   }
   // The six levels side by side (visual: 'ladders'), each patient's Gut to heart profile in a cell of its own, the healthy line named
@@ -3385,8 +3387,11 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       // Against normal, the colour follows the arrows (amber above, red well above); against a baseline, better or worse,
       // except where a change is neither ('calm': a meal's small PPG rise, the HVPG's dip as a clot diverts portal flow).
       const calm = (s.calm || []).includes(k) || r.calm.includes(k);
-      return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: v },
-        arrowEl(d), h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}`));
+      // (miss, missPart: a gradient that does not span this patient's resistance, or spans only part of it (the Gradients talk's summary): its arrow
+      // dimmed, with an outlined tag that says so.)
+      const miss = r.miss.includes(k) ? 'Misses' : r.missPart.includes(k) ? 'Misses part' : '';
+      return h('td', { class: 'num dir' + (d ? '' : ' zero') + (rel ? ' rel' : '') + (miss ? ' miss' : ''), 'data-rate': rel ? null : rateAbs(k, d), 'data-eff': rel && !calm ? effOf(k, d) : null, title: miss ? `${v}, ${miss.toLowerCase()} the resistance` : v },
+        arrowEl(d), miss ? h('span', { class: 'pz-miss', 'aria-hidden': 'true' }, miss) : null, h('span', { class: 'sr-only' }, `${rel ? WORDREL[d] : WORD[d]}, ${v}${miss ? `, ${miss.toLowerCase()} the resistance` : ''}`));
     };
     // A column a deck visuals package registers (slide-ext.js columns) for a key the table does not know: its heading, cut-off note,
     // unit words and cells are its own; a row not yet computed waits, and a row's blank columns show the ring, as the others do.
