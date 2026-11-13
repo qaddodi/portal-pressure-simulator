@@ -3,6 +3,7 @@
 import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
 import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_PLATEAU, STRAND_SOFT, VB_ANAT, VB_CIRC, WIG_CAP } from './anatomy.js';
 import { smooth01 } from './motion.js';
+import { tiedStrand } from './cavernoma-strand.js';
 import { peelAt } from './flow-peel.js';
 import { reduceMotionMQ as reduceMotion, easeMove } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
@@ -121,6 +122,7 @@ export function createFrame(st, live) {
     if (pa0) {
       const pa = sd.wave?.[3] ?? pa0;
       const n0 = base.length - 1, A = base[0], B = base[n0], cl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = -(B[1] - A[1]) / cl, ny = (B[0] - A[0]) / cl;
+      if (sd.tie) return tiedStrand(base, fan, sd.tie[2] * (1 - t), pa, sd.tie);
       const ride = sd.ph ? 1 : 0, w = sd.wave, wv = w ? w[0] * (1 - t) : 0, wc = w ? w[1] : 0, wp = w ? w[2] : 0;
       return base.map((p, i) => { const v = clamp(((p[0] - A[0]) * ny - (p[1] - A[1]) * nx) / cl, 0, 1), o = (fan + wv * Math.sin(Math.PI * 2 * wc * v + wp)) * smooth01(v / pa) * smooth01((1 - v) / pa); return [p[0] + nx * o + ride * (pts[i][0] - p[0]), p[1] + ny * o + ride * (pts[i][1] - p[1])]; });   // alloc-rare: as braid's own list, made when the course changes
     }

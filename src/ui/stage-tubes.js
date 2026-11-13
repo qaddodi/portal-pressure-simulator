@@ -235,7 +235,7 @@ pushCam();   // (unframed: the canvas is clear until the figure is framed, then 
       // (the other lenses' colours are data), and none in the circuit. colPass writes it into the strand's recolour texels.
       const vx = f.metrics?.varix;
       sd.wale = e.id === 'C1a' && layerMode() === 'pressure' ? Math.round(varixWale(!!vx?.redWale, vx?.ratioMean ?? vx?.ratio, varixSNow.VAR) * (1 - t) * 100) / 100 : 0;
-      sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - i, 0, 1) : 1;   // cavernoma: one strand beside the main channel when acute, the rest grow in with the remodeling
+      sd.live = e.code === 'C1' ? clamp(i + 1 - (bandsShown ?? (f.bands || 0)), 0, 1) : e.id === 'C8' ? clamp(1 + 4 * clamp((recruitFrac('C8', f) - 0.15) / 0.7, 0, 1) - (sd.tie ? 0 : i - 1), 0, 1) : 1;   // cavernoma: the fine channel's two halves (one strand) beside the main channel when acute, the rest grow in with the remodeling (a half never shows without the other)
     }
     // (The gastrorenal shunt is one vein, not a plexus, so it is beaded itself: renderTube reads this into its radii.)
     if (e.id === 'C5') x.bead = Math.round(varixBead(f.metrics?.gastricVarix?.d) * (1 - t) * 100) / 100;
