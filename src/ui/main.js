@@ -304,7 +304,7 @@ async function main() {
     onToggle: (on) => { const t = $('#thumbBar [data-tab="search"]'); if (t) t.setAttribute('aria-expanded', on ? 'true' : 'false'); },
   } }));
   card = createCard({
-    view, stage, onWhy: (m, el) => why.open(m, el),
+    view, stage,
     onDetails: (sel) => { store.set({ details: normalizeSel(sel) || sel }); openPanel(); },
     ctx: {
       action: doAction, showPane: (id) => dock.show(id, { reveal: true }), probe: (id) => { host.send({ type: 'probe', id }); logAction('probe', id); },
@@ -1748,8 +1748,10 @@ function wireFloating() {
     // bottom (the cards), --thumb-occ from the screen's (the menu sheets).
     const nbOcc = px(tabOcc);
     if (pubVals.nbOcc !== nbOcc) { pubVals.nbOcc = nbOcc; app.style.setProperty('--nb-occ', nbOcc); app.style.setProperty('--sheet-foot', nbOcc); }
-    // (A preset's note rests above the dock and the view pill, 8 px clear: on a thumb dock the pill is 42 px over the dock's top edge, 8 px up, and steps aside when a sheet is open.)
-    const foot = px((thumb && tabOcc ? (sheet ? tabOcc + sheet : tabOcc + 50) : bot) + 8);
+    // (A preset's note rests above the dock and the view pill, 8 px clear: on a thumb dock the pill is 42 px over the dock's top edge, 8 px up, and steps aside when a sheet is open.
+    // A vessel's card open there stands in that place, so a note that comes while it is up stacks above it: B, 13 Nov 2026.)
+    const ac = card?.el, acUp = !!ac && !ac.hidden && ac.classList.contains('docked') && !ac.classList.contains('ac-leaving') ? readMetric(ac, 'offsetHeight') + 8 : 0;
+    const foot = px((thumb && tabOcc ? (sheet ? tabOcc + sheet : tabOcc + 50) : bot) + 8 + acUp);
     if (pubVals.foot !== foot) { pubVals.foot = foot; document.documentElement.style.setProperty('--toast-foot', foot); }
     const occ = px(nbR && nbR.height ? innerHeight - nbR.top + 8 : 0);
     setDockTop(nbR && nbR.height ? nbR.top : null);   // (the one sheet layer and the menus' GPU glass are cut on this line: sheet-layer.js)
@@ -1775,6 +1777,7 @@ function wireFloating() {
   new MutationObserver(soon).observe($('#treatCard'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(soon).observe($('#historyCard'), { attributes: true, attributeFilter: ['hidden'] });
   new MutationObserver(soon).observe($('#dock'), { attributes: true, attributeFilter: ['class', 'data-state'] });
+  if (card?.el) new MutationObserver(soon).observe(card.el, { attributes: true, attributeFilter: ['hidden', 'class', 'data-size'] });   // (a phone's open card: the notes stack above it)
   addEventListener('resize', soon);
   // The corner credit finds a free spot on the figure (src/ui/credit.js).
   creditPlacer = createCreditPlacer($('.stage-credit'), { keptStyle: (el) => stage.keptStyle(el) });
@@ -1894,13 +1897,13 @@ const tabletMQ = matchMedia(TABLET_UP_MQ);
 // sheet's paper (its plate, sheet-move.js) is drawn by the cards' glass in the figure's canvas (stage.cardGlass, glass-gl.js), following
 // the plate's slide from its translate and its eases, never a read in a frame. It is cut at the sheet's still foot (cut: the sheet's box, read with the
 // glass's other boxes when the page is read, not in each frame), as the sheet's own clip cuts what slides below it on the page. Where the figure's canvas cannot take it, the plate keeps its paper (app.css).
-const SHEETS = ['#panel', '#treatCard', '#dock', '.action-card'];   // (the vessel card's plate is on the glass only while it is docked: a phone's card)
+const SHEETS = ['#panel', '#treatCard', '#dock', '.action-card'];   // (the vessel card is glass on the shelf and on a phone alike)
 let sheetGL = null;
 function sheetGlass() {
   if (sheetGL) return;
   const els = SHEETS.map((q) => $(q)).filter(Boolean);
   if (!els.length) return;
-  const plates = () => els.filter((el) => !el.hidden && el.classList.contains('has-plate') && (!el.classList.contains('action-card') || el.classList.contains('docked'))).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
+  const plates = () => els.filter((el) => !el.hidden && el.classList.contains('has-plate')).map((el) => el.querySelector(':scope > .sheet-plate')).filter(Boolean);
   // (glass.add asks again by itself while the figure's canvas is not made yet.)
   sheetGL = stage?.glass?.add(plates, { card: true, watch: els, before: els[0], cover: (g) => g.parentElement, cut: (g) => { const el = g.parentElement; const b = el && readBox(el); return b ? { bottom: b.bottom } : null; } }) || null;
 }

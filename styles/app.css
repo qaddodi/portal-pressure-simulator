@@ -4,8 +4,8 @@
 *, *::before, *::after { box-sizing: border-box; }
 /* Hover tints ease without a repaint (1 Nov 2026, move everything to GPU; nothing snaps): the hover look is a layer under the
    content, painted once with --hv-bg (and --hv-bd over a 1px border, --hv-bw), that fades in and out by its opacity. */
-:where(.brand, .chip-btn, .lens-btn, .metric, .check-row, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n, .pzc-q) { position: relative; isolation: isolate; }
-:where(.brand, .chip-btn, .lens-btn, .metric, .check-row, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n)::before, :where(.pzc-q)::after { content: ''; position: absolute; inset: calc(-1 * var(--hv-bw, 0px)); border-radius: inherit; background: var(--hv-bg, transparent); box-shadow: inset 0 0 0 var(--hv-bw, 0px) var(--hv-bd, transparent); opacity: 0; transition: opacity var(--d-flip) var(--ease); pointer-events: none; z-index: -1; }
+:where(.brand, .chip-btn, .lens-btn, .metric, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n, .pzc-q) { position: relative; isolation: isolate; }
+:where(.brand, .chip-btn, .lens-btn, .metric, .ib, .btn, .menu-item, .lens, .tl-pin, .tl-ff, .tl-hist, .tl-pop-ic, .menu-credit, button.finding, .order-btn, .pz-abb, .pzj-list button, .pal-btn, .tb-act, .menu-btn, .um-row, .um-link, button.pzb-n)::before, :where(.pzc-q)::after { content: ''; position: absolute; inset: calc(-1 * var(--hv-bw, 0px)); border-radius: inherit; background: var(--hv-bg, transparent); box-shadow: inset 0 0 0 var(--hv-bw, 0px) var(--hv-bd, transparent); opacity: 0; transition: opacity var(--d-flip) var(--ease); pointer-events: none; z-index: -1; }
 /* Hover and selection ink ease without a repaint (1 Nov 2026, nothing snaps): a quiet icon button, tab or menu link draws its content
    in the full ink (--text) at the quiet ink's strength (--ink-rest, text-2 over the surface) and comes up to full by its opacity when it
    is hovered, or chosen (a pressed, selected or open one keeps its own ink, at full strength). */
@@ -525,10 +525,6 @@ div.vital { cursor: default; }
 .chart-side > * { flex-shrink: 0; }
 .legend-inline { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-12); color: var(--text-2); }
 .legend-inline i { display: inline-block; width: 16px; height: 0; border-top: 2px solid; vertical-align: middle; margin-right: 8px; }
-.check-row { display: flex; align-items: center; gap: 8px; font-size: var(--fs-14); color: var(--text); padding: 4px 8px; border-radius: var(--r-control); cursor: pointer; }
-@media (hover: hover) { .check-row { --hv-bg: var(--surface-2); } .check-row:hover::before { opacity: 1 } }
-.check-row input { accent-color: var(--accent); margin: 0; }
-.check-row i { width: 14px; height: 0; border-top: 2px solid; flex: none; }
 .empty { color: var(--text-3); font-size: var(--fs-14); padding: 20px 2px; }
 .kv { display: grid; grid-template-columns: 1fr auto; font-size: var(--fs-14); margin: 0; }
 .kv dt { color: var(--text-2); padding: 4px 0; border-bottom: 1px solid var(--hairline); }
@@ -629,7 +625,7 @@ div.vital { cursor: default; }
    same answer as the .btn and .ib above: a small sink for a chip, a tint for a row, a darker ink for a link. A control that is on
    (pressed, expanded, current) keeps its own tint and only sinks. Nothing on the figure moves. */
 html.press-fx :is(.pal-btn, .tb-act, .tl-speed, .tl-pin, .tl-hist, .measure-launch, .menu-btn, .dock-title, .um-link, .um-info, .tl-pop-ic,
-    .toast-x, .reset-btn, .pal-item, .pzj-list button, .check-row, button.finding, .chg .chg-go, .select, .pz-fold) {
+    .toast-x, .reset-btn, .pal-item, .pzj-list button, button.finding, .chg .chg-go, .select, .pz-fold) {
   transition: scale var(--d-flip) var(--ease); }
 html.press-fx .link { transition: opacity var(--d-flip) var(--ease); }
 html.press-fx .dop-tint { transition: scale var(--d-flip) var(--ease); }
@@ -642,7 +638,7 @@ html.press-fx .pz-fold:active { scale: .96; }
 html.press-fx :is(.tl-speed, .dop-tint, .pt-chip, .drug, .ac-btn, .ac-toggle, .card):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active { background-color: var(--surface-3); }
 html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-pin, .tl-hist, .lens):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active { --hv-bg: var(--surface-3); } html.press-fx :is(.chip-btn, .lens-btn, .menu-btn, .pal-btn, .tb-act, .tl-pin, .tl-hist, .lens):not(:disabled):not([aria-pressed="true"]):not([aria-expanded="true"]):not(.on):active::before { opacity: 1 }   /* (a pressed tint is the hover layer, faded in: nothing snaps) */
 html.press-fx :is(.um-info, .toast-x, .reset-btn, .pal-item, .dock-title, .select, .pz-zbtn):not(:disabled):not(.on):not([aria-current]):active { background-color: var(--surface-3); color: var(--text); }
-html.press-fx :is(.um-row, .um-link, .tl-pop-ic, .pzj-list button, .check-row, button.finding, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active { --hv-bg: var(--surface-3); color: var(--text); } html.press-fx :is(.um-row, .um-link, .tl-pop-ic, .pzj-list button, .check-row, button.finding, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active::before { opacity: 1 }
+html.press-fx :is(.um-row, .um-link, .tl-pop-ic, .pzj-list button, button.finding, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active { --hv-bg: var(--surface-3); color: var(--text); } html.press-fx :is(.um-row, .um-link, .tl-pop-ic, .pzj-list button, button.finding, .metric:not(.inert)):not(:disabled):not(.on):not([aria-current]):active::before { opacity: 1 }
 html.press-fx .pz-abb:not(:disabled):active, html.press-fx .pzc-q:active { --hv-bg: var(--hairline); color: var(--text); } html.press-fx .pz-abb:not(:disabled):active::before, html.press-fx .pzc-q:active::after { opacity: 1 }
 html.press-fx .chg .chg-go:active { color: var(--text); } html.press-fx .order-chip:not(:disabled):active .oc-t::before { opacity: 1; }
 html.press-fx .link:active { color: var(--accent-ink); opacity: .7; text-decoration: underline; text-underline-offset: 2px; }
@@ -1256,36 +1252,126 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
   .stage-wrap { position: fixed; inset: 0; }
 }
 
-/* ── Action card (object → verb) ─────────────────── */
+/* ── Action card: card 5 on the side shelf (Mohammad's picks, 13 Nov 2026) ─────────────────── */
+/* One place whatever is picked: on a Mac or an iPad the shelf at the figure's left edge under the case pill, 276 px wide; on a phone a
+   card above the view switch (.docked, below). One fixed size for each kind of card, and all it holds shows at that size: nothing in it
+   scrolls (s: two controls, l: three or four, x: a lobule part with its words; card.js cardSize). No leader line. */
 .action-card {
-  position: absolute; z-index: var(--z-hud); width: 300px; max-height: calc(100% - 16px); display: flex; flex-direction: column; overflow: hidden;
+  position: absolute; z-index: var(--z-hud); box-sizing: border-box; overflow: hidden;
+  left: calc(env(safe-area-inset-left, 0px) + 14px); top: calc(var(--top-safe, 56px) + 8px); width: 276px; height: 320px;
   background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline);
-  padding: 0; animation: scale-settle var(--d-small) var(--ease); font-size: var(--fs-14);
+  color: var(--text); font-size: 13px; line-height: 1.35;
 }
-.action-card:not(.docked) { left: 0; top: 0; }   /* (placed by translate: card.js moveTo) */
-/* One fixed size per kind of card, whatever text it holds: the header and foot keep their place, the controls scroll inside. */
-.action-card { height: min(600px, calc(100svh - 150px)); max-height: none; }
-/* On a short desktop window the card leaves room above the vitals dock (a 600 px card ran 4 px into it at 1180x820). */
-@media (min-width: 1024px) { .action-card:not(.docked) { height: min(600px, calc(100svh - 260px)); } }
-.action-card[data-card=organ], .action-card[data-card=lobule] { height: min(570px, calc(100svh - 150px)); }
-.action-card.docked { height: min(46%, 400px); max-height: min(46%, 400px); }
-/* The last vessel's contents fading out over the new ones (card.js, RF7): laid out as the card is, taking no taps. */
-.action-card > .ac-ghost { position: absolute; inset: 0; display: flex; flex-direction: column; pointer-events: none; }
-/* The same three parts on a desktop and on a phone: the top (title, reading) and the foot stay put, the controls scroll. */
-.ac-top { flex: none; padding: 12px 16px 0; }
-.ac-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px; }
-.action-card.ac-leaving:not(.docked) { pointer-events: none; animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
-.ac-head { display: flex; align-items: flex-start; gap: 8px; }
-.ac-titles { flex: 1; min-width: 0; }
-.ac-kicker { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); }
-.ac-head h3 { margin: 1px 0 0; font-size: var(--fs-16); font-weight: 600; letter-spacing: -.01em; line-height: 1.3; }
-.ac-close { width: 28px; height: 28px; margin: -4px -8px 0 0; }
-.ac-close :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); }
-.ac-readout { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin: 8px 0 12px; }
-.ac-value { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 10px; }
-.ac-num { display: inline-flex; align-items: baseline; gap: 0; white-space: nowrap; }   /* (the number's gap to its unit is the unit's own 3 px, as the Readouts tiles' 20 px numbers; it was 6 px here) */
+.action-card[data-size=l] { height: 352px; }
+.action-card[data-size=x] { height: 500px; }
+/* The card is glass, as every card (the plate is drawn by the figure's GPU glass: main.js sheetGlass), on the shelf and on a phone alike. */
+.action-card.has-plate { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
+.action-card.has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
+/* Its rows, top to bottom, spread over the card's height: the name, the bar, the readings, the controls, the actions. The last structure's
+   words fading out over the new ones (.ac-ghost, card.js) are laid out the same and take no taps. */
+.ac-body, .ac-ghost { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; padding: 16px 18px 14px; min-width: 0; overflow: hidden; }
+.ac-ghost { pointer-events: none; }
+.action-card [data-key]::after { display: none; }   /* (the number keys still work; the card shows no key marks) */
+.ac-nr { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
+.ac-name { display: block; flex: 0 1 auto; min-width: 0; margin: -4px 0; padding: 4px 0; border: 0; background: none; color: var(--text); font: 600 17px/1.25 var(--font-ui); letter-spacing: -.005em; text-align: left; cursor: pointer; }   /* (a long name, a shunt between two named veins, wraps: it is never cut) */
+.ac-name.plain { cursor: default; }
+.ac-name .ac-chev { display: inline-block; width: 14px; height: 14px; margin-left: 4px; vertical-align: -1px; color: var(--text-3); }
+.ac-nr .ac-state { flex: none; font-size: 13px; font-weight: 500; color: var(--text-2); white-space: nowrap; }
+.ac-nr .st-word.ok { color: var(--text-2); }
+.ac-nr :is(.st-word.rev, .st-word.bad) { color: var(--danger-ink); }
+.ac-nr .st-word.warn { color: var(--caution-ink); }
+/* The bar: inflow's pressure, a track in the pressure colours pointing to the outflow, outflow's pressure; above, the drop (Δ, PPG or
+   HVPG in its cut colour) and the end labels where they are clinical terms. The track's colour is one strip of the pressure ramp that a
+   transform slides and stretches (card.js spanEl): nothing is painted again as the pressures change. */
+.ac-sp { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 4px; }
+.ac-el { font-size: var(--fs-12); color: var(--text-3); height: 15px; line-height: 15px; letter-spacing: .02em; }
+.ac-el.r { text-align: right; }
+.ac-dv { font-size: 12.5px; line-height: 15px; color: var(--text-2); font-weight: 500; text-align: center; white-space: nowrap; }
+.ac-dv b { font-weight: 600; color: var(--text); }
+.ac-dv .ac-cut.ok { color: var(--ok-ink); }
+.ac-dv .ac-cut.caution { color: var(--caution-ink); }
+.ac-dv .ac-cut.danger { color: var(--danger-ink); }
+.ac-pa, .ac-pb { display: block; font-size: 22px; font-weight: 500; line-height: 1; letter-spacing: -.01em; white-space: nowrap; }
+.ac-pb { text-align: right; }
+.ac-pb u, .ac-u { text-decoration: none; font-size: var(--fs-12); color: var(--text-3); font-weight: 500; margin-left: 3px; letter-spacing: 0; }
+.ac-track { position: relative; height: 8px; min-width: 18px; overflow: hidden; border-radius: 3px 0 0 3px; clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 0 100%); }
+.ac-ramp { position: absolute; inset: 0; transform-origin: 0 50%; }
+/* A structure with no inflow and outflow (the heart, the spleen, the varices, a lobule part): its one reading. */
+.ac-value { display: flex; align-items: baseline; min-height: 24px; }
+.ac-num { display: inline-flex; align-items: baseline; gap: 0; white-space: nowrap; }   /* (the number's gap to its unit is the unit's own 3 px, as the Readouts tiles' numbers) */
+.ac-value b { font-size: 22px; font-weight: 500; letter-spacing: -.01em; line-height: 1; }
+.ac-value .unit { font-size: var(--fs-12); margin-left: 3px; }
+.ac-value .unit { color: var(--text-3); }
+.ac-delta { margin-left: 10px; font-size: var(--fs-12); font-weight: 600; }
+.ac-delta.up, .ac-delta.down { color: var(--text); }   /* (a change is in its reading's colour, as the figure's callouts) */
+.ac-unmeasured { color: var(--text-3); font-style: italic; font-size: var(--fs-14); }
 .ac-state:empty { display: none; }
 .ac-state { transition: none; }
+/* The readings, named by their units (a name only where the unit would not say it: Portal, Arterial, Grade). */
+.ac-rs { display: flex; gap: 20px; font-size: 15px; font-weight: 500; white-space: nowrap; min-width: 0; }
+.action-card:not(.docked) .ac-rs { font-size: 16px; justify-content: space-between; gap: 8px; }
+.action-card[data-size=x] .ac-rs { flex-wrap: wrap; row-gap: 4px; justify-content: flex-start; column-gap: 16px; font-size: 14px; }
+.ac-r { display: inline-flex; align-items: baseline; min-width: 0; }
+.ac-em { font-style: normal; font-size: 12px; color: var(--text-3); font-weight: 500; margin-right: 5px; }
+/* A lobule part's words (the one card that keeps them), whole at its size. */
+.ac-about { flex: 1 1 auto; min-height: 0; font-size: var(--fs-12); line-height: 1.45; color: var(--text-2); }
+.ac-about p { margin: 0 0 4px; } .ac-about p:last-child { margin-bottom: 0; }
+.ac-about p + p { color: var(--text); }
+/* The controls: two to a row on a phone, one on the shelf; each its icon, its word and its value, over the app's own slider, meter or switch. */
+.ac-cs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 18px; }
+.ac-cs.one, .action-card:not(.docked) .ac-cs { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.ac-c { display: flex; flex-direction: column; gap: 6px; min-width: 0; position: relative; }
+.ac-segrow { grid-column: 1 / -1; }
+.ac-c .ctl-top { display: flex; align-items: center; gap: 6px; height: 16px; min-width: 0; font-size: 12.5px; color: var(--text-2); white-space: nowrap; }
+.ac-c .ctl-val { margin-left: auto; color: var(--text); font-variant-numeric: tabular-nums; }
+.ac-ic { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); flex: none; }
+.ac-c .ac-ic { width: 16px; height: 16px; }
+.ac-c .range-wrap { margin: -6px 0 -8px; }
+.ac-ticks { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.ac-tick { position: absolute; top: calc(50% + 5px); width: 1px; height: 5px; margin-left: -.5px; background: var(--text-3); left: calc(var(--tw) / 2 + (100% - var(--tw)) * var(--t, 0)); }
+.ac-meter { position: relative; height: 6px; margin: 5px 0; border-radius: 3px; overflow: hidden; background: color-mix(in srgb, var(--text) 10%, transparent); }
+.ac-meter-fill { position: absolute; inset: 0; border-radius: inherit; background: color-mix(in srgb, var(--accent) 60%, transparent); transform-origin: 0 50%; transform: scaleX(0); }
+.ac-toggle { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ac-toggle .ctl-top { height: 18px; }
+.ac-toggle .switch-vis { margin-left: auto; }
+.ac-seg button { padding: 4px 8px; font-size: var(--fs-12); }
+.ac-seg.small button { padding: 4px 8px; font-size: var(--fs-12); }
+/* The actions: the app's icon and one word, in the accent; taking a device out (Remove) in red at the right. */
+.ac-as { display: flex; align-items: center; gap: 20px; min-width: 0; }
+/* What the card reads sits at the top and what it does at the foot; the room a short card has left goes between the two, never between rows. */
+:is(.ac-body, .ac-ghost) > .ac-cs, :is(.ac-body, .ac-ghost) > .ac-as:not(.ac-cs + .ac-as) { margin-top: auto; }
+:is(.ac-body, .ac-ghost) > .ac-cs + .ac-as { margin-top: 6px; }
+.action-card:not(.docked) .ac-as { gap: 6px 16px; flex-wrap: wrap; }
+.ac-btn { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; color: var(--accent-ink); font: 500 13px/1.2 var(--font-ui); white-space: nowrap; cursor: pointer; transition: scale var(--d-flip) var(--ease); }
+.ac-btn .ac-ic { width: 18px; height: 18px; color: currentColor; }
+.ac-btn.danger { color: var(--danger-ink); margin-left: auto; }
+.ac-btn.on { color: var(--accent-ink); }
+.ac-dye { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.ac-dye.on .ac-ic { color: var(--dye-icon); }
+.ac-bl { min-width: 0; }
+/* A phone: the card above the view switch, the screen's width less 12 px each side (B). */
+.action-card.docked {
+  left: calc(env(safe-area-inset-left) + 12px) !important; right: calc(env(safe-area-inset-right) + 12px); top: auto !important; bottom: calc(env(safe-area-inset-bottom) + 6px);
+  width: auto; height: 224px;
+}
+.action-card.docked[data-size=l] { height: 300px; }
+.action-card.docked[data-size=x] { height: 400px; }
+.action-card.docked :is(.ac-body, .ac-ghost) { padding: 14px 16px 12px; gap: 6px; touch-action: none; }
+.action-card.docked .ac-name { font-size: 16px; }
+/* With Measure / Instruments open on a phone the card rises above the sheet. */
+.app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); }
+/* The sheet may grow as far as the screen allows with the card above it: its tallest size leaves room for a full card. */
+.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - 36dvh - 8px); }
+/* How it comes and goes (B): on the shelf it slides in 16 px from the left as it fades in and fades back 8 px toward the edge; on a phone
+   it rises 24 px and sinks 16 px. The plate (the glass) and the words move together; the box holds still so the leave ends on it. */
+.action-card > :is(.sheet-plate, .ac-body, .ac-ghost) { --edge-o: 0; --edge-x: -16px; --edge-y: 0px; }
+.action-card.ac-leaving > * { --edge-x: -8px; }
+.action-card.docked > :is(.sheet-plate, .ac-body, .ac-ghost) { --edge-x: 0px; --edge-y: 24px; }
+.action-card.docked.ac-leaving > * { --edge-y: 16px; }
+.action-card.ac-in > :is(.sheet-plate, .ac-body) { animation: slide-from-edge var(--d-small) var(--ease-arrive) backwards; }
+.action-card.ac-leaving { pointer-events: none; animation: sheet-hold calc(var(--d-flip) * 4 / 3) var(--ease) forwards; }
+.action-card.ac-leaving > * { animation: slide-to-edge calc(var(--d-flip) * 4 / 3) var(--ease-in) forwards; }
+[data-key]::after { content: attr(data-key); font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; line-height: 15px; }
 /* A status is a coloured word, as the data card tiles' status words (17 Oct, V5): the card's after its reading,
    Details' under the name. */
 .st-word { font-size: var(--fs-14); font-weight: 600; color: var(--text-2); }
@@ -1293,127 +1379,10 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .st-word.warn { color: var(--caution-ink); }
 .st-word.rev { color: color-mix(in srgb, var(--flow-reversed) 85%, var(--text)); }
 .st-word.bad { color: var(--danger-ink); }
-.ac-value b { font-size: var(--fs-20); font-weight: 600; letter-spacing: -.02em; }
-.ac-value .unit { font-size: var(--fs-12); margin-left: 3px; }
-.ac-delta { margin-left: 10px; font-size: var(--fs-12); font-weight: 600; }
-.ac-delta.up, .ac-delta.down { color: var(--text); }   /* (a change is in its reading's colour, as the figure's callouts) */
-.ac-unmeasured { color: var(--text-3); font-style: italic; font-size: var(--fs-14); }
-.ac-body { display: flex; flex-direction: column; gap: 8px; padding: 12px 0 8px; border-top: 1px solid var(--hairline); }
-.ac-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: var(--fs-14); color: var(--text); }
-.ac-ic { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; color: var(--text-2); flex: none; }
-.ac-slider, .ac-drain { display: flex; flex-direction: column; gap: 4px; position: relative; }
-.ac-row { display: flex; flex-direction: column; gap: 4px; }
-.ac-seg button { padding: 4px 8px; font-size: var(--fs-12); }
-.ac-seg.small button { padding: 4px 8px; font-size: var(--fs-12); }
-.ac-btn, .ac-toggle {
-  position: relative; display: flex; align-items: center; gap: 8px; width: 100%; min-height: 34px; padding: 8px 12px; border-radius: var(--r-card);
-  border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: var(--fs-14); font-weight: 500; cursor: pointer; text-align: left;
-  transition: scale var(--d-flip) var(--ease);
-}
-@media (hover: hover) { .ac-btn:hover:not(:disabled), .ac-toggle:hover:not(:disabled) { background: var(--surface-2); border-color: var(--border-strong); } }
-.ac-btn:disabled, .ac-toggle:disabled { opacity: .45; cursor: not-allowed; }
-.ac-btn.on { border-color: var(--accent-line); background: var(--accent-soft); color: var(--accent-ink); }
-.ac-btn.on .ac-ic { color: var(--accent-ink); }
-.ac-btn.danger { color: var(--danger-ink); }
-.ac-dye { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-.ac-dye.on .ac-ic { color: var(--dye-icon); }
-.ac-btn.danger .ac-ic { color: currentColor; }
-.ac-bl, .ac-tl { flex: 1; min-width: 0; }
-[data-key]::after { content: attr(data-key); font: 500 var(--fs-12) var(--font-mono); color: var(--text-3); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; line-height: 15px; }
-.ac-slider[data-key]::after { position: absolute; right: 0; top: -1px; display: none; }
+.mi-ic { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; } .mi-ic.ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
 .ac-toggle .switch-vis { position: relative; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--surface-3); box-shadow: inset 0 0 0 1px var(--hairline); flex: none; transition: none; }
 .ac-toggle .switch-vis i { position: absolute; left: 2px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--light-ink); box-shadow: 0 1px 2px rgb(var(--black-rgb) / .25); transition: transform var(--d-small) var(--ease); transform-origin: left center; }
-.ac-toggle[aria-checked="true"] .switch-vis { }   /* (its accent is the track's ::before, crossfaded) */
 .ac-toggle[aria-checked="true"] .switch-vis i { transform: translateX(12px); transform-origin: right center; }
-.ac-toggle[data-key]::after { order: 3; }
-.ac-about { order: 99; font-size: var(--fs-12); line-height: 1.5; color: var(--text-2); }
-.ac-about p { margin: 0 0 6px; } .ac-about p:last-child { margin-bottom: 0; }
-.ac-about p + p { color: var(--text); }
-.ac-note { font-size: var(--fs-12); color: var(--text-2); line-height: 1.45; padding: 4px 2px 0; }
-.ac-btn-wrap { display: flex; flex-direction: column; }
-.ac-btns { display: contents; }
-.ac-stats { display: contents; }
-.ac-stat { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-12); color: var(--text-2); padding: 2px 1px; }
-.ac-stat b { color: var(--text); font-weight: 600; }
-.ac-link { align-self: flex-start; display: inline-flex; align-items: center; gap: 2px; font-size: var(--fs-14); }
-.ac-drain-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ac-drain-row .ac-btn { width: auto; }
-.ac-drain-row .check-row { padding: 2px 0; font-size: var(--fs-12); }
-.ac-foot { flex: none; display: flex; justify-content: space-between; margin: 0; padding: 6px 16px 10px; border-top: 1px solid var(--hairline); }
-.ac-foot.in-head { display: none; }
-.ac-foot .link { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-14); }
-.mi-ic { width: var(--ic-s); height: var(--ic-s); stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; } .mi-ic.ic { -webkit-mask-image: url("../brand/icons/icons-r.png"); mask-image: url("../brand/icons/icons-r.png"); background-color: currentColor; }
-/* Phone: a bottom sheet, sitting at the bottom of the figure column (over the play row, above the readouts), sized to what is in it so nothing is wasted: the header (kind, Why?, Details, close; name; the
-   reading) is fixed and the controls follow. A tap on the handle folds it to a strip with just the header. Only a card with
-   more controls than fit (a few liver compartments) scrolls, with a fade at the bottom to show there is more. */
-.action-card.docked {
-  left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; max-height: min(46%, 400px);
-  border-radius: var(--r-sheet) var(--r-sheet) 0 0; font-size: var(--fs-14);
-}
-.action-card.docked.peek .ac-scroll { display: none; }
-.action-card.docked.peek .ac-top { padding-bottom: 12px; }
-/* With Measure / Instruments open on a phone the info card does not hide under it: it rises above the sheet with its
-   controls (they scroll inside it), and the sheet takes less height while a card is open so both can be used at once. */
-.app.dock-open:not(.instrument-focus) .action-card.docked { bottom: var(--bot-occ, 0px); height: auto; max-height: min(36dvh, calc(100% - var(--bot-occ, 0px) - var(--top-safe, 0px) - 8px)); border-radius: var(--r-sheet); }
-.app.dock-open:not(.instrument-focus) .action-card.docked .ac-top { padding-bottom: 10px; }
-/* The sheet may grow as far as the screen allows with the card above it: its tallest size leaves room for a full card. */
-.app.dock-open:not(.instrument-focus):has(.action-card.docked:not([hidden])) .instrument-workspace.float-ui:not(.side) { max-height: calc(100% - var(--top-safe, 0px) - 36dvh - 8px); }
-.action-card.docked .ac-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 2px; align-items: center; padding: 2px 12px 4px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
-.action-card.docked .ac-head, .action-card.docked .ac-titles, .action-card.docked .ac-readout { display: contents; }
-/* The header is one grid. Line 1: the kind, the two links and the close button. Line 2: the name, with the reading at the
-   right. Line 3 (when there is one): the status. */
-.action-card.docked .ac-kicker { grid-column: 1; grid-row: 2; font-size: var(--fs-12); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.action-card.docked .ac-foot.in-head { display: flex; grid-column: 2; grid-row: 2; padding: 0; border: 0; gap: 0; }
-.action-card.docked .ac-foot.in-head .link { display: inline-flex; align-items: center; gap: 3px; min-height: 28px; padding: 0 8px; font-size: var(--fs-12); font-weight: 600; }
-.action-card.docked .ac-foot.at-foot { display: none; }
-.action-card.docked .ac-close { grid-column: 3; grid-row: 2; width: 28px; height: 28px; margin: 0 -6px 0 0; }
-.action-card.docked .ac-close :is(svg, .ic) { width: var(--ic-s); height: var(--ic-s); }
-.action-card.docked .ac-head h3 { grid-column: 1; grid-row: 3; margin: 0; font-size: var(--fs-14); line-height: 1.25; padding-right: 8px; }
-.action-card.docked .ac-value { grid-column: 2 / -1; grid-row: 3; justify-self: end; }
-.action-card.docked .ac-value b { font-size: var(--fs-20); }
-.action-card.docked .ac-scroll { padding: 0 12px 10px; position: relative; }
-.action-card.docked .ac-body { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 5px; padding: 3px 0 2px; }
-/* Sliders, readouts and notes take the whole row; buttons and switches sit two to a row. */
-.action-card.docked .ac-body > .ac-slider, .action-card.docked .ac-body > .ac-row, .action-card.docked .ac-body > .ac-link, .action-card.docked .ac-body > .ac-btn-wrap.wide,
-.action-card.docked .ac-body > .ac-drain, .action-card.docked .ac-body > .ac-btn-wrap:has(.ac-note:not([hidden])), .action-card.docked .ac-body > .ac-about { grid-column: 1 / -1; }
-.action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 34px; padding: 3px 10px; }
-/* Three buttons in a row share it as compact tiles: the icon over the name. */
-.action-card.docked .ac-body > .ac-btns.tri { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
-.action-card.docked .ac-btns.tri .ac-btn { flex-direction: column; justify-content: center; gap: 1px; min-height: 42px; padding: 3px 4px; font-size: var(--fs-12); text-align: center; }
-.action-card.docked .ac-btns.tri .ac-bl { flex: none; max-width: 100%; white-space: normal; overflow-wrap: break-word; line-height: 1.2; }
-.action-card.docked .ac-toggle .ac-tl { line-height: 1.2; }
-.action-card.docked .ac-seg button { padding: 4px 6px; }
-.action-card.docked .ac-row { gap: 3px; }
-.action-card.docked .ac-row .ac-label { font-size: var(--fs-12); color: var(--text-2); font-weight: 500; }
-.action-card.docked .ac-body > .ac-stats { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; row-gap: 2px; }
-.action-card.docked .ac-stats > .ac-stat:only-child { grid-column: 1 / -1; }
-.action-card.docked .ac-stat { padding: 0 1px; align-items: baseline; }
-/* A slider is one row: name, track, value (a long name takes a line of its own above the track and the value). */
-.action-card.docked .ac-slider { display: grid; align-items: center; column-gap: 10px; row-gap: 0; }
-.action-card.docked .range-wrap, .action-card.docked input[type=range] { height: 28px; }
-.action-card.docked .ac-slider:not(.long) { grid-template-columns: minmax(92px, max-content) minmax(0, 1fr) auto; }
-.action-card.docked .ac-slider .ac-label { white-space: nowrap; gap: 6px; }
-.action-card.docked .ac-slider .ctl-val { font-variant-numeric: tabular-nums; }
-.action-card.docked .ac-slider:not(.long) .ctl-top { display: contents; }
-.action-card.docked .ac-slider:not(.long) .ac-label { grid-column: 1; grid-row: 1; }
-.action-card.docked .ac-slider:not(.long) .range-wrap { grid-column: 2; grid-row: 1; min-width: 0; }
-.action-card.docked .ac-slider:not(.long) .ctl-val { grid-column: 3; grid-row: 1; min-width: 3.2em; text-align: right; }
-.action-card.docked .ac-slider:not(.long) .ctl-sub { grid-column: 1 / -1; grid-row: 2; }
-.action-card.docked .ac-slider:not(.long) .ac-info { grid-row: 3; }
-.action-card.docked .ac-slider.long { grid-template-columns: minmax(0, 1fr); row-gap: 0; }
-.action-card.docked .ac-slider .ctl-sub { font-size: var(--fs-12); line-height: 1.3; }
-.action-card.docked .ac-note { font-size: var(--fs-12); padding-top: 2px; }
-/* On a short phone the sheet slims down further: thinner rows, and the explanatory captions under sliders drop out. */
-@media (max-height: 720px) {
-  .action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 34px; padding: 3px 10px; }
-  .action-card.docked .ac-body { gap: 4px; padding: 4px 0 2px; }
-  .action-card.docked .ac-slider .ctl-sub { display: none; }
-  .action-card.docked .ac-seg button { padding: 2px 6px; }
-  .action-card.docked .ac-foot.in-head .link { min-height: 26px; }
-  .action-card.docked .ac-top { padding-bottom: 4px; }
-}
-/* A card that has to scroll fades out at the bottom, so it is plain there is more. */
-.action-card.docked .ac-scroll.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 22px), transparent); }
 /* The figure's own buttons (Fit, turn) ride above the sheet instead of under it. */
 .stage-fit, .stage-rotate, .stage-clock { translate: 0 calc(-1 * var(--sheet-h, 0px)); transition: translate var(--d-small) var(--ease); }
 .hover-tip .hint { margin-top: 6px; font-size: 12px; color: var(--text-3); letter-spacing: .01em; }
@@ -3277,7 +3246,6 @@ button.finding { cursor: pointer; }
 .organ-heart-ra .org-rimlight { stroke-opacity: .2; }
 .organ-heart-ra .org-shade.s1, .organ-heart-ra .org-shade.s2, .organ-heart-ra .org-shade.s3 { stroke-opacity: .05; }
 .organ-kidney-l .org-line { stroke-width: 1.4; stroke-opacity: .95; }
-.action-card.docked [data-key]::after, .action-card.docked .ac-slider[data-key]::after { display: none; }
 /* Every live number uses tabular figures, so digits hold still as the model runs. */
 .metric,
 .vital,
@@ -3823,8 +3791,6 @@ button.finding { cursor: pointer; }
 
 /* Focus: while the figure is dragged, pinched or scrolled, the floating pieces step back. */
 .float-ui, .stage-fit, .stage-rotate { transition: opacity var(--d-surface, .42s) var(--ease); }
-/* (The desktop card keeps its left/top glide with the fade: a new vessel moved it 23 px in one frame; round 2 review, RF7.) */
-.action-card:not(.docked) { transition: opacity var(--d-small) var(--ease); }   /* (its moves glide by translate: card.js moveTo, RF7) */
 /* The floating pieces step back while the figure moves (premium-feel R7: .55 once it has moved for 120 ms, over 240 ms, back over 420 ms), but
    never as a see-through glass (3 Nov 2026, "the figure draws over the UI", iPhone): a bar's own glass at .55 let the GPU's vessels, arrows and
    labels show through it crisp and unfrosted. So the piece fades as a whole only where its glass is the GPU's frosted plate (.has-plate: the
@@ -3973,7 +3939,7 @@ button.finding { cursor: pointer; }
 .um-col.more, .um-cols.more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent); }
 /* Scroll edges (scroll-edges.js): a list that scrolls fades 12 px at an end only while there is more beyond it, the depth easing on
    --d-small; the mask is on the scrolling element itself, never on its glass. Placed after the .more fades above, which it takes over from. */
-.um-col.se, .um-cols.se, .tc-body.se, .ac-scroll.se, .action-card.docked .ac-scroll.se, .instrument-workspace .dock-pane.se {
+.um-col.se, .um-cols.se, .tc-body.se, .instrument-workspace .dock-pane.se {
   --se-d: 12px;
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent);
   mask-image: linear-gradient(to bottom, transparent, #000 calc(var(--sedge-t) * var(--se-d)), #000 calc(100% - var(--sedge-b) * var(--se-d)), transparent); }
@@ -4175,8 +4141,6 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .zoom-pill .stage-rotate { display: inline-grid; }
 .zoom-pill.no-room { visibility: hidden; }
 
-/* A vessel's card stays between the top bar and the dock. */
-.action-card:not(.docked) { max-height: calc(100% - var(--top-safe) - var(--bot-occ, 120px) - 16px); }
 
 /* Cards on the right stack side by side instead of covering each other. */
 .treat-card { right: calc(env(safe-area-inset-right) + var(--gap) + var(--panel-occ, 0px) + var(--instr-occ, 0px)); }
@@ -4436,18 +4400,6 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
   translate: none;
 }
 
-/* The card's leader line to its structure, when the card sits away from it. */
-.ac-leader { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: calc(var(--z-hud) - 1); opacity: 0; transition: opacity var(--d-small) var(--ease); }
-/* (The leader as two boxes placed by transforms, card.js drawLeader: a 1.2 px dashed line from its left end, 3 px dashes and gaps, and a
-   ring of 2 px accent round the surface, 8 px across, centred on the anchor.) */
-.ac-leader .ac-lline { position: absolute; left: 0; top: -.6px; height: 1.2px; transform-origin: 0 50%; opacity: .8; background: repeating-linear-gradient(90deg, var(--text-2) 0 3px, transparent 3px 6px); }
-.ac-leader .ac-ldot { position: absolute; left: -5px; top: -5px; width: 10px; height: 10px; box-sizing: border-box; border-radius: 50%; background: var(--surface); border: 2px solid var(--accent); }
-.ac-leader.on { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .ac-leader { transition: none; } }
-.stage-view.in-lobule .ac-leader { display: none; }
-
-/* The phone card sheet's third height: nearly the whole screen. */
-.action-card.docked.full { max-height: calc(100% - var(--top-safe) - 8px); }
 
 /* Sliders follow a finger anywhere on the track (util.js enhanceRanges), so the page must not scroll from them. */
 input[type="range"] { touch-action: none; }
@@ -4647,43 +4599,6 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 .readouts.lob:not(.all) .ro-group[data-group="lobule"] { --n: 4; }
 .readouts.lob.all .ro-group[data-group="lobule"] { order: -1; }
 
-/* Compact phone inspector: one identity row, one reading row, and short control rows.
-   Explanations stay in Why/Details; swipe down to close. */
-.action-card.docked {
-  left: calc(env(safe-area-inset-left) + 6px) !important;
-  right: calc(env(safe-area-inset-right) + 6px);
-  bottom: calc(env(safe-area-inset-bottom) + 6px);
-  max-height: min(38%, 280px);
-  border-radius: var(--r-sheet);
-}
-.action-card.docked .ac-top {
-  grid-template-columns: minmax(0, 1fr) auto 36px;
-  column-gap: 6px; row-gap: 2px; padding: 4px 12px 8px;
-}
-.action-card.docked .ac-kicker { display: none; }
-.action-card.docked .ac-head h3 {
-  grid-column: 1; grid-row: 1; padding: 0; font-size: var(--fs-14); line-height: 1.3;
-}
-.action-card.docked .ac-foot.in-head { grid-column: 2; grid-row: 1; gap: 2px; }
-.action-card.docked .ac-foot.in-head .link { min-height: 36px; padding: 0 2px 0 8px; gap: 2px; border-radius: var(--r-card); white-space: nowrap; }
-/* The header link is a word ("Details ›" or "Why?"), not a bare glyph. */
-.action-card.docked .ac-foot.in-head .link > .mi-ic:first-child { display: none; }
-.action-card.docked .ac-close { grid-column: 3; grid-row: 1; width: 36px; height: 36px; margin: 0; }
-.action-card.docked .ac-value { grid-column: 1 / -1; grid-row: 2; justify-self: start; min-width: 0; flex-wrap: wrap; }
-.action-card.docked .ac-value b { font-size: var(--fs-16); }
-.action-card.docked .ac-scroll { padding: 0 12px 8px; }
-.action-card.docked .ac-body { gap: 6px; padding: 8px 0 0; }
-.action-card.docked .ac-btn, .action-card.docked .ac-toggle { min-height: 36px; padding: 5px 8px; font-size: var(--fs-12); }
-.action-card.docked .ac-link,
-.action-card.docked .ac-about,
-.action-card.docked .ac-slider .ctl-sub { display: none; }
-.action-card.docked .ac-body > .ac-stats { column-gap: 12px; row-gap: 4px; }
-.action-card.docked .ac-note { line-height: 1.35; }
-.action-card.docked .ac-seg { display: flex; flex-wrap: wrap; }
-.action-card.docked .ac-seg button { min-height: 32px; }
-
-.action-card.docked { --edge-y: calc(100% + 12px); --edge-o: 0; animation: slide-from-edge var(--d-small) var(--ease); }
-.action-card.docked.ac-leaving { pointer-events: none; animation: slide-to-edge var(--d-flip) var(--ease-in) forwards; }   /* (its .18s: the play bar's return waits for it, timeline-return.test.js) */
 
 /* Lobule station labels share a centred anchor; leaders terminate behind the text. */
 .lz-lab { text-align: center; border-left: 0; padding: 2px 5px 4px; }
@@ -4762,11 +4677,9 @@ input, textarea, select, [contenteditable]:not([contenteditable="false"]),
 
 /* Cards keep their size as live numbers and notes change: tabular figures, reserved widths and heights. */
 .action-card, .tool-card, .panel, .hover-tip, .sb-banner { font-variant-numeric: tabular-nums; }
-.ac-readout { min-height: 34px; }
-.ac-value b { display: inline-block; min-width: 3.4ch; text-align: right; }
+.ac-value b { display: inline-block; }
 .ac-delta { display: inline-block; min-width: 5ch; }
 .ac-delta:empty { display: none; }   /* (the slot is always in the reading, so a change's coming and going rewrites its text, never rebuilds the reading) */
-.ac-stat b { min-width: 5ch; text-align: right; white-space: nowrap; }
 .hover-tip .rows { display: grid; grid-template-columns: 1fr minmax(5ch, auto) auto; align-items: baseline; color: var(--text-2); line-height: 1.7; text-align: right; }   /* (right: the number's own box is anonymous, so it takes its alignment from the grid, not from the b) */
 .hover-tip .r, .hover-tip .r b { display: contents; }
 .hover-tip .r .k { grid-column: 1; padding-right: 16px; text-align: left; }
@@ -6616,36 +6529,22 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    (4 Nov, Mohammad) The dock is never covered: the play bar, the timeline, the readouts and the tab row stay up and live, and every card
    and menu rests 8 px above the dock's top (--sheet-foot). Only the view pill, which floats in that slot, steps aside. It comes back
    a beat late (.3 s), so between two cards, while one has gone and the next is yet to rise, it does not blink in and out.) */
-.app.thumb:is(.dock-open, .panel-open, .menu-sheet-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(.sheet-layer > .menu:not(.leaving), .sheet-layer > .why-pop.as-sheet.show, body > .pal-back:not([hidden]):not(.leaving)) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
+.app.thumb:is(.dock-open, .panel-open, .menu-sheet-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden])) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(.sheet-layer > .menu:not(.leaving), .sheet-layer > .why-pop.as-sheet.show, body > .pal-back:not([hidden]):not(.leaving)) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
 .app.thumb .vdock:not(.mini) > .nb-views { transition: opacity var(--d-small) var(--ease) .3s, translate var(--d-small) var(--ease) .3s; }
 /* (Open, the tab row's top hairline is its edge ring on the outer edge, as on a card: its own top border goes, with 1 px more padding, so no fill shows above the line.) */
 @media (prefers-reduced-motion: no-preference) { .app.thumb .vdock:not(.mini) { --bar-sink: 6px; } }   /* (the rise; with reduced motion the bar only fades) */
 
 /* While a card covers the play bar, the bar's empty top row must not catch taps meant for the card's bottom edge (the Doppler's stent tiles sit there): only the tab row takes touches. */
 
-/* (15 Oct, Mohammad) A vessel's or organ's card on a phone is one of these cards too: it sits whole on the tab row's top
-   edge (the play bar steps aside, above), rises from behind the tab row and sinks back behind it, and stays out of the
-   way while Details is up over it. */
+/* (13 Nov 2026, B) A vessel's or organ's card on a phone stands above the view switch (which stays up and live), 12 px from each side:
+   8 px over the pill, which floats 42 px over the dock's top edge. It rises 24 px from where it stands and sinks back 16 px, and a pull down
+   puts it away (card.js) behind the dock, cut at the dock's top edge as the other sheets are. It stays out of the way while Details is up. */
 @media (max-width: 767px), (max-width: 1100px) and (orientation: portrait) {
   .app.thumb:not(.dock-open) .action-card.docked {
-    left: calc(env(safe-area-inset-left) + 6px) !important; right: calc(env(safe-area-inset-right) + 6px); bottom: var(--nb-occ, calc(var(--vdock-h) + 14px));
-    border-radius: var(--r-sheet); height: auto; max-height: min(46%, 400px, calc(100% - var(--top-safe, 0px) - var(--nb-occ, var(--vdock-h)) - 22px));
-    clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% + 8px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% + 8px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% + 8px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% + 8px), var(--r-sheet) calc(100% + 8px), calc(var(--r-sheet) * .5) calc(100% + 8px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% + 8px + var(--r-sheet) * .5), 0 calc(100% + 8px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px));
+    bottom: calc(var(--nb-occ, calc(var(--vdock-h) + 14px)) + 50px);
+    clip-path: polygon(-40px -40px, calc(100% + 40px) -40px, calc(100% + 40px) calc(100% + 40px), 100% calc(100% + 40px), 100% calc(100% + 50px + var(--r-sheet)), calc(100% - var(--r-sheet) * .134) calc(100% + 50px + var(--r-sheet) * .5), calc(100% - var(--r-sheet) * .5) calc(100% + 50px + var(--r-sheet) * .134), calc(100% - var(--r-sheet)) calc(100% + 50px), var(--r-sheet) calc(100% + 50px), calc(var(--r-sheet) * .5) calc(100% + 50px + var(--r-sheet) * .134), calc(var(--r-sheet) * .134) calc(100% + 50px + var(--r-sheet) * .5), 0 calc(100% + 50px + var(--r-sheet)), 0 calc(100% + 40px), -40px calc(100% + 40px));
   }
   .app.thumb.panel-open .action-card.docked { visibility: hidden; transition: visibility 0s linear var(--d-small); }
-  /* No X on a phone card: a pull down puts it away (card.js wireSheet), as the others. */
-  .app.thumb:not(.dock-open) .action-card.docked.has-plate { background: transparent; box-shadow: none; overflow: visible; isolation: isolate; }
-  .app.thumb:not(.dock-open) .action-card.docked.has-plate > .sheet-plate { display: block; position: absolute; inset: 0; z-index: -1; border-radius: inherit; --gl-glass: 1; --gl-tint: var(--glass-tint); background: var(--surface); box-shadow: var(--shadow-3), inset 0 0 0 1px var(--hairline); pointer-events: none; }
-  .app.thumb .action-card.docked .ac-close { display: none; }
-  .app.thumb .action-card.docked .ac-top { grid-template-columns: minmax(0, 1fr) auto; }
-}
-@media (max-width: 767px) and (prefers-reduced-motion: no-preference), (max-width: 1100px) and (orientation: portrait) and (prefers-reduced-motion: no-preference) {
-  /* (W4) A phone's vessel or organ card slides like the other sheets: its plate and content rise from behind the dock under the still cut
-     (.ac-in is on only for the entrance, so a rebuilt card does not slide again) and sink back, 240 ms each way. */
-  .app.thumb:not(.dock-open) .action-card.docked.has-plate { animation: none; }
-  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-in > * { animation: sheet-rise var(--d-small) var(--ease-arrive) backwards; }
-  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving { animation: sheet-hold var(--d-small) var(--ease) forwards; }
-  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving > * { animation: sheet-sink var(--d-small) var(--ease-in) forwards; }
 }
 
 /* (17 Oct, Mohammad) An upright iPad has the iPhone's bottom bar and cards, "scaled down proportionally, similar to how much we
@@ -7421,9 +7320,9 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    wide card (Mohammad, 19 Oct). Source Serif 4 is the variable file with its optical-size axis (8 to 60), and Inter has one too (14 to 32),
    so optical sizing is left on explicitly: a display size gets the display cut. Kerning is set on rather than left to `auto`. */
 body { font-optical-sizing: auto; font-kerning: normal; }
-:is(.p-title h2, .ac-head h3, .modal h2) { text-wrap: balance; }
-:is(.pz-h, .pz-panel .pz-dtitle, .modal h2, .p-title h2, .ac-head h3) { hanging-punctuation: first; }
-:is(.pz-check, .pz-outline :is(ol, ul), .pzc-row, .ac-about, .ac-note) { text-wrap: pretty; }
+:is(.p-title h2, .modal h2) { text-wrap: balance; }
+:is(.pz-h, .pz-panel .pz-dtitle, .modal h2, .p-title h2) { hanging-punctuation: first; }
+:is(.pz-check, .pz-outline :is(ol, ul), .pzc-row, .ac-about) { text-wrap: pretty; }
 
 /* Windows high contrast (forced colours) removes backgrounds and shadows, so a control that shows "on" or "selected" by a fill alone, or a focus ring that is a
    box-shadow, shows nothing. The on and selected states are given system colours and the switches an edge. Nothing here applies in any other mode. */

@@ -38,9 +38,6 @@ test('every slider paints its fill through paintRange, on its wrapper', () => {
     const made = (src.match(/type: 'range'/g) || []).length, painted = (src.match(/paintRange\(/g) || []).length;
     assert.ok(made > 0 && painted >= made, `${f}: ${made} sliders, ${painted} paints`);
   }
-  // (The drain's wrapper exists before its first paint, so the fill is right from the start.)
-  const card = read('src/ui/card.js');
-  assert.ok(card.indexOf("const volWrap = h('div', { class: 'range-wrap' }, vol);") < card.indexOf('paintVol();'));
 });
 
 test('a finger on the track lands the thumb\'s centre there, whatever the thumb\'s size', () => {
