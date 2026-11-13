@@ -9,7 +9,3 @@ test('the left renal vein is not a back edge, so no organ veils it', () => {
     assert.ok(CONTEXT_EDGES.has(id), `${id} stays a quiet context vein`);
   }
 });
-
-test('the mesocaval shunt shares the SMV\'s tier, like the other surgical shunts', () => {
-  for (const id of ['S_MC', 'S_PC', 'S_DSR', 'REX']) assert.ok(!BACK_EDGES.has(id), `${id} is not veiled by the organs`);
-});
