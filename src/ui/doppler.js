@@ -222,7 +222,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     propSoon(wrap, 'hidden', !on);
     if (on && wrap.isConnected && shown()) runSoon(wrap._fade);   // (after the hidden flip lands: the fade starts from the row shown)
   };
-  const stats = h('dl', { class: 'dop-stats' }, ['Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
+  const stats = h('dl', { class: 'dop-stats' }, ['Speed', 'Peak', 'Trough', 'Pulsatility', 'CI', 'Proximal', 'Mid', 'Distal'].map((k) => {
     const dd = h('dd', {}, '—');
     const seg = SEGS.find(([, name]) => name === k)?.[0];
     // A stent segment's tile is a button (the name inside the term; its ::after covers the whole tile, so a tap anywhere on it samples there).
@@ -230,7 +230,8 @@ export function createDoppler({ onProbe, pickGate = true }) {
     btn?.addEventListener('click', () => pickSeg(seg));
     if (btn) btn._label = () => attrSoon(btn, 'aria-label', `${k}, ${num(btn._v)} centimeters per second${btn._here ? ', sampling here' : ''}. Activate to sample here.`);
     // (the Peak tile is named Max: the highest point of the last 3 s, beside the big reading, which is the spectrum's peak averaged over time)
-    const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn };
+    // (the Speed tile is the reading against its usual range, in place of the long range bar: it turns to the caution colour outside it, and its title names the range)
+    const wrap = h('div', k === 'Peak' ? { title: 'Highest velocity in the last 3 s' } : k === 'Speed' ? { class: 'dop-speed', hidden: true } : {}, h('dt', {}, btn || (k === 'Peak' ? 'Max' : k)), dd); statEls[k] = { dd, wrap, btn };
     wrap._flip = () => flipStat(wrap); wrap._fade = () => wrap.animate?.(FADE_KEYS, FADE_OPTS);
     return wrap;
   }));
@@ -513,6 +514,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   function updateGauge(p, mean, expected = false) {
     gaugeP = p; gaugeMean = mean; gaugeExpected = expected;
     const normal = normalOf(p);
+    showStat(statEls.Speed.wrap, !!normal);
     if (!normal) { propSoon(rangeEl, 'hidden', true); dataSoon(velEl, 'out', 'false'); return; }
     // (A range with no ceiling, the portal vein with a stent in, runs its band to the gauge's end and names only its floor.)
     const n0 = normal[0], n1 = normal[1], open = !Number.isFinite(n1);
@@ -520,7 +522,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     gaugeLo = Math.min(0, Math.floor(mean * 1.1));
     propSoon(rangeEl, 'hidden', false);
     const outNow = !expected && (mean < n0 || mean > n1) ? 'true' : 'false';
-    dataSoon(rangeEl, 'out', outNow); dataSoon(velEl, 'out', outNow);
+    dataSoon(rangeEl, 'out', outNow); dataSoon(velEl, 'out', outNow); dataSoon(statEls.Speed.wrap, 'out', outNow);
     // (The gauge's numbers are kept, and its transforms, words and title written from them in a task of their own straight after the
     // frame, once however many readings came: no style or string made inside a frame.)
     gaugeN0 = n0; gaugeN1 = n1; gaugeOpen = open; gaugeP0 = pos(n0); gaugeP1 = pos(n1); gaugePm = pos(mean); gaugePz = pos(0);
@@ -543,6 +545,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     // 5 cm/s short of the band's end.)
     set2(gLo, String(gaugeN0)); set2(gHi, gaugeOpen ? '' : String(gaugeN1));
     rangeEl.title = gaugeOpen ? `Usual ≥${gaugeN0} cm/s` : `Usual ${gaugeN0}–${gaugeN1} cm/s`;
+    statEls.Speed.wrap.title = rangeEl.title;
   }
   // A slide's own state (its fingerprint's network, presenter dataTo → tools.pin): the probed vessel's velocity as the scanner reads it.
   let pinAt = null;
@@ -611,6 +614,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
     const sv = SHOWN.get(probe) || SHOWN.get(PROBES[0].id);
     sv.v = Math.abs(mean); sv.t = performance.now(); sv.seg = isStentProbe() ? gateOf() : null; sv.open = open;
     shownVel.set(probe, sv);
+    setStat(statEls.Speed.dd, num(drawn, Math.abs(drawn) < 10 ? 1 : 0), 'cm/s');
     updateGauge(p, mean, it.expected);   // (the headline's own number: the marker read 23.5 under a headline of 22, sweep batch 04, shot 12)
     patFull = it.pattern || ''; set(patternEl, STEPS[stripStep][2] ? shortPat(patFull) : patFull);
     // peak: the extreme farthest from zero, whichever the direction

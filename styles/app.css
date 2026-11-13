@@ -4308,7 +4308,7 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 /* On that short card each test's picture takes the room left and its notes give way: a roomier top and foot, the Doppler's spectrum a wide strip (its
    readings and range stay under it), and Readouts one group at a time (its switch, readouts-pane.js; the groups are all shown elsewhere). */
 .instrument-workspace.side .dock-pane { padding-top: 10px; padding-bottom: 12px; }
-.instrument-workspace.side .instrument-view.dop .dop-box { --ar: 3.6; }
+.instrument-workspace.side .instrument-view.dop .dop-box { --ar: 2.5; }   /* (13 Nov 2026: the range bar is the Speed tile now, so the spectrum takes the room it freed: 2.5, not a 3.6 strip) */
 .instrument-workspace.side .dop-report > .dop-note { display: none; }
 .instrument-workspace.side .instrument-view.wall-view .endo-stage { --stage-min: 96px; }
 .instrument-workspace.side .instrument-view.wall-view { gap: 8px; }
@@ -5662,6 +5662,10 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .pz:not(.stack) .pz-tool .dop .dop-velrow { flex-wrap: wrap; }
 .dop-range { margin: 10px 8px 14px; }
 .dop-range[hidden] { display: none; }
+/* The usual range is the Speed tile (doppler.js) in the Tests card, in place of this long bar (Mohammad, 13 Nov 2026: "make the speed a tile with the rest of the tiles"); a slide's card keeps the bar and has no Speed tile. */
+.instrument-workspace .dop-range { display: none; }
+.dop-speed { display: none; }
+.instrument-workspace .instrument-view.dop .dop-stats { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
 .dop-track { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); container-type: inline-size; }
 .dop-band { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; transform-origin: 0 50%; border-radius: 4px; background: var(--ok); opacity: .45; transition: translate var(--d-surface) var(--ease), scale var(--d-surface) var(--ease); }
 /* (The band in three pieces, doppler.js BAND_CAPS: a middle stretched by scale and two round ends moved by translate, all under the
