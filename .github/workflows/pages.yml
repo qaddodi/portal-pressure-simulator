@@ -30,31 +30,13 @@ jobs:
   # Gates main's deploy only.
   validate:
     if: github.ref_name == 'main'
-    runs-on: ubuntu-24.04
     concurrency:
       group: validate-${{ github.ref }}
       cancel-in-progress: false
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      # The unit tests keep every deck's slide states in node_modules/.cache (tests/deck-states.js); a miss only warns.
-      - name: Restore saved deck states
-        uses: actions/cache@v5
-        continue-on-error: true
-        timeout-minutes: 1
-        env:
-          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 1
-        with:
-          path: node_modules/.cache/pps-deck-states
-          key: deck-states-${{ hashFiles('src/engine/**', 'src/worker-core.js', 'src/worker.js', 'src/ui/decks/**') }}
-          restore-keys: deck-states-
-      - name: Lint and unit tests
-        run: npm run lint && npm test
+    uses: ./.github/workflows/unit-tests.yml   # (lint, then the unit tests in parallel shards: one job never finished in its time limit)
+    with:
+      lint: true
+      static: false
 
   deploy:
     needs: validate
