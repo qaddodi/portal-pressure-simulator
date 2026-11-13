@@ -22,6 +22,7 @@ import { drawMonitor, C, SEV_C, cell, fm1 } from './monitor.js';
 import { rateOf } from './table-marks.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure, procRunning } from './proc-anim.js';
 import { reduceMotionMQ } from './motion.js';
+import { createIrPpg } from './ir-ppg.js';
 const nextFrame = frameFor('hvpg-proc');
 
 let stageRef = null;
@@ -83,9 +84,12 @@ export function createHvpgProcedure() {
   // are only there while the patient has gastric varices to treat.
   const procBtns = Object.fromEntries(PROC_KINDS.map((k) => [k, h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': `Play ${PROCS[k].name}`,
     onclick: () => play(k), onpointerup: (e) => { if (e.pointerType !== 'mouse' && !procBtns[k].disabled) play(k); } }, icon('play'), h('span', {}, PROCS[k].name))]));
-  const procRow = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'Play a procedure on the anatomy' }, h('span', { class: 'hvpg-procs-k' }, 'Watch'), ...Object.values(procBtns));
-  const side = h('div', { class: 'chart-side' }, h('ol', { class: 'hvpg-steps' }, stepEls), caption, procRow, note);
-  const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, bar, box, side);
+  // The PPG by interventional radiology, a measurement played the same way (ir-ppg.js): its monitor stands in the HVPG tracing's place while it runs and after it.
+  const ir = createIrPpg({ busy: () => (t0 != null && t < tEnd()) || !!proc, onChange: () => paintSide() });
+  const procRow = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'Play a procedure on the anatomy' }, h('span', { class: 'hvpg-procs-k' }, 'Watch'), ...Object.values(procBtns), ir.btn);
+  const stepsEl = h('ol', { class: 'hvpg-steps' }, stepEls);
+  const side = h('div', { class: 'chart-side' }, stepsEl, caption, procRow, note);
+  const el = h('div', { class: 'dock-pane', 'data-pane': 'hvpg' }, bar, box, ir.panel, side);
 
   let t0 = null, t = 0, raf = 0, frame = null, result = null, sig = '', cam = '', blocked = false;
   const phase = () => (t0 == null && !result ? 'idle' : blocked ? (t < TB.abort ? 'enter' : 'abort') : t < T.free ? 'enter' : t < T.inflate ? 'free' : t < T.result ? 'wedge' : 'result');
@@ -104,6 +108,7 @@ export function createHvpgProcedure() {
     const st = store.get();
     if (st.lobule) store.set({ lobule: false });
     if (st.view !== 'anatomic') store.set({ view: 'anatomic' });
+    ir.hide();
     result = null; t0 = performance.now(); t = 0; cam = ''; blocked = hvBlocked(st.params); snap = now()?.metrics ? { ...live() } : null;   // alloc-rare: once as a measurement starts (a copy, kept for the run)
     loop();
   }
@@ -133,7 +138,7 @@ export function createHvpgProcedure() {
     logAction('procedure', PROCS[kind].name);
     paintSide();
   }
-  function reset() { proc?.stop(); cancelFrame(raf); raf = 0; if (t0 != null && t < tEnd()) { stopFigure(); } t0 = null; t = 0; result = null; snap = null; sig = ''; blocked = false; paintSide(); draw(); }
+  function reset() { ir.hide(); proc?.stop(); cancelFrame(raf); raf = 0; if (t0 != null && t < tEnd()) { stopFigure(); } t0 = null; t = 0; result = null; snap = null; sig = ''; blocked = false; paintSide(); draw(); }
   function loop() {
     cancelFrame(raf);
     const step = () => {
@@ -258,9 +263,11 @@ export function createHvpgProcedure() {
       : blocked && t >= TB.probe0 ? 'The tip is at the hepatic vein ostium, but the vein is thrombosed: the catheter cannot be advanced.'
       : ph === 'result' ? RESULT_CAP[hvpgSev(v.hvpg)] : STEPS[cur][2];
     // (A treatment playing tells its own step instead.)
-    const say = proc ? PROCS[procKind].steps[Math.max(0, procStep)][2] : cap;
+    const say = proc ? PROCS[procKind].steps[Math.max(0, procStep)][2] : ir.caption() || cap;
     swapText(caption, say);   // (a new step's words crossfade in)
-    const busy = (t0 != null && t < tEnd()) || !!proc;
+    const busy = (t0 != null && t < tEnd()) || !!proc || ir.running();
+    propSoon(box, 'hidden', ir.shown()); propSoon(stepsEl, 'hidden', ir.shown());   // (the PPG by IR's monitor stands in the HVPG tracing's place, and the HVPG's four steps give way to its caption)
+    propSoon(ir.btn, 'disabled', busy);
     propSoon(startBtn, 'disabled', busy);
     for (let pi = 0; pi < PROC_KINDS.length; pi++) {
       const k = PROC_KINDS[pi], b = procBtns[k];
@@ -288,6 +295,7 @@ export function createHvpgProcedure() {
 
   function update(f) {
     frame = f;
+    ir.update();
     if (raf) return;   // the animation loop paints
     paintSide();
     const r = cv.getBoundingClientRect();

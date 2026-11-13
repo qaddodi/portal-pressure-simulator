@@ -3520,6 +3520,9 @@ button.finding { cursor: pointer; }
 .hvpg-proc-btn:not([hidden]) { animation: crossfade var(--d-small) var(--ease); }   /* (BRTO and BATO come in with gastric varices: they fade up, they do not pop) */
 .hvpg-proc-btn :is(svg, .ic) { width: 12px; height: 12px; }
 .hvpg-proc-btn.off:not(:disabled) { opacity: .55; }
+/* The PPG by IR (ir-ppg.js): the one monitor takes the HVPG tracing's place, its box a direct item of the pane, so every rule for the tracing's box holds for it. */
+.hvpg-ir, .hvpg-ir .pz-reading { display: contents; }
+.hvpg-ir[hidden], .hvpg-steps[hidden] { display: none; }
 .hvpg-proc-btn[aria-pressed="true"]:disabled { opacity: 1; cursor: default; }
 /* A phone held sideways (a short side card): the rows sit a little closer, so the monitor keeps its least height and the
    description under it ends at least 8 px above the card's foot (sweep 2 review item 6: cut after its second line). */
@@ -6677,7 +6680,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
      the monitor only at Full. */
   #app.thumb [data-pane="hvpg"] > .hvpg-bar { order: 0; flex: none; flex-wrap: nowrap; gap: 10px; }
   #app.thumb [data-pane="hvpg"] .hvpg-kv { order: 0; flex: 1 1 auto; min-width: 0; gap: 12px; }
-  #app.thumb [data-pane="hvpg"] > .hvpg-box { --cv-w: 100cqw; --cv-h: 100cqh; order: 1; width: auto; max-width: none; aspect-ratio: auto; flex: 1 1 0 !important; min-height: 130px !important; max-height: none; margin-inline: -10px; }
+  #app.thumb [data-pane="hvpg"] > .hvpg-box, #app.thumb [data-pane="hvpg"] .hvpg-ir .hvpg-box { --cv-w: 100cqw; --cv-h: 100cqh; order: 1; width: auto; max-width: none; aspect-ratio: auto; flex: 1 1 0 !important; min-height: 130px !important; max-height: none; margin-inline: -10px; }
   #app.thumb [data-pane="hvpg"] .hvpg-bar > .btn { order: 1; margin-left: auto; min-height: 36px; padding-inline: 12px; }
   #app.thumb [data-pane="hvpg"] > .chart-side { order: 3; }
   #app.thumb .instrument-workspace.sheet-half [data-pane="hvpg"] > .chart-side { display: none; }

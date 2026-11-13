@@ -16,6 +16,7 @@ import { createInspector } from './inspector.js';
 import { createDock, CUTOFFS, savedInstruments } from './dock.js';
 import { setHvpgStage } from './hvpg-proc.js';
 import { setEusStage } from './eus-ppg.js';
+import { setIrStage } from './ir-ppg.js';
 import { createWhy } from './why.js';
 import { createTimeline, LAPSES } from './timeline.js';
 import { createCompare } from './compare.js';
@@ -183,6 +184,7 @@ async function main() {
   });
   setHvpgStage(stage);
   setEusStage(stage);
+  setIrStage(stage);
   const kind = await engineUp;
   console.info(`Engine running in ${kind === 'worker' ? 'a Web Worker' : 'the main thread'}.`);
   // (In learner words: no background worker means the model and the drawing share one thread.)
