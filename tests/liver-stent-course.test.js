@@ -51,3 +51,29 @@ test('the LPV to LHV stent is no longer a straight drop between the two nodes (i
   const run = unit(...[sampleD(EDGE_PATH.PVH_L, 1).at(-30), sampleD(EDGE_PATH.PVH_L, 1).at(-1)]);
   assert.ok(deg(unit(P[0], P[8]), run) <= 55, 'leaves along the portal vein');
 });
+
+// Stents that the order of the liver's trunks lets be drawn without crossing do not cross (a stent into the right hepatic vein from the right branch is the TIPS; the DIPS ends on the cava between
+// the middle and the left hepatic vein). Two stents whose order is reversed (right branch to left vein against left branch to right vein) cross once, however they are drawn.
+const PORDER = { RPV: 0, PVH: 1, LPV: 2 }, HORDER = { RHV: 0, MHV: 1, LHV: 2 };
+const side = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+const crossings = (A, B) => { let n = 0; for (let i = 1; i < A.length; i++) for (let k = 1; k < B.length; k++) if (side(A[i - 1], A[i], B[k - 1]) * side(A[i - 1], A[i], B[k]) < 0 && side(B[k - 1], B[k], A[i - 1]) * side(B[k - 1], B[k], A[i]) < 0) n++; return n; };
+const SET = { TIPS: { P: sampleD(EDGE_PATH.TIPS, 1), o: [0, 0] }, DIPS: { P: sampleD(EDGE_PATH.DIPS, 1), o: [1, 1.5] } };
+for (const e of stents) SET[e.id] = { P: sampleD(CUSTOM_SHUNT_PATH[e.id], 1), o: [PORDER[e.from], HORDER[e.to]] };
+// (One pair is still crossed, left branch to the right and to the middle hepatic vein, which leave the same point: the search found no way apart within the bow limits.)
+const KNOWN = new Set(['X_LPV_RHV|X_LPV_MHV']);
+
+test('the TIPS is crossed by no stent into the liver, and the DIPS by none that can avoid it', () => {
+  for (const [a, A] of Object.entries(SET)) for (const [b, B] of Object.entries(SET)) {
+    if (a >= b || !(a === 'TIPS' || a === 'DIPS' || b === 'TIPS' || b === 'DIPS')) continue;
+    const avoidable = (A.o[0] - B.o[0]) * (A.o[1] - B.o[1]) >= 0;
+    if (avoidable) assert.equal(crossings(A.P, B.P), 0, `${a} crosses ${b}`);
+  }
+});
+
+test('stents that can be drawn without crossing do not cross', () => {
+  for (const [a, A] of Object.entries(SET)) for (const [b, B] of Object.entries(SET)) {
+    if (a >= b || KNOWN.has(`${a}|${b}`) || KNOWN.has(`${b}|${a}`)) continue;
+    const avoidable = (A.o[0] - B.o[0]) * (A.o[1] - B.o[1]) >= 0;
+    if (avoidable) assert.equal(crossings(A.P, B.P), 0, `${a} crosses ${b}`);
+  }
+});

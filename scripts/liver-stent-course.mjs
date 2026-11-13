@@ -34,10 +34,10 @@ export function liverStentCourse(from, to, lines = anatomyLines(), keep = 1) {
   const id = `X_${from}_${to}`, H = sampleD(EDGE_PATH[HEPATIC_HOST[to]], 1);
   const stations = anatomyStations();
   const starts = [];
-  if (PORTAL_HOST[from]) { const P = sampleD(EDGE_PATH[PORTAL_HOST[from]], 1); for (const t of [0.4, 0.5, 0.6, 0.7]) { const [p, u] = at(P, t); starts.push({ p, u, t, node: false }); } }
+  if (PORTAL_HOST[from]) { const P = sampleD(EDGE_PATH[PORTAL_HOST[from]], 1); for (const t of [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]) { const [p, u] = at(P, t); starts.push({ p, u, t, node: false }); } }
   else starts.push({ p: NODE_POS[from][0], u: null, t: 0, node: true });
   const out = [];
-  for (const st of starts) for (const te of [0.4, 0.5, 0.6, 0.7]) {
+  for (const st of starts) for (const te of [0.3, 0.4, 0.5, 0.6, 0.7]) {
     const [h, uH] = at(H, te);
     const S = st.p, c0 = cross(uH, [S[0] - h[0], S[1] - h[1]]), nrm = norm(rot(uH, c0 > 0 ? 90 : -90));   // (toward the side the stent comes from)
     const E = [h[0] + nrm[0] * END_IN, h[1] + nrm[1] * END_IN], chord = Math.hypot(E[0] - S[0], E[1] - S[1]);
@@ -52,10 +52,66 @@ export function liverStentCourse(from, to, lines = anatomyLines(), keep = 1) {
       const dd = cubicsToD(ctl), Q = sampleD(dd), j = judge(id, Q, lines, 'anat');
       let pen = j.on * 3 + j.par + Object.values(j.cx).reduce((a, b) => a + b, 0) * 14;
       for (const q of stations) { let m = 1e9; for (const p of Q) m = Math.min(m, Math.hypot(p[0] - q[0], p[1] - q[1])); if (m < 11 && Math.hypot(q[0] - S[0], q[1] - S[1]) > 14 && Math.hypot(q[0] - E[0], q[1] - E[1]) > 14) pen += (11 - m) * 12; }
+      if (j.on > 22 || j.on + j.par > 130) pen += 500;   // (within the audit's limit, tests/shunt-routes.test.js, with a margin: a stent never lies along a vein for a stretch)
       pen += st.node ? 0 : Math.abs(alpha - 34) * 0.4; pen += Math.abs(beta - 50) * 0.4; pen += Math.abs(bow - 0.14) * 100 + chord * 0.15 + (oneWay ? 0 : 200);
       out.push({ id, d: dd, pen, bow, alpha, beta, hk, ts: st.t, te, on: j.on, par: j.par, cx: j.cx, onBy: j.onBy, parBy: j.parBy, oneWay });
     }
   }
   out.sort((a, b) => a.pen - b.pen);
-  return out.slice(0, keep);
+  if (keep === 1) return out.slice(0, 1);
+  // (Several of the best at each pair of join places, for the set's search: the same join places with another angle are a different course, not another join.)
+  const per = new Map(), kept = [];
+  for (const c of out) { const k = `${c.ts}|${c.te}`, n = per.get(k) || 0; if (n < 24) { per.set(k, n + 1); kept.push(c); } }
+  return kept.slice(0, keep);
+}
+
+// Where each stent starts and ends in the left-to-right order of the liver's trunks (portal: right branch, hilum, left branch; hepatic: right, middle, left; the DIPS
+// ends on the cava between the middle and the left hepatic vein). Two stents can be drawn without crossing when neither is the other's reverse in that order (a pair that
+// shares an end can always be): those are held apart, so the stents of the figure cross only where the order makes them.
+const PORDER = { RPV: 0, PVH: 1, LPV: 2 }, HORDER = { RHV: 0, MHV: 1, LHV: 2 };
+const FIXED = { TIPS: [0, 0], DIPS: [1, 1.5] };
+const polyCross = (A, B) => {
+  const side = (a, b, c) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  let n = 0;
+  for (let i = 1; i < A.length; i++) for (let k = 1; k < B.length; k++) if (side(A[i - 1], A[i], B[k - 1]) * side(A[i - 1], A[i], B[k]) < 0 && side(B[k - 1], B[k], A[i - 1]) * side(B[k - 1], B[k], A[i]) < 0) n++;
+  return n;
+};
+/** The course text of every liver stent (id -> d), chosen together so that no two stents that can avoid crossing (and neither the TIPS nor the DIPS) do. */
+export function liverStentSet(lines = anatomyLines(), n = 480) {
+  const ids = [], cand = [];
+  for (const f of LIVER_STENT_FROM) for (const t of LIVER_STENT_TO) {
+    if (f === 'RPV' && t === 'RHV') continue;   // (the TIPS)
+    ids.push(`X_${f}_${t}`);
+    cand.push(liverStentCourse(f, t, lines, n).map((c) => ({ ...c, P: sampleD(c.d, 3) })));
+  }
+  const key = ids.map((id) => [PORDER[id.split('_')[1]], HORDER[id.split('_')[2]]]);
+  const fixed = Object.entries(FIXED).map(([id, o]) => ({ o, P: sampleD(EDGE_PATH[id], 3) }));
+  const apart = (a, b) => (a[0] - b[0]) * (a[1] - b[1]) >= 0;   // (not each other's reverse in the order: they can be drawn without crossing)
+  const pick = cand.map(() => 0);
+  const cost = (i, c) => {
+    let v = c.pen;
+    for (const f of fixed) if (apart(key[i], f.o)) v += 400 * polyCross(c.P, f.P);
+    for (let j = 0; j < ids.length; j++) if (j !== i && apart(key[i], key[j])) v += 400 * polyCross(c.P, cand[j][pick[j]].P);
+    return v;
+  };
+  for (let round = 0; round < 8; round++) {
+    let moved = false;
+    for (let i = 0; i < ids.length; i++) {
+      let best = pick[i], bv = cost(i, cand[i][best]);
+      for (let k = 0; k < cand[i].length; k++) { const v = cost(i, cand[i][k]); if (v < bv - 1e-9) { bv = v; best = k; } }
+      if (best !== pick[i]) { pick[i] = best; moved = true; }
+    }
+    if (!moved) break;
+  }
+  // (A pair that still crosses, though it need not, is searched together: one stent's best course alone can be the other's only way across.)
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+    if (!apart(key[i], key[j]) || !polyCross(cand[i][pick[i]].P, cand[j][pick[j]].P)) continue;
+    let best = null;
+    for (let a = 0; a < cand[i].length; a++) for (let b = 0; b < cand[j].length; b++) {
+      const v = cand[i][a].pen + cand[j][b].pen + 400 * polyCross(cand[i][a].P, cand[j][b].P);
+      if (!best || v < best.v) best = { v, a, b };
+    }
+    pick[i] = best.a; pick[j] = best.b;
+  }
+  return Object.fromEntries(ids.map((id, i) => [id, cand[i][pick[i]].d]));
 }

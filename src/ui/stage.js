@@ -4,7 +4,7 @@
 import { stageCovered } from './seen.js';
 import { createCircTurn } from './circ-turn.js';
 import { peelAt, peelRank } from './flow-peel.js';
-import { EDGES, NODES, PORTAL_TERRITORY, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
+import { EDGES, NODES, PORTAL_TERRITORY, isLiverStent, isStent, stentSite, STENT_SITES } from '../engine/topology.js';
 import { SPLEEN_PSE_AREA, SPLEEN_PSE_EDGE, RECTUM_FADE, LABEL_VESSEL, TIP_FADE, ART_FADE, VIEW, VB_CIRC, HIDDEN_EDGES, HIDDEN_NODES, ANAT_HIDDEN_NODES, CAUDATE, CONTEXT_EDGES, BACK_EDGES, IVC_EDGES, NODE_POS, ORGANS, SEAM_D, ORGAN_DETAIL, BACKDROP, LIVER_INNER, LIVER_EDGES, LANE_CAPTIONS, ABDOMEN_CLIP, CAVITY_LOW, SITES, LIVER_SPLIT_X, CIRCUIT_ZONES, STRANDS, STRAND_TIE, STRAND_WAVE, SIN_EDGES } from './anatomy.js';
 import { nodeEnds, nodeDrawn, dotRadius } from './circuit-nodes.js';
 import { store, setViewKey } from './store.js';
@@ -1003,6 +1003,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
   // The mesocaval shunt (S_MC) and the Meso-Rex bypass (REX) leave the SMV where its two rows meet (the network's V_INT below, SMV_CONF in the portal tree's tier above), and
   // the Rex ends on the left portal vein: in the network's tier, SMV_CONF's wall outline crossed the mouth as a black sliver (13 Nov 2026, the shunt checks).
   for (const id of ['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC', 'C8', 'S_MC', 'REX']) if (E[id]) E[id].over = true;
+  // (The stent tool's portal vein to hepatic vein stents are the TIPS's twins and leave the same vessels: in the portal tree's tier too, or the portal vein's outline crossed their mouths as a dark line, 13 Nov 2026.)
+  for (const e of EDGES) if (isLiverStent(e) && E[e.id]) E[e.id].over = true;
 
   // Translucent vessels (the context veins, collaterals) are drawn by the GPU in tiers, one per opacity level (levelTier), beneath the
   // opaque network: a tier is faded once, as a whole, so where two of its vessels meet their overlap is a union, not a darker disc.
