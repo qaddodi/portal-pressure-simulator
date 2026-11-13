@@ -13,6 +13,7 @@
 // next (card-keep.js), and the trace carries on from where the last slide left it.
 
 import { createHvpgMonitor } from './hvpg-proc.js';
+import { monitorTitle } from './monitor.js';
 import { T, ease, k01 } from './hvpg-clock.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { tenthGap } from '../engine/gap.js';
@@ -96,7 +97,7 @@ export function createHvpgCard() {
     return false;
   }
   return {
-    id: 'hvpg', label: 'HVPG, catheter tracing', el,
+    id: 'hvpg', label: monitorTitle('hvpg'), el,   // (the one rule of every gradient card's title: monitor.js)
     /** The slide's options: with catheter: true, the step of the slide's catheter (cath) is the one the card shows. */
     configure(t, ctx) { step = t?.catheter && STEPS.includes(ctx?.slide?.cath) ? ctx.slide.cath : null; shown = true; },
     /** The card has left the screen (another slide's instrument, or none): it draws nothing more. */

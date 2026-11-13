@@ -20,6 +20,19 @@ import { drawCallout, dropK, sideFor, calloutCell, calloutText, inkSeg } from '.
 // The monitor's colours, dark in both themes (theme-tokens.js --mon-*).
 export const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
   free: '--mon-free', wedge: '--mon-wedge', pv: '--mon-pv', ivc: '--mon-ivc', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
+// The HVPG catheter's words on the monitor: its header, longest form first, and its notes before the tip is in, while it waits for the hepatic vein and while it
+// probes a thrombosed ostium. One table for Measure › HVPG (hvpg-proc.js) and the procedure slide's card (tool-reading.js): unification audit, finding 1.
+export const HVPG_TEXT = {
+  heads: ['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'],
+  notes: {
+    idle: ['The tracing starts once the tip is in the hepatic vein.', 'Starts once the tip is in the hepatic vein.', 'Starts in the hepatic vein.'],
+    wait: ['Waiting for the hepatic vein.'],
+    probe: ['Probing the ostium: the vein cannot be cannulated.', 'The vein cannot be cannulated.'],
+  },
+};
+/** A gradient card's title, one rule for every card this monitor draws (unification audit, finding 1): the HVPG's reads "HVPG, catheter tracing", every other
+ *  measurement "Pressure tracing". id: the script's id (tool-reading.js SCRIPT_IDS: 'hvpg', 'eus', 'ppg', 'tips'); the HVPG catheter's card (tool-hvpg.js) is 'hvpg'. */
+export const monitorTitle = (id) => (id === 'hvpg' ? 'HVPG, catheter tracing' : 'Pressure tracing');
 /** A rating's colour key (pressure-cuts.js hvpgSev / ppgSev: ok, caution, danger). */
 export const SEV_C = { ok: 'ok', caution: 'caution', danger: 'danger' };
 

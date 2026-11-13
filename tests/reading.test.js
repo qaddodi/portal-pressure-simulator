@@ -195,3 +195,30 @@ test('every slide that measures a gradient on its own draws it on the one monito
   }
   assert.deepEqual(bad, []);
 });
+
+test('every gradient card takes its title from one rule, and the HVPG catheter\'s words from one table (unification audit, finding 1)', async () => {
+  const { monitorTitle, HVPG_TEXT } = await import('../src/ui/monitor.js');
+  const { readingTitle } = await import('../src/ui/tool-reading.js');
+  const { HVPG_SCRIPT } = await import('../src/ui/hvpg-proc.js');
+  const { DECKS } = await import('../src/ui/decks.js');
+  const teaching = (await import('../src/ui/ext-teaching.js')).default;
+  // (The HVPG's card reads "HVPG, catheter tracing" wherever it is drawn: the catheter's card, tool-hvpg.js, the presenter's TITLE.hvpg, and a procedure
+  // slide's card on the HVPG; every other measurement reads "Pressure tracing".)
+  assert.equal(monitorTitle('hvpg'), 'HVPG, catheter tracing');
+  for (const id of SCRIPT_IDS) assert.equal(monitorTitle(id), id === 'hvpg' ? 'HVPG, catheter tracing' : 'Pressure tracing', id);
+  assert.equal(readingTitle('hvpgcath'), monitorTitle('hvpg'));
+  assert.equal(readingTitle({ kind: 'irivc', then: 'irpv' }), monitorTitle('ppg'));
+  const seen = new Set();
+  for (const d of DECKS) for (const s of d.slides || []) {
+    if (s.tool?.kind !== 'reading' || !scriptOf(s.procedure)) continue;
+    const want = s.tool.title || monitorTitle(scriptOf(s.procedure).id);
+    assert.equal(teaching.tools.reading.title(s.tool, s), want, `${d.id}/${s.id}`);
+    seen.add(scriptOf(s.procedure).id);
+  }
+  assert.ok(seen.has('hvpg') && seen.has('eus') && seen.has('ppg'), [...seen].join(' '));
+  // (Measure › HVPG and the procedure slide's HVPG card wait with the same words: the one table.)
+  assert.equal(HVPG_SCRIPT.notes, HVPG_TEXT.notes);
+  assert.equal(HVPG_SCRIPT.heads, HVPG_TEXT.heads);
+  assert.equal(scriptById('hvpg').notes, HVPG_TEXT.notes);
+  assert.equal(scriptById('hvpg').heads, HVPG_TEXT.heads);
+});

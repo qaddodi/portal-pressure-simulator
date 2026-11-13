@@ -16,7 +16,7 @@ import { h, fmt } from './util.js';
 import { easeMove } from './motion.js';
 import { k01, waveAt, WAVE_GAIN, WEDGE_DAMP } from './hvpg-clock.js';
 import { createTraceGL } from './trace-gl.js';
-import { drawMonitor } from './monitor.js';
+import { drawMonitor, HVPG_TEXT, monitorTitle } from './monitor.js';
 import { specOf, markAt, READS } from './proc-anim.js';
 import { hvpgSev, ppgSev, PPG_CUTS } from '../engine/pressure-cuts.js';
 import { NODES } from '../engine/topology.js';
@@ -59,8 +59,7 @@ function scripts() {
   const hF = hs(markAt('hvpgcath', 1)), hW = hs(markAt('hvpgcath', 2)), hH = hs(markAt('hvpgcath', 3));
   const hvpg = {
     id: 'hvpg', kinds: ['hvpgcath'], clock: hc, start: 0, win: [0, hc.total],
-    heads: ['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'],
-    notes: { idle: ['The tracing starts once the tip is in the hepatic vein.', 'Starts once the tip is in the hepatic vein.', 'Starts in the hepatic vein.'], wait: ['Waiting for the hepatic vein.'], probe: [''] },
+    heads: HVPG_TEXT.heads, notes: HVPG_TEXT.notes,   // (the words Measure › HVPG shows: one table, monitor.js)
     lv: hLv, keys: ['FHVP', 'WHVP', 'HVPG'], sev: hvpgSev,
     segs: [[0, hI0, 'free'], [hI0, hc.total, 'wedge']],   // (blue while free, orchid once the balloon is up)
     status(t, v, st, o) {
@@ -177,6 +176,8 @@ export function scriptOf(proc) {
   return null;
 }
 export const SCRIPT_IDS = ['hvpg', 'eus', 'ppg', 'tips'];
+/** The card's title for a slide's procedure: one rule for every gradient card (monitor.js monitorTitle), "HVPG, catheter tracing" for the HVPG, else "Pressure tracing". */
+export const readingTitle = (proc) => monitorTitle(scriptOf(proc)?.id);
 /** A script by its id (tests). */
 export const scriptById = (id) => { SCRIPTS ||= scripts(); return SCRIPTS[id] || null; };
 /** What the monitor shows for the kinds' times now: 'idle' before the procedure has started (or while the tip is still on its way in), else 'run' at

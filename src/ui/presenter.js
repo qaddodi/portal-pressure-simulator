@@ -2906,7 +2906,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     const from = d === true ? slides[stateOf[i - 1]] : slides.find((x) => x.id === d);
     return { label: s.tool.deltaLabel || (d === true && s.lapse?.from) || from?.kicker || 'Before', value: `${fmt(r[g[0]], g[2])} ${g[1]}` };
   }
-  const fullTitle = (s) => s?.dataTitle || (s?.tool ? ui.tools.title(s.tool) : 'The patient');
+  const fullTitle = (s) => s?.dataTitle || (s?.tool ? ui.tools.title(s.tool, s) : 'The patient');
   // A phone's card title is one short line beside Show: the long name's head, never broken into two lines or a hyphen.
   const SHORT_TITLE = { 'Pressure, portal vein to heart': 'Portal vein to heart', 'Endoscopy, the lower esophagus': 'Endoscopy', 'The varix wall, in cross-section': 'The varix wall',
     'Liver stiffness, FibroScan': 'FibroScan', 'HVPG, catheter tracing': 'HVPG tracing', 'Pressure, beat by beat': 'Beat by beat', 'Portal pressure and flow over time': 'Pressure and flow', 'Doppler, main portal vein': 'Doppler, portal vein',
@@ -2918,7 +2918,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // hyphen never breaks, on any screen: a non-breaking one. Critique I7, 17 Oct.)
   const cardTitle = (s) => {
     const t = fullTitle(s), small = phone() || (innerWidth > innerHeight && innerHeight <= 500);
-    return (small && t.length > 20 ? SHORT_TITLE[t] || (s?.tool && ui.tools.short(s.tool, t)) || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t).replace(/-/g, '\u2011');
+    return (small && t.length > 20 ? SHORT_TITLE[t] || (s?.tool && ui.tools.short(s.tool, t, s)) || t.replace(/ over the (days|year|talk)$/, '').replace(/,.*$/, '') : t).replace(/-/g, '\u2011');
   };
   // (A unit in a title keeps its own case, in a span the style leaves alone: "mL/day", not "ML/DAY".)
   const unitSpans = (el) => { const p = titleParts(el.textContent); if (p.length < 2) return; el.textContent = ''; p.forEach((t, i) => { if (t) el.append(i % 2 ? h('span', { class: 'pz-unit' }, t) : t); }); };

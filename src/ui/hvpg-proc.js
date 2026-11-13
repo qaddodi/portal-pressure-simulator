@@ -18,7 +18,7 @@ import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-so
 import { T, ease, cruise, k01, balloonAt, timeOfBalloon, pressureAt, newWave, syncWave } from './hvpg-clock.js';
 import { frameFor, cancelFrame } from './frame.js';
 import { createTraceGL } from './trace-gl.js';
-import { drawMonitor, C, SEV_C, cell, fm1 } from './monitor.js';
+import { drawMonitor, C, SEV_C, cell, fm1, HVPG_TEXT } from './monitor.js';
 import { rateOf } from './table-marks.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure, procRunning } from './proc-anim.js';
 import { reduceMotionMQ } from './motion.js';
@@ -54,10 +54,6 @@ const RESULT_CLS = { danger: 'result danger', caution: 'result caution', ok: 're
 const KEYS3 = ['fhvp', 'whvp', 'hvpg'], KEYS2 = ['fhvp', 'whvp'];
 const cF = cell(), cW = cell(), cH = cell();   // (the figure's callouts' numbers: fm1, monitor.js)
 const SHOT_NEAR = { near: true }, SHOT_FAR = { near: false };   // (cathFocus's options, made once: only the route shot keeps the view near the tip)
-const HEADS = ['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'];
-const NOTE_PROBE = ['Probing the ostium: the vein cannot be cannulated.', 'The vein cannot be cannulated.'];
-const NOTE_IDLE = ['The tracing starts once the tip is in the hepatic vein.', 'Starts once the tip is in the hepatic vein.', 'Starts in the hepatic vein.'];
-const NOTE_WAIT = ['Waiting for the hepatic vein.'];
 
 export function createHvpgProcedure() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'HVPG measurement: catheter pressure tracing' });
@@ -402,9 +398,9 @@ export function createHvpgMonitor() {
 // The HVPG catheter's script: the free sweep, the balloon up and the pressure riding it to the wedge, the wedge read once it has held, then the HVPG.
 // (The monitor's number is the mean, as the callout on the figure reads it; it follows the trace only while the balloon is still changing it.)
 export const HVPG_SCRIPT = {
-  heads: HEADS, win: [T.free - 300, T.back], enterWord: 'Catheter advancing',
+  heads: HVPG_TEXT.heads, win: [T.free - 300, T.back], enterWord: 'Catheter advancing',   // (its words: the one table, monitor.js HVPG_TEXT)
   abort: ['Unable to cannulate hepatic vein', 'Unable to cannulate hepatic vein: procedure aborted', 'HVPG not measurable'],
-  notes: { idle: NOTE_IDLE, wait: NOTE_WAIT, probe: NOTE_PROBE },
+  notes: HVPG_TEXT.notes,
   at: (tt, v, w) => pressureAt(tt, v, w),
   segs: [[T.free - 300, T.inflate, 'free'], [T.inflate, T.back, 'wedge']],   // (blue while free, orchid once the balloon is up; the wedged trace solid: owner, 10 Nov 2026)
   status(t, v, st, o) {

@@ -8,7 +8,7 @@
 //   tool: { kind: 'reading' }   the measurement tracing card: the slide's procedure (HVPG, EUS-PPG, PPG by IR, PPG through a TIPS) drawn as a monitor
 //                                 tracing while it is taken, one reading at a time, then the gradient (tool-reading.js; the gradients talk)
 import { createCriteria } from './tool-criteria.js';
-import { createReading } from './tool-reading.js';
+import { createReading, readingTitle } from './tool-reading.js';
 import { createPath } from './tool-path.js';
 import { PATHS, knownOf } from './path-data.js';
 import { createTrial } from './tool-trial.js';
@@ -19,7 +19,8 @@ export default {
   tools: {
     path: { make: () => createPath(), warm: () => loadMetrics(), title: (t) => t?.title || PATHS[knownOf(t?.of)].label, short: (t) => t?.short || PATHS[knownOf(t?.of)].short },
     trial: { make: () => createTrial(), warm: () => loadMetrics(), title: (t) => trialOf(t?.id)?.name || 'Trial', short: (t) => trialOf(t?.id)?.name || 'Trial' },
-    reading: { make: () => createReading(), warm: () => loadMetrics(), title: (t) => t?.title || 'Pressure tracing', short: (t) => t?.short || 'Tracing' },
+    // (Its title is the one rule of every gradient card, monitor.js monitorTitle: "HVPG, catheter tracing" on the HVPG's slide, else "Pressure tracing". s: the slide.)
+    reading: { make: () => createReading(), warm: () => loadMetrics(), title: (t, s) => t?.title || readingTitle(s?.procedure ?? t?.of), short: (t) => t?.short || 'Tracing' },
     criteria: { make: () => createCriteria(), title: (t) => t?.title || 'Criteria', short: (t) => t?.title || 'Criteria' },
   },
 };

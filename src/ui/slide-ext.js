@@ -7,7 +7,7 @@
 //   organs    ['stomach', …]                        organ ids a glow may outline (presenter ORGANS)
 //   lenses    { key: [name, bar, lo, hi] | (slide) => [name, bar, lo, hi] }   a lens's key under the line (presenter LENS_KEY)
 //   sets      { name: [vessel, target or organ ids] }   '@name' in a slide's glow or a mark's edges stands for these
-//   tools     { kind: { make(env), title(t), short?(t) } }   a data-card instrument (presenter-tools.js); make returns
+//   tools     { kind: { make(env), title(t, slide), short?(t) } }   a data-card instrument (presenter-tools.js); make returns
 //             { el, update?(frame), pin?(fp), configure?(t, ctx), clear?(), dispose?() }; warm?(t, ctx) starts its work
 //             once the deck's states are in (a curve over model days)
 //   visuals   { name: (slide, ctx) => Element }        a whole-panel visual (slide.visual)

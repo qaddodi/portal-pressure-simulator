@@ -127,10 +127,11 @@ export function createTools({ host, stage }) {
   });
   return {
     el: box,
-    title: (t) => t.title || TITLE[t.kind]?.(t) || (Object.hasOwn(EXT.tools, t.kind) && safe(() => EXT.tools[t.kind].title?.(t), null, 'tools.title')) || '',
+    // (s: the slide, for a card whose title follows what the slide does: the measurement card's, by its procedure.)
+    title: (t, s) => t.title || TITLE[t.kind]?.(t) || (Object.hasOwn(EXT.tools, t.kind) && safe(() => EXT.tools[t.kind].title?.(t, s), null, 'tools.title')) || '',
     /** A registered instrument's short title for a phone's card, when the card shows its own title (full); the built-in ones are
      *  in the presenter's SHORT_TITLE. */
-    short: (t, full) => (t && !TITLE[t.kind] && Object.hasOwn(EXT.tools, t.kind) && safe(() => (full === EXT.tools[t.kind].title?.(t) ? EXT.tools[t.kind].short?.(t) : null), null, 'tools.short')) || null,
+    short: (t, full, s) => (t && !TITLE[t.kind] && Object.hasOwn(EXT.tools, t.kind) && safe(() => (full === EXT.tools[t.kind].title?.(t, s) ? EXT.tools[t.kind].short?.(t) : null), null, 'tools.short')) || null,
     sig: (t) => (t ? `${keyOf(t)}:${t.vessel || t.organ || ''}` : ''),
     /** Put the slide's tool in the box. stateKey: the slide's model state (a new one clears a recording trace);
      *  chain: for the talk trace, [{ n, title, fp }] of every state up to this slide.
