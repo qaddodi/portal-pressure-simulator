@@ -32,7 +32,7 @@ export const COUNTED = {
   // (The blood apart from the vessels' shapes: a frame whose blood rows all matched the last upload sends none; rows cleared
   // once as their vessel stops drawing. And the width step between model frames, by the sync it took: the radii alone, or
   // the whole vessel sync because something else had changed or a vessel outgrew its binned reach.)
-  flowSame: 'blood: upload skipped (rows unchanged)', flowRetired: 'blood: rows cleared',
+  flowSame: 'blood: upload skipped (rows unchanged)', tubesSame: 'tubes: upload skipped (rows unchanged)', boxesKept: 'blood boxes: kept', boxesMade: 'blood boxes: walked', flowRetired: 'blood: rows cleared',
   widthRadii: 'widths: radii-only sync', widthWhole: 'widths: whole sync',
   // (The optional refinement work, refine.js: the steps it took, and the frames it was held back from for a gesture.)
   refineStep: 'refinement: steps', refineHeld: 'refinement: frames held for a gesture',

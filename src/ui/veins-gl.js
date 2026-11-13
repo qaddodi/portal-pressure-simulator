@@ -2181,27 +2181,44 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     if (ripple && !(fluidW[2] > fluidW[0])) return;
     const T = picTiles;
     T.begin(pictureSeq, PW(), PH());
-    if (nBlood) { if (!bloodCPU) { T.unknown(pictureSeq); return; } markCells(T, bloodCPU, nBlood, 6, m, bloodCell); }
+    if (nBlood) { if (!bloodCPU) { T.unknown(pictureSeq); return; } bloodBoxes(bloodCPU, nBlood, m, bloodCell, PW(), PH()); if (!T.addFrom(bloodBoxT, 0)) { T.unknown(pictureSeq); return; } }
     if (part) { if (!cellsCPU) { T.unknown(pictureSeq); return; } markCells(T, cellsCPU, nCells, 6, m, CELL, partMark); }
     if (dirt) markWorld(T, dirtW[0], dirtW[1], dirtW[2], dirtW[3], m);
     if (pool) markWorld(T, poolW[0], poolW[1], poolW[2], poolW[3], m);
     if (ripple) markWorld(T, fluidW[0], fluidW[1], fluidW[2], fluidW[3], m);
     if (cathRect) T.add(cathRect[0], cathRect[1], cathRect[2], cathRect[3]);
   }
-  function bloodMark(seq, cells, n, m, size, extra = null) {   // (extra: a world rect [x0, y0, x1, y1] this frame drew besides the cells: the ascites ripple's band)
-    const i = seq % BD_N, r = i * 4;
-    bdSeq[i] = seq;
-    if (!cells || !m || !PW() || !PH()) { bdKnown[i] = 0; bdTiles.unknown(seq); return; }
+  // (Heat D-6, 13 Nov 2026: the blood cells' device boxes under m as one tile mask (bloodBoxT, frame 0) and their union (bb.rect, before the
+  // edge and canvas clamps), kept while the cells (their array and bloodVer, which counts uploadBlood), their number and size, the matrix and
+  // the canvas stand: at rest every blood frame asked for the same answer, a walk of every cell and a new set of tile marks, made again.)
+  const bloodBoxT = createDirtyTiles(1), bb = { cells: null, ver: -1, n: -1, size: -1, W: -1, H: -1, m: new Float64Array(6).fill(NaN), rect: new Float64Array(4) };
+  function bloodBoxes(cells, n, m, size, W, H) {
+    if (bb.cells === cells && bb.ver === bloodVer && bb.n === n && bb.size === size && bb.W === W && bb.H === H
+      && m[0] === bb.m[0] && m[1] === bb.m[1] && m[2] === bb.m[2] && m[3] === bb.m[3] && m[4] === bb.m[4] && m[5] === bb.m[5]) { if (gpuProbe.on) gpuProbe.note(COUNTED.boxesKept); return; }
+    if (gpuProbe.on) gpuProbe.note(COUNTED.boxesMade);
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    const W = PW(), H = PH(), a = m[0] * size, b = m[1] * size, c = m[2] * size, d = m[3] * size;
-    bdTiles.begin(seq, W, H);
+    const a = m[0] * size, b = m[1] * size, c = m[2] * size, d = m[3] * size;
+    bloodBoxT.begin(0, W, H);
     for (let q = 0; q < n; q++) {
       const x = m[0] * cells[q * 6] + m[2] * cells[q * 6 + 1] + m[4], y = m[1] * cells[q * 6] + m[3] * cells[q * 6 + 1] + m[5];
       const lx = Math.min(x, x + a, x + c, x + a + c), hx = Math.max(x, x + a, x + c, x + a + c);
       const ly = Math.min(y, y + b, y + d, y + b + d), hy = Math.max(y, y + b, y + d, y + b + d);
       if (lx < x0) x0 = lx; if (hx > x1) x1 = hx; if (ly < y0) y0 = ly; if (hy > y1) y1 = hy;
-      bdTiles.add(lx - 1, ly - 1, hx + 1, hy + 1);   // (render-cost plan 3a: each square's own tiles, a pixel wider for the edge)
+      bloodBoxT.add(lx - 1, ly - 1, hx + 1, hy + 1);
     }
+    bb.cells = cells; bb.ver = bloodVer; bb.n = n; bb.size = size; bb.W = W; bb.H = H;
+    for (let i = 0; i < 6; i++) bb.m[i] = m[i];
+    bb.rect[0] = x0; bb.rect[1] = y0; bb.rect[2] = x1; bb.rect[3] = y1;
+  }
+  function bloodMark(seq, cells, n, m, size, extra = null) {   // (extra: a world rect [x0, y0, x1, y1] this frame drew besides the cells: the ascites ripple's band)
+    const i = seq % BD_N, r = i * 4;
+    bdSeq[i] = seq;
+    if (!cells || !m || !PW() || !PH()) { bdKnown[i] = 0; bdTiles.unknown(seq); return; }
+    const W = PW(), H = PH();
+    bloodBoxes(cells, n, m, size, W, H);
+    let x0 = bb.rect[0], y0 = bb.rect[1], x1 = bb.rect[2], y1 = bb.rect[3];
+    bdTiles.begin(seq, W, H);
+    if (!bdTiles.addFrom(bloodBoxT, 0)) { bdKnown[i] = 0; bdTiles.unknown(seq); return; }   // (render-cost plan 3a: each square's own tiles, a pixel wider for the edge)
     if (extra) {
       let lx = Infinity, ly = Infinity, hx = -Infinity, hy = -Infinity;
       for (let q = 0; q < 4; q++) {
@@ -2402,7 +2419,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindVertexArray(null);
   };
   bloodVAOOf(bloodVAO, bloodBuf);
-  let nBlood = 0, bloodCell = CELL;   // (bloodCell: the size of those squares, world units)
+  let nBlood = 0, bloodCell = CELL, bloodVer = 0;   // (bloodCell: the size of those squares, world units)
   // (The blood's own pass draws the quarters of its cells a lumen can reach (binVeins bloodQ).)
   function uploadBlood(bins) {
     const q = bins.bloodQ;
@@ -2411,7 +2428,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
     gl.bindBuffer(gl.ARRAY_BUFFER, bloodBuf);
     gl.bufferData(gl.ARRAY_BUFFER, bl, gl.STATIC_DRAW);
     nBlood = q ? bins.nBloodQ : bins.blood ? bins.nBlood : bins.nCells;
-    bloodCPU = bl;
+    bloodCPU = bl; bloodVer++;
   }
   // Some of those cells, for a redraw of only the vessels that changed (see drawRows).
   const partVAO = gl.createVertexArray(), partBuf = gl.createBuffer();
@@ -4433,9 +4450,19 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       figVer++;
       tubesNew = true;
       markRows(data, tubeNow, ROW_W);
-      tubeNow.set(data.length > tubeNow.length ? data.subarray(0, tubeNow.length) : data); MG.tv++;   // (the stamp the Tube's stage 2 reads: nothing is bucketed or uploaded again while it stands)
+      MG.tv++;   // (the stamp the Tube's stage 2 reads: nothing is bucketed or uploaded again while it stands)
+      if (data.length < nTubes * ROW_W) {   // (a short table: every row sent, as before)
+        tubeNow.set(data); gl.bindTexture(gl.TEXTURE_2D, tubeTex);
+        gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TUBE_TEXELS, nTubes, gl.RGBA, gl.FLOAT, data);
+        return;
+      }
+      // (Only the span of rows that differ from what the texture holds (tubeNow, written alongside) goes up, and nothing while they all
+      // match, as setFlow: flow-rows.js changedRows. The texture was made empty and tubeNow starts at zero, so the two begin equal.)
+      const span = changedRows(data, tubeNow, ROW_W, nTubes, SPAN);
+      if (!span) { if (gpuProbe.on) gpuProbe.note(COUNTED.tubesSame); return; }
+      if (gpuProbe.on) gpuProbe.note('uploaded: setTubes rows', (span[1] - span[0] + 1) * ROW_W * 4 / 1024);
       gl.bindTexture(gl.TEXTURE_2D, tubeTex);
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TUBE_TEXELS, nTubes, gl.RGBA, gl.FLOAT, data);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, span[0], TUBE_TEXELS, span[1] - span[0] + 1, gl.RGBA, gl.FLOAT, data, span[0] * ROW_W);
     },
     /**
      * The organ covers painted on the GPU straight into their texture (alpha), at `k` texels per world unit over the world rectangle

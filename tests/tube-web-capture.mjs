@@ -49,7 +49,10 @@ if (mode === 'lobule') {
             const [, , , , w, h, , , data] = args;
             if (data instanceof Float32Array) {
               if (w === N && data.length >= h * N * 4 && data.length % (N * 4) === 0 && (!up.rad || data.length >= up.rad.length)) up.rad = data;   // flushRadii: the kept mirror of every row's radii
-              else if (w === 13 && data.length === h * TF && (!up.tube || h >= up.tube.length / TF)) up.tube = data.slice();                        // setTubes
+              else if (w === 13 && data.length % TF === 0) {   // setTubes: the rows that changed (heat D-4, 13 Nov 2026), from row args[3], at data's offset args[9]: kept as the whole table the texture holds
+                if (!up.tube || up.tube.length !== data.length) up.tube = new Float32Array(data.length);
+                const off = args[9] || 0; up.tube.set(data.subarray(off, off + h * TF), args[3] * TF);
+              }
             }
             return was.apply(this, args);
           };

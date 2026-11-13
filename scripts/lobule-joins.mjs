@@ -8,8 +8,8 @@
 // Where the numbers come from:
 //  - rows, joins: what the lobule hands `binVeins` (its `binAway` hook: the tubes `{ id, pts, reach }` and the joins), then the Mesh's own
 //    `binVeins`, `joinEntryList` and `patchGroups` run on that binning, as the renderer does.
-//  - `z`, tier: what the lobule passes to `setTubes` (float 9 and float 8 of each row's 52). `setTubes` is one `texSubImage2D` of that
-//    array, so this wraps the stub context's `texSubImage2D` (the width 13 x MAXT upload) and keeps the last array sent.
+//  - `z`, tier: what the lobule passes to `setTubes` (float 9 and float 8 of each row's 52). `setTubes` is one `texSubImage2D` of the rows that
+//    changed (a span of that array), so this wraps the stub context's `texSubImage2D` (the width 13 upload) and keeps the table those spans make.
 //  - radii: the lobule gives the renderer each row's radii at its 64 samples (`setRadii`, sent by `flushRadii` as a 64 x rows RGBA upload, and
 //    each row's largest as a 1 x rows RED upload); both uploads are kept the same way, so the largest radius is the real one, not the `reach`.
 import { fileURLToPath } from 'node:url';
@@ -42,7 +42,10 @@ export async function captureLobule({ lymph = false, W = 1440, H = 900 } = {}) {
       gl.texSubImage2D = function (...a) {
         const [, , , y, w, h, , , data, off = 0] = a;
         if (data instanceof Float32Array) {
-          if (w === TUBE_TEXELS && h === MAXT && data.length === MAXT * TUBE_FLOATS) { up.tube = data.slice(); up.tubeSends++; }                         // setTubes
+          if (w === TUBE_TEXELS && data.length === MAXT * TUBE_FLOATS) {   // setTubes: the rows that changed (heat D-4, 13 Nov 2026), kept as the whole table the texture holds
+            if (!up.tube) up.tube = new Float32Array(data.length);
+            up.tube.set(data.subarray(off, off + h * TUBE_FLOATS), y * TUBE_FLOATS); up.tubeSends++;
+          }
           else if (w === N_SAMPLES && data.length === MAXT * N_SAMPLES * 4) up.rad.set(data.subarray(off, off + h * N_SAMPLES * 4), y * N_SAMPLES * 4);   // flushRadii: all radii
           else if (w === 1 && data.length === MAXT) up.rmax.set(data.subarray(off, off + h), y);                                                      // flushRadii: the largest of each
         }

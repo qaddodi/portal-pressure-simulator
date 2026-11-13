@@ -19,6 +19,7 @@ export function createDirtyTiles(n = 16) {
   const bounds = new Float64Array(n * 4);   // alloc-rare: made once, with the renderer
   const runs = new Int16Array(COLS * ROWS * 4);   // (x0, x1, y0, y1 in tiles, per run)   // alloc-rare: made once, with the renderer
   let cur = -1;
+  const viewObj = { n, seqs, known, tile, cols, rows, Ws, Hs, masks, bounds };   // alloc-rare: made once, with the renderer
   return {   // alloc-rare: made once, with the renderer
     /** Starts frame `seq` on a W x H (device px) canvas, with nothing marked yet. */
     begin(seq, W, H) {
@@ -45,6 +46,23 @@ export function createDirtyTiles(n = 16) {
       const base = i * WORDS;
       for (let y = r0; y <= r1; y++) for (let x = c0; x <= c1; x++) masks[base + y * 2 + (x >> 5)] |= 1 << (x & 31);
     },
+    /** Marks, in the frame begun last, every tile and the bounds that frame `seq` of `src` (another ring, begun on a canvas of this one's size) marked. */
+    addFrom(src, seq) {
+      const v = src.view(), j = seq % v.n;
+      if (cur < 0 || !known[cur] || v.seqs[j] !== seq || !v.known[j]) return false;
+      const i = cur;
+      if (v.tile[j] !== tile[i] || v.cols[j] !== cols[i] || v.rows[j] !== rows[i] || v.Ws[j] !== Ws[i] || v.Hs[j] !== Hs[i]) return false;
+      const base = i * WORDS, from = j * WORDS;
+      for (let k = 0; k < WORDS; k++) masks[base + k] |= v.masks[from + k];
+      const b = i * 4, c = j * 4;
+      if (v.bounds[c + 2] > v.bounds[c]) {
+        if (v.bounds[c] < bounds[b]) bounds[b] = v.bounds[c]; if (v.bounds[c + 1] < bounds[b + 1]) bounds[b + 1] = v.bounds[c + 1];
+        if (v.bounds[c + 2] > bounds[b + 2]) bounds[b + 2] = v.bounds[c + 2]; if (v.bounds[c + 3] > bounds[b + 3]) bounds[b + 3] = v.bounds[c + 3];
+      }
+      return true;
+    },
+    /** The ring's own arrays, for addFrom of another ring (kept, the same object each time). */
+    view: () => viewObj,
     /** The bounding box of frame `seq`'s marks into out [x0, y0, x1, y1] (x0 > x1 when nothing was marked); false when not known. */
     boundsOf(seq, out) {
       const i = seq % n;
