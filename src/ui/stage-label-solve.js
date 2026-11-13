@@ -483,7 +483,7 @@ export function createLabelSolve(st, live) {
           // its stent: Review 15-16 Oct.)
           const mk = dop.all && /^focus/.test(it.key);
           if (ps.clear) { if (ps.pad != null ? lineHits(r, ps.pad, true) : mk ? lineHits(r, 3, true) : it.point ? lineHits(r, 4, true) : held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
-          if ((mk && dop.id && lineHits(r, 3, { only: dop.id })) || lineHits(r, 1, { only: 'res' })) return;   // (and in any pass, 2 px off its own stent as drawn, and never on a resistor's zigzag: "Azygos 0.2" on the collaterals', 13 Nov)
+          if (mk && dop.id && lineHits(r, 3, { only: dop.id })) return; if (lineHits(r, 1, { only: 'res' })) return;   // (and in any pass, 2 px off its own stent as drawn, and never on a resistor's zigzag: "Azygos 0.2" on the collaterals', 13 Nov)
           // (A leader that may cross at most lmax vessels besides the one it starts on, 3 px off each: 0, one that runs clear.)
           if (ps.lmax != null) { const le = leaderEnd(r, it.ax, it.ay); if (leaderVesselHits(live.segIdx, it.ax, it.ay, le.x, le.y, 3, ps.lmax < 1) > ps.lmax) return; }
           // (A reading out on a ring is joined to its station by a leader: one that would cross a vessel or a label is no use.)
@@ -1012,7 +1012,7 @@ export function createLabelSolve(st, live) {
             let rank = 0;
             const tryAt = (dir, gap, pass) => {   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame
               const [dx, dy] = offset(dir, it, gap), r = boxAt(it, ax + dx, ay + dy);
-              if (!within(r, view)) return;
+              if (!within(r, view) || lineHits(r, 1, { only: 'res' })) return;   // (never onto a resistor's zigzag)
               // (The box tests first: they are cheap and reject most spots, and faults() walks every leader and vessel. The same spots pass.)
               if (dot && hits(r, dot)) return;
               if (placed.some((p) => (p.dot ? hits(r, p) : hits(r, { x0: p.x0 - 3, y0: p.y0 - 3, x1: p.x1 + 3, y1: p.y1 + 3 })))) return;   // alloc-rare: the tidy runs in a solve (the view settled, a reading changed), never in a carried frame

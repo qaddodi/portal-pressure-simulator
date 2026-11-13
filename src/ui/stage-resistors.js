@@ -168,7 +168,7 @@ export function createResistors(st, live) {
     if (same) for (let i = 0; i < live.resKey.length; i++) if (st.cur.key[i] !== live.resKey[i]) { same = false; break; }
     if (same) for (let i = 0; i < n; i++) if (st.cur.pts[i] !== live.resNow[i]) { same = false; break; }
     st.d = d; st.ratio = ratio;
-    st._bandPx = amp * sc + w / 2 + RES_OUTLINE;   // (half the drawn band in px, the teeth's reach, line and outline: what the labels keep off, buildSegs)
+    st._bandPx = amp * sc + RES_W1 / 2 + RES_OUTLINE;   // (half the drawn band in px, the teeth's reach, the widest line and outline: what the labels keep off, buildSegs; the widest, so a line that thickens as the resistance rises never comes onto a label laid before)
     if (!same) {
       // alloc-rare: a resistor's zigzag, colour or width changed (a slide's change, a theme, a resistance, a zoom's step), not a frame that kept them
       const polys = [], veils = [];
