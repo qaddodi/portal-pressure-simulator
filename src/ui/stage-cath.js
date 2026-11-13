@@ -220,6 +220,10 @@ export function createCath(st, live) {
     const rc = cath.rc, ahead = cathAt(r, Math.min(r.total, tipD + Rf * 6.4));
     const tp = cathAt(r, tipD);
     cath.at = { tip: tp.p, ahead: ahead.p, nx: -tp.t[1], ny: tp.t[0] };
+    // Whether the tip has stopped (it moved less than a hundredth of a world unit since the last paint, which is far under a pixel, or it is parked at
+    // the end of its route, where a slow frame jumps it): a reading is taken, and its anchor pinned (cathLabels), only once the catheter is at rest.
+    // EUS-PPG's points are the veins' own targets, at rest throughout.
+    cath.still = (!!r.tg && gpu) || st.u >= 1 || (cath.lastTipD != null && Math.abs(tipD - cath.lastTipD) < 0.01); cath.lastTipD = tipD;
     // The wedged reading: the vein beyond the balloon, out toward the sinusoids, takes the wedged
     // pressure's color in the vessel's own rendering, filling outward as the column settles.
     let tint = null;
@@ -567,7 +571,11 @@ export function createCath(st, live) {
     return el;
   }
   // (A reading's point on the stage, for the side it names, written into `out`.)
-  const cathPtOf = (at, el, out) => { const p = el.dataset.at === 'ahead' ? at.ahead : at.tip; return worldToLocalInto(out, p[0], p[1]); };
+  // A reading, once taken, stands at the point it was taken at (el._pin, in the world, set by cathLabels), never on the catheter's live tip.
+  const cathPtOf = (at, el, out) => { const p = el._pin || (el.dataset.at === 'ahead' ? at.ahead : at.tip); return worldToLocalInto(out, p[0], p[1]); };
+  // The summary's two points: where the readings it takes in were taken (their pins), else the live points (a result reached without them).
+  const cathPinAt = (at, name) => cath.pinAt?.[name] || at[name];
+  const cathPinNow = { tip: null, ahead: null };   // (the summary's two points, written in place)
   // (The readings that fade out are taken away after their fade; those that come in start from their hidden look and are shown from the next frame.)
   const cathLeadRun = () => { for (let i = 0; i < cathLeadQ.length; i++) cathLeadKids(cathLeadQ[i]); cathLeadQ.length = 0; };
   const cathGone = (el) => { dropLabel(el); el.remove(); cath.leaving.delete(el); };
@@ -575,7 +583,7 @@ export function createCath(st, live) {
   const cathTravelRun = () => { for (let i = 0; i < cathTravelQ.length; i++) cathTravelQ[i].classList.remove('cath-travel'); cathTravelQ.length = 0; };
   function cathLabels() {
     const st = cath.st, at = cath.at;
-    if (!st || !at) { if (cath.made) for (const el of cath.made.values()) dropLabel(el); if (cath.leaving) for (const el of cath.leaving.keys()) dropLabel(el); late('kids', cath.labels, NO_LIST); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
+    if (!st || !at) { cath.pinAt = null; cathPinNow.tip = cathPinNow.ahead = null; if (cath.made) for (const el of cath.made.values()) dropLabel(el); if (cath.leaving) for (const el of cath.leaving.keys()) dropLabel(el); late('kids', cath.labels, NO_LIST); cath.made?.clear(); cath.leaving?.clear(); cath.lblKey = ''; return; }
     // Laid out once per change of the camera or the catheter (a glide and the procedure's step both ask in one frame).
     if (cath.lblKey !== '' && live.viewVersion === cath.lblVV && live.cathVer === cath.lblCV) return;
     cath.lblKey = 'laid'; cath.lblVV = live.viewVersion; cath.lblCV = live.cathVer;
@@ -619,6 +627,19 @@ export function createCath(st, live) {
     for (let i = 0; i < cathLiveEl.length; i++) {   // (the pills: the live labels that are not the summary)
       const l = cathLiveL[i];
       if (l && l.at !== 'sum') { cathPillEl.push(cathLiveEl[i]); cathPillL.push(l); cathFill(cathLiveEl[i], l); }
+    }
+    // A reading is taken where the tip stands once it has stopped: that point is pinned to the reading (in the world, so the camera still carries it),
+    // and stays there for as long as the reading shows, whatever the catheter, the vein's calibre or the animation does after. The summary that takes
+    // the readings in leads to the same points (cathPinAt). A reading that comes while the tip is still moving follows it until it stops.
+    // (Mohammad, 13 Nov 2026: "the FHVP anchor should be where the catheter was, not move continuously with it; after the measurement those anchors for FHVP and WHVP stay where they are".)
+    const pinAt = cath.pinAt || (cath.pinAt = cathPinNow);
+    if (!want.size) pinAt.tip = pinAt.ahead = null;   // (nothing shown: the next measurement is a new one)
+    for (let i = 0; i < cathPillEl.length; i++) {
+      const el = cathPillEl[i], l = cathPillL[i];
+      if (el._pin || !cath.still || el.classList.contains('cath-out')) continue;
+      const src = l.at === 'ahead' ? at.ahead : at.tip;
+      el._pin = [src[0], src[1]];   // alloc-rare: once per reading, as it is taken
+      pinAt[l.at === 'ahead' ? 'ahead' : 'tip'] = el._pin;
     }
     // (The stage's size, the cards' room and the readings' own sizes are kept until they change: cathRoomNow, cathSize.)
     const room = cathRoomNow(), W = room.W, H = room.H;
@@ -686,7 +707,7 @@ export function createCath(st, live) {
       for (let j = 0; j < rows.length; j++) cathFill(rows[j], l.rows[j]);
       cathFill(el._calc, l.calc);
       const A = cathA;
-      worldToLocalInto(A.tip, at.tip[0], at.tip[1]); worldToLocalInto(A.ahead, at.ahead[0], at.ahead[1]);
+      { const pt = cathPinAt(at, 'tip'), pa = cathPinAt(at, 'ahead'); worldToLocalInto(A.tip, pt[0], pt[1]); worldToLocalInto(A.ahead, pa[0], pa[1]); }
       // (read before any write below; kept while the readings' texts and classes stay as they are)
       const sz = cathSize(box, cathSumKey(l), rows), bw = sz[0], bh = sz[1], R = sz[2];
       const top = Math.max(70, sp.t + 6), gap = lim < 440 ? 40 : 64;

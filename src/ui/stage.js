@@ -3001,6 +3001,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     rebinNow: () => { morphOff(); vBinKey = ''; binShown = null; bendShown = null; syncVeins(easeInOut(morph)); },
     coilStats: () => ({ gpu: et.stats.gpu, builds: et.stats.builds, miss: { ...et.stats.miss }, ready: !!et.pc?.set }),
     // The label slots as solved (key → side and pixel offset from the figure point it names), for tests.
+    // The catheter's readings' points in the world as they stand now (live: the tip, the point ahead of it; pinned: where the shown readings were taken), for tests.
+    cathPoints: () => (cath.at ? { tip: cath.at.tip.slice(), ahead: cath.at.ahead.slice(), still: !!cath.still, sum: cath.pinAt ? { tip: cath.pinAt.tip?.slice() || null, ahead: cath.pinAt.ahead?.slice() || null } : null, pins: [...(cath.made?.entries() || [])].map(([k, el]) => [k, el._pin ? el._pin.slice() : null]) } : null),
     labelSlots: () => Object.fromEntries([...labelSol].filter(([, r]) => !r.drop).map(([k, r]) => [k, `${r.dir}/${r.pi}/${Math.round(r.dx)},${Math.round(r.dy)}`])),
     setSaver(on) {
       setFrameSaver(on);   // (the lobule, the sinusoid and the FibroScan read it each frame)
@@ -3028,8 +3030,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
         wrap.classList.toggle('cath-on', hide);
         if (hide) cathHidAt = performance.now(); else if (F) { labelKey = null; updateLabels(F); }
       }
-      if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; }
-      if (!st) { cath.rc = 0; cath.route = null; cath.blk = null; cath.shaft = null; cath.room = null; cath.ins = null; cathVer++; if (cathTint || varixFade) { cathTint = null; varixFade = 0; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
+      if (st && (st.route || 'hvpg') !== cath.kind) { cath.kind = st.route || 'hvpg'; cath.route = null; cath.rc = 0; cath.lastTipD = null; }
+      if (!st) { cath.rc = 0; cath.lastTipD = null; cath.still = false; cath.route = null; cath.blk = null; cath.shaft = null; cath.room = null; cath.ins = null; cathVer++; if (cathTint || varixFade) { cathTint = null; varixFade = 0; cath.tintKey = ''; syncVeins(easeInOut(morph)); } cath.at = null; cathFadeOut(); return; }
       cathPaint();
     },
     /** A presenter slide's measuring sites, e.g. ['pv', 'ivc'] (see SITE_DEF), read from fp (the slide's numbers, so they
