@@ -29,15 +29,15 @@ jobs:
         run: npm run smoke:lite -- dist
 
   card-fit:
-    name: Cards fit ${{ matrix.shard }}/6
+    name: Cards fit ${{ matrix.shard }}/9
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9]
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-browser
-      - name: Every card fits (share ${{ matrix.shard }} of 6)
-        run: node scripts/card-fit.mjs --shard ${{ matrix.shard }}/6 --jobs 3
+      - name: Every card fits (share ${{ matrix.shard }} of 9)
+        run: node scripts/card-fit.mjs --shard ${{ matrix.shard }}/9 --jobs 3 --device mac,mac-xl,iphone

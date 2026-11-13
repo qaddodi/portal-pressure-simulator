@@ -31,6 +31,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 export const DEVICES = {
   mac: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 },   // (1, not the Retina 2: software GL at 2880x1800 draws 2 frames in 3 s; --dpr 2 asks for it)
+  'mac-xl': { viewport: { width: 1913, height: 1188 }, deviceScaleFactor: 1 },   // (the owner's Mac, full screen: 3826 x 2376 at 2x in his screenshots, 13 Nov 2026)
   ipad: { viewport: { width: 1180, height: 820 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true },
   'ipad-portrait': { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 1.5, isMobile: true, hasTouch: true },
   iphone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },

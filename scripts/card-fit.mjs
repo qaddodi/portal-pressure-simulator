@@ -11,8 +11,8 @@
 //   clipped  a text element wider than its box where the box clips (overflow not visible): a cut or ellipsised word.
 //   off      a text element partly outside the screen (wholly outside is a parked card, ignored) and not inside something that scrolls on purpose.
 //   enlarged a card already enlarged when the slide has landed (nothing zooms until asked).
-//   zoomed   the same slide with its instrument card enlarged (the corner icon, Mac and iPad landscape): the teaching card and the enlarged card must
-//            both stand whole inside the screen, and no text may be cut (the page's own getBoundingClientRect answers the resting box while a card
+//   zoomed   the same slide with its instrument card enlarged, by the corner icon and by a tap on the card (Mac and iPad landscape, where it is offered):
+//            the teaching card and the instrument card must both be larger than at rest and stand whole inside the screen, and no text may be cut (the page's own getBoundingClientRect answers the resting box while a card
 //            rides the zoom, so the judge reads getClientRects). `--no-zoom` leaves this pass out.
 // Known, accepted cases go in scripts/card-fit-allowance.json: { "<deck>:<slide n>:<device>": "<why>" }; a listed case that no longer fails is an error
 // too (delete it), so the list only ever shrinks.
@@ -101,12 +101,15 @@ const ZREAD = () => {
   }
   return { vw, vh, boxes: o, up: document.querySelector('.pz-zbtn')?.getAttribute('aria-expanded') === 'true' };
 };
-const zoomFailing = (z) => {
-  if (!z.up) return ['zoomed: the card did not enlarge'];
+const zoomFailing = (z, rest, how) => {
+  if (!z.up) return [`zoomed (${how}): the card did not enlarge`];
   const out = [];
   for (const [q, b] of Object.entries(z.boxes)) {
-    if (!b) { if (q === '.pz-text') out.push(`zoomed: the teaching card is not on the screen`); continue; }
-    if (b[0] < -2 || b[1] < -2 || b[2] > z.vw + 2 || b[3] > z.vh + 2) out.push(`zoomed: ${q === '.pz-text' ? 'teaching card' : 'enlarged card'} [${b}] runs off the ${z.vw} x ${z.vh} screen`);
+    const name = q === '.pz-text' ? 'teaching card' : 'enlarged card', r0 = rest.boxes[q];
+    if (!b) { if (q === '.pz-text' && r0) out.push(`zoomed (${how}): the teaching card is not on the screen`); continue; }
+    if (b[0] < -2 || b[1] < -2 || b[2] > z.vw + 2 || b[3] > z.vh + 2) out.push(`zoomed (${how}): ${name} [${b}] runs off the ${z.vw} x ${z.vh} screen`);
+    // (Both cards zoom, never the instrument alone: each is wider than it rests.)
+    if (r0 && (b[2] - b[0]) < (r0[2] - r0[0]) * 1.02) out.push(`zoomed (${how}): the ${name} did not enlarge with the card (${r0[2] - r0[0]} px wide at rest, ${b[2] - b[0]} px zoomed)`);
   }
   return out;
 };
@@ -141,19 +144,35 @@ async function walkDeck(browser, d, device) {
       const [a, b] = r.n.split('/').map((x) => parseInt(x, 10));
       const slide = a || k + 1;
       const f = failing(r);
-      // (The slide with its instrument card enlarged: only where the corner icon is offered; put back before Next.)
+      // (The slide with its instrument card enlarged, by the corner icon and then by a tap on an empty part of the card: both cards zoom, whole on the screen.
+      // Only where the icon is offered; put back before Next.)
       if (ZOOM && await app.page.evaluate(() => { const z = document.querySelector('.pz-zbtn'), d = document.querySelector('.pz-data'); return !!z && !!d && getComputedStyle(z).display !== 'none' && d.getBoundingClientRect().width > 0 && !d.hidden; })) {
-        const rest = VERBOSE ? await app.page.evaluate(ZREAD) : null;
+        const rest = await app.page.evaluate(ZREAD);
+        const judge = async (how) => {
+          await app.page.waitForTimeout(1800);
+          const z1 = await app.page.evaluate(ZREAD), zr1 = await app.page.evaluate(READ);
+          await app.page.waitForTimeout(700);
+          const z2 = await app.page.evaluate(ZREAD), zr2 = await app.page.evaluate(READ);
+          const zf = zoomFailing(z2, rest, how).filter((t) => zoomFailing(z1, rest, how).includes(t));
+          f.push(...zf, ...zr1.off.filter((t) => zr2.off.includes(t)).map((t) => `zoomed (${how}), off: ${t}`), ...zr1.clipped.filter((t) => zr2.clipped.includes(t)).map((t) => `zoomed (${how}), clipped: ${t}`));
+          if (VERBOSE) console.log(`    ${d.id} ${device} slide ${slide} ${how}: rest ${JSON.stringify(rest.boxes)} zoomed ${JSON.stringify(z2.boxes)}`);
+        };
+        const putBack = async () => { await app.page.evaluate(() => { const z = document.querySelector('.pz-zbtn'); if (z?.getAttribute('aria-expanded') === 'true') z.click(); }); await app.page.waitForTimeout(900); await idle(); };
         await app.page.evaluate(() => document.querySelector('.pz-zbtn').click());
-        await app.page.waitForTimeout(1800);
-        const z1 = await app.page.evaluate(ZREAD), zr1 = await app.page.evaluate(READ);
-        await app.page.waitForTimeout(700);
-        const z2 = await app.page.evaluate(ZREAD), zr2 = await app.page.evaluate(READ);
-        const zf = zoomFailing(z2).filter((t) => zoomFailing(z1).includes(t));
-        const off = zr1.off.filter((t) => zr2.off.includes(t)).map((t) => `zoomed, off: ${t}`), cl = zr1.clipped.filter((t) => zr2.clipped.includes(t)).map((t) => `zoomed, clipped: ${t}`);
-        f.push(...zf, ...off, ...cl);
-        if (VERBOSE) console.log(`    ${d.id} ${device} slide ${slide} rest ${JSON.stringify(rest.boxes)} zoomed ${JSON.stringify(z2.boxes)}`);
-        await app.page.evaluate(() => { const z = document.querySelector('.pz-zbtn'); if (z?.getAttribute('aria-expanded') === 'true') z.click(); });
+        await judge('icon');
+        await putBack();
+        // (A tap on an empty corner of the card: one that is not a control or something drawn to be pressed, as card-zoom.js emptyTap says.)
+        const spot = await app.page.evaluate(() => {
+          const card = document.querySelector('.pz-data'), r = card.getBoundingClientRect(), LIVE = 'a[href], button, input, select, textarea, label, summary, [role="button"], [role="slider"], [role="tab"], [role="switch"], [role="checkbox"], .range-wrap, .pz-lip, [data-no-zoom]';
+          for (const [x, y] of [[r.left + 10, r.top + 10], [r.right - 10, r.bottom - 10], [r.left + 10, r.bottom - 10], [r.right - 10, r.top + 10]]) {
+            let n = document.elementFromPoint(x, y), live = !n || !card.contains(n);
+            for (; n && n !== card && !live; n = n.parentElement) if (n.matches(LIVE) || getComputedStyle(n).cursor === 'pointer') live = true;
+            if (!live) return [x, y];
+          }
+          return null;
+        });
+        if (spot) { await app.page.mouse.click(spot[0], spot[1]); await judge('tap'); await putBack(); }
+        else if (VERBOSE) console.log(`    ${d.id} ${device} slide ${slide}: no empty spot to tap`);
         await idle();
       }
       rec.steps.push({ slide, n: r.n, problems: f });

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { unsnap } from './unsnap.js';
-import { zoomPlan, zoomPlanClear, landedBox, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
+import { zoomPlan, zoomPlanTogether, ZOOM_MIN_TOGETHER, zoomMargin, unionBox, emptyTap, tapTracker, createCardZoom, ZOOM_MAX, ZOOM_MIN, ZOOM_MS, STACK_ROOM } from '../src/ui/card-zoom.js';
 import { EASE_ARRIVE, easeArrive } from '../src/ui/ease.js';
 import { zoomRide } from '../src/ui/scene-cam.js';
 
@@ -671,58 +671,53 @@ test('zoom: a tap on the data card fits and centres the card and the teaching ca
   const z = createCardZoom({ card, along: [lip], scene: () => [words], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }) });
   const back = stands();
   try {
-    const want = zoomPlan({ left: 40, top: 276, width: 560, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ width: 1440, height: 900 }) * STACK_ROOM);
+    const want = zoomPlan({ left: 40, top: 276, width: 560, height: 404 }, { left: 0, top: 0, width: 1440, height: 900 }, zoomMargin({ width: 1440, height: 900 }));
     assert.equal(z.open(), true);
     assert.ok(Math.abs(z.scale - want.s) < 1e-9, 'the fit is the whole of them: the instrument card, its handle and the words');
     z.reset();
   } finally { back(); }
 });
 
-// The teaching card must stay whole when the instrument card is enlarged (Mohammad, 13 Nov 2026: "when i zoom into this slide, the teaching card text is cut off";
-// "probably happens to a lot of other cards"). A teaching card above the instrument, turned with it about the instrument's middle, ran off the top of the screen.
-test('zoomPlanClear: pieces that would run off the screen stay where they are and the card takes the room beside them', () => {
-  const area = { left: 0, top: 0, width: 1440, height: 900 }, m = zoomMargin(area);
-  // Beside the card and narrow: riding keeps it whole, so it is the old plan.
-  { const p = zoomPlanClear({ left: 40, top: 300, width: 420, height: 380 }, [{ left: 480, top: 300, width: 120, height: 380 }], area);
-    assert.equal(p.ride, true); assert.equal(p.s, zoomPlan({ left: 40, top: 300, width: 420, height: 380 }, area).s); }
-  // Together: card and pieces are one picture where that still enlarges it (a tall screen).
-  { const big = { left: 0, top: 0, width: 1907, height: 1185 }, c = { left: 37, top: 600, width: 490, height: 336 }, w = { left: 37, top: 220, width: 491, height: 353 };
-    const t = zoomPlanClear(c, [w], big);
-    assert.equal(t.ride, true); assert.deepEqual(t.box, unionBox([c, w]));
-    const mid = { x: t.box.left + t.box.width / 2, y: t.box.top + t.box.height / 2 }, mg = zoomMargin(big);
-    for (const r of [c, w]) { const b = landedBox(r, t, mid); assert.ok(b.top >= mg - 1e-9 && b.top + b.height <= big.height - mg + 1e-9 && b.left >= mg - 1e-9 && b.left + b.width <= big.width - mg + 1e-9, 'both whole inside the margin'); } }
-  // Above the card (the Mac and iPad stack), on a screen too short to enlarge both: scaled about the card it lands above the top of the screen.
-  const card = { left: 37, top: 484, width: 490, height: 336 }, words = { left: 37, top: 109, width: 491, height: 353 };
-  const p = zoomPlanClear(card, [words], area);
-  assert.equal(p.ride, false, 'the teaching card does not ride');
-  assert.ok(p.s >= ZOOM_MIN && p.s <= ZOOM_MAX);
-  const at = landedBox(card, p, { x: card.left + card.width / 2, y: card.top + card.height / 2 });
-  assert.ok(at.left >= words.left + words.width + 28 - 1e-9, 'clear of the teaching card by the gap, to its right');
-  assert.ok(at.left + at.width <= area.width - m + 1e-9 && at.top >= m - 1e-9 && at.top + at.height <= area.height - m + 1e-9, 'inside the margin at the screen\'s own edges');
-  assert.ok(Math.abs(at.left + at.width / 2 - (p.room.left + p.room.width / 2)) < 1e-9, 'centred in the room it took');
-  // No room for ZOOM_MIN beside it: no zoom, never a cut card.
-  assert.equal(zoomPlanClear(card, [{ left: 0, top: 0, width: 1440, height: 480 }], { left: 0, top: 0, width: 1440, height: 900 }), null);
-  // Nothing beside it: as before.
-  assert.equal(zoomPlanClear(card, [], area).ride, true);
+// The teaching card zooms with the instrument card and stays whole (Mohammad, 13 Nov 2026: "when i zoom into this slide, the teaching card text is cut off";
+// "i clicked on the instrument card to zoom both and only instrument card zoomed. so fix it"). A teaching card above the instrument, turned with it about
+// the instrument's middle, ran off the top of the screen; the card alone beside it left the teaching card behind.
+test('zoomPlanTogether: card and teaching card are fitted and centred as one, so both land whole inside the margin', () => {
+  const big = { left: 0, top: 0, width: 1913, height: 1188 }, mg = zoomMargin(big);
+  const c = { left: 37, top: 600, width: 490, height: 336 }, w = { left: 37, top: 220, width: 636, height: 353 };
+  const t = zoomPlanTogether(c, [w], big);
+  assert.deepEqual(t.box, unionBox([c, w]));
+  assert.ok(t.s >= ZOOM_MIN_TOGETHER);
+  const mid = { x: t.box.left + t.box.width / 2, y: t.box.top + t.box.height / 2 };
+  for (const r of [c, w]) {
+    const l = mid.x + (r.left - mid.x) * t.s + t.dx, tp = mid.y + (r.top - mid.y) * t.s + t.dy;
+    assert.ok(tp >= mg - 1e-9 && tp + r.height * t.s <= big.height - mg + 1e-9 && l >= mg - 1e-9 && l + r.width * t.s <= big.width - mg + 1e-9, 'whole inside the margin');
+  }
+  // A screen too short for both: no zoom, never the card alone and the teaching card cut or left behind.
+  assert.equal(zoomPlanTogether({ left: 37, top: 484, width: 490, height: 336 }, [{ left: 37, top: 40, width: 491, height: 420 }], { left: 0, top: 0, width: 1440, height: 900 }), null);
+  // Nothing beside it: the card's own plan.
+  assert.deepEqual(zoomPlanTogether(c, [], big), zoomPlan(c, big));
 });
 
-test('zoom: a teaching card above the instrument is left whole, unmoved, while the instrument takes the room beside it', async () => {
-  const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
-  const words = new El({ left: 40, top: 20, width: 420, height: 240 }), shade = new El({ left: 20, top: 10, width: 460, height: 260 });
-  const scrim = new El({ left: 0, top: 0, width: 1440, height: 900 }), app = new El({ left: 0, top: 0, width: 1440, height: 900 });
-  const z = createCardZoom({ card, along: [lip], scene: () => [words, shade], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: 900 }) });
+test('zoom: the teaching card above the instrument turns with it, both whole; on a screen too short for both nothing zooms', async () => {
+  const mk = (h) => {
+    const card = new El({ left: 40, top: 300, width: 420, height: 380 }), lip = new El({ left: 40, top: 276, width: 420, height: 24 });
+    const words = new El({ left: 40, top: 20, width: 420, height: 240 }), shade = new El({ left: 20, top: 10, width: 460, height: 260 });
+    const scrim = new El({ left: 0, top: 0, width: 1440, height: h }), app = new El({ left: 0, top: 0, width: 1440, height: h });
+    return { card, words, shade, z: createCardZoom({ card, along: [lip], scene: () => [words, shade], scrim, app, raf: fl.raf, area: () => ({ left: 0, top: 0, width: 1440, height: h }) }) };
+  };
   const back = stands();
   try {
-    assert.ok(z.plan() && z.plan().ride === false);
-    assert.equal(z.open(), true);
+    const tall = mk(1300);
+    assert.ok(tall.z.plan(), 'a tall screen takes both');
+    assert.equal(tall.z.open(), true);
     fl.run();
     await new Promise((r) => setTimeout(r, 0));
-    assert.ok(card.style.transform, 'the instrument card turns');
-    assert.deepEqual([words.style.transform, shade.style.transform], ['none', 'none'], 'the teaching card and its glass are not moved or scaled');
-    assert.equal(words.getBoundingClientRect().top, 20, 'and still answer where they stand');
-    assert.ok(z.follow(0, 0), 'the readings\' re-fit keeps to the same room');
-    assert.ok(z.scale >= ZOOM_MIN - 1e-9);
-    const shut = z.close(); fl.run(); await shut;
+    assert.ok(tall.card.style.transform !== 'none' && tall.words.style.transform === tall.card.style.transform && tall.shade.style.transform === tall.card.style.transform, 'all three turn as one');
+    assert.ok(tall.z.follow(0, 0));
+    const shut = tall.z.close(); fl.run(); await shut;
+    const short = mk(700);
+    assert.equal(short.z.plan(), null, 'no zoom is offered where both cannot grow');
+    assert.equal(short.z.open(), false);
   } finally { back(); }
 });
 
