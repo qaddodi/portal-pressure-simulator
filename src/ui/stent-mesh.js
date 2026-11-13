@@ -32,7 +32,7 @@ export function stentLookD(f, A, bare = A, k = 1) {
   if (!(e > 0.5)) return out;
   const p0 = f(0, 1), q0 = f(0, -1), R0 = Math.hypot(p0[0] - q0[0], p0[1] - q0[1]) / 2 || 1, u = R0 / 12;   // (u: the mocks' unit, a twelfth of the half-width)
   const covered = bare > 0.5 && bare < A - 4 * u;
-  const SB = covered ? bare : A;
+  const SB = covered ? bare : A, BOW = 1.5 * u;   // (BOW: how far the band, round the tube, curves toward the far end at its sides; the bare crowns at SB stay under its stroke)
   // the light level at (a, v): the wall's normal is v across (the side direction) and sqrt(1 - v^2) towards the viewer
   const side = (a) => { const p = f(a, 1), q = f(a, -1), dx = p[0] - q[0], dy = p[1] - q[1], l = Math.hypot(dx, dy) || 1; return (dx * LIGHT[0] + dy * LIGHT[1]) / l; };
   const P = (q) => `${q[0].toFixed(2)} ${q[1].toFixed(2)}`;
@@ -55,10 +55,12 @@ export function stentLookD(f, A, bare = A, k = 1) {
     }
     return d.trim() ? d.trim() + ' ' : '';
   };
-  // the bare stretch: rings of 5 crowns, every other one turned half a crown, so crowns meet and close the cells; the first ring's crowns are the round tips
-  const Pb = 17 * u, Ab = Pb / 2, s0b = Ab + 1.2 * u, Kb = Math.floor((SB - (covered ? 2.5 : 1.2) * u - Ab - s0b) / Pb + 1e-6);
-  for (let i = 0; i <= Kb; i++) {
-    const s = s0b + i * Pb, ph = i & 1 ? Math.PI : 0;
+  // the bare stretch: rings of 5 crowns, every other one turned half a crown, so crowns meet and close the cells; the first ring's crowns are the round tips.
+  // The rings fill the stretch exactly (about 17 units each), so the last ring's crowns reach the gold band and the open cells run straight on into the
+  // covered stent: one device, no gap at the band (Mohammad, 13 Nov 2026: "the two fragments are NOT connected").
+  const t0 = 1.2 * u, bEnd = covered ? SB : A - 1.2 * u, Nb = Math.max(1, Math.round((bEnd - t0) / (17 * u))), Pb = (bEnd - t0) / Nb, Ab = Pb / 2;
+  for (let i = 0; i < Nb; i++) {
+    const s = t0 + Ab + i * Pb, ph = i & 1 ? Math.PI : 0;
     if (s - Ab > e) break;
     out.backBare += ring(s, Ab, 5, ph, true); out.frontBare += ring(s, Ab, 5, ph, false); out.glint += glintOf(s, Ab, 5, ph);
   }
@@ -70,8 +72,9 @@ export function stentLookD(f, A, bare = A, k = 1) {
     if (s - Ac > e) break;
     out.backCov += ring(s, Ac, 5, 0, true); out.frontCov += ring(s, Ac, 5, 0, false); out.glint += glintOf(s, Ac, 5, 0);
   }
-  // the graft: where the light is at least each level, from the band to the scalloped end (the far end's crowns), cut at the front while it unrolls
+  // the graft: where the light is at least each level, from the band to the scalloped end (the far end's crowns), cut at k when drawn part of the way
   const endAt = (v) => Math.min(e, sLast + Ac * Math.cos(5 * Math.asin(Math.max(-1, Math.min(1, v)))) + 1.4 * u);
+  const startAt = (v) => Math.min(e, SB + BOW * (1 - Math.sqrt(Math.max(0, 1 - v * v))));   // (the graft starts along the band)
   const sMax = Math.min(e, sLast - Ac + 1.4 * u), step = Math.max(1, 3 * u);
   const edgeOf = (lvl, a) => {   // the span of v round the front where the light is at least lvl: [lo, hi], or null
     if (lvl <= 0) return [-1, 1];
@@ -86,8 +89,9 @@ export function stentLookD(f, A, bare = A, k = 1) {
     const lvl = levels[j], next = levels[j + 1] ?? 1, want = graftAlpha(j === 0 ? 0 : (lvl + next) / 2);
     const op = Math.max(0, 1 - (1 - want) / (1 - below)); below = want;
     if (!(op > 0.004) || sMax <= SB) continue;
-    const hiE = [], loE = [];
-    for (let a = SB; ; a = Math.min(sMax, a + step)) {
+    const hiE = [], loE = [], sp0 = edgeOf(lvl, SB), start = [];
+    if (sp0) for (let i = 0; i <= 8; i++) { const v = sp0[0] + (sp0[1] - sp0[0]) * i / 8; start.push(f(startAt(v), v)); }
+    for (let a = Math.min(sMax, SB + BOW); ; a = Math.min(sMax, a + step)) {
       const sp = edgeOf(lvl, a);
       if (sp) { hiE.push(f(a, sp[1])); loE.push(f(a, sp[0])); }
       if (a >= sMax) break;
@@ -95,12 +99,12 @@ export function stentLookD(f, A, bare = A, k = 1) {
     if (hiE.length < 2) continue;
     const spEnd = edgeOf(lvl, sMax), cap = [];
     if (spEnd) for (let i = 0; i <= 12; i++) { const v = spEnd[1] + (spEnd[0] - spEnd[1]) * i / 12; cap.push(f(Math.max(sMax, endAt(v)), v)); }
-    out.graft.push(['M' + [...hiE, ...cap, ...loE.reverse()].map(P).join(' L') + ' Z', +op.toFixed(3)]);
+    out.graft.push(['M' + [...start, ...hiE, ...cap, ...loE.reverse()].map(P).join(' L') + ' Z', +op.toFixed(3)]);
   }
   // the gold band where the graft starts (bowed with the cylinder), and the gold tab near the far end
   if (e >= SB) {
     let d = '';
-    for (let i = 0; i <= RING_STEPS; i++) { const th = -Math.PI / 2 + Math.PI * i / RING_STEPS; d += (i ? ' L' : 'M') + P(f(SB + 4 * u * (1 - Math.cos(th)), Math.sin(th))); }
+    for (let i = 0; i <= RING_STEPS; i++) { const th = -Math.PI / 2 + Math.PI * i / RING_STEPS; d += (i ? ' L' : 'M') + P(f(SB + BOW * (1 - Math.cos(th)), Math.sin(th))); }
     out.band = d;
   }
   const ts = sLast - Pc * 0.55;

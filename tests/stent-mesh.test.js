@@ -49,6 +49,18 @@ test('the covered stent: the graft runs from the band to a scalloped far end, in
   assert.ok(pts(m.frontCov).every(([x]) => x > bare && x <= A + 0.01), 'the covered rings start past the band');
 });
 
+test('one device: the open cells run on into the graft, with no gap at the gold band (13 Nov 2026, "the two fragments are NOT connected")', () => {
+  for (const b of [50, 64.3, 80, 97]) {
+    const m = stentLookD(f, A, b), bareMax = Math.max(...pts(m.frontBare).map((p) => p[0]));
+    assert.ok(bareMax > b - 1 && bareMax <= b + 0.01, `the last open crowns reach the band at ${b}: ${bareMax.toFixed(2)}`);
+    assert.ok(Math.min(...m.graft.flatMap(([d]) => pts(d)).map((p) => p[0])) <= b + 0.01, 'the graft starts at the band');
+    assert.ok(Math.min(...pts(m.frontCov).map((p) => p[0])) - b < 4, 'the first covered ring sits just past the band');
+  }
+  // the all-bare stent's rings fill it end to end the same way
+  const P = pts(stentLookD(f, A, A).frontBare).map((p) => p[0]);
+  assert.ok(Math.max(...P) > A - 2 && Math.min(...P) < 2);
+});
+
 test('the graft is white where the light falls and nearly clear on the shaded side', () => {
   const m = stentLookD(f, A, bare);
   const ops = m.graft.map(([, o]) => o);

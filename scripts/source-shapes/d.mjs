@@ -76,6 +76,6 @@ export default [
   { file: CSS, need: [/\.stent-wire \{[^}]*var\(--dev-stent-wire\)[^}]*stroke-linejoin: round/, 'the wires, round-joined for the GPU painter'] },
   { file: CSS, need: [/\.stent-gold \{[^}]*var\(--dev-stent-gold\)/, 'the gold marker band and tab'] },
   { file: VENOUS, need: [/meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole covered mesh, built once'] },
-  { file: VENOUS, need: [/d0 = tips \? ex\[0\] : /, 'unrolled from the portal end'] },
+  { file: VENOUS, need: [/d0 = tips \? TIPS_ENDS\[0\] : /, 'drawn from the portal end (its open stretch at d0)'] },
   { file: STAGE, need: [/for \(const id of \['TIPS', 'DIPS', 'C6', 'S_DSR', 'S_PC'\]\) if \(E\[id\]\) E\[id\]\.over = true;/, 'the splenorenal and portocaval shunts are in the portal tree\'s tier, so its wall is not drawn across their mouth (12 Nov 2026)'] },
 ];

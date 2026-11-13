@@ -267,7 +267,7 @@ export function createTransitions(st, live) {
   // light falls and nearly clear on the shaded side, with an open stretch at the portal end ending in round crowns and a gold band where the
   // graft starts; every other stent (the veins', the stent tool's shunts) the open stretch alone, end to end. Wire widths are world units (a
   // twelfth of the stent's half-width each), so the stent keeps its proportions as the figure zooms; the painter keeps a stroke one device pixel at least.
-  // ends: kept for its callers (the front marker of a stent unrolled by its front is venousDraw's own). bare > 0: that much open from d0.
+  // ends: kept for its callers. bare > 0: that much open from d0.
   function meshPaths(id, p, d0, d1, k = 1, ends = true, bare = 0) {
     const sg = d1 >= d0 ? 1 : -1, A = Math.abs(d1 - d0);
     const R = meshR(id, p);
@@ -287,11 +287,11 @@ export function createTransitions(st, live) {
     wire('stent-gold', m.tab, 2.2, 1);
     return out;
   }
-  // The TIPS stent's bare stretch at its portal end, as drawn length (the 2 cm of the shunt's 8): the covered stent venousDraw unrolls.
+  // The TIPS stent's bare stretch at its portal end, as drawn length (the 2 cm of the shunt's 8): the covered stent venousDraw brings in.
   const tipsBare = (id) => bareOf(geo[id].len - 4, E[id].e.len);
   // TIPS, DIPS and the shunts drawn with the stent tool: the whole drawn shunt, in place at once (the vessel itself draws on).
   function stentMesh(id, p) {
-    if (id === 'TIPS') return;   // (the covered stent unrolls on its own clock, with the veins' stents: stage-venous.js)
+    if (id === 'TIPS') return;   // (the covered stent comes in whole on its own clock, with the veins' stents: stage-venous.js)
     putMark(ov.stents, `stent:${id}`, id, meshPaths(id, p, 2, geo[id].len - 2));
   }
   function putMark(host, key, vessel, els, anatOnly = false) {

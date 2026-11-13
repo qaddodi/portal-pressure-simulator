@@ -63,14 +63,18 @@ test('the Budd–Chiari stent slide stents the right hepatic vein, and its cross
   assert.equal(s.tool.vessel, 'RHV_IVC');
 });
 
-test('the figure unrolls and rolls back a stented vein on its own clock, and the presenter hands each slide its veins', () => {
+test('the figure brings a stent in whole and takes it out whole on its own clock, and the presenter hands each slide its veins', () => {
   const stage = stageSource();
   const pres = readFileSync(new URL('../src/ui/presenter.js', import.meta.url), 'utf8');
   assert.match(stage, /function meshPaths\(id, p, d0, d1, k = 1, ends = true, bare = 0\)/, 'one mesh for the TIPS and the veins');
-  // (2 Nov 2026: the vein's mesh is built once and unrolled by its frames and a clip, on the GPU.)
+  // (2 Nov 2026: the mesh is built once; 13 Nov 2026, Mohammad: "the stent TIPS doesn't expend all at once.. it expands in two fragments... WRONG":
+  // the whole stent comes in at once, every piece at the same strength, with no front, clip or marker sweeping along it.)
   const move = stage.slice(stage.indexOf('function venousMove('), stage.indexOf('function venousTick('));
-  assert.ok(move.length > 0 && !/meshPaths|s\('/.test(move), 'an unrolling stent builds nothing per frame');
-  assert.match(move, /(?:live\.)?putA\(P\.front, 'transform'/, 'it moves the front');
+  assert.ok(move.length > 0 && !/meshPaths|s\('/.test(move), 'a stent coming in builds nothing per frame');
+  assert.match(move, /for \(const el of P\.fade\) (?:live\.)?putA\(el, 'opacity', o\)/, 'every piece at one strength');
+  assert.ok(!/transform|clip/.test(move), 'no front sweeping along it');
+  const draw = stage.slice(stage.indexOf('function venousDraw('), stage.indexOf('function venousMove('));
+  assert.ok(!/clip-path|clipPath|stent-mark/.test(draw), 'no clip and no front marker');
   assert.match(stage, /meshPaths\(id, p, d0, d1, 1, false, tips \? tipsBare\(id\) : 0\)/, 'the whole mesh, built once');
   assert.match(stage, /putMark\(ov\.stents, `stent:\$\{id\}`, id, meshPaths\(id, p, 2, geo\[id\]\.len - 2\)\)/, 'the DIPS and the stent tool\'s shunts: the whole drawn shunt, faded in and out');
   assert.match(stage, /if \(id === 'TIPS'\) return;/, 'the TIPS is the covered stent, unrolled with the veins\' (D4)');

@@ -713,7 +713,6 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .lit-lo { stop-color: var(--lit-lo-ink); stop-opacity: var(--lit-lo); }
 /* (The circuit's map (its dot grid in --map-dot, its tinted zones in --text at .028, a slide's lit zone in --accent at .09) and its station
    dots (--stage-bg under a 1.6 ring in --text) are drawn by the GPU from the tokens: stage.js MAP, syncMapInk; veins-gl.js mapAt.) */
-.stent-mark { fill: none; stroke: var(--stent-marker); stroke-width: 2.8; stroke-linecap: round; stroke-linejoin: round; stroke-opacity: var(--stent-alpha, 1); }
 /* (the grey of a tied-off vein: a filled shape tapering to a point at each end) */
 .tied-off { fill: var(--text); fill-opacity: .42; stroke: none; }
 .ligature { fill: none; stroke: var(--text); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -762,7 +761,6 @@ html.press-fx :is(.modes button, .um-tab, .instr-tab, .ps-btn, .pz-scales > butt
 .stent-glint { fill: none; stroke: var(--dev-stent-glint); stroke-linecap: round; stroke-linejoin: round; }
 .stent-gold { fill: none; stroke: var(--dev-stent-gold); stroke-linecap: round; stroke-linejoin: round; }
 .stent-graft { fill: var(--dev-graft); stroke: none; }
-.stent-mark-tips { stroke-width: 2; stroke-opacity: calc(var(--stent-alpha, 1) * .7); }
 .target-glow { fill: none; stroke: var(--accent); stroke-opacity: .35; stroke-linecap: round; }
 
 /* ── Panel (inspector) ──────────────────────────── */
