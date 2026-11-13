@@ -6,7 +6,7 @@
 // a crosshair (hover, or drag on a touch screen) reads every trace at one moment.
 
 import { store, hiddenNow } from './store.js';
-import { h, fmt, cssVar, cssAlpha, clamp } from './util.js';
+import { h, fmt, cssVar, cssAlpha, cssInk, clamp } from './util.js';
 import { FONT as FONT0, FONT } from './charts.js';
 import { frameFor, cancelFrame, paceMs, restGapFor, restPark, noteDraw, frameAnimating, pageRest, onPageWake } from './frame.js';
 import { tenthGap } from '../engine/gap.js';
@@ -491,6 +491,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
   const SB = { w: 0, hh: 0, panel: '', faint: '', muted: '', text: '', hair: '', danger: '', ok: '', cap: 'butt', join: 'miter', L: 0, hrT: '', hvT: '', word: '', sevC: '', hrC: '', ylN: 0, ylTxt, ylY, col: null };
   const SBcol = { x: 0, plan: null, hrSince: '', hvSince: '', rows: keyRowList };
   const sevColor = (hv) => cssVar(SEV_VAR[sevOf(hv)]);
+  const sevInk = (hv) => cssInk(sevOf(hv));   // (the status as text: the label, the word and the number beside the trace, the ink the tiles use)
   // Canvas text has no tabular figures, and these readings follow the trace's ends as they settle after an event: each digit is set in
   // a 0's width, as the tiles' HTML numbers are (tabular-nums), so a digit that changes never moves the others, the unit or the line.
   const zw = (g, t) => g.measureText(zeroed(t)).width;
@@ -604,7 +605,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
     // The still parts of the card (laptop-heat recs H3): the panel, the scale's numbers, and the readings (the column beside the plot, or
     // the line on top of a narrow card), drawn first. They stand clear of everything that moves (the plot's box, the strip, the caliper at R + 12 and the time axis all end
     // at R; the column starts at R + 30; the narrow card's line is above its strip), so drawn first they set the pixels they set before.
-    const sevC = sevColor(hv), hrC = hr >= HR_CUT ? cssVar('--danger') : text;
+    const sevC = sevInk(hv), hrC = hr >= HR_CUT ? cssInk('danger') : text;
     const hvWas = showWas ? tenthGap(wWas, fWas, was.hvpg) : was?.hvpg;
     keyRows[0].c = pc; keyRows[0].v = pvNow; keyRows[1].c = wc; keyRows[1].v = wNow; keyRows[2].c = fc; keyRows[2].v = fNow;
     keyRowList.length = 0;
@@ -708,7 +709,7 @@ export function createPressureTime({ marks = () => [], stillLayer = true } = {})
       const lx = R - 8 - lw, clear = !hasWasBox || wasBox[2] + 6 < lx || wasBox[3] + 4 < ym - 10 || wasBox[1] - 4 > ym + 10;
       if (YB(fNow) - YB(wNow) >= 26 && R - L >= lw + 40 && clear) {
         ctx.fillStyle = panel; ctx.beginPath(); ctx.roundRect ? ctx.roundRect(lx, ym - 10, lw, 20, 6) : ctx.rect(lx, ym - 10, lw, 20); ctx.fill();
-        ctx.fillStyle = sevColor(hv); ctx.textBaseline = 'middle'; ctx.fillText(label, lx + 6, ym + 0.5); ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = sevInk(hv); ctx.textBaseline = 'middle'; ctx.fillText(label, lx + 6, ym + 0.5); ctx.textBaseline = 'alphabetic';
       }
     }
 

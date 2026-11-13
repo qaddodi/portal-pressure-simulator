@@ -277,6 +277,10 @@ async function main() {
     if (!on) return;
     underWant = ++underTok;
     if (!underQueued) underQueued = nextFrame(underStep);
+    // A second look once the menu has landed: its box is measured as it is drawn, so on the first look it can still be mid-entry (smaller, or sliding), and a label under
+    // its final edge was left showing a half-word beside it ("nepatic vein 4.5", A17). The same step, run again: it only adds labels.
+    const want = underWant;
+    setTimeout(() => { if (underWant === want && underTok === want && !underQueued) underQueued = nextFrame(underStep); }, 450);
   }
   dock = createDock({ strip: $('#strip'), head: $('#dockHead'), body: $('#dockBody'), onWhy: (m, el) => why.open(m, el), onAction: doAction, onProbe: probeTo, lazy: { doppler: dopplerL, fibroscan: fibroL }, onReveal: revealDock, onLobule: () => zoomLobule('R'),
     onOpen: () => openPanel('instruments'), onClose: () => setPanelTab('chart'), onLayout: () => syncDoppler(), isVisible: () => app.classList.contains('dock-open'),
@@ -999,11 +1003,11 @@ function sendBeat() {
   const on = true;
   if (on !== beatSent) { beatSent = on; host.send(BEAT_ON); }
 }
-const setBlood = (patch) => store.set({ blood: { ...store.get().blood, ...patch } });
+const setBlood = (patch) => { store.set({ blood: { ...store.get().blood, ...patch } }); syncBloodBtn(); };
 function syncBloodBtn() {
   const b = $('#btnBlood');
   if (!b) return;
-  const on = store.get().layers.flow !== false;
+  const st = store.get(), on = st.layers.flow !== false || !!st.blood?.chevrons || !!st.blood?.keyChevrons;   // (lit while any of the moving blood is drawn: the streaks or the arrows)
   b.classList.toggle('off', !on);
 }
 function injectDye({ hold = false } = {}) {
@@ -1291,13 +1295,14 @@ function openSettings(anchor, withSearch = false) {
         root.removeAttribute('data-noglass-auto');   // (chosen now: no longer the software renderer's own choice, blur-guard.js)
         if (flip) themeChanged();   // (the labels drawn on the GPU take the glass's look: label-theme.js)
       }),
-      h('div', { class: 'menu-title' }, 'Figure size (megapixels)'),
+      h('div', { class: 'menu-title' }, 'Figure detail'),
       figureMpControl(),
-      menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Draw the figure at full resolution during a pan or zoom, even if frames run long', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
+      menuToggle(sharpMoving(), 'layers', 'Sharp while moving', 'Keep the figure at full detail when you pan or zoom, even if it runs slower', (on) => { toggleStored('pps.sharp', 'main:sharp')(on); setSharpMoving(on); })),
     // (What the model shows and how far it goes has its own heading; none of it is in a talk.)
     ...(talk ? [] : [menuSection('Model',
       menuItem('Advanced physiology', { icon: 'sliders', onClick: () => { closePopover(); closeTreat(); store.set({ selection: null, details: { type: 'advanced' } }); openPanel(); } }))]),
-    menuSection('Performance',
+    // (Diagnostics, not Performance: these are for finding out why a screen is slow, for a tester or the author, not for teaching. The device lap joins them, P2.)
+    menuSection('Diagnostics',
       menuToggle(fpsOn(), 'gauge', 'Show frame rate', 'A small counter in the bottom-left corner', (on) => { toggleStored('pps.fps', 'main:fps')(on); setFpsCounter(on); }),
       menuToggle(!!hudEl, 'gauge', 'Show frame breakdown', 'Frame time, script time, which surfaces cost most, and whether the GPU or the script is the limit', (on) => { setFrameBreakdown(on); })),
     ...(talk ? [] : [menuSection(null, menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() }))]),
@@ -1314,14 +1319,17 @@ function presenterSettings() { return []; }
 const MP_STEPS = [0.25, 0.5, 1, 1.5, 2, 3, 4, 6, 8, 0];
 function figureMpControl() {
   const at = () => Math.max(0, MP_STEPS.indexOf(figOpt('cap')));
-  const less = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Fewer megapixels', title: 'Fewer megapixels (softer, faster)' }, '−');
+  const less = h('button', { class: 'ts-a ts-sm', 'aria-label': 'Less detail', title: 'Less detail (softer, runs cooler)' }, '−');
   const dflt = figDefault('cap');
-  const now = h('button', { class: 'ts-reset', 'aria-label': `Figure size: back to ${dflt} megapixels`, title: `Back to ${dflt} megapixels` });
-  const more = h('button', { class: 'ts-a ts-lg', 'aria-label': 'More megapixels', title: 'More megapixels (sharper, slower)' }, '+');
+  const now = h('button', { class: 'ts-reset', 'aria-label': 'Figure detail: back to Standard', title: 'Back to Standard' });
+  const more = h('button', { class: 'ts-a ts-lg', 'aria-label': 'More detail', title: 'More detail (sharper, runs warmer)' }, '+');
+  // The steps in words: Standard is this device's own default (a phone's is a lighter picture than a laptop's), then one or two steps each way, and
+  // Full at the top (the screen's own density). The megapixels stay in the hover text for a tester who is asked for them.
+  const wordOf = (i) => { const v = MP_STEPS[i], d = MP_STEPS.indexOf(dflt) - i; return !v ? 'Full' : d === 0 ? 'Standard' : d === 1 ? 'Softer' : d > 1 ? 'Softest' : d === -1 ? 'Sharper' : 'Sharpest'; };
   const paint = () => {
     const i = at(), v = MP_STEPS[i];
     less.disabled = i === 0; more.disabled = i === MP_STEPS.length - 1;
-    now.textContent = v ? `${v} MP` : 'Full';
+    now.textContent = wordOf(i); now.title = `${v ? `${v} megapixels` : 'The screen\'s own density'}. Press for Standard`;
     now.setAttribute('aria-pressed', String(v === dflt));
   };
   const step = (d) => { setFigOpt('cap', MP_STEPS[Math.max(0, Math.min(MP_STEPS.length - 1, at() + d))]); paint(); };
@@ -1329,7 +1337,7 @@ function figureMpControl() {
   more.addEventListener('click', () => step(1));
   now.addEventListener('click', () => { setFigOpt('cap', dflt); paint(); });
   paint();
-  return h('div', { class: 'seg full menu-seg text-size fig-mp', role: 'group', 'aria-label': 'Figure size in megapixels' }, less, now, more);
+  return h('div', { class: 'seg full menu-seg text-size fig-mp', role: 'group', 'aria-label': 'Figure detail' }, less, now, more);
 }
 // Full screen through the browser. iPhone Safari has no full screen for pages, so there the
 // sheet says how to get the same room: Add to Home Screen opens the app without browser bars.

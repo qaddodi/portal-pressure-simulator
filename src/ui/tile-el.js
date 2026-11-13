@@ -18,7 +18,7 @@ const NO_OPTS = {};
  */
 export function tileEl(t, opts = NO_OPTS) {
   const { inert = false, primary = false, names = true, unit = true, type = null, width = false } = opts;
-  const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr', 'aria-hidden': 'true' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
+  const val = h('span', { class: 'val' }, ''), tr = h('span', { class: 'tr', 'aria-hidden': 'true' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
   // (Room for two whole digits and the tile's decimals, "16.9" or "62", in whole pixels: a reading keeps its width as it
   // changes, and a tile is never wider than its usual reading, so a phone's row still fits.)
   if (width) val.style.setProperty('--vr', `round(up, calc(${2 + t.d}ch${t.d ? ' + 0.26em' : ''}), 1px)`);

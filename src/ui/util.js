@@ -24,7 +24,7 @@ import { sheetLayer } from './sheet-layer.js';
 import { layoutTip, covers } from './tip-layout.js';
 import { tipDraw, tipUndrawn } from './tip-gl.js';
 import { darkMQ } from './look.js';
-import { NOT_SHOWN } from '../engine/pressure-cuts.js';
+import { NOT_SHOWN, INK_SHARE } from '../engine/pressure-cuts.js';
 import { labelWritten } from './label-theme.js';
 
 // replaceChildren/append stringify null and arrays: flatten and drop empties instead.
@@ -927,6 +927,10 @@ export function countTo(el, v, d = 1, { eased = false } = NO_COUNT) {
   let c = counts.get(el);
   if (!c) counts.set(el, c = { shown: null, from: 0, to: 0, t0: null, d });   // alloc-rare: a number's first count on this element, kept in counts
   c.d = d;
+  // A number being worked out again (NaN or Infinity while the model recomputes after a change; not null, which is a reading that is not taken)
+  // keeps the last number on show, dimmed (.recompute), and is never swapped for a mark. It lands, undimmed, on the next number that is whole.
+  if (v != null && !Number.isFinite(v) && c.shown != null) { if (!c.stale) { c.stale = true; classSoon(el, 'recompute', true); } return; }
+  if (c.stale) { c.stale = false; classSoon(el, 'recompute', false); }
   const odo = odos.has(el);
   if (odo && (eased || v == null || !Number.isFinite(v) || reduceMotionMQ.matches)) odoEnd(el);
   if (!eased && v != null && Number.isFinite(v) && c.t0 == null) {
@@ -1352,6 +1356,20 @@ export const cssAlpha = (name, a) => {
     v = `rgba(${cssRGB(name).join(',')},${a})`;
     if (m.size > 2000) m.clear();
     m.set(a, v);
+  }
+  return v;
+};
+/** A status's colour as text on a canvas ('ok', 'caution', 'danger' or 'critical'): its token mixed toward the text colour by the share the ink token
+ *  takes in the stylesheet (--danger-ink and its kin, INK_SHARE), so a label drawn here is the red of the same reading written in a tile. Made once
+ *  for each token and text colour, and again after a theme change. */
+const inkMade = new Map();
+export const cssInk = (sev) => {
+  const base = cssVar('--' + sev), text = cssVar('--text'), key = sev + base + text;
+  let v = inkMade.get(key);
+  if (v === undefined) {
+    const a = parseRGB(base), b = parseRGB(text), k = INK_SHARE[sev] ?? 1;
+    if (inkMade.size > 64) inkMade.clear();
+    inkMade.set(key, v = `rgb(${a.map((x, i) => Math.round(x * k + b[i] * (1 - k))).join(',')})`);   // alloc-rare: a status met for the first time under this look
   }
   return v;
 };

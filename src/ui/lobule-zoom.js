@@ -1388,7 +1388,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   const shownDelta = (slot, d) => {
     const a = Math.abs(d), q = Math.round(a), up = d > 0;
     if (Number.isFinite(a) && slot.s !== '' && slot.q === q && slot.up === up) return slot.s;
-    slot.q = Number.isFinite(a) ? q : NaN; slot.up = up; slot.s = `${up ? '+' : '−'}${fmt(a, 0)}`;   // alloc-rare: only when the change's size or sign changes
+    slot.q = Number.isFinite(a) ? q : NaN; slot.up = up; slot.s = `${up ? '+' : '−'}${fmt(a, 0)} mmHg`;   // alloc-rare: only when the change's size or sign changes
     return slot.s;
   };
   const stV = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() }, stD = { triad: mkSlot(), sin: mkSlot(), cv: mkSlot() };
@@ -1613,7 +1613,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
         if (L.uw != null) { const [a, ...rest] = L.uw.split(' · '); if (rest.length) { L.uEls[0].textContent = a; L.uEls[1].lastChild.textContent = rest.join(' · '); } else if (L.uw) L.uEls[0].textContent = L.uw; L.uw = null; }
       }
       L.ver = (L.ver | 0) + 1;   // (its content may have changed: labKey makes its key again)
-      if (L.aria) { L.aria = false; L.el.setAttribute('aria-label', ariaOf(L)); }
+      if (L.aria) { L.aria = false; const said = ariaOf(L); L.el.setAttribute('aria-label', said); L.el.title = L.sD ? said.replace(/\. Show details$/, '') : ''; }   // (the change in words on hover: "up 15 mmHg from healthy")
       if (L.relay) { L.relay = false; layoutKey = ''; }
       mirrorSoon(L.el);
     }

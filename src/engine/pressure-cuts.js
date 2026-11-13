@@ -37,6 +37,14 @@ export const SEV_OF_RATE = Object.freeze(Object.fromEntries(Object.entries(RATE_
 export const TOKEN_OF_SEV = Object.freeze({ ok: '--ok', caution: '--caution', danger: '--danger' });
 export const TOKEN_OF_RATE = Object.freeze(Object.fromEntries(Object.entries(RATE_OF_SEV).map(([sev, rate]) => [rate, TOKEN_OF_SEV[sev]])));
 
+// A reading's colour as TEXT, one table (U2, 13 Nov 2026): the status's ink token, the same red, amber and green on the play bar, the tiles, the
+// chart's labels and the deck pills. `TOKEN_OF_SEV` is the status as a fill or a stroke; text takes a step toward the page's text colour so it
+// clears 4.5:1 (styles/tokens.css writes each ink as `color-mix(var(--x) SHARE%, var(--text))`, and INK_SHARE is the same shares for the canvases,
+// which cannot mix a custom property; tests/reading-ink.test.js keeps the two together). Never a mix of your own in a rule.
+export const INK_OF_SEV = Object.freeze({ ok: '--ok-ink', caution: '--caution-ink', danger: '--danger-ink', critical: '--critical-ink' });
+export const INK_OF_RATE = Object.freeze({ ok: '--ok-ink', mid: '--caution-ink', hi: '--danger-ink', top: '--critical-ink' });
+export const INK_SHARE = Object.freeze({ ok: 0.88, caution: 0.7, danger: 0.88, critical: 0.88 });
+
 // The bands' words, one set for every card, tile, chart and table, each [short, long]: the short on a tile, a chip or a table cell, the long where
 // a sentence has room. Never a third wording (unification audit 3). Frozen tables: a tile names its band every model frame.
 const pair = (short, long = short) => Object.freeze([short, long]);

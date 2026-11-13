@@ -148,6 +148,9 @@ export { VITALS };
 // The key readouts: collapsed, the bar shows only the two gradients (HVPG and the portosystemic
 // gradient) on every device; the rest open with the chevron.
 export const PRIMARY = new Set(['hvpg', 'ppg']);
+// The Tests panes that show the HVPG and the PPG themselves (the Over time chart's readings, the HVPG procedure's, the Readouts tiles). While one is
+// open the play bar does not repeat the two (a reading in one place at a time: styles/app.css .tests-grad).
+const GRADIENT_PANES = new Set(['scope', 'hvpg', 'readouts']);
 // The bar's two gradients do nothing when tapped for now (the handlers in tile() stay for when they return).
 const BAR_INERT = PRIMARY;
 
@@ -261,7 +264,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   for (const k of ['hvpgMeasured', 'showHvpg', 'hiddenReadouts', 'lastHVPG', 'presetId']) store.on(k, () => { if (frame) updateDock(frame); });
   syncLobule();
   const vitEls = VITALS.map((v) => {
-    const val = h('b', {}, '—');
+    const val = h('b', {}, '');
     // (A vital with somewhere to head, the hemoglobin after a bleed: an arrow and the number it is heading to, shown while the two differ.)
     const toNum = v.to ? h('em', {}, '') : null;
     // (The blood pressure: its systolic/diastolic before the mean and the bracket after it, BP 120/80 (93), written when the whole numbers change.)
@@ -387,6 +390,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
       if (follow) { const fv = shownState.or(x.kFill, null); if (x.fkOn && x.fkV === v && x.fkF === fv) continue; x.fkOn = true; x.fkV = v; x.fkF = fv; } else x.fkOn = false;
       if (!lz) setShown(t.id, v);
       if (unseen) { x.fkOn = false; continue; }   // (R11: the number is shared; the tile itself waits until it shows)
+      if (v != null && !Number.isFinite(v)) { countTo(x.val, v, t.d); continue; }   // (being worked out again: the last number stays, dimmed, with its word, band and bar: util.js countTo)
       const measured = !lz && v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) {
@@ -783,6 +787,7 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
     else if (wanted && open.length === 1 && canSplit()) { open = wanted; wanted = null; }
     else if (open.length === 1 && tabOf(open[0]) === 'profile' && roomy()) open = [...PAIR];
     else if (open.length > 1 && tabOf(open[0]) === tabOf(open[1]) && !roomy()) open = open.slice(0, 1);
+    classSoon(app, 'tests-grad', open.some((id) => GRADIENT_PANES.has(id)));   // (the play bar drops its HVPG and PPG while Tests shows them: styles/app.css, U2)
     for (const p of panes) { const on = open.includes(p.id) || stage?.p === p; p.el.classList.toggle('active', on); p.shown?.(on); }   // (a pane being built beside the open one stays up, hidden: stageIn)
     body.classList.toggle('split', open.length > 1);
     body.classList.toggle('stack', open.length > 1 && (isPair() || (isSide() && state !== 'focus')));

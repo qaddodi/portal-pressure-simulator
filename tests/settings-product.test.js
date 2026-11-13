@@ -29,7 +29,7 @@ test('R14 Settings keeps what a learner understands and none of the experiments'
 test('Tube is the only vessel renderer (owner, 11 Nov 2026): Settings has no Vessel renderer choice, no Classic or Mesh button, and frame.js keeps no renderer', () => {
   assert.ok(!settings.includes("'Vessel renderer'") && !settings.includes('vesselRendererSeg') && !main.includes('setVesselRenderer'));
   assert.doesNotMatch(main, /\['classic', 'Classic'\]|\['mesh', 'Mesh'\]|\['tube', 'Tube'\]/);
-  assert.ok(settings.indexOf("'Figure size (megapixels)'") > 0 && settings.indexOf("'Sharp while moving'") > settings.indexOf('figureMpControl()'));
+  assert.ok(settings.indexOf("'Figure detail'") > 0 && settings.indexOf("'Sharp while moving'") > settings.indexOf('figureMpControl()'));
 });
 
 test('R14 every default is as it was: Full, and off (but the credit\'s lean look, H7, and the 8-megapixel budget, 1 Nov: on)', async () => {

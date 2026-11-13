@@ -464,12 +464,16 @@ html.thumb-ui:has(#toastsFoot > .toast) .stage-credit { visibility: hidden; }
 .status { display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
 .metric[data-sev="ok"] { --sev: var(--ok); } .metric[data-sev="caution"] { --sev: var(--caution); }
 .metric[data-sev="danger"] { --sev: var(--danger); } .metric[data-sev="critical"] { --sev: var(--critical); } .metric[data-sev="none"] { --sev: var(--border-strong); }
-.metric[data-sev="danger"] .status, .metric[data-sev="critical"] .status { color: color-mix(in srgb, var(--sev) 80%, var(--text)); font-weight: 600; }
+.metric[data-sev="danger"] .status { color: var(--danger-ink); font-weight: 600; } .metric[data-sev="critical"] .status { color: var(--critical-ink); font-weight: 600; }   /* (a reading's text colour is its status ink, tokens.css: one red for the tile, the play bar and the chart) */
 .metric[data-sev="caution"] .status { color: var(--caution-ink); }
 .metric[data-sev="ok"] .rb-fill { opacity: .55; }
 .metric.hidden-val .v { color: var(--text-3); }
+/* A reading not in yet (before the first frame) is blank, never a dash with a unit after it; one being worked out again keeps its last number, dimmed. */
+.metric .v:has(> .val:empty) > .unit { visibility: hidden; }
+.vital b:empty, .metric .val:empty { min-width: var(--vr, 0px); }
+.metric .val.recompute, .vital b.recompute { opacity: .5; }
 .metric .cmp { font-size: var(--fs-12); font-weight: 600; font-variant-numeric: tabular-nums; transition: none; }   /* (up, down and same trade colours as the change crosses zero) */
-.metric .cmp.up { color: color-mix(in srgb, var(--danger) 85%, var(--text)); } .metric .cmp.down { color: var(--accent-ink); } .metric .cmp.same { color: var(--text-3); font-weight: 500; }
+.metric .cmp.up { color: var(--danger-ink); } .metric .cmp.down { color: var(--accent-ink); } .metric .cmp.same { color: var(--text-3); font-weight: 500; }
 .ro-systemic { flex: 0 0 auto; padding-right: 4px; }
 .vb-grid { display: grid; grid-template-columns: repeat(2, auto); gap: 1px 16px; padding: 3px 8px 0; align-content: start; }
 .vital { display: flex; align-items: baseline; gap: 4px; border: 0; background: none; padding: 1px 0; font-size: var(--fs-12); color: var(--text-3); cursor: pointer; text-align: left; white-space: nowrap; }
@@ -1130,7 +1134,7 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .cmp-table td.a { color: var(--text-2); }
 .cmp-table td.b { font-weight: 600; }
 .cmp-table td.d { font-weight: 600; }
-.cmp-table td.d.up { color: color-mix(in srgb, var(--danger) 88%, var(--text)); } .cmp-table td.d.down { color: var(--accent-ink); } .cmp-table td.d.same { color: var(--text-3); font-weight: 500; }
+.cmp-table td.d.up { color: var(--danger-ink); } .cmp-table td.d.down { color: var(--accent-ink); } .cmp-table td.d.same { color: var(--text-3); font-weight: 500; }
 .cmp-table thead th { vertical-align: bottom; white-space: nowrap; border-bottom: 1px solid var(--border); }
 /* A group's name opens its rows, as in the readouts: the table reads as four short ones. */
 .cmp-table tr.cmp-g th { text-align: left; padding: 14px 0 4px; font-size: var(--fs-12); font-weight: 600; color: var(--text-2); }
@@ -2058,6 +2062,7 @@ button.finding { cursor: pointer; }
 /* A filled pill rated as its tile is (data-rate: ok, mid, hi) is tinted in its tile bar's colour, the number a little deeper so it
    reads on both themes. */
 .pz-val.tone[data-rate] { color: color-mix(in srgb, var(--tone) 82%, var(--text)); }
+.pz-val.tone[data-rate="ok"] { color: var(--ok-ink); } .pz-val.tone[data-rate="mid"] { color: var(--caution-ink); } .pz-val.tone[data-rate="hi"] { color: var(--danger-ink); }   /* (a rated pill's number is its status ink, the one red, amber and green every tile, label and chart takes) */
 .pz-term { border-radius: var(--r-pill); font-weight: 650; white-space: nowrap; }
 /* A word that points at the figure ([portal vein](pv)) is not a pill: coloured text in its station's colour, no underline
    (Mohammad, 17 Oct: "Underline terms", then "Remove the underlining please"). Pills stay for numbers and view names; disease
@@ -2170,7 +2175,7 @@ button.finding { cursor: pointer; }
   .pz:not(.stack) .pz-data.tiles-only:not(.under):not(.col):not(.has-tool) .pz-tiles[data-n="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .pzt-d { font: 600 var(--s-cap)/1.25 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-3); }
-.pzt-d[data-way="good"] { color: color-mix(in srgb, var(--ok) 85%, var(--text)); }
+.pzt-d[data-way="good"] { color: var(--ok-ink); }
 .pzt-d[data-way="bad"] { color: var(--danger-ink); }
 .pz-col { display: block; width: min(100%, 460px); height: auto; overflow: visible; font: 600 var(--s-cap) var(--font-ui); }
 .pz-lapse { display: flex; align-items: center; gap: .8em; font: 600 var(--s-lab)/1.2 var(--font-ui); font-variant-numeric: tabular-nums; color: var(--text-2); }
@@ -3511,9 +3516,9 @@ button.finding { cursor: pointer; }
 .hvpg-kv dd { margin: 0; font-size: 17px; line-height: 1.2; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; transition: none; }
 .hvpg-kv dt::after { content: '\00a0· mmHg'; font-weight: 500; letter-spacing: 0; }
 .hvpg-box { border-radius: var(--r-card); background: var(--mon-bg); }
-.hvpg-kv dd[data-sev="ok"] { color: color-mix(in srgb, var(--ok) 75%, var(--text)); }
+.hvpg-kv dd[data-sev="ok"] { color: var(--ok-ink); }
 .hvpg-kv dd[data-sev="caution"] { color: var(--caution-ink); }
-.hvpg-kv dd[data-sev="danger"] { color: color-mix(in srgb, var(--danger) 75%, var(--text)); }
+.hvpg-kv dd[data-sev="danger"] { color: var(--danger-ink); }
 /* The four steps, in one row: a numbered dot and a word each. */
 .hvpg-steps { margin: 0; padding: 0; list-style: none; counter-reset: hs; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--text-3); }
 .hvpg-steps li { counter-increment: hs; display: flex; align-items: center; gap: 6px; }
@@ -3693,8 +3698,9 @@ button.finding { cursor: pointer; }
 
 
 /* Moving blood: the Blood menu beside the lens, and the origin key in the figure. */
-#btnBlood.off :is(svg, .ic):first-child { color: var(--text-3); }
-#btnBlood.off span { color: var(--text-3); text-decoration: line-through; text-decoration-thickness: 1px; }
+/* Moving blood is off until asked for (the first screen), so off is the button unlit: its icon and word in the quiet ink, nothing struck through. Lit, in full ink. */
+#btnBlood.off :is(svg, .ic):first-child, #btnBlood.off span { color: var(--text-3); }
+#btnBlood:not(.off) :is(svg, .ic):first-child, #btnBlood:not(.off) span { color: var(--text); }
 .blood-pop { width: min(340px, calc(100vw - 24px)); }
 .blood-pop .menu-item small { display: block; color: var(--text-2); font-size: var(--fs-12); line-height: 1.4; margin-top: 2px; font-weight: 400; }
 @media (max-width: 600px) { #btnBlood > span, #btnBlood .chev { display: none; } }
@@ -3766,7 +3772,7 @@ button.finding { cursor: pointer; }
 .readouts:not(.all) .metric .v { font-size: var(--fs-20); }
 @container (max-width: 720px) { .readouts:not(.all) .metric .v { font-size: var(--fs-16); } }
 .metric[data-sev="caution"] .val { color: var(--caution-ink); }
-.metric[data-sev="danger"] .val, .metric[data-sev="critical"] .val { color: color-mix(in srgb, var(--critical) 80%, var(--text)); }
+.metric[data-sev="danger"] .val { color: var(--danger-ink); } .metric[data-sev="critical"] .val { color: var(--critical-ink); }
 .metric:is(.flash, .flash2) { position: relative; isolation: isolate; }
 /* (The flash is a tinted layer of its own fading by its opacity, under the words: no background is eased.) */
 .metric:is(.flash, .flash2)::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: color-mix(in srgb, var(--sev) 22%, transparent); opacity: 0; pointer-events: none; }
@@ -4296,11 +4302,11 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 .lz-lab :is(.n, .v, .x), .lz-call { --hw: max(1px, calc(1.5px * var(--label-k, 1)));
   -webkit-text-stroke: calc(var(--hw) * 2) var(--cap-outline); paint-order: stroke fill; stroke-linejoin: round; text-shadow: none; }
 /* Floors keep the pill's order at small label sizes: the reading never drops below its unit or name (all 11 px or more). */
-.lz-lab .n { font-size: calc(11.5px * var(--label-scale, 1)); font-weight: 600; color: var(--text-2); }
-.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(14px * var(--label-scale, 1)); line-height: 1.1; }
+.lz-lab .n { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 600; color: var(--text-2); }   /* (U6, 13 Nov 2026: the Anatomy's roles: name --t-lab, reading --t-val, unit --t-cap) */
+.lz-lab .v { display: flex; align-items: baseline; gap: 2.5px; font-size: calc(var(--t-val) * var(--label-scale, 1)); line-height: 1.1; }
 .lz-lab.left .v { justify-content: flex-end; }
 .lz-lab .v b { font-weight: 650; color: var(--text); }
-.lz-lab small { font-size: calc(10px * var(--label-scale, 1)); font-weight: 500; color: var(--text-3); }
+.lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 500; color: var(--text-3); }
 /* A label whose structure is off screen waits at the edge with a small arrow pointing the way (lobule-zoom.js layoutLabels). */
 .lz-lab.edge .n::before { content: ""; position: absolute; left: 50%; top: 50%; width: 9px; height: 10px; background: var(--text-2); clip-path: polygon(0 0, 100% 50%, 0 100%); transform: translate(-50%, -50%) rotate(var(--edge-a, 0rad)) translateX(var(--edge-r, 40px)); pointer-events: none; }
 .lz-lab .d { font-size: calc(var(--t-lab) * var(--label-scale, 1)); font-weight: 650; color: var(--text); margin-left: 4px; }   /* (a change, "+3", in its reading's colour) */
@@ -4314,9 +4320,9 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 /* Phone: the short names, the reading large beneath its name as on a Mac (Mohammad, 2 Nov 2026, label mocks). */
 @media (max-width: 720px) {
   .lz-lab { border: 0 !important; padding: 0 2px; }
-  .lz-lab[data-target="lobule:lymph"] .v { font-size: calc(16px * var(--label-scale, 1)); }   /* (the lymph a second-tier reading, so the tract's pair fits beside its corner) */
+  .lz-lab[data-target="lobule:lymph"] .v { font-size: calc(var(--t-val) * var(--label-scale, 1)); }   /* (the lymph a second-tier reading, so the tract's pair fits beside its corner) */
   .lz-lab .n-long { display: none; } .lz-lab .n-short { display: inline; }
-  .lz-lab small { font-size: calc(10px * var(--label-scale, 1)); font-weight: 500; }
+  .lz-lab small { font-size: calc(var(--t-cap) * var(--label-scale, 1)); font-weight: 500; }
 }
 /* Dark lobule labels: white names, values, units and zones on the anatomy's dark outline. */
 :root[data-theme="dark"] .lz :is(.lz-lab, .lz-lab .n, .lz-lab .v, .lz-lab .v b, .lz-lab small, .lz-lab .d, .lz-zone) { color: var(--white); }
@@ -6306,7 +6312,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .pz .pz-data .pz-tiles .pz-tile.scaled[data-rate="mid"] .pzt-v { color: var(--caution-ink); }
 .pz .pz-data .pz-tiles .pz-tile.scaled[data-rate="hi"] .pzt-v { color: var(--danger-ink); }
 .app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="mid"] .pzt-r { color: var(--caution-ink); }
-.app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="hi"] .pzt-r { color: color-mix(in srgb, var(--danger) 85%, var(--text)); }   /* (the same mix as the amber word beside it: pure red at 12 to 15 px was about 4.5:1 on white and less on the frosted card) */
+.app:not(.pz-hi) .pz .pz-data .pz-tiles .pz-tile[data-rate="hi"] .pzt-r { color: var(--danger-ink); }
 .pz .pz-data .pz-tiles .pzt-d, .pz .pz-data .pz-tiles .pzt-d[data-way] { color: var(--text-3); }
 /* (Where the bar's ring marks where the value started, the "from" words fold away: the bar takes the place of the change
    line, so a tile is no taller than it was before the bar and the data card never grows for it.) */
@@ -6327,7 +6333,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 /* The blood pressure's mean and its brackets are one piece, so a narrow tile breaks before "(93)", never inside it. */
 .rp-tiles .v-map { display: inline-flex; align-items: baseline; white-space: nowrap; }
 .rp-tiles .v-bp:not(:empty) + .v-map { margin-left: .25em; }
-.rp-tiles .metric[data-sev="danger"] .val, .rp-tiles .metric[data-sev="critical"] .val { color: color-mix(in srgb, var(--critical) 80%, var(--text)); }
 /* A narrow card (a phone's sheet) fits three tiles across, as the bar did, with the short names where a long one would be cut. */
 @container (max-width: 440px) {
   .rp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -7567,3 +7572,13 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 .toast.note .toast-ic { display: none; }
 .toast.note .toast-acts { position: absolute; left: 32px; bottom: 11px; }
 .toast-wrap.foot:has(.toast.bad:not(.leaving), .toast.has-acts:not(.leaving)) { z-index: var(--z-toast); }   /* (an error or a card with buttons is never hidden under a menu or a sheet's scrim: audit ZO1) */
+
+/* U2 (13 Nov 2026): with Tests on a pane that shows the HVPG and the PPG (Over time, HVPG, Readouts: dock.js GRADIENT_PANES), the play bar
+   drops its two readings, so a reading is in one place at a time. The bar is the play controls alone, in the width it has. (The Lobule's own
+   flows stay: they are not on those panes.) */
+.app.dock-open.tests-grad:not(:has(#dock[data-state="peek"])) .vdock:not(.mini) .readouts:not(.lob) { display: none; }
+.app.dock-open.tests-grad:not(:has(#dock[data-state="peek"])) .vdock:not(.mini) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "st" "tl"; }
+.app.thumb.dock-open.tests-grad:not(:has(#dock[data-state="peek"])) .vdock:not(.mini) { grid-template-areas: "st" "tl" "nb"; }
+
+/* Lobule readings on the play bar: the % stays after the number, on the phone's slim bar too ("Sinusoids 58%", not "58"). */
+.app .vdock .readouts.lob .metric .v .unit.pct { display: inline; }

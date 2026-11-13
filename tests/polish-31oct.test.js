@@ -26,7 +26,7 @@ test('a scale bar prints every cut-off with the decimals it has', () => {
 test('a percent tile sits its unit against the number, and the High word is mixed with the text as the amber word is', () => {
   assert.match(presenter, /class: 'pzt-vu' \+ \(T\.u === '%' \? ' pct' : ''\)/);
   assert.match(css, /\.pz \.pz-data \.pz-tiles \.pz-tile \.pzt-vu\.pct\.pct\.pct \{ column-gap: \.06em; \}/);
-  assert.match(css, /\.pz-tile\[data-rate="hi"\] \.pzt-r \{ color: color-mix\(in srgb, var\(--danger\) 85%, var\(--text\)\); \}/);
+  assert.match(css, /\.pz-tile\[data-rate="hi"\] \.pzt-r \{ color: var\(--danger-ink\); \}/);   // (U2: the status ink, the one red, as the amber word beside it takes --caution-ink)
 });
 
 test('the patient preview prints its gradients to one decimal and rates the number it prints', () => {

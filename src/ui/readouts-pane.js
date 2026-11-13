@@ -43,7 +43,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   // never disagree about what is normal (Mohammad, 22 Oct: any tile should have its normals).
   function vital(v, name, short) {
     const S = SCALE[v.id];
-    const val = h('span', { class: 'val' }, '—'), st = h('span', { class: 'status' }), fill = h('i', { class: 'rb-fill' });
+    const val = h('span', { class: 'val' }, ''), st = h('span', { class: 'status' }), fill = h('i', { class: 'rb-fill' });
     // (The blood pressure: systolic/diastolic before the mean in its brackets, 120/80 (93). The mean and its brackets are one piece, .v-map, so a
     // narrow tile (a phone's row of five) breaks the line before "(93)", never inside it.)
     const pre = v.s ? h('span', { class: 'val v-bp' }, '') : null, open = v.s ? h('span', { class: 'val v-bp' }, '') : null, post = v.s ? h('span', { class: 'val v-bp' }, '') : null;
@@ -109,6 +109,7 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       if (v != null && (t.id === 'hvpg' || t.id === 'ppg') && !hidden?.has(t.hideKey)) { const g = shownOr(t.id, v); if (Math.abs(g - v) < 0.25) v = g; }
       // (A display frame between model frames repaints only the tiles whose shown number or bar moved since they were last painted.)
       if (follow) { const fk = `${v}|${shownState.or('rpfill:' + t.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
+      if (v != null && !Number.isFinite(v)) { countTo(x.val, v, t.d); continue; }   // (being worked out again: the last number stays, dimmed, with its word, band and bar: util.js countTo)
       const measured = v != null && hidden?.has(t.hideKey);
       let sev, s;
       if (v == null) { if (!follow) countTo(x.val, null); s = t.id === 'hvpg' && hvBlocked(store.get().params) ? NOT_MEASURABLE : 'Not measured'; sev = 'none'; x.hist.length = 0; }
