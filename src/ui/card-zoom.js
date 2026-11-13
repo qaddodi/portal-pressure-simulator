@@ -59,6 +59,46 @@ export function zoomPlan(card, area, margin = zoomMargin(area)) {
   return { s, dx: area.left + area.width / 2 - (card.left + card.width / 2), dy: area.top + area.height / 2 - (card.top + card.height / 2) };
 }
 
+/** Where a point of the page lands once the plan's transform is on it (the pieces turn about `mid`, then move by dx, dy). */
+export const landedBox = (r, plan, mid) => {
+  const left = mid.x + (r.left - mid.x) * plan.s + plan.dx, top = mid.y + (r.top - mid.y) * plan.s + plan.dy;
+  return { left, top, width: r.width * plan.s, height: r.height * plan.s };
+};
+
+/**
+ * zoomPlan for a card with pieces standing round it that must stay whole on the screen (the teaching card and its glass: Mohammad, 13 Nov 2026,
+ * "when i zoom into this slide, the teaching card text is cut off"; "probably happens to a lot of other cards"). The pieces ride the card's transform
+ * (the page as one picture that zooms toward the card, 4 Nov) when, grown by it, they still stand whole inside the area: then it is zoomPlan, and
+ * `ride` is true. When they would not (a teaching card above the instrument, scaled about the instrument's middle, ran off the top of the screen),
+ * they stay where they are, unmoved and unscaled, and the card takes only the room left beside them: the largest of the four bands of the area
+ * that lie right, left, below or above them (a gap clear of them, the margin at the screen's own edges), centred in that band; `room` is that
+ * band and `margin` the margin it was fitted with, for the readings' re-fit (follow). null when no band has room for ZOOM_MIN.
+ * card, keep, area: { left, top, width, height }; keep: the boxes of the pieces, as they rest.
+ */
+export function zoomPlanClear(card, keep, area, margin = zoomMargin(area), gap = 28) {
+  const kept = keep.filter((r) => r && r.width > 0 && r.height > 0);
+  const own = zoomPlan(card, area, margin);
+  if (!kept.length) return own && { ...own, ride: true, room: area, margin };
+  if (own) {
+    const mid = { x: card.left + card.width / 2, y: card.top + card.height / 2 }, tol = 2;
+    const whole = kept.every((r) => { const b = landedBox(r, own, mid); return b.left >= area.left - tol && b.top >= area.top - tol && b.left + b.width <= area.left + area.width + tol && b.top + b.height <= area.top + area.height + tol; });
+    if (whole) return { ...own, ride: true, room: area, margin };
+  }
+  const K = unionBox(kept), g = gap - margin, right = area.left + area.width, bottom = area.top + area.height;
+  const bands = [
+    { left: K.left + K.width + g, top: area.top, width: right - (K.left + K.width + g), height: area.height },   // right of them
+    { left: area.left, top: area.top, width: K.left - g - area.left, height: area.height },                        // left of them
+    { left: area.left, top: K.top + K.height + g, width: area.width, height: bottom - (K.top + K.height + g) },    // below them
+    { left: area.left, top: area.top, width: area.width, height: K.top - g - area.top },                           // above them
+  ];
+  let best = null;
+  for (const room of bands) {
+    const q = zoomPlan(card, room, margin);
+    if (q && (!best || q.s > best.s)) best = { ...q, ride: false, room, margin };
+  }
+  return best;
+}
+
 // What a tap on the card leaves alone: controls, and anything drawn to be pressed.
 const LIVE = 'a[href], button, input, select, textarea, label, summary, [role="button"], [role="slider"], [role="tab"], [role="switch"], [role="checkbox"], [contenteditable="true"], .range-wrap, .pz-lip, [data-no-zoom]';
 
@@ -192,7 +232,7 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
     /** Up and staying (not on its way back). */
     get up() { return !!st && !st.closing; },
     /** The plan for the card as it stands, or null when it would not grow enough. */
-    plan() { const q = whole(pieces(card, along, scene(), true)); return q && zoomPlan(q, area()); },
+    plan() { const ps = pieces(card, along, scene(), true), q = whole(ps); return q && zoomPlanClear(q, ps.filter((r) => r.pass).map((r) => r.rest), area()); },
     open({ card: el = card, along: rides = along, scrim: veil = scrim, part = false, main = null } = {}) {
       if (st) return false;
       // (Mohammad, 5 Nov 2026: a card zoom moves no figure, lobule or sinusoid; the teaching card rides the same turn, tucked or not, but the
@@ -201,14 +241,17 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
       // (main: the pieces the zoom is fitted and centred on, when it was the teaching card that was tapped: the data card rides along, as the
       // teaching card rides along when the data card is tapped. 5 Nov 2026)
       const focus = (rs) => { if (main) for (const r of rs) r.pass = !main.includes(r.el); return rs; };
-      let riders = focus(pieces(el, rides, part ? [] : scene(), true)), q = whole(riders, el) || (main && unionBox(riders.filter((r) => !r.pass).map((r) => r.rest))), plan = q && zoomPlan(q, a, zoomMargin(a) * (stacked && !main ? STACK_ROOM : 1));
+      let riders = focus(pieces(el, rides, part ? [] : scene(), true)), q = whole(riders, el) || (main && unionBox(riders.filter((r) => !r.pass).map((r) => r.rest))), mg = zoomMargin(a) * (stacked && !main ? STACK_ROOM : 1);
+      // (The data card's zoom: the teaching card rides it where it would still stand whole; where not, it stays put and the card takes the room beside it: zoomPlanClear.)
+      let plan = q && (part || main ? zoomPlan(q, a, mg) : zoomPlanClear(q, riders.filter((r) => r.pass).map((r) => r.rest), a, mg));
       if (!plan) return false;
+      if (plan.ride === false) riders = riders.filter((r) => !r.pass);
       const k = scale(el) || 1, ms = reduce() ? 0 : ZOOM_MS;
       const cx = q.left + q.width / 2, cy = q.top + q.height / 2;
       // (box and mid: the whole as it rests as the card zooms, and its middle, for follow below; steady: the glide in has ended, for the
       // data card only: a part has no readings to bring out.)
       sceneCam.aim = null;   // (no camera aim: the figure is not zoomed)
-      st = { stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, main: main || null, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, aff: { s: 1, dx: 0, dy: 0, ox: cx, oy: cy }, mo: null, cam: false };
+      st = { fit: plan.ride === false ? { room: plan.room, margin: plan.margin } : null, stacked, card: el, veils: [veil].flat(), part, plan, riders, closing: null, steady: ms === 0 && !part, main: main || null, box: q, mid: { x: cx, y: cy }, k, s: plan.s, boosted: plan.s, cur: { dx: 0, dy: 0, s: 1 }, aff: { s: 1, dx: 0, dy: 0, ox: cx, oy: cy }, mo: null, cam: false };
       for (const r of riders) {
         // (Each piece turns about the middle of them all, so they move as one.)
         r.el.style.transformOrigin = `${((cx - r.rest.left) / k).toFixed(2)}px ${((cy - r.rest.top) / k).toFixed(2)}px`;
@@ -255,9 +298,9 @@ export function createCardZoom({ card, along = [], scrim, app, area, scale = () 
      */
     follow(rise, lift) {
       if (!st || st.closing || !st.steady || st.part || st.main) return false;
-      const a = area(), { box: b, mid, k } = st, up = rise * k;
+      const a = st.fit ? st.fit.room : area(), { box: b, mid, k } = st, up = rise * k;
       const q = { left: b.left, top: b.top - up, width: b.width, height: b.height + up };
-      const sc = Math.min(ZOOM_MAX, Math.max(1, fitScale(q, a, zoomMargin(a) * (st.stacked ? STACK_ROOM : 1))));
+      const sc = Math.min(ZOOM_MAX, Math.max(1, fitScale(q, a, st.fit ? st.fit.margin : zoomMargin(a) * (st.stacked ? STACK_ROOM : 1))));
       const dx = a.left + a.width / 2 - mid.x;
       const dy = a.top + a.height / 2 - mid.y - sc * (q.top + q.height / 2 - mid.y) + lift * k * (1 - sc);
       st.cur = { dx, dy, s: sc };

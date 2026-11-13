@@ -29,7 +29,7 @@ import { PATHS, mapWordsOf, knownOf, OUTCOMES, WORST, litOf, outcomeOf, readingF
 import { cardCompact, isCardKind, layout as cardLayout, model as cardModel } from './path-cards.js';
 
 export const COL_MIN = 104, NODE_MAX = 140, NODE_MAX_E3 = 176, E3_LEAVES = 3, ROOT_MAX = 330, GAP_Y = 20, MAP_UNIT = 66, GAP = 10;
-const PILL_H = 22, PILL_PAD = 10, FIT_SHARE = 0.5, FIT_MIN = 0.62;   // (the data card keeps about half the window's height for the picture; never drawn below 62%: 72% left the Rule of five 513 px tall in a 482 px card on a 900 px Mac)
+const PILL_H = 22, PILL_PAD = 10, FIT_SHARE = 0.475, FIT_MIN = 0.6;   // (the data card keeps under half the window's height for the picture, which with the card's own rows is all it has; never drawn below 60%: 72% left the Rule of five 513 px tall in a 482 px card on a 900 px Mac, 62% still 11 px over in one 481 px high)
 export const TOKEN = { n: 'text', ok: 'ok', warn: 'caution', bad: 'danger', acc: 'accent' };
 const svg = svgModel;
 /** The type of each kind of words: weight, size and line height in px (the look that draws it is path.<role>). */

@@ -1,7 +1,7 @@
 // Every card fits, on every slide (recs D4, A16). Walks each deck slide by slide with Next, at the Mac and the iPhone width, with the GL draws
 // stubbed (state and DOM only: no GPU, no pixels), and fails when a slide's text card scrolls, cuts a line, or stands partly off the screen.
 //
-//   node scripts/card-fit.mjs [--dir dist] [--device mac,iphone] [--decks id,id | all] [--theme light|dark] [--jobs 2] [--shard 1/3] [--out file.json] [--slide n]
+//   node scripts/card-fit.mjs [--dir dist] [--device mac,iphone] [--decks id,id | all] [--theme light|dark] [--jobs 2] [--shard 1/3] [--out file.json] [--slide n] [--no-zoom] [--verbose]
 //
 // It judges layout only ("does every word the card holds show whole?"), so it says nothing about look or speed, and runs on a runner with no
 // graphics card. A shard takes every n-th deck (balanced by slide count), so CI can split it over jobs (checks.yml).
@@ -10,6 +10,9 @@
 //   scroll   a card (.pz-text, .pz-data, .pz-panel) whose content is taller than its box: its last lines are hidden from the room.
 //   clipped  a text element wider than its box where the box clips (overflow not visible): a cut or ellipsised word.
 //   off      a text element partly outside the screen (wholly outside is a parked card, ignored) and not inside something that scrolls on purpose.
+//   zoomed   the same slide with its instrument card enlarged (the corner icon, Mac and iPad landscape): the teaching card and the enlarged card must
+//            both stand whole inside the screen, and no text may be cut (the page's own getBoundingClientRect answers the resting box while a card
+//            rides the zoom, so the judge reads getClientRects). `--no-zoom` leaves this pass out.
 // Known, accepted cases go in scripts/card-fit-allowance.json: { "<deck>:<slide n>:<device>": "<why>" }; a listed case that no longer fails is an error
 // too (delete it), so the list only ever shrinks.
 
@@ -30,6 +33,8 @@ const THEME = opt('theme', 'light');
 const JOBS = Math.max(1, +opt('jobs', 2));
 const [SHARD_I, SHARD_N] = opt('shard', '1/1').split('/').map(Number);
 const OUT = opt('out', '');
+const VERBOSE = argv.includes('--verbose');
+const ZOOM = !argv.includes('--no-zoom');
 const ONLY = +opt('slide', 0);   // (a slide number: open at it and judge that slide alone, for checking a fix)
 const EXE = process.env.CHROMIUM || (existsSync('/opt/pw-browsers/chromium') ? '/opt/pw-browsers/chromium' : '');
 const ALLOW_FILE = resolve(ROOT, 'scripts/card-fit-allowance.json');
@@ -79,9 +84,28 @@ const READ = () => {
       if (!r.width || !r.height || !vis(k)) continue;
       if (r.bottom - box.bottom > low) { low = r.bottom - box.bottom; who = name(k); }
     }
-    return low > 2 ? `${q} content runs ${Math.round(low)} px past its box (${who})` : null;
+    return low > 2 ? `${q} content runs ${Math.round(low)} px past its box (${who}; box ${Math.round(box.width)} x ${Math.round(box.height)} at y ${Math.round(box.top)}, screen ${vw} x ${vh}; teaching card ${(() => { const t = document.querySelector('.pz-text')?.getBoundingClientRect(); return t ? `y ${Math.round(t.top)}-${Math.round(t.bottom)}` : 'none'; })()})` : null;
   }).filter(Boolean);
   return { n: document.querySelector('.pzb-n')?.textContent || '', clipped: clipped.slice(0, 12), off: off.slice(0, 12), scroll };
+};
+
+// Runs in the page with a card enlarged: where the two cards really are (getClientRects: the zoom pins getBoundingClientRect to the resting box).
+const ZREAD = () => {
+  const vw = innerWidth, vh = innerHeight, o = {};
+  for (const q of ['.pz-text', '.pz-data']) {
+    const e = document.querySelector(q), r = e?.getClientRects()[0];
+    o[q] = r && r.width ? [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)] : null;
+  }
+  return { vw, vh, boxes: o, up: document.querySelector('.pz-zbtn')?.getAttribute('aria-expanded') === 'true' };
+};
+const zoomFailing = (z) => {
+  if (!z.up) return ['zoomed: the card did not enlarge'];
+  const out = [];
+  for (const [q, b] of Object.entries(z.boxes)) {
+    if (!b) { if (q === '.pz-text') out.push(`zoomed: the teaching card is not on the screen`); continue; }
+    if (b[0] < -2 || b[1] < -2 || b[2] > z.vw + 2 || b[3] > z.vh + 2) out.push(`zoomed: ${q === '.pz-text' ? 'teaching card' : 'enlarged card'} [${b}] runs off the ${z.vw} x ${z.vh} screen`);
+  }
+  return out;
 };
 
 const failing = (r) => [...r.scroll.map((t) => `scroll: ${t}`), ...r.clipped.map((t) => `clipped: ${t}`), ...r.off.map((t) => `off: ${t}`)];
@@ -114,6 +138,21 @@ async function walkDeck(browser, d, device) {
       const [a, b] = r.n.split('/').map((x) => parseInt(x, 10));
       const slide = a || k + 1;
       const f = failing(r);
+      // (The slide with its instrument card enlarged: only where the corner icon is offered; put back before Next.)
+      if (ZOOM && await app.page.evaluate(() => { const z = document.querySelector('.pz-zbtn'), d = document.querySelector('.pz-data'); return !!z && !!d && getComputedStyle(z).display !== 'none' && d.getBoundingClientRect().width > 0 && !d.hidden; })) {
+        const rest = VERBOSE ? await app.page.evaluate(ZREAD) : null;
+        await app.page.evaluate(() => document.querySelector('.pz-zbtn').click());
+        await app.page.waitForTimeout(1800);
+        const z1 = await app.page.evaluate(ZREAD), zr1 = await app.page.evaluate(READ);
+        await app.page.waitForTimeout(700);
+        const z2 = await app.page.evaluate(ZREAD), zr2 = await app.page.evaluate(READ);
+        const zf = zoomFailing(z2).filter((t) => zoomFailing(z1).includes(t));
+        const off = zr1.off.filter((t) => zr2.off.includes(t)).map((t) => `zoomed, off: ${t}`), cl = zr1.clipped.filter((t) => zr2.clipped.includes(t)).map((t) => `zoomed, clipped: ${t}`);
+        f.push(...zf, ...off, ...cl);
+        if (VERBOSE) console.log(`    ${d.id} ${device} slide ${slide} rest ${JSON.stringify(rest.boxes)} zoomed ${JSON.stringify(z2.boxes)}`);
+        await app.page.evaluate(() => { const z = document.querySelector('.pz-zbtn'); if (z?.getAttribute('aria-expanded') === 'true') z.click(); });
+        await idle();
+      }
       rec.steps.push({ slide, n: r.n, problems: f });
       if (f.length) rec.problems.push({ slide, problems: f });
       same = r.n === last ? same + 1 : 0;
