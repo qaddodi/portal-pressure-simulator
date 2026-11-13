@@ -621,7 +621,7 @@ div.vital { cursor: default; }
 .ib[aria-pressed="true"]:not(:disabled):active { background: var(--accent-soft); color: var(--accent); }
 .seg button:not([aria-pressed="true"]):not([aria-selected="true"]):active { background: color-mix(in srgb, var(--surface) 55%, transparent); color: var(--text); }
 .menu-item:active { --hv-bg: var(--surface-3); } .menu-item:active::before { opacity: 1 }
-.nb-tab:active { scale: .96; }
+.nb-tab:active { scale: .97; }   /* (the press every other button takes, menu recs C12) */
 @media (prefers-reduced-motion: reduce) { .btn:active, .ib:active, .nb-tab:active { scale: none; } }
 /* Press and hover for the rest of the controls (?pressfx=0 leaves it all off; main.js sets html.press-fx). Before, the bar and dock
    buttons, the menu's own rows and most chips changed colour the instant a mouse reached them, and many had no press at all, so a
@@ -954,6 +954,11 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
   position: fixed; left: 0; top: 0; /* (placed by translate: util.js popover) */ z-index: var(--z-popover); min-width: 180px; max-width: calc(100vw - 16px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)); padding: 8px; border-radius: var(--r-sheet); background: var(--surface); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline);
   display: flex; flex-direction: column; gap: 1px; animation: scale-settle var(--d-flip) var(--ease);
 }
+/* (13 Nov 2026, menu recs C11) One rule for everything that floats: it arrives in --d-small and leaves in --d-flip, as the cards, the palette and the
+   dialogs already did. A menu by its button comes in with a 4 px rise from the button's side (--pop-y, util.js popover) as it fades in, so it is
+   seen coming from where it was asked for; it leaves by a fade in place (.menu.leaving). Sheets keep their own slide. */
+.menu:not(.as-sheet), .why-pop:not(.as-sheet), .umenu:not(.sheet) { --edge-o: 0; --edge-x: 0px; --edge-y: var(--pop-y, -4px); }
+.menu:not(.as-sheet) { animation: slide-from-edge var(--d-small) var(--ease); }
 .menu-title { font-size: var(--fs-12); font-weight: 600; color: var(--text-3); padding: 8px 12px 4px; }
 .menu-item { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: calc(var(--r-sheet) - 8px); border: 0; background: transparent; cursor: pointer; font-size: var(--fs-14); text-align: left; color: var(--text); transition: none; }
 @media (hover: hover) { .menu-item { --hv-bg: var(--surface-2); } .menu-item:hover::before { opacity: 1 } }
@@ -1006,16 +1011,37 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .menu.as-sheet { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto !important; min-width: 0; max-width: none; max-height: 75dvh; overflow: hidden auto; overscroll-behavior: contain; touch-action: pan-y;
   padding: 10px 8px calc(10px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
 .menu.as-sheet.leaving { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
+/* (13 Nov 2026, menu recs P4) A page pushed inside a menu (History and Help from Settings, util.js menuPush): it lies over the menu's rows at the
+   menu's own height and scrolls by itself; the rows under it slide away left and take no touch. */
+.menu-root { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
+.menu-root > :is(.menu-item, .lens-opt, .menu-title, .menu-group) { flex-shrink: 0; }
+.menu.pushed.pushed { overflow: hidden; }
+.menu-page { position: absolute; left: 0; right: 0; display: flex; flex-direction: column; gap: 1px; padding: 8px 8px calc(10px + env(safe-area-inset-bottom, 0px)); overflow: auto; overscroll-behavior: contain; }
+.menu-page > * { flex-shrink: 0; }
+.menu-page .menu-back { flex: none; width: auto; color: var(--accent); font-weight: 600; gap: 2px; padding: 8px 10px 8px 4px; }
+.menu-page .menu-back .ic { width: 18px; height: 18px; }
+.menu-page .tl-pop.tl-history { max-height: none; overflow: visible; }
 .menu.as-sheet .lens-d { white-space: normal; }
+/* (13 Nov 2026, menu recs P2) Every menu sheet has the same head as the cards: its title on the left, a 44 px close button on the right, no grabber. */
+.sheet-head { display: none; }
+.menu.as-sheet .sheet-head { display: flex; flex: none; align-items: center; gap: 4px; min-height: 44px; margin: -6px -4px 2px; padding-left: 12px; font: 600 var(--fs-16)/1.2 var(--font-ui); color: var(--text); }
+.menu.as-sheet .sheet-head .sheet-t { flex: 1 1 auto; min-width: 0; }
+.menu.as-sheet .sheet-head .ib { width: 44px; height: 44px; flex: none; }
+.menu-page .sheet-head { display: flex; flex: none; align-items: center; gap: 4px; min-height: 44px; margin: -6px -4px 2px; font: 600 var(--fs-16)/1.2 var(--font-ui); color: var(--text); }
+.menu-page .sheet-head .sheet-t { flex: 1 1 auto; min-width: 0; text-align: center; }
+.menu-page .sheet-head .ib { width: 44px; height: 44px; flex: none; }
 
 .why-pop { position: fixed; left: 0; top: 0; /* (placed by translate: why.js) */ z-index: var(--z-popover); width: min(440px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px))); max-height: calc(100dvh - 16px); overflow: hidden auto; overscroll-behavior: contain; background: var(--surface); border-radius: var(--r-sheet); box-shadow: var(--shadow-3), 0 0 0 1px var(--hairline); padding: 16px 16px 16px; display: none; }
-.why-pop.show { display: block; animation: scale-settle var(--d-flip) var(--ease); }
+.why-pop.show { display: block; animation: slide-from-edge var(--d-small) var(--ease); }   /* (menu recs C11: arrives in --d-small with the menus' 4 px rise) */
 .why-pop.leaving { display: block; pointer-events: none; animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; }
 /* (Why? on an upright phone or iPad: a short bottom sheet like every menu there, why.js; the scrim takes the tap. A swipe away is already sliding, so it plays no exit of its own.) */
 .why-pop.as-sheet { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: 75dvh; touch-action: pan-y; padding: 12px 14px calc(14px + env(safe-area-inset-bottom)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); }
 .why-pop.as-sheet.leaving { animation: slide-to-edge var(--d-small) var(--ease-in) forwards; }
 .why-pop.as-sheet.leaving[data-swiped] { animation: none; }
 .why-pop.as-sheet.pulling { animation: none; }
+/* (13 Nov 2026, menu recs C9) As a sheet it is one size from the moment it opens: the waiting lines and the answer that replaces them are laid in
+   the same box, so its top no longer jumps up when the model answers. A long answer scrolls inside it. */
+.why-pop.as-sheet.as-sheet { height: min(70dvh, 480px); overflow: hidden auto; overscroll-behavior: contain; }
 .um-scrim.why-scrim { z-index: calc(var(--z-popover) - 1); }   /* (the card is in the page before its scrim, so the scrim is laid just under it) */
 .why-pop header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
 .why-pop h3 { margin: 0; font-size: var(--fs-14); font-weight: 600; display: flex; align-items: center; gap: 8px; }
@@ -1566,6 +1592,18 @@ input[type=range]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 0 transpar
 .pal-foot { display: flex; align-items: center; gap: 16px; padding: 8px 16px; border-top: 1px solid var(--hairline); font-size: var(--fs-12); color: var(--text-3); }
 .pal-foot span { display: inline-flex; align-items: center; gap: 4px; }
 @media (hover: none) { .pal-foot { display: none; } }
+.pal-x { display: none; }
+/* (13 Nov 2026, menu recs P3) Over the thumb dock (an upright phone or iPad) Search is a sheet like the tabs beside it: it rests 8 px above the dock,
+   or on the keyboard when it is up (--pal-kb, palette.js), rises from behind the dock and sinks back in 240 ms, has a close button, dims nothing
+   (the dock and the figure stay as they are, like the other sheets), and keeps one height while it is open. The dock below it stays live. */
+html.thumb-ui .pal-back { bottom: max(0px, calc(var(--thumb-occ, 0px) - 8px)); align-items: flex-end; overflow: hidden; animation: none;
+  padding: calc(8px + var(--safe-top)) calc(6px + env(safe-area-inset-right, 0px)) max(8px, calc(var(--pal-kb, 0px) + 16px - var(--thumb-occ, 0px))) calc(6px + env(safe-area-inset-left, 0px)); }
+html.thumb-ui .pal { --pal-veil: 0 0 0 0 transparent; width: 100%; animation: dock-sheet-in var(--d-small) var(--ease) backwards; }
+html.thumb-ui .pal-back.leaving { animation: none; }
+html.thumb-ui .pal-back.leaving .pal { animation: dock-sheet-out var(--d-small) var(--ease-in) forwards; }
+html.thumb-ui .pal-top { padding: 4px 4px 4px 14px; }
+html.thumb-ui .pal-x { display: inline-flex; width: 44px; height: 44px; flex: none; }
+html.thumb-ui .pal-list { height: max(120px, min(46svh, calc(var(--pal-vh, 100svh) - var(--safe-top) - 96px))); max-height: none; }
 
 /* Patient chart */
 
@@ -3885,7 +3923,7 @@ button.finding { cursor: pointer; }
 .umenu {
   position: fixed; left: 0; top: 0; /* (placed by translate: menu.js place) */ z-index: var(--z-popover); display: flex; flex-direction: column; width: min(460px, calc(100vw - 24px));
   height: min(640px, calc(100dvh - 76px)); background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-menu), 0 0 0 1px var(--hairline);
-  overflow: hidden; animation: scale-settle var(--d-flip) var(--ease); transform-origin: top left;
+  overflow: hidden; animation: slide-from-edge var(--d-small) var(--ease); transform-origin: top left;   /* (menu recs C11: the menus' arrival) */
 }
 .umenu.still { animation: none; }
 .umenu.out { animation: scale-settle-out var(--d-flip) var(--ease-in) forwards; pointer-events: none; }
@@ -4037,7 +4075,9 @@ button.finding { cursor: pointer; }
 .sheet-layer { position: fixed; inset: 0; z-index: calc(var(--z-popover) + 1); pointer-events: none; contain: layout; }
 :where(.sheet-layer > *) { pointer-events: auto; }
 html.thumb-ui .sheet-layer { clip-path: inset(0 0 max(0px, calc(var(--sheet-foot-screen, 8px) - 8px)) 0); }
-.um-scrim { position: fixed; inset: 0; z-index: var(--z-popover); background: var(--scrim-menu); animation: crossfade var(--d-small) var(--ease); }
+/* (13 Nov 2026, menu recs C5) The scrim under a menu sheet takes the tap and dims nothing: a sheet's frost is drawn in the figure's canvas,
+   under this layer, so a veil here darkened the sheet's own glass too and Layers and Settings no longer matched the Treat and Tests cards. */
+.um-scrim { position: fixed; inset: 0; z-index: var(--z-popover); background: none; animation: crossfade var(--d-small) var(--ease); }
 .um-scrim.out { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
 .umenu.sheet { left: 0 !important; right: 0; top: auto !important; bottom: var(--menu-kb, 0px); width: auto; height: var(--menu-h, 88dvh); max-height: none; border-radius: var(--r-sheet) var(--r-sheet) 0 0; --edge-y: 100%; animation: slide-from-edge var(--d-small) var(--ease); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }   /* (the sheet's glass runs edge to edge, its rows keep clear of the notch or island when the phone is held sideways) */
 .umenu.sheet.still { animation: none; }
@@ -4049,6 +4089,7 @@ html.thumb-ui .sheet-layer { clip-path: inset(0 0 max(0px, calc(var(--sheet-foot
    It used to rest on the screen's foot, over the play bar, the timeline and the tabs, and slid down over them with no cut. */
 html.thumb-ui .umenu.sheet { left: calc(env(safe-area-inset-left, 0px) + 6px) !important; right: calc(env(safe-area-inset-right, 0px) + 6px); bottom: max(var(--menu-kb, 0px), var(--thumb-occ, 0px)); height: min(var(--menu-h, 88dvh), calc(100dvh - var(--thumb-occ, 0px) - max(72px, var(--thumb-top, 0px) + 8px))); border-radius: var(--r-sheet); padding-bottom: 6px; }
 .umenu.sheet .um-grab { display: block; flex: none; height: 16px; position: relative; touch-action: none; }
+html.thumb-ui .umenu.sheet .um-grab { display: none; }   /* (no grabber on a sheet over the thumb dock, as the cards and menus have none: menu recs P2) */
 .umenu.sheet .um-grab::before { content: ''; position: absolute; left: 50%; top: 6px; width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); transform: translateX(-50%); }
 .umenu.sheet .um-top { padding: 2px 10px 10px 14px; touch-action: none; }
 .umenu.sheet .um-search { height: 40px; }
@@ -6466,7 +6507,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .nb-l { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.25; }   /* (a line as tall as the letters: line-height 1 clipped the descenders of y and g) */
 @media (hover: hover) { .nb-tab:hover { color: var(--text); } }
 .nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) { color: var(--text); background: var(--surface-2); }
-.nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) > :is(svg, .ic) { stroke: var(--accent); } [aria-expanded="true"]) > .ic { background-color: var(--accent); }
+.nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) > svg { stroke: var(--accent); } .nb-tab:is([aria-pressed="true"], [aria-expanded="true"]) > .ic { background-color: var(--accent); }
 .nb-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 /* What moved to the tab row leaves the top bar and the play bar. */
 .app.thumb :is(.top-right, #btnBlood, #btnLobuleLayers, .tl-hist, #zoomIn, #zoomOut) { display: none !important; }
@@ -6517,7 +6558,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 #app.sin-focus .zoom-pill { flex-direction: column; }
 /* One card or menu at a time above the thumb dock, each a solid piece that comes and goes whole: it rises a little
    out of the dock as it fades in and sinks back as it fades out, never sliding across the dock, and one opened while
-   another is still going out crosses over with it (.sw-in and .sw-out, util.js switchIn). */
+   another is still going out rises over it as it sinks (.sw-in, util.js switchIn; menu recs C4, 13 Nov 2026). */
 /* (15 Oct, Mohammad) Every card and sheet sits on the tab row's top edge, covering the play bar, and rises out from
    behind the tab row and sinks back behind it, Tests included: it slides by its own height while the part below its
    resting bottom edge is clipped (clip-path is in the card's own moved coordinates, so the cut stays on that edge). */
@@ -6563,12 +6604,11 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   #app.thumb.panel-open .panel.has-plate > *, #app.thumb .treat-card.has-plate > *, #app.thumb .instrument-workspace.float-ui.entering.has-plate > * { animation: sheet-rise var(--d-small) var(--ease) backwards; }
   #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving { --card-out: sheet-hold; animation-duration: var(--d-small) !important; }
   #app.thumb :is(#panel, #treatCard, #historyCard, #dock).has-plate.card-leaving > * { animation: sheet-sink var(--d-small) var(--ease-in) forwards; }
-  /* (W4) A switch (Treat to Tests, Layers to Settings, a vessel's card to Details) keeps the spot: the one coming in fades in over the
-     one going out, which fades out, neither slides, so nothing stands empty between them and the dock never blinks. */
-  #app.thumb .has-plate.sw-in.sw-in.sw-in > * { animation: crossfade var(--d-small) var(--ease-arrive) backwards; }
-  #app.thumb .has-plate.card-leaving.sw-out.sw-out > *, #app.thumb .has-plate.ac-leaving.sw-out.sw-out > * { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
-  html.thumb-ui .menu.as-sheet.sw-in.sw-in { animation: crossfade var(--d-small) var(--ease-arrive) backwards; }
-  html.thumb-ui .menu.as-sheet.leaving.sw-out.sw-out { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
+  /* (13 Nov 2026, menu recs C4) A switch (Treat to Tests, Layers to Settings, a vessel's card to Details) is one motion: the one coming in
+     rises over the one going out while that one sinks behind the dock, each on its own 240 ms slide. Nothing crossfades, so two sheets of
+     different heights never show two tops at once (the W4 crossfade did), and the spot is never empty: the new top passes the old one. */
+  #app.thumb .has-plate.sw-in { z-index: calc(var(--z-panel) + 2); }
+  html.thumb-ui .menu.as-sheet.sw-in { z-index: calc(var(--z-popover) + 1); }
 }
 @keyframes sheet-rise { from { translate: 0px calc(var(--sheet-size, 60vh) + 8px); } }
 @keyframes sheet-sink { to { translate: 0px calc(var(--sheet-size, 60vh) + 8px); } }
@@ -6597,10 +6637,11 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    corner in it; a menu, drawn above the whole app, still casts nothing on the tab row itself.) */
 /* (The dock's parts are named, not "> :not(.thumb-bar)": a :has() rule whose last part names nothing restyled the whole app
    (3,500 elements) on every node a model tick wrote anywhere in it, 30–60% of the CPU while a slide sat still.) */
-/* (4 Nov, Mohammad) The dock is never covered: the play bar, the timeline, the readouts and the tab row stay up and live, and every card
+/* (13 Nov 2026: the patient menu's sheet (menu-sheet-open) and the Search sheet put the pill away too; it had shown through the patient menu's foot.)
+   (4 Nov, Mohammad) The dock is never covered: the play bar, the timeline, the readouts and the tab row stay up and live, and every card
    and menu rests 8 px above the dock's top (--sheet-foot). Only the view pill, which floats in that slot, steps aside. It comes back
    a beat late (.3 s), so between two cards, while one has gone and the next is yet to rise, it does not blink in and out.) */
-.app.thumb:is(.dock-open, .panel-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(.sheet-layer > .menu:not(.leaving), .sheet-layer > .why-pop.as-sheet.show) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
+.app.thumb:is(.dock-open, .panel-open, .menu-sheet-open) .vdock:not(.mini) > .nb-views, .app.thumb:has(#treatCard:not([hidden]), .action-card.docked:not([hidden]):not(.ac-leaving)) .vdock:not(.mini) > .nb-views, html.thumb-ui:has(.sheet-layer > .menu:not(.leaving), .sheet-layer > .why-pop.as-sheet.show, body > .pal-back:not([hidden]):not(.leaving)) .app.thumb .vdock:not(.mini) > .nb-views { opacity: 0; pointer-events: none; translate: 0 var(--bar-sink, 0px); transition: opacity var(--d-flip) var(--ease), translate var(--d-flip) var(--ease); }
 .app.thumb .vdock:not(.mini) > .nb-views { transition: opacity var(--d-small) var(--ease) .3s, translate var(--d-small) var(--ease) .3s; }
 /* (Open, the tab row's top hairline is its edge ring on the outer edge, as on a card: its own top border goes, with 1 px more padding, so no fill shows above the line.) */
 @media (prefers-reduced-motion: no-preference) { .app.thumb .vdock:not(.mini) { --bar-sink: 6px; } }   /* (the rise; with reduced motion the bar only fades) */
@@ -6630,8 +6671,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-in > * { animation: sheet-rise var(--d-small) var(--ease-arrive) backwards; }
   .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving { animation: sheet-hold var(--d-small) var(--ease) forwards; }
   .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving > * { animation: sheet-sink var(--d-small) var(--ease-in) forwards; }
-  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-in.sw-in.sw-in > * { animation: crossfade var(--d-small) var(--ease-arrive) backwards; }
-  .app.thumb:not(.dock-open) .action-card.docked.has-plate.ac-leaving.sw-out.sw-out > * { animation: crossfade-out var(--d-small) var(--ease-in) forwards; }
 }
 
 /* (17 Oct, Mohammad) An upright iPad has the iPhone's bottom bar and cards, "scaled down proportionally, similar to how much we

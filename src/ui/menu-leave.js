@@ -31,7 +31,7 @@ if (typeof addEventListener === 'function') addEventListener('animationstart', o
 // crossfade-out as the menu's, slide-to-edge --d-flip, the main menu's sheet and scrim --d-small), in ms.
 const timeIn = (el, name) => (name === 'scale-settle' ? (el.classList.contains('from-dock') ? D_SMALL : D_FLIP) : D_SMALL);
 const sheetish = (el) => el.classList.contains('as-sheet') || (el.classList.contains('from-dock') && document.documentElement.classList.contains('thumb-ui'));
-const timeOut = (el, name) => (name === 'scale-settle' ? (sheetish(el) ? D_SMALL : D_FLIP) : name === 'crossfade' ? (el.classList.contains('um-scrim') ? D_SMALL : D_FLIP) : el.classList.contains('umenu') || sheetish(el) ? D_SMALL : D_FLIP);
+const timeOut = (el, name) => (name === 'scale-settle' ? (sheetish(el) ? D_SMALL : D_FLIP) : name === 'crossfade' ? (el.classList.contains('um-scrim') ? D_SMALL : D_FLIP) : (el.classList.contains('umenu') && el.classList.contains('sheet')) || sheetish(el) ? D_SMALL : D_FLIP);   // (a floating menu, the main menu on a Mac included, leaves in --d-flip: menu recs C11)
 const f4 = (v) => +v.toFixed(4);   // alloc-rare: a menu put away while its entrance still runs (a tap away), never per frame
 
 // The look now and the exit's end, for the entrance's eased progress k (0 = its from, 1 = at rest).

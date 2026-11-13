@@ -77,9 +77,10 @@ test('the Guide lists the presenter\'s keys, and ? opens it there while presenti
 });
 
 test('the phone\'s Settings sheet carries History and Help, and Search is a tab of the dock\'s tab row in History\'s old place', () => {
-  assert.match(main, /menuItem\('History', \{ icon: 'clock'[^\n]*timeline\.openHistory\(anchor\)[^\n]*\n\s*menuItem\('Help', \{ icon: 'help', onClick: \(\) => \{ closePopover\(\); openHelpMenu\(anchor, \{ place: 'above'/);
+  // (13 Nov 2026, menu recs P4: History and Help are pages pushed inside the Settings sheet, not sheets of their own.)
+  assert.match(main, /menuItem\('History', \{ icon: 'clock'[^\n]*menuPush\('Settings', 'History', timeline\.historyBody\(\)\)[^\n]*\n\s*menuItem\('Help', \{ icon: 'help', onClick: \(\) => menuPush\('Settings', 'Help', helpRows\(\)\)/);
   assert.doesNotMatch(main, /menuItem\('Search'/);
-  assert.match(main, /tab\('search', 'search', 'Search', \(\) => \{ clear\(\); palette\.open\(\); \}\)/);
+  assert.match(main, /tab\('search', 'search', 'Search', \(\) => \{ if \(palette\.isOpen\(\)\) \{ palette\.close\(\); return; \} clear\(\); palette\.open\(\); \}\)/);
   assert.match(main, /treat, tests, find, layers, more\)/);
 });
 

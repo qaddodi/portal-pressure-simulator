@@ -32,7 +32,7 @@ import { EDGES, PORTAL_TERRITORY, tiedOff } from '../engine/topology.js';
 import { dopplerVel } from './velNormal.js';
 import { controlOwnsKey } from './key-owner.js';
 import { onTheme, onThemeBusy, themeSettled, settledSurfaces } from './theme-epoch.js';
-import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
+import { cssVar, $, $$, h, icon, afterExit, fmt, fmtFlow, toast, TOASTS, loadFailed, tooltipFor, openModal, closeModal, isModalOpen, popover, closePopover, popoverOpen, menuItem, menuSection, menuPush, svgIcon, isPhoneLayout, TABLET_UP_MQ, markGone, switchIn, onSurfaceOpened, enhanceRanges, systemEdge, swapFade, scrollBehavior, reconcile } from './util.js';
 import { initMenuGlass, whyGlass } from './menu-glass.js';
 import { glidePlateOn, platePieces, glideOnResize } from './plate-glide.js';
 import { sheetParts, sheetOffset, setSheetOffset, stopSheet, glideSheet, dragSheet } from './sheet-move.js';
@@ -127,7 +127,9 @@ function lazy(load, make) {
 let paletteL, presenterL, dopplerL, fibroL;
 const palette = {
   // alloc-rare: the palette is opened by a key or a tap (its promise and handlers), not in a frame
-  open: () => paletteL.get().then((p) => p.open()).catch(() => {}),   // (a part that cannot load has said so: loadFailed)
+  // (Opened in the same task as the tap once it is loaded (it is warmed at idle), so the field's focus is inside the gesture and iOS raises the
+  // keyboard at once: menu recs C3. Not yet loaded, it opens when it arrives.)
+  open: () => { const p = paletteL.now(); if (p) { p.open(); return Promise.resolve(); } return paletteL.get().then((q) => q.open()).catch(() => {}); },   // (a part that cannot load has said so: loadFailed)
   close: () => paletteL.now()?.close(),
   isOpen: () => !!paletteL.now()?.isOpen(),
 };
@@ -217,6 +219,8 @@ async function main() {
     onJump: (d) => host.send(d === 'event' ? { type: 'advance', untilEvent: true } : { type: 'advance', days: d }),
     onRestart: () => restartPatient(),
     scenarioLabel: () => store.get().presetList?.find((x) => x.id === store.get().presetId)?.label || 'Custom',
+    // (The play bar's clock opens the same History card as the top bar on a Mac or iPad, menu recs C8; a phone keeps the menu.)
+    onHistory: () => { if (isPhone()) return false; if (historyOpen()) closeHistory({ focus: true }); else openHistory(); return true; },
   });
   chart = createChart({
     onWhy: (m, el) => why.open(m, el), flash: (ids) => stage.flash(ids), onScenarios: () => mainMenu.open('patients'),
@@ -296,6 +300,8 @@ async function main() {
     loadPreset: async (id) => { if (store.get().mode !== 'explore') store.set({ mode: 'explore' }); if (await loadPreset(id)) { const pr = store.get().presetList.find((p) => p.id === id); toast(pr?.label, pr?.note ? 'note' : '', { sub: pr?.note }); } },
     home: () => mainMenu.open(), theme: () => toggleTheme(), look: (id) => switchTheme(id), help: () => openHelp(), share, restart: () => restartPatient(), reset: () => resetEverything(),
     library: presenter.library, libraryNow: presenter.libraryNow, present: (id) => presenter.start(id),
+    // (The thumb dock's Search tab is lit while the palette is up, as every other tab is while its sheet is: menu recs C3.)
+    onToggle: (on) => { const t = $('#thumbBar [data-tab="search"]'); if (t) t.setAttribute('aria-expanded', on ? 'true' : 'false'); },
   } }));
   card = createCard({
     view, stage, onWhy: (m, el) => why.open(m, el),
@@ -1271,8 +1277,9 @@ function openSettings(anchor, withSearch = false) {
     // (From the thumb dock's Settings tab, History (Search is a tab of its own there) and Help follow it: the dock has no More menu, and a touch keyboard has no ?. Enter full screen acts once, so it sits with them.)
     menuSection(null,
       ...(FEEDBACK_EMAIL ? [menuItem('Send feedback', { icon: 'mail', onClick: () => { closePopover(); sendFeedback(); } })] : []),
-      ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => { closePopover(); timeline.openHistory(anchor); } }),
-        menuItem('Help', { icon: 'help', onClick: () => { closePopover(); openHelpMenu(anchor, { place: 'above', align: 'end', cls: 'app-menu' }); } })] : []),
+      // (History and Help are pages inside this sheet, menu recs P4: they slide in over Settings with a back row, and the sheet stays open.)
+      ...(withSearch ? [menuItem('History', { icon: 'clock', kb: $('#timeline .tl-hc')?.textContent || null, onClick: () => menuPush('Settings', 'History', timeline.historyBody()) }),
+        menuItem('Help', { icon: 'help', onClick: () => menuPush('Settings', 'Help', helpRows()) })] : []),
       fullscreenControl()),
     menuSection('Appearance',
       lookChooser(cur, (v) => switchTheme(v === 'system' ? null : v, v === 'system')),
@@ -1298,7 +1305,7 @@ function openSettings(anchor, withSearch = false) {
       menuToggle(fpsOn(), 'gauge', 'Show frame rate', 'A small counter in the bottom-left corner', (on) => { toggleStored('pps.fps', 'main:fps')(on); setFpsCounter(on); }),
       menuToggle(!!hudEl, 'gauge', 'Show frame breakdown', 'Frame time, script time, which surfaces cost most, and whether the GPU or the script is the limit', (on) => { setFrameBreakdown(on); })),
     ...(talk ? [] : [menuSection(null, menuItem('Reset everything…', { icon: 'reset', onClick: () => resetEverything() }))]),
-  ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu' } : { align: 'start', cls: 'app-menu' });
+  ], withSearch ? { place: 'above', align: 'end', cls: 'app-menu', title: 'Settings' } : { align: 'start', cls: 'app-menu', title: 'Settings' });
 }
 // While presenting: no extra settings for now (panel width and high contrast were taken out of slides).
 function presenterSettings() { return []; }
@@ -1352,9 +1359,11 @@ function fullscreenControl() {
   return b;
 }
 let fsSync = null, fsListening = false;
-function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
-  popover(anchor, [
-    menuSection('Help',
+function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) { popover(anchor, helpRows(true), at); }
+// (Help's rows: its own menu on a Mac, a page inside the Settings sheet on the thumb dock, without its heading there: the page has its title.)
+function helpRows(titled = false) {
+  return [
+    menuSection(titled ? 'Help' : null,
       menuItem('Guide', { icon: 'book', onClick: () => { closePopover(); openHelp(); } }),
       menuItem('Keyboard shortcuts', { icon: 'grid', kb: '?', onClick: () => { closePopover(); openHelp('keys'); } }),
       menuItem('About the model', { icon: 'info', onClick: () => { closePopover(); openAbout(); } }),
@@ -1363,7 +1372,7 @@ function openHelpMenu(anchor, at = { align: 'start', cls: 'app-menu' }) {
     menuSection(null,
       h('a', { class: 'menu-credit', href: AUTHOR_URL, target: '_blank', rel: 'noopener', onclick: () => closePopover() },
         h('span', {}, 'Created by ', h('b', {}, AUTHOR)), h('span', { class: 'mc-link' }, 'More teaching tools ', icon('chev-right')))),
-  ], at);
+  ];
 }
 // Send feedback: a draft in the viewer's own email app, addressed to the author, with what a bug report needs underneath
 // (the build from the preview pill, the device, the screen and a link back to this exact view). The app itself sends
@@ -1509,6 +1518,10 @@ function cardsAway(s) {
     const el = c.el();
     if (b) { const r = el.getBoundingClientRect(); if (r.right <= b.left || r.left >= b.right || r.bottom <= b.top || r.top >= b.bottom) continue; }
     if (s.anchor && el.contains(s.anchor)) { under = true; continue; }
+    // (13 Nov 2026, menu recs C7: a menu no longer costs a card. A card whose glass the GPU draws is on the one glass board with the menus
+    // (glass-cover.js, 3575b83), which cuts it, its words too, under the menu's shape: it stays open under the menu and is whole again when the
+    // menu goes. Only a card the GPU has not drawn (its first frames, Blur off, the GPU lost) still steps away, as before.)
+    if (b && (el.matches('[data-gl]') || el.querySelector(':scope > .sheet-plate[data-gl]'))) continue;   // (a sheet still puts the cards away: one sheet at a time over the thumb dock)
     c.close();
   }
   s.el?.classList.toggle('over-card', under);
@@ -1966,7 +1979,7 @@ function wireThumbBar() {
   // One card or menu at a time above the dock: a tab first puts away whatever else is open (it plays its way out,
   // and the new one comes in once it has gone), and a second tap on the same tab closes its own.
   const clear = (keep) => {
-    closePopover();
+    closePopover(); palette.close();
     if (store.get().selection) store.set({ selection: null });   // (a vessel's or organ's card goes too)
     if (keep !== 'treat') closeTreat();
     if (keep !== 'tests' && app.classList.contains('dock-open')) setPanelTab('chart');
@@ -1978,12 +1991,13 @@ function wireThumbBar() {
   const treat = tab('treat', 'pill', 'Treat', () => { outOfSin(); if (!treatOpen()) clear('treat'); $('#btnTreat').click(); });
   const tests = tab('tests', 'gauge', 'Tests', () => { outOfSin(); if (!app.classList.contains('dock-open')) clear('tests'); $('#tabInstruments').click(); });
   const menuTab = (open) => (e) => { const a = e.currentTarget; if (a.getAttribute('aria-expanded') !== 'true') clear(); open(a); };
-  // (Search takes History's place in the tab row, 13 Nov 2026, Mohammad; History is a row in the Settings sheet, openSettings.) Search opens the palette over
-  // everything, so the tab puts away what else is open first and keeps no pressed state of its own.
-  const find = tab('search', 'search', 'Search', () => { clear(); palette.open(); });
+  // (Search takes History's place in the tab row, 13 Nov 2026, Mohammad; History is a row in the Settings sheet, openSettings.) Over the thumb dock the
+  // palette is a sheet like the others (menu recs P3): the tab puts away what else is open, is lit while it is up, and a second tap closes it.
+  const find = tab('search', 'search', 'Search', () => { if (palette.isOpen()) { palette.close(); return; } clear(); palette.open(); });
   const layers = tab('layers', 'layers', 'Layers', menuTab((a) => { outOfSin(); openLayersMenu(a); }));
   const more = tab('settings', 'gear', 'Settings', menuTab((a) => openSettings(a, true)));
-  for (const b of [layers, more]) b.setAttribute('aria-haspopup', 'dialog');
+  for (const b of [find, layers, more]) b.setAttribute('aria-haspopup', 'dialog');
+  find.setAttribute('aria-expanded', 'false');
   $('#vdock').prepend(h('div', { class: 'nb-views', id: 'nbViews', 'data-safe': 'bottom', 'data-safe-pad': '12' }, h('span', { class: 'vp-face', 'aria-hidden': 'true' })));
   $('#vdock').append(h('nav', { class: 'thumb-bar', id: 'thumbBar', 'aria-label': 'Patient tools' }, treat, tests, find, layers, more));
   // The tabs follow the cards they open, however those were opened or closed.
@@ -2021,7 +2035,7 @@ function openLayersMenu(anchor) {
     circuit ? menuItem('Turn upright', { icon: 'rotate', checked: stage.circuitRotated(), onClick: act(() => $('#rotateCircuit').click()) }) : null,
     h('div', { class: 'menu-sep' }),
     ...(st.lobule ? lobuleLayerItems() : bloodItems())],
-  { cls: 'blood-pop layers-pop', place: 'above', align: 'center' });
+  { cls: 'blood-pop layers-pop', place: 'above', align: 'center', title: 'Layers' });
 }
 // ── Treat card ──────────────────────────────────────
 let treatOff = null;

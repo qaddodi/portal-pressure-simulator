@@ -3,7 +3,7 @@ import { saver, frame, readFrame } from './frame.js';
 import { restPass, restAttr, restRemove } from './rest-pass.js';
 import { glWords } from './gl-words.js';
 import { slideFold } from './fold-slide.js';
-import { classSoon, dataSoon } from './class-soon.js';
+import { classSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
@@ -421,12 +421,12 @@ export { reduceMotionMQ };   // (the one list lives in motion.js)
 /** How a scroll the app makes on its own moves: smooth, or at once with Reduce Motion (as the menu's already did). */
 export const scrollBehavior = () => (reduceMotionMQ.matches ? 'auto' : 'smooth');
 // One card or menu at a time above the thumb dock. A sheet that opens while another is still going out does not wait for it (Menu system
-// plan W4, 4 Nov 2026): the two are one switch, the new one comes in and the old one goes out by a crossfade over the same spot
-// (.sw-in and .sw-out, styles/app.css), so nothing stands empty between them and the dock never blinks.
+// plan W4, 4 Nov 2026): the two are one switch. Since 13 Nov (menu recs C4) the new one rises over the old one while that one sinks, each on
+// its own slide (.sw-in lays the new one above, styles/app.css): no crossfade of two sheets of different heights, and nothing stands empty.
 let goneAt = 0, goneEl = null;
 /** Notes that a card or menu is playing its way out for the next ms. */
 export function markGone(ms, el = null) { goneAt = Math.max(goneAt, performance.now() + ms); if (el) goneEl = el; }
-/** A card or menu is coming in: if another is still going out, the two cross-fade (a switch) instead of one sliding down while the other slides up. */
+/** A card or menu is coming in: if another is still going out, the new one is laid above it (a switch), so it rises over the one sinking. */
 export function switchIn(el) {
   const g = goneEl;
   if (!g || g === el || performance.now() >= goneAt) return;
@@ -461,15 +461,20 @@ export function placeAt(el, anchor, { side = 'below', align = 'start', gap = 8, 
   return y;
 }
 
-export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true } = {}) {
+export function popover(anchor, content, { cls = '', align = 'start', place = 'below', onClose, sheet = true, title = null } = {}) {
   if (openMenu) { const same = openMenu.anchor === anchor; closePopover(); if (same) return null; }
   const asSheet = sheet && matchMedia(STACK_MQ).matches;   // (the one breakpoint, shared with the main menu: a phone held sideways is a popover, as on a Mac)
   // (from-dock: over the thumb dock a sheet, or a menu from the dock, rises from behind the tab row; one from the top bar,
   // the Colored-by key on an upright iPad, pops in where it rests, as everywhere else, never sliding up from below it.)
   const fromDock = asSheet || !!anchor.closest?.('.vdock');
   const el = h('div', { class: 'menu ' + cls + (asSheet ? ' as-sheet' : '') + (fromDock ? ' from-dock' : ''), role: 'dialog', 'aria-label': anchor.getAttribute?.('aria-label') || anchor.title || anchor.textContent?.trim().slice(0, 40) || 'Menu' }, content);
+  // (A sheet's head, menu recs P2: its title and a close button, as the cards have. A heading of the menu's own that says the same goes.)
+  if (asSheet) {
+    if (title) { const t = el.querySelector(':scope > .menu-title'); if (t && t.textContent.trim() === title) t.remove(); }
+    el.prepend(h('div', { class: 'sheet-head' }, h('span', { class: 'sheet-t' }, title || ''), h('button', { class: 'ib', type: 'button', 'aria-label': 'Close', onclick: () => closePopover() }, icon('close'))));
+  }
   switchIn(el);
-  // A sheet has a light scrim that takes the tap away, as the main menu's does.
+  // A sheet has a scrim that takes the tap away, as the main menu's does (it dims nothing: menu recs C5).
   const scrim = asSheet ? h('div', { class: 'um-scrim' }) : null;
   // (In the one sheet layer, cut on the dock's top line: sheet-layer.js. The scrim too, so the dock is never dimmed or covered.)
   if (scrim) sheetLayer().append(scrim);
@@ -508,6 +513,8 @@ export function popover(anchor, content, { cls = '', align = 'start', place = 'b
     // (One placer, placeAt: a menu from the tab row sits on its top edge, 8 px clear of it; the rest open below or above their button.
     // Nothing rides a --sink any more: a menu sheet's pull is the compositor's (swipeSheet) and its cut the sheet layer's.)
     placedTop = placeAt(el, anchor, { side: at === 'above' || bar ? 'above' : 'below', align, edge: bar ? tabTop : null });
+    // (It comes in with a 4 px rise from its button's side, menu recs C11: down from a button above it, up from one below it.)
+    el.style.setProperty('--pop-y', placedTop < r.top ? '4px' : '-4px');
     barAt = barTop;
     clipBar();
   };
@@ -1004,7 +1011,9 @@ export function closePopover() {
   // (Over the thumb dock it sinks behind the dock, as the cards do, in the same step: a leave is one flip, app.css dock-sheet-out.)
   // alloc-rare: a menu closes (a tap away or a choice): its leave closure and the timer's, once for each close
   if (el.isConnected) {
-    const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => el.classList.add('leaving');
+    // (A sheet pulled once and let go keeps .pulling, whose animation: none would also hold off its exit: it hung where it was and blinked out
+    // when its timer ended, 13 Nov, menu recs C1. The close takes it off with the leaving class, so the exit plays from where the sheet rests.)
+    const ms = menuExitMs(el), plate = openMenu.plate, scrim = openMenu.scrim; const leave = () => { if (!el.dataset.swiped) el.classList.remove('pulling'); el.classList.add('leaving'); };
     if (el.dataset.swiped) leave(); else if (leaveFromHere(el, leave)) plate?.leaveAlong();   // (the plate follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     if (scrim) leaveFromHere(scrim, () => scrim.classList.add('out'));
     el.inert = true; markGone(el.dataset.swiped ? 0 : ms, el); setTimeout(() => { releaseWords(el); restRemove(el); if (scrim) restRemove(scrim); plate?.dispose(); }, el.dataset.swiped ? D_SMALL : ms + 10);
@@ -1014,6 +1023,43 @@ export function closePopover() {
   openMenu = null;
 }
 const NO_SCROLL = Object.freeze({ preventScroll: true });   // (the options of a focus that must not scroll: kept, not made at each call)
+/** A page inside the open menu (menu recs P4, 13 Nov 2026): History and Help from the Settings sheet slide in from the right over Settings' own
+ *  rows, at the sheet's height, with a back row naming the menu they came from; the back row, or a swipe right, slides them away again. The
+ *  sheet never closes and opens again, so nothing crossfades and its tab stays the one lit. Moved by transform and opacity alone. */
+export function menuPush(back, title, kids) {
+  const m = openMenu; if (!m) return;
+  const el = m.el;
+  if (el.querySelector(':scope > .menu-page')) return;
+  // (Its height and where its list is scrolled are read once, in the tap: the page takes that box and keeps it.)
+  const hh = readMetric(el, 'offsetHeight'), top = readMetric(el, 'scrollTop'), ch = readMetric(el, 'clientHeight');
+  let root = el.querySelector(':scope > .menu-root');
+  if (!root) { root = h('div', { class: 'menu-root' }); root.append(...el.childNodes); el.append(root); }
+  el.style.height = `${hh}px`;
+  const backBtn = h('button', { class: 'menu-item menu-back', type: 'button' }, icon('chev-left'), back);
+  const head = h('div', { class: 'sheet-head' }, backBtn, h('span', { class: 'sheet-t' }, title), h('button', { class: 'ib', type: 'button', 'aria-label': 'Close', onclick: () => closePopover() }, icon('close')));
+  const page = h('div', { class: 'menu-page', role: 'group', 'aria-label': title, style: { top: `${top}px`, height: `${ch}px` } }, head, kids);
+  el.append(page); el.classList.add('pushed'); root.inert = true;
+  const still = reduceMotionMQ.matches, opt = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'both' };
+  page.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translateX(100%)' }, { transform: 'none' }], opt);
+  const away = root.animate(still ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none', opacity: 1 }, { transform: 'translateX(-30%)', opacity: 0 }], opt);
+  const pop = () => {
+    if (!page.isConnected) return;
+    away.cancel();
+    const o = { duration: D_SMALL, easing: EASE_ARRIVE, fill: 'both' };
+    root.inert = false; el.classList.remove('pushed');
+    const home = root.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ transform: 'translateX(-30%)', opacity: 0 }, { transform: 'none', opacity: 1 }], o);
+    home.finished.then(() => home.cancel()).catch(() => {});
+    page.inert = true;
+    page.animate(still ? [{ opacity: 1 }, { opacity: 0 }] : [{ transform: 'none' }, { transform: 'translateX(100%)' }], o).finished.then(() => page.remove()).catch(() => page.remove());
+    backBtn.blur();
+  };
+  backBtn.addEventListener('click', pop);
+  // (A swipe right from the page's left part goes back, as a pushed page does on iOS.)
+  let sx = null;
+  page.addEventListener('touchstart', (e) => { const t = e.touches[0]; sx = e.touches.length === 1 ? [t.clientX, t.clientY] : null; }, { passive: true });
+  page.addEventListener('touchend', (e) => { const t = e.changedTouches[0]; if (sx && t.clientX - sx[0] > 70 && Math.abs(t.clientY - sx[1]) < 40) pop(); sx = null; }, { passive: true });
+  if (m.anchor.matches?.(':focus-visible')) backBtn.focus(NO_SCROLL);
+}
 /** A phone's bottom sheet follows a vertical drag from anywhere on it and closes past a short pull (or a quick
  *  flick) down; a short one eases back. Content scrolled away from its top scrolls back first, a sideways drag
  *  and a slider keep their own gestures, and taps work as normal. onClose closes it; the sheet is already
@@ -1096,7 +1142,9 @@ export function swipeSheet(panel, onClose, enabled = null) {   // (enabled: a ca
     // (A let-go carries the finger's own speed: the curve opens at its slope. Over the thumb dock it sinks behind the dock, its cut a still
     // clip, so the move needs no cut beside it. Away it goes to the sheet's own height and stays there until the menu takes it off.)
     const to = gone ? H + (s0.thumb ? 8 : 0) : 0, ms = D_SMALL;   // (240 ms, the one sheet time, over the dock or away)
-    if (gone) dataSoon(panel, 'swiped', '1');
+    // (Written now, not between frames: the close below reads it in this same task to know the sheet is already on its way out.
+    // On 13 Nov a later write let the close take a swipe for a tap, and the next tab faded in instead of rising: menu recs C2.)
+    if (gone) panel.dataset.swiped = '1';
     easing = pullRelease(panel, s0.thumb ? 'translate' : 'transform', s0.pull, s0.dy, to, ms, carryCurve(speed, to - s0.dy, ms), clearEasing);   // alloc-rare: a let-go
     if (gone) onClose();
   };

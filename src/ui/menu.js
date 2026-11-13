@@ -141,7 +141,7 @@ export function createMenu({ anchor, library, libraryNow, onPreset, share, help,
         panel.style.transform = 'translateY(100%)';
         if (!sheet) panel.style.opacity = '0';
       }
-    } else if (leaveFromHere(panel, () => panel.classList.add('out'))) gone?.leaveAlong();   // (the plate under it follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
+    } else if (leaveFromHere(panel, () => { panel.classList.remove('pulling'); panel.classList.add('out'); })) gone?.leaveAlong();   // (.pulling, left by an earlier pull, would hold off the exit: menu recs C1)   // (the plate under it follows by its twin rules; one put away while still coming in follows the menu's exit from where it had got to)
     // (Inert from the first frame of its exit, as the popovers are; a menu opened again before it has gone leaves it fading, below.)
     panel.inert = true;
     setTimeout(done, sheet || o.dragged ? D_SMALL : D_FLIP);

@@ -95,7 +95,7 @@ export function createWhy(pop) {
     if (pop.classList.contains('show')) {
       // (A card swiped away is already sliding down: it leaves as it is.)
       if (pop.dataset.swiped) { pop.classList.remove('show'); pop.classList.add('leaving'); }
-      else leaveFromHere(pop, () => { pop.classList.remove('show'); pop.classList.add('leaving'); });
+      else leaveFromHere(pop, () => { pop.classList.remove('show', 'pulling'); pop.classList.add('leaving'); });   // (.pulling, left by an earlier pull, would hold off the exit: menu recs C1)
       clearTimeout(leaveT); leaveT = setTimeout(() => classSoon(pop, 'leaving', false), afterMs(asSheet() ? D_SMALL : D_FLIP));
     }
     if (scrim) { const sc = scrim; scrim = null; leaveFromHere(sc, () => sc.classList.add('out')); setTimeout(() => restRemove(sc), afterMs(D_SMALL)); }

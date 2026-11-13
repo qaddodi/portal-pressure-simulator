@@ -80,11 +80,19 @@ test('an element without the Web Animations API just leaves', () => {
 test('the three places a menu leaves from go through it, and keep their classes', () => {
   assert.match(read('src/ui/util.js'), /leaveFromHere\(el, leave\)/);
   assert.match(read('src/ui/util.js'), /if \(el\.dataset\.swiped\) leave\(\)/, 'a swiped sheet is already moving: it leaves as it did');
-  assert.match(read('src/ui/why.js'), /leaveFromHere\(pop, \(\) => \{ pop\.classList\.remove\('show'\); pop\.classList\.add\('leaving'\); \}\)/);
+  assert.match(read('src/ui/why.js'), /leaveFromHere\(pop, \(\) => \{ pop\.classList\.remove\('show', 'pulling'\); pop\.classList\.add\('leaving'\); \}\)/);
   const m = read('src/ui/menu.js');
-  assert.match(m, /leaveFromHere\(panel, \(\) => panel\.classList\.add\('out'\)\)/);
+  assert.match(m, /leaveFromHere\(panel, \(\) => \{ panel\.classList\.remove\('pulling'\); panel\.classList\.add\('out'\); \}\)/);
   assert.match(m, /leaveFromHere\(scrim, \(\) => scrim\.classList\.add\('out'\)\)/);
   assert.doesNotMatch(m, /menuLeaveOff|menuleave=0/, 'opened again while fading: the old panel is left to finish, never removed at once');
   assert.match(m, /\n\s+panel\.inert = true;/);
   assert.match(m, /\n\s+placeAt\(el, anchor, \{ margin: 12, flip: false \}\);/, 'the main menu is placed by the one placer');
+});
+
+// Menu recs (13 Nov 2026): a pulled sheet's close plays its exit (C1), and a swipe-close is known as one in the same task (C2).
+test('a sheet pulled once still plays its exit; a swiped sheet is marked before its close reads the mark', () => {
+  const u = read('src/ui/util.js');
+  assert.match(u, /const leave = \(\) => \{ if \(!el\.dataset\.swiped\) el\.classList\.remove\('pulling'\); el\.classList\.add\('leaving'\); \};/);
+  assert.match(u, /if \(gone\) panel\.dataset\.swiped = '1';[\s\S]{0,700}if \(gone\) onClose\(\);/);
+  assert.doesNotMatch(u, /dataSoon\(panel, 'swiped'/);
 });

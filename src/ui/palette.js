@@ -27,7 +27,9 @@ export function createPalette({ ctx }) {
   const hl = h('div', { class: 'pal-glide', 'aria-hidden': 'true' });   // (the highlight: a sibling of the rows, in the list's scrolled space)
   // (The same magnifier as the Search button that opens it. The key hints under the list are for a keyboard: a touch screen hides them.)
   const foot = h('div', { class: 'pal-foot', 'aria-hidden': 'true' }, h('span', {}, h('kbd', {}, '↑'), h('kbd', {}, '↓'), 'to move'), h('span', {}, h('kbd', {}, 'Enter'), 'to run'), h('span', {}, h('kbd', {}, 'Esc'), 'to close'));
-  const box = h('div', { class: 'pal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('search', 'pal-ic'), input), list, foot);
+  // (A close button, seen only where the palette is a sheet from the thumb dock, menu recs P3: there is no Esc key there, and every sheet has one.)
+  const shut = h('button', { class: 'ib pal-x', type: 'button', 'aria-label': 'Close search', onclick: () => close() }, svgIcon('close'));
+  const box = h('div', { class: 'pal', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Command palette' }, h('div', { class: 'pal-top' }, svgIcon('search', 'pal-ic'), input, shut), list, foot);
   back.append(box);
   document.body.append(back);
   const syncMore = fadeWhileMore(list);   // (a list that scrolls fades at its foot while there is more below it, as the menus do)
@@ -225,7 +227,11 @@ export function createPalette({ ctx }) {
     clearTimeout(leaveT); back.classList.remove('leaving');
     back.hidden = false; input.value = ''; sel = 0; shownKey = ''; renderList({ fadeIn: false });
     if (ctx.library && !ctx.libraryNow?.()) ctx.library().then(() => { if (!back.hidden) renderList(); }).catch(() => {});
-    setTimeout(() => input.focus(), 0);
+    // (Focused in the tap itself, so iOS raises the keyboard at once; a focus from a timer is outside the gesture and iOS waits for a second
+    // tap: menu recs C3, 13 Nov 2026. The timer stays for a browser that moves focus back to the button after the click.)
+    input.focus(FOCUS_NO_SCROLL);
+    setTimeout(() => { if (!back.hidden && document.activeElement !== input) input.focus(FOCUS_NO_SCROLL); }, 0);
+    ctx.onToggle?.(true);
     vv?.addEventListener('resize', fitSoon); vv?.addEventListener('scroll', fitSoon);
     fitList();   // (a keyboard already up, from another field, shows no resize: the list is held to its room at once)
   }
@@ -239,16 +245,22 @@ export function createPalette({ ctx }) {
     geomFor = null; remeasure();
     const room = visibleBottom() - list.getBoundingClientRect().top - 12;
     back.style.setProperty('--pal-room', `${Math.max(96, Math.floor(room))}px`);
+    // (Over the thumb dock the palette is a sheet resting on the dock, or on the keyboard when it is up: the keyboard's height and the room
+    // above it, which the sheet's list is sized from, not from where the list starts, which moves with it.)
+    const v = window.visualViewport;
+    back.style.setProperty('--pal-kb', `${Math.max(0, Math.round(innerHeight - visibleBottom()))}px`);
+    back.style.setProperty('--pal-vh', `${Math.round(v ? v.height : innerHeight)}px`);
   }
   // It fades out as it faded in (it vanished in one frame: P20), then hides; opened again meanwhile, it simply stays.
   let leaveT = 0;
-  const leaveDone = () => { back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); };
+  const leaveDone = () => { back.hidden = true; back.classList.remove('leaving'); back.style.removeProperty('--pal-room'); back.style.removeProperty('--pal-kb'); back.style.removeProperty('--pal-vh'); };
   function close() {
     if (back.hidden || back.classList.contains('leaving')) return;
     back.classList.add('leaving'); clearTimeout(leaveT);
     vv?.removeEventListener('resize', fitSoon); vv?.removeEventListener('scroll', fitSoon);
     leaveT = afterExit(back, 'leaving', leaveDone);
     ret?.focus?.(FOCUS_NO_SCROLL);
+    ctx.onToggle?.(false);
   }
   input.addEventListener('input', () => { sel = 0; renderList(); });
   input.addEventListener('keydown', (e) => {
