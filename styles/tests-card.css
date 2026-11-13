@@ -108,7 +108,10 @@
 
 /* Readouts: one row for each group, at the phone's width. */
 .instrument-workspace.float-ui .rp-tiles .metric:last-child:nth-child(odd) { grid-column: auto; }
-#app.thumb .rp-group[data-group="pressure"] .rp-tiles { grid-template-columns: 72px 72px minmax(0, 1fr) minmax(0, 1fr); }
+#app.thumb .rp-group[data-group="pressure"] .rp-tiles { grid-template-columns: 72px 80px minmax(0, 1fr) minmax(0, 1fr); }   /* (80: the PPG's "Bleed risk" whole) */
+#app.thumb .instrument-workspace.float-ui .rp-group { padding-block: 6px; }   /* (the four groups fit the 520 px sheet, Hb's word in view) */
+#app.thumb .instrument-workspace.float-ui .rp-group:first-child { padding-top: 0; }
+#app.thumb .instrument-workspace.float-ui .rp-group:last-child { padding-bottom: 0; }
 #app.thumb .rp-group[data-group="systemic"] .rp-tiles { grid-template-columns: 1.5fr 1.05fr 1.45fr 1.4fr .8fr; }
 #app.thumb .rp-tiles .metric { padding: 0 6px; }
 #app.thumb .rp-tiles .metric:first-child { padding-left: 0; }

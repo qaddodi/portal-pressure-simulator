@@ -44,15 +44,16 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   function vital(v, name, short) {
     const S = SCALE[v.id];
     const val = h('span', { class: 'val' }, '—'), st = h('span', { class: 'status' }), fill = h('i', { class: 'rb-fill' });
-    // (The blood pressure: systolic/diastolic before the mean and the bracket after it, 120/80 (93).)
-    const pre = v.s ? h('span', { class: 'val v-bp' }, '') : null, post = v.s ? h('span', { class: 'val v-bp' }, '') : null;
+    // (The blood pressure: systolic/diastolic before the mean in its brackets, 120/80 (93). The mean and its brackets are one piece, .v-map, so a
+    // narrow tile (a phone's row of five) breaks the line before "(93)", never inside it.)
+    const pre = v.s ? h('span', { class: 'val v-bp' }, '') : null, open = v.s ? h('span', { class: 'val v-bp' }, '') : null, post = v.s ? h('span', { class: 'val v-bp' }, '') : null;
     const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, S[2].map((c) => h('i', { class: 'rb-tick', style: { left: clamp((c - S[0]) / (S[1] - S[0]), 0, 1) * 100 + '%' } })));
     const el = h('button', { type: 'button', class: 'metric rp-vital', 'data-id': v.id },
-      h('span', { class: 'k' }, h('span', { class: 'k-l' }, name), h('span', { class: 'k-s' }, short)), h('span', { class: 'v' }, pre, val, post, h('span', { class: 'unit' }, v.u)), bar, h('span', { class: 's' }, st));
+      h('span', { class: 'k' }, h('span', { class: 'k-l' }, name), h('span', { class: 'k-s' }, short)), h('span', { class: 'v' }, pre, v.s ? h('span', { class: 'v-map' }, open, val, post) : val, h('span', { class: 'unit' }, v.u)), bar, h('span', { class: 's' }, st));
     el.title = `${v.title}${v.why ? '\nClick for what is driving it.' : ''}`;
     if (v.why) el.addEventListener('click', () => onWhy(v.why, el));
     else el.style.cursor = 'default';
-    vitEls.push({ v, S, el, val, pre, post, preT: null, st, fill, sev: null, ariaTxt: '' });
+    vitEls.push({ v, S, el, val, pre, open, post, preT: null, st, fill, sev: null, ariaTxt: '' });
     return el;
   }
 
@@ -157,8 +158,8 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
       if (follow) { const fk = `${x.shown}|${hid}|${shownState.or('rpfill:' + x.v.id, '')}`; if (fk === x.followKey) continue; x.followKey = fk; } else x.followKey = null;
       countTo(x.val, hid ? null : r.v, x.v.d, { eased: st0.running });
       if (x.pre) {
-        const t = hid || !Number.isFinite(r.v) || !Number.isFinite(x.r?.s) || !Number.isFinite(x.r?.d) ? '' : `${Math.round(x.r.s)}/${Math.round(x.r.d)} (`;
-        if (t !== x.preT) { x.preT = t; putText(x.pre, t); putText(x.post, t ? ')' : ''); }
+        const t = hid || !Number.isFinite(r.v) || !Number.isFinite(x.r?.s) || !Number.isFinite(x.r?.d) ? '' : `${Math.round(x.r.s)}/${Math.round(x.r.d)}`;
+        if (t !== x.preT) { x.preT = t; putText(x.pre, t); putText(x.open, t ? '(' : ''); putText(x.post, t ? ')' : ''); }
       }
       // (Its tile's word and colour, judging the number as shown; the tile's colour holds a moment before it changes, as the others do.)
       const none = hid || !Number.isFinite(r.v), [cls, word] = none ? [null, 'Not measured'] : RATE[x.v.id](shownOf(r.v, x.v.d), x.v.s ? { sbp: x.r?.s } : {}), sev = SEV[cls] ?? 'none';
