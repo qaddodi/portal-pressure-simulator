@@ -772,7 +772,7 @@ export function bleedShapes(bleed, rate, sites) {
 // pattern never jumps. While a link is changing, the shader draws both patterns, mixed by w.
 
 /** Ends this close (world units) count as one junction; speed ratios beyond these do not chain. */
-export const CHAIN_NEAR = 20, CHAIN_RATIO = 2, CHAIN_B_MAX = 3;
+export const CHAIN_NEAR = 20, CHAIN_RATIO = 4, CHAIN_B_MAX = 12;
 /**
  * Hysteresis (6 Nov 2026, "the chevrons randomly fade away and new ones appear in new places"): a link that holds lets go only once its
  * speed ratio and its B are CHAIN_HOLD times beyond the bounds a new link must be inside, and a parent gives way only to an inflow that
@@ -905,10 +905,18 @@ export function createStreamChain() {
     }
     sStable[s] = sP[s] >= 0 && want === sP[s] && wantR === sR[s];
     // The junction, through the current link's parent (as it was when last drawn, if it is no longer a candidate).
+    // (Always by the root the vessel draws now, sR: through its parent's own A and B where that root is the parent's, else from the parent's
+    // own stream. Until 13 Nov a link that held took the parent's thru answer (peA), which flips the moment the parent's own link starts to
+    // change while this vessel still draws the old root: A jumped (1004 to 107 on a hepatic branch in acute PVT) and the whole branch's
+    // streaks and heads jumped with it, every time a link upstream moved.)
     if (sP[s] >= 0) {
       const q = atGet(sP[s]);
-      if (q != null && sP[s] === want) { sSj[s] = items[q].sj; sPA[s] = peA; sPB[s] = peB; }
-      else if (q != null) { const qs = slotOf(sP[s]); const thru = sR[s] !== sP[s]; sSj[s] = items[q].sj; sPA[s] = thru ? sA[qs] : 0; sPB[s] = thru ? sB[qs] : 1; }
+      // (Through the parent only while the parent still draws that root; once it has moved on, the last answer holds until this link lets go.)
+      if (q != null) {
+        const qs = slotOf(sP[s]), thru = sR[s] !== sP[s];
+        sSj[s] = items[q].sj;
+        if (!thru) { sPA[s] = 0; sPB[s] = 1; } else if (sR[qs] === sR[s]) { sPA[s] = sA[qs]; sPB[s] = sB[qs]; }
+      }
       sS0[s] = it.s0;
       sA[s] = sPA[s] + sPB[s] * sSj[s] - sB[s] * sS0[s];
     } else { sA[s] = 0; sB[s] = 1; }

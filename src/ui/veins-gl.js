@@ -2525,20 +2525,25 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
   gl.bindTexture(gl.TEXTURE_2D, bendTex);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, N_SAMPLES, nTubes, 0, gl.RED, gl.FLOAT, new Float32Array(N_SAMPLES * nTubes));
   // (Each vessel's axis, for the arrowheads' quads (blood-heads.js): the points setBend is given, as the GPU should hold them, the span of
-  // rows written since the last send, and which rows have one. The texture is made on the first send.)
+  // rows written since the last send, and which rows have one. The texture is made on the first send. One column more, N_SAMPLES: each
+  // row's arrowhead run (setHeadRuns: the offset added to the run's A, and its B), which only the quads read.)
   const axisAll = new Float32Array(N_SAMPLES * 2 * nTubes), axisHas = new Uint8Array(nTubes);
-  let axisLo = Infinity, axisHi = -1, axisTex = null, axisN = 0;
+  const runsAll = new Float32Array(nTubes * 2);
+  let axisLo = Infinity, axisHi = -1, axisTex = null, axisN = 0, runsOwed = false;
   function flushAxis() {
-    if (axisHi < axisLo) return;
+    if (axisHi < axisLo && !runsOwed) return;
     if (!axisTex) {
       axisTex = dataTex(gl);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, N_SAMPLES, nTubes, 0, gl.RG, gl.FLOAT, null);
-      axisLo = 0; axisHi = nTubes - 1;
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, N_SAMPLES + 1, nTubes, 0, gl.RG, gl.FLOAT, null);
+      axisLo = 0; axisHi = nTubes - 1; runsOwed = true;
     } else gl.bindTexture(gl.TEXTURE_2D, axisTex);
-    const n = axisHi - axisLo + 1;
-    if (gpuProbe.on) gpuProbe.note('uploaded: axes', n * N_SAMPLES * 8 / 1024);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, axisLo, N_SAMPLES, n, gl.RG, gl.FLOAT, axisAll, axisLo * N_SAMPLES * 2);
-    axisLo = Infinity; axisHi = -1;
+    if (axisHi >= axisLo) {
+      const n = axisHi - axisLo + 1;
+      if (gpuProbe.on) gpuProbe.note('uploaded: axes', n * N_SAMPLES * 8 / 1024);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, axisLo, N_SAMPLES, n, gl.RG, gl.FLOAT, axisAll, axisLo * N_SAMPLES * 2);
+    }
+    if (runsOwed) gl.texSubImage2D(gl.TEXTURE_2D, 0, N_SAMPLES, 0, 1, nTubes, gl.RG, gl.FLOAT, runsAll);
+    axisLo = Infinity; axisHi = -1; runsOwed = false;
   }
   // (The heads' quads: the corner quad and, per head, its row, place and run: createHeadList.)
   const headList = createHeadList(nTubes), headBuf = gl.createBuffer(), headVAO = gl.createVertexArray();
@@ -4565,6 +4570,15 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       /** A layer gathered under a live mask now at dy world units down (the bowel's float on the ascites). */
       shift: (name, dy) => { texVer++; return stack.shift(name, dy); },
     },
+    /**
+     * The arrowheads' own run per vessel row (blood-heads.js, stage-blood.js chainRows): nTubes × 2 floats, the offset added to the run's
+     * A and its B (0: the run's own). Sent with the axes, before the quads draw, only when it changed.
+     */
+    setHeadRuns(data) {
+      // (A row whose run changed is drawn again, as a row whose blood changed: its heads with it.)
+      const n = Math.min(data.length, runsAll.length);
+      for (let i = 0; i < n; i++) if (runsAll[i] !== data[i]) { runsAll[i] = data[i]; runsOwed = true; moved[i >> 1] = 1; }
+    },
     /** Per-vessel blood: nTubes × FLOW_TEXELS × 4 floats (see stage.js). */
     setFlow(data) {
       // (Only the span of rows that differ from the last upload goes up, and nothing while they all match, as when paused:
@@ -5081,7 +5095,7 @@ export function createVeinsGL(canvas, { tubes: nTubes, force = false, who = 'sta
       // (Not on a one-pass frame, the zoom's: its vessel and composite halves are one shader and write no layer for the quads to read, so
       // the heads there stay per-pixel, in the fused program. Without this the heads vanished while zooming and came back at rest.)
       if (headP && blood.chev && !bleeding && !fused && axisN > 0) {
-        if (headList.update(axisHas, bloodRow, tubeNow, ROW_W, flowSent, FLOW_TEXELS * 4)) {
+        if (headList.update(axisHas, bloodRow, tubeNow, ROW_W, flowSent, FLOW_TEXELS * 4, runsAll)) {
           gl.bindBuffer(gl.ARRAY_BUFFER, headBuf);
           gl.bufferData(gl.ARRAY_BUFFER, headList.data(), gl.DYNAMIC_DRAW, 0, headList.count() * 3);
         }
