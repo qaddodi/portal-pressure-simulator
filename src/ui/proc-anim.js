@@ -223,7 +223,7 @@ export const MEASURES = {
     capture(i, rd, f) {
       const P = f?.P;
       if (i === 1) rd.pv = P ? r1(P[NODE_I.LPV]) : NaN;
-      if (i === 2) { rd.hv = P ? r1(P[NODE_I.LHV]) : NaN; rd.ppg = r1(rd.pv - rd.hv); }
+      if (i === 2) { rd.hv = P ? r1(P[NODE_I.LHV]) : NaN; rd.ppg = tenthGap(rd.pv, rd.hv, NaN); }   // (the two readings as printed: unification audit, finding 5)
     },
     // Its callouts are the HVPG catheter's (his ask, 6 Nov 2026: "the callouts should be similar to the HVPG callouts; PV... then HV...
     // then they come over each other and the difference is EUS-PPG"): the needle's reading on the portal vein as it reads, then the
@@ -258,10 +258,11 @@ export const MEASURES = {
     steps: [
       ['gradient', 'Gradient', 'The same catheter is advanced through the new stent into the portal vein to record the portal pressure, then pulled back to the IVC at the level of the hepatic veins, just below the right atrium, for a second reading. The portal pressure minus the IVC pressure is the portosystemic pressure gradient: <12 mmHg means no NSBB is needed after the TIPS.', 'Gradient', 'way', 'TIPS', ['RHV', 'RPV'], 0.5],
     ],
-    // The readings, taken when the result comes: the portal vein's and the IVC's pressure as the tiles show them, and the gradient as they show it.
+    // The readings, taken when the result comes: the portal vein's and the IVC's pressure as the tiles show them, and the gradient as the difference of those
+    // two as printed (unification audit, finding 5: every gradient is worked out the same way).
     capture(i, rd, f) {
       const m = f?.metrics;
-      rd.pv = m ? r1(m.pv) : NaN; rd.iv = m ? r1(m.ivc) : NaN; rd.ppg = m ? tenthGap(m.pv, m.ivc, m.ppg) : NaN;
+      rd.pv = m ? r1(m.pv) : NaN; rd.iv = m ? r1(m.ivc) : NaN; rd.ppg = tenthGap(rd.pv, rd.iv, m ? m.ppg : NaN);
     },
     marks: () => NO_MARKS,
     // The reading beside the catheter's tip: the portal vein's as it settles, then the IVC's, then the gradient, which stands while the catheter waits there and goes as it comes out.

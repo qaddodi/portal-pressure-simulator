@@ -34,9 +34,11 @@ export function createEusPpg() {
   const stepEls = EUS.steps.map(([id, title, , short]) => h('li', { 'data-step': id, title }, h('span', {}, short)));
   const caption = h('p', { class: 'ctl-sub hvpg-caption', 'aria-live': 'polite' }, IDLE);
   let capT = IDLE;
-  const btn = h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': 'Play EUS-PPG on the anatomy', title: IDLE, onclick: () => play(),
-    onpointerup: (e) => { if (e.pointerType !== 'mouse' && !btn.disabled) play(); } }, icon('play'), h('span', {}, 'EUS-PPG'));
-  const row = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'EUS-guided portal pressure gradient' }, h('span', { class: 'hvpg-procs-k' }, 'Watch'), btn);
+  // (A measurement, started as Measure › HVPG starts the HVPG: "Measure", with the procedure's own icon, the needle; the treatments beside the HVPG are what one
+  // watches. Unification audit, finding 5. The button keeps its size and words: the Scope card's grid places it.)
+  const btn = h('button', { type: 'button', class: 'btn sm hvpg-proc-btn', 'aria-label': 'Measure EUS-PPG on the anatomy', title: IDLE, onclick: () => play(),
+    onpointerup: (e) => { if (e.pointerType !== 'mouse' && !btn.disabled) play(); } }, icon('needle'), h('span', {}, 'EUS-PPG'));
+  const row = h('div', { class: 'hvpg-procs', role: 'group', 'aria-label': 'EUS-guided portal pressure gradient' }, h('span', { class: 'hvpg-procs-k' }, 'Measure'), btn);
   // (The readings, the steps and the words are one panel, .eus-panel: styles/scope-card.css lays it over the foot of the scope's picture on the side card while a run is on
   // or done, so the picture keeps all the room; elsewhere it adds no box. Its state, idle, run or done, is data-state.)
   // (The monitor: the needle's pressure live as it is taken, on the procedure's own clock. Its readings before each is taken are the live veins'.)

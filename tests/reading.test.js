@@ -173,7 +173,7 @@ test('the talk: the monitor on every measurement slide, the ladder on every comp
   assert.ok(markAt('hvpgcath', 3) > markAt('hvpgcath', 2));
 });
 
-test('a gradient is the difference of its two readings as printed, never a later frame\'s (unification audit, finding 5)', () => {
+test('a gradient is the difference of its two readings as printed, never a later frame\'s (unification audit, finding 5)', async () => {
   // (A slide still easing: each step's frame reads a little higher than the last.)
   const fr = (k) => ({ metrics: { fhvp: 5.26 + k, whvp: 16.94 + k, hvpg: 11.68 + k, pv: 17.94 + k, ivc: 4.43 + k, ppg: 13.51 + k } });
   const H = specOf('hvpgcath'), rh = {};
@@ -182,6 +182,19 @@ test('a gradient is the difference of its two readings as printed, never a later
   const P = specOf('irpv'), rp = {};
   P.capture(1, rp, fr(0)); P.capture(2, rp, fr(0.3));
   assert.equal(rp.ppg, Math.round((rp.pv - rp.iv) * 10) / 10, `PPG ${rp.ppg} from PV ${rp.pv} and IVC ${rp.iv}`);
+  // (The EUS-PPG's needle reads two veins' node pressures; the TIPS gradient reads both when its result comes: each gradient the printed difference too.)
+  const { NODES } = await import('../src/engine/topology.js');
+  const ni = (id) => NODES.findIndex((n) => n.id === id), nodesAt = (k) => { const P2 = new Float64Array(NODES.length); P2[ni('LPV')] = 15.06 + k; P2[ni('LHV')] = 2.64 + k; return { P: P2 }; };
+  const E = specOf('eus'), re = {};
+  E.capture(1, re, nodesAt(0)); E.capture(2, re, nodesAt(0.37));
+  assert.equal(re.ppg, Math.round((re.pv - re.hv) * 10) / 10, `EUS-PPG ${re.ppg} from PV ${re.pv} and HV ${re.hv}`);
+  const E2 = {}; E.capture(1, E2, null); E.capture(2, E2, nodesAt(0));
+  assert.ok(Number.isNaN(E2.ppg), 'no portal reading, no gradient');
+  const G = specOf('tipsgrad'), rg = {};
+  G.capture(0, rg, fr(0.45));
+  assert.equal(rg.ppg, Math.round((rg.pv - rg.iv) * 10) / 10, `TIPS PPG ${rg.ppg} from PV ${rg.pv} and IVC ${rg.iv}`);
+  const G2 = {}; G.capture(0, G2, null);
+  assert.ok(Number.isNaN(G2.ppg), 'no frame, no gradient');
 });
 
 test('every slide that measures a gradient on its own draws it on the one monitor, never as numbers alone', async () => {
