@@ -142,13 +142,14 @@ function monOn({ ctx, w, h: hh }, S, st) {
   else if (ph === 'enter') ST.label = S.enterWord || 'Catheter advancing';
   else S.status(t, v, st, ST);
   const col = C[ST.col] || C.text;
-  // (What the tip reads, then the words for the axis, on one row when they fit beside each other and on two when they do not; the big reading at the right.)
-  ctx.font = FONT(700, FS + 2); ctx.fillStyle = ST.col === 'text' ? C.bright : col; ctx.fillText(ST.label, x, y + 15 * HK);
+  // (The words for the axis on the same row as what the tip reads when they fit, else under it; drawn in the order the card has always had: axis words, what the tip reads, the number.)
+  ctx.font = FONT(700, FS + 2);
   const lw = ST.label ? ctx.measureText(ST.label).width + 14 : 0, room1 = room - lw;
   ctx.font = FONT(600, FS); ctx.fillStyle = C.text;
-  const head1 = fitLine(ctx, S.heads, room1);
-  if (ctx.measureText(head1).width <= room1) ctx.fillText(head1, x + lw, y + 15 * HK);
+  const head1 = fitLine(ctx, S.heads, room1), sameRow = ctx.measureText(head1).width <= room1;
+  if (sameRow) ctx.fillText(head1, x + lw, y + 15 * HK);
   else ctx.fillText(fitLine(ctx, S.heads, room), x, y + 34 * HK);
+  ctx.font = FONT(700, FS + 2); ctx.fillStyle = ST.col === 'text' ? C.bright : col; ctx.fillText(ST.label, x, y + 15 * HK);
   if (ST.num) { ctx.font = FONT(700, big); ctx.fillStyle = ST.col === 'text' ? C.bright : col; ctx.textAlign = 'right'; ctx.fillText(ST.num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
   // (The trace takes the monitor's whole width, its axis numbers inside it and each reading's tag at the right end of its dashed line: Mohammad, 13 Nov 2026, option C.)
   const { top, bot } = traceRoom(W, H, y), L = x, R = x + W;
