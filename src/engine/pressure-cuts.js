@@ -42,7 +42,7 @@ export const TOKEN_OF_RATE = Object.freeze(Object.fromEntries(Object.entries(RAT
 const pair = (short, long = short) => Object.freeze([short, long]);
 export const BLEED_WORD = 'Bleed risk';
 export const HVPG_WORDS = Object.freeze({ ok: pair('Normal'), caution: pair('Mild', 'Mild portal hypertension'), danger: pair('CSPH', 'Clinically significant portal hypertension (CSPH)') });
-export const PPG_WORDS = Object.freeze({ ok: pair('Normal'), caution: pair('High'), danger: pair(BLEED_WORD) });
+export const PPG_WORDS = Object.freeze({ ok: pair('Normal'), caution: pair('High', 'Portal hypertension'), danger: pair(BLEED_WORD, 'Portal hypertension with a risk of variceal bleeding') });
 export const hvpgWord = (v, long = false) => HVPG_WORDS[hvpgSev(v)][long ? 1 : 0];
 export const ppgWord = (v, long = false) => PPG_WORDS[ppgSev(v)][long ? 1 : 0];
 

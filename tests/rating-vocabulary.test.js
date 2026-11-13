@@ -24,7 +24,7 @@ const VALUES = [...Array.from({ length: 421 }, (_, i) => (i - 20) / 10), HVPG_CU
 
 test('the band words are the standard, short and long, and frozen', () => {
   assert.deepEqual(HVPG_WORDS, { ok: ['Normal', 'Normal'], caution: ['Mild', 'Mild portal hypertension'], danger: ['CSPH', 'Clinically significant portal hypertension (CSPH)'] });
-  assert.deepEqual(PPG_WORDS, { ok: ['Normal', 'Normal'], caution: ['High', 'High'], danger: [BLEED_WORD, BLEED_WORD] });
+  assert.deepEqual(PPG_WORDS, { ok: ['Normal', 'Normal'], caution: ['High', 'Portal hypertension'], danger: [BLEED_WORD, 'Portal hypertension with a risk of variceal bleeding'] });   // (the long forms: the PPG by IR's result line, ir-ppg.js)
   assert.equal(BLEED_WORD, 'Bleed risk');
   for (const W of [HVPG_WORDS, PPG_WORDS]) {
     assert.ok(Object.isFrozen(W));

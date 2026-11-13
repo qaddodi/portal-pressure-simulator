@@ -6,7 +6,7 @@
 // the place of the HVPG tracing while it runs and after it. It changes nothing in the model: a measurement.
 
 import { h, icon, toast } from './util.js';
-import { ppgWord } from '../engine/pressure-cuts.js';
+import { ppgWord, NOT_SHOWN } from '../engine/pressure-cuts.js';
 import { store, logAction } from './store.js';
 import { MEASURES, READS, playProcedure, procRunning, procBlocked } from './proc-anim.js';
 import { createReading } from './tool-reading.js';
@@ -17,7 +17,7 @@ export function setIrStage(stage) { stageRef = stage; }
 
 const SLIDE = { procedure: { kind: 'irivc', then: 'irpv' } };   // (the monitor's measurement: the PPG by IR, as on a slide that plays both approaches)
 const IDLE = 'PPG by interventional radiology: the IVC pressure through the neck, then the portal vein pressure through the skin and the liver.';
-const word = (v) => (Number.isFinite(v) ? v.toFixed(1) : '—');
+const word = (v) => (Number.isFinite(v) ? v.toFixed(1) : NOT_SHOWN);
 
 /** `busy()`: the card's other measurement or treatment is playing (one catheter on the figure at a time). `onChange()`: the card repaints. */
 export function createIrPpg({ busy = () => false, onChange = () => {} } = {}) {
