@@ -82,7 +82,7 @@ import { createCardZoom, tapTracker } from './card-zoom.js';
 import { sheetPanes } from './sheet-glass.js';
 import { createScopeTile } from './scope-tile.js';
 import { tileKeys as cardKeys, toolOnly } from './card-tiles.js';
-import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, RISE_PX, cssCurve, easeIn, easeArrive } from './ease.js';
+import { D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, RISE_PX, cssCurve, easeIn, easeArrive, easeOut3 } from './ease.js';
 import { glideOpacity, glideTranslate, glideStop, glideX, glideY } from './script-glide.js';
 import { signalMove } from './num-move.js';
 import { shownState as pageShown } from './shown.js';
@@ -2172,7 +2172,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
       turnAnim = null; shadeAnim = null;
       return;
     }
-    const frames = pageIn(k, d, RISE_PX), how = { duration: D_SURFACE, delay: 0, easing: thrown ? EASE_MOVE : EASE_ARRIVE, fill: 'backwards' };
+    const frames = pageIn(k, d, RISE_PX), how = { duration: D_SURFACE, delay: 0, easing: EASE_ARRIVE, fill: 'backwards' };   // (not thrown here: a thrown card returned above)
     // (No delay on the glass's own fade either, so it never runs on after the keyframes end and dips: app.css gives it .12s.)
     if (ui.shade.style.transitionDelay !== '0s') ui.shade.style.transitionDelay = '0s';
     turnAnim = t.animate?.(frames, how) || null;
@@ -3605,7 +3605,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
     // alloc-rare: the readings slide begins: once per slide of the card, not per frame
     const step = (now) => {
       const t = ms ? clamp((now - t0) / ms, 0, 1) : 1;
-      if (t < 1) { const u = from + (to - from) * (1 - (1 - t) ** 3); d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); slip.raf = nextFrame(step); }
+      if (t < 1) { const u = from + (to - from) * easeOut3(t); d.style.setProperty('--pz-u', u.toFixed(4)); liftTo(u); camAt(u); slip.raf = nextFrame(step); }
       else stopUnder();
       dispatchEvent(slideFrame);
     };

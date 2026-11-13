@@ -7,7 +7,7 @@ import { classSoon } from './class-soon.js';
 import { moverOf } from './num-move.js';
 import { pullRelease, pullAt, pullStop } from './sheet-pull.js';
 import { SHEET_FLICK_MIN, SHEET_FLICK_FAR, SHEET_CLOSE_PX, SHEET_CLOSE_SHARE, releaseSpeed, isFlick, carryCurve, D_FLIP, D_SMALL, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX } from './ease.js';
-import { reduceMotionMQ } from './motion.js';
+import { reduceMotionMQ, easeOut3 } from './motion.js';
 import { leaveFromHere } from './menu-leave.js';
 export { themeChanged, rideChanged } from './label-theme.js';   // (the page's look, told to the labels drawn on the GPU)
 import { follow2, jumpCount, SHOWN_TAU } from './display-state.js';
@@ -852,7 +852,7 @@ function rollStep(now) {
     const c = counts.get(el);
     // (A frame's time is when it began, which can be before the roll was asked for: below 0 the curve ran backwards, far past the
     // number it started from, and a patient load showed an HVPG of -50 for a moment.)
-    const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = 1 - (1 - u) ** 3;
+    const u = Math.max(0, Math.min(1, (now - c.t0) / COUNT_MS)), k = easeOut3(u);
     c.shown = u >= 1 ? c.to : c.from + (c.to - c.from) * k;
     putNum(el, fmt(c.shown, c.d));
     if (u >= 1 || !el.isConnected) { c.t0 = null; rolling.delete(el); }

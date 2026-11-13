@@ -25,7 +25,7 @@ import { STEP_MAX } from './glide-clock.js';
 import { D_FLIP, CAM_MS_MIN, settleAt } from './ease.js';
 export {
   D_FLIP, D_SMALL, D_SURFACE, EASE_ARRIVE, EASE_MOVE, EASE_IN, RISE_PX, CAM_MS_MIN, CAM_MS_MAX, LOBULE_MS_MAX,
-  easeMove, easeArrive, easeIn, cubicBezier, cssCurve, camMs, lobuleMs, settleAt,
+  easeMove, easeArrive, easeIn, easeOut3, cubicBezier, cssCurve, camMs, lobuleMs, settleAt,
 } from './ease.js';
 
 // ── The GPU's durations and curves (item 18 of the same recommendations) ───────────────────────────────────────────────────────────────────

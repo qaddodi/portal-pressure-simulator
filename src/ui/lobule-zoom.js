@@ -57,7 +57,7 @@ import { LIGHT } from './light.js';
 import { restPass, cancelRest, restAttr, restRemove, flushRestAttrs } from './rest-pass.js';
 import { createLoopAsk } from './loop-ask.js';
 import { classSoon, classHas, textSoon, runSoon } from './class-soon.js';
-import { easeMove, carryRate, carried, createGlideTracker, cubicBezier, lobuleMs, LOBULE_MS_MAX, D_SMALL, D_SURFACE } from './ease.js';
+import { easeMove, easeArrive, carryRate, carried, createGlideTracker, lobuleMs, LOBULE_MS_MAX, D_SMALL, D_SURFACE } from './ease.js';
 import { surface } from './gpu-surfaces.js';
 import { caught } from './caught.js';
 import { camThen, camSet, camId, camAbout, cams } from './scene-cam.js';
@@ -1556,7 +1556,7 @@ export function createLobuleZoom({ host, styles = () => getComputedStyle(host), 
   // ── Where a label is seen, mid-glide ──
   // A label's place as seen: its glide (none now: a label laid out to another slot is there in the frame, noteAt) noted as it is written, and each
   // frame's place worked out from it (seenAt), on the page's animation clock, so the leaders follow it with no read of the page.
-  const EASE_LAB = cubicBezier(0.2, 0.8, 0.2, 1);
+  const EASE_LAB = easeArrive;   // (the arrivals' curve, cubic-bezier(.2, .8, .2, 1): the same curve it was built as)
   const tlNow = () => document.timeline?.currentTime ?? performance.now();
   const ZERO2 = [0, 0];   // (read, never written)
   const easeLab = (g, now) => EASE_LAB(clamp((now - g.t0) / D_SURFACE, 0, 1));

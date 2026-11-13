@@ -5,7 +5,7 @@ import { flipAt, flipFrom } from './cath-flip.js';
 import { PILL_GAP, pillsClear, placePillsInto } from './cath-pill.js';
 import { outlineBox, placeSummary } from './cath-place.js';
 import { dropLabel } from './drop-label.js';
-import { D_SMALL, D_SURFACE } from './ease.js';
+import { D_SMALL, D_SURFACE, easeOut3 } from './ease.js';
 import { cancelFrame } from './frame.js';
 import { glWords } from './gl-words.js';
 import { balloonOutline, balloonRy, routeRadii } from './hvpg-balloon.js';
@@ -517,7 +517,7 @@ export function createCath(st, live) {
     const now = performance.now();
     let g = el._gl, ox = 0, oy = 0;
     if (g) {
-      const u = Math.min(1, (now - g.t0) / CATH_GLIDE), e = 1 - (1 - u) ** 3;
+      const u = Math.min(1, (now - g.t0) / CATH_GLIDE), e = easeOut3(u);
       ox = g.ox * (1 - e); oy = g.oy * (1 - e);
       const jx = x - g.x - (ax - g.ax), jy = y - g.y - (ay - g.ay);
       if (Math.hypot(jx, jy) > 4 && !reduceMotion.matches) { ox -= jx; oy -= jy; g.ox = ox; g.oy = oy; g.t0 = now; }

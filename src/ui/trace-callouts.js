@@ -4,7 +4,7 @@
 // it sits on and moves with it, never as a DOM label. Nothing here allocates per frame (the words are kept per marker: a cell).
 
 import { FONT } from './charts.js';
-import { D_SMALL } from './motion.js';
+import { D_SMALL, easeOut3 } from './motion.js';
 import { fmt } from './util.js';
 
 /** How long a marker takes to drop onto its point (ms) and how far above (or below) its place it starts (px). */
@@ -15,7 +15,7 @@ const STEM = 7, PAD = 6, PILL_H = 18;
 export function dropK(since) {
   if (!(since > 0)) return 0;
   const u = Math.min(1, since / DROP_MS);
-  return 1 - (1 - u) * (1 - u) * (1 - u);
+  return easeOut3(u);
 }
 /** A fade for a marker `px` from the edge it scrolls off at: 1 from `span` px in, 0 at the edge (smoothstep). */
 export function edgeFade(px, span = 48) {

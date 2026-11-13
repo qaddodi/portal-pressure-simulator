@@ -48,6 +48,9 @@ export function cubicBezier(x1, y1, x2, y2) {
 }
 export const easeArrive = cubicBezier(0.2, 0.8, 0.2, 1);
 export const easeIn = cubicBezier(0.4, 0, 1, 1);   // (EASE_IN as a function)
+// (The ease-out cubic 1 − (1 − u)³, as five moves have always run it (13 Nov 2026, unification audit 9: one name for it, no curve changed): the
+// number roll (util.js countTo), the catheter's glide, the timeline's day count, the readings slide, a trace marker's drop. Not clamped: callers give 0..1. No CSS twin.)
+export const easeOut3 = (u) => 1 - (1 - u) ** 3;
 // (A CSS easing as a function of 0..1: cubic-bezier(...) as given, the named curves by their CSS values. 2 Nov 2026: an ease the page
 // runs, worked out in script where the drawing follows it on the GPU. 13 Nov 2026, unification audit 9: the one CSS-curve reader;
 // cssCurveOf gives null for a curve it does not follow exactly (steps, linear() with stops), cssCurve linear for it.)

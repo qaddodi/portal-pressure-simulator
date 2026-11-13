@@ -16,7 +16,7 @@ import { h, toast, announce, icon, svgIcon, popover, closePopover, tooltipFor, c
 import { activeInterventions } from './inspector.js';
 import { removedLabel } from './removed-label.js';
 import { frameFor } from './frame.js';
-import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN } from './ease.js';
+import { D_FLIP, D_SMALL, EASE_ARRIVE, EASE_IN, easeOut3 } from './ease.js';
 import { createSvgGL, svgModel, setPolys } from './svg-gl.js';
 import { textPolys, textBox, loadGlyphs, glyphsReady } from './text-gl.js';
 import { textSoon, attrSoon } from './class-soon.js';
@@ -238,7 +238,7 @@ export function createTimeline({ root, onPlay, onSpeed, onJump, onRestart, scena
     jumping = true;
     const mine = ++jumpSeq;   // (a newer jump takes the count over: this one's frames stop, so two counts never draw over each other)
     const t0 = performance.now();
-    const dayNum = (u) => Math.round(d0 + days * (1 - (1 - u) ** 3));
+    const dayNum = (u) => Math.round(d0 + days * easeOut3(u));
     const dayOf = (u) => `Day ${dayNum(u)}`;   // alloc-rare: at a jump's start and end and when the counted day changes, not each frame
     let shownN = dayNum(0);
     const gpu = days !== 'event' && dayStart(shownDay = dayOf(0), dayOf(1));
