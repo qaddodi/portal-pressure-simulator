@@ -80,7 +80,7 @@ export function createTransitions(st, live) {
     else if (live.veins && !live.inUpdate && anyReveal()) syncVeins(easeInOut(live.morph));
   }
   const { polysD } = createHalos({ E, NI, drawFrame, easeInOut, gOver, haloEls, nodePos, quietFx, routeCustomShunts, setGlowSrc, updateGeometry }, live);
-  const { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans } = createOutlines({ E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB }, live);
+  const { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentFade } = createOutlines({ E, MAP, ND_PER, ND_SEG, arcMid, caud, clampW, clampWOut, easeInOut, gFx, gFxC, geo, late, nd, nextFrame, nodeDots, organEls, organG, ov, pointAt, quietFx, readFrame, refreshCTM, resTheme, svg, themeKey, toRGB }, live);
   const { marksStale, marksSync, mk } = createMarks({ gOver, glLines, ov, svg, themeKey, toRGB, wrapCls });
   // A selected organ keeps a quiet outline; a selected site (varices, fundus, abdomen) a ring.
   const gSelO = s('g', { id: 'organSel' });
@@ -303,7 +303,7 @@ export function createTransitions(st, live) {
     markA.hold(key, g);
     host.append(g);
   }
-  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, tipsBare }, live);
+  const { venousSync } = createVenous({ E, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare }, live);
   // Surgical shunts: a running stitch round each join (S1 of the suture mocks, 13 Nov 2026), the seam following the host vein's wall.
   // Where the shunt's end is in no host vein, and in the circuit (no walls to follow), the old three ticks stay.
   // (The Warren shunt's start is the splenic vein turning down, and the end-to-side portocaval shunt's the portal vein itself: nothing is sewn

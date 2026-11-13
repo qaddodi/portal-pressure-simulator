@@ -35,14 +35,16 @@ test('the portal end finishes in round crowns, not a straight cut', () => {
   assert.ok(!/ L0\.00 /.test(m.frontBare.replace(/M0\.00 [^L]*/g, '')), 'no stroke straight across at the end');
 });
 
-test('the covered stent: the graft runs from the band to a scalloped far end, inside the tube', () => {
+test('the covered stent: the graft runs from the band to a clean far end, inside the tube', () => {
   const m = stentLookD(f, A, bare);
   assert.ok(m.graft.length >= 3, 'fills by light level');
   const G = m.graft.flatMap(([d]) => pts(d));
   for (const [x, y] of G) { assert.ok(x >= bare - 0.01 && x <= A + 0.01, `the graft between the band and the end: ${x}`); assert.ok(Math.abs(y) <= R + 1e-6); }
-  // the far end follows the last ring's crowns: the base fill's end points are spread along x, not all at one x
-  const base = pts(m.graft[0][0]), far = base.filter((p) => p[0] > A - 20);
-  assert.ok(Math.max(...far.map((p) => p[0])) - Math.min(...far.map((p) => p[0])) > 4, 'a scalloped end');
+  // the far end is a clean edge round the tube (13 Nov 2026: the scallops read as a ragged top end), past every crown of the last ring and inside the stent's length
+  const base = pts(m.graft[0][0]), ringMax = Math.max(...pts(m.frontCov).map((p) => p[0])), far = base.filter((p) => p[0] > ringMax - 0.5);
+  assert.ok(far.length > 10 && Math.max(...far.map((p) => p[0])) - Math.min(...far.map((p) => p[0])) < 2.5, 'a clean end, not a scallop');
+  assert.ok(far.every((p) => p[0] > ringMax || Math.abs(p[1]) > 0.9 * R), 'past the last crowns (but at the very sides)');
+  assert.ok(Math.max(...base.map((p) => p[0])) <= A + 0.01, 'never past the stent\'s end');
   const B = pts(m.band);
   assert.ok(B.length > 10 && B.every(([x]) => x >= bare - 0.01 && x <= bare + 4.01), 'the gold band at the graft\'s start, bowed with the tube');
   assert.ok(m.tab, 'the gold tab near the far end');
@@ -74,7 +76,7 @@ test('the graft is white where the light falls and nearly clear on the shaded si
   assert.equal(GRAFT_LEVELS.length + 1, 6);
 });
 
-test('a clean far end: every light level\'s fill lies inside the whole graft, and the scalloped end is round, not cut by chords (13 Nov 2026, "ragged top end")', () => {
+test('a clean far end: every light level\'s fill lies inside the whole graft, and its ends are smooth, not cut by chords (13 Nov 2026, "ragged top end")', () => {
   // a vessel that turns (a quarter circle of radius 200), as the TIPS does on its way to the hepatic vein
   const Rc = 200, g = (a, v) => { const t = a / Rc, r = Rc + R * v; return [r * Math.sin(t), Rc - r * Math.cos(t)]; };
   const m = stentLookD(g, A, bare), G = m.graft.map(([d]) => pts(d));

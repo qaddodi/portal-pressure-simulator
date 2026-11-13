@@ -3102,6 +3102,8 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     labelLayer: () => labelSvg,
     /** The treatment marks and how much of each shows now (for tests; mark-fade.js). */
     markAmounts: () => markA.amounts(),
+    /** The vessel marks' draws on the GPU (for tests): each one's fade key and the alpha built into it. */
+    markDraws: () => mk.draws.map((d) => ({ fade: d.fade, alpha: d.alpha })),
     /** The layer the GPU's picture lies under (lesions, stents, halos), when the GPU draws. */
     overLayer: () => (veins && wrap.classList.contains('gl-on') ? svgOver : null),
     /** The classes the GPU's state sets and what that state is (for tests): `gl-on` with the GPU holding its context, `gl-plate` with it holding the whole plate. */

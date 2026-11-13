@@ -71,7 +71,8 @@ test('the figure brings a stent in whole and takes it out whole on its own clock
   // the whole stent comes in at once, every piece at the same strength, with no front, clip or marker sweeping along it.)
   const move = stage.slice(stage.indexOf('function venousMove('), stage.indexOf('function venousTick('));
   assert.ok(move.length > 0 && !/meshPaths|s\('/.test(move), 'a stent coming in builds nothing per frame');
-  assert.match(move, /for \(const el of P\.fade\) (?:live\.)?putA\(el, 'opacity', o\)/, 'every piece at one strength');
+  assert.match(move, /stentFade\(`vst:\$\{id\}`, a\)/, 'the whole stent at one strength, by its key (the GPU lays it on the draws)');
+  assert.ok(!/'opacity'/.test(move), 'never an opacity on the pieces: the marks\' build reads it once');
   assert.ok(!/transform|clip/.test(move), 'no front sweeping along it');
   const draw = stage.slice(stage.indexOf('function venousDraw('), stage.indexOf('function venousMove('));
   assert.ok(!/clip-path|clipPath|stent-mark/.test(draw), 'no clip and no front marker');

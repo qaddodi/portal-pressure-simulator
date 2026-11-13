@@ -72,10 +72,12 @@ export function stentLookD(f, A, bare = A, k = 1) {
     if (s - Ac > e) break;
     out.backCov += ring(s, Ac, 5, 0, true); out.frontCov += ring(s, Ac, 5, 0, false); out.glint += glintOf(s, Ac, 5, 0);
   }
-  // the graft: where the light is at least each level, from the band to the scalloped end (the far end's crowns), cut at k when drawn part of the way
-  const endAt = (v) => Math.min(e, sLast + Ac * Math.cos(5 * Math.asin(Math.max(-1, Math.min(1, v)))) + 1.4 * u);
+  // the graft: where the light is at least each level, from the band to the clean far end past the last crowns, cut at k when drawn part of the way
+  // (The far end is a clean edge round the tube just past the last ring's crowns, bowed like the band, never past the stent's end: it followed the crowns'
+  // scallops, which with the graft white on the lit side only read as a ragged sawtooth where the stent stands in the hepatic vein, 13 Nov 2026.)
+  const s1 = sLast + Ac + 1.0 * u, endAt = (v) => Math.min(e, A, s1 + BOW * (1 - Math.sqrt(Math.max(0, 1 - v * v))));
   const startAt = (v) => Math.min(e, SB + BOW * (1 - Math.sqrt(Math.max(0, 1 - v * v))));   // (the graft starts along the band)
-  const sMax = Math.min(e, sLast - Ac + 1.4 * u), step = Math.max(1, 3 * u);
+  const sMax = Math.min(e, A, s1), step = Math.max(1, 3 * u);
   const edgeOf = (lvl, a) => {   // the span of v round the front where the light is at least lvl: [lo, hi], or null
     if (lvl <= 0) return [-1, 1];
     const p = side(a), z = LIGHT[2], m2 = p * p + z * z;

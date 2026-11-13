@@ -6,7 +6,7 @@ import { store } from './store.js';
 import { s } from './util.js';
 
 export function createVenous(st, live) {
-  const { E, easeInOut, frameAt, geo, late, meshPaths, meshR, nextFrame, ov, putA, tipsBare } = st;
+  const { E, easeInOut, frameAt, geo, late, markShade, meshPaths, meshR, nextFrame, ov, putA, stentFade, tipsBare } = st;
   // A vein a slide shows stented (store.stented: a hepatic vein or the IVC, which the model has no device for): the same mesh over
   // the stretch VST_SPAN of the vein. Every stent comes in whole, the length of it at once, its strength easing in, and goes out the
   // same way when the slide leaves it (13 Nov 2026, Mohammad: "the stent TIPS doesn't expend all at once.. it expands in two fragments...
@@ -20,9 +20,11 @@ export function createVenous(st, live) {
   // (The TIPS is the one stent here the model has: the covered stent, in once the shunt has drawn on, out as it retracts, in the circuit as
   // well as the figure.)
   const vstGoal = (id, anat) => ((id === 'TIPS' || (anat && store.get().stented?.includes(id))) && E[id]?.vis && !E[id].reveal && geo[id]?.cur ? 1 : 0);
-  // The mesh is built once, whole (each rebuild of the overlays, not each frame), and each frame writes only its pieces' strength (an
-  // opacity, which the overlays' GPU painter reads as it paints: stage-over.js), so the CPU draws no path and the page gets no new element
-  // while it comes in.
+  // The mesh is built once, whole (each rebuild of the overlays, not each frame), and each frame sets only its strength: the amount on its
+  // key (data-mk "vst:<id>"), which the GPU lays on the stent's draws as it lays every treatment mark's fade (stage-outlines.js fadeEase), and
+  // the group's opacity for the SVG copy when the GPU does not draw the marks (markShade). Never an opacity on the pieces: the marks' build
+  // reads that once, so a stent built while still at nothing stayed at nothing on the GPU (13 Nov 2026, "the mesh failed to draw").
+  // The CPU draws no path and the page gets no new element while it comes in.
   let vstKids = [];   // (the roots last handed to the layer, in order)
   // A stent that is already standing is kept, not built again (10 Nov 2026, Mohammad: "when the TIPS stent appears it flickers"): the overlays are
   // asked to rebuild whenever anything in their key moves, and the TIPS's own width eases for a long while after the shunt opens, so a rebuild came
@@ -59,7 +61,7 @@ export function createVenous(st, live) {
       fresh = true;
       // (The whole stent, end to end: no front, no clip, no marker across it.)
       const pieces = meshPaths(id, p, d0, d1, 1, false, tips ? tipsBare(id) : 0);
-      const root = s('g', {}, ...pieces);
+      const root = s('g', { 'data-mk': `vst:${id}` }, ...pieces);
       v.parts = { root, sig, fade: pieces };
       venousMove(id, v);
       kids.push(root);
@@ -67,13 +69,13 @@ export function createVenous(st, live) {
     // (The layer is handed the roots again only when one is new or one has gone: the same roots in the same order are what it holds.)
     if (fresh || kids.length !== vstKids.length || kids.some((k, i) => k !== vstKids[i])) { vstKids = kids; late('kids', ov.venous, kids); }
   }
-  // A stent at its k: every piece at the same strength, ease(k), so the whole device comes in (or goes out) as one.
+  // A stent at its k: the whole device at one strength, ease(k), so it comes in (or goes out) as one.
   function venousMove(id, v) {
     const P = v.parts;
     if (!P?.root) return;
-    // (The strength on each piece, not on a group round them: a see-through group is painted as a layer of its own, read once.)
-    const o = easeInOut(v.k).toFixed(3);
-    for (const el of P.fade) putA(el, 'opacity', o);
+    const a = easeInOut(v.k);
+    stentFade(`vst:${id}`, a);
+    markShade(P.root, a);
   }
   function venousTick(now) {
     vstRaf = 0;
@@ -89,7 +91,7 @@ export function createVenous(st, live) {
         if (v.parts && v.k > 0.002) venousMove(id, v); else if (v.parts || (v.k > 0.002) !== (was > 0.002)) vstDirty = true;
         if (v.k !== goal) moving = true;
       }
-      if (v.k === 0 && !goal) { if (v.parts) vstDirty = true; vst.delete(id); }
+      if (v.k === 0 && !goal) { if (v.parts) vstDirty = true; vst.delete(id); stentFade(`vst:${id}`, null); }
     }
     // (A stent that comes in or goes out is built between frames, never in one: its mesh is new page art, 2 Nov 2026, "Move everything to GPU".)
     if (vstDirty) { vstDirty = false; if (!vstBuildAsk) vstBuildAsk = restPass(venousBuild); }

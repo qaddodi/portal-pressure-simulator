@@ -60,7 +60,13 @@ export function createOutlines(st, live) {
   // patches, the variceal bands) fade in and out the same way (mark-fade.js): each is a group with data-mk, its key; the GPU draws it
   // at that key's amount (marksBuild tags its draws), the SVG copy takes the amount as the group's opacity. markLast: when it last stepped.
   const markA = markFade();
-  const fadeEase = (key) => (markA.has(key) ? markA.amount(key) : clampEase(key));
+  // A stent the figure brings in on its own clock (stage-venous.js: the TIPS, a slide's stented vein): its amount set here as it eases, laid on
+  // its draws the same way (13 Nov 2026: the amount was the pieces' opacity, which the marks' build reads once, so a stent built while it was
+  // still at nothing stayed at nothing on the GPU until something else rebuilt the marks: Mohammad's "the mesh failed to draw").
+  const stentAmt = new Map();
+  let stentMoved = false;
+  const stentFade = (key, a) => { if (a == null) stentAmt.delete(key); else stentAmt.set(key, a); stentMoved = true; live.askAnimate?.(); };
+  const fadeEase = (key) => (markA.has(key) ? markA.amount(key) : stentAmt.has(key) ? stentAmt.get(key) : clampEase(key));
   // (The group's opacity, for the SVG copy the browser draws; the GPU's copy takes the amount on the draw, never from the group, or a
   // fade would be read as a new look at each step.)
   const markShade = (el, a) => {
@@ -587,6 +593,7 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
       if (r.moving || r.gone.length) clampMoved = true;
     }
     live.markLast = now;
+    if (stentMoved) { stentMoved = false; clampMoved = true; }
     live.marksSync();
     if (!glLines || (!live.olDirty && !live.olList.length && !live.mk.dirty && !clampMoved && !nd.dirty)) return false;
     const dt = now - live.olLast;
@@ -702,5 +709,5 @@ readFrame(bandEdgeRead);   // (as made, and again in the first frame, once the s
     live.olDirty = false;
     return moving || !!V;
   }
-  return { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans };
+  return { caliperAt, caliperSegs, clampA, clampFading, clampShade, fxBuild, fxK, fxPill, fxSync, gMatrix, glLines, markA, markShade, normal, normalSync, olFading, olGeom, olKey, olRings, olSet, olStep, orgTone, pinOrgans, setCallouts, spotOrgans, stentFade };
 }

@@ -6,7 +6,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { bootGL, pump } from './stage-gl-boot.js';
 
-test('a stent coming in is whole from its first frame, at one strength, with no clip, and every mark and stent coordinate is finite', async () => {
+test('a stent coming in is whole from its first frame, its strength laid on its GPU draws by its key, with no clip, and every mark and stent coordinate is finite', async () => {
   const { st } = await bootGL({ w: 1200, h: 800, labels: 'none' });
   const { store } = await import('../src/ui/store.js');
   const { markMatrix } = await import('../src/ui/stage-marks.js');
@@ -36,14 +36,19 @@ test('a stent coming in is whole from its first frame, at one strength, with no 
     assert.equal(document.querySelectorAll('[id^="vstClip"], .stent-mark').length, 0, `no clip and no front marker (frame ${i})`);
     const parts = [...document.querySelectorAll('#overlays .stent-graft, #overlays .stent-wire, #overlays .stent-gold')];
     if (!parts.length) continue;
-    // whole from the first frame it shows: the open cells, the graft and the gold band together, all at one strength
-    const ops = new Set(parts.map((el) => el.getAttribute('opacity')));
-    assert.equal(ops.size, 1, `every piece at one strength (frame ${i}): ${[...ops]}`);
+    // whole from the first frame it shows: the open cells, the graft and the gold band together, in one group whose key carries its strength
     assert.ok(parts.some((el) => el.matches('.stent-graft')) && parts.some((el) => el.matches('.stent-gold')) && parts.some((el) => el.matches('.stent-wire')), `the whole device at once (frame ${i})`);
+    assert.ok(parts.every((el) => !el.hasAttribute('opacity')), 'no opacity on a piece (the marks\' build reads it once)');
+    assert.ok(parts.every((el) => el.closest('[data-mk]')?.dataset.mk === 'vst:TIPS'), 'every piece under the stent\'s key');
     for (let e = parts[0]; e && e.id !== 'overlays'; e = e.parentNode) assert.ok(!e.getAttribute?.('clip-path') && !e.getAttribute?.('transform'), 'no clip or front frame round it');
-    if (Number(parts[0].getAttribute('opacity')) < 0.9) sawPart = true;
+    sawPart = true;
   }
-  assert.ok(sawPart, 'the test saw the stent while it was coming in');
+  // The GPU's draws of the stent carry its key and their full alpha: the amount is laid on them each frame (13 Nov 2026: a stent built while still at nothing kept
+  // alpha 0 in its draws, so on the GPU it never showed: "the mesh failed to draw").
+  const draws = st.markDraws().filter((d) => d.fade === 'vst:TIPS');
+  assert.ok(draws.length > 5, `the stent's draws are tagged with its key: ${draws.length}`);
+  assert.ok(draws.every((d) => d.alpha > 0.05), `no stent draw built at nothing: ${Math.min(...draws.map((d) => d.alpha)).toFixed(3)}`);
+  assert.ok(sawPart, 'the test saw the stent');
   for (const el of document.querySelectorAll('.stent-graft, .stent-wire, .stent-glint, .stent-gold')) {
     for (const n of (el.getAttribute('d') || '').match(/-?[\d.]+(?:e-?\d+)?|NaN|Infinity/g) || []) assert.ok(Number.isFinite(Number(n)), `${el.getAttribute('class')} has a coordinate that is not a number: ${n}`);
     for (let e = el; e && e.tagName !== 'BODY'; e = e.parentNode) assert.ok(!/NaN|Infinity/.test(e.getAttribute?.('transform') || ''), 'a stent transform is a number');
