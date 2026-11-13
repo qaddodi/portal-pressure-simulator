@@ -7247,7 +7247,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
    cross-fade and keep their size, so the card never changes size with the reading. A cut-off column on a wide card only. */
 .pz-crit { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; font-size: max(12px, var(--bs, 14px)); }   /* (the card's full width: shrunk to its content, a phone centred it and pushed the case column out) */
 .pz-crit [hidden] { display: none; }
-.pz-spans { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; }   /* (the span ruler, tool-spans.js: the card's full width; its height is the picture's, set from its width) */
 .pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: .35em .8em; margin: 0 0 .55em; }   /* (centred like the first-visit graph's, 27 Oct: the lead and the rule's source as one group, each on its own centred line where they do not fit together) */
 .pzc-lead { flex: 0 1 auto; min-width: 0; margin: 0; text-align: center; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
 .pzc-rule { flex: none; margin: 0; font-size: max(12px, .86em); }

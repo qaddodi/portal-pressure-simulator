@@ -3,13 +3,13 @@
 // (the `eus` key, fingerprint.js: the same two nodes the EUS-PPG animation reads, proc-anim.js MEASURES.eus). One idea runs through it: a gradient sees
 // only the resistance that lies between its two readings.
 //
-// Rebuilt 13 Nov 2026 (Option A of /mnt/project-files/gradients-deck-recs, Mohammad: "Yes I love it. Do it"). Two instruments, each with one job, and
-// no tiles:
-//   the tracing card (tool { kind: 'reading' }, tool-reading.js): HOW a gradient is read. One monitor for the HVPG, the EUS needle, the PPG by IR and
-//     the PPG through a TIPS, following the slide's procedure step by step: blank until the tip is parked, a plateau for each reading as it is taken,
-//     then the gradient. Every step plays once and holds.
-//   the span ruler (tool { kind: 'spans' }, tool-spans.js): WHAT a gradient sees. Where the pressure is lost between the portal vein and the IVC, and
-//     each gradient as a bracket between its two readings; one that does not cover the resistance says so ("Misses"), one that cannot be taken is hatched.
+// Rebuilt 13 Nov 2026 (Option A of /mnt/project-files/gradients-deck-recs, Mohammad: "Yes I love it. Do it"). Two instruments, each with one job:
+//   the measurement monitor (tool { kind: 'reading' }, tool-reading.js on monitor.js, the app's one pressure monitor): HOW a gradient is read. The HVPG,
+//     the EUS needle, the PPG by IR and the PPG through a TIPS, one reading per Next: a live number and trace, then the gradient.
+//   the pressure ladder (tool { kind: 'profile', spans: TRIO }, tool-profile.js): WHAT a gradient sees. The pressure from gut to heart through the
+//     pre-, intra- and postsinusoidal stations, and each gradient (HVPG, EUS-PPG, PPG) as a bracket between its two readings, all three in one band
+//     under the plot (Mohammad, 13 Nov 2026: "I like the ladder card ... Just add EUS PPG to it", "keep all gradients on one side"). The span ruler
+//     that stood here first is gone.
 // The how-slides and the first comparison stand on the opening slide's patient (no preset of their own), so the catheter never goes out and in again.
 //
 // Sources, checked 12 Nov 2026 against the files in guidelines/:
@@ -24,10 +24,10 @@
 // overcome this, but it needs general anesthesia, which probably makes the estimate less reliable.
 
 const mi = (x) => `<mi>${x}</mi>`, mo = (x) => `<mo>${x}</mo>`;
-const RULER = { kind: 'spans' };   // the span ruler: the pressure lost along the way, and each gradient's two readings as a bracket under it
+const TRIO = ['hvpg', 'eus', 'ppg'];   // the three readings: the ladder's brackets and its card's header row (card-tiles.js headKeys)
+const PROFILE = { kind: 'profile', spans: TRIO };   // the pressure ladder from gut to heart (pre-, intra- and postsinusoidal), with a bracket for each gradient, all in one band under the plot
 const TRACE = { kind: 'reading' };   // the tracing card: the slide's measurement drawn as it is taken
 const CLOT = ['RHV_IVC', 'MHV_IVC', 'LHV_IVC'];
-const TRIO = ['hvpg', 'eus', 'ppg'];   // the ruler's readings, in its card's header row (card-tiles.js headKeys)
 
 export const GRADIENTS = {
   id: 'gradients', level: 'advanced', title: 'HVPG, PPG and EUS-PPG compared', minutes: 15,
@@ -48,7 +48,7 @@ export const GRADIENTS = {
   ],
   slides: [
     {
-      id: 'where', preset: 'csph', lens: 'drop', cam: 'route', labels: ['CONF', 'LPV', 'RHV', 'LHV', 'IVCS'], tool: { ...RULER, empty: true },
+      id: 'where', preset: 'csph', lens: 'drop', cam: 'route', labels: ['CONF', 'LPV', 'RHV', 'LHV', 'IVCS'], tool: PROFILE,
       kicker: 'Three readings', title: 'Each gradient is the difference between two pressures measured at different sites',
       line: 'HVPG spans the sinusoids. EUS-PPG spans the liver, from the left portal vein to the left hepatic vein. PPG spans the portal vein to the IVC.',
       notes: 'HVPG is the wedged hepatic venous pressure (WHVP) minus the free hepatic venous pressure (FHVP): the pressure drop across the sinusoids (AASLD 2024 Box 2). EUS-PPG is the left portal vein minus the left hepatic vein pressure, measured with one EUS-guided needle through the gastric wall: it spans the portal tracts, the sinusoids and the central veins of the left lobe, but not the extrahepatic portal vein. PPG is the portal vein minus the IVC pressure, so it includes all resistance between the portal vein and the heart. A resistance outside a gradient\'s two measurement points does not change that gradient. The card shows the five measurement sites, and each gradient as a bracket between its two; the drops along the way appear once the pressures are measured. In this case the patient has cirrhosis with clinically significant portal hypertension (CSPH), and the next four slides measure him. The cut-offs are the HVPG\'s 5 and 10 mmHg for HVPG and EUS-PPG, and 6 and 12 mmHg for the PPG.',
@@ -80,7 +80,7 @@ export const GRADIENTS = {
       ask: ['Which two pressures make up the PPG, and how is each vessel accessed?', 'The portal vein pressure, by percutaneous transhepatic puncture, minus the IVC pressure, by a transjugular catheter.'],
     },
     {
-      id: 'agree', lens: 'drop', terms: ['sin'], cam: 'liver', tool: RULER, data: 'tiles', tiles: TRIO, key: TRIO,
+      id: 'agree', lens: 'drop', terms: ['sin'], cam: 'liver', tool: PROFILE, data: 'tiles', tiles: TRIO, key: TRIO,
       kicker: 'They agree', site: 'sin', title: 'In cirrhosis the three gradients agree',
       line: 'The resistance is in the [sinusoids](sin), within all three spans. The HVPG is {hvpg}, the EUS-PPG {eus} and the PPG {ppg}.',
       notes: 'The measurements just taken, side by side. In cirrhosis the resistance is sinusoidal, between the wedged and free hepatic venous positions, so the HVPG captures all of it. The PPG and the EUS-PPG span the sinusoids as well, so all three fall in the same range. This is why the HVPG is the gold standard in cirrhosis (AASLD 2024 statement 3), with clinically significant portal hypertension at ≥10 mmHg (statement 4). The PPG is slightly higher than the HVPG because it also includes the small drop along the portal vein and from the hepatic vein to the IVC, and the EUS-PPG falls between the two. Agreement of EUS-PPG with the HVPG in cirrhosis is good in early series, but the HVPG remains the reference.',
@@ -88,7 +88,7 @@ export const GRADIENTS = {
     },
     {
       // (The preset's HVPG is 10.9, still CSPH: this slide's own setting moves part of the resistance before the wedge, so the HVPG reads <10 while the PPG is ≥12 and the miss changes the call.)
-      id: 'masld', preset: 'masld-csph', params: { cirrhosis: 0.5, fibrosis: { R: { pre: 5 }, L: { pre: 5 } } }, lens: 'drop', cam: 'liver', tool: RULER, data: 'tiles', tiles: TRIO, key: ['hvpg', 'ppg'],
+      id: 'masld', preset: 'masld-csph', params: { cirrhosis: 0.5, fibrosis: { R: { pre: 5 }, L: { pre: 5 } } }, lens: 'drop', cam: 'liver', tool: PROFILE, data: 'tiles', tiles: TRIO, key: ['hvpg', 'ppg'],
       vignette: 'A 52-year-old man with obesity and MASLD cirrhosis has small esophageal varices on EGD and no ascites. His platelets are 82,000/µL.',
       kicker: 'HVPG misses', site: 'sin', title: 'In obese MASLD cirrhosis the HVPG can read <10 mmHg with a PPG ≥12 mmHg',
       line: 'Part of the resistance is presinusoidal, in the portal tracts, upstream of the wedged position. The HVPG is {hvpg}, the EUS-PPG {eus} and the PPG {ppg}.',
@@ -104,14 +104,14 @@ export const GRADIENTS = {
       ask: ['A man who bled from varices has a normal HVPG and near normal liver tests. What do you suspect?', 'Presinusoidal resistance, as in porto-sinusoidal vascular disorder: the WHVP does not capture it.'],
     },
     {
-      id: 'psvd', lens: 'drop', terms: ['lobule:triad'], cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: RULER, data: 'tiles', tiles: TRIO, key: ['hvpg', 'eus'],
+      id: 'psvd', lens: 'drop', terms: ['lobule:triad'], cam: 'lobule:triad', callout: { at: 'triad', label: 'Resistance' }, tool: PROFILE, data: 'tiles', tiles: TRIO, key: ['hvpg', 'eus'],
       kicker: 'HVPG misses', site: 'presin', title: 'In porto-sinusoidal vascular disorder the resistance is presinusoidal',
       line: 'The HVPG is {hvpg}. The EUS-PPG and PPG start in the portal vein, upstream of the resistance: {eus} and {ppg}.',
       notes: 'PSVD puts the resistance in the portal tracts. The sinusoids are spared, so the WHVP and FHVP are close and the HVPG stays low although the portal pressure is high. The EUS-PPG starts in the left portal vein, upstream of the portal tracts, so it spans the resistance and is close to the PPG. EASL 2025 says the HVPG does not capture the presinusoidal component in PSVD and portal vein thrombosis, and that an EUS-guided gradient could overcome this, but it needs general anesthesia, which probably makes the estimate less reliable. Baveno VIII lists the EUS-guided gradient in PSVD and NCPF as a research question (RA8.18, RA8.24), so it is not a standard test. Schistosomiasis gives the same pattern.',
       ask: ['Why does EUS-PPG see the resistance in PSVD when the HVPG does not?', 'Its needle measures the left portal vein, upstream of the portal tracts, while the WHVP reflects only sinusoidal pressure.'],
     },
     {
-      id: 'bc', preset: 'budd-chiari', cath: 'blocked', lens: 'drop', mark: { edges: CLOT, label: 'Hepatic vein thrombosis', free: true }, tool: RULER, data: 'tiles', tiles: ['ppg'], key: ['ppg'],
+      id: 'bc', preset: 'budd-chiari', cath: 'blocked', lens: 'drop', mark: { edges: CLOT, label: 'Hepatic vein thrombosis', free: true }, tool: PROFILE, data: 'tiles', tiles: ['ppg'], key: ['ppg'],
       vignette: 'A 29-year-old woman with OCP use has had 2 months of right upper quadrant pain and now has tense ascites.',
       kicker: 'Reading fails', site: 'post', title: 'In Budd–Chiari syndrome the catheter cannot enter the hepatic veins',
       line: 'The HVPG and EUS-PPG cannot be measured. The PPG, portal vein minus IVC pressure, is {ppg}.',

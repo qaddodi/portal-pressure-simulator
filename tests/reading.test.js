@@ -2,7 +2,7 @@
 // have to be PERFECT"), checked by numbers for every measurement: the monitor waits until the tip is in, then reads the first pressure, the second and
 // the gradient in that order, each on its own Next; a level changes in the vein only as the balloon fills or the catheter is drawn back, never in a
 // step; the wedge keeps its beat and breath; the waves are a pure function of the procedure's clock (drawn the same every time, never reshuffled), so
-// Back runs the trace back exactly; and the talk's patients give the span ruler the states its slides teach.
+// Back runs the trace back exactly; and the talk's patients give the ladder the numbers its slides teach.
 import './dom-shim.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,7 +13,6 @@ const { WAVE_GAIN, WEDGE_DAMP } = await import('../src/ui/hvpg-clock.js');
 const { keepData, dataPlan } = await import('../src/ui/card-keep.js');
 const { GRADIENTS } = await import('../src/ui/decks/gradients.js');
 const { deckStates } = await import('./deck-states.js');
-const { spansState } = await import('../src/ui/tool-spans.js');
 const { hvpgSev, ppgSev } = await import('../src/engine/pressure-cuts.js');
 
 const V = { hvpg: { a: 5.3, b: 16.9, g: 11.6 }, eus: { a: 15.1, b: 2.6, g: 12.5 }, ppg: { a: 4.4, b: 17.9, g: 13.5 }, tips: { a: 14.2, b: 5.0, g: 9.2 } };
@@ -151,21 +150,16 @@ test('the monitor stays in place from one measurement slide to the next: only th
   assert.equal(keepData({ from: p, to: p, prev: a, next: { ...b, tool: { kind: 'evgraph' } } }), false);
 });
 
-test('the talk: the monitor on every measurement slide, the ruler on every comparison, and the states each slide teaches', async () => {
+test('the talk: the monitor on every measurement slide, the ladder on every comparison, and the numbers each slide teaches', async () => {
   const by = Object.fromEntries(GRADIENTS.slides.map((s) => [s.id, s]));
   for (const s of GRADIENTS.slides) if (s.procedure) assert.equal(s.tool?.kind, 'reading', `${s.id}: a measurement draws its monitor`);
   for (const s of GRADIENTS.slides) if (s.tool?.kind === 'reading') assert.ok(scriptOf(s.procedure), `${s.id}: the card follows its procedure`);
-  for (const id of ['where', 'agree', 'masld', 'psvd', 'bc']) assert.equal(by[id].tool?.kind, 'spans', id);
-  assert.equal(by.where.tool.empty, true);
-  const states = await deckStates(GRADIENTS), st = (id) => {
-    const i = GRADIENTS.slides.findIndex((s) => s.id === id);
-    return spansState(states[i], { blocked: id === 'bc' });
-  };
-  const lane = (S, k) => S.lanes.find((L) => L.key === k).st;
-  assert.deepEqual(['hvpg', 'eus', 'ppg'].map((k) => lane(st('agree'), k)), ['hit', 'hit', 'hit'], 'cirrhosis: all three agree');
-  assert.deepEqual(['hvpg', 'eus', 'ppg'].map((k) => lane(st('masld'), k)), ['part', 'hit', 'hit'], 'MASLD: the HVPG misses part');
-  assert.deepEqual(['hvpg', 'eus', 'ppg'].map((k) => lane(st('psvd'), k)), ['miss', 'hit', 'hit'], 'PSVD: the HVPG misses');
-  assert.deepEqual(['hvpg', 'eus', 'ppg'].map((k) => lane(st('bc'), k)), ['blank', 'blank', 'hit'], 'Budd–Chiari: only the PPG reads');
+  // (The comparisons draw the pressure ladder with all three gradients, the span ruler gone: Mohammad, 13 Nov 2026, "I like the ladder card ... Just add EUS PPG to it".)
+  for (const id of ['where', 'agree', 'masld', 'psvd', 'bc']) { assert.equal(by[id].tool?.kind, 'profile', id); assert.deepEqual(by[id].tool.spans, ['hvpg', 'eus', 'ppg'], id); }
+  assert.ok(!GRADIENTS.slides.some((s) => s.tool?.kind === 'spans'));
+  const states = await deckStates(GRADIENTS);
+  const at = (id) => states[GRADIENTS.slides.findIndex((s) => s.id === id)];
+  assert.ok(at('psvd').eus - at('psvd').hvpg > 3, `PSVD: EUS-PPG ${at('psvd').eus} reads the resistance the HVPG ${at('psvd').hvpg} misses`);
   const i = GRADIENTS.slides.findIndex((s) => s.id === 'masld');
   assert.ok(states[i].hvpg < 10 && states[i].ppg >= 12, `MASLD: HVPG ${states[i].hvpg}, PPG ${states[i].ppg}`);
   const t = GRADIENTS.slides.findIndex((s) => s.id === 'tips');

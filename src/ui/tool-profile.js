@@ -1,7 +1,7 @@
 // The pressure profile on a slide (deck visuals V1, package B): tool { kind: 'profile' } draws the slide's pressure from gut
 // to heart through the Patients chart's eight stations (anatomy.js PROFILE_PATHS), the healthy line dashed beneath it, the
-// liver's stations on a soft band, and the HVPG (sinusoid to hepatic vein) and the PPG (portal vein to IVC) as brackets
-// inside the plot, each label inside its bracket (in a band at the plot's foot where it has no clear room) (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). The sinusoid's station shows the wedged
+// liver's stations on a soft band, and the HVPG (sinusoid to hepatic vein) and the PPG (portal vein to IVC) (and the EUS-PPG where a slide names it) as
+// brackets, all in one band at the plot's foot, each label inside its bracket (Mohammad, 13 Nov 2026: "keep all gradients on one side") (no wedged ring: Mohammad, 19 Oct, "No need for the wedge circle"). The sinusoid's station shows the wedged
 // pressure (WHVP), the reading the HVPG is taken from, so the HVPG bracket is that point less the hepatic vein's (Mohammad,
 // 19 Oct); it lies a little under the sinusoid's own pressure, the leak to the central vein (engine.js hvpgTrue). Where the line drops steeply is where the resistance is, so presinusoidal, sinusoidal and postsinusoidal resistance look different.
 // tool: { kind: 'profile', from: true } adds the state before this slide's as a faint dotted line ('slide id' for another), named
@@ -772,19 +772,16 @@ export function createProfileTool() {
     const [w, hh, f] = sz, tw = (t, wt) => textW(t, f, wt);
     size = `${Math.round(w)}x${Math.round(hh)}`; fSeen = Math.round(f * 100);
     const hl = healthy(), bf = ref;
-    // (Each value's place and the brackets' are settled once per state, from where the lines will end up, so they never flip while
-    // the lines glide. The brackets stand inside the plot where they clear everything; else in a band at the plot's foot.)
+    // (Each value's place is settled once per state, from where the lines will end up, so it never flips while the lines glide. The brackets
+    // stand in the band at the plot's foot, all of them.)
     // (A new state of the same chart at the same size keeps the brackets where they stand while they stay clear, and keeps the band
     // once the plot has needed it, so the plot never changes height under a what-if slider.)
     if (!plan || stale) {
       const old = plan && plan.size === size ? plan : null;
-      const band = !!old && !old.inside;
-      let g = profileGeo(w, hh, f, tw, true, spans), s = numberSides(g, tw, goal), pl = placePills(g, tw, goal, hl, bf, s);
-      let brk = band ? null : placeBrackets(g, tw, goal, hl, bf, s, old?.brk, pl || []);
-      // (Where the pills cost the brackets their place in the plot, the brackets keep it and the pills take the nearest clear place left, or stand
-      // down where there is none: they repeat the brackets' numbers, and the plot keeps its height.)
-      if (!brk && !band) { brk = placeBrackets(g, tw, goal, hl, bf, s, old?.brk, []); pl = brk ? placePills(g, tw, goal, hl, bf, s, brk) : null; }
-      if (!brk) { g = profileGeo(w, hh, f, tw, false, spans); s = numberSides(g, tw, goal); pl = placePills(g, tw, goal, hl, bf, s); }   // (the band at the plot's foot)
+      // (Every bracket stands in the one band at the plot's foot, stacked in the chart's order, never scattered inside the plot above and below the
+      // line: Mohammad, 13 Nov 2026, "keep all gradients on one side up or down in the ladder".)
+      const brk = null;
+      const g = profileGeo(w, hh, f, tw, false, spans), s = numberSides(g, tw, goal), pl = placePills(g, tw, goal, hl, bf, s);
       plan = { size, inside: !!brk, sides: s, brk, pills: pl, names: placeLineNames(g, tw, goal, hl, bf, s, brk, cfg.fromLabel, pl || []) };
       // (The pills fade in and out as a block does, and where they stand they glide from where they stood: they never jump.)
       const t1 = performance.now(), had = pillK.a;

@@ -16,7 +16,6 @@ import { FLOWS } from './flows.js';
 import { PATH } from './path.js';
 import { ALLP } from './allp.js';
 import { TRIAL } from './trial.js';
-import { SPANS } from './spans.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -36,7 +35,6 @@ export const LOOKS = {
   ...PATH,
   ...ALLP,
   ...TRIAL,
-  ...SPANS,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */
@@ -56,6 +54,5 @@ export const HOSTS = {
   pstrip: (c) => c.scale.lab ?? 12,
   pstriph: (c) => c.scale.cap ?? 12,
   trial: (c) => c.scale.sm ?? 12,   // (the trial card: one type size, the card's small size, grown to 12 px at the least by fittedType)
-  spans: (c) => c.scale.sm ?? 12,   // (the span ruler: one type size, the card's small size, grown to 12 px at the least by fittedType)
   path: () => 12,   // (the guideline path card's small map: its words are 12 px, styles/path.css)
 };
