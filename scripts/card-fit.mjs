@@ -71,6 +71,10 @@ const READ = () => {
     let low = 0, who = '';
     for (const k of e.querySelectorAll('*')) {
       if (k.tagName === 'CANVAS' || k.closest('canvas')) continue;
+      // (Inside a box of its own that clips, such as the ascites belly's fill, it is that box that cuts it, not the card.)
+      let clippedInside = false;
+      for (let n = k.parentElement; n && n !== e; n = n.parentElement) { const o = getComputedStyle(n); if (o.overflowY !== 'visible' || o.overflowX !== 'visible') { clippedInside = true; break; } }
+      if (clippedInside) continue;
       const r = k.getBoundingClientRect();
       if (!r.width || !r.height || !vis(k)) continue;
       if (r.bottom - box.bottom > low) { low = r.bottom - box.bottom; who = name(k); }
@@ -165,7 +169,7 @@ for (const rec of results) {
 }
 // An allowance entry is stale only when its deck and device were walked here and the slide now passes.
 const walked = new Set(results.filter((r) => !r.fail).map((r) => `${r.deck}:${r.device}`));
-for (const key of stale) { const [deck, , device] = key.split(':'); if (walked.has(`${deck}:${device}`)) bad.push(`${key}: allowed in card-fit-allowance.json but it fits now; delete the entry`); }
+for (const key of stale) { const [deck, , device] = key.split(':'); if (!ONLY && walked.has(`${deck}:${device}`)) bad.push(`${key}: allowed in card-fit-allowance.json but it fits now; delete the entry`); }
 
 if (OUT) writeFileSync(OUT, JSON.stringify(results, null, 1));
 console.log(`\ncard-fit: ${results.length} walks (${pick.length} decks x ${DEVICES_WANTED.join(', ')}) in ${Math.round((Date.now() - T0) / 1000)} s`);
