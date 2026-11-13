@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node scripts/serve.mjs . 8080",
     "test": "node --test --test-concurrency=4 tests/*.test.js",
-    "lint": "eslint . && node scripts/off-gpu-scan.mjs && node scripts/rules-lint.mjs && node scripts/gen-theme-css.mjs --check",
+    "lint": "eslint . && node scripts/off-gpu-scan.mjs && node scripts/rules-lint.mjs && node scripts/clinical-wording.mjs && node scripts/gen-theme-css.mjs --check",
     "typecheck": "npx --yes -p typescript@5.6.3 tsc -p jsconfig.json",
     "offgpu": "node scripts/off-gpu-scan.mjs --doc",
     "warm": "node --expose-gc --max-semi-space-size=128 scripts/warm-alloc.mjs",

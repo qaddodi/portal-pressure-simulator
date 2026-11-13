@@ -40,7 +40,7 @@ Full guide: sections 1 to 3, the template in section 10 and a complete example i
 
 ## Writing the words
 
-Each slide has a `title` that stands on its own and a `line` of 30 words or fewer. Write for a learner, in full sentences, the way a clinician teaches on rounds. Run every line through `docs/ai-humanizer.md`.
+Each slide has a `title` that stands on its own and a `line` of 30 words or fewer. Write for a learner, in full sentences, the way an attending teaches US residents and fellows on rounds: standard US clinical terms and abbreviations, subtraction as "minus" or − (HVPG = WHVP − FHVP), never "less", no lay words. Run every line through `docs/ai-humanizer.md`; `tests/clinical-wording.test.js` checks the mechanical rules.
 
 - **Live numbers.** Write `{hvpg}`, `{ppg}`, `{pv}` and the app fills in the patient's value in a coloured pill. Use these instead of typing a number, so the words always match the figure. `{ppg@before}` reads the value at the slide whose `id` is `before`.
 - **Cut-offs.** Write `{>=10 mmHg}` and the app draws an outlined pill reading "10 mmHg". Write no comparison word beside it (no "above"): the pill carries the symbol. A filled pill is the patient; an outlined pill is the rule.
@@ -156,7 +156,7 @@ An instrument goes in the data card with `tool`. It reads the live model, so it 
 | The HVPG catheter's tracing | `tool: { kind: 'hvpg' }` | how the HVPG is measured: one reading per Next, free pressure, then wedge, then the HVPG (Back takes them back) |
 | The same tracing following the catheter on the figure | `tool: { kind: 'hvpg', catheter: true }` with `cath: 'free'`, `'wedge'` or `'result'` | the catheter steps with the tracing beside them, one card kept across the steps |
 | HVPG and pressures across the talk | `tool: { kind: 'trace', range: 'talk' }` | a patient followed over months |
-| The belly and its ascites | `tool: { kind: 'abdomen' }` | ascites and wall collaterals |
+| The abdomen and its ascites | `tool: { kind: 'abdomen' }` | ascites and wall collaterals |
 | The varix wall | `tool: { kind: 'wall' }` | why a large varix bursts |
 | Pressure and flow around a meal | `tool: { kind: 'flowtime' }` | a time-lapse with a meal |
 | Two readings over a time-lapse's days | `tool: { kind: 'flowtime', clock: 'days', lines: [..], keepTiles: true, title }` | any time-lapse slide: the chart is the instrument card, not a graph on the teaching card; to keep another instrument, show it on the next slide |
@@ -176,10 +176,10 @@ Full guide: section 7.2.
 | Liver inflow bar | `tool: { kind: 'flows', of: 'inflow' }` | one centred bar: the liver's inflow split into portal vein and hepatic artery, the healthy split a dashed line over it | the arterial buffer, or a TIPS stealing portal flow |
 | Setting curve | `tool: { kind: 'curve', param: 'cirrhosis', from: 0, to: 1, lines: ['ppg'] }` | one reading across a setting's range, with a ring at the slide's value | dose or severity against pressure |
 | Causes waterfall | `tool: { kind: 'causes' }` | steps from the healthy PPG to the patient's, one per cause | splitting a pressure into what raised it |
-| Course after an event | `tool: { kind: 'course', from, event, then }` | one reading day by day after a tap or a first treatment, a line for each treatment, on the reading's grade zones | what each treatment does to a reading over the weeks (the model's timing, not a patient's) |
+| Course after an event | `tool: { kind: 'course', from, event, then }` | one reading day by day after a paracentesis or a first treatment, a line for each treatment, on the reading's grade zones | what each treatment does to a reading over the weeks (the model's timing, not a patient's) |
 | Two-reading plane | `tool: { kind: 'plane', plane: 'csph' }` | the case as a dot on stiffness against platelets, with the Baveno VIII zones | ruling CSPH in or out without a catheter |
 | Cross-section | `tool: { kind: 'lumen' }` | the vessel cut across, with how much is open, clotted or stented | a clot, a web or a narrowed stent |
-| Fluid balance | `tool: { kind: 'fluid', window: true }` | the day's lymph made split into what the lymphatics carry, what the belly reabsorbs and what builds as ascites, on one strip | how ascites builds and what treatment changes |
+| Fluid balance | `tool: { kind: 'fluid', window: true }` | the day's lymph formation split into lymphatic drainage, peritoneal reabsorption and net ascites accumulation, on one strip | how ascites builds and what treatment changes |
 | Guideline path | `tool: { kind: 'path', of: 'first-visit', patient: { lsm: 18, plt: 120 } }` | a Baveno VIII flowchart with the patient's own path lit from the model's readings; `of` also takes `bleed`, `gastric`, `ascites`, `stopcarv`, `holdcarv`, `secprop`, `psvdscope`, `pvtocc`, `pvtdur`, `aasld`, `psvdscore`, `recomp`, `pvtgrid`, `ladder` | a guideline's decision tree is the lesson |
 | Span ruler | `tool: { kind: 'spans' }` (`empty: true` before any reading) | where the pressure is lost from the portal vein to the IVC, and the HVPG, EUS-PPG and PPG as brackets under it, tagged Misses, Misses part or Cannot be read; put `data: 'tiles', tiles: ['hvpg', 'eus', 'ppg']` for the readings in its header | which gradient sees the resistance |
 | Pressure tracing | `tool: { kind: 'reading' }` on a measuring `procedure` slide | the app's one pressure monitor: a live number and trace, one reading per Next, then the gradient; the card stays put between measurement slides | how a gradient is read |
@@ -227,7 +227,7 @@ Full guide: section 7.3.
 - **A what-if slider.** `whatIf: { label: 'Clot size', param: 'thrombus.PV_TRUNK', min: 0, max: 1, ends: ['None', 'Occluded'] }` lets the room drag one setting and watch everything follow. `whatIf: { label: 'Esophageal air pressure', tool: 'air', min: 0, max: 20, unit: 'mmHg' }` drags a scope option instead (the air's pressure round a varix) and leaves the model alone.
 
 - **Beta-blocker response.** `response: true` puts three buttons on the card: Non-responder, Usual responder and Strong responder. Each changes how strongly this patient's portal pressure answers the beta-blocker, live, and the drug stays whatever the slide set. On carvedilol in a decompensated patient the HVPG falls about 7%, 19% and 27%. A fall under 10% is a non-response by Baveno VIII Table 3. Put the drug in the slide's `params`, add `hvpgResp` to show the fall, and add `hold: true` to a vitals tool to draw the hold line. Do not use it with `compare`. Full guide: 7.4.
-- **Hold to strain.** `strain: true` (or `strain: { label: 'Push' }`) puts a button on the card that works only while it is held. Holding it starts the model's Valsalva: the pressure in the chest and belly builds over 1.5 seconds. Letting go brings it back over 1.5 seconds, and the data card follows. Use it where straining is the point (the second stage of labor). In the model, a held strain raises the portal vein pressure and lowers the MAP; the pressure across a varix wall falls, so do not write that it rises. Do not use it with a time-lapse, a procedure or a catheter. Full guide: 7.4.
+- **Hold to strain.** `strain: true` (or `strain: { label: 'Push' }`) puts a button on the card that works only while it is held. Holding it starts the model's Valsalva: intrathoracic and intra-abdominal pressure build over 1.5 seconds. Letting go brings it back over 1.5 seconds, and the data card follows. Use it where straining is the point (the second stage of labor). In the model, a held strain raises the portal vein pressure and lowers the MAP; the pressure across a varix wall falls, so do not write that it rises. Do not use it with a time-lapse, a procedure or a catheter. Full guide: 7.4.
 
 Put buttons and sliders on key slides only. 27 of the 38 built-in decks have at least one. `tests/hands-on-decks.test.js` shows how to test a new one.
 
