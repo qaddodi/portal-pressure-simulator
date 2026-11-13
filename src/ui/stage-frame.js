@@ -117,11 +117,12 @@ export function createFrame(st, live) {
     // (A plateau strand: its offset, off the chord's one normal, follows the main channel's own plateau, read by how far along the chord each sample
     // lies (not by its share of the channel's length, which its own sideways run at each end takes up: the strand bowed out there), and it takes the main channel's serpentine
     // as it is drawn (pts minus base) when its ph is 1, so the channels that ride it bend together and none crosses another.)
-    const pa = STRAND_PLATEAU[x.e.id];
-    if (pa) {
+    const pa0 = STRAND_PLATEAU[x.e.id];
+    if (pa0) {
+      const pa = sd.wave?.[3] ?? pa0;
       const n0 = base.length - 1, A = base[0], B = base[n0], cl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = -(B[1] - A[1]) / cl, ny = (B[0] - A[0]) / cl;
-      const ride = sd.ph ? 1 : 0;
-      return base.map((p, i) => { const v = clamp(((p[0] - A[0]) * ny - (p[1] - A[1]) * nx) / cl, 0, 1), o = fan * smooth01(v / pa) * smooth01((1 - v) / pa); return [p[0] + nx * o + ride * (pts[i][0] - p[0]), p[1] + ny * o + ride * (pts[i][1] - p[1])]; });   // alloc-rare: as braid's own list, made when the course changes
+      const ride = sd.ph ? 1 : 0, w = sd.wave, wv = w ? w[0] * (1 - t) : 0, wc = w ? w[1] : 0, wp = w ? w[2] : 0;
+      return base.map((p, i) => { const v = clamp(((p[0] - A[0]) * ny - (p[1] - A[1]) * nx) / cl, 0, 1), o = (fan + wv * Math.sin(Math.PI * 2 * wc * v + wp)) * smooth01(v / pa) * smooth01((1 - v) / pa); return [p[0] + nx * o + ride * (pts[i][0] - p[0]), p[1] + ny * o + ride * (pts[i][1] - p[1])]; });   // alloc-rare: as braid's own list, made when the course changes
     }
     const soft = STRAND_SOFT.has(x.e.id);
     // (A soft strand is braided off the channel as drawn and holds to it, its serpentine too, for the first and last tenth: it leaves the node as the channel does.)

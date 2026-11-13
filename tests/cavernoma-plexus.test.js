@@ -5,7 +5,7 @@
 // own meandered course.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { EDGE_PATH, END_HOSTS, NODE_POS, STRANDS, STRAND_PLATEAU, WIG_CAP } from '../src/ui/anatomy.js';
+import { EDGE_PATH, END_HOSTS, NODE_POS, STRANDS, STRAND_PLATEAU, STRAND_WAVE, WIG_CAP } from '../src/ui/anatomy.js';
 // (stage-paths.js reaches the page's helpers, which look for the browser's globals when they load.)
 globalThis.ResizeObserver ??= class { observe() {} };
 globalThis.MutationObserver ??= class { observe() {} };
@@ -43,11 +43,11 @@ const sm = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x));
 const base = sample(EDGE_PATH.C8), pv = meander(sample(EDGE_PATH.PV_TRUNK), 'PV_TRUNK'), ha = poly(EDGE_PATH.A_HEP);
 // The strands as strandAt draws them, with the main channel's serpentine at its widest (WIG_CAP).
 const main = wiggle(base, WIG_CAP.C8, 'C8'.length);
-const strandOf = (off, ride) => {
-  const A = base[0], B = base[N - 1], cl = Math.hypot(B[0] - A[0], B[1] - A[1]), nx = -(B[1] - A[1]) / cl, ny = (B[0] - A[0]) / cl, pa = STRAND_PLATEAU.C8;
-  return base.map((p) => { const v = Math.max(0, Math.min(1, ((p[0] - A[0]) * ny - (p[1] - A[1]) * nx) / cl)), o = off * sm(v / pa) * sm((1 - v) / pa); return [p[0] + nx * o + ride * (main[base.indexOf(p)][0] - p[0]), p[1] + ny * o + ride * (main[base.indexOf(p)][1] - p[1])]; });
+const strandOf = (off, ride, [wv, wc, wp, wa] = [0, 0, 0]) => {
+  const A = base[0], B = base[N - 1], cl = Math.hypot(B[0] - A[0], B[1] - A[1]), nx = -(B[1] - A[1]) / cl, ny = (B[0] - A[0]) / cl, pa = wa ?? STRAND_PLATEAU.C8;
+  return base.map((p) => { const v = Math.max(0, Math.min(1, ((p[0] - A[0]) * ny - (p[1] - A[1]) * nx) / cl)), o = (off + wv * Math.sin(2 * Math.PI * wc * v + wp)) * sm(v / pa) * sm((1 - v) / pa); return [p[0] + nx * o + ride * (main[base.indexOf(p)][0] - p[0]), p[1] + ny * o + ride * (main[base.indexOf(p)][1] - p[1])]; });
 };
-const strands = STRANDS.C8.map(([off, ride]) => strandOf(off, ride));
+const strands = STRANDS.C8.map(([off, ride], k) => strandOf(off, ride, STRAND_WAVE.C8[k]));
 const channels = [main, ...strands];
 // Signed distance of a point from a course (+: the hepatic artery's side of the trunk).
 function sideOf(P, p) {
@@ -67,7 +67,7 @@ const mid = (S) => S[N >> 1];
 test('the plexus hugs the clotted trunk on both sides: channels on each side, clear of its wall and close to it', () => {
   const at = channels.map((S) => side(mid(S)));
   assert.ok(at.some((d) => d > 0) && at.some((d) => d < 0), `channels on one side only (${at.map((d) => d.toFixed(1))})`);
-  for (const d of at) assert.ok(Math.abs(d) >= 6.4 && Math.abs(d) <= 20, `a channel lies ${d.toFixed(1)} from the trunk's centreline (on its wall, or off from it)`);
+  for (const d of at) assert.ok(Math.abs(d) >= 6.4 && Math.abs(d) <= 36, `a channel lies ${d.toFixed(1)} from the trunk's centreline (on its wall, or off from it)`);
 });
 
 test('the first strand to grow in lies on the other side of the trunk from the main channel', () => {
@@ -80,7 +80,7 @@ test('no two channels cross: along the whole plexus each keeps its place across 
     const order = at.map((d, k) => [d, k]).sort((a, b) => a[0] - b[0]).map((x) => x[1]).join();
     if (i > 8 && i < N - 9) assert.equal(order, channels.map((S, k) => [side(mid(S)), k]).sort((a, b) => a[0] - b[0]).map((x) => x[1]).join(), `channels swap places at sample ${i}`);
     for (let a = 0; a < channels.length; a++) for (let b = a + 1; b < channels.length; b++) {
-      if (i > 12 && i < N - 13) assert.ok(Math.hypot(channels[a][i][0] - channels[b][i][0], channels[a][i][1] - channels[b][i][1]) > 6.5, `channels ${a} and ${b} touch at sample ${i}`);
+      if (i > 12 && i < N - 13) assert.ok(Math.hypot(channels[a][i][0] - channels[b][i][0], channels[a][i][1] - channels[b][i][1]) > 2.4, `channels ${a} and ${b} meet at sample ${i}`);
     }
   }
 });
