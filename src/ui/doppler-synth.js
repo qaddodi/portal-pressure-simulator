@@ -48,7 +48,7 @@ float power(float u, float P, float L, float sigHi, float sigLo) {
     if (u > P - fade) { float z = (u - P + fade) / fade; return S * (1.0 - 0.985 * sqrt(z)); }
     return S;
   }
-  if (u > 0.0) { float z = (L - u) / sigLo; return (stent == 1 ? 0.0025 : 0.16) * exp(-z * z);   // (a stent's low edge meets the band's own 26 dB floor: no ledge under it) }
+  if (u > 0.0) { float z = (L - u) / sigLo; return (stent == 1 ? 0.0025 : 0.16) * exp(-z * z); }   // (a stent's low edge meets the band's own 26 dB floor: no ledge under it)
   return 0.0;
 }
 vec3 shade(vec3 c, float t, float cover) {
