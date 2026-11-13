@@ -33,7 +33,7 @@ test('a running stitch: every number finite, the near half and the far half both
   const tab = seamTable(pt, du, 40), j = runningStitch(pt, tab, 2);
   for (const k of ['seam', 'ridge', 'back', 'front']) { assert.ok(j[k].length > 0, k); assert.ok(!/NaN|Infinity/.test(j[k]), `${k} finite`); }
   const front = (j.front.match(/M/g) || []).length, back = (j.back.match(/M/g) || []).length;
-  assert.ok(front >= 5 && back >= 5 && front + back <= N_STITCH, `${front} near, ${back} far of ${N_STITCH}`);
+  assert.ok(front >= 3 && back >= 3 && front + back <= N_STITCH, `${front} near, ${back} far of ${N_STITCH}`);
 });
 
 test('a wound tie: five turns near and far, a knot and two tails', () => {

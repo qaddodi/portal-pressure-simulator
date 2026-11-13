@@ -8,7 +8,7 @@
 // stroke across it, `N_STITCH` of them round the whole circumference. The near half is drawn at full strength and the far half faintly, as
 // if seen through the vessel wall (the thin, soft wires of the TIPS stent).
 
-export const N_STITCH = 13;
+export const N_STITCH = 9;
 // The tie on a divided vein sits a little in from its cut end; the stump narrows there (the waist of S1: 20 % at the tie, over about 5 units each way).
 export const PINCH_K = 0.2, PINCH_W = 5.5;
 export const stumpCentre = (cut, len) => Math.min(cut + 5, len * 0.6) + 4;
