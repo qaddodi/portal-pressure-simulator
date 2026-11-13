@@ -136,8 +136,10 @@ jobs:
           if [ "$BRANCH" = "main" ]; then LABEL="main $LABEL"; fi
           node preview/scripts/preview-badge.mjs site/preview "$LABEL"
           # One small page per case under c/, so shared links preview with the case title (scripts/share-pages.mjs).
-          if [ -f live/scripts/share-pages.mjs ]; then node live/scripts/share-pages.mjs site; fi
-          if [ -f preview/scripts/share-pages.mjs ]; then node preview/scripts/share-pages.mjs site/preview; fi
+          # (The public address goes in too, for the pictures' absolute URLs.)
+          SITE="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          if [ -f live/scripts/share-pages.mjs ]; then node live/scripts/share-pages.mjs site "$SITE"; fi
+          if [ -f preview/scripts/share-pages.mjs ]; then node preview/scripts/share-pages.mjs site/preview "$SITE/preview"; fi
           touch site/.nojekyll
 
       # The same site, as one orphan commit on gh-pages, replaced every time (a force push), so nothing piles up. It never fails the deploy.

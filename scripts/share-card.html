@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8" />
+<title>Share card</title>
+<!-- The 1200 x 630 card scripts/share-stills.mjs photographs for a link preview: the figure on the right, the case's words on the left.
+     Not part of the app; the site's build does not ship it. -->
+<link rel="stylesheet" href="../fonts/fonts.css" />
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body { position: relative; background: var(--bg, #F1EBE0); color: #16181D; font-family: Inter, system-ui, sans-serif; }
+  .fig { position: absolute; right: 0; top: 0; width: 560px; height: 630px; background-size: contain; background-position: center; background-repeat: no-repeat; }
+  .words { position: absolute; left: 72px; top: 64px; bottom: 64px; width: 520px; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 14px; font-size: 20px; font-weight: 600; letter-spacing: .01em; }
+  .brand img { width: 40px; height: 40px; border-radius: 23.4%; display: block; }
+  .kind { margin-top: auto; font-size: 17px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: #5C5A55; }
+  h1 { margin: 14px 0 0; font: 600 54px/1.1 'Source Serif 4', Georgia, serif; letter-spacing: -.01em; text-wrap: balance; }
+  p { margin: 18px 0 0; font-size: 24px; line-height: 1.4; color: #3F3D39; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+</style></head>
+<body>
+  <div class="fig" id="fig"></div>
+  <div class="words">
+    <div class="brand"><img src="../brand/icon-192.png" alt="" /><span>Portal Pressure Simulator</span></div>
+    <div class="kind" id="kind"></div>
+    <h1 id="title"></h1>
+    <p id="sum"></p>
+  </div>
+</body></html>

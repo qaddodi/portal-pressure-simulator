@@ -103,11 +103,16 @@ test('stage 2 draws a shape pair: the prepass plain rows with the depth program,
   assert.ok(!draws(h.log).some((c) => c.prog === 'tubePatch' || c.prog === 'tubeStrip'), 'nor a stage 1 program, with no glow');
 });
 
-test('the rows are read as four floats a record (attribute 1 a vec4) and the webs as three vec4 from the web buffer', () => {
+test('the rows are read from 12-float records (attribute 1 a vec4, attributes 2 and 3 the mouth lists, at the same stride in every draw) and the webs as three vec4 from the web buffer', () => {
   const h = makeHarness();
   h.run();
   const att = h.log.filter((c) => c.call === 'attrib');
-  assert.ok(att.some((c) => c.loc === 1 && c.size === 4 && c.stride === 16));
+  assert.ok(att.some((c) => c.loc === 1 && c.size === 4 && c.stride === 48));
+  assert.ok(!att.some((c) => c.loc === 1 && c.stride === 16), 'no draw reads the 12-float records at the old 16-byte stride (13 Nov 2026: every vessel vanished on the device)');
+  const mouth = att.filter((c) => (c.loc === 2 || c.loc === 3) && c.stride === 48 && c.size === 4 && c.offset % 48 !== 0 || false);
+  assert.ok(att.filter((c) => c.loc === 2 && c.stride === 48 && c.size === 4 && c.offset % 48 === 16).length >= 1, 'attribute 2 at byte 16 of a record');
+  assert.ok(att.filter((c) => c.loc === 3 && c.stride === 48 && c.size === 4 && c.offset % 48 === 32).length >= 1, 'attribute 3 at byte 32 of a record');
+  assert.ok(mouth.length >= 2);
   assert.ok(att.some((c) => c.loc === 2 && c.size === 4 && c.stride === 48) && att.some((c) => c.loc === 3 && c.size === 4 && c.stride === 48));
   assert.ok(!att.some((c) => c.loc === 1 && c.size === 1), 'no one-float row attribute');
 });
@@ -156,7 +161,7 @@ test('a lit vessel\'s glow pair stays on the stage 1 strip program, EQUAL, over 
   assert.equal(g.length, 2, 'a glow prepass and its colour pass');
   assert.deepEqual(g.map((c) => c.mask === false), [true, false]);
   assert.equal(g[1].depth, 'EQUAL');
-  assert.ok(h.log.some((c) => c.call === 'attrib' && c.loc === 1 && c.size === 1 && c.stride === 16), 'one float of each four-float record');
+  assert.ok(h.log.some((c) => c.call === 'attrib' && c.loc === 1 && c.size === 1 && c.stride === 48), 'one float of each 12-float record');
 });
 
 test('tiers: each tier gets its own pair, and a web is drawn in the higher tier of its two rows', () => {

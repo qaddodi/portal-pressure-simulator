@@ -15,7 +15,11 @@ import { MAX_TIERS, TUBE_FLOATS } from './veins-mesh-data.js';
 import { WEB_FLOATS, WEB_MIN_DEG, WEB_MAX_DEG, legDirection } from './tube-joint.js';
 import { endTrunk, endContinues, END_THRU_START, END_THRU_END, joinThruSideJS, joinNextCode } from './tube-join-glsl.js';
 
-export const TUBE_ROW_FLOATS = 4;             // a row record: row, endStart, endEnd, kind + 2
+export const TUBE_ROW_FLOATS = 12;            // a row record: row, endStart, endEnd, kind + 2, then MOUTH_N mouth codes (floats 4 to 11)
+export const MOUTH_N = 8;                     // the mouths of branches a row can open its outline for (the most that end on one trunk row; the rest keep the trunk's outline across them)
+export const MOUTH_AT = 4;                    // the first mouth code in a row record
+/** A mouth code: 2 + 2 * the branch row + 1 for a branch ending at its last sample; under 1.5 (0, and the 1 an unset vertex attribute reads as) is none. */
+export const mouthCode = (row, atEnd) => 2 + 2 * row + (atEnd ? 1 : 0);
 export const TUBE_NO_END = -1;
 export const F_SHUNT = 1024;                  // a shunt's row (the TIPS, the DIPS, the surgical and the stent-tool shunts: veins-gl.js's flag, pinned by a test): its corners get webs across tiers
 export const F_DOTTED = 8;                    // the flags (tube texel 2, z) of veins-gl.js: dotted. Kept here so this file imports no GL code (a test pins the value)
@@ -138,6 +142,7 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
     const dotted = (Math.floor(tubeData[o + T_FLAGS] + 0.5) & F_DOTTED) !== 0;
     const clipped = tubeData[o + T_CLIP0] > CLIP_EPS || tubeData[o + T_CLIP1] < 1 - CLIP_EPS;
     rows[b] = r; rows[b + 1] = TUBE_NO_END; rows[b + 2] = TUBE_NO_END; rows[b + 3] = dotted || clipped ? 3 : 2;
+    for (let m = 0; m < MOUTH_N; m++) rows[b + MOUTH_AT + m] = 0;
   }
   if (pts) {
     const n = Math.floor(joinEntries.length / 8);
@@ -256,6 +261,18 @@ export function tubeRows(tubeData, nRows, joinEntries, out, pts = null) {
       const tr = Math.floor(c / N_SAMPLES);
       rows[b] = c + (runsOn(tr, 1) ? END_THRU_START : 0) + (runsOn(tr, 2) ? END_THRU_END : 0);
     }
+    // The mouths (14 Nov 2026, Mohammad: "the GRS is disconnected from the renal vein (there is a line), same for the splenogastric varix inlet from the splenic vein"): each
+    // row that ends on a trunk's side (an open end, not at the trunk's own end) is listed on its trunk, so the trunk's outline is left open across the branch's width where the
+    // branch joins it (tube-lean-glsl.js mouthOpen). The wall line of a trunk that lies under a branch's faded end (the branch eases to the trunk's opacity) showed through
+    // it as a dark line across the mouth. Up to MOUTH_N a trunk, in row order.
+    for (let r = 0; r < nRows; r++) for (let sl = 1; sl <= 2; sl++) {
+      const c = rows[r * TUBE_ROW_FLOATS + sl];
+      if (c < 0) continue;
+      const ci = Math.floor(c + 1e-6), tr = Math.floor(ci / N_SAMPLES), ts = ci % N_SAMPLES;
+      if (tr === r || tr >= nRows || ts === 0 || ts === N_SAMPLES - 1) continue;
+      const tb = tr * TUBE_ROW_FLOATS + MOUTH_AT;
+      for (let m = 0; m < MOUTH_N; m++) if (rows[tb + m] === 0) { rows[tb + m] = mouthCode(r, sl === 2); break; }
+    }
   }
   let exact = 0, joinOnly = 0, ended = 0;
   for (let r = 0; r < nRows; r++) {
@@ -308,6 +325,7 @@ export function tubeBuckets(tube, on, nTubes, rowData, out) {
     // (joinNextCode, at most 4094 with the 2047 rows the lumen target holds: under 2^24, exact in a float). The shader reads w only as over 1.5 (ends) and this.)
     const n0 = nextOf(rowData, rowData[b + 1]), n1 = nextOf(rowData, rowData[b + 2]);
     rows[at2 + 3] = n0 || n1 ? 5 + n0 + 4096 * n1 : rowData[b + 3];
+    for (let m = 0; m < MOUTH_N; m++) rows[at2 + MOUTH_AT + m] = rowData[b + MOUTH_AT + m];
   }
   out.n = at;
   return out;

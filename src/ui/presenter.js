@@ -6573,7 +6573,7 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // rather than everything swapping in one frame (motion review P2). A new talk started meanwhile ends this one at once.
   let leaving = null;
   function stop(restore = true) {
-    if (!deck || leaving) return;
+    if (!deck || leaving || document.documentElement.hasAttribute('data-embed')) return;   // (?embed: a talk in an iframe stays on its last slide; a new talk still replaces it, start() ends the old one itself)
     const els = ui ? [ui.root, ui.shade].filter((el) => el?.animate) : [];
     if (!els.length) { stopNow(restore); chromeIn(); return; }   // (Reduce Motion too: these are fades only, which it keeps)
     for (const el of els) el.inert = true;

@@ -257,7 +257,7 @@ const files = walk(OUT).map((p) => relative(OUT, p).split(sep).join('/')).filter
 // (The handout figures, deck stills and tester guide PDFs are left to load when used, so installing offline support stays light.)
 // (The "Lighter organ art" switch's lines load only when it is turned on (stage.js syncArtLite), so the switch left off downloads nothing new.)
 const liteChunks = Object.entries(app.metafile.outputs).filter(([, o]) => Object.keys(o.inputs).some((i) => i.endsWith('src/ui/organ-art-lite.js'))).map(([f]) => 'assets/' + basename(f));
-const cached = files.filter((f) => !/^(brand\/(handout|decks)|guides)\//.test(f) && !liteChunks.includes(f));
+const cached = files.filter((f) => !/^(brand\/(handout|decks|share)|guides)\//.test(f) && !liteChunks.includes(f));
 // (The fonts' Greek and extended-Latin subsets are drawn only where a word needs them, and the browser fetches one by its unicode-range
 // at that moment. A first visit's install does not fetch them with the rest: they are cached once the page is quiet (the page asks,
 // 'pps:fill'), or when first used, so a person who never meets one never downloads it, and the install does not compete with the first

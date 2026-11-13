@@ -3,6 +3,7 @@
 // It follows the talk over a BroadcastChannel (presenter-view.js) and sends keys and buttons back; closing either window leaves the other working.
 
 import { CHANNEL } from './presenter-view.js';
+import { keepAwake } from './wake-lock.js';
 
 const CSS = `
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.5 Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; }
@@ -53,6 +54,7 @@ export function run() {
   const send = (c, i) => { try { ch?.postMessage({ t: 'cmd', c, i }); } catch { /* channel closed */ } };
   const tick = () => { const now = Date.now(); talk.textContent = st ? mmss(now - st.talk0) : '0:00'; slide.textContent = st ? mmss(now - st.slide0) : '0:00'; };
   function paint() {
+    keepAwake(!!st);   // (A24: the notes window keeps its screen awake while a talk is running)
     main.replaceChildren();
     back.disabled = nextB.disabled = !st;
     if (!st) { main.append(el('p', 'pv-wait', 'Waiting for a talk. Start a presentation in the main window.')); deckT.textContent = ''; where.textContent = ''; count.textContent = ''; tick(); return; }

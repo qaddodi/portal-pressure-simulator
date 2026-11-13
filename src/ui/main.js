@@ -431,6 +431,7 @@ async function main() {
   store.on('compareSnap', () => { if (!store.get().details) inspector.render(); });
   // (Only on a new value: a slide change sets focus and selection to null each time, and a full figure update for a value that
   // stayed the same cost a frame's worth of script in the tap.)
+  store.on('presenting', (v) => keepAwake(!!v || projector));   // (A24: a talk keeps the screen awake; wake-lock.js lets go when it ends)
   for (const k of ['focus', 'labelLevel', 'selection']) { let was = store.get()[k]; store.on(k, (v) => { if (v === was) return; was = v; redraw(); }); }
 
   // Console handle for educators preparing a class (and for automated screenshots).
@@ -467,7 +468,7 @@ async function main() {
   // Offline support registers once the figure is up and the page has been left alone a moment, so its install (every file of the app,
   // fetched at once) does not compete with the modules still loading, nor with the first touches. The fonts' other subsets come later
   // still (the worker is asked once it is active, build.mjs 'pps:fill').
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  if ('serviceWorker' in navigator && location.protocol !== 'file:' && !EMBED) {   // (?embed: an iframe on another site installs nothing, offers no update)
     // A new version takes over this tab's files while it is open (the worker claims its pages). The page keeps running the files it began with, and
     // an older tab can no longer fetch the part it has not opened yet (the first talk), so, once, it is offered a reload: not in a talk, and never
     // by itself. (The first install, with no worker before it, is not an update.)
@@ -1972,6 +1973,8 @@ function chromeGlass() {
 }
 import { sheetBehaviour } from './dock-sheet.js';
 import { reduceMotionMQ } from './motion.js';
+import { keepAwake } from './wake-lock.js';
+import { EMBED } from './embed.js';
 import { darkMQ } from './look.js';
 import { labelWritten, themeChanged, labelsBusy } from './label-theme.js';
 // ── The thumb dock (15 Oct) ─────────────────────────
@@ -2292,6 +2295,7 @@ function toggleProjector(on = !projector) {
 function flipProjector() {
   projector = !projector;
   app.classList.toggle('projector', projector);
+  keepAwake(projector || !!store.get().presenting);   // (A24: the screen stays awake while a talk or the projector is up)
   if (projector) {
     bigEl = h('div', { class: 'big-overlay stage-blocker' });
     // The top bar (and its menu) is hidden in projector mode, so the way out is on the figure.
@@ -2446,6 +2450,7 @@ function firstRun() {
 // (Not under automation: the browser checks and visual references start from a fresh browser every time.)
 const HINT_KEY = 'pps.hint';
 function showFirstHint() {
+  if (EMBED) return;   // (?embed: an iframe on someone else's page shows no hint)
   if (navigator.webdriver) return;
   let seen = true;
   try { seen = !!localStorage.getItem(HINT_KEY); } catch (e) { caught('main:2188', e); /* storage unavailable: no hint */ }
@@ -2472,6 +2477,7 @@ function showFirstHint() {
 const FEEDBACK_ASK_MIN = 10;
 const ASK_KEY = 'pps.feedbackAsk';   // (absent: never asked · 'later': asked once, once more on a later visit · 'done')
 function armFeedbackAsk() {
+  if (EMBED) return;   // (and none asks for feedback)
   if (!FEEDBACK_EMAIL || navigator.webdriver) return;
   let was = null;
   try { was = localStorage.getItem(ASK_KEY); } catch { return; }   // (no storage: it could not remember, so it never asks)

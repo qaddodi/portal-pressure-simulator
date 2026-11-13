@@ -262,6 +262,8 @@ precision highp sampler2D;
 invariant gl_Position;                 // (so the depth prepass and the colour pass agree exactly)
 layout(location=0) in vec4 aV;         // (kind, ring or sample, across, corner): tube-geo.js tubeIndex
 layout(location=1) in vec4 aRow;       // per instance: (row, endStart, endEnd, kind + 2). A one-float buffer reads (row, 0, 0, 1): w = 1 is "no ends"
+layout(location=2) in vec4 aMouthA;    // per instance: the first four mouth codes (tube-data.js mouthCode: 2 + 2 * a branch row + 1 for its last sample; under 1.5 none; an unset attribute reads (0, 0, 0, 1))
+layout(location=3) in vec4 aMouthB;    // and the next four
 uniform mat3 world;                    // world → device pixels
 uniform vec2 size;
 uniform vec2 lOff;
@@ -300,6 +302,8 @@ out float vD;                          // signed distance from the lumen's wall 
 out vec2 vG;                           // the offset from the centreline point to this point (not unit)
 out float vRad;                        // the lumen's radius at this ring or sample
 flat out vec2 vEnd;                    // the vessel this row ends on at its start (x) and end (y): row * 64 + the sample there, or -1
+flat out vec4 vMouthA;                 // the branches that end on this row's side: its outline is left open across them (tube-lean-glsl.js mouthOpen)
+flat out vec4 vMouthB;
 ${tubeJoinVS(N_SAMPLES)}// The across offset d and the level f of across column ac, for a ring whose half tube has radius rc.
 vec2 tubeAcross(int ac, float rc, float w, float hr, bool glow, float zz) {
   if (ac == 0) return vec2(-(rc + w), glow ? L_GLOW0 : L_CASE0);
@@ -409,6 +413,8 @@ void main() {
   vRow = id;${ZOOM_VS ? '\n  zoomOut();' : ''}
   vEnd = aRow.w > 1.5 && joinCut == 1 ? aRow.yz : vec2(-1.0);
   joinOut(id, vEnd, aRow.w);
+  vMouthA = joinCut == 1 ? aMouthA : vec4(0.0);
+  vMouthB = joinCut == 1 ? aMouthB : vec4(0.0);
   int kind = int(aV.x + 0.5), ring = int(aV.y + 0.5);
   vI = kind == T_TRAP ? aV.y + aV.w : kind == T_DOME ? float(ring) : float(clamp(ring - T_CAP, 0, N_SAMPLES - 1));
   bool glow = mPass <= ${MP.UP};
