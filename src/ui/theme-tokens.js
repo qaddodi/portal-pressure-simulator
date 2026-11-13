@@ -22,6 +22,9 @@ export const TOKENS = {
     // surfaces
     'bg': '#F1EBE0',   // ground: page and figure share the paper
     'stage-bg': '#F1EBE0',
+    // the edge vignette on the stage ground (styles/app.css .stage-wrap, Mohammad 13 Nov 2026): the ground stays this look's colour in the middle and is mixed toward
+    // the tint at the corners (keep = how much of the ground is kept there); lift = a faint white pool behind the figure, for the look that cannot get darker
+    'vg-keep': '83%', 'vg-tint': '#5A3C1E', 'vg-lift': '0%',
     'surface': '#FCF9F3',
     'surface-2': '#F5F0E6',
     'surface-3': '#E9E2D4',
@@ -213,6 +216,7 @@ export const TOKENS = {
     'organ-a': '.52',
     'bg': '#DDD0B9',
     'stage-bg': '#DDD0B9',
+    'vg-keep': '80%', 'vg-tint': '#5A3C19',
     'surface': '#F0E9DC',
     'surface-2': '#E5D9C3',
     'surface-3': '#D3C5AB',
@@ -278,6 +282,7 @@ export const TOKENS = {
   dark: {
     from: 'light',
     'bg': '#1A1917', 'stage-bg': '#1A1917', 'surface': '#242321', 'surface-2': '#2B2A27', 'surface-3': '#333130',
+    'vg-keep': '62%', 'vg-tint': '#000000', 'vg-lift': '0%',
     'on-accent': '#15140F', 'on-status': '#15140F', 'skin': '#7A5E55',
     'shadow-menu': 'calc(6px * var(--light-slant)) 6px 20px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.2))', 'shadow-dialog': 'calc(24px * var(--light-slant)) 24px 60px rgb(var(--shadow-rgb) / calc(var(--shadow-a) * 1.6))',
     'glass': 'rgba(30, 29, 27, .95)', 'frost': 'rgba(30, 29, 27, .42)', 'scrim': 'rgba(6, 5, 4, .6)',
@@ -356,6 +361,7 @@ export const TOKENS = {
   navy: {
     from: 'dark',
     'bg': '#0E1422', 'stage-bg': '#0E1422', 'surface': '#161E30', 'surface-2': '#1B2438', 'surface-3': '#232D44',
+    'vg-keep': '58%', 'vg-tint': '#00000A',
     'on-accent': '#0B1120', 'on-status': '#0B1120',
     'glass': 'rgba(16, 23, 42, .95)', 'frost': 'rgba(16, 23, 42, .42)', 'scrim': 'rgba(2, 4, 10, .6)',
     'hairline': 'rgba(200, 215, 255, .08)', 'border': '#222C46', 'border-strong': '#33405F',
@@ -387,6 +393,7 @@ export const TOKENS = {
   black: {
     from: 'dark',
     'bg': '#000000', 'stage-bg': '#000000', 'surface': '#0D0D0E', 'surface-2': '#141416', 'surface-3': '#1C1C1F',
+    'vg-keep': '100%', 'vg-lift': '7.5%',   // (Black cannot get darker: a faint light behind the figure instead of a shaded edge)
     'on-accent': '#0A0A0B', 'on-status': '#0A0A0B',
     'glass': 'rgba(10, 10, 11, .95)', 'frost': 'rgba(10, 10, 11, .42)', 'scrim': 'rgba(0, 0, 0, .7)',
     'hairline': 'rgba(255, 255, 255, .1)', 'border': '#26262A', 'border-strong': '#3A3A40',

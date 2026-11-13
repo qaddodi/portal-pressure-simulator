@@ -102,7 +102,7 @@ html.fr :is(.lens-btn, .ps-btn, .tl-pop-ic, .pz-zbtn, .ask-field, .pz-abb, .pzc-
 .scenario-v, .scenario-v * { transition: none !important; }
 
 /* ── Figure (stage) ─────────────────────────────── */
-.stage-wrap { grid-area: stage; position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: var(--stage-bg); color: var(--text); overflow: hidden; }
+.stage-wrap { grid-area: stage; position: relative; display: flex; flex-direction: column; min-height: 0; min-width: 0; background: radial-gradient(ellipse 58% 52% at 50% 48%, color-mix(in srgb, white var(--vg-lift), transparent), transparent 74%), radial-gradient(ellipse 78% 72% at 50% 48%, transparent 42%, color-mix(in srgb, var(--stage-bg) var(--vg-keep), var(--vg-tint)) 100%), var(--stage-bg); color: var(--text); overflow: hidden; }   /* (the edge vignette: a static gradient on the ground, tokens vg-* in theme-tokens.js) */
 /* Organ texture patterns take their organ's hue. */
 #texLiver { color: var(--organ-liver); } #texRugae { color: var(--organ-stomach); } #texLobules { color: var(--organ-pancreas); } #texMuscle { color: var(--organ-heart); } #texFine { color: var(--organ-spleen); }
 .stage-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 0 12px; background: var(--stage-bg); position: relative; z-index: var(--z-hud); min-width: 0; }
