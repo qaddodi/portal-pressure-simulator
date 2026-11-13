@@ -104,10 +104,11 @@ export function createFit(st, live) {
   function cardSpaceFrom(list) {
     if (gpuProbe.on) gpuProbe.note(COUNTED.safe);
     const wr = insWrap(), W = wr.width, H = wr.height, sp = { t: 0, b: 0 };
-    for (const { el, q, edge: pedge } of list) {
+    for (const { el, q, edge: pedge, part } of list) {
       const y0 = ((el.classList.contains('mini') || el.dataset.folding) && +el.dataset.fullH ? q.bottom - +el.dataset.fullH : q.top) - wr.top - (+el.dataset.safePad || 0), y1 = q.bottom - wr.top;
       if (y1 <= 0 || y0 >= H) continue;
       const edge = pedge || el.dataset.safe;
+      if (part && (q.left - wr.left > W * 0.62 || q.right - wr.left < W * 0.38)) continue;   // (a sideways phone's top-bar piece at an outer edge: the rail, the chip: not over the room's middle)
       if (edge === 'top') sp.t = Math.max(sp.t, y1);
       else if (y0 > H * 0.3 && (W < 768 || q.width > W * 0.75 || (edge === 'bottom' && !el.classList.contains('side')))) sp.b = Math.max(sp.b, H - y0);
     }

@@ -4170,7 +4170,7 @@ html.chip-open .topbar .sb-right > .chip-btn[aria-expanded="true"], html.chip-op
 /* ── Instruments ───────────────────────────────────── */
 .instrument-workspace.float-ui { container-name: ws; container-type: inline-size; border-top: 0; }
 .instrument-workspace.side {
-  left: auto !important; right: calc(env(safe-area-inset-right) + var(--gap) + var(--panel-occ, 0px)) !important;
+  left: auto !important; right: calc(env(safe-area-inset-right) + var(--gap) + var(--panel-occ, 0px) + var(--rail-w, 0px)) !important;   /* (--rail-w: a phone on its side keeps its toolbar in a rail at the right edge) */
   top: calc(var(--top-safe) + 4px); bottom: calc(var(--vdock-h) + var(--gap) + 8px); width: var(--instrument-w, 500px); height: auto;
 }
 .instrument-workspace.side[data-state="peek"] { bottom: auto; height: auto; }
@@ -5611,7 +5611,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
   .topbar .lg-title { display: none; }   /* (the key keeps its caption and its numbers: the bar compacts, or takes two rows, instead) */
   .topbar[data-fit] #viewSeg button { padding: 6px 7px; }
   .app.dock-open:has(#dock.side:not([data-state="peek"])) .instrument-workspace.side { bottom: calc(env(safe-area-inset-bottom) + 6px); }
-  .app.dock-open:has(#dock.side) .vdock { right: calc(env(safe-area-inset-right) + var(--side-ws-w, 340px) + 14px); width: auto; }   /* (width: auto lets `right` hold over the slim bar's fixed 640 px from 768 px wide, 88e0a8d: an 844 px phone's bar ran under the card) */
+  .app.dock-open:has(#dock.side) .vdock { right: calc(env(safe-area-inset-right) + var(--side-ws-w, 340px) + var(--rail-w, 0px) + 14px); width: auto; }   /* (width: auto lets `right` hold over the slim bar's fixed 640 px from 768 px wide, 88e0a8d: an 844 px phone's bar ran under the card) */
   .app.dock-open:has(#dock.side) .vdock .readouts { display: none; }
   /* A vessel card opened with the side Tests card up ends 6 px before it, as the bar below does, so Tests no longer covers its close,
      Why?, Details and right-hand controls (the card was the full width, half of it under Tests). `right` eases both ways. */
@@ -7580,3 +7580,18 @@ body { font-optical-sizing: auto; font-kerning: normal; }
 
 /* Lobule readings on the play bar: the % stays after the number, on the phone's slim bar too ("Sinusoids 58%", not "58"). */
 .app .vdock .readouts.lob .metric .v .unit.pct { display: inline; }
+
+/* A phone held sideways (U4, 13 Nov 2026): the toolbar (Treat, Tests, History, Settings, Search) stands in one narrow glass rail at the trailing edge,
+   icons only, so the top bar is one row (the patient and the colour key) and the figure has the height the second row took. The rail is at
+   the top; the play bar stays under the figure. The Tests card and the bar beside it start left of the rail (--rail-w). */
+@media (max-width: 1023px) and (max-height: 500px) and (orientation: landscape) {
+  #app:not(.thumb) { --rail-w: 54px; }
+  #app:not(.thumb) .topbar { padding-right: calc(env(safe-area-inset-right) + var(--rail-w) + 14px); }
+  #app:not(.thumb) .topbar .top-right.float-pill { position: absolute; top: calc(var(--safe-top) + 6px); right: calc(env(safe-area-inset-right) + 8px); margin: 0; flex-direction: column; align-items: center; gap: 2px; padding: 3px; width: 46px; box-sizing: border-box; }
+  #app:not(.thumb) .top-right :is(.tb-act, .ib, .pal-btn) { width: 40px; min-width: 40px; height: 38px; min-height: 38px; padding: 0; justify-content: center; }
+  #app:not(.thumb) .top-right .tb-act > span, #app:not(.thumb) .top-right .pal-l, #app:not(.thumb) .top-right .pal-btn kbd { display: none; }
+  #app:not(.thumb) .top-right .tb-sep { display: block; width: 22px; height: 1px; margin: 2px 0; }
+}
+@media (max-width: 1023px) and (max-height: 400px) and (orientation: landscape) {
+  #app:not(.thumb) .top-right :is(.tb-act, .ib, .pal-btn) { height: 34px; min-height: 34px; }   /* (a short phone's rail stays clear of the zoom group above the play bar) */
+}
