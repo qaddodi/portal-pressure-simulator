@@ -10,42 +10,39 @@
 .eus-panel { display: contents; }
 .eus-panel .pz-reading { margin-top: 0; }   /* (the one pressure monitor in the EUS-PPG panel, eus-ppg.js) */
 
-/* The card's grid: the picture over everything, the readings, the actions. Fitted to its content (.nat), rows are their own height. */
+/* The card's grid (13 Nov 2026, Mohammad: the main render is the centre of attention): the picture on the left as large as the card allows, the five
+   readings stacked as a plain column on its right, and one row of actions under both, two equal buttons. Twelve equal columns: the picture takes
+   eight, the readings four, each action six. Fitted to its content (.nat), rows are their own height. */
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) {
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto auto;
-  gap: 8px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px 0;
 }
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view.nat:not(.wall-view) { grid-template-rows: auto auto auto; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view).nat { grid-template-rows: auto auto; }
 
-/* The picture: the whole width of the card, as tall as the card allows (its square is the least of the two, endo-stage in app.css). */
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { --stage-min: 122px; grid-column: 1 / -1; grid-row: 1; }   /* (122: the picture fits the card's one short height, app.css .instrument-workspace.side) */
+/* The picture: eight columns, as tall as the card allows (its square is the least of the two, endo-stage in app.css). */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { --stage-min: 140px; grid-column: 1 / 9; grid-row: 1; }
 
-/* The readings: a slim row of five tiles, a name over its value. A card too narrow for five takes three and two. */
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 1 / -1; grid-row: 2; align-self: stretch; width: 100%; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > * { grid-column: span 2; }
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :nth-child(n + 4) { grid-column: span 3; }
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { min-height: 0; gap: 0; padding: 6px 8px; border-radius: var(--r-control); }
+/* The readings: a plain column, a name over its value, a hairline between. */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 9 / -1; grid-row: 1; align-self: stretch; width: auto; margin-left: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 0; padding: 2px 0; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > * { grid-column: auto; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { flex: 1 1 0; min-height: 0; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 0 0 0; border-radius: 0; background: none; border: 0; border-top: 1px solid var(--hairline); }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div:first-child { border-top: 0; }
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div::after { content: none; }
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { font: 500 12px/1.3 var(--font-ui); white-space: nowrap; }
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-num, .endo-chip-v, .endo-grade b, .endo-grade b:empty + span) { font: 600 min(17px, 20cqi)/1.2 var(--font-ui); }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dt { font: 500 12px/1.3 var(--font-ui); letter-spacing: 0; text-transform: none; color: var(--text-3); white-space: nowrap; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.endo-num, .endo-chip-v, .endo-grade b, .endo-grade b:empty + span) { font: 600 min(22px, 17cqi)/1.2 var(--font-ui); letter-spacing: -.015em; }
 /* ("Red wale, cherry spots" is one sign: the tile says Red wale, its title the rest.) */
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-more { display: none; }
-@container tpane (min-width: 420px) {
-  #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-template-columns: .8fr 1fr 1.15fr 1.15fr 1.3fr; }
-  #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > *,
-  #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :nth-child(n + 4) { grid-column: auto; }
-}
 
-/* The actions: banding and the EUS-PPG player, one row, one height. ("Watch" is the player's play icon and its title.) */
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { grid-column: 1; grid-row: 3; justify-self: stretch; width: 100%; min-width: 0; max-width: none; min-height: 38px; padding-inline: 10px; white-space: nowrap; }
+/* The actions: banding and the EUS-PPG player, one row, one height, six columns each. ("Watch" is the player's play icon and its title.) */
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn { grid-column: 1 / 7; grid-row: 2; justify-self: stretch; width: auto; margin-right: 5px; min-width: 0; max-width: none; min-height: 40px; padding-inline: 10px; white-space: nowrap; }
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg { display: contents; }
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-procs { grid-column: 2; grid-row: 3; display: grid; grid-template-columns: minmax(0, 1fr); }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-procs { grid-column: 7 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr); margin-left: 5px; }
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-procs-k { display: none; }
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-proc-btn { width: 100%; min-width: 0; min-height: 38px; justify-content: center; padding-inline: 10px; white-space: nowrap; }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg .hvpg-proc-btn { width: 100%; min-width: 0; min-height: 40px; justify-content: center; padding-inline: 10px; white-space: nowrap; }
 
 /* EUS-PPG's readings, steps and words: over the foot of the picture, in view while a run is on or done, with the unit once. */
-#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { grid-column: 1 / -1; grid-row: 1; align-self: end; z-index: 2; display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--r-card); background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: inset 0 0 0 1px var(--hairline); opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
+#app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { grid-column: 1 / 9; grid-row: 1; align-self: end; z-index: 2; display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--r-card); background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: inset 0 0 0 1px var(--hairline); opacity: 0; pointer-events: none; transition: opacity var(--d-small) var(--ease); }
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg:is([data-state="run"], [data-state="done"]) .eus-panel { opacity: 1; }
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-ppg[data-state="done"] .hvpg-steps { display: none; }
 #app:not(.thumb) .instrument-workspace.float-ui.side .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .hvpg-kv { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-start; gap: 2px 16px; }

@@ -46,7 +46,6 @@ test('HVPG steps, the Ascites albumin and Drain words crossfade, and the gastric
 
 test('the Doppler tab\'s mode name, sweep length and vessel note crossfade', () => {
   const dop = read('../src/ui/doppler.js');
-  assert.match(dop, /swapText\(modeTxt, m\.short\)/);
   assert.match(dop, /swapText\(sweepBtn\.lastChild,/);
   assert.match(dop, /swapText\(noteEl, it\.note\)/);
   assert.match(dop, /swapText\(noteEl, ''\)/);

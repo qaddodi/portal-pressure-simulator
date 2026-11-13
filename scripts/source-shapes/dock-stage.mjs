@@ -17,9 +17,10 @@ export default [
   { file: 'src/ui/dock-sheet.js', need: [/\.dock-pane\.active:not\(\.staging\)/, "the sheet's pull grows the open pane, not the staged one"] },
   { file: 'styles/app.css', need: [/\.dock-body > \.dock-pane\.active\.staging:not\(\.landed\) \{ grid-area: 1 \/ 1; opacity: 0; pointer-events: none; animation: none; \}/, 'the staged pane shares the open pane\'s cell, unseen and untouchable'] },
   { file: 'styles/app.css', need: [/\.dock-body:has\(\.staging\) > \.dock-pane\.active \{ grid-area: 1 \/ 1; \}/, 'the open pane stays in that cell'] },
-  { file: 'styles/app.css', need: [/\.instrument-workspace\.side:not\(\[data-state="peek"\]\) \{ --ws-h: min\(400px, calc\(100% - var\(--top-safe\) - 4px - var\(--vdock-h\) - var\(--gap\) - 8px\)\); bottom: auto; height: var\(--ws-h\); \}/, 'the side card (Mac, iPad sideways) is one short height, 400 px or the room there is, for every test: each shows one chart or its main part, a switch opens the rest (Mohammad, 12 Nov)'] },
-  { file: 'styles/app.css', need: [/\.instrument-workspace\.side \.instrument-view\[data-pane="readouts"\]\[data-show="pressure"\] \.rp-group:not\(\[data-group="pressure"\]\)/, 'Readouts shows one group at a time on the side card'] },
-  { file: 'src/ui/readouts-pane.js', need: [/return \{ id: 'readouts', label: 'Readouts', el, head, update, summary \};/, "the Readouts pane's group switch is its head"] },
+  { file: 'styles/app.css', need: [/\.instrument-workspace\.side:not\(\[data-state="peek"\]\) \{ --ws-h: min\(560px, calc\(100% - var\(--top-safe\) - 4px - var\(--vdock-h\) - var\(--gap\) - 8px\)\); bottom: auto; height: var\(--ws-h\); \}/, 'the side card (Mac, iPad sideways) is one fixed height, 560 px or the room there is, for every test: the render is the centre of it, every action sits on the card (Mohammad, 13 Nov)'] },
   { file: 'src/ui/dock.js', need: [/&& readMetric\(body, 'clientHeight'\) >= 600 : readMetric\(body, 'clientWidth'\) >= 1000/, 'the short side card never holds two tests'] },
   { file: 'styles/app.css', need: [/\.instrument-workspace \.dock-head\.tabbed \.card-close\.card-close \{ position: relative; transform: none;/, "the card's X is positioned (relative): static, the .ib hover fill (::before, absolute, inset 0) spread over the whole card and turned it flat gray on hover (12 Nov 2026)"] },
+  { file: 'src/ui/dock-sheet.js', need: [/const TESTS_HALF_PX = 520;/, "a phone's Tests card rests at one fixed 520 px, the laptop card's counterpart"] },
+  { file: 'src/ui/dock-sheet.js', need: [/const need = size === half\(\) && !grow \? natural\(\) : Infinity;/, 'the Tests card never shrinks to its content'] },
+  { file: 'index.html', need: [/styles\/tests-card\.css/, 'the Tests card styles are linked'] },
 ];

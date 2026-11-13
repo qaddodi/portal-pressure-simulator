@@ -9,7 +9,7 @@ import { glWords, wordsRect } from './gl-words.js';
 import { h, fmt, canvasSize, clamp, icon, cssVar, cssAlpha, swapText } from './util.js';
 import { FONT, textW } from './charts.js';
 import { logAction, shownVel, store } from './store.js';
-import { DOPPLER_MODES, THETA, dopplerColor, shadeColor, swatchGradient } from './dopplerColor.js';
+import { DOPPLER_MODES, THETA, dopplerColor, shadeColor } from './dopplerColor.js';
 import { readFrameFor, noteDraw, paceMs, cancelFrame, frameAnimating, framePart } from './frame.js';
 import { windowIndexFor, scaleFor, fitScale } from './dopplerWindow.js';
 import { velNormal, dopplerVel, judgeFlow } from './velNormal.js';
@@ -118,29 +118,20 @@ export function createDoppler({ onProbe, pickGate = true }) {
   // (real buttons, in the dock; a slide's own buttons set it in Present, where the tiles are plain).
   const SEGS = [['proximal', 'Proximal'], ['mid', 'Mid'], ['distal', 'Distal']];
   const pickSeg = (seg) => { if (store.get().dopGate !== seg) store.set({ dopGate: seg }); logAction('gate', 'doppler', seg); };
-  // Display mode: a pill that cycles Spectrum → Direction → Power → Directional Power → Variance,
-  // like Invert. The colour maps live in dopplerColor.js; the trace is drawn through them.
+  // Display mode: a text switch of the three displays (Spectrum, Color, Variance; the colour maps live in dopplerColor.js, the trace is drawn through
+  // them). It was one pill that cycled and hid the other two (13 Nov 2026).
   let mode = 'spectrum';
-  const modeSw = h('i', { 'aria-hidden': 'true' });
-  const modeTxt = h('span', { class: 'dop-mode-label' });
-  const modeBtn = h('button', { class: 'dop-tint dop-mode', 'aria-pressed': 'false' }, modeSw, modeTxt);
-  modeBtn.addEventListener('click', () => {
-    mode = DOPPLER_MODES[(DOPPLER_MODES.findIndex((m) => m.id === mode) + 1) % DOPPLER_MODES.length].id;
-    sync();
-  });
+  const modeBtns = DOPPLER_MODES.map((m) => h('button', { type: 'button', class: 'dop-mode-opt', 'data-mode': m.id, 'aria-pressed': String(m.id === mode), title: `Doppler display: ${m.label}`,
+    onclick: () => { if (mode !== m.id) { mode = m.id; sync(); } } }, m.short));
+  const modeSeg = h('div', { class: 'dop-modes', role: 'group', 'aria-label': 'Doppler display' }, modeBtns);
   // Invert, as on the scanner: flips the display about the baseline, so the toward/away colors swap
   // with it (the report and the physiology are unchanged). Power Doppler has no direction.
   let invert = false;
-  const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), 'Invert');
+  const invBtn = h('button', { class: 'dop-tint dop-inv', 'aria-pressed': 'false', title: 'Invert the display: show flow away from the probe above the baseline' }, h('i', { 'aria-hidden': 'true' }, '⇅'), h('span', { class: 'dop-lbl' }, 'Invert'));
   const setInvert = (v) => { invert = !!v; invBtn.setAttribute('aria-pressed', String(invert)); sync(); };
   invBtn.addEventListener('click', () => { setInvert(!invert); logAction('invert', 'doppler', invert); });
   function sync() {
-    const m = DOPPLER_MODES.find((x) => x.id === mode);
-    swapText(modeTxt, m.short);   // (the display mode's name crossfades)
-    modeBtn.title = `Doppler display: ${m.label}. Tap to change.`;
-    modeBtn.setAttribute('aria-label', `Doppler display mode: ${m.label}. Activate to change.`);
-    modeBtn.setAttribute('aria-pressed', String(mode !== 'spectrum'));
-    modeSw.style.background = mode === 'spectrum' ? '' : swatchGradient(mode);
+    for (const b of modeBtns) b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
     invBtn.title = 'Invert the display: show flow away from the probe above the baseline; swaps the toward/away colors';
     if (frame) draw();
   }
@@ -242,18 +233,27 @@ export function createDoppler({ onProbe, pickGate = true }) {
     [gLo, glWords(gLo, { after: true })], [gHi, glWords(gHi, { after: true })]]);
   for (const k in statEls) W.set(statEls[k].dd, glWords(statEls[k].dd, KEEP));
   const wSet = (e, t, u) => W.get(e).set(t, u), wNow = (e, t) => W.get(e).now(t), wText = (e) => W.get(e).text;
-  const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), rangeEl, stats, noteEl);
+  // In the Tests card the usual range is the Speed tile's own small scale (the long bar is a slide card's); the tile carries it, so it is never a row of its own.
+  if (pickGate) statEls.Speed.wrap.append(rangeEl);
+  const report = h('div', { class: 'dop-report' }, dirEl, h('div', { class: 'dop-velrow' }, velEl, patternEl), pickGate ? null : rangeEl, stats, noteEl);
   // The top strip's fitting steps (see fitStrip): [type scale, the direction's short form, the pattern on its own line].
   let stripKey = '', stripStep = 0, dirFull = '—', patFull = '', stripType = '', rng = null;
   // Whether the monitor is on screen, and the widths the strip is fitted to, as the browser reports them when they change: read
   // on every frame (offsetParent, clientWidth), they made the browser lay the page out mid-frame, after the figure's own writes.
   // (No observers, as in a bare test page: read as before.)
-  let seen = false, repW = -1, cvW = -1;
+  let seen = false, repW = -1, cvW = -1, cvH = -1;
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((es) => { const was = seen; seen = es[es.length - 1].isIntersecting; if (seen && !was) redraw(); }) : null;
   io?.observe(cv);
   const shown = () => cv.isConnected && (io ? seen : true);   // (no observer, a bare test page: taken as shown)
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver((es) => {
-    for (const e of es) { const w = e.borderBoxSize?.[0]?.inlineSize ?? e.contentRect.width; if (e.target === report) repW = w; else cvW = w; }
+    let moved = false;
+    for (const e of es) {
+      const w = e.borderBoxSize?.[0]?.inlineSize ?? e.contentRect.width, hgt = e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height;
+      if (e.target === report) repW = w;
+      else { moved = (cvH > 0 && Math.abs(hgt - cvH) > 0.5) || (cvW > 0 && Math.abs(w - cvW) > 0.5); cvW = w; cvH = hgt; }
+    }
+    // (The monitor fills the card's height, so it can settle at its size after a first draw: a paused model draws it again at the new size.)
+    if (moved) redraw();
   }) : null;
   ro?.observe(report, { box: 'border-box' }); ro?.observe(cv, { box: 'border-box' });
   // (Every step one line, Mohammad 20 Oct, "the top bar on Doppler should be one line": type 1, 0.9, 0.8, then the direction's short
@@ -262,7 +262,7 @@ export function createDoppler({ onProbe, pickGate = true }) {
   const SHORT_PAT = { 'Low velocity, jet': 'Slow, jet', 'Low velocity': 'Slow', 'High velocity': 'Fast', 'Phasic, with reversal': 'Phasic, reversal', 'Large reversal': 'Reversal', 'Open collateral': 'Open', 'Resistive index 0.00': 'RI 0.00' };
   const SHORT_DIR = { 'Portal → hepatic vein': 'PV → HV', 'Portal → IVC': 'PV → IVC', 'Portal → systemic': 'PV → systemic', 'Systemic → portal': 'Systemic → PV', 'Toward the heart': 'To the heart', 'Not available during time lapse': 'Paused in time lapse' };
   const el = h('div', { class: 'dop', 'data-pane': 'doppler' },
-    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeBtn, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
+    h('div', { class: 'dop-head' }, probeSel, h('div', { class: 'dop-btns' }, modeSeg, invBtn, sweepBtn)), h('div', { class: 'dop-main' }, box, report));
 
   // ── Samples ───────────────────────────────────────
   let buf = [];

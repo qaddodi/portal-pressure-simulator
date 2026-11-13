@@ -45,14 +45,20 @@ function releaseFrame(el) {
 const sheetInner = (c) => { const l = c.lastElementChild; if (!l) return 0; const b = parseFloat(readStyle(c).paddingBottom) + parseFloat(readStyle(l).marginBottom); return readBox(l).bottom - readBox(c).top + readMetric(c, 'scrollTop') + b; };
 export function sheetBehaviour(el, { handle, drag, onClose, active = () => true, fit = null, anywhere = false, grow = false }) {
   const SIZES = [0.32, 0.56, 0.9], THUMB = [0.62, 1], TABLET = [0.45, 0.62];
+  const TESTS_HALF_PX = 520;   // (13 Nov 2026, the Tests card on a phone: one fixed height at rest, as the laptop's card is one fixed 560 px)
   const thumb = () => app.classList.contains('thumb') && isPhone();
   // (17 Oct, Mohammad: an upright iPad's cards open "proportional to the ipad proportions vertically" and never fill the whole
   // screen: Half takes the share of the screen's height an iPhone's Half takes, 45 %, and Full stops at 62 %, the figure in view
   // above it. As shares of the room, like the phone's, so a drag and its release are measured the same way.)
   const TAB_NOW = [0, 0];   // (the tablet's stops, written in place at each ask and read where they are asked for, not kept)
+  const PHN_NOW = [0, 1];   // (the Tests card's stops on a phone: Half is one fixed height, 520 px, Full the room; written in place at each ask)
   const stops = () => {
     if (!thumb()) return SIZES;
-    if (!tabletMQ.matches) return THUMB;
+    if (!tabletMQ.matches) {
+      if (!grow) return THUMB;
+      PHN_NOW[0] = Math.min(0.9, TESTS_HALF_PX / (room() || readMetric(app, 'clientHeight')));
+      return PHN_NOW;
+    }
     const H = readMetric(app, 'clientHeight'), R = room() || H;
     for (let i = 0; i < 2; i++) TAB_NOW[i] = Math.min(1, (TABLET[i] * H) / R);
     return TAB_NOW;
@@ -235,7 +241,7 @@ export function sheetBehaviour(el, { handle, drag, onClose, active = () => true,
     remap();
     const S = stops(), r = room();
     size = Math.min(size, S.length - 1);
-    const need = size === half() ? natural() : Infinity;
+    const need = size === half() && !grow ? natural() : Infinity;   // (the Tests card keeps its one height: it never shrinks to its content)
     // alloc-rare: the sheet's height as a CSS value, made when a gesture starts or ends or the sheet opens, not while it moves
     return need < S[half()] * (r || readMetric(app, 'clientHeight')) ? `${Math.ceil(need)}px` : r ? `${Math.round(S[size] * r)}px` : `${Math.round(S[size] * 100)}%`;
   };
