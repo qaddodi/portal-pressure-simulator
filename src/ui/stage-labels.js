@@ -103,13 +103,13 @@ export function createLabelDriver(st, live) {
     const d = sigNow;
     d[0] = f; d[1] = store.rev; d[2] = labelGeo; d[3] = t >= 0.5; d[4] = live.rotU > 0.5; d[5] = labelBase(); d[6] = stageBox().width < 700;
     d[7] = labelRestK() > 1.35; d[8] = zoomedIn(); d[9] = scan.on; d[10] = live.fxSig; d[11] = live.fx; d[12] = live.slideGlow; d[13] = dop.key; d[14] = live.edgeRev;
-    d[15] = tips; d[16] = dips; d[17] = live.projecting; d[18] = live.glowSetAt; d[19] = labelRestK() >= 1.9; d[20] = live.resMask; d[21] = live.resLitRev; d[22] = !!sites.list;
+    d[15] = tips; d[16] = dips; d[17] = live.projecting; d[18] = live.glowSetAt; d[19] = labelRestK() >= 1.9; d[20] = live.resMask; d[21] = live.resLitRev; d[22] = !!sites.list; d[23] = live.resSegRev;
     if (sigDeps.length === d.length && sameDeps(sigDeps, d)) return sigText;
     for (let i = 0; i < d.length; i++) sigDeps[i] = d[i];
     sigStats.builds++;
     const edges = '~' + EV.filter((x) => x.vis).map((x) => `${x.e.id}${sigWidth(x)}${x.ghost ? 'g' : ''}`).join(',');   // (after a ~: the field a view change's landing reads apart, stage-view.js sameButWidths)
     return (sigText = [labelGeo, t >= 0.5, live.rotU > 0.5, labelBase(), stageBox().width < 700, st.selection?.type + ':' + st.selection?.id, paramJSON((f.viewParams || st.params).stenosis), paramJSON((f.viewParams || st.params).stenosisSite),
-      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), live.fxSig, live.fx?.steps && live.slideGlow.map((g) => g.id + g.at).join(), (live.fx?.organs.some((o) => o.organ === 'spleen') || live.fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), edges, `${tips}${dips}`, dop.key, d[19]].join('|'));
+      isImaging(), st.layers.labels, st.layers.chips, layerMode(), st.focus?.label, st.focus?.edges?.[0], st.focus?.marks && paramJSON(st.focus.marks), live.fxSig, live.fx?.steps && live.slideGlow.map((g) => g.id + g.at).join(), (live.fx?.organs.some((o) => o.organ === 'spleen') || live.fx?.calipers.some((c) => c.organ)) && Math.round((f.slow?.spleen ?? 11) * 2), d[7], st.labelLevel, st.presenting && st.presentLabels?.join(','), st.presenting && paramJSON(st.presentTerms || null), st.presenting && st.presentNames, explain.key, scan.on, [...(st.hiddenLabels || [])].join(','), d[8], flagged(f, flagSigBuf).join(','), d[23], edges, `${tips}${dips}`, dop.key, d[19]].join('|'));
   }
   const sigStats = { builds: 0 };
   // (A vessel's label width moved by its 2 px step, outside a model frame: the width's own ease, stepWidths. See sigWidth.)

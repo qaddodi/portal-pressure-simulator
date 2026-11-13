@@ -1050,7 +1050,17 @@ void main() { o = texture(uT, vUV) * uA; }`;
     if (!el || el === blocks) { restyle(); for (const s of last) dirty.add(s.g); ask(); return; }
     const g = labelOf(el);
     if (!g || !blocks.contains(g)) return;   // (another layer's label, or not a label at all: labelWritten asks every layer)
-    dirty.add(g); ringKept.delete(g); if (animsKept.get(g)?.ans) animsKept.delete(g);
+    ringKept.delete(g); if (animsKept.get(g)?.ans) animsKept.delete(g);
+    // (L-H1, 13 Nov 2026: a label with a picture standing, not easing, whose words changed (a reading's new value) goes to the pass between
+    // frames at once, owed what a draw would have owed it; the pass lays the new picture (settle). Asked for a draw first, it laid a present
+    // that still showed the old picture, then the pass asked again: two presents for each new value at rest.)
+    const st = sprites.get(g), q = recOf.get(g);
+    if (!released && q && st?.mode === 'gl' && st.slot && !st.wait && st.rot === !!q.rot && !(live.size && live.has(g))) {
+      todo.set(g, (todo.get(g) | 0) | 8 | 2 | (q.rot ? 1 : 0));
+      settleSoon();
+      return;
+    }
+    dirty.add(g);
     ask();
   };
   // Anything outside them that can change how they look (the theme, the glass setting, the text size, a mode's class): every label. Its

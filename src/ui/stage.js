@@ -486,6 +486,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     get resKey() { return resKey; },
     get resLit() { return resLit; }, set resLit(v) { resLit = v; },
     get resLitRev() { return resLitRev; }, set resLitRev(v) { resLitRev = v; },
+    get resSegRev() { return resSegRev; }, set resSegRev(v) { resSegRev = v; },
     get reslotted() { return reslotted; }, set reslotted(v) { reslotted = v; },
     get resMask() { return resMask; }, set resMask(v) { resMask = v; },
     get resNow() { return resNow; },
@@ -2017,7 +2018,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
 
   const { RES_BIT, RES_LIVER, SITE_DEF, SITE_EL, SITE_TPL, SPLIT_B, cath, recKick, recLive, resItem, resKey, resMade, resNow, resPaint, resPlace, resRatio, resTheme: resTheme$, sites, tokenRGB, toneToken } = createSites({ EI, NI, gOver, geo, nextFrame, overSend, pointAt, recOut, recs, toneCol, worldToLocalInto, wrap }, live);
   function resTheme(...a) { return resTheme$(...a); }   // <stage-split stub>
-  let resMask = 0, resLitRev = 0;
+  let resMask = 0, resLitRev = 0, resSegRev = 0;   // (resSegRev: a resistor's zigzag came, went or moved; the labels' signature, so no cached solve from before it is reused)
   let resLit = new Map();   // the circuit's resistors a slide's words point at (rLiver, rColl) → their station tone
   // The wide screen's nav pill, read with the cards (readBlockers): its gap from the stage's right edge is the slides' one margin
   // (--pz-cm), and its top bounds the row the figure's readings keep clear of. Null when no pill shows (a phone, or no slide).
@@ -2426,6 +2427,9 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     for (const g of resMade.values()) {
       const zs = g._segs;
       if (!zs?.length) continue;
+      // (Its band as drawn on the screen: 13 Nov 2026, on a phone the zigzag's teeth keep at least 8 px while the old 22-unit band shrank with
+      // the map to about 5 px, and "R collaterals ×6.5" lay on the liver's zigzag on the Circuit's TIPS slide.)
+      ZZ_ITEM.obj.w = Math.max(22, g._bandPx > 0 ? 2 * g._bandPx / (CTM.sc || 1) : 22);
       for (let i = 0; i < zs.length; i++) { ZZ_ITEM.pts = zs[i]; segLine(n++, ZZ_ITEM); }
     }
     segLines.length = n;
@@ -3298,6 +3302,7 @@ export function createStage({ wrap, onSelect, onAction, onOpenTab, onHoverInfo, 
     },
     /** For the browser check of the Circuit's leaders (tests/e2e/circuit-leaders.mjs): the vessels as the labels' solver sees them (stage px, half width, id)
      *  and the stage's corner in client px, so the labels' boxes and leaders can be read against them. */
+    resZigs: () => [...resMade.values()].flatMap((g) => { const p = g.cur?.pts ? Array.from(g.cur.pts) : [], out = []; for (let i = 0, o = 0; i < g.lens.length; o += g.lens[i], i++) out.push({ pts: p.slice(o, o + g.lens[i]), band: g._bandPx || 0 }); return out; }),   // (for tests: each zigzag, world, and its half band in px)
     labelLaid: () => ({ items: labelShown.filter((it) => !it.hide).map((it) => ({ key: it.key, box: [it.x - it.padX, it.y - it.padY, it.x + it.w + it.padX, it.y + it.h + it.padY], ax: it.ax, ay: it.ay, leader: !!it.leader, onVessel: !!it.onVessel })), rings: (gLabels.dataset.rings || '').split(' ').filter(Boolean).map((s) => s.split(',').map(Number)) }),   // alloc-rare: a test accessor, never called from a frame: the labels the last layout showed, stage px, and the Circuit's station rings
     labelVessels: () => { buildSegs(); refreshCTM(); return { left: wrapRect.left, top: wrapRect.top, segs: segs.map((q) => [q.x0, q.y0, q.x1, q.y1, q.hw, q.id]) }; },
     labelDrawn: () => labelGL?.boxes ?? null,   // (what the GPU labels' last picture drew, as boxes in px from their canvas's corner: the browser check of the labels' lag)

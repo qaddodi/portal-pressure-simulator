@@ -416,7 +416,7 @@ export function createLabelSolve(st, live) {
         const ax = atOld ? kx : it.ax, ay = atOld ? ky : it.ay;
         const r = rectOf({ ...probe, x: ax + prev.dx, y: ay + prev.dy });
         if (within(r, V) && !placed.some((p) => hits(r, p)) && !obstacles.some((o) => hits(r, o)) && !callouts.some((b) => hits(r, b))
-          && !(creditBox && hits(r, creditBox)) && !(useLines && !prev.onv && lineHits(r, 0, true)) && !passes[prev.pi]?.skip && !(passes[prev.pi]?.unblocked && blocked(r)) && !(passes[prev.pi]?.offOrgans && onOrgans(passes[prev.pi].offOrgans, r))) {
+          && !(creditBox && hits(r, creditBox)) && !(useLines && (!prev.onv ? lineHits(r, 0, true) : lineHits(r, 1, { only: 'res' }))) && !passes[prev.pi]?.skip && !(passes[prev.pi]?.unblocked && blocked(r)) && !(passes[prev.pi]?.offOrgans && onOrgans(passes[prev.pi].offOrgans, r))) {
           best = { cost: 0, dx: prev.dx, dy: prev.dy, r, dir: prev.dir, pi: prev.pi, leader: prev.leader };
           if (atOld) { it.ax = ax; it.ay = ay; if (prev.au != null) it.au = prev.au; }
         }
@@ -483,7 +483,7 @@ export function createLabelSolve(st, live) {
           // its stent: Review 15-16 Oct.)
           const mk = dop.all && /^focus/.test(it.key);
           if (ps.clear) { if (ps.pad != null ? lineHits(r, ps.pad, true) : mk ? lineHits(r, 3, true) : it.point ? lineHits(r, 4, true) : held ? lineHits(r, 0, true) : lineHits(r, 3, true)) return; } else onLine = lineHits(r, 0);
-          if (mk && dop.id && lineHits(r, 3, { only: dop.id })) return;   // (and in any pass, 2 px off its own stent as drawn)
+          if ((mk && dop.id && lineHits(r, 3, { only: dop.id })) || lineHits(r, 1, { only: 'res' })) return;   // (and in any pass, 2 px off its own stent as drawn, and never on a resistor's zigzag: "Azygos 0.2" on the collaterals', 13 Nov)
           // (A leader that may cross at most lmax vessels besides the one it starts on, 3 px off each: 0, one that runs clear.)
           if (ps.lmax != null) { const le = leaderEnd(r, it.ax, it.ay); if (leaderVesselHits(live.segIdx, it.ax, it.ay, le.x, le.y, 3, ps.lmax < 1) > ps.lmax) return; }
           // (A reading out on a ring is joined to its station by a leader: one that would cross a vessel or a label is no use.)
@@ -794,8 +794,7 @@ export function createLabelSolve(st, live) {
         }
       }
       // The resistors' readings (label-gl figure labels at their zigzags, resItem): placed straight; their boxes are kept clear by the stations after.
-      // (Where its spot puts it on a vessel, a reading slides up or down off the vessels, the nearest clear spot within 120 px, up first; the
-      // shift is solved once and kept in the solution, so a carry holds it. Circuit slide 4 on a sideways iPad: "R liver ×1.0 / vs healthy
+      // (Where its spot puts it on a vessel, a reading slides up or down off the vessels, the nearest clear spot within 120 px, up first; the shift is solved once and kept in the solution, so a carry holds it. Circuit slide 4 on a sideways iPad: "R liver ×1.0 / vs healthy
       // liver" between the two lobes lay over the outer sinusoids of both and the hepatic artery's branches; it now stands above the liver.)
       if (sites.list && t >= 0.5) {
         for (const k of ['rGut', 'rColl', 'rLiver']) {
@@ -803,14 +802,15 @@ export function createLabelSolve(st, live) {
           const it = resItem(k);
           if (!it || !resPlace(it)) continue;
           const prev = prevSol.get(it.key);
-          let dy = prev && !prev.drop ? prev.dy : 0;
+          let dy = prev && !prev.drop ? prev.dy : 0, dx = prev && !prev.drop ? prev.dx || 0 : 0;
           if (solve) {
             buildLines();
-            const free = (d) => { const r = rectOf({ ...it, y: it.y + d }); return within(r, view) && !lineHits(r, 2, true) && !placed.some((p) => hits(r, p)) && !obstacles.some((o) => hits(r, o)); };   // alloc-rare: a resistor's shift, solved only in a solve (the view settled, a reading changed), never in a carried frame
-            if (!free(dy)) { dy = 0; if (!free(0)) for (let d = 3; d <= 120; d += 3) { if (free(-d)) { dy = -d; break; } if (free(d)) { dy = d; break; } } }
-            nextSol.set(it.key, { res: true, dir: 'res', pi: 0, dx: 0, dy });   // alloc-rare: a resistor's shift, solved only in a solve (the view settled, a reading changed), never in a carried frame
+            const free = (d, e = 0) => { const r = rectOf({ ...it, x: it.x + e, y: it.y + d }); return within(r, view) && !lineHits(r, 2, true) && !placed.some((p) => hits(r, p)) && !obstacles.some((o) => hits(r, o)); };   // alloc-rare: a resistor's shift, solved only in a solve (the view settled, a reading changed), never in a carried frame
+            const cost = (d, e) => { const r = rectOf({ ...it, x: it.x + e, y: it.y + d }); return !within(r, view) ? 1e9 : (obstacles.some((o) => !o.zone && hits(r, o)) ? 1e5 : 0) + lineHits(r, 2, { only: 'res' }) * 1e4 + (placed.some((p) => hits(r, p)) || obstacles.some((o) => o.zone && hits(r, o)) ? 1e3 : 0) + lineHits(r, 4, it.key === 'r:rColl' ? 'C1b' : it.key === 'r:rGut' ? 'A_SMA' : true) * 10 + lineHits(r, 2) + Math.hypot(d, e) / 100; };   // (no clear spot: off the cards, the zigzags, the labels and every vessel but its own lane, 4 px clear, nearest first: "×6.5" had touched the TIPS on a phone)   // alloc-rare: only in a solve
+            if (!free(dy, dx)) { dy = 0; dx = 0; let ok = free(0); if (!ok) for (let d = 3; d <= 120; d += 3) { if (free(-d)) { dy = -d; ok = true; break; } if (free(d)) { dy = d; ok = true; break; } } if (!ok) for (let e = -80, c = cost(0, 0); e <= 80; e += 4) for (let d = -120; d <= 120; d += 3) { const q = cost(d, e); if (q < c) { c = q; dy = d; dx = e; } } }   // (no clear spot: the place within 80 px across and 120 up or down that is under no card, then off every zigzag, then off labels, then on the fewest vessels; 13 Nov 2026, an upright phone's "R collaterals ×6.5" had stayed on the liver's two zigzags)
+            nextSol.set(it.key, { res: true, dir: 'res', pi: 0, dx, dy });   // alloc-rare: a resistor's shift, solved only in a solve (the view settled, a reading changed), never in a carried frame
           }
-          it.y += dy;
+          it.x += dx; it.y += dy;
           out.push(it); placed.push({ ...rectOf(it), res: true });
         }
       }
@@ -1044,8 +1044,9 @@ export function createLabelSolve(st, live) {
         if (solve && sliceOver()) yield;
         const x = E[id];
         if (!x?.vis || x.ghost || labelHidden(id)) continue;
-        const it = { key: 'lane:' + id, cls: 'lane', lines: [[{ t: cap, size: 10, weight: 550, cls: 'lb-lane' }]], align: 'middle', padX: 2, padY: 1, ax: 0, ay: 0 };
-        it.w = lineW(it.lines[0]); it.h = LINE_H(it.lines[0]);
+        // (A lane with a resistor's zigzag on it (the collaterals' on C1b, the gut's on A_SMA) is captioned in two lines, short enough to fit beside the zigzag along it: 13 Nov 2026, an upright phone's "Esophageal route → azygos" was longer than the lane on either side of its zigzag and ran through it.)
+        const zig = !!sites.list && t >= 0.5 && sites.list.includes(id === 'C1b' ? 'rColl' : id === 'A_SMA' ? 'rGut' : '-'), cut = !zig ? -1 : cap.includes(' → ') ? cap.indexOf(' → ') : cap.lastIndexOf(' ', cap.length / 2), ln = (s) => [{ t: s, size: 10, weight: 550, cls: 'lb-lane' }];
+        const it = { key: 'lane:' + id, cls: 'lane', lines: cut > 0 ? [ln(cap.slice(0, cut)), ln(cap.slice(cut + 1))] : [ln(cap)], align: 'middle', padX: 2, padY: 1, ax: 0, ay: 0 }; it.w = Math.max(...it.lines.map(lineW)); it.h = it.lines.reduce((a, l) => a + LINE_H(l), 0);
         // Turned upright, a lane that runs up the screen is captioned along it (text turned to read bottom to top), beside it.
         const at = (u) => { const [lx, ly] = pointAt(geo[id].cur, u); [it.ax, it.ay] = worldToLocal(lx, ly); };
         let vertical = false;
@@ -1056,10 +1057,9 @@ export function createLabelSolve(st, live) {
         }
         if (vertical) it.rot = true;
         const dirs = vertical ? ['E', 'W'] : [dirOf('N'), dirOf('S')], gaps = [3 + (x.width || 4) / 2, 12 + (x.width || 4) / 2];
-        // Try the spots along the lane that no other vessel touches, then settle for the first.
-        const spots = [laneU[id], ...(laneAlt[id] || [])];
-        // Failing that, the caption rides on its own lane (never on another line).
-        if (!spots.some((u) => { at(u); return place(it, dirs, gaps, false, true); })) { at(laneU[id]); place(it, ['C'], 0, false); }
+        const spots = [laneU[id], ...(laneAlt[id] || [])];   // (Beside the lane at the spots no other vessel touches; failing that, on its own lane, never on another line.)
+        const bx = (u) => { at(u); const hw = (it.rot ? it.h : it.w) / 2 + 2, hh = (it.rot ? it.w : it.h) / 2 + 2; return { x0: it.ax - hw, y0: it.ay - hh, x1: it.ax + hw, y1: it.ay + hh }; }; const ok = (u, skip) => { const b = bx(u); return within(b, view) && !obstacles.some((o) => !o.zone && hits(b, o)) && !lineHits(b, 1, skip); };   // alloc-rare: a lane's fallback, solved only in a solve (else on its lane, at the first spot in view and off the cards, clear of every other line, else of a resistor's zigzag) (none: left out, as a station's reading with no room is)
+        if (!spots.some((u) => { at(u); return place(it, dirs, gaps, false, true); }) && (buildLines(), !(solve ? [...spots.filter((u) => ok(u, id)), ...spots.filter((u) => ok(u, { only: 'res' })), ...(lineHits(bx(laneU[id]), 1, { only: 'res' }) ? [] : [laneU[id]])] : [laneU[id]]).some((u) => { at(u); return place(it, ['C'], 0, false); })) && solve) nextSol.set(it.key, { drop: true });
       }
     }
     // (Beside a stent's column of three points the slide's mark keeps off the whole column, the gaps between its callouts included, so
