@@ -70,6 +70,7 @@ export const WEB_SPAN = 32;                      // samples a leg's corner searc
 export const WEB_REFIT = 3;                      // passes that move each leg's wall line to where the real wall is at the corner
 export const WEB_DEVN = 16;                      // samples ahead of the corner a fillet's tangent length is checked against
 export const WEB_OVER = 0.25;                    // C may lie this share of the larger radius beyond the end of a leg's vessel (a vessel's end is not a wall)
+export const WEB_OUTLINE_MIN = 1.5;             // a web whose fillet radius is under this many outline widths is empty: its skirt (the outline, w, never over 0.98 rho) would be all of it, a black blob at the mouth with no lumen in it (a branch that bends at its mouth leaves a tangent length of a pixel or two; 14 Nov 2026, Mohammad: black marks at the sides of a lobule branch)
 export const WEB_DEV = 0.06;                     // the real wall may leave a leg's straight wall line by this share of the larger radius within the fillet
 export const WEB_LOOK = 8;                       // samples a leg looks along for its direction (a segment of zero length has none)
 const L = TUBE_LEVEL;
@@ -197,6 +198,7 @@ export function webGeometry(PA, RA, PB, RB, inst, aaPad) {
   const tlMax = Math.min(webWallSpan(PA, RA, A, dA, inst[3], eps) - ((C[0] - wA[0]) * A.d[0] + (C[1] - wA[1]) * A.d[1]), webWallSpan(PB, RB, B, dB, inst[7], eps) - ((C[0] - wB[0]) * B.d[0] + (C[1] - wB[1]) * B.d[1]));
   const rho = Math.min(inst[8], Math.min(WEB_CUT * Math.min(A0.len, B0.len) * th2, Math.min(inst[9] * th2, tlMax * th2)));
   if (!(rho > 1e-5)) return out;
+  if (rho < WEB_OUTLINE_MIN * (clamp(0.14 * Rm, 0.75 * aaPad, 1.5 * aaPad) + aaPad)) return out;   // (the outline's width at its widest, as w below: the fill must hold more than the outline)
   const tl = rho / th2;
   const bx = A.d[0] + B.d[0], by = A.d[1] + B.d[1], bl = Math.hypot(bx, by), bis = [bx / bl, by / bl];
   const s2 = Math.sin(0.5 * theta), O = [C[0] + (bis[0] * rho) / s2, C[1] + (bis[1] * rho) / s2];
@@ -302,6 +304,7 @@ const int W_DEVN = ${WEB_DEVN};
 const float W_DEV = ${f(WEB_DEV)};
 const float W_DEV_T = ${f(WEB_DEV_TAPER)};
 const float W_OVER = ${f(WEB_OVER)};
+const float W_OUT_MIN = ${f(WEB_OUTLINE_MIN)};
 ${ZOOM_VS ? `${ZOOM_VS}\n` : ''}out float vI;
 flat out int vRow;
 out float vD;
@@ -447,7 +450,7 @@ void main() {
     vec2 wA = A.p + A.n * A.r, wB = B.p + B.n * B.r;
     float tlMax = min(wSpan(idA, A, sA, dA, eps) - dot(C - wA, A.d), wSpan(idB, B, sB, dB, eps) - dot(C - wB, B.d));
     rho = min(aWeb.x, min(W_CUT * min(A0.len, B0.len) * th2, min(aWeb.y * th2, tlMax * th2)));
-    if (!(rho > 1e-5)) empty = true;
+    if (!(rho > 1e-5) || rho < W_OUT_MIN * (clamp(0.14 * Rm, 0.75 * aaPad, 1.5 * aaPad) + aaPad)) empty = true;
   }
   vec3 q = vec3(wa, W_LEVEL);
   if (!empty) {

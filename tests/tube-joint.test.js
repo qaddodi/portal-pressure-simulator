@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   WEB_ARC, WEB_PTS, WEB_KIND, WEB_VERTS, WEB_FILL, WEB_IN, WEB_OUT, WEB_FLOATS, WEB_LEVEL, WEB_MIN_DEG, WEB_TAPER_DEG, WEB_FAR_TAPER, WEB_MAX_DEG, WEB_FAR, WEB_CUT, WEB_LOOK,
-  WEB_STRIP, WEB_STRIP_PTS, WEB_STRIP_LEVEL, webIndex, webGeometry, webVertex, legDirection, tubeWebVS,
+  WEB_OUTLINE_MIN, WEB_STRIP, WEB_STRIP_PTS, WEB_STRIP_LEVEL, webIndex, webGeometry, webVertex, legDirection, tubeWebVS,
 } from '../src/ui/tube-joint.js';
 import { webInstances } from '../src/ui/tube-data.js';
 import { TUBE_LEVEL, TUBE_FADE, tubeStripVS } from '../src/ui/tube-geo.js';
@@ -17,7 +17,7 @@ import { scene, straight, ray, polyline, polyDist, lineDist, DEG } from './tube-
 // webVertex), the shader text on the GLSL lint, on what it exports and on a small interpreter (tests/glsl-eval.js) that runs its main on a table of
 // vertices beside the twin.
 
-const AA = 0.4;   // aaPad: two device pixels, world
+const AA = 0.1;   // aaPad: two device pixels, world (a fillet of the join's 0.4 must hold more than its outline, tube-joint.js WEB_OUTLINE_MIN)
 
 /** The instance records of a scene's joins: [{ rec (Float32Array view of 12), A (row index), B, ... }]. */
 function webs(sc) {
@@ -389,4 +389,18 @@ test('the wall strips: each fan edge from C to its tangent point is doubled two 
   assert.ok(WEB_STRIP_LEVEL > WEB_LEVEL + 0.01 - 1e-12 && WEB_STRIP_LEVEL < TUBE_LEVEL.LUMEN0 + 0.02, 'over the fade band and the fan, within a hair of a lumen\'s wall level');
   const w = webs(SCENES.t90()).list[0], a = M.attr.subarray(WEB_STRIP * 4, WEB_STRIP * 4 + 4);
   assert.equal(webVertex(w.PA, w.RA, w.PB, w.RB, w.rec, a, AA, { zK: 1, zA: 0.4, zB: 0 }).f, WEB_STRIP_LEVEL + TUBE_LEVEL.LUMEN_H * 0.4, 'in the lobule it follows its own leg\'s z');
+});
+
+test('a web whose fillet would be all outline is empty: no black blob at a mouth (14 Nov 2026, the lobule)', () => {
+  const { list } = webs(SCENES.t90());
+  assert.ok(list.length > 0);
+  for (const w of list) {
+    // At a coarse enough pixel (aaPad 0.4: two device pixels are 0.4 world) the outline is as wide as the join's whole 0.4 fillet: the skirt would be the web, a black patch.
+    const coarse = webGeometry(w.PA, w.RA, w.PB, w.RB, w.rec, 0.4);
+    assert.equal(coarse.empty, true, 'outline as wide as the fillet: nothing drawn');
+    // Zoomed in (a finer pixel) the same fillet holds lumen inside its outline, and is drawn with an outline under 2/3 of it.
+    const fine = webGeometry(w.PA, w.RA, w.PB, w.RB, w.rec, 0.1);
+    assert.equal(fine.empty, false);
+    assert.ok(fine.w <= fine.rho / WEB_OUTLINE_MIN + 1e-9, 'the fill is more than the outline');
+  }
 });
