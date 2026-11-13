@@ -1499,8 +1499,9 @@ export function createPresenter({ openSettings, loadPreset, host, stage, poke = 
   // already on the reading's first step, and a Next while it waits is swallowed, never the slide moving on: Mohammad, 13 Nov 2026, the direct PPG slide, "1, 2, then it just moves to the next slide".)
   const procQueue = () => {
     const s = slides[want];
-    if (!procRun || !procThen(s) || procRunKind !== procKind(s)) return false;
+    if (!procRun || !procRun.running || !procThen(s) || procRunKind !== procKind(s)) return false;   // (a run that is over holds nothing back: a Next never waits on it)
     if (!procQueued) { procQueued = true; procRing = specOf(procKind(s)).steps.length; procRingAt = want; procPaint(); }
+    procRun.rush();   // (the reading plays out at speed and waits for no camera: Mohammad, 13 Nov 2026, "it's refusing to go to step 4 or 5": the ten seconds of the IVC's own withdrawal swallowed every Next)
     return true;
   };
   const procBack = () => { procQueued = false; if (!procHeld() || shown?.i !== want || !procRun.back()) return false; procTarget(); return true; };
