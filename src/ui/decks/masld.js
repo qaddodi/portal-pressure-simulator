@@ -78,6 +78,13 @@ export const MASLD = {
       ask: ['His LSM falls from 15 to 10 kPa on two measurements, and he has no CSPH. What may that mean?', 'A confirmed fall of ≥30% may mean the fibrosis has regressed by ≥1 stage.'],
     },
     {
+      id: 'regress-lobule', cam: 'lobule', data: 'tiles', tiles: ['lsm', 'plt'], key: ['lsm'],
+      kicker: STIFF, site: 'sin', title: 'A year on, the septa in the lobule are thinner',
+      line: 'In the model, a year of weight loss thins the septa and his LSM is {lsm}. In patients the change is slower and less even.',
+      notes: 'The same patient, one year on, inside the lobule. In the model fibrosis regresses evenly over the year, so the septa are thinner; in patients the course is less regular. A fall in LSM is not the same as regressed fibrosis: it also follows resolving steatosis and inflammation. In patients without CSPH, Baveno VIII reads a confirmed fall of ≥30% as possible fibrosis regression of ≥1 stage (2.6), and a second test such as the ELF score improves accuracy (2.7). It prefers to read these changes as a change in the risk of liver-related events, not as a fibrosis stage (2.8, 2.9).',
+      ask: ['Does a fall in LSM prove the fibrosis has regressed?', 'No. LSM also falls as steatosis and inflammation settle, so a confirmed fall of ≥30% only suggests regression, best read with a second test such as the ELF score.'],
+    },
+    {
       // (Baveno VIII 2.14 to 2.16 on the flow-and-pressure plane: three of the model's patients, as they stand, from no CSPH to decompensated.)
       id: 'surgery', cam: 'fit', visual: 'plane', plane: 'flow-ppg',
       of: [{ preset: 'cirr-comp', name: 'No CSPH', short: 'No CSPH' }, { preset: 'masld-csph', name: 'CSPH', short: 'CSPH' }, { preset: 'cirr-decomp', name: 'Decompensated', short: 'Decomp.' }],

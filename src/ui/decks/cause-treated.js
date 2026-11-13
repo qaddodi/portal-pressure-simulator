@@ -57,6 +57,13 @@ export const CAUSE_TREATED = {
       ask: ['Does he still need HCC surveillance?', 'Yes, every 6 months: cirrhosis was present before the cure, and the HCC risk remains.'],
     },
     {
+      id: 'year2-lobule', cam: 'lobule', data: 'tiles', tiles: ['hvpg', 'lsm'], key: ['hvpg'], delta: 'before',
+      kicker: HCV, site: 'sin', title: 'Two years after cure, the septa are thinner but still there',
+      line: 'Inside the lobule the scar has thinned since before cure, and the HVPG has fallen to {hvpg}. Cirrhosis was present before the cure, so HCC surveillance continues.',
+      notes: 'After cure of hepatitis C, inflammation resolves first and fibrosis regresses slowly and incompletely: the septa thin, but a liver that was cirrhotic before treatment is not read as normal. The HVPG falls more slowly and less completely than the LSM, and in some patients with CSPH before treatment it stays ≥10 mmHg. HCC surveillance every 6 months continues because cirrhosis was present before the cure.',
+      ask: ['Fibrosis has thinned two years after cure. Is the surveillance for HCC still needed?', 'Yes, every 6 months: cirrhosis was present before the cure, and the HCC risk remains.'],
+    },
+    {
       id: 'year2-plane', cam: 'liver', tool: { ...PLANE, trail: [{ slide: 'before', name: 'Before cure' }, { slide: 'year1', name: '1 year' }] }, data: 'tiles', tiles: ['hvpg', 'ssm'], key: ['hvpg'], delta: 'before',
       kicker: HCV, site: 'sin', title: 'On the CSPH plane, the trail ends where CSPH has resolved',
       line: 'The trail runs from before the cure, through one year, to two years after it.',

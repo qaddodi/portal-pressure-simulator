@@ -39,6 +39,13 @@ export const HVPG = {
       ask: ['How do you confirm adequate wedging?', 'Inject a small amount of contrast: it stays in the vein with no washout, and the tracing loses its pulsatility.'],
     },
     {
+      id: 'wedge-sinusoid', cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['whvp', 'sin'], key: ['whvp'],
+      kicker: 'Measuring portal pressure', site: 'sin', title: 'In cirrhosis, the wedged pressure is the sinusoidal pressure',
+      line: 'The blocked hepatic vein is a static column that ends in the sinusoids. They no longer communicate freely, so the column reads their pressure: WHVP {whvp}.',
+      notes: 'With the balloon inflated, flow in that hepatic vein stops and the blood upstream of the tip equilibrates with the pressure where it next meets flowing blood: the sinusoids. In cirrhosis the sinusoids no longer communicate freely with each other, so the column reflects the sinusoidal pressure, which is close to the portal pressure. That is why the WHVP, and so the HVPG, estimates the portal pressure in cirrhosis. Where the resistance lies before the sinusoids, the WHVP does not follow the portal pressure.',
+      ask: ['Which structure does the wedged column of blood reflect?', 'The sinusoids upstream of the tip, which in cirrhosis sit close to the portal pressure.'],
+    },
+    {
       id: 'hvpg', cath: 'result', tool: { kind: 'hvpg', catheter: true },
       kicker: 'Measuring portal pressure', site: 'sin', title: 'HVPG measures the pressure drop across the sinusoids',
       eq: [mi('HVPG') + mo('=') + '<mi class="eq-wedge">WHVP</mi>' + mo('−') + '<mi class="eq-hv">FHVP</mi>'],

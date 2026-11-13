@@ -74,6 +74,13 @@ export const LOBULE = {
       ask: ['Which sites of resistance does the wedged pressure miss?', 'Prehepatic and presinusoidal resistance, such as portal vein thrombosis and schistosomiasis.'],
     },
     {
+      id: 'wedge-sinusoid', cam: 'lobule:sinusoid', terms: { sinusoids: 'lobule:sinusoid' }, data: 'tiles', tiles: ['sin', 'pv'], key: ['sin'],
+      kicker: 'Measuring', site: 'presin', title: 'In schistosomiasis the sinusoids see a normal pressure',
+      line: 'The resistance lies before the sinusoids, so they stay at {sin} while the portal vein runs high. The wedged column ends in the sinusoids, and reads normal.',
+      notes: 'In schistosomiasis the eggs obstruct the portal venules in the portal tracts, upstream of the sinusoids. The sinusoids themselves see a normal pressure, so the static column of blood behind the wedged catheter reads normal and the HVPG stays normal despite a high portal vein pressure. Only a direct portal pressure measurement or the PPG shows the presinusoidal resistance.',
+      ask: ['Why is the wedged pressure normal when the portal vein pressure is high in schistosomiasis?', 'The resistance lies before the sinusoids, so the sinusoids that the wedged column reads see a normal pressure.'],
+    },
+    {
       // (The relation chart before the summary: each disease's wedged pressure against its portal vein pressure, on a plane with the
       // line where the two are equal. On the line the wedge reads the portal vein; under it, the resistance lies before the sinusoids.)
       id: 'relation', cam: 'fit', visual: 'plane',

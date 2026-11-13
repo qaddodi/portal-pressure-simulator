@@ -59,6 +59,14 @@ export const ASCITES = {
       ask: ['Which hormone system drives sodium retention in cirrhotic ascites, and which drug blocks it?', 'Renin–angiotensin–aldosterone; spironolactone.'],
     },
     {
+      id: 'overrun', terms: { lymphatics: 'lobule:lymph', 'portal tracts': 'lobule:triad' }, cam: 'lobule', layers: ['lymph'],
+      data: 'tiles', tiles: ['sin', 'asc'], key: ['asc'], delta: 'start',
+      kicker: 'Ascites', site: 'sin', title: 'When the lymphatics are overrun, lymph weeps from the liver',
+      line: 'At a sinusoidal pressure of {sin}, the lymphatics along the portal tracts carry many times their usual flow and still fall behind. The rest weeps from the liver surface.',
+      notes: 'The lymphatics along the portal tracts dilate and carry many times their usual flow before they are overwhelmed. Past that point the excess lymph weeps from the liver surface into the peritoneal cavity, and the ascites in the data card builds. Compare the first lymph slide, where the same lymphatics drained almost all the filtrate.',
+      ask: ['What happens to the lymph that the portal-tract lymphatics cannot carry?', 'It weeps from the liver surface into the peritoneal cavity.'],
+    },
+    {
       // (The fluid balance moved here from the time-lapse slide before it: that slide's instrument card is now its chart, 12 Nov 2026. Same state, nothing runs.)
       id: 'balance', glow: ['liver'], cam: 'fit', tool: FLUID, data: 'tiles', tiles: ['sin', 'asc'], key: ['asc'], delta: 'start',
       kicker: 'Ascites', site: 'sin', title: 'Lymph that exceeds lymphatic capacity accumulates as ascites',

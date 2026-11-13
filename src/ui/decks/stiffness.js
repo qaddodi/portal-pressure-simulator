@@ -41,6 +41,13 @@ export const STIFFNESS = {
       ask: ['Why can LSM rule CSPH in or out, yet not track an HVPG >12 mmHg?', 'Above 10 to 12 mmHg the HVPG rises mostly with portal inflow and vascular tone, which LSM does not measure.'],
     },
     {
+      id: 'fibrosis-lobule', preset: 'cirr-comp', cam: 'lobule', whatIf: { label: 'Fibrosis', param: 'cirrhosis', min: 0, max: 1, step: 0.05, ends: ['None', 'Severe'] }, data: 'tiles', tiles: ['lsm', 'hvpg'], key: ['lsm'], delta: 'measure',
+      kicker: 'Liver stiffness', site: 'sin', title: 'Fibrosis narrows the sinusoids',
+      line: 'Collagen collects in the space of Disse and in septa between the portal tracts and the central veins. The sinusoids narrow: LSM is {lsm}, HVPG {hvpg}.',
+      notes: 'Inside the lobule the scar is what the shear wave meets. Collagen is laid down in the space of Disse and in septa that join the portal tracts to the central veins, and regenerative nodules compress the sinusoids; this structural narrowing is most of the raised sinusoidal resistance in cirrhosis. Drag the slider to move the fibrosis and watch the septa thicken as the LSM and the HVPG rise. In the model, LSM follows the sinusoidal gradient and the hepatic venous pressure, which is why it rises with the HVPG. LSM also rises with inflammation, cholestasis and congestion, so a high value is read in clinical context.',
+      ask: ['Where in the lobule does the scar that stiffens the liver collect?', 'In the space of Disse and in septa between the portal tracts and the central veins, which narrow the sinusoids.'],
+    },
+    {
       id: 'spleen', terms: ['spleen'], preset: 'csph', cam: 'spleen', glow: ['spleen'], calipers: ['spleen'], normalOutline: ['spleen'], data: 'tiles', tiles: ['spleen', 'plt'], key: ['plt'], delta: 'fibrosis',
       kicker: 'The spleen and the platelets', site: 'sin', title: 'Splenomegaly sequesters platelets',
       vignette: 'A 63-year-old woman with MASH cirrhosis has had a lower platelet count at each yearly visit. She feels well and has never had ascites or bleeding.',
