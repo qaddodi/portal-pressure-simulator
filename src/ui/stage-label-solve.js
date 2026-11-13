@@ -7,7 +7,7 @@ import { bareDots } from './circuit-nodes.js';
 import { D_SURFACE, EASE_ARRIVE } from './ease.js';
 import { heartPass } from './heart-label.js';
 import { HOVER_LINK } from './hover-link.js';
-import { RING_DIRS, boxGap, crosses, hits, needsLeader, offset, triDist, within } from './label-place.js';
+import { RING_DIRS, boxGap, createSlideInView, crosses, hits, needsLeader, offset, triDist, within } from './label-place.js';
 import { reduceMotionMQ as reduceMotion } from './motion.js';
 import { NAME_BREAK, OFF_NEAR, nameSpots, onOtherOrgan } from './organ-names.js';
 import { leaderVesselHits, segHitsBox, segsCross } from './seg-hits.js';
@@ -17,10 +17,10 @@ import { spreadDots } from './label-dots.js';
 
 const STEP_LEAD_GAP = 10;   // (how near its point a step number may stand, px: room for its dot's ring and a leader to the chip)
 export function createLabelSolve(st, live) {
-  const { ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn } = st;
+  const { stationRev, ANAT_EXTRA, ANAT_PRI, CIRCUIT_LABEL_K, E, EBOX, EI, KEY_NODES, LINE_H, LW_XY, MARK_GRID, NI, NO_BLK, PIN_DIR, PULL_GRID, TURN_DIR, ZONE_SHORT, arcMid, blockWant, buildSegs, caliperAt, caliperSegs, calloutBoxes, cath, cathRadOf, clampD, clampFontAt, clampLabelAt, clampLabelPos, clampMv, clampStep, clampTextBox, clampW, colGap, dop, dpr, easeInOut, flagged, fontPx, fxBuild, fxK, fxPill, gLabels, gScan, geo, hasDot, hasVarices, isImaging, labelAnchor, labelBase, labelGlide, labelHidden, labelStop, labelVis, laneAlt, laneU, leadEls, leadRectOf, leaderEnd, lineHits, lineW, liverExpanded, localToWorld, localWorldXY, nodeItem, nodePos, onSelect, oneLine, organEls, ov, paintLeaders, pointAt, pool, procIn, pzInset, rectOf, renderBlock, resItem, resPlace, saSides, scan, scanTipLocal, seenEnd, shortenItem, shortenTo, sites, sliceOver, stageBox, stagePx, stenosisAt, stentReady, textW, velItem, vh, worldToLocal, worldToLocalInto, zoneStick, zoomedIn } = st;
   // (What a layout keeps from label to label across a solve's slices (views, obstacles, boxes, callouts, "60 %" spots, stent dots, arrows, slots), in two records: the live layout's and the dry solve ahead's (stage-view.js preStep), which runs between live layouts.)
   const rect0 = () => ({ x0: 0, y0: 0, x1: 0, y1: 0 }), scratch = () => ({ view: rect0(), plain: rect0(), ptView: rect0(), obst: [], placed: [], call: [], clampAlts: [], markDots: [[0, 0], [0, 0], [0, 0]], markArrows: [], markTris: Array.from({ length: 8 }, () => [[0, 0], [0, 0], [0, 0]]), sol: new Map() });
-  const LIVE_SC = scratch(), DRY_SC = scratch();
+  const LIVE_SC = scratch(), DRY_SC = scratch(), slideInView = createSlideInView({ geo, worldToLocalInto, arcMid, LABEL_VESSEL });
   const viewOf = (it, S) => (it.key === 'scan' ? S.plain : it.point || (dop.all && /^focus/.test(it.key)) ? S.ptView : S.view);
   const FAR_DIRS = ['SE', 'NE', 'SW', 'NW', 'E', 'W', 'S', 'N'];
   const STENT_PTS = ['proximal', 'mid', 'distal'];
@@ -424,7 +424,7 @@ export function createLabelSolve(st, live) {
       if (!best) passes.forEach((ps, pi) => pi >= from && pi < to && (ps.dirs || dirs).forEach((dir, i) => {
         // (A spot on the grid around the station is tried once, not per direction, and only until one is free: the grid runs nearest
         // first. The spot the label held is still tried, so it can hold it.)
-        if (ps.skip || (ps.at && (i || (best && !(prev && prev.pi === pi))))) return;
+        if (ps.skip || (ps.abbrOnly && !it.abbr) || (ps.at && (i || (best && !(prev && prev.pi === pi))))) return;
         let dx, dy;
         if (ps.at) { dx = ps.at[0] - probe.w / 2; dy = ps.at[1] - probe.h / 2; } else { const o = offset(dir, probe, ps.gap); dx = o[0]; dy = o[1]; }
         if (ps.shift) { dx += ps.shift[0]; dy += ps.shift[1]; }   // (a slot slid up or down from its compass spot)
@@ -590,7 +590,7 @@ export function createLabelSolve(st, live) {
       const lvl = st.labelLevel || 'key', zoomed = zoomedIn();
       // A presenter slide names exactly the stations it talks about (store.presentLabels).
       const pres = st.presenting && Array.isArray(st.presentLabels) ? st.presentLabels : null;
-      const show = new Set(pres || (lvl === 'none' ? [] : lvl === 'key' && !zoomed ? [...KEY_NODES, ...flagged(f)] : CHIP_NODES));
+      const show = new Set(pres || (lvl === 'none' ? [] : lvl === 'key' && !zoomed ? [...KEY_NODES, ...flagged(f)] : [...CHIP_NODES, ...flagged(f)]));
       // No varices, no varices callout: in a healthy patient the node's pressure is just the balance
       // between the coronary vein and the azygos, and a "varices" label on it would mislead.
       if (!hasVarices('VAR', f)) show.delete('VAR');
@@ -613,7 +613,7 @@ export function createLabelSolve(st, live) {
         if (!NODE_POS[id] || labelHidden(id)) continue;
         const { ax, ay, mid, w: vw } = labelAnchor(id, t);
         const it = nodeItem(id, f, atlas ? 'atlas' : 'inline', compact);
-        it.ax = ax; it.ay = ay; it.vw = mid ? vw * live.CTM.sc : 0; it.pri = it.sel ? 100 : minor.has(id) ? 1 : ANAT_PRI[id] || 5;
+        it.ax = ax; it.ay = ay; it.vw = mid ? vw * live.CTM.sc : 0; it.pri = it.sel ? 100 : minor.has(id) ? 1 : ANAT_PRI[id] || 5; slideInView(it, id, view);
         it.minor = minor.has(id);
         if (it.minor) it.canShort = false;   // an optional label shows whole or not at all
         it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
@@ -655,9 +655,8 @@ export function createLabelSolve(st, live) {
         for (const id of ANAT_EXTRA) {
           if (show.has(id) || !NODE_POS[id] || !(NI[id] >= 0) || labelHidden(id)) continue;
           const { ax, ay, mid, w: vw } = labelAnchor(id, t);
-          if (items.some((o) => Math.hypot(o.ax - ax, o.ay - ay) < room)) continue;
           const it = nodeItem(id, f, 'inline', compact);
-          it.ax = ax; it.ay = ay; it.vw = mid ? vw * live.CTM.sc : 0; it.pri = ANAT_PRI[id] || 4;
+          it.ax = ax; it.ay = ay; it.vw = mid ? vw * live.CTM.sc : 0; it.pri = ANAT_PRI[id] || 4; slideInView(it, id, view); if (items.some((o) => Math.hypot(o.ax - it.ax, o.ay - it.ay) < room)) continue;
           it.side = ATLAS_LABELS[id]?.side || (NODE_POS[id][0][0] < 700 ? 'L' : 'R');
           items.push(it);
         }
@@ -714,7 +713,7 @@ export function createLabelSolve(st, live) {
           const near = 8 + it.vw / 2, far = 24 + it.vw / 2;
           if (it.minor) { placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }]); continue; }
           // (One a slide names or the reader selected keeps a spot on a vessel when it has none clear: first, farther out on a leader. "SMV" on Variceal bleed 5, 11 Nov.)
-          const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : [];
+          const wide = it.sel || st.presenting ? [40, 58, 76].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true })) : it.node === 'HA' || (ANAT_EXTRA.includes(it.node) && (zoomed || it.rev)) ? [40, 58, 76, 96, 120].map((g) => ({ gap: g + it.vw / 2, leader: true, clear: true, inView: true, abbrOnly: it.node === 'HA' })) : [];   // (a station that has no room beside its vein, zoomed in or with its flow reversed, stands farther out on a leader, wholly on the stage: pulled in from its edge it would land on a vessel)
           if (placeMulti(it, dirs, [{ gap: near, leader: false, clear: true }, { gap: far, leader: true, clear: true }, ...wide, { gap: near, leader: false }, { gap: far, leader: true }])) continue;
           // (A sampled stent point, or the jet, with no room by its third tries again farther out, once the slide's mark has its place.)
           if (it.point) { later.unshift(it); continue; }
@@ -830,7 +829,7 @@ export function createLabelSolve(st, live) {
         if (!open && n.id !== 'HA' && LIVER_INNER.has(n.id) && !(st.selection?.type === 'node' && st.selection.id === n.id)) continue;   // (the hepatic artery's caption stays: it sits between the lobes, not in a lobe)
         // Levels of detail: none shows only a selected station; key, zoomed out, the major ones (and the flagged).
         const isSel = st.selection?.type === 'node' && st.selection.id === n.id, lvlC = st.labelLevel || 'key';
-        if (!isSel && (lvlC === 'none' || (lvlC === 'key' && !zoomedIn() && CIRCUIT_LABELS[n.id].pri < (compact ? 8 : 5) && n.id !== 'HA' && !flagC.includes(n.id)))) continue;
+        if (!isSel && (lvlC === 'none' || (lvlC === 'key' && !zoomedIn() && CIRCUIT_LABELS[n.id].pri < (compact ? 8 : 5) && n.id !== 'HA' && !flagC.includes(n.id) && !stationRev(n.id)))) continue;
         const { ax, ay, mid, tan, w: vw } = labelAnchor(n.id, t);
         // The station dot stays where it is; a callout on a vessel also keeps clear of its own marker.
         const [sx, sy] = worldToLocal(...nodePos(n.id, t));

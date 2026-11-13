@@ -53,7 +53,8 @@ test('G9: under reduced motion the stream stands still but points the way the fl
 test('G9: a watched vessel that reverses marks its station with ⟲, and no band is drawn round it', () => {
   // (Mohammad, 16 Oct: the dashed band is not needed.)
   assert.match(STAGE, /if \(x\.rev && \(!st\.imaging \|\| !!st\.found\?\.has\('flow'\)\)\) revShown\.add\(e\.id\); else revShown\.delete\(e\.id\);/, 'hidden in an imaging case until the flow is seen');
-  assert.match(STAGE, /const rev = !!pr && revShown\.has\(STATION_VESSEL\[id\]\);/);
+  assert.match(STAGE, /const stationRev = \(id\) => \{ const a = revVessels\(id\);/, 'a station tells the reversal of any vessel it stands on, with or without a number');
+  assert.match(STAGE, /const rev = stationRev\(id\);/);
   assert.match(STAGE, /\{ t: '⟲', size: 12, weight: 650, cls: 'lb-rev', gap: 5 \}/);
   assert.match(src('styles/app.css'), /\.lb-rev \{ fill: var\(--flow-reversed\); \}/);
   assert.doesNotMatch(GL, /revInk/, 'no dashed band');

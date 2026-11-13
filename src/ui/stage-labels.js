@@ -8,7 +8,7 @@ import { HEART_KEY, addHeart } from './heart-label.js';
 import { store } from './store.js';
 
 export function createLabelDriver(st, live) {
-  const { E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideNow, rideStart, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
+  const { stationRev, E, EI, EV, LABEL_FIRST_REST_MS, LABEL_REST_SLICE_MS, LABEL_SLICE_MS, calloutSig, camSettle, cath, dop, dpr, dprobePaint, easeInOut, explain, fxBuild, glideXfEnd, hasVarices, isImaging, labelBase, labelGlSync, layerMode, layoutLabels, layoutLabelsGen, nextFrame, nodeItem, pre, preAsk, pzInset, refreshCTM, renderBlock, resItem, rideNow, rideStart, rideStop, sameDeps, scan, scanItem, scanPaint, shortenTo, sigFold, sites, sitesPaint, stageBox, themeKey, velItem, wrap, xfMarkCurrent, xfRelease } = st;
   const SOLVED_A = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 }, SOLVED_B = { sig: null, sc: 0, th: 0, csig: 0, ins: 0 };   // (what updateLabels writes it into, by turns)
   const JOB_NOW = { maxWait: 0 };
   const HAND_STILL_MS = 90;   // (a wheel step is over this long after its last tick: the settle no longer waits the 250 ms of gestureOn)
@@ -20,6 +20,7 @@ export function createLabelDriver(st, live) {
   // (wedged sinusoids and the free hepatic vein) and the stations the model flags; zoomed in, every
   // station in view. All: every station at every zoom. None: only a selected station.
   const KEY_NODES = ['CONF', 'SIN_R', 'RHV'];
+  const REV_FLAG = ['CONF', 'SMV', 'SV', 'LPV', 'RPV', 'RHV', 'MHV', 'LHV', 'IMV', 'LGV', 'IVCI'];   // (the anatomy's stations on a vein that can reverse)
   // (The zoom the labels' level of detail is read from is the camera at rest: the view a card zoom began at, or where a glide is headed, never the live
   // view part way, so a zoom or glide cannot flip a flag and solve the labels mid-move.)
   function labelRestK() { return live.zoomBase?.vt ? live.zoomBase.vt.k : live.vtGliding && live.vtTarget ? live.vtTarget.k : live.vt.k; }
@@ -33,6 +34,8 @@ export function createLabelDriver(st, live) {
     if (hasVarices('VAR', f)) out.push('VAR');
     if (hasVarices('GV', f)) out.push('GV');
     if (f.metrics?.ra > 10) out.push('RA');   // the Findings cut-off for a raised right atrial pressure
+    // A vein whose flow has reversed: its station, so the label carries the reversal icon (13 Nov 2026: the left gastric and the left portal vein had none).
+    for (let i = 0; i < REV_FLAG.length; i++) if (stationRev(REV_FLAG[i]) && !out.includes(REV_FLAG[i])) out.push(REV_FLAG[i]);
     // A narrowed vessel: the stations either side of it.
     const sten = (f.viewParams || st.params).stenosis;
     if (sten) for (const id in sten) {

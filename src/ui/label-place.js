@@ -77,3 +77,34 @@ export function triDist(x, y, tri) {
   }
   return m;
 }
+
+// A vessel whose middle lies outside the stage but part of it is in view takes its label at the middle of the part in view: the label's point slides
+// along the vessel (it.au, which the GPU pins to), so the label is not lost off the edge with its point. The longest run in view, 18 px clear of the
+// edges; none in view, and the middle stays (the label is hidden with its vessel, as before). 13 Nov 2026: the left portal vein with the camera in
+// on the portal bifurcation had only its tail on the stage, and its label stood off it.
+const VIS_STEPS = 100, VIS_INSET = 18;
+export function createSlideInView({ geo, worldToLocalInto, arcMid, LABEL_VESSEL }) {
+  const P0 = [0, 0];
+  return function slideInView(it, id, view) {
+    const eid = it.vw > 0 && LABEL_VESSEL[id], P = eid && geo[eid]?.cur;
+    if (!(P?.length > 1)) return;
+    const inside = (x, y) => x >= view.x0 + VIS_INSET && x <= view.x1 - VIS_INSET && y >= view.y0 + VIS_INSET && y <= view.y1 - VIS_INSET;
+    if (inside(it.ax, it.ay)) return;
+    const seglen = (k) => Math.hypot(P[k][0] - P[k - 1][0], P[k][1] - P[k - 1][1]);
+    let total = 0;
+    for (let k = 1; k < P.length; k++) total += seglen(k);
+    if (!(total > 0)) return;
+    let seg = 1, run = 0, from = -1, best0 = -1, best1 = -1;
+    for (let n = 0; n <= VIS_STEPS; n++) {
+      const want = (total * n) / VIS_STEPS;
+      while (seg < P.length - 1 && run + seglen(seg) < want) { run += seglen(seg); seg++; }
+      const u = Math.min(1, Math.max(0, (want - run) / (seglen(seg) || 1)));
+      worldToLocalInto(P0, P[seg - 1][0] + (P[seg][0] - P[seg - 1][0]) * u, P[seg - 1][1] + (P[seg][1] - P[seg - 1][1]) * u);
+      if (inside(P0[0], P0[1])) { if (from < 0) from = n; if (best0 < 0 || n - from > best1 - best0) { best0 = from; best1 = n; } } else from = -1;
+    }
+    if (best0 < 0) return;
+    const au = (best0 + best1) / 2 / VIS_STEPS, m = arcMid(P, au);
+    worldToLocalInto(P0, m[0], m[1]);
+    it.ax = P0[0]; it.ay = P0[1]; it.au = au;
+  };
+}
