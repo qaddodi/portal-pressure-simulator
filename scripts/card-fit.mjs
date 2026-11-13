@@ -9,7 +9,7 @@
 // What fails (per slide step, per device):
 //   scroll   a card (.pz-text, .pz-data, .pz-panel) whose content is taller than its box: its last lines are hidden from the room.
 //   clipped  a text element wider than its box where the box clips (overflow not visible): a cut or ellipsised word.
-//   off      a text element partly outside the screen and not inside something that scrolls on purpose.
+//   off      a text element partly outside the screen (wholly outside is a parked card, ignored) and not inside something that scrolls on purpose.
 // Known, accepted cases go in scripts/card-fit-allowance.json: { "<deck>:<slide n>:<device>": "<why>" }; a listed case that no longer fails is an error
 // too (delete it), so the list only ever shrinks.
 
@@ -49,7 +49,9 @@ const READ = () => {
     const r = el.getBoundingClientRect();
     if (!r.width) continue;
     if (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflow !== 'visible') clipped.push(`${name(el)} "${el.textContent.trim().slice(0, 40)}" sw${el.scrollWidth}>cw${el.clientWidth}`);
-    if (r.right > vw + 2 || r.left < -2 || r.bottom > vh + 2 || r.top < -2) {
+    // (Wholly outside the screen is a card parked away or a slide's leftover waiting off stage, not text cut by the edge: only text that is partly in view counts.)
+    const inView = r.right > 0 && r.left < vw && r.bottom > 0 && r.top < vh;
+    if (inView && (r.right > vw + 2 || r.left < -2 || r.bottom > vh + 2 || r.top < -2)) {
       let p = el, sc = false;
       while (p && p !== root) { const o = getComputedStyle(p); if (/auto|scroll/.test(o.overflowY + o.overflowX)) { sc = true; break; } p = p.parentElement; }
       if (!sc) off.push(`${name(el)} "${el.textContent.trim().slice(0, 40)}" [${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.right)},${Math.round(r.bottom)}]`);
@@ -125,6 +127,7 @@ await Promise.all(Array.from({ length: Math.min(JOBS, jobs.length) }, async () =
     const rec = await walkDeck(browser, d, device);
     results.push(rec);
     console.log(`${d.id} ${device}: ${rec.steps.length} slides${rec.fail ? `, FAILED TO WALK (${rec.fail})` : ''}, ${rec.problems.length} with problems${rec.errors.length ? `, ${rec.errors.length} page errors` : ''}`);
+    for (const p of rec.problems) for (const t of p.problems) console.log(`    slide ${p.slide}: ${t}`);
   }
 }));
 await browser.close();

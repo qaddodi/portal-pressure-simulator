@@ -7216,7 +7216,7 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .gc-n > small { margin-left: .3em; font-size: .6em; font-weight: 500; color: var(--text-3); }
 .gc-tugbox { padding-block: .18em; }
 .gc-tugbox .gs-trk { --gs-bar: .5em; }
-.gc-foot { color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* (A tile's foot wraps, never cuts: "Capacity 4,290 · saturated" lost its last word to an ellipsis.) */ .gc-foot { color: var(--text-3); text-wrap: pretty; }
 .gc-ans { display: flex; justify-content: space-between; align-items: baseline; gap: .6em; margin-top: .35em; white-space: nowrap; }
 .gc-t { color: var(--text); font-size: 1.1em; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .gc-ans > b { font-size: 1.2em; font-weight: 600; }
