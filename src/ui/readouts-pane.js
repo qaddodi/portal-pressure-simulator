@@ -1,7 +1,7 @@
 // The Readouts tab of the Tests card: every readout the old bottom bar showed (pressure, flow, consequences,
 // systemic), live, each with its scale bar. A tap on a readout says what drives it, as it did in the bar.
-// The tile markup, classes and status logic follow the bar's tiles in dock.js; the data comes from there
-// (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
+// The tile is the bar's own (tile-el.js, one builder: unification audit, finding 6) and the status logic follows the bar's in dock.js; the data
+// comes from there (TILES, GROUPS, VITALS, readoutValue), passed in so this file does not import the dock.
 
 import { store, hiddenNow } from './store.js';
 import { hvBlocked, SEV_OF_RATE, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
@@ -9,6 +9,7 @@ import { h, fmt, clamp, shownOf, countTo, swapText, fadeIn, putText } from './ut
 import { vitalReading, bpText } from './vital-read.js';
 import { SCALE, RATE } from './table-marks.js';
 import { shownState, shownOr, FILL_SMALL, fillQ } from './shown.js';
+import { tileEl } from './tile-el.js';
 
 // A number that changes rewrites its text node in place (setting textContent replaces the node).
 
@@ -30,12 +31,8 @@ export function createReadoutsPane({ tiles, groups, vitals, readoutValue, onWhy,
   const vitEls = [];
 
   function tile(t) {
-    const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr', 'aria-hidden': 'true' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
-    const fill = h('i', { class: 'rb-fill' });
-    const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
-    const el = h('button', { type: 'button', class: 'metric', 'data-id': t.id },
-      h('span', { class: 'k' }, t.k), h('span', { class: 'v' }, val, h('span', { class: t.u === '%' ? 'unit pct' : 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
-    el.title = `${t.title || t.k}${t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
+    // (The bar's tile, tile-el.js: here a button with the reading's full name, never the short one.)
+    const { el, val, tr, st, cmp, fill } = tileEl(t, { names: false, type: 'button' });
     if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));
     else if (t.why) el.addEventListener('click', () => (t.id === 'hvpg' && readoutValue(t, {}, hiddenNow()) == null ? show('hvpg', { reveal: true }) : onWhy(t.why, el)));
     els[t.id] = { el, t, val, tr, st, cmp, fill, hist: [], sev: null, trend: '', ariaTxt: '' };

@@ -18,7 +18,9 @@ test('the bar keeps HVPG and PPG, two lobule flows, and no chevron', () => {
 test('tapping the bar\'s HVPG or PPG does nothing: a plain div, no click handler, no hover or pointer', () => {
   const dock = read('../src/ui/dock.js');
   assert.match(dock, /const BAR_INERT = PRIMARY;/);
-  assert.match(dock, /h\(inert \? 'div' : 'button'/);
+  // (The tile is the one readout tile, tile-el.js: unification audit, finding 6.)
+  assert.match(read('../src/ui/tile-el.js'), /h\(inert \? 'div' : 'button'/);
+  assert.match(dock, /tileEl\(t, \{ inert, /);
   assert.match(dock, /if \(inert\) \{ \/\* readout only \*\/ \}\n\s+else if \(t\.pane\)/);
   const css = read('../styles/app.css');
   assert.match(css, /\.metric\.inert \{ cursor: default; \}/);

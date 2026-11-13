@@ -13,6 +13,7 @@ import { ownsSideways, pageGo } from './swipe.js';
 import { sheetDockVars } from './dock-vars.js';
 import { createEndoscopy, createVarixWall, createAbdomen } from './instruments.js';
 import { createReadoutsPane } from './readouts-pane.js';
+import { tileEl } from './tile-el.js';
 import { frameFor } from './frame.js';
 import { glideStop } from './script-glide.js';
 import { glWords } from './gl-words.js';
@@ -22,6 +23,7 @@ import { classSoon, classHas, classNow, runSoon } from './class-soon.js';
 import { vitalReading, vitalHeading, VITALS } from './vital-read.js';
 import { setShown, shownState, FILL_SMALL, fillQ } from './shown.js';
 import { tenthGap } from '../engine/gap.js';
+import { TILE } from './table-marks.js';
 import { HVPG_CUTS, PPG_CUTS, hvpgSev, ppgSev, hvBlocked, HVPG_WORDS, PPG_WORDS, NOT_MEASURABLE } from '../engine/pressure-cuts.js';
 import { KIDNEY_CUTS, rppSev, RPP_WORDS } from '../engine/kidney-cuts.js';
 import { compareRows } from './idle-keys.js';
@@ -59,30 +61,33 @@ function sameShape(a, b) {
 }
 // (The status words of the readouts, in tables made once: a tile names its state every model frame. The HVPG's and PPG's are pressure-cuts.js's, short form.)
 const ASCITES_WORDS = ['None', 'Grade 1', 'Grade 2', 'Grade 3'];
+// A reading's unit, decimals and long description come from its one definition (table-marks.js TILE: unification audit, finding 6); the bar adds its group,
+// its names, scale, cut-off ticks, status words and "why". (The varix's tile is the wall stress, a reading of the bar's own.)
+const fromTile = (k) => ({ u: TILE[k].u, d: TILE[k].d ?? 1, title: TILE[k].long });
 export const TILES = [
-  { id: 'hvpg', group: 'pressure', k: 'HVPG', title: 'Hepatic venous pressure gradient: HVPG = WHVP − FHVP (wedged minus free hepatic venous pressure). Estimates the sinusoidal pressure gradient; normal <5 mmHg, CSPH ≥10 mmHg.', why: 'hvpg', v: (m) => m.hvpg, d: 1, u: 'mmHg', hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
+  { id: 'hvpg', ...fromTile('hvpg'), group: 'pressure', k: 'HVPG', why: 'hvpg', v: (m) => m.hvpg, hideKey: 'trueHVPG', measured: () => store.get().lastHVPG,
     scale: [0, 25], ticks: [HVPG_CUTS.amber, HVPG_CUTS.red],
     st: hvpgSev,
     s: (v) => HVPG_WORDS[hvpgSev(v)][0] },
-  { id: 'ppg', group: 'pressure', k: 'PPG', title: 'Portal pressure gradient: PPG = portal vein pressure − IVC pressure (portal confluence minus suprahepatic IVC), read directly from the model network. Unlike the HVPG, it includes presinusoidal and prehepatic resistance. Normal <6 mmHg, high ≥12 mmHg.', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg, d: 1, u: 'mmHg',
+  { id: 'ppg', ...fromTile('ppg'), group: 'pressure', k: 'PPG', why: 'ppg', hideKey: 'pv', v: (m) => m.ppg,
     scale: [0, 25], ticks: [PPG_CUTS.amber, PPG_CUTS.red],
     st: ppgSev, s: (v) => PPG_WORDS[ppgSev(v)][0] },
-  { id: 'pv', group: 'pressure', k: 'Portal pressure', ks: 'Portal P', title: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤10 mmHg.', why: 'pv', v: (m) => m.pv, d: 1, u: 'mmHg', hideKey: 'pv',
+  { id: 'pv', ...fromTile('pv'), group: 'pressure', k: 'Portal pressure', ks: 'Portal P', why: 'pv', v: (m) => m.pv, hideKey: 'pv',
     scale: [0, 35], ticks: [10, 15],
     st: (v) => (v <= 10 ? 'ok' : v < 15 ? 'caution' : 'danger'), s: (v) => (v <= 10 ? 'Normal' : v < 15 ? 'High' : 'Severe') },
-  { id: 'rpp', group: 'pressure', hideKey: 'model', k: 'Renal perfusion pressure', ks: 'RPP', title: `Renal perfusion pressure: RPP = MAP − IAP (mean arterial pressure minus intra-abdominal pressure). A perfusion pressure, not kidney function: the model has no GFR or creatinine. Low below ${KIDNEY_CUTS.rpp} mmHg, the MAP threshold of ${KIDNEY_CUTS.mapBeta} mmHg for reducing or stopping an NSBB (Baveno VIII 4.6) at the resting IAP.`, why: 'rpp', v: (m) => m.rpp, d: 0, u: 'mmHg',
+  { id: 'rpp', ...fromTile('rpp'), group: 'pressure', hideKey: 'model', k: 'Renal perfusion pressure', ks: 'RPP', why: 'rpp', v: (m) => m.rpp,
     scale: [30, 100], ticks: [KIDNEY_CUTS.rpp],
     st: rppSev, s: (v) => RPP_WORDS[rppSev(v)] },
   // Flow and velocity averaged over a few breaths (pvFlowMean, pvVelMean): breathing swings the
   // instantaneous velocity across the 15 cm/s cut-off even in a healthy patient.
-  { id: 'pvflow', group: 'flow', k: 'Portal flow', ks: 'PV flow', title: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = hepatofugal). Normal ≥0.9 L/min at ≥15 cm/s (Doppler).', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow, d: 1, u: 'L/min',
+  { id: 'pvflow', ...fromTile('pvFlow'), group: 'flow', k: 'Portal flow', ks: 'PV flow', why: 'pvFlow', v: (m) => m.pvFlowMean ?? m.pvFlow,
     scale: [-0.6, 2], ticks: [0, 0.9],
     st: (v, m) => (v < -0.02 ? 'critical' : Math.abs(vel(m)) < 9 ? 'danger' : v < 0.9 || Math.abs(vel(m)) < 15 ? 'caution' : 'ok'),
     s: (v, m) => (v < -0.02 ? 'Reversed' : Math.abs(vel(m)) < 9 ? 'Stasis' : v < 0.9 ? 'Reduced' : Math.abs(vel(m)) < 15 ? 'Slow' : 'Normal') },
-  { id: 'liver', group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', title: 'Total sinusoidal blood flow (portal vein plus hepatic artery), % of the model\u2019s healthy baseline. A model quantity, not liver function.', why: 'sinFlow', v: (m) => m.liverPerfPct, d: 0, u: '%',
+  { id: 'liver', ...fromTile('liver'), group: 'flow', hideKey: 'model', k: 'Sinusoidal flow', ks: 'Sinusoids', why: 'sinFlow', v: (m) => m.liverPerfPct,
     scale: [0, 150], ticks: [55, 75],
     st: (v) => (v > 75 ? 'ok' : v > 55 ? 'caution' : 'danger'), s: (v) => (v > 75 ? 'Normal' : v > 55 ? 'Low' : 'Severe') },
-  { id: 'shunt', group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100, d: 0, u: '%', title: 'Fraction of splanchnic (mesenteric and splenic) venous blood that bypasses the liver through portosystemic collaterals and shunts.',
+  { id: 'shunt', ...fromTile('shunt'), group: 'flow', k: 'Shunted', why: 'shunt', hideKey: 'model', v: (m) => m.shuntFraction * 100,
     scale: [0, 100], ticks: [10, 30, 60],
     st: (v) => (v < 10 ? 'ok' : v < 30 ? 'caution' : v < 60 ? 'danger' : 'critical'), s: (v) => (v < 10 ? 'Minimal' : v < 30 ? 'Moderate' : v < 60 ? 'Large' : 'Most') },
   { id: 'varix', group: 'effects', k: 'Varix wall stress', ks: 'Varix', why: 'varix', hideKey: 'model', v: (m) => m.varix.ratioShown * 100, d: 0, u: '%', ux: ' of rupture', title: 'Modeled esophageal variceal wall stress (Laplace: pressure × radius ÷ wall thickness; an educational index, not a measured quantity), as a % of the stress at which the varix ruptures in the model.',
@@ -90,10 +95,10 @@ export const TILES = [
     st: (v, m) => (m.varix.ratioShown >= 0.9 ? 'critical' : m.varix.ratioShown >= 0.7 ? 'danger' : m.varix.ratioShown >= 0.4 || m.varix.d >= 5 ? 'caution' : 'ok'),
     s: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale signs' : m.varix.grade.label),
     ss: (v, m) => (!m.varix.present ? 'None' : m.varix.redWale ? 'Red wale' : m.varix.grade.label) },
-  { id: 'ascites', group: 'effects', pane: 'abdomen', k: 'Ascites', title: 'Free intraperitoneal fluid. Grade 1 is detectable only on ultrasound, grade 2 is moderate, grade 3 is tense.', why: 'ascites', v: (m) => m.ascites.volume / 1000, d: 1, u: 'L',
+  { id: 'ascites', ...fromTile('asc'), group: 'effects', pane: 'abdomen', k: 'Ascites', why: 'ascites', v: (m) => m.ascites.volume / 1000,
     scale: [0, 8], ticks: [0.15, 1.5, 5],
     st: (v, m) => (m.ascites.grade === 0 ? 'ok' : m.ascites.grade === 1 ? 'caution' : 'danger'), s: (v, m) => ASCITES_WORDS[m.ascites.grade] },
-  { id: 'spleen', group: 'effects', k: 'Spleen', title: 'Spleen length. Splenomegaly >13 cm; splenic sequestration lowers the platelet count.', why: 'spleen', v: (m) => m.spleen.length, d: 1, u: 'cm',
+  { id: 'spleen', ...fromTile('spleen'), group: 'effects', k: 'Spleen', why: 'spleen', v: (m) => m.spleen.length,
     scale: [8, 22], ticks: [13],
     st: (v) => (v <= 13 ? 'ok' : v <= 16 ? 'caution' : 'danger'), s: (v) => (v <= 13 ? 'Normal' : 'Large') },
 ];
@@ -207,17 +212,10 @@ export function createDock({ strip, head, body, onWhy, onAction, onProbe, onReve
   strip.append(row);
   const pos = (t, v) => clamp((v - t.scale[0]) / (t.scale[1] - t.scale[0]), 0, 1) * 100;
   function tile(t, shared) {
-    const val = h('span', { class: 'val' }, '—'), tr = h('span', { class: 'tr', 'aria-hidden': 'true' }), st = h('span', { class: 'status' }), cmp = h('span', { class: 'cmp' });
-    // (Room for two whole digits and the tile's decimals, "16.9" or "62", in whole pixels: a reading keeps its width as it
-    // changes, and a tile is never wider than its usual reading, so a phone's row still fits.)
-    val.style.setProperty('--vr', `round(up, calc(${2 + t.d}ch${t.d ? ' + 0.26em' : ''}), 1px)`);
-    const fill = h('i', { class: 'rb-fill' });
-    const bar = h('span', { class: 'rb', 'aria-hidden': 'true' }, fill, t.ticks.map((x) => h('i', { class: 'rb-tick', style: { left: pos(t, x) + '%' } })));
     // The bar's HVPG and PPG are plain readouts for now: no tap action, button or focus stop (the Readouts tab's tiles still open "why").
     const inert = BAR_INERT.has(t.id);
-    const el = h(inert ? 'div' : 'button', { class: 'metric' + (inert ? ' inert' : '') + (PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id) ? ' primary' : ''), 'data-id': t.id, ...(inert ? { role: 'group' } : {}) },
-      h('span', { class: 'k' }, t.ks ? [h('span', { class: 'k-l' }, t.k), h('span', { class: 'k-s' }, t.ks)] : t.k), h('span', { class: 'v' }, val, shared ? null : h('span', { class: t.u === '%' ? 'unit pct' : 'unit' }, t.u, t.ux ? h('span', { class: 'u-x' }, t.ux) : null), tr), bar, h('span', { class: 's' }, st, cmp));
-    el.title = `${t.title || t.k}${inert ? '' : t.pane ? '\nClick to open the Ascites view.' : t.why ? '\nClick for what is driving it.' : ''}`;
+    // (The tile's markup is the one readout tile, tile-el.js, as Tests › Readouts builds it.)
+    const { el, val, tr, st, cmp, fill } = tileEl(t, { inert, primary: PRIMARY.has(t.id) || LOBULE_PRIMARY.has(t.id), unit: !shared, width: true });
     // Ascites opens its own instrument (amount, cause, tap, treatment) rather than a second popover.
     if (inert) { /* readout only */ }
     else if (t.pane) el.addEventListener('click', () => show(t.pane, { reveal: true }));

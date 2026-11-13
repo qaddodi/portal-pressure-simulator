@@ -69,8 +69,9 @@ test('the tile is rated from the cut-off module alone: red below the MAP line ca
 test('no wording on the tile claims kidney function', () => {
   const words = [TILE.rpp.t, TILE.rpp.s, CUT.rpp, METRICS.rpp.label, read('src/engine/kidney-cuts.js').split('\n').slice(0, 12).join(' ')];
   for (const w of words) assert.ok(!/\b(GFR|filtration rate|creatinine clearance)\b/i.test(w.replace(/no GFR|not kidney function|no GFR, no creatinine/g, '')), w);
-  const dock = read('src/ui/dock.js').split('\n').find((l) => l.includes("id: 'rpp'"));
-  assert.match(dock, /not kidney function/, 'the tile\'s tooltip says it is a pressure');
+  // (The bar's tile takes its tooltip from the reading's one definition, TILE.rpp.long: unification audit, finding 6.)
+  assert.match(TILE.rpp.long, /not kidney function/, 'the tile\'s tooltip says it is a pressure');
+  assert.ok(read('src/ui/dock.js').split('\n').find((l) => l.includes("id: 'rpp'")).includes("...fromTile('rpp')"), 'the bar\'s RPP tile reads it');
 });
 
 const blank = (line) => line.replace(/\/\/.*$/, '').replace(/'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`/g, '""');

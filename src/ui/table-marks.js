@@ -120,29 +120,31 @@ export const RATE = {
 };
 // Each tile: its name (n: a short one for a narrow tile, three in a row on a tablet or phone), what it is, the unit, the decimals (1 unless d), a scale (x) and which way is better
 // (−1 lower, 1 higher) for the colour of a change.
+// A reading that the bottom bar and Tests › Readouts show carries its long description too (long: their tiles' hover text and spoken name), so a reading is
+// defined once (unification audit, finding 6; moved from dock.js TILES, the words unchanged).
 export const TILE = {
-  hvpg: { t: 'HVPG', s: 'WHVP − FHVP', u: 'mmHg', better: -1 },
-  ppg: { t: 'PPG', s: 'Portal − IVC', u: 'mmHg', better: -1 },
+  hvpg: { t: 'HVPG', s: 'WHVP − FHVP', u: 'mmHg', better: -1, long: 'Hepatic venous pressure gradient: HVPG = WHVP − FHVP (wedged minus free hepatic venous pressure). Estimates the sinusoidal pressure gradient; normal <5 mmHg, CSPH ≥10 mmHg.' },
+  ppg: { t: 'PPG', s: 'Portal − IVC', u: 'mmHg', better: -1, long: 'Portal pressure gradient: PPG = portal vein pressure − IVC pressure (portal confluence minus suprahepatic IVC), read directly from the model network. Unlike the HVPG, it includes presinusoidal and prehepatic resistance. Normal <6 mmHg, high ≥12 mmHg.' },
   eus: { t: 'EUS-PPG', s: 'Portal − hepatic vein', u: 'mmHg', better: -1 },
-  pv: { t: 'Portal vein pressure', n: 'Portal', s: 'Pressure', u: 'mmHg', better: -1 },
+  pv: { t: 'Portal vein pressure', n: 'Portal', s: 'Pressure', u: 'mmHg', better: -1, long: 'Portal vein pressure at the portal confluence, absolute (model value). Normal ≤10 mmHg.' },
   sin: { t: 'Sinusoidal pressure', n: 'Sinusoids', s: 'Pressure', u: 'mmHg', better: -1 },
   whvp: { t: 'WHVP', s: 'Wedged hepatic vein', u: 'mmHg', better: -1 },
   fhvp: { t: 'FHVP', s: 'Free hepatic vein', u: 'mmHg', better: -1 },
   saag: { t: 'SAAG', s: 'Serum − ascitic fluid albumin', u: 'g/dL' },
   tp: { t: 'Ascitic fluid protein', n: 'Protein', s: 'Total protein', u: 'g/dL' },
-  asc: { t: 'Ascites', s: 'Volume', u: 'L', x: 0.001, better: -1 },
+  asc: { t: 'Ascites', s: 'Volume', u: 'L', x: 0.001, better: -1, long: 'Free intraperitoneal fluid. Grade 1 is detectable only on ultrasound, grade 2 is moderate, grade 3 is tense.' },
   varix: { t: 'Esophageal varix', n: 'Varix', s: 'Diameter', u: 'mm', better: -1 },
   gv: { t: 'Gastric varix', n: 'Fundal', s: 'Fundal, diameter', u: 'mm', better: -1 },
-  spleen: { t: 'Spleen', s: 'Length', u: 'cm', better: -1 },
+  spleen: { t: 'Spleen', s: 'Length', u: 'cm', better: -1, long: 'Spleen length. Splenomegaly >13 cm; splenic sequestration lowers the platelet count.' },
   plt: { t: 'Platelets', s: 'Thousands per µL', u: '×10³/µL', d: 0, better: 1 },
-  pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min' },
+  pvFlow: { t: 'Portal vein flow', n: 'Portal flow', s: 'Mean', u: 'L/min', long: 'Portal vein blood flow toward the liver, averaged over a few breaths (negative = hepatofugal). Normal ≥0.9 L/min at ≥15 cm/s (Doppler).' },
   pvVel: { t: 'Portal vein velocity', n: 'PV velocity', s: 'Doppler, main portal vein', u: 'cm/s', d: 0, better: 1 },
-  liver: { t: 'Sinusoidal flow, % of normal', n: 'Sinusoid flow', s: 'Portal + arterial, vs healthy', u: '%', d: 0, better: 1 },
-  shunt: { t: 'Shunted', s: 'Portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1 },
+  liver: { t: 'Sinusoidal flow, % of normal', n: 'Sinusoid flow', s: 'Portal + arterial, vs healthy', u: '%', d: 0, better: 1, long: 'Total sinusoidal blood flow (portal vein plus hepatic artery), % of the model\u2019s healthy baseline. A model quantity, not liver function.' },
+  shunt: { t: 'Shunted', s: 'Portal blood bypassing the liver', u: '%', x: 100, d: 0, better: -1, long: 'Fraction of splanchnic (mesenteric and splenic) venous blood that bypasses the liver through portosystemic collaterals and shunts.' },
   map: { t: 'Blood pressure', n: 'BP', s: 'Systolic/diastolic (mean)', u: 'mmHg', d: 0, bp: true },
   // (The systolic alone, for a criteria row or a table column that reads it against Baveno VIII 4.6's 90 mmHg; a slide shows the pressure as map.)
   sbp: { t: 'Systolic pressure', n: 'Systolic', s: 'Arm cuff', u: 'mmHg', d: 0, better: 1 },
-  rpp: { t: 'Renal perfusion pressure', n: 'RPP', s: 'MAP − IAP', u: 'mmHg', d: 0, better: 1 },
+  rpp: { t: 'Renal perfusion pressure', n: 'RPP', s: 'MAP − IAP', u: 'mmHg', d: 0, better: 1, long: `Renal perfusion pressure: RPP = MAP − IAP (mean arterial pressure minus intra-abdominal pressure). A perfusion pressure, not kidney function: the model has no GFR or creatinine. Low below ${KIDNEY_CUTS.rpp} mmHg, the MAP threshold of ${KIDNEY_CUTS.mapBeta} mmHg for reducing or stopping an NSBB (Baveno VIII 4.6) at the resting IAP.` },
   hr: { t: 'Heart rate', n: 'HR', s: 'Beats per minute', u: '/min', d: 0 },
   lsm: { t: 'Liver stiffness', n: 'Stiffness', s: 'FibroScan', u: 'kPa', better: -1 },
   ssm: { t: 'Spleen stiffness', n: 'SSM', s: 'FibroScan, 100 Hz probe', u: 'kPa', better: -1 },

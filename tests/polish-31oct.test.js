@@ -208,7 +208,9 @@ test('a percent hugs its number in the Why headline and on the readout tiles ("6
   // an ordinary unit keeps its space
   assert.match(explain(e, 'hvpg').sentence, /^HVPG is [\d.]+ mmHg/);
   // the tile's unit span carries the class that closes the gap, in the bar and in the Readouts tab, and the CSS beats the phone's rule
-  for (const f of ['src/ui/dock.js', 'src/ui/readouts-pane.js']) assert.match(src(f), /class: t\.u === '%' \? 'unit pct' : 'unit'/, f);
+  // (One tile builder for the bar and the Readouts tab, tile-el.js: unification audit, finding 6.)
+  assert.match(src('src/ui/tile-el.js'), /class: t\.u === '%' \? 'unit pct' : 'unit'/, 'src/ui/tile-el.js');
+  for (const f of ['src/ui/dock.js', 'src/ui/readouts-pane.js']) assert.match(src(f), /= tileEl\(t, \{/, f);
   assert.match(css, /\.metric \.v \.unit\.pct\.pct\.pct \{ margin-left: 1px; \}/);
 });
 
@@ -325,8 +327,11 @@ test('History says a put-away change as what is off: acronyms keep their case, v
 });
 
 test('the PPG tile names the gradient as the rest of the app does (portal pressure gradient)', () => {
-  assert.match(dock, /id: 'ppg'[^\n]*title: 'Portal pressure gradient: PPG = portal vein pressure − IVC pressure/);
+  // (The bar's tile takes its tooltip from the reading's one definition, table-marks.js TILE: unification audit, finding 6.)
+  assert.match(dock, /id: 'ppg', \.\.\.fromTile\('ppg'\)/);
+  assert.match(src('src/ui/table-marks.js'), /\n {2}ppg: \{[^\n]*long: 'Portal pressure gradient: PPG = portal vein pressure − IVC pressure/);
   assert.doesNotMatch(dock, /Portosystemic pressure gradient/);
+  assert.doesNotMatch(src('src/ui/table-marks.js'), /Portosystemic pressure gradient/);
 });
 
 test('visible words in the talks, the Testing deck and the toasts are US spelling (gray, color, canceled)', () => {
