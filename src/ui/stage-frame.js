@@ -1,7 +1,8 @@
 // The frame state: the latest frame, its readout and the plain reads of it.
 // (moved out of stage.js by scripts/stage-split/move.mjs: the text is unchanged except that a shared let reads live.x; every `let` of the stage is read through live, never copied.)
 import { EDGES, dMinOf, edgePresent } from '../engine/topology.js';
-import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_SOFT, VB_ANAT, VB_CIRC } from './anatomy.js';
+import { ANAT_HIDDEN, NEEDS_C3, STRAND_FROM, STRAND_HOLD, STRAND_PLATEAU, STRAND_SOFT, VB_ANAT, VB_CIRC, WIG_CAP } from './anatomy.js';
+import { smooth01 } from './motion.js';
 import { peelAt } from './flow-peel.js';
 import { reduceMotionMQ as reduceMotion, easeMove } from './motion.js';
 import { OVER_ALL } from './stage-over.js';
@@ -103,7 +104,7 @@ export function createFrame(st, live) {
     }
     const base = pts;
     const u0 = STRAND_FROM[x.e.id] || 0;
-    if (x.e.kind === 'collateral' && !x.e.spontaneous && t < 1) { const wz = wiggle(pts, g.wig * (1 - t), x.e.id.length); pts = u0 ? blendFrom(base, wz, u0) : wz; }
+    if (x.e.kind === 'collateral' && !x.e.spontaneous && t < 1) { const wz = wiggle(pts, Math.min(g.wig, WIG_CAP[x.e.id] ?? Infinity) * (1 - t), x.e.id.length); pts = u0 ? blendFrom(base, wz, u0) : wz; }
     vesOut.pts = pts; vesOut.base = base; vesOut.u0 = u0;
     return vesOut;
   }
@@ -113,6 +114,14 @@ export function createFrame(st, live) {
     const g = geo[x.e.id];
     // (The varices' strands fan out as far as their varix is big: g.spr, eased, see varix-look.js.)
     const fan = sd.off * (1 - t) * (g.spr ?? 1);
+    // (A plateau strand: its offset, off the chord's one normal, follows the main channel's own plateau, and it takes the main channel's serpentine
+    // as it is drawn (pts minus base) when its ph is 1, so the channels that ride it bend together and none crosses another.)
+    const pa = STRAND_PLATEAU[x.e.id];
+    if (pa) {
+      const n0 = base.length - 1, A = base[0], B = base[n0], cl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, nx = -(B[1] - A[1]) / cl, ny = (B[0] - A[0]) / cl;
+      const ride = sd.ph ? 1 : 0;
+      return base.map((p, i) => { const v = i / n0, o = fan * smooth01(v / pa) * smooth01((1 - v) / pa); return [p[0] + nx * o + ride * (pts[i][0] - p[0]), p[1] + ny * o + ride * (pts[i][1] - p[1])]; });   // alloc-rare: as braid's own list, made when the course changes
+    }
     const soft = STRAND_SOFT.has(x.e.id);
     // (A soft strand is braided off the channel as drawn and holds to it, its serpentine too, for the first and last tenth: it leaves the node as the channel does.)
     let sp = sd.span ? braid(base, fan, 0, sd.span, sd.ph) : soft ? wiggle(braid(pts, fan, u0, null, 0, true), (0.8 * g.wig + 3) * (1 - t), sd.ph, STRAND_HOLD) : wiggle(braid(base, fan, u0), (0.8 * g.wig + 3) * (1 - t), sd.ph);

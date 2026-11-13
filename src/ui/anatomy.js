@@ -232,7 +232,11 @@ export const EDGE_PATH = {
   // The retroperitoneal collateral leaves the SMV well below the mesocaval origin, on the lower trunk,
   // and runs across to the cava lower down (see STRANDS for its small veins).
   C7: 'M738 755 C 706 756 664 748 620 745',
-  C8: 'M700 556 C 660 540 618 505 602 442',
+  // (The periportal plexus of a cavernous transformation: the main channel leaves the open stump of the portal trunk below the clot, 22 units above the
+  // confluence, runs up beside the clotted trunk on the patient's right, 10.5 units off its drawn centreline, and rejoins the open stump above the clot,
+  // 22 units below the hilum. Both ends lie on the trunk's centreline (ends on another course, cut at its wall), so no channel or strand ends in the
+  // crowded hilum or confluence node. Built by following the trunk's meandered course with a plateau offset (rise and fall over 18 units). 13 Nov 2026.)
+  C8: 'M687.1 538.1 C 685.6 537.5 681.3 535.4 678.3 534.1 C 675.2 532.8 671.5 532.1 669.1 530.3 C 666.7 528.5 665.6 525.6 663.7 523.2 C 661.9 520.9 660.0 518.6 658.0 516.4 C 656.1 514.2 654.1 512.0 652.1 509.8 C 650.1 507.6 648.1 505.4 646.0 503.3 C 644.0 501.1 642.0 498.9 640.0 496.7 C 638.0 494.5 636.0 492.4 634.0 490.2 C 632.0 488.0 630.1 485.8 628.1 483.6 C 626.1 481.4 623.4 479.8 622.0 477.1 C 620.6 474.4 620.6 470.5 619.9 467.3 C 619.1 464.0 617.9 459.3 617.5 457.7',
   // Ascending lumbar veins → the ascending azygos. In the body it runs up the posterior abdominal wall beside the spine, behind
   // the liver, and through the diaphragm's crus into the azygos, so it is drawn that way (Mohammad, 31 Oct, Budd–Chiari: the
   // flank route over the dome read as a detour, and a route in front crossed the hepatic veins; "I like behind the liver fade"):
@@ -281,7 +285,12 @@ export const EDGE_PATH = {
 // large vein, not a plexus.) In the anatomic view these get extra strands that leave and rejoin
 // the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
-  C8: [[-11, 1.1, 0.7], [33, 5.2, 0.75], [-22, 3.9, 0.75], [42, 2.4, 0.7], [52, 0.3, 0.6]],
+  // (The cavernoma's strands keep the main channel's plateau (STRAND_PLATEAU): [offset from the main channel, 1 to ride its serpentine or 0 to keep
+  // the trunk's course, caliber]. The main channel lies 10.5 to the patient's right of the clotted trunk. The first strand runs on the left of the
+  // trunk, 7.6 off its centreline: the hepatic artery hugs the trunk there, 12 off it, and leaves room only for a fine channel on the trunk's own
+  // course, between the vein's wall and the artery's. The second lies outside the main channel, 18.5 right, and rides its serpentine. First listed
+  // grows in first.)
+  C8: [[17.1, 0, 0.5], [-8, 1, 0.7]],
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
@@ -299,6 +308,16 @@ export const SIN_EDGES = new Set(['SIN_RR', 'SIN_LL']);
 // The strands that leave and join their vessel tangent to it (the offset eases in as the square of the sine, not the sine): the periportal plexus grows out of the
 // confluence and into the hilum as one vessel that parts into channels, not as a fan of round ends that start at one point at an angle (13 Nov 2026).
 export const STRAND_SOFT = new Set(['C8']);
+// The strands that keep their main channel's own plateau instead (the cavernoma): each lies at its offset times the plateau, which rises and falls over
+// this share of the course at each end, as the main channel's course does, and rides the main channel's serpentine, so no two channels ever cross
+// (13 Nov 2026, Mohammad's shot of 257136bf: strands on their own waves crossed in X's, and ended in the hilum's node in a torn patch).
+export const STRAND_PLATEAU = { C8: 0.169 };
+// The cavernoma's serpentine is gentle: its channels lie a few units from the clot, the hepatic artery and each other.
+export const WIG_CAP = { C8: 1.2 };
+// The vessels whose ends are drawn onto another vessel's course and may join only those courses (the vessels' own strands aside): the cavernoma's two ends
+// lie on the open stumps of the portal trunk, and its upper end lies over the IVC in the picture, which it must not be joined to (it was cut into the cava
+// there, a torn gap beside the stump: 13 Nov 2026).
+export const END_HOSTS = { C8: ['PV_TRUNK'] };
 export const STRAND_HOLD = 0.1;   // (and they hold to it, their serpentine too, for the first and last tenth: all the ends at a node leave it as one)
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
 export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };

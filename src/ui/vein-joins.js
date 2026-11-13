@@ -8,7 +8,7 @@
 // and checks this against it on random figures, join for join and point for point.)
 import { clamp } from './num.js';
 import { nodeJoinsInto, newJoinAnswer } from './fork-joins.js';
-import { STRAND_SOFT } from './anatomy.js';
+import { END_HOSTS, STRAND_SOFT } from './anatomy.js';
 
 /** The courses redrawn smooth where two vessels run on into each other. Read as `get(row)`: the course, or undefined for a vessel left as drawn. */
 class RowCourses {
@@ -255,7 +255,9 @@ export function veinJoins(items, N, st, margin = 0) {
       for (let k = 0; k < n; k++) {
         if (k === a || art[k] !== art[a] || qx < bx[4 * k] || qx > bx[4 * k + 2] || qy < bx[4 * k + 1] || qy > bx[4 * k + 3]) continue;
         const y = items[k];
-        if (y === it || (!margin && pairHas(it.row, y.row)) || cutAway(y, qx, qy)) continue;   // (a stretch's wide pass keeps every contact of two vessels, not the first: which comes first depends on the widths)
+        if (y === it || (!margin && pairHas(it.row, y.row)) || cutAway(y, qx, qy)) continue;
+        const hosts = END_HOSTS[it.x.e.id];
+        if (hosts && y.x.e.id !== it.x.e.id && !hosts.includes(y.x.e.id)) continue;   // (an end that may lie only on the courses it is drawn onto: END_HOSTS)   // (a stretch's wide pass keeps every contact of two vessels, not the first: which comes first depends on the widths)
         if (nearCourse(y.pts, q, y.obj.glMaxR + 0.5 * rq + 2 + margin)) {
           NIT[0] = it; NI[0] = i; NIT[1] = y; NI[1] = -1;
           addJoin(st, 2, qx, qy, y.x.e.id === it.x.e.id ? undefined : y.row, N);   // (the trunk, unless it is another stretch of the same vessel: the azygos arch's bend)
