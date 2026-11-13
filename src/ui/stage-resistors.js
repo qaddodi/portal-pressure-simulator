@@ -178,10 +178,10 @@ export function createResistors(st, live) {
         veils.push(Float32Array.of(p[0], p[1], p[p.length - 2], p[p.length - 1]));
       }
       st.cur = { n, key: Array.from(live.resKey), pts: live.resNow.slice(0, n) };
-      const was = st._segs ? JSON.stringify(st._segs) : '';
+      const was = st._segs ? JSON.stringify(st._segs) + st._amp : '';   // (its run and its teeth's reach: a zoom's step widens the teeth in world units)
       st._segs = polys.map((p) => [[p[0], p[1]], [p[p.length - 2], p[p.length - 1]]]);   // (what the figure's labels keep off, buildSegs)
       // (A zigzag that comes or moves is laid out again around: the labels had been solved before it was drawn, and "Retroperitoneal" stood on it.)
-      if (JSON.stringify(st._segs) !== was) { live.resSegRev++; live.labelKey = null; live.solveAsked = true; }
+      st._amp = amp; if (JSON.stringify(st._segs) + amp !== was) { live.resSegRev++; live.labelKey = null; live.solveAsked = true; }
       const K = live.resKey, ink = [K[10], K[11], K[12]], parts = [];
       if (polys.length) {
         if (veil) parts.push({ polys: veils, kind: 'stroke', cap: 0, a: RES_VEIL, w: veil, rgb: [K[1], K[2], K[3]] });

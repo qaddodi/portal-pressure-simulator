@@ -398,7 +398,7 @@ export function createLabelSolve(st, live) {
           const box = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it);   // (a turned caption's box is turned too, as when it was solved)
           if (live.carryClear && (placed.some((p) => !p.dot && hits(box, p)) || callouts.some((b) => hits(box, b)))) { stale = true; return false; }   // (carried past the usual 5 % by a hand's zoom: a label that would come onto another, or onto a slide's callout, is solved again)
           // (L2, 12 Nov 2026: at rest after a pan, a label the pan carried past the stage's edge or onto a card is placed again by itself, 10 px clear of any card; every other keeps its offset, and no solve of all of them runs. None that fits: it stays as carried, hidden or pulled in as before.)
-          const V = viewOf(it, S); if (!settle || it.live || it.point || /^(focus|z:)/.test(it.key) || !(it.ax >= V.x0 && it.ax <= V.x1 && it.ay >= V.y0 && it.ay <= V.y1) || (within(box, V) && !obstacles.some((o) => !o.zone && hits(box, o)))) { placed.push(box); out.push(it); return true; }
+          if (settle && sites.list?.some((k) => k[0] === 'r') && ((useLines || (useLines = true, buildSegs())), lineHits(box, 1, { only: 'res' }))) { stale = true; return false; } const V = viewOf(it, S); if (!settle || it.live || it.point || /^(focus|z:)/.test(it.key) || !(it.ax >= V.x0 && it.ax <= V.x1 && it.ay >= V.y0 && it.ay <= V.y1) || (within(box, V) && !obstacles.some((o) => !o.zone && hits(box, o)))) { placed.push(box); out.push(it); return true; }   // (carried onto a resistor's zigzag (its teeth widen in world units as the map shrinks): solved again at rest. Circuit slide 4 on a phone: "IVC" on the liver's)
           replace = { x: it.x, y: it.y, ax: it.ax, ay: it.ay, dir: it.dir, leader: it.leader, onVessel: it.onVessel, box }; if (!useLines) { useLines = true; buildSegs(); } if (it.cls === 'lane') { it.ax = ax0; it.ay = ay0; }   // (a lane's caption is tried at each spot along its lane its caller gives, then on its lane)
         }
       }
@@ -1296,7 +1296,7 @@ export function createLabelSolve(st, live) {
         const lines = near.filter((o) => o.leader || Math.hypot(...pull.get(o)) > 2).map((o) => { const r = pulledBox(o), e = leaderEnd(r, o.ax, o.ay); return { x0: o.ax, y0: o.ay, x1: e.x, y1: e.y }; });
         const step = PULL_GRID.find(([dx, dy]) => {
           const r = rectOf({ ...it, x: it.x + cx + dx, y: it.y + cy + dy });
-          if (!within(r, V) || onRing(r) || others.some((o) => hits(r, o)) || lines.some((sg) => segHitsBox(sg, r, 2))) return false;
+          if (!within(r, V) || onRing(r) || (useLines && lineHits(r, 1, { only: 'res' })) || others.some((o) => hits(r, o)) || lines.some((sg) => segHitsBox(sg, r, 2))) return false;
           const e = leaderEnd(r, it.ax, it.ay), sg = { x0: it.ax, y0: it.ay, x1: e.x, y1: e.y };
           return !others.some((o) => segHitsBox(sg, o, 2));
         });
@@ -1321,7 +1321,7 @@ export function createLabelSolve(st, live) {
       const cx = Math.max(V.x0 - edge.x0, Math.min(0, V.x1 - edge.x1)), cy = Math.max(V.y0 - edge.y0, Math.min(0, V.y1 - edge.y1));
       if (cx || cy) { it.x += cx; it.y += cy; it.px += cx; it.py += cy; if (Math.hypot(cx, cy) > 2 && !it.key.startsWith('z:')) it.leader = true; }
       // (A reading pulled in onto a vessel takes the solid halo there too.)
-      if ((cx || cy) && solve && useLines && it.key.startsWith('n:') && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; }
+      if ((cx || cy) && solve && useLines && it.key.startsWith('n:') && lineHits(rectOf(it), 2)) { it.onVessel = true; const sol = nextSol.get(it.key); if (sol) sol.onv = true; } if ((cx || cy) && !it.sel && useLines && lineHits(rectOf(it), 1, { only: 'res' })) { it.hide = true; labelVis.set(it.key, false); continue; }   // (pulled in onto a resistor's zigzag: hidden instead. Circuit slide 4 on a phone: "IVC", pulled out from under the card onto the liver's)
       if (!it.sel && (it.ax < -8 || it.ax > W + 8 || it.ay < -8 || it.ay > H + 8)) { it.hide = true; labelVis.set(it.key, false); continue; }
       if (it.sel) { it.hide = false; continue; }
       const r = it.rot ? rectOf({ ...it, w: it.h, h: it.w }) : rectOf(it), was = labelVis.get(it.key) !== false, m = was ? 0 : it.point || (dop.all && /^focus/.test(it.key)) ? 4 : 10;   // (a turned caption: its box turned too; a stent's point or its mark was placed 4 px off the cards)

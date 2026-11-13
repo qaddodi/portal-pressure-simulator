@@ -2,6 +2,8 @@
 
 ## November 2026
 
+- **Circuit slide 4 on a phone: "IVC" no longer lands on the liver's zigzag.** (13 Nov 2026, headless shot.) A reading pulled out from under the top card was pulled onto the zigzag; now one pulled onto a zigzag hides, a ring's nudge never takes it onto one, a label carried onto one at rest is solved again, and a zoom's step that widens the teeth lays the labels out again.
+
 - **TIPS Doppler slide 3: the stent's three point callouts no longer throw.** (13 Nov 2026, reported by the unification thread.) A point callout's key (`n:TIPS:mid`) was taken for a station's and pinned by `nodePos`, which has no such node: the page threw every frame and the three callouts did not show. `stampAnchor` now pins only a station's key; a point keeps its world anchor.
 
 - **Circuit with a TIPS: no label on a resistor's zigzag or under a card.** (13 Nov 2026, headless shot of the Circuit's TIPS slide on an iPhone: "R collaterals ×6.5" lay on the liver's zigzag and "Esophageal route → azygos" ran through the collaterals' zigzag.)
