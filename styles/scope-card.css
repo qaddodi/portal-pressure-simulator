@@ -57,9 +57,8 @@
 
 /* ── The Scope card on a phone and an upright tablet (the thumb dock), 12 Nov 2026 (Mohammad picked mock A: "the endoscopy test card
    everywhere: the scope picture maximized, the tiles smaller, EUS-PPG always reachable, even on the abbreviated card").
-   Half: the picture takes the left half and the five readings stand as slim rows on its right; Band and EUS-PPG are one row under both.
-   Full: the picture runs the card's width, the five readings are one strip under it, then the same row of Band and EUS-PPG.
-   The card is as tall as its content at Half (dock-sheet natural()), so the picture's room is --stage-min: its width plus the caption.
+   Half and Full alike (13 Nov 2026): the picture centred, the five readings one strip under it, then the same row of Band and EUS-PPG;
+   the picture is whatever the strip and the buttons leave, so Half is the Full card with a smaller picture.
    A phone held sideways (pane under 300 px high) keeps the picture on the left with the readings and both buttons on the right.
    Only this card: Wall mechanics keeps the rules in app.css. The id wins over those by specificity, not by order. Nothing here animates
    but opacity. */
@@ -67,6 +66,7 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) auto auto;
   gap: 8px 10px;
+  min-height: 0;   /* (the card may shrink to the room it has: a short phone's Half card gives the picture less, never cuts off the buttons) */
 }
 /* The readings: a name and its value; small, one size for every value so none can change a tile. */
 #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { gap: 5px; width: 100%; }
@@ -95,30 +95,23 @@
 #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel .pz-reading .hvpg-box { --ar: 2.6; }
 @media (prefers-reduced-motion: reduce) { #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .eus-panel { transition: none; } }
 
-/* Full (a pane over 470 px high): the picture the card's width, then the one strip of readings. */
-@container tpane (min-height: 471px) {
+/* Half and Full are one layout (13 Nov 2026, Mohammad, iPhone: "the same expanded and abbreviated, the scope render smaller but centered, then it grows to
+   the full size, instead of moving tiles and labels around"): the picture centred over its caption, the one strip of readings under it, then the row of
+   Band and EUS-PPG. The picture takes every pixel the strip and the buttons leave (its square is the least of the stage's width and height), so Half is
+   the same card with a smaller picture and a pull to Full only grows it: no tile, label or button changes shape or order. */
+@container tpane (min-height: 301px) {
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { --stage-min: 150px; grid-column: 1 / -1; grid-row: 1; justify-content: center; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh, var(--stage-min)) - 24px); }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 1 / -1; grid-row: 2; align-self: stretch; display: grid; grid-template-columns: .75fr .9fr 1.2fr 1fr 1.15fr; gap: 4px; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :is(div, :nth-child(n + 4)) { grid-column: auto; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div { padding: 5px 4px; }
+  /* (A value's line is reserved before its number arrives: an empty value collapsed the strip by 18 px and the picture jumped when it came.) */
+  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > div > dd { min-height: 18px; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dd { max-width: 100%; text-align: center; }
   #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade { display: block; text-align: center; }
 }
-
-/* Half (a pane of 301 to 470 px: an iPhone's Half card, an upright iPad's): the picture on the left, the readings as rows on its right. */
-@container tpane (max-height: 470px) and (min-height: 301px) {
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) { grid-template-rows: minmax(0, 1fr) auto; }
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) :is(.chart-side > .btn, .eus-ppg .hvpg-procs) { grid-row: 2; }
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage { --stage-min: min(calc(52.4vw + 4px), 232px); grid-column: 1; grid-row: 1; justify-content: center; }
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-stage > .chart-box.square { width: min(100cqw, max(100cqh, var(--stage-min)) - 24px); }
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read { grid-column: 2; grid-row: 1; align-self: stretch; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: repeat(5, minmax(0, 1fr)); }
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read > :is(div, :nth-child(n + 4)) { grid-column: 1; flex-direction: row; align-items: center; justify-content: space-between; gap: 6px; padding: 0 10px; text-align: left; }
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-read dd { max-width: none; text-align: right; }
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .endo-grade { display: block; text-align: right; }
-  /* ("Band a column (EVL)" is "Band (EVL)": two buttons share the row.) */
-  #app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn .band-more { display: none; }
-}
+/* (One name for the button wherever two buttons share its row: "Band (EVL)", on every phone and tablet card; the long name overflowed a narrow phone's half row.) */
+#app.thumb .instrument-workspace .dock-pane[data-pane="endoscopy"] > .instrument-view:not(.wall-view) .chart-side > .btn .band-more { display: none; }
 
 /* A phone held sideways (a pane under 300 px high): the picture on the left; on its right the readings, then both buttons. */
 @container tpane (max-height: 300px) and (min-width: 300px) {
