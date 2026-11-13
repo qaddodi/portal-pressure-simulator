@@ -292,7 +292,7 @@ export const STRANDS = {
   // trunk, 7.6 off its centreline: the hepatic artery hugs the trunk there, 12 off it, and leaves room only for a fine channel on the trunk's own
   // course, between the vein's wall and the artery's. The second lies outside the main channel, 18.5 right, and rides its serpentine. First listed
   // grows in first.)
-  C8: [[17.1, 0, 0.5], [-9, 1, 0.7], [-18, 1, 0.6], [-27, 1, 0.5]],
+  C8: [[17.1, 0, 0.5], [17.1, 0, 0.5], [-9, 1, 0.7], [-18, 1, 0.6], [-27, 1, 0.5]],
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
@@ -315,12 +315,17 @@ export const STRAND_SOFT = new Set(['C8']);
 // (13 Nov 2026, Mohammad's shot of 257136bf: strands on their own waves crossed in X's, and ended in the hilum's node in a torn patch).
 export const STRAND_PLATEAU = { C8: 0.169 };
 // The cavernoma's serpentine is gentle: its channels lie a few units from the clot, the hepatic artery and each other.
+// The two halves of the fine channel on the hepatic artery's side (the first two strands of C8): each runs from an open stump to a point 4.5 units back along the
+// coronary vein's last stretch (0.365 of the chord, 14.13 off the main channel's chord: 3.6 past the trunk's centreline) and ends there, under the vein, which is drawn
+// over it: the vein meets the fine channel as a T from each side and crosses nothing, and no end of either half is seen.
+// [from, to, offset at the end, share of the chord over which it eases onto that offset].
+export const STRAND_TIE = { C8: [[0, 0.365, 14.13, 0.05], [0.365, 1, 14.13, 0.05]] };
 export const WIG_CAP = { C8: 2.4 };
 // The cavernoma's strands wind about their course and part and meet again (a network that anastomoses, not parallel tubes): [amplitude, cycles along the
 // course, phase, and the share of the course over which it rises to its offset (the same for all, so a farther channel is never overtaken by a nearer one while they swing out)], one row per strand of STRANDS, added to the strand's offset inside its plateau (so each still leaves and rejoins the open stumps on the
 // main channel's ends). Neighbours take opposite phases, so a pair draws together and parts as the next pair does: a braid, and no two centre lines meet
 // (tests/cavernoma-plexus.test.js keeps their gap). 13 Nov 2026, Mohammad: more collaterals, smooth and winding, not straight tubes.
-export const STRAND_WAVE = { C8: [[0, 0, 0], [3.2, 2.5, 0, 0.32], [3.2, 2.5, Math.PI, 0.32], [3.2, 2.5, 0, 0.32]] };
+export const STRAND_WAVE = { C8: [[0, 0, 0], [0, 0, 0], [3.2, 2.5, 0, 0.32], [3.2, 2.5, Math.PI, 0.32], [3.2, 2.5, 0, 0.32]] };
 // The vessels whose ends are drawn onto another vessel's course and may join only those courses (the vessels' own strands aside): the cavernoma's two ends
 // lie on the open stumps of the portal trunk, and its upper end lies over the IVC in the picture, which it must not be joined to (it was cut into the cava
 // there, a torn gap beside the stump: 13 Nov 2026).
