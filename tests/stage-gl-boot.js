@@ -78,7 +78,7 @@ function mediaFor(w, h, coarse) {
 
 // (w, h, dpr, coarse: the screen; a phone held upright is { w: 395, h: 859, dpr: 3, coarse: true }, whose media queries are answered for it
 // (mediaFor); a desktop keeps the page stub's.)
-export async function bootGL({ labels = null, w = 1200, h = 800, dpr = 1, coarse = false, gl = true } = {}) {
+export async function bootGL({ labels = null, w = 1200, h = 800, dpr = 1, coarse = false, gl = true, params = null, preset = null } = {}) {
   await (await import('../src/ui/text-gl.js')).loadGlyphs();
   const glMod = await import('../scripts/warm/gl-stub.mjs');
   const { installPage } = await import('../scripts/warm/dom.mjs');
@@ -104,8 +104,12 @@ export async function bootGL({ labels = null, w = 1200, h = 800, dpr = 1, coarse
   for (const [k, v] of [['clientWidth', w], ['clientHeight', h], ['offsetWidth', w], ['offsetHeight', h]]) Object.defineProperty(win.HTMLElement.prototype, k, { get() { return this.id === 'stageView' ? v : 0; }, configurable: true });
   const { createCore } = await import('../src/worker-core.js');
   const frames = [];
-  const core = createCore((m) => { if (m.type === 'frame') frames.push(m); });
-  core.handle({ type: 'init' }); core.handle({ type: 'run', running: true });
+  let presetParams = null;
+  const core = createCore((m) => { if (m.type === 'frame') frames.push(m); else if (m.type === 'presetLoaded') presetParams = m.params; });
+  core.handle({ type: 'init' });
+  if (preset) await core.handle({ type: 'preset', id: preset });   // (a preset loaded as the page's button does: the model's params, kept in the return)
+  if (params) core.handle({ type: 'setParams', params, settle: true });   // (a figure with, say, the gastrorenal shunt present: params the engine merges as a scenario's apply does)
+  core.handle({ type: 'run', running: true });
   for (let i = 0; i < 60; i++) pump(33);
   core.handle({ type: 'run', running: false });
   if (labels) (await import('../src/ui/store.js')).store.set({ labelLevel: labels });
@@ -115,5 +119,5 @@ export async function bootGL({ labels = null, w = 1200, h = 800, dpr = 1, coarse
   // (One frame of the playing model: its next engine frame, 16.7 ms, the tasks between frames.)
   const frame = async () => { st.update(frames[fi++ % frames.length]); pump(16.7); await tasks(); await tasks(); };
   for (let i = 0; i < 120; i++) await frame();
-  return { st, page, frame };
+  return { st, page, frame, params: presetParams };
 }

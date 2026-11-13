@@ -757,7 +757,10 @@ export function createVessels(st, live) {
       const shade = (!x.isArt || x.tube) && !ghost;
       const veil = IVC_EDGES.has(id) && !ivcOn, whole = IVC_EDGES.has(id) && ivcOn;
       const spec = shade && !veil && kind !== 'f' && kind !== 'c' && !CONTEXT_EDGES.has(id) && !x.back && x.width >= SPEC_MIN_W;
-      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0) | (x.e.kind === 'shunt' && x.e.shunt !== 'ap' ? F_SHUNT : 0) | (x.e.kind === 'shunt' && SURGICAL_SHUNTS.has(x.e.shunt) ? JOIN_F_NOFADE : 0);
+      // (A shunt's row, and a collateral's once it is drawn at full strength, gets its corners' fillets across tiers: the gastrorenal and splenorenal shunts end on the left renal vein, which lies in a fainter tier, and without
+      // the fillets their sides met the vein's wall at a right angle, as a pipe laid across it (Mohammad, 13 Nov 2026, twice). A collateral still easing in from its faint level keeps no fillet: it would show as a solid fin beside it.)
+      const shuntRow = (x.e.kind === 'shunt' && x.e.shunt !== 'ap') || (kind === 'v' && x.e.kind === 'collateral' && (x.level ?? 1) >= 1);
+      const flags = (shade ? F_DIFFUSE : 0) | (spec ? F_SPEC : 0) | (!x.back && !x.isArt && !ghost && !veil ? F_SHADOW : 0) | (ghost ? F_DOTTED : 0) | (x.isArt && !x.tube ? F_NOCASE : 0) | (veil ? F_VEIL : 0) | (whole ? F_WHOLE : 0) | (shuntRow ? F_SHUNT : 0) | (x.e.kind === 'shunt' && SURGICAL_SHUNTS.has(x.e.shunt) ? JOIN_F_NOFADE : 0);
       const z = (kind === 'v' ? x.row + 0.5 : x.row) / GL_ROWS;
       colT[0] = c0[0]; colT[1] = c0[1]; colT[2] = c0[2]; colT[3] = c1[0]; colT[4] = c1[1]; colT[5] = c1[2];
       // (A change easing in, a slide's patient morphing: a vessel the front has not reached yet keeps its colour; easingFront.)

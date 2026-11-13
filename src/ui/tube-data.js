@@ -21,7 +21,7 @@ export const MOUTH_AT = 4;                    // the first mouth code in a row r
 /** A mouth code: 2 + 2 * the branch row + 1 for a branch ending at its last sample; under 1.5 (0, and the 1 an unset vertex attribute reads as) is none. */
 export const mouthCode = (row, atEnd) => 2 + 2 * row + (atEnd ? 1 : 0);
 export const TUBE_NO_END = -1;
-export const F_SHUNT = 1024;                  // a shunt's row (the TIPS, the DIPS, the surgical and the stent-tool shunts: veins-gl.js's flag, pinned by a test): its corners get webs across tiers
+export const F_SHUNT = 1024;                  // a shunt's row (the TIPS, the DIPS, the surgical and the stent-tool shunts, and every collateral drawn at full strength, the gastrorenal and splenorenal shunts among them: veins-gl.js's flag, pinned by a test): its corners get webs across tiers
 export const F_DOTTED = 8;                    // the flags (tube texel 2, z) of veins-gl.js: dotted. Kept here so this file imports no GL code (a test pins the value)
 const T_ALPHA = 7, T_TIER = 8, T_FLAGS = 10, T_GLOW = 43, T_GLOW_W = 47, T_SEL = 48, T_CLIP0 = 20, T_CLIP1 = 21;
 const F_SHADOW = 4, UP_GLOW = 5;
