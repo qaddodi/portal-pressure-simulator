@@ -97,6 +97,7 @@ export const ADOPTED = {
   'shunts/reasons': ['kind:criteria'],
   'shunts/check': ['kind:criteria'],
   'shunts/play': ['procedure'],
+  'shunts/gradient': ['procedure', 'kind:reading'],
   'hvpg/eus': ['procedure', 'kind:reading'],
   'shunts/heart': ['kind:profile', 'tool.from', 'tool.fromLabel'],
   'doppler/probe': ['tool.mode'],

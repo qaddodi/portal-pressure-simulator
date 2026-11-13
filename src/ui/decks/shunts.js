@@ -86,6 +86,16 @@ export const SHUNTS = {
       ask: ['Which type of stent does Baveno VIII specify for preemptive TIPS?', 'A polytetrafluoroethylene (PTFE)-covered stent.'],
     },
     {
+      // (The gradient across the stent, read on the app's one pressure monitor: the catheter's own measurement played alone (proc-anim.js MEASURES.tipsgrad),
+      // the stent already in as on the slide after. The slide before keeps the stent graph as its instrument and plays this reading at its end, so the
+      // monitor, which would stand blank while the stent opens, is here. The Gradients talk's own TIPS slide teaches the same reading as one of four ways to take a gradient.)
+      id: 'gradient', lens: 'flow', params: { tips: { on: true, d: 8 } }, days: 30, procedure: 'tipsgrad', cam: 'liver', tool: { kind: 'reading' },   // (no tiles: the readings are the monitor's, each only once it is taken)
+      kicker: 'The stent', site: 'sin', title: 'The gradient across the stent is read against a target of <12 mmHg',
+      line: 'The catheter reads the portal pressure through the 8 mm stent, then the IVC pressure. The target after a TIPS is {<12 mmHg}.',
+      notes: 'Press Next to take the measurement. With the stent in, the catheter is advanced through it into the portal vein, where the portal pressure is read, then drawn back to the IVC for the second reading; the PPG is the portal vein pressure minus the IVC pressure. The target after a TIPS is a PPG below 12 mmHg (AASLD 2024: a nonselective beta-blocker is not required once the portosystemic gradient is below 12 mmHg). Baveno VIII Table 3 adds that the immediate reading can be changed by anesthesia, vasoactive drugs or hemodynamic instability, so a measurement in a stable, nonsedated patient better reflects the long-term value.',
+      ask: ['After a TIPS placed for variceal bleeding, what PPG is the target?', '<12 mmHg, read as the portal vein pressure minus the IVC pressure across the stent.'],
+    },
+    {
       id: 'tips', lens: 'flow', terms: ['pv', 'hv'], params: { tips: { on: true, d: 8 } }, days: 30, whatIf: WIDTH, cam: 'liver',   // (Doppler and the width slider only: the portal blood split moved to the next slide, and the stent's mark, calipers and spotlight are gone)
       tool: { kind: 'doppler', vessel: 'TIPS' }, data: 'tiles', tiles: ['ppg', 'liver'], delta: 'reasons',
       kicker: 'The stent', site: 'sin', title: 'TIPS lowers the PPG to <12 mmHg',
