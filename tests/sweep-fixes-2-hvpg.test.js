@@ -6,10 +6,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
-const css = read('../styles/app.css'), hvpg = read('../src/ui/hvpg-proc.js');
+const css = read('../styles/app.css'), hvpg = read('../src/ui/hvpg-proc.js'), mon = read('../src/ui/monitor.js');
 
-// The pure word wrapper, lifted out of the module (it imports browser-only helpers).
-const src = hvpg.match(/export function wrapWords[\s\S]*?\n}\n/)[0].replace('export ', '');
+// The pure word wrapper, lifted out of the one monitor (monitor.js; it imports browser-only helpers).
+const src = mon.match(/export function wrapWords[\s\S]*?\n}\n/)[0].replace('export ', '');
 const wrapWords = new Function(`${src}; return wrapWords;`)();
 const mono = (q) => q.length * 6;   // 6 px a character
 
@@ -40,13 +40,14 @@ test('item 14: wrapWords keeps every line within the width and loses no word', (
 });
 
 test('items 14 and 15: the monitor note is wrapped between the axis and the edge, 8 px in, on a solid patch', () => {
-  assert.match(hvpg, /monitorNote\(ctx, [^;]*L \+ 8, Math\.min\(R, x \+ W\) - 8/);
-  assert.match(hvpg, /ctx\.fillStyle = C\.bg; ctx\.fillRect\(bx, by, bw, bh\)/);
-  const pad = +hvpg.match(/const pad = (\d+), padY = (\d+)/)[1], padY = +hvpg.match(/padY = (\d+)/)[1];
+  // (The one monitor draws the note: monitor.js.)
+  assert.match(mon, /monitorNote\(ctx, [^;]*L \+ 8, Math\.min\(R, x \+ W\) - 8/);
+  assert.match(mon, /ctx\.fillStyle = C\.bg; ctx\.fillRect\(bx, by, bw, bh\)/);
+  const pad = +mon.match(/const pad = (\d+), padY = (\d+)/)[1], padY = +mon.match(/padY = (\d+)/)[1];
   assert.ok(pad >= 4 && padY >= 4);
   // No "…" on the monitor.
-  const draw = hvpg.slice(hvpg.indexOf('function drawTrace'));
-  assert.doesNotMatch(draw, /…/);
+  assert.doesNotMatch(mon.slice(mon.indexOf('function monOn')), /…/);
+  assert.doesNotMatch(hvpg.slice(hvpg.indexOf('export const HVPG_SCRIPT')), /…/);
 });
 
 test('the live readings stay as they were (another worker owns them)', () => {

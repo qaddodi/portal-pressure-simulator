@@ -17,7 +17,6 @@ import { PATH } from './path.js';
 import { ALLP } from './allp.js';
 import { TRIAL } from './trial.js';
 import { SPANS } from './spans.js';
-import { READING } from './reading.js';
 
 /** key → entry. A key is <group>.<part>[.<sub>] (lowercase, dots). */
 export const LOOKS = {
@@ -38,7 +37,6 @@ export const LOOKS = {
   ...ALLP,
   ...TRIAL,
   ...SPANS,
-  ...READING,
 };
 
 /** host name → (ctx) → the host's base type size in px, what an `em` of that host means. A host missing here is 12. */
@@ -59,6 +57,5 @@ export const HOSTS = {
   pstriph: (c) => c.scale.cap ?? 12,
   trial: (c) => c.scale.sm ?? 12,   // (the trial card: one type size, the card's small size, grown to 12 px at the least by fittedType)
   spans: (c) => c.scale.sm ?? 12,   // (the span ruler: one type size, the card's small size, grown to 12 px at the least by fittedType)
-  reading: (c) => c.scale.sm ?? 12,   // (the tracing card: one type size, the card's small size)
   path: () => 12,   // (the guideline path card's small map: its words are 12 px, styles/path.css)
 };

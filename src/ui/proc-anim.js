@@ -294,10 +294,11 @@ export const MEASURES = {
       const m = f?.metrics;
       if (i === 1) rd.fh = m ? r1(m.fhvp) : NaN;
       if (i === 2) rd.wh = m ? r1(m.whvp) : NaN;
-      if (i === 3) rd.hv = m ? tenthGap(m.whvp, m.fhvp, m.hvpg) : NaN;
+      // (The HVPG is the difference of the two readings as printed, never a new frame's: unification audit, finding 5.)
+      if (i === 3) rd.hv = Number.isFinite(rd.wh) && Number.isFinite(rd.fh) ? tenthGap(rd.wh, rd.fh) : m ? tenthGap(m.whvp, m.fhvp, m.hvpg) : NaN;
     },
     marks: () => NO_MARKS,
-    // Nothing is shown before the tip is in the vein. Then the free pressure beside the tip (settling, then the reading), the wedged pressure rising with the still column, and at the end
+    // Nothing is shown before the tip is in the vein. Then the free pressure beside the tip (settling, then the reading), the wedged pressure once it is read, and at the end
     // the two coming together into the HVPG, which stands while the balloon goes down and goes as the catheter comes out.
     labels(t, rd, f, out) {
       out.length = 0;
@@ -311,10 +312,9 @@ export const MEASURES = {
         return out;
       }
       HV_FREE.text = mmHg(fh); out.push(HV_FREE);
-      if (t >= T.col0) {
-        const col = ease(k01(t, T.col0, T.col1));
-        HV_WEDGE.text = mmHg(t >= markAt('hvpgcath', 2) && Number.isFinite(rd.wh) ? rd.wh : m ? r1(fh + (m.whvp - fh) * col) : NaN); out.push(HV_WEDGE);
-      }
+      // (The wedged pressure is printed once it is read, as on the HVPG talk's catheter: while the balloon fills and the pressure settles, the monitor's
+      // number follows the rise and the figure keeps the free reading alone. Mohammad, 13 Nov 2026: "FHVP.. then WHVP then HVPG".)
+      if (t >= markAt('hvpgcath', 2)) { HV_WEDGE.text = mmHg(Number.isFinite(rd.wh) ? rd.wh : m ? r1(m.whvp) : NaN); out.push(HV_WEDGE); }
       return out;
     },
     can: (p) => (hvBlocked(p) ? 'The hepatic veins are clotted, so the catheter cannot enter and no HVPG can be read.' : ''), apply: (p) => p, had: () => false, undo: (p) => p, before: {},
@@ -357,7 +357,7 @@ export const MEASURES = {
     capture(i, rd, f) {
       const m = f?.metrics;
       if (i === 1) rd.pv = m ? r1(m.pv) : NaN;
-      if (i === 2) { rd.iv = m ? r1(m.ivc) : NaN; rd.ppg = m ? tenthGap(m.pv, m.ivc, m.ppg) : NaN; }
+      if (i === 2) { rd.iv = m ? r1(m.ivc) : NaN; rd.ppg = Number.isFinite(rd.pv) && Number.isFinite(rd.iv) ? tenthGap(rd.pv, rd.iv) : m ? tenthGap(m.pv, m.ivc, m.ppg) : NaN; }
     },
     marks: () => NO_MARKS,
     // The portal vein's pressure beside the tip as it settles and once read, then the gradient, which stands while the catheter waits and goes as it comes out.

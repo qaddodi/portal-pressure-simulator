@@ -2934,6 +2934,7 @@ button.finding { cursor: pointer; }
 .pz-tool[data-kind="fibroscan"] .fibroscan-box { width: 100%; height: clamp(250px, calc(42 * var(--pzh)), 480px); }   /* (the shear-wave map needs height to read) */
 .pz-tool[data-kind="vitals"] .vitals-box { width: 100%; height: clamp(170px, calc(26 * var(--pzh)), 300px); border-radius: 12px; }   /* (the strip, then three numbers) */
 .pz-tool[data-kind="hvpg"] .pz-mon { margin-top: 0; }
+.pz-tool[data-kind="reading"] .pz-mon { margin-top: 0; }   /* (a measuring procedure's monitor: the same monitor, monitor.js) */
 /* The scope's view sits in .endo-stage, a size container in the Tests card; here the stage takes the view's own height. */
 .pz-tool:is([data-kind="scope"], [data-kind="wall"]) .endo-stage { container-type: normal; min-height: 0; }
 .pz-tool[data-kind="scope"] .endo-stage { width: min(100%, calc(40 * var(--pzh)), 30vw); margin: 0 auto; }
@@ -7375,7 +7376,6 @@ canvas.wgl.wgl, canvas.wgl.wgl + canvas.trace-gl { position: absolute; left: cal
 .pz-crit { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; font-size: max(12px, var(--bs, 14px)); }   /* (the card's full width: shrunk to its content, a phone centred it and pushed the case column out) */
 .pz-crit [hidden] { display: none; }
 .pz-spans { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; }   /* (the span ruler, tool-spans.js: the card's full width; its height is the picture's, set from its width) */
-.pz-reading { box-sizing: border-box; width: 100%; min-width: 0; align-self: stretch; }   /* (the tracing card, tool-reading.js: the card's full width; its height follows its width, 220 for 360) */
 .pzc-top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: .35em .8em; margin: 0 0 .55em; }   /* (centred like the first-visit graph's, 27 Oct: the lead and the rule's source as one group, each on its own centred line where they do not fit together) */
 .pzc-lead { flex: 0 1 auto; min-width: 0; margin: 0; text-align: center; font: 400 1em/1.35 var(--font-ui); color: var(--text-2); }
 .pzc-rule { flex: none; margin: 0; font-size: max(12px, .86em); }

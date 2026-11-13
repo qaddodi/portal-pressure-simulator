@@ -43,7 +43,7 @@ export const NCPH = {
     {
       // (EUS-PPG, played step by step as on the HVPG talk's own slide: proc-anim.js MEASURES.eus. A measurement, so the model does not change;
       // the callouts read the live left portal and left hepatic veins of the patient already on the figure.)
-      id: 'eus', procedure: 'eus', cam: 'liver', data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['ppg'],
+      id: 'eus', procedure: 'eus', cam: 'liver', tool: { kind: 'reading' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['ppg'],
       kicker: 'Where the resistance sits', site: 'presin', title: 'EUS-PPG reads the portal vein directly',
       line: 'An EUS-guided needle reads the portal and hepatic veins through the stomach. Here the gradient is {ppg}, while the wedge gave an HVPG of {hvpg}.',
       notes: 'Press Next to step through it: the scope in, the portal vein, the hepatic vein, and the gradient. A linear echoendoscope in the proximal stomach images the left lobe; a needle crosses into the left portal vein, then into the left hepatic vein, each read with a manometer, and EUS-PPG is the portal minus the hepatic vein pressure from one needle in one session. Because it reads the portal vein itself, it catches the presinusoidal resistance the wedge misses. The value of EUS-guided portal pressure gradient measurement in PSVD or NCPF is still a research question for Baveno VIII (RA8.18, RA8.24), so it is not a standard test; it is done in expert centers under sedation. The model does not change: the measurement reads the vessels as they are.',

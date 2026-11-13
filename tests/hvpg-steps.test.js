@@ -63,5 +63,5 @@ test('the readings are the model’s: free, then wedged, then the HVPG as the ti
   assert.match(L[0].calc.cls, /^result (ok|caution|danger)$/);
   P.labels(T.end - 200, rd, f, L); assert.equal(L.length, 0, 'the result goes as the catheter does');
   const w = [];
-  P.labels(T.col0 + 900, rd, f, w); assert.ok(Number(w[1].text) > rd.fh && Number(w[1].text) < m.whvp, 'the wedged reading climbs with the column');
+  P.labels(T.col0 + 900, rd, f, w); assert.deepEqual(w.map((x) => x.key), ['f'], 'while the wedge settles the figure keeps the free reading alone; the monitor follows the rise (13 Nov 2026)');
 });

@@ -8,20 +8,18 @@
 // readout tile. In Explore the live HVPG readouts stay hidden until this has run for the patient
 // (store.hvpgMeasured, hiddenNow); the tracing's small waves are illustrative.
 
-import { h, fmt, clamp, icon, cssVar, toast, swapText } from './util.js';
+import { h, fmt, icon, toast, swapText } from './util.js';
 import { glWords } from './gl-words.js';
 import { hvpgSev, hvBlocked } from '../engine/pressure-cuts.js';
-import { FONT } from './charts.js';
 import { pressureColor } from './colormap.js';
 import { store, logAction, hiddenNow, updateParams } from './store.js';
 import { shownOr } from './shown.js';
 import { classSoon, restartSoon, attrSoon, dataSoon, propSoon } from './class-soon.js';
 import { T, ease, cruise, k01, balloonAt, timeOfBalloon, pressureAt, newWave, syncWave } from './hvpg-clock.js';
 import { frameFor, cancelFrame } from './frame.js';
-import { createTraceGL, fitPen } from './trace-gl.js';
-import { traceRoom, TRACE_MIN } from './trace-room.js';
+import { createTraceGL } from './trace-gl.js';
+import { drawMonitor, C, SEV_C, cell, fm1 } from './monitor.js';
 import { rateOf } from './table-marks.js';
-import { drawCallout, dropK, sideFor, calloutCell, calloutText, inkSeg } from './trace-callouts.js';
 import { PROCS, PROC_KINDS, procBlocked, procOffered, playProcedure, procRunning } from './proc-anim.js';
 import { reduceMotionMQ } from './motion.js';
 const nextFrame = frameFor('hvpg-proc');
@@ -40,9 +38,7 @@ const STEPS = [
   ['wedge', 'Wedged pressure (WHVP)', 'The balloon inflates just behind the tip and blocks the vein. Once the pressure settles, the still vein in front of it reads the sinusoids.', 'Wedged'],
   ['result', 'HVPG = WHVP − FHVP', 'The pressure drop across the sinusoids. Normal <5 mmHg; ≥10 is clinically significant portal hypertension.', 'HVPG'],
 ];
-// The tracing is a monitor, dark in both themes (the Over time chart's dark trace colours).
-const C = Object.defineProperties({}, Object.fromEntries(Object.entries({ bg: '--mon-bg', grid: '--mon-grid', line: '--mon-line', text: '--mon-text', bright: '--mon-bright',
-  free: '--mon-free', wedge: '--mon-wedge', ok: '--mon-ok', caution: '--mon-caution', danger: '--mon-alarm' }).map(([k, n]) => [k, { get: () => cssVar(n) }])));
+// The tracing is the one monitor (monitor.js), dark in both themes; its colours are the figure's rings' too.
 const sevOf = hvpgSev;
 // The two readings carry the colour their tiles give them (the wedged as the portal pressure, the free as the IVC's).
 const SEV = { ok: 'ok', mid: 'caution', hi: 'danger' };
@@ -55,33 +51,12 @@ const ABORT_CAP = `${ABORT_MSG}. The hepatic vein is thrombosed (Budd–Chiari),
 const RESULT_CAP = { danger: `${SEV_WORD.danger}. ${STEPS[3][2]}`, caution: `${SEV_WORD.caution}. ${STEPS[3][2]}`, ok: `${SEV_WORD.ok}. ${STEPS[3][2]}` };
 const RESULT_CLS = { danger: 'result danger', caution: 'result caution', ok: 'result ok' };
 const KEYS3 = ['fhvp', 'whvp', 'hvpg'], KEYS2 = ['fhvp', 'whvp'];
-// A number's text, rebuilt only when the number is not the one it was built from (a cell is { v, s }, one for each place that prints).
-const cell = () => ({ v: undefined, s: '' });
-function fm1(c, v) {
-  if (!Object.is(c.v, v)) { c.v = v; c.s = fmt(v, 1); }   // alloc-rare: only when the number differs from the one its text was built from
-  return c.s;
-}
-const mkF = calloutCell(), mkW = calloutCell();   // (the two trace markers' words)
-const cF = cell(), cW = cell(), cH = cell(), cHT = cell(), cLvF = cell(), cLvW = cell();
-// The tracing's axes, set by traceOn for the frame it draws (the draw is synchronous and does not call itself).
-let axTop = 0, axBot = 0, axMax = 15, axL = 0, axR = 0;
-let waveNow = null;   // the model's clock for the frame being drawn (syncWave), or null: the trace's own beat and breath
-const pAt = (tt, v) => pressureAt(tt, v, waveNow);
-const Y = (p) => axBot - (clamp(p, 0, axMax) / axMax) * (axBot - axTop);
-const X = (tt) => axL + k01(tt, T.free - 300, T.back) * (axR - axL);
+const cF = cell(), cW = cell(), cH = cell();   // (the figure's callouts' numbers: fm1, monitor.js)
 const SHOT_NEAR = { near: true }, SHOT_FAR = { near: false };   // (cathFocus's options, made once: only the route shot keeps the view near the tip)
 const HEADS = ['CATHETER TIP PRESSURE · RIGHT HEPATIC VEIN · mmHg', 'CATHETER TIP PRESSURE · mmHg', 'CATHETER TIP · mmHg'];
 const NOTE_PROBE = ['Probing the ostium: the vein will not take the catheter.', 'The vein will not take the catheter.'];
 const NOTE_IDLE = ['The tracing starts once the tip is in the hepatic vein.', 'Starts once the tip is in the hepatic vein.', 'Starts in the hepatic vein.'];
 const NOTE_WAIT = ['Waiting for the hepatic vein.'];
-/** The first of the lines whose width fits, else the last (the shortest form). */
-function fitLine(ctx, list, room) {
-  let q = list[0];
-  for (let i = 0; i < list.length; i++) { q = list[i]; if (i === list.length - 1 || ctx.measureText(q).width <= room) break; }
-  return q;
-}
-const tickText = [];   // (an axis number's text, by the number: made the first time it is drawn)
-const tick = (p) => tickText[p] ?? (tickText[p] = String(p));   // alloc-rare: only the first time that number is drawn
 
 export function createHvpgProcedure() {
   const cv = h('canvas', { role: 'img', 'aria-label': 'HVPG measurement: catheter pressure tracing' });
@@ -408,191 +383,35 @@ export function createHvpgMonitor() {
   return { el, set, balloon, hold, started: () => !!mode };
 }
 
-// ── The tracing: the monitor in the IR suite, dark in both themes ──
+// ── The tracing: the one monitor (monitor.js), dark in both themes, on the HVPG catheter's script ──
 // st: { ph: the phase, t: ms on the procedure's clock (T), v: { fhvp, whvp, hvpg }, blocked, running: still sweeping, wave: the model's beat and
 // breath for the waves (hvpg-clock.js syncWave; null: the trace's own) }
 // g: the GPU drawer (trace-gl.js): the whole monitor drawn by the GPU through its 2D context, every word, line and fill, with this
 // canvas left blank; null, or where the GPU cannot draw now, on this canvas as before.
+// The HVPG catheter's script: the free sweep, the balloon up and the pressure riding it to the wedge, the wedge read once it has held, then the HVPG.
+// (The monitor's number is the mean, as the callout on the figure reads it; it follows the trace only while the balloon is still changing it.)
+export const HVPG_SCRIPT = {
+  heads: HEADS, win: [T.free - 300, T.back], enterWord: 'Catheter advancing',
+  abort: ['Unable to cannulate hepatic vein', 'Unable to cannulate hepatic vein: procedure aborted', 'HVPG not measurable'],
+  notes: { idle: NOTE_IDLE, wait: NOTE_WAIT, probe: NOTE_PROBE },
+  at: (tt, v, w) => pressureAt(tt, v, w),
+  segs: [[T.free - 300, T.inflate, 'free'], [T.inflate, T.back, 'wedge']],   // (blue while free, orchid once the balloon is up; the wedged trace solid: owner, 10 Nov 2026)
+  status(t, v, st, o) {
+    if (t < T.inflate) { o.label = 'FHVP'; o.num = fmt(v.fhvp, 1); o.col = 'free'; }
+    else if (t < T.result) { o.label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; o.num = fmt(t < T.callout ? pressureAt(t, v, st.wave) : v.whvp, 1); o.col = 'wedge'; }
+    else if (st.running && t < T.sum) { o.label = 'WHVP'; o.num = fmt(v.whvp, 1); o.col = 'wedge'; }
+    else { o.label = 'HVPG'; o.num = fmt(v.hvpg, 1); o.col = SEV_C[sevOf(v.hvpg)]; }
+  },
+  // (N6, trace callouts: a marker drops onto the trace where each reading is taken, the free as the free sweep ends, the wedge once the plateau has held.)
+  drops: [[T.inflate - 80, 'Free', 'fhvp', 'free', 1], [T.callout, 'Wedge', 'whvp', 'wedge', -1]],
+  levels: [[T.inflate, 'fhvp', 'free', 'FHVP'], [T.result, 'whvp', 'wedge', 'WHVP']],
+  result: { show: T.result, at: T.sum, lo: 'fhvp', hi: 'whvp', key: 'hvpg', word: 'HVPG', sev: hvpgSev },
+  ticks: [[T.inflate, 'balloon up']],   // (the balloon's tick and its words come with the balloon, not before: Mohammad, 12 Nov 2026)
+  ymax: (v) => Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5),
+};
+const MST = { ph: 'idle', t: 0, v: null, running: false, wave: null, probing: false };   // (what the monitor is handed: kept, written in place)
 function drawTrace(cv, st, g = null) {
-  const p = fitPen(cv, g);
-  try { traceOn(p, st); } finally { p.ctx.end?.(); }
-}
-let FS = 12;   // the monitor's word size this frame (traceRoom's fs: 12 on a small monitor, up to 15 on a wide one)
-function traceOn({ ctx, w, h: hh }, { ph, t, v, blocked, running, wave }) {
-  if (w < 80 || hh < 60) return;
-  waveNow = wave;
-  ctx.clearRect(0, 0, w, hh);
-  rrect(ctx, 0, 0, w, hh, 12); ctx.fillStyle = C.bg; ctx.fill();
-  const x = 14, y = 10, W = w - 28, H = hh - 18;
-  const narrow = W < 300;
-  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-  // (Every word on the monitor at 12 px or more; the header takes the longest form that clears the big reading.)
-  const { big, fs, k: HK } = traceRoom(W, H, 10); FS = fs;
-  ctx.font = FONT(700, big); const room = W - ctx.measureText('88.8').width - 12;
-  ctx.fillStyle = C.text; ctx.font = FONT(600, FS);
-  ctx.fillText(fitLine(ctx, HEADS, room), x, y + 13 * HK);
-  let label, num = '', col = C.text;
-  if (ph === 'abort') {
-    ctx.font = FONT(600, FS); ctx.fillStyle = C.danger; ctx.fillText('Aborted', x, y + 32 * HK);
-    ctx.textAlign = 'center'; ctx.font = FONT(600, FS); ctx.fillText(narrow ? 'Unable to cannulate hepatic vein' : 'Unable to cannulate hepatic vein: procedure aborted', w / 2, hh / 2 + 8);
-    ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.fillText('HVPG not measurable', w / 2, hh / 2 + 28);
-    return;
-  }
-  if (ph === 'idle') label = 'Ready';
-  else if (ph === 'enter') label = 'Catheter advancing';
-  // (The monitor's number is the mean, as the callout on the figure reads it; it follows the trace only while the balloon is still changing it.)
-  else if (ph === 'free') { label = 'FHVP'; num = fmt(v.fhvp, 1); col = C.free; }
-  else if (ph === 'wedge') { label = t < T.wedge ? 'Balloon inflating' : t < T.callout ? 'Settling' : 'WHVP'; num = fmt(t < T.callout ? pAt(t, v) : v.whvp, 1); col = C.wedge; }
-  else if (running && t < T.sum) { label = 'WHVP'; num = fmt(v.whvp, 1); col = C.wedge; }
-  else { label = 'HVPG'; num = fmt(v.hvpg, 1); col = C[sevOf(v.hvpg)]; }
-  ctx.font = FONT(600, FS); ctx.fillStyle = col === C.text ? C.bright : col; ctx.fillText(label, x, y + 32 * HK);
-  if (num) { ctx.font = FONT(700, big); ctx.textAlign = 'right'; ctx.fillText(num, x + W, y + 14 + big); ctx.textAlign = 'left'; }
-  const { top, bot } = traceRoom(W, H, y), L = x + Math.round(FS * 1.8), R = x + W - (narrow ? 2 : Math.round(FS * 4.2));
-  if (bot - top < TRACE_MIN) {
-    // (Too short for the tracing, a phone held sideways: its note alone, in the longest form that fits, so the box is never
-    // blank under "Ready". Sweep batch 03, shot 03.)
-    if (ph !== 'idle' && ph !== 'enter') return;
-    ctx.font = FONT(500, FS);
-    const say = blocked && t >= TB.probe0 ? NOTE_PROBE : ph === 'idle' ? NOTE_IDLE : NOTE_WAIT;
-    const ty = Math.min(hh - 12, Math.max(y + 54, (y + 40 + hh) / 2));
-    monitorNote(ctx, fitLine(ctx, say, W - 16), x + 8, x + W - 8, ty - 4);
-    return;
-  }
-  const ymax = Math.max(15, Math.ceil((Math.max(v.whvp, v.fhvp) + 5) / 5) * 5);
-  axTop = top; axBot = bot; axMax = ymax; axL = L; axR = R;   // (Y and X, above, read these)
-  ctx.lineWidth = 1; ctx.font = FONT(500, FS); ctx.fillStyle = C.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  for (let p = 0; p <= ymax; p += 5) {
-    ctx.fillStyle = p ? C.grid : C.line; ctx.fillRect(L, Math.round(Y(p)), R - L, 1);   // (boxes, not stroked lines: see inkSeg)
-    if (p % 10 === 0 || ymax <= 20) { ctx.fillStyle = C.text; ctx.fillText(tick(p), L - 5, Y(p)); }
-  }
-  if (ph === 'idle' || ph === 'enter') {
-    // (Wrapped inside the grid, 8 px clear of the axis numbers and the monitor's right edge, on a solid patch of the monitor
-    // so no gridline runs through it: at 320 px it ran past the edge over "20" and "10", on a Mac and an iPad the 15 line
-    // struck through it, sweep 2 review items 14 and 15.)
-    ctx.font = FONT(500, FS);
-    monitorNote(ctx, blocked && t >= TB.probe0 ? NOTE_PROBE[0] : ph === 'idle' ? NOTE_IDLE[0] : NOTE_WAIT[0],
-      L + 8, Math.min(R, x + W) - 8, (top + bot) / 2);
-    return;
-  }
-  // The trace, swept up to now: blue while free, orchid once the balloon is up.
-  const tNow = Math.min(t, T.back);
-  seg(ctx, T.free - 300, T.inflate, C.free, tNow, v);
-  seg(ctx, T.inflate, T.back, C.wedge, tNow, v);   // (the wedged trace solid, its hue kept: C4; it was dashed from cd2f92db to 10 Nov 2026, owner: solid)
-  if (t < T.back) { ctx.fillStyle = C.bright; ctx.beginPath(); ctx.arc(X(tNow), Y(pAt(tNow, v)), 2.6, 0, Math.PI * 2); ctx.fill(); }
-  // (Each level's name and number at the right, centred on its line; the two pairs kept 28 px apart so they never touch.)
-  const both = ph === 'result', sep = both ? Math.max(0, 28 * HK - (Y(v.fhvp) - Y(v.whvp))) / 2 : 0;
-  const yf = Math.min(Y(v.fhvp) + sep, hh - 12), yw = Math.min(Y(v.whvp) - sep, yf - 28 * HK);   // (the lower pair kept off the monitor's foot)
-  if (t >= T.inflate) level(ctx, v.fhvp, C.free, 'FHVP', yf, narrow, R, L, cLvF);
-  if (ph === 'result') {
-    level(ctx, v.whvp, C.wedge, 'WHVP', yw, narrow, R, L, cLvW);
-    const a = ease(k01(t, T.sum - 400, T.sum + 200)), xa = L + (R - L) * 0.9, y1 = Y(v.fhvp), y2 = Y(v.fhvp + (v.whvp - v.fhvp) * a), col2 = C[sevOf(v.hvpg)];
-    ctx.strokeStyle = col2; ctx.fillStyle = col2; ctx.lineWidth = 1.6;
-    ctx.fillRect(xa - 0.8, Math.min(y1, y2), 1.6, Math.abs(y2 - y1));
-    if (Math.abs(y1 - y2) > 10) { arrowHead(ctx, xa, y1, 1); arrowHead(ctx, xa, y2, -1); }
-    if (a > 0.6) {
-      ctx.save(); ctx.globalAlpha = ease(k01(t, T.sum, T.sum + 450));
-      if (!Object.is(cHT.v, v.hvpg)) { cHT.v = v.hvpg; cHT.s = `HVPG ${fmt(v.hvpg, 1)}`; }   // alloc-rare: only when the HVPG differs from the one this text was built from
-      const txt = cHT.s; ctx.font = FONT(700, FS);
-      const tw = ctx.measureText(txt).width + 12, lx = xa - tw - 6, ly = (y1 + y2) / 2;
-      ctx.fillStyle = C.bg; rrect(ctx, lx, ly - FS * 0.75, tw, FS * 1.5, FS * 0.75); ctx.fill(); ctx.strokeStyle = col2; ctx.lineWidth = 1; ctx.stroke();
-      ctx.fillStyle = col2; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(txt, lx + 6, ly + 0.5);
-      ctx.restore();
-    }
-  }
-  // (N6, trace callouts: a marker drops onto the trace where each reading is taken, the free as the free sweep ends, the wedge once the
-  // plateau has held, which is when the figure's callout prints it. Both stand on the trace itself, so they move with it.)
-  const tFree = T.inflate - 80;
-  if (ph !== 'abort' && t >= tFree) {
-    const yp = Y(pAt(tFree, v));
-    drawCallout(ctx, calloutText(mkF, 'Free', v.fhvp), X(tFree), yp, sideFor(yp, 1, top, bot), C.free, C.bg, dropK(t - tFree), 1, L, R, top, bot, FS);
-  }
-  if (ph !== 'abort' && t >= T.callout) {
-    const yp = Y(pAt(T.callout, v));
-    drawCallout(ctx, calloutText(mkW, 'Wedge', v.whvp), X(T.callout), yp, sideFor(yp, -1, top, bot), C.wedge, C.bg, dropK(t - T.callout), 1, L, R, top, bot, FS);
-  }
-  // (The balloon's tick and its words come with the balloon, not before: Mohammad, 12 Nov 2026.)
-  if (t >= T.inflate) {
-    ctx.fillStyle = C.text; ctx.font = FONT(500, FS); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.fillText('balloon up', X(T.inflate), bot + FS + 3);
-    ctx.fillStyle = C.line; ctx.fillRect(X(T.inflate) - 0.5, bot, 1, 4);
-  }
-}
-
-// The trace from a to b (ms on the procedure's clock), swept as far as tNow. (Drawn with the axes traceOn set: Y, X.)
-function seg(ctx, a, b, colr, tNow, v) {
-  if (tNow <= a) return;
-  // (Laid as small round boxes along the trace, not one stroked line: a stroke is drawn through the GPU's coverage target and the tracing came
-  // up with no line on a phone while its dot, words and axes drew. A box draws wherever the dot does.)
-  ctx.fillStyle = colr; ctx.beginPath();
-  let px = 0, py = 0, have = false;
-  const end = Math.min(b, tNow);
-  for (let tt = a; tt <= end + 15; tt += 30) {
-    const t2 = Math.min(tt, end), X1 = X(t2), Y1 = Y(pAt(t2, v));
-    if (have) inkSeg(ctx, px, py, X1, Y1, 2); else inkSeg(ctx, X1, Y1, X1, Y1, 2);
-    px = X1; py = Y1; have = true;
-    if (t2 >= end) break;
-  }
-  ctx.fill();
-}
-// A level's solid line across the grid and, when there is room, its name and number at the right (c: the number's text cell).
-function level(ctx, p, colr, txt, ly, narrow, R, L, c) {
-  ctx.save(); ctx.fillStyle = colr; ctx.globalAlpha = 0.75;
-  const dy = Math.round(Y(p));
-  ctx.fillRect(L, dy, R - L, 1);   // (solid, as the trace is: owner, 10 Nov 2026; one box, drawn wherever the dot does: see seg)
-  ctx.restore();
-  if (!narrow) { ctx.fillStyle = colr; ctx.font = FONT(600, FS); ctx.textAlign = 'left'; ctx.fillText(txt, R + 6, ly - FS * 0.6); ctx.font = FONT(700, FS); ctx.fillText(fm1(c, p), R + 6, ly + FS * 0.6); }
-}
-// One end of the difference's bracket: a small arrowhead at yy, pointing d (1 down the page's way, -1 the other).
-function arrowHead(ctx, xa, yy, d) {
-  ctx.beginPath(); ctx.moveTo(xa, yy); ctx.lineTo(xa - 4, yy - 6 * d); ctx.lineTo(xa + 4, yy - 6 * d); ctx.closePath(); ctx.fill();
-}
-
-// What monitorNote keeps for each note it has drawn: its words wrapped for one width and font, so a frame measures once and wraps never.
-const noteWrap = new Map();   // text → { maxW, probe, tw, lines }
-const NOTE_BOX = { x: 0, y: 0, w: 0, h: 0, lines: null };
-/** A note on the monitor, centred between x0 and x1 about cy, wrapped at word breaks to that width (the current font, 16 px
- *  lines), on a patch of the monitor's own background 8 px wider and 4 px taller than the words each side. Returns its box (a kept
- *  object, valid until the next note). The wrap is redone only when the width, or the width the font gives the whole text, changes. */
-export function monitorNote(ctx, text, x0, x1, cy) {
-  const pad = 8, padY = 4, lh = FS + 4, maxW = Math.max(40, x1 - x0 - 2 * pad);
-  let e = noteWrap.get(text);
-  if (!e) noteWrap.set(text, e = { maxW: -1, probe: -1, tw: 0, lines: [] });   // alloc-rare: only the first time this note's words are drawn
-  const probe = ctx.measureText(text).width;
-  if (e.maxW !== maxW || e.probe !== probe) {
-    e.maxW = maxW; e.probe = probe;
-    const measure = (q) => ctx.measureText(q).width;   // alloc-rare: only when the note's width or font changed (the wrap is kept in e)
-    const lines = wrapWords(text, maxW, measure, e.lines);
-    let widest = -Infinity;
-    for (let i = 0; i < lines.length; i++) widest = Math.max(widest, measure(lines[i]));
-    e.tw = Math.min(maxW, widest);
-  }
-  const lines = e.lines;
-  const tw = e.tw;
-  const bw = tw + 2 * pad, bh = lines.length * lh + 2 * padY, bx = (x0 + x1) / 2 - bw / 2, by = cy - bh / 2;
-  ctx.fillStyle = C.bg; ctx.fillRect(bx, by, bw, bh);
-  ctx.fillStyle = C.text; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  for (let i = 0; i < lines.length; i++) ctx.fillText(lines[i], (x0 + x1) / 2, by + padY + lh * (i + 0.5));
-  ctx.textBaseline = 'alphabetic';
-  NOTE_BOX.x = bx; NOTE_BOX.y = by; NOTE_BOX.w = bw; NOTE_BOX.h = bh; NOTE_BOX.lines = lines;
-  return NOTE_BOX;
-}
-/** Words into lines no wider than maxW (measure: a line's width); a single word longer than that keeps a line to itself.
- *  out: the list to fill (emptied first) and return; without one, a new list. */
-export function wrapWords(text, maxW, measure, out = []) {   // alloc-rare: the default list only for a caller with none; monitorNote hands its own
-  out.length = 0;
-  let cur = '';
-  // alloc-rare: wrapping runs only when monitorNote sees a new text, width or font (its wrap is kept)
-  for (const word of String(text).split(/\s+/).filter(Boolean)) {
-    const next = cur ? cur + ' ' + word : word;   // alloc-rare: the same, a changed note
-    if (cur && measure(next) > maxW) { out.push(cur); cur = word; } else cur = next;
-  }
-  if (cur) out.push(cur);
-  return out;
-}
-
-function rrect(ctx, x, y, w, h2, r) {
-  // (The same rounded outline as the arcs below, as one rounded box: the GPU draws it with a smooth edge.)
-  if (ctx.onGPU === true && ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h2, r); return; }
-  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h2, r); ctx.arcTo(x + w, y + h2, x, y + h2, r);
-  ctx.arcTo(x, y + h2, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  MST.ph = st.ph === 'idle' || st.ph === 'enter' || st.ph === 'abort' ? st.ph : 'run';
+  MST.t = st.t; MST.v = st.v; MST.running = st.running; MST.wave = st.wave; MST.probing = !!st.blocked && st.t >= TB.probe0;
+  drawMonitor(cv, g, HVPG_SCRIPT, MST);
 }

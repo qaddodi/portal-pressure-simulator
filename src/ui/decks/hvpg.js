@@ -65,7 +65,7 @@ export const HVPG = {
     {
       // (EUS-PPG, played step by step as the TIPS is on the shunts talk: proc-anim.js MEASURES.eus. A measurement, so the model does not
       // change; the callouts read the live left portal and left hepatic veins.)
-      id: 'eus', preset: 'schisto', procedure: 'eus', cam: 'liver', data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['ppg'],
+      id: 'eus', preset: 'schisto', procedure: 'eus', cam: 'liver', tool: { kind: 'reading' }, data: 'tiles', tiles: ['hvpg', 'ppg'], key: ['ppg'],
       kicker: 'Where HVPG misleads', site: 'presin', title: 'EUS-PPG reads the portal vein directly',
       line: 'Back in the woman with schistosomiasis, an EUS-guided needle reads the portal and hepatic veins through the stomach. The gradient is near the PPG of {ppg}; the HVPG is {hvpg}.',
       notes: 'Press Next to step through it: the scope in, the portal vein, the hepatic vein, and the gradient. A linear echoendoscope in the proximal stomach images the left lobe; a 25-gauge needle crosses into the left portal vein, then into the left hepatic vein, each read with a compact manometer, and EUS-PPG is the portal minus the hepatic vein pressure from one needle in one session. Because the portal vein itself is read, it catches the presinusoidal resistance the wedge misses, here schistosomiasis, and porto-sinusoidal vascular disease the same way. It needs no catheter, no radiation and no contrast, and varices can be treated or a liver biopsy taken in the same session. It is read on the HVPG\'s cut-offs. Agreement with the HVPG in cirrhosis is good in early series, but EUS-PPG is not yet a standard of the guidelines, and it is done in expert centers under sedation, which can lower the readings.',

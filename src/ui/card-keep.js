@@ -17,7 +17,11 @@ const own = (s) => !s || OWN.some((k) => s[k]);
 // A catheter slide whose data card is the catheter's own tracing (tool.catheter, presenter-tools.js) leaves the data card alone: the
 // catheter carries on from one step to the next and the tracing follows its balloon, so the card stays up between such slides.
 const cathCard = (s) => ['free', 'wedge', 'result'].includes(s?.cath) && s.tool?.kind === 'hvpg' && !!s.tool.catheter;   // (the steps a tracing follows: tool-hvpg.js STEPS)
-const ownData = (s) => !s || OWN.some((k) => k !== 'lapse' && s[k] && !(k === 'cath' && cathCard(s)));
+// A measuring procedure's slide whose data card is the one monitor (tool { kind: 'reading' }, tool-reading.js) keeps it too: from one measurement slide
+// to the next the monitor stays where it is and starts the new measurement afresh, its readings stepped on Next (Mohammad, 13 Nov 2026: "when i click
+// next, it like moves the card off and they appear again.. it shouldnt.. it should just do the readings as i click next").
+const readCard = (s) => s?.tool?.kind === 'reading' && !!s.procedure;
+const ownData = (s) => !s || OWN.some((k) => k !== 'lapse' && s[k] && !(k === 'cath' && cathCard(s)) && !(k === 'procedure' && readCard(s)));
 
 // Instruments that record the patient's flow as it passes: another patient clears their trace, so their card is built again
 // rather than kept. Charts drawn from the deck's own states (the talk's trace, the flow-time chart) are redrawn per slide.

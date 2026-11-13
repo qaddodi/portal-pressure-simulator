@@ -112,11 +112,18 @@ export function syncWave(w, f, t, now) {
  *  by the still column, which carries only a softened, delayed trace of the sinusoids' pulse. w: the model's clock (syncWave), else the
  *  waves run on the procedure's own. */
 export function pressureAt(tt, v, w = null) {
-  let wave;
+  const b = balloonAt(tt);
+  return v.fhvp + (v.whvp - v.fhvp) * b + waveAt(tt, w) * WAVE_GAIN * (1 - WEDGE_DAMP * b);
+}
+/** How much of its pulse the wedged trace loses, 0..1: the still column softens it, but the beat and the breath still show on the wedge (Mohammad, 13 Nov 2026:
+ *  "still has variability beat to beat"; it was 0.85, which drew the wedge as a ruler-flat line). */
+export const WEDGE_DAMP = 0.45;
+/** The beat and breath at tt (ms on a procedure's clock), as a fraction of the trace's full wave (WAVE_GAIN scales it): on the model's clock (w, syncWave), else on the
+ *  procedure's own (an 850 ms beat and a 3.6 s breath), so a trace drawn once is drawn the same way again: it never reshuffles. Every monitor's wave (monitor.js). */
+export function waveAt(tt, w = null) {
   if (w && w.on) {
     const age = (w.t - tt) / 1000;
-    wave = venousAt(w.cyc - A_WAVE_PHASE - (age * w.hr) / 60) + Math.sin(((w.m - age) / BREATH_S) * 2 * Math.PI) * BREATH_AMP * w.breath;
-  } else wave = venousAt(tt / BEAT_MS) + Math.sin(tt / BREATH_MS * 2 * Math.PI) * BREATH_AMP;
-  const b = balloonAt(tt);
-  return v.fhvp + (v.whvp - v.fhvp) * b + wave * WAVE_GAIN * (1 - 0.85 * b);
+    return venousAt(w.cyc - A_WAVE_PHASE - (age * w.hr) / 60) + Math.sin(((w.m - age) / BREATH_S) * 2 * Math.PI) * BREATH_AMP * w.breath;
+  }
+  return venousAt(tt / BEAT_MS) + Math.sin(tt / BREATH_MS * 2 * Math.PI) * BREATH_AMP;
 }
