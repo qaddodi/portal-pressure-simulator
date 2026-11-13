@@ -15,7 +15,7 @@ import { createOutlines } from './stage-outlines.js';
 import { createVenous } from './stage-venous.js';
 import { bareOf, stentLookD } from './stent-mesh.js';
 import { store } from './store.js';
-import { distToLine, runningStitch, seamTable, stumpCentre, woundTie } from './suture-marks.js';
+import { distToLine, seamDashes, seamTable, stumpCentre, woundTie } from './suture-marks.js';
 import { clamp, s } from './util.js';
 
 // Where the cross sits on a vein the Warren shunt has tied off and greyed out, as a share of its course (Mohammad, 7 Nov: about half way).
@@ -342,8 +342,8 @@ export function createTransitions(st, live) {
         tab = seamTable(pt, (px, py) => hr - distToLine(hc, px, py), Math.min(60, L * 0.45));
       }
       if (!tab) { els.push(...sutureTicks(id, atEnd ? Math.max(L - 10, L * 0.9) : Math.min(10, L * 0.1), R + 2)); continue; }
-      const j = runningStitch(pt, tab, Math.max(1.8, Math.min(3.2, R * 0.34)));
-      els.push(...sutureEls([['suture-halo', j.front], ['suture-thread', j.front]]));
+      const dd = seamDashes(pt, tab, Math.max(2.6, R * 0.62), Math.max(1.5, R * 0.3));
+      els.push(...sutureEls([['suture-halo', dd], ['suture-thread', dd]]));
     }
     putMark(ov.stents, `suture:${id}`, id, els);
   }

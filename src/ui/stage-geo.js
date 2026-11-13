@@ -7,6 +7,7 @@ import { CUSTOM_SHUNT_PATH } from './custom-shunt-paths.js';
 import { peelRanks } from './flow-peel.js';
 import { store } from './store.js';
 import { clamp } from './util.js';
+import { clearArc } from './suture-marks.js';
 
 export function createGeo(st, live) {
   const { ALL_EDGES, EI, N_SAMPLES, meander, sample, scratchG, svg, wiggle } = st;
@@ -99,7 +100,21 @@ export function createGeo(st, live) {
     if (!x?.vis || !v?.vis) return 0;
     let k = 1;
     if (x.reveal) { const u = clamp((performance.now() - x.reveal.t0) / x.reveal.dur, 0, 1); k = x.reveal.out ? 1 - live.easeInOut(u) : live.easeInOut(u); }
-    return k * (v.width * 2.2 + 2 * (v.wallPx || 1));
+    // (Not less than where the cut vein has parted from the shunt it was divided for: the Warren shunt leaves the splenic turn along the splenic vein's own
+    // course, and a stump cut shorter lay over it. 13 Nov 2026. Kept per course and width, so a frame costs one lookup.)
+    return k * Math.max(v.width * 2.2 + 2 * (v.wallPx || 1), clearFor(sh[0], vein, x, v));
+  }
+  const CLEAR = new Map();   // alloc-rare: one entry per divided vein
+  function clearFor(shunt, vein, x, v) {
+    const a = geo[vein]?.cur, b = geo[shunt]?.cur;
+    if (!a || !b) return 0;
+    const need = (v.width + x.width) / 2 + (v.wallPx || 1) + (x.wallPx || 1) + 0.35 * v.width;
+    let c = CLEAR.get(vein);
+    if (!c || c.a !== a || c.b !== b || c.need !== need) {
+      c = { a, b, need, v: Math.min(clearArc(a, b, need), v.width * 4.8, (geo[vein].len || 1) * 0.45) };
+      CLEAR.set(vein, c);
+    }
+    return c.v;
   }
   // The ascending lumbar–azygos channel runs a smooth course of its own, up behind the liver, so it is not coiled.
   const STRAIGHT_COLL = new Set(['C9']);

@@ -89,3 +89,38 @@ export function woundTie(fr, d0, R, step, turns = 5, pinch = 0) {
   for (const sg of [-1, 1]) { const t = at(kd - step * 1.9, Math.max(-lim, Math.min(lim, Rr(kd) * Math.sin(0.95) + sg * step * 0.6))); out.tails += `M${f1(kp[0])} ${f1(kp[1])} L${f1(t[0])} ${f1(t[1])} `; }
   return out;
 }
+
+/**
+ * How far along the course `vcur` ([[x, y], ...]) from its start the vessel is clear of the course `scur` by `need` for good: the arc length after
+ * the last sample closer than that. 0 when it is clear from the start. (The divided splenic vein leaves the splenic turn on the Warren shunt's own
+ * first stretch, so its stump would lie over the shunt unless the cut reaches past where the two part.)
+ */
+export function clearArc(vcur, scur, need) {
+  let s = 0, last = 0;
+  for (let i = 0; i < vcur.length; i++) {
+    if (i) s += Math.hypot(vcur[i][0] - vcur[i - 1][0], vcur[i][1] - vcur[i - 1][1]);
+    if (distToLine(scur, vcur[i][0], vcur[i][1]) < need) last = s;
+  }
+  return last;
+}
+
+/**
+ * The seam as one running stitch: a fine thread along it, shown as dashes (over, under, over...), `dash` long with `gap` between, the first and
+ * last half a gap in from the shunt's sides. Path data. (Phone size, 13 Nov 2026: the cross strokes of S1 read as slashes on a narrow shunt.)
+ */
+export function seamDashes(pt, tab, dash, gap) {
+  const P = [];
+  for (let i = 0; i <= 24; i++) { const a = -0.97 + (1.94 * i) / 24; P.push(pt(seamAt(tab, a), a)); }
+  const cum = [0];
+  for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+  const total = cum[cum.length - 1], n = Math.max(2, Math.round((total + gap) / (dash + gap))), d1 = (total - gap * (n - 1)) / n;
+  const at = (t) => { let i = 1; while (i < cum.length - 1 && cum[i] < t) i++; const u = (t - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1); return [P[i - 1][0] + (P[i][0] - P[i - 1][0]) * u, P[i - 1][1] + (P[i][1] - P[i - 1][1]) * u]; };
+  let out = '';
+  for (let k = 0; k < n; k++) {
+    const t0 = k * (d1 + gap), t1 = t0 + d1, a = at(t0), b = at(t1);
+    let seg = `M${f1(a[0])} ${f1(a[1])} `;
+    for (let i = 1; i < cum.length - 1; i++) if (cum[i] > t0 && cum[i] < t1) seg += `L${f1(P[i][0])} ${f1(P[i][1])} `;
+    out += `${seg}L${f1(b[0])} ${f1(b[1])} `;
+  }
+  return out;
+}

@@ -121,7 +121,7 @@ export const TOKENS = {
     'tex-a': '.11', 'lit-hi': '.4', 'lit-lo': '.13',
     'spine': 'rgba(124, 150, 255, .09)', 'map-dot': 'rgba(160, 182, 255, .11)',
     'fx-ink': 'rgba(22, 24, 29, .88)',
-    'stent-metal': '#667285', 'suture-thread': '#E8742A', 'stent-marker': '#545D6C', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
+    'stent-metal': '#667285', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#545D6C', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // ── BEGIN device materials (visual-style D1): one table per look, read by the catheter shader (stage-cath.js, eus-scope.js: through toRGB), the tamponade marks (app.css) and the clots ──
     // poly: the catheter's shaft (a blue-grey body that shows on paper) and its dark hairline; scope*: the EUS echoendoscope (insertion tube, rigid tip, transducer face, port) and its hairline
     // (dark on the light looks, light on the dark ones); latex: compliant balloons (HVPG wedge, BRTO / BATO occlusion, tamponade; -a: the tamponade fill); nylon: the TIPS dilation balloon; steel: needles, wire;
@@ -302,7 +302,7 @@ export const TOKENS = {
     'grid': '#2B2926', 'axis': '#4A4641',
     'tr-pv': '#F0649E', 'tr-wedge': '#DA7EDD', 'tr-hv': '#5CA4F2', 'tr-ra': '#B7B1A8', 'tr-ivc': '#4CC2D6', 'tr-var': '#F28A56', 'tr-cav': '#A9CC55', 'tr-sv': 'var(--origin-spleen)', 'tr-smv': 'var(--origin-smv)', 'tr-imv': 'var(--origin-imv)', 'tr-scler': '#B7C2D4',
     'shadow-1': '0 0 0 1px var(--hairline)', 'shadow-2': 'var(--shadow-menu)', 'shadow-3': 'var(--shadow-dialog)',
-    'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'vessel-knock-a': '0', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
+    'shadow-rgb': '0 0 0', 'shadow-a': '.38', 'vessel-shadow': 'rgb(var(--shadow-rgb) / var(--shadow-a))', 'tube-shade': '.3', 'tube-sheen': '.38', 'vessel-rim-a': '.3', 'vessel-knock-a': '0', 'organ-cast': 'rgba(0, 0, 0, .42)', 'tex-a': '.13', 'lit-hi': '.2', 'lit-lo': '.18', 'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     // ── BEGIN device materials, dark looks (visual-style D1, D6, D9; Navy and Black take these) ──
     'dev-poly': '#F0F0ED', 'dev-poly-edge': '#1C212B', 'dev-scope-edge': '#C9CED6',
     'dev-latex': '#FCE6B3', 'dev-latex-edge': '#B08A59', 'dev-latex-a': '.34', 'dev-nylon': '#E5EDF7',
@@ -404,7 +404,7 @@ export const CIRCUIT = {
     'artery': '#E4606C', 'casing-rgb': '0 0 0', 'casing-a': '.38', 'vessel-casing': 'rgb(var(--casing-rgb) / var(--casing-a))', 'leader': 'rgba(236, 228, 214, .42)',
     'vein-portal': 'var(--tour-portal)', 'vein-systemic': 'var(--tour-sys)', 'arrow-ink': 'rgba(238, 235, 229, .82)', 'label-halo': 'rgba(18, 17, 16, .92)', 'label-panel': 'rgba(18, 17, 16, .72)', 'doppler': '#3EE0A5',
     'spine': 'rgba(124, 150, 255, .1)', 'map-dot': 'rgba(160, 182, 255, .12)',
-    'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
+    'fx-ink': 'rgba(233, 237, 246, .9)', 'stent-metal': '#A0ABBE', 'suture-thread': '#E8742A', 'suture-edge': '#3a1d0a', 'stent-marker': '#BAC2D0', 'stent-alpha': '.5', 'stent-glint': '.24', 'stent-rail-w': '1.15', 'stent-strut-w': '.8',
     'shadow-1': '0 0 0 1px var(--hairline)', 'shadow-2': 'var(--shadow-menu)',
     'color-scheme': 'dark',
   },

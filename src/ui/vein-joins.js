@@ -170,6 +170,11 @@ function addJoin(st, nn, cx, cy, trunk, N) {
  * st.out (st.nOut of them; the array's length is set to that), the pairs that run on st.straight. A margin widens the box and the
  * reach of an end meeting a course by that much and keeps every contact of a pair (the stretches' wide pass, made ahead).
  */
+// A divided vein (the splenic vein in a Warren shunt, the portal trunk in a portocaval shunt) has its first stretch cut away: `it.cut` is that
+// stretch's length (stage-vessels.js, 0 for the rest). Its drawn start is the stump's round end, so the cut-away start joins nothing, and no other
+// vessel's end ends on the stretch that is not drawn. Without this the vein that turns down into the shunt counted the cut vein as its partner:
+// it ended flat against nothing, and the shunt's start inside it was dropped, leaving a dark hole at the turn (13 Nov 2026, Mohammad's shot of 15c335a).
+const cutAway = (y, x, yy) => y.cut > 0 && Math.hypot(x - y.pts[0][0], yy - y.pts[0][1]) < 20;
 export function veinJoins(items, N, st, margin = 0) {
   st.nOut = 0; st.straight.length = 0;
   HGEN++; HN = 0;
@@ -182,6 +187,7 @@ export function veinJoins(items, N, st, margin = 0) {
     if (it.kind === 'f') continue;
     const art = it.x.isArt ? 1 : 0;
     for (let i = 0; i < 2; i++) {
+      if (i === 0 && it.cut > 0) continue;   // (a divided vein's cut-away start meets nothing: see cutAway)
       const node = i ? it.endNode || it.x.e.to : it.x.e.from;
       let id = NODE_ID.get(node);
       if (id === undefined) { id = NODE_ID.size; NODE_ID.set(node, id); }
@@ -234,11 +240,12 @@ export function veinJoins(items, N, st, margin = 0) {
   for (let a = 0; a < n; a++) {
     const it = items[a], P = it.pts;
     for (let i = 0; i < 2; i++) {
+      if (i === 0 && it.cut > 0) continue;
       const q = i ? P[P.length - 1] : P[0], qx = q[0], qy = q[1], rq = it.obj.glR[i ? N - 1 : 0];
       for (let k = 0; k < n; k++) {
         if (k === a || art[k] !== art[a] || qx < bx[4 * k] || qx > bx[4 * k + 2] || qy < bx[4 * k + 1] || qy > bx[4 * k + 3]) continue;
         const y = items[k];
-        if (y === it || (!margin && pairHas(it.row, y.row))) continue;   // (a stretch's wide pass keeps every contact of two vessels, not the first: which comes first depends on the widths)
+        if (y === it || (!margin && pairHas(it.row, y.row)) || cutAway(y, qx, qy)) continue;   // (a stretch's wide pass keeps every contact of two vessels, not the first: which comes first depends on the widths)
         if (nearCourse(y.pts, q, y.obj.glMaxR + 0.5 * rq + 2 + margin)) {
           NIT[0] = it; NI[0] = i; NIT[1] = y; NI[1] = -1;
           addJoin(st, 2, qx, qy, y.x.e.id === it.x.e.id ? undefined : y.row, N);   // (the trunk, unless it is another stretch of the same vessel: the azygos arch's bend)

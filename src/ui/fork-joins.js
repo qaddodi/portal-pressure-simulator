@@ -126,6 +126,15 @@ export const nodeJoins = (ends) => plain(nodeJoinsInto(ends, ends.length, newJoi
 // distance d from that end (world units), for a vein of radius hostR. The narrowing lies within the vein (0.6 of its
 // radius), out of sight.
 export const SIDE_END_MIN = 0.35;
+// A surgical shunt sewn onto the side of a vein (the Warren shunt on the renal vein) flares toward the vein's wall like the heel of a real end-to-side
+// anastomosis, not a pipe pushed against it: its radius grows by up to FLARE_K over FLARE_SPAN host radii in front of the wall, and holds inside it (where the
+// narrowing above takes over, out of sight). The scale at distance d (world units) from the shunt's end, for a vein of radius hostR.
+export const FLARE_K = 0.24, FLARE_SPAN = 2.4;
+export function flareScale(d, hostR) {
+  if (!(hostR > 0)) return 1;
+  const wall = 0.6 * hostR, u = Math.min(1, Math.max(0, 1 - (d - wall) / (FLARE_SPAN * hostR)));
+  return 1 + FLARE_K * u * u * (3 - 2 * u);
+}
 export function sideEndScale(d, hostR) {
   const s = 0.6 * hostR;
   if (!(s > 0) || d >= s) return 1;

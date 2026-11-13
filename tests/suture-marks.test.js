@@ -60,3 +60,18 @@ test('the tails stay inside the vein: no tie shape reaches past its radius', () 
   const fr = (d) => ({ x: d, y: 50, nx: 0, ny: 1 }), R = 6, w = woundTie(fr, 20, R, 1.9);
   for (const k of ['front', 'back', 'tails']) for (const q of w[k].match(/-?[\d.]+ -?[\d.]+/g)) assert.ok(Math.abs(Number(q.split(' ')[1]) - 50) <= R, `${k} within the radius`);
 });
+
+test('the seam as a running stitch: dashes along it, every number finite, inside the shunt\'s width', async () => {
+  const { seamDashes } = await import('../src/ui/suture-marks.js');
+  const tab = seamTable(pt, du, 40), d = seamDashes(pt, tab, 3, 1.6);
+  assert.ok(!/NaN|Infinity/.test(d));
+  const dashes = (d.match(/M/g) || []).length;
+  assert.ok(dashes >= 3 && dashes <= 12, `${dashes} dashes`);
+});
+
+test('clearArc: how far along a vein parts from a course it starts on', async () => {
+  const { clearArc } = await import('../src/ui/suture-marks.js');
+  const shunt = [[0, 0], [0, 200]], vein = Array.from({ length: 21 }, (_, i) => [i * 5 * 0.5, i * 5 * 0.866]);   // leaves at 30 degrees: 0.5 s from the shunt at arc s
+  assert.ok(Math.abs(clearArc(vein, shunt, 10) - 20) < 5.1, 'clear of a 10 gap at about s = 20');
+  assert.equal(clearArc(vein, [[500, 500], [600, 500]], 10), 0, 'clear from the start when far');
+});

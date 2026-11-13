@@ -189,7 +189,7 @@ test('the figure counts a vessel\'s strands apart at a node (stage.js veinJoins)
   assert.match(src, /import \{ nodeJoinsInto, newJoinAnswer \} from '\.\/fork-joins\.js/);
   assert.match(src, /nodeJoinsInto\(PEND, nu, OUT\)/);
   assert.match(src, /e\.strand = it\.kind === 's'/);
-  assert.match(stageSource(), /import \{ sideEndScale \} from '\.\/fork-joins\.js/);
+  assert.match(stageSource(), /import \{ (?:flareScale, )?sideEndScale \} from '\.\/fork-joins\.js/);
 });
 
 // The fundal varices (6 Nov): the feeder arches over into the gastrorenal shunt, and the run-on's smoothing over its usual ten

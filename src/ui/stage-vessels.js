@@ -419,6 +419,7 @@ export function createVessels(st, live) {
   }
   function veinJoins(items, st = newJoinStore(), margin = 0) {
     live.glRadDirty = true; live.glStore = st;
+    for (let i = 0; i < items.length; i++) { const it = items[i]; it.cut = it.kind === 'v' && ligatedAt(it.x.e.id) ? divideLen(it.x.e.id) : 0; }   // (a divided vein's cut-away start meets nothing: vein-joins.js cutAway)
     const J = joinsPass(items, N_SAMPLES, st, margin);
     live.glStraight = st.straight;
     return J;
