@@ -281,7 +281,7 @@ export const EDGE_PATH = {
 // large vein, not a plexus.) In the anatomic view these get extra strands that leave and rejoin
 // the vessel: [lateral offset at mid-course, serpentine phase, caliber fraction].
 export const STRANDS = {
-  C8: [[-38, 1.1, 0.7], [-26, 3.9, 0.75], [-12, 2.4, 0.8], [30, 5.2, 0.7], [44, 0.3, 0.6]],
+  C8: [[-11, 1.1, 0.7], [-55, 5.2, 0.75], [-21, 3.9, 0.75], [-68, 2.4, 0.7], [14, 0.3, 0.6]],
   C1a: [[-9, 0.7, 0.55], [-4.5, 3.3, 0.6], [0.5, 5.1, 0.5], [5, 1.9, 0.6], [9.5, 4.6, 0.5]],
   C2: [[-22, 4.1, 0.45], [-11, 1.4, 0.55], [10, 2.9, 0.55], [21, 0.4, 0.42]],
   C4: [[-9, 0.9, 0.55], [-4.5, 3.6, 0.6], [0.5, 5.3, 0.5], [5, 2.1, 0.6], [9.5, 4.4, 0.5]],
@@ -296,6 +296,9 @@ export const STRANDS = {
 // The drawn sinusoids. Inside the liver they are drawn faded, clearing as they gather into the hepatic
 // veins; unlike the liver's other small vessels they take hover, focus and taps in the anatomy.
 export const SIN_EDGES = new Set(['SIN_RR', 'SIN_LL']);
+// The strands that leave and join their vessel tangent to it (the offset eases in as the square of the sine, not the sine): the periportal plexus grows out of the
+// confluence and into the hilum as one vessel that parts into channels, not as a fan of round ends that start at one point at an angle (13 Nov 2026).
+export const STRAND_SOFT = new Set(['C8']);
 // Where along the vessel (0–1) the strands leave the main channel; before it the vessel is one.
 export const STRAND_FROM = { C2: 0.5, C1a: 0.22, C4: 0.68, C7: 0.2 };
 

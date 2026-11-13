@@ -103,7 +103,7 @@ export function createPaths(st) {
   // Lateral offset of `off` units at mid-course, easing to zero at both ends (or, with `u0`, at
   // `u0` along the vessel and the far end: the strands leave a single trunk there).
   // With a stretch `span` [from, to] the strand leaves and rejoins the vessel there, its bow a little uneven (`ph`).
-  function braid(pts, off, u0 = 0, span = null, ph = 0) {
+  function braid(pts, off, u0 = 0, span = null, ph = 0, soft = false) {
     if (Math.abs(off) < 0.3) return pts;
     if (span) {
       // One normal for every strand (across the vessel's chord), so a bend in the vessel never kinks a strand or
@@ -117,12 +117,16 @@ export function createPaths(st) {
         return [p[0] + nx * o, p[1] + ny * o];
       });
     }
+    // (A soft braid bows off the chord's one normal, like a span: a large offset on the inner side of a curving course would fold at the bend.)
+    const A = pts[0], B = pts[pts.length - 1], cl = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, cx = -(B[1] - A[1]) / cl, cy = (B[0] - A[0]) / cl;
     return pts.map((p, i) => {
       if (i === 0 || i === pts.length - 1) return p;
       const a = pts[i - 1], b = pts[i + 1];
       let nx = -(b[1] - a[1]), ny = b[0] - a[0];
       const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
-      const o = off * Math.sin(Math.PI * clamp((i / (pts.length - 1) - u0) / (1 - u0), 0, 1));
+      if (soft) { nx = cx; ny = cy; }
+      const s = Math.sin(Math.PI * clamp((i / (pts.length - 1) - u0) / (1 - u0), 0, 1));
+      const o = off * (soft ? s * s : s);
       return [p[0] + nx * o, p[1] + ny * o];
     });
   }
